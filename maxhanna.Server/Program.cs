@@ -51,6 +51,7 @@ builder.Services.AddSingleton<Log>();
 builder.Services.AddSingleton<WebCrawler>();
 builder.Services.AddSingleton<AiController>();
 builder.Services.AddSingleton<NewsService>();
+builder.Services.AddSingleton<SocialStoryService>();
 builder.Services.AddSingleton<ProfitCalculationService>();
 builder.Services.AddSingleton<TradeIndicatorService>();
 builder.Services.AddSingleton<KrakenService>();

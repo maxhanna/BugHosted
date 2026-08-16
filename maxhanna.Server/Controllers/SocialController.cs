@@ -24,15 +24,17 @@ namespace maxhanna.Server.Controllers
     private readonly string _baseTarget;
     private readonly WebCrawler _crawler;
     private readonly FirebaseNotificationService _firebaseNotificationService;
+    private readonly SocialStoryService _storyService;
 
 
-    public SocialController(Log log, IConfiguration config, WebCrawler webCrawler, FirebaseNotificationService firebaseNotificationService)
+    public SocialController(Log log, IConfiguration config, WebCrawler webCrawler, FirebaseNotificationService firebaseNotificationService, SocialStoryService storyService)
     {
       _log = log;
       _config = config;
       _baseTarget = _config.GetValue<string>("ConnectionStrings:baseUploadPath") ?? "";
       _crawler = webCrawler;
       _firebaseNotificationService = firebaseNotificationService;
+      _storyService = storyService;
     }
 
     [HttpGet("/Social/TotalPosts", Name = "Social_TotalPosts")]
@@ -1329,102 +1331,32 @@ namespace maxhanna.Server.Controllers
         }
         // Use the request.userId for decryption so the server uses the same id the client used to encrypt
         string decryptedText = _log.DecryptContent(request.story.StoryText ?? "", (request.userId ?? 0) + "");
-        string sql = @"INSERT INTO stories (user_id, story_text, profile_user_id, chat_id, city, country, date, visibility) 
-			    VALUES (@userId, @storyText, @profileUserId, @chatId, @city, @country, UTC_TIMESTAMP(), @visibility);";
-        string topicSql = @"INSERT INTO story_topics (story_id, topic_id) VALUES (@storyId, @topicId);";
+        request.story.StoryText = decryptedText;
 
-        using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+        // Shared pipeline (insert + files + topics + link metadata + sitemap +
+        // user event) — the same path the NewsService bots now use, so every
+        // social post gets metadata attached.
+        string eventText = request.story.ProfileUserId.HasValue && request.story.ProfileUserId.Value != 0
+          ? "posted on a profile"
+          : "posted";
+        int? storyId = await _storyService.CreateStoryAsync(request.story, request.userId, eventText);
+        if (storyId == null)
         {
-          await conn.OpenAsync();
+          return StatusCode(500, "Failed to post story.");
+        }
 
-          using (var cmd = new MySqlCommand(sql, conn))
+        // Follower notifications (real user posts only — kept in the controller
+        // so the shared pipeline stays usable by the background bots too).
+        if (request.userId != null)
+        {
+          using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
           {
-            cmd.Parameters.AddWithValue("@userId", request.userId);
-            cmd.Parameters.AddWithValue("@storyText", decryptedText);
-            cmd.Parameters.AddWithValue("@profileUserId", request.story.ProfileUserId.HasValue && request.story.ProfileUserId != 0
-              ? request.story.ProfileUserId.Value
-              : (object)DBNull.Value);
-            cmd.Parameters.AddWithValue("@chatId", request.story.ChatId.HasValue && request.story.ChatId != 0
-              ? request.story.ChatId.Value
-              : (object)DBNull.Value);
-            cmd.Parameters.AddWithValue("@city", request.story.City ?? (object)DBNull.Value);
-            cmd.Parameters.AddWithValue("@country", request.story.Country ?? (object)DBNull.Value);
-            cmd.Parameters.AddWithValue("@visibility", string.IsNullOrEmpty(request.story.Visibility) ? "public" : request.story.Visibility);
-
-            int rowsAffected = await cmd.ExecuteNonQueryAsync();
-
-            if (rowsAffected == 1)
-            {
-              // Fetch the last inserted ID
-              int storyId = (int)cmd.LastInsertedId;
-              if (request.userId != null)
-              {
-                await NotifyFollowers(request.userId, request.story.ProfileUserId, storyId, conn);
-              }
-              // Insert attached files into story_files table
-              if (request.story.StoryFiles != null && request.story.StoryFiles.Count > 0)
-              {
-                foreach (var file in request.story.StoryFiles)
-                {
-                  string fileSql = @"INSERT INTO story_files (story_id, file_id) VALUES (@storyId, @fileId);";
-                  using (var fileCmd = new MySqlCommand(fileSql, conn))
-                  {
-                    fileCmd.Parameters.AddWithValue("@storyId", storyId);
-                    fileCmd.Parameters.AddWithValue("@fileId", file.Id);
-                    await fileCmd.ExecuteNonQueryAsync();
-                  }
-                }
-              }
-
-              // Insert story topics into story_topics table
-              if (request.story.StoryTopics != null && request.story.StoryTopics.Count > 0)
-              {
-                foreach (var topic in request.story.StoryTopics)
-                {
-                  using (var topicCmd = new MySqlCommand(topicSql, conn))
-                  {
-                    topicCmd.Parameters.AddWithValue("@storyId", storyId);
-                    topicCmd.Parameters.AddWithValue("@topicId", topic.Id);
-                    await topicCmd.ExecuteNonQueryAsync();
-                  }
-                }
-              }
-
-              // Extract URL from story text
-              string[]? urls = _crawler.ExtractUrls(decryptedText);
-              if (urls != null)
-              {
-                // Fetch metadata (awaited + guarded so a crawler failure can't
-                // silently leave the story with no metadata rows).
-                Console.WriteLine($"Urls extracted for metadata: {string.Join(", ", urls)}");
-                var metadataRequest = new MetadataRequest { Url = urls };
-                try
-                {
-                  await SetMetadata(metadataRequest, storyId);
-                }
-                catch (Exception mex)
-                {
-                  _ = _log.Db("Metadata insert failed for story " + storyId + ": " + mex.Message, request.userId, "SOCIAL", true);
-                }
-              }
-
-              await AppendToSitemapAsync(storyId);
-
-              if (request.userId != null)
-              {
-                string eventText = $"posted{(request.story.ProfileUserId.HasValue && request.story.ProfileUserId != 0 ? " on a profile" : "")}";
-                await UserEventController.InsertUserEventWithConnection(request.userId.Value, "story_post", eventText, storyId, "story", conn);
-              }
-
-              // Return the storyId in the response
-              return Ok(new { StoryId = storyId, Message = "Story posted successfully." });
-            }
-            else
-            {
-              return StatusCode(500, "Failed to post story.");
-            }
+            await conn.OpenAsync();
+            await NotifyFollowers(request.userId, request.story.ProfileUserId, storyId.Value, conn);
           }
         }
+
+        return Ok(new { StoryId = storyId.Value, Message = "Story posted successfully." });
       }
       catch (Exception ex)
       {
@@ -1478,7 +1410,7 @@ namespace maxhanna.Server.Controllers
             if (rowsAffected == 1)
             {
               await DeletePollsByStoryId(request.story.Id);
-              await RemoveFromSitemapAsync(request.story.Id);
+              await _storyService.RemoveFromSitemapAsync(request.story.Id);
               return Ok("Story deleted successfully.");
             }
             else
@@ -1543,7 +1475,7 @@ namespace maxhanna.Server.Controllers
 
             if (rowsAffected == 1)
             {
-              await AppendToSitemapAsync(request.story.Id);
+              await _storyService.AppendToSitemapAsync(request.story.Id);
               string[]? url = _crawler.ExtractUrls(request.story.StoryText);
               if (url != null)
               {
@@ -1861,11 +1793,11 @@ namespace maxhanna.Server.Controllers
         {
           if (storyId != null && storyId != 0)
           {
-            await DeleteMetadata(storyId);
+            await _storyService.DeleteMetadata(storyId);
             for (int i = 0; i < request.Url.Length; i++)
             {
               Metadata? metadata = await _crawler.ScrapeUrlData(request.Url[i]);
-              await InsertMetadata((int)storyId, metadata);
+              await _storyService.InsertMetadata((int)storyId, metadata);
             }
             return Ok($"Inserted metadata for storyId {storyId}");
           }
@@ -1876,57 +1808,6 @@ namespace maxhanna.Server.Controllers
         return StatusCode(500, $"An error occurred while fetching metadata: {ex.Message}");
       }
       return Ok();
-    }
-    private async Task<string> InsertMetadata(int storyId, Metadata? metadata)
-    {
-      if (metadata == null) return "No metadata to insert";
-      string sql = @"INSERT INTO story_metadata (story_id, title, description, image_url, metadata_url) VALUES (@storyId, @title, @description, @imageUrl, @metadataUrl);";
-      try
-      {
-        using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-        {
-          await conn.OpenAsync();
-
-          using (var cmd = new MySqlCommand(sql, conn))
-          {
-            cmd.Parameters.AddWithValue("@storyId", storyId);
-            cmd.Parameters.AddWithValue("@title", HttpUtility.HtmlDecode(metadata.Title));
-            cmd.Parameters.AddWithValue("@description", HttpUtility.HtmlDecode(metadata.Description));
-            cmd.Parameters.AddWithValue("@imageUrl", metadata.ImageUrl);
-            cmd.Parameters.AddWithValue("@metadataUrl", metadata.Url);
-
-            await cmd.ExecuteNonQueryAsync();
-          }
-        }
-      }
-      catch
-      {
-        return "Could not insert metadata";
-      }
-      return "Inserted metadata";
-    }
-    private async Task<string> DeleteMetadata(int? storyId)
-    {
-      if (storyId == null) return "Deleted no metadata";
-      string sql = @"DELETE FROM story_metadata WHERE story_id = @StoryId;";
-      try
-      {
-        using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-        {
-          await conn.OpenAsync();
-
-          using (var cmd = new MySqlCommand(sql, conn))
-          {
-            cmd.Parameters.AddWithValue("@StoryId", storyId);
-            await cmd.ExecuteNonQueryAsync();
-          }
-        }
-      }
-      catch
-      {
-        return "Could not delete metadata";
-      }
-      return "Deleted metadata";
     }
     private async Task<bool> NotifyFollowers(int? userId, int? userProfileId, int storyId, MySqlConnection conn)
     {
@@ -2059,55 +1940,6 @@ namespace maxhanna.Server.Controllers
       }
     }
 
-    private static readonly SemaphoreSlim _sitemapLock = new(1, 1);
-    private readonly string _sitemapPath = Path.Combine(Directory.GetCurrentDirectory(), "../maxhanna.Client/src/sitemap.xml");
-    private async Task AppendToSitemapAsync(int targetId)
-    {
-      string storyUrl = $"https://bughosted.com/Social/{targetId}";
-      string lastMod = DateTime.UtcNow.ToString("yyyy-MM-dd");
-
-      await _sitemapLock.WaitAsync();
-      try
-      {
-        XNamespace ns = "http://www.sitemaps.org/schemas/sitemap/0.9";
-        XDocument sitemap;
-
-        if (System.IO.File.Exists(_sitemapPath))
-        {
-          sitemap = XDocument.Load(_sitemapPath);
-          var existingUrl = sitemap.Descendants(ns + "loc")
-                                   .FirstOrDefault(x => x.Value == storyUrl);
-          if (existingUrl != null && existingUrl.Parent != null)
-          {
-            // Update lastmod if the entry exists
-            existingUrl.Parent.Element(ns + "lastmod")?.SetValue(lastMod);
-            sitemap.Save(_sitemapPath);
-            return;
-          }
-        }
-        else
-        {
-          sitemap = new XDocument(
-              new XElement(ns + "urlset")
-          );
-        }
-
-        // Add new entry with proper namespace
-        XElement newUrlElement = new XElement(ns + "url",
-            new XElement(ns + "loc", storyUrl),
-            new XElement(ns + "lastmod", lastMod),
-            new XElement(ns + "changefreq", "daily"),
-            new XElement(ns + "priority", "0.8")
-        );
-        sitemap.Root?.Add(newUrlElement);
-
-        sitemap.Save(_sitemapPath);
-      }
-      finally
-      {
-        _sitemapLock.Release();
-      }
-    }
     private async Task<bool> DeletePollsByStoryId(int storyId)
     {
       try
@@ -2197,37 +2029,6 @@ namespace maxhanna.Server.Controllers
     }
 
 
-    private async Task RemoveFromSitemapAsync(int targetId)
-    {
-      string targetUrl = $"https://bughosted.com/Social/{targetId}";
-      await _sitemapLock.WaitAsync();
-      try
-      {
-        if (System.IO.File.Exists(_sitemapPath))
-        {
-          XDocument sitemap = XDocument.Load(_sitemapPath);
-
-          // Define the namespace for the sitemap
-          XNamespace ns = "http://www.sitemaps.org/schemas/sitemap/0.9";
-
-          // Use LINQ to find the <url> element that contains the target URL in <loc>
-          var targetElement = sitemap.Descendants(ns + "url")
-              .FirstOrDefault(x => x.Element(ns + "loc")?.Value == targetUrl);
-
-          if (targetElement != null)
-          {
-            // Remove the element if found
-            targetElement.Remove();
-            sitemap.Save(_sitemapPath);
-            _ = _log.Db($"Removed {targetUrl} from sitemap!", null, "SOCIAL", true);
-          }
-        }
-      }
-      finally
-      {
-        _sitemapLock.Release();
-      }
-    }
   }
 }
 

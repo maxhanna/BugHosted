@@ -253,7 +253,7 @@ public class Log
       await conn.OpenAsync();
       await using var cmd = new MySqlCommand(@"
         INSERT INTO maxhanna.user_sessions (token, user_id, expires_at)
-        VALUES (@Token, @UserId, UTC_TIMESTAMP() + INTERVAL 1 HOUR);", conn);
+        VALUES (@Token, @UserId, UTC_TIMESTAMP() + INTERVAL 6 HOUR);", conn);
       cmd.Parameters.AddWithValue("@Token", token);
       cmd.Parameters.AddWithValue("@UserId", userId);
       await cmd.ExecuteNonQueryAsync();
@@ -274,9 +274,9 @@ public class Log
   }
 
   /// Returns the session's userId if the token is valid and unexpired, otherwise null.
-  /// Sliding expiry with the shared renewal rule: a valid use extends the window
-  /// by one hour ONLY when the token has less than an hour left — otherwise the
-  /// (already longer) window is left untouched.
+  /// Sliding expiry: a valid use extends the window to a full 6 hours from now
+  /// (only when it has less than 6 hours left — a freshly renewed token is left
+  /// untouched). This is the shared rule used by login, renewal and presence.
   public static async Task<int?> ValidateSessionUserId(string cs, string token)
   {
     if (string.IsNullOrWhiteSpace(token)) return null;
@@ -294,10 +294,10 @@ public class Log
       int userId = Convert.ToInt32(result);
       await using var slide = new MySqlCommand(@"
         UPDATE maxhanna.user_sessions
-        SET expires_at = expires_at + INTERVAL 1 HOUR,
+        SET expires_at = UTC_TIMESTAMP() + INTERVAL 6 HOUR,
             last_used_at = UTC_TIMESTAMP()
         WHERE token = @Token
-          AND expires_at < UTC_TIMESTAMP() + INTERVAL 1 HOUR;", conn);
+          AND expires_at < UTC_TIMESTAMP() + INTERVAL 6 HOUR;", conn);
       slide.Parameters.AddWithValue("@Token", token);
       await slide.ExecuteNonQueryAsync();
       return userId;

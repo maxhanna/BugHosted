@@ -1199,10 +1199,10 @@ namespace maxhanna.Server.Controllers
         }
 
         // 3) Presence keeps the token alive with the shared renewal rule: extend
-        //    by an hour only when less than an hour remains (ValidateUserLoggedIn
+        //    to a full 6 hours when less than 6 hours remain (ValidateUserLoggedIn
         //    above already applied the same rule). Actively navigating users
-        //    therefore stay well ahead of the 15-minute inactivity warning and
-        //    the 1-hour expiry, so they never see a security prompt.
+        //    therefore stay well ahead of the 15-minutes-before-expiry warning,
+        //    so they never see a security prompt.
         await using (var slide = new MySqlCommand(@"
           UPDATE maxhanna.user_sessions
           SET expires_at   = expires_at + INTERVAL TIMESTAMPDIFF(
@@ -1888,9 +1888,9 @@ namespace maxhanna.Server.Controllers
 
     /// <summary>
     /// Renewal for a still-valid session (the security warning's "Refresh"
-    /// action). Extends the current token by an hour only when it has less than
-    /// an hour left — otherwise the renewal is a no-op. Expired or unknown
-    /// tokens are refused so the client falls back to the login prompt.
+    /// action). Extends the current token to a full 6 hours (no-op when it
+    /// already has 6 hours left). Expired or unknown tokens are refused so the
+    /// client falls back to the login prompt.
     /// </summary>
     [HttpPost("/User/RenewSession", Name = "RenewSession")]
     public async Task<IActionResult> RenewSession()

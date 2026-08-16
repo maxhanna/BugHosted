@@ -18,12 +18,12 @@ const NUDGE_DUR = 0.35;
 /** Palette indexed by color id (1..6); 0 is empty. */
 const COLORS: [number, number, number][] = [
   [0, 0, 0],
-  [196, 36, 44],   // red
-  [228, 118, 26],  // orange
-  [238, 200, 38],  // yellow
-  [62, 158, 68],   // green
-  [52, 104, 214],  // blue
-  [142, 74, 196],  // purple
+  [206, 36, 46],   // red — crimson
+  [250, 110, 18],  // orange — vivid pumpkin (clearly not yellow)
+  [252, 208, 25],  // yellow — bright lemon
+  [20, 165, 85],   // green — emerald (clearly not yellow)
+  [44, 100, 224],  // blue — royal
+  [150, 64, 208],  // purple — violet
 ];
 
 /** Marble skins per color id (1..6). Every color family now has a small set
@@ -161,7 +161,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
   private vsAIDifficulty = 0;
   private gameStartTime = 0;
 
-  /** Currently selected column (for ↑/↓ column shifts). */
+  /** Currently selected center-row marble — its column shifts ↑/↓; the center row shifts ←/→. */
   selectedCol = 2;
   /** Arena the boards render on (persisted per browser). */
   selectedMapId = 'classic';
@@ -936,20 +936,24 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     if (!this._board || this._board.length !== ROWS || col < 0 || col >= COLS) return false;
     const oldBoard = this._board;
     const nb = cloneBoard(oldBoard);
-    let top = ROWS;
+    let top = -1;
     for (let r = 0; r < ROWS; r++) {
       if (nb[r][col] !== 0) { top = r; break; }
     }
-    if (top >= ROWS) return false; // empty column
-    const len = ROWS - top;
+    if (top < 0) return false; // empty column
+    let bottom = top;
+    for (let r = ROWS - 1; r > top; r--) {
+      if (nb[r][col] !== 0) { bottom = r; break; }
+    }
+    const len = bottom - top + 1;
     if (len >= ROWS) return false; // full column — blocked
     if (dir <= 0) {
-      if (top === 0) return false; // pile touches the top edge — blocked
-      for (let r = top; r < ROWS; r++) nb[r - 1][col] = nb[r][col];
-      nb[ROWS - 1][col] = 0;
+      if (top === 0) return false; // stack touches the top edge — blocked
+      for (let r = top; r <= bottom; r++) nb[r - 1][col] = nb[r][col];
+      nb[bottom][col] = 0;
     } else {
-      if (top + len >= ROWS) return false; // settled on the floor — blocked
-      for (let r = ROWS - 2; r >= top; r--) nb[r + 1][col] = nb[r][col];
+      if (bottom === ROWS - 1) return false; // stack touches the floor — blocked
+      for (let r = bottom; r >= top; r--) nb[r + 1][col] = nb[r][col];
       nb[top][col] = 0;
     }
     this._board = nb;
@@ -1027,7 +1031,9 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     if (this.status !== 'playing') return;
     const cell = this.pointerToCell(e);
     if (!cell) return;
-    if (cell.col >= 0 && cell.col < COLS) this.selectedCol = cell.col;
+    // Only the center-row marbles are handles — tapping one selects it (the
+    // glow moves there), and it's the only row whose marbles can be shifted.
+    if (cell.row === PITCH_ROW && cell.col >= 0 && cell.col < COLS) this.selectedCol = cell.col;
     this.drag = { active: true, pointerId: e.pointerId, col: cell.col, row: cell.row, startX: cell.px, startY: cell.py, dir: 0, hdir: 0 };
     // Capture the pointer so the move/up events keep firing even if the
     // finger/cursor drifts off the board mid-drag.
@@ -1036,7 +1042,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
 
   onStageMove(e: PointerEvent): void {
     if (!this.drag.active || e.pointerId !== this.drag.pointerId) return;
-    // A vertical drag from ANY row shifts that whole column up/down.
+    // Drags only work from the center row — only those marbles are handles.
     if (this.drag.col < 0 || this.drag.col >= COLS) return;
     const canvas = this.canvasRef?.nativeElement;
     if (!canvas) return;
@@ -1047,9 +1053,12 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     const dx = x - this.drag.startX;
     const dy = y - this.drag.startY;
     const threshold = Math.max(10, cell * 0.35);
-    // Horizontal drag along the pitch row shifts the whole row left/right.
-    if (this.drag.row === PITCH_ROW && Math.abs(dx) >= threshold) this.drag.hdir = dx < 0 ? -1 : 1;
-    if (Math.abs(dy) >= threshold) this.drag.dir = dy < 0 ? -1 : 1;
+    // Horizontal drag along the pitch row shifts the whole row left/right;
+    // a vertical drag from the pitch row shifts that column up/down.
+    if (this.drag.row === PITCH_ROW) {
+      if (Math.abs(dx) >= threshold) this.drag.hdir = dx < 0 ? -1 : 1;
+      if (Math.abs(dy) >= threshold) this.drag.dir = dy < 0 ? -1 : 1;
+    }
   }
 
   onStageUp(e: PointerEvent): void { this.finishDrag(e, true); }
@@ -1069,13 +1078,12 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
       // Horizontal drag along the center row → shift the whole row.
       this.shiftRow(d.hdir);
     } else if (d.dir !== 0 && onBoard) {
-      // Drag up/down from any row → shift that whole column.
+      // Drag up/down from the center row → shift that whole column.
       this.selectedCol = d.col;
       this.shiftColumn(d.dir);
-    } else if (d.row === PITCH_ROW && onBoard) {
-      // A tap on the center row still shifts the row right (existing shortcut).
-      this.shiftRow(1);
     } else if (onBoard) {
+      // A plain tap selects the marble under the pointer (already set on
+      // pointer-down); shifting requires a drag from the center row.
       this.playClick();
     }
   }
@@ -1253,6 +1261,21 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     ctx.fillText('◀', ox - cell * 0.6, py + cell * 0.18);
     ctx.fillText('▶', ox + cell * COLS + cell * 0.6, py + cell * 0.18);
 
+    // Selection glow: a soft halo behind the selected center-row marble, so
+    // the handle you're about to shift is obvious on both desktop and mobile.
+    if (this.status === 'playing') {
+      const pulse = this.pulsePhase();
+      const gx = ox + (this.selectedCol + 0.5) * cell;
+      const gy = oy + (PITCH_ROW + 0.5) * cell;
+      const gr = cell * (1.15 + pulse * 0.35);
+      const halo = ctx.createRadialGradient(gx, gy, cell * 0.28, gx, gy, gr);
+      halo.addColorStop(0, `rgba(255,228,130,${(0.4 + pulse * 0.28).toFixed(3)})`);
+      halo.addColorStop(0.55, `rgba(255,196,60,${(0.2 + pulse * 0.14).toFixed(3)})`);
+      halo.addColorStop(1, 'rgba(255,196,60,0)');
+      ctx.fillStyle = halo;
+      ctx.fillRect(gx - gr, gy - gr, gr * 2, gr * 2);
+    }
+
     // Marbles (a blocked column shift wiggles its marbles vertically).
     const nudgeOffset = this.nudgeCol >= 0 ? this.nudgeOffset() : 0;
     const sorted = [...this.sprites].sort((a, b) => a.row - b.row);
@@ -1277,6 +1300,19 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     // Selected column marker (for ↑/↓ shifts).
     if (this.status === 'playing') {
       const sx = ox + (this.selectedCol + 0.5) * cell;
+      // Pulsing ring hugging the selected center-row marble.
+      const pulse = this.pulsePhase();
+      const sy = oy + (PITCH_ROW + 0.5) * cell;
+      ctx.strokeStyle = `rgba(255,238,160,${(0.8 + pulse * 0.2).toFixed(3)})`;
+      ctx.lineWidth = Math.max(2, cell * 0.1);
+      ctx.beginPath();
+      ctx.arc(sx, sy, cell * (0.62 + pulse * 0.1), 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+      ctx.lineWidth = Math.max(1.5, cell * 0.05);
+      ctx.beginPath();
+      ctx.arc(sx, sy, cell * (0.68 + pulse * 0.1), 0, Math.PI * 2);
+      ctx.stroke();
       ctx.fillStyle = 'rgba(255,255,255,0.9)';
       ctx.beginPath();
       ctx.moveTo(sx - cell * 0.28, oy - cell * 1.15);
@@ -1340,15 +1376,21 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     ctx.fillRect(ox - overhang, yTop, cell * COLS + overhang * 2, bandH);
 
     ctx.lineCap = 'round';
+    // A line drawn in the sand reads as a groove darker than the trench floor,
+    // so tint both guide lines from the map's darkest pit colour rather than
+    // the old flat yellow highlight.
+    const hole = hexToRgb(this.boardMap.pit[2]);
     for (const y of [yTop, yBot]) {
-      // Dark groove with a bright top edge.
+      // Dark carved groove (shadow).
       ctx.strokeStyle = 'rgba(0,0,0,0.5)';
       ctx.lineWidth = Math.max(2.5, cell * 0.15);
       ctx.beginPath();
       ctx.moveTo(ox - overhang, y);
       ctx.lineTo(ox + cell * COLS + overhang, y);
       ctx.stroke();
-      ctx.strokeStyle = oneAway ? 'rgba(255, 255, 200, 1)' : 'rgba(255, 240, 160, 0.95)';
+      // Carved edge above the groove — darker than the surrounding pit, and it
+      // lightens (staying sandy) when a single slide would form a match.
+      ctx.strokeStyle = oneAway ? lighten(hole, 0.35) : darken(hole, 0.28);
       ctx.lineWidth = Math.max(1.5, cell * (oneAway ? 0.13 : 0.09));
       ctx.beginPath();
       ctx.moveTo(ox - overhang, y - Math.max(1, cell * 0.07));
@@ -2214,18 +2256,19 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
 
     // Per-marble glass identity: each channel jitters independently (subtle
     // value shift), the dominant channel is lifted for richer saturation, and
-    // the whole colour is then hue-rotated a few degrees per marble — so two
-    // reds can lean coral or crimson, two blues can lean azure or indigo.
-    const t0 = clamp255(base[0] * (0.82 + s0 * 0.34));
-    const t1 = clamp255(base[1] * (0.82 + s1 * 0.34));
-    const t2 = clamp255(base[2] * (0.82 + s2 * 0.34));
+    // the whole colour is then hue-rotated only a few degrees per marble — so
+    // two reds can lean coral or crimson, but every marble stays clearly
+    // inside its own colour family (orange never drifts into yellow, etc.).
+    const t0 = clamp255(base[0] * (0.87 + s0 * 0.20));
+    const t1 = clamp255(base[1] * (0.87 + s1 * 0.20));
+    const t2 = clamp255(base[2] * (0.87 + s2 * 0.20));
     const maxI = t0 >= t1 && t0 >= t2 ? 0 : (t1 >= t2 ? 1 : 2);
     const sat = 14 + s3 * 20;
     const tinted = rotateHue([
       maxI === 0 ? clamp255(t0 + sat) : t0,
       maxI === 1 ? clamp255(t1 + sat) : t1,
       maxI === 2 ? clamp255(t2 + sat) : t2,
-    ], (s4 - 0.5) * 26);
+    ], (s4 - 0.5) * 12);
     const gloss = 0.5 + s5 * 0.5; // per-marble shininess (0.5..1.0)
     // Skin per colour: each color family has a set of pattern types; the
     // marble's seed picks which one, so the look is deterministic per marble
@@ -2736,6 +2779,14 @@ function pitchHasRun(row: number[]): boolean {
   return false;
 }
 
+function hexToRgb(hex: string): [number, number, number] {
+  const h = hex.replace('#', '');
+  return [
+    parseInt(h.slice(0, 2), 16),
+    parseInt(h.slice(2, 4), 16),
+    parseInt(h.slice(4, 6), 16),
+  ];
+}
 function lighten(c: [number, number, number], amt: number): string {
   return `rgb(${Math.round(c[0] + (255 - c[0]) * amt)},${Math.round(c[1] + (255 - c[1]) * amt)},${Math.round(c[2] + (255 - c[2]) * amt)})`;
 }

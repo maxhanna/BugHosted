@@ -473,14 +473,14 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
   private securityCountdown: any = null;
   /**
    * Client-side mirrors of the server's token windows:
-   *  - login / RenewSession mint or extend a token to ~1 hour
+   *  - login / RenewSession mint or extend a token to 6 hours
    *  - UpdateLastSeen (presence ping) extends the token the same way
-   *  - after 15 minutes of inactivity the security warning pops up so the
-   *    user can renew before the 1-hour token actually expires
+   *  - the security warning pops up 15 minutes BEFORE the token actually
+   *    expires, so the user can renew in time
    */
-  private readonly SESSION_FULL_WINDOW_MS = 60 * 60 * 1000;
-  private readonly SESSION_PRESENCE_WINDOW_MS = 60 * 60 * 1000;
-  private readonly SESSION_INACTIVITY_WARNING_MS = 15 * 60 * 1000;
+  private readonly SESSION_FULL_WINDOW_MS = 6 * 60 * 60 * 1000;
+  private readonly SESSION_PRESENCE_WINDOW_MS = 6 * 60 * 60 * 1000;
+  private readonly SESSION_WARNING_LEAD_MS = 15 * 60 * 1000;
   private sessionExpiresAt = 0;
   private componentMap: { [key: string]: any; } = {
     "Navigation": NavigationComponent,
@@ -1866,10 +1866,11 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     event?.stopPropagation();
   }
   /**
-   * Schedules the security warning to fire after 15 minutes of inactivity.
-   * Re-armed on every presence ping / refresh, so actively navigating users
-   * never see it (their token is also being extended server-side); it only
-   * appears once the user has gone quiet.
+   * Schedules the security warning to fire 15 minutes BEFORE the token expires.
+   * Re-armed on every presence ping / refresh (which pushes sessionExpiresAt out
+   * to a full 6-hour window), so actively navigating users never see it; it only
+   * appears once the user has been quiet long enough for the token to approach
+   * expiry.
    */
   updateLastSeenPeriodically() {
     if (this.securityTimeout) {
@@ -1877,13 +1878,17 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       this.securityTimeout = null;
     }
     if (!this.user?.id || this.preventShowSecurityPopup) return;
+    // The token mirror may be unknown right after a reload — assume a fresh
+    // full window (the server re-slides the cookie token on the next ping).
+    const expiresAt = this.sessionExpiresAt || (Date.now() + this.SESSION_FULL_WINDOW_MS);
+    const msUntilWarning = Math.max(1000, expiresAt - Date.now() - this.SESSION_WARNING_LEAD_MS);
     this.securityTimeout = setTimeout(() => {
       if (!this.preventShowSecurityPopup && !this.isUploadingFile) {
         this.isShowingSecurityPopup = true;
         this.startSecurityCountdown();
         this.showOverlay();
       }
-    }, this.SESSION_INACTIVITY_WARNING_MS);
+    }, msUntilWarning);
   }
   closeSecurityPopup() {
     this.isShowingSecurityPopup = false;
@@ -1925,16 +1930,16 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     this.sessionRemainingText = minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
   }
   /**
-   * The Refresh action in the security popup: extend the current token by
-   * another hour and restart the inactivity countdown. If the token has
-   * already expired the renewal is refused and the login prompt takes over.
+   * The Refresh action in the security popup: extend the current token to a
+   * full 6 hours and restart the warning countdown. If the token has already
+   * expired the renewal is refused and the login prompt takes over.
    */
   async refreshSecurityToken() {
     const renewed = await this.renewSessionIfDenied();
     if (renewed) {
       this.sessionExpiresAt = Date.now() + this.SESSION_FULL_WINDOW_MS;
       await this.updateLastSeen();
-      this.showNotification('Security token renewed. You\u2019re signed in for another hour.');
+      this.showNotification('Security token renewed. You\u2019re signed in for another 6 hours.');
     } else {
       await this.updateLastSeen();
     }
@@ -1975,8 +1980,8 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
           // hiccup must never log an otherwise-valid user out.
           return;
         }
-        // A successful presence ping extends the token to ~1 hour server-side —
-        // mirror it so the warning timer stays accurate.
+        // A successful presence ping extends the token to a full 6 hours
+        // server-side — mirror it so the warning timer stays accurate.
         this.sessionExpiresAt = now + this.SESSION_PRESENCE_WINDOW_MS;
       }
     }
@@ -1984,9 +1989,9 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
   }
 
   /**
-   * Extend the current session token by an hour (the server's renewal rule:
-   * only when less than an hour remains). Returns false when the token has
-   * already expired, in which case the caller should show the login prompt.
+   * Extend the current session token to a full 6-hour window (the server's
+   * sliding renewal rule). Returns false when the token has already expired,
+   * in which case the caller should show the login prompt.
    */
   private _renewingSession = false;
   async renewSessionIfDenied(): Promise<boolean> {

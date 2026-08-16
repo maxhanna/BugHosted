@@ -2,10 +2,11 @@
 using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Web;
 using maxhanna.Server.Controllers;
-using maxhanna.Server.Controllers.DataContracts.Metadata;
+using maxhanna.Server.Controllers.DataContracts.Files;
 using maxhanna.Server.Controllers.DataContracts.News;
+using maxhanna.Server.Controllers.DataContracts.Social;
+using maxhanna.Server.Controllers.DataContracts.Topics;
 using maxhanna.Server.Helpers;
 using MySqlConnector;
 
@@ -500,13 +501,13 @@ public class NewsService
   };
 
   private readonly NewsHttpClient _newsHttp;
-  private readonly WebCrawler _crawler;
-  public NewsService(IConfiguration config, Log log, NewsHttpClient newsHttp, WebCrawler webCrawler)
+  private readonly SocialStoryService _socialStoryService;
+  public NewsService(IConfiguration config, Log log, NewsHttpClient newsHttp, SocialStoryService socialStoryService)
   {
     _config = config;
     _log = log;
     _newsHttp = newsHttp;
-    _crawler = webCrawler;
+    _socialStoryService = socialStoryService;
   }
   public async Task<ArticlesResult?> GetTopHeadlines(string? keywords)
   {
@@ -845,15 +846,14 @@ public class NewsService
 
         await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
         await conn.OpenAsync();
-        await using var transaction = await conn.BeginTransactionAsync();
 
-        // Check if a social story already exists for today (user_id = 0, contains marker text)
+        // Check if a social story already exists for today
         string marker = "📰 [b]Daily News Update![/b]";
         string checkSql = $@"
               SELECT COUNT(*) FROM stories
               WHERE user_id = {newsServiceAccountNo} AND DATE(`date`) = CURDATE();";
 
-        if (await CheckIfDailyNewsStoryAlreadyExists(conn, transaction, checkSql))
+        if (await CheckIfDailyNewsStoryAlreadyExists(conn, checkSql))
         {
           await _log.Db("Daily news story already exists. Skipping creation.", null, "NEWSSERVICE", outputToConsole: true);
           return;
@@ -896,7 +896,7 @@ public class NewsService
         // Save the description tokens of selected article for file-matching
         var selectedArticleTokens = TokenizeText(selectedArticle?.Description ?? string.Empty);
         // Insert the story into the 'stories' table (for the news service account)
-        await CreateNewsPosts(conn, transaction, fullStoryText, selectedArticleTokens, newsServiceAccountNo);
+        await CreateNewsPosts(conn, fullStoryText, selectedArticleTokens, newsServiceAccountNo);
         await _log.Db("Daily news story created successfully on both service account and user profile.", null, "NEWSSERVICE", outputToConsole: true);
       }
       catch (Exception ex)
@@ -914,52 +914,59 @@ public class NewsService
     }
   }
 
-  private async Task CreateNewsPosts(MySqlConnection conn, MySqlTransaction transaction, string fullStoryText, List<string> selectedArticleTokens, int accountId)
+  /// <summary>
+  /// Resolves existing topic ids by name so stories can be linked through the
+  /// shared SocialStoryService pipeline (which links by topic id).
+  /// </summary>
+  private async Task<List<Topic>> ResolveTopicsAsync(MySqlConnection conn, params string[] topicNames)
   {
-    string getLastStoryIdSql = "SELECT LAST_INSERT_ID();";
-    // Now, find the best matching file from the `file_uploads` table
-    int? bestFileMatch = await FindBestMatchingFileAsync(selectedArticleTokens, conn, transaction);
-    string insertStoryFileSql = @"
-                INSERT INTO story_files (story_id, file_id)
-                VALUES (@storyId, @fileId);
+    var topics = new List<Topic>();
+    var names = topicNames?.Where(n => !string.IsNullOrWhiteSpace(n)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+    if (names == null || names.Count == 0) return topics;
 
-				INSERT INTO story_topics (story_id, topic_id) VALUES (@storyId, (SELECT id FROM maxhanna.topics WHERE topic = 'News'));
-            ";
-    if (accountId == cryptoNewsServiceAccountNo)
+    var sql = new StringBuilder("SELECT id, topic FROM maxhanna.topics WHERE topic IN (");
+    var cmd = new MySqlCommand("", conn);
+    for (int i = 0; i < names.Count; i++)
     {
-      insertStoryFileSql += " INSERT INTO story_topics (story_id, topic_id) VALUES (@storyId, (SELECT id FROM maxhanna.topics WHERE topic = 'Crypto'));";
+      sql.Append(i == 0 ? "@p" + i : ", @p" + i);
+      cmd.Parameters.AddWithValue("@p" + i, names[i]);
     }
+    sql.Append(")");
+    cmd.CommandText = sql.ToString();
 
-    if (accountId == memeServiceAccountNo)
+    await using var rdr = await cmd.ExecuteReaderAsync();
+    while (await rdr.ReadAsync())
     {
-      insertStoryFileSql += " INSERT INTO story_topics (story_id, topic_id) VALUES (@storyId, (SELECT id FROM maxhanna.topics WHERE topic = 'Meme of the Day'));";
+      topics.Add(new Topic
+      {
+        Id = rdr.GetInt32("id"),
+        TopicText = rdr.GetString("topic"),
+      });
     }
+    return topics;
+  }
 
-    // POST THE SAME STORY TO NEWS USER PROFILE
-    string insertUserProfileSql = @"
-            INSERT INTO stories (user_id, story_text, profile_user_id, city, country, date)
-            VALUES (@userId, @storyText, @profileUserId, NULL, NULL, UTC_TIMESTAMP());
-        ";
+  private async Task CreateNewsPosts(MySqlConnection conn, string fullStoryText, List<string> selectedArticleTokens, int accountId)
+  {
+    // Find the best matching file from the `file_uploads` table
+    int? bestFileMatch = await FindBestMatchingFileAsync(selectedArticleTokens, conn);
 
-    await using var userProfileCmd = new MySqlCommand(insertUserProfileSql, conn, transaction);
-    userProfileCmd.Parameters.AddWithValue("@userId", accountId);
-    userProfileCmd.Parameters.AddWithValue("@storyText", fullStoryText);
-    userProfileCmd.Parameters.AddWithValue("@profileUserId", accountId); // Assuming you have newsUserId defined
-    await userProfileCmd.ExecuteNonQueryAsync();
+    string[] topicNames = accountId == cryptoNewsServiceAccountNo
+      ? new[] { "News", "Crypto" }
+      : new[] { "News" };
 
-    // Get the last inserted story ID for user profile
-    int userProfileStoryId = Convert.ToInt32(await new MySqlCommand(getLastStoryIdSql, conn, transaction).ExecuteScalarAsync());
-
-    if (bestFileMatch != null)
+    // Route through the shared SocialStoryService pipeline so the news posts
+    // get file/topic links, link metadata, sitemap entry and a user event
+    // exactly like real SocialController posts.
+    var story = new Story
     {
-      // Link the same file to the user profile story
-      await using var userProfileFileCmd = new MySqlCommand(insertStoryFileSql, conn, transaction);
-      userProfileFileCmd.Parameters.AddWithValue("@storyId", userProfileStoryId);
-      userProfileFileCmd.Parameters.AddWithValue("@fileId", bestFileMatch.Value);
-      await userProfileFileCmd.ExecuteNonQueryAsync();
-    }
+      StoryText = fullStoryText,
+      ProfileUserId = accountId,
+      StoryFiles = bestFileMatch != null ? new List<FileEntry> { new FileEntry { Id = bestFileMatch.Value } } : null,
+      StoryTopics = await ResolveTopicsAsync(conn, topicNames),
+    };
 
-    await transaction.CommitAsync();
+    await _socialStoryService.CreateStoryAsync(story, accountId, "posted");
   }
 
   public async Task PostDailyMemeAsync()
@@ -968,23 +975,20 @@ public class NewsService
     {
       using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
       await conn.OpenAsync();
-      using var transaction = await conn.BeginTransactionAsync();
 
       // Check if we already posted a meme today
-      if (await HasPostedMemeTodayAsync(conn, transaction))
+      if (await HasPostedMemeTodayAsync(conn))
       {
         await _log.Db("Already posted a meme today. Skipping.", null, "MEMESERVICE", outputToConsole: true);
-        await transaction.RollbackAsync();
         return;
       }
 
       // Get today's most popular meme
-      MemeInfo? topMeme = await GetMostPopularMemeTodayAsync(conn, transaction);
+      MemeInfo? topMeme = await GetMostPopularMemeTodayAsync(conn);
 
       if (topMeme == null)
       {
         await _log.Db("No memes uploaded today to post.", null, "MEMESERVICE", outputToConsole: true);
-        await transaction.RollbackAsync();
         return;
       }
 
@@ -995,10 +999,8 @@ public class NewsService
       Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based on highest number of comments and reactions.</small><br>File: {fileName}";
 
       // Insert the story
-      await InsertMemeStoryAsync(conn, transaction, storyText, topMeme.Id, memeServiceAccountNo);
-      //await InsertMemeStoryAsync(conn, transaction, storyText, topMeme.Id, null);
+      await InsertMemeStoryAsync(conn, storyText, topMeme.Id, memeServiceAccountNo);
 
-      await transaction.CommitAsync();
       await _log.Db($"Successfully posted daily meme: {topMeme.FileName}", null, "MEMESERVICE", outputToConsole: true);
     }
     catch (Exception ex)
@@ -1012,13 +1014,11 @@ public class NewsService
     {
       using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
       await conn.OpenAsync();
-      using var transaction = await conn.BeginTransactionAsync();
 
       // Check if we already posted today's music
-      if (await HasPostedMusicTodayAsync(conn, transaction))
+      if (await HasPostedMusicTodayAsync(conn))
       {
         await _log.Db("Already posted daily music today. Skipping.", null, "MUSICSERVICE", outputToConsole: true);
-        await transaction.RollbackAsync();
         return;
       }
 
@@ -1031,7 +1031,7 @@ public class NewsService
         AND t.date >= UTC_TIMESTAMP() - INTERVAL 1 DAY
         ORDER BY t.date DESC;";
 
-      using var cmd = new MySqlCommand(sql, conn, transaction);
+      using var cmd = new MySqlCommand(sql, conn);
       using var rdr = await cmd.ExecuteReaderAsync();
       var todos = new List<(int Id, string? Title, string? Url, int? FileId, int? UserId, string? Username)>();
       while (await rdr.ReadAsync())
@@ -1049,7 +1049,6 @@ public class NewsService
       if (todos.Count == 0)
       {
         await _log.Db("No songs added today to post.", null, "MUSICSERVICE", outputToConsole: true);
-        await transaction.RollbackAsync();
         return;
       }
 
@@ -1075,14 +1074,10 @@ public class NewsService
       // Attach first file if present
       int? firstFileId = todos.FirstOrDefault(t => t.FileId != null).FileId;
 
-      // Collect URLs from todos to attempt metadata scraping
-      var urls = todos.Where(t => !string.IsNullOrWhiteSpace(t.Url)).Select(t => t.Url!).ToArray();
+      // Insert the story for the service account (link metadata is scraped from
+      // the URLs embedded in the story text by the shared pipeline).
+      await InsertMusicStoryAsync(conn, fullStoryText, firstFileId, musicServiceAccountNo);
 
-      // Insert the story for the service account and user profile (if desired)
-      await InsertMusicStoryAsync(conn, transaction, fullStoryText, firstFileId, musicServiceAccountNo, urls);
-      // await InsertMusicStoryAsync(conn, transaction, fullStoryText, firstFileId, null, urls);
-
-      await transaction.CommitAsync();
       await _log.Db($"Successfully posted daily music with {todos.Count} entries.", null, "MUSICSERVICE", outputToConsole: true);
     }
     catch (Exception ex)
@@ -1091,7 +1086,7 @@ public class NewsService
     }
   }
 
-  private async Task<bool> HasPostedMusicTodayAsync(MySqlConnection conn, MySqlTransaction transaction)
+  private async Task<bool> HasPostedMusicTodayAsync(MySqlConnection conn)
   {
     const string sql = @"
 			SELECT COUNT(*) FROM stories
@@ -1099,105 +1094,34 @@ public class NewsService
 			AND DATE(date) = CURDATE()
 			AND story_text LIKE '%Daily Music Picks!%';";
 
-    using var cmd = new MySqlCommand(sql, conn, transaction);
+    using var cmd = new MySqlCommand(sql, conn);
     cmd.Parameters.AddWithValue("@userId", musicServiceAccountNo);
     var exists = Convert.ToInt32(await cmd.ExecuteScalarAsync()) > 0;
     if (exists)
     {
       await _log.Db("Daily music story already exists. Skipping.", null, "MUSICSERVICE", outputToConsole: true);
-      await transaction.RollbackAsync();
       return true;
     }
     return false;
   }
 
-  private async Task InsertMusicStoryAsync(MySqlConnection conn, MySqlTransaction transaction, string storyText, int? fileId, int? profileUserId, string[]? urls = null)
+  private async Task InsertMusicStoryAsync(MySqlConnection conn, string storyText, int? fileId, int? profileUserId)
   {
-    // Insert the main story
-    const string insertStorySql = @"
-			INSERT INTO stories (user_id, story_text, profile_user_id, city, country, date)
-			VALUES (@userId, @storyText, @profileUserId, NULL, NULL, UTC_TIMESTAMP());
-			SELECT LAST_INSERT_ID();";
-
-    using var storyCmd = new MySqlCommand(insertStorySql, conn, transaction);
-    storyCmd.Parameters.AddWithValue("@userId", musicServiceAccountNo);
-    storyCmd.Parameters.AddWithValue("@storyText", storyText);
-    storyCmd.Parameters.AddWithValue("@profileUserId", profileUserId ?? (object)DBNull.Value);
-
-    var storyId = Convert.ToInt32(await storyCmd.ExecuteScalarAsync());
-
-    // Link file if provided
-    if (fileId != null)
+    // Route through the shared SocialStoryService pipeline (story + file link +
+    // topic link + link metadata + sitemap + user event) so music posts get
+    // metadata attached like every other social post.
+    var story = new Story
     {
-      const string insertStoryFileSql = @"
-			INSERT INTO story_files (story_id, file_id)
-			VALUES (@storyId, @fileId);
-			INSERT INTO story_topics (story_id, topic_id) VALUES (@storyId, (SELECT id FROM topics WHERE topic = 'Music'));
-			";
+      StoryText = storyText,
+      ProfileUserId = profileUserId,
+      StoryFiles = fileId != null ? new List<FileEntry> { new FileEntry { Id = fileId.Value } } : null,
+      StoryTopics = await ResolveTopicsAsync(conn, "Music"),
+    };
 
-      using var fileCmd = new MySqlCommand(insertStoryFileSql, conn, transaction);
-      fileCmd.Parameters.AddWithValue("@storyId", storyId);
-      fileCmd.Parameters.AddWithValue("@fileId", fileId.Value);
-      await fileCmd.ExecuteNonQueryAsync();
-    }
-    else
-    {
-      // Still tag topic as Music
-      using var topicCmd = new MySqlCommand("INSERT INTO story_topics (story_id, topic_id) VALUES (@storyId, (SELECT id FROM topics WHERE topic = 'Music'))", conn, transaction);
-      topicCmd.Parameters.AddWithValue("@storyId", storyId);
-      await topicCmd.ExecuteNonQueryAsync();
-    }
-    // If urls are provided, attempt to fetch metadata for each and insert into story_metadata
-    if (urls != null && urls.Length > 0)
-    {
-      foreach (var url in urls)
-      {
-        try
-        {
-          var metadata = await _crawler.ScrapeUrlData(url);
-          if (metadata != null)
-          {
-            await InsertMetadata(storyId, metadata);
-          }
-        }
-        catch (Exception ex)
-        {
-          await _log.Db($"Failed to fetch/insert metadata for url {url}: {ex.Message}", null, "NEWSSERVICE", outputToConsole: true);
-        }
-      }
-    }
+    await _socialStoryService.CreateStoryAsync(story, musicServiceAccountNo, "posted");
   }
 
-  private async Task<string> InsertMetadata(int storyId, Metadata? metadata)
-  {
-    if (metadata == null) return "No metadata to insert";
-    string sql = @"INSERT INTO story_metadata (story_id, title, description, image_url, metadata_url) VALUES (@storyId, @title, @description, @imageUrl, @metadataUrl);";
-    try
-    {
-      using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-      {
-        await conn.OpenAsync();
-
-        using (var cmd = new MySqlCommand(sql, conn))
-        {
-          cmd.Parameters.AddWithValue("@storyId", storyId);
-          cmd.Parameters.AddWithValue("@title", HttpUtility.HtmlDecode(metadata.Title ?? ""));
-          cmd.Parameters.AddWithValue("@description", HttpUtility.HtmlDecode(metadata.Description ?? ""));
-          cmd.Parameters.AddWithValue("@imageUrl", metadata.ImageUrl ?? "");
-          cmd.Parameters.AddWithValue("@metadataUrl", metadata.Url ?? "");
-
-          await cmd.ExecuteNonQueryAsync();
-        }
-      }
-    }
-    catch
-    {
-      return "Could not insert metadata";
-    }
-    return "Inserted metadata";
-  }
-
-  private async Task<bool> HasPostedMemeTodayAsync(MySqlConnection conn, MySqlTransaction transaction)
+  private async Task<bool> HasPostedMemeTodayAsync(MySqlConnection conn)
   {
     const string sql = @"
             SELECT COUNT(*) FROM stories 
@@ -1205,12 +1129,12 @@ public class NewsService
             AND DATE(date) = CURDATE() 
             AND story_text LIKE '%Daily Meme!%'";
 
-    using var cmd = new MySqlCommand(sql, conn, transaction);
+    using var cmd = new MySqlCommand(sql, conn);
     cmd.Parameters.AddWithValue("@userId", memeServiceAccountNo);
     return (long?)await cmd.ExecuteScalarAsync() > 0;
   }
 
-  private async Task<MemeInfo?> GetMostPopularMemeTodayAsync(MySqlConnection conn, MySqlTransaction transaction)
+  private async Task<MemeInfo?> GetMostPopularMemeTodayAsync(MySqlConnection conn)
   {
     const string sql = @"
         SELECT 
@@ -1241,7 +1165,7 @@ public class NewsService
         ORDER BY fu.upload_date DESC, (COUNT(DISTINCT c.id) + COUNT(DISTINCT r.id)) DESC
         LIMIT 1";
 
-    using var cmd = new MySqlCommand(sql, conn, transaction);
+    using var cmd = new MySqlCommand(sql, conn);
     cmd.Parameters.AddWithValue("@folderPath", MemeFolderPath);
     cmd.Parameters.AddWithValue("@serviceAccountId", memeServiceAccountNo);
 
@@ -1263,46 +1187,33 @@ public class NewsService
     return null;
   }
 
-  private async Task InsertMemeStoryAsync(MySqlConnection conn, MySqlTransaction transaction, string storyText, int fileId, int? profileUserId)
+  private async Task InsertMemeStoryAsync(MySqlConnection conn, string storyText, int fileId, int? profileUserId)
   {
-    // Insert the main story
-    const string insertStorySql = @"
-            INSERT INTO stories (user_id, story_text, profile_user_id, city, country, date)
-            VALUES (@userId, @storyText, @profileUserId, NULL, NULL, UTC_TIMESTAMP());
-            SELECT LAST_INSERT_ID();";
+    // Route through the shared SocialStoryService pipeline (story + file link +
+    // topic link + link metadata + sitemap + user event) so meme posts get
+    // metadata attached like every other social post.
+    var story = new Story
+    {
+      StoryText = storyText,
+      ProfileUserId = profileUserId,
+      StoryFiles = new List<FileEntry> { new FileEntry { Id = fileId } },
+      StoryTopics = await ResolveTopicsAsync(conn, "Meme"),
+    };
 
-    using var storyCmd = new MySqlCommand(insertStorySql, conn, transaction);
-    storyCmd.Parameters.AddWithValue("@userId", memeServiceAccountNo);
-    storyCmd.Parameters.AddWithValue("@storyText", storyText);
-    storyCmd.Parameters.AddWithValue("@profileUserId", profileUserId ?? (object)DBNull.Value);
-
-    var storyId = Convert.ToInt32(await storyCmd.ExecuteScalarAsync());
-
-    // Link the meme file to the story
-    const string insertStoryFileSql = @"
-            INSERT INTO story_files (story_id, file_id)
-            VALUES (@storyId, @fileId);
-
-            INSERT INTO story_topics (story_id, topic_id) 
-            VALUES (@storyId, (SELECT id FROM topics WHERE topic = 'Meme'));";
-
-    using var fileCmd = new MySqlCommand(insertStoryFileSql, conn, transaction);
-    fileCmd.Parameters.AddWithValue("@storyId", storyId);
-    fileCmd.Parameters.AddWithValue("@fileId", fileId);
-    await fileCmd.ExecuteNonQueryAsync();
+    await _socialStoryService.CreateStoryAsync(story, memeServiceAccountNo, "posted");
 
     // Tag the file upload itself with "Meme of the Day" topic
     const string insertFileTopicSql = @"
             INSERT IGNORE INTO file_topics (file_id, topic_id)
             VALUES (@fileId, (SELECT id FROM topics WHERE topic = 'Meme of the Day'));";
-    using var fileTopicCmd = new MySqlCommand(insertFileTopicSql, conn, transaction);
+    using var fileTopicCmd = new MySqlCommand(insertFileTopicSql, conn);
     fileTopicCmd.Parameters.AddWithValue("@fileId", fileId);
     await fileTopicCmd.ExecuteNonQueryAsync();
 
     try
     {
-      string eventText = $"Top Daily Meme posted!";
-      await UserEventController.InsertUserEventWithConnection(memeServiceAccountNo, "daily_meme", eventText, fileId, "file", conn, transaction);
+      string eventText = "Top Daily Meme posted!";
+      await UserEventController.InsertUserEventWithConnection(memeServiceAccountNo, "daily_meme", eventText, fileId, "file", conn);
     }
     catch { }
   }
@@ -1330,19 +1241,10 @@ public class NewsService
     return tokenFrequency.OrderByDescending(kv => kv.Value).First().Key;
   }
 
-  private async Task<bool> CheckIfDailyNewsStoryAlreadyExists(MySqlConnection conn, MySqlTransaction transaction, string checkSql)
+  private async Task<bool> CheckIfDailyNewsStoryAlreadyExists(MySqlConnection conn, string checkSql)
   {
-    await using (var checkCmd = new MySqlCommand(checkSql, conn, transaction))
-    {
-      var exists = Convert.ToInt32(await checkCmd.ExecuteScalarAsync()) > 0;
-      if (exists)
-      {
-        //await _log.Db("Daily news story already exists. Skipping creation.", null, "NEWSSERVICE", outputToConsole: true);
-        await transaction.RollbackAsync();
-        return true;
-      }
-    }
-    return false;
+    await using var checkCmd = new MySqlCommand(checkSql, conn);
+    return Convert.ToInt32(await checkCmd.ExecuteScalarAsync()) > 0;
   }
 
   private List<string> TokenizeText(string input)
@@ -1436,7 +1338,7 @@ public class NewsService
     }
     return total;
   }
-  private async Task<int?> FindBestMatchingFileAsync(List<string> tokens, MySqlConnection conn, MySqlTransaction transaction)
+  private async Task<int?> FindBestMatchingFileAsync(List<string> tokens, MySqlConnection conn, MySqlTransaction? transaction = null)
   {
     if (tokens == null || tokens.Count == 0)
       return null;
@@ -1528,21 +1430,18 @@ public class NewsService
       if (!await HasAtleast20NewsArticlesIn24HrsAsync())
       {
         return;
-      }
-
-      await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+      }      await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
       await conn.OpenAsync();
-      await using var transaction = await conn.BeginTransactionAsync();
 
       // Check if a social story already exists for today (user_id = {cryptoNewsServiceAccountNo}, contains marker text)
       string marker = "📰 [b]Crypto News Update![/b]";
       string checkSql = $@"
 				SELECT COUNT(*) FROM stories
 				WHERE user_id = {cryptoNewsServiceAccountNo} AND DATE(`date`) = CURDATE();
-			";
+				";
 
 
-      if (await CheckIfDailyNewsStoryAlreadyExists(conn, transaction, checkSql))
+      if (await CheckIfDailyNewsStoryAlreadyExists(conn, checkSql))
       {
         await _log.Db("Daily crypto news story already exists. Skipping creation.", null, "NEWSSERVICE", outputToConsole: true);
         return;
@@ -1563,7 +1462,7 @@ public class NewsService
       string fullStoryText = sb.ToString().Trim();
       var selectedArticleTokens = TokenizeText(fullStoryText);
       // Insert the story into the 'stories' table (for the news service account)
-      await CreateNewsPosts(conn, transaction, fullStoryText, selectedArticleTokens, cryptoNewsServiceAccountNo);
+      await CreateNewsPosts(conn, fullStoryText, selectedArticleTokens, cryptoNewsServiceAccountNo);
       await _log.Db("Daily crypto news story created successfully.", null, "NEWSSERVICE", outputToConsole: true);
     }
     catch (Exception ex)

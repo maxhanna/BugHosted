@@ -172,7 +172,8 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
       'weaver_card_added': 'Weaver Cards Created',
       'weaver_card_created': 'Weaver Cards Created',
       'flighttracking': 'Flight Tracking Events',
-      'FlightTracking': 'Flight Tracking Events'
+      'FlightTracking': 'Flight Tracking Events',
+      'marbles': 'Lose your Marbles Events',
     };
 
     return descriptions[eventType] || eventType;
