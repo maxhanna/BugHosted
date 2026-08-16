@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using Microsoft.AspNetCore.SignalR;
+using MySqlConnector;
 
 namespace maxhanna.Server.Hubs
 {
@@ -34,10 +35,109 @@ namespace maxhanna.Server.Hubs
         private static readonly ConcurrentDictionary<string, string> _connectionLobby = new();
 
         private readonly IHubContext<MarblesHub> _hubContext;
+        private readonly IConfiguration _config;
 
-        public MarblesHub(IHubContext<MarblesHub> hubContext)
+        // One-shot schema guard so the forfeits table is created on first use
+        // (the marbles_scores table is created the same way — out-of-band).
+        private static int _forfeitSchemaChecked;
+        private static readonly object _forfeitSchemaLock = new();
+
+        public MarblesHub(IHubContext<MarblesHub> hubContext, IConfiguration config)
         {
             _hubContext = hubContext;
+            _config = config;
+        }
+
+        /// <summary>Ensure the marbles_forfeits table exists (best-effort; the
+        /// app keeps running even if DDL is unavailable).</summary>
+        private void EnsureForfeitSchema()
+        {
+            if (Volatile.Read(ref _forfeitSchemaChecked) == 1) return;
+            lock (_forfeitSchemaLock)
+            {
+                if (Volatile.Read(ref _forfeitSchemaChecked) == 1) return;
+                try
+                {
+                    var cs = _config.GetValue<string>("ConnectionStrings:maxhanna");
+                    if (string.IsNullOrEmpty(cs)) return;
+                    using var conn = new MySqlConnection(cs);
+                    conn.Open();
+                    using var cmd = new MySqlCommand(@"
+                        CREATE TABLE IF NOT EXISTS marbles_forfeits (
+                            id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                            user_id INT NOT NULL,
+                            username VARCHAR(64) NULL,
+                            opponent_user_id INT NULL,
+                            opponent_username VARCHAR(64) NULL,
+                            forfeited_at DATETIME NOT NULL
+                        );", conn);
+                    cmd.ExecuteNonQuery();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[{DateTime.Now:HH:mm}] MARBLES: forfeit schema init failed: {ex.Message}");
+                }
+                Volatile.Write(ref _forfeitSchemaChecked, 1);
+            }
+        }
+
+        /// <summary>Best-effort: load how many multiplayer matches this user has
+        /// forfeited (left mid-game). Returns 0 on any DB issue so the lobby
+        /// always renders.</summary>
+        private async Task<int> GetForfeitCountAsync(int userId)
+        {
+            if (userId <= 0) return 0;
+            try
+            {
+                EnsureForfeitSchema();
+                var cs = _config.GetValue<string>("ConnectionStrings:maxhanna");
+                if (string.IsNullOrEmpty(cs)) return 0;
+                await using var conn = new MySqlConnection(cs);
+                await conn.OpenAsync();
+                await using var cmd = new MySqlCommand(
+                    "SELECT COUNT(*) FROM marbles_forfeits WHERE user_id = @UserId;", conn);
+                cmd.Parameters.AddWithValue("@UserId", userId);
+                var result = await cmd.ExecuteScalarAsync();
+                return result is long l ? (int)l : Convert.ToInt32(result ?? 0);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[{DateTime.Now:HH:mm}] MARBLES: forfeit count lookup failed: {ex.Message}");
+                return 0;
+            }
+        }
+
+        /// <summary>Best-effort: record a forfeit (a human leaving a multiplayer
+        /// match mid-game). Never throws — the game must not break on a DB hiccup.</summary>
+        private async Task RecordForfeitAsync(int userId, string username, int opponentUserId, string opponentUsername)
+        {
+            if (userId <= 0) return;
+            try
+            {
+                EnsureForfeitSchema();
+                var cs = _config.GetValue<string>("ConnectionStrings:maxhanna");
+                if (string.IsNullOrEmpty(cs)) return;
+                await using var conn = new MySqlConnection(cs);
+                await conn.OpenAsync();
+                await using var cmd = new MySqlCommand(@"
+                    INSERT INTO marbles_forfeits (user_id, username, opponent_user_id, opponent_username, forfeited_at)
+                    VALUES (@UserId, @Username, @OpponentUserId, @OpponentUsername, UTC_TIMESTAMP());", conn);
+                cmd.Parameters.AddWithValue("@UserId", userId);
+                cmd.Parameters.AddWithValue("@Username", (object?)TrimmedOrNull(username) ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@OpponentUserId", opponentUserId);
+                cmd.Parameters.AddWithValue("@OpponentUsername", (object?)TrimmedOrNull(opponentUsername) ?? DBNull.Value);
+                await cmd.ExecuteNonQueryAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[{DateTime.Now:HH:mm}] MARBLES: forfeit record failed: {ex.Message}");
+            }
+        }
+
+        private static string? TrimmedOrNull(string? value)
+        {
+            var trimmed = value?.Trim();
+            return string.IsNullOrEmpty(trimmed) ? null : trimmed;
         }
 
         private class Lobby
@@ -65,6 +165,7 @@ namespace maxhanna.Server.Hubs
             public int Reserve = 0;
             public int SpecialColor = 0;
             public int Score = 0; // marbles cleared this game (single-player high scores)
+            public int Forfeits = 0; // multiplayer matches left mid-game (persisted)
             public int[][] Board = EmptyBoard();
         }
 
@@ -77,11 +178,28 @@ namespace maxhanna.Server.Hubs
             if (!_lobbies.TryGetValue(code, out var lobby)) return;
 
             string? departedName = null;
+            int departedUserId = 0;
+            bool departedWasBot = false;
+            bool forfeit = false;
+            int opponentUserId = 0;
+            string? opponentName = null;
             CancellationTokenSource? cts = null;
             lock (lobby.Sync)
             {
                 var p = lobby.Players.Find(x => x.ConnectionId == Context.ConnectionId);
                 departedName = p?.PlayerName;
+                departedUserId = p?.PlayerId ?? 0;
+                departedWasBot = p?.IsBot ?? false;
+                // A human leaving a MULTIPLAYER match mid-game forfeits (the
+                // remaining player is handed the win by CheckGameOverAsync).
+                // Single-player vs-AI quits and lobby exits don't count.
+                forfeit = lobby.Status == "playing"
+                    && !departedWasBot
+                    && departedUserId > 0
+                    && lobby.Players.Any(x => !x.IsBot && x.ConnectionId != Context.ConnectionId);
+                var opponent = lobby.Players.FirstOrDefault(x => !x.IsBot && x.ConnectionId != Context.ConnectionId);
+                opponentUserId = opponent?.PlayerId ?? 0;
+                opponentName = opponent?.PlayerName;
                 lobby.Players.RemoveAll(x => x.ConnectionId == Context.ConnectionId);
                 if (lobby.Players.Count == 0)
                 {
@@ -98,6 +216,12 @@ namespace maxhanna.Server.Hubs
                 }
             }
             if (cts != null) { cts.Cancel(); cts.Dispose(); }
+
+            // Persist the forfeit (best-effort, never blocks the disconnect).
+            if (forfeit)
+            {
+                await RecordForfeitAsync(departedUserId, departedName ?? "", opponentUserId, opponentName ?? "");
+            }
 
             await Clients.Group(code).SendAsync("OnPlayerLeft", new { connectionId = Context.ConnectionId, playerName = departedName ?? "" });
             await BroadcastLobbyAsync(lobby);
@@ -148,6 +272,18 @@ namespace maxhanna.Server.Hubs
                         lobby.HostConnectionId = Context.ConnectionId;
                     }
                     lobby.Players.Add(player);
+                }
+            }
+
+            // Surface the player's lifetime forfeit count in the roster (their
+            // "profile" in this room). Loaded once per join, best-effort.
+            if (playerId > 0)
+            {
+                var forfeits = await GetForfeitCountAsync(playerId);
+                lock (lobby.Sync)
+                {
+                    var p = lobby.Players.Find(x => x.ConnectionId == Context.ConnectionId);
+                    if (p != null) p.Forfeits = forfeits;
                 }
             }
 
@@ -1126,6 +1262,7 @@ namespace maxhanna.Server.Hubs
             isHost = p.ConnectionId == hostConnectionId,
             isBot = p.IsBot,
             alive = p.Alive,
+            forfeits = p.Forfeits,
         };
 
         private async Task CheckGameOverAsync(Lobby lobby)

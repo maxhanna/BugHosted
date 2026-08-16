@@ -11,6 +11,8 @@ export interface MarblesPlayer {
   isHost: boolean;
   isBot: boolean;
   alive: boolean;
+  /** Multiplayer matches this player left mid-game (forfeit count). */
+  forfeits?: number;
 }
 
 export interface MarblesLobbyState {

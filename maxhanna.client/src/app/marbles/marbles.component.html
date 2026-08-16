@@ -133,7 +133,7 @@
         <p class="marbles-sub" *ngIf="!roomIsPublic">🔒 Private room — share this code so friends can join from anywhere.</p>
         <div class="marbles-players">
           <div class="marbles-player" *ngFor="let p of lobby?.players">
-            <span class="marbles-player-name">{{ p.playerName }}<span *ngIf="p.isHost" class="marbles-crown"> 👑</span></span>
+            <span class="marbles-player-name">{{ p.playerName }}<span *ngIf="p.isHost" class="marbles-crown"> 👑</span><span *ngIf="(p.forfeits ?? 0) > 0" class="marbles-forfeits-badge" [attr.title]="p.playerName + ' has forfeited ' + p.forfeits + (p.forfeits === 1 ? ' multiplayer match' : ' multiplayer matches') + ' — leaving a match mid-game counts as a loss.'">🏳️ {{ p.forfeits }}</span></span>
             <span class="marbles-ready">{{ p.ready ? '✅ Ready' : '⏳ Waiting' }}</span>
           </div>
         </div>

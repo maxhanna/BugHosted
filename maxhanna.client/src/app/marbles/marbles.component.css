@@ -335,9 +335,19 @@
   width: 100%;
 }
 
+/* Name field at the very top of the menu: narrower + centered so it doesn't
+ * stretch edge-to-edge on phones. */
+.marbles-form > .marbles-input {
+  align-self: center;
+  width: min(100%, 250px);
+  text-align: center;
+}
+
 .marbles-join-row {
   display: flex;
   gap: 8px;
+  align-self: center;
+  width: min(100%, 300px);
 }
 
 .marbles-join-row .marbles-input {
@@ -511,14 +521,20 @@
 }
 
 .marbles-input {
-  padding: 8px 10px;
+  padding: 10px 12px;
   border-radius: 0;
   border: 2px solid;
   border-color: #0a0a0a #ffffff #ffffff #0a0a0a;
   background: #fff;
   color: #000;
-  font-size: 15px;
+  font-size: 16px; /* ≥16px keeps iOS Safari from auto-zooming on focus */
   outline: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.marbles-input:focus {
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 127, 0.22);
 }
 
 .win98-btn {
@@ -581,6 +597,18 @@
   text-align: left;
   font-weight: 600;
   color: #000;
+}
+
+.marbles-forfeits-badge {
+  margin-left: 8px;
+  padding: 1px 7px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #7a1f1f;
+  background: #ffe1c6;
+  border: 1px solid #c08050;
+  border-radius: 9px;
+  vertical-align: middle;
 }
 
 .marbles-ready {

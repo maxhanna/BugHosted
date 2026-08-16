@@ -6116,27 +6116,58 @@ void main() { FragColor = texture(uTex, vUV); }`;
     this.addSphere(verts, idxs, topX - r * 0.45, trunkH + r * 0.35, topZ - r * 0.25, r * 0.65, 7, c1);
     this.addSphere(verts, idxs, topX + r * 0.1, trunkH + r * 0.85, topZ - r * 0.1, r * 0.55, 7, c0);
   }
-  /** A single colourful favela house — stacked boxes, flat roof, water tank. */
-  private addFavelaHouse(verts: number[], idxs: number[], x: number, z: number, s: number, col: number[]) {
+  /** A single colourful favela house — stacked boxes, flat roof, water tank.
+   *  `baseY` lifts the whole house off the ground so it can sit on a hillside. */
+  private addFavelaHouse(verts: number[], idxs: number[], x: number, z: number, s: number, col: number[], baseY = 0) {
     const h = (2.0 + Math.random() * 2.2) * s;
     const w = (1.5 + Math.random() * 1.3) * s;
     const d = (1.5 + Math.random() * 1.3) * s;
     // Main box, occasionally with a second storey or roof box stacked on top.
-    this.addBox(verts, idxs, x, h / 2, z, w, h, d, col);
+    this.addBox(verts, idxs, x, baseY + h / 2, z, w, h, d, col);
     if (Math.random() < 0.4) {
       const h2 = (1.2 + Math.random() * 1.2) * s;
-      this.addBox(verts, idxs, x + (Math.random() - 0.5) * w * 0.5, h + h2 / 2, z + (Math.random() - 0.5) * d * 0.5, w * 0.8, h2, d * 0.8, col);
+      this.addBox(verts, idxs, x + (Math.random() - 0.5) * w * 0.5, baseY + h + h2 / 2, z + (Math.random() - 0.5) * d * 0.5, w * 0.8, h2, d * 0.8, col);
     } else {
-      this.addBox(verts, idxs, x, h + 0.12 * s, z, w * 0.9, 0.24 * s, d * 0.9, [0.75, 0.74, 0.72]);
+      this.addBox(verts, idxs, x, baseY + h + 0.12 * s, z, w * 0.9, 0.24 * s, d * 0.9, [0.75, 0.74, 0.72]);
     }
     // Rooftop water tank / antenna.
     if (Math.random() < 0.65) {
-      this.addCylinder(verts, idxs, x + (Math.random() - 0.5) * w * 0.4, h + (0.5 + Math.random() * 0.4) * s, z + (Math.random() - 0.5) * d * 0.4, 0.24 * s, 0.6 * s, 6, [0.55, 0.57, 0.6]);
+      this.addCylinder(verts, idxs, x + (Math.random() - 0.5) * w * 0.4, baseY + h + (0.5 + Math.random() * 0.4) * s, z + (Math.random() - 0.5) * d * 0.4, 0.24 * s, 0.6 * s, 6, [0.55, 0.57, 0.6]);
     }
     // A warm window light on the front face.
     if (Math.random() < 0.7) {
-      const wy = h * 0.55;
+      const wy = baseY + h * 0.55;
       this.addWindowQuad(verts, idxs, x, wy, z, 0.55 * s, 0.45 * s, 0, 1, [0.95, 0.88, 0.55]);
+    }
+  }
+  /** A jungle-covered hillside dense with terraced favela housing climbing
+   *  toward the peak — the iconic Rio backdrop, anchored far out from the
+   *  track so the colourful shanties read against the bay. */
+  private addFavelaHillside(verts: number[], idxs: number[], cx: number, cz: number, s: number) {
+    const rx = 44 * s, ry = 17 * s, rz = 44 * s;
+    const cy = -0.5 * s;
+    // The green hillside the houses cling to.
+    this.addEllipsoid(verts, idxs, cx, cy, cz, rx, ry, rz, 10, [0.15, 0.32, 0.14]);
+    this.addEllipsoid(verts, idxs, cx, cy, cz, rx * 0.8, ry * 0.75, rz * 0.8, 9, [0.19, 0.38, 0.16]);
+    const favCols: [number, number, number][] = [
+      [0.93, 0.45, 0.4], [0.95, 0.78, 0.25], [0.35, 0.65, 0.85], [0.9, 0.6, 0.25],
+      [0.55, 0.72, 0.4], [0.85, 0.4, 0.7], [0.95, 0.55, 0.35], [0.4, 0.78, 0.75],
+      [0.7, 0.45, 0.85], [0.95, 0.88, 0.5],
+    ];
+    // Terraced rings of houses climbing the slope, denser toward the base.
+    const tiers = this.lowQuality ? 3 : 5;
+    for (let t = 0; t < tiers; t++) {
+      const frac = 0.24 + (t / (tiers - 1)) * 0.6;  // 0.24 → 0.84 up the slope
+      const r = rx * Math.sqrt(Math.max(0, 1 - frac * frac));
+      const y = cy + ry * frac;
+      const perTier = Math.round((this.lowQuality ? 6 : 11) * (1 - t / (tiers + 1)));
+      for (let k = 0; k < perTier; k++) {
+        const ang = (k / Math.max(1, perTier)) * Math.PI * 2 + t * 0.7 + Math.random() * 0.35;
+        const hx = cx + Math.cos(ang) * r;
+        const hz = cz + Math.sin(ang) * r;
+        const hs = 0.5 + Math.random() * 0.45;
+        this.addFavelaHouse(verts, idxs, hx, hz, hs, favCols[Math.floor(Math.random() * favCols.length)], y - 0.15 * hs);
+      }
     }
   }
   /** Christ the Redeemer statue on Corcovado — white robed figure on a peak. */
@@ -6249,6 +6280,18 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const bPpx = -anchorB.dirZ, bPpz = anchorB.dirX;
     this.addSugarloaf(verts, idxs,
       anchorB.x - bPpx * (anchorB.width / 2 + 130), anchorB.z - bPpz * (anchorB.width / 2 + 130), 1.0);
+    // Background favela hillsides — dense terraced housing climbing jungle
+    // slopes in the distance, the classic Rio skyline behind the bay.
+    const favHills = [0.05, 0.45, 0.78];
+    for (let hi = 0; hi < favHills.length; hi++) {
+      const hp = pts[Math.floor(pts.length * favHills[hi])];
+      const hPpx = -hp.dirZ, hPpz = hp.dirX;
+      const hSide = hi % 2 === 0 ? -1 : 1;
+      this.addFavelaHillside(verts, idxs,
+        hp.x + hPpx * (hp.width / 2 + 105) * hSide,
+        hp.z + hPpz * (hp.width / 2 + 105) * hSide,
+        1.0 + Math.random() * 0.2);
+    }
     // Beach furniture — umbrellas, towels and beach balls out on the sand.
     const gsPositions = [0, Math.floor(pts.length / 4), Math.floor(pts.length / 2), Math.floor(pts.length * 3 / 4)];
     const umbrellaColors: [number, number, number][] = [
@@ -6325,9 +6368,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
   private addAmazonTree(verts: number[], idxs: number[], x: number, z: number, s: number) {
     const lean = (Math.random() - 0.5) * 0.5;
     const trunkH = 3.4 * s;
-    this.addCylinder(verts, idxs, x, 0, z, 0.2 * s, trunkH, 6, [0.34, 0.2, 0.08]);
+    this.addCylinder(verts, idxs, x, 0, z, 0.2 * s, trunkH, 5, [0.34, 0.2, 0.08]);
     const kinkX = x + lean * 0.4, kinkZ = z + lean * 0.3;
-    this.addCylinder(verts, idxs, kinkX, trunkH * 0.72, kinkZ, 0.14 * s, trunkH * 0.28, 6, [0.28, 0.16, 0.07]);
+    this.addCylinder(verts, idxs, kinkX, trunkH * 0.72, kinkZ, 0.14 * s, trunkH * 0.28, 5, [0.28, 0.16, 0.07]);
     const topX = kinkX + lean * 0.5, topZ = kinkZ + lean * 0.4;
     const r = (1.25 + Math.random() * 0.7) * s;
     const greens: [number, number, number][] = [
@@ -6335,19 +6378,19 @@ void main() { FragColor = texture(uTex, vUV); }`;
     ];
     const c0 = greens[Math.floor(Math.random() * greens.length)];
     const c1 = greens[Math.floor(Math.random() * greens.length)];
-    // Layered canopy: a big lower puff plus smaller upper puffs.
-    this.addSphere(verts, idxs, topX, trunkH + r * 0.4, topZ, r, 8, c0);
-    this.addSphere(verts, idxs, topX + r * 0.5, trunkH + r * 0.58, topZ + r * 0.2, r * 0.8, 7, c1);
-    this.addSphere(verts, idxs, topX - r * 0.45, trunkH + r * 0.52, topZ - r * 0.25, r * 0.74, 7, c1);
-    this.addSphere(verts, idxs, topX, trunkH + r * 0.9, topZ, r * 0.58, 7, c0);
+    // Layered canopy: a big lower puff plus smaller upper puffs (lower-segment
+    // spheres keep the dense canopy from pushing up the triangle budget).
+    this.addSphere(verts, idxs, topX, trunkH + r * 0.4, topZ, r, 6, c0);
+    this.addSphere(verts, idxs, topX + r * 0.5, trunkH + r * 0.58, topZ + r * 0.2, r * 0.8, 5, c1);
+    this.addSphere(verts, idxs, topX - r * 0.45, trunkH + r * 0.52, topZ - r * 0.25, r * 0.74, 5, c1);
+    this.addSphere(verts, idxs, topX, trunkH + r * 0.9, topZ, r * 0.58, 5, c0);
   }
   /** A big fern — a fan of green cones, thick on the jungle floor. */
   private addFern(verts: number[], idxs: number[], x: number, z: number, s: number) {
     const fernCol: [number, number, number] = [0.12, 0.4, 0.1];
-    this.addCone(verts, idxs, x, 0.5 * s, z, 0.95 * s, 1.15 * s, 5, fernCol);
-    this.addCone(verts, idxs, x + 0.85 * s, 0.45 * s, z + 0.32 * s, 0.62 * s, 0.85 * s, 5, fernCol);
-    this.addCone(verts, idxs, x - 0.75 * s, 0.45 * s, z - 0.26 * s, 0.56 * s, 0.78 * s, 5, fernCol);
-    this.addCone(verts, idxs, x + 0.1 * s, 0.35 * s, z - 0.75 * s, 0.5 * s, 0.7 * s, 5, fernCol);
+    this.addCone(verts, idxs, x, 0.5 * s, z, 0.95 * s, 1.15 * s, 4, fernCol);
+    this.addCone(verts, idxs, x + 0.85 * s, 0.45 * s, z + 0.32 * s, 0.62 * s, 0.85 * s, 4, fernCol);
+    this.addCone(verts, idxs, x - 0.75 * s, 0.45 * s, z - 0.26 * s, 0.56 * s, 0.78 * s, 4, fernCol);
   }
   /** A hanging vine dangling from the high canopy down toward the road. */
   private addHangingVine(verts: number[], idxs: number[], x: number, z: number, len: number) {
@@ -6368,9 +6411,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
         const tx = p.x + ppx * dist * side + (Math.random() - 0.5) * 6;
         const tz = p.z + ppz * dist * side + (Math.random() - 0.5) * 6;
         this.addAmazonTree(verts, idxs, tx, tz, 0.85 + Math.random() * 0.8);
-        if (treeIdx++ > (this.lowQuality ? 110 : 190)) break;
+        if (treeIdx++ > (this.lowQuality ? 80 : 130)) break;
       }
-      if (treeIdx > (this.lowQuality ? 110 : 190)) break;
+      if (treeIdx > (this.lowQuality ? 80 : 130)) break;
     }
     // 2. Ferns + bushes carpeting the jungle floor between the trees.
     let fernIdx = 0;
@@ -6384,9 +6427,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
       if (Math.random() < 0.55) {
         this.addFern(verts, idxs, fx, fz, 0.8 + Math.random() * 0.8);
       } else {
-        this.addSphere(verts, idxs, fx, 0.6, fz, 0.6 + Math.random() * 0.5, 6, [0.14, 0.42, 0.12]);
+        this.addSphere(verts, idxs, fx, 0.6, fz, 0.6 + Math.random() * 0.5, 5, [0.14, 0.42, 0.12]);
       }
-      if (fernIdx++ > (this.lowQuality ? 60 : 110)) break;
+      if (fernIdx++ > (this.lowQuality ? 50 : 85)) break;
     }
     // 3. Hanging vines from the canopy along the road edge.
     let vineIdx = 0;
@@ -6419,10 +6462,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
     // 5. River through the infield: a wide band of water with a wooden plank
     //    bridge across it and a waterfall off the far bank.
     const riverCol: [number, number, number] = [0.1, 0.32, 0.3];
+    // Single water surface only — a second "riverbed" quad 0.04 below it
+    // z-fought with the water and made the surface flicker.
     this.addQuad(verts, idxs,
       [-260, -0.32, -26], [260, -0.32, -26], [260, -0.32, 26], [-260, -0.32, 26], riverCol);
-    this.addQuad(verts, idxs,
-      [-260, -0.36, -26], [260, -0.36, -26], [260, -0.36, 26], [-260, -0.36, 26], [0.05, 0.18, 0.17]);
     // Wooden bridge over the river.
     for (let k = -4; k <= 4; k++) {
       const bz = k * 6.5;
@@ -6474,16 +6517,17 @@ void main() { FragColor = texture(uTex, vUV); }`;
     this.addCylinder(verts, idxs, campX + 0.5, 0.12, campZ + 3, 0.7, 0.24, 7, [0.3, 0.24, 0.14]);
     this.addCone(verts, idxs, campX + 0.5, 0.6, campZ + 3, 0.28, 0.7, 6, [0.95, 0.6, 0.2]);
     // 9. A few giant emergent trees towering over the canopy.
-    for (let k = 0; k < 6; k++) {
-      const a = (k / 6) * TAU + Math.random() * 0.4;
+    const emergentCount = this.lowQuality ? 4 : 6;
+    for (let k = 0; k < emergentCount; k++) {
+      const a = (k / emergentCount) * TAU + Math.random() * 0.4;
       const r = 258 + Math.random() * 40;
       const gx = Math.cos(a) * r;
       const gz = Math.sin(a) * r;
       const s = 2.2 + Math.random() * 0.8;
-      this.addCylinder(verts, idxs, gx, 0, gz, 0.5 * s, 9 * s, 8, [0.38, 0.24, 0.09]);
-      this.addSphere(verts, idxs, gx, 9.4 * s, gz, 3.3 * s, 8, [0.07, 0.28, 0.07]);
-      this.addSphere(verts, idxs, gx + 1.5 * s, 10.8 * s, gz + 0.8 * s, 2.1 * s, 7, [0.11, 0.36, 0.09]);
-      this.addSphere(verts, idxs, gx - 1.2 * s, 10.4 * s, gz - 1.0 * s, 1.9 * s, 7, [0.09, 0.31, 0.08]);
+      this.addCylinder(verts, idxs, gx, 0, gz, 0.5 * s, 9 * s, 6, [0.38, 0.24, 0.09]);
+      this.addSphere(verts, idxs, gx, 9.4 * s, gz, 3.3 * s, 6, [0.07, 0.28, 0.07]);
+      this.addSphere(verts, idxs, gx + 1.5 * s, 10.8 * s, gz + 0.8 * s, 2.1 * s, 6, [0.11, 0.36, 0.09]);
+      this.addSphere(verts, idxs, gx - 1.2 * s, 10.4 * s, gz - 1.0 * s, 1.9 * s, 6, [0.09, 0.31, 0.08]);
     }
   }
   private addCityScenery(verts: number[], idxs: number[]) {
