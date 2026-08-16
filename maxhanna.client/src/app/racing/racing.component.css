@@ -1923,6 +1923,18 @@
   transition: transform 0.15s ease;
 }
 
+/* Artistic decal artwork — the real polygon silhouette (skull, flame, kanji,
+   stripe, spot…) clipped onto the map instead of a plain rectangle. The
+   drop-shadow traces the clipped edge so the shape reads as a dark-keylined
+   vinyl sticker, matching the 3D car's outline pass. */
+.garage-decal-shape {
+  position: absolute;
+  inset: 0;
+  opacity: 0.96;
+  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.85)) drop-shadow(0 0 0.5px rgba(0, 0, 0, 0.7));
+  transition: transform 0.15s ease;
+}
+
 /* Accent side-pod stripes that survive the combined livery — drawn slightly
    translucent with a dashed halo so they read as the pod stripes sitting
    outboard of the body, distinct from the solid decal plates. */
@@ -1939,7 +1951,8 @@
 }
 
 .garage-appearance-card:hover .garage-decal-plate,
-.garage-appearance-card:hover .garage-decal-accent {
+.garage-appearance-card:hover .garage-decal-accent,
+.garage-appearance-card:hover .garage-decal-shape {
   transform: translateY(-1px);
 }
 
@@ -6189,7 +6202,6 @@
 }
 
 .race-lb-row span:first-child {
-  width: 30px;
   flex: none;
 }
 

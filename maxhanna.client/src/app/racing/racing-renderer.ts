@@ -8827,11 +8827,23 @@ void main() { FragColor = texture(uTex, vUV); }`;
         const hw = loftHW(BODY_LOFT, x);
         return [-hw, hw];
       };
+      // Every decal/wrap is drawn as a dark keyline rim behind its coloured
+      // fill. The rim's near-black vertex colour is multiplied by the decal
+      // tint at draw time, so it stays a shaded version of the tint and gives
+      // the artwork a defined vinyl edge instead of a single flat colour that
+      // bleeds into the paint. The rim sits a hair lower so the fill overlaps
+      // its centre and only the outline shows around the silhouette.
+      const keyline = [0.05, 0.055, 0.075];
+      const rimPad = 0.016;
+      const rimScale = 1.09;
       for (const [cx, , l, , d, z] of layout.flank) {
+        this.addSurfacePlate(gv, gi, cx, z, l + rimPad, d + rimPad, carBodyTopY, keyline, 0.004, bodyClamp);
+        this.addSurfacePlate(gv, gi, cx, -z, l + rimPad, d + rimPad, carBodyTopY, keyline, 0.004, bodyClamp);
         this.addSurfacePlate(gv, gi, cx, z, l, d, carBodyTopY, [1, 1, 1], 0.006, bodyClamp);
         this.addSurfacePlate(gv, gi, cx, -z, l, d, carBodyTopY, [1, 1, 1], 0.006, bodyClamp);
       }
       for (const [cx, , l, , d] of layout.center) {
+        this.addSurfacePlate(gv, gi, cx, 0, l + rimPad, d + rimPad, carBodyTopY, keyline, 0.004, bodyClamp);
         this.addSurfacePlate(gv, gi, cx, 0, l, d, carBodyTopY, [1, 1, 1], 0.006, bodyClamp);
       }
       // Artistic polygon decals: ear-clipped into triangles that hug the body
@@ -8840,9 +8852,16 @@ void main() { FragColor = texture(uTex, vUV); }`;
       for (const shape of layout.shapes ?? []) {
         const sc = shape.scale ?? 1;
         const lift = shape.lift ?? 0.006;
+        const rimLift = Math.max(0.003, lift - 0.0025);
+        this.addSurfacePolygon(gv, gi, shape.path, shape.cx, shape.cz, sc * rimScale, carBodyTopY, keyline, rimLift, bodyClamp);
         this.addSurfacePolygon(gv, gi, shape.path, shape.cx, shape.cz, sc, carBodyTopY, [1, 1, 1], lift, bodyClamp);
         if (shape.mirror) {
-          this.addSurfacePolygon(gv, gi, shape.path, shape.cx, -shape.cz, sc, carBodyTopY, [1, 1, 1], lift, bodyClamp, true);
+          // Pass the SAME cz and let `mirror` negate the final z: the caller
+          // previously handed -cz here, which double-negated it and painted the
+          // "mirror" back onto the +z flank (only z-flipped). Now it lands on
+          // the true opposite flank (-cz) as the interface documents.
+          this.addSurfacePolygon(gv, gi, shape.path, shape.cx, shape.cz, sc * rimScale, carBodyTopY, keyline, rimLift, bodyClamp, true);
+          this.addSurfacePolygon(gv, gi, shape.path, shape.cx, shape.cz, sc, carBodyTopY, [1, 1, 1], lift, bodyClamp, true);
         }
       }
       const decVao = gl.createVertexArray()!;

@@ -103,6 +103,20 @@ interface Sprite {
   stretch: number;               // horizontal squash-stretch while sliding (1 = rest)
   phase: SpritePhase;
   id: number;
+  popDelay: number;              // seconds of tremble before the shatter starts
+  popT: number;                  // seconds since the pop began
+  broken: boolean;               // true once the shatter burst has fired
+}
+
+/** A fragment or flash ring from a marble's shatter burst (grid-space). */
+interface PopShard {
+  col: number; row: number;      // grid position (fractional)
+  vCol: number; vRow: number;    // velocity in cells/sec
+  life: number; maxLife: number; // remaining / total lifetime (seconds)
+  size: number;                  // radius in cell units
+  color: [number, number, number];
+  spin: number; spinSpeed: number;
+  ring: boolean;                 // true = expanding flash ring, else a fragment
 }
 
 @Component({
@@ -179,6 +193,10 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
 
   private ctx!: CanvasRenderingContext2D;
   private sprites: Sprite[] = [];
+  /** Shatter bursts for the player's board (drawn + stepped each frame). */
+  private _shards: PopShard[] = [];
+  /** Shatter bursts for the opponent's board. */
+  private _oppShards: PopShard[] = [];
   private animId = 0;
   private lastTime = 0;
   private _destroyed = false;
@@ -243,6 +261,8 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
       this.isMenuPanelOpen = false;
       this.viewingOpponent = false;
       this.sprites = [];
+      this._shards = [];
+      this._oppShards = [];
       this._board = [];
       this._oppSprites = [];
       this._oppBoard = [];
@@ -395,6 +415,8 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     this.isMenuPanelOpen = false;
     this.viewingOpponent = false;
     this.sprites = [];
+    this._shards = [];
+    this._oppShards = [];
     this._board = [];
     this._oppSprites = [];
     this._oppBoard = [];
@@ -674,9 +696,15 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     //    popped, which is why marbles vanished during row shifts.
     const poppedKeys = new Set<string>();
     for (const p of popped) poppedKeys.add(`${p.row},${p.col}:${p.color}`);
+    // Stagger each run so its marbles shatter left→right / top→bottom in
+    // sequence rather than all at once.
+    const popDelays = this.popDelaysFor(popped);
     for (const s of sprites) {
       if (poppedKeys.has(`${s.tRow},${s.tCol}:${s.color}`)) {
         s.phase = 'pop';
+        s.popDelay = popDelays.get(`${s.tRow},${s.tCol}`) ?? 0.05;
+        s.popT = 0;
+        s.broken = false;
       }
     }
 
@@ -840,10 +868,18 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
       }
     }
 
-    // 3. Unmatched live sprites must have popped → pop them.
+    // 3. Unmatched live sprites must have popped → pop them. These are cascade
+    //    leftovers whose coords don't match the primary run, so give them a
+    //    short positional stagger after the main run breaks.
     for (const s of sprites) {
       if (s.phase === 'pop') { next.push(s); continue; }
-      if (!used.has(s)) { s.phase = 'pop'; next.push(s); }
+      if (!used.has(s)) {
+        s.phase = 'pop';
+        s.popDelay = 0.16 + s.tCol * 0.05;
+        s.popT = 0;
+        s.broken = false;
+        next.push(s);
+      }
     }
 
     return next;
@@ -870,6 +906,9 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
       roll: 0,
       stretch: 1,
       phase: 'move',
+      popDelay: 0,
+      popT: 0,
+      broken: false,
     };
   }
 
@@ -989,6 +1028,14 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     this.playClick();
   }
 
+  /** Move the center-row cursor (the selected marble) one column left/right,
+   *  wrapping around the edges. This is the handle that ↑/↓ column shifts act
+   *  on. Desktop ←/→ drives it; mobile taps drive it directly. */
+  moveCursor(dir: number): void {
+    if (this.status !== 'playing') return;
+    this.selectColumn((this.selectedCol + dir + COLS) % COLS);
+  }
+
   /** Mobile: tapping the mini opponent board expands it to a full-screen
    *  read-only view (the player's board is hidden until they go back). */
   viewOpponent(): void {
@@ -1006,9 +1053,14 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
   @HostListener('window:keydown', ['$event'])
   onKeyDown(e: KeyboardEvent): void {
     if (this.status !== 'playing') return;
+    // Every move needs a fresh press — ignore OS key auto-repeat so holding an
+    // arrow key can't chain cursor moves or column shifts.
+    if (e.repeat) return;
     const k = e.key;
-    if (k === 'ArrowLeft') { e.preventDefault(); this.shiftRow(-1); }
-    else if (k === 'ArrowRight') { e.preventDefault(); this.shiftRow(1); }
+    // ← / → move the center-row cursor (the selection handle); ↑ / ↓ shift
+    // that column up/down. Row sliding stays on Space and the on-screen ◀/▶.
+    if (k === 'ArrowLeft') { e.preventDefault(); this.moveCursor(-1); }
+    else if (k === 'ArrowRight') { e.preventDefault(); this.moveCursor(1); }
     else if (k === 'ArrowUp') { e.preventDefault(); this.shiftColumn(-1); }
     else if (k === 'ArrowDown') { e.preventDefault(); this.shiftColumn(1); }
     else if (k === ' ') { e.preventDefault(); this.shiftRow(1); }
@@ -1119,8 +1171,10 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
       const item = this._oppQueue.shift()!;
       this.playOpponentUpdate(item.view);
     }
-    this.sprites = this.advanceSprites(this.sprites, dt);
-    this._oppSprites = this.advanceSprites(this._oppSprites, dt);
+    this.sprites = this.advanceSprites(this.sprites, dt, this._shards);
+    this._oppSprites = this.advanceSprites(this._oppSprites, dt, this._oppShards);
+    this.advanceShards(this._shards, dt);
+    this.advanceShards(this._oppShards, dt);
     // Age the blocked-shift nudge; clear it once the wiggle is done.
     if (this.nudgeCol >= 0) {
       this.nudgeT += dt;
@@ -1141,10 +1195,17 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
    *  Timed sprites (moveDur > 0, the opponent) ease along the gap between
    *  updates; untimed sprites (the player) keep the legacy fixed-speed glide
    *  for instant input feedback. */
-  private advanceSprites(sprites: Sprite[], dt: number): Sprite[] {
+  private advanceSprites(sprites: Sprite[], dt: number, shards: PopShard[]): Sprite[] {
     for (const s of sprites) {
       if (s.phase === 'pop') {
-        s.scale -= dt * 4.5;
+        s.popT += dt;
+        // Tremble for popDelay seconds, then shatter: fire the shard burst
+        // once and shrink the marble away.
+        if (!s.broken && s.popT >= s.popDelay) {
+          s.broken = true;
+          this.spawnPopBurst(s.col, s.row, s.color, shards);
+        }
+        if (s.broken) s.scale -= dt * 6.5;
         continue;
       }
       if (s.moveDur > 0) {
@@ -1180,7 +1241,115 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
         s.stretch = 1;
       }
     }
-    return sprites.filter(s => !(s.phase === 'pop' && s.scale <= 0.02));
+    return sprites.filter(s => !(s.phase === 'pop' && s.broken && s.scale <= 0.02));
+  }
+
+  /** Map each popped cell to a delay (seconds) before its shatter, grouping
+   *  connected same-colour cells into runs and ordering each run along its
+   *  dominant axis (left→right for horizontal, top→bottom for vertical) so a
+   *  match breaks in sequence instead of all at once. */
+  private popDelaysFor(popped: { row: number; col: number; color: number }[]): Map<string, number> {
+    const delays = new Map<string, number>();
+    const cells = new Map<string, { row: number; col: number; color: number }>();
+    for (const p of popped) cells.set(`${p.row},${p.col}`, p);
+    const visited = new Set<string>();
+    const STAGGER = 0.055;
+    for (const key of cells.keys()) {
+      if (visited.has(key)) continue;
+      const queue = [key];
+      visited.add(key);
+      const order: string[] = [];
+      while (queue.length) {
+        const k = queue.shift()!;
+        order.push(k);
+        const c = cells.get(k)!;
+        const neighbours = [[c.row, c.col - 1], [c.row, c.col + 1], [c.row - 1, c.col], [c.row + 1, c.col]];
+        for (const [nr, nc] of neighbours) {
+          const nk = `${nr},${nc}`;
+          const np = cells.get(nk);
+          if (np && np.color === c.color && !visited.has(nk)) { visited.add(nk); queue.push(nk); }
+        }
+      }
+      const first = cells.get(order[0])!;
+      if (order.every(k => cells.get(k)!.row === first.row)) {
+        order.sort((a, b) => cells.get(a)!.col - cells.get(b)!.col);
+      } else if (order.every(k => cells.get(k)!.col === first.col)) {
+        order.sort((a, b) => cells.get(a)!.row - cells.get(b)!.row);
+      }
+      order.forEach((k, i) => delays.set(k, i * STAGGER));
+    }
+    return delays;
+  }
+
+  /** Fire a marble's shatter: a white flash ring plus a spray of tinted
+   *  fragments that fly outward and drop with gravity. */
+  private spawnPopBurst(col: number, row: number, colorId: number, shards: PopShard[]): void {
+    const base = COLORS[colorId] ?? COLORS[1];
+    shards.push({
+      col, row, vCol: 0, vRow: 0, life: 0.26, maxLife: 0.26, size: 0.12,
+      color: [255, 255, 255], spin: 0, spinSpeed: 0, ring: true,
+    });
+    const n = 9;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + Math.random() * 0.6;
+      const speed = 1.4 + Math.random() * 2.4;
+      const bright = 0.7 + Math.random() * 0.7;
+      shards.push({
+        col, row,
+        vCol: Math.cos(a) * speed,
+        vRow: Math.sin(a) * speed - 1.1,
+        life: 0.45 + Math.random() * 0.35,
+        maxLife: 0.8,
+        size: 0.045 + Math.random() * 0.07,
+        color: [clamp255(base[0] * bright), clamp255(base[1] * bright), clamp255(base[2] * bright)],
+        spin: Math.random() * Math.PI * 2,
+        spinSpeed: (Math.random() - 0.5) * 14,
+        ring: false,
+      });
+    }
+  }
+
+  /** Step shard physics (fragments fly/fall, rings expand) and cull the dead. */
+  private advanceShards(shards: PopShard[], dt: number): void {
+    for (const s of shards) {
+      s.life -= dt;
+      if (s.ring) {
+        s.size += dt * 1.5;
+      } else {
+        s.col += s.vCol * dt;
+        s.row += s.vRow * dt;
+        s.vRow += 9 * dt;
+        s.spin += s.spinSpeed * dt;
+      }
+    }
+    for (let i = shards.length - 1; i >= 0; i--) {
+      if (shards[i].life <= 0) shards.splice(i, 1);
+    }
+  }
+
+  /** Draw shatter shards + flash rings for one board (grid → px via layout). */
+  private drawShards(ctx: CanvasRenderingContext2D, shards: PopShard[], cell: number, ox: number, oy: number): void {
+    for (const s of shards) {
+      const px = ox + (s.col + 0.5) * cell;
+      const py = oy + (s.row + 0.5) * cell;
+      const fade = Math.max(0, Math.min(1, s.life / s.maxLife));
+      if (s.ring) {
+        ctx.strokeStyle = `rgba(255,255,255,${(0.85 * fade).toFixed(3)})`;
+        ctx.lineWidth = Math.max(1.5, cell * 0.09);
+        ctx.beginPath();
+        ctx.arc(px, py, s.size * cell, 0, Math.PI * 2);
+        ctx.stroke();
+        continue;
+      }
+      ctx.save();
+      ctx.translate(px, py);
+      ctx.rotate(s.spin);
+      ctx.globalAlpha = fade;
+      ctx.fillStyle = `rgb(${s.color[0] | 0},${s.color[1] | 0},${s.color[2] | 0})`;
+      const sz = Math.max(1.5, s.size * cell);
+      ctx.fillRect(-sz / 2, -sz / 2, sz, sz);
+      ctx.restore();
+    }
   }
 
   /** Time-based eased interpolation for a sprite toward its target. Uses the
@@ -1284,8 +1453,10 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     const nudgeOffset = this.nudgeCol >= 0 ? this.nudgeOffset() : 0;
     const sorted = [...this.sprites].sort((a, b) => a.row - b.row);
     for (const s of sorted) {
-      const px = ox + (s.col + 0.5) * cell;
-      const py2 = oy + (s.row + 0.5) * cell
+      // Tremble in place while a pop is counting down to its shatter.
+      const tremble = s.phase === 'pop' && !s.broken ? Math.sin(s.popT * 70) * cell * 0.05 : 0;
+      const px = ox + (s.col + 0.5) * cell + tremble;
+      const py2 = oy + (s.row + 0.5) * cell + Math.cos(s.popT * 83) * cell * 0.04
         + (Math.round(s.col) === this.nudgeCol ? nudgeOffset * cell : 0);
       const radius = cell * 0.44 * Math.max(0, s.scale);
       if (radius <= 0) continue;
@@ -1300,6 +1471,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
         this.drawMarble(ctx, px, py2, radius, s.color, s.roll, s.id);
       }
     }
+    this.drawShards(ctx, this._shards, cell, ox, oy);
 
     // Selected column marker (for ↑/↓ shifts).
     if (this.status === 'playing') {
@@ -1454,8 +1626,9 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     const sorted = [...this._oppSprites].sort((a, b) => a.row - b.row);
     const hotColor = this.opponent?.specialColor ?? 0;
     for (const s of sorted) {
-      const px = ox + (s.col + 0.5) * cell;
-      const py = oy + (s.row + 0.5) * cell;
+      const tremble = s.phase === 'pop' && !s.broken ? Math.sin(s.popT * 70) * cell * 0.05 : 0;
+      const px = ox + (s.col + 0.5) * cell + tremble;
+      const py = oy + (s.row + 0.5) * cell + Math.cos(s.popT * 83) * cell * 0.04;
       const radius = cell * 0.44 * Math.max(0, s.scale);
       if (radius <= 0) continue;
       const stretch = s.stretch ?? 1;
@@ -1471,6 +1644,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
         this.drawMarble(ctx, px, py, radius, s.color, s.roll, s.id + this.opponentSeedOffset, hotColor);
       }
     }
+    this.drawShards(ctx, this._oppShards, cell, ox, oy);
   }
 
   private drawBoardBackdrop(ctx: CanvasRenderingContext2D, w: number, h: number): void {

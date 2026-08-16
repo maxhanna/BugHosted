@@ -80,6 +80,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     'DigCraftComponent',
     'GrandTheftComponent',
     'RacingComponent', 
+    'MarblesComponent',
     'MetaComponent',
     'UpdateUserSettingsComponent',
     'MediaViewerComponent', 

@@ -306,6 +306,11 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   private _mpWinnerCelebrated = false;
   keys = new Set<string>();
   isMobile = false;
+  /** True when the primary pointer can hover (a mouse). Touchscreen laptops
+   *  and desktops report touch points but still have hover, so this — not
+   *  isMobile — decides whether the garage catalog click buys directly (hover
+   *  previews) or only previews for the tap-to-buy banner. */
+  hasHoverPointer = true;
   /** Live render scale for the WebGL drawing buffer (1 = full CSS size).
    *  Mobile starts at 0.72 and adapts down/up with measured frame time (see
    *  adaptRenderResolution) so cornering fill-rate spikes stay smooth. */
@@ -881,6 +886,11 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   }
   ngAfterViewInit() {
     this.isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    // The garage buy/preview flow keys off hover availability rather than the
+    // touch heuristic above: a touchscreen laptop still has a mouse, so its
+    // catalog cards should buy on click (hover already previews) instead of
+    // forcing the mobile tap-to-buy banner.
+    this.hasHoverPointer = window.matchMedia('(hover: hover)').matches;
     const canvas = this.canvasRef.nativeElement;
     // Phones are fill-rate bound: render the WebGL scene at 72% of the CSS
     // size and let CSS stretch it — a ~48% pixel cut on every pass (main,
@@ -3812,23 +3822,40 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     for (const [cx, , l, , d] of layout.center) {
       push(cx, 0, l, d);
     }
-    // Artistic polygon decals (digits, skull, flames, stripes, spots…) have no
-    // flank/center plates, so derive a bounding rect from each shape's path so
-    // the garage card still previews where the artwork lands on the body.
-    for (const s of layout.shapes ?? []) {
-      let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
-      for (const [px, pz] of s.path) {
-        const wx = s.cx + px * (s.scale ?? 1);
-        const wz = s.cz + pz * (s.scale ?? 1);
-        minX = Math.min(minX, wx); maxX = Math.max(maxX, wx);
-        minZ = Math.min(minZ, wz); maxZ = Math.max(maxZ, wz);
-      }
-      if (!Number.isFinite(minX)) continue;
-      push((minX + maxX) / 2, (minZ + maxZ) / 2, maxX - minX, maxZ - minZ);
-      if (s.mirror) push((minX + maxX) / 2, -(minZ + maxZ) / 2, maxX - minX, maxZ - minZ);
-    }
     this._decalRectCache.set(p.id, rects);
     return rects;
+  }
+  private _decalShapeCache = new Map<number, string[]>();
+  /** Actual artwork outlines for a decal card, rendered as CSS clip-path
+   *  polygons so the gallery shows the real shape (skull, flames, kanji,
+   *  stripes, spots…) instead of a plain bounding rectangle. Points are mapped
+   *  from the car's local [x, z] plane into the card's percentage space, and
+   *  mirrored shapes are emitted for the opposite flank. */
+  getDecalShapes(p: RacingAppearancePart): string[] {
+    const cached = this._decalShapeCache.get(p.id);
+    if (cached) return cached;
+    const layout = DECAL_LAYOUTS[p.id];
+    if (!layout) return [];
+    const xMin = -1.5, xMax = 1.5, zMin = -0.62, zMax = 0.62;
+    const xSpan = xMax - xMin, zSpan = zMax - zMin;
+    const polys: string[] = [];
+    for (const s of layout.shapes ?? []) {
+      const sc = s.scale ?? 1;
+      const mirrors = s.mirror ? [false, true] : [false];
+      for (const mirror of mirrors) {
+        const pts: string[] = [];
+        for (const [px, pz] of s.path) {
+          const wx = s.cx + px * sc;
+          const wz = (mirror ? -1 : 1) * (s.cz + pz * sc);
+          const xp = ((wx - xMin) / xSpan) * 100;
+          const zp = ((wz - zMin) / zSpan) * 100;
+          pts.push(`${xp.toFixed(2)}% ${zp.toFixed(2)}%`);
+        }
+        if (pts.length >= 3) polys.push(`polygon(${pts.join(', ')})`);
+      }
+    }
+    this._decalShapeCache.set(p.id, polys);
+    return polys;
   }
   private _accentRectCache = new Map<number, { left: string; top: string; width: string; height: string }[]>();
   /**
@@ -4482,11 +4509,11 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   /** Paint / skin hovered in the skins tab — previewed on the garage car
    *  (colour + finish shader) without buying (cleared on mouse leave). */
   skinPreview: any = null;
-  /** Mobile garage flow: touch screens have no hover, so tapping a catalog card
-   *  only previews it (like desktop hover) and the preview banner becomes the
-   *  buy/equip button. Desktop keeps hover-preview + click-to-buy on the card. */
+  /** Garage catalog flow: when the pointer can hover, hovering already previews
+   *  so clicking the card buys/equips directly. Only on no-hover (touch) devices
+   *  does a tap preview instead, with the banner becoming the buy/equip button. */
   onAppearanceCardClick(part: RacingAppearancePart) {
-    if (this.isMobile) { this.appearancePreview = part; this.pendingBuyPart = part; return; }
+    if (!this.hasHoverPointer) { this.appearancePreview = part; this.pendingBuyPart = part; return; }
     this.buyAppearancePart(part);
   }
   onAppearanceCardHover(part: RacingAppearancePart | null) {
@@ -4494,7 +4521,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     if (part) this.pendingBuyPart = part;
   }
   onSkinCardClick(skin: any) {
-    if (this.isMobile) { this.skinPreview = skin; return; }
+    if (!this.hasHoverPointer) { this.skinPreview = skin; return; }
     this.selectSkin(skin);
   }
   /** Commits the currently previewed item — the preview banner's buy/equip tap. */

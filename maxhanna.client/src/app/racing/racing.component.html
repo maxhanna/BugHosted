@@ -410,7 +410,11 @@
       <div class="garage-layout">
         <!-- Left: Car Preview -->
         <div class="garage-preview">
-          <div class="garage-preview-banner" *ngIf="appearancePreview || skinPreview || pendingBuyPart"
+          <!-- Tap-to-buy banner is mobile-only: on a mouse/hover device the card
+               click already buys and hover previews, so the banner just gets in
+               the way. Touch screens have no hover, so the banner is their
+               buy/equip button. -->
+          <div class="garage-preview-banner" *ngIf="!hasHoverPointer && (appearancePreview || skinPreview || pendingBuyPart)"
             role="button" tabindex="0" (click)="previewBuy()" (keydown.enter)="previewBuy()">
             👁 PREVIEW <strong>{{ previewBannerName }}</strong><span> · tap to {{ previewActionText }}</span>
           </div>
@@ -537,6 +541,8 @@
                       [ngStyle]="{ 'left': r.left, 'top': r.top, 'width': r.width, 'height': r.height, 'background': getAccentPlateColor(getEquippedAppearance('accent')) }"></div>
                     <div class="garage-decal-plate" *ngFor="let r of getDecalPlateRects(p)"
                       [ngStyle]="{ 'left': r.left, 'top': r.top, 'width': r.width, 'height': r.height, 'background': getDecalPlateColor(p.id) }"></div>
+                    <div class="garage-decal-shape" *ngFor="let clip of getDecalShapes(p)"
+                      [style.clip-path]="clip" [style.background]="getDecalPlateColor(p.id)"></div>
                   </div>
                   <!-- Accent pairing: clean when the decal keeps all accent pod
                        stripes (then it fits every accent style), warn when some
