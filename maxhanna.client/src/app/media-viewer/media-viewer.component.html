@@ -22,17 +22,17 @@
     </div>
     <div *ngIf="!showMediaLoading && isLoading && (autoload || !selectedFileSrc || displayLoading)"
       style="min-height:50px; min-width: 50px;">
-      Loading Media...
+      <app-loading-spinner></app-loading-spinner>
     </div>
     <div *ngIf="showMediaLoading && isLoading && !selectedFileSrc" class="mediaLoadingSpinner">
-      <app-loading-spinner>Loading…</app-loading-spinner>
+      <app-loading-spinner></app-loading-spinner>
     </div>
     <!-- Render-phase spinner: shows once a src is set until the media element
          actually displays (image load, video/audio canplay) or errors. Only
          for real media types so PDFs/zips never spin forever. -->
     <div *ngIf="showImageLoadingFetch && !mediaDisplayed && selectedFileSrc && isDisplayableMediaType()"
       class="mediaLoadingSpinner">
-      <app-loading-spinner>Loading…</app-loading-spinner>
+      <app-loading-spinner></app-loading-spinner>
     </div>
     <div *ngIf="autoload && selectedFileSrc != ''" class="mediaDiv">
       <img #mediaContainer (click)="expandFile({url: selectedFile, extension: selectedFileExtension})"
