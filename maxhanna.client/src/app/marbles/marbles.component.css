@@ -806,6 +806,101 @@
   margin-top: 4px;
 }
 
+/* ── Forfeit confirmation dialog (styled, replaces browser confirm) ── */
+
+.marbles-forfeit-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: rgba(2, 6, 4, 0.6);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: marblesPauseFade 0.15s ease-out;
+}
+
+.marbles-forfeit-dialog {
+  width: min(400px, 92vw);
+  background: var(--secondary-component-background-color);
+  border: var(--main-border);
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  animation: marblesPauseFade 0.18s ease-out;
+}
+
+.marbles-forfeit-title {
+  font-family: var(--section-font-family);
+  font-size: 20px;
+  font-weight: 700;
+  text-align: center;
+  color: #ffd9a0;
+}
+
+.marbles-forfeit-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--secondary-font-color);
+}
+
+.marbles-forfeit-opp {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.marbles-forfeit-opp strong {
+  color: #fff;
+}
+
+.marbles-forfeit-marble {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 32% 28%, #ff8a80, #d32f2f 55%, #7f0000);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 0 10px rgba(255, 80, 60, 0.45);
+}
+
+.marbles-forfeit-note {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--third-font-color);
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+}
+
+.marbles-forfeit-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.marbles-forfeit-actions .win98-btn {
+  flex: 1;
+  padding: 9px 8px;
+  font-size: 12.5px;
+}
+
+.marbles-forfeit-cancel {
+  opacity: 0.92;
+}
+
+.marbles-forfeit-confirm {
+  background: #c62828;
+  border-color: #ff8a80;
+}
+
 
 
 /* ── Winner banner ─────────────────────────────────────────────────── */
