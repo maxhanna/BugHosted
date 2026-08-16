@@ -198,4 +198,23 @@
     <button *ngIf="status === 'playing' || status === 'won'" class="win98-btn primary marbles-quit-btn" (click)="confirmQuitMatch()">🚪 Quit Match</button>
     <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button>
   </div>
+
+  <!-- ── Forfeit confirmation dialog (styled, replaces browser confirm) ── -->
+  <div class="marbles-forfeit-backdrop" *ngIf="showForfeitDialog">
+    <div class="marbles-forfeit-dialog">
+      <div class="marbles-forfeit-title">⚠️ Forfeit Match?</div>
+      <div class="marbles-forfeit-body">
+        <div class="marbles-forfeit-opp">
+          <span class="marbles-forfeit-marble"></span>
+          <span>You'll forfeit to <strong>{{ opponent?.playerName ?? 'your opponent' }}</strong> — leaving now hands them the win.</span>
+        </div>
+        <p class="marbles-forfeit-note">Your marbles are paused and safe — you can keep playing if you change your mind.</p>
+      </div>
+      <div class="marbles-forfeit-actions">
+        <button class="win98-btn marbles-forfeit-cancel" (click)="cancelForfeit()">↩ Keep Playing</button>
+        <button class="win98-btn primary marbles-forfeit-confirm" (click)="confirmForfeit()">🚪 Forfeit</button>
+      </div>
+    </div>
+  </div>
+  </div>
 </div>
