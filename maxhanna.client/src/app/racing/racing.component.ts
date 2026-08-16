@@ -179,6 +179,9 @@ interface RemoteCarVisual {
   glowId?: number;
   accentId?: number;
   glowIntensity?: number;
+  tireId?: number;
+  helmetId?: number;
+  accessoryId?: number;
 }
 // Reused per-frame render slot — the live race carList used to build a fresh
 // object literal per bot/remote/player car (plus an appearance spread) every
@@ -252,7 +255,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   totalRacers = 1;
   playerCar: RacingPlayerCar = {
     userId: 0, playerName: '', upgrades: [], skinId: 1, spoilerId: 0, rimId: 0, exhaustId: 0, decalId: 0,
-    decalColorId: 0, glowId: 0, accentId: 0, glowIntensity: 50,
+    decalColorId: 0, glowId: 0, accentId: 0, glowIntensity: 50, tireId: 0, helmetId: 0, accessoryId: 0,
     totalRaces: 0, wins: 0, money: 500, bestLap: 0, totalEarnings: 0
   };
   carX = 0; carZ = 0; carYaw = 0; carSpeed = 0;
@@ -419,6 +422,15 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   private _windSource: AudioBufferSourceNode | null = null;
   private _windFilter: BiquadFilterNode | null = null;
   private _windGain: GainNode | null = null;
+  // Aurora Glacier ambient: a slow howling wind (LFO-swept bandpass) and
+  // scheduled penguin chirps, both faded in by updateEngineAudio while racing.
+  private _howlSource: AudioBufferSourceNode | null = null;
+  private _howlFilter: BiquadFilterNode | null = null;
+  private _howlFilter2: BiquadFilterNode | null = null;
+  private _howlGain: GainNode | null = null;
+  private _howlLfo: OscillatorNode | null = null;
+  private _howlLfoGain: GainNode | null = null;
+  private _nextPenguinChirpAt = 0;
   private _crowdSource: AudioBufferSourceNode | null = null;
   private _crowdFilter: BiquadFilterNode | null = null;
   private _crowdFilter2: BiquadFilterNode | null = null;
@@ -582,6 +594,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
             p.glowId = data.glowId;
             p.accentId = data.accentId;
             p.glowIntensity = data.glowIntensity;
+            p.tireId = data.tireId;
+            p.helmetId = data.helmetId;
+            p.accessoryId = data.accessoryId;
           }
           const rc = this.remoteCars.get(data.connectionId);
           if (rc) this.applyAppearanceToRemote(rc, data);
@@ -2010,7 +2025,10 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
             connectionId: this.racingHub.myConnectionId || '',
             x: this.carX, z: this.carZ,
             yaw: this.carYaw, speed: this.carSpeed,
-            distance: this.carDist, currentLap: this.currentLap,
+            // The shortcut returns an unwrapped route distance while crossing
+            // the lap boundary; wrap it back so remote racers rank correctly.
+            distance: ((this.carDist % this.renderer.totalTrackDist) + this.renderer.totalTrackDist) % this.renderer.totalTrackDist,
+            currentLap: this.currentLap,
             isOffTrack: this.isOffTrack,
             totalTrackDist: this.renderer?.totalTrackDist || 0,
             raceDist: this._playerRaceDist,
@@ -2042,9 +2060,15 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       let eyeZ = this.carZ;
       // Camera rides the terrain: eye height = road elevation + 0.5, and the
       // pitch noses up/down with the grade so climbs and descents read live.
-      const pElev = this.renderer.getTrackElevation(this.carDist);
-      const pBank = this.renderer.getTrackBank(this.carDist);
-      const pLat = this.renderer.getTrackLateral(this.carX, this.carZ);
+      // In the shortcut passage the camera rides the causeway (flat lateral,
+      // no bank) rather than the far-away main-road values the jumped route
+      // distance would produce.
+      const inShortcutCam = this.renderer.isInShortcut(this.carX, this.carZ);
+      const pElev = inShortcutCam
+        ? this.renderer.getShortcutPoint(this.carX, this.carZ).y
+        : this.renderer.getTrackElevation(this.carDist);
+      const pBank = inShortcutCam ? 0 : this.renderer.getTrackBank(this.carDist);
+      const pLat = inShortcutCam ? 0 : this.renderer.getTrackLateral(this.carX, this.carZ);
       const grade = this.renderer.getTrackGrade(this.carDist);
       // Camera rides the bank too: on a banked corner it sits up/down with the
       // lateral tilt so the world reads as tilted, not the car.
@@ -2140,6 +2164,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         s.rimStyle = pa.rimStyle; s.spoilerId = pa.spoilerId; s.exhaustId = pa.exhaustId;
         s.accent = pa.accent; s.decalStyle = pa.decalStyle; s.decalColor = pa.decalColor; s.glow = pa.glow;
         s.glowIntensity = pa.glowIntensity; s.metallic = pa.metallic; s.skin = pa.skin;
+        s.tireId = pa.tireId; s.helmetId = pa.helmetId; s.accessoryId = pa.accessoryId;
         carList.push(s);
       }
       this._playerSpin += wheelRate(this.carSpeed) * dt;
@@ -2322,7 +2347,14 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.carX += dx;
     this.carZ += dz;
     const trackDist = this.renderer.getDistFromPoint(this.carX, this.carZ);
-    const tp = this.renderer.getTrackPointAlong(trackDist);
+    // The shipwreck shortcut: inside the passage the corridor centreline acts
+    // as the "track" so off-track/wall/wrong-way logic keeps the car on the
+    // causeway instead of dragging it back to the main loop — while the
+    // route distance (trackDist) still jumps ahead by the skipped arc.
+    const inShortcut = this.renderer.isInShortcut(this.carX, this.carZ);
+    const tp = inShortcut
+      ? this.renderer.getShortcutPoint(this.carX, this.carZ)
+      : this.renderer.getTrackPointAlong(trackDist);
     const expectedDir = Math.atan2(tp.dirX, tp.dirZ);
     const travelHeading = this.carDir;
     let headingDiff = travelHeading - expectedDir;
@@ -3554,6 +3586,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       glowId: this.playerCar.glowId || 0,
       accentId: this.playerCar.accentId || 0,
       glowIntensity: this.playerCar.glowIntensity ?? 50,
+      tireId: this.playerCar.tireId || 0,
+      helmetId: this.playerCar.helmetId || 0,
+      accessoryId: this.playerCar.accessoryId || 0,
     };
   }
 
@@ -3569,6 +3604,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     if (src.glowId !== undefined) rc.glowId = src.glowId;
     if (src.accentId !== undefined) rc.accentId = src.accentId;
     if (src.glowIntensity !== undefined) rc.glowIntensity = src.glowIntensity;
+    if (src.tireId !== undefined) rc.tireId = src.tireId;
+    if (src.helmetId !== undefined) rc.helmetId = src.helmetId;
+    if (src.accessoryId !== undefined) rc.accessoryId = src.accessoryId;
   }
 
   /** Fill a render slot with a remote player's garage appearance. */
@@ -3582,6 +3620,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     slot.accent = ACCENT_COLORS[rc.accentId ?? 0] ?? undefined;
     slot.glow = GLOW_COLORS[rc.glowId ?? 0] ?? undefined;
     slot.glowIntensity = rc.glowIntensity ?? 50;
+    slot.tireId = (rc.tireId && rc.tireId > 0) ? rc.tireId : undefined;
+    slot.helmetId = (rc.helmetId && rc.helmetId > 0) ? rc.helmetId : undefined;
+    slot.accessoryId = (rc.accessoryId && rc.accessoryId > 0) ? rc.accessoryId : undefined;
     slot.metallic = SKIN_FINISH_FACTOR[skin.finish] ?? 0.45;
     slot.skin = this.hexToRgb(skin.color);
   }
@@ -3665,6 +3706,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       { key: 'decal', label: 'DECALS & WRAPS', parts: APPEARANCE_PARTS.filter(p => p.category === 'decal') },
       { key: 'glow', label: 'NEON UNDERGLOW', parts: APPEARANCE_PARTS.filter(p => p.category === 'glow') },
       { key: 'accent', label: 'LIVERY ACCENT', parts: APPEARANCE_PARTS.filter(p => p.category === 'accent') },
+      { key: 'tires', label: 'TIRES', parts: APPEARANCE_PARTS.filter(p => p.category === 'tires') },
+      { key: 'helmet', label: 'HELMET', parts: APPEARANCE_PARTS.filter(p => p.category === 'helmet') },
+      { key: 'accessory', label: 'ACCESSORIES', parts: APPEARANCE_PARTS.filter(p => p.category === 'accessory') },
     ];
   }
   getAppearancePreviewClass(p: RacingAppearancePart): string {
@@ -3691,6 +3735,10 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       611: 'prev-accent-cyan', 612: 'prev-accent-lime',
       613: 'prev-accent-copper', 614: 'prev-accent-teal', 615: 'prev-accent-burgundy', 616: 'prev-accent-navy',
       617: 'prev-accent-mint', 618: 'prev-accent-coral', 619: 'prev-accent-champagne', 620: 'prev-accent-gunmetal',
+      701: 'prev-tire-white', 702: 'prev-tire-red', 703: 'prev-tire-gold', 704: 'prev-tire-slick',
+      705: 'prev-tire-blue', 706: 'prev-tire-green', 707: 'prev-tire-retro',
+      801: 'prev-helmet-white', 802: 'prev-helmet-black', 803: 'prev-helmet-yellow', 804: 'prev-helmet-green', 805: 'prev-helmet-pink',
+      901: 'prev-accessory-antenna', 902: 'prev-accessory-scoop', 903: 'prev-accessory-hoop',
     };
     return previews[p.id] ?? '';
   }
@@ -3856,6 +3904,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       case 'decal': return this.playerCar.decalId;
       case 'glow': return this.playerCar.glowId;
       case 'accent': return this.playerCar.accentId;
+      case 'tires': return this.playerCar.tireId;
+      case 'helmet': return this.playerCar.helmetId;
+      case 'accessory': return this.playerCar.accessoryId;
       default: return 0;
     }
   }
@@ -3898,6 +3949,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       case 'decal': this.playerCar.decalId = part.id; break;
       case 'glow': this.playerCar.glowId = part.id; break;
       case 'accent': this.playerCar.accentId = part.id; break;
+      case 'tires': this.playerCar.tireId = part.id; break;
+      case 'helmet': this.playerCar.helmetId = part.id; break;
+      case 'accessory': this.playerCar.accessoryId = part.id; break;
     }
     this.invalidateUpgradeStats();
   }
@@ -4277,6 +4331,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       decalColor: DECAL_COLOR_SWATCHES[this.playerCar.decalColorId ?? 0] ?? undefined,
       glow: GLOW_COLORS[this.playerCar.glowId] ?? undefined,
       glowIntensity: this.playerCar.glowIntensity ?? 50,
+      tireId: this.playerCar.tireId || undefined,
+      helmetId: this.playerCar.helmetId || undefined,
+      accessoryId: this.playerCar.accessoryId || undefined,
       metallic: SKIN_FINISH_FACTOR[skin.finish] ?? 0.45,
       skin: this.hexToRgb(skin.color),
     };
@@ -4304,6 +4361,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       case 'accent': out.accent = ACCENT_COLORS[p.id] ?? base.accent; break;
       case 'decal': out.decalStyle = p.id; break;
       case 'glow': out.glow = GLOW_COLORS[p.id] ?? base.glow; break;
+      case 'tires': out.tireId = p.id; break;
+      case 'helmet': out.helmetId = p.id; break;
+      case 'accessory': out.accessoryId = p.id; break;
     }
     return out;
   }
@@ -4351,6 +4411,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       accent: ACCENT_COLORS[p.accentId ?? 0] ?? undefined,
       glow: GLOW_COLORS[p.glowId ?? 0] ?? undefined,
       glowIntensity: p.glowIntensity ?? 50,
+      tireId: (p.tireId && p.tireId > 0) ? p.tireId : undefined,
+      helmetId: (p.helmetId && p.helmetId > 0) ? p.helmetId : undefined,
+      accessoryId: (p.accessoryId && p.accessoryId > 0) ? p.accessoryId : undefined,
       metallic: SKIN_FINISH_FACTOR[skin.finish] ?? 0.45,
       skin: this.hexToRgb(skin.color),
     };
@@ -4756,6 +4819,12 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this._squealRingGain = null;
     this._engineFilter = null;
     this._engineGain = null;
+    this._howlSource = null;
+    this._howlFilter = null;
+    this._howlFilter2 = null;
+    this._howlGain = null;
+    this._howlLfo = null;
+    this._howlLfoGain = null;
     this._audioCtx = null;
   }
   private initEngineAudio() {
@@ -4879,7 +4948,33 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this._squealRingGain.gain.value = 0.05;
       this._squealRingOsc.connect(this._squealRingGain);
       this._squealRingGain.connect(this._squealGain);
-      this._squealRingOsc.start();
+      this._howlSource = ctx.createBufferSource();
+      this._howlSource.buffer = buf;
+      this._howlSource.loop = true;
+      this._howlFilter = ctx.createBiquadFilter();
+      this._howlFilter.type = 'bandpass';
+      this._howlFilter.frequency.value = 320;
+      this._howlFilter.Q.value = 1.1;
+      this._howlFilter2 = ctx.createBiquadFilter();
+      this._howlFilter2.type = 'bandpass';
+      this._howlFilter2.frequency.value = 640;
+      this._howlFilter2.Q.value = 0.9;
+      this._howlGain = ctx.createGain();
+      this._howlGain.gain.value = 0;
+      this._howlSource.connect(this._howlFilter);
+      this._howlFilter.connect(this._howlGain);
+      this._howlSource.connect(this._howlFilter2);
+      this._howlFilter2.connect(this._howlGain);
+      this._howlGain.connect(ctx.destination);
+      // A slow LFO sweeps the bandpass so the noise reads as a howling gust
+      // rather than a constant hiss.
+      this._howlLfo = ctx.createOscillator();
+      this._howlLfo.type = 'sine';
+      this._howlLfo.frequency.value = 0.14;
+      this._howlLfoGain = ctx.createGain();
+      this._howlLfoGain.gain.value = 90;
+      this._howlLfo.connect(this._howlLfoGain);
+      this._howlLfoGain.connect(this._howlFilter.frequency);
       this._remoteVoices = [];
       for (let i = 0; i < RacingComponent.MAX_REMOTE_VOICES; i++) {
         const vOsc = ctx.createOscillator();
@@ -4919,6 +5014,8 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this._thrumLfo.start();
       this._windSource.start();
       this._crowdSource.start();
+      if (this._howlSource) this._howlSource.start();
+      if (this._howlLfo) this._howlLfo.start();
     } catch { }
   }
   private updateEngineAudio() {
@@ -4931,6 +5028,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       if (this._harmOsc) this._harmOsc.frequency.setTargetAtTime(140, t, 0.15);
       this._engineGain.gain.setTargetAtTime(0, t, 0.2);
       if (this._windGain) this._windGain.gain.setTargetAtTime(0, t, 0.2);
+      if (this._howlGain) this._howlGain.gain.setTargetAtTime(0, t, 0.3);
       if (this._crowdGain) this._crowdGain.gain.setTargetAtTime(0, t, 0.2);
       if (this._screechGain) this._screechGain.gain.setTargetAtTime(0, t, 0.1);
       if (this._squealGain) this._squealGain.gain.setTargetAtTime(0, t, 0.1);
@@ -4988,6 +5086,32 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     // No wind noise while parked on the grid — only the revved engine.
     if (this._windFilter) this._windFilter.frequency.setTargetAtTime(400 + speedRatio * 2200, t, 0.15);
     if (this._windGain) this._windGain.gain.setTargetAtTime(revving ? 0 : speedRatio * speedRatio * 0.05, t, 0.15);
+    // Aurora Glacier ambient: a low wind howl that fades in over the first
+    // ~30s of racing and grows with speed — the frozen world becomes audible
+    // once the race is actually underway (never during the countdown).
+    const isAurora = this.renderer?.theme === 'antarctica';
+    if (this._howlGain) {
+      const amb = isAurora
+        ? Math.min(1, this.totalRaceTime / 30000) * (0.35 + 0.65 * speedRatio)
+        : 0;
+      this._howlGain.gain.setTargetAtTime(amb * 0.09, t, 0.4);
+      if (this._howlFilter) {
+        const gust = 0.5 + 0.5 * Math.sin(t * 0.21);
+        this._howlFilter.frequency.setTargetAtTime(280 + amb * 150 + gust * 60, t, 0.5);
+      }
+    }
+    // Penguin chirps: scheduled randomly while racing, quieter at first and
+    // swelling as the race goes on and when driving past the colony.
+    if (isAurora && this._audioCtx && this.totalRaceTime > 4000) {
+      const now = performance.now();
+      if (now >= this._nextPenguinChirpAt) {
+        this._nextPenguinChirpAt = now + 3200 + Math.random() * 5500;
+        const amb2 = Math.min(1, this.totalRaceTime / 30000) * (0.3 + 0.7 * speedRatio);
+        const pengDist = this.renderer?.nearestPenguinDist(this.carX, this.carZ) ?? Infinity;
+        const prox = pengDist >= 50 ? 0 : Math.pow(1 - pengDist / 50, 2);
+        this.playPenguinChirp(Math.min(1, amb2) * (0.35 + 0.65 * prox));
+      }
+    }
     const slide = Math.min(1, this._playerSlide);
     if (this._screechGain) {
       this._screechGain.gain.setTargetAtTime(slide * 0.055, t, 0.05);
@@ -5081,6 +5205,36 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       }
     }
   }
+  /** A short synthesized penguin squawk — two quick notes, each sweeping up
+   *  then down through a nasal bandpass so it reads as a bird, not a whistle.
+   *  Pitch jitters per note so consecutive chirps never sound identical. */
+  private playPenguinChirp(vol: number) {
+    if (this._destroyed || !this.soundOn || !this._audioCtx || vol <= 0.01) return;
+    try {
+      const ctx = this._audioCtx;
+      const t0 = ctx.currentTime;
+      for (let n = 0; n < 2; n++) {
+        const t = t0 + n * 0.22;
+        const osc = ctx.createOscillator();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(850 + Math.random() * 350, t);
+        osc.frequency.exponentialRampToValueAtTime(1500 + Math.random() * 500, t + 0.07);
+        osc.frequency.exponentialRampToValueAtTime(650 + Math.random() * 250, t + 0.16);
+        const bp = ctx.createBiquadFilter();
+        bp.type = 'bandpass';
+        bp.frequency.value = 1200;
+        bp.Q.value = 1.6;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(vol * 0.14, t + 0.03);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
+        osc.connect(bp).connect(g).connect(ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.22);
+      }
+    } catch { }
+  }
+
   private playStandRoar(speed: number) {
     if (this._destroyed || !this.soundOn || !this._audioCtx || this.gameState !== 'racing') return;
     try {
@@ -5443,7 +5597,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   hideLoginPopup() { this.parentRef?.closeOverlay(); }
   trackDefs: TrackDefinition[] = TRACKS as TrackDefinition[];
   /** Maps a track id to its environment theme (rendered by RacingRenderer). */
-  private themeForTrack(trackId: number): 'miami' | 'mountain' | 'city' | 'default' | 'alpine' | 'desert' | 'monaco' | 'monaco-night' | 'montreal' | 'italy' | 'japan' | 'neon' | 'volcano' | 'antarctica' | 'pirate' {
+  private themeForTrack(trackId: number): 'miami' | 'mountain' | 'city' | 'default' | 'alpine' | 'desert' | 'monaco' | 'monaco-night' | 'montreal' | 'italy' | 'japan' | 'neon' | 'volcano' | 'antarctica' | 'pirate' | 'mushroom' | 'hyrule' {
     if (trackId === 1) return 'miami';
     if (trackId === 2) return 'mountain';
     if (trackId === 3) return 'city';
@@ -5458,6 +5612,8 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     if (trackId === 12) return 'volcano';
     if (trackId === 13) return 'antarctica';
     if (trackId === 14) return 'pirate';
+    if (trackId === 15) return 'mushroom';
+    if (trackId === 16) return 'hyrule';
     return 'default';
   }
   get UPGRADE_DEFS() { return UPGRADE_DEFS; }
@@ -5595,7 +5751,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   }
   getTrackFlag(track: TrackDefinition): string {
     const flags: Record<number, string> = {
-      1: '🇺🇸', 2: '🏔️', 3: '🏙️', 4: '🏔️', 5: '🇲🇦', 6: '🇲🇨', 7: '🇨🇦', 8: '🇮🇹', 9: '🌙', 10: '🇯🇵', 11: '🌆', 12: '🌋', 13: '🐧', 14: '🏴☠️',
+      1: '🇺🇸', 2: '🏔️', 3: '🏙️', 4: '🏔️', 5: '🇲🇦', 6: '🇲🇨', 7: '🇨🇦', 8: '🇮🇹', 9: '🌙', 10: '🇯🇵', 11: '🌆', 12: '🌋', 13: '🐧',      14: '🏴☠️', 15: '🍄', 16: '🔺',
     };
     return flags[track.id] || '🏁';
   }
@@ -5616,6 +5772,8 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       12: 'linear-gradient(135deg, #0b0504 0%, #3d0d06 30%, #9c2a10 60%, #e8631a 82%, #ffb52e 100%)',
       13: 'linear-gradient(135deg, #02121f 0%, #0a3a52 25%, #1c6d8a 50%, #7fe3ff 72%, #b8fff4 88%, #eafffb 100%)',
       14: 'linear-gradient(135deg, #1a0b05 0%, #6b2d12 25%, #e8871f 55%, #f5c84c 78%, #3ec1d3 88%, #eafffb 100%)',
+      15: 'linear-gradient(135deg, #0b3d91 0%, #3f8efc 30%, #8fd3ff 55%, #ffe14d 62%, #ff9f1c 72%, #ef476f 88%, #06d6a0 100%)',
+      16: 'linear-gradient(135deg, #1a6e3a 0%, #3f9e5f 35%, #7ed18f 60%, #f5e6a8 78%, #d9b84a 100%)',
     };
     return bgs[track.id] || 'linear-gradient(135deg, #2c3e50, #4ca1af)';
   }

@@ -429,12 +429,26 @@ namespace maxhanna.Server.Hubs
                 }
                 var setup = dropTests > 0 ? Math.Min(40, (setupSum / (double)dropTests) * 12) : 0;
 
+                var score = result.PoppedCount * 20 + result.ReserveGained * 10 + result.Garbage * 15 + (int)setup;
+
+                // A column UP-shift on a partial column is a "float": the whole
+                // pile slides up and a gap opens beneath it. With the no-wrap
+                // slide mechanic those are mostly wasted turns (the relative
+                // column order never changes), so the AI avoids them unless the
+                // float actually sets up a VERTICAL match — a bottom-entry
+                // marble of the pile's bottom colour completing a 3-run.
+                if (kind == 1 && dir < 0 && result.PoppedCount == 0 && ColumnHasSpace(board, col))
+                {
+                    if (VerticalSetupAfterMove(clone, col) > 0) score += 15;
+                    else score -= 400; // pointless float — strongly discouraged
+                }
+
                 candidates.Add(new AiMove
                 {
                     Kind = kind,
                     Col = col,
                     Dir = dir,
-                    Score = result.PoppedCount * 20 + result.ReserveGained * 10 + result.Garbage * 15 + (int)setup,
+                    Score = score,
                 });
             }
 
@@ -467,6 +481,31 @@ namespace maxhanna.Server.Hubs
                 return decent[rng.Next(decent.Count)];
             }
             return best[rng.Next(best.Count)];
+        }
+
+        /// <summary>
+        /// After an up-shift floated a column, how strong is the vertical-match
+        /// setup? Compact the column the way the next drop would, then check the
+        /// pile's bottom two marbles: if they share a colour, a bottom-entry
+        /// marble of that colour lands a vertical 3-run — the float's gap is
+        /// what invites that drop. Returns 0 when no vertical match is set up.
+        /// </summary>
+        private static int VerticalSetupAfterMove(int[][] board, int col)
+        {
+            var write = Rows - 1;
+            for (var r = Rows - 1; r >= 0; r--)
+            {
+                if (board[r][col] != 0)
+                {
+                    board[write][col] = board[r][col];
+                    if (write != r) board[r][col] = 0;
+                    write--;
+                }
+            }
+            var top = write + 1; // topmost marble row after compaction
+            if (top >= Rows - 1) return 0; // empty column or a single marble
+            var color = board[Rows - 1][col];
+            return board[Rows - 2][col] == color ? 2 : 0;
         }
 
         /// <summary>True when the column has at least one empty cell.</summary>
@@ -617,12 +656,13 @@ namespace maxhanna.Server.Hubs
         }
 
         /// <summary>
-        /// Shift a COLUMN up (-1) or down (+1). The column's stack (the
-        /// contiguous block of marbles, always settled at the bottom) is
-        /// rotated in place: up moves the top marble to the bottom of the
-        /// stack, down moves the bottom marble to the top. Same direction
-        /// feel as the classic wrap, but marbles never float — gaps are
-        /// filled because the stack never leaves holes behind.
+        /// Shift a COLUMN up (-1) or down (+1). Marbles never wrap: a marble
+        /// at the top of a column can never reappear at the bottom (or vice
+        /// versa). A full column — or a stack already flush against the edge
+        /// in that direction — simply cannot shift; the move is blocked. A
+        /// partial stack slides as one unit within the column's bounds: ▲
+        /// floats the pile up a row (the bottom row opens), ▼ slides it back
+        /// down. The stack stays contiguous, so no gaps ever open inside it.
         /// </summary>
         public async Task<object?> ShiftColumn(string code, int col, int dir)
         {
@@ -643,50 +683,31 @@ namespace maxhanna.Server.Hubs
 
         private static void ShiftColumnOn(int[][] board, int col, int dir)
         {
-            // Heal any residual gap first: marbles fall down to fill holes,
-            // so the column always starts settled (no floating stacks).
-            var write = Rows - 1;
-            for (var r = Rows - 1; r >= 0; r--)
+            var top = Rows;
+            for (var r = 0; r < Rows; r++)
             {
-                if (board[r][col] != 0)
-                {
-                    if (write != r)
-                    {
-                        board[write][col] = board[r][col];
-                        board[r][col] = 0;
-                    }
-                    write--;
-                }
+                if (board[r][col] != 0) { top = r; break; }
             }
-
-            var top = write + 1; // first row of the settled stack
             if (top >= Rows) return; // empty column
             var stackLen = Rows - top;
-            if (stackLen <= 1) return;
 
-            // A full column rotates through all rows (the classic wrap — no
-            // holes because the column is completely full).
-            if (stackLen == Rows)
+            // No wrapping: a full column cannot shift at all.
+            if (stackLen >= Rows) return;
+
+            if (dir <= 0)
             {
-                var newCol = new int[Rows];
-                for (var r = 0; r < Rows; r++)
-                {
-                    var src = (r - dir + Rows) % Rows;
-                    newCol[r] = board[src][col];
-                }
-                for (var r = 0; r < Rows; r++) board[r][col] = newCol[r];
-                return;
+                // Shift up — blocked when the pile already touches the top edge.
+                if (top == 0) return;
+                for (var r = top; r < Rows; r++) board[r - 1][col] = board[r][col];
+                board[Rows - 1][col] = 0;
             }
-
-            // Partial stack: rotate the marbles within the stack's own
-            // footprint so it stays settled — no marble ever floats above a
-            // gap, and nothing wraps to the far end of the column.
-            var colors = new int[stackLen];
-            for (var i = 0; i < stackLen; i++) colors[i] = board[top + i][col];
-            for (var i = 0; i < stackLen; i++)
+            else
             {
-                var src = (i - dir + stackLen) % stackLen;
-                board[top + i][col] = colors[src];
+                // Shift down — blocked when the pile is settled on the floor
+                // (only a previously floated stack has room below it).
+                if (top + stackLen >= Rows) return;
+                for (var r = Rows - 2; r >= top; r--) board[r + 1][col] = board[r][col];
+                board[top][col] = 0;
             }
         }
 

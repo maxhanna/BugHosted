@@ -12,6 +12,8 @@ const PITCH_ROW = 5;
 /** Delay (ms) before a received opponent snapshot is played back, so uneven
  *  network delivery is absorbed before it reaches the opponent's board. */
 const OPP_BUFFER_MS = 150;
+/** Duration (s) of the blocked-column-shift nudge wiggle. */
+const NUDGE_DUR = 0.35;
 
 /** Palette indexed by color id (1..6); 0 is empty. */
 const COLORS: [number, number, number][] = [
@@ -201,6 +203,12 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
   private _onResize = () => this.resizeCanvas();
   private _audio: AudioContext | null = null;
   private _publicRoomsTimer: ReturnType<typeof setInterval> | null = null;
+  /** Blocked-shift feedback: when a column shift is denied (full column, or a
+   *  stack already flush against the edge), the column wiggles briefly in the
+   *  attempted direction so the rejection is visible. -1 = no active nudge. */
+  private nudgeCol = -1;
+  private nudgeT = 0;
+  private nudgeDir = 0;
 
   constructor(private hub: MarblesHubService, private ngZone: NgZone, private cdr: ChangeDetectorRef, private marbles: MarblesService) {
     super();
@@ -735,18 +743,18 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
         if (r === PITCH_ROW && slideFilled.has(c)) continue;
         cells.push({ r, color });
       }
-      // Rotation check: a column shift rotates the settled stack in place, so
-      // the surviving sprites' colour order is preserved up to a cyclic
-      // rotation. A drop can enter a column from the TOP (marble stacks on
-      // the pile — cellSeq = [extraCells] + rotate(spriteSeq, k)) or from the
-      // BOTTOM (the pile shifts up and the marble takes the bottom cell —
-      // cellSeq = rotate(spriteSeq, k) + [extraCells]). Try the alignment the
-      // server reported first (dropSide) so the entering marble rolls in from
-      // the correct edge, then the other. This is what makes a wrapped/
-      // rotated marble GLIDE to its new cell instead of being popped and
-      // re-spawned (which is what left phantom holes and swapped marble
-      // skins). Falls (k = 0) are handled here too; only mixed cases fall
-      // through to the order-preserving bottom-up pairing below.
+      // Column alignment: column shifts only ever SLIDE a stack as a unit (no
+      // wrapping), so a surviving column's colour order is always preserved.
+      // A drop can enter a column from the TOP (marble stacks on the pile —
+      // cellSeq = [extraCells] + spriteSeq) or from the BOTTOM (the pile is
+      // pushed up and the marble takes the bottom cell — cellSeq = spriteSeq
+      // + [extraCells]). Try the alignment the server reported first
+      // (dropSide) so the entering marble rolls in from the correct edge,
+      // then the other. This is what makes a falling/sliding marble GLIDE to
+      // its new cell instead of being popped and re-spawned (which is what
+      // left phantom holes and swapped marble skins). Falls (extra = 0) are
+      // handled here too; only mixed cases fall through to the
+      // order-preserving bottom-up pairing below.
       const spriteColors = colLive.map(s => s.color);
       const cellColors = cells.map(x => x.color);
       let columnHandled = false;
@@ -757,35 +765,32 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
           : [{ bottom: false }, { bottom: true }];
         for (const { bottom } of orders) {
           if (columnHandled) break;
-          for (let k = 0; k < spriteColors.length; k++) {
-            let ok = true;
-            for (let i = 0; i < spriteColors.length; i++) {
-              const cellIdx = bottom ? i : extra + i;
-              if (cellColors[cellIdx] !== spriteColors[(i + k) % spriteColors.length]) { ok = false; break; }
+          // Column order is always preserved (no wrapping), so the surviving
+          // sprites pair 1:1 with the non-extra cells in order.
+          let ok = true;
+          for (let i = 0; i < spriteColors.length; i++) {
+            const cellIdx = bottom ? i : extra + i;
+            if (cellColors[cellIdx] !== spriteColors[i]) { ok = false; break; }
+          }
+          if (ok) {
+            columnHandled = true;
+            for (let j = 0; j < spriteColors.length; j++) {
+              const s = colLive[j];
+              const cell = bottom ? cells[j] : cells[extra + j];
+              used.add(s);
+              this.setTarget(s, c, cell.r, moveDur);
+              next.push(s);
             }
-            if (ok) {
-              columnHandled = true;
-              for (let j = 0; j < spriteColors.length; j++) {
-                const s = colLive[j];
-                const cell = bottom
-                  ? cells[(j - k + spriteColors.length) % spriteColors.length]
-                  : cells[extra + ((j - k + spriteColors.length) % spriteColors.length)];
-                used.add(s);
-                this.setTarget(s, c, cell.r, moveDur);
-                next.push(s);
+            if (bottom) {
+              // New marble(s) sit at the BOTTOM of the column — spawn below
+              // the board and roll up into place.
+              for (let i = spriteColors.length; i < cells.length; i++) {
+                next.push(this.newSprite(cells[i].color, c, cells[i].r, moveDur, true));
               }
-              if (bottom) {
-                // New marble(s) sit at the BOTTOM of the column — spawn below
-                // the board and roll up into place.
-                for (let i = spriteColors.length; i < cells.length; i++) {
-                  next.push(this.newSprite(cells[i].color, c, cells[i].r, moveDur, true));
-                }
-              } else {
-                for (let i = extra - 1; i >= 0; i--) {
-                  next.push(this.newSprite(cells[i].color, c, cells[i].r, moveDur));
-                }
+            } else {
+              for (let i = extra - 1; i >= 0; i--) {
+                next.push(this.newSprite(cells[i].color, c, cells[i].r, moveDur));
               }
-              break;
             }
           }
         }
@@ -896,8 +901,14 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
 
   shiftColumn(dir: number): void {
     if (this.status !== 'playing') return;
-    this.playClick();
-    this.predictColumnShift(this.selectedCol, dir);
+    // A denied shift gets a nudge wiggle + dull thud instead of the click, so
+    // it's obvious the move was blocked rather than silently ignored.
+    if (!this.predictColumnShift(this.selectedCol, dir)) {
+      this.playDeny();
+      this.triggerNudge(this.selectedCol, dir);
+    } else {
+      this.playClick();
+    }
     this.hub.shiftColumn(this.roomCode, this.selectedCol, dir);
   }
 
@@ -917,31 +928,52 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     this.sprites = this.matchSpritesToBoard(this.sprites, nb, oldBoard, [], dir);
   }
 
-  /** Optimistically rotate a column's stack locally, mirroring ShiftColumnOn:
-   *  the settled stack rotates in place (up = top marble to the bottom of the
-   *  stack, down = bottom marble to the top) — marbles never float and the
-   *  column never leaves holes behind. */
-  private predictColumnShift(col: number, dir: number): void {
-    if (!this._board || this._board.length !== ROWS || col < 0 || col >= COLS) return;
+  /** Returns true if the column shift was applied, false if it was blocked
+   *  (empty column, full column, or a stack flush against the edge in that
+   *  direction) — mirroring the server's ShiftColumnOn 1:1 (marbles never
+   *  wrap; a partial stack slides as one unit within the column's bounds). */
+  private predictColumnShift(col: number, dir: number): boolean {
+    if (!this._board || this._board.length !== ROWS || col < 0 || col >= COLS) return false;
     const oldBoard = this._board;
     const nb = cloneBoard(oldBoard);
-    // Compact the column first (heal any residual gap), then rotate.
-    const stack: number[] = [];
-    for (let r = ROWS - 1; r >= 0; r--) {
-      if (nb[r][col] !== 0) stack.unshift(nb[r][col]);
+    let top = ROWS;
+    for (let r = 0; r < ROWS; r++) {
+      if (nb[r][col] !== 0) { top = r; break; }
     }
-    for (let r = 0; r < ROWS; r++) nb[r][col] = 0;
-    for (let r = 0; r < stack.length; r++) nb[ROWS - stack.length + r][col] = stack[r];
-    const len = stack.length;
-    if (len > 1) {
-      const colors = stack.slice();
-      for (let i = 0; i < len; i++) {
-        nb[ROWS - len + i][col] = colors[(i - dir + len) % len];
-      }
+    if (top >= ROWS) return false; // empty column
+    const len = ROWS - top;
+    if (len >= ROWS) return false; // full column — blocked
+    if (dir <= 0) {
+      if (top === 0) return false; // pile touches the top edge — blocked
+      for (let r = top; r < ROWS; r++) nb[r - 1][col] = nb[r][col];
+      nb[ROWS - 1][col] = 0;
+    } else {
+      if (top + len >= ROWS) return false; // settled on the floor — blocked
+      for (let r = ROWS - 2; r >= top; r--) nb[r + 1][col] = nb[r][col];
+      nb[top][col] = 0;
     }
     this._board = nb;
     this._predictedBoard = nb;
     this.sprites = this.matchSpritesToBoard(this.sprites, nb, oldBoard, [], 0);
+    return true;
+  }
+
+  /** Kick off the blocked-shift wiggle for a column in the attempted
+   *  direction. The animation runs in the render loop (nudgeT) and is applied
+   *  as a vertical offset while drawing that column's marbles. */
+  private triggerNudge(col: number, dir: number): void {
+    this.nudgeCol = col;
+    this.nudgeDir = dir;
+    this.nudgeT = 0;
+  }
+
+  /** Vertical offset (in cells, + = down) for a sprite mid-nudge. A damped
+   *  sine gives a bump-and-spring-back wiggle: out in the attempted direction
+   *  and back, settling quickly. */
+  private nudgeOffset(): number {
+    if (this.nudgeCol < 0) return 0;
+    const p = Math.min(1, this.nudgeT / NUDGE_DUR);
+    return this.nudgeDir * 0.22 * Math.sin(p * Math.PI) * (1 - p);
   }
 
   selectColumn(c: number): void {
@@ -1077,6 +1109,11 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     }
     this.sprites = this.advanceSprites(this.sprites, dt);
     this._oppSprites = this.advanceSprites(this._oppSprites, dt);
+    // Age the blocked-shift nudge; clear it once the wiggle is done.
+    if (this.nudgeCol >= 0) {
+      this.nudgeT += dt;
+      if (this.nudgeT >= NUDGE_DUR) this.nudgeCol = -1;
+    }
   }
 
   /** Apply an opponent snapshot with its quiet sound echoes, kept in lockstep
@@ -1216,11 +1253,13 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     ctx.fillText('◀', ox - cell * 0.6, py + cell * 0.18);
     ctx.fillText('▶', ox + cell * COLS + cell * 0.6, py + cell * 0.18);
 
-    // Marbles
+    // Marbles (a blocked column shift wiggles its marbles vertically).
+    const nudgeOffset = this.nudgeCol >= 0 ? this.nudgeOffset() : 0;
     const sorted = [...this.sprites].sort((a, b) => a.row - b.row);
     for (const s of sorted) {
       const px = ox + (s.col + 0.5) * cell;
-      const py2 = oy + (s.row + 0.5) * cell;
+      const py2 = oy + (s.row + 0.5) * cell
+        + (Math.round(s.col) === this.nudgeCol ? nudgeOffset * cell : 0);
       const radius = cell * 0.44 * Math.max(0, s.scale);
       if (radius <= 0) continue;
       const stretch = s.stretch ?? 1;
@@ -2618,6 +2657,14 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
   }
 
   private playClick(): void { this.tone(720, 0.06, 'square', 0.07); }
+
+  /** Short dull thud for a denied move (blocked column shift) — a low
+   *  square blip with a pitch drop over a soft sine body, so it reads as
+   *  "no" rather than the bright click of a successful move. */
+  private playDeny(): void {
+    this.tone(160, 0.1, 'square', 0.12, 0, 95);
+    this.tone(85, 0.09, 'sine', 0.11, 0.012, 50);
+  }
 
   /** Gain multiplier for the opponent's board so its echoes stay in the
    *  background while the player's own actions ring out clearly. */

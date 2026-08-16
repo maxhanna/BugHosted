@@ -14,6 +14,9 @@ export interface RacingCarAppearancePayload {
   glowId?: number;
   accentId?: number;
   glowIntensity?: number;
+  tireId?: number;
+  helmetId?: number;
+  accessoryId?: number;
 }
 
 export interface LobbyPlayer extends RacingCarAppearancePayload {

@@ -183,11 +183,13 @@ namespace maxhanna.Server.Hubs
                 rimId = lp.RimId,
                 exhaustId = lp.ExhaustId,
                 decalId = lp.DecalId,
-                decalColorId = lp.DecalColorId,
-                glowId = lp.GlowId,
-                accentId = lp.AccentId,
-                glowIntensity = lp.GlowIntensity,
-                inRace = lp.InRace
+                decalColorId = lp.DecalColorId,				glowId = lp.GlowId,
+				accentId = lp.AccentId,
+				glowIntensity = lp.GlowIntensity,
+				tireId = lp.TireId,
+				helmetId = lp.HelmetId,
+				accessoryId = lp.AccessoryId,
+				inRace = lp.InRace
             });
 
             // Start auto-start timer if this is the first player
@@ -382,11 +384,13 @@ namespace maxhanna.Server.Hubs
                 rimId = p.RimId,
                 exhaustId = p.ExhaustId,
                 decalId = p.DecalId,
-                decalColorId = p.DecalColorId,
-                glowId = p.GlowId,
-                accentId = p.AccentId,
-                glowIntensity = p.GlowIntensity
-            });
+                decalColorId = p.DecalColorId,				glowId = p.GlowId,
+				accentId = p.AccentId,
+				glowIntensity = p.GlowIntensity,
+				tireId = p.TireId,
+				helmetId = p.HelmetId,
+				accessoryId = p.AccessoryId
+			});
         }
 
         /// <summary>
@@ -1088,11 +1092,13 @@ namespace maxhanna.Server.Hubs
             public int RimId { get; set; }
             public int ExhaustId { get; set; }
             public int DecalId { get; set; }
-            public int DecalColorId { get; set; }
-            public int GlowId { get; set; }
-            public int AccentId { get; set; }
-            public int GlowIntensity { get; set; } = 50;
-            // Total purchased upgrade levels across all categories. Determines
+            public int DecalColorId { get; set; }			public int GlowId { get; set; }
+			public int AccentId { get; set; }
+			public int GlowIntensity { get; set; } = 50;
+			public int TireId { get; set; }
+			public int HelmetId { get; set; }
+			public int AccessoryId { get; set; }
+			// Total purchased upgrade levels across all categories. Determines
             // the starting grid order: least upgraded on pole, most upgraded at
             // the back, so a fully-tuned car has to fight through the field.
             public int UpgradeLevel { get; set; }
@@ -1129,13 +1135,15 @@ namespace maxhanna.Server.Hubs
             public int RimId { get; set; }
             public int ExhaustId { get; set; }
             public int DecalId { get; set; }
-            public int DecalColorId { get; set; }
-            public int GlowId { get; set; }
-            public int AccentId { get; set; }
-            public int GlowIntensity { get; set; } = 50;
-        }
+            public int DecalColorId { get; set; }			public int GlowId { get; set; }
+			public int AccentId { get; set; }
+			public int GlowIntensity { get; set; } = 50;
+			public int TireId { get; set; }
+			public int HelmetId { get; set; }
+			public int AccessoryId { get; set; }
+		}
 
-        private static void ApplyAppearance(LobbyPlayer p, CarAppearanceDto? a)
+		private static void ApplyAppearance(LobbyPlayer p, CarAppearanceDto? a)
         {
             if (a == null) return;
             p.SkinId = a.SkinId;
@@ -1143,11 +1151,13 @@ namespace maxhanna.Server.Hubs
             p.RimId = a.RimId;
             p.ExhaustId = a.ExhaustId;
             p.DecalId = a.DecalId;
-            p.DecalColorId = a.DecalColorId;
-            p.GlowId = a.GlowId;
-            p.AccentId = a.AccentId;
-            p.GlowIntensity = a.GlowIntensity;
-        }
+            p.DecalColorId = a.DecalColorId;			p.GlowId = a.GlowId;
+			p.AccentId = a.AccentId;
+			p.GlowIntensity = a.GlowIntensity;
+			p.TireId = a.TireId;
+			p.HelmetId = a.HelmetId;
+			p.AccessoryId = a.AccessoryId;
+		}
 
         private class RacerState
         {

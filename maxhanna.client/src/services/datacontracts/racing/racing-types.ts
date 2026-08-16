@@ -21,7 +21,7 @@ export interface RacingCarSkin {
 export interface RacingAppearancePart {
   id: number;
   name: string;
-  category: 'spoiler' | 'rims' | 'exhaust' | 'decal' | 'glow' | 'accent';
+  category: 'spoiler' | 'rims' | 'exhaust' | 'decal' | 'glow' | 'accent' | 'tires' | 'helmet' | 'accessory';
   cost: number;
   owned: boolean;
   description: string;
@@ -39,6 +39,9 @@ export interface RacingCarAppearance {
   decalColor?: [number, number, number]; // custom decal tint (DECAL_COLOR_SWATCHES), overrides DECAL_COLORS
   glow?: [number, number, number];
   glowIntensity?: number;       // 0 (subtle) .. 100 (blinding) — scales the neon underglow
+  tireId?: number;              // APPEARANCE_PARTS tires id (sidewall brand style)
+  helmetId?: number;            // APPEARANCE_PARTS helmet id (helmet colour scheme)
+  accessoryId?: number;         // APPEARANCE_PARTS accessory id (antenna / scoop / roll hoop)
   metallic?: number;            // 0 matte .. 1 mirror polish (from skin finish)
   skin?: [number, number, number]; // paint rgb (used for the player's own car in the mirror)
 }
@@ -106,6 +109,8 @@ export const DECAL_COLORS: Record<number, [number, number, number]> = {
   439: [0.85, 0.2, 0.15],    // torii gate (vermilion)
   440: [0.25, 0.45, 0.85],   // mt. fuji (indigo)
   441: [0.9, 0.86, 0.94],    // paw print (white-violet)
+  442: [1.0, 0.62, 0.18],    // drifting cat (tango orange)
+  443: [0.14, 0.5, 0.32],    // tofu shop (forest green)
 };
 
 // Selectable decal tint swatches (id -> rgb) shown in the garage appearance
@@ -136,6 +141,26 @@ export const DECAL_COLOR_SWATCHES: Record<number, [number, number, number]> = {
   722: [0.5, 0.05, 0.9],    // Ultraviolet
   723: [0.1, 0.9, 0.7],     // Aqua
   724: [0.03, 0.02, 0.03],  // Obsidian
+  725: [1.0, 0.72, 0.55],   // Peach
+  726: [0.72, 0.62, 0.95],  // Lavender
+  727: [0.2, 0.85, 0.78],   // Turquoise
+  728: [0.05, 0.62, 0.35],  // Emerald
+  729: [0.45, 0.2, 0.85],   // Royal Purple
+  730: [0.95, 0.12, 0.65],  // Hot Magenta
+  731: [0.62, 0.9, 0.12],   // Lime
+  732: [0.87, 0.76, 0.55],  // Sand
+  733: [0.35, 0.7, 1.0],    // Sky Blue
+  734: [0.89, 0.6, 0.55],   // Rose Gold
+  735: [0.62, 0.4, 0.18],   // Bronze
+  736: [0.1, 0.42, 0.2],    // Forest Green
+  737: [0.0, 0.45, 1.0],    // Electric Blue
+  738: [0.28, 0.3, 0.33],   // Charcoal
+  739: [0.99, 0.93, 0.78],  // Cream
+  740: [0.5, 0.9, 0.72],    // Seafoam
+  741: [0.75, 0.32, 0.15],  // Rust
+  742: [0.5, 0.15, 0.4],    // Plum
+  743: [0.06, 0.1, 0.32],   // Midnight
+  744: [0.72, 0.9, 1.0],    // Ice Blue
 };
 
 export const DECAL_COLOR_SWATCH_NAMES: Record<number, string> = {
@@ -144,6 +169,10 @@ export const DECAL_COLOR_SWATCH_NAMES: Record<number, string> = {
   713: 'Pink', 714: 'Burgundy', 715: 'Mint', 716: 'Coral', 717: 'Gunmetal',
   718: 'Champagne', 719: 'Copper', 720: 'Navy', 721: 'Crimson', 722: 'Ultraviolet',
   723: 'Aqua', 724: 'Obsidian',
+  725: 'Peach', 726: 'Lavender', 727: 'Turquoise', 728: 'Emerald', 729: 'Royal Purple',
+  730: 'Hot Magenta', 731: 'Lime', 732: 'Sand', 733: 'Sky Blue', 734: 'Rose Gold',
+  735: 'Bronze', 736: 'Forest Green', 737: 'Electric Blue', 738: 'Charcoal', 739: 'Cream',
+  740: 'Seafoam', 741: 'Rust', 742: 'Plum', 743: 'Midnight', 744: 'Ice Blue',
 };
 
 // Neon underglow id -> additive glow color.
@@ -227,6 +256,9 @@ export interface RacingPlayerCar {
   glowId: number;
   accentId: number;
   glowIntensity: number; // 0 (subtle) .. 100 (blinding) neon underglow strength
+  tireId: number;       // APPEARANCE_PARTS tires id (0 = stock sidewall)
+  helmetId: number;     // APPEARANCE_PARTS helmet id (0 = default white lid)
+  accessoryId: number;  // APPEARANCE_PARTS accessory id (0 = none)
   totalRaces: number;
   wins: number;
   money: number;
@@ -367,6 +399,8 @@ export const TRACKS: TrackDefinition[] = [
   { id: 12, name: 'Caldera Rush', difficulty: 'hard', laps: 4, length: 2300, description: 'A lap around an active volcano — lava rivers, basalt columns and rising embers', entryFee: 3500, prizePool: 13000, bestTime: 0 },
   { id: 13, name: 'Aurora Glacier', difficulty: 'hard', laps: 4, length: 2400, description: 'An alien frozen wasteland — a crashed UFO on the ice, giant crystals, igloos and a dancing aurora', entryFee: 3500, prizePool: 13000, bestTime: 0 },
   { id: 14, name: 'Pirate Treasure Cove', difficulty: 'hard', laps: 4, length: 2400, description: 'A golden-hour lagoon circuit — a beached galleon, treasure chests, cannon forts and a skull rock reef', entryFee: 3500, prizePool: 13000, bestTime: 0 },
+  { id: 15, name: 'Mushroom Castle', difficulty: 'hard', laps: 4, length: 2100, description: 'A storybook circuit around a replica of the Mushroom Kingdom castle — moat, drawbridge, star tower and brick battlements', entryFee: 3500, prizePool: 13000, bestTime: 0 },
+  { id: 16, name: 'Hyrule Castle', difficulty: 'hard', laps: 4, length: 2100, description: 'A lap around the Kingdom of Hyrule — a replica of the Ocarina of Time castle, white walls, teal roofs, a moat and the golden Triforce', entryFee: 3500, prizePool: 13000, bestTime: 0 },
 ];
 
 export const CAR_SKINS: RacingCarSkin[] = [
@@ -523,6 +557,8 @@ export const APPEARANCE_PARTS: RacingAppearancePart[] = [
   { id: 439, name: 'Torii Gate', category: 'decal', cost: 4700, owned: false, description: 'Red shrine gate emblem' },
   { id: 440, name: 'Mt. Fuji', category: 'decal', cost: 4900, owned: false, description: 'Rising sun over Fuji peak' },
   { id: 441, name: 'Paw Print', category: 'decal', cost: 3600, owned: false, description: 'Street-animal paw marks' },
+  { id: 442, name: 'Drifting Cat', category: 'decal', cost: 5400, owned: false, description: 'Anime cat mid-drift with motion lines' },
+  { id: 443, name: 'Tofu Shop', category: 'decal', cost: 5100, owned: false, description: 'Initial-D mountain tofu logo' },
   // Glow (neon underglow)
   { id: 501, name: 'Neon Blue', category: 'glow', cost: 1500, owned: false, description: 'Electric blue underglow' },
   { id: 502, name: 'Neon Green', category: 'glow', cost: 1500, owned: false, description: 'Alien green underglow' },
@@ -576,4 +612,22 @@ export const APPEARANCE_PARTS: RacingAppearancePart[] = [
   { id: 618, name: 'Coral Accent', category: 'accent', cost: 1700, owned: false, description: 'Vivid coral livery stripe & trim' },
   { id: 619, name: 'Champagne Accent', category: 'accent', cost: 1800, owned: false, description: 'Elegant champagne livery stripe & trim' },
   { id: 620, name: 'Gunmetal Accent', category: 'accent', cost: 1900, owned: false, description: 'Steel gunmetal livery stripe & trim' },
+  // Tires (visual sidewall style)
+  { id: 701, name: 'White-Letter Tires', category: 'tires', cost: 1500, owned: false, description: 'Classic raised white sidewall branding' },
+  { id: 702, name: 'Red-Line Tires', category: 'tires', cost: 2200, owned: false, description: 'Red stripe ring + white lettering' },
+  { id: 703, name: 'Gold Classic', category: 'tires', cost: 3200, owned: false, description: 'Gold sidewall ring & lettering' },
+  { id: 704, name: 'Pro Slicks', category: 'tires', cost: 4000, owned: false, description: 'Clean slick rubber, no branding' },
+  { id: 705, name: 'Blue-Line Tires', category: 'tires', cost: 2600, owned: false, description: 'Electric blue stripe ring' },
+  { id: 706, name: 'Green-Line Tires', category: 'tires', cost: 2600, owned: false, description: 'Acid green stripe ring' },
+  { id: 707, name: 'Retro Raised', category: 'tires', cost: 3400, owned: false, description: 'Big raised white letters, no ring' },
+  // Helmets (driver lid colour scheme)
+  { id: 801, name: 'Podium White', category: 'helmet', cost: 1200, owned: false, description: 'White shell with red stripe' },
+  { id: 802, name: 'Midnight', category: 'helmet', cost: 1800, owned: false, description: 'Gloss black shell with silver stripe' },
+  { id: 803, name: 'Speed Yellow', category: 'helmet', cost: 2000, owned: false, description: 'Yellow shell with black stripe' },
+  { id: 804, name: 'Racing Green', category: 'helmet', cost: 2400, owned: false, description: 'British racing green with gold stripe' },
+  { id: 805, name: 'Candy Pink', category: 'helmet', cost: 2600, owned: false, description: 'Hot pink shell with white stripe' },
+  // Accessories
+  { id: 901, name: 'Radio Antenna', category: 'accessory', cost: 600, owned: false, description: 'Chrome antenna mast with flag' },
+  { id: 902, name: 'Roof Scoop', category: 'accessory', cost: 1400, owned: false, description: 'Carbon intake scoop on the cowl' },
+  { id: 903, name: 'Roll Hoop', category: 'accessory', cost: 2000, owned: false, description: 'Roll-cage hoop behind the cockpit' },
 ];

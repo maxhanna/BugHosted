@@ -1,5 +1,29 @@
 import { RIM_TINTS, DECAL_COLORS, RacingCarAppearance } from '../../services/datacontracts/racing/racing-types';
 
+/** Helmet appearance id -> shell + crown-stripe colours (baked-white meshes
+ *  tinted at draw time, so the visor/details stay fixed). */
+export const HELMET_PALETTES: Record<number, { shell: [number, number, number]; stripe: [number, number, number] }> = {
+  801: { shell: [0.96, 0.96, 0.98], stripe: [0.82, 0.12, 0.1] },   // Podium White / red stripe
+  802: { shell: [0.09, 0.09, 0.11], stripe: [0.72, 0.72, 0.78] }, // Midnight black / silver stripe
+  803: { shell: [0.95, 0.78, 0.08], stripe: [0.08, 0.08, 0.1] },  // Speed Yellow / black stripe
+  804: { shell: [0.05, 0.28, 0.14], stripe: [0.85, 0.65, 0.1] },  // Racing Green / gold stripe
+  805: { shell: [0.95, 0.3, 0.55], stripe: [0.96, 0.96, 0.98] },  // Candy Pink / white stripe
+};
+
+/** Tire sidewall appearance id -> brand-letter colour + ring colour (null =
+ *  no ring; used to bake the per-car sidewall texture). */
+export const TIRE_STYLES: Record<number, { letter: string; ring: string | null; thickLetter?: boolean; subtext?: string }> = {
+  701: { letter: '#ffffff', ring: null, thickLetter: true, subtext: 'GRAND PRIX' },  // White-Letter
+  702: { letter: '#f2f2f4', ring: '#d81e2e', subtext: 'RACING' },                    // Red-Line
+  703: { letter: '#f5d76e', ring: '#c9a227', subtext: 'CLASSIC' },                   // Gold Classic
+  704: { letter: null as any, ring: null, subtext: '' },                            // Pro Slicks (clean)
+  705: { letter: '#f2f2f4', ring: '#1f6fe0', subtext: 'RACING' },                    // Blue-Line
+  706: { letter: '#f2f2f4', ring: '#2ecc40', subtext: 'RACING' },                    // Green-Line
+  707: { letter: '#ffffff', ring: null, thickLetter: true, subtext: '' },            // Retro Raised
+};
+
+export interface HelmetPalette { shell: [number, number, number]; stripe: [number, number, number] }
+
 export interface DecalLayoutDef {
   flank: Array<[number, number, number, number, number, number]>;
   center: Array<[number, number, number, number, number]>;
@@ -638,6 +662,47 @@ function pawShapeDefs(cx: number, cz: number, scale: number, mirror = false): De
   return out;
 }
 
+// ── Drifting cat (442): an anime cat mid-drift, leaning back with ears,
+// a whipping tail, motion lines and smoke puffs trailing behind ────────────
+function driftCatShapeDefs(cx: number, cz: number, scale: number, mirror = false): DecalShapeDef[] {
+  const m = mirror || undefined;
+  return [
+    // Body — long teardrop leaning back into the drift.
+    { cx: cx + 0.02 * scale, cz, path: rotPath(teardropPath(0.34, 0.15), -0.3), scale, lift: 0.006, mirror: m },
+    // Head — rounded blob up front with two pointed ears.
+    { cx: cx + 0.15 * scale, cz: cz + 0.12 * scale, path: blobPath(0.1, 3), scale, lift: 0.007, mirror: m },
+    { cx: cx + 0.2 * scale, cz: cz + 0.2 * scale, path: [[-0.03, -0.02], [0.0, 0.04], [0.04, -0.02]], scale, lift: 0.008, mirror: m },
+    { cx: cx + 0.11 * scale, cz: cz + 0.21 * scale, path: [[-0.04, -0.02], [0.0, 0.04], [0.02, -0.02]], scale, lift: 0.008, mirror: m },
+    // Tail — a brush stroke whipping up and curling behind.
+    { cx: cx - 0.08 * scale, cz: cz + 0.04 * scale, path: brushStrokePath([[-0.03, 0.05], [-0.11, 0.06], [-0.15, 0.0], [-0.1, -0.05]], 0.028), scale, lift: 0.007, mirror: m },
+    // Drift motion lines trailing behind the car.
+    { cx: cx - 0.16 * scale, cz: cz - 0.01 * scale, path: brushStrokePath([[-0.02, 0.02], [-0.19, 0.02]], 0.012), scale, lift: 0.005, mirror: m },
+    { cx: cx - 0.12 * scale, cz: cz - 0.1 * scale, path: brushStrokePath([[-0.01, 0.02], [-0.15, 0.02]], 0.01), scale, lift: 0.005, mirror: m },
+    // Smoke puffs kicked up by the drift.
+    { cx: cx - 0.06 * scale, cz: cz - 0.15 * scale, path: blobPath(0.028, 5), scale, lift: 0.005, mirror: m },
+    { cx: cx - 0.02 * scale, cz: cz - 0.2 * scale, path: blobPath(0.02, 6), scale, lift: 0.005, mirror: m },
+  ];
+}
+
+// ── Tofu shop (443): Initial-D style logo — rising sun behind layered
+// mountain peaks with a snowcap hint and a little tofu-block seal ──────────
+function tofuShapeDefs(cx: number, cz: number, scale: number, mirror = false): DecalShapeDef[] {
+  const m = mirror || undefined;
+  return [
+    // Rising sun disc behind the peaks.
+    { cx: cx + 0.01 * scale, cz: cz + 0.03 * scale, path: circlePath(18, 0.055), scale, lift: 0.004, mirror: m },
+    // Back peak (taller, offset left).
+    { cx: cx - 0.02 * scale, cz: cz - 0.005 * scale, path: [[-0.065, -0.05], [0.0, 0.12], [0.085, -0.05]], scale, lift: 0.005, mirror: m },
+    // Front peak (wider, overlapping lower-right).
+    { cx: cx + 0.035 * scale, cz: cz - 0.05 * scale, path: [[-0.095, -0.03], [0.02, 0.09], [0.115, -0.03]], scale, lift: 0.006, mirror: m },
+    // Snowcap hint on the front peak.
+    { cx: cx + 0.035 * scale, cz: cz - 0.05 * scale, path: [[-0.015, 0.075], [0.02, 0.09], [0.055, 0.052], [0.02, 0.06], [-0.028, 0.062]], scale, lift: 0.008, mirror: m },
+    // Tofu-block seal at the base — a square with a divider band.
+    { cx: cx + 0.095 * scale, cz: cz - 0.095 * scale, path: rectPath(0.058, 0.05), scale, lift: 0.007, mirror: m },
+    { cx: cx + 0.095 * scale, cz: cz - 0.085 * scale, path: rectPath(0.058, 0.011), scale, lift: 0.008, mirror: m },
+  ];
+}
+
 export const DECAL_LAYOUTS: Record<number, DecalLayoutDef> = {
   401: {
     flank: [[-0.72, 0.235, 0.50, 0.05, 0.09, 0.05], [-0.16, 0.385, 0.34, 0.05, 0.09, 0.05], [0.60, 0.235, 0.42, 0.05, 0.09, 0.05], [1.02, 0.160, 0.34, 0.05, 0.08, 0.045], [-0.16, 0.395, 0.34, 0.05, 0.06, 0.13], [0.60, 0.225, 0.40, 0.05, 0.06, 0.13]],
@@ -1060,6 +1125,26 @@ export const DECAL_LAYOUTS: Record<number, DecalLayoutDef> = {
       { cx: 0.68, cz: 0, path: blobPath(0.05, 7), lift: 0.006 },
     ],
   },
+  // Drifting cat: anime cat mid-drift on the flanks + cover.
+  442: {
+    flank: [],
+    center: [],
+    shapes: [
+      ...driftCatShapeDefs(0.55, 0.15, 0.95, true),
+      ...driftCatShapeDefs(0.0, 0.17, 0.85, true),
+      ...driftCatShapeDefs(0.68, 0, 0.75),
+    ],
+  },
+  // Tofu shop: Initial-D mountain logo on the cover, nose and flanks.
+  443: {
+    flank: [],
+    center: [],
+    shapes: [
+      ...tofuShapeDefs(0.68, 0, 1),
+      ...tofuShapeDefs(1.22, 0, 0.55),
+      ...tofuShapeDefs(0.92, 0.13, 0.6, true),
+    ],
+  },
 };
 export type AccentSeg = [number, number, number, number, number, number]; // cx, cy, l, h, d, z
 // Accent side-pod stripe segments (z > 0; mirrored to -z at build/draw time).
@@ -1374,6 +1459,15 @@ export class RacingRenderer {
    *  corners while the suit/gloves stay put. */
   private helmetVao!: WebGLVertexArrayObject;
   private helmetCount = 0;
+  /** Helmet shell + crown-stripe sub-meshes, baked white so renderCar can tint
+   *  them with the equipped helmet palette while the visor/details stay fixed. */
+  private helmetShellVao!: WebGLVertexArrayObject;
+  private helmetShellCount = 0;
+  private helmetStripeVao!: WebGLVertexArrayObject;
+  private helmetStripeCount = 0;
+  /** Cosmetic accessories (antenna / roof scoop / roll hoop), baked white so
+   *  they pick up the car's paint colour at draw time. One VAO per accessory. */
+  private accessoryVaos = new Map<number, { vao: WebGLVertexArrayObject; count: number }>();
   /** Glove meshes — one VAO per hand per part so renderCar can pivot each
    *  hand about its wrist (fingers curl with steering input, like the helmet
    *  turn) and tint the finger backs with the car's equipped accent colour
@@ -1410,7 +1504,10 @@ export class RacingRenderer {
   private rearRimFaceCount = 0;
   private rearRimFaceVaoL!: WebGLVertexArrayObject;
   private rearRimFaceCountL = 0;
-  private tireBrandTex!: WebGLTexture;
+  /** Per-car sidewall brand textures (keyed by car id) so each racer's tire
+   *  style renders independently — remotes keep wear 0, the player's own car
+   *  darkens with race distance like the old single shared texture. */
+  private tireTexByCar = new Map<string, { tex: WebGLTexture; canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D | null; style: number; wear: number }>();
   /** BugHosted sponsor branding baked onto the car — a horizontal wordmark on
    *  the front wing, the rear wing endplates and the dash lip, drawn from a
    *  shared brand texture via a small dedicated VAO (built lazily). */
@@ -1418,12 +1515,9 @@ export class RacingRenderer {
   private carBrandVao: WebGLVertexArrayObject | null = null;
   private carBrandCount = 0;
   private _carBrandReady = false;
-  /** Tire-wear baking: the sidewall brand texture is redrawn progressively
-   *  darker as race distance piles up, so worn tires read as used. */
-  private _tireBrandCanvas: HTMLCanvasElement | null = null;
-  private _tireBrandCtx: CanvasRenderingContext2D | null = null;
-  private tireWear = 0;
-  private _bakedTireWear = -1;
+  /** Player-car tire wear (0..1) — the player's sidewall darkens as race
+   *  distance piles up (see setPlayerTireWear / getTireTex). */
+  private _playerTireWear = 0;
   private _tireDist = 0;
   /** Hot-exhaust effect: additive glow sprites baked at each exhaust variant's
    *  tip positions, plus a wavy heat-haze quad behind the barrels, both driven
@@ -1481,6 +1575,11 @@ export class RacingRenderer {
   modelMatrix = new Float32Array(16);
   private _trackPoints: TrackPoint[] = [];
   trackLen = 0;
+  /** Secret shipwreck shortcut on the pirate circuit: a straight chord across
+   *  the cove neck connecting two route-far track sections. `pts` is the
+   *  corridor polyline, `d1` the route distance at the entry, `gap` the route
+   *  distance saved by cutting across (entry dist + t*gap, unwrapped). */
+  private _shortcut: { pts: Array<{ x: number; z: number }>; d1: number; gap: number } | null = null;
   totalTrackDist = 0;
   private shadowFBO!: WebGLFramebuffer;
   private shadowTex!: WebGLTexture;
@@ -1496,7 +1595,7 @@ export class RacingRenderer {
   ambientColor: [number, number, number] = [0.25, 0.25, 0.3];
   fogColor: [number, number, number] = [0.4, 0.45, 0.5];
   elapsed = 0;
-  theme: 'default' | 'miami' | 'city' | 'mountain' | 'alpine' | 'desert' | 'monaco' | 'monaco-night' | 'montreal' | 'italy' | 'japan' | 'neon' | 'volcano' | 'antarctica' | 'pirate' = 'default';
+  theme: 'default' | 'miami' | 'city' | 'mountain' | 'alpine' | 'desert' | 'monaco' | 'monaco-night' | 'montreal' | 'italy' | 'japan' | 'neon' | 'volcano' | 'antarctica' | 'pirate' | 'mushroom' | 'hyrule' = 'default';
   // Device-quality tier: set by the component for mobile / low-end GPUs. Trims
   // the heaviest scenery (conifer counts and mesh density) and per-frame effects
   // (snow flake count) so the mountain and alpine circuits stay smooth on phones.
@@ -1618,7 +1717,7 @@ export class RacingRenderer {
     this.grassTex = this.makeGrassTex();
     this.trackTex = this.makeTrackMarkingsTex();
     this.curbTex = this.makeCurbTex();
-    this.tireBrandTex = this.makeTireBrandTex();
+    this.tireTexByCar.clear();
     this.glowTex = this.makeGlowTex();
     if (lowQuality) {
       // Mobile GPUs are fill-rate bound, so every off-screen pass gets cut:
@@ -1719,85 +1818,114 @@ export class RacingRenderer {
     }
     return this.makeTex(size, size, data);
   }
-  /** Draws the sidewall brand into the cached canvas; `wear` (0..1) darkens
-   *  the rubber and dims the markings so tires read as used mid-race. */
-  private drawTireBrand(wear: number): HTMLCanvasElement {
-    const size = 256;
-    if (!this._tireBrandCanvas) {
-      this._tireBrandCanvas = document.createElement('canvas');
-      this._tireBrandCanvas.width = size;
-      this._tireBrandCanvas.height = size;
-      this._tireBrandCtx = this._tireBrandCanvas.getContext('2d')!;
-    }
-    const c = this._tireBrandCanvas;
-    const g = this._tireBrandCtx!;
+  /** Draws a sidewall brand texture into `canvas` for the given style id
+   *  (0 = stock). `wear` (0..1) darkens the rubber and dims the markings so
+   *  tires read as used mid-race. Style colours come from TIRE_STYLES. */
+  private drawTireBrand(canvas: HTMLCanvasElement, g: CanvasRenderingContext2D, style: number, wear: number): void {
+    const size = canvas.width;
+    const st = TIRE_STYLES[style] ?? { letter: '#e8e8ea', ring: '#26262a', subtext: 'GRAND PRIX' };
     g.fillStyle = '#141416';
     g.fillRect(0, 0, size, size);
-    g.strokeStyle = '#26262a';
-    g.lineWidth = 6;
-    g.beginPath();
-    g.arc(size / 2, size / 2, size * 0.32, 0, Math.PI * 2);
-    g.stroke();
-    const text = 'BHOSTED';
     const cx = size / 2;
     const cy = size / 2;
-    const radius = size * 0.34;
-    g.font = 'bold 40px Arial, sans-serif';
-    g.textAlign = 'center';
-    g.textBaseline = 'middle';
-    g.fillStyle = '#e8e8ea';
-    // Place each glyph along the arc using its measured width so letters never
-    // overlap (the old fixed 0.16-rad step squeezed ~26px glyphs into ~14px of
-    // arc at this radius, which made 'BHOSTED' read as one smooshed blob).
-    // The whole word is centred on top of the wheel and reads clockwise over
-    // the crown, like real sidewall branding.
-    const widths = text.split('').map(ch => g.measureText(ch).width * 1.06);
-    const totalArc = widths.reduce((a, b) => a + b, 0) / radius;
-    let ang = -Math.PI / 2 - totalArc / 2;
-    for (let i = 0; i < text.length; i++) {
-      const a = ang + widths[i] / (2 * radius);
-      g.save();
-      g.translate(cx + Math.cos(a) * radius, cy + Math.sin(a) * radius);
-      g.rotate(a + Math.PI / 2);
-      g.fillText(text[i], 0, 0);
-      g.restore();
-      ang += widths[i] / radius;
+    // Ring stripe — the colored sidewall band (none for slicks / raised).
+    if (st.ring) {
+      g.strokeStyle = st.ring;
+      g.lineWidth = 10;
+      g.beginPath();
+      g.arc(cx, cy, size * 0.32, 0, Math.PI * 2);
+      g.stroke();
+      g.strokeStyle = '#26262a';
+      g.lineWidth = 6;
+      g.beginPath();
+      g.arc(cx, cy, size * 0.32, 0, Math.PI * 2);
+      g.stroke();
+    } else if (style === 0) {
+      g.strokeStyle = '#26262a';
+      g.lineWidth = 6;
+      g.beginPath();
+      g.arc(cx, cy, size * 0.32, 0, Math.PI * 2);
+      g.stroke();
     }
-    g.font = 'bold 15px Arial, sans-serif';
-    g.fillStyle = '#6a6a70';
-    g.fillText('GRAND PRIX', cx, cy + 3);
+    // Brand lettering (skipped for the clean slick look).
+    if (st.letter) {
+      const text = 'BHOSTED';
+      const radius = size * 0.34;
+      g.font = `bold ${st.thickLetter ? 44 : 40}px Arial, sans-serif`;
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillStyle = st.letter;
+      // Place each glyph along the arc using its measured width so letters
+      // never overlap; the whole word is centred on top of the wheel and
+      // reads clockwise over the crown, like real sidewall branding.
+      const widths = text.split('').map(ch => g.measureText(ch).width * 1.06);
+      const totalArc = widths.reduce((a, b) => a + b, 0) / radius;
+      let ang = -Math.PI / 2 - totalArc / 2;
+      for (let i = 0; i < text.length; i++) {
+        const a = ang + widths[i] / (2 * radius);
+        g.save();
+        g.translate(cx + Math.cos(a) * radius, cy + Math.sin(a) * radius);
+        g.rotate(a + Math.PI / 2);
+        g.fillText(text[i], 0, 0);
+        g.restore();
+        ang += widths[i] / radius;
+      }
+      if (st.subtext) {
+        g.font = 'bold 15px Arial, sans-serif';
+        g.fillStyle = st.ring ? '#f0f0f2' : '#6a6a70';
+        g.fillText(st.subtext, cx, cy + 3);
+      }
+    }
     // Tire wear: a dark translucent pass over the whole sidewall darkens the
     // rubber and dims the brand. Wear tops out at ~42% black so it stays
-    // subtle, and it's only re-drawn when the wear bucket changes (see
-    // updateTireBrandWear), so per-frame cost stays zero.
+    // subtle, and it's only re-drawn when the wear bucket changes, so
+    // per-frame cost stays zero.
     if (wear > 0.01) {
       g.fillStyle = `rgba(5, 6, 8, ${(0.42 * wear).toFixed(3)})`;
       g.fillRect(0, 0, size, size);
     }
-    return c;
   }
-  private makeTireBrandTex(): WebGLTexture {
+  private uploadTireTex(canvas: HTMLCanvasElement): WebGLTexture {
     const gl = this.gl;
-    const c = this.drawTireBrand(0);
     const t = gl.createTexture()!;
     gl.bindTexture(gl.TEXTURE_2D, t);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, c);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     return t;
   }
-  /** Re-bakes the brand texture when race wear crosses a 5% bucket. */
-  private updateTireBrandWear() {
-    const step = Math.floor(this.tireWear * 20);
-    if (step === this._bakedTireWear) return;
-    this._bakedTireWear = step;
-    if (!this._tireBrandCanvas) return;
-    const gl = this.gl;
-    gl.bindTexture(gl.TEXTURE_2D, this.tireBrandTex);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.drawTireBrand(this.tireWear));
-    gl.bindTexture(gl.TEXTURE_2D, null);
+  /** Lazily returns the sidewall texture for a car (`carKey`), baking it the
+   *  first time that style is seen. Re-bakes only when the style or the wear
+   *  bucket changes (wear updates come from setTireWear, which is called per
+   *  frame but returns early unless a 5% bucket was crossed). */
+  private getTireTex(carKey: string, style: number, wear: number): WebGLTexture {
+    let entry = this.tireTexByCar.get(carKey);
+    if (!entry) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 256;
+      canvas.height = 256;
+      const ctx = canvas.getContext('2d');
+      const tex = this.uploadTireTex(canvas);
+      entry = { tex, canvas, ctx, style: -1, wear: -1 };
+      this.tireTexByCar.set(carKey, entry);
+    }
+    if (entry.style !== style || Math.floor(entry.wear * 20) !== Math.floor(wear * 20) || entry.style === -1) {
+      entry.style = style;
+      entry.wear = wear;
+      if (entry.ctx) this.drawTireBrand(entry.canvas, entry.ctx, style, wear);
+      const gl = this.gl;
+      gl.bindTexture(gl.TEXTURE_2D, entry.tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, entry.canvas);
+      gl.bindTexture(gl.TEXTURE_2D, null);
+    }
+    return entry.tex;
+  }
+  /** Player-car wear (0..1) — re-bakes the player's own sidewall texture when
+   *  it crosses a 5% bucket; remotes stay at wear 0. */
+  private setPlayerTireWear(wear: number) {
+    this._playerTireWear = wear;
   }
   private get isStreetTheme(): boolean {
     return this.theme === 'monaco' || this.theme === 'monaco-night';
@@ -1821,6 +1949,12 @@ export class RacingRenderer {
     }
     if (this.theme === 'pirate') {
       return this.makePirateMarkingsTex();
+    }
+    if (this.theme === 'mushroom') {
+      return this.makeMushroomMarkingsTex();
+    }
+    if (this.theme === 'hyrule') {
+      return this.makeHyruleMarkingsTex();
     }
     return this.makeRacingMarkingsTex();
   }
@@ -1962,6 +2096,72 @@ export class RacingRenderer {
         r = r * (1 - aDash) + 245 * aDash;
         g = g * (1 - aDash) + 200 * aDash;
         b = b * (1 - aDash) + 70 * aDash;
+        data[i] = Math.max(5, Math.min(250, r));
+        data[i + 1] = Math.max(5, Math.min(250, g));
+        data[i + 2] = Math.max(5, Math.min(250, b));
+      }
+    }
+    return this.makeTex(size, size, data);
+  }
+  private makeMushroomMarkingsTex(): WebGLTexture {
+    // Castle courtyard path: warm tan cobblestone with darker brick edges and
+    // a cheerful red dashed centre line — the road to the castle.
+    const size = 256;
+    const data = new Uint8Array(size * size * 3);
+    const soft = (lo: number, hi: number, vy: number, falloff: number) =>
+      Math.max(0, Math.min(1, Math.min(vy - lo, hi - vy) / falloff));
+    for (let y = 0; y < size; y++) {
+      const vy = y / size;
+      for (let x = 0; x < size; x++) {
+        const i = (y * size + x) * 3;
+        // Warm sun-bleached cobblestone.
+        let r = 208, g = 178, b = 132;
+        // Faint cobble grout mottle (deterministic, subtle).
+        const grout = Math.sin(x * 0.9) * Math.sin(y * 1.3) * Math.sin((x + y) * 0.55);
+        r += grout * 10; g += grout * 9; b += grout * 7;
+        // Darker brick edge bands.
+        const aEdge = Math.max(soft(0.03, 0.07, vy, 0.008), soft(0.93, 0.97, vy, 0.008));
+        r = r * (1 - aEdge) + 120 * aEdge;
+        g = g * (1 - aEdge) + 82 * aEdge;
+        b = b * (1 - aEdge) + 52 * aEdge;
+        // Cheerful red dashed centre line.
+        const aDash = soft(0.485, 0.515, vy, 0.007) * ((x % 52) < 20 ? 1 : 0);
+        r = r * (1 - aDash) + 224 * aDash;
+        g = g * (1 - aDash) + 52 * aDash;
+        b = b * (1 - aDash) + 44 * aDash;
+        data[i] = Math.max(5, Math.min(250, r));
+        data[i + 1] = Math.max(5, Math.min(250, g));
+        data[i + 2] = Math.max(5, Math.min(250, b));
+      }
+    }
+    return this.makeTex(size, size, data);
+  }
+  private makeHyruleMarkingsTex(): WebGLTexture {
+    // Golden road to the castle: pale fieldstone with gold edging and a warm
+    // amber dashed centre line — the path across Hyrule Field.
+    const size = 256;
+    const data = new Uint8Array(size * size * 3);
+    const soft = (lo: number, hi: number, vy: number, falloff: number) =>
+      Math.max(0, Math.min(1, Math.min(vy - lo, hi - vy) / falloff));
+    for (let y = 0; y < size; y++) {
+      const vy = y / size;
+      for (let x = 0; x < size; x++) {
+        const i = (y * size + x) * 3;
+        // Pale sun-washed fieldstone.
+        let r = 176, g = 168, b = 150;
+        // Subtle stone grout mottle.
+        const grout = Math.sin(x * 0.7) * Math.sin(y * 1.1) * Math.sin((x + y) * 0.42);
+        r += grout * 9; g += grout * 8; b += grout * 7;
+        // Golden edging bands.
+        const aEdge = Math.max(soft(0.03, 0.07, vy, 0.008), soft(0.93, 0.97, vy, 0.008));
+        r = r * (1 - aEdge) + 190 * aEdge;
+        g = g * (1 - aEdge) + 150 * aEdge;
+        b = b * (1 - aEdge) + 60 * aEdge;
+        // Amber dashed centre line.
+        const aDash = soft(0.486, 0.514, vy, 0.007) * ((x % 54) < 20 ? 1 : 0);
+        r = r * (1 - aDash) + 235 * aDash;
+        g = g * (1 - aDash) + 180 * aDash;
+        b = b * (1 - aDash) + 60 * aDash;
         data[i] = Math.max(5, Math.min(250, r));
         data[i + 1] = Math.max(5, Math.min(250, g));
         data[i + 2] = Math.max(5, Math.min(250, b));
@@ -2447,7 +2647,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
   }
   /** Per-theme circuit identity — each track is a physically different shape
    *  with its own elevation profile instead of re-skinning the same oval. */
-  private trackShape(): { radius: number; wobble: (t: number) => number; elev: (t: number) => number; width: (t: number) => number } {
+  private trackShape(): { radius: number; wobble: (t: number) => number; elev: (t: number) => number; width: (t: number) => number; sx?: number; sz?: number } {
     const R = this.TRACK_LENGTH / (Math.PI * 2);
     switch (this.theme) {
       // Elevation profiles use (1 - cos) bumps so every circuit starts and ends
@@ -2529,11 +2729,28 @@ void main() { FragColor = texture(uTex, vUV); }`;
           elev: t => 2.2 * (1 - Math.cos(t * Math.PI * 2.5)) / 2 + 0.8 * (1 - Math.cos(t * Math.PI * 7)) / 2,
           width: t => this.TRACK_WIDTH + Math.sin(t * 5) * 1.6,
         };
-      case 'pirate':     // tropical lagoon cove — broad sweeping bays and a headland pinch
+      case 'pirate':     // tropical lagoon cove — a long cove stretched around the
+        // bay so the two main straights run close together across the infield:
+        // that neck is where the secret shipwreck shortcut cuts the lap (see
+        // buildShortcut). Without the stretch the loop is a near-circle and a
+        // chord never saves any distance.
         return {
           radius: R * 1.02, wobble: t => Math.sin(t * 3.2) * 26 + Math.sin(t * 8) * 10 + Math.sin(t * 1.9) * 13,
           elev: t => 1.6 * (1 - Math.cos(t * Math.PI * 3)) / 2 + 0.6 * (1 - Math.cos(t * Math.PI * 6)) / 2,
           width: t => this.TRACK_WIDTH + Math.sin(t * 5) * 1.4,
+          sx: 1.45, sz: 0.5,
+        };
+      case 'mushroom':   // big castle loop — the road hugs the castle grounds
+        return {
+          radius: R * 0.98, wobble: t => Math.sin(t * 2.4) * 24 + Math.sin(t * 6) * 9 + Math.sin(t * 1.3) * 12,
+          elev: t => 2.0 * (1 - Math.cos(t * Math.PI * 3)) / 2 + 0.8 * (1 - Math.cos(t * Math.PI * 7)) / 2,
+          width: t => this.TRACK_WIDTH + Math.sin(t * 5) * 1.6,
+        };
+      case 'hyrule':     // grand castle loop — broad field sweeps around the keep
+        return {
+          radius: R * 1.0, wobble: t => Math.sin(t * 2.6) * 22 + Math.sin(t * 5.5) * 11 + Math.sin(t * 1.4) * 14,
+          elev: t => 2.4 * (1 - Math.cos(t * Math.PI * 3)) / 2 + 0.7 * (1 - Math.cos(t * Math.PI * 6)) / 2,
+          width: t => this.TRACK_WIDTH + Math.sin(t * 5) * 1.5,
         };
       default:           // miami + default — coastal, low and flat
         return {
@@ -2643,15 +2860,16 @@ void main() { FragColor = texture(uTex, vUV); }`;
       // Zero the wobble inside the start-straight window so the grid + launch
       // straight have a constant radius (no turn, no banking) on every circuit.
       const mask = this.startStraightMask(frac);
+      const sx = shape.sx ?? 1, sz = shape.sz ?? 1;
       const r = shape.radius + shape.wobble(t) * mask;
-      const x = Math.cos(t) * r;
-      const z = Math.sin(t) * r;
+      const x = Math.cos(t) * r * sx;
+      const z = Math.sin(t) * r * sz;
       const dt = 0.001;
       const tn = t + dt;
       // The derivative probe is an epsilon ahead — reuse this point's mask.
       const rn = shape.radius + shape.wobble(tn) * mask;
-      const dx = Math.cos(tn) * rn - x;
-      const dz = Math.sin(tn) * rn - z;
+      const dx = Math.cos(tn) * rn * sx - x;
+      const dz = Math.sin(tn) * rn * sz - z;
       const len = Math.hypot(dx, dz);
       pts.push({
         x, z,
@@ -2722,16 +2940,104 @@ void main() { FragColor = texture(uTex, vUV); }`;
       this.totalTrackDist += Math.hypot(ni.x - smoothPts[i].x, ni.z - smoothPts[i].z);
     }
     this.trackLen = smoothPts.length;
+    this.buildShortcut();
   }
+
+  /** Find the pirate circuit's cove neck — the two track sections that run
+   *  closest together across the infield at roughly a third of a lap apart —
+   *  and store a straight chord between them as the hidden shortcut. The
+   *  stretched cove shape guarantees a world-close, route-far pair so the
+   *  chord really does save distance (unlike a near-circle loop). */
+  private buildShortcut(): void {
+    this._shortcut = null;
+    if (this.theme !== 'pirate') return;
+    const pts = this._trackPoints;
+    const n = pts.length;
+    if (n < 40) return;
+    let bestD = Infinity, bestI = 0, bestK = 0;
+    const lo = Math.floor(n * 0.28), hi = Math.floor(n * 0.42);
+    for (let i = 0; i < n; i++) {
+      for (let j = i + lo; j < i + hi; j++) {
+        const k = j % n;
+        const dx = pts[i].x - pts[k].x, dz = pts[i].z - pts[k].z;
+        const d = dx * dx + dz * dz;
+        if (d < bestD) { bestD = d; bestI = i; bestK = k; }
+      }
+    }
+    let gap = ((bestK / n) * this.totalTrackDist) - ((bestI / n) * this.totalTrackDist);
+    if (gap <= 0) gap += this.totalTrackDist;
+    const A = pts[bestI], B = pts[bestK];
+    const poly: Array<{ x: number; z: number }> = [];
+    for (let s = 0; s <= 4; s++) {
+      const f = s / 4;
+      poly.push({ x: A.x + (B.x - A.x) * f, z: A.z + (B.z - A.z) * f });
+    }
+    this._shortcut = { pts: poly, d1: (bestI / n) * this.totalTrackDist, gap };
+  }
+
+  /** Fraction along the shortcut corridor (0..1) if the point lies on it
+   *  (within the passage half-width, away from the two track ends so cars
+   *  merely passing the junction on the main road aren't counted), else null.
+   *  This is the multi-valued bit of progress: inside the passage, a car's
+   *  route distance jumps ahead by `gap` instead of the long way around. */
+  private shortcutT(wx: number, wz: number): number | null {
+    const sc = this._shortcut;
+    if (!sc) return null;
+    const p = sc.pts;
+    let bestD = Infinity, bestT = 0;
+    for (let i = 0; i < p.length - 1; i++) {
+      const ax = p[i].x, az = p[i].z, bx = p[i + 1].x, bz = p[i + 1].z;
+      const sx = bx - ax, sz = bz - az;
+      const segLenSq = sx * sx + sz * sz;
+      let t = segLenSq > 0.0001 ? ((wx - ax) * sx + (wz - az) * sz) / segLenSq : 0;
+      t = Math.max(0, Math.min(1, t));
+      const px = ax + sx * t, pz = az + sz * t;
+      const d = (wx - px) * (wx - px) + (wz - pz) * (wz - pz);
+      if (d < bestD) { bestD = d; bestT = (i + t) / (p.length - 1); }
+    }
+    if (bestD >= 7.5 * 7.5 || bestT < 0.03 || bestT > 0.97) return null;
+    return bestT;
+  }
+
+  /** True while a car is inside the shipwreck shortcut passage. */
+  isInShortcut(wx: number, wz: number): boolean {
+    return this.shortcutT(wx, wz) !== null;
+  }
+
+  /** Nearest centreline point of the shortcut passage, usable as a mini-track
+   *  (direction along the chord, narrow width) so the physics treats the
+   *  passage as a real road instead of pulling the car back to the main loop. */
+  getShortcutPoint(wx: number, wz: number): TrackPoint {
+    const sc = this._shortcut;
+    if (!sc || sc.pts.length < 2) return this.getTrackPointAlong(this.getDistFromPoint(wx, wz));
+    const p = sc.pts;
+    let bestD = Infinity, bx = p[0].x, bz = p[0].z, bT = 0;
+    for (let i = 0; i < p.length - 1; i++) {
+      const ax = p[i].x, az = p[i].z, bx2 = p[i + 1].x, bz2 = p[i + 1].z;
+      const sx = bx2 - ax, sz = bz2 - az;
+      const segLenSq = sx * sx + sz * sz;
+      let t = segLenSq > 0.0001 ? ((wx - ax) * sx + (wz - az) * sz) / segLenSq : 0;
+      t = Math.max(0, Math.min(1, t));
+      const px = ax + sx * t, pz = az + sz * t;
+      const d = (wx - px) * (wx - px) + (wz - pz) * (wz - pz);
+      if (d < bestD) { bestD = d; bx = px; bz = pz; bT = (i + t) / (p.length - 1); }
+    }
+    const first = p[0], last = p[p.length - 1];
+    const dl = Math.hypot(last.x - first.x, last.z - first.z) || 1;
+    const dirX = (last.x - first.x) / dl, dirZ = (last.z - first.z) / dl;
+    return { x: bx, z: bz, y: this.getTrackElevation(sc.d1 + bT * sc.gap), dirX, dirZ, width: 8 };
+  }
+
   getTrackLength(): number { return this.totalTrackDist; }
   /** Applies the environment theme for the selected track and rebuilds the
    *  scenery geometry. Call before each race (both solo and multiplayer). */
-  setTheme(theme: 'default' | 'miami' | 'city' | 'mountain' | 'alpine' | 'desert' | 'monaco' | 'monaco-night' | 'montreal' | 'italy' | 'japan' | 'neon' | 'volcano' | 'antarctica' | 'pirate') {
+  setTheme(theme: 'default' | 'miami' | 'city' | 'mountain' | 'alpine' | 'desert' | 'monaco' | 'monaco-night' | 'montreal' | 'italy' | 'japan' | 'neon' | 'volcano' | 'antarctica' | 'pirate' | 'mushroom' | 'hyrule') {
     this.theme = theme;
-    // Fresh tyres every race — reset the wear that darkened the sidewalls.
+    // Fresh tyres every race — reset the wear that darkened the sidewalls
+    // and drop per-car sidewall textures so a style change re-bakes.
     this._tireDist = 0;
-    this.tireWear = 0;
-    this._bakedTireWear = -1;
+    this.setPlayerTireWear(0);
+    this.tireTexByCar.clear();
     this.night = theme === 'monaco-night' || theme === 'neon' || theme === 'volcano' || theme === 'antarctica';
     // Heat shimmer re-renders the whole scene into an FBO plus a mask pass
     // every frame — too expensive for the desert circuit on weak GPUs, so
@@ -2883,6 +3189,28 @@ void main() { FragColor = texture(uTex, vUV); }`;
         this.ambientColor = [0.4, 0.33, 0.28];
         this.fogColor = [0.62, 0.55, 0.48];
         break;
+      case 'mushroom':
+        // Storybook castle grounds: vivid cartoon-blue sky, bright green lawn,
+        // a cheerful high sun — the Mushroom Kingdom look.
+        this.skyTop = [0.1, 0.35, 0.75];
+        this.skyHorizon = [0.5, 0.75, 0.95];
+        this.skyBottom = [0.72, 0.85, 0.95];
+        this.sunDir = [0.4, 0.72, 0.4];
+        this.sunColor = [1.0, 0.97, 0.85];
+        this.ambientColor = [0.42, 0.48, 0.5];
+        this.fogColor = [0.62, 0.75, 0.8];
+        break;
+      case 'hyrule':
+        // Hyrule Field at midday: golden-green plains, clear sky, a warm sun
+        // glinting off the castle's white walls.
+        this.skyTop = [0.12, 0.38, 0.72];
+        this.skyHorizon = [0.55, 0.78, 0.9];
+        this.skyBottom = [0.78, 0.88, 0.9];
+        this.sunDir = [0.4, 0.68, 0.42];
+        this.sunColor = [1.0, 0.96, 0.82];
+        this.ambientColor = [0.4, 0.46, 0.42];
+        this.fogColor = [0.6, 0.72, 0.68];
+        break;
       default:
         this.skyTop = [0.1, 0.2, 0.5];
         this.skyHorizon = [0.7, 0.75, 0.85];
@@ -2921,6 +3249,14 @@ void main() { FragColor = texture(uTex, vUV); }`;
     };
   }
   getDistFromPoint(wx: number, wz: number): number {
+    // In the shortcut passage, progress jumps ahead by the route gap the
+    // chord skips (returned unwrapped so the lap counter sees a forward jump
+    // even though the passage crosses the lap boundary; every consumer
+    // modulos the distance internally).
+    const scT = this.shortcutT(wx, wz);
+    if (scT !== null && this._shortcut) {
+      return this._shortcut.d1 + scT * this._shortcut.gap;
+    }
     const pts = this._trackPoints;
     let bestDistSq = Infinity;
     let bestIdx = 0;
@@ -3766,6 +4102,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
     if (this._crowdBuf) { try { gl.deleteBuffer(this._crowdBuf); } catch { } }
     if (this._flagVao) { try { gl.deleteVertexArray(this._flagVao); } catch { } }
     if (this._flagBuf) { try { gl.deleteBuffer(this._flagBuf); } catch { } }
+    if (this._auroraVao) { try { gl.deleteVertexArray(this._auroraVao); } catch { } }
+    if (this._auroraBuf) { try { gl.deleteBuffer(this._auroraBuf); } catch { } }
     if (this._confettiVao) { try { gl.deleteVertexArray(this._confettiVao); } catch { } }
     if (this._confettiBuf) { try { gl.deleteBuffer(this._confettiBuf); } catch { } }
     if (this.nightVao) { try { gl.deleteVertexArray(this.nightVao); } catch { } }
@@ -3773,6 +4111,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
     this._winTrailStartedAt = -1;
     this._crowdPeople = [];
     this._flags = [];
+    this._auroraCurtains = [];
     this._palmCrowns.length = 0;
     this._oasisPools.length = 0;
     this._desertPerchSpots = [];
@@ -3815,6 +4154,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
     } else if (this.theme === 'pirate') {
       this.addOceanPlane(flatVerts, flatIdxs, [0.12, 0.5, 0.52]);
       this.addPirateScenery(verts, idxs);
+    } else if (this.theme === 'mushroom') {
+      this.addMushroomScenery(verts, idxs, flatVerts, flatIdxs);
+    } else if (this.theme === 'hyrule') {
+      this.addHyruleScenery(verts, idxs, flatVerts, flatIdxs);
     } else {
       this.addForestScenery(verts, idxs);
     }
@@ -3881,7 +4224,11 @@ void main() { FragColor = texture(uTex, vUV); }`;
               ? [0.45, 0.95, 1.0]
               : this.theme === 'pirate'
                 ? [1.0, 0.85, 0.4]
-                : this.theme === 'miami' ? [1, 0.9, 0.65] : [1, 0.95, 0.7];
+                : this.theme === 'mushroom'
+                  ? [1.0, 0.9, 0.45]
+                  : this.theme === 'hyrule'
+                    ? [1.0, 0.95, 0.6]
+                    : this.theme === 'miami' ? [1, 0.9, 0.65] : [1, 0.95, 0.7];
         this.addCylinder(verts, idxs, lx, 0, lz, 0.08, 3, 6, [0.2, 0.2, 0.2]);
         this.addSphere(verts, idxs, lx, 3, lz, 0.15, 6, lampHead);
       }
@@ -3925,6 +4272,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
       }
     }
     this.buildFlagBuffers();
+    this.buildAuroraBuffers();
     // Raise the scenery onto the terrain so trees, buildings and grandstands
     // sit on the hills instead of the road floating above a flat plane.
     this.displaceVerts(verts);
@@ -4208,6 +4556,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
       case 'volcano': count = 3; altMin = 42; altMax = 72; sizeScale = 0.95; this._cloudAlpha = 0.6; break;
       case 'antarctica': count = 5; altMin = 40; altMax = 70; sizeScale = 1.0; this._cloudAlpha = 0.5; break;
       case 'pirate': count = 7; altMin = 46; altMax = 76; sizeScale = 1.0; this._cloudAlpha = 0.55; break;
+      case 'mushroom': count = 9; altMin = 44; altMax = 74; sizeScale = 1.15; this._cloudAlpha = 0.65; break;
+      case 'hyrule': count = 8; altMin = 46; altMax = 78; sizeScale = 1.1; this._cloudAlpha = 0.6; break;
       default: count = 6; altMin = 55; altMax = 90; sizeScale = 1; this._cloudAlpha = 0.6; break;
     }
     const base = this.theme === 'city'
@@ -4222,7 +4572,11 @@ void main() { FragColor = texture(uTex, vUV); }`;
               ? [0.25, 0.7, 0.65]
               : this.theme === 'pirate'
                 ? [0.98, 0.9, 0.75]
-                : [0.98, 0.98, 1.0];
+                : this.theme === 'mushroom'
+                  ? [0.98, 0.98, 1.0]
+                  : this.theme === 'hyrule'
+                    ? [0.98, 0.98, 1.0]
+                    : [0.98, 0.98, 1.0];
     const verts: number[] = [];
     const idxs: number[] = [];
     const seg = 9;
@@ -4694,8 +5048,15 @@ void main() { FragColor = texture(uTex, vUV); }`;
       this.addBox(verts, idxs, ix, s * 0.5, iz, s * 1.6, s, s, col);
       this.addBox(verts, idxs, ix + s * 0.3, s * 0.95, iz - s * 0.2, s * 0.9, s * 0.7, s * 0.8, deepIce[Math.floor(Math.random() * deepIce.length)]);
     }
-    // Aurora curtains — faint green/teal vertical light sheets in the sky
-    // (billboards following the horizon ring).
+    // Aurora curtains — animated green/teal/purple light sheets around the
+    // horizon. Stored as records and rebuilt every frame in drawAurora with
+    // swaying rays, pulsing brightness and a slowly cycling palette.
+    this._auroraCurtains = [];
+    const aurPalettes: [number, number, number][][] = [
+      [[0.25, 0.95, 0.6], [0.35, 1.0, 0.85], [0.5, 0.75, 1.0]],
+      [[0.3, 0.9, 0.75], [0.55, 0.85, 1.0], [0.85, 0.55, 1.0]],
+      [[0.5, 0.5, 1.0], [0.9, 0.45, 0.85], [0.95, 0.6, 0.7]],
+    ];
     let aurIdx = 0;
     for (let i = 0; i < pts.length; i += 40) {
       const p = pts[i];
@@ -4706,8 +5067,12 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const az = p.z + ppz * dist * side;
       const h = 60 + Math.random() * 70;
       const w = 26 + Math.random() * 30;
-      const tint = aurIdx % 3 === 0 ? [0.3, 0.9, 0.6] : aurIdx % 3 === 1 ? [0.5, 1.0, 0.8] : [0.9, 0.4, 0.7];
-      this.addAuroraCurtain(verts, idxs, ax, az, w, h, tint);
+      this._auroraCurtains.push({
+        x: ax, z: az, w, h,
+        phase: Math.random() * Math.PI * 2,
+        speed: 0.35 + Math.random() * 0.5,
+        palette: aurPalettes[aurIdx % aurPalettes.length],
+      });
       if (aurIdx++ > 10) break;
     }
   }
@@ -4785,18 +5150,6 @@ void main() { FragColor = texture(uTex, vUV); }`;
     this.addCylinder(verts, idxs, x, 2.6, z, 0.06, 1.6, 4, [0.85, 0.85, 0.9]);
     this.addSphere(verts, idxs, x, 4.3, z, 0.22, 6, [1.0, 0.5, 0.35]);
   }
-  private addAuroraCurtain(verts: number[], idxs: number[], x: number, z: number, w: number, h: number, tint: number[]) {
-    // A tall faint billboard sheet — the shader gives it a soft glow feel at
-    // night, and the additive night pass layers a brighter band over it.
-    const ppx = -x / (Math.hypot(x, z) || 1);
-    const ppz = -z / (Math.hypot(x, z) || 1);
-    this.addQuad(verts, idxs,
-      [x - ppx * w / 2, 4, z - ppz * w / 2],
-      [x + ppx * w / 2, 4, z + ppz * w / 2],
-      [x + ppx * w / 2, h, z + ppz * w / 2],
-      [x - ppx * w / 2, h, z - ppz * w / 2], tint);
-  }
-
   // ── Pirate Treasure Cove (golden-hour lagoon) ─────────────────────────
   private addPirateScenery(verts: number[], idxs: number[]) {
     const pts = this._trackPoints;
@@ -4818,7 +5171,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
         [n.x + npx * (w1 + 30), -0.22, n.z + npz * (w1 + 30)],
         [p.x + ppx * (w0 + 30), -0.22, p.z + ppz * (w0 + 30)], col);
     }
-    // Palm trees along the beach.
+    // Palm trees along the beach (kept clear of the secret passage so the
+    // shortcut stays a visible-but-hidden gap in the treeline).
     let palmIdx = 0;
     for (let i = 0; i < pts.length; i += (this.lowQuality ? 4 : 2)) {
       const p = pts[i];
@@ -4828,6 +5182,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
         const dist = p.width / 2 + 26 + Math.random() * 16;
         const px = p.x + ppx * dist * side + (Math.random() - 0.5) * 6;
         const pz = p.z + ppz * dist * side + (Math.random() - 0.5) * 6;
+        if (this.shortcutClearance(px, pz) < 15) continue;
         this.addPalmTree(verts, idxs, px, pz, 0.9 + Math.random() * 0.6);
         if (palmIdx++ > (this.lowQuality ? 34 : 70)) break;
       }
@@ -4848,7 +5203,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
       this.addEllipsoid(verts, idxs, dx + ppx * len * side, -0.05, dz + ppz * len * side, 1.0, 0.3, 0.5, 6, [0.55, 0.32, 0.16]);
       if (dockIdx++ > (this.lowQuality ? 4 : 10)) break;
     }
-    // Treasure chests — glowing gold with dark iron bands.
+    // Treasure chests — glowing gold with dark iron bands (kept clear of the
+    // passage mouth so nothing blocks the hidden line).
     let chestIdx = 0;
     for (let i = 0; i < pts.length; i += (this.lowQuality ? 16 : 8)) {
       const p = pts[i];
@@ -4857,18 +5213,33 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const dist = p.width / 2 + 9 + Math.random() * 5;
       const cx = p.x + ppx * dist * side + (Math.random() - 0.5) * 3;
       const cz = p.z + ppz * dist * side + (Math.random() - 0.5) * 3;
+      if (this.shortcutClearance(cx, cz) < 13) continue;
       this.addTreasureChest(verts, idxs, cx, cz, p.dirX, p.dirZ);
       if (chestIdx++ > (this.lowQuality ? 10 : 22)) break;
     }
-    // A beached galleon — the centrepiece: hull, masts, sails, pirate flag.
+    // The shipwreck shortcut — a beached galleon broken open across the cove
+    // neck. Its hull halves straddle a narrow raised causeway; driving through
+    // the gap skips the long way around (see buildShortcut / isInShortcut).
     {
-      const p = pts[Math.floor(pts.length * 0.4)];
-      const ppx = -p.dirZ, ppz = p.dirX;
-      const side = Math.random() < 0.5 ? -1 : 1;
-      const dist = p.width / 2 + 44;
-      const sx = p.x + ppx * dist * side;
-      const sz = p.z + ppz * dist * side;
-      this.addGalleon(verts, idxs, sx, sz, ppx * side, ppz * side);
+      const sc = this._shortcut;
+      if (sc) {
+        const first = sc.pts[0], last = sc.pts[sc.pts.length - 1];
+        const dx = last.x - first.x, dz = last.z - first.z;
+        const dl = Math.hypot(dx, dz) || 1;
+        const cx = (first.x + last.x) / 2, cz = (first.z + last.z) / 2;
+        // Hull long axis runs ACROSS the passage (perpendicular to the chord).
+        this.addGalleonWreck(verts, idxs, cx, cz, -dz / dl, dx / dl);
+        this.addShortcutRoad(verts, idxs, sc);
+        // Treasure chests mark the hidden entrance/exit of the passage.
+        this.addTreasureChest(verts, idxs, first.x, first.z, dx / dl, dz / dl);
+        this.addTreasureChest(verts, idxs, last.x, last.z, dx / dl, dz / dl);
+      } else {
+        const p = pts[Math.floor(pts.length * 0.4)];
+        const ppx = -p.dirZ, ppz = p.dirX;
+        const side = Math.random() < 0.5 ? -1 : 1;
+        const dist = p.width / 2 + 44;
+        this.addGalleon(verts, idxs, p.x + ppx * dist * side, p.z + ppz * dist * side, ppx * side, ppz * side);
+      }
     }
     // Cannon forts — squat stone platforms with iron cannons aimed at the sea.
     let fortIdx = 0;
@@ -4910,9 +5281,102 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const dist = p.width / 2 + 7 + Math.random() * 3;
       const bx = p.x + ppx * dist * side;
       const bz = p.z + ppz * dist * side;
+      if (this.shortcutClearance(bx, bz) < 11) continue;
       this.addBarrelStack(verts, idxs, bx, bz);
       if (barrelIdx++ > (this.lowQuality ? 8 : 18)) break;
     }
+  }
+
+  /** Min distance from a point to the shipwreck passage (Infinity when there
+   *  is no shortcut). Keeps scenery out of the drivable gap. */
+  private shortcutClearance(wx: number, wz: number): number {
+    const sc = this._shortcut;
+    if (!sc) return Infinity;
+    const p = sc.pts;
+    let best = Infinity;
+    for (let i = 0; i < p.length - 1; i++) {
+      const ax = p[i].x, az = p[i].z, bx = p[i + 1].x, bz = p[i + 1].z;
+      const sx = bx - ax, sz = bz - az;
+      const segLenSq = sx * sx + sz * sz;
+      let t = segLenSq > 0.0001 ? ((wx - ax) * sx + (wz - az) * sz) / segLenSq : 0;
+      t = Math.max(0, Math.min(1, t));
+      const px = ax + sx * t, pz = az + sz * t;
+      const d = Math.hypot(wx - px, wz - pz);
+      if (d < best) best = d;
+    }
+    return best;
+  }
+
+  /** The secret causeway: a narrow raised plank-and-sand road across the cove
+   *  neck, bridging the gap between the two track sections the shortcut joins.
+   *  Rides the track elevation profile so it meets the road flush at both
+   *  ends instead of floating over the beach. */
+  private addShortcutRoad(verts: number[], idxs: number[], sc: { pts: Array<{ x: number; z: number }>; d1: number; gap: number }) {
+    const p = sc.pts;
+    const sandDark: number[] = [0.58, 0.47, 0.28];
+    const plank: number[] = [0.5, 0.36, 0.19];
+    const rope: number[] = [0.42, 0.34, 0.22];
+    for (let i = 0; i < p.length - 1; i++) {
+      const ax = p[i], bx = p[i + 1];
+      const dx = bx.x - ax.x, dz = bx.z - ax.z;
+      const dl = Math.hypot(dx, dz) || 1;
+      const px = -dz / dl, pz = dx / dl;
+      const t0 = i / (p.length - 1), t1 = (i + 1) / (p.length - 1);
+      const y0 = this.getTrackElevation(sc.d1 + t0 * sc.gap) + 0.05;
+      const y1 = this.getTrackElevation(sc.d1 + t1 * sc.gap) + 0.05;
+      // Sandy roadbed.
+      this.addQuad(verts, idxs,
+        [ax.x + px * 5.5, y0, ax.z + pz * 5.5],
+        [bx.x + px * 5.5, y1, bx.z + pz * 5.5],
+        [bx.x - px * 5.5, y1, bx.z - pz * 5.5],
+        [ax.x - px * 5.5, y0, ax.z - pz * 5.5], sandDark);
+      // Plank edge rails + rope posts at the mouth.
+      for (const s of [-1, 1]) {
+        this.addBox(verts, idxs, (ax.x + bx.x) / 2 + px * 5.7 * s, (y0 + y1) / 2, (ax.z + bx.z) / 2 + pz * 5.7 * s, dl, 0.16, 0.3, plank);
+        if (i === 0 || i === p.length - 2) {
+          this.addCylinder(verts, idxs, ax.x + px * 6.2 * s, (y0 + y1) / 2 + 0.4, ax.z + pz * 6.2 * s, 0.14, 1.0, 6, rope);
+        }
+      }
+    }
+  }
+
+  /** A beached galleon broken open across the passage: two hull halves
+   *  straddle the road (leaving the gap clear), one mast leans over the gap
+   *  like an arch with a tattered sail, plus scattered debris and a coin pile. */
+  private addGalleonWreck(verts: number[], idxs: number[], x: number, z: number, dirX: number, dirZ: number) {
+    const hull: number[] = [0.4, 0.22, 0.11];
+    const hullHi: number[] = [0.52, 0.3, 0.15];
+    const mast: number[] = [0.3, 0.2, 0.1];
+    const sail: number[] = [0.82, 0.8, 0.72];
+    const black: number[] = [0.12, 0.1, 0.08];
+    const iron: number[] = [0.22, 0.2, 0.18];
+    const gold: number[] = [1.0, 0.78, 0.2];
+    const t = this.getTrackElevation(this._shortcut ? this._shortcut.d1 + 0.5 * this._shortcut.gap : 0);
+    // Stern half (lifted, leaning in) and bow half (dug in) — each runs from
+    // ~6.5 to ~13 units across the road so the passage stays clear.
+    this.addTaperedBox(verts, idxs, x + dirX * 9.5, t + 0.75, z + dirZ * 9.5, 6.5, 1.25, 0.7, 1.6, 1.0, hull);
+    this.addTaperedBox(verts, idxs, x + dirX * 9.5, t + 1.35, z + dirZ * 9.5, 6.0, 0.55, 0.4, 1.3, 0.9, hullHi);
+    this.addBox(verts, idxs, x + dirX * 6.8, t + 1.5, z + dirZ * 6.8, 0.5, 1.0, 1.2, hullHi);
+    this.addTaperedBox(verts, idxs, x - dirX * 9.5, t + 0.4, z - dirZ * 9.5, 6.5, 0.8, 1.1, 1.0, 1.5, hull);
+    this.addTaperedBox(verts, idxs, x - dirX * 9.5, t + 1.0, z - dirZ * 9.5, 6.0, 0.45, 0.5, 0.9, 1.2, hullHi);
+    // A leaning mast fallen across the gap — an arch over the passage with a
+    // tattered sail hanging from it.
+    this.addStrut(verts, idxs, x + dirX * 11.5, t + 1.6, z + dirZ * 11.5, x - dirX * 6.0, t + 3.6, z - dirZ * 6.0, 0.12, mast);
+    this.addQuad(verts, idxs,
+      [x + dirX * 3.0, t + 2.5, z + dirZ * 3.0],
+      [x - dirX * 1.5, t + 2.9, z - dirZ * 1.5],
+      [x - dirX * 1.5, t + 4.3, z - dirZ * 1.5],
+      [x + dirX * 3.0, t + 3.9, z + dirZ * 3.0], sail);
+    // A cannon barrel half-buried beside the road.
+    this.addCylinder(verts, idxs, x + dirX * 12.5 + dirZ * 3.5, t + 0.35, z + dirZ * 12.5 - dirX * 3.5, 0.3, 3.2, 7, iron);
+    // Torn pirate flag on the lifted stern.
+    this.addQuad(verts, idxs,
+      [x + dirX * 11.5, t + 2.6, z + dirZ * 11.5],
+      [x + dirX * 11.5 - dirZ * 0.7, t + 2.6, z + dirZ * 11.5 + dirX * 0.7],
+      [x + dirX * 11.5 - dirZ * 0.7, t + 3.2, z + dirZ * 11.5 + dirX * 0.7],
+      [x + dirX * 11.5, t + 3.2, z + dirZ * 11.5], black);
+    // A coin spill at the foot of the wreck — treasure for the bold.
+    this.addCoinPile(verts, idxs, x - dirX * 12.0, z - dirZ * 12.0);
   }
   private addTreasureChest(verts: number[], idxs: number[], x: number, z: number, dirX: number, dirZ: number) {
     const wood: number[] = [0.55, 0.38, 0.16];
@@ -5022,6 +5486,346 @@ void main() { FragColor = texture(uTex, vUV); }`;
       this.addCylinder(verts, idxs, ox, r * 0.4 + k * 0.05, oz, r, r * 0.4, 8, k % 2 === 0 ? gold : goldDark);
     }
     this.addSphere(verts, idxs, x, 0.35, z, 0.34, 7, gold);
+  }
+  // ── Mushroom Castle (Mario-64 style storybook castle courtyard) ─────────
+  private addMarioTree(verts: number[], idxs: number[], x: number, z: number, s: number) {
+    const trunk: number[] = [0.45, 0.28, 0.14];
+    const leafLight: number[] = [0.2, 0.72, 0.28];
+    const leafDark: number[] = [0.12, 0.55, 0.2];
+    this.addCylinder(verts, idxs, x, 0, z, 0.5 * s, 2.6 * s, 6, trunk);
+    // Puffy round canopy — two overlapping spheres for the classic cartoon tree.
+    this.addSphere(verts, idxs, x, 3.6 * s, z, 2.5 * s, 8, leafDark);
+    this.addSphere(verts, idxs, x - 1.1 * s, 4.6 * s, z, 1.8 * s, 8, leafLight);
+    this.addSphere(verts, idxs, x + 1.1 * s, 4.6 * s, z, 1.8 * s, 8, leafLight);
+    this.addSphere(verts, idxs, x, 5.3 * s, z, 2.0 * s, 8, leafLight);
+  }
+  private addMushroomScenery(verts: number[], idxs: number[], flatVerts: number[], flatIdxs: number[]) {
+    const pts = this._trackPoints;
+    // Sunny castle courtyard lawn.
+    this.addOceanPlane(flatVerts, flatIdxs, [0.26, 0.58, 0.22]);
+    const stone: number[] = [0.82, 0.75, 0.62];
+    const stoneDark: number[] = [0.66, 0.6, 0.48];
+    const brick: number[] = [0.62, 0.36, 0.2];
+    const cream: number[] = [0.92, 0.88, 0.8];
+    const water: number[] = [0.2, 0.55, 0.85];
+    const roofRed: number[] = [0.68, 0.22, 0.12];
+    const gold: number[] = [1.0, 0.82, 0.2];
+    const wood: number[] = [0.5, 0.33, 0.16];
+    // Perimeter brick wall ringing the courtyard along the track's inner edge
+    // — squat wall with cream coping and crenellation, so the infield reads as
+    // walled castle grounds.
+    let wallIdx = 0;
+    for (let i = 0; i < pts.length; i += (this.lowQuality ? 5 : 3)) {
+      const p = pts[i];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      const dist = p.width / 2 + 6 + Math.random() * 4;
+      const wx = p.x + ppx * dist;
+      const wz = p.z + ppz * dist;
+      this.addBox(verts, idxs, wx, 0.8, wz, 4.2, 1.6, 0.6, brick);
+      this.addBox(verts, idxs, wx, 1.7, wz, 4.2, 0.35, 0.66, cream);
+      if (wallIdx % 2 === 0) {
+        this.addBox(verts, idxs, wx - 1.1, 2.2, wz, 0.9, 0.8, 0.7, brick);
+        this.addBox(verts, idxs, wx + 1.1, 2.2, wz, 0.9, 0.8, 0.7, brick);
+      }
+      if (wallIdx++ > (this.lowQuality ? 30 : 60)) break;
+    }
+    // ── The castle — a Mario-64 style keep at the loop's centre: a central
+    // tower behind a wide stone keep, two tall round towers with red cone
+    // roofs, arched door, drawbridge over a moat, gold star above the gate.
+    const cx = 0, cz = 0;
+    // Moat — a big blue water disc under the raised stone platform.
+    const moatR = 58;
+    const mSegs = 26;
+    for (let k = 0; k < mSegs; k++) {
+      const a0 = (k / mSegs) * TAU, a1 = ((k + 1) / mSegs) * TAU;
+      this.addTri(verts, idxs,
+        [cx, -0.32, cz],
+        [cx + Math.cos(a0) * moatR, -0.32, cz + Math.sin(a0) * moatR],
+        [cx + Math.cos(a1) * moatR, -0.32, cz + Math.sin(a1) * moatR], water);
+    }
+    // Raised stone platform.
+    this.addBox(verts, idxs, cx, 1.1, cz, 80, 2.2, 80, stoneDark);
+    // Compound wall around the platform with merlons.
+    const wallR = 47;
+    for (let k = 0; k < 22; k++) {
+      const a = (k / 22) * TAU;
+      const wx = cx + Math.cos(a) * wallR;
+      const wz = cz + Math.sin(a) * wallR;
+      this.addBox(verts, idxs, wx, 2.0, wz, 5.6, 4.0, 0.8, stoneDark);
+      this.addBox(verts, idxs, wx - 1.6, 4.6, wz, 1.2, 1.2, 0.9, stone);
+      this.addBox(verts, idxs, wx + 1.6, 4.6, wz, 1.2, 1.2, 0.9, stone);
+    }
+    // Central keep — wide stone box facing +x (toward the start straight).
+    this.addBox(verts, idxs, cx, 17, cz, 44, 34, 26, stone);
+    // Keep battlements + trim.
+    for (let bz = -12; bz <= 12; bz += 4) {
+      this.addBox(verts, idxs, cx - 20, 35, cz + bz, 1.6, 1.8, 1.4, stoneDark);
+      this.addBox(verts, idxs, cx + 20, 35, cz + bz, 1.6, 1.8, 1.4, stoneDark);
+    }
+    this.addBox(verts, idxs, cx - 20, 33.5, cz, 1.2, 0.8, 28, cream);
+    this.addBox(verts, idxs, cx + 20, 33.5, cz, 1.2, 0.8, 28, cream);
+    // Side towers — round stone towers with red cone roofs + gold finials.
+    for (const sx of [-1, 1]) {
+      const tx = cx + sx * 21, tz = cz;
+      this.addCylinder(verts, idxs, tx, 0, tz, 7.2, 52, 12, stone);
+      this.addCylinder(verts, idxs, tx, 0, tz, 7.9, 1.4, 12, cream);
+      this.addCone(verts, idxs, tx, 52, tz, 7.9, 15, 12, roofRed);
+      this.addCone(verts, idxs, tx, 67, tz, 0.9, 6, 8, [0.35, 0.25, 0.14]);
+      this.addSphere(verts, idxs, tx, 73.2, tz, 1.0, 7, gold);
+    }
+    // Central tower rising from behind the keep, with a taller spire + flag.
+    this.addCylinder(verts, idxs, cx, 0, cz, 9.4, 72, 14, stoneDark);
+    this.addCone(verts, idxs, cx, 72, cz, 9.9, 20, 14, roofRed);
+    this.addCone(verts, idxs, cx, 92, cz, 1.1, 9, 8, [0.35, 0.25, 0.14]);
+    this.addSphere(verts, idxs, cx, 101.5, cz, 1.4, 8, gold);
+    // White pennant on the tip with a red star.
+    this.addBox(verts, idxs, cx + 3.2, 98, cz, 6.4, 2.2, 0.3, [0.95, 0.95, 0.97]);
+    this.addBox(verts, idxs, cx + 6.2, 98, cz, 0.3, 2.2, 0.3, [0.9, 0.9, 0.93]);
+    // Arched entrance: big dark door + gold power star above it (facing +x).
+    this.addBox(verts, idxs, cx + 22.4, 9, cz, 0.8, 18, 10, [0.1, 0.08, 0.07]);
+    this.addBox(verts, idxs, cx + 22.4, 19.5, cz, 0.8, 2.6, 11, cream);
+    this.addSphere(verts, idxs, cx + 22.9, 27, cz, 1.8, 9, gold);
+    this.addSphere(verts, idxs, cx + 22.9, 28.8, cz, 0.7, 7, [1.0, 0.95, 0.6]);
+    // Wooden drawbridge — stepped planks down from the door, plus a short
+    // bridge across the moat.
+    for (let k = 0; k < 4; k++) {
+      this.addBox(verts, idxs, cx + 23.5 + k * 2.1, 1.0 - k * 0.35, cz, 2.2, 0.5, 6.5, wood);
+    }
+    this.addBox(verts, idxs, cx + 34, 0.7, cz, 7, 0.7, 6, wood);
+    // Windows on the keep and towers.
+    for (const wz of [-7, -2.5, 2.5, 7]) {
+      this.addBox(verts, idxs, cx + 19.6, 24, cz + wz, 0.4, 4.5, 2.2, [0.12, 0.1, 0.14]);
+      this.addBox(verts, idxs, cx - 19.6, 24, cz + wz, 0.4, 4.5, 2.2, [0.12, 0.1, 0.14]);
+    }
+    for (const sx of [-1, 1]) {
+      const tx = cx + sx * 21;
+      for (const ang of [0, Math.PI * 0.5, Math.PI, Math.PI * 1.5]) {
+        const wx = tx + Math.cos(ang) * 7.4;
+        const wz = cz + Math.sin(ang) * 7.4;
+        this.addBox(verts, idxs, wx, 20, wz, 0.9, 5, 1.6, [0.12, 0.1, 0.14]);
+      }
+    }
+    // Mario-style round trees scattered across the courtyard and beyond.
+    let treeIdx = 0;
+    for (let i = 0; i < pts.length; i += (this.lowQuality ? 12 : 6)) {
+      const p = pts[i];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      for (const side of [-1, 1]) {
+        if (Math.random() < 0.4) continue;
+        const dist = p.width / 2 + 26 + Math.random() * 24;
+        const tx = p.x + ppx * dist * side + (Math.random() - 0.5) * 8;
+        const tz = p.z + ppz * dist * side + (Math.random() - 0.5) * 8;
+        this.addMarioTree(verts, idxs, tx, tz, 1.2 + Math.random() * 0.9);
+        if (treeIdx++ > (this.lowQuality ? 26 : 54)) break;
+      }
+      if (treeIdx > (this.lowQuality ? 26 : 54)) break;
+    }
+    // Rows of trees lining the infield, framing the castle approach.
+    for (let k = 0; k < 16; k++) {
+      const a = (k / 16) * TAU + 0.1;
+      const r = 118 + (k % 3) * 10;
+      this.addMarioTree(verts, idxs, Math.cos(a) * r, Math.sin(a) * r, 1.4 + (k % 2) * 0.5);
+    }
+    // Bushes — little green puffs near the walls.
+    for (let k = 0; k < 26; k++) {
+      const a = Math.random() * TAU;
+      const r = 30 + Math.random() * 100;
+      const bx = Math.cos(a) * r + (Math.random() - 0.5) * 14;
+      const bz = Math.sin(a) * r + (Math.random() - 0.5) * 14;
+      if (Math.hypot(bx, bz) < 30) continue;
+      this.addSphere(verts, idxs, bx, 0.7, bz, 0.9 + Math.random() * 0.7, 7, [0.16, 0.6, 0.24]);
+    }
+    // Golden '?'-block clusters beside the road — squat yellow boxes.
+    let blockIdx = 0;
+    for (let i = 0; i < pts.length; i += (this.lowQuality ? 22 : 11)) {
+      const p = pts[i];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      const side = (i / 11) % 2 === 0 ? -1 : 1;
+      const dist = p.width / 2 + 4 + Math.random() * 3;
+      const bx = p.x + ppx * dist * side;
+      const bz = p.z + ppz * dist * side;
+      this.addBox(verts, idxs, bx, 1.4, bz, 2.6, 2.6, 2.6, gold);
+      this.addBox(verts, idxs, bx, 1.4, bz, 2.9, 0.5, 2.9, [0.7, 0.55, 0.12]);
+      if (blockIdx++ > (this.lowQuality ? 5 : 12)) break;
+    }
+    // Rolling green hills on the horizon.
+    for (let k = 0; k < 7; k++) {
+      const a = (k / 7) * TAU + Math.random() * 0.5;
+      const r = 320 + Math.random() * 130;
+      const hx = Math.cos(a) * r;
+      const hz = Math.sin(a) * r;
+      const hs = 26 + Math.random() * 22;
+      this.addEllipsoid(verts, idxs, hx, hs * 0.35, hz, hs * 0.9, hs * 0.7, hs * 0.9, 10, [0.2, 0.5, 0.2]);
+      this.addEllipsoid(verts, idxs, hx, hs * 0.3, hz, hs * 0.8, hs * 0.55, hs * 0.8, 8, [0.3, 0.6, 0.26]);
+    }
+  }
+  // ── Hyrule Castle (Ocarina of Time style — white walls, teal roofs) ─────
+  /** A single golden Triforce triangle: a 3-sided pyramid pointing up. */
+  private addTriforcePiece(verts: number[], idxs: number[], x: number, z: number, s: number) {
+    const gold: number[] = [1.0, 0.82, 0.2];
+    this.addCone(verts, idxs, x, 0.5 * s, z, 0.62 * s, 1.0 * s, 3, gold);
+  }
+  private addHyruleScenery(verts: number[], idxs: number[], flatVerts: number[], flatIdxs: number[]) {
+    const pts = this._trackPoints;
+    // Hyrule Field — golden-green plains.
+    this.addOceanPlane(flatVerts, flatIdxs, [0.3, 0.55, 0.2]);
+    const wallWhite: number[] = [0.92, 0.92, 0.94];
+    const wallShade: number[] = [0.72, 0.74, 0.8];
+    const wallDark: number[] = [0.55, 0.58, 0.66];
+    const roofTeal: number[] = [0.08, 0.42, 0.5];
+    const roofDark: number[] = [0.06, 0.32, 0.4];
+    const gold: number[] = [1.0, 0.82, 0.2];
+    const water: number[] = [0.15, 0.4, 0.78];
+    const wood: number[] = [0.52, 0.36, 0.18];
+    const stone: number[] = [0.62, 0.6, 0.58];
+    // Perimeter wall hugging the track's inner edge — white stone with gold
+    // copings, so the field reads as the castle's outer grounds.
+    let wallIdx = 0;
+    for (let i = 0; i < pts.length; i += (this.lowQuality ? 5 : 3)) {
+      const p = pts[i];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      const dist = p.width / 2 + 7 + Math.random() * 4;
+      const wx = p.x + ppx * dist;
+      const wz = p.z + ppz * dist;
+      this.addBox(verts, idxs, wx, 1.1, wz, 4.6, 2.2, 0.6, wallWhite);
+      this.addBox(verts, idxs, wx, 2.4, wz, 4.6, 0.4, 0.66, gold);
+      if (wallIdx % 2 === 0) {
+        this.addBox(verts, idxs, wx - 1.2, 3.0, wz, 0.9, 1.0, 0.7, wallShade);
+        this.addBox(verts, idxs, wx + 1.2, 3.0, wz, 0.9, 1.0, 0.7, wallShade);
+      }
+      if (wallIdx++ > (this.lowQuality ? 30 : 62)) break;
+    }
+    const cx = 0, cz = 0;
+    // Wide moat around the castle grounds.
+    const moatR = 76;
+    const mSegs = 28;
+    for (let k = 0; k < mSegs; k++) {
+      const a0 = (k / mSegs) * TAU, a1 = ((k + 1) / mSegs) * TAU;
+      this.addTri(verts, idxs,
+        [cx, -0.32, cz],
+        [cx + Math.cos(a0) * moatR, -0.32, cz + Math.sin(a0) * moatR],
+        [cx + Math.cos(a1) * moatR, -0.32, cz + Math.sin(a1) * moatR], water);
+    }
+    // The great white courtyard platform.
+    this.addBox(verts, idxs, cx, 1.2, cz, 108, 2.4, 108, stone);
+    // Two wooden bridges across the moat — the approach and the rear path.
+    for (const bz of [-1, 1]) {
+      const bx = cx + bz * 62;
+      this.addBox(verts, idxs, bx, 0.6, cz, 26, 0.9, 9, wood);
+      this.addBox(verts, idxs, bx + bz * 6, 0.6, cz, 4, 0.8, 10, wood);
+    }
+    // Outer compound wall — tall white crenellated walls ringing the
+    // platform, with four gold-capped guard towers at the cardinal points.
+    const wallR = 54;
+    for (let k = 0; k < 30; k++) {
+      const a = (k / 30) * TAU;
+      const wx = cx + Math.cos(a) * wallR;
+      const wz = cz + Math.sin(a) * wallR;
+      this.addBox(verts, idxs, wx, 7, wz, 7, 14, 1.6, wallWhite);
+      this.addBox(verts, idxs, wx, 14.5, wz, 7, 0.7, 1.8, gold);
+      if (k % 2 === 0) {
+        this.addBox(verts, idxs, wx - 2, 15.6, wz, 1.1, 1.5, 1.8, wallShade);
+        this.addBox(verts, idxs, wx + 2, 15.6, wz, 1.1, 1.5, 1.8, wallShade);
+      }
+    }
+    for (const [gx, gz] of [[wallR, 0], [-wallR, 0], [0, wallR], [0, -wallR]]) {
+      this.addCylinder(verts, idxs, cx + gx, 0, cz + gz, 4.4, 22, 10, wallWhite);
+      this.addCylinder(verts, idxs, cx + gx, 0, cz + gz, 4.9, 1.4, 10, gold);
+      this.addCone(verts, idxs, cx + gx, 22, cz + gz, 5.2, 9, 10, roofTeal);
+      this.addSphere(verts, idxs, cx + gx, 31.6, cz + gz, 0.8, 7, gold);
+    }
+    // ── The castle itself: a grand white keep with a tall central tower and
+    // two flanking round towers, all under teal pyramid roofs, plus the
+    // Triforce emblazoned above the great gate (facing +x).
+    // Main keep — tall white stone block.
+    this.addBox(verts, idxs, cx, 23, cz, 46, 46, 34, wallWhite);
+    // Keep roof — a big teal pyramid.
+    this.addCone(verts, idxs, cx, 46, cz, 26, 16, 4, roofTeal);
+    this.addCone(verts, idxs, cx, 62, cz, 2.4, 8, 4, roofDark);
+    this.addSphere(verts, idxs, cx, 70.5, cz, 1.2, 8, gold);
+    // Central tower rising through the keep roof.
+    this.addCylinder(verts, idxs, cx, 0, cz, 8.6, 80, 14, wallShade);
+    this.addCylinder(verts, idxs, cx, 0, cz, 9.2, 1.6, 14, gold);
+    this.addCone(verts, idxs, cx, 80, cz, 9.6, 22, 14, roofTeal);
+    this.addCone(verts, idxs, cx, 102, cz, 1.2, 12, 8, roofDark);
+    this.addSphere(verts, idxs, cx, 114.5, cz, 1.6, 8, gold);
+    // Side towers.
+    for (const sx of [-1, 1]) {
+      const tx = cx + sx * 23, tz = cz;
+      this.addCylinder(verts, idxs, tx, 0, tz, 6.8, 56, 12, wallWhite);
+      this.addCylinder(verts, idxs, tx, 0, tz, 7.4, 1.4, 12, gold);
+      this.addCone(verts, idxs, tx, 56, tz, 7.6, 16, 10, roofTeal);
+      this.addCone(verts, idxs, tx, 72, tz, 0.9, 7, 8, roofDark);
+      this.addSphere(verts, idxs, tx, 79.4, tz, 0.9, 7, gold);
+    }
+    // Great gate: white arch on the front face with the golden Triforce above.
+    this.addBox(verts, idxs, cx + 23.6, 9, cz, 1.2, 18, 12, wallShade);
+    this.addBox(verts, idxs, cx + 23.6, 19.5, cz, 1.2, 3, 13, gold);
+    this.addBox(verts, idxs, cx + 23.6, 11, cz - 6, 1.2, 16, 2.6, wallWhite);
+    this.addBox(verts, idxs, cx + 23.6, 11, cz + 6, 1.2, 16, 2.6, wallWhite);
+    // Triforce — three gold pyramids above the gate.
+    this.addTriforcePiece(verts, idxs, cx + 24.3, cz, 5.4);
+    this.addTriforcePiece(verts, idxs, cx + 24.3, cz - 4.6, 3.2);
+    this.addTriforcePiece(verts, idxs, cx + 24.3, cz + 4.6, 3.2);
+    // Windows on the keep and side towers.
+    for (const wz of [-8, -3, 3, 8]) {
+      this.addBox(verts, idxs, cx + 22.8, 26, cz + wz, 0.5, 5, 2.4, wallDark);
+      this.addBox(verts, idxs, cx - 22.8, 26, cz + wz, 0.5, 5, 2.4, wallDark);
+    }
+    for (const sx of [-1, 1]) {
+      const tx = cx + sx * 23;
+      for (const ang of [0, Math.PI * 0.5, Math.PI, Math.PI * 1.5]) {
+        const wx = tx + Math.cos(ang) * 7.0;
+        const wz = cz + Math.sin(ang) * 7.0;
+        this.addBox(verts, idxs, wx, 22, wz, 0.9, 5.4, 1.8, wallDark);
+      }
+    }
+    // Courtyard fountain between the gate and the keep — round basin, a
+    // column of water, gold rim.
+    this.addCylinder(verts, idxs, cx + 14, 0.6, cz, 4.6, 1.2, 12, wallShade);
+    this.addCylinder(verts, idxs, cx + 14, 1.2, cz, 4.0, 0.5, 12, water);
+    this.addCylinder(verts, idxs, cx + 14, 1.7, cz, 1.1, 3.4, 10, wallWhite);
+    this.addSphere(verts, idxs, cx + 14, 5.2, cz, 0.7, 7, gold);
+    // Round Hyrule trees scattered across the field and lining the approach.
+    let treeIdx = 0;
+    for (let i = 0; i < pts.length; i += (this.lowQuality ? 12 : 6)) {
+      const p = pts[i];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      for (const side of [-1, 1]) {
+        if (Math.random() < 0.4) continue;
+        const dist = p.width / 2 + 28 + Math.random() * 26;
+        const tx = p.x + ppx * dist * side + (Math.random() - 0.5) * 8;
+        const tz = p.z + ppz * dist * side + (Math.random() - 0.5) * 8;
+        this.addMarioTree(verts, idxs, tx, tz, 1.2 + Math.random() * 0.9);
+        if (treeIdx++ > (this.lowQuality ? 26 : 54)) break;
+      }
+      if (treeIdx > (this.lowQuality ? 26 : 54)) break;
+    }
+    // Rows of trees framing the castle approach.
+    for (let k = 0; k < 18; k++) {
+      const a = (k / 18) * TAU + 0.06;
+      const r = 128 + (k % 3) * 11;
+      this.addMarioTree(verts, idxs, Math.cos(a) * r, Math.sin(a) * r, 1.4 + (k % 2) * 0.5);
+    }
+    // Golden bushes.
+    for (let k = 0; k < 24; k++) {
+      const a = Math.random() * TAU;
+      const r = 34 + Math.random() * 110;
+      const bx = Math.cos(a) * r + (Math.random() - 0.5) * 14;
+      const bz = Math.sin(a) * r + (Math.random() - 0.5) * 14;
+      if (Math.hypot(bx, bz) < 30) continue;
+      this.addSphere(verts, idxs, bx, 0.7, bz, 0.9 + Math.random() * 0.7, 7, [0.24, 0.5, 0.18]);
+    }
+    // Rolling golden-green hills on the horizon.
+    for (let k = 0; k < 8; k++) {
+      const a = (k / 8) * TAU + Math.random() * 0.5;
+      const r = 320 + Math.random() * 140;
+      const hx = Math.cos(a) * r;
+      const hz = Math.sin(a) * r;
+      const hs = 24 + Math.random() * 24;
+      this.addEllipsoid(verts, idxs, hx, hs * 0.32, hz, hs * 0.9, hs * 0.68, hs * 0.9, 10, [0.26, 0.48, 0.18]);
+      this.addEllipsoid(verts, idxs, hx, hs * 0.28, hz, hs * 0.8, hs * 0.52, hs * 0.8, 8, [0.34, 0.56, 0.22]);
+    }
   }
   private addCityScenery(verts: number[], idxs: number[]) {
     const pts = this._trackPoints;
@@ -5664,6 +6468,112 @@ void main() { FragColor = texture(uTex, vUV); }`;
       }
     }
   }
+  /** Swiss flagpole — red flag with a white cross on a tall pole. */
+  private addSwissFlagpole(verts: number[], idxs: number[], x: number, z: number, s: number) {
+    const pole: number[] = [0.85, 0.83, 0.79];
+    const red: number[] = [0.85, 0.1, 0.09];
+    const white: number[] = [0.97, 0.97, 0.95];
+    const h = 4.6 * s;
+    this.addCylinder(verts, idxs, x, h / 2, z, 0.055 * s, h, 5, pole);
+    this.addSphere(verts, idxs, x, h + 0.01, z, 0.09 * s, 4, [0.9, 0.88, 0.84]);
+    const fw = 0.95 * s;
+    const fy = h - 0.4 * s - fw;
+    // Flag plate (thin in X, facing the track) + white cross bars slightly proud.
+    this.addBox(verts, idxs, x + 0.32, fy + fw / 2, z, 0.04, fw, fw, red);
+    const cw = 0.18 * s;
+    const cl = 0.62 * s;
+    this.addBox(verts, idxs, x + 0.345, fy + fw / 2, z, 0.03, cl, cw, white);
+    this.addBox(verts, idxs, x + 0.345, fy + fw / 2, z, 0.03, cw, cl, white);
+  }
+  /** Chalet-style cuckoo clock — wooden house, clock face, pendulum, bird door. */
+  private addCuckooClock(verts: number[], idxs: number[], x: number, z: number, dirX: number, dirZ: number, s: number) {
+    const wood: number[] = [0.42, 0.28, 0.14];
+    const roof: number[] = [0.55, 0.3, 0.18];
+    const dark: number[] = [0.25, 0.16, 0.09];
+    const face: number[] = [0.97, 0.92, 0.72];
+    const ppx = -dirZ, ppz = dirX;
+    const h = 2.4 * s;
+    this.addOrientedBox(verts, idxs, x, h / 2, z, 1.2 * s, h, 0.8 * s, ppx, ppz, wood);
+    this.addCone(verts, idxs, x, h + 0.15 * s, z, 1.0 * s, 0.5 * s, 4, roof);
+    this.addOrientedBox(verts, idxs, x, h + 0.22 * s, z, 1.4 * s, 0.1 * s, 1.0 * s, ppx, ppz, dark);
+    this.addWindowQuad(verts, idxs, x + dirX * 0.42 * s, h * 0.55, z + dirZ * 0.42 * s, 0.5 * s, 0.5 * s, dirX, dirZ, face);
+    // Hands on the face (hour along the lateral axis, minute vertical).
+    this.addOrientedBox(verts, idxs, x + dirX * 0.44 * s, h * 0.55, z + dirZ * 0.44 * s, 0.3 * s, 0.05, 0.05, ppx, ppz, dark);
+    this.addOrientedBox(verts, idxs, x + dirX * 0.44 * s, h * 0.62, z + dirZ * 0.44 * s, 0.05, 0.3 * s, 0.05, ppx, ppz, dark);
+    // Bird door above the face.
+    this.addWindowQuad(verts, idxs, x + dirX * 0.43 * s, h * 0.82, z + dirZ * 0.43 * s, 0.2 * s, 0.22 * s, dirX, dirZ, dark);
+    // Pendulum hanging below.
+    const pendX = x - ppx * 0.18 * s, pendZ = z - ppz * 0.18 * s;
+    this.addStrut(verts, idxs, pendX, 0.12, pendZ, pendX, h * 0.28, pendZ, 0.03, dark);
+    this.addSphere(verts, idxs, pendX, 0.08, pendZ, 0.1 * s, 5, [0.85, 0.6, 0.2]);
+    this.addCylinder(verts, idxs, x, h + 0.75 * s, z, 0.02 * s, 0.5 * s, 4, dark);
+    this.addSphere(verts, idxs, x, h + 1.05 * s, z, 0.05 * s, 4, [0.85, 0.6, 0.2]);
+  }
+  /** Banked bobsled half-pipe — a short run of ice with timing gates. */
+  private addBobsledRun(verts: number[], idxs: number[], x: number, z: number, dirX: number, dirZ: number, len: number, s: number) {
+    const iceA: number[] = [0.66, 0.82, 0.95];
+    const iceB: number[] = [0.55, 0.72, 0.88];
+    const iceDark: number[] = [0.42, 0.6, 0.8];
+    const snow: number[] = [0.95, 0.97, 1];
+    const ppx = -dirZ, ppz = dirX;
+    const hw = 2.6 * s;
+    const hh = 2.0 * s;
+    const x0 = x - dirX * len / 2, z0 = z - dirZ * len / 2;
+    const x1 = x + dirX * len / 2, z1 = z + dirZ * len / 2;
+    this.addQuad(verts, idxs,
+      [x0 - ppx * hw, 0.08, z0 - ppz * hw], [x1 - ppx * hw, 0.08, z1 - ppz * hw],
+      [x1 + ppx * hw, 0.08, z1 + ppz * hw], [x0 + ppx * hw, 0.08, z0 + ppz * hw], iceA);
+    this.addQuad(verts, idxs,
+      [x0 - ppx * 0.3, 0.12, z0 - ppz * 0.3], [x1 - ppx * 0.3, 0.12, z1 - ppz * 0.3],
+      [x1 + ppx * 0.3, 0.12, z1 + ppz * 0.3], [x0 + ppx * 0.3, 0.12, z0 + ppz * 0.3], iceDark);
+    for (const side of [-1, 1]) {
+      const wx = ppx * hw * side, wz = ppz * hw * side;
+      const outX = ppx * (hw + 1.6) * side, outZ = ppz * (hw + 1.6) * side;
+      this.addQuad(verts, idxs,
+        [x0 + wx, 0.08, z0 + wz], [x1 + wx, 0.08, z1 + wz],
+        [x1 + wx, hh, z1 + wz], [x0 + wx, hh, z0 + wz], iceB);
+      this.addQuad(verts, idxs,
+        [x0 + outX, 0.08, z0 + outZ], [x1 + outX, 0.08, z1 + outZ],
+        [x1 + wx, hh, z1 + wz], [x0 + wx, hh, z0 + wz], iceB);
+      this.addQuad(verts, idxs,
+        [x0 + outX, 0.08, z0 + outZ], [x1 + outX, 0.08, z1 + outZ],
+        [x1 + outX, 0.35, z1 + outZ], [x0 + outX, 0.35, z0 + outZ], snow);
+    }
+    for (const f of [-0.42, 0.42]) {
+      const gx = x + dirX * len * f, gz = z + dirZ * len * f;
+      for (const side of [-1, 1]) {
+        this.addCylinder(verts, idxs, gx + ppx * (hw + 1.6) * side, 0, gz + ppz * (hw + 1.6) * side, 0.08, hh + 0.6, 5, [0.85, 0.15, 0.12]);
+      }
+      this.addStrut(verts, idxs, gx - ppx * (hw + 1.6), hh + 0.6, gz - ppz * (hw + 1.6), gx + ppx * (hw + 1.6), hh + 0.6, gz + ppz * (hw + 1.6), 0.09, [0.85, 0.15, 0.12]);
+    }
+  }
+  /** Blue glacier wall — a long wall of ice blocks with a snow crest. */
+  private addGlacierWall(verts: number[], idxs: number[], x: number, z: number, dirX: number, dirZ: number, len: number, h: number, s: number) {
+    const iceA: number[] = [0.45, 0.7, 0.9];
+    const iceB: number[] = [0.55, 0.78, 0.95];
+    const iceC: number[] = [0.38, 0.62, 0.85];
+    const snow: number[] = [0.95, 0.97, 1];
+    const ppx = -dirZ, ppz = dirX;
+    const segs = 7;
+    for (let i = 0; i < segs; i++) {
+      const f0 = -0.5 + i / segs;
+      const f1 = -0.5 + (i + 1) / segs;
+      const jh = h * (0.8 + Math.random() * 0.5);
+      const col = i % 3 === 0 ? iceA : (i % 2 === 0 ? iceB : iceC);
+      this.addOrientedBox(verts, idxs,
+        x + dirX * len * ((f0 + f1) / 2), jh / 2, z + dirZ * len * ((f0 + f1) / 2),
+        len / segs * 1.05, jh, 2.6 * s, ppx, ppz, col);
+      this.addOrientedBox(verts, idxs,
+        x + dirX * len * ((f0 + f1) / 2), jh - 0.2, z + dirZ * len * ((f0 + f1) / 2),
+        len / segs * 1.0, 0.45, 2.8 * s, ppx, ppz, snow);
+    }
+    for (let i = 0; i < segs + 2; i++) {
+      const f = -0.5 + i / segs;
+      const px = x + dirX * len * f, pz = z + dirZ * len * f;
+      const ph = 0.8 + Math.random() * 1.6;
+      this.addCone(verts, idxs, px, h * 0.85, pz, 1.0 * s, ph, 4, snow);
+    }
+  }
   private addAlpineScenery(verts: number[], idxs: number[]) {
     const pts = this._trackPoints;
     let treeIdx = 0;
@@ -5743,6 +6653,47 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const side = Math.random() < 0.5 ? -1 : 1;
       const dist = p.width / 2 + 50 + Math.random() * 14;
       this.addChalet(verts, idxs, p.x + ppx * dist * side + (Math.random() - 0.5) * 8, p.z + ppz * dist * side + (Math.random() - 0.5) * 8, p.dirX, p.dirZ, 1 + Math.random() * 0.4);
+    }
+    // Landmarks: Swiss flags at the start/finish, a cuckoo clock in the
+    // hamlet, a chapel, a banked bobsled run on the far side, and glacier
+    // walls on the horizon.
+    for (const fi of [0.0, 0.5, 0.97]) {
+      const p = pts[Math.floor(pts.length * fi)];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      const side = fi < 0.03 ? 1 : (fi > 0.94 ? -1 : (fi < 0.4 ? 1 : -1));
+      const dist = p.width / 2 + 16 + Math.random() * 6;
+      this.addSwissFlagpole(verts, idxs, p.x + ppx * dist * side, p.z + ppz * dist * side, 0.9 + Math.random() * 0.25);
+    }
+    {
+      const p = pts[Math.floor(pts.length * 0.05)];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      const side = Math.random() < 0.5 ? -1 : 1;
+      const dist = p.width / 2 + 56 + Math.random() * 10;
+      const cx = p.x + ppx * dist * side;
+      const cz = p.z + ppz * dist * side;
+      this.addCuckooClock(verts, idxs, cx, cz, p.dirX, p.dirZ, 1.1 + Math.random() * 0.3);
+      // Little wayside chapel beside the cuckoo clock.
+      this.addChapel(verts, idxs, cx + ppx * 3.4 * side, cz + ppz * 3.4 * side, p.dirX, p.dirZ);
+    }
+    {
+      const p = pts[Math.floor(pts.length * 0.62)];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      const side = Math.random() < 0.5 ? -1 : 1;
+      const dist = p.width / 2 + 34 + Math.random() * 8;
+      this.addBobsledRun(verts, idxs, p.x + ppx * dist * side, p.z + ppz * dist * side, p.dirX, p.dirZ, 22, 1);
+    }
+    for (const fi of [0.18, 0.78]) {
+      const p = pts[Math.floor(pts.length * fi)];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      const side = Math.random() < 0.5 ? -1 : 1;
+      const dist = p.width / 2 + 95 + Math.random() * 20;
+      const gx = p.x + ppx * dist * side;
+      const gz = p.z + ppz * dist * side;
+      this.addGlacierWall(verts, idxs, gx, gz, p.dirX, p.dirZ, 30 + Math.random() * 12, 7 + Math.random() * 3, 1);
     }
   }
   private addAlpineConifer(verts: number[], idxs: number[], x: number, z: number, s: number) {
@@ -6687,6 +7638,116 @@ void main() { FragColor = texture(uTex, vUV); }`;
       this.addChapel(verts, idxs, p.x + ppx * dist * side, p.z + ppz * dist * side, p.dirX, p.dirZ);
     }
   }
+  /** Snow-capped Mt. Fuji rising on the horizon. */
+  private addMountFuji(verts: number[], idxs: number[], x: number, z: number, s: number) {
+    const dark: number[] = [0.2, 0.24, 0.35];
+    const blue: number[] = [0.3, 0.36, 0.5];
+    const snow: number[] = [0.97, 0.98, 1];
+    const r = 34 * s, h = 26 * s;
+    this.addCone(verts, idxs, x, 0, z, r, h, 10, blue);
+    this.addCone(verts, idxs, x, 0, z, r, h * 0.18, 10, dark);
+    // Snow cap: a white cone perched on the summit.
+    this.addCone(verts, idxs, x, h * 0.7, z, r * 0.34, h * 0.32, 10, snow);
+    this.addCone(verts, idxs, x, h * 0.95, z, r * 0.1, h * 0.09, 8, snow);
+  }
+  /** White five-tier Himeji-style castle keep with layered roofs. */
+  private addHimejiCastle(verts: number[], idxs: number[], x: number, z: number, dirX: number, dirZ: number, s: number) {
+    const white: number[] = [0.94, 0.93, 0.9];
+    const whiteShade: number[] = [0.82, 0.81, 0.78];
+    const roof: number[] = [0.2, 0.22, 0.3];
+    const roofDark: number[] = [0.14, 0.15, 0.22];
+    const gold: number[] = [0.88, 0.72, 0.3];
+    const ppx = -dirZ, ppz = dirX;
+    // Stone base.
+    this.addOrientedBox(verts, idxs, x, 0.6, z, 8.4 * s, 1.2, 6.4 * s, ppx, ppz, [0.6, 0.58, 0.52]);
+    const tiers: [number, number][] = [[6.2, 2.0], [4.9, 1.6], [3.7, 1.3], [2.7, 1.1], [1.8, 0.8]];
+    let y = 1.2;
+    for (let i = 0; i < tiers.length; i++) {
+      const [tw, th] = tiers[i];
+      const w = tw * s, h = th * s;
+      this.addOrientedBox(verts, idxs, x, y + h / 2, z, w, h, w * 0.78, ppx, ppz, i % 2 === 0 ? white : whiteShade);
+      this.addCone(verts, idxs, x, y + h + 0.12, z, w * 0.6, 0.9, 4, i % 2 === 0 ? roof : roofDark);
+      this.addOrientedBox(verts, idxs, x, y + h + 0.14, z, w + 0.7, 0.1, w * 0.78 + 0.7, ppx, ppz, roofDark);
+      y += h + 0.9;
+    }
+    // Gold finial on top.
+    this.addCylinder(verts, idxs, x, y + 0.1, z, 0.04, 0.6, 4, gold);
+    this.addSphere(verts, idxs, x, y + 0.75, z, 0.07, 4, gold);
+    // Corner turrets on the stone base.
+    for (const sx of [-1, 1]) {
+      for (const sz of [-1, 1]) {
+        const tx = x + ppx * 3.6 * s * sx + dirX * 1.2 * s * sz;
+        const tz = z + ppz * 3.6 * s * sx + dirZ * 1.2 * s * sz;
+        this.addOrientedBox(verts, idxs, tx, 0.9, tz, 1.6, 1.8, 1.3, ppx, ppz, white);
+        this.addCone(verts, idxs, tx, 1.85, tz, 1.1, 0.55, 4, roof);
+        this.addCylinder(verts, idxs, tx, 2.1, tz, 0.03, 0.4, 4, gold);
+      }
+    }
+  }
+  /** Floating red torii standing in shallow water (Miyajima-style). */
+  private addFloatingTorii(verts: number[], idxs: number[], x: number, z: number, s: number, dirX: number, dirZ: number, baseY = 0) {
+    const red: number[] = [0.82, 0.1, 0.09];
+    const redDark: number[] = [0.55, 0.08, 0.07];
+    const stone: number[] = [0.55, 0.55, 0.5];
+    const ppx = -dirZ, ppz = dirX;
+    const legH = 4.2 * s;
+    const span = 3.0 * s;
+    // Low stone platform just at the waterline.
+    this.addBox(verts, idxs, x, baseY + 0.15, z, 5.6 * s, 0.3, 5.6 * s, stone);
+    for (const side of [-1, 1]) {
+      this.addCylinder(verts, idxs, x + dirX * span * 0.5 * side, baseY + legH / 2, z + dirZ * span * 0.5 * side, 0.22 * s, legH, 8, red);
+    }
+    // Kasagi (top beam) — two stacked planks with a slight rise.
+    this.addOrientedBox(verts, idxs, x, baseY + legH + 0.42 * s, z, span + 1.5 * s, 0.3 * s, 0.55 * s, ppx, ppz, red);
+    this.addOrientedBox(verts, idxs, x, baseY + legH + 0.25 * s, z, span + 1.2 * s, 0.22 * s, 0.5 * s, ppx, ppz, redDark);
+    // Nuki (second beam) and centre plaque.
+    this.addOrientedBox(verts, idxs, x, baseY + legH * 0.62, z, span + 0.35 * s, 0.18 * s, 0.32 * s, ppx, ppz, red);
+    this.addBox(verts, idxs, x, baseY + legH * 0.55, z, 0.34 * s, 0.7 * s, 0.1, redDark);
+  }
+  /** Seated golden Buddha on a stone pedestal. */
+  private addBuddha(verts: number[], idxs: number[], x: number, z: number, s: number) {
+    const gold: number[] = [0.85, 0.68, 0.28];
+    const goldDark: number[] = [0.7, 0.55, 0.22];
+    const stone: number[] = [0.6, 0.58, 0.52];
+    const baseR = 1.5 * s;
+    this.addCylinder(verts, idxs, x, 0.35 * s, z, baseR, 0.7 * s, 8, stone);
+    this.addCylinder(verts, idxs, x, 0.8 * s, z, baseR * 0.8, 0.3 * s, 8, goldDark);
+    // Seated body, torso, head, ears, top knot, hands, halo.
+    this.addSphere(verts, idxs, x, 1.35 * s, z, baseR * 0.75, 8, gold);
+    this.addCone(verts, idxs, x, 1.9 * s, z, baseR * 0.62, 1.1 * s, 8, gold);
+    this.addSphere(verts, idxs, x, 2.7 * s, z, baseR * 0.34, 8, gold);
+    for (const side of [-1, 1]) {
+      this.addBox(verts, idxs, x + side * baseR * 0.38, 2.6 * s, z, baseR * 0.16, 0.3 * s, 0.24 * s, goldDark);
+    }
+    this.addSphere(verts, idxs, x, 2.95 * s, z, baseR * 0.1, 6, goldDark);
+    this.addBox(verts, idxs, x, 1.6 * s, z, baseR * 0.5, 0.2 * s, 0.7 * s, goldDark);
+    this.addCylinder(verts, idxs, x, 2.7 * s, z - 0.55 * s, baseR * 0.42, 0.06, 8, [0.95, 0.85, 0.45]);
+  }
+  /** Hot-spring onsen — stone pool, steaming water, wooden bathhouse. */
+  private addOnsen(verts: number[], idxs: number[], x: number, z: number, s: number, baseY = 0) {
+    const stone: number[] = [0.55, 0.52, 0.47];
+    const water: number[] = [0.35, 0.68, 0.72];
+    const steam: number[] = [0.93, 0.95, 0.97];
+    const wood: number[] = [0.42, 0.28, 0.14];
+    const r = 2.6 * s;
+    for (let i = 0; i < 14; i++) {
+      const a = (i / 14) * Math.PI * 2;
+      this.addSphere(verts, idxs, x + Math.cos(a) * r, baseY + 0.22, z + Math.sin(a) * r, 0.4 * s, 5, stone);
+    }
+    this.addQuad(verts, idxs,
+      [x - r + 0.3, baseY + 0.1, z - r + 0.3], [x + r - 0.3, baseY + 0.1, z - r + 0.3],
+      [x + r - 0.3, baseY + 0.1, z + r - 0.3], [x - r + 0.3, baseY + 0.1, z + r - 0.3], water);
+    for (let i = 0; i < 5; i++) {
+      const sx = x + (Math.random() - 0.5) * r * 1.3;
+      const sz = z + (Math.random() - 0.5) * r * 1.3;
+      const sh = 0.5 + Math.random() * 0.7;
+      this.addSphere(verts, idxs, sx, baseY + 0.5 + sh / 2, sz, 0.22 + sh * 0.3, 5, steam);
+    }
+    // Wooden bathhouse behind the pool.
+    this.addBox(verts, idxs, x + r + 1.4, baseY + 0.85, z, 2.4, 1.7, 2.0, wood);
+    this.addCone(verts, idxs, x + r + 1.4, baseY + 1.75, z, 1.7, 0.8, 4, [0.3, 0.2, 0.1]);
+    this.addCylinder(verts, idxs, x + r + 0.2, baseY, z + 1.6, 0.04, 1.0, 4, wood);
+  }
   private addJapanScenery(verts: number[], idxs: number[]) {
     const pts = this._trackPoints;
     const N = pts.length;
@@ -6854,6 +7915,48 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const side = Math.random() < 0.5 ? -1 : 1;
       const dist = p.width / 2 + 70 + Math.random() * 20;
       this.addPagoda(verts, idxs, p.x + ppx * dist * side, p.z + ppz * dist * side, 1.1);
+      // Seated golden Buddha beside the pagoda.
+      this.addBuddha(verts, idxs, p.x - ppx * dist * side, p.z - ppz * dist * side, 1.0);
+    }
+    // Landmarks: Mt. Fuji on the horizon, a Himeji-style castle on a ridge,
+    // a floating torii out in the valley river, and an onsen in the valley
+    // town.
+    {
+      const p = pts[Math.floor(pts.length * 0.25)];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      const side = Math.random() < 0.5 ? -1 : 1;
+      const dist = p.width / 2 + 190 + Math.random() * 30;
+      this.addMountFuji(verts, idxs, p.x + ppx * dist * side, p.z + ppz * dist * side, 1.6 + Math.random() * 0.4);
+    }
+    {
+      const p = pts[Math.floor(pts.length * 0.1)];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      const side = Math.random() < 0.5 ? -1 : 1;
+      const dist = p.width / 2 + 110 + Math.random() * 20;
+      this.addHimejiCastle(verts, idxs, p.x + ppx * dist * side, p.z + ppz * dist * side, p.dirX, p.dirZ, 1.1);
+    }
+    {
+      const fi = Math.floor(N * 0.72);
+      const p = pts[fi];
+      const s = dropSide(p);
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      const ox = ppx * s, oz = ppz * s;
+      const rOff = p.width / 2 + slopeW + floorW * 0.55;
+      this.addFloatingTorii(verts, idxs, p.x + ox * rOff, p.z + oz * rOff, 1.15, ppx, ppz, floorY + 0.1);
+    }
+    {
+      const p = pts[Math.floor(N * 0.66)];
+      const s = dropSide(p);
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      const ox = ppx * s, oz = ppz * s;
+      const off = 0.55 + Math.random() * 0.2;
+      const ox2 = p.x + ox * (p.width / 2 + slopeW + floorW * off) + (Math.random() - 0.5) * 10;
+      const oz2 = p.z + oz * (p.width / 2 + slopeW + floorW * off) + (Math.random() - 0.5) * 10;
+      this.addOnsen(verts, idxs, ox2, oz2, 0.9 + Math.random() * 0.2, floorY);
     }
     this.addExtraBleachers(verts, idxs);
   }
@@ -7176,7 +8279,14 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const driverVerts: number[] = [];
     const driverIdxs: number[] = [];
     // Helmet-only pieces (shell + visor + crown) build into their own mesh so
-    // the head can pivot with steering while the suit stays put.
+    // the head can pivot with steering while the suit stays put. The shell and
+    // the crown stripe bake white into their own meshes so renderCar can tint
+    // them with the equipped helmet palette (HELMET_PALETTES) at draw time;
+    // the visor band, vents and ducktail stay in the fixed-detail mesh.
+    const helmetShellVerts: number[] = [];
+    const helmetShellIdxs: number[] = [];
+    const helmetStripeVerts: number[] = [];
+    const helmetStripeIdxs: number[] = [];
     const helmetVerts: number[] = [];
     const helmetIdxs: number[] = [];
     // Hands build into their own per-side meshes so renderCar can pivot each
@@ -7250,11 +8360,15 @@ void main() { FragColor = texture(uTex, vUV); }`;
     // turns into corners with steering.
     const hcx = 0.385, hcy = 0.322;           // shell centre (crown clears halo y≈0.40)
     const hrx = 0.105, hry = 0.072, hrz = 0.095;
-    // Ovoid shell — elongated front-to-back, wider than it is tall.
-    this.addEllipsoid(helmetVerts, helmetIdxs, hcx, hcy, 0, hrx, hry, hrz, 20, shell);
+    // Ovoid shell — elongated front-to-back, wider than it is tall (its own
+    // tinted mesh — the helmet colour).
+    this.addEllipsoid(helmetShellVerts, helmetShellIdxs, hcx, hcy, 0, hrx, hry, hrz, 20, shell);
     // Chin bar / jaw — the lower-front bulge that gives the helmet a face
-    // instead of a plain ball.
-    this.addEllipsoid(helmetVerts, helmetIdxs, hcx + 0.088, hcy - 0.042, 0, 0.035, 0.045, 0.062, 14, shell);
+    // instead of a plain ball (tinted with the shell).
+    this.addEllipsoid(helmetShellVerts, helmetShellIdxs, hcx + 0.088, hcy - 0.042, 0, 0.035, 0.045, 0.062, 14, shell);
+    // Crown stripe — a thin tinted band hugging the shell above the visor so
+    // two-tone helmets read clearly from any angle (own mesh, baked white).
+    this.addEllipsoidBand(helmetStripeVerts, helmetStripeIdxs, hcx, hcy, 0, hrx + 0.004, hry + 0.004, hrz + 0.004, hcy + 0.02, hcy + 0.05, 18, shell, 0.009);
     // Visor band — a proper tinted strip wrapped around the shell's front
     // (custom band mesh hugging the ellipsoid, so it reads as a real visor).
     this.addEllipsoidBand(helmetVerts, helmetIdxs, hcx, hcy, 0, hrx, hry, hrz, hcy + 0.027, hcy - 0.027, 18, visorDark, 0.007);
@@ -7578,6 +8692,84 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.enableVertexAttribArray(3);
     gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
     gl.bindVertexArray(null);
+    // Helmet shell + crown-stripe sub-meshes — baked white so renderCar can
+    // tint them with the equipped helmet palette (the detail mesh above keeps
+    // its fixed visor/vents colours).
+    const makeTintedMeshVao = (mverts: number[], midxs: number[]) => {
+      const mv = gl.createVertexArray()!;
+      gl.bindVertexArray(mv);
+      const mvbo = gl.createBuffer()!;
+      gl.bindBuffer(gl.ARRAY_BUFFER, mvbo);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mverts), gl.STATIC_DRAW);
+      const mibo = gl.createBuffer()!;
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mibo);
+      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(midxs), gl.STATIC_DRAW);
+      gl.enableVertexAttribArray(0);
+      gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
+      gl.enableVertexAttribArray(1);
+      gl.vertexAttribPointer(1, 3, gl.FLOAT, false, stride, 12);
+      gl.enableVertexAttribArray(2);
+      gl.vertexAttribPointer(2, 3, gl.FLOAT, false, stride, 24);
+      gl.enableVertexAttribArray(3);
+      gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
+      gl.bindVertexArray(null);
+      return { vao: mv, count: midxs.length };
+    };
+    const hShell = makeTintedMeshVao(helmetShellVerts, helmetShellIdxs);
+    this.helmetShellVao = hShell.vao;
+    this.helmetShellCount = hShell.count;
+    const hStripe = makeTintedMeshVao(helmetStripeVerts, helmetStripeIdxs);
+    this.helmetStripeVao = hStripe.vao;
+    this.helmetStripeCount = hStripe.count;
+    // Cosmetic accessories — antenna mast, roof scoop, roll hoop. Built into
+    // their own per-id VAOs (baked white so they take the car's paint) and
+    // drawn only when that accessory is equipped.
+    const makeAccessory = (id: number, build: (v: number[], i: number[]) => void) => {
+      const av: number[] = [];
+      const ai: number[] = [];
+      build(av, ai);
+      const gv = gl.createVertexArray()!;
+      gl.bindVertexArray(gv);
+      const gvbo = gl.createBuffer()!;
+      gl.bindBuffer(gl.ARRAY_BUFFER, gvbo);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(av), gl.STATIC_DRAW);
+      const gibo = gl.createBuffer()!;
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, gibo);
+      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(ai), gl.STATIC_DRAW);
+      gl.enableVertexAttribArray(0);
+      gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
+      gl.enableVertexAttribArray(1);
+      gl.vertexAttribPointer(1, 3, gl.FLOAT, false, stride, 12);
+      gl.enableVertexAttribArray(2);
+      gl.vertexAttribPointer(2, 3, gl.FLOAT, false, stride, 24);
+      gl.enableVertexAttribArray(3);
+      gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
+      gl.bindVertexArray(null);
+      this.accessoryVaos.set(id, { vao: gv, count: ai.length });
+    };
+    // 901 — chrome radio antenna with a little pennant flag on the rear deck.
+    makeAccessory(901, (v, i) => {
+      const mast = [0.75, 0.75, 0.78];
+      const ball = [0.85, 0.2, 0.15];
+      this.addStrut(v, i, -0.72, 0.24, 0, -0.72, 0.56, 0, 0.012, mast);
+      this.addSphere(v, i, -0.72, 0.565, 0, 0.018, 10, ball);
+      this.addTaperedBox(v, i, -0.72, 0.52, 0.02, 0.09, 0.012, 0.008, 0.004, 0.016, ball);
+    });
+    // 902 — carbon roof scoop ducted onto the cowl.
+    makeAccessory(902, (v, i) => {
+      const carbon = [0.12, 0.12, 0.14];
+      this.addTaperedBox(v, i, 0.34, 0.34, 0, 0.22, 0.05, 0.075, 0.09, 0.13, carbon);
+      this.addBox(v, i, 0.34, 0.375, 0, 0.2, 0.012, 0.06, carbon);
+      this.addBox(v, i, 0.3, 0.355, 0.035, 0.012, 0.03, 0.02, carbon);
+      this.addBox(v, i, 0.3, 0.355, -0.035, 0.012, 0.03, 0.02, carbon);
+    });
+    // 903 — roll-cage hoop behind the cockpit (two uprights + crossbar).
+    makeAccessory(903, (v, i) => {
+      const tube = [0.85, 0.85, 0.9];
+      this.addStrut(v, i, 0.16, 0.27, -0.09, 0.16, 0.42, -0.09, 0.022, tube);
+      this.addStrut(v, i, 0.16, 0.27, 0.09, 0.16, 0.42, 0.09, 0.022, tube);
+      this.addStrut(v, i, 0.12, 0.42, -0.09, 0.20, 0.42, 0.09, 0.022, tube);
+    });
     // Glove meshes — one VAO per hand so renderCar can pivot each hand about
     // its wrist (fingers grip/release with steering input).
     const makeGloveVao = (gverts: number[], gidxs: number[]) => {
@@ -7943,10 +9135,12 @@ void main() { FragColor = texture(uTex, vUV); }`;
       gl.bindVertexArray(null);
       return { vao, count: gi.length };
     };
-    const core = buildGlowQuad(2.0, 1.0);
+    // Wider underglow pools so the neon reads as a bigger, hotter pool of
+    // light under the car instead of a tight strip.
+    const core = buildGlowQuad(2.4, 1.15);
     this.glowVao = core.vao;
     this.glowCount = core.count;
-    const halo = buildGlowQuad(3.0, 1.5);
+    const halo = buildGlowQuad(3.7, 1.75);
     this.glowHaloVao = halo.vao;
     this.glowHaloCount = halo.count;
     this.buildWheelMesh();
@@ -8182,7 +9376,6 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const cyan: [number, number, number] = [0.35, 1.0, 1.0];
     const teal: [number, number, number] = [0.25, 0.9, 0.8];
     const warm: [number, number, number] = [1.0, 0.8, 0.42];
-    const green: [number, number, number] = [0.35, 1.0, 0.6];
     // Ice-crack seams — thin glowing cyan lines just off both edges of the
     // road, the bioluminescent cracks running with the track.
     for (let i = 0; i < pts.length; i += 2) {
@@ -8253,24 +9446,6 @@ void main() { FragColor = texture(uTex, vUV); }`;
       this.addQuad(verts, idxs,
         [ux - 1.2, 0.5, uz - 1.2], [ux + 1.2, 0.5, uz + 1.2],
         [ux + 1.2, 6.5, uz + 1.2], [ux - 1.2, 6.5, uz - 1.2], cyan);
-    }
-    // Aurora light pillars — tall green/teal sheets around the horizon.
-    let aurIdx = 0;
-    for (let i = 0; i < pts.length; i += 40) {
-      const p = pts[i];
-      const ppx = -p.dirZ, ppz = p.dirX;
-      const side = (i / 40) % 2 === 0 ? -1 : 1;
-      const dist = p.width / 2 + 90 + Math.random() * 60;
-      const ax = p.x + ppx * dist * side;
-      const az = p.z + ppz * dist * side;
-      const h = 50 + Math.random() * 70;
-      this.addQuad(verts, idxs,
-        [ax - ppx * 4, 3, az - ppz * 4],
-        [ax + ppx * 4, 3, az + ppz * 4],
-        [ax + ppx * 4, h, az + ppz * 4],
-        [ax - ppx * 4, h, az - ppz * 4],
-        aurIdx % 2 === 0 ? green : teal);
-      if (aurIdx++ > 8) break;
     }
     this.finishNightMesh(verts, idxs);
   }
@@ -9078,6 +10253,14 @@ void main() { FragColor = texture(uTex, vUV); }`;
         // Pirate crew — red bandanas, striped shirts, worn leather.
         return [[0.9, 0.2, 0.18], [0.95, 0.85, 0.5], [0.55, 0.4, 0.3],
         [0.35, 0.6, 0.85], [0.85, 0.65, 0.4], [0.3, 0.35, 0.4]];
+      case 'mushroom':
+        // Mushroom Kingdom crowd — bright overalls and star shirts.
+        return [[0.9, 0.2, 0.18], [0.15, 0.4, 0.9], [0.1, 0.7, 0.35],
+        [0.98, 0.8, 0.15], [0.95, 0.55, 0.15], [0.9, 0.3, 0.65]];
+      case 'hyrule':
+        // Hyrule crowd — Kokiri greens, Hylian blues and golden accents.
+        return [[0.12, 0.55, 0.25], [0.1, 0.3, 0.7], [0.75, 0.55, 0.15],
+        [0.8, 0.82, 0.7], [0.55, 0.3, 0.15], [0.25, 0.45, 0.55]];
       default:
         return [[0.7, 0.15, 0.15], [0.15, 0.3, 0.7], [0.8, 0.7, 0.1],
         [0.9, 0.9, 0.9], [0.15, 0.5, 0.2], [0.6, 0.2, 0.6], [0.1, 0.65, 0.65], [0.95, 0.5, 0.15]];
@@ -9096,6 +10279,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
       case 'volcano': return [[0.95, 0.35, 0.2], [0.95, 0.7, 0.3]];
       case 'antarctica': return [[0.25, 0.75, 0.9], [0.95, 0.95, 1.0]];
       case 'pirate': return [[0.9, 0.2, 0.18], [0.2, 0.2, 0.25]];
+      case 'mushroom': return [[0.9, 0.2, 0.18], [0.95, 0.95, 0.95]];
+      case 'hyrule': return [[0.1, 0.55, 0.25], [0.95, 0.8, 0.2]];
       default: return this.crowdShirtsForTheme().slice(0, 2);
     }
   }
@@ -9641,6 +10826,12 @@ void main() { FragColor = texture(uTex, vUV); }`;
   private _flagVao!: WebGLVertexArrayObject;
   private _flagBuf!: WebGLBuffer;
   private _flagData!: Float32Array;
+  /** Dynamic aurora curtains (antarctica): billboard sheets rebuilt each frame
+   *  with swaying rays, pulsing brightness and a slowly cycling palette. */
+  private _auroraCurtains: { x: number; z: number; w: number; h: number; phase: number; speed: number; palette: [number, number, number][] }[] = [];
+  private _auroraVao!: WebGLVertexArrayObject;
+  private _auroraBuf!: WebGLBuffer;
+  private _auroraData!: Float32Array;
   private _crowdExcitement = 0;
   private _balloonVao!: WebGLVertexArrayObject;
   private _balloonVbo!: WebGLBuffer;
@@ -9651,7 +10842,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
   private _trackCenterZ = 0;
   private _animalsVao!: WebGLVertexArrayObject;
   private _animalsBuf!: WebGLBuffer;
-  private _animals: { kind: 0 | 1 | 2 | 3; x: number; z: number; yaw: number; size: number; phase: number; retr: number }[] = [];
+  private _animals: { kind: 0 | 1 | 2 | 3 | 4 | 5; x: number; z: number; yaw: number; size: number; phase: number; retr: number; wx?: number; wz?: number; wPause?: number }[] = [];
   private _tumbleweeds: { x: number; z: number; vx: number; vz: number; spin: number; phase: number; size: number }[] = [];
   private _dustDevils: { x: number; z: number; vx: number; vz: number; phase: number; size: number; life: number; maxLife: number }[] = [];
   private _windVao!: WebGLVertexArrayObject;
@@ -9677,7 +10868,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const isVolcano = this.theme === 'volcano';
     const isAntarctica = this.theme === 'antarctica';
     const isPirate = this.theme === 'pirate';
-    const birdCount = isMiami || isPirate ? 26 : isHighCountry ? 24 : isDesert ? 14 : isNeon ? 8 : isVolcano || isAntarctica ? 0 : 18;
+    const isMushroom = this.theme === 'mushroom';
+    const isHyrule = this.theme === 'hyrule';
+    const birdCount = isMiami || isPirate || isMushroom || isHyrule ? 26 : isHighCountry ? 24 : isDesert ? 14 : isNeon ? 8 : isVolcano || isAntarctica ? 0 : 18;
     for (let i = 0; i < birdCount; i++) {
       const eagle = isHighCountry && i % 2 === 0;
       const vulture = isDesert && i % 2 === 0;
@@ -9739,6 +10932,30 @@ void main() { FragColor = texture(uTex, vUV); }`;
         if (pengIdx++ >= (this.lowQuality ? 10 : 20)) break;
       }
     }
+    // Toads (kind 4) and Bob-ombs (kind 5) — Mushroom Kingdom characters
+    // wandering the castle courtyard lawn, between the moat and the tree ring.
+    // They pick random targets in a ring around the castle and amble between
+    // them with pauses (see updateWanderer).
+    if (isMushroom) {
+      const chCount = this.lowQuality ? 6 : 12;
+      for (let i = 0; i < chCount; i++) {
+        const isToad = i % 2 === 0;
+        const ang = (i / chCount) * TAU + Math.random() * 0.6;
+        const rad = 62 + Math.random() * 78;
+        const ax = Math.cos(ang) * rad;
+        const az = Math.sin(ang) * rad;
+        this._animals.push({
+          kind: isToad ? 4 : 5,
+          x: ax,
+          z: az,
+          yaw: Math.random() * Math.PI * 2,
+          size: isToad ? 0.75 + Math.random() * 0.2 : 0.6 + Math.random() * 0.15,
+          phase: Math.random() * Math.PI * 2,
+          retr: 0,
+          wx: ax, wz: az, wPause: 0.5 + Math.random() * 2,
+        });
+      }
+    }
     if (isHighCountry) {
       let deerIdx = 0;
       for (let i = 0; i < pts.length; i += 10) {
@@ -9783,7 +11000,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
         }
       }
     }
-    if (isHighCountry || isAntarctica) {
+    if (isHighCountry || isAntarctica || isMushroom) {
       this._animalsVao = gl.createVertexArray()!;
       gl.bindVertexArray(this._animalsVao);
       this._animalsBuf = gl.createBuffer()!;
@@ -10390,10 +11607,15 @@ void main() { FragColor = texture(uTex, vUV); }`;
       }
     }
   }
-  private drawAnimals(eye: number[]) {
+  private drawAnimals(eye: number[], dt: number) {
     const gl = this.gl;
     if (!this._animals.length || !this._animalsVao || !this._animalsBuf) return;
     const t = this.elapsed;
+    // Wandering characters (Toads / Bob-ombs) move between targets in the
+    // castle courtyard; update them before drawing so motion is frame-smooth.
+    for (const a of this._animals) {
+      if (a.kind === 4 || a.kind === 5) this.updateWanderer(a, dt);
+    }
     // Matches the animal GL buffer size (26 animals × 10 boxes × 36 floats) —
     // the real worst case (13 deer + marmots) is far below this, so the scratch
     // never reallocates after the first frame.
@@ -10507,6 +11729,60 @@ void main() { FragColor = texture(uTex, vUV); }`;
           w = this.pushBoxVerts(data, w, fx3, 0.05 * s, fz3, 0.12 * s, 0.06 * s, 0.18 * s, 1.0, 0.62, 0.2);
         }
       }
+      if (a.kind === 4) {
+        // Toad — white mushroom-stem body under a red-spotted cap, blue vest,
+        // big eyes and brown shoes. The cap spots sit on the sides so the
+        // face on the front stays clean.
+        const wob = Math.sin(t * 2.0 + a.phase) * 0.03 * s;
+        const [bx0, bz0] = L(0, 0);
+        // Red cap + brim with white spots.
+        w = this.pushBoxVerts(data, w, bx0, 0.94 * s + wob, bz0, 0.48 * s, 0.32 * s, 0.48 * s, 0.84, 0.12, 0.1);
+        w = this.pushBoxVerts(data, w, bx0, 0.74 * s + wob, bz0, 0.56 * s, 0.1 * s, 0.56 * s, 0.9, 0.16, 0.13);
+        for (const sideL of [-1, 1]) {
+          const [sx, sz] = L(sideL * 0.13 * s, 0);
+          w = this.pushBoxVerts(data, w, sx, 0.92 * s + wob, sz, 0.15 * s, 0.12 * s, 0.15 * s, 1, 1, 1);
+        }
+        // White face/body and blue vest.
+        w = this.pushBoxVerts(data, w, bx0, 0.42 * s + wob, bz0, 0.5 * s, 0.58 * s, 0.5 * s, 1, 0.98, 0.95);
+        w = this.pushBoxVerts(data, w, bx0, 0.2 * s + wob, bz0, 0.54 * s, 0.26 * s, 0.54 * s, 0.2, 0.34, 0.86);
+        // Eyes (white + blue pupil) on the face front.
+        for (const sideL of [-1, 1]) {
+          const [ex, ez] = L(0.28 * s, sideL * 0.13 * s);
+          w = this.pushBoxVerts(data, w, ex, 0.55 * s + wob, ez, 0.1 * s, 0.15 * s, 0.13 * s, 1, 1, 1);
+          const [px, pz] = L(0.35 * s, sideL * 0.13 * s);
+          w = this.pushBoxVerts(data, w, px, 0.57 * s + wob, pz, 0.05 * s, 0.09 * s, 0.07 * s, 0.16, 0.3, 0.82);
+        }
+        // Shoes.
+        for (const sideL of [-1, 1]) {
+          const [fx, fz] = L(-0.1 * s, sideL * 0.14 * s);
+          w = this.pushBoxVerts(data, w, fx, 0.06 * s, fz, 0.16 * s, 0.12 * s, 0.2 * s, 0.45, 0.28, 0.14);
+        }
+      }
+      if (a.kind === 5) {
+        // Bob-omb — round black bomb with a white face plate, angry eyes, a
+        // smoking fuse and little feet; it hops as it trundles.
+        const hop = Math.abs(Math.sin(t * 3.2 + a.phase)) * 0.12 * s;
+        const by = 0.45 * s + hop;
+        const [bx0, bz0] = L(0, 0);
+        w = this.pushBoxVerts(data, w, bx0, by, bz0, 0.5 * s, 0.5 * s, 0.5 * s, 0.1, 0.1, 0.13);
+        // White face plate on the front.
+        const [fx, fz] = L(0.27 * s, 0);
+        w = this.pushBoxVerts(data, w, fx, by + 0.04 * s, fz, 0.13 * s, 0.3 * s, 0.3 * s, 0.98, 0.98, 0.98);
+        // Angry eyes.
+        for (const sideL of [-1, 1]) {
+          const [ex, ez] = L(0.36 * s, sideL * 0.1 * s);
+          w = this.pushBoxVerts(data, w, ex, by + 0.1 * s, ez, 0.06 * s, 0.09 * s, 0.05 * s, 0.08, 0.08, 0.1);
+        }
+        // Fuse with a flickering spark on top.
+        w = this.pushBoxVerts(data, w, bx0, 0.88 * s + hop, bz0, 0.05 * s, 0.26 * s, 0.05 * s, 0.42, 0.3, 0.16);
+        const spark = 0.5 + 0.5 * Math.sin(t * 14 + a.phase);
+        w = this.pushBoxVerts(data, w, bx0, 1.06 * s + hop + 0.05 * s * spark, bz0, 0.09 * s, 0.13 * s, 0.09 * s, 1.0, 0.75, 0.15);
+        // Feet.
+        for (const sideL of [-1, 1]) {
+          const [fx2, fz2] = L(-0.12 * s, sideL * 0.17 * s);
+          w = this.pushBoxVerts(data, w, fx2, 0.07 * s, fz2, 0.18 * s, 0.14 * s, 0.14 * s, 0.16, 0.16, 0.18);
+        }
+      }
     }
     gl.bindBuffer(gl.ARRAY_BUFFER, this._animalsBuf);
     gl.bufferSubData(gl.ARRAY_BUFFER, 0, data.subarray(0, w));
@@ -10519,6 +11795,59 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.drawArrays(gl.TRIANGLES, 0, w / 11);
     gl.bindVertexArray(null);
   }
+  /** Advance a wandering courtyard character (Toad / Bob-omb): pause, then
+   *  amble toward its current target, turning smoothly; pick a fresh target
+   *  once it arrives. Targets stay inside the lawn ring around the castle. */
+  private updateWanderer(a: { kind: number; x: number; z: number; yaw: number; size: number; wx?: number; wz?: number; wPause?: number }, dt: number): void {
+    const isToad = a.kind === 4;
+    const speed = (isToad ? 3.4 : 2.4) * a.size; // units / second
+    if ((a.wPause ?? 0) > 0) {
+      a.wPause = (a.wPause ?? 0) - dt;
+      return;
+    }
+    let dx = (a.wx ?? 0) - a.x;
+    let dz = (a.wz ?? 0) - a.z;
+    const d = Math.hypot(dx, dz);
+    if (d < 1.5) {
+      // Arrived — stop and stare, then wander somewhere new (Bob-ombs pause
+      // longer, like they're deciding whether to explode).
+      a.wPause = (isToad ? 0.3 : 1.0) + Math.random() * (isToad ? 0.7 : 2.4);
+      this.pickCourtyardTarget(a);
+      return;
+    }
+    const step = Math.min(d, speed * dt);
+    a.x += (dx / d) * step;
+    a.z += (dz / d) * step;
+    // Face the direction of travel (forward is local +x: yaw = atan2(z, x)).
+    let dy = Math.atan2(dz, dx) - a.yaw;
+    while (dy > Math.PI) dy -= Math.PI * 2;
+    while (dy < -Math.PI) dy += Math.PI * 2;
+    a.yaw += dy * Math.min(1, dt * 5);
+  }
+
+  /** Pick a new wander target in the lawn ring around the castle (radius
+   *  60..140, inside the moat-to-tree band so characters never clip the
+   *  track, the castle, or wander off into the far scenery). */
+  private pickCourtyardTarget(a: { wx?: number; wz?: number }): void {
+    const ang = Math.random() * Math.PI * 2;
+    const rad = 60 + Math.random() * 80;
+    a.wx = Math.cos(ang) * rad;
+    a.wz = Math.sin(ang) * rad;
+  }
+
+  /** Distance to the nearest waddling penguin (Infinity when none — the
+   *  Antarctica circuit only). Used by the ambient audio so penguin chirps
+   *  swell as the player drives past the colony. */
+  nearestPenguinDist(wx: number, wz: number): number {
+    let best = Infinity;
+    for (const a of this._animals) {
+      if (a.kind !== 3) continue;
+      const d = Math.hypot(a.x - wx, a.z - wz);
+      if (d < best) best = d;
+    }
+    return best;
+  }
+
   /** Spikes the crowd animation into a cheering frenzy (used when a car
    *  roars past a grandstand). Level 0..1; decays back to 0 over ~4s. */
   exciteCrowd(level = 1) {
@@ -10545,7 +11874,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
     // nothing per frame.
     this._tireDist += Math.abs(playerSpeed) * dt;
     const wearTarget = Math.min(1, this._tireDist / Math.max(1, this.totalTrackDist * 4));
-    if (wearTarget !== this.tireWear) { this.tireWear = wearTarget; this.updateTireBrandWear(); }
+    if (wearTarget !== this._playerTireWear) this.setPlayerTireWear(wearTarget);
     if (this._winTrailStartedAt >= 0) {
       this._winTrailSpeed = Math.abs(playerSpeed);
     }
@@ -10753,6 +12082,34 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
     gl.bindVertexArray(null);
   }
+  private buildAuroraBuffers() {
+    const gl = this.gl;
+    if (!this._auroraCurtains.length) { this._auroraData = new Float32Array(0); return; }
+    // Each curtain is a grid of cols×rows quads (6 verts each); capacity is
+    // fixed at build time and the contents are rewritten every frame.
+    const cols = this.lowQuality ? 5 : 9;
+    const rows = this.lowQuality ? 4 : 7;
+    let cap = 0;
+    for (const c of this._auroraCurtains) {
+      cap += cols * rows * 6;
+    }
+    this._auroraData = new Float32Array(cap * 11);
+    this._auroraVao = gl.createVertexArray()!;
+    gl.bindVertexArray(this._auroraVao);
+    this._auroraBuf = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._auroraBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, this._auroraData, gl.DYNAMIC_DRAW);
+    const stride = 11 * 4;
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
+    gl.enableVertexAttribArray(1);
+    gl.vertexAttribPointer(1, 3, gl.FLOAT, false, stride, 12);
+    gl.enableVertexAttribArray(2);
+    gl.vertexAttribPointer(2, 3, gl.FLOAT, false, stride, 24);
+    gl.enableVertexAttribArray(3);
+    gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
+    gl.bindVertexArray(null);
+  }
   private pushTriVerts(d: Float32Array, wi: number, a: number[], b: number[], c: number[],
     r: number, g: number, bl: number): number {
     let nx = (b[1] - a[1]) * (c[2] - a[2]) - (b[2] - a[2]) * (c[1] - a[1]);
@@ -10852,6 +12209,85 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.bindBuffer(gl.ARRAY_BUFFER, this._flagBuf);
     gl.bufferSubData(gl.ARRAY_BUFFER, 0, data);
     gl.bindVertexArray(this._flagVao);
+    gl.uniform1i(this.hasTexLoc, 0);
+    gl.uniform3f(this.colorLoc, 1, 1, 1);
+    this.mat4Identity(this.modelMatrix);
+    gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
+    this.setNormalMatrix(this.modelMatrix);
+    gl.drawArrays(gl.TRIANGLES, 0, w / 11);
+    gl.bindVertexArray(null);
+  }
+  /** Rebuilds the aurora curtains with live sway, ray streaks and a slowly
+   *  cycling palette, then draws them additively (they are pure glow). */
+  private drawAurora(eye: number[]) {
+    const gl = this.gl;
+    if (!this._auroraVao || !this._auroraBuf || !this._auroraData || !this._auroraCurtains.length) return;
+    const t = this.elapsed;
+    const data = this._auroraData;
+    const cols = this.lowQuality ? 5 : 9;
+    const rows = this.lowQuality ? 4 : 7;
+    const cull2 = 320 * 320;
+    const ex = eye[0], ez = eye[2];
+    let w = 0;
+    for (const c of this._auroraCurtains) {
+      const dx = c.x - ex, dz = c.z - ez;
+      if (dx * dx + dz * dz > cull2) continue;
+      const ppx = -c.x / (Math.hypot(c.x, c.z) || 1);
+      const ppz = -c.z / (Math.hypot(c.x, c.z) || 1);
+      // Palette cycling: lerp between two adjacent palette entries over time.
+      const pal = c.palette;
+      const cycle = t * 0.05 + c.phase;
+      const f = (cycle / (Math.PI * 2)) % pal.length;
+      const i0 = Math.floor(f);
+      const i1 = (i0 + 1) % pal.length;
+      const frac = f - i0;
+      const c0 = pal[i0], c1 = pal[i1];
+      const pulse = 0.65 + 0.35 * Math.sin(t * 0.4 + c.phase * 2);
+      const baseY = 6;
+      for (let ci = 0; ci < cols; ci++) {
+        const fx0 = ci / cols - 0.5;
+        const fx1 = (ci + 1) / cols - 0.5;
+        for (let ri = 0; ri < rows; ri++) {
+          const fy0 = ri / rows;
+          const fy1 = (ri + 1) / rows;
+          const sway0 = Math.sin(fx0 * 2.2 + t * c.speed + c.phase) * 4 * (0.25 + fy0);
+          const sway1 = Math.sin(fx1 * 2.2 + t * c.speed + c.phase) * 4 * (0.25 + fy1);
+          const wave0 = Math.sin(fx0 * 1.7 + t * c.speed * 0.7 + c.phase * 1.3) * 3 * fy0;
+          const wave1 = Math.sin(fx1 * 1.7 + t * c.speed * 0.7 + c.phase * 1.3) * 3 * fy1;
+          const a = [c.x + ppx * (fx0 * c.w + sway0), baseY + fy0 * c.h + wave0, c.z + ppz * (fx0 * c.w + sway0)];
+          const b = [c.x + ppx * (fx1 * c.w + sway1), baseY + fy0 * c.h + wave0, c.z + ppz * (fx1 * c.w + sway1)];
+          const cc = [c.x + ppx * (fx1 * c.w + sway1), baseY + fy1 * c.h + wave1, c.z + ppz * (fx1 * c.w + sway1)];
+          const d = [c.x + ppx * (fx0 * c.w + sway0), baseY + fy1 * c.h + wave1, c.z + ppz * (fx0 * c.w + sway0)];
+          const ray0 = 0.55 + 0.45 * Math.sin(fx0 * (cols * 1.4) + t * c.speed * 1.3 + c.phase * 3);
+          const ray1 = 0.55 + 0.45 * Math.sin(fx1 * (cols * 1.4) + t * c.speed * 1.3 + c.phase * 3);
+          const colFor = (fy: number, ray: number): number[] => {
+            const vFade = 0.35 + 0.65 * Math.sin(Math.min(1, fy * 1.5) * Math.PI * 0.5);
+            const bri = pulse * ray * vFade;
+            return [
+              (c0[0] + (c1[0] - c0[0]) * frac) * bri,
+              (c0[1] + (c1[1] - c0[1]) * frac) * bri,
+              (c0[2] + (c1[2] - c0[2]) * frac) * bri,
+            ];
+          };
+          const nx = ppx, ny = 0, nz = ppz;
+          const push = (p: number[], col: number[]) => {
+            data[w++] = p[0]; data[w++] = p[1]; data[w++] = p[2];
+            data[w++] = nx; data[w++] = ny; data[w++] = nz;
+            data[w++] = col[0]; data[w++] = col[1]; data[w++] = col[2];
+            data[w++] = 0; data[w++] = 0;
+          };
+          push(a, colFor(fy0, ray0));
+          push(b, colFor(fy0, ray1));
+          push(cc, colFor(fy1, ray1));
+          push(a, colFor(fy0, ray0));
+          push(cc, colFor(fy1, ray1));
+          push(d, colFor(fy1, ray0));
+        }
+      }
+    }
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._auroraBuf);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, data);
+    gl.bindVertexArray(this._auroraVao);
     gl.uniform1i(this.hasTexLoc, 0);
     gl.uniform3f(this.colorLoc, 1, 1, 1);
     this.mat4Identity(this.modelMatrix);
@@ -11124,6 +12560,11 @@ void main() { FragColor = texture(uTex, vUV); }`;
       this.setNormalMatrix(this.modelMatrix);
       gl.drawElements(gl.TRIANGLES, this.nightCount, gl.UNSIGNED_SHORT, 0);
       gl.bindVertexArray(null);
+      // Live aurora curtains — rebuilt every frame, drawn additively like the
+      // night pass so overlapping rays bloom into soft sheets of light.
+      if (this.theme === 'antarctica') {
+        this.drawAurora(eye);
+      }
       gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
       gl.uniform1f(this.emissiveLoc, 0);
     }
@@ -11137,7 +12578,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
     this.drawConfetti(dt, view, eye, camYaw, drawRain);
     this.drawPalmFronds(eye);
     this.drawOasisWater(eye);
-    this.drawAnimals(eye);
+    this.drawAnimals(eye, dt);
     this.pMark('w-skyfx');
     for (const car of cars) {
       this.renderCar(car.x, car.y, car.z, car.yaw, car.r, car.g, car.b, car.speed ?? 0, car.accel ?? 0, car.spin, car.slide ?? 0, car, 0, car.bank ?? 0);
@@ -11576,6 +13017,20 @@ void main() { FragColor = texture(uTex, vUV); }`;
     this.mat4Multiply(this._animM, this.modelMatrix, this._animTmp);
     gl.uniformMatrix4fv(this.modelLoc, false, this._animM);
     this.setNormalMatrix(this._animM);
+    // Helmet colour scheme: the shell + crown stripe are baked white, so they
+    // take the equipped palette's colours; the detail mesh (visor, vents,
+    // ducktail, mounts) keeps its fixed colours and is drawn untinted.
+    const helPal = HELMET_PALETTES[app.helmetId ?? 0];
+    // Shell always draws — default white when no helmet part is equipped.
+    gl.uniform3f(this.colorLoc, helPal ? helPal.shell[0] : 1, helPal ? helPal.shell[1] : 1, helPal ? helPal.shell[2] : 1);
+    gl.bindVertexArray(this.helmetShellVao);
+    gl.drawElements(gl.TRIANGLES, this.helmetShellCount, gl.UNSIGNED_SHORT, 0);
+    // Crown stripe — only visible when a palette defines it (white on the
+    // default shell is invisible against the white paint).
+    gl.uniform3f(this.colorLoc, helPal ? helPal.stripe[0] : 1, helPal ? helPal.stripe[1] : 1, helPal ? helPal.stripe[2] : 1);
+    gl.bindVertexArray(this.helmetStripeVao);
+    gl.drawElements(gl.TRIANGLES, this.helmetStripeCount, gl.UNSIGNED_SHORT, 0);
+    gl.uniform3f(this.colorLoc, 1, 1, 1);
     gl.bindVertexArray(this.helmetVao);
     gl.drawElements(gl.TRIANGLES, this.helmetCount, gl.UNSIGNED_SHORT, 0);
     // Glove grip — each hand pivots about its wrist so the fingers curl
@@ -11622,6 +13077,15 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
     this.setNormalMatrix(this.modelMatrix);
     gl.uniform3f(this.colorLoc, r, g, b);
+    // Cosmetic accessory (antenna / roof scoop / roll hoop) — baked white, so
+    // it takes the car's paint colour; drawn with the base car transform.
+    if (app.accessoryId) {
+      const acc = this.accessoryVaos.get(app.accessoryId);
+      if (acc) {
+        gl.bindVertexArray(acc.vao);
+        gl.drawElements(gl.TRIANGLES, acc.count, gl.UNSIGNED_SHORT, 0);
+      }
+    }
     if (app.decalStyle && DECAL_COLORS[app.decalStyle]) {
       const dc = app.decalColor ?? DECAL_COLORS[app.decalStyle];
       // Vinyl-wrap sheen: decal plates are drawn glossier than the base paint
@@ -11793,11 +13257,14 @@ void main() { FragColor = texture(uTex, vUV); }`;
       gl.bindTexture(gl.TEXTURE_2D, this.glowTex);
       gl.uniform1i(this.hasTexLoc, 1);
       const gi = (app.glowIntensity ?? 50) / 100;
-      const intensity = 0.3 + gi * 1.9;
-      gl.uniform3f(this.colorLoc, g[0] * 0.5 * pulse * intensity, g[1] * 0.5 * pulse * intensity, g[2] * 0.5 * pulse * intensity);
+      // Hotter underglow: a steeper intensity curve and heavier multipliers so
+      // the neon pool burns brighter at every slider setting (the additive
+      // blend lets the core blow out to a proper glow on dark asphalt).
+      const intensity = 0.45 + gi * 2.55;
+      gl.uniform3f(this.colorLoc, g[0] * 0.85 * pulse * intensity, g[1] * 0.85 * pulse * intensity, g[2] * 0.85 * pulse * intensity);
       gl.bindVertexArray(this.glowHaloVao);
       gl.drawElements(gl.TRIANGLES, this.glowHaloCount, gl.UNSIGNED_SHORT, 0);
-      gl.uniform3f(this.colorLoc, g[0] * 2.2 * pulse * intensity, g[1] * 2.2 * pulse * intensity, g[2] * 2.2 * pulse * intensity);
+      gl.uniform3f(this.colorLoc, g[0] * 3.4 * pulse * intensity, g[1] * 3.4 * pulse * intensity, g[2] * 3.4 * pulse * intensity);
       gl.bindVertexArray(this.glowVao);
       gl.drawElements(gl.TRIANGLES, this.glowCount, gl.UNSIGNED_SHORT, 0);
       gl.bindVertexArray(null);
@@ -11858,7 +13325,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
       gl.uniform3f(this.rimTintLoc, rimTint[0], rimTint[1], rimTint[2]);
       gl.uniform1f(this.rimStrengthLoc, 1);
       gl.activeTexture(gl.TEXTURE0);
-      gl.bindTexture(gl.TEXTURE_2D, this.tireBrandTex);
+      gl.bindTexture(gl.TEXTURE_2D, this.getTireTex(appearance?.id ?? 'player', app.tireId ?? 0, appearance?.id ? 0 : this._playerTireWear));
       gl.uniform1i(this.hasTexLoc, 1);
       gl.uniform3f(this.colorLoc, 1, 1, 1);
       gl.bindVertexArray(leftSide ? (rear ? this.rearRimFaceVaoL : this.rimFaceVaoL) : (rear ? this.rearRimFaceVao : this.rimFaceVao));
