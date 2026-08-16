@@ -18,12 +18,12 @@ const NUDGE_DUR = 0.35;
 /** Palette indexed by color id (1..6); 0 is empty. */
 const COLORS: [number, number, number][] = [
   [0, 0, 0],
-  [206, 36, 46],   // red — crimson
-  [250, 110, 18],  // orange — vivid pumpkin (clearly not yellow)
+  [178, 22, 38],   // red — deep crimson (dark, unmistakable vs orange)
+  [255, 130, 14],  // orange — bright vivid pumpkin (clearly not yellow/red)
   [252, 208, 25],  // yellow — bright lemon
   [20, 165, 85],   // green — emerald (clearly not yellow)
   [44, 100, 224],  // blue — royal
-  [150, 64, 208],  // purple — violet
+  [20, 20, 26],    // black — obsidian (near-black, reads as a black marble)
 ];
 
 /** Marble skins per color id (1..6). Every color family now has a small set
@@ -40,7 +40,7 @@ const SKINS: number[][] = [
   [2, 0, 5],    // yellow: cat's-eye, swirl, stripes
   [3, 6, 7],    // green: rings, starburst, dice
   [4, 3, 2],    // blue: spiral, rings, cat's-eye
-  [5, 1, 0],    // purple: stripes, flecked, swirl
+  [1, 7, 3],    // black: flecked, dice dots, rings — pale marks on obsidian
 ];
 
 /** A playable arena — changes the board's background, recessed pit, and
@@ -605,7 +605,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
   }
   /** Display name for the per-game hot (special) color id (1..6). */
   hotColorName(): string {
-    return { 1: 'Red', 2: 'Orange', 3: 'Yellow', 4: 'Green', 5: 'Blue', 6: 'Purple' }[this.specialColor] ?? '';
+    return { 1: 'Red', 2: 'Orange', 3: 'Yellow', 4: 'Green', 5: 'Blue', 6: 'Black' }[this.specialColor] ?? '';
   }
 
   /** Cap for the graphical "marbles sent" row — extra sends show as a +N badge. */
