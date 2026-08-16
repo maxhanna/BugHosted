@@ -1585,6 +1585,7 @@ export class RacingRenderer {
   private whiteTex!: WebGLTexture;
   private asphaltTex!: WebGLTexture;
   private grassTex!: WebGLTexture;
+  private deckTex!: WebGLTexture;
   private trackTex!: WebGLTexture;
   private glowTex!: WebGLTexture;
   viewMatrix = new Float32Array(16);
@@ -1612,7 +1613,7 @@ export class RacingRenderer {
   ambientColor: [number, number, number] = [0.25, 0.25, 0.3];
   fogColor: [number, number, number] = [0.4, 0.45, 0.5];
   elapsed = 0;
-  theme: 'default' | 'miami' | 'city' | 'mountain' | 'alpine' | 'desert' | 'monaco' | 'monaco-night' | 'montreal' | 'italy' | 'japan' | 'neon' | 'volcano' | 'antarctica' | 'pirate' | 'mushroom' | 'hyrule' | 'rio' | 'amazon' = 'default';
+  theme: 'default' | 'miami' | 'city' | 'mountain' | 'alpine' | 'desert' | 'monaco' | 'monaco-night' | 'montreal' | 'italy' | 'japan' | 'neon' | 'volcano' | 'antarctica' | 'pirate' | 'mushroom' | 'hyrule' | 'rio' | 'amazon' | 'golden' = 'default';
   // Device-quality tier: set by the component for mobile / low-end GPUs. Trims
   // the heaviest scenery (conifer counts and mesh density) and per-frame effects
   // (snow flake count) so the mountain and alpine circuits stay smooth on phones.
@@ -1732,6 +1733,7 @@ export class RacingRenderer {
     this.whiteTex = this.makeTex(1, 1, new Uint8Array([255, 255, 255]));
     this.asphaltTex = this.makeAsphaltTex();
     this.grassTex = this.makeGrassTex();
+    this.deckTex = this.makeDeckTex();
     this.trackTex = this.makeTrackMarkingsTex();
     this.curbTex = this.makeCurbTex();
     this.tireTexByCar.clear();
@@ -1981,6 +1983,9 @@ export class RacingRenderer {
     }
     if (this.theme === 'amazon') {
       return this.makeAmazonMarkingsTex();
+    }
+    if (this.theme === 'golden') {
+      return this.makeGoldenMarkingsTex();
     }
     return this.makeRacingMarkingsTex();
   }
@@ -2300,6 +2305,64 @@ export class RacingRenderer {
         data[i] = Math.max(5, Math.min(250, r));
         data[i + 1] = Math.max(5, Math.min(250, g));
         data[i + 2] = Math.max(5, Math.min(250, b));
+      }
+    }
+    return this.makeTex(size, size, data);
+  }
+  private makeGoldenMarkingsTex(): WebGLTexture {
+    // Golden Gate deck tarmac: warm dark asphalt with a brick-red edge stripe
+    // (echoing the International Orange steel) and a double-yellow centre
+    // line, like the real roadway across the bridge.
+    const size = 256;
+    const data = new Uint8Array(size * size * 3);
+    const soft = (lo: number, hi: number, vy: number, falloff: number) =>
+      Math.max(0, Math.min(1, Math.min(vy - lo, hi - vy) / falloff));
+    for (let y = 0; y < size; y++) {
+      const vy = y / size;
+      for (let x = 0; x < size; x++) {
+        const i = (y * size + x) * 3;
+        let r = 56, g = 56, b = 60;
+        const mottle = Math.sin(x * 0.41) * Math.sin(y * 0.33) * Math.sin((x + y) * 0.21);
+        r += mottle * 7; g += mottle * 7; b += mottle * 8;
+        // Vermilion edge lines inboard of the kerb.
+        const aE = Math.max(soft(0.028, 0.058, vy, 0.007), soft(0.942, 0.972, vy, 0.007));
+        r = r * (1 - aE) + 214 * aE; g = g * (1 - aE) + 88 * aE; b = b * (1 - aE) + 30 * aE;
+        // Double-yellow centre line.
+        const aY = Math.max(soft(0.474, 0.492, vy, 0.006), soft(0.508, 0.526, vy, 0.006));
+        r = r * (1 - aY) + 232 * aY; g = g * (1 - aY) + 205 * aY; b = b * (1 - aY) + 60 * aY;
+        data[i] = Math.max(5, Math.min(250, r));
+        data[i + 1] = Math.max(5, Math.min(250, g));
+        data[i + 2] = Math.max(5, Math.min(250, b));
+      }
+    }
+    return this.makeTex(size, size, data);
+  }
+  private makeDeckTex(): WebGLTexture {
+    // Steel bridge deck plate for the Golden Gate walkway: dark grey plate
+    // with a faint riveted hatch pattern and the International Orange paint
+    // stripe along the road-side edge, so the narrow shoulder reads as a
+    // proper steel deck rather than grass floating over the bay.
+    const size = 128;
+    const data = new Uint8Array(size * size * 3);
+    const hash = (x: number, y: number) => {
+      let n = (x * 374761393 + y * 668265263) | 0;
+      n = Math.imul(n ^ (n >>> 13), 1274126177);
+      n ^= n >>> 16;
+      return (n >>> 0) / 4294967296;
+    };
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const i = (y * size + x) * 3;
+        let r = 96, g = 96, b = 102;
+        // Rivet dots at plate intersections.
+        if (x % 32 === 0 || y % 32 === 0) { r = 70; g = 70; b = 76; }
+        const riv = (x % 32 < 2 && y % 32 < 2) ? hash(x, y) : 0;
+        r += riv * 18; g += riv * 18; b += riv * 20;
+        // Vermilion stripe near the curb edge of the walkway.
+        if (y < 9) { r = 205; g = 82; b = 26; }
+        data[i] = Math.max(8, Math.min(248, r));
+        data[i + 1] = Math.max(8, Math.min(248, g));
+        data[i + 2] = Math.max(8, Math.min(248, b));
       }
     }
     return this.makeTex(size, size, data);
@@ -2904,6 +2967,15 @@ void main() { FragColor = texture(uTex, vUV); }`;
           elev: t => 3.4 * (1 - Math.cos(t * Math.PI * 4)) / 2 + 0.8 * (1 - Math.cos(t * Math.PI * 7)) / 2,
           width: t => this.TRACK_WIDTH * 0.9 + Math.sin(t * 6) * 1.2,
         };
+      case 'golden':      // Golden Gate — a giant stretched oval: the two long
+        // straight sides are twin suspension spans, and the whole circuit is
+        // one continuous bridge deck hanging over the bay.
+        return {
+          radius: R * 0.95, sx: 1.9, sz: 0.78,
+          wobble: t => Math.sin(t * 2.4) * 8 + Math.sin(t * 6.2) * 3,
+          elev: t => 0,
+          width: t => this.TRACK_WIDTH + Math.sin(t * 5) * 1.4,
+        };
       default:           // miami + default — coastal, low and flat
         return {
           radius: R, wobble: t => Math.sin(t * 3) * 30 + Math.sin(t * 7) * 12 + Math.sin(t * 1.7) * 8,
@@ -3183,7 +3255,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
   getTrackLength(): number { return this.totalTrackDist; }
   /** Applies the environment theme for the selected track and rebuilds the
    *  scenery geometry. Call before each race (both solo and multiplayer). */
-  setTheme(theme: 'default' | 'miami' | 'city' | 'mountain' | 'alpine' | 'desert' | 'monaco' | 'monaco-night' | 'montreal' | 'italy' | 'japan' | 'neon' | 'volcano' | 'antarctica' | 'pirate' | 'mushroom' | 'hyrule' | 'rio' | 'amazon') {
+  setTheme(theme: 'default' | 'miami' | 'city' | 'mountain' | 'alpine' | 'desert' | 'monaco' | 'monaco-night' | 'montreal' | 'italy' | 'japan' | 'neon' | 'volcano' | 'antarctica' | 'pirate' | 'mushroom' | 'hyrule' | 'rio' | 'amazon' | 'golden') {
     this.theme = theme;
     // Fresh tyres every race — reset the wear that darkened the sidewalls
     // and drop per-car sidewall textures so a style change re-bakes.
@@ -3386,6 +3458,18 @@ void main() { FragColor = texture(uTex, vUV); }`;
         this.sunColor = [1.0, 0.95, 0.75];
         this.ambientColor = [0.3, 0.36, 0.26];
         this.fogColor = [0.28, 0.36, 0.26];
+        break;
+      case 'golden':
+        // San Francisco marine-layer morning: cool gray-blue fog banks, a
+        // pale bright haze on the horizon and a warm low sun burning through
+        // — the classic Golden Gate light.
+        this.skyTop = [0.42, 0.52, 0.62];
+        this.skyHorizon = [0.92, 0.91, 0.88];
+        this.skyBottom = [0.68, 0.73, 0.77];
+        this.sunDir = [0.55, 0.35, 0.3];
+        this.sunColor = [1.0, 0.88, 0.65];
+        this.ambientColor = [0.42, 0.44, 0.48];
+        this.fogColor = [0.85, 0.86, 0.88];
         break;
       default:
         this.skyTop = [0.1, 0.2, 0.5];
@@ -3690,7 +3774,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
       idxs.push(vi + 2, vi + 1, vi + 3);
       idxs.push(vi + 2, vi + 3, vi + 5);
       idxs.push(vi + 2, vi + 5, vi + 4);
-      const shoulderW = 20;
+      // The Golden Gate shoulder is the bridge's steel deck walkway (narrow)
+      // instead of a turf runoff — see drawWorldScene's per-theme deck tex.
+      const shoulderW = this.theme === 'golden' ? 5 : 20;
       const gu = cumLen[i] / TRACK_GRASS_TILE;
       const guN = cumLen[(i + 1) % pts.length] / TRACK_GRASS_TILE;
       // The shoulder is a separate mesh drawn with its own grass texture (see
@@ -4341,11 +4427,17 @@ void main() { FragColor = texture(uTex, vUV); }`;
     } else if (this.theme === 'amazon') {
       this.addAmazonGround(flatVerts, flatIdxs);
       this.addAmazonScenery(verts, idxs);
+    } else if (this.theme === 'golden') {
+      // The whole circuit is one giant suspension bridge: the ocean plane
+      // below, the bridge deck + towers + cables built over the track.
+      this.addGoldenGateScenery(verts, idxs, flatVerts, flatIdxs);
     } else {
       this.addForestScenery(verts, idxs);
     }
     this.addClouds();
-    const gsPositions = [0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875].map(f => Math.floor(f * pts.length));
+    // Grandstands only make sense on land — the Golden Gate circuit is a
+    // bridge over the bay, so its spectators line the deck railing instead.
+    const gsPositions = this.theme === 'golden' ? [] : [0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875].map(f => Math.floor(f * pts.length));
     for (const gi of gsPositions) {
       const p = pts[gi];
       const ppx = -p.dirZ;
@@ -4745,6 +4837,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
       case 'hyrule': count = 8; altMin = 46; altMax = 78; sizeScale = 1.1; this._cloudAlpha = 0.6; break;
       case 'rio': count = 8; altMin = 50; altMax = 85; sizeScale = 1.0; this._cloudAlpha = 0.6; break;
       case 'amazon': count = 6; altMin = 52; altMax = 82; sizeScale = 0.85; this._cloudAlpha = 0.5; break;
+      case 'golden': count = 12; altMin = 50; altMax = 80; sizeScale = 1.35; this._cloudAlpha = 0.62; break;
       default: count = 6; altMin = 55; altMax = 90; sizeScale = 1; this._cloudAlpha = 0.6; break;
     }
     const base = this.theme === 'city'
@@ -4765,8 +4858,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
                     ? [0.98, 0.98, 1.0]
                     : this.theme === 'rio'
                       ? [0.98, 0.98, 1.0]
-                      : this.theme === 'amazon'
-                        ? [0.62, 0.68, 0.56]
+                    : this.theme === 'amazon'
+                      ? [0.62, 0.68, 0.56]
+                      : this.theme === 'golden'
+                        ? [0.92, 0.93, 0.97]
                         : [0.98, 0.98, 1.0];
     const verts: number[] = [];
     const idxs: number[] = [];
@@ -6528,6 +6623,170 @@ void main() { FragColor = texture(uTex, vUV); }`;
       this.addSphere(verts, idxs, gx, 9.4 * s, gz, 3.3 * s, 6, [0.07, 0.28, 0.07]);
       this.addSphere(verts, idxs, gx + 1.5 * s, 10.8 * s, gz + 0.8 * s, 2.1 * s, 6, [0.11, 0.36, 0.09]);
       this.addSphere(verts, idxs, gx - 1.2 * s, 10.4 * s, gz - 1.0 * s, 1.9 * s, 6, [0.09, 0.31, 0.08]);
+    }
+  }
+  /** Golden Gate Bridge — the whole circuit is one giant suspension bridge
+   *  over the bay: a stretched oval of roadway hanging on International
+   *  Orange towers with catenary main cables, deep box girders sunk into the
+   *  water, and the bay dressing of Alcatraz, the SF skyline, the Marin
+   *  headlands and sailboats in the fog. */
+  private addGoldenGateScenery(verts: number[], idxs: number[], flatVerts: number[], flatIdxs: number[]) {
+    const pts = this._trackPoints;
+    if (!pts.length) return;
+    // The bay — dark cold Pacific water under the entire circuit.
+    this.addOceanPlane(flatVerts, flatIdxs, [0.01, 0.045, 0.15]);
+    const ORANGE: [number, number, number] = [0.9, 0.37, 0.13];
+    const ORANGE_D: [number, number, number] = [0.68, 0.26, 0.09];
+    const ORANGE_X: [number, number, number] = [0.53, 0.2, 0.07];
+    const STEEL_L: [number, number, number] = [0.62, 0.64, 0.68];
+    const n = pts.length;
+    const perpX = (p: { dirX: number; dirZ: number }) => -p.dirZ;
+    const perpZ = (p: { dirX: number; dirZ: number }) => p.dirX;
+    // ── Deck edges: box girders sunk into the water + guardrails ──
+    for (let i = 0; i < n; i += (this.lowQuality ? 5 : 4)) {
+      const p = pts[i];
+      const off = p.width / 2;
+      const px = perpX(p), pz = perpZ(p);
+      for (const side of [-1, 1]) {
+        const gx = p.x + px * (off + 3.4) * side;
+        const gz = p.z + pz * (off + 3.4) * side;
+        this.addOrientedBox(verts, idxs, gx, -2.3, gz, 18, 4.4, 0.85, p.dirX, p.dirZ, ORANGE_D);
+        this.addOrientedBox(verts, idxs, gx, -1.6, gz, 18, 0.5, 2.0, p.dirX, p.dirZ, ORANGE_X);
+        this.addOrientedBox(verts, idxs, gx, 1.05, gz, 18, 1.5, 0.32, p.dirX, p.dirZ, ORANGE);
+        this.addOrientedBox(verts, idxs, gx, 1.92, gz, 18, 0.1, 0.22, p.dirX, p.dirZ, STEEL_L);
+      }
+    }
+    // ── Suspension towers around the whole loop ──
+    const towerStep = this.lowQuality ? 16 : 14;
+    const towers: { x: number; z: number; dirX: number; dirZ: number; off: number }[] = [];
+    for (let ti = 0; ti < n; ti += towerStep) {
+      const p = pts[ti];
+      const off = p.width / 2 + 7.8;
+      const px = perpX(p), pz = perpZ(p);
+      for (const side of [-1, 1]) {
+        const tx = p.x + px * off * side;
+        const tz = p.z + pz * off * side;
+        // Twin shaft legs.
+        for (const lt of [-1, 1]) {
+          this.addOrientedBox(verts, idxs, tx + p.dirX * 1.7 * lt, 13, tz + p.dirZ * 1.7 * lt, 1.9, 27, 1.9, p.dirX, p.dirZ, ORANGE);
+        }
+        // X-braces between the legs.
+        for (let by = 3; by < 25; by += 7) {
+          this.addOrientedBox(verts, idxs, tx, by + 0.5, tz, 6.2, 1.0, 1.6, p.dirX, p.dirZ, ORANGE_D);
+        }
+        // Top cap.
+        this.addOrientedBox(verts, idxs, tx, 26.6, tz, 6.2, 1.9, 1.9, p.dirX, p.dirZ, ORANGE_X);
+      }
+      // Portal frames spanning over the roadway.
+      this.addOrientedBox(verts, idxs, p.x, 20.5, p.z, 1.7, 3.0, off * 2 + 3, p.dirX, p.dirZ, ORANGE);
+      this.addOrientedBox(verts, idxs, p.x, 7.5, p.z, 1.6, 1.0, off * 2 + 3, p.dirX, p.dirZ, ORANGE_D);
+      towers.push({ x: p.x, z: p.z, dirX: p.dirX, dirZ: p.dirZ, off });
+    }
+    // ── Main cables: catenaries sagging between each pair of towers ──
+    const cableTop = 27.6;
+    const sag = 8;
+    for (let a = 0; a < towers.length; a++) {
+      const A = towers[a], B = towers[(a + 1) % towers.length];
+      for (const side of [-1, 1]) {
+        const ax = A.x + perpX(A) * A.off * side;
+        const az = A.z + perpZ(A) * A.off * side;
+        const bx = B.x + perpX(B) * B.off * side;
+        const bz = B.z + perpZ(B) * B.off * side;
+        let px0 = ax, py0 = cableTop, pz0 = az;
+        const segs = 5;
+        for (let s = 1; s <= segs; s++) {
+          const f = s / segs;
+          const fx = ax + (bx - ax) * f;
+          const fz = az + (bz - az) * f;
+          const fy = cableTop - sag * Math.sin(Math.PI * f);
+          const dx = fx - px0, dz = fz - pz0;
+          const len = Math.hypot(dx, dz) || 1;
+          this.addOrientedBox(verts, idxs, (px0 + fx) / 2, (py0 + fy) / 2, (pz0 + fz) / 2, len + 0.6, 0.34, 0.34, dx / len, dz / len, STEEL_L);
+          px0 = fx; py0 = fy; pz0 = fz;
+        }
+      }
+    }
+    // A few US flags on towers for life.
+    for (let a = 0; a < towers.length; a += 3) {
+      const T = towers[a];
+      for (const side of [-1, 1]) {
+        this._flags.push({
+          x: T.x + perpX(T) * T.off * side - T.dirX * 3,
+          z: T.z + perpZ(T) * T.off * side - T.dirZ * 3,
+          dirX: -T.dirX, dirZ: -T.dirZ,
+          anchorY: 26.4,
+          w: 1.6, h: 0.9,
+          kind: 'rect',
+          colors: [[0.72, 0.72, 0.75]],
+          phase: Math.random() * Math.PI * 2,
+          speed: 5 + Math.random(),
+          amp: 0.8,
+        });
+      }
+    }
+    const LO = this.lowQuality;
+    // ── Alcatraz: a flat rock island with the beacon and cell block ──
+    const ax0 = 72, az0 = 118;
+    this.addEllipsoid(verts, idxs, ax0, -0.25, az0, 13, 1.0, 9, 8, [0.35, 0.32, 0.28]);
+    this.addCylinder(verts, idxs, ax0 + 6.5, 3.4, az0 + 2.5, 0.9, 6.8, 8, [0.82, 0.82, 0.85]);
+    this.addBox(verts, idxs, ax0 + 6.5, 7.5, az0 + 2.5, 1.7, 1.5, 1.7, [0.9, 0.86, 0.82]);
+    this.addBox(verts, idxs, ax0 + 6.5, 8.9, az0 + 2.5, 0.5, 0.7, 0.5, [0.95, 0.8, 0.2]);
+    this.addBox(verts, idxs, ax0 - 2.5, 2.0, az0 - 1, 14, 4.0, 7, [0.62, 0.58, 0.52]);
+    this.addBox(verts, idxs, ax0 + 5.5, 3.4, az0 - 2.5, 4, 2.8, 3.6, [0.58, 0.54, 0.48]);
+    // ── San Francisco skyline beyond the south span ──
+    const skyBaseX = 395;
+    const skyCols: [number, number, number][] = [
+      [0.42, 0.5, 0.62], [0.35, 0.45, 0.6], [0.5, 0.55, 0.65], [0.45, 0.48, 0.6],
+      [0.38, 0.42, 0.55], [0.32, 0.5, 0.58], [0.42, 0.4, 0.5], [0.35, 0.47, 0.52], [0.4, 0.45, 0.58],
+    ];
+    const skyCount = LO ? 5 : 9;
+    for (let bi = 0; bi < skyCount; bi++) {
+      const bw = 7 + Math.random() * 7;
+      const bh = 26 + Math.random() * 34;
+      const bx = skyBaseX + (bi - skyCount / 2) * 13 + (Math.random() - 0.5) * 6;
+      this.addBox(verts, idxs, bx, bh / 2, -430, bw, bh, bw * 0.8, skyCols[Math.floor(Math.random() * skyCols.length)]);
+    }
+    if (!LO) {
+      // Transamerica pyramid tallest at the back.
+      this.addBox(verts, idxs, skyBaseX - 3, 47.5, -449, 6, 58, 6, [0.45, 0.44, 0.42]);
+      this.addCone(verts, idxs, skyBaseX - 3, 65, -449, 1.4, 3.4, 6, [0.55, 0.54, 0.5]);
+    }
+    // ── Marin headlands: green hills with cypress trees ──
+    const hills: [number, number][] = [[-390, 340], [-300, 392], [-478, 262]];
+    for (let hi = 0; hi < hills.length; hi++) {
+      const hx = hills[hi][0], hz = hills[hi][1];
+      const scale = 1 + (hi % 2) * 0.35;
+      this.addEllipsoid(verts, idxs, hx, 6.5 * scale * 0.3, hz, 26 * scale, 6.5 * scale, 14 * scale, 8, [0.2, 0.42, 0.16]);
+      for (let t = 0; t < (LO ? 3 : 6); t++) {
+        const tx = hx + (Math.random() - 0.5) * 30 * scale;
+        const tz = hz + (Math.random() - 0.5) * 18 * scale;
+        const th = 3.2 + Math.random() * 2.6;
+        this.addCylinder(verts, idxs, tx, 0.9, tz, 0.16, th, 6, [0.3, 0.22, 0.1]);
+        this.addCone(verts, idxs, tx, th + 0.9, tz, 0.85, 2.2, 6, [0.13, 0.33, 0.12]);
+      }
+    }
+    // ── Sailboats and a commuter ferry on the bay ──
+    const boats: [number, number][] = LO
+      ? [[60, 30], [-260, -40], [150, -280]]
+      : [[60, 30], [-260, -40], [150, -280], [330, 60], [400, -140], [-430, 120]];
+    for (const [bx, bz] of boats) {
+      const rot = Math.random() * Math.PI * 2;
+      const sx = Math.sin(rot), sz = Math.cos(rot);
+      this.addBox(verts, idxs, bx, 0.12, bz, 0.9, 0.24, 0.26, [0.96, 0.97, 0.98]);
+      this.addCylinder(verts, idxs, bx, 0.5, bz, 0.035, 1.1, 5, [0.4, 0.4, 0.44]);
+      this.addTri(verts, idxs,
+        [bx, 1.1, bz],
+        [bx + sx * 0.85, 0.32, bz + sz * 0.85],
+        [bx - sx * 0.85, 0.32, bz - sz * 0.85],
+        [0.95, 0.96, 0.98]);
+    }
+    if (!LO) {
+      const fx2 = 350, fz2 = 255;
+      this.addBox(verts, idxs, fx2, 0.6, fz2, 6.5, 1.2, 2.4, [0.9, 0.9, 0.92]);
+      this.addBox(verts, idxs, fx2, 1.7, fz2, 5.4, 1.0, 2.0, [0.95, 0.95, 0.96]);
+      this.addBox(verts, idxs, fx2, 2.8, fz2, 4.2, 0.8, 1.7, [0.92, 0.92, 0.94]);
+      this.addBox(verts, idxs, fx2, 0.7, fz2 - 1.6, 1.2, 0.5, 0.4, [0.88, 0.3, 0.1]);
+      this.addBox(verts, idxs, fx2 - 3.3, 0.8, fz2 + 0.6, 2.6, 0.7, 0.4, [0.88, 0.3, 0.1]);
     }
   }
   private addCityScenery(verts: number[], idxs: number[]) {
@@ -10999,6 +11258,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
         // Expedition crowd — khakis, forest greens and warm earth tones.
         return [[0.32, 0.42, 0.2], [0.55, 0.48, 0.28], [0.2, 0.34, 0.16],
         [0.62, 0.52, 0.34], [0.28, 0.5, 0.24], [0.7, 0.58, 0.4]];
+      case 'golden':
+        // Bay Area crowd — fog-gray hoodies, brick-orange, navy, gold.
+        return [[0.75, 0.32, 0.14], [0.12, 0.2, 0.45], [0.82, 0.82, 0.84],
+        [0.9, 0.74, 0.25], [0.14, 0.4, 0.6], [0.35, 0.35, 0.4], [0.6, 0.7, 0.75]];
       default:
         return [[0.7, 0.15, 0.15], [0.15, 0.3, 0.7], [0.8, 0.7, 0.1],
         [0.9, 0.9, 0.9], [0.15, 0.5, 0.2], [0.6, 0.2, 0.6], [0.1, 0.65, 0.65], [0.95, 0.5, 0.15]];
@@ -11021,6 +11284,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
       case 'hyrule': return [[0.1, 0.55, 0.25], [0.95, 0.8, 0.2]];
       case 'rio': return [[0.05, 0.5, 0.2], [0.95, 0.82, 0.15]];
       case 'amazon': return [[0.2, 0.4, 0.15], [0.6, 0.5, 0.3]];
+      case 'golden': return [[0.75, 0.1, 0.1], [0.95, 0.95, 0.96]];
       default: return this.crowdShirtsForTheme().slice(0, 2);
     }
   }
@@ -11611,7 +11875,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const isMushroom = this.theme === 'mushroom';
     const isHyrule = this.theme === 'hyrule';
     const isAmazon = this.theme === 'amazon';
-    const birdCount = isMiami || isPirate || isMushroom || isHyrule || isAmazon ? 26 : isHighCountry ? 24 : isDesert ? 14 : isNeon ? 8 : isVolcano || isAntarctica ? 0 : 18;
+    const isGolden = this.theme === 'golden';
+    const birdCount = isMiami || isPirate || isMushroom || isHyrule || isAmazon || isGolden ? 26 : isHighCountry ? 24 : isDesert ? 14 : isNeon ? 8 : isVolcano || isAntarctica ? 0 : 18;
     for (let i = 0; i < birdCount; i++) {
       const eagle = isHighCountry && i % 2 === 0;
       const vulture = isDesert && i % 2 === 0;
@@ -11620,13 +11885,13 @@ void main() { FragColor = texture(uTex, vUV); }`;
         : null;
       this._birds.push({
         phase: Math.random() * Math.PI * 2,
-        speed: eagle || vulture ? 0.04 + Math.random() * 0.05 : isMiami ? 0.09 + Math.random() * 0.08 : 0.05 + Math.random() * 0.09,
-        radius: isMiami ? 110 + Math.random() * 90 : eagle || vulture ? 170 + Math.random() * 120 : 160 + Math.random() * 130,
-        alt: isMiami ? 18 + Math.random() * 16 : eagle || vulture ? 55 + Math.random() * 30 : 34 + Math.random() * 30,
+        speed: eagle || vulture ? 0.04 + Math.random() * 0.05 : (isMiami || isGolden) ? 0.09 + Math.random() * 0.08 : 0.05 + Math.random() * 0.09,
+        radius: (isMiami || isGolden) ? 110 + Math.random() * 90 : eagle || vulture ? 170 + Math.random() * 120 : 160 + Math.random() * 130,
+        alt: (isMiami || isGolden) ? 12 + Math.random() * 14 : eagle || vulture ? 55 + Math.random() * 30 : 34 + Math.random() * 30,
         ang: Math.random() * Math.PI * 2,
         dir: Math.random() < 0.5 ? 1 : -1,
-        size: eagle ? 1.7 + Math.random() * 0.4 : vulture ? 1.3 + Math.random() * 0.3 : isMiami ? 0.7 + Math.random() * 0.25 : 0.9 + Math.random() * 0.3,
-        shade: isMiami ? 0.85 + Math.random() * 0.08 : vulture ? 0.12 : eagle ? 0.1 : 0.08 + Math.random() * 0.05,
+        size: eagle ? 1.7 + Math.random() * 0.4 : vulture ? 1.3 + Math.random() * 0.3 : (isMiami || isGolden) ? 0.7 + Math.random() * 0.25 : 0.9 + Math.random() * 0.3,
+        shade: (isMiami || isGolden) ? 0.85 + Math.random() * 0.08 : vulture ? 0.12 : eagle ? 0.1 : 0.08 + Math.random() * 0.05,
         eagle: !!diveTarget,
         diveT: 0,
         diveNext: eagle ? 8 + Math.random() * 16 : Number.MAX_SAFE_INTEGER,
@@ -13469,9 +13734,11 @@ void main() { FragColor = texture(uTex, vUV); }`;
       gl.drawElements(gl.TRIANGLES, this.crosswalkCount, gl.UNSIGNED_SHORT, 0);
     }
     // Grass shoulder — its own mesh + texture so the runoff reads as turf.
+    // The Golden Gate circuit swaps in a steel deck-plate texture: the
+    // shoulder there is the bridge's narrow walkway, not a grass runoff.
     gl.bindVertexArray(this.shoulderVao);
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, this.grassTex);
+    gl.bindTexture(gl.TEXTURE_2D, this.theme === 'golden' ? this.deckTex : this.grassTex);
     gl.uniform1i(this.hasTexLoc, 1);
     this.mat4Identity(this.modelMatrix);
     gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);

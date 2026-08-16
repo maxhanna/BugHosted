@@ -181,10 +181,21 @@ function isOnRoadGrid(x: number, z: number): boolean {
   };
   return nearGrid(x) || nearGrid(z);
 }
-export function getTerrainHeight(x: number, z: number): number {
+export function getTerrainHeight(x: number, z: number, currentY?: number): number {
   const bridgeHit = getBridgeAtWorldPos(x, z);
   if (bridgeHit) {
-    return bridgeYAt(x, bridgeHit);
+    const deckY = bridgeYAt(x, bridgeHit);
+    // Entities below the deck (boats in the bay, cars under the approach
+    // ramps, helicopters flying under the span) must NOT snap up onto the
+    // roadway. When the queried object sits clearly under the deck, return
+    // the terrain the bridge replaced: open water beneath the raised span,
+    // the shore beneath the low ramps.
+    if (currentY !== undefined && currentY < deckY - 1.5) {
+      const deckStartX = bridgeHit.startCx * 80;
+      const deckEndX = (bridgeHit.endCx + 1) * 80;
+      return (x >= deckStartX && x <= deckEndX) ? -2.5 : 0.0;
+    }
+    return deckY;
   }
   const cx = Math.floor(x / 80);
   const cz = Math.floor(z / 80);
@@ -2138,6 +2149,35 @@ void main() {
             this.addBox(verts, indices, sx, avgY + 1.05, pz, sliceLen, 0.9, 0.5, 0.5, 0.5, 0.52, 1.0, idxOffset); idxOffset += 24;
             this.addBox(verts, indices, sx, avgY + 1.62, pz, sliceLen, 0.1, 0.12, 0.68, 0.68, 0.7, 1.0, idxOffset); idxOffset += 24;
           }
+          // Deep edge girders under the deck so the span reads as a real
+          // girder/truss bridge from the side and below, not a floating slab.
+          for (const side of [-1, 1]) {
+            const gz = roadCenterZ + side * (bridgeW / 2 - 1.9);
+            this.addBox(verts, indices, sx, avgY - 1.5, gz, sliceLen, 1.8, 0.55, 0.30, 0.30, 0.33, 1.0, idxOffset); idxOffset += 24;
+          }
+          if (si % 2 === 0) {
+            // Truss ladder cross-beams between the edge girders
+            this.addBox(verts, indices, sx, avgY - 1.15, roadCenterZ, sliceLen, 0.4, bridgeW - 5, 0.27, 0.27, 0.30, 1.0, idxOffset); idxOffset += 24;
+            // Railing posts standing on the parapet
+            for (const side of [-1, 1]) {
+              const pz = roadCenterZ + side * (bridgeW / 2 - 0.45);
+              this.addBox(verts, indices, sx, avgY + 1.95, pz, 0.18, 0.95, 0.18, 0.55, 0.55, 0.58, 1.0, idxOffset); idxOffset += 24;
+            }
+          }
+          // Handrail running along the parapet top
+          for (const side of [-1, 1]) {
+            const pz = roadCenterZ + side * (bridgeW / 2 - 0.45);
+            this.addBox(verts, indices, sx, avgY + 2.3, pz, sliceLen, 0.1, 0.14, 0.68, 0.68, 0.7, 1.0, idxOffset); idxOffset += 24;
+          }
+          // Lamp masts over the sidewalk every few slices
+          if (si % 4 === 2) {
+            for (const side of [-1, 1]) {
+              const pz = roadCenterZ + side * (bridgeW / 2 - 0.45);
+              this.addBox(verts, indices, sx, avgY + 3.5, pz, 0.24, 3.6, 0.24, 0.22, 0.22, 0.24, 1.0, idxOffset); idxOffset += 24;
+              const az = roadCenterZ + side * (bridgeW / 2 - 3.9);
+              this.addBox(verts, indices, sx, avgY + 3.65, az, 0.16, 0.15, 2.6, 0.32, 0.32, 0.35, 1.0, idxOffset); idxOffset += 24;
+            }
+          }
         }
         // Suspension towers + cables — one tower pair per span end (not per
         // chunk), with the main span cable sagging between them and back-stay
@@ -2160,6 +2200,12 @@ void main() {
             }
             this.addBox(verts, indices, tx, baseY + towerH + 1.0, lz, 4.2, 1.6, 1.1, 0.45, 0.45, 0.47, 1.0, idxOffset); idxOffset += 24;
           }
+          // Portal frames connecting both legs — one at the top, one just
+          // above the deck — the classic suspension-tower silhouette.
+          this.addBox(verts, indices, tx, baseY + towerH + 1.0, tz, 1.2, 2.6, legZ * 2 - 0.4, 0.42, 0.42, 0.45, 1.0, idxOffset); idxOffset += 24;
+          this.addBox(verts, indices, tx, baseY + 2.8, tz, 1.5, 0.9, legZ * 2 - 1.0, 0.42, 0.42, 0.45, 1.0, idxOffset); idxOffset += 24;
+          // Pedestal plinth where the legs meet the deck
+          this.addBox(verts, indices, tx, baseY + 0.55, tz, 3.0, 1.1, legZ * 2 - 0.4, 0.36, 0.36, 0.39, 1.0, idxOffset); idxOffset += 24;
           const topY = baseY + towerH;
           // Main span cable: from this tower toward the span center (each
           // tower builds its own half, so the span is never doubled).
@@ -2239,6 +2285,10 @@ void main() {
             const pz = roadCenterZ + side * (bridgeW / 2 - 0.45);
             this.addRamp(verts, indices, x1, y1 + 1.05, x2, y2 + 1.05, pz, 0.5, 0.9, 0.5, 0.5, 0.52, 1.0, idxOffset); idxOffset += 24;
             this.addRamp(verts, indices, x1, y1 + 1.62, x2, y2 + 1.62, pz, 0.12, 0.1, 0.68, 0.68, 0.7, 1.0, idxOffset); idxOffset += 24;
+            // Matching deep girder under the ramp edge and handrail on top
+            const gz = roadCenterZ + side * (bridgeW / 2 - 1.9);
+            this.addRamp(verts, indices, x1, y1 - 0.65, x2, y2 - 0.65, gz, 0.55, 1.8, 0.30, 0.30, 0.33, 1.0, idxOffset); idxOffset += 24;
+            this.addRamp(verts, indices, x1, y1 + 2.3, x2, y2 + 2.3, pz, 0.14, 0.1, 0.68, 0.68, 0.7, 1.0, idxOffset); idxOffset += 24;
           }
         }
       }
@@ -5306,7 +5356,11 @@ void main() {
   }
   private getJumpRampMesh(): CityMesh | null {
     if (this.jumpRampMesh) return this.jumpRampMesh;
-    const L = 5, W = 2, H = 1.3;
+    // A finished launch ramp, sized to the jump trigger box (|along| < 6.5,
+    // |lateral| < 3.5 → 13 long × ~7 wide): a solid wedge with a wide asphalt
+    // launch apron, painted slope markings, a striped tail face, a raised
+    // launch lip, side skirts and corner footings.
+    const L = 6.5, W = 3.4, H = 1.5, y0 = 0.12;
     const verts: number[] = [];
     const idx: number[] = [];
     const addFace = (pts: number[][], cr: number, cg: number, cb: number) => {
@@ -5319,15 +5373,49 @@ void main() {
       for (const p of pts) verts.push(p[0], p[1], p[2], cr, cg, cb, 1);
       idx.push(base, base + 1, base + 2);
     };
-    addFace([[-W, 0, -L], [W, 0, -L], [W, H, L], [-W, H, L]], 0.95, 0.5, 0.12);
-    addFace([[-W, 0, -L], [W, 0, -L], [W, 0, L], [-W, 0, L]], 0.3, 0.3, 0.32);
-    addFace([[-W, H, L], [W, H, L], [W, 0, L], [-W, 0, L]], 0.7, 0.36, 0.1);
-    addTri([[-W, 0, -L], [-W, H, L], [-W, 0, L]], 0.65, 0.32, 0.08);
-    addTri([[W, 0, -L], [W, 0, L], [W, H, L]], 0.65, 0.32, 0.08);
-    const z1 = L - 1.6, z2 = L - 0.1;
-    const y1 = H * (z1 + L) / (2 * L) + 0.02;
-    const y2 = H * (z2 + L) / (2 * L) + 0.02;
-    addFace([[-W, y1, z1], [W, y1, z1], [W, y2, z2], [-W, y2, z2]], 0.95, 0.95, 0.9);
+    const slope = (z: number) => y0 + H * (z + L) / (2 * L);
+    const APRON = W + 2.4, APRON_Z = L + 1.2;
+    // 1. Wide asphalt apron the approach road widens into.
+    addFace([[-APRON, y0, -APRON_Z], [APRON, y0, -APRON_Z], [APRON, y0, APRON_Z], [-APRON, y0, APRON_Z]], 0.24, 0.24, 0.26);
+    // 2. Yellow safety ring around the apron.
+    const ringY = y0 + 0.02;
+    addFace([[-APRON, ringY, -APRON_Z], [APRON, ringY, -APRON_Z], [APRON, ringY, -APRON_Z + 0.35], [-APRON, ringY, -APRON_Z + 0.35]], 0.92, 0.78, 0.2);
+    addFace([[-APRON, ringY, APRON_Z - 0.35], [APRON, ringY, APRON_Z - 0.35], [APRON, ringY, APRON_Z], [-APRON, ringY, APRON_Z]], 0.92, 0.78, 0.2);
+    addFace([[-APRON, ringY, -APRON_Z], [-APRON + 0.35, ringY, -APRON_Z], [-APRON + 0.35, ringY, APRON_Z], [-APRON, ringY, APRON_Z]], 0.92, 0.78, 0.2);
+    addFace([[APRON - 0.35, ringY, -APRON_Z], [APRON, ringY, -APRON_Z], [APRON, ringY, APRON_Z], [APRON - 0.35, ringY, APRON_Z]], 0.92, 0.78, 0.2);
+    // 3. The wedge body — slope, underside slab, both painted side skirts.
+    addFace([[-W, slope(-L), -L], [W, slope(-L), -L], [W, slope(L), L], [-W, slope(L), L]], 0.92, 0.46, 0.12);
+    addFace([[-W, y0, -L], [W, y0, -L], [W, y0, L], [-W, y0, L]], 0.14, 0.14, 0.16);
+    addFace([[-W, y0, -L], [-W, slope(-L), -L], [-W, slope(L), L], [-W, y0, L]], 0.5, 0.5, 0.55);
+    addFace([[W, y0, -L], [W, slope(L), L], [W, slope(-L), -L], [W, y0, L]], 0.56, 0.56, 0.6);
+    // 4. Launch zone painted on the top near the tip + centre guide stripe.
+    addFace([[-W, slope(4.4), 4.4], [W, slope(4.4), 4.4], [W, slope(L), L], [-W, slope(L), L]], 0.95, 0.82, 0.2);
+    addFace([[-0.4, slope(0.4), 0.4], [0.4, slope(0.4), 0.4], [0.4, slope(4.2), 4.2], [-0.4, slope(4.2), 4.2]], 0.94, 0.94, 0.88);
+    // 5. Striped tail face (the launch end) + raised kicker lip.
+    for (let s = 0; s < 4; s++) {
+      const x0 = -W + (2 * W / 4) * s, x1 = x0 + 2 * W / 4;
+      const stripe = s % 2 === 0 ? [0.12, 0.12, 0.13] : [0.95, 0.95, 0.9];
+      addFace([[x0, y0, L], [x1, y0, L], [x1, slope(L), L], [x0, slope(L), L]], stripe[0], stripe[1], stripe[2]);
+    }
+    const lipZ1 = L, lipZ2 = L + 0.3, lipY = slope(L) + 0.14;
+    addFace([[-W - 0.5, lipY, lipZ1], [W + 0.5, lipY, lipZ1], [W + 0.5, lipY, lipZ2], [-W - 0.5, lipY, lipZ2]], 0.95, 0.95, 0.9);
+    addFace([[-W - 0.5, slope(L), lipZ2], [W + 0.5, slope(L), lipZ2], [W + 0.5, lipY, lipZ2], [-W - 0.5, lipY, lipZ2]], 0.75, 0.75, 0.7);
+    addFace([[-W - 0.5, slope(L), lipZ1], [W + 0.5, slope(L), lipZ1], [W + 0.5, lipY, lipZ1], [-W - 0.5, lipY, lipZ1]], 0.2, 0.2, 0.22);
+    addTri([[-W - 0.5, lipY, lipZ1], [-W - 0.5, slope(L), lipZ1], [-W - 0.5, lipY, lipZ2]], 0.6, 0.6, 0.63);
+    addTri([[W + 0.5, lipY, lipZ1], [W + 0.5, lipY, lipZ2], [W + 0.5, slope(L), lipZ1]], 0.6, 0.6, 0.63);
+    // 6. Corner footer blocks anchoring the whole thing to the ground.
+    for (const sx of [-1, 1]) {
+      for (const sz of [-1, 1]) {
+        const fx = sx * (APRON - 0.9), fz = sz * (APRON_Z - 0.9);
+        addFace([[fx - 0.6, y0, fz - 0.6], [fx + 0.6, y0, fz - 0.6], [fx + 0.6, y0, fz + 0.6], [fx - 0.6, y0, fz + 0.6]], 0.58, 0.58, 0.62);
+        addFace([[fx - 0.6, y0, fz - 0.6], [fx + 0.6, y0, fz - 0.6], [fx + 0.6, y0 + 0.45, fz - 0.6], [fx - 0.6, y0 + 0.45, fz - 0.6]], 0.5, 0.5, 0.54);
+        addFace([[fx - 0.6, y0, fz + 0.6], [fx + 0.6, y0, fz + 0.6], [fx + 0.6, y0 + 0.45, fz + 0.6], [fx - 0.6, y0 + 0.45, fz + 0.6]], 0.5, 0.5, 0.54);
+        addFace([[fx - 0.6, y0, fz - 0.6], [fx - 0.6, y0, fz + 0.6], [fx - 0.6, y0 + 0.45, fz + 0.6], [fx - 0.6, y0 + 0.45, fz - 0.6]], 0.62, 0.62, 0.66);
+        addFace([[fx + 0.6, y0, fz - 0.6], [fx + 0.6, y0, fz + 0.6], [fx + 0.6, y0 + 0.45, fz + 0.6], [fx + 0.6, y0 + 0.45, fz - 0.6]], 0.62, 0.62, 0.66);
+        addTri([[fx - 0.6, y0 + 0.45, fz + 0.6], [fx + 0.6, y0 + 0.45, fz + 0.6], [fx - 0.6, y0 + 0.45, fz - 0.6]], 0.66, 0.66, 0.7);
+        addTri([[fx + 0.6, y0 + 0.45, fz + 0.6], [fx - 0.6, y0 + 0.45, fz - 0.6], [fx + 0.6, y0 + 0.45, fz - 0.6]], 0.66, 0.66, 0.7);
+      }
+    }
     this.jumpRampMesh = this.createMesh(verts, idx);
     return this.jumpRampMesh;
   }

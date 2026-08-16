@@ -1397,7 +1397,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.carX += Math.sin(angle) * exitDist;
     this.carZ += Math.cos(angle) * exitDist;
     this.carVx = 0; this.carVz = 0; this.carSpeed = 0;
-    const exitTerrainY = getTerrainHeight(this.carX, this.carZ);
+    const exitTerrainY = getTerrainHeight(this.carX, this.carZ, this.carY);
     const exitRoofY = this.getBuildingRoofY(this.carX, this.carZ);
     const carRoofY = this.getBuildingRoofY(origCarX, origCarZ);
     const bestRoofY = exitRoofY > carRoofY ? exitRoofY : carRoofY;
@@ -2179,7 +2179,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const braking = (this.keys.has('KeyS') || this.keys.has('Space')) && speed > 2 ? 1 : 0;
     const base = isBike ? 100 : 55;
     const top = isBike ? 340 : 155;
-    const speedNorm = Math.min(1, speed / (isBike ? 70 : 55));
+    // Normalize against the doubled top speeds so the engine note keeps
+    // rising across the new speed range instead of peaking early.
+    const speedNorm = Math.min(1, speed / (isBike ? 140 : 110));
     const rpm = base + (top - base) * Math.min(1, 0.30 + speedNorm * 0.55 + throttle * 0.25 - braking * 0.12);
     const level = 0.055 + speedNorm * 0.10 + throttle * 0.05 + braking * 0.02;
     this._engineLevel += (level - this._engineLevel) * Math.min(1, 7 * dt);
@@ -2817,6 +2819,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         const key = `${gs.x},${gs.z}`;
         if (!this.renderer.explodedGasStations.has(key)) {
           this.renderer.explodedGasStations.add(key);
+          // Keep the station a charred ruin for the full cooldown (the draw
+          // pass only stays dark while the timer is fresh).
+          this.renderer.explodedGasStationTimers.set(key, performance.now());
           this.spawnBigExplosion(gs.x, 0.5, gs.z);
         }
         return;
@@ -3741,8 +3746,21 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.parkedCars = this.parkedCars.filter(pc => pc.health > 0);
     if (this.isInCar && this.carHealth > 0 && this.vehicleType !== 'boat' && this.vehicleType !== 'helicopter' && this.vehicleType !== 'plane') {
       const ocx = Math.floor(this.carX / 80), ocz = Math.floor(this.carZ / 80);
-      // Use terrain height instead of biome so bridge chunks (cz = -1) don't count as ocean
-      const inOcean = getTerrainHeight(this.carX, this.carZ) <= -2.0;
+      // Water kills. Height alone misses two cases: the invisible road grid that
+      // extends over the ocean (terrain there reads 0.0!) and rural lake beds.
+      // So treat any ocean chunk and any spot inside a rural lake as water too.
+      // Bridge decks are their own biome and ride above the waves, so they're
+      // never swallowed by the biome check — only by the height check below
+      // when the car actually falls off the deck into the water.
+      const waterBiome = getBiome(ocx, ocz);
+      let inOcean = getTerrainHeight(this.carX, this.carZ, this.carY) <= -2.0;
+      if (!inOcean && waterBiome === 'ocean') inOcean = true;
+      if (!inOcean && waterBiome === 'rural_lakes') {
+        const lx = ((this.carX - ocx * 80) % 80 + 80) % 80;
+        const lz = ((this.carZ - ocz * 80) % 80 + 80) % 80;
+        // Lake visuals cover the central 40x40 of each lakes chunk
+        if (Math.abs(lx - 40) <= 20 && Math.abs(lz - 40) <= 20) inOcean = true;
+      }
       if (inOcean) {
         if (!this._carSubmerged) { this._carSubmerged = true; this._carSubmergeStart = performance.now() / 1000; }
         const subElapsed = (performance.now() / 1000) - this._carSubmergeStart;
@@ -4292,7 +4310,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
     this.carX += this.carVx * dt;
     this.carZ += this.carVz * dt;
-    const footTerrainY = getTerrainHeight(this.carX, this.carZ);
+    const footTerrainY = getTerrainHeight(this.carX, this.carZ, this.carY);
     const footRoofY = this.getBuildingRoofY(this.carX, this.carZ);
     this.carY = CAR_HEIGHT + (footRoofY > footTerrainY ? footRoofY : footTerrainY);
     this.carSpeed = Math.sqrt(this.carVx * this.carVx + this.carVz * this.carVz);
@@ -4301,21 +4319,25 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
   private updateCar(dt: number) {
     if (this._arrested) return; // can't drive away mid-arrest
+    // Sports cars (lambo, countach, BRZ, challenger) are faster — a supercar
+    // kick on top of the doubled base top speed.
+    const sports = this.isSportsCarMesh(this.playerVehicleMesh);
+    const accelBoost = sports ? 1.4 : 1;
     let accelForce = 0;
     let isReversing = false;
-    if (this.keys.has('KeyW')) accelForce = 25;
+    if (this.keys.has('KeyW')) accelForce = 62 * accelBoost;
     if (this.keys.has('KeyS')) {
-      if (this.carSpeed > 1) { accelForce = -45; }
-      else { isReversing = true; accelForce = -15; }
+      if (this.carSpeed > 1) { accelForce = -60; }
+      else { isReversing = true; accelForce = -20; }
     }
     let steer = 0;
     if (this.keys.has('KeyA')) steer = 1;
     if (this.keys.has('KeyD')) steer = -1;
     if (this.isMobile && this.joystickActive) {
-      if (this.joystickY < 0.1) accelForce = 25 * this.joystickY;
+      if (this.joystickY < 0.1) accelForce = 62 * accelBoost * this.joystickY;
       else if (this.joystickY > -0.1) {
-        if (this.carSpeed > 1) { accelForce = -45 * (-this.joystickY); }
-        else { isReversing = true; accelForce = -15 * (-this.joystickY); }
+        if (this.carSpeed > 1) { accelForce = -60 * (-this.joystickY); }
+        else { isReversing = true; accelForce = -20 * (-this.joystickY); }
       }
       steer += -this.joystickX;
     }
@@ -4331,13 +4353,15 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const rightX = Math.cos(this.carYaw), rightZ = -Math.sin(this.carYaw);
     let fwdSpeed = this.carVx * forwardX + this.carVz * forwardZ;
     let latSpeed = this.carVx * rightX + this.carVz * rightZ;
-    fwdSpeed *= Math.max(0, 1 - 1.5 * dt);
+    // Much lighter forward drag so the doubled top speed is actually
+    // reachable (equilibrium ≈ 115 base, ≈ 155 sports).
+    fwdSpeed *= Math.max(0, 1 - 0.55 * dt);
     const isHandbraking = this.keys.has('Space');
     const grip = isHandbraking ? 1.5 : 12.0;
     latSpeed *= Math.max(0, 1 - grip * dt);
     this.carVx = fwdSpeed * forwardX + latSpeed * rightX;
     this.carVz = fwdSpeed * forwardZ + latSpeed * rightZ;
-    const maxSpd = isReversing ? 15 : 55;
+    const maxSpd = isReversing ? 20 : (sports ? 140 : 110);
     const currentSpd = Math.hypot(this.carVx, this.carVz);
     if (currentSpd > maxSpd) {
       this.carVx = (this.carVx / currentSpd) * maxSpd;
@@ -4360,12 +4384,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
   // ── Jump ramps: drive over a ramp at speed to go airborne; landing scores ──
   private updateJumpPhysics(dt: number) {
-    const groundY = CAR_HEIGHT + getTerrainHeight(this.carX, this.carZ);
+    const groundY = CAR_HEIGHT + getTerrainHeight(this.carX, this.carZ, this.carY);
     if (this.jumpActive) {
       this.jumpAirtime += dt;
       this.jumpVy -= JUMP_GRAVITY * dt;
       this.carY += this.jumpVy * dt;
-      const aboveGround = this.carY - (CAR_HEIGHT + getTerrainHeight(this.carX, this.carZ));
+      const aboveGround = this.carY - (CAR_HEIGHT + getTerrainHeight(this.carX, this.carZ, this.carY));
       if (aboveGround > this.jumpPeak) this.jumpPeak = aboveGround;
       const dist = Math.hypot(this.carX - this.jumpLaunchX, this.carZ - this.jumpLaunchZ);
       const readout = `AIRBORNE ${Math.max(0, Math.floor(dist))}m · ${Math.max(0, Math.floor(this.jumpPeak * 10) / 10)}m up`;
@@ -4549,15 +4573,33 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
     this.carX += this.carVx * dt;
     this.carZ += this.carVz * dt;
-    this.carY = CAR_HEIGHT + getTerrainHeight(this.carX, this.carZ);
+    // Height-aware terrain: an entity below the bridge deck (boat under the
+    // span, car in the water) gets the terrain the bridge replaced instead of
+    // being snapped up onto the roadway.
+    this.carY = CAR_HEIGHT + getTerrainHeight(this.carX, this.carZ, this.carY);
     this.pushOutOfBuildings();
     this.checkPropCollision();
+  }
+  /** True when the player is driving one of the fast sports models (the
+   *  index-constant entries of the renderer's car pool: Lambo, Countach,
+   *  BRZ, Challenger) rather than a commuter sedan/pickup. */
+  private isSportsCarMesh(mesh: CityMesh | CityMesh[] | null): boolean {
+    if (!mesh) return false;
+    const list = this.renderer.carMeshes;
+    if (!list.length) return false;
+    const m0 = Array.isArray(mesh) ? mesh[0] : mesh;
+    for (const idx of [0, 1, 6, 7]) {
+      const sports = list[idx];
+      if (!sports || !sports.length) continue;
+      if (sports[0] === m0) return true;
+    }
+    return false;
   }
   private updateBoat(dt: number) {
     const accel = 15, maxSpeed = 35, turnSpeed = 1.5;
     const ocx = Math.floor(this.carX / 80), ocz = Math.floor(this.carZ / 80);
     const biome = getBiome(ocx, ocz);
-    const onWater = biome === 'ocean' || (biome === 'bridge' && getTerrainHeight(this.carX, this.carZ) <= -2.0);
+    const onWater = biome === 'ocean' || (biome === 'bridge' && getTerrainHeight(this.carX, this.carZ, this.carY) <= -2.0);
     let accelForce = 0;
     if (this.keys.has('KeyW')) accelForce = accel;
     if (this.keys.has('KeyS')) accelForce = -accel;
@@ -4599,7 +4641,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     // A helicopter sitting on the ground can't pivot in place — it must be
     // airborne (above the minimum altitude) before it can turn at all.
     const heliRoofY = this.getBuildingRoofY(this.carX, this.carZ);
-    const heliFloorY = CAR_HEIGHT + getTerrainHeight(this.carX, this.carZ);
+    const heliFloorY = CAR_HEIGHT + getTerrainHeight(this.carX, this.carZ, this.carY);
     const heliMinY = heliRoofY > heliFloorY ? heliRoofY : heliFloorY;
     const grounded = this.carY <= heliMinY + 0.15;
     if (!this._heliCtx) this.initHeliAudio();
@@ -4792,7 +4834,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.carZ += forwardZ * this.carSpeed * dt;
     this.carY += this.carVy * dt;
     const planeRoofY = this.getBuildingRoofY(this.carX, this.carZ);
-    const planeFloorY = CAR_HEIGHT + getTerrainHeight(this.carX, this.carZ);
+    const planeFloorY = CAR_HEIGHT + getTerrainHeight(this.carX, this.carZ, this.carY);
     const planeMinY = planeRoofY > planeFloorY ? planeRoofY : planeFloorY;
     if (this.carY < planeMinY) {
       if (this.carSpeed > minSpeed && Math.abs(this.carPitch) > 0.3) {
@@ -4863,6 +4905,17 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
               const wallSeverity = Math.min(1, wallSpd / 28);
               this.playCrashSound(wallSeverity);
               this.applyCrashImpact(wallSeverity);
+              // Smashing into a gas station at speed blows it up — the blast
+              // ruins the station for the cooldown and punishes the car hard.
+              if (wallSpd >= 14 && m.carName && m.carName.includes('gas_station')) {
+                const gKey = `${bld.x},${bld.z}`;
+                if (!this.renderer.explodedGasStations.has(gKey)) {
+                  this.renderer.explodedGasStations.add(gKey);
+                  this.renderer.explodedGasStationTimers.set(gKey, nowW);
+                  this.spawnBigExplosion(bld.x, 0.5, bld.z);
+                  this.spawnExplosion(bld.x, 0.5, bld.z);
+                }
+              }
             }
           }
           const overlapX = ehw - Math.abs(dx), overlapZ = ehd - Math.abs(dz);
@@ -5840,7 +5893,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     // Spawn on foot at the local terrain surface: cap the saved altitude so a
     // refresh mid-flight can't park a plane in the sky or drop the player from
     // height. Rooftop stands (a few units up) are still preserved.
-    const groundY = CAR_HEIGHT + getTerrainHeight(this.carX, this.carZ);
+    const groundY = CAR_HEIGHT + getTerrainHeight(this.carX, this.carZ, this.carY);
     const savedY = typeof state.y === 'number' && !isNaN(state.y) ? state.y : CAR_HEIGHT;
     this.carY = Math.min(savedY, groundY + 6);
     this.carYaw = typeof state.yaw === 'number' && !isNaN(state.yaw) ? state.yaw : this.carYaw;
@@ -5868,7 +5921,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     for (const pc of (state.parked || [])) {
       if (typeof pc.id !== 'number' || typeof pc.x !== 'number' || typeof pc.z !== 'number') continue;
       const col: [number, number, number] = [pc.colorR ?? 0.5, pc.colorG ?? 0.5, pc.colorB ?? 0.5];
-      const carGroundY = CAR_HEIGHT + getTerrainHeight(pc.x, pc.z);
+      const carGroundY = CAR_HEIGHT + getTerrainHeight(pc.x, pc.z, pc.y);
       const carY = typeof pc.y === 'number' && !isNaN(pc.y) ? Math.min(pc.y, carGroundY + 6) : carGroundY;
       this.parkedCars.push({
         id: pc.id,

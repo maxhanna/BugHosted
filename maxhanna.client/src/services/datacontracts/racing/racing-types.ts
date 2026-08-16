@@ -403,6 +403,7 @@ export const TRACKS: TrackDefinition[] = [
   { id: 16, name: 'Hyrule Castle', difficulty: 'hard', laps: 4, length: 2100, description: 'A lap around the Kingdom of Hyrule — a replica of the Ocarina of Time castle, white walls, teal roofs, a moat and the golden Triforce', entryFee: 3500, prizePool: 13000, bestTime: 0 },
   { id: 17, name: 'Rio de Janeiro GP', difficulty: 'hard', laps: 4, length: 2300, description: 'A jungle-meets-city street circuit — favela hillsides, Christ the Redeemer on Corcovado, Sugarloaf and a Copacabana promenade', entryFee: 4000, prizePool: 15000, bestTime: 0 },
   { id: 18, name: 'Amazon Rush', difficulty: 'hard', laps: 4, length: 2200, description: 'A dense rainforest rally — a vine-canopied trail through towering jungle, river crossings, ancient temple ruins and a crashed biplane', entryFee: 4000, prizePool: 15000, bestTime: 0 },
+  { id: 19, name: 'Golden Gate Bridge', difficulty: 'hard', laps: 4, length: 2600, description: 'A thunder-run across the bay — a complete circuit on one giant suspension bridge, with towering orange towers, sunken girders, Alcatraz and the SF skyline in the fog', entryFee: 4500, prizePool: 18000, bestTime: 0 },
 ];
 
 export const CAR_SKINS: RacingCarSkin[] = [

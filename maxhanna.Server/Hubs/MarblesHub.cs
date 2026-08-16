@@ -14,7 +14,9 @@ namespace maxhanna.Server.Hubs
     /// the edge) to bring same-colored marbles together. 3+ contiguous marbles
     /// pop in ANY row or ANY column; columns then auto-compact toward the
     /// CENTER (the pitch row stays filled and no gaps survive), and the new
-    /// alignment can line up fresh runs that pop too (chain matches).
+    /// alignment can line up fresh runs that pop too (chain matches). Marbles
+    /// only shift when the player (or AI) moves them: a periodic drop just
+    /// stacks the new marble onto the end of a column and never re-centers it.
     ///
     /// A special "hot" color is designated: popping groups that contain it
     /// fills your reserve. Every match dumps garbage onto a random opponent's
@@ -678,13 +680,13 @@ namespace maxhanna.Server.Hubs
             return false;
         }
 
-        /// <summary>Stack one marble into a SPECIFIC column's compacted pile (for
-        /// the AI's drop look-ahead). Mirrors AddMarble: the column is compacted
-        /// toward the center first, then the marble enters from a random side.
-        /// Returns false when that column is full.</summary>
+        /// <summary>Stack one marble into a SPECIFIC column's pile (for the AI's
+        /// drop look-ahead). Mirrors AddMarble: the marble enters from a random
+        /// side and never moves the existing pile. Returns false when that
+        /// column is full.</summary>
         private static bool DropIntoColumn(int[][] board, int col, int color)
         {
-            return InsertCentered(board, col, color, _rng.Next(2) == 1) >= 0;
+            return AppendToColumn(board, col, color, _rng.Next(2) == 1) >= 0;
         }
 
         /// <summary>
@@ -1047,12 +1049,13 @@ namespace maxhanna.Server.Hubs
 
         /// <summary>
         /// Place one marble onto a random column without disturbing anything
-        /// else's order. The column is compacted toward the CENTER first (so
-        /// the pile is contiguous and centered on the pitch row), then the new
-        /// marble enters from a RANDOM side: it either becomes the new top
-        /// (rolling in from above) or the new bottom (rolling in from below).
-        /// Returns the side it entered (0 = top, 1 = bottom) or -1 when every
-        /// cell on the board is filled.
+        /// else's order. The new marble enters from a RANDOM side and simply
+        /// stacks onto the END of the column's existing pile — it becomes the
+        /// new top (rolling in from above) or the new bottom (rolling in from
+        /// below). Existing marbles NEVER move on a drop: columns are only
+        /// shifted by the player, and re-compaction happens only after pops
+        /// and player shifts. Returns the side it entered (0 = top, 1 =
+        /// bottom) or -1 when every cell on the board is filled.
         /// </summary>
         private static int AddMarble(int[][] board, int color)
         {
@@ -1069,7 +1072,7 @@ namespace maxhanna.Server.Hubs
             if (emptyCols.Count == 0) return -1;
 
             var col = emptyCols[_rng.Next(emptyCols.Count)];
-            return InsertCentered(board, col, color, _rng.Next(2) == 1);
+            return AppendToColumn(board, col, color, _rng.Next(2) == 1);
         }
 
         /// <summary>Compact one column toward the CENTER (pitch row): collect its
@@ -1098,38 +1101,40 @@ namespace maxhanna.Server.Hubs
             for (var c = 0; c < Cols; c++) CompactColumnCenter(board, c);
         }
 
-        /// <summary>Compact `col` toward the center and add `color` entering from
-        /// the top (enterBottom=false) or bottom (enterBottom=true), keeping the
-        /// grown stack centered. Returns the entry side (0 = top, 1 = bottom), or
-        /// -1 when the column is already full.</summary>
-        private static int InsertCentered(int[][] board, int col, int color, bool enterBottom)
+        /// <summary>Add `color` onto the END of a column's existing pile — the
+        /// new marble rolls in from the top (enterBottom=false) or the bottom
+        /// (enterBottom=true) WITHOUT moving any marble already in the column.
+        /// Columns are kept contiguous by pops and player shifts, so a drop
+        /// must never re-center the pile: marbles shift only when the player
+        /// moves them. An empty column starts centered on the pitch row.
+        /// Returns the entry side (0 = top, 1 = bottom), or -1 when the column
+        /// is already full.</summary>
+        private static int AppendToColumn(int[][] board, int col, int color, bool enterBottom)
         {
-            CompactColumnCenter(board, col);
-            var marbles = new List<int>(Rows);
+            var top = Rows;
+            var bottom = -1;
             for (var r = 0; r < Rows; r++)
             {
-                if (board[r][col] != 0) marbles.Add(board[r][col]);
+                if (board[r][col] == 0) continue;
+                if (r < top) top = r;
+                bottom = r;
             }
-            var n = marbles.Count;
-            if (n >= Rows) return -1; // full column
-
-            var top = PitchRow - n / 2; // centered top row of the n+1 stack
-            for (var r = 0; r < Rows; r++) board[r][col] = 0;
+            if (top > bottom) // empty column — start centred on the pitch row
+            {
+                board[PitchRow][col] = color;
+                return 0;
+            }
+            if (bottom - top + 1 >= Rows) return -1; // full column
 
             if (enterBottom)
             {
-                // Existing marbles keep their positions; the new marble is the
-                // new bottom (rolls in from below).
-                for (var i = 0; i < n; i++) board[top + i][col] = marbles[i];
-                board[top + n][col] = color;
-                return 1;
+                if (bottom + 1 < Rows) { board[bottom + 1][col] = color; return 1; }
+                board[top - 1][col] = color; // no room below — rolls in from above
+                return 0;
             }
-
-            // Existing marbles shift down one; the new marble is the new top
-            // (falls in from above).
-            for (var i = 0; i < n; i++) board[top + 1 + i][col] = marbles[i];
-            board[top][col] = color;
-            return 0;
+            if (top - 1 >= 0) { board[top - 1][col] = color; return 0; }
+            board[bottom + 1][col] = color; // no room above — rolls in from below
+            return 1;
         }
 
         private static void RainOne(Player target, int color)
