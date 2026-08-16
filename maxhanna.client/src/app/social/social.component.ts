@@ -415,61 +415,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
 
     // If a deep-linked storyId is present, fetch that single story directly (server will not apply per-user blocking when called this way)
     if (tmpStoryId) {
-      try {
-        const single = await this.socialService.getStoryById(tmpStoryId, this.parentRef?.user?.id);
-        if (single) {
-          if (isStoryAccessDenied(single)) {
-            // Visibility-restricted post (e.g. 'following' shared with a
-            // non-follower): show the follow prompt instead of a 404/empty feed.
-            this.deepLinkDenied = single;
-            this.stopLoading();
-            return;
-          }
-          // Decrypt story text client-side to match normal flow
-          try {
-            single.storyText = this.encryptionService.decryptContent(single.storyText ?? '', single.user?.id + '');
-          } catch (ex) {
-            console.error('Failed to decrypt deep-linked story text', ex);
-          }
-          // Wrap into storyResponse so the templates and downstream logic work
-          this.storyResponse = { 
-            stories: [single], 
-            totalCount: 1, 
-            pageCount: 1, 
-            currentPage: 1 
-          } as StoryResponse;
-
-          // If the current user has blocked the author, show placeholder locally
-          try {
-            const currentUserId = this.parentRef?.user?.id ?? this.parent?.user?.id;
-            if (currentUserId && single.user && single.user.id) {
-              const blockedRes: any = await this.userService.isUserBlocked(currentUserId, single.user.id);
-              const isBlocked = (blockedRes && (blockedRes.isBlocked === true || blockedRes.IsBlocked === true || blockedRes.IsBlocked === 1 || blockedRes.isBlocked === 1));
-              if (isBlocked) {
-                const blockedName = single.user.username ?? (`User ${single.user.id}`);
-                const placeholder = `You have blocked ${blockedName}. Unblock to view this post.`;
-                try { single.storyText = placeholder; } catch { }
-                try { single.storyFiles = []; } catch { }
-                try { single.metadata = []; } catch { }
-                try { single.storyComments = []; } catch { }
-              }
-            }
-          } catch (ex) {
-            console.warn('Failed checking blocked status for story author', ex);
-          }
-
-          this.scrollToStory(single.id);
-          this.scrollToInputtedCommentId(tmpCommentId);
-          this.changePageTitleAndDescription(single);
-          // we're done with deep-linked story handling
-        } else {
-          // fallback to normal getStories if single story not found
-          await this.getStories();
-        }
-      } catch (ex) {
-        console.warn('Error fetching deep-linked story by id, falling back to getStories', ex);
-        await this.getStories();
-      }
+      await this.loadDeepLinkedStory(tmpStoryId, tmpCommentId);
     } else if (this.topic) {
       // ?topic= deep link: resolve the topic name(s) to real Topic ids and
       // pre-filter the feed, mirroring what the topic picker does. Skip the
@@ -492,6 +438,71 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     this.changeComponentMainHeight();
 
     this.stopLoading();
+  }
+
+  /**
+   * Loads and displays a single deep-linked story (decrypts it, scrolls to the
+   * post and its comment, updates the page title). Used on first load and when
+   * a notification deep-links into the feed while Social is already open.
+   */
+  private async loadDeepLinkedStory(storyId?: number, commentId?: number): Promise<void> {
+    if (!storyId) return;
+    // Clear any previous "follow to view" card left by an earlier deep link.
+    this.deepLinkDenied = null;
+    try {
+      const single = await this.socialService.getStoryById(storyId, this.parentRef?.user?.id);
+      if (single) {
+        if (isStoryAccessDenied(single)) {
+          // Visibility-restricted post (e.g. 'following' shared with a
+          // non-follower): show the follow prompt instead of a 404/empty feed.
+          this.deepLinkDenied = single;
+          return;
+        }
+        // Decrypt story text client-side to match normal flow
+        try {
+          single.storyText = this.encryptionService.decryptContent(single.storyText ?? '', single.user?.id + '');
+        } catch (ex) {
+          console.error('Failed to decrypt deep-linked story text', ex);
+        }
+        // Wrap into storyResponse so the templates and downstream logic work
+        this.storyResponse = { 
+          stories: [single], 
+          totalCount: 1, 
+          pageCount: 1, 
+          currentPage: 1 
+        } as StoryResponse;
+
+        // If the current user has blocked the author, show placeholder locally
+        try {
+          const currentUserId = this.parentRef?.user?.id ?? this.parent?.user?.id;
+          if (currentUserId && single.user && single.user.id) {
+            const blockedRes: any = await this.userService.isUserBlocked(currentUserId, single.user.id);
+            const isBlocked = (blockedRes && (blockedRes.isBlocked === true || blockedRes.IsBlocked === true || blockedRes.IsBlocked === 1 || blockedRes.isBlocked === 1));
+            if (isBlocked) {
+              const blockedName = single.user.username ?? (`User ${single.user.id}`);
+              const placeholder = `You have blocked ${blockedName}. Unblock to view this post.`;
+              try { single.storyText = placeholder; } catch { }
+              try { single.storyFiles = []; } catch { }
+              try { single.metadata = []; } catch { }
+              try { single.storyComments = []; } catch { }
+            }
+          }
+        } catch (ex) {
+          console.warn('Failed checking blocked status for story author', ex);
+        }
+
+        this.scrollToStory(single.id);
+        this.scrollToInputtedCommentId(commentId);
+        this.changePageTitleAndDescription(single);
+        // we're done with deep-linked story handling
+      } else {
+        // fallback to normal getStories if single story not found
+        await this.getStories();
+      }
+    } catch (ex) {
+      console.warn('Error fetching deep-linked story by id, falling back to getStories', ex);
+      await this.getStories();
+    }
   }
 
   ngOnDestroy() {
@@ -579,11 +590,18 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   /**
    * Re-activation hook: clicking Social in the nav while the feed is already
    * open resets every filter and re-runs the search with none (a clean slate).
-   * Deep links (story/comment) while Social is open aren't a nav reset — the
-   * existing view is left untouched for those.
+   * A notification deep-link (story/comment) instead loads that single post in
+   * place so the clicked notification actually shows its target.
    */
-  onReopen(inputs?: { [key: string]: any; }) {
-    if (inputs && (inputs['storyId'] || inputs['commentId'])) return;
+  async onReopen(inputs?: { [key: string]: any; }) {
+    if (inputs && (inputs['storyId'] || inputs['commentId'])) {
+      this.storyId = inputs['storyId'];
+      this.commentId = inputs['commentId'];
+      this.startLoading();
+      await this.loadDeepLinkedStory(this.storyId, this.commentId);
+      this.stopLoading();
+      return;
+    }
     if (this.search?.nativeElement) this.search.nativeElement.value = '';
     this.userSearch = '';
     this.attachedTopics = [];
