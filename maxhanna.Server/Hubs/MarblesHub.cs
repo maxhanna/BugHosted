@@ -50,40 +50,7 @@ namespace maxhanna.Server.Hubs
         {
             _hubContext = hubContext;
             _config = config;
-        }
-
-        /// <summary>Ensure the marbles_forfeits table exists (best-effort; the
-        /// app keeps running even if DDL is unavailable).</summary>
-        private void EnsureForfeitSchema()
-        {
-            if (Volatile.Read(ref _forfeitSchemaChecked) == 1) return;
-            lock (_forfeitSchemaLock)
-            {
-                if (Volatile.Read(ref _forfeitSchemaChecked) == 1) return;
-                try
-                {
-                    var cs = _config.GetValue<string>("ConnectionStrings:maxhanna");
-                    if (string.IsNullOrEmpty(cs)) return;
-                    using var conn = new MySqlConnection(cs);
-                    conn.Open();
-                    using var cmd = new MySqlCommand(@"
-                        CREATE TABLE IF NOT EXISTS marbles_forfeits (
-                            id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                            user_id INT NOT NULL,
-                            username VARCHAR(64) NULL,
-                            opponent_user_id INT NULL,
-                            opponent_username VARCHAR(64) NULL,
-                            forfeited_at DATETIME NOT NULL
-                        );", conn);
-                    cmd.ExecuteNonQuery();
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"[{DateTime.Now:HH:mm}] MARBLES: forfeit schema init failed: {ex.Message}");
-                }
-                Volatile.Write(ref _forfeitSchemaChecked, 1);
-            }
-        }
+        } 
 
         /// <summary>Best-effort: load how many multiplayer matches this user has
         /// forfeited (left mid-game). Returns 0 on any DB issue so the lobby
@@ -93,7 +60,6 @@ namespace maxhanna.Server.Hubs
             if (userId <= 0) return 0;
             try
             {
-                EnsureForfeitSchema();
                 var cs = _config.GetValue<string>("ConnectionStrings:maxhanna");
                 if (string.IsNullOrEmpty(cs)) return 0;
                 await using var conn = new MySqlConnection(cs);
@@ -118,7 +84,6 @@ namespace maxhanna.Server.Hubs
             if (userId <= 0) return;
             try
             {
-                EnsureForfeitSchema();
                 var cs = _config.GetValue<string>("ConnectionStrings:maxhanna");
                 if (string.IsNullOrEmpty(cs)) return;
                 await using var conn = new MySqlConnection(cs);
