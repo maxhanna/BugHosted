@@ -8,9 +8,13 @@
         <canvas #boardCanvas></canvas>
       </div>
       <div class="board-slot board-opponent" *ngIf="status === 'playing' || status === 'won'"
-        (click)="viewOpponent()" [attr.title]="'Tap to enlarge ' + (opponent?.playerName || 'opponent') + ' board'">
+        [class.p2-active]="isLocal2P"
+        (pointerdown)="onP2StageDown($event)" (pointermove)="onP2StageMove($event)"
+        (pointerup)="onP2StageUp($event)" (pointercancel)="onP2StageCancel($event)"
+        (click)="isLocal2P ? null : viewOpponent()"
+        [attr.title]="isLocal2P ? 'Player 2 board — A/D select, W/S shift, F rotates the row' : 'Tap to enlarge ' + (opponent?.playerName || 'opponent') + ' board'">
         <canvas #opponentCanvas></canvas>
-        <div class="board-label" *ngIf="opponent && !viewingOpponent">{{ opponent.playerName }}</div>
+        <div class="board-label" *ngIf="opponent && !viewingOpponent">{{ isLocal2P ? '👾 ' + opponent.playerName : opponent.playerName }}</div>
       </div>
 
       <!-- Full-screen opponent view (mobile): back button + who you're watching. -->
@@ -59,6 +63,13 @@
             </div>
           </div>
           <div class="marbles-vsai">
+            <div class="marbles-vsai-label">👥 Local 2 Players — one keyboard</div>
+            <div class="marbles-vsai-btns">
+              <button class="win98-btn primary" (click)="playLocal2P()" [disabled]="!playerName.trim()">Start Local Match</button>
+            </div>
+            <p class="marbles-local2-hint">P1 uses <strong>←/→/↑/↓ + Space</strong> on the bottom board; P2 uses <strong>A/D + W/S + F</strong> on the top board.</p>
+          </div>
+          <div class="marbles-vsai">
             <div class="marbles-vsai-label">🗺️ Arena — the board's background</div>
             <div class="marbles-maps">
               <button type="button" class="marbles-map-btn" *ngFor="let m of boardMaps"
@@ -66,6 +77,12 @@
                 <span class="marbles-map-emoji">{{ m.emoji }}</span>
                 <span class="marbles-map-name">{{ m.name }}</span>
               </button>
+            </div>
+          </div>
+          <div class="marbles-vsai">
+            <div class="marbles-vsai-label">🎵 Music</div>
+            <div class="marbles-vsai-btns">
+              <button class="win98-btn" (click)="toggleMusic()">{{ musicOn ? '🔊 On' : '🔇 Off' }}</button>
             </div>
           </div>
           <button class="win98-btn" (click)="toggleHowTo()">How to Play</button>
@@ -108,11 +125,12 @@
         <ul class="howto-list">
           <li>Move the <strong>glowing cursor</strong> along the <strong>center row</strong> with <strong>← / →</strong> — or tap a marble / press <strong>1–5</strong> — to pick your handle.</li>
           <li><strong>↑ / ↓</strong> (or <strong>drag up/down</strong> on mobile) shifts the <em>selected</em> marble's whole column up/down; a column can't shift past the top or bottom (marbles never wrap).</li>
-          <li>Slide the whole center row with the on-screen <strong>◀ / ▶</strong> arrows (or drag it sideways on mobile).</li>
+          <li><strong>Space</strong> rotates the whole center row right (or drag it sideways on mobile; <strong>◀ / ▶</strong> on-screen arrows shift it too).</li>
           <li>Line up 3+ same-colored marbles <strong>touching in any row or column</strong> — they pop, the ones above fall down, and the fall can start <strong>chain matches</strong>.</li>
           <li>A <strong>special color</strong> is hot each game: popping marbles of that color fills your <strong>reserve</strong>.</li>
           <li>Every match dumps garbage onto your opponent — <strong>3-in-a-row sends 1</strong> marble, <strong>4 sends 2</strong>, <strong>5+ sends 3</strong>.</li>
           <li>New marbles rain in from the top — <strong>you lose when your columns fill up</strong>.</li>
+          <li><strong>Local 2P:</strong> P1 takes the bottom board with <strong>←/→/↑/↓ + Space</strong>; P2 takes the top board with <strong>A/D</strong> (select), <strong>W/S</strong> (shift column) and <strong>F</strong> (rotate the row) — like the original 1997 shared-keyboard mode.</li>
         </ul>
         <button class="win98-btn" (click)="toggleHowTo()">Back</button>
       </div>
@@ -190,12 +208,14 @@
     <ul class="marbles-menu-explain">
       <li>Move the <strong>glowing cursor</strong> along the center row with <strong>← / →</strong> (or tap a marble / press <strong>1–5</strong>).</li>
       <li><strong>↑ / ↓</strong> (or drag up/down on mobile) shifts the selected column — it can't shift past the top or bottom.</li>
-      <li>Slide the center row with <strong>◀ / ▶</strong> (or drag it sideways on mobile).</li>
+      <li><strong>Space</strong> rotates the center row right — or drag it sideways on mobile.</li>
       <li>Line up <strong>3+ same-colored marbles</strong> touching in any row or column — they pop, the ones above fall, and falls can start <strong>chain matches</strong>.</li>
       <li>Every match dumps garbage on your opponent — <strong>3 sends 1</strong>, <strong>4 sends 2</strong>, <strong>5+ sends 3</strong>.</li>
       <li>New marbles rain in from the top — <strong>you lose when your columns fill up</strong>.</li>
+      <li *ngIf="isLocal2P"><strong>Local 2P:</strong> P2 drives this match on the top board with <strong>A/D</strong> (select), <strong>W/S</strong> (shift column) and <strong>F</strong> (rotate the row).</li>
     </ul>
     <button *ngIf="status === 'playing' || status === 'won'" class="win98-btn primary marbles-quit-btn" (click)="confirmQuitMatch()">🚪 Quit Match</button>
+    <button class="win98-btn marbles-music-btn" (click)="toggleMusic()">{{ musicOn ? '🔊 Music: On' : '🔇 Music: Off' }}</button>
     <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button>
   </div>
 

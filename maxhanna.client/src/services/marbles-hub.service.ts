@@ -242,6 +242,12 @@ export class MarblesHubService implements OnDestroy {
     try { await this.hub!.invoke('StartVsAI', code, difficulty); } catch { /* ignore */ }
   }
 
+  /** Start a same-keyboard local 2P game: P1 = arrows + spacebar, P2 = A/S/D/W. */
+  async startLocal2P(code: string): Promise<void> {
+    if (!this.connected) return;
+    try { await this.hub!.invoke('StartLocal2P', code); } catch { /* ignore */ }
+  }
+
   /** Freeze the match while the in-game menu is open (stops drops + AI). */
   async pauseGame(code: string): Promise<void> {
     if (!this.connected) return;
@@ -254,16 +260,18 @@ export class MarblesHubService implements OnDestroy {
     try { await this.hub!.invoke('ResumeGame', code); } catch { /* ignore */ }
   }
 
-  /** Shift the center row: -1 = left, +1 = right (marbles wrap around). */
-  async shiftRow(code: string, dir: number): Promise<void> {
+  /** Shift the center row: -1 = left, +1 = right (marbles wrap around).
+   *  In a local 2P game, `slot` picks the board: 0 = P1 (you), 1 = P2. */
+  async shiftRow(code: string, dir: number, slot = 0): Promise<void> {
     if (!this.connected) return;
-    try { await this.hub!.invoke('ShiftRow', code, dir); } catch { /* ignore */ }
+    try { await this.hub!.invoke('ShiftRow', code, dir, slot); } catch { /* ignore */ }
   }
 
-  /** Shift a column: -1 = up, +1 = down (marbles cycle through the column). */
-  async shiftColumn(code: string, col: number, dir: number): Promise<void> {
+  /** Shift a column: -1 = up, +1 = down (marbles cycle through the column).
+   *  In a local 2P game, `slot` picks the board: 0 = P1 (you), 1 = P2. */
+  async shiftColumn(code: string, col: number, dir: number, slot = 0): Promise<void> {
     if (!this.connected) return;
-    try { await this.hub!.invoke('ShiftColumn', code, col, dir); } catch { /* ignore */ }
+    try { await this.hub!.invoke('ShiftColumn', code, col, dir, slot); } catch { /* ignore */ }
   }
 
   async sendChat(code: string, message: string): Promise<void> {

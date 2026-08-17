@@ -1,5 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using System.Data;
+using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Xml.Linq;
@@ -56,6 +57,25 @@ namespace maxhanna.Server.Controllers
       _config = config;
       _baseTarget = _config.GetValue<string>("ConnectionStrings:baseUploadPath") ?? "";
       _emailService = emailService;
+    }
+
+    /// <summary>
+    /// Domain for the HttpOnly session cookie, derived from the request host so
+    /// the token survives navigation between the apex host and www (or any
+    /// subdomain). Mirrors the client's `user` cookie (domain=.bughosted.com),
+    /// which otherwise said "logged in" while the token cookie was host-only
+    /// and got dropped — forcing a re-login on every refresh/new tab.
+    /// </summary>
+    private static string SessionCookieDomain(HttpRequest request)
+    {
+      var host = request.Host.Host; // no port
+      if (string.IsNullOrWhiteSpace(host))
+        return string.Empty;
+      host = host.StartsWith("www.", StringComparison.OrdinalIgnoreCase) ? host.Substring(4) : host;
+      // Only scope to the parent domain for real DNS names (not IPs / localhost).
+      if (IPAddress.TryParse(host, out _) || host.Equals("localhost", StringComparison.OrdinalIgnoreCase))
+        return string.Empty;
+      return "." + host;
     }
 
 
@@ -1845,12 +1865,16 @@ namespace maxhanna.Server.Controllers
                       // and a pipeline middleware bridges it into the Encrypted-UserId
                       // header for requests that don't carry the in-memory copy (e.g.
                       // after a page reload). The server still enforces the real expiry.
+                      // Drop any legacy host-only cookie of the same name first so the
+                      // browser never sends a stale copy alongside the domain-scoped one.
+                      Response.Cookies.Delete("BHUserToken", new CookieOptions { Path = "/" });
                       Response.Cookies.Append("BHUserToken", sessionToken, new CookieOptions
                       {
                         HttpOnly = true,
                         Secure = Request.IsHttps,
                         SameSite = SameSiteMode.Lax,
                         Path = "/",
+                        Domain = SessionCookieDomain(Request),
                         MaxAge = TimeSpan.FromDays(30)
                       });
                     }
@@ -1881,7 +1905,11 @@ namespace maxhanna.Server.Controllers
         ? (Request.Cookies["BHUserToken"] ?? "")
         : encryptedUserIdHeader;
       bool ok = !string.IsNullOrWhiteSpace(token) && await Log.InvalidateSession(cs, token);
-      // Clear the HttpOnly session cookie so the browser stops sending it.
+      // Clear the HttpOnly session cookie so the browser stops sending it — the
+      // delete must use the same Domain the cookie was set with, otherwise the
+      // browser ignores it and the stale token keeps getting re-sent. Also clear
+      // the legacy host-only variant so a pre-domain-scope cookie can't linger.
+      Response.Cookies.Delete("BHUserToken", new CookieOptions { Path = "/", Domain = SessionCookieDomain(Request) });
       Response.Cookies.Delete("BHUserToken", new CookieOptions { Path = "/" });
       return Ok(new { success = ok });
     }

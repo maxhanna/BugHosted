@@ -21,8 +21,10 @@ namespace maxhanna.Server.Hubs
     /// A special "hot" color is designated: popping groups that contain it
     /// fills your reserve. Every match dumps garbage onto a random opponent's
     /// board scaled to the match size — 3-in-a-row sends 1 marble, 4 sends 2,
-    /// and 5+ sends 3. New marbles rain in from the top OR bottom every few
-    /// seconds; whoever's columns fill up first loses.
+    /// and 5+ sends 3. The five-in-a-row bonus clears the WHOLE row or column
+    /// (every filled cell in the line) and dumps 3 extra penalty marbles on
+    /// top to clog up the opponent's board. New marbles rain in from the top
+    /// OR bottom every few seconds; whoever's columns fill up first loses.
     /// </summary>
     public class MarblesHub : Hub
     {
@@ -149,6 +151,10 @@ namespace maxhanna.Server.Hubs
             public bool IsPublic = false; // public rooms appear in the open-room list and are 1:1
             public string Status = "lobby"; // "lobby" | "playing"
             public bool Paused = false; // true while a player has the in-game menu open
+            /// <summary>True when this is a same-keyboard local 2P game: the second
+            /// player (Player.IsLocal) is driven by the same connection that hosts
+            /// the room, and moves target it via the `slot` parameter.</summary>
+            public bool IsLocal = false;
             public CancellationTokenSource? DropCts;
             public readonly List<Player> Players = new();
             public readonly object Sync = new();
@@ -162,6 +168,9 @@ namespace maxhanna.Server.Hubs
             public bool Ready = false;
             public bool Alive = true;
             public bool IsBot = false;
+            /// <summary>True for the second player in a same-keyboard local 2P game
+            /// (no real SignalR connection — the host drives both players).</summary>
+            public bool IsLocal = false;
             public int Difficulty = 0; // 0 easy, 1 medium, 2 hard (bots only)
             public int Sent = 0;
             public int Reserve = 0;
@@ -194,8 +203,11 @@ namespace maxhanna.Server.Hubs
                 departedWasBot = p?.IsBot ?? false;
                 // A human leaving a MULTIPLAYER match mid-game forfeits (the
                 // remaining player is handed the win by CheckGameOverAsync).
-                // Single-player vs-AI quits and lobby exits don't count.
-                forfeit = lobby.Status == "playing"
+                // Single-player vs-AI quits and lobby exits don't count, and a
+                // local 2P game never records forfeits (one keyboard = one
+                // person leaving kills the whole match).
+                forfeit = !lobby.IsLocal
+                    && lobby.Status == "playing"
                     && !departedWasBot
                     && departedUserId > 0
                     && lobby.Players.Any(x => !x.IsBot && x.ConnectionId != Context.ConnectionId);
@@ -203,7 +215,9 @@ namespace maxhanna.Server.Hubs
                 opponentUserId = opponent?.PlayerId ?? 0;
                 opponentName = opponent?.PlayerName;
                 lobby.Players.RemoveAll(x => x.ConnectionId == Context.ConnectionId);
-                if (lobby.Players.Count == 0)
+                // Local 2P: the local partner has no real connection, so when
+                // the host leaves the whole match is over — drop the lobby.
+                if (lobby.IsLocal || lobby.Players.Count == 0)
                 {
                     cts = lobby.DropCts;
                     lobby.DropCts = null;
@@ -502,6 +516,73 @@ namespace maxhanna.Server.Hubs
         }
 
         /// <summary>
+        /// Host a same-keyboard local 2P game: the host's room gets a second
+        /// "Player 2" slot (no real SignalR connection) driven by the same
+        /// connection, and the match starts immediately. P1 uses arrows +
+        /// spacebar; P2 uses A/S/D/W (and F to rotate the pitch row) — both
+        /// share the drop loop, garbage dumps and win detection like any 2P
+        /// lobby, but nothing travels over the network.
+        /// </summary>
+        public async Task StartLocal2P(string code)
+        {
+            if (!_lobbies.TryGetValue(code, out var lobby)) return;
+            List<Player> players;
+            CancellationTokenSource? cts = null;
+            lock (lobby.Sync)
+            {
+                var host = lobby.Players.Find(p => p.ConnectionId == Context.ConnectionId);
+                if (host == null) return;
+                if (lobby.HostConnectionId != Context.ConnectionId) return;
+
+                lobby.Status = "playing";
+                lobby.Paused = false;
+                lobby.IsLocal = true;
+
+                // Reuse the host slot for P1; replace any old local P2 slot.
+                lobby.Players.RemoveAll(p => p.IsLocal);
+                var p2 = new Player
+                {
+                    ConnectionId = "local2-" + code,
+                    PlayerName = "Player 2",
+                    PlayerId = 0,
+                    IsLocal = true,
+                    IsBot = false,
+                    Ready = true,
+                    Alive = true,
+                };
+                lobby.Players.Add(p2);
+
+                foreach (var p in lobby.Players)
+                {
+                    p.Ready = false;
+                    p.Alive = true;
+                    p.Sent = 0;
+                    p.Reserve = 0;
+                    p.SpecialColor = _rng.Next(1, ColorCount + 1);
+                    p.Score = 0;
+                    p.Board = GenerateStartBoard();
+                }
+                players = new List<Player>(lobby.Players);
+
+                if (lobby.DropCts != null) { lobby.DropCts.Cancel(); lobby.DropCts.Dispose(); }
+                lobby.DropCts = new CancellationTokenSource();
+                cts = lobby.DropCts;
+            }
+
+            await Clients.Group(code).SendAsync("OnGameStarted", new
+            {
+                players = players.Select(p => PlayerView(p, lobby.HostConnectionId)).ToArray(),
+            });
+            // Send the host's own board update; the local P2's board rides
+            // along as the opponent view (it has no real connection of its
+            // own), so the client renders both boards from this one message.
+            await Clients.Client(Context.ConnectionId).SendAsync("OnBoardUpdate", MakeUpdate(lobby, players[0], null, 0, false));
+            await BroadcastLobbyAsync(lobby);
+
+            _ = Task.Run(() => DropLoopAsync(code, cts!.Token));
+        }
+
+        /// <summary>
         /// Background loop that picks and plays moves for the bot player.
         /// Difficulty controls both reaction speed and move quality.
         /// </summary>
@@ -693,9 +774,12 @@ namespace maxhanna.Server.Hubs
         /// Resolve every match on a board: contiguous runs of 3+ same-coloured
         /// marbles in ANY row (horizontal) or ANY column (vertical). Popping a
         /// run applies gravity, which can line up new runs, which pop too — so
-        /// the loop repeats until the board is stable (chain matches). Tracks
-        /// reserve gain (special colour pops) and the garbage to dump (each run
-        /// sends 1 for 3, 2 for 4, 3 for 5+, summed across cascades).</summary>
+        /// the loop repeats until the board is stable (chain matches). A run of
+        /// 5+ is the five-in-a-row bonus: the entire row (or column) clears and
+        /// dumps extra penalty marbles on the opponent. Tracks reserve gain
+        /// (special colour pops) and the garbage to dump (each run sends 1 for
+        /// 3, 2 for 4, 3 for 5+ plus the line-clear bonus, summed across
+        /// cascades).</summary>
         private static MoveResult SimulateResolve(int[][] board, int specialColor)
         {
             var popped = new List<object>();
@@ -707,7 +791,10 @@ namespace maxhanna.Server.Hubs
             {
                 var toPop = new HashSet<(int r, int c)>();
 
-                // Horizontal runs of 3+ in any row.
+                // Horizontal runs of 3+ in any row. A run of 5+ is the
+                // five-in-a-row bonus: it clears the ENTIRE row — every filled
+                // cell in that line, whatever its colour — and dumps extra
+                // penalty marbles to clog up the opponent's board.
                 for (var r = 0; r < Rows; r++)
                 {
                     var c = 0;
@@ -721,12 +808,22 @@ namespace maxhanna.Server.Hubs
                         if (len >= 3)
                         {
                             garbage += GarbageFor(len);
-                            for (var k = runStart; k < c; k++) toPop.Add((r, k));
+                            if (len >= 5)
+                            {
+                                // Five-in-a-row bonus: the whole row clears.
+                                garbage += LineClearBonusGarbage;
+                                for (var k = 0; k < Cols; k++) if (board[r][k] != 0) toPop.Add((r, k));
+                            }
+                            else
+                            {
+                                for (var k = runStart; k < c; k++) toPop.Add((r, k));
+                            }
                         }
                     }
                 }
 
-                // Vertical runs of 3+ in any column.
+                // Vertical runs of 3+ in any column. A run of 5+ gets the same
+                // five-in-a-row bonus: the whole column clears.
                 for (var c = 0; c < Cols; c++)
                 {
                     var r = 0;
@@ -740,7 +837,16 @@ namespace maxhanna.Server.Hubs
                         if (len >= 3)
                         {
                             garbage += GarbageFor(len);
-                            for (var k = runStart; k < r; k++) toPop.Add((k, c));
+                            if (len >= 5)
+                            {
+                                // Five-in-a-row bonus: the whole column clears.
+                                garbage += LineClearBonusGarbage;
+                                for (var k = 0; k < Rows; k++) if (board[k][c] != 0) toPop.Add((k, c));
+                            }
+                            else
+                            {
+                                for (var k = runStart; k < r; k++) toPop.Add((k, c));
+                            }
                         }
                     }
                 }
@@ -765,6 +871,11 @@ namespace maxhanna.Server.Hubs
         /// 3-run, 2 for a 4-run, 3 for any run of 5 or more.</summary>
         private static int GarbageFor(int len) => len == 3 ? 1 : len == 4 ? 2 : 3;
 
+        /// <summary>Extra penalty marbles the five-in-a-row bonus dumps on top
+        /// of the run's own garbage: clearing a whole line also clogs up the
+        /// opponent's board with 3 bonus marbles.</summary>
+        private const int LineClearBonusGarbage = 3;
+
         private static int[][] CloneBoard(int[][] board)
         {
             var clone = EmptyBoard();
@@ -788,10 +899,12 @@ namespace maxhanna.Server.Hubs
         /// <summary>
         /// Shift the CENTER ROW left (-1) or right (+1). All marbles in the
         /// pitch row slide one cell; the marble at the far edge wraps around.
+        /// In a same-keyboard local 2P game, `slot` picks who moves: 0 = the
+        /// caller's own board (P1), 1 = the local partner's board (P2).
         /// </summary>
-        public async Task<object?> ShiftRow(string code, int dir)
+        public async Task<object?> ShiftRow(string code, int dir, int slot = 0)
         {
-            return await DoMove(code, p => ShiftRowOn(p.Board, dir), dir);
+            return await DoMove(code, p => ShiftRowOn(p.Board, dir), dir, slot);
         }
 
         /// <summary>
@@ -801,12 +914,13 @@ namespace maxhanna.Server.Hubs
         /// in that direction — simply cannot shift; the move is blocked. A
         /// partial stack slides as one unit within the column's bounds, and
         /// stays contiguous (no gaps ever open inside it); the next drop or
-        /// pop re-compacts it toward the center.
+        /// pop re-compacts it toward the center. `slot` (0 = self, 1 = local
+        /// partner) only matters in a same-keyboard local 2P game.
         /// </summary>
-        public async Task<object?> ShiftColumn(string code, int col, int dir)
+        public async Task<object?> ShiftColumn(string code, int col, int dir, int slot = 0)
         {
             if (col < 0 || col >= Cols) return null;
-            return await DoMove(code, p => ShiftColumnOn(p.Board, col, dir));
+            return await DoMove(code, p => ShiftColumnOn(p.Board, col, dir), 0, slot);
         }
 
         private static void ShiftRowOn(int[][] board, int dir)
@@ -863,14 +977,26 @@ namespace maxhanna.Server.Hubs
             }
         }
 
-        private async Task<object?> DoMove(string code, Action<Player> apply, int rowShiftDir = 0)
+        private async Task<object?> DoMove(string code, Action<Player> apply, int rowShiftDir = 0, int slot = 0)
         {
             if (!_lobbies.TryGetValue(code, out var lobby)) return null;
             Player? mover;
             lock (lobby.Sync)
             {
                 if (lobby.Status != "playing" || lobby.Paused) return null;
-                mover = lobby.Players.Find(p => p.ConnectionId == Context.ConnectionId);
+                // In a local 2P game both players share one connection, so the
+                // mover is chosen by slot: 0 = the caller's own board (P1),
+                // 1 = the local partner (P2). Online lobbies ignore the slot.
+                if (lobby.IsLocal)
+                {
+                    var locals = lobby.Players.Where(p => !p.IsBot).ToList();
+                    if (slot >= 0 && slot < locals.Count) mover = locals[slot];
+                    else mover = lobby.Players.Find(p => p.ConnectionId == Context.ConnectionId);
+                }
+                else
+                {
+                    mover = lobby.Players.Find(p => p.ConnectionId == Context.ConnectionId);
+                }
                 if (mover == null || !mover.Alive) return null;
             }
 

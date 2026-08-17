@@ -15,6 +15,44 @@ const OPP_BUFFER_MS = 150;
 /** Duration (s) of the blocked-column-shift nudge wiggle. */
 const NUDGE_DUR = 0.35;
 
+// ── Background music ───────────────────────────────────────────────────
+// A cheerful Win98-style chiptune loop, synthesized live with Web Audio (no
+// audio assets). Bouncy square-wave lead over a walking triangle bass with a
+// soft kick/hat, in a bright major key — the kind of tune the original 1997
+// game's soundtrack had. The loop is 32 eighth-notes long at ~132bpm.
+const MUSIC_BPM = 132;
+/** One eighth-note (s) at the music tempo. */
+const MUSIC_EIGHTH = 60 / MUSIC_BPM / 2;
+/** How far ahead (s) the scheduler keeps notes queued — smooths jank. */
+const MUSIC_AHEAD = 0.28;
+/** The master music volume (kept low so it sits under the SFX). */
+const MUSIC_VOLUME = 0.10;
+/** Note names → frequency, so the tune is readable as sheet music. */
+const NOTE: Record<string, number> = {
+  'C3': 130.81, 'D3': 146.83, 'E3': 164.81, 'F3': 174.61, 'G3': 196.00, 'A3': 220.00, 'B3': 246.94,
+  'C4': 261.63, 'D4': 293.66, 'E4': 329.63, 'F4': 349.23, 'G4': 392.00, 'A4': 440.00, 'B4': 493.88,
+  'C5': 523.25, 'D5': 587.33, 'E5': 659.25, 'F5': 698.46, 'G5': 783.99, 'A5': 880.00, 'B5': 987.77,
+  'C6': 1046.5, 'D6': 1174.7, 'E6': 1318.5, 'F6': 1396.9, 'G6': 1568.0, 'A6': 1760.0,
+  'R': 0, // rest
+};
+/** Lead melody — 32 eighth-note steps (4 bars of 8), bouncy and upbeat. */
+const MUSIC_MELODY: string[] = [
+  'E5', 'G5', 'A5', 'G5', 'E5', 'D5', 'C5', 'D5',
+  'E5', 'G5', 'A5', 'C6', 'B5', 'A5', 'G5', 'E5',
+  'F5', 'A5', 'C6', 'A5', 'F5', 'E5', 'D5', 'C5',
+  'D5', 'E5', 'G5', 'E5', 'D5', 'C5', 'D5', 'R',
+];
+/** Bass line — roots on the beat, octave hops for bounce. */
+const MUSIC_BASS: string[] = [
+  'C3', 'R', 'G3', 'R', 'C3', 'R', 'G3', 'R',
+  'C3', 'R', 'G3', 'R', 'A3', 'R', 'E3', 'R',
+  'F3', 'R', 'C4', 'R', 'F3', 'R', 'C4', 'R',
+  'G3', 'R', 'D4', 'R', 'G3', 'R', 'D4', 'R',
+];
+/** Which steps get a kick (each bar's downbeat) and a hat (off-beats). */
+const MUSIC_KICK = [0, 8, 16, 24];
+const MUSIC_HAT = [2, 4, 6, 10, 12, 14, 18, 20, 22, 26, 28, 30];
+
 /** Palette indexed by color id (1..6); 0 is empty. */
 const COLORS: [number, number, number][] = [
   [0, 0, 0],
@@ -170,10 +208,24 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
   myScore = 0;
   /** True while playing a single-player (vs Computer) game — only these count for high scores. */
   isVsAI = false;
+  /** True while playing a same-keyboard local 2P game (P1 arrows+space, P2 A/S/D/W). */
+  isLocal2P = false;
   /** Set when the last finished game was single-player (for the win screen copy). */
   lastGameVsAI = false;
   private vsAIDifficulty = 0;
   private gameStartTime = 0;
+
+  /** Player 2's selected center-row marble (local 2P only) — its column shifts
+   *  with W/S, the center row rotates with F, and A/D move it along the row. */
+  p2SelectedCol = 2;
+  /** In-flight pointer drag on Player 2's board (local 2P only). */
+  private p2Drag = { active: false, pointerId: -1, col: -1, row: -1, startX: 0, startY: 0, dir: 0, hdir: 0 };
+  /** The opponent board state P2 last optimistically predicted (local 2P only). */
+  private _predictedOppBoard: number[][] | null = null;
+  /** Blocked-shift nudge for P2's column (local 2P only). */
+  private p2NudgeCol = -1;
+  private p2NudgeDir = 0;
+  private p2NudgeT = 0;
 
   /** Currently selected center-row marble — its column shifts ↑/↓; the center row shifts ←/→. */
   selectedCol = 2;
@@ -187,6 +239,31 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     try { localStorage.setItem('marbles.mapId', id); } catch { /* private mode etc. */ }
     this.playClick();
     this.cdr.detectChanges();
+  }
+
+  /** Toggle the Win98-style background music on/off (persisted). Starting the
+   *  music needs a user gesture to unlock the AudioContext, so the toggle is
+   *  the natural place to kick it off. */
+  toggleMusic(): void {
+    this.musicOn = !this.musicOn;
+    try { localStorage.setItem('marbles.music', this.musicOn ? '1' : '0'); } catch { /* private mode */ }
+    if (this.musicOn) {
+      this.startMusic();
+    } else {
+      this.stopMusic();
+    }
+    this.playClick();
+    this.cdr.detectChanges();
+  }
+
+  /** Keep the music in sync with the game state: running during a match when
+   *  enabled, silent in menus. Called on every status transition. */
+  private syncMusic(): void {
+    if (this.musicOn && (this.status === 'playing' || this.status === 'won')) {
+      this.startMusic();
+    } else {
+      this.stopMusic();
+    }
   }
   /** In-flight pointer drag: dir = vertical (column shift), hdir = horizontal (pitch-row shift). */
   private drag = { active: false, pointerId: -1, col: -1, row: -1, startX: 0, startY: 0, dir: 0, hdir: 0 };
@@ -221,6 +298,14 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
   private _onResize = () => this.resizeCanvas();
   private _audio: AudioContext | null = null;
   private _publicRoomsTimer: ReturnType<typeof setInterval> | null = null;
+  /** Background music toggle (persisted per browser like the arena choice). */
+  musicOn = false;
+  /** The music scheduler interval + lookahead bookkeeping. */
+  private _musicTimer: ReturnType<typeof setInterval> | null = null;
+  private _musicStep = 0;
+  private _musicNextTime = 0;
+  private _musicGain: GainNode | null = null;
+  private _musicNoiseBuffer: AudioBuffer | null = null;
   /** Blocked-shift feedback: when a column shift is denied (full column, or a
    *  stack already flush against the edge), the column wiggles briefly in the
    *  attempted direction so the rejection is visible. -1 = no active nudge. */
@@ -234,6 +319,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     try {
       const saved = localStorage.getItem('marbles.mapId');
       if (saved && BOARD_MAPS.some(m => m.id === saved)) this.selectedMapId = saved;
+      this.musicOn = localStorage.getItem('marbles.music') === '1';
     } catch { /* storage unavailable */ }
   }
 
@@ -276,6 +362,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
       this.opponentSeedOffset = Math.floor(Math.random() * 100000) + 1;
       this.myReserve = 0;
       this.mySent = 0;
+      this.syncMusic();
       this.cdr.detectChanges();
     }));
     this.hub.boardUpdate$.subscribe(bu => this.ngZone.run(() => this.onBoardUpdate(bu)));
@@ -303,6 +390,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     this._destroyed = true;
     cancelAnimationFrame(this.animId);
     if (this._publicRoomsTimer) { clearInterval(this._publicRoomsTimer); this._publicRoomsTimer = null; }
+    this.stopMusic();
     window.removeEventListener('resize', this._onResize);
     if (this.lobby) this.hub.leaveLobby(this.lobby.code);
     this.hub.disconnect();
@@ -357,6 +445,29 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     this.status = 'playing';
     this.winnerName = null;
     this.viewingOpponent = false;
+    this.syncMusic();
+    this.cdr.detectChanges();
+  }
+
+  /** Same-keyboard local 2P: host a private room, then flip it into a local
+   *  match. P1 uses arrows + spacebar on the bottom board; P2 uses A/S/D/W
+   *  (A/D select, W/S shift column, F rotates the center row) on the top. */
+  async playLocal2P(): Promise<void> {
+    const name = this.playerName.trim() || 'Player 1';
+    this.playerName = name;
+    await this.join('');
+    if (!this.connected || !this.roomCode) return;
+    this.isLocal2P = true;
+    this.gameStartTime = Date.now();
+    this.myScore = 0;
+    this.opponentSeedOffset = Math.floor(Math.random() * 100000) + 1;
+    this.hub.startLocal2P(this.roomCode);
+    this.status = 'playing';
+    this.winnerName = null;
+    this.viewingOpponent = false;
+    this.p2SelectedCol = 2;
+    this.p2NudgeCol = -1;
+    this.syncMusic();
     this.cdr.detectChanges();
   }
 
@@ -418,7 +529,9 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
    *  anything, so they quit straight away. `action` says what the confirmed
    *  forfeit should do ('menu' = leave to menu, 'close' = title-bar ✕). */
   private requestForfeit(action: 'menu' | 'close'): void {
-    if (this.status === 'playing' && !this.isVsAI) {
+    // Only ONLINE multiplayer matches carry a forfeit (a same-keyboard local
+    // game has no ranked opponent to hand the win to, and vs-AI is casual).
+    if (this.status === 'playing' && !this.isVsAI && !this.isLocal2P) {
       this.forfeitAction = action;
       this.showForfeitDialog = true;
       this.cdr.detectChanges();
@@ -480,8 +593,13 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     this.opponents = [];
     this.winnerName = null;
     this.isVsAI = false;
+    this.isLocal2P = false;
+    this._predictedOppBoard = null;
+    this.p2NudgeCol = -1;
+    this.p2SelectedCol = 2;
     this.lastGameVsAI = false;
     this.myScore = 0;
+    this.syncMusic();
     this.loadHighScores();
     this.cdr.detectChanges();
   } 
@@ -490,12 +608,14 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     this.status = 'menu';
     this.showHowTo = false;
     this.isMenuPanelOpen = false;
+    this.syncMusic();
     this.loadHighScores();
     this.cdr.detectChanges();
   }
   backToSplash(): void {
     this.status = 'splash';
     this.initSplash();
+    this.syncMusic();
     this.cdr.detectChanges();
   }
 
@@ -662,10 +782,35 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
 
     // Queue the opponent's snapshot in the jitter buffer: it's replayed a
     // fixed delay later in the render loop (with its quiet sounds) so uneven
-    // delivery doesn't make the computer's side stutter.
+    // delivery doesn't make the computer's side stutter. In a local 2P game
+    // there's no network jitter — the same connection feeds both boards — so
+    // apply P2's board instantly and reconcile any optimistic prediction.
     const opp = this.opponents[0];
-    if (opp) this._oppQueue.push({ view: opp, at: performance.now() });
+    if (opp) {
+      if (this.isLocal2P) {
+        this.applyLocalOpponent(opp);
+      } else {
+        this._oppQueue.push({ view: opp, at: performance.now() });
+      }
+    }
     this.cdr.detectChanges();
+  }
+
+  /** Local 2P: apply P2's board the moment the server confirms it (no jitter
+   *  buffer). If it matches what P2 optimistically predicted, the sprites are
+   *  already sliding there, so just adopt the authoritative board; otherwise
+   *  re-match. P2 is a human on the same machine, so sounds are full-volume. */
+  private applyLocalOpponent(opp: MarblesOpponentView): void {
+    const confirmsPrediction = this._predictedOppBoard !== null && boardsEqual(opp.board, this._predictedOppBoard);
+    if (confirmsPrediction) {
+      this._oppBoard = opp.board;
+    } else {
+      this.applyOpponentBoard(opp);
+    }
+    this._predictedOppBoard = null;
+    if (opp.dropped) this.playDrop();
+    if (opp.rained > 0) this.playRain(opp.rained);
+    if ((opp.popped?.length ?? 0) > 0) this.playPop(opp.popped.length);
   }
 
   private onGameWon(w: { winnerName: string }): void {
@@ -673,12 +818,15 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     this.status = 'won';
     this.isMenuPanelOpen = false;
     const iWon = this.winnerName === (this.lobby?.players.find(p => p.connectionId === this.hub.myConnectionId)?.playerName ?? '');
-    if (iWon) this.playWin(); else this.playLose();
+    // Local 2P: both players share this screen, so a finished match just plays
+    // the celebratory jingle — there's no single "you" to be sad for.
+    if (iWon || this.isLocal2P) this.playWin(); else this.playLose();
     // Only single-player (vs Computer) games count toward the leaderboard.
     this.lastGameVsAI = this.isVsAI;
     if (this.isVsAI) {
       this.submitScore();
     }
+    this.syncMusic();
     this.cdr.detectChanges();
   }
 
@@ -1146,6 +1294,109 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     else if (k === 'ArrowDown') { e.preventDefault(); this.shiftColumn(1); }
     else if (k === ' ') { e.preventDefault(); this.shiftRow(1); }
     else if (k >= '1' && k <= '5') { this.selectColumn(+k - 1); }
+    // Local 2P — Player 2 drives the opponent board: A/D select the column,
+    // W/S shift that column, F rotates the center row (mirrors P1's spacebar).
+    else if (this.isLocal2P) {
+      const lk = k.toLowerCase();
+      if (lk === 'a') { e.preventDefault(); this.moveP2Cursor(-1); }
+      else if (lk === 'd') { e.preventDefault(); this.moveP2Cursor(1); }
+      else if (lk === 'w') { e.preventDefault(); this.shiftP2Column(-1); }
+      else if (lk === 's') { e.preventDefault(); this.shiftP2Column(1); }
+      else if (lk === 'f') { e.preventDefault(); this.shiftP2Row(1); }
+    }
+  }
+
+  /** Move Player 2's center-row cursor one column left/right (local 2P). */
+  private moveP2Cursor(dir: number): void {
+    if (this.status !== 'playing' || !this.isLocal2P) return;
+    this.p2SelectedCol = (this.p2SelectedCol + dir + COLS) % COLS;
+    this.playClick();
+  }
+
+  /** Player 2 rotates the center row (local 2P) — the same optimistic
+   *  prediction + server slot=1 round-trip used for column shifts. */
+  private shiftP2Row(dir: number): void {
+    if (this.status !== 'playing' || !this.isLocal2P) return;
+    this.playClick();
+    this.predictP2RowShift(dir);
+    this.hub.shiftRow(this.roomCode, dir, 1);
+  }
+
+  /** Player 2 shifts a column (local 2P). A blocked shift nudges + denies
+   *  just like P1's; otherwise the move is predicted optimistically and the
+   *  server confirms it (slot 1 targets the local partner's board). */
+  private shiftP2Column(dir: number): void {
+    if (this.status !== 'playing' || !this.isLocal2P) return;
+    if (!this.predictP2ColumnShift(this.p2SelectedCol, dir)) {
+      this.playDeny();
+      this.triggerP2Nudge(this.p2SelectedCol, dir);
+    } else {
+      this.playClick();
+    }
+    this.hub.shiftColumn(this.roomCode, this.p2SelectedCol, dir, 1);
+  }
+
+  /** Optimistically rotate P2's center row on the opponent board (mirrors
+   *  predictRowShift, which the server's slot=1 move confirms 1:1). */
+  private predictP2RowShift(dir: number): void {
+    if (!this._oppBoard || this._oppBoard.length !== ROWS) return;
+    const oldBoard = this._oppBoard;
+    const nb = cloneBoard(oldBoard);
+    const newRow = new Array<number>(COLS);
+    for (let c = 0; c < COLS; c++) newRow[c] = nb[PITCH_ROW][(c - dir + COLS) % COLS];
+    for (let c = 0; c < COLS; c++) nb[PITCH_ROW][c] = newRow[c];
+    compactBoardCenter(nb);
+    this._oppBoard = nb;
+    this._predictedOppBoard = nb;
+    this._oppSprites = this.matchSpritesToBoard(this._oppSprites, nb, oldBoard, [], dir);
+  }
+
+  /** Optimistically shift a column on the opponent board for P2. Mirrors
+   *  predictColumnShift (marbles never wrap; full/flush stacks are blocked).
+   *  Returns false when the shift is blocked so the client can deny+nudge. */
+  private predictP2ColumnShift(col: number, dir: number): boolean {
+    if (!this._oppBoard || this._oppBoard.length !== ROWS || col < 0 || col >= COLS) return false;
+    const oldBoard = this._oppBoard;
+    const nb = cloneBoard(oldBoard);
+    let top = -1;
+    for (let r = 0; r < ROWS; r++) {
+      if (nb[r][col] !== 0) { top = r; break; }
+    }
+    if (top < 0) return false; // empty column
+    let bottom = top;
+    for (let r = ROWS - 1; r > top; r--) {
+      if (nb[r][col] !== 0) { bottom = r; break; }
+    }
+    const len = bottom - top + 1;
+    if (len >= ROWS) return false; // full column — blocked
+    if (dir <= 0) {
+      if (top === 0) return false; // flush against the top edge — blocked
+      for (let r = top; r <= bottom; r++) nb[r - 1][col] = nb[r][col];
+      nb[bottom][col] = 0;
+    } else {
+      if (bottom === ROWS - 1) return false; // flush against the floor — blocked
+      for (let r = bottom; r >= top; r--) nb[r + 1][col] = nb[r][col];
+      nb[top][col] = 0;
+    }
+    this._oppBoard = nb;
+    this._predictedOppBoard = nb;
+    this._oppSprites = this.matchSpritesToBoard(this._oppSprites, nb, oldBoard, [], 0);
+    return true;
+  }
+
+  /** Kick off the blocked-shift wiggle for P2's column (local 2P). */
+  private triggerP2Nudge(col: number, dir: number): void {
+    this.p2NudgeCol = col;
+    this.p2NudgeDir = dir;
+    this.p2NudgeT = 0;
+  }
+
+  /** Vertical offset (in cells, + = down) for a sprite mid-nudge on P2's
+   *  board — same damped sine bump as P1's, drawn on the opponent canvas. */
+  private p2NudgeOffset(): number {
+    if (this.p2NudgeCol < 0) return 0;
+    const p = Math.min(1, this.p2NudgeT / NUDGE_DUR);
+    return this.p2NudgeDir * 0.22 * Math.sin(p * Math.PI) * (1 - p);
   }
 
   /** Map a pointer event to board grid coordinates (handles DPR-scaled canvas). */
@@ -1226,6 +1477,74 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     }
   }
 
+  // ── Player 2 pointer controls (local 2P only) ──────────────────────────
+
+  /** Map a pointer event on P2's (opponent) canvas to board grid coords. */
+  private opponentPointerToCell(e: PointerEvent): { col: number; row: number; px: number; py: number } | null {
+    const canvas = this.opponentCanvasRef?.nativeElement;
+    if (!canvas) return null;
+    const rect = canvas.getBoundingClientRect();
+    const { cell, ox, oy } = this.boardLayout(canvas.width, canvas.height);
+    const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+    const y = (e.clientY - rect.top) * (canvas.height / rect.height);
+    return {
+      col: Math.floor((x - ox) / cell),
+      row: Math.floor((y - oy) / cell),
+      px: x,
+      py: y,
+    };
+  }
+
+  onP2StageDown(e: PointerEvent): void {
+    if (this.status !== 'playing' || !this.isLocal2P) return;
+    if (this.isMenuPanelOpen) return;
+    const cell = this.opponentPointerToCell(e);
+    if (!cell) return;
+    if (cell.row === PITCH_ROW && cell.col >= 0 && cell.col < COLS) this.p2SelectedCol = cell.col;
+    this.p2Drag = { active: true, pointerId: e.pointerId, col: cell.col, row: cell.row, startX: cell.px, startY: cell.py, dir: 0, hdir: 0 };
+    try { (e.currentTarget as HTMLElement)?.setPointerCapture?.(e.pointerId); } catch { /* ignore */ }
+  }
+
+  onP2StageMove(e: PointerEvent): void {
+    if (!this.p2Drag.active || e.pointerId !== this.p2Drag.pointerId) return;
+    if (this.p2Drag.col < 0 || this.p2Drag.col >= COLS) return;
+    const canvas = this.opponentCanvasRef?.nativeElement;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const { cell } = this.boardLayout(canvas.width, canvas.height);
+    const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+    const y = (e.clientY - rect.top) * (canvas.height / rect.height);
+    const dx = x - this.p2Drag.startX;
+    const dy = y - this.p2Drag.startY;
+    const threshold = Math.max(10, cell * 0.35);
+    if (this.p2Drag.row === PITCH_ROW) {
+      if (Math.abs(dx) >= threshold) this.p2Drag.hdir = dx < 0 ? -1 : 1;
+      if (Math.abs(dy) >= threshold) this.p2Drag.dir = dy < 0 ? -1 : 1;
+    }
+  }
+
+  onP2StageUp(e: PointerEvent): void { this.finishP2Drag(e, true); }
+
+  onP2StageCancel(e: PointerEvent): void { this.finishP2Drag(e, false); }
+
+  private finishP2Drag(e: PointerEvent, commit: boolean): void {
+    if (!this.p2Drag.active || e.pointerId !== this.p2Drag.pointerId) return;
+    const d = this.p2Drag;
+    this.p2Drag = { active: false, pointerId: -1, col: -1, row: -1, startX: 0, startY: 0, dir: 0, hdir: 0 };
+    if (!commit || this.status !== 'playing' || !this.isLocal2P) return;
+    const onBoard = d.col >= 0 && d.col < COLS;
+    if (d.hdir !== 0 && onBoard) {
+      // Horizontal drag along P2's center row → rotate that row.
+      this.shiftP2Row(d.hdir);
+    } else if (d.dir !== 0 && onBoard) {
+      // Drag up/down from P2's center row → shift that whole column.
+      this.p2SelectedCol = d.col;
+      this.shiftP2Column(d.dir);
+    } else if (onBoard) {
+      this.playClick();
+    }
+  }
+
   // ── Render loop ─────────────────────────────────────────────────────────
 
   private loop(t: number): void {
@@ -1261,10 +1580,14 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     this._oppSprites = this.advanceSprites(this._oppSprites, dt, this._oppShards);
     this.advanceShards(this._shards, dt);
     this.advanceShards(this._oppShards, dt);
-    // Age the blocked-shift nudge; clear it once the wiggle is done.
+    // Age the blocked-shift nudges (P1 + local 2P P2); clear them once done.
     if (this.nudgeCol >= 0) {
       this.nudgeT += dt;
       if (this.nudgeT >= NUDGE_DUR) this.nudgeCol = -1;
+    }
+    if (this.p2NudgeCol >= 0) {
+      this.p2NudgeT += dt;
+      if (this.p2NudgeT >= NUDGE_DUR) this.p2NudgeCol = -1;
     }
   }
 
@@ -1663,8 +1986,9 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
 
   /** True if a single legal slide (row ±1 or any column ±1) would form a
    *  3+ same-color run in the pitch row — the "one slide away" glow trigger. */
-  private pitchOneAway(): boolean {
-    const board = this._board;
+  /** True if a single move on P2's board (local 2P) would form a match —
+   *  same logic as pitchOneAway but evaluated on the opponent board. */
+  private pitchOneAwayOn(board: number[][] | null): boolean {
     if (!board || board.length !== ROWS) return false;
     const pitch = board[PITCH_ROW];
     if (!pitch || pitch.length !== COLS) return false;
@@ -1687,6 +2011,10 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     return false;
   }
 
+  private pitchOneAway(): boolean {
+    return this.pitchOneAwayOn(this._board);
+  }
+
   /** Render the opponent's live board with the same sprite animations the
    *  player's side uses (slides, pops, falls). */
   private drawOpponent(): void {
@@ -1706,15 +2034,35 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     this.drawBoardBackdrop(ctx, canvas.width, canvas.height);
     this.drawTrench(ctx, cell, ox, oy);
     this.drawForegroundDecor(ctx, canvas.width, canvas.height, cell, ox, oy, this.boardMap);
-    this.drawPitchHighlight(ctx, cell, ox, oy, false);
+    // Local 2P: P2's board is live, so highlight a one-slide-away match on it
+    // too; a plain AI opponent never gets the glow.
+    const oneAway = this.isLocal2P && this.status === 'playing' && this.pitchOneAwayOn(this._oppBoard);
+    this.drawPitchHighlight(ctx, cell, ox, oy, oneAway);
+
+    // Local 2P: P2's selection glow (a blue halo, distinct from P1's gold) so
+    // the handle W/S will shift is obvious on the opponent board too.
+    if (this.isLocal2P && this.status === 'playing') {
+      const pulse = this.pulsePhase();
+      const gx = ox + (this.p2SelectedCol + 0.5) * cell;
+      const gy = oy + (PITCH_ROW + 0.5) * cell;
+      const gr = cell * (1.15 + pulse * 0.35);
+      const halo = ctx.createRadialGradient(gx, gy, cell * 0.28, gx, gy, gr);
+      halo.addColorStop(0, `rgba(120,220,255,${(0.4 + pulse * 0.28).toFixed(3)})`);
+      halo.addColorStop(0.55, `rgba(80,180,255,${(0.2 + pulse * 0.14).toFixed(3)})`);
+      halo.addColorStop(1, 'rgba(80,180,255,0)');
+      ctx.fillStyle = halo;
+      ctx.fillRect(gx - gr, gy - gr, gr * 2, gr * 2);
+    }
 
     // Animated marbles — same pipeline as the player's board.
     const sorted = [...this._oppSprites].sort((a, b) => a.row - b.row);
     const hotColor = this.opponent?.specialColor ?? 0;
+    const p2NudgeOffset = this.isLocal2P ? this.p2NudgeOffset() : 0;
     for (const s of sorted) {
       const tremble = s.phase === 'pop' && !s.broken ? Math.sin(s.popT * 70) * cell * 0.05 : 0;
       const px = ox + (s.col + 0.5) * cell + tremble;
-      const py = oy + (s.row + 0.5) * cell + Math.cos(s.popT * 83) * cell * 0.04;
+      const py = oy + (s.row + 0.5) * cell + Math.cos(s.popT * 83) * cell * 0.04
+        + (Math.round(s.col) === this.p2NudgeCol ? p2NudgeOffset * cell : 0);
       const radius = cell * 0.44 * Math.max(0, s.scale);
       if (radius <= 0) continue;
       const stretch = s.stretch ?? 1;
@@ -2945,6 +3293,108 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     }
     if (this._audio.state === 'suspended') this._audio.resume();
     return this._audio;
+  }
+
+  // ── Background music (Win98-style chiptune loop) ───────────────────────
+
+  /** Start the music scheduler. Called from the toggle (user gesture), and
+   *  re-armed automatically when a match starts if music is on. */
+  private startMusic(): void {
+    const ctx = this.ensureAudio();
+    if (!ctx || this._musicTimer) return;
+    if (!this._musicGain) {
+      this._musicGain = ctx.createGain();
+      this._musicGain.gain.value = MUSIC_VOLUME;
+      this._musicGain.connect(ctx.destination);
+    }
+    this._musicStep = 0;
+    this._musicNextTime = ctx.currentTime + 0.08;
+    this._musicTimer = setInterval(() => this.scheduleMusic(), 50);
+    this.cdr.detectChanges();
+  }
+
+  /** Stop the music scheduler and silence anything already queued. */
+  private stopMusic(): void {
+    if (this._musicTimer) { clearInterval(this._musicTimer); this._musicTimer = null; }
+    if (this._musicGain) {
+      try { this._musicGain.disconnect(); } catch { /* ignore */ }
+      this._musicGain = null;
+    }
+    this.cdr.detectChanges();
+  }
+
+  /** Look-ahead scheduler: keep notes queued ~MUSIC_AHEAD seconds ahead so the
+   *  loop stays tight even if the tab hiccups. */
+  private scheduleMusic(): void {
+    const ctx = this._audio;
+    if (!ctx || !this._musicGain) return;
+    while (this._musicNextTime < ctx.currentTime + MUSIC_AHEAD) {
+      this.playMusicStep(this._musicStep, this._musicNextTime);
+      this._musicNextTime += MUSIC_EIGHTH;
+      this._musicStep = (this._musicStep + 1) % MUSIC_MELODY.length;
+    }
+  }
+
+  /** Play one eighth-note of the loop: lead + bass + kick/hat. */
+  private playMusicStep(step: number, t: number): void {
+    const ctx = this._audio;
+    const out = this._musicGain;
+    if (!ctx || !out) return;
+    const mel = NOTE[MUSIC_MELODY[step]] ?? 0;
+    const bass = NOTE[MUSIC_BASS[step]] ?? 0;
+    // Lead: bright square, short pluck, slight octave shimmer.
+    if (mel > 0) {
+      this.musicTone(out, mel, t, MUSIC_EIGHTH * 0.9, 'square', 0.055);
+      this.musicTone(out, mel * 2, t, MUSIC_EIGHTH * 0.55, 'sine', 0.02);
+    }
+    // Bass: warm triangle on the beat.
+    if (bass > 0) {
+      this.musicTone(out, bass, t, MUSIC_EIGHTH * 0.95, 'triangle', 0.09);
+    }
+    // Drums: soft kick on each bar's downbeat, hat on the off-beats.
+    if (MUSIC_KICK.includes(step)) {
+      this.musicTone(out, 150, t, 0.09, 'sine', 0.16, 55);
+    }
+    if (MUSIC_HAT.includes(step)) {
+      this.musicNoise(out, t, 0.035, 0.03);
+    }
+  }
+
+  /** Schedule one note into the music bus (separate from the SFX tone()). */
+  private musicTone(out: AudioNode, freq: number, t: number, dur: number, type: OscillatorType, gain: number, slideTo?: number): void {
+    const ctx = this._audio;
+    if (!ctx) return;
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, t);
+    if (slideTo) osc.frequency.exponentialRampToValueAtTime(Math.max(20, slideTo), t + dur);
+    g.gain.setValueAtTime(gain, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    osc.connect(g).connect(out);
+    osc.start(t);
+    osc.stop(t + dur + 0.02);
+  }
+
+  /** Short filtered-noise hat (cached noise buffer). */
+  private musicNoise(out: AudioNode, t: number, dur: number, gain: number): void {
+    const ctx = this._audio;
+    if (!ctx) return;
+    if (!this._musicNoiseBuffer) {
+      const len = Math.floor(ctx.sampleRate * 0.05);
+      const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+      this._musicNoiseBuffer = buf;
+    }
+    const src = ctx.createBufferSource();
+    src.buffer = this._musicNoiseBuffer;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(gain, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(g).connect(out);
+    src.start(t);
+    src.stop(t + dur + 0.02);
   }
 
   private tone(freq: number, dur: number, type: OscillatorType, gain: number, delay = 0, slideTo?: number): void {

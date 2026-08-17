@@ -235,15 +235,24 @@ public class Log
     }
   } 
 
+  /// Max active sessions kept per user. A new login trims the table to this
+  /// many most-recent rows (plus sweeps expired ones) instead of deleting
+  /// every other session, so multiple devices can stay signed in without the
+  /// table growing unbounded.
+  private const int MaxSessionsPerUser = 6;
+
   public static string GenerateSessionToken()
   {
     return Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))
       .Replace('+', '-').Replace('/', '_').TrimEnd('=');
   }
 
-  /// Creates the user's single session row and returns the opaque token (or
-  /// null on failure). Enforces one token per user: every other row for this
-  /// account is deleted so a fresh login is always the only active token.
+  /// Creates the user's session row and returns the opaque token (or null on
+  /// failure). Keeps the account's session table bounded WITHOUT forcing other
+  /// devices to re-login: only expired rows and the oldest sessions beyond the
+  /// per-user cap are removed, so logging in on a new device never nukes a
+  /// still-valid session on another device (that was the "aggressive" re-login
+  /// loop where every refresh/new tab asked for a fresh token).
   public static async Task<string?> CreateSession(string cs, int userId)
   {
     try
@@ -257,13 +266,25 @@ public class Log
       cmd.Parameters.AddWithValue("@Token", token);
       cmd.Parameters.AddWithValue("@UserId", userId);
       await cmd.ExecuteNonQueryAsync();
-      // One token per user — evict every other row for this account (active or
-      // not). PurgeExpiredSessions still sweeps any stragglers hourly.
-      await using var evict = new MySqlCommand(
-        "DELETE FROM maxhanna.user_sessions WHERE user_id = @UserId AND token <> @Token;", conn);
-      evict.Parameters.AddWithValue("@UserId", userId);
-      evict.Parameters.AddWithValue("@Token", token);
-      await evict.ExecuteNonQueryAsync();
+      // Bound the account's session count instead of evicting every other row:
+      // drop expired rows and keep only the newest MaxSessionsPerUser, evicting
+      // the oldest beyond that. A fresh login must not invalidate another
+      // device's still-valid session. PurgeExpiredSessions still sweeps
+      // stragglers hourly.
+      await using var cap = new MySqlCommand(@"
+        DELETE FROM maxhanna.user_sessions
+        WHERE user_id = @UserId
+          AND (expires_at < UTC_TIMESTAMP()
+               OR id NOT IN (
+                 SELECT id FROM (
+                   SELECT id FROM maxhanna.user_sessions
+                   WHERE user_id = @UserId
+                   ORDER BY id DESC
+                   LIMIT " + MaxSessionsPerUser + @"
+                 ) keep
+               ));", conn);
+      cap.Parameters.AddWithValue("@UserId", userId);
+      await cap.ExecuteNonQueryAsync();
       return token;
     }
     catch (Exception ex)
