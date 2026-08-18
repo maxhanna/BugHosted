@@ -259,7 +259,6 @@ public class Log
   {
     try
     {
-      await EnsureSessionUserAgentColumn(cs);
       string token = GenerateSessionToken();
       await using var conn = new MySqlConnection(cs);
       await conn.OpenAsync();
@@ -353,38 +352,7 @@ public class Log
   /// it. There is no migration framework in this project, so this self-heals.
   private static bool _sessionUserAgentColumnEnsured = false;
 
-  /// Ensures user_sessions has the user_agent column (added once per process;
-  /// ALTER TABLE is not retried every request). Safe to call before any
-  /// read/write of that column.
-  public static async Task EnsureSessionUserAgentColumn(string cs)
-  {
-    if (_sessionUserAgentColumnEnsured) return;
-    try
-    {
-      await using var conn = new MySqlConnection(cs);
-      await conn.OpenAsync();
-      await using var check = new MySqlCommand(@"
-        SELECT COUNT(*) FROM information_schema.columns
-        WHERE table_schema = DATABASE()
-          AND table_name = 'user_sessions'
-          AND column_name = 'user_agent';", conn);
-      var exists = Convert.ToInt64(await check.ExecuteScalarAsync() ?? 0L) > 0;
-      if (!exists)
-      {
-        await using var alter = new MySqlCommand(
-          "ALTER TABLE maxhanna.user_sessions ADD COLUMN user_agent VARCHAR(512) NULL;", conn);
-        await alter.ExecuteNonQueryAsync();
-      }
-      _sessionUserAgentColumnEnsured = true;
-    }
-    catch (Exception ex)
-    {
-      // Never break login/session listing because the column check failed —
-      // the insert/select guards below degrade gracefully if it's missing.
-      Console.WriteLine("EnsureSessionUserAgentColumn Exception: " + ex.Message);
-      _sessionUserAgentColumnEnsured = true; // don't retry every request
-    }
-  }
+  
 
   /// Lists a user's active sessions, newest activity first, marking the session
   /// matching the supplied token as the current device.
@@ -393,7 +361,6 @@ public class Log
     var result = new List<SessionInfo>();
     try
     {
-      await EnsureSessionUserAgentColumn(cs);
       await using var conn = new MySqlConnection(cs);
       await conn.OpenAsync();
       long currentId = 0;
