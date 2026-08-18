@@ -35,6 +35,10 @@ export class FileUploadComponent implements AfterViewInit {
   @ViewChild('fileListContainer') fileListContainer!: ElementRef<HTMLDivElement>;
   @ViewChild('folderVisibility') folderVisibility!: ElementRef<HTMLSelectElement>;
 
+  /** Unique id linking the always-rendered hidden file input to its label,
+   *  so multiple uploaders on one page never collide. */
+  fileInputId = 'file-input-' + Math.random().toString(36).slice(2, 9);
+
   showMakeDirectoryPrompt = false;
   uploadFileList: Array<File> = [];
   uploadedFileList: FileEntry[] = [];
@@ -160,6 +164,13 @@ export class FileUploadComponent implements AfterViewInit {
       this.inputtedParentRef.closeOverlay();
     }
   }
+  /** Opens the native file picker (used by the label's keyboard path). */
+  openFilePicker() {
+    if (this.canUpload()) {
+      this.fileInput?.nativeElement?.click();
+    }
+  }
+
   async uploadSubmitClicked() {
     if (!this.canUpload()) {
       this.userNotificationEvent.emit('You must be logged in to upload files.');

@@ -68,6 +68,35 @@ button:disabled {
   top: 6px;
 }
 
+/* The empty-queue trigger is a <label> (native file-picker opening on mobile),
+   so give it a button-like appearance in contexts without parent styling. */
+.uploadPickerLabel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border: var(--main-border, 2px ridge #888);
+  border-radius: 6px;
+  background-color: var(--button-background-color, var(--component-background-color, #2a2a2a));
+  color: var(--main-font-color, #ddd);
+  font-size: small;
+  line-height: 1.25;
+  cursor: pointer;
+  text-align: center;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.uploadPickerLabel:hover {
+  filter: brightness(1.15);
+}
+
+.uploadPickerLabel:active {
+  filter: brightness(0.92);
+}
+
 .uploadLoginRequired {
   display: inline-block;
   padding: 6px 10px;

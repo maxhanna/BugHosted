@@ -1,11 +1,21 @@
-﻿<button type="submit" class="uploadButton" *ngIf="canUpload()" [class]="getOverallProgress() ==100 ? 'finalizingButton' : ''"
+﻿<input #fileInput [id]="fileInputId" type="file" (change)="uploadInitiate()" [accept]="allowedFileTypes"
+  style="visibility: hidden; position: absolute; width:1px; height:1px;" multiple />
+
+<!-- Empty queue: a native <label> opens the picker on tap. This is far more
+     reliable on mobile than programmatically calling input.click(). -->
+<label *ngIf="canUpload() && uploadFileList.length === 0 && !isUploading"
+  class="uploadButton uploadPickerLabel" [for]="fileInputId" role="button" tabindex="0"
+  (keydown.enter)="openFilePicker()" (keydown.space.prevent)="openFilePicker()" title="Upload file(s)">
+  ⏫{{uploadButtonText}}
+</label>
+
+<button *ngIf="canUpload() && (uploadFileList.length > 0 || isUploading)"
+  type="submit" class="uploadButton" [class.finalizingButton]="getOverallProgress() == 100"
   (click)="uploadSubmitClicked()" [disabled]="isFileLimitReached() || areAllFilesDuplicates()" title="Upload file(s)">
-  {{isUploading ? (getOverallProgress() == 100 ? 'Finalizing...' : getOverallProgress() + '%') : (uploadFileList.length
-  > 0 ? '✅' : '⏫' + uploadButtonText)}}
+  {{isUploading ? (getOverallProgress() == 100 ? 'Finalizing...' : getOverallProgress() + '%') : '✅'}}
 </button>
+
 <span *ngIf="!canUpload()" class="uploadLoginRequired" title="Sign in to upload files">🔒 Log in to upload files</span>
-<input #fileInput type="file" (change)="uploadInitiate()" [accept]="allowedFileTypes"
-  style="visibility: hidden; position: absolute; width:1px;" multiple />
 
 <div class="fileListContainer" #fileListContainer *ngIf="displayListContainer"
   [class]="displayListContainer ? 'open' : ''">
@@ -83,10 +93,11 @@
       {{isUploading ? (getOverallProgress() == 100 ? 'Finalizing...' : getOverallProgress() + '%') :
       (uploadFileList.length > 0 ? '✅Upload' : '⏫' + uploadButtonText)}}
     </button>
-    <button *ngIf="displayListContainer && !isUploading" type="button" (click)="fileInput.click()"
-      title="Add more files" style="margin-left:8px; margin-top: -15px;">
+    <label *ngIf="displayListContainer && !isUploading" [for]="fileInputId" role="button" tabindex="0"
+      (keydown.enter)="openFilePicker()" (keydown.space.prevent)="openFilePicker()"
+      class="uploadPickerLabel" title="Add more files" style="margin-left:8px; margin-top: -15px;">
       ➕ Add more files
-    </button>
+    </label>
     <button type="submit" id="closeOverlay" *ngIf="!isUploading"
       (click)="preventDisplayClose ? null : cancelFileUpload()" title="Cancel upload"
       style="position:relative; top: -8px;">❌Cancel</button>
