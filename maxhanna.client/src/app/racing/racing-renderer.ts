@@ -1613,7 +1613,7 @@ export class RacingRenderer {
   ambientColor: [number, number, number] = [0.25, 0.25, 0.3];
   fogColor: [number, number, number] = [0.4, 0.45, 0.5];
   elapsed = 0;
-  theme: 'default' | 'miami' | 'city' | 'mountain' | 'alpine' | 'desert' | 'monaco' | 'monaco-night' | 'montreal' | 'italy' | 'japan' | 'neon' | 'volcano' | 'antarctica' | 'pirate' | 'mushroom' | 'hyrule' | 'rio' | 'amazon' | 'golden' = 'default';
+  theme: 'default' | 'miami' | 'city' | 'mountain' | 'alpine' | 'desert' | 'monaco' | 'monaco-night' | 'montreal' | 'italy' | 'japan' | 'neon' | 'volcano' | 'antarctica' | 'pirate' | 'mushroom' | 'hyrule' | 'rio' | 'amazon' | 'golden' | 'underwater' = 'default';
   // Device-quality tier: set by the component for mobile / low-end GPUs. Trims
   // the heaviest scenery (conifer counts and mesh density) and per-frame effects
   // (snow flake count) so the mountain and alpine circuits stay smooth on phones.
@@ -2976,6 +2976,14 @@ void main() { FragColor = texture(uTex, vUV); }`;
           elev: t => 0,
           width: t => this.TRACK_WIDTH + Math.sin(t * 5) * 1.4,
         };
+      case 'underwater': // glass tunnel on the sea floor — a gentle serpentine
+        // with soft rollers so the glass ribs dip and rise through the water
+        // column, staying mostly flat (the tunnel is a level tube).
+        return {
+          radius: R * 0.97, wobble: t => Math.sin(t * 3.2) * 20 + Math.sin(t * 8) * 9 + Math.sin(t * 1.8) * 12,
+          elev: t => 2.0 * (1 - Math.cos(t * Math.PI * 3)) / 2 + 0.6 * (1 - Math.cos(t * Math.PI * 6)) / 2,
+          width: t => this.TRACK_WIDTH + Math.sin(t * 5) * 1.4,
+        };
       default:           // miami + default — coastal, low and flat
         return {
           radius: R, wobble: t => Math.sin(t * 3) * 30 + Math.sin(t * 7) * 12 + Math.sin(t * 1.7) * 8,
@@ -3053,7 +3061,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
    *  centreline inherits. Coastal circuits fade out quickly so buildings by the
    *  water stay at sea level; inland circuits follow the hills all the way out. */
   private sceneryFade(dist: number): number {
-    const far = this.theme === 'monaco' || this.theme === 'monaco-night' || this.theme === 'montreal' || this.theme === 'neon' || this.theme === 'volcano' || this.theme === 'antarctica' || this.theme === 'pirate' || this.theme === 'rio' ? 12 : 200;
+    const far = this.theme === 'monaco' || this.theme === 'monaco-night' || this.theme === 'montreal' || this.theme === 'neon' || this.theme === 'volcano' || this.theme === 'antarctica' || this.theme === 'pirate' || this.theme === 'rio' || this.theme === 'underwater' ? 12 : 200;
     return Math.max(0, Math.min(1, 1 - dist / far));
   }
   /** Banking fades out past the runoff so the infield and far scenery stay
@@ -3255,14 +3263,14 @@ void main() { FragColor = texture(uTex, vUV); }`;
   getTrackLength(): number { return this.totalTrackDist; }
   /** Applies the environment theme for the selected track and rebuilds the
    *  scenery geometry. Call before each race (both solo and multiplayer). */
-  setTheme(theme: 'default' | 'miami' | 'city' | 'mountain' | 'alpine' | 'desert' | 'monaco' | 'monaco-night' | 'montreal' | 'italy' | 'japan' | 'neon' | 'volcano' | 'antarctica' | 'pirate' | 'mushroom' | 'hyrule' | 'rio' | 'amazon' | 'golden') {
+  setTheme(theme: 'default' | 'miami' | 'city' | 'mountain' | 'alpine' | 'desert' | 'monaco' | 'monaco-night' | 'montreal' | 'italy' | 'japan' | 'neon' | 'volcano' | 'antarctica' | 'pirate' | 'mushroom' | 'hyrule' | 'rio' | 'amazon' | 'golden' | 'underwater') {
     this.theme = theme;
     // Fresh tyres every race — reset the wear that darkened the sidewalls
     // and drop per-car sidewall textures so a style change re-bakes.
     this._tireDist = 0;
     this.setPlayerTireWear(0);
     this.tireTexByCar.clear();
-    this.night = theme === 'monaco-night' || theme === 'neon' || theme === 'volcano' || theme === 'antarctica';
+    this.night = theme === 'monaco-night' || theme === 'neon' || theme === 'volcano' || theme === 'antarctica' || theme === 'underwater';
     // Heat shimmer re-renders the whole scene into an FBO plus a mask pass
     // every frame — too expensive for the desert circuit on weak GPUs, so
     // mobile drops it (the sun still shows, just without the wavy distortion).
@@ -3470,6 +3478,19 @@ void main() { FragColor = texture(uTex, vUV); }`;
         this.sunColor = [1.0, 0.88, 0.65];
         this.ambientColor = [0.42, 0.44, 0.48];
         this.fogColor = [0.85, 0.86, 0.88];
+        break;
+      case 'underwater':
+        // Deep-sea glass tunnel: the "sky" is the water column above the
+        // tunnel — near-black navy at the top, glowing teal at the horizon
+        // where the surface light leaks down. A cool, murky fog fills the
+        // distance and the sun reads as a faint green light filtering down.
+        this.skyTop = [0.004, 0.02, 0.045];
+        this.skyHorizon = [0.02, 0.32, 0.38];
+        this.skyBottom = [0.008, 0.08, 0.11];
+        this.sunDir = [0.3, 0.62, 0.4];
+        this.sunColor = [0.55, 0.95, 0.95];
+        this.ambientColor = [0.05, 0.11, 0.14];
+        this.fogColor = [0.02, 0.09, 0.12];
         break;
       default:
         this.skyTop = [0.1, 0.2, 0.5];
@@ -4366,6 +4387,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
     if (this._flagBuf) { try { gl.deleteBuffer(this._flagBuf); } catch { } }
     if (this._auroraVao) { try { gl.deleteVertexArray(this._auroraVao); } catch { } }
     if (this._auroraBuf) { try { gl.deleteBuffer(this._auroraBuf); } catch { } }
+    if (this._uwFishVao) { try { gl.deleteVertexArray(this._uwFishVao); } catch { } }
+    if (this._uwFishBuf) { try { gl.deleteBuffer(this._uwFishBuf); } catch { } }
+    if (this._uwBubbleVao) { try { gl.deleteVertexArray(this._uwBubbleVao); } catch { } }
+    if (this._uwBubbleBuf) { try { gl.deleteBuffer(this._uwBubbleBuf); } catch { } }
     if (this._confettiVao) { try { gl.deleteVertexArray(this._confettiVao); } catch { } }
     if (this._confettiBuf) { try { gl.deleteBuffer(this._confettiBuf); } catch { } }
     if (this.nightVao) { try { gl.deleteVertexArray(this.nightVao); } catch { } }
@@ -4374,6 +4399,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
     this._crowdPeople = [];
     this._flags = [];
     this._auroraCurtains = [];
+    this._uwFish = [];
+    this._uwBubbles = [];
     this._palmCrowns.length = 0;
     this._oasisPools.length = 0;
     this._desertPerchSpots = [];
@@ -4431,6 +4458,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
       // The whole circuit is one giant suspension bridge: the ocean plane
       // below, the bridge deck + towers + cables built over the track.
       this.addGoldenGateScenery(verts, idxs, flatVerts, flatIdxs);
+    } else if (this.theme === 'underwater') {
+      this.addUnderwaterScenery(verts, idxs, flatVerts, flatIdxs);
     } else {
       this.addForestScenery(verts, idxs);
     }
@@ -4838,6 +4867,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
       case 'rio': count = 8; altMin = 50; altMax = 85; sizeScale = 1.0; this._cloudAlpha = 0.6; break;
       case 'amazon': count = 6; altMin = 52; altMax = 82; sizeScale = 0.85; this._cloudAlpha = 0.5; break;
       case 'golden': count = 12; altMin = 50; altMax = 80; sizeScale = 1.35; this._cloudAlpha = 0.62; break;
+      case 'underwater': count = 0; altMin = 0; altMax = 0; sizeScale = 0; this._cloudAlpha = 0; break;
       default: count = 6; altMin = 55; altMax = 90; sizeScale = 1; this._cloudAlpha = 0.6; break;
     }
     const base = this.theme === 'city'
@@ -7379,6 +7409,112 @@ void main() { FragColor = texture(uTex, vUV); }`;
         [x1 - ppx * w, 0.02, z1 - ppz * w],
         [x1 + ppx * w, 0.02, z1 + ppz * w],
         [x0 + ppx * w, 0.02, z0 + ppz * w], glow);
+    }
+  }
+  /** Underwater glass tunnel: a lit tube on the sea floor you drive through.
+   *  The whole loop is wrapped in glass side walls + roof (aquarium style),
+   *  ringed by steel ribs, with coral, kelp, fish and rising bubbles living
+   *  on the shoulders inside the tube. The deep water column is the sky/fog,
+   *  so the tunnel reads as a bubble of light in the dark ocean. */
+  private addUnderwaterScenery(verts: number[], idxs: number[], flatVerts: number[], flatIdxs: number[]) {
+    const pts = this._trackPoints;
+    const H = 8;                          // tunnel ceiling height
+    const margin = 6;                      // shoulder space inside the tube
+    const glass: number[] = [0.2, 0.47, 0.53];
+    const glassRoof: number[] = [0.3, 0.6, 0.64];
+    const steel: number[] = [0.26, 0.31, 0.36];
+    // Deep-sea floor far below the tunnel.
+    this.addOceanPlane(flatVerts, flatIdxs, [0.03, 0.07, 0.09]);
+
+    // Glass walls + roof around the entire loop.
+    const wallStep = this.lowQuality ? 4 : 2;
+    for (let i = 0; i < pts.length; i += wallStep) {
+      const p = pts[i];
+      const n = pts[(i + wallStep) % pts.length];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      const hw = p.width / 2 + margin;
+      const dx = n.x - p.x, dz = n.z - p.z;
+      const segLen = Math.hypot(dx, dz) + 0.001;
+      const baseY = (p.y + n.y) / 2;
+      for (const side of [-1, 1]) {
+        const wx = p.x + ppx * hw * side;
+        const wz = p.z + ppz * hw * side;
+        this.addOrientedBox(verts, idxs, wx, baseY + H / 2, wz, segLen, H, 0.35, dx, dz, glass);
+      }
+      this.addOrientedBox(verts, idxs, (p.x + n.x) / 2, baseY + H + 0.2, (p.z + n.z) / 2, segLen, 0.35, hw * 2, dx, dz, glassRoof);
+    }
+
+    // Steel ribs + interior sea life.
+    const ribStep = this.lowQuality ? 9 : 5;
+    let life = 0;
+    const lifeCap = this.lowQuality ? 60 : 140;
+    for (let i = 0; i < pts.length; i += ribStep) {
+      const p = pts[i];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      const hw = p.width / 2 + margin;
+      for (const side of [-1, 1]) {
+        this.addBox(verts, idxs, p.x + ppx * hw * side, p.y + H / 2, p.z + ppz * hw * side, 0.6, H, 0.6, steel);
+      }
+      this.addOrientedBox(verts, idxs, p.x, p.y + H + 0.35, p.z, hw * 2, 0.5, 0.6, ppx, ppz, steel);
+      for (let k = 0; k < 3 && life < lifeCap; k++) {
+        const side = Math.random() < 0.5 ? 1 : -1;
+        const lat = p.width / 2 + 1.2 + Math.random() * (margin - 2.2);
+        const lx = p.x + ppx * lat * side + (Math.random() - 0.5) * 3;
+        const lz = p.z + ppz * lat * side + (Math.random() - 0.5) * 3;
+        const roll = Math.random();
+        if (roll < 0.58) {
+          // Coral + kelp stay static (they are scenery, not life).
+          this.addUnderwaterLife(verts, idxs, lx, p.y, lz, roll);
+        } else if (roll < 0.82 && this._uwFish.length < (this.lowQuality ? 16 : 38)) {
+          // Fish swim in a lazy orbit around their anchor, facing their
+          // direction of travel — rebuilt every frame in drawUnderwaterFish.
+          const fishColors: [number, number, number][] = [[0.22, 0.74, 0.9], [0.96, 0.56, 0.2], [0.9, 0.42, 0.85], [0.72, 0.85, 0.95]];
+          this._uwFish.push({
+            x: lx,
+            y: p.y + 1.5 + Math.random() * 4,
+            z: lz,
+            dirX: p.dirX, dirZ: p.dirZ,
+            phase: Math.random() * TAU,
+            speed: 0.4 + Math.random() * 0.7,
+            radius: 1.2 + Math.random() * 2.6,
+            size: 0.5 + Math.random() * 0.7,
+            color: fishColors[Math.floor(Math.random() * fishColors.length)],
+          });
+        } else if (this._uwBubbles.length < (this.lowQuality ? 28 : 60)) {
+          // Bubbles rise from the floor to the ceiling and wrap — rebuilt
+          // every frame in drawUnderwaterBubbles.
+          this._uwBubbles.push({
+            x: lx,
+            z: lz,
+            phase: Math.random() * TAU,
+            speed: 0.5 + Math.random() * 0.9,
+            size: 0.08 + Math.random() * 0.14,
+            height: 6 + Math.random() * 2.5,
+          });
+        }
+        life++;
+      }
+    }
+  }
+  /** One piece of static interior scenery: a coral cluster or kelp blades
+   *  growing on the shoulder inside the tunnel. Fish and bubbles are dynamic
+   *  (see _uwFish / _uwBubbles) so they animate every frame. */
+  private addUnderwaterLife(verts: number[], idxs: number[], x: number, y: number, z: number, roll: number) {
+    const corals: number[][] = [[0.9, 0.42, 0.45], [0.96, 0.6, 0.24], [0.45, 0.36, 0.92], [0.24, 0.74, 0.58]];
+    if (roll < 0.32) {
+      const c = corals[Math.floor(Math.random() * corals.length)];
+      const h = 0.8 + Math.random() * 1.4;
+      this.addCylinder(verts, idxs, x, y, z, 0.14, h * 0.5, 5, [0.5, 0.42, 0.36]);
+      this.addCone(verts, idxs, x, y + h * 0.45, z, 0.5, h * 0.6, 6, c);
+      this.addSphere(verts, idxs, x + 0.32, y + h * 0.7, z + 0.22, 0.18, 5, c);
+    } else {
+      const g: number[] = [0.15, 0.55, 0.28 + Math.random() * 0.2];
+      const h = 2.5 + Math.random() * 3;
+      for (let b = 0; b < 3; b++) {
+        const bx = x + (Math.random() - 0.5) * 0.6;
+        const bz = z + (Math.random() - 0.5) * 0.6;
+        this.addEllipsoid(verts, idxs, bx, y + h / 2, bz, 0.12, h / 2, 0.12, 6, g);
+      }
     }
   }
   private addOceanPlane(verts: number[], idxs: number[], color: [number, number, number] = [0.05, 0.5, 0.55]) {
@@ -10143,6 +10279,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
     if (this.theme === 'neon') { this.buildNeonGlow(); return; }
     if (this.theme === 'volcano') { this.buildLavaGlow(); return; }
     if (this.theme === 'antarctica') { this.buildAuroraGlow(); return; }
+    if (this.theme === 'underwater') { this.buildUnderwaterGlow(); return; }
     const pts = this._trackPoints;
     if (!pts.length) return;
     const verts: number[] = [];
@@ -10256,6 +10393,38 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.bindVertexArray(null);
     this.nightVao = vao;
     this.nightCount = idxs.length;
+  }
+  /** Underwater tunnel additive glow: shafts of light falling through the
+   *  roof onto the road, plus bioluminescent bubbles drifting inside the
+   *  tube — the whole tunnel reads as a lit bubble in the dark ocean. */
+  private buildUnderwaterGlow() {
+    const pts = this._trackPoints;
+    if (!pts.length) return;
+    const verts: number[] = [];
+    const idxs: number[] = [];
+    const H = 8;
+    const shaft: [number, number, number] = [0.2, 0.68, 0.82];
+    let shaftCount = 0;
+    const shaftCap = this.lowQuality ? 60 : 120;
+    for (let i = 0; i < pts.length; i += (this.lowQuality ? 12 : 7)) {
+      const p = pts[i];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      for (const lat of [-4, 0, 4]) {
+        const cx = p.x + ppx * lat;
+        const cz = p.z + ppz * lat;
+        // Tapered beam of light from the ceiling down to the road.
+        this.addQuad(verts, idxs,
+          [cx - p.dirX * 1.4, H, cz - p.dirZ * 1.4],
+          [cx + p.dirX * 1.4, H, cz + p.dirZ * 1.4],
+          [cx + p.dirX * 0.4, 0.1, cz + p.dirZ * 0.4],
+          [cx - p.dirX * 0.4, 0.1, cz - p.dirZ * 0.4],
+          shaft);
+        if (++shaftCount > shaftCap) break;
+      }
+      if (shaftCount > shaftCap) break;
+    }
+    if (!idxs.length) return;
+    this.finishNightMesh(verts, idxs);
   }
   /** Neon District additive glow: cyan/magenta edge strips + tower halos. */
   private buildNeonGlow() {
@@ -11262,6 +11431,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
         // Bay Area crowd — fog-gray hoodies, brick-orange, navy, gold.
         return [[0.75, 0.32, 0.14], [0.12, 0.2, 0.45], [0.82, 0.82, 0.84],
         [0.9, 0.74, 0.25], [0.14, 0.4, 0.6], [0.35, 0.35, 0.4], [0.6, 0.7, 0.75]];
+      case 'underwater':
+        // Oceanographic crew — wetsuit blues/teals with coral and aqua gear.
+        return [[0.05, 0.3, 0.45], [0.05, 0.45, 0.5], [0.9, 0.4, 0.35],
+        [0.2, 0.6, 0.75], [0.05, 0.2, 0.32], [0.85, 0.85, 0.9]];
       default:
         return [[0.7, 0.15, 0.15], [0.15, 0.3, 0.7], [0.8, 0.7, 0.1],
         [0.9, 0.9, 0.9], [0.15, 0.5, 0.2], [0.6, 0.2, 0.6], [0.1, 0.65, 0.65], [0.95, 0.5, 0.15]];
@@ -11285,6 +11458,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
       case 'rio': return [[0.05, 0.5, 0.2], [0.95, 0.82, 0.15]];
       case 'amazon': return [[0.2, 0.4, 0.15], [0.6, 0.5, 0.3]];
       case 'golden': return [[0.75, 0.1, 0.1], [0.95, 0.95, 0.96]];
+      case 'underwater': return [[0.05, 0.55, 0.65], [0.85, 0.92, 0.95]];
       default: return this.crowdShirtsForTheme().slice(0, 2);
     }
   }
@@ -11854,6 +12028,16 @@ void main() { FragColor = texture(uTex, vUV); }`;
   private _windSmokeVao!: WebGLVertexArrayObject;
   private _windSmokeBuf!: WebGLBuffer;
   private _marmotWhistles = 0;
+  /** Underwater tunnel life (fish + bubbles): records rebuilt into a dynamic
+   *  buffer every frame so they drift and rise instead of sitting still. */
+  private _uwFish: { x: number; y: number; z: number; dirX: number; dirZ: number; phase: number; speed: number; radius: number; size: number; color: [number, number, number] }[] = [];
+  private _uwBubbles: { x: number; z: number; phase: number; speed: number; size: number; height: number }[] = [];
+  private _uwFishVao!: WebGLVertexArrayObject;
+  private _uwFishBuf!: WebGLBuffer;
+  private _uwFishScratch!: Float32Array;
+  private _uwBubbleVao!: WebGLVertexArrayObject;
+  private _uwBubbleBuf!: WebGLBuffer;
+  private _uwBubbleScratch!: Float32Array;
   private initSkyObjects() {
     const gl = this.gl;
     const pts = this._trackPoints;
@@ -12075,6 +12259,41 @@ void main() { FragColor = texture(uTex, vUV); }`;
       gl.enableVertexAttribArray(3);
       gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
       gl.bindVertexArray(null);
+    }
+    // Underwater tunnel life — fish swim orbiting ellipses, bubbles rise and
+    // wrap. Buffers are pre-sized to the caps used by addUnderwaterScenery.
+    if (this.theme === 'underwater') {
+      this._uwFishVao = gl.createVertexArray()!;
+      gl.bindVertexArray(this._uwFishVao);
+      this._uwFishBuf = gl.createBuffer()!;
+      gl.bindBuffer(gl.ARRAY_BUFFER, this._uwFishBuf);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(38 * 300 * 11), gl.DYNAMIC_DRAW);
+      const stride = 11 * 4;
+      gl.enableVertexAttribArray(0);
+      gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
+      gl.enableVertexAttribArray(1);
+      gl.vertexAttribPointer(1, 3, gl.FLOAT, false, stride, 12);
+      gl.enableVertexAttribArray(2);
+      gl.vertexAttribPointer(2, 3, gl.FLOAT, false, stride, 24);
+      gl.enableVertexAttribArray(3);
+      gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
+      gl.bindVertexArray(null);
+      this._uwFishScratch = new Float32Array(38 * 300 * 11);
+      this._uwBubbleVao = gl.createVertexArray()!;
+      gl.bindVertexArray(this._uwBubbleVao);
+      this._uwBubbleBuf = gl.createBuffer()!;
+      gl.bindBuffer(gl.ARRAY_BUFFER, this._uwBubbleBuf);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(60 * 24 * 11), gl.DYNAMIC_DRAW);
+      gl.enableVertexAttribArray(0);
+      gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
+      gl.enableVertexAttribArray(1);
+      gl.vertexAttribPointer(1, 3, gl.FLOAT, false, stride, 12);
+      gl.enableVertexAttribArray(2);
+      gl.vertexAttribPointer(2, 3, gl.FLOAT, false, stride, 24);
+      gl.enableVertexAttribArray(3);
+      gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
+      gl.bindVertexArray(null);
+      this._uwBubbleScratch = new Float32Array(60 * 24 * 11);
     }
     this._balloons = [];
     const balloonColors: [number, number, number][] = [
@@ -13004,6 +13223,167 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.drawArrays(gl.TRIANGLES, 0, w / 11);
     gl.bindVertexArray(null);
   }
+  /** Underwater tunnel fish: rebuilt every frame into a dynamic buffer so they
+   *  drift in lazy orbits around their anchors, swaying and bobbing, facing
+   *  their direction of travel, with a wagging tail. Drawn in the solid pass. */
+  private drawUnderwaterFish(eye: number[]) {
+    const gl = this.gl;
+    if (!this._uwFish.length || !this._uwFishVao || !this._uwFishBuf || !this._uwFishScratch) return;
+    const t = this.elapsed;
+    const data = this._uwFishScratch;
+    let w = 0;
+    const cull2 = 130 * 130;
+    const ex = eye[0], ez = eye[2];
+    for (const f of this._uwFish) {
+      const dx = f.x - ex, dz = f.z - ez;
+      if (dx * dx + dz * dz > cull2) continue;
+      // Lazy orbit: drift along the track heading, sway laterally, bob up/down.
+      const a = t * f.speed + f.phase;
+      const along = Math.sin(a) * f.radius;
+      const sway = Math.sin(a * 1.7 + f.phase * 2.1) * f.radius * 0.4;
+      const bob = Math.sin(t * 1.3 + f.phase * 3.1) * 0.2;
+      const px = f.x + f.dirX * along + (-f.dirZ) * sway;
+      const pz = f.z + f.dirZ * along + f.dirX * sway;
+      const py = f.y + bob;
+      // Heading = derivative of position (tangent of the orbit).
+      const vx = f.dirX * Math.cos(a) * f.speed * f.radius + (-f.dirZ) * Math.cos(a * 1.7 + f.phase * 2.1) * 1.7 * f.speed * f.radius * 0.4;
+      const vz = f.dirZ * Math.cos(a) * f.speed * f.radius + f.dirX * Math.cos(a * 1.7 + f.phase * 2.1) * 1.7 * f.speed * f.radius * 0.4;
+      const vl = Math.hypot(vx, vz) || 1;
+      const hx = vx / vl, hz = vz / vl;
+      const s = f.size;
+      const [cr, cg, cb] = f.color;
+      const wag = Math.sin(t * 6 + f.phase * 4) * 0.5;
+      w = this.pushFishVerts(data, w, px, py, pz, hx, hz, s, cr, cg, cb, wag);
+    }
+    if (!w) return;
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._uwFishBuf);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, data.subarray(0, w));
+    gl.bindVertexArray(this._uwFishVao);
+    gl.uniform1i(this.hasTexLoc, 0);
+    gl.uniform3f(this.colorLoc, 1, 1, 1);
+    this.mat4Identity(this.modelMatrix);
+    gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
+    this.setNormalMatrix(this.modelMatrix);
+    gl.drawArrays(gl.TRIANGLES, 0, w / 11);
+    gl.bindVertexArray(null);
+  }
+  /** Pushes one fish (body ellipsoid + wagging tail fin) as non-indexed
+   *  triangles into the 11-float dynamic layout (pos/normal/color/uv). The
+   *  fish is oriented along the given heading (hx, hz) in the XZ plane. */
+  private pushFishVerts(data: Float32Array, w: number, cx: number, cy: number, cz: number,
+    hx: number, hz: number, s: number, r: number, g: number, b: number, wag: number): number {
+    const sx = -hz, sz = hx; // local side axis
+    const emit = (lx: number, ly: number, lz: number, nx: number, ny: number, nz: number) => {
+      data[w++] = cx + lx * hx + lz * sx;
+      data[w++] = cy + ly;
+      data[w++] = cz + lx * hz + lz * sz;
+      const wnx = nx * hx + nz * sx;
+      const wnz = nx * hz + nz * sz;
+      data[w++] = wnx; data[w++] = ny; data[w++] = wnz;
+      data[w++] = r; data[w++] = g; data[w++] = b;
+      data[w++] = 0; data[w++] = 0;
+    };
+    // Body — ellipsoid with its long axis along the heading.
+    const segs = 5;
+    const rx = s * 0.62, ry = s * 0.3, rz = s * 0.24;
+    for (let i = 0; i < segs; i++) {
+      const u0 = (i / segs) * Math.PI * 2, u1 = ((i + 1) / segs) * Math.PI * 2;
+      for (let j = 0; j < segs; j++) {
+        const v0 = (j / segs) * Math.PI, v1 = ((j + 1) / segs) * Math.PI;
+        const su0 = Math.sin(u0), cu0 = Math.cos(u0);
+        const su1 = Math.sin(u1), cu1 = Math.cos(u1);
+        const sv0 = Math.sin(v0), cv0 = Math.cos(v0);
+        const sv1 = Math.sin(v1), cv1 = Math.cos(v1);
+        const p00 = [su0 * sv0 * rx, cv0 * ry, cu0 * sv0 * rz];
+        const n00 = [su0 * sv0, cv0, cu0 * sv0];
+        const p10 = [su1 * sv0 * rx, cv0 * ry, cu1 * sv0 * rz];
+        const n10 = [su1 * sv0, cv0, cu1 * sv0];
+        const p11 = [su1 * sv1 * rx, cv1 * ry, cu1 * sv1 * rz];
+        const n11 = [su1 * sv1, cv1, cu1 * sv1];
+        const p01 = [su0 * sv1 * rx, cv1 * ry, cu0 * sv1 * rz];
+        const n01 = [su0 * sv1, cv1, cu0 * sv1];
+        emit(p00[0], p00[1], p00[2], n00[0], n00[1], n00[2]);
+        emit(p10[0], p10[1], p10[2], n10[0], n10[1], n10[2]);
+        emit(p11[0], p11[1], p11[2], n11[0], n11[1], n11[2]);
+        emit(p00[0], p00[1], p00[2], n00[0], n00[1], n00[2]);
+        emit(p11[0], p11[1], p11[2], n11[0], n11[1], n11[2]);
+        emit(p01[0], p01[1], p01[2], n01[0], n01[1], n01[2]);
+      }
+    }
+    // Tail fin — a flat triangle behind the body, wagging around the up axis.
+    const cw = Math.cos(wag), sw = Math.sin(wag);
+    // Tail tip direction in local frame, rotated by the wag.
+    const tdx = -cw, tdz = sw;
+    const baseX = -s * 0.55;
+    const tipLX = baseX + tdx * s * 0.55;
+    const tipLZ = tdz * s * 0.55;
+    const tipY = s * 0.02;
+    // Two triangles (front + back) so the fin reads from either side.
+    for (const flip of [1, -1]) {
+      emit(baseX, -s * 0.16 * flip, 0, 0, 0, flip);
+      emit(baseX, s * 0.16 * flip, 0, 0, 0, flip);
+      emit(tipLX, tipY, tipLZ, 0, 0, flip);
+    }
+    return w;
+  }
+  /** Underwater tunnel bubbles: rebuilt every frame so they rise from the
+   *  floor, wobble, and wrap at the ceiling. Drawn additively in the night
+   *  glow pass (like the aurora) so they read as glowing rising orbs. */
+  private drawUnderwaterBubbles(eye: number[]) {
+    const gl = this.gl;
+    if (!this._uwBubbles.length || !this._uwBubbleVao || !this._uwBubbleBuf || !this._uwBubbleScratch) return;
+    const t = this.elapsed;
+    const data = this._uwBubbleScratch;
+    let w = 0;
+    const cull2 = 150 * 150;
+    const ex = eye[0], ez = eye[2];
+    for (const b of this._uwBubbles) {
+      const dx = b.x - ex, dz = b.z - ez;
+      if (dx * dx + dz * dz > cull2) continue;
+      // Rise from the floor to the ceiling, then wrap around.
+      const rise = (t * b.speed + b.phase) % b.height;
+      const by = 0.5 + rise;
+      const wobX = Math.sin(t * 1.1 + b.phase * 2.3) * 0.3;
+      const wobZ = Math.cos(t * 0.9 + b.phase * 1.7) * 0.3;
+      const bx = b.x + wobX;
+      const bz = b.z + wobZ;
+      const s = b.size;
+      // Crossed billboard quads so the orb reads from any angle.
+      w = this.pushBubbleQuad(data, w, bx, by, bz, s, 0.55, 0.9, 1.0);
+    }
+    if (!w) return;
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._uwBubbleBuf);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, data.subarray(0, w));
+    gl.bindVertexArray(this._uwBubbleVao);
+    gl.uniform1i(this.hasTexLoc, 0);
+    gl.uniform3f(this.colorLoc, 1, 1, 1);
+    this.mat4Identity(this.modelMatrix);
+    gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
+    this.setNormalMatrix(this.modelMatrix);
+    gl.drawArrays(gl.TRIANGLES, 0, w / 11);
+    gl.bindVertexArray(null);
+  }
+  /** Pushes a pair of crossed quads (billboard sprite) into the 11-float
+   *  dynamic layout — used for glowing bubbles. */
+  private pushBubbleQuad(data: Float32Array, w: number, cx: number, cy: number, cz: number,
+    s: number, r: number, g: number, b: number): number {
+    const emit = (x0: number, y0: number, z0: number, x1: number, y1: number, z1: number,
+      x2: number, y2: number, z2: number, x3: number, y3: number, z3: number,
+      nx: number, ny: number, nz: number) => {
+      const v = (x: number, y: number, z: number) => {
+        data[w++] = x; data[w++] = y; data[w++] = z;
+        data[w++] = nx; data[w++] = ny; data[w++] = nz;
+        data[w++] = r; data[w++] = g; data[w++] = b;
+        data[w++] = 0; data[w++] = 0;
+      };
+      v(x0, y0, z0); v(x1, y1, z1); v(x2, y2, z2);
+      v(x0, y0, z0); v(x2, y2, z2); v(x3, y3, z3);
+    };
+    // Quad 1 faces +Z, quad 2 faces +X.
+    emit(cx - s, cy - s, cz, cx + s, cy - s, cz, cx + s, cy + s, cz, cx - s, cy + s, cz, 0, 0, 1);
+    emit(cx, cy - s, cz - s, cx, cy - s, cz + s, cx, cy + s, cz + s, cx, cy + s, cz - s, 1, 0, 0);
+    return w;
+  }
   /** Advance a wandering courtyard character (Toad / Bob-omb): pause, then
    *  amble toward its current target, turning smoothly; pick a fresh target
    *  once it arrives. Targets stay inside the lawn ring around the castle. */
@@ -13845,6 +14225,11 @@ void main() { FragColor = texture(uTex, vUV); }`;
       if (this.theme === 'antarctica') {
         this.drawAurora(eye);
       }
+      // Underwater tunnel bubbles — rise and wrap, drawn additively so they
+      // glow like bioluminescent orbs drifting up through the tube.
+      if (this.theme === 'underwater') {
+        this.drawUnderwaterBubbles(eye);
+      }
       gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
       gl.uniform1f(this.emissiveLoc, 0);
     }
@@ -13859,6 +14244,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
     this.drawPalmFronds(eye);
     this.drawOasisWater(eye);
     this.drawAnimals(eye, dt);
+    if (this.theme === 'underwater') {
+      this.drawUnderwaterFish(eye);
+    }
     this.pMark('w-skyfx');
     for (const car of cars) {
       this.renderCar(car.x, car.y, car.z, car.yaw, car.r, car.g, car.b, car.speed ?? 0, car.accel ?? 0, car.spin, car.slide ?? 0, car, 0, car.bank ?? 0);

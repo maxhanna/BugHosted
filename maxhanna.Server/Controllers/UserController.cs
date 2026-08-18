@@ -1852,8 +1852,11 @@ namespace maxhanna.Server.Controllers
                     user.Role = dataReader.IsDBNull(dataReader.GetOrdinal("role")) ? null : dataReader.GetString("role");
                     // Issue a server-side session token (replaces the old client-encrypted
                     // userId). The client stores it and sends it as the Encrypted-UserId
-                    // header; ValidateUserLoggedIn checks it against user_sessions.
-                    string sessionToken = await Log.CreateSession(connectionString, userId) ?? "";
+                    // header; ValidateUserLoggedIn checks it against user_sessions. The
+                    // User-Agent is captured so the Active Sessions panel can show what
+                    // device/browser each session belongs to.
+                    string userAgent = Request.Headers["User-Agent"].ToString();
+                    string sessionToken = await Log.CreateSession(connectionString, userId, userAgent) ?? "";
                     if (string.IsNullOrEmpty(sessionToken))
                     {
                       _ = _log.Db("Login succeeded but session creation failed for userId:" + userId, userId, "USER", true);

@@ -3,6 +3,7 @@ import { MenuItem } from '../../services/datacontracts/user/menu-item';
 import { MiningService } from '../../services/mining.service';
 import { WeatherService } from '../../services/weather.service';
 import { UserService } from '../../services/user.service';
+import { SessionVault } from '../../services/session-vault.service';
 import { ChildComponent } from '../child.component';
 import { NicehashApiKeys } from '../../services/datacontracts/crypto/nicehash-api-keys';
 import { MediaViewerComponent } from '../media-viewer/media-viewer.component';
@@ -556,6 +557,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
       parent.showNotification(isCurrent ? "This device was signed out." : "Session revoked.");
       if (isCurrent) {
         parent.sessionToken = "";
+        SessionVault.clear();
         // The cookie is HttpOnly so JS can't clear it — the Logout endpoint
         // revokes the (already-deleted) session and clears it server-side.
         await this.userService.logout(sessionToken);
@@ -572,6 +574,29 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     if (!value) return "—";
     const d = new Date(value);
     return isNaN(d.getTime()) ? "—" : d.toLocaleString();
+  }
+
+  /** Friendly device label + emoji for a session's stored User-Agent, so the
+   *  Active Sessions panel shows what each device is ("Chrome on Windows",
+   *  "Safari on iPhone", …) instead of an opaque token. */
+  deviceLabel(ua?: string): { icon: string; name: string } {
+    const s = (ua ?? '').toLowerCase();
+    if (!s) return { icon: '💻', name: 'Unknown device' };
+    let icon = '💻';
+    let os = 'Computer';
+    if (/iphone|ipod/.test(s)) { icon = '📱'; os = 'iPhone'; }
+    else if (/ipad/.test(s)) { icon = '📱'; os = 'iPad'; }
+    else if (/android/.test(s)) { icon = '📱'; os = 'Android'; }
+    else if (/windows/.test(s)) { icon = '💻'; os = 'Windows'; }
+    else if (/mac os|macintosh/.test(s)) { icon = '💻'; os = 'macOS'; }
+    else if (/linux/.test(s)) { icon = '💻'; os = 'Linux'; }
+    let browser = '';
+    if (/edg(e|a)/.test(s)) browser = 'Edge';
+    else if (/opr\/|opera/.test(s)) browser = 'Opera';
+    else if (/chrome|crios/.test(s)) browser = 'Chrome';
+    else if (/firefox|fxios/.test(s)) browser = 'Firefox';
+    else if (/safari/.test(s)) browser = 'Safari';
+    return { icon, name: browser ? `${browser} on ${os}` : os };
   }
 
   async deleteUser() {

@@ -4,6 +4,7 @@
 import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { UserService } from '../../services/user.service';
+import { SessionVault } from '../../services/session-vault.service';
 import { WeatherService } from '../../services/weather.service';
 import { FriendService } from '../../services/friend.service';
 import { ContactService } from '../../services/contact.service';
@@ -743,6 +744,7 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
       const token = await this.parentRef.getSessionToken();
       await this.userService.logout(token);
       this.parentRef.sessionToken = undefined;
+      SessionVault.clear();
       this.parentRef.navigationItems = this.parentRef.navigationItems.filter(x => {
         const title = x.title.toLowerCase();
         title == "chat" || title == "meme" || title == "emulation" || title == "social" || title == "bug-wars" || title == "user" || title == "close menu"

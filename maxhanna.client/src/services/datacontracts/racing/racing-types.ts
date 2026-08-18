@@ -404,6 +404,7 @@ export const TRACKS: TrackDefinition[] = [
   { id: 17, name: 'Rio de Janeiro GP', difficulty: 'hard', laps: 4, length: 2300, description: 'A jungle-meets-city street circuit — favela hillsides, Christ the Redeemer on Corcovado, Sugarloaf and a Copacabana promenade', entryFee: 4000, prizePool: 15000, bestTime: 0 },
   { id: 18, name: 'Amazon Rush', difficulty: 'hard', laps: 4, length: 2200, description: 'A dense rainforest rally — a vine-canopied trail through towering jungle, river crossings, ancient temple ruins and a crashed biplane', entryFee: 4000, prizePool: 15000, bestTime: 0 },
   { id: 19, name: 'Golden Gate Bridge', difficulty: 'hard', laps: 4, length: 2600, description: 'A thunder-run across the bay — a complete circuit on one giant suspension bridge, with towering orange towers, sunken girders, Alcatraz and the SF skyline in the fog', entryFee: 4500, prizePool: 18000, bestTime: 0 },
+  { id: 20, name: 'Underwater Tunnel', difficulty: 'hard', laps: 4, length: 2300, description: 'A glass tunnel beneath the sea — a lit ribbon through the deep, ringed by steel ribs and glass arches with coral, kelp, schools of fish and shafts of light falling through the dark water', entryFee: 4500, prizePool: 18000, bestTime: 0 },
 ];
 
 export const CAR_SKINS: RacingCarSkin[] = [

@@ -630,11 +630,42 @@ input:checked+.slider:before {
   .addTodoInputFieldset {
     padding: 12px;
     border-radius: 12px;
+    gap: 8px;
   }
 
+  /* Mobile: pin the add-todo bar to exactly two lines —
+     row 1: todo text + mic + save, row 2: url + media picker.
+     Flex order overrides the DOM order so the save button sits on
+     row 1 instead of wrapping everything onto a third line. */
   #todoInput {
-    min-width: 100%;
-  }  
+    order: 0;
+    flex: 1 1 55%;
+    min-width: 0;
+    max-width: none;
+  }
+
+  app-speech-recognition {
+    order: 1;
+    flex: 0 0 auto;
+  }
+
+  .todoSaveBtn {
+    order: 2;
+    flex: 0 0 auto;
+    padding: 11px 16px;
+  }
+
+  #urlInput {
+    order: 3;
+    flex: 1 1 60%;
+    width: auto;
+    min-width: 0;
+  }
+
+  app-media-selector {
+    order: 4;
+    flex: 0 0 auto;
+  }
 
   .actionTd {
     justify-content: center;

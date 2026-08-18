@@ -112,6 +112,13 @@ iframe {
 .normalSongList {
   overflow: hidden;
   border: var(--main-border);
+  /* #songlist inside is the intended scroll container (flex: 1 1 auto +
+     overflow: auto), but it only works if THIS wrapper is a flex column —
+     otherwise the song list grows to full content height in block layout
+     and gets clipped by overflow: hidden, making the page unscrollable
+     on mobile. */
+  display: flex;
+  flex-direction: column;
 }
 
 .smallSongList {

@@ -21,10 +21,10 @@ namespace maxhanna.Server.Hubs
     /// A special "hot" color is designated: popping groups that contain it
     /// fills your reserve. Every match dumps garbage onto a random opponent's
     /// board scaled to the match size — 3-in-a-row sends 1 marble, 4 sends 2,
-    /// and 5+ sends 3. The five-in-a-row bonus clears the WHOLE row or column
-    /// (every filled cell in the line) and dumps 3 extra penalty marbles on
-    /// top to clog up the opponent's board. New marbles rain in from the top
-    /// OR bottom every few seconds; whoever's columns fill up first loses.
+    /// and 5+ sends 3. Matches are strictly horizontal or vertical runs of
+    /// same-colored marbles; diagonals never count and only the matching
+    /// marbles themselves pop. New marbles rain in from the top OR bottom
+    /// every few seconds; whoever's columns fill up first loses.
     /// </summary>
     public class MarblesHub : Hub
     {
@@ -737,14 +737,13 @@ namespace maxhanna.Server.Hubs
 
         /// <summary>
         /// Resolve every match on a board: contiguous runs of 3+ same-coloured
-        /// marbles in ANY row (horizontal) or ANY column (vertical). Popping a
-        /// run applies gravity, which can line up new runs, which pop too — so
-        /// the loop repeats until the board is stable (chain matches). A run of
-        /// 5+ is the five-in-a-row bonus: the entire row (or column) clears and
-        /// dumps extra penalty marbles on the opponent. Tracks reserve gain
-        /// (special colour pops) and the garbage to dump (each run sends 1 for
-        /// 3, 2 for 4, 3 for 5+ plus the line-clear bonus, summed across
-        /// cascades).</summary>
+        /// marbles in ANY row (horizontal) or ANY column (vertical). Diagonals
+        /// never count. Popping a run applies gravity, which can line up new
+        /// runs, which pop too — so the loop repeats until the board is stable
+        /// (chain matches). Only the matching marbles themselves pop; nothing
+        /// is cleared "out of nowhere". Tracks reserve gain (special colour
+        /// pops) and the garbage to dump (each run sends 1 for 3, 2 for 4,
+        /// 3 for 5+, summed across cascades).</summary>
         private static MoveResult SimulateResolve(int[][] board, int specialColor)
         {
             var popped = new List<object>();
@@ -756,10 +755,9 @@ namespace maxhanna.Server.Hubs
             {
                 var toPop = new HashSet<(int r, int c)>();
 
-                // Horizontal runs of 3+ in any row. A run of 5+ is the
-                // five-in-a-row bonus: it clears the ENTIRE row — every filled
-                // cell in that line, whatever its colour — and dumps extra
-                // penalty marbles to clog up the opponent's board.
+                // Horizontal runs of 3+ in any row. Only the contiguous
+                // same-coloured marbles pop; unrelated cells in the row are
+                // left alone.
                 for (var r = 0; r < Rows; r++)
                 {
                     var c = 0;
@@ -773,22 +771,14 @@ namespace maxhanna.Server.Hubs
                         if (len >= 3)
                         {
                             garbage += GarbageFor(len);
-                            if (len >= 5)
-                            {
-                                // Five-in-a-row bonus: the whole row clears.
-                                garbage += LineClearBonusGarbage;
-                                for (var k = 0; k < Cols; k++) if (board[r][k] != 0) toPop.Add((r, k));
-                            }
-                            else
-                            {
-                                for (var k = runStart; k < c; k++) toPop.Add((r, k));
-                            }
+                            for (var k = runStart; k < c; k++) toPop.Add((r, k));
                         }
                     }
                 }
 
-                // Vertical runs of 3+ in any column. A run of 5+ gets the same
-                // five-in-a-row bonus: the whole column clears.
+                // Vertical runs of 3+ in any column. Only the contiguous
+                // same-coloured marbles pop; unrelated cells in the column are
+                // left alone.
                 for (var c = 0; c < Cols; c++)
                 {
                     var r = 0;
@@ -802,16 +792,7 @@ namespace maxhanna.Server.Hubs
                         if (len >= 3)
                         {
                             garbage += GarbageFor(len);
-                            if (len >= 5)
-                            {
-                                // Five-in-a-row bonus: the whole column clears.
-                                garbage += LineClearBonusGarbage;
-                                for (var k = 0; k < Rows; k++) if (board[k][c] != 0) toPop.Add((k, c));
-                            }
-                            else
-                            {
-                                for (var k = runStart; k < r; k++) toPop.Add((k, c));
-                            }
+                            for (var k = runStart; k < r; k++) toPop.Add((k, c));
                         }
                     }
                 }
@@ -835,11 +816,6 @@ namespace maxhanna.Server.Hubs
         /// <summary>Garbage marbles a match of the given length dumps: 1 for a
         /// 3-run, 2 for a 4-run, 3 for any run of 5 or more.</summary>
         private static int GarbageFor(int len) => len == 3 ? 1 : len == 4 ? 2 : 3;
-
-        /// <summary>Extra penalty marbles the five-in-a-row bonus dumps on top
-        /// of the run's own garbage: clearing a whole line also clogs up the
-        /// opponent's board with 3 bonus marbles.</summary>
-        private const int LineClearBonusGarbage = 3;
 
         private static int[][] CloneBoard(int[][] board)
         {

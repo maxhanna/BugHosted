@@ -538,10 +538,10 @@
       </div>
     </div>
     <div *ngIf="isSessionsToggled" class="sectionDescriptionDiv">
-      <div class="xxSmallFont">Devices currently signed in to your account. Sessions expire after 7 days of inactivity, and a new login automatically signs out the oldest session (max 5 at once).</div>
+      <div class="xxSmallFont">Devices currently signed in to your account. Sessions stay active for 6 hours after your last activity, and a new login automatically signs out the oldest session (max 6 at once).</div>
       <div *ngFor="let s of activeSessions" class="sectionDescriptionSection">
         <div>
-          <strong>{{ s.isCurrent ? 'This device' : 'Device' }}</strong>
+          <strong>{{ deviceLabel(s.userAgent).icon }} {{ s.isCurrent ? 'This device' : 'Device' }} — {{ deviceLabel(s.userAgent).name }}</strong>
           <div class="xSmallFont">Signed in: {{ formatSessionTime(s.createdAt) }}</div>
           <div class="xSmallFont">Last active: {{ formatSessionTime(s.lastUsedAt) }}</div>
           <div class="xSmallFont">Expires: {{ formatSessionTime(s.expiresAt) }}</div>

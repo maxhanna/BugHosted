@@ -253,18 +253,23 @@ public class Log
   /// per-user cap are removed, so logging in on a new device never nukes a
   /// still-valid session on another device (that was the "aggressive" re-login
   /// loop where every refresh/new tab asked for a fresh token).
-  public static async Task<string?> CreateSession(string cs, int userId)
+  /// <param name="userAgent">Browser/device string captured at login so the
+  /// Active Sessions panel can show what each session is.</param>
+  public static async Task<string?> CreateSession(string cs, int userId, string? userAgent = null)
   {
     try
     {
+      await EnsureSessionUserAgentColumn(cs);
       string token = GenerateSessionToken();
       await using var conn = new MySqlConnection(cs);
       await conn.OpenAsync();
+      string? ua = string.IsNullOrWhiteSpace(userAgent) ? null : (userAgent.Length > 512 ? userAgent.Substring(0, 512) : userAgent);
       await using var cmd = new MySqlCommand(@"
-        INSERT INTO maxhanna.user_sessions (token, user_id, expires_at)
-        VALUES (@Token, @UserId, UTC_TIMESTAMP() + INTERVAL 6 HOUR);", conn);
+        INSERT INTO maxhanna.user_sessions (token, user_id, expires_at, user_agent)
+        VALUES (@Token, @UserId, UTC_TIMESTAMP() + INTERVAL 6 HOUR, @UserAgent);", conn);
       cmd.Parameters.AddWithValue("@Token", token);
       cmd.Parameters.AddWithValue("@UserId", userId);
+      cmd.Parameters.AddWithValue("@UserAgent", (object?)ua ?? DBNull.Value);
       await cmd.ExecuteNonQueryAsync();
       // Bound the account's session count instead of evicting every other row:
       // drop expired rows and keep only the newest MaxSessionsPerUser, evicting
@@ -340,6 +345,45 @@ public class Log
     public DateTime ExpiresAt { get; set; }
     public DateTime LastUsedAt { get; set; }
     public bool IsCurrent { get; set; }
+    public string? UserAgent { get; set; }
+  }
+
+  /// One-process flag: the user_sessions.user_agent column (device identity
+  /// for the Active Sessions panel) is added on first use if the table predates
+  /// it. There is no migration framework in this project, so this self-heals.
+  private static bool _sessionUserAgentColumnEnsured = false;
+
+  /// Ensures user_sessions has the user_agent column (added once per process;
+  /// ALTER TABLE is not retried every request). Safe to call before any
+  /// read/write of that column.
+  public static async Task EnsureSessionUserAgentColumn(string cs)
+  {
+    if (_sessionUserAgentColumnEnsured) return;
+    try
+    {
+      await using var conn = new MySqlConnection(cs);
+      await conn.OpenAsync();
+      await using var check = new MySqlCommand(@"
+        SELECT COUNT(*) FROM information_schema.columns
+        WHERE table_schema = DATABASE()
+          AND table_name = 'user_sessions'
+          AND column_name = 'user_agent';", conn);
+      var exists = Convert.ToInt64(await check.ExecuteScalarAsync() ?? 0L) > 0;
+      if (!exists)
+      {
+        await using var alter = new MySqlCommand(
+          "ALTER TABLE maxhanna.user_sessions ADD COLUMN user_agent VARCHAR(512) NULL;", conn);
+        await alter.ExecuteNonQueryAsync();
+      }
+      _sessionUserAgentColumnEnsured = true;
+    }
+    catch (Exception ex)
+    {
+      // Never break login/session listing because the column check failed —
+      // the insert/select guards below degrade gracefully if it's missing.
+      Console.WriteLine("EnsureSessionUserAgentColumn Exception: " + ex.Message);
+      _sessionUserAgentColumnEnsured = true; // don't retry every request
+    }
   }
 
   /// Lists a user's active sessions, newest activity first, marking the session
@@ -349,6 +393,7 @@ public class Log
     var result = new List<SessionInfo>();
     try
     {
+      await EnsureSessionUserAgentColumn(cs);
       await using var conn = new MySqlConnection(cs);
       await conn.OpenAsync();
       long currentId = 0;
@@ -361,7 +406,7 @@ public class Log
         if (curResult != null && curResult is not DBNull) currentId = Convert.ToInt64(curResult);
       }
       await using var cmd = new MySqlCommand(@"
-        SELECT id, created_at, expires_at, last_used_at
+        SELECT id, created_at, expires_at, last_used_at, user_agent
         FROM maxhanna.user_sessions
         WHERE user_id = @UserId
         ORDER BY last_used_at DESC, id DESC;", conn);
@@ -376,7 +421,8 @@ public class Log
           CreatedAt = reader.GetDateTime("created_at"),
           ExpiresAt = reader.GetDateTime("expires_at"),
           LastUsedAt = reader.GetDateTime("last_used_at"),
-          IsCurrent = id == currentId
+          IsCurrent = id == currentId,
+          UserAgent = reader.IsDBNull(reader.GetOrdinal("user_agent")) ? null : reader.GetString("user_agent")
         });
       }
       return result;

@@ -25,6 +25,7 @@ import { User } from '../services/datacontracts/user/user';
 import { ModalComponent } from './modal/modal.component';
 import { NotificationsComponent } from './notifications/notifications.component';
 import { UserService } from '../services/user.service';
+import { SessionVault } from '../services/session-vault.service';
 import { HostAiComponent } from './host-ai/host-ai.component';
 import { DomSanitizer, Meta, Title } from '@angular/platform-browser';
 import { MediaViewerComponent } from './media-viewer/media-viewer.component';
@@ -561,6 +562,10 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     if (this.getCookie("user")) {
       this.user = JSON.parse(this.getCookie("user"));
     }
+    // Second persistence layer: restore the session token from the encrypted
+    // localStorage vault so a reload never depends solely on the HttpOnly
+    // cookie bridge. Best-effort — a missing/undecryptable entry is fine.
+    await this.restoreSessionFromVault();
 
     await this.getSelectedMenuItems().then(() => {
       this.navigationComponent?.refreshCounts();
@@ -1055,11 +1060,28 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     }
     return '';
   }
+  // One vault decrypt attempt per page load — PBKDF2 is ~100ms, so don't run
+  // it on every getSessionToken() call (that method is hit constantly).
+  private _sessionVaultChecked = false;
+  private async restoreSessionFromVault(): Promise<void> {
+    if (this._sessionVaultChecked) return;
+    this._sessionVaultChecked = true;
+    if (!this.user?.id) return;
+    const vaulted = await SessionVault.load(this.user.id);
+    if (vaulted) {
+      this.sessionToken = vaulted;
+      this.sessionExpiresAt = Date.now() + this.SESSION_FULL_WINDOW_MS;
+    }
+  }
   async getSessionToken(): Promise<string> {
-    // In-memory copy only — the persistent copy is an HttpOnly cookie the
-    // server sets at login and the browser sends automatically, so the token
-    // never lives in JS-readable storage. After a reload the header is omitted
-    // and the server bridges the cookie into the Encrypted-UserId header.
+    // In-memory copy is the fast path. After a reload it's gone, so fall back
+    // to the encrypted localStorage vault (second persistence layer) before
+    // the HttpOnly cookie bridge is the only hope. A stale vault token is
+    // harmless: the server simply refuses it and the cookie-bridge recovery
+    // path (renewSession without a token) takes over.
+    if (!this.sessionToken && !this._sessionVaultChecked) {
+      await this.restoreSessionFromVault();
+    }
     return this.sessionToken ?? '';
   }
 
@@ -1303,10 +1325,11 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       this.user = user;
       // The server minted this session token at login — keep it in memory
       // for the Encrypted-UserId header flow. It also set the token as an
-      // HttpOnly cookie (not JS-readable), so auth survives reloads without
-      // any client-side token storage.
+      // HttpOnly cookie (not JS-readable), and we keep an encrypted copy in
+      // localStorage so reloads never depend solely on the cookie bridge.
       this.sessionToken = (loginData as { user: User; sessionToken: string }).sessionToken;
       this.sessionExpiresAt = Date.now() + this.SESSION_FULL_WINDOW_MS;
+      await SessionVault.save(this.sessionToken, user.id);
       // A fresh login means a future session expiry can redirect again.
       this._sessionExpiryRedirected = false;
       // Arm the inactivity warning timer for the new session.
@@ -1969,6 +1992,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
           if (recovered && 'sessionToken' in recovered) {
             this.sessionToken = recovered.sessionToken;
             this.sessionExpiresAt = Date.now() + this.SESSION_FULL_WINDOW_MS;
+            await SessionVault.save(this.sessionToken, this.user?.id ?? 0);
             // Retry the presence ping with the recovered token so last_seen
             // is updated and the server slides the token's expiry.
             await this.userService.updateLastSeen(tmpUser.id, recovered.sessionToken);
@@ -2010,6 +2034,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       if (res && 'sessionToken' in res) {
         this.sessionToken = res.sessionToken;
         this.sessionExpiresAt = Date.now() + this.SESSION_FULL_WINDOW_MS;
+        await SessionVault.save(this.sessionToken, this.user?.id ?? 0);
         return true;
       }
       return false;
@@ -2038,6 +2063,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     }
     this.sessionToken = undefined;
     this.sessionExpiresAt = 0;
+    SessionVault.clear();
     this.deleteCookie("user");
     this.navigationComponent?.clearNotifications();
     this.user = undefined;
