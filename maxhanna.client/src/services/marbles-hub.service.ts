@@ -51,6 +51,8 @@ export interface MarblesOpponentView {
   dropSide?: number;
   /** Marbles rained onto this opponent's board this turn. */
   rained: number;
+  /** Number of reserve marbles this opponent dumped this turn (full 5-row). */
+  reserveDump?: number;
 }
 
 export interface MarblesJoinResult extends MarblesLobbyState {
@@ -75,6 +77,8 @@ export interface MarblesBoardUpdate {
   popped: { row: number; col: number; color: number }[];
   /** How many marbles rained onto this board from an opponent. */
   rained: number;
+  /** Number of reserve marbles you dumped this turn (a full 5-row match). */
+  reserveDump?: number;
   /** True when this update was triggered by a marble drop. */
   dropped: boolean;
   /** Which side the dropped marble entered its column: 0 = top, 1 = bottom. */

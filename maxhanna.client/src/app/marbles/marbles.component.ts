@@ -14,6 +14,8 @@ const PITCH_ROW = 5;
 const OPP_BUFFER_MS = 150;
 /** Duration (s) of the blocked-column-shift nudge wiggle. */
 const NUDGE_DUR = 0.35;
+/** Duration (s) of the full-5-row "reserve dump" celebration burst. */
+const DUMP_BURST_DUR = 1.1;
 
 // ── Background music ───────────────────────────────────────────────────
 // A cheerful Win98-style chiptune loop, synthesized live with Web Audio (no
@@ -274,6 +276,10 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
   private _shards: PopShard[] = [];
   /** Shatter bursts for the opponent's board. */
   private _oppShards: PopShard[] = [];
+  /** Remaining time on the reserve-dump celebration (player board); 0 = idle. */
+  private _dumpBurstT = 0;
+  /** Remaining time on the reserve-dump celebration (opponent board); 0 = idle. */
+  private _oppDumpBurstT = 0;
   private animId = 0;
   private lastTime = 0;
   private _destroyed = false;
@@ -742,6 +748,20 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     return `radial-gradient(circle at 32% 28%, ${lighten(c, 0.6)}, rgb(${c[0]},${c[1]},${c[2]}) 55%, ${darken(c, 0.45)})`;
   }
 
+  /** Cap for the graphical "reserve" row — extra reserve shows as a +N badge. */
+  reservePipMax = 10;
+  reservePips(): number[] {
+    return Array.from({ length: Math.min(this.reservePipMax, this.myReserve) }, (_, i) => i);
+  }
+  get reservePipOverflow(): number {
+    return Math.max(0, this.myReserve - this.reservePipMax);
+  }
+  /** Reserve pips are all the current hot colour (they're the marbles you've
+   *  collected and will dump on a full 5-row match). */
+  reserveMarbleBg(): string {
+    return this.hotColorCss();
+  }
+
   /** A single shared pulse phase for the pitch-row highlight and the
    *  hot-marble glow, so the match zone and the special colour breathe in
    *  lockstep instead of drifting out of sync. */
@@ -767,6 +787,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     if (bu.dropped) this.playDrop();
     if (bu.rained > 0) this.playRain(bu.rained);
     if ((bu.popped?.length ?? 0) > 0) this.playPop(bu.popped.length);
+    if ((bu.reserveDump ?? 0) > 0) this.triggerDumpBurst();
 
     // Dead-reckoning reconcile: if this update is the server confirming a
     // board we already predicted (and nothing else changed it — no pops,
@@ -811,6 +832,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     if (opp.dropped) this.playDrop();
     if (opp.rained > 0) this.playRain(opp.rained);
     if ((opp.popped?.length ?? 0) > 0) this.playPop(opp.popped.length);
+    if ((opp.reserveDump ?? 0) > 0) this.triggerOpponentDumpBurst();
   }
 
   private onGameWon(w: { winnerName: string }): void {
@@ -1589,6 +1611,8 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
       this.p2NudgeT += dt;
       if (this.p2NudgeT >= NUDGE_DUR) this.p2NudgeCol = -1;
     }
+    if (this._dumpBurstT > 0) this._dumpBurstT = Math.max(0, this._dumpBurstT - dt);
+    if (this._oppDumpBurstT > 0) this._oppDumpBurstT = Math.max(0, this._oppDumpBurstT - dt);
   }
 
   /** Apply an opponent snapshot with its quiet sound echoes, kept in lockstep
@@ -1598,6 +1622,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     if (opp.dropped) this.playDrop(true);
     if (opp.rained > 0) this.playRain(opp.rained, true);
     if ((opp.popped?.length ?? 0) > 0) this.playPop(opp.popped.length, true);
+    if ((opp.reserveDump ?? 0) > 0) this.triggerOpponentDumpBurst();
   }
 
   /** Advance one sprite list toward its targets (shared by player + opponent).
@@ -1761,6 +1786,62 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     }
   }
 
+  /** Start the reserve-dump celebration on the player's own board. */
+  private triggerDumpBurst(): void {
+    this._dumpBurstT = DUMP_BURST_DUR;
+    this.playDumpBurst();
+  }
+
+  /** Start the (quieter) reserve-dump celebration on the opponent's board. */
+  private triggerOpponentDumpBurst(): void {
+    this._oppDumpBurstT = DUMP_BURST_DUR;
+    this.playDumpBurst(true);
+  }
+
+  /** Gold flash, shockwave rings and a "RESERVE DUMP!" banner over the pitch
+   *  row while `t` (remaining seconds) is positive. */
+  private drawDumpBurst(ctx: CanvasRenderingContext2D, cell: number, ox: number, oy: number, t: number): void {
+    if (t <= 0) return;
+    const p = 1 - t / DUMP_BURST_DUR; // 0 → 1 over the burst
+    const fade = 1 - p;               // 1 → 0
+    const cx = ox + (COLS * cell) / 2;
+    const cy = oy + (PITCH_ROW + 0.5) * cell;
+
+    // Full-width gold flash across the match zone.
+    const band = ctx.createLinearGradient(0, cy - cell * 2, 0, cy + cell * 2);
+    band.addColorStop(0, 'rgba(255,235,150,0)');
+    band.addColorStop(0.5, `rgba(255,245,190,${(0.5 * fade).toFixed(3)})`);
+    band.addColorStop(1, 'rgba(255,235,150,0)');
+    ctx.fillStyle = band;
+    ctx.fillRect(ox - cell, cy - cell * 2, cell * (COLS + 2), cell * 4);
+
+    // Three expanding shockwave rings.
+    for (let i = 0; i < 3; i++) {
+      const a = 0.55 * fade * (1 - i * 0.28);
+      if (a <= 0.01) continue;
+      ctx.strokeStyle = `rgba(255,214,80,${a.toFixed(3)})`;
+      ctx.lineWidth = Math.max(2, cell * 0.08);
+      ctx.beginPath();
+      ctx.arc(cx, cy, cell * (0.5 + p * (2.4 + i * 0.7)), 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // "RESERVE DUMP!" banner with a pop-in scale.
+    const pop = 1 + 0.35 * Math.sin(Math.min(1, p * 2.2) * Math.PI);
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.scale(pop, pop);
+    ctx.globalAlpha = Math.max(0, Math.min(1, fade * 1.5));
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = `900 ${Math.max(13, cell * 0.72)}px 'Segoe UI', sans-serif`;
+    ctx.shadowColor = 'rgba(0,0,0,0.75)';
+    ctx.shadowBlur = Math.max(4, cell * 0.2);
+    ctx.fillStyle = '#fff3a0';
+    ctx.fillText('RESERVE DUMP!', 0, 0);
+    ctx.restore();
+  }
+
   /** Time-based eased interpolation for a sprite toward its target. Uses the
    *  stored start position + clock so retargeting mid-move (a new update
    *  arriving early) just steers from the current spot — no snapping, no
@@ -1881,6 +1962,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
       }
     }
     this.drawShards(ctx, this._shards, cell, ox, oy);
+    this.drawDumpBurst(ctx, cell, ox, oy, this._dumpBurstT);
 
     // Selected column marker (for ↑/↓ shifts).
     if (this.status === 'playing') {
@@ -2079,6 +2161,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
       }
     }
     this.drawShards(ctx, this._oppShards, cell, ox, oy);
+    this.drawDumpBurst(ctx, cell, ox, oy, this._oppDumpBurstT);
   }
 
   private drawBoardBackdrop(ctx: CanvasRenderingContext2D, w: number, h: number): void {
@@ -3445,6 +3528,12 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     for (let i = 0; i < n; i++) {
       this.tone(600 - i * 30, 0.06, 'square', 0.07 * v, i * 0.05, 300 - i * 20);
     }
+  }
+
+  private playDumpBurst(quiet = false): void {
+    const v = quiet ? 0.5 : 1;
+    [392, 523, 659, 784, 1047, 1319].forEach((f, i) =>
+      this.tone(f, 0.14, 'triangle', 0.14 * v, i * 0.045, f * 1.05));
   }
 
   private playWin(): void {

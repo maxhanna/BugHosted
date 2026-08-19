@@ -173,13 +173,22 @@
       </div>
     </div>
 
-    <!-- ── In-game HUD: just a graphical count of marbles sent to the opponent ── -->
+    <!-- ── In-game HUD: graphical count of marbles sent to the opponent + the
+         hot-colour reserve that will dump on a full 5-row match ── -->
     <div class="marbles-hud" *ngIf="status === 'playing' || status === 'won'">
       <div class="hud-sent-block">
         <span class="hud-sent-label">🚀 SENT</span>
         <div class="sent-marble-row">
           <i class="sent-marble" *ngFor="let i of sentPips()" [style.background]="sentMarbleBg(i)"></i>
           <span class="sent-over" *ngIf="sentPipOverflow > 0">+{{ sentPipOverflow }}</span>
+        </div>
+      </div>
+      <div class="hud-reserve-block" *ngIf="specialColor > 0">
+        <span class="hud-reserve-label">🔥 RESERVE</span>
+        <div class="reserve-marble-row">
+          <i class="reserve-marble" *ngFor="let i of reservePips()" [style.background]="reserveMarbleBg()"></i>
+          <span class="reserve-over" *ngIf="reservePipOverflow > 0">+{{ reservePipOverflow }}</span>
+          <span class="reserve-empty" *ngIf="myReserve === 0">0</span>
         </div>
       </div>
     </div>

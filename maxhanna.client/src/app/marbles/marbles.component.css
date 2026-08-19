@@ -785,6 +785,78 @@
   opacity: 0.9;
 }
 
+.hud-reserve-block {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: 10px;
+  padding: 6px 10px;
+  border: 1px solid rgba(255, 122, 60, 0.35);
+}
+
+.hud-reserve-label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: #ff9d5c;
+  white-space: nowrap;
+}
+
+.reserve-marble-row {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-wrap: wrap;
+  max-width: 200px;
+}
+
+.reserve-marble {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5), inset 0 -2px 3px rgba(0, 0, 0, 0.28);
+  animation: reserve-pop 0.28s ease-out, reserve-glow 1.6s ease-in-out 0.28s infinite;
+}
+
+@keyframes reserve-pop {
+  0% {
+    transform: scale(0.2) translateY(-6px);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.15) translateY(0);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes reserve-glow {
+  0%, 100% {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5), inset 0 -2px 3px rgba(0, 0, 0, 0.28), 0 0 4px rgba(255, 170, 80, 0.5);
+  }
+  50% {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5), inset 0 -2px 3px rgba(0, 0, 0, 0.28), 0 0 10px rgba(255, 190, 90, 0.9);
+  }
+}
+
+.reserve-over {
+  font-size: 12px;
+  font-weight: 800;
+  color: #ffd15c;
+  opacity: 0.95;
+}
+
+.reserve-empty {
+  font-size: 12px;
+  font-weight: 800;
+  color: #fff;
+  opacity: 0.45;
+}
+
 /* ── Pause overlay (freezes the match while the menu popup is open) ── */
 
 .marbles-pause-backdrop {
