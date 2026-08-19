@@ -1,5 +1,6 @@
 ﻿
 using System.Data;
+using System.Text.RegularExpressions;
 using maxhanna.Server.Controllers.DataContracts.Crawler;
 using maxhanna.Server.Controllers.DataContracts.Metadata;
 using Microsoft.AspNetCore.Mvc;
@@ -1872,6 +1873,106 @@ namespace maxhanna.Server.Controllers
       }
     }
 
+    /// <summary>
+    /// Direct URL → enriched metadata lookup against the stored search_results row.
+    /// Used by link previews (e.g. social posts) when the stored image is still the
+    /// generic YouTube favicon and the real title/description/thumbnail/ratings live
+    /// in search_results. Matches case-insensitively and, for YouTube, falls back to
+    /// matching by video id so a shared URL with slightly different query params still
+    /// resolves to the indexed row.
+    /// </summary>
+    [HttpPost("/Crawler/GetMetadataByUrl", Name = "GetMetadataByUrl")]
+    public async Task<IActionResult> GetMetadataByUrl([FromBody] GetMetadataByUrlRequest request)
+    {
+      if (string.IsNullOrWhiteSpace(request.Url)) return BadRequest("Url required.");
+      try
+      {
+        var connStr = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+        var url = request.Url.Trim();
+
+        string trimmed = url.TrimEnd('/');
+        bool hasScheme = trimmed.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+                      || trimmed.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
+        string https = hasScheme
+            ? (trimmed.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
+                ? trimmed
+                : "https://" + trimmed.Substring(trimmed.IndexOf("://") + 3))
+            : "https://" + trimmed;
+        string http = hasScheme
+            ? (trimmed.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+                ? trimmed
+                : "http://" + trimmed.Substring(trimmed.IndexOf("://") + 3))
+            : "http://" + trimmed;
+        string httpsSlash = https.EndsWith("/") ? https : https + "/";
+        string httpSlash = http.EndsWith("/") ? http : http + "/";
+        string? ytId = ExtractYouTubeVideoId(url);
+
+        const string sql = @"
+          SELECT id, url, title, description, image_url, author, keywords, response_code
+          FROM search_results
+          WHERE (failed = 0 OR (failed = 1 AND response_code IS NOT NULL))
+            AND (
+                  LOWER(url) IN (@https, @httpsSlash, @http, @httpSlash)
+                  OR (@ytId IS NOT NULL AND (
+                        url LIKE CONCAT('%v=', @ytId)
+                        OR url LIKE CONCAT('%youtu.be/', @ytId)
+                        OR url LIKE CONCAT('%shorts/', @ytId)
+                        OR url LIKE CONCAT('%embed/', @ytId)
+                      ))
+                )
+          ORDER BY
+            CASE WHEN LOWER(url) = @https THEN 0 ELSE 1 END,
+            id DESC
+          LIMIT 1;";
+
+        Metadata? md = null;
+        using (var conn = new MySqlConnection(connStr))
+        {
+          await conn.OpenAsync();
+          using var cmd = new MySqlCommand(sql, conn);
+          cmd.Parameters.AddWithValue("@https", https.ToLowerInvariant());
+          cmd.Parameters.AddWithValue("@httpsSlash", httpsSlash.ToLowerInvariant());
+          cmd.Parameters.AddWithValue("@http", http.ToLowerInvariant());
+          cmd.Parameters.AddWithValue("@httpSlash", httpSlash.ToLowerInvariant());
+          cmd.Parameters.AddWithValue("@ytId", (object?)ytId ?? DBNull.Value);
+          using var reader = await cmd.ExecuteReaderAsync();
+          if (await reader.ReadAsync())
+          {
+            md = new Metadata
+            {
+              Id = reader.IsDBNull("id") ? null : reader.GetInt32("id"),
+              Url = reader.IsDBNull("url") ? null : reader.GetString("url"),
+              Title = reader.IsDBNull("title") ? null : reader.GetString("title"),
+              Description = reader.IsDBNull("description") ? null : reader.GetString("description"),
+              ImageUrl = reader.IsDBNull("image_url") ? null : reader.GetString("image_url"),
+              Author = reader.IsDBNull("author") ? null : reader.GetString("author"),
+              Keywords = reader.IsDBNull("keywords") ? null : reader.GetString("keywords"),
+              HttpStatus = reader.IsDBNull("response_code") ? null : reader.GetInt32("response_code"),
+            };
+          }
+        }
+
+        if (md == null) return NotFound("Search result not found.");
+
+        var enriched = await AddFavouriteCountsAsync(new List<Metadata> { md }, request.UserId);
+        enriched = await AddRatingDataAsync(enriched);
+        return Ok(enriched?.FirstOrDefault());
+      }
+      catch (Exception ex)
+      {
+        await _log.Db($"Error in GetMetadataByUrl: {ex.Message}", request.UserId, "CRAWLER", true);
+        return StatusCode(500, "Error loading metadata by URL.");
+      }
+    }
+
+    private static string? ExtractYouTubeVideoId(string url)
+    {
+      if (string.IsNullOrWhiteSpace(url)) return null;
+      var m = Regex.Match(url,
+        @"(?:youtu\.be/|youtube\.com/(?:watch\?(?:[^#]*&)?v=|embed/|v/|shorts/))([a-zA-Z0-9_-]{11})");
+      return m.Success ? m.Groups[1].Value : null;
+    }
+
     [HttpPost("/Crawler/RedditLookup", Name = "RedditLookup")]
     public async Task<IActionResult> RedditLookup([FromBody] RedditLookupRequest request)
     {
@@ -2006,6 +2107,12 @@ namespace maxhanna.Server.Controllers
   public class GetDetailRequest
   {
     public int SearchId { get; set; }
+    public int? UserId { get; set; }
+  }
+
+  public class GetMetadataByUrlRequest
+  {
+    public string Url { get; set; } = "";
     public int? UserId { get; set; }
   }
 

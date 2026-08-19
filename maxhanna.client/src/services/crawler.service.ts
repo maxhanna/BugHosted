@@ -243,6 +243,34 @@ export class CrawlerService {
     }
   }
 
+  async getMetadataByUrl(url: string, userId?: number): Promise<NormalizedMetaData | null> {
+    try {
+      const res = await fetch(`/crawler/getmetadatabyurl`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ Url: url, UserId: userId ?? undefined })
+      });
+      if (!res.ok) return null;
+      const json = await res.json();
+      return {
+        id: json.id ?? undefined,
+        url: json.url ?? '',
+        title: json.title ?? '',
+        description: json.description ?? '',
+        author: json.author ?? '',
+        keywords: json.keywords ?? '',
+        imageUrl: json.imageUrl ?? '',
+        httpStatus: json.httpStatus ?? undefined,
+        favouriteCount: json.favouriteCount ?? undefined,
+        isUserFavourite: json.isUserFavourite ?? false,
+        averageRating: json.averageRating ?? undefined,
+        ratingCount: json.ratingCount ?? undefined
+      };
+    } catch {
+      return null;
+    }
+  }
+
   async getDetail(searchId: number, userId?: number): Promise<NormalizedMetaData | null> {
     try {
       const res = await fetch(`/crawler/getdetail`, {

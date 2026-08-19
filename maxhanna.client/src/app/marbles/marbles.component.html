@@ -126,9 +126,10 @@
           <li>Move the <strong>glowing cursor</strong> along the <strong>center row</strong> with <strong>← / →</strong> — or tap a marble / press <strong>1–5</strong> — to pick your handle.</li>
           <li><strong>↑ / ↓</strong> (or <strong>drag up/down</strong> on mobile) shifts the <em>selected</em> marble's whole column up/down; a column can't shift past the top or bottom (marbles never wrap).</li>
           <li><strong>Space</strong> rotates the whole center row right (or drag it sideways on mobile; <strong>◀ / ▶</strong> on-screen arrows shift it too).</li>
-          <li>Line up 3+ same-colored marbles <strong>touching in any row or column</strong> — they pop, the ones above fall down, and the fall can start <strong>chain matches</strong>.</li>
+          <li>Line up <strong>3+ same-colored marbles in an unbroken horizontal run across the center row</strong> — they pop, the columns re-compact, and the fall can start <strong>chain matches</strong>.</li>
           <li>A <strong>special color</strong> is hot each game: popping marbles of that color fills your <strong>reserve</strong>.</li>
-          <li>Every match dumps garbage onto your opponent — <strong>3-in-a-row sends 1</strong> marble, <strong>4 sends 2</strong>, <strong>5+ sends 3</strong>.</li>
+          <li>Every match dumps garbage onto your opponent — <strong>3-in-a-row sends 1</strong> marble, <strong>4 sends 2</strong>, <strong>5 sends 3</strong>.</li>
+          <li><strong>Line up all 5 in the center row</strong> and your whole <strong>reserve</strong> dumps onto the opponent at once.</li>
           <li>New marbles rain in from the top — <strong>you lose when your columns fill up</strong>.</li>
           <li><strong>Local 2P:</strong> P1 takes the bottom board with <strong>←/→/↑/↓ + Space</strong>; P2 takes the top board with <strong>A/D</strong> (select), <strong>W/S</strong> (shift column) and <strong>F</strong> (rotate the row) — like the original 1997 shared-keyboard mode.</li>
         </ul>
@@ -203,14 +204,15 @@
     <div class="popupPanelTitle">🎮 How to Play</div>
     <div class="marbles-hot-explain" *ngIf="status === 'playing' && specialColor > 0">
       <span class="marbles-hot-chip" [style.background]="hotColorCss()"></span>
-      <span><strong>{{ hotColorName() }}</strong> is the hot color this game — popping groups that contain it fills your <strong>reserve</strong>.</span>
+      <span><strong>{{ hotColorName() }}</strong> is the hot color this game — popping groups that contain it fills your <strong>reserve</strong> (line up all 5 to dump it).</span>
     </div>
     <ul class="marbles-menu-explain">
       <li>Move the <strong>glowing cursor</strong> along the center row with <strong>← / →</strong> (or tap a marble / press <strong>1–5</strong>).</li>
       <li><strong>↑ / ↓</strong> (or drag up/down on mobile) shifts the selected column — it can't shift past the top or bottom.</li>
       <li><strong>Space</strong> rotates the center row right — or drag it sideways on mobile.</li>
-      <li>Line up <strong>3+ same-colored marbles</strong> touching in any row or column — they pop, the ones above fall, and falls can start <strong>chain matches</strong>.</li>
-      <li>Every match dumps garbage on your opponent — <strong>3 sends 1</strong>, <strong>4 sends 2</strong>, <strong>5+ sends 3</strong>.</li>
+      <li>Line up <strong>3+ same-colored marbles in an unbroken horizontal run across the center row</strong> — they pop, columns re-compact, and falls can start <strong>chain matches</strong>.</li>
+      <li>Every match dumps garbage on your opponent — <strong>3 sends 1</strong>, <strong>4 sends 2</strong>, <strong>5 sends 3</strong>.</li>
+      <li><strong>All 5 in the center row</strong> dumps your whole <strong>reserve</strong> on the opponent.</li>
       <li>New marbles rain in from the top — <strong>you lose when your columns fill up</strong>.</li>
       <li *ngIf="isLocal2P"><strong>Local 2P:</strong> P2 drives this match on the top board with <strong>A/D</strong> (select), <strong>W/S</strong> (shift column) and <strong>F</strong> (rotate the row).</li>
     </ul>

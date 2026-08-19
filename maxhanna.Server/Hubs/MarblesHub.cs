@@ -11,20 +11,23 @@ namespace maxhanna.Server.Hubs
     /// Board: 5 columns × 12 rows of holes. You shift the center row (the
     /// "pitch line") left/right (marbles wrap around the ends) and shift
     /// individual columns up/down (the whole stack slides, never wrapping off
-    /// the edge) to bring same-colored marbles together. 3+ contiguous marbles
-    /// pop in ANY row or ANY column; columns then auto-compact toward the
-    /// CENTER (the pitch row stays filled and no gaps survive), and the new
-    /// alignment can line up fresh runs that pop too (chain matches). Marbles
-    /// only shift when the player (or AI) moves them: a periodic drop just
-    /// stacks the new marble onto the end of a column and never re-centers it.
+    /// the edge) to bring same-colored marbles together. Only the PITCH ROW
+    /// matches: 3+ contiguous same-colored marbles in an unbroken horizontal
+    /// run across it pop; columns then auto-compact toward the CENTER (the
+    /// pitch row stays filled and no gaps survive), and the new alignment can
+    /// line up fresh runs that pop too (chain matches). Marbles only shift
+    /// when the player (or AI) moves them: a periodic drop just stacks the new
+    /// marble onto the end of a column and never re-centers it.
     ///
-    /// A special "hot" color is designated: popping groups that contain it
-    /// fills your reserve. Every match dumps garbage onto a random opponent's
-    /// board scaled to the match size — 3-in-a-row sends 1 marble, 4 sends 2,
-    /// and 5+ sends 3. Matches are strictly horizontal or vertical runs of
-    /// same-colored marbles; diagonals never count and only the matching
-    /// marbles themselves pop. New marbles rain in from the top OR bottom
-    /// every few seconds; whoever's columns fill up first loses.
+    /// A special "hot" color is designated: popping marbles of that color
+    /// fills your reserve. Every match also dumps garbage onto a random
+    /// opponent's board scaled to the match size — 3-in-a-row sends 1 marble,
+    /// 4 sends 2, and 5 sends 3. Lining up a full 5-marble row additionally
+    /// dumps the whole accumulated reserve onto the opponent at once, then
+    /// empties it. Matches are strictly horizontal in the pitch row; columns
+    /// and diagonals never count, and only the matching marbles themselves
+    /// pop. New marbles rain in from the top OR bottom every few seconds;
+    /// whoever's columns fill up first loses.
     /// </summary>
     public class MarblesHub : Hub
     {
@@ -645,18 +648,6 @@ namespace maxhanna.Server.Hubs
 
                 var score = result.PoppedCount * 20 + result.ReserveGained * 10 + result.Garbage * 15 + (int)setup;
 
-                // A column UP-shift on a partial column is a "float": the whole
-                // pile slides up and a gap opens beneath it. With the no-wrap
-                // slide mechanic those are mostly wasted turns (the relative
-                // column order never changes), so the AI avoids them unless the
-                // float actually sets up a VERTICAL match — a bottom-entry
-                // marble of the pile's bottom colour completing a 3-run.
-                if (kind == 1 && dir < 0 && result.PoppedCount == 0 && ColumnHasSpace(board, col))
-                {
-                    if (VerticalSetupAfterMove(clone, col) > 0) score += 15;
-                    else score -= 400; // pointless float — strongly discouraged
-                }
-
                 candidates.Add(new AiMove
                 {
                     Kind = kind,
@@ -697,28 +688,6 @@ namespace maxhanna.Server.Hubs
             return best[rng.Next(best.Count)];
         }
 
-        /// <summary>
-        /// After an up-shift floated a column, how strong is the vertical-match
-        /// setup? Compact the column toward the center (the way the next drop
-        /// would) and check whether either the top two or the bottom two
-        /// marbles share a colour — a top/bottom-entry marble of that colour
-        /// then lands a vertical 3-run. Returns 0 when no vertical match is
-        /// set up.
-        /// </summary>
-        private static int VerticalSetupAfterMove(int[][] board, int col)
-        {
-            CompactColumnCenter(board, col);
-            var marbles = new List<int>(Rows);
-            for (var r = 0; r < Rows; r++)
-            {
-                if (board[r][col] != 0) marbles.Add(board[r][col]);
-            }
-            if (marbles.Count < 2) return 0;
-            if (marbles[0] == marbles[1]) return 2; // top-entry completes
-            if (marbles[marbles.Count - 1] == marbles[marbles.Count - 2]) return 2; // bottom-entry completes
-            return 0;
-        }
-
         /// <summary>True when the column has at least one empty cell.</summary>
         private static bool ColumnHasSpace(int[][] board, int col)
         {
@@ -736,81 +705,61 @@ namespace maxhanna.Server.Hubs
         }
 
         /// <summary>
-        /// Resolve every match on a board: contiguous runs of 3+ same-coloured
-        /// marbles in ANY row (horizontal) or ANY column (vertical). Diagonals
-        /// never count. Popping a run applies gravity, which can line up new
-        /// runs, which pop too — so the loop repeats until the board is stable
-        /// (chain matches). Only the matching marbles themselves pop; nothing
-        /// is cleared "out of nowhere". Tracks reserve gain (special colour
-        /// pops) and the garbage to dump (each run sends 1 for 3, 2 for 4,
-        /// 3 for 5+, summed across cascades).</summary>
+        /// Resolve matches on a board. Faithful to the original game: only the
+        /// PITCH ROW (the centre "black square") can match — a contiguous run
+        /// of 3+ same-coloured marbles horizontally across it. Columns never
+        /// match vertically and no other row matches, which is what stops
+        /// marbles from "blowing up out of nowhere". Popping a run re-compacts
+        /// the columns toward the centre, which can line up a fresh run that
+        /// pops too — the loop repeats until stable (chain matches). Tracks
+        /// reserve gain (special-colour pops), the garbage to dump (3 → 1,
+        /// 4 → 2, 5+ → 3 per run) and whether a full 5-marble row was cleared
+        /// (which dumps the accumulated reserve onto the opponent).</summary>
         private static MoveResult SimulateResolve(int[][] board, int specialColor)
         {
             var popped = new List<object>();
             var reserveGained = 0;
             var garbage = 0;
             var poppedCount = 0;
+            var fullRow = false;
 
             for (;;)
             {
                 var toPop = new HashSet<(int r, int c)>();
 
-                // Horizontal runs of 3+ in any row. Only the contiguous
-                // same-coloured marbles pop; unrelated cells in the row are
-                // left alone.
-                for (var r = 0; r < Rows; r++)
+                // Horizontal runs of 3+ across the pitch row only. Only the
+                // contiguous same-coloured marbles pop; unrelated cells in the
+                // row are left alone.
+                var c = 0;
+                while (c < Cols)
                 {
-                    var c = 0;
-                    while (c < Cols)
+                    var color = board[PitchRow][c];
+                    if (color == 0) { c++; continue; }
+                    var runStart = c;
+                    while (c < Cols && board[PitchRow][c] == color) c++;
+                    var len = c - runStart;
+                    if (len >= 3)
                     {
-                        var color = board[r][c];
-                        if (color == 0) { c++; continue; }
-                        var runStart = c;
-                        while (c < Cols && board[r][c] == color) c++;
-                        var len = c - runStart;
-                        if (len >= 3)
-                        {
-                            garbage += GarbageFor(len);
-                            for (var k = runStart; k < c; k++) toPop.Add((r, k));
-                        }
-                    }
-                }
-
-                // Vertical runs of 3+ in any column. Only the contiguous
-                // same-coloured marbles pop; unrelated cells in the column are
-                // left alone.
-                for (var c = 0; c < Cols; c++)
-                {
-                    var r = 0;
-                    while (r < Rows)
-                    {
-                        var color = board[r][c];
-                        if (color == 0) { r++; continue; }
-                        var runStart = r;
-                        while (r < Rows && board[r][c] == color) r++;
-                        var len = r - runStart;
-                        if (len >= 3)
-                        {
-                            garbage += GarbageFor(len);
-                            for (var k = runStart; k < r; k++) toPop.Add((k, c));
-                        }
+                        garbage += GarbageFor(len);
+                        if (len >= Cols) fullRow = true;
+                        for (var k = runStart; k < c; k++) toPop.Add((PitchRow, k));
                     }
                 }
 
                 if (toPop.Count == 0) break;
 
-                foreach (var (r, c) in toPop)
+                foreach (var (pr, pc) in toPop)
                 {
-                    var color = board[r][c];
-                    popped.Add(new { row = r, col = c, color });
-                    board[r][c] = 0;
+                    var color = board[pr][pc];
+                    popped.Add(new { row = pr, col = pc, color });
+                    board[pr][pc] = 0;
                     poppedCount++;
                     if (color == specialColor) reserveGained++;
                 }
                 ApplyGravity(board);
             }
 
-            return new MoveResult { Popped = popped, ReserveGained = reserveGained, Garbage = garbage, PoppedCount = poppedCount };
+            return new MoveResult { Popped = popped, ReserveGained = reserveGained, Garbage = garbage, PoppedCount = poppedCount, FullRow = fullRow };
         }
 
         /// <summary>Garbage marbles a match of the given length dumps: 1 for a
@@ -948,17 +897,18 @@ namespace maxhanna.Server.Hubs
         }
 
         /// <summary>
-        /// Apply a shift to a player's board, resolve matches (any row/column),
-        /// handle reserve dumps, and build the per-player update payloads.
-        /// Shared by human moves and the single-player AI loop.
-        /// rowShiftDir is non-zero when the move rotated the pitch row, which
-        /// lets the client animate marbles sliding along it (and lets it know
-        /// NOT to slide them for drops, which only touch one column).
+        /// Apply a shift to a player's board, resolve pitch-row matches (and
+        /// cascades), handle garbage + reserve dumps, and build the per-player
+        /// update payloads. Shared by human moves and the single-player AI
+        /// loop. rowShiftDir is non-zero when the move rotated the pitch row,
+        /// which lets the client animate marbles sliding along it (and lets it
+        /// know NOT to slide them for drops, which only touch one column).
         /// </summary>
         private static (Dictionary<string, object?> Updates, string? Winner) ApplyMoveAndResolve(Lobby lobby, Player mover, Action<Player> apply, int rowShiftDir = 0)
         {
             var updates = new Dictionary<string, object?>();
             var rainedBy = new Dictionary<string, int>();
+            var reserveDump = 0;
             lock (lobby.Sync)
             {
                 if (lobby.Status != "playing" || !mover.Alive) return (updates, null);
@@ -978,7 +928,7 @@ namespace maxhanna.Server.Hubs
                     if (target != null)
                     {
                         mover.Sent += result.Garbage;
-                        rainedBy[target.ConnectionId] = result.Garbage;
+                        rainedBy[target.ConnectionId] = rainedBy.GetValueOrDefault(target.ConnectionId) + result.Garbage;
                         for (var i = 0; i < result.Garbage; i++)
                         {
                             RainOne(target, _rng.Next(1, ColorCount + 1));
@@ -986,10 +936,32 @@ namespace maxhanna.Server.Hubs
                     }
                 }
 
+                // A full 5-marble pitch-row match dumps the whole accumulated
+                // reserve (the "hot" colour marbles you've collected) onto the
+                // opponent at once, then empties it — the original game's big-
+                // combo payoff that keeps the opponent's board filling up.
+                if (result.FullRow && mover.Reserve > 0)
+                {
+                    var target = PickAliveOpponent(lobby, mover);
+                    if (target != null)
+                    {
+                        var pool = mover.Reserve;
+                        mover.Sent += pool;
+                        rainedBy[target.ConnectionId] = rainedBy.GetValueOrDefault(target.ConnectionId) + pool;
+                        for (var i = 0; i < pool; i++)
+                        {
+                            RainOne(target, _rng.Next(1, ColorCount + 1));
+                        }
+                        mover.Reserve = 0;
+                        reserveDump = pool;
+                    }
+                }
+
                 var metas = new Dictionary<string, PlayerMoveMeta>();
                 foreach (var p in lobby.Players) metas[p.ConnectionId] = new PlayerMoveMeta();
                 metas[mover.ConnectionId].Popped = result.Popped;
                 metas[mover.ConnectionId].RowShifted = rowShiftDir;
+                metas[mover.ConnectionId].ReserveDump = reserveDump;
                 foreach (var kv in rainedBy) metas[kv.Key].Rained = kv.Value;
 
                 foreach (var p in lobby.Players)
@@ -1044,7 +1016,7 @@ namespace maxhanna.Server.Hubs
                             var dropSide = DropMarbleInto(p);
                             if (dropSide >= 0)
                             {
-                                // A drop can complete runs anywhere on the board.
+                                // A drop can complete a pitch-row run.
                                 var pop = ResolveMatches(p);
                                 if (pop.ReserveGained > 0) p.Reserve += pop.ReserveGained;
                                 p.Score += pop.PoppedCount;
@@ -1059,6 +1031,22 @@ namespace maxhanna.Server.Hubs
                                         p.Sent += pop.Garbage;
                                         for (var i = 0; i < pop.Garbage; i++) RainOne(target, _rng.Next(1, ColorCount + 1));
                                         metas[target.ConnectionId].Rained += pop.Garbage;
+                                    }
+                                }
+                                // A drop that lands a full 5-marble pitch-row
+                                // match also dumps the accumulated reserve (see
+                                // ApplyMoveAndResolve).
+                                if (pop.FullRow && p.Reserve > 0)
+                                {
+                                    var target = PickAliveOpponent(lobby, p);
+                                    if (target != null)
+                                    {
+                                        var pool = p.Reserve;
+                                        p.Sent += pool;
+                                        for (var i = 0; i < pool; i++) RainOne(target, _rng.Next(1, ColorCount + 1));
+                                        metas[target.ConnectionId].Rained += pool;
+                                        p.Reserve = 0;
+                                        metas[p.ConnectionId].ReserveDump = pool;
                                     }
                                 }
                             }
@@ -1092,10 +1080,10 @@ namespace maxhanna.Server.Hubs
         // ── Engine ─────────────────────────────────────────────────────────
 
         /// <summary>
-        /// Check runs of 3+ in every row and column; pop them, apply gravity,
-        /// and repeat until stable (cascades). Tracks how many marbles
-        /// contained the special color (reserve gain) and the garbage to dump
-        /// (3 → 1, 4 → 2, 5+ → 3 per run).
+        /// Check runs of 3+ across the pitch row; pop them, apply gravity, and
+        /// repeat until stable (cascades). Tracks how many marbles contained
+        /// the special color (reserve gain), the garbage to dump (3 → 1, 4 → 2,
+        /// 5 → 3 per run) and whether a full 5-row cleared (reserve dump).
         /// </summary>
         private static MoveResult ResolveMatches(Player p)
         {
@@ -1266,6 +1254,8 @@ namespace maxhanna.Server.Hubs
             /// <summary>Which side a dropped marble entered the column (0 = top, 1 = bottom).</summary>
             public int DropSide = 0;
             public int Rained = 0;
+            /// <summary>Number of reserve marbles dumped this turn (a full 5-row match).</summary>
+            public int ReserveDump = 0;
         }
 
         private static Dictionary<string, object?> MakeUpdate(Lobby lobby, Player p, List<object>? popped, int rained, bool dropped, int rowShifted = 0, Dictionary<string, PlayerMoveMeta>? metas = null, int dropSide = 0)
@@ -1280,6 +1270,7 @@ namespace maxhanna.Server.Hubs
                 ["score"] = p.Score,
                 ["popped"] = popped ?? new List<object>(),
                 ["rained"] = rained,
+                ["reserveDump"] = opponentMetas.TryGetValue(p.ConnectionId, out var ownMeta) ? ownMeta.ReserveDump : 0,
                 ["dropped"] = dropped,
                 ["dropSide"] = dropSide,
                 ["rowShifted"] = rowShifted,
@@ -1309,6 +1300,7 @@ namespace maxhanna.Server.Hubs
             dropped = meta?.Dropped ?? false,
             dropSide = meta?.DropSide ?? 0,
             rained = meta?.Rained ?? 0,
+            reserveDump = meta?.ReserveDump ?? 0,
         };
 
         private async Task BroadcastLobbyAsync(Lobby lobby)
@@ -1360,6 +1352,7 @@ namespace maxhanna.Server.Hubs
             public int ReserveGained = 0;
             public int Garbage = 0;
             public int PoppedCount = 0;
+            public bool FullRow = false;
         }
     }
 }

@@ -2712,13 +2712,31 @@ void main() {
   vec3 lower = mix(uHorizon, uBottom, clamp(-d.y * 3.0, 0.0, 1.0) * 0.5);
   float skyT = clamp(d.y * 4.0 + 0.5, 0.0, 1.0);
   vec3 sky = mix(lower, upper, skyT);
+  // The light breathes: a slow pulse stops the sun/glow from reading as a
+  // painted-on decal, and a broad soft halo swells around the disc.
+  float pulse = 1.0 + 0.05 * sin(uTime * 0.6) + 0.03 * sin(uTime * 1.35 + 1.7);
   float sunDot = dot(d, normalize(uSunDir));
   float sun = pow(max(sunDot, 0.0), 120.0);
-  sky += uSunColor * sun * 0.9;
+  sky += uSunColor * sun * 0.9 * pulse;
   float sunGlow = pow(max(sunDot, 0.0), 12.0);
-  sky += uGlowColor * sunGlow * 0.18;
+  sky += uGlowColor * sunGlow * 0.18 * pulse;
+  sky += uSunColor * pow(max(sunDot, 0.0), 4.0) * 0.05 * pulse;
+  // Distant cloud wisps drifting along the horizon: three low-frequency
+  // azimuthal bands that slide at different rates. Pure fragment-shader work
+  // on the existing sky quad, so it costs nothing extra on mobile.
+  float az = atan(d.z, d.x);
+  float cw = 0.5 + 0.5 * sin(az * 3.0 + uTime * 0.020);
+  cw += 0.5 + 0.5 * sin(az * 5.0 - uTime * 0.013 + 1.3);
+  cw += 0.5 + 0.5 * sin(az * 7.0 + uTime * 0.009 + 4.1);
+  cw *= 0.333;
+  float cloudMask = smoothstep(0.0, 0.09, d.y) * (1.0 - smoothstep(0.0, 0.46, d.y));
+  sky += uGlowColor * cw * cloudMask * 0.08;
   if (uNight > 0.5 && d.y > 0.08) {
-    vec2 cell = floor(d.xz * 240.0);
+    // Slowly rotate the star field so the night sky drifts imperceptibly.
+    float rot = uTime * 0.004;
+    float cr = cos(rot), sr = sin(rot);
+    vec2 hz = vec2(cr * d.x - sr * d.z, sr * d.x + cr * d.z);
+    vec2 cell = floor(hz * 240.0);
     float h1 = fract(sin(dot(cell, vec2(127.1, 311.7))) * 43758.5453);
     float h2 = fract(sin(dot(cell, vec2(269.5, 183.3))) * 28001.8384);
     float starv = smoothstep(0.9, 0.98, h1);

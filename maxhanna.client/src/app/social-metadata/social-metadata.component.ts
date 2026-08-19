@@ -27,6 +27,8 @@ export class SocialMetadataComponent extends ChildComponent implements OnInit, O
   /** Show the "ⓘ Details" button (emits detailsRequested). */
   @Input() showDetails = true;
   @Output() detailsRequested = new EventEmitter<MetaData>();
+  /** Fires after the crawler backfills this card, so an already-open details popup can refresh. */
+  @Output() metadataUpdated = new EventEmitter<MetaData>();
 
   /** True while the crawler is still filling in the card in the background. */
   loading = false;
@@ -82,45 +84,46 @@ export class SocialMetadataComponent extends ChildComponent implements OnInit, O
       });
   }
 
-  /** Pull title/description/image for this URL from the crawler's results. */
+  /** Pull the real title/description/image/ratings for this URL from the crawler's stored results. */
   private async fetchFromCrawler(): Promise<void> {
     const canonical = this.canonicalUrl();
     if (!canonical) return;
 
     const userId = this.parentRef?.user?.id ?? 0;
 
-    // Exact-match + skip-scrape: a fast DB-only lookup on the stored row
-    // (YouTube rows are persisted with the API metadata when indexed).
-    const res = await this.crawlerService.searchUrl(canonical, 1, 10, true, true, userId);
+    // Direct DB lookup of the stored search_results row, enriched with rating
+    // and favourite data (the real YouTube thumbnail + metadata).
+    const detail = await this.crawlerService.getMetadataByUrl(canonical, userId);
     if (this._destroyed) return;
 
-    const rows = res && !('error' in res) ? (res.Results ?? res.results ?? []) : [];
-    const row = rows[0];
-    if (!row?.id) {
+    if (!detail || !detail.id) {
       // Not indexed yet — kick off a background index so a later visit shows
       // the card; this is one-way and non-blocking.
       void this.crawlerService.indexLink(canonical);
       return;
     }
 
-    const detail = await this.crawlerService.getDetail(row.id, userId);
-    if (this._destroyed || !detail) return;
-
-    // Replace the title/description/imageUrl with what the crawler indexed in
-    // search_results (the real YouTube thumbnail + metadata), keeping any
-    // other fields the caller already had and falling back to the stored row
-    // title when the detail row is still sparse.
+    // Replace every field with what search_results holds, keeping anything the
+    // caller already had as a fallback when the stored row is still sparse.
     const prev = this.metadata ?? {};
     this.metadata = {
       ...prev,
+      id: detail.id ?? prev.id,
       url: detail.url || canonical,
-      title: detail.title || row.title || undefined,
-      description: detail.description || undefined,
+      title: detail.title || prev.title,
+      description: detail.description || prev.description,
       imageUrl: detail.imageUrl || prev.imageUrl,
-      author: detail.author || undefined,
+      author: detail.author || prev.author,
+      keywords: detail.keywords || prev.keywords,
+      httpStatus: detail.httpStatus ?? prev.httpStatus,
+      favouriteCount: detail.favouriteCount ?? prev.favouriteCount,
+      isUserFavourite: detail.isUserFavourite ?? prev.isUserFavourite,
+      averageRating: detail.averageRating ?? prev.averageRating,
+      ratingCount: detail.ratingCount ?? prev.ratingCount,
     };
     // A fresh image supersedes any earlier load failure (e.g. the favicon).
     this._imageFailed = false;
+    this.metadataUpdated.emit(this.metadata);
   }
 
   /** True when the crawler should backfill this card: no metadata at all, or

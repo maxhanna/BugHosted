@@ -432,6 +432,26 @@ export class SocialPostComponent extends ChildComponent implements OnInit {
     parent?.closeOverlay();
   }
 
+  /** When a metadata card's background crawler fetch completes, refresh the open
+   *  details popup if it is showing the same link. */
+  refreshMetadataDetail(metadata: MetaData) {
+    if (!this.isMetadataDetailPanelOpen || !this.metadataDetail || !metadata) return;
+    const current = this.metadataMatchKey(this.metadataDetail.url);
+    const incoming = this.metadataMatchKey(metadata.url);
+    if (current && current === incoming) {
+      this.metadataDetail = metadata;
+    }
+  }
+
+  /** A stable comparison key for a link: canonical YouTube video id when it is
+   *  a YouTube URL, otherwise the normalized lowercase URL. */
+  private metadataMatchKey(url?: string): string {
+    if (!url) return '';
+    const yt = this.extractYouTubeVideoURL(url);
+    if (yt && /youtu\.?be/i.test(url)) return yt.trim().toLowerCase();
+    return url.trim().toLowerCase().replace(/\/+$/, '');
+  }
+
   getMetadataDomain(url?: string): string {
     if (!url) return '';
     try {
