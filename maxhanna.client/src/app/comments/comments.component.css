@@ -7,7 +7,7 @@
   flex-direction: column;
   flex-wrap: nowrap;
   overflow-anchor: none;
-  overscroll-behavior-y: contain;
+  overscroll-behavior-y: auto;
   max-height: 60vh;
   max-height: 60dvh;
   overflow-y: auto;
@@ -151,8 +151,6 @@
 .commentContent {
   word-break: break-word;
   overflow-anchor: none;
-  overscroll-behavior: contain;
-  touch-action: pan-y;
 }
 
 .commentContentAndAvatarContainerDiv {
@@ -287,20 +285,24 @@
 .subComment {
   padding: 6px;
   border-radius: 6px;
-  touch-action: pan-y;
 }
 
 .subcomments-container {
-  touch-action: pan-y;
+  touch-action: auto;
 }
 
 /* Prevent nested scrollable areas inside sub-comments — they steal touch events on mobile.
-   Only the outermost .comments-section should scroll; sub-comments flow naturally within it. */
+   Only the outermost .comments-section should scroll; sub-comments flow naturally within it.
+   (::ng-deep variants cover recursion regardless of view encapsulation.) */
 .subComment .comments-section,
-.subcomments-container .comments-section {
+.subcomments-container .comments-section,
+:host ::ng-deep .subComment .comments-section,
+:host ::ng-deep .subcomments-container .comments-section {
   max-height: none !important;
-  overflow-y: visible !important;
-  overscroll-behavior-y: auto;
+  overflow: visible !important;
+  overscroll-behavior: auto !important;
+  touch-action: auto !important;
+  -webkit-overflow-scrolling: auto !important;
 }
 
 .commentTextDiv {
