@@ -9,8 +9,6 @@
 .marbles-stage {
   position: relative;
   flex: 1;
-  min-height: 0;
-  overflow: hidden;
   background: #8a5f38;
 }
 
@@ -270,8 +268,7 @@
   }
 }
 
-.marbles-panel {
-  position: absolute;
+.marbles-panel { 
   inset: 0;
   display: flex;
   flex-direction: column;
@@ -283,17 +280,7 @@
   align-content: center;
   overflow-y: auto;
   overscroll-behavior: contain;
-}
-
-.win98 {
-  align-items: stretch;
-  justify-content: center;
-  padding: 0;
-  background: rgba(10, 12, 18, 0.4);
-  /* Keep the win98 window itself sized to its content so the panel can
-   * scroll it into view on small screens. */
-  margin: auto;
-}
+} 
 
 .win98-titlebar {
   background: linear-gradient(90deg, #00007f, #1084d0);
@@ -306,20 +293,9 @@
   justify-content: space-between;
   border: 2px solid;
   border-color: #ffffff #0a0a0a #0a0a0a #ffffff;
-}
-
-@media (max-width: 900px) {
-  .win98-titlebar {
-    margin-top: 240px;
-  }
-}
-
-@media (min-width: 900px) {
-  .win98-titlebar {
-    width: min(442px, 92vw);
-  }
-}
-
+  width: min(442px, 92vw);
+} 
+ 
 .marbles-net {
   display: inline-flex;
   align-items: center;
