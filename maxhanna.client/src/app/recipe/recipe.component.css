@@ -2,6 +2,19 @@
   display: block;
 }
 
+.recipe-description-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.recipe-extraction-status {
+  color: var(--secondaryFontColor, #667085);
+  font-size: 0.85rem;
+}
+
 .recipe-shell {
   display: flex;
   flex-direction: column;

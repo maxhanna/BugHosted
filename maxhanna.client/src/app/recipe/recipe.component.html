@@ -38,9 +38,15 @@
           <span>Description</span>
           <app-text-input #descInput [inputtedParentRef]="parentRef" [type]="'Notepad'" [showPostInput]="true"
             [showTopicSelector]="false" [showTopics]="false" [saveAsStory]="false" [skipSendingNotifications]="true"
-            [placeholderText]="'What makes this recipe special?'" [postButtonText]="'✅'"
+            [placeholderText]="'Paste the full recipe or describe what makes it special'" [postButtonText]="'✅'"
             [initialContent]="form.description" (contentPosted)="onDescriptionPosted($event)">
           </app-text-input>
+          <div class="recipe-description-actions">
+            <button type="button" class="text-btn" (click)="extractRecipeFromDescription()" [disabled]="isExtractingRecipe">
+              {{ isExtractingRecipe ? 'Checking...' : 'Detect recipe sections' }}
+            </button>
+            <span class="recipe-extraction-status" *ngIf="extractionMessage" aria-live="polite">{{ extractionMessage }}</span>
+          </div>
         </label>
         <div class="field-block">
           <div class="field-title-row">
@@ -91,7 +97,9 @@
             (selectFileEvent)="onMediaSelection($event)"></app-media-selector>
         </div>
         <div class="form-actions">
-          <button class="primary-btn" (click)="submitRecipe()">{{ (editingRecipeId && editingRecipeId > 0) ? 'Update Recipe' : 'Save Recipe' }}</button>
+          <button class="primary-btn" (click)="submitRecipe()" [disabled]="isExtractingRecipe">
+            {{ isExtractingRecipe ? 'Checking recipe...' : ((editingRecipeId && editingRecipeId > 0) ? 'Update Recipe' : 'Save Recipe') }}
+          </button>
           <button class="cancel-btn" (click)="cancelEdit()">Cancel</button>
         </div>
       </div>

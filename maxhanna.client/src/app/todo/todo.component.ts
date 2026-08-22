@@ -5,6 +5,7 @@ import { TodoService } from '../../services/todo.service';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { User } from '../../services/datacontracts/user/user';
+import { UserEventService } from '../../services/user-event.service';
 
 @Component({
   selector: 'app-todo',
@@ -54,7 +55,10 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
   @ViewChild('todoEditingFile') todoEditingFile!: MediaSelectorComponent;
   @ViewChild('addNewColumnInput') addNewColumnInput!: ElementRef<HTMLInputElement>;
 
-  constructor(private todoService: TodoService) {
+  constructor(
+    private todoService: TodoService,
+    private userEventService: UserEventService
+  ) {
     super();
   }
 
@@ -389,7 +393,17 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
     tmpTodo.todo = this.todoInput.nativeElement.value;
     tmpTodo.fileId = this.selectedFile?.id;
 
-    await this.todoService.createTodo(this.parentRef.user.id, tmpTodo);
+    const resTodo = await this.todoService.createTodo(this.parentRef.user.id, tmpTodo);
+    if (resTodo) {
+      const todoId = parseInt(resTodo, 10);
+      this.userEventService.insertUserEvent(
+        this.parentRef.user.id,
+        'TodoAdded',
+        'Added a todo!',
+        Number.isNaN(todoId) ? undefined : todoId,
+        'todo'
+      );
+    }
     this.clearInputs();
     this.mediaSelector.removeAllFiles();
     this.selectedFile = undefined;

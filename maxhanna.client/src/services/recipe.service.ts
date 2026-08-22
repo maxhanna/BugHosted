@@ -56,4 +56,23 @@ export class RecipeService {
   updateRecipe(id: number, payload: RecipePayload): Observable<Recipe> {
     return this.http.put<Recipe>(`/recipe/${id}`, payload);
   }
+
+  extractRecipe(content: string, userId: number, sessionToken: string): Observable<RecipeExtractionResult> {
+    return this.http.post<RecipeExtractionResult>('/ai/extractrecipe', {
+      content,
+      userId,
+      skipSave: false
+    }, {
+      headers: { 'Encrypted-UserId': sessionToken }
+    });
+  }
+}
+
+export interface RecipeExtractionResult {
+  isRecipe: boolean;
+  name: string;
+  description: string;
+  ingredients: string[];
+  instructions: string[];
+  tags: string[];
 }

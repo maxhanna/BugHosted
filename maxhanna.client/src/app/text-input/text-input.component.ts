@@ -163,6 +163,12 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
         }
         this.contentUpdated.emit({ results: result, content: { chatText: encrypted, selectedFiles: selectedFiles }, originalContent: updatedText });
         return result;
+      } else if (this.type === 'Notepad') {
+        // Notepad content is owned by the parent form, so emit the edited text
+        // without sending it to a separate persistence endpoint.
+        const result = { originalContent: updatedText };
+        this.contentPosted.emit({ results: true, content: result, originalContent: updatedText });
+        return result;
       }
     }
     catch (err) {

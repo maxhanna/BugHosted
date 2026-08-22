@@ -39,6 +39,8 @@ export class RecipeComponent extends ChildComponent implements OnInit {
   editingRecipeId: number | null = null;
   viewingRecipeId: number | null = null;
   override isLoading = false;
+  isExtractingRecipe = false;
+  extractionMessage = '';
   selectedFiles: FileEntry[] = [];
   selectedTopics: Topic[] = [];
   form: RecipePayload = this.makeBlankForm();
@@ -137,12 +139,51 @@ export class RecipeComponent extends ChildComponent implements OnInit {
   visitLink(url: string): void { this.parentRef?.visitExternalLink(url); }
   onMediaSelection(files: FileEntry[]): void { this.selectedFiles = files; this.form.imageFileIds = files.map(f => f.id).filter(Boolean); }
 
-  /** Called when the app-text-input posts the description content. */
+  /** Parse a pasted recipe after the user asks for lazy section detection. */
+  async extractRecipeFromDescription(): Promise<void> {
+    const content = this.descInput?.textarea?.value || this.form.description || '';
+    this.form.description = content;
+    if (!content.trim() || this.isExtractingRecipe) return;
+
+    this.isExtractingRecipe = true;
+    this.extractionMessage = 'Checking for recipe sections...';
+    try {
+      const sessionToken = await this.parentRef?.getSessionToken() ?? '';
+      const extracted = await firstValueFrom(this.recipeService.extractRecipe(
+        content,
+        this.parentRef?.user?.id ?? 0,
+        sessionToken
+      ));
+
+      if (!extracted.isRecipe) {
+        this.extractionMessage = 'No structured recipe detected.';
+        return;
+      }
+
+      if (extracted.name) this.form.name = extracted.name;
+      if (extracted.description) {
+        this.form.description = extracted.description;
+        if (this.descInput?.textarea) this.descInput.textarea.value = extracted.description;
+      }
+      this.form.ingredients = extracted.ingredients.length ? extracted.ingredients : [''];
+      this.form.instructions = extracted.instructions.length ? extracted.instructions : [''];
+      this.selectedTopics = extracted.tags.map((tag, i) => new Topic(i, tag));
+      this.form.tags = extracted.tags;
+      this.extractionMessage = 'Recipe sections detected and filled in.';
+    } catch (error) {
+      console.error('Recipe extraction failed:', error);
+      this.extractionMessage = 'Could not detect recipe sections. Your text was kept unchanged.';
+    } finally {
+      this.isExtractingRecipe = false;
+    }
+  }
+
   onDescriptionPosted(event: { results: any, content: any, originalContent: string }): void {
     this.form.description = event.originalContent || this.descInput?.textarea?.value || '';
   }
 
   submitRecipe(): void {
+    if (this.isExtractingRecipe) return;
     if (!this.form.name.trim()) return alert('Please give your recipe a name.');
     // Sync description from the rich-text editor in case the user typed but
     // didn't explicitly press the ✅ post button.

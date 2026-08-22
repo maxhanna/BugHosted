@@ -1,4 +1,4 @@
-import { AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, HostListener, Input, NgZone, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
+﻿import { AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, HostListener, Input, NgZone, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
 import { Location } from '@angular/common';
 import { ChildComponent } from '../child.component';
 import { Todo } from '../../services/datacontracts/todo';
@@ -14,6 +14,7 @@ import { SubscriptionLike } from 'rxjs';
 import { YoutubeSearchComponent } from '../youtube-search/youtube-search.component';
 import { YoutubeVideo } from '../../services/datacontracts/youtube';
 import { FileService } from '../../services/file.service';
+import { UserEventService } from '../../services/user-event.service';
 
 @Component({
   selector: 'app-movie',
@@ -90,11 +91,7 @@ export class MovieComponent extends ChildComponent implements OnInit, OnDestroy,
   private shouldShufflePlaylist = false;
   private locationSub?: SubscriptionLike;
   private radioAudioEl?: HTMLAudioElement;
-  private screenLock?: any;
-  // How many consecutive failed hard rebuilds before we stop self-healing. The
-  // old code would destroy + recreate the player forever when construction kept
-  // failing (rare YouTube API glitch, ad-blocker, stale player registry), which
-  // looked like the video refreshing on a loop.
+  private screenLock?: any; 
   private static readonly MAX_YT_REBUILDS = 3;
   private readonly instance = Math.random().toString(16).slice(2);
   private mo?: MutationObserver;
@@ -118,11 +115,12 @@ export class MovieComponent extends ChildComponent implements OnInit, OnDestroy,
   ytSearchTerm = '';
 
   constructor(private todoService: TodoService,
-    private location: Location,
-    private radioService: RadioService,
-    private fileService: FileService,
-    private cdr: ChangeDetectorRef,
-    private ngZone: NgZone,
+  private location: Location,
+  private radioService: RadioService,
+  private fileService: FileService,
+  private cdr: ChangeDetectorRef,
+  private ngZone: NgZone,
+  private userEventService: UserEventService
   ) {
     super();
     this.locationSub = this.location.subscribe(() => {
@@ -456,6 +454,7 @@ export class MovieComponent extends ChildComponent implements OnInit, OnDestroy,
       this.songs.unshift(tmpTodo);
       this.updateSongTypeArrays(tmpTodo);
       this.updatePaginatedSongs();
+      this.userEventService.insertUserEvent(this.parentRef?.user?.id ?? 0, 'MovieAdded', 'Added a movie!', tmpTodo.id);
       this.titleInput.nativeElement.value = '';
       this.urlInput.nativeElement.value = '';
     }

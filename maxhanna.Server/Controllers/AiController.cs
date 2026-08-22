@@ -91,11 +91,102 @@ namespace maxhanna.Server.Controllers
       }
     }
 
-    /// <summary>
-    /// Same contract as SendMessageToAi (auth, usage limits, length modifiers,
-    /// media description) but streams the answer back token-by-token over SSE
-    /// (event: token {text}) and finishes with event: done {reply}.
-    /// </summary>
+    [HttpPost("/Ai/ExtractRecipe", Name = "ExtractRecipe")]
+    public async Task<IActionResult> ExtractRecipe([FromBody] RecipeExtractionRequest request, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
+    {
+      try
+      {
+        if (request == null || string.IsNullOrWhiteSpace(request.Content))
+          return BadRequest("Recipe content cannot be empty.");
+
+        if (request.Content.Length > 100_000)
+          return BadRequest("Recipe content is too long.");
+
+        if (request.UserId != 0 && !await _log.ValidateUserLoggedIn(request.UserId, encryptedUserIdHeader))
+          return StatusCode(500, "Access Denied.");
+
+        if (await HasExceededUsageLimit("text", request.UserId))
+          return StatusCode(429, new { error = "You have exceeded the maximum number of text requests for this hour." });
+
+        const string instructions = "You extract structured recipe data from pasted text. " +
+          "The text may contain headings, ingredient quantities, cooking instructions, captions, and unrelated formatting.\n" +
+          "Return ONLY one valid JSON object with exactly these fields:\n" +
+          "{\"isRecipe\":true,\"name\":\"\",\"description\":\"\",\"ingredients\":[],\"instructions\":[],\"tags\":[]}\n" +
+          "Set isRecipe to false when the content is not a recipe. Use empty strings or arrays for fields that are not present. " +
+          "Keep ingredient quantities in each ingredient string, preserve instruction order, and do not invent missing details. " +
+          "The description should contain useful introductory or serving information, but never duplicate the ingredient or instruction lists.";
+
+        if (!request.SkipSave)
+          await UpdateUserRequestCount(request.UserId, request.Content, "text");
+
+        var prompt = instructions + "\n\nContent to extract:\n" + request.Content;
+        var aiText = await SendChatToAI(prompt);
+        var parsed = ParseRecipeExtraction(aiText);
+
+        if (parsed == null)
+          return StatusCode(502, new { error = "The AI returned an invalid recipe structure." });
+
+        return Ok(parsed);
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db($"Error in ExtractRecipe: {ex.Message}", request?.UserId ?? 0, "AiController", true);
+        return StatusCode(500, new { error = "Recipe extraction failed." });
+      }
+    }
+
+    private static RecipeExtractionResult? ParseRecipeExtraction(string? aiText)
+    {
+      if (string.IsNullOrWhiteSpace(aiText)) return null;
+
+      var json = aiText.Trim();
+      if (json.StartsWith("```") && json.EndsWith("```"))
+      {
+        var firstNewLine = json.IndexOf('\n');
+        json = firstNewLine >= 0 ? json[(firstNewLine + 1)..^3].Trim() : json[3..^3].Trim();
+      }
+
+      try
+      {
+        using var document = JsonDocument.Parse(json);
+        var root = document.RootElement;
+        if (root.ValueKind != JsonValueKind.Object) return null;
+
+        return new RecipeExtractionResult
+        {
+          IsRecipe = root.TryGetProperty("isRecipe", out var isRecipe) && isRecipe.ValueKind == JsonValueKind.True,
+          Name = GetJsonString(root, "name"),
+          Description = GetJsonString(root, "description"),
+          Ingredients = GetJsonStringList(root, "ingredients"),
+          Instructions = GetJsonStringList(root, "instructions"),
+          Tags = GetJsonStringList(root, "tags")
+        };
+      }
+      catch (JsonException)
+      {
+        return null;
+      }
+    }
+
+    private static string GetJsonString(JsonElement root, string property)
+    {
+      return root.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.String
+        ? value.GetString()?.Trim() ?? string.Empty
+        : string.Empty;
+    }
+
+    private static List<string> GetJsonStringList(JsonElement root, string property)
+    {
+      if (!root.TryGetProperty(property, out var value) || value.ValueKind != JsonValueKind.Array)
+        return new List<string>();
+
+      return value.EnumerateArray()
+        .Where(item => item.ValueKind == JsonValueKind.String)
+        .Select(item => item.GetString()?.Trim() ?? string.Empty)
+        .Where(item => !string.IsNullOrWhiteSpace(item))
+        .ToList();
+    }
+
     [HttpPost("/Ai/StreamChat", Name = "StreamChat")]
     public async Task StreamChat([FromBody] AiRequest request, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
     {
@@ -1900,6 +1991,23 @@ Constraints:
     }
   }
 }
+public class RecipeExtractionRequest
+{
+  public int UserId { get; set; }
+  public string Content { get; set; } = string.Empty;
+  public bool SkipSave { get; set; }
+}
+
+public class RecipeExtractionResult
+{
+  public bool IsRecipe { get; set; }
+  public string Name { get; set; } = string.Empty;
+  public string Description { get; set; } = string.Empty;
+  public List<string> Ingredients { get; set; } = new();
+  public List<string> Instructions { get; set; } = new();
+  public List<string> Tags { get; set; } = new();
+}
+
 public class AiRequest
 {
   public required int UserId { get; set; }
