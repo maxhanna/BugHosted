@@ -400,18 +400,8 @@
   font-size: 64px;
   line-height: 1;
   z-index: 1;
-  animation: marblesLogoSpin 3.2s linear infinite;
+  animation: marblesLogoSpinBreathe 3.2s ease-in-out infinite;
   filter: drop-shadow(0 0 6px rgba(122, 168, 255, 0.5));
-}
-
-@keyframes marblesLogoSpin {
-  from {
-    transform: translate(-50%, -50%) rotate(0deg);
-  }
-
-  to {
-    transform: translate(-50%, -50%) rotate(360deg);
-  }
 }
 
 @keyframes marblesLogoBob {
@@ -436,11 +426,86 @@
 
 .splash-logo .marbles-logo-ball {
   font-size: 30px;
+  /* Glow breathes on the same 3.2s cycle as the swirl scale, peaking at
+   * the 50% mark — light swells as the cyclone inhales. */
+  animation:
+    marblesLogoBob 2.4s ease-in-out infinite,
+    splashLogoGlow 3.2s ease-in-out infinite;
 }
 
 .splash-logo .marbles-logo-cyclone {
   font-size: 50px;
-  animation: marblesLogoSpinBreathe 3.2s ease-in-out infinite;
+}
+
+@keyframes splashLogoGlow {
+
+  0%,
+  100% {
+    filter: drop-shadow(0 0 8px rgba(122, 168, 255, 0.95)) drop-shadow(0 0 16px rgba(122, 168, 255, 0.45));
+  }
+
+  50% {
+    filter: drop-shadow(0 0 14px rgba(175, 208, 255, 1)) drop-shadow(0 0 30px rgba(175, 208, 255, 0.9));
+  }
+}
+
+/* Twinkling sparkles drifting around the splash brand mark. */
+.splash-sparkle {
+  position: absolute;
+  font-size: 12px;
+  line-height: 1;
+  color: #ffe98a;
+  text-shadow: 0 0 6px rgba(255, 233, 138, 0.9), 0 0 12px rgba(255, 233, 138, 0.5);
+  animation: splashSparkle 2.6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.splash-sparkle.s1 {
+  top: -10px;
+  left: 2px;
+  animation-delay: 0s;
+}
+
+.splash-sparkle.s2 {
+  top: -2px;
+  right: -12px;
+  font-size: 10px;
+  animation-delay: 0.65s;
+}
+
+.splash-sparkle.s3 {
+  bottom: -8px;
+  left: -9px;
+  font-size: 10px;
+  animation-delay: 1.3s;
+}
+
+.splash-sparkle.s4 {
+  bottom: -2px;
+  right: 0;
+  font-size: 13px;
+  animation-delay: 1.95s;
+}
+
+.splash-sparkle.s5 {
+  top: -14px;
+  right: 4px;
+  font-size: 9px;
+  animation-delay: 2.3s;
+}
+
+@keyframes splashSparkle {
+
+  0%,
+  100% {
+    transform: translateY(0) scale(0.55) rotate(0deg);
+    opacity: 0.3;
+  }
+
+  50% {
+    transform: translateY(-6px) scale(1.25) rotate(24deg);
+    opacity: 1;
+  }
 }
 
 @keyframes marblesLogoSpinBreathe {

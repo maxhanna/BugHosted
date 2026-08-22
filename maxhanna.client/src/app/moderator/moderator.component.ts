@@ -41,6 +41,9 @@ export class ModeratorComponent extends ChildComponent {
   weaverReplyText = '';
   weaverReplySaving = false;
   weaverResolveSaving = 0;
+  // Key of the moderator mutation currently in flight (e.g. 'appeal-appr-12',
+  // 'weaver-del-7') — drives the inline <app-loading-spinner> on the buttons.
+  actionBusyKey = '';
   moderators: ModeratorInfo[] = [];
   roleCatalog: RoleDefinition[] = [];
 
@@ -298,19 +301,36 @@ export class ModeratorComponent extends ChildComponent {
     this.updateNavBadge();
   }
 
+  /** True while the named moderator mutation is in flight — shows the inline spinner. */
+  isActionBusy(key: string): boolean {
+    return this.actionBusyKey === key;
+  }
+
+  /** Runs a moderator mutation with its key set so the matching buttons show a spinner. */
+  private async runAction(key: string, fn: () => Promise<void>) {
+    this.actionBusyKey = key;
+    try {
+      await fn();
+    } finally {
+      this.actionBusyKey = '';
+    }
+  }
+
   async deleteWeaverFeedback(id: number) {
     const userId = this.parentRef?.user?.id;
     if (!userId) return;
     const sessionToken = await this.parentRef?.getSessionToken() ?? '';
-    if (await this.moderatorService.deleteWeaverFeedback(id, userId, sessionToken)) {
-      const removed = this.weaverFeedback.find(f => f.id === id) ?? null;
-      this.weaverFeedback = this.weaverFeedback.filter(f => f.id !== id);
-      if (this.weaverFeedbackTotal > 0) this.weaverFeedbackTotal--;
-      if (this.weaverFeedbackOpenTotal > 0 && (!removed || !removed.resolvedAt)) this.weaverFeedbackOpenTotal--;
-      this.updateNavBadge();
-      this.weaverFeedbackHasMore = this.weaverFeedback.length < this.weaverFeedbackTotal;
-      if (this.weaverReplyId === id) this.cancelWeaverReply();
-    }
+    await this.runAction('weaver-del-' + id, async () => {
+      if (await this.moderatorService.deleteWeaverFeedback(id, userId, sessionToken)) {
+        const removed = this.weaverFeedback.find(f => f.id === id) ?? null;
+        this.weaverFeedback = this.weaverFeedback.filter(f => f.id !== id);
+        if (this.weaverFeedbackTotal > 0) this.weaverFeedbackTotal--;
+        if (this.weaverFeedbackOpenTotal > 0 && (!removed || !removed.resolvedAt)) this.weaverFeedbackOpenTotal--;
+        this.updateNavBadge();
+        this.weaverFeedbackHasMore = this.weaverFeedback.length < this.weaverFeedbackTotal;
+        if (this.weaverReplyId === id) this.cancelWeaverReply();
+      }
+    });
   }
 
   startWeaverReply(f: any) {
@@ -327,59 +347,69 @@ export class ModeratorComponent extends ChildComponent {
     const userId = this.parentRef?.user?.id;
     if (!userId || !this.weaverReplyText.trim()) return;
     const sessionToken = await this.parentRef?.getSessionToken() ?? '';
-    this.weaverReplySaving = true;
-    try {
-      if (await this.moderatorService.replyWeaverFeedback(f.id, this.weaverReplyText.trim(), userId, sessionToken)) {
-        f.reply = this.weaverReplyText.trim();
-        f.repliedAt = new Date().toISOString().slice(0, 19).replace('T', ' ');
-        this.cancelWeaverReply();
+    await this.runAction('weaver-reply-' + f.id, async () => {
+      this.weaverReplySaving = true;
+      try {
+        if (await this.moderatorService.replyWeaverFeedback(f.id, this.weaverReplyText.trim(), userId, sessionToken)) {
+          f.reply = this.weaverReplyText.trim();
+          f.repliedAt = new Date().toISOString().slice(0, 19).replace('T', ' ');
+          this.cancelWeaverReply();
+        }
+      } finally {
+        this.weaverReplySaving = false;
       }
-    } finally {
-      this.weaverReplySaving = false;
-    }
+    });
   }
 
   async toggleResolveWeaverFeedback(f: any) {
     const userId = this.parentRef?.user?.id;
     if (!userId) return;
     const sessionToken = await this.parentRef?.getSessionToken() ?? '';
-    const resolve = !f.resolvedAt;
-    this.weaverResolveSaving = f.id;
-    try {
-      if (await this.moderatorService.resolveWeaverFeedback(f.id, resolve, userId, sessionToken)) {
-        f.resolvedAt = resolve ? new Date().toISOString().slice(0, 19).replace('T', ' ') : null;
-        this.weaverFeedbackOpenTotal = Math.max(0, this.weaverFeedbackOpenTotal + (resolve ? -1 : 1));
-        this.updateNavBadge();
+    await this.runAction('weaver-res-' + f.id, async () => {
+      const resolve = !f.resolvedAt;
+      this.weaverResolveSaving = f.id;
+      try {
+        if (await this.moderatorService.resolveWeaverFeedback(f.id, resolve, userId, sessionToken)) {
+          f.resolvedAt = resolve ? new Date().toISOString().slice(0, 19).replace('T', ' ') : null;
+          this.weaverFeedbackOpenTotal = Math.max(0, this.weaverFeedbackOpenTotal + (resolve ? -1 : 1));
+          this.updateNavBadge();
+        }
+      } finally {
+        this.weaverResolveSaving = 0;
       }
-    } finally {
-      this.weaverResolveSaving = 0;
-    }
+    });
   }
 
   async approveAppeal(appealId: number) {
     const userId = this.parentRef?.user?.id;
     if (!userId) return;
     const sessionToken = await this.parentRef?.getSessionToken() ?? '';
-    await this.userService.resolveAppeal(appealId, userId, 'approved', sessionToken);
-    await this.loadAppeals();
+    await this.runAction('appeal-appr-' + appealId, async () => {
+      await this.userService.resolveAppeal(appealId, userId, 'approved', sessionToken);
+      await this.loadAppeals();
+    });
   }
 
   async denyAppeal(appealId: number) {
     const userId = this.parentRef?.user?.id;
     if (!userId) return;
     const sessionToken = await this.parentRef?.getSessionToken() ?? '';
-    await this.userService.resolveAppeal(appealId, userId, 'denied', sessionToken);
-    await this.loadAppeals();
+    await this.runAction('appeal-deny-' + appealId, async () => {
+      await this.userService.resolveAppeal(appealId, userId, 'denied', sessionToken);
+      await this.loadAppeals();
+    });
   }
 
   async resolveModRequest(req: ModeratorRequest, resolution: 'approved' | 'denied') {
     const userId = this.parentRef?.user?.id;
     if (!userId) return;
     const sessionToken = await this.parentRef?.getSessionToken() ?? '';
-    this.loading = true;
-    await this.moderatorService.resolveModeratorRequest(req.id, userId, resolution, sessionToken);
-    this.loading = false;
-    await this.loadAppeals();
+    await this.runAction('req-' + req.id + '-' + resolution, async () => {
+      this.loading = true;
+      await this.moderatorService.resolveModeratorRequest(req.id, userId, resolution, sessionToken);
+      this.loading = false;
+      await this.loadAppeals();
+    });
   }
 
   // ─── Purpose-built user search ───
@@ -636,18 +666,23 @@ export class ModeratorComponent extends ChildComponent {
     const userId = this.parentRef?.user?.id;
     if (!userId) return;
     const sessionToken = await this.parentRef?.getSessionToken() ?? '';
-    this.chatModActionLoading = true;
-    const res = await this.moderatorService.resolveModeratorRequest(req.id, userId, resolution, sessionToken);
-    this.chatModActionLoading = false;
-    if (res.ok) {
-      this.chatModMessage = res.message;
-      this.chatModMessageIsError = false;
-      await this.loadChatModeration();
-      if (this.isAdmin) await this.loadAppeals();
-    } else {
-      this.chatModMessage = res.message;
-      this.chatModMessageIsError = true;
-    }
+    await this.runAction('chat-req-' + req.id + '-' + resolution, async () => {
+      this.chatModActionLoading = true;
+      try {
+        const res = await this.moderatorService.resolveModeratorRequest(req.id, userId, resolution, sessionToken);
+        if (res.ok) {
+          this.chatModMessage = res.message;
+          this.chatModMessageIsError = false;
+          await this.loadChatModeration();
+          if (this.isAdmin) await this.loadAppeals();
+        } else {
+          this.chatModMessage = res.message;
+          this.chatModMessageIsError = true;
+        }
+      } finally {
+        this.chatModActionLoading = false;
+      }
+    });
   }
 
   onManagedChatChange() {
@@ -808,18 +843,23 @@ export class ModeratorComponent extends ChildComponent {
     const userId = this.parentRef?.user?.id;
     if (!userId) return;
     const sessionToken = await this.parentRef?.getSessionToken() ?? '';
-    this.chatModActionLoading = true;
-    const ok = await this.moderatorService.resolveChatBanAppeal(appeal.id, userId, resolution, sessionToken);
-    this.chatModActionLoading = false;
-    if (ok) {
-      this.chatModMessage = resolution === 'approved'
-        ? `✅ Appeal approved — ${appeal.username ?? 'User'} was unbanned.`
-        : `❌ Appeal denied.`;
-      this.chatModMessageIsError = false;
-      await Promise.all([this.loadChatModeration(), this.loadModeratorLogs()]);
-    } else {
-      this.chatModMessage = `❌ Couldn't resolve the appeal.`;
-      this.chatModMessageIsError = true;
-    }
+    await this.runAction('chat-appeal-' + appeal.id + '-' + resolution, async () => {
+      this.chatModActionLoading = true;
+      try {
+        const ok = await this.moderatorService.resolveChatBanAppeal(appeal.id, userId, resolution, sessionToken);
+        if (ok) {
+          this.chatModMessage = resolution === 'approved'
+            ? `✅ Appeal approved — ${appeal.username ?? 'User'} was unbanned.`
+            : `❌ Appeal denied.`;
+          this.chatModMessageIsError = false;
+          await Promise.all([this.loadChatModeration(), this.loadModeratorLogs()]);
+        } else {
+          this.chatModMessage = `❌ Couldn't resolve the appeal.`;
+          this.chatModMessageIsError = true;
+        }
+      } finally {
+        this.chatModActionLoading = false;
+      }
+    });
   }
 }
