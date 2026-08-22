@@ -159,6 +159,7 @@
         <div class="marbles-actions">
           <button class="win98-btn" *ngIf="!isMeHost()" (click)="toggleReady()" [disabled]="(lobby?.players?.length ?? 0) < 2">Ready</button>
           <button class="win98-btn primary" *ngIf="isMeHost()" (click)="startGame()" [disabled]="(lobby?.players?.length ?? 0) < 2">Start Game</button>
+          <button class="win98-btn" (click)="shareRoom()">🔗 Share</button>
           <button class="win98-btn" (click)="leaveToMenu()">Leave</button>
         </div>
         <div class="marbles-chat">

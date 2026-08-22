@@ -33,7 +33,18 @@
         </label>
         <label>
           <span>Description</span>
-          <textarea rows="3" [(ngModel)]="form.description" placeholder="What makes this recipe special?"></textarea>
+          <app-text-input #descInput [inputtedParentRef]="parentRef"
+            [type]="'Notepad'"
+            [showPostInput]="true"
+            [showTopicSelector]="false"
+            [showTopics]="false"
+            [saveAsStory]="false"
+            [skipSendingNotifications]="true"
+            [placeholderText]="'What makes this recipe special?'"
+            [postButtonText]="'✅'"
+            [initialContent]="form.description"
+            (contentPosted)="onDescriptionPosted($event)">
+          </app-text-input>
         </label>
         <div class="field-block">
           <div class="field-title-row">
@@ -114,7 +125,7 @@
                 <span class="pill" *ngFor="let tag of recipe.tags">{{ tag }}</span>
               </div>
             </div>
-            <p *ngIf="recipe.description" class="recipe-description">{{ recipe.description }}</p>
+            <div *ngIf="recipe.description" class="recipe-description" [innerHtml]="parentRef?.getTextForDOM(recipe.description, 'recipeDesc' + recipe.id)"></div>
             <app-rating-stars [rating]="getUserRating(recipe)" [inputtedParentRef]="parentRef" [componentType]="'recipe'" [ratingRecipeId]="recipe.id" [recipeAverageRating]="recipe.averageRating" [recipeRatingCount]="recipe.ratingCount" [readOnly]="!parentRef?.user?.id" (rated)="onRated(recipe, $event)"></app-rating-stars>
 
             <button class="expand-btn" (click)="toggleRecipeDetails(recipe.id)">

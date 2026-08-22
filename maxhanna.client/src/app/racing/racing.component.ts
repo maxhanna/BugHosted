@@ -1028,7 +1028,37 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.invalidateUpgradeStats();
     this.playerNameDraft = this.playerCar.playerName || '';
     this.loadLeaderboard();
+
+    // Deep-link: if the URL carries ?track=ID, auto-join that track's lobby.
+    try {
+      const trackParam = new URLSearchParams(window.location.search).get('track');
+      if (trackParam) {
+        const tid = parseInt(trackParam, 10);
+        const track = this.trackDefs.find(t => t.id === tid);
+        if (track && this.playerCar.money >= track.entryFee) {
+          setTimeout(() => this.selectTrackMultiplayer(track), 500);
+        }
+      }
+    } catch { /* URLSearchParams unavailable in SSR */ }
   }
+
+  /** Copy a shareable link to this track's multiplayer lobby to the clipboard. */
+  shareLobby(): void {
+    if (!this.selectedTrack) return;
+    const url = `${window.location.origin}/Racing?track=${this.selectedTrack.id}`;
+    navigator.clipboard?.writeText(url).then(() => {
+      this.addMessage('🔗 Lobby link copied to clipboard!');
+    }).catch(() => {
+      const input = document.createElement('input');
+      input.value = url;
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand('copy');
+      document.body.removeChild(input);
+      this.addMessage('🔗 Lobby link copied to clipboard!');
+    });
+  }
+
   private async refreshPlayerCarFromServer() {
     const userId = this.parentRef?.user?.id ?? 0;
     if (!userId) return;

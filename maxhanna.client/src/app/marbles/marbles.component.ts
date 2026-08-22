@@ -146,6 +146,7 @@ interface Sprite {
   popDelay: number;              // seconds of tremble before the shatter starts
   popT: number;                  // seconds since the pop began
   broken: boolean;               // true once the shatter burst has fired
+  _popHold?: number;              // seconds since shatter burst fired (brief hold before shrink)
 }
 
 /** A fragment or flash ring from a marble's shatter burst (grid-space). */
@@ -390,6 +391,15 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
       this.lastTime = performance.now();
       this.animId = requestAnimationFrame(t => this.loop(t));
     });
+
+    // Deep-link: if the URL carries ?room=CODE, auto-join that room.
+    try {
+      const room = new URLSearchParams(window.location.search).get('room');
+      if (room && room.trim()) {
+        this.joinCode = room.trim();
+        setTimeout(() => this.joinGame(), 300);
+      }
+    } catch { /* URLSearchParams unavailable in SSR */ }
   }
 
   ngOnDestroy(): void {
@@ -402,6 +412,23 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     this.hub.disconnect();
     if (this._audio) { this._audio.close(); this._audio = null; }
   }
+  /** Copy a shareable link to this room to the clipboard. */
+  shareRoom(): void {
+    const url = `${window.location.origin}/Marbles?room=${this.roomCode}`;
+    navigator.clipboard?.writeText(url).then(() => {
+      this.parentRef?.showNotification('Link copied to clipboard!');
+    }).catch(() => {
+      // Fallback: select + copy from a temporary input
+      const input = document.createElement('input');
+      input.value = url;
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand('copy');
+      document.body.removeChild(input);
+      this.parentRef?.showNotification('Link copied to clipboard!');
+    });
+  }
+
   /** Host a new room. `publicRoom` = appear in the open-room list (1:1),
    *  otherwise a private room joinable only by sharing the code. */
   async hostGame(publicRoom: boolean): Promise<void> {
@@ -1636,7 +1663,12 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
           s.broken = true;
           this.spawnPopBurst(s.col, s.row, s.color, shards);
         }
-        if (s.broken) s.scale -= dt * 6.5;
+        // Hold at full size briefly after the burst fires, then shrink gently
+        // over ~0.45 s so the marble visibly crumbles instead of vanishing.
+        if (s.broken) {
+          s._popHold = (s._popHold ?? 0) + dt;
+          if (s._popHold > 0.08) s.scale -= dt * 2.2;
+        }
         continue;
       }
       if (s.moveDur > 0) {
@@ -1684,7 +1716,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     const cells = new Map<string, { row: number; col: number; color: number }>();
     for (const p of popped) cells.set(`${p.row},${p.col}`, p);
     const visited = new Set<string>();
-    const STAGGER = 0.055;
+    const STAGGER = 0.11;
     for (const key of cells.keys()) {
       if (visited.has(key)) continue;
       const queue = [key];
@@ -1717,20 +1749,20 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
   private spawnPopBurst(col: number, row: number, colorId: number, shards: PopShard[]): void {
     const base = COLORS[colorId] ?? COLORS[1];
     shards.push({
-      col, row, vCol: 0, vRow: 0, life: 0.26, maxLife: 0.26, size: 0.12,
+      col, row, vCol: 0, vRow: 0, life: 0.4, maxLife: 0.4, size: 0.12,
       color: [255, 255, 255], spin: 0, spinSpeed: 0, ring: true,
     });
     const n = 9;
     for (let i = 0; i < n; i++) {
       const a = (i / n) * Math.PI * 2 + Math.random() * 0.6;
-      const speed = 1.4 + Math.random() * 2.4;
+      const speed = 0.9 + Math.random() * 1.6;
       const bright = 0.7 + Math.random() * 0.7;
       shards.push({
         col, row,
         vCol: Math.cos(a) * speed,
         vRow: Math.sin(a) * speed - 1.1,
-        life: 0.45 + Math.random() * 0.35,
-        maxLife: 0.8,
+        life: 0.7 + Math.random() * 0.5,
+        maxLife: 1.2,
         size: 0.045 + Math.random() * 0.07,
         color: [clamp255(base[0] * bright), clamp255(base[1] * bright), clamp255(base[2] * bright)],
         spin: Math.random() * Math.PI * 2,

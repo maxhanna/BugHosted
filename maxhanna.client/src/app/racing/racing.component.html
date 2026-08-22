@@ -268,13 +268,16 @@
           ⏱️ {{ autoStartDisplay }}
         </div>
 
-        <!-- Ready / Start / Leave buttons -->
+        <!-- Ready / Start / Share / Leave buttons -->
         <div class="race-mp-actions" *ngIf="selectedTrack">
           <button class="race-mp-btn" (click)="toggleReadyMultiplayer()" [class.race-mp-ready]="amReady">
             {{ amReady ? '✓ READY' : 'READY UP' }}
           </button>
           <button class="race-mp-btn race-mp-start" *ngIf="isLobbyHost" (click)="startRaceMP()">
             START RACE
+          </button>
+          <button class="race-mp-btn" (click)="shareLobby()">
+            🔗 SHARE
           </button>
           <button class="race-mp-btn race-mp-leave" (click)="leaveLobby()">
             LEAVE LOBBY

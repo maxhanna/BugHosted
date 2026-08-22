@@ -5,6 +5,7 @@ import { ChildComponent } from '../child.component';
 import { User } from '../../services/datacontracts/user/user';
 import { Rating } from '../../services/ratings.service';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
+import { TextInputComponent } from '../text-input/text-input.component';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { RecipePayload, RecipeService, Recipe } from '../../services/recipe.service';
 import { Topic } from '../../services/datacontracts/topics/topic';
@@ -30,6 +31,7 @@ export class RecipeComponent extends ChildComponent implements OnInit {
   }
 
   @ViewChild('mediaSelector') mediaSelector?: MediaSelectorComponent;
+  @ViewChild('descInput') descInput?: TextInputComponent;
   recipes: Recipe[] = [];
   filteredRecipes: Recipe[] = [];
   expandedRecipes = new Map<number, boolean>();
@@ -135,8 +137,18 @@ export class RecipeComponent extends ChildComponent implements OnInit {
   visitLink(url: string): void { this.parentRef?.visitExternalLink(url); }
   onMediaSelection(files: FileEntry[]): void { this.selectedFiles = files; this.form.imageFileIds = files.map(f => f.id).filter(Boolean); }
 
+  /** Called when the app-text-input posts the description content. */
+  onDescriptionPosted(event: { results: any, content: any, originalContent: string }): void {
+    this.form.description = event.originalContent || this.descInput?.textarea?.value || '';
+  }
+
   submitRecipe(): void {
     if (!this.form.name.trim()) return alert('Please give your recipe a name.');
+    // Sync description from the rich-text editor in case the user typed but
+    // didn't explicitly press the ✅ post button.
+    if (this.descInput?.textarea?.value) {
+      this.form.description = this.descInput.textarea.value;
+    }
     const p: RecipePayload = {
       ...this.form,
       userId: this.parentRef?.user?.id || 0,
