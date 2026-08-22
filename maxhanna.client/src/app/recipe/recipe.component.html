@@ -1,5 +1,6 @@
 ﻿<div class="componentMain">
-  <app-title-bar [title]="'Recipes'" (closeClicked)="remove_me('RecipeComponent')" (menuClicked)="openPopupPanel()"></app-title-bar>
+  <app-title-bar [title]="'Recipes'" (closeClicked)="remove_me('RecipeComponent')"
+    (menuClicked)="openPopupPanel()"></app-title-bar>
   <div class="recipe-shell">
     <div class="recipe-back-banner" *ngIf="viewingRecipeId">
       <span>Showing linked recipe</span>
@@ -10,13 +11,15 @@
       <div>
         <p class="eyebrow">Community Cookbook</p>
         <h2>Discover, share and save recipes</h2>
-        <p class="hero-copy">Upload mouth-watering photos, add ingredients, and let others search by flavor, meal type, or name.</p>
+        <p class="hero-copy">Upload mouth-watering photos, add ingredients, and let others search by flavor, meal type,
+          or name.</p>
       </div>
       <button class="primary-btn" (click)="openCreateForm()" *ngIf="editingRecipeId !== 0">+ Add a recipe</button>
     </div>
 
     <div class="recipe-toolbar" *ngIf="!viewingRecipeId">
-      <input class="search-input" type="text" [(ngModel)]="searchTerm" (ngModelChange)="applyFilters()" placeholder="Search recipes by name, ingredient, or tag" />
+      <input class="search-input" type="text" [(ngModel)]="searchTerm" (ngModelChange)="applyFilters()"
+        placeholder="Search recipes by name, ingredient, or tag" />
       <div class="toolbar-meta">{{ filteredRecipes.length }} recipes</div>
     </div>
 
@@ -33,42 +36,43 @@
         </label>
         <label>
           <span>Description</span>
-          <app-text-input #descInput [inputtedParentRef]="parentRef"
-            [type]="'Notepad'"
-            [showPostInput]="true"
-            [showTopicSelector]="false"
-            [showTopics]="false"
-            [saveAsStory]="false"
-            [skipSendingNotifications]="true"
-            [placeholderText]="'What makes this recipe special?'"
-            [postButtonText]="'✅'"
-            [initialContent]="form.description"
-            (contentPosted)="onDescriptionPosted($event)">
+          <app-text-input #descInput [inputtedParentRef]="parentRef" [type]="'Notepad'" [showPostInput]="true"
+            [showTopicSelector]="false" [showTopics]="false" [saveAsStory]="false" [skipSendingNotifications]="true"
+            [placeholderText]="'What makes this recipe special?'" [postButtonText]="'✅'"
+            [initialContent]="form.description" (contentPosted)="onDescriptionPosted($event)">
           </app-text-input>
         </label>
         <div class="field-block">
           <div class="field-title-row">
             <span>Ingredients</span>
-            <button type="button" class="text-btn" (click)="addIngredient()" *ngIf="!hasEmptyIngredient()">+ Add</button>
+            <button type="button" class="text-btn" (click)="addIngredient()" *ngIf="!hasEmptyIngredient()">+
+              Add</button>
           </div>
           <div class="inline-stack" *ngFor="let ingredient of form.ingredients; let i = index; trackBy: trackByIndex">
-            <input type="text" [id]="'ingredient' + i" [(ngModel)]="form.ingredients[i]" placeholder="Ingredient {{ i + 1 }}" />
-            <button type="button" class="text-btn remove-btn" (click)="removeIngredient(i)" *ngIf="form.ingredients.length > 1">Remove</button>
+            <input type="text" [id]="'ingredient' + i" [(ngModel)]="form.ingredients[i]"
+              placeholder="Ingredient {{ i + 1 }}" />
+            <button type="button" class="text-btn remove-btn" (click)="removeIngredient(i)"
+              *ngIf="form.ingredients.length > 1">Remove</button>
           </div>
         </div>
         <div class="field-block">
           <div class="field-title-row">
             <span>Instructions</span>
-            <button type="button" class="text-btn" (click)="addInstruction()" *ngIf="!hasEmptyInstruction()">+ Add</button>
+            <button type="button" class="text-btn" (click)="addInstruction()" *ngIf="!hasEmptyInstruction()">+
+              Add</button>
           </div>
           <div class="inline-stack" *ngFor="let instruction of form.instructions; let i = index; trackBy: trackByIndex">
-            <textarea [id]="'instruction' + i" rows="2" [(ngModel)]="form.instructions[i]" placeholder="Step {{ i + 1 }}"></textarea>
-            <button type="button" class="text-btn remove-btn" (click)="removeInstruction(i)" *ngIf="form.instructions.length > 1">Remove</button>
+            <textarea [id]="'instruction' + i" rows="2" [(ngModel)]="form.instructions[i]"
+              placeholder="Step {{ i + 1 }}"></textarea>
+            <button type="button" class="text-btn remove-btn" (click)="removeInstruction(i)"
+              *ngIf="form.instructions.length > 1">Remove</button>
           </div>
         </div>
         <div class="field-block">
           <div class="field-title-row"><span>Tags</span></div>
-          <app-topics [isDropdown]="true" [user]="parentRef?.user" [parent]="parentRef" [attachedTopics]="selectedTopics" [preventClosingOverlay]="true" (topicAdded)="onTopicsChanged($event)"></app-topics>
+          <app-topics [isDropdown]="true" [user]="parentRef?.user" [parent]="parentRef"
+            [attachedTopics]="selectedTopics" [preventClosingOverlay]="true"
+            (topicAdded)="onTopicsChanged($event)"></app-topics>
         </div>
         <div class="field-block">
           <div class="field-title-row">
@@ -82,10 +86,13 @@
         </div>
         <div class="field-block">
           <span class="field-label">Photos</span>
-          <app-media-selector #mediaSelector [inputtedParentRef]="parentRef" [maxSelectedFiles]="4" [currentDirectory]="'Pictures/Recipes/'" [selectedFiles]="selectedFiles" (selectFileEvent)="onMediaSelection($event)"></app-media-selector>
+          <app-media-selector #mediaSelector [inputtedParentRef]="parentRef" [maxSelectedFiles]="4"
+            [currentDirectory]="'Pictures/Recipes/'" [selectedFiles]="selectedFiles"
+            (selectFileEvent)="onMediaSelection($event)"></app-media-selector>
         </div>
         <div class="form-actions">
-          <button class="primary-btn" (click)="submitRecipe()">{{ editingRecipeId && editingRecipeId > 0 ? 'Update Recipe' : 'Save Recipe' }}</button>
+          <button class="primary-btn" (click)="submitRecipe()">{{ editingRecipeId && editingRecipeId > 0 ? 'Update
+            Recipe' : 'Save Recipe' }}</button>
           <button class="cancel-btn" (click)="cancelEdit()">Cancel</button>
         </div>
       </div>
@@ -94,88 +101,100 @@
     <div *ngIf="isLoading && recipes.length === 0" class="empty-state">Loading recipes...</div>
     <div *ngIf="!isLoading && filteredRecipes.length === 0 && editingRecipeId !== 0" class="empty-state">
       <p>No recipes match that search.</p>
-      <p class="empty-hint">Try a different ingredient or name, or <a (click)="openCreateForm()">add the first recipe</a>.</p>
+      <p class="empty-hint">Try a different ingredient or name, or <a (click)="openCreateForm()">add the first
+          recipe</a>.</p>
     </div>
 
-    <div class="recipe-grid" *ngIf="filteredRecipes.length > 0 || editingRecipeId === 0">
+    <div class="recipe-grid" *ngIf="filteredRecipes.length > 0">
       <!-- New Recipe Card -->
-      <article class="recipe-card recipe-card-editing" *ngIf="editingRecipeId === 0">
+      <article class="recipe-card recipe-card-editing" *ngIf="!editingRecipeId || editingRecipeId <= 0">
         <ng-container *ngTemplateOutlet="recipeForm"></ng-container>
       </article>
 
       <!-- Recipe Cards -->
-      <article class="recipe-card"
-               [class.recipe-card-expanded]="expandedRecipes.get(recipe.id)"
-               [class.recipe-card-editing]="editingRecipeId === recipe.id"
-               [class.recipe-has-media]="recipe.imageFileIds[0] || !!getYouTubeUrl(recipe)"
-               *ngFor="let recipe of filteredRecipes; trackBy: trackByRecipeId">
+      <div *ngIf="!editingRecipeId || editingRecipeId <= 0">
+        <article class="recipe-card" [class.recipe-card-expanded]="expandedRecipes.get(recipe.id)"
+          [class.recipe-card-editing]="editingRecipeId === recipe.id"
+          [class.recipe-has-media]="recipe.imageFileIds[0] || !!getYouTubeUrl(recipe)"
+          *ngFor="let recipe of filteredRecipes; trackBy: trackByRecipeId">
 
-        <!-- View Mode -->
-        <ng-container *ngIf="editingRecipeId !== recipe.id">
-          <div class="recipe-media" *ngIf="recipe.imageFileIds[0] || getYouTubeUrl(recipe)">
-            <app-media-viewer *ngIf="recipe.imageFileIds[0]" [fileId]="recipe.imageFileIds[0]" [displayExpander]="false" [displayExtraInfo]="false" [showCommentSection]="false" [inputtedParentRef]="parentRef"></app-media-viewer>
-            <div *ngIf="!recipe.imageFileIds[0] && getYouTubeUrl(recipe) as ytUrl" class="recipe-video" [class.recipe-video-short]="isRecipeVideoShort(getFirstYoutubeUrlForRecipe(recipe))">
-              <iframe [src]="ytUrl" frameborder="0" allowfullscreen></iframe>
-            </div>
-          </div>
-          <div class="recipe-card-body">
-            <div class="recipe-title-row">
-              <h3>{{ recipe.name }}</h3>
-              <div class="tags-container" *ngIf="recipe.tags?.length">
-                <span class="pill" *ngFor="let tag of recipe.tags">{{ tag }}</span>
+          <!-- View Mode -->
+          <ng-container *ngIf="editingRecipeId !== recipe.id">
+            <div class="recipe-media" *ngIf="recipe.imageFileIds[0] || getYouTubeUrl(recipe)">
+              <app-media-viewer *ngIf="recipe.imageFileIds[0]" [fileId]="recipe.imageFileIds[0]"
+                [displayExpander]="false" [displayExtraInfo]="false" [showCommentSection]="false"
+                [inputtedParentRef]="parentRef"></app-media-viewer>
+              <div *ngIf="!recipe.imageFileIds[0] && getYouTubeUrl(recipe) as ytUrl" class="recipe-video"
+                [class.recipe-video-short]="isRecipeVideoShort(getFirstYoutubeUrlForRecipe(recipe))">
+                <iframe [src]="ytUrl" frameborder="0" allowfullscreen></iframe>
               </div>
             </div>
-            <div *ngIf="recipe.description" class="recipe-description" [innerHtml]="parentRef?.getTextForDOM(recipe.description, 'recipeDesc' + recipe.id)"></div>
-            <app-rating-stars [rating]="getUserRating(recipe)" [inputtedParentRef]="parentRef" [componentType]="'recipe'" [ratingRecipeId]="recipe.id" [recipeAverageRating]="recipe.averageRating" [recipeRatingCount]="recipe.ratingCount" [readOnly]="!parentRef?.user?.id" (rated)="onRated(recipe, $event)"></app-rating-stars>
+            <div class="recipe-card-body">
+              <div class="recipe-title-row">
+                <h3>{{ recipe.name }}</h3>
+                <div class="tags-container" *ngIf="recipe.tags?.length">
+                  <span class="pill" *ngFor="let tag of recipe.tags">{{ tag }}</span>
+                </div>
+              </div>
+              <div *ngIf="recipe.description" class="recipe-description"
+                [innerHtml]="parentRef?.getTextForDOM(recipe.description, 'recipeDesc' + recipe.id)"></div>
+              <app-rating-stars [rating]="getUserRating(recipe)" [inputtedParentRef]="parentRef"
+                [componentType]="'recipe'" [ratingRecipeId]="recipe.id" [recipeAverageRating]="recipe.averageRating"
+                [recipeRatingCount]="recipe.ratingCount" [readOnly]="!parentRef?.user?.id"
+                (rated)="onRated(recipe, $event)"></app-rating-stars>
 
-            <button class="expand-btn" (click)="toggleRecipeDetails(recipe.id)">
-              {{ expandedRecipes.get(recipe.id) ? 'Hide details' : 'View full recipe' }}
-            </button>
+              <button class="expand-btn" (click)="toggleRecipeDetails(recipe.id)">
+                {{ expandedRecipes.get(recipe.id) ? 'Hide details' : 'View full recipe' }}
+              </button>
 
-            <div class="recipe-expanded-content" *ngIf="expandedRecipes.get(recipe.id)">
-              <div class="recipe-section" *ngIf="recipe.ingredients?.length">
-                <h4>Ingredients</h4>
-                <ul><li *ngFor="let ingredient of recipe.ingredients">{{ ingredient }}</li></ul>
-              </div>
-              <div class="recipe-section" *ngIf="recipe.instructions?.length">
-                <h4>Instructions</h4>
-                <ol><li *ngFor="let step of recipe.instructions">{{ step }}</li></ol>
-              </div>
-              <div class="recipe-section" *ngIf="getFirstYouTubeId(recipe) && !isVideoOnlyRecipe(recipe)">
-                <iframe [src]="getYouTubeUrl(recipe)" height="315" frameborder="0" allowfullscreen></iframe>
-              </div>
-              <div class="recipe-section" *ngIf="recipe.externalLinks?.length">
-                <h4>Links</h4>
-                <ul class="recipe-links">
-                  <li *ngFor="let link of recipe.externalLinks"><a (click)="visitLink(link)">{{ link }}</a></li>
-                </ul>
+              <div class="recipe-expanded-content" *ngIf="expandedRecipes.get(recipe.id)">
+                <div class="recipe-section" *ngIf="recipe.ingredients?.length">
+                  <h4>Ingredients</h4>
+                  <ul>
+                    <li *ngFor="let ingredient of recipe.ingredients">{{ ingredient }}</li>
+                  </ul>
+                </div>
+                <div class="recipe-section" *ngIf="recipe.instructions?.length">
+                  <h4>Instructions</h4>
+                  <ol>
+                    <li *ngFor="let step of recipe.instructions">{{ step }}</li>
+                  </ol>
+                </div>
+                <div class="recipe-section" *ngIf="getFirstYouTubeId(recipe) && !isVideoOnlyRecipe(recipe)">
+                  <iframe [src]="getYouTubeUrl(recipe)" height="315" frameborder="0" allowfullscreen></iframe>
+                </div>
+                <div class="recipe-section" *ngIf="recipe.externalLinks?.length">
+                  <h4>Links</h4>
+                  <ul class="recipe-links">
+                    <li *ngFor="let link of recipe.externalLinks"><a (click)="visitLink(link)">{{ link }}</a></li>
+                  </ul>
+                </div>
+
+                <div class="recipe-section">
+                  <app-comments [inputtedParentRef]="parentRef" [type]="'Comment'" [component]="recipe"
+                    [component_id]="recipe.id" [recipeId]="recipe.id" [showComments]="true" [showCommentsHeader]="true">
+                  </app-comments>
+                </div>
               </div>
 
-              <div class="recipe-section">
-                <app-comments [inputtedParentRef]="parentRef" [type]="'Comment'"
-                  [component]="recipe" [component_id]="recipe.id" [recipeId]="recipe.id"
-                  [showComments]="true" [showCommentsHeader]="true">
-                </app-comments>
+              <div class="recipe-footer">
+                <div class="footer-meta">
+                  <span>By {{ recipe.createdBy || 'Community Cook' }}</span>
+                  <span class="date">{{ recipe.createdAt | date:'mediumDate' }}</span>
+                </div>
+                <div class="footer-actions">
+                  <button class="text-btn" *ngIf="canEdit(recipe)" (click)="editRecipe(recipe)">Edit</button>
+                  <app-share-button [link]="'Recipe/' + recipe.id"></app-share-button>
+                </div>
               </div>
             </div>
+          </ng-container>
+      </div>
 
-            <div class="recipe-footer">
-              <div class="footer-meta">
-                <span>By {{ recipe.createdBy || 'Community Cook' }}</span>
-                <span class="date">{{ recipe.createdAt | date:'mediumDate' }}</span>
-              </div>
-              <div class="footer-actions">
-                <button class="text-btn" *ngIf="canEdit(recipe)" (click)="editRecipe(recipe)">Edit</button>
-                <app-share-button [link]="'Recipe/' + recipe.id"></app-share-button>
-              </div>
-            </div>
-          </div>
-        </ng-container>
-
-        <!-- Edit Mode -->
-        <ng-container *ngIf="editingRecipeId === recipe.id">
-          <ng-container *ngTemplateOutlet="recipeForm"></ng-container>
-        </ng-container>
+      <!-- Edit Mode -->
+      <ng-container *ngIf="editingRecipeId === recipe.id">
+        <ng-container *ngTemplateOutlet="recipeForm"></ng-container>
+      </ng-container>
       </article>
     </div>
   </div>
@@ -187,9 +206,11 @@
       <div class="recipe-menu-hero">
         <p class="eyebrow">Community Cookbook</p>
         <h2>Discover, share and save recipes</h2>
-        <p class="hero-copy">Upload mouth-watering photos, add ingredients, and let others search by flavor, meal type, or name.</p>
+        <p class="hero-copy">Upload mouth-watering photos, add ingredients, and let others search by flavor, meal type,
+          or name.</p>
         <div class="recipe-menu-actions">
-          <button class="primary-btn" (click)="openCreateForm(); closeMenuPanel();" *ngIf="editingRecipeId !== 0">+ Add a recipe</button>
+          <button class="primary-btn" (click)="openCreateForm(); closeMenuPanel();" *ngIf="editingRecipeId !== 0">+ Add
+            a recipe</button>
           <button class="cancel-btn" (click)="closeMenuPanel()">Browse recipes</button>
         </div>
       </div>
