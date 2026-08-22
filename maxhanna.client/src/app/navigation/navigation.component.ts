@@ -112,6 +112,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   isLoadingEmulator = false;
   isLoadingMeta = false;
   isLoadingArray = false;
+  isLoadingMovies = false;
   isLoadingMusic = false;
   isLoadingTodo = false;
   isLoadingNews = false;
@@ -655,6 +656,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.isLoadingArt = false;
     this.isLoadingWeather = false;
     this.isLoadingArray = false;
+    this.isLoadingMovies = false;
 
     this.resetLastRunTimestamps();
 
@@ -666,7 +668,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       'notificationInfo', 'appealsInfo', 'weatherInfo', 'cryptoHub', 'calendarInfo',
       'wordler', 'ender', 'bones', 'digcraft', 'nexus', 'meta',
       'music', 'todo', 'array', 'emulation', 'social', 'art',
-      'crawler', 'newsCount', 'theme', 'grandTheft', 'racing'
+      'crawler', 'newsCount', 'theme', 'grandTheft', 'racing', 'movie'
     ];
 
     keysToReset.forEach(key => {
@@ -731,9 +733,10 @@ export class NavigationComponent implements OnInit, OnDestroy {
       Promise.resolve(this.getBonesPlayerInfo()),
       Promise.resolve(this.getGrandTheftPlayerInfo()),
       Promise.resolve(this.getRacingPlayerInfo()),
-      Promise.resolve(this.getDigcraftPlayerInfo())
+      Promise.resolve(this.getDigcraftPlayerInfo()),
+      Promise.resolve(this.getMovieInfo())
     ].map(p =>
-      p.catch(err => {
+      p.catch (err => {
         console.error('Concurrent task failed:', err);
       })
     );
@@ -967,7 +970,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
             const suffix = activeFriends > 0 ? ` #${activeFriends}` : '';
             this._parent.navigationItems.filter(x => x.title == "Chat")[0].content = numberOfChatNotifs + suffix;
           } else {
-            // If no chat notifications, show only active friends count if >0
+            // If no chat notifications, show only active friends count if > 0
             this._parent.navigationItems.filter(x => x.title == "Chat")[0].content = activeFriends > 0 ? `#${activeFriends}` : '';
           }
         }
@@ -2056,16 +2059,50 @@ export class NavigationComponent implements OnInit, OnDestroy {
     return this._parent.userSelectedNavigationItems.some(x => x.title == title);
   }
   hexWithAlpha(hex?: string | undefined | null, alpha?: number): string | null {
-    if (!hex || !alpha) return null;
-    if (hex && hex.length > 7) {
+    if(!hex || !alpha) return null;
+    if(hex && hex.length > 7) {
       console.warn(`Expected hex in #RRGGBB format, got ${hex}`);
       return hex;
     }
     const a = Math.round(Math.max(0, Math.min(1, alpha)) * 255);
     const aa = a.toString(16).padStart(2, '0');
     let h = hex.replace('#', '').trim();
-    if (h.length === 3) h = h.split('').map(c => c + c).join('');
-    if (h.length !== 6) throw new Error(`Invalid hex color: ${hex}`);
+    if(h.length === 3) h = h.split('').map(c => c + c).join('');
+    if(h.length !== 6) throw new Error(`Invalid hex color: ${hex}`);
     return `#${h}${aa}`;
   }
-}
+  public movieTodoCount: number | null = null;
+
+  private async getMovieInfo() {
+    const sig = this._abortController.signal;
+    if (sig.aborted) return;
+    if (!this._parent.notificationsActive) return;
+    if(this._parent.lastRunTimestamps['movie'] && Date.now() - this._parent.lastRunTimestamps['movie'] < this.time60Mins) {
+      return;
+    }
+    // Check for user selection before proceeding
+    if (!this.hasUserSelectedNavItem('Movies')) {
+      console.log("Movies nav item not selected, skipping fetch");
+      return;
+    }
+    this.isLoadingMovies = true;
+    try {
+      const movieNav = this._parent.navigationItems.find(x => x.title === 'Movies');
+      if (movieNav) {
+        // Fetch the count of saved movies using todoService similar to music implementation
+        const res: any = await this.todoService.getTodoCount(this._parent?.user?.id ??0, 'Movie', undefined, sig);
+        this.movieTodoCount = res?.count ?? null;
+        // Update navigation content with shortened count or empty string when zero
+        movieNav.content = this.movieTodoCount && this.movieTodoCount > 0 ? this.shortenCount(this.movieTodoCount) : '';
+      } else {
+        console.warn('Navigation item for Movies was null.');
+      }
+    } catch (error) {
+      this.movieTodoCount = null;
+      console.error("Error fetching movie todo count:", error);
+    } finally {
+      this.isLoadingMovies = false;
+      this.updateLastRunTimestamp('movie');
+    }
+  }
+  }

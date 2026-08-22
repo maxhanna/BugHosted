@@ -7,13 +7,13 @@
   <!-- Stats Bar -->
   <div class="stats-bar nbDiv" [style.margin-Top]="onlySearch ? '-16px' : ''">
     <span class="stat-badge" *ngIf="!onlySearch">Total: <span class="stat-value">{{indexCount | number:'1.0-0'}}</span> indexed</span>
-    <span class="stat-badge" *ngIf="searchResults.length">Results: <span class="stat-value">{{totalResults}}</span></span>
+    <span class="stat-badge" *ngIf="searchResults.length">Results: <span class="stat-value">{{totalResults | number:'1.0-0'}}</span></span>
     <span class="stat-badge" *ngIf="youtubeResults.length">YouTube: <span class="stat-value">{{youtubeResults.length | number:'1.0-0'}}</span></span>
     <span class="stat-badge" *ngIf="redditResults.length">Reddit: <span class="stat-value">{{redditResults.length | number:'1.0-0'}}</span></span>
-    <span class="stat-badge" *ngIf="xResults.length">X: <span class="stat-value">{{xResults.length}}</span></span>
-    <span class="stat-badge" *ngIf="imdbResults.length">IMDB: <span class="stat-value">{{imdbResults.length}}</span></span>
-    <span class="stat-badge" *ngIf="duckDuckGoResults.length">DuckDuckGo: <span class="stat-value">{{duckDuckGoResults.length}}</span></span>
-    <span class="stat-badge" *ngIf="yahooResults.length">Yahoo: <span class="stat-value">{{yahooResults.length}}</span></span>
+    <span class="stat-badge" *ngIf="xResults.length">X: <span class="stat-value">{{xResults.length | number:'1.0-0'}}</span></span>
+    <span class="stat-badge" *ngIf="imdbResults.length">IMDB: <span class="stat-value">{{imdbResults.length | number:'1.0-0'}}</span></span>
+    <span class="stat-badge" *ngIf="duckDuckGoResults.length">DuckDuckGo: <span class="stat-value">{{duckDuckGoResults.length | number:'1.0-0'}}</span></span>
+    <span class="stat-badge" *ngIf="yahooResults.length">Yahoo: <span class="stat-value">{{yahooResults.length | number:'1.0-0'}}</span></span>
   </div>
 
   <div class="crawler-container" [style.position]="onlySearch ? 'relative' : ''" [style.top]="onlySearch ? '-30px' : ''">
