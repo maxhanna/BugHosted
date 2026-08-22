@@ -3047,6 +3047,31 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const d = Math.max(1, this.totalTrackDist / this.trackLen);
     return Math.max(-1, Math.min(1, (e1 - e0) / (4 * d)));
   }
+  /** Project a world point onto the two track segments that meet at the nearest
+   *  sampled vertex (the segment behind it and the one ahead of it). The old
+   *  code only used the forward segment, so a point sitting slightly behind the
+   *  nearest vertex was clamped onto the vertex itself — on tight corners that
+   *  could report a car several units off the true centreline and falsely trip
+   *  the kerb/wall auto-correction. Returns the closer segment's index, its 0..1
+   *  projection parameter and the squared distance to the projected point. */
+  private projectToTrack(wx: number, wz: number, nearestIdx: number): { seg: number; t: number; dSq: number } {
+    const pts = this._trackPoints;
+    const n = pts.length;
+    let bestSeg = nearestIdx, bestT = 0, bestDSq = Infinity;
+    for (let off = -1; off <= 0; off++) {
+      const a = pts[(nearestIdx + off + n) % n];
+      const b = pts[(nearestIdx + off + 1 + n) % n];
+      const sx = b.x - a.x, sz = b.z - a.z;
+      const segLenSq = sx * sx + sz * sz;
+      let t = segLenSq > 0.0001 ? ((wx - a.x) * sx + (wz - a.z) * sz) / segLenSq : 0;
+      t = t < 0 ? 0 : t > 1 ? 1 : t;
+      const px = a.x + sx * t, pz = a.z + sz * t;
+      const dx = wx - px, dz = wz - pz;
+      const dSq = dx * dx + dz * dz;
+      if (dSq < bestDSq) { bestDSq = dSq; bestSeg = (nearestIdx + off + n) % n; bestT = t; }
+    }
+    return { seg: bestSeg, t: bestT, dSq: bestDSq };
+  }
   /** Nearest-track elevation, distance, signed lateral offset and banking for a
    *  world point. Used to make scenery follow the terrain so hills read as
    *  grounded (and banked corners read as banked). */
@@ -3060,19 +3085,17 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const d = dx * dx + dz * dz;
       if (d < bestDist) { bestDist = d; bestIdx = i; }
     }
-    const p = pts[bestIdx];
-    const n = pts[(bestIdx + 1) % pts.length];
+    const proj = this.projectToTrack(wx, wz, bestIdx);
+    const p = pts[proj.seg];
+    const n = pts[(proj.seg + 1) % pts.length];
     const sx = n.x - p.x, sz = n.z - p.z;
-    const segLenSq = sx * sx + sz * sz;
-    let t = segLenSq > 0.0001 ? ((wx - p.x) * sx + (wz - p.z) * sz) / segLenSq : 0;
-    t = Math.max(0, Math.min(1, t));
-    const px = p.x + sx * t, pz = p.z + sz * t;
-    const segLen = Math.sqrt(segLenSq) || 1;
+    const segLen = Math.hypot(sx, sz) || 1;
+    const px = p.x + sx * proj.t, pz = p.z + sz * proj.t;
     return {
-      elev: p.y + (n.y - p.y) * t,
-      dist: Math.hypot(wx - px, wz - pz),
+      elev: p.y + (n.y - p.y) * proj.t,
+      dist: Math.sqrt(proj.dSq),
       lateral: (sx * (wz - pz) - sz * (wx - px)) / segLen,
-      bank: (p.bank ?? 0) + ((n.bank ?? 0) - (p.bank ?? 0)) * t,
+      bank: (p.bank ?? 0) + ((n.bank ?? 0) - (p.bank ?? 0)) * proj.t,
     };
   }
   /** How much of the track's elevation a scenery item at `dist` units from the
@@ -3567,14 +3590,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const d = dx * dx + dz * dz;
       if (d < bestDistSq) { bestDistSq = d; bestIdx = i; }
     }
-    const p = pts[bestIdx];
-    const n = pts[(bestIdx + 1) % pts.length];
-    const ax = wx - p.x, az = wz - p.z;
-    const sx = n.x - p.x, sz = n.z - p.z;
-    const segLenSq = sx * sx + sz * sz;
-    let t = segLenSq > 0.0001 ? (ax * sx + az * sz) / segLenSq : 0;
-    t = Math.max(0, Math.min(1, t));
-    return ((bestIdx + t) / this.trackLen) * this.totalTrackDist;
+    const proj = this.projectToTrack(wx, wz, bestIdx);
+    return ((proj.seg + proj.t) / this.trackLen) * this.totalTrackDist;
   }
   /** Signed lateral offset from the centreline and the road width at a world
    *  point — used to place cars on the banked surface. */
@@ -3587,14 +3604,12 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const d = (p.x - wx) * (p.x - wx) + (p.z - wz) * (p.z - wz);
       if (d < bestDist) { bestDist = d; bestIdx = i; }
     }
-    const p = pts[bestIdx];
-    const n = pts[(bestIdx + 1) % pts.length];
+    const proj = this.projectToTrack(wx, wz, bestIdx);
+    const p = pts[proj.seg];
+    const n = pts[(proj.seg + 1) % pts.length];
     const sx = n.x - p.x, sz = n.z - p.z;
-    const segLenSq = sx * sx + sz * sz;
-    let t = segLenSq > 0.0001 ? ((wx - p.x) * sx + (wz - p.z) * sz) / segLenSq : 0;
-    t = Math.max(0, Math.min(1, t));
-    const px = p.x + sx * t, pz = p.z + sz * t;
-    const segLen = Math.sqrt(segLenSq) || 1;
+    const segLen = Math.hypot(sx, sz) || 1;
+    const px = p.x + sx * proj.t, pz = p.z + sz * proj.t;
     return {
       lateral: (sx * (wz - pz) - sz * (wx - px)) / segLen,
       width: (p.width + n.width) / 2,
@@ -3611,14 +3626,25 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const d = (p.x - wx) * (p.x - wx) + (p.z - wz) * (p.z - wz);
       if (d < bestDist) { bestDist = d; bestIdx = i; }
     }
-    const p = pts[bestIdx];
-    const n = pts[(bestIdx + 1) % pts.length];
-    const sx = n.x - p.x, sz = n.z - p.z;
-    const segLenSq = sx * sx + sz * sz;
-    let t = segLenSq > 0.0001 ? ((wx - p.x) * sx + (wz - p.z) * sz) / segLenSq : 0;
-    t = Math.max(0, Math.min(1, t));
-    const px = p.x + sx * t, pz = p.z + sz * t;
-    const segLen = Math.sqrt(segLenSq) || 1;
+    const n = pts.length;
+    let seg = bestIdx, tt = 0, bestDSq = Infinity;
+    for (let off = -1; off <= 0; off++) {
+      const a = pts[(bestIdx + off + n) % n];
+      const b = pts[(bestIdx + off + 1 + n) % n];
+      const sx = b.x - a.x, sz = b.z - a.z;
+      const segLenSq = sx * sx + sz * sz;
+      let t = segLenSq > 0.0001 ? ((wx - a.x) * sx + (wz - a.z) * sz) / segLenSq : 0;
+      t = t < 0 ? 0 : t > 1 ? 1 : t;
+      const px = a.x + sx * t, pz = a.z + sz * t;
+      const dx = wx - px, dz = wz - pz;
+      const dSq = dx * dx + dz * dz;
+      if (dSq < bestDSq) { bestDSq = dSq; seg = (bestIdx + off + n) % n; tt = t; }
+    }
+    const p = pts[seg];
+    const q = pts[(seg + 1) % n];
+    const sx = q.x - p.x, sz = q.z - p.z;
+    const segLen = Math.hypot(sx, sz) || 1;
+    const px = p.x + sx * tt, pz = p.z + sz * tt;
     return (sx * (wz - pz) - sz * (wx - px)) / segLen;
   }
   private buildCornerSigns(pts: TrackPoint[], barVerts: number[], barIdxs: number[]) {
@@ -5890,7 +5916,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
     // cone roofs, arched door, drawbridge over a moat, gold star above the
     // gate. Scaled up so it dominates the infield like the N64 castle.
     const cx = 0, cz = 0;
-    const sc = 3.0;
+    const sc = 4.0;
     // Moat — a big blue water disc under the raised stone platform.
     const moatR = 58 * sc;
     const mSegs = 26;
@@ -5989,10 +6015,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
     // and the tree ring.
     for (let k = 0; k < 30; k++) {
       const a = Math.random() * TAU;
-      const r = 150 + Math.random() * 95;
+      const r = 192 + Math.random() * 56;
       const bx = Math.cos(a) * r + (Math.random() - 0.5) * 14;
       const bz = Math.sin(a) * r + (Math.random() - 0.5) * 14;
-      if (Math.hypot(bx, bz) < 150) continue;
+      if (Math.hypot(bx, bz) < 192) continue;
       this.addSphere(verts, idxs, bx, 0.7, bz, 0.9 + Math.random() * 0.7, 7, [0.16, 0.6, 0.24]);
     }
     // Golden '?'-block clusters beside the road — squat yellow boxes.
@@ -12152,7 +12178,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
       for (let i = 0; i < chCount; i++) {
         const kind = (i % 5) + 4; // cycles 4..8
         const ang = (i / chCount) * TAU + Math.random() * 0.6;
-        const rad = 150 + Math.random() * 85;
+        const rad = 192 + Math.random() * 56;
         const ax = Math.cos(ang) * rad;
         const az = Math.sin(ang) * rad;
         const sizeByKind: Record<number, number> = { 4: 0.8, 5: 0.65, 6: 0.85, 7: 0.75, 8: 0.7 };
@@ -13435,14 +13461,16 @@ void main() { FragColor = texture(uTex, vUV); }`;
     a.yaw += dy * Math.min(1, dt * 5);
   }
 
-  /** Pick a new wander target in the lawn ring around the castle (radius
-   *  150..235, between the enlarged compound wall and the tree ring so
-   *  characters never clip the track, the castle, or the far scenery). */
+  /** Pick a new wander target in the lawn ring around each castle (between the
+   *  enlarged compound wall and the tree ring) so characters never clip the
+   *  track, the castle, or the far scenery. */
   private pickCourtyardTarget(a: { wx?: number; wz?: number }): void {
     const ang = Math.random() * Math.PI * 2;
     // Mushroom and Hyrule lawns have slightly different wall→tree bands, so
     // each theme's cast stays on its own courtyard grass.
-    const rad = this.theme === 'hyrule' ? 165 + Math.random() * 85 : 150 + Math.random() * 85;
+    const rad = this.theme === 'hyrule' ? 165 + Math.random() * 85
+      : this.theme === 'mushroom' ? 192 + Math.random() * 56
+      : 150 + Math.random() * 105;
     a.wx = Math.cos(ang) * rad;
     a.wz = Math.sin(ang) * rad;
   }
@@ -13744,8 +13772,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
     if (!this._auroraCurtains.length) { this._auroraData = new Float32Array(0); return; }
     // Each curtain is a grid of cols×rows quads (6 verts each); capacity is
     // fixed at build time and the contents are rewritten every frame.
-    const cols = this.lowQuality ? 5 : 9;
-    const rows = this.lowQuality ? 4 : 7;
+    const cols = this.lowQuality ? 7 : 12;
+    const rows = this.lowQuality ? 6 : 9;
     let cap = 0;
     for (const c of this._auroraCurtains) {
       cap += cols * rows * 6;
@@ -13893,71 +13921,86 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.drawArrays(gl.TRIANGLES, 0, w / 11);
     gl.bindVertexArray(null);
   }
-  /** Rebuilds the aurora curtains with live sway, ray streaks and a slowly
-   *  cycling palette, then draws them additively (they are pure glow). */
+  /** Rebuilds the aurora curtains each frame as camera-facing billboards with
+   *  tapering, swaying rays and a soft falloff, then draws them additively so
+   *  the overlapping sheets bloom into a wispy curtain of light instead of a
+   *  hard edge-on rectangle. */
   private drawAurora(eye: number[]) {
     const gl = this.gl;
     if (!this._auroraVao || !this._auroraBuf || !this._auroraData || !this._auroraCurtains.length) return;
     const t = this.elapsed;
     const data = this._auroraData;
-    const cols = this.lowQuality ? 5 : 9;
-    const rows = this.lowQuality ? 4 : 7;
-    const cull2 = 320 * 320;
+    const cols = this.lowQuality ? 7 : 12;
+    const rows = this.lowQuality ? 6 : 9;
+    const cull2 = 420 * 420;
     const ex = eye[0], ez = eye[2];
     let w = 0;
     for (const c of this._auroraCurtains) {
-      const dx = c.x - ex, dz = c.z - ez;
-      if (dx * dx + dz * dz > cull2) continue;
-      const ppx = -c.x / (Math.hypot(c.x, c.z) || 1);
-      const ppz = -c.z / (Math.hypot(c.x, c.z) || 1);
+      const vx = c.x - ex, vz = c.z - ez;
+      const vlen = Math.hypot(vx, vz) || 1;
+      if (vx * vx + vz * vz > cull2) continue;
+      // Billboard basis: the sheet always faces the camera while staying
+      // vertical (world up), so it never collapses into an edge-on line.
+      const rx = -vz / vlen, rz = vx / vlen;
+      const nx = -vx / vlen, nz = -vz / vlen;
       // Palette cycling: lerp between two adjacent palette entries over time.
       const pal = c.palette;
       const cycle = t * 0.05 + c.phase;
       const f = (cycle / (Math.PI * 2)) % pal.length;
-      const i0 = Math.floor(f);
+      const i0 = Math.floor(f) % pal.length;
       const i1 = (i0 + 1) % pal.length;
       const frac = f - i0;
       const c0 = pal[i0], c1 = pal[i1];
-      const pulse = 0.65 + 0.35 * Math.sin(t * 0.4 + c.phase * 2);
-      const baseY = 6;
+      const pulse = 0.72 + 0.28 * Math.sin(t * 0.33 + c.phase * 2);
+      const baseY = 5;
       for (let ci = 0; ci < cols; ci++) {
         const fx0 = ci / cols - 0.5;
         const fx1 = (ci + 1) / cols - 0.5;
+        // Horizontal fade to nothing at the sheet's left/right edges.
+        const hf0 = Math.pow(1 - Math.abs(fx0) * 2, 1.4);
+        const hf1 = Math.pow(1 - Math.abs(fx1) * 2, 1.4);
+        // Vertical light striations — the classic aurora "rays".
+        const ray0 = 0.6 + 0.4 * Math.sin(fx0 * 16 + t * c.speed * 1.2 + c.phase * 3);
+        const ray1 = 0.6 + 0.4 * Math.sin(fx1 * 16 + t * c.speed * 1.2 + c.phase * 3);
         for (let ri = 0; ri < rows; ri++) {
           const fy0 = ri / rows;
           const fy1 = (ri + 1) / rows;
-          const sway0 = Math.sin(fx0 * 2.2 + t * c.speed + c.phase) * 4 * (0.25 + fy0);
-          const sway1 = Math.sin(fx1 * 2.2 + t * c.speed + c.phase) * 4 * (0.25 + fy1);
-          const wave0 = Math.sin(fx0 * 1.7 + t * c.speed * 0.7 + c.phase * 1.3) * 3 * fy0;
-          const wave1 = Math.sin(fx1 * 1.7 + t * c.speed * 0.7 + c.phase * 1.3) * 3 * fy1;
-          const a = [c.x + ppx * (fx0 * c.w + sway0), baseY + fy0 * c.h + wave0, c.z + ppz * (fx0 * c.w + sway0)];
-          const b = [c.x + ppx * (fx1 * c.w + sway1), baseY + fy0 * c.h + wave0, c.z + ppz * (fx1 * c.w + sway1)];
-          const cc = [c.x + ppx * (fx1 * c.w + sway1), baseY + fy1 * c.h + wave1, c.z + ppz * (fx1 * c.w + sway1)];
-          const d = [c.x + ppx * (fx0 * c.w + sway0), baseY + fy1 * c.h + wave1, c.z + ppz * (fx0 * c.w + sway0)];
-          const ray0 = 0.55 + 0.45 * Math.sin(fx0 * (cols * 1.4) + t * c.speed * 1.3 + c.phase * 3);
-          const ray1 = 0.55 + 0.45 * Math.sin(fx1 * (cols * 1.4) + t * c.speed * 1.3 + c.phase * 3);
-          const colFor = (fy: number, ray: number): number[] => {
-            const vFade = 0.35 + 0.65 * Math.sin(Math.min(1, fy * 1.5) * Math.PI * 0.5);
-            const bri = pulse * ray * vFade;
+          // Curtain folds: sway that grows toward the top, plus the ribbon
+          // width tapers so the top is narrower than its base.
+          const sway0 = Math.sin(fx0 * 2.6 + t * c.speed + c.phase) * (1.2 + 9 * fy0);
+          const sway1 = Math.sin(fx1 * 2.6 + t * c.speed + c.phase) * (1.2 + 9 * fy1);
+          const w0 = c.w * (1 - fy0 * 0.4);
+          const w1 = c.w * (1 - fy1 * 0.4);
+          const wave0 = Math.sin(fx0 * 1.9 + t * c.speed * 0.65 + c.phase * 1.3) * 3.5 * fy0;
+          const wave1 = Math.sin(fx1 * 1.9 + t * c.speed * 0.65 + c.phase * 1.3) * 3.5 * fy1;
+          const a = [c.x + rx * (fx0 * w0 + sway0), baseY + fy0 * c.h + wave0, c.z + rz * (fx0 * w0 + sway0)];
+          const b = [c.x + rx * (fx1 * w1 + sway1), baseY + fy0 * c.h + wave0, c.z + rz * (fx1 * w1 + sway1)];
+          const cc = [c.x + rx * (fx1 * w1 + sway1), baseY + fy1 * c.h + wave1, c.z + rz * (fx1 * w1 + sway1)];
+          const d = [c.x + rx * (fx0 * w0 + sway0), baseY + fy1 * c.h + wave1, c.z + rz * (fx0 * w0 + sway0)];
+          const colFor = (fy: number, ray: number, hf: number): number[] => {
+            // Brightest near the base, fading to nothing at the top, with a soft
+            // fade-in just above the ground so there's no hard bottom line.
+            const vFade = Math.pow(1 - fy, 1.7);
+            const bottomFade = Math.min(1, fy * 5);
+            const bri = pulse * ray * hf * vFade * bottomFade * 1.5;
             return [
               (c0[0] + (c1[0] - c0[0]) * frac) * bri,
               (c0[1] + (c1[1] - c0[1]) * frac) * bri,
               (c0[2] + (c1[2] - c0[2]) * frac) * bri,
             ];
           };
-          const nx = ppx, ny = 0, nz = ppz;
           const push = (p: number[], col: number[]) => {
             data[w++] = p[0]; data[w++] = p[1]; data[w++] = p[2];
-            data[w++] = nx; data[w++] = ny; data[w++] = nz;
+            data[w++] = nx; data[w++] = 0; data[w++] = nz;
             data[w++] = col[0]; data[w++] = col[1]; data[w++] = col[2];
             data[w++] = 0; data[w++] = 0;
           };
-          push(a, colFor(fy0, ray0));
-          push(b, colFor(fy0, ray1));
-          push(cc, colFor(fy1, ray1));
-          push(a, colFor(fy0, ray0));
-          push(cc, colFor(fy1, ray1));
-          push(d, colFor(fy1, ray0));
+          push(a, colFor(fy0, ray0, hf0));
+          push(b, colFor(fy0, ray1, hf1));
+          push(cc, colFor(fy1, ray1, hf1));
+          push(a, colFor(fy0, ray0, hf0));
+          push(cc, colFor(fy1, ray1, hf1));
+          push(d, colFor(fy1, ray0, hf0));
         }
       }
     }

@@ -30,7 +30,7 @@
     padding: 6px 28px 6px 10px;
     border: var(--main-border);
     border-radius: 4px;
-    background: var(--main-background-color);
+    background: var(--component-background-color, #202020);
     color: var(--main-font-color);
     font-size: 12px;
     box-sizing: border-box;
@@ -69,7 +69,7 @@
     padding: 5px 10px;
     border: var(--main-border);
     border-radius: 4px;
-    background: var(--main-background-color);
+    background: var(--component-background-color, #202020);
     color: var(--main-font-color);
     user-select: none;
     white-space: nowrap;
@@ -94,7 +94,7 @@
     flex-direction: column;
     gap: 8px;
     padding: 10px;
-    background: var(--main-background-color);
+    background: var(--component-background-color, #202020);
     border: var(--main-border);
     border-radius: 6px;
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
@@ -121,7 +121,7 @@
     padding: 4px 6px;
     border: var(--main-border);
     border-radius: 4px;
-    background: var(--main-background-color);
+    background: var(--component-background-color, #202020);
     color: var(--main-font-color);
     font-size: 12px;
     max-width: 130px;

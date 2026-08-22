@@ -800,12 +800,13 @@ namespace maxhanna.Server.Hubs
         /// <summary>
         /// Shift a COLUMN up (-1) or down (+1). Marbles never wrap: a marble
         /// at the top of a column can never reappear at the bottom (or vice
-        /// versa). A full column — or a stack already flush against the edge
-        /// in that direction — simply cannot shift; the move is blocked. A
-        /// partial stack slides as one unit within the column's bounds, and
-        /// stays contiguous (no gaps ever open inside it); the next drop or
-        /// pop re-compacts it toward the center. `slot` (0 = self, 1 = local
-        /// partner) only matters in a same-keyboard local 2P game.
+        /// versa). A full column — a stack already flush against the edge in
+        /// that direction, or a shift that would vacate the pitch row — simply
+        /// cannot shift; the move is blocked. A partial stack slides as one
+        /// unit within the column's bounds and stays contiguous (no gaps ever
+        /// open inside it), and the pitch row always stays filled. `slot`
+        /// (0 = self, 1 = local partner) only matters in a same-keyboard local
+        /// 2P game.
         /// </summary>
         public async Task<object?> ShiftColumn(string code, int col, int dir, int slot = 0)
         {
@@ -822,13 +823,13 @@ namespace maxhanna.Server.Hubs
                 newRow[c] = board[PitchRow][src];
             }
             for (var c = 0; c < Cols; c++) board[PitchRow][c] = newRow[c];
-            // A column that was floated up/down by a column shift has its pitch
-            // row empty; the rotation above can land a marble into that empty
-            // pitch row, which strands it away from the column's stack and opens
-            // an internal hole between marbles. Re-centre every column (a no-op
-            // for already-centred columns) so the "no gaps, always compacted"
-            // invariant holds after a row shift too.
-            ApplyGravity(board);
+            // Rotating the pitch row must ONLY swap the marbles sitting in it —
+            // never re-centre the columns. Re-centring here silently undid any
+            // column a player had deliberately floated up/down, so sliding the
+            // row looked like it "reset" column positions. The pitch row is kept
+            // full at all times (ShiftColumnOn blocks a shift that would empty
+            // it), so every column's stack already includes the pitch row and the
+            // rotation just re-colours those five cells without opening a gap.
         }
 
         private static void ShiftColumnOn(int[][] board, int col, int dir)
@@ -853,15 +854,19 @@ namespace maxhanna.Server.Hubs
 
             if (dir <= 0)
             {
-                // Shift up — blocked when the stack already touches the top edge.
-                if (top == 0) return;
+                // Shift up — blocked when the stack already touches the top edge,
+                // or when its bottom is the pitch row (sliding up would vacate
+                // the pitch row and open a hole in the match line).
+                if (top == 0 || bottom == PitchRow) return;
                 for (var r = top; r <= bottom; r++) board[r - 1][col] = board[r][col];
                 board[bottom][col] = 0;
             }
             else
             {
-                // Shift down — blocked when the stack already touches the floor.
-                if (bottom == Rows - 1) return;
+                // Shift down — blocked when the stack already touches the floor,
+                // or when its top is the pitch row (sliding down would vacate
+                // the pitch row and open a hole in the match line).
+                if (bottom == Rows - 1 || top == PitchRow) return;
                 for (var r = bottom; r >= top; r--) board[r + 1][col] = board[r][col];
                 board[top][col] = 0;
             }

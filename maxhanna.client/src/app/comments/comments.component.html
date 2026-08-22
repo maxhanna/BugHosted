@@ -239,3 +239,15 @@
     </div>
   </div>
 </div>
+
+<!-- Reply-while-editing warning -->
+<div class="discardConfirmOverlay" *ngIf="replyWhileEditingOpen" (click)="cancelReplyWhileEditing()">
+  <div class="discardConfirmPanel" (click)="$event.stopPropagation()">
+    <div class="discardConfirmTitle">Unsaved edit</div>
+    <div class="discardConfirmText">You're editing a comment. Replying now will lose your unsaved changes — save the edit first, or discard it to reply.</div>
+    <div class="discardConfirmButtons">
+      <button (click)="cancelReplyWhileEditing()">Keep editing</button>
+      <button class="discardConfirmDiscardBtn" (click)="confirmReplyWhileEditing()">Discard &amp; reply</button>
+    </div>
+  </div>
+</div>

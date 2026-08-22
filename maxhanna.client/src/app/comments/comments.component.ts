@@ -182,6 +182,11 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   discardConfirmOpen = false;
   private discardConfirmAction: (() => void) | null = null;
 
+  // Warns before a Reply click while a comment is being edited (replying would
+  // hide the editor and throw away the unsaved draft).
+  replyWhileEditingOpen = false;
+  private pendingReplyCommentId: number | undefined = undefined;
+
   // Contract used by app.component before it tears components down on navigation.
   hasUnsavedInput(): boolean {
     return this.anyTextInputNonEmpty();
@@ -589,12 +594,40 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   }
 
   showSubComments(commentId: number) {
+    // Replying while a comment is being edited would hide its editor and lose
+    // the unsaved draft — don't switch to the reply box; warn first.
+    if (this.editingComments.length > 0) {
+      this.pendingReplyCommentId = commentId;
+      this.replyWhileEditingOpen = true;
+      return;
+    }
+    this.toggleReply(commentId);
+  }
+
+  private toggleReply(commentId: number) {
     if (this.replyingToCommentId === commentId) {
       this.replyingToCommentId = undefined;
     } else {
       this.replyingToCommentId = commentId;
     }
     this.replyingToCommentEvent.emit(this.replyingToCommentId);
+  }
+
+  /** User chose to discard their in-progress edit and continue replying. */
+  confirmReplyWhileEditing() {
+    const target = this.pendingReplyCommentId;
+    this.pendingReplyCommentId = undefined;
+    this.replyWhileEditingOpen = false;
+    this.editingComments = [];
+    this.replyingToCommentId = undefined;
+    this.replyingToCommentEvent.emit(undefined as any);
+    if (target !== undefined) this.toggleReply(target);
+  }
+
+  /** User chose to keep editing — close the warning without touching anything. */
+  cancelReplyWhileEditing() {
+    this.pendingReplyCommentId = undefined;
+    this.replyWhileEditingOpen = false;
   }
 
   cancelReply() {

@@ -1210,10 +1210,8 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
       newRow[c] = nb[PITCH_ROW][(c - dir + COLS) % COLS];
     }
     for (let c = 0; c < COLS; c++) nb[PITCH_ROW][c] = newRow[c];
-    // Mirror the server's ShiftRowOn: re-centre every column so a marble that
-    // rotated into a floated column's empty pitch row joins that column's stack
-    // instead of stranding a hole between marbles.
-    compactBoardCenter(nb);
+    // Rotating the pitch row only swaps the marbles sitting in it — never
+    // re-centre the columns (that would undo a column the player floated).
     this._board = nb;
     this._predictedBoard = nb;
     this.sprites = this.matchSpritesToBoard(this.sprites, nb, oldBoard, [], dir);
@@ -1239,11 +1237,11 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     const len = bottom - top + 1;
     if (len >= ROWS) return false; // full column — blocked
     if (dir <= 0) {
-      if (top === 0) return false; // stack touches the top edge — blocked
+      if (top === 0 || bottom === PITCH_ROW) return false; // edge, or would vacate the pitch row
       for (let r = top; r <= bottom; r++) nb[r - 1][col] = nb[r][col];
       nb[bottom][col] = 0;
     } else {
-      if (bottom === ROWS - 1) return false; // stack touches the floor — blocked
+      if (bottom === ROWS - 1 || top === PITCH_ROW) return false; // edge, or would vacate the pitch row
       for (let r = bottom; r >= top; r--) nb[r + 1][col] = nb[r][col];
       nb[top][col] = 0;
     }
@@ -1367,7 +1365,6 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     const newRow = new Array<number>(COLS);
     for (let c = 0; c < COLS; c++) newRow[c] = nb[PITCH_ROW][(c - dir + COLS) % COLS];
     for (let c = 0; c < COLS; c++) nb[PITCH_ROW][c] = newRow[c];
-    compactBoardCenter(nb);
     this._oppBoard = nb;
     this._predictedOppBoard = nb;
     this._oppSprites = this.matchSpritesToBoard(this._oppSprites, nb, oldBoard, [], dir);
@@ -1392,11 +1389,11 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     const len = bottom - top + 1;
     if (len >= ROWS) return false; // full column — blocked
     if (dir <= 0) {
-      if (top === 0) return false; // flush against the top edge — blocked
+      if (top === 0 || bottom === PITCH_ROW) return false; // edge, or would vacate the pitch row
       for (let r = top; r <= bottom; r++) nb[r - 1][col] = nb[r][col];
       nb[bottom][col] = 0;
     } else {
-      if (bottom === ROWS - 1) return false; // flush against the floor — blocked
+      if (bottom === ROWS - 1 || top === PITCH_ROW) return false; // edge, or would vacate the pitch row
       for (let r = bottom; r >= top; r--) nb[r + 1][col] = nb[r][col];
       nb[top][col] = 0;
     }
@@ -3554,23 +3551,6 @@ function easeOutCubic(t: number): number {
 /** Deep-copy a board so prediction never mutates the server-sent snapshot. */
 function cloneBoard(board: number[][]): number[][] {
   return board.map(r => r.slice());
-}
-
-/** Re-centre every column toward the pitch row — mirrors the server's
- *  CompactColumnCenter/ApplyGravity. Each column's marbles are collected
- *  top-to-bottom and re-placed as one contiguous block centred on the pitch
- *  row, so no internal hole can survive. */
-function compactBoardCenter(board: number[][]): void {
-  for (let c = 0; c < COLS; c++) {
-    const marbles: number[] = [];
-    for (let r = 0; r < ROWS; r++) {
-      if (board[r][c] !== 0) marbles.push(board[r][c]);
-    }
-    for (let r = 0; r < ROWS; r++) board[r][c] = 0;
-    if (marbles.length === 0) continue;
-    const top = PITCH_ROW - Math.floor((marbles.length - 1) / 2);
-    for (let i = 0; i < marbles.length; i++) board[top + i][c] = marbles[i];
-  }
 }
 
 /** Cell-by-cell board equality for the dead-reckoning confirmation check. */
