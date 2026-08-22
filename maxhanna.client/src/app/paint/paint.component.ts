@@ -4,6 +4,7 @@ import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
+import { UserEventService } from '../../services/user-event.service';
 
 /** One editable layer — an offscreen canvas composited onto the visible canvas
  *  with its own visibility and opacity. Pixels are transparent; the composite
@@ -233,7 +234,7 @@ export class PaintComponent extends ChildComponent {
 
   private maxUndo = 50;
 
-  constructor(private http: HttpClient) { super(); }
+  constructor(private http: HttpClient, private userEventService: UserEventService) { super(); }
 
   @HostListener('document:keydown', ['$event'])
   handleKeyboard(e: KeyboardEvent) {
@@ -1307,6 +1308,16 @@ export class PaintComponent extends ChildComponent {
   }
 
   downloadPainting() {
+    const userId = this.parentRef?.user?.id;
+    if(!userId) { return; }
+
+    // Emit user event before downloading
+    try {
+      this.userEventService.insertUserEvent(userId, 'paint', 'downloaded_painting');
+    } catch(ex) {
+      console.error("Failed to insert user event:", ex); 
+    }
+
     const link = document.createElement('a');
     const ext = this.fileType === 'jpg' ? 'jpg' : this.fileType;
     link.download = this.fileName || ('painting.' + ext);
