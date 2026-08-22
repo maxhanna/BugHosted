@@ -10,8 +10,6 @@ namespace maxhanna.Server.Controllers
 	public class RacingController : ControllerBase
 	{
 		private static readonly ConcurrentDictionary<int, RacingCarState> _cars = new();
-		private static int _schemaChecked;
-		private static readonly object _schemaLock = new();
 		private static readonly ConcurrentQueue<PendingRaceResult> _pendingResults = new();
 		private static readonly object _persistLock = new();
 		private static int _persistIntervalSeconds = 15;
