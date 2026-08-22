@@ -1404,6 +1404,7 @@ export class RacingRenderer {
   private viewLoc!: WebGLUniformLocation;
   private modelLoc!: WebGLUniformLocation;
   private colorLoc!: WebGLUniformLocation;
+  private timeLoc!: WebGLUniformLocation;
   private textureLoc!: WebGLUniformLocation;
   private hasTexLoc!: WebGLUniformLocation;
   private lightDirLoc!: WebGLUniformLocation;
@@ -1608,6 +1609,8 @@ export class RacingRenderer {
   private lightSpace = new Float32Array(16);
   private lightView = new Float32Array(16);
   private lightProj = new Float32Array(16);
+  private _anisoExt: EXT_texture_filter_anisotropic | null = null;
+  private _anisoMax = 1;
   sunDir: [number, number, number] = [0.4, 0.7, 0.5];
   sunColor: [number, number, number] = [1.0, 0.95, 0.85];
   ambientColor: [number, number, number] = [0.25, 0.25, 0.3];
@@ -1722,6 +1725,17 @@ export class RacingRenderer {
     const gl = canvas.getContext('webgl2', { antialias: true, alpha: false, powerPreference: 'high-performance' });
     if (!gl) throw new Error('WebGL2 not supported');
     this.gl = gl;
+    // Anisotropic filtering: the track's painted markings (white edge lines,
+    // dashed centre) are high-contrast, and a low cockpit camera looks down the
+    // road at a grazing angle — especially into a corner. Trilinear mips alone
+    // average those lines over both axes at the coarse mip level, smearing them
+    // into gray blotchy patches on the distant track. Anisotropy samples the
+    // mip along the minification direction, keeping the surface clean at
+    // shallow angles. Applied to every mipmapped texture in makeTex.
+    this._anisoExt = gl.getExtension('EXT_texture_filter_anisotropic');
+    if (this._anisoExt) {
+      this._anisoMax = Math.min(8, gl.getParameter(this._anisoExt.MAX_TEXTURE_MAX_ANISOTROPY_EXT));
+    }
     // Pin the drawing buffer + texture-upload color spaces to sRGB. These are
     // the spec DEFAULTS, so on Chrome/stable Firefox this is a no-op — but it
     // self-corrects Gecko builds (Firefox Nightly, Waterfox) that enable full
@@ -1781,6 +1795,9 @@ export class RacingRenderer {
     // asphalt stays clean instead of speckling.
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    if (this._anisoExt && this._anisoMax > 1) {
+      gl.texParameterf(gl.TEXTURE_2D, this._anisoExt.TEXTURE_MAX_ANISOTROPY_EXT, this._anisoMax);
+    }
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
     gl.generateMipmap(gl.TEXTURE_2D);
@@ -2497,6 +2514,7 @@ uniform mat4 uModel;
 uniform mat4 uLightMatrix;
 uniform vec3 uColor;
 uniform mat3 uNormalMatrix;
+uniform float uTime;
 out vec4 vColor;
 out vec3 vNormal;
 out vec3 vWorldPos;
@@ -2505,6 +2523,19 @@ out float vDepth;
 out vec4 vLightPos;
 void main() {
   vec4 wp = uModel * vec4(aPos, 1.0);
+  // Gentle animated-scenery sway for tagged verts (aUV.x > 1): mushroom caps
+  // bob and sway on their stems like Mario Kart's roadside scenery. The tag
+  // carries the amplitude (aUV.x - 1) and the per-mushroom phase comes from
+  // the vertex's world position so neighbours move out of sync. The caps
+  // envelop the stem tops, so a small rigid bob never shows a gap.
+  if (aUV.x > 1.0) {
+    float amp = aUV.x - 1.0;
+    float ph = wp.x * 0.71 + wp.z * 0.53;
+    float t = uTime * 1.4;
+    wp.x += sin(t + ph) * amp;
+    wp.z += cos(t * 0.9 + ph * 1.3) * amp;
+    wp.y += sin(t * 1.7 + ph * 0.6) * amp * 0.45;
+  }
   vec4 vp = uView * wp;
   gl_Position = uProj * vp;
   vColor = vec4(aColor * uColor, 1.0);
@@ -2608,6 +2639,7 @@ void main() {
     this.viewLoc = gl.getUniformLocation(this.prog, 'uView')!;
     this.modelLoc = gl.getUniformLocation(this.prog, 'uModel')!;
     this.colorLoc = gl.getUniformLocation(this.prog, 'uColor')!;
+    this.timeLoc = gl.getUniformLocation(this.prog, 'uTime')!;
     this.textureLoc = gl.getUniformLocation(this.prog, 'uTexture')!;
     this.hasTexLoc = gl.getUniformLocation(this.prog, 'uHasTexture')!;
     this.lightDirLoc = gl.getUniformLocation(this.prog, 'uLightDir')!;
@@ -4992,7 +5024,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
     gl.bindVertexArray(null);
   }
-  private addEllipsoid(verts: number[], idxs: number[], cx: number, cy: number, cz: number, rx: number, ry: number, rz: number, segments: number, color: number[]) {
+  private addEllipsoid(verts: number[], idxs: number[], cx: number, cy: number, cz: number, rx: number, ry: number, rz: number, segments: number, color: number[], uvTag = 0) {
     const [cr, cg, cb] = color;
     const baseIdx = verts.length / 11;
     for (let i = 0; i <= segments; i++) {
@@ -5002,7 +5034,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
         const nx = Math.cos(a) * Math.sin(b);
         const ny = Math.cos(b);
         const nz = Math.sin(a) * Math.sin(b);
-        verts.push(cx + nx * rx, cy + ny * ry, cz + nz * rz, nx, ny, nz, cr, cg, cb, i / segments, j / segments);
+        // uvTag > 1 marks animated-scenery verts (mushroom caps): the shader
+        // reads the sway amplitude from it and bobs the cap on its stem.
+        verts.push(cx + nx * rx, cy + ny * ry, cz + nz * rz, nx, ny, nz, cr, cg, cb, uvTag > 1 ? uvTag : i / segments, j / segments);
       }
     }
     const stride = segments + 1;
@@ -5826,16 +5860,38 @@ void main() { FragColor = texture(uTex, vUV); }`;
     this.addSphere(verts, idxs, x, 0.35, z, 0.34, 7, gold);
   }
   // ── Mushroom Castle (Mario-64 style storybook castle courtyard) ─────────
+  /** N64-style Mario mushroom: a cream stem with a skirt ring under a bright
+   *  red dome cap scattered with white spots — the classic Mushroom Kingdom
+   *  roadside giant (the same shape as the game's power-up mushroom, scaled
+   *  up). These line the courtyard and ring the castle in place of plain
+   *  green puffball trees. */
   private addMarioTree(verts: number[], idxs: number[], x: number, z: number, s: number) {
-    const trunk: number[] = [0.45, 0.28, 0.14];
-    const leafLight: number[] = [0.2, 0.72, 0.28];
-    const leafDark: number[] = [0.12, 0.55, 0.2];
-    this.addCylinder(verts, idxs, x, 0, z, 0.5 * s, 2.6 * s, 6, trunk);
-    // Puffy round canopy — two overlapping spheres for the classic cartoon tree.
-    this.addSphere(verts, idxs, x, 3.6 * s, z, 2.5 * s, 8, leafDark);
-    this.addSphere(verts, idxs, x - 1.1 * s, 4.6 * s, z, 1.8 * s, 8, leafLight);
-    this.addSphere(verts, idxs, x + 1.1 * s, 4.6 * s, z, 1.8 * s, 8, leafLight);
-    this.addSphere(verts, idxs, x, 5.3 * s, z, 2.0 * s, 8, leafLight);
+    const stem: number[] = [0.94, 0.91, 0.82];
+    const stemShade: number[] = [0.84, 0.8, 0.7];
+    const capRed: number[] = [0.83, 0.16, 0.1];
+    const capDark: number[] = [0.62, 0.11, 0.07];
+    const dot: number[] = [0.97, 0.97, 0.99];
+    // Cream stem, slightly tapered by the wider skirt ring at the top.
+    this.addCylinder(verts, idxs, x, 0, z, 0.58 * s, 2.7 * s, 8, stem);
+    this.addCylinder(verts, idxs, x, 2.7 * s, z, 0.82 * s, 0.4 * s, 8, stemShade);
+    // Red dome cap — a flattened ellipsoid sat on the stem. The darker lower
+    // band (a slightly larger dark dome clipped under it) gives the cap a
+    // rounded under-edge so it reads as a mushroom, not a half-sphere slab.
+    // The caps are tagged (uvTag > 1) so the vertex shader bobs them gently
+    // on their stems like Mario Kart's roadside scenery; the tag encodes the
+    // per-size sway amplitude.
+    const swayTag = 1.0 + 0.05 + 0.05 * s;
+    this.addEllipsoid(verts, idxs, x, 2.9 * s, z, 2.75 * s, 1.35 * s, 2.75 * s, 10, capDark, swayTag);
+    this.addEllipsoid(verts, idxs, x, 3.3 * s, z, 2.7 * s, 1.85 * s, 2.7 * s, 10, capRed, swayTag);
+    // White spots scattered on the dome, sitting on the ellipsoid surface.
+    for (let i = 0; i < 6; i++) {
+      const ph = (i / 6) * Math.PI * 2 + 0.4;
+      const th = 0.42 + (i % 2) * 0.3;
+      const dx = Math.cos(th) * Math.cos(ph) * 2.7 * s;
+      const dy = Math.sin(th) * 1.85 * s;
+      const dz = Math.cos(th) * Math.sin(ph) * 2.7 * s;
+      this.addSphere(verts, idxs, x + dx, 3.3 * s + dy, z + dz, 0.42 * s, 6, dot, swayTag);
+    }
   }
   /** Mossy-rock cave arch the track drives through: a short torus tube
    *  standing over the road, open at both ends. The hole clears the cars, the
@@ -5989,7 +6045,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
         this.addBox(verts, idxs, wx, 20 * sc, wz, 0.9 * sc, 5 * sc, 1.6 * sc, [0.12, 0.1, 0.14]);
       }
     }
-    // Mario-style round trees scattered across the courtyard and beyond.
+    // Giant red-and-white Mario mushrooms scattered across the courtyard and
+    // beyond (the classic Mushroom Kingdom roadside giants).
     let treeIdx = 0;
     for (let i = 0; i < pts.length; i += (this.lowQuality ? 12 : 6)) {
       const p = pts[i];
@@ -6004,6 +6061,23 @@ void main() { FragColor = texture(uTex, vUV); }`;
       }
       if (treeIdx > (this.lowQuality ? 26 : 54)) break;
     }
+    // Roadside giants — a few BIG mushrooms sitting right along the track
+    // edge, alternating sides like Mario Raceway's roadside mushrooms. They
+    // sit just off the road (clear of the driving line and the cave arches)
+    // with the cap overhanging the kerb, and are scaled up so they read as
+    // landmarks as you drive past.
+    let roadIdx = 0;
+    const roadStep = this.lowQuality ? 90 : 56;
+    for (let i = 0; i < pts.length; i += roadStep) {
+      const p = pts[i];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      const side = (i / roadStep) % 2 === 0 ? -1 : 1;
+      const dist = p.width / 2 + 8 + Math.random() * 5;
+      const tx = p.x + ppx * dist * side + (Math.random() - 0.5) * 3;
+      const tz = p.z + ppz * dist * side + (Math.random() - 0.5) * 3;
+      this.addMarioTree(verts, idxs, tx, tz, 2.4 + Math.random() * 0.7);
+      if (roadIdx++ > (this.lowQuality ? 3 : 7)) break;
+    }
     // Rows of trees lining the infield, framing the castle approach (moved
     // out past the enlarged moat/wall so they ring the lawn, not the keep).
     for (let k = 0; k < 16; k++) {
@@ -6011,15 +6085,16 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const r = 250 + (k % 3) * 14;
       this.addMarioTree(verts, idxs, Math.cos(a) * r, Math.sin(a) * r, 1.6 + (k % 2) * 0.6);
     }
-    // Bushes — little green puffs scattered across the lawn between the wall
-    // and the tree ring.
+    // Little red-spotted mushrooms — mini versions of the roadside giants
+    // scattered across the lawn between the wall and the tree ring, so the
+    // whole courtyard reads as Mushroom Kingdom (no green puffball bushes).
     for (let k = 0; k < 30; k++) {
       const a = Math.random() * TAU;
       const r = 192 + Math.random() * 56;
       const bx = Math.cos(a) * r + (Math.random() - 0.5) * 14;
       const bz = Math.sin(a) * r + (Math.random() - 0.5) * 14;
       if (Math.hypot(bx, bz) < 192) continue;
-      this.addSphere(verts, idxs, bx, 0.7, bz, 0.9 + Math.random() * 0.7, 7, [0.16, 0.6, 0.24]);
+      this.addMarioTree(verts, idxs, bx, bz, 0.45 + Math.random() * 0.3);
     }
     // Golden '?'-block clusters beside the road — squat yellow boxes.
     let blockIdx = 0;
@@ -11300,8 +11375,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
       idxs.push(sideStart + i, tipIdx2, sideStart + i + 1);
     }
   }
-  private addSphere(verts: number[], idxs: number[], cx: number, cy: number, cz: number, r: number, segments: number, color: number[]) {
-    this.addEllipsoid(verts, idxs, cx, cy, cz, r, r, r, segments, color);
+  private addSphere(verts: number[], idxs: number[], cx: number, cy: number, cz: number, r: number, segments: number, color: number[], uvTag = 0) {
+    this.addEllipsoid(verts, idxs, cx, cy, cz, r, r, r, segments, color, uvTag);
   }
   private addGrandstand(verts: number[], idxs: number[], gx: number, gz: number, dirX: number, dirZ: number, width: number, depth: number) {
     const ppx = -dirZ;
@@ -11962,7 +12037,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
     }
     if (w < parts.length) parts.length = w;
   }
-  private drawSmoke(proj: Float32Array, view: Float32Array, eye: number[]) {
+  private drawSmoke(proj: Float32Array, view: Float32Array, eye: number[], maxDist = 130) {
     const gl = this.gl;
     const parts = this._smokeParticles;
     if (parts.length === 0) return;
@@ -11980,7 +12055,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
       // but puffs that drift away (or the player's own cloud) can still sit far
       // enough to be sub-pixel — skip the vertex fill + upload for them.
       const pdx = p.x - eye[0], pdz = p.z - eye[2];
-      if (pdx * pdx + pdz * pdz > 130 * 130) continue;
+      if (pdx * pdx + pdz * pdz > maxDist * maxDist) continue;
       const t = p.life / p.maxLife;
       // Chips shrink and stay opaque-ish (solid flecks); smoke grows and fades.
       const s = p.chip ? p.size * (1 - t) : p.size * (0.5 + t * 1.8);
@@ -14123,6 +14198,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.useProgram(this.prog);
     gl.uniform1f(this.alphaLoc, 1);
     gl.uniform1f(this.emissiveLoc, 0);
+    gl.uniform1f(this.timeLoc, this.elapsed);
     gl.uniformMatrix4fv(this.projLoc, false, proj);
     gl.uniformMatrix4fv(this.viewLoc, false, view);
     gl.uniform3fv(this.lightDirLoc, this.sunDir);
@@ -14510,7 +14586,13 @@ void main() { FragColor = texture(uTex, vUV); }`;
       mirrorPuffs = true;
     }
     if (mirrorPuffs) {
-      this.drawSmoke(this.mirrorProj, this.mirrorView, mEye);
+      // The inset is small (512×288 desktop, 288×162 mobile), so anything past
+      // ~30 units behind the car is sub-pixel there. Culling to the near field
+      // drops the second full-list draw (up to 220 billboards + the vertex
+      // upload) that otherwise runs every frame of a sustained slide, while
+      // keeping the player's own cloud — which is emitted right at the mirror
+      // camera — and nearby bots' puffs visible in the rear view.
+      this.drawSmoke(this.mirrorProj, this.mirrorView, mEye, 30);
     }
     this.pMark('m-smoke');
     if (useMirrorHeat) {
