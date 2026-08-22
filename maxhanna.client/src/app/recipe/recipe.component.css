@@ -261,6 +261,7 @@
   margin: 0;
   font-size: 1.2rem;
   color: var(--main-font-color, #0f172a);
+  background: var(--main-highlight-color-quarter-opacity);
   line-height: 1.3;
 }
 .tags-container {
@@ -305,7 +306,7 @@
   cursor: pointer;
   transition: all 0.2s;
 }
-.expand-btn:hover { background: rgba(0,0,0,0.03); border-color: rgba(0,0,0,0.2); }
+.expand-btn:hover { border-color: rgba(0,0,0,0.2); background: var(--main-highlight-color-quarter-opacity); }
 
 /* Expanded content */
 .recipe-expanded-content {
