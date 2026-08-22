@@ -279,8 +279,8 @@
   justify-content: center;
   padding: 24px;
   background: rgba(10, 12, 18, 0.55);
-  z-index: 4; 
-  align-content: center; 
+  z-index: 4;
+  align-content: center;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
@@ -306,7 +306,18 @@
   justify-content: space-between;
   border: 2px solid;
   border-color: #ffffff #0a0a0a #0a0a0a #ffffff;
-  width: min(442px, 92vw);
+}
+
+@media (max-width: 900px) {
+  .win98-titlebar {
+    margin-top: 240px;
+  }
+}
+
+@media (min-width: 900px) {
+  .win98-titlebar {
+    width: min(442px, 92vw);
+  }
 }
 
 .marbles-net {
@@ -328,14 +339,24 @@
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
 }
 
-.marbles-net-dot.good { background: #3ddc6f; }
-.marbles-net-dot.warn { background: #ffc93c; }
-.marbles-net-dot.bad { background: #ff5b5b; }
+.marbles-net-dot.good {
+  background: #3ddc6f;
+}
 
-.marbles-net-jitter { color: #c4cdf0; opacity: 0.85; }
+.marbles-net-dot.warn {
+  background: #ffc93c;
+}
+
+.marbles-net-dot.bad {
+  background: #ff5b5b;
+}
+
+.marbles-net-jitter {
+  color: #c4cdf0;
+  opacity: 0.85;
+}
 
 .win98-body {
-  width: min(430px, 92vw);
   background: #c0c0c0;
   border: 2px solid;
   border-color: #ffffff #0a0a0a #0a0a0a #ffffff;
@@ -347,6 +368,12 @@
   align-items: center;
   text-align: center;
   color: #1a1a1a;
+}
+
+@media (min-width: 900px) {
+  .win98-body {
+    width: min(430px, 92vw);
+  }
 }
 
 .marbles-title {
@@ -373,7 +400,7 @@
 
 /* Name field at the very top of the menu: narrower + centered so it doesn't
  * stretch edge-to-edge on phones. */
-.marbles-form > .marbles-input {
+.marbles-form>.marbles-input {
   align-self: center;
   width: min(100%, 250px);
   text-align: center;
@@ -570,7 +597,8 @@
   border-color: #0a0a0a #ffffff #ffffff #0a0a0a;
   background: #fff;
   color: #000;
-  font-size: 16px; /* ≥16px keeps iOS Safari from auto-zooming on focus */
+  font-size: 16px;
+  /* ≥16px keeps iOS Safari from auto-zooming on focus */
   outline: none;
   width: 100%;
   box-sizing: border-box;
@@ -766,10 +794,12 @@
     transform: scale(0.2) translateY(-6px);
     opacity: 0;
   }
+
   70% {
     transform: scale(1.15) translateY(0);
     opacity: 1;
   }
+
   100% {
     transform: scale(1);
   }
@@ -822,19 +852,24 @@
     transform: scale(0.2) translateY(-6px);
     opacity: 0;
   }
+
   70% {
     transform: scale(1.15) translateY(0);
     opacity: 1;
   }
+
   100% {
     transform: scale(1);
   }
 }
 
 @keyframes reserve-glow {
-  0%, 100% {
+
+  0%,
+  100% {
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5), inset 0 -2px 3px rgba(0, 0, 0, 0.28), 0 0 4px rgba(255, 170, 80, 0.5);
   }
+
   50% {
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5), inset 0 -2px 3px rgba(0, 0, 0, 0.28), 0 0 10px rgba(255, 190, 90, 0.9);
   }
@@ -884,8 +919,13 @@
 }
 
 @keyframes marblesPauseFade {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 /* ── Menu popup (explainer + quit) ───────────────────────────────── */
