@@ -28,6 +28,10 @@
 
     <!-- ── Splash screen ─────────────────────────────────────────────── -->
     <div class="marbles-splash" *ngIf="status === 'splash'" (click)="toMenu()">
+      <div class="marbles-logo splash-logo" aria-hidden="true">
+        <span class="marbles-logo-ball">🔮</span>
+        <span class="marbles-logo-cyclone">🌀</span>
+      </div>
       <div class="splash-marble" aria-hidden="true">
         <canvas #splashCanvas class="splash-marble-canvas" width="220" height="220"></canvas>
       </div>
@@ -42,7 +46,11 @@
     <div class="marbles-panel win98" *ngIf="status === 'menu' && !showHowTo">
       <div class="win98-titlebar"><span>Lose Your Marbles</span></div>
       <div class="win98-body">
-        <h2 class="marbles-title">🔮 Lose Your Marbles</h2>
+        <div class="marbles-logo" aria-hidden="true">
+          <span class="marbles-logo-ball">🔮</span>
+          <span class="marbles-logo-cyclone">🌀</span>
+        </div>
+        <h2 class="marbles-title">Lose Your Marbles</h2>
         <p class="marbles-sub">Slide marbles to line up 3+ of the same color in any row or column. Matches dump garbage on your opponent — 3 sends 1, 4 sends 2, 5+ sends 3. First board to fill up loses!</p>
         <div class="marbles-form">
           <input class="marbles-input" [(ngModel)]="playerName" placeholder="Your name" maxlength="16" />

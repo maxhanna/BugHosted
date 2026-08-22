@@ -370,6 +370,93 @@
   color: #1a1a1a;
 }
 
+/* ── Game logo: crystal ball superimposed over a spinning cyclone ───── */
+
+.marbles-logo {
+  position: relative;
+  width: 84px;
+  height: 84px;
+  flex: none;
+  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.35));
+}
+
+.marbles-logo-ball {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 40px;
+  line-height: 1;
+  z-index: 2;
+  animation: marblesLogoBob 2.4s ease-in-out infinite;
+  filter: drop-shadow(0 0 8px rgba(122, 168, 255, 0.95)) drop-shadow(0 0 16px rgba(122, 168, 255, 0.45));
+}
+
+.marbles-logo-cyclone {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 64px;
+  line-height: 1;
+  z-index: 1;
+  animation: marblesLogoSpin 3.2s linear infinite;
+  filter: drop-shadow(0 0 6px rgba(122, 168, 255, 0.5));
+}
+
+@keyframes marblesLogoSpin {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+@keyframes marblesLogoBob {
+
+  0%,
+  100% {
+    transform: translate(-50%, -50%) translateY(0) rotate(-4deg);
+  }
+
+  50% {
+    transform: translate(-50%, -50%) translateY(-6px) rotate(4deg);
+  }
+}
+
+/* Compact brand mark on the splash: same logo, smaller so the random
+ * marble hero stays the centrepiece and short phones still fit. */
+.splash-logo {
+  width: 64px;
+  height: 64px;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.4));
+}
+
+.splash-logo .marbles-logo-ball {
+  font-size: 30px;
+}
+
+.splash-logo .marbles-logo-cyclone {
+  font-size: 50px;
+  animation: marblesLogoSpinBreathe 3.2s ease-in-out infinite;
+}
+
+@keyframes marblesLogoSpinBreathe {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg) scale(1);
+  }
+
+  50% {
+    transform: translate(-50%, -50%) rotate(180deg) scale(1.09);
+  }
+
+  to {
+    transform: translate(-50%, -50%) rotate(360deg) scale(1);
+  }
+}
+
 .marbles-sub {
   max-width: 400px;
   margin: 0;
