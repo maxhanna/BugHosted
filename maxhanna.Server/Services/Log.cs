@@ -345,15 +345,8 @@ public class Log
     public DateTime LastUsedAt { get; set; }
     public bool IsCurrent { get; set; }
     public string? UserAgent { get; set; }
-  }
-
-  /// One-process flag: the user_sessions.user_agent column (device identity
-  /// for the Active Sessions panel) is added on first use if the table predates
-  /// it. There is no migration framework in this project, so this self-heals.
-  private static bool _sessionUserAgentColumnEnsured = false;
-
+  } 
   
-
   /// Lists a user's active sessions, newest activity first, marking the session
   /// matching the supplied token as the current device.
   public static async Task<List<SessionInfo>> ListSessions(string cs, int userId, string currentToken)

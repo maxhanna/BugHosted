@@ -44,11 +44,6 @@ namespace maxhanna.Server.Hubs
         private readonly IHubContext<MarblesHub> _hubContext;
         private readonly IConfiguration _config;
 
-        // One-shot schema guard so the forfeits table is created on first use
-        // (the marbles_scores table is created the same way — out-of-band).
-        private static int _forfeitSchemaChecked;
-        private static readonly object _forfeitSchemaLock = new();
-
         public MarblesHub(IHubContext<MarblesHub> hubContext, IConfiguration config)
         {
             _hubContext = hubContext;
