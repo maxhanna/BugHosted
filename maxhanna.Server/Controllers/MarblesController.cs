@@ -22,7 +22,7 @@ namespace maxhanna.Server.Controllers
 		/// the number of marbles the player cleared before their board filled
 		/// up. Multiplayer matches never submit here.
 		/// </summary>
-		[HttpPost("/Marbles/AddScore")]
+		[HttpPost("AddScore")]
 		public async Task<IActionResult> AddScore([FromBody] MarblesScore score)
 		{
 			if (score.Score < 0 || score.Difficulty < 0 || score.Difficulty > 2)
@@ -66,7 +66,7 @@ namespace maxhanna.Server.Controllers
 		/// caller's own best entry. Pass a user id in the body to include
 		/// myBest; otherwise it is omitted.
 		/// </summary>
-		[HttpPost("/Marbles/GetHighScores")]
+		[HttpPost("GetHighScores")]
 		public async Task<IActionResult> GetHighScores([FromBody] int? userId)
 		{
 			var connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");

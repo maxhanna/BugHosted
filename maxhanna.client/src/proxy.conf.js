@@ -81,6 +81,7 @@ const PROXY_CONFIG = [
       "/follow",
       "/hubs",
       "/racing",
+      "/marbles",
     ],
     target,
     changeOrigin: true, // This helps with certain CORS issues and forwards headers correctly 
