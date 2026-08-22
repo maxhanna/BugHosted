@@ -82,12 +82,12 @@
               <span *ngIf="!f.resolvedAt" class="smallFont statusPending" style="margin-left:8px;">⏳ Open</span>
               <span style="margin-left:auto;"></span>
               <button class="noBtn" (click)="toggleResolveWeaverFeedback(f)" [disabled]="weaverResolveSaving === f.id || weaverFeedbackLoading || isActionBusy('weaver-res-' + f.id)">
-                <app-loading-spinner *ngIf="isActionBusy('weaver-res-' + f.id)" fontSize="1em"></app-loading-spinner>
+                <app-loading-spinner *ngIf="isActionBusy('weaver-res-' + f.id)" icon="✅" fontSize="1em"></app-loading-spinner>
                 <ng-container *ngIf="!isActionBusy('weaver-res-' + f.id)">{{ f.resolvedAt ? '↩️ Reopen' : '✅ Resolve' }}</ng-container>
               </button>
               <button class="noBtn" (click)="weaverReplyId === f.id ? cancelWeaverReply() : startWeaverReply(f)" [disabled]="weaverReplySaving || weaverFeedbackLoading">💬 {{ f.reply ? 'Edit reply' : 'Reply' }}</button>
               <button class="noBtn" (click)="deleteWeaverFeedback(f.id)" [disabled]="weaverFeedbackLoading || isActionBusy('weaver-del-' + f.id)">
-                <app-loading-spinner *ngIf="isActionBusy('weaver-del-' + f.id)" fontSize="1em"></app-loading-spinner>
+                <app-loading-spinner *ngIf="isActionBusy('weaver-del-' + f.id)" icon="🗑" fontSize="1em"></app-loading-spinner>
                 <ng-container *ngIf="!isActionBusy('weaver-del-' + f.id)">🗑 Delete</ng-container>
               </button>
             </div>
@@ -108,7 +108,7 @@
               <textarea class="modSelect" rows="2" style="width:100%;min-width:0;resize:vertical;" [(ngModel)]="weaverReplyText" placeholder="Reply to this feedback message…"></textarea>
               <div style="margin-top:4px;">
                 <button class="noBtn" (click)="saveWeaverReply(f)" [disabled]="weaverReplySaving || !weaverReplyText.trim() || isActionBusy('weaver-reply-' + f.id)">
-                  <app-loading-spinner *ngIf="isActionBusy('weaver-reply-' + f.id)" fontSize="1em"></app-loading-spinner>
+                  <app-loading-spinner *ngIf="isActionBusy('weaver-reply-' + f.id)" icon="💾" fontSize="1em"></app-loading-spinner>
                   <ng-container *ngIf="!isActionBusy('weaver-reply-' + f.id)">💾 Save reply</ng-container>
                 </button>
                 <button class="noBtn" (click)="cancelWeaverReply()" [disabled]="weaverReplySaving">Cancel</button>
@@ -170,11 +170,15 @@
                 {{ selectedChatBanUser.username || ('User #' + selectedChatBanUser.id) }} in {{ managedChatName() }}:
               </div>
               <div class="chips" style="align-items:center;">
-                <button class="addBtn" (click)="addChatModerator(selectedChatBanUser)" [disabled]="chatModActionLoading || isChatMod(selectedChatBanUser)">
-                  👮 Promote to Chat Mod
+                <button class="addBtn" (click)="addChatModerator(selectedChatBanUser)" [disabled]="chatModActionLoading || isChatMod(selectedChatBanUser) || isActionBusy('promote-' + selectedChatBanUser.id)">
+                  <app-loading-spinner *ngIf="isActionBusy('promote-' + selectedChatBanUser.id)" icon="👮" fontSize="1em"></app-loading-spinner>
+                  <ng-container *ngIf="!isActionBusy('promote-' + selectedChatBanUser.id)">👮 Promote to Chat Mod</ng-container>
                 </button>
                 <input [(ngModel)]="banReason" placeholder="Ban reason (optional)" class="modSelect" style="flex:1; min-width:120px;" />
-                <button class="noBtn" (click)="banChatModUser()" [disabled]="chatModActionLoading">🚫 Ban from Chat</button>
+                <button class="noBtn" (click)="banChatModUser()" [disabled]="chatModActionLoading || isActionBusy('ban-' + selectedChatBanUser.id)">
+                  <app-loading-spinner *ngIf="isActionBusy('ban-' + selectedChatBanUser.id)" icon="🚫" fontSize="1em"></app-loading-spinner>
+                  <ng-container *ngIf="!isActionBusy('ban-' + selectedChatBanUser.id)">🚫 Ban from Chat</ng-container>
+                </button>
                 <button class="linkBtn" (click)="clearChatBanUser()">Clear</button>
               </div>
             </div>
@@ -189,7 +193,10 @@
                 <app-user-tag [user]="m.user" [inputtedParentRef]="parentRef" [displayMiniTag]="true"></app-user-tag>
                 <span *ngIf="m.user?.id === (parentRef?.user?.id ?? 0)" class="ownerBadge">You</span>
                 <button *ngIf="m.user?.id !== (parentRef?.user?.id ?? 0)" class="chipRemove"
-                  (click)="removeChatModerator(m.user!)" [disabled]="chatModActionLoading" title="Remove chat moderator role">✕</button>
+                  (click)="removeChatModerator(m.user!)" [disabled]="chatModActionLoading || isActionBusy('demote-' + m.user?.id)" title="Remove chat moderator role">
+                  <app-loading-spinner *ngIf="isActionBusy('demote-' + m.user?.id)" icon="🗑" fontSize="0.9em"></app-loading-spinner>
+                  <ng-container *ngIf="!isActionBusy('demote-' + m.user?.id)">✕</ng-container>
+                </button>
               </div>
             </div>
 
@@ -201,7 +208,10 @@
                 <app-user-tag [user]="chatBanUser(b)" [inputtedParentRef]="parentRef" [displayMiniTag]="true"></app-user-tag>
                 <span class="smallFont secondaryFontColor" *ngIf="b.reason">— {{ b.reason }}</span>
                 <span class="smallFont secondaryFontColor" *ngIf="b.isActive">(active)</span>
-                <button *ngIf="b.isActive" class="okBtn" (click)="unbanChatModUser(b)" [disabled]="chatModActionLoading">Unban</button>
+                <button *ngIf="b.isActive" class="okBtn" (click)="unbanChatModUser(b)" [disabled]="chatModActionLoading || isActionBusy('unban-' + b.userId)">
+                  <app-loading-spinner *ngIf="isActionBusy('unban-' + b.userId)" icon="🔓" fontSize="1em"></app-loading-spinner>
+                  <ng-container *ngIf="!isActionBusy('unban-' + b.userId)">Unban</ng-container>
+                </button>
               </div>
             </div>
 
@@ -218,11 +228,11 @@
                 <div *ngIf="a.resolution" class="smallFont" [class.thirdFontColor]="true">Resolved: {{ a.resolution }}</div>
                 <div *ngIf="!a.resolution">
                   <button class="okBtn" (click)="resolveChatAppeal(a, 'approved')" [disabled]="chatModActionLoading || isActionBusy('chat-appeal-' + a.id + '-approved')">
-                    <app-loading-spinner *ngIf="isActionBusy('chat-appeal-' + a.id + '-approved')" fontSize="1em"></app-loading-spinner>
+                    <app-loading-spinner *ngIf="isActionBusy('chat-appeal-' + a.id + '-approved')" icon="⚖️" fontSize="1em"></app-loading-spinner>
                     <ng-container *ngIf="!isActionBusy('chat-appeal-' + a.id + '-approved')">Approve</ng-container>
                   </button>
                   <button class="noBtn" (click)="resolveChatAppeal(a, 'denied')" [disabled]="chatModActionLoading || isActionBusy('chat-appeal-' + a.id + '-denied')">
-                    <app-loading-spinner *ngIf="isActionBusy('chat-appeal-' + a.id + '-denied')" fontSize="1em"></app-loading-spinner>
+                    <app-loading-spinner *ngIf="isActionBusy('chat-appeal-' + a.id + '-denied')" icon="⚖️" fontSize="1em"></app-loading-spinner>
                     <ng-container *ngIf="!isActionBusy('chat-appeal-' + a.id + '-denied')">Deny</ng-container>
                   </button>
                 </div>
@@ -241,11 +251,11 @@
                 <div class="smallFont" style="margin:4px 0;">{{ r.requestText || 'Wants to help moderate this room.' }}</div>
                 <div>
                   <button class="okBtn" (click)="resolveChatModRequest(r, 'approved')" [disabled]="chatModActionLoading || isActionBusy('chat-req-' + r.id + '-approved')">
-                    <app-loading-spinner *ngIf="isActionBusy('chat-req-' + r.id + '-approved')" fontSize="1em"></app-loading-spinner>
+                    <app-loading-spinner *ngIf="isActionBusy('chat-req-' + r.id + '-approved')" icon="🙋" fontSize="1em"></app-loading-spinner>
                     <ng-container *ngIf="!isActionBusy('chat-req-' + r.id + '-approved')">Approve</ng-container>
                   </button>
                   <button class="noBtn" (click)="resolveChatModRequest(r, 'denied')" [disabled]="chatModActionLoading || isActionBusy('chat-req-' + r.id + '-denied')">
-                    <app-loading-spinner *ngIf="isActionBusy('chat-req-' + r.id + '-denied')" fontSize="1em"></app-loading-spinner>
+                    <app-loading-spinner *ngIf="isActionBusy('chat-req-' + r.id + '-denied')" icon="🙋" fontSize="1em"></app-loading-spinner>
                     <ng-container *ngIf="!isActionBusy('chat-req-' + r.id + '-denied')">Deny</ng-container>
                   </button>
                 </div>
@@ -324,8 +334,9 @@
             </app-topics>
           </div>
           <div class="fieldRow">
-            <button class="assignBtn" (click)="addModerators()" [disabled]="modActionLoading || !canAssign()">
-              {{ modActionLoading ? 'Saving…' : '✅ Assign Role' }}
+            <button class="assignBtn" (click)="addModerators()" [disabled]="modActionLoading || !canAssign() || isActionBusy('assign-role')">
+              <app-loading-spinner *ngIf="isActionBusy('assign-role')" icon="👮" fontSize="1em"></app-loading-spinner>
+              <ng-container *ngIf="!isActionBusy('assign-role')">✅ Assign Role</ng-container>
             </button>
           </div>
           <div *ngIf="modMessage" class="modMsg" [class.error]="modMessageIsError">{{ modMessage }}</div>
@@ -353,8 +364,11 @@
             <div *ngFor="let r of m.roles" class="moderatorRoleChip">
               <span>{{ formatRole(r) }}</span>
               <ng-container *ngIf="isAdmin && m.user?.id !== 1">
-                <button *ngIf="!isProtectedAdminRemoval(m.user!, r)" (click)="removeRole(m.user!, r)" [disabled]="modActionLoading"
-                  title="Remove role" class="chipRemove">✕</button>
+                <button *ngIf="!isProtectedAdminRemoval(m.user!, r)" (click)="removeRole(m.user!, r)" [disabled]="modActionLoading || isActionBusy('remove-role-' + m.user?.id + '-' + r.role)"
+                  title="Remove role" class="chipRemove">
+                  <app-loading-spinner *ngIf="isActionBusy('remove-role-' + m.user?.id + '-' + r.role)" icon="🗑" fontSize="0.9em"></app-loading-spinner>
+                  <ng-container *ngIf="!isActionBusy('remove-role-' + m.user?.id + '-' + r.role)">✕</ng-container>
+                </button>
                 <span *ngIf="isProtectedAdminRemoval(m.user!, r)" class="chipLock"
                   title="Protected: you can't remove your own admin role, and the last admin can't be demoted.">🔒</span>
               </ng-container>
@@ -366,7 +380,10 @@
                 {{ addRoleForUserId === m.user?.id ? '✕ Cancel' : '＋ Add role' }}
               </button>
               <button class="removeModBtn" (click)="removeModerator(m.user!)"
-                [disabled]="modActionLoading || rowActionLoading">Remove all roles</button>
+                [disabled]="modActionLoading || rowActionLoading || isActionBusy('remove-all-' + m.user?.id)">
+                <app-loading-spinner *ngIf="isActionBusy('remove-all-' + m.user?.id)" icon="🗑" fontSize="1em"></app-loading-spinner>
+                <ng-container *ngIf="!isActionBusy('remove-all-' + m.user?.id)">Remove all roles</ng-container>
+              </button>
             </div>
 
             <!-- Inline add-role picker for this moderator -->
@@ -392,8 +409,9 @@
                 </app-topics>
               </div>
               <button class="assignBtn" (click)="addRoleToModerator(m.user!)"
-                [disabled]="rowActionLoading || !canAssignRowRole()">
-                {{ rowActionLoading ? 'Saving…' : '✅ Assign Role' }}
+                [disabled]="rowActionLoading || !canAssignRowRole() || isActionBusy('row-role-' + m.user?.id)">
+                <app-loading-spinner *ngIf="isActionBusy('row-role-' + m.user?.id)" icon="👮" fontSize="1em"></app-loading-spinner>
+                <ng-container *ngIf="!isActionBusy('row-role-' + m.user?.id)">✅ Assign Role</ng-container>
               </button>
               <div *ngIf="rowMessage" class="modMsg" [class.error]="rowMessageIsError">{{ rowMessage }}</div>
             </div>
@@ -449,11 +467,11 @@
               <td>{{ a.resolution || 'Pending' }}</td>
               <td>
                 <button *ngIf="!a.resolution" (click)="approveAppeal(a.id)" [disabled]="loading || isActionBusy('appeal-appr-' + a.id)" class="okBtn">
-                  <app-loading-spinner *ngIf="isActionBusy('appeal-appr-' + a.id)" fontSize="1em"></app-loading-spinner>
+                  <app-loading-spinner *ngIf="isActionBusy('appeal-appr-' + a.id)" icon="⚖️" fontSize="1em"></app-loading-spinner>
                   <ng-container *ngIf="!isActionBusy('appeal-appr-' + a.id)">Approve</ng-container>
                 </button>
                 <button *ngIf="!a.resolution" (click)="denyAppeal(a.id)" [disabled]="loading || isActionBusy('appeal-deny-' + a.id)" class="noBtn">
-                  <app-loading-spinner *ngIf="isActionBusy('appeal-deny-' + a.id)" fontSize="1em"></app-loading-spinner>
+                  <app-loading-spinner *ngIf="isActionBusy('appeal-deny-' + a.id)" icon="⚖️" fontSize="1em"></app-loading-spinner>
                   <ng-container *ngIf="!isActionBusy('appeal-deny-' + a.id)">Deny</ng-container>
                 </button>
               </td>
@@ -482,11 +500,11 @@
               <td class="nowrap">{{ r.createdAt | date:'y/MM/d HH:mm' }}</td>
               <td>
                 <button (click)="resolveModRequest(r, 'approved')" [disabled]="loading || isActionBusy('req-' + r.id + '-approved')" class="okBtn">
-                  <app-loading-spinner *ngIf="isActionBusy('req-' + r.id + '-approved')" fontSize="1em"></app-loading-spinner>
+                  <app-loading-spinner *ngIf="isActionBusy('req-' + r.id + '-approved')" icon="🙋" fontSize="1em"></app-loading-spinner>
                   <ng-container *ngIf="!isActionBusy('req-' + r.id + '-approved')">Approve</ng-container>
                 </button>
                 <button (click)="resolveModRequest(r, 'denied')" [disabled]="loading || isActionBusy('req-' + r.id + '-denied')" class="noBtn">
-                  <app-loading-spinner *ngIf="isActionBusy('req-' + r.id + '-denied')" fontSize="1em"></app-loading-spinner>
+                  <app-loading-spinner *ngIf="isActionBusy('req-' + r.id + '-denied')" icon="🙋" fontSize="1em"></app-loading-spinner>
                   <ng-container *ngIf="!isActionBusy('req-' + r.id + '-denied')">Deny</ng-container>
                 </button>
               </td>

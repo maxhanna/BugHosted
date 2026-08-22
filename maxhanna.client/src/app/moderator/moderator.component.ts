@@ -480,25 +480,27 @@ export class ModeratorComponent extends ChildComponent {
     const userId = this.parentRef?.user?.id;
     if (!userId || this.selectedUsers.length === 0 || !this.canAssign()) return;
     const sessionToken = this.parentRef ? await this.parentRef.getSessionToken() ?? '' : '';
-    this.modActionLoading = true;
-    this.modMessage = '';
-    let failures = 0;
-    for (const u of this.selectedUsers) {
-      if (u.id) {
-        const ok = await this.moderatorService.setRole(u.id, this.selectedRole, userId, false, sessionToken, this.selectedTargetType, this.selectedTargetId || undefined);
-        if (!ok) failures++;
+    await this.runAction('assign-role', async () => {
+      this.modActionLoading = true;
+      this.modMessage = '';
+      let failures = 0;
+      for (const u of this.selectedUsers) {
+        if (u.id) {
+          const ok = await this.moderatorService.setRole(u.id, this.selectedRole, userId, false, sessionToken, this.selectedTargetType, this.selectedTargetId || undefined);
+          if (!ok) failures++;
+        }
       }
-    }
-    this.modActionLoading = false;
-    if (failures === 0) {
-      this.modMessage = `✅ Assigned '${this.roleLabel(this.selectedRole)}' to ${this.selectedUsers.length} user(s).`;
-      this.modMessageIsError = false;
-      this.clearSelection();
-      await Promise.all([this.loadModerators(), this.loadModeratorLogs()]);
-    } else {
-      this.modMessage = `❌ ${failures} assignment(s) failed. Please try again.`;
-      this.modMessageIsError = true;
-    }
+      this.modActionLoading = false;
+      if (failures === 0) {
+        this.modMessage = `✅ Assigned '${this.roleLabel(this.selectedRole)}' to ${this.selectedUsers.length} user(s).`;
+        this.modMessageIsError = false;
+        this.clearSelection();
+        await Promise.all([this.loadModerators(), this.loadModeratorLogs()]);
+      } else {
+        this.modMessage = `❌ ${failures} assignment(s) failed. Please try again.`;
+        this.modMessageIsError = true;
+      }
+    });
   }
 
   roleLabel(role: string): string {
@@ -532,10 +534,12 @@ export class ModeratorComponent extends ChildComponent {
     // admin role, and the last admin can't be demoted.
     if (this.isProtectedAdminRemoval(targetUser, role)) return;
     const sessionToken = await this.parentRef?.getSessionToken() ?? '';
-    this.modActionLoading = true;
-    await this.moderatorService.setRole(targetUser.id, role.role, userId, true, sessionToken, role.targetType, role.targetId ?? undefined);
-    await Promise.all([this.loadModerators(), this.loadModeratorLogs()]);
-    this.modActionLoading = false;
+    await this.runAction('remove-role-' + targetUser.id + '-' + role.role, async () => {
+      this.modActionLoading = true;
+      await this.moderatorService.setRole(targetUser.id!, role.role, userId, true, sessionToken, role.targetType, role.targetId ?? undefined);
+      await Promise.all([this.loadModerators(), this.loadModeratorLogs()]);
+      this.modActionLoading = false;
+    });
   }
 
   /** True when removing this role would strip the target's own admin role or
@@ -568,10 +572,12 @@ export class ModeratorComponent extends ChildComponent {
     const userId = this.parentRef?.user?.id;
     if (!userId || !targetUser.id || targetUser.id === 1) return;
     const sessionToken = await this.parentRef?.getSessionToken() ?? '';
-    this.modActionLoading = true;
-    await this.moderatorService.setRole(targetUser.id, 'moderator', userId, true, sessionToken, 'global');
-    await Promise.all([this.loadModerators(), this.loadModeratorLogs()]);
-    this.modActionLoading = false;
+    await this.runAction('remove-all-' + targetUser.id, async () => {
+      this.modActionLoading = true;
+      await this.moderatorService.setRole(targetUser.id!, 'moderator', userId, true, sessionToken, 'global');
+      await Promise.all([this.loadModerators(), this.loadModeratorLogs()]);
+      this.modActionLoading = false;
+    });
   }
 
   // ─── Per-moderator add role (inline picker in the expanded moderator row) ───
@@ -615,19 +621,21 @@ export class ModeratorComponent extends ChildComponent {
     const userId = this.parentRef?.user?.id;
     if (!userId || !targetUser.id || !this.canAssignRowRole()) return;
     const sessionToken = await this.parentRef?.getSessionToken() ?? '';
-    this.rowActionLoading = true;
-    this.rowMessage = '';
-    const ok = await this.moderatorService.setRole(targetUser.id, this.rowRole, userId, false, sessionToken, this.rowTargetType, this.rowTargetId || undefined);
-    this.rowActionLoading = false;
-    if (ok) {
-      this.rowMessage = `✅ Assigned '${this.roleLabel(this.rowRole)}' to ${targetUser.username ?? ('User #' + targetUser.id)}.`;
-      this.rowMessageIsError = false;
-      this.addRoleForUserId = 0;
-      await Promise.all([this.loadModerators(), this.loadModeratorLogs()]);
-    } else {
-      this.rowMessage = '❌ Failed to assign the role. Please try again.';
-      this.rowMessageIsError = true;
-    }
+    await this.runAction('row-role-' + targetUser.id, async () => {
+      this.rowActionLoading = true;
+      this.rowMessage = '';
+      const ok = await this.moderatorService.setRole(targetUser.id!, this.rowRole, userId, false, sessionToken, this.rowTargetType, this.rowTargetId || undefined);
+      this.rowActionLoading = false;
+      if (ok) {
+        this.rowMessage = `✅ Assigned '${this.roleLabel(this.rowRole)}' to ${targetUser.username ?? ('User #' + targetUser.id)}.`;
+        this.rowMessageIsError = false;
+        this.addRoleForUserId = 0;
+        await Promise.all([this.loadModerators(), this.loadModeratorLogs()]);
+      } else {
+        this.rowMessage = '❌ Failed to assign the role. Please try again.';
+        this.rowMessageIsError = true;
+      }
+    });
   }
 
   /** Load the chat/topic target list for the inline row picker. */
@@ -765,19 +773,21 @@ export class ModeratorComponent extends ChildComponent {
     const userId = this.parentRef?.user?.id;
     if (!userId || !user.id || !this.selectedManagedChat) return;
     const sessionToken = await this.parentRef?.getSessionToken() ?? '';
-    this.chatModActionLoading = true;
-    const ok = await this.moderatorService.setRole(user.id, 'chat_moderator', userId, false, sessionToken, 'chat', this.selectedManagedChat);
-    this.chatModActionLoading = false;
-    if (ok) {
-      this.chatModMessage = `✅ ${user.username ?? 'User'} is now a moderator of ${this.managedChatName()}.`;
-      this.chatModMessageIsError = false;
-      this.chatModSearchResults = this.chatModSearchResults.filter(r => r.id !== user.id);
-      this.chatModSearchDone = false;
-      await Promise.all([this.loadChatModeration(), this.loadModeratorLogs()]);
-    } else {
-      this.chatModMessage = `❌ Couldn't promote ${user.username ?? 'User'}. Only this chat's moderators can add moderators here.`;
-      this.chatModMessageIsError = true;
-    }
+    await this.runAction('promote-' + user.id, async () => {
+      this.chatModActionLoading = true;
+      const ok = await this.moderatorService.setRole(user.id!, 'chat_moderator', userId, false, sessionToken, 'chat', this.selectedManagedChat);
+      this.chatModActionLoading = false;
+      if (ok) {
+        this.chatModMessage = `✅ ${user.username ?? 'User'} is now a moderator of ${this.managedChatName()}.`;
+        this.chatModMessageIsError = false;
+        this.chatModSearchResults = this.chatModSearchResults.filter(r => r.id !== user.id);
+        this.chatModSearchDone = false;
+        await Promise.all([this.loadChatModeration(), this.loadModeratorLogs()]);
+      } else {
+        this.chatModMessage = `❌ Couldn't promote ${user.username ?? 'User'}. Only this chat's moderators can add moderators here.`;
+        this.chatModMessageIsError = true;
+      }
+    });
   }
 
   async removeChatModerator(user: User) {
@@ -789,54 +799,61 @@ export class ModeratorComponent extends ChildComponent {
       return;
     }
     const sessionToken = await this.parentRef?.getSessionToken() ?? '';
-    this.chatModActionLoading = true;
-    const ok = await this.moderatorService.setRole(user.id, 'chat_moderator', userId, true, sessionToken, 'chat', this.selectedManagedChat);
-    this.chatModActionLoading = false;
-    if (ok) {
-      this.chatModMessage = `🗑️ ${user.username ?? 'User'} is no longer a moderator of ${this.managedChatName()}.`;
-      this.chatModMessageIsError = false;
-      await Promise.all([this.loadChatModeration(), this.loadModeratorLogs()]);
-    } else {
-      this.chatModMessage = `❌ Couldn't remove the role.`;
-      this.chatModMessageIsError = true;
-    }
+    await this.runAction('demote-' + user.id, async () => {
+      this.chatModActionLoading = true;
+      const ok = await this.moderatorService.setRole(user.id!, 'chat_moderator', userId, true, sessionToken, 'chat', this.selectedManagedChat);
+      this.chatModActionLoading = false;
+      if (ok) {
+        this.chatModMessage = `🗑️ ${user.username ?? 'User'} is no longer a moderator of ${this.managedChatName()}.`;
+        this.chatModMessageIsError = false;
+        await Promise.all([this.loadChatModeration(), this.loadModeratorLogs()]);
+      } else {
+        this.chatModMessage = `❌ Couldn't remove the role.`;
+        this.chatModMessageIsError = true;
+      }
+    });
   }
 
   async banChatModUser() {
     const userId = this.parentRef?.user?.id;
-    if (!userId || !this.selectedChatBanUser?.id || !this.selectedManagedChat) return;
+    const target = this.selectedChatBanUser;
+    if (!userId || !target?.id || !this.selectedManagedChat) return;
     const sessionToken = await this.parentRef?.getSessionToken() ?? '';
-    this.chatModActionLoading = true;
-    const ok = await this.moderatorService.banChatUser(this.selectedManagedChat, this.selectedChatBanUser.id, userId, this.banReason.trim(), sessionToken);
-    this.chatModActionLoading = false;
-    if (ok) {
-      this.chatModMessage = `🚫 ${this.selectedChatBanUser.username ?? 'User'} was banned from ${this.managedChatName()}.`;
-      this.chatModMessageIsError = false;
-      this.clearChatBanUser();
-      this.chatModSearchDone = false;
-      this.chatModSearchResults = [];
-      await Promise.all([this.loadChatModeration(), this.loadModeratorLogs()]);
-    } else {
-      this.chatModMessage = `❌ Couldn't ban that user.`;
-      this.chatModMessageIsError = true;
-    }
+    await this.runAction('ban-' + target.id, async () => {
+      this.chatModActionLoading = true;
+      const ok = await this.moderatorService.banChatUser(this.selectedManagedChat, target.id!, userId, this.banReason.trim(), sessionToken);
+      this.chatModActionLoading = false;
+      if (ok) {
+        this.chatModMessage = `🚫 ${target.username ?? 'User'} was banned from ${this.managedChatName()}.`;
+        this.chatModMessageIsError = false;
+        this.clearChatBanUser();
+        this.chatModSearchDone = false;
+        this.chatModSearchResults = [];
+        await Promise.all([this.loadChatModeration(), this.loadModeratorLogs()]);
+      } else {
+        this.chatModMessage = `❌ Couldn't ban that user.`;
+        this.chatModMessageIsError = true;
+      }
+    });
   }
 
   async unbanChatModUser(ban: ChatBan) {
     const userId = this.parentRef?.user?.id;
     if (!userId || !this.selectedManagedChat) return;
     const sessionToken = await this.parentRef?.getSessionToken() ?? '';
-    this.chatModActionLoading = true;
-    const ok = await this.moderatorService.unbanChatUser(this.selectedManagedChat, ban.userId, userId, sessionToken);
-    this.chatModActionLoading = false;
-    if (ok) {
-      this.chatModMessage = `✅ ${ban.username ?? 'User'} was unbanned.`;
-      this.chatModMessageIsError = false;
-      await Promise.all([this.loadChatModeration(), this.loadModeratorLogs()]);
-    } else {
-      this.chatModMessage = `❌ Couldn't unban that user.`;
-      this.chatModMessageIsError = true;
-    }
+    await this.runAction('unban-' + ban.userId, async () => {
+      this.chatModActionLoading = true;
+      const ok = await this.moderatorService.unbanChatUser(this.selectedManagedChat, ban.userId, userId, sessionToken);
+      this.chatModActionLoading = false;
+      if (ok) {
+        this.chatModMessage = `✅ ${ban.username ?? 'User'} was unbanned.`;
+        this.chatModMessageIsError = false;
+        await Promise.all([this.loadChatModeration(), this.loadModeratorLogs()]);
+      } else {
+        this.chatModMessage = `❌ Couldn't unban that user.`;
+        this.chatModMessageIsError = true;
+      }
+    });
   }
 
   async resolveChatAppeal(appeal: ChatBanAppeal, resolution: 'approved' | 'denied') {
