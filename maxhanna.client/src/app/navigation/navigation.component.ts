@@ -121,6 +121,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   isLoadingArt = false;
   isLoadingWeather = false;
   isThemeApplied = false;
+  movieTodoCount: number | null = null;
   numberOfNotifications = 0;
   showAppSelectionHelp = false;
   preventFetchNotifs = false;
@@ -736,7 +737,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       Promise.resolve(this.getDigcraftPlayerInfo()),
       Promise.resolve(this.getMovieInfo())
     ].map(p =>
-      p.catch (err => {
+      p.catch(err => {
         console.error('Concurrent task failed:', err);
       })
     );
@@ -2059,25 +2060,24 @@ export class NavigationComponent implements OnInit, OnDestroy {
     return this._parent.userSelectedNavigationItems.some(x => x.title == title);
   }
   hexWithAlpha(hex?: string | undefined | null, alpha?: number): string | null {
-    if(!hex || !alpha) return null;
-    if(hex && hex.length > 7) {
+    if (!hex || !alpha) return null;
+    if (hex && hex.length > 7) {
       console.warn(`Expected hex in #RRGGBB format, got ${hex}`);
       return hex;
     }
     const a = Math.round(Math.max(0, Math.min(1, alpha)) * 255);
     const aa = a.toString(16).padStart(2, '0');
     let h = hex.replace('#', '').trim();
-    if(h.length === 3) h = h.split('').map(c => c + c).join('');
-    if(h.length !== 6) throw new Error(`Invalid hex color: ${hex}`);
+    if (h.length === 3) h = h.split('').map(c => c + c).join('');
+    if (h.length !== 6) throw new Error(`Invalid hex color: ${hex}`);
     return `#${h}${aa}`;
   }
-  public movieTodoCount: number | null = null;
 
   private async getMovieInfo() {
     const sig = this._abortController.signal;
     if (sig.aborted) return;
     if (!this._parent.notificationsActive) return;
-    if(this._parent.lastRunTimestamps['movie'] && Date.now() - this._parent.lastRunTimestamps['movie'] < this.time60Mins) {
+    if (this._parent.lastRunTimestamps['movie'] && Date.now() - this._parent.lastRunTimestamps['movie'] < this.time60Mins) {
       return;
     }
     // Check for user selection before proceeding
@@ -2090,7 +2090,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       const movieNav = this._parent.navigationItems.find(x => x.title === 'Movies');
       if (movieNav) {
         // Fetch the count of saved movies using todoService similar to music implementation
-        const res: any = await this.todoService.getTodoCount(this._parent?.user?.id ??0, 'Movie', undefined, sig);
+        const res: any = await this.todoService.getTodoCount(this._parent?.user?.id ?? 0, 'Movie', undefined, sig);
         this.movieTodoCount = res?.count ?? null;
         // Update navigation content with shortened count or empty string when zero
         movieNav.content = this.movieTodoCount && this.movieTodoCount > 0 ? this.shortenCount(this.movieTodoCount) : '';
@@ -2105,4 +2105,4 @@ export class NavigationComponent implements OnInit, OnDestroy {
       this.updateLastRunTimestamp('movie');
     }
   }
-  }
+}
