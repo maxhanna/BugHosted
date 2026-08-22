@@ -274,14 +274,13 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
   padding: 24px;
   background: rgba(10, 12, 18, 0.55);
   z-index: 4;
   align-content: center;
   overflow-y: auto;
   overscroll-behavior: contain;
-} 
+}
 
 .win98-titlebar {
   background: linear-gradient(90deg, #00007f, #1084d0);
@@ -294,9 +293,20 @@
   justify-content: space-between;
   border: 2px solid;
   border-color: #ffffff #0a0a0a #0a0a0a #ffffff;
-  width: min(442px, 92vw);
-} 
- 
+}
+
+@media (max-width: 900px) {
+  .win98-titlebar {
+    width: calc(100% - 28px);
+  }
+}
+
+@media (min-width: 900px) {
+  .win98-titlebar {
+    width: min(442px, 92vw);
+  }
+}
+
 .marbles-net {
   display: inline-flex;
   align-items: center;
