@@ -27,7 +27,7 @@
     <ng-template #recipeForm>
       <div class="composer-card">
         <div class="composer-header">
-          <h3>{{ editingRecipeId && editingRecipeId > 0 ? 'Edit Recipe' : 'New Recipe' }}</h3>
+          <h3>{{ (editingRecipeId && editingRecipeId > 0) ? 'Edit Recipe' : 'New Recipe' }}</h3>
           <button class="cancel-btn-icon" (click)="cancelEdit()" *ngIf="onMobile()">X</button>
         </div>
         <label>
@@ -91,7 +91,7 @@
             (selectFileEvent)="onMediaSelection($event)"></app-media-selector>
         </div>
         <div class="form-actions">
-          <button class="primary-btn" (click)="submitRecipe()">{{ editingRecipeId && editingRecipeId > 0 ? 'Update
+          <button class="primary-btn" (click)="submitRecipe()">{{ (editingRecipeId && editingRecipeId > 0) ? 'Update Recipe' : 'Save Recipe' }}</button>
             Recipe' : 'Save Recipe' }}</button>
           <button class="cancel-btn" (click)="cancelEdit()">Cancel</button>
         </div>
