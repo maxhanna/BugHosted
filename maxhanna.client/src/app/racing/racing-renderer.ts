@@ -5412,28 +5412,31 @@ void main() { FragColor = texture(uTex, vUV); }`;
     // horizon. Stored as records and rebuilt every frame in drawAurora with
     // swaying rays, pulsing brightness and a slowly cycling palette.
     this._auroraCurtains = [];
+    // Richer aurora palettes — each sheet cycles through four hues and bands
+    // across its width, so the sky reads as layered green/teal/cyan/magenta
+    // nebulas rather than uniform green strips.
     const aurPalettes: [number, number, number][][] = [
-      [[0.25, 0.95, 0.6], [0.35, 1.0, 0.85], [0.5, 0.75, 1.0]],
-      [[0.3, 0.9, 0.75], [0.55, 0.85, 1.0], [0.85, 0.55, 1.0]],
-      [[0.5, 0.5, 1.0], [0.9, 0.45, 0.85], [0.95, 0.6, 0.7]],
+      [[0.2, 1.0, 0.55], [0.3, 1.0, 0.9], [0.5, 0.8, 1.0], [0.9, 0.55, 1.0]],
+      [[0.22, 0.95, 0.8], [0.5, 0.9, 1.0], [0.88, 0.5, 1.0], [1.0, 0.5, 0.85]],
+      [[0.4, 0.6, 1.0], [0.85, 0.5, 1.0], [1.0, 0.55, 0.75], [1.0, 0.4, 0.6]],
     ];
     let aurIdx = 0;
-    for (let i = 0; i < pts.length; i += 40) {
+    for (let i = 0; i < pts.length; i += 34) {
       const p = pts[i];
       const ppx = -p.dirZ, ppz = p.dirX;
-      const side = (i / 40) % 2 === 0 ? -1 : 1;
-      const dist = p.width / 2 + 90 + Math.random() * 60;
-      const ax = p.x + ppx * dist * side;
-      const az = p.z + ppz * dist * side;
-      const h = 60 + Math.random() * 70;
-      const w = 26 + Math.random() * 30;
+      const side = (i / 34) % 2 === 0 ? -1 : 1;
+      const dist = p.width / 2 + 80 + Math.random() * 80;
+      const ax = p.x + ppx * dist * side + (Math.random() - 0.5) * 12;
+      const az = p.z + ppz * dist * side + (Math.random() - 0.5) * 12;
+      const h = 70 + Math.random() * 90;
+      const w = 30 + Math.random() * 44;
       this._auroraCurtains.push({
         x: ax, z: az, w, h,
         phase: Math.random() * Math.PI * 2,
-        speed: 0.35 + Math.random() * 0.5,
+        speed: 0.3 + Math.random() * 0.55,
         palette: aurPalettes[aurIdx % aurPalettes.length],
       });
-      if (aurIdx++ > 10) break;
+      if (aurIdx++ > 12) break;
     }
   }
   private addIceCrack(verts: number[], idxs: number[], x: number, z: number, dirX: number, dirZ: number, len: number) {
@@ -6744,9 +6747,14 @@ void main() { FragColor = texture(uTex, vUV); }`;
         for (const lt of [-1, 1]) {
           this.addOrientedBox(verts, idxs, tx + p.dirX * 1.7 * lt, 13, tz + p.dirZ * 1.7 * lt, 1.9, 27, 1.9, p.dirX, p.dirZ, ORANGE);
         }
-        // X-braces between the legs.
-        for (let by = 3; by < 25; by += 7) {
-          this.addOrientedBox(verts, idxs, tx, by + 0.5, tz, 6.2, 1.0, 1.6, p.dirX, p.dirZ, ORANGE_D);
+        // X-braces between the legs — crossing diagonal steel struts, like a
+        // real suspension tower's lattice, instead of flat horizontal bars.
+        for (let by = 3; by < 26; by += 5) {
+          const xIn = 1.55, inHalf = 2.0;
+          this.addSlantedBox(verts, idxs, tx - p.dirX * xIn, by - inHalf, tz - p.dirZ * xIn,
+            tx + p.dirX * xIn, by + inHalf, tz + p.dirZ * xIn, 0.5, 0.5, ORANGE_D);
+          this.addSlantedBox(verts, idxs, tx + p.dirX * xIn, by - inHalf, tz + p.dirZ * xIn,
+            tx - p.dirX * xIn, by + inHalf, tz - p.dirZ * xIn, 0.5, 0.5, ORANGE_D);
         }
         // Top cap.
         this.addOrientedBox(verts, idxs, tx, 26.6, tz, 6.2, 1.9, 1.9, p.dirX, p.dirZ, ORANGE_X);
@@ -6757,8 +6765,15 @@ void main() { FragColor = texture(uTex, vUV); }`;
       towers.push({ x: p.x, z: p.z, dirX: p.dirX, dirZ: p.dirZ, off });
     }
     // ── Main cables: catenaries sagging between each pair of towers ──
+    // Each cable is one continuous curve; its sag is divided into enough
+    // segments (scaled by span length) that it reads as a smooth catenary
+    // instead of a few broken straight bars. Vertical hangers drop from each
+    // node down to the deck rail so the cable visibly supports the road.
     const cableTop = 27.6;
-    const sag = 8;
+    const sag = 8.5;
+    const cableThick = 0.44;
+    const hangerBottom = 1.9;
+    const hangerStep = this.lowQuality ? 2 : 1;
     for (let a = 0; a < towers.length; a++) {
       const A = towers[a], B = towers[(a + 1) % towers.length];
       for (const side of [-1, 1]) {
@@ -6766,8 +6781,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
         const az = A.z + perpZ(A) * A.off * side;
         const bx = B.x + perpX(B) * B.off * side;
         const bz = B.z + perpZ(B) * B.off * side;
+        const span = Math.hypot(bx - ax, bz - az);
+        const segs = Math.max(16, Math.min(34, Math.round(span / 3)));
         let px0 = ax, py0 = cableTop, pz0 = az;
-        const segs = 5;
         for (let s = 1; s <= segs; s++) {
           const f = s / segs;
           const fx = ax + (bx - ax) * f;
@@ -6775,7 +6791,11 @@ void main() { FragColor = texture(uTex, vUV); }`;
           const fy = cableTop - sag * Math.sin(Math.PI * f);
           const dx = fx - px0, dz = fz - pz0;
           const len = Math.hypot(dx, dz) || 1;
-          this.addOrientedBox(verts, idxs, (px0 + fx) / 2, (py0 + fy) / 2, (pz0 + fz) / 2, len + 0.6, 0.34, 0.34, dx / len, dz / len, STEEL_L);
+          this.addOrientedBox(verts, idxs, (px0 + fx) / 2, (py0 + fy) / 2, (pz0 + fz) / 2, len + 0.5, cableThick, cableThick, dx / len, dz / len, STEEL_L);
+          // Vertical suspender hanger down to the deck rail.
+          if (s % hangerStep === 0) {
+            this.addOrientedBox(verts, idxs, fx, (fy + hangerBottom) / 2, fz, 0.16, fy - hangerBottom, 0.16, 1, 0, [0.66, 0.68, 0.72]);
+          }
           px0 = fx; py0 = fy; pz0 = fz;
         }
       }
@@ -11028,6 +11048,41 @@ void main() { FragColor = texture(uTex, vUV); }`;
     this.addQuad(verts, idxs, c00, c01, c03, c02, color);
     this.addQuad(verts, idxs, c10, c12, c13, c11, color);
   }
+  /** Oriented box running along an arbitrary 3D axis from (x0,y0,z0) to
+   *  (x1,y1,z1) — used for diagonal tower lattice struts that don't lie flat
+   *  in the horizontal plane (unlike addOrientedBox). `wid` is the width
+   *  across the perpendicular horizontal, `h` the thickness along the other
+   *  perpendicular. */
+  private addSlantedBox(verts: number[], idxs: number[], x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, wid: number, h: number, color: number[]) {
+    const dx = x1 - x0, dy = y1 - y0, dz = z1 - z0;
+    const len = Math.hypot(dx, dy, dz) || 1;
+    const ux = dx / len, uy = dy / len, uz = dz / len;
+    // Pick an axis least aligned with u to build a perpendicular basis.
+    let px: number, py: number, pz: number;
+    const ax = Math.abs(ux), ay = Math.abs(uy), az = Math.abs(uz);
+    if (ax <= ay && ax <= az) { px = 1; py = 0; pz = 0; }
+    else if (ay <= az) { px = 0; py = 1; pz = 0; }
+    else { px = 0; py = 0; pz = 1; }
+    let vx = uy * pz - uz * py, vy = uz * px - ux * pz, vz = ux * py - uy * px;
+    const vl = Math.hypot(vx, vy, vz) || 1;
+    vx /= vl; vy /= vl; vz /= vl;
+    const wx = uy * vz - uz * vy, wy = uz * vx - ux * vz, wz = ux * vy - uy * vx;
+    const hl = len / 2, hh = h / 2, hw = wid / 2;
+    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, cz = (z0 + z1) / 2;
+    const corner = (sx: number, sy: number, sz: number): number[] => [
+      cx + ux * hl * sx + wx * hh * sy + vx * hw * sz,
+      cy + uy * hl * sx + wy * hh * sy + vy * hw * sz,
+      cz + uz * hl * sx + wz * hh * sy + vz * hw * sz,
+    ];
+    const c00 = corner(-1, -1, -1), c01 = corner(-1, -1, 1), c02 = corner(-1, 1, -1), c03 = corner(-1, 1, 1);
+    const c10 = corner(1, -1, -1), c11 = corner(1, -1, 1), c12 = corner(1, 1, -1), c13 = corner(1, 1, 1);
+    this.addQuad(verts, idxs, c01, c00, c10, c11, color);
+    this.addQuad(verts, idxs, c03, c13, c12, c02, color);
+    this.addQuad(verts, idxs, c02, c12, c10, c00, color);
+    this.addQuad(verts, idxs, c01, c11, c13, c03, color);
+    this.addQuad(verts, idxs, c00, c01, c03, c02, color);
+    this.addQuad(verts, idxs, c10, c12, c13, c11, color);
+  }
   /** Flat livery plate that hugs a loft's top surface like a tattoo/wrap.
    * Corners are sampled on the surface (with a tiny lift so the plate never
    * z-fights the paint beneath), and the quad is split 6×2 so it follows the
@@ -13772,8 +13827,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
     if (!this._auroraCurtains.length) { this._auroraData = new Float32Array(0); return; }
     // Each curtain is a grid of cols×rows quads (6 verts each); capacity is
     // fixed at build time and the contents are rewritten every frame.
-    const cols = this.lowQuality ? 7 : 12;
-    const rows = this.lowQuality ? 6 : 9;
+    const cols = this.lowQuality ? 8 : 14;
+    const rows = this.lowQuality ? 6 : 10;
     let cap = 0;
     for (const c of this._auroraCurtains) {
       cap += cols * rows * 6;
@@ -13930,9 +13985,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
     if (!this._auroraVao || !this._auroraBuf || !this._auroraData || !this._auroraCurtains.length) return;
     const t = this.elapsed;
     const data = this._auroraData;
-    const cols = this.lowQuality ? 7 : 12;
-    const rows = this.lowQuality ? 6 : 9;
-    const cull2 = 420 * 420;
+    const cols = this.lowQuality ? 8 : 14;
+    const rows = this.lowQuality ? 6 : 10;
+    const cull2 = 620 * 620;
     const ex = eye[0], ez = eye[2];
     let w = 0;
     for (const c of this._auroraCurtains) {
@@ -13951,43 +14006,54 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const i1 = (i0 + 1) % pal.length;
       const frac = f - i0;
       const c0 = pal[i0], c1 = pal[i1];
-      const pulse = 0.72 + 0.28 * Math.sin(t * 0.33 + c.phase * 2);
+      // A nearby palette neighbour used to band each sheet's width, so a
+      // single curtain reads green→teal→purple like a coloured nebula.
+      const cNext = pal[(i0 + 2) % pal.length];
+      const pulse = 0.68 + 0.32 * Math.sin(t * 0.3 + c.phase * 2);
       const baseY = 5;
       for (let ci = 0; ci < cols; ci++) {
         const fx0 = ci / cols - 0.5;
         const fx1 = (ci + 1) / cols - 0.5;
         // Horizontal fade to nothing at the sheet's left/right edges.
-        const hf0 = Math.pow(1 - Math.abs(fx0) * 2, 1.4);
-        const hf1 = Math.pow(1 - Math.abs(fx1) * 2, 1.4);
+        const hf0 = Math.pow(1 - Math.abs(fx0) * 2, 1.3);
+        const hf1 = Math.pow(1 - Math.abs(fx1) * 2, 1.3);
         // Vertical light striations — the classic aurora "rays".
-        const ray0 = 0.6 + 0.4 * Math.sin(fx0 * 16 + t * c.speed * 1.2 + c.phase * 3);
-        const ray1 = 0.6 + 0.4 * Math.sin(fx1 * 16 + t * c.speed * 1.2 + c.phase * 3);
+        const ray0 = 0.55 + 0.45 * Math.sin(fx0 * 15 + t * c.speed * 1.2 + c.phase * 3);
+        const ray1 = 0.55 + 0.45 * Math.sin(fx1 * 15 + t * c.speed * 1.2 + c.phase * 3);
         for (let ri = 0; ri < rows; ri++) {
           const fy0 = ri / rows;
           const fy1 = (ri + 1) / rows;
           // Curtain folds: sway that grows toward the top, plus the ribbon
           // width tapers so the top is narrower than its base.
-          const sway0 = Math.sin(fx0 * 2.6 + t * c.speed + c.phase) * (1.2 + 9 * fy0);
-          const sway1 = Math.sin(fx1 * 2.6 + t * c.speed + c.phase) * (1.2 + 9 * fy1);
-          const w0 = c.w * (1 - fy0 * 0.4);
-          const w1 = c.w * (1 - fy1 * 0.4);
-          const wave0 = Math.sin(fx0 * 1.9 + t * c.speed * 0.65 + c.phase * 1.3) * 3.5 * fy0;
-          const wave1 = Math.sin(fx1 * 1.9 + t * c.speed * 0.65 + c.phase * 1.3) * 3.5 * fy1;
-          const a = [c.x + rx * (fx0 * w0 + sway0), baseY + fy0 * c.h + wave0, c.z + rz * (fx0 * w0 + sway0)];
-          const b = [c.x + rx * (fx1 * w1 + sway1), baseY + fy0 * c.h + wave0, c.z + rz * (fx1 * w1 + sway1)];
-          const cc = [c.x + rx * (fx1 * w1 + sway1), baseY + fy1 * c.h + wave1, c.z + rz * (fx1 * w1 + sway1)];
-          const d = [c.x + rx * (fx0 * w0 + sway0), baseY + fy1 * c.h + wave1, c.z + rz * (fx0 * w0 + sway0)];
-          const colFor = (fy: number, ray: number, hf: number): number[] => {
-            // Brightest near the base, fading to nothing at the top, with a soft
-            // fade-in just above the ground so there's no hard bottom line.
-            const vFade = Math.pow(1 - fy, 1.7);
+          const sway0 = Math.sin(fx0 * 2.4 + t * c.speed + c.phase) * (1.5 + 12 * fy0);
+          const sway1 = Math.sin(fx1 * 2.4 + t * c.speed + c.phase) * (1.5 + 12 * fy1);
+          const w0 = c.w * (1 - fy0 * 0.35);
+          const w1 = c.w * (1 - fy1 * 0.35);
+          const wave0 = Math.sin(fx0 * 1.8 + t * c.speed * 0.6 + c.phase * 1.3) * 4.5 * fy0;
+          const wave1 = Math.sin(fx1 * 1.8 + t * c.speed * 0.6 + c.phase * 1.3) * 4.5 * fy1;
+          // Gentle dome drape: the curtain's edges bow down so it reads as a
+          // sweeping canopy overhead, not a flat wall.
+          const arc0 = -Math.pow(fx0 * 2, 2) * 0.16 * c.h;
+          const arc1 = -Math.pow(fx1 * 2, 2) * 0.16 * c.h;
+          const a = [c.x + rx * (fx0 * w0 + sway0), baseY + fy0 * c.h + wave0 + arc0 * fy0, c.z + rz * (fx0 * w0 + sway0)];
+          const b = [c.x + rx * (fx1 * w1 + sway1), baseY + fy0 * c.h + wave0 + arc1 * fy0, c.z + rz * (fx1 * w1 + sway1)];
+          const cc = [c.x + rx * (fx1 * w1 + sway1), baseY + fy1 * c.h + wave1 + arc1 * fy1, c.z + rz * (fx1 * w1 + sway1)];
+          const d = [c.x + rx * (fx0 * w0 + sway0), baseY + fy1 * c.h + wave1 + arc0 * fy1, c.z + rz * (fx0 * w0 + sway0)];
+          const colFor = (fy: number, ray: number, hf: number, fx: number): number[] => {
+            // Nebula shading: a bright curtain ribbon near the lower-middle
+            // dissolving to wispy tips, a soft fade just above the ground so
+            // there's no hard bottom line, and pulsing ray striations on top.
+            const band = Math.exp(-Math.pow((fy - 0.38) / 0.17, 2));
             const bottomFade = Math.min(1, fy * 5);
-            const bri = pulse * ray * hf * vFade * bottomFade * 1.5;
-            return [
-              (c0[0] + (c1[0] - c0[0]) * frac) * bri,
-              (c0[1] + (c1[1] - c0[1]) * frac) * bri,
-              (c0[2] + (c1[2] - c0[2]) * frac) * bri,
-            ];
+            const vFade = Math.pow(1 - fy, 1.5);
+            const bri = pulse * (0.4 + ray * 0.6) * hf * (0.45 + 1.05 * band) * bottomFade * (0.45 + 0.55 * vFade) * 2.1;
+            // Lateral hue banding: blend the lerped base colour toward its
+            // palette neighbour so the sheet's width sweeps through hues.
+            const lateralFx = 0.5 + 0.5 * Math.sin(fx * 5.0 + c.phase * 2 + t * 0.04);
+            const r = (c0[0] + (c1[0] - c0[0]) * frac) * (1 - lateralFx) + cNext[0] * lateralFx;
+            const g = (c0[1] + (c1[1] - c0[1]) * frac) * (1 - lateralFx) + cNext[1] * lateralFx;
+            const bb = (c0[2] + (c1[2] - c0[2]) * frac) * (1 - lateralFx) + cNext[2] * lateralFx;
+            return [r * bri, g * bri, bb * bri];
           };
           const push = (p: number[], col: number[]) => {
             data[w++] = p[0]; data[w++] = p[1]; data[w++] = p[2];
@@ -13995,12 +14061,12 @@ void main() { FragColor = texture(uTex, vUV); }`;
             data[w++] = col[0]; data[w++] = col[1]; data[w++] = col[2];
             data[w++] = 0; data[w++] = 0;
           };
-          push(a, colFor(fy0, ray0, hf0));
-          push(b, colFor(fy0, ray1, hf1));
-          push(cc, colFor(fy1, ray1, hf1));
-          push(a, colFor(fy0, ray0, hf0));
-          push(cc, colFor(fy1, ray1, hf1));
-          push(d, colFor(fy1, ray0, hf0));
+          push(a, colFor(fy0, ray0, hf0, fx0));
+          push(b, colFor(fy0, ray1, hf1, fx1));
+          push(cc, colFor(fy1, ray1, hf1, fx1));
+          push(a, colFor(fy0, ray0, hf0, fx0));
+          push(cc, colFor(fy1, ray1, hf1, fx1));
+          push(d, colFor(fy1, ray0, hf0, fx0));
         }
       }
     }

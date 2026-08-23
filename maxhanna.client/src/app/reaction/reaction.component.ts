@@ -11,6 +11,100 @@ import { Message } from '../../services/datacontracts/chat/message';
 import { ChildComponent } from '../child.component';
 import { UserEventService } from '../../services/user-event.service';
 
+// Legacy reaction types from the pre-emojiMap hardcoded list. Old stored
+// reactions kept these `type`s, and most don't exist as emojiMap aliases, so
+// they stopped rendering once `reactions()` became emojiMap-driven. This map
+// keeps them displaying the emoji/label they always had, as a fallback after
+// the normal emojiMap lookup misses. The emoji *picker* stays fully sourced
+// from emojiMap.
+const LEGACY_REACTION_FALLBACKS: Record<string, { emoji: string; label: string }> = {
+  thumbs_up: { emoji: '👍', label: 'Thumbs Up' },
+  thumbs_down: { emoji: '👎', label: 'Thumbs Down' },
+  heart: { emoji: '❤️', label: 'Heart' },
+  broken_heart: { emoji: '💔', label: 'Broken Heart' },
+  laugh: { emoji: '😂', label: 'Laugh' },
+  grin: { emoji: '😁', label: 'Grin' },
+  rofl: { emoji: '🤣', label: 'ROFL' },
+  joy: { emoji: '😆', label: 'Joy' },
+  smile: { emoji: '😊', label: 'Smile' },
+  wink: { emoji: '😉', label: 'Wink' },
+  hug: { emoji: '🤗', label: 'Hug' },
+  kiss: { emoji: '😘', label: 'Kiss' },
+  love: { emoji: '😍', label: 'Love' },
+  blush: { emoji: '😳', label: 'Blush' },
+  wow: { emoji: '😮', label: 'Wow' },
+  surprised: { emoji: '😲', label: 'Surprised' },
+  thinking: { emoji: '🤔', label: 'Thinking' },
+  neutral: { emoji: '😐', label: 'Neutral' },
+  smirk: { emoji: '😏', label: 'Smirk' },
+  cool: { emoji: '😎', label: 'Cool' },
+  angry: { emoji: '😡', label: 'Angry' },
+  rage: { emoji: '🤬', label: 'Rage' },
+  crying: { emoji: '😭', label: 'Crying' },
+  sad: { emoji: '😢', label: 'Sad' },
+  sleepy: { emoji: '😴', label: 'Sleepy' },
+  shocked: { emoji: '😱', label: 'Shocked' },
+  relieved: { emoji: '😌', label: 'Relieved' },
+  pray: { emoji: '🙏', label: 'Pray' },
+  clap: { emoji: '👏', label: 'Clap' },
+  fire: { emoji: '🔥', label: 'Fire' },
+  100: { emoji: '💯', label: '100' },
+  celebrate: { emoji: '🥳', label: 'Celebrate' },
+  party: { emoji: '🎉', label: 'Party' },
+  muscle: { emoji: '💪', label: 'Muscle' },
+  ok_hand: { emoji: '👌', label: 'OK Hand' },
+  victory: { emoji: '✌️', label: 'Victory' },
+  raised_hands: { emoji: '🙌', label: 'Raised Hands' },
+  wave: { emoji: '👋', label: 'Wave' },
+  eyes: { emoji: '👀', label: 'Eyes' },
+  sunglasses: { emoji: '🕶️', label: 'Sunglasses' },
+  robot: { emoji: '🤖', label: 'Robot' },
+  ghost: { emoji: '👻', label: 'Ghost' },
+  alien: { emoji: '👽', label: 'Alien' },
+  skull: { emoji: '💀', label: 'Skull' },
+  poop: { emoji: '💩', label: 'Poop' },
+  money: { emoji: '🤑', label: 'Money' },
+  sick: { emoji: '🤢', label: 'Sick' },
+  clown: { emoji: '🤡', label: 'Clown' },
+  nerd: { emoji: '🤓', label: 'Nerd' },
+  angry_swear: { emoji: '😤', label: 'Swearing' },
+  scream: { emoji: '😨', label: 'Scream' },
+  rolling_eyes: { emoji: '🙄', label: 'Rolling Eyes' },
+  bored: { emoji: '😑', label: 'Bored' },
+  vomit: { emoji: '🤮', label: 'Vomit' },
+  shushing: { emoji: '🤫', label: 'Shushing' },
+  salute: { emoji: '🫡', label: 'Salute' },
+  headphones: { emoji: '🎧', label: 'Headphones' },
+  pizza: { emoji: '🍕', label: 'Pizza' },
+  taco: { emoji: '🌮', label: 'Taco' },
+  hamburger: { emoji: '🍔', label: 'Hamburger' },
+  cake: { emoji: '🎂', label: 'Cake' },
+  beer: { emoji: '🍺', label: 'Beer' },
+  coffee: { emoji: '☕', label: 'Coffee' },
+  money_bag: { emoji: '💰', label: 'Money Bag' },
+  lightbulb: { emoji: '💡', label: 'Lightbulb' },
+  trophy: { emoji: '🏆', label: 'Trophy' },
+  medal: { emoji: '🎖️', label: 'Medal' },
+  basketball: { emoji: '🏀', label: 'Basketball' },
+  soccer: { emoji: '⚽', label: 'Soccer' },
+  car: { emoji: '🚗', label: 'Car' },
+  airplane: { emoji: '✈️', label: 'Airplane' },
+  rocket: { emoji: '🚀', label: 'Rocket' },
+  crown: { emoji: '👑', label: 'Crown' },
+  diamond: { emoji: '💎', label: 'Diamond' },
+  megaphone: { emoji: '📢', label: 'Megaphone' },
+  explosion: { emoji: '💥', label: 'Explosion' },
+  hammer: { emoji: '🔨', label: 'Hammer' },
+  sword: { emoji: '⚔️', label: 'Sword' },
+  shield: { emoji: '🛡️', label: 'Shield' },
+  dragon: { emoji: '🐉', label: 'Dragon' },
+  skull_crossbones: { emoji: '☠️', label: 'Skull & Crossbones' },
+  alien_monster: { emoji: '👾', label: 'Alien Monster' },
+  infinity: { emoji: '♾️', label: 'Infinity' },
+  peace: { emoji: '☮️', label: 'Peace' },
+  yin_yang: { emoji: '☯️', label: 'Yin Yang' },
+};
+
 @Component({
   selector: 'app-reaction',
   templateUrl: './reaction.component.html',
@@ -28,15 +122,21 @@ export class ReactionComponent extends ChildComponent implements OnInit {
   reactionLoading = false;
   userReaction = '';
   reactionId = Math.random() * 10000000000000;
-  get reactions() : {type : string, emoji: string, label: string}[] { 
-    let reac = [];
-    for (let emoKey of Object.keys(this.parentRef?.emojiMap ?? [])) {
-      reac.push({ type: emoKey.replace(':', ''), emoji: this.parentRef?.emojiMap[emoKey] ?? '', label: emoKey.replace(':', '').replace('_', ' ') })
+  get reactions(): { type: string, emoji: string, label: string }[] {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const map = parent?.emojiMap ?? {};
+    const reac = [];
+    for (const emoKey of Object.keys(map)) {
+      reac.push({
+        type: emoKey.replaceAll(':', ''),
+        emoji: map[emoKey] ?? '',
+        label: emoKey.replaceAll(':', '').replaceAll('_', ' ')
+      });
     }
-    return reac || []; 
-  };
- 
-  filteredReactions = [...this.reactions];
+    return reac;
+  }
+
+  filteredReactions: { type: string, emoji: string, label: string }[] = [];
 
   @Input() component?: any;
   @Input() commentId?: number;
@@ -57,6 +157,7 @@ export class ReactionComponent extends ChildComponent implements OnInit {
   }
 
   ngOnInit() {
+    this.filteredReactions = [...this.reactions];
     if (!this.currentReactions || this.currentReactions.length === 0) {
       // Only load file reactions if this is a file-level reaction (not a comment/story/message)
       if (this.fileId && !this.commentId && !this.storyId && !this.messageId) {
@@ -258,8 +359,10 @@ export class ReactionComponent extends ChildComponent implements OnInit {
     if (type) {
       const t = type.toLowerCase();
       const reaction = this.reactions.find(r => r.type === t);
-      //console.log("Found reaction:", reaction);
-      return reaction ? reaction.emoji : '';
+      if (reaction) return reaction.emoji;
+      // Legacy stored reactions keep non-emojiMap types — show their emoji so
+      // they don't vanish after the emojiMap unification.
+      return LEGACY_REACTION_FALLBACKS[t]?.emoji ?? '';
     }
     //console.log("No reaction type provided, returning empty string.");
     return '';
@@ -270,8 +373,8 @@ export class ReactionComponent extends ChildComponent implements OnInit {
     if (type) {
       const t = type.toLowerCase();
       const reaction = this.reactions.find(r => r.type === t);
-      //console.log("Found reaction:", reaction);
-      return reaction ? reaction.label : '';
+      if (reaction) return reaction.label;
+      return LEGACY_REACTION_FALLBACKS[t]?.label ?? '';
     }
     //console.log("No reaction type provided, returning empty string.");
     return '';
