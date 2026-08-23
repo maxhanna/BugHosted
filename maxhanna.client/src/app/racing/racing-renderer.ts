@@ -2705,45 +2705,111 @@ uniform vec3 uSunColor;
 uniform vec3 uGlowColor;
 uniform float uTime;
 uniform float uNight;
-void main() {
-  vec3 d = normalize(vDir);
-  float h = d.y * 0.5 + 0.5;
-  vec3 upper = mix(uHorizon, uTop, clamp(h * 1.5, 0.0, 1.0));
-  vec3 lower = mix(uHorizon, uBottom, clamp(-d.y * 3.0, 0.0, 1.0) * 0.5);
-  float skyT = clamp(d.y * 4.0 + 0.5, 0.0, 1.0);
-  vec3 sky = mix(lower, upper, skyT);
-  // The light breathes: a slow pulse stops the sun/glow from reading as a
-  // painted-on decal, and a broad soft halo swells around the disc.
-  float pulse = 1.0 + 0.05 * sin(uTime * 0.6) + 0.03 * sin(uTime * 1.35 + 1.7);
-  float sunDot = dot(d, normalize(uSunDir));
-  float sun = pow(max(sunDot, 0.0), 120.0);
-  sky += uSunColor * sun * 0.9 * pulse;
-  float sunGlow = pow(max(sunDot, 0.0), 12.0);
-  sky += uGlowColor * sunGlow * 0.18 * pulse;
-  sky += uSunColor * pow(max(sunDot, 0.0), 4.0) * 0.05 * pulse;
-  // Distant cloud wisps drifting along the horizon: three low-frequency
-  // azimuthal bands that slide at different rates. Pure fragment-shader work
-  // on the existing sky quad, so it costs nothing extra on mobile.
-  float az = atan(d.z, d.x);
-  float cw = 0.5 + 0.5 * sin(az * 3.0 + uTime * 0.020);
-  cw += 0.5 + 0.5 * sin(az * 5.0 - uTime * 0.013 + 1.3);
-  cw += 0.5 + 0.5 * sin(az * 7.0 + uTime * 0.009 + 4.1);
-  cw *= 0.333;
-  float cloudMask = smoothstep(0.0, 0.09, d.y) * (1.0 - smoothstep(0.0, 0.46, d.y));
-  sky += uGlowColor * cw * cloudMask * 0.08;
-  if (uNight > 0.5 && d.y > 0.08) {
-    // Slowly rotate the star field so the night sky drifts imperceptibly.
-    float rot = uTime * 0.004;
-    float cr = cos(rot), sr = sin(rot);
-    vec2 hz = vec2(cr * d.x - sr * d.z, sr * d.x + cr * d.z);
-    vec2 cell = floor(hz * 240.0);
-    float h1 = fract(sin(dot(cell, vec2(127.1, 311.7))) * 43758.5453);
-    float h2 = fract(sin(dot(cell, vec2(269.5, 183.3))) * 28001.8384);
-    float starv = smoothstep(0.9, 0.98, h1);
-    float tw = 0.55 + 0.45 * sin(uTime * 1.6 + h2 * 6.2831);
-    sky += vec3(starv * tw * smoothstep(0.08, 0.4, d.y)) * uNight;
+
+// --- Noise primitives for fractal cloud layer ---
+vec3 mod289(vec3 x){return x-floor(x*(1.0/289.0))*289.0;}
+vec2 mod289(vec2 x){return x-floor(x*(1.0/289.0))*289.0;}
+vec3 permute(vec3 x){return mod289(((x*34.0)+1.0)*x);}
+float snoise(vec2 v){
+  const vec4 C=vec4(0.211324865405187,0.366025403784439,-0.577350269189626,0.024390243902439);
+  vec2 i=floor(v+dot(v,C.yy));
+  vec2 x0=v-i+dot(i,C.xx);
+  vec2 i1=(x0.x>x0.y)?vec2(1.0,0.0):vec2(0.0,1.0);
+  vec4 x12=x0.xyxy+C.xxzz;
+  x12.xy-=i1;
+  i=mod289(i);
+  vec3 p=permute(permute(i.y+vec3(0.0,i1.y,1.0))+i.x+vec3(0.0,i1.x,1.0));
+  vec3 m=max(0.5-vec3(dot(x0,x0),dot(x12.xy,x12.xy),dot(x12.zw,x12.zw)),0.0);
+  m=m*m;m=m*m;
+  vec3 x=2.0*fract(p*C.www)-1.0;
+  vec3 h=abs(x)-0.5;
+  vec3 ox=floor(x+0.5);
+  vec3 a0=x-ox;
+  m*=1.79284291400159-0.85373472095314*(a0*a0+h*h);
+  vec3 g;
+  g.x=a0.x*x0.x+h.x*x0.y;
+  g.yz=a0.yz*x12.xz+h.yz*x12.yw;
+  return 130.0*dot(m,g);
+}
+float fbm(vec2 p){
+  float f=0.0;float w=0.5;
+  for(int i=0;i<5;i++){f+=w*snoise(p);p*=2.0+0.3;w*=0.5;}
+  return f;
+}
+
+void main(){
+  vec3 d=normalize(vDir);
+  float sunDot=dot(d,normalize(uSunDir));
+  float sunY=normalize(uSunDir).y;
+
+  // --- Atmospheric scattering (simplified Rayleigh + Mie) ---
+  float altitude=max(d.y,0.0);
+  float scatter=pow(1.0-altitude,5.0);
+  vec3 rayleigh=mix(vec3(0.15,0.3,0.7),uTop,clamp(altitude*2.0,0.0,1.0));
+  // Horizon warm glow (Mie-like forward scattering)
+  float horizonBand=exp(-pow((d.y-0.02)*6.0,2.0));
+  vec3 horizonWarm=mix(uHorizon,uSunColor*0.6+vec3(0.55,0.5,0.45),horizonBand*0.5);
+  vec3 skyColor=mix(horizonWarm,rayleigh,clamp(altitude*3.0,0.0,1.0));
+  // Slight desaturation near the horizon for realism
+  float lum=dot(skyColor,vec3(0.299,0.587,0.114));
+  skyColor=mix(vec3(lum),skyColor,0.7+0.3*altitude);
+  // Below-horizon darkening
+  if(d.y<0.0){skyColor*=max(0.0,1.0+d.y*3.0);skyColor=mix(skyColor,uBottom,clamp(-d.y*4.0,0.0,0.6));}
+
+  // --- Sun disc + corona + glow ---
+  float pulse=1.0+0.04*sin(uTime*0.6)+0.025*sin(uTime*1.35+1.7);
+  float sd=max(sunDot,0.0);
+  // Sharp sun disc
+  skyColor+=uSunColor*smoothstep(0.9993,0.9997,sd)*2.5*pulse;
+  // Inner corona
+  skyColor+=uSunColor*smoothstep(0.997,0.9993,sd)*0.8*pulse;
+  // Outer glow
+  skyColor+=uGlowColor*pow(sd,8.0)*0.22*pulse;
+  // Broad atmospheric glow
+  skyColor+=uSunColor*pow(sd,2.5)*0.06*pulse;
+
+  // --- Fractal noise cloud layer ---
+  // Project view ray onto a dome at varying heights for volumetric look
+  float cloudAlt=clamp(d.y,0.02,0.5);
+  vec2 cloudUV=d.xz/max(d.y,0.02)*1.8;
+  float drift=uTime*0.012;
+  // Multi-altitude cloud sampling for depth
+  float c1=fbm(cloudUV*0.7+vec2(drift*0.8,drift*0.3));
+  float c2=fbm(cloudUV*1.3+vec2(drift*0.5,-drift*0.6)+5.0);
+  float c3=fbm(cloudUV*2.2+vec2(-drift*0.3,drift*0.4)+11.0);
+  // Combine layers with distance-based fade (closer = thinner wisps)
+  float cloud=c1*0.55+c2*0.3+c3*0.15;
+  // Sharpen and threshold for puffier look
+  cloud=smoothstep(0.15,0.75,cloud);
+  // Fade at very high/low angles
+  float cloudFade=smoothstep(0.01,0.08,d.y)*(1.0-smoothstep(0.35,0.55,d.y));
+  cloud*=cloudFade;
+  // Cloud lighting: sun-facing sides brighter, undersides darker
+  float sunLambert=max(dot(normalize(uSunDir),vec3(d.x,0.0,d.z)),0.0);
+  vec3 cloudBright=mix(vec3(0.85,0.87,0.92),uSunColor*1.1+vec3(0.3),sunLambert*0.5);
+  vec3 cloudDark=mix(vec3(0.5,0.52,0.58),uHorizon,0.3);
+  vec3 cloudCol=mix(cloudDark,cloudBright,cloud);
+  // Subsurface scatter on thin edges
+  float edge=smoothstep(0.0,0.35,cloud)*(1.0-smoothstep(0.35,0.7,cloud));
+  cloudCol+=uSunColor*edge*0.15*(1.0+sunLambert);
+  // Blend clouds over sky
+  float cloudAlpha=cloud*0.7;
+  skyColor=mix(skyColor,cloudCol,cloudAlpha);
+
+  // --- Night sky ---
+  if(uNight>0.5&&d.y>0.08){
+    float rot=uTime*0.004;
+    float cr=cos(rot),sr=sin(rot);
+    vec2 hz=vec2(cr*d.x-sr*d.z,sr*d.x+cr*d.z);
+    vec2 cell=floor(hz*240.0);
+    float h1=fract(sin(dot(cell,vec2(127.1,311.7)))*43758.5453);
+    float h2=fract(sin(dot(cell,vec2(269.5,183.3)))*28001.8384);
+    float starv=smoothstep(0.92,0.99,h1);
+    float tw=0.55+0.45*sin(uTime*1.6+h2*6.2831);
+    skyColor+=vec3(starv*tw*smoothstep(0.08,0.4,d.y))*uNight;
   }
-  FragColor = vec4(clamp(sky, 0.0, 1.0), 1.0);
+
+  FragColor=vec4(clamp(skyColor,0.0,1.0),1.0);
 }`;
     this.skyProg = this.createProgram(svs, sfs);
     this.skyProjLoc = gl.getUniformLocation(this.skyProg, 'uProj')!;
@@ -5419,6 +5485,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
       [[0.2, 1.0, 0.55], [0.3, 1.0, 0.9], [0.5, 0.8, 1.0], [0.9, 0.55, 1.0]],
       [[0.22, 0.95, 0.8], [0.5, 0.9, 1.0], [0.88, 0.5, 1.0], [1.0, 0.5, 0.85]],
       [[0.4, 0.6, 1.0], [0.85, 0.5, 1.0], [1.0, 0.55, 0.75], [1.0, 0.4, 0.6]],
+      [[0.15, 0.9, 0.45], [0.35, 0.95, 0.75], [0.7, 0.6, 1.0], [0.95, 0.4, 0.7]],
+      [[0.3, 0.8, 1.0], [0.6, 0.95, 0.85], [0.95, 0.7, 0.9], [0.8, 0.4, 0.95]],
     ];
     let aurIdx = 0;
     for (let i = 0; i < pts.length; i += 34) {
@@ -5428,8 +5496,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const dist = p.width / 2 + 80 + Math.random() * 80;
       const ax = p.x + ppx * dist * side + (Math.random() - 0.5) * 12;
       const az = p.z + ppz * dist * side + (Math.random() - 0.5) * 12;
-      const h = 70 + Math.random() * 90;
-      const w = 30 + Math.random() * 44;
+      const h = 60 + Math.random() * 110;
+      const w = 25 + Math.random() * 50;
       this._auroraCurtains.push({
         x: ax, z: az, w, h,
         phase: Math.random() * Math.PI * 2,
@@ -6777,10 +6845,14 @@ void main() { FragColor = texture(uTex, vUV); }`;
     for (let a = 0; a < towers.length; a++) {
       const A = towers[a], B = towers[(a + 1) % towers.length];
       for (const side of [-1, 1]) {
-        const ax = A.x + perpX(A) * A.off * side;
-        const az = A.z + perpZ(A) * A.off * side;
-        const bx = B.x + perpX(B) * B.off * side;
-        const bz = B.z + perpZ(B) * B.off * side;
+        // Anchor cables to the tower leg positions (offset along the track
+        // direction by 1.7) so they stay aligned with the deck edge on curves
+        // instead of cutting through the road center.
+        const legOff = 1.7;
+        const ax = A.x + perpX(A) * A.off * side + A.dirX * legOff;
+        const az = A.z + perpZ(A) * A.off * side + A.dirZ * legOff;
+        const bx = B.x + perpX(B) * B.off * side - B.dirX * legOff;
+        const bz = B.z + perpZ(B) * B.off * side - B.dirZ * legOff;
         const span = Math.hypot(bx - ax, bz - az);
         const segs = Math.max(16, Math.min(34, Math.round(span / 3)));
         let px0 = ax, py0 = cableTop, pz0 = az;
@@ -14010,13 +14082,26 @@ void main() { FragColor = texture(uTex, vUV); }`;
       // single curtain reads green→teal→purple like a coloured nebula.
       const cNext = pal[(i0 + 2) % pal.length];
       const pulse = 0.68 + 0.32 * Math.sin(t * 0.3 + c.phase * 2);
-      const baseY = 5;
+      const baseY = 25 + Math.sin(c.phase) * 8;
+      // Per-column height multipliers: blend of slow/medium/fast sin waves
+      // so some columns stretch tall (bright rays) and others stay short
+      // (dim wisps), giving the uneven curtain-edge of real nebulas.
+      const colH: number[] = [];
+      for (let ci2 = 0; ci2 < cols; ci2++) {
+        const cx2 = ci2 / cols;
+        colH.push(0.5 + 0.5 * (0.4 * Math.sin(cx2 * 7.3 + c.phase * 1.1)
+          + 0.35 * Math.sin(cx2 * 13.1 + c.phase * 2.7 + 1.0)
+          + 0.25 * Math.sin(cx2 * 21.7 + c.phase * 0.6 + 3.2)));
+      }
       for (let ci = 0; ci < cols; ci++) {
         const fx0 = ci / cols - 0.5;
         const fx1 = (ci + 1) / cols - 0.5;
         // Horizontal fade to nothing at the sheet's left/right edges.
         const hf0 = Math.pow(1 - Math.abs(fx0) * 2, 1.3);
         const hf1 = Math.pow(1 - Math.abs(fx1) * 2, 1.3);
+        // Per-column height — smoothstep between neighbours for continuity.
+        const hMul0 = ci > 0 ? (colH[ci - 1] + colH[ci]) * 0.5 : colH[ci];
+        const hMul1 = ci < cols - 1 ? (colH[ci] + colH[ci + 1]) * 0.5 : colH[ci];
         // Vertical light striations — the classic aurora "rays".
         const ray0 = 0.55 + 0.45 * Math.sin(fx0 * 15 + t * c.speed * 1.2 + c.phase * 3);
         const ray1 = 0.55 + 0.45 * Math.sin(fx1 * 15 + t * c.speed * 1.2 + c.phase * 3);
@@ -14035,24 +14120,36 @@ void main() { FragColor = texture(uTex, vUV); }`;
           // sweeping canopy overhead, not a flat wall.
           const arc0 = -Math.pow(fx0 * 2, 2) * 0.16 * c.h;
           const arc1 = -Math.pow(fx1 * 2, 2) * 0.16 * c.h;
-          const a = [c.x + rx * (fx0 * w0 + sway0), baseY + fy0 * c.h + wave0 + arc0 * fy0, c.z + rz * (fx0 * w0 + sway0)];
-          const b = [c.x + rx * (fx1 * w1 + sway1), baseY + fy0 * c.h + wave0 + arc1 * fy0, c.z + rz * (fx1 * w1 + sway1)];
-          const cc = [c.x + rx * (fx1 * w1 + sway1), baseY + fy1 * c.h + wave1 + arc1 * fy1, c.z + rz * (fx1 * w1 + sway1)];
-          const d = [c.x + rx * (fx0 * w0 + sway0), baseY + fy1 * c.h + wave1 + arc0 * fy1, c.z + rz * (fx0 * w0 + sway0)];
+          // Per-column height: each column uses its own multiplier so the
+          // curtain top is uneven — some columns stretch tall (rays) and
+          // others stay short (wisps), instead of a flat horizontal edge.
+          const h0 = c.h * hMul0;
+          const h1 = c.h * hMul1;
+          const a = [c.x + rx * (fx0 * w0 + sway0), baseY + fy0 * h0 + wave0 + arc0 * fy0, c.z + rz * (fx0 * w0 + sway0)];
+          const b = [c.x + rx * (fx1 * w1 + sway1), baseY + fy0 * h1 + wave0 + arc1 * fy0, c.z + rz * (fx1 * w1 + sway1)];
+          const cc = [c.x + rx * (fx1 * w1 + sway1), baseY + fy1 * h1 + wave1 + arc1 * fy1, c.z + rz * (fx1 * w1 + sway1)];
+          const d = [c.x + rx * (fx0 * w0 + sway0), baseY + fy1 * h0 + wave1 + arc0 * fy1, c.z + rz * (fx0 * w0 + sway0)];
           const colFor = (fy: number, ray: number, hf: number, fx: number): number[] => {
-            // Nebula shading: a bright curtain ribbon near the lower-middle
-            // dissolving to wispy tips, a soft fade just above the ground so
-            // there's no hard bottom line, and pulsing ray striations on top.
-            const band = Math.exp(-Math.pow((fy - 0.38) / 0.17, 2));
-            const bottomFade = Math.min(1, fy * 5);
-            const vFade = Math.pow(1 - fy, 1.5);
-            const bri = pulse * (0.4 + ray * 0.6) * hf * (0.45 + 1.05 * band) * bottomFade * (0.45 + 0.55 * vFade) * 2.1;
-            // Lateral hue banding: blend the lerped base colour toward its
-            // palette neighbour so the sheet's width sweeps through hues.
+            // Multi-band nebula shading: two brightness peaks (a lower ribbon
+            // and an upper wispy crest) with a dimmer valley between them.
+            const band1 = Math.exp(-Math.pow((fy - 0.35) / 0.14, 2));
+            const band2 = Math.exp(-Math.pow((fy - 0.78) / 0.12, 2)) * 0.7;
+            const band = Math.max(band1, band2);
+            const bottomFade = Math.min(1, fy * 4);
+            const vFade = Math.pow(1 - fy, 1.8);
+            const bri = pulse * (0.35 + ray * 0.65) * hf * (0.35 + 1.15 * band) * bottomFade * (0.4 + 0.6 * vFade) * 2.2;
+            // Lateral hue banding: sweep through palette colours across width.
             const lateralFx = 0.5 + 0.5 * Math.sin(fx * 5.0 + c.phase * 2 + t * 0.04);
-            const r = (c0[0] + (c1[0] - c0[0]) * frac) * (1 - lateralFx) + cNext[0] * lateralFx;
-            const g = (c0[1] + (c1[1] - c0[1]) * frac) * (1 - lateralFx) + cNext[1] * lateralFx;
-            const bb = (c0[2] + (c1[2] - c0[2]) * frac) * (1 - lateralFx) + cNext[2] * lateralFx;
+            // Vertical hue shift: top of curtain shifts toward a cooler neighbour
+            // so the bottom reads warm green/teal and the tips go purple/blue.
+            const vertHue = fy * 0.6;
+            const cWarm = pal[(i0 + 3) % pal.length];
+            let r = (c0[0] + (c1[0] - c0[0]) * frac) * (1 - lateralFx) + cNext[0] * lateralFx;
+            let g = (c0[1] + (c1[1] - c0[1]) * frac) * (1 - lateralFx) + cNext[1] * lateralFx;
+            let bb = (c0[2] + (c1[2] - c0[2]) * frac) * (1 - lateralFx) + cNext[2] * lateralFx;
+            r = r * (1 - vertHue) + cWarm[0] * vertHue;
+            g = g * (1 - vertHue) + cWarm[1] * vertHue;
+            bb = bb * (1 - vertHue) + cWarm[2] * vertHue;
             return [r * bri, g * bri, bb * bri];
           };
           const push = (p: number[], col: number[]) => {
