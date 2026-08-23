@@ -72,6 +72,18 @@ export class CrawlerSearchResultsComponent extends ChildComponent {
     }
   }
 
+  isYoutubeUrl(url?: string): boolean {
+    return !!this.parent?.isYoutubeUrl(url);
+  }
+
+  playYoutubeUrl(url?: string) {
+    if (!url) return;
+    const videoId = this.parent?.getYouTubeVideoId(url);
+    if (videoId) {
+      this.parent?.playYoutubeVideo(videoId);
+    }
+  }
+
   async addFavourite() {
     if (!this.parent?.user?.id) return alert('You must be logged in to update favourites');
     if (!this.detail) return;

@@ -1,9 +1,13 @@
 ﻿<div #observerTarget class="crawlerResultContainer">
   <div *ngIf="!loaded && !loadingDetail" class="resultPlaceholder">
     <div class="placeholderTitle" *ngIf="(result.title || result.url) && !displaySocialResults">{{ (result.title || result.url) }}</div>
-    <a *ngIf="displaySocialResults" (click)="visit(result.url)" [attr.href]="!onlySearch ? result.url : null"
+    <a *ngIf="displaySocialResults && !isYoutubeUrl(result.url)" (click)="visit(result.url)" [attr.href]="!onlySearch ? result.url : null"
       [attr.target]="!onlySearch ? '_blank' : null">
       {{ result.title || result.url || 'Loading...' }} 
+    </a>
+    <a *ngIf="displaySocialResults && isYoutubeUrl(result.url)" (click)="playYoutubeUrl(result.url); visit(result.url)"
+      style="cursor:pointer" title="Play in popup">
+      ▶ {{ result.title || result.url || 'Loading...' }}
     </a>
     <div class="placeholderUrl" *ngIf="result.title">{{ result.url }}</div>
   </div>
@@ -13,12 +17,16 @@
   <div *ngIf="loaded && detail" class="resultDetail">
     <div class="groupLinkDataWrapperDiv">
       <div *ngIf="detail.title" class="descriptionDiv titleClass cursorPointer linkTextDecoration">
-        <a class="pageTitleLink" (click)="visit(detail.url)" [attr.href]="!onlySearch ? detail.url : null"
+        <a *ngIf="!isYoutubeUrl(detail.url)" class="pageTitleLink" (click)="visit(detail.url)" [attr.href]="!onlySearch ? detail.url : null"
           [attr.target]="!onlySearch ? '_blank' : null">{{ detail.title }}</a>
+        <a *ngIf="isYoutubeUrl(detail.url)" class="pageTitleLink" (click)="playYoutubeUrl(detail.url); visit(detail.url)"
+          style="cursor:pointer" title="Play in popup">▶ {{ detail.title }}</a>
       </div>
       <div class="descriptionDiv cursorPointer metadataTitleLinkFavouriteWrapper">
-        <a (click)="visit(detail.url)" [attr.href]="!onlySearch ? detail.url : null"
+        <a *ngIf="!isYoutubeUrl(detail.url)" (click)="visit(detail.url)" [attr.href]="!onlySearch ? detail.url : null"
           [attr.target]="!onlySearch ? '_blank' : null">{{ detail.url }}</a>
+        <a *ngIf="isYoutubeUrl(detail.url)" (click)="playYoutubeUrl(detail.url); visit(detail.url)"
+          style="cursor:pointer" title="Play in popup">▶ {{ detail.url }}</a>
         <button (click)="addFavourite()" title="Toggle Favourite" *ngIf="!onlySearch" class="favouriteToggleButton">
           <span *ngIf="detail.isUserFavourite">💖</span>
           <span *ngIf="!detail.isUserFavourite">🤍</span>
@@ -38,8 +46,12 @@
       <div *ngIf="detail.keywords" class="descriptionDiv keywordsClass">{{ detail.keywords }}</div>
     </div>
     <div class="imageUrlPictureDiv" *ngIf="detail.imageUrl">
-      <a (click)="visit(detail.url)" [attr.href]="!onlySearch ? detail.url : null"
+      <a *ngIf="!isYoutubeUrl(detail.url)" (click)="visit(detail.url)" [attr.href]="!onlySearch ? detail.url : null"
         [attr.target]="!onlySearch ? '_blank' : null">
+        <img [src]="detail.imageUrl" loading="lazy" (error)="detail.imageUrl = ''" />
+      </a>
+      <a *ngIf="isYoutubeUrl(detail.url)" (click)="playYoutubeUrl(detail.url); visit(detail.url)"
+        style="cursor:pointer" title="Play in popup">
         <img [src]="detail.imageUrl" loading="lazy" (error)="detail.imageUrl = ''" />
       </a>
     </div>
