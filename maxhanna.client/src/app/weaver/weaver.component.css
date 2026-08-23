@@ -2331,3 +2331,15 @@ button.ide-tree-file:hover {
   opacity: 1;
   color: #c4b5fd;
 }
+
+@media (max-width:767px) {
+  .wg-brand-ascii {
+    white-space: normal;
+  }
+}
+
+@media (min-width:767px) {
+  .wg-brand-ascii {
+    width: 100%;
+  }
+}

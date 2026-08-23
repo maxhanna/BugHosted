@@ -27,7 +27,7 @@
 
   <fieldset class="addTodoInputFieldset">
     <input type="text" id="todoInput" [placeholder]="todoPlaceholder" #todoInput required (keydown.enter)="addTodo()" />
-    <app-speech-recognition buttonStyle="width: 40px; height: 54px; line-height: 0;" (speechRecognitionEvent)="onVoiceInputForAdd($event)"></app-speech-recognition>
+    <app-speech-recognition buttonStyle="width: 40px; height: 54px; line-height: 0; background: transparent; border: none;" (speechRecognitionEvent)="onVoiceInputForAdd($event)"></app-speech-recognition>
     <input type="url" id="urlInput" placeholder="url?" #urlInput (keydown.enter)="addTodo()" />
     <app-media-selector #mediaSelector
       [currentDirectory]="'Users/' + (parentRef?.user && parentRef?.user?.id != 0 ? parentRef?.user?.username : 'Anonymous')"
