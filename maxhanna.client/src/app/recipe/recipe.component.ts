@@ -46,6 +46,7 @@ export class RecipeComponent extends ChildComponent implements OnInit {
   form: RecipePayload = this.makeBlankForm();
   private youTubeUrlCache = new Map<number, SafeResourceUrl>();
   isMenuPanelOpen = false;
+  isCreateFormVisible: boolean = false;
 
   constructor(
     private recipeService: RecipeService,
@@ -89,6 +90,7 @@ export class RecipeComponent extends ChildComponent implements OnInit {
 
   openCreateForm(): void {
     this.editingRecipeId = 0;
+    this.isCreateFormVisible = true;
     this.form = this.makeBlankForm();
     this.selectedFiles = [];
     this.selectedTopics = [];
@@ -100,6 +102,7 @@ export class RecipeComponent extends ChildComponent implements OnInit {
     this.form = this.makeBlankForm();
     this.selectedFiles = [];
     this.selectedTopics = [];
+    this.isCreateFormVisible = false;
     // Collapse the card that was being edited
     if (wasEditing && wasEditing > 0) {
       this.expandedRecipes.set(wasEditing, false);

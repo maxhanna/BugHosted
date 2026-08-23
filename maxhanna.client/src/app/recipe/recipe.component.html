@@ -24,7 +24,7 @@
     </div>
 
     <!-- Reusable Form Template -->
-    <ng-template #recipeForm>
+    <ng-template #recipeForm *ngIf="(editingRecipeId && editingRecipeId > 0) || isCreateFormVisible">
       <div class="composer-card">
         <div class="composer-header">
           <h3>{{ (editingRecipeId && editingRecipeId > 0) ? 'Edit Recipe' : 'New Recipe' }}</h3>
@@ -36,11 +36,7 @@
         </label>
         <label>
           <span>Description</span>
-          <app-text-input #descInput [inputtedParentRef]="parentRef" [type]="'Notepad'" [showPostInput]="true"
-            [showTopicSelector]="false" [showTopics]="false" [saveAsStory]="false" [skipSendingNotifications]="true"
-            [placeholderText]="'Paste the full recipe or describe what makes it special'" [postButtonText]="'✅'"
-            [initialContent]="form.description" (contentPosted)="onDescriptionPosted($event)">
-          </app-text-input>
+          <input type="text" [(ngModel)]="form.description" placeholder="Paste the full recipe or describe what makes it special" /> 
           <div class="recipe-description-actions">
             <button type="button" class="text-btn" (click)="extractRecipeFromDescription()" [disabled]="isExtractingRecipe">
               {{ isExtractingRecipe ? 'Checking...' : 'Detect recipe sections' }}
