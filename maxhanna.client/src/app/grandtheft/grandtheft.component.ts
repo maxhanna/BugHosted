@@ -133,7 +133,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   firstPerson = false;
   private isPointerLocked = false;
   serverNPCs: { id: number; x: number; y: number; z: number; yaw: number; type: string; mesh: CityMesh | CityMesh[]; health: number; colorR: number; colorG: number; colorB: number; remoteShootTimer?: number; prevX: number; prevZ: number; prevYaw: number; targetX: number; targetZ: number; targetYaw: number; speed: number; lastUpdate: number; gender?: string; hasDriver?: boolean; passengerCount?: number; isShootingAt?: boolean; isBurning?: boolean; isSmoking?: boolean; isFleeing?: boolean; isArresting?: boolean; meleeTargetId?: number; maxHealth?: number }[] = [];
-  serverPedestrians: { id: number; x: number; z: number; yaw: number; gender: string; type?: string; mesh: CityMesh | CityMesh[]; health: number; prevX: number; prevZ: number; prevYaw: number; targetX: number; targetZ: number; targetYaw: number; speed: number; lastUpdate: number; isDucking?: boolean; isArresting?: boolean; meleeTargetId?: number }[] = [];
+  serverPedestrians: { id: number; x: number; z: number; yaw: number; gender: string; type?: string; mesh: CityMesh | CityMesh[]; health: number; prevX: number; prevZ: number; prevYaw: number; targetX: number; targetZ: number; targetYaw: number; speed: number; lastUpdate: number; isDucking?: boolean; isArresting?: boolean; isSwimming?: boolean; meleeTargetId?: number }[] = [];
   private npcPollTimer: any = null;
   parkedCars: ParkedCar[] = [];
   // World persistence: throttled snapshot of player position + nearby local
@@ -393,6 +393,29 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private garageExitedCar = false;
   private garageStoreCooldown = 0;
   private _cachedSidewalkNodes: { x: number; z: number }[] = [];
+  private isOpenOceanPosition(x: number, z: number): boolean {
+    return getBiome(Math.floor(x / CHUNK_SIZE), Math.floor(z / CHUNK_SIZE)) === 'ocean';
+  }
+
+  private isBeachAdjacentWater(x: number, z: number): boolean {
+    const cx = Math.floor(x / CHUNK_SIZE);
+    const cz = Math.floor(z / CHUNK_SIZE);
+    if (getBiome(cx, cz) !== 'ocean') return false;
+    const localX = x - cx * CHUNK_SIZE;
+    const localZ = z - cz * CHUNK_SIZE;
+    const swimBand = 28;
+    return (getBiome(cx - 1, cz) === 'beach' && localX <= swimBand)
+      || (getBiome(cx + 1, cz) === 'beach' && localX >= CHUNK_SIZE - swimBand)
+      || (getBiome(cx, cz - 1) === 'beach' && localZ <= swimBand)
+      || (getBiome(cx, cz + 1) === 'beach' && localZ >= CHUNK_SIZE - swimBand);
+  }
+
+  private isGroundVehicleType(type: string): boolean {
+    return type === 'car' || type === 'bus' || type === 'bike'
+      || type === 'motorcycle' || type === 'taxi' || type === 'police'
+      || type === 'traffic';
+  }
+
   private _lastPedChunkX = 999;
   private _lastPedChunkZ = 999;
   private _lastVendingChunkX = 999;
@@ -407,6 +430,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   droppedWeapons: any[] = [];
   private pickupCooldown = 0;
   private punchTimer = 0;
+  private meleeAttack: 'punch' | 'kick' = 'punch';
   health = 100;
   wantedLevel = 0;
   lastShootTime = 0;
@@ -466,6 +490,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private _heliSpool = 0;
   radioIndex = -1;
   radioSongTitle = '';
+  private radioShouldPlay = false;
+  private radioPlayerReady = false;
   private ytPlayer: any = null;
   private ytApiReady: Promise<void> | null = null;
   private joystickActive = false;
@@ -626,7 +652,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       tasks.push(t);
     }
     const armsOut: { animations?: any; skeleton?: any } = {};
-    tasks.push(critical({ load: () => this.renderer.loadGLTF('assets/grandtheft/first_person_arms/scene.gltf', true, armsOut).then(arms => { if (arms) { this.renderer.firstPersonArmsMesh = arms; this.renderer.firstPersonArmsSkeleton = armsOut.skeleton ?? null; this.renderer.firstPersonArmsAnimations = armsOut.animations ?? null; } }) }));
+    tasks.push(critical({ load: () => this.renderer.loadGLTF('assets/grandtheft/first_person_arms/scene.gltf', false, armsOut).then(arms => { if (arms) { this.renderer.firstPersonArmsMesh = arms; this.renderer.firstPersonArmsSkeleton = armsOut.skeleton ?? null; this.renderer.firstPersonArmsAnimations = armsOut.animations ?? null; } }) }));
     const m23Out: { animations?: any; skeleton?: any } = {};
     tasks.push(critical({ load: () => this.renderer.loadGLTF('assets/grandtheft/first_person_mark23/scene.gltf', false, m23Out).then(m => { if (m) { this.renderer.mark23Mesh = m; this.renderer.mark23Skeleton = m23Out.skeleton ?? null; this.renderer.mark23Animations = m23Out.animations ?? null; } }) }));
     // Building assets — tracked separately for cache clearing
@@ -891,6 +917,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
   toggleWeaponWheel() { this.showWeaponWheel = !this.showWeaponWheel; }
   toggleCar() {
+    // Car entry is a user gesture, so use it to unlock browser audio before
+    // starting the YouTube-backed radio.
+    this.unlockAudio();
     // Inside a store: rob the register, or leave through the door.
     if (this.inStore) {
       if (this.nearStoreRegister) { this.robStore(); return; }
@@ -936,8 +965,15 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
   toggleView() {
     this.firstPerson = !this.firstPerson;
-    this.camDist = this.firstPerson ? 0 : (this.isInCar ? 8 : 4);
-    this.camHeight = this.firstPerson ? 0 : (this.isInCar ? 3 : 2);
+    if (this.firstPerson) {
+      this.camDist = 0;
+      this.camHeight = 0;
+    } else if (this.isInCar) {
+      this.setVehicleCameraProfile();
+    } else {
+      this.camDist = 4;
+      this.camHeight = 2;
+    }
   }
   sendChatMessage() {
     const text = this.chatInput.trim();
@@ -1042,6 +1078,38 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
     return best;
   }
+  private setVehicleCameraProfile() {
+    if (this.firstPerson) {
+      this.camDist = 0;
+      this.camHeight = 0;
+      return;
+    }
+
+    const vehicleName = Array.isArray(this.playerVehicleMesh)
+      ? this.playerVehicleMesh.map(m => m.carName || '').join(' ').toLowerCase()
+      : (this.playerVehicleMesh?.carName || '').toLowerCase();
+    const isLargeTruck = this.vehicleType === 'bus'
+      || vehicleName.includes('truck')
+      || vehicleName.includes('monstertruck');
+
+    if (isLargeTruck) {
+      // Keep the cab/body from filling the lower half of the screen while
+      // preserving a usable chase view on narrow mobile canvases.
+      this.camDist = 10;
+      this.camHeight = 4.5;
+    } else if (this.vehicleType === 'plane') {
+      this.camDist = 12; this.camHeight = 5;
+    } else if (this.vehicleType === 'helicopter') {
+      this.camDist = 10; this.camHeight = 4;
+    } else if (this.vehicleType === 'boat') {
+      this.camDist = 8; this.camHeight = 3;
+    } else if (this.vehicleType === 'motorcycle') {
+      this.camDist = 6; this.camHeight = 2.5;
+    } else {
+      this.camDist = 8; this.camHeight = 3;
+    }
+  }
+
   private enterCar(onlyId?: number) {
     const userId = this.getUserId();
     if (!userId) return;
@@ -1079,12 +1147,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
             };
           }
           this.showVehicleBanner(this.vehicleType);
-          if (!this.radioOn && this.radioSongs.length) this.randomRadio();
-          if (this.vehicleType === 'plane') { this.camDist = 12; this.camHeight = 5; }
-          else if (this.vehicleType === 'helicopter') { this.camDist = 10; this.camHeight = 4; }
-          else if (this.vehicleType === 'boat') { this.camDist = 8; this.camHeight = 3; }
-          else if (this.vehicleType === 'motorcycle') { this.camDist = 6; this.camHeight = 2.5; }
-          else { this.camDist = 8; this.camHeight = 3; }
+          if (!this.radioOn) this.randomRadio();
+          this.setVehicleCameraProfile();
           this.gtService.stealCar(v.id, userId).then((stealRes: any) => {
             if (stealRes && stealRes.evictedNpcs) {
               for (const ep of stealRes.evictedNpcs) {
@@ -1149,9 +1213,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
                 this.driverInCarMesh = { mesh: this.renderer.playerMesh, offsetX: 0.3, offsetY: -0.3, offsetZ: 0.2, yaw: 0, scale: 0.85 };
               }
               this.showVehicleBanner(this.vehicleType);
-              if (!this.radioOn && this.radioSongs.length) this.randomRadio();
-              if (da.type === 'plane') { this.camDist = 12; this.camHeight = 5; }
-              else { this.camDist = 10; this.camHeight = 4; }
+              if (!this.radioOn) this.randomRadio();
+              this.setVehicleCameraProfile();
               return;
             }
           }
@@ -1397,7 +1460,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.carX += Math.sin(angle) * exitDist;
     this.carZ += Math.cos(angle) * exitDist;
     this.carVx = 0; this.carVz = 0; this.carSpeed = 0;
-    const exitTerrainY = getTerrainHeight(this.carX, this.carZ, this.carY);
+    const exitTerrainY = getTerrainHeight(this.carX, this.carZ, this.carY, true);
     const exitRoofY = this.getBuildingRoofY(this.carX, this.carZ);
     const carRoofY = this.getBuildingRoofY(origCarX, origCarZ);
     const bestRoofY = exitRoofY > carRoofY ? exitRoofY : carRoofY;
@@ -1420,17 +1483,38 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         .map((s: any) => this.fileService.parseYoutubeId(s.url))
         .filter((id: string) => id.length > 0);
     }
-    if (this.ytPlayer) return;
+    if (this.ytPlayer) {
+      this.tryStartRadio();
+      return;
+    }
     this.ensureYtApi().then(() => {
       const div = document.getElementById('gt-yt-player');
       if (!div || this.ytPlayer) return;
       this.ytPlayer = new (window as any).YT.Player('gt-yt-player', {
         height: '0', width: '0',
-        playerVars: { autoplay: 0, controls: 0, disablekb: 1, fs: 0, modestbranding: 1, playsinline: 1 },
+        playerVars: {
+          autoplay: 1,
+          controls: 0,
+          disablekb: 1,
+          enablejsapi: 1,
+          fs: 0,
+          modestbranding: 1,
+          origin: window.location.origin,
+          playsinline: 1,
+        },
         events: {
-          onReady: () => { this.setRadioVolume(); },
+          onReady: () => {
+            this.radioPlayerReady = true;
+            try {
+              const iframe = this.ytPlayer?.getIframe?.() as HTMLIFrameElement | undefined;
+              iframe?.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture');
+            } catch { }
+            this.setRadioVolume();
+            this.tryStartRadio();
+          },
           onStateChange: (e: any) => {
             if (e.data === 1) {
+              if (this.audioUnlocked) this.ytPlayer?.unMute?.();
               this.ngZone.run(() => {
                 this.radioSongTitle = this.ytPlayer?.getVideoData?.()?.title || '';
               });
@@ -1457,11 +1541,26 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     return this.ytApiReady;
   }
   private playRadio(index: number) {
-    if (!this.ytPlayer || !this.radioSongs.length) return;
+    this.radioShouldPlay = true;
+    if (!this.radioSongs.length) return;
     this.radioIndex = (index + this.radioSongs.length) % this.radioSongs.length;
+    this.tryStartRadio();
+  }
+  private tryStartRadio() {
+    if (!this.isInCar || !this.radioShouldPlay || !this.radioSongs.length
+      || !this.ytPlayer || !this.radioPlayerReady) return;
+    if (this.radioIndex < 0) {
+      this.radioIndex = Math.floor(Math.random() * this.radioSongs.length);
+    }
     const id = this.radioSongs[this.radioIndex];
+    if (!id) return;
     try {
       this.ytPlayer.loadVideoById(id);
+      // Muted autoplay is allowed by browsers. Car entry calls unlockAudio()
+      // from the user gesture, so unmute immediately when that permission exists.
+      if (this.audioUnlocked) this.ytPlayer.unMute?.();
+      else this.ytPlayer.mute?.();
+      this.ytPlayer.playVideo?.();
       this.radioOn = true;
       this.setRadioVolume();
       this.ngZone.run(() => {
@@ -1486,11 +1585,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.playRadio(this.radioIndex - 1);
   }
   randomRadio() {
+    this.radioShouldPlay = true;
     if (!this.radioSongs.length) return;
     if (this.radioOn && this.ytPlayer) try { this.ytPlayer.stopVideo(); } catch { }
     this.playRadio(Math.floor(Math.random() * this.radioSongs.length));
   }
-  private stopRadio() {
+  stopRadio() {
+    this.radioShouldPlay = false;
     this.radioOn = false;
     this.radioSongTitle = '';
     if (this.ytPlayer) try { this.ytPlayer.stopVideo(); } catch { }
@@ -1541,6 +1642,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const allVehicles = [...data.cars, ...(data.aircraft || [])];
     this.serverNPCs = allVehicles
       .filter(c => !this.deadNPCIds.has(c.id) && !this.stolenNpcIds.has(c.id))
+      .filter(c => !(this.isGroundVehicleType(c.type || 'car') && this.isOpenOceanPosition(c.posX, c.posZ)))
       .map(c => {
         const serverHp = c.health ?? 100;
         const localHp = prevCarHealth.get(c.id);
@@ -1616,6 +1718,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
     this.serverPedestrians = data.pedestrians
       .filter(p => !this.deadNPCIds.has(p.id))
+      .filter(p => !this.isOpenOceanPosition(p.posX, p.posZ) || this.isBeachAdjacentWater(p.posX, p.posZ))
       .map(p => {
         const serverHp = p.health ?? 50;
         const localHp = prevPedHealth.get(p.id);
@@ -1644,6 +1747,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           x: interp.prevX, z: interp.prevZ, yaw: interp.prevYaw,
           gender: p.gender || 'male',
           type: p.type,
+          isSwimming: !!p.isSwimming || this.isBeachAdjacentWater(p.posX, p.posZ),
           health,
           mesh,
           isShootingAt: p.isShootingAt || false,
@@ -1654,15 +1758,23 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         };
       });
     if (recentlyEvictedPeds.length > 0) {
-      this.serverPedestrians = [...this.serverPedestrians, ...recentlyEvictedPeds];
+      this.serverPedestrians = [
+        ...this.serverPedestrians,
+        ...recentlyEvictedPeds
+          .filter(p => !this.isOpenOceanPosition(p.x, p.z) || this.isBeachAdjacentWater(p.x, p.z))
+          .map(p => ({ ...p, isSwimming: this.isBeachAdjacentWater(p.x, p.z) }))
+      ];
     }
-    const serverParked = data.parkedCars;
+    const serverParked = data.parkedCars.filter((pc: any) =>
+      pc.type === 'boat' || !this.isOpenOceanPosition(pc.posX, pc.posZ)
+    );
     const serverParkedIds = new Set(serverParked.map(p => p.id));
     // Local parked cars (negative ids) survive the merge — plus the dealership
     // heist target, so it stays enterable until the player grabs it.
     const localOnlyParked = this.parkedCars.filter(p =>
       !serverParkedIds.has(p.id) &&
-      (p.id < 0 || (this.dealershipMission && p.id === this.dealershipMission.targetCarId)));
+      (p.id < 0 || (this.dealershipMission && p.id === this.dealershipMission.targetCarId)) &&
+      (p.type === 'boat' || !this.isOpenOceanPosition(p.x, p.z)));
     this.parkedCars = [...serverParked
       .filter(pc => !this.stolenNpcIds.has(pc.id))
       .map(pc => {
@@ -2009,12 +2121,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private shoot() {
     if (this._arrested) return; // cuffed — can't fight back mid-arrest
     const now = performance.now();
-    if (now - this.lastShootTime < WEAPON_COOLDOWNS[this.currentWeapon]) return;
-    if (this.currentWeapon !== 0) {
-      if (this.ammo[this.currentWeapon] <= 0) return;
-      this.ammo[this.currentWeapon]--;
-      if (this.ammo[this.currentWeapon] <= 0) {
-        this.ownedWeapons[this.currentWeapon] = false;
+    const firedWeapon = this.currentWeapon;
+    if (now - this.lastShootTime < WEAPON_COOLDOWNS[firedWeapon]) return;
+    if (firedWeapon !== 0) {
+      if (this.ammo[firedWeapon] <= 0) return;
+      this.ammo[firedWeapon]--;
+      if (this.ammo[firedWeapon] <= 0) {
+        this.ownedWeapons[firedWeapon] = false;
         this.currentWeapon = 0;
       }
     }
@@ -2027,32 +2140,46 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const originX = this.carX;
     const originY = this.carY + (this.isInCar ? 0.5 : 1.2);
     const originZ = this.carZ;
-    if (this.currentWeapon === 0) {
-      this.punchTimer = 0.3;
+    if (firedWeapon === 0) {
+      this.meleeAttack = this.meleeAttack === 'punch' ? 'kick' : 'punch';
+      this.punchTimer = 0.38;
+      if (this.renderer) {
+        this.renderer.playerAttack = this.meleeAttack;
+        this.renderer.playerFireTime = 0;
+      }
       this.checkBulletHit(originX, originY, originZ, dirX, dirY, dirZ, 3);
-    } else if (this.currentWeapon === 4) {
-      this.rockets.push({ x: originX, y: originY, z: originZ, vx: dirX * 40, vy: dirY * 40, vz: dirZ * 40, age: 0, lifetime: 3 });
     } else {
-      const tracerLifetime = this.currentWeapon === 2 ? 0.15 : 0.3;
-      this.tracers.push({ originX, originY, originZ, dirX, dirY, dirZ, age: 0, lifetime: tracerLifetime });
-      this.muzzleFlashes.push({ x: originX, y: originY, z: originZ, dirX, dirY, dirZ, weapon: this.currentWeapon, age: 0, lifetime: 0.08 });
-      if (this.currentWeapon === 3) {
-        for (let i = 1; i < 8; i++) {
-          const spread = 0.08;
-          const sx = dirX + (Math.random() - 0.5) * spread;
-          const sy = dirY + (Math.random() - 0.5) * spread;
-          const sz = dirZ + (Math.random() - 0.5) * spread;
-          this.tracers.push({ originX, originY, originZ, dirX: sx, dirY: sy, dirZ: sz, age: 0, lifetime: 0.2 });
+      if (this.renderer) {
+        this.renderer.playerFireWeapon = firedWeapon;
+        this.renderer.playerFireTime = 0.14;
+      }
+      if (firedWeapon === 4) {
+        this.rockets.push({ x: originX, y: originY, z: originZ, vx: dirX * 40, vy: dirY * 40, vz: dirZ * 40, age: 0, lifetime: 3 });
+      } else {
+        const tracerLifetime = firedWeapon === 2 ? 0.15 : 0.3;
+        this.tracers.push({ originX, originY, originZ, dirX, dirY, dirZ, age: 0, lifetime: tracerLifetime });
+        this.muzzleFlashes.push({ x: originX, y: originY, z: originZ, dirX, dirY, dirZ, weapon: firedWeapon, age: 0, lifetime: 0.08 });
+        if (firedWeapon === 3) {
+          for (let i = 1; i < 8; i++) {
+            const spread = 0.08;
+            const sx = dirX + (Math.random() - 0.5) * spread;
+            const sy = dirY + (Math.random() - 0.5) * spread;
+            const sz = dirZ + (Math.random() - 0.5) * spread;
+            this.tracers.push({ originX, originY, originZ, dirX: sx, dirY: sy, dirZ: sz, age: 0, lifetime: 0.2 });
+          }
         }
       }
     }
-    this.spawnBulletSmoke(originX, originY, originZ, dirX, dirY, dirZ, this.currentWeapon);
-    this.spawnBulletTrail(originX, originY, originZ, dirX, dirY, dirZ, this.currentWeapon);
-    this.checkBulletHit(originX, originY, originZ, dirX, dirY, dirZ, this.currentWeapon === 0 ? 3 : 50);
-    this.playWeaponSound(this.currentWeapon);
+    this.spawnBulletSmoke(originX, originY, originZ, dirX, dirY, dirZ, firedWeapon);
+    this.spawnBulletTrail(originX, originY, originZ, dirX, dirY, dirZ, firedWeapon);
+    this.checkBulletHit(originX, originY, originZ, dirX, dirY, dirZ, firedWeapon === 0 ? 3 : 50);
+    this.playWeaponSound(firedWeapon);
   }
   private unlockAudio() {
-    if (this.audioUnlocked) return;
+    if (this.audioUnlocked) {
+      this.tryStartRadio();
+      return;
+    }
     this.audioUnlocked = true;
     try {
       if (!this.uziSound) this.uziSound = new Audio('assets/grandtheft/uzi.mp3');
@@ -2061,6 +2188,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       [this.uziSound, this.rocketSound, this.policeSirenSound].forEach(a => {
         if (a) { a.volume = 0; a.play().then(() => { a.pause(); a.currentTime = 0; a.volume = 0.3; }).catch(() => { }); }
       });
+      this.tryStartRadio();
     } catch (e) { }
   }
   /** Fade gunfire with distance: full volume up close, faint past ~60 units. */
@@ -3009,7 +3137,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           scale: 0.85,
         };
       }
-      this.camDist = 8; this.camHeight = 3;
+      this.setVehicleCameraProfile();
       this.garageCar = null;
       this.garageCarMesh = null;
     }
@@ -3350,6 +3478,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       if (car.speed < 0) car.speed = 0;
       car.x += Math.sin(car.yaw) * car.speed * dt;
       car.z += Math.cos(car.yaw) * car.speed * dt;
+      if (this.isOpenOceanPosition(car.x, car.z)) {
+        this.trafficCars.splice(ci, 1);
+        continue;
+      }
     }
   }
   private updatePedestrians(dt: number) {
@@ -3390,6 +3522,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
               ];
               // Inline the home-base filter check to avoid array allocations
               for (const n of nodesToCheck) {
+                const nodeBiome = getBiome(Math.floor(n.x / CHUNK_SIZE), Math.floor(n.z / CHUNK_SIZE));
+                if (nodeBiome === 'ocean') continue;
                 if (n.x < HOME_CHUNK_MIN_X || n.x >= HOME_CHUNK_MAX_X ||
                   n.z < HOME_CHUNK_MIN_Z || n.z >= HOME_CHUNK_MAX_Z) {
                   this._cachedSidewalkNodes.push(n);
@@ -3424,6 +3558,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
     for (let i = this.localPedestrians.length - 1; i >= 0; i--) {
       const ped = this.localPedestrians[i];
+      if (this.isOpenOceanPosition(ped.x, ped.z)) {
+        this.localPedestrians.splice(i, 1);
+        continue;
+      }
       if (ped.health <= 0) {
         this.deadBodies.push({
           id: -(this.deadBodies.length + 1000),
@@ -4127,8 +4265,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.renderer.droppedWeapons = this.droppedWeapons;
     this.renderer.garageDoorOpenness = this.garageDoorOpenness;
     this.renderer.garageCarMesh = this.garageCarMesh;
-    this.renderer.armOverrideActive = (this.currentWeapon === 1) && !this.firstPerson;
-    this.renderer.walkSpeed = this.isInCar ? 0 : this.carSpeed;
+    this.renderer.armOverrideActive = this.currentWeapon > 0 && !this.firstPerson;
+    this.renderer.playerWeapon = this.currentWeapon;
+    this.renderer.playerAttack = this.meleeAttack;
+    this.renderer.playerAimPitch = this.camPitch;
+    this.renderer.playerIsInCar = this.isInCar;
+    this.renderer.walkSpeed = this.isInCar ? 0 : Math.abs(this.carSpeed);
     this.renderer.playerCarSpeed = this.isInCar ? this.carSpeed : 0;
     this.renderer.playerSteerInput = this._lastSteerInput;
     this.renderer.punchTime = this.punchTimer;
@@ -4310,7 +4452,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
     this.carX += this.carVx * dt;
     this.carZ += this.carVz * dt;
-    const footTerrainY = getTerrainHeight(this.carX, this.carZ, this.carY);
+    const footTerrainY = getTerrainHeight(this.carX, this.carZ, this.carY, true);
     const footRoofY = this.getBuildingRoofY(this.carX, this.carZ);
     this.carY = CAR_HEIGHT + (footRoofY > footTerrainY ? footRoofY : footTerrainY);
     this.carSpeed = Math.sqrt(this.carVx * this.carVx + this.carVz * this.carVz);
@@ -4323,28 +4465,32 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     // kick on top of the doubled base top speed.
     const sports = this.isSportsCarMesh(this.playerVehicleMesh);
     const accelBoost = sports ? 1.4 : 1;
+    const surfaceBiome = getBiome(Math.floor(this.carX / CHUNK_SIZE), Math.floor(this.carZ / CHUNK_SIZE));
+    const drivingOnSand = surfaceBiome === 'beach';
+    const sandAccel = drivingOnSand ? 0.72 : 1;
     let accelForce = 0;
     let isReversing = false;
-    if (this.keys.has('KeyW')) accelForce = 62 * accelBoost;
+    if (this.keys.has('KeyW')) accelForce = 62 * accelBoost * sandAccel;
     if (this.keys.has('KeyS')) {
-      if (this.carSpeed > 1) { accelForce = -60; }
-      else { isReversing = true; accelForce = -20; }
+      if (this.carSpeed > 1) { accelForce = -60 * sandAccel; }
+      else { isReversing = true; accelForce = -20 * sandAccel; }
     }
     let steer = 0;
     if (this.keys.has('KeyA')) steer = 1;
     if (this.keys.has('KeyD')) steer = -1;
     if (this.isMobile && this.joystickActive) {
-      if (this.joystickY < 0.1) accelForce = 62 * accelBoost * this.joystickY;
+      if (this.joystickY < 0.1) accelForce = 62 * accelBoost * sandAccel * this.joystickY;
       else if (this.joystickY > -0.1) {
-        if (this.carSpeed > 1) { accelForce = -60 * (-this.joystickY); }
-        else { isReversing = true; accelForce = -20 * (-this.joystickY); }
+        if (this.carSpeed > 1) { accelForce = -60 * sandAccel * (-this.joystickY); }
+        else { isReversing = true; accelForce = -20 * sandAccel * (-this.joystickY); }
       }
       steer += -this.joystickX;
     }
     const speedFactor = Math.min(1, Math.abs(this.carSpeed) / 5);
     const steerDir = this.carSpeed < -0.5 ? -1 : 1;
     this._lastSteerInput = steer;
-    this.carYaw += steer * 2.5 * dt * speedFactor * steerDir;
+    const steerRate = drivingOnSand ? 2.0 : 2.5;
+    this.carYaw += steer * steerRate * dt * speedFactor * steerDir;
     if (accelForce !== 0) {
       this.carVx += Math.sin(this.carYaw) * accelForce * dt;
       this.carVz += Math.cos(this.carYaw) * accelForce * dt;
@@ -4353,15 +4499,19 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const rightX = Math.cos(this.carYaw), rightZ = -Math.sin(this.carYaw);
     let fwdSpeed = this.carVx * forwardX + this.carVz * forwardZ;
     let latSpeed = this.carVx * rightX + this.carVz * rightZ;
-    // Much lighter forward drag so the doubled top speed is actually
-    // reachable (equilibrium ≈ 115 base, ≈ 155 sports).
-    fwdSpeed *= Math.max(0, 1 - 0.55 * dt);
+    // Sand absorbs more engine momentum and offers much less lateral grip than
+    // asphalt. Keeping lateral velocity is what makes the car wash out and
+    // slide instead of pivoting cleanly through every turn.
+    const forwardDrag = drivingOnSand ? 1.35 : 0.55;
+    fwdSpeed *= Math.max(0, 1 - forwardDrag * dt);
     const isHandbraking = this.keys.has('Space');
-    const grip = isHandbraking ? 1.5 : 12.0;
+    const grip = isHandbraking ? (drivingOnSand ? 0.75 : 1.5) : (drivingOnSand ? 3.2 : 12.0);
     latSpeed *= Math.max(0, 1 - grip * dt);
     this.carVx = fwdSpeed * forwardX + latSpeed * rightX;
     this.carVz = fwdSpeed * forwardZ + latSpeed * rightZ;
-    const maxSpd = isReversing ? 20 : (sports ? 140 : 110);
+    const maxSpd = isReversing
+      ? (drivingOnSand ? 14 : 20)
+      : (drivingOnSand ? (sports ? 105 : 84) : (sports ? 140 : 110));
     const currentSpd = Math.hypot(this.carVx, this.carVz);
     if (currentSpd > maxSpd) {
       this.carVx = (this.carVx / currentSpd) * maxSpd;
@@ -4384,12 +4534,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
   // ── Jump ramps: drive over a ramp at speed to go airborne; landing scores ──
   private updateJumpPhysics(dt: number) {
-    const groundY = CAR_HEIGHT + getTerrainHeight(this.carX, this.carZ, this.carY);
+    const groundY = CAR_HEIGHT + getTerrainHeight(this.carX, this.carZ, this.carY, true);
     if (this.jumpActive) {
       this.jumpAirtime += dt;
       this.jumpVy -= JUMP_GRAVITY * dt;
       this.carY += this.jumpVy * dt;
-      const aboveGround = this.carY - (CAR_HEIGHT + getTerrainHeight(this.carX, this.carZ, this.carY));
+      const aboveGround = this.carY - (CAR_HEIGHT + getTerrainHeight(this.carX, this.carZ, this.carY, true));
       if (aboveGround > this.jumpPeak) this.jumpPeak = aboveGround;
       const dist = Math.hypot(this.carX - this.jumpLaunchX, this.carZ - this.jumpLaunchZ);
       const readout = `AIRBORNE ${Math.max(0, Math.floor(dist))}m · ${Math.max(0, Math.floor(this.jumpPeak * 10) / 10)}m up`;
@@ -4576,7 +4726,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     // Height-aware terrain: an entity below the bridge deck (boat under the
     // span, car in the water) gets the terrain the bridge replaced instead of
     // being snapped up onto the roadway.
-    this.carY = CAR_HEIGHT + getTerrainHeight(this.carX, this.carZ, this.carY);
+    this.carY = CAR_HEIGHT + getTerrainHeight(this.carX, this.carZ, this.carY, true);
     this.pushOutOfBuildings();
     this.checkPropCollision();
   }
@@ -4600,18 +4750,20 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const ocx = Math.floor(this.carX / 80), ocz = Math.floor(this.carZ / 80);
     const biome = getBiome(ocx, ocz);
     const onWater = biome === 'ocean' || (biome === 'bridge' && getTerrainHeight(this.carX, this.carZ, this.carY) <= -2.0);
-    let accelForce = 0;
-    if (this.keys.has('KeyW')) accelForce = accel;
-    if (this.keys.has('KeyS')) accelForce = -accel;
-    if (this.isMobile && this.joystickActive) {
-      accelForce = accel * this.joystickY;
-    }
     const forwardX = Math.sin(this.carYaw), forwardZ = Math.cos(this.carYaw);
-    if (accelForce !== 0) {
-      this.carVx += forwardX * accelForce * dt;
-      this.carVz += forwardZ * accelForce * dt;
-    }
+
     if (onWater) {
+      let accelForce = 0;
+      if (this.keys.has('KeyW')) accelForce = accel;
+      if (this.keys.has('KeyS')) accelForce = -accel;
+      if (this.isMobile && this.joystickActive) {
+        accelForce = accel * this.joystickY;
+      }
+      if (accelForce !== 0) {
+        this.carVx += forwardX * accelForce * dt;
+        this.carVz += forwardZ * accelForce * dt;
+      }
+
       let steer = 0;
       if (this.keys.has('KeyA')) steer = 1;
       if (this.keys.has('KeyD')) steer = -1;
@@ -4621,16 +4773,24 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       const drag = 0.3;
       this.carVx *= Math.max(0, 1 - drag * dt);
       this.carVz *= Math.max(0, 1 - drag * dt);
+
+      const currentSpd = Math.hypot(this.carVx, this.carVz);
+      if (currentSpd > maxSpeed) {
+        this.carVx = (this.carVx / currentSpd) * maxSpeed;
+        this.carVz = (this.carVz / currentSpd) * maxSpeed;
+      }
     } else {
-      const spd = Math.hypot(this.carVx, this.carVz);
-      if (spd > 0.5) {
-        const glideFactor = Math.max(0, 1 - 2.0 * dt);
-        this.carVx *= glideFactor;
-        this.carVz *= glideFactor;
-      } else {
-        this.carVx = 0; this.carVz = 0;
+      // Boats may carry momentum onto shore, but throttle and steering cannot
+      // add motion there. The dry-land drag brings them smoothly to a stop.
+      const landDrag = Math.max(0, 1 - 2.0 * dt);
+      this.carVx *= landDrag;
+      this.carVz *= landDrag;
+      if (Math.hypot(this.carVx, this.carVz) < 0.05) {
+        this.carVx = 0;
+        this.carVz = 0;
       }
     }
+
     this.carX += this.carVx * dt;
     this.carZ += this.carVz * dt;
     this.carSpeed = Math.hypot(this.carVx, this.carVz);
@@ -5893,7 +6053,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     // Spawn on foot at the local terrain surface: cap the saved altitude so a
     // refresh mid-flight can't park a plane in the sky or drop the player from
     // height. Rooftop stands (a few units up) are still preserved.
-    const groundY = CAR_HEIGHT + getTerrainHeight(this.carX, this.carZ, this.carY);
+    const groundY = CAR_HEIGHT + getTerrainHeight(this.carX, this.carZ, this.carY, true);
     const savedY = typeof state.y === 'number' && !isNaN(state.y) ? state.y : CAR_HEIGHT;
     this.carY = Math.min(savedY, groundY + 6);
     this.carYaw = typeof state.yaw === 'number' && !isNaN(state.yaw) ? state.yaw : this.carYaw;
@@ -5921,7 +6081,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     for (const pc of (state.parked || [])) {
       if (typeof pc.id !== 'number' || typeof pc.x !== 'number' || typeof pc.z !== 'number') continue;
       const col: [number, number, number] = [pc.colorR ?? 0.5, pc.colorG ?? 0.5, pc.colorB ?? 0.5];
-      const carGroundY = CAR_HEIGHT + getTerrainHeight(pc.x, pc.z, pc.y);
+      const carGroundY = CAR_HEIGHT + getTerrainHeight(pc.x, pc.z, pc.y, true);
       const carY = typeof pc.y === 'number' && !isNaN(pc.y) ? Math.min(pc.y, carGroundY + 6) : carGroundY;
       this.parkedCars.push({
         id: pc.id,
@@ -6928,6 +7088,30 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     for (const pc of this.parkedCars) {
       if (pc.type === 'police') continue;
       ctx.beginPath(); ctx.arc(cx + (pc.x - this.carX) * scale, cy + (pc.z - this.carZ) * scale, 2, 0, Math.PI * 2); ctx.fill();
+    }
+    // Random weapon drops — gold pulsing markers. The server only tags
+    // land-valid random drops, while home-base/death drops keep their existing
+    // behavior and are intentionally not duplicated on this layer.
+    for (const dw of this.droppedWeapons) {
+      if (!dw?.isRandom) continue;
+      const mx = cx + (dw.posX - this.carX) * scale;
+      const my = cy + (dw.posZ - this.carZ) * scale;
+      if (mx < -12 || mx > 312 || my < -12 || my > 312) continue;
+      const pulse = 1 + Math.sin(now / 220 + (dw.id || 0)) * 0.18;
+      const radius = 5.5 * pulse;
+      ctx.fillStyle = 'rgba(255, 210, 40, 0.22)';
+      ctx.beginPath(); ctx.arc(mx, my, radius + 4, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#ffd228';
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(mx, my, radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#4a3510';
+      ctx.font = 'bold 9px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('W', mx, my);
+      ctx.textAlign = 'start';
+      ctx.textBaseline = 'alphabetic';
     }
     // Draw player as a green arrow showing movement direction
     const pYaw = this.carYaw;

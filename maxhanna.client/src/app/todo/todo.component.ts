@@ -398,7 +398,7 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
       const todoId = parseInt(resTodo, 10);
       this.userEventService.insertUserEvent(
         this.parentRef.user.id,
-        'TodoAdded',
+        'todo_added',
         'Added a todo!',
         Number.isNaN(todoId) ? undefined : todoId,
         'todo'
@@ -450,6 +450,17 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
       }
     } catch (e) {
       console.error('Failed to update nav todo count after delete', e);
+    }
+
+    // Insert user event for deleting a todo
+    if(this.parentRef?.user?.id && tmpTodo) {
+      this.userEventService.insertUserEvent(
+      this.parentRef.user.id,
+      'todo_deleted',
+      `Deleted todo: ${tmpTodo.todo}`,
+      id,
+      'todo'
+      );
     }
 
     this.todoCount--;

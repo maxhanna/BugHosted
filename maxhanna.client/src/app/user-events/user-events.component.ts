@@ -105,107 +105,79 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
     }
   }
 
-  getEventIcon(eventType: string): string {
-    switch (eventType.toLowerCase()) {
-      case 'file_upload': return this.parentRef?.navigationItems.find(x => x.title === 'Files')?.icon || '📁';
-      case 'upload_file': return this.parentRef?.navigationItems.find(x => x.title === 'Files')?.icon || '📁';
-      case 'story_post': return this.parentRef?.navigationItems.find(x => x.title === 'Social')?.icon || '🌍';
-      case 'grandtheft': return this.parentRef?.navigationItems.find(x => x.title === 'GrandTheft')?.icon || '🚔';
-      case 'comment': return '💬';
-      case 'bones_kill': return this.parentRef?.navigationItems.find(x => x.title === 'Bones')?.icon || '⚔️';
-      case 'bones_death': return this.parentRef?.navigationItems.find(x => x.title === 'Bones')?.icon || '💀';
-      case 'ender_kill': return this.parentRef?.navigationItems.find(x => x.title === 'Ender')?.icon || '🏍️';
-      case 'ender_death': return this.parentRef?.navigationItems.find(x => x.title === 'Ender')?.icon || '💥';
-      case 'digcraft_play': return this.parentRef?.navigationItems.find(x => x.title === 'DigCraft')?.icon || '⛏️';
-      case 'digcraft_death': return this.parentRef?.navigationItems.find(x => x.title === 'DigCraft')?.icon || '⛏️';
-      case 'digcraft_kill': return this.parentRef?.navigationItems.find(x => x.title === 'DigCraft')?.icon || '⛏️';
-      case 'emulator_play': return this.parentRef?.navigationItems.find(x => x.title === 'Emulation')?.icon || '🎮';
-      case 'nexus_play': return this.parentRef?.navigationItems.find(x => x.title === 'Bug-Wars')?.icon || '🐛';
-      case 'meta_encounter': return this.parentRef?.navigationItems.find(x => x.title === 'Meta-Bots')?.icon || '🤖';
-      case 'daily_meme': return this.parentRef?.navigationItems.find(x => x.title === 'Memes')?.icon || '😂';
-      case 'favourite_add': return '⭐';
-      case 'digcraft_levelup': return this.parentRef?.navigationItems.find(x => x.title === 'DigCraft')?.icon || '⬆️';
-      case 'trade_executed': return this.parentRef?.navigationItems.find(x => x.title === 'Crypto-Hub')?.icon || '₿';
-      case 'trophy': return '🏆';
-      case 'reaction_added': return '😊';
-      case 'wordler_win': return this.parentRef?.navigationItems.find(x => x.title === 'Wordler')?.icon || '🧠';
-      case 'youtube': return '▶️';
-      case 'link': return this.parentRef?.navigationItems.find(x => x.title === 'Crawler')?.icon || '🕸️';
-      case 'flighttracking': return '✈️';
-      case 'weaver_card_added': return this.parentRef?.navigationItems.find(x => x.title === 'Weaver')?.icon || '🕷️';
-      case 'weaver_card_created': return this.parentRef?.navigationItems.find(x => x.title === 'Weaver')?.icon || '🕷️';
-      case 'recipe_edited': return this.parentRef?.navigationItems.find(x => x.title === 'Recipe')?.icon || '🍳';
-      case 'recipe_added': return this.parentRef?.navigationItems.find(x => x.title === 'Recipe')?.icon || '🍳';
-      case 'racing': return this.parentRef?.navigationItems.find(x => x.title === 'Racing')?.icon || '🏎️';
-      case 'marbles': return this.parentRef?.navigationItems.find(x => x.title === 'Marbles')?.icon || '🌀';
-      case 'save_note': return this.parentRef?.navigationItems.find(x => x.title === 'Notepad')?.icon || '🗒️';
-      case 'downloaded_painting': return this.parentRef?.navigationItems.find(x => x.title === 'Paint')?.icon || '🖍️';
-      default: return '📌';
+  getEvent(eventType: string): { icon: string; description: string; component: string | null } {
+    const type = eventType.toLowerCase();
+
+    let tmpIcon = undefined;
+    const isReaction = type.includes(" reaction");
+    if (isReaction) {
+      let tmpReactionType = type.split(' ')[0];
+      if (tmpReactionType && tmpReactionType != "reaction") { 
+        tmpReactionType = tmpReactionType.toLowerCase();
+        tmpReactionType = ':' + tmpReactionType + ':';
+        tmpIcon = this.parentRef?.emojiMap[tmpReactionType];
+      }
     }
+
+    const navIcon = (title: string, fallback: string) =>
+      this.parentRef?.navigationItems.find(x => x.title === title)?.icon || fallback;
+
+    const map: Record<string, { icon: string; description: string; component: string | null }> = {
+      file_upload: { icon: navIcon('Files', '📁'), description: 'File uploaded', component: 'Files' },
+      upload_file: { icon: navIcon('Files', '📁'), description: 'File uploaded', component: 'Files' },
+      story_post: { icon: navIcon('Social', '🌍'), description: 'Story posted', component: 'Social' },
+      grandtheft: { icon: navIcon('GrandTheft', '🚔'), description: 'Grand Theft Play', component: 'GrandTheft' },
+      comment: { icon: '💬', description: 'Comment added', component: null },
+      bones_kill: { icon: navIcon('Bones', '⚔️'), description: 'Bones kill', component: 'Bones' },
+      bones_death: { icon: navIcon('Bones', '💀'), description: 'Bones death', component: 'Bones' },
+      ender_kill: { icon: navIcon('Ender', '🏍️'), description: 'Ender kill', component: 'Ender' },
+      ender_death: { icon: navIcon('Ender', '💥'), description: 'Ender death', component: 'Ender' },
+      digcraft_play: { icon: navIcon('DigCraft', '⛏️'), description: 'DigCraft play', component: 'DigCraft' },
+      digcraft_death: { icon: navIcon('DigCraft', '⛏️'), description: 'DigCraft death', component: 'DigCraft' },
+      digcraft_kill: { icon: navIcon('DigCraft', '⛏️'), description: 'DigCraft kill', component: 'DigCraft' },
+      emulator_play: { icon: navIcon('Emulator', '🎮'), description: 'Emulator play', component: 'Emulator' },
+      nexus_play: { icon: navIcon('Bug-Wars', '🐛'), description: 'Bug-Wars play', component: 'Bug-Wars' },
+      meta_encounter: { icon: navIcon('Meta-Bots', '🤖'), description: 'Meta encounter', component: 'Meta-Bots' },
+      daily_meme: { icon: navIcon('Memes', '😂'), description: 'Daily meme', component: null },
+      favourite_add: { icon: '⭐', description: 'Favourite added', component: null },
+      digcraft_levelup: { icon: navIcon('DigCraft', '⬆️'), description: 'DigCraft level up', component: 'DigCraft' },
+      trade_executed: { icon: navIcon('Crypto-Hub', '₿'), description: 'Trade executed', component: 'Crypto-Hub' },
+      trophy: { icon: '🏆', description: 'Trophy earned', component: null },
+      reaction_added: { icon: tmpIcon || '😊', description: 'Reaction added', component: null },
+      wordler_win: { icon: navIcon('Wordler', '🧠'), description: 'Wordler win', component: 'Wordler' },
+      youtube: { icon: navIcon('YouTube', '📺'), description: 'YouTube watch', component: 'YouTube' },
+      link: { icon: '🔗', description: 'Link shared', component: null },
+      flighttracking: { icon: '✈️', description: 'Flight tracked', component: null },
+      weaver_card_added: { icon: navIcon('Weaver', '🕷️'), description: 'Weaver card added', component: 'Weaver' },
+      weaver_card_created: { icon: navIcon('Weaver', '🕷️'), description: 'Weaver card created', component: 'Weaver' },
+      recipe_edited: { icon: navIcon('Recipe', '🍳'), description: 'Recipe edited', component: 'Recipe' },
+      recipe_added: { icon: navIcon('Recipe', '🍳'), description: 'Recipe added', component: 'Recipe' },
+      racing: { icon: navIcon('Racing', '🏎️'), description: 'Racing event', component: 'Racing' },
+      marbles: { icon: navIcon('Marbles', '🌀'), description: 'Marbles event', component: 'Marbles' },
+      save_note: { icon: navIcon('Notepad', '🗒️'), description: 'Note saved', component: 'Notepad' },
+      downloaded_painting: { icon: navIcon('Paint', '🖍️'), description: 'Painting downloaded', component: 'Paint' },
+      plant_added: { icon: navIcon('Planter', '🌱'), description: 'Plant Identified', component: 'Planter' },
+      todo_added: { icon: navIcon('Todo', '✔️'), description: 'Todo Added', component: 'Todo' },
+      todo_deleted: { icon: navIcon('Todo', '✔️'), description: 'Todo Deleted', component: 'Todo' },
+    };
+
+    return map[type] || { icon: '📌', description: eventType, component: null };
+  }
+
+
+  getEventIcon(eventType: string): string {
+    return this.getEvent(eventType).icon;
   }
 
   getEventDescription(eventType: string): string {
-    const descriptions: { [key: string]: string } = {
-      'file_upload': 'File Uploads',
-      'upload_file': 'File Uploads',
-      'story_post': 'Story Posts',
-      'comment': 'Comments',
-      'bones_kill': 'Bones Kills',
-      'bones_death': 'Bones Deaths',
-      'ender_kill': 'Ender Kills',
-      'ender_death': 'Ender Deaths',
-      'grandtheft': 'Grand Theft Play',
-      'digcraft_play': 'DigCraft Play',
-      'digcraft_death': 'DigCraft Deaths',
-      'digcraft_kill': 'DigCraft Kills',
-      'emulator_play': 'Emulator Play',
-      'nexus_play': 'Nexus Play',
-      'meta_encounter': 'Meta Encounters',
-      'daily_meme': 'Daily Memes',
-      'favourite_add': 'Favourites Added',
-      'digcraft_levelup': 'DigCraft Level-ups',
-      'trade_executed': 'Trade Executions',
-      'trophy': 'Trophies Earned',
-      'youtube': 'Viewed Youtube Video',
-      'link': 'Visited External Link',
-      'recipe_added': 'Recipes Added',
-      'recipe_edited': 'Recipes Edited',
-      'wordler_win': 'Wordler Wins',
-      'weaver_card_added': 'Weaver Cards Created',
-      'weaver_card_created': 'Weaver Cards Created',
-      'flighttracking': 'Flight Tracking Events',
-      'FlightTracking': 'Flight Tracking Events',
-      'marbles': 'Lose your Marbles Events',
-    };
-
-    return descriptions[eventType] || eventType;
+    return this.getEvent(eventType).description;
   }
 
   viewEvent(e: UserEvent) {
     if (e.referenceId == null) return;
+    const eData = this.getEvent(e.eventType);
 
-    if (e.eventType.includes('digcraft')) {
-      this.parentRef?.createComponent('DigCraft');
-    }
-    if (e.eventType.toLowerCase().includes('grandtheft')) {
-      this.parentRef?.createComponent('GrandTheft');
-    }
-    else if (e.eventType.includes('meta')) {
-      this.parentRef?.createComponent('Meta-Bots');
-    }
-    else if (e.eventType.includes('bones')) {
-      this.parentRef?.createComponent('Bones');
-    }
-    else if (e.eventType.includes('ender')) {
-      this.parentRef?.createComponent('Ender');
-    }
-    else if (e.eventType.includes('nexus')) {
-      this.parentRef?.createComponent('Bug-Wars');
-    }
-    else if (e.eventType.includes('emulator')) {
-      this.parentRef?.createComponent('Emulator');
-    }
-    else if (e.eventType.includes('posted')) {
+    if (e.eventType.includes('posted')) {
       this.parentRef?.createComponent('Social', { 'storyId': e.referenceId });
     }
     else if (e.eventType === 'story_post') {
@@ -214,20 +186,17 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
     else if (e.eventType === 'comment') {
       this.viewComment(e);
     }
-    else if (e.eventType === 'downloaded_painting') {
-      this.parentRef?.createComponent('Paint');
-    }
     else if (e.eventType === 'upload') {
       this.parentRef?.createComponent('Files', { 'FileId': e.referenceId });
     }
     else if (e.eventType === 'trophy') {
       this.parentRef?.createComponent('User', { 'UserId': e.referenceId });
     }
-    else if (e.eventType === 'trade_executed') {
-      this.parentRef?.createComponent('Crypto-Hub');
-    }
     else if (e.eventType === 'save_note') {
       this.parentRef?.createComponent('Notepad', { 'noteId': e.referenceId });
+    }
+    else if (eData.component) {
+      this.parentRef?.createComponent(eData.component);
     }
   }
 
@@ -252,10 +221,18 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
   }
 
   isClickableEvent(eventType: string): boolean {
-    const lEType = eventType.toLowerCase();
-    return lEType === 'story_post' || lEType === 'comment' || lEType === 'upload' || lEType === 'trophy' || lEType === 'trade_executed'
-      || lEType.includes('digcraft') || lEType.includes('meta') || lEType.includes('bones') || lEType.includes('ender') || lEType.includes('nexus')
-      || lEType.includes('emulator') || lEType.includes('meme') || lEType.includes('grandtheft') || eventType.includes('recipe');
+    const lEtype = eventType.toLowerCase();
+    if (lEtype === "comment"
+      || lEtype === "posted"
+      || lEtype === "story_post"
+      || lEtype === "upload"
+      || lEtype === "trophy"
+      || lEtype === "save_note") {
+      return true;
+    }
+
+    const eData = this.getEvent(eventType);
+    return eData.component != null;
   }
 
   showMenuPanel() {

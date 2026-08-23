@@ -215,7 +215,7 @@ export class PlanterComponent extends ChildComponent implements OnInit, OnDestro
       if (newPlant) {
         await this.selectPlant(newPlant);
       }
-      this.userEventService.insertUserEvent(this.parentRef.user.id, 'Plant Added', `Added ${name}`);
+      this.userEventService.insertUserEvent(this.parentRef.user.id, 'plant_added', `Added ${name}`);
       this.parentRef?.showNotification(`Added ${name}!`);
     }
   }
@@ -229,7 +229,7 @@ export class PlanterComponent extends ChildComponent implements OnInit, OnDestro
       undefined,
       this.newPlantLocation.trim() || undefined
     );
-    this.userEventService.insertUserEvent(this.parentRef.user.id, 'Plant Added', `Added ${this.newPlantName}`);
+    this.userEventService.insertUserEvent(this.parentRef.user.id, 'plant_added', `Added ${this.newPlantName}`);
 
     if (plantId) {
       this.newPlantName = '';

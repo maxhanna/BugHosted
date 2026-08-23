@@ -416,16 +416,12 @@ namespace maxhanna.Server.Controllers
 					}
 					else
 					{
-						int[][] dirs = new int[][] { new[] { 1, 0 }, new[] { -1, 0 }, new[] { 0, 1 }, new[] { 0, -1 } };
-						foreach (var d in dirs)
+						// Do not turn ocean cells beside a bridge into phantom road
+						// nodes. Only the actual bridge centerline is traversable.
+						bool isBridgeRoadNode = IsBridgeAtWorldPos(gx * GRID_PITCH, gz * GRID_PITCH);
+						if (isBridgeRoadNode)
 						{
-							string nbBiome = GetBiome(nc + d[0], nz + d[1]);
-							bool nbIsRoad = !(nbBiome == "ocean" || nbBiome == "beach" || nbBiome == "mountain");
-							if (nbIsRoad)
-							{
-								AddNode(gx, gz);
-								break;
-							}
+							AddNode(gx, gz);
 						}
 					}
 				}
@@ -701,6 +697,9 @@ namespace maxhanna.Server.Controllers
 		private static Timer? _cleanupTimer;
 		private static readonly object _persistLock = new();
 		private static readonly ConcurrentDictionary<long, DroppedWeapon> _droppedWeapons = new();
+		private static readonly object _randomWeaponSpawnLock = new();
+		private const int RANDOM_WEAPON_DROP_MAX = 8;
+		private const float RANDOM_WEAPON_DROP_MIN_DISTANCE = 18f;
 		private static long _nextDropId = 1000000;
 		private static long GetNextDropId() => Interlocked.Increment(ref _nextDropId);
 		private class DroppedWeapon
@@ -711,6 +710,7 @@ namespace maxhanna.Server.Controllers
 			public int WeaponType { get; set; }
 			public int Ammo { get; set; }
 			public bool IsHomeBase { get; set; }
+			public bool IsRandom { get; set; }
 			public DateTime DroppedAt { get; set; }
 		}
 		private sealed class HighScoreEntry
@@ -1322,6 +1322,7 @@ namespace maxhanna.Server.Controllers
 			public bool IsArresting { get; set; } = false;
 			public long ArrestTargetId { get; set; } = 0;
 			public bool IsParked { get; set; } = false;
+			public bool IsSwimming { get; set; } = false;
 			public DateTime? PanicUntil { get; set; } = null;
 			public float PanicFromX { get; set; } = 0f;
 			public float PanicFromZ { get; set; } = 0f;
@@ -1791,7 +1792,8 @@ namespace maxhanna.Server.Controllers
 									int simCX = (int)Math.Floor(nextX / CityLayout.CHUNK_SIZE);
 									int simCZ = (int)Math.Floor(nextZ / CityLayout.CHUNK_SIZE);
 									string simBiome = CityLayout.GetBiome(simCX, simCZ);
-									bool simIsOcean = simBiome == "ocean" || simBiome == "beach";
+									bool simIsOcean = (simBiome == "ocean" || simBiome == "beach")
+										&& !CityLayout.IsBridgeAtWorldPos(nextX, nextZ);
 									bool isSimVehicle = npc.Type == "car" || npc.Type == "bus" || npc.Type == "taxi" || npc.Type == "police" || npc.Type == "bike" || npc.Type == "motorcycle";
 									if (!simIsOcean && !CityLayout.IsBuildingAt(nextX, nextZ))
 									{
@@ -1943,6 +1945,26 @@ namespace maxhanna.Server.Controllers
 			foreach (var kv in npcs)
 			{
 				var npc = kv.Value;
+				if (IsOpenOcean(npc.X, npc.Z) && npc.Type != "boat")
+				{
+					bool isPedestrian = npc.Type == "ped_male" || npc.Type == "ped_female" || npc.Type == "cop";
+					bool isInvalidGroundEntity = npc.IsParked || IsGroundVehicle(npc.Type) || isPedestrian;
+					if (isInvalidGroundEntity)
+					{
+						// Only a non-parked pedestrian in the shallow beach band may
+						// remain in water; render it as swimming below the surface.
+						if (!isPedestrian || npc.IsParked || !IsBeachAdjacentOcean(npc.X, npc.Z))
+						{
+							deadIds.Add(kv.Key);
+							continue;
+						}
+						npc.IsSwimming = true;
+					}
+				}
+				else if (!IsOpenOcean(npc.X, npc.Z))
+				{
+					npc.IsSwimming = false;
+				}
 				if (npc.DeadAt != null)
 				{
 					if ((now - npc.DeadAt.Value).TotalSeconds > DEAD_BODY_TIMEOUT_SECONDS)
@@ -2815,7 +2837,8 @@ namespace maxhanna.Server.Controllers
 							int sepCX = (int)Math.Floor(sepTargetX / CityLayout.CHUNK_SIZE);
 							int sepCZ = (int)Math.Floor(sepTargetZ / CityLayout.CHUNK_SIZE);
 							string sepBiome = CityLayout.GetBiome(sepCX, sepCZ);
-							bool sepIsOcean = sepBiome == "ocean" || sepBiome == "beach";
+							bool sepIsOcean = (sepBiome == "ocean" || sepBiome == "beach")
+								&& !CityLayout.IsBridgeAtWorldPos(sepTargetX, sepTargetZ);
 							if (!sepIsOcean && !CityLayout.IsBuildingAt(sepTargetX, sepTargetZ) && CityLayout.IsRoadAt(sepTargetX, sepTargetZ))
 							{
 								npc.X = sepTargetX;
@@ -2828,12 +2851,14 @@ namespace maxhanna.Server.Controllers
 							int pedCX = (int)Math.Floor(nextX / CityLayout.CHUNK_SIZE);
 							int pedCZ = (int)Math.Floor(nextZ / CityLayout.CHUNK_SIZE);
 							string pedBiome = CityLayout.GetBiome(pedCX, pedCZ);
-							if (pedBiome != "ocean" && pedBiome != "beach" && !CityLayout.IsBuildingAt(nextX, nextZ)) { npc.X = nextX; npc.Z = nextZ; }
+							bool pedIsOcean = (pedBiome == "ocean" || pedBiome == "beach")
+								&& !CityLayout.IsBridgeAtWorldPos(nextX, nextZ);
+							if (!pedIsOcean && !CityLayout.IsBuildingAt(nextX, nextZ)) { npc.X = nextX; npc.Z = nextZ; }
 							npc.Yaw = (float)Math.Atan2(moveX, moveZ);
 						}
 					}
 				}
-				var entry = new { id = npc.Id, posX = npc.X, posY = npc.Y, posZ = npc.Z, yaw = npc.Yaw, speed = npc.Speed, colorR = npc.Cr, colorG = npc.Cg, colorB = npc.Cb, type = npc.Type, gender = npc.Gender, health = npc.Health, hasDriver = npc.HasDriver, passengerCount = npc.PassengerCount, isShootingAt = npc.IsShootingAt, isBurning = npc.OnFire, maxHealth = npc.MaxHealth, isSmoking = npc.IsSmoking, isFleeing = npc.IsFleeing, isDucking = npc.IsDucking, isArresting = npc.IsArresting, targetNpcId = npc.TargetNpcId };
+				var entry = new { id = npc.Id, posX = npc.X, posY = npc.Y, posZ = npc.Z, yaw = npc.Yaw, speed = npc.Speed, colorR = npc.Cr, colorG = npc.Cg, colorB = npc.Cb, type = npc.Type, gender = npc.Gender, health = npc.Health, hasDriver = npc.HasDriver, passengerCount = npc.PassengerCount, isShootingAt = npc.IsShootingAt, isBurning = npc.OnFire, maxHealth = npc.MaxHealth, isSmoking = npc.IsSmoking, isFleeing = npc.IsFleeing, isDucking = npc.IsDucking, isArresting = npc.IsArresting, isSwimming = npc.IsSwimming, targetNpcId = npc.TargetNpcId };
 				if (npc.Type == "ped_male" || npc.Type == "ped_female" || npc.Type == "cop") pedestrians.Add(entry);
 				else if (npc.Type == "helicopter" || npc.Type == "plane") aircraft.Add(entry);
 				else cars.Add(entry);
@@ -3274,6 +3299,7 @@ namespace maxhanna.Server.Controllers
 		}
 		private List<object> BuildDroppedWeapons()
 		{
+			EnsureRandomWeaponDrops();
 			var now = DateTime.UtcNow;
 			var result = new List<object>();
 			var expiredKeys = new List<long>();
@@ -3282,7 +3308,7 @@ namespace maxhanna.Server.Controllers
 				if ((now - kv.Value.DroppedAt).TotalSeconds > 30)
 					expiredKeys.Add(kv.Key);
 				else
-					result.Add(new { id = kv.Key, posX = kv.Value.PosX, posZ = kv.Value.PosZ, weaponType = kv.Value.WeaponType });
+					result.Add(new { id = kv.Key, posX = kv.Value.PosX, posZ = kv.Value.PosZ, weaponType = kv.Value.WeaponType, isRandom = kv.Value.IsRandom });
 			}
 			foreach (var k in expiredKeys) _droppedWeapons.TryRemove(k, out _);
 			for (int i = 1; i <= 4; i++)
@@ -3296,6 +3322,86 @@ namespace maxhanna.Server.Controllers
 			}
 			return result;
 		}
+		private static void EnsureRandomWeaponDrops()
+		{
+			var activePlayers = new List<(float X, float Z)>();
+			var activeCutoff = DateTime.UtcNow.AddMinutes(-5);
+			foreach (var kv in _lastSeen)
+			{
+				if (kv.Value < activeCutoff) continue;
+				if (!_playerX.TryGetValue(kv.Key, out var x) || !_playerZ.TryGetValue(kv.Key, out var z)) continue;
+				activePlayers.Add((x, z));
+			}
+			if (activePlayers.Count == 0) return;
+
+			lock (_randomWeaponSpawnLock)
+			{
+				int randomCount = _droppedWeapons.Values.Count(d => d.IsRandom);
+				int targetCount = Math.Min(RANDOM_WEAPON_DROP_MAX, Math.Max(3, activePlayers.Count * 2));
+				if (randomCount >= targetCount) return;
+				var rng = Random.Shared;
+				var existing = _droppedWeapons.Values.ToArray();
+				int attempts = 0;
+				while (randomCount < targetCount && attempts++ < 160)
+				{
+					var anchor = activePlayers[rng.Next(activePlayers.Count)];
+					double angle = rng.NextDouble() * Math.PI * 2.0;
+					float distance = 90f + (float)rng.NextDouble() * 230f;
+					float x = anchor.X + (float)Math.Sin(angle) * distance;
+					float z = anchor.Z + (float)Math.Cos(angle) * distance;
+					if (IsWaterPosition(x, z) || CityLayout.IsBuildingAt(x, z, 3f)) continue;
+					if (existing.Any(d =>
+					{
+						float dx = d.PosX - x;
+						float dz = d.PosZ - z;
+						return dx * dx + dz * dz < RANDOM_WEAPON_DROP_MIN_DISTANCE * RANDOM_WEAPON_DROP_MIN_DISTANCE;
+					})) continue;
+					int weaponType = 1 + rng.Next(4);
+					int ammo = weaponType == 1 ? 15 : weaponType == 2 ? 30 : weaponType == 3 ? 10 : 5;
+					var drop = new DroppedWeapon
+					{
+						Id = GetNextDropId(), PosX = x, PosZ = z,
+						WeaponType = weaponType, Ammo = ammo,
+						IsRandom = true, DroppedAt = DateTime.UtcNow
+					};
+					_droppedWeapons[drop.Id] = drop;
+					existing = existing.Append(drop).ToArray();
+					randomCount++;
+				}
+			}
+		}
+		private static bool IsWaterPosition(float x, float z)
+		{
+			int cx = (int)Math.Floor(x / CityLayout.CHUNK_SIZE);
+			int cz = (int)Math.Floor(z / CityLayout.CHUNK_SIZE);
+			string biome = CityLayout.GetBiome(cx, cz);
+			if (biome == "ocean") return true;
+			if (biome != "rural_lakes") return false;
+			float localX = x - cx * CityLayout.CHUNK_SIZE;
+			float localZ = z - cz * CityLayout.CHUNK_SIZE;
+			return Math.Abs(localX - 40f) <= 20f && Math.Abs(localZ - 40f) <= 20f;
+		}
+		private static bool IsOpenOcean(float x, float z)
+			=> CityLayout.GetBiome((int)Math.Floor(x / CityLayout.CHUNK_SIZE), (int)Math.Floor(z / CityLayout.CHUNK_SIZE)) == "ocean";
+
+		private static bool IsBeachAdjacentOcean(float x, float z)
+		{
+			int cx = (int)Math.Floor(x / CityLayout.CHUNK_SIZE);
+			int cz = (int)Math.Floor(z / CityLayout.CHUNK_SIZE);
+			if (!IsOpenOcean(x, z)) return false;
+			float localX = x - cx * CityLayout.CHUNK_SIZE;
+			float localZ = z - cz * CityLayout.CHUNK_SIZE;
+			const float SWIM_BAND = 28f;
+			return (CityLayout.GetBiome(cx - 1, cz) == "beach" && localX <= SWIM_BAND)
+				|| (CityLayout.GetBiome(cx + 1, cz) == "beach" && localX >= CityLayout.CHUNK_SIZE - SWIM_BAND)
+				|| (CityLayout.GetBiome(cx, cz - 1) == "beach" && localZ <= SWIM_BAND)
+				|| (CityLayout.GetBiome(cx, cz + 1) == "beach" && localZ >= CityLayout.CHUNK_SIZE - SWIM_BAND);
+		}
+
+		private static bool IsGroundVehicle(string type)
+			=> type == "car" || type == "bus" || type == "bike" || type == "motorcycle"
+				|| type == "taxi" || type == "police";
+
 		private void SeedNPCs(int worldId, float posX = 0, float posZ = 0)
 		{
 			var dict = _worldNpcs[worldId];
@@ -3411,6 +3517,32 @@ namespace maxhanna.Server.Controllers
 				}
 			}
 		}
+		private void GetSafeGroundFallback(float px, float pz, Random rng, bool roadOnly, out float x, out float z)
+		{
+			int baseGx = (int)Math.Round(px / CityLayout.GRID_PITCH);
+			int baseGz = (int)Math.Round(pz / CityLayout.GRID_PITCH);
+			for (int radius = 0; radius < 30; radius++)
+			{
+				for (int gx = baseGx - radius; gx <= baseGx + radius; gx++)
+				{
+					for (int gz = baseGz - radius; gz <= baseGz + radius; gz++)
+					{
+						if (radius > 0 && Math.Abs(gx - baseGx) != radius && Math.Abs(gz - baseGz) != radius) continue;
+						float candidateX = gx * CityLayout.GRID_PITCH;
+						float candidateZ = gz * CityLayout.GRID_PITCH;
+						string biome = CityLayout.GetBiome(gx, gz);
+						if (biome == "ocean" || biome == "beach" || CityLayout.IsBuildingAt(candidateX, candidateZ)) continue;
+						if (roadOnly && !CityLayout.IsRoadAt(candidateX, candidateZ)) continue;
+						x = candidateX;
+						z = candidateZ;
+						return;
+					}
+				}
+			}
+			x = 120f;
+			z = 40f;
+		}
+
 		private void GetRandomRoadPointNearPlayer(float px, float pz, out float x, out float z, Random rng, float minDist = 0f)
 		{
 			int gridRange = minDist > 0f ? Math.Max(6, (int)(minDist / 80f) + 2) : 3;
@@ -3459,8 +3591,7 @@ namespace maxhanna.Server.Controllers
 					}
 				}
 			}
-			x = px + (float)(rng.NextDouble() - 0.5) * 80f;
-			z = pz + (float)(rng.NextDouble() - 0.5) * 80f;
+			GetSafeGroundFallback(px, pz, rng, roadOnly: true, out x, out z);
 		}
 		private void GetRandomSidewalkPointNearPlayer(float px, float pz, out float x, out float z, Random rng, float minDist = 0f)
 		{
@@ -3504,8 +3635,7 @@ namespace maxhanna.Server.Controllers
 				}
 				return;
 			}
-			x = px + (float)(rng.NextDouble() - 0.5) * 80f;
-			z = pz + (float)(rng.NextDouble() - 0.5) * 80f;
+			GetSafeGroundFallback(px, pz, rng, roadOnly: false, out x, out z);
 		}
 		private void SimulateAircraft(NpcState npc, DateTime now, Random rng)
 		{

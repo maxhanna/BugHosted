@@ -369,7 +369,7 @@
       <div id="gt-radio-buttons">
         <button *ngIf="isMobile" class="radio-btn" (click)="prevRadio()">◀</button>
         <button class="radio-btn random-btn" (click)="randomRadio()">RANDOM</button>
-        <button class="radio-btn stop-btn" (click)="randomRadio()">⏹</button>
+        <button class="radio-btn stop-btn" (click)="stopRadio()">⏹</button>
         <button *ngIf="isMobile" class="radio-btn" (click)="nextRadio()">▶</button>
       </div> 
     </div>
@@ -379,7 +379,10 @@
 
 <!-- Settings Menu Popup -->
 <div class="popupPanel gt-menu-panel" *ngIf="showMenuPanel">
-  <div class="popupPanelTitle">Settings</div>
+  <div class="popupPanelTitle gt-menu-title">
+    <span class="gt-menu-kicker">Grand Theft</span>
+    <span class="gt-menu-heading">Settings</span>
+  </div>
   <div class="gt-settings-body">
     <label class="gt-setting-row">
       <span>Combat SFX Volume</span>

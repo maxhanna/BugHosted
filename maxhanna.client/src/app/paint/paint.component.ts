@@ -1307,13 +1307,13 @@ export class PaintComponent extends ChildComponent {
     }
   }
 
-  downloadPainting() {
+  async downloadPainting() {
     const userId = this.parentRef?.user?.id;
     if(!userId) { return; }
 
     // Emit user event before downloading
     try {
-      this.userEventService.insertUserEvent(userId, 'paint', 'downloaded_painting');
+      await this.userEventService.insertUserEvent(userId, 'paint', 'downloaded_painting');
     } catch(ex) {
       console.error("Failed to insert user event:", ex); 
     }

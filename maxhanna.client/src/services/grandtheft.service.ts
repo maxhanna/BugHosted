@@ -23,6 +23,7 @@ export interface GTNPCData {
   isFleeing?: boolean;
   isDucking?: boolean;
   isArresting?: boolean;
+  isSwimming?: boolean;
   targetNpcId?: number;
   maxHealth?: number;
 }

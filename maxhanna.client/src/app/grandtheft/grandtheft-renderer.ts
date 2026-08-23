@@ -182,16 +182,15 @@ function isOnRoadGrid(x: number, z: number): boolean {
   };
   return nearGrid(x) || nearGrid(z);
 }
-export function getTerrainHeight(x: number, z: number, currentY?: number): number {
+export function getTerrainHeight(x: number, z: number, currentY?: number, forceBridgeDeck = false): number {
   const bridgeHit = getBridgeAtWorldPos(x, z);
   if (bridgeHit) {
     const deckY = bridgeYAt(x, bridgeHit);
-    // Entities below the deck (boats in the bay, cars under the approach
-    // ramps, helicopters flying under the span) must NOT snap up onto the
-    // roadway. When the queried object sits clearly under the deck, return
-    // the terrain the bridge replaced: open water beneath the raised span,
-    // the shore beneath the low ramps.
-    if (currentY !== undefined && currentY < deckY - 1.5) {
+    // Movement on foot and in a road vehicle must follow the raised roadway,
+    // even while the previous frame's Y is still near sea level on a ramp.
+    // Callers that are genuinely below the bridge (boats/helicopters) leave
+    // forceBridgeDeck false so they continue to use the water beneath it.
+    if (!forceBridgeDeck && currentY !== undefined && currentY < deckY - 1.5) {
       const deckStartX = bridgeHit.startCx * 80;
       const deckEndX = (bridgeHit.endCx + 1) * 80;
       return (x >= deckStartX && x <= deckEndX) ? -2.5 : 0.0;
@@ -818,6 +817,7 @@ export class GrandTheftRenderer {
   public skelBindWorldMatrices: Float32Array | null = null;
   public skelBindJointMatrices: Float32Array | null = null;
   public skelSkinRootWorld: Float32Array | null = null;
+  public skelNodeNames: string[] = [];
   public skelIsReady = false;
   public skelNeedsRotation = false;
   public skelAngleX = 0;
@@ -835,6 +835,13 @@ export class GrandTheftRenderer {
   public walkSpeed = 0;
   public walkTime = 0;
   public punchTime = 0;
+  public playerAttack: 'punch' | 'kick' = 'punch';
+  public playerWeapon = 0;
+  public playerFireWeapon = 0;
+  public playerFireTime = 0;
+  public playerAimPitch = 0;
+  public playerIsInCar = false;
+  private _playerSkinAccumulator = 0;
   /** Per-entity punch/swing timers (keyed by entity id, seconds remaining). */
   public punchTimers = new Map<number, number>();
   /** Entities currently held in the arrest grab pose (arm extended toward the
@@ -1189,10 +1196,26 @@ void main() {
   }
   async initPlayerModel(modelUrl?: string, needsFlip: boolean = true): Promise<void> {
     this.currentModelUrl = modelUrl || null;
+    this.skelNodeNames = [];
+    this.skelIsReady = false;
     if (modelUrl) {
-      const loaded = await this.loadGLTF(modelUrl);
+      // Keep the verified Franklin skeleton on the renderer so the player uses
+      // the same skinning path as the rigged local NPCs.
+      const loaded = await this.loadGLTF(modelUrl, true);
       if (loaded && loaded.length > 0) {
         for (const m of loaded) m.needsFlip = needsFlip;
+        const skeleton = loaded.find(m => m.skeleton)?.skeleton;
+        if (skeleton) {
+          this.skelBoneParents = skeleton.boneParents;
+          this.skelBoneLocalMatrices = skeleton.boneLocalMatrices;
+          this.skelInverseBindMatrices = skeleton.inverseBindMatrices;
+          this.skelBoneCount = skeleton.boneCount;
+          this.skelNodeToBoneIdx = skeleton.nodeToBoneIdx;
+          this.skelJointMatrices = new Float32Array(skeleton.boneCount * 16);
+          this.skelSkinRootWorld = new Float32Array(skeleton.skinRootWorld);
+          this.skelNodeNames = [...skeleton.nodeNames];
+          this.skelIsReady = true;
+        }
         this.playerMesh = loaded;
         return;
       }
@@ -1561,6 +1584,71 @@ void main() {
   triggerFlinch(entityId: number): void {
     this.flinchTimers.set(entityId, 0.18);
   }
+  private playerBone(...tokens: string[]): number {
+    const names = this.skelNodeNames;
+    const normalized = (value: string) => value.toLowerCase().replace(/[^a-z]/g, '');
+    const wanted = tokens.map(normalized);
+    for (let i = 0; i < names.length; i++) {
+      const name = normalized(names[i]);
+      if (wanted.some(token => name.includes(token))) return i;
+    }
+    return -1;
+  }
+  private applyPlayerPose(animLocal: Float32Array): void {
+    const hips = this.playerBone('hips', 'pelvis');
+    const leftArm = this.playerBone('leftarm', 'leftupperarm');
+    const leftForearm = this.playerBone('leftforearm', 'leftlowerarm');
+    const rightArm = this.playerBone('rightarm', 'rightupperarm');
+    const rightForearm = this.playerBone('rightforearm', 'rightlowerarm');
+    const rightHand = this.playerBone('righthand');
+    const leftThigh = this.playerBone('leftupleg', 'leftthigh');
+    const leftCalf = this.playerBone('leftleg', 'leftcalf');
+    const rightThigh = this.playerBone('rightupleg', 'rightthigh');
+    const rightCalf = this.playerBone('rightleg', 'rightcalf');
+    const temp = new Float32Array(16);
+    const rot = new Float32Array(16);
+    const applyRot = (bone: number, x: number, y = 0, z = 0) => {
+      if (bone < 0) return;
+      const m = new Float32Array(animLocal.buffer, bone * 16 * 4, 16);
+      mat4.identity(rot);
+      if (x) mat4.rotateX(rot, rot, x);
+      if (y) mat4.rotateY(rot, rot, y);
+      if (z) mat4.rotateZ(rot, rot, z);
+      mat4.multiply(temp, m, rot);
+      for (let i = 0; i < 16; i++) m[i] = temp[i];
+    };
+    const t = Math.max(0, Math.min(1, this.punchTime / 0.38));
+    const attack = t < 0.5 ? t * 2 : 2 - t * 2;
+    if (this.punchTime > 0) {
+      if (this.playerAttack === 'kick') {
+        applyRot(rightThigh, -0.9 * attack, 0, 0.12 * attack);
+        applyRot(rightCalf, 1.15 * attack);
+        applyRot(leftArm, -0.25 * attack, 0, 0.15);
+        applyRot(rightArm, 0.25 * attack, 0, -0.15);
+      } else {
+        applyRot(rightArm, -0.95 * attack, 0, -0.15);
+        applyRot(rightForearm, -0.75 * attack);
+        applyRot(rightHand, -0.2 * attack);
+        applyRot(leftArm, 0.25 * attack, 0, 0.15);
+      }
+    } else if (this.playerFireWeapon > 0 && this.playerFireTime > 0) {
+      applyRot(rightArm, -0.75, 0.1, -0.18);
+      applyRot(rightForearm, -0.65);
+      applyRot(rightHand, -0.2);
+      applyRot(leftArm, -0.55, -0.15, 0.2);
+      applyRot(leftForearm, -0.45);
+    } else if (this.playerWeapon > 0 && this.armOverrideActive) {
+      applyRot(rightArm, -0.65, 0.08, -0.15);
+      applyRot(rightForearm, -0.55);
+      applyRot(rightHand, -0.16);
+      applyRot(leftArm, -0.45, -0.12, 0.18);
+      applyRot(leftForearm, -0.35);
+    }
+    if (hips >= 0 && this.walkSpeed <= 0.1 && this.punchTime <= 0) {
+      const hm = new Float32Array(animLocal.buffer, hips * 16 * 4, 16);
+      hm[13] += Math.sin(this.walkTime * 0.7) * 0.01;
+    }
+  }
   skinPlayerMesh(meshes: CityMesh | CityMesh[], dt: number = 0): void {
     try {
       const skel = this;
@@ -1571,36 +1659,20 @@ void main() {
       const invBind = skel.skelInverseBindMatrices;
       const jointMat = skel.skelJointMatrices!;
       const animLocal = new Float32Array(skel.skelBoneLocalMatrices);
-      if (this.walkSpeed > 0.1 && numBones > 63) {
-        this.applyWalkAnimation(animLocal);
+      if (this.isMobile) {
+        this._playerSkinAccumulator += Math.max(0, dt);
+        const actionActive = this.punchTime > 0 || this.playerFireTime > 0;
+        if (!actionActive && this._playerSkinAccumulator < 1 / 30) return;
+        this._playerSkinAccumulator = 0;
+      }
+      if (this.walkSpeed > 0.1) {
         this.walkTime += dt * Math.min(this.walkSpeed * 0.15, 2.0);
       }
-      if (numBones > 35) {
-        if (this.armOverrideActive) {
-          const m33 = new Float32Array(animLocal.buffer, 33 * 16 * 4, 16);
-          quatToMat4([0, 0.7071068, 0, 0.7071068], m33);
-          m33[12] = 0; m33[13] = 0.709; m33[14] = 0;
-          const m34 = new Float32Array(animLocal.buffer, 34 * 16 * 4, 16);
-          quatToMat4([0, 0, 0, 1], m34);
-          m34[12] = 0; m34[13] = 1.142; m34[14] = 0;
-          const m35 = new Float32Array(animLocal.buffer, 35 * 16 * 4, 16);
-          quatToMat4([0.5, 0, 0, 0.8660254], m35);
-          m35[12] = 0; m35[13] = 1.434; m35[14] = 0;
-        } else if (this.punchTime > 0) {
-          const t = this.punchTime / 0.3;
-          const punchAmount = t < 0.5 ? t * 2 : 2 - t * 2;
-          const extendAngle = -0.8 * punchAmount;
-          const m33 = new Float32Array(animLocal.buffer, 33 * 16 * 4, 16);
-          quatToMat4([Math.sin(extendAngle / 2), 0, 0, Math.cos(extendAngle / 2)], m33);
-          m33[12] = 0; m33[13] = 0.709; m33[14] = 0;
-          const m34 = new Float32Array(animLocal.buffer, 34 * 16 * 4, 16);
-          quatToMat4([0, 0, 0, 1], m34);
-          m34[12] = 0; m34[13] = 1.142; m34[14] = 0;
-          const m35 = new Float32Array(animLocal.buffer, 35 * 16 * 4, 16);
-          quatToMat4([0, 0, 0, 1], m35);
-          m35[12] = 0; m35[13] = 1.434; m35[14] = 0;
-        }
+      if (this.walkSpeed > 0.1 && this.punchTime <= 0) {
+        this.applyWalkAnimation(animLocal);
       }
+      this.applyPlayerPose(animLocal);
+      if (this.playerFireTime > 0) this.playerFireTime = Math.max(0, this.playerFireTime - dt);
       for (let b = 0; b < numBones; b++) {
         if (parents[b] < 0) {
           mat4.multiply(
@@ -1726,38 +1798,44 @@ void main() {
   }
   private applyWalkAnimation(animLocal: Float32Array): void {
     const t = this.walkTime;
-    const HIPS = 1, LEFT_ARM = 9, LEFT_FOREARM = 10, RIGHT_ARM = 33, RIGHT_FOREARM = 34;
-    const LEFT_THIGH = 56, LEFT_KNEE = 57, LEFT_FOOT = 58;
-    const RIGHT_THIGH = 61, RIGHT_KNEE = 62, RIGHT_FOOT = 63;
-    const numBones = animLocal.length / 16;
-    if (numBones <= RIGHT_FOOT) return; 
-    const LEG_SWING = 0.5, KNEE_BEND = 0.3, ARM_SWING = 0.4, ELBOW_BEND = 0.15, HIP_BOB = 0.08;
-    const leftPhase = t, rightPhase = t + Math.PI;
+    const hips = this.playerBone('hips', 'pelvis');
+    const leftArm = this.playerBone('leftarm', 'leftupperarm');
+    const leftForearm = this.playerBone('leftforearm', 'leftlowerarm');
+    const rightArm = this.playerBone('rightarm', 'rightupperarm');
+    const rightForearm = this.playerBone('rightforearm', 'rightlowerarm');
+    const leftThigh = this.playerBone('leftupleg', 'leftthigh');
+    const leftKnee = this.playerBone('leftleg', 'leftcalf');
+    const rightThigh = this.playerBone('rightupleg', 'rightthigh');
+    const rightKnee = this.playerBone('rightleg', 'rightcalf');
     const temp = new Float32Array(16), rot = new Float32Array(16);
     const applyRotX = (bone: number, angle: number) => {
+      if (bone < 0) return;
       const m = new Float32Array(animLocal.buffer, bone * 16 * 4, 16);
       mat4.identity(rot); mat4.rotateX(rot, rot, angle);
       mat4.multiply(temp, m, rot);
       for (let i = 0; i < 16; i++) m[i] = temp[i];
     };
-    applyRotX(LEFT_THIGH, Math.sin(leftPhase) * LEG_SWING);
-    applyRotX(LEFT_KNEE, Math.abs(Math.sin(leftPhase)) * -KNEE_BEND);
-    applyRotX(RIGHT_THIGH, Math.sin(rightPhase) * LEG_SWING);
-    applyRotX(RIGHT_KNEE, Math.abs(Math.sin(rightPhase)) * -KNEE_BEND);
-    if (!this.armOverrideActive && this.punchTime <= 0) {
-      applyRotX(LEFT_ARM, Math.sin(leftPhase + Math.PI) * ARM_SWING);
-      applyRotX(LEFT_FOREARM, Math.abs(Math.sin(leftPhase + Math.PI)) * -ELBOW_BEND);
-      applyRotX(RIGHT_ARM, Math.sin(rightPhase + Math.PI) * ARM_SWING);
-      applyRotX(RIGHT_FOREARM, Math.abs(Math.sin(rightPhase + Math.PI)) * -ELBOW_BEND);
-    } else {
-      applyRotX(LEFT_ARM, Math.sin(leftPhase + Math.PI) * ARM_SWING);
-      applyRotX(LEFT_FOREARM, Math.abs(Math.sin(leftPhase + Math.PI)) * -ELBOW_BEND);
+    const leftPhase = t, rightPhase = t + Math.PI;
+    applyRotX(leftThigh, Math.sin(leftPhase) * 0.5);
+    applyRotX(leftKnee, Math.abs(Math.sin(leftPhase)) * -0.3);
+    applyRotX(rightThigh, Math.sin(rightPhase) * 0.5);
+    applyRotX(rightKnee, Math.abs(Math.sin(rightPhase)) * -0.3);
+    if (this.punchTime <= 0 && this.playerWeapon <= 0) {
+      applyRotX(leftArm, Math.sin(leftPhase + Math.PI) * 0.4);
+      applyRotX(leftForearm, Math.abs(Math.sin(leftPhase + Math.PI)) * -0.15);
+      applyRotX(rightArm, Math.sin(rightPhase + Math.PI) * 0.4);
+      applyRotX(rightForearm, Math.abs(Math.sin(rightPhase + Math.PI)) * -0.15);
+    } else if (this.punchTime <= 0) {
+      applyRotX(leftArm, -0.35);
+      applyRotX(leftForearm, -0.18);
     }
-    const hips = new Float32Array(animLocal.buffer, HIPS * 16 * 4, 16);
-    hips[13] += Math.abs(Math.sin(t)) * -HIP_BOB;
-    mat4.identity(rot); mat4.rotateY(rot, rot, Math.sin(t) * 0.05);
-    mat4.multiply(temp, hips, rot);
-    for (let i = 0; i < 16; i++) hips[i] = temp[i];
+    if (hips >= 0) {
+      const hm = new Float32Array(animLocal.buffer, hips * 16 * 4, 16);
+      hm[13] += Math.abs(Math.sin(t)) * -0.08;
+      mat4.identity(rot); mat4.rotateY(rot, rot, Math.sin(t) * 0.05);
+      mat4.multiply(temp, hm, rot);
+      for (let i = 0; i < 16; i++) hm[i] = temp[i];
+    }
   }
   resize(w: number, h: number) {
     this.gl.canvas.width = w;
@@ -2237,12 +2315,29 @@ void main() {
           const pillarH = Math.max(surfY, nextY);
           const sliceLen = sliceW * overlap;
           if (si % 4 === 0) {
-            const waterY = -2.5;
-            const beamW = 1.5;
-            for (const pz of [-bridgeW / 2 + 5, 0, bridgeW / 2 - 5]) {
-              this.addBox(verts, indices, sx, (pillarH - waterY) / 2 + waterY, roadCenterZ + pz, beamW, pillarH - waterY, 2.0, 0.32, 0.32, 0.34, 1.0, idxOffset); idxOffset += 24;
+            // Each pier is a continuous structural stack: the shafts extend
+            // below the waterline into the seabed, while the cap overlaps the
+            // deck slab and edge girders so it cannot read as a floating prop.
+            const seabedY = -5.5;
+            const capTopY = pillarH - 0.12;
+            const capHeight = 1.25;
+            const capCenterY = capTopY - capHeight / 2;
+            const shaftTopY = capTopY - capHeight + 0.08;
+            const shaftHeight = Math.max(0.5, shaftTopY - seabedY);
+            const shaftCenterY = seabedY + shaftHeight / 2;
+            const pierPositions = [-bridgeW / 2 + 5, 0, bridgeW / 2 - 5];
+            for (const pz of pierPositions) {
+              this.addBox(verts, indices, sx, shaftCenterY, roadCenterZ + pz, 2.4, shaftHeight, 2.6, 0.32, 0.32, 0.34, 1.0, idxOffset); idxOffset += 24;
+              // Wider footing keeps the column visually planted rather than
+              // ending at the water surface.
+              this.addBox(verts, indices, sx, seabedY - 0.2, roadCenterZ + pz, 3.6, 0.45, 3.8, 0.28, 0.28, 0.30, 1.0, idxOffset); idxOffset += 24;
             }
-            this.addBox(verts, indices, sx, pillarH - 1.0, roadCenterZ, beamW, 1.5, bridgeW, 0.32, 0.32, 0.34, 1.0, idxOffset); idxOffset += 24;
+            // One broad cap beam ties all three shafts together and overlaps
+            // the underside of the bridge deck across its full width.
+            this.addBox(verts, indices, sx, capCenterY, roadCenterZ, 3.4, capHeight, bridgeW + 1.0, 0.32, 0.32, 0.34, 1.0, idxOffset); idxOffset += 24;
+            // A short central neck makes the load path visibly continuous
+            // through the deck slab instead of leaving a hairline gap.
+            this.addBox(verts, indices, sx, capTopY + 0.08, roadCenterZ, 2.0, 0.35, bridgeW - 4.0, 0.36, 0.36, 0.38, 1.0, idxOffset); idxOffset += 24;
           }
           // Deck slab — full width with a visible underside so the deck reads
           // as a real structure instead of a floating plate.
@@ -2385,13 +2480,17 @@ void main() {
         const roadCenterZ = cz * CHUNK_SIZE;
         const roadW = ROAD_HALF_WIDTH * 2;
         const bridgeW = roadW + 10; 
-        const segments = 8; 
+        const segments = 8;
         const segW = CHUNK_SIZE / segments;
         for (let s = 0; s < segments; s++) {
-          let x1 = worldOriginX + s * segW;
-          let x2 = worldOriginX + (s + 1) * segW;
+          const x1 = worldOriginX + s * segW;
+          const x2 = worldOriginX + (s + 1) * segW;
           const y1 = bridgeYAt(x1, bridge);
           const y2 = bridgeYAt(x2, bridge);
+          // Filled approach embankment: the landing is a solid graded mass,
+          // not a thin ramp floating above the neighboring street/terrain.
+          this.addFilledRamp(verts, indices, x1, y1 - 0.32, x2, y2 - 0.32,
+            roadCenterZ, bridgeW + 16, -2.5, 0.22, 0.22, 0.24, 1.0, idxOffset); idxOffset += 24;
           // Deck slab under the ramp so the profile matches the raised deck
           this.addRamp(verts, indices, x1, y1 - 0.3, x2, y2 - 0.3, roadCenterZ, bridgeW, 0.7, 0.26, 0.26, 0.28, 1.0, idxOffset); idxOffset += 24;
           this.addRamp(verts, indices, x1, y1 + 0.08, x2, y2 + 0.08, roadCenterZ, roadW, 0.14, 0.13, 0.13, 0.14, 1.0, idxOffset); idxOffset += 24;
@@ -2810,11 +2909,13 @@ void main() {
                 model = this.suburbBuildingMeshes[Math.floor(rng() * this.suburbBuildingMeshes.length)];
               } else { model = this.woodenCabineMesh ? this.woodenCabineMesh : []; }
               if (Array.isArray(model) && model.length > 0) {
-                const bScale = useHouse ? 2.5 + rng() * 2 : 3 + rng() * 2;
                 const bx = blockWorldX + (rng() - 0.5) * 40;
                 const bz = blockWorldZ + (rng() - 0.5) * 40;
-                const bMinY = this.getModelMinY(model);
                 const bYaw = Math.floor(rng() * 4) * Math.PI / 2;
+                const bScale = this.isHungryJacksModel(model)
+                  ? this.hungryJacksScale(model, 32, 32, bYaw)
+                  : (useHouse ? 2.5 + rng() * 2 : 3 + rng() * 2);
+                const bMinY = this.getModelMinY(model);
                 buildings.push({ model, x: bx, y: -bMinY * bScale + 0.15, z: bz, yaw: bYaw, scale: [bScale, bScale, bScale] });
                 for (let ci = 0; ci < 3 + Math.floor(rng() * 4); ci++) {
                   chickens.push({ x: bx + (rng() - 0.5) * 12, z: bz + (rng() - 0.5) * 12, yaw: rng() * Math.PI * 2 });
@@ -2888,10 +2989,12 @@ void main() {
             const poiModels = this.suburbBuildingMeshes.filter((_, i) => i % 3 === 0);
             if (poiModels.length > 0) {
               const model = poiModels[Math.floor(rng() * poiModels.length)];
-              const poiScale = 5 + rng() * 2;
+              const pyaw = Math.floor(rng() * 4) * Math.PI / 2;
+              const poiScale = this.isHungryJacksModel(model)
+                ? this.hungryJacksScale(model, SIDEWALK_SIZE - 8, SIDEWALK_SIZE - 8, pyaw)
+                : 5 + rng() * 2;
               const poiMinY = this.getModelMinY(model);
               const sc: [number, number, number] = [poiScale, poiScale, poiScale];
-              const pyaw = Math.floor(rng() * 4) * Math.PI / 2;
               if (tryPlace(model, blockWorldX, blockWorldZ, sc, pyaw)) {
                 buildings.push({ model, x: blockWorldX, y: -poiMinY * poiScale + 0.15, z: blockWorldZ, yaw: pyaw, scale: sc });
               }
@@ -2927,7 +3030,9 @@ void main() {
                   if (isFinite(mnX)) { nativeMinX = mnX; nativeMaxX = mxX; nativeMinZ = mnZ; nativeMaxZ = mxZ; } }
                 const nativeWidth = (edge.dx === 0) ? (nativeMaxX - nativeMinX) : (nativeMaxZ - nativeMinZ);
                 const nativeDepth = (edge.dx === 0) ? (nativeMaxZ - nativeMinZ) : (nativeMaxX - nativeMinX);
-                const scVal = nativeWidth > 0.01 ? w / nativeWidth : 1;
+                const scVal = this.isHungryJacksModel(model)
+                  ? this.hungryJacksScale(model, w, SIDEWALK_SIZE - 2, yaw)
+                  : (nativeWidth > 0.01 ? w / nativeWidth : 1);
                 const actualDepth = nativeDepth * scVal;
                 if (edge.dx === 0) {
                   px = blockWorldX - halfSW + 6 + houseWidth / 2 + i * houseWidth;
@@ -4103,7 +4208,12 @@ void main() {
         const tailSpin = now * 55;       
         this.drawMesh(rotorMesh, npc.x + tailOffX, mainRotorY - 0.8, npc.z + tailOffZ, npc.yaw + tailSpin, [0.35, 0.35, 0.35], [0.4, 0.4, 0.4, 0.45]);
       } else {
-        this.drawMesh(npc.mesh, npc.x, expY, npc.z, npc.yaw, flinchLeft > 0 ? [1.05, 0.88, 1.05] : [1, 1, 1]);
+        const isSwimming = !!npc.isSwimming && submerged;
+        const npcScale: [number, number, number] = isSwimming
+          ? [1.05, 0.48, 1.05]
+          : (flinchLeft > 0 ? [1.05, 0.88, 1.05] : [1, 1, 1]);
+        const npcY = isSwimming ? -1.35 : expY;
+        this.drawMesh(npc.mesh, npc.x, npcY, npc.z, npc.yaw, npcScale);
       }
       if (npc.hasDriver !== false && npc.type !== 'cop') {
         const dMesh = this.getPedestrianMesh(npc.gender || 'male', npc.id);
@@ -4111,22 +4221,23 @@ void main() {
         const dOffX = 0.3, dOffZ = 0.2;
         const dwx = npc.x + (dOffX * cosY + dOffZ * sinY);
         const dwz = npc.z + (-dOffX * sinY + dOffZ * cosY);
-        this.drawMesh(dMesh, dwx, -0.3, dwz, npc.yaw, [0.85, 0.85, 0.85]);
+        const driverY = expY - 0.3;
+        this.drawMesh(dMesh, dwx, driverY, dwz, npc.yaw, [0.85, 0.85, 0.85]);
         if ((npc.passengerCount || 0) > 0) {
           const pMesh = this.getPedestrianMesh('female', npc.id + 1);
           const pOffX = -0.3, pOffZ = 0.2;
           const pwx = npc.x + (pOffX * cosY + pOffZ * sinY);
           const pwz = npc.z + (-pOffX * sinY + pOffZ * cosY);
-          this.drawMesh(pMesh, pwx, -0.3, pwz, npc.yaw, [0.7, 0.7, 0.7]);
+          this.drawMesh(pMesh, pwx, driverY, pwz, npc.yaw, [0.7, 0.7, 0.7]);
         }
       }
       if (npc.type === 'police') {
         const isRed = (performance.now() / 300) % 2 < 1;
         const lightColor: [number, number, number, number] = isRed ? [1, 0, 0, 1] : [0, 0, 1, 1];
-        this.drawMesh(this.getBoxMesh(0.8, 0.2, 0.4), npc.x, 1.2, npc.z, npc.yaw, [1, 1, 1], lightColor);
+        this.drawMesh(this.getBoxMesh(0.8, 0.2, 0.4), npc.x, expY + 1.2, npc.z, npc.yaw, [1, 1, 1], lightColor);
       }
       if (npc.state === 'stop') {
-        this.drawMesh(this.getBoxMesh(0.4, 0.2, 0.3), npc.x, 1.0, npc.z, npc.yaw, [1, 1, 1], [1, 0, 0, 1]);
+        this.drawMesh(this.getBoxMesh(0.4, 0.2, 0.3), npc.x, expY + 1.0, npc.z, npc.yaw, [1, 1, 1], [1, 0, 0, 1]);
       }
     }
     for (const ped of serverPedestrians) {
@@ -4148,9 +4259,13 @@ void main() {
       // hips) does the lowering — this mild squash is the fallback for distant
       // peds that skip skinning, and keeps the "hit the deck" read. A flinching
       // ped (a landed punch) gets an extra brief recoil squash on top.
-      let pedScale: [number, number, number] = ped.isDucking ? [0.95, 0.75, 0.95] : [1, 1, 1];
-      if (pedFlinch > 0) pedScale = [1.05, pedScale[1] * 0.92, 1.05];
-      this.drawMesh(ped.mesh, ped.x, 0, ped.z, ped.yaw, pedScale);
+      const isSwimming = !!ped.isSwimming && getBiome(Math.floor(ped.x / 80), Math.floor(ped.z / 80)) === 'ocean';
+      const pedTerrainY = getTerrainHeight(ped.x, ped.z);
+      let pedScale: [number, number, number] = isSwimming
+        ? [1.05, 0.42, 1.05]
+        : (ped.isDucking ? [0.95, 0.75, 0.95] : [1, 1, 1]);
+      if (pedFlinch > 0 && !isSwimming) pedScale = [1.05, pedScale[1] * 0.92, 1.05];
+      this.drawMesh(ped.mesh, ped.x, isSwimming ? -1.35 : pedTerrainY, ped.z, ped.yaw, pedScale);
     }
     if (dt > 0 && Math.random() < 0.05) {
       const activeIds = new Set<number>();
@@ -4213,9 +4328,11 @@ void main() {
       }
     }
     if (playerMesh) {
-      const playerState = this.walkSpeed > 0.3 ? (this.walkSpeed > 2 ? 'run' : 'walk') : 'idle';
-      this.animateAndSkinEntity(-1, playerMesh, playerState, dt, Math.max(1, this.walkSpeed * 2));
+      // Franklin has a verified full-body skeleton but no embedded clips, so
+      // use the procedural player pose path rather than the NPC clip matcher.
+      this.skinPlayerMesh(playerMesh, dt);
       this.drawMesh(playerMesh, targetX, targetY, targetZ, carYaw, [1, 1, 1], [1, 1, 1, 1], false, 0, carRoll);
+      this.drawPlayerWeapon(targetX, targetY, targetZ, carYaw);
     }
     // Moped wheel animation: rear wheel spins with speed, front wheel also steers.
     const mopedArr = Array.isArray(playerMesh) ? playerMesh : (playerMesh ? [playerMesh] : []);
@@ -4685,6 +4802,34 @@ void main() {
       img.src = (url.startsWith('blob:') || url.startsWith('data:')) ? url : url;
     });
   }
+  private drawPlayerWeapon(x: number, y: number, z: number, yaw: number): void {
+    const weaponType = this.playerWeapon > 0 ? this.playerWeapon
+      : (this.playerFireTime > 0 ? this.playerFireWeapon : 0);
+    if (this.playerIsInCar || weaponType <= 0) return;
+    let weapon: CityMesh[] | null = null;
+    let scale = 0.24;
+    if (weaponType === 1) weapon = this.coltMesh;
+    else if (weaponType === 2) { weapon = this.m4a1Mesh; scale = 0.3; }
+    else if (weaponType === 3) { weapon = this.shotgunMesh; scale = 0.3; }
+    else if (weaponType === 4) { weapon = this.rocketLauncherMesh; scale = 0.34; }
+    if (!weapon) return;
+    const forward = 0.62;
+    const side = 0.22;
+    const fx = Math.sin(yaw), fz = Math.cos(yaw);
+    const rx = Math.cos(yaw), rz = -Math.sin(yaw);
+    const recoil = this.playerFireTime > 0 ? -0.08 : 0;
+    this.drawMesh(
+      weapon,
+      x + fx * forward + rx * side,
+      y + 1.18,
+      z + fz * forward + rz * side,
+      yaw,
+      [scale, scale, scale],
+      [1, 1, 1, 1],
+      false,
+      this.playerAimPitch + recoil
+    );
+  }
   renderFirstPersonWeapon(
     camX: number, camY: number, camZ: number,
     camYaw: number, camPitch: number,
@@ -5048,6 +5193,7 @@ void main() {
           this.skelNodeToBoneIdx = nodeToBoneIdx;
           this.skelJointMatrices = new Float32Array(numBones * 16);
           this.skelSkinRootWorld = skinRootWorld ? new Float32Array(skinRootWorld) : null;
+          this.skelNodeNames = jointNodes.map((j: number) => json.nodes[j]?.name || '');
           this.skelIsReady = false;
         }
         if (storeSkeleton) {
@@ -5540,6 +5686,35 @@ void main() {
     this.jumpRampMesh = this.createMesh(verts, idx);
     return this.jumpRampMesh;
   }
+  private addFilledRamp(
+    verts: number[], indices: number[],
+    x1: number, y1: number, x2: number, y2: number,
+    z: number, width: number, bottomY: number,
+    r: number, g: number, b: number, a: number, idxOffset: number
+  ) {
+    const z1 = z - width / 2;
+    const z2 = z + width / 2;
+    const top = [
+      [x1, y1, z1], [x2, y2, z1], [x2, y2, z2], [x1, y1, z2],
+    ];
+    const bottom = [
+      [x1, bottomY, z1], [x2, bottomY, z1], [x2, bottomY, z2], [x1, bottomY, z2],
+    ];
+    let nextIndex = idxOffset;
+    const face = (points: number[][], shade: number, reverse = false) => {
+      const base = nextIndex;
+      for (const p of points) verts.push(p[0], p[1], p[2], r * shade, g * shade, b * shade, a);
+      if (reverse) indices.push(base, base + 2, base + 1, base, base + 3, base + 2);
+      else indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
+      nextIndex += 4;
+    };
+    face(top, 0.8);
+    face(bottom, 0.55, true);
+    face([top[0], top[3], bottom[3], bottom[0]], 0.68, true);
+    face([top[1], bottom[1], bottom[2], top[2]], 0.68);
+    face([top[0], bottom[0], bottom[1], top[1]], 0.72);
+    face([top[3], top[2], bottom[2], bottom[3]], 0.72, true);
+  }
   private addRamp(
     verts: number[], indices: number[],
     x1: number, y1: number, x2: number, y2: number,
@@ -5617,6 +5792,41 @@ void main() {
       if (m.minY !== undefined && m.minY < minY) minY = m.minY;
     }
     return minY;
+  }
+  private isHungryJacksModel(model: CityMesh | CityMesh[]): boolean {
+    const meshes = Array.isArray(model) ? model : [model];
+    return meshes.some(m => m.carName?.includes('hungry_jacks_restaurant_low_poly'));
+  }
+  /** Keep the Hungry Jack's asset at a consistent restaurant scale across placement paths. */
+  private hungryJacksScale(
+    model: CityMesh | CityMesh[],
+    maxFrontage: number,
+    maxDepth: number,
+    yaw = 0
+  ): number {
+    const meshes = Array.isArray(model) ? model : [model];
+    let minX = Infinity, maxX = -Infinity;
+    let minY = Infinity, maxY = -Infinity;
+    let minZ = Infinity, maxZ = -Infinity;
+    for (const m of meshes) {
+      const rs = m.renderScale ?? 1;
+      if (m.minX !== undefined) minX = Math.min(minX, m.minX * rs);
+      if (m.maxX !== undefined) maxX = Math.max(maxX, m.maxX * rs);
+      if (m.minY !== undefined) minY = Math.min(minY, m.minY * rs);
+      if (m.maxY !== undefined) maxY = Math.max(maxY, m.maxY * rs);
+      if (m.minZ !== undefined) minZ = Math.min(minZ, m.minZ * rs);
+      if (m.maxZ !== undefined) maxZ = Math.max(maxZ, m.maxZ * rs);
+    }
+    const width = Math.max(0.01, maxX - minX);
+    const height = Math.max(0.01, maxY - minY);
+    const depth = Math.max(0.01, maxZ - minZ);
+    const quarterTurn = Math.abs(Math.sin(yaw)) > 0.5;
+    const frontage = quarterTurn ? depth : width;
+    const footprintDepth = quarterTurn ? width : depth;
+    const targetHeight = 5.2;
+    let scale = targetHeight / height;
+    scale = Math.min(scale, maxFrontage / frontage, maxDepth / footprintDepth);
+    return Math.max(0.75, Math.min(4, scale));
   }
   generateSamplePlayerModel(): CityMesh {
     const verts: number[] = [];

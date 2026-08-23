@@ -948,33 +948,166 @@
   animation: gt-taxi-pulse 1.4s ease-in-out infinite;
 }
 .gt-menu-panel {
-  max-width: 360px;
-}.gt-settings-body {
-  padding: 12px;
+  width: min(92vw, 430px);
+  max-width: none;
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+  color: #f4f0e4;
+  background: #151719;
+  border: 1px solid rgba(245, 191, 66, 0.75);
+  border-radius: 4px;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.72), 0 0 0 4px rgba(0, 0, 0, 0.24), 0 0 26px rgba(245, 191, 66, 0.16);
+}
+.gt-menu-panel::before {
+  content: '';
+  display: block;
+  width: 100%;
+  height: 5px;
+  background: #f5bf42;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.28), 0 4px 14px rgba(245, 191, 66, 0.28);
+}
+.gt-menu-title {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 20px 28px 16px;
+  text-align: left;
+  background: #202326;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  position: relative;
+}
+.gt-menu-title::after {
+  content: '';
+  position: absolute;
+  left: 28px;
+  bottom: -1px;
+  width: 74px;
+  height: 3px;
+  background: #f5bf42;
+}
+.gt-menu-kicker,
+.gt-menu-heading {
+  display: block;
+}
+.gt-menu-kicker {
+  color: #f5bf42;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 3px;
+  line-height: 1;
+  text-transform: uppercase;
+}
+.gt-menu-heading {
+  margin-top: 6px;
+  color: #fff;
+  font-family: pricedown, sans-serif;
+  font-size: clamp(34px, 8vw, 48px);
+  font-weight: 400;
+  letter-spacing: 1px;
+  line-height: 0.9;
+  text-shadow: 2px 2px 0 #111, 0 0 14px rgba(245, 191, 66, 0.24);
+}
+.gt-settings-body {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 18px 28px 8px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
+  background: #151719;
 }
 .gt-setting-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(112px, 1.05fr) minmax(96px, 1fr) 48px;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
+  min-height: 42px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
   cursor: pointer;
+}
+.gt-setting-row:last-child {
+  border-bottom: 0;
 }
 .gt-setting-row span:first-child {
-  min-width: 100px;
-  font-weight: 600;
+  min-width: 0;
+  color: #f1eee6;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
 }
 .gt-setting-row input[type="range"] {
-  flex: 1;
-  accent-color: var(--accent-color, #4a9eff);
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  accent-color: #f5bf42;
   cursor: pointer;
 }
+.gt-setting-row input[type="range"]:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 3px;
+}
 .gt-setting-value {
-  min-width: 50px;
+  min-width: 0;
+  color: #f5bf42;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 12px;
+  font-weight: 700;
   text-align: right;
-  font-size: 0.9em;
-  color: var(--third-font-color, #888);
+}
+.gt-menu-panel #closeOverlay {
+  position: relative;
+  top: auto;
+  right: auto;
+  align-self: flex-end;
+  width: auto;
+  min-width: 94px;
+  height: 34px;
+  margin: 8px 28px 22px;
+  padding: 0 14px;
+  color: #161719;
+  background: #f5bf42;
+  border: 1px solid #ffe39a;
+  border-radius: 3px;
+  box-shadow: 0 3px 0 #9f7620, 0 0 14px rgba(245, 191, 66, 0.18);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+.gt-menu-panel #closeOverlay::before {
+  display: none;
+}
+.gt-menu-panel #closeOverlay:hover {
+  background: #ffe39a;
+  transform: translateY(-1px);
+}
+.gt-menu-panel #closeOverlay:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 #9f7620;
+}
+@media only screen and (max-width: 667px) {
+  .gt-menu-title {
+    padding: 18px 20px 15px;
+  }
+  .gt-menu-title::after {
+    left: 20px;
+  }
+  .gt-settings-body {
+    padding: 14px 20px 4px;
+  }
+  .gt-setting-row {
+    grid-template-columns: minmax(104px, 1fr) minmax(88px, 1fr) 44px;
+    gap: 8px;
+  }
+  .gt-menu-panel #closeOverlay {
+    margin-right: 20px;
+    margin-bottom: 18px;
+  }
 }
 #gt-chat-overlay {
   position: absolute;
