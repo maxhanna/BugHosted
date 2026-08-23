@@ -65,11 +65,11 @@ namespace maxhanna.Server.Controllers
 			(0, 0, 2.5, 3.5, 3.5),
 			(10, 0, 5, 7, 8),
 			(24, 0, 3, 6, 8),
-			(41, 0, 5, 8, 10),
+			(41, 0, 5, 8, 11),
 			(-10, 0, 0, 0, 6),
-			(61, 0, 0, 0, 10),
+			(61, 0, 0, 0, 11),
 			(-18, 0, 0, 0, 5),
-			(75, 0, 0, 0, 7),
+			(75, 0, 0, 0, 9),
 		};
 		private static readonly (int startCx, int endCx, int startCz, int endCz)[] BRIDGES = new[]
 		{
@@ -93,6 +93,13 @@ namespace maxhanna.Server.Controllers
 				if (dx * dx + dz * dz < isl.ruralR * isl.ruralR) return true;
 			}
 			return false;
+		}
+		private static int MountainBand(int cx, int cz)
+		{
+			if (cx < 41 || !IsInAnyIsland(cx, cz)) return 0;
+			double centerZ = 6 + 2 * Math.Sin((cx - 41) * 0.38);
+			int distance = Math.Abs(cz - (int)Math.Floor(centerZ + 0.5));
+			return distance <= 1 ? 2 : distance <= 3 ? 1 : 0;
 		}
 		private static bool BridgeContains(int cx, int cz)
 		{
@@ -132,6 +139,9 @@ namespace maxhanna.Server.Controllers
 			double distV = bestDist;
 			if (!IsInAnyIsland(cx + 1, cz) || !IsInAnyIsland(cx - 1, cz) ||
 				!IsInAnyIsland(cx, cz + 1) || !IsInAnyIsland(cx, cz - 1)) return "beach";
+			int mountainBand = MountainBand(cx, cz);
+			if (mountainBand == 2) return "rural_mountain";
+			if (mountainBand == 1) return "rural_hills";
 			if (distV < islV.cityR) return IsParkingPatch() ? "parking_lot" : "city";
 			if (distV < islV.suburbR) return IsParkingPatch() ? "parking_lot" : "suburb";
 			uint hr = (uint)((cx * 100003 + cz * 70001) & 0xFFFFFFFF);

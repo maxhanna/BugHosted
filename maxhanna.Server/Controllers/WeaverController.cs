@@ -132,7 +132,7 @@ namespace maxhanna.Server.Controllers
 			{
 				if (!await _semaphore.WaitAsync(0))
 				{
-					_ = _log.Db("Weaver heartbeat rejected — another heartbeat is already running.", null, "WEAVER");
+					Console.WriteLine("Weaver heartbeat rejected — another heartbeat is already running.");
 					return Conflict(new { Message = "Heartbeat is already running." });
 				}
 
@@ -140,7 +140,7 @@ namespace maxhanna.Server.Controllers
 				{
 					if (string.IsNullOrWhiteSpace(req.Token) || !_sessions.TryGetValue(req.Token, out var session))
 					{
-						_ = _log.Db("Weaver heartbeat rejected — invalid or expired session token.", null, "WEAVER", outputToConsole: true);
+						Console.WriteLine("Weaver heartbeat rejected — invalid or expired session token.");
 						return Unauthorized(new { error = "Invalid token" });
 					}
 					userId = session.UserId;

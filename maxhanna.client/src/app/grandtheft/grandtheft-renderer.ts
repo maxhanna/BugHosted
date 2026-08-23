@@ -16,11 +16,11 @@ const ISLANDS: IslandDef[] = [
   { cx: 0, cz: 0, cityR: 2.5, suburbR: 3.5, ruralR: 3.5 },     
   { cx: 10, cz: 0, cityR: 5, suburbR: 7, ruralR: 8 },           
   { cx: 24, cz: 0, cityR: 3, suburbR: 6, ruralR: 8 },           
-  { cx: 41, cz: 0, cityR: 5, suburbR: 8, ruralR: 10 },          
+  { cx: 41, cz: 0, cityR: 5, suburbR: 8, ruralR: 11 },          
   { cx: -10, cz: 0, cityR: 0, suburbR: 0, ruralR: 6 },          
-  { cx: 61, cz: 0, cityR: 0, suburbR: 0, ruralR: 10 },          
+  { cx: 61, cz: 0, cityR: 0, suburbR: 0, ruralR: 11 },          
   { cx: -18, cz: 0, cityR: 0, suburbR: 0, ruralR: 5 },          
-  { cx: 75, cz: 0, cityR: 0, suburbR: 0, ruralR: 7 },           
+  { cx: 75, cz: 0, cityR: 0, suburbR: 0, ruralR: 9 },           
 ];
 interface BridgeDef {
   startCx: number; endCx: number; startCz: number; endCz: number;
@@ -66,6 +66,41 @@ function isInAnyIsland(cx: number, cz: number): boolean {
   }
   return false;
 }
+
+// The eastern rural islands form one deterministic mountain chain. The center
+// moves by at most one chunk per column, so adjacent chunks overlap instead of
+// producing isolated hill props or disconnected biome islands.
+function getMountainBand(cx: number, cz: number): 0 | 1 | 2 {
+  if (cx < 41 || !isInAnyIsland(cx, cz)) return 0;
+  const centerZ = 6 + Math.floor(2 * Math.sin((cx - 41) * 0.38) + 0.5);
+  const distance = Math.abs(cz - centerZ);
+  if (distance <= 1) return 2;
+  if (distance <= 3) return 1;
+  return 0;
+}
+
+function getMountainHeight(x: number, z: number): number {
+  const cx = Math.floor(x / CHUNK_SIZE);
+  const band = getMountainBand(cx, Math.floor(z / CHUNK_SIZE));
+  if (band === 0) return 0;
+  const chainX = x / CHUNK_SIZE - 41;
+  const ridgeCenterZ = (6 + 2 * Math.sin(chainX * 0.38)) * CHUNK_SIZE + CHUNK_SIZE / 2;
+  const ridgeDistance = z - ridgeCenterZ;
+  const mainRidge = Math.exp(-(ridgeDistance * ridgeDistance) / (2 * 175 * 175));
+  const secondaryCenterZ = ridgeCenterZ + 115 + 32 * Math.sin(x / 190);
+  const secondaryRidge = Math.exp(-((z - secondaryCenterZ) * (z - secondaryCenterZ)) / (2 * 78 * 78));
+  const detail = 0.62 + 0.38 * (0.5 + 0.5 * Math.sin(x / 125 + Math.sin(z / 170) * 1.8));
+  const relief = mainRidge * (7 + 25 * detail) + secondaryRidge * 6;
+  const bandFade = band === 2 ? 1 : 0.68;
+  return relief * bandFade;
+}
+
+function getMountainRoadHeight(x: number, z: number): number {
+  // Roads are cut into the same height field rather than floating at sea level.
+  // The small lift keeps the road surface above the sampled ground mesh.
+  return getMountainHeight(x, z) + 0.08;
+}
+
 export function getBiome(cx: number, cz: number): string {
   if (cx >= 0 && cx <= 3 && cz >= -3 && cz <= -1) return 'aeroport';
   if (cx >= 8 && cx <= 15 && cz >= -6 && cz <= -4) return 'aeroport';
@@ -96,6 +131,9 @@ export function getBiome(cx: number, cz: number): string {
   const dist = bestDist;
   if (!isInAnyIsland(cx + 1, cz) || !isInAnyIsland(cx - 1, cz) ||
     !isInAnyIsland(cx, cz + 1) || !isInAnyIsland(cx, cz - 1)) return 'beach';
+  const mountainBand = getMountainBand(cx, cz);
+  if (mountainBand === 2) return 'rural_mountain';
+  if (mountainBand === 1) return 'rural_hills';
   if (dist < isl.cityR) {
     return isParkingPatch() ? 'parking_lot' : 'city';
   } else if (dist < isl.suburbR) {
@@ -209,7 +247,11 @@ export function getTerrainHeight(x: number, z: number, currentY?: number, forceB
     if (isOnRoadGrid(x, z)) return 0.0;  
     return -2.5;
   }
+  if ((biome === 'rural_hills' || biome === 'rural_mountain') && isOnRoadGrid(x, z)) {
+    return getMountainRoadHeight(x, z);
+  }
   if ((biome === 'beach' || biome.startsWith('rural')) && isOnRoadGrid(x, z)) return 0.0;
+  if (biome === 'rural_hills' || biome === 'rural_mountain') return getMountainHeight(x, z);
   if (biome === 'beach') {
     const base = getBeachHeight(x, z);
     if (isOnSidewalk(x, z)) return Math.max(base + SIDEWALK_RAISE, 0);
@@ -2048,6 +2090,52 @@ void main() {
     );
     indices.push(idxOffset, idxOffset + 2, idxOffset + 1, idxOffset, idxOffset + 3, idxOffset + 2);
   }
+  private addMountainGround(
+    verts: number[], indices: number[], worldOriginX: number, worldOriginZ: number,
+    idxOffset: number, segments = 8
+  ): number {
+    const step = CHUNK_SIZE / segments;
+    for (let zi = 0; zi <= segments; zi++) {
+      for (let xi = 0; xi <= segments; xi++) {
+        const x = worldOriginX + Math.min(xi * step, CHUNK_SIZE - 0.01);
+        const z = worldOriginZ + Math.min(zi * step, CHUNK_SIZE - 0.01);
+        const y = isOnRoadGrid(x, z) ? getMountainRoadHeight(x, z) : getMountainHeight(x, z);
+        const shade = Math.max(0.22, Math.min(0.62, 0.38 + y * 0.004));
+        const rock = y > 18 ? 0.10 : 0.16;
+        verts.push(x, y, z, shade, shade + 0.03, rock, 1);
+      }
+    }
+    for (let zi = 0; zi < segments; zi++) {
+      for (let xi = 0; xi < segments; xi++) {
+        const row = segments + 1;
+        const a = idxOffset + zi * row + xi;
+        indices.push(a, a + row, a + 1, a + 1, a + row, a + row + 1);
+      }
+    }
+    return idxOffset + (segments + 1) * (segments + 1);
+  }
+
+  private addMountainRoadSurface(
+    verts: number[], indices: number[],
+    x1: number, z1: number, x2: number, z2: number,
+    y1: number, y2: number, width: number, idxOffset: number
+  ): number {
+    const dx = x2 - x1;
+    const dz = z2 - z1;
+    const length = Math.hypot(dx, dz) || 1;
+    const px = -dz / length * width / 2;
+    const pz = dx / length * width / 2;
+    const r = 0.13, g = 0.14, b = 0.12;
+    verts.push(
+      x1 + px, y1, z1 + pz, r, g, b, 1,
+      x2 + px, y2, z2 + pz, r, g, b, 1,
+      x2 - px, y2, z2 - pz, r, g, b, 1,
+      x1 - px, y1, z1 - pz, r, g, b, 1
+    );
+    indices.push(idxOffset, idxOffset + 1, idxOffset + 2, idxOffset, idxOffset + 2, idxOffset + 3);
+    return idxOffset + 4;
+  }
+
   private addBeachGround(
     verts: number[], indices: number[], worldOriginX: number, worldOriginZ: number,
     idxOffset: number, segments = 8
@@ -2546,7 +2634,11 @@ void main() {
       else if (isRuralMountain) { gr = 0.30 + gv; gg = 0.32 + gv; gb = 0.20 + gv; }
       else if (isRuralLakes) { gr = 0.20 + gv; gg = 0.45 + gv; gb = 0.18 + gv; }
       else if (isRuralDesert) { gr = 0.72 + gv * 0.5; gg = 0.65 + gv * 0.5; gb = 0.35 + gv * 0.5; }
-      this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.0, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, gr, gg, gb, 1.0, idxOffset); idxOffset += 4;
+      if (isRuralHills || isRuralMountain) {
+        idxOffset = this.addMountainGround(verts, indices, worldOriginX, worldOriginZ, idxOffset);
+      } else {
+        this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.0, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, gr, gg, gb, 1.0, idxOffset); idxOffset += 4;
+      }
       if (isRuralLakes) {
         this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, -1.5, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE * 0.5, CHUNK_SIZE * 0.5, 0.05, 0.30, 0.55, 0.75, idxOffset); idxOffset += 4;
         this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, -1.2, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE * 0.4, CHUNK_SIZE * 0.4, 0.10, 0.40, 0.60, 0.50, idxOffset); idxOffset += 4;
@@ -2842,7 +2934,7 @@ void main() {
           continue;
         }
         if (isRural) {
-          if (isRuralMountain) {
+          if (isRuralMountain || isRuralHills) {
             const roadClear = 14;
             for (let hi = 0; hi < 4 + Math.floor(rng() * 4); hi++) {
               const hx = blockWorldX + (rng() - 0.5) * 55;
@@ -3198,36 +3290,42 @@ void main() {
         }
       }
     }
-    if (isRuralMountain) {
-      const roadW = 14;
+    if (isRuralMountain || isRuralHills) {
+      const roadW = isRuralMountain ? 14 : 16;
       const roadHalf = roadW / 2;
+      const roadStartX = worldOriginX;
+      const roadEndX = worldOriginX + CHUNK_SIZE;
+      const roadStartZ = worldOriginZ;
+      const roadEndZ = worldOriginZ + CHUNK_SIZE;
       for (const ri of [0, 1]) {
         const roadZ = cz * CHUNK_SIZE + ri * GRID_PITCH;
-        this.addBox(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.02, roadZ, CHUNK_SIZE, 0.04, roadW, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
-        for (let x = cx * CHUNK_SIZE + 2; x <= (cx + 1) * CHUNK_SIZE - 2; x += 4) {
-          this.addBox(verts, indices, x, 0.05, roadZ, 1.5, 0.02, 0.3, 1, 1, 1, 0.8, idxOffset); idxOffset += 24;
-        }
+        idxOffset = this.addMountainRoadSurface(
+          verts, indices, roadStartX, roadZ, roadEndX, roadZ,
+          getMountainRoadHeight(roadStartX, roadZ) + 0.04,
+          getMountainRoadHeight(roadEndX, roadZ) + 0.04,
+          roadW, idxOffset
+        );
         for (const side of [-1, 1]) {
-          const rz = roadZ + side * (roadHalf + 0.5);
-          this.addBox(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.5, rz, CHUNK_SIZE, 0.12, 0.12, 0.55, 0.55, 0.57, 1.0, idxOffset); idxOffset += 24;
-          this.addBox(verts, indices, worldOriginX + CHUNK_SIZE / 2, 1.0, rz, CHUNK_SIZE, 0.12, 0.12, 0.6, 0.6, 0.62, 1.0, idxOffset); idxOffset += 24;
-          for (let px = cx * CHUNK_SIZE + 6; px < (cx + 1) * CHUNK_SIZE; px += 14) {
-            this.addBox(verts, indices, px, 0.6, rz, 0.18, 1.2, 0.18, 0.5, 0.5, 0.52, 1.0, idxOffset); idxOffset += 24;
+          const rz = roadZ + side * (roadHalf + 0.7);
+          for (let px = roadStartX + 8; px < roadEndX; px += 16) {
+            const py = getMountainRoadHeight(px, rz) + 0.25;
+            this.addBox(verts, indices, px, py, rz, 0.18, 0.45, 0.18, 0.42, 0.43, 0.40, 1.0, idxOffset); idxOffset += 24;
           }
         }
       }
       for (const ri of [0, 1]) {
         const roadX = cx * CHUNK_SIZE + ri * GRID_PITCH;
-        this.addBox(verts, indices, roadX, 0.02, worldOriginZ + CHUNK_SIZE / 2, roadW, 0.04, CHUNK_SIZE, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
-        for (let z = cz * CHUNK_SIZE + 2; z <= (cz + 1) * CHUNK_SIZE - 2; z += 4) {
-          this.addBox(verts, indices, roadX, 0.05, z, 0.3, 0.02, 1.5, 1, 1, 1, 0.8, idxOffset); idxOffset += 24;
-        }
+        idxOffset = this.addMountainRoadSurface(
+          verts, indices, roadX, roadStartZ, roadX, roadEndZ,
+          getMountainRoadHeight(roadX, roadStartZ) + 0.04,
+          getMountainRoadHeight(roadX, roadEndZ) + 0.04,
+          roadW, idxOffset
+        );
         for (const side of [-1, 1]) {
-          const rx = roadX + side * (roadHalf + 0.5);
-          this.addBox(verts, indices, rx, 0.5, worldOriginZ + CHUNK_SIZE / 2, 0.12, 0.12, CHUNK_SIZE, 0.55, 0.55, 0.57, 1.0, idxOffset); idxOffset += 24;
-          this.addBox(verts, indices, rx, 1.0, worldOriginZ + CHUNK_SIZE / 2, 0.12, 0.12, CHUNK_SIZE, 0.6, 0.6, 0.62, 1.0, idxOffset); idxOffset += 24;
-          for (let pz = cz * CHUNK_SIZE + 6; pz < (cz + 1) * CHUNK_SIZE; pz += 14) {
-            this.addBox(verts, indices, rx, 0.6, pz, 0.18, 1.2, 0.18, 0.5, 0.5, 0.52, 1.0, idxOffset); idxOffset += 24;
+          const rx = roadX + side * (roadHalf + 0.7);
+          for (let pz = roadStartZ + 8; pz < roadEndZ; pz += 16) {
+            const py = getMountainRoadHeight(rx, pz) + 0.25;
+            this.addBox(verts, indices, rx, py, pz, 0.18, 0.45, 0.18, 0.42, 0.43, 0.40, 1.0, idxOffset); idxOffset += 24;
           }
         }
       }
