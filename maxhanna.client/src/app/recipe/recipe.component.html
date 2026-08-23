@@ -24,8 +24,8 @@
     </div>
 
     <!-- Reusable Form Template -->
-    <ng-template #recipeForm *ngIf="(editingRecipeId && editingRecipeId > 0) || isCreateFormVisible">
-      <div class="composer-card">
+    <ng-template #recipeForm>
+      <div class="composer-card" *ngIf="(editingRecipeId && editingRecipeId > 0) || isCreateFormVisible">
         <div class="composer-header">
           <h3>{{ (editingRecipeId && editingRecipeId > 0) ? 'Edit Recipe' : 'New Recipe' }}</h3>
           <button class="cancel-btn-icon" (click)="cancelEdit()" *ngIf="onMobile()">X</button>
