@@ -16,6 +16,10 @@ const OPP_BUFFER_MS = 150;
 const NUDGE_DUR = 0.35;
 /** Duration (s) of the full-5-row "reserve dump" celebration burst. */
 const DUMP_BURST_DUR = 1.1;
+/** Radius (px) marble-face sprites are baked at before being blitted each
+ *  frame — the moving marbles blit a cached canvas instead of re-running the
+ *  expensive gradient/pattern/grain pipeline, which was the mobile lag. */
+const MARBLE_SPRITE_R = 64;
 
 // ── Background music ───────────────────────────────────────────────────
 // A cheerful Win98-style chiptune loop, synthesized live with Web Audio (no
@@ -355,6 +359,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
       this.viewingOpponent = false;
       this.sprites = [];
       this._shards = [];
+      this._marbleCache.clear();
       this._oppShards = [];
       this._board = [];
       this._oppSprites = [];
@@ -615,6 +620,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     this.viewingOpponent = false;
     this.sprites = [];
     this._shards = [];
+    this._marbleCache.clear();
     this._oppShards = [];
     this._board = [];
     this._oppSprites = [];
@@ -3030,7 +3036,12 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     }
   }
 
-  private drawMarble(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, colorId: number, roll: number, seed = 0, hotColor = this.specialColor): void {
+  private drawMarbleFace(ctx: CanvasRenderingContext2D, colorId: number, seed: number, r: number, roll: number): void {
+    // Baking context: the face is drawn into an offscreen sprite centred at
+    // (0,0) once per colour+seed, then blitted — rotated by the live roll —
+    // each frame. Everything here is deterministic given the seed, so the
+    // expensive pipeline below only runs a handful of times per match.
+    const x = 0, y = 0;
     const base = COLORS[colorId] ?? COLORS[1];
 
     // Per-marble identity: the seed gives every marble its own tint, pattern
@@ -3066,26 +3077,6 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     // (it keeps the same skin while sliding around the board) yet varied.
     const skins = SKINS[colorId] ?? SKINS[1] ?? [0];
     const style = skins[Math.floor(s0 * skins.length) % skins.length];
-
-    // Soft contact shadow so each marble sits down into the dirt trench.
-    ctx.fillStyle = 'rgba(0,0,0,0.26)';
-    ctx.beginPath();
-    ctx.ellipse(x, y + r * 0.72, r * 0.62, r * 0.2, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Hot-colour glow halo, drawn first so the glass body sits on top and
-    // only the ring outside the sphere stays visible.
-    if (hotColor > 0 && colorId === hotColor) {
-      const glow = COLORS[hotColor] ?? COLORS[1];
-      const pulse = this.pulsePhase();
-      const halo = ctx.createRadialGradient(x, y, r * 0.8, x, y, r * 1.7);
-      halo.addColorStop(0, `rgba(${glow[0]},${glow[1]},${glow[2]},${(0.35 + pulse * 0.25).toFixed(3)})`);
-      halo.addColorStop(1, `rgba(${glow[0]},${glow[1]},${glow[2]},0)`);
-      ctx.fillStyle = halo;
-      ctx.beginPath();
-      ctx.arc(x, y, r * 1.7, 0, Math.PI * 2);
-      ctx.fill();
-    }
 
     // Glass body — deeper 6-stop sphere gradient with a bright core fading
     // to a dark transparent edge, so it reads as dense glass rather than a
@@ -3429,8 +3420,60 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     ctx.beginPath();
     ctx.arc(x, y, r - 0.5, 0, Math.PI * 2);
     ctx.stroke();
+  }
 
-    // Bright rim for the hot colour so it pops against the other marbles.
+  /** Cached offscreen sprites of marble faces, keyed by colour + seed (both
+   *  fully determine a marble's look). Bounded by the distinct marbles that
+   *  actually appear, so at most ~a few per colour+seed per match.
+   *  Kept on the instance so the splash/board/opponent boards share it. */
+  private _marbleCache = new Map<string, HTMLCanvasElement>();
+
+  private marbleSprite(colorId: number, seed: number): HTMLCanvasElement {
+    const key = `${colorId}:${seed}`;
+    const cached = this._marbleCache.get(key);
+    if (cached) return cached;
+    const size = MARBLE_SPRITE_R * 2 + 2;
+    const c = document.createElement('canvas');
+    c.width = size;
+    c.height = size;
+    const g = c.getContext('2d')!;
+    g.translate(size / 2, size / 2);
+    this.drawMarbleFace(g, colorId, seed, MARBLE_SPRITE_R, 0);
+    this._marbleCache.set(key, c);
+    return c;
+  }
+
+  private drawMarble(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, colorId: number, roll: number, seed = 0, hotColor = this.specialColor): void {
+    // Contact shadow stays flat on the ground (not rotated with the roll).
+    ctx.fillStyle = 'rgba(0,0,0,0.26)';
+    ctx.beginPath();
+    ctx.ellipse(x, y + r * 0.72, r * 0.62, r * 0.2, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Hot-colour pulsing glow halo, outside the sphere (not rotated).
+    if (hotColor > 0 && colorId === hotColor) {
+      const glow = COLORS[hotColor] ?? COLORS[1];
+      const pulse = this.pulsePhase();
+      const halo = ctx.createRadialGradient(x, y, r * 0.8, x, y, r * 1.7);
+      halo.addColorStop(0, `rgba(${glow[0]},${glow[1]},${glow[2]},${(0.35 + pulse * 0.25).toFixed(3)})`);
+      halo.addColorStop(1, `rgba(${glow[0]},${glow[1]},${glow[2]},0)`);
+      ctx.fillStyle = halo;
+      ctx.beginPath();
+      ctx.arc(x, y, r * 1.7, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Blit the cached face, rotated with the roll and scaled to the cell size.
+    const sprite = this.marbleSprite(colorId, seed);
+    const s = r / MARBLE_SPRITE_R;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(roll);
+    ctx.scale(s, s);
+    ctx.drawImage(sprite, -MARBLE_SPRITE_R, -MARBLE_SPRITE_R);
+    ctx.restore();
+
+    // Pulsing hot-colour rim (not rotated).
     if (hotColor > 0 && colorId === hotColor) {
       const glow = COLORS[hotColor] ?? COLORS[1];
       const pulse = this.pulsePhase();
