@@ -77,9 +77,9 @@
         <p class="login-sub">Enter your bughosted.com credentials</p>
         <div class="login-form">
           <input [value]="loginUsername" (change)="onUsernameChange($event)" placeholder="Username"
-            class="weaver-input" />
+            class="weaver-input" autocomplete="username" name="login-username" />
           <input [value]="loginPassword" (change)="onPasswordChange($event)" type="password" placeholder="Password"
-            class="weaver-input" />
+            class="weaver-input" autocomplete="current-password" name="login-password" />
           <button (click)="doLogin()" class="btn btn-primary"
             [disabled]="!loginUsername || !loginPassword">Login</button>
         </div>
@@ -107,7 +107,7 @@
               title="Connection status: {{ isOnline() ? 'Online' : 'Offline' }}"></span>
           </div>
           <input [value]="searchFilter" (input)="onSearchFilterChange($event)" placeholder="Search cards…"
-            class="weaver-input weaver-input-sm" />
+            class="weaver-input weaver-input-sm" autocomplete="off" name="search-cards" />
           <button *ngIf="searchFilter" (click)="searchFilter = ''" class="btn btn-xs">✕</button>
         </div>
         <div class="toolbar-right">
@@ -800,7 +800,7 @@
               </div>
               <input [(ngModel)]="ideSearchFilter" (input)="false"
                 [placeholder]="ideProjectView ? 'Search project files…' : 'Filter files…'"
-                class="ide-search weaver-input-xs" />
+                class="ide-search weaver-input-xs" autocomplete="off" />
               <div class="ide-file-list">
                 <!-- Directory browse (current listing from the localhost) -->
                 <ng-container *ngIf="!ideProjectView">
@@ -891,7 +891,8 @@
         <details>
           <summary>📡 Remote Commands ({{ pendingCommandCount }} pending{{ doneCommandCount > 0 ? ' · ' + doneCommandCount +
             ' done' : '' }}{{ failedCommands.length > 0 ? ' · ' + failedCommands.length + ' failed' : '' }})
-            {{ lastHeartbeat ? 'Last sync: ' + convertUtcToLocalTimeString(lastHeartbeat) : '' }} ({{getUtcTimeSince(lastHeartbeat)}})</summary>
+            {{ lastHeartbeat ? 'Last sync: ' + convertUtcToLocalTimeString(lastHeartbeat) : '' }} ({{getUtcTimeSince(lastHeartbeat)}})
+            {{ lastSkeletonAt ? ' · 📁 Skeleton: ' + convertUtcToLocalTimeString(lastSkeletonAt) + ' (' + getUtcTimeSince(lastSkeletonAt) + ')' : '' }}</summary>
           <div class="command-builder">
             <select (change)="onCommandTypeChange($event)" class="weaver-select">
               <option value="">Select command…</option>
@@ -1028,7 +1029,7 @@
     </div>
     <div class="popup-body">
       <p class="picker-hint">Select files from this project:</p>
-      <input #pickerSearchInput id="pickerSearchInput"[(ngModel)]="pickerSearchFilter" (input)="onPickerSearchFilterChange($event)" placeholder="Search files..."
+      <input #pickerSearchInput id="pickerSearchInput"[(ngModel)]="pickerSearchFilter" (input)="onPickerSearchFilterChange($event)" placeholder="Search files..." autocomplete="off"
       class="weaver-input weaver-input-sm" />
       <div *ngIf="pickerSelected.length" class="picker-attached">
         <div class="picker-attached-title">📎 Attached files ({{ pickerSelected.length }})</div>

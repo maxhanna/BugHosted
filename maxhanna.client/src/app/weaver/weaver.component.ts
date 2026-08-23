@@ -89,6 +89,10 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
   // /weaver/fileSkeleton responds, and kept across refreshes so a later DB fetch
   // never drops it.
   private heartbeatSkeletonPaths: string[] = [];
+  // When the shared project skeleton was last generated/sent by the local Weaver
+  // (UTC ISO, from the heartbeat's skeleton.generatedAt, falling back to the
+  // heartbeat time). Shown in the sync header as a freshness indicator.
+  lastSkeletonAt: string | null = null;
 
   benchmarks: BenchmarkEntry[] = [];
   // Memoized grouping: the getter runs on every change-detection digest, so the map is
@@ -261,6 +265,7 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
       this.fileSkeleton = [];
       this.fileSkeletonCache = {};
       this.heartbeatSkeletonPaths = [];
+      this.lastSkeletonAt = null;
       window.localStorage.removeItem(this.TOKEN_KEY);
     }, 50);
   }
@@ -291,6 +296,9 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
           // benefit without waiting for a /weaver/fileSkeleton round-trip.
           const skel = parsed && parsed.skeleton;
           if (skel && Array.isArray(skel.paths)) {
+            this.lastSkeletonAt = (typeof skel.generatedAt === 'string' && skel.generatedAt)
+              ? skel.generatedAt
+              : (hb.lastHeartbeat || this.lastSkeletonAt);
             const fresh: string[] = [];
             for (const p of skel.paths) {
               if (typeof p === 'string' && p && !this.heartbeatSkeletonPaths.includes(p)) fresh.push(p);
