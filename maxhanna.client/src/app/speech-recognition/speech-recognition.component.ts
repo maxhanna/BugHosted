@@ -91,13 +91,17 @@ export class SpeechRecognitionComponent {
       });
     };
     this.recognition.onend = () => {
-      this.isListening = false;
+      this.zone.run(() => {
+        this.isListening = false;
+      });
     };
 
     this.recognition.onerror = (event: any) => {
       console.error('Speech recognition error:', event.error);
-      this.isListening = false;
-      this.speechRecognitionEvent.emit();
+      this.zone.run(() => {
+        this.isListening = false;
+        this.speechRecognitionEvent.emit();
+      });
     };
   }
 

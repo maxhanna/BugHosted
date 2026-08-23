@@ -187,8 +187,7 @@
   border-radius: 999px;
   font: inherit;
   font-size: 14px;
-  background: var(--input-background-color, #fff);
-  color: var(--main-font-color, #0f172a);
+  background: var(--input-background-color, #fff); 
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
@@ -524,8 +523,7 @@
   padding: 12px 14px;
   font: inherit;
   font-size: 14px;
-  background: var(--input-background-color, #fafafa);
-  color: var(--main-font-color, #0f172a);
+  background: var(--input-background-color, #fafafa); 
   box-sizing: border-box;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
