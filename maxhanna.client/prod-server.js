@@ -229,10 +229,10 @@ if (fs.existsSync(distAssetsPath)) {
   }
 })();
 
-// Trust proxy if behind reverse proxy (nginx, load balancer, etc)
-if (config.trustProxy) {
-  app.set('trust proxy', 1);
-}
+// Trust proxy if behind reverse proxy (nginx, load balancer, etc).
+// Always enable when rate-limiting is on so express-rate-limit correctly
+// reads X-Forwarded-For instead of throwing ERR_ERL_UNEXPECTED_X_FORWARDED_FOR.
+app.set('trust proxy', config.trustProxy ? 1 : 'loopback');
 
 // ============================================================================
 // Security Middleware
