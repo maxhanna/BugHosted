@@ -152,7 +152,12 @@ namespace maxhanna.Server.Controllers
 					using var conn = new MySqlConnection(cs);
 					await conn.OpenAsync();
 
-					// Cache check: skip INSERT if this user+client has sent a heartbeat in the last 5 minutes
+					// Cache check: skip the INSERT when this USER has already sent a
+					// heartbeat within the last 5 minutes. Keying on user_id alone is
+					// deliberate — the client issues a fresh GUID client_id on every
+					// login/page reload, so a user_id+client_id key never matches a
+					// user who reloads or runs multiple tabs, and every heartbeat gets
+					// written (the exact spam this throttle exists to prevent).
 					using (var checkConn = new MySqlConnection(cs))
 					{
 						await checkConn.OpenAsync();
@@ -161,18 +166,18 @@ namespace maxhanna.Server.Controllers
 								SELECT 1
 								FROM maxhanna.weaver_heartbeat h
 								WHERE h.user_id = @UserId
-								AND h.client_id = @ClientId
 								AND h.last_heartbeat >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 MINUTE)
 							) AS result;",
 							checkConn);
 						checkCmd.Parameters.AddWithValue("@UserId", session.UserId);
-						checkCmd.Parameters.AddWithValue("@ClientId", req.ClientId ?? "");
 						var cached = await checkCmd.ExecuteScalarAsync();
-						if (cached is long l && l == 1)
+						if (cached != null && cached != DBNull.Value && Convert.ToInt64(cached) == 1)
 						{
 							Console.WriteLine("Ignored heartbeat from " + remoteIp);
 							return Ok(new { status = "ok" });
 						}
+						Console.WriteLine("Weaver heartbeat cache miss (userId=" + session.UserId +
+							", clientId=" + (req.ClientId ?? "") + ", exists=" + (cached?.ToString() ?? "null") + ") — writing.");
 					}
 
 					var rawKanban = GzipDecompress(req.KanbanData ?? "");
@@ -180,7 +185,11 @@ namespace maxhanna.Server.Controllers
 					{
 						_ = _log.Db($"Weaver heartbeat oversized kanban_data ({rawKanban.Length:N0} chars) from user {session.UserId} — slimming before storage.", session.UserId, "WEAVER", outputToConsole: true);
 					}
-					var kanbanData = SlimKanbanData(rawKanban);
+					// Merge the opted-in project skeleton (attached by the local bridge)
+					// into the stored kanban payload as a top-level "skeleton" node so
+					// the hosted dashboard can read it from the same heartbeat blob.
+					var mergedKanban = EmbedSkeleton(rawKanban, req.Skeleton);
+					var kanbanData = SlimKanbanData(mergedKanban);
 
 					string sql = @"
 						INSERT INTO maxhanna.weaver_heartbeat (user_id, client_id, status, last_heartbeat, kanban_data, weaver_address, remote_ip)
@@ -1200,6 +1209,26 @@ namespace maxhanna.Server.Controllers
 		// keeps every board (especially large archives) syncing without dropping
 		// cards. Top-level fields (projects, userScore, rankTitle, fileListing,
 		// editorState, …) are left untouched.
+		/// <summary>
+		/// Injects the opted-in project skeleton ({ tree, paths }) into the kanban
+		/// JSON as a top-level "skeleton" node so the hosted dashboard's IDE and
+		/// attach-file picker can use the real project layout. Malformed payloads
+		/// or skeleton values are left untouched rather than corrupted.
+		/// </summary>
+		private static string EmbedSkeleton(string kanbanJson, JsonElement? skeleton)
+		{
+			if (string.IsNullOrWhiteSpace(kanbanJson) || skeleton is not JsonElement sk || sk.ValueKind != JsonValueKind.Object)
+				return kanbanJson;
+			try
+			{
+				var root = JsonNode.Parse(kanbanJson);
+				if (root is not JsonObject obj) return kanbanJson;
+				obj["skeleton"] = JsonNode.Parse(sk.GetRawText());
+				return obj.ToJsonString();
+			}
+			catch { return kanbanJson; }
+		}
+
 		private static string SlimKanbanData(string json)
 		{
 			if (string.IsNullOrWhiteSpace(json))
@@ -1298,6 +1327,10 @@ namespace maxhanna.Server.Controllers
 		public string? KanbanData { get; set; }
 		public string? Settings { get; set; }
 		public string? WeaverAddress { get; set; }
+		// Opt-in project skeleton ({ tree, paths }) attached by the local Weaver
+		// bridge when the user shares it — stored inside the kanban payload so the
+		// hosted dashboard's IDE and attach-file picker can use the real layout.
+		public JsonElement? Skeleton { get; set; }
 	}
 
 	public class WeaverSettingsRequest

@@ -135,6 +135,23 @@ export class RacingService {
     } catch { return null; }
   }
 
+  // Menu wealth leaderboard: real racers ranked by lifetime earnings ("top
+  // scores") and by current wallet balance ("most cash"). Returns null when the
+  // response doesn't look like the expected shape so the panel can say data is
+  // unavailable instead of implying nobody has raced.
+  async getWealthLeaderboard(): Promise<{
+    scores: { playerId: number; playerName: string; totalEarnings: number; wins: number; races: number; isBot: boolean }[],
+    cash: { playerId: number; playerName: string; money: number; wins: number; races: number; isBot: boolean }[]
+  } | null> {
+    try {
+      const data: any = await this.http.get(`${this.baseUrl}/leaderboard-wealth`).toPromise();
+      if (data === null || typeof data !== 'object' || !Array.isArray(data.scores) || !Array.isArray(data.cash)) {
+        return null;
+      }
+      return { scores: data.scores ?? [], cash: data.cash ?? [] };
+    } catch { return null; }
+  }
+
   async joinRace(userId: number, trackId: number): Promise<any> {
     try {
       return await this.http.post(`${this.baseUrl}/race/join`, { userId, trackId }).toPromise();

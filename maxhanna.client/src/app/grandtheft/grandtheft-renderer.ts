@@ -883,6 +883,10 @@ export class GrandTheftRenderer {
   public playerFireWeapon = 0;
   public playerFireTime = 0;
   public playerAimPitch = 0;
+  // Smoothed third-person gun pitch: eases up to point the muzzle at the
+  // crosshair while firing, then relaxes back to a calm resting aim so the gun
+  // visibly "aims then resets" on each shot instead of being frozen to aimPitch.
+  public weaponPitch = 0;
   public playerIsInCar = false;
   private _playerSkinAccumulator = 0;
   /** Per-entity punch/swing timers (keyed by entity id, seconds remaining). */
@@ -4497,6 +4501,7 @@ void main() {
       // use the procedural player pose path rather than the NPC clip matcher.
       this.skinPlayerMesh(playerMesh, dt);
       this.drawMesh(playerMesh, targetX, targetY, targetZ, carYaw, [1, 1, 1], [1, 1, 1, 1], false, 0, carRoll);
+      this.updateWeaponPitch(dt);
       this.drawPlayerWeapon(targetX, targetY, targetZ, carYaw);
     }
     // Moped wheel animation: rear wheel spins with speed, front wheel also steers.
@@ -4967,6 +4972,18 @@ void main() {
       img.src = (url.startsWith('blob:') || url.startsWith('data:')) ? url : url;
     });
   }
+  // Eases the held gun's pitch toward the crosshair aim while a shot is live,
+  // then relaxes it back to a soft resting aim so each shot reads as the gun
+  // swinging up to point at the crosshairs and settling back. The attack is
+  // fast (snaps up on trigger) and the return is slower (a calm reset).
+  private updateWeaponPitch(dt: number): void {
+    if (dt <= 0) return;
+    const firing = this.playerFireTime > 0;
+    const target = firing ? this.playerAimPitch : this.playerAimPitch * 0.3;
+    const ratePerSec = firing ? 30 : 9;
+    const k = Math.min(1, ratePerSec * dt);
+    this.weaponPitch += (target - this.weaponPitch) * k;
+  }
   private drawPlayerWeapon(x: number, y: number, z: number, yaw: number): void {
     const weaponType = this.playerWeapon > 0 ? this.playerWeapon
       : (this.playerFireTime > 0 ? this.playerFireWeapon : 0);
@@ -4992,7 +5009,7 @@ void main() {
       [scale, scale, scale],
       [1, 1, 1, 1],
       false,
-      this.playerAimPitch + recoil
+      this.weaponPitch + recoil
     );
   }
   renderFirstPersonWeapon(

@@ -48,7 +48,7 @@
         <button class="race-menu-tab" [class.active]="showMultiplayer"
           (click)="toggleMultiplayerTab()">MULTIPLAYER</button>
         <button class="race-menu-tab" [class.active]="showLeaderboard" (click)="toggleLeaderboard()">
-          🏆 BEST LAPS
+          🏆 TOP SCORES
         </button>
       </div>
 
@@ -1093,11 +1093,72 @@
 
     <!-- ─── Leaderboard ─── -->
     <div id="race-leaderboard" *ngIf="showLeaderboard">
-      <div class="race-lb-title">🏆 BEST LAPS{{ selectedTrack ? ' — ' + getTrackFlag(selectedTrack) + ' ' + selectedTrack.name : '' }}</div>
+      <div class="race-lb-tabs">
+        <button class="race-lb-tab" [class.active]="leaderboardTab === 'scores'" (click)="setLeaderboardTab('scores')">🏆 TOP SCORES</button>
+        <button class="race-lb-tab" [class.active]="leaderboardTab === 'cash'" (click)="setLeaderboardTab('cash')">💰 MOST CASH</button>
+        <button class="race-lb-tab" [class.active]="leaderboardTab === 'laps'" (click)="setLeaderboardTab('laps')">⏱️ BEST LAPS</button>
+      </div>
+      <div class="race-lb-title">
+        {{ leaderboardTab === 'scores' ? '🏆 TOP SCORES' : (leaderboardTab === 'cash' ? '💰 MOST CASH' : '⏱️ BEST LAPS') }}{{ leaderboardTab === 'laps' && selectedTrack ? ' — ' + getTrackFlag(selectedTrack) + ' ' + selectedTrack.name : '' }}
+      </div>
+
+      <!-- ─── Tab: Top Scores (lifetime earnings) ─── -->
+      <ng-container *ngIf="leaderboardTab === 'scores' && !wealthLoading">
+        <div class="race-lb-unavailable" *ngIf="wealthUnavailable">
+          ⚠️ Couldn't load score data right now — the server didn't return any
+          leaderboard results. Try again in a moment.
+        </div>
+        <div class="race-lb-empty" *ngIf="!wealthUnavailable && wealthScores.length === 0">
+          No racing scores on this server yet. Race to start earning!
+        </div>
+        <div class="race-lb-cardtable" *ngIf="wealthScores.length > 0">
+          <div class="race-lb-row race-lb-header">
+            <span>#</span><span>Player</span><span>Wins / Races</span><span>Total Earned</span>
+          </div>
+          <div class="race-lb-row" *ngFor="let r of wealthScores; let i = index"
+            [class.race-lb-me]="r.playerId === (parentRef?.user?.id ?? 0)"
+            [class.race-lb-podium]="i < 3" [class.race-lb-gold]="i === 0"
+            [class.race-lb-silver]="i === 1" [class.race-lb-bronze]="i === 2">
+            <span class="race-lb-rank"><span *ngIf="i < 3" class="race-lb-trophy">{{ getWealthMedal(i) }}</span>{{ i + 1 }}</span>
+            <span class="race-lb-name" title="View racer records" (click)="openRacerProfile($any(r))">{{ r.playerName }} 👤</span>
+            <span>{{ r.wins }} / {{ r.races }}</span>
+            <span>${{ r.totalEarnings | number:'1.0-0' }}</span>
+          </div>
+        </div>
+      </ng-container>
+
+      <!-- ─── Tab: Most Cash (wallet balance) ─── -->
+      <ng-container *ngIf="leaderboardTab === 'cash' && !wealthLoading">
+        <div class="race-lb-unavailable" *ngIf="wealthUnavailable">
+          ⚠️ Couldn't load cash data right now — the server didn't return any
+          leaderboard results. Try again in a moment.
+        </div>
+        <div class="race-lb-empty" *ngIf="!wealthUnavailable && wealthCash.length === 0">
+          No player wallets on this server yet.
+        </div>
+        <div class="race-lb-cardtable" *ngIf="wealthCash.length > 0">
+          <div class="race-lb-row race-lb-header">
+            <span>#</span><span>Player</span><span>Wins / Races</span><span>Cash</span>
+          </div>
+          <div class="race-lb-row" *ngFor="let r of wealthCash; let i = index"
+            [class.race-lb-me]="r.playerId === (parentRef?.user?.id ?? 0)"
+            [class.race-lb-podium]="i < 3" [class.race-lb-gold]="i === 0"
+            [class.race-lb-silver]="i === 1" [class.race-lb-bronze]="i === 2">
+            <span class="race-lb-rank"><span *ngIf="i < 3" class="race-lb-trophy">{{ getWealthMedal(i) }}</span>{{ i + 1 }}</span>
+            <span class="race-lb-name" title="View racer records" (click)="openRacerProfile($any(r))">{{ r.playerName }} 👤</span>
+            <span>{{ r.wins }} / {{ r.races }}</span>
+            <span>${{ r.money | number:'1.0-0' }}</span>
+          </div>
+        </div>
+      </ng-container>
+
+      <div class="race-lb-alltracks-loading" *ngIf="wealthLoading && leaderboardTab !== 'laps'">
+        <span class="race-lb-spinner" aria-hidden="true"></span> Refreshing players…
+      </div>
 
       <!-- All-circuits breakdown: every track's top laps (humans + the bot field)
            with your own lap pinned after, in comparison -->
-      <ng-container>
+      <ng-container *ngIf="leaderboardTab === 'laps'">
         <div class="race-lb-alltracks-loading" *ngIf="allTracksLoading">
           <span class="race-lb-spinner" aria-hidden="true"></span> Refreshing circuits…
         </div>

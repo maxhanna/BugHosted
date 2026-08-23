@@ -83,6 +83,12 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
   // to a project) reuses the last fetch instead of re-querying the DB on every open.
   private fileSkeletonCache: { [projectPath: string]: { paths: string[]; fetchedAt: number } } = {};
   private static readonly FILE_SKELETON_TTL_MS = 2 * 60 * 1000;
+  // Opt-in project skeleton the local Weaver attached to heartbeats (the agent's
+  // real filesystem layout). Merged into fileSkeleton so the attach-file picker
+  // and the IDE project explorer see the full project even before
+  // /weaver/fileSkeleton responds, and kept across refreshes so a later DB fetch
+  // never drops it.
+  private heartbeatSkeletonPaths: string[] = [];
 
   benchmarks: BenchmarkEntry[] = [];
   // Memoized grouping: the getter runs on every change-detection digest, so the map is
@@ -254,6 +260,7 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
       this.failedCommands = [];
       this.fileSkeleton = [];
       this.fileSkeletonCache = {};
+      this.heartbeatSkeletonPaths = [];
       window.localStorage.removeItem(this.TOKEN_KEY);
     }, 50);
   }
@@ -278,6 +285,22 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
       if (hb.kanbanData) {
         try {
           const parsed: any = JSON.parse(hb.kanbanData);
+          // Opt-in project skeleton from the local Weaver (agent-generated layout)
+          // arrives inside the heartbeat payload — merge its paths into the file
+          // skeleton right away so the attach-file picker and IDE project explorer
+          // benefit without waiting for a /weaver/fileSkeleton round-trip.
+          const skel = parsed && parsed.skeleton;
+          if (skel && Array.isArray(skel.paths)) {
+            const fresh: string[] = [];
+            for (const p of skel.paths) {
+              if (typeof p === 'string' && p && !this.heartbeatSkeletonPaths.includes(p)) fresh.push(p);
+            }
+            if (fresh.length) {
+              this.heartbeatSkeletonPaths = this.heartbeatSkeletonPaths.concat(fresh).slice(0, 10000);
+              this.fileSkeleton = this.mergeSkeletonWithHeartbeat(this.fileSkeleton);
+              this.ideSkeletonTree = this.buildSkeletonTree();
+            }
+          }
           const rawProjects = parsed.projects || parsed.Projects || [];
           const newProjects = rawProjects.map((p: any) => ({
             name: p.name ?? p.Name ?? '',
@@ -1162,7 +1185,7 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
     // Serve from cache unless the entry is stale, so a quick reopen of the
     // picker is instant and only a project fetched a while ago re-queries.
     if (cached && Date.now() - cached.fetchedAt < WeaverComponent.FILE_SKELETON_TTL_MS) {
-      this.fileSkeleton = cached.paths;
+      this.fileSkeleton = this.mergeSkeletonWithHeartbeat(cached.paths);
       this.ideSkeletonTree = this.buildSkeletonTree();
       return;
     }
@@ -1173,11 +1196,21 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
         this.selectedProjectPath || undefined,
       );
       this.fileSkeletonCache[projectKey] = { paths: skeleton, fetchedAt: Date.now() };
-      this.fileSkeleton = skeleton;
+      this.fileSkeleton = this.mergeSkeletonWithHeartbeat(skeleton);
       this.ideSkeletonTree = this.buildSkeletonTree();
     } finally {
       this.fileSkeletonLoading = false;
     }
+  }
+
+  // Union of the DB-backed skeleton and the heartbeat-shared agent skeleton,
+  // deduped and capped so the picker/IDE trees stay bounded.
+  private mergeSkeletonWithHeartbeat(base: string[]): string[] {
+    const merged = new Set<string>(this.heartbeatSkeletonPaths);
+    for (const p of base) {
+      if (typeof p === 'string' && p) merged.add(p);
+    }
+    return Array.from(merged).slice(0, 10000);
   }
 
   closeFilePicker() {

@@ -356,6 +356,13 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   rankMovement = 0;
   racerProfile: { playerId: number; playerName: string; car: RacingPlayerCar | null; loading: boolean } | null = null;
   showLeaderboard = false;
+  // Menu wealth leaderboard tabs: 'scores' (lifetime earnings), 'cash' (wallet
+  // balance) and 'laps' (the existing per-track best-lap boards).
+  leaderboardTab: 'scores' | 'cash' | 'laps' = 'scores';
+  wealthScores: { playerId: number; playerName: string; totalEarnings: number; wins: number; races: number; isBot: boolean }[] = [];
+  wealthCash: { playerId: number; playerName: string; money: number; wins: number; races: number; isBot: boolean }[] = [];
+  wealthLoading = false;
+  wealthUnavailable = false;
   get hubConnected(): boolean { return this.racingHub.connected; }
   get myConnectionId(): string | null { return this.racingHub.myConnectionId; }
   get myLobbyName(): string {
@@ -3407,9 +3414,40 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     if (this.showLeaderboard) {
       this.parentRef?.showOverlay();
       await this.loadAllTrackLeaderboards();
+      void this.loadWealthLeaderboard();
     } else {
       this.parentRef?.closeOverlay();
     }
+  }
+  // Switch the leaderboard panel between Top Scores / Most Cash / Best Laps.
+  // The wealth lists load once (the first time they're shown) and then just
+  // switch instantly on subsequent visits. Refreshes on every open (toggle).
+  setLeaderboardTab(tab: 'scores' | 'cash' | 'laps') {
+    this.leaderboardTab = tab;
+    if (tab !== 'laps' && this.wealthScores.length === 0 && !this.wealthLoading) {
+      void this.loadWealthLeaderboard();
+    }
+  }
+  async loadWealthLeaderboard() {
+    this.wealthLoading = true;
+    this.wealthUnavailable = false;
+    const data = await this.racingService.getWealthLeaderboard();
+    this.wealthLoading = false;
+    if (data) {
+      this.wealthScores = data.scores ?? [];
+      this.wealthCash = data.cash ?? [];
+    } else {
+      this.wealthScores = [];
+      this.wealthCash = [];
+      this.wealthUnavailable = true;
+    }
+  }
+  // Rank medal for the top three entries of a wealth list (takes an index).
+  getWealthMedal(i: number): string {
+    if (i === 0) return '🥇';
+    if (i === 1) return '🥈';
+    if (i === 2) return '🥉';
+    return '';
   }
   // Drop degenerate rows (missing lap or name — e.g. an older server that
   // serialized the leaderboard DTO as empty {} objects) and empty boards, so a

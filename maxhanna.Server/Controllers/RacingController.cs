@@ -982,6 +982,77 @@ namespace maxhanna.Server.Controllers
 			catch { return Ok(new { results = new List<object>(), totalCount = 0, userRank = 0, bestLap = 0.0 }); }
 		}
 		/// <summary>
+		/// Menu "wealth" leaderboard: ranks real racers two ways at once — by
+		/// lifetime earnings (the "top scores" list) and by current wallet
+		/// balance (the "most cash" list). Bots are excluded because they don't
+		/// persist money/earnings. Queued from the DB so a freshly-restarted
+		/// server still reports the full field, matching the other leaderboards.
+		/// </summary>
+		[HttpGet("leaderboard-wealth")]
+		public async Task<IActionResult> GetWealthLeaderboard()
+		{
+			try
+			{
+				var scores = new List<object>();
+				var cash = new List<object>();
+				var connStr = _config.GetValue<string>("ConnectionStrings:maxhanna");
+				if (!string.IsNullOrEmpty(connStr))
+				{
+					using var conn = new MySqlConnection(connStr);
+					await conn.OpenAsync();
+					using var cmd = new MySqlCommand(@"
+						SELECT c.user_id, c.money, c.total_earnings, c.wins, c.total_races,
+						       COALESCE(NULLIF(c.player_name, ''), u.username, 'Unknown') AS player_name
+						FROM racing_player_car c
+						LEFT JOIN users u ON c.user_id = u.id
+						WHERE c.user_id > 0", conn);
+					using (var rdr = await cmd.ExecuteReaderAsync())
+					{
+						while (await rdr.ReadAsync())
+						{
+							int uid = rdr.GetInt32(0);
+							if (uid <= 0) continue;
+							int money = rdr.GetInt32(1);
+							int earnings = rdr.GetInt32(2);
+							int wins = rdr.GetInt32(3);
+							int races = rdr.GetInt32(4);
+							string name = rdr.IsDBNull(5) ? "Unknown" : rdr.GetString(5);
+							scores.Add(new
+							{
+								playerId = uid,
+								playerName = name,
+								totalEarnings = earnings,
+								wins,
+								races,
+								isBot = false
+							});
+							cash.Add(new
+							{
+								playerId = uid,
+								playerName = name,
+								money,
+								wins,
+								races,
+								isBot = false
+							});
+						}
+					}
+				}
+				var rankedScores = scores
+					.OrderByDescending(e => ((dynamic)e).totalEarnings)
+					.ThenByDescending(e => ((dynamic)e).wins)
+					.Take(100)
+					.ToList();
+				var rankedCash = cash
+					.OrderByDescending(e => ((dynamic)e).money)
+					.ThenByDescending(e => ((dynamic)e).totalEarnings)
+					.Take(100)
+					.ToList();
+				return Ok(new { scores = rankedScores, cash = rankedCash });
+			}
+			catch { return Ok(new { scores = new List<object>(), cash = new List<object>() }); }
+		}
+		/// <summary>
 		/// Rebuilds a player's stored upgrades from the current tier table while
 		/// preserving their progress. Each category's tiers are granted in order
 		/// until the cumulative stat bonus lands nearest the player's old total,

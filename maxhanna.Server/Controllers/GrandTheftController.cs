@@ -702,6 +702,23 @@ namespace maxhanna.Server.Controllers
 		private static readonly ConcurrentDictionary<int, float> _playerPitch = new();
 		private static readonly ConcurrentDictionary<int, float> _playerCarYaw = new();
 		private static readonly ConcurrentDictionary<int, float> _playerCarSpeed = new();
+
+		// ── Carjack-back mechanic ──────────────────────────────────────────────
+		// While you drive a stealable car slowly, a nearby thug may snatch it
+		// back — pull you out and drive off, and with a chance also rip you out
+		// and fight you. Tune here:
+		private const double STEALBACK_CHANCE_PER_SEC = 0.12;   // per-second roll while eligible
+		private const float STEALBACK_SPEED_CAP = 6f;           // car must be slower than this
+		private const double STEALBACK_FIGHT_CHANCE = 0.45;     // of a successful theft, also fight
+		private const float STEALBACK_RANGE = 3.1f;             // thug reach distance to the car
+		private const int STEALBACK_COOLDOWN_MS = 45000;        // min gap between attempts
+		private const int STEALBACK_CHASE_TIMEOUT_MS = 9000;    // give up after chasing this long
+		private const double STEALBACK_FIGHT_S = 12f;           // how long the fight lasts
+		private const float STEALBACK_THIEF_SPEED = 5.0f;
+		private const float STEALBACK_MAX_DIST = 14f;           // only hunt a thug spawned within reach
+		private static readonly ConcurrentDictionary<int, long> _stealBackNextMs = new();
+		private static readonly ConcurrentDictionary<int, long> _stealBackThief = new();
+		private static readonly ConcurrentDictionary<int, long> _stealBackChaseStartMs = new();
 		private static readonly ConcurrentDictionary<int, int> _playerWorldId = new();
 		private static Timer? _persistTimer;
 		private static Timer? _cleanupTimer;
@@ -3126,9 +3143,171 @@ namespace maxhanna.Server.Controllers
 					parkedAircraft++;
 				}
 			}
+			// Chance an NPC steals your car back (and sometimes rips you out and
+			// fights). Runs after the per-NPC sim so it can spawn/hone a thug.
+			MaybeStealBackCar(worldId, npcs, userId, posX, posZ, rng, now);
 			var dw = BuildDroppedWeapons();
 			return Ok(new { cars, pedestrians, parkedCars, aircraft, deadBodies, droppedWeapons = dw });
 		}
+		private static bool IsStealableCar(string? type)
+		{
+			switch (type)
+			{
+				case "taxi":
+				case "police":
+				case "boat":
+				case "jet":
+				case "plane":
+				case "helicopter":
+				case "bike":
+				case "bicycle":
+					return false;
+				default:
+					return type != null;
+			}
+		}
+
+		private void ClearCarjackThief(int userId)
+		{
+			_stealBackThief.TryRemove(userId, out _);
+			_stealBackChaseStartMs.TryRemove(userId, out _);
+		}
+
+		/// Spawn the player's stolen car back as a drivable NPC that drives off
+		/// after a carjack — so the victim loses the car, not just the seat.
+		private void SpawnCarjackedCar(int worldId, ConcurrentDictionary<long, NpcState> npcs, int userId, float px, float pz, Random rng)
+		{
+			_playerVehicleType.TryGetValue(userId, out var vt);
+			_playerCarColorR.TryGetValue(userId, out var cr);
+			_playerCarColorG.TryGetValue(userId, out var cg);
+			_playerCarColorB.TryGetValue(userId, out var cb);
+			GetRandomSidewalkPointNearPlayer(px, pz, out float tx, out float tz, rng, minDist: 28f);
+			float dirX = tx - px, dirZ = tz - pz;
+			long id = GetNextNpcId();
+			npcs[id] = new NpcState
+			{
+				Id = id,
+				Type = string.IsNullOrEmpty(vt) ? "car" : vt,
+				IsParked = false,
+				X = px,
+				Y = 0f,
+				Z = pz,
+				TargetX = tx,
+				TargetZ = tz,
+				Yaw = (float)Math.Atan2(dirX, dirZ),
+				Speed = 14f,
+				Health = 200,
+				MaxHealth = 200,
+				Cr = cr,
+				Cg = cg,
+				Cb = cb,
+				HasDriver = true,
+				PassengerCount = 0,
+				Gender = "male",
+			};
+		}
+
+		/// Roll + drive the "NPC steals your car back" mechanic for one player on
+		/// one NPC tick. Called from GetNPCs.
+		private void MaybeStealBackCar(int worldId, ConcurrentDictionary<long, NpcState> npcs, int userId, float posX, float posZ, Random rng, DateTime now)
+		{
+			_playerInCar.TryGetValue(userId, out var inCar);
+			if (!inCar) { ClearCarjackThief(userId); return; }
+			_playerVehicleType.TryGetValue(userId, out var vehType);
+			_playerCarSpeed.TryGetValue(userId, out var carSpeed);
+			if (!IsStealableCar(vehType)) { ClearCarjackThief(userId); return; }
+
+			long nowMs = now.Ticks / TimeSpan.TicksPerMillisecond;
+			long thiefId = _stealBackThief.TryGetValue(userId, out var tid) ? tid : 0;
+
+			if (thiefId != 0)
+			{
+				// Active thug: keep it homing on the (slow) car, or give up if the
+				// chase drags on (player sped off or left the car).
+				long chaseStart = _stealBackChaseStartMs.TryGetValue(userId, out var cs) ? cs : nowMs;
+				if (!npcs.ContainsKey(thiefId) || carSpeed >= STEALBACK_SPEED_CAP || (nowMs - chaseStart) > STEALBACK_CHASE_TIMEOUT_MS)
+				{
+					ClearCarjackThief(userId);
+					_stealBackNextMs[userId] = nowMs + STEALBACK_COOLDOWN_MS;
+					return;
+				}
+				if (npcs.TryGetValue(thiefId, out var thief))
+				{
+					thief.TargetX = posX;
+					thief.TargetZ = posZ;
+					thief.Speed = STEALBACK_THIEF_SPEED;
+					float tdx = posX - thief.X, tdz = posZ - thief.Z;
+					float tdist = (float)Math.Sqrt(tdx * tdx + tdz * tdz);
+					if (tdist <= STEALBACK_RANGE)
+					{
+						// Got you: pull the player out, take the car, and with a chance
+						// rip them out and fight them too.
+						_evictedPlayers[userId] = true;
+						SpawnCarjackedCar(worldId, npcs, userId, posX, posZ, rng);
+						if (rng.NextDouble() < STEALBACK_FIGHT_CHANCE)
+						{
+							// The thug also fights the now-on-foot player.
+							thief.FightBackUntil = now.AddSeconds(STEALBACK_FIGHT_S);
+							thief.TargetUserId = userId;
+							thief.IsShootingAt = false;
+						}
+						else
+						{
+							// Just took the car — the thug strides off a normal ped.
+							thief.FightBackUntil = null;
+							thief.TargetUserId = 0;
+							thief.IsShootingAt = false;
+							GetRandomSidewalkPointNearPlayer(thief.X, thief.Z, out float wx, out float wz, rng);
+							thief.TargetX = wx;
+							thief.TargetZ = wz;
+							thief.Speed = 2f;
+						}
+						ClearCarjackThief(userId);
+						_stealBackNextMs[userId] = nowMs + STEALBACK_COOLDOWN_MS;
+					}
+				}
+				else
+				{
+					ClearCarjackThief(userId);
+				}
+				return;
+			}
+
+			// No active thug: only carjack while the car is slow, and only roll
+			// once the cooldown has passed.
+			if (carSpeed >= STEALBACK_SPEED_CAP) return;
+			if (_stealBackNextMs.TryGetValue(userId, out var next) && nowMs < next) return;
+			if (rng.NextDouble() >= STEALBACK_CHANCE_PER_SEC) return;
+
+			// Spawn a thug near the car and send it running over.
+			float ang = (float)(rng.NextDouble() * Math.PI * 2);
+			float dist = 4f + (float)rng.NextDouble() * 3f;
+			float sx = posX + (float)Math.Cos(ang) * dist;
+			float sz = posZ + (float)Math.Sin(ang) * dist;
+			if (Math.Abs(sx - posX) > STEALBACK_MAX_DIST || Math.Abs(sz - posZ) > STEALBACK_MAX_DIST) return;
+			string gen = rng.Next(2) == 0 ? "male" : "female";
+			long id = GetNextNpcId();
+			npcs[id] = new NpcState
+			{
+				Id = id,
+				Type = "ped_" + gen,
+				Gender = gen,
+				X = sx,
+				Y = 0f,
+				Z = sz,
+				TargetX = posX,
+				TargetZ = posZ,
+				Yaw = (float)Math.Atan2(posX - sx, posZ - sz),
+				Speed = STEALBACK_THIEF_SPEED,
+				Health = 100,
+				Cr = 0.2f + (float)rng.NextDouble() * 0.5f,
+				Cg = 0.2f + (float)rng.NextDouble() * 0.5f,
+				Cb = 0.2f + (float)rng.NextDouble() * 0.5f,
+			};
+			_stealBackThief[userId] = id;
+			_stealBackChaseStartMs[userId] = nowMs;
+		}
+
 		[HttpGet("activeplayers")]
 		public IActionResult GetActivePlayers()
 		{

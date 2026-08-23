@@ -399,7 +399,7 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
       this.userEventService.insertUserEvent(
         this.parentRef.user.id,
         'todo_added',
-        'Added a todo!',
+        'Added a Todo!',
         Number.isNaN(todoId) ? undefined : todoId,
         'todo'
       );
@@ -457,7 +457,7 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
       this.userEventService.insertUserEvent(
       this.parentRef.user.id,
       'todo_deleted',
-      `Deleted todo: ${tmpTodo.todo}`,
+      `Deleted Todo`,
       id,
       'todo'
       );

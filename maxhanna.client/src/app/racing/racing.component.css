@@ -6178,6 +6178,39 @@
   pointer-events: auto;
 }
 
+.race-lb-tabs {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.race-lb-tab {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.75);
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.race-lb-tab:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+.race-lb-tab.active {
+  background: linear-gradient(90deg, rgba(229, 57, 53, 0.9), rgba(255, 111, 60, 0.85));
+  border-color: rgba(255, 160, 90, 0.8);
+  color: #fff;
+  box-shadow: 0 0 12px rgba(255, 111, 60, 0.4);
+}
+.race-lb-cardtable {
+  display: flex;
+  flex-direction: column;
+}
 .race-lb-title {
   text-align: center;
   font-size: 20px;
