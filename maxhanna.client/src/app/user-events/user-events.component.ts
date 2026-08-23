@@ -104,43 +104,45 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
       this.loading = false;
     }
   }
-  
+
   getEventIcon(eventType: string): string {
     switch (eventType.toLowerCase()) {
-      case 'file_upload': return '📁';
-      case 'upload_file': return '📁';
-      case 'story_post': return '🌍';
-      case 'grandtheft': return '🚔';
+      case 'file_upload': return this.parentRef?.navigationItems.find(x => x.title === 'Files')?.icon || '📁';
+      case 'upload_file': return this.parentRef?.navigationItems.find(x => x.title === 'Files')?.icon || '📁';
+      case 'story_post': return this.parentRef?.navigationItems.find(x => x.title === 'Social')?.icon || '🌍';
+      case 'grandtheft': return this.parentRef?.navigationItems.find(x => x.title === 'GrandTheft')?.icon || '🚔';
       case 'comment': return '💬';
-      case 'bones_kill': return '⚔️';
-      case 'bones_death': return '💀';
-      case 'ender_kill': return '🏍️';
-      case 'ender_death': return '💥';
-      case 'digcraft_play': return '⛏️';
-      case 'digcraft_death': return '⛏️';
-      case 'digcraft_kill': return '⛏️';
-      case 'emulator_play': return '🎮';
-      case 'nexus_play': return '🐛';
-      case 'meta_encounter': return '🤖';
-      case 'daily_meme': return '😂';
+      case 'bones_kill': return this.parentRef?.navigationItems.find(x => x.title === 'Bones')?.icon || '⚔️';
+      case 'bones_death': return this.parentRef?.navigationItems.find(x => x.title === 'Bones')?.icon || '💀';
+      case 'ender_kill': return this.parentRef?.navigationItems.find(x => x.title === 'Ender')?.icon || '🏍️';
+      case 'ender_death': return this.parentRef?.navigationItems.find(x => x.title === 'Ender')?.icon || '💥';
+      case 'digcraft_play': return this.parentRef?.navigationItems.find(x => x.title === 'DigCraft')?.icon || '⛏️';
+      case 'digcraft_death': return this.parentRef?.navigationItems.find(x => x.title === 'DigCraft')?.icon || '⛏️';
+      case 'digcraft_kill': return this.parentRef?.navigationItems.find(x => x.title === 'DigCraft')?.icon || '⛏️';
+      case 'emulator_play': return this.parentRef?.navigationItems.find(x => x.title === 'Emulation')?.icon || '🎮';
+      case 'nexus_play': return this.parentRef?.navigationItems.find(x => x.title === 'Bug-Wars')?.icon || '🐛';
+      case 'meta_encounter': return this.parentRef?.navigationItems.find(x => x.title === 'Meta-Bots')?.icon || '🤖';
+      case 'daily_meme': return this.parentRef?.navigationItems.find(x => x.title === 'Memes')?.icon || '😂';
       case 'favourite_add': return '⭐';
-      case 'digcraft_levelup': return '⬆️';
-      case 'trade_executed': return '₿';
+      case 'digcraft_levelup': return this.parentRef?.navigationItems.find(x => x.title === 'DigCraft')?.icon || '⬆️';
+      case 'trade_executed': return this.parentRef?.navigationItems.find(x => x.title === 'Crypto-Hub')?.icon || '₿';
       case 'trophy': return '🏆';
       case 'reaction_added': return '😊';
-      case 'wordler_win': return '🧠';
+      case 'wordler_win': return this.parentRef?.navigationItems.find(x => x.title === 'Wordler')?.icon || '🧠';
       case 'youtube': return '▶️';
-      case 'link': return '🕸️';
+      case 'link': return this.parentRef?.navigationItems.find(x => x.title === 'Crawler')?.icon || '🕸️';
       case 'flighttracking': return '✈️';
-      case 'weaver_card_added': return '🕷️';
-      case 'weaver_card_created': return '🕷️';
-      case 'recipe_edited': return '🍳';
-      case 'recipe_added': return '🍳';
-      case 'racing': return '🏎️';
-      case 'marbles': return '🌀';
+      case 'weaver_card_added': return this.parentRef?.navigationItems.find(x => x.title === 'Weaver')?.icon || '🕷️';
+      case 'weaver_card_created': return this.parentRef?.navigationItems.find(x => x.title === 'Weaver')?.icon || '🕷️';
+      case 'recipe_edited': return this.parentRef?.navigationItems.find(x => x.title === 'Recipe')?.icon || '🍳';
+      case 'recipe_added': return this.parentRef?.navigationItems.find(x => x.title === 'Recipe')?.icon || '🍳';
+      case 'racing': return this.parentRef?.navigationItems.find(x => x.title === 'Racing')?.icon || '🏎️';
+      case 'marbles': return this.parentRef?.navigationItems.find(x => x.title === 'Marbles')?.icon || '🌀';
+      case 'save_note': return this.parentRef?.navigationItems.find(x => x.title === 'Notepad')?.icon || '🗒️';
+      case 'downloaded_painting': return this.parentRef?.navigationItems.find(x => x.title === 'Paint')?.icon || '🖍️';
       default: return '📌';
     }
-  } 
+  }
 
   getEventDescription(eventType: string): string {
     const descriptions: { [key: string]: string } = {
@@ -212,6 +214,9 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
     else if (e.eventType === 'comment') {
       this.viewComment(e);
     }
+    else if (e.eventType === 'downloaded_painting') {
+      this.parentRef?.createComponent('Paint');
+    }
     else if (e.eventType === 'upload') {
       this.parentRef?.createComponent('Files', { 'FileId': e.referenceId });
     }
@@ -220,6 +225,9 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
     }
     else if (e.eventType === 'trade_executed') {
       this.parentRef?.createComponent('Crypto-Hub');
+    }
+    else if (e.eventType === 'save_note') {
+      this.parentRef?.createComponent('Notepad', { 'noteId': e.referenceId });
     }
   }
 

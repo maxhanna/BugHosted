@@ -920,7 +920,11 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
   private applyBoard(bu: { board: number[][]; popped: { row: number; col: number; color: number }[]; rained?: number; dropped?: boolean; dropSide?: number; rowShifted?: number; specialColor?: number; reserve?: number; sent?: number; score?: number; alive?: boolean; winnerName?: string | null }): void {
     const oldBoard = this._board;
     this._board = bu.board;
-    this.sprites = this.matchSpritesToBoard(this.sprites, bu.board, oldBoard, bu.popped ?? [], bu.rowShifted ?? 0, 0, bu.dropSide ?? 0);
+    if (bu.rowShifted && (bu.popped?.length ?? 0) === 0 && this.isPureRowShift(oldBoard, bu.board, bu.rowShifted)) {
+      this.sprites = this.matchPureRowShiftSprites(this.sprites, bu.board, oldBoard, bu.rowShifted);
+    } else {
+      this.sprites = this.matchSpritesToBoard(this.sprites, bu.board, oldBoard, bu.popped ?? [], bu.rowShifted ?? 0, 0, bu.dropSide ?? 0);
+    }
   }
 
   /** Animate the opponent's board the same way as the player's: match the
@@ -946,7 +950,69 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     // snapping, which reads as smooth recovery rather than a hitch.
     const moveDur = Math.round(Math.min(1200, Math.max(220, this._oppIntervalMs || 350)));
 
-    this._oppSprites = this.matchSpritesToBoard(this._oppSprites, opp.board, oldBoard, opp.popped ?? [], opp.rowShifted ?? 0, moveDur, opp.dropSide ?? 0);
+    if (opp.rowShifted && (opp.popped?.length ?? 0) === 0 && this.isPureRowShift(oldBoard, opp.board, opp.rowShifted)) {
+      this._oppSprites = this.matchPureRowShiftSprites(this._oppSprites, opp.board, oldBoard, opp.rowShifted, moveDur);
+    } else {
+      this._oppSprites = this.matchSpritesToBoard(this._oppSprites, opp.board, oldBoard, opp.popped ?? [], opp.rowShifted ?? 0, moveDur, opp.dropSide ?? 0);
+    }
+  }
+
+  /** True when the authoritative update only rotates the pitch row. */
+  private isPureRowShift(oldBoard: number[][], newBoard: number[][], dir: number): boolean {
+    if (oldBoard.length !== ROWS || newBoard.length !== ROWS) return false;
+    for (let r = 0; r < ROWS; r++) {
+      if (!oldBoard[r] || !newBoard[r] || oldBoard[r].length !== COLS || newBoard[r].length !== COLS) return false;
+      for (let c = 0; c < COLS; c++) {
+        const expected = r === PITCH_ROW
+          ? oldBoard[r][(c - dir + COLS) % COLS]
+          : oldBoard[r][c];
+        if (newBoard[r][c] !== expected) return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Rotate a clean pitch row by mapping every existing sprite from its exact
+   * source cell to its exact destination. This avoids color-based matching,
+   * which is ambiguous when adjacent marbles share a color and can otherwise
+   * leave survivors unmatched and make them respawn from above.
+   */
+  private matchPureRowShiftSprites(sprites: Sprite[], newBoard: number[][], oldBoard: number[][], dir: number, moveDur = 0): Sprite[] {
+    const live = sprites.filter(s => s.phase !== 'pop');
+    const byCell = new Map<string, Sprite>();
+    for (const s of live) {
+      const row = Math.round(s.tRow);
+      const col = Math.round(s.tCol);
+      byCell.set(`${row},${col}`, s);
+    }
+
+    const next: Sprite[] = [];
+    const used = new Set<Sprite>();
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const color = newBoard[r]?.[c] ?? 0;
+        if (!color) continue;
+        const sourceCol = r === PITCH_ROW ? (c - dir + COLS) % COLS : c;
+        const sprite = byCell.get(`${r},${sourceCol}`);
+        if (!sprite || sprite.color !== color || used.has(sprite)) {
+          // This should only be reachable if an update arrived while a prior
+          // animation was still being reconciled; let the general matcher
+          // handle that exceptional snapshot rather than inventing a spawn.
+          return this.matchSpritesToBoard(sprites, newBoard, oldBoard, [], dir, moveDur);
+        }
+        used.add(sprite);
+        this.setTarget(sprite, c, r, moveDur);
+        next.push(sprite);
+      }
+    }
+
+    // A pure row shift cannot create or remove marbles. Keep any already-popping
+    // visual effects alive until their normal animation cleanup removes them.
+    for (const sprite of sprites) {
+      if (sprite.phase === 'pop') next.push(sprite);
+    }
+    return next;
   }
 
   /** Match a set of sprites to a new board, producing the animated targets.
@@ -1207,9 +1273,9 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
   shiftRow(dir: number): void {
     if (this.status !== 'playing') return;
     this.playClick();
-    // Dead reckoning: animate the shift locally right away so the board stays
-    // responsive even if the server confirmation is delayed by the network.
-    this.predictRowShift(dir);
+    // Row shifts are reconciled from the authoritative update. Predicting them
+    // locally can race a drop update and make the same board appear to change
+    // twice, which causes unrelated marbles to be treated as new spawns.
     this.hub.shiftRow(this.roomCode, dir);
   }
 
@@ -1365,7 +1431,8 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
   private shiftP2Row(dir: number): void {
     if (this.status !== 'playing' || !this.isLocal2P) return;
     this.playClick();
-    this.predictP2RowShift(dir);
+    // The authoritative opponent update carries rowShifted, so use the same
+    // exact row remapping as P1 instead of racing a local prediction.
     this.hub.shiftRow(this.roomCode, dir, 1);
   }
 

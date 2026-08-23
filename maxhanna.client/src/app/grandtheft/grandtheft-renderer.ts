@@ -169,8 +169,9 @@ function getBeachHeight(x: number, z: number): number {
       if (dist < minDist) minDist = dist;
     }
   }
-  const t = Math.max(0, Math.min(1, minDist / CHUNK));
-  return -2.5 * (1 - t);
+  const t = Math.max(0, Math.min(1, minDist / 28));
+  const smooth = t * t * (3 - 2 * t);
+  return -2.5 * (1 - smooth);
 }
 function isOnRoadGrid(x: number, z: number): boolean {
   const roadHalf = ROAD_HALF_WIDTH;
@@ -1969,6 +1970,97 @@ void main() {
     );
     indices.push(idxOffset, idxOffset + 2, idxOffset + 1, idxOffset, idxOffset + 3, idxOffset + 2);
   }
+  private addBeachGround(
+    verts: number[], indices: number[], worldOriginX: number, worldOriginZ: number,
+    idxOffset: number, segments = 8
+  ): number {
+    const sand = [0.76, 0.70, 0.51];
+    const wetSand = [0.50, 0.57, 0.50];
+    const step = CHUNK_SIZE / segments;
+    for (let zi = 0; zi <= segments; zi++) {
+      for (let xi = 0; xi <= segments; xi++) {
+        const x = worldOriginX + Math.min(xi * step, CHUNK_SIZE - 0.01);
+        const z = worldOriginZ + Math.min(zi * step, CHUNK_SIZE - 0.01);
+        const base = getBeachHeight(x, z);
+        const y = isOnRoadGrid(x, z)
+          ? 0
+          : isOnSidewalk(x, z)
+            ? Math.max(base + SIDEWALK_RAISE, 0)
+            : base;
+        const wet = Math.max(0, Math.min(1, -base / 2.5));
+        const r = sand[0] * (1 - wet) + wetSand[0] * wet;
+        const g = sand[1] * (1 - wet) + wetSand[1] * wet;
+        const b = sand[2] * (1 - wet) + wetSand[2] * wet;
+        verts.push(x, y, z, r, g, b, 1);
+      }
+    }
+    for (let zi = 0; zi < segments; zi++) {
+      for (let xi = 0; xi < segments; xi++) {
+        const row = segments + 1;
+        const a = idxOffset + zi * row + xi;
+        indices.push(a, a + row, a + 1, a + 1, a + row, a + row + 1);
+      }
+    }
+    return idxOffset + (segments + 1) * (segments + 1);
+  }
+  private addShoreStrip(
+    verts: number[], indices: number[],
+    boundary: number, fixed: number, direction: 'x' | 'z', directionSign: 1 | -1,
+    inward: number, outward: number, width: number,
+    idxOffset: number, segments = 16, foam = false
+  ): number {
+    const sand = foam ? [0.86, 0.88, 0.78] : [0.76, 0.69, 0.48];
+    const wetSand = foam ? [0.58, 0.72, 0.70] : [0.47, 0.55, 0.48];
+    const vertexAt = (distance: number, across: number) => {
+      const t = Math.max(0, Math.min(1, (distance + inward) / inward));
+      const smooth = t * t * (3 - 2 * t);
+      const y = foam ? -2.35 : -2.5 * smooth;
+      const r = sand[0] * (1 - smooth) + wetSand[0] * smooth;
+      const g = sand[1] * (1 - smooth) + wetSand[1] * smooth;
+      const b = sand[2] * (1 - smooth) + wetSand[2] * smooth;
+      return direction === 'x'
+        ? [boundary + directionSign * distance, fixed + across, y, r, g, b, 1]
+        : [fixed + across, boundary + directionSign * distance, y, r, g, b, 1];
+    };
+    for (let i = 0; i <= segments; i++) {
+      const d = -inward + (inward + outward) * (i / segments);
+      verts.push(...vertexAt(d, -width / 2), ...vertexAt(d, width / 2));
+    }
+    for (let i = 0; i < segments; i++) {
+      const a = idxOffset + i * 2;
+      indices.push(a, a + 2, a + 1, a + 1, a + 2, a + 3);
+    }
+    return idxOffset + (segments + 1) * 2;
+  }
+  private addShoreCorner(
+    verts: number[], indices: number[], cornerX: number, cornerZ: number,
+    dx: number, dz: number, idxOffset: number, segments = 10
+  ): number {
+    const innerRadius = 10;
+    const outerRadius = 12;
+    const sand = [0.72, 0.66, 0.46];
+    const wetSand = [0.42, 0.51, 0.46];
+    for (let i = 0; i <= segments; i++) {
+      const t = i / segments;
+      const angle = (Math.PI / 2) * t;
+      const cos = Math.cos(angle), sin = Math.sin(angle);
+      for (const radius of [innerRadius, outerRadius]) {
+        const x = cornerX - dx * cos * radius;
+        const z = cornerZ - dz * sin * radius;
+        const wet = radius === outerRadius ? 1 : 0;
+        const r = sand[0] * (1 - wet) + wetSand[0] * wet;
+        const g = sand[1] * (1 - wet) + wetSand[1] * wet;
+        const b = sand[2] * (1 - wet) + wetSand[2] * wet;
+        const y = -2.5 * wet;
+        verts.push(x, y, z, r, g, b, 1);
+      }
+    }
+    for (let i = 0; i < segments; i++) {
+      const a = idxOffset + i * 2;
+      indices.push(a, a + 2, a + 1, a + 1, a + 2, a + 3);
+    }
+    return idxOffset + (segments + 1) * 2;
+  }
   // Generate (and cache) every chunk in a square radius around a chunk
   // coordinate so raising the view-distance slider doesn't hitch mid-frame.
   prewarmChunks(cx: number, cz: number, radius: number) {
@@ -2044,30 +2136,39 @@ void main() {
     const isRural = isRuralFarm || isRuralHills || isRuralMountain || isRuralLakes || isRuralDesert;
     const blocksPerChunk = CHUNK_SIZE / GRID_PITCH;
     if (isBeach) {
-      const sr = 0.76 + (rng() - 0.5) * 0.05;
-      const sg = 0.70 + (rng() - 0.5) * 0.05;
-      const sb = 0.50 + (rng() - 0.5) * 0.05;
-      this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.0, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, sr, sg, sb, 1.0, idxOffset); idxOffset += 4;
+      idxOffset = this.addBeachGround(verts, indices, worldOriginX, worldOriginZ, idxOffset);
       if (isWaterAdjacent()) {
         const cx2 = cx * CHUNK_SIZE + CHUNK_SIZE / 2;
         const cz2 = cz * CHUNK_SIZE + CHUNK_SIZE / 2;
-        this.addPlane(verts, indices, cx2, -2.5, cz2, CHUNK_SIZE, CHUNK_SIZE, 0.0, 0.10, 0.30, 0.85, idxOffset); idxOffset += 4;
-        this.addPlane(verts, indices, cx2, -2.0, cz2, CHUNK_SIZE, CHUNK_SIZE, 0.10, 0.30, 0.50, 0.55, idxOffset); idxOffset += 4;
-        const dirs = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+        const dirs = [[0, 1], [0, -1], [1, 0], [-1, 0]] as const;
         const oceanSides: [number, number][] = [];
-        const slopeW = 8;
+        const slopeInward = 28;
+        const slopeOutward = 10;
         for (const [ddx, ddz] of dirs) {
           if (getBiome(cx + ddx, cz + ddz) !== 'ocean') continue;
           oceanSides.push([ddx, ddz]);
-          for (let si = 0; si < slopeW; si++) {
-            const t = si / slopeW;
-            const sx = ddx !== 0 ? cx * CHUNK_SIZE + (ddx > 0 ? CHUNK_SIZE + t * slopeW : -t * slopeW) : cx2;
-            const sz = ddz !== 0 ? cz * CHUNK_SIZE + (ddz > 0 ? CHUNK_SIZE + t * slopeW : -t * slopeW) : cz2;
-            const sy = -t * 2.5;
-            const w = ddx !== 0 ? slopeW * 0.6 : CHUNK_SIZE;
-            const d = ddz !== 0 ? slopeW * 0.6 : CHUNK_SIZE;
-            const shade = 0.65 - t * 0.20;
-            this.addBox(verts, indices, sx, sy, sz, w, 0.3, d, shade, shade * 0.92, shade * 0.7, 1.0, idxOffset); idxOffset += 24;
+          if (ddx !== 0) {
+            const boundary = ddx > 0 ? (cx + 1) * CHUNK_SIZE : cx * CHUNK_SIZE;
+            idxOffset = this.addShoreStrip(
+              verts, indices, boundary, cz2, 'x', ddx, slopeInward, slopeOutward,
+              CHUNK_SIZE, idxOffset
+            );
+            // A thin foam line follows the same continuous shoreline rather than
+            // being built from floating cubes.
+            idxOffset = this.addShoreStrip(
+              verts, indices, boundary, cz2, 'x', ddx, 0.8, 0.8,
+              CHUNK_SIZE, idxOffset, 12, true
+            );
+          } else {
+            const boundary = ddz > 0 ? (cz + 1) * CHUNK_SIZE : cz * CHUNK_SIZE;
+            idxOffset = this.addShoreStrip(
+              verts, indices, boundary, cx2, 'z', ddz, slopeInward, slopeOutward,
+              CHUNK_SIZE, idxOffset
+            );
+            idxOffset = this.addShoreStrip(
+              verts, indices, boundary, cx2, 'z', ddz, 0.8, 0.8,
+              CHUNK_SIZE, idxOffset, 12, true
+            );
           }
         }
         for (let i = 0; i < oceanSides.length; i++) {
@@ -2077,15 +2178,36 @@ void main() {
             if (dx1 * dx2 + dz1 * dz2 !== 0) continue;
             const cornerX = cx * CHUNK_SIZE + (dx1 > 0 || dx2 > 0 ? CHUNK_SIZE : 0);
             const cornerZ = cz * CHUNK_SIZE + (dz1 > 0 || dz2 > 0 ? CHUNK_SIZE : 0);
-            const csi = 6;
-            for (let si = 0; si < csi; si++) {
-              const t = (si + 0.5) / csi;
-              const bx = cornerX + (dx1 + dx2) * t * slopeW * 0.65;
-              const bz = cornerZ + (dz1 + dz2) * t * slopeW * 0.65;
-              const by = -t * 2.5;
-              const shade = 0.65 - t * 0.20;
-              this.addBox(verts, indices, bx, by, bz, 3.2, 0.3, 3.2, shade, shade * 0.92, shade * 0.7, 1.0, idxOffset); idxOffset += 24;
-            }
+            idxOffset = this.addShoreCorner(verts, indices, cornerX, cornerZ, dx1, dz2, idxOffset);
+          }
+        }
+        // Wet-sand streaks and small shell/rock clusters give the waterline a
+        // natural transition while remaining part of the chunk mesh.
+        for (let detail = 0; detail < 5; detail++) {
+          const side = oceanSides[Math.floor(rng() * oceanSides.length)];
+          if (!side) break;
+          const [ddx, ddz] = side;
+          const along = 10 + rng() * (CHUNK_SIZE - 20);
+          const depth = 13 + rng() * 8;
+          const px = ddx !== 0
+            ? (ddx > 0 ? (cx + 1) * CHUNK_SIZE - depth : cx * CHUNK_SIZE + depth)
+            : worldOriginX + along;
+          const pz = ddz !== 0
+            ? worldOriginZ + along
+            : (ddz > 0 ? (cz + 1) * CHUNK_SIZE - depth : cz * CHUNK_SIZE + depth);
+          const wetY = -0.04;
+          this.addBox(verts, indices, px, wetY, pz, ddx !== 0 ? 5 + rng() * 7 : 0.8, 0.025, ddz !== 0 ? 0.8 : 5 + rng() * 7, 0.78, 0.76, 0.58, 0.8, idxOffset); idxOffset += 24;
+          const shellX = px + (ddx !== 0 ? 0 : (rng() - 0.5) * 4);
+          const shellZ = pz + (ddz !== 0 ? 0 : (rng() - 0.5) * 4);
+          this.addBox(verts, indices, shellX, 0.12, shellZ, 0.35, 0.18, 0.35, 0.92, 0.84, 0.62, 1.0, idxOffset); idxOffset += 24;
+          if (detail % 2 === 0) {
+            const logLength = 2.8 + rng() * 2.5;
+            this.addBox(verts, indices, px + (ddx !== 0 ? 0 : 1.5), 0.18, pz + (ddz !== 0 ? 1.5 : 0), ddx !== 0 ? 0.35 : logLength, 0.3, ddz !== 0 ? 0.35 : logLength, 0.30, 0.20, 0.10, 1.0, idxOffset); idxOffset += 24;
+          }
+          for (let grass = 0; grass < 2; grass++) {
+            const gx = px + (ddx !== 0 ? (rng() - 0.5) * 3 : grass * 0.7);
+            const gz = pz + (ddz !== 0 ? grass * 0.7 : (rng() - 0.5) * 3);
+            this.addBox(verts, indices, gx, 0.28, gz, 0.12, 0.55, 0.12, 0.18, 0.38, 0.12, 1.0, idxOffset); idxOffset += 24;
           }
         }
       }
@@ -2419,7 +2541,6 @@ void main() {
           }
         }
         if (isBeach) {
-          this.addPlane(verts, indices, blockWorldX, 0.03, blockWorldZ, BLOCK_SIZE, BLOCK_SIZE, 0.82, 0.75, 0.55, 1.0, idxOffset); idxOffset += 4;
           const halfSW = SIDEWALK_SIZE / 2;
           const tatamiPositions: { x: number; z: number }[] = [];
           for (const t of tatami) tatamiPositions.push({ x: t.x, z: t.z });
