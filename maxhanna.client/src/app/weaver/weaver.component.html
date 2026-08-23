@@ -107,7 +107,7 @@
               title="Connection status: {{ isOnline() ? 'Online' : 'Offline' }}"></span>
           </div>
           <input [value]="searchFilter" (input)="onSearchFilterChange($event)" placeholder="Search cards…"
-            class="weaver-input weaver-input-sm" autocomplete="off" name="search-cards" />
+            class="weaver-input weaver-input-sm" autocomplete="one-time-code" name="search-cards" />
           <button *ngIf="searchFilter" (click)="searchFilter = ''" class="btn btn-xs">✕</button>
         </div>
         <div class="toolbar-right">
@@ -800,7 +800,7 @@
               </div>
               <input [(ngModel)]="ideSearchFilter" (input)="false"
                 [placeholder]="ideProjectView ? 'Search project files…' : 'Filter files…'"
-                class="ide-search weaver-input-xs" autocomplete="off" />
+                class="ide-search weaver-input-xs" autocomplete="one-time-code" />
               <div class="ide-file-list">
                 <!-- Directory browse (current listing from the localhost) -->
                 <ng-container *ngIf="!ideProjectView">
@@ -1029,7 +1029,7 @@
     </div>
     <div class="popup-body">
       <p class="picker-hint">Select files from this project:</p>
-      <input #pickerSearchInput id="pickerSearchInput"[(ngModel)]="pickerSearchFilter" (input)="onPickerSearchFilterChange($event)" placeholder="Search files..." autocomplete="off"
+      <input #pickerSearchInput id="pickerSearchInput"[(ngModel)]="pickerSearchFilter" (input)="onPickerSearchFilterChange($event)" placeholder="Search files..." autocomplete="one-time-code"
       class="weaver-input weaver-input-sm" />
       <div *ngIf="pickerSelected.length" class="picker-attached">
         <div class="picker-attached-title">📎 Attached files ({{ pickerSelected.length }})</div>

@@ -105,6 +105,18 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
     }
   }
 
+  private resolveReactionEmoji(reactionType: string): string | undefined {
+    if (!this.parentRef?.emojiMap) return undefined;
+    const map = this.parentRef.emojiMap;
+    // Already has colons (e.g. :thumbsup:) — use directly
+    if (reactionType.startsWith(':') && reactionType.endsWith(':') && map[reactionType]) return map[reactionType];
+    // Bare key in map (e.g. <3)
+    if (map[reactionType]) return map[reactionType];
+    // Bare word — try wrapping in colons (e.g. heart_heart → :heart_heart:)
+    const wrapped = ':' + reactionType + ':';
+    return map[wrapped];
+  }
+
   getEvent(eventType: string): { icon: string; description: string; component: string | null } {
     const type = eventType.toLowerCase();
 
@@ -112,10 +124,9 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
     const isReaction = type.includes(" reaction");
     if (isReaction) {
       let tmpReactionType = type.split(' ')[0];
-      if (tmpReactionType && tmpReactionType != "reaction") { 
+      if (tmpReactionType && tmpReactionType != "reaction") {
         tmpReactionType = tmpReactionType.toLowerCase();
-        tmpReactionType = ':' + tmpReactionType + ':';
-        tmpIcon = this.parentRef?.emojiMap[tmpReactionType];
+        tmpIcon = this.resolveReactionEmoji(tmpReactionType);
       }
     }
 
@@ -308,8 +319,26 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
   isYoutubeLink(link?: string): boolean {
     return this.parentRef?.isYoutubeUrl(link) ?? false;
   }
+  private replaceEmojiShortcodes(text: string): string {
+    if (!this.parentRef?.emojiMap) return text;
+    const map = this.parentRef.emojiMap;
+    // Replace <3, ;), :-D etc. first (non-colon shortcodes)
+    for (const [key, emoji] of Object.entries(map)) {
+      if (key.startsWith(':')) continue;
+      text = text.split(key).join(emoji);
+    }
+    // Replace :shortcode: patterns
+    for (const [key, emoji] of Object.entries(map)) {
+      if (!key.startsWith(':')) continue;
+      text = text.split(key).join(emoji);
+    }
+    return text;
+  }
+
   parseEventText(text: string): { text: string; url?: string }[] {
     if (!text) return [{ text: '' }];
+    // Resolve emoji shortcodes in event text
+    text = this.replaceEmojiShortcodes(text);
     const urlRegex = /(https?:\/\/[^\s]+)/g;
     const parts: { text: string; url?: string }[] = [];
     let lastIndex = 0;

@@ -75,7 +75,7 @@
                   (input)="onTodoTextInput($event)"></textarea>
               </div>
               <div *ngIf="isEditing.includes(item)" style="display: flex; align-items: center; gap: 4px;">
-                <app-speech-recognition buttonStyle="width: 40px; height: 54px; line-height: 0;" (speechRecognitionEvent)="onVoiceInputForEdit($event)"></app-speech-recognition>
+                <app-speech-recognition buttonStyle="width: 40px; height: 54px; line-height: 0; background: transparent; border: none;" (speechRecognitionEvent)="onVoiceInputForEdit($event)"></app-speech-recognition>
                 <button (click)="copyEditedTodo()" title="Copy todo text" class="todoCopyBtn">📋</button>
               </div>
               <div *ngIf="isEditing.includes(item)" [class.blocked]="isLoading">
