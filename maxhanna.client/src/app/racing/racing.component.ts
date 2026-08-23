@@ -4606,18 +4606,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
    *  first tap previews and a second tap on the same card buys/equips it (the
    *  banner stays as an alternative). */
   onAppearanceCardClick(part: RacingAppearancePart) {
-    if (!this.hasHoverPointer) {
-      this.skinPreview = null;
-      if (this.appearancePreview === part) {
-        // Second tap on the same card commits the purchase / equip.
-        this.pendingBuyPart = part;
-        this.previewBuy();
-      } else {
-        this.appearancePreview = part;
-        this.pendingBuyPart = part;
-      }
-      return;
-    }
+    this.skinPreview = null;
+    this.appearancePreview = null;
+    this.pendingBuyPart = null;
     this.buyAppearancePart(part);
   }
   onAppearanceCardHover(part: RacingAppearancePart | null) {
@@ -4632,16 +4623,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.skinPreview = skin;
   }
   onSkinCardClick(skin: any) {
-    if (!this.hasHoverPointer) {
-      this.appearancePreview = null;
-      this.pendingBuyPart = null;
-      if (this.skinPreview === skin) {
-        this.previewBuy();
-      } else {
-        this.skinPreview = skin;
-      }
-      return;
-    }
+    this.appearancePreview = null;
+    this.pendingBuyPart = null;
+    this.skinPreview = null;
     this.selectSkin(skin);
   }
   /** Commits the currently previewed item — the preview banner's buy/equip tap. */
@@ -5744,7 +5728,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   hideLoginPopup() { this.parentRef?.closeOverlay(); }
   trackDefs: TrackDefinition[] = TRACKS as TrackDefinition[];
   /** Maps a track id to its environment theme (rendered by RacingRenderer). */
-  private themeForTrack(trackId: number): 'miami' | 'mountain' | 'city' | 'default' | 'alpine' | 'desert' | 'monaco' | 'monaco-night' | 'montreal' | 'italy' | 'japan' | 'neon' | 'volcano' | 'antarctica' | 'pirate' | 'mushroom' | 'hyrule' | 'rio' | 'amazon' | 'golden' | 'underwater' {
+  private themeForTrack(trackId: number): 'miami' | 'mountain' | 'city' | 'default' | 'alpine' | 'desert' | 'monaco' | 'monaco-night' | 'montreal' | 'italy' | 'japan' | 'neon' | 'volcano' | 'antarctica' | 'pirate' | 'mushroom' | 'hyrule' | 'rio' | 'amazon' | 'golden' | 'underwater' | 'sonic' {
     if (trackId === 1) return 'miami';
     if (trackId === 2) return 'mountain';
     if (trackId === 3) return 'city';
@@ -5765,6 +5749,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     if (trackId === 18) return 'amazon';
     if (trackId === 19) return 'golden';
     if (trackId === 20) return 'underwater';
+    if (trackId === 21) return 'sonic';
     return 'default';
   }
   get UPGRADE_DEFS() { return UPGRADE_DEFS; }
@@ -5902,7 +5887,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   }
   getTrackFlag(track: TrackDefinition): string {
     const flags: Record<number, string> = {
-      1: '🇺🇸', 2: '🏔️', 3: '🏙️', 4: '🏔️', 5: '🇲🇦', 6: '🇲🇨', 7: '🇨🇦', 8: '🇮🇹', 9: '🌙', 10: '🇯🇵', 11: '🌆', 12: '🌋', 13: '🐧',      14: '🏴☠️', 15: '🍄', 16: '🔺', 17: '🇧🇷', 18: '🌴', 19: '🌉', 20: '🐠',
+      1: '🇺🇸', 2: '🏔️', 3: '🏙️', 4: '🏔️', 5: '🇲🇦', 6: '🇲🇨', 7: '🇨🇦', 8: '🇮🇹', 9: '🌙', 10: '🇯🇵', 11: '🌆', 12: '🌋', 13: '🐧',      14: '🏴☠️', 15: '🍄', 16: '🔺', 17: '🇧🇷', 18: '🌴', 19: '🌉', 20: '🐠', 21: '💍',
     };
     return flags[track.id] || '🏁';
   }
@@ -5929,6 +5914,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       18: 'linear-gradient(135deg, #04180a 0%, #0d3d1c 22%, #1d6b2e 45%, #3fa055 65%, #1b4d24 80%, #0a2b12 100%)',
       19: 'linear-gradient(135deg, #e25822 0%, #a6340e 20%, #4a7ea8 45%, #8fb8d0 65%, #d9c7a0 82%, #7a8ea3 100%)',
       20: 'linear-gradient(135deg, #01121f 0%, #04324a 25%, #0a5a7a 45%, #17b7c9 62%, #67e6f2 78%, #b8fff4 92%, #eafffb 100%)',
+      21: 'linear-gradient(135deg, #0a7bd1 0%, #1a9ff0 22%, #5ad1ff 38%, #7ed56f 48%, #a3d977 58%, #e9c46a 68%, #f4a261 78%, #76c95e 88%, #2a9d3a 100%)',
     };
     return bgs[track.id] || 'linear-gradient(135deg, #2c3e50, #4ca1af)';
   }

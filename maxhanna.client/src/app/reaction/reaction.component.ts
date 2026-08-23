@@ -138,6 +138,14 @@ export class ReactionComponent extends ChildComponent implements OnInit {
 
   filteredReactions: { type: string, emoji: string, label: string }[] = [];
 
+  ngOnChanges() {
+    // Keep picker and badge in sync when parent inputs or emojiMap become available
+    this.getReactionsListDisplay();
+    if (this.showReactionChoices) {
+      this.filteredReactions = [...this.reactions];
+    }
+  }
+
   @Input() component?: any;
   @Input() commentId?: number;
   @Input() storyId?: number;
@@ -165,6 +173,12 @@ export class ReactionComponent extends ChildComponent implements OnInit {
       }
     }
     this.getReactionsListDisplay();
+    // In case emojiMap was not ready at init (parentRef assigned late), refresh once more after a tick
+    setTimeout(() => {
+      if (this.filteredReactions.length === 0 && this.reactions.length > 0) {
+        this.filteredReactions = [...this.reactions];
+      }
+    }, 300);
   }
 
   private async loadReactions() {
@@ -316,6 +330,8 @@ export class ReactionComponent extends ChildComponent implements OnInit {
     this.showReactionChoices = false;
     if (this.inputtedParentRef) {
       this.inputtedParentRef.closeOverlay();
+    } else if (this.parentRef) {
+      this.parentRef.closeOverlay();
     }
   }
 
@@ -328,9 +344,13 @@ export class ReactionComponent extends ChildComponent implements OnInit {
   };
 
   reactionButtonOnClick(event: Event) {
+    // Refresh picker content each time it opens (handles late emojiMap)
+    this.filteredReactions = [...this.reactions];
     this.showReactionChoices = true;
     if (this.inputtedParentRef) {
       this.inputtedParentRef.showOverlay();
+    } else if (this.parentRef) {
+      this.parentRef.showOverlay();
     }
     event.stopPropagation();
   }
@@ -340,6 +360,8 @@ export class ReactionComponent extends ChildComponent implements OnInit {
     this.filteredCurrentReactions = this.currentReactions ?? [];
     if (this.inputtedParentRef) {
       this.inputtedParentRef.showOverlay();
+    } else if (this.parentRef) {
+      this.parentRef.showOverlay();
     }
   }
   closeReactionsPanel() {
@@ -347,6 +369,8 @@ export class ReactionComponent extends ChildComponent implements OnInit {
 
     if (this.inputtedParentRef) {
       this.inputtedParentRef.closeOverlay();
+    } else if (this.parentRef) {
+      this.parentRef.closeOverlay();
     }
   }
 

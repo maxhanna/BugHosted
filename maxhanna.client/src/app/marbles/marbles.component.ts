@@ -107,30 +107,30 @@ interface BoardMapTheme {
 }
 
 const BOARD_MAPS: BoardMapTheme[] = [
-  { id: 'classic', name: 'Sandy Pit', emoji: '⛱️', desc: 'The classic playground pit — warm sand, swings and a slide.',
-    bg: ['#eed9a6', '#e2c685', '#c5a465'], darkSpeckle: 'rgba(122,88,40,0.18)', lightSpeckle: 'rgba(255,248,222,0.38)',
-    pit: ['#a87f4a', '#8d6838', '#6f502a'], bevelLight: 'rgba(255,246,212,0.42)', lip: 'rgba(255,242,206,0.32)', decor: 'playground' },
-  { id: 'beach', name: 'Tropical Bay', emoji: '🏖️', desc: 'Warm sand with lazy waves rolling in.',
-    bg: ['#ecd7a2', '#dcc184', '#bc9452'], darkSpeckle: 'rgba(120,80,30,0.16)', lightSpeckle: 'rgba(255,246,214,0.32)',
-    pit: ['#c9a96b', '#a9894f', '#7d6537'], bevelLight: 'rgba(255,250,225,0.40)', lip: 'rgba(255,244,214,0.30)', decor: 'waves' },
-  { id: 'ice', name: 'Frosted Ice', emoji: '🧊', desc: 'A frozen lake — watch your marbles skid.',
-    bg: ['#d3f0f9', '#a9ddeb', '#6fb4cc'], darkSpeckle: 'rgba(30,90,120,0.14)', lightSpeckle: 'rgba(255,255,255,0.5)',
-    pit: ['#7fb8cc', '#5c96ad', '#3f7389'], bevelLight: 'rgba(255,255,255,0.5)', lip: 'rgba(235,250,255,0.35)', decor: 'snow' },
-  { id: 'space', name: 'Nebula', emoji: '🌌', desc: 'Match among the stars.',
-    bg: ['#171040', '#221a58', '#372a7d'], darkSpeckle: 'rgba(0,0,0,0.3)', lightSpeckle: 'rgba(200,180,255,0.25)',
-    pit: ['#251d54', '#1a1440', '#110c2d'], bevelLight: 'rgba(170,150,255,0.3)', lip: 'rgba(190,170,255,0.22)', decor: 'stars' },
-  { id: 'neon', name: 'Neon Grid', emoji: '🌃', desc: 'Synthwave streets, glowing in the dark.',
-    bg: ['#12121c', '#1c1228', '#2e1036'], darkSpeckle: 'rgba(0,0,0,0.35)', lightSpeckle: 'rgba(255,0,255,0.10)',
-    pit: ['#1d1128', '#150b1e', '#0d0613'], bevelLight: 'rgba(255,0,255,0.25)', lip: 'rgba(0,255,255,0.22)', decor: 'neon' },
-  { id: 'meadow', name: 'Meadow', emoji: '🌼', desc: 'Soft grass under a sunny sky.',
-    bg: ['#9ed083', '#80b961', '#5c9446'], darkSpeckle: 'rgba(30,80,20,0.15)', lightSpeckle: 'rgba(240,255,220,0.3)',
-    pit: ['#6ba04c', '#54883b', '#3d6a2a'], bevelLight: 'rgba(245,255,225,0.35)', lip: 'rgba(235,250,210,0.25)', decor: 'clouds' },
-  { id: 'desert', name: 'Dunes', emoji: '🏜️', desc: 'Rolling dunes under a scorching sun.',
-    bg: ['#e8c481', '#d5a960', '#aa803f'], darkSpeckle: 'rgba(110,70,20,0.16)', lightSpeckle: 'rgba(255,240,200,0.3)',
-    pit: ['#c69e53', '#a9803d', '#7e5b29'], bevelLight: 'rgba(255,240,200,0.35)', lip: 'rgba(255,236,190,0.28)', decor: 'cactus' },
-  { id: 'lava', name: 'Caldera', emoji: '🌋', desc: 'Glowing lava cracks around a volcanic pit.',
-    bg: ['#311b1a', '#3c2118', '#4c2913'], darkSpeckle: 'rgba(0,0,0,0.3)', lightSpeckle: 'rgba(255,140,60,0.14)',
-    pit: ['#251410', '#1b0f0c', '#110806'], bevelLight: 'rgba(255,150,60,0.28)', lip: 'rgba(255,120,40,0.22)', decor: 'lava' },
+  { id: 'classic', name: 'Sunny Playground', emoji: '☀️', desc: 'A lifelike recessed sandbox — warm honey sand under a soft blue sky, wooden-beamed pit and real playground equipment beyond.',
+    bg: ['#87c4eb', '#d8c39a', '#c2a46a'], darkSpeckle: 'rgba(110,78,30,0.14)', lightSpeckle: 'rgba(255,250,230,0.42)',
+    pit: ['#a27a3f', '#8a662f', '#6b4f26'], bevelLight: 'rgba(255,245,210,0.55)', lip: 'rgba(255,240,200,0.42)', decor: 'playground' },
+  { id: 'beach', name: 'Boardwalk Beach', emoji: '🏖️', desc: 'Sun-bleached boardwalk planks beside rolling surf — foam-capped waves, wet sand sheen and distant gulls over the bay.',
+    bg: ['#7ec8e3', '#e6d0a8', '#d0b68a'], darkSpeckle: 'rgba(110,80,30,0.12)', lightSpeckle: 'rgba(255,250,220,0.42)',
+    pit: ['#c9a96b', '#a9894f', '#7d6537'], bevelLight: 'rgba(255,250,225,0.45)', lip: 'rgba(255,244,214,0.34)', decor: 'waves' },
+  { id: 'ice', name: 'Snow Day Playground', emoji: '⛄', desc: 'A snowy schoolyard at recess — powder-soft drifts, pine trees heavy with snow and a friendly snowman watching the game.',
+    bg: ['#d6eef8', '#eaf6fb', '#d0e4f0'], darkSpeckle: 'rgba(30,70,110,0.10)', lightSpeckle: 'rgba(255,255,255,0.62)',
+    pit: ['#a8cde0', '#85b0c8', '#6b94b0'], bevelLight: 'rgba(255,255,255,0.62)', lip: 'rgba(245,252,255,0.45)', decor: 'snow' },
+  { id: 'space', name: 'Rocket Park', emoji: '🚀', desc: 'A space-themed playground at golden hour — rocket jungle-gym, crater mounds and a galaxy mural fading into a warm sunset sky.',
+    bg: ['#4a6fa5', '#c9b8e8', '#e8d5b8'], darkSpeckle: 'rgba(40,30,60,0.14)', lightSpeckle: 'rgba(255,240,255,0.32)',
+    pit: ['#6b5a8a', '#4f3f6e', '#3b2e56'], bevelLight: 'rgba(230,210,255,0.38)', lip: 'rgba(255,230,245,0.28)', decor: 'stars' },
+  { id: 'neon', name: 'Glow Play Center', emoji: '✨', desc: 'An indoor soft-play jungle — pastel rubber mats, neon rope lights and glow-in-the-dark slides under blacklight haze.',
+    bg: ['#fff3e0', '#e8e0f8', '#f5d6e8'], darkSpeckle: 'rgba(80,40,90,0.06)', lightSpeckle: 'rgba(255,120,200,0.14)',
+    pit: ['#e9d5ff', '#c8b0e8', '#a88ec8'], bevelLight: 'rgba(255,240,255,0.55)', lip: 'rgba(180,255,255,0.22)', decor: 'neon' },
+  { id: 'meadow', name: 'Country Meadow', emoji: '🌿', desc: 'A lush county-fair playground in late summer — velvety green lawn, picket fence, buttercups and cotton-cloud sky.',
+    bg: ['#87c76a', '#a8d98e', '#d6efb8'], darkSpeckle: 'rgba(30,70,20,0.12)', lightSpeckle: 'rgba(250,255,235,0.42)',
+    pit: ['#6aa84a', '#4e8a32', '#3a6826'], bevelLight: 'rgba(245,255,225,0.42)', lip: 'rgba(235,250,210,0.32)', decor: 'clouds' },
+  { id: 'desert', name: 'Desert Oasis', emoji: '🌵', desc: 'A lifelike adobe desert playground — sun-baked mesas, tumbleweeds, a shaded ramada and cool turquoise shade cloth.',
+    bg: ['#e2b88a', '#d9a86a', '#c28a42'], darkSpeckle: 'rgba(110,70,20,0.14)', lightSpeckle: 'rgba(255,240,200,0.38)',
+    pit: ['#b68a3e', '#9c7532', '#7d5b26'], bevelLight: 'rgba(255,240,200,0.42)', lip: 'rgba(255,236,190,0.34)', decor: 'cactus' },
+  { id: 'lava', name: 'Volcano Splash Pad', emoji: '🌋', desc: 'A volcanic splash-park — warm terra-cotta rock, misty geysers, cool turquoise water jets and palm-shaded spray zones.',
+    bg: ['#8ecae6', '#e8b88a', '#d48a5a'], darkSpeckle: 'rgba(90,40,20,0.12)', lightSpeckle: 'rgba(255,220,180,0.28)',
+    pit: ['#c97a48', '#a85e32', '#7d3f22'], bevelLight: 'rgba(255,220,180,0.42)', lip: 'rgba(255,200,150,0.32)', decor: 'lava' },
 ];
 
 type SpritePhase = 'move' | 'pop';
@@ -2276,23 +2276,36 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     ctx.fillStyle = ground;
     ctx.fillRect(0, 0, w, h);
 
-    // Ground speckle for texture.
+    // Ground speckle for texture — varied grain, not uniform dots.
     ctx.fillStyle = map.darkSpeckle;
-    for (let i = 0; i < 60; i++) {
+    for (let i = 0; i < 68; i++) {
       const x = (i * 97.3) % w;
-      const y = (i * 53.7) % h;
+      const y = (i * 53.7) % h + Math.sin(i * 0.7) * 4;
       ctx.beginPath();
-      ctx.arc(x, y, 1.5 + (i % 3), 0, Math.PI * 2);
+      ctx.ellipse(x, y, 1.6 + (i % 3) * 0.9, 1.1 + (i % 2) * 0.6, (i % 4) * 0.4, 0, Math.PI * 2);
       ctx.fill();
     }
     ctx.fillStyle = map.lightSpeckle;
-    for (let i = 0; i < 40; i++) {
+    for (let i = 0; i < 46; i++) {
       const x = (i * 83.1) % w;
-      const y = (i * 47.9) % h;
+      const y = (i * 47.9) % h + Math.cos(i * 0.9) * 3;
       ctx.beginPath();
-      ctx.arc(x, y, 1 + (i % 2), 0, Math.PI * 2);
+      ctx.arc(x, y, 0.9 + (i % 2) * 0.8, 0, Math.PI * 2);
       ctx.fill();
     }
+    // Horizon haze — a soft warm wash near the mid-sky makes the ground feel sun-lit and deep.
+    const haze = ctx.createLinearGradient(0, h * 0.22, 0, h * 0.55);
+    haze.addColorStop(0, 'rgba(255,255,255,0)');
+    haze.addColorStop(0.5, 'rgba(255,250,230,0.14)');
+    haze.addColorStop(1, 'rgba(255,250,230,0)');
+    ctx.fillStyle = haze;
+    ctx.fillRect(0, h * 0.22, w, h * 0.33);
+    // Subtle vignette — darker edges so the pit pops and the scene feels like a photo.
+    const vign = ctx.createRadialGradient(w * 0.5, h * 0.5, Math.min(w, h) * 0.4, w * 0.5, h * 0.5, Math.max(w, h) * 0.9);
+    vign.addColorStop(0, 'rgba(0,0,0,0)');
+    vign.addColorStop(1, 'rgba(0,0,0,0.18)');
+    ctx.fillStyle = vign;
+    ctx.fillRect(0, 0, w, h);
 
     this.drawBackdropDecor(ctx, w, h, map);
   }
@@ -2304,94 +2317,175 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     const t = performance.now();
     switch (map.decor) {
       case 'playground': {
-        // Wind-combed sand ripples across the ground.
-        ctx.strokeStyle = 'rgba(140,100,50,0.25)';
-        ctx.lineWidth = Math.max(1, h * 0.006);
-        for (let i = 0; i < 7; i++) {
-          const y = (i * 137.9) % h;
+        // — Lifelike sunny playground: blue sky wash at top fading into haze, warm sun with halo, soft distant treeline and fence haze so the sand feels outdoors.
+        const sky = ctx.createLinearGradient(0, 0, 0, h * 0.48);
+        sky.addColorStop(0, 'rgba(135,200,235,0.55)');
+        sky.addColorStop(0.5, 'rgba(200,230,250,0.28)');
+        sky.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = sky;
+        ctx.fillRect(0, 0, w, h * 0.52);
+        // Sun — soft halo top-right
+        const sx = w * 0.82, sy = h * 0.14, sr = Math.min(w, h) * 0.09;
+        const sun = ctx.createRadialGradient(sx, sy, 0, sx, sy, sr * 2.2);
+        sun.addColorStop(0, 'rgba(255,248,180,0.95)');
+        sun.addColorStop(0.35, 'rgba(255,236,120,0.45)');
+        sun.addColorStop(1, 'rgba(255,236,120,0)');
+        ctx.fillStyle = sun;
+        ctx.beginPath(); ctx.arc(sx, sy, sr * 2.2, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'rgba(255,252,220,0.98)';
+        ctx.beginPath(); ctx.arc(sx, sy, sr * 0.55, 0, Math.PI * 2); ctx.fill();
+        // Fluffy cartoon clouds with soft shadow — three clumps drifting
+        ctx.fillStyle = 'rgba(255,255,255,0.72)';
+        for (let i = 0; i < 4; i++) {
+          const cx = w * (0.18 + (i % 3) * 0.27) + Math.sin(t * 0.0004 + i) * w * 0.015;
+          const cy = h * (0.10 + (i % 2) * 0.09);
+          const R = Math.min(w, h) * (0.045 + (i % 3) * 0.01);
+          // shadow under
+          ctx.fillStyle = 'rgba(80,110,140,0.12)';
+          ctx.beginPath(); ctx.ellipse(cx + R * 0.18, cy + R * 0.28, R * 1.25, R * 0.45, 0, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = 'rgba(255,255,255,0.78)';
+          ctx.beginPath();
+          ctx.ellipse(cx, cy, R * 1.1, R * 0.62, 0, 0, Math.PI * 2);
+          ctx.ellipse(cx + R * 0.55, cy - R * 0.08, R * 0.72, R * 0.58, 0, 0, Math.PI * 2);
+          ctx.ellipse(cx - R * 0.5, cy - R * 0.05, R * 0.62, R * 0.52, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        // Distant soft treeline / fence haze at horizon — gives playground depth
+        ctx.fillStyle = 'rgba(70,120,70,0.22)';
+        ctx.beginPath();
+        ctx.moveTo(0, h * 0.42);
+        for (let x = 0; x <= w; x += w / 12) {
+          const hump = Math.sin(x * 0.018 + 1) * h * 0.02 + Math.cos(x * 0.009) * h * 0.012;
+          ctx.lineTo(x, h * 0.42 - hump + (x % (w/5) < w/10 ? h * 0.015 : 0));
+        }
+        ctx.lineTo(w, h * 0.42); ctx.lineTo(w, h * 0.48); ctx.lineTo(0, h * 0.48); ctx.closePath(); ctx.fill();
+        // Fence posts haze
+        ctx.fillStyle = 'rgba(160,120,70,0.20)';
+        for (let i = 0; i < 10; i++) {
+          const fx = (i + 0.5) * w / 10;
+          ctx.fillRect(fx - 1, h * 0.40, 2, h * 0.045);
+        }
+        ctx.strokeStyle = 'rgba(150,110,60,0.18)';
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(0, h * 0.415); ctx.lineTo(w, h * 0.415); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, h * 0.435); ctx.lineTo(w, h * 0.435); ctx.stroke();
+        // Wind-combed sand ripples — finer, more organic spacing and wobble
+        ctx.strokeStyle = 'rgba(130,95,45,0.18)';
+        ctx.lineWidth = Math.max(1, h * 0.005);
+        for (let i = 0; i < 8; i++) {
+          const y = h * 0.52 + (i * 31.7) % (h * 0.48);
+          const wob = Math.sin(i * 1.9) * h * 0.012;
           ctx.beginPath();
           ctx.moveTo(0, y);
-          ctx.bezierCurveTo(w * 0.25, y - h * 0.02, w * 0.6, y + h * 0.02, w, y);
+          ctx.bezierCurveTo(w * 0.22, y - h * 0.012 + wob, w * 0.62, y + h * 0.014 + wob, w, y);
           ctx.stroke();
         }
-        // Footprints heading across the sand.
-        ctx.fillStyle = 'rgba(150,110,55,0.35)';
+        // Footprints — now with soft inner shadow / depth rim
         for (let i = 0; i < 8; i++) {
           const fx = (i * 173.3) % w;
-          const fy = (i * 97.7) % h;
+          const fy = h * 0.52 + (i * 97.7) % (h * 0.46);
+          // soft shadow
+          ctx.fillStyle = 'rgba(90,60,20,0.18)';
+          ctx.beginPath(); ctx.ellipse(fx, fy + 1.8, 5.5, 2.2, 0, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = 'rgba(150,110,55,0.30)';
           ctx.beginPath();
           ctx.ellipse(fx - 4, fy, 3.2, 4.6, 0.4, 0, Math.PI * 2);
           ctx.ellipse(fx + 4, fy, 3.2, 4.6, -0.3, 0, Math.PI * 2);
           ctx.fill();
+          ctx.fillStyle = 'rgba(120,80,35,0.20)';
+          ctx.beginPath();
+          ctx.ellipse(fx - 4, fy + 0.8, 1.8, 1.2, 0.4, 0, Math.PI * 2);
+          ctx.ellipse(fx + 4, fy + 0.8, 1.8, 1.2, -0.3, 0, Math.PI * 2);
+          ctx.fill();
         }
-        // Pebbles + sand sparkle.
-        ctx.fillStyle = 'rgba(110,80,40,0.5)';
-        for (let i = 0; i < 12; i++) {
+        // Pebbles — now with cast shadow and highlight so they sit in sand, not float
+        for (let i = 0; i < 16; i++) {
           const x = (i * 61.7) % w;
-          const y = (i * 43.9) % h;
+          const y = h * 0.54 + (i * 43.9) % (h * 0.42);
+          // shadow
+          ctx.fillStyle = 'rgba(70,45,20,0.22)';
+          ctx.beginPath(); ctx.ellipse(x + 1.2, y + 1.6, 3.2 + (i % 3) * 0.5, 1.6, 0, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = 'rgba(110,80,40,0.52)';
           ctx.beginPath();
           ctx.ellipse(x, y, 3 + (i % 3), 2 + (i % 2), 0, 0, Math.PI * 2);
           ctx.fill();
+          ctx.fillStyle = 'rgba(255,240,210,0.38)';
+          ctx.beginPath(); ctx.arc(x - 0.9, y - 0.6, 0.9, 0, Math.PI * 2); ctx.fill();
         }
-        ctx.fillStyle = 'rgba(255,250,230,0.55)';
-        for (let i = 0; i < 10; i++) {
+        // Fine sand sparkle — warm glints catching the sun
+        ctx.fillStyle = 'rgba(255,245,210,0.55)';
+        for (let i = 0; i < 14; i++) {
           const x = (i * 89.3) % w;
-          const y = (i * 57.1) % h;
-          ctx.beginPath();
-          ctx.arc(x, y, 1.5, 0, Math.PI * 2);
-          ctx.fill();
+          const y = h * 0.54 + (i * 57.1) % (h * 0.44);
+          const glint = 0.6 + 0.5 * Math.sin(t * 0.002 + i * 1.3);
+          ctx.globalAlpha = glint;
+          ctx.beginPath(); ctx.arc(x, y, 1.1 + (i % 2) * 0.6, 0, Math.PI * 2); ctx.fill();
         }
+        ctx.globalAlpha = 1;
         return;
       }
       case 'stars': {
-        const neb = ctx.createRadialGradient(w * 0.3, h * 0.25, 0, w * 0.3, h * 0.25, Math.min(w, h) * 0.6);
-        neb.addColorStop(0, 'rgba(140,90,220,0.16)');
-        neb.addColorStop(1, 'rgba(140,90,220,0)');
-        ctx.fillStyle = neb;
-        ctx.fillRect(0, 0, w, h);
-        // A second, fainter galaxy smudge.
-        const gx = w * 0.8, gy = h * 0.55, gr = Math.min(w, h) * 0.45;
-        const gal = ctx.createRadialGradient(gx, gy, 0, gx, gy, gr);
-        gal.addColorStop(0, 'rgba(80,140,255,0.10)');
-        gal.addColorStop(1, 'rgba(80,140,255,0)');
-        ctx.fillStyle = gal;
-        ctx.fillRect(gx - gr, gy - gr, gr * 2, gr * 2);
-        for (let i = 0; i < 90; i++) {
-          const x = (i * 173.3) % w;
-          const y = (i * 91.7) % h;
-          const r = 0.6 + (i % 3) * 0.7;
-          const tw = 0.5 + 0.5 * Math.sin(t / 900 + i * 1.7);
-          const tint = i % 5 === 0 ? '255,220,160' : (i % 4 === 0 ? '180,220,255' : '255,255,255');
-          ctx.fillStyle = `rgba(${tint},${(0.35 + 0.5 * tw).toFixed(3)})`;
+        // Lifelike Rocket Park — daytime, not galaxy night. Warm sunset sky behind a real rocket jungle-gym, crater mounds are soft play hills.
+        const glow = ctx.createRadialGradient(w * 0.78, h * 0.18, 0, w * 0.78, h * 0.18, Math.min(w, h) * 0.42);
+        glow.addColorStop(0, 'rgba(255,236,140,0.42)');
+        glow.addColorStop(0.35, 'rgba(255,210,120,0.18)');
+        glow.addColorStop(1, 'rgba(255,210,120,0)');
+        ctx.fillStyle = glow;
+        ctx.fillRect(0, 0, w, h * 0.55);
+        // Distant soft crater mounds — warm beige play hills, not sharp cones
+        ctx.fillStyle = 'rgba(190,165,120,0.22)';
+        ctx.beginPath();
+        ctx.moveTo(0, h * 0.44);
+        for (let x = 0; x <= w; x += w / 10) {
+          const hump = Math.sin(x * 0.011 + 0.8) * h * 0.025 + Math.cos(x * 0.006) * h * 0.018;
+          const crater = (x % (w / 3) < w / 12 ? -h * 0.012 : 0);
+          ctx.lineTo(x, h * 0.44 - hump + crater);
+        }
+        ctx.lineTo(w, h * 0.44); ctx.lineTo(w, h * 0.50); ctx.lineTo(0, h * 0.50); ctx.closePath(); ctx.fill();
+        // Bunting string lights across top — lifelike playground detail
+        ctx.strokeStyle = 'rgba(80,60,40,0.22)';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(0, h * 0.28);
+        ctx.quadraticCurveTo(w * 0.25, h * 0.31, w * 0.5, h * 0.28);
+        ctx.quadraticCurveTo(w * 0.75, h * 0.25, w, h * 0.28);
+        ctx.stroke();
+        for (let i = 0; i < 9; i++) {
+          const fx = (i + 0.5) * w / 9;
+          const fy = h * 0.285 + Math.sin((i % 9) * 0.9) * h * 0.012;
+          const col = ['255,110,110', '255,220,90', '110,200,255', '120,220,120'][i % 4];
+          ctx.fillStyle = `rgba(${col},0.88)`;
           ctx.beginPath();
-          ctx.arc(x, y, r, 0, Math.PI * 2);
+          // pennant triangle
+          ctx.moveTo(fx, fy);
+          ctx.lineTo(fx - 6, fy + 10);
+          ctx.lineTo(fx + 6, fy + 10);
+          ctx.closePath(); ctx.fill();
+        }
+        // Soft fluffy clouds — real overcast, not twinkling stars
+        for (let i = 0; i < 4; i++) {
+          const cx = w * (0.15 + i * 0.22) + Math.sin(t * 0.00022 + i) * w * 0.01;
+          const cy = h * (0.12 + (i % 2) * 0.04);
+          const R = Math.min(w, h) * (0.042 + (i % 2) * 0.01);
+          ctx.fillStyle = 'rgba(0,0,0,0.07)';
+          ctx.beginPath(); ctx.ellipse(cx + R * 0.15, cy + R * 0.22, R * 1.15, R * 0.42, 0, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = 'rgba(255,255,255,0.78)';
+          ctx.beginPath();
+          ctx.ellipse(cx, cy, R * 1.05, R * 0.58, 0, 0, Math.PI * 2);
+          ctx.ellipse(cx + R * 0.5, cy - R * 0.06, R * 0.68, R * 0.5, 0, 0, Math.PI * 2);
+          ctx.ellipse(cx - R * 0.48, cy - R * 0.04, R * 0.62, R * 0.48, 0, 0, Math.PI * 2);
           ctx.fill();
-          if (i % 9 === 0) {
-            ctx.strokeStyle = `rgba(${tint},${(0.25 * tw).toFixed(3)})`;
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(x - r * 3, y); ctx.lineTo(x + r * 3, y);
-            ctx.moveTo(x, y - r * 3); ctx.lineTo(x, y + r * 3);
-            ctx.stroke();
-          }
         }
-        // Occasional shooting star streaking across.
-        const shoot = (t % 7000) / 7000;
-        if (shoot < 0.75) {
-          const sx = w * 0.1 + shoot * 1.15 * w;
-          const sy = h * 0.08 + shoot * h * 0.25;
-          const fade = Math.sin((shoot / 0.75) * Math.PI);
-          const tail = Math.min(w, h) * 0.14;
-          const grad = ctx.createLinearGradient(sx, sy, sx - tail, sy - tail * 0.5);
-          grad.addColorStop(0, `rgba(255,255,255,${(0.9 * fade).toFixed(3)})`);
-          grad.addColorStop(1, 'rgba(255,255,255,0)');
-          ctx.strokeStyle = grad;
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.moveTo(sx, sy);
-          ctx.lineTo(sx - tail, sy - tail * 0.5);
-          ctx.stroke();
+        // Subtle warm speckles on sand — not stars, just sun flecks through netting
+        ctx.fillStyle = 'rgba(255,235,160,0.22)';
+        for (let i = 0; i < 8; i++) {
+          const x = (i * 137.7) % w;
+          const y = h * 0.62 + (i * 41.3) % (h * 0.34);
+          const glint = 0.5 + 0.5 * Math.sin(t * 0.0012 + i);
+          ctx.globalAlpha = glint * 0.6;
+          ctx.beginPath(); ctx.arc(x, y, 1.2, 0, Math.PI * 2); ctx.fill();
         }
+        ctx.globalAlpha = 1;
         return;
       }
       case 'waves': {
@@ -2477,98 +2571,128 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
         return;
       }
       case 'neon': {
-        // Synthwave perspective grid on the lower half.
-        const horizon = h * 0.42;
-        ctx.strokeStyle = 'rgba(255,0,170,0.16)';
-        ctx.lineWidth = 1;
-        for (let i = 0; i <= 12; i++) {
-          const x = (i / 12) * w;
-          ctx.beginPath();
-          ctx.moveTo(x, horizon);
-          ctx.lineTo(w / 2, h);
-          ctx.stroke();
+        // Lifelike Glow Play Center — indoor soft-play under warm skylight, not synthwave grid.
+        // Skylight panel top — creamy daylight
+        const sky = ctx.createLinearGradient(0, 0, 0, h * 0.46);
+        sky.addColorStop(0, 'rgba(255,250,240,0.95)');
+        sky.addColorStop(1, 'rgba(255,240,225,0.22)');
+        ctx.fillStyle = sky;
+        ctx.fillRect(0, 0, w, h * 0.48);
+        // Skylight grid beams — thin warm wood
+        ctx.strokeStyle = 'rgba(160,120,80,0.18)';
+        ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.moveTo(w * 0.33, 0); ctx.lineTo(w * 0.33, h * 0.46); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(w * 0.66, 0); ctx.lineTo(w * 0.66, h * 0.46); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, h * 0.22); ctx.lineTo(w, h * 0.22); ctx.stroke();
+        // Wall wainscot — pastel mint band at horizon so walls feel padded, not neon lines
+        ctx.fillStyle = 'rgba(180,230,220,0.28)';
+        ctx.fillRect(0, h * 0.40, w, h * 0.08);
+        ctx.fillStyle = 'rgba(255,220,235,0.22)';
+        ctx.fillRect(0, h * 0.385, w, 6);
+        // Hanging paper lanterns / bunting — lifelike kid party decor, softly glowing
+        for (let i = 0; i < 8; i++) {
+          const lx = (i + 0.5) * w / 8 + Math.sin(t * 0.0003 + i) * 3;
+          const ly = h * 0.20 + Math.cos(i * 0.7) * h * 0.02;
+          const col = [i % 3 === 0 ? '255,180,200' : i % 3 === 1 ? '180,220,255' : '255,230,140'][0];
+          // string
+          ctx.strokeStyle = 'rgba(120,100,80,0.18)';
+          ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(lx, h * 0.14); ctx.lineTo(lx, ly); ctx.stroke();
+          // lantern glow
+          const glow = ctx.createRadialGradient(lx, ly, 0, lx, ly, 10);
+          glow.addColorStop(0, `rgba(${col},0.45)`);
+          glow.addColorStop(1, `rgba(${col},0)`);
+          ctx.fillStyle = glow;
+          ctx.beginPath(); ctx.arc(lx, ly, 10, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = `rgba(${col},0.92)`;
+          ctx.beginPath(); ctx.arc(lx, ly, 3.2, 0, Math.PI * 2); ctx.fill();
         }
-        for (let i = 0; i <= 6; i++) {
-          const yy = i / 6;
-          const y = horizon + (h - horizon) * yy * yy;
-          ctx.beginPath();
-          ctx.moveTo(0, y);
-          ctx.lineTo(w, y);
-          ctx.stroke();
-        }
-        // Retro sun half-disc on the horizon.
-        const sx = w * 0.72, sy = horizon, sr = Math.min(w, h) * 0.17;
-        const sun = ctx.createLinearGradient(0, sy - sr, 0, sy);
-        sun.addColorStop(0, 'rgba(255,80,120,0.9)');
-        sun.addColorStop(1, 'rgba(255,180,60,0.12)');
-        ctx.fillStyle = sun;
-        ctx.beginPath();
-        ctx.arc(sx, sy, sr, Math.PI, 0);
-        ctx.fill();
-        // Scattered neon dots up top.
-        for (let i = 0; i < 26; i++) {
-          const x = (i * 151.1) % w;
-          const y = (i * 79.7) % Math.max(1, horizon);
-          const pulse = 0.4 + 0.6 * Math.abs(Math.sin(t / 700 + i * 1.3));
-          ctx.fillStyle = `rgba(0,255,255,${(0.25 + 0.5 * pulse).toFixed(2)})`;
-          ctx.beginPath();
-          ctx.arc(x, y, 1.5, 0, Math.PI * 2);
-          ctx.fill();
+        // Foam mat speckles on floor — subtle, not glowing dots
+        ctx.fillStyle = 'rgba(80,60,90,0.08)';
+        for (let i = 0; i < 18; i++) {
+          const x = (i * 71.3) % w;
+          const y = h * 0.62 + (i * 29.7) % (h * 0.34);
+          ctx.beginPath(); ctx.arc(x, y, 1.4 + (i % 3) * 0.5, 0, Math.PI * 2); ctx.fill();
         }
         return;
       }
       case 'lava': {
-        // Glowing cracks threading through the ground.
-        for (let i = 0; i < 7; i++) {
-          const x0 = (i * 143.9) % w;
-          const y0 = (i * 67.3) % h;
-          ctx.strokeStyle = i % 2 === 0 ? 'rgba(255,120,40,0.5)' : 'rgba(255,200,80,0.35)';
-          ctx.lineWidth = 2 + (i % 3);
+        // Lifelike Volcano Splash Pad — terra-cotta ground with cool mist and turquoise water jets, not lava.
+        // Misting nozzles line — thin silver posts with spray arcs
+        ctx.strokeStyle = 'rgba(120,90,60,0.22)';
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 6; i++) {
+          const mx = (i + 0.5) * w / 6;
+          const my = h * 0.62 + Math.sin(i * 1.1) * h * 0.02;
+          // post
+          ctx.fillStyle = 'rgba(160,160,165,0.95)';
+          ctx.fillRect(mx - 2, my - 8, 4, 12);
+          ctx.fillStyle = 'rgba(90,90,95,0.95)';
+          ctx.beginPath(); ctx.arc(mx, my - 10, 4, 0, Math.PI * 2); ctx.fill();
+          // spray arc — light turquoise mist
+          ctx.strokeStyle = 'rgba(110,200,230,0.42)';
+          ctx.lineWidth = 2.2;
+          const spraySway = Math.sin(t * 0.001 + i) * 4;
           ctx.beginPath();
-          ctx.moveTo(x0, y0);
-          let x = x0, y = y0;
-          for (let s = 1; s <= 4; s++) {
-            x += (i % 2 === 0 ? 1 : -1) * ((s * 37.1) % 60) + ((i * 19) % 20);
-            y += (s * 29.3) % 45;
-            ctx.lineTo(x, y);
-          }
+          ctx.moveTo(mx, my - 14);
+          ctx.quadraticCurveTo(mx + spraySway, my - h * 0.12, mx + spraySway * 1.4, my - h * 0.18);
           ctx.stroke();
+          // mist puff at top
+          const mist = ctx.createRadialGradient(mx + spraySway * 1.4, my - h * 0.18, 0, mx + spraySway * 1.4, my - h * 0.18, 14);
+          mist.addColorStop(0, 'rgba(200,240,255,0.42)');
+          mist.addColorStop(1, 'rgba(200,240,255,0)');
+          ctx.fillStyle = mist;
+          ctx.beginPath(); ctx.arc(mx + spraySway * 1.4, my - h * 0.18, 14, 0, Math.PI * 2); ctx.fill();
         }
-        // Ember glow pools.
+        // Puddle sheen on warm terra-cotta — wet patches reflecting sky
+        for (let i = 0; i < 6; i++) {
+          const x = (i * 123.7) % w;
+          const y = h * 0.68 + (i * 53.7) % (h * 0.22);
+          const R = 18 + (i % 3) * 8;
+          const sheen = ctx.createRadialGradient(x, y, 0, x, y, R);
+          sheen.addColorStop(0, 'rgba(120,210,240,0.22)');
+          sheen.addColorStop(1, 'rgba(120,210,240,0)');
+          ctx.fillStyle = sheen;
+          ctx.beginPath(); ctx.ellipse(x, y, R, R * 0.55, 0, 0, Math.PI * 2); ctx.fill();
+        }
+        // Palm shade shadow — soft dappled shade cloth shadow across ground
+        ctx.fillStyle = 'rgba(40,60,30,0.08)';
+        ctx.beginPath();
+        ctx.ellipse(w * 0.72, h * 0.72, w * 0.22, h * 0.06, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.14)';
         for (let i = 0; i < 5; i++) {
-          const x = (i * 109.7) % w;
-          const y = (i * 47.9) % h;
-          const r = Math.min(w, h) * 0.05;
-          const pulse = 0.5 + 0.5 * Math.sin(t / 500 + i * 1.7);
-          const glow = ctx.createRadialGradient(x, y, 0, x, y, r * 3);
-          glow.addColorStop(0, `rgba(255,120,40,${(0.3 + 0.25 * pulse).toFixed(2)})`);
-          glow.addColorStop(1, 'rgba(255,120,40,0)');
-          ctx.fillStyle = glow;
-          ctx.fillRect(x - r * 3, y - r * 3, r * 6, r * 6);
+          const x = w * 0.72 + (i - 2) * 18;
+          const y = h * 0.72 + Math.sin(i * 0.9) * 3;
+          ctx.beginPath(); ctx.arc(x, y, 2.2, 0, Math.PI * 2); ctx.fill();
         }
         return;
       }
       case 'cactus': {
-        // Scorching sun + distant mesa haze.
-        const sun = ctx.createRadialGradient(w * 0.12, h * 0.1, 0, w * 0.12, h * 0.1, Math.min(w, h) * 0.26);
-        sun.addColorStop(0, 'rgba(255,246,200,0.95)');
-        sun.addColorStop(0.3, 'rgba(255,236,160,0.35)');
+        // Lifelike Desert Oasis playground — soft high sun with heat haze, plus a shaded ramada cloth for kids.
+        const sun = ctx.createRadialGradient(w * 0.12, h * 0.1, 0, w * 0.12, h * 0.1, Math.min(w, h) * 0.22);
+        sun.addColorStop(0, 'rgba(255,248,200,0.88)');
+        sun.addColorStop(0.35, 'rgba(255,236,160,0.28)');
         sun.addColorStop(1, 'rgba(255,236,160,0)');
         ctx.fillStyle = sun;
-        ctx.fillRect(0, 0, w, h);
-        // Vultures circling.
-        ctx.strokeStyle = 'rgba(50,45,40,0.7)';
-        ctx.lineWidth = Math.max(1.5, h * 0.006);
-        for (let i = 0; i < 3; i++) {
-          const ang = t / 3200 + i * 2.09;
-          const vx = w * (0.1 + 0.3 * i) + Math.cos(ang) * w * 0.05;
-          const vy = h * 0.14 + Math.sin(ang) * h * 0.035;
-          const s = Math.max(4, h * 0.02);
-          ctx.beginPath();
-          ctx.moveTo(vx - s, vy);
-          ctx.quadraticCurveTo(vx - s * 0.5, vy - s * 0.6, vx, vy);
-          ctx.quadraticCurveTo(vx + s * 0.5, vy - s * 0.6, vx + s, vy);
-          ctx.stroke();
+        ctx.fillRect(0, 0, w, h * 0.45);
+        // Heat haze near horizon — warm shimmer
+        ctx.fillStyle = 'rgba(255,235,180,0.10)';
+        ctx.fillRect(0, h * 0.38, w, h * 0.10);
+        // Distant mesa silhouette — soft, not sharp
+        ctx.fillStyle = 'rgba(160,110,60,0.14)';
+        ctx.beginPath();
+        ctx.moveTo(0, h * 0.40);
+        for (let x = 0; x <= w; x += w / 10) {
+          ctx.lineTo(x, h * 0.40 - Math.sin(x * 0.008) * h * 0.015 - (x % (w/3) < w/8 ? h * 0.012 : 0));
+        }
+        ctx.lineTo(w, h * 0.42); ctx.lineTo(0, h * 0.42); ctx.closePath(); ctx.fill();
+        // Turquoise shade cloth haze top — indicates oasis playground shade
+        ctx.fillStyle = 'rgba(90,200,200,0.10)';
+        ctx.fillRect(w * 0.55, h * 0.08, w * 0.42, h * 0.06);
+        ctx.fillStyle = 'rgba(255,255,255,0.18)';
+        for (let i = 0; i < 4; i++) {
+          const sx = w * (0.60 + i * 0.08) + Math.sin(t * 0.0004 + i) * 2;
+          ctx.beginPath(); ctx.arc(sx, h * 0.11, 2, 0, Math.PI * 2); ctx.fill();
         }
         return;
       }

@@ -1613,7 +1613,7 @@ export class RacingRenderer {
   ambientColor: [number, number, number] = [0.25, 0.25, 0.3];
   fogColor: [number, number, number] = [0.4, 0.45, 0.5];
   elapsed = 0;
-  theme: 'default' | 'miami' | 'city' | 'mountain' | 'alpine' | 'desert' | 'monaco' | 'monaco-night' | 'montreal' | 'italy' | 'japan' | 'neon' | 'volcano' | 'antarctica' | 'pirate' | 'mushroom' | 'hyrule' | 'rio' | 'amazon' | 'golden' | 'underwater' = 'default';
+  theme: 'default' | 'miami' | 'city' | 'mountain' | 'alpine' | 'desert' | 'monaco' | 'monaco-night' | 'montreal' | 'italy' | 'japan' | 'neon' | 'volcano' | 'antarctica' | 'pirate' | 'mushroom' | 'hyrule' | 'rio' | 'amazon' | 'golden' | 'underwater' | 'sonic' = 'default';
   // Device-quality tier: set by the component for mobile / low-end GPUs. Trims
   // the heaviest scenery (conifer counts and mesh density) and per-frame effects
   // (snow flake count) so the mountain and alpine circuits stay smooth on phones.
@@ -3068,6 +3068,15 @@ void main() { FragColor = texture(uTex, vUV); }`;
           elev: t => 2.0 * (1 - Math.cos(t * Math.PI * 3)) / 2 + 0.6 * (1 - Math.cos(t * Math.PI * 6)) / 2,
           width: t => this.TRACK_WIDTH + Math.sin(t * 5) * 1.4,
         };
+      case 'sonic':      // Green Hill Sprint — classic Sonic flow: long
+        // sweeping bends perfect for spindash drifts, a huge vertical loop-
+        // dip and two corkscrew esses, plus a checkered-hill roller section.
+        // Wide and fast like the Genesis zone — no hairpins, just flow.
+        return {
+          radius: R * 1.08, wobble: t => Math.sin(t * 2.6) * 26 + Math.sin(t * 7) * 11 + Math.sin(t * 1.6) * 14,
+          elev: t => 4.8 * (1 - Math.cos(t * Math.PI * 2)) / 2 + 2.2 * (1 - Math.cos(t * Math.PI * 6)) / 2,
+          width: t => this.TRACK_WIDTH + 1.0 + Math.sin(t * 6) * 1.4,
+        };
       default:           // miami + default — coastal, low and flat
         return {
           radius: R, wobble: t => Math.sin(t * 3) * 30 + Math.sin(t * 7) * 12 + Math.sin(t * 1.7) * 8,
@@ -3370,7 +3379,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
   getTrackLength(): number { return this.totalTrackDist; }
   /** Applies the environment theme for the selected track and rebuilds the
    *  scenery geometry. Call before each race (both solo and multiplayer). */
-  setTheme(theme: 'default' | 'miami' | 'city' | 'mountain' | 'alpine' | 'desert' | 'monaco' | 'monaco-night' | 'montreal' | 'italy' | 'japan' | 'neon' | 'volcano' | 'antarctica' | 'pirate' | 'mushroom' | 'hyrule' | 'rio' | 'amazon' | 'golden' | 'underwater') {
+  setTheme(theme: 'default' | 'miami' | 'city' | 'mountain' | 'alpine' | 'desert' | 'monaco' | 'monaco-night' | 'montreal' | 'italy' | 'japan' | 'neon' | 'volcano' | 'antarctica' | 'pirate' | 'mushroom' | 'hyrule' | 'rio' | 'amazon' | 'golden' | 'underwater' | 'sonic') {
     this.theme = theme;
     // Fresh tyres every race — reset the wear that darkened the sidewalls
     // and drop per-car sidewall textures so a style change re-bakes.
@@ -3598,6 +3607,19 @@ void main() { FragColor = texture(uTex, vUV); }`;
         this.sunColor = [0.55, 0.95, 0.95];
         this.ambientColor = [0.05, 0.11, 0.14];
         this.fogColor = [0.02, 0.09, 0.12];
+        break;
+      case 'sonic':
+        // SEGA Genesis Green Hill Zone — pure 1991 Saturday morning: saturated
+        // Genesis blue sky, fluffy cartoon clouds, honey-yellow sun blazing over
+        // checkered green hills. The whole palette is hyper-saturated and hot,
+        // exactly like the original 16-bit frame.
+        this.skyTop = [0.12, 0.42, 0.92];
+        this.skyHorizon = [0.52, 0.78, 1.0];
+        this.skyBottom = [0.62, 0.88, 1.0];
+        this.sunDir = [0.38, 0.68, 0.42];
+        this.sunColor = [1.0, 0.96, 0.68];
+        this.ambientColor = [0.42, 0.5, 0.42];
+        this.fogColor = [0.58, 0.78, 0.92];
         break;
       default:
         this.skyTop = [0.1, 0.2, 0.5];
@@ -4570,6 +4592,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
       this.addGoldenGateScenery(verts, idxs, flatVerts, flatIdxs);
     } else if (this.theme === 'underwater') {
       this.addUnderwaterScenery(verts, idxs, flatVerts, flatIdxs);
+    } else if (this.theme === 'sonic') {
+      this.addSonicGround(flatVerts, flatIdxs);
+      this.addSonicScenery(verts, idxs);
     } else {
       this.addForestScenery(verts, idxs);
     }
@@ -4978,6 +5003,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
       case 'amazon': count = 6; altMin = 52; altMax = 82; sizeScale = 0.85; this._cloudAlpha = 0.5; break;
       case 'golden': count = 12; altMin = 50; altMax = 80; sizeScale = 1.35; this._cloudAlpha = 0.62; break;
       case 'underwater': count = 0; altMin = 0; altMax = 0; sizeScale = 0; this._cloudAlpha = 0; break;
+      case 'sonic': count = 10; altMin = 48; altMax = 82; sizeScale = 1.25; this._cloudAlpha = 0.7; break;
       default: count = 6; altMin = 55; altMax = 90; sizeScale = 1; this._cloudAlpha = 0.6; break;
     }
     const base = this.theme === 'city'
@@ -7651,6 +7677,218 @@ void main() { FragColor = texture(uTex, vUV); }`;
         const bz = z + (Math.random() - 0.5) * 0.6;
         this.addEllipsoid(verts, idxs, bx, y + h / 2, bz, 0.12, h / 2, 0.12, 6, g);
       }
+    }
+  }
+  // ── Sonic Green Hill Zone — grass checker ground + giga rings / loops ─────
+  private addSonicGround(verts: number[], idxs: number[]) {
+    const pts = this._trackPoints;
+    // Green Hill field: alternating checker bands like the Genesis hills — green grass top, golden-brown dirt checker below
+    const grassA: [number, number, number] = [0.18, 0.62, 0.18];
+    const grassB: [number, number, number] = [0.22, 0.70, 0.22];
+    const checkDark: [number, number, number] = [0.62, 0.38, 0.06];
+    const checkLight: [number, number, number] = [0.86, 0.58, 0.10];
+    for (let i = 0; i < pts.length; i++) {
+      const p = pts[i];
+      const n = pts[(i + 1) % pts.length];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      const npx = -n.dirZ, npz = n.dirX;
+      const checker = (i % 2 === 0) ? checkDark : checkLight;
+      const grass = (i % 2 === 0) ? grassA : grassB;
+      for (const side of [-1, 1] as const) {
+        // Inner grass shoulder right beside track (real turf)
+        const gIn = [p.x + ppx * (p.width / 2 + 2) * side, -0.22, p.z + ppz * (p.width / 2 + 2) * side];
+        const gOut = [p.x + ppx * (p.width / 2 + 18) * side, -0.22, p.z + ppz * (p.width / 2 + 18) * side];
+        const gnIn = [n.x + npx * (n.width / 2 + 2) * side, -0.22, n.z + npz * (n.width / 2 + 2) * side];
+        const gnOut = [n.x + npx * (n.width / 2 + 18) * side, -0.22, n.z + npz * (n.width / 2 + 18) * side];
+        this.addGroundQuad(verts, idxs, gIn as any, gnIn as any, gnOut as any, gOut as any, grass);
+        // Outer checker field — the iconic Green Hill checkerboard earth stretching to horizon
+        const cIn = [p.x + ppx * (p.width / 2 + 18) * side, -0.26, p.z + ppz * (p.width / 2 + 18) * side];
+        const cOut = [p.x + ppx * (p.width / 2 + 110) * side, -0.30, p.z + ppz * (p.width / 2 + 110) * side];
+        const cnIn = [n.x + npx * (n.width / 2 + 18) * side, -0.26, n.z + npz * (n.width / 2 + 18) * side];
+        const cnOut = [n.x + npx * (n.width / 2 + 110) * side, -0.30, n.z + npz * (n.width / 2 + 110) * side];
+        this.addGroundQuad(verts, idxs, cIn as any, cnIn as any, cnOut as any, cOut as any, checker);
+      }
+    }
+  }
+  private addSonicScenery(verts: number[], idxs: number[]) {
+    const pts = this._trackPoints;
+    const gold: number[] = [0.98, 0.78, 0.08];
+    const goldDark: number[] = [0.72, 0.52, 0.04];
+    const red: number[] = [0.92, 0.14, 0.12];
+    const blue: number[] = [0.22, 0.36, 0.92];
+    const green: number[] = [0.14, 0.58, 0.16];
+    const greenLight: number[] = [0.22, 0.72, 0.22];
+    const brown: number[] = [0.48, 0.30, 0.08];
+    const trunkBrown: number[] = [0.32, 0.18, 0.06];
+    // ── Distant checker hills wrapping the whole island (classic Green Hill silhouette)
+    let outer = 0;
+    for (const p of pts) { const r = Math.hypot(p.x, p.z) + p.width / 2; if (r > outer) outer = r; }
+    for (let k = 0; k < 14; k++) {
+      const a = (k / 14) * TAU + (Math.random() - 0.5) * 0.2;
+      const dist = outer + 70 + Math.random() * 90;
+      const hx = Math.cos(a) * dist, hz = Math.sin(a) * dist;
+      const hs = 28 + Math.random() * 24;
+      // Brown checker base
+      this.addEllipsoid(verts, idxs, hx, hs * 0.42, hz, hs * 0.92, hs * 0.55, hs * 0.92, 9, [0.62, 0.38, 0.06]);
+      // Green cap
+      this.addEllipsoid(verts, idxs, hx, hs * 0.78, hz, hs * 0.95, hs * 0.32, hs * 0.95, 9, green);
+      // Light green highlight strip on top
+      this.addEllipsoid(verts, idxs, hx + hs * 0.12, hs * 0.95, hz, hs * 0.55, hs * 0.12, hs * 0.55, 7, greenLight);
+      // Darker brown checker band — add two small box stripes as check pattern hint
+      if (k % 2 === 0) {
+        this.addBox(verts, idxs, hx, hs * 0.45, hz, hs * 1.2, hs * 0.18, hs * 0.18, [0.42, 0.26, 0.04]);
+      }
+    }
+    // Helper to make a single palm: segmented trunk + leaf crown + coconuts
+    const addPalm = (x: number, z: number, s: number) => {
+      const h = 6.5 * s;
+      this.addCylinder(verts, idxs, x, 0, z, 0.22 * s, h, 6, trunkBrown);
+      // dark rings on trunk
+      for (let r = 1; r < 4; r++) this.addCylinder(verts, idxs, x, r * 1.6 * s, z, 0.24 * s, 0.08 * s, 6, [0.22, 0.14, 0.05]);
+      const crownY = h + 0.4 * s;
+      const leafCols: number[][] = [[0.18, 0.58, 0.16], [0.22, 0.66, 0.18], [0.14, 0.48, 0.14]];
+      for (let i = 0; i < 7; i++) {
+        const ang = (i / 7) * TAU;
+        const lx = x + Math.cos(ang) * 1.4 * s;
+        const lz = z + Math.sin(ang) * 1.4 * s;
+        this.addEllipsoid(verts, idxs, lx, crownY, lz, 0.95 * s, 0.32 * s, 0.55 * s, 6, leafCols[i % 3]);
+      }
+      // coconuts
+      this.addSphere(verts, idxs, x + 0.22 * s, crownY - 0.6 * s, z, 0.18 * s, 5, [0.36, 0.22, 0.08]);
+      this.addSphere(verts, idxs, x - 0.18 * s, crownY - 0.55 * s, z, 0.16 * s, 5, [0.36, 0.22, 0.08]);
+    };
+    // Helper to make a floating giant gold ring (thin torus via 14 tilted boxes)
+    const addRing = (x: number, y: number, z: number, dirX: number, dirZ: number, r: number) => {
+      const segs = 14;
+      for (let i = 0; i < segs; i++) {
+        const a0 = (i / segs) * TAU, a1 = ((i + 1) / segs) * TAU;
+        const x0 = x + Math.cos(a0) * r, y0 = y + Math.sin(a0) * r * 0.15, z0 = z + Math.sin(a0) * r * 0.15;
+        const x1 = x + Math.cos(a1) * r, y1 = y + Math.sin(a1) * r * 0.15, z1 = z + Math.sin(a1) * r * 0.15;
+        // face the ring to face the track tangent
+        const mx = (x0 + x1) / 2, my = (y0 + y1) / 2, mz = (z0 + z1) / 2;
+        // small box segment
+        const len = Math.hypot(x1 - x0, y1 - y0, z1 - z0) + 0.15;
+        // align ring plane to be vertical perpendicular to track (like Green Hill rings)
+        this.addCylinder(verts, idxs, mx, my, mz, 0.18, len, 5, gold);
+      }
+      // inner glint
+      this.addCylinder(verts, idxs, x, y, z, r * 0.82, 0.05, segs, goldDark);
+    };
+    // Roadside palms every ~ 8 pts
+    let palmIdx = 0;
+    for (let i = 0; i < pts.length; i += (this.lowQuality ? 12 : 6)) {
+      const p = pts[i];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      for (const side of [-1, 1] as const) {
+        if (Math.random() < 0.6) continue;
+        const dist = p.width / 2 + 12 + Math.random() * 10;
+        const px = p.x + ppx * dist * side + (Math.random() - 0.5) * 5;
+        const pz = p.z + ppz * dist * side + (Math.random() - 0.5) * 5;
+        addPalm(px, pz, 0.85 + Math.random() * 0.45);
+        if (palmIdx++ > (this.lowQuality ? 40 : 80)) break;
+      }
+      if (palmIdx > (this.lowQuality ? 40 : 80)) break;
+    }
+    // Giant gold rings hovering over track at intervals — the signature pickup rings
+    const ringCount = this.lowQuality ? 10 : 18;
+    for (let k = 0; k < ringCount; k++) {
+      const idx = Math.floor((k / ringCount) * pts.length);
+      const p = pts[idx];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      const side = (k % 2 === 0 ? -1 : 1) * (Math.random() < 0.4 ? 0 : 1); // mostly center, sometimes offset
+      const rx = p.x + ppx * side * 3.5;
+      const rz = p.z + ppz * side * 3.5;
+      const ry = p.y + 3.2 + Math.sin(k * 1.7) * 0.6;
+      // vertical ring facing down track
+      const segs = 16;
+      for (let s = 0; s < segs; s++) {
+        const a0 = (s / segs) * TAU, a1 = ((s + 1) / segs) * TAU;
+        const r = 1.35;
+        const x0 = rx + Math.cos(a0) * 0.18, y0 = ry + Math.sin(a0) * r, z0 = rz + Math.cos(a0) * 0.18;
+        const x1 = rx + Math.cos(a1) * 0.18, y1 = ry + Math.sin(a1) * r, z1 = rz + Math.cos(a1) * 0.18;
+        const mx = (x0 + x1) / 2, my = (y0 + y1) / 2, mz = (z0 + z1) / 2;
+        // Approximate ring segment as a small oriented box
+        const dx = x1 - x0, dy = y1 - y0, dz = z1 - z0;
+        const len = Math.hypot(dx, dy, dz) + 0.12;
+        this.addCylinder(verts, idxs, mx, my, mz, 0.14, len, 5, gold);
+      }
+    }
+    // The iconic GREEN HILL LOOP — a full vertical loop arching over the track
+    // Place one mega loop at 35% lap, plus a smaller corkscrew pair later
+    const loopIdx = Math.floor(pts.length * 0.35);
+    const lp = pts[loopIdx];
+    const lppx = -lp.dirZ, lppz = lp.dirX;
+    const loopR = 9;
+    const loopY = lp.y + loopR + 0.6;
+    // Two pillars
+    this.addCylinder(verts, idxs, lp.x + lppx * 6, lp.y, lp.z + lppz * 6, 0.7, loopR * 1.15, 8, [0.28, 0.28, 0.30]);
+    this.addCylinder(verts, idxs, lp.x - lppx * 6, lp.y, lp.z - lppz * 6, 0.7, loopR * 1.15, 8, [0.28, 0.28, 0.30]);
+    // Loop arch — 24 segments forming a vertical circle, red/white striped
+    const loopSegs = this.lowQuality ? 16 : 24;
+    for (let s = 0; s < loopSegs; s++) {
+      const a0 = (s / loopSegs) * TAU, a1 = ((s + 1) / loopSegs) * TAU;
+      const x0 = lp.x + Math.cos(a0) * loopR * 0.08, y0 = loopY + Math.sin(a0) * loopR, z0 = lp.z + Math.cos(a0) * loopR * 0.08;
+      const x1 = lp.x + Math.cos(a1) * loopR * 0.08, y1 = loopY + Math.sin(a1) * loopR, z1 = lp.z + Math.cos(a1) * loopR * 0.08;
+      const mx = (x0 + x1) / 2, my = (y0 + y1) / 2, mz = (z0 + z1) / 2;
+      const col = (s % 2 === 0) ? red : [0.92, 0.92, 0.95];
+      const dx = x1 - x0, dy = y1 - y0, dz = z1 - z0;
+      const len = Math.hypot(dx, dy, dz) + 0.2;
+      this.addCylinder(verts, idxs, mx, my, mz, 0.42, len, 6, col);
+    }
+    // Checker side-wall on loop inner (blue)
+    for (let s = 0; s < loopSegs; s += 2) {
+      const a = (s / loopSegs) * TAU;
+      const x = lp.x + Math.cos(a) * loopR * 0.08, y = loopY + Math.sin(a) * loopR, z = lp.z + Math.cos(a) * loopR * 0.08;
+      this.addBox(verts, idxs, x, y, z, 0.6, 0.6, 0.6, blue);
+    }
+    // Spring pads roadside — red & yellow springs that launched Sonic
+    let springIdx = 0;
+    for (let i = 0; i < pts.length; i += (this.lowQuality ? 14 : 7)) {
+      if (springIdx++ % 3 !== 0) continue;
+      const p = pts[i];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      const side = (i % 2 === 0 ? -1 : 1);
+      const sx = p.x + ppx * (p.width / 2 + 4.5) * side;
+      const sz = p.z + ppz * (p.width / 2 + 4.5) * side;
+      this.addBox(verts, idxs, sx, 0.35, sz, 1.4, 0.7, 1.4, red);
+      this.addBox(verts, idxs, sx, 0.9, sz, 1.1, 0.18, 1.1, [0.96, 0.92, 0.22]);
+      this.addBox(verts, idxs, sx, 1.05, sz, 1.0, 0.14, 1.0, red);
+      if (springIdx > (this.lowQuality ? 10 : 22)) break;
+    }
+    // Totem poles with life-box star post + arrow monitors
+    for (let k = 0; k < 5; k++) {
+      const idx2 = Math.floor((0.18 + k * 0.16) * pts.length) % pts.length;
+      const p = pts[idx2];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      const side = (k % 2 === 0 ? 1 : -1);
+      const px = p.x + ppx * (p.width / 2 + 22) * side;
+      const pz = p.z + ppz * (p.width / 2 + 22) * side;
+      // Checkered totem pillar
+      this.addBox(verts, idxs, px, 2.4, pz, 1.6, 4.8, 1.6, [0.72, 0.45, 0.08]);
+      this.addBox(verts, idxs, px, 2.4, pz, 1.7, 0.18, 1.7, [0.92, 0.92, 0.96]);
+      this.addBox(verts, idxs, px, 4.6, pz, 1.25, 1.25, 1.25, [0.95, 0.75, 0.12]);
+      this.addSphere(verts, idxs, px, 5.35, pz, 0.42, 6, gold);
+      // Monitor with arrow
+      const mx = px + ppx * 6;
+      const mz = pz + ppz * 6;
+      this.addBox(verts, idxs, mx, 1.1, mz, 1.3, 1.3, 1.3, [0.18, 0.18, 0.22]);
+      this.addBox(verts, idxs, mx + 0.68, 1.1, mz, 0.08, 0.7, 0.7, [0.22, 0.72, 0.96]);
+    }
+    // Dr. Eggman blimp floating above — red/black blimp with gold trim
+    const blimpA = 0.7;
+    const bx = Math.cos(blimpA) * (outer + 40), bz = Math.sin(blimpA) * (outer + 40);
+    this.addEllipsoid(verts, idxs, bx, 36, bz, 14, 5, 5, 10, [0.18, 0.18, 0.20]);
+    this.addEllipsoid(verts, idxs, bx, 36, bz, 14.6, 5.2, 5.2, 10, [0.62, 0.14, 0.12]);
+    this.addEllipsoid(verts, idxs, bx, 36, bz, 12, 3.8, 3.8, 9, [0.92, 0.18, 0.18]);
+    this.addSphere(verts, idxs, bx + 6, 36, bz, 1.2, 6, gold);
+    this.addSphere(verts, idxs, bx - 6, 36, bz, 1.2, 6, gold);
+    // Waterfall in distance — vertical blue veil off a checker cliff
+    for (let w = 0; w < 2; w++) {
+      const wa = 2.2 + w * 1.9;
+      const wx = Math.cos(wa) * (outer + 35), wz = Math.sin(wa) * (outer + 35);
+      this.addBox(verts, idxs, wx, 7, wz, 9, 14, 1.4, [0.58, 0.34, 0.10]);
+      this.addBox(verts, idxs, wx, 7, wz + 0.9, 8.5, 13, 0.3, [0.62, 0.84, 0.95]);
+      this.addBox(verts, idxs, wx, 7, wz + 0.92, 8.5, 13, 0.28, [0.38, 0.68, 0.92]);
     }
   }
   private addOceanPlane(verts: number[], idxs: number[], color: [number, number, number] = [0.05, 0.5, 0.55]) {

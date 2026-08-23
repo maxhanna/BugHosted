@@ -1,4 +1,5 @@
 ﻿import { CityMesh, CityChunk, GltfAnimation, BuildingPlacement } from "../../services/grandtheft.service";
+import { HumanVariant, Role, pickVariant, createHumanSkeleton } from './grandtheft-human-model';
 const CHUNK_SIZE = 80;
 const GRID_PITCH = 80;
 const BLOCK_SIZE = 30;
@@ -1496,13 +1497,74 @@ void main() {
     if (meshes.length === 0) return false;
     let animData = this._meshAnimData.get(meshes[0]);
     if (!animData) {
-      const src = meshes.find(m => m.skeleton && m.animations && m.animations.length > 0);
-      if (!src) return false;
+      const src = meshes.find(m => m.skeleton);
+      if (!src || !src.skeleton) return false;
       animData = { animations: src.animations ?? null, skeleton: src.skeleton ?? null };
       meshes.forEach(m => this._meshAnimData.set(m, animData!));
     }
     const { animations, skeleton } = animData;
-    if (!animations || !skeleton || skeleton.boneCount === 0) return false;
+    if (!skeleton || skeleton.boneCount === 0) return false;
+    // ——— Procedural lifelike humans (no baked clips) — walk / run / punch / fire via math ———
+    const isHuman = (meshes[0] as any).isHuman;
+    if (isHuman && (!animations || animations.length === 0)) {
+      // maintain per-entity walk phase
+      let animator = this.entityAnimators.get(entityId);
+      if (!animator) {
+        animator = { currentAnimation: state, time: 0, loop: true, speed: 1 };
+        this.entityAnimators.set(entityId, animator);
+      }
+      if (animator.currentAnimation !== state) { animator.currentAnimation = state; animator.time = 0; }
+      animator.time += dt * speed * (state === 'run' ? 1.6 : 1);
+      const localMatrices = new Float32Array(skeleton.boneCount * 16);
+      localMatrices.set(skeleton.boneLocalMatrices);
+      // walk cycle — hips bob + thigh/shin + arm swing
+      if (state === 'walk' || state === 'run') {
+        const t = animator.time * (state === 'run' ? 5.2 : 3.4);
+        const swing = state === 'run' ? 0.72 : 0.48;
+        const thighL = 13, shinL = 14, thighR = 16, shinR = 17;
+        const armL = 6, foreL = 7, armR = 10, foreR = 11;
+        const hips = 0;
+        const applyX = (bone:number, ang:number) => {
+          if (bone <0 || bone >= skeleton.boneCount) return;
+          const m = new Float32Array(localMatrices.buffer, bone*64, 16);
+          const qx = Math.sin(ang/2), qw = Math.cos(ang/2);
+          const rot = new Float32Array([1,0,0,0, 0,qw, qx,0, 0,-qx,qw,0, 0,0,0,1]);
+          // multiply: m = m * rot  (approx, local space)
+          const tmp = new Float32Array(16);
+          for(let r=0;r<4;r++) for(let c=0;c<4;c++){ let v=0; for(let k=0;k<4;k++) v+=m[r*4+k]*rot[k*4+c]; tmp[r*4+c]=v; }
+          for(let i=0;i<16;i++) m[i]=tmp[i];
+        };
+        applyX(thighL, Math.sin(t)*swing);
+        applyX(shinL, Math.max(0, -Math.sin(t))*0.55);
+        applyX(thighR, Math.sin(t+Math.PI)*swing);
+        applyX(shinR, Math.max(0, -Math.sin(t+Math.PI))*0.55);
+        applyX(armL, Math.sin(t+Math.PI)*swing*0.62);
+        applyX(foreL, -0.12);
+        applyX(armR, Math.sin(t)*swing*0.62);
+        applyX(foreR, -0.12);
+        if (hips>=0){ const hm = new Float32Array(localMatrices.buffer, hips*64,16); hm[13] += Math.abs(Math.sin(t))* -0.04; }
+      } else if (state === 'drive') {
+        const armL=6, foreL=7, armR=10, foreR=11, thighL=13, thighR=16;
+        const applyX = (bone:number, ang:number)=>{ if(bone<0) return; const m=new Float32Array(localMatrices.buffer,bone*64,16); const qx=Math.sin(ang/2),qw=Math.cos(ang/2); const rot=new Float32Array([1,0,0,0,0,qw,qx,0,0,-qx,qw,0,0,0,0,1]); const tmp=new Float32Array(16); for(let r=0;r<4;r++) for(let c=0;c<4;c++){let v=0; for(let k=0;k<4;k++) v+=m[r*4+k]*rot[k*4+c]; tmp[r*4+c]=v;} for(let i=0;i<16;i++) m[i]=tmp[i]; };
+        applyX(armL,-0.55); applyX(foreL,-0.85); applyX(armR,-0.55); applyX(foreR,-0.85);
+        const thighLIdx=13, thighRIdx=16;
+        applyX(thighLIdx, -1.05); applyX(thighRIdx, -1.05);
+      }
+      // punch / fire overrides (visible to peers)
+      const punchLeft = this.punchTimers.get(entityId) ?? 0;
+      if (punchLeft > 0) {
+        const t = punchLeft/0.3; const a = t<0.5? t*2 : 2 - t*2;
+        const armR=10, foreR=11;
+        const applyX2 = (bone:number, ang:number)=>{ if(bone<0) return; const m=new Float32Array(localMatrices.buffer,bone*64,16); const qx=Math.sin(ang/2),qw=Math.cos(ang/2); const rot=new Float32Array([1,0,0,0,0,qw,qx,0,0,-qx,qw,0,0,0,0,1]); const tmp=new Float32Array(16); for(let r=0;r<4;r++) for(let c=0;c<4;c++){let v=0; for(let k=0;k<4;k++) v+=m[r*4+k]*rot[k*4+c]; tmp[r*4+c]=v;} for(let i=0;i<16;i++) m[i]=tmp[i]; };
+        applyX2(armR, -1.0*a); applyX2(foreR, -0.85*a);
+        this.punchTimers.set(entityId, Math.max(0, punchLeft - dt));
+      }
+      const jointMatrices = new Float32Array(skeleton.boneCount*16);
+      this.computeJointMatrices(skeleton, localMatrices, jointMatrices);
+      this.skinMeshGeneric(meshes, skeleton, jointMatrices);
+      return true;
+    }
+    if (!animations || skeleton.boneCount === 0) return false;
     const desiredAnim = this.matchAnimationName(animations, state);
     if (!desiredAnim) return false;
     let animator = this.entityAnimators.get(entityId);
@@ -3614,83 +3676,149 @@ void main() {
     }
     return lamps;
   }
-  getPlayerMesh(color: [number, number, number]): CityMesh {
-    const key = `player_${color.join(',')}`;
-    if (this.meshCache.has(key)) return this.meshCache.get(key)!;
-    const verts: number[] = [];
-    const indices: number[] = [];
-    const addSphere = (cx: number, cy: number, cz: number, radius: number, stacks: number, slices: number, r: number, g: number, b: number, a: number) => {
-      const startIndex = verts.length / 10;
-      for (let i = 0; i <= stacks; i++) {
-        const v = i / stacks;
-        const theta = v * Math.PI;
-        const sinT = Math.sin(theta), cosT = Math.cos(theta);
-        for (let j = 0; j <= slices; j++) {
-          const u = j / slices;
-          const phi = u * Math.PI * 2;
-          const sinP = Math.sin(phi), cosP = Math.cos(phi);
-          const x = cosP * sinT;
-          const y = cosT;
-          const z = sinP * sinT;
-          verts.push(cx + x * radius, cy + y * radius, cz + z * radius, x, y, z, r, g, b, a);
-        }
-      }
-      for (let i = 0; i < stacks; i++) {
-        for (let j = 0; j < slices; j++) {
-          const aI = startIndex + i * (slices + 1) + j;
-          const bI = startIndex + (i + 1) * (slices + 1) + j;
-          indices.push(aI, bI, aI + 1, bI, bI + 1, aI + 1);
-        }
-      }
-    };
-    const addCylinder = (cx: number, cy: number, cz: number, radius: number, height: number, slices: number, r: number, g: number, b: number, a: number) => {
-      const startIndex = verts.length / 10;
-      for (let i = 0; i <= 1; i++) {
-        const y = cy + (i === 0 ? -height / 2 : height / 2);
-        for (let j = 0; j <= slices; j++) {
-          const u = j / slices;
-          const phi = u * Math.PI * 2;
-          const sinP = Math.sin(phi), cosP = Math.cos(phi);
-          const nx = cosP, nz = sinP;
-          verts.push(cx + cosP * radius, y, cz + sinP * radius, nx, 0, nz, r, g, b, a);
-        }
-      }
-      for (let j = 0; j < slices; j++) {
-        const aI = startIndex + j;
-        const bI = startIndex + (slices + 1) + j;
-        indices.push(aI, bI, aI + 1, bI, bI + 1, aI + 1);
-      }
-    };
-    addCylinder(0, 0.9, 0, 0.28, 0.9, 18, color[0], color[1], color[2], 1.0);
-    addSphere(0, 1.6, 0, 0.18, 10, 18, color[0] * 0.9, color[1] * 0.9, color[2] * 0.9, 1.0);
-    addSphere(0, 0.45, 0, 0.2, 8, 16, color[0], color[1], color[2], 1.0);
-    addCylinder(-0.45, 1.05, 0, 0.08, 0.7, 12, color[0] * 0.9, color[1] * 0.9, color[2] * 0.9, 1.0);
-    addCylinder(0.45, 1.05, 0, 0.08, 0.7, 12, color[0] * 0.9, color[1] * 0.9, color[2] * 0.9, 1.0);
-    addSphere(-0.45, 0.6, -0.02, 0.09, 6, 12, color[0] * 0.95, color[1] * 0.95, color[2] * 0.95, 1.0);
-    addSphere(0.45, 0.6, -0.02, 0.09, 6, 12, color[0] * 0.95, color[1] * 0.95, color[2] * 0.95, 1.0);
-    addCylinder(-0.18, -0.6, 0, 0.11, 1.2, 16, color[0], color[1], color[2], 1.0);
-    addCylinder(0.18, -0.6, 0, 0.11, 1.2, 16, color[0], color[1], color[2], 1.0);
-    addSphere(-0.18, -1.2, 0, 0.11, 6, 12, color[0], color[1], color[2], 1.0);
-    addSphere(0.18, -1.2, 0, 0.11, 6, 12, color[0], color[1], color[2], 1.0);
-    const mesh = this.createMesh(verts, indices);
-    this.meshCache.set(key, mesh);
+  // ---- Lifelike human variant cache (cheap, vertex-color, 19-bone rig) ----
+  private humanMeshCache = new Map<string, CityMesh>();
+  private getHumanVariantMesh(role: Role, seed: number | string, genderHint?: string): CityMesh {
+    const v = pickVariant(role, seed, genderHint);
+    const key = `human_${v.role}_${v.bodyType}_${v.gender}_${v.skin.join(',')}_${v.hair.join(',')}_${v.outfitA.join(',')}_${v.hasBeard ? 1:0}_${v.hasCap?1:0}`;
+    if (this.humanMeshCache.has(key)) return this.humanMeshCache.get(key)!;
+    const mesh = this.createLifelikeHumanMesh(v);
+    this.humanMeshCache.set(key, mesh);
+    // also prime meshCache for legacy lookups
+    this.meshCache.set(key, mesh as any);
     return mesh;
   }
-  getOtherPlayerMesh(color: [number, number, number]): CityMesh { return this.getPlayerMesh(color); }
+  getPlayerMesh(color: [number, number, number]): CityMesh {
+    // Franklin — dedicated hero variant (muscular, green polo, jeans)
+    const key = `player_franklin`;
+    if (this.humanMeshCache.has(key)) return this.humanMeshCache.get(key)!;
+    const variant = pickVariant('franklin', key, 'male');
+    // Override Franklin colors to be stable regardless of input color (keeps multiplayer tint for nameplate only)
+    variant.outfitA = [0.16, 0.52, 0.22]; variant.outfitB = [0.14,0.14,0.16]; variant.accent = [0.92,0.92,0.96];
+    const mesh = this.createLifelikeHumanMesh(variant);
+    this.humanMeshCache.set(key, mesh);
+    return mesh;
+  }
+  getOtherPlayerMesh(color: [number, number, number]): CityMesh {
+    // Remote player — same Franklin rig but tinted by passed color as accent so friends are recognizable
+    const key = `other_${color.join(',')}`;
+    if (this.humanMeshCache.has(key)) return this.humanMeshCache.get(key)!;
+    const v = pickVariant('franklin', key, 'male');
+    v.accent = [color[0], color[1], color[2]];
+    const mesh = this.createLifelikeHumanMesh(v);
+    this.humanMeshCache.set(key, mesh);
+    return mesh;
+  }
   getPedestrianMesh(gender: string, seed: number | string = 0): CityMesh | CityMesh[] {
+    // Keep hooker as distinct if requested
     if (gender === 'hooker') {
       return this.getHookerMesh();
     }
-    if (this.npcMeshes.length > 0) {
-      if (this.npcMeshes.length === 1) return this.npcMeshes[0];
-      return this.npcMeshes[hashSeed(seed) % this.npcMeshes.length];
+    // Infer lifelike role from gender + seed distribution — ensures every street has
+    // cops, taxi drivers, pizza boys, hillbillies, women, fat & dwarf variants visible
+    const h = hashSeed(seed);
+    const roll = h % 100;
+    let role: Role = 'generic';
+    const g = (gender||'').toLowerCase();
+    if (g === 'female') role = 'female';
+    else if (g === 'cop') role = 'cop';
+    else if (roll < 10) role = 'cop';
+    else if (roll < 15) role = 'taxi';
+    else if (roll < 20) role = 'pizza';
+    else if (roll < 30) role = 'hillbilly';
+    else if (roll < 38) role = 'fat';
+    else if (roll < 43) role = 'dwarf';
+    else if (roll < 58) role = 'female';
+    // fallback generic covers the rest
+    return this.getHumanVariantMesh(role, seed, gender);
+  }
+  private createLifelikeHumanMesh(variant: HumanVariant): CityMesh {
+    const skeleton = createHumanSkeleton();
+    const verts: number[] = [];
+    const indices: number[] = [];
+    const jIndices: number[] = [];
+    const jWeights: number[] = [];
+    const restPos: number[] = [];
+    const restNrm: number[] = [];
+    const addBox = (cx:number, cy:number, cz:number, w:number, h:number, d:number, col:[number,number,number], bone:number) => {
+      const hw=w/2, hh=h/2, hd=d/2;
+      const faces = [
+        { n:[0,1,0], pts:[[-hw, hh,-hd],[hw, hh,-hd],[hw, hh,hd],[-hw, hh,hd]] },
+        { n:[0,-1,0], pts:[[-hw,-hh,-hd],[hw,-hh,-hd],[hw,-hh,hd],[-hw,-hh,hd]] },
+        { n:[0,0,1], pts:[[-hw, hh,hd],[-hw,-hh,hd],[hw,-hh,hd],[hw, hh,hd]] },
+        { n:[0,0,-1], pts:[[hw, hh,-hd],[hw,-hh,-hd],[-hw,-hh,-hd],[-hw, hh,-hd]] },
+        { n:[-1,0,0], pts:[[-hw, hh,-hd],[-hw,-hh,-hd],[-hw,-hh,hd],[-hw, hh,hd]] },
+        { n:[1,0,0], pts:[[hw, hh,hd],[hw,-hh,hd],[hw,-hh,-hd],[hw, hh,-hd]] },
+      ];
+      const base = verts.length/12;
+      for (const f of faces) {
+        const start = verts.length/12;
+        for (let k=0;k<4;k++) {
+          const p = f.pts[k] as number[];
+          verts.push(cx+p[0], cy+p[1], cz+p[2], f.n[0], f.n[1], f.n[2], col[0], col[1], col[2], 1, 0, 0);
+          restPos.push(cx+p[0], cy+p[1], cz+p[2]);
+          restNrm.push(f.n[0], f.n[1], f.n[2]);
+          jIndices.push(bone,0,0,0); jWeights.push(1,0,0,0);
+        }
+        indices.push(start, start+1, start+2, start, start+2, start+3);
+      }
+    };
+    let torsoW=0.32, torsoH=0.38, torsoD=0.18, legLen=0.42, armLen=0.42, headR=0.13;
+    if (variant.bodyType==='fat'){ torsoW*=1.55; torsoD*=1.3; legLen*=0.92; }
+    if (variant.bodyType==='dwarf'){ torsoH*=0.85; legLen*=0.68; armLen*=0.72; headR*=1.08; }
+    if (variant.gender==='female'){ torsoW*=0.88; torsoD*=0.92; }
+    // Torso (chest bone 2)
+    addBox(0,0.20,0, torsoW, torsoH, torsoD, variant.outfitA, 2);
+    addBox(0,0.02,0, torsoW*1.02,0.05,torsoD*1.05, [0.15,0.12,0.10], 2);
+    addBox(0,0.42,0,0.08,0.08,0.08, variant.skin, 3);
+    addBox(0,0.55,0, headR*1.9, headR*1.9, headR*1.9, variant.skin, 4);
+    addBox(0,0.62,-0.02, headR*1.6,0.08,headR*1.5, variant.hair, 4);
+    if (variant.gender==='female') addBox(0,0.50,-0.14,0.10,0.18,0.08, variant.hair, 4);
+    addBox(-0.04,0.56,0.11,0.04,0.02,0.01,[1,1,1],4); addBox(0.04,0.56,0.11,0.04,0.02,0.01,[1,1,1],4);
+    addBox(-0.04,0.56,0.115,0.018,0.018,0.005,[0.05,0.05,0.05],4); addBox(0.04,0.56,0.115,0.018,0.018,0.005,[0.05,0.05,0.05],4);
+    if (variant.hasBeard) addBox(0,0.48,0.10,0.12,0.08,0.06,variant.hair,4);
+    if (variant.hasCap){
+      const capCol: [number,number,number]= variant.role==='cop'?[0.08,0.12,0.42]: variant.role==='pizza'?[0.92,0.08,0.08]:[0.30,0.22,0.12];
+      addBox(0,0.68,0,headR*1.5,0.06,headR*1.4,capCol,4); addBox(0,0.64,0.10,headR*1.3,0.02,0.10,capCol,4);
+      if(variant.role==='cop') addBox(0,0.67,0.08,0.06,0.05,0.01,[0.88,0.70,0.12],4);
+      if(variant.role==='pizza') addBox(0,0.67,0.08,0.10,0.06,0.01,[1,0.95,0.85],4);
     }
-    if (this.npcMesh) return this.npcMesh;
-    const color: [number, number, number] = gender === 'female' ? [0.85, 0.45, 0.85] : [0.45, 0.55, 0.85];
-    const key = `ped_${gender}_${color.join(',')}`;
-    if (this.meshCache.has(key)) return this.meshCache.get(key)!;
-    const mesh = this.getPlayerMesh(color);
-    this.meshCache.set(key, mesh);
+    const armW = variant.bodyType==='fat'?0.09:0.075;
+    addBox(-0.20,0.18,0,armW,armLen*0.5,armW,variant.skin,6); addBox(-0.20,-0.04,0,armW*0.92,armLen*0.5,armW*0.92,variant.skin,7); addBox(-0.20,-0.24,0,0.07,0.09,0.07,variant.skin,8);
+    addBox(0.20,0.18,0,armW,armLen*0.5,armW,variant.skin,10); addBox(0.20,-0.04,0,armW*0.92,armLen*0.5,armW*0.92,variant.skin,11); addBox(0.20,-0.24,0,0.07,0.09,0.07,variant.skin,12);
+    addBox(-0.20,0.20,0,armW*1.15,0.14,armW*1.15,variant.outfitA,6); addBox(0.20,0.20,0,armW*1.15,0.14,armW*1.15,variant.outfitA,10);
+    const legW = variant.bodyType==='fat'?0.14:0.11; const thighH=legLen*0.48, shinH=legLen*0.48; const hipOff=0.09;
+    addBox(-hipOff,-0.12,0,legW,thighH,legW,variant.outfitB,13); addBox(-hipOff,-0.12-thighH,0,legW*0.95,shinH,legW*0.95,variant.outfitB,14); addBox(-hipOff,-0.12-thighH-shinH+0.04,0.04,0.14,0.07,0.20,[0.12,0.08,0.06],15);
+    addBox(hipOff,-0.12,0,legW,thighH,legW,variant.outfitB,16); addBox(hipOff,-0.12-thighH,0,legW*0.95,shinH,legW*0.95,variant.outfitB,17); addBox(hipOff,-0.12-thighH-shinH+0.04,0.04,0.14,0.07,0.20,[0.12,0.08,0.06],18);
+    if(variant.role==='cop' && variant.accent) addBox(0.08,0.22,0.10,0.06,0.06,0.01,variant.accent,2);
+    if(variant.role==='pizza') addBox(0,0.18,-0.12,0.22,0.28,0.08,[0.95,0.85,0.65],2);
+    return this.finalizeSkinnedMesh(verts, indices, jIndices, jWeights, restPos, restNrm, skeleton);
+  }
+  private finalizeSkinnedMesh(verts:number[], indices:number[], jIndices:number[], jWeights:number[], restPos:number[], restNrm:number[], skeleton:any): CityMesh {
+    const gl = this.gl;
+    const vao = gl.createVertexArray()!;
+    const vbo = gl.createBuffer()!;
+    const ibo = gl.createBuffer()!;
+    gl.bindVertexArray(vao);
+    const interleaved = new Float32Array(verts);
+    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+    gl.bufferData(gl.ARRAY_BUFFER, interleaved, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
+    const maxIdx = indices.length? Math.max(...indices) : 0;
+    const use32 = maxIdx > 0xffff;
+    if(use32) gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(indices), gl.STATIC_DRAW);
+    else gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+    const stride = 12*4;
+    gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0,3,gl.FLOAT,false,stride,0);
+    gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1,3,gl.FLOAT,false,stride,12);
+    gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2,4,gl.FLOAT,false,stride,24);
+    gl.enableVertexAttribArray(3); gl.vertexAttribPointer(3,2,gl.FLOAT,false,stride,40);
+    gl.bindVertexArray(null);
+    const vCount = restPos.length/3;
+    let minY=Infinity, maxY=-Infinity, minX=Infinity, maxX=-Infinity, minZ=Infinity, maxZ=-Infinity;
+    for(let i=0;i<vCount;i++){ const x=restPos[i*3], y=restPos[i*3+1], z=restPos[i*3+2]; if(y<minY)minY=y; if(y>maxY)maxY=y; if(x<minX)minX=x; if(x>maxX)maxX=x; if(z<minZ)minZ=z; if(z>maxZ)maxZ=z; }
+    const mesh: CityMesh = { vao, vbo, ibo, indexCount: indices.length, indexType: use32? gl.UNSIGNED_INT: gl.UNSIGNED_SHORT, vertexCount: vCount, restPositions: new Float32Array(restPos), restNormals: new Float32Array(restNrm), jointIndices: new Uint16Array(jIndices), jointWeights: new Float32Array(jWeights), skeleton, animations: null, originalVBO: new Float32Array(interleaved), minY, maxY, minX, maxX, minZ, maxZ } as any;
+    (mesh as any).isHuman = true;
     return mesh;
   }
   getBoatMesh(seed: number | string = 0): CityMesh | CityMesh[] {
@@ -4386,6 +4514,9 @@ void main() {
       }
       if (npc.hasDriver !== false && npc.type !== 'cop') {
         const dMesh = this.getPedestrianMesh(npc.gender || 'male', npc.id);
+        // Lifelike driver — drive pose, visible to all peers, cheap LOD
+        const ddx = npc.x - camX, ddz = npc.z - camZ;
+        if (ddx*ddx+ddz*ddz < 250*250) this.animateAndSkinEntity(npc.id+900000, dMesh, 'drive', dt, 1);
         const sinY = Math.sin(npc.yaw), cosY = Math.cos(npc.yaw);
         const dOffX = 0.3, dOffZ = 0.2;
         const dwx = npc.x + (dOffX * cosY + dOffZ * sinY);
@@ -4475,6 +4606,14 @@ void main() {
         const wz = p.posZ + (-offX * sinY + offZ * cosY);
         this.drawMesh(p.mesh, wx, -0.3, wz, p.yaw, [0.85, 0.85, 0.85]);
       } else {
+        // Lifelike remote player — walk/idle + visible firing/punch for peers
+        const dx = p.posX - ((p as any)._prevX ?? p.posX), dz = p.posZ - ((p as any)._prevZ ?? p.posZ);
+        const moved = Math.hypot(dx, dz);
+        const state = p.isShooting ? 'walk' as const : (moved > 0.015 ? 'walk' as const : 'idle' as const);
+        (p as any)._prevX = p.posX; (p as any)._prevZ = p.posZ;
+        if (p.isShooting) this.punchTimers.set(p.userId, 0.18);
+        const ddx2 = p.posX - camX, ddz2 = p.posZ - camZ;
+        if (ddx2*ddx2+ddz2*ddz2 < 260*260) this.animateAndSkinEntity(p.userId, p.mesh, state, dt, 1.2);
         this.drawMesh(p.mesh, p.posX, p.posY, p.posZ, p.yaw);
       }
     }

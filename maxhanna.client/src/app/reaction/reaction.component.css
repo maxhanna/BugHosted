@@ -59,24 +59,24 @@
 
 .reactionsContainer {
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: center;
-  max-width: 120px;
+  max-width: none;
   height: 100%;
-  overflow: hidden;
+  overflow: visible;
   border: 0;
   margin: 0;
-  align-items: center;
   align-content: center;
+  gap: 6px;
 }
 
 .reactionsDisplaySpan {
   position: relative;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  max-width: 80px;
-  width: 100%;
+  overflow: visible;
+  white-space: normal;
+  text-overflow: clip;
+  max-width: none;
+  width: auto;
   text-align: left;
   line-height: unset;
   border: 0;
@@ -84,6 +84,9 @@
   align-items: center;
   align-content: center;
   font-size: small;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
 }
 
 .reactionWithCount {
