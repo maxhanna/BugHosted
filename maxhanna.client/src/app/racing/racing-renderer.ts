@@ -4867,51 +4867,127 @@ void main() { FragColor = texture(uTex, vUV); }`;
   }
   private addMountainScenery(verts: number[], idxs: number[]) {
     const pts = this._trackPoints;
-    const rock = [0.32, 0.30, 0.28];
-    const rockLight = [0.45, 0.43, 0.40];
-    const rockDark = [0.22, 0.20, 0.18];
-    const snow = [0.85, 0.88, 0.92];
     let outer = 0;
     for (const p of pts) {
       const r = Math.hypot(p.x, p.z) + p.width / 2;
       if (r > outer) outer = r;
     }
-    const ridgeColors: number[][] = [[0.38, 0.38, 0.42], [0.42, 0.42, 0.46], [0.46, 0.46, 0.5]];
-    for (let k = 0; k < 12; k++) {
-      const a = (k / 12) * Math.PI * 2 + (Math.random() - 0.5) * 0.3;
-      const mh = 25 + Math.random() * 55;
-      const mw = 30 + Math.random() * 40;
-      const dist = outer + mw + 30 + Math.random() * 120;
+    // ── Helper: blend a base color toward a tint by factor [0..1] ──
+    const blend = (base: number[], tint: number[], t: number): number[] =>
+      base.map((c, i) => c + (tint[i] - c) * t);
+    // ── Layer 1: far background ridgeline (tall, hazy, desaturated) ──
+    // These are the massive peaks you see on the horizon.  They use
+    // blue-grey haze tones so they read as distant via atmospheric
+    // perspective.  Each "peak" is a cluster of 2-4 overlapping
+    // ellipsoids so the silhouette is jagged, not a perfect cone.
+    const hazeFar: number[] = [0.42, 0.44, 0.52];    // blue-grey haze
+    const hazeMid: number[] = [0.38, 0.40, 0.44];
+    const snowHaze: number[] = [0.72, 0.76, 0.84];   // distant snow
+    const farCount = this.lowQuality ? 8 : 14;
+    for (let k = 0; k < farCount; k++) {
+      const a = (k / farCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
+      const mh = 55 + Math.random() * 70;
+      const mw = 45 + Math.random() * 55;
+      const dist = outer + mw * 0.6 + 150 + Math.random() * 180;
       const mx = Math.cos(a) * dist;
       const mz = Math.sin(a) * dist;
-      const col = ridgeColors[k % ridgeColors.length];
-      this.addCone(verts, idxs, mx, 0, mz, mw, mh, 8, col);
-      if (mh > 55) {
-        this.addCone(verts, idxs, mx, mh * 0.72, mz, mw * 0.35, mh * 0.28, 6, snow);
+      // Main mass — wide ellipsoid base
+      const segs = this.lowQuality ? 7 : 10;
+      this.addEllipsoid(verts, idxs, mx, mh * 0.28, mz, mw, mh * 0.35, mw * 0.7, segs, blend(hazeFar, hazeMid, Math.random() * 0.3));
+      // Upper ridge — narrower, offset slightly for jagged silhouette
+      const ox = mx + (Math.random() - 0.5) * mw * 0.35;
+      const oz = mz + (Math.random() - 0.5) * mw * 0.35;
+      this.addEllipsoid(verts, idxs, ox, mh * 0.52, oz, mw * 0.55, mh * 0.45, mw * 0.45, segs, blend(hazeFar, hazeMid, 0.2 + Math.random() * 0.3));
+      // Spire — sharp sub-peak
+      if (Math.random() > 0.4) {
+        const sx = mx + (Math.random() - 0.5) * mw * 0.5;
+        const sz = mz + (Math.random() - 0.5) * mw * 0.5;
+        this.addEllipsoid(verts, idxs, sx, mh * 0.65, sz, mw * 0.28, mh * 0.38, mw * 0.25, 7, blend(hazeFar, [0.5, 0.5, 0.55], 0.4));
+      }
+      // Snow cap — only on taller peaks
+      if (mh > 70) {
+        this.addEllipsoid(verts, idxs, ox, mh * 0.82, oz, mw * 0.22, mh * 0.18, mw * 0.18, 6, snowHaze);
       }
     }
-    for (let i = 0; i < pts.length; i += 5) {
+    // ── Layer 2: mid-range ridgeline (detailed, darker rock) ──
+    const rockBase: number[] = [0.34, 0.33, 0.30];
+    const rockDark: number[] = [0.22, 0.20, 0.18];
+    const rockWarm: number[] = [0.40, 0.36, 0.30];
+    const rockCold: number[] = [0.30, 0.31, 0.34];
+    const snowMid: number[] = [0.82, 0.86, 0.92];
+    const greenTree: number[] = [0.12, 0.22, 0.10];
+    const midCount = this.lowQuality ? 10 : 18;
+    for (let k = 0; k < midCount; k++) {
+      const a = (k / midCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.35;
+      const mh = 28 + Math.random() * 50;
+      const mw = 25 + Math.random() * 45;
+      const dist = outer + mw * 0.5 + 60 + Math.random() * 100;
+      const mx = Math.cos(a) * dist;
+      const mz = Math.sin(a) * dist;
+      const segs = this.lowQuality ? 7 : 10;
+      const rockCol = blend(rockBase, Math.random() < 0.5 ? rockWarm : rockCold, Math.random() * 0.4);
+      // Main mass — ellipsoid for natural slope profile
+      this.addEllipsoid(verts, idxs, mx, mh * 0.22, mz, mw, mh * 0.38, mw * 0.65, segs, rockCol);
+      // Upper cone — sharper peak shape layered on top
+      const peakOff = (Math.random() - 0.5) * mw * 0.4;
+      const peakOffZ = (Math.random() - 0.5) * mw * 0.35;
+      this.addCone(verts, idxs, mx + peakOff, mh * 0.15, mz + peakOffZ, mw * 0.6, mh * 0.55, this.lowQuality ? 8 : 12, rockCol);
+      // Secondary spire for jagged ridgeline
+      if (Math.random() > 0.35) {
+        const s2x = mx + (Math.random() - 0.5) * mw * 0.7;
+        const s2z = mz + (Math.random() - 0.5) * mw * 0.6;
+        const s2h = mh * (0.5 + Math.random() * 0.35);
+        this.addCone(verts, idxs, s2x, 0, s2z, mw * 0.38, s2h, 8, blend(rockCol, rockCold, 0.3));
+      }
+      // Snow cap — follows the ridgeline irregularly
+      if (mh > 50) {
+        const snowH = mh * (0.12 + Math.random() * 0.15);
+        this.addEllipsoid(verts, idxs, mx + peakOff * 0.5, mh - snowH * 0.5, mz + peakOffZ * 0.5,
+          mw * (0.22 + Math.random() * 0.12), snowH, mw * (0.18 + Math.random() * 0.1), 6, snowMid);
+      }
+      // Tree line band — dark green strip at mid-elevation
+      if (mh > 25 && mh < 60) {
+        const treeY = mh * 0.18;
+        this.addEllipsoid(verts, idxs, mx, treeY, mz, mw * 1.05, mh * 0.06, mw * 0.7, 6, greenTree);
+      }
+    }
+    // ── Layer 3: near-ridge foothills (close, dark, detailed crags) ──
+    for (let i = 0; i < pts.length; i += (this.lowQuality ? 4 : 3)) {
       const p = pts[i];
       const ppx = -p.dirZ;
       const ppz = p.dirX;
       for (const side of [-1, 1]) {
-        const dist = p.width / 2 + 34 + Math.random() * 24;
-        const rx = p.x + ppx * dist * side + (Math.random() - 0.5) * 8;
-        const rz = p.z + ppz * dist * side + (Math.random() - 0.5) * 8;
-        const s = 1.0 + Math.random() * 2.5;
+        const dist = p.width / 2 + 30 + Math.random() * 28;
+        const rx = p.x + ppx * dist * side + (Math.random() - 0.5) * 10;
+        const rz = p.z + ppz * dist * side + (Math.random() - 0.5) * 10;
+        const s = 1.0 + Math.random() * 2.8;
         const roll = Math.random();
-        if (roll < 0.4) {
-          this.addCone(verts, idxs, rx, 0, rz, s * 1.2, s * 2.4, 8, rockLight);
+        const cragCol = blend(rockBase, Math.random() < 0.5 ? rockWarm : rockCold, Math.random() * 0.5);
+        if (roll < 0.35) {
+          // Tall spire with secondary buttress
+          this.addEllipsoid(verts, idxs, rx, s * 0.8, rz, s * 1.1, s * 2.2, s * 0.9, 8, cragCol);
+          this.addCone(verts, idxs, rx + s * 0.3, 0, rz - s * 0.2, s * 0.7, s * 1.8, 7, blend(cragCol, rockDark, 0.3));
           if (s > 1.8) {
-            this.addCone(verts, idxs, rx, s * 2.0, rz, s * 0.3, s * 0.4, 5, snow);
+            this.addEllipsoid(verts, idxs, rx, s * 2.8, rz, s * 0.28, s * 0.45, s * 0.25, 5, snowMid);
           }
-        } else if (roll < 0.7) {
-          this.addCone(verts, idxs, rx, 0, rz, s * 1.8, s * 1.3, 7, rockDark);
+        } else if (roll < 0.6) {
+          // Broad ridge — wide, low
+          this.addEllipsoid(verts, idxs, rx, s * 0.4, rz, s * 2.0, s * 1.0, s * 1.5, 8, cragCol);
+          this.addEllipsoid(verts, idxs, rx + s * 0.5, s * 0.2, rz + s * 0.3, s * 1.0, s * 0.6, s * 0.8, 6, blend(cragCol, rockDark, 0.25));
+        } else if (roll < 0.82) {
+          // Jagged crag — overlapping ellipsoids at different angles
+          this.addEllipsoid(verts, idxs, rx, s * 0.5, rz, s * 1.3, s * 1.6, s * 1.1, 8, cragCol);
+          this.addEllipsoid(verts, idxs, rx - s * 0.4, s * 0.9, rz + s * 0.3, s * 0.6, s * 1.2, s * 0.5, 6, blend(cragCol, rockWarm, 0.2));
+          this.addEllipsoid(verts, idxs, rx + s * 0.3, s * 1.3, rz - s * 0.2, s * 0.45, s * 0.8, s * 0.4, 5, blend(cragCol, rockCold, 0.3));
         } else {
-          this.addCone(verts, idxs, rx, 0, rz, s * 2.0, s * 0.9, 8, rock);
+          // Low boulder field
+          this.addSphere(verts, idxs, rx, s * 0.3, rz, s * 0.8, 7, blend(cragCol, rockDark, 0.15));
+          this.addSphere(verts, idxs, rx + s * 0.6, s * 0.2, rz + s * 0.4, s * 0.5, 6, cragCol);
+          this.addSphere(verts, idxs, rx - s * 0.4, s * 0.15, rz - s * 0.3, s * 0.4, 5, blend(cragCol, rockWarm, 0.1));
         }
       }
     }
+    // ── Trees: conifers along the near slopes ──
     let pineIdx = 0;
     const pineCap = this.lowQuality ? 55 : 100;
     for (let i = 0; i < pts.length; i += 4) {
@@ -4919,23 +4995,27 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const ppx = -p.dirZ;
       const ppz = p.dirX;
       for (const side of [-1, 1]) {
-        const dist = p.width / 2 + 26 + Math.random() * 20;
-        const tx = p.x + ppx * dist * side + (Math.random() - 0.5) * 10;
-        const tz = p.z + ppz * dist * side + (Math.random() - 0.5) * 10;
-        this.addAlpineConifer(verts, idxs, tx, tz, 0.5 + Math.random() * 0.45);
+        const dist = p.width / 2 + 24 + Math.random() * 22;
+        const tx = p.x + ppx * dist * side + (Math.random() - 0.5) * 12;
+        const tz = p.z + ppz * dist * side + (Math.random() - 0.5) * 12;
+        this.addAlpineConifer(verts, idxs, tx, tz, 0.5 + Math.random() * 0.5);
         if (pineIdx++ > pineCap) break;
       }
       if (pineIdx > pineCap) break;
     }
-    for (let i = 0; i < 36; i++) {
+    // ── Snow patches on the ground between peaks ──
+    const snowPatch: number[] = [0.88, 0.91, 0.96];
+    for (let i = 0; i < 40; i++) {
       const a = Math.random() * Math.PI * 2;
-      const dist = outer + 20 + Math.random() * 110;
+      const dist = outer + 25 + Math.random() * 130;
       const sx = Math.cos(a) * dist;
       const sz = Math.sin(a) * dist;
-      this.addSphere(verts, idxs, sx, 0.05, sz, 1.5 + Math.random() * 3.0, 6, snow);
+      const sr = 1.0 + Math.random() * 3.5;
+      // Flat snow ellipsoid (squashed vertically) for realistic snow patches
+      this.addEllipsoid(verts, idxs, sx, 0.08, sz, sr, 0.15, sr * 0.7, 6, snowPatch);
     }
-    // High-country extras: a fire lookout, a couple of timber chalets and
-    // roadside boulders for the hairpins.
+    // ── High-country extras: a fire lookout, a couple of timber chalets and
+    //    roadside boulders for the hairpins.
     {
       const p = pts[Math.floor(pts.length * 0.72)];
       const ppx = -p.dirZ;
@@ -4961,7 +5041,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
         const dist = p.width / 2 + 12 + Math.random() * 10;
         const bx = p.x + ppx * dist * side + (Math.random() - 0.5) * 3;
         const bz = p.z + ppz * dist * side + (Math.random() - 0.5) * 3;
-        this.addSphere(verts, idxs, bx, 0.25, bz, 0.5 + Math.random() * 0.9, 6, Math.random() < 0.5 ? rock : rockDark);
+        this.addSphere(verts, idxs, bx, 0.25, bz, 0.5 + Math.random() * 0.9, 6, Math.random() < 0.5 ? rockBase : rockDark);
         if (boulderIdx++ > (this.lowQuality ? 40 : 90)) break;
       }
       if (boulderIdx > (this.lowQuality ? 40 : 90)) break;

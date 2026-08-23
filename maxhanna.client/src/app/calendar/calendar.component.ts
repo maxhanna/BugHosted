@@ -651,4 +651,128 @@ export class CalendarComponent extends ChildComponent implements OnInit {
     if (sent.calendarText) return sent.calendarText + (whenStr ? ` — ${whenStr}` : '');
     return whenStr || 'Notification'; 
   }
+
+  // ── Calendar sync / ICS export ──────────────────────────────────────────
+  private formatIcsDate(date: Date): string {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${date.getUTCFullYear()}${pad(date.getUTCMonth() + 1)}${pad(date.getUTCDate())}T${pad(date.getUTCHours())}${pad(date.getUTCMinutes())}${pad(date.getUTCSeconds())}Z`;
+  }
+
+  private escapeIcs(text: string): string {
+    return (text ?? '').replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/;/g, '\\;').replace(/,/g, '\\,');
+  }
+
+  private buildIcsContent(entries: CalendarEntry[]): string {
+    const lines: string[] = [];
+    lines.push('BEGIN:VCALENDAR');
+    lines.push('VERSION:2.0');
+    lines.push('PRODID:-//BugHosted//Calendar//EN');
+    lines.push('CALSCALE:GREGORIAN');
+    lines.push('METHOD:PUBLISH');
+    lines.push('X-WR-CALNAME:BugHosted Calendar');
+    const now = this.formatIcsDate(new Date());
+    for (const e of entries) {
+      if (!e.date) continue;
+      const dt = new Date(e.date);
+      if (isNaN(dt.getTime())) continue;
+      const dtEnd = new Date(dt.getTime() + 60 * 60 * 1000);
+      const uid = `cal-${e.id ?? Math.random().toString(36).slice(2)}-${dt.getTime()}@bughosted`;
+      const summary = this.escapeIcs(`${e.type ?? 'Event'}: ${e.note ?? ''}`.trim());
+      const desc = this.escapeIcs(e.note ?? '');
+      lines.push('BEGIN:VEVENT');
+      lines.push(`UID:${uid}`);
+      lines.push(`DTSTAMP:${now}`);
+      lines.push(`DTSTART:${this.formatIcsDate(dt)}`);
+      lines.push(`DTEND:${this.formatIcsDate(dtEnd)}`);
+      lines.push(`SUMMARY:${summary}`);
+      if (desc) lines.push(`DESCRIPTION:${desc}`);
+      lines.push('END:VEVENT');
+    }
+    lines.push('END:VCALENDAR');
+    // fold lines >75 chars per RFC5545
+    return lines.map(l => l.length > 75 ? l.replace(/(.{75})/g, '$1\r\n ') : l).join('\r\n');
+  }
+
+  downloadIcs(): void {
+    const entries = this.calendarEntries?.length ? this.calendarEntries : (this.selectedCalendarEntries ?? []);
+    if (!entries || entries.length === 0) {
+      this.parentRef?.showNotification?.('No events to export for this month.');
+      return;
+    }
+    const ics = this.buildIcsContent(entries);
+    const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `bughosted-calendar-${new Date().toISOString().slice(0, 10)}.ics`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    this.parentRef?.showNotification?.('Calendar exported — open the .ics on your iPhone or import it into Google Calendar.');
+  }
+
+  downloadSingleIcs(entry: CalendarEntry): void {
+    if (!entry?.date) return;
+    const ics = this.buildIcsContent([entry]);
+    const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const safe = (entry.note ?? entry.type ?? 'event').replace(/[^a-z0-9]+/gi, '-').slice(0, 24) || 'event';
+    a.download = `${safe}.ics`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    this.parentRef?.showNotification?.('Event exported — open the .ics on your iPhone.');
+  }
+
+  private googleUrlForEntry(entry: CalendarEntry): string {
+    if (!entry.date) return '';
+    const dt = new Date(entry.date);
+    const dtEnd = new Date(dt.getTime() + 60 * 60 * 1000);
+    const fmt = (d: Date) => `${d.getUTCFullYear()}${String(d.getUTCMonth()+1).padStart(2,'0')}${String(d.getUTCDate()).padStart(2,'0')}T${String(d.getUTCHours()).padStart(2,'0')}${String(d.getUTCMinutes()).padStart(2,'0')}${String(d.getUTCSeconds()).padStart(2,'0')}Z`;
+    const text = encodeURIComponent(`${entry.type ?? 'Event'}: ${entry.note ?? ''}`.trim());
+    const details = encodeURIComponent(entry.note ?? '');
+    return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${text}&dates=${fmt(dt)}/${fmt(dtEnd)}&details=${details}`;
+  }
+
+  openGoogleForEntry(entry: CalendarEntry): void {
+    const url = this.googleUrlForEntry(entry);
+    if (!url) return;
+    window.open(url, '_blank', 'noopener');
+  }
+
+  openGoogleForVisible(): void {
+    const entries = this.selectedCalendarEntries?.length ? this.selectedCalendarEntries! : this.calendarEntries;
+    if (!entries || entries.length === 0) {
+      this.parentRef?.showNotification?.('No events to add.');
+      return;
+    }
+    // open first event; for multiple, export .ics is more practical
+    if (entries.length === 1) {
+      this.openGoogleForEntry(entries[0]);
+    } else {
+      this.downloadIcs();
+      this.parentRef?.showNotification?.('Multiple events — downloaded .ics. Import it into Google Calendar (Settings → Import & export).');
+    }
+  }
+
+  async copyIcsLink(): Promise<void> {
+    const entries = this.calendarEntries?.length ? this.calendarEntries : (this.selectedCalendarEntries ?? []);
+    if (!entries || entries.length === 0) {
+      this.parentRef?.showNotification?.('No events to link.');
+      return;
+    }
+    // For iPhone: a webcal:// feed would be ideal, but until the backend
+    // exposes /calendar/feed.ics we provide a data: URI the user can long-press
+    // or a file they can AirDrop. Copy a helpful instruction + data URI.
+    const ics = this.buildIcsContent(entries);
+    const dataUri = `data:text/calendar;charset=utf-8,${encodeURIComponent(ics)}`;
+    try {
+      // try to copy the data URI (works on desktop); on iPhone the downloaded
+      // file is the reliable path.
+      await navigator.clipboard.writeText(dataUri);
+      this.parentRef?.showNotification?.('Calendar link copied — paste it into Safari on your iPhone to subscribe, or use Export .ics.');
+    } catch {
+      this.downloadIcs();
+    }
+  }
 }

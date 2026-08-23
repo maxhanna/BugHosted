@@ -85,6 +85,10 @@
             <span class="calEntryTypeChip" title="Event type">{{ eventSymbolMap[cal.type!] || '📌' }} {{ cal.type }}</span>
             <span>{{ cal.type !== "Milestone" && cal.type !== "Anniversary" ? cal.note : (cal.type === "Anniversary" ? formatAnniversaryDisplay(cal) : (cal.date ? '(' + cal.date.toString().substring(0, cal.date.toString().indexOf('-')) + ') ' + cal.note : cal.note)) }}</span>
           </div>
+          <div *ngIf="!isEditingEntry.includes(cal)" style="display:flex; gap:6px; margin-top:6px; flex-wrap:wrap;">
+            <button class="xSmallFont" (click)="openGoogleForEntry(cal); $event.stopPropagation();" title="Add this event to Google Calendar">📅 Google</button>
+            <button class="xSmallFont" (click)="downloadSingleIcs(cal); $event.stopPropagation();" title="Add this event to Apple Calendar (iPhone)">🍎 Apple</button>
+          </div>
           <div *ngIf="isEditingEntry.includes(cal)">
             Time: <input id="calendarEditingTime" type="time" [value]="editTimeValue(cal.date)"
               (input)="hasEditedCalendarEntry = true" />
@@ -193,6 +197,22 @@
       </div>
     </div>
   </div>
+  <div class="optionsStatsDiv">
+    <div class="optionsStatsHeader">
+      Sync Calendar
+    </div>
+    <div class="optionsStatsDescription" style="flex-direction: column; gap: 8px; align-items: stretch;">
+      <div class="xSmallFont secondaryFontColor" style="line-height:1.4;">
+        Link this calendar to Google or Apple. Export works on iPhone — open the .ics and tap “Add All”.
+      </div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button (click)="downloadIcs()" title="Download .ics file — works with Apple Calendar, Outlook, and Google Import">⬇️ Export .ics (Apple / Outlook)</button>
+        <button (click)="openGoogleForVisible()" title="Add visible events to Google Calendar (single event opens Google, multiple downloads .ics)">📅 Google Calendar</button>
+        <button (click)="copyIcsLink()" title="Copy a data: link you can paste into Safari on iPhone">🔗 Copy Link (iPhone)</button>
+      </div>
+    </div>
+  </div>
+
   <div class="sentNotificationsSection" *ngIf="parentRef?.user?.id">
     <div class="optionsStatsHeader">
       Notifications Sent :
