@@ -28,93 +28,14 @@ export class ReactionComponent extends ChildComponent implements OnInit {
   reactionLoading = false;
   userReaction = '';
   reactionId = Math.random() * 10000000000000;
-  reactions = [
-    { type: 'thumbs_up', emoji: '👍', label: 'Thumbs Up' },
-    { type: 'thumbs_down', emoji: '👎', label: 'Thumbs Down' },
-    { type: 'heart', emoji: '❤️', label: 'Heart' },
-    { type: 'broken_heart', emoji: '💔', label: 'Broken Heart' },
-    { type: 'laugh', emoji: '😂', label: 'Laugh' },
-    { type: 'grin', emoji: '😁', label: 'Grin' },
-    { type: 'rofl', emoji: '🤣', label: 'ROFL' },
-    { type: 'joy', emoji: '😆', label: 'Joy' },
-    { type: 'smile', emoji: '😊', label: 'Smile' },
-    { type: 'wink', emoji: '😉', label: 'Wink' },
-    { type: 'hug', emoji: '🤗', label: 'Hug' },
-    { type: 'kiss', emoji: '😘', label: 'Kiss' },
-    { type: 'love', emoji: '😍', label: 'Love' },
-    { type: 'blush', emoji: '😳', label: 'Blush' },
-    { type: 'wow', emoji: '😮', label: 'Wow' },
-    { type: 'surprised', emoji: '😲', label: 'Surprised' },
-    { type: 'thinking', emoji: '🤔', label: 'Thinking' },
-    { type: 'neutral', emoji: '😐', label: 'Neutral' },
-    { type: 'smirk', emoji: '😏', label: 'Smirk' },
-    { type: 'cool', emoji: '😎', label: 'Cool' },
-    { type: 'angry', emoji: '😡', label: 'Angry' },
-    { type: 'rage', emoji: '🤬', label: 'Rage' },
-    { type: 'crying', emoji: '😭', label: 'Crying' },
-    { type: 'sad', emoji: '😢', label: 'Sad' },
-    { type: 'sleepy', emoji: '😴', label: 'Sleepy' },
-    { type: 'shocked', emoji: '😱', label: 'Shocked' },
-    { type: 'relieved', emoji: '😌', label: 'Relieved' },
-    { type: 'pray', emoji: '🙏', label: 'Pray' },
-    { type: 'clap', emoji: '👏', label: 'Clap' },
-    { type: 'fire', emoji: '🔥', label: 'Fire' },
-    { type: '100', emoji: '💯', label: '100' },
-    { type: 'celebrate', emoji: '🥳', label: 'Celebrate' },
-    { type: 'party', emoji: '🎉', label: 'Party' },
-    { type: 'muscle', emoji: '💪', label: 'Muscle' },
-    { type: 'ok_hand', emoji: '👌', label: 'OK Hand' },
-    { type: 'victory', emoji: '✌️', label: 'Victory' },
-    { type: 'raised_hands', emoji: '🙌', label: 'Raised Hands' },
-    { type: 'wave', emoji: '👋', label: 'Wave' },
-    { type: 'eyes', emoji: '👀', label: 'Eyes' },
-    { type: 'sunglasses', emoji: '🕶️', label: 'Sunglasses' },
-    { type: 'robot', emoji: '🤖', label: 'Robot' },
-    { type: 'ghost', emoji: '👻', label: 'Ghost' },
-    { type: 'alien', emoji: '👽', label: 'Alien' },
-    { type: 'skull', emoji: '💀', label: 'Skull' },
-    { type: 'poop', emoji: '💩', label: 'Poop' },
-    { type: 'money', emoji: '🤑', label: 'Money' },
-    { type: 'sick', emoji: '🤢', label: 'Sick' },
-    { type: 'clown', emoji: '🤡', label: 'Clown' },
-    { type: 'nerd', emoji: '🤓', label: 'Nerd' },
-    { type: 'angry_swear', emoji: '😤', label: 'Swearing' },
-    { type: 'scream', emoji: '😨', label: 'Scream' },
-    { type: 'rolling_eyes', emoji: '🙄', label: 'Rolling Eyes' },
-    { type: 'bored', emoji: '😑', label: 'Bored' },
-    { type: 'vomit', emoji: '🤮', label: 'Vomit' },
-    { type: 'shushing', emoji: '🤫', label: 'Shushing' },
-    { type: 'salute', emoji: '🫡', label: 'Salute' },
-    { type: 'headphones', emoji: '🎧', label: 'Headphones' },
-    { type: 'pizza', emoji: '🍕', label: 'Pizza' },
-    { type: 'taco', emoji: '🌮', label: 'Taco' },
-    { type: 'hamburger', emoji: '🍔', label: 'Hamburger' },
-    { type: 'cake', emoji: '🎂', label: 'Cake' },
-    { type: 'beer', emoji: '🍺', label: 'Beer' },
-    { type: 'coffee', emoji: '☕', label: 'Coffee' },
-    { type: 'money_bag', emoji: '💰', label: 'Money Bag' },
-    { type: 'lightbulb', emoji: '💡', label: 'Lightbulb' },
-    { type: 'trophy', emoji: '🏆', label: 'Trophy' },
-    { type: 'medal', emoji: '🎖️', label: 'Medal' },
-    { type: 'basketball', emoji: '🏀', label: 'Basketball' },
-    { type: 'soccer', emoji: '⚽', label: 'Soccer' },
-    { type: 'car', emoji: '🚗', label: 'Car' },
-    { type: 'airplane', emoji: '✈️', label: 'Airplane' },
-    { type: 'rocket', emoji: '🚀', label: 'Rocket' },
-    { type: 'crown', emoji: '👑', label: 'Crown' },
-    { type: 'diamond', emoji: '💎', label: 'Diamond' },
-    { type: 'megaphone', emoji: '📢', label: 'Megaphone' },
-    { type: 'explosion', emoji: '💥', label: 'Explosion' },
-    { type: 'hammer', emoji: '🔨', label: 'Hammer' },
-    { type: 'sword', emoji: '⚔️', label: 'Sword' },
-    { type: 'shield', emoji: '🛡️', label: 'Shield' },
-    { type: 'dragon', emoji: '🐉', label: 'Dragon' },
-    { type: 'skull_crossbones', emoji: '☠️', label: 'Skull & Crossbones' },
-    { type: 'alien_monster', emoji: '👾', label: 'Alien Monster' },
-    { type: 'infinity', emoji: '♾️', label: 'Infinity' },
-    { type: 'peace', emoji: '☮️', label: 'Peace' },
-    { type: 'yin_yang', emoji: '☯️', label: 'Yin Yang' }
-  ];
+  get reactions() : {type : string, emoji: string, label: string}[] { 
+    let reac = [];
+    for (let emoKey of Object.keys(this.parentRef?.emojiMap ?? [])) {
+      reac.push({ type: emoKey.replace(':', ''), emoji: this.parentRef?.emojiMap[emoKey] ?? '', label: emoKey.replace(':', '').replace('_', ' ') })
+    }
+    return reac || []; 
+  };
+ 
   filteredReactions = [...this.reactions];
 
   @Input() component?: any;
@@ -262,23 +183,7 @@ export class ReactionComponent extends ChildComponent implements OnInit {
     }
   }
 
-  getReactionsListDisplay() {
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    if (parent) {
-      const emojiMapArray = Object.entries(parent.emojiMap).map(([key, emoji]) => ({
-        type: key.replace(/[:\-]/g, ''), // Remove colons and dashes to create a suitable type
-        emoji: emoji,
-        label: key // Use the original key as the label for now
-      }));
-
-      // Merge both lists, ensuring no duplicates based on the emoji value
-      const emojiSet = new Set(this.reactions.map(r => r.emoji));
-      //console.log("Emoji Set:", emojiSet);
-      const mergedReactions = [...this.reactions, ...emojiMapArray.filter(e => !emojiSet.has(e.emoji))];
-      this.filteredReactions = [...mergedReactions];
-      this.reactions = [...mergedReactions];
-    }
-
+  getReactionsListDisplay() { 
     if (this.currentReactions && this.currentReactions.length > 0) {
       this.reactionCount = this.currentReactions.length;
       this.reactionsDisplay = [];
@@ -291,7 +196,8 @@ export class ReactionComponent extends ChildComponent implements OnInit {
       if (foundReaction) {
         this.userReaction = foundReaction.type ?? '';
       }
-    }
+    } 
+    return [...this.reactions]; 
   }
   reactionDisplayOnClick() {
     this.showReactionChoices = !this.showReactionChoices;

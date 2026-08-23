@@ -7315,26 +7315,35 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         ctx.fillText('R', rx, ry + 12);
       }
     }
-    // Jump ramps — pulsing 🛹 markers so players can spot the stunt locations
-    // on the map and head over for a high-score jump.
-    if (JUMP_RAMPS.length) {
-      for (const jr of JUMP_RAMPS) {
-        const mx = cx + (jr.x - this.carX) * scale;
-        const my = cy + (jr.z - this.carZ) * scale;
-        if (mx < -20 || mx > 320 || my < -20 || my > 320) continue; // off-map cull
-        const pulse = 6 + Math.sin(now / 350 + jr.id) * 2;
-        ctx.fillStyle = 'rgba(0, 210, 255, 0.25)';
-        ctx.beginPath(); ctx.arc(mx, my, pulse, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = 'rgba(0, 210, 255, 0.9)';
-        ctx.lineWidth = 1.5;
-        ctx.beginPath(); ctx.arc(mx, my, pulse, 0, Math.PI * 2); ctx.stroke();
-        ctx.font = '13px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('🛹', mx, my);
-        ctx.textAlign = 'start';
-        ctx.textBaseline = 'alphabetic';
-      }
+    // Jump ramps — show the active gameplay ramp collection so markers cannot
+    // drift from the ramps used by collision detection and world rendering.
+    const jumpRamps = this.renderer?.jumpRamps?.length ? this.renderer.jumpRamps : JUMP_RAMPS;
+    for (const jr of jumpRamps) {
+      const mx = cx + (jr.x - this.carX) * scale;
+      const my = cy + (jr.z - this.carZ) * scale;
+      if (mx < -20 || mx > 320 || my < -20 || my > 320) continue;
+      const pulse = 6 + Math.sin(now / 350 + jr.id) * 2;
+      ctx.fillStyle = 'rgba(0, 210, 255, 0.25)';
+      ctx.beginPath(); ctx.arc(mx, my, pulse + 4, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(0, 210, 255, 0.9)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(mx, my, pulse, 0, Math.PI * 2); ctx.stroke();
+      // Draw a ramp glyph directly on the canvas; emoji fonts vary by device.
+      ctx.fillStyle = '#00d2ff';
+      ctx.beginPath();
+      ctx.moveTo(mx - 5, my + 3);
+      ctx.lineTo(mx + 5, my + 3);
+      ctx.lineTo(mx + 2, my - 4);
+      ctx.lineTo(mx - 1, my - 4);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 8px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(String(jr.id), mx, my + 1);
+      ctx.textAlign = 'start';
+      ctx.textBaseline = 'alphabetic';
     }
   }
   private updateScore(dt: number) {

@@ -99,7 +99,7 @@ namespace maxhanna.Server.Controllers
 			if (cx < 41 || !IsInAnyIsland(cx, cz)) return 0;
 			double centerZ = 6 + 2 * Math.Sin((cx - 41) * 0.38);
 			int distance = Math.Abs(cz - (int)Math.Floor(centerZ + 0.5));
-			return distance <= 1 ? 2 : distance <= 3 ? 1 : 0;
+			return distance <= 2 ? 2 : distance <= 5 ? 1 : 0;
 		}
 		private static bool BridgeContains(int cx, int cz)
 		{
