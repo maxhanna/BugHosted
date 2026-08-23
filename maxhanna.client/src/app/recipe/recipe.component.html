@@ -193,7 +193,7 @@
         </ng-container>
 
         <!-- Edit Mode -->
-        <ng-container *ngIf="editingRecipeId === recipe.id && recipeForm">
+        <ng-container *ngIf="editingRecipeId === recipe.id">
           <ng-container *ngTemplateOutlet="recipeForm"></ng-container>
         </ng-container>
       </article>
