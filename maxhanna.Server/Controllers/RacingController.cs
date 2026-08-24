@@ -1022,17 +1022,17 @@ namespace maxhanna.Server.Controllers
 								playerId = uid,
 								playerName = name,
 								totalEarnings = earnings,
-								wins,
-								races,
+								wins = wins,
+								races = races,
 								isBot = false
 							});
 							cash.Add(new
 							{
 								playerId = uid,
 								playerName = name,
-								money,
-								wins,
-								races,
+								money = money,
+								wins = wins,
+								races = races,
 								isBot = false
 							});
 						}

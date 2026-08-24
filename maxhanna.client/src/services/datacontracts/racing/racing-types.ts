@@ -109,8 +109,18 @@ export const DECAL_COLORS: Record<number, [number, number, number]> = {
   439: [0.85, 0.2, 0.15],    // torii gate (vermilion)
   440: [0.25, 0.45, 0.85],   // mt. fuji (indigo)
   441: [0.9, 0.86, 0.94],    // paw print (white-violet)
-  442: [1.0, 0.62, 0.18],    // drifting cat (tango orange)
-  443: [0.14, 0.5, 0.32],    // tofu shop (forest green)
+  442: [1.0, 0.62, 0.18],    // drifting cat (tango orange)  443: [0.14, 0.5, 0.32],     // tofu shop (forest green)
+  444: [0.95, 0.95, 0.92],     // rally number 11
+  445: [0.9, 0.1, 0.08],       // touring roundel
+  446: [0.95, 0.72, 0.18],     // heritage pinstripe
+  447: [0.08, 0.75, 0.95],     // carbon chevron
+  448: [0.85, 0.85, 0.88],     // technical markings
+  449: [0.15, 0.8, 0.68],       // track map
+  450: [0.15, 0.35, 0.9],       // retro blue
+  451: [0.95, 0.7, 0.08],       // safety yellow
+  452: [0.9, 0.12, 0.2],        // asymmetric slash
+  453: [0.18, 0.22, 0.25],       // forged carbon
+  454: [0.65, 0.75, 0.86],       // endurance grid
 };
 
 // Selectable decal tint swatches (id -> rgb) shown in the garage appearance
@@ -564,6 +574,17 @@ export const APPEARANCE_PARTS: RacingAppearancePart[] = [
   { id: 441, name: 'Paw Print', category: 'decal', cost: 3600, owned: false, description: 'Street-animal paw marks' },
   { id: 442, name: 'Drifting Cat', category: 'decal', cost: 5400, owned: false, description: 'Anime cat mid-drift with motion lines' },
   { id: 443, name: 'Tofu Shop', category: 'decal', cost: 5100, owned: false, description: 'Initial-D mountain tofu logo' },
+  { id: 444, name: 'Rally Number 11', category: 'decal', cost: 850, owned: false, description: 'High-contrast rally door number with sponsor plates' },
+  { id: 445, name: 'Touring Roundel', category: 'decal', cost: 1200, owned: false, description: 'Classic circular touring-car number roundel' },
+  { id: 446, name: 'Pinstripe Heritage', category: 'decal', cost: 1600, owned: false, description: 'Hand-painted pinstripes with a subtle taper' },
+  { id: 447, name: 'Carbon Chevron', category: 'decal', cost: 2600, owned: false, description: 'Layered carbon aero chevrons for the side pods' },
+  { id: 448, name: 'Brembo Style', category: 'decal', cost: 1900, owned: false, description: 'Motorsport-inspired brake and technical markings' },
+  { id: 449, name: 'Track Map', category: 'decal', cost: 3200, owned: false, description: 'Fine-line circuit map with start-finish marker' },
+  { id: 450, name: 'Retro Martini', category: 'decal', cost: 2900, owned: false, description: 'Period-inspired blue and red racing bands' },
+  { id: 451, name: 'Safety Livery', category: 'decal', cost: 2300, owned: false, description: 'Reflective hazard blocks and technical arrows' },
+  { id: 452, name: 'Asymmetric Slash', category: 'decal', cost: 2100, owned: false, description: 'Angular two-tone speed slash with offset accents' },
+  { id: 453, name: 'Forged Carbon', category: 'decal', cost: 4200, owned: false, description: 'Organic forged-carbon marbling across the body' },
+  { id: 454, name: 'Endurance Grid', category: 'decal', cost: 3600, owned: false, description: 'Subtle endurance-racing panel grid and marks' },
   // Glow (neon underglow)
   { id: 501, name: 'Neon Blue', category: 'glow', cost: 1500, owned: false, description: 'Electric blue underglow' },
   { id: 502, name: 'Neon Green', category: 'glow', cost: 1500, owned: false, description: 'Alien green underglow' },

@@ -35,6 +35,8 @@ export interface HumanVariant {
   outfitA: [number, number, number]; // torso
   outfitB: [number, number, number]; // legs
   accent?: [number, number, number];
+  shirtStyle?: number;
+  pantsStyle?: number;
   hasBeard?: boolean;
   hasCap?: boolean;
   hasHelmet?: boolean;
@@ -73,6 +75,8 @@ export function pickVariant(role: Role, seed: number | string, genderHint?: stri
   let outfitB: [number, number, number] = [0.18, 0.18, 0.20];
   let accent: [number, number, number] | undefined;
   let hasBeard = rng() < 0.22 && gender === 'male';
+  const shirtStyle = Math.floor(rng() * 4);
+  const pantsStyle = Math.floor(rng() * 4);
   let hasCap = false;
   let hasHelmet = false;
 
@@ -97,7 +101,7 @@ export function pickVariant(role: Role, seed: number | string, genderHint?: stri
       outfitA = [0.22 + rng() * 0.3, 0.22 + rng() * 0.3, 0.22 + rng() * 0.4];
       outfitB = [0.14 + rng() * 0.2, 0.14 + rng() * 0.2, 0.16 + rng() * 0.2];
   }
-  return { role, gender, bodyType, seed: s, skin, hair, outfitA, outfitB, accent, hasBeard, hasCap, hasHelmet };
+  return { role, gender, bodyType, seed: s, skin, hair, outfitA, outfitB, accent, shirtStyle, pantsStyle, hasBeard, hasCap, hasHelmet };
 }
 
 function mulberry32(a: number) {

@@ -59,8 +59,7 @@ class ReplayFrameBuffer {
     this.count = 0;
     this.head = 0;
   }
-}
-const ACCEL = 35;
+}  const ACCEL = 35;
 const BRAKE_FORCE = 40;
 const BRAKE_HEAT_FADE_ON = 0.85;      
 const BRAKE_HEAT_FADE_TOP = 1.35;     
@@ -1461,8 +1460,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this.renderer.setTheme(this.themeForTrack(this.selectedTrack.id));
     }
     this.placePlayerOnGrid();
-    this.spawnBots(4);
-    this.totalRacers = this.bots.length + this.lobbyPlayers.length;
+    const humanCount = Math.max(1, this.lobbyPlayers.length);
+    this.spawnBots(Math.max(0, RacingComponent.MAX_RACERS - humanCount));
+    this.totalRacers = humanCount + this.bots.length;
     this.preplaceRemotesOnGrid();
     // Bot consensus: the lobby host owns the AI simulation and relays it to
     // the other clients; everyone else renders the relayed state. Started here
@@ -1727,9 +1727,16 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     }
   }
 
+  private static readonly MAX_RACERS = 26;
+
   private spawnBots(count: number) {
     this.bots = [];
-    const botNames = ['Speed Racer', 'Lightning', 'Nitro', 'Tornado', 'Blitz', 'Storm', 'Vortex', 'Phantom'];
+    const botNames = [
+      'Speed Racer', 'Lightning', 'Nitro', 'Tornado', 'Blitz', 'Storm', 'Vortex', 'Phantom',
+      'Comet', 'Roadrunner', 'Apex', 'Drift King', 'Pulse', 'Rocket', 'Velocity', 'Fury',
+      'Overdrive', 'Fireball', 'Shadow', 'Turbo', 'Cyclone', 'Mach', 'Racer X', 'Full Throttle',
+      'Neon', 'Wildcard'
+    ];
     const diffPool: string[] = [];
     for (let i = 0; i < count; i++) {
       if (i < 2) diffPool.push('hard');
@@ -1830,7 +1837,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.placePlayerOnGrid();
     this._countdownPanStartAt = performance.now();
     this.carDist = 0;
-    this.spawnBots(4);
+    this.spawnBots(RacingComponent.MAX_RACERS - 1);
     this.totalRacers = 1 + this.bots.length;
     this._countdownInterval = setInterval(() => {
       this.countdownTimer--;

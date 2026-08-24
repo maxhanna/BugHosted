@@ -532,8 +532,8 @@
                 <div class="garage-appearance-card" *ngFor="let p of cat.parts"
                   [class.appearance-equipped]="getEquippedAppearance(p.category) === p.id"
                   [class.appearance-previewing]="appearancePreview === p"
-                  [class.buying-disabled]="isBuying" (click)="onAppearanceCardClick(p)"
-                  (mouseenter)="onAppearanceCardHover(p)" (mouseleave)="onAppearanceCardHover(null)">
+                  [class.buying-disabled]="isBuying" (click)="onAppearanceCardClick(p); $event.stopPropagation()"
+                  (pointerenter)="onAppearanceCardHover(p)" (pointerleave)="onAppearanceCardHover(null)">
                   <div class="garage-appearance-preview" *ngIf="!isDecalPart(p)" [class]="getAppearancePreviewClass(p)"></div>
                   <div class="garage-decal-map" *ngIf="isDecalPart(p)">
                     <div class="garage-decal-car" [style.background]="getDecalWrapBase(p) ? getDecalWrapBaseColor(p.id) : null"></div>
@@ -707,8 +707,8 @@
               <div class="garage-skin-card" *ngFor="let s of CAR_SKINS"
                 [class.garage-skin-active]="playerCar.skinId === s.id" [class.buying-disabled]="isBuying"
                 [class.appearance-previewing]="skinPreview === s"
-                (click)="onSkinCardClick(s)"
-                (mouseenter)="onSkinCardHover(s)" (mouseleave)="onSkinCardHover(null)">
+                (click)="onSkinCardClick(s); $event.stopPropagation()"
+                (pointerenter)="onSkinCardHover(s)" (pointerleave)="onSkinCardHover(null)">
                 <div class="garage-skin-preview" [style.background]="s.color"></div>
                 <div class="garage-skin-finish" [ngClass]="'finish-' + s.finish"
                   [title]="s.finish + ' finish shader'">{{ s.finish }}</div>

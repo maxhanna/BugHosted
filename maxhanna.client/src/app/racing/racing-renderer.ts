@@ -1162,6 +1162,124 @@ export const DECAL_LAYOUTS: Record<number, DecalLayoutDef> = {
       ...tofuShapeDefs(0.92, 0.13, 0.6, true),
     ],
   },
+  // Rally number with compact sponsor bars and a white door plate.
+  444: {
+    flank: [[0.38, 0.25, 0.24, 0.05, 0.05, 0.10], [-0.22, 0.38, 0.20, 0.05, 0.05, 0.09]],
+    center: [[0.68, 0, 0.20, 0.05, 0.10]],
+    shapes: [
+      ...numberShapeDefs('11', 0.68, 0, 0.55),
+      ...numberShapeDefs('11', 0.38, 0.25, 0.32, true),
+      { cx: 0.38, cz: 0.18, mirror: true, path: rectPath(0.20, 0.012), scale: 0.8, lift: 0.006 },
+      { cx: -0.22, cz: 0.30, mirror: true, path: rectPath(0.16, 0.012), scale: 0.7, lift: 0.006 },
+    ],
+  },
+  // Touring-car roundels: layered disc, ring and number mark.
+  445: {
+    flank: [[0.48, 0.24, 0.22, 0.05, 0.09, 0.10], [-0.34, 0.37, 0.18, 0.05, 0.08, 0.09]],
+    center: [[0.68, 0, 0.24, 0.05, 0.13]],
+    shapes: [
+      { cx: 0.68, cz: 0, path: circlePath(28, 0.16), lift: 0.004 },
+      { cx: 0.68, cz: 0, path: ringPath(28, 0.14, 0.115), lift: 0.007 },
+      ...numberShapeDefs('5', 0.68, 0, 0.55),
+      { cx: 0.48, cz: 0.24, mirror: true, path: circlePath(24, 0.10), lift: 0.005 },
+      ...numberShapeDefs('5', 0.48, 0.24, 0.32, true),
+    ],
+  },
+  // Fine hand-painted heritage pinstripes following the flank.
+  446: {
+    flank: [[-0.72, 0.23, 0.50, 0.025, 0.04, 0.07], [-0.16, 0.38, 0.42, 0.025, 0.04, 0.07], [0.42, 0.26, 0.46, 0.025, 0.04, 0.07], [0.90, 0.18, 0.30, 0.025, 0.04, 0.07]],
+    center: [[0.68, 0, 0.30, 0.025, 0.04]],
+    shapes: [
+      { cx: 0.20, cz: 0.18, mirror: true, path: wavePath(1.65, 0.025, 0.012, 1), lift: 0.005 },
+      { cx: 0.12, cz: 0.24, mirror: true, path: wavePath(1.35, 0.018, 0.009, 1), lift: 0.006 },
+      { cx: 0.68, cz: 0, path: wavePath(0.60, 0.018, 0.009, 1), lift: 0.006 },
+    ],
+  },
+  // Layered aero chevrons: broad translucent-looking blades plus fine leading lines.
+  447: {
+    flank: [],
+    center: [],
+    shapes: [
+      { cx: 0.78, cz: 0.20, mirror: true, path: chevronPath(0.13, 0.16), scale: 0.9, lift: 0.004 },
+      { cx: 0.42, cz: 0.23, mirror: true, path: chevronPath(0.11, 0.14), scale: 0.85, lift: 0.005 },
+      { cx: 0.10, cz: 0.28, mirror: true, path: chevronPath(0.09, 0.12), scale: 0.8, lift: 0.006 },
+      { cx: -0.22, cz: 0.33, mirror: true, path: chevronPath(0.07, 0.10), scale: 0.75, lift: 0.006 },
+    ],
+  },
+  // Technical brake markings and inspection bars, inspired by real race cars.
+  448: {
+    flank: [[0.80, 0.19, 0.18, 0.04, 0.04, 0.08], [0.45, 0.24, 0.16, 0.04, 0.04, 0.08], [0.10, 0.32, 0.14, 0.04, 0.04, 0.08]],
+    center: [[1.22, 0.13, 0.12, 0.04, 0.06]],
+    shapes: [
+      { cx: 0.74, cz: 0.20, mirror: true, path: zigzagPath(0.34, 5, 0.055, 0.018), scale: 0.9, lift: 0.005 },
+      { cx: 0.30, cz: 0.27, mirror: true, path: rectPath(0.28, 0.018), scale: 0.8, lift: 0.006 },
+      ...numberShapeDefs('86', 1.20, 0.13, 0.22, true),
+    ],
+  },
+  // Fine-line circuit map, with a start/finish marker.
+  449: {
+    flank: [],
+    center: [],
+    shapes: [
+      { cx: 0.68, cz: 0, path: [[-0.18, -0.02], [-0.08, 0.08], [0.04, 0.05], [0.14, 0.12], [0.19, 0.02], [0.10, -0.08], [-0.02, -0.10], [-0.12, -0.03]], scale: 0.9, lift: 0.005 },
+      { cx: 0.68, cz: 0, path: brushStrokePath([[-0.12, -0.03], [0.0, 0.02], [0.12, -0.02]], 0.012), scale: 0.9, lift: 0.008 },
+      ...checkerShapeDefs(0.68, 0, 1, 2, 2, 0.025),
+      { cx: 0.95, cz: 0.02, path: circlePath(10, 0.022), lift: 0.009 },
+    ],
+  },
+  // Vintage endurance bands crossing the nose and continuing down the flanks.
+  450: {
+    flank: [[-0.65, 0.24, 0.52, 0.035, 0.05, 0.07], [-0.08, 0.38, 0.44, 0.035, 0.05, 0.07], [0.50, 0.24, 0.42, 0.035, 0.05, 0.07]],
+    center: [[0.68, 0, 0.30, 0.04, 0.08]],
+    shapes: [
+      { cx: 0.12, cz: 0.18, mirror: true, path: wavePath(1.45, 0.025, 0.02, 1), lift: 0.005 },
+      { cx: 0.68, cz: 0, path: crossStripePath(0.36, 0.045, 0.015), lift: 0.006 },
+      { cx: 0.44, cz: 0, path: crossStripePath(0.38, 0.045, 0.015), lift: 0.006 },
+    ],
+  },
+  // Reflective safety blocks and directional arrows.
+  451: {
+    flank: [[0.78, 0.19, 0.20, 0.05, 0.07, 0.10], [0.30, 0.29, 0.18, 0.05, 0.07, 0.10], [-0.20, 0.40, 0.16, 0.05, 0.07, 0.10]],
+    center: [[1.20, 0.13, 0.15, 0.05, 0.08]],
+    shapes: [
+      { cx: 0.78, cz: 0.20, mirror: true, path: zigzagPath(0.30, 4, 0.06, 0.045), scale: 0.9, lift: 0.006 },
+      { cx: 0.30, cz: 0.29, mirror: true, path: chevronPath(0.08, 0.11), scale: 0.8, lift: 0.006 },
+      { cx: -0.20, cz: 0.40, mirror: true, path: chevronPath(0.07, 0.10), scale: 0.7, lift: 0.006 },
+    ],
+  },
+  // Offset two-tone slash with a fine parallel highlight.
+  452: {
+    flank: [],
+    center: [],
+    shapes: [
+      { cx: 0.48, cz: 0.20, mirror: true, path: rotPath(rectPath(0.85, 0.09), -0.32), scale: 0.8, lift: 0.004 },
+      { cx: 0.30, cz: 0.25, mirror: true, path: rotPath(rectPath(0.72, 0.025), -0.32), scale: 0.8, lift: 0.007 },
+      { cx: -0.05, cz: 0.33, mirror: true, path: rotPath(rectPath(0.45, 0.018), -0.32), scale: 0.7, lift: 0.008 },
+    ],
+  },
+  // Forged-carbon marble: irregular organic weave patches over a restrained base.
+  453: {
+    flank: [],
+    center: [],
+    wrapBase: true,
+    shapes: [
+      { cx: 0.90, cz: 0.12, mirror: true, path: blobPath(0.13, 31, 14), scale: 1.2, lift: 0.004 },
+      { cx: 0.55, cz: 0.17, mirror: true, path: blobPath(0.16, 32, 14), scale: 1.0, lift: 0.005 },
+      { cx: 0.18, cz: 0.20, mirror: true, path: blobPath(0.14, 33, 14), scale: 1.1, lift: 0.005 },
+      { cx: -0.22, cz: 0.17, mirror: true, path: blobPath(0.12, 34, 14), scale: 1.0, lift: 0.005 },
+      ...gridShapeDefs(0.68, 0, 1, 0.13, 0.10),
+    ],
+  },
+  // Endurance-style panel grid with small technical inspection labels.
+  454: {
+    flank: [[0.80, 0.19, 0.22, 0.04, 0.05, 0.09], [0.40, 0.25, 0.20, 0.04, 0.05, 0.09], [-0.05, 0.34, 0.18, 0.04, 0.05, 0.09]],
+    center: [[0.68, 0, 0.24, 0.04, 0.10]],
+    shapes: [
+      ...gridShapeDefs(0.68, 0, 1, 0.22, 0.12),
+      ...gridShapeDefs(0.90, 0.19, 0.65, 0.12, 0.08),
+      ...numberShapeDefs('24', 0.42, 0.25, 0.18, true),
+    ],
+  },
 };
 export type AccentSeg = [number, number, number, number, number, number]; // cx, cy, l, h, d, z
 // Accent side-pod stripe segments (z > 0; mirrored to -z at build/draw time).
@@ -1713,7 +1831,10 @@ export class RacingRenderer {
     // that spikes exactly when cornering/sliding, so its cap is cut hard on
     // phones (56 vs 220) — fewer blended billboards overdrawing the scene
     // precisely while the car is sliding through a turn.
-    this._smokeMax = lowQuality ? 56 : 220;
+    // Keep background particle/detail budgets deliberately bounded on phones;
+    // the scene still gains depth from layered low-poly silhouettes rather than
+    // expensive extra draw calls.
+    this._smokeMax = lowQuality ? 40 : 220;
     // `powerPreference: 'high-performance'` hints Chrome (and other browsers)
     // to run this context on the discrete GPU. On dual-GPU laptops Chrome's
     // default heuristic often leaves WebGL on the integrated chip — which
@@ -3886,8 +4007,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
     // Road markings tile every TRACK_MARK_TILE world units along the track and
     // the grass shoulder every TRACK_GRASS_TILE — computed from arc length (not
     // segment index) so the dashes/lines stay the same size on every circuit.
-    const TRACK_MARK_TILE = 24;
-    const TRACK_GRASS_TILE = 12;
+    // Markings remain large enough to read at speed, while the texture's mip
+    // levels prevent distant paint from aliasing into noisy bands.
+    const TRACK_MARK_TILE = this.lowQuality ? 28 : 24;
+    const TRACK_GRASS_TILE = this.lowQuality ? 15 : 12;
     const cumLen: number[] = [];
     {
       let acc = 0;
@@ -3916,12 +4039,16 @@ void main() { FragColor = texture(uTex, vUV); }`;
       // corner rises by bank * offset, the inside sinks, the centreline stays.
       const py = p.y, ny = n.y;
       const bank = p.bank ?? 0, bankN = n.bank ?? 0;
-      verts.push(p.x + ppx * hw, py + bank * hw, p.z + ppz * hw, 0, 1, 0, 1, 1, 1, ui, 0);
-      verts.push(n.x + npx * hwN, ny + bankN * hwN, n.z + npz * hwN, 0, 1, 0, 1, 1, 1, uiN, 0);
+      // Slightly subdivide the road across its width so the surface shading
+      // follows banking and feels less like a flat ribbon. Mobile uses the
+      // same six vertices to avoid increasing geometry there.
+      const roadEdgeY = (side: number, width: number, y: number, slope: number) => y + slope * side * width;
+      verts.push(p.x + ppx * hw, roadEdgeY(1, hw, py, bank), p.z + ppz * hw, 0, 1, 0, 1, 1, 1, ui, 0);
+      verts.push(n.x + npx * hwN, roadEdgeY(1, hwN, ny, bankN), n.z + npz * hwN, 0, 1, 0, 1, 1, 1, uiN, 0);
       verts.push(p.x, py, p.z, 0, 1, 0, 1, 1, 1, ui, 0.5);
       verts.push(n.x, ny, n.z, 0, 1, 0, 1, 1, 1, uiN, 0.5);
-      verts.push(p.x - ppx * hw, py - bank * hw, p.z - ppz * hw, 0, 1, 0, 1, 1, 1, ui, 1);
-      verts.push(n.x - npx * hwN, ny - bankN * hwN, n.z - npz * hwN, 0, 1, 0, 1, 1, 1, uiN, 1);
+      verts.push(p.x - ppx * hw, roadEdgeY(-1, hw, py, bank), p.z - ppz * hw, 0, 1, 0, 1, 1, 1, ui, 1);
+      verts.push(n.x - npx * hwN, roadEdgeY(-1, hwN, ny, bankN), n.z - npz * hwN, 0, 1, 0, 1, 1, 1, uiN, 1);
       const vi = i * perSegVerts;
       idxs.push(vi, vi + 1, vi + 2);
       idxs.push(vi + 2, vi + 1, vi + 3);
@@ -3983,6 +4110,24 @@ void main() { FragColor = texture(uTex, vUV); }`;
       curbIdxs.push(ci0 + 4, ci0 + 5, ci0 + 6);
       curbIdxs.push(ci0 + 6, ci0 + 5, ci0 + 7);
       const barrierH = 0.85;
+      // Use a mitered, averaged edge normal at each vertex. On tight turns,
+      // using each segment's independent perpendicular makes neighboring quads
+      // fan outward and overlap the scenery, producing large gray wedges.
+      // Averaging the incoming/outgoing normals keeps the side strip snug to
+      // the road through corners while retaining a bounded miter length.
+      const prev = pts[(i - 1 + pts.length) % pts.length];
+      const prevPpx = -prev.dirZ;
+      const prevPpz = prev.dirX;
+      const avgRightX = ppx + prevPpx;
+      const avgRightZ = ppz + prevPpz;
+      const avgLen = Math.hypot(avgRightX, avgRightZ) || 1;
+      const edgeX = avgRightX / avgLen;
+      const edgeZ = avgRightZ / avgLen;
+      const nextAvgX = npx + ppx;
+      const nextAvgZ = npz + ppz;
+      const nextAvgLen = Math.hypot(nextAvgX, nextAvgZ) || 1;
+      const edgeNX = nextAvgX / nextAvgLen;
+      const edgeNZ = nextAvgZ / nextAvgLen;
       const bw = hw + 2.5;
       const bwN = hwN + 2.5;
       const striped = Math.floor(i / 4) % 2 === 0;
@@ -3990,8 +4135,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const bg = striped ? 0.95 : 0.1;
       const bb = striped ? 0.95 : 0.08;
       const lb = barVerts.length / 11;
-      barVerts.push(p.x + ppx * bw, py + bank * bw, p.z + ppz * bw, ppx, 0, ppz, br, bg, bb, 0, 0);
-      barVerts.push(n.x + npx * bwN, ny + bankN * bwN, n.z + npz * bwN, npx, 0, npz, br, bg, bb, 1, 0);
+      barVerts.push(p.x + edgeX * bw, py + bank * bw, p.z + edgeZ * bw, ppx, 0, ppz, br, bg, bb, 0, 0);
+      barVerts.push(n.x + edgeNX * bwN, ny + bankN * bwN, n.z + edgeNZ * bwN, npx, 0, npz, br, bg, bb, 1, 0);
       barVerts.push(p.x + ppx * bw, py + bank * bw + barrierH, p.z + ppz * bw, ppx, 0, ppz, br, bg, bb, 0, 1);
       barVerts.push(n.x + npx * bwN, ny + bankN * bwN + barrierH, n.z + npz * bwN, npx, 0, npz, br, bg, bb, 1, 1);
       barIdxs.push(lb, lb + 1, lb + 2);
@@ -4000,22 +4145,22 @@ void main() { FragColor = texture(uTex, vUV); }`;
       // (y -0.26, where the theme ground quads sit) so elevated sections read as
       // a raised roadbed, not a floating strip.
       const sk = barVerts.length / 11;
-      barVerts.push(p.x + ppx * bw, py + bank * bw, p.z + ppz * bw, ppx, 0, ppz, 0.3, 0.28, 0.22, 0, 0);
-      barVerts.push(n.x + npx * bwN, ny + bankN * bwN, n.z + npz * bwN, npx, 0, npz, 0.3, 0.28, 0.22, 1, 0);
+      barVerts.push(p.x + edgeX * bw, py + bank * bw, p.z + edgeZ * bw, ppx, 0, ppz, 0.3, 0.28, 0.22, 0, 0);
+      barVerts.push(n.x + edgeNX * bwN, ny + bankN * bwN, n.z + edgeNZ * bwN, npx, 0, npz, 0.3, 0.28, 0.22, 1, 0);
       barVerts.push(p.x + ppx * bw, -0.26, p.z + ppz * bw, ppx, 0, ppz, 0.3, 0.28, 0.22, 0, 1);
       barVerts.push(n.x + npx * bwN, -0.26, n.z + npz * bwN, npx, 0, npz, 0.3, 0.28, 0.22, 1, 1);
       barIdxs.push(sk, sk + 1, sk + 2);
       barIdxs.push(sk + 1, sk + 3, sk + 2);
       const sk2 = barVerts.length / 11;
-      barVerts.push(p.x - ppx * bw, py - bank * bw, p.z - ppz * bw, -ppx, 0, -ppz, 0.3, 0.28, 0.22, 0, 0);
-      barVerts.push(n.x - npx * bwN, ny - bankN * bwN, n.z - npz * bwN, -npx, 0, -npz, 0.3, 0.28, 0.22, 1, 0);
+      barVerts.push(p.x - edgeX * bw, py - bank * bw, p.z - edgeZ * bw, -ppx, 0, -ppz, 0.3, 0.28, 0.22, 0, 0);
+      barVerts.push(n.x - edgeNX * bwN, ny - bankN * bwN, n.z - edgeNZ * bwN, -npx, 0, -npz, 0.3, 0.28, 0.22, 1, 0);
       barVerts.push(p.x - ppx * bw, -0.26, p.z - ppz * bw, -ppx, 0, -ppz, 0.3, 0.28, 0.22, 0, 1);
       barVerts.push(n.x - npx * bwN, -0.26, n.z - npz * bwN, -npx, 0, -npz, 0.3, 0.28, 0.22, 1, 1);
       barIdxs.push(sk2, sk2 + 1, sk2 + 2);
       barIdxs.push(sk2 + 1, sk2 + 3, sk2 + 2);
       const rb = barVerts.length / 11;
-      barVerts.push(p.x - ppx * bw, py - bank * bw, p.z - ppz * bw, -ppx, 0, -ppz, br, bg, bb, 0, 0);
-      barVerts.push(n.x - npx * bwN, ny - bankN * bwN, n.z - npz * bwN, -npx, 0, -npz, br, bg, bb, 1, 0);
+      barVerts.push(p.x - edgeX * bw, py - bank * bw, p.z - edgeZ * bw, -ppx, 0, -ppz, br, bg, bb, 0, 0);
+      barVerts.push(n.x - edgeNX * bwN, ny - bankN * bwN, n.z - edgeNZ * bwN, -npx, 0, -npz, br, bg, bb, 1, 0);
       barVerts.push(p.x - ppx * bw, py - bank * bw + barrierH, p.z - ppz * bw, -ppx, 0, -ppz, br, bg, bb, 0, 1);
       barVerts.push(n.x - npx * bwN, ny - bankN * bwN + barrierH, n.z - npz * bwN, -npx, 0, -npz, br, bg, bb, 1, 1);
       barIdxs.push(rb, rb + 2, rb + 1);
@@ -4892,7 +5037,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const mx = Math.cos(a) * dist;
       const mz = Math.sin(a) * dist;
       // Main mass — wide ellipsoid base
-      const segs = this.lowQuality ? 7 : 10;
+      const segs = this.lowQuality ? 6 : 10;
       this.addEllipsoid(verts, idxs, mx, mh * 0.28, mz, mw, mh * 0.35, mw * 0.7, segs, blend(hazeFar, hazeMid, Math.random() * 0.3));
       // Upper ridge — narrower, offset slightly for jagged silhouette
       const ox = mx + (Math.random() - 0.5) * mw * 0.35;
@@ -4924,8 +5069,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const dist = outer + mw * 0.5 + 60 + Math.random() * 100;
       const mx = Math.cos(a) * dist;
       const mz = Math.sin(a) * dist;
-      const segs = this.lowQuality ? 7 : 10;
-      const rockCol = blend(rockBase, Math.random() < 0.5 ? rockWarm : rockCold, Math.random() * 0.4);
+    const segs = this.lowQuality ? 6 : 10;
+    const rockCol = blend(rockBase, Math.random() < 0.5 ? rockWarm : rockCold, Math.random() * 0.4);
       // Main mass — ellipsoid for natural slope profile
       this.addEllipsoid(verts, idxs, mx, mh * 0.22, mz, mw, mh * 0.38, mw * 0.65, segs, rockCol);
       // Upper cone — sharper peak shape layered on top
@@ -5111,13 +5256,16 @@ void main() { FragColor = texture(uTex, vUV); }`;
                           : [0.98, 0.98, 1.0];
     const verts: number[] = [];
     const idxs: number[] = [];
-    const seg = 9;
+    // Cloud meshes are deliberately simpler on mobile. The shader still adds
+    // atmospheric detail, while fewer surface rings preserve frame time.
+    const seg = this.lowQuality ? 6 : 9;
+    const cloudCount = this.lowQuality ? Math.ceil(count * 0.6) : count;
     this._cloudCenterX = cx;
     this._cloudCenterZ = cz;
     this._clouds = [];
     this._cloudRanges = [];
     for (let i = 0; i < count; i++) {
-      const a = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
+      const a = (i / Math.max(1, cloudCount)) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
       const dist = outer + 30 + Math.random() * 140;
       const px = cx + Math.cos(a) * dist;
       const pz = cz + Math.sin(a) * dist;
@@ -7068,7 +7216,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
       [0.16, 0.12, 0.26], [0.1, 0.16, 0.28], [0.24, 0.2, 0.3], [0.12, 0.24, 0.24], [0.18, 0.18, 0.36],
     ];
     let bIdx = 0;
-    for (let i = 0; i < pts.length; i += 4) {
+    const buildingStep = this.lowQuality ? 8 : 4;
+    const buildingCap = this.lowQuality ? 24 : 40;
+    for (let i = 0; i < pts.length; i += buildingStep) {
       const p = pts[i];
       const ppx = -p.dirZ;
       const ppz = p.dirX;
@@ -7076,14 +7226,16 @@ void main() { FragColor = texture(uTex, vUV); }`;
         const dist = p.width / 2 + 40 + Math.random() * 26;
         const bx = p.x + ppx * dist * side + (Math.random() - 0.5) * 10;
         const bz = p.z + ppz * dist * side + (Math.random() - 0.5) * 10;
-        const h = 12 + Math.random() * 38;
-        const w = 4 + Math.random() * 5;
-        const d = 4 + Math.random() * 5;
+        // Vary the skyline by district: taller buildings sit farther back,
+        // while closer blocks stay lower so the road remains readable.
+        const h = 10 + Math.random() * (this.lowQuality ? 28 : 38);
+        const w = 4 + Math.random() * 6;
+        const d = 4 + Math.random() * 6;
         const col = palette[Math.floor(Math.random() * palette.length)];
         this.addCityBuilding(verts, idxs, bx, bz, h, w, d, col);
-        if (bIdx++ > 40) break;
+        if (bIdx++ > buildingCap) break;
       }
-      if (bIdx > 40) break;
+      if (bIdx > buildingCap) break;
     }
     const overpassEvery = Math.max(10, Math.floor(pts.length / 6));
     for (let k = 0; k < 6; k++) {
@@ -9884,11 +10036,13 @@ void main() { FragColor = texture(uTex, vUV); }`;
     for (const dz of [-0.3, -0.1, 0.1, 0.3]) {
       this.addBox(verts, idxs, -1.15, 0.07, dz, 0.3, 0.08, 0.02, carbon);
     }
-    this.addSmoothLoft(verts, idxs, BODY_LOFT.map(s => ({ ...s, cz: s.cz ?? 0 })), 30, [cr, cg, cb], true);
+    // A smooth loft gives the silhouette believable shoulder and nose roll;
+    // use fewer rings on mobile while retaining the same proportions.
+    this.addSmoothLoft(verts, idxs, BODY_LOFT.map(s => ({ ...s, cz: s.cz ?? 0 })), this.lowQuality ? 20 : 30, [cr, cg, cb], true);
     // Caps closed so the cowl reads as a solid dome (the front cap is buried
     // inside the body; the rear cap closes the visible end instead of showing
     // a dark opening above the deck).
-    this.addSmoothLoft(verts, idxs, HUMP_LOFT.map(s => ({ ...s, cz: s.cz ?? 0 })), 20, dark, true);
+    this.addSmoothLoft(verts, idxs, HUMP_LOFT.map(s => ({ ...s, cz: s.cz ?? 0 })), this.lowQuality ? 14 : 20, dark, true);
     this.addBox(verts, idxs, 0.26, 0.27, 0, 0.18, 0.07, 0.20, [cr, cg, cb]);
     this.addBox(verts, idxs, 0.29, 0.30, 0, 0.12, 0.05, 0.18, [0.1, 0.1, 0.12]);
     // ── Driver: detailed helmet (ovoid shell + tinted visor band + chin bar +
@@ -10051,7 +10205,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
     this.addBox(verts, idxs, 1.22, 0.08, 0.16, 0.12, 0.05, 0.04, carbon);
     this.addBox(verts, idxs, 1.22, 0.08, -0.16, 0.12, 0.05, 0.04, carbon);
     for (const sgn of [1, -1]) {
-      this.addSmoothLoft(verts, idxs, POD_LOFT.map(s => ({ ...s, cz: s.cz! * sgn })), 22, [cr, cg, cb], true);
+      this.addSmoothLoft(verts, idxs, POD_LOFT.map(s => ({ ...s, cz: s.cz! * sgn })), this.lowQuality ? 15 : 22, [cr, cg, cb], true);
     }
     this.addBox(verts, idxs, 0.585, 0.19, 0.5, 0.02, 0.14, 0.28, dark);
     this.addBox(verts, idxs, 0.585, 0.19, -0.5, 0.02, 0.14, 0.28, dark);

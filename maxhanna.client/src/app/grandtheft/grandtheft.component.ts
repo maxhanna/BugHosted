@@ -597,7 +597,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       { path: 'assets/grandtheft/low_poly_11_usaf_f22a_raptor/scene.gltf', storeSkeleton: false, assign: m => this.renderer.planeMeshes.push(m), scale: 2.25 },
       { path: 'assets/grandtheft/pizzaMoped/scene.gltf', storeSkeleton: false, assign: m => this.renderer.motorcycleMeshes.push(m) },
       { path: 'assets/grandtheft/crownVic/scene.gltf', storeSkeleton: false, assign: m => this.renderer.policeCarMesh = m },
-      { path: 'assets/grandtheft/policeMan/scene.gltf', storeSkeleton: false, assign: m => this.renderer.copMesh = m },
       { path: 'assets/grandtheft/taxi/scene.gltf', storeSkeleton: false, assign: m => this.renderer.taxiMesh = m },
       { path: 'assets/grandtheft/hospital/scene.gltf', storeSkeleton: false, assign: m => this.renderer.hospitalMesh = m },
       { path: 'assets/grandtheft/japaneseShop/scene.gltf', storeSkeleton: false, assign: m => this.renderer.homeBaseMesh = m },
@@ -625,7 +624,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     for (const cfg of specialMeshes) {
       const sc = cfg.scale;
       const yo = cfg.yawOffset;
-      const isCore = cfg.path.includes('crownVic') || cfg.path.includes('policeMan')
+      const isCore = cfg.path.includes('crownVic')
         || cfg.path.includes('taxi') || cfg.path.includes('hospital') || cfg.path.includes('japaneseShop');
       const t: AssetTask = { load: () => this.renderer.loadGLTF(cfg.path, cfg.storeSkeleton).then(mesh => { if (mesh) { cfg.assign(mesh); if (sc) for (const m of mesh) m.renderScale = sc; if (yo) for (const m of mesh) m.yawOffset = yo; } }) };
       if (isCore) critical(t);
@@ -744,6 +743,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.initRadio();
     document.addEventListener('keydown', this.onKeyDown);
     document.addEventListener('keyup', this.onKeyUp);
+    if (!this.isMobile) document.addEventListener('wheel', this.onWeaponWheel, { passive: false });
     if (!this.isMobile) {
       document.addEventListener('mousemove', this.onMouseMove);
       canvas.addEventListener('mousedown', this.onMouseDown);
@@ -815,6 +815,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     window.removeEventListener('beforeunload', this.onWorldSave);
     document.removeEventListener('keydown', this.onKeyDown);
     document.removeEventListener('keyup', this.onKeyUp);
+    document.removeEventListener('wheel', this.onWeaponWheel);
     document.removeEventListener('mousemove', this.onMouseMove);
     canvas.removeEventListener('mousedown', this.onMouseDown);
     canvas.removeEventListener('mouseup', this.onMouseUp);
@@ -843,11 +844,22 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.remove_me("GrandTheftComponent")
   }
   selectNextWeapon() {
+    this.selectWeaponByDirection(1);
+  }
+  private selectWeaponByDirection(direction: 1 | -1): void {
     for (let i = 1; i < this.weaponNames.length; i++) {
-      const next = (this.currentWeapon + i) % this.weaponNames.length;
-      if (this.ownedWeapons[next] && this.ammo[next] > 0) { this.selectWeapon(next); return; }
+      const next = (this.currentWeapon + direction * i + this.weaponNames.length) % this.weaponNames.length;
+      if (next === 0 || (this.ownedWeapons[next] && this.ammo[next] > 0)) {
+        this.selectWeapon(next);
+        return;
+      }
     }
   }
+  private onWeaponWheel = (e: WheelEvent) => {
+    if (this.isMobile || this.showWeaponWheel || this.isChatOpen) return;
+    e.preventDefault();
+    this.selectWeaponByDirection(e.deltaY > 0 ? 1 : -1);
+  };
   selectWeapon(idx: number) {
     // Drawing any weapon while cuffed is resisting arrest — the server aborts
     // the booking on its next poll, so drop the freeze immediately to let the
@@ -1638,8 +1650,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const existingPolice = new Map<number, any>();
     for (const p of this.serverNPCs) {
       if (p.type === 'police') existingPolice.set(p.id, p);
-    }
-    const allVehicles = [...data.cars, ...(data.aircraft || [])];
+    }      const allVehicles = [...data.cars, ...(data.aircraft || [])];
     this.serverNPCs = allVehicles
       .filter(c => !this.deadNPCIds.has(c.id) && !this.stolenNpcIds.has(c.id))
       .filter(c => !(this.isGroundVehicleType(c.type || 'car') && this.isOpenOceanPosition(c.posX, c.posZ)))
@@ -1649,7 +1660,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         const health = localHp !== undefined ? Math.min(localHp, serverHp) : serverHp;
         let mesh;
         if (c.type === 'cop') {
-          mesh = this.renderer.copMesh || this.renderer.getPedestrianMesh('male', c.id);
+          mesh = this.renderer.getPedestrianMesh('cop', c.id);
         } else if (c.type === 'police') {
           mesh = this.renderer.getPoliceCarMesh();
         } else if (c.type === 'motorcycle') {
@@ -1689,8 +1700,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           gender: c.gender,
           hasDriver: c.hasDriver !== false,
           passengerCount: c.passengerCount ?? 0,
-          isShootingAt: c.isShootingAt || false,
-          isArresting: c.isArresting || false,
+          // Preserve the server's pursuit flags on every poll. A transiently
+          // missing field must not turn an active cop into an ambient NPC.
+          isShootingAt: c.isShootingAt === true,
+          isArresting: c.isArresting === true,
           meleeTargetId: c.targetNpcId || 0,
           isBurning: c.isBurning || false,
           isSmoking: c.isSmoking || false,
@@ -1725,7 +1738,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         const health = localHp !== undefined ? Math.min(localHp, serverHp) : serverHp;
         let mesh;
         if (p.type === 'cop') {
-          mesh = this.renderer.copMesh || this.renderer.getPedestrianMesh('male', p.id);
+          mesh = this.renderer.getPedestrianMesh('cop', p.id);
         } else {
           mesh = this.renderer.getPedestrianMesh(p.gender || 'male', p.id);
         }
@@ -1750,9 +1763,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           isSwimming: !!p.isSwimming || this.isBeachAdjacentWater(p.posX, p.posZ),
           health,
           mesh,
-          isShootingAt: p.isShootingAt || false,
-          isDucking: p.isDucking || false,
-          isArresting: p.isArresting || false,
+          isShootingAt: p.isShootingAt === true,
+          isDucking: p.isDucking === true,
+          isArresting: p.isArresting === true,
           meleeTargetId: p.targetNpcId || 0,
           ...interp
         };
@@ -1823,7 +1836,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         if (existingDeadIds.has(db.id)) continue;
         let mesh: CityMesh | CityMesh[];
         if (db.type === 'cop') {
-          mesh = this.renderer.copMesh || this.renderer.getPedestrianMesh('male', db.id);
+          mesh = this.renderer.getPedestrianMesh('cop', db.id);
         } else if (db.type === 'ped_male' || db.type === 'ped_female') {
           mesh = this.renderer.getPedestrianMesh(db.gender || 'male', db.id);
         } else if (db.type === 'motorcycle') {
@@ -3692,7 +3705,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
             x: startX,
             z: startZ,
             yaw: Math.atan2(targetX - startX, targetZ - startZ),
-            mesh: this.renderer.copMesh || this.renderer.getPedestrianMesh('male', id),
+            mesh: this.renderer.getPedestrianMesh('cop', id),
             health: 100,
             targetX,
             targetZ,
@@ -3891,8 +3904,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       // never swallowed by the biome check — only by the height check below
       // when the car actually falls off the deck into the water.
       const waterBiome = getBiome(ocx, ocz);
-      let inOcean = getTerrainHeight(this.carX, this.carZ, this.carY) <= -2.0;
-      if (!inOcean && waterBiome === 'ocean') inOcean = true;
+      const beachDepth = Math.max(0, -getTerrainHeight(this.carX, this.carZ, this.carY));
+      // The beach shelf is shallow water, not an instant ocean kill zone. Let
+      // the car nose into it and sink progressively as the terrain falls away.
+      let inOcean = waterBiome === 'ocean' && beachDepth >= 2.0;
+      if (!inOcean && waterBiome !== 'ocean' && getTerrainHeight(this.carX, this.carZ, this.carY) <= -2.0) inOcean = true;
       if (!inOcean && waterBiome === 'rural_lakes') {
         const lx = ((this.carX - ocx * 80) % 80 + 80) % 80;
         const lz = ((this.carZ - ocz * 80) % 80 + 80) % 80;
@@ -3903,8 +3919,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         if (!this._carSubmerged) { this._carSubmerged = true; this._carSubmergeStart = performance.now() / 1000; }
         const subElapsed = (performance.now() / 1000) - this._carSubmergeStart;
         const subT = Math.min(subElapsed / 2.0, 1.0);
-        this.carY = CAR_HEIGHT - subT * 3.4;
-        if (subT >= 1.0) {
+        const shelfSink = Math.min(1.8, beachDepth * 0.45);
+        this.carY = CAR_HEIGHT - Math.max(subT * 2.4, shelfSink);
+        if (subT >= 1.0 || beachDepth >= 2.4) {
           this.carHealth -= dt * 20;
         }
         if (this._carOnFire || this._carSmoking) {
@@ -4270,7 +4287,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.renderer.playerAttack = this.meleeAttack;
     this.renderer.playerAimPitch = this.camPitch;
     this.renderer.playerIsInCar = this.isInCar;
-    this.renderer.walkSpeed = this.isInCar ? 0 : Math.abs(this.carSpeed);
+    // The renderer owns the visible local character. Keep its movement state
+    // synchronized even when the player is walking on foot; otherwise the
+    // model can remain at a stale/hidden pose after switching views or exiting
+    // a vehicle.
+    this.renderer.walkSpeed = this.isInCar ? 0 : Math.hypot(this.carVx, this.carVz);
     this.renderer.playerCarSpeed = this.isInCar ? this.carSpeed : 0;
     this.renderer.playerSteerInput = this._lastSteerInput;
     this.renderer.punchTime = this.punchTimer;

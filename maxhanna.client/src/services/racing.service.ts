@@ -144,7 +144,7 @@ export class RacingService {
     cash: { playerId: number; playerName: string; money: number; wins: number; races: number; isBot: boolean }[]
   } | null> {
     try {
-      const data: any = await this.http.get(`${this.baseUrl}/leaderboard-wealth`).toPromise();
+      const data: any = await this.http.get(`${this.baseUrl}/leaderboard-wealth?_=${Date.now()}`).toPromise();
       if (data === null || typeof data !== 'object' || !Array.isArray(data.scores) || !Array.isArray(data.cash)) {
         return null;
       }

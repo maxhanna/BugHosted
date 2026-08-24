@@ -2045,9 +2045,13 @@ namespace maxhanna.Server.Controllers
 							npc.Speed = 2.0f;
 						}
 					}
-					if (npc.TargetUserId == userId && wantedLevel > 0)
-					{
-						bool seesPlayer = CopSeesPlayer(npc, posX, posZ);
+				if (npc.TargetUserId == userId && wantedLevel > 0)
+				{
+					// A wanted cop must continue pursuing the player even when line of
+					// sight is temporarily blocked by a building or a poll arrives at
+					// a stale position. Keep the last-known target active; visibility
+					// only controls whether the cop switches to search behavior.
+					bool seesPlayer = CopSeesPlayer(npc, posX, posZ);
 						if (seesPlayer)
 						{
 							// Spotted — refresh this cop's last-known and the shared
@@ -2090,7 +2094,9 @@ namespace maxhanna.Server.Controllers
 						}
 						else if (npc.LastSeenAt.HasValue)
 						{
-							// Lost sight — start a timed search of the last known spot.
+							// Lost sight — search the last known spot, but retain the
+							// pursuit target so this unit can reacquire the player.
+
 							if (!npc.IsSearching)
 							{
 								npc.IsSearching = true;
@@ -3016,7 +3022,11 @@ namespace maxhanna.Server.Controllers
 			}
 			int nearbyPolice = 0;
 			foreach (var kv in npcs) if ((kv.Value.Type == "police" || kv.Value.Type == "cop") && kv.Value.TargetUserId == userId) nearbyPolice++;
-			int totalDesired = wantedLevel * 2;
+			// Keep a meaningful pursuit force active after a pedestrian kill. The
+			// requested player's wanted level can briefly lag the hit response, so
+			// use the authoritative level and ensure at least one foot unit is
+			// available for close interaction.
+			int totalDesired = wantedLevel > 0 ? Math.Max(2, wantedLevel * 2) : 0;
 			// Dispatch units to the last known sighting (the crime scene), never
 			// the player's live position — no telepathic spawns on the hideout.
 			float dispatchX = posX, dispatchZ = posZ;
