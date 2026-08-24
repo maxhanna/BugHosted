@@ -624,6 +624,7 @@ export class GrandTheftRenderer {
   public carMeshes: CityMesh[][] = [];
   public boatMeshes: CityMesh[][] = [];
   public helicopterMeshes: CityMesh[][] = [];
+  private proceduralHelicopterMeshes: { regular: CityMesh[]; police: CityMesh[] } | null = null;
   public planeMeshes: CityMesh[][] = [];
   public motorcycleMeshes: CityMesh[][] = [];
   public policeCarMesh: CityMesh[] | null = null;
@@ -1032,7 +1033,7 @@ export class GrandTheftRenderer {
   private dayBlend = 1.0;
   // Stable daylight fill keeps low-poly vertex colors readable on every face.
   private lightColor = [0.82, 0.84, 0.88];
-  private ambientColor = [0.62, 0.64, 0.70];
+  private ambientColor = [0.82, 0.84, 0.90];
   private skyColor = [0.7, 0.8, 0.9];
   private dayBlendLoc: WebGLUniformLocation | null = null;
   public isMobile = false;
@@ -1173,7 +1174,10 @@ void main() {
     }
   }
   vec3 color = ambient + diffuse + specular + pointLightContribution;
-  color = max(color, baseColor.rgb * 0.34);
+  // Reliable daylight floor: materials stay readable even when the shadow map
+  // or a face normal points away from the sun.
+  color = max(color, baseColor.rgb * 0.52);
+  color += baseColor.rgb * 0.08;
   float fog = clamp((vDepth - uFogStart) / max(uFogEnd - uFogStart, 1.0), 0.0, 1.0);
   if (uDayBlend < 0.5) {
     for(int i = 0; i < MAX_POINT_LIGHTS; i++) {
@@ -1371,32 +1375,12 @@ void main() {
     gl.depthMask(true);
   }
   async initPlayerModel(modelUrl?: string, needsFlip: boolean = true): Promise<void> {
-    this.currentModelUrl = modelUrl || null;
+    // All humanoids use the shared procedural rig; modelUrl is retained only
+    // for API compatibility with older callers and is intentionally ignored.
+    this.currentModelUrl = null;
     this.skelNodeNames = [];
     this.skelIsReady = false;
-    if (modelUrl) {
-      // Keep the verified Franklin skeleton on the renderer so the player uses
-      // the same skinning path as the rigged local NPCs.
-      const loaded = await this.loadGLTF(modelUrl, true);
-      if (loaded && loaded.length > 0) {
-        for (const m of loaded) m.needsFlip = needsFlip;
-        const skeleton = loaded.find(m => m.skeleton)?.skeleton;
-        if (skeleton) {
-          this.skelBoneParents = skeleton.boneParents;
-          this.skelBoneLocalMatrices = skeleton.boneLocalMatrices;
-          this.skelInverseBindMatrices = skeleton.inverseBindMatrices;
-          this.skelBoneCount = skeleton.boneCount;
-          this.skelNodeToBoneIdx = skeleton.nodeToBoneIdx;
-          this.skelJointMatrices = new Float32Array(skeleton.boneCount * 16);
-          this.skelSkinRootWorld = new Float32Array(skeleton.skinRootWorld);
-          this.skelNodeNames = [...skeleton.nodeNames];
-          this.skelIsReady = true;
-        }
-        this.playerMesh = loaded;
-        return;
-      }
-    }
-    this.playerMesh = this.generateSamplePlayerModel();
+    this.playerMesh = this.getPlayerMesh([0.2, 0.5, 0.8]);
   }
   /**
    * Sample a GLTF animation at time t (seconds). Writes local transforms into
@@ -1647,8 +1631,10 @@ void main() {
       localMatrices.set(skeleton.boneLocalMatrices);
       // walk cycle — hips bob + thigh/shin + arm swing
       if (state === 'walk' || state === 'run') {
-        const t = animator.time * (state === 'run' ? 5.2 : 3.4);
         const swing = state === 'run' ? 0.72 : 0.48;
+        const variation = 0.88 + ((entityId * 17) % 23) / 100;
+        const gait = Math.max(0.75, Math.min(1.18, speed * variation));
+        const t = animator.time * (state === 'run' ? 5.2 : 3.4) * gait;
         const thighL = 13, shinL = 14, thighR = 16, shinR = 17;
         const armL = 6, foreL = 7, armR = 10, foreR = 11;
         const hips = 0;
@@ -1670,7 +1656,7 @@ void main() {
         applyX(foreL, -0.12);
         applyX(armR, Math.sin(t)*swing*0.62);
         applyX(foreR, -0.12);
-        if (hips>=0){ const hm = new Float32Array(localMatrices.buffer, hips*64,16); hm[13] += Math.abs(Math.sin(t))* -0.04; }
+        if (hips>=0){ const hm = new Float32Array(localMatrices.buffer, hips*64,16); hm[13] += Math.abs(Math.sin(t))* -0.04; hm[12] += Math.sin(t * 0.5) * 0.008; }
       } else if (state === 'drive') {
         const armL=6, foreL=7, armR=10, foreR=11, thighL=13, thighR=16;
         const applyX = (bone:number, ang:number)=>{ if(bone<0) return; const m=new Float32Array(localMatrices.buffer,bone*64,16); const qx=Math.sin(ang/2),qw=Math.cos(ang/2); const rot=new Float32Array([1,0,0,0,0,qw,qx,0,0,-qx,qw,0,0,0,0,1]); const tmp=new Float32Array(16); for(let r=0;r<4;r++) for(let c=0;c<4;c++){let v=0; for(let k=0;k<4;k++) v+=m[r*4+k]*rot[k*4+c]; tmp[r*4+c]=v;} for(let i=0;i<16;i++) m[i]=tmp[i]; };
@@ -4026,12 +4012,27 @@ void main() {
     }
     return this.getNPCCarMesh([0.5, 0.5, 0.5], seed);
   }
-  getHelicopterMesh(seed: number | string = 0): CityMesh | CityMesh[] {
-    if (this.helicopterMeshes.length > 0) {
-      if (this.helicopterMeshes.length === 1) return this.helicopterMeshes[0];
-      return this.helicopterMeshes[hashSeed(seed) % this.helicopterMeshes.length];
-    }
-    return this.getNPCCarMesh([0.5, 0.5, 0.5], seed);
+  getHelicopterMesh(seed: number | string = 0, police = false): CityMesh | CityMesh[] {
+    const meshes = this.getProceduralHelicopterMeshes();
+    return police ? meshes.police : meshes.regular;
+  }
+  private getProceduralHelicopterMeshes(): { regular: CityMesh[]; police: CityMesh[] } {
+    if (this.proceduralHelicopterMeshes) return this.proceduralHelicopterMeshes;
+    const make = (police: boolean): CityMesh[] => {
+      const verts: number[] = [], indices: number[] = [];
+      const box = (x:number,y:number,z:number,w:number,h:number,d:number,c:[number,number,number]) => this.addBox(verts,indices,x,y,z,w,h,d,c[0],c[1],c[2],1,0);
+      const body: [number,number,number] = police ? [0.08,0.12,0.22] : [0.18,0.42,0.62];
+      const trim: [number,number,number] = police ? [0.86,0.9,0.96] : [0.82,0.92,0.98];
+      box(0,1.1,0,1.55,0.9,3.0,body); box(0,1.55,-0.35,1.15,0.45,1.25,trim);
+      box(0,1.15,1.85,0.42,0.42,2.8,body); box(0,1.48,3.15,0.75,0.18,0.35,trim);
+      box(0,0.55,0,2.2,0.14,1.2,[0.12,0.15,0.18]);
+      box(-1.0,1.3,0,0.16,0.12,4.8,trim); box(1.0,1.3,0,0.16,0.12,4.8,trim);
+      box(0,2.15,0,0.18,0.1,0.18,[0.08,0.08,0.08]);
+      if (police) { box(0,1.68,0.2,0.85,0.12,0.18,[0.95,0.1,0.08]); box(0,1.68,-0.2,0.85,0.12,0.18,[0.08,0.2,0.95]); }
+      return [this.createMesh(verts,indices)];
+    };
+    this.proceduralHelicopterMeshes = { regular: make(false), police: make(true) };
+    return this.proceduralHelicopterMeshes;
   }
   getPlaneMesh(seed: number | string = 0): CityMesh | CityMesh[] {
     if (this.planeMeshes.length > 0) {
@@ -4471,7 +4472,11 @@ void main() {
     gl.useProgram(this.program);
     gl.uniformMatrix4fv(this.projLoc, false, this.projMatrix);
     gl.uniformMatrix4fv(this.viewLoc, false, this.viewMatrix);
-    gl.uniform3f(this.lightDirLoc, this.sunDir[0], this.sunDir[1], this.sunDir[2]);
+    // Use a normalized, slightly camera-independent daylight direction. Keeping
+    // it above the horizon avoids the all-black fallback seen after disabling
+    // the old dynamic-light path.
+    const sunLen = Math.hypot(this.sunDir[0], this.sunDir[1], this.sunDir[2]) || 1;
+    gl.uniform3f(this.lightDirLoc, this.sunDir[0] / sunLen, Math.max(0.35, this.sunDir[1] / sunLen), this.sunDir[2] / sunLen);
     gl.uniform3f(this.lightColorLoc, this.lightColor[0], this.lightColor[1], this.lightColor[2]);
     gl.uniform3f(this.ambientColorLoc, this.ambientColor[0], this.ambientColor[1], this.ambientColor[2]);
     gl.uniform3f(this.fogColorLoc, this.skyColor[0], this.skyColor[1], this.skyColor[2]);
@@ -4703,7 +4708,9 @@ void main() {
       const terrainY = submerged ? -1.5 : getTerrainHeight(npc.x, npc.z);
       const expY = isAircraft ? (npc.y || 0) : (npc as any)._expY ?? terrainY;
       if (npc.type === 'helicopter') {
-        this.drawMesh(npc.mesh, npc.x, expY, npc.z, npc.yaw);
+        const copHeli = !!(npc as any).isPolice || !!(npc as any).isCop;
+        const heliMesh = copHeli ? this.getHelicopterMesh(npc.id, true) : this.getHelicopterMesh(npc.id, false);
+        this.drawMesh(heliMesh, npc.x, expY, npc.z, npc.yaw);
         const rotorMesh = this.getRotorBladeMesh();
         const now = performance.now() / 1000;
         const mainRotorY = expY + 2.5;  

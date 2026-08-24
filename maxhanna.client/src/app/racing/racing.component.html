@@ -48,7 +48,7 @@
         <button class="race-menu-tab" [class.active]="showMultiplayer"
           (click)="toggleMultiplayerTab()">MULTIPLAYER</button>
         <button class="race-menu-tab" [class.active]="showLeaderboard" (click)="toggleLeaderboard()">
-          🏆 TOP SCORES
+          🏆 LEADERBOARDS
         </button>
       </div>
 
@@ -1102,16 +1102,16 @@
     <!-- ─── Leaderboard ─── -->
     <div id="race-leaderboard" *ngIf="showLeaderboard">
       <div class="race-lb-tabs">
-        <button class="race-lb-tab" [class.active]="leaderboardTab === 'scores'" (click)="setLeaderboardTab('scores')">🏆 TOP SCORES</button>
         <button class="race-lb-tab" [class.active]="leaderboardTab === 'cash'" (click)="setLeaderboardTab('cash')">💰 MOST CASH</button>
         <button class="race-lb-tab" [class.active]="leaderboardTab === 'laps'" (click)="setLeaderboardTab('laps')">⏱️ BEST LAPS</button>
       </div>
       <div class="race-lb-title">
-        {{ leaderboardTab === 'scores' ? '🏆 TOP SCORES' : (leaderboardTab === 'cash' ? '💰 MOST CASH' : '⏱️ BEST LAPS') }}{{ leaderboardTab === 'laps' && selectedTrack ? ' — ' + getTrackFlag(selectedTrack) + ' ' + selectedTrack.name : '' }}
+        {{ leaderboardTab === 'cash' ? '💰 MOST CASH' : '⏱️ BEST LAPS' }}{{ leaderboardTab === 'laps' && selectedTrack ? ' — ' + getTrackFlag(selectedTrack) + ' ' + selectedTrack.name : '' }}
       </div>
 
-      <!-- ─── Tab: Top Scores (lifetime earnings) ─── -->
-      <ng-container *ngIf="leaderboardTab === 'scores' && !wealthLoading">
+      <!-- ─── Lifetime earnings are intentionally not shown here; this popup is
+           focused on wallet rankings and track performance. ─── -->
+      <ng-container *ngIf="false">
         <div class="race-lb-unavailable" *ngIf="wealthUnavailable">
           ⚠️ Couldn't load score data right now — the server didn't return any
           leaderboard results. Try again in a moment.

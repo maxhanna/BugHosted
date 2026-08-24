@@ -359,7 +359,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   showLeaderboard = false;
   // Menu wealth leaderboard tabs: 'scores' (lifetime earnings), 'cash' (wallet
   // balance) and 'laps' (the existing per-track best-lap boards).
-  leaderboardTab: 'scores' | 'cash' | 'laps' = 'scores';
+  leaderboardTab: 'cash' | 'laps' = 'cash';
   wealthScores: { playerId: number; playerName: string; totalEarnings: number; wins: number; races: number; isBot: boolean }[] = [];
   wealthCash: { playerId: number; playerName: string; money: number; wins: number; races: number; isBot: boolean }[] = [];
   wealthLoading = false;
@@ -3447,21 +3447,28 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   // Switch the leaderboard panel between Top Scores / Most Cash / Best Laps.
   // The wealth lists load once (the first time they're shown) and then just
   // switch instantly on subsequent visits. Refreshes on every open (toggle).
-  setLeaderboardTab(tab: 'scores' | 'cash' | 'laps') {
+  setLeaderboardTab(tab: 'cash' | 'laps') {
     this.leaderboardTab = tab;
-    if (tab !== 'laps' && this.wealthScores.length === 0 && !this.wealthLoading) {
+    if (tab !== 'laps' && this.wealthCash.length === 0 && !this.wealthLoading) {
       void this.loadWealthLeaderboard();
     }
   }
   async loadWealthLeaderboard() {
     this.wealthLoading = true;
     this.wealthUnavailable = false;
-    const data = await this.racingService.getWealthLeaderboard();
-    this.wealthLoading = false;
-    if (data) {
-      this.wealthScores = data.scores ?? [];
-      this.wealthCash = data.cash ?? [];
-    } else {
+    try {
+      const data = await this.racingService.getWealthLeaderboard();
+      this.wealthLoading = false;
+      if (data) {
+        this.wealthScores = data.scores ?? [];
+        this.wealthCash = data.cash ?? [];
+      } else {
+      this.wealthScores = [];
+      this.wealthCash = [];
+        this.wealthUnavailable = true;
+      }
+    } catch {
+      this.wealthLoading = false;
       this.wealthScores = [];
       this.wealthCash = [];
       this.wealthUnavailable = true;

@@ -230,6 +230,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private _engineFilter: BiquadFilterNode | null = null;
   private _engineGain: GainNode | null = null;
   private _engineLevel = 0;
+  private _engineLoad = 0;
+  private _lastEngineUpdate = 0;
   private _trafficCtx: AudioContext | null = null;
   private _trafficOsc: OscillatorNode | null = null;
   private _trafficOsc2: OscillatorNode | null = null;
@@ -577,29 +579,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     interface AssetTask { load: () => Promise<any>; critical?: boolean; }
     const tasks: AssetTask[] = [];
     const critical = (t: AssetTask) => { t.critical = true; return t; };
-    tasks.push(critical({ load: () => this.renderer.initPlayerModel('assets/grandtheft/franklin/scene.gltf', false).then(() => { }) }));
+    tasks.push(critical({ load: async () => { this.renderer.initPlayerModel(); } }));
     tasks.push(critical({ load: () => this.renderer.loadGLTF('assets/grandtheft/citylight/scene.gltf').then(lamps => { if (lamps) this.renderer.lampMesh = lamps; }) }));
     tasks.push(critical({ load: () => this.renderer.loadGLTF('assets/grandtheft/skybox_skydays_3/scene.gltf', false).then(m => { if (m) this.renderer.skyboxMesh = m; }) }));
-    for (const cfg of [
-      { path: 'assets/grandtheft/jillValentine/scene.gltf', needsFlip: false },
-      { path: 'assets/grandtheft/jessica_jones/scene.gltf' },
-      { path: 'assets/grandtheft/redneck/scene.gltf', needsFlip: false },
-      { path: 'assets/grandtheft/animated_npc/scene.gltf' },
-    ]) {
-      tasks.push({ load: () => this.renderer.loadGLTF(cfg.path, false).then(npc => { if (npc) { if (cfg.needsFlip === false) for (const m of npc) m.needsFlip = false; this.renderer.npcMeshes.push(npc); } }) });
-    }
-    const maxChar = this.isMobile ? 15 : 29;
-    for (let ci = 1; ci <= maxChar; ci++) {
-      if (ci === 27) continue;
-      const ciStr = ci.toString();
-      tasks.push({ load: () => this.renderer.loadGLTF(`assets/grandtheft/char${ciStr}/scene.gltf`, false).then(npc => { if (npc) this.renderer.npcMeshes.push(npc); }) });
-    }
     const specialMeshes: { path: string; storeSkeleton: boolean; assign: (m: CityMesh[]) => void; scale?: number; yawOffset?: number }[] = [
       { path: 'assets/grandtheft/star_wars_luxury_yacht/scene.gltf', storeSkeleton: false, assign: m => this.renderer.boatMeshes.push(m), yawOffset: Math.PI },
       { path: 'assets/grandtheft/ultra-futuristic_luxury_yacht/scene.gltf', storeSkeleton: false, assign: m => this.renderer.boatMeshes.push(m) },
-      { path: 'assets/grandtheft/bell_222_x/scene.gltf', storeSkeleton: false, assign: m => this.renderer.helicopterMeshes.push(m), scale: 2, yawOffset: Math.PI / 2 },
-      { path: 'assets/grandtheft/bell_ch-146_griffon/scene.gltf', storeSkeleton: false, assign: m => this.renderer.helicopterMeshes.push(m), scale: 2, yawOffset: Math.PI / 2 },
-      { path: 'assets/grandtheft/bell_206_jet_ranger/scene.gltf', storeSkeleton: false, assign: m => this.renderer.helicopterMeshes.push(m), scale: 2, yawOffset: Math.PI / 2 },
       { path: 'assets/grandtheft/cirrus_sr_22/scene.gltf', storeSkeleton: false, assign: m => this.renderer.planeMeshes.push(m), scale: 2.25 },
       { path: 'assets/grandtheft/low_poly_11_usaf_f22a_raptor/scene.gltf', storeSkeleton: false, assign: m => this.renderer.planeMeshes.push(m), scale: 2.25 },
       { path: 'assets/grandtheft/pizzaMoped/scene.gltf', storeSkeleton: false, assign: m => this.renderer.motorcycleMeshes.push(m) },
@@ -1225,7 +1210,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
               this._carSmokeTimer = 0;
               this._carSmokeStarted = 0;
               this._carSmokeBudget = CAR_SMOKE_SECONDS;
-              this.playerVehicleMesh = da.model || (da.type === 'helicopter' ? this.renderer.getHelicopterMesh(0) : this.renderer.getPlaneMesh(0));
+              this.playerVehicleMesh = da.model || (da.type === 'helicopter' ? this.renderer.getHelicopterMesh(0, (da as any).isPolice === true) : this.renderer.getPlaneMesh(0));
               chunk.buildings = chunk.buildings.filter(b => Math.abs(b.x - da.x) > 0.1 || Math.abs(b.z - da.z) > 0.1);
               this.carY = da.type === 'helicopter' ? 5 : 3;
               this.carRoll = 0; this.carPitch = 0; this.carVy = 0;
@@ -1681,7 +1666,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         } else if (c.type === 'taxi') {
           mesh = this.renderer.getTaxiMesh();
         } else if (c.type === 'helicopter') {
-          mesh = this.renderer.getHelicopterMesh(c.id);
+          mesh = this.renderer.getHelicopterMesh(c.id, (c as any).isPolice === true || (c as any).isCop === true);
         } else if (c.type === 'plane') {
           mesh = this.renderer.getPlaneMesh(c.id);
         } else {
@@ -1825,7 +1810,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         else if (pc.type === 'taxi') parkedMesh = this.renderer.getTaxiMesh();
         else if (pc.type === 'police') parkedMesh = this.renderer.getPoliceCarMesh();
         else if (pc.type === 'bus') parkedMesh = this.renderer.busMesh || this.renderer.getNPCCarMesh([pc.colorR, pc.colorG, pc.colorB], pc.id);
-        else if (pc.type === 'helicopter') parkedMesh = this.renderer.getHelicopterMesh(pc.id);
+        else if (pc.type === 'helicopter') parkedMesh = this.renderer.getHelicopterMesh(pc.id, (pc as any).isPolice === true);
         else if (pc.type === 'plane') parkedMesh = this.renderer.getPlaneMesh(pc.id);
         else if (pc.type === 'boat') parkedMesh = this.renderer.getBoatMesh(pc.id);
         else parkedMesh = this.renderer.getNPCCarMesh([pc.colorR, pc.colorG, pc.colorB], pc.id);
@@ -2243,7 +2228,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   // ~1600Hz down to ~650Hz with a fast attack and ~0.6s decay — no audio asset
   // needed. Throttled by the caller so a fleeing car doesn't spam it.
   private playTireScreech() {
-    if (this.carSfxVolume <= 0) return;
+    if (this.carSfxVolume <= 0 || !this.isInCar) return;
     try {
       if (!this._screechCtx) {
         this._screechCtx = new AudioContext();
@@ -2310,6 +2295,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
   }
   private updateEngineAudio(dt: number) {
+    // Audio parameters need not be rewritten every render frame; this keeps
+    // Web Audio work bounded on phones while retaining responsive pitch.
+    const nowMs = performance.now();
+    if (nowMs - this._lastEngineUpdate < 33) return;
+    this._lastEngineUpdate = nowMs;
     if (!this._engineCtx) {
       if (!this.isInCar) return;
       const t = this.vehicleType;
@@ -2336,11 +2326,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const speedNorm = Math.min(1, speed / (isBike ? 140 : 110));
     const rpm = base + (top - base) * Math.min(1, 0.30 + speedNorm * 0.55 + throttle * 0.25 - braking * 0.12);
     const level = 0.055 + speedNorm * 0.10 + throttle * 0.05 + braking * 0.02;
+    const loadTarget = Math.min(1, throttle * 0.7 + speedNorm * 0.35 + braking * 0.2);
+    this._engineLoad += (loadTarget - this._engineLoad) * Math.min(1, 8 * dt);
     this._engineLevel += (level - this._engineLevel) * Math.min(1, 7 * dt);
     if (this._engineOsc) this._engineOsc.frequency.value = rpm;
     if (this._engineOsc2) this._engineOsc2.frequency.value = rpm * 0.5;
-    if (this._engineFilter) this._engineFilter.frequency.value = 240 + this._engineLevel * 800 + throttle * 400;
-    if (this._engineGain) this._engineGain.gain.value = this._engineLevel * this.carSfxVolume * (isBike ? 0.75 : 1);
+    if (this._engineFilter) this._engineFilter.frequency.value = 220 + this._engineLevel * 760 + this._engineLoad * 520;
+    if (this._engineGain) this._engineGain.gain.value = this._engineLevel * this.carSfxVolume * (isBike ? 0.78 : 1);
   }
   private stopEngineAudio() {
     try {
@@ -2352,7 +2344,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       if (this._engineCtx) { try { this._engineCtx.close(); } catch { } }
     } catch (e) { }
     this._engineCtx = null; this._engineOsc = null; this._engineOsc2 = null;
-    this._engineFilter = null; this._engineGain = null; this._engineLevel = 0;
+    this._engineFilter = null; this._engineGain = null; this._engineLevel = 0; this._engineLoad = 0; this._lastEngineUpdate = 0;
   }
   /** One shared soft hum for nearby moving NPC traffic, panned to where the cars are. */
   private initTrafficAudio() {
@@ -7577,13 +7569,14 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
   private onCanvasTouchStart = (e: TouchEvent) => {
     e.preventDefault();
+    const rect = this.canvasRef.nativeElement.getBoundingClientRect();
     for (let i = 0; i < e.changedTouches.length; i++) {
       const t = e.changedTouches[i];
-      if (t.clientX < window.innerWidth / 2 && this.joystickId === -1) {
+      if (t.clientX < rect.left + rect.width * 0.48 && this.joystickId === -1) {
         this.joystickId = t.identifier; this.joystickActive = true;
         this.updateThumb(t.clientX, t.clientY);
       }
-      if (t.clientX >= window.innerWidth / 2 && this.touchCamId === -1) {
+      if (t.clientX >= rect.left + rect.width * 0.48 && this.touchCamId === -1) {
         this.touchCamId = t.identifier; this.touchCamLastX = t.clientX; this.touchCamLastY = t.clientY;
       }
     }
@@ -7618,16 +7611,17 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   };
   private onDocTouchStart = (e: TouchEvent) => {
     const target = e.target as HTMLElement;
+    const rect = this.canvasRef.nativeElement.getBoundingClientRect();
     if (target && (target.id === 'gt-mobile-fire' || target.id === 'gt-mobile-car' || target.id === 'gt-mobile-view')) {
       return;
     }
     for (let i = 0; i < e.changedTouches.length; i++) {
       const t = e.changedTouches[i];
-      if (t.clientX < window.innerWidth / 2 && this.joystickId === -1) {
+      if (t.clientX < rect.left + rect.width * 0.48 && this.joystickId === -1) {
         this.joystickId = t.identifier; this.joystickActive = true;
         this.updateThumb(t.clientX, t.clientY);
       }
-      if (t.clientX >= window.innerWidth / 2 && this.touchCamId === -1) {
+      if (t.clientX >= rect.left + rect.width * 0.48 && this.touchCamId === -1) {
         this.touchCamId = t.identifier; this.touchCamLastX = t.clientX; this.touchCamLastY = t.clientY;
       }
     }

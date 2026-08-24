@@ -40,6 +40,10 @@ export interface HumanVariant {
   hasBeard?: boolean;
   hasCap?: boolean;
   hasHelmet?: boolean;
+  shoulderWidth?: number;
+  hipWidth?: number;
+  heightScale?: number;
+  headScale?: number;
 }
 
 const SKIN_TONES: [number, number, number][] = [
@@ -75,8 +79,12 @@ export function pickVariant(role: Role, seed: number | string, genderHint?: stri
   let outfitB: [number, number, number] = [0.18, 0.18, 0.20];
   let accent: [number, number, number] | undefined;
   let hasBeard = rng() < 0.22 && gender === 'male';
-  const shirtStyle = Math.floor(rng() * 4);
-  const pantsStyle = Math.floor(rng() * 4);
+  const shirtStyle = Math.floor(rng() * 6);
+  const pantsStyle = Math.floor(rng() * 6);
+  const shoulderWidth = 0.92 + rng() * 0.16;
+  const hipWidth = 0.9 + rng() * 0.18;
+  const heightScale = 0.94 + rng() * 0.14;
+  const headScale = 0.92 + rng() * 0.12;
   let hasCap = false;
   let hasHelmet = false;
 
@@ -110,7 +118,7 @@ export function pickVariant(role: Role, seed: number | string, genderHint?: stri
       outfitA = [0.22 + rng() * 0.3, 0.22 + rng() * 0.3, 0.22 + rng() * 0.4];
       outfitB = [0.14 + rng() * 0.2, 0.14 + rng() * 0.2, 0.16 + rng() * 0.2];
   }
-  return { role, gender, bodyType, seed: s, skin, hair, outfitA, outfitB, accent, shirtStyle, pantsStyle, hasBeard, hasCap, hasHelmet };
+  return { role, gender, bodyType, seed: s, skin, hair, outfitA, outfitB, accent, shirtStyle, pantsStyle, hasBeard, hasCap, hasHelmet, shoulderWidth, hipWidth, heightScale, headScale };
 }
 
 function mulberry32(a: number) {
@@ -251,6 +259,13 @@ export function generateHumanMesh(gl: WebGL2RenderingContext, variant: HumanVari
   if (variant.bodyType === 'fat') { torsoW *= 1.55; torsoD *= 1.3; legLen *= 0.92; }
   if (variant.bodyType === 'dwarf') { sHipsY *= 0.78; torsoH *= 0.85; legLen *= 0.68; armLen *= 0.72; headR *= 1.08; }
   if (variant.gender === 'female') { torsoW *= 0.88; torsoD *= 0.92; }
+  torsoW *= variant.shoulderWidth ?? 1;
+  torsoD *= 0.96 + ((variant.hipWidth ?? 1) - 0.9) * 0.35;
+  legLen *= variant.heightScale ?? 1;
+  armLen *= variant.heightScale ?? 1;
+  headR *= variant.headScale ?? 1;
+  if (variant.role === 'hooker') { torsoW *= 0.94; torsoD *= 0.88; legLen *= 1.06; armLen *= 0.98; }
+  if (variant.role === 'cop') { torsoW *= 1.06; torsoD *= 1.04; armLen *= 1.04; }
 
   // Hips pivot already at sHipsY via skeleton, so mesh local to hips = 0
   // Torso
@@ -259,8 +274,10 @@ export function generateHumanMesh(gl: WebGL2RenderingContext, variant: HumanVari
   addBoxRigged(0, 0.02, 0, torsoW*1.02, 0.05, torsoD*1.05, [0.15,0.12,0.10], 2);
   // Neck
   addBoxRigged(0, 0.42, 0, 0.08, 0.08, 0.08, variant.skin, 3);
-  // Head
+  // Head and neck: a separate jaw/chin volume makes the silhouette less
+  // blocky than the old single cube head while remaining very low-poly.
   addSphereRigged(0, 0.55, 0, headR, variant.skin, 4);
+  addBoxRigged(0, 0.45, 0.055, headR * 1.12, headR * 0.42, headR * 0.72, variant.skin, 4);
   // Hair cap
   const hairH = variant.gender === 'female' ? 0.10 : 0.08;
   addBoxRigged(0, 0.62, -0.02, headR*1.6, hairH, headR*1.5, variant.hair, 4);
@@ -299,23 +316,33 @@ export function generateHumanMesh(gl: WebGL2RenderingContext, variant: HumanVari
   addBoxRigged( 0.20, 0.18, 0, armW, armLen*0.5, armD, variant.skin, 10);
   addBoxRigged( 0.20, -0.04, 0, armW*0.92, armLen*0.5, armD*0.92, variant.skin, 11);
   addBoxRigged( 0.20, -0.24, 0, 0.07, 0.09, 0.07, variant.skin, 12);
-  // Sleeves
+  // Sleeves and shoulder caps give the torso a natural shoulder line.
   addBoxRigged(-0.20, 0.20, 0, armW*1.15, 0.14, armD*1.15, variant.outfitA, 6);
   addBoxRigged( 0.20, 0.20, 0, armW*1.15, 0.14, armD*1.15, variant.outfitA, 10);
+  addBoxRigged(-0.19, 0.34, 0, armW*1.35, 0.10, armD*1.35, variant.outfitA, 5);
+  addBoxRigged( 0.19, 0.34, 0, armW*1.35, 0.10, armD*1.35, variant.outfitA, 9);
   // Legs
   const legW = variant.bodyType === 'fat' ? 0.14 : 0.11;
   const thighH = legLen*0.48, shinH = legLen*0.48;
   const hipOffset = 0.09;
   addBoxRigged(-hipOffset, -0.12, 0, legW, thighH, legW, variant.outfitB, 13);
+  addBoxRigged(-hipOffset, -0.35, 0, legW * 1.08, 0.045, legW * 1.08, [0.12,0.10,0.10], 13);
   addBoxRigged(-hipOffset, -0.12 - thighH, 0, legW*0.95, shinH, legW*0.95, variant.outfitB, 14);
   addBoxRigged(-hipOffset, -0.12 - thighH - shinH + 0.04, 0.04, 0.14, 0.07, 0.20, [0.12,0.08,0.06], 15);
   addBoxRigged( hipOffset, -0.12, 0, legW, thighH, legW, variant.outfitB, 16);
+  addBoxRigged( hipOffset, -0.35, 0, legW * 1.08, 0.045, legW * 1.08, [0.12,0.10,0.10], 16);
   addBoxRigged( hipOffset, -0.12 - thighH, 0, legW*0.95, shinH, legW*0.95, variant.outfitB, 17);
   addBoxRigged( hipOffset, -0.12 - thighH - shinH + 0.04, 0.04, 0.14, 0.07, 0.20, [0.12,0.08,0.06], 18);
-  // Accent (badge for cop, pizza box for pizza boy when not on moped, hillbilly beard already)
+  // Role accents: badge, radio, hooker jewelry, and pizza box.
   if (variant.role === 'cop' && variant.accent) {
     addBoxRigged(0.08, 0.22, 0.10, 0.06, 0.06, 0.01, variant.accent, 2);
+    addBoxRigged(-0.13, 0.18, 0.105, 0.045, 0.09, 0.018, [0.04,0.05,0.08], 2);
   }
+  if (variant.role === 'hooker' && variant.accent) {
+    addBoxRigged(0, 0.29, 0.105, 0.18, 0.035, 0.012, variant.accent, 2);
+    addBoxRigged(0.16, 0.10, 0.04, 0.035, 0.10, 0.035, variant.accent, 10);
+  }
+  if (variant.role === 'pizza') addBoxRigged(0, 0.18, -0.12, 0.22, 0.28, 0.08, [0.95,0.85,0.65], 2);
 
   // Build skinned mesh data structures (mirror createMesh but with skeleton)
   const vertexCount = verts.length / 7;
