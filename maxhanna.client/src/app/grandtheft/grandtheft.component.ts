@@ -1628,7 +1628,19 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private stopPolling() { if (this._pollTimer) { clearTimeout(this._pollTimer); this._pollTimer = null; } }
   private startNPCPolling() { this.pollNPCs(); this.npcPollTimer = setInterval(() => this.pollNPCs(), 1000); }
   private stopNPCPolling() { if (this.npcPollTimer) { clearInterval(this.npcPollTimer); this.npcPollTimer = null; } }
+  private _npcPollInFlight = false;
   private async pollNPCs(): Promise<void> {
+    if (this._destroyed || this._npcPollInFlight) return;
+    this._npcPollInFlight = true;
+    try {
+      await this.pollNPCsCore();
+    } catch (error) {
+      console.error('Grand Theft NPC polling failed:', error);
+    } finally {
+      this._npcPollInFlight = false;
+    }
+  }
+  private async pollNPCsCore(): Promise<void> {
     if (this._destroyed) return;
     const data = await this.gtService.getNPCs(1, this.carX, this.carZ, this.getUserId());
     if (!data) return;
