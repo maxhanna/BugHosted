@@ -23,7 +23,7 @@ import { CityMesh, GltfAnimation } from '../../services/grandtheft.service';
 // ---------------------------------------------------------------------------
 // Variant definition
 // ---------------------------------------------------------------------------
-export type Role = 'franklin' | 'cop' | 'taxi' | 'pizza' | 'hillbilly' | 'female' | 'fat' | 'dwarf' | 'generic';
+export type Role = 'franklin' | 'cop' | 'taxi' | 'pizza' | 'hillbilly' | 'female' | 'hooker' | 'fat' | 'dwarf' | 'generic';
 export type BodyType = 'slim' | 'muscular' | 'fat' | 'dwarf';
 export interface HumanVariant {
   role: Role;
@@ -93,6 +93,15 @@ export function pickVariant(role: Role, seed: number | string, genderHint?: stri
       outfitA = [0.62, 0.18, 0.18]; outfitB = [0.35, 0.28, 0.18]; accent = [0.55, 0.55, 0.45]; hasBeard = true; hasCap = true; break;
     case 'female':
       outfitA = [0.72, 0.22, 0.42]; outfitB = [0.25, 0.25, 0.35]; accent = [0.95, 0.82, 0.60]; break;
+    case 'hooker':
+      // Distinct streetwear palette with seeded variation: bright top, dark
+      // skirt/shorts, and a small accessory accent. Still a normal skinned
+      // human rig so walk/idle animation works exactly like other NPCs.
+      outfitA = [0.55 + rng() * 0.35, 0.08 + rng() * 0.18, 0.32 + rng() * 0.35];
+      outfitB = [0.08 + rng() * 0.16, 0.06 + rng() * 0.14, 0.12 + rng() * 0.18];
+      accent = [0.95, 0.72 + rng() * 0.2, 0.86 + rng() * 0.12];
+      hasBeard = false;
+      break;
     case 'fat':
       outfitA = [0.42, 0.42, 0.45]; outfitB = [0.30, 0.30, 0.33]; break;
     case 'dwarf':

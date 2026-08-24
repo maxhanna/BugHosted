@@ -3898,9 +3898,11 @@ void main() {
     return mesh;
   }
   getPedestrianMesh(gender: string, seed: number | string = 0): CityMesh | CityMesh[] {
-    // Keep hooker as distinct if requested
+    // Hookers use the same procedural, skinned human system as every other NPC.
+    // The seed drives stable appearance variation, so they remain recognizable
+    // without loading a separate GLTF asset.
     if (gender === 'hooker') {
-      return this.getHookerMesh();
+      return this.getHumanVariantMesh('hooker', `hooker:${seed}`, 'female');
     }
     // Infer lifelike role from gender + seed distribution — ensures every street has
     // cops, taxi drivers, pizza boys, hillbillies, women, fat & dwarf variants visible
@@ -3982,9 +3984,12 @@ void main() {
       ? variant.outfitB
       : [Math.min(1, variant.outfitB[0] * 1.18), Math.min(1, variant.outfitB[1] * 1.12), Math.min(1, variant.outfitB[2] * 1.08)];
     addBox(-hipOff,-0.12,0,legW,thighH,legW,pantTone,13); addBox(-hipOff,-0.12-thighH,0,legW*0.95,shinH,legW*0.95,pantTone,14); addBox(-hipOff,-0.12-thighH-shinH+0.04,0.04,0.14,0.07,0.20,[0.12,0.08,0.06],15);
-    addBox(hipOff,-0.12,0,legW,thighH,legW,pantTone,16); addBox(hipOff,-0.12-thighH,0,legW*0.95,shinH,legW*0.95,pantTone,17); addBox(hipOff,-0.12-thighH-shinH+0.04,0.04,0.14,0.07,0.20,[0.12,0.08,0.06],18);
-    if(variant.role==='cop' && variant.accent) addBox(0.08,0.22,0.10,0.06,0.06,0.01,variant.accent,2);
-    if(variant.role==='pizza') addBox(0,0.18,-0.12,0.22,0.28,0.08,[0.95,0.85,0.65],2);
+    addBox(hipOff,-0.12,0,legW,thighH,legW,pantTone,16); addBox(hipOff,-0.12-thighH,0,legW*0.95,shinH,legW*0.95,pantTone,17); addBox(hipOff,-0.12-thighH-shinH+0.04,0.04,0.14,0.07,0.20,[0.12,0.08,0.06],18);    if (variant.role==='cop' && variant.accent) addBox(0.08,0.22,0.10,0.06,0.06,0.01,variant.accent,2);
+    if (variant.role==='hooker' && variant.accent) {
+      addBox(0,0.28,0.105,0.18,0.035,0.012,variant.accent,2);
+      addBox(0.16,0.10,0.04,0.035,0.10,0.035,variant.accent,10);
+    }
+    if (variant.role==='pizza') addBox(0,0.18,-0.12,0.22,0.28,0.08,[0.95,0.85,0.65],2);
     return this.finalizeSkinnedMesh(verts, indices, jIndices, jWeights, restPos, restNrm, skeleton);
   }
   private finalizeSkinnedMesh(verts:number[], indices:number[], jIndices:number[], jWeights:number[], restPos:number[], restNrm:number[], skeleton:any): CityMesh {
@@ -4768,7 +4773,11 @@ void main() {
       if (pedFlinch > 0) this.flinchTimers.set(ped.id, Math.max(0, pedFlinch - dt));
       const pedDx = ped.x - camX, pedDz = ped.z - camZ;
       if (pedDx * pedDx + pedDz * pedDz < 180 * 180) {
-        this.animateAndSkinEntity(ped.id, ped.mesh, pedState, dt, Math.max(1, pedSpeed * 2.2));
+        // Hookers use a slower, confident walk. Their procedural female rig is
+        // still the same shared human rig, but the speed makes them readable
+        // from the street without adding another asset or animation clip.
+        const animationSpeed = ped.type === 'hooker' || ped.gender === 'hooker' ? 1.45 : Math.max(1, pedSpeed * 2.2);
+        this.animateAndSkinEntity(ped.id, ped.mesh, pedState, dt, animationSpeed);
       }
       // Ducking (gunfire reaction): the crouch-and-cover pose (bent legs, low
       // hips) does the lowering — this mild squash is the fallback for distant

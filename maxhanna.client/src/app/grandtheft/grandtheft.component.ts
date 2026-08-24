@@ -146,7 +146,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private trafficLanes: TrafficLane[] = [];
   private trafficNodeIdCounter = 10000;
   private trafficSpawnTimer = 0;
-  localPedestrians: { id: number; x: number; z: number; yaw: number; gender: string; type?: string; mesh: CityMesh | CityMesh[]; health: number; targetX: number; targetZ: number; waitTimer: number; fightBackUntil?: number; punchTimer?: number; panicUntil?: number; panicFromX?: number; panicFromZ?: number }[] = [];
+  localPedestrians: { id: number; x: number; z: number; yaw: number; gender: string; type?: string; mesh: CityMesh | CityMesh[]; health: number; targetX: number; targetZ: number; waitTimer: number; fightBackUntil?: number; punchTimer?: number; panicUntil?: number; panicFromX?: number; panicFromZ?: number; hookerStyle?: number; hookerGestureTimer?: number }[] = [];
   private pedSpawnTimer = 0;
   private populationScanTimer = 0;
   private readonly LOCAL_PED_CAP = 28;
@@ -608,7 +608,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       { path: 'assets/grandtheft/hospital/scene.gltf', storeSkeleton: false, assign: m => this.renderer.hospitalMesh = m },
       { path: 'assets/grandtheft/japaneseShop/scene.gltf', storeSkeleton: false, assign: m => this.renderer.homeBaseMesh = m },
       { path: 'assets/grandtheft/vendingMachine/scene.gltf', storeSkeleton: false, assign: m => this.renderer.vendingMachineMesh = m },
-      { path: 'assets/grandtheft/hooker/scene.gltf', storeSkeleton: false, assign: m => { for (const x of m) x.needsFlip = false; this.renderer.hookerMesh = m; } },
       { path: 'assets/grandtheft/rocket/scene.gltf', storeSkeleton: false, assign: m => this.renderer.rocketMesh = m },
       { path: 'assets/grandtheft/colt/scene.gltf', storeSkeleton: false, assign: m => this.renderer.coltMesh = m },
       { path: 'assets/grandtheft/money/scene.gltf', storeSkeleton: false, assign: m => this.renderer.moneyMesh = m },
@@ -3588,7 +3587,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         mesh: this.renderer.getPedestrianMesh(gender, pedId),
         health: 100,
         targetX: dstNode.x, targetZ: dstNode.z,
-        waitTimer: 0,
+        waitTimer: isHooker ? 1.5 + Math.random() * 4 : 0,
+        ...(isHooker ? { hookerStyle: Math.floor(Math.random() * 4), hookerGestureTimer: 0.4 + Math.random() * 1.2 } : {}),
       });
     }
     for (let i = this.localPedestrians.length - 1; i >= 0; i--) {
@@ -3675,6 +3675,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       }
       if (ped.waitTimer > 0) {
         ped.waitTimer -= dt;
+        if (ped.type === 'hooker') {
+          ped.hookerGestureTimer = (ped.hookerGestureTimer ?? 0) - dt;
+          if ((ped.hookerGestureTimer ?? 0) <= 0) ped.hookerGestureTimer = 0.8 + Math.random() * 1.8;
+          // Stay on the corner while signaling instead of immediately joining
+          // the generic sidewalk flow.
+          ped.yaw += Math.sin(performance.now() / 420 + (ped.hookerStyle ?? 0)) * dt * 0.35;
+        }
         continue;
       }
       const dx = ped.targetX - ped.x;
@@ -3695,7 +3702,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
       while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
       ped.yaw += yawDiff * Math.min(1, 5 * dt);
-      const speed = 2;
+      const speed = ped.type === 'hooker' ? 1.55 : 2;
       ped.x += Math.sin(ped.yaw) * speed * dt;
       ped.z += Math.cos(ped.yaw) * speed * dt;
     }
