@@ -12,14 +12,7 @@ namespace maxhanna.Server.Controllers
 	{
 		private readonly Log _log;
 		private readonly IConfiguration _config;
-		private const string CalendarFeedTokenTableSql = @"
-CREATE TABLE IF NOT EXISTS maxhanna.calendar_feed_tokens (
-  user_id INT NOT NULL PRIMARY KEY,
-  token_hash CHAR(64) NOT NULL UNIQUE,
-  created_utc DATETIME NOT NULL,
-  revoked_utc DATETIME NULL
-);";
-
+ 
 		public CalendarController(Log log, IConfiguration config)
 		{
 			_log = log;
@@ -35,8 +28,7 @@ CREATE TABLE IF NOT EXISTS maxhanna.calendar_feed_tokens (
 			{
 				await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 				await conn.OpenAsync();
-				await using (var setup = new MySqlCommand(CalendarFeedTokenTableSql, conn)) await setup.ExecuteNonQueryAsync();
-				var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token))).ToLowerInvariant();
+ 				var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token))).ToLowerInvariant();
 				await using var cmd = new MySqlCommand("SELECT user_id FROM maxhanna.calendar_feed_tokens WHERE token_hash=@Hash AND revoked_utc IS NULL LIMIT 1", conn);
 				cmd.Parameters.AddWithValue("@Hash", hash);
 				var id = await cmd.ExecuteScalarAsync();
@@ -66,8 +58,7 @@ CREATE TABLE IF NOT EXISTS maxhanna.calendar_feed_tokens (
 			{
 				await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 				await conn.OpenAsync();
-				await using (var setup = new MySqlCommand(CalendarFeedTokenTableSql, conn)) await setup.ExecuteNonQueryAsync();
-				await using var cmd = new MySqlCommand("INSERT INTO maxhanna.calendar_feed_tokens (user_id, token_hash, created_utc, revoked_utc) VALUES (@UserId,@Hash,UTC_TIMESTAMP(),NULL) ON DUPLICATE KEY UPDATE token_hash=@Hash, created_utc=UTC_TIMESTAMP(), revoked_utc=NULL", conn);
+ 				await using var cmd = new MySqlCommand("INSERT INTO maxhanna.calendar_feed_tokens (user_id, token_hash, created_utc, revoked_utc) VALUES (@UserId,@Hash,UTC_TIMESTAMP(),NULL) ON DUPLICATE KEY UPDATE token_hash=@Hash, created_utc=UTC_TIMESTAMP(), revoked_utc=NULL", conn);
 				cmd.Parameters.AddWithValue("@UserId", userId);
 				cmd.Parameters.AddWithValue("@Hash", Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token))).ToLowerInvariant());
 				await cmd.ExecuteNonQueryAsync();
