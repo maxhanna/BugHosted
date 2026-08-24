@@ -212,7 +212,9 @@ export class RecipeComponent extends ChildComponent implements OnInit {
     );
     req$.subscribe({
       next: () => {
-        this.isLoading = false; this.editingRecipeId = null;
+        this.isLoading = false;
+        this.editingRecipeId = null;
+        this.isCreateFormVisible = false;
         this.loadRecipes(); this.form = this.makeBlankForm();
         this.selectedFiles = []; this.selectedTopics = [];
       },

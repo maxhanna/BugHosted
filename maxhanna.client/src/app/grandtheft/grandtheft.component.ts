@@ -5633,14 +5633,22 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
   private updateCopShooting() {
     const checkNPC = (npc: any) => {
-      if (npc.type !== 'cop' && npc.type !== 'police' && npc.type !== 'ped_male' && npc.type !== 'ped_female') return;
+      if (npc.type !== 'cop' && npc.type !== 'police' && npc.type !== 'helicopter' && npc.type !== 'ped_male' && npc.type !== 'ped_female') return;
       if (!npc.isShootingAt) return;
       const dx = this.carX - npc.x;
       const dz = this.carZ - npc.z;
       const targetY = this.carY + 1.0;
       const dy = targetY - 1.2;
       const d3 = Math.sqrt(dx * dx + dy * dy + dz * dz);
-      if (npc.type === 'cop' || npc.type === 'police') {
+      if (npc.type === 'helicopter') {
+        if (d3 > 0.01) {
+          this.tracers.push({ originX: npc.x, originY: npc.y, originZ: npc.z, dirX: dx / d3, dirY: dy / d3, dirZ: dz / d3, age: 0, lifetime: 0.12 });
+          this.muzzleFlashes.push({ x: npc.x, y: npc.y, z: npc.z, dirX: dx / d3, dirY: dy / d3, dirZ: dz / d3, weapon: 2, age: 0, lifetime: 0.08 });
+          this.spawnBulletSmoke(npc.x, npc.y, npc.z, dx / d3, dy / d3, dz / d3, 1);
+          this.spawnBulletTrail(npc.x, npc.y, npc.z, dx / d3, dy / d3, dz / d3, 2);
+        }
+        this.playWeaponSound(2, this.getShotVolumeScale(npc.x, npc.z));
+      } else if (npc.type === 'cop' || npc.type === 'police') {
         if (d3 > 0.01) {
           this.tracers.push({
             originX: npc.x, originY: 1.2, originZ: npc.z,

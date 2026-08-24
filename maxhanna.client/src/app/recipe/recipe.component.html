@@ -5,17 +5,7 @@
     <div class="recipe-back-banner" *ngIf="viewingRecipeId">
       <span>Showing linked recipe</span>
       <button (click)="clearViewingRecipeId()">Back to all recipes</button>
-    </div>
-
-    <div class="recipe-hero" *ngIf="!viewingRecipeId">
-      <div>
-        <p class="eyebrow">Community Cookbook</p>
-        <h2>Discover, share and save recipes</h2>
-        <p class="hero-copy">Upload mouth-watering photos, add ingredients, and let others search by flavor, meal type,
-          or name.</p>
-      </div>
-      <button class="primary-btn" (click)="openCreateForm()" *ngIf="editingRecipeId !== 0">+ Add a recipe</button>
-    </div>
+    </div> 
 
     <div class="recipe-toolbar" *ngIf="!viewingRecipeId">
       <input class="search-input" type="text" [(ngModel)]="searchTerm" (ngModelChange)="applyFilters()"

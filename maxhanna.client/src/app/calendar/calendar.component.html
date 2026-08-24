@@ -86,8 +86,6 @@
             <span>{{ cal.type !== "Milestone" && cal.type !== "Anniversary" ? cal.note : (cal.type === "Anniversary" ? formatAnniversaryDisplay(cal) : (cal.date ? '(' + cal.date.toString().substring(0, cal.date.toString().indexOf('-')) + ') ' + cal.note : cal.note)) }}</span>
           </div>
           <div *ngIf="!isEditingEntry.includes(cal)" style="display:flex; gap:6px; margin-top:6px; flex-wrap:wrap;">
-            <button class="xSmallFont" (click)="openGoogleForEntry(cal); $event.stopPropagation();" title="Add this event to Google Calendar">📅 Google</button>
-            <button class="xSmallFont" (click)="downloadSingleIcs(cal); $event.stopPropagation();" title="Add this event to Apple Calendar (iPhone)">🍎 Apple</button>
           </div>
           <div *ngIf="isEditingEntry.includes(cal)">
             Time: <input id="calendarEditingTime" type="time" [value]="editTimeValue(cal.date)"
@@ -125,6 +123,20 @@
       <legend>New calendar entry</legend>
       <textarea #calendarNoteEntry rows="4" cols="50" placeholder="Description" required
         class="saveEntryInput"></textarea>
+      <div class="calendarEventSharing">
+        <button type="button" (click)="isEventShareOpen = !isEventShareOpen" class="calendarShareToggle">
+          👥 {{ selectedEventShareUsers.length ? ('Shared with ' + selectedEventShareUsers.length + ' user' + (selectedEventShareUsers.length === 1 ? '' : 's')) : 'Share with other users (optional)' }}
+        </button>
+        <div *ngIf="isEventShareOpen" class="calendarSharePanel">
+          <p class="xSmallFont secondaryFontColor">The event will be created on each selected user's calendar. Your calendar is included automatically.</p>
+          <app-user-list [searchOnly]="true" [sharingSearch]="true" [selectionMode]="true"
+            [inputtedParentRef]="parentRef" (userSelectClickEvent)="onEventShareUsersChanged($event)">
+          </app-user-list>
+        </div>
+      </div>
+      <div *ngIf="selectedEventShareUsers.length > 0" class="calendarSelectedShares">
+        Sharing with: <span *ngFor="let user of selectedEventShareUsers; let last = last">{{ user.username }}<span *ngIf="!last">, </span></span>
+      </div>
       <div class="saveEntryDiv">
         <select #calendarTypeEntry class="saveEntrySelect">
           <ng-container *ngFor="let eventType of getEventTypes()">
@@ -196,22 +208,35 @@
         </div>
       </div>
     </div>
-  </div>
-  <div class="optionsStatsDiv">
-    <div class="optionsStatsHeader">
-      Sync Calendar
-    </div>
-    <div class="optionsStatsDescription" style="flex-direction: column; gap: 8px; align-items: stretch;">
-      <div class="xSmallFont secondaryFontColor" style="line-height:1.4;">
-        Link this calendar to Google or Apple. Export works on iPhone — open the .ics and tap “Add All”.
+  </div>    <div class="optionsStatsDiv calendarSyncCard">
+      <div class="optionsStatsHeader">Connect your whole calendar</div>
+      <div class="optionsStatsDescription calendarSyncDescription">
+        <p class="calendarSyncLead">Choose how you want to bring <strong>all of your BugHosted events</strong> into another calendar. You do not need to add events one at a time.</p>
+        <div class="calendarSyncSteps">
+          <div><span>1</span><strong>Pick a calendar app</strong><small>Google Calendar or Apple Calendar on iPhone</small></div>
+          <div><span>2</span><strong>Export this month</strong><small>Download an .ics file containing every event currently loaded</small></div>
+          <div><span>3</span><strong>Import it once</strong><small>Google: Settings → Import & export · iPhone: open the file and tap Add All</small></div>
+        </div>
+        <div class="calendarSyncActions">
+          <button class="calendarSyncPrimary" (click)="downloadIcs()">⬇️ Download all events (.ics)</button>
+          <button (click)="openGoogleImportHelp()">📅 How to import into Google</button>
+          <button (click)="openAppleImportHelp()">🍎 How to add on iPhone</button>
+        </div>
+        <div class="calendarSyncNote">Currently exporting {{ calendarEntries.length }} event{{ calendarEntries.length === 1 ? '' : 's' }} from the selected month. Re-export after adding or editing events.</div>
+        <div class="calendarFeedSection" *ngIf="parentRef?.user?.id">
+          <strong>Permanent subscription</strong>
+          <p class="xSmallFont secondaryFontColor">Create one private link. Google Calendar and Apple Calendar will periodically refresh it with your latest BugHosted events.</p>
+          <button (click)="connectCalendarFeed()" [disabled]="calendarFeedLoading">🔄 {{ calendarFeedLoading ? 'Creating link...' : 'Create subscription link' }}</button>
+          <div *ngIf="calendarFeedUrl" class="calendarFeedUrlRow">
+            <input [value]="calendarFeedUrl" readonly aria-label="Private calendar subscription link" />
+            <button (click)="copyCalendarFeedUrl()">📋 Copy</button>
+            <button (click)="revokeCalendarFeed()">🛑 Revoke</button>
+          </div>
+          <small class="calendarFeedHelp">Google: Other calendars → From URL. iPhone: Settings → Calendar → Accounts → Add Account → Other → Add Subscribed Calendar.</small>
+        </div>
       </div>
-      <div style="display:flex; gap:8px; flex-wrap:wrap;">
-        <button (click)="downloadIcs()" title="Download .ics file — works with Apple Calendar, Outlook, and Google Import">⬇️ Export .ics (Apple / Outlook)</button>
-        <button (click)="openGoogleForVisible()" title="Add visible events to Google Calendar (single event opens Google, multiple downloads .ics)">📅 Google Calendar</button>
-        <button (click)="copyIcsLink()" title="Copy a data: link you can paste into Safari on iPhone">🔗 Copy Link (iPhone)</button>
-      </div>
     </div>
-  </div>
+
 
   <div class="sentNotificationsSection" *ngIf="parentRef?.user?.id">
     <div class="optionsStatsHeader">

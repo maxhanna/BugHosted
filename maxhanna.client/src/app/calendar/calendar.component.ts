@@ -6,6 +6,7 @@ import { CalendarEntry } from '../../services/datacontracts/calendar/calendar-en
 import { CalendarNotificationSent } from '../../services/datacontracts/calendar/calendar-notification-sent';
 import { UserService, UserSettingName } from '../../services/user.service';
 import { UserSettings } from '../../services/datacontracts/user/user-settings';
+import { User } from '../../services/datacontracts/user/user';
 
 
 @Component({
@@ -28,6 +29,7 @@ export class CalendarComponent extends ChildComponent implements OnInit {
   @ViewChild('calendarReminderEntry') calendarReminderEntry!: ElementRef<HTMLInputElement>;
   @ViewChild('selectedYearDropdown') selectedYearDropdown!: ElementRef<HTMLSelectElement>;
   @ViewChild('selectedMonthDropdown') selectedMonthDropdown!: ElementRef<HTMLSelectElement>;
+  @ViewChild('shareCalendarNote') shareCalendarNote!: ElementRef<HTMLTextAreaElement>;
 
   getMonthName = new Intl.DateTimeFormat("en-US", { month: "long" }).format;
   dayCells = Array.from(Array(42).keys());
@@ -49,6 +51,10 @@ export class CalendarComponent extends ChildComponent implements OnInit {
   sentNotifications: CalendarNotificationSent[] = [];
   sentNotificationsLoading = false;
   isMenuPanelOpen: boolean = false;
+  calendarFeedUrl = '';
+  calendarFeedLoading = false;
+  selectedEventShareUsers: User[] = [];
+  isEventShareOpen = false;
   eventSymbolMap: { [key: string]: string } = {
     'Event': '💥',
     'Birthday': '🎁',
@@ -411,10 +417,19 @@ export class CalendarComponent extends ChildComponent implements OnInit {
       const tmpCalendarEntry = this.prepareNewCalendarEntry();
 
       this.startLoading();
-      await this.calendarService.createCalendarEntries(this.parentRef?.user?.id, tmpCalendarEntry);
+      const ownerId = this.parentRef?.user?.id ?? 0;
+      await this.calendarService.createCalendarEntries(ownerId, tmpCalendarEntry, this.selectedEventShareUsers
+        .map(user => user.id)
+        .filter((id): id is number => !!id && id !== ownerId));
+      const sharedCount = this.selectedEventShareUsers.filter(user => user.id && user.id !== ownerId).length;
+      if (sharedCount > 0) {
+        this.parentRef?.showNotification?.(`Calendar event created for you and ${sharedCount} other user${sharedCount === 1 ? '' : 's'}.`);
+      }
       this.updateCalendarDaysWithNewEntry(tmpCalendarEntry);
       await this.refreshCalendar();
       this.clearInputValues();
+      this.selectedEventShareUsers = [];
+      this.isEventShareOpen = false;
       this.stopLoading();
 
     } catch (error) {
@@ -423,6 +438,19 @@ export class CalendarComponent extends ChildComponent implements OnInit {
       this.parentRef?.showNotification('Failed to create calendar entry: ' + msg);
       this.stopLoading();
     }
+  }
+
+  onEventShareUsersChanged(users: User[] | undefined): void {
+    this.selectedEventShareUsers = (users ?? []).filter(user => user.id !== this.parentRef?.user?.id);
+  }
+
+  private prepareSharedCalendarEntry(entry: CalendarEntry): CalendarEntry {
+    const shared = new CalendarEntry();
+    shared.date = entry.date ? new Date(entry.date) : undefined;
+    shared.type = entry.type;
+    shared.note = entry.note;
+    shared.reminder = entry.reminder;
+    return shared;
   }
 
   private prepareNewCalendarEntry(): CalendarEntry {
@@ -631,6 +659,39 @@ export class CalendarComponent extends ChildComponent implements OnInit {
     }
   }
 
+  async connectCalendarFeed(): Promise<void> {
+    const userId = this.parentRef?.user?.id;
+    if (!userId || this.calendarFeedLoading) return;
+    this.calendarFeedLoading = true;
+    const result = await this.calendarService.createCalendarFeedToken(userId);
+    this.calendarFeedLoading = false;
+    if (result?.url) {
+      this.calendarFeedUrl = result.url.replace(/^https?:/i, 'webcal:');
+      this.parentRef?.showNotification?.('Calendar subscription created. Copy the link into Google Calendar or Apple Calendar.');
+    } else {
+      this.parentRef?.showNotification?.('Could not create the calendar subscription.');
+    }
+  }
+
+  async revokeCalendarFeed(): Promise<void> {
+    const userId = this.parentRef?.user?.id;
+    if (!userId || !confirm('Stop calendar apps from receiving future updates?')) return;
+    if (await this.calendarService.revokeCalendarFeedToken(userId)) {
+      this.calendarFeedUrl = '';
+      this.parentRef?.showNotification?.('Calendar subscription revoked.');
+    }
+  }
+
+  async copyCalendarFeedUrl(): Promise<void> {
+    if (!this.calendarFeedUrl) return;
+    try {
+      await navigator.clipboard.writeText(this.calendarFeedUrl);
+      this.parentRef?.showNotification?.('Calendar subscription link copied.');
+    } catch {
+      this.parentRef?.showNotification?.('Copy failed. Select the link and copy it manually.');
+    }
+  }
+
   async loadSentNotifications() {
     if (!this.parentRef?.user?.id) return;
     this.sentNotificationsLoading = true;
@@ -694,9 +755,9 @@ export class CalendarComponent extends ChildComponent implements OnInit {
   }
 
   downloadIcs(): void {
-    const entries = this.calendarEntries?.length ? this.calendarEntries : (this.selectedCalendarEntries ?? []);
+    const entries = this.calendarEntries ?? [];
     if (!entries || entries.length === 0) {
-      this.parentRef?.showNotification?.('No events to export for this month.');
+      this.parentRef?.showNotification?.('No calendar events are loaded for this month.');
       return;
     }
     const ics = this.buildIcsContent(entries);
@@ -741,18 +802,17 @@ export class CalendarComponent extends ChildComponent implements OnInit {
   }
 
   openGoogleForVisible(): void {
-    const entries = this.selectedCalendarEntries?.length ? this.selectedCalendarEntries! : this.calendarEntries;
-    if (!entries || entries.length === 0) {
-      this.parentRef?.showNotification?.('No events to add.');
-      return;
-    }
-    // open first event; for multiple, export .ics is more practical
-    if (entries.length === 1) {
-      this.openGoogleForEntry(entries[0]);
-    } else {
-      this.downloadIcs();
-      this.parentRef?.showNotification?.('Multiple events — downloaded .ics. Import it into Google Calendar (Settings → Import & export).');
-    }
+    this.downloadIcs();
+  }
+
+  openGoogleImportHelp(): void {
+    this.downloadIcs();
+    this.parentRef?.showNotification?.('Google Calendar: open calendar.google.com → Settings → Import & export → Import, then choose the downloaded .ics file.');
+  }
+
+  openAppleImportHelp(): void {
+    this.downloadIcs();
+    this.parentRef?.showNotification?.('iPhone: open the downloaded .ics in Files, Mail, or Safari, then tap Add All when Apple Calendar opens.');
   }
 
   async copyIcsLink(): Promise<void> {

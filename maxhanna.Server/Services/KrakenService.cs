@@ -865,30 +865,28 @@ public class KrakenService
             if (fundingTransaction != null)
             {
               var isPremiumCondition = dynamicThreshold > premiumThreshold;
+              decimal sellFraction = _ReserveSellPercentage + (isPremiumCondition ? _ValueTradePercentagePremium : 0);
               if (isPremiumCondition)
               {
-                coinToTrade = Convert.ToDecimal(fundingTransaction.value) * (_ReserveSellPercentage + _ValueTradePercentagePremium);
                 _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) [PREMIUM SELL OPPORTUNITY] dynamicThreshold:{dynamicThreshold:F2} > {premiumThreshold:F2}. Increasing trade size by {_ValueTradePercentagePremium:P}", userId, "TRADE", viewDebugLogs);
               }
-              else
-              {
-                coinToTrade = Convert.ToDecimal(fundingTransaction.value) * _ReserveSellPercentage;
-              }
-              coinToTrade = await AdjustToPriors(userId, tmpCoin, coinToTrade, "sell", strategy);
-              //todo make sure it isnt less than minimum
-              if (coinToTrade < _MinimumBTCTradeAmount && _MinimumBTCTradeAmount < Convert.ToDecimal(fundingTransaction.value))
-              {
-                coinToTrade = _MinimumBTCTradeAmount;
-                _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Adjusting coin to trade to Minimum Trade amount (trade id: {fundingTransactionId}).", userId, "TRADE", viewDebugLogs);
-              }
+
+              // A reserve can be smaller than Kraken's minimum order volume. Keep
+              // accumulating eligible reserve lots until one order is large enough.
+              List<TradeRecord> eligibleReserves = await GetEligibleReservedTransactions(userId, tmpCoin, strategy, coinPriceUSDC, _TradeThreshold);
+              decimal reserveValue = eligibleReserves.Sum(trade => Convert.ToDecimal(trade.value));
+              coinToTrade = await AdjustToPriors(userId, tmpCoin, reserveValue * sellFraction, "sell", strategy);
+              coinToTrade = Math.Min(coinToTrade, coinBalance);
+
               if (coinToTrade >= _MinimumBTCTradeAmount)
               {
-                fundingTransactionId = fundingTransaction.id;
-                _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Using the reserves matching this trade depth (trade id: {fundingTransactionId}).", userId, "TRADE", viewDebugLogs);
+                fundingTransactionId = eligibleReserves.Count == 1 ? eligibleReserves[0].id : null;
+                valueMatchingTrades = eligibleReserves;
+                _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Aggregated {eligibleReserves.Count} eligible reserve(s) for {coinToTrade} {tmpCoin}; executing one trade.", userId, "TRADE", viewDebugLogs);
               }
               else
               {
-                _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Nothing to sell at this buy level. Reserves Depleted. Trade Cancelled.", userId, "TRADE", viewDebugLogs);
+                _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Eligible reserves total {coinToTrade} {tmpCoin}, below minimum trade amount ({_MinimumBTCTradeAmount}). Skipping this trade.", userId, "TRADE", viewDebugLogs);
                 await DeleteMomentumStrategy(userId, tmpCoin, "USDC", strategy);
                 return false;
               }
@@ -5599,6 +5597,54 @@ ON DUPLICATE KEY UPDATE
       return new List<TradeRecord>();
     }
   }
+  private async Task<List<TradeRecord>> GetEligibleReservedTransactions(int userId, string coin, string strategy, decimal coinPriceUSD, decimal tradeThreshold)
+  {
+    // Fetch all eligible reserve lots, not just one, so small lots can be combined
+    // into a single Kraken order.
+    string tmpCoin = coin.ToUpper() == "BTC" ? "XBT" : coin.ToUpper();
+    const string sql = @"SELECT r.*
+      FROM trade_history r
+      LEFT JOIN trade_history t ON r.id = t.matching_trade_id
+      WHERE r.user_id = @UserId AND r.from_currency = 'USDC'
+        AND r.to_currency = @ToCur AND r.strategy = @Strategy
+        AND r.matching_trade_id IS NULL AND r.is_reserved = 1
+        AND ((@CurrentPrice - r.coin_price_usdc) / r.coin_price_usdc) > @TradeThreshold
+      GROUP BY r.id
+      HAVING (r.value - COALESCE(SUM(t.value), 0)) > 0
+      ORDER BY r.timestamp ASC;";
+
+    var reserves = new List<TradeRecord>();
+    try
+    {
+      await using var conn = new MySqlConnection(_config?.GetValue<string>("ConnectionStrings:maxhanna"));
+      await conn.OpenAsync();
+      await using var cmd = new MySqlCommand(sql, conn);
+      cmd.Parameters.AddWithValue("@UserId", userId);
+      cmd.Parameters.AddWithValue("@ToCur", tmpCoin);
+      cmd.Parameters.AddWithValue("@CurrentPrice", coinPriceUSD);
+      cmd.Parameters.AddWithValue("@Strategy", strategy);
+      cmd.Parameters.AddWithValue("@TradeThreshold", tradeThreshold);
+      await using var reader = await cmd.ExecuteReaderAsync();
+      while (await reader.ReadAsync())
+      {
+        reserves.Add(new TradeRecord
+        {
+          id = reader.GetInt32("id"), user_id = reader.GetInt32("user_id"),
+          from_currency = reader.GetString("from_currency"), to_currency = reader.GetString("to_currency"),
+          value = reader.GetFloat("value"), timestamp = reader.GetDateTime("timestamp"),
+          coin_price_cad = reader.GetFloat("coin_price_cad"), coin_price_usdc = reader.GetFloat("coin_price_usdc"),
+          strategy = reader.GetString("strategy"), trade_value_cad = reader.GetFloat("trade_value_cad"),
+          trade_value_usdc = reader.GetFloat("trade_value_usdc"), is_reserved = reader.GetBoolean("is_reserved")
+        });
+      }
+    }
+    catch (Exception ex)
+    {
+      _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Error getting eligible reserves: {ex.Message}", userId, "TRADE", viewErrorDebugLogs);
+    }
+    return reserves;
+  }
+
   private async Task<TradeRecord?> GetLatestReservedTransaction(int userId, string coin, string strategy, decimal coinPriceUSD, decimal tradeThreshold)
   {
     string tmpCoin = coin.ToUpper() == "BTC" ? "XBT" : coin.ToUpper();
@@ -5619,7 +5665,8 @@ ON DUPLICATE KEY UPDATE
 					GROUP BY 
 						r.id
 					HAVING 
-						(r.value - COALESCE(SUM(t.value), 0)) > 0;";
+						(r.value - COALESCE(SUM(t.value), 0)) > 0
+					ORDER BY r.timestamp ASC;";
     try
     {
       await using var conn = new MySqlConnection(_config?.GetValue<string>("ConnectionStrings:maxhanna"));

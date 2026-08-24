@@ -9,5 +9,6 @@ namespace maxhanna.Server.Controllers.DataContracts.Calendar
 		}
 		public int userId { get; set; }
 		public CalendarEntry calendarEntry { get; set; }
+		public List<int>? sharedUserIds { get; set; }
 	}
 }

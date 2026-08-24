@@ -667,6 +667,8 @@ namespace maxhanna.Server.Controllers
 		private const float HELI_SEARCH_TIMEOUT_SECONDS = 50f;       // sweeping (from arrival) before standing down
 		private const float HELI_SPOT_RADIUS = 42f;                  // horizontal distance at which the heli re-spots from above
 		private const float HELI_DISPATCH_DISTANCE = 150f;           // spawn offset so it visibly flies in
+		private const long HELI_SHOT_INTERVAL_MS = 900;
+		private const int HELI_SHOT_DAMAGE = 8;
 		private const float HELI_DISPATCH_COOLDOWN_SECONDS = 75f;    // min gap between dispatches while heat remains
 		private static readonly ConcurrentDictionary<int, DateTime> _lastHeliDispatch = new();
 		private static readonly ConcurrentDictionary<int, (float X, float Z, long AtMs)> _playerLastKnown = new();
@@ -1631,6 +1633,7 @@ namespace maxhanna.Server.Controllers
 								// radius — altitude line of sight is effectively unobstructed —
 								// and radios the live position so ground units re-converge.
 								if (npc.IsPoliceHeli && npc.IsSearching &&
+									wantedLevel >= 3 &&
 									(npc.X - px) * (npc.X - px) + (npc.Z - pz) * (npc.Z - pz) < HELI_SPOT_RADIUS * HELI_SPOT_RADIUS)
 								{
 									detected = true;
@@ -2680,11 +2683,10 @@ namespace maxhanna.Server.Controllers
 								{
 									var nowMs = now.Ticks / TimeSpan.TicksPerMillisecond;
 									// Lethal force: deadlier shots at a faster cadence.
-									long shotInterval = lethalForce ? COP_LETHAL_INTERVAL_MS : COP_SHOT_INTERVAL_MS;
-									if (npc.LastShotTime == 0 || (nowMs - npc.LastShotTime) > shotInterval)
-									{
-										npc.LastShotTime = nowMs;
-										npc.IsShootingAt = true;
+									long shotInterval = lethalForce ? COP_LETHAL_INTERVAL_MS : COP_SHOT_INTERVAL_MS;										if (npc.LastShotTime == 0 || (nowMs - npc.LastShotTime) > shotInterval)
+										{
+											npc.LastShotTime = nowMs;
+											npc.IsShootingAt = true;
 										var damageDealt = lethalForce ? COP_LETHAL_DAMAGE : COP_SHOT_DAMAGE;
 										if (_playerHealth.TryGetValue(userId, out var hp))
 										{
@@ -2699,10 +2701,28 @@ namespace maxhanna.Server.Controllers
 											BroadcastDeathMessage(userId, _playerX[userId], _playerZ[userId], null, 1, "police", _playerUsername[userId], "");
 										}
 										_lastPoliceDamageTime[userId] = nowMs;
-									}
+									}									}
 								}
 							}
-						}							const float copModelOffset = COP_MODEL_YAW_OFFSET;
+							else if (npc.Type == "helicopter" && npc.IsPoliceHeli && npc.TargetUserId == userId && wantedLevel >= 3)
+							{
+								var nowMs = now.Ticks / TimeSpan.TicksPerMillisecond;
+								float hx = _playerX.TryGetValue(userId, out var hpx) ? hpx : posX;
+								float hz = _playerZ.TryGetValue(userId, out var hpz) ? hpz : posZ;
+								float hdx = hx - npc.X;
+								float hdz = hz - npc.Z;
+								float hdy = ( _playerPosY.TryGetValue(userId, out var hpy) ? hpy : 0f) + 1.0f - npc.Y;
+								float hdist = (float)Math.Sqrt(hdx * hdx + hdy * hdy + hdz * hdz);
+								if (hdist > 0.01f && (npc.LastShotTime == 0 || nowMs - npc.LastShotTime > HELI_SHOT_INTERVAL_MS))
+								{
+									npc.LastShotTime = nowMs;
+									npc.IsShootingAt = true;
+									if (_playerHealth.TryGetValue(userId, out var hp))
+										_playerHealth[userId] = Math.Max(0, hp - HELI_SHOT_DAMAGE);
+									_lastPoliceDamageTime[userId] = nowMs;
+								}
+							}
+							const float copModelOffset = COP_MODEL_YAW_OFFSET;
 							if (npc.TargetUserId == userId && wantedLevel > 0 && CopSeesPlayer(npc, posX, posZ))
 								npc.Yaw = (float)Math.Atan2(posX - npc.X, posZ - npc.Z) + copModelOffset;
 							else
@@ -4002,7 +4022,7 @@ namespace maxhanna.Server.Controllers
 		// can re-spot the player (and radio the live position to ground units).
 		private static void MaybeDispatchSearchHelicopter(int userId, int worldId, DateTime now)
 		{
-			if (!_playerWantedLevels.TryGetValue(userId, out var wanted) || wanted <= 0) return;
+			if (!_playerWantedLevels.TryGetValue(userId, out var wanted) || wanted < 3) return;
 			if (!_worldNpcs.TryGetValue(worldId, out var npcs)) return;
 			// A search heli is already on station for this user (only a live one —
 			// a shot-down heli must not block re-dispatch).
@@ -4053,9 +4073,8 @@ namespace maxhanna.Server.Controllers
 				IsPoliceHeli = true,
 				IsSearching = true,
 				SearchStep = 0,
-				LastKnownX = sx,
-				LastKnownZ = sz
-			};
+				LastKnownX = sx,											LastKnownZ = sz
+							};
 		}
 		// Releases any search heli sweeping for a user (e.g. heat fully cleared),
 		// so it returns to normal flight and flies off instead of hovering forever.

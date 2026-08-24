@@ -1,6 +1,8 @@
 using maxhanna.Server.Controllers.DataContracts.Calendar;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace maxhanna.Server.Controllers
 {
@@ -10,6 +12,13 @@ namespace maxhanna.Server.Controllers
 	{
 		private readonly Log _log;
 		private readonly IConfiguration _config;
+		private const string CalendarFeedTokenTableSql = @"
+CREATE TABLE IF NOT EXISTS maxhanna.calendar_feed_tokens (
+  user_id INT NOT NULL PRIMARY KEY,
+  token_hash CHAR(64) NOT NULL UNIQUE,
+  created_utc DATETIME NOT NULL,
+  revoked_utc DATETIME NULL
+);";
 
 		public CalendarController(Log log, IConfiguration config)
 		{
@@ -17,6 +26,75 @@ namespace maxhanna.Server.Controllers
 			_config = config;
 		}
 
+
+		[HttpGet("feed/{token}.ics", Name = "CalendarFeed")]
+		public async Task<IActionResult> Feed(string token)
+		{
+			if (string.IsNullOrWhiteSpace(token)) return NotFound();
+			try
+			{
+				await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+				await conn.OpenAsync();
+				await using (var setup = new MySqlCommand(CalendarFeedTokenTableSql, conn)) await setup.ExecuteNonQueryAsync();
+				var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token))).ToLowerInvariant();
+				await using var cmd = new MySqlCommand("SELECT user_id FROM maxhanna.calendar_feed_tokens WHERE token_hash=@Hash AND revoked_utc IS NULL LIMIT 1", conn);
+				cmd.Parameters.AddWithValue("@Hash", hash);
+				var id = await cmd.ExecuteScalarAsync();
+				if (id == null) return NotFound();
+				var userId = Convert.ToInt32(id);
+				var entries = new List<(int Id, string Type, string Note, DateTime Date)>();
+				await using var events = new MySqlCommand("SELECT Id, Type, Note, Date FROM maxhanna.calendar WHERE Ownership=@Owner ORDER BY Date", conn);
+				events.Parameters.AddWithValue("@Owner", userId);
+				await using var reader = await events.ExecuteReaderAsync();
+				while (await reader.ReadAsync()) entries.Add((reader.GetInt32(0), reader.GetString(1), reader.GetString(2), DateTime.SpecifyKind(reader.GetDateTime(3), DateTimeKind.Utc)));
+				var ics = BuildIcs(entries);
+				return File(Encoding.UTF8.GetBytes(ics), "text/calendar; charset=utf-8", "bughosted-calendar.ics");
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("Calendar feed error: " + ex.Message, null, "CALENDAR");
+				return StatusCode(500);
+			}
+		}
+
+		[HttpPost("feed-token", Name = "CreateCalendarFeedToken")]
+		public async Task<IActionResult> CreateFeedToken([FromBody] int userId)
+		{
+			if (userId <= 0) return BadRequest();
+			var token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)).Replace("+", "-").Replace("/", "_").Replace("=", "");
+			try
+			{
+				await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+				await conn.OpenAsync();
+				await using (var setup = new MySqlCommand(CalendarFeedTokenTableSql, conn)) await setup.ExecuteNonQueryAsync();
+				await using var cmd = new MySqlCommand("INSERT INTO maxhanna.calendar_feed_tokens (user_id, token_hash, created_utc, revoked_utc) VALUES (@UserId,@Hash,UTC_TIMESTAMP(),NULL) ON DUPLICATE KEY UPDATE token_hash=@Hash, created_utc=UTC_TIMESTAMP(), revoked_utc=NULL", conn);
+				cmd.Parameters.AddWithValue("@UserId", userId);
+				cmd.Parameters.AddWithValue("@Hash", Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token))).ToLowerInvariant());
+				await cmd.ExecuteNonQueryAsync();
+				return Ok(new { url = $"{Request.Scheme}://{Request.Host}/calendar/feed/{token}.ics", token });
+			}
+			catch (Exception ex) { _ = _log.Db("Calendar feed token error: " + ex.Message, userId, "CALENDAR"); return StatusCode(500); }
+		}
+
+		[HttpDelete("feed-token/{userId}", Name = "RevokeCalendarFeedToken")]
+		public async Task<IActionResult> RevokeFeedToken(int userId)
+		{
+			try
+			{
+				await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")); await conn.OpenAsync();
+				await using var cmd = new MySqlCommand("UPDATE maxhanna.calendar_feed_tokens SET revoked_utc=UTC_TIMESTAMP() WHERE user_id=@UserId", conn); cmd.Parameters.AddWithValue("@UserId", userId); await cmd.ExecuteNonQueryAsync(); return Ok();
+			}
+			catch { return StatusCode(500); }
+		}
+
+		private static string BuildIcs(List<(int Id, string Type, string Note, DateTime Date)> entries)
+		{
+			static string Escape(string value) => (value ?? "").Replace("\\", "\\\\").Replace("\n", "\\n").Replace(";", "\\;").Replace(",", "\\,");
+			static string DateValue(DateTime d) => $"{d:yyyyMMdd'T'HHmmss'Z'}";
+			var lines = new List<string> { "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//BugHosted//Calendar//EN", "CALSCALE:GREGORIAN", "METHOD:PUBLISH", "X-WR-CALNAME:BugHosted Calendar" };
+			foreach (var e in entries) { lines.Add("BEGIN:VEVENT"); lines.Add($"UID:cal-{e.Id}@bughosted"); lines.Add($"DTSTAMP:{DateValue(DateTime.UtcNow)}"); lines.Add($"DTSTART:{DateValue(e.Date)}"); lines.Add($"DTEND:{DateValue(e.Date.AddHours(1))}"); lines.Add($"SUMMARY:{Escape($"{e.Type}: {e.Note}".Trim())}"); lines.Add($"DESCRIPTION:{Escape(e.Note)}"); lines.Add("END:VEVENT"); }
+			lines.Add("END:VCALENDAR"); return string.Join("\r\n", lines) + "\r\n";
+		}
 
 		[HttpPost(Name = "GetCalendar")]
 		public async Task<IActionResult> Get([FromBody] int userId, [FromQuery] DateTime startDate, [FromQuery] DateTime endDate)
@@ -122,6 +200,20 @@ namespace maxhanna.Server.Controllers
 				cmd.Parameters.AddWithValue("@Owner", req.userId);
 				cmd.Parameters.AddWithValue("@Reminder", req.calendarEntry.Reminder ?? (object)DBNull.Value);
 				await cmd.ExecuteNonQueryAsync();
+
+				if (req.sharedUserIds != null)
+				{
+					foreach (var sharedUserId in req.sharedUserIds.Where(id => id > 0 && id != req.userId).Distinct())
+					{
+						using var sharedCmd = new MySqlCommand(sql, conn);
+						sharedCmd.Parameters.AddWithValue("@Type", req.calendarEntry.Type);
+						sharedCmd.Parameters.AddWithValue("@Note", req.calendarEntry.Note);
+						sharedCmd.Parameters.AddWithValue("@Date", req.calendarEntry.Date);
+						sharedCmd.Parameters.AddWithValue("@Owner", sharedUserId);
+						sharedCmd.Parameters.AddWithValue("@Reminder", req.calendarEntry.Reminder ?? (object)DBNull.Value);
+						await sharedCmd.ExecuteNonQueryAsync();
+					}
+				}
 				return Ok();
 
 			}

@@ -26,7 +26,7 @@ export class CalendarService {
     }
   }
 
-  async createCalendarEntries(userId: number = 0, calendarEntry: CalendarEntry) {
+  async createCalendarEntries(userId: number = 0, calendarEntry: CalendarEntry, sharedUserIds: number[] = []) {
     calendarEntry.ownership = userId?.toString();
       
     try {
@@ -35,7 +35,7 @@ export class CalendarService {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ userId, calendarEntry }),
+        body: JSON.stringify({ userId, calendarEntry, sharedUserIds }),
       });
       return await this.handleResponse(response);
     } catch (error) {
@@ -58,6 +58,21 @@ export class CalendarService {
     } catch (error) {
       return null;
     }
+  }
+
+  async createCalendarFeedToken(userId: number): Promise<{ url: string } | null> {
+    try {
+      const response = await fetch('/calendar/feed-token', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(userId) });
+      if (!response.ok) return null;
+      return await response.json();
+    } catch { return null; }
+  }
+
+  async revokeCalendarFeedToken(userId: number): Promise<boolean> {
+    try {
+      const response = await fetch(`/calendar/feed-token/${userId}`, { method: 'DELETE' });
+      return response.ok;
+    } catch { return false; }
   }
 
   async getNotificationsSent(userId: number = 0) {
