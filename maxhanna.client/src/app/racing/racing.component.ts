@@ -3456,12 +3456,31 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   async loadWealthLeaderboard() {
     this.wealthLoading = true;
     this.wealthUnavailable = false;
+    this.wealthCash = [];
     try {
       const data = await this.racingService.getWealthLeaderboard();
       this.wealthLoading = false;
       if (data) {
         this.wealthScores = data.scores ?? [];
-        this.wealthCash = data.cash ?? [];
+        this.wealthCash = (data.cash ?? [])
+          .filter((r: any) => r && Number.isFinite(Number(r.money)))
+          .map((r: any) => ({
+            ...r,
+            playerName: String(r.playerName ?? r.username ?? 'Unknown'),
+            money: Number(r.money),
+            wins: Number(r.wins ?? 0),
+            races: Number(r.races ?? r.totalRaces ?? 0),
+          }));
+        if (this.wealthCash.length === 0 && this.playerCar.userId > 0) {
+          this.wealthCash = [{
+            playerId: this.playerCar.userId,
+            playerName: this.playerCar.playerName || this.parentRef?.user?.username || 'You',
+            money: Number(this.playerCar.money ?? 0),
+            wins: Number(this.playerCar.wins ?? 0),
+            races: Number(this.playerCar.totalRaces ?? 0),
+            isBot: false,
+          }];
+        }
       } else {
       this.wealthScores = [];
       this.wealthCash = [];

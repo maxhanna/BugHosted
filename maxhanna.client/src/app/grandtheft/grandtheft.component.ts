@@ -7682,6 +7682,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.renderer.resize(this.canvasRef.nativeElement.width, this.canvasRef.nativeElement.height);
   };
   private onKeyDown = (e: KeyboardEvent) => {
+    if (e.code === 'KeyW' || e.code === 'KeyA' || e.code === 'KeyS' || e.code === 'KeyD' || e.code === 'ArrowUp' || e.code === 'ArrowDown' || e.code === 'ArrowLeft' || e.code === 'ArrowRight' || e.code === 'Space') {
+      e.preventDefault();
+    }
     this.keys.add(e.code);
     if (e.code === 'Space') { e.preventDefault(); this.altUpPressed = true; }
     if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') this.altDownPressed = true;

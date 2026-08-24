@@ -1136,7 +1136,10 @@
       </ng-container>
 
       <!-- ─── Tab: Most Cash (wallet balance) ─── -->
-      <ng-container *ngIf="leaderboardTab === 'cash' && !wealthLoading">
+      <ng-container *ngIf="leaderboardTab === 'cash'">
+        <div class="race-lb-alltracks-loading" *ngIf="wealthLoading">
+          <span class="race-lb-spinner" aria-hidden="true"></span> Refreshing player wallets…
+        </div>
         <div class="race-lb-unavailable" *ngIf="wealthUnavailable">
           ⚠️ Couldn't load cash data right now — the server didn't return any
           leaderboard results. Try again in a moment.

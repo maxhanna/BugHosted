@@ -4457,7 +4457,9 @@ void main() {
     }
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-    gl.clearColor(0, 0, 0, 1.0);
+    // Keep a visible dusk-blue fallback while the procedural sky and optional
+    // skybox texture are loading (or if the skybox asset fails).
+    gl.clearColor(0.045, 0.09, 0.18, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     const far = farPlane ?? 500.0;
     mat4.perspective(this.projMatrix, Math.PI / 4, aspect, 0.1, far);
@@ -5107,7 +5109,7 @@ void main() {
       }
     }
     gl.enable(gl.DEPTH_TEST);
-    if (this.skyboxMesh) {
+    if (this.skyboxMesh && this.skyboxMesh.length > 0) {
       gl.useProgram(this.gltfSkyProgram);
       gl.uniformMatrix4fv(this.gltfSkyProjLoc, false, this.projMatrix);
       const fwdX = Math.sin(camYaw) * Math.cos(camPitch);
