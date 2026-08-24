@@ -1,4 +1,4 @@
-﻿import { CityMesh, CityChunk, GltfAnimation, BuildingPlacement } from "../../services/grandtheft.service";
+import { CityMesh, CityChunk, GltfAnimation, BuildingPlacement } from "../../services/grandtheft.service";
 import { HumanVariant, Role, pickVariant, createHumanSkeleton } from './grandtheft-human-model';
 const CHUNK_SIZE = 80;
 const GRID_PITCH = 80;
@@ -72,23 +72,27 @@ function isInAnyIsland(cx: number, cz: number): boolean {
 // moves by at most one chunk per column, so adjacent chunks overlap instead of
 // producing isolated hill props or disconnected biome islands.
 function getMountainBand(cx: number, cz: number): 0 | 1 | 2 {
+  // The mountain belt is deliberately contiguous across the eastern islands.
+  // A wider band prevents single-chunk peaks and leaves room for switchbacks.
   if (cx < 41 || !isInAnyIsland(cx, cz)) return 0;
   const centerZ = 6 + Math.floor(2 * Math.sin((cx - 41) * 0.38) + 0.5);
   const distance = Math.abs(cz - centerZ);
-  if (distance <= 2) return 2;
-  if (distance <= 5) return 1;
+  if (distance <= 4) return 2;
+  if (distance <= 7) return 1;
   return 0;
 }
 
 function getMountainHeight(x: number, z: number): number {
+  // Use world-space ridges, never per-chunk randomness. The broad envelopes
+  // overlap several 80m chunks so the terrain reads as one continuous range.
   const chainX = x / CHUNK_SIZE - 41;
-  const ridgeCenterZ = (6 + 2 * Math.sin(chainX * 0.38)) * CHUNK_SIZE + CHUNK_SIZE / 2;
+  const ridgeCenterZ = (6 + 2.6 * Math.sin(chainX * 0.26)) * CHUNK_SIZE + CHUNK_SIZE / 2;
   const ridgeDistance = z - ridgeCenterZ;
-  const mainRidge = Math.exp(-(ridgeDistance * ridgeDistance) / (2 * 175 * 175));
-  const secondaryCenterZ = ridgeCenterZ + 115 + 32 * Math.sin(x / 190);
-  const secondaryRidge = Math.exp(-((z - secondaryCenterZ) * (z - secondaryCenterZ)) / (2 * 78 * 78));
-  const detail = 0.62 + 0.38 * (0.5 + 0.5 * Math.sin(x / 125 + Math.sin(z / 170) * 1.8));
-  return mainRidge * (7 + 25 * detail) + secondaryRidge * 6;
+  const mainRidge = Math.exp(-(ridgeDistance * ridgeDistance) / (2 * 220 * 220));
+  const shoulderDistance = z - (ridgeCenterZ + 128 + 38 * Math.sin(x / 230));
+  const shoulder = Math.exp(-(shoulderDistance * shoulderDistance) / (2 * 105 * 105));
+  const detail = 0.82 + 0.18 * Math.sin(x / 115 + Math.sin(z / 190) * 1.4);
+  return Math.max(0, mainRidge * (12 + 42 * detail) + shoulder * 10);
 }
 
 function getMountainRoadHeight(x: number, z: number): number {
@@ -99,8 +103,10 @@ function getMountainRoadHeight(x: number, z: number): number {
 
 function getMountainSwitchbackZ(x: number): number {
   const chainX = x / CHUNK_SIZE - 41;
-  const ridgeCenterZ = (6 + 2 * Math.sin(chainX * 0.38)) * CHUNK_SIZE + CHUNK_SIZE / 2;
-  return ridgeCenterZ + 92 * Math.sin(x / 145 + 0.7);
+  const ridgeCenterZ = (6 + 2.6 * Math.sin(chainX * 0.26)) * CHUNK_SIZE + CHUNK_SIZE / 2;
+  // A long, deterministic shelf road follows the chain rather than making
+  // isolated loops inside each mountain chunk.
+  return ridgeCenterZ + 118 * Math.sin(x / 175 + 0.7);
 }
 
 export function getBiome(cx: number, cz: number): string {
@@ -131,8 +137,19 @@ export function getBiome(cx: number, cz: number): string {
   if (!bestIsl) return 'ocean';
   const isl = bestIsl;
   const dist = bestDist;
-  if (!isInAnyIsland(cx + 1, cz) || !isInAnyIsland(cx - 1, cz) ||
-    !isInAnyIsland(cx, cz + 1) || !isInAnyIsland(cx, cz - 1)) return 'beach';
+  // Keep the outer shoreline classification, but never let it split an
+  // inland road tile. Boundary roads are explicit connectors and must remain
+  // drivable on both sides of a biome seam.
+  const hasRoadNeighbour = (dx: number, dz: number) => {
+    const neighbour = getBiome(cx + dx, cz + dz);
+    return neighbour === 'city' || neighbour === 'suburb' || neighbour === 'parking_lot'
+      || neighbour === 'rural_farm' || neighbour === 'rural_hills' || neighbour === 'rural_mountain'
+      || neighbour === 'rural_lakes' || neighbour === 'rural_desert' || neighbour === 'bridge_connector';
+  };
+  if ((!isInAnyIsland(cx + 1, cz) || !isInAnyIsland(cx - 1, cz) ||
+    !isInAnyIsland(cx, cz + 1) || !isInAnyIsland(cx, cz - 1)) &&
+    !hasRoadNeighbour(-1, 0) && !hasRoadNeighbour(1, 0) &&
+    !hasRoadNeighbour(0, -1) && !hasRoadNeighbour(0, 1)) return 'beach';
   const mountainBand = getMountainBand(cx, cz);
   if (mountainBand === 2) return 'rural_mountain';
   if (mountainBand === 1) return 'rural_hills';
@@ -235,10 +252,13 @@ export function getTerrainHeight(x: number, z: number, currentY?: number, forceB
     // even while the previous frame's Y is still near sea level on a ramp.
     // Callers that are genuinely below the bridge (boats/helicopters) leave
     // forceBridgeDeck false so they continue to use the water beneath it.
+    // Ground vehicles and pedestrians should always resolve to the bridge
+    // profile while inside its collision corridor. Using the previous frame's
+    // Y here caused a one-frame water fallback when crossing chunk seams.
     if (!forceBridgeDeck && currentY !== undefined && currentY < deckY - 1.5) {
       const deckStartX = bridgeHit.startCx * 80;
       const deckEndX = (bridgeHit.endCx + 1) * 80;
-      return (x >= deckStartX && x <= deckEndX) ? -2.5 : 0.0;
+      if (x >= deckStartX && x <= deckEndX) return deckY;
     }
     return deckY;
   }
@@ -246,10 +266,21 @@ export function getTerrainHeight(x: number, z: number, currentY?: number, forceB
   const cz = Math.floor(z / 80);
   const biome = getBiome(cx, cz);
   if (biome === 'bridge') {
-    if (isOnRoadGrid(x, z)) return 0.0;  
-    return -2.5;       
+    // The bridge mesh is elevated across the entire bridge chunk. Returning
+    // water for an off-grid sample is correct for boats, but road vehicles
+    // use getBridgeAtWorldPos above and stay on the raised deck corridor.
+    if (isOnRoadGrid(x, z)) {
+      const bridge = BRIDGE_RANGES.find(br => cx >= br.startCx && cx <= br.endCx && cz >= br.startCz && cz <= br.endCz);
+      return bridge ? bridgeYAt(x, bridge) : BRIDGE_DECK_Y;
+    }
+    return -2.5;
   }
-  if (biome === 'bridge_connector') return 0.0;
+  if (biome === 'bridge_connector') {
+    const bridge = BRIDGE_RANGES.find(br =>
+      (cx === br.startCx - 1 && cz === br.startCz) ||
+      (cx === br.endCx + 1 && cz === br.endCz));
+    return bridge ? bridgeYAt(x, bridge) : 0.0;
+  }
   if (biome === 'ocean') {
     if (isOnRoadGrid(x, z)) return 0.0;
     // Keep the first ocean band as a continuation of the beach shelf. This
@@ -268,7 +299,12 @@ export function getTerrainHeight(x: number, z: number, currentY?: number, forceB
   if ((biome === 'rural_hills' || biome === 'rural_mountain') && isOnRoadGrid(x, z)) {
     return getMountainRoadHeight(x, z);
   }
-  if ((biome === 'beach' || biome.startsWith('rural')) && isOnRoadGrid(x, z)) return 0.0;
+  if ((biome === 'beach' || biome.startsWith('rural')) && isOnRoadGrid(x, z)) {
+    // Mountain roads are cut into the continuous height field, while ordinary
+    // rural roads stay at the shared lowland datum.
+    if (biome === 'rural_hills' || biome === 'rural_mountain') return getMountainRoadHeight(x, z);
+    return 0.0;
+  }
   if (biome === 'rural_hills' || biome === 'rural_mountain') return getMountainHeight(x, z);
   if (biome === 'beach') {
     const base = getBeachHeight(x, z);
@@ -616,9 +652,9 @@ export class GrandTheftRenderer {
     'abandonnedBuilding', 'buildingRandom', 'domeStructure',
     'ecds_old_building_06', 'ecds_old_building_07',
     'low_polly_building', 'low_poly_apartment_building_2', 'low_poly_apartment_building_3',
-    'low_poly_cinema', 'low_poly_city_hall', 'low_poly_gas_station', 'low_poly_hotel_1', 'low_poly_hotel_2',
+    'low_poly_cinema', 'low_poly_city_hall', 'low_poly_hotel_1', 'low_poly_hotel_2',
     'low_poly_pharmacy', 'low_poly_police_station', 'low_poly_school', 'low_poly_shopping_center',
-    'panel_apartment_placeholder', 'psx_groceries_store', 'pyaterochka_3d', 'supermarket',
+    'panel_apartment_placeholder', 'pyaterochka_3d',
     'abandoned_building_gameready', 'building_1_low_poly',
     'psx_japanese_warehouse', 'low_poly_apartment_building_1',
     'fatboys_diner', 'brooklyn_street_building_low_poly', 'brooklyn_street_cornerhouse_low_poly',
@@ -648,6 +684,11 @@ export class GrandTheftRenderer {
   public tatamiRoomMesh: CityMesh[] | null = null;
   public woodenCabineMesh: CityMesh[] | null = null;
   public balloonMesh: CityMesh[] | null = null;
+  /** Lightweight procedural station shell; the forecourt stays open for cars. */
+  public gasStationMesh: CityMesh[] | null = null;
+  /** Procedural convenience-store interior/exterior model. */
+  public convenienceStoreMesh: CityMesh[] | null = null;
+  public convenienceStoreDoorOpen = false;
   public explodedBarrels: Set<string> = new Set();
   public explodedGasStations: Set<string> = new Set();
   public explodedGasStationTimers: Map<string, number> = new Map();
@@ -726,6 +767,72 @@ export class GrandTheftRenderer {
       }
     }
     return result;
+  }
+  private createConvenienceStoreMesh(): CityMesh[] {
+    const verts: number[] = [];
+    const indices: number[] = [];
+    let offset = 0;
+    const box = (x: number, y: number, z: number, w: number, h: number, d: number, r: number, g: number, b: number) => {
+      this.addBox(verts, indices, x, y, z, w, h, d, r, g, b, 1, offset);
+      offset += 24;
+    };
+    // A low shell with a generous front opening: the player can enter without
+    // fighting a solid GLTF collision box.
+    box(0, 3.5, 11, 28, 7, 5, 0.16, 0.18, 0.20);
+    box(-12.5, 3.5, 0, 3, 7, 22, 0.18, 0.20, 0.22);
+    box(12.5, 3.5, 0, 3, 7, 22, 0.18, 0.20, 0.22);
+    box(0, 7.2, 0, 28, 0.8, 24, 0.20, 0.22, 0.24);
+    // Bright fascia and front sign.
+    box(0, 6.8, -11.2, 25, 1.4, 0.35, 0.86, 0.12, 0.04);
+    box(0, 6.85, -11.42, 15, 0.45, 0.08, 1.0, 0.82, 0.18);
+    // Shelves, products, and a checkout counter around the register.
+    for (const x of [-8, -2, 4]) {
+      box(x, 1.8, 2, 1.0, 3.2, 10, 0.35, 0.24, 0.15);
+      box(x, 3.5, 2, 1.25, 0.15, 10.4, 0.62, 0.42, 0.22);
+      for (let row = 0; row < 3; row++) box(x, 1.0 + row * 0.85, -2.3, 0.65, 0.45, 0.3, 0.85, 0.30 + row * 0.08, 0.10);
+    }
+    box(8, 1.1, -5, 5.5, 1.8, 1.2, 0.42, 0.20, 0.10);
+    box(8, 2.15, -5, 0.8, 0.5, 0.55, 0.08, 0.08, 0.07);
+    // Door frame and an animated door panel. Open state is rendered as a
+    // separate visual transform in render(), while the opening stays passable.
+    box(-3, 2.8, -11, 0.35, 5.6, 0.35, 0.75, 0.78, 0.80);
+    box(3, 2.8, -11, 0.35, 5.6, 0.35, 0.75, 0.78, 0.80);
+    const mesh = this.createMesh(verts, indices);
+    mesh.carName = 'convenience_store_procedural';
+    mesh.minX = -14; mesh.maxX = 14; mesh.minZ = -12; mesh.maxZ = 14;
+    return [mesh];
+  }
+  getConvenienceStoreMesh(): CityMesh[] {
+    if (!this.convenienceStoreMesh) this.convenienceStoreMesh = this.createConvenienceStoreMesh();
+    return this.convenienceStoreMesh;
+  }
+  private createGasStationMesh(): CityMesh[] {
+    const verts: number[] = [];
+    const indices: number[] = [];
+    let offset = 0;
+    const box = (x: number, y: number, z: number, w: number, h: number, d: number, r: number, g: number, b: number) => {
+      this.addBox(verts, indices, x, y, z, w, h, d, r, g, b, 1, offset);
+      offset += 24;
+    };
+    // Rear service building, open-sided canopy, columns, pumps and a sign.
+    box(0, 3.5, 13, 24, 7, 7, 0.16, 0.18, 0.20);
+    box(0, 7.5, 2, 30, 0.8, 25, 0.12, 0.14, 0.16);
+    for (const x of [-13, 13]) for (const z of [-8, 12]) box(x, 3.8, z, 0.65, 7.2, 0.65, 0.82, 0.84, 0.86);
+    for (const x of [-7, 0, 7]) {
+      box(x, 0.65, -1, 1.2, 1.3, 2.2, 0.85, 0.18, 0.08);
+      box(x, 1.45, -1, 0.9, 0.25, 1.8, 0.94, 0.94, 0.88);
+    }
+    box(0, 11, 14, 2.2, 7, 0.7, 0.18, 0.20, 0.22);
+    box(0, 14.5, 14, 7.5, 1.8, 0.8, 0.92, 0.12, 0.04);
+    box(0, 14.5, 13.5, 5.5, 0.35, 0.82, 1.0, 0.78, 0.12);
+    const mesh = this.createMesh(verts, indices);
+    mesh.carName = 'gas_station_procedural';
+    mesh.minX = -15; mesh.maxX = 15; mesh.minZ = -10; mesh.maxZ = 17;
+    return [mesh];
+  }
+  getGasStationMesh(): CityMesh[] {
+    if (!this.gasStationMesh) this.gasStationMesh = this.createGasStationMesh();
+    return this.gasStationMesh;
   }
   getNearbyGasStations(x: number, z: number, radius: number): { x: number; z: number }[] {
     const result: { x: number; z: number }[] = [];
@@ -2522,9 +2629,11 @@ void main() {
         const surfaceYAt = (x: number) => bridgeYAt(x, bridge);
         const deckStartX = bridge.startCx * GRID_PITCH;
         const deckEndX = (bridge.endCx + 1) * GRID_PITCH;
-        const numSlices = 20;
+        // Finer slices keep the deck profile smooth at chunk boundaries and
+        // prevent visible step-like gaps between neighboring bridge chunks.
+        const numSlices = 32;
         const sliceW = CHUNK_SIZE / numSlices;
-        const overlap = 1.4;
+        const overlap = 1.08;
         for (let si = 0; si < numSlices; si++) {
           const sx = worldOriginX + si * sliceW + sliceW / 2;
           const surfY = surfaceYAt(sx);
@@ -2699,7 +2808,7 @@ void main() {
         const roadCenterZ = cz * CHUNK_SIZE;
         const roadW = ROAD_HALF_WIDTH * 2;
         const bridgeW = roadW + 10; 
-        const segments = 8;
+        const segments = 16;
         const segW = CHUNK_SIZE / segments;
         for (let s = 0; s < segments; s++) {
           const x1 = worldOriginX + s * segW;
@@ -2794,6 +2903,17 @@ void main() {
       if (isRoad(nb(-1, 0))) {
         this.addBox(verts, indices, cx * GRID_PITCH, 0.04, worldOriginZ + CHUNK_SIZE / 2, ROAD_HALF_WIDTH * 2, 0.08, CHUNK_SIZE, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
       }
+      // Add a short blended apron at every non-ocean road seam. It overlaps
+      // both chunk meshes by a small amount, eliminating visible gaps when a
+      // city, rural, beach, or connector tile meets another biome.
+      const seamRoad = (dx: number, dz: number) => {
+        const b = nb(dx, dz);
+        return isRoad(b) || b.startsWith('rural') || b === 'beach';
+      };
+      if (seamRoad(-1, 0)) this.addBox(verts, indices, cx * CHUNK_SIZE, 0.045, worldOriginZ + CHUNK_SIZE / 2, ROAD_HALF_WIDTH * 2 + 1.5, 0.09, CHUNK_SIZE, 0.13, 0.13, 0.14, 1.0, idxOffset), idxOffset += 24;
+      if (seamRoad(1, 0)) this.addBox(verts, indices, (cx + 1) * CHUNK_SIZE, 0.045, worldOriginZ + CHUNK_SIZE / 2, ROAD_HALF_WIDTH * 2 + 1.5, 0.09, CHUNK_SIZE, 0.13, 0.13, 0.14, 1.0, idxOffset), idxOffset += 24;
+      if (seamRoad(0, -1)) this.addBox(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.045, cz * CHUNK_SIZE, CHUNK_SIZE, 0.09, ROAD_HALF_WIDTH * 2 + 1.5, 0.13, 0.13, 0.14, 1.0, idxOffset), idxOffset += 24;
+      if (seamRoad(0, 1)) this.addBox(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.045, (cz + 1) * CHUNK_SIZE, CHUNK_SIZE, 0.09, ROAD_HALF_WIDTH * 2 + 1.5, 0.13, 0.13, 0.14, 1.0, idxOffset), idxOffset += 24;
       if (isRoad(nb(1, 0))) {
         this.addBox(verts, indices, (cx + 1) * GRID_PITCH, 0.04, worldOriginZ + CHUNK_SIZE / 2, ROAD_HALF_WIDTH * 2, 0.08, CHUNK_SIZE, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
       }
@@ -2866,7 +2986,9 @@ void main() {
           const halfSW = SIDEWALK_SIZE / 2;
           const tatamiPositions: { x: number; z: number }[] = [];
           for (const t of tatami) tatamiPositions.push({ x: t.x, z: t.z });
-          for (let i = 0; i < 4; i++) {
+          // Layer several inexpensive beach props so the sand reads as a
+          // lived-in shoreline rather than an empty flat tile.
+          for (let i = 0; i < 6; i++) {
             let px: number, pz: number, valid: boolean;
             let attempts = 0;
             do {
@@ -2886,8 +3008,8 @@ void main() {
               this.addBox(verts, indices, px, ph + 0.5, pz, 3, 0.6, 3, 0.1, 0.45, 0.05, 1.0, idxOffset); idxOffset += 24;
             }
           }
-          for (let i = 0; i < 3; i++) {
-            if (rng() < 0.6) {
+          for (let i = 0; i < 5; i++) {
+            if (rng() < 0.72) {
               const ux = blockWorldX - 12 + rng() * 24;
               const uz = blockWorldZ - 12 + rng() * 24;
               const palette = [[1, 0.2, 0.2], [0.2, 0.5, 1], [1, 1, 0.2], [0.9, 0.4, 0.7]];
@@ -2904,8 +3026,26 @@ void main() {
             this.addBox(verts, indices, lx, 0.8, lz + 0.5, 0.15, 1.6, 0.15, 0.7, 0.5, 0.3, 1.0, idxOffset); idxOffset += 24; 
             this.addBox(verts, indices, lx, 2.2, lz, 0.15, 0.8, 1.2, 0.7, 0.5, 0.3, 1.0, idxOffset); idxOffset += 24; 
           }
-          if (rng() < 0.4) {
+          if (rng() < 0.55) {
             benches.push({ x: blockWorldX, z: blockWorldZ + halfSW - 3, yaw: Math.PI });
+          }
+          // Low-cost beach furniture, litter, driftwood, and umbrella poles.
+          for (let prop = 0; prop < 5; prop++) {
+            const px = blockWorldX + (rng() - 0.5) * 26;
+            const pz = blockWorldZ + (rng() - 0.5) * 26;
+            if (isOnRoadGrid(px, pz)) continue;
+            const kind = Math.floor(rng() * 4);
+            if (kind === 0) {
+              this.addBox(verts, indices, px, 0.35, pz, 1.8, 0.12, 0.55, 0.88, 0.84, 0.72, 1.0, idxOffset); idxOffset += 24;
+              this.addBox(verts, indices, px, 0.65, pz, 0.12, 0.7, 0.12, 0.72, 0.42, 0.20, 1.0, idxOffset); idxOffset += 24;
+            } else if (kind === 1) {
+              this.addBox(verts, indices, px, 0.16, pz, 1.6 + rng() * 1.8, 0.12, 0.18, 0.38, 0.24, 0.12, 1.0, idxOffset); idxOffset += 24;
+            } else if (kind === 2) {
+              this.addBox(verts, indices, px, 0.12, pz, 0.35, 0.22, 0.35, 0.78, 0.78, 0.68, 1.0, idxOffset); idxOffset += 24;
+            } else {
+              this.addBox(verts, indices, px, 1.25, pz, 0.10, 2.5, 0.10, 0.55, 0.32, 0.16, 1.0, idxOffset); idxOffset += 24;
+              this.addBox(verts, indices, px, 2.45, pz, 2.5, 0.12, 2.5, 0.95, 0.25 + rng() * 0.5, 0.18, 0.85, idxOffset); idxOffset += 24;
+            }
           }
           if (this.tatamiRoomMesh) {
             for (let i = 0; i < 2; i++) {
@@ -3308,7 +3448,19 @@ void main() {
                 px = blockWorldX + edge.dx * (halfSW - d / 2 - 1);
                 yaw = edge.dx > 0 ? -Math.PI / 2 : Math.PI / 2;
               }
+              // Gas stations are generated locally so the forecourt and drive
+              // lanes remain open instead of inheriting an opaque GLTF shell.
               const models = this.cityBuildingMeshes;
+              const gasStationChance = isCity || isSuburb ? 0.10 : 0;
+              if (gasStationChance > 0 && rng() < gasStationChance && i === 0) {
+                const station = this.getGasStationMesh();
+                const stationScale: [number, number, number] = [1, 1, 1];
+                const stationY = 0.15;
+                if (tryPlace(station, blockWorldX, blockWorldZ, stationScale, 0)) {
+                  buildings.push({ model: station, x: blockWorldX, y: stationY, z: blockWorldZ, yaw: 0, scale: stationScale });
+                }
+                continue;
+              }
               if (models.length > 0) {
                 const model = models[Math.floor(rng() * models.length)];
                 let nativeMinX = 0, nativeMaxX = 1, nativeMinZ = 0, nativeMaxZ = 1;
@@ -3546,6 +3698,13 @@ void main() {
       chickens.push({ x: worldOriginX + 5 + rng() * (CHUNK_SIZE - 10), z: worldOriginZ + 5 + rng() * (CHUNK_SIZE - 10), yaw: rng() * Math.PI * 2 });
     }
     if ((isCity || isSuburb) && this.cityBuildingMeshes.length > 0) {
+      if (rng() < 0.16) {
+        const store = this.getConvenienceStoreMesh();
+        const sx = worldOriginX + 40, sz = worldOriginZ + 40;
+        const storeScale: [number, number, number] = [1, 1, 1];
+        buildings.push({ model: store, x: sx, y: 0.15, z: sz, yaw: 0, scale: storeScale });
+        supermarkets.push({ x: sx, z: sz, yaw: 0, hd: 13.4 });
+      }
       const smModel = this.cityBuildingMeshes.find(m => m.length > 0 && m[0].carName && m[0].carName.includes('supermarket'));
       if (smModel && supermarkets.length < 1 && rng() < 0.20) {
         const blockWorldX = worldOriginX + 40;
@@ -3608,7 +3767,13 @@ void main() {
     const cx = Math.floor(gx * GRID_PITCH / CHUNK_SIZE);
     const cz = Math.floor(gz * GRID_PITCH / CHUNK_SIZE);
     const b = getBiome(cx, cz);
-    if (b === 'ocean' || b === 'beach' || b === 'mountain') return false;
+    if (b === 'ocean' || b === 'beach' || b === 'mountain') {
+      // A boundary node is still valid when the neighboring chunk exposes a
+      // road. This gives the path graph the same seam-crossing connectors as
+      // the rendered road mesh instead of terminating at the biome border.
+      return getBiome(cx - 1, cz) !== 'ocean' && getBiome(cx + 1, cz) !== 'ocean'
+        || getBiome(cx, cz - 1) !== 'ocean' && getBiome(cx, cz + 1) !== 'ocean';
+    }
     if (b === 'aeroport') {
       return GrandTheftRenderer.AIRPORT_ENTRY_ROADS.some(e =>
         e.gx === gx && gz >= Math.min(e.gzStart, e.gzEnd) && gz <= Math.max(e.gzStart, e.gzEnd));
@@ -4426,7 +4591,12 @@ void main() {
               if (width < 8) continue;
             }
           }
+          const isStore = bld.model && bld.model.length > 0 && bld.model[0].carName?.includes('convenience_store_procedural');
+          const doorOpen = isStore && this.convenienceStoreDoorOpen;
           this.drawMesh(bld.model, bld.x, bld.y, bld.z, bld.yaw, bld.scale, isDome ? [0.25, 0.3, 0.22, 1] : [1, 1, 1, 1]);
+          if (doorOpen) {
+            this.drawMesh(this.getBoxMesh(5.2, 0.08, 0.12), bld.x, bld.y + 0.08, bld.z - 11.35, 0, [1, 1, 1], [0.16, 0.8, 0.35, 0.8]);
+          }
         }
       }
     }
@@ -4517,7 +4687,9 @@ void main() {
       const flinchLeft = this.flinchTimers.get(npc.id) ?? 0;
       if (flinchLeft > 0) this.flinchTimers.set(npc.id, Math.max(0, flinchLeft - dt));
       const npcDx = npc.x - camX, npcDz = npc.z - camZ;
-      if (npcDx * npcDx + npcDz * npcDz < 220 * 220) {
+      // Keep animation work in a tighter near-field than draw culling; distant
+      // NPCs retain their last pose while still contributing to the skyline.
+      if (npcDx * npcDx + npcDz * npcDz < 180 * 180) {
         if (isHumanNpc) this.animateAndSkinEntity(npc.id, npc.mesh, npcState, dt, Math.max(1, npcSpeed * 2.2));
       }
       const biome = getBiome(Math.floor(npc.x / 80), Math.floor(npc.z / 80));
@@ -4542,7 +4714,16 @@ void main() {
           ? [1.05, 0.48, 1.05]
           : (flinchLeft > 0 ? [1.05, 0.88, 1.05] : [1, 1, 1]);
         const npcY = isSwimming ? -1.35 : expY;
-        this.drawMesh(npc.mesh, npc.x, npcY, npc.z, npc.yaw, npcScale);
+        const reaction = (this as any).npcImpactReactions?.get(npc.id);
+        const reactionProgress = reaction ? Math.min(1, reaction.age / reaction.duration) : 0;
+        const reactionLift = reaction ? Math.sin(reactionProgress * Math.PI) * Math.min(2.2, Math.hypot(reaction.vx, reaction.vz) * 0.12) : 0;
+        const reactionX = reaction ? npc.x + reaction.vx * dt : npc.x;
+        const reactionZ = reaction ? npc.z + reaction.vz * dt : npc.z;
+        const reactionYaw = reaction ? npc.yaw + reaction.spin * dt * 8 : npc.yaw;
+        const reactionScale: [number, number, number] = reaction
+          ? [1.08, Math.max(0.72, 1 - reactionProgress * 0.28), 1.08]
+          : npcScale;
+        this.drawMesh(npc.mesh, reactionX, npcY + reactionLift, reactionZ, reactionYaw, reactionScale);
       }
       if (npc.hasDriver !== false && npc.type !== 'cop') {
         const dMesh = this.getPedestrianMesh(npc.gender || 'male', npc.id);
@@ -4586,7 +4767,7 @@ void main() {
       const pedFlinch = this.flinchTimers.get(ped.id) ?? 0;
       if (pedFlinch > 0) this.flinchTimers.set(ped.id, Math.max(0, pedFlinch - dt));
       const pedDx = ped.x - camX, pedDz = ped.z - camZ;
-      if (pedDx * pedDx + pedDz * pedDz < 220 * 220) {
+      if (pedDx * pedDx + pedDz * pedDz < 180 * 180) {
         this.animateAndSkinEntity(ped.id, ped.mesh, pedState, dt, Math.max(1, pedSpeed * 2.2));
       }
       // Ducking (gunfire reaction): the crouch-and-cover pose (bent legs, low
@@ -4600,7 +4781,16 @@ void main() {
         : (ped.isDucking ? [0.95, 0.75, 0.95] : [1, 1, 1]);
       if (pedFlinch > 0 && !isSwimming) pedScale = [1.05, pedScale[1] * 0.92, 1.05];        // Keep the rig's foot contact readable: the walk cycle is intentionally
         // subtle and the lower body remains grounded while the hips bob.
-        this.drawMesh(ped.mesh, ped.x, isSwimming ? -1.35 : pedTerrainY, ped.z, ped.yaw, pedScale);
+      const impactReaction = (this as any).npcImpactReactions?.get(ped.id);
+      const impactProgress = impactReaction ? Math.min(1, impactReaction.age / impactReaction.duration) : 0;
+      const impactLift = impactReaction ? Math.sin(impactProgress * Math.PI) * Math.min(2.2, Math.hypot(impactReaction.vx, impactReaction.vz) * 0.12) : 0;
+      const impactX = impactReaction ? ped.x + impactReaction.vx * dt : ped.x;
+      const impactZ = impactReaction ? ped.z + impactReaction.vz * dt : ped.z;
+      const impactYaw = impactReaction ? ped.yaw + impactReaction.spin * dt * 8 : ped.yaw;
+      const finalScale: [number, number, number] = impactReaction
+        ? [1.08, Math.max(0.72, 1 - impactProgress * 0.28), 1.08]
+        : pedScale;
+      this.drawMesh(ped.mesh, impactX, (isSwimming ? -1.35 : pedTerrainY) + impactLift, impactZ, impactYaw, finalScale);
     }
     if (dt > 0 && Math.random() < 0.05) {
       const activeIds = new Set<number>();

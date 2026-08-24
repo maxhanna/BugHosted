@@ -84,7 +84,9 @@ const WRONG_WAY_YAW_RATE = 1.9;
 const WRONG_WAY_PULL_SPEED = 5;    
 const SLIP_GRIP_CUT = 0.65;
 const AI_LOOKAHEAD = 3;
-const CAR_RADIUS = 1.1;
+// Collision radius is slightly larger than the visible tyre footprint so
+// high-speed cars cannot visually overlap or tunnel through one another.
+const CAR_RADIUS = 1.35;
 // How long an NPC's pace stays dented after being hit by another car, and the
 // shared bot paint palette (kept in sync with the inline palette used when
 // building the render car list) so paint chips match the car they flew off.
@@ -427,9 +429,15 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   private _engineOsc2: OscillatorNode | null = null;
   private _harmOsc: OscillatorNode | null = null;
   private _engineFilter: BiquadFilterNode | null = null;
+  private _engineDistortion: WaveShaperNode | null = null;
   private _thrumLfo: OscillatorNode | null = null;
   private _thrumLfoGain: GainNode | null = null;
   private _engineGain: GainNode | null = null;
+  // Master bus keeps every synthesized racing layer balanced and makes the
+  // sound toggle/cleanup a single inexpensive operation.
+  private _audioMaster: GainNode | null = null;
+  private _audioCompressor: DynamicsCompressorNode | null = null;
+  private _lastAudioFrameAt = 0;
   private _windSource: AudioBufferSourceNode | null = null;
   private _windFilter: BiquadFilterNode | null = null;
   private _windGain: GainNode | null = null;
@@ -2512,7 +2520,6 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     }
     this._wasOnWall = onWall;
     {
-      const myX = this.carX, myZ = this.carZ, mySpeed = this.carSpeed;
       const minDist = CAR_RADIUS * 2;
       this._carImpactCooldown -= dt;
       // Reused slots — no fresh array/objects per frame (see _nearbyCarSlots).
@@ -2533,36 +2540,47 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       }
       for (let k = 0; k < nCars; k++) {
         const other = slots[k];
-        const dxC = myX - other.x;
-        const dzC = myZ - other.z;
+        // Read the player's position for every car instead of using a snapshot;
+        // resolving one contact can move the player before the next contact.
+        const dxC = this.carX - other.x;
+        const dzC = this.carZ - other.z;
         const dist = Math.hypot(dxC, dzC);
-        if (dist < minDist && dist > 0.01) {
-          const pushX = dxC / dist;
-          const pushZ = dzC / dist;
+        if (dist < minDist) {
+          const safeDist = Math.max(dist, 0.001);
+          const pushX = dist > 0.01 ? dxC / safeDist : -Math.sin(this.carDir);
+          const pushZ = dist > 0.01 ? dzC / safeDist : -Math.cos(this.carDir);
           const overlap = minDist - dist;
-          const push = Math.min(overlap, 0.6);
-          this.carX += pushX * push * 0.5;
-          this.carZ += pushZ * push * 0.5;
+          // Apply a full separating correction to the local car. Remote cars
+          // are server-owned, so only bots receive the matching counter-push;
+          // this prevents the client from visually driving through either kind.
+          const push = Math.min(overlap + 0.08, 0.95);
+          const localPush = other.isBot ? push * 0.5 : push;
+          this.carX += pushX * localPush;
+          this.carZ += pushZ * localPush;
           if (other.isBot) {
             other.ref.x -= pushX * push * 0.5;
             other.ref.z -= pushZ * push * 0.5;
           }
-          const myVx = Math.sin(this.carDir) * mySpeed;
-          const myVz = Math.cos(this.carDir) * mySpeed;
+          const myVx = Math.sin(this.carDir) * this.carSpeed;
+          const myVz = Math.cos(this.carDir) * this.carSpeed;
           const theirVx = Math.sin(other.yaw) * other.speed;
           const theirVz = Math.cos(other.yaw) * other.speed;
-          // relV > 0 = the player is closing into the other car; relV < 0 = the
-          // other car rear-ends/side-swipes the player. Either way the NPC eats
-          // the bump: an immediate speed cut plus a recovery timer so its pace
-          // stays dented for a moment instead of snapping straight back.
+          // The contact normal points from the other car toward the player;
+          // therefore a negative relative normal velocity means the player is
+          // closing into the other car. The old sign check handled the opposite
+          // case, so a head-on player hit could keep its speed and pass through.
           const relV = (myVx - theirVx) * pushX + (myVz - theirVz) * pushZ;
+          const closing = Math.max(0, -relV);
           const impact = Math.abs(relV);
-          if (impact > 1 && this._carImpactCooldown <= 0) {
+          if (closing > 0.35 && this._carImpactCooldown <= 0) {
             this._carImpactCooldown = 0.3;
-            const hit = Math.min(impact * 0.35, 8);
-            if (relV > 0) this.carSpeed -= hit * 0.7;
+            const speedMagnitude = Math.max(1, Math.abs(this.carSpeed));
+            const stopFraction = Math.min(0.92, closing / speedMagnitude * 0.95);
+            // Remove the component driving into the contact. Glancing hits keep
+            // some tangential speed, while head-on hits stop instead of phasing.
+            this.carSpeed *= 1 - stopFraction;
             if (other.isBot) {
-              other.ref.speed -= hit * 0.5;
+              other.ref.speed -= Math.sign(other.ref.speed || 1) * Math.min(Math.abs(other.ref.speed) * 0.35, closing * 0.5);
               other.ref.hitSlowTimer = Math.max(other.ref.hitSlowTimer, Math.min(HIT_SLOW_MAX, 0.45 + impact * 0.055));
             }
             this.carYaw += (Math.random() - 0.5) * 0.02;
@@ -4932,6 +4950,8 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       if (this._windGain) this._windGain.disconnect();
       if (this._engineFilter) this._engineFilter.disconnect();
       if (this._engineGain) this._engineGain.disconnect();
+      if (this._audioMaster) this._audioMaster.disconnect();
+      if (this._audioCompressor) this._audioCompressor.disconnect();
     } catch { }
     try { if (this._audioCtx) this._audioCtx.close(); } catch { }
     this._subOsc = null;
@@ -4957,6 +4977,8 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this._squealRingGain = null;
     this._engineFilter = null;
     this._engineGain = null;
+    this._audioMaster = null;
+    this._audioCompressor = null;
     this._howlSource = null;
     this._howlFilter = null;
     this._howlFilter2 = null;
@@ -4971,6 +4993,18 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       const ctx = new AudioContext();
       if (ctx.state === 'suspended') { try { ctx.resume(); } catch { } }
       this._audioCtx = ctx;
+      // Route synthesized effects through a gentle compressor/master bus. This
+      // prevents stacked collisions and crowd layers from clipping on phones.
+      this._audioCompressor = ctx.createDynamicsCompressor();
+      this._audioCompressor.threshold.value = -18;
+      this._audioCompressor.knee.value = 12;
+      this._audioCompressor.ratio.value = 4;
+      this._audioCompressor.attack.value = 0.006;
+      this._audioCompressor.release.value = 0.18;
+      this._audioMaster = ctx.createGain();
+      this._audioMaster.gain.value = 0.78;
+      this._audioMaster.connect(this._audioCompressor);
+      this._audioCompressor.connect(ctx.destination);
       this._engineFilter = ctx.createBiquadFilter();
       this._engineFilter.type = 'lowpass';
       this._engineFilter.frequency.value = 600;
@@ -4978,7 +5012,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this._engineGain = ctx.createGain();
       this._engineGain.gain.value = 0.06;
       this._engineFilter.connect(this._engineGain);
-      this._engineGain.connect(ctx.destination);
+      this._engineGain.connect(this._audioMaster);
       this._subOsc = ctx.createOscillator();
       this._subOsc.type = 'sine';
       const subGain = ctx.createGain();
@@ -5027,7 +5061,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this._windGain.gain.value = 0;
       this._windSource.connect(this._windFilter);
       this._windFilter.connect(this._windGain);
-      this._windGain.connect(ctx.destination);
+      this._windGain.connect(this._audioMaster);
       const crowdLen = ctx.sampleRate * 4;
       const crowdBuf = ctx.createBuffer(1, crowdLen, ctx.sampleRate);
       const cdata = crowdBuf.getChannelData(0);
@@ -5054,7 +5088,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this._crowdFilter.connect(this._crowdGain);
       this._crowdSource.connect(this._crowdFilter2);
       this._crowdFilter2.connect(this._crowdGain);
-      this._crowdGain.connect(ctx.destination);
+      this._crowdGain.connect(this._audioMaster);
       this._screechSource = ctx.createBufferSource();
       this._screechSource.buffer = buf;
       this._screechSource.loop = true;
@@ -5066,7 +5100,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this._screechGain.gain.value = 0;
       this._screechSource.connect(this._screechFilter);
       this._screechFilter.connect(this._screechGain);
-      this._screechGain.connect(ctx.destination);
+      this._screechGain.connect(this._audioMaster);
       this._squealSource = ctx.createBufferSource();
       this._squealSource.buffer = buf;
       this._squealSource.loop = true;
@@ -5078,7 +5112,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this._squealGain.gain.value = 0;
       this._squealSource.connect(this._squealFilter);
       this._squealFilter.connect(this._squealGain);
-      this._squealGain.connect(ctx.destination);
+      this._squealGain.connect(this._audioMaster);
       this._squealRingOsc = ctx.createOscillator();
       this._squealRingOsc.type = 'sine';
       this._squealRingOsc.frequency.value = 2800;
@@ -5103,7 +5137,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this._howlFilter.connect(this._howlGain);
       this._howlSource.connect(this._howlFilter2);
       this._howlFilter2.connect(this._howlGain);
-      this._howlGain.connect(ctx.destination);
+      this._howlGain.connect(this._audioMaster);
       // A slow LFO sweeps the bandpass so the noise reads as a howling gust
       // rather than a constant hiss.
       this._howlLfo = ctx.createOscillator();
@@ -5126,7 +5160,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         vGain.gain.value = 0;
         vOsc.connect(vFilter);
         vFilter.connect(vGain);
-        vGain.connect(ctx.destination);
+        vGain.connect(this._audioMaster);
         const sSource = ctx.createBufferSource();
         sSource.buffer = buf;
         sSource.loop = true;
@@ -5138,7 +5172,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         sGain.gain.value = 0;
         sSource.connect(sFilter);
         sFilter.connect(sGain);
-        sGain.connect(ctx.destination);
+        sGain.connect(this._audioMaster);
         vOsc.start();
         sSource.start();
         this._remoteVoices.push({ engineOsc: vOsc, engineFilter: vFilter, engineGain: vGain, screechSource: sSource, screechFilter: sFilter, screechGain: sGain });
@@ -5154,11 +5188,17 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this._crowdSource.start();
       if (this._howlSource) this._howlSource.start();
       if (this._howlLfo) this._howlLfo.start();
+      this._lastAudioFrameAt = 0;
     } catch { }
   }
   private updateEngineAudio() {
     if (this._destroyed || !this.soundOn || !this._audioCtx || !this._engineOsc || !this._engineFilter || !this._engineGain) return;
     const t = this._audioCtx.currentTime;
+    // Audio parameters do not need to be rewritten at the full render rate;
+    // 30Hz keeps the sound responsive while reducing main-thread work on mobile.
+    const nowMs = performance.now();
+    if (nowMs - this._lastAudioFrameAt < 33) return;
+    this._lastAudioFrameAt = nowMs;
     if (this.gameState !== 'racing' && this.gameState !== 'countdown') {
       if (this._engineOsc) this._engineOsc.frequency.setTargetAtTime(70, t, 0.15);
       if (this._engineOsc2) this._engineOsc2.frequency.setTargetAtTime(70, t, 0.15);
@@ -5603,14 +5643,14 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       clickGain.gain.exponentialRampToValueAtTime(0.001, t + clickDur);
       clickSrc.connect(clickFilter);
       clickFilter.connect(clickGain);
-      clickGain.connect(ctx.destination);
+      clickGain.connect(this._audioMaster ?? ctx.destination);
       clickSrc.start(t);
       clickSrc.stop(t + clickDur + 0.02);
       src.connect(filter);
       filter.connect(gain);
-      gain.connect(ctx.destination);
+      gain.connect(this._audioMaster ?? ctx.destination);
       sub.connect(subGain);
-      subGain.connect(ctx.destination);
+      subGain.connect(this._audioMaster ?? ctx.destination);
       src.start(t);
       src.stop(t + dur + 0.05);
       sub.start(t);

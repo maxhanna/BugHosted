@@ -148,6 +148,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private trafficSpawnTimer = 0;
   localPedestrians: { id: number; x: number; z: number; yaw: number; gender: string; type?: string; mesh: CityMesh | CityMesh[]; health: number; targetX: number; targetZ: number; waitTimer: number; fightBackUntil?: number; punchTimer?: number; panicUntil?: number; panicFromX?: number; panicFromZ?: number }[] = [];
   private pedSpawnTimer = 0;
+  private populationScanTimer = 0;
+  private readonly LOCAL_PED_CAP = 28;
+  private readonly LOCAL_TRAFFIC_CAP = 30;
+  private readonly PARKED_CAR_LIFETIME_SECONDS = 900;
   private pedIdCounter = 20000;
   // Occasional station cops: client-local ambience peds walking out of or into
   // a police-station door so stations feel lived-in between arrests.
@@ -168,6 +172,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private scoreTimer = 0;
   money = 1000;
   moneyStacks: { x: number; z: number; amount: number; yaw: number; age: number; lifetime: number }[] = [];
+  // Short-lived impact reactions for pedestrians hit by the player's car.
+  private npcImpactReactions: Map<number, { vx: number; vz: number; spin: number; age: number; duration: number }> = new Map();
   policeMode = false;
   policeRound = 0;
   policeModeThugCars: { id: number; x: number; z: number; yaw: number; mesh: CityMesh | CityMesh[]; health: number; maxHealth: number; speed: number; colorR: number; colorG: number; colorB: number; isSmoking?: boolean; smokeStarted?: number; smokeTimer?: number; isBurning?: boolean; fireStarted?: number; playerDamage?: number; killedByPlayer?: boolean }[] = [];
@@ -384,6 +390,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private knownChatTimestamps: Set<string> = new Set();
   private carRockPhase = 0;
   private hookerMoneyDrained = 0;
+  private hookerPaymentRemainder = 0;
   carRocking = false;
   garageDoorOpenness = 0;
   garageCar: { vehicleType: string; colorR: number; colorG: number; colorB: number; yaw: number } | null = null;
@@ -1076,8 +1083,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       targetX: tx,
       targetZ: tz,
       waitTimer: 0,
-    });
+      // Carry the amount paid during the ride so a later death can spill it.
+      collectedMoney: this.hookerMoneyDrained,
+    } as any);
     this.passenger = null;
+    this.hookerMoneyDrained = 0;
+    this.hookerPaymentRemainder = 0;
   }
   /** Nearest drivable taxi within reach (NPC or parked), or null. */
   private getNearbyTaxi(): { id: number; x: number; z: number; yaw: number } | null {
@@ -1422,8 +1433,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         submerged: this._carSubmerged || undefined,
         submergeStart: this._carSubmerged ? this._carSubmergeStart : undefined,
         mesh,
-        colorR: color[0], colorG: color[1], colorB: color[2]
-      });
+        colorR: color[0], colorG: color[1], colorB: color[2],
+        parkedAt: performance.now() / 1000
+      } as any);
       this.gtService.parkCar(1, this.carX, this.carZ, this.carYaw, color[0], color[1], color[2], this.vehicleType).then((res: any) => {
         const localCar = this.parkedCars.find(p => p.id === tempId);
         if (localCar && res && res.id) {
@@ -2901,6 +2913,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
             // draws police heat and counts toward kill stats.
             if (list === this.localPedestrians && wasAlive && t.health <= 0) {
               this.gtService.hit(this.getUserId(), t.id, 1, dmg, ox, oz, this.currentWeapon, true);
+              this.dropMoneyAt(t.x, t.z, 50 + Math.floor(Math.random() * 150));
               this.showMurderFlash();
             }
           }
@@ -3280,11 +3293,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
   private updateTraffic(dt: number) {
     this.trafficSpawnTimer += dt;
-    if (this.trafficSpawnTimer > 3) {
+    if (this.trafficSpawnTimer > 1.8) {
       this.trafficSpawnTimer = 0;
-      // Cap raised to fill the wider view distance — the road network already
-      // spans ~2km of nodes, so cars now stream in from further out too.
-      if (this.trafficCars.length < 25) this.spawnTrafficCar();
+      // Staggered streaming keeps roads populated without spawning a large
+      // batch in one frame. The cap is a hard memory/draw-call budget.
+      if (this.trafficCars.length < this.LOCAL_TRAFFIC_CAP) this.spawnTrafficCar();
     }
     const lightPhase = Math.floor(performance.now() / 6000) % 2;
     const intersectionRadius = 14;
@@ -3499,6 +3512,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
   private updatePedestrians(dt: number) {
     this.pedSpawnTimer += dt;
+    this.populationScanTimer += dt;
     const playerCX = Math.floor(this.carX / CHUNK_SIZE);
     const playerCZ = Math.floor(this.carZ / CHUNK_SIZE);
     // Only rebuild sidewalk nodes if the player has moved to a new chunk
@@ -3548,7 +3562,15 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       }
     }
     const sidewalkNodes = this._cachedSidewalkNodes;
-    if (this.pedSpawnTimer > 0.5 && this.localPedestrians.length < 25 && sidewalkNodes.length > 0) {
+    // Rebuild the node pool on chunk changes and periodically during play so
+    // the population follows the camera bubble rather than remaining tied to
+    // the first area visited.
+    if (this.populationScanTimer > 5) {
+      this.populationScanTimer = 0;
+      this._lastPedChunkX = 999;
+      this._lastPedChunkZ = 999;
+    }
+    if (this.pedSpawnTimer > 0.28 && this.localPedestrians.length < this.LOCAL_PED_CAP && sidewalkNodes.length > 0) {
       this.pedSpawnTimer = 0;
       const srcNode = sidewalkNodes[Math.floor(Math.random() * sidewalkNodes.length)];
       const dstNode = sidewalkNodes[Math.floor(Math.random() * sidewalkNodes.length)];
@@ -3586,10 +3608,17 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           lifetime: 30,
         });
         this.bloodPools.push({ x: ped.x, z: ped.z - 1.0, age: 0, lifetime: 30, maxRadius: 3, variant: Math.floor(Math.random() * 4) });
+        // Local pedestrians are client-owned, so their death never returns
+        // through the server poll. Drop the same small cash reward as a server
+        // pedestrian before removing the body from the active population.
+        const collected = Number((ped as any).collectedMoney ?? 0);
+        if (collected > 0) this.dropMoneyAt(ped.x, ped.z, Math.floor(collected));
+        this.dropMoneyAt(ped.x, ped.z, 50 + Math.floor(Math.random() * 150));
         this.localPedestrians.splice(i, 1);
         continue;
       }
-      if (Math.abs(ped.x - this.carX) > 300 || Math.abs(ped.z - this.carZ) > 300) {
+      const pedDistance = Math.hypot(ped.x - this.carX, ped.z - this.carZ);
+      if (pedDistance > 520) {
         this.localPedestrians.splice(i, 1); continue;
       }
       // Provoked peds chase the player and throw punches — client mirror of the
@@ -3894,7 +3923,20 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
     this.serverNPCs = this.serverNPCs.filter(v => v.health > 0);
     this.serverPedestrians = this.serverPedestrians.filter(p => p.health > 0);
-    this.parkedCars = this.parkedCars.filter(pc => pc.health > 0);
+    // Locally parked cars are temporary world props, not a permanent cache.
+    // Keep mission/garage vehicles exempt, but retire abandoned cars after a
+    // generous lifetime or when they are far outside the active bubble.
+    const parkedNow = performance.now() / 1000;
+    this.parkedCars = this.parkedCars.filter(pc => {
+      if (pc.health <= 0) return false;
+      if (pc.id < 0 && !(this.dealershipMission && pc.id === this.dealershipMission.targetCarId)) {
+        const parkedAt = (pc as any).parkedAt ?? parkedNow;
+        (pc as any).parkedAt = parkedAt;
+        const farAway = Math.hypot(pc.x - this.carX, pc.z - this.carZ) > 650;
+        if (parkedNow - parkedAt > this.PARKED_CAR_LIFETIME_SECONDS || farAway) return false;
+      }
+      return true;
+    });
     if (this.isInCar && this.carHealth > 0 && this.vehicleType !== 'boat' && this.vehicleType !== 'helicopter' && this.vehicleType !== 'plane') {
       const ocx = Math.floor(this.carX / 80), ocz = Math.floor(this.carZ / 80);
       // Water kills. Height alone misses two cases: the invisible road grid that
@@ -4549,6 +4591,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
     this.carX += this.carVx * dt;
     this.carZ += this.carVz * dt;
+    // Snap only to the continuous bridge profile; do not let the next frame's
+    // ocean terrain sample pull a car through the deck.
+    const bridgeY = getTerrainHeight(this.carX, this.carZ, this.carY, true);
+    if (bridgeY > -1.5 && this.carY < bridgeY + CAR_HEIGHT - 0.75) {
+      this.carY = bridgeY + CAR_HEIGHT;
+    }
     this.updateJumpPhysics(dt);
     this.pushOutOfBuildings();
     this.checkPropCollision();
@@ -5221,6 +5269,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
   private enterStore(sm: { x: number; z: number; yaw: number; hd: number; doorX: number; doorZ: number; key: string }) {
     if (this.isInCar || this.isPassenger) return;
+    this.renderer.convenienceStoreDoorOpen = true;
     const frontX = -Math.sin(sm.yaw), frontZ = -Math.cos(sm.yaw);
     // Step in and stand ~1.8 units off the back wall, facing the register.
     this.inStore = sm;
@@ -5253,6 +5302,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
   private leaveStore() {
     if (!this.inStore) return;
+    this.renderer.convenienceStoreDoorOpen = false;
     const st = this.inStore;
     this.inStore = null;
     this.storeCashier = null;
@@ -5270,8 +5320,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
   private leaveStoreInPlace() {
     if (!this.inStore) return;
+    this.renderer.convenienceStoreDoorOpen = false;
     this.inStore = null;
     this.storeCashier = null;
+    this.renderer.convenienceStoreDoorOpen = false;
     this.camDist = this._savedCamDist || 4;
     this.camHeight = this._savedCamHeight || 2;
     this.nearStoreRegister = false;
@@ -5506,10 +5558,25 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         if (actualSpeed >= 4) this.playCrashSound(0.22);
         const impactForce = Math.max(2, actualSpeed * 0.5);
         const angle = Math.atan2(ped.z - this.carZ, ped.x - this.carX);
+        const hitSpeed = Math.max(4, actualSpeed);
+        const knockback = hitSpeed * 0.65;
         ped.x += Math.cos(angle) * impactForce;
         ped.z += Math.sin(angle) * impactForce;
-        ped.health -= 25;
-        this.spawnBlood(ped.x, 1.0, ped.z);
+        // Preserve a short ragdoll-like aftermath: the renderer uses this
+        // impulse to rotate and lift the procedural body instead of snapping it
+        // directly from walking to a static corpse.
+        this.npcImpactReactions.set(ped.id, {
+          vx: Math.cos(angle) * knockback,
+          vz: Math.sin(angle) * knockback,
+          spin: (Math.random() - 0.5) * hitSpeed * 0.08,
+          age: 0,
+          duration: hitSpeed >= 14 ? 0.85 : 0.5,
+        });
+        ped.health -= Math.max(18, Math.min(70, 18 + actualSpeed * 1.5));
+        this.spawnBlood(ped.x, 1.0, ped.z, Math.cos(angle), 0.2, Math.sin(angle));
+        if (actualSpeed >= 8) {
+          this.spawnBlood(ped.x, 1.25, ped.z, Math.cos(angle), 0.35, Math.sin(angle), true);
+        }
         this.score += 10;
         // Report the hit (weapon 0 = vehicle) so server peds track the damage
         // and every lethal run-over draws heat; local peds need the kill flag
@@ -5616,6 +5683,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.carSmoke = this.carSmoke.filter(s => s.age < s.lifetime);
     const now = performance.now() / 1000;
     this.deadBodies = this.deadBodies.filter(db => (now - db.deathTime) < db.lifetime);
+    for (const [id, reaction] of this.npcImpactReactions) {
+      reaction.age += dt;
+      reaction.vx *= Math.max(0, 1 - dt * 4.5);
+      reaction.vz *= Math.max(0, 1 - dt * 4.5);
+      if (reaction.age >= reaction.duration) this.npcImpactReactions.delete(id);
+    }
   }
   private updateRemoteShooting(dt: number) {
     for (const p of this.otherPlayers) {
@@ -6321,20 +6394,34 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.carRockPhase += dt * 3;
     if (this.health < 100) {
       this.health = Math.min(100, this.health + HOOKER_HEAL_PER_SEC * dt);
+      // Once the healing service has completed, end the ride automatically so
+      // the passenger does not remain stuck in the car indefinitely.
+      if (this.health >= 100 - 0.001) {
+        this.health = 100;
+        this.carRocking = false;
+        this.dropPassenger(this.carX, this.carZ, this.carYaw);
+        this.hookerMoneyDrained = 0;
+        this.showStoreToast('Health restored — passenger left the car');
+        return;
+      }
     }
     if (this.money <= 0) {
       this.passenger = null;
       this.hookerMoneyDrained = 0;
       return;
-    }
-    if (this.hookerMoneyDrained < HOOKER_MAX_MONEY) {
-      const drain = Math.min(
+    }    if (this.hookerMoneyDrained < HOOKER_MAX_MONEY) {
+      const elapsedCharge = Math.min(
         HOOKER_MONEY_PER_SEC * dt,
         HOOKER_MAX_MONEY - this.hookerMoneyDrained,
         this.money
       );
-      this.money -= Math.floor(drain);
-      this.hookerMoneyDrained += drain;
+      this.hookerPaymentRemainder += elapsedCharge;
+      const wholeDollars = Math.min(this.money, Math.floor(this.hookerPaymentRemainder));
+      if (wholeDollars > 0) {
+        this.money -= wholeDollars;
+        this.hookerMoneyDrained += wholeDollars;
+        this.hookerPaymentRemainder -= wholeDollars;
+      }
     }
   }
   getCarRockOffset(): number {

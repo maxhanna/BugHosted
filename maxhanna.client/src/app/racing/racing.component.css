@@ -1653,6 +1653,40 @@
   font-weight: 700;
 }
 
+/* Native button target for paint cards. Keeping this separate from the card
+   click makes selection reliable on mobile browsers that do not synthesize a
+   click consistently for a richly styled div after touch scrolling. */
+.garage-skin-select-btn {
+  width: 100%;
+  min-height: 28px;
+  margin-top: 5px;
+  padding: 4px 3px;
+  border: 1px solid rgba(255, 214, 0, 0.35);
+  border-radius: 4px;
+  background: rgba(255, 214, 0, 0.08);
+  color: #ffd600;
+  cursor: pointer;
+  font: inherit;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  line-height: 1.1;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: rgba(255, 214, 0, 0.2);
+}
+
+.garage-skin-select-btn:not(:disabled):active {
+  transform: scale(0.96);
+  background: rgba(255, 214, 0, 0.2);
+}
+
+.garage-skin-select-btn:disabled {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.35);
+  cursor: default;
+}
+
 .garage-skin-owned {
   color: #4caf50;
   font-size: 9px;
@@ -3038,6 +3072,13 @@
 
   .garage-skin-grid {
     grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+    gap: 10px;
+  }
+
+  .garage-skin-select-btn {
+    min-height: 34px;
+    font-size: 9px;
+    letter-spacing: 0.45px;
   }
 }
 
@@ -5771,9 +5812,14 @@
 }
 
 .race-menu-tabs {
-  display: flex;
-  gap: 4px;
-  margin-bottom: 16px;
+    display: flex;
+    gap: 4px;
+    margin-bottom: 16px; 
+    flex-wrap: wrap;
+    align-items: stretch;
+    align-content: center;
+    justify-content: space-evenly;
+    flex-direction: row;
 }
 
 .race-menu-tab {

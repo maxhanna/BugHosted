@@ -3063,9 +3063,13 @@ void main() { FragColor = texture(uTex, vUV); }`;
           elev: t => 6.0 * (1 - Math.cos(t * Math.PI * 4)) / 2 + 1.6 * (1 - Math.cos(t * Math.PI * 8)) / 2,
           width: t => this.TRACK_WIDTH + Math.sin(t * 6) * 1.6,
         };
-      case 'alpine':     // one big alp — long ascent to a high plateau, steep descent
+      case 'alpine':     // sharp glacial ridges — a broad pass broken by asymmetric peaks
         return {
-          radius: R * 0.95, wobble: t => Math.sin(t * 2.5) * 20 + Math.sin(t * 11) * 5 + Math.sin(t * 1.1) * 12,
+          radius: R * 0.95,
+          // Several differently phased harmonics create angular ridge changes
+          // instead of the smooth, circular silhouette produced by one large
+          // sinusoid. The mask keeps the start straight level and drivable.
+          wobble: t => Math.sin(t * 2.2) * 24 + Math.sin(t * 5.1 + 0.8) * 13 + Math.sin(t * 9.7) * 6,
           elev: t => 6.5 * (1 - Math.cos(t * Math.PI * 2)) / 2 + 1.2 * (1 - Math.cos(t * Math.PI * 6)) / 2,
           width: t => this.TRACK_WIDTH + Math.sin(t * 4) * 1.2,
         };
@@ -3437,9 +3441,21 @@ void main() { FragColor = texture(uTex, vUV); }`;
     if (gap <= 0) gap += this.totalTrackDist;
     const A = pts[bestI], B = pts[bestK];
     const poly: Array<{ x: number; z: number }> = [];
-    for (let s = 0; s <= 4; s++) {
-      const f = s / 4;
-      poly.push({ x: A.x + (B.x - A.x) * f, z: A.z + (B.z - A.z) * f });
+    // Use a gentle two-segment approach/departure curve. The old perfectly
+    // straight chord could meet the banked main track at a mismatched angle,
+    // making the shortcut look like a floating plank over the junction.
+    const chordX = B.x - A.x, chordZ = B.z - A.z;
+    const chordLen = Math.hypot(chordX, chordZ) || 1;
+    const chordNX = -chordZ / chordLen, chordNZ = chordX / chordLen;
+    const approach = 18;
+    for (let s = 0; s <= 8; s++) {
+      const f = s / 8;
+      const smooth = f * f * (3 - 2 * f);
+      const bow = Math.sin(f * Math.PI) * 4;
+      poly.push({
+        x: A.x + chordX * smooth + chordNX * bow,
+        z: A.z + chordZ * smooth + chordNZ * bow,
+      });
     }
     this._shortcut = { pts: poly, d1: (bestI / n) * this.totalTrackDist, gap };
   }
@@ -4123,13 +4139,24 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const avgLen = Math.hypot(avgRightX, avgRightZ) || 1;
       const edgeX = avgRightX / avgLen;
       const edgeZ = avgRightZ / avgLen;
+      // Limit the miter on sharp corners. Without this clamp, nearly opposing
+      // segment normals create a very long spike that is visible as gray bleed
+      // through the bend scenery.
+      const miterDot = Math.max(0.35, edgeX * ppx + edgeZ * ppz);
+      const miterScale = Math.min(1.35, 1 / miterDot);
       const nextAvgX = npx + ppx;
       const nextAvgZ = npz + ppz;
       const nextAvgLen = Math.hypot(nextAvgX, nextAvgZ) || 1;
       const edgeNX = nextAvgX / nextAvgLen;
       const edgeNZ = nextAvgZ / nextAvgLen;
-      const bw = hw + 2.5;
-      const bwN = hwN + 2.5;
+      const nextMiterDot = Math.max(0.35, edgeNX * npx + edgeNZ * npz);
+      const nextMiterScale = Math.min(1.35, 1 / nextMiterDot);
+      // Keep the barrier close to the actual offset curve. A fixed +2.5m
+      // offset is too aggressive at tight bends and lets the mitered faces
+      // cut across the outside scenery as large gray wedges.
+      const barrierOffset = 1.45;
+      const bw = hw + barrierOffset * miterScale;
+      const bwN = hwN + barrierOffset * nextMiterScale;
       const striped = Math.floor(i / 4) % 2 === 0;
       const br = striped ? 0.95 : 0.8;
       const bg = striped ? 0.95 : 0.1;
@@ -5997,12 +6024,13 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const dl = Math.hypot(dx, dz) || 1;
       const px = -dz / dl, pz = dx / dl;
       const t0 = i / (p.length - 1), t1 = (i + 1) / (p.length - 1);
-      const y0 = this.getTrackElevation(sc.d1 + t0 * sc.gap) + 0.06;
-      const y1 = this.getTrackElevation(sc.d1 + t1 * sc.gap) + 0.06;
+      const y0 = this.getTrackElevation(sc.d1 + t0 * sc.gap) + 0.025;
+      const y1 = this.getTrackElevation(sc.d1 + t1 * sc.gap) + 0.025;
       // Splay the road a touch wider at the two mouths so the causeway blends
       // into the main road rather than butting against it at a hard edge.
-      const mouthFade = Math.min(1, Math.min(i, p.length - 2 - i));
-      const hw = HW + (1 - mouthFade) * 2.2;
+      const mouthT = Math.min(t0, 1 - t1) / 0.18;
+      const mouthFade = Math.max(0, Math.min(1, mouthT));
+      const hw = HW + (1 - mouthFade) * 2.8;
       // Full-width packed-sand roadbed.
       this.addQuad(verts, idxs,
         [ax.x + px * hw, y0, ax.z + pz * hw],
@@ -6011,7 +6039,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
         [ax.x - px * hw, y0, ax.z - pz * hw], sand);
       for (const s of [-1, 1]) {
         // Dark plank edge boards, matching the main track's edges.
-        this.addBox(verts, idxs, (ax.x + bx.x) / 2 + px * (hw + 0.18) * s, (y0 + y1) / 2, (ax.z + bx.z) / 2 + pz * (hw + 0.18) * s, dl, 0.14, 0.55, edge);
+        this.addBox(verts, idxs, (ax.x + bx.x) / 2 + px * (hw + 0.18) * s, (y0 + y1) / 2 - 0.035, (ax.z + bx.z) / 2 + pz * (hw + 0.18) * s, dl, 0.14, 0.55, edge);
         // Rope posts spaced along both sides.
         this.addCylinder(verts, idxs, ax.x + px * (hw + 0.7) * s, (y0 + y1) / 2 + 0.35, ax.z + pz * (hw + 0.7) * s, 0.13, 0.9, 6, rope);
       }
@@ -8321,15 +8349,30 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const r = Math.hypot(p.x, p.z) + p.width / 2;
       if (r > outer) outer = r;
     }
-    for (let i = 0; i < 14; i++) {
-      const a = (i / 14) * Math.PI * 2 + (Math.random() - 0.5) * 0.25;
-      const mh = 30 + Math.random() * 60;
-      const mw = 40 + Math.random() * 30;
+    // Alpine peaks are intentionally faceted and asymmetrical. Narrow, offset
+    // triangular spires break up the old rounded cone silhouette, while a broad    // low shoulder behind each one makes the range read as connected.
+    const alpinePeaks = this.theme === 'alpine' ? (this.lowQuality ? 9 : 15) : 14;
+    for (let i = 0; i < alpinePeaks; i++) {
+      const a = (i / alpinePeaks) * Math.PI * 2 + (Math.random() - 0.5) * 0.22;
+      const mh = this.theme === 'alpine' ? 48 + Math.random() * 78 : 30 + Math.random() * 60;
+      const mw = this.theme === 'alpine' ? 30 + Math.random() * 32 : 40 + Math.random() * 30;
       const dist = outer + mw + 40 + Math.random() * 110;
       const mx = Math.cos(a) * dist;
       const mz = Math.sin(a) * dist;
-      this.addCone(verts, idxs, mx, 0, mz, mw, mh, 8, [0.45, 0.5, 0.55]);
-      this.addCone(verts, idxs, mx, mh * 0.7, mz, mw * 0.35, mh * 0.3, 6, [0.85, 0.88, 0.95]);
+      const col = this.theme === 'alpine' ? [0.30, 0.36, 0.43] : [0.45, 0.5, 0.55];
+      this.addEllipsoid(verts, idxs, mx, mh * 0.20, mz, mw * 1.25, mh * 0.24, mw * 0.72, this.lowQuality ? 6 : 8, col);
+      const peakX = mx + (Math.random() - 0.5) * mw * 0.45;
+      const peakZ = mz + (Math.random() - 0.5) * mw * 0.3;
+      this.addCone(verts, idxs, peakX, 0, peakZ, mw * 0.48, mh, this.theme === 'alpine' ? 5 : 8, col);
+      if (this.theme === 'alpine') {
+        // Offset snow faces look like gullies on a real alpine peak rather
+        // than a perfectly centered white cap.
+        const snowCol = [0.84, 0.89, 0.96];
+        this.addCone(verts, idxs, peakX - mw * 0.08, mh * 0.69, peakZ + mw * 0.04, mw * 0.22, mh * 0.31, 5, snowCol);
+        if (i % 3 === 0) this.addCone(verts, idxs, peakX + mw * 0.18, mh * 0.48, peakZ - mw * 0.12, mw * 0.13, mh * 0.25, 5, [0.68, 0.76, 0.86]);
+      } else {
+        this.addCone(verts, idxs, mx, mh * 0.7, mz, mw * 0.35, mh * 0.3, 6, [0.85, 0.88, 0.95]);
+      }
     }
     // Ski-lift line sweeping over a mid-circuit ridge + frozen ponds + a
     // couple of chalets in the hamlet.

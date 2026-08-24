@@ -719,6 +719,14 @@
                   <span *ngIf="!s.owned && s.cost === 0">FREE</span>
                   <span *ngIf="!s.owned && s.cost > 0">${{ s.cost | number:'1.0-0' }}</span>
                 </div>
+                <!-- An explicit control is important on touch browsers: unlike
+                     hover-preview cards, this always has a native tap target. -->
+                <button type="button" class="garage-skin-select-btn"
+                  [disabled]="isBuying || playerCar.skinId === s.id"
+                  (click)="onSkinCardClick(s); $event.stopPropagation()"
+                  [attr.aria-label]="(playerCar.skinId === s.id ? 'Active paint ' : 'Select paint ') + s.name">
+                  {{ playerCar.skinId === s.id ? 'ACTIVE' : (s.owned ? 'SELECT' : 'BUY / SELECT') }}
+                </button>
               </div>
             </div>
           </div>
