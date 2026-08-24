@@ -85,7 +85,7 @@
   align-content: center;
   font-size: small;
   display: inline-flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 4px;
 }
 
