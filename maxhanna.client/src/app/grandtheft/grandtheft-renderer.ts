@@ -1175,9 +1175,8 @@ void main() {
   }
   vec3 color = ambient + diffuse + specular + pointLightContribution;
   // Reliable daylight floor: materials stay readable even when the shadow map
-  // or a face normal points away from the sun.
-  color = max(color, baseColor.rgb * 0.52);
-  color += baseColor.rgb * 0.08;
+  // or a face normal points away from the sun.    color = max(color, baseColor.rgb * 0.58);
+  color += baseColor.rgb * 0.10;
   float fog = clamp((vDepth - uFogStart) / max(uFogEnd - uFogStart, 1.0), 0.0, 1.0);
   if (uDayBlend < 0.5) {
     for(int i = 0; i < MAX_POINT_LIGHTS; i++) {
@@ -1281,7 +1280,9 @@ void main() {
     vec3 horizonColor = mix(nightHorizon, dayHorizon, uDayBlend);
     vec3 gradColor = mix(horizonColor, zenithColor, pow(t, 0.8));
     float horizonFactor = pow(max(0.0, 1.0 - abs(dir.y)), 4.0);
-    vec3 skyColor = mix(texColor, gradColor, horizonFactor * 0.3);
+    // Keep the authored/procedural sky readable even when a texture is still
+    // loading or contains dark pixels; the gradient supplies the daylight fill.
+    vec3 skyColor = mix(texColor, gradColor, 0.62);
     float sunDot = max(dot(dir, uSunDir), 0.0);
     vec3 sunColor = mix(vec3(1.0, 0.4, 0.1), vec3(1.0, 0.95, 0.8), uDayBlend);
     float sunDisk = smoothstep(0.997, 0.999, sunDot);
@@ -4459,7 +4460,7 @@ void main() {
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
     // Keep a visible dusk-blue fallback while the procedural sky and optional
     // skybox texture are loading (or if the skybox asset fails).
-    gl.clearColor(0.045, 0.09, 0.18, 1.0);
+    gl.clearColor(0.10, 0.20, 0.38, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     const far = farPlane ?? 500.0;
     mat4.perspective(this.projMatrix, Math.PI / 4, aspect, 0.1, far);
@@ -4467,6 +4468,12 @@ void main() {
     const dirY = -Math.sin(camPitch);
     const dirZ = Math.cos(camYaw) * Math.cos(camPitch);
     mat4.lookAt(this.viewMatrix, [camX, camY, camZ], [camX + dirX, camY + dirY, camZ + dirZ], [0, 1, 0]);
+    // Draw the procedural sky before the world. The old sky pass was never
+    // called from the main render path, leaving the clear color (black) as the
+    // entire background whenever the optional GLTF sky asset was unavailable.
+    // This pass gives the scene a reliable blue daylight/dusk backdrop and
+    // keeps the horizon visible while assets stream in.
+    this.renderSkybox();
     gl.enable(gl.BLEND);
     gl.enable(gl.CULL_FACE);
     gl.enable(gl.DEPTH_TEST);
@@ -4479,8 +4486,10 @@ void main() {
     // the old dynamic-light path.
     const sunLen = Math.hypot(this.sunDir[0], this.sunDir[1], this.sunDir[2]) || 1;
     gl.uniform3f(this.lightDirLoc, this.sunDir[0] / sunLen, Math.max(0.35, this.sunDir[1] / sunLen), this.sunDir[2] / sunLen);
-    gl.uniform3f(this.lightColorLoc, this.lightColor[0], this.lightColor[1], this.lightColor[2]);
-    gl.uniform3f(this.ambientColorLoc, this.ambientColor[0], this.ambientColor[1], this.ambientColor[2]);
+    gl.uniform3f(this.lightColorLoc, 0.95, 0.92, 0.86);
+    // Lift the fill without flattening the scene: shaded faces retain gentle
+    // contrast, but no material can collapse into near-black after shadows.
+    gl.uniform3f(this.ambientColorLoc, 0.62, 0.66, 0.74);
     gl.uniform3f(this.fogColorLoc, this.skyColor[0], this.skyColor[1], this.skyColor[2]);
     // Fog tied to the view distance: starts at ~16% and is fully opaque at
     // ~66% of the far plane (the old hardcoded 80->330 range at the 500 default).
@@ -5109,37 +5118,11 @@ void main() {
       }
     }
     gl.enable(gl.DEPTH_TEST);
-    if (this.skyboxMesh && this.skyboxMesh.length > 0) {
-      gl.useProgram(this.gltfSkyProgram);
-      gl.uniformMatrix4fv(this.gltfSkyProjLoc, false, this.projMatrix);
-      const fwdX = Math.sin(camYaw) * Math.cos(camPitch);
-      const fwdY = -Math.sin(camPitch);
-      const fwdZ = Math.cos(camYaw) * Math.cos(camPitch);
-      const skyView = new Float32Array(this.viewMatrix);
-      skyView[12] = fwdX * 0.01; skyView[13] = fwdY * 0.01; skyView[14] = fwdZ * 0.01;
-      gl.uniformMatrix4fv(this.gltfSkyViewLoc, false, skyView);
-      gl.depthMask(false);
-      gl.depthFunc(gl.LEQUAL);
-      gl.disable(gl.CULL_FACE);
-      gl.disable(gl.BLEND);
-      const skyModel = mat4.create();
-      mat4.identity(skyModel);
-      mat4.translate(skyModel, skyModel, [0, -1, 0]);
-      gl.uniformMatrix4fv(this.gltfSkyModelLoc, false, skyModel);
-      for (const m of this.skyboxMesh) {
-        if (m.texture) {
-          gl.activeTexture(gl.TEXTURE0);
-          gl.bindTexture(gl.TEXTURE_2D, m.texture);
-          gl.uniform1i(this.gltfSkyTexLoc, 0);
-        }
-        gl.bindVertexArray(m.vao);
-        gl.drawElements(gl.TRIANGLES, m.indexCount, m.indexType || gl.UNSIGNED_SHORT, 0);
-      }
-      gl.depthFunc(gl.LESS);
-      gl.enable(gl.CULL_FACE);
-      gl.enable(gl.BLEND);
-      gl.depthMask(true);
-    }
+    // The procedural sky is the authoritative background. Do not draw the
+    // optional GLTF sky after the world: its depth-disabled pass can cover the
+    // already-lit scene with a black/untextured material when its texture has
+    // not loaded. The asset can still be loaded for compatibility, but the
+    // reliable gradient remains visible on every device.
   }
   private getTracerMesh(): CityMesh {
     if (this.meshCache.has('tracer')) return this.meshCache.get('tracer')!;

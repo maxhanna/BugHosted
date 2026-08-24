@@ -273,18 +273,68 @@ thead {
 .calendarSyncCard {
   margin-top: 18px;
   border: 1px solid var(--main-border-color, rgba(255,255,255,0.16));
-  border-radius: 10px;
-  padding: 14px;
+  border-radius: 12px;
+  padding: 16px;
   background: var(--secondary-component-background-color, rgba(0,0,0,0.08));
+  box-sizing: border-box;
+  text-align: left;
+  display: block;
+  width: 100%;
+  border-bottom: 0;
+}
+
+.calendarSyncHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 12px;
+  text-align: left;
+}
+
+.calendarSyncIcon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 38px;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: var(--main-highlight-color, #4f46e5);
+  font-size: 21px;
+}
+
+.calendarSyncTitle {
+  font-weight: 800;
+  font-size: 1.05rem;
+  line-height: 1.25;
+}
+
+.calendarSyncSubtitle {
+  margin-top: 3px;
+  color: var(--secondary-font-color, #94a3b8);
+  font-size: 12px;
+  line-height: 1.35;
 }
 
 .calendarSyncDescription {
   display: block;
+  width: 100%;
+  text-align: left;
 }
 
 .calendarSyncLead {
   margin: 0 0 12px;
   line-height: 1.45;
+  text-align: left;
+}
+
+.calendarSyncStep {
+  min-width: 0;
+}
+
+.calendarSyncStep strong,
+.calendarSyncStep small {
+  display: block;
+  text-align: left;
 }
 
 .calendarSyncSteps {
@@ -331,6 +381,8 @@ thead {
 
 .calendarSyncActions button {
   min-height: 38px;
+  white-space: normal;
+  line-height: 1.25;
 }
 
 .calendarSyncPrimary {
@@ -341,6 +393,11 @@ thead {
 .calendarSyncNote {
   margin-top: 11px;
   line-height: 1.4;
+}
+
+.calendarFeedTitle {
+  font-weight: 750;
+  line-height: 1.3;
 }
 
 .calendarFeedSection {
@@ -378,14 +435,64 @@ thead {
   .calendarFeedUrlRow {
     flex-direction: column;
   }
-}
 
-@media only screen and (max-width: 600px) {
+  .calendarSyncCard {
+    margin-top: 14px;
+    padding: 13px;
+    border-radius: 10px;
+  }
+
+  .calendarSyncHeader {
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .calendarSyncIcon {
+    flex-basis: 34px;
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    font-size: 18px;
+  }
+
+  .calendarSyncTitle {
+    font-size: 0.98rem;
+  }
+
+  .calendarSyncSubtitle {
+    font-size: 11px;
+  }
+
+  .calendarSyncSteps {
+    gap: 10px;
+    margin-top: 12px;
+  }
+
+  .calendarSyncSteps > div {
+    grid-template-columns: 26px minmax(0, 1fr);
+    column-gap: 7px;
+  }
+
+  .calendarSyncSteps span {
+    width: 23px;
+    height: 23px;
+    font-size: 12px;
+  }
+
   .calendarSyncActions {
     flex-direction: column;
+    gap: 7px;
   }
 
   .calendarSyncActions button {
     width: 100%;
+    min-height: 44px;
+    padding: 9px 12px;
+    text-align: center;
+  }
+
+  .calendarSyncNote,
+  .calendarFeedHelp {
+    font-size: 11px;
   }
 }

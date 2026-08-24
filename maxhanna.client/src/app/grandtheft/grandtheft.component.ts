@@ -734,6 +734,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.initRadio();
     document.addEventListener('keydown', this.onKeyDown);
     document.addEventListener('keyup', this.onKeyUp);
+    window.addEventListener('blur', this.onInputBlur);
+    document.addEventListener('visibilitychange', this.onInputVisibilityChange);
     if (!this.isMobile) document.addEventListener('wheel', this.onWeaponWheel, { passive: false });
     if (!this.isMobile) {
       document.addEventListener('mousemove', this.onMouseMove);
@@ -806,6 +808,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     window.removeEventListener('beforeunload', this.onWorldSave);
     document.removeEventListener('keydown', this.onKeyDown);
     document.removeEventListener('keyup', this.onKeyUp);
+    window.removeEventListener('blur', this.onInputBlur);
+    document.removeEventListener('visibilitychange', this.onInputVisibilityChange);
     document.removeEventListener('wheel', this.onWeaponWheel);
     document.removeEventListener('mousemove', this.onMouseMove);
     canvas.removeEventListener('mousedown', this.onMouseDown);
@@ -3808,6 +3812,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.animFrameId = requestAnimationFrame(this.gameLoop);
       return;
     }
+    // A missed keyup (window blur, pointer-lock transition, or mobile browser
+    // suspension) must never leave the player permanently frozen. Movement is
+    // re-enabled immediately after the arrest/death cinematic has ended.
+    if (this._arrested && this.bustCamTimer <= 0 && this.health > 0) this._arrested = false;
     if (this.health <= 0) {
       // Dead — freeze the body so the death cam stays centered on the corpse.
       // No movement, no vehicle updates; the render block below runs the pan.
@@ -7556,8 +7564,16 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   closeMenuPanel() {
     this.showMenuPanel = false;
   }
+  onViewDistanceInput(event: Event): void {
+    const value = Number((event.target as HTMLInputElement)?.value);
+    if (!Number.isFinite(value)) return;
+    this.setViewDistance(value);
+    this.saveGtSettings();
+    this.cdr.detectChanges();
+  }
+
   setViewDistance(dist: number) {
-    this.viewDistance = dist;
+    this.viewDistance = Math.min(1000, Math.max(100, Number(dist) || 500));
     // Generate the newly-revealed chunks off to the side (debounced) so the
     // first frame after raising the slider doesn't hitch while building them.
     if (this._prewarmTimer) clearTimeout(this._prewarmTimer);
@@ -7727,6 +7743,21 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.keys.delete(e.code);
     if (e.code === 'Space') this.altUpPressed = false;
     if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') this.altDownPressed = false;
+  };
+  private clearMovementInput = () => {
+    this.keys.clear();
+    this.altUpPressed = false;
+    this.altDownPressed = false;
+    this.joystickActive = false;
+    this.joystickId = -1;
+    this.resetJoystick();
+    this.carVx = 0;
+    this.carVz = 0;
+    this.carSpeed = 0;
+  };
+  private onInputBlur = () => this.clearMovementInput();
+  private onInputVisibilityChange = () => {
+    if (document.hidden) this.clearMovementInput();
   };
   private onMouseMove = (e: MouseEvent) => {
     if (!this.isPointerLocked) return;

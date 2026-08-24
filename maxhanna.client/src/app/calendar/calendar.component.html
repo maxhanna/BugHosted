@@ -207,15 +207,21 @@
           Calendar notifications are sent using your local timezone (e.g. 15 min before, 1 hr before), not the server's.
         </div>
       </div>
-    </div>
-  </div>    <div class="optionsStatsDiv calendarSyncCard">
-      <div class="optionsStatsHeader">Connect your whole calendar</div>
+    </div>    </div>
+    <div class="optionsStatsDiv calendarSyncCard">
+      <div class="calendarSyncHeader">
+        <span class="calendarSyncIcon" aria-hidden="true">🗓️</span>
+        <div>
+          <div class="calendarSyncTitle">Connect your whole calendar</div>
+          <div class="calendarSyncSubtitle">Keep BugHosted and your everyday calendar in sync.</div>
+        </div>
+      </div>
       <div class="optionsStatsDescription calendarSyncDescription">
-        <p class="calendarSyncLead">Choose how you want to bring <strong>all of your BugHosted events</strong> into another calendar. You do not need to add events one at a time.</p>
+        <p class="calendarSyncLead">Export <strong>all of your BugHosted events</strong> at once, or create a private subscription that refreshes automatically.</p>
         <div class="calendarSyncSteps">
-          <div><span>1</span><strong>Pick a calendar app</strong><small>Google Calendar or Apple Calendar on iPhone</small></div>
-          <div><span>2</span><strong>Export this month</strong><small>Download an .ics file containing every event currently loaded</small></div>
-          <div><span>3</span><strong>Import it once</strong><small>Google: Settings → Import & export · iPhone: open the file and tap Add All</small></div>
+          <div class="calendarSyncStep"><span>1</span><strong>Choose an app</strong><small>Google Calendar or Apple Calendar</small></div>
+          <div class="calendarSyncStep"><span>2</span><strong>Download your events</strong><small>Get one .ics file for the selected month</small></div>
+          <div class="calendarSyncStep"><span>3</span><strong>Import once</strong><small>Follow the short Google or iPhone instructions below</small></div>
         </div>
         <div class="calendarSyncActions">
           <button class="calendarSyncPrimary" (click)="downloadIcs()">⬇️ Download all events (.ics)</button>
@@ -223,9 +229,8 @@
           <button (click)="openAppleImportHelp()">🍎 How to add on iPhone</button>
         </div>
         <div class="calendarSyncNote">Currently exporting {{ calendarEntries.length }} event{{ calendarEntries.length === 1 ? '' : 's' }} from the selected month. Re-export after adding or editing events.</div>
-        <div class="calendarFeedSection" *ngIf="parentRef?.user?.id">
-          <strong>Permanent subscription</strong>
-          <p class="xSmallFont secondaryFontColor">Create one private link. Google Calendar and Apple Calendar will periodically refresh it with your latest BugHosted events.</p>
+        <div class="calendarFeedSection" *ngIf="parentRef?.user?.id">            <div class="calendarFeedTitle">🔄 Permanent subscription</div>
+          <p class="xSmallFont secondaryFontColor">Create one private link and let Google Calendar or Apple Calendar refresh your latest events automatically.</p>
           <button (click)="connectCalendarFeed()" [disabled]="calendarFeedLoading">🔄 {{ calendarFeedLoading ? 'Creating link...' : 'Create subscription link' }}</button>
           <div *ngIf="calendarFeedUrl" class="calendarFeedUrlRow">
             <input [value]="calendarFeedUrl" readonly aria-label="Private calendar subscription link" />
