@@ -4072,7 +4072,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
       idxs.push(vi + 2, vi + 5, vi + 4);
       // The Golden Gate shoulder is the bridge's steel deck walkway (narrow)
       // instead of a turf runoff — see drawWorldScene's per-theme deck tex.
-      const shoulderW = this.theme === 'golden' ? 5 : 20;
+      // Narrow the runoff at bends; the previous 20-unit ribbon could cover
+      // the track when adjacent corner segments diverged.
+      const shoulderW = this.theme === 'golden' ? 5 : 14;
       const gu = cumLen[i] / TRACK_GRASS_TILE;
       const guN = cumLen[(i + 1) % pts.length] / TRACK_GRASS_TILE;
       // The shoulder is a separate mesh drawn with its own grass texture (see
@@ -4154,7 +4156,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
       // Keep the barrier close to the actual offset curve. A fixed +2.5m
       // offset is too aggressive at tight bends and lets the mitered faces
       // cut across the outside scenery as large gray wedges.
-      const barrierOffset = 1.45;
+      // Keep bend-side geometry tucked just outside the painted curb. A wide
+      // offset plus miter can overlap the road-facing terrain at tight turns.
+      const barrierOffset = 0.85;
       const bw = hw + barrierOffset * miterScale;
       const bwN = hwN + barrierOffset * nextMiterScale;
       const striped = Math.floor(i / 4) % 2 === 0;
@@ -4170,7 +4174,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
       barIdxs.push(lb + 1, lb + 3, lb + 2);
       // Embankment skirt — solid wall from the barrier down to the ground plane
       // (y -0.26, where the theme ground quads sit) so elevated sections read as
-      // a raised roadbed, not a floating strip.
+      // a raised roadbed, not a floating strip. On bends, cap the skirt at the
+      // local surface instead of allowing a long corner quad to fan across the
+      // track and show up as a gray blotch.
       const sk = barVerts.length / 11;
       barVerts.push(p.x + edgeX * bw, py + bank * bw, p.z + edgeZ * bw, ppx, 0, ppz, 0.3, 0.28, 0.22, 0, 0);
       barVerts.push(n.x + edgeNX * bwN, ny + bankN * bwN, n.z + edgeNZ * bwN, npx, 0, npz, 0.3, 0.28, 0.22, 1, 0);
