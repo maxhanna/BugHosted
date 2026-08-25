@@ -302,8 +302,21 @@ export class GrandtheftService {
   constructor(private http: HttpClient) { }
 
   async getNPCs(worldId: number, posX: number, posZ: number, userId: number): Promise<GTNPCResponse | null> {
+    // This endpoint is polled continuously while the game is running. Use a
+    // single native request here so a failed/aborted read cannot re-enter an
+    // RxJS subscription chain and starve the game loop.
     try {
-      return await this.http.get<GTNPCResponse>(`${this.baseUrl}/npcs/${worldId}?posX=${posX}&posZ=${posZ}&userId=${userId}`).toPromise() ?? null;
+      const query = new URLSearchParams({
+        posX: String(posX),
+        posZ: String(posZ),
+        userId: String(userId),
+      });
+      const response = await fetch(`${this.baseUrl}/npcs/${worldId}?${query.toString()}`, {
+        credentials: 'same-origin',
+        cache: 'no-store',
+      });
+      if (!response.ok) return null;
+      return await response.json() as GTNPCResponse;
     } catch (e) {
       console.error('Error fetching NPCs', e);
       return null;

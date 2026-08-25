@@ -746,12 +746,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (this.isMobile) {
       setTimeout(() => this.initTouchControls(canvas), 0);
     }
-    if (!this.isMobile) {
-      this.ngZone.runOutsideAngular(() => {
-        this.lastTime = performance.now();
-        this.gameLoop(this.lastTime);
-      });
-    }
     this.ngZone.runOutsideAngular(() => {
       this.startPolling();
       this.startNPCPolling();
@@ -1628,20 +1622,25 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private stopPolling() { if (this._pollTimer) { clearTimeout(this._pollTimer); this._pollTimer = null; } }
   private startNPCPolling() {
     this.stopNPCPolling();
+    const generation = ++this._npcPollGeneration;
     const schedule = () => {
-      if (this._destroyed) return;
+      if (this._destroyed || generation !== this._npcPollGeneration) return;
       this.pollNPCs().finally(() => {
-        if (!this._destroyed) this._npcPollTimer = setTimeout(schedule, 1000);
+        if (!this._destroyed && generation === this._npcPollGeneration) {
+          this._npcPollTimer = setTimeout(schedule, 1000);
+        }
       });
     };
     schedule();
   }
   private stopNPCPolling() {
+    ++this._npcPollGeneration;
     if (this.npcPollTimer) { clearInterval(this.npcPollTimer); this.npcPollTimer = null; }
     if (this._npcPollTimer) { clearTimeout(this._npcPollTimer); this._npcPollTimer = null; }
   }
   private _npcPollInFlight = false;
   private _npcPollTimer: any = null;
+  private _npcPollGeneration = 0;
   private async pollNPCs(): Promise<void> {
     if (this._destroyed || this._npcPollInFlight) return;
     this._npcPollInFlight = true;
@@ -7524,8 +7523,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       });
     }
   }
-  async closeLoginPanel() {
-    await this.ngOnInit();
+  closeLoginPanel() {
+    // The login overlay is a child view. Re-running Angular initialization here
+    // creates a second polling chain and can recurse through NPC responses.
+    this.restorePlayerState();
+    this.restoreGtSettings();
   }
   // ── High-scores leaderboard (persistent kills / deaths / money) ────────────
   private toggleLeaderboard() {

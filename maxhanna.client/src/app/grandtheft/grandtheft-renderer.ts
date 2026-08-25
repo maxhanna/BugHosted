@@ -607,6 +607,7 @@ export class GrandTheftRenderer {
   private skyStarryTexture: WebGLTexture | null = null;
   private defaultTexture: WebGLTexture;
   viewMatrix = mat4.create();
+  private skyViewMatrix = mat4.create();
   projMatrix = mat4.create();
   private modelMatrix = mat4.create();
   private chunkCache = new Map<string, CityChunk>();
@@ -1324,10 +1325,10 @@ void main() {
     gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 12, 0);
     gl.bindVertexArray(null);
     const gVs = `#version 300 es
-in vec3 aPos;
-in vec3 aNormal;
-in vec4 aColor;
-in vec2 aUV;
+layout(location = 0) in vec3 aPos;
+layout(location = 1) in vec3 aNormal;
+layout(location = 2) in vec4 aColor;
+layout(location = 3) in vec2 aUV;
 uniform mat4 uProj;
 uniform mat4 uView;
 uniform mat4 uModel;
@@ -1356,23 +1357,52 @@ void main() {
     gl.depthMask(false);
     gl.disable(gl.DEPTH_TEST);
     gl.disable(gl.CULL_FACE);
-    gl.useProgram(this.skyProgram);
-    gl.uniformMatrix4fv(this.skyProjLoc, false, this.projMatrix);
-    gl.uniformMatrix4fv(this.skyViewLoc, false, this.viewMatrix);
-    gl.uniform3f(this.skySunDirLoc, this.sunDir[0], this.sunDir[1], this.sunDir[2]);
-    gl.uniform3f(this.skyMoonDirLoc, this.moonDir[0], this.moonDir[1], this.moonDir[2]);
-    gl.uniform1f(this.skyDayBlendLoc, this.dayBlend);
-    gl.uniform1f(this.skyTimeLoc, performance.now() / 1000);
-    gl.activeTexture(gl.TEXTURE2);
-    gl.bindTexture(gl.TEXTURE_2D, this.skyCloudyTexture || this.defaultTexture);
-    gl.uniform1i(this.skyDayTexLoc, 2);
-    gl.activeTexture(gl.TEXTURE3);
-    gl.bindTexture(gl.TEXTURE_2D, this.skyStarryTexture || this.defaultTexture);
-    gl.uniform1i(this.skyNightTexLoc, 3);
-    gl.bindVertexArray(this.skyVao);
-    gl.drawArrays(gl.TRIANGLES, 0, 36);
-    gl.bindVertexArray(null);
+    gl.disable(gl.BLEND);
+
+    // The authored sky asset is a camera-sized cube. Keep it centered on the
+    // camera so its world-space origin cannot leave the view after driving away
+    // from spawn. Fall back to the procedural sky when the texture is absent.
+    const texturedSky = this.skyboxMesh?.some(m => !!m.texture);
+    if (texturedSky && this.gltfSkyProgram && this.skyboxMesh) {
+      gl.useProgram(this.gltfSkyProgram);
+      gl.uniformMatrix4fv(this.gltfSkyProjLoc, false, this.projMatrix);
+      mat4.identity(this.modelMatrix);
+      // The loader centers and normalizes this cube around the origin. The
+      // translation-free sky view makes that origin camera-relative.
+      mat4.scale(this.modelMatrix, this.modelMatrix, [500, 500, 500]);
+      for (const mesh of this.skyboxMesh) {
+        if (!mesh.texture) continue;
+        gl.uniformMatrix4fv(this.gltfSkyViewLoc, false, this.skyViewMatrix);
+        gl.uniformMatrix4fv(this.gltfSkyModelLoc, false, this.modelMatrix);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, mesh.texture);
+        gl.uniform1i(this.gltfSkyTexLoc, 0);
+        gl.bindVertexArray(mesh.vao);
+        gl.drawElements(gl.TRIANGLES, mesh.indexCount, mesh.indexType || gl.UNSIGNED_SHORT, 0);
+      }
+      gl.bindVertexArray(null);
+    } else {
+      gl.useProgram(this.skyProgram);
+      gl.uniformMatrix4fv(this.skyProjLoc, false, this.projMatrix);
+      gl.uniformMatrix4fv(this.skyViewLoc, false, this.skyViewMatrix);
+      gl.uniform3f(this.skySunDirLoc, this.sunDir[0], this.sunDir[1], this.sunDir[2]);
+      gl.uniform3f(this.skyMoonDirLoc, this.moonDir[0], this.moonDir[1], this.moonDir[2]);
+      gl.uniform1f(this.skyDayBlendLoc, this.dayBlend);
+      gl.uniform1f(this.skyTimeLoc, performance.now() / 1000);
+      gl.activeTexture(gl.TEXTURE2);
+      gl.bindTexture(gl.TEXTURE_2D, this.skyCloudyTexture || this.defaultTexture);
+      gl.uniform1i(this.skyDayTexLoc, 2);
+      gl.activeTexture(gl.TEXTURE3);
+      gl.bindTexture(gl.TEXTURE_2D, this.skyStarryTexture || this.defaultTexture);
+      gl.uniform1i(this.skyNightTexLoc, 3);
+      gl.bindVertexArray(this.skyVao);
+      gl.drawArrays(gl.TRIANGLES, 0, 36);
+      gl.bindVertexArray(null);
+    }
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, null);
     gl.enable(gl.DEPTH_TEST);
+    gl.enable(gl.BLEND);
     gl.depthMask(true);
   }
   async initPlayerModel(modelUrl?: string, needsFlip: boolean = true): Promise<void> {
@@ -4406,7 +4436,7 @@ void main() {
           if (distSq > 200 * 200) continue;  
           const fwdX = Math.sin(camYaw), fwdZ = Math.cos(camYaw);
           if (ddx * fwdX + ddz * fwdZ < -CHUNK_SIZE) continue; 
-          this.drawMesh(chunk.mesh, 0, 0, 0, 0, [1, 1, 1], [1, 1, 1, 1]);
+          this.drawMesh(chunk.mesh, 0, 0, 0, 0, [1, 1, 1], [1, 1, 1, 1], true);
           for (const bld of chunk.buildings) {
             this.drawMesh(bld.model, bld.x, bld.y, bld.z, bld.yaw, bld.scale, [1, 1, 1, 1], true);
           }
@@ -4468,6 +4498,13 @@ void main() {
     const dirY = -Math.sin(camPitch);
     const dirZ = Math.cos(camYaw) * Math.cos(camPitch);
     mat4.lookAt(this.viewMatrix, [camX, camY, camZ], [camX + dirX, camY + dirY, camZ + dirZ], [0, 1, 0]);
+    this.skyViewMatrix.set(this.viewMatrix);
+    // Sky geometry is centered on the camera and must not inherit world
+    // translation. Keeping only camera rotation prevents it disappearing after
+    // the player travels away from the origin.
+    this.skyViewMatrix[12] = 0;
+    this.skyViewMatrix[13] = 0;
+    this.skyViewMatrix[14] = 0;
     // Draw the procedural sky before the world. The old sky pass was never
     // called from the main render path, leaving the clear color (black) as the
     // entire background whenever the optional GLTF sky asset was unavailable.
