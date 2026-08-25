@@ -1626,9 +1626,22 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
   private startPolling() { this.pollMultiplayer(); }
   private stopPolling() { if (this._pollTimer) { clearTimeout(this._pollTimer); this._pollTimer = null; } }
-  private startNPCPolling() { this.pollNPCs(); this.npcPollTimer = setInterval(() => this.pollNPCs(), 1000); }
-  private stopNPCPolling() { if (this.npcPollTimer) { clearInterval(this.npcPollTimer); this.npcPollTimer = null; } }
+  private startNPCPolling() {
+    this.stopNPCPolling();
+    const schedule = () => {
+      if (this._destroyed) return;
+      this.pollNPCs().finally(() => {
+        if (!this._destroyed) this._npcPollTimer = setTimeout(schedule, 1000);
+      });
+    };
+    schedule();
+  }
+  private stopNPCPolling() {
+    if (this.npcPollTimer) { clearInterval(this.npcPollTimer); this.npcPollTimer = null; }
+    if (this._npcPollTimer) { clearTimeout(this._npcPollTimer); this._npcPollTimer = null; }
+  }
   private _npcPollInFlight = false;
+  private _npcPollTimer: any = null;
   private async pollNPCs(): Promise<void> {
     if (this._destroyed || this._npcPollInFlight) return;
     this._npcPollInFlight = true;
