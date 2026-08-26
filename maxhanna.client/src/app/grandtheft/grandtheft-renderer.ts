@@ -1367,9 +1367,12 @@ void main() {
       gl.useProgram(this.gltfSkyProgram);
       gl.uniformMatrix4fv(this.gltfSkyProjLoc, false, this.projMatrix);
       mat4.identity(this.modelMatrix);
-      // The loader centers and normalizes this cube around the origin. The
-      // translation-free sky view makes that origin camera-relative.
-      mat4.scale(this.modelMatrix, this.modelMatrix, [500, 500, 500]);
+      // This asset is authored at a very large world scale (its embedded node
+      // transform still leaves a roughly 250,000-unit cube). Bring it down to
+      // a camera-sized shell instead of multiplying it by 500, which pushed
+      // the vertices beyond useful depth/precision and left only the clear
+      // color visible.
+      mat4.scale(this.modelMatrix, this.modelMatrix, [0.001, 0.001, 0.001]);
       for (const mesh of this.skyboxMesh) {
         if (!mesh.texture) continue;
         gl.uniformMatrix4fv(this.gltfSkyViewLoc, false, this.skyViewMatrix);
@@ -4298,6 +4301,10 @@ void main() {
       mat4.scale(this.modelMatrix, this.modelMatrix, scale);
     }
     if (isShadowPass) {
+      // Shadow draws use a different shader contract. Bind it here rather than
+      // relying on the caller's previous program state; otherwise the depth
+      // uniform locations belong to the wrong program and WebGL rejects them.
+      this.gl.useProgram(this.depthProgram);
       this.gl.uniformMatrix4fv(this.depthModelLoc, false, this.modelMatrix);
     } else {
       this.gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);

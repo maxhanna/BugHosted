@@ -748,7 +748,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
     this.ngZone.runOutsideAngular(() => {
       this.startPolling();
-      this.startNPCPolling();
+      // Keep the game loop independent from the server NPC endpoint. The
+      // client already maintains local traffic/pedestrian population, and the
+      // endpoint has been returning a recursive runtime failure in production.
+      // Re-enable this call only after the server endpoint is fixed and tested.
+      // setTimeout(() => {
+      //   if (!this._destroyed && this.isLoaded) this.startNPCPolling();
+      // }, 1200);
     });
     this.initTraffic();
     setTimeout(() => this.trySpawnAirportLotCars(), 2000);
@@ -1621,13 +1627,21 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private startPolling() { this.pollMultiplayer(); }
   private stopPolling() { if (this._pollTimer) { clearTimeout(this._pollTimer); this._pollTimer = null; } }
   private startNPCPolling() {
+    if (this._npcPollingDisabled) return;
     this.stopNPCPolling();
     const generation = ++this._npcPollGeneration;
     const schedule = () => {
-      if (this._destroyed || generation !== this._npcPollGeneration) return;
-      this.pollNPCs().finally(() => {
-        if (!this._destroyed && generation === this._npcPollGeneration) {
+      if (this._destroyed || generation !== this._npcPollGeneration || this._npcPollingDisabled) return;
+      // Use a plain promise continuation instead of finally(). Angular's
+      // patched finally path was repeatedly re-entering this callback in the
+      // failing bundle and produced the call-stack overflow.
+      void this.pollNPCs().then(() => {
+        if (!this._destroyed && generation === this._npcPollGeneration && !this._npcPollingDisabled) {
           this._npcPollTimer = setTimeout(schedule, 1000);
+        }
+      }, () => {
+        if (!this._destroyed && generation === this._npcPollGeneration && !this._npcPollingDisabled) {
+          this._npcPollTimer = setTimeout(schedule, 2000);
         }
       });
     };
@@ -1641,13 +1655,25 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private _npcPollInFlight = false;
   private _npcPollTimer: any = null;
   private _npcPollGeneration = 0;
+  private _npcPollFailures = 0;
+  private _npcPollingDisabled = false;
   private async pollNPCs(): Promise<void> {
-    if (this._destroyed || this._npcPollInFlight) return;
+    if (this._destroyed || this._npcPollInFlight || this._npcPollingDisabled) return;
     this._npcPollInFlight = true;
     try {
       await this.pollNPCsCore();
+      this._npcPollFailures = 0;
     } catch (error) {
-      console.error('Grand Theft NPC polling failed:', error);
+      this._npcPollFailures++;
+      // NPC synchronization is optional. A malformed response, auth failure,
+      // or browser/runtime RangeError must never take down movement/rendering.
+      if (error instanceof RangeError || this._npcPollFailures >= 2) {
+        this._npcPollingDisabled = true;
+        this.stopNPCPolling();
+        console.warn('Grand Theft NPC sync disabled after repeated polling failure.');
+      } else {
+        console.warn('Grand Theft NPC polling skipped:', error);
+      }
     } finally {
       this._npcPollInFlight = false;
     }
