@@ -26,13 +26,6 @@
                     <button *ngIf="searchTerm" class="tradeLogSearchClear" (click)="clearLogSearch()" title="Clear search">✕</button>
                 </div>
                 <div class="tradeLogOptionsRow">
-                    <label class="tradeLogOptionLabel tradeLogCheckboxLabel">
-                        <input type="checkbox" [checked]="showTradeReserves"
-                            (change)="onTradeReservesToggle($event)" />
-                        Show trade reserves
-                    </label>
-                </div>
-                <div class="tradeLogOptionsRow">
                     <label class="tradeLogOptionLabel">From
                         <input type="date" [value]="logFromDate"
                             (input)="onLogFilterInput($event, 'logFromDate')" /></label>

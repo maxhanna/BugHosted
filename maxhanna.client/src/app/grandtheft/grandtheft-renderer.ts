@@ -2727,7 +2727,8 @@ void main() {
             this.addBox(verts, indices, sx, avgY - 1.5, gz, sliceLen, 1.8, 0.55, 0.30, 0.30, 0.33, 1.0, idxOffset); idxOffset += 24;
           }
           if (si % 2 === 0) {
-            // Truss ladder cross-beams between the edge girders
+            // Truss ladder cross-beams stay below the deck, where they are
+            // structural detail rather than obstacles in the driving lane.
             this.addBox(verts, indices, sx, avgY - 1.15, roadCenterZ, sliceLen, 0.4, bridgeW - 5, 0.27, 0.27, 0.30, 1.0, idxOffset); idxOffset += 24;
             // Railing posts standing on the parapet
             for (const side of [-1, 1]) {
@@ -2773,10 +2774,16 @@ void main() {
           }
           // Portal frames connecting both legs — one at the top, one just
           // above the deck — the classic suspension-tower silhouette.
+          // Keep the tower's cross-members above the traffic envelope. The
+          // lower portal and plinth used to span the roadway at head/vehicle
+          // height, which appeared as horizontal bars cutting through the road.
+          // The legs still provide the support silhouette while the clear span
+          // remains open for cars.
           this.addBox(verts, indices, tx, baseY + towerH + 1.0, tz, 1.2, 2.6, legZ * 2 - 0.4, 0.42, 0.42, 0.45, 1.0, idxOffset); idxOffset += 24;
-          this.addBox(verts, indices, tx, baseY + 2.8, tz, 1.5, 0.9, legZ * 2 - 1.0, 0.42, 0.42, 0.45, 1.0, idxOffset); idxOffset += 24;
-          // Pedestal plinth where the legs meet the deck
-          this.addBox(verts, indices, tx, baseY + 0.55, tz, 3.0, 1.1, legZ * 2 - 0.4, 0.36, 0.36, 0.39, 1.0, idxOffset); idxOffset += 24;
+          // Pedestals are placed under each leg rather than across the street.
+          for (const lz of [tz - legZ, tz + legZ]) {
+            this.addBox(verts, indices, tx, baseY + 0.55, lz, 3.0, 1.1, 2.0, 0.36, 0.36, 0.39, 1.0, idxOffset); idxOffset += 24;
+          }
           const topY = baseY + towerH;
           // Main span cable: from this tower toward the span center (each
           // tower builds its own half, so the span is never doubled).

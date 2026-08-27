@@ -62,6 +62,7 @@ export class CryptoTradeHistoryComponent extends ChildComponent implements After
   receivedMin = '';
   receivedMax = '';
   hasPrice = false;
+  showTradeReserves = false;
   exportingHistory = false;
 
   ngAfterViewInit(): void {
@@ -238,6 +239,7 @@ export class CryptoTradeHistoryComponent extends ChildComponent implements After
       receivedMin: this.numOrUndefined(this.receivedMin),
       receivedMax: this.numOrUndefined(this.receivedMax),
       hasPrice: this.hasPrice,
+      showTradeReserves: this.showTradeReserves,
       exportAll,
     };
   }
@@ -280,6 +282,7 @@ export class CryptoTradeHistoryComponent extends ChildComponent implements After
     this.receivedMin = '';
     this.receivedMax = '';
     this.hasPrice = false;
+    this.showTradeReserves = false;
     this.currentTradePage = 1;
     this.checkBalance();
   }

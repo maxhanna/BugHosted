@@ -13,6 +13,7 @@ export interface TradeHistoryFilters {
   receivedMin?: number;
   receivedMax?: number;
   hasPrice?: boolean;
+  showTradeReserves?: boolean;
   exportAll?: boolean; // fetch every matching row for CSV reports
 }
 

@@ -100,14 +100,13 @@
     </div>
 
     <div id="gt-hud">
-      <div id="gt-speedometer">
+      <div id="gt-speedometer" *ngIf="isInCar">
         <span id="gt-speed-value">{{ hudSpeed | number: '1.0-0' }}</span>
         <span id="gt-speed-unit">km/h</span>
       </div>
-      <div id="gt-score">
-        <span id="gt-score-label">SCORE</span>
-        <span id="gt-score-value">{{ score }}</span>
-      </div>
+      <button id="gt-score" type="button" (click)="toggleLeaderboard()" (touchstart)="onButtonTouch($event)">
+        <span id="gt-score-label">SCORES</span>
+      </button>
       <div id="gt-money">
         <span id="gt-money-label">$</span>
         <span id="gt-money-value">{{ money }}</span>

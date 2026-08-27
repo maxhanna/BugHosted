@@ -26,6 +26,13 @@
                     <button *ngIf="searchTerm" class="tradeHistorySearchClear" (click)="clearTradeSearch()" title="Clear search">✕</button>
                 </div>
                 <div class="tradeHistoryOptionsRow">
+                    <label class="tradeHistoryOptionLabel tradeHistoryCheckboxLabel">
+                        <input type="checkbox" [checked]="showTradeReserves"
+                            (change)="onHistoryFilterCheck($event, 'showTradeReserves')" />
+                        Show trade reserves
+                    </label>
+                </div>
+                <div class="tradeHistoryOptionsRow">
                     <label class="tradeHistoryOptionLabel">Match Trade ID
                         <input type="number" [value]="matchingTradeId"
                             (input)="onHistoryFilterInput($event, 'matchingTradeId')" /></label>

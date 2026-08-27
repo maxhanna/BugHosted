@@ -2324,6 +2324,8 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   private processInput(dt: number) {
     let gas = 0, brake = 0, steerTarget = 0;
     if (this.keys.has('KeyW') || this.keys.has('ArrowUp')) gas = 1;
+    // S / ArrowDown are brake-only inputs. Keep them out of the throttle path
+    // so releasing the accelerator while braking can never add positive thrust.
     if (this.keys.has('KeyS') || this.keys.has('ArrowDown')) brake = 1;
     if (this.keys.has('KeyA') || this.keys.has('ArrowLeft')) steerTarget = 1;
     if (this.keys.has('KeyD') || this.keys.has('ArrowRight')) steerTarget = -1;
