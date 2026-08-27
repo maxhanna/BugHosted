@@ -301,26 +301,11 @@ export class GrandtheftService {
 
   constructor(private http: HttpClient) { }
 
-  async getNPCs(worldId: number, posX: number, posZ: number, userId: number): Promise<GTNPCResponse | null> {
-    // This endpoint is polled continuously while the game is running. Use a
-    // single native request here so a failed/aborted read cannot re-enter an
-    // RxJS subscription chain and starve the game loop.
-    try {
-      const query = new URLSearchParams({
-        posX: String(posX),
-        posZ: String(posZ),
-        userId: String(userId),
-      });
-      const response = await fetch(`${this.baseUrl}/npcs/${worldId}?${query.toString()}`, {
-        credentials: 'same-origin',
-        cache: 'no-store',
-      });
-      if (!response.ok) return null;
-      return await response.json() as GTNPCResponse;
-    } catch (e) {
-      console.error('Error fetching NPCs', e);
-      return null;
-    }
+  async getNPCs(_worldId: number, _posX: number, _posZ: number, _userId: number): Promise<GTNPCResponse | null> {
+    // Server NPC synchronization is disabled until the production endpoint is
+    // repaired. Local traffic/pedestrians keep the game populated, and this
+    // guard prevents any legacy caller from re-entering the failed request path.
+    return null;
   }
 
   // Spawns a moving NPC taxi on the server so a finished taxi ride "becomes"
@@ -365,7 +350,15 @@ export class GrandtheftService {
       if (ownedWeapons) body.ownedWeapons = ownedWeapons;
       if (ammo) body.ammo = ammo;
       if (wantedLevel !== undefined) body.wantedLevel = wantedLevel;
-      return await this.http.post<GTUpdatePositionResponse>(`${this.baseUrl}/updateposition`, body).toPromise() ?? null;
+      const response = await fetch(`${this.baseUrl}/updateposition`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
+        body: JSON.stringify(body),
+      });
+      if (!response.ok) return null;
+      return await response.json() as GTUpdatePositionResponse;
     } catch (e) {
       console.error('Error updating position', e);
       return null;

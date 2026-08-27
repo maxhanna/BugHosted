@@ -134,7 +134,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private isPointerLocked = false;
   serverNPCs: { id: number; x: number; y: number; z: number; yaw: number; type: string; mesh: CityMesh | CityMesh[]; health: number; colorR: number; colorG: number; colorB: number; remoteShootTimer?: number; prevX: number; prevZ: number; prevYaw: number; targetX: number; targetZ: number; targetYaw: number; speed: number; lastUpdate: number; gender?: string; hasDriver?: boolean; passengerCount?: number; isShootingAt?: boolean; isBurning?: boolean; isSmoking?: boolean; isFleeing?: boolean; isArresting?: boolean; meleeTargetId?: number; maxHealth?: number }[] = [];
   serverPedestrians: { id: number; x: number; z: number; yaw: number; gender: string; type?: string; mesh: CityMesh | CityMesh[]; health: number; prevX: number; prevZ: number; prevYaw: number; targetX: number; targetZ: number; targetYaw: number; speed: number; lastUpdate: number; isDucking?: boolean; isArresting?: boolean; isSwimming?: boolean; meleeTargetId?: number }[] = [];
-  private npcPollTimer: any = null;
   parkedCars: ParkedCar[] = [];
   // World persistence: throttled snapshot of player position + nearby local
   // parked cars so a refresh drops you back where you were, cars included.
@@ -457,6 +456,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private policeSirenSound: HTMLAudioElement | null = null;
   private audioUnlocked = false;
   private _pollTimer: any = null;
+  private _pollInFlight = false;
+  private _pollFailureCount = 0;
+  private _frameInProgress = false;
   private _destroyed = false;
   private autoFireTimer: any = null;
   private _allNPCs: any[] = [];
@@ -822,7 +824,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     document.removeEventListener('touchmove', this.onDocTouchMove);
     document.removeEventListener('touchend', this.onDocTouchEnd);
     this.stopPolling();
-    this.stopNPCPolling();
     this.stopAutoFire();
     if (this.policeSirenSound) { this.policeSirenSound.pause(); this.policeSirenSound = null; }
     this.stopHeliAudio();
@@ -1624,32 +1625,29 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
     this.vehicleBannerTimer = 3;
   }
-  private startPolling() { this.pollMultiplayer(); }
-  private stopPolling() { if (this._pollTimer) { clearTimeout(this._pollTimer); this._pollTimer = null; } }
-  private startNPCPolling() {
-    if (this._npcPollingDisabled) return;
-    this.stopNPCPolling();
-    const generation = ++this._npcPollGeneration;
-    const schedule = () => {
-      if (this._destroyed || generation !== this._npcPollGeneration || this._npcPollingDisabled) return;
-      // Use a plain promise continuation instead of finally(). Angular's
-      // patched finally path was repeatedly re-entering this callback in the
-      // failing bundle and produced the call-stack overflow.
-      void this.pollNPCs().then(() => {
-        if (!this._destroyed && generation === this._npcPollGeneration && !this._npcPollingDisabled) {
-          this._npcPollTimer = setTimeout(schedule, 1000);
-        }
-      }, () => {
-        if (!this._destroyed && generation === this._npcPollGeneration && !this._npcPollingDisabled) {
-          this._npcPollTimer = setTimeout(schedule, 2000);
-        }
-      });
-    };
-    schedule();
+  private startPolling() {
+    this.stopPolling();
+    this.scheduleMultiplayerPoll(0);
   }
+  private stopPolling() {
+    if (this._pollTimer) {
+      clearTimeout(this._pollTimer);
+      this._pollTimer = null;
+    }
+  }
+  private scheduleMultiplayerPoll(delay: number): void {
+    if (this._destroyed) return;
+    this._pollTimer = window.setTimeout(() => {
+      this._pollTimer = null;
+      void this.pollMultiplayer();
+    }, delay);
+  }
+  // Server NPC synchronization is intentionally disabled. Local traffic and
+  // pedestrians keep the world populated without putting the render loop behind
+  // the unstable NPC endpoint.
+  private startNPCPolling() { }
   private stopNPCPolling() {
     ++this._npcPollGeneration;
-    if (this.npcPollTimer) { clearInterval(this.npcPollTimer); this.npcPollTimer = null; }
     if (this._npcPollTimer) { clearTimeout(this._npcPollTimer); this._npcPollTimer = null; }
   }
   private _npcPollInFlight = false;
@@ -1658,27 +1656,15 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private _npcPollFailures = 0;
   private _npcPollingDisabled = false;
   private async pollNPCs(): Promise<void> {
-    if (this._destroyed || this._npcPollInFlight || this._npcPollingDisabled) return;
-    this._npcPollInFlight = true;
-    try {
-      await this.pollNPCsCore();
-      this._npcPollFailures = 0;
-    } catch (error) {
-      this._npcPollFailures++;
-      // NPC synchronization is optional. A malformed response, auth failure,
-      // or browser/runtime RangeError must never take down movement/rendering.
-      if (error instanceof RangeError || this._npcPollFailures >= 2) {
-        this._npcPollingDisabled = true;
-        this.stopNPCPolling();
-        console.warn('Grand Theft NPC sync disabled after repeated polling failure.');
-      } else {
-        console.warn('Grand Theft NPC polling skipped:', error);
-      }
-    } finally {
-      this._npcPollInFlight = false;
-    }
+    // Compatibility no-op. NPC synchronization is disabled and must never
+    // participate in the playable game loop.
+    return;
   }
   private async pollNPCsCore(): Promise<void> {
+    // Kept only for compatibility with old callers. Server NPC sync is disabled
+    // until its production endpoint is healthy; local population remains active.
+    return;
+    /*
     if (this._destroyed) return;
     const data = await this.gtService.getNPCs(1, this.carX, this.carZ, this.getUserId());
     if (!data) return;
@@ -1916,14 +1902,20 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         }
       }
     }
+    */
   }
   private startAutoFire() { this.stopAutoFire(); this.autoFireTimer = setInterval(() => this.shoot(), 50); }
   private stopAutoFire() { this.isShooting = false; if (this.autoFireTimer) { clearInterval(this.autoFireTimer); this.autoFireTimer = null; } }
   getUserId(): number { return (this.parentRef as any)?.user?.id ?? 0; }
   private async pollMultiplayer(): Promise<void> {
-    if (this._destroyed) return;
-    const userId = this.getUserId();
-    if (!userId) { this._pollTimer = setTimeout(() => this.pollMultiplayer(), PLAYER_POLL_SLOW_MS); return; }
+    if (this._destroyed || this._pollInFlight) return;
+    this._pollInFlight = true;
+    try {
+      const userId = this.getUserId();
+      if (!userId) {
+        this.scheduleMultiplayerPoll(PLAYER_POLL_SLOW_MS);
+        return;
+      }
     const chatMsg = this.pendingChatMessage || undefined;
     this.pendingChatMessage = '';
     const res = await this.gtService.updatePosition(
@@ -2179,7 +2171,18 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         this.bloodPools.push({ x: db.posX, z: db.posZ - 1.0, age: 0, lifetime: 30, maxRadius: 3, variant: Math.floor(Math.random() * 4) });
       }
     }
-    this._pollTimer = setTimeout(() => this.pollMultiplayer(), this.otherPlayers.length > 0 ? PLAYER_POLL_FAST_MS : PLAYER_POLL_SLOW_MS);
+      this._pollFailureCount = 0;
+      this.scheduleMultiplayerPoll(this.otherPlayers.length > 0 ? PLAYER_POLL_FAST_MS : PLAYER_POLL_SLOW_MS);
+    } catch (error) {
+      this._pollFailureCount++;
+      // A failed heartbeat must never stop the local game or create a retry
+      // recursion. Back off briefly and let the next request start cleanly.
+      if (this._pollFailureCount <= 3) {
+        this.scheduleMultiplayerPoll(Math.min(4000, 1000 * this._pollFailureCount));
+      }
+    } finally {
+      this._pollInFlight = false;
+    }
   }
   private shoot() {
     if (this._arrested) return; // cuffed — can't fight back mid-arrest
@@ -3836,6 +3839,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     return bestIdx;
   }
   private gameLoop = (now: number) => {
+    // A render callback must never re-enter itself. This is a fail-safe for
+    // browser/runtime callbacks that synchronously trigger another frame while
+    // WebGL or Angular is unwinding an error.
+    if (this._frameInProgress || this._destroyed) return;
+    this._frameInProgress = true;
+    try {
     const rawDt = Math.min((now - this.lastTime) / 1000, 0.05);
     this.lastTime = now;
     // Brief slow-motion after a hard impact, easing back to real time.
@@ -4476,6 +4485,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this._lastHudSpeed = this.hudSpeed;
       this._lastHealth = this.health;
       this.ngZone.run(() => { this.cdr.detectChanges(); });
+    }
+    } finally {
+      this._frameInProgress = false;
     }
     this.animFrameId = requestAnimationFrame(this.gameLoop);
   };

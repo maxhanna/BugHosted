@@ -1372,7 +1372,9 @@ void main() {
       // a camera-sized shell instead of multiplying it by 500, which pushed
       // the vertices beyond useful depth/precision and left only the clear
       // color visible.
-      mat4.scale(this.modelMatrix, this.modelMatrix, [0.001, 0.001, 0.001]);
+      // loadGLTF already normalizes imported models to a camera-sized mesh.
+      // Applying another 0.001 scale shrinks this sky cube out of view.
+      mat4.scale(this.modelMatrix, this.modelMatrix, [1, 1, 1]);
       for (const mesh of this.skyboxMesh) {
         if (!mesh.texture) continue;
         gl.uniformMatrix4fv(this.gltfSkyViewLoc, false, this.skyViewMatrix);
@@ -6127,7 +6129,12 @@ void main() {
       const targetHeight = url.includes('citylight') ? 5.0 : 2.0;
       const scaleFactor = targetHeight / Math.max(0.001, finalHeight);
       const centerX = (rotMinX + rotMaxX) / 2;
-      const centerY = rotMinY;
+      // Skyboxes must surround the camera. Ordinary models sit on the ground,
+      // but using their minimum Y here leaves the camera above the normalized
+      // sky cube and makes the authored texture disappear.
+      const centerY = url.includes('skybox_skydays_3')
+        ? (rotMinY + rotMaxY) / 2
+        : rotMinY;
       const centerZ = (rotMinZ + rotMaxZ) / 2;
       const extraScale: [number, number, number] = url.includes('/bus/') ? [2, 2, 2] : [1, 1, 1];
       if (isSkinnedModel && storeSkeleton) {
