@@ -111,6 +111,14 @@ textarea {
   justify-content: center;
 }
 
+.notesCarouselLoading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 70px;
+}
+
 .notesCarousel div, .poppedUpCarouselleList div {
   overflow-y: hidden;
   overflow-x: auto;

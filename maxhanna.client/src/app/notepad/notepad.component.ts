@@ -27,6 +27,7 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
 
   isPanelExpanded: boolean = false;
   notes: Array<Note> = [];
+  isLoadingNotes = false;
   isCarouselPopped: boolean = false;
   users: User[] = [];
   selectedNote?: Note;
@@ -225,6 +226,7 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
   }
   async getNotepad() {
     if (!this.parentRef?.user?.id) { return alert("You must be logged in to save notes."); }
+    this.isLoadingNotes = true;
     try {
       let search = this.inputtedSearch;
       if (!search && this.searchInput && this.searchInput.nativeElement) {
@@ -233,6 +235,8 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
       this.notes = await this.notepadService.getNotes(this.parentRef.user.id, search);
     } catch (error) {
       console.error("Error fetching notepad entries:", error);
+    } finally {
+      this.isLoadingNotes = false;
     }
     if (this.inputtedSearch) {
       setTimeout(() => {

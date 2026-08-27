@@ -198,6 +198,23 @@ input[type="number"]:focus {
 .save-box button:disabled { 
     cursor: not-allowed;
     transform: none;
+    opacity: 0.7;
+}
+
+.save-spinner {
+    display: inline-block;
+    width: 0.9em;
+    height: 0.9em;
+    margin-right: 0.45em;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    vertical-align: -0.12em;
+    animation: save-spinner-rotation 0.7s linear infinite;
+}
+
+@keyframes save-spinner-rotation {
+    to { transform: rotate(360deg); }
 }
 
 @media (max-width: 768px) {

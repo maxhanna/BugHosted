@@ -2,6 +2,13 @@
 import { STAIR_BLOCKS } from './digcraft-types';
 
 export function onKeyDown(ctx: any, e: KeyboardEvent, userId: number): void {
+  // A forced respawn prompt freezes the player completely. Keep Escape
+  // available only for normal modal cleanup; no gameplay keys may leak through.
+  if (ctx.showRespawnPrompt || ctx.isRespawning) {
+    ctx.keys?.clear?.();
+    return;
+  }
+
   if (ctx.showChatPrompt) {
     if (e.code === 'Escape') {
       ctx.closePanel('chat');
@@ -127,6 +134,10 @@ export function onMouseMove(ctx: any, e: MouseEvent): void {
 }
 
 export function onMouseDown(ctx: any, e: MouseEvent): void {
+  if (ctx.showRespawnPrompt || ctx.isRespawning) {
+    try { e.preventDefault(); e.stopPropagation(); } catch { }
+    return;
+  }
   // Prevent context menu on right click  
   if (e.button === 2) { try { e.preventDefault(); e.stopPropagation(); } catch { } }
   if (ctx.showInventory || ctx.showCrafting || ctx.showChatPrompt || ctx.showBonfirePanel || ctx.showChestPanel || ctx.showPlayersPanel || ctx.showWorldPanel) return;
@@ -200,6 +211,10 @@ export function onPointerLockChange(ctx: any): void {
 }
 
 export function onTouchStart(ctx: any, e: TouchEvent): void {
+  if (ctx.showRespawnPrompt || ctx.isRespawning) {
+    try { e.preventDefault(); e.stopPropagation(); } catch { }
+    return;
+  }
   if (ctx.showInventory || ctx.showCrafting || ctx.showChatPrompt || ctx.showBonfirePanel || ctx.showChestPanel) return;
   const canvas = ctx.canvasRef?.nativeElement;
   if (!canvas) return;
@@ -263,7 +278,7 @@ export function onTouchStart(ctx: any, e: TouchEvent): void {
 }
 
 export function onTouchMove(ctx: any, e: TouchEvent): void {
-  if (ctx.showInventory || ctx.showCrafting || ctx.showChatPrompt || !ctx.touchStartedOnCanvas || ctx.showBonfirePanel || ctx.showChestPanel) return;
+  if (ctx.showRespawnPrompt || ctx.isRespawning || ctx.showInventory || ctx.showCrafting || ctx.showChatPrompt || !ctx.touchStartedOnCanvas || ctx.showBonfirePanel || ctx.showChestPanel) return;
   e.preventDefault();
   for (let i = 0; i < e.changedTouches.length; i++) {
     const t = e.changedTouches[i];

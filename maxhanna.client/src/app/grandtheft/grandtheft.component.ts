@@ -750,15 +750,29 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
     this.ngZone.runOutsideAngular(() => {
       this.startPolling();
-      // Keep the game loop independent from the server NPC endpoint. The
-      // client already maintains local traffic/pedestrian population, and the
-      // endpoint has been returning a recursive runtime failure in production.
-      // Re-enable this call only after the server endpoint is fixed and tested.
-      // setTimeout(() => {
-      //   if (!this._destroyed && this.isLoaded) this.startNPCPolling();
-      // }, 1200);
+      // Start server NPC synchronization only after the first playable frame.
+      // The polling loop is guarded and independent from rendering, so a
+      // transient backend failure cannot freeze movement or the local population.
+      setTimeout(() => {
+        if (!this._destroyed && this.isLoaded) this.startNPCPolling();
+      }, 1200);
     });
-    this.initTraffic();
+    // Build the initial local population only after the first playable frame is
+    // ready. Calling initTraffic before the renderer has road nodes can leave
+    // every initial car with an invalid route and the population then stays
+    // empty after the first update tick.
+    setTimeout(() => {
+      if (!this._destroyed && this.isLoaded) this.initTraffic();
+    }, 0);
+    // Keep trying until streamed road geometry is available. A renderer cache
+    // rebuild can finish after the first playable frame, so the initial no-node
+    // attempt must not permanently leave the local population empty.
+    const retryTraffic = () => {
+      if (this._destroyed || !this.isLoaded || this.trafficCars.length > 0) return;
+      this.initTraffic();
+      if (this.trafficCars.length === 0) setTimeout(retryTraffic, 750);
+    };
+    setTimeout(retryTraffic, 750);
     setTimeout(() => this.trySpawnAirportLotCars(), 2000);
     setTimeout(() => this.trySpawnHospitalParkingCars(), 2500);
   }
@@ -1641,11 +1655,28 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this._pollTimer = null;
       void this.pollMultiplayer();
     }, delay);
+  }    // Server NPC synchronization is intentionally disabled. Local traffic and
+    // pedestrians keep the world populated without putting the render loop behind
+    // the unstable NPC endpoint.
+    private startNPCPolling() {
+    if (this._destroyed || this._npcPollingDisabled || this._npcPollTimer) return;
+    const generation = ++this._npcPollGeneration;
+    const tick = () => {
+      if (this._destroyed || this._npcPollingDisabled || generation !== this._npcPollGeneration) return;
+      this._npcPollTimer = window.setTimeout(async () => {
+        this._npcPollTimer = null;
+        try {
+          await this.pollNPCs();
+        } catch (error) {
+          // NPC sync is optional; keep local traffic/pedestrians playable.
+          console.error('Grand Theft NPC polling failed:', error);
+        } finally {
+          tick();
+        }
+      }, 1000);
+    };
+    tick();
   }
-  // Server NPC synchronization is intentionally disabled. Local traffic and
-  // pedestrians keep the world populated without putting the render loop behind
-  // the unstable NPC endpoint.
-  private startNPCPolling() { }
   private stopNPCPolling() {
     ++this._npcPollGeneration;
     if (this._npcPollTimer) { clearTimeout(this._npcPollTimer); this._npcPollTimer = null; }
@@ -1656,9 +1687,54 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private _npcPollFailures = 0;
   private _npcPollingDisabled = false;
   private async pollNPCs(): Promise<void> {
-    // Compatibility no-op. NPC synchronization is disabled and must never
-    // participate in the playable game loop.
-    return;
+    if (this._destroyed || this._npcPollingDisabled || this._npcPollInFlight) return;
+    this._npcPollInFlight = true;
+    try {
+      const data = await this.gtService.getNPCs(1, this.carX, this.carZ, this.getUserId());
+      if (!data) return;
+      // The server owns authoritative NPC simulation; retain local traffic and
+      // pedestrians when the endpoint is unavailable, but replace server data
+      // atomically whenever a valid response arrives.
+      this.serverNPCs = data.cars.concat(data.aircraft ?? []).map((c: any) => ({
+        ...c,
+        id: c.id,
+        x: c.posX, y: c.posY ?? 0, z: c.posZ,
+        yaw: c.yaw ?? 0,
+        type: c.type ?? 'car',
+        mesh: this.getServerVehicleMesh(c),
+        health: c.health ?? 100,
+        colorR: c.colorR ?? 0.5, colorG: c.colorG ?? 0.5, colorB: c.colorB ?? 0.5,
+        prevX: c.posX, prevZ: c.posZ, prevYaw: c.yaw ?? 0,
+        targetX: c.posX, targetZ: c.posZ, targetYaw: c.yaw ?? 0,
+        speed: c.speed ?? 0, lastUpdate: performance.now(),
+      }));
+      this.serverPedestrians = data.pedestrians.map((p: any) => ({
+        ...p,
+        x: p.posX, z: p.posZ, yaw: p.yaw ?? 0,
+        gender: p.gender ?? 'male',
+        mesh: this.renderer.getPedestrianMesh(p.gender ?? 'male', p.id),
+        health: p.health ?? 100,
+        prevX: p.posX, prevZ: p.posZ, prevYaw: p.yaw ?? 0,
+        targetX: p.posX, targetZ: p.posZ, targetYaw: p.yaw ?? 0,
+        speed: p.speed ?? 0, lastUpdate: performance.now(),
+      }));
+    } finally {
+      this._npcPollInFlight = false;
+    }
+  }
+
+  private getServerVehicleMesh(vehicle: any): CityMesh | CityMesh[] {
+    const color: [number, number, number] = [vehicle.colorR ?? 0.5, vehicle.colorG ?? 0.5, vehicle.colorB ?? 0.5];
+    switch (vehicle.type) {
+      case 'police': return this.renderer.getPoliceCarMesh();
+      case 'taxi': return this.renderer.getTaxiMesh();
+      case 'bus': return this.renderer.busMesh || this.renderer.getNPCCarMesh(color, vehicle.id);
+      case 'motorcycle': return this.renderer.getMotorcycleMesh(color, vehicle.id);
+      case 'boat': return this.renderer.getBoatMesh(vehicle.id);
+      case 'helicopter': return this.renderer.getHelicopterMesh(vehicle.id, !!vehicle.isPolice);
+      case 'plane': return this.renderer.getPlaneMesh(vehicle.id);
+      default: return this.renderer.getNPCCarMesh(color, vehicle.id);
+    }
   }
   private async pollNPCsCore(): Promise<void> {
     // Kept only for compatibility with old callers. Server NPC sync is disabled
@@ -3345,7 +3421,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.trafficSpawnTimer = 0;
       // Staggered streaming keeps roads populated without spawning a large
       // batch in one frame. The cap is a hard memory/draw-call budget.
-      if (this.trafficCars.length < this.LOCAL_TRAFFIC_CAP) this.spawnTrafficCar();
+      if (this.trafficCars.length < this.LOCAL_TRAFFIC_CAP) {
+          if (this.trafficNodes.length < 2) this.initTraffic();
+        if (this.trafficNodes.length >= 2) this.spawnTrafficCar();
+      }
     }
     const lightPhase = Math.floor(performance.now() / 6000) % 2;
     const intersectionRadius = 14;
@@ -5901,9 +5980,15 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
   }
   private initTraffic() {
-    this.trafficNodes = this.renderer.getRoadNodesInRadius(0, 0, 30);
+    this.trafficNodes = this.renderer.getRoadNodesInRadius(
+      Math.floor(this.carX / CHUNK_SIZE), Math.floor(this.carZ / CHUNK_SIZE), 30
+    );
     this.trafficEdges = this.renderer.getRoadEdges(this.trafficNodes);
     this.rebuildLanes();
+    if (this.trafficNodes.length < 2) {
+      console.warn('Grand Theft traffic delayed: no usable road nodes yet');
+      return;
+    }
     for (let i = 0; i < 25; i++) {
       this.spawnTrafficCar();
     }

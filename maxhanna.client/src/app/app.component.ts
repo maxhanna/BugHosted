@@ -1809,6 +1809,10 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     if (!url) return null;
     return this.fileService.parseYoutubeId(url);
   }
+  private isYoutubeVideoUrl(url: string): boolean {
+    if (!this.isYoutubeUrl(url)) return false;
+    return !!this.getYouTubeVideoId(url);
+  }
   isYoutubeShortUrl(url: string): boolean {
     if (!this.isYoutubeUrl(url)) { return false; } 
     try {
@@ -1832,14 +1836,14 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       this.indexLink(url, true);
     }
 
-    if (!forceNewTab && this.isYoutubeUrl(url)) {
-      const videoId = this.getYouTubeVideoId(url);
-      if (videoId) {
-        this.userEventService.insertUserEvent(this.user?.id ?? 0, "youtube", `Watched ${url}`); 
-        this.playYoutubeVideo(videoId);
-      }
+    if (!forceNewTab && this.isYoutubeVideoUrl(url)) {
+      const videoId = this.getYouTubeVideoId(url)!;
+      this.userEventService.insertUserEvent(this.user?.id ?? 0, "youtube", `Watched ${url}`);
+      this.playYoutubeVideo(videoId);
     } else {
-      this.userEventService.insertUserEvent(this.user?.id ?? 0, "link", `Visited ${url}`); 
+      // YouTube channel pages (and other non-video YouTube URLs) are normal
+      // destinations, not playable videos, so open them in a separate tab.
+      this.userEventService.insertUserEvent(this.user?.id ?? 0, "link", `Visited ${url}`);
       window.open(url, '_blank');
     }
 

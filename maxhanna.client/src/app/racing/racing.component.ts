@@ -595,7 +595,11 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
           // already-visible remote car (e.g. grid placement) right away.
           const rc = this.remoteCars.get(p.connectionId);
           if (rc) this.applyAppearanceToRemote(rc, p);
-          this.addMessage(`${p.playerName} joined!`);
+          // The hub broadcasts the join event to every client, including the
+          // joiner. Add it to the lobby chat so everyone sees who arrived.
+          if (this._mpLobbyTrackId) {
+            this.racingHub.sendChat(this._mpLobbyTrackId, `🏎️ ${p.playerName} joined the lobby.`);
+          }
         });
       })
     );

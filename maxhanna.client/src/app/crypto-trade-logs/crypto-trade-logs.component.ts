@@ -37,6 +37,7 @@ export class CryptoTradeLogsComponent extends ChildComponent implements AfterVie
   showLogOptions = false;
   logFromDate = '';
   logToDate = '';
+  showTradeReserves = false;
   exportingLogs = false;
 
   async ngAfterViewInit() {
@@ -178,8 +179,15 @@ export class CryptoTradeLogsComponent extends ChildComponent implements AfterVie
     return {
       fromDate: this.logFromDate ? new Date(this.logFromDate + 'T00:00:00').toISOString() : undefined,
       toDate: this.logToDate ? new Date(this.logToDate + 'T23:59:59').toISOString() : undefined,
+      showTradeReserves: this.showTradeReserves,
       exportAll,
-    };
+    } as TradeHistoryFilters;
+  }
+
+  onTradeReservesToggle(event: Event) {
+    this.showTradeReserves = (event.target as HTMLInputElement).checked;
+    this.currentLogPage = 1;
+    this.fetchTradeLogs();
   }
 
   onLogFilterInput(event: Event, field: string) {
@@ -195,6 +203,7 @@ export class CryptoTradeLogsComponent extends ChildComponent implements AfterVie
     clearTimeout(this.searchDebounceTimer);
     this.logFromDate = '';
     this.logToDate = '';
+    this.showTradeReserves = false;
     this.currentLogPage = 1;
     this.fetchTradeLogs();
   }

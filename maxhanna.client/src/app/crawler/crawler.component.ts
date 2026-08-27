@@ -243,6 +243,11 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     // from an earlier search must never overwrite a newer search's results.
     const searchToken = (keywords ?? '').trim();
     this._searchToken = searchToken;
+    // Clear every previous result surface immediately when a new query starts.
+    // This prevents old web, social, and external-engine results remaining
+    // visible while the new search is still loading.
+    this.clearAllResults();
+    this.hasSearched = true;
     // Keep the AI answer relevant to THIS search: refresh it for keyword
     // queries, or drop it entirely for domain/protocol lookups.
     if (keywords && !this.isDomainOrUrlQuery(keywords)) {
@@ -251,17 +256,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
       this.closeAiSearch();
     }
     if (keywords) {
-      // Wipe the previous search's external-engine + social results BEFORE the
-      // new fetches start. Otherwise the old entries stay on screen while the
-      // new ones stream in, and the incremental mergeSocialResults() calls mix
-      // stale + fresh results in the same div.
-      this.youtubeResults = [];
-      this.redditResults = [];
-      this.xResults = [];
-      this.imdbResults = [];
-      this.duckDuckGoResults = [];
-      this.yahooResults = [];
-      this.socialResults = [];
+      // Result arrays were cleared above before any new requests started.
       this.youtubeDisplayLimit = 1;
       this.redditDisplayLimit = 1;
       this.xDisplayLimit = 1;
@@ -325,13 +320,6 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
         this.isSearchingYahoo = false;
         this.yahooDisplayLimit = 1;
       });
-    } else {
-      this.youtubeResults = [];
-      this.redditResults = [];
-      this.xResults = [];
-      this.imdbResults = [];
-      this.duckDuckGoResults = [];
-      this.yahooResults = [];
     }
 
     if (keywords.split(' ').length > 0 || !keywords.includes('.') || !keywords.includes('http')) {

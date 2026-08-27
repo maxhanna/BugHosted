@@ -2426,6 +2426,8 @@ export const BLOCK_DROPS: Record<number, { itemId: number; quantity: number }> =
   [BlockId.WARPED_STEM]: { itemId: BlockId.WARPED_STEM, quantity: 1 },
   [BlockId.CRIMSON_PLANK]: { itemId: BlockId.CRIMSON_PLANK, quantity: 1 },
   [BlockId.WARPED_PLANK]: { itemId: BlockId.WARPED_PLANK, quantity: 1 },
+  [BlockId.CRIMSON_SLAB]: { itemId: BlockId.CRIMSON_SLAB, quantity: 1 },
+  [BlockId.WARPED_SLAB]: { itemId: BlockId.WARPED_SLAB, quantity: 1 },
   [BlockId.CRIMSON_LEAVES]: { itemId: BlockId.CRIMSON_LEAVES, quantity: 1 },
   [BlockId.WARPED_LEAVES]: { itemId: BlockId.WARPED_LEAVES, quantity: 1 },
   [BlockId.CRIMSON_DOOR]: { itemId: BlockId.CRIMSON_DOOR, quantity: 1 },

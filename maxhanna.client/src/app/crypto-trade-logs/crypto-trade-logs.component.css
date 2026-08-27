@@ -117,6 +117,14 @@
     white-space: nowrap;
 }
 
+.tradeLogCheckboxLabel {
+    cursor: pointer;
+}
+
+.tradeLogCheckboxLabel input[type="checkbox"] {
+    cursor: pointer;
+}
+
 .tradeLogOptionLabel input[type="date"] {
     padding: 4px 6px;
     border: var(--main-border);

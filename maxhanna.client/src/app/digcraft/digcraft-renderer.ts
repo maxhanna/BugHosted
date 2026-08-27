@@ -4364,13 +4364,19 @@ export class DigCraftRenderer {
           multiplyMat4(rotationXMatrix(rightShoulderSwing),
             translationMatrix(0, -shoulderH * 0.5, 0)),
           this.scaleXYZ(shoulderW + 0.05, shoulderH + 0.05, shoulderD + 0.05)))), chestColor);
-      // Shoulder stripe highlight
+      // Shoulder highlights use the same shoulder pivot as the armor plates.
+      // Keeping the stripe inside the rotated shoulder transform prevents it
+      // from appearing detached while the arm swings.
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
-        translationMatrix(armX, shoulderY2 + shoulderH * 0.2, 0),
-        this.scaleXYZ(shoulderW * 0.6, shoulderH * 0.15, shoulderD * 0.6))), chestHighlightColor);
+        translationMatrix(armX, shoulderY2, 0),
+        multiplyMat4(rotationXMatrix(rightShoulderSwing),
+          multiplyMat4(translationMatrix(0, -shoulderH * 0.28, -shoulderD * 0.52),
+            this.scaleXYZ(shoulderW * 0.6, shoulderH * 0.15, shoulderD * 0.08))))), chestHighlightColor);
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
-        translationMatrix(-armX, shoulderY2 + shoulderH * 0.2, 0),
-        this.scaleXYZ(shoulderW * 0.6, shoulderH * 0.15, shoulderD * 0.6))), chestHighlightColor);
+        translationMatrix(-armX, shoulderY2, 0),
+        multiplyMat4(rotationXMatrix(leftShoulderSwing),
+          multiplyMat4(translationMatrix(0, -shoulderH * 0.28, -shoulderD * 0.52),
+            this.scaleXYZ(shoulderW * 0.6, shoulderH * 0.15, shoulderD * 0.08))))), chestHighlightColor);
       this.drawCube(baseMVP, multiplyMat4(rootBob, multiplyMat4(
         translationMatrix(-armX, shoulderY2, 0),
         multiplyMat4(

@@ -3583,7 +3583,8 @@ var mobSpeed = t switch
                 await conn.OpenAsync();
 
                 // Get world seed and spawn coords
-                float spawnX = 8, spawnY = 34, spawnZ = 8;
+                float worldSpawnX = 8, worldSpawnY = 34, worldSpawnZ = 8;
+                float spawnX = worldSpawnX, spawnY = worldSpawnY, spawnZ = worldSpawnZ;
                 int worldSeed = 42;
                 using (var wCmd = new MySqlCommand("SELECT seed, spawn_x, spawn_y, spawn_z FROM maxhanna.digcraft_worlds WHERE id=@wid", conn))
                 {
@@ -3592,9 +3593,12 @@ var mobSpeed = t switch
                     if (await r.ReadAsync())
                     {
                         worldSeed = r.GetInt32("seed");
-                        spawnX = r.GetFloat("spawn_x");
-                        spawnY = r.GetFloat("spawn_y");
-                        spawnZ = r.GetFloat("spawn_z");
+                        worldSpawnX = r.GetFloat("spawn_x");
+                        worldSpawnY = r.GetFloat("spawn_y");
+                        worldSpawnZ = r.GetFloat("spawn_z");
+                        spawnX = worldSpawnX;
+                        spawnY = worldSpawnY;
+                        spawnZ = worldSpawnZ;
                     }
                 }
 
@@ -3643,7 +3647,15 @@ var mobSpeed = t switch
                     }
                 }
 
-                // If no random spawn found, use default spawn (will be validated by client)
+                // If the terrain search did not find a qualifying mountain, still use
+                // the final random candidate rather than silently reusing world spawn.
+                // This keeps repeated respawns genuinely distributed in difficult seeds.
+                if (spawnX == worldSpawnX && spawnZ == worldSpawnZ && spawnY == worldSpawnY)
+                {
+                    spawnX = (int)spawnX + rand.Next(-searchRadius, searchRadius + 1) + 0.5f;
+                    spawnZ = (int)spawnZ + rand.Next(-searchRadius, searchRadius + 1) + 0.5f;
+                    spawnY = Math.Max(airDropHeight + 8, GetSurfaceY(worldSeed, (int)spawnX, (int)spawnZ) + airDropHeight);
+                }
 
                 // Resolve player id
                 int playerId = 0;

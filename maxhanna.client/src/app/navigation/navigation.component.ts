@@ -1561,12 +1561,15 @@ export class NavigationComponent implements OnInit, OnDestroy {
       if (musicNav && this.hasUserSelectedNavItem('Music')) {
         try {
           const res: any = await this.todoService.getTodoCount(this._parent?.user?.id ?? 0, 'Music', undefined, sig);
-          this.musicTodoCount = res?.count ?? 0;
+          this.musicTodoCount = Number(res?.count ?? 0);
         } catch (error) {
           this.musicTodoCount = null;
           console.error('Error fetching music todo count:', error);
         }
-        musicNav.content = this.musicTodoCount && this.musicTodoCount > 0 ? this.shortenCount(this.musicTodoCount) : '';
+        // Keep the raw count in the menu model. The sidebar applies the shared
+        // countShorten pipe, so values such as 1,260 render as 1.26K instead
+        // of being truncated to the old one-character icon badge.
+        musicNav.content = this.musicTodoCount && this.musicTodoCount > 0 ? String(this.musicTodoCount) : '';
       }
     }
     this.isLoadingMusic = false;

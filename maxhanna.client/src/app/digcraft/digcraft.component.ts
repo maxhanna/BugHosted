@@ -665,6 +665,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private lastAttackTime = 0;
   private readonly ATTACK_COOLDOWN_MS = 200;
 
+  // Surface-aware footstep audio. Sounds are synthesized with Web Audio so
+  // DigCraft does not need to ship a large set of extra assets.
+  private footstepAudioContext: AudioContext | null = null;
+  private lastFootstepAt = 0;
+  private readonly FOOTSTEP_INTERVAL_MS = 320;
+
   // Menu popup state
   private _isMenuPanelOpen = false;
   public get isMenuPanelOpen(): boolean { return this._isMenuPanelOpen; }
@@ -1958,6 +1964,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (len > 0) { mx /= len; mz /= len; }
     // enable small bob when player is moving
     this.isWeaponBobbing = len > 0.01;
+    if (len > 0.01 && this.onGround && !this.isInWater) this.playFootstep();
 
     // Compute forward/right vectors from camera yaw for world-space movement
     const sinY = Math.sin(this.yaw);
@@ -2119,6 +2126,54 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this._lastChunkX = ccx; this._lastChunkZ = ccz;
       this.chunkLoader.requestLoadAround(ccx, ccz);
     }
+  }
+
+  private playFootstep(): void {
+    const now = performance.now();
+    if (now - this.lastFootstepAt < this.FOOTSTEP_INTERVAL_MS) return;
+    this.lastFootstepAt = now;
+
+    const block = this.getWorldBlock(Math.floor(this.camX), Math.floor(this.camY - 1.65), Math.floor(this.camZ));
+    let type: 'grass' | 'dirt' | 'stone' | 'sand' | 'wood' | 'nether' | 'cave' = 'dirt';
+    if (block === BlockId.GRASS || block === BlockId.TALLGRASS || block === BlockId.LEAVES) type = 'grass';
+    else if (block === BlockId.SAND || block === BlockId.RED_SAND || block === BlockId.SANDSTONE) type = 'sand';
+    else if (block === BlockId.WOOD || block === BlockId.PLANK || block === BlockId.CRIMSON_PLANK || block === BlockId.WARPED_PLANK) type = 'wood';
+    else if (block === BlockId.NETHERRACK || block === BlockId.BASALT || block === BlockId.SOUL_SAND || block === BlockId.NETHER_BRICK) type = 'nether';
+    else if (block === BlockId.STONE || block === BlockId.COBBLESTONE || block === BlockId.STONE_BRICK || block === BlockId.GRAVEL) type = 'stone';
+
+    try {
+      const AudioContextCtor = (window as any).AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextCtor) return;
+      if (!this.footstepAudioContext) this.footstepAudioContext = new AudioContextCtor();
+      const audio = this.footstepAudioContext;
+      if (!audio) return;
+      if (audio.state === 'suspended') audio.resume().catch(() => { });
+      const osc = audio.createOscillator();
+      const gain = audio.createGain();
+      const filter = audio.createBiquadFilter();
+      const t = audio.currentTime;
+      const settings: Record<string, { freq: number; end: number; duration: number; volume: number; wave: OscillatorType }> = {
+        grass: { freq: 145, end: 72, duration: 0.075, volume: 0.035, wave: 'triangle' },
+        dirt: { freq: 115, end: 58, duration: 0.085, volume: 0.045, wave: 'triangle' },
+        stone: { freq: 210, end: 105, duration: 0.055, volume: 0.03, wave: 'square' },
+        sand: { freq: 92, end: 46, duration: 0.11, volume: 0.028, wave: 'sawtooth' },
+        wood: { freq: 175, end: 82, duration: 0.065, volume: 0.04, wave: 'square' },
+        nether: { freq: 78, end: 38, duration: 0.1, volume: 0.05, wave: 'sawtooth' },
+        cave: { freq: 68, end: 30, duration: 0.13, volume: 0.055, wave: 'sine' }
+      };
+      const s = settings[type];
+      osc.type = s.wave;
+      osc.frequency.setValueAtTime(s.freq, t);
+      osc.frequency.exponentialRampToValueAtTime(s.end, t + s.duration);
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(type === 'stone' ? 1800 : 900, t);
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(s.volume, t + 0.006);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + s.duration);
+      osc.connect(filter).connect(gain).connect(audio.destination);
+      osc.start(t);
+      osc.stop(t + s.duration + 0.01);
+    } catch { /* Audio is optional and may be blocked until user interaction. */ }
   }
 
   private collidesAt(x: number, feetY: number, z: number, hw: number, h: number): boolean {
@@ -2352,7 +2407,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
             fogR = nightFog[0] + (dawnFog[0] - nightFog[0]) * t2;
             fogG = nightFog[1] + (dawnFog[1] - nightFog[1]) * t2;
             fogB = nightFog[2] + (dawnFog[2] - nightFog[2]) * t2;
-            ambient = 0.15 + (0.55 - 0.15) * t2;
+            ambient = 0.19 + (0.55 - 0.19) * t2;
           } else {
             // orange → day
             const t2 = (dawnT - 0.5) * 2;
@@ -2376,15 +2431,16 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
             fogR = dawnFog[0] + (nightFog[0] - dawnFog[0]) * t2;
             fogG = dawnFog[1] + (nightFog[1] - dawnFog[1]) * t2;
             fogB = dawnFog[2] + (nightFog[2] - dawnFog[2]) * t2;
-            ambient = 0.55 + (0.15 - 0.55) * t2;
+            ambient = 0.55 + (0.19 - 0.55) * t2;
           }
         } else {
           // Full day
           fogR = dayFog[0]; fogG = dayFog[1]; fogB = dayFog[2]; ambient = 1.0;
         }
       } else {
-        // Full night
-        fogR = nightFog[0]; fogG = nightFog[1]; fogB = nightFog[2]; ambient = 0.15;
+        // Full night: keep the scene gently readable without washing out the
+        // night colours or reducing the visibility of emissive lights.
+        fogR = nightFog[0]; fogG = nightFog[1]; fogB = nightFog[2]; ambient = 0.19;
       }
 
       // Only update when values change meaningfully (every ~3s is fine)
@@ -5416,6 +5472,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.checkLevelUp();
   }
   handleLeftClick(e?: any): void {
+    if (this.showRespawnPrompt || this.isRespawning) return;
     // Can't attack while blocking with shield
     if (this.isDefending && this.leftHand === ItemId.SHIELD) return;
     // Mobile attack cooldown to prevent double-tap
@@ -5725,6 +5782,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.arrowParticles = this.arrowParticles.filter(p => p.life < p.maxLife);
   }
   handleRightClick(e?: any): void {
+    if (this.showRespawnPrompt || this.isRespawning) return;
     if (e) { e.preventDefault(); e.stopPropagation(); }
     try { console.debug('[digcraft] handleRightClick', { targetBlock: this.targetBlock, placementBlock: this.placementBlock, lastHitNonSolid: this.lastHitNonSolid }); } catch (err) { }
     // Place torch from left hand if holding torch in left (and not torch in right hand)
@@ -6890,6 +6948,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   private applyLocalHealth(newHealth: number, suppressFlash = false, damage?: number): void {
+    // Once the death modal is active, ignore additional damage updates until respawn completes.
+    if ((this.showRespawnPrompt || this.isRespawning) && newHealth <= 0) return;
     // Skip damage if player is invulnerable
     if (!suppressFlash && newHealth < this.health && this.isInvulnerable) {
       return; // ignore damage while invulnerable
@@ -6969,6 +7029,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }, duration);
   }
   onTouchBreak(): void {
+    if (this.showRespawnPrompt || this.isRespawning) return;
     // Mobile attack cooldown to prevent double-tap
     const now = performance.now();
     if (now - this.lastAttackTime < this.ATTACK_COOLDOWN_MS) return;
@@ -7091,7 +7152,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   onTouchAttack(): void {
-    if (this.showInventory || this.showCrafting || this.showBonfirePanel || this.showChestPanel) return;
+    if (this.showRespawnPrompt || this.isRespawning || this.showInventory || this.showCrafting || this.showBonfirePanel || this.showChestPanel) return;
     // Execute immediately
     this.handleLeftClick();
     // Start interval for holding (repeat every 500ms)
@@ -7109,7 +7170,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   onTouchPlace(): void {
-    if (this.showInventory || this.showCrafting || this.showBonfirePanel || this.showChestPanel) return;
+    if (this.showRespawnPrompt || this.isRespawning || this.showInventory || this.showCrafting || this.showBonfirePanel || this.showChestPanel) return;
     // If left hand has item, use block; otherwise place
     if (this.leftHand && this.leftHand > 0) {
       this.handleBlock();
@@ -7136,7 +7197,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   handleBlock(): void {
-    if (!this.leftHand) return; // Need torch or shield equipped
+    if (this.showRespawnPrompt || this.isRespawning || !this.leftHand) return; // Need torch or shield equipped
     this.isDefending = true;
   }
 

@@ -72,7 +72,7 @@
                 item.ownership) }}</span>
               <div *ngIf="isEditing.includes(item)" [class.blocked]="isLoading">
                 <span class="editFieldLabel">Text</span> <textarea [value]="item.todo ?? ''" id="todoEditingTextarea" style="width:calc(100% - 10px)"
-                  (input)="onTodoTextInput($event)"></textarea>
+                  (input)="onTodoTextInput($event)" (keydown)="onTodoEditKeydown($event)"></textarea>
               </div>
               <div *ngIf="isEditing.includes(item)" style="display: flex; align-items: center; gap: 4px;">
                 <app-speech-recognition buttonStyle="width: 40px; height: 54px; line-height: 0; background: transparent; border: none;" (speechRecognitionEvent)="onVoiceInputForEdit($event)"></app-speech-recognition>

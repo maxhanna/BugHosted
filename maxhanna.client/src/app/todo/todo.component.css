@@ -366,6 +366,13 @@ tr.popupPanel.editingPopupPanel .popupPanelTitle {
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
+#todoEditingUrlTextarea {
+  height: 42px;
+  min-height: 42px;
+  resize: none;
+  overflow-y: hidden;
+}
+
 #todoEditingTextarea:focus,
 #todoEditingUrlTextarea:focus {
   outline: none;

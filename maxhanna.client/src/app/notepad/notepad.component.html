@@ -84,7 +84,10 @@
   </div>
   <div #notesCarousel [style.gap]="isCarouselPopped ? '5px' : ''"
     [class]="isCarouselPopped ? 'popupPanel poppedUpCarouselleArea' : 'notesCarousel'" (wheel)="onNotesWheel($event)">
-    <div [class]="isCarouselPopped ? 'poppedUpCarouselleArea poppedUpCarouselleList' : ''">
+    <div *ngIf="isLoadingNotes" class="notesCarouselLoading">
+      <app-loading-spinner [icon]="'📝'" [label]="'Loading notes'"></app-loading-spinner>
+    </div>
+    <div *ngIf="!isLoadingNotes" [class]="isCarouselPopped ? 'poppedUpCarouselleArea poppedUpCarouselleList' : ''">
       <label *ngFor="let note of notes" (click)="getNote(note.id!); closeCarouselPopup();" class="noteCard">
         <span class="noteCardSharedBadge" *ngIf="getNoteSharedCount(note) > 0"
           title="Shared with {{ getNoteSharedCount(note) }} other{{ getNoteSharedCount(note) === 1 ? '' : 's' }}">

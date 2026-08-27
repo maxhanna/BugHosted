@@ -39,9 +39,11 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
 
   ttlFormatted = ''; 
   tradeConfigLastUpdated: Date | undefined = undefined;
+  isSavingConfiguration = false;
   private readonly DEFAULT_USER_ID = 1;
 
   async updateCoinConfiguration() {
+    if (this.isSavingConfiguration) return;
     if (!this.inputtedParentRef?.user?.id) {
       return alert("You must be logged in to save your configuration.");
     }
@@ -102,10 +104,11 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
       ...fields
     };
 
-    const sessionToken = await this.inputtedParentRef.getSessionToken();
-    this.tradeService.upsertTradeConfiguration(config, sessionToken)
-      .then((result: any) => {
-        if (result === true || (typeof result === "string" && result !== "Access Denied" && !result.toLowerCase().includes("minimum trade amount"))) {
+    this.isSavingConfiguration = true;
+    try {
+      const sessionToken = await this.inputtedParentRef.getSessionToken();
+      const result: any = await this.tradeService.upsertTradeConfiguration(config, sessionToken);
+      if (result === true || (typeof result === "string" && result !== "Access Denied" && !result.toLowerCase().includes("minimum trade amount"))) {
           this.inputtedParentRef?.showNotification(`Updated (${fromCoin}|${toCoin}:${strategy}) configuration: ${result}`);
           this.updatedTradeConfig.emit(fromCoin);
           this.tradeConfigLastUpdated = new Date();
@@ -114,14 +117,15 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
         } else {
           this.inputtedParentRef?.showNotification(`Error updating (${fromCoin}|${toCoin}:${strategy}).`); 
         }
-      })
-      .catch((err: any) => {
+      } catch (err: any) {
         console.error("Update config failed:", err);
         const message = err?.message === "Access Denied"
           ? "Access Denied. Please re-login."
           : "Failed to update configuration.";
         this.inputtedParentRef?.showNotification(message);
-      });
+      } finally {
+        this.isSavingConfiguration = false;
+      }
   }
 
   getCoinPrice(coin?: string) {

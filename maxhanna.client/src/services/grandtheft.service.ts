@@ -301,11 +301,36 @@ export class GrandtheftService {
 
   constructor(private http: HttpClient) { }
 
-  async getNPCs(_worldId: number, _posX: number, _posZ: number, _userId: number): Promise<GTNPCResponse | null> {
-    // Server NPC synchronization is disabled until the production endpoint is
-    // repaired. Local traffic/pedestrians keep the game populated, and this
-    // guard prevents any legacy caller from re-entering the failed request path.
-    return null;
+  async getNPCs(worldId: number, posX: number, posZ: number, userId: number): Promise<GTNPCResponse | null> {
+    try {
+      const query = new URLSearchParams({
+        posX: String(posX),
+        posZ: String(posZ),
+        userId: String(userId),
+      });
+      const response = await fetch(`${this.baseUrl}/npcs/${worldId}?${query.toString()}`, {
+        credentials: 'same-origin',
+        cache: 'no-store',
+      });
+      if (!response.ok) return null;
+      const data = await response.json() as Partial<GTNPCResponse>;
+      // Keep malformed backend responses from reaching the renderer. Empty
+      // arrays are valid; missing arrays are treated as an unavailable poll.
+      if (!Array.isArray(data.cars) || !Array.isArray(data.pedestrians) || !Array.isArray(data.parkedCars)) {
+        console.warn('Grand Theft NPC endpoint returned an invalid payload');
+        return null;
+      }
+      return {
+        cars: data.cars,
+        pedestrians: data.pedestrians,
+        parkedCars: data.parkedCars,
+        aircraft: Array.isArray(data.aircraft) ? data.aircraft : [],
+        deadBodies: Array.isArray(data.deadBodies) ? data.deadBodies : [],
+      } as GTNPCResponse;
+    } catch (e) {
+      console.error('Error fetching Grand Theft NPCs', e);
+      return null;
+    }
   }
 
   // Spawns a moving NPC taxi on the server so a finished taxi ride "becomes"

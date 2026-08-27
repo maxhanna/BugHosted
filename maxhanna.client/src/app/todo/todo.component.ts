@@ -118,6 +118,15 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
     this.autoGrowTextarea(e.target as HTMLTextAreaElement | null);
   }
 
+  onTodoEditKeydown(event: KeyboardEvent) {
+    if (event.key !== 'Enter' || !event.ctrlKey) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (!this.isLoading && this.isEditing.length > 0) {
+      void this.closeEditPopup(true);
+    }
+  }
+
   // Voice input supplement: append captured speech to the "add todo" text box.
   onVoiceInputForAdd(text?: string) {
     if (!text) return;

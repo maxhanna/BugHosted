@@ -337,6 +337,9 @@
         <div class="config-header">
             <span class="thirdFontColor">Last Updated: {{tradeConfigLastUpdated || 'Never'}}</span>
         </div>
-        <button (click)="updateCoinConfiguration()" [disabled]="isLoading">💾 Save Configuration</button>
+        <button (click)="updateCoinConfiguration()" [disabled]="isSavingConfiguration" [attr.aria-busy]="isSavingConfiguration">
+            <span *ngIf="isSavingConfiguration" class="save-spinner" aria-hidden="true"></span>
+            {{ isSavingConfiguration ? 'Saving…' : '💾 Save Configuration' }}
+        </button>
     </div>
 </div>
