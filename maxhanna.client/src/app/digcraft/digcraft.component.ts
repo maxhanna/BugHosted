@@ -668,6 +668,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // Surface-aware footstep audio. Sounds are synthesized with Web Audio so
   // DigCraft does not need to ship a large set of extra assets.
   private footstepAudioContext: AudioContext | null = null;
+  private activeDynamite = new Set<string>();
+  private dynamiteTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private lastFootstepAt = 0;
   private readonly FOOTSTEP_INTERVAL_MS = 320;
   private lastDigSoundAt = 0;
@@ -1124,6 +1126,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (this.inventorySaveTimeout) clearTimeout(this.inventorySaveTimeout);
     if (this.invitePollInterval) clearInterval(this.invitePollInterval);
     if (this.placeFlushInterval) { clearInterval(this.placeFlushInterval); this.placeFlushInterval = undefined; }
+    for (const timer of this.dynamiteTimers.values()) clearTimeout(timer);
+    this.dynamiteTimers.clear();
+    this.activeDynamite.clear();
     if (this._chunkFetchAbortController) { this._chunkFetchAbortController.abort(); this._chunkFetchAbortController = null; }
     if (this.renderer) this.renderer.dispose();
     this.disposeAvatarPreviewRenderer();
@@ -2176,6 +2181,45 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       osc.start(t);
       osc.stop(t + s.duration + 0.01);
     } catch { /* Audio is optional and may be blocked until user interaction. */ }
+  }
+
+  private lightDynamite(wx: number, wy: number, wz: number): void {
+    const key = `${wx},${wy},${wz}`;
+    if (this.activeDynamite.has(key)) return;
+    this.activeDynamite.add(key);
+    this.showDamagePopup('💣 Fuse lit!');
+    this.playDigSound(BlockId.WOOD, false);
+
+    const timer = setTimeout(() => {
+      this.activeDynamite.delete(key);
+      this.dynamiteTimers.delete(key);
+      this.explodeDynamite(wx, wy, wz);
+    }, 1800);
+    this.dynamiteTimers.set(key, timer);
+  }
+
+  private explodeDynamite(wx: number, wy: number, wz: number): void {
+    const radius = 3;
+    const rebuild = new Set<string>();
+    const damage = Math.max(1, Math.round(12 * (1 - Math.min(1, Math.sqrt((this.camX - wx) ** 2 + (this.camY - wy) ** 2 + (this.camZ - wz) ** 2) / (radius + 1)))));
+    const distance = Math.sqrt((this.camX - wx) ** 2 + (this.camY - wy) ** 2 + (this.camZ - wz) ** 2);
+    if (distance <= radius + 1) this.applyLocalHealth(Math.max(0, this.health - damage), false, damage);
+
+    for (let x = wx - radius; x <= wx + radius; x++) {
+      for (let y = wy - radius; y <= wy + radius; y++) {
+        for (let z = wz - radius; z <= wz + radius; z++) {
+          const d = Math.sqrt((x - wx) ** 2 + (y - wy) ** 2 + (z - wz) ** 2);
+          if (d > radius) continue;
+          const block = this.getWorldBlock(x, y, z);
+          if (block === BlockId.AIR || block === BlockId.BEDROCK || block === BlockId.WATER || block === BlockId.LAVA || block === BlockId.DYNAMITE) continue;
+          this.setWorldBlock(x, y, z, BlockId.AIR, true, false, undefined, undefined, false, block);
+          rebuild.add(`${Math.floor(x / CHUNK_SIZE)},${Math.floor(z / CHUNK_SIZE)}`);
+        }
+      }
+    }
+    this.rebuildChunkKeysNow(rebuild);
+    this.showDamagePopup('💥');
+    this.playDigSound(BlockId.STONE, true);
   }
 
   private playDigSound(blockId: number, isBreak: boolean): void {
@@ -5560,7 +5604,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     } catch (err) { /* ignore detection errors */ }
 
     if (!handled && this.targetBlock && !INVULNERABLE_BLOCKS.includes(this.targetBlock.id ?? BlockId.AIR)) {
-      this.damageBlock(this.targetBlock.wx, this.targetBlock.wy, this.targetBlock.wz, this.targetBlock.id ?? BlockId.AIR);
+      const targetId = this.targetBlock.id ?? BlockId.AIR;
+      if (targetId === BlockId.DYNAMITE) {
+        this.lightDynamite(this.targetBlock.wx, this.targetBlock.wy, this.targetBlock.wz);
+      } else {
+        this.damageBlock(this.targetBlock.wx, this.targetBlock.wy, this.targetBlock.wz, targetId);
+      }
     }
   }
   private getAttackRange(weaponId: number = this.equippedWeapon): number {

@@ -3310,9 +3310,14 @@ export class DigCraftRenderer {
           const ratio = Math.max(0, Math.min(1, maxH > 0 ? curH / maxH : 0));
 
           this.ensureHealthbarMesh();
-          // Billboard toward camera - compute angle from object to camera
+          // Billboard toward the active camera. The healthbar quad is authored
+          // in the XY plane, so yaw alone is sufficient and keeps it upright
+          // while the player looks up or down.
           const T = translationMatrix(p.posX, headTop, p.posZ);
-          const R = rotationYMatrix(-yaw + Math.PI);
+          const toCameraX = camX - p.posX;
+          const toCameraZ = camZ - p.posZ;
+          const cameraYaw = Math.atan2(toCameraX, toCameraZ);
+          const R = rotationYMatrix(cameraYaw);
 
           // Calculate bar width based on health ratio
           const barW = fullW * ratio;
@@ -3335,7 +3340,7 @@ export class DigCraftRenderer {
           // Draw player name above healthbar using text texture
           const playerName = (p as any).username || 'Player';
           const nameY = headTop + 0.35;
-          this.drawNameText(playerName, p.posX, nameY, p.posZ, yaw, mvp, mvp);
+          this.drawNameText(playerName, p.posX, nameY, p.posZ, cameraYaw, mvp, mvp);
 
           gl.bindVertexArray(null);
           // restore

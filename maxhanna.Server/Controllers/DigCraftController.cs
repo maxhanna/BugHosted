@@ -157,6 +157,7 @@ namespace maxhanna.Server.Controllers
             public const int FLOWER_BLUE = 105;
             public const int FLOWER_WHITE = 106;
             public const int FLOWER_PINK = 107;
+            public const int DYNAMITE = 108;
         }
 
         private static class ItemIds
