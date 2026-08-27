@@ -54,6 +54,7 @@ export class DroppedItem extends GameObject {
           events.emit("CHARACTER_PICKS_UP_ITEM", {
             position: params.objectAtPosition.position,
             id: this.id,
+            name: this.item?.partName ?? this.item?.name ?? this.name,
             imageName: this.itemSkin,
             hero: params.hero,
             item: params.objectAtPosition.item,

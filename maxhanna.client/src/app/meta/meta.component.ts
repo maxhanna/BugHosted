@@ -87,6 +87,8 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy, 
   topHeroes: any[] = [];
   private currentChatTextbox?: ChatSpriteTextString | undefined;
   private pollingInterval: any;
+  showRepairShopDialog = false;
+  private repairShopDialogShown = false;
 
   async ngOnInit() {
     metaResources.ensureLoaded();
@@ -164,6 +166,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy, 
   }
 
   private updatePlayers() {
+    this.checkForNoUsableMetabots();
     if (this.metaHero && this.metaHero.id && !this.stopPollingForUpdates) {
       this.metaService.fetchGameData(this.metaHero).then(res => {
         if (res) {
@@ -582,6 +585,38 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy, 
 
   getChatText() {
     return this.chatInput.nativeElement.value;
+  }
+
+  private checkForNoUsableMetabots() {
+    const metabots = this.metaHero?.metabots ?? [];
+    const hasUsableBot = metabots.some(bot => bot.hp > 0);
+    const hasDeadBot = metabots.length > 0 && metabots.every(bot => bot.hp <= 0);
+    if (hasDeadBot && !this.repairShopDialogShown) {
+      this.repairShopDialogShown = true;
+      this.showRepairShopDialog = true;
+      this.hero && (this.hero.isLocked = true);
+    }
+  }
+
+  goToNearestRepairShop() {
+    this.showRepairShopDialog = false;
+    this.hero && (this.hero.isLocked = false);
+    this.repairShopDialogShown = false;
+    const shop = this.mainScene?.level?.children?.find((child: any) => child?.constructor?.name === 'Salesman');
+    if (shop) {
+      this.metaHero.position = shop.position.duplicate();
+      this.hero && (this.hero.position = shop.position.duplicate(), this.hero.destinationPosition = shop.position.duplicate());
+      this.mainScene.camera.centerPositionOnTarget(shop.position);
+      events.emit('ALERT', 'You were ported to the nearest repair shop.');
+    } else {
+      events.emit('ALERT', 'No repair shop is available in this area.');
+    }
+  }
+
+  declineRepairShop() {
+    this.showRepairShopDialog = false;
+    this.hero && (this.hero.isLocked = false);
+    this.repairShopDialogShown = false;
   }
 
   lockMovementForChat() {

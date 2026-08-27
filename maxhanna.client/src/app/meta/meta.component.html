@@ -99,6 +99,15 @@
     [loginReasonMessage]="'You must log in to play Meta-Bots.'"></app-user>
 </div>
 
+<div class="popupPanel meta-repair-dialog" *ngIf="showRepairShopDialog" role="dialog" aria-modal="true">
+  <div class="popupPanelTitle">All MetaBots are down</div>
+  <p>Your MetaBots cannot be deployed. Would you like to be ported to the nearest repair shop?</p>
+  <div class="meta-repair-actions">
+    <button class="closeButton" (click)="goToNearestRepairShop()">Go to repair shop</button>
+    <button class="closeButton" (click)="declineRepairShop()">Stay here</button>
+  </div>
+</div>
+
 <!-- Menu Popup -->
 <div class="popupPanel" style="overflow: auto;" *ngIf="isMenuPanelOpen">
   <div class="popupPanelTitle mainPopupTitle">Meta-Bots Highscores</div>

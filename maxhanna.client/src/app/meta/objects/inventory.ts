@@ -68,6 +68,7 @@ export class Inventory extends GameObject {
         const itemData = { id: this.nextId++, image: data.imageName, name: data.name, category: data.category, stats: data.stats } as InventoryItem;
         this.updateStoryFlags(itemData);
         this.items.push(itemData);
+        this.renderInventory();
       }
     });
 
@@ -81,7 +82,10 @@ export class Inventory extends GameObject {
       } as InventoryItem;
 
       this.updateStoryFlags(itemData);
-      this.items.push(itemData);
+      const existingIndex = this.items.findIndex(item => item.id === itemData.id);
+      if (existingIndex >= 0) this.items[existingIndex] = itemData;
+      else this.items.push(itemData);
+      this.renderInventory();
     });
 
     events.on("PARTY_INVITE_ACCEPTED", this, (data: { playerId: number, party: { heroId: number, name: string, color?: string }[] }) => {

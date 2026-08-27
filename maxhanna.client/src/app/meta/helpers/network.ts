@@ -609,6 +609,16 @@ export function subscribeToMainGameEvents(object: any) {
     if (!actionBlocker) {
       //console.log("picking up item: ",data);
       if (data.category) {
+        // Update the local bot/item list immediately; the backend refresh is
+        // asynchronous and otherwise leaves new users with a stale inventory.
+        const itemId = (data as any).id ?? object.mainScene.inventory.nextId++;
+        events.emit("INVENTORY_UPDATED", {
+          id: itemId,
+          image: data.imageName,
+          name: data.name,
+          category: data.category,
+          stats: data.stats,
+        });
         object.metaService.updateInventory(object.metaHero.id, data.name, data.imageName, data.category);
       } else if (data.item) { 
         object.metaService.updateBotParts(object.metaHero.id, [data.item]); 

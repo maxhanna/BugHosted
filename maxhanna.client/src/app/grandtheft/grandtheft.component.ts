@@ -92,7 +92,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   @ViewChild('gtCanvas', { static: false }) canvasRef!: ElementRef<HTMLCanvasElement>;
   @ViewChild('gtMapCanvas', { static: false }) mapCanvasRef!: ElementRef<HTMLCanvasElement>;
   renderer!: GrandTheftRenderer;
-  private animFrameId = 0;
+  private animFrameId: number | null = null;
   private lastTime = 0;
   private keys: Set<string> = new Set();
   private _lastHudSpeed = -1;
@@ -815,7 +815,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (this._jumpToastTimer) { clearTimeout(this._jumpToastTimer); this._jumpToastTimer = null; }
     if (this._trophyToastTimer) { clearTimeout(this._trophyToastTimer); this._trophyToastTimer = null; }
     if (this._missionFailedToastTimer) { clearTimeout(this._missionFailedToastTimer); this._missionFailedToastTimer = null; }
-    cancelAnimationFrame(this.animFrameId);
+    if (this.animFrameId !== null) cancelAnimationFrame(this.animFrameId);
+    this.animFrameId = null;
     const canvas = this.canvasRef.nativeElement;
     canvas.removeEventListener('click', this.onCanvasClick);
     document.removeEventListener('pointerlockchange', this.onPointerLockChange);
@@ -839,10 +840,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     document.removeEventListener('touchend', this.onDocTouchEnd);
     this.stopPolling();
     this.stopAutoFire();
-    if (this.policeSirenSound) { this.policeSirenSound.pause(); this.policeSirenSound = null; }
-    this.stopHeliAudio();
-    this.stopEngineAudio();
-    this.stopTrafficAudio();
+    this.stopAllGrandTheftAudio();
     if (this._screechCtx) { try { this._screechCtx.close(); } catch { } this._screechCtx = null; }
     if (this._crashCtx) { try { this._crashCtx.close(); } catch { } this._crashCtx = null; }
     if (this._punchCtx) { try { this._punchCtx.close(); } catch { } this._punchCtx = null; }
@@ -2467,6 +2465,27 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (this._engineFilter) this._engineFilter.frequency.value = 220 + this._engineLevel * 760 + this._engineLoad * 520;
     if (this._engineGain) this._engineGain.gain.value = this._engineLevel * this.carSfxVolume * (isBike ? 0.78 : 1);
   }
+  private stopAllGrandTheftAudio(): void {
+    this.stopRadio();
+    this.radioOn = false;
+    try { this.ytPlayer?.stopVideo?.(); } catch { }
+    try { this.ytPlayer?.destroy?.(); } catch { }
+    this.ytPlayer = null;
+    this.radioPlayerReady = false;
+    this.stopEngineAudio();
+    this.stopTrafficAudio();
+    this.stopHeliAudio();
+    for (const audio of [this.uziSound, this.rocketSound, this.policeSirenSound]) {
+      if (!audio) continue;
+      try { audio.pause(); } catch { }
+      try { audio.currentTime = 0; } catch { }
+      try { audio.src = ''; audio.load(); } catch { }
+    }
+    this.uziSound = null;
+    this.rocketSound = null;
+    this.policeSirenSound = null;
+    this.audioUnlocked = false;
+  }
   private stopEngineAudio() {
     try {
       for (const o of [this._engineOsc, this._engineOsc2]) {
@@ -3923,11 +3942,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     // WebGL or Angular is unwinding an error.
     if (this._frameInProgress || this._destroyed) return;
     this._frameInProgress = true;
-    try {
+    // Schedule the next frame only after the current callback has returned. Some
+    // mobile/WebView RAF implementations invoke callbacks synchronously while
+    // a frame is still being dispatched; scheduling here caused unbounded
+    // gameLoop -> requestAnimationFrame recursion and a black screen.
     const rawDt = Math.min((now - this.lastTime) / 1000, 0.05);
-    // Keep only one future callback. A synchronous requestAnimationFrame shim
-    // or a duplicate lifecycle callback must not recurse through gameLoop.
-    this.animFrameId = requestAnimationFrame(this.gameLoop);
+    try {
     this.lastTime = now;
     // Brief slow-motion after a hard impact, easing back to real time.
     if (this.slowMoTimer > 0) {
@@ -4569,6 +4589,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
     } finally {
       this._frameInProgress = false;
+      if (!this._destroyed && this.animFrameId == null) {
+        this.animFrameId = requestAnimationFrame((frameNow) => {
+          this.animFrameId = null;
+          this.gameLoop(frameNow);
+        });
+      }
     }
   };
   /** Busted: a cop booked the player — weapons are confiscated and the player
