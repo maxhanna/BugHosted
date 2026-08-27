@@ -1376,7 +1376,7 @@ void main() {
       // Applying another 0.001 scale shrinks this sky cube out of view.
       mat4.scale(this.modelMatrix, this.modelMatrix, [1, 1, 1]);
       for (const mesh of this.skyboxMesh) {
-        if (!mesh.texture) continue;
+        if (!mesh.texture || !mesh.vao || mesh.indexCount <= 0) continue;
         gl.uniformMatrix4fv(this.gltfSkyViewLoc, false, this.skyViewMatrix);
         gl.uniformMatrix4fv(this.gltfSkyModelLoc, false, this.modelMatrix);
         gl.activeTexture(gl.TEXTURE0);
@@ -1386,6 +1386,7 @@ void main() {
         gl.drawElements(gl.TRIANGLES, mesh.indexCount, mesh.indexType || gl.UNSIGNED_SHORT, 0);
       }
       gl.bindVertexArray(null);
+      gl.bindTexture(gl.TEXTURE_2D, null);
     } else {
       gl.useProgram(this.skyProgram);
       gl.uniformMatrix4fv(this.skyProjLoc, false, this.projMatrix);

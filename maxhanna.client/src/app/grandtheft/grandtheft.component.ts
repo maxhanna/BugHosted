@@ -3846,6 +3846,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this._frameInProgress = true;
     try {
     const rawDt = Math.min((now - this.lastTime) / 1000, 0.05);
+    // Keep only one future callback. A synchronous requestAnimationFrame shim
+    // or a duplicate lifecycle callback must not recurse through gameLoop.
+    this.animFrameId = requestAnimationFrame(this.gameLoop);
     this.lastTime = now;
     // Brief slow-motion after a hard impact, easing back to real time.
     if (this.slowMoTimer > 0) {
@@ -3868,7 +3871,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         this._hudUpdateTimer = 0;
         this.ngZone.run(() => { });
       }
-      this.animFrameId = requestAnimationFrame(this.gameLoop);
       return;
     }
     // A missed keyup (window blur, pointer-lock transition, or mobile browser
@@ -4489,7 +4491,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     } finally {
       this._frameInProgress = false;
     }
-    this.animFrameId = requestAnimationFrame(this.gameLoop);
   };
   /** Busted: a cop booked the player — weapons are confiscated and the player
    *  wakes up at the nearest police station (home base if none is in range). */
