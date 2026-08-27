@@ -670,6 +670,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private footstepAudioContext: AudioContext | null = null;
   private lastFootstepAt = 0;
   private readonly FOOTSTEP_INTERVAL_MS = 320;
+  private lastDigSoundAt = 0;
+  private readonly DIG_SOUND_INTERVAL_MS = 95;
 
   // Menu popup state
   private _isMenuPanelOpen = false;
@@ -2173,6 +2175,57 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       osc.connect(filter).connect(gain).connect(audio.destination);
       osc.start(t);
       osc.stop(t + s.duration + 0.01);
+    } catch { /* Audio is optional and may be blocked until user interaction. */ }
+  }
+
+  private playDigSound(blockId: number, isBreak: boolean): void {
+    const now = performance.now();
+    if (now - this.lastDigSoundAt < this.DIG_SOUND_INTERVAL_MS) return;
+    this.lastDigSoundAt = now;
+
+    try {
+      const AudioContextCtor = (window as any).AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextCtor) return;
+      if (!this.footstepAudioContext) this.footstepAudioContext = new AudioContextCtor();
+      const audio = this.footstepAudioContext;
+      if (!audio) return;
+      if (audio.state === 'suspended') audio.resume().catch(() => { });
+
+      const isSoft = blockId === BlockId.GRASS || blockId === BlockId.DIRT || blockId === BlockId.SAND ||
+        blockId === BlockId.RED_SAND || blockId === BlockId.GRAVEL || blockId === BlockId.SOUL_SAND;
+      const isWood = blockId === BlockId.WOOD || blockId === BlockId.PLANK || blockId === BlockId.CRIMSON_PLANK ||
+        blockId === BlockId.WARPED_PLANK || blockId === BlockId.CRIMSON_SLAB || blockId === BlockId.WARPED_SLAB;
+      const base = isWood ? 155 : isSoft ? 105 : 205;
+      const t = audio.currentTime;
+      const osc = audio.createOscillator();
+      const gain = audio.createGain();
+      const filter = audio.createBiquadFilter();
+      osc.type = isWood ? 'square' : isSoft ? 'triangle' : 'sawtooth';
+      osc.frequency.setValueAtTime(base * (isBreak ? 1.15 : 1), t);
+      osc.frequency.exponentialRampToValueAtTime(base * 0.42, t + (isBreak ? 0.12 : 0.075));
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(isSoft ? 850 : 1450, t);
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(isBreak ? 0.075 : 0.055, t + 0.004);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + (isBreak ? 0.12 : 0.075));
+      osc.connect(filter).connect(gain).connect(audio.destination);
+      osc.start(t);
+      osc.stop(t + (isBreak ? 0.13 : 0.085));
+
+      // A short, higher transient on the final hit gives the break a distinct
+      // Minecraft-like crack without making every mining hit too loud.
+      if (isBreak) {
+        const click = audio.createOscillator();
+        const clickGain = audio.createGain();
+        click.type = 'square';
+        click.frequency.setValueAtTime(base * 2.2, t);
+        click.frequency.exponentialRampToValueAtTime(base, t + 0.035);
+        clickGain.gain.setValueAtTime(0.045, t);
+        clickGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.045);
+        click.connect(clickGain).connect(audio.destination);
+        click.start(t);
+        click.stop(t + 0.05);
+      }
     } catch { /* Audio is optional and may be blocked until user interaction. */ }
   }
 
@@ -4601,6 +4654,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const damage = Math.max(1, miningSpeed);
 
     const remaining = currentHealth - damage;
+    this.playDigSound(blockId, remaining <= 0);
 
     // Reduce weapon durability when breaking blocks
     this.reduceEquippedDurability('hit');
