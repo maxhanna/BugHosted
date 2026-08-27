@@ -3942,6 +3942,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     // WebGL or Angular is unwinding an error.
     if (this._frameInProgress || this._destroyed) return;
     this._frameInProgress = true;
+    // Clear the handle immediately: a stale RAF id can otherwise prevent the
+    // finally block from scheduling the next frame after a synchronous callback.
+    this.animFrameId = null;
     // Schedule the next frame only after the current callback has returned. Some
     // mobile/WebView RAF implementations invoke callbacks synchronously while
     // a frame is still being dispatched; scheduling here caused unbounded

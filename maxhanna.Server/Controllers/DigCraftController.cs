@@ -2546,7 +2546,7 @@ var mobSpeed = t switch
                                     if (mob.Type == "Archer")
                                     {
                                         // ── Ranged bow attack ──
-                                        if (dist3Full <= bowRange && (DateTime.UtcNow - mob.LastAttackAt).TotalMilliseconds >= 1600)
+                                        if (dist3Full <= bowRange && HasClearLineOfSight(wid, mob.PosX, mob.PosY + 1.5f, mob.PosZ, best.x, best.y + 1.0f, best.z) && (DateTime.UtcNow - mob.LastAttackAt).TotalMilliseconds >= 1600)
                                         {
                                             mob.LastAttackAt = DateTime.UtcNow;
                                             float invDist = 1f / Math.Max(dist3Full, 0.1f);
@@ -2591,7 +2591,7 @@ var mobSpeed = t switch
                                     else
                                     {
                                         // ── Melee attack (existing mobs) ──
-                                        if (dist3Full <= meleeRange)
+                                        if (dist3Full <= meleeRange && HasClearLineOfSight(wid, mob.PosX, mob.PosY + 0.8f, mob.PosZ, best.x, best.y + 0.9f, best.z))
                                         {
                                             if ((DateTime.UtcNow - mob.LastAttackAt).TotalMilliseconds >= 900)
                                             {
@@ -4633,13 +4633,12 @@ var mobSpeed = t switch
                 }
 
                 var dx = attX - mob.PosX; var dy = attY - mob.PosY; var dz = attZ - mob.PosZ;
-                // Use XZ distance + separate Y tolerance to avoid false "out of range" from
-                // server/client Y drift (mob eye-height vs player eye-height on different terrain).
-                var distXZSq = dx * dx + dz * dz;
                 var maxRange = req.WeaponId == ItemIds.BOW ? 18f : PLAYER_ATTACK_MAX_RANGE;
-                //var yTolerance = 4.0f; // generous vertical tolerance
-                // if (distXZSq > maxRange * maxRange || Math.Abs(dy) > yTolerance)
-                //     return BadRequest("Mob out of range");
+                var distanceSq = dx * dx + dy * dy + dz * dz;
+                if (distanceSq > maxRange * maxRange || Math.Abs(dy) > (req.WeaponId == ItemIds.BOW ? 8f : 2.5f))
+                    return BadRequest("Mob out of range");
+                if (!HasClearLineOfSight(req.WorldId, attX, attY, attZ, mob.PosX, mob.PosY + 0.8f, mob.PosZ))
+                    return BadRequest("Mob is behind terrain");
 
                 // Cooldown simple check (per-attacker)
                 if (_lastAttackAt.TryGetValue(req.AttackerUserId, out var last) && (DateTime.UtcNow - last).TotalMilliseconds < 450)
@@ -4694,6 +4693,25 @@ var mobSpeed = t switch
                 _ = _log.Db("AttackMob error: " + ex.Message, req.AttackerUserId, "DIGCRAFT", true);
                 return StatusCode(500, "Internal error");
             }
+        }
+
+        private bool HasClearLineOfSight(int worldId, float startX, float startY, float startZ, float endX, float endY, float endZ)
+        {
+            var dx = endX - startX; var dy = endY - startY; var dz = endZ - startZ;
+            var distance = MathF.Sqrt(dx * dx + dy * dy + dz * dz);
+            if (distance <= 0.01f) return true;
+            var steps = Math.Min(96, Math.Max(2, (int)MathF.Ceiling(distance * 2f)));
+            for (var i = 1; i < steps; i++)
+            {
+                var t = i / (float)steps;
+                var x = startX + dx * t;
+                var y = startY + dy * t;
+                var z = startZ + dz * t;
+                var block = GetBaseBlockId(42, (int)MathF.Floor(x), (int)MathF.Floor(y), (int)MathF.Floor(z));
+                if (block != BlockIds.AIR && block != BlockIds.WATER && block != BlockIds.LAVA && block != BlockIds.LEAVES && block != BlockIds.TALLGRASS && block != BlockIds.SHRUB)
+                    return false;
+            }
+            return true;
         }
 
         private int GetMobExpReward(string mobType)

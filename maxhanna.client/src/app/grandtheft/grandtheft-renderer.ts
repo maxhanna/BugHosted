@@ -1363,7 +1363,10 @@ void main() {
     // camera so its world-space origin cannot leave the view after driving away
     // from spawn. Fall back to the procedural sky when the texture is absent.
     const texturedSky = this.skyboxMesh?.some(m => !!m.texture);
-    if (texturedSky && this.gltfSkyProgram && this.skyboxMesh) {
+    // A partially loaded/invalid authored sky must not replace the reliable
+    // procedural sky with an empty draw. Require an actual drawable mesh.
+    const drawableSky = this.skyboxMesh?.some(m => !!m.texture && !!m.vao && m.indexCount > 0);
+    if (texturedSky && drawableSky && this.gltfSkyProgram && this.skyboxMesh) {
       gl.useProgram(this.gltfSkyProgram);
       gl.uniformMatrix4fv(this.gltfSkyProjLoc, false, this.projMatrix);
       mat4.identity(this.modelMatrix);

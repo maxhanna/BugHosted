@@ -4648,6 +4648,19 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     return results;
   }
 
+  private collectGrassGrowth(startX: number, startY: number, startZ: number): Array<{ x: number; y: number; z: number }> {
+    const results: Array<{ x: number; y: number; z: number }> = [];
+    const collectible = new Set<number>([
+      BlockId.TALLGRASS, BlockId.FLOWER_POPPY, BlockId.FLOWER_DANDELION,
+      BlockId.FLOWER_BLUE, BlockId.FLOWER_WHITE, BlockId.FLOWER_PINK
+    ]);
+    for (let y = startY + 1; y < Math.min(WORLD_HEIGHT, startY + 3); y++) {
+      if (!collectible.has(this.getWorldBlock(startX, y, startZ))) break;
+      results.push({ x: startX, y, z: startZ });
+    }
+    return results;
+  }
+
   private collectConnectedDripstone(startX: number, startY: number, startZ: number): Array<{ x: number; y: number; z: number }> {
     const results: Array<{ x: number; y: number; z: number }> = [];
     const startBlock = this.getWorldBlock(startX, startY, startZ);
@@ -4697,6 +4710,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const miningSpeed = getMiningSpeed(this.equippedWeapon);
     const damage = Math.max(1, miningSpeed);
 
+    // Apply the hit locally first. Mobile input should feel immediate; the
+    // queued place-block request remains the authoritative reconciliation path.
     const remaining = currentHealth - damage;
     this.playDigSound(blockId, remaining <= 0);
 
@@ -4706,8 +4721,23 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // If block is broken
     if (remaining <= 0) {
       this.applyMiningExhaustion(Math.min(0.5, Math.max(0.15, getBlockHealth(blockId) / 16)));
+      // Auto-collect directly stacked vegetation when breaking its grass base.
+      if (blockId === BlockId.GRASS) {
+        const collected = [{ x: wx, y: wy, z: wz }, ...this.collectGrassGrowth(wx, wy, wz)];
+        const rebuildKeys = new Set<string>();
+        for (const pos of collected) {
+          const b = this.getWorldBlock(pos.x, pos.y, pos.z);
+          const drop = BLOCK_DROPS[b];
+          if (drop) this.addToInventory(drop.itemId, drop.quantity);
+          this.exp += 1;
+          this.setWorldBlock(pos.x, pos.y, pos.z, BlockId.AIR, true, false, undefined, undefined, false, b);
+          this.addBlockRebuildKeys(pos.x, pos.z, rebuildKeys);
+        }
+        this.rebuildChunkKeysNow(rebuildKeys);
+        this.checkLevelUp();
+      }
       // Auto-collect connected wood, leaves and cacti if destroying wood, bamboo or cactus block
-      if (blockId === BlockId.WOOD || blockId === BlockId.BAMBOO || blockId === BlockId.CACTUS || blockId === BlockId.SEAWEED) {
+      else if (blockId === BlockId.WOOD || blockId === BlockId.BAMBOO || blockId === BlockId.CACTUS || blockId === BlockId.SEAWEED) {
         const collected = this.collectConnectedWood(wx, wy, wz);
         const rebuildKeys = new Set<string>();
         for (const pos of collected) {
@@ -4768,7 +4798,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
       this.spawnCrumblingBlocks(wx, wy, wz, blockId);
     } else {
-      this.setWorldBlockHealth(wx, wy, wz, remaining);
+      // Confirm the damage locally immediately instead of waiting for the
+      // batched server response. The block-health sync can still reconcile it.
+      this.setWorldBlockHealth(wx, wy, wz, Math.max(0, remaining));
+      this.breakingTarget = `${wx},${wy},${wz}`;
+      this.breakingProgress = Math.min(1, 1 - (Math.max(0, remaining) / maxHealth));
       // Rebuild on both platforms — mobile uses the synchronous renderer path
       // (added in rebuildSingleChunkMesh) which avoids worker-pool queuing.
       const cx = Math.floor(wx / CHUNK_SIZE);
