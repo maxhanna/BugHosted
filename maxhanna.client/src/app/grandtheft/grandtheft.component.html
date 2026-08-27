@@ -261,15 +261,18 @@
       style="position: absolute; top:10px; left:calc(100% -80px);">CHAT</div>
     <div id="gt-mobile-weapon-wheel" *ngIf="isMobile" (touchstart)="onButtonTouch($event); toggleWeaponWheel()"
       style="position: absolute; top:60px; left:calc(100% -80px);">WEPS</div>
+    <div id="gt-mobile-highscores" *ngIf="isMobile" (touchstart)="onButtonTouch($event); toggleLeaderboard()"
+      style="position: absolute; top:110px; left:calc(100% -80px);">SCORES</div>
     <div id="gt-mobile-map" *ngIf="isMobile" (touchstart)="onButtonTouch($event); toggleMap()"
-      style="position: absolute; top:110px; left:calc(100% -80px);">MAP</div>
+      style="position: absolute; top:160px; left:calc(100% -80px);">MAP</div>
     <div id="gt-mobile" *ngIf="isMobile">
       <div id="gt-joystick" [class.gt-joystick-active]="isJoystickActive">
         <div id="gt-joystick-base">
           <div id="gt-joystick-thumb"></div>
         </div>
       </div>
-      <div id="gt-mobile-car" (touchstart)="onButtonTouch($event); toggleCar()">CAR</div>
+      <div id="gt-mobile-car" *ngIf="isInCar || nearCar || nearTaxi || showStealCarPrompt || showEnterPassengerPrompt"
+        (touchstart)="onButtonTouch($event); toggleCar()">CAR</div>
       <div id="gt-mobile-view" (touchstart)="onButtonTouch($event); toggleView()">👁️</div>
       <div id="gt-mobile-fire" (touchstart)="onButtonTouch($event); mobileShoot()"
         (touchend)="onButtonTouch($event); mobileShootEnd()">FIRE</div>

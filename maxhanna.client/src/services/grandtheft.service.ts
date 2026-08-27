@@ -423,8 +423,15 @@ export class GrandtheftService {
 
   async getHighScores(sort: string = 'score', userId: number = 0, limit: number = 50): Promise<{ results: GTHighScoreEntry[]; totalCount: number; userRank: number; sort: string } | null> {
     try {
-      const data: any = await this.http.get(`${this.baseUrl}/highscores?sort=${sort}&userId=${userId}&limit=${limit}`).toPromise();
-      return data ?? null;
+      const data: any = await this.http.get(`${this.baseUrl}/highscores?sort=${encodeURIComponent(sort)}&userId=${userId}&limit=${limit}&_=${Date.now()}`).toPromise();
+      if (!data || typeof data !== 'object') return null;
+      const results = data.results ?? data.highScores ?? data.rows ?? [];
+      return {
+        results: Array.isArray(results) ? results : [],
+        totalCount: Number(data.totalCount ?? data.TotalCount ?? results.length),
+        userRank: Number(data.userRank ?? data.UserRank ?? 0),
+        sort: String(data.sort ?? data.Sort ?? sort),
+      };
     } catch (e) {
       console.error('Error fetching high scores', e);
       return null;

@@ -498,7 +498,35 @@
   color: rgba(255, 255, 255, 0.5);
   font-size: 11px;
   letter-spacing: 1px;
+}    #gt-mobile-highscores {
+      top: 110px;
+      right: 10px;
+    }
+
+    #gt-mobile-highscores {
+  position: absolute;
+  top: 110px;
+  right: 10px;
+  z-index: 30;
+  min-width: 70px;
+  padding: 10px 8px;
+  border: 1px solid rgba(255, 210, 70, 0.75);
+  border-radius: 6px;
+  background: rgba(15, 16, 22, 0.82);
+  color: #ffe083;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  text-align: center;
+  user-select: none;
+  touch-action: manipulation;
 }
+
+#gt-mobile-highscores:active {
+  background: rgba(255, 190, 40, 0.35);
+  transform: translateY(1px);
+}
+
 #gt-leaderboard {
   position: absolute;
   top: 50%;

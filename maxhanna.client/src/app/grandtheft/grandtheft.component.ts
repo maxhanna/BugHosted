@@ -5569,7 +5569,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     return Math.max(ENTER_CAR_DIST, maxHalf + 1.5);
   }
   private checkNearCar() {
-    if (this.isInCar) { this.nearCar = false; this.nearTaxi = false; this.taxiEntrySide = null; return; }
+    if (this.isInCar || this.isPassenger) { this.nearCar = false; this.nearTaxi = false; this.taxiEntrySide = null; return; }
     this.nearCar = [...this.serverNPCs, ...this.parkedCars].some(v => v.health > 0 && Math.sqrt((v.x - this.carX) ** 2 + (v.z - this.carZ) ** 2) < ENTER_CAR_DIST);
     // Standing next to a taxi: the front doors (driver/passenger) steal it,
     // the back doors hail it as a passenger ride.
@@ -7654,7 +7654,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.restoreGtSettings();
   }
   // ── High-scores leaderboard (persistent kills / deaths / money) ────────────
-  private toggleLeaderboard() {
+  toggleLeaderboard() {
     this.showLeaderboard = !this.showLeaderboard;
     if (this.showLeaderboard) {
       if (this.lbTab === 'scores') this.loadHighScores();
@@ -7695,9 +7695,26 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       const res = await this.gtService.getHighScores(this.hsSort, this.getUserId());
       if (this._destroyed || reqId !== this._hsReqId) return;
       if (res) {
-        this.highScores = res.results ?? [];
-        this.hsTotal = res.totalCount ?? 0;
-        this.hsUserRank = res.userRank ?? 0;
+        const rawResults: any = (res as any).results ?? (res as any).highScores ?? (res as any).rows ?? [];
+        const results = Array.isArray(rawResults) ? rawResults : [];
+        // Accept both the PascalCase JSON emitted by older server builds and
+        // the camelCase shape used by the current API. Without this mapping,
+        // Angular receives rows but all bindings evaluate to undefined.
+        this.highScores = results.map((entry: any) => ({
+          playerId: Number(entry.playerId ?? entry.PlayerId ?? entry.userId ?? entry.UserId ?? 0),
+          playerName: String(entry.playerName ?? entry.PlayerName ?? entry.username ?? entry.Username ?? 'Unknown'),
+          kills: Number(entry.kills ?? entry.Kills ?? 0),
+          deaths: Number(entry.deaths ?? entry.Deaths ?? 0),
+          escapes: Number(entry.escapes ?? entry.Escapes ?? 0),
+          busted: Number(entry.busted ?? entry.Busted ?? 0),
+          resists: Number(entry.resists ?? entry.Resists ?? 0),
+          worstStreak: Number(entry.worstStreak ?? entry.WorstStreak ?? entry.worst_streak ?? 0),
+          money: Number(entry.money ?? entry.Money ?? 0),
+          moneyEarned: Number(entry.moneyEarned ?? entry.MoneyEarned ?? entry.money_earned ?? 0),
+          score: Number(entry.score ?? entry.Score ?? 0),
+        }));
+        this.hsTotal = Number((res as any).totalCount ?? (res as any).TotalCount ?? this.highScores.length);
+        this.hsUserRank = Number((res as any).userRank ?? (res as any).UserRank ?? 0);
       }
     } finally {
       if (reqId === this._hsReqId) this.hsLoading = false;

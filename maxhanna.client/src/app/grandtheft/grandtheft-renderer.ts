@@ -4972,7 +4972,11 @@ void main() {
         this.drawMesh(am.mesh, wx, targetY + am.offsetY, wz, carYaw + am.yaw, [s, s, s]);
       }
     }
-    gl.disable(gl.DEPTH_TEST);
+    // Effects are transparent, but remain depth-tested so opaque world geometry
+    // occludes them. Only depth writes are disabled; disabling depth testing
+    // here made smoke, flashes and explosions visible through buildings.
+    gl.enable(gl.DEPTH_TEST);
+    gl.depthMask(false);
     for (const b of bloodSplats) {
       const t = b.age / b.lifetime;
       const alpha = 1.0 - t;
@@ -4996,7 +5000,6 @@ void main() {
       const sb = s.colorB ?? 0.28;
       this.drawMesh(smokeMesh, s.x, s.y, s.z, 0, [sz, sz, sz], [sr, sg, sb, alpha]);
     }
-    gl.enable(gl.DEPTH_TEST);
     gl.depthMask(false);
     for (const bp of bloodPools) {
       const progress = bp.age / bp.lifetime;
@@ -5023,7 +5026,10 @@ void main() {
       const fadeAlpha = Math.max(0.4, 1.0 - elapsed / 30);
       this.drawMesh(db.mesh, db.x, 0.02, db.z, -db.yaw, [1, 1, 1], [0.4, 0.4, 0.4, fadeAlpha], false, dbPitch);
     }
-    gl.disable(gl.DEPTH_TEST);
+    // Keep projectile effects behind walls as well. They use the regular
+    // program and therefore can participate in the world's depth buffer.
+    gl.enable(gl.DEPTH_TEST);
+    gl.depthMask(false);
     for (const t of tracers) {
       const alpha = 1.0 - (t.age / t.lifetime);
       const mesh = this.getTracerMesh();
@@ -5138,6 +5144,7 @@ void main() {
       const s = fireScale * 2.5 * growth * pulse * flicker;
       this.drawMesh(fireMesh, fx, 0.8, fz, 0, [s, s, s], fireColor);
     }
+    gl.depthMask(true);
     if (this.droppedWeapons && this.droppedWeapons.length > 0) {
       const haloMesh = this.getSphereMesh(0.8);
       for (const dw of this.droppedWeapons) {
