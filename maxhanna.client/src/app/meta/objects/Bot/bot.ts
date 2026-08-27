@@ -36,6 +36,7 @@ export class Bot extends Character {
   preventDestroyAnimation = false;
   canAttack = true; 
   partyMembers?: { heroId: number, name: string }[];
+  hostileHeroIds?: number[];
   frameMap = {
     "Jaguar": "botFrame1",
     "Ram": "botFrame5",
@@ -49,6 +50,7 @@ export class Bot extends Character {
   constructor(params: {
     position: Vector2,
     partyMembers?: { heroId: number, name: string }[],
+    hostileHeroIds?: number[],
     id?: number,
     heroId?: number,
     botType?: number,
@@ -150,6 +152,7 @@ export class Bot extends Character {
     this.isInvulnerable = params.isInvulnerable ?? false;   
     this.canAttack = params.canAttack ?? true; 
     this.partyMembers = params.partyMembers;
+    this.hostileHeroIds = params.hostileHeroIds ?? [];
     this.setupEvents(); 
   }
 

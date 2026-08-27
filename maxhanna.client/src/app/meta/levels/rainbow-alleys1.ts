@@ -281,7 +281,7 @@ export class RainbowAlleys1 extends Level {
     for (let x = 0; x < 8; x++) {
       for (let y = 0; y < 2; y++) { 
       const underground1Exit = new Exit(
-        { position: new Vector2(gridCells(21) + gridCells(x), gridCells(-14) + gridCells(y)), showSprite: this.showDebugSprites, targetMap: "UndergroundLevel1", sprite: "white", colorSwap: new ColorSwap([255, 255, 255], [0, 0, 0]) }
+        { position: new Vector2(gridCells(21) + gridCells(x), gridCells(-14) + gridCells(y)), showSprite: this.showDebugSprites, targetMap: "UndergroundLevel1", targetScale: new Vector2(0.74, 0.74), sprite: "white", colorSwap: new ColorSwap([255, 255, 255], [0, 0, 0]) }
       );
       this.addChild(underground1Exit);
     }

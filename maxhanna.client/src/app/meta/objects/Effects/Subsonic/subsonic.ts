@@ -15,8 +15,8 @@ export class Subsonic extends GameObject {
       name: "Subsonic",
       isSolid: false,
       drawLayer: HUD,
-      forceDrawName: true,
-      preventDrawName: false,
+      forceDrawName: false,
+      preventDrawName: true,
     })
 
     this.body = new Sprite({
@@ -24,6 +24,7 @@ export class Subsonic extends GameObject {
       resource: resources.images["skill_subsonic"],
       name: "SubsonicB",
       frameSize: new Vector2(32, 32),
+      scale: new Vector2(1.25, 1.25),
       vFrames: 1,
       hFrames: 4,
       animations: new Animations({
@@ -31,7 +32,11 @@ export class Subsonic extends GameObject {
       }), 
     });
     this.addChild(this.body);
-    this.body.animations?.play("subsonicAnimation");
+    // `Animations.play` intentionally does nothing when the requested pattern
+    // is already active; advance from an explicit zero so the projectile is
+    // visible immediately after it is added to the scene.
+    this.body.animations?.play("subsonicAnimation", 0);
+    this.body.frame = 0;
   }
 
   moveTo(targetX: number, targetY: number, speed: number) {
@@ -40,7 +45,7 @@ export class Subsonic extends GameObject {
     const deltaX = targetX - startX;
     const deltaY = targetY - startY;
     const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-    const duration = Math.min(distance / (speed / 6), 1000);
+    const duration = Math.max(120, Math.min(distance / Math.max(speed * 6, 0.01), 1000));
     const startTime = performance.now();
 
     const animate = () => {

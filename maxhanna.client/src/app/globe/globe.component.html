@@ -88,6 +88,14 @@
         </label>
       </div>
       <div class="news-filters">
+        <label for="news-keyword-filter">Filter by keyword:</label>
+        <div class="news-keyword-filter">
+          <input id="news-keyword-filter" type="search" [value]="newsKeywordFilter"
+            (input)="onNewsKeywordFilter($event)" placeholder="Search title, description, source..."
+            autocomplete="off">
+          <button type="button" *ngIf="newsKeywordFilter" (click)="clearNewsKeywordFilter()"
+            aria-label="Clear news keyword filter">Clear</button>
+        </div>
         <label>Filter by date:</label>
         <input type="range" min="0" max="100" [value]="newsDateFilterValue" (input)="onNewsDateFilter($event)"
           class="news-date-slider">
@@ -101,7 +109,7 @@
           <div class="news-meta">{{ pin.label }} · {{ pin.createdAt?.toDateString() || 'No date' }}</div>
         </div>
         <div class="no-news" *ngIf="filteredNewsPins.length === 0">
-          No news articles match the selected date range.
+          No news articles match the selected filters.
         </div>
       </div>
     </div>

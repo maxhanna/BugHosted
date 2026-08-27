@@ -9,12 +9,14 @@ import { Character } from "../../character";
 
 export class Exit extends GameObject {
   targetMap: string;
-  constructor(params: { position: Vector2, showSprite?: boolean, rotation?: number, sprite?: string, targetMap?: string, colorSwap?: ColorSwap }) {
+  targetScale?: Vector2;
+  constructor(params: { position: Vector2, showSprite?: boolean, rotation?: number, sprite?: string, targetMap?: string, colorSwap?: ColorSwap, targetScale?: Vector2 }) {
     super({
       position: params.position
     });
     const sprite = params.sprite ?? "exit2";
     this.targetMap = params.targetMap ?? "HeroRoom";
+    this.targetScale = params.targetScale;
     this.name = "exitObject";
     if (params.showSprite) {
       const exitSprite = new Sprite({
@@ -37,6 +39,8 @@ export class Exit extends GameObject {
       const roundedHeroY = Math.round(character.position.y);
       if (this.position.x === roundedHeroX && this.position.y === roundedHeroY) { 
         if (character.isUserControlled) { 
+          events.emit("CHARACTER_EXIT_SCALE", { targetMap: this.targetMap, targetScale: this.targetScale });
+          // Keep the original string event for level-specific transition handlers.
           events.emit("CHARACTER_EXITS", this.targetMap);
         }
       }

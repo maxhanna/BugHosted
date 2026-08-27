@@ -166,13 +166,13 @@ export class UndergroundLevel2 extends Level {
     //EXITS
     for (let x = 0; x < 8; x++) {
       const undergroundLevel1Exit = new Exit(
-        { position: new Vector2(gridCells(0) + gridCells(x), gridCells(0)), showSprite: this.showDebugSprites, targetMap: "UndergroundLevel1", sprite: "white", colorSwap: new ColorSwap([255, 255, 255], [0, 0, 0]) }
+        { position: new Vector2(gridCells(0) + gridCells(x), gridCells(0)), showSprite: this.showDebugSprites, targetMap: "UndergroundLevel1", targetScale: new Vector2(0.74, 0.74), sprite: "white", colorSwap: new ColorSwap([255, 255, 255], [0, 0, 0]) }
       );
       this.addChild(undergroundLevel1Exit);
     }
     for (let x = 0; x < 8; x++) {
       const undergroundLevel3Exit = new Exit(
-        { position: new Vector2(gridCells(56) + gridCells(x), gridCells(37)), showSprite: this.showDebugSprites, targetMap: "UndergroundLevel3", sprite: "white", colorSwap: new ColorSwap([255, 255, 255], [0, 0, 0]) }
+        { position: new Vector2(gridCells(56) + gridCells(x), gridCells(37)), showSprite: this.showDebugSprites, targetMap: "UndergroundLevel3", targetScale: new Vector2(0.74, 0.74), sprite: "white", colorSwap: new ColorSwap([255, 255, 255], [0, 0, 0]) }
       );
       this.addChild(undergroundLevel3Exit);
     }

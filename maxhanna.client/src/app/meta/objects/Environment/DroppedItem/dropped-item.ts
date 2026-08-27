@@ -26,7 +26,7 @@ export class DroppedItem extends GameObject {
     this.preventDestroyTimeout = params.preventDestroyTimeout ?? false;
     const body = new Sprite({
       objectId: Math.floor(Math.random() * (9999)) * -1,
-      resource: resources.images[this.itemSkin],
+      resource: resources.images[this.item?.category === "repairCell" ? "repairCell" : this.itemSkin],
       name: this.itemLabel ?? "Item",
       frameSize: this.itemSkin.includes("mask") ? new Vector2(32, 32) : new Vector2(6, 17),  
       drawLayer: FLOOR,
@@ -47,7 +47,9 @@ export class DroppedItem extends GameObject {
     }
     events.on("HERO_REQUESTS_ACTION", this, (params: { hero: any, objectAtPosition: any }) => {
       if (params.objectAtPosition.id === this.id && params.objectAtPosition.item) {   
-        if (this.item && this.item.category) {
+        if (this.item && this.item.category === "repairCell") {
+          events.emit("REPAIR_CELL_USED", this.item);
+        } else if (this.item && this.item.category) {
           console.log(this.item);
           events.emit("ITEM_PURCHASED", this.item);
         } else {

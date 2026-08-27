@@ -30,6 +30,7 @@ export class SpriteTextStringWithBackdrop extends GameObject {
   timeUntilNextShow = this.textSpeed;
   canSelectItems = false;
   selectionIndex = 0;
+  continueConversation = false;
 
   constructor(config: {
     string?: string[];
@@ -217,6 +218,13 @@ export class SpriteTextStringWithBackdrop extends GameObject {
           events.emit("SELECTED_ITEM", this.content[contentIndex]);
         }
         this.canSelectItems = false;
+      }
+      if (this.continueConversation && this.content.length > 1) {
+        this.content.shift();
+        this.cacheWords();
+        this.showingIndex = 0;
+        this.timeUntilNextShow = this.textSpeed;
+        return;
       }
       events.emit("END_TEXT_BOX");
       this.destroy();

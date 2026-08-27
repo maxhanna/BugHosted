@@ -273,6 +273,22 @@
   margin-bottom: 4px;
 }
 
+.news-keyword-filter {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin: 6px 0 10px;
+}
+
+.news-keyword-filter input {
+  flex: 1;
+  min-width: 0;
+}
+
+.news-keyword-filter button {
+  white-space: nowrap;
+}
+
 .news-filters {
   padding: 0 0 12px;
   border-bottom: 1px solid rgba(58, 58, 90, 1);

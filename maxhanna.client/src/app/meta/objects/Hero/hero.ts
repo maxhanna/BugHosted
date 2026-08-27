@@ -99,6 +99,9 @@ export class Hero extends Character {
         else if (selectedItem === "Unparty") { 
           events.emit("UNPARTY", isObjectNearby(this));
         }
+        else if (selectedItem === "Declare Hostile") {
+          events.emit("HOSTILITY_REQUEST", isObjectNearby(this));
+        }
         else if (selectedItem === "Wave") {
           events.emit("WAVE_AT", isObjectNearby(this));
         }
@@ -170,8 +173,7 @@ export class Hero extends Character {
 
   override getContent() {
     return {
-      portraitFrame: 0,
-      string: ["Party Up", "Whisper", "Wave", "Cancel"],
+      portraitFrame: 0,        string: ["Party Up", "Declare Hostile", "Whisper", "Wave", "Cancel"],
       canSelectItems: true,
       addsFlag: undefined
     }

@@ -322,9 +322,10 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
           // Preserve selected project path if it's still valid
           if (this.selectedProjectPath && !this.projects.some(p => p.path === this.selectedProjectPath)) {
             this.selectedProjectPath = '';
-          }
-          const state = parsed.state || parsed.State;
-          if (state) {
+          }            const state = parsed.state || parsed.State || parsed.kanban || parsed.Kanban;
+            if (state) {
+              const archivedCards = state.archived || state.Archived || parsed.archived || parsed.Archived || [];
+              if (!Array.isArray(state.archived) && Array.isArray(archivedCards)) state.archived = archivedCards;
             // Build flat map of old cards across all columns
             const allCols = ['todo', 'doing', 'done', 'archived', 'selfImproving'];
             const oldCardMap = new Map<string, { card: any; col: string }>();
@@ -342,7 +343,8 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
             }
             const newState: any = { todo: [], doing: [], done: [], archived: [], selfImproving: [] };
             for (const col of ['todo', 'doing', 'done', 'archived', 'selfImproving']) {
-              const newCards: any[] = (state[col] || []).filter((c: any) => !this.deletedCardIds.has(c.id));
+              const rawCards = state[col] || state[col[0].toUpperCase() + col.slice(1)] || [];
+              const newCards: any[] = (Array.isArray(rawCards) ? rawCards : []).filter((c: any) => !this.deletedCardIds.has(c.id));
               for (const card of newCards) {
                 // Preserve the exact local card object when it's being edited
                 if (card.id === this.focusedCardId) {

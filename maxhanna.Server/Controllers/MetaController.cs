@@ -1665,6 +1665,26 @@ namespace maxhanna.Server.Controllers
 					}
 				}
 			}
+			else if (metaEvent != null && metaEvent.Data != null && metaEvent.EventType == "HOSTILITY_REQUEST")
+			{
+				// The target must explicitly accept; requests are delivered through the short-lived event feed.
+			}
+			else if (metaEvent != null && metaEvent.Data != null && metaEvent.EventType == "HOSTILITY_ACCEPT")
+			{
+				if (metaEvent.Data.TryGetValue("targetHeroId", out var targetHeroIdText) && int.TryParse(targetHeroIdText, out var targetHeroId))
+				{
+					// Store both directions so either player's bots can discover the hostile player.
+					const string sql = @"
+INSERT INTO maxhanna.meta_hostility (hero_id, hostile_hero_id)
+VALUES (@HeroId, @TargetHeroId), (@TargetHeroId, @HeroId)
+ON DUPLICATE KEY UPDATE hostile_hero_id = VALUES(hostile_hero_id);";
+					await ExecuteInsertOrUpdateOrDeleteAsync(sql, new Dictionary<string, object?>
+					{
+						{ "@HeroId", metaEvent.HeroId },
+						{ "@TargetHeroId", targetHeroId }
+					}, connection, transaction);
+				}
+			}
 			else if (metaEvent != null && metaEvent.EventType == "CALL_BOT_BACK")
 			{
 				int heroId = metaEvent.HeroId;

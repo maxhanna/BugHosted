@@ -354,7 +354,8 @@ export function getBotsInRange(player: Bot, partyMembers?: { heroId: number, nam
   const posibilities = player.parent?.children?.filter((child: Bot) => {
     return (
       ((player.heroId ?? 0) < 0 ? (child.heroId ?? 0) > 0 : true) &&
-	  !partyMembers?.find(x => x.heroId == (child.heroId ?? 0)) &&
+      !partyMembers?.find(x => x.heroId == (child.heroId ?? 0)) &&
+      (!player.hostileHeroIds || player.hostileHeroIds.includes(child.heroId ?? 0) || (child.heroId ?? 0) < 0) &&
       (child.isDeployed) &&
       (child.id != player.id) &&
       (child.isEnemy) &&

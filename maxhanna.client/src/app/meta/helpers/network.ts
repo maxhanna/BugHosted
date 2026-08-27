@@ -17,6 +17,7 @@ import { MetaHero } from "../../../services/datacontracts/meta/meta-hero";
 import { Character } from "../objects/character";
 import { generateReward, setTargetToDestroyed } from "./fight";
 import { WarpBase } from "../objects/Effects/Warp/warp-base";
+import { DroppedItem } from "../objects/Environment/DroppedItem/dropped-item";
 
 
 export class Network {
@@ -550,6 +551,22 @@ export function subscribeToMainGameEvents(object: any) {
     }
   });
 
+  events.on("CHARACTER_EXIT_SCALE", object, (exit: { targetMap: string, targetScale?: Vector2 }) => {
+    if (exit?.targetScale && object.hero) {
+      object.hero.scale = exit.targetScale.duplicate();
+      object.hero.ogScale = exit.targetScale.duplicate();
+      object.hero.endScale = exit.targetScale.duplicate();
+      object.hero.initializeBody();
+      const deployedBot = object.mainScene?.level?.children?.find((x: any) => x instanceof Bot && x.heroId === object.metaHero.id);
+      if (deployedBot) {
+        deployedBot.scale = exit.targetScale.duplicate();
+        deployedBot.ogScale = exit.targetScale.duplicate();
+        deployedBot.endScale = exit.targetScale.duplicate();
+        deployedBot.initializeBody();
+      }
+    }
+  });
+
   events.on("WARP", object, (params: { x: string, y: string }) => {
     if (object.metaHero) {
       object.metaHero.position = new Vector2(gridCells(parseInt(params.x)), gridCells(parseInt(params.y)));
@@ -571,10 +588,61 @@ export function subscribeToMainGameEvents(object: any) {
     object.metaService.updateEvents(metaEvent);
   });
 
+  events.on("REPAIR_CELL_DROPPED", object, (params: { location: Vector2, item: InventoryItem }) => {
+    const item = params.item;
+    const dropped = new DroppedItem({
+      position: params.location,
+      item,
+      itemLabel: item.name,
+      itemSkin: "repairCell"
+    });
+    object.mainScene?.level?.addChild(dropped);
+    const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "ITEM_DROPPED", object.metaHero.map, {
+      "location": safeStringify(params.location), "item": safeStringify(item)
+    });
+    object.metaService.updateEvents(metaEvent);
+  });
+
+  events.on("REPAIR_CELL_USED", object, (item: InventoryItem) => {
+    const target = object.metaHero.metabots.find((bot: MetaBot) => bot.hp > 0 && bot.hp < 100) ?? object.metaHero.metabots.find((bot: MetaBot) => bot.hp <= 0);
+    if (!target) {
+      object.parentRef?.showNotification("All MetaBots are already fully repaired.");
+      return;
+    }
+    target.hp = Math.min(100, target.hp + Number(item.stats?.repair ?? 25));
+    if (target.hp > 0) target.isDeployed = false;
+    object.metaService.updateEvents(new MetaEvent(0, object.metaHero.id, new Date(), "REPAIR_CELL_USED", object.metaHero.map, {
+      "metabotId": `${target.id}`, "repair": `${item.stats?.repair ?? 25}`
+    }));
+    object.reinitializeInventoryData();
+    object.parentRef?.showNotification(`${target.name ?? "MetaBot"} repaired.`);
+  });
+
   events.on("GOT_REWARDS", object, (params: { location: Vector2, part: MetaBotPart }) => {
     if (!params.part) return;
     const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "ITEM_DROPPED", object.metaHero.map, { "location": safeStringify(params.location), "item": safeStringify(params.part) })
     object.metaService.updateEvents(metaEvent);    
+  });
+
+  events.on("HOSTILITY_REQUEST", object, (person: Hero) => {
+    if (!person?.id || person.id === object.metaHero.id) return;
+    const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "HOSTILITY_REQUEST", object.metaHero.map, {
+      "targetHeroId": `${person.id}`,
+      "targetName": person.name ?? "Player"
+    });
+    object.metaService.updateEvents(metaEvent);
+    object.parentRef?.showNotification(`Hostility request sent to ${person.name ?? "player"}. Both players must confirm.`);
+  });
+
+  events.on("HOSTILITY_ACCEPT", object, (heroId: number) => {
+    if (!heroId || heroId === object.metaHero.id) return;
+    if (!object.hostileHeroIds.includes(heroId)) object.hostileHeroIds.push(heroId);
+    object.mainScene?.level?.children?.filter((x: any) => x instanceof Bot && x.heroId === object.metaHero.id)
+      .forEach((bot: Bot) => bot.hostileHeroIds = object.hostileHeroIds);
+    const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "HOSTILITY_ACCEPT", object.metaHero.map, {
+      "targetHeroId": `${heroId}`
+    });
+    object.metaService.updateEvents(metaEvent);
   });
 
   events.on("PARTY_UP", object, (person: Hero) => {
@@ -666,6 +734,19 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
       const existingEvent = currentEvents.find((e: MetaEvent) => e.id == event.id);
       if (!existingEvent) {
         //do something with object fresh event.
+        if (event.eventType === "HOSTILITY_REQUEST" && event.data?.["targetHeroId"] == `${object.metaHero.id}`) {
+          const requesterId = event.heroId;
+          const requesterName = event.data["targetName"] ?? "another player";
+          const accepted = window.confirm(`${requesterName} wants to declare hostility. Accept?`);
+          if (accepted) events.emit("HOSTILITY_ACCEPT", requesterId);
+        }
+        if (event.eventType === "HOSTILITY_ACCEPT" && event.data?.["targetHeroId"] == `${object.metaHero.id}`) {
+          const otherId = event.heroId;
+          if (!object.hostileHeroIds.includes(otherId)) object.hostileHeroIds.push(otherId);
+          object.mainScene?.level?.children?.filter((x: any) => x instanceof Bot && x.heroId === object.metaHero.id)
+            .forEach((bot: Bot) => bot.hostileHeroIds = object.hostileHeroIds);
+          object.parentRef?.showNotification("Hostility declared. Your deployed bots may attack each other.");
+        }
         if (event.eventType === "PARTY_UP" && event.data && event.data["hero_id"] == `${object.metaHero.id}` && !object.isDecidingOnParty) {
           actionPartyUpEvent(object, event);
         }
@@ -709,7 +790,7 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
               if (winnerBot.heroId === object.metaHero.id) {
                 generateReward(winnerBot, bot);
               }
-            } 
+            }
           }
         
           setTargetToDestroyed(bot); 
@@ -769,9 +850,13 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
         }
         if (event.eventType === "ITEM_DROPPED") {
           if (event.data) {  
-            const tmpMetabotPart = JSON.parse(event.data["item"]) as MetaBotPart;
+            const droppedItem = JSON.parse(event.data["item"]);
             const location = JSON.parse(event.data["location"]) as Vector2;
-            object.addItemToScene(tmpMetabotPart, location); 
+            if (droppedItem.category === "repairCell") {
+              object.mainScene?.level?.addChild(new DroppedItem({ position: location, item: droppedItem, itemLabel: droppedItem.name, itemSkin: "repairCell" }));
+            }else {
+              object.addItemToScene(droppedItem as MetaBotPart, location);
+            }
           }
         }
         if (event.eventType === "CHAT" && event.data) {  
@@ -805,9 +890,9 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
                 hero: senderName,
                 content: content,
                 timestamp: new Date()
-              } as MetaChat;
+              }as MetaChat;
               object.displayChatMessage(chatM);
-            } 
+            }
           }
         }
       }

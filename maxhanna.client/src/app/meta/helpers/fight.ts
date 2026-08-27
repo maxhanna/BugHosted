@@ -12,6 +12,7 @@ import { Flare } from '../objects/Effects/Flare/flare';
 import { Rail } from '../objects/Effects/Rail/rail';
 import { Chain } from '../objects/Effects/Chain/chain';  
 import { Subsonic } from '../objects/Effects/Subsonic/subsonic';
+import { InventoryItem } from '../objects/InventoryItem/inventory-item';
 
 export const typeEffectiveness = new Map<SkillType, SkillType>([
   [SkillType.SPEED, SkillType.STRENGTH],       // Speed counters Strength
@@ -203,6 +204,16 @@ export function generateReward(source: Bot, target: Bot) {
 
   if (generatedPart) {
     events.emit("GOT_REWARDS", { location: target.position, part: generatedPart });
+  }
+
+  // Enemies can also drop a repair consumable. It repairs a damaged bot rather
+  // than restoring the player's own health, so "Repair Cell" is less confusing
+  // than a traditional health potion.
+  if (Math.random() < 0.35) {
+    events.emit("REPAIR_CELL_DROPPED", {
+      location: target.position,
+      item: new InventoryItem({ id: 0, name: "Repair Cell", image: "repairCell", category: "repairCell", stats: { repair: 25 } })
+    });
   }
 }
 

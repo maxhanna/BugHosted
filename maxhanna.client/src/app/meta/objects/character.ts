@@ -245,12 +245,14 @@ export class Character extends GameObject {
 /*      this.mask?.destroy();*/ 
       this.itemPickupTime = 2500;
       this.itemPickupShell = new GameObject({ position: new Vector2(0, 0) });
-      this.itemPickupShell.addChild(new Sprite({
+      this.itemPickupShell.pickupItemSprite = new Sprite({
         resource: resources.images[data.imageName],
         position: new Vector2(0, -30),
         scale: new Vector2(0.85, 0.85),
         frameSize: new Vector2(22, 24),
-      }));
+        rotation: 0,
+      });
+      this.itemPickupShell.addChild(this.itemPickupShell.pickupItemSprite);
       this.addChild(this.itemPickupShell);
       this.recalculateMaskPositioning();
     }
@@ -308,6 +310,10 @@ export class Character extends GameObject {
       this.body?.animations?.play("pickupDown");
     }
     this.recalculateMaskPositioning();
+    const carriedItem = this.itemPickupShell?.pickupItemSprite as Sprite | undefined;
+    if (carriedItem) {
+      carriedItem.rotation = (carriedItem.rotation + delta * 0.006) % (Math.PI * 2);
+    }
     if (this.itemPickupTime <= 0) {
       this.itemPickupShell.destroy();
     }

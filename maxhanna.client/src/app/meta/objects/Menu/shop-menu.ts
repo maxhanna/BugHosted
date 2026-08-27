@@ -37,6 +37,11 @@ export class ShopMenu extends Level {
     this.addChild(shopFrame);
     this.addChild(this.selectorSprite);
 
+    if (this.sellingMode) {
+      const sellNotice = new SpriteTextString("Only unequipped parts are shown here.", new Vector2(10, 62), "Black");
+      this.addChild(sellNotice);
+    }
+
     this.updateSelectorPosition();
     this.displayShopItems(this.items);
     this.incrementCurrentlySelectedId();

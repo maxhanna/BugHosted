@@ -71,6 +71,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy, 
   hero?: Hero;
   otherHeroes: MetaHero[] = [];
   partyMembers: { heroId: number, name: string, color?: string }[] = [];
+  hostileHeroIds: number[] = [];
   chat: MetaChat[] = [];
   events: MetaEvent[] = [];
   latestMessagesMap = new Map<string, MetaChat>();
@@ -173,6 +174,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy, 
           this.updateOtherHeroesBasedOnFetchedData(res);
           this.updateMissingOrNewHeroSprites();
           this.updateEnemyEncounters(res);
+          this.hostileHeroIds = Array.isArray((res as any).hostileHeroIds) ? (res as any).hostileHeroIds : this.hostileHeroIds;
 
           if (this.chat) {
             this.getLatestMessages();
@@ -203,6 +205,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy, 
           tgt.isDeployed = bots[y].isDeployed;
 
           // Fixed partyMembers check
+          tgt.hostileHeroIds = Array.isArray(this.hostileHeroIds) ? this.hostileHeroIds : [];
           tgt.partyMembers = (Array.isArray(this.partyMembers) &&
             this.partyMembers.length > 0 &&
             this.partyMembers.some((x: any) => x.heroId == tgt.heroId))
@@ -353,7 +356,8 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy, 
       rightArm: bot.rightArm,
       head: bot.head,
       legs: bot.legs,
-      partyMembers: metaHero.id === this.metaHero.id ? this.partyMembers : undefined
+      partyMembers: metaHero.id === this.metaHero.id ? this.partyMembers : undefined,
+      hostileHeroIds: metaHero.id === this.metaHero.id ? this.hostileHeroIds : undefined
     });
 
     this.mainScene.level?.addChild(tmpBot);

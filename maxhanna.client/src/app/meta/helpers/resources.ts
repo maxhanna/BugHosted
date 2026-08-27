@@ -122,6 +122,7 @@ export class Resources {
       warpbase: `${this.dir}warpBase.png`,
       warpspiral: `${this.dir}warpSpiral.png`,
       watch: `${this.dir}watch.png`,
+      repairCell: `${this.dir}watch.png`,
       water: `${this.dir}Water.png`,
       wardrobe: `${this.dir}wardrobe.png`,
       white: `${this.dir}white.png`,

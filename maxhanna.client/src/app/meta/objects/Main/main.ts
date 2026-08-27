@@ -62,6 +62,13 @@ export class Main extends GameObject {
           canSelectItems: content.canSelectItems,
           objectSubject: params.objectAtPosition
         });
+        // Story and shop NPCs expose their dialogue as an ordered list. The
+        // textbox already reveals each entry one at a time, so mark it as a
+        // continuous conversation and advance through every line before closing.
+        const subjectType = (params.objectAtPosition as any).type ?? "";
+        textBox.continueConversation = !content.canSelectItems &&
+          (subjectType === "mom" || params.objectAtPosition instanceof Character &&
+            ["mom", "salesPerson", "shopOwner"].includes(subjectType));
         this.addChild(textBox);
         events.emit("START_TEXT_BOX");
 

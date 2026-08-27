@@ -238,6 +238,7 @@ export class UndergroundLevel3 extends Level {
         { position: new Vector2(gridCells(0) + gridCells(x), gridCells(0)), 
           showSprite: this.showDebugSprites, 
           targetMap: "UndergroundLevel2", 
+          targetScale: new Vector2(0.74, 0.74),
           sprite: "white" 
         }
       );

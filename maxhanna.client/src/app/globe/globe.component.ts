@@ -7,6 +7,8 @@ import { SocialService } from '../../services/social.service';
 import { EncryptionService } from '../../services/encryption.service';
 import { CrawlerService } from '../../services/crawler.service';
 import { NewsService } from '../../services/news.service';
+import { CommentService } from '../../services/comment.service';
+import { FileComment } from '../../services/datacontracts/file/file-comment';
 import { NewsPin } from '../../services/datacontracts/news/news-data';
 import { Story } from '../../services/datacontracts/social/story';
 import { TileCacheService } from '../../services/tile-cache.service';
@@ -209,11 +211,13 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // ---- story pins ---------------------------------------------------------
   private stories: Story[] = [];
+  private locationComments: FileComment[] = [];
   newsPins: NewsPin[] = [];
   filteredNewsPins: NewsPin[] = [];
   minNewsDate: Date | null = null;
   maxNewsDate: Date | null = null;
   newsDateFilterValue: number = 1;
+  newsKeywordFilter = '';
   private customPings: GlobePing[] = [];
   private hoveredPin: { id: string; label: string; x: number; y: number } | null = null;
   hoveredFlightCallsign: string | null = null;
@@ -308,12 +312,14 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     private tileCacheService: TileCacheService,
     private flightService: FlightService,
     private userService: UserService,
-    private crawlerService: CrawlerService
+    private crawlerService: CrawlerService,
+    private commentService: CommentService
   ) { }
 
   async ngOnInit(): Promise<void> {
     await this.loadUsersWithLocations();
     this.loadStories();
+    this.loadLocationComments();
     this.loadNewsPins();
     this.loadFlights();
     this.loadAllFlights();
@@ -892,6 +898,19 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     } catch { /* non-fatal */ }
   }
 
+  private async loadLocationComments(): Promise<void> {
+    try {
+      const comments = await this.commentService.getComments({ userId: this.userId, pageSize: 100 });
+      this.locationComments = (Array.isArray(comments) ? comments : comments?.comments ?? [])
+        .map((comment: any) => {
+          const value = comment as FileComment;
+          value.date = value.date ? new Date(value.date) : undefined;
+          return value;
+        })
+        .filter((comment: FileComment) => !!comment.city || !!comment.country);
+    } catch { /* non-fatal */ }
+  }
+
   private async loadNewsPins(): Promise<void> {
     try {
       this.newsPins = await this.newsService.getNewsPins();
@@ -1054,13 +1073,36 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.applyNewsDateFilter();
   }
 
+  onNewsKeywordFilter(event: Event): void {
+    this.newsKeywordFilter = (event.target as HTMLInputElement).value;
+    this.applyNewsDateFilter();
+  }
+
+  clearNewsKeywordFilter(): void {
+    this.newsKeywordFilter = '';
+    this.applyNewsDateFilter();
+  }
+
   private applyNewsDateFilter(): void {
-    if (!this.minNewsDate || !this.maxNewsDate) { this.filteredNewsPins = this.newsPins; return; }
+    const keyword = this.newsKeywordFilter.trim().toLocaleLowerCase();
+    const matchesKeyword = (pin: NewsPin): boolean => {
+      if (!keyword) return true;
+      return [pin.articleTitle, pin.description, pin.label, (pin as any).source]
+        .filter((value): value is string => typeof value === 'string')
+        .some(value => value.toLocaleLowerCase().includes(keyword));
+    };
+
+    if (!this.minNewsDate || !this.maxNewsDate) {
+      this.filteredNewsPins = this.newsPins.filter(matchesKeyword);
+      return;
+    }
     const totalDays = (this.maxNewsDate.getTime() - this.minNewsDate.getTime()) / 86400000;
     const cutoff = new Date(
       this.maxNewsDate.getTime() - totalDays * (this.newsDateFilterValue / 100) * 86400000
     );
-    this.filteredNewsPins = this.newsPins.filter(p => !p.createdAt || p.createdAt >= cutoff);
+    this.filteredNewsPins = this.newsPins.filter(p =>
+      (!p.createdAt || p.createdAt >= cutoff) && matchesKeyword(p)
+    );
   }
 
   onStoryClick(story: Story): void {
@@ -1138,6 +1180,9 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     const storyPings = this.showStoriesPins ? this.filteredStories
       .map(story => this.storyToPing(story))
       .filter((ping): ping is ResolvedGlobePing => !!ping) : [];
+    const commentPings = this.showStoriesPins ? this.locationComments
+      .map(comment => this.commentToPing(comment))
+      .filter((ping): ping is ResolvedGlobePing => !!ping) : [];
     const newsPings = this.showNewsPins ? this.filteredNewsPins
       .map(pin => this.newsPinToPing(pin))
       .filter((ping): ping is ResolvedGlobePing => !!ping) : [];
@@ -1191,7 +1236,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     const flightPings = this.showFlightsPins ? this.getFlightPings() : [];
-    return [...flightPings, ...storyPings, ...newsPings, ...customPings, ...userPings, ...coordPings];
+    return [...flightPings, ...storyPings, ...commentPings, ...newsPings, ...customPings, ...userPings, ...coordPings];
   }
 
   private getFlightPings(): ResolvedGlobePing[] {
@@ -1376,6 +1421,22 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       user: user,
       city: userWithLoc.city,
       country: userWithLoc.country,
+    };
+  }
+
+  private commentToPing(comment: FileComment): ResolvedGlobePing | null {
+    const coords = comment.city
+      ? this.lookupCityCoords(comment.city, comment.country)
+      : this.lookupCoords(COUNTRY_COORDS, comment.country);
+    if (!coords) return null;
+    return {
+      id: `comment:${comment.id}`,
+      lat: coords[0],
+      lon: coords[1],
+      label: comment.commentText?.slice(0, 80) || 'Comment',
+      zoom: comment.city ? 82 : 58,
+      source: 'story',
+      data: { type: 'comment', comment },
     };
   }
 
