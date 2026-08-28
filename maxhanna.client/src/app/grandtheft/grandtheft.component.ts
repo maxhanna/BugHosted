@@ -4541,7 +4541,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           }
         }
       }
-      this.renderer.render(
+      if (!this._renderFaulted) this.renderer.render(
         camX, camY, camZ, this.camYaw, this.camPitch, aspect,
         targetX, this.carY - CAR_HEIGHT + rockOffset, targetZ, this.carYaw,
         this._allNPCs, this.otherPlayers, this._allPeds, this.parkedCars,
@@ -4577,7 +4577,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         !this.isMobile,
         carRoll
       );
-      if (this.firstPerson && !this.isInCar) {
+      if (!this._renderFaulted && this.firstPerson && !this.isInCar) {
         const anims = this.pickFirstPersonAnims();
         this.renderer.renderFirstPersonWeapon(
           camX, camY, camZ,
@@ -4593,11 +4593,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this._lastRenderErrorTime = performance.now();
       // A broken GLTF/WebGL scene is recorded once; it must not be retried in
       // the animation loop because the original exception is deterministic.
-      console.error('render error', e);
-      // Rendering is optional; do not let a bad asset kill the simulation or
-      // reschedule the same failing render forever. The loop continues with a
-      // blank frame while the original exception remains visible for diagnosis.
-      this._renderFaulted = false;
+      // Rendering is optional, but repeatedly invoking a renderer that has
+      // already overflowed the stack can keep the browser trapped in the same
+      // failure path. Disable the render call for this component instance and
+      // report the original exception only once.
+      if (this._renderFaultCount === 1) console.error('render error', e);
+      this._renderFaulted = true;
       if (this._renderRetryTimer !== null) {
         clearTimeout(this._renderRetryTimer);
         this._renderRetryTimer = null;

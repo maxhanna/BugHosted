@@ -5700,8 +5700,9 @@ void main() {
       if (json.nodes && json.nodes.length > 0 && json.scenes) {
         const identity = mat4.identity(mat4.create());
         const visiting = new Set<number>();
+        const visited = new Set<number>();
         const traverse = (nodeIdx: number, parentWorld: Float32Array) => {
-          if (visiting.has(nodeIdx)) {
+          if (visiting.has(nodeIdx) || visited.has(nodeIdx)) {
             console.warn('Ignoring cyclic glTF node reference', url, nodeIdx);
             return;
           }
@@ -5721,6 +5722,7 @@ void main() {
           if (node.mesh !== undefined) entries.push({ meshIndex: node.mesh, transform: world, nodeIndex: nodeIdx });
           for (const child of (node.children || [])) traverse(child, world);
           visiting.delete(nodeIdx);
+          visited.add(nodeIdx);
         };
         const scene = json.scenes[json.scene ?? 0];
         if (scene?.nodes) {
@@ -5757,18 +5759,21 @@ void main() {
         parents.fill(-1);
         const nodeWorldTransforms = new Map<number, Float32Array>();
         const parentVisiting = new Set<number>();
+        const parentVisited = new Set<number>();
         const addParents = (nodeIdx: number, parentIdx: number) => {
           const node = json.nodes[nodeIdx];
-          if (!node || parentVisiting.has(nodeIdx)) return;
+          if (!node || parentVisiting.has(nodeIdx) || parentVisited.has(nodeIdx)) return;
           parentVisiting.add(nodeIdx);
           node.parent = parentIdx;
           for (const child of (node.children || [])) addParents(child, nodeIdx);
           parentVisiting.delete(nodeIdx);
+          parentVisited.add(nodeIdx);
         };
         for (const rootIdx of (json.scenes[json.scene ?? 0]?.nodes || [])) addParents(rootIdx, -1);
         const nodeVisiting = new Set<number>();
+        const nodeVisited = new Set<number>();
         const traverseNodes = (nodeIdx: number, parentWorld: Float32Array) => {
-          if (nodeVisiting.has(nodeIdx)) return;
+          if (nodeVisiting.has(nodeIdx) || nodeVisited.has(nodeIdx)) return;
           const node = json.nodes[nodeIdx];
           if (!node) return;
           nodeVisiting.add(nodeIdx);
@@ -5785,6 +5790,7 @@ void main() {
           nodeWorldTransforms.set(nodeIdx, world);
           for (const child of (node.children || [])) traverseNodes(child, world);
           nodeVisiting.delete(nodeIdx);
+          nodeVisited.add(nodeIdx);
         };
         for (const rootIdx of (json.scenes[json.scene ?? 0]?.nodes || [])) {
           traverseNodes(rootIdx, mat4.identity(mat4.create()));
