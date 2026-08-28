@@ -784,14 +784,7 @@ fieldset {
 
 .blackFontColor {
   color: black;
-}
-
-.centeredContainer {
-  position: absolute;
-  top: 20%;
-  left: 50%;
-  transform: translate(-50%, -10%);
-}
+} 
 
 .embeddedContainer {
   max-height: 80vh;

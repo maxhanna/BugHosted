@@ -84,9 +84,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
       this.parentRef = this.inputtedParentRef;
     }
     this.crawlerService.indexCount().then(res => { if (res) { this.indexCount = parseInt(res); } });
-    if (!this.onlySearch) {
-      (document.getElementById("crawlerContainer") as HTMLDivElement)?.classList.add("centeredContainer");
-    } else {
+    if (this.onlySearch) {
       (document.getElementById("crawlerContainer") as HTMLDivElement)?.classList.add("embeddedContainer");
     }
     setTimeout(() => {
@@ -110,8 +108,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     }, 60000);
   }
 
-  ngOnDestroy() {
-    (document.getElementsByClassName("componentContainer")[0] as HTMLDivElement)?.classList.remove("centeredContainer");
+  ngOnDestroy() { 
     clearInterval(this.indexUpdateTimer);
     this.stopLoading();
   }
@@ -224,10 +221,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
 
   async searchUrl(skipScrape?: boolean) {
     const raw = this.keywordsInput.nativeElement.value?.trim();
-    if (!raw) return;
-    if (document.getElementById("crawlerContainer")) {
-      (document.getElementById("crawlerContainer") as HTMLDivElement)?.classList.remove("centeredContainer");
-    }
+    if (!raw) return; 
     if (raw.startsWith('site:')) { await this.doSearch(raw, false, skipScrape); return; }
     if (raw === '*') { await this.doSearch(raw, false, skipScrape); return; }
     let url = raw;
@@ -340,8 +334,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     } catch { return false; }
   }
 
-  private async doSearch(query: string, isExact: boolean, skipScrape?: boolean) {
-    (document.getElementsByClassName("componentContainer")[0] as HTMLDivElement)?.classList.remove("centeredContainer");
+  private async doSearch(query: string, isExact: boolean, skipScrape?: boolean) { 
     this.error = '';
     const value = query;
     if (value != this.lastSearch) this.currentPage = 1;
@@ -625,8 +618,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     }
   }
 
-  showMenuPanel() {
-    (document.getElementsByClassName("componentContainer")[0] as HTMLDivElement)?.classList.remove("centeredContainer");
+  showMenuPanel() { 
     if (!this.storageStats) {
       this.startLoading();
       this.crawlerService.storageStats()

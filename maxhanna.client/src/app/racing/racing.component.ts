@@ -1990,9 +1990,24 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     canvas.width = Math.max(1, Math.round(window.innerWidth * scale));
     canvas.height = Math.max(1, Math.round(window.innerHeight * scale));
   }
+  /** Last timestamp a gameLoop exception was logged — throttles error spam so a
+   *  deterministic per-frame failure cannot flood the console. */
+  private _lastFrameErrorLog = 0;
   private gameLoop(time: number) {
     if (this._destroyed) return;
-    this.animId = requestAnimationFrame((t) => this.gameLoop(t));
+    this.animId = requestAnimationFrame((t) => {
+      try {
+        this.gameLoop(t);
+      } catch (e) {
+        // The next frame is scheduled before the body runs, so the loop
+        // survives a throwing frame; log throttled instead of flooding.
+        const now = performance.now();
+        if (now - this._lastFrameErrorLog > 2000) {
+          this._lastFrameErrorLog = now;
+          console.error('Racing: frame error', e);
+        }
+      }
+    });
     const rawFrameMs = time - this.lastTime;
     const dt = Math.min(rawFrameMs / 1000, 0.05);
     this.lastTime = time;

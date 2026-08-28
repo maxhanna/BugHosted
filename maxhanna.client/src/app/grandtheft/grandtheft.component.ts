@@ -5327,6 +5327,47 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       }
     }
   }
+  /**
+   * Solid footprint (and top height) of one building mesh, shared by the
+   * collision push and roof-height logic. Most buildings are solid across
+   * their whole mesh bounds, but the procedural gas station is mostly open
+   * air — a canopy on columns over a drive-through forecourt — so only its
+   * rear service building blocks movement. Players and pedestrians can then
+   * walk, and cars drive, through the forecourt instead of hitting an
+   * invisible box spanning the entire station.
+   */
+  private buildingSolidRect(bld: any, m: any, margin: number): { cx: number; cz: number; hw: number; hd: number; topY: number } | null {
+    const rs = m.renderScale ?? 1;
+    const sx = (bld.scale?.[0] ?? 1) * rs;
+    const sy = (bld.scale?.[1] ?? 1) * rs;
+    const sz = (bld.scale?.[2] ?? 1) * rs;
+    const fullHw = (m.maxX - m.minX) / 2 * sx + margin;
+    const fullHd = (m.maxZ - m.minZ) / 2 * sz + margin;
+    if (!m.carName || !m.carName.includes('gas_station')) {
+      return {
+        cx: bld.x, cz: bld.z, hw: fullHw, hd: fullHd,
+        topY: bld.y + (m.minY !== undefined && m.maxY !== undefined ? (m.maxY - m.minY) * sy : 0),
+      };
+    }
+    // Rear service building in createGasStationMesh: box(0, 3.5, 13, 24, 7, 7)
+    // → half-extents 12×3.5 centered at local (0, 13), roof top at local y 7.
+    // The sign pylon sits inside this footprint; canopy, columns, and pumps
+    // stay passable. Stations are generated axis-aligned (yaw 0); for any
+    // other rotation keep the conservative full footprint rather than
+    // mis-rotating the sub-box.
+    const rot = ((bld.yaw % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+    const flip = Math.abs(rot - Math.PI) < 0.01 ? -1 : 1;
+    if (flip > 0 && Math.abs(bld.yaw) > 0.01) {
+      return { cx: bld.x, cz: bld.z, hw: fullHw, hd: fullHd, topY: bld.y + 7 * sy };
+    }
+    return {
+      cx: bld.x,
+      cz: bld.z + flip * 13 * sz,
+      hw: 12 * sx + margin,
+      hd: 3.5 * sz + margin,
+      topY: bld.y + 7 * sy,
+    };
+  }
   private checkBuildingsInChunk(chunkCX: number, chunkCZ: number, margin: number) {
     const chunk = this.renderer.getCityChunk(chunkCX, chunkCZ);
     for (const bld of chunk.buildings) {
@@ -5335,18 +5376,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       const models = Array.isArray(bld.model) ? bld.model : [bld.model];
       for (const m of models) {
         if (m.minX === undefined || m.maxX === undefined || m.minZ === undefined || m.maxZ === undefined) continue;
-        const rs = m.renderScale ?? 1;
-        const sx = (bld.scale?.[0] ?? 1) * rs;
-        const sz = (bld.scale?.[2] ?? 1) * rs;
-        const hw = (m.maxX - m.minX) / 2 * sx + margin;
-        const hd = (m.maxZ - m.minZ) / 2 * sz + margin;
-        const rot = ((bld.yaw % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
-        const swap = Math.abs(rot - Math.PI / 2) < 0.01 || Math.abs(rot - Math.PI * 3 / 2) < 0.01;
-        const ehw = swap ? hd : hw;
-        const ehd = swap ? hw : hd;
-        const dx = this.carX - bld.x;
-        const dz = this.carZ - bld.z;
-        if (Math.abs(dx) < ehw && Math.abs(dz) < ehd && this.carY < 15) {
+        const solid = this.buildingSolidRect(bld, m, margin);
+        if (!solid) continue;
+        const dx = this.carX - solid.cx;
+        const dz = this.carZ - solid.cz;
+        if (Math.abs(dx) < solid.hw && Math.abs(dz) < solid.hd && this.carY < 15) {
           if (this.isInCar) {
             const wallSpd = Math.hypot(this.carVx, this.carVz);
             const nowW = performance.now();
@@ -5368,7 +5402,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
               }
             }
           }
-          const overlapX = ehw - Math.abs(dx), overlapZ = ehd - Math.abs(dz);
+          const overlapX = solid.hw - Math.abs(dx), overlapZ = solid.hd - Math.abs(dz);
           if (overlapX < overlapZ) { this.carX += dx > 0 ? overlapX : -overlapX; this.carVx *= -0.3; }
           else { this.carZ += dz > 0 ? overlapZ : -overlapZ; this.carVz *= -0.3; }
           this.carSpeed *= 0.5;
@@ -5388,18 +5422,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           const models = Array.isArray(bld.model) ? bld.model : [bld.model];
           for (const m of models) {
             if (m.minX === undefined || m.maxX === undefined || m.minZ === undefined || m.maxZ === undefined || m.minY === undefined || m.maxY === undefined) continue;
-            const rs = m.renderScale ?? 1;
-            const sx = (bld.scale?.[0] ?? 1) * rs;
-            const sz = (bld.scale?.[2] ?? 1) * rs;
-            const hw = (m.maxX - m.minX) / 2 * sx;
-            const hd = (m.maxZ - m.minZ) / 2 * sz;
-            const rot = ((bld.yaw % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
-            const swap = Math.abs(rot - Math.PI / 2) < 0.01 || Math.abs(rot - Math.PI * 3 / 2) < 0.01;
-            const ehw = swap ? hd : hw, ehd = swap ? hw : hd;
-            const dx2 = x - bld.x, dz2 = z - bld.z;
-            if (Math.abs(dx2) < ehw && Math.abs(dz2) < ehd) {
-              const topY = bld.y + (m.maxY - m.minY) * (bld.scale?.[1] ?? 1) * rs;
-              if (topY > roofY) roofY = topY;
+            const solid = this.buildingSolidRect(bld, m, 0);
+            if (!solid) continue;
+            const dx2 = x - solid.cx, dz2 = z - solid.cz;
+            if (Math.abs(dx2) < solid.hw && Math.abs(dz2) < solid.hd) {
+              if (solid.topY > roofY) roofY = solid.topY;
             }
           }
         }

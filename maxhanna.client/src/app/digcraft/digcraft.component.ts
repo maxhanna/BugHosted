@@ -1291,6 +1291,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   private _frameCount = 0;
+  /** Last timestamp a gameLoop exception was logged — throttles error spam so a
+   *  deterministic per-frame failure cannot flood the console. */
+  private _lastFrameErrorLog = 0;
   /** Frames remaining in post-teleport burst mode — raises per-frame chunk work limits */
   private _chunkBurstFramesLeft = 0;
 
@@ -1298,6 +1301,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // Game Loop  
   // ═══════════════════════════════════════
   private gameLoop(time: number): void {
+    // Schedule the next frame BEFORE running this one (same pattern as the
+    // racing loop). A throwing frame — WebGL hiccup, worker failure, bad world
+    // data — must not permanently kill the loop the way an end-of-body
+    // schedule would. Exceptions are caught and throttled below. Requesting
+    // the next paint at the top of this synchronous callback is timing-
+    // equivalent to requesting it at the end.
+    this.animFrameId = requestAnimationFrame((t) => this.gameLoop(t));
+    try {
     const dt = Math.min((time - this.lastTime) / 1000, 0.1);
     const frameBudgetMs = this.onMobile() ? 12 : 8; // ms budget for chunk work per frame
     this.lastTime = time;
@@ -1336,7 +1347,15 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this.renderFrame();
       this._lastRenderAt = time;
     }
-    this.animFrameId = requestAnimationFrame((t) => this.gameLoop(t));
+    } catch (e) {
+      // The next frame is already scheduled (top of method) — log throttled and
+      // keep simulating instead of freezing the game on the first exception.
+      const now = performance.now();
+      if (now - this._lastFrameErrorLog > 2000) {
+        this._lastFrameErrorLog = now;
+        console.error('DigCraft: frame error', e);
+      }
+    }
   }
   // Procedural mob spawning for the client and simple local AI.
   // This is intentionally lightweight: mobs are visual and locally simulated.

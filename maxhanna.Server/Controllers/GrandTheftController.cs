@@ -742,19 +742,22 @@ namespace maxhanna.Server.Controllers
 			public bool IsRandom { get; set; }
 			public DateTime DroppedAt { get; set; }
 		}
+		// NOTE: must use properties, not public fields — System.Text.Json (the
+		// default AddControllers serializer) ignores public fields, which made
+		// every highscores row serialize as {} (blank leaderboard rows).
 		private sealed class HighScoreEntry
 		{
-			public int PlayerId;
-			public string PlayerName = "";
-			public int Kills;
-			public int Deaths;
-			public int Escapes;
-			public int Busted;
-			public int Resists;
-			public int WorstStreak;
-			public int Money;
-			public int MoneyEarned;
-			public int Score;
+			public int PlayerId { get; set; }
+			public string PlayerName { get; set; } = "";
+			public int Kills { get; set; }
+			public int Deaths { get; set; }
+			public int Escapes { get; set; }
+			public int Busted { get; set; }
+			public int Resists { get; set; }
+			public int WorstStreak { get; set; }
+			public int Money { get; set; }
+			public int MoneyEarned { get; set; }
+			public int Score { get; set; }
 		}
 		private static readonly (int Id, string Name)[] JumpRamps = new[]
 		{
@@ -765,13 +768,14 @@ namespace maxhanna.Server.Controllers
 			(5, "Hill Country"),
 			(6, "Mountain Mayhem")
 		};
+		// Properties (not fields) so any future direct serialization works.
 		private sealed class JumpScore
 		{
-			public int UserId;
-			public int RampId;
-			public double BestDistance;
-			public double BestHeight;
-			public int RewardTotal;
+			public int UserId { get; set; }
+			public int RampId { get; set; }
+			public double BestDistance { get; set; }
+			public double BestHeight { get; set; }
+			public int RewardTotal { get; set; }
 		}
 		private static readonly ConcurrentDictionary<long, JumpScore> _jumpScores = new();
 		private static long JumpKey(int userId, int rampId) => ((long)userId << 20) | (uint)rampId;
