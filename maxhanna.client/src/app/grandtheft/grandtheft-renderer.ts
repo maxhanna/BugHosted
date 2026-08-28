@@ -5096,15 +5096,18 @@ void main() {
     }
     for (const e of explosions) {
       const progress = e.age / e.lifetime;
-      const coreScale = 1 + progress * 4;
+      // Optional per-explosion multiplier: gas-station blasts render (and
+      // damage) several times larger than a barrel or car explosion.
+      const s = e.scale ?? 1;
+      const coreScale = (1 + progress * 4) * s;
       const coreAlpha = (1.0 - progress) * 1.2;
-      this.drawMesh(this.getExplosionMesh(), e.x, e.y + 0.5, e.z, 0, [coreScale, coreScale, coreScale], [1, 1, 1, Math.min(1, coreAlpha)]);
-      const fireScale = 2 + progress * 8;
+      this.drawMesh(this.getExplosionMesh(), e.x, e.y + 0.5 * s, e.z, 0, [coreScale, coreScale, coreScale], [1, 1, 1, Math.min(1, coreAlpha)]);
+      const fireScale = (2 + progress * 8) * s;
       const fireAlpha = (1.0 - progress) * 0.8;
-      this.drawMesh(this.getExplosionMesh(), e.x, e.y + 1.0, e.z, 0, [fireScale, fireScale * 0.8, fireScale], [1, 0.5, 0.0, fireAlpha]);
-      const smokeScale = 3 + progress * 12;
+      this.drawMesh(this.getExplosionMesh(), e.x, e.y + 1.0 * s, e.z, 0, [fireScale, fireScale * 0.8, fireScale], [1, 0.5, 0.0, fireAlpha]);
+      const smokeScale = (3 + progress * 12) * s;
       const smokeAlpha = (1.0 - progress) * 0.5;
-      this.drawMesh(this.getExplosionMesh(), e.x, e.y + 2.0 + progress * 3, e.z, 0, [smokeScale, smokeScale, smokeScale], [0.2, 0.2, 0.2, smokeAlpha]);
+      this.drawMesh(this.getExplosionMesh(), e.x, e.y + 2.0 * s + progress * 3 * s, e.z, 0, [smokeScale, smokeScale, smokeScale], [0.2, 0.2, 0.2, smokeAlpha]);
     }
     for (const m of muzzleFlashes) {
       const t = m.age / m.lifetime;

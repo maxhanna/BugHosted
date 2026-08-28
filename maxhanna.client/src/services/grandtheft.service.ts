@@ -266,6 +266,8 @@ export interface Rocket {
 export interface Explosion {
   x: number; y: number; z: number;
   age: number; lifetime: number;
+  /** Visual + blast multiplier; 1 = a normal explosion (barrel, car). */
+  scale?: number;
 }
 
 export interface BloodSplat {

@@ -3129,7 +3129,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           // Keep the station a charred ruin for the full cooldown (the draw
           // pass only stays dark while the timer is fresh).
           this.renderer.explodedGasStationTimers.set(key, performance.now());
-          this.spawnBigExplosion(gs.x, 0.5, gs.z);
+          this.spawnGasStationExplosion(gs.x, gs.z);
         }
         return;
       }
@@ -3327,15 +3327,28 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const dz = this.carZ - GARAGE_INTERIOR_Z;
     return dx * dx + dz * dz < 10 * 10;
   }
-  private spawnBigExplosion(x: number, y: number, z: number) {
-    this.explosions.push({ x, y, z, age: 0, lifetime: 2.0 });
-    this.explosions.push({ x, y, z, age: 0, lifetime: 2.0 });
+  /**
+   * A gas station going up is a station-scale event, not a barrel pop. The
+   * fuel pumps cook off across the whole forecourt and the rear service
+   * building goes up with them, while the main fuel-air blast hits everything
+   * around the station at 2.5× a normal explosion (radius ~30, up to ~500
+   * damage). Stations are always placed axis-aligned, so the pump offsets
+   * from createGasStationMesh are used directly.
+   */
+  private spawnGasStationExplosion(x: number, z: number) {
+    for (const [px, pz, life] of [[-7, -1, 1.6], [0, -1, 1.9], [7, -1, 1.6]] as const) {
+      this.explosions.push({ x: x + px, y: 0.5, z: z + pz, age: 0, lifetime: life, scale: 1.5 });
+    }
+    this.explosions.push({ x, y: 1.5, z: z + 13, age: 0, lifetime: 1.8, scale: 1.7 });
+    // Lingering fuel fireball so the station keeps burning after the blast.
+    this.explosions.push({ x, y: 0.5, z, age: 0, lifetime: 2.6, scale: 2.6 });
+    this.spawnExplosion(x, 0.5, z, 2.5);
   }
-  private spawnExplosion(x: number, y: number, z: number) {
-    this.explosions.push({ x, y, z, age: 0, lifetime: 1.0 });
-    const BLAST_RADIUS = 12.0;
-    const BLAST_MAX_DMG = 200;
-    const BLAST_MIN_DMG = 50;
+  private spawnExplosion(x: number, y: number, z: number, blastScale: number = 1) {
+    this.explosions.push({ x, y, z, age: 0, lifetime: 1.0, scale: blastScale });
+    const BLAST_RADIUS = 12.0 * blastScale;
+    const BLAST_MAX_DMG = Math.round(200 * blastScale);
+    const BLAST_MIN_DMG = Math.round(50 * blastScale);
     const dmgAt = (dist: number) => {
       if (dist >= BLAST_RADIUS) return 0;
       const t = dist / BLAST_RADIUS;
@@ -4955,7 +4968,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         if (!this.renderer.explodedGasStations.has(key)) {
           this.renderer.explodedGasStations.add(key);
           this.renderer.explodedGasStationTimers.set(key, performance.now());
-          this.spawnExplosion(gs.x, 0.5, gs.z);
+          this.spawnGasStationExplosion(gs.x, gs.z);
           this.carHealth = 0;
         }
       }
@@ -5396,8 +5409,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
                 if (!this.renderer.explodedGasStations.has(gKey)) {
                   this.renderer.explodedGasStations.add(gKey);
                   this.renderer.explodedGasStationTimers.set(gKey, nowW);
-                  this.spawnBigExplosion(bld.x, 0.5, bld.z);
-                  this.spawnExplosion(bld.x, 0.5, bld.z);
+                  this.spawnGasStationExplosion(bld.x, bld.z);
                 }
               }
             }
