@@ -463,6 +463,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private _renderFaulted = false;
   private _renderFaultCount = 0;
   private _renderRetryTimer: number | null = null;
+  private _renderRetryPending = false;
   private autoFireTimer: any = null;
   private _allNPCs: any[] = [];
   private _allPeds: any[] = [];
@@ -821,6 +822,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (this.animFrameId !== null) cancelAnimationFrame(this.animFrameId);
     this.animFrameId = null;
     if (this._renderRetryTimer !== null) { clearTimeout(this._renderRetryTimer); this._renderRetryTimer = null; }
+    this._renderRetryPending = false;
     const canvas = this.canvasRef.nativeElement;
     canvas.removeEventListener('click', this.onCanvasClick);
     document.removeEventListener('pointerlockchange', this.onPointerLockChange);
@@ -3944,7 +3946,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     // A render callback must never re-enter itself. This is a fail-safe for
     // browser/runtime callbacks that synchronously trigger another frame while
     // WebGL or Angular is unwinding an error.
-    if (this._frameInProgress || this._destroyed || this._renderFaulted) return;
+    if (this._frameInProgress || this._destroyed) return;
     this._frameInProgress = true;
     // Clear the handle immediately: a stale RAF id can otherwise prevent the
     // finally block from scheduling the next frame after a synchronous callback.
@@ -4592,17 +4594,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       // Keep simulation/input alive while retrying rendering at a safe cadence.
       // This avoids a permanent soft-lock without allowing a failing frame to
       // recurse through requestAnimationFrame.
-      if (this._renderRetryTimer == null && !this._destroyed) {
-        this._renderRetryTimer = window.setTimeout(() => {
-          this._renderRetryTimer = null;
-          if (!this._destroyed) {
-            this._renderFaulted = false;
-            this._renderFaultCount = 0;
-            this.lastTime = performance.now();
-            this.animFrameId = requestAnimationFrame((frameNow) => this.gameLoop(frameNow));
-          }
-        }, 250);
-      }
+      this.scheduleRenderRetry();
     }
     if (this.damageAlpha > 0) {
       this.damageAlpha = Math.max(0, this.damageAlpha - dt * 1.5);
@@ -4617,7 +4609,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
     } finally {
       this._frameInProgress = false;
-      if (!this._destroyed && !this._renderFaulted && this.animFrameId == null) {
+      if (!this._destroyed && !this._renderFaulted && this.animFrameId == null && this._renderRetryTimer == null) {
         this.animFrameId = requestAnimationFrame((frameNow) => {
           this.animFrameId = null;
           this.gameLoop(frameNow);
@@ -4625,6 +4617,24 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       }
     }
   };
+  private scheduleRenderRetry(): void {
+    if (this._destroyed || this._renderRetryPending || this._renderRetryTimer !== null) return;
+    this._renderRetryPending = true;
+    this._renderRetryTimer = window.setTimeout(() => {
+      this._renderRetryTimer = null;
+      this._renderRetryPending = false;
+      if (this._destroyed) return;
+      this._renderFaulted = false;
+      this._renderFaultCount = 0;
+      this.lastTime = performance.now();
+      if (this.animFrameId === null) {
+        this.animFrameId = requestAnimationFrame((frameNow) => {
+          this.animFrameId = null;
+          this.gameLoop(frameNow);
+        });
+      }
+    }, 250);
+  }
   /** Busted: a cop booked the player — weapons are confiscated and the player
    *  wakes up at the nearest police station (home base if none is in range). */
   private doArrestRespawn() {
