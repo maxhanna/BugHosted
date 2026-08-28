@@ -460,6 +460,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private _pollFailureCount = 0;
   private _frameInProgress = false;
   private _destroyed = false;
+  private _renderFaulted = false;
+  private _renderFaultCount = 0;
   private autoFireTimer: any = null;
   private _allNPCs: any[] = [];
   private _allPeds: any[] = [];
@@ -3940,7 +3942,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     // A render callback must never re-enter itself. This is a fail-safe for
     // browser/runtime callbacks that synchronously trigger another frame while
     // WebGL or Angular is unwinding an error.
-    if (this._frameInProgress || this._destroyed) return;
+    if (this._frameInProgress || this._destroyed || this._renderFaulted) return;
     this._frameInProgress = true;
     // Clear the handle immediately: a stale RAF id can otherwise prevent the
     // finally block from scheduling the next frame after a synchronous callback.
@@ -4579,7 +4581,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         if (this._pistolDrawTimer > 0) this._pistolDrawTimer = Math.max(0, this._pistolDrawTimer - dt);
       }
     } catch (e) {
+      this._renderFaultCount++;
       console.error('render error', e);
+      // Do not keep scheduling frames after a fatal render failure. Repeated
+      // RAF callbacks turn one WebGL/scene error into a stack overflow and
+      // leave the whole game unresponsive.
+      this._renderFaulted = true;
     }
     if (this.damageAlpha > 0) {
       this.damageAlpha = Math.max(0, this.damageAlpha - dt * 1.5);
@@ -4594,7 +4601,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
     } finally {
       this._frameInProgress = false;
-      if (!this._destroyed && this.animFrameId == null) {
+      if (!this._destroyed && !this._renderFaulted && this.animFrameId == null) {
         this.animFrameId = requestAnimationFrame((frameNow) => {
           this.animFrameId = null;
           this.gameLoop(frameNow);
