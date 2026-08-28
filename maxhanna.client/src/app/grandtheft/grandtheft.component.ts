@@ -462,6 +462,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private _destroyed = false;
   private _renderFaulted = false;
   private _renderFaultCount = 0;
+  private _renderRetryTimer: number | null = null;
   private autoFireTimer: any = null;
   private _allNPCs: any[] = [];
   private _allPeds: any[] = [];
@@ -819,6 +820,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (this._missionFailedToastTimer) { clearTimeout(this._missionFailedToastTimer); this._missionFailedToastTimer = null; }
     if (this.animFrameId !== null) cancelAnimationFrame(this.animFrameId);
     this.animFrameId = null;
+    if (this._renderRetryTimer !== null) { clearTimeout(this._renderRetryTimer); this._renderRetryTimer = null; }
     const canvas = this.canvasRef.nativeElement;
     canvas.removeEventListener('click', this.onCanvasClick);
     document.removeEventListener('pointerlockchange', this.onPointerLockChange);
@@ -4587,6 +4589,20 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       // RAF callbacks turn one WebGL/scene error into a stack overflow and
       // leave the whole game unresponsive.
       this._renderFaulted = true;
+      // Keep simulation/input alive while retrying rendering at a safe cadence.
+      // This avoids a permanent soft-lock without allowing a failing frame to
+      // recurse through requestAnimationFrame.
+      if (this._renderRetryTimer == null && !this._destroyed) {
+        this._renderRetryTimer = window.setTimeout(() => {
+          this._renderRetryTimer = null;
+          if (!this._destroyed) {
+            this._renderFaulted = false;
+            this._renderFaultCount = 0;
+            this.lastTime = performance.now();
+            this.animFrameId = requestAnimationFrame((frameNow) => this.gameLoop(frameNow));
+          }
+        }, 250);
+      }
     }
     if (this.damageAlpha > 0) {
       this.damageAlpha = Math.max(0, this.damageAlpha - dt * 1.5);
