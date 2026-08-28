@@ -147,7 +147,7 @@
       </div>
     </div>
 
-    <div id="gt-leaderboard" *ngIf="showLeaderboard">
+    <div class="popupPanel gt-leaderboard-panel" *ngIf="showLeaderboard" role="dialog" aria-modal="true">
       <div class="lb-header">Grand Theft · High Scores</div>
       <div class="lb-tabs">
         <button class="lb-tab" [class.active]="lbTab === 'live'" (click)="setLbTab('live')">Live</button>
@@ -254,6 +254,7 @@
       </ng-container>
 
       <div class="lb-footer">Press L to close</div>
+      <button type="button" class="closeButton gt-leaderboard-close" (click)="toggleLeaderboard()">Close</button>
     </div>
 
     <div id="gt-mobile-chat" *ngIf="isMobile" (touchstart)="onButtonTouch($event); isChatOpen = true; chatInput = ''"

@@ -79,6 +79,16 @@ button:disabled {
  
 }
 
+.configuration-load-message {
+    margin: 12px 0;
+    padding: 12px 14px;
+    border: 1px solid rgba(220, 70, 70, 0.55);
+    border-radius: 6px;
+    background: rgba(120, 20, 20, 0.12);
+    color: #d64545;
+    font-weight: 600;
+}
+
 .config-grid-container {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));

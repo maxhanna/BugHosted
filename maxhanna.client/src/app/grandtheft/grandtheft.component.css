@@ -1747,7 +1747,23 @@ canvas.hidden { display: none; }
     width: 96vw;
     padding: 12px 10px;
   }
-  #gt-leaderboard .lb-stat {
+  .gt-leaderboard-panel {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 40;
+  width: min(96vw, 980px);
+  max-height: 88vh;
+  overflow: auto;
+}
+
+.gt-leaderboard-close {
+  display: block;
+  margin: 12px auto 0;
+}
+
+#gt-leaderboard .lb-stat {
     width: 52px;
     font-size: 11px;
   }

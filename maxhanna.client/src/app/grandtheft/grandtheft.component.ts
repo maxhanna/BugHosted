@@ -3949,7 +3949,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     // mobile/WebView RAF implementations invoke callbacks synchronously while
     // a frame is still being dispatched; scheduling here caused unbounded
     // gameLoop -> requestAnimationFrame recursion and a black screen.
-    const rawDt = Math.min((now - this.lastTime) / 1000, 0.05);
+    const rawDt = Math.min(Math.max((now - this.lastTime) / 1000, 0), 0.05);
     try {
     this.lastTime = now;
     // Brief slow-motion after a hard impact, easing back to real time.
@@ -4049,7 +4049,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.bustedFlashAlpha = Math.max(0, this.bustedFlashAlpha - dt * 2.5);
       // The white flash is an *ngIf overlay and this loop runs outside Angular's
       // zone — a CD pass per frame while the flash is alive keeps the fade visible.
-      this.ngZone.run(() => this.cdr.detectChanges());
+      this.ngZone.run(() => this.cdr.markForCheck());
     }
     if (this.bustedTitleTimer > 0) {
       this.bustedTitleTimer = Math.max(0, this.bustedTitleTimer - dt);
@@ -4588,7 +4588,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (Math.abs(this.hudSpeed - this._lastHudSpeed) > 1 || this.health !== this._lastHealth) {
       this._lastHudSpeed = this.hudSpeed;
       this._lastHealth = this.health;
-      this.ngZone.run(() => { this.cdr.detectChanges(); });
+      // The game loop runs outside Angular. Schedule at most one UI refresh
+      // per frame and never synchronously re-enter Angular while rendering.
+      this.ngZone.run(() => this.cdr.markForCheck());
     }
     } finally {
       this._frameInProgress = false;
@@ -4792,14 +4794,14 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       const readout = `AIRBORNE ${Math.max(0, Math.floor(dist))}m · ${Math.max(0, Math.floor(this.jumpPeak * 10) / 10)}m up`;
       if (readout !== this.jumpReadout) {
         this.jumpReadout = readout;
-        this.ngZone.run(() => this.cdr.detectChanges());
+        this.ngZone.run(() => this.cdr.markForCheck());
       }
       if (this.carY <= groundY) {
         this.carY = groundY;
         this.jumpActive = false;
         if (this.jumpReadout !== '') {
           this.jumpReadout = '';
-          this.ngZone.run(() => this.cdr.detectChanges());
+          this.ngZone.run(() => this.cdr.markForCheck());
         }
         const landDist = Math.hypot(this.carX - this.jumpLaunchX, this.carZ - this.jumpLaunchZ);
         if (landDist >= JUMP_MIN_DIST && this.jumpRampId > 0) {
@@ -4817,7 +4819,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.carY = groundY;
     if (this.jumpReadout !== '') {
       this.jumpReadout = '';
-      this.ngZone.run(() => this.cdr.detectChanges());
+      this.ngZone.run(() => this.cdr.markForCheck());
     }
     const spd = Math.hypot(this.carVx, this.carVz);
     if (this.jumpCooldown > 0) { this.jumpCooldown -= dt; return; }
@@ -5962,7 +5964,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           // Angular's zone — without an explicit CD pass the flash decays to
           // zero before any poll triggers change detection, so it never shows.
           // Force it like the HUD throttle so the flash fires with the thud.
-          this.ngZone.run(() => { this.cdr.detectChanges(); });
+          // The game loop runs outside Angular. Schedule at most one UI refresh
+      // per frame and never synchronously re-enter Angular while rendering.
+      this.ngZone.run(() => this.cdr.markForCheck());
         }
         // The body-blow thud only when the fight is near the player (a distant
         // ped-on-ped scrum shouldn't thud at full volume from across town).
@@ -7717,6 +7721,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
   private async loadHighScores() {
     if (this._destroyed) return;
+    // Always clear stale rows while a new request is loading so an empty or
+    // delayed response cannot leave the popup looking broken.
+    this.highScores = [];
     // Request token: rapid sort/tab switches must not let a stale response win.
     const reqId = ++this._hsReqId;
     this.hsLoading = true;

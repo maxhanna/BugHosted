@@ -40,6 +40,7 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
   ttlFormatted = ''; 
   tradeConfigLastUpdated: Date | undefined = undefined;
   isSavingConfiguration = false;
+  configurationLoadMessage = '';
   private readonly DEFAULT_USER_ID = 1;
 
   async updateCoinConfiguration() {
@@ -162,6 +163,7 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
 
   async getTradeConfiguration() {
     this.tradeConfigLastUpdated = undefined;
+    this.configurationLoadMessage = '';
     const userId = this.inputtedParentRef?.user?.id;
     const sessionToken = await this.inputtedParentRef?.getSessionToken();
     if (!userId || !sessionToken) { return alert("You must be logged in to get settings."); }
@@ -170,6 +172,11 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
     const strategy = this.tradeStrategySelect?.nativeElement?.value ?? "DCA";
     this.applyTradeConfiguration(undefined, true);
     const tv = await this.tradeService.getTradeConfiguration(userId, sessionToken, fromCoin, toCoin, strategy);
+    if (this.isExpiredTokenResponse(tv)) {
+      this.configurationLoadMessage = 'Your security session has expired. Please sign in again to view your tradebot configuration.';
+      this.inputtedParentRef?.showNotification(this.configurationLoadMessage);
+      return;
+    }
     if (tv?.userId) {
       this.applyTradeConfiguration(tv);
     } else {
@@ -183,6 +190,11 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
         strategy
       );
       console.log(defaultConfig);
+      if (this.isExpiredTokenResponse(defaultConfig)) {
+        this.configurationLoadMessage = 'Your security session has expired. Please sign in again to view your tradebot configuration.';
+        this.inputtedParentRef?.showNotification(this.configurationLoadMessage);
+        return;
+      }
       if (defaultConfig && defaultConfig.fromCoin) {
         this.applyTradeConfiguration(defaultConfig, true);
       } else if (defaultConfig && defaultConfig.includes("Access Denied")) {
@@ -191,6 +203,13 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
         return;
       } else { this.setDefaultTradeConfiguration(); } 
     }
+  }
+
+  private isExpiredTokenResponse(value: any): boolean {
+    const message = typeof value === 'string'
+      ? value
+      : typeof value?.message === 'string' ? value.message : '';
+    return /access denied|unauthorized|401|expired|invalid.*token|token.*invalid/i.test(message);
   }
 
   private applyTradeConfiguration(config: any, removeUserSpecificData = false) {

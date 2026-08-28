@@ -53,6 +53,10 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
     super();
   }
   async ngOnInit() {
+    // Set the loading state before any async work and synchronously refresh the
+    // view so the indicator is painted while the first request is in flight.
+    this.startLoading();
+    this.cdr.detectChanges();
     if (this.inputtedParentRef) {
       this.parentRef = this.inputtedParentRef;
     }
@@ -60,8 +64,6 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
       this.parentRef = this.injector.get(AppComponent);
     }
 
-    this.startLoading();
-    this.cdr.detectChanges();
     if (!this.searchOnly) {
       const chatNotifPromise = this.getChatNotifications();
       const usersPromise = this.getUsers();
@@ -87,6 +89,7 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
   async searchUsers() {
     this.startLoading();
     this.cdr.detectChanges();
+    await new Promise<void>(resolve => setTimeout(resolve, 0));
     let search = undefined;
     if (this.searchInput.nativeElement.value.trim() != '') {
       search = this.searchInput.nativeElement.value.trim();
@@ -103,6 +106,7 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
   async getUsers() {
     this.startLoading();
     this.cdr.detectChanges();
+    await new Promise<void>(resolve => setTimeout(resolve, 0));
     const user = this.user ?? this.parentRef?.user ?? this.inputtedParentRef?.user ?? new User(0, "Anonymous");
 
     // Collect promises conditionally, then await them together

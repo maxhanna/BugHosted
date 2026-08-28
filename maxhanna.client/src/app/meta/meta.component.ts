@@ -90,6 +90,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy, 
   private pollingInterval: any;
   showRepairShopDialog = false;
   private repairShopDialogShown = false;
+  private repairShopDialogStateKey = '';
 
   async ngOnInit() {
     metaResources.ensureLoaded();
@@ -593,10 +594,22 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy, 
 
   private checkForNoUsableMetabots() {
     const metabots = this.metaHero?.metabots ?? [];
-    const hasUsableBot = metabots.some(bot => bot.hp > 0);
     const hasDeadBot = metabots.length > 0 && metabots.every(bot => bot.hp <= 0);
-    if (hasDeadBot && !this.repairShopDialogShown) {
+    const stateKey = hasDeadBot
+      ? metabots.map(bot => `${bot.id}:${bot.hp}`).sort().join('|')
+      : '';
+
+    // Keep the dismissal tied to the current bot state. Polling can call this
+    // method every second, so closing the dialog must not reset the guard.
+    if (!hasDeadBot) {
+      this.repairShopDialogShown = false;
+      this.repairShopDialogStateKey = '';
+      return;
+    }
+
+    if (!this.repairShopDialogShown && this.repairShopDialogStateKey !== stateKey) {
       this.repairShopDialogShown = true;
+      this.repairShopDialogStateKey = stateKey;
       this.showRepairShopDialog = true;
       this.hero && (this.hero.isLocked = true);
     }
@@ -605,7 +618,6 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy, 
   goToNearestRepairShop() {
     this.showRepairShopDialog = false;
     this.hero && (this.hero.isLocked = false);
-    this.repairShopDialogShown = false;
     const shop = this.mainScene?.level?.children?.find((child: any) => child?.constructor?.name === 'Salesman');
     if (shop) {
       this.metaHero.position = shop.position.duplicate();
@@ -620,7 +632,6 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy, 
   declineRepairShop() {
     this.showRepairShopDialog = false;
     this.hero && (this.hero.isLocked = false);
-    this.repairShopDialogShown = false;
   }
 
   lockMovementForChat() {

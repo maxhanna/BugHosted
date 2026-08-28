@@ -6794,7 +6794,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       // }
 
       const me = players.find(p => p.userId === myId);
-      if (me) this.applyLocalHealth(me.health);
+      if (me) {
+        // Ignore stale health snapshots that arrive after a newer damage result.
+        // The next authoritative snapshot is still accepted when it is lower.
+        this.applyLocalHealth(me.health);
+      }
       // Don't overwrite hunger if client has higher value (e.g. just ate). 
       // Server saves hunger every ~3s, but polls every 250ms, so client is often fresher.
       if (me && typeof me.hunger === 'number') {
@@ -7092,15 +7096,18 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       return; // ignore damage while invulnerable
     }
     const prev = typeof this.health === 'number' ? this.health : 0;
-    this.health = newHealth;
-    // If health dropped, trigger flash and popup
-    if (!suppressFlash && typeof newHealth === 'number' && newHealth < prev) {
+    const boundedHealth = Math.max(0, Math.min(20, Number(newHealth) || 0));
+    this.health = boundedHealth;
+    // Damage is applied in discrete server-authoritative hits, but the HUD now
+    // updates on every accepted hit rather than jumping only on death.
+    if (!suppressFlash && boundedHealth < prev) {
       this.triggerDamageFlash();
-      if (typeof damage === 'number' && damage > 0) this.showDamagePopup(`-${damage}`);
+      const appliedDamage = typeof damage === 'number' && damage > 0 ? damage : prev - boundedHealth;
+      if (appliedDamage > 0) this.showDamagePopup(`-${Math.ceil(appliedDamage)}`);
     }
 
     // If we've died, show the forced respawn prompt (block other actions)
-    if (typeof newHealth === 'number' && newHealth <= 0) {
+    if (boundedHealth <= 0) {
       console.log(`Player died, health=${newHealth}, showRespawnPrompt was=${this.showRespawnPrompt}`);
       // ensure pointer is released so the overlay can capture input
       this.exitPointerLock();

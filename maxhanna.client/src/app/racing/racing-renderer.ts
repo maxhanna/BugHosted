@@ -3316,10 +3316,16 @@ void main() { FragColor = texture(uTex, vUV); }`;
   }
   private displaceVerts(verts: number[]) {
     const land = -0.33;
+    // Keep scenery out of the complete road envelope. The old nearest-point
+    // test only measured distance to the centreline, so corner geometry whose
+    // vertices were placed just outside the track could still be displaced
+    // across the ribbon and appear as gray puddles on the asphalt.
+    const trackClearance = 0.8;
     for (let o = 0; o < verts.length; o += 11) {
       const y = verts[o + 1];
       if (y < land) continue;
       const t = this.terrainAt(verts[o], verts[o + 2]);
+      if (t.dist < this.TRACK_WIDTH / 2 + trackClearance) continue;
       verts[o + 1] = y + t.elev * this.sceneryFade(t.dist) + t.bank * t.lateral * this.bankFade(t.dist);
     }
   }
@@ -6662,10 +6668,21 @@ void main() { FragColor = texture(uTex, vUV); }`;
     if (Math.random() < 0.65) {
       this.addCylinder(verts, idxs, x + (Math.random() - 0.5) * w * 0.4, baseY + h + (0.5 + Math.random() * 0.4) * s, z + (Math.random() - 0.5) * d * 0.4, 0.24 * s, 0.6 * s, 6, [0.55, 0.57, 0.6]);
     }
-    // A warm window light on the front face.
-    if (Math.random() < 0.7) {
-      const wy = baseY + h * 0.55;
-      this.addWindowQuad(verts, idxs, x, wy, z, 0.55 * s, 0.45 * s, 0, 1, [0.95, 0.88, 0.55]);
+    // Rooftop clothesline, balcony and varied window grouping make the
+    // hillside read as lived-in homes rather than repeated coloured cubes.
+    if (Math.random() < 0.6) {
+      const balconyY = baseY + h * 0.48;
+      this.addBox(verts, idxs, x, balconyY, z - d * 0.51, w * 0.72, 0.08 * s, 0.18 * s, [0.18, 0.16, 0.14]);
+      this.addBox(verts, idxs, x - w * 0.34, balconyY + 0.35 * s, z - d * 0.51, 0.035 * s, 0.7 * s, 0.035 * s, [0.2, 0.2, 0.2]);
+      this.addBox(verts, idxs, x + w * 0.34, balconyY + 0.35 * s, z - d * 0.51, 0.035 * s, 0.7 * s, 0.035 * s, [0.2, 0.2, 0.2]);
+      this.addWire(verts, idxs, x - w * 0.34, balconyY + 0.65 * s, z - d * 0.51, x + w * 0.34, balconyY + 0.65 * s, z - d * 0.51, 0.018 * s, [0.12, 0.12, 0.13]);
+    }
+    const windowColors: [number, number, number][] = [[0.98, 0.78, 0.32], [0.35, 0.75, 0.92], [0.95, 0.92, 0.68]];
+    const windowCount = 1 + Math.floor(Math.random() * 2);
+    for (let wi = 0; wi < windowCount; wi++) {
+      const wx = x + (wi - (windowCount - 1) / 2) * w * 0.32;
+      const wy = baseY + h * (0.42 + Math.random() * 0.2);
+      this.addWindowQuad(verts, idxs, wx, wy, z - d * 0.51, 0.28 * s, 0.32 * s, 0, 1, windowColors[Math.floor(Math.random() * windowColors.length)]);
     }
   }
   /** A jungle-covered hillside dense with terraced favela housing climbing
@@ -6756,7 +6773,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const ppx = -p.dirZ, ppz = p.dirX;
       for (const side of [-1, 1]) {
         if (Math.random() < 0.45) continue;
-        const dist = p.width / 2 + 26 + Math.random() * 22;
+        const dist = p.width / 2 + 38 + Math.random() * 30;
         const hx = p.x + ppx * dist * side + (Math.random() - 0.5) * 8;
         const hz = p.z + ppz * dist * side + (Math.random() - 0.5) * 8;
         const s = 0.85 + Math.random() * 0.7;
@@ -8356,7 +8373,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
       if (r > outer) outer = r;
     }
     // Alpine peaks are intentionally faceted and asymmetrical. Narrow, offset
-    // triangular spires break up the old rounded cone silhouette, while a broad    // low shoulder behind each one makes the range read as connected.
+    // triangular spires break up the old rounded cone silhouette, while a broad
+    // low shoulder behind each one makes the range read as connected.
     const alpinePeaks = this.theme === 'alpine' ? (this.lowQuality ? 9 : 15) : 14;
     for (let i = 0; i < alpinePeaks; i++) {
       const a = (i / alpinePeaks) * Math.PI * 2 + (Math.random() - 0.5) * 0.22;
@@ -8371,11 +8389,12 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const peakZ = mz + (Math.random() - 0.5) * mw * 0.3;
       this.addCone(verts, idxs, peakX, 0, peakZ, mw * 0.48, mh, this.theme === 'alpine' ? 5 : 8, col);
       if (this.theme === 'alpine') {
-        // Offset snow faces look like gullies on a real alpine peak rather
-        // than a perfectly centered white cap.
+        // Layered snowfields follow the mountain's lit face instead of using
+        // a single centered cap. This adds believable gullies and ridgelines.
         const snowCol = [0.84, 0.89, 0.96];
         this.addCone(verts, idxs, peakX - mw * 0.08, mh * 0.69, peakZ + mw * 0.04, mw * 0.22, mh * 0.31, 5, snowCol);
-        if (i % 3 === 0) this.addCone(verts, idxs, peakX + mw * 0.18, mh * 0.48, peakZ - mw * 0.12, mw * 0.13, mh * 0.25, 5, [0.68, 0.76, 0.86]);
+        this.addCone(verts, idxs, peakX + mw * 0.08, mh * 0.42, peakZ - mw * 0.12, mw * 0.12, mh * 0.34, 5, [0.68, 0.76, 0.86]);
+        if (i % 2 === 0) this.addCone(verts, idxs, peakX - mw * 0.23, mh * 0.32, peakZ + mw * 0.12, mw * 0.09, mh * 0.25, 4, [0.74, 0.81, 0.9]);
       } else {
         this.addCone(verts, idxs, mx, mh * 0.7, mz, mw * 0.35, mh * 0.3, 6, [0.85, 0.88, 0.95]);
       }
@@ -16226,7 +16245,7 @@ uniform vec3 uCamPos;
 uniform vec3 uCamRight;
 uniform vec3 uCamUp;
 uniform vec3 uCamFwd;
-uniform vec2 uTanHalfFov;   
+uniform vec2 uTanHalfFov;
 float sdSegment(vec2 p, vec2 a, vec2 b, float r) {
   vec2 pa = p - a, ba = b - a;
   float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
@@ -16252,7 +16271,7 @@ void main() {
   float dx = (n1 * 0.55 + n2 * 0.45) * 0.0055;
   float dy = (n3 * 0.65 + n1 * 0.35) * 0.004;
   vec2 uv = vUV + vec2(dx, dy) * heat * uStrength;
-  vec3 col = texture(uScene, clamp(uv, 0.001, 0.999)).rgb;  
+  vec3 col = texture(uScene, clamp(uv, 0.001, 0.999)).rgb;
   float dark = 0.0;
   for (int i = 0; i < 4; i++) {
     vec3 vp = uVultures[i].xyz;

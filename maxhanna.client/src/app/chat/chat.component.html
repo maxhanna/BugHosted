@@ -160,8 +160,8 @@
                 </div>
               </div>
               <div class="messageMeta">
-                <span class="messageTimestamp">
-                  {{ message._timeLabel }}
+                <span class="messageTimestamp" [title]="message.timestamp">
+                  {{ message._timeLabel }} · {{ message.timestamp | timeSince:'minute':true }}
                 </span>
                 <span class="userSeen" *ngIf="message.seen" [title]="'Seen by:' + message.seen">👀</span>
               </div>
