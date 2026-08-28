@@ -5559,11 +5559,15 @@ void main() {
     const boneLocalTf = new Float32Array(numBones * 16);
     const parents = new Int32Array(numBones);
     parents.fill(-1);
-    for (const rootIdx of (json.scenes[json.scene ?? 0]?.nodes || [])) {
-      const addParents = (ni: number, pi: number) => {
-        (json.nodes[ni] as any).parent = pi;
-        for (const c of (json.nodes[ni].children || [])) addParents(c, ni);
-      };
+    for (const rootIdx of (json.scenes[json.scene ?? 0]?.nodes || [])) {        const parentVisiting = new Set<number>();
+        const addParents = (ni: number, pi: number) => {
+          const node = json.nodes[ni];
+          if (!node || parentVisiting.has(ni)) return;
+          parentVisiting.add(ni);
+          (node as any).parent = pi;
+          for (const c of (node.children || [])) addParents(c, ni);
+          parentVisiting.delete(ni);
+        };
       addParents(rootIdx, -1);
     }
     for (let b = 0; b < numBones; b++) {
@@ -5695,8 +5699,15 @@ void main() {
       const entries: { meshIndex: number; transform: Float32Array; nodeIndex: number; nodeName?: string }[] = [];
       if (json.nodes && json.nodes.length > 0 && json.scenes) {
         const identity = mat4.identity(mat4.create());
+        const visiting = new Set<number>();
         const traverse = (nodeIdx: number, parentWorld: Float32Array) => {
+          if (visiting.has(nodeIdx)) {
+            console.warn('Ignoring cyclic glTF node reference', url, nodeIdx);
+            return;
+          }
           const node = json.nodes[nodeIdx];
+          if (!node) return;
+          visiting.add(nodeIdx);
           const local = mat4.identity(mat4.create());
           if (node.matrix) { for (let i = 0; i < 16; i++) local[i] = node.matrix[i]; }
           else if (node.rotation || node.translation) {
@@ -5709,6 +5720,7 @@ void main() {
           mat4.multiply(world, parentWorld, local);
           if (node.mesh !== undefined) entries.push({ meshIndex: node.mesh, transform: world, nodeIndex: nodeIdx });
           for (const child of (node.children || [])) traverse(child, world);
+          visiting.delete(nodeIdx);
         };
         const scene = json.scenes[json.scene ?? 0];
         if (scene?.nodes) {
@@ -5744,13 +5756,22 @@ void main() {
         const parents = new Int32Array(numBones);
         parents.fill(-1);
         const nodeWorldTransforms = new Map<number, Float32Array>();
+        const parentVisiting = new Set<number>();
         const addParents = (nodeIdx: number, parentIdx: number) => {
-          json.nodes[nodeIdx].parent = parentIdx;
-          for (const child of (json.nodes[nodeIdx].children || [])) addParents(child, nodeIdx);
+          const node = json.nodes[nodeIdx];
+          if (!node || parentVisiting.has(nodeIdx)) return;
+          parentVisiting.add(nodeIdx);
+          node.parent = parentIdx;
+          for (const child of (node.children || [])) addParents(child, nodeIdx);
+          parentVisiting.delete(nodeIdx);
         };
         for (const rootIdx of (json.scenes[json.scene ?? 0]?.nodes || [])) addParents(rootIdx, -1);
+        const nodeVisiting = new Set<number>();
         const traverseNodes = (nodeIdx: number, parentWorld: Float32Array) => {
+          if (nodeVisiting.has(nodeIdx)) return;
           const node = json.nodes[nodeIdx];
+          if (!node) return;
+          nodeVisiting.add(nodeIdx);
           const local = mat4.identity(mat4.create());
           if (node.matrix) { for (let i = 0; i < 16; i++) local[i] = node.matrix[i]; }
           else if (node.rotation || node.translation) {
@@ -5763,6 +5784,7 @@ void main() {
           mat4.multiply(world, parentWorld, local);
           nodeWorldTransforms.set(nodeIdx, world);
           for (const child of (node.children || [])) traverseNodes(child, world);
+          nodeVisiting.delete(nodeIdx);
         };
         for (const rootIdx of (json.scenes[json.scene ?? 0]?.nodes || [])) {
           traverseNodes(rootIdx, mat4.identity(mat4.create()));

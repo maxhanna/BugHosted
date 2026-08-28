@@ -4594,10 +4594,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       // A broken GLTF/WebGL scene is recorded once; it must not be retried in
       // the animation loop because the original exception is deterministic.
       console.error('render error', e);
-      // Do not keep scheduling frames after a fatal render failure. Repeated
-      // RAF callbacks turn one WebGL/scene error into a stack overflow and
-      // leave the whole game unresponsive.
-      this._renderFaulted = true;
+      // Rendering is optional; do not let a bad asset kill the simulation or
+      // reschedule the same failing render forever. The loop continues with a
+      // blank frame while the original exception remains visible for diagnosis.
+      this._renderFaulted = false;
       if (this._renderRetryTimer !== null) {
         clearTimeout(this._renderRetryTimer);
         this._renderRetryTimer = null;
@@ -4617,7 +4617,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
     } finally {
       this._frameInProgress = false;
-      if (!this._destroyed && !this._renderFaulted && this.animFrameId == null && this._renderRetryTimer == null) {
+      if (!this._destroyed && this.animFrameId == null && this._renderRetryTimer == null) {
         this.scheduleNextFrame();
       }
     }
