@@ -6068,6 +6068,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
   }
   private trySpawnAirportLotCars() {
+    if (this._destroyed) return; // mirror the hospital-lot retry: stop once the component is gone
     if (this.renderer.carMeshes.length > 0) {
       this.spawnAirportLotCars();
     } else {

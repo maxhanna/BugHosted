@@ -109,7 +109,22 @@ function getMountainSwitchbackZ(x: number): number {
   return ridgeCenterZ + 118 * Math.sin(x / 175 + 0.7);
 }
 
-export function getBiome(cx: number, cz: number): string {
+// Biome classification is a pure function of (cx, cz) and static world data,
+// so results are memoized. The in-flight set is the recursion guard: while a
+// chunk's beach classification is still being decided, re-entrant queries from
+// its neighbours receive the neighbour-independent biome instead of recursing.
+// Without this guard, two adjacent coastal chunks ping-pong forever through
+// hasRoadNeighbour -> getBiome -> hasRoadNeighbour (chunk A asks B, B's west
+// neighbour is ocean so B then asks A back, A asks B again, ...) and the stack
+// overflows with RangeError: Maximum call stack size exceeded during world
+// setup. Memoization also stops the island scans from re-running for every
+// terrain/height query.
+const biomeCache = new Map<string, string>();
+const biomeInFlight = new Set<string>();
+const BIOME_CACHE_LIMIT = 250000;
+
+/** Island/bridge/ocean/aeroport classification with no neighbour-dependent logic. Never recurses. */
+function biomeWithoutBeach(cx: number, cz: number): string {
   if (cx >= 0 && cx <= 3 && cz >= -3 && cz <= -1) return 'aeroport';
   if (cx >= 8 && cx <= 15 && cz >= -6 && cz <= -4) return 'aeroport';
   if (cx >= 22 && cx <= 30 && cz >= -8 && cz <= -6) return 'aeroport';
@@ -137,19 +152,6 @@ export function getBiome(cx: number, cz: number): string {
   if (!bestIsl) return 'ocean';
   const isl = bestIsl;
   const dist = bestDist;
-  // Keep the outer shoreline classification, but never let it split an
-  // inland road tile. Boundary roads are explicit connectors and must remain
-  // drivable on both sides of a biome seam.
-  const hasRoadNeighbour = (dx: number, dz: number) => {
-    const neighbour = getBiome(cx + dx, cz + dz);
-    return neighbour === 'city' || neighbour === 'suburb' || neighbour === 'parking_lot'
-      || neighbour === 'rural_farm' || neighbour === 'rural_hills' || neighbour === 'rural_mountain'
-      || neighbour === 'rural_lakes' || neighbour === 'rural_desert' || neighbour === 'bridge_connector';
-  };
-  if ((!isInAnyIsland(cx + 1, cz) || !isInAnyIsland(cx - 1, cz) ||
-    !isInAnyIsland(cx, cz + 1) || !isInAnyIsland(cx, cz - 1)) &&
-    !hasRoadNeighbour(-1, 0) && !hasRoadNeighbour(1, 0) &&
-    !hasRoadNeighbour(0, -1) && !hasRoadNeighbour(0, 1)) return 'beach';
   const mountainBand = getMountainBand(cx, cz);
   if (mountainBand === 2) return 'rural_mountain';
   if (mountainBand === 1) return 'rural_hills';
@@ -165,6 +167,39 @@ export function getBiome(cx: number, cz: number): string {
     if (rv === 2) return 'rural_mountain';
     if (rv === 3) return 'rural_lakes';
     return 'rural_desert';
+  }
+}
+
+export function getBiome(cx: number, cz: number): string {
+  const key = `${cx},${cz}`;
+  const cached = biomeCache.get(key);
+  if (cached !== undefined) return cached;
+  // Re-entrant guard: a neighbouring chunk is asking about us while our own
+  // beach decision is still on the stack. Return the recursion-free base biome
+  // so the A<->B ping-pong terminates instead of exhausting the stack.
+  if (biomeInFlight.has(key)) return biomeWithoutBeach(cx, cz);
+  biomeInFlight.add(key);
+  try {
+    const base = biomeWithoutBeach(cx, cz);
+    let result = base;
+    if (base !== 'ocean' && base !== 'aeroport' && base !== 'bridge' && base !== 'bridge_connector') {
+      // Keep the outer shoreline classification, but never let it split an
+      // inland road tile. Boundary roads are explicit connectors and must
+      // remain drivable on both sides of a biome seam.
+      const isRoadBiome = (b: string) => b === 'city' || b === 'suburb' || b === 'parking_lot'
+        || b === 'rural_farm' || b === 'rural_hills' || b === 'rural_mountain'
+        || b === 'rural_lakes' || b === 'rural_desert' || b === 'bridge_connector';
+      const hasRoadNeighbour = (dx: number, dz: number) => isRoadBiome(getBiome(cx + dx, cz + dz));
+      if ((!isInAnyIsland(cx + 1, cz) || !isInAnyIsland(cx - 1, cz) ||
+        !isInAnyIsland(cx, cz + 1) || !isInAnyIsland(cx, cz - 1)) &&
+        !hasRoadNeighbour(-1, 0) && !hasRoadNeighbour(1, 0) &&
+        !hasRoadNeighbour(0, -1) && !hasRoadNeighbour(0, 1)) result = 'beach';
+    }
+    if (biomeCache.size >= BIOME_CACHE_LIMIT) biomeCache.clear();
+    biomeCache.set(key, result);
+    return result;
+  } finally {
+    biomeInFlight.delete(key);
   }
 }
 export function isAeroportParkingChunk(cx: number, cz: number): boolean {
@@ -5559,16 +5594,24 @@ void main() {
     const boneLocalTf = new Float32Array(numBones * 16);
     const parents = new Int32Array(numBones);
     parents.fill(-1);
-    for (const rootIdx of (json.scenes[json.scene ?? 0]?.nodes || [])) {        const parentVisiting = new Set<number>();
-        const addParents = (ni: number, pi: number) => {
-          const node = json.nodes[ni];
-          if (!node || parentVisiting.has(ni)) return;
-          parentVisiting.add(ni);
-          (node as any).parent = pi;
-          for (const c of (node.children || [])) addParents(c, ni);
-          parentVisiting.delete(ni);
-        };
-      addParents(rootIdx, -1);
+    // Iterative parent assignment (explicit stack, first visit wins). The old
+    // path-guarded recursion still trusted the call stack; a cyclic node graph
+    // in a skinned asset must not be able to exhaust it.
+    const parentVisited = new Set<number>();
+    const parentStack: { idx: number; parent: number }[] = [];
+    const skeletonGraphRoots = json.scenes[json.scene ?? 0]?.nodes || [];
+    for (let r = skeletonGraphRoots.length - 1; r >= 0; r--) {
+      parentStack.push({ idx: skeletonGraphRoots[r], parent: -1 });
+    }
+    while (parentStack.length > 0) {
+      const frame = parentStack.pop()!;
+      if (parentVisited.has(frame.idx)) continue;
+      const node = json.nodes[frame.idx];
+      if (!node) continue;
+      parentVisited.add(frame.idx);
+      (node as any).parent = frame.parent;
+      const kids = node.children;
+      if (kids) for (let k = kids.length - 1; k >= 0; k--) parentStack.push({ idx: kids[k], parent: frame.idx });
     }
     for (let b = 0; b < numBones; b++) {
       const node = json.nodes[jointNodes[b]];
@@ -5592,20 +5635,33 @@ void main() {
     if (skeletonRootNodeIdx >= 0) {
       const rootParentIdx = json.nodes[skeletonRootNodeIdx].parent ?? -1;
       if (rootParentIdx >= 0) {
+        // Iterative world-transform walk with a visited set. This closure had
+        // no cycle protection at all — a cyclic node graph in a skinned asset
+        // (first-person arms/mark23) recursed until the stack overflowed.
         const nodeWorld = new Map<number, Float32Array>();
-        const trav = (ni: number, pw: Float32Array) => {
-          const n = json.nodes[ni];
+        const worldVisited = new Set<number>();
+        const skeletonWorldStack: { idx: number; parentWorld: Float32Array }[] = [];
+        const skeletonWorldRoots = json.scenes[json.scene ?? 0]?.nodes || [];
+        for (let r = skeletonWorldRoots.length - 1; r >= 0; r--) {
+          skeletonWorldStack.push({ idx: skeletonWorldRoots[r], parentWorld: mat4.identity(mat4.create()) });
+        }
+        while (skeletonWorldStack.length > 0) {
+          const frame = skeletonWorldStack.pop()!;
+          if (worldVisited.has(frame.idx)) continue;
+          const n = json.nodes[frame.idx];
+          if (!n) continue;
+          worldVisited.add(frame.idx);
           const local = mat4.identity(mat4.create());
           if (n.matrix) { for (let i = 0; i < 16; i++) local[i] = n.matrix[i]; }
           else if (n.rotation || n.translation) {
             const q = n.rotation || [0, 0, 0, 1], t = n.translation || [0, 0, 0], s = n.scale || [1, 1, 1];
             quatPosScaleToMat4([q[0], q[1], q[2], q[3]], [t[0], t[1], t[2]], [s[0], s[1], s[2]], local);
           }
-          const w = mat4.create(); mat4.multiply(w, pw, local);
-          nodeWorld.set(ni, w);
-          for (const c of (n.children || [])) trav(c, w);
-        };
-        for (const r of (json.scenes[json.scene ?? 0]?.nodes || [])) trav(r, mat4.identity(mat4.create()));
+          const w = mat4.create(); mat4.multiply(w, frame.parentWorld, local);
+          nodeWorld.set(frame.idx, w);
+          const kids = n.children;
+          if (kids) for (let k = kids.length - 1; k >= 0; k--) skeletonWorldStack.push({ idx: kids[k], parentWorld: w });
+        }
         const pw = nodeWorld.get(rootParentIdx);
         if (pw) skinRootWorld = new Float32Array(pw);
       }
@@ -5699,16 +5755,34 @@ void main() {
       const entries: { meshIndex: number; transform: Float32Array; nodeIndex: number; nodeName?: string }[] = [];
       if (json.nodes && json.nodes.length > 0 && json.scenes) {
         const identity = mat4.identity(mat4.create());
-        const visiting = new Set<number>();
+        // Iterative pre-order DFS with an explicit stack. glTF node graphs come
+        // from external assets, so traversal must never depend on the JS call
+        // stack: a cyclic or pathologically deep graph would overflow it
+        // (RangeError) before the first frame renders. A visited set gives
+        // first-seen-wins semantics for shared/diamond node references and
+        // terminates cycles.
         const visited = new Set<number>();
-        const traverse = (nodeIdx: number, parentWorld: Float32Array) => {
-          if (visiting.has(nodeIdx) || visited.has(nodeIdx)) {
-            console.warn('Ignoring cyclic glTF node reference', url, nodeIdx);
-            return;
+        const stack: { nodeIdx: number; parentWorld: Float32Array }[] = [];
+        const scene = json.scenes[json.scene ?? 0];
+        if (scene?.nodes) {
+          for (let r = scene.nodes.length - 1; r >= 0; r--) {
+            stack.push({ nodeIdx: scene.nodes[r], parentWorld: identity });
+          }
+        }
+        let warnedCyclicRef = false;
+        while (stack.length > 0) {
+          const frame = stack.pop()!;
+          const nodeIdx = frame.nodeIdx;
+          if (visited.has(nodeIdx)) {
+            if (!warnedCyclicRef) {
+              warnedCyclicRef = true;
+              console.warn('Ignoring cyclic/duplicate glTF node reference', url, nodeIdx);
+            }
+            continue;
           }
           const node = json.nodes[nodeIdx];
-          if (!node) return;
-          visiting.add(nodeIdx);
+          if (!node) continue;
+          visited.add(nodeIdx);
           const local = mat4.identity(mat4.create());
           if (node.matrix) { for (let i = 0; i < 16; i++) local[i] = node.matrix[i]; }
           else if (node.rotation || node.translation) {
@@ -5718,15 +5792,12 @@ void main() {
             quatPosScaleToMat4([q[0], q[1], q[2], q[3]], [t[0], t[1], t[2]], [s[0], s[1], s[2]], local);
           }
           const world = mat4.create();
-          mat4.multiply(world, parentWorld, local);
+          mat4.multiply(world, frame.parentWorld, local);
           if (node.mesh !== undefined) entries.push({ meshIndex: node.mesh, transform: world, nodeIndex: nodeIdx });
-          for (const child of (node.children || [])) traverse(child, world);
-          visiting.delete(nodeIdx);
-          visited.add(nodeIdx);
-        };
-        const scene = json.scenes[json.scene ?? 0];
-        if (scene?.nodes) {
-          for (const rootIdx of scene.nodes) traverse(rootIdx, identity);
+          // Push children reversed so the stack pops them in original order,
+          // preserving the recursive pre-order entry sequence for tree graphs.
+          const kids = node.children;
+          if (kids) for (let k = kids.length - 1; k >= 0; k--) stack.push({ nodeIdx: kids[k], parentWorld: world });
         }
       }
       if (entries.length === 0 && json.meshes) {
@@ -5758,25 +5829,39 @@ void main() {
         const parents = new Int32Array(numBones);
         parents.fill(-1);
         const nodeWorldTransforms = new Map<number, Float32Array>();
-        const parentVisiting = new Set<number>();
+        // Iterative parent assignment over an explicit stack (same rationale as
+        // the scene traversal above). First visit wins for shared nodes.
         const parentVisited = new Set<number>();
-        const addParents = (nodeIdx: number, parentIdx: number) => {
-          const node = json.nodes[nodeIdx];
-          if (!node || parentVisiting.has(nodeIdx) || parentVisited.has(nodeIdx)) return;
-          parentVisiting.add(nodeIdx);
-          node.parent = parentIdx;
-          for (const child of (node.children || [])) addParents(child, nodeIdx);
-          parentVisiting.delete(nodeIdx);
-          parentVisited.add(nodeIdx);
-        };
-        for (const rootIdx of (json.scenes[json.scene ?? 0]?.nodes || [])) addParents(rootIdx, -1);
-        const nodeVisiting = new Set<number>();
+        const parentStack: { idx: number; parent: number }[] = [];
+        const skinGraphRoots = json.scenes[json.scene ?? 0]?.nodes || [];
+        for (let r = skinGraphRoots.length - 1; r >= 0; r--) {
+          parentStack.push({ idx: skinGraphRoots[r], parent: -1 });
+        }
+        while (parentStack.length > 0) {
+          const frame = parentStack.pop()!;
+          if (parentVisited.has(frame.idx)) continue;
+          const node = json.nodes[frame.idx];
+          if (!node) continue;
+          parentVisited.add(frame.idx);
+          node.parent = frame.parent;
+          const kids = node.children;
+          if (kids) for (let k = kids.length - 1; k >= 0; k--) parentStack.push({ idx: kids[k], parent: frame.idx });
+        }
+        // Iterative world-transform walk (explicit stack, visited-guarded):
+        // identical results to the old recursive walk for valid graphs, but
+        // immune to stack overflow on cyclic or extremely deep node chains.
         const nodeVisited = new Set<number>();
-        const traverseNodes = (nodeIdx: number, parentWorld: Float32Array) => {
-          if (nodeVisiting.has(nodeIdx) || nodeVisited.has(nodeIdx)) return;
-          const node = json.nodes[nodeIdx];
-          if (!node) return;
-          nodeVisiting.add(nodeIdx);
+        const worldStack: { idx: number; parentWorld: Float32Array }[] = [];
+        const skinWorldRoots = json.scenes[json.scene ?? 0]?.nodes || [];
+        for (let r = skinWorldRoots.length - 1; r >= 0; r--) {
+          worldStack.push({ idx: skinWorldRoots[r], parentWorld: mat4.identity(mat4.create()) });
+        }
+        while (worldStack.length > 0) {
+          const frame = worldStack.pop()!;
+          if (nodeVisited.has(frame.idx)) continue;
+          const node = json.nodes[frame.idx];
+          if (!node) continue;
+          nodeVisited.add(frame.idx);
           const local = mat4.identity(mat4.create());
           if (node.matrix) { for (let i = 0; i < 16; i++) local[i] = node.matrix[i]; }
           else if (node.rotation || node.translation) {
@@ -5786,14 +5871,10 @@ void main() {
             quatPosScaleToMat4([q[0], q[1], q[2], q[3]], [t[0], t[1], t[2]], [s[0], s[1], s[2]], local);
           }
           const world = mat4.create();
-          mat4.multiply(world, parentWorld, local);
-          nodeWorldTransforms.set(nodeIdx, world);
-          for (const child of (node.children || [])) traverseNodes(child, world);
-          nodeVisiting.delete(nodeIdx);
-          nodeVisited.add(nodeIdx);
-        };
-        for (const rootIdx of (json.scenes[json.scene ?? 0]?.nodes || [])) {
-          traverseNodes(rootIdx, mat4.identity(mat4.create()));
+          mat4.multiply(world, frame.parentWorld, local);
+          nodeWorldTransforms.set(frame.idx, world);
+          const kids = node.children;
+          if (kids) for (let k = kids.length - 1; k >= 0; k--) worldStack.push({ idx: kids[k], parentWorld: world });
         }
         for (let b = 0; b < numBones; b++) {
           const nodeIdx = jointNodes[b];
