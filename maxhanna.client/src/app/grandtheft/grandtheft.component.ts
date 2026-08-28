@@ -465,7 +465,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private _renderRetryTimer: number | null = null;
   private _renderRetryPending = false;
   private _renderSchedulePending = false;
-  private _renderDisabled = false;
   private _lastRenderErrorTime = 0;
   private autoFireTimer: any = null;
   private _allNPCs: any[] = [];
@@ -719,7 +718,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         this.deferredRemaining = deferredTasks.length;
         this.ngZone.runOutsideAngular(() => {
           this.lastTime = performance.now();
-          this.scheduleNextFrame();
+          this.startGameLoop();
         });
         // Stream the rest in the background so start time stays snappy.
         this.loadDeferredAssets(deferredTasks);
@@ -824,6 +823,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (this._missionFailedToastTimer) { clearTimeout(this._missionFailedToastTimer); this._missionFailedToastTimer = null; }
     if (this.animFrameId !== null) cancelAnimationFrame(this.animFrameId);
     this.animFrameId = null;
+    this._renderSchedulePending = false;
     if (this._renderRetryTimer !== null) { clearTimeout(this._renderRetryTimer); this._renderRetryTimer = null; }
     this._renderRetryPending = false;
     this._renderSchedulePending = false;
@@ -4526,7 +4526,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         op.posY = opRoofY > opTerrainY ? opRoofY : opTerrainY;
       }
     }
-    if (this._renderDisabled) return;
     try {
       this.renderer.droppedWeapons = this.droppedWeapons || [];
       this.renderer.carFireElapsed = this._carOnFire ? (performance.now() / 1000) - this._carFireStarted : 0;
@@ -4592,18 +4591,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     } catch (e) {
       this._renderFaultCount++;
       this._lastRenderErrorTime = performance.now();
-      // A broken GLTF/WebGL scene must not be retried every frame. Keep the
-      // simulation alive, but let the single scheduler below decide when the
-      // renderer may be attempted again.
+      // A broken GLTF/WebGL scene is recorded once; it must not be retried in
+      // the animation loop because the original exception is deterministic.
       console.error('render error', e);
       // Do not keep scheduling frames after a fatal render failure. Repeated
       // RAF callbacks turn one WebGL/scene error into a stack overflow and
       // leave the whole game unresponsive.
       this._renderFaulted = true;
-      // Rendering is isolated from the simulation. Once the renderer throws,
-      // disable it for this component instance instead of repeatedly invoking
-      // the same broken scene and creating an error/retry storm.
-      this._renderDisabled = true;
       if (this._renderRetryTimer !== null) {
         clearTimeout(this._renderRetryTimer);
         this._renderRetryTimer = null;
@@ -4623,13 +4617,14 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
     } finally {
       this._frameInProgress = false;
-      if (!this._destroyed && !this._renderDisabled && !this._renderFaulted && this.animFrameId == null && this._renderRetryTimer == null) {
+      if (!this._destroyed && !this._renderFaulted && this.animFrameId == null && this._renderRetryTimer == null) {
         this.scheduleNextFrame();
       }
     }
   };
-  private scheduleNextFrame(): void {
-    if (this._destroyed || this._renderDisabled || this._renderSchedulePending || this.animFrameId !== null || this._renderRetryTimer !== null) return;
+  private startGameLoop(): void {
+    if (this._destroyed || this.animFrameId !== null || this._renderSchedulePending) return;
+    this._renderFaulted = false;
     this._renderSchedulePending = true;
     this.animFrameId = requestAnimationFrame((frameNow) => {
       this._renderSchedulePending = false;
@@ -4637,19 +4632,16 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       if (!this._destroyed) this.gameLoop(frameNow);
     });
   }
-  private scheduleRenderRetry(): void {
-    if (this._destroyed || this._renderRetryPending || this._renderRetryTimer !== null) return;
-    this._renderRetryPending = true;
-    this._renderRetryTimer = window.setTimeout(() => {
-      this._renderRetryTimer = null;
-      this._renderRetryPending = false;
-      if (this._destroyed || this._renderDisabled) return;
-      this._renderFaulted = false;
-      this._renderFaultCount = 0;
-      this.lastTime = performance.now();
-      this.scheduleNextFrame();
-    }, 250);
+  private scheduleNextFrame(): void {
+    if (this._destroyed || this._renderSchedulePending || this.animFrameId !== null || this._renderRetryTimer !== null) return;
+    this._renderSchedulePending = true;
+    this.animFrameId = requestAnimationFrame((frameNow) => {
+      this._renderSchedulePending = false;
+      this.animFrameId = null;
+      if (!this._destroyed) this.gameLoop(frameNow);
+    });
   }
+
   /** Busted: a cop booked the player — weapons are confiscated and the player
    *  wakes up at the nearest police station (home base if none is in range). */
   private doArrestRespawn() {
