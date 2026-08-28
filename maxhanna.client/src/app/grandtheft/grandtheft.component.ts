@@ -464,6 +464,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private _renderFaultCount = 0;
   private _renderRetryTimer: number | null = null;
   private _renderRetryPending = false;
+  private _renderSchedulePending = false;
+  private _lastRenderErrorTime = 0;
   private autoFireTimer: any = null;
   private _allNPCs: any[] = [];
   private _allPeds: any[] = [];
@@ -823,6 +825,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.animFrameId = null;
     if (this._renderRetryTimer !== null) { clearTimeout(this._renderRetryTimer); this._renderRetryTimer = null; }
     this._renderRetryPending = false;
+    this._renderSchedulePending = false;
     const canvas = this.canvasRef.nativeElement;
     canvas.removeEventListener('click', this.onCanvasClick);
     document.removeEventListener('pointerlockchange', this.onPointerLockChange);
@@ -4586,6 +4589,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       }
     } catch (e) {
       this._renderFaultCount++;
+      this._lastRenderErrorTime = performance.now();
+      // A broken GLTF/WebGL scene must not be retried every frame. Keep the
+      // simulation alive, but let the single scheduler below decide when the
+      // renderer may be attempted again.
       console.error('render error', e);
       // Do not keep scheduling frames after a fatal render failure. Repeated
       // RAF callbacks turn one WebGL/scene error into a stack overflow and
@@ -4610,13 +4617,19 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     } finally {
       this._frameInProgress = false;
       if (!this._destroyed && !this._renderFaulted && this.animFrameId == null && this._renderRetryTimer == null) {
-        this.animFrameId = requestAnimationFrame((frameNow) => {
-          this.animFrameId = null;
-          this.gameLoop(frameNow);
-        });
+        this.scheduleNextFrame();
       }
     }
   };
+  private scheduleNextFrame(): void {
+    if (this._destroyed || this._renderSchedulePending || this.animFrameId !== null || this._renderRetryTimer !== null) return;
+    this._renderSchedulePending = true;
+    this.animFrameId = requestAnimationFrame((frameNow) => {
+      this._renderSchedulePending = false;
+      this.animFrameId = null;
+      if (!this._destroyed) this.gameLoop(frameNow);
+    });
+  }
   private scheduleRenderRetry(): void {
     if (this._destroyed || this._renderRetryPending || this._renderRetryTimer !== null) return;
     this._renderRetryPending = true;
@@ -4627,12 +4640,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this._renderFaulted = false;
       this._renderFaultCount = 0;
       this.lastTime = performance.now();
-      if (this.animFrameId === null) {
-        this.animFrameId = requestAnimationFrame((frameNow) => {
-          this.animFrameId = null;
-          this.gameLoop(frameNow);
-        });
-      }
+      this.scheduleNextFrame();
     }, 250);
   }
   /** Busted: a cop booked the player — weapons are confiscated and the player
