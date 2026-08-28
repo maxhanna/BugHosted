@@ -301,12 +301,15 @@ export function getTerrainHeight(x: number, z: number, currentY?: number, forceB
   const cz = Math.floor(z / 80);
   const biome = getBiome(cx, cz);
   if (biome === 'bridge') {
-    // The bridge mesh is elevated across the entire bridge chunk. Returning
-    // water for an off-grid sample is correct for boats, but road vehicles
-    // use getBridgeAtWorldPos above and stay on the raised deck corridor.
-    if (isOnRoadGrid(x, z)) {
-      const bridge = BRIDGE_RANGES.find(br => cx >= br.startCx && cx <= br.endCx && cz >= br.startCz && cz <= br.endCz);
-      return bridge ? bridgeYAt(x, bridge) : BRIDGE_DECK_Y;
+    // Only the deck corridor is elevated. A sample off the corridor (grass or
+    // water beside the bridge) must not snap to deck height just because it
+    // sits near a road grid line — that lifted players walking next to the
+    // bridge as if they were already on it.
+    const bridge = BRIDGE_RANGES.find(br => cx >= br.startCx && cx <= br.endCx && cz >= br.startCz && cz <= br.endCz);
+    const roadCenterZ = cz * CHUNK_SIZE;
+    const corridorHalf = (ROAD_HALF_WIDTH * 2 + 10) / 2;
+    if (bridge && Math.abs(z - roadCenterZ) <= corridorHalf && isOnRoadGrid(x, z)) {
+      return bridgeYAt(x, bridge);
     }
     return -2.5;
   }
@@ -314,7 +317,13 @@ export function getTerrainHeight(x: number, z: number, currentY?: number, forceB
     const bridge = BRIDGE_RANGES.find(br =>
       (cx === br.startCx - 1 && cz === br.startCz) ||
       (cx === br.endCx + 1 && cz === br.endCz));
-    return bridge ? bridgeYAt(x, bridge) : 0.0;
+    if (!bridge) return 0.0;
+    // Same corridor rule as the deck: the approach ramp only carries traffic
+    // inside its width; the rest of the connector chunk is flat ground.
+    const roadCenterZ = cz * CHUNK_SIZE;
+    const corridorHalf = (ROAD_HALF_WIDTH * 2 + 10) / 2;
+    if (Math.abs(z - roadCenterZ) > corridorHalf) return 0.0;
+    return bridgeYAt(x, bridge);
   }
   if (biome === 'ocean') {
     if (isOnRoadGrid(x, z)) return 0.0;
@@ -2736,7 +2745,7 @@ void main() {
           // Sidewalks between the road and the parapet, with a curb at the road edge
           for (const side of [-1, 1]) {
             const sz = roadCenterZ + side * (roadW / 2 + 2.5);
-            this.addBox(verts, indices, sx, avgY + 0.14, sz, sliceLen, 0.2, 5, 0.52, 0.52, 0.54, 1.0, idxOffset); idxOffset += 24;
+            this.addBox(verts, indices, sx, avgY + 0.24, sz, sliceLen, 0.2, 5, 0.52, 0.52, 0.54, 1.0, idxOffset); idxOffset += 24;
             const curbZ = roadCenterZ + side * (roadW / 2);
             this.addBox(verts, indices, sx, avgY + 0.34, curbZ, sliceLen, 0.18, 0.14, 0.42, 0.42, 0.44, 1.0, idxOffset); idxOffset += 24;
           }
@@ -2752,8 +2761,10 @@ void main() {
           // Parapet guardrail walls along the deck edges
           for (const side of [-1, 1]) {
             const pz = roadCenterZ + side * (bridgeW / 2 - 0.45);
-            this.addBox(verts, indices, sx, avgY + 1.05, pz, sliceLen, 0.9, 0.5, 0.5, 0.5, 0.52, 1.0, idxOffset); idxOffset += 24;
-            this.addBox(verts, indices, sx, avgY + 1.62, pz, sliceLen, 0.1, 0.12, 0.68, 0.68, 0.7, 1.0, idxOffset); idxOffset += 24;
+            // Parapet rests ON the deck slab (slab top = avgY + 0.05) instead
+            // of hovering 0.55 above it, and the cap sits on the parapet top.
+            this.addBox(verts, indices, sx, avgY + 0.5, pz, sliceLen, 0.9, 0.5, 0.5, 0.5, 0.52, 1.0, idxOffset); idxOffset += 24;
+            this.addBox(verts, indices, sx, avgY + 1.0, pz, sliceLen, 0.1, 0.12, 0.68, 0.68, 0.7, 1.0, idxOffset); idxOffset += 24;
           }
           // Deep edge girders under the deck so the span reads as a real
           // girder/truss bridge from the side and below, not a floating slab.
@@ -2764,25 +2775,29 @@ void main() {
           if (si % 2 === 0) {
             // Truss ladder cross-beams stay below the deck, where they are
             // structural detail rather than obstacles in the driving lane.
-            this.addBox(verts, indices, sx, avgY - 1.15, roadCenterZ, sliceLen, 0.4, bridgeW - 5, 0.27, 0.27, 0.30, 1.0, idxOffset); idxOffset += 24;
-            // Railing posts standing on the parapet
+            // The cross-beam reaches the side girders instead of stopping
+            // 0.3 units short of them.
+            this.addBox(verts, indices, sx, avgY - 1.15, roadCenterZ, sliceLen, 0.4, bridgeW - 3.6, 0.27, 0.27, 0.30, 1.0, idxOffset); idxOffset += 24;
+            // Railing posts rise from the parapet top to the handrail
             for (const side of [-1, 1]) {
               const pz = roadCenterZ + side * (bridgeW / 2 - 0.45);
-              this.addBox(verts, indices, sx, avgY + 1.95, pz, 0.18, 0.95, 0.18, 0.55, 0.55, 0.58, 1.0, idxOffset); idxOffset += 24;
+              this.addBox(verts, indices, sx, avgY + 1.43, pz, 0.18, 1.05, 0.18, 0.55, 0.55, 0.58, 1.0, idxOffset); idxOffset += 24;
             }
           }
-          // Handrail running along the parapet top
+          // Handrail running along the parapet top, carried by the posts
           for (const side of [-1, 1]) {
             const pz = roadCenterZ + side * (bridgeW / 2 - 0.45);
-            this.addBox(verts, indices, sx, avgY + 2.3, pz, sliceLen, 0.1, 0.14, 0.68, 0.68, 0.7, 1.0, idxOffset); idxOffset += 24;
+            this.addBox(verts, indices, sx, avgY + 1.95, pz, sliceLen, 0.1, 0.14, 0.68, 0.68, 0.7, 1.0, idxOffset); idxOffset += 24;
           }
-          // Lamp masts over the sidewalk every few slices
+          // Lamp masts over the sidewalk every few slices. The mast base sits
+          // on the sidewalk surface (top = avgY + 0.24) and the arm reaches
+          // back to the mast instead of floating 2 units away from it.
           if (si % 4 === 2) {
             for (const side of [-1, 1]) {
               const pz = roadCenterZ + side * (bridgeW / 2 - 0.45);
-              this.addBox(verts, indices, sx, avgY + 3.5, pz, 0.24, 3.6, 0.24, 0.22, 0.22, 0.24, 1.0, idxOffset); idxOffset += 24;
-              const az = roadCenterZ + side * (bridgeW / 2 - 3.9);
-              this.addBox(verts, indices, sx, avgY + 3.65, az, 0.16, 0.15, 2.6, 0.32, 0.32, 0.35, 1.0, idxOffset); idxOffset += 24;
+              this.addBox(verts, indices, sx, avgY + 2.04, pz, 0.24, 3.6, 0.24, 0.22, 0.22, 0.24, 1.0, idxOffset); idxOffset += 24;
+              const az = roadCenterZ + side * (bridgeW / 2 - 1.75);
+              this.addBox(verts, indices, sx, avgY + 3.7, az, 0.16, 0.15, 2.6, 0.32, 0.32, 0.35, 1.0, idxOffset); idxOffset += 24;
             }
           }
         }
@@ -2805,7 +2820,7 @@ void main() {
             for (let by = 7; by < towerH; by += 7) {
               this.addBox(verts, indices, tx, baseY + by, lz, 4.2, 0.7, 1.1, 0.45, 0.45, 0.47, 1.0, idxOffset); idxOffset += 24;
             }
-            this.addBox(verts, indices, tx, baseY + towerH + 1.0, lz, 4.2, 1.6, 1.1, 0.45, 0.45, 0.47, 1.0, idxOffset); idxOffset += 24;
+            this.addBox(verts, indices, tx, baseY + towerH + 0.8, lz, 4.2, 1.6, 1.1, 0.45, 0.45, 0.47, 1.0, idxOffset); idxOffset += 24;
           }
           // Portal frames connecting both legs — one at the top, one just
           // above the deck — the classic suspension-tower silhouette.
@@ -2883,13 +2898,17 @@ void main() {
           const x2 = worldOriginX + (s + 1) * segW;
           const y1 = bridgeYAt(x1, bridge);
           const y2 = bridgeYAt(x2, bridge);
-          // Filled approach embankment: the landing is a solid graded mass,
-          // not a thin ramp floating above the neighboring street/terrain.
+          // Filled approach embankment: a solid graded mass under the ramp.
+          // It stays within the road corridor (deck + 1 unit lip per side)
+          // instead of jutting 8 units past the sidewalk as a free-standing
+          // concrete wall beside the approach.
           this.addFilledRamp(verts, indices, x1, y1 - 0.32, x2, y2 - 0.32,
-            roadCenterZ, bridgeW + 16, -2.5, 0.22, 0.22, 0.24, 1.0, idxOffset); idxOffset += 24;
-          // Deck slab under the ramp so the profile matches the raised deck
-          this.addRamp(verts, indices, x1, y1 - 0.3, x2, y2 - 0.3, roadCenterZ, bridgeW, 0.7, 0.26, 0.26, 0.28, 1.0, idxOffset); idxOffset += 24;
-          this.addRamp(verts, indices, x1, y1 + 0.08, x2, y2 + 0.08, roadCenterZ, roadW, 0.14, 0.13, 0.13, 0.14, 1.0, idxOffset); idxOffset += 24;
+            roadCenterZ, bridgeW + 2, -2.5, 0.22, 0.22, 0.24, 1.0, idxOffset); idxOffset += 24;
+          // Deck slab under the ramp, offset to match the deck chunk's slab
+          // exactly (top = y + 0.05, bottom = y - 0.65) so the ramp/deck seam
+          // has no visible step or gap.
+          this.addRamp(verts, indices, x1, y1 + 0.05, x2, y2 + 0.05, roadCenterZ, bridgeW, 0.7, 0.26, 0.26, 0.28, 1.0, idxOffset); idxOffset += 24;
+          this.addRamp(verts, indices, x1, y1 + 0.14, x2, y2 + 0.14, roadCenterZ, roadW, 0.14, 0.13, 0.13, 0.14, 1.0, idxOffset); idxOffset += 24;
           if (s % 2 === 0) {
             this.addRamp(verts, indices, x1, y1 + 0.16, x2, y2 + 0.16, roadCenterZ, 0.3, 0.02, 0.9, 0.75, 0.15, 0.8, idxOffset); idxOffset += 24;
           }
@@ -2898,14 +2917,24 @@ void main() {
             const lz = roadCenterZ + side * (roadW / 2 - 1.5);
             this.addRamp(verts, indices, x1, y1 + 0.16, x2, y2 + 0.16, lz, 0.22, 0.02, 0.85, 0.85, 0.85, 0.9, idxOffset); idxOffset += 24;
             const sz = roadCenterZ + side * (roadW / 2 + 2.5);
-            this.addRamp(verts, indices, x1, y1 + 0.14, x2, y2 + 0.14, sz, 5, 0.2, 0.52, 0.52, 0.54, 1.0, idxOffset); idxOffset += 24;
+            this.addRamp(verts, indices, x1, y1 + 0.24, x2, y2 + 0.24, sz, 5, 0.2, 0.52, 0.52, 0.54, 1.0, idxOffset); idxOffset += 24;
             const pz = roadCenterZ + side * (bridgeW / 2 - 0.45);
-            this.addRamp(verts, indices, x1, y1 + 1.05, x2, y2 + 1.05, pz, 0.5, 0.9, 0.5, 0.5, 0.52, 1.0, idxOffset); idxOffset += 24;
-            this.addRamp(verts, indices, x1, y1 + 1.62, x2, y2 + 1.62, pz, 0.12, 0.1, 0.68, 0.68, 0.7, 1.0, idxOffset); idxOffset += 24;
-            // Matching deep girder under the ramp edge and handrail on top
+            // Parapet base rests on the ramp slab (slab top = y + 0.05), with
+            // cap and handrail stacked on it — no floating rails.
+            this.addRamp(verts, indices, x1, y1 + 0.95, x2, y2 + 0.95, pz, 0.5, 0.9, 0.5, 0.5, 0.52, 1.0, idxOffset); idxOffset += 24;
+            this.addRamp(verts, indices, x1, y1 + 1.05, x2, y2 + 1.05, pz, 0.12, 0.1, 0.68, 0.68, 0.7, 1.0, idxOffset); idxOffset += 24;
+            // Matching deep girder under the ramp edge and handrail on top.
+            // The girder top matches the deck girder exactly at the seam.
             const gz = roadCenterZ + side * (bridgeW / 2 - 1.9);
-            this.addRamp(verts, indices, x1, y1 - 0.65, x2, y2 - 0.65, gz, 0.55, 1.8, 0.30, 0.30, 0.33, 1.0, idxOffset); idxOffset += 24;
-            this.addRamp(verts, indices, x1, y1 + 2.3, x2, y2 + 2.3, pz, 0.14, 0.1, 0.68, 0.68, 0.7, 1.0, idxOffset); idxOffset += 24;
+            this.addRamp(verts, indices, x1, y1 - 0.6, x2, y2 - 0.6, gz, 0.55, 1.8, 0.30, 0.30, 0.33, 1.0, idxOffset); idxOffset += 24;
+            // Handrail at the deck rail's exact height, carried by posts like
+            // the deck rail, so the ramp-to-deck transition is seamless.
+            this.addRamp(verts, indices, x1, y1 + 2.0, x2, y2 + 2.0, pz, 0.14, 0.1, 0.68, 0.68, 0.7, 1.0, idxOffset); idxOffset += 24;
+            if (s % 2 === 0) {
+              const xm = (x1 + x2) / 2;
+              const ym = bridgeYAt(xm, bridge);
+              this.addBox(verts, indices, xm, ym + 1.43, pz, 0.18, 1.05, 0.18, 0.55, 0.55, 0.58, 1.0, idxOffset); idxOffset += 24;
+            }
           }
         }
       }
