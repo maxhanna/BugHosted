@@ -3316,11 +3316,12 @@ void main() { FragColor = texture(uTex, vUV); }`;
   }
   private displaceVerts(verts: number[]) {
     const land = -0.33;
-    // Keep scenery out of the complete road envelope. The old nearest-point
-    // test only measured distance to the centreline, so corner geometry whose
-    // vertices were placed just outside the track could still be displaced
-    // across the ribbon and appear as gray puddles on the asphalt.
-    const trackClearance = 0.8;
+    // Keep all environment vertices well outside the road, including the
+    // shoulder/curb envelope. Nearest-point distance alone is not sufficient
+    // at corners because mitered track segments can bulge outward between
+    // samples; the larger clearance prevents those wedges from showing through
+    // the road surface.
+    const trackClearance = 4.5;
     for (let o = 0; o < verts.length; o += 11) {
       const y = verts[o + 1];
       if (y < land) continue;
@@ -8206,11 +8207,11 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const walkColor = seg % 2 === 0 ? walkA : walkB;
       const beachColor = seg % 2 === 0 ? beachA : beachB;
       for (const side of [-1, 1]) {
-        // Boardwalk: track edge +18..58 — a wide paved promenade with palms,
-        // benches and the pastel buildings. No sand touches the track side.
-        const wIn = [p.x + ppx * (p.width / 2 + 18) * side, -0.26, p.z + ppz * (p.width / 2 + 18) * side];
+        // Boardwalk: track edge +24..58 — leave a generous clean runoff gap
+        // around bends so the ground plane cannot overlap the track ribbon.
+        const wIn = [p.x + ppx * (p.width / 2 + 24) * side, -0.26, p.z + ppz * (p.width / 2 + 24) * side];
         const wOut = [p.x + ppx * (p.width / 2 + 58) * side, -0.26, p.z + ppz * (p.width / 2 + 58) * side];
-        const wnIn = [n.x + npx * (n.width / 2 + 18) * side, -0.26, n.z + npz * (n.width / 2 + 18) * side];
+        const wnIn = [n.x + npx * (n.width / 2 + 24) * side, -0.26, n.z + npz * (n.width / 2 + 24) * side];
         const wnOut = [n.x + npx * (n.width / 2 + 58) * side, -0.26, n.z + npz * (n.width / 2 + 58) * side];
         this.addGroundQuad(verts, idxs, wIn, wnIn, wnOut, wOut, walkColor);
         // Beach: +58..105 — the sand band, far enough out to read as "beach in
