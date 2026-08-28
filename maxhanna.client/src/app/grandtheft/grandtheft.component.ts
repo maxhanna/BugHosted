@@ -465,6 +465,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private _renderRetryTimer: number | null = null;
   private _renderRetryPending = false;
   private _renderSchedulePending = false;
+  private _renderDisabled = false;
   private _lastRenderErrorTime = 0;
   private autoFireTimer: any = null;
   private _allNPCs: any[] = [];
@@ -718,7 +719,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         this.deferredRemaining = deferredTasks.length;
         this.ngZone.runOutsideAngular(() => {
           this.lastTime = performance.now();
-          this.gameLoop(this.lastTime);
+          this.scheduleNextFrame();
         });
         // Stream the rest in the background so start time stays snappy.
         this.loadDeferredAssets(deferredTasks);
@@ -4525,6 +4526,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         op.posY = opRoofY > opTerrainY ? opRoofY : opTerrainY;
       }
     }
+    if (this._renderDisabled) return;
     try {
       this.renderer.droppedWeapons = this.droppedWeapons || [];
       this.renderer.carFireElapsed = this._carOnFire ? (performance.now() / 1000) - this._carFireStarted : 0;
@@ -4598,10 +4600,15 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       // RAF callbacks turn one WebGL/scene error into a stack overflow and
       // leave the whole game unresponsive.
       this._renderFaulted = true;
-      // Keep simulation/input alive while retrying rendering at a safe cadence.
-      // This avoids a permanent soft-lock without allowing a failing frame to
-      // recurse through requestAnimationFrame.
-      this.scheduleRenderRetry();
+      // Rendering is isolated from the simulation. Once the renderer throws,
+      // disable it for this component instance instead of repeatedly invoking
+      // the same broken scene and creating an error/retry storm.
+      this._renderDisabled = true;
+      if (this._renderRetryTimer !== null) {
+        clearTimeout(this._renderRetryTimer);
+        this._renderRetryTimer = null;
+      }
+      this._renderRetryPending = false;
     }
     if (this.damageAlpha > 0) {
       this.damageAlpha = Math.max(0, this.damageAlpha - dt * 1.5);
@@ -4616,13 +4623,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
     } finally {
       this._frameInProgress = false;
-      if (!this._destroyed && !this._renderFaulted && this.animFrameId == null && this._renderRetryTimer == null) {
+      if (!this._destroyed && !this._renderDisabled && !this._renderFaulted && this.animFrameId == null && this._renderRetryTimer == null) {
         this.scheduleNextFrame();
       }
     }
   };
   private scheduleNextFrame(): void {
-    if (this._destroyed || this._renderSchedulePending || this.animFrameId !== null || this._renderRetryTimer !== null) return;
+    if (this._destroyed || this._renderDisabled || this._renderSchedulePending || this.animFrameId !== null || this._renderRetryTimer !== null) return;
     this._renderSchedulePending = true;
     this.animFrameId = requestAnimationFrame((frameNow) => {
       this._renderSchedulePending = false;
@@ -4636,7 +4643,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this._renderRetryTimer = window.setTimeout(() => {
       this._renderRetryTimer = null;
       this._renderRetryPending = false;
-      if (this._destroyed) return;
+      if (this._destroyed || this._renderDisabled) return;
       this._renderFaulted = false;
       this._renderFaultCount = 0;
       this.lastTime = performance.now();
