@@ -44,6 +44,31 @@ export class PlanterService {
     }
   }
 
+  async getPublicPlants(): Promise<UserPlant[]> {
+    try {
+      const response = await fetch('/planter/getpublicplants', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (!response.ok) return [];
+      const plants = await response.json() as UserPlant[];
+      await this.loadPlantPhotos(plants);
+      return plants;
+    } catch (error) {
+      console.error('Error fetching public plants:', error);
+      return [];
+    }
+  }
+
+  private async loadPlantPhotos(plants: UserPlant[]): Promise<void> {
+    for (const plant of plants) {
+      if (plant.photoCount > 0 && plant.id) {
+        const response = await fetch(`/planter/getphotos?plantId=${plant.id}`);
+        if (response.ok) plant.photos = await response.json() as PlantPhoto[];
+      }
+    }
+  }
+
   async addPlant(userId: number, name: string, species?: string, notes?: string, location?: string, photoFileId?: number, suggestedWaterHours?: number): Promise<number | null> {
     try {
       const response = await fetch('/planter/addplant', {

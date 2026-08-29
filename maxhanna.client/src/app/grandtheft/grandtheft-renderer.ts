@@ -7,6 +7,9 @@ const BLOCK_SIZE = 30;
 const SIDEWALK_SIZE = 48;
 const ROAD_HALF_WIDTH = (GRID_PITCH - SIDEWALK_SIZE) / 2; 
 const BIOME_RADIUS_MOUNTAIN = 30;
+// Coastal land is intentionally more common than mountain terrain. Mountains
+// use the explicit eastern chain below rather than the old random rural roll.
+const BEACH_CHANCE_DENOMINATOR = 3;
 const BRIDGE_DECK_Y = 12.0;
 interface IslandDef {
   cx: number; cz: number;
@@ -196,12 +199,17 @@ function biomeWithoutBeach(cx: number, cz: number): string {
     return isParkingPatch() ? 'parking_lot' : 'suburb';
   } else {
     const hr = ((Math.imul(cx, 100003) + Math.imul(cz, 70001)) >>> 0);
-    const rv = hr % 5;
+    // Keep random mountain tiles out of the biome picker: the explicit chain
+    // above is the only source of mountains, so every mountain area is a real
+    // connected group instead of isolated spikes. Beaches remain common on
+    // coastal boundaries and ordinary rural terrain stays varied.
+    const rv = hr % 6;
     if (rv === 0) return 'rural_farm';
     if (rv === 1) return 'rural_hills';
-    if (rv === 2) return 'rural_mountain';
-    if (rv === 3) return 'rural_lakes';
-    return 'rural_desert';
+    if (rv === 2) return 'rural_lakes';
+    if (rv === 3) return 'rural_desert';
+    if (rv === 4) return 'rural_farm';
+    return 'rural_hills';
   }
 }
 
@@ -225,10 +233,12 @@ export function getBiome(cx: number, cz: number): string {
         || b === 'rural_farm' || b === 'rural_hills' || b === 'rural_mountain'
         || b === 'rural_lakes' || b === 'rural_desert' || b === 'bridge_connector';
       const hasRoadNeighbour = (dx: number, dz: number) => isRoadBiome(getBiome(cx + dx, cz + dz));
-      if ((!isInAnyIsland(cx + 1, cz) || !isInAnyIsland(cx - 1, cz) ||
-        !isInAnyIsland(cx, cz + 1) || !isInAnyIsland(cx, cz - 1)) &&
-        !hasRoadNeighbour(-1, 0) && !hasRoadNeighbour(1, 0) &&
-        !hasRoadNeighbour(0, -1) && !hasRoadNeighbour(0, 1)) result = 'beach';
+      const shoreline = !isInAnyIsland(cx + 1, cz) || !isInAnyIsland(cx - 1, cz)
+        || !isInAnyIsland(cx, cz + 1) || !isInAnyIsland(cx, cz - 1);
+      const shorelineHash = (Math.imul(cx, 100003) ^ Math.imul(cz, 70001)) >>> 0;
+      if (shoreline && (shorelineHash % BEACH_CHANCE_DENOMINATOR !== 0
+        || (!hasRoadNeighbour(-1, 0) && !hasRoadNeighbour(1, 0)
+          && !hasRoadNeighbour(0, -1) && !hasRoadNeighbour(0, 1)))) result = 'beach';
     }
     if (biomeCache.size >= BIOME_CACHE_LIMIT) biomeCache.clear();
     biomeCache.set(key, result);

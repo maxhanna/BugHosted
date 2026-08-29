@@ -266,6 +266,8 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   coordsDisplay = '0.00°, 0.00°';
   viewExtentMeters = 0;
   viewExtentFeet = 0;
+  viewScaleSegments: number[] = [];
+  viewScaleSegmentMeters = 0;
   // ---- tile / texture state -----------------------------------------------
   private readonly BASE_ZOOM = 2;
   private readonly TEX_SIZE = 4096;
@@ -2015,6 +2017,10 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     const widthMeters = circumferenceMeters * (this.camDist - 1) * 0.22 * visibleFraction;
     this.viewExtentMeters = Math.max(1, Math.round(widthMeters));
     this.viewExtentFeet = Math.max(1, Math.round(this.viewExtentMeters * 3.28084));
+    // Keep the scale readable at every zoom: ten equal intervals provide a
+    // consistent visual cue while the label uses a human-friendly unit.
+    this.viewScaleSegments = Array.from({ length: 10 }, (_, index) => index + 1);
+    this.viewScaleSegmentMeters = this.viewExtentMeters / 10;
   }
 
   private resizeCanvas(): void {

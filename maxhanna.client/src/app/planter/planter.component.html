@@ -7,6 +7,12 @@
   </app-prompt>
 
   <div class="planter-component">
+    <div class="plant-view-switcher">
+      <button *ngIf="isLoggedIn" class="view-toggle-btn" (click)="togglePlantView()">
+        {{ viewingOtherPlants ? '🌱 Show My Plants' : '🌍 Show Other People’s Plants' }}
+      </button>
+      <span class="view-label">{{ viewingOtherPlants || !isLoggedIn ? 'Public plants' : 'My plants' }}</span>
+    </div>
     <div *ngIf="isLoading" class="loading">Loading...</div>
 
     <!-- Identify Plant Section (always visible) -->
@@ -82,7 +88,7 @@
     <!-- Manual Add Plant (when no plant selected) -->
     <div *ngIf="!selectedPlant && !identificationResult" class="add-plant-section">
       <div class="add-plant-row">
-        <input [(ngModel)]="newPlantName" placeholder="Plant name..." class="plant-input" />
+        <input *ngIf="isLoggedIn && !viewingOtherPlants" [(ngModel)]="newPlantName" placeholder="Plant name..." class="plant-input" />
         <input [(ngModel)]="newPlantSpecies" placeholder="Species (optional)..." class="plant-input" />
         <input [(ngModel)]="newPlantLocation" placeholder="Location (optional)..." class="plant-input" />
         <button (click)="addPlant()" class="add-btn" [disabled]="!newPlantName.trim()">+ Add</button>
@@ -92,7 +98,7 @@
     <!-- Plant List -->
     <div *ngIf="!selectedPlant && !isLoading">
       <div class="list-header" *ngIf="plants.length > 0">
-        <span>My Plants ({{ plants.length }})</span>
+        <span>{{ viewingOtherPlants || !isLoggedIn ? 'Other People’s Plants' : 'My Plants' }} ({{ plants.length }})</span>
       </div>
 
       <div *ngIf="plants.length === 0" class="empty-state">

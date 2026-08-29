@@ -246,9 +246,31 @@ export function generateHumanMesh(gl: WebGL2RenderingContext, variant: HumanVari
       indices.push(base, base+1, base+2, base, base+2, base+3);
     }
   };
-  const addSphereRigged = (cx:number,cy:number,cz:number, r:number, col:[number,number,number], bone:number, seg=6) => {
-    // Very low poly icosphere approximation: just a box for now to stay cheap, or a small cube scaled as head
-    addBoxRigged(cx,cy,cz, r*1.9, r*1.9, r*1.9, col, bone);
+  const addSphereRigged = (cx:number,cy:number,cz:number, r:number, col:[number,number,number], bone:number, seg=16) => {
+    const rings = Math.max(6, Math.min(24, seg));
+    const slices = rings * 2;
+    const start = verts.length / 7;
+    for (let ring = 0; ring <= rings; ring++) {
+      const phi = Math.PI * ring / rings;
+      const sy = Math.cos(phi);
+      const rr = Math.sin(phi);
+      for (let slice = 0; slice < slices; slice++) {
+        const theta = Math.PI * 2 * slice / slices;
+        verts.push(cx + r * rr * Math.cos(theta), cy + r * sy, cz + r * rr * Math.sin(theta), col[0], col[1], col[2], 1);
+        jointIndices.push(bone, 0, 0, 0);
+        jointWeights.push(1, 0, 0, 0);
+      }
+    }
+    for (let ring = 0; ring < rings; ring++) {
+      for (let slice = 0; slice < slices; slice++) {
+        const next = (slice + 1) % slices;
+        const a = start + ring * slices + slice;
+        const b = start + ring * slices + next;
+        const c = start + (ring + 1) * slices + next;
+        const d = start + (ring + 1) * slices + slice;
+        indices.push(a, b, c, a, c, d);
+      }
+    }
   };
 
   // Size modifiers
@@ -268,8 +290,11 @@ export function generateHumanMesh(gl: WebGL2RenderingContext, variant: HumanVari
   if (variant.role === 'cop') { torsoW *= 1.06; torsoD *= 1.04; armLen *= 1.04; }
 
   // Hips pivot already at sHipsY via skeleton, so mesh local to hips = 0
-  // Torso
-  addBoxRigged(0, 0.20, 0, torsoW, torsoH, torsoD, variant.outfitA, 2);
+  // Rounded torso and pelvis volumes overlap the joint anchors so the body
+  // keeps a continuous silhouette while walking, aiming, and ragdolling.
+  addSphereRigged(0, 0.20, 0, Math.max(torsoW, torsoD) * 0.55, variant.outfitA, 2, 14);
+  addBoxRigged(0, 0.20, 0, torsoW * 0.82, torsoH * 0.9, torsoD * 0.82, variant.outfitA, 2);
+  addSphereRigged(0, -0.08, 0, Math.max(torsoW, torsoD) * 0.42, variant.outfitB, 0, 12);
   // Belt
   addBoxRigged(0, 0.02, 0, torsoW*1.02, 0.05, torsoD*1.05, [0.15,0.12,0.10], 2);
   // Neck
@@ -307,31 +332,31 @@ export function generateHumanMesh(gl: WebGL2RenderingContext, variant: HumanVari
       addBoxRigged(0, 0.67, 0.08, 0.10, 0.06, 0.01, [1,0.95,0.85], 4);
     }
   }
-  // Arms
+  // Arms: rounded upper/lower segments overlap at the elbows and shoulders.
   const armW = variant.bodyType === 'fat' ? 0.09 : 0.075;
   const armD = armW;
-  addBoxRigged(-0.20, 0.18, 0, armW, armLen*0.5, armD, variant.skin, 6);
-  addBoxRigged(-0.20, -0.04, 0, armW*0.92, armLen*0.5, armD*0.92, variant.skin, 7);
+  addSphereRigged(-0.20, 0.18, 0, armW * 0.65, variant.skin, 6, 10);
+  addSphereRigged(-0.20, -0.04, 0, armW * 0.62, variant.skin, 7, 10);
   addBoxRigged(-0.20, -0.24, 0, 0.07, 0.09, 0.07, variant.skin, 8);
-  addBoxRigged( 0.20, 0.18, 0, armW, armLen*0.5, armD, variant.skin, 10);
-  addBoxRigged( 0.20, -0.04, 0, armW*0.92, armLen*0.5, armD*0.92, variant.skin, 11);
+  addSphereRigged( 0.20, 0.18, 0, armW * 0.65, variant.skin, 10, 10);
+  addSphereRigged( 0.20, -0.04, 0, armW * 0.62, variant.skin, 11, 10);
   addBoxRigged( 0.20, -0.24, 0, 0.07, 0.09, 0.07, variant.skin, 12);
   // Sleeves and shoulder caps give the torso a natural shoulder line.
   addBoxRigged(-0.20, 0.20, 0, armW*1.15, 0.14, armD*1.15, variant.outfitA, 6);
   addBoxRigged( 0.20, 0.20, 0, armW*1.15, 0.14, armD*1.15, variant.outfitA, 10);
   addBoxRigged(-0.19, 0.34, 0, armW*1.35, 0.10, armD*1.35, variant.outfitA, 5);
   addBoxRigged( 0.19, 0.34, 0, armW*1.35, 0.10, armD*1.35, variant.outfitA, 9);
-  // Legs
+  // Legs: tapered-looking rounded volumes overlap at the hips and knees.
   const legW = variant.bodyType === 'fat' ? 0.14 : 0.11;
   const thighH = legLen*0.48, shinH = legLen*0.48;
   const hipOffset = 0.09;
-  addBoxRigged(-hipOffset, -0.12, 0, legW, thighH, legW, variant.outfitB, 13);
+  addSphereRigged(-hipOffset, -0.12, 0, legW * 0.75, variant.outfitB, 13, 10);
   addBoxRigged(-hipOffset, -0.35, 0, legW * 1.08, 0.045, legW * 1.08, [0.12,0.10,0.10], 13);
-  addBoxRigged(-hipOffset, -0.12 - thighH, 0, legW*0.95, shinH, legW*0.95, variant.outfitB, 14);
+  addSphereRigged(-hipOffset, -0.12 - thighH, 0, legW * 0.68, variant.outfitB, 14, 10);
   addBoxRigged(-hipOffset, -0.12 - thighH - shinH + 0.04, 0.04, 0.14, 0.07, 0.20, [0.12,0.08,0.06], 15);
-  addBoxRigged( hipOffset, -0.12, 0, legW, thighH, legW, variant.outfitB, 16);
+  addSphereRigged( hipOffset, -0.12, 0, legW * 0.75, variant.outfitB, 16, 10);
   addBoxRigged( hipOffset, -0.35, 0, legW * 1.08, 0.045, legW * 1.08, [0.12,0.10,0.10], 16);
-  addBoxRigged( hipOffset, -0.12 - thighH, 0, legW*0.95, shinH, legW*0.95, variant.outfitB, 17);
+  addSphereRigged( hipOffset, -0.12 - thighH, 0, legW * 0.68, variant.outfitB, 17, 10);
   addBoxRigged( hipOffset, -0.12 - thighH - shinH + 0.04, 0.04, 0.14, 0.07, 0.20, [0.12,0.08,0.06], 18);
   // Role accents: badge, radio, hooker jewelry, and pizza box.
   if (variant.role === 'cop' && variant.accent) {

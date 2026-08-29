@@ -7,6 +7,17 @@
     <span>Approx. view</span>
     <strong>{{ viewExtentMeters | number:'1.0-0' }} m</strong>
     <strong>{{ viewExtentFeet | number:'1.0-0' }} ft</strong>
+    <div class="view-scale" role="img"
+      [attr.aria-label]="'Approximate viewing width: ' + viewExtentMeters + ' meters split into ten intervals'">
+      <div class="view-scale-line">
+        <span class="view-scale-tick" *ngFor="let segment of viewScaleSegments"></span>
+      </div>
+      <div class="view-scale-labels">
+        <span>0</span>
+        <span>{{ viewScaleSegmentMeters | number:'1.0-0' }} m</span>
+        <span>{{ viewExtentMeters | number:'1.0-0' }} m</span>
+      </div>
+    </div>
   </div>
 
   <div class="zoom-controls">

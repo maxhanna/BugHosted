@@ -19,6 +19,7 @@ export class PlanterComponent extends ChildComponent implements OnInit, OnDestro
   @Input() showTitleBar = true;
   @Output() hasData = new EventEmitter<boolean>();
   plants: UserPlant[] = [];
+  viewingOtherPlants = false;
   selectedPlant: UserPlant | null = null;
   photos: FileEntry[] = [];
   loading = false;
@@ -57,6 +58,17 @@ export class PlanterComponent extends ChildComponent implements OnInit, OnDestro
  
     await this.loadPlants();
   }
+  get isLoggedIn(): boolean { return !!this.parentRef?.user?.id; }
+  async togglePlantView() {
+    if (!this.isLoggedIn) return;
+    const userId = this.parentRef?.user?.id;
+    if (!userId) return;
+    this.viewingOtherPlants = !this.viewingOtherPlants;
+    this.selectedPlant = null;
+    this.plants = this.viewingOtherPlants
+      ? await this.planterService.getPublicPlants()
+      : await this.planterService.getPlants(userId);
+  }
   async onLoginClick() {
       if (!this.parentRef) return;
       this.parentRef.showOverlay(); 
@@ -71,10 +83,12 @@ export class PlanterComponent extends ChildComponent implements OnInit, OnDestro
   safeDestroy() { this.ngOnDestroy(); }
 
   async loadPlants() {
-    if (!this.parentRef?.user?.id) return;
     this.isLoading = true;
     try {
-      this.plants = await this.planterService.getPlants(this.parentRef.user.id);
+      const userId = this.parentRef?.user?.id;
+      this.plants = this.viewingOtherPlants || !userId
+        ? await this.planterService.getPublicPlants()
+        : await this.planterService.getPlants(userId);
       console.log("received plant data", this.plants);
       this.hasData.emit(this.plants.length > 0);
     } catch (e) {
@@ -262,7 +276,7 @@ export class PlanterComponent extends ChildComponent implements OnInit, OnDestro
   }
 
   async savePlantDetails() {
-    if (!this.selectedPlant) return;
+    if (!this.selectedPlant || this.viewingOtherPlants || !this.isLoggedIn) return;
     const success = await this.planterService.updatePlant(this.selectedPlant.id, {
       name: this.editName,
       species: this.editSpecies || undefined,
@@ -280,7 +294,7 @@ export class PlanterComponent extends ChildComponent implements OnInit, OnDestro
   }
 
   async deletePlant() {
-    if (!this.selectedPlant || !this.parentRef?.user?.id) return;
+    if (!this.selectedPlant || this.viewingOtherPlants || !this.parentRef?.user?.id) return;
     if (!confirm(`Delete ${this.selectedPlant.name}? This will remove all photos.`)) return;
     const success = await this.planterService.deletePlant(this.selectedPlant.id, this.parentRef.user.id);
     if (success) {

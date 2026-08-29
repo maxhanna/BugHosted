@@ -72,6 +72,44 @@ namespace maxhanna.Server.Controllers
             }
         }
 
+        [HttpGet("/Planter/GetPublicPlants")]
+        public async Task<IActionResult> GetPublicPlants()
+        {
+            try
+            {
+                using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+                const string sql = @"
+                    SELECT up.id, up.user_id, up.name, up.species, up.location,
+                           up.created_at, up.updated_at,
+                           (SELECT COUNT(*) FROM maxhanna.plant_photos pp WHERE pp.plant_id = up.id) AS photo_count
+                    FROM maxhanna.user_plants up
+                    ORDER BY up.updated_at DESC
+                    LIMIT 500";
+                using var cmd = new MySqlCommand(sql, conn);
+                using var reader = await cmd.ExecuteReaderAsync();
+                var plants = new List<UserPlant>();
+                while (await reader.ReadAsync())
+                {
+                    plants.Add(new UserPlant
+                    {
+                        Id = reader.GetInt32("id"), UserId = reader.GetInt32("user_id"),
+                        Name = reader.GetString("name"),
+                        Species = reader.IsDBNull(reader.GetOrdinal("species")) ? null : reader.GetString("species"),
+                        Location = reader.IsDBNull(reader.GetOrdinal("location")) ? null : reader.GetString("location"),
+                        PhotoCount = reader.GetInt32("photo_count"),
+                        CreatedAt = reader.GetDateTime("created_at"), UpdatedAt = reader.GetDateTime("updated_at")
+                    });
+                }
+                return Ok(plants);
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db($"Error in GetPublicPlants: {ex.Message}", null, "PLANTER", true);
+                return StatusCode(500, "An error occurred while fetching public plants.");
+            }
+        }
+
         [HttpPost("/Planter/AddPlant")]
         public async Task<IActionResult> AddPlant([FromBody] AddPlantRequest request)
         {
