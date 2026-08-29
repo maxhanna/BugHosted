@@ -264,6 +264,8 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // ---- coordinates display -------------------------------------------------
   coordsDisplay = '0.00°, 0.00°';
+  viewExtentMeters = 0;
+  viewExtentFeet = 0;
   // ---- tile / texture state -----------------------------------------------
   private readonly BASE_ZOOM = 2;
   private readonly TEX_SIZE = 4096;
@@ -1344,19 +1346,21 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     };
   }
   saveCoords() {
-    const lat = this.editLat;
-    const long = this.editLon;
+    this.changeEditLatLon();
+    const lat = Number(this.editLat);
+    const lon = Number(this.editLon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) return;
     this.closeCoordsEditPopup();
-    this.rotateToLocation(lat, long);
+    this.rotateToLocation(lat, lon);
   }
   changeEditLatLon() {
     this.editLat = parseFloat(this.editLatInput.nativeElement.value);
     this.editLon = parseFloat(this.editLonInput.nativeElement.value);
   }
   openCoordsEditPopup() {
-    console.log("opening coords display");
-    this.editLat = 0;
-    this.editLon = 0;
+    const [lon, lat] = this.getCenterLonLat();
+    this.editLat = Number.isFinite(lat) ? lat : 0;
+    this.editLon = Number.isFinite(lon) ? lon : 0;
     this.locationSearchTerm = '';
     this.locationSearchResults = [];
     this.isCoordsEditPopupOpen = true;
@@ -1988,6 +1992,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.coordsDisplay = `${lat.toFixed(4)}°, ${lon.toFixed(4)}°`;
 
     this.camDist += (this.camDistTarget - this.camDist) * 0.1;
+    this.updateViewExtent();
 
     if (this.camDistToTileZoom() > this.BASE_ZOOM) {
       this.updateDetailTiles();
@@ -1997,6 +2002,19 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.renderGlobe();
     this.renderPins();
     this.renderArcs();
+  }
+
+  private updateViewExtent(): void {
+    const canvas = this.globeCanvasRef?.nativeElement;
+    if (!canvas || !canvas.clientWidth || !canvas.clientHeight) return;
+    // Approximate the ground footprint at the globe's current camera distance.
+    // This is intended as a scale cue, not survey-grade measurement.
+    const globeRadiusPx = Math.min(canvas.clientWidth, canvas.clientHeight) * 0.42;
+    const visibleFraction = Math.min(1, Math.max(0.02, canvas.clientWidth / (2 * globeRadiusPx)));
+    const circumferenceMeters = 40_075_000;
+    const widthMeters = circumferenceMeters * (this.camDist - 1) * 0.22 * visibleFraction;
+    this.viewExtentMeters = Math.max(1, Math.round(widthMeters));
+    this.viewExtentFeet = Math.max(1, Math.round(this.viewExtentMeters * 3.28084));
   }
 
   private resizeCanvas(): void {

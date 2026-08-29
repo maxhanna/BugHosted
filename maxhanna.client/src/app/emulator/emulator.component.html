@@ -155,16 +155,19 @@
   </div> 
 
   <!-- Offline ROM Storage (opt-in) -->
-  <div *ngIf="shouldShowMenuContent() && parentRef?.user?.id" style="border-top:1px solid var(--main-highlight-color); margin-top:14px; padding-top:12px;">
-    <div class="popupPanelTitle" style="font-size:0.95rem;">💾 Offline ROM Storage</div>
-    <div class="xxSmallFont thirdFontColor" style="margin-bottom:8px;">
+  <div *ngIf="shouldShowMenuContent() && parentRef?.user?.id" class="offline-rom-storage">
+    <div class="offline-rom-heading">
+      <div class="popupPanelTitle">💾 Offline ROM Storage</div>
+      <span class="offline-rom-count">{{ localRoms.length }} saved</span>
+    </div>
+    <div class="offline-rom-description xxSmallFont thirdFontColor">
       Keep a copy of downloaded ROMs on this device so they load instantly next time (and work offline). Saves always go to the server too.
     </div>
-    <label style="display:flex; align-items:center; gap:8px; margin-bottom:8px; cursor:pointer;">
+    <label class="offline-rom-toggle">
       <input type="checkbox" [checked]="localRomStorageEnabled" (change)="toggleLocalRomStorage()" />
       <span>Save ROMs to this device</span>
     </label>
-    <div *ngIf="localRomStorageEnabled" style="display:flex; flex-direction:column; gap:6px;">
+    <div *ngIf="localRomStorageEnabled" class="offline-rom-content">
       <div class="xxSmallFont" style="opacity:0.9;">
         <ng-container *ngIf="localRomFolderName; else browserStorageNote">
           📁 Folder: <b>{{ localRomFolderName }}</b>
@@ -186,7 +189,7 @@
       <div *ngIf="pendingFolderWrites > 0 && !localRomFolderNeedsReconnect" class="xxSmallFont" style="color:#fbbf24; opacity:0.9;">
         ⏳ {{ pendingFolderWrites }} {{ pendingFolderWrites === 1 ? 'copy' : 'copies' }} waiting to move to the folder — they\u2019ll be promoted automatically when access is restored.
       </div>
-      <div style="display:flex; gap:6px; flex-wrap:wrap;">
+      <div class="offline-rom-actions">
         <button *ngIf="fsAccessSupported" (click)="chooseLocalRomFolder()" class="emuMenuButton squareButton" title="Choose where ROM copies are saved">
           📁<div class="emuMenuButtonLabel">Choose Folder</div>
         </button>
@@ -200,7 +203,7 @@
           🗑️<div class="emuMenuButtonLabel">Clear All</div>
         </button>
       </div>
-      <div *ngIf="isLocalRomsPanelOpen" style="max-height:180px; overflow:auto;">
+      <div *ngIf="isLocalRomsPanelOpen" class="offline-rom-list">
         <div class="xxSmallFont thirdFontColor" style="margin-bottom:4px;">Total stored: {{ formatLocalSize(localStorageTotalBytes) }}</div>
         <div *ngIf="localRomFolderName && hasBrowserStoredRoms()" class="xxSmallFont thirdFontColor" style="margin-bottom:4px;">
           Browser-stored copies can be moved into <b>{{ localRomFolderName }}</b>.
@@ -208,8 +211,8 @@
         <div *ngIf="hasMixedSourceRoms()" class="xxSmallFont thirdFontColor" style="margin-bottom:4px;">
           💾 real file &nbsp;·&nbsp; 📴 browser copy
         </div>
-        <div *ngFor="let r of localRoms" style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding:4px 0; border-bottom:1px solid rgba(148,163,184,0.25);">
-          <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" [title]="r.name">{{ r.name }} <small [title]="r.source === 'folder' ? 'Stored as a real file in your chosen folder' : 'Stored in this browser (IndexedDB)'">{{ formatLocalSize(r.size) }} {{ r.source === 'folder' ? '💾 real file' : '📴 browser copy' }}</small></span>
+        <div *ngFor="let r of localRoms" class="offline-rom-row">
+          <span class="offline-rom-name" [title]="r.name">{{ r.name }} <small [title]="r.source === 'folder' ? 'Stored as a real file in your chosen folder' : 'Stored in this browser (IndexedDB)'">{{ formatLocalSize(r.size) }} · {{ r.source === 'folder' ? '💾 file' : '📴 browser' }}</small></span>
           <span style="display:flex; gap:4px; flex-shrink:0;">
             <button *ngIf="!isLoading" (click)="playLocalRom(r.name)" title="Play from the local copy (works offline)">▶️</button>
             <button *ngIf="r.source === 'browser' && localRomFolderName" (click)="moveLocalRomToFolder(r.name)" title="Move this copy into the folder">📁</button>

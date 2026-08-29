@@ -3,6 +3,11 @@
   <canvas #detailCanvas class="detail-canvas"></canvas>
   <canvas #pinCanvas class="pin-canvas"></canvas>
   <div class="coords-display" (click)="openCoordsEditPopup()">{{ coordsDisplay }}</div>
+  <div class="view-extent-display" aria-label="Approximate viewing area">
+    <span>Approx. view</span>
+    <strong>{{ viewExtentMeters | number:'1.0-0' }} m</strong>
+    <strong>{{ viewExtentFeet | number:'1.0-0' }} ft</strong>
+  </div>
 
   <div class="zoom-controls">
     <label class="zoom-label">🔍</label>
@@ -527,11 +532,11 @@
       </div>
       <div class="form-group">
         <label>Latitude:</label>
-        <input type="number" #editLatInput [value]="editLat" (change)="changeEditLatLon()" step="0.0001" class="flight-input">
+        <input type="number" #editLatInput [value]="editLat" (input)="changeEditLatLon()" step="0.0001" class="flight-input">
       </div>
       <div class="form-group">
         <label>Longitude:</label>
-        <input type="number" #editLonPut [value]="editLon" (change)="changeEditLatLon()" step="0.0001" class="flight-input">
+        <input type="number" #editLonInput [value]="editLon" (input)="changeEditLatLon()" step="0.0001" class="flight-input">
       </div>
       <div class="popupPanelActions">
         <button class="add-flight-btn" (click)="saveCoords()">Save</button>

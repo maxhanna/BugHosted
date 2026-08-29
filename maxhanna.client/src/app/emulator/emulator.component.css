@@ -1,4 +1,30 @@
-.componentMain {
+.offline-rom-storage {
+  border-top: 1px solid var(--main-highlight-color);
+  margin-top: 14px;
+  padding: 14px 0 2px;
+  min-width: 0;
+}
+.offline-rom-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.offline-rom-heading .popupPanelTitle { margin: 0; font-size: .95rem; }
+.offline-rom-count { color: var(--main-highlight-color); font-size: 12px; white-space: nowrap; }
+.offline-rom-description { margin: 2px 0 12px; line-height: 1.45; }
+.offline-rom-toggle { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; cursor: pointer; min-height: 34px; }
+.offline-rom-toggle input { width: 20px; height: 20px; flex: 0 0 auto; }
+.offline-rom-content { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.offline-rom-actions { display: flex; gap: 7px; flex-wrap: wrap; }
+.offline-rom-list { max-height: 32vh; overflow: auto; padding: 8px; border: 1px solid rgba(148,163,184,.25); border-radius: 8px; background: rgba(0,0,0,.12); }
+.offline-rom-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid rgba(148,163,184,.25); min-width: 0; }
+.offline-rom-row:last-child { border-bottom: 0; }
+.offline-rom-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.offline-rom-name small { opacity: .75; }  .offline-rom-storage { padding-top: 12px; }
+  .offline-rom-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .offline-rom-actions .emuMenuButton { width: 100%; min-width: 0; }
+  .offline-rom-list { max-height: 38dvh; padding: 6px; }
+  .offline-rom-row { align-items: flex-start; }
+  .offline-rom-row > span:last-child { display: flex; flex-wrap: wrap; justify-content: flex-end; }
+
+  .componentMain {
+
   min-width: 320px;
   height: calc(100vh - 60px);
   height: calc(100dvh - 60px);

@@ -91,10 +91,16 @@ export class HostAiComponent extends ChildComponent implements OnInit, AfterView
 
   ngAfterViewInit() {
     if (this.preloadedMessage && this.chatInput) {
-      this.chatInput.nativeElement.value = this.preloadedMessage;
-      this.userMessage = this.preloadedMessage;
-      // Let the view + parentRef settle before auto-sending the query.
-      setTimeout(() => { if (this.preloadedMessage) this.sendMessage(); }, 400);
+      const query = this.preloadedMessage.trim();
+      this.chatInput.nativeElement.value = query;
+      this.userMessage = query;
+      // Let the embedded view and parent reference settle before sending. Clear
+      // the preload afterward so change detection cannot re-trigger the same
+      // question and replace the server response with the greeting state.
+      setTimeout(() => {
+        if (!query || this.isStreaming || this.chatMessages?.length) return;
+        this.sendMessage();
+      }, 400);
     }
   }
 
@@ -196,6 +202,7 @@ export class HostAiComponent extends ChildComponent implements OnInit, AfterView
   sendMessage() {
     if (!this.parentRef) return alert("No parent ref?");
     this.userMessage = this.chatInput.nativeElement.value.trim();
+    if (this.preloadedMessage) this.preloadedMessage = undefined;
 
     if (this.aiMode === 'medical') {
       this.sendMedicalMessage();

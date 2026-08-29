@@ -2084,13 +2084,13 @@ export class NavigationComponent implements OnInit, OnDestroy {
       return;
     }
     // Check for user selection before proceeding
-    if (!this.hasUserSelectedNavItem('Movies')) {
-      console.log("Movies nav item not selected, skipping fetch");
+    if (!this.hasUserSelectedNavItem('Movie')) {
+      console.log("Movie nav item not selected, skipping fetch");
       return;
     }
     this.isLoadingMovies = true;
     try {
-      const movieNav = this._parent.navigationItems.find(x => x.title === 'Movies');
+      const movieNav = this._parent.navigationItems.find(x => x.title === 'Movie');
       if (movieNav) {
         // Fetch the count of saved movies using todoService similar to music implementation
         const res: any = await this.todoService.getTodoCount(this._parent?.user?.id ?? 0, 'Movie', undefined, sig);
