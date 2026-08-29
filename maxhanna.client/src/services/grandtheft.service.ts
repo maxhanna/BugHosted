@@ -89,6 +89,10 @@ export interface GTPlayerState {
   username: string;
   isShooting: boolean;
   modelUrl?: string;
+  /** Stable deterministic appearance seed shared by every client. */
+  appearanceSeed?: number;
+  appearanceRole?: string;
+  appearanceGender?: string;
   isInCar?: boolean;
   vehicleType?: string;
   carColorR?: number;
@@ -158,6 +162,9 @@ export interface OtherPlayerState {
   username: string;
   mesh: CityMesh | CityMesh[];
   modelUrl?: string;
+  appearanceSeed?: number;
+  appearanceRole?: string;
+  appearanceGender?: string;
   isShooting: boolean;
   camYaw: number;
   camPitch: number;
@@ -354,6 +361,7 @@ export class GrandtheftService {
     health: number, weapon: number, isShooting: boolean,
     modelUrl?: string, money?: number,
     isInCar?: boolean, vehicleType?: string,
+    appearanceSeed?: number, appearanceRole?: string, appearanceGender?: string,
     carColorR?: number, carColorG?: number, carColorB?: number,
     passengerOfUserId?: number,
     chatMessage?: string,

@@ -471,6 +471,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   radioVolume = 1.0;
   viewDistance = 500;
   private _prewarmTimer: any = null;
+  private _startupChunkTimer: any = null;
   private uziSound: HTMLAudioElement | null = null;
   private rocketSound: HTMLAudioElement | null = null;
   private policeSirenSound: HTMLAudioElement | null = null;
@@ -543,6 +544,37 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private lastMouseMoveTime = 0;
   private walkYaw = 0;
   nearCar = false;
+  /** Persisted once per account so this player's NPC-style appearance is
+   * identical in third person and on every other client's screen. */
+  private playerAppearanceSeed = 0;
+  private playerAppearanceRole = 'generic';
+  private playerAppearanceGender = 'male';
+
+  private ensurePlayerAppearance(): void {
+    if (this.playerAppearanceSeed) return;
+    try {
+      const key = `gt_appearance_${this.getUserId() || 'guest'}`;
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const saved = JSON.parse(raw);
+        if (Number.isFinite(saved.seed) && saved.seed !== 0) {
+          this.playerAppearanceSeed = Math.abs(Math.trunc(saved.seed));
+          this.playerAppearanceRole = typeof saved.role === 'string' ? saved.role : 'generic';
+          this.playerAppearanceGender = typeof saved.gender === 'string' ? saved.gender : 'male';
+          return;
+        }
+      }
+      const seed = Math.floor(Math.random() * 0x7fffffff) || 1;
+      const roles = ['generic', 'generic', 'female', 'fat', 'hillbilly', 'taxi', 'pizza'];
+      this.playerAppearanceSeed = seed;
+      this.playerAppearanceRole = roles[seed % roles.length];
+      this.playerAppearanceGender = seed % 5 === 0 ? 'female' : 'male';
+      localStorage.setItem(key, JSON.stringify({ seed, role: this.playerAppearanceRole, gender: this.playerAppearanceGender }));
+    } catch {
+      this.playerAppearanceSeed = 1;
+    }
+  }
+
   private playerColors: [number, number, number][] = [
     [0.2, 0.5, 0.8], [0.8, 0.3, 0.2], [0.2, 0.7, 0.3],
     [0.9, 0.7, 0.1], [0.6, 0.2, 0.6], [1.0, 0.5, 0.0],
@@ -601,13 +633,15 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       canvas.height = window.innerHeight;
     }
     this.renderer = new GrandTheftRenderer(canvas);
+    this.ensurePlayerAppearance();
     this.renderer.jumpRamps = JUMP_RAMPS;
     this.renderer.isMobile = this.isMobile;
     if (this.isMobile) this.renderer.reduceShadowMap();
     interface AssetTask { load: () => Promise<any>; critical?: boolean; }
     const tasks: AssetTask[] = [];
-    const critical = (t: AssetTask) => { t.critical = true; return t; };
-    tasks.push(critical({ load: async () => { this.renderer.initPlayerModel(); } }));
+    const critical = (t: AssetTask) => { t.critical = true; return t; };      tasks.push(critical({ load: async () => {
+        this.renderer.initPlayerModel(undefined, true, this.playerAppearanceRole as any, this.playerAppearanceSeed, this.playerAppearanceGender);
+      } }));
     tasks.push(critical({ load: () => this.renderer.loadGLTF('assets/grandtheft/citylight/scene.gltf').then(lamps => { if (lamps) this.renderer.lampMesh = lamps; }) }));
     tasks.push(critical({ load: () => this.renderer.loadGLTF('assets/grandtheft/skybox_skydays_3/scene.gltf', false).then(m => { if (m) this.renderer.skyboxMesh = m; }) }));
     const specialMeshes: { path: string; storeSkeleton: boolean; assign: (m: CityMesh[]) => void; scale?: number; yawOffset?: number }[] = [
@@ -730,7 +764,14 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const processNextBatch = () => {
       const batch = criticalTasks.slice(idx, idx + BATCH_SIZE);
       if (batch.length === 0) {
-        // Critical assets are in — start the game NOW.
+        // Critical assets are in — start the game NOW. Do not synchronously
+        // generate a large neighborhood here; the first playable frame should
+        // not wait on procedural terrain, props, and road meshes.
+        // Reassert the player mesh at the handoff because deferred initialization
+        // may have replaced or cleared renderer state while assets were loading.
+        if (!this.renderer.playerMesh) {
+          this.renderer.initPlayerModel(undefined, true, this.playerAppearanceRole as any, this.playerAppearanceSeed, this.playerAppearanceGender);
+        }
         this.renderer.clearChunkCache();
         // Respawn at the saved spot (on foot, vehicle parked beside the player),
         // then rebuild any mission that was active when the world was saved.
@@ -840,6 +881,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   ngOnDestroy() {
     this._destroyed = true;
     this.stopHsRefresh();
+    if (this._startupChunkTimer !== null) { clearTimeout(this._startupChunkTimer); this._startupChunkTimer = null; }
     if (this._jumpToastTimer) { clearTimeout(this._jumpToastTimer); this._jumpToastTimer = null; }
     if (this._trophyToastTimer) { clearTimeout(this._trophyToastTimer); this._trophyToastTimer = null; }
     if (this._missionFailedToastTimer) { clearTimeout(this._missionFailedToastTimer); this._missionFailedToastTimer = null; }
@@ -2076,6 +2118,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.money,
       this.isInCar,
       this.vehicleType,
+      this.playerAppearanceSeed,
+      this.playerAppearanceRole,
+      this.playerAppearanceGender,
       this.playerVehicleColor[0],
       this.playerVehicleColor[1],
       this.playerVehicleColor[2],
@@ -2170,6 +2215,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           existing.carColorG = p.carColorG ?? 1;
           existing.carColorB = p.carColorB ?? 1;
           existing.passengerOfUserId = p.passengerOfUserId ?? 0;
+          const remoteSeed = Number((p as any).appearanceSeed ?? p.userId) || p.userId;
+          existing.mesh = this.renderer.getPedestrianMesh(String((p as any).appearanceGender ?? 'male'), `${String((p as any).appearanceRole ?? 'generic')}:${remoteSeed}`);
           if (p.modelUrl && p.modelUrl !== existing.modelUrl) {
             existing.modelUrl = p.modelUrl;
             (async () => {
@@ -2181,11 +2228,17 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           }
         } else {
           const color = this.playerColors[Math.abs(p.userId) % this.playerColors.length];
-          const placeholderMesh = this.renderer.playerMesh || this.renderer.getOtherPlayerMesh(color);
+          const appearanceSeed = Number((p as any).appearanceSeed ?? p.userId) || p.userId;
+          const appearanceGender = String((p as any).appearanceGender ?? 'male');
+          const appearanceRole = String((p as any).appearanceRole ?? 'generic');
+          const placeholderMesh = this.renderer.getPedestrianMesh(appearanceGender, `${appearanceRole}:${appearanceSeed}`);
           const newPlayer = {
             userId: p.userId, posX: p.posX, posY: p.posY, posZ: p.posZ,
             yaw: p.carYaw, carSpeed: p.carSpeed, health: p.health, weapon: p.weapon, money: p.money,
             username: p.username, mesh: placeholderMesh, modelUrl: p.modelUrl,
+            appearanceSeed: (p as any).appearanceSeed,
+            appearanceRole: (p as any).appearanceRole,
+            appearanceGender: (p as any).appearanceGender,
             isShooting: p.isShooting, camYaw: p.yaw, camPitch: p.pitch, remoteShootTimer: 0,
             isInCar: p.isInCar || false,
             vehicleType: p.vehicleType || 'car',
@@ -4683,9 +4736,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const camY = targetY + effectiveHeight + (Math.random() * 2 - 1) * shake * 0.7;
     // Keep the local body mesh available to the renderer in third person even
     // while riding a vehicle; the renderer decides whether to draw it.
-    const renderMesh = (this.firstPerson || (this.taxiRideActive && this.taxiRideHidePlayer))
-      ? null
-      : this.renderer.playerMesh;
+    // Keep the procedural player mesh visible as soon as the renderer is
+    // initialized. During the asset handoff `playerMesh` can briefly be null;
+    // do not let that transient state turn into a permanently missing body.
+    const renderMesh = (!this.firstPerson && !(this.taxiRideActive && this.taxiRideHidePlayer))
+      ? this.renderer.playerMesh
+      : null;
     // Dead entities are kept out of the visible lists. The death-detection
     // loop only prunes serverNPCs/serverPedestrians after a kill, but traffic,
     // airport, thug and local peds also carry health <= 0 entries after death
@@ -4762,12 +4818,18 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       if (newChunkX !== this._lastPreGenX || newChunkZ !== this._lastPreGenZ) {
         this._lastPreGenX = newChunkX;
         this._lastPreGenZ = newChunkZ;
-        // Pre-generate all nearby chunks (synchronous but happens once per chunk crossing)
-        for (let dz = -1; dz <= 1; dz++) {
-          for (let dx = -1; dx <= 1; dx++) {
-            this.renderer.getCityChunk(newChunkX + dx, newChunkZ + dz);
-          }
-        }
+        // Spread nearby chunk generation over idle macrotasks. Generating a
+        // whole 3x3 neighborhood inside a frame caused noticeable startup and
+        // chunk-crossing stalls, especially with dense city geometry.
+        if (this._startupChunkTimer !== null) clearTimeout(this._startupChunkTimer);
+        let chunkRadius = 1;
+        const buildChunkBatch = () => {
+          if (this._destroyed) return;
+          const done = this.renderer.prewarmChunksBatch(newChunkX, newChunkZ, chunkRadius, this.isMobile ? 1 : 2);
+          if (!done) this._startupChunkTimer = setTimeout(buildChunkBatch, this.isMobile ? 20 : 8);
+          else this._startupChunkTimer = null;
+        };
+            this._startupChunkTimer = setTimeout(buildChunkBatch, 0);
       }
       if (!this._renderFaulted) this.renderer.render(
         camX, camY, camZ, this.camYaw, this.camPitch, aspect,

@@ -1562,13 +1562,13 @@ void main() {
     gl.enable(gl.BLEND);
     gl.depthMask(true);
   }
-  async initPlayerModel(modelUrl?: string, needsFlip: boolean = true): Promise<void> {
+  async initPlayerModel(modelUrl?: string, needsFlip: boolean = true, appearanceRole: Role = 'generic', appearanceSeed: number | string = 1, appearanceGender?: string): Promise<void> {
     // All humanoids use the shared procedural rig; modelUrl is retained only
     // for API compatibility with older callers and is intentionally ignored.
     this.currentModelUrl = null;
     this.skelNodeNames = [];
     this.skelIsReady = false;
-    this.playerMesh = this.getPlayerMesh([0.2, 0.5, 0.8]);
+    this.playerMesh = this.getPlayerMesh([0.2, 0.5, 0.8], appearanceRole, appearanceSeed, appearanceGender);
   }
   /**
    * Sample a GLTF animation at time t (seconds). Writes local transforms into
@@ -2671,6 +2671,22 @@ void main() {
         this.getCityChunk(cx + dx, cz + dz);
       }
     }
+  }
+
+  /** Build a bounded chunk batch without monopolizing the main thread. */
+  prewarmChunksBatch(cx: number, cz: number, radius: number, budget = 2): boolean {
+    const pending: { cx: number; cz: number }[] = [];
+    for (let dz = -radius; dz <= radius; dz++) {
+      for (let dx = -radius; dx <= radius; dx++) {
+        const chunkX = cx + dx;
+        const chunkZ = cz + dz;
+        if (!this.chunkCache.has(`${chunkX},${chunkZ}`)) pending.push({ cx: chunkX, cz: chunkZ });
+      }
+    }
+    for (let i = 0; i < Math.min(Math.max(1, budget), pending.length); i++) {
+      this.getCityChunk(pending[i].cx, pending[i].cz);
+    }
+    return pending.length <= budget;
   }
   getCityChunk(cx: number, cz: number): CityChunk {
     const key = `${cx},${cz}`;
@@ -4125,11 +4141,12 @@ void main() {
     this.meshCache.set(key, mesh as any);
     return mesh;
   }
-  getPlayerMesh(color: [number, number, number]): CityMesh {
-    // Franklin — dedicated hero variant (muscular, green polo, jeans)
-    const key = `player_franklin`;
+  getPlayerMesh(color: [number, number, number], appearanceRole: Role = 'generic', appearanceSeed: number | string = 1, appearanceGender?: string): CityMesh {
+    // The local player uses the same deterministic NPC generator. The seed and
+    // role are supplied by the component and persisted/sent to the server.
+    const key = `player_${appearanceRole}_${appearanceSeed}_${appearanceGender ?? ''}`;
     if (this.humanMeshCache.has(key)) return this.humanMeshCache.get(key)!;
-    const variant = pickVariant('franklin', key, 'male');
+    const variant = pickVariant(appearanceRole, appearanceSeed, appearanceGender);
     // Override Franklin colors to be stable regardless of input color (keeps multiplayer tint for nameplate only)
     variant.outfitA = [0.16, 0.52, 0.22]; variant.outfitB = [0.14,0.14,0.16]; variant.accent = [0.92,0.92,0.96];
     const mesh = this.createLifelikeHumanMesh(variant);
@@ -4211,7 +4228,10 @@ void main() {
       // third-person camera distance instead of reading as faceted boxes.
       // Dense enough to remove the toy-like bubble silhouette, while still
       // keeping the shared human mesh bounded for crowded scenes.
-      const rings = 32, slices = 48;
+      // One shared anatomical surface resolution is used for players and NPCs.
+      // Keep it high enough for close third-person silhouettes without the
+      // extreme per-part tessellation that caused startup stalls.
+      const rings = this.isMobile ? 12 : 20, slices = this.isMobile ? 18 : 30;
       const start = restPos.length / 3;
       for (let iy = 0; iy <= rings; iy++) {
         const phi = (iy / rings) * Math.PI;
@@ -4235,7 +4255,11 @@ void main() {
     // Rounded anatomical volumes replace the old box-only silhouette. Slightly
     // overlapping neighboring volumes keep the silhouette watertight while each
     // limb remains independently skinnable.
+    // Shape the torso with an upper chest, waist, and pelvis instead of one
+    // inflated blob; all volumes use the same shared skeleton.
     addRounded(0, 0.20, 0, torsoW * 0.58, torsoH * 0.56, torsoD * 0.58, variant.outfitA, 2);
+    addRounded(0, 0.30, 0.005, torsoW * 0.47, torsoH * 0.22, torsoD * 0.52, variant.outfitA, 2);
+    addRounded(0, 0.08, 0.008, torsoW * 0.40, torsoH * 0.18, torsoD * 0.43, variant.outfitA, 0);
     // Anatomical contour bands: these are deliberately separate, skinned
     // volumes rather than a single sphere, giving the torso a ribcage, waist,
     // and pelvis profile. Each call contributes real indexed vertices.

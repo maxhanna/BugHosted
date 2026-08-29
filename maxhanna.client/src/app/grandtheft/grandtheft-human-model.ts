@@ -1,6 +1,7 @@
 /**
- * GrandTheft Human Model System — lightweight procedural humans
- * Replaces Franklin + NPC Gltf models with a unified low-poly rig.
+ * GrandTheft Human Model System — unified procedural human rig
+ * Player and NPCs share the same skinned human representation; role and seed
+ * only change proportions, clothing, and palette.
  *
  * Goals:
  * - Lifelike but cheap: < 550 verts / human, 19 bones, vertex-color only, no textures
@@ -188,7 +189,7 @@ export function createHumanSkeleton(): {
 }
 
 // ---------------------------------------------------------------------------
-// Mesh generation — low poly, vertex-color, ~480 verts
+// Mesh generation — shared skinned human source data; renderer creates the GL buffers
 // ---------------------------------------------------------------------------
 export function generateHumanMesh(gl: WebGL2RenderingContext, variant: HumanVariant): {
   mesh: CityMesh;
