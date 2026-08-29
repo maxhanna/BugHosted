@@ -247,7 +247,7 @@ export function generateHumanMesh(gl: WebGL2RenderingContext, variant: HumanVari
     }
   };
   const addSphereRigged = (cx:number,cy:number,cz:number, r:number, col:[number,number,number], bone:number, seg=16) => {
-    const rings = Math.max(6, Math.min(24, seg));
+    const rings = Math.max(10, Math.min(24, seg));
     const slices = rings * 2;
     const start = verts.length / 7;
     for (let ring = 0; ring <= rings; ring++) {
@@ -292,7 +292,7 @@ export function generateHumanMesh(gl: WebGL2RenderingContext, variant: HumanVari
   // Hips pivot already at sHipsY via skeleton, so mesh local to hips = 0
   // Rounded torso and pelvis volumes overlap the joint anchors so the body
   // keeps a continuous silhouette while walking, aiming, and ragdolling.
-  addSphereRigged(0, 0.20, 0, Math.max(torsoW, torsoD) * 0.55, variant.outfitA, 2, 14);
+  addSphereRigged(0, 0.20, 0, Math.max(torsoW, torsoD) * 0.55, variant.outfitA, 2, 20);
   addBoxRigged(0, 0.20, 0, torsoW * 0.82, torsoH * 0.9, torsoD * 0.82, variant.outfitA, 2);
   addSphereRigged(0, -0.08, 0, Math.max(torsoW, torsoD) * 0.42, variant.outfitB, 0, 12);
   // Belt

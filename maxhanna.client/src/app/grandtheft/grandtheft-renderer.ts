@@ -4189,7 +4189,7 @@ void main() {
     const addRounded = (cx:number, cy:number, cz:number, rx:number, ry:number, rz:number, col:[number,number,number], bone:number) => {
       // Higher tessellation keeps joints and silhouettes round at the close
       // third-person camera distance instead of reading as faceted boxes.
-      const rings = 64, slices = 96;
+      const rings = 24, slices = 36;
       const start = restPos.length / 3;
       for (let iy = 0; iy <= rings; iy++) {
         const phi = (iy / rings) * Math.PI;
@@ -4216,8 +4216,8 @@ void main() {
     addRounded(0, 0.20, 0, torsoW * 0.58, torsoH * 0.56, torsoD * 0.58, variant.outfitA, 2);
     // Shoulder and hip transition volumes bridge independently skinned limbs to
     // the torso, preventing visible gaps when the gait rotates the limbs.
-    addRounded(-0.16, 0.22, 0, 0.12, 0.125, 0.12, variant.outfitA, 2);
-    addRounded(0.16, 0.22, 0, 0.12, 0.125, 0.12, variant.outfitA, 2);
+    addRounded(-0.16, 0.22, 0, 0.14, 0.14, 0.13, variant.outfitA, 2);
+    addRounded(0.16, 0.22, 0, 0.14, 0.14, 0.13, variant.outfitA, 2);
     addRounded(-0.09, -0.08, 0, 0.11, 0.11, 0.11, variant.outfitB, 2);
     addRounded(0.09, -0.08, 0, 0.11, 0.11, 0.11, variant.outfitB, 2);
     addBox(0,0.02,0, torsoW*1.02,0.05,torsoD*1.05, [0.15,0.12,0.10], 2);
