@@ -949,21 +949,15 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   }
   showYoutubeSearch() {
     const parent = this.inputtedParentRef ?? this.parentRef;
-    const mainInputValue = this.searchInput?.nativeElement?.value ?? '';
-    const parentKeyword = parent?.getYoutubeSearchKeyword() ?? undefined;
-    if (parentKeyword && parentKeyword !== mainInputValue) {
-      parent?.clearYoutubeSearchResults();
+    // This is a YouTube search, not a saved-playlist search. Always open it
+    // with an independent, empty query and never inherit crawler results.
+    if (parent?.getYoutubeSearchKeyword()) parent.clearYoutubeSearchResults();
+    this.ytSearchTerm = '';
+    if (this.youtubeSearchComponent) {
+      this.youtubeSearchComponent.videos = [];
+      this.youtubeSearchComponent.keyword = '';
+      this.youtubeSearchComponent.hasSearched = false;
     }
-
-    setTimeout(() => {
-      const searchKeyword = this.parentYoutubeSearch ?? this.searchInput?.nativeElement?.value ?? '';
-      this.ytSearchTerm = searchKeyword;
-      if (this.youtubeSearchComponent) {
-        this.youtubeSearchComponent.videos = this.parentYoutubeVideos ?? [];
-        this.youtubeSearchComponent.keyword = searchKeyword;
-      }
-      this.cdr.markForCheck();
-    }, 300);
     this.isShowingYoutubeSearch = true;
     this.parentRef?.showOverlay();
     this.cdr.markForCheck();
