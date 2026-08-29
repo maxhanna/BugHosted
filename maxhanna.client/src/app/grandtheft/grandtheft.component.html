@@ -80,6 +80,10 @@
     <div id="gt-store-exit-prompt" *ngIf="nearStoreExit && !nearStoreRegister" [style.pointer-events]="isMobile ? 'auto' : null" (click)="toggleCar()" (touchend)="$event.preventDefault(); toggleCar()">
       {{ isMobile ? '🚪 Tap to leave store' : '🚪 Press E to leave store' }}
     </div>
+    <div id="gt-vending-prompt" *ngIf="nearVendingMachine" [style.pointer-events]="isMobile ? 'auto' : 'none'"
+      (click)="health = 100" (touchend)="$event.preventDefault(); health = 100">
+      {{ isMobile ? '🥤 Tap to replenish health' : '🥤 Press E to replenish health' }}
+    </div>
 
     <div id="gt-taxi-destinations" *ngIf="showTaxiDestinations" (click)="showTaxiDestinations = false">
       <div class="gt-taxi-dest-panel" (click)="$event.stopPropagation()">

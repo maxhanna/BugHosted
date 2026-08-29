@@ -74,7 +74,9 @@ function isInAnyIsland(cx: number, cz: number): boolean {
 // chunks — no isolated cliffs popping out of flat land.
 const MOUNTAIN_CHAIN_WEST = 36 * CHUNK_SIZE;  // first foothills (world x)
 const MOUNTAIN_CHAIN_EAST = 86 * CHUNK_SIZE;  // last foothills (world x)
-const MOUNTAIN_CHAIN_RAMP = 4 * CHUNK_SIZE;   // smooth gain/loss span (world units)
+const MOUNTAIN_CHAIN_RAMP = 6 * CHUNK_SIZE;   // smooth gain/loss span (world units)
+const MOUNTAIN_FOOTHILL_WIDTH = 11;           // biome cells across the ridge belt
+const MOUNTAIN_CORE_WIDTH = 5;                 // high interior cells
 
 /** 0→1→0 envelope along the chain length, ramping up/down like a bridge approach. */
 function mountainLongitudinal(x: number): number {
@@ -103,8 +105,8 @@ function getMountainBand(cx: number, cz: number): 0 | 1 | 2 {
   if (!isInAnyIsland(cx, cz)) return 0;
   if (mountainLongitudinal(cx * CHUNK_SIZE + CHUNK_SIZE / 2) <= 0.001) return 0;
   const distance = Math.abs(cz - getMountainRidgeCenter(cx));
-  if (distance <= 4) return 2;
-  if (distance <= 8) return 1;
+  if (distance <= MOUNTAIN_CORE_WIDTH) return 2;
+  if (distance <= MOUNTAIN_FOOTHILL_WIDTH) return 1;
   return 0;
 }
 
@@ -115,12 +117,14 @@ function getMountainHeight(x: number, z: number): number {
   const chainX = x / CHUNK_SIZE - 41;
   const ridgeCenterZ = (6 + 2.6 * Math.sin(chainX * 0.26)) * CHUNK_SIZE + CHUNK_SIZE / 2;
   const ridgeDistance = z - ridgeCenterZ;
-  const mainRidge = Math.exp(-(ridgeDistance * ridgeDistance) / (2 * 240 * 240));
+  const mainRidge = Math.exp(-(ridgeDistance * ridgeDistance) / (2 * 330 * 330));
   const shoulderDistance = z - (ridgeCenterZ + 128 + 38 * Math.sin(x / 230));
   const shoulder = Math.exp(-(shoulderDistance * shoulderDistance) / (2 * 115 * 115));
   const detail = 0.82 + 0.18 * Math.sin(x / 115 + Math.sin(z / 190) * 1.4);
   const profile = Math.max(0, mainRidge * (12 + 42 * detail) + shoulder * 10);
-  const lateral = Math.max(0, Math.min(1, (Math.abs(ridgeDistance) - 330) / 220));
+  // Keep a broad, low foothill apron so the terrain reaches street level over
+  // several cells instead of ending at the first mountain tile.
+  const lateral = Math.max(0, Math.min(1, (Math.abs(ridgeDistance) - 520) / 300));
   const edgeFade = 1 - lateral * lateral * (3 - 2 * lateral);
   return profile * edgeFade * mountainLongitudinal(x);
 }
@@ -376,7 +380,7 @@ export function getTerrainHeight(x: number, z: number, currentY?: number, forceB
   // Sample the same continuous foothill field in the adjacent lowland band.
   // This prevents a player/camera from switching from height 0 to full ridge
   // height on the first mountain chunk boundary.
-  if (biome === 'city' || biome === 'suburb' || biome === 'parking_lot' || biome === 'beach') {
+  if (biome === 'city' || biome === 'suburb' || biome === 'parking_lot' || biome === 'beach' || biome === 'rural_farm' || biome === 'rural_lakes' || biome === 'rural_desert') {
     const nearbyMountain = getMountainHeight(x, z);
     if (nearbyMountain > 0.02) return nearbyMountain;
   }
@@ -861,14 +865,24 @@ export class GrandTheftRenderer {
       offset += 24;
     };
     // A low shell with a generous front opening: the player can enter without
-    // fighting a solid GLTF collision box.
+    // fighting a solid GLTF collision box. Layered walls and a roof lip give
+    // the shop a more believable storefront silhouette.
     box(0, 3.5, 11, 28, 7, 5, 0.16, 0.18, 0.20);
     box(-12.5, 3.5, 0, 3, 7, 22, 0.18, 0.20, 0.22);
     box(12.5, 3.5, 0, 3, 7, 22, 0.18, 0.20, 0.22);
     box(0, 7.2, 0, 28, 0.8, 24, 0.20, 0.22, 0.24);
-    // Bright fascia and front sign.
+    box(0, 7.68, 0, 29, 0.22, 24.5, 0.78, 0.08, 0.04);
+    box(0, 7.84, 0, 28.4, 0.12, 23.8, 0.12, 0.14, 0.16);
+    // Bright fascia and front sign, with an inset sign face and corner bands.
     box(0, 6.8, -11.2, 25, 1.4, 0.35, 0.86, 0.12, 0.04);
     box(0, 6.85, -11.42, 15, 0.45, 0.08, 1.0, 0.82, 0.18);
+    box(-10.2, 6.85, -11.48, 3.2, 0.55, 0.1, 0.95, 0.2, 0.06);
+    box(10.2, 6.85, -11.48, 3.2, 0.55, 0.1, 0.95, 0.2, 0.06);
+    // Large front windows make the open entrance visually readable from the street.
+    box(-8.2, 3.6, -11.05, 5.8, 4.2, 0.1, 0.04, 0.16, 0.22);
+    box(8.2, 3.6, -11.05, 5.8, 4.2, 0.1, 0.04, 0.16, 0.22);
+    box(-8.2, 3.6, -11.13, 5.3, 0.12, 0.12, 0.12, 0.45, 0.58);
+    box(8.2, 3.6, -11.13, 5.3, 0.12, 0.12, 0.12, 0.45, 0.58);
     // Shelves, products, and a checkout counter around the register.
     for (const x of [-8, -2, 4]) {
       box(x, 1.8, 2, 1.0, 3.2, 10, 0.35, 0.24, 0.15);
@@ -881,6 +895,7 @@ export class GrandTheftRenderer {
     // separate visual transform in render(), while the opening stays passable.
     box(-3, 2.8, -11, 0.35, 5.6, 0.35, 0.75, 0.78, 0.80);
     box(3, 2.8, -11, 0.35, 5.6, 0.35, 0.75, 0.78, 0.80);
+    box(0, 0.18, -11.28, 7.0, 0.28, 0.8, 0.24, 0.25, 0.26);
     const mesh = this.createMesh(verts, indices);
     mesh.carName = 'convenience_store_procedural';
     mesh.minX = -14; mesh.maxX = 14; mesh.minZ = -12; mesh.maxZ = 14;
@@ -898,14 +913,28 @@ export class GrandTheftRenderer {
       this.addBox(verts, indices, x, y, z, w, h, d, r, g, b, 1, offset);
       offset += 24;
     };
-    // Rear service building, open-sided canopy, columns, pumps and a sign.
+    // Service building: layered fascia, windows and a recessed entrance make
+    // the silhouette read as a small real convenience store rather than one
+    // untextured block. The footprint stays unchanged for collision safety.
     box(0, 3.5, 13, 24, 7, 7, 0.16, 0.18, 0.20);
+    box(0, 6.55, 9.35, 22.8, 0.35, 0.18, 0.82, 0.12, 0.04);
+    box(-6.8, 3.35, 9.35, 3.2, 2.4, 0.12, 0.05, 0.18, 0.24);
+    box(6.8, 3.35, 9.35, 3.2, 2.4, 0.12, 0.05, 0.18, 0.24);
+    box(0, 2.5, 9.35, 2.8, 4.4, 0.14, 0.04, 0.05, 0.06);
+    box(0, 4.9, 9.25, 1.0, 0.16, 0.18, 0.9, 0.9, 0.82);
     box(0, 7.5, 2, 30, 0.8, 25, 0.12, 0.14, 0.16);
-    for (const x of [-13, 13]) for (const z of [-8, 12]) box(x, 3.8, z, 0.65, 7.2, 0.65, 0.82, 0.84, 0.86);
+    for (const x of [-13, 13]) for (const z of [-8, 12]) {
+      box(x, 3.8, z, 0.65, 7.2, 0.65, 0.82, 0.84, 0.86);
+      box(x, 7.25, z, 0.92, 0.18, 0.92, 0.95, 0.95, 0.92);
+    }
     for (const x of [-7, 0, 7]) {
       box(x, 0.65, -1, 1.2, 1.3, 2.2, 0.85, 0.18, 0.08);
       box(x, 1.45, -1, 0.9, 0.25, 1.8, 0.94, 0.94, 0.88);
+      box(x, 1.73, -1, 0.62, 0.08, 1.45, 0.12, 0.14, 0.16);
     }
+    // Branded canopy trim and a taller pylon sign.
+    box(0, 7.98, 2, 30.4, 0.16, 25.4, 0.95, 0.13, 0.04);
+    box(0, 7.82, 2, 29.6, 0.12, 24.6, 1.0, 0.78, 0.12);
     box(0, 11, 14, 2.2, 7, 0.7, 0.18, 0.20, 0.22);
     box(0, 14.5, 14, 7.5, 1.8, 0.8, 0.92, 0.12, 0.04);
     box(0, 14.5, 13.5, 5.5, 0.35, 0.82, 1.0, 0.78, 0.12);
@@ -995,7 +1024,10 @@ export class GrandTheftRenderer {
     const stations = this.getNearbyGasStations(x, z, radius + 20);
     for (const station of stations) {
       for (const px of [-7, 0, 7]) {
-        if (Math.hypot(x - (station.x + px), z - (station.z - 1)) <= radius) return true;
+        // Include the complete pump housing, not only its center point. This
+        // keeps the left and right pump collision footprints consistent with
+        // the middle pump when a vehicle clips them at an angle.
+        if (Math.hypot(x - (station.x + px), z - (station.z - 1)) <= radius + 0.55) return true;
       }
     }
     return false;
@@ -1111,6 +1143,8 @@ export class GrandTheftRenderer {
    * barrel swings to the crosshair instead of staying locked to the walk facing. */
   public weaponYaw = 0;
   public playerIsInCar = false;
+  public playerVehicleMesh: CityMesh | CityMesh[] | null = null;
+  public playerVehicleType: string = 'car';
   private _playerSkinAccumulator = 0;
   /** Per-entity punch/swing timers (keyed by entity id, seconds remaining). */
   public punchTimers = new Map<number, number>();
@@ -1768,7 +1802,7 @@ void main() {
       localMatrices.set(skeleton.boneLocalMatrices);
       // walk cycle — hips bob + thigh/shin + arm swing
       if (state === 'walk' || state === 'run') {
-        const swing = state === 'run' ? 0.72 : 0.48;
+        const swing = state === 'run' ? 0.46 : 0.30;
         const variation = 0.88 + ((entityId * 17) % 23) / 100;
         const gait = Math.max(0.75, Math.min(1.18, speed * variation));
         const t = animator.time * (state === 'run' ? 5.2 : 3.4) * gait;
@@ -1786,14 +1820,20 @@ void main() {
           for(let i=0;i<16;i++) m[i]=tmp[i];
         };
         applyX(thighL, Math.sin(t)*swing);
-        applyX(shinL, Math.max(0, -Math.sin(t))*0.55);
+        applyX(shinL, Math.max(0, -Math.sin(t))*0.42);
         applyX(thighR, Math.sin(t+Math.PI)*swing);
-        applyX(shinR, Math.max(0, -Math.sin(t+Math.PI))*0.55);
-        applyX(armL, Math.sin(t+Math.PI)*swing*0.62);
-        applyX(foreL, -0.12);
-        applyX(armR, Math.sin(t)*swing*0.62);
-        applyX(foreR, -0.12);
-        if (hips>=0){ const hm = new Float32Array(localMatrices.buffer, hips*64,16); hm[13] += Math.abs(Math.sin(t))* -0.04; hm[12] += Math.sin(t * 0.5) * 0.008; }
+        applyX(shinR, Math.max(0, -Math.sin(t+Math.PI))*0.42);
+        applyX(armL, Math.sin(t+Math.PI)*swing*0.55);
+        applyX(foreL, -0.08);
+        applyX(armR, Math.sin(t)*swing*0.55);
+        applyX(foreR, -0.08);
+        if (hips>=0){ const hm = new Float32Array(localMatrices.buffer, hips*64,16); hm[13] += Math.abs(Math.sin(t))* -0.03; hm[12] += Math.sin(t * 0.5) * 0.012; }
+        // A small counter-rotation through the chest and head makes the gait
+        // feel less mechanical while keeping the feet planted.
+        const chest = 2, neck = 3, head = 4;
+        applyX(chest, Math.sin(t + Math.PI / 2) * 0.045);
+        applyX(neck, Math.sin(t + Math.PI / 2) * -0.025);
+        applyX(head, Math.sin(t + Math.PI / 2) * -0.018);
       } else if (state === 'drive') {
         const armL=6, foreL=7, armR=10, foreR=11, thighL=13, thighR=16;
         const applyX = (bone:number, ang:number)=>{ if(bone<0) return; const m=new Float32Array(localMatrices.buffer,bone*64,16); const qx=Math.sin(ang/2),qw=Math.cos(ang/2); const rot=new Float32Array([1,0,0,0,0,qw,qx,0,0,-qx,qw,0,0,0,0,1]); const tmp=new Float32Array(16); for(let r=0;r<4;r++) for(let c=0;c<4;c++){let v=0; for(let k=0;k<4;k++) v+=m[r*4+k]*rot[k*4+c]; tmp[r*4+c]=v;} for(let i=0;i<16;i++) m[i]=tmp[i]; };
@@ -2176,10 +2216,12 @@ void main() {
       for (let i = 0; i < 16; i++) m[i] = temp[i];
     };
     const leftPhase = t, rightPhase = t + Math.PI;
-    applyRotX(leftThigh, Math.sin(leftPhase) * 0.5);
-    applyRotX(leftKnee, Math.abs(Math.sin(leftPhase)) * -0.3);
-    applyRotX(rightThigh, Math.sin(rightPhase) * 0.5);
-    applyRotX(rightKnee, Math.abs(Math.sin(rightPhase)) * -0.3);
+    const stride = 0.40;
+    const kneeBend = 0.22;
+    applyRotX(leftThigh, Math.sin(leftPhase) * stride);
+    applyRotX(leftKnee, Math.max(0, -Math.sin(leftPhase)) * kneeBend);
+    applyRotX(rightThigh, Math.sin(rightPhase) * stride);
+    applyRotX(rightKnee, Math.max(0, -Math.sin(rightPhase)) * kneeBend);
     if (this.punchTime <= 0 && this.playerWeapon <= 0) {
       applyRotX(leftArm, Math.sin(leftPhase + Math.PI) * 0.4);
       applyRotX(leftForearm, Math.abs(Math.sin(leftPhase + Math.PI)) * -0.15);
@@ -2191,7 +2233,8 @@ void main() {
     }
     if (hips >= 0) {
       const hm = new Float32Array(animLocal.buffer, hips * 16 * 4, 16);
-      hm[13] += Math.abs(Math.sin(t)) * -0.08;
+      hm[13] += Math.abs(Math.sin(t)) * -0.045;
+      hm[12] += Math.sin(t * 0.5) * 0.008;
       mat4.identity(rot); mat4.rotateY(rot, rot, Math.sin(t) * 0.05);
       mat4.multiply(temp, hm, rot);
       for (let i = 0; i < 16; i++) hm[i] = temp[i];
@@ -3028,8 +3071,8 @@ void main() {
       else if (isRuralMountain) { gr = 0.30 + gv; gg = 0.32 + gv; gb = 0.20 + gv; }
       else if (isRuralLakes) { gr = 0.20 + gv; gg = 0.45 + gv; gb = 0.18 + gv; }
       else if (isRuralDesert) { gr = 0.72 + gv * 0.5; gg = 0.65 + gv * 0.5; gb = 0.35 + gv * 0.5; }
-      if (isRuralHills || isRuralMountain) {
-        idxOffset = this.addMountainGround(verts, indices, worldOriginX, worldOriginZ, idxOffset, this.isMobile ? 6 : 8);
+      if (isRuralHills || isRuralMountain || getMountainHeight(worldOriginX + CHUNK_SIZE / 2, worldOriginZ + CHUNK_SIZE / 2) > 0.02) {
+        idxOffset = this.addMountainGround(verts, indices, worldOriginX, worldOriginZ, idxOffset, this.isMobile ? 8 : 10);
       } else {
         this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.0, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, gr, gg, gb, 1.0, idxOffset); idxOffset += 4;
       }
@@ -3180,7 +3223,7 @@ void main() {
             this.addBox(verts, indices, lx, 0.8, lz + 0.5, 0.15, 1.6, 0.15, 0.7, 0.5, 0.3, 1.0, idxOffset); idxOffset += 24; 
             this.addBox(verts, indices, lx, 2.2, lz, 0.15, 0.8, 1.2, 0.7, 0.5, 0.3, 1.0, idxOffset); idxOffset += 24; 
           }
-          if (rng() < 0.55) {
+          if (rng() < 0.55 && !isAeroport) {
             benches.push({ x: blockWorldX, z: blockWorldZ + halfSW - 3, yaw: Math.PI });
           }
           // Low-cost beach furniture, litter, driftwood, and umbrella poles.
@@ -3306,13 +3349,15 @@ void main() {
               buildings.push({ model: hm, x: blockWorldX + 35, y: -this.getModelMinY(hm) * HS + 0.15, z: blockWorldZ, yaw: -Math.PI / 2, scale: [HS, HS, HS] });
             }
           } else if (hasHelipad) {
-            const padX = blockWorldX - 25;
+            // Keep the complete pad inside the airport's active 40×40 block;
+            // the previous -25 offset put its west edge outside the apron.
+            const padX = blockWorldX - 18;
             const padZ = blockWorldZ;
-            this.addBox(verts, indices, padX, 0.05, padZ, 16, 0.1, 16, 0.4, 0.4, 0.42, 1.0, idxOffset); idxOffset += 24;
-            this.addBox(verts, indices, padX - 8, 0.06, padZ, 0.3, 0.05, 16, 0.9, 0.8, 0.1, 1.0, idxOffset); idxOffset += 24;
-            this.addBox(verts, indices, padX + 8, 0.06, padZ, 0.3, 0.05, 16, 0.9, 0.8, 0.1, 1.0, idxOffset); idxOffset += 24;
-            this.addBox(verts, indices, padX, 0.06, padZ - 8, 16, 0.05, 0.3, 0.9, 0.8, 0.1, 1.0, idxOffset); idxOffset += 24;
-            this.addBox(verts, indices, padX, 0.06, padZ + 8, 16, 0.05, 0.3, 0.9, 0.8, 0.1, 1.0, idxOffset); idxOffset += 24;
+            this.addBox(verts, indices, padX, 0.05, padZ, 14, 0.1, 14, 0.4, 0.4, 0.42, 1.0, idxOffset); idxOffset += 24;
+            this.addBox(verts, indices, padX - 7, 0.06, padZ, 0.3, 0.05, 14, 0.9, 0.8, 0.1, 1.0, idxOffset); idxOffset += 24;
+            this.addBox(verts, indices, padX + 7, 0.06, padZ, 0.3, 0.05, 14, 0.9, 0.8, 0.1, 1.0, idxOffset); idxOffset += 24;
+            this.addBox(verts, indices, padX, 0.06, padZ - 7, 14, 0.05, 0.3, 0.9, 0.8, 0.1, 1.0, idxOffset); idxOffset += 24;
+            this.addBox(verts, indices, padX, 0.06, padZ + 7, 14, 0.05, 0.3, 0.9, 0.8, 0.1, 1.0, idxOffset); idxOffset += 24;
             const hw = 0.8, hh = 4;
             this.addBox(verts, indices, padX - 2.5, 0.06, padZ, hw, 0.06, hh, 1, 1, 1, 0.9, idxOffset); idxOffset += 24;
             this.addBox(verts, indices, padX + 2.5, 0.06, padZ, hw, 0.06, hh, 1, 1, 1, 0.9, idxOffset); idxOffset += 24;
@@ -4152,13 +4197,25 @@ void main() {
         indices.push(a, c, b, b, c, d);
       }
     };
-    // Rounded anatomical volumes replace the old box-only silhouette.
-    addRounded(0, 0.20, 0, torsoW * 0.52, torsoH * 0.52, torsoD * 0.52, variant.outfitA, 2);
-    addRounded(0, 0.20, 0, torsoW * 0.52, torsoH * 0.52, torsoD * 0.52, variant.outfitA, 2);
+    // Rounded anatomical volumes replace the old box-only silhouette. Slightly
+    // overlapping neighboring volumes keep the silhouette watertight while each
+    // limb remains independently skinnable.
+    addRounded(0, 0.20, 0, torsoW * 0.58, torsoH * 0.56, torsoD * 0.58, variant.outfitA, 2);
+    // Shoulder and hip transition volumes bridge independently skinned limbs to
+    // the torso, preventing visible gaps when the gait rotates the limbs.
+    addRounded(-0.16, 0.22, 0, 0.12, 0.125, 0.12, variant.outfitA, 2);
+    addRounded(0.16, 0.22, 0, 0.12, 0.125, 0.12, variant.outfitA, 2);
+    addRounded(-0.09, -0.08, 0, 0.11, 0.11, 0.11, variant.outfitB, 2);
+    addRounded(0.09, -0.08, 0, 0.11, 0.11, 0.11, variant.outfitB, 2);
     addBox(0,0.02,0, torsoW*1.02,0.05,torsoD*1.05, [0.15,0.12,0.10], 2);
-    addRounded(0,0.42,0,0.04,0.04,0.04, variant.skin, 3);
-    addRounded(0,0.55,0,headR,headR*1.05,headR*0.92, variant.skin, 4);
-    addBox(0,0.62,-0.02, headR*1.6,0.08,headR*1.5, variant.hair, 4);    if(variant.gender==='female') addBox(0,0.50,-0.14,0.10,0.18,0.08,variant.hair,4);
+    addRounded(0,0.42,0,0.055,0.055,0.055, variant.skin, 3);
+    addRounded(0,0.55,0,headR*1.04,headR*1.08,headR*0.96, variant.skin, 4);
+    // Ears, jaw/chin and a rounded hair cap give the player a readable face
+    // silhouette rather than a floating sphere with a flat slab on top.
+    addRounded(-headR*0.92,0.55,0,0.028,0.045,0.035,variant.skin,4);
+    addRounded(headR*0.92,0.55,0,0.028,0.045,0.035,variant.skin,4);
+    addRounded(0,0.47,0.045,headR*0.48,headR*0.22,headR*0.55,variant.skin,4);
+    addRounded(0,0.65,-0.005,headR*0.98,headR*0.34,headR*0.90, variant.hair, 4);    if(variant.gender==='female') addBox(0,0.50,-0.14,0.10,0.18,0.08,variant.hair,4);
     // Small face details and varied hairline/neck accents make repeated NPCs
     // read as individuals without adding a texture or extra draw call.
     if ((variant.shirtStyle ?? 0) % 2 === 1) addBox(0,0.46,0.10,0.12,0.025,0.012,variant.outfitA,3);
@@ -4171,11 +4228,14 @@ void main() {
       if(variant.role==='cop') addBox(0,0.67,0.08,0.06,0.05,0.01,[0.88,0.70,0.12],4);
       if(variant.role==='pizza') addBox(0,0.67,0.08,0.10,0.06,0.01,[1,0.95,0.85],4);
     }
-    const armW = variant.bodyType==='fat'?0.09:0.075;
-    addRounded(-0.20,0.18,0,armW*0.55,armLen*0.25,armW*0.55,variant.skin,6); addRounded(-0.20,-0.04,0,armW*0.50,armLen*0.25,armW*0.50,variant.skin,7); addRounded(-0.20,-0.24,0,0.035,0.045,0.035,variant.skin,8);
-    addRounded(0.20,0.18,0,armW*0.55,armLen*0.25,armW*0.55,variant.skin,10); addRounded(0.20,-0.04,0,armW*0.50,armLen*0.25,armW*0.50,variant.skin,11); addRounded(0.20,-0.24,0,0.035,0.045,0.035,variant.skin,12);
-    addBox(-0.20,0.20,0,armW*1.15,0.14,armW*1.15,variant.outfitA,6); addBox(0.20,0.20,0,armW*1.15,0.14,armW*1.15,variant.outfitA,10);
-    const legW = variant.bodyType==='fat'?0.14:0.11; const thighH=legLen*0.48, shinH=legLen*0.48; const hipOff=0.09;
+    const armW = variant.bodyType==='fat'?0.10:(variant.bodyType==='muscular'?0.085:0.075);
+    const shoulder = (variant.shoulderWidth ?? 1) * (variant.bodyType === 'muscular' ? 1.08 : 1);
+    const hipsWidth = variant.hipWidth ?? 1;
+    const armX = 0.20 * shoulder;
+    addRounded(-armX,0.18,0,armW*0.62,armLen*0.27,armW*0.62,variant.skin,6); addRounded(-armX,-0.04,0,armW*0.58,armLen*0.27,armW*0.58,variant.skin,7); addRounded(-armX,-0.24,0,0.045,0.055,0.045,variant.skin,8);
+    addRounded(armX,0.18,0,armW*0.62,armLen*0.27,armW*0.62,variant.skin,10); addRounded(armX,-0.04,0,armW*0.58,armLen*0.27,armW*0.58,variant.skin,11); addRounded(armX,-0.24,0,0.045,0.055,0.045,variant.skin,12);
+    addRounded(-armX,0.20,0,armW*0.76,0.09,armW*0.76,variant.outfitA,6); addRounded(armX,0.20,0,armW*0.76,0.09,armW*0.76,variant.outfitA,10);
+    const legW = variant.bodyType==='fat'?0.15:(variant.bodyType==='muscular'?0.12:0.11); const thighH=legLen*0.48, shinH=legLen*0.48; const hipOff=0.09 * hipsWidth;
     const pantTone: [number, number, number] = (variant.pantsStyle ?? 0) % 2 === 0
       ? variant.outfitB
       : [Math.min(1, variant.outfitB[0] * 1.18), Math.min(1, variant.outfitB[1] * 1.12), Math.min(1, variant.outfitB[2] * 1.08)];    addRounded(-hipOff,-0.12,0,legW*0.52,thighH*0.52,legW*0.52,pantTone,13); addRounded(-hipOff,-0.12-thighH,0,legW*0.48,shinH*0.52,legW*0.48,pantTone,14); addRounded(-hipOff,-0.12-thighH-shinH+0.04,0.04,0.07,0.035,0.10,[0.12,0.08,0.06],15);
@@ -4328,13 +4388,26 @@ void main() {
     const make = (police: boolean): CityMesh[] => {
       const verts: number[] = [], indices: number[] = [];
       const box = (x:number,y:number,z:number,w:number,h:number,d:number,c:[number,number,number]) => this.addBox(verts,indices,x,y,z,w,h,d,c[0],c[1],c[2],1,0);
-      const body: [number,number,number] = police ? [0.08,0.12,0.22] : [0.18,0.42,0.62];
-      const trim: [number,number,number] = police ? [0.86,0.9,0.96] : [0.82,0.92,0.98];
-      box(0,1.1,0,1.55,0.9,3.0,body); box(0,1.55,-0.35,1.15,0.45,1.25,trim);
-      box(0,1.15,1.85,0.42,0.42,2.8,body); box(0,1.48,3.15,0.75,0.18,0.35,trim);
-      box(0,0.55,0,2.2,0.14,1.2,[0.12,0.15,0.18]);
-      box(-1.0,1.3,0,0.16,0.12,4.8,trim); box(1.0,1.3,0,0.16,0.12,4.8,trim);
-      box(0,2.15,0,0.18,0.1,0.18,[0.08,0.08,0.08]);
+      const body: [number,number,number] = police ? [0.06,0.10,0.20] : [0.16,0.36,0.58];
+      const trim: [number,number,number] = police ? [0.88,0.90,0.94] : [0.72,0.88,0.98];
+      const glass: [number,number,number] = police ? [0.08,0.16,0.24] : [0.04,0.18,0.28];
+      // The previous airframe was extremely flat and mostly hidden by the
+      // oversized rotor. Build a complete fuselage with a tapered nose,
+      // cabin glazing, tail boom, vertical fin, and landing skids.
+      box(0,1.08,0,1.42,0.88,1.92,body);
+      box(0,1.20,-1.03,1.24,0.78,1.02,body);
+      box(0,1.48,-1.12,1.06,0.42,0.66,glass);
+      box(-0.52,1.35,-0.82,0.08,0.36,0.72,glass); box(0.52,1.35,-0.82,0.08,0.36,0.72,glass);
+      box(0,1.16,1.15,0.42,0.42,2.5,body);
+      box(0,1.48,2.55,0.76,0.18,0.44,trim);
+      box(0,1.56,2.82,0.18,0.98,0.20,body);
+      box(-0.18,1.92,2.78,0.12,0.32,0.16,trim); box(0.18,1.92,2.78,0.12,0.32,0.16,trim);
+      box(-0.52,1.22,0,0.12,0.12,2.7,trim); box(0.52,1.22,0,0.12,0.12,2.7,trim);
+      box(-0.62,0.55,0,0.12,0.12,2.25,trim); box(0.62,0.55,0,0.12,0.12,2.25,trim);
+      box(-0.62,0.48,-0.75,0.1,0.1,0.18,trim); box(0.62,0.48,-0.75,0.1,0.1,0.18,trim);
+      box(0,2.02,0,0.2,0.12,0.2,[0.08,0.08,0.08]);
+      box(0,1.75,0.15,0.62,0.12,0.10,trim);
+      box(-0.72,0.68,-0.55,0.08,0.08,0.55,body); box(0.72,0.68,-0.55,0.08,0.08,0.55,body);
       if (police) { box(0,1.68,0.2,0.85,0.12,0.18,[0.95,0.1,0.08]); box(0,1.68,-0.2,0.85,0.12,0.18,[0.08,0.2,0.95]); }
       return [this.createMesh(verts,indices)];
     };
@@ -5018,15 +5091,15 @@ void main() {
         const dz = aircraft.z - camZ;
         if (dx * dx + dz * dz > 320 * 320 || !aircraft.model) continue;
         const aircraftMesh = aircraft.model;
-        const aircraftY = aircraft.type === 'helicopter' ? -this.getModelMinY(aircraftMesh as CityMesh[]) + 0.18 : 0.15;
+        const aircraftY = aircraft.type === 'helicopter' ? -this.getModelMinY(aircraftMesh as CityMesh[]) + 0.32 : 0.15;
         this.drawMesh(aircraftMesh, aircraft.x, aircraftY, aircraft.z, aircraft.yaw);
         if (aircraft.type === 'helicopter') {
           const spin = now * 0.02;
           const rotor = this.getRotorBladeMesh();
-          this.drawMesh(rotor, aircraft.x, aircraftY + 2.55, aircraft.z, aircraft.yaw + spin, [1, 1, 1], [0.18, 0.2, 0.22, 0.82]);
-          const tailX = aircraft.x - Math.sin(aircraft.yaw) * 3.45;
-          const tailZ = aircraft.z - Math.cos(aircraft.yaw) * 3.45;
-          this.drawMesh(rotor, tailX, aircraftY + 1.78, tailZ, aircraft.yaw + spin * 2.75, [0.32, 0.32, 0.32], [0.2, 0.22, 0.24, 0.8]);
+          this.drawMesh(rotor, aircraft.x, aircraftY + 2.02, aircraft.z, aircraft.yaw + spin, [0.58, 0.58, 0.58], [0.18, 0.2, 0.22, 0.82]);
+          const tailX = aircraft.x + Math.sin(aircraft.yaw) * 2.65;
+          const tailZ = aircraft.z + Math.cos(aircraft.yaw) * 2.65;
+          this.drawMesh(rotor, tailX, aircraftY + 1.2, tailZ, aircraft.yaw + spin * 2.75, [0.18, 0.18, 0.18], [0.2, 0.22, 0.24, 0.8]);
         }
       }
     }
@@ -5074,13 +5147,13 @@ void main() {
         this.drawMesh(heliMesh, npc.x, expY, npc.z, npc.yaw);
         const rotorMesh = this.getRotorBladeMesh();
         const now = performance.now() / 1000;
-        const mainRotorY = expY + 2.5;  
+        const mainRotorY = expY + 2.02;  
         const mainSpin = now * 20;       
-        this.drawMesh(rotorMesh, npc.x, mainRotorY, npc.z, npc.yaw + mainSpin, [1, 1, 1], [0.55, 0.55, 0.55, 0.5]);
-        const tailOffX = -Math.sin(npc.yaw) * 3.5;
-        const tailOffZ = -Math.cos(npc.yaw) * 3.5;
+        this.drawMesh(rotorMesh, npc.x, mainRotorY, npc.z, npc.yaw + mainSpin, [0.58, 0.58, 0.58], [0.55, 0.55, 0.55, 0.5]);
+        const tailOffX = Math.sin(npc.yaw) * 2.65;
+        const tailOffZ = Math.cos(npc.yaw) * 2.65;
         const tailSpin = now * 55;       
-        this.drawMesh(rotorMesh, npc.x + tailOffX, mainRotorY - 0.8, npc.z + tailOffZ, npc.yaw + tailSpin, [0.35, 0.35, 0.35], [0.4, 0.4, 0.4, 0.45]);
+        this.drawMesh(rotorMesh, npc.x + tailOffX, expY + 1.2, npc.z + tailOffZ, npc.yaw + tailSpin, [0.18, 0.18, 0.18], [0.4, 0.4, 0.4, 0.45]);
       } else {
         const isSwimming = !!npc.isSwimming && submerged;
         const npcScale: [number, number, number] = isSwimming
@@ -5090,9 +5163,10 @@ void main() {
         const reaction = (this as any).npcImpactReactions?.get(npc.id);
         const reactionProgress = reaction ? Math.min(1, reaction.age / reaction.duration) : 0;
         const reactionLift = reaction ? Math.sin(reactionProgress * Math.PI) * Math.min(2.2, Math.hypot(reaction.vx, reaction.vz) * 0.12) : 0;
-        const reactionX = reaction ? npc.x + reaction.vx * dt : npc.x;
-        const reactionZ = reaction ? npc.z + reaction.vz * dt : npc.z;
-        const reactionYaw = reaction ? npc.yaw + reaction.spin * dt * 8 : npc.yaw;
+      const reactionTime = reaction ? Math.max(0, reaction.age - dt) : 0;
+      const reactionX = reaction ? npc.x + reaction.vx * reactionTime : npc.x;
+      const reactionZ = reaction ? npc.z + reaction.vz * reactionTime : npc.z;
+      const reactionYaw = reaction ? npc.yaw + reaction.spin * reactionTime * 8 : npc.yaw;
         const reactionScale: [number, number, number] = reaction
           ? [1.08, Math.max(0.72, 1 - reactionProgress * 0.28), 1.08]
           : npcScale;
@@ -5161,9 +5235,10 @@ void main() {
       const impactReaction = (this as any).npcImpactReactions?.get(ped.id);
       const impactProgress = impactReaction ? Math.min(1, impactReaction.age / impactReaction.duration) : 0;
       const impactLift = impactReaction ? Math.sin(impactProgress * Math.PI) * Math.min(2.2, Math.hypot(impactReaction.vx, impactReaction.vz) * 0.12) : 0;
-      const impactX = impactReaction ? ped.x + impactReaction.vx * dt : ped.x;
-      const impactZ = impactReaction ? ped.z + impactReaction.vz * dt : ped.z;
-      const impactYaw = impactReaction ? ped.yaw + impactReaction.spin * dt * 8 : ped.yaw;
+      const impactTime = impactReaction ? Math.max(0, impactReaction.age - dt) : 0;
+      const impactX = impactReaction ? ped.x + impactReaction.vx * impactTime : ped.x;
+      const impactZ = impactReaction ? ped.z + impactReaction.vz * impactTime : ped.z;
+      const impactYaw = impactReaction ? ped.yaw + impactReaction.spin * impactTime * 8 : ped.yaw;
       const finalScale: [number, number, number] = impactReaction
         ? [1.08, Math.max(0.72, 1 - impactProgress * 0.28), 1.08]
         : pedScale;
@@ -5237,7 +5312,21 @@ void main() {
         this.drawMesh(this.vendingMachineMesh, vm.x, 0, vm.z, vm.yaw);
       }
     }
-    if (playerMesh) {
+    if (this.playerIsInCar && this.playerVehicleMesh && this.playerVehicleType === 'helicopter') {
+      // The local vehicle is not part of the remote-NPC list. Draw it here so
+      // stolen helicopters remain visible while being piloted, including their
+      // animated main and tail rotors.
+      const heli = this.playerVehicleMesh;
+      const heliY = targetY;
+      this.drawMesh(heli, targetX, heliY, targetZ, carYaw);
+      const rotor = this.getRotorBladeMesh();
+      const spin = performance.now() * 0.02;
+      this.drawMesh(rotor, targetX, heliY + 2.02, targetZ, carYaw + spin, [0.58, 0.58, 0.58], [0.55, 0.55, 0.55, 0.5]);
+      const tailX = targetX + Math.sin(carYaw) * 2.65;
+      const tailZ = targetZ + Math.cos(carYaw) * 2.65;
+      this.drawMesh(rotor, tailX, heliY + 1.2, tailZ, carYaw + spin * 2.75, [0.18, 0.18, 0.18], [0.4, 0.4, 0.4, 0.45]);
+    }
+    if (playerMesh && !this.playerIsInCar) {
       // Franklin has a verified full-body skeleton but no embedded clips, so
       // use the procedural player pose path rather than the NPC clip matcher.
       this.skinPlayerMesh(playerMesh, dt);

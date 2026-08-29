@@ -45,6 +45,25 @@
   color: #ff4444;
   text-shadow: 0 0 12px rgba(255, 0, 0, 0.8);
 }
+#gt-vending-prompt {
+  position: absolute;
+  left: 50%;
+  bottom: 19%;
+  transform: translateX(-50%);
+  z-index: 18;
+  padding: 10px 16px;
+  border: 1px solid rgba(255,255,255,.9);
+  border-radius: 8px;
+  background: rgba(12, 91, 116, .92);
+  color: #fff;
+  font-family: 'Segoe UI', Tahoma, sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
+  box-shadow: 0 0 14px rgba(40,220,255,.45);
+  cursor: pointer;
+  user-select: none;
+}
 #gt-target-health {
   position: absolute;
   top: calc(50% + 16px);
@@ -565,6 +584,7 @@
   overflow-y: auto;
   overflow-x: auto;
   flex: 1;
+  font-family: var(--main-font-family);
 }
 .lb-row {
   display: flex;
@@ -581,6 +601,7 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.15);
   padding-bottom: 6px;
   margin-bottom: 2px;
+  font-family: var(--main-font-family);
 }
 .lb-rank {
   width: 28px;
@@ -1744,19 +1765,38 @@ canvas.hidden { display: none; }
 @media only screen and (max-width : 667px) {
   #gt-leaderboard {
     min-width: 0;
-    width: 96vw;
+    width: 80dvw;
+    max-width: 80dvw;
+    box-sizing: border-box;
     padding: 12px 10px;
   }
   .gt-leaderboard-panel {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 40;
-  width: min(96vw, 980px);
-  max-height: 88vh;
-  overflow: auto;
-}
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 40;
+    width: 80dvw;
+    max-width: 80dvw;
+    max-height: 88dvh;
+    overflow: hidden;
+  }
+  .gt-leaderboard-panel .lb-rows {
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .gt-leaderboard-panel .lb-header,
+  .gt-leaderboard-panel .lb-tabs,
+  .gt-leaderboard-panel .lb-sorts {
+    max-width: 100%;
+    overflow-x: auto;
+    white-space: nowrap;
+    justify-content: flex-start;
+    -webkit-overflow-scrolling: touch;
+  }
 
 .gt-leaderboard-close {
   display: block;
