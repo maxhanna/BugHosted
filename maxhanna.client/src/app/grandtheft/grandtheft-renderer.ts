@@ -4377,7 +4377,12 @@ void main() {
     gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
     gl.bufferData(gl.ARRAY_BUFFER, interleaved, gl.STATIC_DRAW);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
-    const maxIdx = indices.length? Math.max(...indices) : 0;
+    // Do not spread a large externally-generated index buffer into Math.max:
+    // that creates one argument per triangle and overflows the JS call stack.
+    let maxIdx = 0;
+    for (let i = 0; i < indices.length; i++) {
+      if (indices[i] > maxIdx) maxIdx = indices[i];
+    }
     const use32 = maxIdx > 0xffff;
     if(use32) gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(indices), gl.STATIC_DRAW);
     else gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
