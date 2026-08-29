@@ -2361,7 +2361,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
   private unlockAudio() {
     if (this.audioUnlocked) {
-      this.tryStartRadio();
+      // Shooting is also a user gesture, but must never restart an already
+      // playing station. Only start the radio here when it is not currently on.
+      if (!this.radioOn) this.tryStartRadio();
       return;
     }
     this.audioUnlocked = true;
