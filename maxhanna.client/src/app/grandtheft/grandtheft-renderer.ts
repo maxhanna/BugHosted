@@ -711,6 +711,12 @@ export class GrandTheftRenderer {
   private gltfCache = new Map<string, Promise<CityMesh[] | null>>();
   private _scratchNormalMat = new Float32Array(9);
   private _scratchTranslate: [number, number, number] = [0, 0, 0];
+  // Reuse CPU-skinning buffers. Allocating and copying a full VBO for every
+  // human on every frame creates heavy garbage-collection spikes.
+  private readonly _skinScratch = new Map<CityMesh, Float32Array>();
+  private readonly _jointScratch = new Map<number, Float32Array>();
+  private _lastSkinTime = 0;
+  private static readonly HUMAN_SKIN_INTERVAL = 1 / 30;
   private _scratchScale: [number, number, number] = [1, 1, 1];
   public playerMesh: CityMesh | CityMesh[] | null = null;
   public lampMesh: CityMesh | CityMesh[] | null = null;
@@ -1703,7 +1709,12 @@ void main() {
       if (!mesh.restPositions || !mesh.jointIndices || !mesh.jointWeights || !mesh.vertexCount) continue;
       if (!mesh.originalVBO) continue;
       const vCount = mesh.vertexCount;
-      const newData = new Float32Array(mesh.originalVBO);
+      let newData = this._skinScratch.get(mesh);
+      if (!newData || newData.length !== mesh.originalVBO.length) {
+        newData = new Float32Array(mesh.originalVBO.length);
+        this._skinScratch.set(mesh, newData);
+      }
+      newData.set(mesh.originalVBO);
       for (let i = 0; i < vCount; i++) {
         const px = mesh.restPositions[i * 3];
         const py = mesh.restPositions[i * 3 + 1];
@@ -1788,6 +1799,11 @@ void main() {
     speed: number = 1
   ): boolean {
     const meshes = Array.isArray(entityMesh) ? entityMesh : [entityMesh];
+    // Distant characters are visually negligible but still expensive to CPU
+    // skin. Their last pose is retained until they return to the near field.
+    const anyMesh = meshes[0] as any;
+    const distanceSq = anyMesh?._lastAnimDistanceSq;
+    if (typeof distanceSq === 'number' && distanceSq > 220 * 220) return false;
     if (meshes.length === 0) return false;
     let animData = this._meshAnimData.get(meshes[0]);
     if (!animData) {
@@ -1799,8 +1815,8 @@ void main() {
     const { animations, skeleton } = animData;
     if (!skeleton || skeleton.boneCount === 0) return false;
     // ——— Procedural lifelike humans (no baked clips) — walk / run / punch / fire via math ———
-    const isHuman = (meshes[0] as any).isHuman;
-    if (isHuman && (!animations || animations.length === 0)) {
+    const isHuman = (meshes[0] as any).isHuman;      if (isHuman && (!animations || animations.length === 0)) {
+
       // maintain per-entity walk phase
       let animator = this.entityAnimators.get(entityId);
       if (!animator) {
@@ -1809,7 +1825,11 @@ void main() {
       }
       if (animator.currentAnimation !== state) { animator.currentAnimation = state; animator.time = 0; }
       animator.time += dt * speed * (state === 'run' ? 1.6 : 1);
-      const localMatrices = new Float32Array(skeleton.boneCount * 16);
+      let localMatrices = this._jointScratch.get(entityId);
+      if (!localMatrices || localMatrices.length !== skeleton.boneCount * 16) {
+        localMatrices = new Float32Array(skeleton.boneCount * 16);
+        this._jointScratch.set(entityId, localMatrices);
+      }
       localMatrices.set(skeleton.boneLocalMatrices);
       // walk cycle — hips bob + thigh/shin + arm swing
       if (state === 'walk' || state === 'run') {
@@ -4189,7 +4209,9 @@ void main() {
     const addRounded = (cx:number, cy:number, cz:number, rx:number, ry:number, rz:number, col:[number,number,number], bone:number) => {
       // Higher tessellation keeps joints and silhouettes round at the close
       // third-person camera distance instead of reading as faceted boxes.
-      const rings = 24, slices = 36;
+      // Dense enough to remove the toy-like bubble silhouette, while still
+      // keeping the shared human mesh bounded for crowded scenes.
+      const rings = 32, slices = 48;
       const start = restPos.length / 3;
       for (let iy = 0; iy <= rings; iy++) {
         const phi = (iy / rings) * Math.PI;
@@ -4214,6 +4236,11 @@ void main() {
     // overlapping neighboring volumes keep the silhouette watertight while each
     // limb remains independently skinnable.
     addRounded(0, 0.20, 0, torsoW * 0.58, torsoH * 0.56, torsoD * 0.58, variant.outfitA, 2);
+    // Anatomical contour bands: these are deliberately separate, skinned
+    // volumes rather than a single sphere, giving the torso a ribcage, waist,
+    // and pelvis profile. Each call contributes real indexed vertices.
+    addRounded(0, 0.31, 0.005, torsoW * 0.53, torsoH * 0.28, torsoD * 0.54, variant.outfitA, 2);
+    addRounded(0, 0.08, 0.008, torsoW * 0.43, torsoH * 0.22, torsoD * 0.47, variant.outfitA, 0);
     // Shoulder and hip transition volumes bridge independently skinned limbs to
     // the torso, preventing visible gaps when the gait rotates the limbs.
     addRounded(-0.16, 0.22, 0, 0.14, 0.14, 0.13, variant.outfitA, 2);
@@ -4223,6 +4250,11 @@ void main() {
     addBox(0,0.02,0, torsoW*1.02,0.05,torsoD*1.05, [0.15,0.12,0.10], 2);
     addRounded(0,0.42,0,0.055,0.055,0.055, variant.skin, 3);
     addRounded(0,0.55,0,headR*1.04,headR*1.08,headR*0.96, variant.skin, 4);
+    // Cheekbones, temples, and jaw contour replace the perfectly spherical head
+    // with a more human outline while remaining attached to the head bone.
+    addRounded(-headR * 0.44, 0.54, 0.02, headR * 0.58, headR * 0.52, headR * 0.78, variant.skin, 4);
+    addRounded(headR * 0.44, 0.54, 0.02, headR * 0.58, headR * 0.52, headR * 0.78, variant.skin, 4);
+    addRounded(0, 0.46, 0.045, headR * 0.52, headR * 0.24, headR * 0.58, variant.skin, 4);
     // Ears, jaw/chin and a rounded hair cap give the player a readable face
     // silhouette rather than a floating sphere with a flat slab on top.
     addRounded(-headR*0.92,0.55,0,0.028,0.045,0.035,variant.skin,4);
@@ -4261,7 +4293,12 @@ void main() {
     addRounded(-hipOff, -0.08, 0, legW * 0.72, 0.11, legW * 0.72, pantTone, 2);
     addRounded(hipOff, -0.08, 0, legW * 0.72, 0.11, legW * 0.72, pantTone, 2);
     addRounded(-hipOff,-0.12,0,legW*0.52,thighH*0.52,legW*0.52,pantTone,13); addRounded(-hipOff,-0.12-thighH,0,legW*0.48,shinH*0.52,legW*0.48,pantTone,14); addRounded(-hipOff,-0.12-thighH-shinH+0.04,0.04,0.07,0.035,0.10,[0.12,0.08,0.06],15);
+    // Knee and calf shaping keeps the legs cylindrical but not balloon-like.
+    addRounded(-hipOff, -0.12 - thighH * 0.92, 0.005, legW * 0.54, legW * 0.34, legW * 0.54, pantTone, 14);
+    addRounded(-hipOff, -0.12 - thighH - shinH * 0.58, 0.006, legW * 0.50, shinH * 0.34, legW * 0.50, pantTone, 14);
     addRounded(hipOff,-0.12,0,legW*0.52,thighH*0.52,legW*0.52,pantTone,16); addRounded(hipOff,-0.12-thighH,0,legW*0.48,shinH*0.52,legW*0.48,pantTone,17); addRounded(hipOff,-0.12-thighH-shinH+0.04,0.04,0.07,0.035,0.10,[0.12,0.08,0.06],18);
+    addRounded(hipOff, -0.12 - thighH * 0.92, 0.005, legW * 0.54, legW * 0.34, legW * 0.54, pantTone, 17);
+    addRounded(hipOff, -0.12 - thighH - shinH * 0.58, 0.006, legW * 0.50, shinH * 0.34, legW * 0.50, pantTone, 17);
     if (variant.role==='cop' && variant.accent) addBox(0.08,0.22,0.10,0.06,0.06,0.01,variant.accent,2);
     if (variant.role==='hooker' && variant.accent) {
       addBox(0,0.28,0.105,0.18,0.035,0.012,variant.accent,2);
@@ -5151,6 +5188,7 @@ void main() {
       const flinchLeft = this.flinchTimers.get(npc.id) ?? 0;
       if (flinchLeft > 0) this.flinchTimers.set(npc.id, Math.max(0, flinchLeft - dt));
       const npcDx = npc.x - camX, npcDz = npc.z - camZ;
+      (npc.mesh as any)._lastAnimDistanceSq = npcDx * npcDx + npcDz * npcDz;
       // Keep animation work in a tighter near-field than draw culling; distant
       // NPCs retain their last pose while still contributing to the skyline.
       if (isHumanNpc) {
@@ -5161,7 +5199,9 @@ void main() {
         const animationSpeed = npcState === 'walk'
           ? Math.max(0.75, Math.min(2.2, npcSpeed * 2.2 || 1))
           : 1;
-        this.animateAndSkinEntity(npc.id, npc.mesh, npcState, dt, animationSpeed);
+        if (npcDx * npcDx + npcDz * npcDz <= 220 * 220) {
+          this.animateAndSkinEntity(npc.id, npc.mesh, npcState, dt, animationSpeed);
+        }
       }
       const biome = getBiome(Math.floor(npc.x / 80), Math.floor(npc.z / 80));
       const submerged = biome === 'ocean';
@@ -5203,7 +5243,7 @@ void main() {
         const dMesh = this.getPedestrianMesh(npc.gender || 'male', npc.id);
         // Lifelike driver — drive pose, visible to all peers, cheap LOD
         const ddx = npc.x - camX, ddz = npc.z - camZ;
-        if (ddx*ddx+ddz*ddz < 250*250) this.animateAndSkinEntity(npc.id+900000, dMesh, 'drive', dt, 1);
+        if (ddx*ddx+ddz*ddz < 220*220) this.animateAndSkinEntity(npc.id+900000, dMesh, 'drive', dt, 1);
         const sinY = Math.sin(npc.yaw), cosY = Math.cos(npc.yaw);
         const dOffX = 0.3, dOffZ = 0.2;
         const dwx = npc.x + (dOffX * cosY + dOffZ * sinY);
@@ -5241,13 +5281,16 @@ void main() {
       const pedFlinch = this.flinchTimers.get(ped.id) ?? 0;
       if (pedFlinch > 0) this.flinchTimers.set(ped.id, Math.max(0, pedFlinch - dt));
       const pedDx = ped.x - camX, pedDz = ped.z - camZ;
+      (ped.mesh as any)._lastAnimDistanceSq = pedDx * pedDx + pedDz * pedDz;
       // Hookers use a slower, confident walk. Their procedural female rig is
       // still the same shared human rig, but the speed makes them readable
       // from the street without adding another asset or animation clip.
       const animationSpeed = ped.type === 'hooker' || ped.gender === 'hooker'
         ? 1.45
         : (pedState === 'walk' ? Math.max(0.75, Math.min(2.2, pedSpeed * 2.2 || 1)) : 1);
-      this.animateAndSkinEntity(ped.id, ped.mesh, pedState, dt, animationSpeed);
+      if (pedDx * pedDx + pedDz * pedDz <= 220 * 220) {
+        this.animateAndSkinEntity(ped.id, ped.mesh, pedState, dt, animationSpeed);
+      }
       // Ducking (gunfire reaction): the crouch-and-cover pose (bent legs, low
       // hips) does the lowering — this mild squash is the fallback for distant
       // peds that skip skinning, and keeps the "hit the deck" read. A flinching
@@ -5321,7 +5364,7 @@ void main() {
         (p as any)._prevX = p.posX; (p as any)._prevZ = p.posZ;
         if (p.isShooting) this.punchTimers.set(p.userId, 0.18);
         const ddx2 = p.posX - camX, ddz2 = p.posZ - camZ;
-        if (ddx2*ddx2+ddz2*ddz2 < 260*260) this.animateAndSkinEntity(p.userId, p.mesh, state, dt, 1.2);
+        if (ddx2*ddx2+ddz2*ddz2 < 220*220) this.animateAndSkinEntity(p.userId, p.mesh, state, dt, 1.2);
         this.drawMesh(p.mesh, p.posX, p.posY, p.posZ, p.yaw);
       }
     }
