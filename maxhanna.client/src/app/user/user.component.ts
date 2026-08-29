@@ -913,7 +913,20 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
     this.userCommentsLoading = true;
     try {
       const data = await this.commentService.getComments({ userId: target, page: 1, pageSize: 100 });
-      this.userComments = Array.isArray(data) ? data : (data?.comments ?? data?.results ?? []);
+      // The API has returned several envelope/property casings over time.
+      // Normalize them here so valid comments are not discarded and so the
+      // count/list remain useful for both own and public profiles.
+      const raw = Array.isArray(data)
+        ? data
+        : (data?.comments ?? data?.Comments ?? data?.results ?? data?.Results ?? data?.items ?? data?.Items ?? []);
+      this.userComments = (Array.isArray(raw) ? raw : []).map((comment: any) => ({
+        ...comment,
+        id: Number(comment.id ?? comment.Id ?? comment.commentId ?? comment.CommentId),
+        commentText: comment.commentText ?? comment.CommentText ?? comment.comment ?? comment.Comment ?? comment.text ?? comment.Text,
+        storyId: comment.storyId ?? comment.StoryId,
+        fileId: comment.fileId ?? comment.FileId,
+        date: comment.date ?? comment.Date ?? comment.createdAt ?? comment.CreatedAt,
+      } as FileComment)).filter(comment => Number.isFinite(comment.id) && comment.id > 0);
     } catch {
       this.userComments = [];
     } finally {

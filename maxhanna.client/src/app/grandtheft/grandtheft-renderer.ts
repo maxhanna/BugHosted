@@ -1,4 +1,5 @@
 import { CityMesh, CityChunk, GltfAnimation, BuildingPlacement } from "../../services/grandtheft.service";
+const LOCAL_VEHICLE_GROUND_OFFSET = 0.4;
 import { HumanVariant, Role, pickVariant, createHumanSkeleton } from './grandtheft-human-model';
 const CHUNK_SIZE = 80;
 const GRID_PITCH = 80;
@@ -4176,7 +4177,9 @@ void main() {
     if (variant.bodyType==='dwarf'){ torsoH*=0.85; legLen*=0.68; armLen*=0.72; headR*=1.08; }
     if (variant.gender==='female'){ torsoW*=0.88; torsoD*=0.92; }
     const addRounded = (cx:number, cy:number, cz:number, rx:number, ry:number, rz:number, col:[number,number,number], bone:number) => {
-      const rings = 5, slices = 10;
+      // Higher tessellation keeps joints and silhouettes round at the close
+      // third-person camera distance instead of reading as faceted boxes.
+      const rings = 64, slices = 96;
       const start = restPos.length / 3;
       for (let iy = 0; iy <= rings; iy++) {
         const phi = (iy / rings) * Math.PI;
@@ -4234,11 +4237,20 @@ void main() {
     const armX = 0.20 * shoulder;
     addRounded(-armX,0.18,0,armW*0.62,armLen*0.27,armW*0.62,variant.skin,6); addRounded(-armX,-0.04,0,armW*0.58,armLen*0.27,armW*0.58,variant.skin,7); addRounded(-armX,-0.24,0,0.045,0.055,0.045,variant.skin,8);
     addRounded(armX,0.18,0,armW*0.62,armLen*0.27,armW*0.62,variant.skin,10); addRounded(armX,-0.04,0,armW*0.58,armLen*0.27,armW*0.58,variant.skin,11); addRounded(armX,-0.24,0,0.045,0.055,0.045,variant.skin,12);
+    // Collar and armpit blend volumes overlap the shoulder joints so the
+    // animated arms never expose a gap while swinging or aiming.
+    addRounded(-armX * 0.72, 0.25, 0, armW * 0.82, 0.12, armW * 0.82, variant.outfitA, 2);
+    addRounded(armX * 0.72, 0.25, 0, armW * 0.82, 0.12, armW * 0.82, variant.outfitA, 2);
     addRounded(-armX,0.20,0,armW*0.76,0.09,armW*0.76,variant.outfitA,6); addRounded(armX,0.20,0,armW*0.76,0.09,armW*0.76,variant.outfitA,10);
     const legW = variant.bodyType==='fat'?0.15:(variant.bodyType==='muscular'?0.12:0.11); const thighH=legLen*0.48, shinH=legLen*0.48; const hipOff=0.09 * hipsWidth;
     const pantTone: [number, number, number] = (variant.pantsStyle ?? 0) % 2 === 0
       ? variant.outfitB
-      : [Math.min(1, variant.outfitB[0] * 1.18), Math.min(1, variant.outfitB[1] * 1.12), Math.min(1, variant.outfitB[2] * 1.08)];    addRounded(-hipOff,-0.12,0,legW*0.52,thighH*0.52,legW*0.52,pantTone,13); addRounded(-hipOff,-0.12-thighH,0,legW*0.48,shinH*0.52,legW*0.48,pantTone,14); addRounded(-hipOff,-0.12-thighH-shinH+0.04,0.04,0.07,0.035,0.10,[0.12,0.08,0.06],15);
+      : [Math.min(1, variant.outfitB[0] * 1.18), Math.min(1, variant.outfitB[1] * 1.12), Math.min(1, variant.outfitB[2] * 1.08)];
+    // Pelvis/upper-thigh transition volumes overlap the torso and thighs,
+    // eliminating the floating-leg appearance during gait and ragdoll poses.
+    addRounded(-hipOff, -0.08, 0, legW * 0.72, 0.11, legW * 0.72, pantTone, 2);
+    addRounded(hipOff, -0.08, 0, legW * 0.72, 0.11, legW * 0.72, pantTone, 2);
+    addRounded(-hipOff,-0.12,0,legW*0.52,thighH*0.52,legW*0.52,pantTone,13); addRounded(-hipOff,-0.12-thighH,0,legW*0.48,shinH*0.52,legW*0.48,pantTone,14); addRounded(-hipOff,-0.12-thighH-shinH+0.04,0.04,0.07,0.035,0.10,[0.12,0.08,0.06],15);
     addRounded(hipOff,-0.12,0,legW*0.52,thighH*0.52,legW*0.52,pantTone,16); addRounded(hipOff,-0.12-thighH,0,legW*0.48,shinH*0.52,legW*0.48,pantTone,17); addRounded(hipOff,-0.12-thighH-shinH+0.04,0.04,0.07,0.035,0.10,[0.12,0.08,0.06],18);
     if (variant.role==='cop' && variant.accent) addBox(0.08,0.22,0.10,0.06,0.06,0.01,variant.accent,2);
     if (variant.role==='hooker' && variant.accent) {
@@ -5316,19 +5328,25 @@ void main() {
         this.drawMesh(this.vendingMachineMesh, vm.x, 0, vm.z, vm.yaw);
       }
     }
-    if (this.playerIsInCar && this.playerVehicleMesh && this.playerVehicleType === 'helicopter') {
-      // The local vehicle is not part of the remote-NPC list. Draw it here so
-      // stolen helicopters remain visible while being piloted, including their
-      // animated main and tail rotors.
-      const heli = this.playerVehicleMesh;
-      const heliY = targetY;
-      this.drawMesh(heli, targetX, heliY, targetZ, carYaw);
-      const rotor = this.getRotorBladeMesh();
-      const spin = performance.now() * 0.02;
-      this.drawMesh(rotor, targetX, heliY + 2.02, targetZ, carYaw + spin, [0.58, 0.58, 0.58], [0.55, 0.55, 0.55, 0.5]);
-      const tailX = targetX + Math.sin(carYaw) * 2.65;
-      const tailZ = targetZ + Math.cos(carYaw) * 2.65;
-      this.drawMesh(rotor, tailX, heliY + 1.2, tailZ, carYaw + spin * 2.75, [0.18, 0.18, 0.18], [0.4, 0.4, 0.4, 0.45]);
+    if (this.playerIsInCar && this.playerVehicleMesh) {
+      // The local vehicle is not part of the remote-NPC list. Draw it here for
+      // every vehicle type; previously only helicopters had a local pass, so
+      // cars disappeared as soon as the player entered them.
+      const vehicleY = (this.playerVehicleType === 'helicopter' || this.playerVehicleType === 'plane')
+        ? targetY
+        : targetY - LOCAL_VEHICLE_GROUND_OFFSET;
+      const localVehicleMesh = this.playerVehicleType === 'helicopter'
+        ? this.getHelicopterMesh(0, false)
+        : this.playerVehicleMesh;
+      if (localVehicleMesh) this.drawMesh(localVehicleMesh, targetX, vehicleY, targetZ, carYaw, [1, 1, 1], [1, 1, 1, 1], false, 0, carRoll);
+      if (this.playerVehicleType === 'helicopter') {
+        const rotor = this.getRotorBladeMesh();
+        const spin = performance.now() * 0.02;
+        this.drawMesh(rotor, targetX, vehicleY + 2.02, targetZ, carYaw + spin, [0.58, 0.58, 0.58], [0.55, 0.55, 0.55, 0.5]);
+        const tailX = targetX + Math.sin(carYaw) * 2.65;
+        const tailZ = targetZ + Math.cos(carYaw) * 2.65;
+        this.drawMesh(rotor, tailX, vehicleY + 1.2, tailZ, carYaw + spin * 2.75, [0.18, 0.18, 0.18], [0.4, 0.4, 0.4, 0.45]);
+      }
     }
     if (playerMesh && !this.playerIsInCar) {
       // Franklin has a verified full-body skeleton but no embedded clips, so

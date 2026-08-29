@@ -4342,17 +4342,28 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         const subElapsed = (performance.now() / 1000) - this._carSubmergeStart;
         const subT = Math.min(subElapsed / 2.0, 1.0);
         const shelfSink = Math.min(1.8, beachDepth * 0.45);
-        this.carY = CAR_HEIGHT - Math.max(subT * 2.4, shelfSink);
-        if (subT >= 1.0 || beachDepth >= 2.4) {
-          this.carHealth -= dt * 20;
-        }
+        // Sink the full vehicle below the waterline rather than leaving its
+        // body floating at the surface. Keep a short visible transition, then
+        // continue descending until the vehicle is fully submerged.
+        const sinkDepth = Math.min(5.5, Math.max(subT * 4.8, shelfSink));
+        this.carY = CAR_HEIGHT - sinkDepth;
+        this.carVx *= Math.max(0, 1 - 2.8 * dt);
+        this.carVz *= Math.max(0, 1 - 2.8 * dt);
+        this.carSpeed *= Math.max(0, 1 - 2.8 * dt);
+        // Water damage continues for the entire submerged period until the
+        // vehicle reaches zero health and explodes.
+        this.carHealth = Math.max(0, this.carHealth - dt * 24);
         if (this._carOnFire || this._carSmoking) {
           this._carFireX = this.carX;
           this._carFireZ = this.carZ;
           this._carFireYaw = this.carYaw;
         }
       } else {
-        if (this._carSubmerged) { this._carSubmerged = false; this.carY = CAR_HEIGHT; }
+        if (this._carSubmerged) {
+          this._carSubmerged = false;
+          this._carSubmergeStart = 0;
+          this.carY = CAR_HEIGHT;
+        }
         if (this.carHealth > CAR_SMOKE_HEALTH) { this._carSmoking = false; this._carSmokeStarted = 0; this._carSmokeBudget = CAR_SMOKE_SECONDS; }
         if (this.carHealth > 2) { this._carOnFire = false; this._carFireStarted = 0; }
       }
@@ -4449,7 +4460,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.carHealth = Math.min(CAR_MAX_HEALTH, this.carHealth + CAR_REGEN_RATE * dt);
     }
     if (this.isInCar && this.carHealth <= 0) {
-      this.spawnExplosion(this.carX, 0.5, this.carZ);
+      const explosionY = this._carSubmerged ? this.carY + 0.4 : 0.5;
+      this.spawnExplosion(this.carX, explosionY, this.carZ);
       this._carOnFire = false;
       this._carFireStarted = 0;
       this._carSubmerged = false;
@@ -4669,8 +4681,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const camX = targetX - Math.sin(this.camYaw) * effectiveDist + (Math.random() * 2 - 1) * shake * 0.9;
     const camZ = targetZ - Math.cos(this.camYaw) * effectiveDist + (Math.random() * 2 - 1) * shake * 0.9;
     const camY = targetY + effectiveHeight + (Math.random() * 2 - 1) * shake * 0.7;
-    const renderMesh = this.isInCar ? this.playerVehicleMesh
-      : ((this.firstPerson || (this.taxiRideActive && this.taxiRideHidePlayer)) ? null : this.renderer.playerMesh);
+    // Keep the local body mesh available to the renderer in third person even
+    // while riding a vehicle; the renderer decides whether to draw it.
+    const renderMesh = (this.firstPerson || (this.taxiRideActive && this.taxiRideHidePlayer))
+      ? null
+      : this.renderer.playerMesh;
     // Dead entities are kept out of the visible lists. The death-detection
     // loop only prunes serverNPCs/serverPedestrians after a kill, but traffic,
     // airport, thug and local peds also carry health <= 0 entries after death

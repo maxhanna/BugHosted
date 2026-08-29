@@ -8,19 +8,12 @@
     (menuClicked)="openMenuPanel()"
     (closeClicked)="remove_me('MovieComponent');"
     (helpClicked)="openHelpPanel();">
-  </app-title-bar>
-
-  <div class="publicBanner" *ngIf="!user">
-    🌍 <strong>All movie playlists are public.</strong> Every playlist created here is visible to everyone — no sharing toggles needed.
-  </div>
+  </app-title-bar> 
 
   <div class="popupPanel movieMenuPanel" *ngIf="showMenuPanel">
     <div class="popupPanelTitle" style="margin-bottom:15px;">
       Menu
-    </div>
-    <div class="menuContent">
-      <p>🌍 <strong>All movie playlists are public.</strong> Every playlist created here is visible to everyone — no sharing toggles needed.</p>
-    </div>
+    </div> 
     <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button>
   </div>
 

@@ -101,7 +101,13 @@ export class CommentService {
       const response = await fetch('/comment/getcomments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ StoryId: params.storyId, UserId: params.userId, Page: params.page ?? 1, PageSize: params.pageSize ?? 100 })
+        body: JSON.stringify({
+          StoryId: params.storyId,
+          UserId: params.userId,
+          UserProfileId: params.userId,
+          Page: params.page ?? 1,
+          PageSize: params.pageSize ?? 100,
+        })
       });
       if (!response.ok) return [];
       return await response.json();
