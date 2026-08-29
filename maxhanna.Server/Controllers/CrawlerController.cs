@@ -32,6 +32,19 @@ namespace maxhanna.Server.Controllers
     private static readonly HashSet<string> _recentSerpApiLookups = new(StringComparer.OrdinalIgnoreCase);
     private static readonly TimeSpan SerpApiDedupeWindow = TimeSpan.FromMinutes(5);
 
+    // ── Search-total cache ──
+    // The exact COUNT(*) for a full-text search across millions of rows is the
+    // single most expensive query in the search path (it repeats the full-text
+    // scan just to count matches). We run it with a short budget, cache it per
+    // normalized query for a short window (so pagination / repeat searches
+    // reuse it instead of re-scanning), and fall back to the approximate
+    // overall index count when it's too slow — so the COUNT can never hold up
+    // or kill the response (the #1 cause of "Network or server error while
+    // searching" on a large index).
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, (long total, DateTime at)> _searchCountCache =
+        new(System.StringComparer.OrdinalIgnoreCase);
+    private static readonly TimeSpan SearchCountCacheTtl = TimeSpan.FromSeconds(60);
+
     private bool IsSerpApiLookupDuplicate(string source, string keyword)
     {
       lock (_serpApiDedupeLock)
@@ -125,14 +138,65 @@ namespace maxhanna.Server.Controllers
           quickScrapeTask = ScrapeQuickAsync(urlVariants, TimeSpan.FromSeconds(5), ct, sharedScraped);
         }
 
-        // ⚙️ Run results and count concurrently (two separate connections)
+        // ⚙️ Results are essential: run the query first. The exact COUNT(*) is
+        // expensive on a huge index, so it runs concurrently but bounded, cached
+        // per-query, and is never allowed to fail or stall the response — if it's
+        // slow we fall back to the cached overall index count so paging still works.
         var resultsTask = ExecuteResultsAsync(connectionString!, resultsSql, paramizer, ct);
-        var countTask = ExecuteScalarAsync(connectionString!, countSql, paramizer, ct);
 
-        await Task.WhenAll(resultsTask, countTask);
+        string countKey = BuildSearchCountKey(request, searchAll, siteOnly, siteDomain);
+        long? cachedTotal = null;
+        if (!searchAll && _searchCountCache.TryGetValue(countKey, out var prev) &&
+            (DateTime.UtcNow - prev.at) < SearchCountCacheTtl)
+        {
+          cachedTotal = prev.total;
+        }
 
+        Task<object?>? countTask = null;
+        if (!cachedTotal.HasValue)
+        {
+          countTask = TryExecuteScalarAsync(connectionString!, countSql, paramizer, ct, TimeSpan.FromSeconds(12));
+        }
+
+        await resultsTask;
         results = resultsTask.Result;
-        totalResults = Convert.ToInt32(countTask.Result ?? 0);
+
+        if (cachedTotal.HasValue)
+        {
+          totalResults = (int)Math.Min(cachedTotal.Value, int.MaxValue);
+        }
+        else
+        {
+          long exactTotal = -1;
+          if (countTask != null)
+          {
+            try
+            {
+              var scalar = await countTask;
+              if (scalar is not null && Convert.ToInt64(scalar) >= 0)
+              {
+                exactTotal = Convert.ToInt64(scalar);
+              }
+            }
+            catch (Exception countEx)
+            {
+              _ = _log.Db($"SearchUrl count fell back (budget exceeded): {countEx.Message}", null, "CRAWLERCTRL", true);
+            }
+          }
+
+          if (exactTotal >= 0)
+          {
+            totalResults = (int)Math.Min(exactTotal, int.MaxValue);
+            // Cache it for the TTL so repeat/paged searches don't re-scan.
+            _searchCountCache[countKey] = (exactTotal, DateTime.UtcNow);
+          }
+          else
+          {
+            // Bounded count was too slow/failed → use the cheap cached overall
+            // index count so the UI still has a sane total for pagination.
+            totalResults = await GetApproximateSearchTotalAsync();
+          }
+        }
 
         // _ = _log.Db($"Found {results.Count} results before merging quick scrape", null, "CRAWLERCTRL", true);
 
@@ -1538,6 +1602,64 @@ namespace maxhanna.Server.Controllers
       await using var cmd = new MySqlCommand(sql, conn) { CommandTimeout = 45 };
       paramizer(cmd);
       return await cmd.ExecuteScalarAsync(ct);
+    }
+
+    // Runs a scalar query with a hard budget. The results query never waits on
+    // this: if the COUNT(*) can't finish within the budget (common on a large
+    // full-text index for broad queries) we return null so the caller falls
+    // back to a cached total instead of failing the whole search.
+    private static async Task<object?> TryExecuteScalarAsync(
+        string connectionString, string sql, Action<MySqlCommand> paramizer,
+        CancellationToken ct, TimeSpan budget)
+    {
+      try
+      {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        cts.CancelAfter(budget);
+        var token = cts.Token;
+        await using var conn = new MySqlConnection(connectionString);
+        await conn.OpenAsync(token);
+        await using var cmd = new MySqlCommand(sql, conn)
+        {
+          CommandTimeout = (int)Math.Max(1, budget.TotalSeconds)
+        };
+        paramizer(cmd);
+        return await cmd.ExecuteScalarAsync(token);
+      }
+      catch (OperationCanceledException)
+      {
+        return null;
+      }
+      catch (MySqlException)
+      {
+        return null;
+      }
+      catch (Exception)
+      {
+        return null;
+      }
+    }
+
+    private static string BuildSearchCountKey(
+        CrawlerRequest request, bool searchAll, bool siteOnly, string? siteDomain)
+    {
+      if (searchAll) return "*";
+      var q = request.Url?.Trim().ToLowerInvariant() ?? "";
+      return siteOnly && !string.IsNullOrWhiteSpace(siteDomain)
+          ? $"site:{siteDomain.ToLowerInvariant()}|{q}"
+          : q;
+    }
+
+    // Cheap, cached overall index count (search_results_count_cache) — the
+    // graceful fallback when the exact per-query COUNT is too slow to compute.
+    private async Task<int> GetApproximateSearchTotalAsync()
+    {
+      try { return await _webCrawler.GetIndexCount(); }
+      catch (Exception ex)
+      {
+        _ = _log.Db($"GetIndexCount fallback failed: {ex.Message}", null, "CRAWLERCTRL", true);
+        return 0;
+      }
     }
 
     private async Task<List<Metadata>> ScrapeQuickAsync(IEnumerable<string> variants, TimeSpan perVariantBudget, CancellationToken ct, System.Collections.Concurrent.ConcurrentBag<Metadata>? collector = null)

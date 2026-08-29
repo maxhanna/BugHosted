@@ -237,7 +237,7 @@ export interface CityChunk {
   barrels: { x: number; z: number; yaw: number }[];
   chickens: { x: number; z: number; yaw: number }[];
   trees: { x: number; z: number; yaw: number; scale: number }[];
-  supermarkets: { x: number; z: number; yaw: number; hd: number }[];
+  supermarkets: { x: number; z: number; yaw: number; hd: number; isConvenience?: boolean }[];
   tatami: { x: number; z: number; yaw: number }[];
   cabins: { x: number; z: number; yaw: number }[];
   lighthouses: { x: number; z: number; yaw: number }[];

@@ -32,6 +32,9 @@ import { TopService } from '../../services/top.service';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
 import { TradeService } from '../../services/trade.service';
 import { RomService } from '../../services/rom.service';
+import { MarblesService } from '../../services/marbles.service';
+import { GrandtheftService } from '../../services/grandtheft.service';
+import { PlanterService } from '../../services/planter.service';
 
 @Component({
   selector: 'app-user',
@@ -88,6 +91,7 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
   friendRequestsReceived: FriendRequest[] = [];
   contacts: Contact[] = [];
   isMusicContainerExpanded = false;
+  isMovieContainerExpanded = false;
   isAboutExpanded = true;
   isTrophyExpanded = false;
   playListCount = 0;
@@ -99,6 +103,7 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
   loginPinValue = '';
   loginServerPin = '';
   songPlaylist: Todo[] = [];
+  userMovieList: Todo[] = [];
   trophies?: Trophy[] = undefined;
   numberOfNexusBases: number = 0;
   numberOfTrades: number = 0;
@@ -120,6 +125,15 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
   emulationTotalTimeSeconds?: number = 0;
   topEmulationGameName?: string | null = null;
   topEmulationGamePlays?: number | null = null;
+  // Marbles best single-player score (populated from server if available)
+  userBestMarblesScore?: number | null = null;
+  marblesStatsLoading = false;
+  // GTA lifetime high score (composite: kills*100 + money) if available
+  userBestGtaScore?: number | null = null;
+  gtaStatsLoading = false;
+  // Number of plants the user keeps in their planter list
+  userPlantCount?: number | null = null;
+  plantStatsLoading = false;
   // Breakdown per game (populated on demand when user clicks)
   emulationGameBreakdown: Array<{ romFileName: string; totalSeconds: number; plays: number }> = [];
   isEmulationBreakdownOpen = false;
@@ -169,6 +183,9 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
     private topService: TopService,
     private romService: RomService,
     private reactionService: ReactionService,
+    private marblesService: MarblesService,
+    private grandtheftService: GrandtheftService,
+    private planterService: PlanterService,
     private cdr: ChangeDetectorRef,
   ) {
     super();
@@ -572,6 +589,16 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
       }
     } catch (e) { }
   }
+  async loadUserMovies() {
+    const user = this.user ?? this.parentRef?.user;
+    if (!user?.id) return;
+    try {
+      const res = await this.todoService.getTodo(user.id, "Movie");
+      if (res) {
+        this.userMovieList = res;
+      }
+    } catch (e) { }
+  }
   async loadContactsData() {
     try {
       if (this.parentRef && this.parentRef.user?.id) {
@@ -638,13 +665,16 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
   expandDiv(event: string) {
     const isOpen = event === "aboutContainer" ? this.isAboutExpanded
       : event === "musicProfileContainer" ? this.isMusicContainerExpanded
-        : this.isTrophyExpanded;
+        : event === "movieProfileContainer" ? this.isMovieContainerExpanded
+          : this.isTrophyExpanded;
 
 
     if (event === "aboutContainer") {
       this.isAboutExpanded = !!!isOpen;
     } else if (event === "musicProfileContainer") {
       this.isMusicContainerExpanded = !!!isOpen;
+    } else if (event === "movieProfileContainer") {
+      this.isMovieContainerExpanded = !!!isOpen;
     } else if (event === "trophyContainer") {
       this.isTrophyExpanded = !!!isOpen;
     }
@@ -1167,9 +1197,42 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
       parent.closeOverlay();
     }
   }
+  async loadUserMarblesScore() {
+    const userId = this.user?.id ?? this.userId ?? this.parentRef?.user?.id;
+    if (!userId) return;
+    this.marblesStatsLoading = true;
+    const res = await this.marblesService.getHighScores(userId);
+    this.marblesStatsLoading = false;
+    this.userBestMarblesScore = res?.myBest?.score != null ? res.myBest.score : null;
+    this.cdr.detectChanges();
+  }
+  async loadUserGtaScore() {
+    const userId = this.user?.id ?? this.userId ?? this.parentRef?.user?.id;
+    if (!userId) return;
+    this.gtaStatsLoading = true;
+    const res = await this.grandtheftService.getHighScores('score', userId, 500);
+    this.gtaStatsLoading = false;
+    const entry = (res?.results ?? []).find((r: any) => Number(r.playerId ?? r.PlayerId ?? r.userId ?? r.UserId) === userId);
+    this.userBestGtaScore = entry ? Number(entry.score ?? 0) : null;
+    this.cdr.detectChanges();
+  }
+  async loadUserPlantCount() {
+    const userId = this.user?.id ?? this.userId ?? this.parentRef?.user?.id;
+    if (!userId) return;
+    this.plantStatsLoading = true;
+    const plants = await this.planterService.getPlants(userId);
+    this.plantStatsLoading = false;
+    this.userPlantCount = Array.isArray(plants) ? plants.length : null;
+    this.cdr.detectChanges();
+  }
   openAboutPanel() {
     this.loadWordlerData();
     this.loadMetaheroData();
+    this.loadUserMarblesScore();
+    this.loadUserGtaScore();
+    this.loadUserPlantCount();
+    this.loadSongData();
+    this.loadUserMovies();
     this.loadSongData();
     this.getNumberOfNexusBases();
     this.getNumberOfTrades();

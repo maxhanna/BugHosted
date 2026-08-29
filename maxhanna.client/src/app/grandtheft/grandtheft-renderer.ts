@@ -68,31 +68,61 @@ function isInAnyIsland(cx: number, cz: number): boolean {
   return false;
 }
 
-// The eastern rural islands form one deterministic mountain chain. The center
-// moves by at most one chunk per column, so adjacent chunks overlap instead of
-// producing isolated hill props or disconnected biome islands.
+// The eastern rural islands form one deterministic mountain chain. Like the
+// bridges, the chain has a clear beginning and end that sit on the same level
+// as the surrounding ground, and it rises smoothly to full height across many
+// chunks — no isolated cliffs popping out of flat land.
+const MOUNTAIN_CHAIN_WEST = 36 * CHUNK_SIZE;  // first foothills (world x)
+const MOUNTAIN_CHAIN_EAST = 86 * CHUNK_SIZE;  // last foothills (world x)
+const MOUNTAIN_CHAIN_RAMP = 4 * CHUNK_SIZE;   // smooth gain/loss span (world units)
+
+/** 0→1→0 envelope along the chain length, ramping up/down like a bridge approach. */
+function mountainLongitudinal(x: number): number {
+  if (x <= MOUNTAIN_CHAIN_WEST || x >= MOUNTAIN_CHAIN_EAST) return 0;
+  const smooth = (t: number) => { const c = Math.max(0, Math.min(1, t)); return c * c * (3 - 2 * c); };
+  if (x < MOUNTAIN_CHAIN_WEST + MOUNTAIN_CHAIN_RAMP) {
+    return smooth((x - MOUNTAIN_CHAIN_WEST) / MOUNTAIN_CHAIN_RAMP);
+  }
+  if (x > MOUNTAIN_CHAIN_EAST - MOUNTAIN_CHAIN_RAMP) {
+    return smooth((MOUNTAIN_CHAIN_EAST - x) / MOUNTAIN_CHAIN_RAMP);
+  }
+  return 1;
+}
+
+/** Ridge centre-line (chunk coords). Single source so the biome band, the
+ * height field, and the switchback road all track the same winding centre. */
+function getMountainRidgeCenter(cx: number): number {
+  return 6 + 2.6 * Math.sin((cx - 41) * 0.26);
+}
+
 function getMountainBand(cx: number, cz: number): 0 | 1 | 2 {
-  // The mountain belt is deliberately contiguous across the eastern islands.
-  // A wider band prevents single-chunk peaks and leaves room for switchbacks.
-  if (cx < 41 || !isInAnyIsland(cx, cz)) return 0;
-  const centerZ = 6 + Math.floor(2 * Math.sin((cx - 41) * 0.38) + 0.5);
-  const distance = Math.abs(cz - centerZ);
+  // The belt is contiguous across the eastern islands. Chunks sit within a
+  // lateral band around the winding ridge centre-line, and only appear where
+  // the longitudinal ramp has actually begun (so the first foothill chunk is
+  // low, not a full-height cliff).
+  if (!isInAnyIsland(cx, cz)) return 0;
+  if (mountainLongitudinal(cx * CHUNK_SIZE + CHUNK_SIZE / 2) <= 0.001) return 0;
+  const distance = Math.abs(cz - getMountainRidgeCenter(cx));
   if (distance <= 4) return 2;
-  if (distance <= 7) return 1;
+  if (distance <= 8) return 1;
   return 0;
 }
 
 function getMountainHeight(x: number, z: number): number {
-  // Use world-space ridges, never per-chunk randomness. The broad envelopes
-  // overlap several 80m chunks so the terrain reads as one continuous range.
+  // A continuous world-space height field. The broad ridge is deliberately
+  // tapered at both sides so lowland/city chunks meet real foothills instead
+  // of exposing a vertical cliff at the biome classification boundary.
   const chainX = x / CHUNK_SIZE - 41;
   const ridgeCenterZ = (6 + 2.6 * Math.sin(chainX * 0.26)) * CHUNK_SIZE + CHUNK_SIZE / 2;
   const ridgeDistance = z - ridgeCenterZ;
-  const mainRidge = Math.exp(-(ridgeDistance * ridgeDistance) / (2 * 220 * 220));
+  const mainRidge = Math.exp(-(ridgeDistance * ridgeDistance) / (2 * 240 * 240));
   const shoulderDistance = z - (ridgeCenterZ + 128 + 38 * Math.sin(x / 230));
-  const shoulder = Math.exp(-(shoulderDistance * shoulderDistance) / (2 * 105 * 105));
+  const shoulder = Math.exp(-(shoulderDistance * shoulderDistance) / (2 * 115 * 115));
   const detail = 0.82 + 0.18 * Math.sin(x / 115 + Math.sin(z / 190) * 1.4);
-  return Math.max(0, mainRidge * (12 + 42 * detail) + shoulder * 10);
+  const profile = Math.max(0, mainRidge * (12 + 42 * detail) + shoulder * 10);
+  const lateral = Math.max(0, Math.min(1, (Math.abs(ridgeDistance) - 330) / 220));
+  const edgeFade = 1 - lateral * lateral * (3 - 2 * lateral);
+  return profile * edgeFade * mountainLongitudinal(x);
 }
 
 function getMountainRoadHeight(x: number, z: number): number {
@@ -342,6 +372,13 @@ export function getTerrainHeight(x: number, z: number, currentY?: number, forceB
   }
   if ((biome === 'rural_hills' || biome === 'rural_mountain') && isOnRoadGrid(x, z)) {
     return getMountainRoadHeight(x, z);
+  }
+  // Sample the same continuous foothill field in the adjacent lowland band.
+  // This prevents a player/camera from switching from height 0 to full ridge
+  // height on the first mountain chunk boundary.
+  if (biome === 'city' || biome === 'suburb' || biome === 'parking_lot' || biome === 'beach') {
+    const nearbyMountain = getMountainHeight(x, z);
+    if (nearbyMountain > 0.02) return nearbyMountain;
   }
   if ((biome === 'beach' || biome.startsWith('rural')) && isOnRoadGrid(x, z)) {
     // Mountain roads are cut into the continuous height field, while ordinary
@@ -670,6 +707,7 @@ export class GrandTheftRenderer {
   public boatMeshes: CityMesh[][] = [];
   public helicopterMeshes: CityMesh[][] = [];
   private proceduralHelicopterMeshes: { regular: CityMesh[]; police: CityMesh[] } | null = null;
+  private proceduralHelicopterRotorMesh: CityMesh | null = null;
   public planeMeshes: CityMesh[][] = [];
   public motorcycleMeshes: CityMesh[][] = [];
   public policeCarMesh: CityMesh[] | null = null;
@@ -797,8 +835,8 @@ export class GrandTheftRenderer {
     const swap = Math.abs(rot - Math.PI / 2) < 0.01 || Math.abs(rot - Math.PI * 3 / 2) < 0.01;
     return swap ? hw : hd;
   }
-  getNearbySupermarkets(x: number, z: number, radius: number): { x: number; z: number; yaw: number; hd: number }[] {
-    const result: { x: number; z: number; yaw: number; hd: number }[] = [];
+  getNearbySupermarkets(x: number, z: number, radius: number): { x: number; z: number; yaw: number; hd: number; isConvenience?: boolean }[] {
+    const result: { x: number; z: number; yaw: number; hd: number; isConvenience?: boolean }[] = [];
     const pcx = Math.floor(x / CHUNK_SIZE);
     const pcz = Math.floor(z / CHUNK_SIZE);
     for (let dz = -1; dz <= 1; dz++) {
@@ -1005,7 +1043,7 @@ export class GrandTheftRenderer {
     boneCount: number;
     nodeNames: string[];                  
   } | null = null;
-  public firstPersonArmsAnimations: GltfAnimation[] | null = null;
+  private _fpArmsPunchOverride = false;
   public mark23Mesh: CityMesh[] | null = null;
   public mark23Skeleton: {
     boneParents: Int32Array;
@@ -1053,10 +1091,16 @@ export class GrandTheftRenderer {
   public playerFireWeapon = 0;
   public playerFireTime = 0;
   public playerAimPitch = 0;
+  /** Camera aim direction (yaw) the crosshair/bullets use; the drawn weapon
+   * rotates toward this so the gun visibly points where you shoot. */
+  public playerAimYaw = 0;
   // Smoothed third-person gun pitch: eases up to point the muzzle at the
   // crosshair while firing, then relaxes back to a calm resting aim so the gun
   // visibly "aims then resets" on each shot instead of being frozen to aimPitch.
   public weaponPitch = 0;
+  /** Smoothed third-person gun yaw — eases toward the aim direction so the
+   * barrel swings to the crosshair instead of staying locked to the walk facing. */
+  public weaponYaw = 0;
   public playerIsInCar = false;
   private _playerSkinAccumulator = 0;
   /** Per-entity punch/swing timers (keyed by entity id, seconds remaining). */
@@ -2556,7 +2600,7 @@ void main() {
     const barrels: { x: number; z: number; yaw: number }[] = [];
     const chickens: { x: number; z: number; yaw: number }[] = [];
     const trees: { x: number; z: number; yaw: number; scale: number }[] = [];
-    const supermarkets: { x: number; z: number; yaw: number; hd: number }[] = [];
+    const supermarkets: { x: number; z: number; yaw: number; hd: number; isConvenience?: boolean }[] = [];
     const tatami: { x: number; z: number; yaw: number }[] = [];
     const cabins: { x: number; z: number; yaw: number }[] = [];
     const lighthouses: { x: number; z: number; yaw: number }[] = [];
@@ -2717,10 +2761,14 @@ void main() {
             // below the waterline into the seabed, while the cap overlaps the
             // deck slab and edge girders so it cannot read as a floating prop.
             const seabedY = -5.5;
-            const capTopY = pillarH - 0.12;
-            const capHeight = 1.25;
+            // Lift the pier cap into the underside of the deck. The previous
+            // cap stopped below the slab, leaving a visible floating gap from
+            // oblique camera angles and at ramp/deck seams.
+            const deckBottomY = avgY - 0.65;
+            const capTopY = deckBottomY + 0.22;
+            const capHeight = 1.65;
             const capCenterY = capTopY - capHeight / 2;
-            const shaftTopY = capTopY - capHeight + 0.08;
+            const shaftTopY = capTopY - capHeight + 0.12;
             const shaftHeight = Math.max(0.5, shaftTopY - seabedY);
             const shaftCenterY = seabedY + shaftHeight / 2;
             const pierPositions = [-bridgeW / 2 + 5, 0, bridgeW / 2 - 5];
@@ -2733,9 +2781,9 @@ void main() {
             // One broad cap beam ties all three shafts together and overlaps
             // the underside of the bridge deck across its full width.
             this.addBox(verts, indices, sx, capCenterY, roadCenterZ, 3.4, capHeight, bridgeW + 1.0, 0.32, 0.32, 0.34, 1.0, idxOffset); idxOffset += 24;
-            // A short central neck makes the load path visibly continuous
-            // through the deck slab instead of leaving a hairline gap.
-            this.addBox(verts, indices, sx, capTopY + 0.08, roadCenterZ, 2.0, 0.35, bridgeW - 4.0, 0.36, 0.36, 0.38, 1.0, idxOffset); idxOffset += 24;
+            // A broad neck penetrates the slab underside, visually joining all
+            // three supports to the bridge rather than ending underneath it.
+            this.addBox(verts, indices, sx, deckBottomY + 0.18, roadCenterZ, 2.0, 0.55, bridgeW - 4.0, 0.36, 0.36, 0.38, 1.0, idxOffset); idxOffset += 24;
           }
           // Deck slab — full width with a visible underside so the deck reads
           // as a real structure instead of a floating plate.
@@ -3260,12 +3308,15 @@ void main() {
             this.addBox(verts, indices, padX - 2.5, 0.06, padZ, hw, 0.06, hh, 1, 1, 1, 0.9, idxOffset); idxOffset += 24;
             this.addBox(verts, indices, padX + 2.5, 0.06, padZ, hw, 0.06, hh, 1, 1, 1, 0.9, idxOffset); idxOffset += 24;
             this.addBox(verts, indices, padX, 0.06, padZ, hh * 0.6, 0.06, hw, 1, 1, 1, 0.9, idxOffset); idxOffset += 24;
-            if (this.helicopterMeshes.length > 0) {
-              const heli = this.helicopterMeshes[Math.floor(rng() * this.helicopterMeshes.length)];
-              const heliYaw = rng() * Math.PI * 2;
-              buildings.push({ model: heli, x: padX, y: 0.15, z: padZ, yaw: heliYaw, scale: [1, 1, 1] });
-              decorativeAircraft.push({ x: padX, z: padZ, yaw: heliYaw, type: 'helicopter', model: heli });
-            }
+            // Park a helicopter on the pad. Prefer any loaded GLTF models, but
+            // those were retired — fall back to the always-available procedural
+            // helicopter so helipads are never left empty.
+            const heli: CityMesh[] = this.helicopterMeshes.length > 0
+              ? this.helicopterMeshes[Math.floor(rng() * this.helicopterMeshes.length)]
+              : this.getProceduralHelicopterMeshes().regular;
+            const heliYaw = rng() * Math.PI * 2;
+            buildings.push({ model: heli, x: padX, y: -this.getModelMinY(heli) + 0.18, z: padZ, yaw: heliYaw, scale: [1, 1, 1] });
+            decorativeAircraft.push({ x: padX, z: padZ, yaw: heliYaw, type: 'helicopter', model: heli });
             if (this.airportHangarMesh) {
               buildings.push({ model: this.airportHangarMesh, x: blockWorldX + 35, y: -this.getModelMinY(this.airportHangarMesh) * HS + 0.15, z: blockWorldZ, yaw: -Math.PI / 2, scale: [HS, HS, HS] });
               if (this.planeMeshes.length > 0) {
@@ -3319,7 +3370,7 @@ void main() {
               );
             }
             for (let ti = 0; ti < 3 + Math.floor(rng() * 3); ti++) {
-              if (this.cityTreeMesh) {
+              if (this.palmTreeMesh) {
                 const tx = blockWorldX + (rng() - 0.5) * 55;
                 const tz = blockWorldZ + (rng() - 0.5) * 55;
                 const distGX = Math.min(Math.abs(tx - cx * CHUNK_SIZE), Math.abs(tx - (cx + 1) * CHUNK_SIZE));
@@ -3421,19 +3472,20 @@ void main() {
             if (m.minX === undefined || m.maxX === undefined || m.minZ === undefined || m.maxZ === undefined) return null;
             const rs = m.renderScale ?? 1;
             const sx = scale[0] * rs, sz = scale[2] * rs;
-            const hw = (m.maxX - m.minX) / 2 * sx;
-            const hd = (m.maxZ - m.minZ) / 2 * sz;
             const rot = ((yaw % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
-            const swap = Math.abs(rot - Math.PI / 2) < 0.01 || Math.abs(rot - Math.PI * 3 / 2) < 0.01;
-            const ehw = swap ? hd : hw;
-            const ehd = swap ? hw : hd;
-            minX = Math.min(minX, px - ehw); maxX = Math.max(maxX, px + ehw);
-            minZ = Math.min(minZ, pz - ehd); maxZ = Math.max(maxZ, pz + ehd);
+            const corners = [[m.minX, m.minZ], [m.minX, m.maxZ], [m.maxX, m.minZ], [m.maxX, m.maxZ]];
+            for (const corner of corners) {
+              const lx = corner[0] * sx, lz = corner[1] * sz;
+              const wx = px + lx * Math.cos(rot) + lz * Math.sin(rot);
+              const wz = pz - lx * Math.sin(rot) + lz * Math.cos(rot);
+              minX = Math.min(minX, wx); maxX = Math.max(maxX, wx);
+              minZ = Math.min(minZ, wz); maxZ = Math.max(maxZ, wz);
+            }
           }
           return { minX, maxX, minZ, maxZ };
         };
         const overlapsExisting = (bb: { minX: number; maxX: number; minZ: number; maxZ: number }): boolean => {
-          const gap = 1.0;
+          const gap = 2.0;
           for (const existing of placedAABBs) {
             if (bb.minX - gap < existing.maxX && bb.maxX + gap > existing.minX &&
               bb.minZ - gap < existing.maxZ && bb.maxZ + gap > existing.minZ) return true;
@@ -3445,6 +3497,17 @@ void main() {
           if (!bb || overlapsExisting(bb)) return false;
           placedAABBs.push(bb);
           return true;
+        };
+        const nativeBounds = (model: CityMesh | CityMesh[]) => {
+          const arr = Array.isArray(model) ? model : [model];
+          let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+          for (const m of arr) {
+            const rs = m.renderScale ?? 1;
+            if (m.minX === undefined || m.maxX === undefined || m.minZ === undefined || m.maxZ === undefined) return null;
+            minX = Math.min(minX, m.minX * rs); maxX = Math.max(maxX, m.maxX * rs);
+            minZ = Math.min(minZ, m.minZ * rs); maxZ = Math.max(maxZ, m.maxZ * rs);
+          }
+          return { minX, maxX, minZ, maxZ };
         };
         if (isSuburb) {
           if (rng() < 0.25 && this.suburbBuildingMeshes.length > 0) {
@@ -3490,8 +3553,8 @@ void main() {
                     if (m.minZ !== undefined) mnZ = Math.min(mnZ, m.minZ * rs); if (m.maxZ !== undefined) mxZ = Math.max(mxZ, m.maxZ * rs);
                   }
                   if (isFinite(mnX)) { nativeMinX = mnX; nativeMaxX = mxX; nativeMinZ = mnZ; nativeMaxZ = mxZ; } }
-                const nativeWidth = (edge.dx === 0) ? (nativeMaxX - nativeMinX) : (nativeMaxZ - nativeMinZ);
-                const nativeDepth = (edge.dx === 0) ? (nativeMaxZ - nativeMinZ) : (nativeMaxX - nativeMinX);
+              const nativeWidth = (edge.dx === 0) ? (nativeMaxX - nativeMinX) : (nativeMaxZ - nativeMinZ);
+              const nativeDepth = (edge.dx === 0) ? (nativeMaxZ - nativeMinZ) : (nativeMaxX - nativeMinX);
                 const scVal = this.isHungryJacksModel(model)
                   ? this.hungryJacksScale(model, w, SIDEWALK_SIZE - 2, yaw)
                   : (nativeWidth > 0.01 ? w / nativeWidth : 1);
@@ -3568,8 +3631,8 @@ void main() {
                     if (m.minZ !== undefined) mnZ = Math.min(mnZ, m.minZ * rs); if (m.maxZ !== undefined) mxZ = Math.max(mxZ, m.maxZ * rs);
                   }
                   if (isFinite(mnX)) { nativeMinX = mnX; nativeMaxX = mxX; nativeMinZ = mnZ; nativeMaxZ = mxZ; } }
-                const nativeWidth = (edge.dx === 0) ? (nativeMaxX - nativeMinX) : (nativeMaxZ - nativeMinZ);
-                const nativeDepth = (edge.dx === 0) ? (nativeMaxZ - nativeMinZ) : (nativeMaxX - nativeMinX);
+              const nativeWidth = (edge.dx === 0) ? (nativeMaxX - nativeMinX) : (nativeMaxZ - nativeMinZ);
+              const nativeDepth = (edge.dx === 0) ? (nativeMaxZ - nativeMinZ) : (nativeMaxX - nativeMinX);
                 let scVal = nativeWidth > 0.01 ? w / nativeWidth : 1;
                 if (model.length > 0 && model[0].carName && model[0].carName.includes('skyscraper')) scVal *= 10;
                 const actualDepth = nativeDepth * scVal;
@@ -3800,7 +3863,7 @@ void main() {
         const sx = worldOriginX + 40, sz = worldOriginZ + 40;
         const storeScale: [number, number, number] = [1, 1, 1];
         buildings.push({ model: store, x: sx, y: 0.15, z: sz, yaw: 0, scale: storeScale });
-        supermarkets.push({ x: sx, z: sz, yaw: 0, hd: 13.4 });
+        supermarkets.push({ x: sx, z: sz, yaw: 0, hd: 13.4, isConvenience: true });
       }
       const smModel = this.cityBuildingMeshes.find(m => m.length > 0 && m[0].carName && m[0].carName.includes('supermarket'));
       if (smModel && supermarkets.length < 1 && rng() < 0.20) {
@@ -4054,11 +4117,34 @@ void main() {
     if (variant.bodyType==='fat'){ torsoW*=1.55; torsoD*=1.3; legLen*=0.92; }
     if (variant.bodyType==='dwarf'){ torsoH*=0.85; legLen*=0.68; armLen*=0.72; headR*=1.08; }
     if (variant.gender==='female'){ torsoW*=0.88; torsoD*=0.92; }
-    // Torso (chest bone 2)
-    addBox(0,0.20,0, torsoW, torsoH, torsoD, variant.outfitA, 2);
+    const addRounded = (cx:number, cy:number, cz:number, rx:number, ry:number, rz:number, col:[number,number,number], bone:number) => {
+      const rings = 5, slices = 10;
+      const start = restPos.length / 3;
+      for (let iy = 0; iy <= rings; iy++) {
+        const phi = (iy / rings) * Math.PI;
+        for (let ix = 0; ix <= slices; ix++) {
+          const theta = (ix / slices) * Math.PI * 2;
+          const nx = Math.sin(phi) * Math.cos(theta);
+          const ny = Math.cos(phi);
+          const nz = Math.sin(phi) * Math.sin(theta);
+          const px = cx + nx * rx, py = cy + ny * ry, pz = cz + nz * rz;
+          verts.push(px, py, pz, nx, ny, nz, col[0], col[1], col[2], 1, 0, 0);
+          restPos.push(px, py, pz); restNrm.push(nx, ny, nz);
+          jIndices.push(bone, 0, 0, 0); jWeights.push(1, 0, 0, 0);
+        }
+      }
+      const width = slices + 1;
+      for (let iy = 0; iy < rings; iy++) for (let ix = 0; ix < slices; ix++) {
+        const a = start + iy * width + ix, b = a + 1, c = a + width, d = c + 1;
+        indices.push(a, c, b, b, c, d);
+      }
+    };
+    // Rounded anatomical volumes replace the old box-only silhouette.
+    addRounded(0, 0.20, 0, torsoW * 0.52, torsoH * 0.52, torsoD * 0.52, variant.outfitA, 2);
+    addRounded(0, 0.20, 0, torsoW * 0.52, torsoH * 0.52, torsoD * 0.52, variant.outfitA, 2);
     addBox(0,0.02,0, torsoW*1.02,0.05,torsoD*1.05, [0.15,0.12,0.10], 2);
-    addBox(0,0.42,0,0.08,0.08,0.08, variant.skin, 3);
-    addBox(0,0.55,0, headR*1.9, headR*1.9, headR*1.9, variant.skin, 4);
+    addRounded(0,0.42,0,0.04,0.04,0.04, variant.skin, 3);
+    addRounded(0,0.55,0,headR,headR*1.05,headR*0.92, variant.skin, 4);
     addBox(0,0.62,-0.02, headR*1.6,0.08,headR*1.5, variant.hair, 4);    if(variant.gender==='female') addBox(0,0.50,-0.14,0.10,0.18,0.08,variant.hair,4);
     // Small face details and varied hairline/neck accents make repeated NPCs
     // read as individuals without adding a texture or extra draw call.
@@ -4073,21 +4159,118 @@ void main() {
       if(variant.role==='pizza') addBox(0,0.67,0.08,0.10,0.06,0.01,[1,0.95,0.85],4);
     }
     const armW = variant.bodyType==='fat'?0.09:0.075;
-    addBox(-0.20,0.18,0,armW,armLen*0.5,armW,variant.skin,6); addBox(-0.20,-0.04,0,armW*0.92,armLen*0.5,armW*0.92,variant.skin,7); addBox(-0.20,-0.24,0,0.07,0.09,0.07,variant.skin,8);
-    addBox(0.20,0.18,0,armW,armLen*0.5,armW,variant.skin,10); addBox(0.20,-0.04,0,armW*0.92,armLen*0.5,armW*0.92,variant.skin,11); addBox(0.20,-0.24,0,0.07,0.09,0.07,variant.skin,12);
+    addRounded(-0.20,0.18,0,armW*0.55,armLen*0.25,armW*0.55,variant.skin,6); addRounded(-0.20,-0.04,0,armW*0.50,armLen*0.25,armW*0.50,variant.skin,7); addRounded(-0.20,-0.24,0,0.035,0.045,0.035,variant.skin,8);
+    addRounded(0.20,0.18,0,armW*0.55,armLen*0.25,armW*0.55,variant.skin,10); addRounded(0.20,-0.04,0,armW*0.50,armLen*0.25,armW*0.50,variant.skin,11); addRounded(0.20,-0.24,0,0.035,0.045,0.035,variant.skin,12);
     addBox(-0.20,0.20,0,armW*1.15,0.14,armW*1.15,variant.outfitA,6); addBox(0.20,0.20,0,armW*1.15,0.14,armW*1.15,variant.outfitA,10);
     const legW = variant.bodyType==='fat'?0.14:0.11; const thighH=legLen*0.48, shinH=legLen*0.48; const hipOff=0.09;
     const pantTone: [number, number, number] = (variant.pantsStyle ?? 0) % 2 === 0
       ? variant.outfitB
-      : [Math.min(1, variant.outfitB[0] * 1.18), Math.min(1, variant.outfitB[1] * 1.12), Math.min(1, variant.outfitB[2] * 1.08)];
-    addBox(-hipOff,-0.12,0,legW,thighH,legW,pantTone,13); addBox(-hipOff,-0.12-thighH,0,legW*0.95,shinH,legW*0.95,pantTone,14); addBox(-hipOff,-0.12-thighH-shinH+0.04,0.04,0.14,0.07,0.20,[0.12,0.08,0.06],15);
-    addBox(hipOff,-0.12,0,legW,thighH,legW,pantTone,16); addBox(hipOff,-0.12-thighH,0,legW*0.95,shinH,legW*0.95,pantTone,17); addBox(hipOff,-0.12-thighH-shinH+0.04,0.04,0.14,0.07,0.20,[0.12,0.08,0.06],18);    if (variant.role==='cop' && variant.accent) addBox(0.08,0.22,0.10,0.06,0.06,0.01,variant.accent,2);
+      : [Math.min(1, variant.outfitB[0] * 1.18), Math.min(1, variant.outfitB[1] * 1.12), Math.min(1, variant.outfitB[2] * 1.08)];    addRounded(-hipOff,-0.12,0,legW*0.52,thighH*0.52,legW*0.52,pantTone,13); addRounded(-hipOff,-0.12-thighH,0,legW*0.48,shinH*0.52,legW*0.48,pantTone,14); addRounded(-hipOff,-0.12-thighH-shinH+0.04,0.04,0.07,0.035,0.10,[0.12,0.08,0.06],15);
+    addRounded(hipOff,-0.12,0,legW*0.52,thighH*0.52,legW*0.52,pantTone,16); addRounded(hipOff,-0.12-thighH,0,legW*0.48,shinH*0.52,legW*0.48,pantTone,17); addRounded(hipOff,-0.12-thighH-shinH+0.04,0.04,0.07,0.035,0.10,[0.12,0.08,0.06],18);
+    if (variant.role==='cop' && variant.accent) addBox(0.08,0.22,0.10,0.06,0.06,0.01,variant.accent,2);
     if (variant.role==='hooker' && variant.accent) {
       addBox(0,0.28,0.105,0.18,0.035,0.012,variant.accent,2);
       addBox(0.16,0.10,0.04,0.035,0.10,0.035,variant.accent,10);
     }
     if (variant.role==='pizza') addBox(0,0.18,-0.12,0.22,0.28,0.08,[0.95,0.85,0.65],2);
     return this.finalizeSkinnedMesh(verts, indices, jIndices, jWeights, restPos, restNrm, skeleton);
+  }
+
+  /**
+   * Build or return the procedural first-person arms. The old first_person_arms
+   * GLTF is gone; these are a small skinned rig (shoulder/upper/forearm/hand on
+   * each side) so the fists can actually punch in first person.
+   */
+  ensureFirstPersonArms(): void {
+    if (this.firstPersonArmsMesh && this.firstPersonArmsSkeleton) return;
+    const skeleton = createHumanSkeleton();
+    const verts: number[] = [];
+    const indices: number[] = [];
+    const jIndices: number[] = [];
+    const jWeights: number[] = [];
+    const restPos: number[] = [];
+    const restNrm: number[] = [];
+    // Arm bones in the human skeleton: 5 l_shoulder,6 l_arm,7 l_forearm,8 l_hand
+    //                            9 r_shoulder,10 r_arm,11 r_forearm,12 r_hand
+    const skin: [number, number, number] = [0.82, 0.60, 0.42];
+    const sleeve: [number, number, number] = [0.16, 0.52, 0.22]; // franklin green polo
+    const addBox = (cx:number, cy:number, cz:number, w:number, h:number, d:number, col:[number,number,number], bone:number) => {
+      const hw=w/2, hh=h/2, hd=d/2;
+      const faces = [
+        { n:[0,1,0], pts:[[-hw, hh,-hd],[hw, hh,-hd],[hw, hh,hd],[-hw, hh,hd]] },
+        { n:[0,-1,0], pts:[[-hw,-hh,-hd],[hw,-hh,-hd],[hw,-hh,hd],[-hw,-hh,hd]] },
+        { n:[0,0,1], pts:[[-hw, hh,hd],[-hw,-hh,hd],[hw,-hh,hd],[hw, hh,hd]] },
+        { n:[0,0,-1], pts:[[hw, hh,-hd],[hw,-hh,-hd],[-hw,-hh,-hd],[-hw, hh,-hd]] },
+        { n:[-1,0,0], pts:[[-hw, hh,-hd],[-hw,-hh,-hd],[-hw,-hh,hd],[-hw, hh,hd]] },
+        { n:[1,0,0], pts:[[hw, hh,hd],[hw,-hh,hd],[hw,-hh,-hd],[hw, hh,-hd]] },
+      ];
+      const start = verts.length/12;
+      for (const f of faces) {
+        const base = verts.length/12;
+        for (let k=0;k<4;k++) {
+          const p = f.pts[k] as number[];
+          verts.push(cx+p[0], cy+p[1], cz+p[2], f.n[0], f.n[1], f.n[2], col[0], col[1], col[2], 1, 0, 0);
+          restPos.push(cx+p[0], cy+p[1], cz+p[2]);
+          restNrm.push(f.n[0], f.n[1], f.n[2]);
+          jIndices.push(bone,0,0,0); jWeights.push(1,0,0,0);
+        }
+        indices.push(base, base+1, base+2, base, base+2, base+3);
+      }
+    };
+    // Arms hang forward/down toward the fists. y is the vertical, z reaches
+    // forward toward the camera. Two arms, each: shoulder cap + sleeve,
+    // upper arm, forearm, hand.
+    for (const side of [-1, 1]) {
+      const sh = side === -1 ? 5 : 9;
+      const ar = side === -1 ? 6 : 10;
+      const fo = side === -1 ? 7 : 11;
+      const ha = side === -1 ? 8 : 12;
+      const x = side * 0.24;
+      const shoulderY = 0.42, armLen = 0.42;
+      // Shoulder cap + short sleeve (outfit color)
+      addBox(x, shoulderY - 0.02, 0.02, 0.20, 0.12, 0.20, sleeve, sh);
+      // Upper arm
+      addBox(x, shoulderY - 0.16, 0.05, 0.11, armLen*0.5, 0.12, sleeve, ar);
+      // Forearm (skin)
+      addBox(x, shoulderY - 0.38, 0.07, 0.09, armLen*0.5, 0.095, skin, fo);
+      // Fist/hand
+      addBox(x, shoulderY - 0.57, 0.10, 0.085, 0.10, 0.10, skin, ha);
+    }
+    this.firstPersonArmsMesh = [this.finalizeSkinnedMesh(verts, indices, jIndices, jWeights, restPos, restNrm, skeleton)];
+    this.firstPersonArmsSkeleton = skeleton;
+  }
+
+  /**
+   * Pose + CPU-skin the first-person arms for this frame. When the player
+   * punches (punchTime > 0) the right arm jabs forward like the third-person
+   * attack; otherwise arms hang in a relaxed rest pose.
+   */
+  private skinFirstPersonArms(dt: number): void {
+    const skel = this.firstPersonArmsSkeleton;
+    const mesh = this.firstPersonArmsMesh;
+    if (!skel || !mesh) return;
+    const localMatrices = new Float32Array(skel.boneLocalMatrices);
+    const punch = this.punchTime;
+    if (punch > 0) {
+      // Mirror the third-person jab: right shoulder + forearm extend forward
+      // and recover over ~0.38s. bone 10 = r_arm, 11 = r_forearm, 8 = l_hand pull-back.
+      const t = Math.max(0, Math.min(1, punch / 0.38));
+      const attack = t < 0.5 ? t * 2 : 2 - t * 2;
+      const temp = new Float32Array(16), rot = new Float32Array(16);
+      const applyRotX = (bone: number, angle: number) => {
+        if (bone < 0 || bone >= skel.boneCount) return;
+        const m = new Float32Array(localMatrices.buffer, bone * 16 * 4, 16);
+        mat4.identity(rot); mat4.rotateX(rot, rot, angle);
+        mat4.multiply(temp, m, rot);
+        for (let i = 0; i < 16; i++) m[i] = temp[i];
+      };
+      applyRotX(10, -0.95 * attack);
+      applyRotX(11, -0.75 * attack);
+      applyRotX(6, 0.20 * attack); // left arm counter-swing
+    }
+    const jointMatrices = new Float32Array(skel.boneCount * 16);
+    this.computeJointMatrices(skel, localMatrices, jointMatrices);
+    this.skinMeshGeneric(mesh, skel, jointMatrices);
   }
   private finalizeSkinnedMesh(verts:number[], indices:number[], jIndices:number[], jWeights:number[], restPos:number[], restNrm:number[], skeleton:any): CityMesh {
     const gl = this.gl;
@@ -4470,6 +4653,7 @@ void main() {
   render(
     camX: number, camY: number, camZ: number, camYaw: number, camPitch: number, aspect: number,
     targetX: number, targetY: number, targetZ: number, carYaw: number,
+
     serverNPCs: any[], otherPlayers: any[], serverPedestrians: any[], parkedCars: any[],
     dt: number = 0,
     tracers: any[], muzzleFlashes: any[], rockets: any[], explosions: any[], bloodSplats: any[],
@@ -4491,6 +4675,10 @@ void main() {
   ) {
     const gl = this.gl;
     const now = performance.now();
+    // Record the player's aim direction so the drawn weapon can rotate to the
+    // crosshair. Bullets/tracers already travel along camYaw; the visible gun
+    // must match so it looks like it's actually firing where you point.
+    this.playerAimYaw = camYaw;
     const PICKUP_SCALE = 0.2;
     const PICKUP_SPIN_SPEED = 1.5;
     const pickupYaw = (now / 1000) * PICKUP_SPIN_SPEED;
@@ -4663,7 +4851,10 @@ void main() {
             if (isNearBridgeRoad(tree.x, tree.z, tree.scale * 2)) continue;
             const treeBiome = getBiome(Math.floor(tree.x / CHUNK_SIZE), Math.floor(tree.z / CHUNK_SIZE));
             const isMountainTree = treeBiome === 'rural_hills' || treeBiome === 'rural_mountain';
-            const treeModels = isMountainTree ? this.cityTreeMesh : this.palmTreeMesh;
+            // Use the regular 3D tree model everywhere. The old mountain "conifer"
+            // (psx_tree_low_poly_no_black_background) read as a flat picture cutout,
+            // so it is retired in favour of the palmTreeMesh used on every other tile.
+            const treeModels = this.palmTreeMesh;
             if (!treeModels || treeModels.length === 0) continue;
             const treeY = isMountainTree ? getTerrainHeight(tree.x, tree.z) : 0;
             const model = treeModels[Math.abs(Math.floor(tree.x * 7 + tree.z * 13)) % treeModels.length];
@@ -4808,6 +4999,24 @@ void main() {
         }
       }
     }
+    for (const chunk of this.chunkCache.values()) {
+      for (const aircraft of chunk.decorativeAircraft ?? []) {
+        const dx = aircraft.x - camX;
+        const dz = aircraft.z - camZ;
+        if (dx * dx + dz * dz > 320 * 320 || !aircraft.model) continue;
+        const aircraftMesh = aircraft.model;
+        const aircraftY = aircraft.type === 'helicopter' ? -this.getModelMinY(aircraftMesh as CityMesh[]) + 0.18 : 0.15;
+        this.drawMesh(aircraftMesh, aircraft.x, aircraftY, aircraft.z, aircraft.yaw);
+        if (aircraft.type === 'helicopter') {
+          const spin = now * 0.02;
+          const rotor = this.getRotorBladeMesh();
+          this.drawMesh(rotor, aircraft.x, aircraftY + 2.55, aircraft.z, aircraft.yaw + spin, [1, 1, 1], [0.18, 0.2, 0.22, 0.82]);
+          const tailX = aircraft.x - Math.sin(aircraft.yaw) * 3.45;
+          const tailZ = aircraft.z - Math.cos(aircraft.yaw) * 3.45;
+          this.drawMesh(rotor, tailX, aircraftY + 1.78, tailZ, aircraft.yaw + spin * 2.75, [0.32, 0.32, 0.32], [0.2, 0.22, 0.24, 0.8]);
+        }
+      }
+    }
     for (const pc of parkedCars) {
       const biome = getBiome(Math.floor(pc.x / 80), Math.floor(pc.z / 80));
       const isBoat = pc.type === 'boat';
@@ -4831,8 +5040,15 @@ void main() {
       const npcDx = npc.x - camX, npcDz = npc.z - camZ;
       // Keep animation work in a tighter near-field than draw culling; distant
       // NPCs retain their last pose while still contributing to the skyline.
-      if (npcDx * npcDx + npcDz * npcDz < 180 * 180) {
-        if (isHumanNpc) this.animateAndSkinEntity(npc.id, npc.mesh, npcState, dt, Math.max(1, npcSpeed * 2.2));
+      if (isHumanNpc) {
+        // Keep the procedural rig advancing for every visible NPC. The old
+        // distance gate left walk phases frozen as soon as a pedestrian crossed
+        // the 180-unit animation radius, which made walking NPCs look like
+        // sliding statues when they came back into view.
+        const animationSpeed = npcState === 'walk'
+          ? Math.max(0.75, Math.min(2.2, npcSpeed * 2.2 || 1))
+          : 1;
+        this.animateAndSkinEntity(npc.id, npc.mesh, npcState, dt, animationSpeed);
       }
       const biome = getBiome(Math.floor(npc.x / 80), Math.floor(npc.z / 80));
       const submerged = biome === 'ocean';
@@ -4911,13 +5127,13 @@ void main() {
       const pedFlinch = this.flinchTimers.get(ped.id) ?? 0;
       if (pedFlinch > 0) this.flinchTimers.set(ped.id, Math.max(0, pedFlinch - dt));
       const pedDx = ped.x - camX, pedDz = ped.z - camZ;
-      if (pedDx * pedDx + pedDz * pedDz < 180 * 180) {
-        // Hookers use a slower, confident walk. Their procedural female rig is
-        // still the same shared human rig, but the speed makes them readable
-        // from the street without adding another asset or animation clip.
-        const animationSpeed = ped.type === 'hooker' || ped.gender === 'hooker' ? 1.45 : Math.max(1, pedSpeed * 2.2);
-        this.animateAndSkinEntity(ped.id, ped.mesh, pedState, dt, animationSpeed);
-      }
+      // Hookers use a slower, confident walk. Their procedural female rig is
+      // still the same shared human rig, but the speed makes them readable
+      // from the street without adding another asset or animation clip.
+      const animationSpeed = ped.type === 'hooker' || ped.gender === 'hooker'
+        ? 1.45
+        : (pedState === 'walk' ? Math.max(0.75, Math.min(2.2, pedSpeed * 2.2 || 1)) : 1);
+      this.animateAndSkinEntity(ped.id, ped.mesh, pedState, dt, animationSpeed);
       // Ducking (gunfire reaction): the crouch-and-cover pose (bent legs, low
       // hips) does the lowering — this mild squash is the fallback for distant
       // peds that skip skinning, and keeps the "hit the deck" read. A flinching
@@ -5020,7 +5236,10 @@ void main() {
     const mopedArr = Array.isArray(playerMesh) ? playerMesh : (playerMesh ? [playerMesh] : []);
     if (mopedArr.length > 0 && (mopedArr[0] as any)._isMotorcycle) {
       if (dt > 0) {
-        this._mopedSpin += this.playerCarSpeed * dt * 2.4;
+        // The wheel is authored in the YZ plane and rolls around the X axle.
+        // The model's forward direction is -Z, so forward motion requires the
+        // opposite pitch sign from the vehicle speed.
+        this._mopedSpin -= this.playerCarSpeed * dt * 2.4;
         this._mopedFrontSteer += (this.playerSteerInput - this._mopedFrontSteer) * Math.min(1, 10 * dt);
       }
       const wm = this.getMopedWheelMesh();
@@ -5095,10 +5314,29 @@ void main() {
     gl.depthMask(true);
     for (const db of deadBodies) {
       const isHuman = db.type === 'player' || db.type === 'ped_male' || db.type === 'ped_female' || db.type === 'cop';
-      const dbPitch = isHuman ? -Math.PI / 2 : 0;
       const elapsed = (performance.now() / 1000) - db.deathTime;
       const fadeAlpha = Math.max(0.4, 1.0 - elapsed / 30);
-      this.drawMesh(db.mesh, db.x, 0.02, db.z, -db.yaw, [1, 1, 1], [0.4, 0.4, 0.4, fadeAlpha], false, dbPitch);
+      if (!isHuman) {
+        this.drawMesh(db.mesh, db.x, 0.02, db.z, -db.yaw, [1, 1, 1], [0.4, 0.4, 0.4, fadeAlpha]);
+        continue;
+      }
+      // Ragdoll fall: instead of snapping instantly flat, the human tilts over
+      // from standing to the ground over ~0.35s with a flop, a sideways tumble,
+      // and a short backward slide — reading as a body knocked over by the shot.
+      // After the fall it settles flat and fades like before.
+      const fallDur = 0.35;
+      const ft = Math.max(0, Math.min(1, elapsed / fallDur));
+      const eased = ft * ft * (3 - 2 * ft); // smoothstep
+      const seed = Math.abs((db.id * 1.7 + db.deathTime * 3.1) % (Math.PI * 2));
+      // Pitch from upright to flat with a slight over-rotation flop.
+      const flop = -(Math.PI / 2) * eased - Math.PI * 0.10 * Math.sin(Math.PI * ft);
+      // Tumble sideways early, settling to a stable rest roll as it lands.
+      const tumble = Math.sin(seed) * 0.45 * Math.sin(Math.PI * ft);
+      // Body slides a short way opposite its facing while falling.
+      const slide = 0.9 * eased;
+      const sx = db.x - Math.sin(-db.yaw) * slide;
+      const sz = db.z - Math.cos(-db.yaw) * slide;
+      this.drawMesh(db.mesh, sx, 0.02, sz, -db.yaw, [1, 1, 1], [0.4, 0.4, 0.4, fadeAlpha], false, flop, tumble);
     }
     // Keep projectile effects behind walls as well. They use the regular
     // program and therefore can participate in the world's depth buffer.
@@ -5492,6 +5730,18 @@ void main() {
     const ratePerSec = firing ? 30 : 9;
     const k = Math.min(1, ratePerSec * dt);
     this.weaponPitch += (target - this.weaponPitch) * k;
+    // Blend the drawn gun's yaw toward the aim direction (camera/crosshair)
+    // rather than leaving it snapped to the walk-facing. Use the shortest-angle
+    // wrap so the barrel swings the correct way when the camera crosses 0/2π.
+    let yawDiff = this.playerAimYaw - this.weaponYaw;
+    while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
+    while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
+    const targetYaw = this.playerAimYaw;
+    // Aim settles quickly while firing; when the player only draws a weapon it
+    // still eases to the crosshair so the muzzle faces the aim.
+    const yawRate = firing ? 20 : 12;
+    const ky = Math.min(1, yawRate * dt);
+    this.weaponYaw += yawDiff * ky;
   }
   private drawPlayerWeapon(x: number, y: number, z: number, yaw: number): void {
     const weaponType = this.playerWeapon > 0 ? this.playerWeapon
@@ -5504,17 +5754,23 @@ void main() {
     else if (weaponType === 3) { weapon = this.shotgunMesh; scale = 0.3; }
     else if (weaponType === 4) { weapon = this.rocketLauncherMesh; scale = 0.34; }
     if (!weapon) return;
+    // Aim the barrel at the crosshair (camera) direction rather than the walk
+    // facing: bullets/tracers/rockets all travel along this.playerAimYaw, so the
+    // visible gun must face the same way to line up the muzzle with the shot.
+    // The eased weaponYaw lets the gun swing smoothly to the aim instead of
+    // snapping, and stays at the walk facing when idling without a weapon out.
+    const aimYaw = this.playerWeapon > 0 ? this.weaponYaw : yaw;
     const forward = 0.62;
     const side = 0.22;
-    const fx = Math.sin(yaw), fz = Math.cos(yaw);
-    const rx = Math.cos(yaw), rz = -Math.sin(yaw);
+    const fx = Math.sin(aimYaw), fz = Math.cos(aimYaw);
+    const rx = Math.cos(aimYaw), rz = -Math.sin(aimYaw);
     const recoil = this.playerFireTime > 0 ? -0.08 : 0;
     this.drawMesh(
       weapon,
       x + fx * forward + rx * side,
       y + 1.18,
       z + fz * forward + rz * side,
-      yaw,
+      aimYaw,
       [scale, scale, scale],
       [1, 1, 1, 1],
       false,
@@ -5535,11 +5791,15 @@ void main() {
     const fy = -Math.sin(camPitch);
     const fz = Math.cos(camYaw) * Math.cos(camPitch);
     const rightX = Math.cos(camYaw), rightZ = -Math.sin(camYaw);
-    if (this.firstPersonArmsMesh) {
+    this.ensureFirstPersonArms();
+    if (this.firstPersonArmsMesh && this.firstPersonArmsSkeleton) {
+      // Skin the procedural arms with a live punch (only when unarmed) so the
+      // fists actually jab instead of sitting static.
+      if (weapon <= 0) this.skinFirstPersonArms(dt);
       const ax = camX + fx * 0.2 + rightX * 0.06;
       const ay = camY + fy * 0.2 - 1.5;
       const az = camZ + fz * 1.2 + rightZ * 0.06;
-      this.drawMesh(this.firstPersonArmsMesh, ax, ay, az, camYaw + Math.PI, [0.6, 0.6, 0.6], [1, 1, 1, 1]);
+      this.drawMesh(this.firstPersonArmsMesh, ax, ay, az, camYaw + Math.PI, [0.42, 0.42, 0.42], [1, 1, 1, 1]);
     }
     if (weapon === 1 && this.mark23Mesh) {
       if (this.mark23Animations && this.mark23Skeleton) {
@@ -5565,6 +5825,26 @@ void main() {
       const my = camY + fy * 2.4 - 2.2;
       const mz = camZ + fz * 3.4 + rightZ * 0.06;
       this.drawMesh(this.mark23Mesh, mx, my, mz, camYaw, [1, 1, 1], [1, 1, 1, 1]);
+    }
+    // First-person viewmodel for the other weapons. Weapon 1 (mark23) has its
+    // own dedicated model above; the M4 (2), shotgun (3), and rocket launcher
+    // (4) reuse their standard meshes held in front of the camera so the gun
+    // is visible in first person instead of only bare arms.
+    if (weapon >= 2) {
+      let fpWeapon: CityMesh[] | null = null;
+      let fpScale = 0.3;
+      let fpDown = 2.0;   // how deep the model sits below the camera eye
+      let fpFwd = 2.6;    // how far forward the model reaches
+      if (weapon === 2) { fpWeapon = this.m4a1Mesh; fpScale = 0.55; fpDown = 1.9; fpFwd = 3.0; }
+      else if (weapon === 3) { fpWeapon = this.shotgunMesh; fpScale = 0.55; fpDown = 1.9; fpFwd = 3.0; }
+      else if (weapon === 4) { fpWeapon = this.rocketLauncherMesh; fpScale = 0.6; fpDown = 1.7; fpFwd = 3.2; }
+      if (fpWeapon && fpWeapon.length > 0) {
+        const recoil = this.playerFireTime > 0 ? -0.06 : 0;
+        const wx = camX + fx * 0.3 + rightX * 0.08;
+        const wy = camY + fy * fpDown - 2.2 + recoil;
+        const wz = camZ + fz * fpFwd + rightZ * 0.08;
+        this.drawMesh(fpWeapon, wx, wy, wz, camYaw, [fpScale, fpScale, fpScale], [1, 1, 1, 1]);
+      }
     }
     gl.enable(gl.BLEND);
     gl.enable(gl.DEPTH_TEST);

@@ -371,6 +371,45 @@
               </div>
             </div>
 
+            <div class="optionsStatsDiv" *ngIf="userBestMarblesScore != null && userBestMarblesScore > 0">
+              <div class="optionsStatsHeader">
+                <app-menu-item [type]="'Marbles'" [parentRef]="parentRef"
+                  [label]="'Marbles best score:'"></app-menu-item>
+              </div>
+              <div class="optionsStatsDescription">
+                <span *ngIf="marblesStatsLoading">
+                  <app-loading-spinner [fontSize]="'1.2em'" [label]="'Loading marbles score'"></app-loading-spinner>
+                </span>
+                <span *ngIf="!marblesStatsLoading">{{ userBestMarblesScore.toLocaleString() }}</span>
+              </div>
+            </div>
+
+            <div class="optionsStatsDiv" *ngIf="userBestGtaScore != null && userBestGtaScore > 0">
+              <div class="optionsStatsHeader">
+                <app-menu-item [type]="'Grand Theft Auto'" [parentRef]="parentRef"
+                  [label]="'GTA best score:'"></app-menu-item>
+              </div>
+              <div class="optionsStatsDescription">
+                <span *ngIf="gtaStatsLoading">
+                  <app-loading-spinner [fontSize]="'1.2em'" [label]="'Loading GTA score'"></app-loading-spinner>
+                </span>
+                <span *ngIf="!gtaStatsLoading">{{ userBestGtaScore.toLocaleString() }}</span>
+              </div>
+            </div>
+
+            <div class="optionsStatsDiv" *ngIf="userPlantCount != null">
+              <div class="optionsStatsHeader">
+                <app-menu-item [type]="'Planter'" [parentRef]="parentRef"
+                  [label]="'Plants recorded:'"></app-menu-item>
+              </div>
+              <div class="optionsStatsDescription">
+                <span *ngIf="plantStatsLoading">
+                  <app-loading-spinner [fontSize]="'1.2em'" [label]="'Loading plants'"></app-loading-spinner>
+                </span>
+                <span *ngIf="!plantStatsLoading">{{ userPlantCount }} plant{{ userPlantCount === 1 ? '' : 's' }}</span>
+              </div>
+            </div>
+
             <div class="optionsStatsDiv" *ngIf="emulationTotalTimeSeconds && emulationTotalTimeSeconds > 0">
               <div class="optionsStatsHeader">
                 <app-menu-item [type]="'Emulation'" [parentRef]="parentRef"
@@ -546,6 +585,24 @@
         <app-music *ngIf="isMusicContainerExpanded" [user]="user" [inputtedParentRef]="parentRef"
           [smallPlayer]="true" (gotPlaylistEvent)="gotPlaylistEvent($event)">
         </app-music>
+      </div>
+    </div>
+    <!-- MOVIES -->
+    <div class="topProfileContainer" id="movieProfileContainer" *ngIf="userMovieList && userMovieList.length > 0">
+      <label class="userInfoHeaderLabel gradientBackground">
+        <button (click)="expandDiv('movieProfileContainer');">{{isMovieContainerExpanded ? '-' : '+'}}</button>
+        <span class="cursorPointerUnderlined">Movies ({{userMovieList.length}})</span>
+      </label>
+      <div *ngIf="isMovieContainerExpanded" class="optionsStatsWrapperDiv">
+        <div class="optionsStatsDiv" *ngFor="let m of userMovieList">
+          <div class="optionsStatsHeader">
+            <a *ngIf="m.url" [href]="m.url" target="_blank" rel="noopener">{{ m.todo }}</a>
+            <span *ngIf="!m.url">{{ m.todo }}</span>
+          </div>
+          <div class="optionsStatsDescription" *ngIf="m.done != null">
+            {{ m.done ? 'Watched' : 'Not watched' }}
+          </div>
+        </div>
       </div>
     </div>
   </div>

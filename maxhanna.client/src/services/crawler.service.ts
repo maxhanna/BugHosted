@@ -25,10 +25,8 @@ export class CrawlerService {
       ExactMatch: exactMatch,
       SkipScrape: skipScrape,
       UserId: userId ?? undefined
-    };
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 2 * 60 * 1000); // 2m client timeout
+    };    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 60 * 1000); // 60s client timeout
 
     try {
       const response = await fetch(`/crawler/searchurl`, {
@@ -38,17 +36,19 @@ export class CrawlerService {
         signal: controller.signal
       });
 
+
       clearTimeout(timeout);
 
       if (!response.ok) {
         let msg = 'Search failed';
+        let status = response.status;
         try {
           const err = await response.json();
           msg = err?.detail || err?.title || msg;
         } catch {
-          msg = await response.text();
+          try { msg = await response.text(); } catch { /* non-text body */ }
         }
-        return { error: msg || 'Search failed', status: response.status };
+        return { error: msg || 'Search failed', status };
       }
 
       const json = (await response.json()) as CrawlerSearchResponse;
@@ -61,9 +61,19 @@ export class CrawlerService {
     } catch (error: any) {
       clearTimeout(timeout);
       if (error?.name === 'AbortError') {
-        return { error: 'Request timed out. Please try again with a narrower search.' };
+        return { error: 'Request timed out. The index is very large — try a more specific query (it may also be worth retrying).' };
       }
-      return { error: 'Network or server error while searching.' };
+      // Surface whatever the server/proxy actually said if we can.
+      const status = error?.status as number | undefined;
+      if (status === 408) return { error: 'Search timed out on the server.', status };
+      if (status === 504) return { error: 'The database did not respond in time — try refining your search.', status };
+      const proxyMsg = (error?.statusText as string) || '';
+      return {
+        error: proxyMsg
+          ? `Network error: ${proxyMsg}. Try a narrower query.`
+          : 'Network or server error while searching. The query may be too broad — try adding more words or refining it.',
+        status: 0
+      };
     }
   }
 

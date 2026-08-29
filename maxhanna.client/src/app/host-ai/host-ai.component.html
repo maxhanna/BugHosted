@@ -52,7 +52,14 @@
   <!-- Help button relocated to header (next to menu). Removed from inline empty state. -->
     </div>
 
-    <div class="input-container" *ngIf="showChatbox"> 
+    <div class="aiChatExpandBar" *ngIf="collapsibleChat && showChatbox">
+      <button class="cursorPointer aiChatExpandBtn" (click)="toggleAiChat()"
+        [title]="aiChatExpanded ? 'Hide chat input' : 'Show chat input'">
+        {{ aiChatExpanded ? '▾ Collapse chat' : '▸ Chat with HostAI' }}
+      </button>
+    </div>
+
+    <div class="input-container" *ngIf="showChatbox && (!collapsibleChat || aiChatExpanded)"> 
       <!-- <button (click)="sayOutloud()" *ngIf="!startedTalking" [disabled]="isLoading || !userMessage.trim()"
         title="Repeat out loud.">🔊</button> -->
       <app-speech-recognition [disabled]="isLoading || startedTalking"

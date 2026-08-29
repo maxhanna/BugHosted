@@ -72,6 +72,12 @@ export class HostAiComponent extends ChildComponent implements OnInit, AfterView
   // Two embeddable modes: with a chat input box (default) or without one
   // (display-only AI conversation, e.g. rendering a preloaded answer inline).
   @Input() showChatbox = true;
+  // When embedded inside another component (e.g. the crawler's AI search
+  // card), hides the chat input behind an expand/collapse toggle so the
+  // preloaded answer is shown compactly until the user reveals the input.
+  @Input() collapsibleChat = false;
+  aiChatExpanded = false;
+  toggleAiChat() { this.aiChatExpanded = !this.aiChatExpanded; }
 
   ngOnInit() {
     if (this.inputtedParentRef) this.parentRef = this.inputtedParentRef;

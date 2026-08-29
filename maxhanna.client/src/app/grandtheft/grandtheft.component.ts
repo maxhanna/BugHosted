@@ -177,6 +177,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   policeRound = 0;
   policeModeThugCars: { id: number; x: number; z: number; yaw: number; mesh: CityMesh | CityMesh[]; health: number; maxHealth: number; speed: number; colorR: number; colorG: number; colorB: number; isSmoking?: boolean; smokeStarted?: number; smokeTimer?: number; isBurning?: boolean; fireStarted?: number; playerDamage?: number; killedByPlayer?: boolean }[] = [];
   policeModeThugPeds: { id: number; x: number; z: number; yaw: number; mesh: CityMesh | CityMesh[]; health: number; shootTimer: number }[] = [];
+  // Cops ejected when the player commandeers a driven police car. They hunt the
+  // thief — shooting if the player is armed, or charging to subdue/arrest if
+  // unarmed. Empty for parked cruisers (nobody inside to evict).
+  evictedCops: { id: number; x: number; z: number; yaw: number; mesh: CityMesh | CityMesh[]; health: number; targetX: number; targetZ: number; attackTimer: number; speed: number }[] = [];
+  /** Transient guard so evicted-cop hostility is armed only once per police theft. */
+  evictedCopId: number | undefined = undefined;
   policeModeSpawnTimer = 0;
   policeModeSpawnsRemaining = 0;
   policeModeRoundDelay = 0;
@@ -251,6 +257,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private _lastBrakeScreech = 0;
   private _lastCrashTime = 0;
   private _lastWallCrashTime = 0;
+  private _lastTreeHitTime = 0;
   private _npcCrashCooldowns: Map<string, number> = new Map();
   private _lastScreechTime = 0;
   private _respawnTimer: any = null;
@@ -329,7 +336,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   nearStoreRegister = false;
   nearStoreExit = false;
   inStore: { x: number; z: number; yaw: number; hd: number; doorX: number; doorZ: number; key: string } | null = null;
-  private _nearStore: { x: number; z: number; yaw: number; hd: number; doorX: number; doorZ: number; key: string } | null = null;
+  private _nearStore: { x: number; z: number; yaw: number; hd: number; doorX: number; doorZ: number; key: string; isConvenience?: boolean } | null = null;
   // The grocery-store cashier: idles at the register, bolts for the door when
   // the register is stuck up. Client-local like localPedestrians.
   storeCashier: { id: number; x: number; z: number; yaw: number; gender: string; mesh: CityMesh | CityMesh[]; speed: number; panicUntil: number; doorX: number; doorZ: number } | null = null;
@@ -649,10 +656,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       if (cfg.critical) critical(t);
       tasks.push(t);
     }
-    const armsOut: { animations?: any; skeleton?: any } = {};
-    tasks.push(critical({ load: () => this.renderer.loadGLTF('assets/grandtheft/first_person_arms/scene.gltf', false, armsOut).then(arms => { if (arms) { this.renderer.firstPersonArmsMesh = arms; this.renderer.firstPersonArmsSkeleton = armsOut.skeleton ?? null; this.renderer.firstPersonArmsAnimations = armsOut.animations ?? null; } }) }));
     const m23Out: { animations?: any; skeleton?: any } = {};
     tasks.push(critical({ load: () => this.renderer.loadGLTF('assets/grandtheft/first_person_mark23/scene.gltf', false, m23Out).then(m => { if (m) { this.renderer.mark23Mesh = m; this.renderer.mark23Skeleton = m23Out.skeleton ?? null; this.renderer.mark23Animations = m23Out.animations ?? null; } }) }));
+    // First-person arms are generated procedurally by the renderer. Do not load
+    // the retired first_person_arms GLTF; the generated rig is what is animated
+    // for unarmed punches and weapon viewmodels.
+    this.renderer.ensureFirstPersonArms();
     // Building assets — tracked separately for cache clearing
     const buildingTasks: AssetTask[] = [];
     for (const name of GrandTheftRenderer.AIRPORT_BUILDING_NAMES) {
@@ -1203,6 +1212,31 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           });
           this.stolenNpcIds.add(v.id);
           this.currentCarId = v.id;
+          // Commandering a driven police car ejects its crew. Those cops come
+          // straight after the thief: they shoot if the player is armed and
+          // charge in to subdue/arrest if the player is unarmed. Parked cruisers
+          // have nobody inside, so (per the design) they stay quiet.
+          if (v.type === 'police' && !isParked) {
+            this.evictedCopId = undefined; // re-arm the hostility below
+            const crew = (v.passengerCount ?? 0) > 0 ? 3 : 2;
+            const cx0 = v.x ?? this.carX, cz0 = v.z ?? this.carZ;
+            const cyaw0 = v.yaw ?? this.carYaw;
+            for (let k = 0; k < crew; k++) {
+              const cid = --this.pedIdCounter;
+              const ang = cyaw0 + (k === 0 ? Math.PI : Math.PI / 2 + k * 0.6);
+              const dist = 1.6 + k * 0.35;
+              const sx = cx0 + Math.sin(ang) * dist;
+              const sz = cz0 + Math.cos(ang) * dist;
+              this.evictedCops.push({
+                id: cid, x: sx, z: sz, yaw: ang,
+                mesh: this.renderer.getPedestrianMesh('cop', cid),
+                health: 100,
+                targetX: this.carX, targetZ: this.carZ,
+                attackTimer: 0.8 + Math.random() * 0.6,
+                speed: 3.2,
+              });
+            }
+          }
           if (isParked) {
             this.parkedCars = this.parkedCars.filter(p => p.id !== v.id);
           } else {
@@ -3782,8 +3816,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         // through the server poll. Drop the same small cash reward as a server
         // pedestrian before removing the body from the active population.
         const collected = Number((ped as any).collectedMoney ?? 0);
-        if (collected > 0) this.dropMoneyAt(ped.x, ped.z, Math.floor(collected));
-        this.dropMoneyAt(ped.x, ped.z, 50 + Math.floor(Math.random() * 150));
+        // A death produces one loot drop. The collected amount is folded into
+        // the normal death payout instead of creating a second cash stack.
+        this.dropMoneyAt(ped.x, ped.z, 50 + Math.floor(Math.random() * 150) + Math.max(0, Math.floor(collected)));
         this.localPedestrians.splice(i, 1);
         continue;
       }
@@ -4062,6 +4097,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.updateTaxiRide(dt);
     this.updateTaxiMission(dt);
     this.updatePoliceMode(dt);
+    this.updateEvictedCops(dt);
     this.updateDealershipMission(dt);
     this.updateAirportLotCars(dt);
     if (this.vehicleBannerTimer > 0) this.vehicleBannerTimer -= dt;
@@ -4406,6 +4442,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           this.health = 100;
           this.carHealth = 200;
           this.wantedLevel = 0;
+          this.evictedCops = [];
           if (this.isInCar) this.exitCar();
           if (this.isPassenger) this.exitPassenger();
           this.carX = HOSPITAL_SPAWN_X;
@@ -4481,18 +4518,26 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const camY = targetY + effectiveHeight + (Math.random() * 2 - 1) * shake * 0.7;
     const renderMesh = this.isInCar ? this.playerVehicleMesh
       : ((this.firstPerson || (this.taxiRideActive && this.taxiRideHidePlayer)) ? null : this.renderer.playerMesh);
+    // Dead entities are kept out of the visible lists. The death-detection
+    // loop only prunes serverNPCs/serverPedestrians after a kill, but traffic,
+    // airport, thug and local peds also carry health <= 0 entries after death
+    // — leaving them in the draw lists would re-render them standing right
+    // beside their corpse every frame, which reads as "killed and instantly
+    // respawned".
+    const notDead = (e: any) => e && e.health > 0 && !this.deadNPCIds.has(e.id);
     this._allNPCs.length = 0;
-    for (const n of this.serverNPCs) this._allNPCs.push(n);
-    for (const n of this.trafficCars) this._allNPCs.push(n);
-    for (const n of this.airportLotCars) this._allNPCs.push(n);
-    for (const n of this.policeModeThugCars) this._allNPCs.push(n);
-    if (this.taxiRideActive && this.taxiRideTaxi) this._allNPCs.push(this.taxiRideTaxi);
+    for (const n of this.serverNPCs) if (notDead(n)) this._allNPCs.push(n);
+    for (const n of this.trafficCars) if (notDead(n)) this._allNPCs.push(n);
+    for (const n of this.airportLotCars) if (notDead(n)) this._allNPCs.push(n);
+    for (const n of this.policeModeThugCars) if (notDead(n)) this._allNPCs.push(n);
+    if (this.taxiRideActive && this.taxiRideTaxi && notDead(this.taxiRideTaxi)) this._allNPCs.push(this.taxiRideTaxi);
     this._allPeds.length = 0;
-    for (const p of this.serverPedestrians) this._allPeds.push(p);
-    for (const p of this.localPedestrians) this._allPeds.push(p);
-    for (const c of this.stationCops) this._allPeds.push(c);
-    for (const p of this.policeModeThugPeds) this._allPeds.push(p);
-    if (this.storeCashier) this._allPeds.push(this.storeCashier);
+    for (const p of this.serverPedestrians) if (notDead(p)) this._allPeds.push(p);
+    for (const p of this.localPedestrians) if (notDead(p)) this._allPeds.push(p);
+    for (const c of this.stationCops) if (notDead(c)) this._allPeds.push(c);
+    for (const p of this.policeModeThugPeds) if (notDead(p)) this._allPeds.push(p);
+    for (const p of this.evictedCops) if (notDead(p)) this._allPeds.push(p);
+    if (this.storeCashier && notDead(this.storeCashier)) this._allPeds.push(this.storeCashier);
     const rockOffset = this.getCarRockOffset();
     const carRoll = this.getCarRockRoll();
     if (this.pickupCooldown > 0) this.pickupCooldown -= dt;
@@ -4825,12 +4870,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
     this.carX += this.carVx * dt;
     this.carZ += this.carVz * dt;
-    // Snap only to the continuous bridge profile; do not let the next frame's
-    // ocean terrain sample pull a car through the deck.
-    const bridgeY = getTerrainHeight(this.carX, this.carZ, this.carY, true);
-    if (bridgeY > -1.5 && this.carY < bridgeY + CAR_HEIGHT - 0.75) {
-      this.carY = bridgeY + CAR_HEIGHT;
-    }
+    // The bridge height is resolved by the normal terrain pass below. Do not
+    // force an unconditional deck snap here: side-wall impacts can place the
+    // car inside the bridge's broad world range but outside its road corridor.
+    // That old force-deck sample teleported those cars onto the roadway.
     this.updateJumpPhysics(dt);
     this.pushOutOfBuildings();
     this.checkPropCollision();
@@ -5026,10 +5069,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
     this.carX += this.carVx * dt;
     this.carZ += this.carVz * dt;
-    // Height-aware terrain: an entity below the bridge deck (boat under the
-    // span, car in the water) gets the terrain the bridge replaced instead of
-    // being snapped up onto the roadway.
-    this.carY = CAR_HEIGHT + getTerrainHeight(this.carX, this.carZ, this.carY, true);
+    // Resolve bridge height only after horizontal collision correction. The
+    // terrain sampler limits bridge elevation to the actual deck corridor, so
+    // a car stopped against the side wall remains at the lower terrain level
+    // rather than being lifted onto the bridge.
+    this.carY = CAR_HEIGHT + getTerrainHeight(this.carX, this.carZ, this.carY);
     this.pushOutOfBuildings();
     this.checkPropCollision();
   }
@@ -5323,6 +5367,38 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         if (nearGarage && chunkCX === 1 && chunkCZ === 0) continue;
         this.renderer.getCityChunk(chunkCX, chunkCZ);
         this.checkBuildingsInChunk(chunkCX, chunkCZ, margin);
+        this.checkTreesInChunk(chunkCX, chunkCZ, margin);
+      }
+    }
+  }
+  private checkTreesInChunk(chunkCX: number, chunkCZ: number, margin: number) {
+    // Trees are solid obstacles: you can't drive (or walk) straight through
+    // them. Trees are stored as { x, z, yaw, scale } with the whole visual
+    // scaled by `scale`, so the blast/block radius scales with the model. The
+    // car is pushed out radially and slowed like a building hit.
+    const chunk = this.renderer.getCityChunk(chunkCX, chunkCZ);
+    for (const tree of chunk.trees) {
+      const r = 1.4 + (tree.scale ?? 0) * 0.28 + margin;
+      const dx = this.carX - tree.x;
+      const dz = this.carZ - tree.z;
+      const dist = Math.hypot(dx, dz);
+      if (dist >= r || dist < 0.0001) continue;
+      const overlap = r - dist;
+      this.carX += (dx / dist) * overlap;
+      this.carZ += (dz / dist) * overlap;
+      if (this.isInCar) {
+        const treeSpd = Math.hypot(this.carVx, this.carVz);
+        if (treeSpd >= 9) {
+          const nowT = performance.now();
+          if (nowT - this._lastTreeHitTime > 450) {
+            this._lastTreeHitTime = nowT;
+            this.playCrashSound(Math.min(1, treeSpd / 28));
+            this.applyCrashImpact(Math.min(1, treeSpd / 28));
+          }
+        }
+        this.carVx *= 0.3;
+        this.carVz *= 0.3;
+        this.carSpeed *= 0.5;
       }
     }
   }
@@ -5490,15 +5566,19 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
     if (this.inStore) {
       const st = this.inStore;
-      const regDx = this.carX - st.x, regDz = this.carZ - st.z;
-      const distToCenter = Math.sqrt(regDx * regDx + regDz * regDz);
+      const regX = this.getStoreRegisterX(st), regZ = this.getStoreRegisterZ(st);
+      const regDx = this.carX - regX, regDz = this.carZ - regZ;
+      const distToCenter = Math.hypot(this.carX - st.x, this.carZ - st.z);
       // Wandered out of the building (e.g. past the door while walking): exit in
       // place so store mode can't soft-lock the player with a tight camera.
       if (distToCenter > st.hd + 6) {
         this.leaveStoreInPlace();
         return;
       }
-      this.nearStoreRegister = distToCenter < STORE_REGISTER_DIST;
+      // The register is at the checkout counter, not the store centre — in the
+      // convenience store that's offset toward the front wall (+8, -5 local),
+      // so the stick-up happens at the counter where the cashier stands.
+      this.nearStoreRegister = Math.hypot(regDx, regDz) < STORE_REGISTER_DIST;
       const exDx = this.carX - st.doorX, exDz = this.carZ - st.doorZ;
       this.nearStoreExit = Math.sqrt(exDx * exDx + exDz * exDz) < STORE_EXIT_DIST;
       this.nearStoreDoor = false;
@@ -5512,7 +5592,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this._nearStore = null;
       return;
     }
-    let best: { x: number; z: number; yaw: number; hd: number; doorX: number; doorZ: number; key: string } | null = null;
+    let best: { x: number; z: number; yaw: number; hd: number; doorX: number; doorZ: number; key: string; isConvenience?: boolean } | null = null;
     let bestD = Infinity;
     for (const sm of this.renderer.getNearbySupermarkets(this.carX, this.carZ, STORE_LOOK_RADIUS)) {
       const frontX = -Math.sin(sm.yaw), frontZ = -Math.cos(sm.yaw);
@@ -5521,13 +5601,27 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       const d = Math.hypot(doorX - this.carX, doorZ - this.carZ);
       if (d < bestD) {
         bestD = d;
-        best = { x: sm.x, z: sm.z, yaw: sm.yaw, hd: sm.hd, doorX, doorZ, key: `${sm.x},${sm.z}` };
+        best = { x: sm.x, z: sm.z, yaw: sm.yaw, hd: sm.hd, doorX, doorZ, key: `${sm.x},${sm.z}`, isConvenience: sm.isConvenience };
       }
     }
     this._nearStore = best;
     this.nearStoreDoor = !!best && bestD < STORE_ENTER_DIST;
   }
-  private enterStore(sm: { x: number; z: number; yaw: number; hd: number; doorX: number; doorZ: number; key: string }) {
+  // World-space checkout register position for a store. The procedural
+  // convenience store's counter sits (+8, -5) in local space (front-right of the
+  // building, where the register mesh is drawn); every other store keeps the
+  // register at its centre.
+  private getStoreRegisterX(sm: { x: number; z: number; yaw: number; hd: number; isConvenience?: boolean }): number {
+    const lx = sm.isConvenience ? 8 : 0, lz = sm.isConvenience ? -5 : 0;
+    const sinY = Math.sin(sm.yaw), cosY = Math.cos(sm.yaw);
+    return sm.x + (lx * cosY + lz * sinY);
+  }
+  private getStoreRegisterZ(sm: { x: number; z: number; yaw: number; hd: number; isConvenience?: boolean }): number {
+    const lx = sm.isConvenience ? 8 : 0, lz = sm.isConvenience ? -5 : 0;
+    const sinY = Math.sin(sm.yaw), cosY = Math.cos(sm.yaw);
+    return sm.z + (-lx * sinY + lz * cosY);
+  }
+  private enterStore(sm: { x: number; z: number; yaw: number; hd: number; doorX: number; doorZ: number; key: string; isConvenience?: boolean }) {
     if (this.isInCar || this.isPassenger) return;
     this.renderer.convenienceStoreDoorOpen = true;
     const frontX = -Math.sin(sm.yaw), frontZ = -Math.cos(sm.yaw);
@@ -5543,14 +5637,19 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.camHeight = STORE_INTERIOR_CAM_HEIGHT;
     this.nearStoreDoor = false;
     this.nearStoreExit = false;
-    // Spawn the cashier behind the register, facing the player. It stays put
-    // until the register is stuck up, then sprints for the door.
+    // Spawn the cashier behind the register (at the checkout counter, not in the
+    // aisles), facing the register. It stays put until the register is stuck
+    // up, then sprints for the door.
     const cashierId = --this.pedIdCounter;
     const cashierGender = Math.random() < 0.5 ? 'female' : 'male';
+    // The store interior lies opposite the street-facing front, so the cashier
+    // stands just inside the counter on the far side from the aisle.
+    const sinY = Math.sin(sm.yaw), cosY = Math.cos(sm.yaw);
+    const regX = this.getStoreRegisterX(sm), regZ = this.getStoreRegisterZ(sm);
     this.storeCashier = {
       id: cashierId,
-      x: sm.x,
-      z: sm.z,
+      x: regX + sinY * 0.6,
+      z: regZ + cosY * 0.6,
       yaw: sm.yaw + Math.PI,
       gender: cashierGender,
       mesh: this.renderer.getPedestrianMesh(cashierGender, cashierId),
@@ -7226,7 +7325,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         const payout = 5000 + Math.floor(Math.random() * 5001);
         this.dropMoneyAt(thug.x, thug.z, payout);
         this.money += payout;
-        this.moneyStacks.push({ x: thug.x, z: thug.z, amount: payout, yaw: 0, age: 0, lifetime: 5 });
         this.deadBodies.push({ id: thug.id, x: thug.x, z: thug.z, yaw: thug.yaw, type: 'ped_male', gender: 'male', mesh: thug.mesh, deathTime: performance.now() / 1000, lifetime: 30 });
         this.bloodPools.push({ x: thug.x, z: thug.z - 1.0, age: 0, lifetime: 30, maxRadius: 3, variant: Math.floor(Math.random() * 4) });
         this.policeModeKills++;
@@ -7248,7 +7346,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           : Math.round(basePayout * 0.1 * dmgFraction);
         this.dropMoneyAt(car.x, car.z, payout);
         this.money += payout;
-        this.moneyStacks.push({ x: car.x, z: car.z, amount: payout, yaw: 0, age: 0, lifetime: 5 });
         this.deadBodies.push({ id: car.id, x: car.x, z: car.z, yaw: car.yaw, type: 'car', mesh: car.mesh, deathTime: performance.now() / 1000, lifetime: 30 });
         this.policeModeKills++;
         this.policeModeThugCars.splice(i, 1);
@@ -7322,6 +7419,80 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       targetCarId: targetId,
       targetCarMesh: targetMesh,
     };
+  }
+  // Cops ejected from a stolen, driven police car. They hunt the thief: chase
+  // on foot, shoot while the player is armed, or charge and beat the player
+  // down ("arrest") while unarmed. They give up and despawn if the player outruns
+  // them or drops out of sight of the road, and clear entirely on respawn.
+  private updateEvictedCops(dt: number) {
+    for (let i = this.evictedCops.length - 1; i >= 0; i--) {
+      const cop = this.evictedCops[i];
+      if (cop.health <= 0) {
+        this.deadBodies.push({ id: cop.id, x: cop.x, z: cop.z, yaw: cop.yaw, type: 'ped_male', gender: 'male', mesh: cop.mesh, deathTime: performance.now() / 1000, lifetime: 30 });
+        this.bloodPools.push({ x: cop.x, z: cop.z - 1.0, age: 0, lifetime: 30, maxRadius: 3, variant: Math.floor(Math.random() * 4) });
+        this.evictedCops.splice(i, 1);
+        continue;
+      }
+      const dx = this.carX - cop.x;
+      const dz = this.carZ - cop.z;
+      const dist = Math.hypot(dx, dz);
+      // Give up if the thief escapes (too far, or too much time since the theft
+      // without line of sight on the street grid).
+      if (dist > 260 || !this.isInCar && dist > 60) {
+        this.evictedCops.splice(i, 1);
+        continue;
+      }
+      const armed = this.currentWeapon > 0 && this.ammo[this.currentWeapon] > 0;
+      const targetYaw = Math.atan2(dx, dz);
+      let yawDiff = targetYaw - cop.yaw;
+      while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
+      while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
+      cop.yaw += yawDiff * Math.min(1, 6 * dt);
+      // Armed thief: cops stop at rifle range and fire. Unarmed thief: they rush
+      // in and swing to subdue (arrest), only returning fire if shot first.
+      const desiredRange = armed ? 16 + Math.random() * 6 : 1.2;
+      const speed = armed ? 5.5 : 3.2;
+      if (dist > desiredRange) {
+        cop.x += Math.sin(cop.yaw) * speed * dt;
+        cop.z += Math.cos(cop.yaw) * speed * dt;
+      }
+      cop.speed = dist > desiredRange ? speed : 0;
+      cop.targetX = this.carX; cop.targetZ = this.carZ;
+      if (armed && dist < 30) {
+        cop.attackTimer -= dt;
+        if (cop.attackTimer <= 0) {
+          cop.attackTimer = 0.14;
+          const tdy = (this.carY + 1.0) - 1.0;
+          const td3 = Math.sqrt(dx * dx + tdy * tdy + dz * dz);
+          if (td3 > 0.01) {
+            const ux = dx / td3, uy = tdy / td3, uz = dz / td3;
+            this.tracers.push({ originX: cop.x, originY: 1.0, originZ: cop.z, dirX: ux, dirY: uy, dirZ: uz, age: 0, lifetime: 0.2 });
+            this.muzzleFlashes.push({ x: cop.x, y: 1.0, z: cop.z, dirX: ux, dirY: uy, dirZ: uz, weapon: 2, age: 0, lifetime: 0.08 });
+            this.spawnBulletSmoke(cop.x, 1.0, cop.z, ux, uy, uz, 2);
+            this.spawnBulletTrail(cop.x, 1.0, cop.z, ux, uy, uz, 2);
+            this.damageAlpha = 0.4;
+            this.gtService.hit(0, this.getUserId(), 1, 8, cop.x, cop.z).then((res: any) => {
+              if (res && res.targetHealth !== undefined) this.health = res.targetHealth;
+            });
+            this.playWeaponSound(2, this.getShotVolumeScale(cop.x, cop.z));
+          }
+        }
+      } else if (!armed && dist < 1.7) {
+        cop.attackTimer -= dt;
+        if (cop.attackTimer <= 0) {
+          cop.attackTimer = 0.5;
+          // Subduing strike — the "arrest" while unarmed. Small melee chip plus
+          // visible feedback; the first grader does not instantly down the thief,
+          // so there's a fair window to fight back or flee.
+          this.health = Math.max(0, this.health - 8);
+          this.damageAlpha = 0.3;
+          this.spawnBlood(this.carX, this.carY + 1.0, this.carZ, Math.sin(cop.yaw), 0.3, Math.cos(cop.yaw), true);
+          this.playPunchThud();
+        }
+      } else {
+        cop.attackTimer = Math.min(cop.attackTimer, 0.3);
+      }
+    }
   }
   private updateDealershipMission(dt: number) {
     this.nearDealerNPC = false;

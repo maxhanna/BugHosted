@@ -3409,7 +3409,29 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const angle = Math.atan2(Math.abs(cross), Math.max(0.0001, dot));
       const curv = angle / Math.max(0.5, (l0 + l1) / 2);
       const dev = Math.max(0, curv - baseCurv);
-      const bankMag = Math.min(BANK_MAX, BANK_K * dev * Math.exp(-curv * BANK_FALL));
+      const rawBank = Math.min(BANK_MAX, BANK_K * dev * Math.exp(-curv * BANK_FALL));
+      // Don't let banking bury the road under the flat ground plane. A banked
+      // corner sinks its outside road/shoulder edge by bank*hw; on circuits
+      // whose road runs at ground level (Miami's coast, Neon's bowl dips) that
+      // sunken edge drops below the ground surface (~-0.26), and since the
+      // ground quads are drawn after the track they end up covering the banked
+      // shoulder — reading as big gray/black blobs right in the bends, where
+      // the grandstands stand. Clamp banking so the lowest road edge (py - bank*hw)
+      // never falls below the ground level: bank <= (py + margin) / hw. Raised
+      // roadbeds keep full banking; at-grade circuits simply ride flat.
+      // Don't let banking bury the road under the flat ground plane. A banked
+      // corner sinks its outside road/shoulder/curb edge by bank * (hw + band).
+      // On circuits whose road runs at/near ground level (Miami's coast, Neon's
+      // bowl dips) that sunken edge drops below the ground surface (~-0.26), and
+      // because the ground quads are drawn after the track they end up covering
+      // the banked shoulder — reading as big gray/black blobs in the bends, right
+      // where the grandstands stand. Clamping bank to py / (hw + 3) keeps the
+      // lowest edge at or above y=0 (well above the -0.26 ground, zeroed for
+      // at-grade circuits), so at-grade mappings simply ride flat and raised
+      // roadbeds keep full banking.
+      const hw = p.width / 2 + 1e-3;
+      const bankingSink = hw + 3;
+      const bankMag = Math.min(rawBank, Math.max(0, p.y / bankingSink));
       const s = cross > 0 ? -1 : 1; // same outside-side convention as turn detection
       p.bank = bankMag * s;
     }

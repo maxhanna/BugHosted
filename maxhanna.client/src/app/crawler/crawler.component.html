@@ -63,7 +63,7 @@
         <span (click)="closeAiSearch()" class="cursorPointer aiSearchInlineClose" title="Close AI search">&times;</span>
       </div>
       <div class="aiSearchEmbed">
-        <app-host-ai [inputtedParentRef]="inputtedParentRef ?? parentRef" [preloadedMessage]="aiQuery" [embedded]="true"></app-host-ai>
+        <app-host-ai [inputtedParentRef]="inputtedParentRef ?? parentRef" [preloadedMessage]="aiQuery" [embedded]="true" [collapsibleChat]="true"></app-host-ai>
       </div>
     </div>
 

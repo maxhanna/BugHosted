@@ -1,8 +1,0 @@
-Model Information:
-* title:	PSX First Person Arms
-* source:	https://sketchfab.com/3d-models/psx-first-person-arms-efd731f559a14ab48e29c8a200d71788
-* author:	Drillimpact (https://sketchfab.com/Drillimpact)
-
-Model License:
-* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
-* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works
