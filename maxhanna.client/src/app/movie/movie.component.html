@@ -13,7 +13,8 @@
   <div class="popupPanel movieMenuPanel" *ngIf="showMenuPanel">
     <div class="popupPanelTitle" style="margin-bottom:15px;">
       Menu
-    </div> 
+    </div>
+    <app-movies-added-today [inputtedParentRef]="inputtedParentRef ?? parentRef"></app-movies-added-today>
     <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button>
   </div>
 

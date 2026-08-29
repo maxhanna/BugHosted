@@ -1,0 +1,11 @@
+<section class="movies-added-today" aria-labelledby="movies-added-today-title">
+  <h3 id="movies-added-today-title">🎬 Movies added today</h3>
+  <div *ngIf="isLoading" class="movies-added-today-status">Loading movies…</div>
+  <div *ngIf="!isLoading && !movies.length" class="movies-added-today-status">No movies have been added today.</div>
+  <ul *ngIf="!isLoading && movies.length" class="movies-added-today-list">
+    <li *ngFor="let movie of movies; trackBy: trackByMovie" class="movies-added-today-item">
+      <span class="movie-title">{{ movie.todo || 'Untitled movie' }}</span>
+      <span class="movie-owner" *ngIf="movie.owner_name">by {{ movie.owner_name }}</span>
+    </li>
+  </ul>
+</section>

@@ -98,6 +98,7 @@ import { CrawlerSearchResultsComponent } from './crawler-search-results/crawler-
 import { ModeratorComponent } from './moderator/moderator.component';
 import { PaintComponent } from './paint/paint.component';
 import { ConversionComponent } from './conversion/conversion.component';
+import { MoviesAddedTodayComponent } from './movies-added-today/movies-added-today.component';
 
 @NgModule({
   declarations: [
@@ -186,6 +187,7 @@ import { ConversionComponent } from './conversion/conversion.component';
     ModeratorComponent,
     PaintComponent,
     ConversionComponent,
+    MoviesAddedTodayComponent,
   ],
   bootstrap: [AppComponent],
   imports: [
@@ -291,6 +293,7 @@ import { ConversionComponent } from './conversion/conversion.component';
     ModeratorComponent,
     PaintComponent,
     ConversionComponent,
+    MoviesAddedTodayComponent,
     AppMenuItemComponent,
     TimeFormatPipe,
     TimeSincePipe,

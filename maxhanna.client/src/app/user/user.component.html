@@ -236,6 +236,11 @@
         </div>
       </div>
     </div>
+    <!-- MOVIES ADDED TODAY -->
+    <div *ngIf="!user?.id && !loginOnly && !isLoading" class="memeAndWordlerWrapper">
+      <app-movies-added-today [inputtedParentRef]="parentRef"></app-movies-added-today>
+    </div>
+
     <!-- LATEST MEME -->
     <div *ngIf="!user?.id && !loginOnly && !isLoading" class="memeAndWordlerWrapper"
       [class]="onMobile() ? 'gradientBackground':''">

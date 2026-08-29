@@ -66,6 +66,20 @@ export class TodoService {
       return null;
     }
   }
+
+  async getTodayMovies(): Promise<Todo[] | null> {
+    try {
+      const response = await fetch('/todo/todaymovies', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (!response.ok) return null;
+      const data = await response.json();
+      return Array.isArray(data) ? data : (data?.movies ?? data?.Movies ?? data?.todos ?? data?.Todos ?? []);
+    } catch {
+      return null;
+    }
+  }
   async getTodoCount(userId: number, type: string, search?: string, signal?: AbortSignal) {
     try {
       let params = new URLSearchParams({ type: type });

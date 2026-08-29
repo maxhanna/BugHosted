@@ -1,0 +1,48 @@
+.movies-added-today {
+  padding: 10px 12px;
+  color: var(--secondary-font-color);
+}
+
+.movies-added-today h3 {
+  margin: 0 0 10px;
+  color: var(--third-font-color);
+  font-size: 1rem;
+}
+
+.movies-added-today-status {
+  padding: 8px 0;
+  text-align: center;
+  opacity: .85;
+}
+
+.movies-added-today-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 35vh;
+  overflow-y: auto;
+}
+
+.movies-added-today-item {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  align-items: baseline;
+  padding: 8px 10px;
+  border: var(--main-border);
+  border-radius: 5px;
+  background: linear-gradient(135deg, var(--component-background-color), var(--secondary-component-background-color));
+}
+
+.movie-title {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
+
+.movie-owner {
+  font-size: .82em;
+  opacity: .75;
+}
