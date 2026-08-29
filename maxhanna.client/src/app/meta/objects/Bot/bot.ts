@@ -196,7 +196,11 @@ export class Bot extends Character {
       const dx = this.chasing.destinationPosition.x - this.destinationPosition.x;
       const dy = this.chasing.destinationPosition.y - this.destinationPosition.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
-      if (distance > 500 || !(this.chasing as Hero).metabots?.find(x => x.isDeployed)) {
+      const chasedHero = this.chasing as Hero;
+      const hasDeployedTarget = chasedHero instanceof Hero
+        ? !!chasedHero.metabots?.some(x => x.isDeployed && x.hp > 0)
+        : true;
+      if (distance > 500 || !hasDeployedTarget) {
         console.log(`${this.name} stopped following ${this.chasing.name}`);
         this.chasing = undefined;
         this.latestMessage = "😡";

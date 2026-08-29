@@ -845,7 +845,15 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
 
   async createComponent(componentType: string, inputs?: { [key: string]: any; }, previousComponentParameters?: { [key: string]: any; }, skipHistoryPush: boolean = false) {
     //console.log("in create component : " + componentType);
-    this.navigationComponent?.minimizeNav();
+    // Gameplay/full-canvas components must keep the desktop navigation hidden;
+    // other components use the normal collapsed navigation state.
+    const hideExtendedNavigation = this.excludedExtendedNavigationComponents.includes(componentType)
+      || this.excludedExtendedNavigationComponents.includes(`${componentType}Component`);
+    if (hideExtendedNavigation) {
+      this.navigationComponent?.minimizeNav();
+    } else {
+      this.navigationComponent?.minimizeNav();
+    }
     this.closeOverlay();
     this.replacePageTitleAndDescription(componentType, componentType);
 
@@ -2786,10 +2794,13 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     return this.youtubeSearchKeyword != '' ? this.youtubeSearchKeyword : undefined;
   }
   get isLeftPanelIncluded(): boolean {
+    const current = this.currentComponent ?? '';
+    const excluded = this.excludedExtendedNavigationComponents.includes(current)
+      || this.excludedExtendedNavigationComponents.includes(`${current}Component`)
+      || current.toLowerCase() === 'meta';
     return this.isDesktop
       && (this.navigationComponent?.navbarCollapsed ?? false)
-      && !(this.excludedExtendedNavigationComponents.includes(this.currentComponent + 'Component')
-        || this.excludedExtendedNavigationComponents.includes(this.currentComponent));
+      && !excluded;
   }
 
   get isFlexPanel(): boolean {

@@ -355,7 +355,9 @@ export function getBotsInRange(player: Bot, partyMembers?: { heroId: number, nam
     return (
       ((player.heroId ?? 0) < 0 ? (child.heroId ?? 0) > 0 : true) &&
       !partyMembers?.find(x => x.heroId == (child.heroId ?? 0)) &&
-      (!player.hostileHeroIds || player.hostileHeroIds.includes(child.heroId ?? 0) || (child.heroId ?? 0) < 0) &&
+      // Wild enemies (negative heroId) are always hostile to deployed player
+      // bots. The declared-hostile list only gates player-owned opponents.
+      ((child.heroId ?? 0) < 0 || (player.hostileHeroIds?.includes(child.heroId ?? 0) ?? false)) &&
       (child.isDeployed) &&
       (child.id != player.id) &&
       (child.isEnemy) &&

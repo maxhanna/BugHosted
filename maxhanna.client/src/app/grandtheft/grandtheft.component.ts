@@ -3151,14 +3151,20 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         return;
       }
     }
-    // Check gas station hits
+    // Pumps are the only explosive part of a gas station. Test each pump's
+    // actual position rather than the station center, so shooting walls,
+    // canopy, signs, or the service building does not detonate the station.
     const gasStations = this.renderer.getNearbyGasStations(ox, oz, maxRange);
     for (const gs of gasStations) {
-      const vx = gs.x - ox, vz = gs.z - oz;
-      const proj = vx * dx + vz * dz;
-      if (proj < 0 || proj > maxRange) continue;
-      const closestX = ox + dx * proj, closestZ = oz + dz * proj;
-      if (Math.hypot(gs.x - closestX, gs.z - closestZ) < 2.0) {
+      const pumps = [-7, 0, 7].map(px => ({ x: gs.x + px, z: gs.z - 1 }));
+      const pumpHit = pumps.some(pump => {
+        const vx = pump.x - ox, vz = pump.z - oz;
+        const proj = vx * dx + vz * dz;
+        if (proj < 0 || proj > maxRange) return false;
+        const closestX = ox + dx * proj, closestZ = oz + dz * proj;
+        return Math.hypot(pump.x - closestX, pump.z - closestZ) < 1.0;
+      });
+      if (pumpHit) {
         const key = `${gs.x},${gs.z}`;
         if (!this.renderer.explodedGasStations.has(key)) {
           this.renderer.explodedGasStations.add(key);
@@ -5006,9 +5012,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         this.spawnExplosion(b.x, 0.5, b.z);
       }
     }
-    if (spd >= 15) {
+    if (spd >= 3) {
       const gs = this.renderer.getGasStationAtPoint(this.carX, this.carZ);
-      if (gs) {
+      if (gs && this.renderer.isGasPumpAtPoint(this.carX, this.carZ, 2.4)) {
         const key = `${gs.x},${gs.z}`;
         if (!this.renderer.explodedGasStations.has(key)) {
           this.renderer.explodedGasStations.add(key);
@@ -5482,14 +5488,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
               this.applyCrashImpact(wallSeverity);
               // Smashing into a gas station at speed blows it up — the blast
               // ruins the station for the cooldown and punishes the car hard.
-              if (wallSpd >= 14 && m.carName && m.carName.includes('gas_station')) {
-                const gKey = `${bld.x},${bld.z}`;
-                if (!this.renderer.explodedGasStations.has(gKey)) {
-                  this.renderer.explodedGasStations.add(gKey);
-                  this.renderer.explodedGasStationTimers.set(gKey, nowW);
-                  this.spawnGasStationExplosion(bld.x, bld.z);
-                }
-              }
             }
           }
           const overlapX = solid.hw - Math.abs(dx), overlapZ = solid.hd - Math.abs(dz);
@@ -8155,19 +8153,35 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
     this.renderer.resize(this.canvasRef.nativeElement.width, this.canvasRef.nativeElement.height);
   };
+  private focusChatInput(): void {
+    requestAnimationFrame(() => {
+      const input = document.querySelector<HTMLInputElement>('#gt-chat-input input');
+      input?.focus();
+    });
+  }
   private onKeyDown = (e: KeyboardEvent) => {
+    // Chat owns the keyboard while open: do not leak movement or action keys
+    // into the game, especially KeyS which otherwise makes the player reverse.
+    if (this.isChatOpen) {
+      if (e.code === 'Enter') { e.preventDefault(); this.sendChatMessage(); return; }
+      if (e.code === 'Escape') { e.preventDefault(); this.isChatOpen = false; this.chatInput = ''; return; }
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      e.preventDefault();
+      return;
+    }
+    if (e.code === 'Enter') {
+      e.preventDefault();
+      this.isChatOpen = true;
+      this.chatInput = '';
+      this.focusChatInput();
+      return;
+    }
     if (e.code === 'KeyW' || e.code === 'KeyA' || e.code === 'KeyS' || e.code === 'KeyD' || e.code === 'ArrowUp' || e.code === 'ArrowDown' || e.code === 'ArrowLeft' || e.code === 'ArrowRight' || e.code === 'Space') {
       e.preventDefault();
     }
     this.keys.add(e.code);
     if (e.code === 'Space') { e.preventDefault(); this.altUpPressed = true; }
     if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') this.altDownPressed = true;
-    if (this.isChatOpen) {
-      if (e.code === 'Enter') { this.sendChatMessage(); }
-      if (e.code === 'Escape') { this.isChatOpen = false; this.chatInput = ''; }
-      return;
-    }
-    if (e.code === 'Enter') { this.isChatOpen = true; this.chatInput = ''; e.preventDefault(); return; }
     if (e.code === 'KeyE') this.toggleCar();
     if (e.code === 'KeyR' && this.isInCar && this.vehicleType === 'police') this.togglePoliceMode();
     if (e.code === 'KeyV') this.toggleView();

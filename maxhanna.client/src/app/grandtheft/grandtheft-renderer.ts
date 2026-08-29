@@ -991,6 +991,15 @@ export class GrandTheftRenderer {
     }
     return result;
   }
+  isGasPumpAtPoint(x: number, z: number, radius: number): boolean {
+    const stations = this.getNearbyGasStations(x, z, radius + 20);
+    for (const station of stations) {
+      for (const px of [-7, 0, 7]) {
+        if (Math.hypot(x - (station.x + px), z - (station.z - 1)) <= radius) return true;
+      }
+    }
+    return false;
+  }
   getGasStationAtPoint(x: number, z: number): { x: number; z: number } | null {
     const pcx = Math.floor(x / CHUNK_SIZE);
     const pcz = Math.floor(z / CHUNK_SIZE);
@@ -3724,14 +3733,14 @@ void main() {
         const roadZ = cz * CHUNK_SIZE + ri * GRID_PITCH;
         if (isBoulevard(cz * blocksPerChunk + ri)) continue;
         for (let x = cx * CHUNK_SIZE + dashOffset; x <= cx * CHUNK_SIZE + CHUNK_SIZE - dashOffset; x += dashSpacing) {
-          this.addBox(verts, indices, x, 0.09, roadZ, dashLen, dashH, dashWid, 1, 1, 1, 0.8, idxOffset); idxOffset += 24;
+          this.addBox(verts, indices, x, 0.145, roadZ, dashLen, dashH, dashWid, 1, 1, 1, 0.8, idxOffset); idxOffset += 24;
         }
       }
       for (let ri = 0; ri < 2; ri++) {
         const roadX = cx * CHUNK_SIZE + ri * GRID_PITCH;
         if (isBoulevard(cx * blocksPerChunk + ri)) continue;
         for (let z = cz * CHUNK_SIZE + dashOffset; z <= cz * CHUNK_SIZE + CHUNK_SIZE - dashOffset; z += dashSpacing) {
-          this.addBox(verts, indices, roadX, 0.09, z, dashWid, dashH, dashLen, 1, 1, 1, 0.8, idxOffset); idxOffset += 24;
+          this.addBox(verts, indices, roadX, 0.145, z, dashWid, dashH, dashLen, 1, 1, 1, 0.8, idxOffset); idxOffset += 24;
         }
       }
     }
@@ -3751,7 +3760,7 @@ void main() {
         for (const side of [-1, 1]) {
           const rz = roadZ + side * (roadHalf + 0.7);
           for (let px = roadStartX + 8; px < roadEndX; px += 16) {
-            const py = getMountainRoadHeight(px, rz) + 0.25;
+            const py = getMountainRoadHeight(px, rz) + 0.055;
             this.addBox(verts, indices, px, py, rz, 0.18, 0.45, 0.18, 0.42, 0.43, 0.40, 1.0, idxOffset); idxOffset += 24;
           }
         }
@@ -3765,7 +3774,7 @@ void main() {
         for (const side of [-1, 1]) {
           const rx = roadX + side * (roadHalf + 0.7);
           for (let pz = roadStartZ + 8; pz < roadEndZ; pz += 16) {
-            const py = getMountainRoadHeight(rx, pz) + 0.25;
+            const py = getMountainRoadHeight(rx, pz) + 0.055;
             this.addBox(verts, indices, rx, py, pz, 0.18, 0.45, 0.18, 0.42, 0.43, 0.40, 1.0, idxOffset); idxOffset += 24;
           }
         }
@@ -3786,7 +3795,7 @@ void main() {
           for (const end of [0, 1]) {
             const tx = end === 0 ? sx1 : sx2;
             const tz = end === 0 ? sz1 : sz2;
-            const py = getMountainRoadHeight(tx, tz) + 0.28;
+            const py = getMountainRoadHeight(tx, tz) + 0.055;
             this.addBox(verts, indices, tx, py, tz + (end === 0 ? roadHalf + 0.8 : -roadHalf - 0.8), 0.18, 0.5, 0.18, 0.42, 0.43, 0.40, 1.0, idxOffset); idxOffset += 24;
           }
         }
@@ -3985,6 +3994,10 @@ void main() {
     verts: number[], indices: number[], idxOffset: number,
     runsAlongX: boolean, grid: number, y: number, start: number, end: number
   ): number {
+    // Flat-road markings must sit just above the actual road slab. Keeping the
+    // offset here prevents them from floating when callers use different slab
+    // heights, while retaining enough separation to avoid z-fighting.
+    y = y + 0.035;
     const edgeOff = ROAD_HALF_WIDTH - 1.5;
     const dashLen = 8;
     const dashGap = 16;
