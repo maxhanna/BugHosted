@@ -181,7 +181,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   money = 1000;
   moneyStacks: { x: number; z: number; amount: number; yaw: number; age: number; lifetime: number }[] = [];
   // Short-lived impact reactions for pedestrians hit by the player's car.
-  private npcImpactReactions: Map<number, { vx: number; vz: number; spin: number; age: number; duration: number }> = new Map();
+  private npcImpactReactions: Map<number, { vx: number; vz: number; spin: number; age: number; duration: number; region?: 'head' | 'torso' | 'legs' }> = new Map();
   policeMode = false;
   policeRound = 0;
   policeModeThugCars: { id: number; x: number; z: number; yaw: number; mesh: CityMesh | CityMesh[]; health: number; maxHealth: number; speed: number; colorR: number; colorG: number; colorB: number; isSmoking?: boolean; smokeStarted?: number; smokeTimer?: number; isBurning?: boolean; fireStarted?: number; playerDamage?: number; killedByPlayer?: boolean }[] = [];
@@ -3097,9 +3097,18 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         if (proj < 0 || proj > maxRange) continue;
         const closestX = ox + dx * proj, closestY = oy + dy * proj, closestZ = oz + dz * proj;
         const distSq = (tx - closestX) ** 2 + (ty - closestY) ** 2 + (tz - closestZ) ** 2;
+        // Use a compact vertical body profile instead of one center sphere.
+        // Headshots are difficult but decisive; leg hits are weaker and produce
+        // a stagger rather than the full-body reaction.
         if (distSq < 1.0) {
+          const baseY = t.posY || t.y || 0;
+          const relativeY = ty - baseY;
+          const region: 'head' | 'torso' | 'legs' = relativeY >= 1.65 ? 'head' : relativeY <= 0.72 ? 'legs' : 'torso';
+          const regionRadiusSq = region === 'head' ? 0.34 : region === 'legs' ? 0.58 : 0.82;
+          if (distSq > regionRadiusSq) continue;
           this.spawnBlood(tx, ty, tz, dx, dy, dz);
-          const dmg = WEAPON_DAMAGES[this.currentWeapon];
+          const baseDamage = WEAPON_DAMAGES[this.currentWeapon];
+          const dmg = Math.round(baseDamage * (region === 'head' ? 3.5 : region === 'legs' ? 0.55 : 1));
           if (isPlayer) {
             t.health = Math.max(0, (t.health ?? 100) - dmg);
             this.gtService.hit(this.getUserId(), t.userId, 1, dmg, ox, oz, this.currentWeapon).then((res: any) => {
@@ -3108,6 +3117,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           } else {
             const wasAlive = (t.health ?? 100) > 0;
             t.health = (t.health ?? 100) - dmg;
+            if (region === 'head') {
+              this.renderer.triggerFlinch(t.id);
+            }
+            if (region === 'legs' && t.health > 0) {
+              (t as any).isDucking = true;
+              setTimeout(() => { if (t.health > 0) (t as any).isDucking = false; }, 650);
+            }
             // Track the player's damage contribution on thug cars so payouts
             // scale with it and full payout requires the killing blow
             // (anti-farm: half-killing and ignoring a convoy must not pay).
@@ -3116,6 +3132,16 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
               if (wasAlive && t.health <= 0) t.killedByPlayer = true;
             }
             this.gtService.hit(this.getUserId(), t.id, 1, dmg, ox, oz, this.currentWeapon);
+            if (region === 'head' || region === 'legs') {
+              this.npcImpactReactions.set(t.id, {
+                vx: dx * (region === 'head' ? 1.2 : 0.35),
+                vz: dz * (region === 'head' ? 1.2 : 0.35),
+                spin: region === 'head' ? (Math.random() - 0.5) * 0.9 : 0,
+                age: 0,
+                duration: region === 'head' ? 0.9 : 0.45,
+                region
+              });
+            }
             this.score += 10;
             // Local peds have no server presence (ids the server never sees) —
             // mirror the server's FightBackUntil logic so the crowd retaliates
@@ -3157,6 +3183,21 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     checkTargets(this.policeModeThugCars, false);
     checkTargets(this.parkedCars, false);
     if (this.currentWeapon === 0) return;
+    // A shot that intersects a police vehicle immediately establishes a serious
+    // police response, even if the bullet does not hit an occupant.
+    const policeCars = [...this.serverNPCs, ...this.parkedCars].filter(v => v.type === 'police' && v.health > 0);
+    for (const police of policeCars) {
+      const vx = police.x - ox, vz = police.z - oz;
+      const proj = vx * dx + vz * dz;
+      if (proj < 0 || proj > maxRange) continue;
+      const closestX = ox + dx * proj, closestZ = oz + dz * proj;
+      if (Math.hypot(police.x - closestX, police.z - closestZ) > 2.2) continue;
+      if (this.wantedLevel < 2) this.wantedLevel = 2;
+      this.wantedDecayTimer = GrandTheftComponent.WANTED_DECAY_DELAY_SECONDS;
+      this.wantedPopTimer = 0.8;
+      this.savePlayerState();
+      break;
+    }
     // Check chicken hits
     const chickens = this.renderer.getNearbyChickens(ox, oz, maxRange);
     for (const c of chickens) {

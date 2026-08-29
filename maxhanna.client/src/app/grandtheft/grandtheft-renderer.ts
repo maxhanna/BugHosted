@@ -5234,7 +5234,11 @@ void main() {
         // subtle and the lower body remains grounded while the hips bob.
       const impactReaction = (this as any).npcImpactReactions?.get(ped.id);
       const impactProgress = impactReaction ? Math.min(1, impactReaction.age / impactReaction.duration) : 0;
-      const impactLift = impactReaction ? Math.sin(impactProgress * Math.PI) * Math.min(2.2, Math.hypot(impactReaction.vx, impactReaction.vz) * 0.12) : 0;
+      const impactLift = impactReaction
+        ? (impactReaction.region === 'head'
+          ? Math.sin(impactProgress * Math.PI) * 0.9
+          : impactReaction.region === 'legs' ? 0.08 : Math.sin(impactProgress * Math.PI) * 0.35)
+        : 0;
       const impactTime = impactReaction ? Math.max(0, impactReaction.age - dt) : 0;
       const impactX = impactReaction ? ped.x + impactReaction.vx * impactTime : ped.x;
       const impactZ = impactReaction ? ped.z + impactReaction.vz * impactTime : ped.z;
