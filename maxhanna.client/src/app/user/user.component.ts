@@ -10,6 +10,7 @@ import { FriendService } from '../../services/friend.service';
 import { ContactService } from '../../services/contact.service';
 import { WordlerService } from '../../services/wordler.service';
 import { SocialComponent } from '../social/social.component';
+import { Story } from '../../services/datacontracts/social/story';
 import { Todo } from '../../services/datacontracts/todo';
 import { TodoService } from '../../services/todo.service';
 import { Contact } from '../../services/datacontracts/user/contact';
@@ -22,6 +23,7 @@ import { NexusBase } from '../../services/datacontracts/nexus/nexus-base';
 import { MetaService } from '../../services/meta.service';
 import { NotificationService } from '../../services/notification.service';
 import { SocialService } from '../../services/social.service';
+import { CommentService } from '../../services/comment.service';
 import { FileService } from '../../services/file.service';
 import { EnderService } from '../../services/ender.service';
 import { MastermindService } from '../../services/mastermind.service';
@@ -35,6 +37,7 @@ import { RomService } from '../../services/rom.service';
 import { MarblesService } from '../../services/marbles.service';
 import { GrandtheftService } from '../../services/grandtheft.service';
 import { PlanterService } from '../../services/planter.service';
+import { FileComment } from '../../services/datacontracts/file/file-comment';
 
 @Component({
   selector: 'app-user',
@@ -147,6 +150,12 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
     hidden: this.showHiddenFiles ? 'yes' : 'no',
   };
   latestSocialStoryId?: number = undefined;
+  userPosts: Story[] = [];
+  userPostsLoading = false;
+  userPostsOpen = false;
+  userComments: FileComment[] = [];
+  userCommentsLoading = false;
+  userCommentsOpen = false;
   latestMeme?: FileEntry = undefined;
   changedTheme = false;
   private originalBackgroundColor: string | null = null;
@@ -176,6 +185,7 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
     private todoService: TodoService,
     private metaService: MetaService,
     private socialService: SocialService,
+    private commentService: CommentService,
     private fileService: FileService,
     private mastermindService: MastermindService,
     private enderService: EnderService,
@@ -870,6 +880,63 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
 
     // Reset the select dropdown to the default "Options" placeholder
     this.profileControls.nativeElement.selectedIndex = 0;
+  }
+
+  async toggleUserPosts(): Promise<void> {
+    this.userPostsOpen = !this.userPostsOpen;
+    if (!this.userPostsOpen || this.userPosts.length || this.userPostsLoading) return;
+    const target = this.user?.id ?? this.parentRef?.user?.id;
+    if (!target) return;
+    this.userPostsLoading = true;
+    try {
+      const response = await this.socialService.getStories(this.parentRef?.user?.id, undefined, undefined, target, undefined, 1, 50, false, 'all', true);
+      this.userPosts = response?.stories ?? [];
+    } catch {
+      this.userPosts = [];
+    } finally {
+      this.userPostsLoading = false;
+      this.cdr.detectChanges();
+    }
+  }
+
+  openUserPost(post: Story): void {
+    if (!post?.id) return;
+    this.closeAboutPanel();
+    this.parentRef?.createComponent('Social', { storyId: post.id });
+  }
+
+  async toggleUserComments(): Promise<void> {
+    this.userCommentsOpen = !this.userCommentsOpen;
+    if (!this.userCommentsOpen || this.userComments.length || this.userCommentsLoading) return;
+    const target = this.user?.id ?? this.parentRef?.user?.id;
+    if (!target) return;
+    this.userCommentsLoading = true;
+    try {
+      const data = await this.commentService.getComments({ userId: target, page: 1, pageSize: 100 });
+      this.userComments = Array.isArray(data) ? data : (data?.comments ?? data?.results ?? []);
+    } catch {
+      this.userComments = [];
+    } finally {
+      this.userCommentsLoading = false;
+      this.cdr.detectChanges();
+    }
+  }
+
+  async openUserComment(comment: FileComment): Promise<void> {
+    if (!comment?.id) return;
+    try {
+      const parent = await this.commentService.getParentByCommentId(comment.id);
+      this.closeAboutPanel();
+      const host = this.parentRef ?? this.inputtedParentRef;
+      if (!host) return;
+      if (parent?.storyId) host.createComponent('Social', { storyId: parent.storyId, commentId: comment.id });
+      else if (parent?.fileId) host.createComponent('Files', { fileId: parent.fileId, commentId: comment.id });
+      else if (comment.storyId) host.createComponent('Social', { storyId: comment.storyId, commentId: comment.id });
+      else if (comment.fileId) host.createComponent('Files', { fileId: comment.fileId, commentId: comment.id });
+      else host.createComponent('Social', { commentId: comment.id });
+    } catch {
+      this.parentRef?.showNotification('Unable to open this comment.');
+    }
   }
 
   openSettingsPanel() {

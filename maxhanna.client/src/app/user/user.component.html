@@ -397,6 +397,38 @@
               </div>
             </div>
 
+            <div class="optionsStatsDiv user-posts-stat">
+              <div class="optionsStatsHeader">
+                <span>📝 Posts:</span>
+              </div>
+              <div class="optionsStatsDescription cursorPointerUnderlined linkColor" (click)="toggleUserPosts()">
+                {{ userPostsOpen ? 'Hide posts' : 'View posts' }}
+              </div>
+              <div class="user-posts-list" *ngIf="userPostsOpen">
+                <div *ngIf="userPostsLoading" class="smallFont">Loading posts…</div>
+                <div *ngIf="!userPostsLoading && !userPosts.length" class="smallFont">No posts found.</div>
+                <button *ngFor="let post of userPosts" type="button" class="user-post-row" (click)="openUserPost(post)">
+                  <span>{{ post.storyText || 'Post #' + post.id }}</span>
+                  <small>{{ post.date | date:'shortDate' }} · Open</small>
+                </button>
+              </div>
+            </div>
+
+            <div class="optionsStatsDiv user-comments-stat">
+              <div class="optionsStatsHeader">💬 Comments:</div>
+              <div class="optionsStatsDescription cursorPointerUnderlined linkColor" (click)="toggleUserComments()">
+                {{ userCommentsOpen ? 'Hide comments' : 'View comments' }}
+              </div>
+              <div class="user-comments-list" *ngIf="userCommentsOpen">
+                <div *ngIf="userCommentsLoading" class="smallFont">Loading comments…</div>
+                <div *ngIf="!userCommentsLoading && !userComments.length" class="smallFont">No comments found.</div>
+                <button *ngFor="let comment of userComments" type="button" class="user-comment-row" (click)="openUserComment(comment)">
+                  <span>{{ comment.commentText || 'Comment #' + comment.id }}</span>
+                  <small>{{ comment.date | date:'shortDate' }} · Open</small>
+                </button>
+              </div>
+            </div>
+
             <div class="optionsStatsDiv" *ngIf="userPlantCount != null">
               <div class="optionsStatsHeader">
                 <app-menu-item [type]="'Planter'" [parentRef]="parentRef"

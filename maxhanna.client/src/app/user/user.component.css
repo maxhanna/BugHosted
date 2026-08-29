@@ -196,6 +196,18 @@
   max-width: 443px;
 }
 
+.user-posts-stat, .user-comments-stat { display: block; }
+.user-comments-list { margin-top: 8px; max-height: 240px; overflow-y: auto; display: grid; gap: 6px; }
+.user-comment-row { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; width: 100%; padding: 8px 10px; text-align: left; border: 1px solid var(--border-color, #555); border-radius: 6px; background: var(--component-background-color, rgba(0,0,0,.15)); color: inherit; cursor: pointer; }
+.user-comment-row:hover { border-color: var(--main-highlight-color); }
+.user-comment-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.user-comment-row small { opacity: .7; }
+.user-posts-list { margin-top: 8px; max-height: 240px; overflow-y: auto; display: grid; gap: 6px; }
+.user-post-row { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; width: 100%; padding: 8px 10px; text-align: left; border: 1px solid var(--border-color, #555); border-radius: 6px; background: var(--component-background-color, rgba(0,0,0,.15)); color: inherit; cursor: pointer; }
+.user-post-row:hover { border-color: var(--main-highlight-color); }
+.user-post-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.user-post-row small { opacity: .7; }
+
 .popupPanel {
   width: 320px;
 }
