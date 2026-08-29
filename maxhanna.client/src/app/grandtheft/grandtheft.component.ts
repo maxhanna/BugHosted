@@ -2374,7 +2374,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       [this.uziSound, this.rocketSound, this.policeSirenSound].forEach(a => {
         if (a) { a.volume = 0; a.play().then(() => { a.pause(); a.currentTime = 0; a.volume = 0.3; }).catch(() => { }); }
       });
-      this.tryStartRadio();
+      if (!this.radioOn) this.tryStartRadio();
     } catch (e) { }
   }
   /** Fade gunfire with distance: full volume up close, faint past ~60 units. */
