@@ -26,8 +26,6 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   fileMetadata: any;
   youtubeMetadata: any;
   storyResponse?: StoryResponse;
-  /** Shared link resolved to a visibility-restricted post — render the
-   *  "Follow to view" prompt instead of a 404 / empty feed. */
   deepLinkDenied?: StoryAccessDenied | null;
   trendingSearches: string[] = [];
   isMobileTopicsPanelOpen = false;
@@ -40,7 +38,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   isShowingPostFromHelpInfo = false;
   isDisplayingNSFW = false;
   showHiddenFiles = false;
-  canLoad = false; 
+  canLoad = false;
   attachedFiles: FileEntry[] = [];
   attachedTopics: Array<Topic> = [];
   userProfileId?: number = undefined;
@@ -57,11 +55,11 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     hidden: this.showHiddenFiles ? 'yes' : 'no',
   };
   showPostsFromFilter: ShowPostsFrom = "all";
-  compactness: Compactness= "yes";
+  compactness: Compactness = "yes";
   private storyUpdateInterval: any;
   city: string | undefined;
   country: string | undefined;
-  
+
   @ViewChild('story') story!: ElementRef<HTMLInputElement>;
   @ViewChild('pageSelect') pageSelect!: ElementRef<HTMLSelectElement>;
   @ViewChild('pageSelect2') pageSelect2!: ElementRef<HTMLSelectElement>;
@@ -76,9 +74,6 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
 
   @Input() storyId: number | undefined = undefined;
   @Input() commentId: number | undefined = undefined;
-  /** Topic name(s) from a ?topic= deep link, e.g. "Weaver" or "Weaver,Cars".
-   *  Set by app.component when navigating to /Social?topic=... so the feed
-   *  pre-filters to those topics on load. */
   @Input() topic: string | undefined = undefined;
   @Input() showTopicSelector: boolean = true;
   @Input() showOnlyPost: boolean = false;
@@ -93,8 +88,6 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   chatRoomDescription = '';
   chatRoomIcon = '';
   isChatRoomModerator = false;
-  // Moderator request for this board's chat room — non-mods can ask to
-  // moderate and the request lands in the moderator panel for review.
   showModRequestBox = false;
   modRequestText = '';
   isSubmittingModRequest = false;
@@ -107,11 +100,9 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   editGroupIcon = '';
   editGroupThemeId: number | null = null;
   isSavingGroupInfo = false;
-  // Per-chat theme (shared with the chat window via chat_themes) applied to the board root.
   boardThemes: any[] = [];
   currentBoardThemeId: number | null = null;
   isLoadingBoardTheme = false;
-  // Topic moderators for the menu popup (general moderators when no topic selected)
   topicModerators: any[] = [];
   topicModeratorsLoading = false;
   isTopicModerator = false;
@@ -133,8 +124,60 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     private cd: ChangeDetectorRef,
     private renderer: Renderer2,
     private elementRef: ElementRef
-) {
+  ) {
     super();
+  }
+
+  async ngOnInit() {
+    this.isLoading = true;
+    if (this.parent) {
+      this.parentRef = this.parent;
+    }
+    this.isLoading = false;
+
+    const user = this.parentRef?.user;
+    if (user && user.id) {
+      await this.userService.getUserSettings(user.id).then(res => {
+        if (res) {
+          this.isDisplayingNSFW = res.nsfwEnabled ?? false;
+          this.compactness = (res.compactness ?? "no") as Compactness;
+          const candidate = res.showPostsFrom ?? "all";
+          this.showPostsFromFilter = (['subscribed', 'local', 'popular', 'all', 'oldest'].includes(candidate) ? candidate as ShowPostsFrom : 'all');
+        }
+      });
+    }
+
+    const tmpStoryId = this.storyId;
+    const tmpCommentId = this.commentId;
+
+    // If a deep-linked storyId is present, fetch that single story directly (server will not apply per-user blocking when called this way)
+    if (tmpStoryId) {
+      await this.loadDeepLinkedStory(tmpStoryId, tmpCommentId);
+    } else if (this.topic) {
+      // ?topic= deep link: resolve the topic name(s) to real Topic ids and
+      // pre-filter the feed, mirroring what the topic picker does. Skip the
+      // unfiltered first load — the topic search is the only fetch we need.
+      await this.applyTopicDeepLink(this.topic);
+    } else if (tmpCommentId) {
+      // Comment-only deep link (no story id): resolve the parent post first.
+      await this.loadDeepLinkedStory(undefined, tmpCommentId);
+    } else {
+      await this.getStories();
+    }
+
+    if (this.chatId) {
+      await this.loadGroupInfo();
+    }
+
+    this.parentRef?.getLocation().then(res => {
+      if (res) {
+        this.country = res.country;
+        this.city = res.city;
+      }
+    })
+    this.changeComponentMainHeight();
+
+    this.stopLoading();
   }
 
   async loadGroupInfo() {
@@ -393,58 +436,6 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     }
   }
 
-  async ngOnInit() {
-    this.isLoading = true;
-    if (this.parent) {
-      this.parentRef = this.parent;
-    }
-    this.isLoading = false;
-
-    const user = this.parentRef?.user;
-    if (user && user.id) {
-      await this.userService.getUserSettings(user.id).then(res => {
-        if (res) {
-          this.isDisplayingNSFW = res.nsfwEnabled ?? false;
-          this.compactness = (res.compactness ?? "no") as Compactness;
-          const candidate = res.showPostsFrom ?? "all";
-          this.showPostsFromFilter = (['subscribed','local','popular','all','oldest'].includes(candidate) ? candidate as ShowPostsFrom : 'all');
-        }
-      });
-    }
- 
-    const tmpStoryId = this.storyId;
-    const tmpCommentId = this.commentId;
-
-    // If a deep-linked storyId is present, fetch that single story directly (server will not apply per-user blocking when called this way)
-    if (tmpStoryId) {
-      await this.loadDeepLinkedStory(tmpStoryId, tmpCommentId);
-    } else if (this.topic) {
-      // ?topic= deep link: resolve the topic name(s) to real Topic ids and
-      // pre-filter the feed, mirroring what the topic picker does. Skip the
-      // unfiltered first load — the topic search is the only fetch we need.
-      await this.applyTopicDeepLink(this.topic);
-    } else if (tmpCommentId) {
-      // Comment-only deep link (no story id): resolve the parent post first.
-      await this.loadDeepLinkedStory(undefined, tmpCommentId);
-    } else {
-      await this.getStories();
-    }
-
-    if (this.chatId) {
-      await this.loadGroupInfo();
-    }
-
-    this.parentRef?.getLocation().then(res => {
-      if (res) {
-        this.country = res.country;
-        this.city = res.city;
-      }
-    })
-    this.changeComponentMainHeight();
-
-    this.stopLoading();
-  }
-
   /**
    * Loads and displays a single deep-linked story (decrypts it, scrolls to the
    * post and its comment, updates the page title). Used on first load and when
@@ -488,11 +479,11 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
           console.error('Failed to decrypt deep-linked story text', ex);
         }
         // Wrap into storyResponse so the templates and downstream logic work
-        this.storyResponse = { 
-          stories: [single], 
-          totalCount: 1, 
-          pageCount: 1, 
-          currentPage: 1 
+        this.storyResponse = {
+          stories: [single],
+          totalCount: 1,
+          pageCount: 1,
+          currentPage: 1
         } as StoryResponse;
 
         // If the current user has blocked the author, show placeholder locally
@@ -531,7 +522,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   ngOnDestroy() {
     if (this.storyUpdateInterval) {
       clearInterval(this.storyUpdateInterval); // Clean up interval on component destroy
-    } 
+    }
   }
 
   // ── Unsaved-draft guard ──
@@ -607,8 +598,8 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     if (this.showOnlyPost) {
       this.componentMain.nativeElement.style.paddingTop = "0px";
       this.componentMain.nativeElement.classList.add("mobileMaxHeight");
-    } 
-  } 
+    }
+  }
 
   /**
    * Re-activation hook: clicking Social in the nav while the feed is already
@@ -666,7 +657,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     this.canLoad = false;
     const search = keywords ?? this.search?.nativeElement.value;
     const userId = this.user?.id;
-    let storyId = this.getSearchStoryId(); 
+    let storyId = this.getSearchStoryId();
     this.parentRef?.updateLastSeen();
     const res = await this.socialService.getStories(
       this.parentRef?.user?.id,
@@ -776,11 +767,11 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     this.attachedTopics = this.attachedTopics.filter(x => x.id != topic.id);
     if (this.isMenuPanelOpen) this.loadTopicModerators();
     this.searchStories(this.attachedTopics);
-    this.scrollToStory(); 
+    this.scrollToStory();
   }
-  topicClicked(topics?: Topic[]) { 
+  topicClicked(topics?: Topic[]) {
     this.attachedTopics = topics ?? [];
-    this.currentPage = 1; 
+    this.currentPage = 1;
     this.onTopicAdded(this.attachedTopics);
     this.scrollToStory();
   }
@@ -866,16 +857,14 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       this.parentRef.showOverlay();
     }
 
-    // fetch trending social searches
     this.fileService.getTrending('social', 5).then(res => {
       this.trendingSearches = Array.isArray(res) ? res.map((r: any) => r.query) : [];
     }).catch(() => { this.trendingSearches = []; });
 
-    // ensure view updated so the ViewChild is available, then safely focus
     try {
       this.cd.detectChanges();
-    } catch {}
-    setTimeout(() => { try { this.search?.nativeElement?.focus(); } catch {} }, 50);
+    } catch { }
+    setTimeout(() => { try { this.search?.nativeElement?.focus(); } catch { } }, 50);
   }
   closeSearchSocialsPanel() {
     this.isSearchSocialsPanelOpen = false;
@@ -883,7 +872,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       this.parentRef.closeOverlay();
     }
   }
- 
+
   showMenuPanel() {
     if (this.isMenuPanelOpen) {
       this.closeMenuPanel();
@@ -894,16 +883,12 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     parent?.showOverlay();
     this.loadTopicModerators();
   }
-  /** The topic the menu's moderator section targets — the most recently
-   *  selected filter topic, or null for general moderators. */
   get currentModeratorTopic(): Topic | null {
     return this.attachedTopics && this.attachedTopics.length > 0
       ? this.attachedTopics[this.attachedTopics.length - 1]
       : null;
   }
 
-  /** Load the topic's moderators (or general moderators) + the caller's own
-   *  topic-mod status/pending request for the menu popup. */
   async loadTopicModerators() {
     const me = this.parentRef?.user?.id ?? this.user?.id ?? 0;
     if (!me) return;
@@ -913,8 +898,6 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       const { ModeratorService } = await import('../../services/moderator.service');
       const moderatorService = new (ModeratorService as any)();
       const sessionToken = await this.parentRef?.getSessionToken() ?? '';
-      // The board's chat room moderators ride along automatically — a public
-      // chat room linked to a board shares its moderators with that board.
       this.topicModerators = await moderatorService.getModeratorsFor(me, topic?.id ?? 0, sessionToken, this.chatId);
 
       const roles = await moderatorService.getMyRoles(me, sessionToken);
@@ -1014,10 +997,10 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     const parent = this.parent ?? this.parentRef;
     parent?.closeOverlay();
   }
-  
+
   async loadMorePosts() {
     if (this.isLoading || !this.canLoad) return;
-    this.canLoad = false; 
+    this.canLoad = false;
     clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(async () => {
       this.currentPage++;
@@ -1031,7 +1014,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     this.searchTimeout = setTimeout(() => {
       this.searchStories(this.attachedTopics, true);
       try {
-        const user = this.parent?.user ?? this.parentRef?.user; 
+        const user = this.parent?.user ?? this.parentRef?.user;
         this.fileService.recordSearch(this.userSearch, 'social', user?.id);
       } catch { }
     }, 1000);
@@ -1075,7 +1058,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   }
   onNSFWChange(event: Event) {
     const selectElement = event.target as HTMLSelectElement;
-    const selectedValue = selectElement.value; // "yes" or "no"
+    const selectedValue = selectElement.value;
     this.isDisplayingNSFW = (selectedValue === 'yes');
     const parent = this.parent ?? this.parentRef;
     const user = parent?.user;
@@ -1090,7 +1073,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       }
     });
   }
-  
+
 
   showPostsFrom(filter: ShowPostsFrom) {
     this.showPostsFromFilter = filter;
@@ -1101,7 +1084,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     });
     this.getStories();
   }
-  setCompactness(event: Event) { 
+  setCompactness(event: Event) {
     this.compactness = (event.target as HTMLSelectElement).value as Compactness;
     this.userService.updateCompactness(this.parentRef?.user?.id ?? 0, this.compactness).then(res => {
       if (res) {
@@ -1121,7 +1104,6 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       if (elements.length > 0) {
         Array.from(elements).forEach((e) => {
           (e as HTMLElement).style.maxHeight = 'none';
-          // (e as HTMLElement).style.background = 'unset';
         });
       }
     }
@@ -1157,15 +1139,9 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     }
   }
 
-  /**
-   * Plays the brief gold highlight flash on a post/comment that a notification
-   * just scrolled into view. Restarts cleanly if a second target is selected
-   * while a previous flash is still playing.
-   */
   private flashNotificationTarget(el?: HTMLElement | null) {
     if (!el) return;
     el.classList.remove('notificationFlash');
-    // Force a reflow so re-adding the class replays the animation from frame 0.
     void el.offsetWidth;
     el.classList.add('notificationFlash');
     setTimeout(() => el.classList.remove('notificationFlash'), 1700);

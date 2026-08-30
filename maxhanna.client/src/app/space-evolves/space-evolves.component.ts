@@ -1,5 +1,6 @@
 import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
+import { SpaceEvolvesRun, SpaceEvolvesService } from '../../services/space-evolves.service';
 
 interface SpaceBug { x: number; y: number; hp: number; maxHp: number; speed: number; size: number; phase: number; kind: 'scuttler' | 'mantis' | 'queen'; }
 interface SpaceShot { x: number; y: number; vx: number; vy: number; damage: number; kind: 'laser' | 'rocket'; radius: number; homing?: boolean; }
@@ -8,6 +9,32 @@ interface SpaceScore { username: string; score: number; wave: number; }
 
 @Component({ selector: 'app-space-evolves', templateUrl: './space-evolves.component.html', styleUrl: './space-evolves.component.css', standalone: false })
 export class SpaceEvolvesComponent extends ChildComponent implements AfterViewInit, OnDestroy {
+  constructor(private spaceEvolvesService: SpaceEvolvesService) { super(); }
+
+  private getUserId(): number { return Number(this.parentRef?.user?.id ?? 0); }
+
+  private currentRun(): SpaceEvolvesRun {
+    return { runId: this.serverRunId, wave: this.wave, level: this.level, score: this.score, experience: this.experience, nextLevel: this.nextLevel, player: this.player, stats: this.stats, upgrades: this.persistedUpgrades, gameOver: this.gameOver };
+  }
+
+  private async loadServerRun(): Promise<void> {
+    this.serverUserId = this.getUserId();
+    if (!this.serverUserId) return;
+    const saved = await this.spaceEvolvesService.getActiveRun(this.serverUserId);
+    if (!saved || saved.gameOver) return;
+    this.serverRunId = saved.runId;
+    Object.assign(this.player, saved.player ?? {});
+    this.wave = saved.wave || 1; this.level = saved.level || 1; this.score = saved.score || 0;
+    this.experience = saved.experience || 0; this.nextLevel = saved.nextLevel || 100;
+    this.stats = { ...this.stats, ...(saved.stats ?? {}) };
+    this.persistedUpgrades = Array.isArray(saved.upgrades) ? saved.upgrades : [];
+    this.status = 'Saved server run restored. Continue the evolution.';
+  }
+
+  private persistRun(): void {
+    if (!this.serverUserId || this.gameOver) return;
+    void this.spaceEvolvesService.saveRun(this.serverUserId, this.currentRun());
+  }
   @ViewChild('gameCanvas', { static: true }) gameCanvas!: ElementRef<HTMLCanvasElement>;
   private ctx!: CanvasRenderingContext2D;
   private frame = 0;
@@ -17,6 +44,9 @@ export class SpaceEvolvesComponent extends ChildComponent implements AfterViewIn
   private keys = new Set<string>();
   private touchX: number | null = null;
   private readonly saveKey = 'space-evolves-progress';
+  private serverUserId = 0;
+  private serverRunId?: string;
+  private persistedUpgrades: string[] = [];
 
   player = { x: 0.5, y: 0.82, hp: 100, maxHp: 100, shield: 0, fireCooldown: 0, speed: 0.55 };
   shots: SpaceShot[] = [];
@@ -56,6 +86,7 @@ export class SpaceEvolvesComponent extends ChildComponent implements AfterViewIn
     window.addEventListener('keydown', this.onKeyDown);
     window.addEventListener('keyup', this.onKeyUp);
     this.loadProgress();
+    void this.loadServerRun();
     this.loadHighScores();
     this.running = true;
     this.lastTime = performance.now();
@@ -110,10 +141,12 @@ export class SpaceEvolvesComponent extends ChildComponent implements AfterViewIn
       if (upgrade.id === 'shield-hull') { this.player.maxHp += 35; this.player.hp = Math.min(this.player.maxHp, this.player.hp + 25); }
       if (upgrade.id === 'shield-thorns') this.stats.shieldThorns += 18;
     }
+    this.persistedUpgrades.push(upgrade.id);
     this.level++; this.nextLevel = Math.floor(this.nextLevel * 1.22);
     this.experience = 0; this.upgradeChoices = [];
     this.status = `${upgrade.name} evolved. The swarm adapts.`;
     this.saveProgress();
+    this.persistRun();
   }
 
   private loop = (time: number) => {
@@ -183,7 +216,7 @@ export class SpaceEvolvesComponent extends ChildComponent implements AfterViewIn
 
   private offerUpgrades() { this.upgradeChoices = [...this.upgrades].sort(() => Math.random() - 0.5).slice(0, 3); this.status = 'Evolution fork: choose one mutation.'; }
   private resetRun() { this.player = { x: 0.5, y: 0.82, hp: 100, maxHp: 100, shield: 0, fireCooldown: 0, speed: 0.55 }; this.shots = []; this.bugs = []; this.wave = 1; this.score = 0; this.level = 1; this.experience = 0; this.nextLevel = 100; this.gameOver = false; this.upgradeChoices = []; this.waveKills = 0; this.stats = { laserDamage: 18, laserCooldown: 0.22, laserCount: 1, laserPierce: 0, rocketDamage: 42, rocketCooldown: 0.9, rocketCount: 1, rocketHoming: false, rocketYield: 1, shieldThorns: 0 }; this.status = 'Choose an upgrade and survive the swarm.'; this.saveProgress(); }
-  private endRun() { this.gameOver = true; this.status = `Run ended at wave ${this.wave}. Score ${this.score}.`; this.saveProgress(true); }
+  private endRun() { this.gameOver = true; this.status = `Run ended at wave ${this.wave}. Score ${this.score}.`; this.saveProgress(true); if (this.serverUserId) void this.spaceEvolvesService.endRun(this.serverUserId, this.currentRun()); }
 
   private loadProgress() { try { const raw = localStorage.getItem(this.saveKey); if (!raw) return; const saved = JSON.parse(raw); if (saved && !saved.gameOver) { Object.assign(this.player, saved.player); this.wave = saved.wave || 1; this.score = saved.score || 0; this.level = saved.level || 1; this.experience = saved.experience || 0; this.nextLevel = saved.nextLevel || 100; this.stats = { ...this.stats, ...(saved.stats || {}) }; this.status = 'Saved run restored. Continue the evolution.'; } } catch { } }
   private saveProgress(dead = false) { const payload = { player: this.player, wave: this.wave, score: this.score, level: this.level, experience: this.experience, nextLevel: this.nextLevel, stats: this.stats, gameOver: dead }; try { localStorage.setItem(this.saveKey, JSON.stringify(payload)); } catch { } clearTimeout(this.saveTimer); this.saveTimer = setTimeout(() => this.saveProgress(), 3000); }
