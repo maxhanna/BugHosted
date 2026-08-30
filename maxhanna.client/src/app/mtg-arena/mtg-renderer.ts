@@ -6888,10 +6888,24 @@ export class MtgRenderer extends DigCraftRenderer {
     super(canvas, userFaces);
     this.renderDistanceChunks = 1;
     this.pubChunk = createMtgPubChunk();
-    this.buildChunkMesh(this.pubChunk, () => BlockId.AIR);
+    // This renderer owns one intentionally static pub chunk. Resolve every
+    // neighbor lookup against that chunk so the inherited DigCraft renderer
+    // cannot fall back to generated biome/chunk data.
+    this.buildChunkMesh(this.pubChunk, (wx, wy, wz) => {
+      const lx = wx - this.pubChunk.cx * CHUNK_SIZE;
+      const lz = wz - this.pubChunk.cz * CHUNK_SIZE;
+      if (lx < 0 || lx >= CHUNK_SIZE || lz < 0 || lz >= CHUNK_SIZE || wy < 0 || wy >= WORLD_HEIGHT) return BlockId.AIR;
+      return this.pubChunk.getBlock(lx, wy, lz);
+    });
   }
   renderPub(camX: number, camY: number, camZ: number, yaw: number, pitch: number, players: DCPlayer[], myUserId: number): void {
-    this.render(camX, camY, camZ, yaw, pitch, players, myUserId);
+    // Keep the camera inside the single pub chunk. The base renderer still
+    // supplies DigCraft's real WebGL projection, depth testing, lighting,
+    // shadows, and humanoid player pipeline; only world streaming is removed.
+    const max = CHUNK_SIZE - 0.25;
+    const safeX = Math.max(0.25, Math.min(max, camX));
+    const safeZ = Math.max(0.25, Math.min(max, camZ));
+    this.render(safeX, Math.max(0.35, camY), safeZ, yaw, pitch, players, myUserId);
   }
 }
 

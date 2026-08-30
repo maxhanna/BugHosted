@@ -36,6 +36,11 @@
               "src/robots.txt",
               "src/firebase-messaging-sw.js",
               {
+                "glob": "**/*",
+                "input": "src/assets/ender",
+                "output": "assets/ender"
+              },
+              {
                 "glob": "*.png",
                 "input": "src/assets",
                 "output": "assets"
