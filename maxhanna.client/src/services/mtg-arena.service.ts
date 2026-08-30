@@ -8,7 +8,7 @@ export interface MtwLobbyPlayer { id: number; username: string; ready: boolean; 
 export interface MtwLobby { roomId: string; players: MtwLobbyPlayer[]; }
 
 @Injectable({ providedIn: 'root' })
-export class MtwArenaService {
+export class MtgArenaService {
   constructor(private readonly http: HttpClient) {}
   getLobby(userId: number) { return firstValueFrom(this.http.get<MtwLobby>(`/mtgarena/lobby?userId=${userId}`)); }
   getDecks(userId: number) { return firstValueFrom(this.http.get<MtwDeck[]>(`/mtgarena/decks?userId=${userId}`)); }

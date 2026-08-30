@@ -12,12 +12,12 @@ import {
   MAX_INVENTORY_LENGTH, MAX_VIEW_DISTANCE, PLAYER_ATTACK_MAX_RANGE, BOW_ATTACK_MAX_RANGE, SEA_LEVEL, NETHER_HEIGHT, INVULNERABLE_BLOCKS,
   isFluidBlock, WATER_SOURCE_STRENGTH, LAVA_SOURCE_STRENGTH, REGENERATIVE_BLOCKS, UNSTACKABLE_BLOCKS, ARROW_TYPES,
   ARMOR_TYPE_MAP, ArmorType, STAIR_BLOCKS, GroundItem
-} from './digcraft-types';
-import { Chunk, generateChunk, applyChanges, NETHER_TOP } from './digcraft-world';
-import { BiomeId } from './digcraft-biome';
-import { DigCraftRenderer, buildMVP, perspectiveMatrix, lookAtFPS, multiplyMat4 } from './digcraft-renderer';
-import { ChunkLoader } from './digcraft-chunk-loader';
-import { onKeyDown, onKeyUp, onMouseMove, onMouseDown, onMouseUp, onMouseWheel, onPointerLockChange, onTouchStart, onTouchMove, onTouchEnd, getJoystickKnobTransform, requestPointerLock } from './digcraft-input';
+} from './mtg-types';
+import { Chunk, generateChunk, applyChanges, NETHER_TOP } from './mtg-world';
+import { BiomeId } from './mtg-biome';
+import { MtgRenderer, buildMVP, perspectiveMatrix, lookAtFPS, multiplyMat4 } from './mtg-renderer';
+import { ChunkLoader } from './mtg-chunk-loader';
+import { onKeyDown, onKeyUp, onMouseMove, onMouseDown, onMouseUp, onMouseWheel, onPointerLockChange, onTouchStart, onTouchMove, onTouchEnd, getJoystickKnobTransform, requestPointerLock } from './mtg-input';
 import { PromptComponent } from '../prompt/prompt.component';
 import { UserService } from '../../services/user.service';
 import { User } from '../../services/datacontracts/user/user';
@@ -317,8 +317,8 @@ export class MtwArenaComponent extends ChildComponent implements OnInit, OnDestr
   plantedShrubs: Map<string, number> = new Map();
 
   // Internal
-  private renderer!: DigCraftRenderer;
-  private avatarPreviewRenderer?: DigCraftRenderer;
+  private renderer!: MtgRenderer;
+  private avatarPreviewRenderer?: MtgRenderer;
   private animFrameId = 0;
   private lastTime = 0;
   private keys: Set<string> = new Set();
@@ -636,7 +636,7 @@ export class MtwArenaComponent extends ChildComponent implements OnInit, OnDestr
   // Cache of userId -> username to avoid repeated lookups
   private userNameCache: Map<number, string> = new Map();
 
-  // Touch state (ignore "unused variable" warnings since these are used in digcraft-input handlers)
+  // Touch state (ignore "unused variable" warnings since these are used in mtg-input handlers)
   private touchMoveId: number | null = null;
   private touchMoveX = 0;
   private touchMoveY = 0;
@@ -678,7 +678,7 @@ export class MtwArenaComponent extends ChildComponent implements OnInit, OnDestr
   public get isMenuPanelOpen(): boolean { return this._isMenuPanelOpen; }
   public set isMenuPanelOpen(v: boolean) { this._isMenuPanelOpen = v; this.onMenuStateChanged(); }
 
-  // Bound handlers for cleanup (delegates moved to digcraft-input.ts)
+  // Bound handlers for cleanup (delegates moved to mtg-input.ts)
   private boundKeyDown = (e: KeyboardEvent): void => onKeyDown(this, e, this.parentRef?.user?.id ?? 0);
   private boundKeyUp = (e: KeyboardEvent): void => onKeyUp(this, e);
   private boundMouseMove = (e: MouseEvent): void => onMouseMove(this, e);
@@ -987,7 +987,7 @@ export class MtwArenaComponent extends ChildComponent implements OnInit, OnDestr
     canvas.width = canvas.clientWidth;
     canvas.height = canvas.clientHeight;
 
-    this.renderer = new DigCraftRenderer(canvas, this.userFaces);
+    this.renderer = new MtgRenderer(canvas, this.userFaces);
     // On mobile: use opaque water rendering to skip the expensive transparent pass
     if (this.onMobile()) (this.renderer as any).lowEndMode = true;
     try {
@@ -2892,7 +2892,7 @@ export class MtwArenaComponent extends ChildComponent implements OnInit, OnDestr
     const currentCanvas = this.avatarPreviewRenderer ? (this.avatarPreviewRenderer.gl.canvas as HTMLCanvasElement) : null;
     if (!this.avatarPreviewRenderer || currentCanvas !== canvas) {
       this.disposeAvatarPreviewRenderer();
-      this.avatarPreviewRenderer = new DigCraftRenderer(canvas);
+      this.avatarPreviewRenderer = new MtgRenderer(canvas);
       this.avatarPreviewRenderer.setFogColor(0.07, 0.09, 0.13);
       // Set user faces for avatar preview
       if (this.userFaces.length > 0) {

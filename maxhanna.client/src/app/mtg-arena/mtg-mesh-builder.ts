@@ -1,5 +1,5 @@
-import { BlockId, BLOCK_COLORS, CHUNK_SIZE, WORLD_HEIGHT, getBlockHealth, STAIR_BLOCKS, FENCE_BLOCKS, QUARTZ_STAIRS_BLOCKS, QUARTZ_SLAB_BLOCKS } from './digcraft-types';
-import { BiomeId } from './digcraft-biome';
+import { BlockId, BLOCK_COLORS, CHUNK_SIZE, WORLD_HEIGHT, getBlockHealth, STAIR_BLOCKS, FENCE_BLOCKS, QUARTZ_STAIRS_BLOCKS, QUARTZ_SLAB_BLOCKS } from './mtg-types';
+import { BiomeId } from './mtg-biome';
 
 const TRANSPARENT_BLOCKS = new Set([
   BlockId.AIR,

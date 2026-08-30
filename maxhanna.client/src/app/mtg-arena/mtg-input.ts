@@ -1,5 +1,5 @@
 // Each function receives the component instance as `ctx` and the event.
-import { STAIR_BLOCKS } from './digcraft-types';
+import { STAIR_BLOCKS } from './mtg-types';
 
 export function onKeyDown(ctx: any, e: KeyboardEvent, userId: number): void {
   // A forced respawn prompt freezes the player completely. Keep Escape
@@ -142,7 +142,7 @@ export function onMouseDown(ctx: any, e: MouseEvent): void {
   if (e.button === 2) { try { e.preventDefault(); e.stopPropagation(); } catch { } }
   if (ctx.showInventory || ctx.showCrafting || ctx.showChatPrompt || ctx.showBonfirePanel || ctx.showChestPanel || ctx.showPlayersPanel || ctx.showWorldPanel) return;
   const canvas = ctx.canvasRef?.nativeElement;
-  try { console.debug('[digcraft-input] onMouseDown', { button: e.button, pointerLockElement: document.pointerLockElement ? (document.pointerLockElement as any).tagName : null, canvas }); } catch (err) { }
+  try { console.debug('[mtg-input] onMouseDown', { button: e.button, pointerLockElement: document.pointerLockElement ? (document.pointerLockElement as any).tagName : null, canvas }); } catch (err) { }
   if (!canvas) return;
   if (!document.pointerLockElement) {
     canvas.requestPointerLock();

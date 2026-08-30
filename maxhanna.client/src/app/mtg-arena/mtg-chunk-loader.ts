@@ -1,6 +1,6 @@
-import { Chunk, generateChunk } from './digcraft-world';
-import { CHUNK_SIZE } from './digcraft-types';
-import { DigCraftRenderer } from './digcraft-renderer';
+import { Chunk, generateChunk } from './mtg-world';
+import { CHUNK_SIZE } from './mtg-types';
+import { MtgRenderer } from './mtg-renderer';
 
 // Minimal binary min-heap for prioritized generation
 interface HeapNode { cx: number; cz: number; dist2: number; }
@@ -47,7 +47,7 @@ class MeshWorkerPool {
     if (this.slots.length > 0) return;
     for (let i = 0; i < this.workerCount; i++) {
       try {
-        const worker = new Worker(new URL('./digcraft-mesh.worker', import.meta.url), { type: 'module' });
+        const worker = new Worker(new URL('./mtg-mesh.worker', import.meta.url), { type: 'module' });
         worker.addEventListener('message', (ev: MessageEvent) => {
           const msg = ev.data as any;
           if (!msg) return;
@@ -95,7 +95,7 @@ class MeshWorkerPool {
 
 export interface ChunkLoaderOptions {
   chunks: Map<string, Chunk>;
-  renderer: DigCraftRenderer;
+  renderer: MtgRenderer;
   seed: number;
   isMobile: () => boolean;
   getViewDistance: () => number;
@@ -106,7 +106,7 @@ export interface ChunkLoaderOptions {
 
 export class ChunkLoader {
   private chunks: Map<string, Chunk>;
-  private renderer: DigCraftRenderer;
+  private renderer: MtgRenderer;
   private opts: ChunkLoaderOptions;
   private genQueue = new MinHeap();
   private genQueued = new Set<string>();

@@ -1,6 +1,6 @@
 <div class="componentMain" #componentMain style="z-index:0 !important;">
   <app-title-bar 
-    [title]="'DigCraft'" 
+    [title]="'MTG Arena'" 
     [font]="'minecraftFont'" 
     [style.z-index]="100"
     [style.position]="'relative'"
@@ -511,7 +511,7 @@
     </div>
   </div>
 
-  <app-prompt [type]="'login'" [message]="'You must log-in to save play DigCraft⛏️.'" [inputtedParentRef]="parentRef"
+  <app-prompt [type]="'login'" [message]="'You must log-in to save play MTG Arena.'" [inputtedParentRef]="parentRef"
     [visible]="isShowingLoginPanel" [fontFamily]="'minecraftFont'" (close)="closeLoginPanel()">
   </app-prompt>
 
@@ -556,7 +556,7 @@
   <!--Menu Popup  -->
   <div class="overlay" *ngIf="isMenuPanelOpen && !initialLoad" (pointerdown)="isMenuPanelOpen = false">
     <div class="popupPanel menuPanel" style="pointer-events: auto;" (pointerdown)="$event.stopPropagation()">
-      <div class="popupPanelTitle">DigCraft Menu</div>
+      <div class="popupPanelTitle">MTG Arena Menu</div>
       <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
         <button (pointerdown)="toggleFullScreen(); closePanel('menu');" class="emuMenuButton squareButton"
           title="Toggle Fullscreen Mode">

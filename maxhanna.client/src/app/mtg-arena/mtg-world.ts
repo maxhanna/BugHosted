@@ -9,8 +9,8 @@
  *
  * NETHER_TOP = 128  (matches NETHER_DEPTH constant)
  */
-import { BlockId, CHUNK_SIZE, WORLD_HEIGHT, SEA_LEVEL, NETHER_DEPTH, DCBlockChange, getBlockHealth } from './digcraft-types';
-import { sampleTerrainColumn, surfaceBlockForBiome, treeNoiseThreshold, BiomeId } from './digcraft-biome';
+import { BlockId, CHUNK_SIZE, WORLD_HEIGHT, SEA_LEVEL, NETHER_DEPTH, DCBlockChange, getBlockHealth } from './mtg-types';
+import { sampleTerrainColumn, surfaceBlockForBiome, treeNoiseThreshold, BiomeId } from './mtg-biome';
 
 // ── NETHER_TOP: the Y level that separates Nether (below) from Overworld (above) ──
 export const NETHER_TOP = NETHER_DEPTH; // 128

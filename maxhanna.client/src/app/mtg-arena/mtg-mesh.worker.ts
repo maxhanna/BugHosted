@@ -1,4 +1,4 @@
-import { buildOpaqueChunkMesh, buildFluidMeshes, NeighborChunkData } from './digcraft-mesh-builder';
+import { buildOpaqueChunkMesh, buildFluidMeshes, NeighborChunkData } from './mtg-mesh-builder';
 
 // Worker receives: { type: 'build', cx, cz, blocks, biomeColumn, neighbors, lowEndMode }
 self.addEventListener('message', (ev: MessageEvent) => {

@@ -1,5 +1,5 @@
-import { BlockId, CHUNK_SIZE, WORLD_HEIGHT } from '../digcraft/digcraft-types';
-import { Chunk } from '../digcraft/digcraft-world';
+import { BlockId, CHUNK_SIZE, WORLD_HEIGHT } from '../digcraft/mtg-types';
+import { Chunk } from '../digcraft/mtg-world';
 
 /** Small static pub level: one bounded chunk, no biome or procedural generation. */
 export function createMtgPubChunk(cx = 0, cz = 0): Chunk {

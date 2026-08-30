@@ -3,7 +3,7 @@
  * and terrain column sampling. Kept deterministic from world seed + block coords.
  * Server DigCraftController ports the same formulas.
  */
-import { BlockId, SEA_LEVEL } from './digcraft-types';
+import { BlockId, SEA_LEVEL } from './mtg-types';
 
 // ───── Biome IDs (stored per XZ column in chunk, uint8) ─────
 export const enum BiomeId {
@@ -108,7 +108,7 @@ export const BIOME_NAMES: Record<number, string> = {
   [BiomeId.DEEP_LUKEWARM_OCEAN]: 'Deep Lukewarm Ocean', [BiomeId.DEEP_WARM_OCEAN]: 'Deep Warm Ocean'
 };
 
-/** 2D value noise [0,1) — same kernel as digcraft-world.ts */
+/** 2D value noise [0,1) — same kernel as mtg-world.ts */
 function noise2D(seed: number, x: number, z: number, scale: number): number {
   const sx = Math.floor(x / scale);
   const sz = Math.floor(z / scale);
