@@ -1,1 +1,1725 @@
-:host{display:block;height:100%}.componentMain{height:100%;min-height:calc(100dvh - 58px);background:#070b12;color:#edf6ff;overflow:hidden}.world-wrap{position:relative;width:100%;height:calc(100dvh - 58px);min-height:520px}.world{display:block;width:100%;height:100%;image-rendering:auto;outline:none;background:radial-gradient(circle at 50% 35%,#19304b,#070d18 72%)}.world.webgl-ready{background:transparent}.world-status,.prompt,.chat,.chat-bubble,.deck-table{position:absolute;background:rgba(5,12,22,.86);border:1px solid #436b88;border-radius:8px;box-shadow:0 8px 24px #0008}.world-status{top:14px;left:14px;padding:8px 12px;color:#bfe8fa}.prompt{bottom:62px;left:50%;transform:translateX(-50%);padding:8px 14px;color:#ffd166;text-align:center}.chat{bottom:12px;left:14px;right:14px;display:flex;padding:5px}.chat input{flex:1;min-width:0;background:transparent;border:0;color:#fff;padding:8px;outline:none}.chat button,.deck-table button{border:1px solid #5a91b6;background:#163650;color:#fff;border-radius:5px;padding:7px 12px}.chat-bubble{right:14px;bottom:62px;display:flex;flex-direction:column;gap:4px;max-width:320px;padding:10px;color:#d5efff}.deck-table,.catalogue{top:8%;left:5%;right:5%;bottom:10%;padding:18px;overflow:auto;text-align:center}.deck-table h3,.catalogue h3{color:#ffd166}.cards,.catalogue-grid{display:flex;flex-wrap:wrap;justify-content:center;gap:8px}.cards img,.catalogue-grid img{width:92px;height:129px;object-fit:cover;border-radius:5px;background:#182c40}.card-tile{display:flex;flex-direction:column;gap:3px;background:transparent;border:0;color:#dff7ff;cursor:pointer}.card-tile span,.catalogue-grid b{max-width:92px;font-size:11px}.catalogue-grid article{display:flex;flex-direction:column;align-items:center;gap:3px}@media(max-width:600px){.world-wrap{min-height:450px}.prompt{left:10px;right:10px;transform:none}.world-status{font-size:12px}.deck-table,.catalogue{left:4%;right:4%;padding:10px}.deck-table img,.catalogue-grid img{width:76px;height:106px}}
+:host {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+@font-face {
+  font-family: minecraftFont;
+  src: url("../../assets/Minecraft.ttf");
+}
+
+button {
+  font-family: minecraftFont;
+}
+
+.componentMain {
+  width: calc(100vw - 3px) !important;
+  height: calc(100vh - 10px);
+  height: calc(100dvh - 10px) !important;
+  overflow: hidden;
+  position: relative;
+  z-index: 0;
+  user-select: none;
+  -webkit-user-select: none;
+  display: flex;
+  flex-direction: column;
+  touch-action: none;
+  font-family: minecraftFont;
+  padding-top: unset !important;
+}
+
+.menuPanel input[type="range"] {
+  pointer-events: auto;
+  touch-action: auto;
+}
+
+.digcraft-container {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  background: #000;
+  overflow: visible;
+  margin-top: 55px;
+}
+
+.game-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  z-index: 6;
+  background: transparent;
+  touch-action: auto;
+  pointer-events: auto;
+}
+
+.game-canvas.hidden {
+  display: none;
+}
+
+/* Loading */
+.loading-screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 24px;
+  font-family: minecraftFont, monospace;
+  background: #1a1a2e;
+  overflow: hidden;
+}
+
+.ascii-background {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(160, 160, 160, 0.35);
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 12px;
+  line-height: 1;
+  white-space: pre;
+  z-index: 0;
+  pointer-events: none;
+  user-select: none;
+}
+
+.loading-text-container {
+  position: relative;
+  z-index: 10;
+  background: rgba(0, 0, 0, 0.85);
+  padding: 16px 32px;
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.9);
+  border: 2px solid rgba(255, 255, 255, 0.15);
+}
+
+.loading-screen span {
+  font-size: 24px;
+  font-weight: bold;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);
+}
+
+/* Crosshair */
+.crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #fff;
+  font-size: 24px;
+  font-family: minecraftFont, monospace;
+  pointer-events: none;
+  text-shadow: 0 0 3px #000;
+  z-index: 10;
+}
+
+/* Target name under crosshair */
+.target-name {
+  position: absolute;
+  top: calc(50% + 20px);
+  left: 50%;
+  transform: translateX(-50%);
+  color: #fff;
+  font-size: 14px;
+  font-family: minecraftFont, monospace;
+  pointer-events: none;
+  text-shadow: 1px 1px 2px #000;
+  z-index: 10;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.stair-rotation-hint {
+  position: absolute;
+  top: calc(50% + 44px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  pointer-events: none;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.stair-rotation-hint .rotation-dir {
+  color: #00ffff;
+  font-size: 16px;
+  font-family: minecraftFont, monospace;
+  text-shadow: 0 0 8px rgba(0, 255, 255, 0.6), 1px 1px 2px #000;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 2px 10px;
+  border-radius: 3px;
+  border: 1px solid rgba(0, 255, 255, 0.3);
+}
+
+.stair-rotation-hint .rotation-prompt {
+  color: #aaa;
+  font-size: 11px;
+  font-family: minecraftFont, monospace;
+  text-shadow: 1px 1px 2px #000;
+}
+
+/* HUD overlay */
+.hud {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  /* make HUD interactive; individual non-interactive overlays keep pointer-events:none */
+  pointer-events: auto;
+  z-index: 10;
+}
+
+/* Status bar */
+.status-bar {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  margin-bottom: 4px;
+  pointer-events: none;
+}
+
+.health-bar .heart {
+  color: #e33;
+  font-size: 16px;
+  text-shadow: 0 0 2px #000;
+}
+
+.hunger-bar .food {
+  font-size: 14px;
+  text-shadow: 0 0 2px #000;
+  margin-right: -5px;
+}
+
+.hunger-bar {
+  white-space: nowrap;
+}
+
+.level-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.level-bar .level-icon {
+  color: #ffd700;
+  font-size: 14px;
+}
+
+.level-bar .level-num {
+  color: #fff;
+  font-size: 13px;
+  font-weight: bold;
+  text-shadow: 0 0 2px #000;
+}
+
+.exp-bar-container {
+  width: 60px;
+  height: 6px;
+  background: #333;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.exp-bar-fill {
+  height: 100%;
+  background: linear-gradient(to right, #00bfff, #00ff7f);
+  border-radius: 3px;
+}
+
+/* Hotbar */
+.hotbar {
+  display: flex;
+  justify-content: center;
+  gap: 2px;
+  padding: 4px;
+}
+
+.hotbar-slot {
+  width: 44px;
+  height: 44px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 2px solid #555;
+  border-radius: 4px;
+  position: relative;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+}
+
+.hotbar-slot.selected {
+  border-color: #fff;
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.4);
+}
+
+.item-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.item-emoji {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.item-qty {
+  position: absolute;
+  bottom: 1px;
+  right: 3px;
+  color: #fff;
+  font-size: 11px;
+  font-weight: bold;
+  text-shadow: 1px 1px 1px #000;
+}
+
+.item-durability {
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  color: #ff0;
+  font-size: 10px;
+  font-weight: bold;
+  text-shadow: 1px 1px 1px #000;
+}
+
+.slot-num {
+  position: absolute;
+  top: 1px;
+  left: 3px;
+  color: #aaa;
+  font-size: 9px;
+}
+
+/* Touch controls */
+.touch-controls {
+  display: none;
+  gap: 10px;
+  padding: 8px 0 12px;
+  position: relative;
+  z-index: 75;
+  top: -100px;
+}
+
+@media (pointer: coarse) {
+  .touch-controls {
+    display: flex;
+  }
+
+  .pointer-hint {
+    display: none !important;
+  }
+}
+
+.touch-btn {
+  width: 52px;
+  height: 52px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  font-size: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: absolute;
+}
+
+.touch-btn {
+  /* make z-index apply */
+  z-index: 76;
+}
+
+.break-btn {
+  bottom: 18px;
+  right: 18px;
+}
+
+.place-btn {
+  bottom: 18px;
+  right: 82px;
+}
+
+.block-btn {
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.inv-btn {
+  bottom: 18px;
+  left: 18px;
+}
+
+.crafting-btn {
+  bottom: 82px;
+  left: 18px;
+}
+
+.jump-btn {
+  bottom: 82px;
+  right: 18px;
+}
+
+.rotate-btn {
+  bottom: 82px;
+  left: 82px;
+  background: rgba(0, 120, 200, 0.6);
+}
+
+.rotate-btn:active {
+  background: rgba(0, 180, 255, 0.8);
+}
+
+.touch-btn:active {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.touch-btn.block-btn {
+  background: rgba(80, 60, 30, 0.6);
+}
+
+.touch-btn.block-btn:active {
+  background: rgba(180, 120, 50, 0.8);
+}
+
+/* On-screen joystick */
+.joystick {
+  position: absolute;
+  /* raise joystick above the bottom HUD controls to avoid overlap */
+  bottom: 250px;
+  left: 18px;
+  width: 96px;
+  height: 96px;
+  z-index: 30;
+  pointer-events: auto;
+}
+
+.joystick-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+  border: 2px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.6);
+  transition: transform 0.04s linear;
+  pointer-events: none;
+  /* let the wrapper receive touch events */
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+  border: 2px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.6);
+  transition: transform 0.04s linear;
+  pointer-events: none;
+}
+
+/* Pointer hint */
+.pointer-hint {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--main-highlight-color-quarter-opacity);
+  color: var(--main-font-color);
+  padding: 6px 14px;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+/* Chat open button */
+.chat-open-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-size: 18px;
+  cursor: pointer;
+  z-index: 70;
+  pointer-events: auto;
+}
+
+/* Chat bubbles overlay */
+.chat-bubbles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 35;
+}
+
+.chat-bubble {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  padding: 6px 10px;
+  border-radius: 12px;
+  font-size: 13px;
+  white-space: nowrap;
+  max-width: 220px;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+}
+
+/* Name tags shown under players (screen-space overlay) */
+.name-tags {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 36;
+}
+
+.name-tag {
+  position: absolute;
+  transform: translate(-50%, 0);
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 8px;
+  font-size: 13px;
+  white-space: nowrap;
+  text-shadow: 0 1px 2px #000;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.health-bar-container {
+  width: 100%;
+  height: 6px;
+  background: #333;
+  border-radius: 3px;
+  margin-top: 4px;
+  overflow: hidden;
+}
+
+.health-bar-fill {
+  height: 100%;
+  background: linear-gradient(to right, #f00, #0f0);
+  border-radius: 3px;
+}
+
+/* Center chat stack (under crosshair) */
+.center-chat {
+  position: absolute;
+  left: 50%;
+  top: calc(50% + 35px);
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+  z-index: 36;
+}
+
+.popupPanelTitle {
+  font-family: minecraftFont;
+}
+
+.damage-popups {
+  position: absolute;
+  left: 50%;
+  top: calc(50% - 6px);
+  transform: translateX(-50%);
+  pointer-events: none;
+  z-index: 38;
+}
+
+.damage-popup {
+  color: #ffdddd;
+  font-size: 22px;
+  font-weight: 700;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.7);
+  transform-origin: center;
+  animation: popup-fade 900ms ease-out forwards;
+}
+
+@keyframes popup-fade {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-28px) scale(0.95);
+  }
+}
+
+.center-chat-msg {
+  background: rgba(0, 0, 0, 0.85);
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  max-width: min(70vw, 480px);
+  white-space: pre-wrap;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+}
+
+/* Coordinates display */
+.coords {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  text-align: right;
+  z-index: 60;
+  pointer-events: auto;
+  line-height: 1.2;
+}
+
+.coords div {
+  pointer-events: none;
+}
+
+/* Allow interactive controls inside the coordinates box (players link, buttons) */
+.coords .players-connected,
+.coords button,
+.coords a {
+  pointer-events: auto;
+}
+
+/* Overlay panels */
+.overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.inventory-panel,
+.crafting-panel {
+  background: var(--secondary-component-background-color);
+  border: 2px solid #555;
+  border-radius: 8px;
+  padding: 16px;
+  max-width: 420px;
+  width: 95%;
+  max-height: 80vh;
+  overflow-y: auto;
+  color: var(--main-font-color);
+  position: relative;
+  z-index: 101;
+  opacity: 90%;
+
+}
+
+.crafting-toggle {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  justify-content: center;
+}
+
+.toggle-btn {
+  background: #333;
+  border: 1px solid #555;
+  color: #aaa;
+  padding: 6px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.toggle-btn.active {
+  background: #4a90c2;
+  color: #fff;
+  border-color: #4a90c2;
+}
+
+.inventory-main-panel {
+  max-width: min(960px, 96vw);
+  width: min(960px, 96vw);
+}
+
+.panel-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: var(--main-highlight-color);
+  color: var(--main-link-color);
+  border-radius: 6px;
+  cursor: pointer;
+  z-index: 120;
+  font-size: 14px;
+}
+
+.inventory-panel h3,
+.crafting-panel h3 {
+  margin: 0 0 12px;
+  text-align: center;
+  color: var(--main-font-color);
+}
+
+/* Inventory grid */
+.inv-grid {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  gap: 3px;
+}
+
+.armor-panel {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.inventory-top-section {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  gap: 18px;
+  align-items: stretch;
+  margin-bottom: 14px;
+}
+
+@media (max-width: 760px) {
+  .inventory-top-section {
+    max-height: 70vh;
+    overflow: auto;
+  }
+}
+
+.avatar-preview-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    radial-gradient(circle at top, rgba(120, 170, 255, 0.2), transparent 55%),
+    linear-gradient(180deg, rgba(10, 14, 24, 0.95), rgba(20, 26, 42, 0.96));
+}
+
+.avatar-preview-canvas {
+  width: 100%;
+  aspect-ratio: 1 / 1.1;
+  display: block;
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 50% 15%, rgba(255, 255, 255, 0.1), transparent 40%),
+    linear-gradient(180deg, rgba(24, 30, 44, 0.92), rgba(10, 14, 20, 0.96));
+  cursor: grab;
+  touch-action: none;
+}
+
+.avatar-preview-canvas:active {
+  cursor: grabbing;
+}
+
+.avatar-preview-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.avatar-preview-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #f2f5ff;
+}
+
+.avatar-preview-hint {
+  font-size: 12px;
+  color: #aab5d6;
+}
+
+.armor-slot {
+  width: 60px;
+  height: 72px;
+  background: var(--main-highlight-color-quarter-opacity);
+  border: var(--main-border);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  cursor: pointer;
+}
+
+.armor-slot .item-tooltip {
+  display: none;
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #000;
+  color: #fff;
+  padding: 3px 6px;
+  border-radius: 3px;
+  font-size: large;
+  white-space: pre-line;
+  z-index: 10;
+}
+
+@media (min-width: 760px) {
+  .armor-slot .item-tooltip {
+    white-space: nowrap;
+  }
+}
+
+.armor-slot:hover .item-tooltip {
+  display: block;
+}
+
+@media (max-width: 760px) {
+  .inventory-top-section {
+    grid-template-columns: 1fr;
+  }
+}
+
+.weapon-slot {
+  cursor: pointer;
+}
+
+.armor-label {
+  font-size: 11px;
+  color: var(--main-font-color);
+  margin-bottom: 4px;
+  text-transform: capitalize;
+}
+
+.armor-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.armor-empty {
+  color: #777;
+  font-size: 18px;
+}
+
+.equip-btn {
+  position: absolute;
+  left: 4px;
+  bottom: 4px;
+  width: 28px;
+  height: 20px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 200;
+}
+
+/* Respawn action button inside modal */
+.respawn-btn {
+  padding: 8px 16px;
+  background: linear-gradient(#ff6b6b, #e04040);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+}
+
+.respawn-btn[disabled] {
+  opacity: 0.6;
+  cursor: default;
+  box-shadow: none;
+  pointer-events: none;
+}
+
+.inv-slot {
+  aspect-ratio: 1;
+  background: rgba(0, 0, 0, 0.4);
+  border: 2px solid #444;
+  border-radius: 3px;
+  position: relative;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+}
+
+.inv-slot.hotbar-inv {
+  border-color: #666;
+}
+
+.inv-slot.selected {
+  border-color: #fff;
+}
+
+.inv-slot .item-tooltip {
+  display: none;
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #000;
+  color: #fff;
+  padding: 3px 6px;
+  border-radius: 3px;
+  font-size: large;
+  white-space: pre-line;
+  z-index: 1000;
+}
+
+.inv-slot:hover .item-tooltip {
+  display: block;
+}
+
+/* Drag ghost shown while dragging inventory items */
+.drag-ghost {
+  position: fixed;
+  width: 48px;
+  height: 48px;
+  pointer-events: none;
+  z-index: 240;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.drag-ghost .item-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6);
+}
+
+/* First-person weapon overlay */
+.first-person-weapon {
+  position: absolute;
+  /* lowered by 10% from 18% -> 16.2% */
+  bottom: 16.2%;
+  right: 18%;
+  width: 160px;
+  height: 160px;
+  pointer-events: none;
+  z-index: 120;
+  transform: translateZ(0);
+}
+
+.fp-sword {
+  position: relative;
+  width: 160px;
+  height: 160px;
+  transform: rotate(-12deg);
+  image-rendering: pixelated;
+}
+
+.fp-sword .blade {
+  position: absolute;
+  left: 70px;
+  top: 8px;
+  width: 14px;
+  height: 108px;
+  border-radius: 1px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+  background: var(--blade-color);
+}
+
+.fp-sword .guard {
+  position: absolute;
+  left: 62px;
+  top: 98px;
+  width: 36px;
+  height: 8px;
+  background: #333;
+  border-radius: 1px;
+}
+
+.fp-sword .handle {
+  position: absolute;
+  left: 70px;
+  top: 106px;
+  width: 12px;
+  height: 40px;
+  background: linear-gradient(#7a4f2a, #5a3216);
+  border-radius: 1px;
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.2);
+}
+
+/* sword: make blade blocky and guard visible */
+.fp-sword.sword .blade {
+  left: 74px;
+  top: 6px;
+  width: 12px;
+  height: 112px;
+  border-radius: 1px;
+}
+
+.fp-sword.sword .blade::before,
+.fp-sword.sword .blade::after {
+  content: "";
+  position: absolute;
+  left: -6px;
+  width: 24px;
+  height: 12px;
+  background: var(--blade-color);
+}
+
+.fp-sword.sword .blade::before {
+  top: 64px;
+}
+
+.fp-sword.sword .blade::after {
+  top: 76px;
+  width: 36px;
+  left: -12px;
+  height: 8px;
+  background: #333;
+}
+
+.fp-sword.sword .guard {
+  left: 58px;
+  top: 86px;
+  width: 44px;
+  height: 10px;
+  background: #333;
+  border-radius: 0;
+}
+
+.fp-sword.sword .handle {
+  left: 66px;
+  top: 96px;
+  width: 18px;
+  height: 42px;
+}
+
+/* pickaxe: T-shaped head using pseudo elements */
+.fp-sword.pickaxe .blade {
+  left: 36px;
+  top: 26px;
+  width: 88px;
+  height: 44px;
+  border-radius: 1px;
+  background: transparent;
+}
+
+.fp-sword.pickaxe .blade::before,
+.fp-sword.pickaxe .blade::after {
+  content: "";
+  position: absolute;
+  background: var(--blade-color);
+}
+
+.fp-sword.pickaxe .blade::before {
+  left: 0;
+  top: 10px;
+  width: 26px;
+  height: 24px;
+}
+
+.fp-sword.pickaxe .blade::after {
+  left: 44px;
+  top: 6px;
+  width: 44px;
+  height: 32px;
+}
+
+.fp-sword.pickaxe .guard {
+  display: none;
+}
+
+.fp-sword.pickaxe .handle {
+  left: 86px;
+  top: 66px;
+  width: 10px;
+  height: 64px;
+}
+
+/* axe: blocky single-sided blade */
+.fp-sword.axe .blade {
+  left: 40px;
+  top: 28px;
+  width: 76px;
+  height: 54px;
+  background: transparent;
+}
+
+.fp-sword.axe .blade::before {
+  content: "";
+  position: absolute;
+  left: 18px;
+  top: 8px;
+  width: 44px;
+  height: 40px;
+  background: var(--blade-color);
+}
+
+.fp-sword.axe .guard {
+  display: none;
+}
+
+.fp-sword.axe .handle {
+  left: 78px;
+  top: 70px;
+  width: 12px;
+  height: 54px;
+}
+
+/* First-person weapon bobbing animations */
+.first-person-weapon .fp-sword {
+  /* start paused subtle bob */
+  animation: fp-bob-slow 3s infinite ease-in-out;
+  animation-play-state: paused;
+}
+
+.first-person-weapon.bobbing .fp-sword {
+  animation-name: fp-bob-fast;
+  animation-duration: 0.6s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-play-state: running;
+}
+
+@keyframes fp-bob-slow {
+  0% {
+    transform: rotate(-12deg) translateY(0);
+  }
+
+  50% {
+    transform: rotate(-10deg) translateY(-4px);
+  }
+
+  100% {
+    transform: rotate(-12deg) translateY(0);
+  }
+}
+
+@keyframes fp-bob-fast {
+  0% {
+    transform: rotate(-12deg) translateY(0);
+  }
+
+  50% {
+    transform: rotate(-6deg) translateY(-10px);
+  }
+
+  100% {
+    transform: rotate(-12deg) translateY(0);
+  }
+}
+
+/* First-person swing animations (triggered on click) */
+.fp-sword.swinging {
+  /* override bobbing animation while swinging */
+  animation-name: fp-swing-sword;
+  animation-duration: 380ms;
+  animation-timing-function: cubic-bezier(.2, .8, .2, 1);
+  animation-iteration-count: 1;
+  animation-fill-mode: forwards;
+}
+
+.fp-sword.pickaxe.swinging {
+  animation-name: fp-swing-pickaxe;
+  animation-duration: 460ms;
+  animation-timing-function: cubic-bezier(.2, .8, .2, 1);
+  animation-iteration-count: 1;
+  animation-fill-mode: forwards;
+}
+
+@keyframes fp-swing-sword {
+  0% {
+    transform: rotate(-12deg) translateX(0) translateY(0);
+  }
+
+  25% {
+    transform: rotate(36deg) translateX(-18px) translateY(-10px);
+  }
+
+  60% {
+    transform: rotate(-6deg) translateX(6px) translateY(-6px);
+  }
+
+  100% {
+    transform: rotate(-12deg) translateX(0) translateY(0);
+  }
+}
+
+@keyframes fp-swing-pickaxe {
+  0% {
+    transform: rotate(-12deg) translateX(0) translateY(0);
+  }
+
+  30% {
+    transform: rotate(30deg) translateX(-12px) translateY(-6px);
+  }
+
+  70% {
+    transform: rotate(-8deg) translateX(6px) translateY(-4px);
+  }
+
+  100% {
+    transform: rotate(-12deg) translateX(0) translateY(0);
+  }
+}
+
+/* Damage flash overlay */
+.damage-flash {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: rgba(255, 0, 0, 0.28);
+  opacity: 0;
+  transition: opacity 220ms ease-out;
+  z-index: 500;
+}
+
+.damage-flash.show {
+  opacity: 1;
+}
+
+
+/* Celestial (sun / moon) */
+.celestial {
+  position: absolute;
+  pointer-events: none;
+  z-index: 5;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+}
+
+.celestial.sun {
+  background: radial-gradient(circle at 30% 30%, #fff9d6 0%, #ffe082 25%, #ffb300 60%, #ff9800 100%);
+  box-shadow: 0 10px 40px rgba(255, 170, 40, 0.22), inset 0 -6px 18px rgba(255, 255, 255, 0.08);
+  filter: drop-shadow(0 8px 22px rgba(255, 160, 0, 0.18));
+}
+
+.celestial.moon {
+  background: radial-gradient(circle at 30% 30%, #ffffff 0%, #e6e6e6 30%, #cfcfcf 60%, #bfbfbf 100%);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18), inset 0 -4px 8px rgba(255, 255, 255, 0.06);
+  opacity: 0.95;
+}
+
+/* Star canvas */
+.star-canvas {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* gentle celestial glow animation */
+.celestial {
+  animation-name: celestial-glow;
+  animation-duration: 5s;
+  animation-iteration-count: infinite;
+  animation-timing-function: ease-in-out;
+}
+
+@keyframes celestial-glow {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    filter: drop-shadow(0 10px 24px rgba(255, 160, 60, 0.12));
+  }
+
+  50% {
+    transform: translate(-50%, -50%) scale(1.03);
+    filter: drop-shadow(0 12px 30px rgba(255, 160, 60, 0.18));
+  }
+
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    filter: drop-shadow(0 10px 24px rgba(255, 160, 60, 0.12));
+  }
+}
+
+.celestial.moon {
+  animation-duration: 8s;
+}
+
+
+/* Recipe list */
+.recipe-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.craft-progress {
+  position: relative;
+  height: 32px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 12px;
+  border: 2px solid #444;
+}
+
+.craft-progress-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: linear-gradient(90deg, #5a5, #9f9);
+  transition: width 0.05s linear;
+  border-radius: 4px;
+}
+
+.craft-progress-text {
+  position: absolute;
+  top: 50%;
+  left: 8px;
+  right: 8px;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #fff;
+  font-size: 13px;
+  font-weight: bold;
+  text-shadow: 0 1px 2px #000;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.recipe-card {
+  background: #0000004d;
+  border: 1px solid #555;
+  border-radius: 6px;
+  padding: 10px;
+  cursor: pointer;
+  transition: border-color .15s;
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.recipe-card:hover {
+  border-color: #8f8;
+}
+
+.craft-btn {
+  background: #4a7c4a;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 14px;
+  transition: background 0.2s;
+}
+
+.craft-btn:hover:not(:disabled) {
+  background: #5a9c5a;
+}
+
+.craft-btn:disabled {
+  background: #555;
+  color: #888;
+  cursor: not-allowed;
+}
+
+.recipe-result {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-weight: bold;
+}
+
+.recipe-result .owned {
+  font-size: 0.75em;
+  color: #aaa;
+  font-weight: normal;
+  margin-left: 4px;
+}
+
+.recipe-result .item-icon {
+  width: 24px;
+  height: 24px;
+}
+
+.recipe-ingredients {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* Tooltips for recipe ingredient icons: hidden by default, show on hover */
+.recipe-ingredients .item-icon {
+  position: relative;
+}
+
+.recipe-ingredients .item-icon .item-tooltip {
+  display: none;
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #000;
+  color: #fff;
+  padding: 3px 6px;
+  border-radius: 3px;
+  font-size: large;
+  white-space: pre-line;
+  z-index: 1000;
+}
+
+.recipe-ingredients .ingredient:hover .item-tooltip,
+.recipe-ingredients .item-icon:hover .item-tooltip {
+  display: block;
+}
+
+.ingredient {
+  background: var(--gradient-background);
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: small;
+  color: var(--main-link-color);
+  display: flex;
+  flex-direction: row;
+  align-content: center;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+}
+
+.ingredient.missing {
+  color: #ff6b6b;
+}
+
+.station-req {
+  background: rgba(255, 165, 0, 0.15);
+  color: #ffa500;
+  border: 1px solid rgba(255, 165, 0, 0.3);
+}
+
+.station-req.missing {
+  background: rgba(255, 100, 100, 0.15);
+  color: #ff6b6b;
+  border: 1px solid rgba(255, 100, 100, 0.3);
+}
+
+.station-req {
+  background: rgba(255, 180, 0, 0.15);
+  color: #ffcc44;
+  border: 1px solid rgba(255, 180, 0, 0.3);
+}
+
+.no-recipes {
+  text-align: center;
+  color: #999;
+  padding: 20px;
+}
+
+.inventoryPanelHeader {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  margin-bottom: 10px;
+}
+
+.inventoryPanelHeader button {
+  cursor: pointer;
+}
+
+.face-selection-panel {
+  margin-bottom: 15px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.face-creator-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 2px;
+  width: 200px;
+  margin: 10px auto;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.face-creator-cell {
+  aspect-ratio: 1;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  border-radius: 2px;
+}
+
+.face-creator-cell:hover {
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.face-creator-palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: center;
+  margin: 10px 0;
+}
+
+.face-creator-palette .color-swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.face-creator-palette .color-swatch.selected {
+  border-color: #fff;
+  box-shadow: 0 0 4px rgba(255, 255, 255, 0.5);
+}
+
+.face-creator-inputs {
+  display: flex;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.face-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+  gap: 8px;
+  width: 100%;
+}
+
+.face-option {
+  width: 40px;
+  height: 40px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.face-option:hover {
+  border-color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.face-option.selected {
+  border-color: #4CAF50;
+  background: rgba(76, 175, 80, 0.2);
+}
+
+.selectedItemInfo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+}
+
+.inventoryFooter {
+  margin-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, .04);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  box-shadow: 1px 1px 1px 1px black;
+  padding: 20px;
+}
+
+.innerInventoryFooterDiv {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.player-entry {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  border-bottom: var(--main-border);
+  padding: 15px;
+}
+
+.bonfire-entry {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  border-bottom: var(--main-border);
+  padding: 12px;
+}
+
+.bonfire-entry.glow {
+  background: rgba(255, 150, 50, 0.25);
+  box-shadow: 0 0 12px rgba(255, 150, 50, 0.6) inset;
+  border: 1px solid rgba(255, 150, 50, 0.8);
+}
+
+.bonfire-info {
+  flex: 1;
+}
+
+.bonfire-nickname {
+  font-weight: bold;
+  color: #ff9944;
+}
+
+.bonfire-coords {
+  font-size: 0.85em;
+  color: #aaa;
+}
+
+.bonfire-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.bonfire-drag-handle {
+  cursor: grab;
+  padding: 4px 8px;
+  font-size: 1.2em;
+  color: #888;
+  user-select: none;
+  touch-action: none;
+  flex-shrink: 0;
+  transition: color 0.15s;
+}
+
+.bonfire-drag-handle:hover {
+  color: #ff9944;
+}
+
+.bonfire-drag-handle.drag-handle-active {
+  color: #ff9944;
+  cursor: grabbing;
+}
+
+.bonfire-entry.dragging {
+  opacity: 0.4;
+}
+
+.bonfire-entry.drag-over-top {
+  border-top: 2px solid #ff9944;
+}
+
+.bonfire-entry.drag-over-bottom {
+  border-bottom: 2px solid #ff9944;
+}
+
+.party-summary {
+  margin-bottom: 14px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: var(--main-highlight-color-quarter-opacity);
+}
+
+.party-summary-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.party-summary-members {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.party-member-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.28);
+  font-size: 13px;
+}
+
+.party-leave-btn {
+  background: #a94444;
+  cursor: pointer;
+}
+
+.party-state-label {
+  display: flex;
+  align-items: center;
+  color: #cfd8dc;
+  font-size: 13px;
+}
+
+.pending-badge {
+  background: #666;
+  color: #fff;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.menuPanel {
+  pointer-events: auto;
+  z-index: 1001;
+}
+
+.menuPanel button {
+  pointer-events: auto;
+  cursor: pointer;
+}

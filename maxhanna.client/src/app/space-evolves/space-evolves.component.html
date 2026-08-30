@@ -29,6 +29,10 @@
         <h2>Evolution fork</h2><p>Pick one mutation. The brood will adapt.</p>
         <div class="upgrade-grid"><button *ngFor="let upgrade of upgradeChoices" (click)="chooseUpgrade(upgrade)"><span class="upgrade-icon" [attr.aria-label]="upgrade.weapon" role="img">{{ upgrade.weapon === 'laser' ? '⚡' : upgrade.weapon === 'missile' ? '🚀' : '🛡️' }}</span><span class="upgrade-type">{{upgrade.weapon}}</span><strong>{{upgrade.name}}</strong><small>{{upgrade.description}}</small></button></div>
       </div>
+      <div class="experience-bar" aria-label="Experience progress">
+        <div class="experience-label"><span>EXPERIENCE</span><strong>{{experience}} / {{nextLevel}}</strong></div>
+        <div class="experience-track"><div class="experience-fill" [style.width.%]="nextLevel > 0 ? Math.min(100, experience / nextLevel * 100) : 0"></div></div>
+      </div>
     </div>
     <aside class="side-panel">
       <h2>Space: Evolves</h2><p>Steer the ship through an endless vertical descent. Destroy evolving bugs, collect mutations, and build a run that can survive the Queen.</p>
