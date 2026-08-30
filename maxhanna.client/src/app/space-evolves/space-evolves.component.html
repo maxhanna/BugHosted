@@ -12,6 +12,15 @@
     <div class="arena-wrap">
       <canvas #gameCanvas class="arena" (pointermove)="pointerMove($event)" (pointerleave)="pointerLeave()" (pointerdown)="pointerMove($event)"></canvas>
       <div class="status">{{status}}</div>
+      <div class="weapon-hud">
+        <div class="weapon-row" *ngFor="let weapon of weaponStatus" [style.--weapon-color]="weapon.color">
+          <strong>{{weapon.name}}</strong><span>{{weapon.interval ? ('Every ' + (weapon.interval | number:'1.1-2') + 's') : 'Passive'}}</span>
+        </div>
+        <div class="upgrade-list" *ngIf="activeUpgradeNames.length">
+          <strong>Current upgrades</strong>
+          <span *ngFor="let upgrade of activeUpgradeNames">◆ {{upgrade}}</span>
+        </div>
+      </div>
       <div class="pause-card" *ngIf="paused && !gameOver"><h2>Paused</h2><button (click)="togglePause()">Resume run</button></div>
       <div class="gameover-card" *ngIf="gameOver"><h2>Ship lost</h2><p>{{status}}</p><button (click)="restart()">Start a new run</button></div>
       <div class="upgrade-card" *ngIf="upgradeChoices.length > 0">

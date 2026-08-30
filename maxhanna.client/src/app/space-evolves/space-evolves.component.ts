@@ -2,235 +2,67 @@ import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild } from '@ang
 import { ChildComponent } from '../child.component';
 import { SpaceEvolvesRun, SpaceEvolvesService } from '../../services/space-evolves.service';
 
-interface SpaceBug { x: number; y: number; hp: number; maxHp: number; speed: number; size: number; phase: number; kind: 'scuttler' | 'mantis' | 'queen'; }
-interface SpaceShot { x: number; y: number; vx: number; vy: number; damage: number; kind: 'laser' | 'rocket'; radius: number; homing?: boolean; }
-interface SpaceUpgrade { id: string; name: string; description: string; weapon: 'laser' | 'rocket' | 'shield'; }
+interface SpaceBug { x: number; y: number; hp: number; maxHp: number; speed: number; size: number; phase: number; kind: 'scuttler' | 'mantis' | 'queen'; trait: 'charger' | 'armored' | 'splitter' | 'weaver' | 'volatile' | 'regenerator'; armor: number; zigzag: number; attack: number; regen: number; }
+interface SpaceProjectile { x: number; y: number; vx: number; vy: number; damage: number; kind: 'laser' | 'missile'; radius: number; range: number; homing: number; splash: number; age: number; }
+interface SpaceUpgrade { id: string; name: string; description: string; weapon: 'laser' | 'missile' | 'shield'; }
 interface SpaceScore { username: string; score: number; wave: number; }
 
 @Component({ selector: 'app-space-evolves', templateUrl: './space-evolves.component.html', styleUrl: './space-evolves.component.css', standalone: false })
 export class SpaceEvolvesComponent extends ChildComponent implements AfterViewInit, OnDestroy {
   constructor(private spaceEvolvesService: SpaceEvolvesService) { super(); }
-
-  private getUserId(): number { return Number(this.parentRef?.user?.id ?? 0); }
-
-  private currentRun(): SpaceEvolvesRun {
-    return { runId: this.serverRunId, wave: this.wave, level: this.level, score: this.score, experience: this.experience, nextLevel: this.nextLevel, player: this.player, stats: this.stats, upgrades: this.persistedUpgrades, gameOver: this.gameOver };
-  }
-
-  private async loadServerRun(): Promise<void> {
-    this.serverUserId = this.getUserId();
-    if (!this.serverUserId) return;
-    const saved = await this.spaceEvolvesService.getActiveRun(this.serverUserId);
-    if (!saved || saved.gameOver) return;
-    this.serverRunId = saved.runId;
-    Object.assign(this.player, saved.player ?? {});
-    this.wave = saved.wave || 1; this.level = saved.level || 1; this.score = saved.score || 0;
-    this.experience = saved.experience || 0; this.nextLevel = saved.nextLevel || 100;
-    this.stats = { ...this.stats, ...(saved.stats ?? {}) };
-    this.persistedUpgrades = Array.isArray(saved.upgrades) ? saved.upgrades : [];
-    this.status = 'Saved server run restored. Continue the evolution.';
-  }
-
-  private persistRun(): void {
-    if (!this.serverUserId || this.gameOver) return;
-    void this.spaceEvolvesService.saveRun(this.serverUserId, this.currentRun());
-  }
   @ViewChild('gameCanvas', { static: true }) gameCanvas!: ElementRef<HTMLCanvasElement>;
-  private ctx!: CanvasRenderingContext2D;
-  private frame = 0;
-  private lastTime = 0;
-  private running = false;
-  private saveTimer: any;
-  private keys = new Set<string>();
-  private touchX: number | null = null;
-  private readonly saveKey = 'space-evolves-progress';
-  private serverUserId = 0;
-  private serverRunId?: string;
-  private persistedUpgrades: string[] = [];
-
-  player = { x: 0.5, y: 0.82, hp: 100, maxHp: 100, shield: 0, fireCooldown: 0, speed: 0.55 };
-  shots: SpaceShot[] = [];
-  bugs: SpaceBug[] = [];
-  wave = 1;
-  score = 0;
-  level = 1;
-  experience = 0;
-  nextLevel = 100;
-  paused = false;
-  gameOver = false;
-  upgradeChoices: SpaceUpgrade[] = [];
-  highScores: SpaceScore[] = [];
-  loadingScores = true;
-  status = 'Choose an upgrade and survive the swarm.';
-  private spawnTimer = 0;
-  private waveKills = 0;
-
-  readonly upgrades: SpaceUpgrade[] = [
-    { id: 'laser-pulse', name: 'Pulse Lattice', description: 'Lasers fire 20% faster and pierce one extra bug.', weapon: 'laser' },
-    { id: 'laser-split', name: 'Prismatic Split', description: 'Every laser branches into two angled beams.', weapon: 'laser' },
-    { id: 'laser-burn', name: 'Solar Burn', description: 'Lasers deal +35 damage and briefly ignite targets.', weapon: 'laser' },
-    { id: 'rocket-pair', name: 'Twin Warheads', description: 'Launch two rockets with a spread instead of one.', weapon: 'rocket' },
-    { id: 'rocket-seeker', name: 'Seeker Payload', description: 'Rockets home toward the nearest evolving bug.', weapon: 'rocket' },
-    { id: 'rocket-yield', name: 'Volatile Core', description: 'Rockets deal 60% more damage and explode wider.', weapon: 'rocket' },
-    { id: 'shield-arc', name: 'Arc Shield', description: 'Gain 18 shield energy and reflect contact damage.', weapon: 'shield' },
-    { id: 'shield-hull', name: 'Reinforced Hull', description: 'Increase maximum hull by 35 and repair 25.', weapon: 'shield' },
-    { id: 'shield-thorns', name: 'Kinetic Thorns', description: 'Nearby bugs take damage whenever your shield absorbs a hit.', weapon: 'shield' },
-  ];
-
-  private stats = { laserDamage: 18, laserCooldown: 0.22, laserCount: 1, laserPierce: 0, rocketDamage: 42, rocketCooldown: 0.9, rocketCount: 1, rocketHoming: false, rocketYield: 1, shieldThorns: 0 };
-
-  ngAfterViewInit() {
-    this.ctx = this.gameCanvas.nativeElement.getContext('2d')!;
-    this.resizeCanvas();
-    window.addEventListener('resize', this.resizeCanvas);
-    window.addEventListener('keydown', this.onKeyDown);
-    window.addEventListener('keyup', this.onKeyUp);
-    this.loadProgress();
-    void this.loadServerRun();
-    this.loadHighScores();
-    this.running = true;
-    this.lastTime = performance.now();
-    this.frame = requestAnimationFrame(this.loop);
-  }
-
-  ngOnDestroy() {
-    this.running = false;
-    cancelAnimationFrame(this.frame);
-    clearTimeout(this.saveTimer);
-    window.removeEventListener('resize', this.resizeCanvas);
-    window.removeEventListener('keydown', this.onKeyDown);
-    window.removeEventListener('keyup', this.onKeyUp);
-  }
-
-  private resizeCanvas = () => {
-    const canvas = this.gameCanvas.nativeElement;
-    const rect = canvas.getBoundingClientRect();
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    canvas.width = Math.max(320, Math.floor(rect.width * dpr));
-    canvas.height = Math.max(480, Math.floor(rect.height * dpr));
-    this.ctx?.setTransform(dpr, 0, 0, dpr, 0, 0);
-  };
-
-  private onKeyDown = (event: KeyboardEvent) => {
-    const key = event.key.toLowerCase();
-    if (['arrowleft', 'arrowright', 'a', 'd', ' ', 'p'].includes(key)) event.preventDefault();
-    if (key === 'p') this.paused = !this.paused;
-    this.keys.add(key);
-  };
-  private onKeyUp = (event: KeyboardEvent) => this.keys.delete(event.key.toLowerCase());
-
-  pointerMove(event: PointerEvent) {
-    const rect = this.gameCanvas.nativeElement.getBoundingClientRect();
-    this.touchX = Math.max(0.08, Math.min(0.92, (event.clientX - rect.left) / rect.width));
-  }
-  pointerLeave() { this.touchX = null; }
-  togglePause() { this.paused = !this.paused; }
-  restart() { this.resetRun(); }
-
-  chooseUpgrade(upgrade: SpaceUpgrade) {
-    if (upgrade.weapon === 'laser') {
-      if (upgrade.id === 'laser-pulse') this.stats.laserCooldown *= 0.8;
-      if (upgrade.id === 'laser-split') this.stats.laserCount += 1;
-      if (upgrade.id === 'laser-burn') this.stats.laserDamage *= 1.35;
-    } else if (upgrade.weapon === 'rocket') {
-      if (upgrade.id === 'rocket-pair') this.stats.rocketCount += 1;
-      if (upgrade.id === 'rocket-seeker') this.stats.rocketHoming = true;
-      if (upgrade.id === 'rocket-yield') { this.stats.rocketDamage *= 1.6; this.stats.rocketYield *= 1.35; }
-    } else {
-      if (upgrade.id === 'shield-arc') this.player.shield += 18;
-      if (upgrade.id === 'shield-hull') { this.player.maxHp += 35; this.player.hp = Math.min(this.player.maxHp, this.player.hp + 25); }
-      if (upgrade.id === 'shield-thorns') this.stats.shieldThorns += 18;
+  private ctx!: CanvasRenderingContext2D; private frame = 0; private lastTime = 0; private running = false; private saveTimer: any; private keys = new Set<string>(); private touchX: number | null = null; private spawnTimer = 0; private waveKills = 0; private serverUserId = 0; private serverRunId?: string; private persistedUpgrades: string[] = []; private readonly saveKey = 'space-evolves-progress';
+  player = { x: .5, y: .82, hp: 100, maxHp: 100, shield: 0, speed: .55 }; shots: SpaceProjectile[] = []; bugs: SpaceBug[] = []; wave = 1; score = 0; level = 1; experience = 0; nextLevel = 100; paused = false; gameOver = false; upgradeChoices: SpaceUpgrade[] = []; highScores: SpaceScore[] = []; loadingScores = true; status = 'Three weapons fire independently. Survive the evolving swarm.';
+  private stats = { laserDamage: 18, laserInterval: .30, laserSpeed: 1.15, laserRange: 1.15, laserCount: 1, laserPierce: 0, missileDamage: 48, missileInterval: 1.15, missileSpeed: .62, missileRange: 1.2, missileCount: 1, missileHoming: 0, missileSplash: .10, shieldMax: 0, shieldRegen: 0, shieldThorns: 0, shieldPulse: 0, shieldPulseInterval: 2.4 }; private timers = { laser: 0, missile: 0, shield: 0 };
+  readonly upgrades: SpaceUpgrade[] = [{ id: 'laser-rapid', name: 'Rapid Lattice', description: 'Laser interval -22%; projectiles travel 15% faster.', weapon: 'laser' }, { id: 'laser-prism', name: 'Prism Array', description: 'Fire one additional laser with a wider spread.', weapon: 'laser' }, { id: 'laser-pierce', name: 'Phase Piercers', description: 'Lasers pass through two extra bugs and gain 25% range.', weapon: 'laser' }, { id: 'laser-overdrive', name: 'Overdrive Coils', description: 'Laser damage +45%.', weapon: 'laser' }, { id: 'missile-swarm', name: 'Swarm Rack', description: 'Launch two missiles per salvo.', weapon: 'missile' }, { id: 'missile-thrust', name: 'Afterburner Fuel', description: 'Missiles move 35% faster and reach 30% farther.', weapon: 'missile' }, { id: 'missile-seeker', name: 'Brood Seeker', description: 'Missiles home toward nearby bugs.', weapon: 'missile' }, { id: 'missile-warhead', name: 'Cluster Warhead', description: 'Missile damage +35% and splash radius +70%.', weapon: 'missile' }, { id: 'shield-core', name: 'Aegis Core', description: 'Gain 38 maximum shield and fully recharge it.', weapon: 'shield' }, { id: 'shield-recharge', name: 'Flux Recharger', description: 'Shield regenerates every second.', weapon: 'shield' }, { id: 'shield-thorns', name: 'Kinetic Thorns', description: 'Shield impacts damage nearby bugs.', weapon: 'shield' }, { id: 'shield-pulse', name: 'Nova Pulse', description: 'A timed pulse damages and pushes nearby bugs.', weapon: 'shield' }];
+  private getUserId() { return Number(this.parentRef?.user?.id ?? 0); } private currentRun(): SpaceEvolvesRun { return { runId: this.serverRunId, wave: this.wave, level: this.level, score: this.score, experience: this.experience, nextLevel: this.nextLevel, player: this.player, stats: this.stats, upgrades: this.persistedUpgrades, gameOver: this.gameOver }; }
+  ngAfterViewInit() { this.ctx = this.gameCanvas.nativeElement.getContext('2d')!; this.resizeCanvas(); window.addEventListener('resize', this.resizeCanvas); window.addEventListener('keydown', this.onKeyDown); window.addEventListener('keyup', this.onKeyUp); this.loadProgress(); void this.loadServerRun(); this.loadHighScores(); this.running = true; this.lastTime = performance.now(); this.frame = requestAnimationFrame(this.loop); } ngOnDestroy() { this.running = false; cancelAnimationFrame(this.frame); clearTimeout(this.saveTimer); window.removeEventListener('resize', this.resizeCanvas); window.removeEventListener('keydown', this.onKeyDown); window.removeEventListener('keyup', this.onKeyUp); }
+  private resizeCanvas = () => { const c = this.gameCanvas.nativeElement, r = c.getBoundingClientRect(), d = Math.min(devicePixelRatio || 1, 2); c.width = Math.max(320, Math.floor(r.width * d)); c.height = Math.max(480, Math.floor(r.height * d)); this.ctx?.setTransform(d, 0, 0, d, 0, 0); }; private onKeyDown = (e: KeyboardEvent) => { const k = e.key.toLowerCase(); if (['arrowleft', 'arrowright', 'a', 'd', 'p', ' '].includes(k)) e.preventDefault(); if (k === 'p') this.paused = !this.paused; this.keys.add(k); }; private onKeyUp = (e: KeyboardEvent) => this.keys.delete(e.key.toLowerCase()); pointerMove(e: PointerEvent) { const r = this.gameCanvas.nativeElement.getBoundingClientRect(); this.touchX = Math.max(.08, Math.min(.92, (e.clientX - r.left) / r.width)); } pointerLeave() { this.touchX = null; } togglePause() { this.paused = !this.paused; } restart() { this.resetRun(); }
+  chooseUpgrade(u: SpaceUpgrade) { switch (u.id) { case 'laser-rapid': this.stats.laserInterval *= .78; this.stats.laserSpeed *= 1.15; break; case 'laser-prism': this.stats.laserCount++; break; case 'laser-pierce': this.stats.laserPierce += 2; this.stats.laserRange *= 1.25; break; case 'laser-overdrive': this.stats.laserDamage *= 1.45; break; case 'missile-swarm': this.stats.missileCount++; break; case 'missile-thrust': this.stats.missileSpeed *= 1.35; this.stats.missileRange *= 1.3; break; case 'missile-seeker': this.stats.missileHoming++; break; case 'missile-warhead': this.stats.missileDamage *= 1.35; this.stats.missileSplash *= 1.7; break; case 'shield-core': this.stats.shieldMax += 38; this.player.shield = this.stats.shieldMax; break; case 'shield-recharge': this.stats.shieldRegen += 7; break; case 'shield-thorns': this.stats.shieldThorns += 22; break; case 'shield-pulse': this.stats.shieldPulse += 28; break; }this.persistedUpgrades.push(u.id); this.level++; this.nextLevel = Math.floor(this.nextLevel * 1.22); this.experience = 0; this.upgradeChoices = []; this.status = `${u.name} evolved. The brood mutates in response.`; this.saveProgress(); this.persistRun(); }
+  private loop = (t: number) => { if (!this.running) return; const dt = Math.min(.05, Math.max(0, (t - this.lastTime) / 1000)); this.lastTime = t; if (!this.paused && !this.gameOver && !this.upgradeChoices.length) this.update(dt); this.draw(); this.frame = requestAnimationFrame(this.loop); };
+  private update(dt: number) { const target = this.touchX ?? (this.keys.has('arrowleft') || this.keys.has('a') ? this.player.x - this.player.speed * dt : this.keys.has('arrowright') || this.keys.has('d') ? this.player.x + this.player.speed * dt : this.player.x); this.player.x += (Math.max(.08, Math.min(.92, target)) - this.player.x) * Math.min(1, dt * 14); this.timers.laser -= dt; this.timers.missile -= dt; this.timers.shield -= dt; if (this.timers.laser <= 0) { this.fireLasers(); this.timers.laser = this.stats.laserInterval; } if (this.timers.missile <= 0) { this.fireMissiles(); this.timers.missile = this.stats.missileInterval; } if (this.stats.shieldPulse > 0 && this.timers.shield <= 0) { this.shieldPulse(); this.timers.shield = this.stats.shieldPulseInterval; } if (this.stats.shieldRegen > 0) this.player.shield = Math.min(this.stats.shieldMax, this.player.shield + this.stats.shieldRegen * dt); this.spawnTimer -= dt; if (this.spawnTimer <= 0) { this.spawnWaveBug(); this.spawnTimer = Math.max(.14, .8 - this.wave * .02); } for (const s of this.shots) { s.age += dt; if (s.homing) { const t = this.bugs.reduce((best, b) => !best || Math.hypot(b.x - s.x, b.y - s.y) < Math.hypot(best.x - s.x, best.y - s.y) ? b : best, undefined as SpaceBug | undefined); if (t) { s.vx += (t.x - s.x) * dt * 2; s.vy += (t.y - s.y) * dt * 2; const n = Math.hypot(s.vx, s.vy) || 1; s.vx = s.vx / n * .7; s.vy = Math.min(-.2, s.vy / n); } } s.x += s.vx * dt; s.y += s.vy * dt; } this.shots = this.shots.filter(s => s.age < s.range && s.y > -.15 && s.x > -.2 && s.x < 1.2); for (const b of this.bugs) { b.y += b.speed * dt; b.x += Math.sin(b.phase + b.y * 17) * dt * b.zigzag; if (b.regen > 0) b.hp = Math.min(b.maxHp, b.hp + b.regen * dt); } for (let i = this.bugs.length - 1; i >= 0; i--) { const b = this.bugs[i]; if (b.y > 1.12) { this.bugs.splice(i, 1); continue; } for (let j = this.shots.length - 1; j >= 0; j--) { const s = this.shots[j]; if (Math.hypot(s.x - b.x, s.y - b.y) < b.size + s.radius) { const damage = Math.max(1, s.damage - b.armor); b.hp -= damage; if (s.kind === 'missile') this.explode(s.x, s.y, s.damage * s.splash); if (s.homing || s.kind === 'missile' || this.stats.laserPierce <= 0) this.shots.splice(j, 1); else s.damage *= .72; if (b.hp <= 0) { this.killBug(i); if (b.trait === 'splitter') this.splitBug(b); } break; } } if (this.bugs[i] === b && Math.hypot(b.x - this.player.x, b.y - this.player.y) < b.size + .042) { this.damagePlayer(Math.ceil(b.attack)); this.bugs.splice(i, 1); } } if (this.waveKills >= 8 + this.wave * 2 && !this.bugs.length) { this.wave++; this.waveKills = 0; this.status = `Wave ${this.wave}: faster, tougher mutations incoming.`; } if (this.experience >= this.nextLevel) this.offerUpgrades(); }
+  get activeUpgradeNames(): string[] { return this.persistedUpgrades.map(id => this.upgrades.find(u => u.id === id)?.name ?? id); }
+  get weaponStatus() { return [{ name: 'Lasers', interval: this.stats.laserInterval, color: '#7cf7ff' }, { name: 'Missiles', interval: this.stats.missileInterval, color: '#ff9d4d' }, { name: 'Shield', interval: this.stats.shieldPulse > 0 ? this.stats.shieldPulseInterval : 0, color: '#9d8cff' }]; }
+  private fireLasers() { for (let i = 0; i < this.stats.laserCount; i++) { const spread = (i - (this.stats.laserCount - 1) / 2) * .055; this.shots.push({ x: this.player.x + spread, y: this.player.y - .05, vx: spread * 1.4, vy: -this.stats.laserSpeed, damage: this.stats.laserDamage, kind: 'laser', radius: .009, range: this.stats.laserRange, homing: 0, splash: 0, age: 0 }); } } private fireMissiles() { for (let i = 0; i < this.stats.missileCount; i++) { const spread = (i - (this.stats.missileCount - 1) / 2) * .08; this.shots.push({ x: this.player.x + spread, y: this.player.y - .05, vx: spread * .9, vy: -this.stats.missileSpeed, damage: this.stats.missileDamage, kind: 'missile', radius: .023, range: this.stats.missileRange, homing: this.stats.missileHoming, splash: this.stats.missileSplash, age: 0 }); } }
+  private explode(x: number, y: number, d: number) { for (const b of this.bugs) if (Math.hypot(b.x - x, b.y - y) < this.stats.missileSplash + .045) b.hp -= d * .35; } private shieldPulse() { for (const b of this.bugs) if (Math.hypot(b.x - this.player.x, b.y - this.player.y) < .2) { b.hp -= this.stats.shieldPulse; b.y -= .035; } } private splitBug(b: SpaceBug) { for (let i = 0; i < 2; i++) { const hp = Math.max(5, b.maxHp * .22), child = { ...b, x: Math.max(.04, Math.min(.96, b.x + (i ? -.035 : .035))), y: b.y - .02, hp, maxHp: hp, size: b.size * .62, speed: b.speed * 1.25, trait: 'charger' as const, armor: 0, attack: b.attack * .45, regen: 0, zigzag: b.zigzag * 1.2 }; this.bugs.push(child); } }
+  private spawnWaveBug() { const kinds: SpaceBug['kind'][] = ['scuttler', 'mantis', 'queen']; const traits: SpaceBug['trait'][] = ['charger', 'armored', 'splitter', 'weaver', 'volatile', 'regenerator']; const kind = kinds[(Math.floor(Math.random() * kinds.length) + (this.wave > 5 ? 1 : 0)) % kinds.length]; const trait = traits[Math.floor(Math.random() * traits.length)]; const scale = 1 + this.wave * .13; const base = (kind === 'queen' ? 130 : kind === 'mantis' ? 48 : 24) * scale; const hp = base * (trait === 'armored' ? 1.3 : trait === 'regenerator' ? 1.15 : 1); this.bugs.push({ x: .08 + Math.random() * .84, y: -.06, hp, maxHp: hp, speed: ((kind === 'queen' ? .08 : kind === 'mantis' ? .12 : .17) + this.wave * .004) * (trait === 'charger' ? 1.45 : trait === 'weaver' ? 1.08 : 1), size: (kind === 'queen' ? .055 : kind === 'mantis' ? .04 : .029) * (trait === 'armored' ? 1.12 : 1), phase: Math.random() * 100, kind, trait, armor: trait === 'armored' ? 8 + this.wave * .8 : 0, zigzag: trait === 'weaver' ? .15 : trait === 'charger' ? .025 : .06, attack: (kind === 'queen' ? 28 : kind === 'mantis' ? 18 : 10) * (1 + this.wave * .09) * (trait === 'volatile' ? 1.55 : 1), regen: trait === 'regenerator' ? base * .18 : 0 }); }
+  private killBug(i: number) { if (!this.bugs[i]) return; this.bugs.splice(i, 1); this.score += 10 * this.wave; this.waveKills++; this.experience += 22; } private damagePlayer(amount: number) { const absorbed = Math.min(this.player.shield, amount); this.player.shield -= absorbed; const rest = amount - absorbed; if (absorbed && this.stats.shieldThorns) for (const b of this.bugs) if (Math.hypot(b.x - this.player.x, b.y - this.player.y) < .18) b.hp -= this.stats.shieldThorns; this.player.hp -= rest; if (this.player.hp <= 0) this.endRun(); }
+  private offerUpgrades() { this.upgradeChoices = [...this.upgrades].sort(() => Math.random() - .5).slice(0, 3); this.status = 'Evolution fork: choose one mutation.'; }  private resetRun() { this.persistedUpgrades = []; this.player = { x: .5, y: .82, hp: 100, maxHp: 100, shield: 0, speed: .55 }; this.shots = []; this.bugs = []; this.wave = 1; this.score = 0; this.level = 1; this.experience = 0; this.nextLevel = 100; this.gameOver = false; this.upgradeChoices = []; this.waveKills = 0; this.timers = { laser: 0, missile: 0, shield: 0 }; this.stats = { laserDamage: 18, laserInterval: .30, laserSpeed: 1.15, laserRange: 1.15, laserCount: 1, laserPierce: 0, missileDamage: 48, missileInterval: 1.15, missileSpeed: .62, missileRange: 1.2, missileCount: 1, missileHoming: 0, missileSplash: .10, shieldMax: 0, shieldRegen: 0, shieldThorns: 0, shieldPulse: 0, shieldPulseInterval: 2.4 }; this.status = 'Three weapons fire independently. Survive the evolving swarm.'; this.saveProgress(); }
+  private endRun() { this.gameOver = true; this.status = `Run ended at wave ${this.wave}. Score ${this.score}.`; this.saveProgress(true); if (this.serverUserId) void this.spaceEvolvesService.endRun(this.serverUserId, this.currentRun()); } private async loadServerRun() { this.serverUserId = this.getUserId(); if (!this.serverUserId) return; const s = await this.spaceEvolvesService.getActiveRun(this.serverUserId); if (!s || s.gameOver) return; this.serverRunId = s.runId; Object.assign(this.player, s.player ?? {}); this.wave = s.wave || 1; this.level = s.level || 1; this.score = s.score || 0; this.experience = s.experience || 0; this.nextLevel = s.nextLevel || 100; this.stats = { ...this.stats, ...(s.stats ?? {}) }; this.persistedUpgrades = Array.isArray(s.upgrades) ? s.upgrades : []; this.status = 'Saved server run restored. Continue the evolution.'; } private persistRun() { if (this.serverUserId && !this.gameOver) void this.spaceEvolvesService.saveRun(this.serverUserId, this.currentRun()); } private loadProgress() { try { const r = localStorage.getItem(this.saveKey); if (!r) return; const s = JSON.parse(r); if (s && !s.gameOver) { Object.assign(this.player, s.player ?? {}); this.wave = s.wave || 1; this.score = s.score || 0; this.level = s.level || 1; this.experience = s.experience || 0; this.nextLevel = s.nextLevel || 100; this.stats = { ...this.stats, ...(s.stats || {}) }; this.status = 'Saved run restored. Continue the evolution.'; } } catch { } } private saveProgress(dead = false) { const p = { player: this.player, wave: this.wave, score: this.score, level: this.level, experience: this.experience, nextLevel: this.nextLevel, stats: this.stats, gameOver: dead }; try { localStorage.setItem(this.saveKey, JSON.stringify(p)); } catch { } clearTimeout(this.saveTimer); if (!dead) this.saveTimer = setTimeout(() => this.saveProgress(), 3000); } private async loadHighScores() { this.loadingScores = true; try { const r = await fetch('/spaceevolves/highscores?limit=10'); if (r.ok) this.highScores = await r.json(); } catch { this.highScores = []; } finally { this.loadingScores = false; } }
+  private draw() { const c = this.gameCanvas.nativeElement, ctx = this.ctx, w = c.clientWidth, h = c.clientHeight; ctx.clearRect(0, 0, w, h); const g = ctx.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#071936'); g.addColorStop(1, '#02040d'); ctx.fillStyle = g; ctx.fillRect(0, 0, w, h); ctx.strokeStyle = 'rgba(95,196,255,.12)'; for (let y = performance.now() / 25 % 40; y < h; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); } for (const b of this.bugs) this.drawBug(ctx, b.x * w, b.y * h, b.size * w, b); for (const s of this.shots) { ctx.fillStyle = s.kind === 'missile' ? '#ff9d4d' : '#7cf7ff'; ctx.shadowBlur = s.kind === 'missile' ? 17 : 12; ctx.shadowColor = ctx.fillStyle; ctx.beginPath(); ctx.arc(s.x * w, s.y * h, Math.max(2, s.radius * w), 0, Math.PI * 2); ctx.fill(); if (s.kind === 'missile') { ctx.strokeStyle = '#ffe0a0'; ctx.beginPath(); ctx.moveTo(s.x * w, s.y * h + 8); ctx.lineTo(s.x * w - s.vx * w * .12, s.y * h + 20); ctx.stroke(); } ctx.shadowBlur = 0; } this.drawShip(ctx, this.player.x * w, this.player.y * h, Math.min(w, h) * .042); }
+  private drawShip(ctx: CanvasRenderingContext2D, x: number, y: number, z: number) { ctx.save(); ctx.translate(x, y); ctx.lineJoin = 'round'; ctx.shadowBlur = 12; ctx.shadowColor = '#55dfff'; ctx.fillStyle = '#b9d9e8'; ctx.strokeStyle = '#66ddff'; ctx.lineWidth = Math.max(1.5, z * .045); ctx.beginPath(); ctx.moveTo(0, -z * 1.35); ctx.quadraticCurveTo(z * .18, -z * .85, z * .30, -z * .30); ctx.lineTo(z * 1.05, z * .46); ctx.lineTo(z * .72, z * .66); ctx.lineTo(z * .42, z * .48); ctx.lineTo(z * .28, z * 1.02); ctx.lineTo(0, z * .78); ctx.lineTo(-z * .28, z * 1.02); ctx.lineTo(-z * .42, z * .48); ctx.lineTo(-z * .72, z * .66); ctx.lineTo(-z * 1.05, z * .46); ctx.lineTo(-z * .30, -z * .30); ctx.quadraticCurveTo(-z * .18, -z * .85, 0, -z * 1.35); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.shadowBlur = 0; ctx.fillStyle = '#193d58'; ctx.strokeStyle = '#8ceaff'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(0, -z * .98); ctx.lineTo(z * .19, -z * .38); ctx.lineTo(0, z * .12); ctx.lineTo(-z * .19, -z * .38); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#456b7d'; ctx.beginPath(); ctx.moveTo(-z * .78, z * .48); ctx.lineTo(-z * .46, z * .28); ctx.lineTo(-z * .22, z * .48); ctx.lineTo(-z * .36, z * .65); ctx.closePath(); ctx.fill(); ctx.beginPath(); ctx.moveTo(z * .78, z * .48); ctx.lineTo(z * .46, z * .28); ctx.lineTo(z * .22, z * .48); ctx.lineTo(z * .36, z * .65); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#ffb347'; ctx.shadowBlur = 16; ctx.shadowColor = '#ff7438'; ctx.beginPath(); ctx.ellipse(0, z * .88, z * .13, z * .30, 0, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#fff1a8'; ctx.beginPath(); ctx.ellipse(0, z * .90, z * .055, z * .18, 0, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0; if (this.player.shield > 0) { ctx.strokeStyle = 'rgba(111,238,255,.7)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(0, 0, z * 1.5, 0, Math.PI * 2); ctx.stroke(); } ctx.restore(); }
+  private drawBug(ctx: CanvasRenderingContext2D, x: number, y: number, z: number, b: SpaceBug) {
+    const t = performance.now() / 1000;
+    const pulse = 1 + Math.sin(t * (6 + b.speed * 12) + b.phase) * .1;
+    const twist = t * (1.1 + b.speed * 4) + b.phase;
+    const col = b.trait === 'armored' ? '#b9c7d8' : b.trait === 'charger' ? '#ff9c4a' : b.trait === 'splitter' ? '#f5e85b' : b.trait === 'weaver' ? '#53d8ff' : b.trait === 'volatile' ? '#ff4b58' : b.trait === 'regenerator' ? '#74ff91' : b.kind === 'queen' ? '#ff557d' : b.kind === 'mantis' ? '#d875ff' : '#74ff91';
+    ctx.save(); ctx.translate(x, y); ctx.rotate(Math.sin(t * 2 + b.phase) * .18); ctx.lineJoin = 'round';
+    ctx.shadowBlur = 12; ctx.shadowColor = col; ctx.strokeStyle = '#eaffff'; ctx.lineWidth = Math.max(1, z * .055);
+    const nodes: Array<[number, number]> = [];
+    const rings = b.kind === 'queen' ? 4 : b.kind === 'mantis' ? 3 : 3;
+    for (let r = 0; r < rings; r++) {
+      const u = r / (rings - 1) - .5;
+      const a = twist + u * 2.8;
+      const rx = z * (.42 + (1 - Math.abs(u) * 1.5) * .42) * pulse;
+      const ry = z * (.38 + (1 - Math.abs(u) * 1.5) * .3) * (1 + Math.sin(t * 5 + r + b.phase) * .12);
+      nodes.push([Math.cos(a) * z * u * 1.6, Math.sin(a) * z * u * .7]);
+      ctx.save(); ctx.translate(nodes[r][0], nodes[r][1]); ctx.rotate(a);
+      ctx.fillStyle = r % 2 ? col : this.adjustBugColor(col, .72);
+      ctx.beginPath(); ctx.moveTo(0, -ry); ctx.lineTo(rx, 0); ctx.lineTo(0, ry); ctx.lineTo(-rx, 0); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore();
     }
-    this.persistedUpgrades.push(upgrade.id);
-    this.level++; this.nextLevel = Math.floor(this.nextLevel * 1.22);
-    this.experience = 0; this.upgradeChoices = [];
-    this.status = `${upgrade.name} evolved. The swarm adapts.`;
-    this.saveProgress();
-    this.persistRun();
-  }
-
-  private loop = (time: number) => {
-    if (!this.running) return;
-    const delta = Math.min(0.05, Math.max(0, (time - this.lastTime) / 1000));
-    this.lastTime = time;
-    if (!this.paused && !this.gameOver && !this.upgradeChoices.length) this.update(delta);
-    this.draw();
-    this.frame = requestAnimationFrame(this.loop);
-  };
-
-  private update(delta: number) {
-    const canvas = this.gameCanvas.nativeElement;
-    const targetX = this.touchX ?? (this.keys.has('arrowleft') || this.keys.has('a') ? this.player.x - this.player.speed * delta : this.keys.has('arrowright') || this.keys.has('d') ? this.player.x + this.player.speed * delta : this.player.x);
-    this.player.x += (Math.max(0.08, Math.min(0.92, targetX)) - this.player.x) * Math.min(1, delta * 14);
-    this.player.fireCooldown -= delta;
-    if (this.player.fireCooldown <= 0) { this.fire(); this.player.fireCooldown = this.stats.laserCooldown; }
-    this.spawnTimer -= delta;
-    if (this.spawnTimer <= 0) { this.spawnWaveBug(); this.spawnTimer = Math.max(0.16, 0.9 - this.wave * 0.025); }
-    for (const shot of this.shots) {
-      if (shot.homing) {
-        const target = this.bugs.reduce((best, bug) => !best || bug.y < best.y ? bug : best, undefined as SpaceBug | undefined);
-        if (target) { shot.vx += Math.sign(target.x - shot.x) * delta * 1.8; shot.vx = Math.max(-0.8, Math.min(0.8, shot.vx)); }
-      }
-      shot.x += shot.vx * delta; shot.y += shot.vy * delta;
+    ctx.strokeStyle = col; ctx.globalAlpha = .85; ctx.lineCap = 'round';
+    for (let i = 0; i < nodes.length - 1; i++) { ctx.beginPath(); ctx.moveTo(nodes[i][0], nodes[i][1]); ctx.lineTo(nodes[i + 1][0], nodes[i + 1][1]); ctx.stroke(); }
+    for (const side of [-1, 1]) for (let i = 0; i < 3; i++) {
+      const ph = t * (b.trait === 'weaver' ? 11 : 6) + b.phase + i * 1.8;
+      const base = nodes[Math.min(i, nodes.length - 1)]; const bend = Math.sin(ph) * z * .32;
+      ctx.beginPath(); ctx.moveTo(base[0], base[1]); ctx.quadraticCurveTo(side * z * (.75 + bend / z), -z * .45 + i * z * .35, side * z * 1.35, -z * .35 + i * z * .55); ctx.stroke();
     }
-    this.shots = this.shots.filter(s => s.y > -0.1 && s.x > -0.1 && s.x < 1.1);
-    for (const bug of this.bugs) { bug.y += bug.speed * delta; bug.x += Math.sin(timeSeed(bug.phase, bug.y)) * delta * 0.06; }
-    for (let i = this.bugs.length - 1; i >= 0; i--) {
-      const bug = this.bugs[i];
-      if (bug.y > 0.95) { this.damagePlayer(Math.ceil(bug.maxHp * 0.18)); this.bugs.splice(i, 1); continue; }
-      for (let j = this.shots.length - 1; j >= 0; j--) {
-        const shot = this.shots[j];
-        const dx = shot.x - bug.x, dy = shot.y - bug.y;
-        if (dx * dx + dy * dy < (bug.size + shot.radius) ** 2) {
-          bug.hp -= shot.damage;
-          if (shot.kind === 'rocket') this.explode(shot.x, shot.y, shot.damage * this.stats.rocketYield);
-          this.shots.splice(j, 1);
-          if (bug.hp <= 0) { this.killBug(i); }
-          break;
-        }
-      }
-      if (this.bugs[i] === bug && Math.hypot(bug.x - this.player.x, bug.y - this.player.y) < bug.size + 0.055) { this.damagePlayer(Math.ceil(bug.maxHp * 0.3)); this.bugs.splice(i, 1); }
-    }
-    if (this.waveKills >= 8 + this.wave * 2 && this.bugs.length === 0) { this.wave++; this.waveKills = 0; this.status = `Wave ${this.wave}: the brood is mutating.`; }
-    if (this.experience >= this.nextLevel) this.offerUpgrades();
-    void canvas;
+    ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(-z * .28, -z * .12, z * .11, 0, Math.PI * 2); ctx.arc(z * .28, -z * .12, z * .11, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = col; ctx.beginPath(); ctx.arc(-z * .28 + Math.cos(t * 3) * z * .035, -z * .12, z * .045, 0, Math.PI * 2); ctx.arc(z * .28 + Math.cos(t * 3) * z * .035, -z * .12, z * .045, 0, Math.PI * 2); ctx.fill();
+    if (b.trait === 'armored') { ctx.strokeStyle = '#f0f5ff'; ctx.globalAlpha = .7; for (let i = 0; i < nodes.length; i++) { ctx.beginPath(); ctx.arc(nodes[i][0], nodes[i][1], z * .34, 0, Math.PI * 2); ctx.stroke(); } }
+    if (b.trait === 'weaver') { ctx.globalAlpha = .5; ctx.strokeStyle = '#a5f3fc'; ctx.beginPath(); ctx.arc(0, 0, z * (1.35 + Math.sin(t * 4 + b.phase) * .12), 0, Math.PI * 2); ctx.stroke(); }
+    ctx.restore();
   }
-
-  private fire() {
-    const rocket = this.level >= 3 && this.level % 3 === 0;
-    const count = rocket ? this.stats.rocketCount : this.stats.laserCount;
-    for (let i = 0; i < count; i++) {
-      const spread = count === 1 ? 0 : (i - (count - 1) / 2) * 0.08;
-      this.shots.push({ x: this.player.x + spread, y: this.player.y - 0.05, vx: spread * 1.5, vy: rocket ? -0.62 : -1.05, damage: rocket ? this.stats.rocketDamage : this.stats.laserDamage, kind: rocket ? 'rocket' : 'laser', radius: rocket ? 0.022 : 0.009, homing: rocket && this.stats.rocketHoming });
-    }
-  }
-  private spawnWaveBug() {
-    const kind = this.wave > 7 && Math.random() < 0.1 ? 'queen' : this.wave > 3 && Math.random() < 0.25 ? 'mantis' : 'scuttler';
-    const scale = 1 + this.wave * 0.13;
-    const hp = (kind === 'queen' ? 130 : kind === 'mantis' ? 48 : 24) * scale;
-    this.bugs.push({ x: 0.08 + Math.random() * 0.84, y: -0.05, hp, maxHp: hp, speed: (kind === 'queen' ? 0.08 : kind === 'mantis' ? 0.12 : 0.17) + this.wave * 0.003, size: kind === 'queen' ? 0.055 : kind === 'mantis' ? 0.04 : 0.029, phase: Math.random() * 100, kind });
-  }
-  private killBug(index: number) { if (!this.bugs[index]) return; this.bugs.splice(index, 1); this.score += 10 * this.wave; this.waveKills++; this.experience += 22; }
-  private explode(x: number, y: number, damage: number) { for (const bug of this.bugs) if (Math.hypot(bug.x - x, bug.y - y) < 0.11) bug.hp -= damage * 0.35; }
-  private damagePlayer(amount: number) { const absorbed = Math.min(this.player.shield, amount); this.player.shield -= absorbed; const remaining = amount - absorbed; if (absorbed && this.stats.shieldThorns) for (const bug of this.bugs) if (Math.hypot(bug.x - this.player.x, bug.y - this.player.y) < 0.16) bug.hp -= this.stats.shieldThorns; this.player.hp -= remaining; if (this.player.hp <= 0) this.endRun(); }
-
-  private offerUpgrades() { this.upgradeChoices = [...this.upgrades].sort(() => Math.random() - 0.5).slice(0, 3); this.status = 'Evolution fork: choose one mutation.'; }
-  private resetRun() { this.player = { x: 0.5, y: 0.82, hp: 100, maxHp: 100, shield: 0, fireCooldown: 0, speed: 0.55 }; this.shots = []; this.bugs = []; this.wave = 1; this.score = 0; this.level = 1; this.experience = 0; this.nextLevel = 100; this.gameOver = false; this.upgradeChoices = []; this.waveKills = 0; this.stats = { laserDamage: 18, laserCooldown: 0.22, laserCount: 1, laserPierce: 0, rocketDamage: 42, rocketCooldown: 0.9, rocketCount: 1, rocketHoming: false, rocketYield: 1, shieldThorns: 0 }; this.status = 'Choose an upgrade and survive the swarm.'; this.saveProgress(); }
-  private endRun() { this.gameOver = true; this.status = `Run ended at wave ${this.wave}. Score ${this.score}.`; this.saveProgress(true); if (this.serverUserId) void this.spaceEvolvesService.endRun(this.serverUserId, this.currentRun()); }
-
-  private loadProgress() { try { const raw = localStorage.getItem(this.saveKey); if (!raw) return; const saved = JSON.parse(raw); if (saved && !saved.gameOver) { Object.assign(this.player, saved.player); this.wave = saved.wave || 1; this.score = saved.score || 0; this.level = saved.level || 1; this.experience = saved.experience || 0; this.nextLevel = saved.nextLevel || 100; this.stats = { ...this.stats, ...(saved.stats || {}) }; this.status = 'Saved run restored. Continue the evolution.'; } } catch { } }
-  private saveProgress(dead = false) { const payload = { player: this.player, wave: this.wave, score: this.score, level: this.level, experience: this.experience, nextLevel: this.nextLevel, stats: this.stats, gameOver: dead }; try { localStorage.setItem(this.saveKey, JSON.stringify(payload)); } catch { } clearTimeout(this.saveTimer); this.saveTimer = setTimeout(() => this.saveProgress(), 3000); }
-  private async loadHighScores() { this.loadingScores = true; try { const response = await fetch('/spaceevolves/highscores?limit=10'); if (response.ok) this.highScores = await response.json(); } catch { this.highScores = []; } finally { this.loadingScores = false; } }
-
-  private draw() {
-    const canvas = this.gameCanvas.nativeElement, ctx = this.ctx, w = canvas.clientWidth, h = canvas.clientHeight;
-    ctx.clearRect(0, 0, w, h); const gradient = ctx.createLinearGradient(0, 0, 0, h); gradient.addColorStop(0, '#071936'); gradient.addColorStop(1, '#02040d'); ctx.fillStyle = gradient; ctx.fillRect(0, 0, w, h);
-    ctx.strokeStyle = 'rgba(95, 196, 255, .12)'; ctx.lineWidth = 1; for (let y = (performance.now() / 25) % 40; y < h; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
-    for (const bug of this.bugs) this.drawBug(ctx, bug.x * w, bug.y * h, bug.size * w, bug);
-    for (const shot of this.shots) { ctx.fillStyle = shot.kind === 'rocket' ? '#ff9d4d' : '#7cf7ff'; ctx.shadowBlur = 14; ctx.shadowColor = ctx.fillStyle; ctx.beginPath(); ctx.arc(shot.x * w, shot.y * h, Math.max(2, shot.radius * w), 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0; }
-    this.drawShip(ctx, this.player.x * w, this.player.y * h, Math.min(w, h) * 0.06);
-  }
-  private drawShip(ctx: CanvasRenderingContext2D, x: number, y: number, size: number) { ctx.save(); ctx.translate(x, y); ctx.fillStyle = '#c8efff'; ctx.strokeStyle = '#5bc8ff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, -size * 1.25); ctx.lineTo(size * .72, size); ctx.lineTo(0, size * .62); ctx.lineTo(-size * .72, size); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#ffcb61'; ctx.beginPath(); ctx.arc(0, size * .75, size * .2, 0, Math.PI * 2); ctx.fill(); if (this.player.shield > 0) { ctx.strokeStyle = 'rgba(111,238,255,.7)'; ctx.beginPath(); ctx.arc(0, 0, size * 1.5, 0, Math.PI * 2); ctx.stroke(); } ctx.restore(); }
-  private drawBug(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, bug: SpaceBug) { ctx.save(); ctx.translate(x, y); ctx.rotate(Math.sin(bug.phase + bug.y * 10) * .12); ctx.fillStyle = bug.kind === 'queen' ? '#ff557d' : bug.kind === 'mantis' ? '#d875ff' : '#74ff91'; ctx.strokeStyle = '#d8fff0'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(0, 0, size, size * .7, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.strokeStyle = ctx.fillStyle; for (const side of [-1, 1]) for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.moveTo(side * size * .45, -size * .2 + i * size * .2); ctx.lineTo(side * size * 1.4, -size * .5 + i * size * .55); ctx.stroke(); } ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(-size * .3, -size * .15, size * .12, 0, Math.PI * 2); ctx.arc(size * .3, -size * .15, size * .12, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
+  private adjustBugColor(hex: string, factor: number): string { const n = parseInt(hex.slice(1), 16); const r = Math.min(255, Math.floor(((n >> 16) & 255) * factor)); const g = Math.min(255, Math.floor(((n >> 8) & 255) * factor)); const b = Math.min(255, Math.floor((n & 255) * factor)); return `rgb(${r},${g},${b})`; }
 }
-function timeSeed(phase: number, y: number) { return phase + y * 17; }

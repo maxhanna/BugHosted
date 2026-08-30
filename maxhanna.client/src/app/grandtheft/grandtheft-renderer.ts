@@ -4504,6 +4504,13 @@ void main() {
     const make = (police: boolean): CityMesh[] => {
       const verts: number[] = [], indices: number[] = [];
       const box = (x:number,y:number,z:number,w:number,h:number,d:number,c:[number,number,number]) => this.addBox(verts,indices,x,y,z,w,h,d,c[0],c[1],c[2],1,0);
+      const wedge = (x:number,y:number,z:number,w:number,h:number,d:number,c:[number,number,number]) => {
+        const base = verts.length / 10;
+        const hw = w / 2, hd = d / 2;
+        const points = [[x-hw,y-h/2,z-hd],[x+hw,y-h/2,z-hd],[x+hw,y+h/2,z-hd],[x-hw,y+h/2,z-hd],[x-hw,y-h/2,z+hd],[x+hw,y-h/2,z+hd],[x+hw,y+h/2,z+hd],[x-hw,y+h/2,z+hd]];
+        for (const p of points) verts.push(p[0],p[1],p[2],c[0],c[1],c[2],1,0,0,0);
+        indices.push(base,base+1,base+2,base,base+2,base+3,base+4,base+6,base+5,base+4,base+7,base+6,base,base+4,base+5,base,base+5,base+1,base+3,base+2,base+6,base+3,base+6,base+7,base,base+3,base+7,base,base+7,base+4,base+1,base+5,base+6,base+1,base+6,base+2);
+      };
       const body: [number,number,number] = police ? [0.06,0.10,0.20] : [0.16,0.36,0.58];
       const trim: [number,number,number] = police ? [0.88,0.90,0.94] : [0.72,0.88,0.98];
       const glass: [number,number,number] = police ? [0.08,0.16,0.24] : [0.04,0.18,0.28];
@@ -4511,8 +4518,8 @@ void main() {
       // oversized rotor. Build a complete fuselage with a tapered nose,
       // cabin glazing, tail boom, vertical fin, and landing skids.
       box(0,1.08,0,1.42,0.88,1.92,body);
-      box(0,1.20,-1.03,1.24,0.78,1.02,body);
-      box(0,1.48,-1.12,1.06,0.42,0.66,glass);
+      wedge(0,1.22,-1.08,1.24,0.78,1.10,body);
+      wedge(0,1.48,-1.18,1.08,0.44,0.72,glass);
       box(-0.52,1.35,-0.82,0.08,0.36,0.72,glass); box(0.52,1.35,-0.82,0.08,0.36,0.72,glass);
       box(0,1.16,1.15,0.42,0.42,2.5,body);
       box(0,1.48,2.55,0.76,0.18,0.44,trim);
@@ -5273,13 +5280,13 @@ void main() {
         this.drawMesh(heliMesh, npc.x, expY, npc.z, npc.yaw, [1, 1, 1], [1, 1, 1, 1]);
         const rotorMesh = this.getRotorBladeMesh();
         const now = performance.now() / 1000;
-        const mainRotorY = expY + 2.02;  
+        const mainRotorY = expY + 2.08;  
         const mainSpin = now * 20;       
         this.drawMesh(rotorMesh, npc.x, mainRotorY, npc.z, npc.yaw + mainSpin, [0.58, 0.58, 0.58], [0.55, 0.55, 0.55, 0.5]);
         const tailOffX = Math.sin(npc.yaw) * 2.65;
         const tailOffZ = Math.cos(npc.yaw) * 2.65;
         const tailSpin = now * 55;       
-        this.drawMesh(rotorMesh, npc.x + tailOffX, expY + 1.2, npc.z + tailOffZ, npc.yaw + tailSpin, [0.18, 0.18, 0.18], [0.4, 0.4, 0.4, 0.45]);
+        this.drawMesh(rotorMesh, npc.x + tailOffX, expY + 1.18, npc.z + tailOffZ, npc.yaw + tailSpin, [0.18, 0.18, 0.18], [0.4, 0.4, 0.4, 0.45]);
       } else {
         const isSwimming = !!npc.isSwimming && submerged;
         const npcScale: [number, number, number] = isSwimming
@@ -5458,10 +5465,10 @@ void main() {
       if (this.playerVehicleType === 'helicopter') {
         const rotor = this.getRotorBladeMesh();
         const spin = performance.now() * 0.02;
-        this.drawMesh(rotor, targetX, vehicleY + 2.02, targetZ, carYaw + spin, [0.58, 0.58, 0.58], [0.55, 0.55, 0.55, 0.5]);
+        this.drawMesh(rotor, targetX, vehicleY + 2.08, targetZ, carYaw + spin, [0.58, 0.58, 0.58], [0.55, 0.55, 0.55, 0.5]);
         const tailX = targetX + Math.sin(carYaw) * 2.65;
         const tailZ = targetZ + Math.cos(carYaw) * 2.65;
-        this.drawMesh(rotor, tailX, vehicleY + 1.2, tailZ, carYaw + spin * 2.75, [0.18, 0.18, 0.18], [0.4, 0.4, 0.4, 0.45]);
+        this.drawMesh(rotor, tailX, vehicleY + 1.18, tailZ, carYaw + spin * 2.75, [0.18, 0.18, 0.18], [0.4, 0.4, 0.4, 0.45]);
       }
     }
     if (playerMesh && !this.playerIsInCar) {
