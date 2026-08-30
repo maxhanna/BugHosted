@@ -13,7 +13,7 @@
       [showUserHeader]="true" [showHeaderTitles]="true" [headerClickable]="true" [mode]="'today'"
       [headerClickTarget]="'Ender'"></app-ender-high-scores>
   </div>
-  <div class="widget" id="wordler" *ngIf="availabilityWordler" [attr.data-order]="0">
+  <div class="widget" id="wordler" [attr.data-order]="0">
     <app-wordler-high-scores (hasData)="onChildHasData('wordler',$event)" [mode]="'today'" [headerClickable]="true"
       [showUserHeader]="true" [inputtedParentRef]="parentRef" [showHeaderTitles]="true"
       (headerClick)="null"></app-wordler-high-scores>

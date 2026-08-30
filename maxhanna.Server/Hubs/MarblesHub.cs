@@ -1216,23 +1216,17 @@ namespace maxhanna.Server.Hubs
         }
 
         /// <summary>
-        /// Start with a nearly-full board like the original game: each column
-        /// is filled from the bottom up to a random height around the pitch
-        /// line, so the center row is populated and matches can form at once.
+        /// Give both players a readable opening position. Multiplayer starts
+        /// with a small reserve of marbles so neither board is nearly full.
+        /// The first drops then build the board during play.
         /// </summary>
         private static int[][] GenerateStartBoard()
         {
             var board = EmptyBoard();
-            for (var c = 0; c < Cols; c++)
+            var count = Math.Max(2, Math.Min(4, Cols / 3));
+            for (var c = 0; c < count; c++)
             {
-                // Nearly-full columns (heights 7-10) centered on the pitch row,
-                // so the middle is packed and matches can form at once.
-                var count = 7 + _rng.Next(4);
-                var top = PitchRow - (count - 1) / 2;
-                for (var k = 0; k < count; k++)
-                {
-                    board[top + k][c] = _rng.Next(1, ColorCount + 1);
-                }
+                board[Rows - 1][c] = _rng.Next(1, ColorCount + 1);
             }
             return board;
         }
