@@ -4285,14 +4285,14 @@ void main() {
     // ribcage, narrower waist, and wider pelvis create a recognizable torso
     // silhouette while the small overlaps hide seams during animation.
     // Low-poly tapered body sections read as one torso instead of stacked balls.
-    addRounded(0, 0.28, 0, torsoW * 0.58, torsoH * 0.48, torsoD * 0.50, variant.outfitA, 2);
-    addRounded(0, 0.14, 0, torsoW * 0.46, torsoH * 0.30, torsoD * 0.42, variant.outfitA, 2);
-    addRounded(0, 0.00, 0, torsoW * 0.40, torsoH * 0.20, torsoD * 0.40, variant.outfitB, 0);
+    addRounded(0, 0.30, 0, torsoW * 0.62, torsoH * 0.45, torsoD * 0.54, variant.outfitA, 2);
+    addRounded(0, 0.16, 0, torsoW * 0.43, torsoH * 0.27, torsoD * 0.39, variant.outfitA, 2);
+    addRounded(0, 0.015, 0, torsoW * 0.38, torsoH * 0.18, torsoD * 0.37, variant.outfitB, 0);
     // Anatomical contour bands: these are deliberately separate, skinned
     // volumes rather than a single sphere, giving the torso a ribcage, waist,
     // and pelvis profile. Each call contributes real indexed vertices.
-    addRounded(0, 0.34, 0.004, torsoW * 0.48, torsoH * 0.18, torsoD * 0.46, variant.outfitA, 2);
-    addRounded(0, 0.01, 0.008, torsoW * 0.40, torsoH * 0.13, torsoD * 0.39, variant.outfitB, 0);
+    addRounded(0, 0.35, 0.004, torsoW * 0.50, torsoH * 0.16, torsoD * 0.47, variant.outfitA, 2);
+    addRounded(0, 0.015, 0.008, torsoW * 0.39, torsoH * 0.12, torsoD * 0.38, variant.outfitB, 0);
     // Shoulder and hip transition volumes bridge independently skinned limbs to
     // the torso, preventing visible gaps when the gait rotates the limbs.
     addRounded(-0.15, 0.25, 0, 0.11, 0.10, 0.10, variant.outfitA, 2);
@@ -4329,8 +4329,8 @@ void main() {
     const shoulder = (variant.shoulderWidth ?? 1) * (variant.bodyType === 'muscular' ? 1.08 : 1);
     const hipsWidth = variant.hipWidth ?? 1;
     const armX = 0.20 * shoulder;
-    addRounded(-armX,0.18,0,armW*0.70,armLen*0.30,armW*0.72,variant.skin,6); addRounded(-armX,-0.04,0,armW*0.58,armLen*0.31,armW*0.60,variant.skin,7); addRounded(-armX,-0.24,0,0.050,0.060,0.050,variant.skin,8);
-    addRounded(armX,0.18,0,armW*0.70,armLen*0.30,armW*0.72,variant.skin,10); addRounded(armX,-0.04,0,armW*0.58,armLen*0.31,armW*0.60,variant.skin,11); addRounded(armX,-0.24,0,0.050,0.060,0.050,variant.skin,12);
+    addRounded(-armX,0.19,0,armW*0.64,armLen*0.31,armW*0.66,variant.skin,6); addRounded(-armX,-0.04,0,armW*0.54,armLen*0.32,armW*0.56,variant.skin,7); addRounded(-armX,-0.24,0,0.052,0.065,0.052,variant.skin,8);
+    addRounded(armX,0.19,0,armW*0.64,armLen*0.31,armW*0.66,variant.skin,10); addRounded(armX,-0.04,0,armW*0.54,armLen*0.32,armW*0.56,variant.skin,11); addRounded(armX,-0.24,0,0.052,0.065,0.052,variant.skin,12);
     // Collar and armpit blend volumes overlap the shoulder joints so the
     // animated arms never expose a gap while swinging or aiming.
     addRounded(-armX * 0.72, 0.25, 0, armW * 0.82, 0.12, armW * 0.82, variant.outfitA, 2);
