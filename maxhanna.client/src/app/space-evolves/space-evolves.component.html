@@ -25,7 +25,7 @@
       <div class="gameover-card" *ngIf="gameOver"><h2>Ship lost</h2><p>{{status}}</p><button (click)="restart()">Start a new run</button></div>
       <div class="upgrade-card" *ngIf="upgradeChoices.length > 0">
         <h2>Evolution fork</h2><p>Pick one mutation. The brood will adapt.</p>
-        <div class="upgrade-grid"><button *ngFor="let upgrade of upgradeChoices" (click)="chooseUpgrade(upgrade)"><span class="upgrade-type">{{upgrade.weapon}}</span><strong>{{upgrade.name}}</strong><small>{{upgrade.description}}</small></button></div>
+        <div class="upgrade-grid"><button *ngFor="let upgrade of upgradeChoices" (click)="chooseUpgrade(upgrade)"><span class="upgrade-icon" [attr.aria-label]="upgrade.weapon" role="img">{{ upgrade.weapon === 'laser' ? '⚡' : upgrade.weapon === 'missile' ? '🚀' : '🛡️' }}</span><span class="upgrade-type">{{upgrade.weapon}}</span><strong>{{upgrade.name}}</strong><small>{{upgrade.description}}</small></button></div>
       </div>
     </div>
     <aside class="side-panel">

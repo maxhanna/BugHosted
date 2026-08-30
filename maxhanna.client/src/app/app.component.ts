@@ -177,6 +177,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "📜", title: "User-Events", content: undefined },
     { ownership: 0, icon: "🌱", title: "Planter", content: undefined },
     { ownership: 0, icon: "🕷️", title: "Weaver", content: undefined },
+    { ownership: 0, icon: "🃏", title: "MTG Arena", content: undefined },
     { ownership: 0, icon: "🚔", title: "GrandTheft", content: undefined },
     { ownership: 0, icon: "🍳", title: "Recipe", content: undefined },
     { ownership: 0, icon: "🔄", title: "Conversion", content: undefined },
@@ -546,6 +547,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     "GrandTheft": () => import('./grandtheft/grandtheft.component').then(m => m.GrandTheftComponent),
     "Racing": () => import('./racing/racing.component').then(m => m.RacingComponent),
     "Space: Evolves": () => import('./space-evolves/space-evolves.component').then(m => m.SpaceEvolvesComponent),
+    "MTG Arena": () => import('./mtg-arena/mtg-arena.component').then(m => m.MtwArenaComponent),
     "Crypto-Hub": () => import('./crypto-hub/crypto-hub.module').then(m => ({ type: m.CryptoHubComponent, module: m.CryptoModule })),
   };
   /** Guards against a slow lazy chunk resolving after a newer navigation superseded it. */

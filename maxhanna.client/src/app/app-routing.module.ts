@@ -51,6 +51,7 @@ const routes: Routes = [
   { path: 'Paint', component: AppComponent },
   { path: 'Racing', component: AppComponent },
   { path: 'Space-Evolves', component: AppComponent },
+  { path: 'MTG-Arena', component: AppComponent },
   { path: 'Marbles', component: AppComponent },
   { path: 'Recipe/:recipeId', component: AppComponent },
   { path: 'Recipe', component: AppComponent },

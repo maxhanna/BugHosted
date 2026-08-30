@@ -100,6 +100,7 @@ import { PaintComponent } from './paint/paint.component';
 import { ConversionComponent } from './conversion/conversion.component';
 import { MoviesAddedTodayComponent } from './movies-added-today/movies-added-today.component';
 import { SpaceEvolvesComponent } from './space-evolves/space-evolves.component';
+import { MtwArenaComponent } from './mtg-arena/mtg-arena.component';
 
 @NgModule({
   declarations: [
@@ -190,6 +191,7 @@ import { SpaceEvolvesComponent } from './space-evolves/space-evolves.component';
     ConversionComponent,
     MoviesAddedTodayComponent,
     SpaceEvolvesComponent,
+    MtwArenaComponent,
   ],
   bootstrap: [AppComponent],
   imports: [
@@ -297,6 +299,7 @@ import { SpaceEvolvesComponent } from './space-evolves/space-evolves.component';
     ConversionComponent,
     MoviesAddedTodayComponent,
     SpaceEvolvesComponent,
+    MtwArenaComponent,
     AppMenuItemComponent,
     TimeFormatPipe,
     TimeSincePipe,
