@@ -16,11 +16,11 @@
         <div class="weapon-row" *ngFor="let weapon of weaponStatus" [style.--weapon-color]="weapon.color">
           <strong>{{weapon.name}}</strong><span>{{weapon.interval ? ('Every ' + (weapon.interval | number:'1.1-2') + 's') : 'Passive'}}</span>
         </div>
-        <div class="upgrade-list" *ngIf="upgradeSections.length">
-          <div class="upgrade-section" *ngFor="let section of upgradeSections">
-            <strong>{{section.icon}} {{section.label}}</strong>
-            <span *ngFor="let upgrade of section.upgrades" [title]="upgrade.description">{{upgrade.name}} +{{upgrade.count}}</span>
-          </div>
+      </div>
+      <div class="upgrade-dock" *ngIf="upgradeSections.length">
+        <div class="upgrade-section" *ngFor="let section of upgradeSections">
+          <strong>{{section.icon}} {{section.label}}</strong>
+          <span *ngFor="let upgrade of section.upgrades" [title]="upgrade.description">{{upgrade.name}} +{{upgrade.count}}</span>
         </div>
       </div>
       <div class="pause-card" *ngIf="paused && !gameOver"><h2>Paused</h2><button (click)="togglePause()">Resume run</button></div>
