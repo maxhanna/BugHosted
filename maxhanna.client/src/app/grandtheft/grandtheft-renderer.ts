@@ -5210,7 +5210,9 @@ void main() {
         const dz = aircraft.z - camZ;
         if (dx * dx + dz * dz > 320 * 320 || !aircraft.model) continue;
         const aircraftMesh = aircraft.model;
-        const aircraftY = aircraft.type === 'helicopter' ? -this.getModelMinY(aircraftMesh as CityMesh[]) + 0.32 : 0.15;
+        // Procedural helicopter meshes are authored around their own origin;
+        // place the complete airframe above the pad, not just the rotor.
+        const aircraftY = aircraft.type === 'helicopter' ? 0.32 : 0.15;
         this.drawMesh(aircraftMesh, aircraft.x, aircraftY, aircraft.z, aircraft.yaw);
         if (aircraft.type === 'helicopter') {
           const spin = now * 0.02;
@@ -5266,7 +5268,9 @@ void main() {
       if (npc.type === 'helicopter') {
         const copHeli = !!(npc as any).isPolice || !!(npc as any).isCop;
         const heliMesh = copHeli ? this.getHelicopterMesh(npc.id, true) : this.getHelicopterMesh(npc.id, false);
-        this.drawMesh(heliMesh, npc.x, expY, npc.z, npc.yaw);
+        // Keep the body and its rotor in the same local coordinate frame. The
+        // body mesh is centered near Y=1, so expY is the airframe base height.
+        this.drawMesh(heliMesh, npc.x, expY, npc.z, npc.yaw, [1, 1, 1], [1, 1, 1, 1]);
         const rotorMesh = this.getRotorBladeMesh();
         const now = performance.now() / 1000;
         const mainRotorY = expY + 2.02;  
@@ -5447,8 +5451,7 @@ void main() {
       // cars disappeared as soon as the player entered them.
       const vehicleY = (this.playerVehicleType === 'helicopter' || this.playerVehicleType === 'plane')
         ? targetY
-        : targetY - LOCAL_VEHICLE_GROUND_OFFSET;
-      const localVehicleMesh = this.playerVehicleType === 'helicopter'
+        : targetY - LOCAL_VEHICLE_GROUND_OFFSET;        const localVehicleMesh = this.playerVehicleType === 'helicopter'
         ? this.getHelicopterMesh(0, false)
         : this.playerVehicleMesh;
       if (localVehicleMesh) this.drawMesh(localVehicleMesh, targetX, vehicleY, targetZ, carYaw, [1, 1, 1], [1, 1, 1, 1], false, 0, carRoll);
@@ -6978,6 +6981,19 @@ void main() {
         addTri([[fx - 0.6, y0 + 0.45, fz + 0.6], [fx + 0.6, y0 + 0.45, fz + 0.6], [fx - 0.6, y0 + 0.45, fz - 0.6]], 0.66, 0.66, 0.7);
         addTri([[fx + 0.6, y0 + 0.45, fz + 0.6], [fx - 0.6, y0 + 0.45, fz - 0.6], [fx + 0.6, y0 + 0.45, fz - 0.6]], 0.66, 0.66, 0.7);
       }
+    }
+    // Add a clearly modeled side profile and rear support faces so the ramp
+    // reads as a complete object from every approach angle, not a floating
+    // single-sided plane. The existing wedge remains the drivable top surface.
+    addFace([[-W, y0, -L], [-W, slope(-L), -L], [W, slope(-L), -L], [W, y0, -L]], 0.18, 0.18, 0.20);
+    addFace([[-W, y0, L], [W, y0, L], [W, slope(L), L], [-W, slope(L), L]], 0.20, 0.20, 0.22);
+    addFace([[-W, y0, -L], [-W, y0, L], [-W, slope(L), L], [-W, slope(-L), -L]], 0.42, 0.43, 0.46);
+    addFace([[W, y0, L], [W, y0, -L], [W, slope(-L), -L], [W, slope(L), L]], 0.46, 0.47, 0.50);
+    // Reinforced side rails visually connect the ramp deck to its base.
+    for (const sx of [-1, 1]) {
+      const railX = sx * (W + 0.16);
+      addFace([[railX - 0.08, y0, -L], [railX + 0.08, y0, -L], [railX + 0.08, slope(-L), -L], [railX - 0.08, slope(-L), -L]], 0.85, 0.68, 0.12);
+      addFace([[railX - 0.08, y0, L], [railX + 0.08, y0, L], [railX + 0.08, slope(L), L], [railX - 0.08, slope(L), L]], 0.85, 0.68, 0.12);
     }
     this.jumpRampMesh = this.createMesh(verts, idx);
     return this.jumpRampMesh;

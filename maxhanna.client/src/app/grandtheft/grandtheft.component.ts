@@ -1320,11 +1320,15 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
               });
             }
           }
+          // Transfer the exact vehicle object into the player state. Remove it
+          // from its source collection before the next frame so the stolen car
+          // cannot be rendered once as world traffic and again as the local car.
           if (isParked) {
-            this.parkedCars = this.parkedCars.filter(p => p.id !== v.id);
+            this.parkedCars = this.parkedCars.filter(p => p !== v && p.id !== v.id);
           } else {
-            this.serverNPCs = this.serverNPCs.filter(npc => npc.id !== v.id);
+            this.serverNPCs = this.serverNPCs.filter(npc => npc !== v && npc.id !== v.id);
           }
+          this.trafficCars = this.trafficCars.filter((traffic: any) => traffic !== v && traffic.id !== v.id);
           return true;
         }
       }
@@ -1332,6 +1336,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     };
     if (tryEnter(this.serverNPCs)) return;
     if (tryEnter(this.parkedCars, true)) return;
+    if (tryEnter(this.trafficCars)) return;
     // Check decorative aircraft in nearby chunks' buildings
     {
       const cxa = Math.floor(this.carX / 80), cza = Math.floor(this.carZ / 80);
@@ -3254,7 +3259,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     checkTargets(this.parkedCars, false);
     if (this.currentWeapon === 0) return;
     // A shot that intersects a police vehicle immediately establishes a serious
-    // police response, even if the bullet does not hit an occupant.
+    // police response, even if the bullet does not hit an occupant. Do not treat
+    // the wanted-level event as vehicle destruction: police cars remain in the
+    // world until their actual health reaches zero.
     const policeCars = [...this.serverNPCs, ...this.parkedCars].filter(v => v.type === 'police' && v.health > 0);
     for (const police of policeCars) {
       const vx = police.x - ox, vz = police.z - oz;
@@ -4390,7 +4397,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         this.bloodPools.push({ x: ped.x, z: ped.z - 1.0, age: 0, lifetime: 30, maxRadius: 3, variant: Math.floor(Math.random() * 4) });
       }
     }
-    this.serverNPCs = this.serverNPCs.filter(v => v.health > 0);
+    this.serverNPCs = this.serverNPCs.filter(v => v.health > 0 || v.type === 'police');
     this.serverPedestrians = this.serverPedestrians.filter(p => p.health > 0);
     // Locally parked cars are temporary world props, not a permanent cache.
     // Keep mission/garage vehicles exempt, but retire abandoned cars after a
@@ -5867,6 +5874,25 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       return;
     }
     if (this.inStore) {
+      // Keep the robbery target alive until the register has actually been
+      // robbed; only the post-robbery panic animation may remove the cashier.
+      if (!this.storeCashier) {
+        const sinY = Math.sin(this.inStore.yaw), cosY = Math.cos(this.inStore.yaw);
+        const regX = this.getStoreRegisterX(this.inStore), regZ = this.getStoreRegisterZ(this.inStore);
+        const cashierId = --this.pedIdCounter;
+        this.storeCashier = {
+          id: cashierId,
+          x: regX + sinY * 1.15,
+          z: regZ + cosY * 1.15,
+          yaw: this.inStore.yaw + Math.PI,
+          gender: (Math.abs(Math.floor(this.inStore.x * 31 + this.inStore.z * 17)) % 2) === 0 ? 'female' : 'male',
+          mesh: this.renderer.getPedestrianMesh('male', cashierId),
+          speed: 0,
+          panicUntil: 0,
+          doorX: this.inStore.doorX,
+          doorZ: this.inStore.doorZ
+        };
+      }
       const st = this.inStore;
       const regX = this.getStoreRegisterX(st), regZ = this.getStoreRegisterZ(st);
       const regDx = this.carX - regX, regDz = this.carZ - regZ;
@@ -5914,7 +5940,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     // building. The normal walking collision path now permits the storefront
     // opening and the player enters naturally.
     if (best?.isConvenience && bestD < STORE_ENTER_DIST && !this.inStore) {
-      this.nearStoreDoor = true;
+      // Convenience stores are open-front interiors. Enter continuously as the
+      // player crosses the storefront threshold; no E prompt or teleport is
+      // needed. The short distance guard prevents accidental entry from afar.
+      this.enterStore(best);
       return;
     }
     this.nearStoreDoor = !!best && bestD < STORE_ENTER_DIST;
@@ -5953,7 +5982,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     // aisles), facing the register. It stays put until the register is stuck
     // up, then sprints for the door.
     const cashierId = --this.pedIdCounter;
-    const cashierGender = Math.random() < 0.5 ? 'female' : 'male';
+    // The cashier is deterministic for this store during the session, so the
+    // register never appears empty after a routine polling/render update.
+    const cashierGender = (Math.abs(Math.floor(sm.x * 31 + sm.z * 17)) % 2) === 0 ? 'female' : 'male';
     // The store interior lies opposite the street-facing front, so the cashier
     // stands just inside the counter on the far side from the aisle.
     const sinY = Math.sin(sm.yaw), cosY = Math.cos(sm.yaw);
