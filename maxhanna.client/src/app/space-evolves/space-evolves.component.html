@@ -20,14 +20,14 @@
       <div class="upgrade-dock" *ngIf="upgradeSections.length">
         <div class="upgrade-section" *ngFor="let section of upgradeSections">
           <strong>{{section.icon}} {{section.label}}</strong>
-          <span *ngFor="let upgrade of section.upgrades" [title]="upgrade.description">{{upgrade.name}} +{{upgrade.count}}</span>
+          <span *ngFor="let upgrade of section.upgrades" [title]="upgrade.description + (upgrade.chanceText ? ' · Current free-upgrade chance: ' + upgrade.chanceText : '')">{{upgrade.name}} +{{upgrade.count}}{{upgrade.chanceText ? ' · ' + upgrade.chanceText : ''}}</span>
         </div>
       </div>
       <div class="pause-card" *ngIf="paused && !gameOver"><h2>Paused</h2><button (click)="togglePause()">Resume run</button></div>
       <div class="gameover-card" *ngIf="gameOver"><h2>Ship lost</h2><p>{{status}}</p><button (click)="restart()">Start a new run</button></div>
       <div class="upgrade-card" *ngIf="upgradeChoices.length > 0">
-        <h2>Evolution fork</h2><p>Pick one mutation. The brood will adapt.</p>
-        <div class="upgrade-grid"><button *ngFor="let upgrade of upgradeChoices" (click)="chooseUpgrade(upgrade)"><span class="upgrade-icon" [attr.aria-label]="upgrade.weapon" role="img">{{ upgrade.weapon === 'laser' ? '⚡' : upgrade.weapon === 'missile' ? '🚀' : upgrade.weapon === 'shield' ? '🛡️' : '🛰️' }}</span><span class="upgrade-type">{{upgrade.weapon}}</span><strong>{{upgrade.name}}</strong><small>{{upgrade.description}}</small></button></div>
+        <h2>Evolution fork{{canPick ? '' : ' (choose in a moment)'}}</h2><p>{{canPick ? 'Pick one mutation. The brood will adapt.' : 'Hold on — mutations are still forming.'}}</p>
+        <div class="upgrade-grid"><button *ngFor="let upgrade of upgradeChoices" (click)="chooseUpgrade(upgrade)" [disabled]="!canPick"><span class="upgrade-icon" [attr.aria-label]="upgrade.weapon" role="img">{{ upgrade.weapon === 'laser' ? '⚡' : upgrade.weapon === 'missile' ? '🚀' : upgrade.weapon === 'shield' ? '🛡️' : '🛰️' }}</span><span class="upgrade-type">{{upgrade.weapon}}</span><strong>{{upgrade.name}}</strong><small>{{upgrade.description}}</small></button></div>
       </div>
       <div class="experience-bar" aria-label="Experience progress">
         <div class="experience-label"><span>EXPERIENCE</span><strong>{{experience}} / {{nextLevel}}</strong></div>
