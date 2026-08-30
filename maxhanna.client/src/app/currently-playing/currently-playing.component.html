@@ -1,6 +1,5 @@
 <div class="currentlyPlayingTitle popupPanelTitle" *ngIf="showEmptyMessage || gamers.length > 0">Currently Playing:</div>
 <div *ngIf="loading">Loading...</div><ng-container *ngFor="let group of gameGroups">
-    <div class="gameHeader">{{ group.title }}</div>
     <div *ngFor="let g of group.players" class="gamer">
         <ng-container *ngIf="g.user; else usernameOnly">
             <app-user-tag [user]="g.user" [displayMiniTag]="true" [displayHoverPicture]="true" [inputtedParentRef]="parentRef"></app-user-tag>
