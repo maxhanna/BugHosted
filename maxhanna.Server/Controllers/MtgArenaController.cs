@@ -33,6 +33,16 @@ public sealed class MtgArenaController : ControllerBase
         return Ok(new { id, name, imageUri = image, typeLine = type, oracleText = oracle, manaCost = mana });
     }
 
+    [HttpGet("catalogue")]
+    public async Task<IActionResult> Catalogue(CancellationToken ct)
+    {
+        await using var db = new MySqlConnection(Cs); await db.OpenAsync(ct);
+        const string sql = "SELECT scryfall_id AS id, name, image_uri AS imageUri, type_line AS typeLine, oracle_text AS oracleText, mana_cost AS manaCost FROM maxhanna.mtg_cards ORDER BY name LIMIT 5000";
+        await using var command = new MySqlCommand(sql, db); await using var reader = await command.ExecuteReaderAsync(ct);
+        var cards = new List<object>(); while (await reader.ReadAsync(ct)) cards.Add(new { id = reader.GetString("id"), name = reader.GetString("name"), imageUri = reader.IsDBNull(reader.GetOrdinal("imageUri")) ? null : reader.GetString("imageUri"), typeLine = reader.IsDBNull(reader.GetOrdinal("typeLine")) ? null : reader.GetString("typeLine"), oracleText = reader.IsDBNull(reader.GetOrdinal("oracleText")) ? null : reader.GetString("oracleText"), manaCost = reader.IsDBNull(reader.GetOrdinal("manaCost")) ? null : reader.GetString("manaCost") });
+        return Ok(cards);
+    }
+
     [HttpGet("lobby")]
     public IActionResult Lobby() => Ok(new { roomId = "digcraft-main", players = Array.Empty<object>() });
 

@@ -15,4 +15,5 @@ export class MtwArenaService {
   createStarterDeck(userId: number) { return firstValueFrom(this.http.post<MtwDeck>('/mtgarena/decks/starter', { userId })); }
   challenge(userId: number, opponentId: number) { return firstValueFrom(this.http.post('/mtgarena/challenges', { userId, opponentId })); }
   getCard(scryfallId: string) { return firstValueFrom(this.http.get<MtwCard>(`/mtgarena/cards/${encodeURIComponent(scryfallId)}`)); }
+  getCatalogue() { return firstValueFrom(this.http.get<MtwCard[]>('/mtgarena/catalogue')); }
 }

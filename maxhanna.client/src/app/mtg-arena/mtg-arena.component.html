@@ -4,6 +4,7 @@
     <div class="world-status">{{status}}</div><div class="prompt">{{interactPrompt}}</div>
     <div class="chat-bubble" *ngIf="chatLog.length"><span *ngFor="let line of chatLog">{{line}}</span></div>
     <form class="chat" (submit)="$event.preventDefault(); sendChat()"><input [(ngModel)]="chatMessage" name="chatMessage" placeholder="Say something in the pub…" maxlength="180"><button type="submit">Chat</button></form>
-    <div class="deck-table" *ngIf="selectedDeck"><h3>{{selectedDeck.name}}</h3><div class="cards"><img *ngFor="let card of selectedDeck.cards" [src]="card.imageUri" [alt]="card.name"></div><button type="button" (click)="selectedDeck=undefined">Close deck</button></div>
+    <div class="deck-table" *ngIf="selectedDeck && editMode"><h3>Deck at the bar · {{selectedDeck.name}}</h3><p>Choose cards from your catalogue to shape this deck.</p><div class="cards"><button class="card-tile" type="button" *ngFor="let card of selectedDeck.cards" [title]="card.oracleText || card.name"><img [src]="card.imageUri" [alt]="card.name"><span>{{card.name}}</span></button></div><button type="button" (click)="editMode=false">Put deck back</button></div>
+    <div class="catalogue" *ngIf="catalogueOpen"><h3>The Catalogue</h3><p>Every card currently cached from Scryfall.</p><div class="catalogue-grid"><article *ngFor="let card of catalogue" [title]="card.oracleText || card.name"><img [src]="card.imageUri" [alt]="card.name"><b>{{card.name}}</b></article></div><button type="button" (click)="catalogueOpen=false">Close binder</button></div>
   </div>
 </div>
