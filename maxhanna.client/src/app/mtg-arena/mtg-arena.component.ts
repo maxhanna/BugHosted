@@ -54,7 +54,7 @@ type DCPlayerSnapshot = {
   styleUrl: './mtg-arena.component.css',
   standalone: false,
 })
-export class MtwArenaComponent extends ChildComponent implements OnInit, OnDestroy, AfterViewInit {
+export class MtgArenaComponent extends ChildComponent implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild('gameCanvas', { static: false }) canvasRef!: ElementRef<HTMLCanvasElement>;
   @ViewChild('componentMain', { static: false }) componentMainRef?: ElementRef<HTMLDivElement>;
   @ViewChild('starCanvas', { static: false }) starCanvasRef?: ElementRef<HTMLCanvasElement>;

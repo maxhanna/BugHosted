@@ -55,6 +55,7 @@ import { ChatService } from '../services/chat.service';
 import { PublicChatInfo } from '../services/datacontracts/moderator/moderator';
 import { GetChatThemeResponse } from '../services/datacontracts/chat/chat-theme';
 import { SpaceEvolvesComponent } from './space-evolves/space-evolves.component';
+import { MtgArenaComponent } from './mtg-arena/mtg-arena.component';
 
 
 @Component({
@@ -80,6 +81,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     'BonesComponent',
     'EnderComponent',
     'DigCraftComponent',
+    'MtgArenaComponent',
     'GrandTheftComponent',
     'RacingComponent',
     'SpaceEvolvesComponent',
@@ -177,7 +179,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "📜", title: "User-Events", content: undefined },
     { ownership: 0, icon: "🌱", title: "Planter", content: undefined },
     { ownership: 0, icon: "🕷️", title: "Weaver", content: undefined },
-    { ownership: 0, icon: "🃏", title: "MTG Arena", content: undefined },
+    { ownership: 0, icon: "🃏", title: "MTG-Arena", content: undefined },
     { ownership: 0, icon: "🚔", title: "GrandTheft", content: undefined },
     { ownership: 0, icon: "🍳", title: "Recipe", content: undefined },
     { ownership: 0, icon: "🔄", title: "Conversion", content: undefined },
@@ -523,6 +525,8 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     "Top100": TopComponent,
     "Ender": EnderComponent,
     "Bones": BonesComponent,
+    "MTG-Arena": MtgArenaComponent,
+    "Space: Evolves": SpaceEvolvesComponent,
     "Planter": PlanterComponent,
     "Weaver": WeaverComponent,
     "Recipe": RecipeComponent,
@@ -547,7 +551,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     "GrandTheft": () => import('./grandtheft/grandtheft.component').then(m => m.GrandTheftComponent),
     "Racing": () => import('./racing/racing.component').then(m => m.RacingComponent),
     "Space: Evolves": () => import('./space-evolves/space-evolves.component').then(m => m.SpaceEvolvesComponent),
-    "MTG Arena": () => import('./mtg-arena/mtg-arena.component').then(m => m.MtwArenaComponent),
+    "MTG-Arena": () => import('./mtg-arena/mtg-arena.component').then(m => m.MtgArenaComponent),
     "Crypto-Hub": () => import('./crypto-hub/crypto-hub.module').then(m => ({ type: m.CryptoHubComponent, module: m.CryptoModule })),
   };
   /** Guards against a slow lazy chunk resolving after a newer navigation superseded it. */
@@ -755,9 +759,9 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
           this.checkAndClearRouterOutlet();
           this.createComponent('Racing');
         }
-        else if (this.router.url.toLowerCase().includes('space-evolves') || this.router.url.toLowerCase().includes('spaceevolves')) {
+        else if (this.router.url.toLowerCase().includes('mtgarena') || this.router.url.toLowerCase().includes('mtg-arena')) {
           this.checkAndClearRouterOutlet();
-          this.createComponent('Space: Evolves');
+          this.createComponent('MTG-Arena');
         }
         else if (this.router.url.toLowerCase().includes('grandtheft')) {
           this.checkAndClearRouterOutlet();
