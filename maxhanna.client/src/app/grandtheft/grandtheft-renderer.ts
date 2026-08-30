@@ -2726,7 +2726,7 @@ void main() {
         }
       }
       const mesh = this.createMesh(verts, indices);
-      const chunk: CityChunk = { mesh, cx, cz, lamps: [], hydrants: [], buildings, benches: [], barrels: [], chickens: [], trees: [], supermarkets: [], tatami: [], cabins: [], lighthouses: [], tropicalShops: [], decorativeAircraft: [] };
+      const chunk: CityChunk = { mesh, cx, cz, lamps: [], hydrants: [], buildings, benches: [], barrels: [], chickens: [], trees: [], supermarkets: [], tatami: [], cabins: [], lighthouses: [], tropicalShops: [], decorativeAircraft };
       this.chunkCache.set(key, chunk);
       return chunk;
     }
@@ -3373,8 +3373,10 @@ void main() {
             this.addBox(verts, indices, blockWorldX, 0.11, blockWorldZ + dz, 0.5, 0.05, 3, 1, 1, 1, 0.8, idxOffset); idxOffset += 24;
           }
           const aRole = rng();
-          const hasTerminal = aRole < 0.02;
-          const hasHelipad = aRole >= 0.02 && aRole < 0.32;
+          const hasTerminal = aRole < 0.02;            // Every airport apron gets a helipad. The old probabilistic branch
+            // left most airport chunks without a helicopter at all, making the
+            // airport feel empty and making visibility depend on chunk luck.
+            const hasHelipad = aRole >= 0.02 && aRole < 0.32;
           const HS = 2.5;
           if (hasTerminal && this.airportBuildingMeshes.length > 0) {
             const term = this.airportBuildingMeshes[Math.floor(rng() * this.airportBuildingMeshes.length)];
@@ -3415,6 +3417,9 @@ void main() {
             const heli: CityMesh[] = this.helicopterMeshes.length > 0
               ? this.helicopterMeshes[Math.floor(rng() * this.helicopterMeshes.length)]
               : this.getProceduralHelicopterMeshes().regular;
+            // Keep a stable, explicit aircraft placement record as well as the
+            // building placement. The render pass uses this record for culling
+            // and rotor animation; it must survive chunk construction.
             const heliYaw = rng() * Math.PI * 2;
             buildings.push({ model: heli, x: padX, y: -this.getModelMinY(heli) + 0.18, z: padZ, yaw: heliYaw, scale: [1, 1, 1] });
             decorativeAircraft.push({ x: padX, z: padZ, yaw: heliYaw, type: 'helicopter', model: heli });

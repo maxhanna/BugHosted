@@ -262,10 +262,12 @@ export class Bot extends Character {
       this.lastAttack = new Date();
 
       const botsInRange = getBotsInRange(this, this.partyMembers);
-      if (botsInRange.some((x: Bot) => x.id == this.targeting?.id)) {  
+      // Re-check the live relationship and weapon range at attack time. This
+      // prevents a stale target lock from silently disabling wild-enemy attacks.
+      if (this.targeting && botsInRange.some((x: Bot) => x.id === this.targeting?.id)) {
         attack(this, this.targeting);
-      } else {
-        untarget(this, this.targeting); 
+      } else if (this.targeting) {
+        untarget(this, this.targeting);
       } 
     } 
   } 

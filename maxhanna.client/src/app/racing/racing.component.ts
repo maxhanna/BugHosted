@@ -71,7 +71,7 @@ const MAX_SPEED_BASE = 55;
 // Steering is yaw-rate based, so the old value made a small key press rotate
 // almost instantly at speed. Keep the car responsive but give the steering rack
 // a realistic, upgrade-independent limit.
-const TURN_SPEED = 0.18;
+const TURN_SPEED = 0.235;
 // Side penalties, tuned so they sting but never stop the car dead. At 60fps
 // these are: kerb ~45%/sec lost while riding it (brief brushes ~15%), grass
 // ~70%/sec — firm enough to punish cutting across the infield, gentle enough
@@ -2354,13 +2354,16 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     }
     if (this.gasHeld) gas = 1;
     if (this.brakeHeld) brake = 1;
-    const lerpSpeed = 3.5;
+    // Restore a little steering response: the rack should reach a useful
+    // correction quickly, while the nonlinear curve still prevents twitchy
+    // full-lock snaps from a brief key tap.
+    const lerpSpeed = 4.8;
     this.keyboardSteerCurrent += (steerTarget - this.keyboardSteerCurrent) * Math.min(1, dt * lerpSpeed);
     if (Math.abs(this.keyboardSteerCurrent) < 0.002) this.keyboardSteerCurrent = 0;
     const s = this.keyboardSteerCurrent;
     // Soften the first part of the steering curve: a light tap should produce
     // a light correction instead of jumping straight to near-full lock.
-    this.carSteer = Math.sign(s) * Math.pow(Math.abs(s), 1.65);
+    this.carSteer = Math.sign(s) * Math.pow(Math.abs(s), 1.42);
     this.carAccel = gas - brake;
   }
   private updatePhysics(dt: number) {

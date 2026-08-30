@@ -348,28 +348,29 @@ export function setAnimationToStandAfterTimeElapsed(player: any) {
 	}, (player.isUserControlled ? 1000 : 1500));
 }
 
-export function getBotsInRange(player: Bot, partyMembers?: { heroId: number, name: string }[]): Bot[] { 
-  const discrepancy = gridCells(5);
-
-  const posibilities = player.parent?.children?.filter((child: Bot) => {
-    return (
-      ((player.heroId ?? 0) < 0 ? (child.heroId ?? 0) > 0 : true) &&
-      !partyMembers?.find(x => x.heroId == (child.heroId ?? 0)) &&
-      // Wild enemies (negative heroId) are always hostile to deployed player
-      // bots. The declared-hostile list only gates player-owned opponents.
-      ((child.heroId ?? 0) < 0 || (player.hostileHeroIds?.includes(child.heroId ?? 0) ?? false)) &&
-      (child.isDeployed) &&
-      (child.id != player.id) &&
-      (child.isEnemy) &&
-      (child.hp > 0) &&
-      !(child instanceof Sprite) &&
-      child.position.x >= player.position.x - discrepancy &&
-      child.position.x <= player.position.x + discrepancy &&
-      child.position.y >= player.position.y - discrepancy &&
-      child.position.y <= player.position.y + discrepancy
-    );
-  }); 
-  return posibilities ?? [];
+export function getBotsInRange(player: Bot, partyMembers?: { heroId: number, name: string }[]): Bot[] {
+  // Wild encounter bots (negative heroId) are always hostile to player-owned
+  // deployed bots. Declared-hostile state only applies to other players.
+  const range = gridCells(5);
+  const rangeSquared = range * range;
+  const children = player.parent?.children ?? [];
+  const candidates: Bot[] = [];
+  for (const child of children as any[]) {
+    if (!(child instanceof Bot) || child.id === player.id || !child.isDeployed || !child.isEnemy || child.hp <= 0) continue;
+    const childHeroId = child.heroId ?? 0;
+    const sourceIsWild = (player.heroId ?? 0) < 0;
+    const targetIsWild = childHeroId < 0;
+    if (sourceIsWild ? !targetIsWild : targetIsWild ? false : !(player.hostileHeroIds?.includes(childHeroId) ?? false)) continue;
+    if (!sourceIsWild && partyMembers?.some(x => x.heroId === childHeroId)) continue;
+    const dx = child.position.x - player.position.x;
+    const dy = child.position.y - player.position.y;
+    if (dx * dx + dy * dy <= rangeSquared) candidates.push(child);
+  }
+  return candidates.sort((a, b) => {
+    const adx = a.position.x - player.position.x, ady = a.position.y - player.position.y;
+    const bdx = b.position.x - player.position.x, bdy = b.position.y - player.position.y;
+    return adx * adx + ady * ady - (bdx * bdx + bdy * bdy);
+  });
 }
 export function isObjectNearby(playerOrObject: any) {
 	const basePosition = playerOrObject.position;
