@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
 import { Todo } from '../../services/datacontracts/todo';
 import { TodoService } from '../../services/todo.service';
 import { AppComponent } from '../app.component';
@@ -12,6 +12,7 @@ import { AppComponent } from '../app.component';
 })
 export class MoviesAddedTodayComponent implements OnInit {
   @Input() inputtedParentRef?: AppComponent;
+  @Output() hasData = new EventEmitter<boolean>();
   movies: Todo[] = [];
   isLoading = true;
 
@@ -22,6 +23,7 @@ export class MoviesAddedTodayComponent implements OnInit {
       this.movies = (await this.todoService.getTodayMovies()) ?? [];
     } finally {
       this.isLoading = false;
+      this.hasData.emit(this.movies.length > 0);
       this.cdr.markForCheck();
     }
   }

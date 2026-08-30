@@ -4,34 +4,34 @@
   <div class="widget" id="currently-playing" [attr.data-order]="(availabilityCurrentlyPlaying ? 0 : 1)">
     <app-currently-playing [parentRef]="parentRef"></app-currently-playing>
   </div>
-  <div class="widget" id="mastermind" [attr.data-order]="(availabilityMastermind ? 0 : 1)">
+  <div class="widget" id="mastermind" *ngIf="availabilityMastermind" [attr.data-order]="0">
     <app-mastermind-scores (hasData)="onChildHasData('mastermind',$event)" [showBestScores]="false"
       [showBestScoresToday]="true" [showUserHeader]="true" [parentRef]="parentRef"></app-mastermind-scores>
   </div>
-  <div class="widget" id="ender" [attr.data-order]="(availabilityEnder ? 0 : 1)">
+  <div class="widget" id="ender" *ngIf="availabilityEnder" [attr.data-order]="0">
     <app-ender-high-scores (hasData)="onChildHasData('ender',$event)" [parentRef]="parentRef" [limit]="10"
       [showUserHeader]="true" [showHeaderTitles]="true" [headerClickable]="true" [mode]="'today'"
       [headerClickTarget]="'Ender'"></app-ender-high-scores>
   </div>
-  <div class="widget" id="wordler" [attr.data-order]="(availabilityWordler ? 0 : 1)">
+  <div class="widget" id="wordler" *ngIf="availabilityWordler" [attr.data-order]="0">
     <app-wordler-high-scores (hasData)="onChildHasData('wordler',$event)" [mode]="'today'" [headerClickable]="true"
       [showUserHeader]="true" [inputtedParentRef]="parentRef" [showHeaderTitles]="true"
       (headerClick)="null"></app-wordler-high-scores>
   </div>
-  <div class="widget" id="music" [attr.data-order]="(availabilityMusic ? 0 : 1)">
+  <div class="widget" id="music" *ngIf="availabilityMusic" [attr.data-order]="0">
     <app-daily-music (hasData)="onChildHasData('music',$event)" [inputtedParentRef]="parentRef"></app-daily-music>
   </div>
-  <div class="widget" id="movies" [attr.data-order]="(availabilityMovies ? 0 : 1)">
-    <app-movies-added-today [inputtedParentRef]="parentRef"></app-movies-added-today>
+  <div class="widget" id="movies" *ngIf="availabilityMovies" [attr.data-order]="0">
+    <app-movies-added-today [inputtedParentRef]="parentRef" (hasData)="onChildHasData('movies',$event)"></app-movies-added-today>
   </div>
-  <div class="widget" id="newusers" [attr.data-order]="(availabilityNewUsers ? 0 : 1)">
+  <div class="widget" id="newusers" *ngIf="availabilityNewUsers" [attr.data-order]="0">
     <app-new-users (hasData)="onChildHasData('newusers',$event)" [inputtedParentRef]="parentRef"></app-new-users>
   </div>
-  <div class="widget" id="onlineusers" [attr.data-order]="(availabilityOnlineUsers ? 0 : 1)">
+  <div class="widget" id="onlineusers" *ngIf="availabilityOnlineUsers" [attr.data-order]="0">
     <app-online-users (hasData)="onChildHasData('onlineusers',$event)"
       [inputtedParentRef]="parentRef"></app-online-users>
   </div>
-  <div class="widget" id="userevents" [attr.data-order]="(availabilityUserEvents ? 0 : 1)">
+  <div class="widget" id="userevents" *ngIf="availabilityUserEvents" [attr.data-order]="0">
     <app-user-events (hasData)="onChildHasData('userevents',$event)" [inputtedParentRef]="parentRef"
       [showTitleBar]="false"></app-user-events>
   </div>

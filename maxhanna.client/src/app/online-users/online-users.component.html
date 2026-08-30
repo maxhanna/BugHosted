@@ -1,5 +1,5 @@
 <div class="new-users-component">
-  <div class="newUsersTitle popupPanelTitle" *ngIf="loading || users?.length">Online Users:</div>
+  <div class="newUsersTitle popupPanelTitle" *ngIf="users?.length">Online Users:</div>
   <div *ngIf="loading" class="loading">Loading online users...</div>
   <div *ngIf="loadError" class="error">{{ loadError }}</div>
   <div *ngIf="users && users.length > 0">
@@ -7,14 +7,5 @@
       <app-user-tag [user]="u" [inputtedParentRef]="inputtedParentRef" [displayMiniTag]="true"></app-user-tag>
     </div>
   </div>
-  <div *ngIf="!loading && (!users || users.length == 0)">
-    No{{" "}}
-    <app-menu-item 
-      style="display: inline-block;" 
-      [parentRef]="inputtedParentRef ?? parentRef" 
-      [type]="'User'" 
-      [label]="'Users'">
-    </app-menu-item>
-    {{" "}}Online Right Now.
-  </div>
+
 </div>
