@@ -1,20 +1,29 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild } from '@angular/core';
 import { MtwArenaService, MtwCard, MtwDeck, MtwLobby } from '../../services/mtg-arena.service';
 import { ChildComponent } from '../child.component';
 
-@Component({ selector: 'app-mtg-arena', templateUrl: './mtg-arena.component.html', styleUrl: './mtg-arena.component.css', standalone: false })
-export class MtwArenaComponent extends ChildComponent implements OnInit, OnDestroy {
-  lobby?: MtwLobby;
-  cards: MtwCard[] = [];
-  decks: MtwDeck[] = [];
-  selectedDeck?: MtwDeck;
-  status = 'Connecting to the arena…';
-  private poll?: ReturnType<typeof setInterval>;
+interface LobbyAvatar { id: number; username: string; x: number; y: number; color: string; }
 
+@Component({ selector: 'app-mtg-arena', templateUrl: './mtg-arena.component.html', styleUrl: './mtg-arena.component.css', standalone: false })
+export class MtwArenaComponent extends ChildComponent implements AfterViewInit, OnDestroy {
+  @ViewChild('worldCanvas', { static: true }) worldCanvas!: ElementRef<HTMLCanvasElement>;
+  lobby?: MtwLobby; decks: MtwDeck[] = []; selectedDeck?: MtwDeck;
+  chatMessage = ''; chatLog: string[] = []; status = 'Entering the Lantern & Lotus…'; interactPrompt = 'Walk with WASD or arrow keys';
+  avatars: LobbyAvatar[] = []; private ctx!: CanvasRenderingContext2D; private keys = new Set<string>(); private frame = 0; private poll?: ReturnType<typeof setInterval>; private last = 0;
+  player = { x: .5, y: .68, color: '#62d6ff' };
   constructor(private readonly arena: MtwArenaService) { super(); }
-  async ngOnInit() { await this.refresh(); this.poll = setInterval(() => void this.refresh(), 5000); }
-  ngOnDestroy() { if (this.poll) clearInterval(this.poll); }
-  async refresh() { try { const userId = Number(this.parentRef?.user?.id ?? 0); this.lobby = await this.arena.getLobby(userId); this.decks = await this.arena.getDecks(userId); this.status = 'Ready. Challenge a player or the arena bot.'; } catch { this.status = 'Arena service unavailable.'; } }
-  async challenge(opponentId: number) { const userId = Number(this.parentRef?.user?.id ?? 0); this.status = 'Sending challenge…'; await this.arena.challenge(userId, opponentId); await this.refresh(); }
-  async createStarterDeck() { const userId = Number(this.parentRef?.user?.id ?? 0); this.selectedDeck = await this.arena.createStarterDeck(userId); this.decks = [...this.decks.filter(d => d.id !== this.selectedDeck?.id), this.selectedDeck]; }
+  ngAfterViewInit() { this.ctx = this.worldCanvas.nativeElement.getContext('2d')!; window.addEventListener('keydown', this.keyDown); window.addEventListener('keyup', this.keyUp); this.resize(); window.addEventListener('resize', this.resize); void this.refresh(); this.last = performance.now(); this.frame = requestAnimationFrame(this.loop); }
+  ngOnDestroy() { cancelAnimationFrame(this.frame); if (this.poll) clearInterval(this.poll); window.removeEventListener('keydown', this.keyDown); window.removeEventListener('keyup', this.keyUp); window.removeEventListener('resize', this.resize); }
+  private resize = () => { const c = this.worldCanvas.nativeElement, r = c.getBoundingClientRect(), d = Math.min(devicePixelRatio || 1, 2); c.width = Math.floor(r.width * d); c.height = Math.floor(r.height * d); this.ctx?.setTransform(d, 0, 0, d, 0, 0); };
+  private keyDown = (e: KeyboardEvent) => { const key = e.key.toLowerCase(); if (['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].includes(key)) e.preventDefault(); this.keys.add(key); };
+  private keyUp = (e: KeyboardEvent) => this.keys.delete(e.key.toLowerCase());
+  private loop = (time: number) => { const dt = Math.min(.05, (time - this.last) / 1000); this.last = time; this.move(dt); this.draw(); this.frame = requestAnimationFrame(this.loop); };
+  private move(dt: number) { let dx = 0, dy = 0; if (this.keys.has('a') || this.keys.has('arrowleft')) dx--; if (this.keys.has('d') || this.keys.has('arrowright')) dx++; if (this.keys.has('w') || this.keys.has('arrowup')) dy--; if (this.keys.has('s') || this.keys.has('arrowdown')) dy++; const n = Math.hypot(dx, dy) || 1; this.player.x = Math.max(.06, Math.min(.94, this.player.x + dx / n * dt * .32)); this.player.y = Math.max(.16, Math.min(.92, this.player.y + dy / n * dt * .32)); this.interactPrompt = this.nearBar() ? 'At the bar: press E to open the deck table' : this.nearNotice() ? 'At the notice board: press E to challenge a player' : 'Walk with WASD or arrow keys'; if (this.keys.has('e')) { this.keys.delete('e'); if (this.nearBar()) void this.createStarterDeck(); } }
+  private nearBar() { return Math.hypot(this.player.x - .18, this.player.y - .27) < .14; }
+  private nearNotice() { return Math.hypot(this.player.x - .82, this.player.y - .28) < .14; }
+  private draw() { const c = this.worldCanvas.nativeElement, ctx = this.ctx, w = c.clientWidth, h = c.clientHeight; ctx.clearRect(0,0,w,h); ctx.fillStyle='#17253a'; ctx.fillRect(0,0,w,h); ctx.fillStyle='#3b4350'; ctx.fillRect(0,h*.12,w,h*.8); ctx.fillStyle='#29384a'; ctx.fillRect(w*.05,h*.2,w*.9,h*.7); ctx.fillStyle='#5c3827'; ctx.fillRect(w*.08,h*.05,w*.84,h*.1); ctx.fillStyle='#805035'; ctx.fillRect(w*.1,h*.23,w*.22,h*.18); ctx.fillStyle='#d8a55c'; ctx.fillRect(w*.13,h*.19,w*.16,h*.04); ctx.fillStyle='#573722'; ctx.fillRect(w*.68,h*.23,w*.22,h*.18); ctx.fillStyle='#b8d8ec'; ctx.fillRect(w*.73,h*.27,w*.12,h*.08); ctx.fillStyle='#705033'; ctx.fillRect(w*.37,h*.48,w*.26,h*.14); ctx.fillStyle='#d8a55c'; ctx.fillRect(w*.4,h*.45,w*.2,h*.04); ctx.strokeStyle='#a2d5f2'; ctx.lineWidth=2; ctx.strokeRect(w*.46,h*.66,w*.08,h*.12); ctx.fillStyle='#09111d'; ctx.font='bold 12px system-ui'; ctx.textAlign='center'; ctx.fillText('LANTERN & LOTUS',w*.5,h*.1); ctx.fillText('DECK TABLE',w*.5,h*.48); ctx.fillText('NOTICE BOARD',w*.79,h*.26); for(const avatar of this.avatars) this.drawAvatar(avatar.x*w,avatar.y*h,avatar.color,avatar.username); this.drawAvatar(this.player.x*w,this.player.y*h,this.player.color,'You'); }
+  private drawAvatar(x:number,y:number,color:string,name:string){ const ctx=this.ctx; ctx.fillStyle='rgba(0,0,0,.35)'; ctx.beginPath();ctx.ellipse(x,y+10,13,5,0,0,Math.PI*2);ctx.fill();ctx.fillStyle=color;ctx.beginPath();ctx.arc(x,y,10,0,Math.PI*2);ctx.fill();ctx.fillStyle='#f4c7a1';ctx.beginPath();ctx.arc(x,y-12,7,0,Math.PI*2);ctx.fill();ctx.fillStyle='#e8f6ff';ctx.font='11px system-ui';ctx.textAlign='center';ctx.fillText(name,x,y-23); }
+  async refresh() { try { const userId = Number(this.parentRef?.user?.id ?? 0); this.lobby = await this.arena.getLobby(userId); this.decks = await this.arena.getDecks(userId); this.avatars = (this.lobby?.players ?? []).filter(p => p.id !== userId).map((p,i) => ({ id:p.id, username:p.username, x:.28 + (i%4)*.16, y:.65 + Math.floor(i/4)*.1, color:['#ff7d9c','#b58cff','#ffd166','#7dffb2'][i%4] })); this.status='The pub is open.'; } catch { this.status='The pub is offline.'; } }
+  async createStarterDeck() { const userId=Number(this.parentRef?.user?.id ?? 0); if (!userId) { this.status='Sign in at the innkeeper’s desk to save a deck.'; return; } try { this.selectedDeck=await this.arena.createStarterDeck(userId); this.decks=[...this.decks,this.selectedDeck]; this.status='A starter deck is waiting on the bar.'; } catch { this.status='The bartender could not prepare a deck.'; } }
+  async sendChat() { const text=this.chatMessage.trim(); if (!text) return; this.chatLog=[...this.chatLog.slice(-19),`You: ${text}`]; this.chatMessage=''; }
 }

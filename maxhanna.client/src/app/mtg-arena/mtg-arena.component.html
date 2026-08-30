@@ -1,17 +1,9 @@
 <div class="mtg-arena componentMain">
   <app-title-bar [title]="'MTG Arena'" (closeClicked)="remove_me('MtwArenaComponent')"></app-title-bar>
-  <section class="arena-panel">
-    <h2>MTG Arena</h2>
-    <p class="status">{{status}}</p>
-    <div class="actions"><button type="button" (click)="createStarterDeck()">Create starter deck</button><button type="button" (click)="refresh()">Refresh room</button></div>
-    <h3>Room challengers</h3>
-    <div class="players" *ngIf="lobby?.players?.length; else emptyRoom">
-      <article class="player" *ngFor="let player of lobby?.players"><span>{{player.username}}</span><small>{{player.ready ? 'Ready' : 'Browsing decks'}}</small><button *ngIf="player.id !== (parentRef?.user?.id ?? 0)" type="button" (click)="challenge(player.id)">Challenge</button></article>
-    </div>
-    <ng-template #emptyRoom><p class="muted">The room is empty. Waiting for challengers…</p></ng-template>
-    <h3>Your decks</h3>
-    <div class="decks" *ngIf="decks.length; else noDecks"><button *ngFor="let deck of decks" type="button" [class.selected]="selectedDeck?.id === deck.id" (click)="selectedDeck = deck"><strong>{{deck.name}}</strong><span>{{deck.cards.length}} cards</span></button></div>
-    <ng-template #noDecks><p class="muted">Create a starter deck to begin collecting cards.</p></ng-template>
-    <div class="deck-preview" *ngIf="selectedDeck"><h3>{{selectedDeck.name}}</h3><div class="cards"><article *ngFor="let card of selectedDeck.cards"><img *ngIf="card.imageUri" [src]="card.imageUri" [alt]="card.name" loading="lazy"><span>{{card.name}}</span></article></div></div>
-  </section>
+  <div class="world-wrap"><canvas #worldCanvas class="world" tabindex="0"></canvas>
+    <div class="world-status">{{status}}</div><div class="prompt">{{interactPrompt}}</div>
+    <div class="chat-bubble" *ngIf="chatLog.length"><span *ngFor="let line of chatLog">{{line}}</span></div>
+    <form class="chat" (submit)="$event.preventDefault(); sendChat()"><input [(ngModel)]="chatMessage" name="chatMessage" placeholder="Say something in the pub…" maxlength="180"><button type="submit">Chat</button></form>
+    <div class="deck-table" *ngIf="selectedDeck"><h3>{{selectedDeck.name}}</h3><div class="cards"><img *ngFor="let card of selectedDeck.cards" [src]="card.imageUri" [alt]="card.name"></div><button type="button" (click)="selectedDeck=undefined">Close deck</button></div>
+  </div>
 </div>
