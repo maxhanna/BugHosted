@@ -82,6 +82,8 @@ const PROXY_CONFIG = [
       "/hubs",
       "/racing",
       "/marbles",
+      "/spaceevolves",
+      "/mtgarena",
     ],
     target,
     changeOrigin: true, // This helps with certain CORS issues and forwards headers correctly 

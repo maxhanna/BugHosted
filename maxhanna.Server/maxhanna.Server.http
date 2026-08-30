@@ -280,3 +280,15 @@ Accept: application/json
 POST {{maxhanna.Server_HostAddress}}/Marbles/
 Accept: application/json
 ###
+GET {{maxhanna.Server_HostAddress}}/SpaceEvolves/
+Accept: application/json
+###
+POST {{maxhanna.Server_HostAddress}}/SpaceEvolves/
+Accept: application/json
+###
+GET {{maxhanna.Server_HostAddress}}/MtgArena/
+Accept: application/json
+###
+POST {{maxhanna.Server_HostAddress}}/MtgArena/
+Accept: application/json
+###
