@@ -287,6 +287,9 @@ export class MtgArenaComponent extends ChildComponent implements OnInit, OnDestr
   inviteFromUser: { userId: number; username: string } | null = null;
   // Client-side mobs (procedurally spawned, rendered like players)
   mobs: Array<any> = [];
+  /** A neutral in-world referee rendered with the same player model as avatars. */
+  private readonly refereeId = -2147483001;
+  private readonly refereeSpawnOffset = { x: 1.4, z: 0.9 };
   private mobIdCounter = 1;
   private readonly MOB_MAX = 48;
   private readonly MOB_AGGRO_RANGE = 12; // blocks
@@ -2467,7 +2470,23 @@ export class MtgArenaComponent extends ChildComponent implements OnInit, OnDestr
     const mobPlayers = (mobSource || [])
       .filter(m => !m.dead)
       .map(m => ({ userId: -(1000 + (m.id || 0)), posX: m.posX, posY: m.posY, posZ: m.posZ, yaw: m.yaw || 0, pitch: 0, health: m.health || 20, username: (m as any).type || 'Mob', color: '#ffffff', maxHealth: (m as any).maxHealth || 20 } as DCPlayer));
-    const renderPlayers = basePlayers.concat(mobPlayers);
+    const spawnX = 8;
+    const spawnY = 40 - 1.6;
+    const spawnZ = 8;
+    const referee: DCPlayer = {
+      userId: this.refereeId,
+      posX: spawnX + this.refereeSpawnOffset.x,
+      posY: spawnY,
+      posZ: spawnZ + this.refereeSpawnOffset.z,
+      yaw: 0,
+      pitch: 0,
+      health: 20,
+      maxHealth: 20,
+      username: 'REFEREE',
+      color: '#d9b45b',
+      face: 'default'
+    } as DCPlayer;
+    const renderPlayers = basePlayers.concat(mobPlayers, [referee]);
 
     // ── Progressive day/night/dusk/dawn cycle ──
     // Each 10-min segment = day or night. First+last 2 min = dusk/dawn transition.
@@ -5621,7 +5640,8 @@ export class MtgArenaComponent extends ChildComponent implements OnInit, OnDestr
     this.checkLevelUp();
   }
   handleLeftClick(e?: any): void {
-    if (this.showRespawnPrompt || this.isRespawning) return;
+    // MTG Arena is a peaceful lobby: attacks and block damage are disabled.
+    return;
     // Can't attack while blocking with shield
     if (this.isDefending && this.leftHand === ItemId.SHIELD) return;
     // Mobile attack cooldown to prevent double-tap
@@ -5634,34 +5654,7 @@ export class MtgArenaComponent extends ChildComponent implements OnInit, OnDestr
     if (this.equippedWeapon === ItemId.BOW) {
       this.fireBow().catch((err: any) => console.error('DigCraft: bow fire error', err));
       return;
-    }
-    // If the player has a weapon and is aiming at another player or a mob,
-    // treat this as an attack and prevent the click from passing through
-    // to block-breaking. Otherwise, perform block breaking as before.
-    let handled = false;
-    try {
-      if (this.equippedWeapon) {
-        let aimedPlayer = null;
-        let aimedMob = null;
-        aimedPlayer = this.findAimedPlayer();
-        if (!aimedPlayer) {
-          aimedMob = this.findAimedMob();
-        }
-        if (aimedPlayer || aimedMob) {
-          this.attemptAttack().catch((err: any) => console.error('DigCraft: attack error', err));
-          handled = true;
-        }
-      }
-    } catch (err) { /* ignore detection errors */ }
-
-    if (!handled && this.targetBlock && !INVULNERABLE_BLOCKS.includes(this.targetBlock.id ?? BlockId.AIR)) {
-      const targetId = this.targetBlock.id ?? BlockId.AIR;
-      if (targetId === BlockId.DYNAMITE) {
-        this.lightDynamite(this.targetBlock.wx, this.targetBlock.wy, this.targetBlock.wz);
-      } else {
-        this.damageBlock(this.targetBlock.wx, this.targetBlock.wy, this.targetBlock.wz, targetId);
-      }
-    }
+    } 
   }
   private getAttackRange(weaponId: number = this.equippedWeapon): number {
     return weaponId === ItemId.BOW ? BOW_ATTACK_MAX_RANGE : PLAYER_ATTACK_MAX_RANGE;
@@ -7191,15 +7184,8 @@ export class MtgArenaComponent extends ChildComponent implements OnInit, OnDestr
   }
   onTouchBreak(): void {
     if (this.showRespawnPrompt || this.isRespawning) return;
-    // Mobile attack cooldown to prevent double-tap
-    const now = performance.now();
-    if (now - this.lastAttackTime < this.ATTACK_COOLDOWN_MS) return;
-    this.lastAttackTime = now;
-    // Mobile left-click: trigger swing animation and attack players/mobs, then damage block
-    this.triggerSwing();
-    if (this.targetBlock) {
-      this.damageBlock(this.targetBlock.wx, this.targetBlock.wy, this.targetBlock.wz, this.targetBlock.id ?? BlockId.AIR);
-    }
+    // MTG Arena is a peaceful lobby: mobile input cannot damage players, NPCs, or blocks.
+    return;
   }
 
   // Toggle a window/door and all connected same-type neighbours (6-connected: sides and stacked)
@@ -8392,73 +8378,8 @@ export class MtgArenaComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   private async attemptAttack(): Promise<void> {
-    const userId = this.parentRef?.user?.id ?? 0;
-    if (!userId) return;
-    const target = this.findAimedPlayer();
-    if (target) {
-      try {
-        const res = await this.digcraftService.attack(userId, target.userId, this.worldId, this.equippedWeapon, this.camX, this.camY, this.camZ);
-        if (res && res.ok) {
-          const p = this.otherPlayers.find(x => x.userId === res.targetUserId);
-          if (p) p.health = res.health;
-          if (res.damage && res.damage > 0) this.showDamagePopup(`-${res.damage}`);
-          // Reduce weapon durability when hitting players
-          this.reduceEquippedDurability('hit');
-        }
-      } catch (err) {
-        console.error('DigCraft: attack failed', err);
-      }
-      return;
-    }
-
-    // If no player targeted, try mobs (server-authoritative)
-    const mob = this.findAimedMob();
-    if (!mob) return;
-
-    // Don't update local health optimistically - server is authoritative
-    // Send attack to server and wait for response
-
-    try {
-      const res = await this.digcraftService.attackMob(userId, this.worldId, mob.id, this.equippedWeapon, this.camX, this.camY, this.camZ, true);
-      if (!res) {
-        console.warn('DigCraft: attackMob returned null');
-        return;
-      }
-      if (!res.ok) {
-        console.warn('DigCraft: attackMob failed:', res);
-        return;
-      }
-      // Reduce weapon durability when hitting mobs
-      this.reduceEquippedDurability('hit');
-      if (res.drops && Array.isArray(res.drops)) {
-        for (const drop of res.drops) {
-          if (drop && typeof drop.itemId === 'number' && typeof drop.quantity === 'number' && drop.quantity > 0) {
-            this.addToInventory(drop.itemId, drop.quantity);
-          }
-        }
-      }
-      // update local mob list from server response
-      const localIdx = this.mobs.findIndex((m: any) => m.id === res.mobId);
-      if (localIdx >= 0) {
-        if (res.dead) {
-          (this.mobs[localIdx] as any).dead = true;
-          // Mark as dead in smoothed mobs
-          if (this.smoothedMobs) {
-            const smoothIdx = this.smoothedMobs.findIndex((m: any) => m.id === res.mobId);
-            if (smoothIdx >= 0) (this.smoothedMobs[smoothIdx] as any).dead = true;
-          }
-          this.mobs[localIdx].health = res.health;
-          // Update smoothed mobs if present
-          if (this.smoothedMobs) {
-            const smoothMob = this.smoothedMobs.find((m: any) => m.id === res.mobId);
-            if (smoothMob) smoothMob.health = res.health;
-          }
-        }
-      }
-      if (res.damage && res.damage > 0) this.showDamagePopup(`-${res.damage}`);
-    } catch (err) {
-      console.error('DigCraft: attackMob failed', err);
-    }
+    // Combat is intentionally unavailable in the MTG Arena lobby.
+    return;
   }
   get availableEmojis(): string[] {
     const map = this.parentRef?.emojiMap;
