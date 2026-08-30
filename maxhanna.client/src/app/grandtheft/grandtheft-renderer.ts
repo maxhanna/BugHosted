@@ -4262,14 +4262,17 @@ void main() {
     // limb remains independently skinnable.
     // Shape the torso with an upper chest, waist, and pelvis instead of one
     // inflated blob; all volumes use the same shared skeleton.
-    addRounded(0, 0.20, 0, torsoW * 0.58, torsoH * 0.56, torsoD * 0.58, variant.outfitA, 2);
-    addRounded(0, 0.30, 0.005, torsoW * 0.47, torsoH * 0.22, torsoD * 0.52, variant.outfitA, 2);
-    addRounded(0, 0.08, 0.008, torsoW * 0.40, torsoH * 0.18, torsoD * 0.43, variant.outfitA, 0);
+    // Use tapered elliptical sections rather than stacked spheres. The broad
+    // ribcage, narrower waist, and wider pelvis create a recognizable torso
+    // silhouette while the small overlaps hide seams during animation.
+    addRounded(0, 0.27, 0, torsoW * 0.66, torsoH * 0.52, torsoD * 0.58, variant.outfitA, 2);
+    addRounded(0, 0.16, 0, torsoW * 0.52, torsoH * 0.34, torsoD * 0.50, variant.outfitA, 2);
+    addRounded(0, 0.04, 0, torsoW * 0.46, torsoH * 0.24, torsoD * 0.48, variant.outfitA, 0);
     // Anatomical contour bands: these are deliberately separate, skinned
     // volumes rather than a single sphere, giving the torso a ribcage, waist,
     // and pelvis profile. Each call contributes real indexed vertices.
-    addRounded(0, 0.31, 0.005, torsoW * 0.53, torsoH * 0.28, torsoD * 0.54, variant.outfitA, 2);
-    addRounded(0, 0.08, 0.008, torsoW * 0.43, torsoH * 0.22, torsoD * 0.47, variant.outfitA, 0);
+    addRounded(0, 0.33, 0.004, torsoW * 0.54, torsoH * 0.24, torsoD * 0.54, variant.outfitA, 2);
+    addRounded(0, 0.00, 0.008, torsoW * 0.48, torsoH * 0.18, torsoD * 0.46, variant.outfitB, 0);
     // Shoulder and hip transition volumes bridge independently skinned limbs to
     // the torso, preventing visible gaps when the gait rotates the limbs.
     addRounded(-0.16, 0.22, 0, 0.14, 0.14, 0.13, variant.outfitA, 2);
@@ -4306,8 +4309,8 @@ void main() {
     const shoulder = (variant.shoulderWidth ?? 1) * (variant.bodyType === 'muscular' ? 1.08 : 1);
     const hipsWidth = variant.hipWidth ?? 1;
     const armX = 0.20 * shoulder;
-    addRounded(-armX,0.18,0,armW*0.62,armLen*0.27,armW*0.62,variant.skin,6); addRounded(-armX,-0.04,0,armW*0.58,armLen*0.27,armW*0.58,variant.skin,7); addRounded(-armX,-0.24,0,0.045,0.055,0.045,variant.skin,8);
-    addRounded(armX,0.18,0,armW*0.62,armLen*0.27,armW*0.62,variant.skin,10); addRounded(armX,-0.04,0,armW*0.58,armLen*0.27,armW*0.58,variant.skin,11); addRounded(armX,-0.24,0,0.045,0.055,0.045,variant.skin,12);
+    addRounded(-armX,0.18,0,armW*0.70,armLen*0.30,armW*0.72,variant.skin,6); addRounded(-armX,-0.04,0,armW*0.58,armLen*0.31,armW*0.60,variant.skin,7); addRounded(-armX,-0.24,0,0.050,0.060,0.050,variant.skin,8);
+    addRounded(armX,0.18,0,armW*0.70,armLen*0.30,armW*0.72,variant.skin,10); addRounded(armX,-0.04,0,armW*0.58,armLen*0.31,armW*0.60,variant.skin,11); addRounded(armX,-0.24,0,0.050,0.060,0.050,variant.skin,12);
     // Collar and armpit blend volumes overlap the shoulder joints so the
     // animated arms never expose a gap while swinging or aiming.
     addRounded(-armX * 0.72, 0.25, 0, armW * 0.82, 0.12, armW * 0.82, variant.outfitA, 2);
@@ -4321,11 +4324,11 @@ void main() {
     // eliminating the floating-leg appearance during gait and ragdoll poses.
     addRounded(-hipOff, -0.08, 0, legW * 0.72, 0.11, legW * 0.72, pantTone, 2);
     addRounded(hipOff, -0.08, 0, legW * 0.72, 0.11, legW * 0.72, pantTone, 2);
-    addRounded(-hipOff,-0.12,0,legW*0.52,thighH*0.52,legW*0.52,pantTone,13); addRounded(-hipOff,-0.12-thighH,0,legW*0.48,shinH*0.52,legW*0.48,pantTone,14); addRounded(-hipOff,-0.12-thighH-shinH+0.04,0.04,0.07,0.035,0.10,[0.12,0.08,0.06],15);
+    addRounded(-hipOff,-0.12,0,legW*0.58,thighH*0.54,legW*0.56,pantTone,13); addRounded(-hipOff,-0.12-thighH,0,legW*0.48,shinH*0.54,legW*0.46,pantTone,14); addRounded(-hipOff,-0.12-thighH-shinH+0.04,0.04,0.08,0.04,0.12,[0.12,0.08,0.06],15);
     // Knee and calf shaping keeps the legs cylindrical but not balloon-like.
     addRounded(-hipOff, -0.12 - thighH * 0.92, 0.005, legW * 0.54, legW * 0.34, legW * 0.54, pantTone, 14);
     addRounded(-hipOff, -0.12 - thighH - shinH * 0.58, 0.006, legW * 0.50, shinH * 0.34, legW * 0.50, pantTone, 14);
-    addRounded(hipOff,-0.12,0,legW*0.52,thighH*0.52,legW*0.52,pantTone,16); addRounded(hipOff,-0.12-thighH,0,legW*0.48,shinH*0.52,legW*0.48,pantTone,17); addRounded(hipOff,-0.12-thighH-shinH+0.04,0.04,0.07,0.035,0.10,[0.12,0.08,0.06],18);
+    addRounded(hipOff,-0.12,0,legW*0.58,thighH*0.54,legW*0.56,pantTone,16); addRounded(hipOff,-0.12-thighH,0,legW*0.48,shinH*0.54,legW*0.46,pantTone,17); addRounded(hipOff,-0.12-thighH-shinH+0.04,0.04,0.08,0.04,0.12,[0.12,0.08,0.06],18);
     addRounded(hipOff, -0.12 - thighH * 0.92, 0.005, legW * 0.54, legW * 0.34, legW * 0.54, pantTone, 17);
     addRounded(hipOff, -0.12 - thighH - shinH * 0.58, 0.006, legW * 0.50, shinH * 0.34, legW * 0.50, pantTone, 17);
     if (variant.role==='cop' && variant.accent) addBox(0.08,0.22,0.10,0.06,0.06,0.01,variant.accent,2);
