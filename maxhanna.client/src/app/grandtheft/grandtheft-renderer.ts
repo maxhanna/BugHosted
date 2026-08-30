@@ -747,6 +747,8 @@ export class GrandTheftRenderer {
   public m4a1Mesh: CityMesh[] | null = null;
   public shotgunMesh: CityMesh[] | null = null;
   public cityBuildingMeshes: CityMesh[][] = [];
+  /** Occupied world-space building footprints, shared across generated chunks. */
+  private buildingOccupancyByChunk = new Map<string, { minX: number; maxX: number; minZ: number; maxZ: number }[]>();
   public airportBuildingMeshes: CityMesh[][] = [];
   public airportHangarMesh: CityMesh[] | null = null;
   public suburbBuildingMeshes: CityMesh[][] = [];
@@ -3570,7 +3572,15 @@ void main() {
           { dx: 0, dz: 1 }, { dx: 0, dz: -1 },
           { dx: 1, dz: 0 }, { dx: -1, dz: 0 }
         ];
+        // Keep a conservative cross-chunk occupancy registry. GLTF assets can
+        // be much larger than their source block, so checking only the current
+        // chunk lets a long storefront overlap the next chunk's buildings.
         const placedAABBs: { minX: number; maxX: number; minZ: number; maxZ: number }[] = [];
+        const globalPlacedAABBs = this.buildingOccupancyByChunk.get(key) ?? [];
+        this.buildingOccupancyByChunk.set(key, globalPlacedAABBs);
+        for (const other of this.buildingOccupancyByChunk.values()) {
+          if (other !== globalPlacedAABBs) placedAABBs.push(...other);
+        }
         const modelWorldAABB = (model: CityMesh | CityMesh[], px: number, pz: number, scale: [number, number, number], yaw: number): { minX: number; maxX: number; minZ: number; maxZ: number } | null => {
           const arr = Array.isArray(model) ? model : [model];
           let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
@@ -3903,14 +3913,16 @@ void main() {
     const mesh = this.createMesh(verts, indices);
     const lamps: { x: number; z: number }[] = [];
     const hydrants: { x: number; z: number }[] = [];
-    if (!isMountain && !isBeach && !isAeroport && !isBridge && !isBridgeConnector && !isRuralMountain) {
+    if (!isMountain && !isBeach && !isAeroport && !isBridge && !isBridgeConnector && !isRuralMountain && biome !== 'ocean') {
       const halfSidewalk = SIDEWALK_SIZE / 2;
       const sidewalkEdge = GRID_PITCH / 2 - halfSidewalk;
       for (let ly = 0; ly < 2; ly++) {
         for (let lx = 0; lx < 2; lx++) {
           const lxPos = cx * CHUNK_SIZE + lx * GRID_PITCH - sidewalkEdge;
           const lzPos = cz * CHUNK_SIZE + ly * GRID_PITCH - sidewalkEdge;
-          lamps.push({ x: lxPos, z: lzPos });
+          if (getBiome(Math.floor(lxPos / CHUNK_SIZE), Math.floor(lzPos / CHUNK_SIZE)) !== 'ocean') {
+            lamps.push({ x: lxPos, z: lzPos });
+          }
           const cornerSeed = ((cx * 100003 + cz * 70001) * 31 + ly * 7 + lx * 13) >>> 0;
           const hydrantRng = this.mulberry32(cornerSeed);
           if (hydrantRng() < 0.33) hydrants.push({ x: lxPos + 1.5, z: lzPos + 1.5 });
@@ -3921,16 +3933,16 @@ void main() {
           if (!isBoulevard(gridX)) continue;
           const worldX = gridX * GRID_PITCH;
           for (let z = worldOriginZ + 12; z < worldOriginZ + CHUNK_SIZE - 4; z += 24) {
-            lamps.push({ x: worldX - 6, z });
-            lamps.push({ x: worldX + 6, z });
+            if (getBiome(Math.floor((worldX - 6) / CHUNK_SIZE), Math.floor(z / CHUNK_SIZE)) !== 'ocean') lamps.push({ x: worldX - 6, z });
+            if (getBiome(Math.floor((worldX + 6) / CHUNK_SIZE), Math.floor(z / CHUNK_SIZE)) !== 'ocean') lamps.push({ x: worldX + 6, z });
           }
         }
         for (const gridZ of [cz, cz + 1]) {
           if (!isBoulevard(gridZ)) continue;
           const worldZ = gridZ * GRID_PITCH;
           for (let x = worldOriginX + 12; x < worldOriginX + CHUNK_SIZE - 4; x += 24) {
-            lamps.push({ x, z: worldZ - 6 });
-            lamps.push({ x, z: worldZ + 6 });
+            if (getBiome(Math.floor(x / CHUNK_SIZE), Math.floor((worldZ - 6) / CHUNK_SIZE)) !== 'ocean') lamps.push({ x, z: worldZ - 6 });
+            if (getBiome(Math.floor(x / CHUNK_SIZE), Math.floor((worldZ + 6) / CHUNK_SIZE)) !== 'ocean') lamps.push({ x, z: worldZ + 6 });
           }
         }
       }
@@ -3968,8 +3980,16 @@ void main() {
         const store = this.getConvenienceStoreMesh();
         const sx = worldOriginX + 40, sz = worldOriginZ + 40;
         const storeScale: [number, number, number] = [1, 1, 1];
-        buildings.push({ model: store, x: sx, y: 0.15, z: sz, yaw: 0, scale: storeScale });
-        supermarkets.push({ x: sx, z: sz, yaw: 0, hd: 13.4, isConvenience: true });
+        const storeBounds = { minX: sx - 16, maxX: sx + 16, minZ: sz - 14, maxZ: sz + 16 };
+        const occupied = Array.from(this.buildingOccupancyByChunk.values()).flat();
+        const overlapsStore = occupied.some(bb => storeBounds.minX - 2 < bb.maxX && storeBounds.maxX + 2 > bb.minX && storeBounds.minZ - 2 < bb.maxZ && storeBounds.maxZ + 2 > bb.minZ);
+        if (!overlapsStore) {
+          buildings.push({ model: store, x: sx, y: 0.15, z: sz, yaw: 0, scale: storeScale });
+          const localOccupancy = this.buildingOccupancyByChunk.get(key) ?? [];
+          localOccupancy.push(storeBounds);
+          this.buildingOccupancyByChunk.set(key, localOccupancy);
+          supermarkets.push({ x: sx, z: sz, yaw: 0, hd: 13.4, isConvenience: true });
+        }
       }
       const smModel = this.cityBuildingMeshes.find(m => m.length > 0 && m[0].carName && m[0].carName.includes('supermarket'));
       if (smModel && supermarkets.length < 1 && rng() < 0.20) {
@@ -4017,8 +4037,7 @@ void main() {
       }
       this.addBox(verts, indices, roadX - halfW + 0.3, 0.3, worldOriginZ + CHUNK_SIZE / 2, 0.6, 0.6, CHUNK_SIZE, 0.4, 0.4, 0.42, 1.0, idxOffset); idxOffset += 24;
       this.addBox(verts, indices, roadX + halfW - 0.3, 0.3, worldOriginZ + CHUNK_SIZE / 2, 0.6, 0.6, CHUNK_SIZE, 0.4, 0.4, 0.42, 1.0, idxOffset); idxOffset += 24;
-    }
-    const chunk: CityChunk = { mesh, cx, cz, lamps, hydrants, buildings, benches, barrels, chickens, trees, supermarkets, tatami, cabins, lighthouses, tropicalShops, decorativeAircraft };
+    }        const chunk: CityChunk = { mesh, cx, cz, lamps, hydrants, buildings, benches, barrels, chickens, trees, supermarkets, tatami, cabins, lighthouses, tropicalShops, decorativeAircraft };
     this.chunkCache.set(key, chunk);
     return chunk;
   }
@@ -4236,7 +4255,7 @@ void main() {
       // One shared anatomical surface resolution is used for players and NPCs.
       // Keep it high enough for close third-person silhouettes without the
       // extreme per-part tessellation that caused startup stalls.
-      const rings = this.isMobile ? 12 : 20, slices = this.isMobile ? 18 : 30;
+      const rings = this.isMobile ? 8 : 12, slices = this.isMobile ? 12 : 18;
       const start = restPos.length / 3;
       for (let iy = 0; iy <= rings; iy++) {
         const phi = (iy / rings) * Math.PI;
@@ -4265,18 +4284,19 @@ void main() {
     // Use tapered elliptical sections rather than stacked spheres. The broad
     // ribcage, narrower waist, and wider pelvis create a recognizable torso
     // silhouette while the small overlaps hide seams during animation.
-    addRounded(0, 0.27, 0, torsoW * 0.66, torsoH * 0.52, torsoD * 0.58, variant.outfitA, 2);
-    addRounded(0, 0.16, 0, torsoW * 0.52, torsoH * 0.34, torsoD * 0.50, variant.outfitA, 2);
-    addRounded(0, 0.04, 0, torsoW * 0.46, torsoH * 0.24, torsoD * 0.48, variant.outfitA, 0);
+    // Low-poly tapered body sections read as one torso instead of stacked balls.
+    addRounded(0, 0.28, 0, torsoW * 0.58, torsoH * 0.48, torsoD * 0.50, variant.outfitA, 2);
+    addRounded(0, 0.14, 0, torsoW * 0.46, torsoH * 0.30, torsoD * 0.42, variant.outfitA, 2);
+    addRounded(0, 0.00, 0, torsoW * 0.40, torsoH * 0.20, torsoD * 0.40, variant.outfitB, 0);
     // Anatomical contour bands: these are deliberately separate, skinned
     // volumes rather than a single sphere, giving the torso a ribcage, waist,
     // and pelvis profile. Each call contributes real indexed vertices.
-    addRounded(0, 0.33, 0.004, torsoW * 0.54, torsoH * 0.24, torsoD * 0.54, variant.outfitA, 2);
-    addRounded(0, 0.00, 0.008, torsoW * 0.48, torsoH * 0.18, torsoD * 0.46, variant.outfitB, 0);
+    addRounded(0, 0.34, 0.004, torsoW * 0.48, torsoH * 0.18, torsoD * 0.46, variant.outfitA, 2);
+    addRounded(0, 0.01, 0.008, torsoW * 0.40, torsoH * 0.13, torsoD * 0.39, variant.outfitB, 0);
     // Shoulder and hip transition volumes bridge independently skinned limbs to
     // the torso, preventing visible gaps when the gait rotates the limbs.
-    addRounded(-0.16, 0.22, 0, 0.14, 0.14, 0.13, variant.outfitA, 2);
-    addRounded(0.16, 0.22, 0, 0.14, 0.14, 0.13, variant.outfitA, 2);
+    addRounded(-0.15, 0.25, 0, 0.11, 0.10, 0.10, variant.outfitA, 2);
+    addRounded(0.15, 0.25, 0, 0.11, 0.10, 0.10, variant.outfitA, 2);
     addRounded(-0.09, -0.08, 0, 0.11, 0.11, 0.11, variant.outfitB, 2);
     addRounded(0.09, -0.08, 0, 0.11, 0.11, 0.11, variant.outfitB, 2);
     addBox(0,0.02,0, torsoW*1.02,0.05,torsoD*1.05, [0.15,0.12,0.10], 2);
@@ -5137,10 +5157,13 @@ void main() {
       const lightCullSq = lightCull * lightCull;
       if (this.trafficLightMesh) {
         for (const node of trafficNodes) {
+          if (getBiome(Math.floor(node.x / CHUNK_SIZE), Math.floor(node.z / CHUNK_SIZE)) === 'ocean') continue;
           const ndx = node.x - camX, ndz = node.z - camZ;
           if (ndx * ndx + ndz * ndz > lightCullSq) continue;
           for (let ci = 0; ci < corners.length; ci++) {
-            this.drawMesh(this.trafficLightMesh, node.x + corners[ci][0], 0, node.z + corners[ci][1], yawCorner[ci], [2, 2, 2], [0.25, 0.3, 0.22, 1]);
+            const px = node.x + corners[ci][0], pz = node.z + corners[ci][1];
+            if (getBiome(Math.floor(px / CHUNK_SIZE), Math.floor(pz / CHUNK_SIZE)) === 'ocean') continue;
+            this.drawMesh(this.trafficLightMesh, px, 0, pz, yawCorner[ci], [2, 2, 2], [0.25, 0.3, 0.22, 1]);
           }
         }
         const redOn = lightPhase === 0;
@@ -5231,7 +5254,7 @@ void main() {
         const animationSpeed = npcState === 'walk'
           ? Math.max(0.75, Math.min(2.2, npcSpeed * 2.2 || 1))
           : 1;
-        if (npcDx * npcDx + npcDz * npcDz <= 220 * 220) {
+        if (npcDx * npcDx + npcDz * npcDz <= 150 * 150) {
           this.animateAndSkinEntity(npc.id, npc.mesh, npcState, dt, animationSpeed);
         }
       }
@@ -5275,7 +5298,7 @@ void main() {
         const dMesh = this.getPedestrianMesh(npc.gender || 'male', npc.id);
         // Lifelike driver — drive pose, visible to all peers, cheap LOD
         const ddx = npc.x - camX, ddz = npc.z - camZ;
-        if (ddx*ddx+ddz*ddz < 220*220) this.animateAndSkinEntity(npc.id+900000, dMesh, 'drive', dt, 1);
+        if (ddx*ddx+ddz*ddz < 150*150) this.animateAndSkinEntity(npc.id+900000, dMesh, 'drive', dt, 1);
         const sinY = Math.sin(npc.yaw), cosY = Math.cos(npc.yaw);
         const dOffX = 0.3, dOffZ = 0.2;
         const dwx = npc.x + (dOffX * cosY + dOffZ * sinY);
@@ -5320,7 +5343,7 @@ void main() {
       const animationSpeed = ped.type === 'hooker' || ped.gender === 'hooker'
         ? 1.45
         : (pedState === 'walk' ? Math.max(0.75, Math.min(2.2, pedSpeed * 2.2 || 1)) : 1);
-      if (pedDx * pedDx + pedDz * pedDz <= 220 * 220) {
+      if (pedDx * pedDx + pedDz * pedDz <= 150 * 150) {
         this.animateAndSkinEntity(ped.id, ped.mesh, pedState, dt, animationSpeed);
       }
       // Ducking (gunfire reaction): the crouch-and-cover pose (bent legs, low
@@ -5396,7 +5419,7 @@ void main() {
         (p as any)._prevX = p.posX; (p as any)._prevZ = p.posZ;
         if (p.isShooting) this.punchTimers.set(p.userId, 0.18);
         const ddx2 = p.posX - camX, ddz2 = p.posZ - camZ;
-        if (ddx2*ddx2+ddz2*ddz2 < 220*220) this.animateAndSkinEntity(p.userId, p.mesh, state, dt, 1.2);
+        if (ddx2*ddx2+ddz2*ddz2 < 150*150) this.animateAndSkinEntity(p.userId, p.mesh, state, dt, 1.2);
         this.drawMesh(p.mesh, p.posX, p.posY, p.posZ, p.yaw);
       }
     }
@@ -5508,21 +5531,27 @@ void main() {
       this.drawMesh(smokeMesh, s.x, s.y, s.z, 0, [sz, sz, sz], [sr, sg, sb, alpha]);
     }
     gl.depthMask(false);
+    const surfaceYAt = (x: number, z: number): number => {
+      // Terrain height is the baseline; sidewalks and building slabs are
+      // generated at the same playable ground level, so corpses and loot must
+      // never use a hard-coded world Y of zero.
+      return getTerrainHeight(x, z);
+    };
     for (const bp of bloodPools) {
       const progress = bp.age / bp.lifetime;
       const poolScale = 1 + progress * bp.maxRadius;
       const alpha = Math.max(0, 1.0 - progress * 0.5);
       const rot = ((bp.x * 0.7 + bp.z * 1.3) % (Math.PI * 2));
-      this.drawMesh(this.getBloodPoolMesh(bp.variant || 0), bp.x, 0.01, bp.z, rot, [poolScale, 1, poolScale], [1.0, 1.0, 1.0, alpha]);
+      this.drawMesh(this.getBloodPoolMesh(bp.variant || 0), bp.x, surfaceYAt(bp.x, bp.z) + 0.015, bp.z, rot, [poolScale, 1, poolScale], [1.0, 1.0, 1.0, alpha]);
     }
     for (const ms of moneyStacks) {
       const progress = ms.age / ms.lifetime;
       const alpha = 1.0 - progress;
       const spin = performance.now() / 1000 * 2 + ms.x;
       if (this.moneyMesh) {
-        this.drawMesh(this.moneyMesh, ms.x, 0.1, ms.z, spin, [0.1, 0.1, 0.1], [1, 1, 1, alpha]);
+        this.drawMesh(this.moneyMesh, ms.x, (ms.y ?? surfaceYAt(ms.x, ms.z) + 0.12), ms.z, spin, [0.1, 0.1, 0.1], [1, 1, 1, alpha]);
       } else {
-        this.drawMesh(this.getMoneyStackMesh(), ms.x, 0.01, ms.z, spin, [1, 1, 1], [1, 1, 1, alpha]);
+        this.drawMesh(this.getMoneyStackMesh(), ms.x, surfaceYAt(ms.x, ms.z) + 0.02, ms.z, spin, [1, 1, 1], [1, 1, 1, alpha]);
       }
     }
     gl.depthMask(true);
@@ -5531,7 +5560,7 @@ void main() {
       const elapsed = (performance.now() / 1000) - db.deathTime;
       const fadeAlpha = Math.max(0.4, 1.0 - elapsed / 30);
       if (!isHuman) {
-        this.drawMesh(db.mesh, db.x, 0.02, db.z, -db.yaw, [1, 1, 1], [0.4, 0.4, 0.4, fadeAlpha]);
+        this.drawMesh(db.mesh, db.x, surfaceYAt(db.x, db.z) + 0.04, db.z, -db.yaw, [1, 1, 1], [0.4, 0.4, 0.4, fadeAlpha]);
         continue;
       }
       // Ragdoll fall: instead of snapping instantly flat, the human tilts over
@@ -5550,7 +5579,7 @@ void main() {
       const slide = 0.9 * eased;
       const sx = db.x - Math.sin(-db.yaw) * slide;
       const sz = db.z - Math.cos(-db.yaw) * slide;
-      this.drawMesh(db.mesh, sx, 0.02, sz, -db.yaw, [1, 1, 1], [0.4, 0.4, 0.4, fadeAlpha], false, flop, tumble);
+      this.drawMesh(db.mesh, sx, surfaceYAt(sx, sz) + 0.04, sz, -db.yaw, [1, 1, 1], [0.4, 0.4, 0.4, fadeAlpha], false, flop, tumble);
     }
     // Keep projectile effects behind walls as well. They use the regular
     // program and therefore can participate in the world's depth buffer.
@@ -5679,7 +5708,10 @@ void main() {
       for (const dw of this.droppedWeapons) {
         if (dw == null || dw.weaponType == null) continue;
         const hover = Math.sin((now / 1000) * 3 + (dw.id || 0)) * 0.15;
-        const pickupY = 1.0 + hover;
+        // Server pickups are world-space props. Resolve their baseline from
+        // terrain rather than assuming every drop is on a flat road at Y=0.
+        const surfaceY = getTerrainHeight(dw.posX, dw.posZ);
+        const pickupY = surfaceY + 0.85 + hover;
         const pulse = 0.82 + 0.18 * Math.sin((now / 1000) * 4 + (dw.id || 0));
         // Draw a soft gold beacon behind the pickup first. It is deliberately
         // translucent and slightly larger than the weapon so it remains easy
@@ -7034,6 +7066,7 @@ void main() {
   }
   clearChunkCache() {
     this.chunkCache.clear();
+    this.buildingOccupancyByChunk.clear();
   }
   getWeaponPickupMesh(weaponType: number): CityMesh | CityMesh[] {
     if (weaponType === 1 && this.coltMesh) return this.coltMesh;             

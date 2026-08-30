@@ -54,6 +54,7 @@ import { ConversionComponent } from './conversion/conversion.component';
 import { ChatService } from '../services/chat.service';
 import { PublicChatInfo } from '../services/datacontracts/moderator/moderator';
 import { GetChatThemeResponse } from '../services/datacontracts/chat/chat-theme';
+import { SpaceEvolvesComponent } from './space-evolves/space-evolves.component';
 
 
 @Component({
@@ -80,7 +81,8 @@ export class AppComponent implements OnInit, AfterViewInit {
     'EnderComponent',
     'DigCraftComponent',
     'GrandTheftComponent',
-    'RacingComponent', 
+    'RacingComponent',
+    'SpaceEvolvesComponent',
     'MarblesComponent',
     'MetaComponent',
     'UpdateUserSettingsComponent',
@@ -168,6 +170,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "👤", title: "User", content: undefined },
     { ownership: 0, icon: "🖍️", title: "Paint", content: undefined },
     { ownership: 0, icon: "🏎️", title: "Racing", content: undefined },
+    { ownership: 0, icon: "🧬", title: "Space: Evolves", content: undefined },
     { ownership: 0, icon: "👁️", title: "Moderator", content: undefined },
     { ownership: 0, icon: "📡", title: "SigInt", content: undefined },
     { ownership: 0, icon: "➕", title: "UpdateUserSettings", content: undefined },
@@ -186,7 +189,8 @@ export class AppComponent implements OnInit, AfterViewInit {
     'User-Events': 'User Events',
     'Bug-Wars': 'Bug Wars',
     'Marbles': 'Lose Your Marbles',
-    'Racing': 'Grand Prix'
+    'Racing': 'Grand Prix',
+    'Space: Evolves': 'Space: Evolves'
   }
   navigationItemDescriptions: MenuItem[] = [
     {
@@ -322,6 +326,11 @@ export class AppComponent implements OnInit, AfterViewInit {
       ownership: 0,
       title: 'Racing',
       content: `Multiplayer Racing Game! Challenger your friends and upgrade your ride!`
+    },
+    {
+      ownership: 0,
+      title: 'Space: Evolves',
+      content: `A vertical roguelike space shooter. Evolve lasers, rockets, or shields while the bug swarm adapts.`
     },
     {
       ownership: 0,
@@ -536,6 +545,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     "DigCraft": () => import('./digcraft/digcraft.component').then(m => m.DigCraftComponent),
     "GrandTheft": () => import('./grandtheft/grandtheft.component').then(m => m.GrandTheftComponent),
     "Racing": () => import('./racing/racing.component').then(m => m.RacingComponent),
+    "Space: Evolves": () => import('./space-evolves/space-evolves.component').then(m => m.SpaceEvolvesComponent),
     "Crypto-Hub": () => import('./crypto-hub/crypto-hub.module').then(m => ({ type: m.CryptoHubComponent, module: m.CryptoModule })),
   };
   /** Guards against a slow lazy chunk resolving after a newer navigation superseded it. */
@@ -735,9 +745,17 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
           this.checkAndClearRouterOutlet();
           this.createComponent('SigInt');
         }
+        else if (this.router.url.toLowerCase().includes('space-evolves') || this.router.url.toLowerCase().includes('spaceevolves')) {
+          this.checkAndClearRouterOutlet();
+          this.createComponent('Space: Evolves');
+        }
         else if (this.router.url.toLowerCase().includes('racing')) {
           this.checkAndClearRouterOutlet();
           this.createComponent('Racing');
+        }
+        else if (this.router.url.toLowerCase().includes('space-evolves') || this.router.url.toLowerCase().includes('spaceevolves')) {
+          this.checkAndClearRouterOutlet();
+          this.createComponent('Space: Evolves');
         }
         else if (this.router.url.toLowerCase().includes('grandtheft')) {
           this.checkAndClearRouterOutlet();

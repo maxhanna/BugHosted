@@ -179,7 +179,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   score = 0;
   private scoreTimer = 0;
   money = 1000;
-  moneyStacks: { x: number; z: number; amount: number; yaw: number; age: number; lifetime: number }[] = [];
+  moneyStacks: { x: number; y?: number; z: number; amount: number; yaw: number; age: number; lifetime: number }[] = [];
   // Short-lived impact reactions for pedestrians hit by the player's car.
   private npcImpactReactions: Map<number, { vx: number; vz: number; spin: number; age: number; duration: number; region?: 'head' | 'torso' | 'legs' }> = new Map();
   policeMode = false;
@@ -355,6 +355,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private _savedCamHeight = 0;
   private _storeLeaveUntil = 0;
   private _hudUpdateTimer = 0;
+  private _audioUpdateTimer = 0;
   taxiMission: { state: 'pickup' | 'deliver'; passengerId: number; passengerGender: string; passengerMesh: CityMesh | CityMesh[]; passengerX: number; passengerZ: number; destinationX: number; destinationZ: number; fare: number; phase: number; timer: number } | null = null;
   private taxiSearchTimer = 0;
   taxiMarkers: { type: 'hail' | 'destination' | 'beam'; x: number; z: number; phase?: number }[] = [];
@@ -461,6 +462,16 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   // The server remains authoritative; this timer only controls local decay.
   private wantedDecayTimer = 0;
   private static readonly WANTED_DECAY_DELAY_SECONDS = 45;
+  private hasNearbyPolice(): boolean {
+    const rangeSq = 28 * 28;
+    const isPolice = (entity: any) => entity && entity.health > 0 && (entity.type === 'police' || entity.type === 'cop' || entity.isPolice === true || entity.isCop === true);
+    for (const cop of [...this.serverNPCs, ...this.serverPedestrians, ...this.parkedCars]) {
+      if (!isPolice(cop)) continue;
+      const x = (cop as any).x ?? (cop as any).posX, z = (cop as any).z ?? (cop as any).posZ;
+      if (Number.isFinite(x) && Number.isFinite(z) && (x - this.carX) ** 2 + (z - this.carZ) ** 2 <= rangeSq) return true;
+    }
+    return this.evictedCops.some(cop => cop.health > 0 && (cop.x - this.carX) ** 2 + (cop.z - this.carZ) ** 2 <= rangeSq);
+  }
   lastShootTime = 0;
   isShooting = false;
   /** True while a cop is holding the player in an arrest — input is frozen. */
@@ -1020,8 +1031,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       if (this.nearStoreExit) { this.leaveStore(); return; }
       return;
     }
-    if (this.nearStoreDoor && !this.isInCar && !this.isPassenger) {
-      if (this._nearStore) { this.enterStore(this._nearStore); return; }
+    if (this.nearStoreDoor && !this.isInCar && !this.isPassenger && this._nearStore && !this._nearStore.isConvenience) {
+      this.enterStore(this._nearStore); return;
     }
     if (this.isPassenger) {
       this.exitPassenger();
@@ -1581,7 +1592,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           this.vehicleType,
           color[0], color[1], color[2],
           this.carYaw
-        );
+        ).then((result: any) => {
+          if (!result?.ok) {
+            this.showStoreToast('Garage save failed — try again while fully inside.');
+            return;
+          }
+          this.showStoreToast('Vehicle stored in garage.');
+        }).catch(() => this.showStoreToast('Garage save failed — try again.'));
         this.garageStoreCooldown = 10;
         this.garageCar = null;
         this.garageCarMesh = null;
@@ -3461,7 +3478,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       }
     }
     const inGarageInterior = this.isInGarageInterior();
-    if (this.wasInGarage && !inGarageInterior && this.isInCar) {
+    // Do not delete the stored record merely because the player is still
+    // driving through the garage threshold. Removal only happens after the
+    // stored vehicle has actually been taken out of the interior.
+    if (this.wasInGarage && !inGarageInterior && this.isInCar && this.garageStoreCooldown <= 0) {
       const userId = this.getUserId();
       if (userId) {
         this.gtService.removeGarageCar(userId).then(() => {
@@ -4243,8 +4263,14 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     else if (this.isInCar && this.vehicleType === 'motorcycle') this.updateMotorcycle(dt);
     else if (this.isInCar) this.updateCar(dt);
     else this.updateWalking(dt);
-    this.updateEngineAudio(dt);
-    this.updateTrafficAudio(dt);
+    // Audio synthesis is comparatively expensive and does not need 60 Hz
+    // precision. Keep gameplay/render timing independent from audio updates.
+    this._audioUpdateTimer += dt;
+    if (this._audioUpdateTimer >= 0.05) {
+      this._audioUpdateTimer = 0;
+      this.updateEngineAudio(dt);
+      this.updateTrafficAudio(dt);
+    }
     this.updateStoreCashier(dt);
     this.updateCamera(dt);
     this.updateScore(dt);
@@ -4297,9 +4323,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (this.damageAlpha > 0) this.damageAlpha = Math.max(0, this.damageAlpha - dt * 0.5);
     if (this.bustedFlashAlpha > 0) {
       this.bustedFlashAlpha = Math.max(0, this.bustedFlashAlpha - dt * 2.5);
-      // The white flash is an *ngIf overlay and this loop runs outside Angular's
-      // zone — a CD pass per frame while the flash is alive keeps the fade visible.
-      this.ngZone.run(() => this.cdr.markForCheck());
+      // The fade only needs occasional Angular updates; running change detection
+      // on every animation frame can consume the entire frame budget.
+      this._hudUpdateTimer += dt;
+      if (this._hudUpdateTimer >= 0.1) {
+        this._hudUpdateTimer = 0;
+        this.ngZone.run(() => this.cdr.markForCheck());
+      }
     }
     if (this.bustedTitleTimer > 0) {
       this.bustedTitleTimer = Math.max(0, this.bustedTitleTimer - dt);
@@ -4313,7 +4343,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     // this timer whenever a crime is reported gives police a meaningful pursuit
     // window while still allowing heat to clear naturally when the player hides.
     if (this.wantedLevel > 0) {
-      this.wantedDecayTimer = Math.max(0, this.wantedDecayTimer - dt);
+      // Nearby police maintain active visual contact; wanted stars must not
+      // decay while an officer or cruiser is within the pursuit bubble.
+      if (this.hasNearbyPolice()) {
+        this.wantedDecayTimer = GrandTheftComponent.WANTED_DECAY_DELAY_SECONDS;
+      } else {
+        this.wantedDecayTimer = Math.max(0, this.wantedDecayTimer - dt);
+      }
       if (this.wantedDecayTimer === 0) {
         this.wantedLevel = Math.max(0, this.wantedLevel - 1);
         this.wantedDecayTimer = this.wantedLevel > 0 ? GrandTheftComponent.WANTED_DECAY_DELAY_SECONDS : 0;
@@ -4636,9 +4672,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         this._deathCamZ = this.carZ;
         this.dropMoneyAt(this.carX, this.carZ, this.money);
         this.money = 0;
-        this.currentWeapon = 0;
-        this.ownedWeapons = [true, false, false, false, false];
-        this.ammo = [0, 0, 0, 0, 0];
+        this.clearWeaponsAfterDeath();
         // Abort any taxi ride — you can't finish it while dead.
         this.taxiRideActive = false;
         this.taxiRideTaxi = null;
@@ -4767,6 +4801,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (this.pickupCooldown > 0) this.pickupCooldown -= dt;
     if (this.pickupCooldown <= 0 && this.droppedWeapons) {
       for (const dw of this.droppedWeapons) {
+        if (!dw || !Number.isFinite(dw.posX) || !Number.isFinite(dw.posZ) || dw.id == null) continue;
         const dx = this.carX - dw.posX;
         const dz = this.carZ - dw.posZ;
         if (dx * dx + dz * dz < 2.0) {
@@ -4776,6 +4811,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
               this.ownedWeapons[r.weaponType] = true;
               this.ammo[r.weaponType] = r.ammo;
               this.currentWeapon = r.weaponType;
+              // Remove only after the server confirms pickup. A failed or
+              // stale request must not make the world pickup disappear.
               this.droppedWeapons = this.droppedWeapons.filter(x => x.id !== dw.id);
             }
           });
@@ -4933,6 +4970,18 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     });
   }
 
+  /** Death confiscates weapons just like a normal GTA death. The local reset,
+   * server-facing sync flag, and first-person weapon viewmodel must all agree. */
+  private clearWeaponsAfterDeath(): void {
+    this.currentWeapon = 0;
+    this.ownedWeapons = [true, false, false, false, false];
+    this.ammo = [0, 0, 0, 0, 0];
+    this.weaponsSynced = true;
+    this.renderer.armOverrideActive = false;
+    this.renderer.playerWeapon = 0;
+    this.droppedWeapons = [];
+  }
+
   /** Busted: a cop booked the player — weapons are confiscated and the player
    *  wakes up at the nearest police station (home base if none is in range). */
   private doArrestRespawn() {
@@ -4952,9 +5001,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.playStationRadioChatter();
     if (this.isInCar) this.exitCar();
     if (this.isPassenger) this.exitPassenger();
-    this.currentWeapon = 0;
-    this.ownedWeapons = [true, false, false, false, false];
-    this.ammo = [0, 0, 0, 0, 0];
+    this.clearWeaponsAfterDeath();
     const station = this.renderer.getNearestPoliceStation(this.carX, this.carZ, 800);
     let spawnYaw = HOME_BASE_YAW;
     if (station) {
@@ -5862,8 +5909,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this._nearStore = best;
     // Convenience stores have an open storefront: entering the front apron
     // should transition into the interior automatically, without an E prompt.
+    // Convenience stores have no door interaction, but crossing the threshold
+    // must remain continuous: do not teleport the player to the back of the
+    // building. The normal walking collision path now permits the storefront
+    // opening and the player enters naturally.
     if (best?.isConvenience && bestD < STORE_ENTER_DIST && !this.inStore) {
-      this.enterStore(best);
+      this.nearStoreDoor = true;
       return;
     }
     this.nearStoreDoor = !!best && bestD < STORE_ENTER_DIST;
@@ -5909,8 +5960,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const regX = this.getStoreRegisterX(sm), regZ = this.getStoreRegisterZ(sm);
     this.storeCashier = {
       id: cashierId,
-      x: regX + sinY * 0.6,
-      z: regZ + cosY * 0.6,
+      // Keep the cashier physically behind the checkout counter, rather than
+      // in the aisle or on top of the player interaction point.
+      x: regX + sinY * 1.15,
+      z: regZ + cosY * 1.15,
       yaw: sm.yaw + Math.PI,
       gender: cashierGender,
       mesh: this.renderer.getPedestrianMesh(cashierGender, cashierId),
@@ -5968,9 +6021,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
     this.renderer.supermarketLastPayout.set(key, now);
     const payout = 5000 + Math.floor(Math.random() * 5001);
-    // No instant wallet credit — the cash spills onto the floor as pickup-able
-    // stacks (walk over them to collect, ching on pickup).
-    this.dropMoneyAt(this.inStore.x, this.inStore.z, payout);
+    // The cashier is the robbery target; cash is released only after the
+    // register interaction, never merely by approaching or aiming at the shop.
+    this.dropMoneyAt(this.getStoreRegisterX(this.inStore), this.getStoreRegisterZ(this.inStore), payout);
     // The cashier panics and sprints out the front door.
     if (this.storeCashier) {
       this.storeCashier.panicUntil = performance.now() / 1000 + 6;
@@ -6119,8 +6172,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
     this.lookTargetHealth = bestHealth;
     this.lookTargetName = bestName;
-    // Check supermarket robbery (outside only — inside is handled by the register)
-    if (this.currentWeapon > 0 && !this.isInCar && !this.inStore) {
+    // Check supermarket robbery (outside only — inside is handled by the register).
+    // Convenience stores use the cashier/register flow exclusively; do not
+    // create free cash on a sight-line hit against the building.
+    if (this.currentWeapon > 0 && !this.nearStoreRegister && !this.isInCar && !this.inStore) {
       const sms = this.renderer.getNearbySupermarkets(ox, oz, maxDist);
       for (const sm of sms) {
         const vx = sm.x - ox, vz = sm.z - oz;
@@ -6131,10 +6186,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           const key = `${sm.x},${sm.z}`;
           const now = Date.now();
           const last = this.renderer.supermarketLastPayout.get(key) || 0;
-          if (now - last >= 600000) {
+          if (now - last >= 600000 && !sm.isConvenience) {
             this.renderer.supermarketLastPayout.set(key, now);
             const payout = 5000 + Math.floor(Math.random() * 5001);
-            // Same floor-spill behavior as the interior register stick-up.
+            // Non-convenience supermarkets retain the legacy exterior robbery.
+            // Convenience stores must be entered and robbed at the cashier.
             this.dropMoneyAt(sm.x, sm.z, payout);
           }
         }
@@ -7706,13 +7762,19 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       const dx = this.carX - cop.x;
       const dz = this.carZ - cop.z;
       const dist = Math.hypot(dx, dz);
-      // Give up if the thief escapes (too far, or too much time since the theft
-      // without line of sight on the street grid).
-      if (dist > 260 || !this.isInCar && dist > 60) {
+      // Keep pursuing a wanted player instead of abandoning the search merely
+      // because the player left the road or entered a building. Cops only give
+      // up after leaving the broader pursuit radius.
+      if (dist > 420) {
         this.evictedCops.splice(i, 1);
         continue;
       }
       const armed = this.currentWeapon > 0 && this.ammo[this.currentWeapon] > 0;
+      // A wanted player remains a valid target even after switching weapons or
+      // entering a vehicle. The cops locate the player from the authoritative
+      // local position rather than requiring a pre-existing target lock.
+      cop.targetX = this.carX;
+      cop.targetZ = this.carZ;
       const targetYaw = Math.atan2(dx, dz);
       let yawDiff = targetYaw - cop.yaw;
       while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
@@ -7727,7 +7789,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         cop.z += Math.cos(cop.yaw) * speed * dt;
       }
       cop.speed = dist > desiredRange ? speed : 0;
-      cop.targetX = this.carX; cop.targetZ = this.carZ;
       if (armed && dist < 30) {
         cop.attackTimer -= dt;
         if (cop.attackTimer <= 0) {
@@ -8201,11 +8262,15 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
   }
   private dropMoneyAt(x: number, z: number, totalAmount: number) {
+    // Use the playable surface at the drop point. This prevents loot from
+    // being buried when an NPC dies on a raised sidewalk or building apron.
+    const surfaceY = getTerrainHeight(x, z);
     const numStacks = Math.max(1, Math.floor(totalAmount / 1000));
     for (let s = 0; s < numStacks; s++) {
       this.moneyStacks.push({
-        x: x + (Math.random() - 0.5) * 2,
-        z: z + (Math.random() - 0.5) * 2,
+        x: x + (Math.random() - 0.5) * 1.2,
+        z: z + (Math.random() - 0.5) * 1.2,
+        y: surfaceY + 0.12,
         amount: 1000,
         yaw: Math.random() * Math.PI * 2,
         age: 0,
@@ -8215,8 +8280,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const remainder = totalAmount - numStacks * 1000;
     if (remainder > 0) {
       this.moneyStacks.push({
-        x: x + (Math.random() - 0.5) * 2,
-        z: z + (Math.random() - 0.5) * 2,
+        x: x + (Math.random() - 0.5) * 1.2,
+        z: z + (Math.random() - 0.5) * 1.2,
+        y: surfaceY + 0.12,
         amount: remainder,
         yaw: Math.random() * Math.PI * 2,
         age: 0,

@@ -293,16 +293,18 @@ export function generateHumanMesh(gl: WebGL2RenderingContext, variant: HumanVari
   // Hips pivot already at sHipsY via skeleton, so mesh local to hips = 0
   // Rounded torso and pelvis volumes overlap the joint anchors so the body
   // keeps a continuous silhouette while walking, aiming, and ragdolling.
-  addSphereRigged(0, 0.20, 0, Math.max(torsoW, torsoD) * 0.55, variant.outfitA, 2, 20);
-  addBoxRigged(0, 0.20, 0, torsoW * 0.82, torsoH * 0.9, torsoD * 0.82, variant.outfitA, 2);
-  addSphereRigged(0, -0.08, 0, Math.max(torsoW, torsoD) * 0.42, variant.outfitB, 0, 12);
+  // Tapered low-poly sections avoid the connected-ball silhouette while the
+  // small overlap keeps the torso continuous during animation.
+  addSphereRigged(0, 0.25, 0, torsoW * 0.48, variant.outfitA, 2, 12);
+  addBoxRigged(0, 0.23, 0, torsoW * 0.92, torsoH * 0.88, torsoD * 0.86, variant.outfitA, 2);
+  addSphereRigged(0, 0.08, 0, torsoW * 0.34, variant.outfitB, 0, 10);
   // Belt
   addBoxRigged(0, 0.02, 0, torsoW*1.02, 0.05, torsoD*1.05, [0.15,0.12,0.10], 2);
   // Neck
   addBoxRigged(0, 0.42, 0, 0.08, 0.08, 0.08, variant.skin, 3);
   // Head and neck: a separate jaw/chin volume makes the silhouette less
   // blocky than the old single cube head while remaining very low-poly.
-  addSphereRigged(0, 0.55, 0, headR, variant.skin, 4);
+  addSphereRigged(0, 0.55, 0, headR * 0.92, variant.skin, 4, 12);
   addBoxRigged(0, 0.45, 0.055, headR * 1.12, headR * 0.42, headR * 0.72, variant.skin, 4);
   // Hair cap
   const hairH = variant.gender === 'female' ? 0.10 : 0.08;
@@ -336,11 +338,11 @@ export function generateHumanMesh(gl: WebGL2RenderingContext, variant: HumanVari
   // Arms: rounded upper/lower segments overlap at the elbows and shoulders.
   const armW = variant.bodyType === 'fat' ? 0.09 : 0.075;
   const armD = armW;
-  addSphereRigged(-0.20, 0.18, 0, armW * 0.65, variant.skin, 6, 10);
-  addSphereRigged(-0.20, -0.04, 0, armW * 0.62, variant.skin, 7, 10);
+  addSphereRigged(-0.20, 0.18, 0, armW * 0.55, variant.skin, 6, 8);
+  addSphereRigged(-0.20, -0.04, 0, armW * 0.50, variant.skin, 7, 8);
   addBoxRigged(-0.20, -0.24, 0, 0.07, 0.09, 0.07, variant.skin, 8);
-  addSphereRigged( 0.20, 0.18, 0, armW * 0.65, variant.skin, 10, 10);
-  addSphereRigged( 0.20, -0.04, 0, armW * 0.62, variant.skin, 11, 10);
+  addSphereRigged( 0.20, 0.18, 0, armW * 0.55, variant.skin, 10, 8);
+  addSphereRigged( 0.20, -0.04, 0, armW * 0.50, variant.skin, 11, 8);
   addBoxRigged( 0.20, -0.24, 0, 0.07, 0.09, 0.07, variant.skin, 12);
   // Sleeves and shoulder caps give the torso a natural shoulder line.
   addBoxRigged(-0.20, 0.20, 0, armW*1.15, 0.14, armD*1.15, variant.outfitA, 6);

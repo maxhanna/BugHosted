@@ -1,0 +1,30 @@
+<div class="space-evolves componentMain">
+  <app-title-bar [title]="'Space: Evolves'" (closeClicked)="remove_me('SpaceEvolvesComponent')"></app-title-bar>
+  <div class="game-shell">
+    <div class="hud">
+      <div><strong>WAVE</strong><span>{{wave}}</span></div>
+      <div><strong>SCORE</strong><span>{{score}}</span></div>
+      <div><strong>LEVEL</strong><span>{{level}}</span></div>
+      <div><strong>HULL</strong><span>{{player.hp | number:'1.0-0'}} / {{player.maxHp}}</span></div>
+      <div *ngIf="player.shield > 0"><strong>SHIELD</strong><span>{{player.shield | number:'1.0-0'}}</span></div>
+      <button type="button" (click)="togglePause()">{{paused ? 'Resume' : 'Pause'}}</button>
+    </div>
+    <div class="arena-wrap">
+      <canvas #gameCanvas class="arena" (pointermove)="pointerMove($event)" (pointerleave)="pointerLeave()" (pointerdown)="pointerMove($event)"></canvas>
+      <div class="status">{{status}}</div>
+      <div class="pause-card" *ngIf="paused && !gameOver"><h2>Paused</h2><button (click)="togglePause()">Resume run</button></div>
+      <div class="gameover-card" *ngIf="gameOver"><h2>Ship lost</h2><p>{{status}}</p><button (click)="restart()">Start a new run</button></div>
+      <div class="upgrade-card" *ngIf="upgradeChoices.length > 0">
+        <h2>Evolution fork</h2><p>Pick one mutation. The brood will adapt.</p>
+        <div class="upgrade-grid"><button *ngFor="let upgrade of upgradeChoices" (click)="chooseUpgrade(upgrade)"><span class="upgrade-type">{{upgrade.weapon}}</span><strong>{{upgrade.name}}</strong><small>{{upgrade.description}}</small></button></div>
+      </div>
+    </div>
+    <aside class="side-panel">
+      <h2>Space: Evolves</h2><p>Steer the ship through an endless vertical descent. Destroy evolving bugs, collect mutations, and build a run that can survive the Queen.</p>
+      <h3>Controls</h3><p><kbd>A</kbd> <kbd>D</kbd> or <kbd>←</kbd> <kbd>→</kbd> to steer. On mobile, drag across the arena. Weapons fire automatically.</p>
+      <h3>High scores</h3>
+      <div *ngIf="loadingScores">Loading scores…</div>
+      <ol class="scores"><li *ngFor="let entry of highScores"><span>{{entry.username}}</span><b>{{entry.score}}</b><small>W{{entry.wave}}</small></li></ol>
+    </aside>
+  </div>
+</div>

@@ -50,6 +50,7 @@ const routes: Routes = [
   { path: 'GrandTheft', component: AppComponent }, 
   { path: 'Paint', component: AppComponent },
   { path: 'Racing', component: AppComponent },
+  { path: 'Space-Evolves', component: AppComponent },
   { path: 'Marbles', component: AppComponent },
   { path: 'Recipe/:recipeId', component: AppComponent },
   { path: 'Recipe', component: AppComponent },

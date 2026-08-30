@@ -21,6 +21,7 @@ export class ProfileWidgetsComponent implements AfterViewInit {
   availabilityEnder: boolean = false;
   availabilityWordler: boolean = false;
   availabilityMusic: boolean = false;
+  availabilityMovies: boolean = false;
   availabilityNewUsers: boolean = false;
   availabilityOnlineUsers: boolean = false;
   availabilityUserEvents: boolean = false;
@@ -49,6 +50,7 @@ export class ProfileWidgetsComponent implements AfterViewInit {
       case 'wordler': this.availabilityWordler = has; break;
       case 'currently-playing': this.availabilityCurrentlyPlaying = has; break;
       case 'music': this.availabilityMusic = has; break;
+      case 'movies': this.availabilityMovies = has; break;
       case 'newusers': this.availabilityNewUsers = has; break;
       case 'onlineusers': this.availabilityOnlineUsers = has; break;
       case 'userevents': this.availabilityUserEvents = has; break;

@@ -1576,6 +1576,9 @@ namespace maxhanna.Server.Controllers
 				}
 				if (req.Respawned)
 				{
+					// A real death respawn is a clean loadout: only fists return.
+					// Do this after accepting the request payload so a stale client
+					// weapon array cannot immediately restore confiscated weapons.
 					_playerWeapons[req.UserId] = new bool[5] { true, false, false, false, false };
 					_playerAmmo[req.UserId] = new int[5];
 				}

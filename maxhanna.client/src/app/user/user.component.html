@@ -236,10 +236,6 @@
         </div>
       </div>
     </div>
-    <!-- MOVIES ADDED TODAY -->
-    <div *ngIf="!user?.id && !loginOnly && !isLoading" class="memeAndWordlerWrapper">
-      <app-movies-added-today [inputtedParentRef]="parentRef"></app-movies-added-today>
-    </div>
 
     <!-- LATEST MEME -->
     <div *ngIf="!user?.id && !loginOnly && !isLoading" class="memeAndWordlerWrapper"
@@ -253,6 +249,7 @@
       <div style="margin-top:20px;">
         <app-profile-widgets [parentRef]="parentRef"></app-profile-widgets>
       </div>
+      <app-new-users [inputtedParentRef]="parentRef"></app-new-users>
     </div>
 
     <!-- SOCIAL -->

@@ -99,6 +99,7 @@ import { ModeratorComponent } from './moderator/moderator.component';
 import { PaintComponent } from './paint/paint.component';
 import { ConversionComponent } from './conversion/conversion.component';
 import { MoviesAddedTodayComponent } from './movies-added-today/movies-added-today.component';
+import { SpaceEvolvesComponent } from './space-evolves/space-evolves.component';
 
 @NgModule({
   declarations: [
@@ -188,6 +189,7 @@ import { MoviesAddedTodayComponent } from './movies-added-today/movies-added-tod
     PaintComponent,
     ConversionComponent,
     MoviesAddedTodayComponent,
+    SpaceEvolvesComponent,
   ],
   bootstrap: [AppComponent],
   imports: [
@@ -294,6 +296,7 @@ import { MoviesAddedTodayComponent } from './movies-added-today/movies-added-tod
     PaintComponent,
     ConversionComponent,
     MoviesAddedTodayComponent,
+    SpaceEvolvesComponent,
     AppMenuItemComponent,
     TimeFormatPipe,
     TimeSincePipe,
