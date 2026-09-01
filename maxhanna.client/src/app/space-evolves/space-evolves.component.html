@@ -7,6 +7,10 @@
       <div><strong>LEVEL</strong><span>{{level}}</span></div>
       <div><strong>HULL</strong><span>{{player.hp | number:'1.0-0'}} / {{player.maxHp}}</span></div>
       <div *ngIf="player.shield > 0"><strong>SHIELD</strong><span>{{player.shield | number:'1.0-0'}}</span></div>
+      <div class="experience-bar" aria-label="Experience progress">
+        <div class="experience-label"><span>EXP</span><strong>{{experience}} / {{nextLevel}}</strong></div>
+        <div class="experience-track"><div class="experience-fill" [style.width.%]="nextLevel > 0 ? Math.min(100, experience / nextLevel * 100) : 0"></div></div>
+      </div>
       <button type="button" (click)="togglePause()">{{paused ? 'Resume' : 'Pause'}}</button>
     </div>
     <div class="arena-wrap">
@@ -25,13 +29,10 @@
       </div>
       <div class="pause-card" *ngIf="paused && !gameOver"><h2>Paused</h2><button (click)="togglePause()">Resume run</button></div>
       <div class="gameover-card" *ngIf="gameOver"><h2>Ship lost</h2><p>{{status}}</p><button (click)="restart()">Start a new run</button></div>
-      <div class="upgrade-card" *ngIf="upgradeChoices.length > 0">
-        <h2>Evolution fork{{canPick ? '' : ' (choose in a moment)'}}</h2><p>{{canPick ? 'Pick one mutation. The brood will adapt.' : 'Hold on — mutations are still forming.'}}</p>
-        <div class="upgrade-grid"><button *ngFor="let upgrade of upgradeChoices" (click)="chooseUpgrade(upgrade)" [disabled]="!canPick"><span class="upgrade-icon" [attr.aria-label]="upgrade.weapon" role="img">{{ upgrade.weapon === 'laser' ? '⚡' : upgrade.weapon === 'missile' ? '🚀' : upgrade.weapon === 'shield' ? '🛡️' : '🛰️' }}</span><span class="upgrade-type">{{upgrade.weapon}}</span><strong>{{upgrade.name}}</strong><small>{{upgrade.description}}</small></button></div>
-      </div>
-      <div class="experience-bar" aria-label="Experience progress">
-        <div class="experience-label"><span>EXPERIENCE</span><strong>{{experience}} / {{nextLevel}}</strong></div>
-        <div class="experience-track"><div class="experience-fill" [style.width.%]="nextLevel > 0 ? Math.min(100, experience / nextLevel * 100) : 0"></div></div>
+      <div class="upgrade-card" *ngIf="upgradeChoices.length > 0 || grantedUpgrades.length">
+        <h2 *ngIf="upgradeChoices.length">Evolution fork{{canPick ? '' : ' (choose in a moment)'}}</h2><p *ngIf="upgradeChoices.length">{{canPick ? 'Pick one mutation. The brood will adapt.' : 'Hold on — mutations are still forming.'}}</p>
+        <div class="upgrade-grid" *ngIf="upgradeChoices.length"><button *ngFor="let upgrade of upgradeChoices" (click)="chooseUpgrade(upgrade)" [disabled]="!canPick"><span class="upgrade-icon" [attr.aria-label]="upgrade.weapon" role="img">{{ upgrade.weapon === 'laser' ? '⚡' : upgrade.weapon === 'missile' ? '🚀' : upgrade.weapon === 'shield' ? '🛡️' : '🛰️' }}</span><span class="upgrade-type">{{upgrade.weapon}}</span><strong>{{upgrade.name}}</strong><small>{{upgrade.description}}</small></button></div>
+        <div class="free-grants" *ngIf="grantedUpgrades.length"><h2>⚡ Free upgrades granted</h2><p>The brood rewarded your upgrades:</p><div class="granted-list"><span *ngFor="let g of grantedUpgrades" class="granted-chip">{{ upgradeIcon(g.weapon) }} {{g.name}} +{{ upgradeCount(g.id) }}</span></div>        <button class="dismiss" (click)="grantedUpgrades = []">Continue</button></div>
       </div>
     </div>
     <aside class="side-panel">
