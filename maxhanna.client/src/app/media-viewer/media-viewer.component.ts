@@ -704,7 +704,10 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       this.abortFileRequestController = new AbortController();
 
       const response = await this.fileService.getFile(target, { signal: this.abortFileRequestController.signal }, this.parentRef?.user);
-      const blob = new Blob([(response?.blob)!], { type: 'application/octet-stream' });
+      // response.blob is already a Blob with the server's content type — re-wrapping it
+      // would stringify it to "[object Blob]" and corrupt the download.
+      const blob = response?.blob;
+      if (!blob) throw new Error('No file data received');
 
       const a = document.createElement('a');
       a.href = window.URL.createObjectURL(blob);
