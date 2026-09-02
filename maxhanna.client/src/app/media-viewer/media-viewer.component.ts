@@ -721,7 +721,13 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       this.stopLoading();
     } catch (ex) {
       console.error(ex);
-      this.emittedNotification.emit((ex as Error).message);
+      this.stopLoading();
+      // Surface the failure to the user instead of leaking a raw error (or nothing at
+      // all) — the notification bubble renders wherever this component is embedded.
+      this.emittedNotification.emit(
+        ex instanceof Error && ex.message === 'No file data received'
+          ? `Download failed: no data received for ${file.fileName}.`
+          : `Download failed for ${file.fileName}. Please try again.`);
     }
   }
   togglePlay(currentVideo: HTMLVideoElement | HTMLAudioElement) {

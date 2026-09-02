@@ -491,6 +491,12 @@ export class FileService {
         throw new Error('Request aborted');
       }
 
+      // A non-OK status here means the body is an error page/message, not file
+      // bytes — surface it as a throw instead of handing back a corrupt blob.
+      if (!response.ok) {
+        throw new Error(`File request failed: ${response.status} ${response.statusText}`);
+      }
+
       const headers: Record<string, string> = {};
       response.headers.forEach((value: string, name: string) => {
         headers[name] = value;
@@ -801,7 +807,9 @@ export class FileService {
         ? `audio/${selectedFileExtension}`
         : `image/${selectedFileExtension}`;
 
-
+    // response.blob is already a Blob with the server's bytes — copying it into a new
+    // Blob preserves the data (Blob is a valid BlobPart) and just re-types it for the
+    // data-URL reader. Never stringify it.
     const blob = new Blob([response.blob], { type });
 
     return new Promise((resolve, reject) => {

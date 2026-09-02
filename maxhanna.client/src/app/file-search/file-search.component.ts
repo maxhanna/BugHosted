@@ -1059,6 +1059,13 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         this.stopLoading();
       } catch (ex) {
         console.error(ex);
+        this.stopLoading();
+        // Surface the failure to the user instead of failing silently — the confirm()
+        // dialog already closed, so without a toast the download just "does nothing".
+        this.parentRef?.showNotification(
+          ex instanceof Error && ex.message === 'No file data received'
+            ? `Download failed: no data received for ${file.fileName}.`
+            : `Download failed for ${file.fileName}. Please try again.`);
       } finally {
         this.isDownloadingFile = false;
       }
