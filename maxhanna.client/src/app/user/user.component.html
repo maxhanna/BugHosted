@@ -192,11 +192,16 @@
               <input type="text" id="loginInput" name="username" placeholder="Username" #loginUsername
                 (input)="onLoginUsernameInput($event)" (keydown.enter)="login()" [disabled]="isLoggingIn" />
               <input type="password" id="passwordInput" name="password" placeholder="Password" #loginPassword
-                (keydown.enter)="login()" [disabled]="isLoggingIn" />
+                (keydown.enter)="login()" [disabled]="isLoggingIn"
+                (keydown)="onSecretInputKey($event, 'login')" (keyup)="onSecretInputKey($event, 'login')"
+                (focus)="loginCapsLockOn = false" (blur)="loginCapsLockOn = false" />
+              <div *ngIf="loginCapsLockOn" class="capsLockWarning">⇪ Caps Lock is on</div>
               <div *ngIf="loginPinRequired" class="pinSection">
                 <div class="pinDisplay">PIN: <strong>{{ loginServerPin }}</strong></div>
                 <input type="text" id="loginPinInput" name="pin" placeholder="Retype PIN" #loginPin
-                  [(ngModel)]="loginPinValue" (keydown.enter)="login()" [disabled]="isLoading" />
+                  [(ngModel)]="loginPinValue" (keydown.enter)="login()" [disabled]="isLoading"
+                  (keydown)="onSecretInputKey($event, 'login')" (keyup)="onSecretInputKey($event, 'login')"
+                  (focus)="loginCapsLockOn = false" (blur)="loginCapsLockOn = false" />
               </div>
               <div>
                 <input type="submit" value="🔑 Login" [disabled]="isLoggingIn" />
@@ -228,7 +233,9 @@
             <div *ngFor="let q of securityQuestions; let i = index" class="securityQuestionDescriptionSection">
               <div>{{i+1}}. {{q}}</div>
               <div><input type="password" [value]="securityAnswers[i]"
-                  (input)="securityAnswers[i] = $any($event.target).value" placeholder="Answer" /></div>
+                  (input)="securityAnswers[i] = $any($event.target).value" placeholder="Answer"
+                  (keydown)="onSecretInputKey($event, 'securityAnswer')" (keyup)="onSecretInputKey($event, 'securityAnswer')" />
+                <div *ngIf="securityAnswerCapsLockOn" class="capsLockWarning">⇪ Caps Lock is on</div></div>
             </div>
             <div style="margin-top:8px;"><button (click)="submitSecurityAnswers()">Submit Answers & Reset</button></div>
           </div>

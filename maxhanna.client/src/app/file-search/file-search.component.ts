@@ -1033,20 +1033,23 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
 
     if (confirm(`Download ${file.fileName}?`)) {
-      const directoryValue = this.currentDirectory;
-      let target = directoryValue.replace(/\\/g, "/");
-      target += (directoryValue.length > 0 && directoryValue[directoryValue.length - 1] === this.fS) ? file.fileName : directoryValue.length > 0 ? this.fS + file.fileName : file.fileName;
-
       try {
         this.startLoading();
         this.isDownloadingFile = true;
         this.changeDetectorRef.detectChanges();
         this.getDirectoryAbortController = new AbortController();
-        const response = await this.fileService.getFile(target, { signal: this.getDirectoryAbortController.signal }, this.inputtedParentRef?.user);
+        // Download by file id: the server resolves the authoritative path from the
+        // database, exactly like the inline preview does. Reconstructing a path from
+        // currentDirectory breaks for search results (files can live in any directory),
+        // which produced 404s that surfaced as "empty file" downloads.
+        const parent = this.parentRef ?? this.inputtedParentRef;
+        const sessionToken = await parent?.getSessionToken();
+        const response = await this.fileService.getFileById(file.id, sessionToken ?? "", { signal: this.getDirectoryAbortController.signal }, parent?.user?.id);
         // response.blob is already a Blob with the server's content type — re-wrapping it
         // would stringify it to "[object Blob]" and corrupt the download.
         const blob = response?.blob;
         if (!blob) throw new Error('No file data received');
+        if (blob.size === 0) throw new Error('Empty file content');
 
         const a = document.createElement('a');
         a.href = window.URL.createObjectURL(blob);
@@ -1065,7 +1068,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         this.parentRef?.showNotification(
           ex instanceof Error && ex.message === 'No file data received'
             ? `Download failed: no data received for ${file.fileName}.`
-            : `Download failed for ${file.fileName}. Please try again.`);
+            : ex instanceof Error && ex.message === 'Empty file content'
+              ? `Download failed: the server returned empty content for ${file.fileName}.`
+              : `Download failed for ${file.fileName}. Please try again.`);
       } finally {
         this.isDownloadingFile = false;
       }

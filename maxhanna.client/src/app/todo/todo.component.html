@@ -25,16 +25,36 @@
   </select>
   </div>
 
-  <fieldset class="addTodoInputFieldset">
-    <input type="text" id="todoInput" [placeholder]="todoPlaceholder" #todoInput required (keydown.enter)="addTodo()" />
-    <app-speech-recognition buttonStyle="width: 40px; height: 54px; line-height: 0; background: transparent; border: none;" (speechRecognitionEvent)="onVoiceInputForAdd($event)"></app-speech-recognition>
-    <input type="url" id="urlInput" placeholder="url?" #urlInput (keydown.enter)="addTodo()" />
-    <app-media-selector #mediaSelector
-      [currentDirectory]="'Users/' + (parentRef?.user && parentRef?.user?.id != 0 ? parentRef?.user?.username : 'Anonymous')"
-      [user]="parentRef?.user" [inputtedParentRef]="parentRef" [maxSelectedFiles]="10" [uploadButtonText]="''"
-      (selectFileEvent)="selectFile($event)"></app-media-selector>
-    <input type="submit" class="todoSaveBtn" value="💾Save" (click)="addTodo()" />
+  <!-- Compact add bar: only the text input is always visible. Clicking it opens
+       the composer popup (url / speech / file selector / save) to save page space. -->
+  <fieldset class="addTodoInputFieldset" [class.composerOpen]="isAddTodoPopupOpen">
+    <input type="text" id="todoInput" [placeholder]="todoPlaceholder" #todoInput required
+      (click)="openAddTodoPopup()" (focus)="openAddTodoPopup()" (keydown.enter)="addTodo()"
+      (keydown.escape)="closeAddTodoPopup()" />
+    <button type="button" class="composerToggleBtn" title="Add {{selectedType.value}}"
+      (click)="openAddTodoPopup()">➕</button>
   </fieldset>
+
+  <!-- Composer popup: url / speech / file selector / save, anchored under the add bar.
+       Rendered only while open; a transparent backdrop closes it on outside clicks. -->
+  <div class="addTodoBackdrop" *ngIf="isAddTodoPopupOpen" (click)="closeAddTodoPopup()"></div>
+  <div class="addTodoPopupPanel" *ngIf="isAddTodoPopupOpen">
+    <div class="popupPanelTitle">Add {{selectedType.value}}</div>
+    <div class="addTodoPopupRow">
+      <input type="url" id="urlInput" placeholder="url?" #urlInput (keydown.enter)="addTodo()" />
+      <app-speech-recognition buttonStyle="width: 40px; height: 54px; line-height: 0; background: transparent; border: none;" (speechRecognitionEvent)="onVoiceInputForAdd($event)"></app-speech-recognition>
+    </div>
+    <div class="addTodoPopupRow">
+      <app-media-selector #mediaSelector
+        [currentDirectory]="'Users/' + (parentRef?.user && parentRef?.user?.id != 0 ? parentRef?.user?.username : 'Anonymous')"
+        [user]="parentRef?.user" [inputtedParentRef]="parentRef" [maxSelectedFiles]="10" [uploadButtonText]="''"
+        (selectFileEvent)="selectFile($event)"></app-media-selector>
+    </div>
+    <div class="addTodoPopupRow addTodoPopupActions">
+      <input type="submit" class="todoSaveBtn" value="💾Save" (click)="addTodo()" />
+      <button type="button" class="closeButton" (click)="closeAddTodoPopup()">Close</button>
+    </div>
+  </div>
 
   <div [class]="onMobile() ? 'mainTableContainerMobile' : 'mainTableContainer'"
     [style.opacity]="!isLoading ? '1' : '0.5'">

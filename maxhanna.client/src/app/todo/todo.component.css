@@ -52,6 +52,74 @@
   border: 1px solid var(--main-highlight-color);
   border-radius: 16px;
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+  /* Anchoring context for the composer popup below. */
+  position: relative;
+}
+
+.addTodoInputFieldset.composerOpen {
+  border-color: var(--third-font-color, cornflowerblue);
+  box-shadow: 0 0 0 3px rgba(100, 149, 237, 0.2);
+}
+
+.composerToggleBtn {
+  padding: 9px 18px;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #2e8b57, #3cb371);
+  color: #fff;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(46, 139, 87, 0.35);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.composerToggleBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(46, 139, 87, 0.5);
+}
+
+/* ─── Add-todo composer popup ─── */
+.addTodoBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: transparent;
+}
+
+.addTodoPopupPanel {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1001;
+  width: min(520px, calc(100vw - 40px));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--secondary-component-background-color);
+  border: var(--main-border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.45);
+}
+
+.addTodoPopupRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.addTodoPopupRow #urlInput {
+  flex: 1 1 200px;
+  width: auto;
+  min-width: 0;
+}
+
+.addTodoPopupActions {
+  justify-content: center;
 }
 
 #todoInput,
@@ -640,38 +708,20 @@ input:checked+.slider:before {
     gap: 8px;
   }
 
-  /* Mobile: pin the add-todo bar to exactly two lines —
-     row 1: todo text + mic + save, row 2: url + media picker.
-     Flex order overrides the DOM order so the save button sits on
-     row 1 instead of wrapping everything onto a third line. */
+  /* Mobile: the add bar stays one compact row (input + plus button);
+     the url/speech/file controls live in the composer popup. */
   #todoInput {
-    order: 0;
-    flex: 1 1 55%;
+    flex: 1 1 auto;
     min-width: 0;
     max-width: none;
   }
 
-  app-speech-recognition {
-    order: 1;
-    flex: 0 0 auto;
+  .addTodoPopupPanel {
+    width: calc(100vw - 32px);
   }
 
-  .todoSaveBtn {
-    order: 2;
-    flex: 0 0 auto;
-    padding: 11px 16px;
-  }
-
-  #urlInput {
-    order: 3;
-    flex: 1 1 60%;
-    width: auto;
-    min-width: 0;
-  }
-
-  app-media-selector {
-    order: 4;
-    flex: 0 0 auto;
+  .addTodoPopupRow #urlInput {
+    flex: 1 1 100%;
   }
 
   .actionTd {

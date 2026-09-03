@@ -136,6 +136,20 @@
   text-align: center;
 }
 
+.capsLockWarning {
+  color: #ffb454;
+  background: rgba(255, 180, 84, 0.12);
+  border: 1px solid rgba(255, 180, 84, 0.45);
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 4px 10px;
+  margin: 6px auto 0;
+  width: fit-content;
+  max-width: 100%;
+  user-select: none;
+}
+
 .notificationCounterDiv {
   position: absolute;
   right: 35px;

@@ -682,20 +682,6 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     const parent = this.parentRef;
     if (!parent) return;
 
-    let directoryValue = this.currentDirectory;
-    if (!directoryValue) {
-
-      const requesterId = this.parentRef?.user?.id;
-      const fileEntry = await this.fileService.getFileEntryById(file.id, requesterId, this.parentRef?.fileCache);
-      if (fileEntry) {
-        directoryValue = fileEntry.directory;
-      }
-    }
-
-    let target = (directoryValue ?? "").replace(/\\/g, "/");
-    target += ((directoryValue ?? "").length > 0 && (directoryValue ?? "")[(directoryValue ?? "").length - 1] === this.fS) ? file.fileName : (directoryValue ?? "").length > 0 ? this.fS + file.fileName : file.fileName;
-
-    console.log(target, directoryValue);
     try {
       this.startLoading();
       this.cdr.detectChanges();
@@ -703,11 +689,18 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
 
       this.abortFileRequestController = new AbortController();
 
-      const response = await this.fileService.getFile(target, { signal: this.abortFileRequestController.signal }, this.parentRef?.user);
+      // Download by file id: the server resolves the authoritative path from the
+      // database, exactly like the inline preview does. Reconstructing a path from
+      // currentDirectory breaks when the viewer is embedded (comments, social posts,
+      // chats) or after a directory change — those paths silently 404 and the
+      // download came back "empty".
+      const sessionToken = await parent.getSessionToken?.();
+      const response = await this.fileService.getFileById(file.id, sessionToken ?? "", { signal: this.abortFileRequestController.signal }, parent.user?.id);
       // response.blob is already a Blob with the server's content type — re-wrapping it
       // would stringify it to "[object Blob]" and corrupt the download.
       const blob = response?.blob;
       if (!blob) throw new Error('No file data received');
+      if (blob.size === 0) throw new Error('Empty file content');
 
       const a = document.createElement('a');
       a.href = window.URL.createObjectURL(blob);
@@ -727,7 +720,9 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       this.emittedNotification.emit(
         ex instanceof Error && ex.message === 'No file data received'
           ? `Download failed: no data received for ${file.fileName}.`
-          : `Download failed for ${file.fileName}. Please try again.`);
+          : ex instanceof Error && ex.message === 'Empty file content'
+            ? `Download failed: the server returned empty content for ${file.fileName}.`
+            : `Download failed for ${file.fileName}. Please try again.`);
     }
   }
   togglePlay(currentVideo: HTMLVideoElement | HTMLAudioElement) {

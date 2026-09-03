@@ -1450,7 +1450,7 @@ namespace maxhanna.Server.Services
                     }
                 }
                 using (var lyCommentCmd = new MySqlCommand(@"
-          SELECT c.comment, c.date
+          SELECT c.comment, c.date, c.user_id
           FROM comments c
           WHERE c.user_id = @uid
             AND YEARWEEK(c.date, 1) = YEARWEEK(DATE_SUB(UTC_DATE(), INTERVAL 1 YEAR), 1)
@@ -1461,7 +1461,13 @@ namespace maxhanna.Server.Services
                     using var rdr = await lyCommentCmd.ExecuteReaderAsync();
                     while (await rdr.ReadAsync())
                     {
+                        // Comments are stored hex-encrypted with the commenter's user id as
+                        // the key (the client encrypts before posting; see text-input.component).
+                        // Decrypt before putting them in the email. DecryptContent is a safe
+                        // no-op on plaintext, so legacy unencrypted rows still pass through.
                         var text = rdr.IsDBNull(rdr.GetOrdinal("comment")) ? "" : rdr.GetString("comment");
+                        var commenterId = rdr.IsDBNull(rdr.GetOrdinal("user_id")) ? 0 : rdr.GetInt32("user_id");
+                        text = _log.DecryptContent(text, commenterId + "");
                         var date = rdr.GetDateTime("date").ToString("MMM dd");
                         var snippet = text.Length > 90 ? text[..90] + "..." : text;
                         lastYearHtml.Append($"<li><b>Comment:</b> {snippet} <span style='color:#999'>({date})</span></li>");

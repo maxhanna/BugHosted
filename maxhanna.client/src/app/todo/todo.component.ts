@@ -33,6 +33,9 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
   isExpandedEditFile = false;
   hasEditedTodo = false;
   isMenuPanelOpen = false;
+  // Compact add bar: the url/speech/file controls live in a popup that opens
+  // when the add-todo input is clicked, to keep the page footprint small.
+  isAddTodoPopupOpen = false;
   // Polling for shared columns updates
   private sharedPollIntervalMs =15000; //15s
   private sharedPollTimer: any = null;
@@ -359,9 +362,10 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
     this.setTodoDropdownPlaceholder();
   }
   clearInputs() {
-    if (!(this.urlInput && this.todoInput)) { return; }
-    this.urlInput.nativeElement.value = "";
-    this.todoInput.nativeElement.value = "";
+    if (this.todoInput?.nativeElement) { this.todoInput.nativeElement.value = ""; }
+    // urlInput lives inside the composer popup, so it only exists while the
+    // popup is open — guard instead of assuming both are rendered.
+    if (this.urlInput?.nativeElement) { this.urlInput.nativeElement.value = ""; }
   }
   async typeOnChange() {
     this.ngOnInit();
@@ -398,7 +402,7 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
     let tmpTodo = new Todo();
     tmpTodo.date = new Date();
     tmpTodo.type = this.selectedType.nativeElement.value;
-    tmpTodo.url = this.urlInput.nativeElement.value;
+    tmpTodo.url = this.urlInput?.nativeElement?.value ?? "";
     tmpTodo.todo = this.todoInput.nativeElement.value;
     tmpTodo.fileId = this.selectedFile?.id;
 
@@ -414,8 +418,10 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
       );
     }
     this.clearInputs();
-    this.mediaSelector.removeAllFiles();
+    this.mediaSelector?.removeAllFiles();
     this.selectedFile = undefined;
+    // The composer popup served its purpose — collapse it back down.
+    this.isAddTodoPopupOpen = false;
 
     // If we're currently viewing the main "Todo" list, increment the navigation counter
     try {
@@ -848,6 +854,21 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
   closeMenuPanel() {
     this.isMenuPanelOpen = false;
     this.parentRef?.closeOverlay();
+  }
+
+  /** Opens the add-todo composer popup and focuses the text input. */
+  openAddTodoPopup() {
+    if (this.isAddTodoPopupOpen) {
+      // Already open — just make sure the text input has focus.
+      setTimeout(() => this.todoInput?.nativeElement?.focus());
+      return;
+    }
+    this.isAddTodoPopupOpen = true;
+    // Wait a tick so the popup (and media selector) renders before focusing.
+    setTimeout(() => this.todoInput?.nativeElement?.focus());
+  }
+  closeAddTodoPopup() {
+    this.isAddTodoPopupOpen = false;
   }
 
   // Export currently loaded todos to a plain-text .txt file

@@ -60,6 +60,22 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
   @ViewChild('loginUsername') loginUsername!: ElementRef<HTMLInputElement>;
   @ViewChild('loginPassword') loginPassword!: ElementRef<HTMLInputElement>;
   @ViewChild('loginPin') loginPin!: ElementRef<HTMLInputElement>;
+
+  // Caps Lock awareness on secret inputs: the state is read off the key events
+  // themselves (getModifierState), so it works without any permission prompt.
+  loginCapsLockOn = false;
+  securityAnswerCapsLockOn = false;
+
+  /** Tracks Caps Lock state from keyup/keydown on a secret input. */
+  onSecretInputKey(event: KeyboardEvent, target: 'login' | 'securityAnswer') {
+    // Safari fires CapsLock state only on keydown; Chrome/Firefox on both — listening
+    // to both events makes the indicator follow every browser.
+    if (event.getModifierState) {
+      const on = event.getModifierState('CapsLock');
+      if (target === 'login') this.loginCapsLockOn = on;
+      else this.securityAnswerCapsLockOn = on;
+    }
+  }
   @ViewChild('profileControls') profileControls!: ElementRef<HTMLSelectElement>;
   @ViewChild(SocialComponent) socialComponent!: SocialComponent;
   @ViewChild(MediaSelectorComponent) displayPictureSelector!: MediaSelectorComponent;
