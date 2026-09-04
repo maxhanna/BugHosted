@@ -23,7 +23,7 @@ namespace maxhanna.Server.Controllers
 			"pdf", "txt", "doc", "docx", "docm", "dot", "dotx", "dotm", "rtf", "odt"
 		};
 
-			public BooksController(IConfiguration config, Log log)
+		public BooksController(IConfiguration config, Log log)
 		{
 			_config = config;
 			_log = log;
@@ -37,33 +37,6 @@ namespace maxhanna.Server.Controllers
 			}
 			_baseTarget = Path.GetFullPath(configPath).Replace("\\", "/");
 			if (!_baseTarget.EndsWith("/")) _baseTarget += "/";
-			try { EnsureBookTable(); } catch (Exception ex) { Console.WriteLine($"[BOOKS] EnsureBookTable failed: {ex.Message}"); }
-		}
-
-		/// <summary>
-		/// The book_library registry table is created lazily on first controller
-		/// use so no manual migration step is required.
-		/// </summary>
-		private void EnsureBookTable()
-		{
-			using var conn = new MySqlConnection(_connectionString);
-			conn.Open();
-			var sql = @"
-				CREATE TABLE IF NOT EXISTS maxhanna.book_library (
-					id INT AUTO_INCREMENT PRIMARY KEY,
-					user_id INT NOT NULL,
-					file_id INT NOT NULL,
-					title VARCHAR(200) NOT NULL,
-					author VARCHAR(120) NULL,
-					description TEXT NULL,
-					cover_file_id INT NULL,
-					created_at DATETIME NOT NULL,
-					updated_at DATETIME NOT NULL,
-					UNIQUE KEY uq_book_file (file_id),
-					KEY idx_book_user (user_id)
-				) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
-			using var cmd = new MySqlCommand(sql, conn);
-			cmd.ExecuteNonQuery();
 		}
 
 		// The shared books folder inside the upload tree ("Uploads/Books/").
@@ -78,7 +51,7 @@ namespace maxhanna.Server.Controllers
 			try
 			{
 				if (userId <= 0) return BadRequest("userId required.");
-				if (!await _log.ValidateUserLoggedIn(userId, encryptedUserIdHeader))
+				if (!await _log.ValidateUserLoggedIn(userId, encryptedUserIdHeader ?? ""))
 					return StatusCode(500, "Access Denied.");
 
 				return Ok(await QueryBooks(BookSql(userId, false), cmd =>
@@ -489,8 +462,9 @@ namespace maxhanna.Server.Controllers
 		{
 			public int UserId { get; set; }
 			public int BookId { get; set; }
-			public int FileId { get; set; }				public int? CoverFileId { get; set; }
-				public string? CoverUrl { get; set; }
+			public int FileId { get; set; }
+			public int? CoverFileId { get; set; }
+			public string? CoverUrl { get; set; }
 			public string? Title { get; set; }
 			public string? Author { get; set; }
 			public string? Description { get; set; }
@@ -528,8 +502,8 @@ namespace maxhanna.Server.Controllers
 				LEFT JOIN maxhanna.file_uploads c ON c.id = b.cover_file_id
 				WHERE 1=1 {visibility}				ORDER BY b.updated_at DESC
 				LIMIT 1000";
-			}
-			
+		}
+
 		private static List<string> WrapText(string text, int maxChars, int maxLines)
 		{
 			var lines = new List<string>();
@@ -564,7 +538,7 @@ namespace maxhanna.Server.Controllers
 		{
 			using var cmd = new MySqlCommand(
 				isBookId ? "SELECT file_id FROM maxhanna.book_library WHERE id = @id LIMIT 1"
-				         : "SELECT file_id FROM maxhanna.book_library WHERE file_id = @id LIMIT 1", conn);
+						 : "SELECT file_id FROM maxhanna.book_library WHERE file_id = @id LIMIT 1", conn);
 			cmd.Parameters.AddWithValue("@id", id);
 			var r = await cmd.ExecuteScalarAsync();
 			return r == null || r == DBNull.Value ? (int?)null : Convert.ToInt32(r);
@@ -660,24 +634,24 @@ namespace maxhanna.Server.Controllers
 			// <img src> cannot call the POST GetFileById endpoint, so convert the
 			// stored absolute folder_path to a relative /assets/Uploads/... path.
 			string? coverUrl = null;
-				if (!r.IsDBNull(r.GetOrdinal("cover_file_id")))
+			if (!r.IsDBNull(r.GetOrdinal("cover_file_id")))
+			{
+				var coverName = r.IsDBNull(r.GetOrdinal("cover_name")) ? null : r.GetString("cover_name");
+				var coverFolder = r.IsDBNull(r.GetOrdinal("cover_folder")) ? null : r.GetString("cover_folder");
+				if (!string.IsNullOrWhiteSpace(coverName) && !string.IsNullOrWhiteSpace(coverFolder))
 				{
-					var coverName = r.IsDBNull(r.GetOrdinal("cover_name")) ? null : r.GetString("cover_name");
-					var coverFolder = r.IsDBNull(r.GetOrdinal("cover_folder")) ? null : r.GetString("cover_folder");
-					if (!string.IsNullOrWhiteSpace(coverName) && !string.IsNullOrWhiteSpace(coverFolder))
+					// Convert the stored absolute upload path into the site-relative
+					// /assets/... URL by stripping everything before the Uploads root.
+					var normFolder = coverFolder.Replace("\\", "/");
+					var marker = "/assets/Uploads/";
+					var idx = normFolder.IndexOf("Uploads/", StringComparison.OrdinalIgnoreCase);
+					if (idx >= 0)
 					{
-						// Convert the stored absolute upload path into the site-relative
-						// /assets/... URL by stripping everything before the Uploads root.
-						var normFolder = coverFolder.Replace("\\", "/");
-						var marker = "/assets/Uploads/";
-						var idx = normFolder.IndexOf("Uploads/", StringComparison.OrdinalIgnoreCase);
-						if (idx >= 0)
-						{
-							var rel = normFolder[(idx + "Uploads/".Length)..];
-							coverUrl = $"{marker}{rel}{Uri.EscapeDataString(coverName)}";
-						}
+						var rel = normFolder[(idx + "Uploads/".Length)..];
+						coverUrl = $"{marker}{rel}{Uri.EscapeDataString(coverName)}";
 					}
 				}
+			}
 
 			return new BookDto
 			{
@@ -709,8 +683,9 @@ namespace maxhanna.Server.Controllers
 			public string OwnerName { get; set; } = "Unknown";
 			public string Title { get; set; } = "";
 			public string? Author { get; set; }
-			public string? Description { get; set; }				public int? CoverFileId { get; set; }
-				public string? CoverUrl { get; set; }
+			public string? Description { get; set; }
+			public int? CoverFileId { get; set; }
+			public string? CoverUrl { get; set; }
 			public string FileType { get; set; } = "";
 			public long FileSize { get; set; }
 			public bool IsPublic { get; set; }
