@@ -6,7 +6,7 @@
       <div><strong>SCORE</strong><span>{{score}}</span></div>
       <div><strong>LEVEL</strong><span>{{level}}</span></div>
       <div><strong>HULL</strong><span>{{player.hp | number:'1.0-0'}} / {{player.maxHp}}</span></div>
-      <div class="enemy-counter" [class.boss-pending]="isBossActive"><strong>HOSTILES</strong><span>{{enemyCount}}</span></div>
+      <div class="enemy-counter" [class.boss-pending]="isBossActive"><strong>TO NEXT WAVE</strong><span>{{enemyCount}}</span></div>
       <div *ngIf="player.shield > 0"><strong>SHIELD</strong><span>{{player.shield | number:'1.0-0'}}</span></div>
       <div class="experience-bar" aria-label="Experience progress">
         <div class="experience-label"><span>EXP</span><strong>{{experience}} / {{nextLevel}}</strong></div>
