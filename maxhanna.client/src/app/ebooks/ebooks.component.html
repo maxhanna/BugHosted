@@ -104,8 +104,12 @@
           <div class="book-description" *ngIf="book.description" [title]="book.description">{{ book.description }}</div>
           <div class="book-actions" (click)="$event.stopPropagation()">
             <button class="mini-btn" (click)="openReader(book)">📖 Read</button>
-            <button class="mini-btn register-btn" *ngIf="canManage(book) && isUnregistered(book)" (click)="quickRegister(book)">➕ Add to library</button>
-            <button class="mini-btn" *ngIf="canManage(book) && !isUnregistered(book)" (click)="openSharePanel(book)">🔗 Share</button>
+            <!-- Save someone else's public/shared book into your library -->
+            <button class="mini-btn register-btn" *ngIf="canAddToLibrary(book)" (click)="quickRegister(book)">➕ Add to library</button>
+            <!-- Claim one of your own raw Books/-folder uploads as a book -->
+            <button class="mini-btn register-btn" *ngIf="canManage(book) && isUnregistered(book)" (click)="registerOwnFile(book)">➕ Register book</button>
+            <button class="mini-btn" *ngIf="canManage(book) && !isUnregistered(book) && ownsFileOf(book)" (click)="openSharePanel(book)">🔗 Share</button>
+            <button class="mini-btn" (click)="downloadBookFile(book)">⬇️</button>
             <button class="mini-btn" *ngIf="canManage(book) && !isUnregistered(book)" (click)="openEditPanel(book)">✏️ Edit</button>
             <button class="mini-btn danger" *ngIf="canManage(book) && !isUnregistered(book)" (click)="removeBook(book)">🗑</button>
             <button class="mini-btn" (click)="copyShareLink(book)">📋</button>

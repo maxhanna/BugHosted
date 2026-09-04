@@ -69,7 +69,11 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
     if (this.inputtedParentRef) this.parentRef = this.inputtedParentRef;
     await this.loadBooks();
     if (this.preloadBookId) {
-      const pre = this.books.find(b => b.bookId === this.preloadBookId);
+      // Deep links are keyed by fileId (the book's stable identity, shared
+      // across every user's library entry), falling back to bookId for old
+      // links minted before the fileId scheme.
+      const pre = this.books.find(b => b.fileId === this.preloadBookId)
+        ?? this.books.find(b => b.bookId === this.preloadBookId);
       if (pre) await this.openReader(pre);
     }
   }
@@ -308,7 +312,15 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
   }
 
   canManage(book: BookEntry): boolean {
+    // Own library entry — edit/share/remove act on the entry itself, with
+    // sharing additionally gated to the file owner on the server.
     return this.isLoggedIn && book.ownerId === this.userId;
+  }
+
+  /** True when the caller owns the underlying uploaded file (pre-caches data
+   *  predates fileOwnerId and is treated as owner). */
+  ownsFileOf(book: BookEntry): boolean {
+    return !book.fileOwnerId || book.fileOwnerId === this.userId;
   }
 
   /** True for raw Books/-folder files that have no library row yet. */
@@ -316,9 +328,41 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
     return !book.bookId;
   }
 
-  /** One-click registration of a raw Books/-folder file owned by the caller. */
+  /**
+   * True when this card represents someone else's book (registered or a raw
+   * directory file) that the caller can save into their own library — the
+   * inverse of the old behaviour, where the button appeared on your own raw
+   * uploads.
+   */
+  canAddToLibrary(book: BookEntry): boolean {
+    if (!this.isLoggedIn) return false;
+    if (!book.bookId) return book.fileOwnerId !== this.userId;
+    return book.ownerId !== this.userId;
+  }
+
+  /** One-click save of another user's book into the caller's library. */
   async quickRegister(book: BookEntry) {
-    if (!this.isLoggedIn || !this.canManage(book) || book.bookId) return;
+    if (!this.isLoggedIn || !this.canAddToLibrary(book)) return;
+    const token = await this.parentRef?.getSessionToken();
+    const result = await this.booksService.registerBook({
+      userId: this.userId,
+      fileId: book.fileId,
+      title: book.title || 'Untitled',
+      isPublic: false, // a saved copy is private to the saver by default
+    }, token);
+    if (result) {
+      this.parentRef?.showNotification(`"${book.title}" added to your library.`);
+      await this.loadBooks();
+    } else {
+      this.parentRef?.showNotification('Could not add that book — it may not be public or shared with you.');
+    }
+  }
+
+  /**
+   * One-click registration of a raw Books/-folder file owned by the caller
+   * (uploaded through the Files app instead of the Add Book dialog).
+   */
+  async registerOwnFile(book: BookEntry) {
     const token = await this.parentRef?.getSessionToken();
     const result = await this.booksService.registerBook({
       userId: this.userId,
@@ -463,11 +507,29 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
     a.remove();
   }
 
+  /** Card-level download of the book file (same stream the reader uses). */
+  async downloadBookFile(book: BookEntry) {
+    if (!book?.fileId) return;
+    const blob = await this.booksService.downloadBook(book.fileId);
+    if (!blob || blob.size === 0) {
+      this.parentRef?.showNotification(
+        `Could not download "${book.title}" — the server returned empty content.`);
+      return;
+    }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${book.title || 'book'}.${book.fileType || 'bin'}`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => { try { URL.revokeObjectURL(url); } catch { } }, 10000);
+  }
+
   copyShareLink(book: BookEntry) {
-    // Unregistered files have no book id — link to the file viewer instead.
-    const link = book.bookId
-      ? this.booksService.getShareLink(book)
-      : `${window.location.origin}/File/${book.fileId}`;
+    // Always the canonical /Books/<fileId> deep link — it opens the eBooks
+    // reader for registered books and unregistered directory files alike.
+    const link = this.booksService.getShareLink(book);
     navigator.clipboard?.writeText(link).then(
       () => this.parentRef?.showNotification('Share link copied to clipboard.'),
       () => this.parentRef?.showNotification(link),

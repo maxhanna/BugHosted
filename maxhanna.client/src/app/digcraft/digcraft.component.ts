@@ -1,5 +1,5 @@
 import {
-  AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild, ChangeDetectorRef
+  AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild, ChangeDetectorRef, NgZone
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -49,6 +49,25 @@ type DCPlayerSnapshot = {
   t: number;
 };
 
+// Module-level mob stat tables — updateMobs used to rebuild these as closures
+// on every call (every other frame); constant data belongs out here.
+const MOB_SPEEDS: { [type: string]: number } = {
+  Zombie: 1.1, Skeleton: 1.3, Archer: 1.2, WitherSkeleton: 1.2,
+  Blaze: 1.4, Ghast: 0.8, Hoglin: 1.2,
+  Strider: 0.6, Camel: 0.7, Goat: 1.1,
+  Llama: 0.8, Horse: 1.3, Wolf: 1.1,
+  PolarBear: 0.9, Fox: 1.2, Ocelot: 1.1,
+  Dolphin: 1.2, Deer: 1.1, Rabbit: 1.3,
+};
+const MOB_SPEED_DEFAULT = 0.9;
+const MOB_ATTACKS: { [type: string]: number } = {
+  Zombie: 4, Skeleton: 3, WitherSkeleton: 8,
+  Blaze: 5, Ghast: 6, Hoglin: 6,
+  Wolf: 3, PolarBear: 5, Archer: 4,
+};
+const MOB_SPEED = (type: string): number => MOB_SPEEDS[type] ?? MOB_SPEED_DEFAULT;
+const MOB_ATTACK = (type: string): number => MOB_ATTACKS[type] ?? 0;
+
 @Component({
   selector: 'app-digcraft',
   templateUrl: './digcraft.component.html',
@@ -56,6 +75,7 @@ type DCPlayerSnapshot = {
   standalone: true,
   imports: [AppModule, CommonModule, FormsModule],
 })
+
 export class DigCraftComponent extends ChildComponent implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild('gameCanvas', { static: false }) canvasRef!: ElementRef<HTMLCanvasElement>;
   @ViewChild('componentMain', { static: false }) componentMainRef?: ElementRef<HTMLDivElement>;
@@ -681,7 +701,15 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   public set isMenuPanelOpen(v: boolean) { this._isMenuPanelOpen = v; this.onMenuStateChanged(); }
 
   // Bound handlers for cleanup (delegates moved to digcraft-input.ts)
-  private boundKeyDown = (e: KeyboardEvent): void => onKeyDown(this, e, this.parentRef?.user?.id ?? 0);
+  // NOTE: these are registered OUTSIDE the Angular zone (see initWorld) so
+  // that high-frequency events (mousemove/touchmove/wheel) and every rAF
+  // frame stop triggering app-wide change detection — that was the source of
+  // the input lag once all chunks were loaded. Handlers that mutate
+  // template-bound UI state re-enter the zone via this helper.
+  private inZone(fn: () => void): void {
+    this.ngZone?.run(() => fn());
+  }
+  private boundKeyDown = (e: KeyboardEvent): void => this.inZone(() => onKeyDown(this, e, this.parentRef?.user?.id ?? 0));
   private boundKeyUp = (e: KeyboardEvent): void => onKeyUp(this, e);
   private boundMouseMove = (e: MouseEvent): void => onMouseMove(this, e);
   private boundMouseDown = (e: MouseEvent): void => {
@@ -694,22 +722,25 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       return;
     }
 
-    onMouseDown(this, e);
+    this.inZone(() => onMouseDown(this, e));
   };
   private boundMouseUp = (e: MouseEvent): void => {
-    onMouseUp(this, e);
+    this.inZone(() => onMouseUp(this, e));
   };
   private boundContextMenu = (e: Event): void => e.preventDefault();
-  private boundPointerLockChange = (): void => onPointerLockChange(this);
-  private boundTouchStart = (e: TouchEvent): void => onTouchStart(this, e);
-  private boundTouchMove = (e: TouchEvent): void => onTouchMove(this, e);
-  private boundTouchEnd = (e: TouchEvent): void => onTouchEnd(this, e);
+  private boundPointerLockChange = (): void => this.inZone(() => onPointerLockChange(this));
+  // Touch handlers only fire on mobile — they drive the template-bound
+  // joystick knob transform, so they re-enter the zone (mobile behavior is
+  // unchanged; the desktop mouse lag comes from mousemove/keydown/rAF).
+  private boundTouchStart = (e: TouchEvent): void => this.inZone(() => onTouchStart(this, e));
+  private boundTouchMove = (e: TouchEvent): void => this.inZone(() => onTouchMove(this, e));
+  private boundTouchEnd = (e: TouchEvent): void => this.inZone(() => onTouchEnd(this, e));
   private boundMouseWheel = (e: WheelEvent): void => {
-    // Call the input module's onMouseWheel function
-    onMouseWheel(this, e);
+    // Wheel mutates the template-bound selectedSlot — re-enter the zone.
+    this.inZone(() => onMouseWheel(this, e));
   };
 
-  constructor(private digcraftService: DigcraftService, private userService: UserService, private cdr: ChangeDetectorRef) {
+  constructor(private digcraftService: DigcraftService, private userService: UserService, private cdr: ChangeDetectorRef, private ngZone: NgZone) {
     super();
     this.inventory = new Array(MAX_INVENTORY_LENGTH).fill(null).map(() => ({ itemId: 0, quantity: 0 }));
   }
@@ -1055,30 +1086,36 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     //   try { this.spawnInitialMobs(); } catch (e) { }
     // } 
 
-    // Bind input
-    document.addEventListener('keydown', this.boundKeyDown);
-    document.addEventListener('keyup', this.boundKeyUp);
-    document.addEventListener('mousemove', this.boundMouseMove);
-    document.addEventListener('mousedown', this.boundMouseDown);
-    document.addEventListener('mouseup', this.boundMouseUp);
-    document.addEventListener('contextmenu', this.boundContextMenu);
-    document.addEventListener('pointerlockchange', this.boundPointerLockChange);
-    // Use document-level touch handlers so an overlay joystick (pointer-events: auto)
-    // doesn't prevent the handlers from receiving events. Handlers will decide
-    // if a touch is a joystick touch via bounding-rect checks.
-    document.addEventListener('touchstart', this.boundTouchStart, { passive: false });
-    document.addEventListener('touchmove', this.boundTouchMove, { passive: false });
-    document.addEventListener('touchend', this.boundTouchEnd);
-    // Add mouse wheel handler
-    document.addEventListener('wheel', this.boundMouseWheel, { passive: false });
+    // Bind input — registration happens OUTSIDE the Angular zone. zone.js
+    // captures the active zone at addEventListener time, so registering here
+    // means the handlers run unpatched (no change detection per event). The
+    // handlers that need UI updates explicitly re-enter via this.inZone().
+    this.ngZone.runOutsideAngular(() => {
+      document.addEventListener('keydown', this.boundKeyDown);
+      document.addEventListener('keyup', this.boundKeyUp);
+      document.addEventListener('mousemove', this.boundMouseMove);
+      document.addEventListener('mousedown', this.boundMouseDown);
+      document.addEventListener('mouseup', this.boundMouseUp);
+      document.addEventListener('contextmenu', this.boundContextMenu);
+      document.addEventListener('pointerlockchange', this.boundPointerLockChange);
+      // Use document-level touch handlers so an overlay joystick (pointer-events: auto)
+      // doesn't prevent the handlers from receiving events. Handlers will decide
+      // if a touch is a joystick touch via bounding-rect checks.
+      document.addEventListener('touchstart', this.boundTouchStart, { passive: false });
+      document.addEventListener('touchmove', this.boundTouchMove, { passive: false });
+      document.addEventListener('touchend', this.boundTouchEnd);
+      // Add mouse wheel handler
+      document.addEventListener('wheel', this.boundMouseWheel, { passive: false });
+    });
 
-    // Start game loop
+    // Start game loop OUTSIDE the Angular zone — every rAF frame previously
+    // triggered app-wide change detection, which compounded with rendering to    // cause the input lag seen once all chunks were loaded.
     this.lastTime = performance.now();
     // Kick off a burst so the initial spawn chunks are meshed quickly on first frames
     this._chunkBurstFramesLeft = 60;
     this._chunkFetchAbortController = new AbortController();
 
-    this.gameLoop(this.lastTime);
+    this.ngZone.runOutsideAngular(() => this.gameLoop(this.lastTime));
 
     // Stagger poll loop starts on mobile to avoid simultaneous network requests at startup
     const pollDelay = this.onMobile() ? 1500 : 0;
@@ -1294,6 +1331,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   /** Last timestamp a gameLoop exception was logged — throttles error spam so a
    *  deterministic per-frame failure cannot flood the console. */
   private _lastFrameErrorLog = 0;
+  /** Last timestamp the HUD change-detection sync ran (loop is outside the zone). */
+  private _lastHudSync = 0;
   /** Frames remaining in post-teleport burst mode — raises per-frame chunk work limits */
   private _chunkBurstFramesLeft = 0;
 
@@ -1346,6 +1385,15 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if ((time - this._lastRenderAt) >= minRenderMs) {
       this.renderFrame();
       this._lastRenderAt = time;
+    }
+
+    // The loop runs outside the Angular zone now — template-bound HUD state
+    // (coords readout, damage popups, center chat, target name) needs an
+    // explicit change-detection pass. Throttled to ~5Hz: cheap (local subtree
+    // only) and visually indistinguishable from per-frame updates.
+    if (time - this._lastHudSync >= 200) {
+      this._lastHudSync = time;
+      try { if (!this.destroyed) this.cdr.detectChanges(); } catch { }
     }
     } catch (e) {
       // The next frame is already scheduled (top of method) — log throttled and
@@ -1785,24 +1833,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       return false;
     };
 
-    const speedFor = (type: string) => {
-      switch (type) {
-        case 'Zombie': return 1.1; case 'Skeleton': return 1.3; case 'Archer': return 1.2; case 'WitherSkeleton': return 1.2;
-        case 'Blaze': return 1.4; case 'Ghast': return 0.8; case 'Hoglin': return 1.2;
-        case 'Strider': return 0.6; case 'Camel': return 0.7; case 'Goat': return 1.1;
-        case 'Llama': return 0.8; case 'Horse': return 1.3; case 'Wolf': return 1.1;
-        case 'PolarBear': return 0.9; case 'Fox': return 1.2; case 'Ocelot': return 1.1;
-        case 'Dolphin': return 1.2; case 'Deer': return 1.1; case 'Rabbit': return 1.3;
-        default: return 0.9;
-      }
-    };
-    const attackFor = (type: string) => {
-      switch (type) {
-        case 'Zombie': return 4; case 'Skeleton': return 3; case 'WitherSkeleton': return 8;
-        case 'Blaze': return 5; case 'Ghast': return 6; case 'Hoglin': return 6;
-        case 'Wolf': return 3; case 'PolarBear': return 5; case 'Archer': return 4; default: return 0;
-      }
-    };
+    // speedFor/attackFor moved to module scope (MOB_SPEEDS/MOB_ATTACKS) —
+    // rebuilding these closures on every updateMobs call re-created their
+    // switch tables for no benefit.
 
     // Ground-align helper: scan downward from mob's current Y (not from WORLD_HEIGHT)
     // This is the key perf fix — was scanning 320 blocks, now scans ~10
@@ -1844,7 +1877,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           const minRange = 10;
           if (dist < minRange) {
             // Too close — back away
-            const step = speedFor(mob.type) * dt;
+            const step = MOB_SPEED(mob.type) * dt;
             for (const f of [1, 0.6, 0.35, 0.15]) {
               const cx = mob.posX - dirX * step * f;
               const cz = mob.posZ - dirZ * step * f;
@@ -1854,7 +1887,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
             }
           } else if (dist > bowRange) {
             // Too far — approach slowly
-            const step = speedFor(mob.type) * dt;
+            const step = MOB_SPEED(mob.type) * dt;
             for (const f of [1, 0.6, 0.35, 0.15]) {
               const cx = mob.posX + dirX * step * f;
               const cz = mob.posZ + dirZ * step * f;
@@ -1864,7 +1897,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
             }
           } else {
             // In range — strafe sideways
-            const strafeStep = speedFor(mob.type) * dt * 0.8;
+            const strafeStep = MOB_SPEED(mob.type) * dt * 0.8;
             const strafeDir = (Math.sin(now * 2 + mob.id) > 0) ? 1 : -1;
             const sx = -dirZ * strafeDir * strafeStep;
             const sz = dirX * strafeDir * strafeStep;
@@ -1908,7 +1941,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           }
         } else {
           // Standard melee mob — path toward player
-          const step = speedFor(mob.type) * dt;
+          const step = MOB_SPEED(mob.type) * dt;
           const feetY = mob.posY - 1.6;
           for (const f of [1, 0.6, 0.35, 0.15]) {
             const cx = mob.posX + dirX * step * f, cz = mob.posZ + dirZ * step * f;
@@ -2416,8 +2449,6 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           this.changeTargetName(ITEM_NAMES[block] ?? `Block ${block}`, 0);
         }
         return;
-      } else {
-        this.changeTargetName(null, 0);
       }
       prevX = bx; prevY = by; prevZ = bz;
       if (tMaxX < tMaxY) {
@@ -2428,6 +2459,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         else { bz += stepZ; tMaxZ += tDeltaZ; }
       }
     }
+    // Nothing hit within reach — clear the target name once. (It used to be
+    // cleared on every DDA step: up to 18 redundant calls per frame.)
+    this.changeTargetName(null, 0);
   }
 
   // ═══════════════════════════════════════
@@ -3503,8 +3537,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (userId === myId) continue;
       if (!snaps || snaps.length === 0) continue;
 
-      // Ensure sorted by time
-      const s = snaps.slice().sort((a, b) => a.t - b.t);
+      // Snapshots are appended chronologically and trimmed from the front
+      // (updatePlayerSnapshots) — already sorted by construction. The old      // slice().sort() here copied + sorted every buffer on every render      // frame (~3k throwaway arrays/sec) for zero benefit.
+      const s = snaps;
 
       let outX = s[0].posX, outY = s[0].posY, outZ = s[0].posZ;
       let outYaw = s[s.length - 1].yaw;
@@ -3626,7 +3661,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const list: any[] = [];
     for (const [id, snaps] of this.mobSnapshots) {
       if (!snaps || snaps.length === 0) continue;
-      const s = snaps.slice().sort((a, b) => a.t - b.t);
+      // Chronological by construction (see computeSmoothedPlayers).
+      const s = snaps;
 
       let outX = s[0].posX, outY = s[0].posY, outZ = s[0].posZ;
       let outYaw = s[0].yaw, outHealth = s[0].health;
@@ -4459,11 +4495,30 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
   }
 
+  // Single-entry chunk cache for the per-frame hot paths (physics, mob AI,
+  // raycast). getWorldBlock used to allocate a fresh "x,z" key string on every
+  // block read — with 48 mobs doing collision + ground scans that is tens of
+  // thousands of string allocations per second feeding the GC. The memo is
+  // validated against the live map, so an evicted chunk can never be served.
+  private _wbCx = NaN;
+  private _wbCz = NaN;
+  private _wbKey = '';
+
   getWorldBlock(wx: number, wy: number, wz: number): number {
     if (wy < 0 || wy >= WORLD_HEIGHT) return BlockId.AIR;
     const cx = Math.floor(wx / CHUNK_SIZE);
     const cz = Math.floor(wz / CHUNK_SIZE);
-    const chunk = this.chunks.get(`${cx},${cz}`);
+    let chunk: Chunk | undefined;
+    if (cx === this._wbCx && cz === this._wbCz) {
+      // Same chunk as the last read — reuse the cached key (no string
+      // allocation). Still goes through the live map, so an evicted chunk is
+      // never served stale.
+      chunk = this.chunks.get(this._wbKey);
+    } else {
+      const key = `${cx},${cz}`;
+      chunk = this.chunks.get(key);
+      this._wbCx = cx; this._wbCz = cz; this._wbKey = key;
+    }
     if (!chunk) return BlockId.AIR;
     return chunk.getBlock(wx - cx * CHUNK_SIZE, wy, wz - cz * CHUNK_SIZE);
   }

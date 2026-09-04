@@ -142,10 +142,14 @@ export class BooksService {
     return `/books/cover.svg?${params.toString()}`;
   }
 
-  /** Builds a shareable deep link to the eBooks component with the book preloaded. */
+  /**
+   * Builds a shareable deep link to the eBooks component. Keyed by fileId —
+   * the canonical identity of the book (bookId differs per user who saved a
+   * copy, and unregistered files have none).
+   */
   getShareLink(book: BookEntry): string {
     const base = typeof window !== 'undefined' ? window.location.origin : '';
-    return `${base}/Books/${book.bookId}`;
+    return `${base}/Books/${book.fileId}`;
   }
 
   /** Streams the actual book file for reading/downloading. */

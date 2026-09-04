@@ -58,6 +58,9 @@ namespace maxhanna.Server.Controllers
 				{
 					cmd.Parameters.AddWithValue("@UserId", userId);
 				});
+				// A file shared with you matches via two rows (your saved entry +
+				// the sharer's entry) — keep one card, preferring your own entry.
+				registered = DedupByFile(registered, preferOwnerId: userId);
 				// The library also lists the owner's own book-format files sitting in
 				// the Books/ upload folder that were never registered via the Add
 				// Book dialog (e.g. uploaded straight through the Files app).
@@ -67,6 +70,10 @@ namespace maxhanna.Server.Controllers
 				var savedFileIds = registered.Select(b => b.FileId).ToHashSet();
 				unregistered = unregistered.Where(u => !savedFileIds.Contains(u.FileId)).ToList();
 				return Ok(registered.Concat(unregistered).ToList());
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"GetMyLibrary failed: {ex.Message}", userId, "BOOKS", true);
 				return StatusCode(500, "An error occurred while loading your library.");
 			}
 		}
@@ -82,6 +89,9 @@ namespace maxhanna.Server.Controllers
 				{
 					cmd.Parameters.AddWithValue("@UserId", userId ?? 0);
 				});
+				// Many users can hold their own entry for the same public file —
+				// the catalog shows one card per book, preferring the uploader's.
+				registered = DedupByFile(registered, preferFileOwner: true);
 				// Plus every public book-format file uploaded into the Books/ folder
 				// that has never been registered — the raw directory contents the
 				// feature was specced to list. These come back with bookId = 0.
@@ -121,17 +131,19 @@ namespace maxhanna.Server.Controllers
 				{
 					await conn.OpenAsync();
 
-					// The file must exist, must be a book format and must belong to the caller.
+					// The file must exist, must be a book format and must be readable
+					// by the caller (owner, or public/shared for saving others' books).
 					string? folderPath = null, fileName = null;
 					bool isPublic = false;
+					bool ownsFile = false;
 					using (var cmd = new MySqlCommand(
-						"SELECT user_id, file_name, folder_path, is_public, file_type FROM maxhanna.file_uploads WHERE id = @fileId LIMIT 1", conn))
+						"SELECT user_id, file_name, folder_path, is_public, file_type, shared_with FROM maxhanna.file_uploads WHERE id = @fileId LIMIT 1", conn))
 					{
 						cmd.Parameters.AddWithValue("@fileId", req.FileId);
 						using var rdr = await cmd.ExecuteReaderAsync();
 						if (!await rdr.ReadAsync()) return NotFound("Uploaded file not found.");
 						var ownerId = rdr.GetInt32("user_id");
-						var ownsFile = ownerId == req.UserId;
+						ownsFile = ownerId == req.UserId;
 						if (!ownsFile)
 						{
 							// Adding someone else's book to your library — they must be
@@ -380,6 +392,10 @@ namespace maxhanna.Server.Controllers
 				}
 				if ((req.Usernames?.Count ?? 0) > 0 || (req.UserIds?.Count ?? 0) > 0)
 				{
+					// Removing recipients edits the shared_with CSV on the file row —
+					// owner-only for the same reason as sharing.
+					if (!await FileBelongsToUser(conn, fileId.Value, req.UserId))
+						return StatusCode(403, "Only the book's owner can manage sharing.");
 					var sharedWith = await GetSharedWithList(conn, fileId.Value);
 					foreach (var name in req.Usernames ?? new List<string>())
 					{
@@ -522,9 +538,30 @@ namespace maxhanna.Server.Controllers
 			public bool MakePublic { get; set; }
 			public List<string>? Usernames { get; set; }
 			public List<int>? UserIds { get; set; }
-		}
+		}			/// <summary>
+			/// Collapses multiple library entries that point at the same uploaded
+			/// file. Library view keeps the caller's own entry; catalog view keeps
+			/// the uploader's entry when one exists.
+			/// </summary>
+			private static List<BookDto> DedupByFile(List<BookDto> books, int? preferOwnerId = null, bool preferFileOwner = false)
+			{
+				var byFile = new Dictionary<int, BookDto>();
+				foreach (var b in books)
+				{
+					if (!byFile.TryGetValue(b.FileId, out var keep))
+					{
+						byFile[b.FileId] = b;
+						continue;
+					}
+					if (preferOwnerId.HasValue && b.OwnerId == preferOwnerId.Value && keep.OwnerId != preferOwnerId.Value)
+						byFile[b.FileId] = b;
+					else if (preferFileOwner && b.OwnerId == b.FileOwnerId && keep.OwnerId != keep.FileOwnerId)
+						byFile[b.FileId] = b;
+				}
+				return byFile.Values.OrderByDescending(b => b.UpdatedUtc).ToList();
+			}
 
-		private static string BookSql(int? userId, bool catalog)
+			private static string BookSql(int? userId, bool catalog)
 		{
 			// Catalog: public books, plus books explicitly shared with the caller.
 			// Library: the caller's own books, plus books shared with them.
@@ -537,12 +574,14 @@ namespace maxhanna.Server.Controllers
 				SELECT b.id AS book_id, b.file_id, b.title, b.author, b.description,
 				       b.cover_file_id, b.created_at AS book_created, b.updated_at AS book_updated,
 				       b.user_id AS owner_id, u.username AS owner_name,
+				       f.user_id AS file_owner_id, fu.username AS file_owner_name,
 				       f.file_name, f.folder_path, f.file_type, f.file_size, f.is_public, f.shared_with,
 				       f.upload_date, f.access_count,
 				       c.given_file_name AS cover_name, c.folder_path AS cover_folder
 				FROM maxhanna.book_library b
 				JOIN maxhanna.file_uploads f ON f.id = b.file_id
 				LEFT JOIN maxhanna.users u ON u.id = b.user_id
+				LEFT JOIN maxhanna.users fu ON fu.id = f.user_id
 				LEFT JOIN maxhanna.file_uploads c ON c.id = b.cover_file_id
 				WHERE 1=1 {visibility}				ORDER BY b.updated_at DESC
 				LIMIT 1000";
@@ -614,6 +653,22 @@ namespace maxhanna.Server.Controllers
 				}
 			}
 			return list;
+		}
+
+		/// <summary>
+		/// Resolves the caller's own library entry for a book to its underlying
+		/// file id. Gates share/unshare/remove — the library entry must belong to
+		/// the caller, but the file itself may belong to someone else when they
+		/// saved a copy of that user's book.
+		/// </summary>
+		private static async Task<int?> GetOwnedBookFileId(MySqlConnection conn, int bookId, int userId)
+		{
+			using var cmd = new MySqlCommand(
+				"SELECT file_id FROM maxhanna.book_library WHERE id = @id AND user_id = @uid LIMIT 1", conn);
+			cmd.Parameters.AddWithValue("@id", bookId);
+			cmd.Parameters.AddWithValue("@uid", userId);
+			var r = await cmd.ExecuteScalarAsync();
+			return r == null || r == DBNull.Value ? (int?)null : Convert.ToInt32(r);
 		}
 
 		private static async Task SaveSharedWith(MySqlConnection conn, int fileId, List<int> ids)
@@ -718,6 +773,7 @@ namespace maxhanna.Server.Controllers
 						BookId = 0, // unregistered — client offers "Add to library"
 						FileId = rdr.GetInt32("id"),
 						OwnerId = rdr.GetInt32("user_id"),
+						FileOwnerId = rdr.GetInt32("user_id"),
 						OwnerName = rdr.IsDBNull(rdr.GetOrdinal("owner_name")) ? "Unknown" : rdr.GetString("owner_name"),
 						Title = Path.GetFileNameWithoutExtension(fileName),
 						FileType = ext,
@@ -775,7 +831,14 @@ namespace maxhanna.Server.Controllers
 				BookId = r.GetInt32("book_id"),
 				FileId = r.GetInt32("file_id"),
 				OwnerId = r.GetInt32("owner_id"),
-				OwnerName = r.IsDBNull(r.GetOrdinal("owner_name")) ? "Unknown" : r.GetString("owner_name"),
+				FileOwnerId = r.IsDBNull(r.GetOrdinal("file_owner_id")) ? 0 : r.GetInt32("file_owner_id"),
+				// For saved copies the card should credit the original uploader,
+				// not the user who saved it into their library.
+				OwnerName = r.IsDBNull(r.GetOrdinal("owner_name")) ? "Unknown" :
+					(r.GetInt32("owner_id") != r.GetInt32("file_owner_id") &&
+					 !r.IsDBNull(r.GetOrdinal("file_owner_name")))
+						? r.GetString("file_owner_name")
+						: r.GetString("owner_name"),
 				Title = r.IsDBNull(r.GetOrdinal("title")) ? Path.GetFileNameWithoutExtension(fileName) : r.GetString("title"),
 				Author = r.IsDBNull(r.GetOrdinal("author")) ? null : r.GetString("author"),
 				Description = r.IsDBNull(r.GetOrdinal("description")) ? null : r.GetString("description"),
@@ -790,14 +853,15 @@ namespace maxhanna.Server.Controllers
 				UploadDateUtc = r.IsDBNull(r.GetOrdinal("upload_date")) ? null : r.GetDateTime("upload_date"),
 				AccessCount = r.IsDBNull(r.GetOrdinal("access_count")) ? 0 : r.GetInt32("access_count"),
 			};
-		}
-
-		public class BookDto
-		{
-			public int BookId { get; set; }
-			public int FileId { get; set; }
-			public int OwnerId { get; set; }
-			public string OwnerName { get; set; } = "Unknown";
+		}			public class BookDto
+			{
+				public int BookId { get; set; }
+				public int FileId { get; set; }
+				public int OwnerId { get; set; }
+				/// <summary>Owner of the underlying uploaded file (differs from
+				/// OwnerId when a user saved a copy of someone else's book).</summary>
+				public int FileOwnerId { get; set; }
+				public string OwnerName { get; set; } = "Unknown";
 			public string Title { get; set; } = "";
 			public string? Author { get; set; }
 			public string? Description { get; set; }
