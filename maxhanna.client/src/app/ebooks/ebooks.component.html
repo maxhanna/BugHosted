@@ -20,11 +20,22 @@
           </div>
           <div class="reader-actions" *ngIf="readerBlobType === 'application/pdf'">
             <button class="reader-btn" (click)="prevPdfPage()" [disabled]="pdfPage <= 1">◀</button>
-            <span class="pdf-page-indicator">page {{ pdfPage }}</span>
-            <button class="reader-btn" (click)="nextPdfPage()">▶</button>
+            <span class="pdf-page-indicator">page {{ pdfPage }} / {{ pdfPages }}</span>
+            <button class="reader-btn" (click)="nextPdfPage()" [disabled]="pdfPage >= pdfPages">▶</button>
             <button class="reader-btn" (click)="zoomOut()">−</button>
             <span class="pdf-page-indicator">{{ zoom * 100 | number: '1.0-0' }}%</span>
             <button class="reader-btn" (click)="zoomIn()">+</button>
+          </div>
+          <div class="reader-actions" *ngIf="readerBlobType === 'epub'">
+            <select class="epub-toc" [(ngModel)]="epubTocHref" (ngModelChange)="epubTocChange()" [disabled]="!epubToc.length">
+              <option [ngValue]="" disabled [hidden]="!epubToc.length">{{ epubToc.length ? 'Table of contents' : 'No chapters' }}</option>
+              <option *ngFor="let item of epubToc" [ngValue]="item.href">{{ item.label }}</option>
+            </select>
+            <button class="reader-btn" (click)="epubPrev()">◀</button>
+            <button class="reader-btn" (click)="epubNext()">▶</button>
+            <button class="reader-btn" (click)="epubFontDelta(-10)">A−</button>
+            <span class="pdf-page-indicator">{{ epubFontSize }}%</span>
+            <button class="reader-btn" (click)="epubFontDelta(10)">A+</button>
           </div>
           <div class="reader-actions">
             <button class="reader-btn" *ngIf="readerBlobType === 'download'" (click)="downloadReadingBook()">⬇ Download
@@ -37,8 +48,13 @@
           <div class="reader-loading" *ngIf="isLoadingReader">Loading book…</div>
           <div class="reader-error" *ngIf="readerError">⚠️ {{ readerError }}</div>
 
-          <iframe *ngIf="readerBlobType === 'application/pdf' && readerUrl" [src]="readerUrl"
-            class="pdf-frame" title="PDF reader"></iframe>
+          <div class="pdf-pane" *ngIf="readerBlobType === 'application/pdf' && !isLoadingReader && !readerError">
+            <canvas #pdfCanvas class="pdf-canvas" title="PDF page"></canvas>
+          </div>
+
+          <div class="epub-pane" *ngIf="readerBlobType === 'epub' && !isLoadingReader && !readerError">
+            <div #epubHost class="epub-host"></div>
+          </div>
 
           <pre class="text-pane" *ngIf="readerBlobType === 'text'">{{ textContent }}</pre>
 
@@ -106,12 +122,10 @@
             <button class="mini-btn" (click)="openReader(book)">📖 Read</button>
             <!-- Save someone else's public/shared book into your library -->
             <button class="mini-btn register-btn" *ngIf="canAddToLibrary(book)" (click)="quickRegister(book)">➕ Add to library</button>
-            <!-- Claim one of your own raw Books/-folder uploads as a book -->
-            <button class="mini-btn register-btn" *ngIf="canManage(book) && isUnregistered(book)" (click)="registerOwnFile(book)">➕ Register book</button>
-            <button class="mini-btn" *ngIf="canManage(book) && !isUnregistered(book) && ownsFileOf(book)" (click)="openSharePanel(book)">🔗 Share</button>
+             <button class="mini-btn" *ngIf="canManage(book) && !isUnregistered(book) && ownsFileOf(book)" (click)="openSharePanel(book)">🔗 Share</button>
             <button class="mini-btn" (click)="downloadBookFile(book)">⬇️</button>
             <button class="mini-btn" *ngIf="canManage(book) && !isUnregistered(book)" (click)="openEditPanel(book)">✏️ Edit</button>
-            <button class="mini-btn danger" *ngIf="canManage(book) && !isUnregistered(book)" (click)="removeBook(book)">🗑</button>
+            <button class="mini-btn danger" *ngIf="canManage(book) && !isUnregistered(book)" titl="Remove From Library" (click)="removeBook(book)">🗑</button>
             <button class="mini-btn" (click)="copyShareLink(book)">📋</button>
           </div>
         </div>

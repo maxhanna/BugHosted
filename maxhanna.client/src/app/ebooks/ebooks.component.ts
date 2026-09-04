@@ -1,5 +1,43 @@
-import { AfterViewInit, Component, EventEmitter, Input, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
-import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
+import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
+
+/** Minimal structural types for the parts of pdf.js we use — the dynamic import
+ *  is cast through this so the app never hard-depends on pdf.js typing quirks. */
+type PdfViewport = { width: number; height: number; clone(o: { scale: number }): PdfViewport };
+type PdfPageLike = {
+  getViewport(o: { scale: number }): PdfViewport;
+  render(p: { canvasContext: CanvasRenderingContext2D; viewport: PdfViewport }): { cancel(): void; promise: Promise<void> };
+};
+type PdfDoc = {
+  numPages: number;
+  getPage(n: number): Promise<PdfPageLike>;
+  destroy(): Promise<void>;
+};
+type PdfJs = {
+  GlobalWorkerOptions: { workerSrc: string };
+  getDocument(src: { data: ArrayBuffer }): { promise: Promise<PdfDoc> };
+};
+
+/** Minimal structural types for the parts of epub.js we use — same approach as
+ *  the pdf.js types above. EPUB positions are saved as CFIs (free-form strings). */
+type EpubTocItem = { label: string; href: string; subitems?: { items: EpubTocItem[] } };
+type EpubLocation = { start?: { cfi?: string; href?: string } };
+type EpubThemes = { default(o: string | Record<string, unknown>): void; fontSize(size: string): void };
+type EpubRendition = {
+  display(target?: string): Promise<unknown>;
+  prev(): void;
+  next(): void;
+  resize?(w?: number | string, h?: number | string): void;
+  destroy(): void;
+  themes?: EpubThemes;
+  on(ev: string, cb: (payload: unknown) => void): void;
+};
+type EpubBookLike = {
+  loaded: { metadata: Promise<{ title?: string; creator?: string }> };
+  toc?: EpubTocItem[];
+  renderTo(el: HTMLElement, o: { width: string; height: string; flow?: string; spread?: string }): EpubRendition;
+  destroy(): void;
+};
+type EpubJs = { Book(data: ArrayBuffer, opts?: object): EpubBookLike };
 import { ChildComponent } from '../child.component';
 import { AppComponent } from '../app.component';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
@@ -22,6 +60,8 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
   @Output() hasData = new EventEmitter<boolean>();
 
   @ViewChild(MediaSelectorComponent) mediaSelector?: MediaSelectorComponent;
+  @ViewChild('pdfCanvas') pdfCanvas?: ElementRef<HTMLCanvasElement>;
+  @ViewChild('epubHost') epubHost?: ElementRef<HTMLDivElement>;
 
   books: BookEntry[] = [];
   filteredBooks: BookEntry[] = [];
@@ -57,13 +97,34 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
   textContent = '';
   pdfPage = 1;
   zoom = 1.0;
+  pdfPages = 1;
+  // Reading progress: fetched in parallel with the book download, restored once
+  // the page/text has rendered, and saved debounced as the user reads.
+  private savedProgress: { page: number; scroll: number; position?: string | null } | null = null;
+  private restoringProgress = false;
+  private progressSaveTimer: any = null;
+
+  // ---- EPUB reader ----
+  epubToc: EpubTocItem[] = [];
+  epubTocHref = '';
+  epubFontSize = 100;
+  private epubJs?: EpubJs;
+  private epubBook?: EpubBookLike;
+  private epubRendition?: EpubRendition;
+  private epubCurrentCfi: string | null = null;
+  private epubRelocated = false;
+  private epubArrowHandler?: (ev: KeyboardEvent) => void;
+  private epubResizeHandler?: () => void;
+  private pdfDoc?: PdfDoc;
+  private pdfRenderTask?: { cancel(): void; promise: Promise<void> };
+  private pdfRenderSeq = 0;
 
   searchQuery = '';
   formatFilter = '';
 
-  public readonly allowedBookTypes = '.pdf,.txt,.doc,.docx,.docm,.dot,.dotx,.dotm,.rtf,.odt';
+  public readonly allowedBookTypes = '.pdf,.epub,.txt,.doc,.docx,.docm,.dot,.dotx,.dotm,.rtf,.odt';
 
-  constructor(public booksService: BooksService, private sanitizer: DomSanitizer) { super(); }
+  constructor(public booksService: BooksService, private cdr: ChangeDetectorRef) { super(); }
 
   async ngOnInit() {
     if (this.inputtedParentRef) this.parentRef = this.inputtedParentRef;
@@ -77,9 +138,22 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
       if (pre) await this.openReader(pre);
     }
   }
-  ngAfterViewInit() { }
+  ngAfterViewInit() {
+    // Configure the pdf.js worker once — the reader canvas loads pages off the
+    // main thread so big PDFs never block the UI.
+    void this.loadPdfJs();
+    // Reader panes are created/destroyed with the overlay, so scroll tracking
+    // uses a delegated capture listener instead of per-element wiring.
+    document.addEventListener('scroll', this.onReaderScroll, true);
+  }
   ngOnDestroy(): void {
+    document.removeEventListener('scroll', this.onReaderScroll, true);
+    this.flushProgressSave();
+    this.teardownEpub();
     this.revokeReaderUrl();
+    this.pdfRenderSeq++;
+    if (this.pdfRenderTask) { try { this.pdfRenderTask.cancel(); } catch { } this.pdfRenderTask = undefined; }
+    if (this.pdfDoc) { void this.pdfDoc.destroy().catch(() => { }); this.pdfDoc = undefined; }
   }
   safeDestroy() { this.ngOnDestroy(); }
 
@@ -358,26 +432,6 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
     }
   }
 
-  /**
-   * One-click registration of a raw Books/-folder file owned by the caller
-   * (uploaded through the Files app instead of the Add Book dialog).
-   */
-  async registerOwnFile(book: BookEntry) {
-    const token = await this.parentRef?.getSessionToken();
-    const result = await this.booksService.registerBook({
-      userId: this.userId,
-      fileId: book.fileId,
-      title: book.title || 'Untitled',
-      isPublic: book.isPublic,
-    }, token);
-    if (result) {
-      this.parentRef?.showNotification(`"${book.title}" added to your library.`);
-      await this.loadBooks();
-    } else {
-      this.parentRef?.showNotification('Could not add the book to your library.');
-    }
-  }
-
   visibilityLabel(book: BookEntry): string {
     if (book.isPublic) return '🌍 Public';
     if ((book.sharedWith || []).length > 0) return `👥 Shared (${book.sharedWith.length})`;
@@ -387,6 +441,7 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
   formatLabel(ext: string): string {
     switch ((ext || '').toLowerCase()) {
       case 'pdf': return 'PDF';
+      case 'epub': return 'EPUB';
       case 'txt': return 'TXT';
       case 'doc': return 'DOC';
       case 'docx': return 'DOCX';
@@ -453,6 +508,15 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
     this.zoom = 1.0;
     this.isLoadingReader = true;
     this.revokeReaderUrl();
+    // Fetch the saved position in parallel with the book itself — resume must
+    // not add latency to opening the reader.
+    const uid = this.userId;
+    this.savedProgress = null;
+    this.restoringProgress = false;
+    if (uid > 0 && book.fileId > 0) {
+      const token = await this.parentRef?.getSessionToken();
+      this.savedProgress = await this.booksService.getReadingProgress(uid, book.fileId, token);
+    }
     try {
       const blob = await this.booksService.downloadBook(book.fileId);
       if (!blob || blob.size === 0) {
@@ -462,9 +526,23 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
       const ext = (book.fileType || '').toLowerCase();
       if (ext === 'pdf') {
         this.readerBlobType = 'application/pdf';
+      } else if (ext === 'epub') {
+        this.readerBlobType = 'epub';
+        await this.openEpubBook(book, blob);
+        return;
       } else if (ext === 'txt' || ext === 'md' || ext === 'rtf') {
         this.readerBlobType = 'text';
         this.textContent = await blob.text();
+        // Resume text readers at the saved scroll ratio once the pane exists.
+        const saved = this.savedProgress;
+        if (saved) {
+          setTimeout(() => {
+            const pane = document.querySelector('.text-pane') as HTMLElement | null;
+            if (pane && pane.scrollHeight > pane.clientHeight) {
+              pane.scrollTop = saved.scroll * (pane.scrollHeight - pane.clientHeight);
+            }
+          }, 0);
+        }
         return; // no object url needed
       } else {
         // Word formats cannot be rendered natively by browsers — offer download.
@@ -472,7 +550,23 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
         this.readerObjectUrl = URL.createObjectURL(blob);
         return;
       }
-      this.readerObjectUrl = URL.createObjectURL(new Blob([blob], { type: this.readerBlobType }));
+      // PDF: render it ourselves with pdf.js. Chrome's native blob-iframe viewer
+      // is unreliable — on mobile it shows a dead "Open" card instead of the
+      // document — so we no longer depend on the browser's built-in viewer.
+      const pdfjs = await this.loadPdfJs();
+      const data = await blob.arrayBuffer();
+      const doc = await pdfjs.getDocument({ data }).promise;
+      if (this.readingBook !== book) { void doc.destroy().catch(() => { }); return; } // closed/superseded while loading
+      this.pdfDoc = doc;
+      this.pdfPages = doc.numPages;
+      // Resume at the saved page when it still exists in this document.
+      const saved = this.savedProgress;
+      const savedPage = saved && saved.page > 0 && saved.page <= doc.numPages ? saved.page : 1;
+      this.pdfPage = savedPage;
+      this.restoringProgress = !!saved;
+      // The canvas only exists after Angular renders the reader overlay — run
+      // after the next change-detection pass.
+      setTimeout(() => { void this.renderPdfPage(); }, 0);
     } catch (ex) {
       console.error('Error opening book:', ex);
       this.readerError = 'Failed to open the book.';
@@ -482,10 +576,25 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
   }
 
   closeReader() {
+    // Persist the final position before tearing down the reader.
+    void this.flushProgressSave();
+    this.teardownEpub();
     this.readingBook = undefined;
     this.textContent = '';
     this.readerError = '';
     this.revokeReaderUrl();
+  }
+
+  /** Tear down the EPUB rendition and any listeners it owns. */
+  private teardownEpub() {
+    if (this.epubArrowHandler) { document.removeEventListener('keydown', this.epubArrowHandler); this.epubArrowHandler = undefined; }
+    if (this.epubResizeHandler) { window.removeEventListener('resize', this.epubResizeHandler); this.epubResizeHandler = undefined; }
+    if (this.epubRendition) { try { this.epubRendition.destroy(); } catch { } this.epubRendition = undefined; }
+    if (this.epubBook) { try { this.epubBook.destroy(); } catch { } this.epubBook = undefined; }
+    this.epubToc = [];
+    this.epubTocHref = '';
+    this.epubCurrentCfi = null;
+    this.epubRelocated = false;
   }
 
   private revokeReaderUrl() {
@@ -493,18 +602,104 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
       try { URL.revokeObjectURL(this.readerObjectUrl); } catch { }
       this.readerObjectUrl = undefined;
     }
-    this.readerUrlCache = null;
+    this.pdfRenderSeq++;
+    if (this.pdfRenderTask) { try { this.pdfRenderTask.cancel(); } catch { } this.pdfRenderTask = undefined; }
+    if (this.pdfDoc) { void this.pdfDoc.destroy().catch(() => { }); this.pdfDoc = undefined; }
+    this.pdfPages = 1;
   }
 
-  downloadReadingBook() {
+  async downloadReadingBook() {
     const book = this.readingBook;
-    if (!book || !this.readerObjectUrl) return;
-    const a = document.createElement('a');
-    a.href = this.readerObjectUrl;
-    a.download = `${book.title || 'book'}.${book.fileType || 'bin'}`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+    if (!book?.fileId) return;
+    // Streams the same authenticated endpoint the reader used — works for every
+    // format, including PDFs which no longer keep an object URL around.
+    await this.downloadBookFile(book);
+  }
+
+  // ================= EPUB reader =================
+
+  /** Lazily import epub.js so its bundle only loads when an EPUB is opened. */
+  private async loadEpubJs(): Promise<EpubJs> {
+    if (this.epubJs) return this.epubJs;
+    const mod = (await import('epubjs')) as unknown as EpubJs;
+    this.epubJs = mod;
+    return mod;
+  }
+
+  private async openEpubBook(book: BookEntry, blob: Blob) {
+    try {
+      const epubjs = await this.loadEpubJs();
+      if (this.readingBook !== book) return; // closed/superseded while loading
+      const data = await blob.arrayBuffer();
+      // The host div only exists once the loading flag clears — flip it and run
+      // change detection synchronously so the pane is in the DOM before renderTo.
+      this.isLoadingReader = false;
+      this.cdr.detectChanges();
+      const host = this.epubHost?.nativeElement;
+      if (!host) return;
+      const bk = epubjs.Book(data, { openAs: 'epub' });
+      this.epubBook = bk;
+      this.epubToc = (bk.toc as EpubTocItem[]) ?? [];
+      const rendition = bk.renderTo(host, {
+        width: '100%',
+        height: '100%',
+        flow: 'paginated',
+        spread: 'none',
+      });
+      this.epubRendition = rendition;
+      rendition.themes?.default(
+        'body { background: #fffdf8 !important; color: #2a2620 !important; line-height: 1.55 !important; }',
+      );
+      if (this.epubFontSize !== 100) rendition.themes?.fontSize(`${this.epubFontSize}%`);
+      // Position tracking: 'relocated' fires after every page turn / jump.
+      rendition.on('relocated', (payload: unknown) => {
+        const loc = payload as EpubLocation;
+        const cfi = loc?.start?.cfi ?? null;
+        if (!cfi) return;
+        this.epubRelocated = true;
+        this.epubCurrentCfi = cfi;
+        this.queueProgressSave();
+      });
+      rendition.on('renderError', () => { });
+      // Arrow keys page through the book while the reader is open.
+      this.epubArrowHandler = (ev: KeyboardEvent) => {
+        if (!this.readingBook || this.readerBlobType !== 'epub') return;
+        if (ev.key === 'ArrowLeft') { this.epubPrev(); }
+        else if (ev.key === 'ArrowRight') { this.epubNext(); }
+      };
+      document.addEventListener('keydown', this.epubArrowHandler);
+      this.epubResizeHandler = () => rendition.resize?.('100%', '100%');
+      window.addEventListener('resize', this.epubResizeHandler);
+      // Restore the saved position if one exists, else open at the start. The
+      // restoring flag is cleared once the jump lands so normal progress saves
+      // resume (the debounced save queued by 'relocated' re-persists the same
+      // restored position, which is harmless).
+      const saved = this.savedProgress;
+      if (saved?.position) {
+        this.restoringProgress = true;
+        await rendition.display(saved.position);
+        this.restoringProgress = false;
+      } else {
+        await rendition.display();
+      }
+    } catch (ex) {
+      console.error('Error opening EPUB:', ex);
+      this.readerError = 'Failed to open the EPUB book.';
+    }
+  }
+
+  epubPrev() { this.epubRendition?.prev(); }
+  epubNext() { this.epubRendition?.next(); }
+
+  epubTocChange() {
+    const href = this.epubTocHref;
+    if (!href || !this.epubRendition) return;
+    void this.epubRendition.display(href);
+  }
+
+  epubFontDelta(delta: number) {
+    this.epubFontSize = Math.min(220, Math.max(70, this.epubFontSize + delta));
+    this.epubRendition?.themes?.fontSize(`${this.epubFontSize}%`);
   }
 
   /** Card-level download of the book file (same stream the reader uses). */
@@ -536,24 +731,115 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
     );
   }
 
-  zoomIn() { this.zoom = Math.min(2.5, +(this.zoom + 0.15).toFixed(2)); }
-  zoomOut() { this.zoom = Math.max(0.5, +(this.zoom - 0.15).toFixed(2)); }
-  nextPdfPage() { this.pdfPage++; }
-  prevPdfPage() { if (this.pdfPage > 1) this.pdfPage--; }
+  zoomIn() { this.zoom = Math.min(2.5, +(this.zoom + 0.15).toFixed(2)); void this.renderPdfPage(); }
+  zoomOut() { this.zoom = Math.max(0.5, +(this.zoom - 0.15).toFixed(2)); void this.renderPdfPage(); }
+  nextPdfPage() { if (this.pdfPage < this.pdfPages) { this.pdfPage++; this.pendingScroll = 0; this.resetPdfPaneScroll(); void this.renderPdfPage(); } }
+  prevPdfPage() { if (this.pdfPage > 1) { this.pdfPage--; this.pendingScroll = 0; this.resetPdfPaneScroll(); void this.renderPdfPage(); } }
 
-  /** blob: URLs are rejected by Angular's default URL sanitizer, so the PDF
-   *  iframe src is explicitly trusted here. The blob only ever comes from the
-   *  book's own /file/getfilebyid response, so it is a same-origin resource.
-   *  The SafeResourceUrl is memoized on the underlying string — a fresh object
-   *  per change-detection cycle would re-set the iframe src and reload the PDF
-   *  on every CD pass. */
-  private readerUrlCache: { key: string; value: SafeResourceUrl } | null = null;
-  get readerUrl(): SafeResourceUrl | undefined {
-    if (!this.readerObjectUrl) return undefined;
-    const key = `${this.readerObjectUrl}#page=${this.pdfPage}&zoom=${Math.round(this.zoom * 100)}`;
-    if (!this.readerUrlCache || this.readerUrlCache.key !== key) {
-      this.readerUrlCache = { key, value: this.sanitizer.bypassSecurityTrustResourceUrl(key) };
+  private resetPdfPaneScroll() {
+    const pane = this.pdfCanvas?.nativeElement?.parentElement as HTMLElement | null;
+    if (pane) pane.scrollTop = 0;
+  }
+
+  // ================= Reading progress =================
+
+  /** Queued scroll ratio for the pending progress save (null = page-flip only). */
+  private pendingScroll: number | null = null;
+
+  /** Delegated capture listener: any scroll inside the open reader pane queues
+   *  a debounced progress save. Re-created with the overlay each open, so no
+   *  per-element listener wiring is needed. */
+  private onReaderScroll = (ev: Event) => {
+    const target = ev.target as HTMLElement | null;
+    if (!target || !this.readingBook) return;
+    const isPane = target.classList?.contains('text-pane') || target.classList?.contains('pdf-pane');
+    if (!isPane) return;
+    const max = target.scrollHeight - target.clientHeight;
+    this.pendingScroll = max > 4 ? Math.min(1, Math.max(0, target.scrollTop / max)) : 0;
+    this.queueProgressSave();
+  };
+
+  /** Debounced save — coalesces rapid page flips / scroll events into one POST. */
+  private queueProgressSave(delay = 1200) {
+    if (!this.isLoggedIn || !this.readingBook) return;
+    if (this.progressSaveTimer) clearTimeout(this.progressSaveTimer);
+    this.progressSaveTimer = setTimeout(() => this.flushProgressSave(), delay);
+  }
+
+  private async flushProgressSave() {
+    if (this.progressSaveTimer) { clearTimeout(this.progressSaveTimer); this.progressSaveTimer = null; }
+    const book = this.readingBook;
+    const uid = this.userId;
+    if (!book || uid <= 0 || book.fileId <= 0) return;
+    // Don't persist an in-flight restore as new progress.
+    if (this.restoringProgress) return;
+    const scroll = this.pendingScroll;
+    this.pendingScroll = null;
+    const token = await this.parentRef?.getSessionToken();
+    await this.booksService.saveReadingProgress({
+      userId: uid,
+      fileId: book.fileId,
+      page: this.pdfPage,
+      scroll: scroll ?? this.savedProgress?.scroll ?? 0,
+      // EPUB CFI position — undefined for other formats keeps their stored value.
+      position: this.epubCurrentCfi ?? this.savedProgress?.position ?? undefined,
+    }, token);
+  }
+
+  /** Lazily import pdf.js (bundled as a lazy chunk) and point its worker at the
+   *  copied asset, so the ~400 kB library only loads when someone opens a PDF. */
+  private pdfJs?: PdfJs;
+  private async loadPdfJs(): Promise<PdfJs> {
+    if (this.pdfJs) return this.pdfJs;
+    const mod = (await import('pdfjs-dist')) as unknown as PdfJs;
+    mod.GlobalWorkerOptions.workerSrc = 'assets/pdfjs/pdf.worker.min.mjs';
+    this.pdfJs = mod;
+    return mod;
+  }
+
+  /** Render the current PDF page onto the reader canvas. Renders fit the panel
+   *  width (scaled by the zoom factor) at device-pixel resolution for crisp text.
+   *  A monotonic sequence guard plus task cancellation means rapid page/zoom
+   *  clicks can never interleave draws from stale renders. */
+  private async renderPdfPage(): Promise<void> {
+    const doc = this.pdfDoc;
+    const canvas = this.pdfCanvas?.nativeElement;
+    if (!doc || !canvas || this.readerBlobType !== 'application/pdf') return;
+    const seq = ++this.pdfRenderSeq;
+    try {
+      if (this.pdfRenderTask) { try { this.pdfRenderTask.cancel(); } catch { } this.pdfRenderTask = undefined; }
+      const page = await doc.getPage(Math.min(Math.max(1, this.pdfPage), doc.numPages));
+      if (seq !== this.pdfRenderSeq) return;
+      const base = page.getViewport({ scale: 1 });
+      const panelWidth = Math.max(240, (canvas.parentElement?.clientWidth || canvas.clientWidth || 800) - 16);
+      const cssScale = Math.max(0.1, (panelWidth / base.width) * this.zoom);
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const viewport = page.getViewport({ scale: cssScale * dpr });
+      canvas.width = Math.floor(viewport.width);
+      canvas.height = Math.floor(viewport.height);
+      canvas.style.width = `${Math.floor(base.width * cssScale)}px`;
+      canvas.style.height = 'auto';
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      const task = page.render({ canvasContext: ctx, viewport });
+      this.pdfRenderTask = task;
+      await task.promise;
+      if (seq !== this.pdfRenderSeq) return;
+      // Initial render of a resumed book: scroll the fresh canvas to the saved
+      // in-page position, then hand control back to the reader.
+      const restoring = this.restoringProgress;
+      this.restoringProgress = false;
+      if (restoring && this.savedProgress && this.savedProgress.scroll > 0) {
+        const pane = canvas.parentElement as HTMLElement | null;
+        if (pane && pane.scrollHeight > pane.clientHeight) {
+          pane.scrollTop = this.savedProgress.scroll * (pane.scrollHeight - pane.clientHeight);
+        }
+      } else if (!restoring) {
+        this.queueProgressSave();
+      }
+    } catch {
+      // Cancelled renders land here (RenderingCancelledException) — harmless.
+      if (seq === this.pdfRenderSeq) this.restoringProgress = false;
     }
-    return this.readerUrlCache.value;
   }
 }

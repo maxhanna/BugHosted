@@ -63,12 +63,29 @@
                 "glob": "**/*",
                 "input": "src/assets/grandprix",
                 "output": "assets/grandprix"
+              },
+              {
+                "glob": "pdf.worker.min.mjs",
+                "input": "node_modules/pdfjs-dist/build",
+                "output": "assets/pdfjs"
               }
             ],
             "styles": [
               "src/styles.css"
             ],
-            "scripts": []
+            "scripts": [],
+            "allowedCommonJsDependencies": [
+              "epubjs",
+              "lodash",
+              "lodash/throttle",
+              "path-webpack",
+              "@xmldom/xmldom",
+              "xmldom",
+              "jszip",
+              "event-emitter",
+              "localforage",
+              "marks-pane"
+            ]
           },
           "configurations": {
             "production": {
@@ -175,6 +192,18 @@
               "src/styles.css"
             ],
             "scripts": [],
+            "allowedCommonJsDependencies": [
+              "epubjs",
+              "lodash",
+              "lodash/throttle",
+              "path-webpack",
+              "@xmldom/xmldom",
+              "xmldom",
+              "jszip",
+              "event-emitter",
+              "localforage",
+              "marks-pane"
+            ],
             "karmaConfig": "karma.conf.js"
           }
         }

@@ -15,7 +15,7 @@
       <button type="button" (click)="togglePause()">{{paused ? 'Resume' : 'Pause'}}</button>
     </div>
     <div class="arena-wrap">
-      <canvas #gameCanvas class="arena" (pointermove)="pointerMove($event)" (pointerleave)="pointerLeave()" (pointerdown)="pointerMove($event)"></canvas>
+      <canvas #gameCanvas class="arena"></canvas>
       <div class="status">{{status}}</div>
       <div class="weapon-hud">
         <div class="weapon-row" *ngFor="let weapon of weaponStatus" [style.--weapon-color]="weapon.color">

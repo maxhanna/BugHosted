@@ -152,6 +152,45 @@ export class BooksService {
     return `${base}/Books/${book.fileId}`;
   }
 
+  /** Per-user reading position for a book file (null when none saved yet).
+   *  `position` carries a free-form reader location such as an EPUB CFI. */
+  async getReadingProgress(userId: number, fileId: number, sessionToken?: string): Promise<{ page: number; scroll: number; position?: string } | null> {
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (sessionToken) headers['Encrypted-UserId'] = sessionToken;
+      const response = await fetch(`/books/progress?userId=${userId}&fileId=${fileId}`, { headers });
+      if (!response.ok) return null;
+      const data = await response.json();
+      if (!data?.position) return null;
+      return {
+        page: data.position.page ?? 1,
+        scroll: data.position.scroll ?? 0,
+        position: data.position.position ?? undefined,
+      };
+    } catch (error) {
+      console.error('Error fetching reading progress:', error);
+      return null;
+    }
+  }
+
+  /** Saves the per-user reading position (page + in-page scroll ratio 0..1, plus
+   *  an optional free-form position such as an EPUB CFI). */
+  async saveReadingProgress(payload: { userId: number; fileId: number; page: number; scroll: number; position?: string }, sessionToken?: string): Promise<boolean> {
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (sessionToken) headers['Encrypted-UserId'] = sessionToken;
+      const response = await fetch('/books/progress', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
+      });
+      return response.ok;
+    } catch (error) {
+      console.error('Error saving reading progress:', error);
+      return false;
+    }
+  }
+
   /** Streams the actual book file for reading/downloading. */
   async downloadBook(fileId: number): Promise<Blob | null> {
     try {

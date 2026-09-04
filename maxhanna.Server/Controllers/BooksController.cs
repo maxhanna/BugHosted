@@ -17,10 +17,10 @@ namespace maxhanna.Server.Controllers
 		private readonly string _connectionString;
 		private readonly string _baseTarget;
 
-		// Accepted book formats: PDF, plain text and any Word format (legacy + OOXML).
+		// Accepted book formats: PDF, EPUB, plain text and any Word format (legacy + OOXML).
 		private static readonly HashSet<string> BookExtensions = new(StringComparer.OrdinalIgnoreCase)
 		{
-			"pdf", "txt", "doc", "docx", "docm", "dot", "dotx", "dotm", "rtf", "odt"
+			"pdf", "epub", "txt", "doc", "docx", "docm", "dot", "dotx", "dotm", "rtf", "odt"
 		};
 
 		public BooksController(IConfiguration config, Log log)
@@ -162,7 +162,7 @@ namespace maxhanna.Server.Controllers
 						isPublic = rdr.GetBoolean("is_public");
 						var ext = Path.GetExtension(fileName ?? "").TrimStart('.').ToLowerInvariant();
 						if (!BookExtensions.Contains(ext))
-							return BadRequest("Unsupported book format. Allowed: pdf, txt, doc, docx, rtf, odt.");
+							return BadRequest("Unsupported book format. Allowed: pdf, epub, txt, doc, docx, rtf, odt.");
 					}
 
 					// Keep every registered book inside the shared Books folder.
@@ -516,6 +516,126 @@ namespace maxhanna.Server.Controllers
 			return Content(svg.ToString(), "image/svg+xml");
 		}
 
+		// ---------- reading progress ----------
+
+		private static bool _progressTableReady;
+
+		/// <summary>
+		/// Per-user, per-file reading position so readers resume where they left
+		/// off. Keyed by file_id (not book_id) on purpose: it works for saved
+		/// copies of other users' books and raw unregistered Books/-folder files
+		/// alike — any file a user can open in the reader.
+		/// </summary>
+		private async Task EnsureProgressTableAsync()
+		{
+			if (_progressTableReady) return;
+			using var conn = new MySqlConnection(_connectionString);
+			await conn.OpenAsync();
+			using var cmd = new MySqlCommand(@"
+				CREATE TABLE IF NOT EXISTS maxhanna.book_reading_progress (
+					user_id INT NOT NULL,
+					file_id INT NOT NULL,
+					page INT NOT NULL DEFAULT 1,
+					scroll_ratio DOUBLE NOT NULL DEFAULT 0,
+					position TEXT NULL,
+					updated_at DATETIME NOT NULL,
+					PRIMARY KEY (user_id, file_id)
+			)	ENGINE=InnoDB DEFAULT CHARSET=utf8mb4", conn);
+			await cmd.ExecuteNonQueryAsync();
+			// Deployments before EPUB support created the table without the
+			// position column — add it in place when missing.
+			using (var col = new MySqlCommand(@"
+				SELECT COUNT(*) FROM information_schema.COLUMNS
+				WHERE TABLE_SCHEMA = 'maxhanna' AND TABLE_NAME = 'book_reading_progress' AND COLUMN_NAME = 'position'", conn))
+			{
+				if (Convert.ToInt64(await col.ExecuteScalarAsync()) == 0)
+				{
+					using var alt = new MySqlCommand(
+						"ALTER TABLE maxhanna.book_reading_progress ADD COLUMN position TEXT NULL AFTER scroll_ratio", conn);
+					await alt.ExecuteNonQueryAsync();
+				}
+			}
+			_progressTableReady = true;
+		}
+
+		[HttpGet("/Books/Progress")]
+		public async Task<IActionResult> GetReadingProgress(
+			[FromQuery] int userId,
+			[FromQuery] int fileId,
+			[FromHeader(Name = "Encrypted-UserId")] string? encryptedUserIdHeader = null)
+		{
+			try
+			{
+				if (userId <= 0 || fileId <= 0) return BadRequest("userId and fileId required.");
+				if (!await _log.ValidateUserLoggedIn(userId, encryptedUserIdHeader ?? ""))
+					return StatusCode(500, "Access Denied.");
+				await EnsureProgressTableAsync();
+				using var conn = new MySqlConnection(_connectionString);
+				await conn.OpenAsync();
+				using var cmd = new MySqlCommand(
+					"SELECT page, scroll_ratio, position, updated_at FROM maxhanna.book_reading_progress WHERE user_id = @uid AND file_id = @fid LIMIT 1", conn);
+				cmd.Parameters.AddWithValue("@uid", userId);
+				cmd.Parameters.AddWithValue("@fid", fileId);
+				using var reader = await cmd.ExecuteReaderAsync();
+				if (!await reader.ReadAsync()) return Ok(new { fileId, position = (object?)null });
+				var posOrdinal = reader.GetOrdinal("position");
+				return Ok(new
+				{
+					fileId,
+					position = new
+					{
+						page = Convert.ToInt32(reader["page"]),
+						scroll = Convert.ToDouble(reader["scroll_ratio"], CultureInfo.InvariantCulture),
+						position = reader.IsDBNull(posOrdinal) ? null : reader.GetString(posOrdinal),
+						updatedAt = Convert.ToDateTime(reader["updated_at"])
+					}
+				});
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"GetReadingProgress failed: {ex.Message}", userId, "BOOKS", true);
+				return StatusCode(500, "Could not load reading progress.");
+			}
+		}
+
+		[HttpPost("/Books/Progress")]
+		public async Task<IActionResult> SaveReadingProgress(
+			[FromBody] SaveProgressRequest req,
+			[FromHeader(Name = "Encrypted-UserId")] string? encryptedUserIdHeader = null)
+		{
+			try
+			{
+				if (req.UserId <= 0 || req.FileId <= 0) return BadRequest("userId and fileId required.");
+				if (!await _log.ValidateUserLoggedIn(req.UserId, encryptedUserIdHeader ?? ""))
+					return StatusCode(500, "Access Denied.");
+				await EnsureProgressTableAsync();
+				var page = Math.Max(0, req.Page);
+				var scroll = Math.Clamp(req.Scroll, 0.0, 1.0);
+				// Free-form reader position (e.g. EPUB CFI). Truncated defensively.
+				var position = string.IsNullOrWhiteSpace(req.Position)
+					? (object?)DBNull.Value
+					: req.Position.Substring(0, Math.Min(req.Position.Length, 4000));
+				using var conn = new MySqlConnection(_connectionString);
+				await conn.OpenAsync();
+				using var cmd = new MySqlCommand(@"
+					INSERT INTO maxhanna.book_reading_progress (user_id, file_id, page, scroll_ratio, position, updated_at)
+					VALUES (@uid, @fid, @page, @scroll, @position, UTC_TIMESTAMP())
+					ON DUPLICATE KEY UPDATE page = VALUES(page), scroll_ratio = VALUES(scroll_ratio), position = VALUES(position), updated_at = UTC_TIMESTAMP()", conn);
+				cmd.Parameters.AddWithValue("@uid", req.UserId);
+				cmd.Parameters.AddWithValue("@fid", req.FileId);
+				cmd.Parameters.AddWithValue("@page", page);
+				cmd.Parameters.AddWithValue("@scroll", scroll);
+				cmd.Parameters.AddWithValue("@position", position);
+				await cmd.ExecuteNonQueryAsync();
+				return Ok(new { success = true });
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"SaveReadingProgress failed: {ex.Message}", req.UserId, "BOOKS", true);
+				return StatusCode(500, "Could not save reading progress.");
+			}
+		}
+
 		// ---------- helpers ----------
 
 		public class RegisterBookRequest
@@ -538,6 +658,15 @@ namespace maxhanna.Server.Controllers
 			public bool MakePublic { get; set; }
 			public List<string>? Usernames { get; set; }
 			public List<int>? UserIds { get; set; }
+		}
+
+		public class SaveProgressRequest
+		{
+			public int UserId { get; set; }
+				public int FileId { get; set; }
+				public int Page { get; set; }
+				public double Scroll { get; set; }
+				public string? Position { get; set; }
 		}			/// <summary>
 			/// Collapses multiple library entries that point at the same uploaded
 			/// file. Library view keeps the caller's own entry; catalog view keeps
