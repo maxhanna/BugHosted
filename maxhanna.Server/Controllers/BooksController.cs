@@ -275,8 +275,11 @@ namespace maxhanna.Server.Controllers
 
 				if (req.IsPublic.HasValue)
 				{
+					// Only the file's owner may change its visibility — a saved copy
+					// of someone else's book cannot flip their file public/private.
 					var fileId = await GetFileIdForBook(conn, req.BookId > 0 ? req.BookId : req.FileId, req.BookId > 0);
-					if (fileId.HasValue) await SyncFileVisibility(conn, fileId.Value, req.UserId, req.IsPublic);
+					if (fileId.HasValue && await FileBelongsToUser(conn, fileId.Value, req.UserId))
+						await SyncFileVisibility(conn, fileId.Value, req.UserId, req.IsPublic);
 				}
 				return Ok(new { success = true });
 			}
@@ -306,12 +309,19 @@ namespace maxhanna.Server.Controllers
 
 				if (req.MakePublic)
 				{
+					// Saved copies of others' books can't change the original's
+					// visibility — only the file owner can make it public.
+					if (!await FileBelongsToUser(conn, fileId.Value, req.UserId))
+						return StatusCode(403, "Only the book's owner can make it public.");
 					await SyncFileVisibility(conn, fileId.Value, req.UserId, true);
 					await TouchBook(conn, req.BookId);
 					return Ok(new { success = true, isPublic = true, sharedWith = new int[0] });
 				}
 
-				// Share with specific users by username.
+				// Share with specific users by username. Like make-public, direct
+				// shares write to the file row — so only the file owner may do it.
+				if (!await FileBelongsToUser(conn, fileId.Value, req.UserId))
+					return StatusCode(403, "Only the book's owner can share it.");
 				var resolved = new List<int>();
 				var unknown = new List<string>();
 				foreach (var name in req.Usernames ?? new List<string>())
@@ -576,14 +586,17 @@ namespace maxhanna.Server.Controllers
 			cmd.Parameters.AddWithValue("@id", id);
 			var r = await cmd.ExecuteScalarAsync();
 			return r == null || r == DBNull.Value ? (int?)null : Convert.ToInt32(r);
-		}				private static async Task<bool> FileBelongsToUser(MySqlConnection conn, int fileId, int userId)
+		}
+
+		/// <summary>True when the caller owns the underlying file_uploads row.</summary>
+		private static async Task<bool> FileBelongsToUser(MySqlConnection conn, int fileId, int userId)
 		{
 			using var cmd = new MySqlCommand(
-				"SELECT file_id FROM maxhanna.book_library WHERE id = @id AND user_id = @uid LIMIT 1", conn);
-			cmd.Parameters.AddWithValue("@id", bookId);
+				"SELECT COUNT(1) FROM maxhanna.file_uploads WHERE id = @fid AND user_id = @uid", conn);
+			cmd.Parameters.AddWithValue("@fid", fileId);
 			cmd.Parameters.AddWithValue("@uid", userId);
 			var r = await cmd.ExecuteScalarAsync();
-			return r == null || r == DBNull.Value ? (int?)null : Convert.ToInt32(r);
+			return r != null && r != DBNull.Value && Convert.ToInt64(r) > 0;
 		}
 
 		private static async Task<List<int>> GetSharedWithList(MySqlConnection conn, int fileId)
