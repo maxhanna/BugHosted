@@ -54,10 +54,15 @@ namespace maxhanna.Server.Controllers
 				if (!await _log.ValidateUserLoggedIn(userId, encryptedUserIdHeader ?? ""))
 					return StatusCode(500, "Access Denied.");
 
-				return Ok(await QueryBooks(BookSql(userId, false), cmd =>
+				var registered = await QueryBooks(BookSql(userId, false), cmd =>
 				{
 					cmd.Parameters.AddWithValue("@UserId", userId);
-				}));
+				});
+				// The library also lists the owner's own book-format files sitting in
+				// the Books/ upload folder that were never registered via the Add
+				// Book dialog (e.g. uploaded straight through the Files app).
+				var unregistered = await QueryUnregisteredBookFiles(userId, onlyPublic: false);
+				return Ok(registered.Concat(unregistered).ToList());
 			}
 			catch (Exception ex)
 			{
@@ -73,11 +78,15 @@ namespace maxhanna.Server.Controllers
 			{
 				// Catalog = public books plus books explicitly shared with the
 				// caller (userId 0 for anonymous visitors sees only public ones).
-				var books = await QueryBooks(BookSql(userId ?? 0, true), cmd =>
+				var registered = await QueryBooks(BookSql(userId ?? 0, true), cmd =>
 				{
 					cmd.Parameters.AddWithValue("@UserId", userId ?? 0);
 				});
-				return Ok(books);
+				// Plus every public book-format file uploaded into the Books/ folder
+				// that has never been registered — the raw directory contents the
+				// feature was specced to list. These come back with bookId = 0.
+				var unregistered = await QueryUnregisteredBookFiles(userId ?? 0, onlyPublic: true);
+				return Ok(registered.Concat(unregistered).ToList());
 			}
 			catch (Exception ex)
 			{
@@ -612,6 +621,78 @@ namespace maxhanna.Server.Controllers
 				while (await rdr.ReadAsync())
 				{
 					list.Add(MapBook(rdr));
+				}
+			}				return list;
+			}
+
+		/// <summary>
+		/// Book-format files uploaded into the Books/ folder that were never
+		/// registered in book_library. The Books feature was specced to list the
+		/// /books directory contents, so these must appear in the catalog (when
+		/// public) and in the owner's library (always for the owner) even though
+		/// they have no library row yet. They come back with BookId = 0 and
+		/// metadata derived from the filename — the client offers a one-click
+		/// "Add to library" which turns them into a full book entry.
+		/// </summary>
+		private async Task<List<BookDto>> QueryUnregisteredBookFiles(int userId, bool onlyPublic)
+		{
+			var list = new List<BookDto>();
+			var exts = string.Join(',', BookExtensions.Select(e => $"'{e}'"));
+			var sql = $@"
+				SELECT f.id, f.user_id, f.file_name, f.folder_path, f.file_type, f.file_size,
+				       f.is_public, f.shared_with, f.upload_date, f.access_count,
+				       u.username AS owner_name
+				FROM maxhanna.file_uploads f
+				LEFT JOIN maxhanna.users u ON u.id = f.user_id
+				LEFT JOIN maxhanna.book_library b ON b.file_id = f.id
+				WHERE b.id IS NULL
+				  AND LOWER(SUBSTRING_INDEX(f.file_name, '.', -1)) IN ({exts})
+				  AND (f.is_folder IS NULL OR f.is_folder = 0)
+				  AND f.folder_path LIKE '%/Books/'";
+			if (onlyPublic)
+			{
+				// Public files, plus files shared directly with this caller.
+				sql += "\n				  AND (f.is_public = 1 OR (@UserId > 0 AND f.shared_with IS NOT NULL AND f.shared_with != '' AND FIND_IN_SET(@UserId, f.shared_with) > 0))";
+			}
+			else
+			{
+				sql += "\n				  AND f.user_id = @UserId";
+			}
+			sql += "\n				ORDER BY f.upload_date DESC\n				LIMIT 500";
+
+			using (var conn = new MySqlConnection(_connectionString))
+			{
+				await conn.OpenAsync();
+				using var cmd = new MySqlCommand(sql, conn);
+				cmd.Parameters.AddWithValue("@UserId", userId);
+				using var rdr = await cmd.ExecuteReaderAsync();
+				while (await rdr.ReadAsync())
+				{
+					var fileName = rdr.IsDBNull(rdr.GetOrdinal("file_name")) ? "" : rdr.GetString("file_name");
+					var ext = Path.GetExtension(fileName).TrimStart('.').ToLowerInvariant();
+					var sharedWith = rdr.IsDBNull(rdr.GetOrdinal("shared_with")) ? "" : rdr.GetString("shared_with");
+					var sharedIds = new List<int>();
+					if (!string.IsNullOrWhiteSpace(sharedWith))
+					{
+						foreach (var p in sharedWith.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+							if (int.TryParse(p, out var i)) sharedIds.Add(i);
+					}
+					list.Add(new BookDto
+					{
+						BookId = 0, // unregistered — client offers "Add to library"
+						FileId = rdr.GetInt32("id"),
+						OwnerId = rdr.GetInt32("user_id"),
+						OwnerName = rdr.IsDBNull(rdr.GetOrdinal("owner_name")) ? "Unknown" : rdr.GetString("owner_name"),
+						Title = Path.GetFileNameWithoutExtension(fileName),
+						FileType = ext,
+						FileSize = rdr.IsDBNull(rdr.GetOrdinal("file_size")) ? 0 : rdr.GetInt64("file_size"),
+						IsPublic = !rdr.IsDBNull(rdr.GetOrdinal("is_public")) && rdr.GetBoolean("is_public"),
+						SharedWith = sharedIds,
+						CreatedUtc = rdr.IsDBNull(rdr.GetOrdinal("upload_date")) ? DateTime.UtcNow : rdr.GetDateTime("upload_date"),
+						UpdatedUtc = rdr.IsDBNull(rdr.GetOrdinal("upload_date")) ? DateTime.UtcNow : rdr.GetDateTime("upload_date"),
+						UploadDateUtc = rdr.IsDBNull(rdr.GetOrdinal("upload_date")) ? null : rdr.GetDateTime("upload_date"),
+						AccessCount = rdr.IsDBNull(rdr.GetOrdinal("access_count")) ? 0 : rdr.GetInt32("access_count"),
+					});
 				}
 			}
 			return list;

@@ -104,9 +104,10 @@
           <div class="book-description" *ngIf="book.description" [title]="book.description">{{ book.description }}</div>
           <div class="book-actions" (click)="$event.stopPropagation()">
             <button class="mini-btn" (click)="openReader(book)">📖 Read</button>
-            <button class="mini-btn" *ngIf="canManage(book)" (click)="openSharePanel(book)">🔗 Share</button>
-            <button class="mini-btn" *ngIf="canManage(book)" (click)="openEditPanel(book)">✏️ Edit</button>
-            <button class="mini-btn danger" *ngIf="canManage(book)" (click)="removeBook(book)">🗑</button>
+            <button class="mini-btn register-btn" *ngIf="canManage(book) && isUnregistered(book)" (click)="quickRegister(book)">➕ Add to library</button>
+            <button class="mini-btn" *ngIf="canManage(book) && !isUnregistered(book)" (click)="openSharePanel(book)">🔗 Share</button>
+            <button class="mini-btn" *ngIf="canManage(book) && !isUnregistered(book)" (click)="openEditPanel(book)">✏️ Edit</button>
+            <button class="mini-btn danger" *ngIf="canManage(book) && !isUnregistered(book)" (click)="removeBook(book)">🗑</button>
             <button class="mini-btn" (click)="copyShareLink(book)">📋</button>
           </div>
         </div>

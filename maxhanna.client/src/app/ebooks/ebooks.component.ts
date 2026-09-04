@@ -311,6 +311,29 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
     return this.isLoggedIn && book.ownerId === this.userId;
   }
 
+  /** True for raw Books/-folder files that have no library row yet. */
+  isUnregistered(book: BookEntry): boolean {
+    return !book.bookId;
+  }
+
+  /** One-click registration of a raw Books/-folder file owned by the caller. */
+  async quickRegister(book: BookEntry) {
+    if (!this.isLoggedIn || !this.canManage(book) || book.bookId) return;
+    const token = await this.parentRef?.getSessionToken();
+    const result = await this.booksService.registerBook({
+      userId: this.userId,
+      fileId: book.fileId,
+      title: book.title || 'Untitled',
+      isPublic: book.isPublic,
+    }, token);
+    if (result) {
+      this.parentRef?.showNotification(`"${book.title}" added to your library.`);
+      await this.loadBooks();
+    } else {
+      this.parentRef?.showNotification('Could not add the book to your library.');
+    }
+  }
+
   visibilityLabel(book: BookEntry): string {
     if (book.isPublic) return '🌍 Public';
     if ((book.sharedWith || []).length > 0) return `👥 Shared (${book.sharedWith.length})`;
@@ -441,7 +464,10 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
   }
 
   copyShareLink(book: BookEntry) {
-    const link = this.booksService.getShareLink(book);
+    // Unregistered files have no book id — link to the file viewer instead.
+    const link = book.bookId
+      ? this.booksService.getShareLink(book)
+      : `${window.location.origin}/File/${book.fileId}`;
     navigator.clipboard?.writeText(link).then(
       () => this.parentRef?.showNotification('Share link copied to clipboard.'),
       () => this.parentRef?.showNotification(link),

@@ -151,7 +151,11 @@
 }
 
 .fileNameWrapperSpan {
-  width: 100%;
+  /* Filename owns the row's free space and only shrinks as a last resort;
+     the reaction strip next to it shrinks first (see .fileExtras below). */
+  width: auto;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .fileNameDiv:hover {
@@ -180,6 +184,51 @@
   white-space: nowrap;
   font-size: small;
   margin-right: 5px;
+  /* Shrinkable (reactions collapse first) but capped so a long reaction
+     strip can never eat most of the row on narrow/mobile screens. */
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 60%;
+  overflow: hidden;
+}
+
+/* Fixed-size action chips never squish — only the reaction chips shrink. */
+.fileExtras > .fileOptionsAction {
+  flex: 0 0 auto;
+}
+
+/* ---- reaction strip inside file rows ----
+   Show every reaction chip when there's room; when space runs out the strip
+   clips with an ellipsis instead of crushing the filename. Scoped here so
+   other reaction usages (social, comments) keep their current layout. */
+.fileOptionsActionWrapper ::ng-deep app-reaction {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.fileOptionsActionWrapper ::ng-deep .reactionsContainer {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.fileOptionsActionWrapper ::ng-deep .reactionsDisplaySpan {
+  /* inline-block instead of inline-flex so text-overflow actually renders
+     (ellipsis doesn't work on flex containers). Chips are inline-level so
+     the visual layout is unchanged. */
+  display: inline-block;
+  vertical-align: middle;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.fileOptionsActionWrapper ::ng-deep .reactionsContainer > button,
+.fileOptionsActionWrapper ::ng-deep .reactionsContainer > .addReactionSpan,
+.fileOptionsActionWrapper ::ng-deep .reactionsContainer > .addReactionSpanNoBorder {
+  flex: 0 0 auto;
 }
 
 .directoryDisplayDiv {
