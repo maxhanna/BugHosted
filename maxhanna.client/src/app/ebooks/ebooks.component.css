@@ -1,0 +1,458 @@
+.ebooks-component {
+  width: 100%;
+  position: relative;
+}
+
+/* ============ toolbar ============ */
+.ebooks-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.9rem;
+}
+.tabs {
+  display: flex;
+  gap: 0.35rem;
+}
+.tab-btn {
+  padding: 0.5rem 0.85rem;
+  border: 1px solid var(--main-border-color);
+  border-radius: 6px;
+  background: var(--button-bg-color);
+  color: var(--main-text-color);
+  cursor: pointer;
+  font-weight: 600;
+}
+.tab-btn.active {
+  background: var(--hover-bg-color);
+  border-color: var(--main-border-color);
+  box-shadow: 0 0 0 1px var(--main-border-color) inset;
+}
+.tab-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  flex-wrap: wrap;
+}
+.search-input,
+.format-select {
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--main-border-color);
+  border-radius: 5px;
+  background: var(--input-bg-color);
+  color: var(--main-text-color);
+}
+.search-input {
+  flex: 1;
+  min-width: 150px;
+}
+.add-book-btn {
+  padding: 0.5rem 0.85rem;
+  border: 1px solid var(--main-border-color);
+  border-radius: 6px;
+  background: var(--button-bg-color);
+  color: var(--main-text-color);
+  cursor: pointer;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.add-book-btn:hover { background: var(--hover-bg-color); }
+
+/* ============ grid / cards ============ */
+.books-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 0.9rem;
+}
+.loading,
+.empty-state {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 2.5rem 1rem;
+  opacity: 0.75;
+}
+.empty-icon { font-size: 2.6rem; margin-bottom: 0.5rem; }
+
+.book-card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--main-border-color);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--button-bg-color);
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.book-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+.cover-wrap {
+  position: relative;
+  aspect-ratio: 17 / 24;
+  background: #222;
+  overflow: hidden;
+}
+.cover-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.format-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: rgba(0, 0, 0, 0.68);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+}
+.visibility-badge {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #eee;
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.book-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.55rem 0.65rem 0.7rem;
+}
+.book-title {
+  font-weight: 700;
+  font-size: 0.92rem;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.book-author {
+  font-size: 0.78rem;
+  opacity: 0.75;
+  font-style: italic;
+}
+.book-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+  opacity: 0.65;
+}
+.book-owner {
+  cursor: pointer;
+  text-decoration: underline dotted;
+}
+.book-owner:hover { opacity: 1; }
+.book-description {
+  font-size: 0.74rem;
+  opacity: 0.7;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.book-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.35rem;
+}
+.mini-btn {
+  padding: 0.28rem 0.5rem;
+  border: 1px solid var(--main-border-color);
+  border-radius: 5px;
+  background: var(--input-bg-color);
+  color: var(--main-text-color);
+  cursor: pointer;
+  font-size: 0.75rem;
+}
+.mini-btn:hover { background: var(--hover-bg-color); }
+.mini-btn.danger:hover {
+  background: #a33;
+  color: #fff;
+  border-color: #a33;
+}
+
+/* ============ modals ============ */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 60;
+}
+.book-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(520px, calc(100vw - 32px));
+  max-height: 82dvh;
+  overflow-y: auto;
+  background: var(--main-bg-color, #1c1c1c);
+  border: 1px solid var(--main-border-color);
+  border-radius: 10px;
+  padding: 0.9rem;
+  z-index: 61;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+.share-modal { width: min(560px, calc(100vw - 32px)); }
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 700;
+  font-size: 1rem;
+}
+.modal-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.modal-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  opacity: 0.8;
+}
+.book-modal input[type="text"],
+.book-modal textarea {
+  padding: 0.5rem;
+  border: 1px solid var(--main-border-color);
+  border-radius: 5px;
+  background: var(--input-bg-color);
+  color: var(--main-text-color);
+  width: 100%;
+  box-sizing: border-box;
+}
+.picked-file {
+  font-size: 0.78rem;
+  opacity: 0.85;
+  padding: 0.3rem 0.5rem;
+  border: 1px dashed var(--main-border-color);
+  border-radius: 5px;
+}
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+}
+.primary-btn {
+  padding: 0.55rem 1rem;
+  border: 1px solid var(--main-border-color);
+  border-radius: 6px;
+  background: var(--hover-bg-color);
+  color: var(--main-text-color);
+  font-weight: 700;
+  cursor: pointer;
+}
+.primary-btn:hover { filter: brightness(1.15); }
+.primary-btn:disabled { opacity: 0.5; cursor: wait; }
+
+/* ============ share rows ============ */
+.share-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.share-row input[type="text"] { flex: 1; min-width: 140px; }
+.shared-list-label { font-size: 0.8rem; opacity: 0.8; }
+.shared-user-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: var(--input-bg-color);
+  border: 1px solid var(--main-border-color);
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+  font-size: 0.75rem;
+}
+.chip-remove {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.72rem;
+  padding: 0;
+}
+.chip-remove:hover { color: #f66; }
+.share-message {
+  font-size: 0.8rem;
+  opacity: 0.85;
+  border-left: 3px solid var(--main-border-color);
+  padding-left: 0.5rem;
+}
+
+/* ============ reader ============ */
+.reader-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.82);
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+}
+.reader-panel {
+  width: min(1000px, 100%);
+  height: min(92dvh, 100%);
+  background: var(--main-bg-color, #1c1c1c);
+  border: 1px solid var(--main-border-color);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.reader-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  padding: 0.55rem 0.8rem;
+  border-bottom: 1px solid var(--main-border-color);
+}
+.reader-title {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: 700;
+  min-width: 0;
+}
+.reader-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 40vw;
+}
+.reader-format {
+  font-size: 0.68rem;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--main-border-color);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+.reader-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.reader-btn {
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--main-border-color);
+  border-radius: 5px;
+  background: var(--button-bg-color);
+  color: var(--main-text-color);
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+.reader-btn:hover { background: var(--hover-bg-color); }
+.reader-btn:disabled { opacity: 0.4; cursor: default; }
+.pdf-page-indicator { font-size: 0.78rem; opacity: 0.8; white-space: nowrap; }
+.reader-close:hover { background: #a33; color: #fff; border-color: #a33; }
+.reader-body {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+.pdf-frame {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: #444;
+}
+.text-pane {
+  height: 100%;
+  overflow: auto;
+  margin: 0;
+  padding: 1rem 1.2rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  font-family: Georgia, 'Times New Roman', serif;
+  background: #14171a;
+  color: #e6e2d6;
+}
+.reader-loading,
+.reader-error {
+  padding: 1.5rem;
+  text-align: center;
+  opacity: 0.85;
+}
+.download-pane {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.7rem;
+  text-align: center;
+  padding: 1.5rem;
+}
+.download-pane-icon { font-size: 3rem; }
+.download-btn {
+  padding: 0.6rem 1.2rem;
+  border: 1px solid var(--main-border-color);
+  border-radius: 6px;
+  background: var(--hover-bg-color);
+  color: var(--main-text-color);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* ============ menu panel ============ */
+.menuPanel {
+  position: absolute;
+  top: 40px;
+  right: 10px;
+  background: var(--main-bg-color, #1c1c1c);
+  border: 1px solid var(--main-border-color);
+  border-radius: 8px;
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  z-index: 30;
+  min-width: 140px;
+}
+.menuPanel button {
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--main-border-color);
+  border-radius: 5px;
+  background: var(--button-bg-color);
+  color: var(--main-text-color);
+  cursor: pointer;
+  text-align: left;
+}
+.menuPanel button:hover { background: var(--hover-bg-color); }
+
+/* ============ mobile ============ */
+@media (max-width: 600px) {
+  .books-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 0.6rem;
+  }
+  .reader-name { max-width: 34vw; }
+  .toolbar-actions { width: 100%; }
+}

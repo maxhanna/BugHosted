@@ -1,0 +1,222 @@
+<div [class.componentMain]="showTitleBar">
+  <app-title-bar *ngIf="showTitleBar" [title]="'eBooks'" (closeClicked)="safeDestroy();"
+    (menuClicked)="showMenuPanel()"></app-title-bar>
+
+  <app-prompt [type]="'login'" [message]="'Log in to build your own library and share books.'"
+    [inputtedParentRef]="parentRef" [visible]="!parentRef?.user?.id || parentRef?.user?.id === 0"
+    (close)="hideLoginPopup()">
+  </app-prompt>
+
+  <div class="ebooks-component">
+
+    <!-- ============ Reader overlay ============ -->
+    <div class="reader-overlay" *ngIf="readingBook">
+      <div class="reader-panel">
+        <div class="reader-header">
+          <div class="reader-title">
+            <span class="reader-icon">📖</span>
+            <span class="reader-name">{{ readingBook.title }}</span>
+            <span class="reader-format" *ngIf="readingBook.fileType">{{ readingBook.fileType.toUpperCase() }}</span>
+          </div>
+          <div class="reader-actions" *ngIf="readerBlobType === 'application/pdf'">
+            <button class="reader-btn" (click)="prevPdfPage()" [disabled]="pdfPage <= 1">◀</button>
+            <span class="pdf-page-indicator">page {{ pdfPage }}</span>
+            <button class="reader-btn" (click)="nextPdfPage()">▶</button>
+            <button class="reader-btn" (click)="zoomOut()">−</button>
+            <span class="pdf-page-indicator">{{ zoom * 100 | number: '1.0-0' }}%</span>
+            <button class="reader-btn" (click)="zoomIn()">+</button>
+          </div>
+          <div class="reader-actions">
+            <button class="reader-btn" *ngIf="readerBlobType === 'download'" (click)="downloadReadingBook()">⬇ Download
+              to read</button>
+            <button class="reader-btn reader-close" (click)="closeReader()">✕ Close</button>
+          </div>
+        </div>
+
+        <div class="reader-body">
+          <div class="reader-loading" *ngIf="isLoadingReader">Loading book…</div>
+          <div class="reader-error" *ngIf="readerError">⚠️ {{ readerError }}</div>
+
+          <iframe *ngIf="readerBlobType === 'application/pdf' && readerUrl" [src]="readerUrl"
+            class="pdf-frame" title="PDF reader"></iframe>
+
+          <pre class="text-pane" *ngIf="readerBlobType === 'text'">{{ textContent }}</pre>
+
+          <div class="download-pane"
+            *ngIf="readerBlobType === 'download' && readerObjectUrl && !isLoadingReader && !readerError">
+            <div class="download-pane-icon">📝</div>
+            <p>Word documents can't be displayed in the browser.</p>
+            <button class="download-btn" (click)="downloadReadingBook()">⬇ Download {{ readingBook.fileType.toUpperCase() }}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ Tabs + tools ============ -->
+    <div class="ebooks-toolbar" *ngIf="!readingBook">
+      <div class="tabs">
+        <button class="tab-btn" [class.active]="activeTab === 'library'" (click)="switchTab('library')"
+          [disabled]="!isLoggedIn">📚 My Library</button>
+        <button class="tab-btn" [class.active]="activeTab === 'catalog'" (click)="switchTab('catalog')">🌍
+          Community Catalog</button>
+      </div>
+      <div class="toolbar-actions">
+        <input class="search-input" type="text" placeholder="Search title, author, owner…" [(ngModel)]="searchQuery"
+          (ngModelChange)="applyFilter()" />
+        <select class="format-select" [(ngModel)]="formatFilter" (ngModelChange)="applyFilter()">
+          <option value="">All formats</option>
+          <option *ngFor="let f of availableFormats" [value]="f">{{ formatLabel(f) }}</option>
+        </select>
+        <button class="add-book-btn" (click)="openAddPanel()" *ngIf="isLoggedIn">➕ Add Book</button>
+      </div>
+    </div>
+
+    <!-- ============ Book grid ============ -->
+    <div class="books-grid" *ngIf="!readingBook">
+      <div class="loading" *ngIf="isLoading">Loading books…</div>
+      <div class="empty-state" *ngIf="!isLoading && filteredBooks.length === 0">
+        <ng-container *ngIf="activeTab === 'library'; else catalogEmpty">
+          <div class="empty-icon">📚</div>
+          <p>Your library is empty.</p>
+          <button class="add-book-btn" (click)="openAddPanel()">➕ Add your first book</button>
+        </ng-container>
+        <ng-template #catalogEmpty>
+          <div class="empty-icon">🌍</div>
+          <p>No shared books yet — be the first to share one!</p>
+        </ng-template>
+      </div>
+
+      <div class="book-card" *ngFor="let book of filteredBooks" (click)="openReader(book)">
+        <div class="cover-wrap">
+          <img class="cover-img" [src]="booksService.getCoverUrl(book)" [alt]="book.title" loading="lazy"
+            (error)="onCoverError($event, book)" />
+          <span class="format-badge">{{ formatLabel(book.fileType) }}</span>
+          <span class="visibility-badge">{{ visibilityLabel(book) }}</span>
+        </div>
+        <div class="book-info">
+          <div class="book-title" [title]="book.title">{{ book.title }}</div>
+          <div class="book-author" *ngIf="book.author">by {{ book.author }}</div>
+          <div class="book-meta">
+            <span class="book-owner" (click)="openOwner($event, book); $event.stopPropagation()">&#64;{{ book.ownerName
+              }}</span>
+            <span class="book-size">{{ book.fileSize | fileSize }}</span>
+          </div>
+          <div class="book-description" *ngIf="book.description" [title]="book.description">{{ book.description }}</div>
+          <div class="book-actions" (click)="$event.stopPropagation()">
+            <button class="mini-btn" (click)="openReader(book)">📖 Read</button>
+            <button class="mini-btn" *ngIf="canManage(book)" (click)="openSharePanel(book)">🔗 Share</button>
+            <button class="mini-btn" *ngIf="canManage(book)" (click)="openEditPanel(book)">✏️ Edit</button>
+            <button class="mini-btn danger" *ngIf="canManage(book)" (click)="removeBook(book)">🗑</button>
+            <button class="mini-btn" (click)="copyShareLink(book)">📋</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ Add book panel ============ -->
+    <div class="modal-backdrop" *ngIf="isAddPanelOpen" (click)="closeAddPanel()"></div>
+    <div class="book-modal" *ngIf="isAddPanelOpen">
+      <div class="modal-header">
+        <span>➕ Add a book to your library</span>
+        <button class="mini-btn" (click)="closeAddPanel()">✕</button>
+      </div>
+
+      <div class="modal-section">
+        <label class="modal-label">Book file (PDF, TXT, DOC/DOCX, RTF, ODT) *</label>
+        <app-media-selector [inputtedParentRef]="parentRef" [user]="parentRef?.user"
+          [currentDirectory]="'Books/'" [maxSelectedFiles]="1" [allowedFileTypes]="allowedBookTypes"
+          [uploadButtonText]="'Upload book'" [closeInitialPopup]="true"
+          (selectFileEvent)="onBookFileSelected($event)"></app-media-selector>
+        <div class="picked-file" *ngIf="selectedBookFile">
+          📄 {{ selectedBookFile.givenFileName || selectedBookFile.fileName }}
+        </div>
+      </div>
+
+      <div class="modal-section">
+        <label class="modal-label">Cover image (optional)</label>
+        <app-media-selector [inputtedParentRef]="parentRef" [user]="parentRef?.user"
+          [currentDirectory]="'Books/Covers/'" [maxSelectedFiles]="1" [allowedFileTypes]="'image/*'"
+          [uploadButtonText]="'Upload cover'" [closeInitialPopup]="true"
+          (selectFileEvent)="onCoverFileSelected($event)"></app-media-selector>
+        <div class="picked-file" *ngIf="selectedCoverFile">
+          🖼️ {{ selectedCoverFile.givenFileName || selectedCoverFile.fileName }}
+        </div>
+      </div>
+
+      <div class="modal-section">
+        <label class="modal-label">Title *</label>
+        <input type="text" [(ngModel)]="newTitle" placeholder="Book title" maxlength="200" />
+        <label class="modal-label">Author</label>
+        <input type="text" [(ngModel)]="newAuthor" placeholder="Author name" maxlength="120" />
+        <label class="modal-label">Description</label>
+        <textarea [(ngModel)]="newDescription" rows="3" placeholder="What is this book about?"
+          maxlength="1000"></textarea>
+      </div>
+
+      <div class="modal-footer">
+        <button class="primary-btn" (click)="submitBook()" [disabled]="isSubmittingBook">
+          {{ isSubmittingBook ? 'Adding…' : '📚 Add to library' }}
+        </button>
+      </div>
+    </div>
+
+    <!-- ============ Share panel ============ -->
+    <div class="modal-backdrop" *ngIf="shareBook" (click)="closeSharePanel()"></div>
+    <div class="book-modal share-modal" *ngIf="shareBook">
+      <div class="modal-header">
+        <span>🔗 Share "{{ shareBook.title }}"</span>
+        <button class="mini-btn" (click)="closeSharePanel()">✕</button>
+      </div>
+      <div class="modal-section">
+        <div class="share-row">
+          <span>Visibility: <strong>{{ visibilityLabel(shareBook) }}</strong></span>
+          <button class="mini-btn" (click)="sharePublicly()" [disabled]="shareBook.isPublic">🌍 Make public</button>
+          <button class="mini-btn" *ngIf="shareBook.isPublic || (shareBook.sharedWith?.length ?? 0) > 0"
+            (click)="makePrivate()">🔒 Make private</button>
+        </div>
+        <div class="share-row" *ngIf="(shareBook.sharedWith?.length ?? 0) > 0">
+          <span class="shared-list-label">Shared with:</span>
+          <span class="shared-user-chip" *ngFor="let entry of sharedUserEntries(shareBook)">
+            {{ entry.label }} <button class="chip-remove" (click)="removeSharedUser(entry.id)">✕</button>
+          </span>
+        </div>
+        <div class="share-row">
+          <input type="text" [(ngModel)]="shareUsername" placeholder="Share with a username…" maxlength="50"
+            (keyup.enter)="shareWithUser()" />
+          <button class="primary-btn" (click)="shareWithUser()">Share</button>
+        </div>
+        <div class="share-row">
+          <button class="mini-btn" (click)="copyShareLink(shareBook)">📋 Copy share link</button>
+        </div>
+        <div class="share-message" *ngIf="shareMessage">{{ shareMessage }}</div>
+      </div>
+    </div>
+
+    <!-- ============ Edit panel ============ -->
+    <div class="modal-backdrop" *ngIf="editBook" (click)="closeEditPanel()"></div>
+    <div class="book-modal" *ngIf="editBook">
+      <div class="modal-header">
+        <span>✏️ Edit "{{ editBook.title }}"</span>
+        <button class="mini-btn" (click)="closeEditPanel()">✕</button>
+      </div>
+      <div class="modal-section">
+        <label class="modal-label">Title</label>
+        <input type="text" [(ngModel)]="editTitle" maxlength="200" />
+        <label class="modal-label">Author</label>
+        <input type="text" [(ngModel)]="editAuthor" maxlength="120" />
+        <label class="modal-label">Description</label>
+        <textarea [(ngModel)]="editDescription" rows="3" maxlength="1000"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button class="primary-btn" (click)="saveEdit()">💾 Save changes</button>
+      </div>
+    </div>
+
+    <!-- ============ Menu panel ============ -->
+    <div class="menuPanel" *ngIf="isMenuPanelOpen">
+      <button (click)="loadBooks()">🔄 Refresh</button>
+      <button (click)="hideMenuPanel()">✕ Close</button>
+    </div>
+
+  </div>
+</div>

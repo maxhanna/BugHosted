@@ -101,6 +101,7 @@ import { ConversionComponent } from './conversion/conversion.component';
 import { MoviesAddedTodayComponent } from './movies-added-today/movies-added-today.component';
 import { SpaceEvolvesComponent } from './space-evolves/space-evolves.component';
 import { MtgArenaComponent } from './mtg-arena/mtg-arena.component';
+import { EbooksComponent } from './ebooks/ebooks.component';
 
 @NgModule({
   declarations: [
@@ -192,6 +193,7 @@ import { MtgArenaComponent } from './mtg-arena/mtg-arena.component';
     MoviesAddedTodayComponent,
     SpaceEvolvesComponent,
     MtgArenaComponent,
+    EbooksComponent,
   ],
   bootstrap: [AppComponent],
   imports: [
@@ -300,6 +302,7 @@ import { MtgArenaComponent } from './mtg-arena/mtg-arena.component';
     MoviesAddedTodayComponent,
     SpaceEvolvesComponent,
     MtgArenaComponent,
+    EbooksComponent,
     AppMenuItemComponent,
     TimeFormatPipe,
     TimeSincePipe,

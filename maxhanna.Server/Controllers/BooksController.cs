@@ -1,0 +1,724 @@
+using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
+using maxhanna.Server.Controllers.DataContracts.Users;
+using maxhanna.Server.Services;
+using Microsoft.AspNetCore.Mvc;
+using MySqlConnector;
+
+namespace maxhanna.Server.Controllers
+{
+	[ApiController]
+	[Route("[controller]")]
+	public class BooksController : ControllerBase
+	{
+		private readonly Log _log;
+		private readonly IConfiguration _config;
+		private readonly string _connectionString;
+		private readonly string _baseTarget;
+
+		// Accepted book formats: PDF, plain text and any Word format (legacy + OOXML).
+		private static readonly HashSet<string> BookExtensions = new(StringComparer.OrdinalIgnoreCase)
+		{
+			"pdf", "txt", "doc", "docx", "docm", "dot", "dotx", "dotm", "rtf", "odt"
+		};
+
+			public BooksController(IConfiguration config, Log log)
+		{
+			_config = config;
+			_log = log;
+			_connectionString = config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+
+			var configPath = config.GetValue<string>("FileUploads:BasePath") ?? "";
+			if (string.IsNullOrWhiteSpace(configPath))
+			{
+				var serverDir = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location) ?? ".";
+				configPath = Path.Combine(serverDir, "..", "..", "..", "..", "maxhanna.client", "src", "assets", "Uploads");
+			}
+			_baseTarget = Path.GetFullPath(configPath).Replace("\\", "/");
+			if (!_baseTarget.EndsWith("/")) _baseTarget += "/";
+			try { EnsureBookTable(); } catch (Exception ex) { Console.WriteLine($"[BOOKS] EnsureBookTable failed: {ex.Message}"); }
+		}
+
+		/// <summary>
+		/// The book_library registry table is created lazily on first controller
+		/// use so no manual migration step is required.
+		/// </summary>
+		private void EnsureBookTable()
+		{
+			using var conn = new MySqlConnection(_connectionString);
+			conn.Open();
+			var sql = @"
+				CREATE TABLE IF NOT EXISTS maxhanna.book_library (
+					id INT AUTO_INCREMENT PRIMARY KEY,
+					user_id INT NOT NULL,
+					file_id INT NOT NULL,
+					title VARCHAR(200) NOT NULL,
+					author VARCHAR(120) NULL,
+					description TEXT NULL,
+					cover_file_id INT NULL,
+					created_at DATETIME NOT NULL,
+					updated_at DATETIME NOT NULL,
+					UNIQUE KEY uq_book_file (file_id),
+					KEY idx_book_user (user_id)
+				) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
+			using var cmd = new MySqlCommand(sql, conn);
+			cmd.ExecuteNonQuery();
+		}
+
+		// The shared books folder inside the upload tree ("Uploads/Books/").
+		// Matches the FileController folder layout: relative to _baseTarget.
+		private static string BooksFolder() => "Books/";
+
+		[HttpGet("/Books/GetMyLibrary")]
+		public async Task<IActionResult> GetMyLibrary(
+			[FromQuery] int userId,
+			[FromHeader(Name = "Encrypted-UserId")] string? encryptedUserIdHeader = null)
+		{
+			try
+			{
+				if (userId <= 0) return BadRequest("userId required.");
+				if (!await _log.ValidateUserLoggedIn(userId, encryptedUserIdHeader))
+					return StatusCode(500, "Access Denied.");
+
+				return Ok(await QueryBooks(BookSql(userId, false), cmd =>
+				{
+					cmd.Parameters.AddWithValue("@UserId", userId);
+				}));
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"GetMyLibrary failed: {ex.Message}", userId, "BOOKS", true);
+				return StatusCode(500, "An error occurred while loading your library.");
+			}
+		}
+
+		[HttpGet("/Books/GetCatalog")]
+		public async Task<IActionResult> GetCatalog([FromQuery] int? userId = null)
+		{
+			try
+			{
+				// Catalog = public books plus books explicitly shared with the
+				// caller (userId 0 for anonymous visitors sees only public ones).
+				var books = await QueryBooks(BookSql(userId ?? 0, true), cmd =>
+				{
+					cmd.Parameters.AddWithValue("@UserId", userId ?? 0);
+				});
+				return Ok(books);
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"GetCatalog failed: {ex.Message}", userId, "BOOKS", true);
+				return StatusCode(500, "An error occurred while loading the catalog.");
+			}
+		}
+
+		[HttpPost("/Books/Register")]
+		public async Task<IActionResult> RegisterBook(
+			[FromBody] RegisterBookRequest req,
+			[FromHeader(Name = "Encrypted-UserId")] string? encryptedUserIdHeader = null)
+		{
+			try
+			{
+				if (req.UserId <= 0) return BadRequest("userId required.");
+				if (!await _log.ValidateUserLoggedIn(req.UserId, encryptedUserIdHeader ?? ""))
+					return StatusCode(500, "Access Denied.");
+
+				if (req.FileId <= 0) return BadRequest("fileId required.");
+				var title = (req.Title ?? "").Trim();
+				var author = (req.Author ?? "").Trim();
+				var description = (req.Description ?? "").Trim();
+				if (title.Length == 0) return BadRequest("Title required.");
+
+				string connStr = _connectionString;
+				using (var conn = new MySqlConnection(connStr))
+				{
+					await conn.OpenAsync();
+
+					// The file must exist, must be a book format and must belong to the caller.
+					string? folderPath = null, fileName = null;
+					bool isPublic = false;
+					using (var cmd = new MySqlCommand(
+						"SELECT user_id, file_name, folder_path, is_public, file_type FROM maxhanna.file_uploads WHERE id = @fileId LIMIT 1", conn))
+					{
+						cmd.Parameters.AddWithValue("@fileId", req.FileId);
+						using var rdr = await cmd.ExecuteReaderAsync();
+						if (!await rdr.ReadAsync()) return NotFound("Uploaded file not found.");
+						var ownerId = rdr.GetInt32("user_id");
+						if (ownerId != req.UserId) return StatusCode(409, "You can only register files you uploaded.");
+						fileName = rdr.GetString("file_name");
+						folderPath = rdr.GetString("folder_path");
+						isPublic = rdr.GetBoolean("is_public");
+						var ext = Path.GetExtension(fileName ?? "").TrimStart('.').ToLowerInvariant();
+						if (!BookExtensions.Contains(ext))
+							return BadRequest("Unsupported book format. Allowed: pdf, txt, doc, docx, rtf, odt.");
+					}
+
+					// Keep every registered book inside the shared Books folder.
+					var targetFolder = _baseTarget + BooksFolder();
+					var normalizedFolder = (folderPath ?? "").Replace("\\", "/").TrimEnd('/') + "/";
+					if (!normalizedFolder.EndsWith(BooksFolder(), StringComparison.OrdinalIgnoreCase))
+					{
+						// Move the file into Books/ (and move any DB registration with it).
+						if (!Directory.Exists(targetFolder)) Directory.CreateDirectory(targetFolder);
+						var newPath = Path.Combine(targetFolder, fileName ?? "");
+						if (!System.IO.File.Exists(newPath))
+						{
+							var oldPath = Path.Combine((folderPath ?? "").Replace('/', Path.DirectorySeparatorChar), fileName ?? "");
+							if (System.IO.File.Exists(oldPath))
+								System.IO.File.Move(oldPath, newPath);
+						}
+						using (var upd = new MySqlCommand(
+							"UPDATE maxhanna.file_uploads SET folder_path = @fp WHERE id = @fid", conn))
+						{
+							upd.Parameters.AddWithValue("@fp", targetFolder);
+							upd.Parameters.AddWithValue("@fid", req.FileId);
+							await upd.ExecuteNonQueryAsync();
+						}
+						folderPath = targetFolder;
+					}
+
+					// If the file is already registered as a book, just refresh metadata.
+					using (var exists = new MySqlCommand(
+						"SELECT id FROM maxhanna.book_library WHERE file_id = @fid LIMIT 1", conn))
+					{
+						exists.Parameters.AddWithValue("@fid", req.FileId);
+						var existing = await exists.ExecuteScalarAsync();
+						if (existing != null && existing != DBNull.Value)
+						{
+							using (var upd = new MySqlCommand(@"
+								UPDATE maxhanna.book_library
+								SET title = @title, author = @author, description = @description, cover_file_id = @coverId
+								WHERE file_id = @fid AND user_id = @uid", conn))
+							{
+								upd.Parameters.AddWithValue("@title", title);
+								upd.Parameters.AddWithValue("@author", string.IsNullOrWhiteSpace(author) ? (object?)DBNull.Value : author);
+								upd.Parameters.AddWithValue("@description", string.IsNullOrWhiteSpace(description) ? (object?)DBNull.Value : description);
+								upd.Parameters.AddWithValue("@coverId", req.CoverFileId.HasValue ? req.CoverFileId.Value : (object?)DBNull.Value);
+								upd.Parameters.AddWithValue("@fid", req.FileId);
+								upd.Parameters.AddWithValue("@uid", req.UserId);
+								await upd.ExecuteNonQueryAsync();
+							}
+							return Ok(new { bookId = Convert.ToInt32(existing), fileId = req.FileId, updated = true });
+						}
+					}
+
+					long bookId;
+					using (var ins = new MySqlCommand(@"
+						INSERT INTO maxhanna.book_library (user_id, file_id, title, author, description, cover_file_id, created_at, updated_at)
+						VALUES (@uid, @fid, @title, @author, @description, @coverId, UTC_TIMESTAMP(), UTC_TIMESTAMP())", conn))
+					{
+						ins.Parameters.AddWithValue("@uid", req.UserId);
+						ins.Parameters.AddWithValue("@fid", req.FileId);
+						ins.Parameters.AddWithValue("@title", title);
+						ins.Parameters.AddWithValue("@author", string.IsNullOrWhiteSpace(author) ? (object?)DBNull.Value : author);
+						ins.Parameters.AddWithValue("@description", string.IsNullOrWhiteSpace(description) ? (object?)DBNull.Value : description);
+						ins.Parameters.AddWithValue("@coverId", req.CoverFileId.HasValue ? req.CoverFileId.Value : (object?)DBNull.Value);
+						await ins.ExecuteNonQueryAsync();
+						bookId = ins.LastInsertedId;
+					}
+
+					// Mirror sharing onto the underlying file row so existing file
+					// permissions (GetFileById works for anyone; GetDirectory honours
+					// is_public/shared_with) stay consistent with the book's sharing.
+					await SyncFileVisibility(conn, req.FileId, req.UserId, req.IsPublic);
+					_ = isPublic;
+
+					return Ok(new { bookId, fileId = req.FileId, updated = false });
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"RegisterBook failed: {ex.Message}", req.UserId, "BOOKS", true);
+				return StatusCode(500, "An error occurred while registering the book.");
+			}
+		}
+
+		[HttpPost("/Books/Update")]
+		public async Task<IActionResult> UpdateBook(
+			[FromBody] RegisterBookRequest req,
+			[FromHeader(Name = "Encrypted-UserId")] string? encryptedUserIdHeader = null)
+		{
+			try
+			{
+				if (req.UserId <= 0) return BadRequest("userId required.");
+				if (!await _log.ValidateUserLoggedIn(req.UserId, encryptedUserIdHeader ?? ""))
+					return StatusCode(500, "Access Denied.");
+				if (req.FileId <= 0 && req.BookId <= 0) return BadRequest("bookId or fileId required.");
+
+				using var conn = new MySqlConnection(_connectionString);
+				await conn.OpenAsync();
+
+				var idCol = req.BookId > 0 ? "bookId" : "fileId";
+				var where = req.BookId > 0 ? "id = @id" : "file_id = @id";
+				using (var upd = new MySqlCommand($@"
+					UPDATE maxhanna.book_library
+					SET title = @title, author = @author, description = @description,
+					    cover_file_id = @coverId, updated_at = UTC_TIMESTAMP()
+					WHERE {where} AND user_id = @uid", conn))
+				{
+					upd.Parameters.AddWithValue("@id", req.BookId > 0 ? req.BookId : req.FileId);
+					upd.Parameters.AddWithValue("@title", (req.Title ?? "").Trim());
+					upd.Parameters.AddWithValue("@author", string.IsNullOrWhiteSpace(req.Author) ? (object?)DBNull.Value : req.Author!.Trim());
+					upd.Parameters.AddWithValue("@description", string.IsNullOrWhiteSpace(req.Description) ? (object?)DBNull.Value : req.Description!.Trim());
+					upd.Parameters.AddWithValue("@coverId", req.CoverFileId.HasValue ? req.CoverFileId.Value : (object?)DBNull.Value);
+					upd.Parameters.AddWithValue("@uid", req.UserId);
+					var rows = await upd.ExecuteNonQueryAsync();
+					if (rows == 0) return NotFound("Book not found in your library.");
+				}
+
+				if (req.IsPublic.HasValue)
+				{
+					var fileId = await GetFileIdForBook(conn, req.BookId > 0 ? req.BookId : req.FileId, req.BookId > 0);
+					if (fileId.HasValue) await SyncFileVisibility(conn, fileId.Value, req.UserId, req.IsPublic);
+				}
+				return Ok(new { success = true });
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"UpdateBook failed: {ex.Message}", req.UserId, "BOOKS", true);
+				return StatusCode(500, "An error occurred while updating the book.");
+			}
+		}
+
+		[HttpPost("/Books/Share")]
+		public async Task<IActionResult> ShareBook(
+			[FromBody] ShareBookRequest req,
+			[FromHeader(Name = "Encrypted-UserId")] string? encryptedUserIdHeader = null)
+		{
+			try
+			{
+				if (req.UserId <= 0) return BadRequest("userId required.");
+				if (!await _log.ValidateUserLoggedIn(req.UserId, encryptedUserIdHeader ?? ""))
+					return StatusCode(500, "Access Denied.");
+
+				using var conn = new MySqlConnection(_connectionString);
+				await conn.OpenAsync();
+
+				var fileId = await GetOwnedBookFileId(conn, req.BookId, req.UserId);
+				if (fileId == null) return NotFound("Book not found in your library.");
+
+				if (req.MakePublic)
+				{
+					await SyncFileVisibility(conn, fileId.Value, req.UserId, true);
+					await TouchBook(conn, req.BookId);
+					return Ok(new { success = true, isPublic = true, sharedWith = new int[0] });
+				}
+
+				// Share with specific users by username.
+				var resolved = new List<int>();
+				var unknown = new List<string>();
+				foreach (var name in req.Usernames ?? new List<string>())
+				{
+					var n = (name ?? "").Trim().TrimStart('@');
+					if (n.Length == 0) continue;
+					using var q = new MySqlCommand("SELECT id FROM maxhanna.users WHERE username = @u LIMIT 1", conn);
+					q.Parameters.AddWithValue("@u", n);
+					var r = await q.ExecuteScalarAsync();
+					if (r == null || r == DBNull.Value) { unknown.Add(n); continue; }
+					var targetId = Convert.ToInt32(r);
+					if (targetId != req.UserId) resolved.Add(targetId);
+				}
+
+				var sharedWith = await GetSharedWithList(conn, fileId.Value);
+				var changed = false;
+				var all = new List<int>(resolved);
+				if (req.UserIds != null) all.AddRange(req.UserIds);
+				foreach (var id in all)
+				{
+					if (id > 0 && id != req.UserId && !sharedWith.Contains(id)) { sharedWith.Add(id); changed = true; }
+				}
+				if (changed) await SaveSharedWith(conn, fileId.Value, sharedWith);
+				await TouchBook(conn, req.BookId);
+
+				return Ok(new { success = true, isPublic = false, sharedWith, unknownUsernames = unknown });
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"ShareBook failed: {ex.Message}", req.UserId, "BOOKS", true);
+				return StatusCode(500, "An error occurred while sharing the book.");
+			}
+		}
+
+		[HttpPost("/Books/Unshare")]
+		public async Task<IActionResult> UnshareBook(
+			[FromBody] ShareBookRequest req,
+			[FromHeader(Name = "Encrypted-UserId")] string? encryptedUserIdHeader = null)
+		{
+			try
+			{
+				if (req.UserId <= 0) return BadRequest("userId required.");
+				if (!await _log.ValidateUserLoggedIn(req.UserId, encryptedUserIdHeader ?? ""))
+					return StatusCode(500, "Access Denied.");
+
+				using var conn = new MySqlConnection(_connectionString);
+				await conn.OpenAsync();
+
+				var fileId = await GetOwnedBookFileId(conn, req.BookId, req.UserId);
+				if (fileId == null) return NotFound("Book not found in your library.");
+
+				if (req.MakePublic) // request to un-public
+				{
+					await SyncFileVisibility(conn, fileId.Value, req.UserId, false);
+				}
+				if ((req.Usernames?.Count ?? 0) > 0 || (req.UserIds?.Count ?? 0) > 0)
+				{
+					var sharedWith = await GetSharedWithList(conn, fileId.Value);
+					foreach (var name in req.Usernames ?? new List<string>())
+					{
+						var n = (name ?? "").Trim().TrimStart('@');
+						if (n.Length == 0) continue;
+						using var q = new MySqlCommand("SELECT id FROM maxhanna.users WHERE username = @u LIMIT 1", conn);
+						q.Parameters.AddWithValue("@u", n);
+						var r = await q.ExecuteScalarAsync();
+						if (r == null || r == DBNull.Value) continue;
+						sharedWith.Remove(Convert.ToInt32(r));
+					}
+					foreach (var uid in req.UserIds ?? new List<int>())
+					{
+						sharedWith.Remove(uid);
+					}
+					await SaveSharedWith(conn, fileId.Value, sharedWith);
+				}
+				await TouchBook(conn, req.BookId);
+				return Ok(new { success = true });
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"UnshareBook failed: {ex.Message}", req.UserId, "BOOKS", true);
+				return StatusCode(500, "An error occurred while updating sharing.");
+			}
+		}
+
+		[HttpPost("/Books/Remove")]
+		public async Task<IActionResult> RemoveBook(
+			[FromBody] ShareBookRequest req,
+			[FromHeader(Name = "Encrypted-UserId")] string? encryptedUserIdHeader = null)
+		{
+			try
+			{
+				if (req.UserId <= 0) return BadRequest("userId required.");
+				if (!await _log.ValidateUserLoggedIn(req.UserId, encryptedUserIdHeader ?? ""))
+					return StatusCode(500, "Access Denied.");
+
+				using var conn = new MySqlConnection(_connectionString);
+				await conn.OpenAsync();
+
+				// The book row must belong to the caller.
+				var fileId = await GetOwnedBookFileId(conn, req.BookId, req.UserId);
+				if (fileId == null) return NotFound("Book not found in your library.");
+
+				using (var del = new MySqlCommand("DELETE FROM maxhanna.book_library WHERE id = @id", conn))
+				{
+					del.Parameters.AddWithValue("@id", req.BookId);
+					await del.ExecuteNonQueryAsync();
+				}
+				// The uploaded file itself is left untouched — the owner can delete it
+				// from Files if they want; unregistering only removes it from the library.
+				return Ok(new { success = true });
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"RemoveBook failed: {ex.Message}", req.UserId, "BOOKS", true);
+				return StatusCode(500, "An error occurred while removing the book.");
+			}
+		}
+
+		/// <summary>
+		/// Server-generated SVG cover for a book: deterministic gradient from the
+		/// title hash, title/author typography and a format badge. Used when a book
+		/// has no uploaded cover image — every book always has a preview image.
+		/// </summary>
+		[HttpGet("/Books/Cover.svg")]
+		public IActionResult CoverSvg([FromQuery] string? title, [FromQuery] string? author, [FromQuery] string? fmt)
+		{
+			var t = (title ?? "Untitled").Trim();
+			if (t.Length == 0) t = "Untitled";
+			var a = (author ?? "").Trim();
+			var format = (fmt ?? "").Trim().ToUpperInvariant();
+
+			// Deterministic hue pair from the title so a given book always gets the
+			// same cover (cacheable by URL), but neighbouring books differ.
+			var hash = SHA256.HashData(Encoding.UTF8.GetBytes(t.ToUpperInvariant()));
+			var hue = hash[0] * 360 / 256;
+			var hue2 = (hue + 40 + hash[1] * 60 / 256) % 360;
+			var c1 = $"hsl({hue},62%,38%)";
+			var c2 = $"hsl({hue2},70%,22%)";
+
+			string Esc(string s) => s
+				.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;")
+				.Replace("\"", "&quot;").Replace("'", "&apos;");
+
+			var titleLines = WrapText(Esc(t), 17, 4);
+			var titleSvg = new StringBuilder();
+			var startY = 330 - (titleLines.Count - 1) * 21;
+			for (int i = 0; i < titleLines.Count; i++)
+			{
+				titleSvg.AppendLine($"<text x='32' y='{startY + i * 42}' font-family='Georgia, serif' font-size='30' font-weight='bold' fill='#f5efe0'>{titleLines[i]}</text>");
+			}
+
+			var authorSvg = a.Length > 0
+				? $"<text x='32' y='430' font-family='Georgia, serif' font-size='19' font-style='italic' fill='#d8d2c2'>{Esc(Truncate(a, 34))}</text>"
+				: "";
+
+			var badge = format.Length > 0
+				? $"<rect x='255' y='24' rx='6' width='65' height='26' fill='rgba(255,255,255,.16)'/><text x='287' y='42' text-anchor='middle' font-family='Arial' font-size='13' font-weight='bold' fill='#e8e2d2'>{Esc(format)}</text>"
+				: "";
+
+			var svg = new StringBuilder();
+			svg.AppendLine($"<svg xmlns='http://www.w3.org/2000/svg' width='340' height='480' viewBox='0 0 340 480'>");
+			svg.AppendLine($"<defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='{c1}'/><stop offset='1' stop-color='{c2}'/></linearGradient></defs>");
+			svg.AppendLine($"<rect width='340' height='480' fill='url(#g)'/>");
+			// spine highlight
+			svg.AppendLine($"<rect x='0' y='0' width='14' height='480' fill='rgba(0,0,0,.25)'/>");
+			svg.AppendLine($"<rect x='14' y='0' width='3' height='480' fill='rgba(255,255,255,.14)'/>");
+			// subtle border
+			svg.AppendLine($"<rect x='24' y='18' width='292' height='444' fill='none' stroke='rgba(245,239,224,.35)' stroke-width='2'/>");
+			svg.Append(titleSvg.ToString());
+			svg.AppendLine(authorSvg);
+			svg.AppendLine(badge);
+			svg.AppendLine("</svg>");
+
+			Response.Headers["Cache-Control"] = "public, max-age=86400";
+			return Content(svg.ToString(), "image/svg+xml");
+		}
+
+		// ---------- helpers ----------
+
+		public class RegisterBookRequest
+		{
+			public int UserId { get; set; }
+			public int BookId { get; set; }
+			public int FileId { get; set; }				public int? CoverFileId { get; set; }
+				public string? CoverUrl { get; set; }
+			public string? Title { get; set; }
+			public string? Author { get; set; }
+			public string? Description { get; set; }
+			public bool? IsPublic { get; set; }
+		}
+
+		public class ShareBookRequest
+		{
+			public int UserId { get; set; }
+			public int BookId { get; set; }
+			public bool MakePublic { get; set; }
+			public List<string>? Usernames { get; set; }
+			public List<int>? UserIds { get; set; }
+		}
+
+		private static string BookSql(int? userId, bool catalog)
+		{
+			// Catalog: public books, plus books explicitly shared with the caller.
+			// Library: the caller's own books, plus books shared with them.
+			// FIND_IN_SET matches whole CSV entries (no "user 1 matches 11" false
+			// positives that a LIKE '%1%' would produce).
+			var visibility = catalog
+				? "AND (f.is_public = 1 OR (f.shared_with IS NOT NULL AND f.shared_with != '' AND FIND_IN_SET(@UserId, f.shared_with) > 0))"
+				: "AND (b.user_id = @UserId OR (f.shared_with IS NOT NULL AND f.shared_with != '' AND FIND_IN_SET(@UserId, f.shared_with) > 0))";
+			return $@"
+				SELECT b.id AS book_id, b.file_id, b.title, b.author, b.description,
+				       b.cover_file_id, b.created_at AS book_created, b.updated_at AS book_updated,
+				       b.user_id AS owner_id, u.username AS owner_name,
+				       f.file_name, f.folder_path, f.file_type, f.file_size, f.is_public, f.shared_with,
+				       f.upload_date, f.access_count,
+				       c.given_file_name AS cover_name, c.folder_path AS cover_folder
+				FROM maxhanna.book_library b
+				JOIN maxhanna.file_uploads f ON f.id = b.file_id
+				LEFT JOIN maxhanna.users u ON u.id = b.user_id
+				LEFT JOIN maxhanna.file_uploads c ON c.id = b.cover_file_id
+				WHERE 1=1 {visibility}				ORDER BY b.updated_at DESC
+				LIMIT 1000";
+			}
+			
+		private static List<string> WrapText(string text, int maxChars, int maxLines)
+		{
+			var lines = new List<string>();
+			var words = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+			var current = "";
+			foreach (var w in words)
+			{
+				var candidate = current.Length == 0 ? w : current + " " + w;
+				if (candidate.Length > maxChars && current.Length > 0)
+				{
+					lines.Add(current);
+					current = w;
+					if (lines.Count == maxLines) break;
+				}
+				else current = candidate;
+			}
+			if (lines.Count < maxLines && current.Length > 0) lines.Add(current);
+			if (lines.Count == maxLines)
+			{
+				// elide the rest
+				var idx = 0;
+				for (int i = 0; i < lines.Count; i++) idx += lines[i].Length + 1;
+				if (idx < text.Length) lines[^1] = lines[^1].TrimEnd() + "…";
+			}
+			return lines;
+		}
+
+		private static string Truncate(string s, int max)
+			=> s.Length <= max ? s : s[..(max - 1)] + "…";
+
+		private static async Task<int?> GetFileIdForBook(MySqlConnection conn, int id, bool isBookId)
+		{
+			using var cmd = new MySqlCommand(
+				isBookId ? "SELECT file_id FROM maxhanna.book_library WHERE id = @id LIMIT 1"
+				         : "SELECT file_id FROM maxhanna.book_library WHERE file_id = @id LIMIT 1", conn);
+			cmd.Parameters.AddWithValue("@id", id);
+			var r = await cmd.ExecuteScalarAsync();
+			return r == null || r == DBNull.Value ? (int?)null : Convert.ToInt32(r);
+		}
+
+		private static async Task<int?> GetOwnedBookFileId(MySqlConnection conn, int bookId, int userId)
+		{
+			using var cmd = new MySqlCommand(
+				"SELECT file_id FROM maxhanna.book_library WHERE id = @id AND user_id = @uid LIMIT 1", conn);
+			cmd.Parameters.AddWithValue("@id", bookId);
+			cmd.Parameters.AddWithValue("@uid", userId);
+			var r = await cmd.ExecuteScalarAsync();
+			return r == null || r == DBNull.Value ? (int?)null : Convert.ToInt32(r);
+		}
+
+		private static async Task<List<int>> GetSharedWithList(MySqlConnection conn, int fileId)
+		{
+			var list = new List<int>();
+			using var cmd = new MySqlCommand("SELECT shared_with FROM maxhanna.file_uploads WHERE id = @fid LIMIT 1", conn);
+			cmd.Parameters.AddWithValue("@fid", fileId);
+			var r = await cmd.ExecuteScalarAsync();
+			var s = r as string;
+			if (!string.IsNullOrWhiteSpace(s))
+			{
+				foreach (var p in s.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+				{
+					if (int.TryParse(p, out var id)) list.Add(id);
+				}
+			}
+			return list;
+		}
+
+		private static async Task SaveSharedWith(MySqlConnection conn, int fileId, List<int> ids)
+		{
+			var csv = ids.Count > 0 ? string.Join(",", ids) : (object?)DBNull.Value;
+			using var cmd = new MySqlCommand("UPDATE maxhanna.file_uploads SET shared_with = @sw WHERE id = @fid", conn);
+			cmd.Parameters.AddWithValue("@sw", csv);
+			cmd.Parameters.AddWithValue("@fid", fileId);
+			await cmd.ExecuteNonQueryAsync();
+			_ = csv;
+		}
+
+		private async Task SyncFileVisibility(MySqlConnection conn, int fileId, int userId, bool? makePublic)
+		{
+			if (!makePublic.HasValue) return;
+			using var cmd = new MySqlCommand(
+				"UPDATE maxhanna.file_uploads SET is_public = @p WHERE id = @fid AND user_id = @uid", conn);
+			cmd.Parameters.AddWithValue("@p", makePublic.Value);
+			cmd.Parameters.AddWithValue("@fid", fileId);
+			cmd.Parameters.AddWithValue("@uid", userId);
+			await cmd.ExecuteNonQueryAsync();
+		}
+
+		private static async Task TouchBook(MySqlConnection conn, int bookId)
+		{
+			using var cmd = new MySqlCommand("UPDATE maxhanna.book_library SET updated_at = UTC_TIMESTAMP() WHERE id = @id", conn);
+			cmd.Parameters.AddWithValue("@id", bookId);
+			await cmd.ExecuteNonQueryAsync();
+			_ = conn;
+		}
+
+		private async Task<List<BookDto>> QueryBooks(string sql, Action<MySqlCommand> bind)
+		{
+			var list = new List<BookDto>();
+			using (var conn = new MySqlConnection(_connectionString))
+			{
+				await conn.OpenAsync();
+				using var cmd = new MySqlCommand(sql, conn);
+				bind(cmd);
+				using var rdr = await cmd.ExecuteReaderAsync();
+				while (await rdr.ReadAsync())
+				{
+					list.Add(MapBook(rdr));
+				}
+			}
+			return list;
+		}
+
+		private BookDto MapBook(MySqlDataReader r)
+		{
+			var fileName = r.IsDBNull(r.GetOrdinal("file_name")) ? "" : r.GetString("file_name");
+			var ext = Path.GetExtension(fileName).TrimStart('.').ToLowerInvariant();
+			var sharedWith = r.IsDBNull(r.GetOrdinal("shared_with")) ? "" : r.GetString("shared_with");
+			var sharedIds = new List<int>();
+			if (!string.IsNullOrWhiteSpace(sharedWith))
+			{
+				foreach (var p in sharedWith.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+					if (int.TryParse(p, out var i)) sharedIds.Add(i);
+			}
+
+			// Cover images are plain static assets under the Uploads root — the
+			// same URL pattern the site already uses for display pictures. An
+			// <img src> cannot call the POST GetFileById endpoint, so convert the
+			// stored absolute folder_path to a relative /assets/Uploads/... path.
+			string? coverUrl = null;
+				if (!r.IsDBNull(r.GetOrdinal("cover_file_id")))
+				{
+					var coverName = r.IsDBNull(r.GetOrdinal("cover_name")) ? null : r.GetString("cover_name");
+					var coverFolder = r.IsDBNull(r.GetOrdinal("cover_folder")) ? null : r.GetString("cover_folder");
+					if (!string.IsNullOrWhiteSpace(coverName) && !string.IsNullOrWhiteSpace(coverFolder))
+					{
+						// Convert the stored absolute upload path into the site-relative
+						// /assets/... URL by stripping everything before the Uploads root.
+						var normFolder = coverFolder.Replace("\\", "/");
+						var marker = "/assets/Uploads/";
+						var idx = normFolder.IndexOf("Uploads/", StringComparison.OrdinalIgnoreCase);
+						if (idx >= 0)
+						{
+							var rel = normFolder[(idx + "Uploads/".Length)..];
+							coverUrl = $"{marker}{rel}{Uri.EscapeDataString(coverName)}";
+						}
+					}
+				}
+
+			return new BookDto
+			{
+				BookId = r.GetInt32("book_id"),
+				FileId = r.GetInt32("file_id"),
+				OwnerId = r.GetInt32("owner_id"),
+				OwnerName = r.IsDBNull(r.GetOrdinal("owner_name")) ? "Unknown" : r.GetString("owner_name"),
+				Title = r.IsDBNull(r.GetOrdinal("title")) ? Path.GetFileNameWithoutExtension(fileName) : r.GetString("title"),
+				Author = r.IsDBNull(r.GetOrdinal("author")) ? null : r.GetString("author"),
+				Description = r.IsDBNull(r.GetOrdinal("description")) ? null : r.GetString("description"),
+				CoverFileId = r.IsDBNull(r.GetOrdinal("cover_file_id")) ? null : r.GetInt32("cover_file_id"),
+				CoverUrl = coverUrl,
+				FileType = ext,
+				FileSize = r.IsDBNull(r.GetOrdinal("file_size")) ? 0 : r.GetInt64("file_size"),
+				IsPublic = r.GetBoolean("is_public"),
+				SharedWith = sharedIds,
+				CreatedUtc = r.GetDateTime("book_created"),
+				UpdatedUtc = r.GetDateTime("book_updated"),
+				UploadDateUtc = r.IsDBNull(r.GetOrdinal("upload_date")) ? null : r.GetDateTime("upload_date"),
+				AccessCount = r.IsDBNull(r.GetOrdinal("access_count")) ? 0 : r.GetInt32("access_count"),
+			};
+		}
+
+		public class BookDto
+		{
+			public int BookId { get; set; }
+			public int FileId { get; set; }
+			public int OwnerId { get; set; }
+			public string OwnerName { get; set; } = "Unknown";
+			public string Title { get; set; } = "";
+			public string? Author { get; set; }
+			public string? Description { get; set; }				public int? CoverFileId { get; set; }
+				public string? CoverUrl { get; set; }
+			public string FileType { get; set; } = "";
+			public long FileSize { get; set; }
+			public bool IsPublic { get; set; }
+			public List<int> SharedWith { get; set; } = new();
+			public DateTime CreatedUtc { get; set; }
+			public DateTime UpdatedUtc { get; set; }
+			public DateTime? UploadDateUtc { get; set; }
+			public int AccessCount { get; set; }
+		}
+	}
+}

@@ -56,6 +56,7 @@ import { PublicChatInfo } from '../services/datacontracts/moderator/moderator';
 import { GetChatThemeResponse } from '../services/datacontracts/chat/chat-theme';
 import { SpaceEvolvesComponent } from './space-evolves/space-evolves.component';
 import { MtgArenaComponent } from './mtg-arena/mtg-arena.component';
+import { EbooksComponent } from './ebooks/ebooks.component';
 
 
 @Component({
@@ -182,6 +183,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "🃏", title: "MTG-Arena", content: undefined },
     { ownership: 0, icon: "🚔", title: "GrandTheft", content: undefined },
     { ownership: 0, icon: "🍳", title: "Recipe", content: undefined },
+    { ownership: 0, icon: "📚", title: "eBooks", content: undefined },
     { ownership: 0, icon: "🔄", title: "Conversion", content: undefined },
     { ownership: 0, icon: "ℹ️", title: "Help", content: undefined }
   ];
@@ -430,6 +432,13 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     },
     {
       ownership: 0,
+      title: 'eBooks',
+      content: `Your personal eBook library. Upload books in PDF, TXT or Word formats,
+  give them covers and metadata, keep a private library, and share books with
+  specific users or publicly in the community catalog.`
+    },
+    {
+      ownership: 0,
       title: 'Conversion',
       content: `Conversion tool for converting between different formats.`
     },
@@ -530,6 +539,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     "Planter": PlanterComponent,
     "Weaver": WeaverComponent,
     "Recipe": RecipeComponent,
+    "eBooks": EbooksComponent,
     "Notifications": NotificationsComponent,
     "UpdateUserSettings": UpdateUserSettingsComponent,
     "User-Events": UserEventsComponent,
@@ -771,6 +781,12 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
           this.checkAndClearRouterOutlet();
           this.createComponent('Planter');
         }
+        else if (this.router.url.toLowerCase().includes('ebooks') || this.router.url.toLowerCase().includes('books')) {
+          this.checkAndClearRouterOutlet();
+          const bookIdStr = this.router.url.toLowerCase().split('books/')[1]?.split('?')[0];
+          this.angLocation.replaceState(this.router.url.split('?')[0]);
+          this.createComponent('eBooks', { "preloadBookId": bookIdStr ? parseInt(bookIdStr, 10) : undefined });
+        }
         else if (this.router.url.toLowerCase().includes('marbles')) {
           this.checkAndClearRouterOutlet();
           this.createComponent('Marbles');
@@ -822,6 +838,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         "Crawler",
         "HostAi",
         "Conversion",
+        "eBooks",
         "User",
         "Help",
       ];
