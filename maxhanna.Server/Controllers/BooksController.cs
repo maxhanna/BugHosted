@@ -62,11 +62,11 @@ namespace maxhanna.Server.Controllers
 				// the Books/ upload folder that were never registered via the Add
 				// Book dialog (e.g. uploaded straight through the Files app).
 				var unregistered = await QueryUnregisteredBookFiles(userId, onlyPublic: false);
+				// Saved copies of other users' books replace their catalog entries
+				// in your library view — one card per book, not two.
+				var savedFileIds = registered.Select(b => b.FileId).ToHashSet();
+				unregistered = unregistered.Where(u => !savedFileIds.Contains(u.FileId)).ToList();
 				return Ok(registered.Concat(unregistered).ToList());
-			}
-			catch (Exception ex)
-			{
-				_ = _log.Db($"GetMyLibrary failed: {ex.Message}", userId, "BOOKS", true);
 				return StatusCode(500, "An error occurred while loading your library.");
 			}
 		}
@@ -86,6 +86,10 @@ namespace maxhanna.Server.Controllers
 				// that has never been registered — the raw directory contents the
 				// feature was specced to list. These come back with bookId = 0.
 				var unregistered = await QueryUnregisteredBookFiles(userId ?? 0, onlyPublic: true);
+				// A public file you already saved keeps its original catalog
+				// identity here; your saved entry lives in the library tab instead.
+				var savedFileIds = registered.Select(b => b.FileId).ToHashSet();
+				unregistered = unregistered.Where(u => !savedFileIds.Contains(u.FileId)).ToList();
 				return Ok(registered.Concat(unregistered).ToList());
 			}
 			catch (Exception ex)
@@ -127,7 +131,20 @@ namespace maxhanna.Server.Controllers
 						using var rdr = await cmd.ExecuteReaderAsync();
 						if (!await rdr.ReadAsync()) return NotFound("Uploaded file not found.");
 						var ownerId = rdr.GetInt32("user_id");
-						if (ownerId != req.UserId) return StatusCode(409, "You can only register files you uploaded.");
+						var ownsFile = ownerId == req.UserId;
+						if (!ownsFile)
+						{
+							// Adding someone else's book to your library — they must be
+							// able to read it (public, or shared directly with them).
+							var canRead = rdr.GetBoolean("is_public");
+							if (!canRead)
+							{
+								var sw = rdr.IsDBNull(rdr.GetOrdinal("shared_with")) ? "" : rdr.GetString("shared_with");
+								foreach (var p in sw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+									if (int.TryParse(p, out var sid) && sid == req.UserId) { canRead = true; break; }
+							}
+							if (!canRead) return StatusCode(403, "That book is not public or shared with you.");
+						}
 						fileName = rdr.GetString("file_name");
 						folderPath = rdr.GetString("folder_path");
 						isPublic = rdr.GetBoolean("is_public");
@@ -139,7 +156,9 @@ namespace maxhanna.Server.Controllers
 					// Keep every registered book inside the shared Books folder.
 					var targetFolder = _baseTarget + BooksFolder();
 					var normalizedFolder = (folderPath ?? "").Replace("\\", "/").TrimEnd('/') + "/";
-					if (!normalizedFolder.EndsWith(BooksFolder(), StringComparison.OrdinalIgnoreCase))
+					// Only the owner's copy is relocated into Books/ — saving someone
+					// else's book must never touch their file location.
+					if (ownsFile && !normalizedFolder.EndsWith(BooksFolder(), StringComparison.OrdinalIgnoreCase))
 					{
 						// Move the file into Books/ (and move any DB registration with it).
 						if (!Directory.Exists(targetFolder)) Directory.CreateDirectory(targetFolder);
@@ -162,9 +181,12 @@ namespace maxhanna.Server.Controllers
 
 					// If the file is already registered as a book, just refresh metadata.
 					using (var exists = new MySqlCommand(
-						"SELECT id FROM maxhanna.book_library WHERE file_id = @fid LIMIT 1", conn))
+						// Scoped to the caller: several users may each keep their own
+						// library entry for the same underlying file.
+						"SELECT id FROM maxhanna.book_library WHERE file_id = @fid AND user_id = @uid LIMIT 1", conn))
 					{
 						exists.Parameters.AddWithValue("@fid", req.FileId);
+						exists.Parameters.AddWithValue("@uid", req.UserId);
 						var existing = await exists.ExecuteScalarAsync();
 						if (existing != null && existing != DBNull.Value)
 						{
@@ -203,7 +225,9 @@ namespace maxhanna.Server.Controllers
 					// Mirror sharing onto the underlying file row so existing file
 					// permissions (GetFileById works for anyone; GetDirectory honours
 					// is_public/shared_with) stay consistent with the book's sharing.
-					await SyncFileVisibility(conn, req.FileId, req.UserId, req.IsPublic);
+					// Sharing mirrors only apply to the owner — a saved copy of
+					// someone else's book can never change their file's visibility.
+					if (ownsFile) await SyncFileVisibility(conn, req.FileId, req.UserId, req.IsPublic);
 					_ = isPublic;
 
 					return Ok(new { bookId, fileId = req.FileId, updated = false });
@@ -341,7 +365,8 @@ namespace maxhanna.Server.Controllers
 
 				if (req.MakePublic) // request to un-public
 				{
-					await SyncFileVisibility(conn, fileId.Value, req.UserId, false);
+					if (await FileBelongsToUser(conn, fileId.Value, req.UserId))
+						await SyncFileVisibility(conn, fileId.Value, req.UserId, false);
 				}
 				if ((req.Usernames?.Count ?? 0) > 0 || (req.UserIds?.Count ?? 0) > 0)
 				{
@@ -551,9 +576,7 @@ namespace maxhanna.Server.Controllers
 			cmd.Parameters.AddWithValue("@id", id);
 			var r = await cmd.ExecuteScalarAsync();
 			return r == null || r == DBNull.Value ? (int?)null : Convert.ToInt32(r);
-		}
-
-		private static async Task<int?> GetOwnedBookFileId(MySqlConnection conn, int bookId, int userId)
+		}				private static async Task<bool> FileBelongsToUser(MySqlConnection conn, int fileId, int userId)
 		{
 			using var cmd = new MySqlCommand(
 				"SELECT file_id FROM maxhanna.book_library WHERE id = @id AND user_id = @uid LIMIT 1", conn);
@@ -644,7 +667,7 @@ namespace maxhanna.Server.Controllers
 				       u.username AS owner_name
 				FROM maxhanna.file_uploads f
 				LEFT JOIN maxhanna.users u ON u.id = f.user_id
-				LEFT JOIN maxhanna.book_library b ON b.file_id = f.id
+				LEFT JOIN maxhanna.book_library b ON b.file_id = f.id AND b.user_id = @UserId
 				WHERE b.id IS NULL
 				  AND LOWER(SUBSTRING_INDEX(f.file_name, '.', -1)) IN ({exts})
 				  AND (f.is_folder IS NULL OR f.is_folder = 0)

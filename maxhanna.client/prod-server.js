@@ -302,7 +302,9 @@ if (config.enableHelmet) {
         // Media, images, frames
         imgSrc: ["'self'", "https:", "data:", "blob:", "https://*.ytimg.com"],
         mediaSrc: ["'self'", "https:", "data:", "blob:"],
-        frameSrc: ["'self'", "https:"],
+        // blob: required for the eBooks PDF reader (PDF fetched as a Blob and
+        // rendered in an iframe via an object URL) and any other local previews
+        frameSrc: ["'self'", "https:", "blob:", "data:"],
 
         // Workers (pthreads / Emscripten) — REQUIRED
         "worker-src": ["'self'", "blob:"],
