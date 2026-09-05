@@ -368,12 +368,74 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
     }
   }
 
-  /** Cover load failed (e.g. missing image) — fall back to the generated SVG. */
-  onCoverError(event: Event, book: BookEntry) {
-    const img = event.target as HTMLImageElement;
-    if (img) {
-      img.src = this.booksService.getCoverUrl({ ...book, coverFileId: undefined, coverUrl: undefined });
+  // ---- cover art ----
+  // Per-card cover state, keyed by fileId: undefined = still showing the real
+  // cover/SVG; 'loading' = PDF thumbnail rendering in the background; 'pdf' =
+  // first-page thumbnail; 'svg' = fell back to the generated cover.
+  private coverStates = new Map<number, 'loading' | 'pdf' | 'svg'>();
+
+  /** Source for a card's cover image: uploaded cover or generated SVG, unless
+   *  a rendered PDF first-page thumbnail is available for the card. */
+  coverSrc(book: BookEntry): string {
+    if (this.coverStates.get(book.fileId) === 'pdf') {
+      const thumb = this.booksService.peekPdfThumbnail(book.fileId);
+      if (thumb) return thumb;
     }
+    return this.booksService.getCoverUrl(book);
+  }
+
+  /** First successful cover load — for PDFs without a custom cover, kick off
+   *  the first-page thumbnail render in the background and swap it in when done. */
+  async onCoverLoad(book: BookEntry) {
+    const fileId = book.fileId;
+    const state = this.coverStates.get(fileId);
+    if (state !== undefined) return; // thumbnail/fallback load — nothing to do
+    if ((book.fileType || '').toLowerCase() !== 'pdf' || !fileId) {
+      this.coverStates.set(fileId, 'svg');
+      return;
+    }
+    this.coverStates.set(fileId, 'loading');
+    const url = await this.booksService.getPdfThumbnail(fileId);
+    // The card may have left the DOM (tab switch/filter) while rendering.
+    if (url && this.books.some(b => b.fileId === fileId)) {
+      this.coverStates.set(fileId, 'pdf');
+      this.cdr.detectChanges();
+    } else if (!url) {
+      this.coverStates.set(fileId, 'svg');
+    }
+  }
+
+  /** Cover load failed — fall back through PDF thumbnail to the generated SVG. */
+  onCoverError(event: Event, book: BookEntry) {
+    const img = event.target as HTMLImageElement | null;
+    const fileId = book.fileId;
+    const state = this.coverStates.get(fileId);
+    if (state === 'loading') {
+      // Thumbnail render still in flight — show the generated SVG so the card
+      // never looks broken; the thumbnail swaps in when it lands.
+      if (img) img.src = this.booksService.getCoverUrl(book);
+      return;
+    }
+    if (state === undefined && (book.fileType || '').toLowerCase() === 'pdf' && fileId) {
+      // The real cover 404'd — try the PDF thumbnail before giving up on art.
+      this.coverStates.set(fileId, 'loading');
+      const cached = this.booksService.peekPdfThumbnail(fileId);
+      if (cached && img) { img.src = cached; return; }
+      void this.booksService.getPdfThumbnail(fileId).then(url => {
+        if (url && this.books.some(b => b.fileId === fileId)) {
+          this.coverStates.set(fileId, 'pdf');
+          this.cdr.detectChanges();
+        } else {
+          this.coverStates.set(fileId, 'svg');
+        }
+      });
+      if (img) img.removeAttribute('src');
+      return;
+    }
+    this.coverStates.set(fileId, 'svg');
+    if (img && state !== 'svg') img.src = this.booksService.getCoverUrl(book);
+    // state already 'svg' means the SVG itself failed — leave the image alone
+    // rather than re-setting the same URL and erroring forever.
   }
 
   /** Jump to the uploader's profile page. */

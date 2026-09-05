@@ -104,8 +104,8 @@
 
       <div class="book-card" *ngFor="let book of filteredBooks" (click)="openReader(book)">
         <div class="cover-wrap">
-          <img class="cover-img" [src]="booksService.getCoverUrl(book)" [alt]="book.title" loading="lazy"
-            (error)="onCoverError($event, book)" />
+          <img class="cover-img" [src]="coverSrc(book)" [alt]="book.title" loading="lazy"
+            (load)="onCoverLoad(book)" (error)="onCoverError($event, book)" />
           <span class="format-badge">{{ formatLabel(book.fileType) }}</span>
           <span class="visibility-badge">{{ visibilityLabel(book) }}</span>
         </div>
@@ -119,14 +119,14 @@
           </div>
           <div class="book-description" *ngIf="book.description" [title]="book.description">{{ book.description }}</div>
           <div class="book-actions" (click)="$event.stopPropagation()">
-            <button class="mini-btn" (click)="openReader(book)">📖 Read</button>
+            <button class="mini-btn" title="Open this book in the reader" (click)="openReader(book)">📖 Read</button>
             <!-- Save someone else's public/shared book into your library -->
-            <button class="mini-btn register-btn" *ngIf="canAddToLibrary(book)" (click)="quickRegister(book)">➕ Add to library</button>
-             <button class="mini-btn" *ngIf="canManage(book) && !isUnregistered(book) && ownsFileOf(book)" (click)="openSharePanel(book)">🔗 Share</button>
-            <button class="mini-btn" (click)="downloadBookFile(book)">⬇️</button>
-            <button class="mini-btn" *ngIf="canManage(book) && !isUnregistered(book)" (click)="openEditPanel(book)">✏️ Edit</button>
-            <button class="mini-btn danger" *ngIf="canManage(book) && !isUnregistered(book)" titl="Remove From Library" (click)="removeBook(book)">🗑</button>
-            <button class="mini-btn" (click)="copyShareLink(book)">📋</button>
+            <button class="mini-btn register-btn" title="Save this book to your library" *ngIf="canAddToLibrary(book)" (click)="quickRegister(book)">➕ Add to library</button>
+             <button class="mini-btn" title="Share this book" *ngIf="canManage(book) && !isUnregistered(book) && ownsFileOf(book)" (click)="openSharePanel(book)">🔗 Share</button>
+            <button class="mini-btn" title="Download this book" (click)="downloadBookFile(book)">⬇️</button>
+            <button class="mini-btn" title="Edit book details" *ngIf="canManage(book) && !isUnregistered(book)" (click)="openEditPanel(book)">✏️ Edit</button>
+            <button class="mini-btn danger" title="Remove from library" *ngIf="canManage(book) && !isUnregistered(book)" (click)="removeBook(book)">🗑</button>
+            <button class="mini-btn" title="Copy share link" (click)="copyShareLink(book)">📋</button>
           </div>
         </div>
       </div>

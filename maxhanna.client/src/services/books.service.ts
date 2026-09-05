@@ -1,10 +1,31 @@
 import { Injectable } from '@angular/core';
 import { BookEntry } from './datacontracts/books/book-entry';
 
+/** Minimal structural types for the parts of pdf.js the thumbnail renderer
+ *  uses — the dynamic import is cast through these so the service never
+ *  hard-depends on pdf.js typing quirks. Same pattern as the reader. */
+type PdfViewportLike = { width: number; height: number; clone(o: { scale: number }): PdfViewportLike };
+type PdfThumbPage = {
+  getViewport(o: { scale: number }): PdfViewportLike;
+  render(p: { canvasContext: CanvasRenderingContext2D; viewport: PdfViewportLike }): { cancel(): void; promise: Promise<void> };
+};
+type PdfThumbDoc = { numPages: number; getPage(n: number): Promise<PdfThumbPage>; destroy(): Promise<void> };
+type PdfJsThumb = {
+  GlobalWorkerOptions: { workerSrc: string };
+  getDocument(src: { data: ArrayBuffer }): { promise: Promise<PdfThumbDoc> };
+};
+
 @Injectable({
   providedIn: 'root'
 })
 export class BooksService {
+  // ---- PDF first-page thumbnails (static so they survive component reuse) ----
+  private static thumbCache = new Map<number, string>();
+  private static thumbFailed = new Set<number>();
+  private static thumbInflight = new Map<number, Promise<string | null>>();
+  private static thumbChain: Promise<unknown> = Promise.resolve();
+  private static pdfjs?: PdfJsThumb;
+
   constructor() { }
 
   /** Books the user has added to their own library. */
@@ -126,6 +147,85 @@ export class BooksService {
     } catch (error) {
       console.error('Error removing book:', error);
       return false;
+    }
+  }
+
+  /** Cached first-page thumbnail for a PDF book, when one has been rendered. */
+  peekPdfThumbnail(fileId: number): string | undefined {
+    return BooksService.thumbCache.get(fileId);
+  }
+
+  /** Lazily loads pdf.js and points its worker at the copied asset. */
+  private async loadPdfJs(): Promise<PdfJsThumb> {
+    if (BooksService.pdfjs) return BooksService.pdfjs;
+    const mod = (await import('pdfjs-dist')) as unknown as PdfJsThumb;
+    mod.GlobalWorkerOptions.workerSrc = 'assets/pdfjs/pdf.worker.min.mjs';
+    BooksService.pdfjs = mod;
+    return mod;
+  }
+
+  /** Renders page 1 of a PDF book to a small JPEG data URL. Requests are
+   *  deduplicated per fileId and serialized through one chain so a catalog
+   *  full of PDFs never hammers the server with parallel downloads. Failed
+   *  renders are remembered so broken files aren't retried on every scroll. */
+  async getPdfThumbnail(fileId: number): Promise<string | null> {
+    const cached = BooksService.thumbCache.get(fileId);
+    if (cached) return cached;
+    if (BooksService.thumbFailed.has(fileId)) return null;
+    const existing = BooksService.thumbInflight.get(fileId);
+    if (existing) return existing;
+    const promise = new Promise<string | null>(resolve => {
+      BooksService.thumbChain = BooksService.thumbChain
+        .then(() => this.renderPdfThumbnail(fileId))
+        .then(url => resolve(url))
+        .catch(() => resolve(null));
+    });
+    BooksService.thumbInflight.set(fileId, promise);
+    return promise;
+  }
+
+  private async renderPdfThumbnail(fileId: number): Promise<string | null> {
+    try {
+      if (typeof document === 'undefined') return null;
+      const blob = await this.downloadBook(fileId);
+      if (!blob || blob.size === 0) {
+        BooksService.thumbFailed.add(fileId);
+        return null;
+      }
+      const pdfjs = await this.loadPdfJs();
+      const data = await blob.arrayBuffer();
+      const doc = await pdfjs.getDocument({ data }).promise;
+      try {
+        const page = await doc.getPage(1);
+        // Target a ~340px-wide cover at device clarity, capped so huge pages
+        // don't blow the canvas size.
+        const base = page.getViewport({ scale: 1 });
+        const scale = Math.min(2, Math.max(0.5, 340 / Math.max(1, base.width)));
+        const viewport = page.getViewport({ scale });
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.ceil(viewport.width);
+        canvas.height = Math.ceil(viewport.height);
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          BooksService.thumbFailed.add(fileId);
+          return null;
+        }
+        // PDF pages have no background — fill white or the JPEG turns black.
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        const url = canvas.toDataURL('image/jpeg', 0.72);
+        BooksService.thumbCache.set(fileId, url);
+        return url;
+      } finally {
+        await doc.destroy().catch(() => { });
+      }
+    } catch (error) {
+      console.error('Error rendering PDF thumbnail:', error);
+      BooksService.thumbFailed.add(fileId);
+      return null;
+    } finally {
+      BooksService.thumbInflight.delete(fileId);
     }
   }
 
