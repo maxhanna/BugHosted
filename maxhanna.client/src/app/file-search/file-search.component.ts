@@ -3136,8 +3136,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
    *  without per-row (and per-change-detection) requests. */
   private async preloadLibraryCache(): Promise<void> {
     try {
-      if (!this.isBookView || !this.isInBooksDirectory() || !this.userIsLoggedIn()) return;
-      const files = this.directory?.data?.filter(f => f && !f.isFolder && f.id != null) ?? [];
+      if (!this.isBookView || !this.userIsLoggedIn()) return;
+      const files = this.directory?.data?.filter(f => f && f.id != null) ?? [];
       if (!files.length || !this.currentUser?.id) return;
       const token = await this.parentRef?.getSessionToken();
       const entries = await this.booksService.getMyLibrary(this.currentUser.id, token);
@@ -3152,6 +3152,31 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
 
   // ---- book view helpers (display only) ----
+
+  /** Sync read of the library membership cache for templates: true when the
+   *  file (or folder) is known to be in the current user's book library. */
+  isInMyLibrary(file: FileEntry): boolean {
+    if (!file || file.id == null) return false;
+    return this.isFileInMyLibraryCache.get(file.id) === true;
+  }
+
+  /** Single entry point for the book-view Add/Remove library buttons. Files
+   *  and folders both toggle: members are removed, non-members are added. */
+  async toggleLibrary(file: FileEntry, event?: Event) {
+    if (event) event.stopPropagation();
+    if (!file || file.id == null) return;
+    if (!this.currentUser?.id) {
+      this.parentRef?.showNotification('You must be logged in to build your library.');
+      return;
+    }
+    if (this.isInMyLibrary(file)) {
+      await this.removeFromLibrary(file);
+    } else if (file.isFolder) {
+      await this.addFolderToLibrary(file);
+    } else {
+      await this.addToLibrary(file);
+    }
+  }
 
   async isFileInMyLibrary(file: FileEntry): Promise<boolean> {
     if (!file?.id) return false;

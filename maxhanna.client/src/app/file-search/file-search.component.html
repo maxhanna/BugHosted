@@ -101,13 +101,12 @@
                   <span *ngIf="!isEditing.includes(file.id)"
                     class="fileFolderNameSpan {{file.isFolder ? 'folder' : ''}}"
                     (click)="!disabled && selectFile(file);" [id]="'fileIdName'+file.id">
-                    <span class="bookViewLibraryInlineActions" *ngIf="isBookView && isInBooksDirectory() && userIsLoggedIn()">
+                    <span class="bookViewLibraryInlineActions" *ngIf="isBookView && userIsLoggedIn()">
                       <button class="bookLibraryBtn"
                         [disabled]="isAddingToLibrary || isRemovingFromLibrary"
-                        [title]="file.isFolder ? ('Add folder to My Library') : (isFileInMyLibraryCache.get(file.id) ? 'Remove from My Library' : 'Add book to My Library')"
-                        (click)="file.isFolder ? addFolderToLibrary(file) : (isFileInMyLibraryCache.get(file.id) ? removeFromLibrary(file) : addToLibrary(file))"
-                        *ngIf="file.isFolder || isFileInMyLibraryCache.get(file.id) !== null">
-                        {{ isFileInMyLibraryCache.get(file.id) ? '🧡 Remove from My Library' : '📚 Add to My Library' }}
+                        [title]="isInMyLibrary(file) ? 'Remove from My Library' : (file.isFolder ? 'Add folder to My Library' : 'Add book to My Library')"
+                        (click)="toggleLibrary(file, $event)">
+                        {{ isInMyLibrary(file) ? '🧡 Remove from My Library' : '📚 Add to My Library' }}
                       </button>
                       <span class="bookViewLibraryInlineSpacer"></span>
                     </span>
@@ -256,6 +255,12 @@
                 <div class="file-type-badge" *ngIf="!file.isFolder && file.fileType">{{ file.fileType }}</div>
               </div>
               <div class="grid-label">{{ file?.givenFileName ?? getFileWithoutExtension(file.fileName ?? '') }}</div>
+              <button *ngIf="isBookView && userIsLoggedIn()" class="bookLibraryBtn gridLibraryBtn"
+                [disabled]="isAddingToLibrary || isRemovingFromLibrary"
+                [title]="isInMyLibrary(file) ? 'Remove from My Library' : (file.isFolder ? 'Add folder to My Library' : 'Add book to My Library')"
+                (click)="toggleLibrary(file, $event)">
+                {{ isInMyLibrary(file) ? '🧡 Remove' : '📚 Add' }}
+              </button>
             </div>
           </div>
         </ng-template>

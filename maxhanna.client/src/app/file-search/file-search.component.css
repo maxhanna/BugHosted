@@ -1089,3 +1089,37 @@
   font-weight: 800;
   background: var(--hover-bg-color, #3a3f45);
 }
+
+/* ============ Book view library buttons (isBookView) ============ */
+.bookViewLibraryInlineActions {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 0.35rem;
+}
+.bookViewLibraryInlineSpacer {
+  width: 0.35rem;
+}
+.bookLibraryBtn {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-color, rgba(128,128,128,0.4));
+  background: var(--button-bg-color, rgba(128,128,128,0.12));
+  color: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.bookLibraryBtn:hover:not(:disabled) {
+  opacity: 0.85;
+  cursor: pointer;
+}
+.bookLibraryBtn:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+.gridLibraryBtn {
+  width: 100%;
+  margin-top: 4px;
+  font-size: 11px;
+}
