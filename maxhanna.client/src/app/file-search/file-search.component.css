@@ -1117,7 +1117,7 @@
 }
 .bookFilterBtn.active {
   font-weight: 800;
-  background: var(--hover-bg-color, #3a3f45);
+  box-shadow: 2px 2px 2px var(--main-link-color);
 }
 
 /* ============ Book view library buttons (isBookView) ============ */
