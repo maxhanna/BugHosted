@@ -118,31 +118,66 @@ export class FileUploadComponent implements AfterViewInit {
         }
       }
 
-      // If there are already files selected, append new ones, enforcing maxSelectedFiles
+      // If there are already files selected, append new ones, enforcing maxSelectedFiles.
+      // Duplicates (in-selection + server-side) are removed FIRST so the max
+      // limit applies to the first N NON-duplicate files, not the first N files.
       const currentNames = new Set(this.uploadFileList.map(f => f.name));
-      const newFiles = validFiles.filter(f => !currentNames.has(f.name));
-      const combined = this.uploadFileList.concat(newFiles);
-      if (combined.length > this.maxSelectedFiles) {
-        alert(`Cannot add more than ${this.maxSelectedFiles} files! Took the first ${this.maxSelectedFiles} valid files for upload.`);
+      const seenInSelection = new Set<string>();
+      const newUniqueFiles: File[] = [];
+      const intraSelectionDupNames: string[] = [];
+      for (const f of validFiles) {
+        if (currentNames.has(f.name)) { continue; }
+        if (seenInSelection.has(f.name)) {
+          if (!intraSelectionDupNames.includes(f.name)) { intraSelectionDupNames.push(f.name); }
+          continue;
+        }
+        seenInSelection.add(f.name);
+        newUniqueFiles.push(f);
       }
-      // Remove duplicates from the combined list to ensure no duplicate files in uploadFileList
-      const uniqueFiles = Array.from(new Set(combined.map(f => f.name))).map(name => combined.find(f => f.name === name)!);
-      this.uploadFileList = uniqueFiles.slice(0, this.maxSelectedFiles);
-      // Pre-mark duplicates before upload
+      // Remove any internal duplicates from the combined list, preserving order.
+      const seenCombined = new Set<string>();
+      const combinedCandidates: File[] = [];
+      for (const f of this.uploadFileList.concat(newUniqueFiles)) {
+        if (seenCombined.has(f.name)) { continue; }
+        seenCombined.add(f.name);
+        combinedCandidates.push(f);
+      }
+      // Run the server duplicate check against ALL candidates (before truncating)
+      // so duplicates beyond the max window don't waste kept slots.
+      this.uploadFileList = combinedCandidates;
       this.duplicateFileNames = [];
       await this.checkNames();
-      // Track duplicate files
 
-      const tmpDupFilenames = this.duplicatesFound;
-      const trueDuplicateNames = Object
-        .entries(tmpDupFilenames)
+      const serverDuplicateNames = Object
+        .entries(this.duplicatesFound)
         .filter(([_, isDup]) => isDup)
         .map(([name]) => name);
+      const serverDuplicateSet = new Set(serverDuplicateNames);
 
+      // Keep only non-duplicates, then apply the max limit.
+      const nonDupCandidates = combinedCandidates.filter(f => !serverDuplicateSet.has(f.name));
+      const skippedDupCount = combinedCandidates.length - nonDupCandidates.length;
+      if (combinedCandidates.length > this.maxSelectedFiles || nonDupCandidates.length > this.maxSelectedFiles) {
+        alert(`Cannot add more than ${this.maxSelectedFiles} files! Took the first ${this.maxSelectedFiles} NON-duplicate files for upload.` +
+          (skippedDupCount > 0 ? ` Skipped ${skippedDupCount} duplicate${skippedDupCount > 1 ? 's' : ''}.` : ''));
+      }
+      if (nonDupCandidates.length === 0 && combinedCandidates.length > 0) {
+        // All candidates are duplicates: keep them visible so the existing
+        // "DUPLICATE / All files are duplicates" UX still applies.
+        this.uploadFileList = combinedCandidates.slice(0, this.maxSelectedFiles);
+      } else {
+        this.uploadFileList = nonDupCandidates.slice(0, this.maxSelectedFiles);
+      }
+      // Keep duplicatesFound in sync with only the kept files.
+      const keptNames = new Set(this.uploadFileList.map(f => f.name));
+      for (const name of Object.keys(this.duplicatesFound)) {
+        if (!keptNames.has(name)) { delete this.duplicatesFound[name]; }
+      }
+      // Track duplicate files (server dups across all candidates + re-selected existing + intra-selection dups)
       const duplicateNames = validFiles
         .filter(f => currentNames.has(f.name))
         .map(f => f.name);
-      this.duplicateFileNames = [...trueDuplicateNames, ...duplicateNames];
+      this.duplicateFileNames = Array.from(new Set([...serverDuplicateNames, ...duplicateNames, ...intraSelectionDupNames]));
       // reset the file input so the same file can be selected again if desired
       try { this.fileInput.nativeElement.value = ''; } catch { }
       this.userUploadEvent.emit(this.uploadFileList);
@@ -177,8 +212,11 @@ export class FileUploadComponent implements AfterViewInit {
       return;
     }
     if (this.uploadFileList.length > this.maxSelectedFiles) {
-      alert(`Cannot add more then ${this.maxSelectedFiles} files! Took the first ${this.maxSelectedFiles} files for upload.`);
-      this.uploadFileList = this.uploadFileList.slice(0, this.maxSelectedFiles);
+      // Safety net: drop server duplicates first so the max keeps NON-duplicates.
+      const nonDups = this.uploadFileList.filter(f => !this.duplicatesFound[f.name]);
+      const keepFrom = nonDups.length > 0 ? nonDups : this.uploadFileList;
+      alert(`Cannot add more then ${this.maxSelectedFiles} files! Took the first ${this.maxSelectedFiles} NON-duplicate files for upload.`);
+      this.uploadFileList = keepFrom.slice(0, this.maxSelectedFiles);
     }
     if (this.getOverallProgress() > 0) {
       return;
