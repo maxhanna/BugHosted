@@ -3663,7 +3663,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     // Traffic on the bridge and traffic below it share X/Z coordinates. They
     // must never be treated as a lead vehicle for one another.
     const otherY = Number.isFinite(oy) ? oy : getTerrainHeight(ox, oz, undefined, true);
-    if (Math.abs(this.trafficLayerY(car) - otherY) > 3.0) return;
+    if (Math.abs(this.trafficLayerY(car) - (otherY??0)) > 3.0) return;
     const carFwdX = Math.sin(car.yaw);
     const carFwdZ = Math.cos(car.yaw);
     let ahead = dx * carFwdX + dz * carFwdZ;
