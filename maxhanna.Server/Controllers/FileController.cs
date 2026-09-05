@@ -1855,6 +1855,69 @@ namespace maxhanna.Server.Controllers
             }
         }
 
+        // Range-capable byte serving for pdf.js cover thumbnails: the client
+        // renders only page 1, so it fetches just the byte ranges it needs
+        // (initial chunk + xref tail + page-1 objects) instead of the whole
+        // file. GET-only because the pdf.js range transport issues GETs, and
+        // it deliberately skips access-count writes — a single cover render
+        // issues several range probes that must not count as views.
+        // Visibility matches GetFileById: fetching by id is a shared link.
+        [HttpGet("/File/GetFileRange/{fileId}", Name = "GetFileRange")]
+        public async Task<IActionResult> GetFileRange(int fileId)
+        {
+            try
+            {
+                if (fileId == 0)
+                {
+                    return BadRequest("File id is missing.");
+                }
+
+                using (var connection = new MySqlConnection(_connectionString))
+                {
+                    await connection.OpenAsync();
+
+                    string sql = @"
+                        SELECT file_name, folder_path
+                        FROM maxhanna.file_uploads
+                        WHERE id = @fileId LIMIT 1;";
+
+                    using (var command = new MySqlCommand(sql, connection))
+                    {
+                        command.Parameters.AddWithValue("@fileId", fileId);
+
+                        using (var reader = await command.ExecuteReaderAsync())
+                        {
+                            if (!await reader.ReadAsync())
+                            {
+                                return NotFound();
+                            }
+
+                            string fileName = reader.GetString("file_name");
+                            string folderPath = reader.GetString("folder_path");
+
+                            string filePath = Path.Combine(folderPath, fileName);
+
+                            if (!System.IO.File.Exists(filePath))
+                            {
+                                return NotFound();
+                            }
+
+                            string contentType = GetContentType(Path.GetExtension(filePath));
+
+                            // enableRangeProcessing answers Range requests
+                            // with 206 Partial Content.
+                            return PhysicalFile(filePath, contentType, enableRangeProcessing: true);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                await _log.Db("An error occurred while serving file range: " + ex.Message, 0, "FILE", true);
+                return StatusCode(500, "An error occurred while serving file range.");
+            }
+        }
+
         [HttpPost("/File/RecordSelection", Name = "RecordSelection")]
         public async Task<IActionResult> RecordSelection([FromBody] RecordSelectionRequest? request)
         {

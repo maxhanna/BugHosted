@@ -24,11 +24,18 @@
     <div>
       <div class="status">{{status}}</div>
       <div class="weapon-hud">
-        <div class="weapon-row" *ngFor="let weapon of weaponStatus" [style.--weapon-color]="weapon.color">
-          <strong>{{weapon.name}}</strong><span>{{weapon.interval ? ('Every ' + (weapon.interval | number:'1.1-2') +
-            's') : 'Passive'}}</span>
+        <div class="weapon-slots">
+          <strong>WEAPON SLOTS</strong>
+          <div class="slot-grid">
+            <div class="weapon-slot" *ngFor="let slot of weaponSlots" [class.filled]="slot.filled"
+              [style.--weapon-color]="slot.color" [title]="slot.label">
+              <span class="slot-icon">{{slot.icon}}</span>
+              <span class="slot-label">{{slot.label}}</span>
+              <span class="slot-interval" *ngIf="slot.filled">{{slot.interval ? ('Every ' + (slot.interval |
+                number:'1.1-2') + 's') : 'Passive'}}</span>
+            </div>
+          </div>
         </div>
-        <div class="weapon-slots"><strong>WEAPON SLOTS</strong><span *ngFor="let weapon of equippedWeapons; let i = index">{{i + 1}}. {{weaponLabel(weapon)}}</span><span *ngIf="equippedWeapons.length < weaponSlotLimit">{{weaponSlotLimit - equippedWeapons.length}} open</span></div>
       </div>
       <div class="upgrade-dock" *ngIf="upgradeSections.length">
         <div class="upgrade-section" *ngFor="let section of upgradeSections">

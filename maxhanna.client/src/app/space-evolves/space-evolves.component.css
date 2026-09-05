@@ -234,6 +234,66 @@
     color: #a8c4d3
 }
 
+.weapon-slots {
+    background: rgba(4, 14, 32, .9);
+    border: 1px solid #315474;
+    border-radius: 6px;
+    padding: 5px 8px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    font-size: 11px;
+    color: #a8c4d3
+}
+
+.slot-grid {
+    display: flex;
+    gap: 6px
+}
+
+.weapon-slot {
+    width: 64px;
+    min-height: 64px;
+    border-radius: 8px;
+    border: 1px dashed rgba(120, 160, 200, .35);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 6px 4px;
+    color: rgba(168, 196, 211, .5);
+    background: rgba(10, 25, 50, .5)
+}
+
+.weapon-slot.filled {
+    border-style: solid;
+    border-color: var(--weapon-color, #bdefff);
+    color: #dfeef5;
+    background: rgba(8, 20, 40, .95);
+    box-shadow: 0 0 10px var(--weapon-color, #bdefff)
+}
+
+.slot-icon {
+    font-size: 22px;
+    line-height: 1
+}
+
+.slot-label {
+    font-size: 9px;
+    font-weight: 700;
+    text-align: center
+}
+
+.weapon-slot.filled .slot-label {
+    color: var(--weapon-color, #bdefff)
+}
+
+.slot-interval {
+    font-size: 8px;
+    opacity: .75
+}
+
 .upgrade-dock { 
     z-index: 2;
     display: flex;

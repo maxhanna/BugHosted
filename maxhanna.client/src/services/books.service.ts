@@ -12,7 +12,7 @@ type PdfThumbPage = {
 type PdfThumbDoc = { numPages: number; getPage(n: number): Promise<PdfThumbPage>; destroy(): Promise<void> };
 type PdfJsThumb = {
   GlobalWorkerOptions: { workerSrc: string };
-  getDocument(src: { data: ArrayBuffer }): { promise: Promise<PdfThumbDoc> };
+  getDocument(src: { data: ArrayBuffer } | { url: string; rangeChunkSize?: number; disableAutoFetch?: boolean }): { promise: Promise<PdfThumbDoc> };
 };
 
 @Injectable({
@@ -187,34 +187,41 @@ export class BooksService {
   private async renderPdfThumbnail(fileId: number): Promise<string | null> {
     try {
       if (typeof document === 'undefined') return null;
+      const pdfjs = await this.loadPdfJs();
+      // Prefer range requests: only the bytes needed for page 1 cross the
+      // wire (see FileController.GetFileRange). Falls through to the full
+      // download when the server or file doesn't cooperate.
+      try {
+        const rangeDoc = await pdfjs.getDocument({
+          url: `/file/getfilerange/${fileId}`,
+          rangeChunkSize: 65536,
+          disableAutoFetch: true,
+        }).promise;
+        try {
+          const url = await this.renderFirstPage(rangeDoc);
+          if (url) {
+            BooksService.thumbCache.set(fileId, url);
+            return url;
+          }
+        } finally {
+          await rangeDoc.destroy().catch(() => { });
+        }
+      } catch (rangeError) {
+        console.debug('Range thumbnail failed, falling back to full download:', rangeError);
+      }
       const blob = await this.downloadBook(fileId);
       if (!blob || blob.size === 0) {
         BooksService.thumbFailed.add(fileId);
         return null;
       }
-      const pdfjs = await this.loadPdfJs();
       const data = await blob.arrayBuffer();
       const doc = await pdfjs.getDocument({ data }).promise;
       try {
-        const page = await doc.getPage(1);
-        // Target a ~340px-wide cover at device clarity, capped so huge pages
-        // don't blow the canvas size.
-        const base = page.getViewport({ scale: 1 });
-        const scale = Math.min(2, Math.max(0.5, 340 / Math.max(1, base.width)));
-        const viewport = page.getViewport({ scale });
-        const canvas = document.createElement('canvas');
-        canvas.width = Math.ceil(viewport.width);
-        canvas.height = Math.ceil(viewport.height);
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
+        const url = await this.renderFirstPage(doc);
+        if (!url) {
           BooksService.thumbFailed.add(fileId);
           return null;
         }
-        // PDF pages have no background — fill white or the JPEG turns black.
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        await page.render({ canvasContext: ctx, viewport }).promise;
-        const url = canvas.toDataURL('image/jpeg', 0.72);
         BooksService.thumbCache.set(fileId, url);
         return url;
       } finally {
@@ -226,6 +233,33 @@ export class BooksService {
       return null;
     } finally {
       BooksService.thumbInflight.delete(fileId);
+    }
+  }
+
+  /** Renders page 1 of an already-open pdf.js document to a small JPEG data
+   *  URL (null when the page can't be rendered). Shared by the range-loading
+   *  and full-download thumbnail paths. */
+  private async renderFirstPage(doc: PdfThumbDoc): Promise<string | null> {
+    try {
+      const page = await doc.getPage(1);
+      // Target a ~340px-wide cover at device clarity, capped so huge pages
+      // don't blow the canvas size.
+      const base = page.getViewport({ scale: 1 });
+      const scale = Math.min(2, Math.max(0.5, 340 / Math.max(1, base.width)));
+      const viewport = page.getViewport({ scale });
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.ceil(viewport.width);
+      canvas.height = Math.ceil(viewport.height);
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+      // PDF pages have no background — fill white or the JPEG turns black.
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      await page.render({ canvasContext: ctx, viewport }).promise;
+      return canvas.toDataURL('image/jpeg', 0.72);
+    } catch (e) {
+      console.error('Error rendering PDF first page:', e);
+      return null;
     }
   }
 
