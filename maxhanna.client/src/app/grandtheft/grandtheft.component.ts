@@ -148,7 +148,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   // parked cars so a refresh drops you back where you were, cars included.
   private _worldSaveTimer = 0;
   private onWorldSave = () => this.saveWorldState();
-  trafficCars: { id: number; x: number; z: number; yaw: number; type: string; mesh: CityMesh | CityMesh[]; health: number; colorR: number; colorG: number; colorB: number; path: number[]; pathIdx: number; state: 'drive' | 'stop'; stopTimer: number; nextYaw: number; laneOffsetX: number; laneOffsetZ: number; hasDriver?: boolean; gender?: string; passengerCount?: number; speed: number; leadDist?: number; leadSpeed?: number; laneBias?: number; wanderPhase?: number; wanderFreq?: number; passing?: boolean; passTimer?: number; passCooldown?: number; passExtra?: number; blockTimer?: number }[] = [];
+  trafficCars: { id: number; x: number; y?: number; z: number; yaw: number; type: string; mesh: CityMesh | CityMesh[]; health: number; colorR: number; colorG: number; colorB: number; path: number[]; pathIdx: number; state: 'drive' | 'stop'; stopTimer: number; nextYaw: number; laneOffsetX: number; laneOffsetZ: number; hasDriver?: boolean; gender?: string; passengerCount?: number; speed: number; leadDist?: number; leadSpeed?: number; laneBias?: number; wanderPhase?: number; wanderFreq?: number; passing?: boolean; passTimer?: number; passCooldown?: number; passExtra?: number; blockTimer?: number }[] = [];
   private trafficNodes: { x: number; z: number }[] = [];
   private trafficEdges: [number, number][] = [];
   private trafficLanes: TrafficLane[] = [];
@@ -1836,7 +1836,14 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.serverNPCs = data.cars.concat(data.aircraft ?? []).map((c: any) => ({
         ...c,
         id: c.id,
-        x: c.posX, y: c.posY ?? 0, z: c.posZ,
+        // Ground vehicles must carry the sampled road layer with them. Without
+        // this, a car on a bridge is still treated as Y=0 by collision/lead
+        // checks and can interact with traffic or props beneath the deck.
+        x: c.posX,
+        y: c.posY ?? (this.isGroundVehicleType(c.type || 'car')
+          ? getTerrainHeight(c.posX, c.posZ, undefined, true)
+          : 0),
+        z: c.posZ,
         yaw: c.yaw ?? 0,
         type: c.type ?? 'car',
         mesh: this.getServerVehicleMesh(c),
@@ -2046,7 +2053,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         const localHp = existing?.health ?? prevParkedHealth.get(pc.id);
         const health = localHp !== undefined ? Math.min(localHp, serverHp) : serverHp;
         if (existing) {
-          existing.x = pc.posX; existing.z = pc.posZ; existing.yaw = pc.yaw; existing.health = health; existing.isBurning = pc.isBurning || false;
+          existing.x = pc.posX; existing.z = pc.posZ; existing.y = pc.posY ?? getTerrainHeight(pc.posX, pc.posZ, undefined, true); existing.yaw = pc.yaw; existing.health = health; existing.isBurning = pc.isBurning || false;
           existing.isSmoking = pc.isSmoking || false;
           existing.maxHealth = pc.maxHealth || 200;
           // "Recent fires" timer: anchor the burn start once so the client's
@@ -2069,7 +2076,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         else if (pc.type === 'boat') parkedMesh = this.renderer.getBoatMesh(pc.id);
         else parkedMesh = this.renderer.getNPCCarMesh([pc.colorR, pc.colorG, pc.colorB], pc.id);
         return {
-          id: pc.id, x: pc.posX, z: pc.posZ, yaw: pc.yaw,
+          id: pc.id, x: pc.posX, y: pc.posY ?? getTerrainHeight(pc.posX, pc.posZ, undefined, true), z: pc.posZ, yaw: pc.yaw,
           type: pc.type || 'car', health,
           isBurning: pc.isBurning || false,
           isSmoking: pc.isSmoking || false,
@@ -3640,9 +3647,23 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     return { x: laneOffX / perpLen * lat, z: laneOffZ / perpLen * lat };
   }
 
-  private measureLead(car: any, ox: number, oz: number, oSpeed?: number) {
+  private trafficLayerY(entity: any): number {
+    if (!entity || !Number.isFinite(entity.x) || !Number.isFinite(entity.z)) return 0;
+    if (Number.isFinite(entity.y)) return entity.y;
+    return getTerrainHeight(entity.x, entity.z, undefined, true);
+  }
+
+  private entityLayerY(entity: any): number {
+    return this.trafficLayerY(entity);
+  }
+
+  private measureLead(car: any, ox: number, oz: number, oSpeed?: number, oy?: number) {
     const dx = ox - car.x;
     const dz = oz - car.z;
+    // Traffic on the bridge and traffic below it share X/Z coordinates. They
+    // must never be treated as a lead vehicle for one another.
+    const otherY = Number.isFinite(oy) ? oy : getTerrainHeight(ox, oz, undefined, true);
+    if (Math.abs(this.trafficLayerY(car) - otherY) > 3.0) return;
     const carFwdX = Math.sin(car.yaw);
     const carFwdZ = Math.cos(car.yaw);
     let ahead = dx * carFwdX + dz * carFwdZ;
@@ -3769,6 +3790,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           }
         }
       }
+      car.y = getTerrainHeight(car.x, car.z, car.y, true);
       const carFwdX = Math.sin(car.yaw);
       const carFwdZ = Math.cos(car.yaw);
       // Lead tracking lives on the car object (measureLead writes there) —
@@ -3778,15 +3800,15 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       car.leadSpeed = 12;
       for (const other of this.trafficCars) {
         if (other.id === car.id || other.health <= 0) continue;
-        this.measureLead(car, other.x, other.z, other.speed);
+        this.measureLead(car, other.x, other.z, other.speed, this.trafficLayerY(other));
       }
       for (const npc of this.serverNPCs) {
         if (npc.health <= 0) continue;
-        this.measureLead(car, npc.x, npc.z, npc.speed);
+        this.measureLead(car, npc.x, npc.z, npc.speed, this.trafficLayerY(npc));
       }
       for (const pc of this.parkedCars) {
         if (pc.health <= 0) continue;
-        this.measureLead(car, pc.x, pc.z);
+        this.measureLead(car, pc.x, pc.z, undefined, this.trafficLayerY(pc));
       }
       const nearbyLamps = this.renderer.getLampsNear(car.x, car.z, 8);
       for (const lamp of nearbyLamps) {
@@ -3794,15 +3816,15 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       }
       for (const ped of this.localPedestrians) {
         if (ped.health <= 0) continue;
-        this.measureLead(car, ped.x, ped.z);
+        this.measureLead(car, ped.x, ped.z, undefined, this.entityLayerY(ped));
       }
       for (const ped of this.serverPedestrians) {
         if (ped.health <= 0) continue;
-        this.measureLead(car, ped.x, ped.z);
+        this.measureLead(car, ped.x, ped.z, undefined, this.entityLayerY(ped));
       }
       for (const op of this.otherPlayers) {
         if (op.health <= 0) continue;
-        this.measureLead(car, op.posX, op.posZ, 12);
+        this.measureLead(car, op.posX, op.posZ, 12, this.trafficLayerY({ x: op.posX, z: op.posZ, y: op.posY }));
       }
       const followGain = 2.5;
       const safeSpeed = car.leadDist < Infinity ? Math.min(car.leadDist * followGain, car.leadSpeed) : 12;
@@ -3874,6 +3896,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       if (car.speed < 0) car.speed = 0;
       car.x += Math.sin(car.yaw) * car.speed * dt;
       car.z += Math.cos(car.yaw) * car.speed * dt;
+      car.y = getTerrainHeight(car.x, car.z, car.y, true);
       if (this.isOpenOceanPosition(car.x, car.z)) {
         this.trafficCars.splice(ci, 1);
         continue;
@@ -6233,9 +6256,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const carRadius = 2.0;
     const actualSpeed = Math.hypot(this.carVx, this.carVz);
     const collisionDamage = actualSpeed < 2 ? 0 : actualSpeed * 3;
-    for (const v of [...this.serverNPCs, ...this.parkedCars]) {
+    for (const v of [...this.serverNPCs, ...this.parkedCars, ...this.trafficCars]) {
       if (v.health <= 0) continue;
-      const vy = (v as any).posY ?? (v as any).y ?? 0;
+      const vy = this.entityLayerY(v);
       const dy = Math.abs(this.carY - vy);
       if (dy > 3) continue;
       const dx = this.carX - v.x;
@@ -6268,7 +6291,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       const pdist = Math.sqrt(pdx * pdx + pdz * pdz);
       // Same height guard as the car-vs-car loop — peds are on the ground, so
       // aircraft flying overhead can't 'run over' crowds below.
-      const dy = Math.abs(this.carY - ((ped as any).posY ?? 0));
+      const dy = Math.abs(this.carY - this.entityLayerY(ped));
       if (dy > 3) continue;
       if (pdist < 2.0) {
         if (actualSpeed >= 4) this.playCrashSound(0.22);

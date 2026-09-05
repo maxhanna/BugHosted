@@ -1,5 +1,4 @@
 import { CityMesh, CityChunk, GltfAnimation, BuildingPlacement } from "../../services/grandtheft.service";
-const LOCAL_VEHICLE_GROUND_OFFSET = 0.4;
 import { HumanVariant, Role, pickVariant, createHumanSkeleton } from './grandtheft-human-model';
 const CHUNK_SIZE = 80;
 const GRID_PITCH = 80;
@@ -5516,9 +5515,14 @@ void main() {
       // The local vehicle is not part of the remote-NPC list. Draw it here for
       // every vehicle type; previously only helicopters had a local pass, so
       // cars disappeared as soon as the player entered them.
-      const vehicleY = (this.playerVehicleType === 'helicopter' || this.playerVehicleType === 'plane')
-        ? targetY
-        : targetY - LOCAL_VEHICLE_GROUND_OFFSET;        const localVehicleMesh = this.playerVehicleType === 'helicopter'
+      // Loaded vehicle meshes are normalized against their actual minimum Y
+      // in loadGLTF, so their wheel/landing-gear bottoms are at local y=0.
+      // targetY is already the terrain datum (the component passes carY minus
+      // CAR_HEIGHT). Subtracting another 0.4 put the whole car below airport
+      // aprons and made its tires look half buried. Aircraft keep the same
+      // targetY here because their altitude is already encoded in carY.
+      const vehicleY = targetY;
+      const localVehicleMesh = this.playerVehicleType === 'helicopter'
         ? this.getHelicopterMesh(0, false)
         : this.playerVehicleMesh;
       if (localVehicleMesh) this.drawMesh(localVehicleMesh, targetX, vehicleY, targetZ, carYaw, [1, 1, 1], [1, 1, 1, 1], false, 0, carRoll);

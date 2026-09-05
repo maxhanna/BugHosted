@@ -74,6 +74,11 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
   readingBook?: BookEntry;
   readerObjectUrl?: string;
   readerBlobType = '';
+  /** Fullscreen reading: the reader panel fills the whole screen. CSS-driven
+   *  so it also works on iOS, where the element-fullscreen API is unavailable. */
+  readerFullscreen = false;
+  /** Whether a history entry was pushed so mobile back exits fullscreen. */
+  private fsHistoryPushed = false;
   isLoadingReader = false;
   readerError = '';
   textContent = '';
@@ -100,6 +105,14 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
   private pdfDoc?: PdfDoc;
   private pdfRenderTask?: { cancel(): void; promise: Promise<void> };
   private pdfRenderSeq = 0;
+
+  // ---- page-turn animation & swipe gestures ----
+  private pageAnimTimer: any = null;
+  private swipeTarget: 'pdf' | 'epub' | '' = '';
+  private swipeStartX = 0;
+  private swipeStartY = 0;
+  private swipeStartTime = 0;
+  private swipeHorizontal: boolean | null = null;
 
   public readonly allowedBookTypes = '.pdf,.epub,.txt,.doc,.docx,.docm,.dot,.dotx,.dotm,.rtf,.odt';
 
@@ -129,8 +142,16 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
     // Reader panes are created/destroyed with the overlay, so scroll tracking
     // uses a delegated capture listener instead of per-element wiring.
     document.addEventListener('scroll', this.onReaderScroll, true);
+    // Fullscreen exits: Esc key and the mobile back button.
+    document.addEventListener('keydown', this.onReaderKeydown);
+    window.addEventListener('popstate', this.onFsPopState);
   }
   ngOnDestroy(): void {
+    document.removeEventListener('scroll', this.onReaderScroll, true);
+    document.removeEventListener('keydown', this.onReaderKeydown);
+    window.removeEventListener('popstate', this.onFsPopState);
+    if (this.pageAnimTimer) clearTimeout(this.pageAnimTimer);
+    this.exitReaderFullscreen();
     document.removeEventListener('scroll', this.onReaderScroll, true);
     this.flushProgressSave();
     this.teardownEpub();
@@ -339,6 +360,8 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
   }
 
   closeReader() {
+    // Leave fullscreen (consuming its history entry) before tearing down.
+    this.exitReaderFullscreen();
     // Persist the final position before tearing down the reader.
     void this.flushProgressSave();
     this.teardownEpub();
@@ -348,7 +371,52 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
     this.revokeReaderUrl();
   }
 
-  /** Tear down the EPUB rendition and any listeners it owns. */
+  // ================= Fullscreen reading =================
+
+  /** Fill the screen with the reader pane. A history entry is pushed so the
+   *  Android back button exits fullscreen instead of leaving the reader. */
+  enterReaderFullscreen() {
+    this.readerFullscreen = true;
+    if (!this.fsHistoryPushed) {
+      try { history.pushState({ readerFullscreen: true }, ''); this.fsHistoryPushed = true; } catch { }
+    }
+    this.refitReaderPane();
+  }
+
+  /** Leave fullscreen. `fromPop` when triggered by the browser back button —
+   *  the history entry was already consumed in that case. */
+  exitReaderFullscreen(fromPop = false) {
+    if (!this.readerFullscreen && !this.fsHistoryPushed) return;
+    this.readerFullscreen = false;
+    if (this.fsHistoryPushed && !fromPop && this.readingBook) {
+      this.fsHistoryPushed = false;
+      try { history.back(); } catch { }
+    } else if (fromPop) {
+      this.fsHistoryPushed = false;
+    }
+    this.refitReaderPane();
+  }
+
+  /** Re-fit the current page/rendition after the pane changed size. */
+  private refitReaderPane() {
+    setTimeout(() => {
+      void this.renderPdfPage();
+      this.epubRendition?.resize?.('100%', '100%');
+    }, 0);
+  }
+
+  /** Esc exits fullscreen reading. */
+  private onReaderKeydown = (ev: KeyboardEvent) => {
+    if (ev.key === 'Escape' && this.readerFullscreen) {
+      ev.preventDefault();
+      this.exitReaderFullscreen();
+    }
+  };
+
+  /** Mobile back button exits fullscreen instead of leaving the reader. */
+  private onFsPopState = () => {
+    if (this.readerFullscreen) this.exitReaderFullscreen(true);
+  };
   private teardownEpub() {
     if (this.epubArrowHandler) { document.removeEventListener('keydown', this.epubArrowHandler); this.epubArrowHandler = undefined; }
     if (this.epubResizeHandler) { window.removeEventListener('resize', this.epubResizeHandler); this.epubResizeHandler = undefined; }
@@ -424,6 +492,11 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
         this.queueProgressSave();
       });
       rendition.on('renderError', () => { });
+      // Swipe-to-turn: epub.js forwards touch events from inside the book
+      // iframe through the rendition emitter, so gestures work over the text.
+      rendition.on('touchstart', (payload: unknown) => this.onPaneTouchStart(payload as TouchEvent, 'epub'));
+      rendition.on('touchmove', (payload: unknown) => this.onPaneTouchMove(payload as TouchEvent));
+      rendition.on('touchend', (payload: unknown) => this.onPaneTouchEnd(payload as TouchEvent));
       // Arrow keys page through the book while the reader is open.
       this.epubArrowHandler = (ev: KeyboardEvent) => {
         if (!this.readingBook || this.readerBlobType !== 'epub') return;
@@ -451,8 +524,8 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
     }
   }
 
-  epubPrev() { this.epubRendition?.prev(); }
-  epubNext() { this.epubRendition?.next(); }
+  epubPrev() { if (this.epubRendition) { this.epubRendition.prev(); this.playPageAnim('prev'); } }
+  epubNext() { if (this.epubRendition) { this.epubRendition.next(); this.playPageAnim('next'); } }
 
   epubTocChange() {
     const href = this.epubTocHref;
@@ -486,12 +559,97 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
 
   zoomIn() { this.zoom = Math.min(2.5, +(this.zoom + 0.15).toFixed(2)); void this.renderPdfPage(); }
   zoomOut() { this.zoom = Math.max(0.5, +(this.zoom - 0.15).toFixed(2)); void this.renderPdfPage(); }
-  nextPdfPage() { if (this.pdfPage < this.pdfPages) { this.pdfPage++; this.pendingScroll = 0; this.resetPdfPaneScroll(); void this.renderPdfPage(); } }
-  prevPdfPage() { if (this.pdfPage > 1) { this.pdfPage--; this.pendingScroll = 0; this.resetPdfPaneScroll(); void this.renderPdfPage(); } }
+  /** Turn the page with the slide animation — shared by the ◀ ▶ buttons and
+   *  swipe gestures so both feel identical. */
+  async turnPdfPage(dir: 'next' | 'prev') {
+    if (this.readerBlobType !== 'application/pdf') return;
+    if (dir === 'next' ? this.pdfPage >= this.pdfPages : this.pdfPage <= 1) return;
+    this.pdfPage += dir === 'next' ? 1 : -1;
+    this.pendingScroll = 0;
+    this.resetPdfPaneScroll();
+    await this.renderPdfPage();
+    this.playPageAnim(dir);
+  }
+  nextPdfPage() { void this.turnPdfPage('next'); }
+  prevPdfPage() { void this.turnPdfPage('prev'); }
 
   private resetPdfPaneScroll() {
     const pane = this.pdfCanvas?.nativeElement?.parentElement as HTMLElement | null;
     if (pane) pane.scrollTop = 0;
+  }
+
+  // ================= Page-turn animation & swipe gestures =================
+
+  /** Slides the freshly rendered page in from the direction of travel. */
+  private playPageAnim(dir: 'next' | 'prev') {
+    const el = (this.readerBlobType === 'application/pdf'
+      ? this.pdfCanvas?.nativeElement
+      : this.epubHost?.nativeElement) as HTMLElement | null;
+    if (!el) return;
+    const cls = dir === 'next' ? 'page-slide-next' : 'page-slide-prev';
+    el.classList.remove('page-slide-next', 'page-slide-prev');
+    void el.offsetWidth; // force a reflow so a running animation restarts
+    el.classList.add(cls);
+    if (this.pageAnimTimer) clearTimeout(this.pageAnimTimer);
+    this.pageAnimTimer = setTimeout(() => el.classList.remove(cls), 260);
+  }
+
+  onPaneTouchStart(ev: TouchEvent, target: 'pdf' | 'epub') {
+    if (!this.readingBook || ev.touches.length !== 1) return;
+    // Zoomed wider than the pane? Horizontal drags pan the page — no turning.
+    if (target === 'pdf') {
+      const pane = this.pdfCanvas?.nativeElement?.parentElement as HTMLElement | null;
+      if (pane && pane.scrollWidth > pane.clientWidth + 4) return;
+    }
+    const t = ev.touches[0];
+    this.swipeTarget = target;
+    this.swipeStartX = t.clientX;
+    this.swipeStartY = t.clientY;
+    this.swipeStartTime = Date.now();
+    this.swipeHorizontal = null;
+  }
+
+  onPaneTouchMove(ev: TouchEvent) {
+    if (!this.swipeTarget || ev.touches.length !== 1) return;
+    const t = ev.touches[0];
+    const dx = t.clientX - this.swipeStartX;
+    const dy = t.clientY - this.swipeStartY;
+    if (this.swipeHorizontal === null) {
+      if (Math.abs(dx) < 12 && Math.abs(dy) < 12) return;
+      // Lock the axis early: horizontal swipes turn pages, vertical ones scroll.
+      this.swipeHorizontal = Math.abs(dx) > Math.abs(dy) * 1.4;
+    }
+    if (!this.swipeHorizontal) return;
+    // PDF page follows the finger with resistance; EPUB (iframe) just turns on
+    // release since its content can't be transformed from outside safely.
+    if (this.swipeTarget === 'pdf') {
+      const canvas = this.pdfCanvas?.nativeElement;
+      if (canvas) canvas.style.transform = `translateX(${(dx * 0.35).toFixed(1)}px)`;
+    }
+  }
+
+  onPaneTouchEnd(ev: TouchEvent) {
+    const target = this.swipeTarget;
+    this.swipeTarget = '';
+    const canvas = this.pdfCanvas?.nativeElement;
+    if (canvas) canvas.style.transform = '';
+    if (!target || this.swipeHorizontal !== true || ev.changedTouches.length !== 1) return;
+    const dx = ev.changedTouches[0].clientX - this.swipeStartX;
+    if (Math.abs(dx) < 48) return; // too small — a tap or accidental nudge
+    const dir: 'next' | 'prev' = dx < 0 ? 'next' : 'prev';
+    if (target === 'pdf') {
+      void this.turnPdfPage(dir);
+    } else if (dir === 'next') {
+      this.epubNext();
+    } else {
+      this.epubPrev();
+    }
+  }
+
+  onPaneTouchCancel() {
+    this.swipeTarget = '';
+    const canvas = this.pdfCanvas?.nativeElement;
+    if (canvas) canvas.style.transform = '';
   }
 
   // ================= Reading progress =================
@@ -572,6 +730,10 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
       canvas.height = Math.floor(viewport.height);
       canvas.style.width = `${Math.floor(base.width * cssScale)}px`;
       canvas.style.height = 'auto';
+      // While a zoomed page is wider than the pane, horizontal drags must pan
+      // it natively — otherwise horizontal touches belong to swipe-to-turn.
+      const pane = canvas.parentElement as HTMLElement | null;
+      if (pane) pane.style.touchAction = pane.scrollWidth > pane.clientWidth + 4 ? 'auto' : 'pan-y';
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
       const task = page.render({ canvasContext: ctx, viewport });

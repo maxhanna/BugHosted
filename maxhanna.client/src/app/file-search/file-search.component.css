@@ -1080,17 +1080,10 @@
   font-size: 0.8rem;
   font-weight: 700;
   opacity: 0.8;
-}
-.bookFilterBtn {
-  padding: 0.2rem 0.65rem;
-  border: 1px solid var(--main-border, #555);
-  border-radius: 4px;
-  background: transparent;
-  cursor: pointer;
-  font-size: 0.78rem;
-}
+} 
 .bookFilterBtn:hover {
   opacity: 0.85;
+  cursor: pointer;
 }
 .bookFilterBtn.active {
   font-weight: 800;

@@ -10,8 +10,8 @@
   <div class="ebooks-component">
 
     <!-- ============ Reader overlay ============ -->
-    <div class="reader-overlay" *ngIf="readingBook">
-      <div class="reader-panel">
+    <div class="reader-overlay" [class.fullscreen]="readerFullscreen" *ngIf="readingBook">
+      <div class="reader-panel" [class.fullscreen]="readerFullscreen">
         <div class="reader-header">
           <div class="reader-title">
             <span class="reader-icon">📖</span>
@@ -40,6 +40,10 @@
           <div class="reader-actions">
             <button class="reader-btn" *ngIf="readerBlobType === 'download'" (click)="downloadReadingBook()">⬇ Download
               to read</button>
+            <button class="reader-btn" *ngIf="!readerFullscreen" (click)="enterReaderFullscreen()"
+              title="Fullscreen — the book fills the whole screen (Esc to exit)">⛶ Fullscreen</button>
+            <button class="reader-btn reader-close" *ngIf="readerFullscreen" (click)="exitReaderFullscreen()"
+              title="Exit fullscreen (Esc)">✕ Exit fullscreen</button>
             <button class="reader-btn reader-close" (click)="closeReader()">✕ Close</button>
           </div>
         </div>
@@ -48,7 +52,9 @@
           <div class="reader-loading" *ngIf="isLoadingReader">Loading book…</div>
           <div class="reader-error" *ngIf="readerError">⚠️ {{ readerError }}</div>
 
-          <div class="pdf-pane" *ngIf="readerBlobType === 'application/pdf' && !isLoadingReader && !readerError">
+          <div class="pdf-pane" *ngIf="readerBlobType === 'application/pdf' && !isLoadingReader && !readerError"
+            (touchstart)="onPaneTouchStart($event, 'pdf')" (touchmove)="onPaneTouchMove($event)"
+            (touchend)="onPaneTouchEnd($event)" (touchcancel)="onPaneTouchCancel()">
             <canvas #pdfCanvas class="pdf-canvas" title="PDF page"></canvas>
           </div>
 
