@@ -1832,7 +1832,8 @@ namespace maxhanna.Server.Controllers
 									bool simIsOcean = (simBiome == "ocean" || simBiome == "beach")
 										&& !CityLayout.IsBridgeAtWorldPos(nextX, nextZ);
 									bool isSimVehicle = npc.Type == "car" || npc.Type == "bus" || npc.Type == "taxi" || npc.Type == "police" || npc.Type == "bike" || npc.Type == "motorcycle";
-									if (!simIsOcean && !CityLayout.IsBuildingAt(nextX, nextZ))
+									bool blockedWater = isSimVehicle ? simIsOcean : IsPedestrianWaterPosition(nextX, nextZ);
+					if (!blockedWater && !CityLayout.IsBuildingAt(nextX, nextZ))
 									{
 										if (!isSimVehicle || CityLayout.IsRoadAt(nextX, nextZ))
 										{
@@ -1982,23 +1983,30 @@ namespace maxhanna.Server.Controllers
 			foreach (var kv in npcs)
 			{
 				var npc = kv.Value;
+				bool isPedestrian = npc.Type == "ped_male" || npc.Type == "ped_female" || npc.Type == "cop";
+				// Enforce this before any per-NPC simulation or response culling. A
+				// stale target/position must not get another frame walking on water.
+				if (isPedestrian && IsPedestrianWaterPosition(npc.X, npc.Z))
+				{
+					deadIds.Add(kv.Key);
+					continue;
+				}
 				if (IsOpenOcean(npc.X, npc.Z) && npc.Type != "boat")
 				{
-					bool isPedestrian = npc.Type == "ped_male" || npc.Type == "ped_female" || npc.Type == "cop";
 					bool isInvalidGroundEntity = npc.IsParked || IsGroundVehicle(npc.Type) || isPedestrian;
 					if (isInvalidGroundEntity)
 					{
-						// Only a non-parked pedestrian in the shallow beach band may
-						// remain in water; render it as swimming below the surface.
-						if (!isPedestrian || npc.IsParked || !IsBeachAdjacentOcean(npc.X, npc.Z))
+						// Pedestrians are ground-only entities. Remove them from both
+						// ocean and lake water instead of allowing a swimming animation
+						// to leave them visibly walking across the surface.
+						if (!isPedestrian || npc.IsParked || IsOpenOcean(npc.X, npc.Z))
 						{
 							deadIds.Add(kv.Key);
 							continue;
 						}
-						npc.IsSwimming = true;
 					}
 				}
-				else if (!IsOpenOcean(npc.X, npc.Z))
+				if (!IsPedestrianWaterPosition(npc.X, npc.Z))
 				{
 					npc.IsSwimming = false;
 				}
@@ -2907,13 +2915,9 @@ namespace maxhanna.Server.Controllers
 							moveX += sepX * 0.5f;
 							moveZ += sepZ * 0.5f;
 							float nextX = npc.X + moveX;
-							float nextZ = npc.Z + moveZ;
-							int pedCX = (int)Math.Floor(nextX / CityLayout.CHUNK_SIZE);
-							int pedCZ = (int)Math.Floor(nextZ / CityLayout.CHUNK_SIZE);
-							string pedBiome = CityLayout.GetBiome(pedCX, pedCZ);
-							bool pedIsOcean = (pedBiome == "ocean" || pedBiome == "beach")
+							float nextZ = npc.Z + moveZ;							bool pedIsWater = IsPedestrianWaterPosition(nextX, nextZ)
 								&& !CityLayout.IsBridgeAtWorldPos(nextX, nextZ);
-							if (!pedIsOcean && !CityLayout.IsBuildingAt(nextX, nextZ)) { npc.X = nextX; npc.Z = nextZ; }
+							if (!pedIsWater && !CityLayout.IsBuildingAt(nextX, nextZ)) { npc.X = nextX; npc.Z = nextZ; }
 							npc.Yaw = (float)Math.Atan2(moveX, moveZ);
 						}
 					}
@@ -3610,6 +3614,9 @@ namespace maxhanna.Server.Controllers
 		private static bool IsOpenOcean(float x, float z)
 			=> CityLayout.GetBiome((int)Math.Floor(x / CityLayout.CHUNK_SIZE), (int)Math.Floor(z / CityLayout.CHUNK_SIZE)) == "ocean";
 
+		private static bool IsPedestrianWaterPosition(float x, float z)
+			=> IsWaterPosition(x, z);
+
 		private static bool IsBeachAdjacentOcean(float x, float z)
 		{
 			int cx = (int)Math.Floor(x / CityLayout.CHUNK_SIZE);
@@ -3757,7 +3764,7 @@ namespace maxhanna.Server.Controllers
 						float candidateX = gx * CityLayout.GRID_PITCH;
 						float candidateZ = gz * CityLayout.GRID_PITCH;
 						string biome = CityLayout.GetBiome(gx, gz);
-						if (biome == "ocean" || biome == "beach" || CityLayout.IsBuildingAt(candidateX, candidateZ)) continue;
+						if (biome == "ocean" || biome == "beach" || IsPedestrianWaterPosition(candidateX, candidateZ) || CityLayout.IsBuildingAt(candidateX, candidateZ)) continue;
 						if (roadOnly && !CityLayout.IsRoadAt(candidateX, candidateZ)) continue;
 						x = candidateX;
 						z = candidateZ;
@@ -3812,7 +3819,7 @@ namespace maxhanna.Server.Controllers
 						{
 							x = gx * 80f + 40f;
 							z = gz * 80f + 40f;
-							return;
+							if (!IsPedestrianWaterPosition(x, z)) return;
 						}
 					}
 				}
@@ -3836,6 +3843,7 @@ namespace maxhanna.Server.Controllers
 				{
 					x = gx * 80f + 40f + (float)(rng.NextDouble() - 0.5) * 60f;
 					z = gz * 80f + 40f + (float)(rng.NextDouble() - 0.5) * 60f;
+					if (IsPedestrianWaterPosition(x, z)) continue;
 					return;
 				}
 				float sidewalkEdge = 18f;
@@ -3845,14 +3853,15 @@ namespace maxhanna.Server.Controllers
 				else if (edge == 2) { x = cx - sidewalkEdge; z = cz; }
 				else { x = cx + sidewalkEdge; z = cz; }
 				if (edge < 2) x += (float)(rng.NextDouble() - 0.5) * 30f;
-				else z += (float)(rng.NextDouble() - 0.5) * 30f;
-				if (biome == "parking_lot")
+				else z += (float)(rng.NextDouble() - 0.5) * 30f;				if (biome == "parking_lot")
 				{
 					x = gx * 80f + 40f + (float)(rng.NextDouble() - 0.5) * 60f;
 					z = gz * 80f + 40f + (float)(rng.NextDouble() - 0.5) * 60f;
+					if (IsPedestrianWaterPosition(x, z)) continue;
 					return;
 				}
-				if (CityLayout.IsBuildingAt(x, z) || CityLayout.IsRoadAt(x, z)) continue;
+
+				if (CityLayout.IsBuildingAt(x, z) || CityLayout.IsRoadAt(x, z) || IsPedestrianWaterPosition(x, z)) continue;
 				if (minDist > 0f)
 				{
 					float ddx = x - px;

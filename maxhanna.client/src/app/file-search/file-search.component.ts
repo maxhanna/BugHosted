@@ -174,6 +174,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   isFirstLoad = true;
   isAddingToFavourites = false;
   isAddingToMusicPlaylist = false;
+  isAddingToLibrary = false;
+  isRemovingFromLibrary = false;
+  isFileInMyLibraryCache: Map<number, boolean | null> = new Map<number, boolean | null>();
   isFollowingFile: { [key: number]: boolean } = {};
   isRatingPanelOpen = false;
   pageLocked = false;
@@ -843,11 +846,18 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
   /**
    * Grid view click handler. Images/videos (outside the ROM tree) open an
-   * expanded preview popup. Everything else keeps the existing grid behavior:
-   * folders do nothing on click, ROMs and other files go through selectFile.
+   * expanded preview popup. In book view, folders navigate into the folder
+   * (matching table behavior) so the Books file manager is browseable from the
+   * grid view too.
    */
   onGridItemClick(file: FileEntry) {
-    if (file.isFolder) return;
+    if (file.isFolder) {
+      if (this.isBookView && this.canChangeDirectory) {
+        this.selectFile(file);
+        return;
+      }
+      return;
+    }
     if (!this.isInRomTree() && this.isMediaFile(file.fileName ?? '')) {
       this.openGridMediaExpand(file);
       return;
@@ -1136,6 +1146,15 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     if (!this.canDragMove) { return; }
     this.draggedFilename = fileName.trim();
     this.destinationFilename = undefined;
+
+    // In book view, prevent dragging book files out of the Books tree into other
+    // filesystem areas. The actual drop is still allowed inside Books/ subfolders.
+    if (this.isBookView && this.draggedFilename) {
+      const currentFile = this.directory?.data?.find(f => f.fileName === this.draggedFilename);
+      if (currentFile && !currentFile.isFolder && this.isInBooksDirectory()) {
+        event.currentTarget?.setAttribute('data-book-drag', 'true');
+      }
+    }
   }
   onDragOver(event: Event) {
     if (!this.canDragMove) { return; }
@@ -1158,6 +1177,32 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       this.destinationFilename = undefined;
     }
   }
+
+  /** In book view, block moving book files (non-folders) out of the Books tree.
+   *  Folders can still be reorganized inside Books/; only book-format files are
+   *  protected from being dragged to arbitrary filesystem locations. */
+  private canDropFileInBookView(draggedFile: FileEntry | undefined, destinationFolder: string): boolean {
+    if (!this.isBookView) return true;
+    if (!draggedFile || draggedFile.isFolder) return true;
+    // Allow drops inside any Books/ path (current or target).
+    const destNormalized = destinationFolder.replace(/\\/g, '/').toLowerCase().replace(/^\/+|\/+$/g, '');
+    const booksMarker = destNormalized.indexOf('books');
+    if (booksMarker < 0) return false;
+    // Also keep the source in Books/ — if the dragged file is already in Books/,
+    // only allow moves that stay inside Books/.
+    const currentNormalized = (this.currentDirectory ?? '').replace(/\\/g, '/').toLowerCase().replace(/^\/+|\/+$/g, '');
+    const currentInBooks = currentNormalized.indexOf('books') === 0;
+    if (currentInBooks) {
+      // Accept if destination is Books/ or a Books/ subfolder.
+      return destNormalized === 'books' || destNormalized.startsWith('books/');
+    }
+    return destNormalized === 'books' || destNormalized.startsWith('books/');
+  }
+
+  private buildBookViewMoveDeniedMessage(draggedFile: FileEntry | undefined, destinationFolder: string): string {
+    if (!draggedFile) return 'That move is not allowed in the book view.';
+    const folderName = destinationFolder || this.currentDirectory;
+    return `Book files can only be moved within the Books tree. “${draggedFile.givenFileName ?? draggedFile.fileName}” cannot be moved to “${folderName}” because that location is outside Books/.`;
 
   getPreviousDirectoryPath() {
     const currDir = this.currentDirectory;
@@ -1183,32 +1228,43 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
   private async moveFile(specDir: string | undefined) {
     const currDir = this.currentDirectory;
-    if (this.draggedFilename
-      && this.draggedFilename != this.destinationFilename
-      && confirm(`Move ${this.draggedFilename!.trim()} to ${specDir ?? (currDir + this.destinationFilename)}?`)) {
-      const inputFile = currDir + this.draggedFilename;
-      const destinationFolder = specDir ?? (currDir + this.destinationFilename);
-      this.startLoading();
-      try {
-        const user = this.currentUser;
-        const userId = user?.id ?? 0;
-        const draggedEntry = this.directory?.data?.find(x => x.fileName === this.draggedFilename);
-        const fileIdToSend = draggedEntry?.id ?? undefined;
-        const res = await this.fileService.moveFile(inputFile, destinationFolder, userId, fileIdToSend);
-        this.notifyUser(res!);
-        if (!res!.includes("error")) {
-          this.directory!.data = this.directory!.data!.filter(x => x.fileName != this.draggedFilename);
-        }
-      } catch (ex) {
-        console.error(ex);
-        this.notifyUser(`Failed to move ${this.draggedFilename} to ${currDir + this.destinationFilename}!`);
-      }
-      this.stopLoading();
-    } else {
+    if (!this.draggedFilename || this.draggedFilename == this.destinationFilename) {
       let message = "";
       if (!this.draggedFilename) message += "You must select an item to be moved!";
       if (message) alert(message);
+      return;
     }
+
+    const destinationFolder = specDir ?? (currDir + this.destinationFilename);
+    const draggedFile = this.directory?.data?.find(x => x.fileName === this.draggedFilename);
+
+    if (!this.canDropFileInBookView(draggedFile, destinationFolder)) {
+      this.draggedFilename = undefined;
+      this.destinationFilename = undefined;
+      this.parentRef?.showNotification(this.buildBookViewMoveDeniedMessage(draggedFile, destinationFolder));
+      return;
+    }
+
+    if (!confirm(`Move ${this.draggedFilename!.trim()} to ${destinationFolder}?`)) {
+      return;
+    }
+
+    const inputFile = currDir + this.draggedFilename;
+    this.startLoading();
+    try {
+      const user = this.currentUser;
+      const userId = user?.id ?? 0;
+      const fileIdToSend = draggedFile?.id ?? undefined;
+      const res = await this.fileService.moveFile(inputFile, destinationFolder, userId, fileIdToSend);
+      this.notifyUser(res!);
+      if (!res!.includes("error")) {
+        this.directory!.data = this.directory!.data!.filter(x => x.fileName != this.draggedFilename);
+      }
+    } catch (ex) {
+      console.error(ex);
+      this.notifyUser(`Failed to move ${this.draggedFilename} to ${destinationFolder}!`);
+    }
+    this.stopLoading();
   }
 
   previousDirectory() {
@@ -1592,6 +1648,21 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       this.stopLoading();
     }
   }
+  /** Whether the current user already has this file registered in their own book
+   *  library (books share a fileId per upload, so a registered book’s identity is
+   *  the uploaded file, not the per-user bookId). */
+  async getIsFileInMyLibrary(file: FileEntry | undefined): Promise<boolean> {
+    if (!file?.id || !this.currentUser?.id) return false;
+    try {
+      const token = await this.parentRef?.getSessionToken();
+      const entries = await this.booksService.getMyLibrary(this.currentUser.id, token);
+      return entries.some(e => e.fileId === file.id);
+    } catch (e) {
+      console.error('Error checking book library membership:', e);
+      return false;
+    }
+  }
+
   async addToFavourites(optionsFile?: FileEntry) {
     if (!optionsFile || !optionsFile.id) return;
 
@@ -2974,10 +3045,239 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.changeDetectorRef.detectChanges();
   }
   private startAppendingMode() {
-    this.appending = true;
-    setTimeout(() => {
+    this.appending = true;    setTimeout(() => {
       this.appending = false;
     }, 1000);
+  }
+
+  /** Add a book-format file into the current user's library (register it as a
+   *  book). Folders are intentionally skipped here — they are handled via the
+   *  dedicated add-to-library action in the book view. */
+  async addToLibrary(file?: FileEntry) {
+    if (!file || !file.id) return;
+    if (file.isFolder) {
+      await this.addFolderToLibrary(file);
+      return;
+    }
+    const user = this.currentUser;
+    if (!user?.id) {
+      this.parentRef?.showNotification('You must be logged in to add books to your library.');
+      return;
+    }
+    this.isAddingToLibrary = true;
+    try {
+      const token = await this.parentRef?.getSessionToken();
+      const title = file.givenFileName ?? this.titleFromFile(file);
+      const result = await this.booksService.registerBook({
+        userId: user.id,
+        fileId: file.id,
+        title,
+        description: file.description ?? undefined,
+        isPublic: (file.visibility ?? '').toLowerCase() === 'public',
+      }, token);
+      if (result) {
+        this.parentRef?.showNotification(`Added “${title}” to your library.`);
+        await this.refreshLibraryState(file);
+      } else {
+        this.parentRef?.showNotification(`Could not add “${title}” to your library.`);
+      }
+    } catch (e) {
+      console.error('Error adding book to library:', e);
+      this.parentRef?.showNotification('Failed to add book to library.');
+    } finally {
+      this.isAddingToLibrary = false;
+    }
+  }
+
+  /** Remove the current user’s library registration for a book (the uploaded
+   *  file itself is untouched). */
+  async removeFromLibrary(file?: FileEntry) {
+    if (!file || !file.id || !this.currentUser?.id) return;
+    const token = await this.parentRef?.getSessionToken();
+    const inLibrary = await this.getIsFileInMyLibrary(file);
+    if (!inLibrary) {
+      this.parentRef?.showNotification('This book is not in your library.');
+      return;
+    }
+    this.isRemovingFromLibrary = true;
+    try {
+      const entries = await this.booksService.getMyLibrary(this.currentUser.id, token);
+      const entry = entries.find(e => e.fileId === file.id);
+      if (!entry) {
+        this.parentRef?.showNotification('This book is not in your library.');
+        return;
+      }
+      const ok = await this.booksService.removeBook({
+        userId: this.currentUser.id,
+        bookId: entry.bookId,
+      }, token);
+      if (ok) {
+        this.parentRef?.showNotification('Removed book from your library.');
+        await this.refreshLibraryState(file);
+      } else {
+        this.parentRef?.showNotification('Failed to remove book from your library.');
+      }
+    } catch (e) {
+      console.error('Error removing book from library:', e);
+      this.parentRef?.showNotification('Failed to remove book from library.');
+    } finally {
+      this.isRemovingFromLibrary = false;
+    }
+  }
+
+  /** Add a folder to the current user's library by registering it as a book with
+   *  the folder name as the title and a folder file type marker. */
+  async addFolderToLibrary(folder?: FileEntry) {
+    if (!folder || !folder.id || !this.currentUser?.id) return;
+    this.isAddingToLibrary = true;
+    try {
+      const token = await this.parentRef?.getSessionToken();
+      const title = folder.givenFileName ?? folder.fileName ?? 'Untitled folder';
+      const result = await this.booksService.registerBook({
+        userId: this.currentUser.id,
+        fileId: folder.id,
+        title,
+        description: folder.description ?? undefined,
+        isPublic: (folder.visibility ?? '').toLowerCase() === 'public',
+      }, token);
+      if (result) {
+        this.parentRef?.showNotification(`Added folder “${title}” to your library.`);
+        await this.refreshLibraryState(folder);
+      } else {
+        this.parentRef?.showNotification(`Could not add folder “${title}” to your library.`);
+      }
+    } catch (e) {
+      console.error('Error adding folder to library:', e);
+      this.parentRef?.showNotification('Failed to add folder to library.');
+    } finally {
+      this.isAddingToLibrary = false;
+    }
+  }
+
+  /** Refresh the in-memory library membership state for a file so the book view
+   *  buttons reflect the latest add/remove result without a full page reload. */
+  private async refreshLibraryState(file: FileEntry) {
+    try { this.changeDetectorRef.markForCheck(); } catch { }
+    this.directory?.data?.forEach(item => {
+      if (item.id === file.id) {
+        // Membership is derived asynchronously in the template; nothing to patch here.
+      }
+    });
+  }
+
+  // ---- book view helpers (display only) ----
+
+  async isFileInMyLibrary(file: FileEntry): Promise<boolean> {
+    if (!file?.id) return false;
+    const cached = this.isFileInMyLibraryCache.get(file.id);
+    if (cached !== undefined) return cached;
+    const result = await this.getIsFileInMyLibrary(file);
+    this.isFileInMyLibraryCache.set(file.id, result);
+    return result;
+  }
+
+  async addToLibrary(file?: FileEntry) {
+    if (!file || !file.id) return;
+    const user = this.currentUser;
+    if (!user?.id) {
+      this.parentRef?.showNotification('You must be logged in to add books to your library.');
+      return;
+    }
+    if (file.isFolder) {
+      await this.addFolderToLibrary(file);
+      return;
+    }
+    this.isAddingToLibrary = true;
+    try {
+      const token = await this.parentRef?.getSessionToken();
+      const title = file.givenFileName ?? file.fileName ?? 'Untitled book';
+      const result = await this.booksService.registerBook({
+        userId: user.id,
+        fileId: file.id,
+        title,
+        description: file.description ?? undefined,
+        isPublic: (file.visibility ?? '').toLowerCase() === 'public',
+      }, token);
+      if (result) {
+        this.parentRef?.showNotification(`Added “${title}” to your library.`);
+        await this.invalidateLibraryCache(file.id);
+      } else {
+        this.parentRef?.showNotification(`Could not add “${title}” to your library.`);
+      }
+    } catch (e) {
+      console.error('Error adding book to library:', e);
+      this.parentRef?.showNotification('Failed to add book to library.');
+    } finally {
+      this.isAddingToLibrary = false;
+    }
+  }
+
+  async addFolderToLibrary(folder?: FileEntry) {
+    if (!folder || !folder.id || !this.currentUser?.id) return;
+    this.isAddingToLibrary = true;
+    try {
+      const token = await this.parentRef?.getSessionToken();
+      const title = folder.givenFileName ?? folder.fileName ?? 'Untitled folder';
+      const result = await this.booksService.registerBook({
+        userId: this.currentUser.id,
+        fileId: folder.id,
+        title,
+        description: folder.description ?? undefined,
+        isPublic: (folder.visibility ?? '').toLowerCase() === 'public',
+      }, token);
+      if (result) {
+        this.parentRef?.showNotification(`Added folder “${title}” to your library.`);
+        await this.invalidateLibraryCache(folder.id);
+      } else {
+        this.parentRef?.showNotification(`Could not add folder “${title}” to your library.`);
+      }
+    } catch (e) {
+      console.error('Error adding folder to library:', e);
+      this.parentRef?.showNotification('Failed to add folder to library.');
+    } finally {
+      this.isAddingToLibrary = false;
+    }
+  }
+
+  async removeFromLibrary(file?: FileEntry) {
+    if (!file || !file.id || !this.currentUser?.id) return;
+    if (!file.isFolder) {
+      const inLibrary = await this.getIsFileInMyLibrary(file);
+      if (!inLibrary) {
+        this.parentRef?.showNotification('This book is not in your library.');
+        return;
+      }
+    }
+    this.isRemovingFromLibrary = true;
+    try {
+      const token = await this.parentRef?.getSessionToken();
+      const entries = await this.booksService.getMyLibrary(this.currentUser.id, token);
+      const entry = entries.find(e => e.fileId === file.id);
+      if (!entry) {
+        this.parentRef?.showNotification('This item is not in your library.');
+        return;
+      }
+      const ok = await this.booksService.removeBook({
+        userId: this.currentUser.id,
+        bookId: entry.bookId,
+      }, token);
+      if (ok) {
+        this.parentRef?.showNotification('Removed item from your library.');
+        await this.invalidateLibraryCache(file.id);
+      } else {
+        this.parentRef?.showNotification('Failed to remove item from your library.');
+      }
+    } catch (e) {
+      console.error('Error removing item from library:', e);
+      this.parentRef?.showNotification('Failed to remove item from library.');
+    } finally {
+      this.isRemovingFromLibrary = false;
+    }
+  }
+
+  private async invalidateLibraryCache(fileId: number) {
+    this.isFileInMyLibraryCache.set(fileId, null);
+    try { this.changeDetectorRef.markForCheck(); } catch { }
   }
 }
 

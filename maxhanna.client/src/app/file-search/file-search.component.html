@@ -101,6 +101,16 @@
                   <span *ngIf="!isEditing.includes(file.id)"
                     class="fileFolderNameSpan {{file.isFolder ? 'folder' : ''}}"
                     (click)="!disabled && selectFile(file);" [id]="'fileIdName'+file.id">
+                    <span class="bookViewLibraryInlineActions" *ngIf="isBookView && isInBooksDirectory() && userIsLoggedIn()">
+                      <button class="bookLibraryBtn"
+                        [disabled]="isAddingToLibrary || isRemovingFromLibrary"
+                        [title]="file.isFolder ? ('Add folder to My Library') : (isFileInMyLibrary(file) ? 'Remove from My Library' : 'Add book to My Library')"
+                        (click)="file.isFolder ? addFolderToLibrary(file) : (isFileInMyLibrary(file) ? removeFromLibrary(file) : addToLibrary(file))"
+                        *ngIf="file.isFolder || isFileInMyLibrary(file) !== null">
+                        {{ isFileInMyLibrary(file) ? '🧡 Remove from My Library' : '📚 Add to My Library' }}
+                      </button>
+                      <span class="bookViewLibraryInlineSpacer"></span>
+                    </span>
                     <span>
                       {{ file.isFolder ? '📁' : '' }}
                       <span [innerHTML]="(displaySystemIcons && !file.isFolder) ? getFileIcon(file) : ''"></span>

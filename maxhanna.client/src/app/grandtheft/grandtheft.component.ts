@@ -422,6 +422,18 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     return getBiome(Math.floor(x / CHUNK_SIZE), Math.floor(z / CHUNK_SIZE)) === 'ocean';
   }
 
+  /** Pedestrians may not stand in ocean water or the central lake area. */
+  private isPedestrianWaterPosition(x: number, z: number): boolean {
+    const cx = Math.floor(x / CHUNK_SIZE);
+    const cz = Math.floor(z / CHUNK_SIZE);
+    const biome = getBiome(cx, cz);
+    if (biome === 'ocean') return true;
+    if (biome !== 'rural_lakes') return false;
+    const localX = ((x - cx * CHUNK_SIZE) % CHUNK_SIZE + CHUNK_SIZE) % CHUNK_SIZE;
+    const localZ = ((z - cz * CHUNK_SIZE) % CHUNK_SIZE + CHUNK_SIZE) % CHUNK_SIZE;
+    return Math.abs(localX - CHUNK_SIZE / 2) <= 20 && Math.abs(localZ - CHUNK_SIZE / 2) <= 20;
+  }
+
   private isBeachAdjacentWater(x: number, z: number): boolean {
     const cx = Math.floor(x / CHUNK_SIZE);
     const cz = Math.floor(z / CHUNK_SIZE);
@@ -653,7 +665,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const critical = (t: AssetTask) => { t.critical = true; return t; };      tasks.push(critical({ load: async () => {
         this.renderer.initPlayerModel(undefined, true, this.playerAppearanceRole as any, this.playerAppearanceSeed, this.playerAppearanceGender);
       } }));
-    tasks.push(critical({ load: () => this.renderer.loadGLTF('assets/grandtheft/citylight/scene.gltf').then(lamps => { if (lamps) this.renderer.lampMesh = lamps; }) }));
+    // Street lights use the renderer's guaranteed procedural assembly. The old
+    // citylight GLTF contained disconnected/cone-only nodes and could leave a
+    // luminous point behind when its pole mesh was culled or failed to load.
+    tasks.push(critical({ load: async () => {
+      this.renderer.lampMesh = [this.renderer.getStreetLampMesh()];
+    } }));
     tasks.push(critical({ load: () => this.renderer.loadGLTF('assets/grandtheft/skybox_skydays_3/scene.gltf', false).then(m => { if (m) this.renderer.skyboxMesh = m; }) }));
     const specialMeshes: { path: string; storeSkeleton: boolean; assign: (m: CityMesh[]) => void; scale?: number; yawOffset?: number }[] = [
       { path: 'assets/grandtheft/star_wars_luxury_yacht/scene.gltf', storeSkeleton: false, assign: m => this.renderer.boatMeshes.push(m), yawOffset: Math.PI },
@@ -1278,6 +1295,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           this.gtService.stealCar(v.id, userId).then((stealRes: any) => {
             if (stealRes && stealRes.evictedNpcs) {
               for (const ep of stealRes.evictedNpcs) {
+                if (!Number.isFinite(ep.posX) || !Number.isFinite(ep.posZ) || this.isPedestrianWaterPosition(ep.posX, ep.posZ)) continue;
                 this.serverPedestrians.push({
                   id: ep.id,
                   x: ep.posX, z: ep.posZ, yaw: ep.yaw,
@@ -1853,7 +1871,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         targetX: c.posX, targetZ: c.posZ, targetYaw: c.yaw ?? 0,
         speed: c.speed ?? 0, lastUpdate: performance.now(),
       }));
-      this.serverPedestrians = data.pedestrians.map((p: any) => ({
+      this.serverPedestrians = data.pedestrians
+        .filter((p: any) => Number.isFinite(p.posX) && Number.isFinite(p.posZ) && !this.isPedestrianWaterPosition(p.posX, p.posZ))
+        .map((p: any) => ({
         ...p,
         x: p.posX, z: p.posZ, yaw: p.yaw ?? 0,
         gender: p.gender ?? 'male',
@@ -1988,7 +2008,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
     this.serverPedestrians = data.pedestrians
       .filter(p => !this.deadNPCIds.has(p.id))
-      .filter(p => !this.isOpenOceanPosition(p.posX, p.posZ) || this.isBeachAdjacentWater(p.posX, p.posZ))
+      .filter(p => Number.isFinite(p.posX) && Number.isFinite(p.posZ))
+      .filter(p => !this.isPedestrianWaterPosition(p.posX, p.posZ))
       .map(p => {
         const serverHp = p.health ?? 50;
         const localHp = prevPedHealth.get(p.id);
@@ -2031,8 +2052,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.serverPedestrians = [
         ...this.serverPedestrians,
         ...recentlyEvictedPeds
-          .filter(p => !this.isOpenOceanPosition(p.x, p.z) || this.isBeachAdjacentWater(p.x, p.z))
-          .map(p => ({ ...p, isSwimming: this.isBeachAdjacentWater(p.x, p.z) }))
+          .filter(p => !this.isPedestrianWaterPosition(p.x, p.z))
+          .map(p => ({ ...p, isSwimming: false }))
       ];
     }
     const serverParked = data.parkedCars.filter((pc: any) =>
@@ -3904,6 +3925,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
   }
   private isPedestrianPositionBlocked(x: number, z: number): boolean {
+    if (this.isPedestrianWaterPosition(x, z)) return true;
     const cx = Math.floor(x / 80), cz = Math.floor(z / 80);
     for (let dz = -1; dz <= 1; dz++) {
       for (let dx = -1; dx <= 1; dx++) {
@@ -3961,8 +3983,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
               ];
               // Inline the home-base filter check to avoid array allocations
               for (const n of nodesToCheck) {
-                const nodeBiome = getBiome(Math.floor(n.x / CHUNK_SIZE), Math.floor(n.z / CHUNK_SIZE));
-                if (nodeBiome === 'ocean') continue;
+                if (this.isPedestrianWaterPosition(n.x, n.z)) continue;
                 if (n.x < HOME_CHUNK_MIN_X || n.x >= HOME_CHUNK_MAX_X ||
                   n.z < HOME_CHUNK_MIN_Z || n.z >= HOME_CHUNK_MAX_Z) {
                   this._cachedSidewalkNodes.push(n);
@@ -3986,6 +4007,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.pedSpawnTimer = 0;
       const srcNode = sidewalkNodes[Math.floor(Math.random() * sidewalkNodes.length)];
       const dstNode = sidewalkNodes[Math.floor(Math.random() * sidewalkNodes.length)];
+      if (this.isPedestrianWaterPosition(srcNode.x, srcNode.z) || this.isPedestrianWaterPosition(dstNode.x, dstNode.z)) return;
       const isHooker = Math.random() < 0.15;
       const gender = isHooker ? 'hooker' : (Math.random() < 0.5 ? 'male' : 'female');
       const type = isHooker ? 'hooker' : undefined;
@@ -4006,7 +4028,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
     for (let i = this.localPedestrians.length - 1; i >= 0; i--) {
       const ped = this.localPedestrians[i];
-      if (this.isOpenOceanPosition(ped.x, ped.z)) {
+      if (this.isPedestrianWaterPosition(ped.x, ped.z)) {
         this.localPedestrians.splice(i, 1);
         continue;
       }
@@ -4404,7 +4426,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         });
       }
     }
-    for (const ped of this.serverPedestrians) {
+    for (let i = this.serverPedestrians.length - 1; i >= 0; i--) {
+      const ped = this.serverPedestrians[i];
+      if (this.isPedestrianWaterPosition(ped.x, ped.z) || this.isPedestrianWaterPosition(ped.targetX, ped.targetZ)) {
+        this.serverPedestrians.splice(i, 1);
+        continue;
+      }
       if (ped.health <= 0 && !this.deadNPCIds.has(ped.id)) {
         this.deadNPCIds.add(ped.id);
         this.dropMoneyAt(ped.x, ped.z, 50 + Math.floor(Math.random() * 150));

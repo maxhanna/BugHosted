@@ -189,6 +189,7 @@ function biomeWithoutBeach(cx: number, cz: number): string {
   if (!bestIsl) return 'ocean';
   const isl = bestIsl;
   const dist = bestDist;
+  if (isMarinaChunk(cx, cz)) return 'marina';
   const mountainBand = getMountainBand(cx, cz);
   if (mountainBand === 2) return 'rural_mountain';
   if (mountainBand === 1) return 'rural_hills';
@@ -224,13 +225,13 @@ export function getBiome(cx: number, cz: number): string {
   try {
     const base = biomeWithoutBeach(cx, cz);
     let result = base;
-    if (base !== 'ocean' && base !== 'aeroport' && base !== 'bridge' && base !== 'bridge_connector') {
+    if (base !== 'ocean' && base !== 'aeroport' && base !== 'bridge' && base !== 'bridge_connector' && base !== 'marina') {
       // Keep the outer shoreline classification, but never let it split an
       // inland road tile. Boundary roads are explicit connectors and must
       // remain drivable on both sides of a biome seam.
       const isRoadBiome = (b: string) => b === 'city' || b === 'suburb' || b === 'parking_lot'
         || b === 'rural_farm' || b === 'rural_hills' || b === 'rural_mountain'
-        || b === 'rural_lakes' || b === 'rural_desert' || b === 'bridge_connector';
+        || b === 'rural_lakes' || b === 'rural_desert' || b === 'bridge_connector' || b === 'marina';
       const hasRoadNeighbour = (dx: number, dz: number) => isRoadBiome(getBiome(cx + dx, cz + dz));
       const shoreline = !isInAnyIsland(cx + 1, cz) || !isInAnyIsland(cx - 1, cz)
         || !isInAnyIsland(cx, cz + 1) || !isInAnyIsland(cx, cz - 1);
@@ -260,6 +261,57 @@ function isBridgeChunk(cx: number, cz: number): boolean {
   }
   return false;
 }
+
+/**
+ * A marina is a deterministic shoreline land cell, not another water tile.
+ * Prefer cells beside bridge approaches so the road-to-harbour corners become
+ * usable intersections instead of ending in grass or an abrupt ocean seam.
+ */
+function isMarinaChunk(cx: number, cz: number): boolean {
+  if (!isInAnyIsland(cx, cz) || isBridgeChunk(cx, cz)) return false;
+  if ((cx >= 0 && cx <= 3 && cz >= -3 && cz <= -1)
+    || (cx >= 8 && cx <= 15 && cz >= -6 && cz <= -4)
+    || (cx >= 22 && cx <= 30 && cz >= -8 && cz <= -6)
+    || (cx >= 36 && cx <= 46 && cz >= -11 && cz <= -9)
+    || (cx >= 33 && cx <= 46 && cz >= 12 && cz <= 16)) return false;
+  const touchesWater = !isInAnyIsland(cx + 1, cz) || !isInAnyIsland(cx - 1, cz)
+    || !isInAnyIsland(cx, cz + 1) || !isInAnyIsland(cx, cz - 1);
+  if (!touchesWater) return false;
+  const touchesBridgeCorner = BRIDGE_CONNECTORS.some(conn =>
+    Math.abs(cx - conn.cx) <= 1 && cz === conn.cz
+  );
+  const hash = (Math.imul(cx, 100003) ^ Math.imul(cz, 70001)) >>> 0;
+  return touchesBridgeCorner || hash % 7 === 0;
+}
+
+/** True only inside the marina's modeled inlet, never on its roads or land apron. */
+export function isMarinaWaterPosition(x: number, z: number): boolean {
+  const cx = Math.floor(x / CHUNK_SIZE);
+  const cz = Math.floor(z / CHUNK_SIZE);
+  if (!isMarinaChunk(cx, cz)) return false;
+  const localX = x - cx * CHUNK_SIZE;
+  const localZ = z - cz * CHUNK_SIZE;
+  const nearGrid = (value: number) => {
+    const f = ((value % GRID_PITCH) + GRID_PITCH) % GRID_PITCH;
+    return f <= ROAD_HALF_WIDTH || f >= GRID_PITCH - ROAD_HALF_WIDTH;
+  };
+  // Roads and the broad land shoulder remain walkable even where an inlet
+  // touches the edge of the tile.
+  if (nearGrid(localX) || nearGrid(localZ)) return false;
+  const waterDepth = 25;
+  const oceanSides = [
+    !isInAnyIsland(cx + 1, cz) ? [1, 0] : null,
+    !isInAnyIsland(cx - 1, cz) ? [-1, 0] : null,
+    !isInAnyIsland(cx, cz + 1) ? [0, 1] : null,
+    !isInAnyIsland(cx, cz - 1) ? [0, -1] : null,
+  ].filter((side): side is [number, number] => side !== null);
+  return oceanSides.some(([sideX, sideZ]) =>
+    sideX > 0 ? localX >= CHUNK_SIZE - waterDepth
+      : sideX < 0 ? localX <= waterDepth
+        : sideZ > 0 ? localZ >= CHUNK_SIZE - waterDepth
+          : localZ <= waterDepth
+  );
+}
 const BRIDGE_RANGES = BRIDGES;
 const SIDEWALK_RAISE = 0.3;
 /** Sidewalk zone: inner 55×55 of each 80×80 block in applicable biomes. */
@@ -267,7 +319,7 @@ function isOnSidewalk(x: number, z: number): boolean {
   const cx = Math.floor(x / 80);
   const cz = Math.floor(z / 80);
   const biome = getBiome(cx, cz);
-  if (biome === 'beach' || biome === 'aeroport' || biome === 'bridge' || biome === 'bridge_connector' || biome === 'rural_farm' || biome === 'rural_hills' || biome === 'rural_mountain' || biome === 'rural_lakes' || biome === 'rural_desert') return false;
+  if (biome === 'beach' || biome === 'marina' || biome === 'aeroport' || biome === 'bridge' || biome === 'bridge_connector' || biome === 'rural_farm' || biome === 'rural_hills' || biome === 'rural_mountain' || biome === 'rural_lakes' || biome === 'rural_desert') return false;
   const localX = ((x - cx * 80) + 80) % 80;
   const localZ = ((z - cz * 80) + 80) % 80;
   const halfRoad = (80 - 55) / 2; 
@@ -356,6 +408,11 @@ export function getTerrainHeight(x: number, z: number, currentY?: number, forceB
       return bridgeYAt(x, bridge);
     }
     return -2.5;
+  }
+  if (biome === 'marina') {
+    // Match the inlet geometry exactly: land, roads, and the bridge shoulder
+    // use the shared ground datum; only the modeled basin is below the shore.
+    return isMarinaWaterPosition(x, z) ? -1.75 : 0.0;
   }
   if (biome === 'bridge_connector') {
     const bridge = BRIDGE_RANGES.find(br =>
@@ -731,6 +788,7 @@ export class GrandTheftRenderer {
   } | null = null;
   private playerRigJoints: Float32Array | null = null;
   public lampMesh: CityMesh | CityMesh[] | null = null;
+  private streetLampFallback: CityMesh | null = null;
   public npcMesh: CityMesh | CityMesh[] | null = null;
   public npcMeshes: CityMesh[][] = [];
   public busMesh: CityMesh[] | null = null;
@@ -2789,8 +2847,9 @@ void main() {
         }
       return false;
     };
-    const isBeach = biome === 'beach';
-    const isSuburb = biome === 'suburb';
+  const isBeach = biome === 'beach';
+  const isMarina = biome === 'marina';
+  const isSuburb = biome === 'suburb';
     const isCity = biome === 'city';
     const isBridge = biome === 'bridge';
     const isBridgeConnector = biome === 'bridge_connector';
@@ -2879,6 +2938,139 @@ void main() {
           }
         }
       }
+    }
+    else if (isMarina) {
+      // The marina is a real piece of land with a controlled inlet. Generate a
+      // tiled shore/water transition so adjacent ocean does not swallow the
+      // entire biome, then build the working harbour on top of it below.
+      const oceanSides: [number, number][] = [];
+      for (const side of [[1, 0], [-1, 0], [0, 1], [0, -1]] as [number, number][]) {
+        if (getBiome(cx + side[0], cz + side[1]) === 'ocean') oceanSides.push(side);
+      }
+      const tileSize = 10;
+      const waterDepth = oceanSides.length > 1 ? 25 : 31;
+      const marinaBridgeCorner = BRIDGE_CONNECTORS.some(conn =>
+        Math.abs(cx - conn.cx) <= 1 && cz === conn.cz
+      );      const isRoadCell = (localX: number, localZ: number) => {
+        const nearGrid = (value: number) => {
+          const f = ((value % GRID_PITCH) + GRID_PITCH) % GRID_PITCH;
+          return f <= ROAD_HALF_WIDTH || f >= GRID_PITCH - ROAD_HALF_WIDTH;
+        };
+        return nearGrid(localX) || nearGrid(localZ);
+      };
+      for (let row = 0; row < 8; row++) {
+        for (let col = 0; col < 8; col++) {
+          const localX = col * tileSize + tileSize / 2;
+          const localZ = row * tileSize + tileSize / 2;
+          const harbourWater = isMarinaWaterPosition(worldOriginX + localX, worldOriginZ + localZ);
+          const land = !harbourWater || isRoadCell(localX, localZ);
+          this.addBox(
+            verts, indices,
+            worldOriginX + localX, land ? 0.02 : -1.75, worldOriginZ + localZ,
+            tileSize + 0.08, 0.12, tileSize + 0.08,
+            land ? (marinaBridgeCorner ? 0.25 : 0.22) : 0.04,
+            land ? (marinaBridgeCorner ? 0.29 : 0.28) : 0.22,
+            land ? (marinaBridgeCorner ? 0.25 : 0.20) : 0.34,
+            1.0, idxOffset
+          );
+          idxOffset += 24;
+        }
+      }
+      // Shore retaining walls make the land shoulder legible and stop the
+      // ocean plane from visually cutting through the marina apron.
+      for (const [sideX, sideZ] of oceanSides) {
+        const shore = sideX !== 0 ? worldOriginX + (sideX > 0 ? CHUNK_SIZE - waterDepth : waterDepth) : worldOriginX + CHUNK_SIZE / 2;
+        const shoreZ = sideZ !== 0 ? worldOriginZ + (sideZ > 0 ? CHUNK_SIZE - waterDepth : waterDepth) : worldOriginZ + CHUNK_SIZE / 2;
+        this.addBox(
+          verts, indices, shore, 0.36, shoreZ,
+          sideX !== 0 ? 0.45 : CHUNK_SIZE - 2,
+          0.62,
+          sideZ !== 0 ? 0.45 : CHUNK_SIZE - 2,
+          0.28, 0.30, 0.28, 1.0, idxOffset
+        );
+        idxOffset += 24;
+      }
+      // Road surfaces continue across the land shoulder. This is especially
+      // important at bridge corners: the connector, marina street, and dock
+      // apron meet as one intersection rather than ending at the shoreline.
+      for (const gridX of [cx, cx + 1]) {
+        const roadX = gridX * GRID_PITCH;
+        this.addBox(verts, indices, roadX, 0.12, worldOriginZ + CHUNK_SIZE / 2, ROAD_HALF_WIDTH * 2, 0.16, CHUNK_SIZE, 0.12, 0.13, 0.14, 1.0, idxOffset);
+        idxOffset += 24;
+      }
+      for (const gridZ of [cz, cz + 1]) {
+        const roadZ = gridZ * GRID_PITCH;
+        this.addBox(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.12, roadZ, CHUNK_SIZE, 0.16, ROAD_HALF_WIDTH * 2, 0.12, 0.13, 0.14, 1.0, idxOffset);
+        idxOffset += 24;
+      }
+      if (marinaBridgeCorner) {
+        const connector = BRIDGE_CONNECTORS.find(conn => Math.abs(cx - conn.cx) <= 1 && cz === conn.cz) ?? BRIDGE_CONNECTORS[0];
+        if (connector) {
+          const ix = connector.cx * CHUNK_SIZE;
+          const iz = connector.cz * CHUNK_SIZE;
+          this.addBox(verts, indices, ix, 0.18, iz, 30, 0.12, 30, 0.16, 0.17, 0.18, 1.0, idxOffset);
+          idxOffset += 24;
+          for (let mark = -10; mark <= 10; mark += 10) {
+            this.addBox(verts, indices, ix + mark, 0.27, iz, 4, 0.03, 0.28, 0.9, 0.76, 0.14, 1.0, idxOffset);
+            idxOffset += 24;
+          }
+        }
+      }
+      // Finger piers and mooring posts. They extend beyond the marina tile into
+      // the neighboring ocean, producing recognizable slips instead of an empty
+      // blue patch. The deterministic layout keeps every client identical.
+      for (let sideIndex = 0; sideIndex < oceanSides.length; sideIndex++) {
+        const [sideX, sideZ] = oceanSides[sideIndex];
+        const shorelineX = sideX !== 0 ? worldOriginX + (sideX > 0 ? CHUNK_SIZE - waterDepth : waterDepth) : worldOriginX + CHUNK_SIZE / 2;
+        const shorelineZ = sideZ !== 0 ? worldOriginZ + (sideZ > 0 ? CHUNK_SIZE - waterDepth : waterDepth) : worldOriginZ + CHUNK_SIZE / 2;
+        const pierCount = 3;
+        for (let pier = 0; pier < pierCount; pier++) {
+          const along = 14 + pier * 24;
+          const dockLength = waterDepth + 20;
+          const dockX = sideX !== 0 ? shorelineX + sideX * dockLength / 2 : worldOriginX + along;
+          const dockZ = sideZ !== 0 ? worldOriginZ + along : shorelineZ + sideZ * dockLength / 2;
+          this.addBox(verts, indices, dockX, 0.30, dockZ,
+            sideX !== 0 ? dockLength : 3.2, 0.34,
+            sideZ !== 0 ? 3.2 : dockLength,
+            0.38, 0.24, 0.12, 1.0, idxOffset);
+          idxOffset += 24;
+          const pilingCount = 3;
+          for (let piling = 0; piling < pilingCount; piling++) {
+            const distance = 8 + piling * ((dockLength - 16) / (pilingCount - 1));
+            const px = sideX !== 0 ? shorelineX + sideX * distance : worldOriginX + along;
+            const pz = sideZ !== 0 ? worldOriginZ + along : shorelineZ + sideZ * distance;
+            this.addBox(verts, indices, px, -0.55, pz, 0.55, 1.9, 0.55, 0.20, 0.13, 0.08, 1.0, idxOffset);
+            idxOffset += 24;
+          }
+          // Cross cleats on each slip make the repeated docks read as boat
+          // berths instead of generic brown rectangles.
+          for (const berthSide of [-1, 1]) {
+            const cleatX = sideX !== 0 ? dockX : dockX + berthSide * 1.15;
+            const cleatZ = sideZ !== 0 ? dockZ + berthSide * 1.15 : dockZ;
+            this.addBox(verts, indices, cleatX, 0.54, cleatZ, 0.35, 0.28, 0.35, 0.10, 0.10, 0.09, 1.0, idxOffset);
+            idxOffset += 24;
+          }
+          if (this.boatMeshes.length > 0) {
+            const boat = this.boatMeshes[(Math.abs(cx * 17 + cz * 31 + sideIndex * 7 + pier) >>> 0) % this.boatMeshes.length];
+            const boatX = sideX !== 0 ? shorelineX + sideX * (waterDepth + 13) : worldOriginX + along;
+            const boatZ = sideZ !== 0 ? worldOriginZ + along : shorelineZ + sideZ * (waterDepth + 13);
+            decorativeAircraft.push({ x: boatX, z: boatZ, yaw: sideX !== 0 ? Math.PI / 2 : 0, type: 'boat', model: boat });
+          }
+        }
+      }
+      // A small harbour office, fuel canopy, and crane turn the shoulder into a
+      // functional marina visually even if no authored boat asset is available.
+      const landSide = oceanSides[0] ?? [0, 1];
+      const officeX = worldOriginX + (landSide[0] > 0 ? 17 : landSide[0] < 0 ? 63 : 40);
+      const officeZ = worldOriginZ + (landSide[1] > 0 ? 17 : landSide[1] < 0 ? 63 : 40);
+      this.addBox(verts, indices, officeX, 1.4, officeZ, 14, 2.8, 9, 0.72, 0.70, 0.56, 1.0, idxOffset); idxOffset += 24;
+      this.addBox(verts, indices, officeX, 3.05, officeZ, 16, 0.22, 11, 0.16, 0.22, 0.28, 1.0, idxOffset); idxOffset += 24;
+      this.addBox(verts, indices, officeX, 1.7, officeZ - 4.55, 5.5, 1.1, 0.12, 0.08, 0.24, 0.32, 1.0, idxOffset); idxOffset += 24;
+      const fuelX = officeX + (landSide[0] === 0 ? 15 : 0);
+      const fuelZ = officeZ + (landSide[1] === 0 ? 15 : 0);
+      this.addBox(verts, indices, fuelX, 2.2, fuelZ, 7, 0.16, 5, 0.18, 0.18, 0.20, 1.0, idxOffset); idxOffset += 24;
+      this.addBox(verts, indices, fuelX, 2.8, fuelZ, 0.18, 1.2, 0.18, 0.75, 0.75, 0.70, 1.0, idxOffset); idxOffset += 24;
+      this.addBox(verts, indices, fuelX, 3.42, fuelZ, 8, 0.18, 5.5, 0.84, 0.12, 0.04, 1.0, idxOffset); idxOffset += 24;
     }
     else if (isBridge) {
       const cx2 = cx * CHUNK_SIZE + CHUNK_SIZE / 2;
@@ -3192,7 +3384,7 @@ void main() {
         idxOffset = this.addRoadMarkings(verts, indices, idxOffset, true, worldZ, 0.10, worldOriginX, worldOriginX + CHUNK_SIZE);
       }
     }
-    if (isBeach || isRural) {
+    if ((isBeach || isRural) && !isMarina) {
       const nb = (dx: number, dz: number) => getBiome(cx + dx, cz + dz);
       const isRoad = (b: string) => b === 'city' || b === 'suburb' || b === 'parking_lot' || b === 'bridge' || b === 'bridge_connector';
       if (isRoad(nb(-1, 0))) {
@@ -3219,7 +3411,7 @@ void main() {
         this.addBox(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.04, (cz + 1) * GRID_PITCH, CHUNK_SIZE, 0.08, ROAD_HALF_WIDTH * 2, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
       }
     }
-    if (!isBeach && !isBridge && !isBridgeConnector && !isAeroport) {
+    if (!isBeach && !isMarina && !isBridge && !isBridgeConnector && !isAeroport) {
       const gap = ROAD_HALF_WIDTH + 1; 
       const segLen = CHUNK_SIZE - (gap * 2); 
       for (const [ddx, ddz] of [[0, 1], [0, -1], [1, 0], [-1, 0]] as const) {
@@ -3262,7 +3454,7 @@ void main() {
           this.addBox(verts, indices, blockWorldX, 0.1, blockWorldZ + 18, 38, 0.2, 0.6, 0.3, 0.3, 0.32, 1.0, idxOffset); idxOffset += 24;
           continue;
         }
-        if (!isBeach && !isAeroport && !isBridge && !isBridgeConnector && !isRural) {
+        if (!isBeach && !isMarina && !isAeroport && !isBridge && !isBridgeConnector && !isRural) {
           const swShade = 0.38 + (rng() * 0.08);
           const swHalf = SIDEWALK_SIZE / 2;
           this.addBox(verts, indices, blockWorldX, 0.15, blockWorldZ, SIDEWALK_SIZE, 0.3, SIDEWALK_SIZE, swShade, swShade, swShade, 1.0, idxOffset); idxOffset += 24;
@@ -3612,7 +3804,7 @@ void main() {
           }
           continue;
         }
-        if (isBridge || isBridgeConnector) continue;
+        if (isMarina || isBridge || isBridgeConnector) continue;
         const grassG = isSuburb ? 0.42 : 0.10;
         this.addBox(verts, indices, blockWorldX, 0.075, blockWorldZ, BLOCK_SIZE, 0.15, BLOCK_SIZE, 0.08, grassG, 0.08, 1.0, idxOffset); idxOffset += 24;
         if ((cx === 0 && cz === 0) || (cx === 1 && cz === 0)) continue;
@@ -3962,7 +4154,28 @@ void main() {
     const mesh = this.createMesh(verts, indices);
     const lamps: { x: number; z: number }[] = [];
     const hydrants: { x: number; z: number }[] = [];
-    if (!isMountain && !isBeach && !isAeroport && !isBridge && !isBridgeConnector && !isRuralMountain && biome !== 'ocean') {
+    // Decorative lamp placement is valid only on a real city/suburb road
+    // network. The old corner/boulevard heuristics also ran for parking and
+    // partially generated edge chunks, leaving isolated lamp meshes in fields.
+    const isValidLampPosition = (x: number, z: number): boolean => {
+      const lampBiome = getBiome(Math.floor(x / CHUNK_SIZE), Math.floor(z / CHUNK_SIZE));
+      if (lampBiome !== 'city' && lampBiome !== 'suburb' && lampBiome !== 'parking_lot') return false;
+      const localX = ((x % GRID_PITCH) + GRID_PITCH) % GRID_PITCH;
+      const localZ = ((z % GRID_PITCH) + GRID_PITCH) % GRID_PITCH;
+      const nearRoad = Math.min(localX, GRID_PITCH - localX) <= ROAD_HALF_WIDTH + 8
+        || Math.min(localZ, GRID_PITCH - localZ) <= ROAD_HALF_WIDTH + 8;
+      if (!nearRoad) return false;
+      // A lamp must sit on the walkable side of the road, not inside a building
+      // footprint or over water. This also rejects cross-chunk false positives.
+      if (getBiome(Math.floor(x / CHUNK_SIZE), Math.floor(z / CHUNK_SIZE)) === 'ocean') return false;
+      return !this.isBuildingOccupiedAt(x, z, 1.25);
+    };
+    const addLamp = (x: number, z: number) => {
+      if (isValidLampPosition(x, z) && !lamps.some(l => Math.abs(l.x - x) < 0.5 && Math.abs(l.z - z) < 0.5)) {
+        lamps.push({ x, z });
+      }
+    };
+    if (!isMountain && !isBeach && !isMarina && !isAeroport && !isBridge && !isBridgeConnector && !isRuralMountain && biome !== 'ocean') {
       const halfSidewalk = SIDEWALK_SIZE / 2;
       const sidewalkEdge = GRID_PITCH / 2 - halfSidewalk;
       for (let ly = 0; ly < 2; ly++) {
@@ -3970,7 +4183,7 @@ void main() {
           const lxPos = cx * CHUNK_SIZE + lx * GRID_PITCH - sidewalkEdge;
           const lzPos = cz * CHUNK_SIZE + ly * GRID_PITCH - sidewalkEdge;
           if (getBiome(Math.floor(lxPos / CHUNK_SIZE), Math.floor(lzPos / CHUNK_SIZE)) !== 'ocean') {
-            lamps.push({ x: lxPos, z: lzPos });
+            addLamp(lxPos, lzPos);
           }
           const cornerSeed = ((cx * 100003 + cz * 70001) * 31 + ly * 7 + lx * 13) >>> 0;
           const hydrantRng = this.mulberry32(cornerSeed);
@@ -3982,16 +4195,16 @@ void main() {
           if (!isBoulevard(gridX)) continue;
           const worldX = gridX * GRID_PITCH;
           for (let z = worldOriginZ + 12; z < worldOriginZ + CHUNK_SIZE - 4; z += 24) {
-            if (getBiome(Math.floor((worldX - 6) / CHUNK_SIZE), Math.floor(z / CHUNK_SIZE)) !== 'ocean') lamps.push({ x: worldX - 6, z });
-            if (getBiome(Math.floor((worldX + 6) / CHUNK_SIZE), Math.floor(z / CHUNK_SIZE)) !== 'ocean') lamps.push({ x: worldX + 6, z });
+            addLamp(worldX - 6, z);
+            addLamp(worldX + 6, z);
           }
         }
         for (const gridZ of [cz, cz + 1]) {
           if (!isBoulevard(gridZ)) continue;
           const worldZ = gridZ * GRID_PITCH;
           for (let x = worldOriginX + 12; x < worldOriginX + CHUNK_SIZE - 4; x += 24) {
-            if (getBiome(Math.floor(x / CHUNK_SIZE), Math.floor((worldZ - 6) / CHUNK_SIZE)) !== 'ocean') lamps.push({ x, z: worldZ - 6 });
-            if (getBiome(Math.floor(x / CHUNK_SIZE), Math.floor((worldZ + 6) / CHUNK_SIZE)) !== 'ocean') lamps.push({ x, z: worldZ + 6 });
+            addLamp(x, worldZ - 6);
+            addLamp(x, worldZ + 6);
           }
         }
       }
@@ -3999,7 +4212,7 @@ void main() {
         for (let i = 0; i < 4; i++) {
           const fx = worldOriginX + 15 + (i % 2) * 50;
           const fz = worldOriginZ + 15 + Math.floor(i / 2) * 50;
-          lamps.push({ x: fx, z: fz });
+          addLamp(fx, fz);
         }
       }
     }
@@ -4185,6 +4398,48 @@ void main() {
     }
     return idxOffset;
   }
+  /** A guaranteed complete street lamp used instead of the unreliable authored
+   * citylight asset. The bulb is part of the same mesh as the base and pole, so
+   * a point light can never appear without a visible fixture beneath it. */
+  getStreetLampMesh(): CityMesh {
+    if (this.streetLampFallback) return this.streetLampFallback;
+    const verts: number[] = [];
+    const indices: number[] = [];
+    let offset = 0;
+    const box = (x: number, y: number, z: number, w: number, h: number, d: number, color: [number, number, number]) => {
+      this.addBox(verts, indices, x, y, z, w, h, d, color[0], color[1], color[2], 1, offset);
+      offset += 24;
+    };
+    const metal: [number, number, number] = [0.16, 0.18, 0.20];
+    const darkMetal: [number, number, number] = [0.08, 0.10, 0.12];
+    const warmBulb: [number, number, number] = [1.0, 0.82, 0.25];
+    box(0, 0.08, 0, 0.62, 0.16, 0.62, darkMetal);
+    box(0, 2.35, 0, 0.18, 4.55, 0.18, metal);
+    box(0.42, 4.55, 0, 0.85, 0.14, 0.14, metal);
+    box(0.82, 4.38, 0, 0.22, 0.32, 0.22, darkMetal);
+    box(0.82, 4.25, 0, 0.16, 0.16, 0.16, warmBulb);
+    const mesh = this.createMesh(verts, indices);
+    mesh.meshName = 'procedural_street_lamp';
+    this.streetLampFallback = mesh;
+    return mesh;
+  }
+
+  private isBuildingOccupiedAt(x: number, z: number, padding = 0): boolean {
+    const cx = Math.floor(x / CHUNK_SIZE);
+    const cz = Math.floor(z / CHUNK_SIZE);
+    for (let dz = -1; dz <= 1; dz++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const boxes = this.buildingOccupancyByChunk.get(`${cx + dx},${cz + dz}`);
+        if (!boxes) continue;
+        for (const box of boxes) {
+          if (x >= box.minX - padding && x <= box.maxX + padding
+            && z >= box.minZ - padding && z <= box.maxZ + padding) return true;
+        }
+      }
+    }
+    return false;
+  }
+
   getLampsNear(x: number, z: number, radius: number): { x: number; z: number }[] {
     const lamps: { x: number; z: number }[] = [];
     const cx = Math.floor(x / CHUNK_SIZE);
@@ -4980,10 +5235,20 @@ void main() {
           for (const bld of chunk.buildings) {
             this.drawMesh(bld.model, bld.x, bld.y, bld.z, bld.yaw, bld.scale, [1, 1, 1, 1], true);
           }
-          for (const lamp of chunk.lamps) {
-            const distSq = (lamp.x - camX) ** 2 + (lamp.z - camZ) ** 2;
-            if (distSq < 50 * 50) {
-              nearbyLamps.push({ x: lamp.x, y: 1.05, z: lamp.z });
+          // A point light without its matching mesh reads as a floating lamp.
+          // Do not emit halos while the lamp asset is missing or empty.
+          if (this.lampMesh) {
+            const lampModels = Array.isArray(this.lampMesh) ? this.lampMesh.filter(Boolean) : [this.lampMesh];
+            if (lampModels.length > 0) {
+              for (const lamp of chunk.lamps) {
+                const distSq = (lamp.x - camX) ** 2 + (lamp.z - camZ) ** 2;
+                if (distSq < 50 * 50) {
+                  // The procedural lamp is rendered at its authored world scale;
+                  // keep the illumination point in that same coordinate frame so
+                  // no light can appear detached above a short pole.
+                  nearbyLamps.push({ x: lamp.x + 0.82, y: 4.25, z: lamp.z });
+                }
+              }
             }
           }
         }
@@ -5103,10 +5368,15 @@ void main() {
         const ring = Math.max(Math.abs(dx), Math.abs(dz));
         this.drawMesh(chunk.mesh, 0, 0, 0, 0, [1, 1, 1], [1, 1, 1, 1]);
         if (this.lampMesh && ring <= 1) {
-          const lampModels = Array.isArray(this.lampMesh) ? this.lampMesh : [this.lampMesh];
+          const lampModels = Array.isArray(this.lampMesh) ? this.lampMesh.filter(Boolean) : [this.lampMesh];
+          if (lampModels.length === 0) continue;
           for (const lamp of chunk.lamps) {
             const mi = Math.abs(Math.floor(lamp.x * 7 + lamp.z * 13)) % lampModels.length;
-            this.drawMesh(lampModels[mi], lamp.x, 0, lamp.z, 0, [1, 1, 1], [0.25, 0.3, 0.22, 1]);
+            // The procedural fallback is already authored in world-sized units
+            // (a 4.55-unit pole). Do not apply the old GLTF's shrink transform;
+            // that made the visible pole ~1.3 units tall while its bulb light
+            // stayed at y=4.25, producing floating lights.
+            this.drawMesh(lampModels[mi], lamp.x, 0, lamp.z, 0, [1, 1, 1], [1, 1, 1, 1]);
           }
         }
         if (this.hydrantMesh && ring <= 1) {
