@@ -36,6 +36,10 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   @Input() displayPrivatePublicOption: boolean = true;
   @Input() maxResults: number = 10;
   @Input() fileSearchMode: boolean = false;
+  /** Enables the book view filters (My library / Community). They only render
+   *  while this flag is set AND the browsed directory is inside Books/ — other
+   *  file-search usages never see them, even inside the Books tree. */
+  @Input() isBookView: boolean = false;
   @Input() canChangeDirectory: boolean = true;
   @Input() displayFileType: boolean = true;
   @Input() displayFileSize: boolean = true;
@@ -85,6 +89,11 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   showFavouritesOnly = false;
   showPicturesOnly = false;
   showVideosOnly = false;
+  /** Book-scoped view filter (only shown while browsing the Books tree):
+   *  'all' = everything in the folder, 'library' = my registered books plus
+   *  books shared with me, 'community' = public/shared community books.
+   *  Mirrors the old eBooks library/catalog tabs, server-side via bookFilter. */
+  bookFilter: 'all' | 'library' | 'community' = 'all';
   trendingSearches: string[] = [];
   sortOption: string = '';
   actualCoreFilter?: string[];
@@ -396,6 +405,37 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     return (this.currentDirectory ?? '').toLowerCase().endsWith('roms/');
   }
 
+  /** True while browsing Books/ or any of its subfolders. */
+  isInBooksDirectory(): boolean {
+    const dir = (this.currentDirectory ?? '').replace(/\\/g, '/').toLowerCase().replace(/^\/+|\/+$/g, '');
+    return dir === 'books' || dir.startsWith('books/');
+  }
+
+  /** True while at the Books/ root itself (not one of its subfolders). */
+  isBooksRootDirectory(): boolean {
+    const dir = (this.currentDirectory ?? '').replace(/\\/g, '/').toLowerCase().replace(/^\/+|\/+$/g, '');
+    return dir === 'books';
+  }
+
+  /** Reset the book view filter when navigation leaves the Books tree. */
+  private syncBookFilterToDirectory() {
+    if (!this.isInBooksDirectory()) {
+      this.bookFilter = 'all';
+    }
+  }
+
+  setBookFilter(mode: 'all' | 'library' | 'community') {
+    if (mode === this.bookFilter) return;
+    this.bookFilter = mode;
+    this.goToFirstPage();
+    this.getDirectory();
+  }
+
+  onBookFilterChange(event: Event) {
+    const mode = (event.target as HTMLSelectElement).value as 'all' | 'library' | 'community';
+    this.setBookFilter(mode);
+  }
+
   // Return true if any search/filter option is currently applied
   public hasActiveFilters(): boolean {
     // Search terms
@@ -408,6 +448,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     if (this.filter && (this.filter.visibility !== 'all' || this.filter.ownership !== 'all')) return true;
     // Toggle filters
     if (this.showFavouritesOnly || this.showPicturesOnly || this.showVideosOnly) return true;
+    // Book view filter
+    if (this.bookFilter !== 'all') return true;
     // Rom system filter
     if (this.activeRomSystems && this.activeRomSystems.length > 0) return true;
     // Sort option changed
@@ -568,6 +610,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         this.actualCoreFilter,
         this.isDisplayingNSFW,
         this.getDirectoryAbortController.signal,
+        this.isBookView && this.bookFilter !== 'all' ? this.bookFilter : undefined,
       ).then(async res => {
         const noData = !res;
         if (res && append && this.directory && this.directory.data) {
@@ -624,6 +667,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
             } else if (!noData) {
               this.currentDirectory = '';
             }
+            this.syncBookFilterToDirectory();
             this.currentDirectoryChangeEvent.emit(this.currentDirectory);
           }
           this.showUpFolderRow = (this.currentDirectory && this.currentDirectory.trim() !== "") ? true : false;
@@ -1171,6 +1215,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     const target = this.moveUpOneLevel();
     this.goToFirstPage();
     this.currentDirectory = target;
+    this.syncBookFilterToDirectory();
     this.pageLocked = false;
     this.getDirectory();
   }
@@ -2385,6 +2430,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
     this.goToFirstPage();
     this.currentDirectory = directory;
+    this.syncBookFilterToDirectory();
     this.currentDirectoryChangeEvent.emit(this.currentDirectory);
     this.getDirectory();
   }

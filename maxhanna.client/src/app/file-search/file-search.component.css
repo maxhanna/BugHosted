@@ -1062,9 +1062,37 @@
   .grid-item {
     border-radius: 8px;
     padding: 4px;
-  }
-  .file-type-badge {
+  }  .file-type-badge {
     font-size: 7px;
     padding: 1px 4px;
   }
+}
+
+/* ============ Book view filter (Books folder only) ============ */
+.bookFilterBar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0.35rem 0;
+}
+.bookFilterLabel {
+  font-size: 0.8rem;
+  font-weight: 700;
+  opacity: 0.8;
+}
+.bookFilterBtn {
+  padding: 0.2rem 0.65rem;
+  border: 1px solid var(--main-border, #555);
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.78rem;
+}
+.bookFilterBtn:hover {
+  opacity: 0.85;
+}
+.bookFilterBtn.active {
+  font-weight: 800;
+  background: var(--hover-bg-color, #3a3f45);
 }

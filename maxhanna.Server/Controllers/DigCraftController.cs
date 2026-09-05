@@ -13,6 +13,13 @@ namespace maxhanna.Server.Controllers
         private readonly Log _log;
         private readonly IConfiguration _config;
         private static readonly ConcurrentDictionary<int, DateTime> _lastAttackAt = new();
+        // Mob damage is applied through a per-player gate. The simulation loop,
+        // projectile hits, and legacy MobAttack requests can otherwise all queue
+        // against the same state at once and drain health in a burst.
+        private static readonly ConcurrentDictionary<(int UserId, int WorldId), SemaphoreSlim> _mobDamageGates = new();
+        private static readonly ConcurrentDictionary<(int UserId, int WorldId), DateTime> _lastMobDamageAt = new();
+        private const int MOB_DAMAGE_MIN_INTERVAL_MS = 250;
+        private const int MAX_MOB_DAMAGE_PER_HIT = 8;
         // Track last time a player's health was regenerated (server-side, per-user)
         private static readonly ConcurrentDictionary<int, DateTime> _lastHealthRegenAt = new();
         // Server-authoritative mob state: worldId -> (mobId -> ServerMob)
@@ -2617,7 +2624,10 @@ var mobSpeed = t switch
                                                     "Bear" => BEAR_DAMAGE,
                                                     _ => 1
                                                 };
-                                                _ = Task.Run(async () => await ApplyMobDamageToPlayerAsync(best.userId, wid, baseDamage));
+                                                // Apply on the simulation loop, not fire-and-forget. The helper
+                                                // revalidates the current player/source positions and serializes
+                                                // damage for this player before changing health.
+                                                await ApplyMobDamageToPlayerAsync(best.userId, wid, baseDamage, mob.Id);
 
                                                 float knockDx = (float)Math.Cos(Math.Atan2(best.x - mob.PosX, best.z - mob.PosZ));
                                                 float knockDz = (float)Math.Sin(Math.Atan2(best.x - mob.PosX, best.z - mob.PosZ));
@@ -2631,6 +2641,16 @@ var mobSpeed = t switch
                                                 knockCmd2.Parameters.AddWithValue("@dx", knockDx * 0.5f);
                                                 knockCmd2.Parameters.AddWithValue("@dz", knockDz * 0.5f);
                                                 await knockCmd2.ExecuteNonQueryAsync(ct);
+                                                // Keep the authoritative in-memory position aligned with the
+                                                // knockback written to SQL. Otherwise the next tick can use a
+                                                // stale position and accept another apparent hit.
+                                                if (_players.TryGetValue(best.userId, out var knockedPlayer)
+                                                    && knockedPlayer.WorldId == wid)
+                                                {
+                                                    knockedPlayer.PosX += knockDx * 0.5f;
+                                                    knockedPlayer.PosZ += knockDz * 0.5f;
+                                                    knockedPlayer.IsDirty = true;
+                                                }
                                             }
                                         }
                                     }
@@ -2735,7 +2755,10 @@ var mobSpeed = t switch
                                         if (pDistSq < 1.0f)
                                         {
                                             // Hit player for 4 damage
-                                            _ = Task.Run(async () => await ApplyMobDamageToPlayerAsync(pl.userId, wid, 4));
+                                            // Validate against the current arrow impact position as well as the
+                                            // player snapshot used by this tick; this prevents stale arrows from
+                                            // damaging a player who has already moved away.
+                                            await ApplyMobDamageToPlayerAsync(pl.userId, wid, 4, arrow.OwnerMobId, arrow.PosX, arrow.PosY, arrow.PosZ, 1.5f);
                                             arrow.Hit = true;
                                             hitPlayer = true;
                                             break;
@@ -4555,38 +4578,22 @@ var mobSpeed = t switch
                 }
                 if (mob == null) return BadRequest("No mob of that type is close enough to attack you");
 
+                if (!mob.Hostile)
+                    return BadRequest("This mob is not hostile");
+
+                // Legacy clients only send a mob type, so resolve the source above;
+                // the same authoritative source checks and cooldown are still used.
                 bool blocked = isDefending && leftHand == ItemIds.SHIELD;
                 if (blocked)
-                    return Ok(new { ok = true, damage = 0, mobId = mob.Id, health = -1, dead = false, blocked = true });
+                    return Ok(new { ok = true, damage = 0, mobId = mob.Id, health = state.Health, dead = false, blocked = true });
 
-                var eq = state.Equipment;
-                int helmet = eq?.Helmet ?? 0, chest = eq?.Chest ?? 0, legs = eq?.Legs ?? 0, boots = eq?.Boots ?? 0;
+                var applied = await ApplyMobDamageToPlayerAsync(
+                    req.UserId, req.WorldId, req.Damage, mob.Id);
+                if (!applied.ok)
+                    return BadRequest(applied.reason);
 
-                var armorPoints = ArmorPointsForItem(helmet) + ArmorPointsForItem(chest) + ArmorPointsForItem(legs) + ArmorPointsForItem(boots);
-                var reduction = Math.Min(0.8f, armorPoints * 0.04f);
-                var reducedDamage = (int)Math.Floor(req.Damage * (1.0f - reduction));
-                if (reducedDamage < 0) reducedDamage = 0;
-
-                state.Health = Math.Max(0, state.Health - reducedDamage);
-                state.IsDirty = true;
-                int newHealth = state.Health;
-
-                if (newHealth <= 0)
-                {
-                    state.Level = 1;
-                    state.Exp = 0;
-
-                    await using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-                    {
-                        await conn.OpenAsync();
-                        await UserEventController.InsertUserEventWithConnection(
-                            req.UserId, "digcraft_death",
-                            $"Killed by {req.MobType} in DigCraft!",
-                            null, null, conn);
-                    }
-                }
-
-                return Ok(new { ok = true, damage = reducedDamage, health = newHealth });
+                var newHealth = applied.health;
+                return Ok(new { ok = true, damage = applied.damage, mobId = mob.Id, health = newHealth, dead = newHealth <= 0 });
             }
             catch (Exception ex)
             {
@@ -8426,17 +8433,97 @@ var mobSpeed = t switch
             return loot;
         }
 
-        private async Task ApplyMobDamageToPlayerAsync(int userId, int worldId, int damage)
+        private async Task<(bool ok, string reason, int damage, int health)> ApplyMobDamageToPlayerAsync(
+            int userId,
+            int worldId,
+            int requestedDamage,
+            int? sourceMobId = null,
+            float? impactX = null,
+            float? impactY = null,
+            float? impactZ = null,
+            float impactRadius = 0f)
         {
+            var gate = _mobDamageGates.GetOrAdd((userId, worldId), _ => new SemaphoreSlim(1, 1));
+            await gate.WaitAsync();
             try
             {
                 var state = await EnsurePlayerLoaded(userId, worldId);
+                if (!state.IsLoaded || state.WorldId != worldId)
+                    return (false, "Player is not active in this world", 0, state.Health);
+                if (state.Health <= 0)
+                    return (false, "Player is already dead", 0, state.Health);
+
+                // Every server-side damage path must identify a real hostile source.
+                // Never trust a client-provided damage amount or mob type by itself.
+                if (sourceMobId.HasValue)
+                {
+                    if (!_worldMobs.TryGetValue(worldId, out var worldMobs)
+                        || !worldMobs.TryGetValue(sourceMobId.Value, out var sourceMob)
+                        || !sourceMob.Hostile
+                        || sourceMob.DiedAtMs > 0
+                        || sourceMob.Health <= 0)
+                    {
+                        return (false, "Hostile mob is no longer active", 0, state.Health);
+                    }
+
+                    if (impactX.HasValue && impactY.HasValue && impactZ.HasValue)
+                    {
+                        // Ranged damage is attributed to an active hostile mob, but
+                        // the mob itself may be far away. Validate the actual impact
+                        // point near the player instead of requiring the archer to be
+                        // within melee distance.
+                        var impactDx = impactX.Value - state.PosX;
+                        var impactDy = impactY.Value - (state.PosY + 0.9f);
+                        var impactDz = impactZ.Value - state.PosZ;
+                        if (impactDx * impactDx + impactDy * impactDy + impactDz * impactDz > impactRadius * impactRadius)
+                            return (false, "Projectile is no longer near the player", 0, state.Health);
+                    }
+                    else
+                    {
+                        var dx = sourceMob.PosX - state.PosX;
+                        var dy = sourceMob.PosY - state.PosY;
+                        var dz = sourceMob.PosZ - state.PosZ;
+                        const float maxSourceDistance = 2.2f;
+                        if (dx * dx + dy * dy + dz * dz > maxSourceDistance * maxSourceDistance)
+                            return (false, "Hostile mob is not close enough", 0, state.Health);
+
+                        if (!HasClearLineOfSight(
+                            worldId, sourceMob.PosX, sourceMob.PosY + 0.8f, sourceMob.PosZ,
+                            state.PosX, state.PosY + 0.9f, state.PosZ))
+                        {
+                            return (false, "Hostile mob is behind terrain", 0, state.Health);
+                        }
+                    }
+                }
+                else if (impactX.HasValue && impactY.HasValue && impactZ.HasValue)
+                {
+                    var dx = impactX.Value - state.PosX;
+                    var dy = impactY.Value - (state.PosY + 0.9f);
+                    var dz = impactZ.Value - state.PosZ;
+                    if (dx * dx + dy * dy + dz * dz > impactRadius * impactRadius)
+                        return (false, "Projectile is no longer near the player", 0, state.Health);
+                }
+                else
+                {
+                    return (false, "Damage source was not provided", 0, state.Health);
+                }
+
+                var now = DateTime.UtcNow;
+                var lastDamage = _lastMobDamageAt.GetOrAdd((userId, worldId), DateTime.MinValue);
+                if ((now - lastDamage).TotalMilliseconds < MOB_DAMAGE_MIN_INTERVAL_MS)
+                    return (false, "Damage cooldown", 0, state.Health);
+                _lastMobDamageAt[(userId, worldId)] = now;
+
+                var damage = Math.Clamp(requestedDamage, 1, MAX_MOB_DAMAGE_PER_HIT);
+                if (state.IsDefending && state.Equipment?.LeftHand == ItemIds.SHIELD)
+                    return (true, string.Empty, 0, state.Health);
+
                 var eq = state.Equipment;
+                int helmet = eq?.Helmet ?? 0, chest = eq?.Chest ?? 0;
+                int legs = eq?.Legs ?? 0, boots = eq?.Boots ?? 0;
+                int helmetDur = eq?.HelmetDur ?? -1, chestDur = eq?.ChestDur ?? -1;
+                int legsDur = eq?.LegsDur ?? -1, bootsDur = eq?.BootsDur ?? -1;
 
-                int helmet = eq?.Helmet ?? 0, chest = eq?.Chest ?? 0, legs = eq?.Legs ?? 0, boots = eq?.Boots ?? 0;
-                int helmetDur = eq?.HelmetDur ?? -1, chestDur = eq?.ChestDur ?? -1, legsDur = eq?.LegsDur ?? -1, bootsDur = eq?.BootsDur ?? -1;
-
-                // Initialise durability from max if not yet set
                 if (helmet > 0 && helmetDur < 0) helmetDur = ItemMaxDurability(helmet);
                 if (chest > 0 && chestDur < 0) chestDur = ItemMaxDurability(chest);
                 if (legs > 0 && legsDur < 0) legsDur = ItemMaxDurability(legs);
@@ -8445,50 +8532,54 @@ var mobSpeed = t switch
                 var armorPoints = ArmorPointsForItem(helmet) + ArmorPointsForItem(chest)
                                 + ArmorPointsForItem(legs) + ArmorPointsForItem(boots);
                 var reduction = Math.Min(0.8f, armorPoints * 0.04f);
-                var reducedDamage = (int)Math.Max(1, Math.Floor(damage * (1.0f - reduction)));
+                var reducedDamage = Math.Max(1, (int)Math.Floor(damage * (1.0f - reduction)));
 
-                // Apply health damage in memory
                 state.Health = Math.Max(0, state.Health - reducedDamage);
 
-                // Reduce durability of each worn armor piece by 1 per hit
                 if (armorPoints > 0)
                 {
                     if (helmet > 0) helmetDur--;
                     if (chest > 0) chestDur--;
                     if (legs > 0) legsDur--;
                     if (boots > 0) bootsDur--;
-
                     if (helmet > 0 && helmetDur <= 0) { helmet = 0; helmetDur = 0; }
                     if (chest > 0 && chestDur <= 0) { chest = 0; chestDur = 0; }
                     if (legs > 0 && legsDur <= 0) { legs = 0; legsDur = 0; }
                     if (boots > 0 && bootsDur <= 0) { boots = 0; bootsDur = 0; }
-
                     state.Equipment = new DigCraftEquipment
                     {
-                        Helmet = helmet,
-                        Chest = chest,
-                        Legs = legs,
-                        Boots = boots,
-                        HelmetDur = helmetDur,
-                        ChestDur = chestDur,
-                        LegsDur = legsDur,
-                        BootsDur = bootsDur,
-                        Weapon = eq?.Weapon ?? 0,
-                        LeftHand = eq?.LeftHand ?? 0,
-                        WeaponDur = eq?.WeaponDur ?? -1,
-                        LeftHandDur = eq?.LeftHandDur ?? -1,
-                        HelmetDye = eq?.HelmetDye ?? 0,
-                        ChestDye = eq?.ChestDye ?? 0,
-                        LegsDye = eq?.LegsDye ?? 0,
-                        BootsDye = eq?.BootsDye ?? 0
+                        Helmet = helmet, Chest = chest, Legs = legs, Boots = boots,
+                        HelmetDur = helmetDur, ChestDur = chestDur,
+                        LegsDur = legsDur, BootsDur = bootsDur,
+                        Weapon = eq?.Weapon ?? 0, LeftHand = eq?.LeftHand ?? 0,
+                        WeaponDur = eq?.WeaponDur ?? -1, LeftHandDur = eq?.LeftHandDur ?? -1,
+                        HelmetDye = eq?.HelmetDye ?? 0, ChestDye = eq?.ChestDye ?? 0,
+                        LegsDye = eq?.LegsDye ?? 0, BootsDye = eq?.BootsDye ?? 0
                     };
                 }
 
                 state.IsDirty = true;
+                if (state.Health <= 0)
+                {
+                    state.Level = 1;
+                    state.Exp = 0;
+                    await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                    await conn.OpenAsync();
+                    await UserEventController.InsertUserEventWithConnection(
+                        userId, "digcraft_death",
+                        $"Killed by a hostile mob in DigCraft!", null, null, conn);
+                }
+
+                return (true, string.Empty, reducedDamage, state.Health);
             }
             catch (Exception ex)
             {
                 _ = _log.Db("ApplyMobDamageToPlayerAsync error: " + ex.Message, userId, "DIGCRAFT", true);
+                return (false, "Damage application failed", 0, 0);
+            }
+            finally
+            {
+                gate.Release();
             }
         }
 

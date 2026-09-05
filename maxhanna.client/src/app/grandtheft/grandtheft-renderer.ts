@@ -4503,12 +4503,19 @@ void main() {
     if (this.proceduralHelicopterMeshes) return this.proceduralHelicopterMeshes;
     const make = (police: boolean): CityMesh[] => {
       const verts: number[] = [], indices: number[] = [];
-      const box = (x:number,y:number,z:number,w:number,h:number,d:number,c:[number,number,number]) => this.addBox(verts,indices,x,y,z,w,h,d,c[0],c[1],c[2],1,0);
+      const box = (x:number,y:number,z:number,w:number,h:number,d:number,c:[number,number,number]) => {
+        const vertexOffset = verts.length / 7;
+        this.addBox(verts, indices, x, y, z, w, h, d, c[0], c[1], c[2], 1, vertexOffset);
+      };
       const wedge = (x:number,y:number,z:number,w:number,h:number,d:number,c:[number,number,number]) => {
-        const base = verts.length / 10;
+        const base = verts.length / 7;
         const hw = w / 2, hd = d / 2;
         const points = [[x-hw,y-h/2,z-hd],[x+hw,y-h/2,z-hd],[x+hw,y+h/2,z-hd],[x-hw,y+h/2,z-hd],[x-hw,y-h/2,z+hd],[x+hw,y-h/2,z+hd],[x+hw,y+h/2,z+hd],[x-hw,y+h/2,z+hd]];
-        for (const p of points) verts.push(p[0],p[1],p[2],c[0],c[1],c[2],1,0,0,0);
+        // Keep the procedural primitive in the same 7-float vertex format as
+        // addBox: position, color, alpha. Mixing 10-float wedge vertices into
+        // the 7-float buffer corrupts every following index and can leave only
+        // the rotor visible even though the fuselage was generated.
+        for (const p of points) verts.push(p[0], p[1], p[2], c[0], c[1], c[2], 1);
         indices.push(base,base+1,base+2,base,base+2,base+3,base+4,base+6,base+5,base+4,base+7,base+6,base,base+4,base+5,base,base+5,base+1,base+3,base+2,base+6,base+3,base+6,base+7,base,base+3,base+7,base,base+7,base+4,base+1,base+5,base+6,base+1,base+6,base+2);
       };
       const body: [number,number,number] = police ? [0.06,0.10,0.20] : [0.16,0.36,0.58];
@@ -4532,7 +4539,9 @@ void main() {
       box(0,1.75,0.15,0.62,0.12,0.10,trim);
       box(-0.72,0.68,-0.55,0.08,0.08,0.55,body); box(0.72,0.68,-0.55,0.08,0.08,0.55,body);
       if (police) { box(0,1.68,0.2,0.85,0.12,0.18,[0.95,0.1,0.08]); box(0,1.68,-0.2,0.85,0.12,0.18,[0.08,0.2,0.95]); }
-      return [this.createMesh(verts,indices)];
+      const mesh = this.createMesh(verts, indices);
+      mesh.carName = police ? 'procedural_police_helicopter' : 'procedural_helicopter';
+      return [mesh];
     };
     this.proceduralHelicopterMeshes = { regular: make(false), police: make(true) };
     return this.proceduralHelicopterMeshes;

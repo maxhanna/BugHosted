@@ -1,4 +1,4 @@
-import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
+import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
 
 /** Minimal structural types for the parts of pdf.js we use — the dynamic import
  *  is cast through this so the app never hard-depends on pdf.js typing quirks. */
@@ -43,12 +43,8 @@ import { AppComponent } from '../app.component';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { BookEntry } from '../../services/datacontracts/books/book-entry';
 import { BooksService } from '../../services/books.service';
-import { MediaSelectorComponent } from '../media-selector/media-selector.component';
-import { FileUploadComponent } from '../file-upload/file-upload.component';
 import { FileService } from '../../services/file.service';
 import { FileSearchComponent } from '../file-search/file-search.component';
-
-type BooksTab = 'files' | 'library' | 'catalog';
 
 @Component({
   selector: 'app-ebooks',
@@ -60,47 +56,19 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
   @Input() inputtedParentRef?: AppComponent;
   @Input() showTitleBar = true;
   @Input() preloadBookId?: number;
-  @Output() hasData = new EventEmitter<boolean>();
 
-  @ViewChild(MediaSelectorComponent) mediaSelector?: MediaSelectorComponent;
-  @ViewChild(FileUploadComponent) fileUploader?: FileUploadComponent;
   @ViewChild(FileSearchComponent) fileSearch?: FileSearchComponent;
   @ViewChild('pdfCanvas') pdfCanvas?: ElementRef<HTMLCanvasElement>;
   @ViewChild('epubHost') epubHost?: ElementRef<HTMLDivElement>;
 
-  books: BookEntry[] = [];
-  filteredBooks: BookEntry[] = [];
-  // The file manager is the default, main view; library/catalog grids are tabs.
-  activeTab: BooksTab = 'files';
   isMenuPanelOpen = false;
 
   // ---- uploads & folders ----
   // Books-relative folder currently browsed ('' = Books root). Uploads via the
   // toolbar uploader land in the folder being viewed.
   currentFolder = '';
-  folders: string[] = [];
   showNewFolderPrompt = false;
   newFolderName = '';
-
-  // ---- bulk metadata edit ----
-  massEditMode = false;
-  selectedFileIds: number[] = [];
-  bulkEditOpen = false;
-  bulkTitle = '';
-  bulkAuthor = '';
-  bulkDescription = '';
-  isBulkSaving = false;
-
-  // ---- sharing ----
-  shareBook?: BookEntry;
-  shareUsername = '';
-  shareMessage = '';
-
-  // ---- editing ----
-  editBook?: BookEntry;
-  editTitle = '';
-  editAuthor = '';
-  editDescription = '';
 
   // ---- reader ----
   readingBook?: BookEntry;
@@ -133,22 +101,24 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
   private pdfRenderTask?: { cancel(): void; promise: Promise<void> };
   private pdfRenderSeq = 0;
 
-  searchQuery = '';
-  formatFilter = '';
-
   public readonly allowedBookTypes = '.pdf,.epub,.txt,.doc,.docx,.docm,.dot,.dotx,.dotm,.rtf,.odt';
 
   constructor(public booksService: BooksService, private fileService: FileService, private cdr: ChangeDetectorRef) { super(); }
 
   async ngOnInit() {
     if (this.inputtedParentRef) this.parentRef = this.inputtedParentRef;
-    await this.loadBooks();
+    // Deep links (/Books/<fileId>) open the reader on top of the file manager.
+    // Resolved from the caller's library first, then the community catalog.
     if (this.preloadBookId) {
-      // Deep links are keyed by fileId (the book's stable identity, shared
-      // across every user's library entry), falling back to bookId for old
-      // links minted before the fileId scheme.
-      const pre = this.books.find(b => b.fileId === this.preloadBookId)
-        ?? this.books.find(b => b.bookId === this.preloadBookId);
+      const token = this.isLoggedIn ? await this.parentRef?.getSessionToken() : undefined;
+      const entries = this.isLoggedIn
+        ? await this.booksService.getMyLibrary(this.userId, token)
+        : [];
+      const catalog = await this.booksService.getCatalog(this.isLoggedIn ? this.userId : undefined);
+      const pre = entries.find(b => b.fileId === this.preloadBookId)
+        ?? entries.find(b => b.bookId === this.preloadBookId)
+        ?? catalog.find(b => b.fileId === this.preloadBookId)
+        ?? catalog.find(b => b.bookId === this.preloadBookId);
       if (pre) await this.openReader(pre);
     }
   }
@@ -189,74 +159,7 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
     this.parentRef?.showOverlay();
   }
 
-  async loadBooks() {
-    this.isLoading = true;
-    try {
-      if (this.isLoggedIn) {
-        const token = await this.parentRef?.getSessionToken();
-        if (this.activeTab === 'library') {
-          this.books = await this.booksService.getMyLibrary(this.userId, token);
-        } else {
-          this.books = await this.booksService.getCatalog(this.userId);
-        }
-      } else {
-        this.books = await this.booksService.getCatalog();
-      }
-      this.applyFilter();
-      this.hasData.emit(this.books.length > 0);
-      // Keep an open share dialog in sync with the freshly loaded data —
-      // otherwise its visibility chips/status lag one reload behind.
-      if (this.shareBook) {
-        this.shareBook = this.books.find(b => b.bookId === this.shareBook!.bookId) ?? this.shareBook;
-      }
-      // Subfolders of the folder being viewed (library tab only).
-      this.folders = this.isLoggedIn
-        ? await this.booksService.getBookFolders(this.userId, this.currentFolder)
-        : [];
-      // Refreshing invalidates any stale bulk selection.
-      this.selectedFileIds = this.selectedFileIds.filter(id => this.books.some(b => b.fileId === id));
-    } finally {
-      this.isLoading = false;
-    }
-  }
-
-  // ================= Folder navigation =================
-
-  /** Books-relative folder of a book ('' = root, 'Sci-Fi' = Books/Sci-Fi/). */
-  folderOf(book: BookEntry): string {
-    const fp = (book as BookEntry & { folderPath?: string }).folderPath || '';
-    const norm = fp.replace(/\\/g, '/');
-    const marker = '/Books/';
-    const idx = norm.lastIndexOf(marker);
-    if (idx < 0) return '';
-    const rel = norm.slice(idx + marker.length).replace(/\/+$/, '');
-    return rel;
-  }
-
-  /** Books live in the folder being browsed; other folders are listed as cards. */
-  get booksInFolder(): BookEntry[] {
-    return this.filteredBooks.filter(b => this.folderOf(b) === this.currentFolder);
-  }
-
-  get folderCrumbs(): string[] {
-    return this.currentFolder ? this.currentFolder.split('/').filter(Boolean) : [];
-  }
-
-  enterFolder(name: string) {
-    this.currentFolder = this.currentFolder ? `${this.currentFolder}/${name}` : name;
-    void this.loadBooks();
-  }
-
-  goToCrumb(index: number) {
-    this.currentFolder = this.folderCrumbs.slice(0, index + 1).join('/');
-    void this.loadBooks();
-  }
-
-  goToRoot() {
-    if (!this.currentFolder) return;
-    this.currentFolder = '';
-    void this.loadBooks();
-  }
+  // ================= Folder management =================
 
   async createBookFolder() {
     const name = this.newFolderName.trim().replace(/[/\\]/g, '-');
@@ -270,47 +173,10 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
       this.parentRef?.showNotification(`Created folder ${name}.`);
       this.showNewFolderPrompt = false;
       this.newFolderName = '';
-      await this.loadBooks();
+      try { this.fileSearch?.refreshDirectory(); } catch { }
     } else {
       this.parentRef?.showNotification('Could not create the folder.');
     }
-  }
-
-  async switchTab(tab: BooksTab) {
-    if (this.activeTab === tab) return;
-    this.activeTab = tab;
-    // The file manager needs no library data — load only for the grid tabs.
-    if (tab === 'files') return;
-    await this.loadBooks();
-  }
-
-  /** Title-bar refresh: in the default files view reload the file browser,
-   *  otherwise reload the current library/catalog tab. */
-  async refreshAll() {
-    if (this.activeTab === 'files') {
-      try { this.fileSearch?.refreshDirectory(); } catch { }
-      return;
-    }
-    await this.loadBooks();
-  }
-
-  applyFilter() {
-    const q = this.searchQuery.trim().toLowerCase();
-    const fmt = this.formatFilter.trim().toLowerCase();
-    this.filteredBooks = this.books.filter(b => {
-      if (fmt && (b.fileType || '').toLowerCase() !== fmt) return false;
-      if (!q) return true;
-      return (b.title || '').toLowerCase().includes(q)
-        || (b.author || '').toLowerCase().includes(q)
-        || (b.description || '').toLowerCase().includes(q)
-        || (b.ownerName || '').toLowerCase().includes(q);
-    });
-  }
-
-  get availableFormats(): string[] {
-    const set = new Set<string>();
-    for (const b of this.books) if (b.fileType) set.add(b.fileType.toLowerCase());
-    return Array.from(set).sort();
   }
 
   /** Books-relative upload target: '' → Books/, 'Sci-Fi' → Books/Sci-Fi/. */
@@ -330,23 +196,19 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
     if (marker < 0) return;
     const relative = normalized.slice(marker + 'books'.length).replace(/^\/+|\/+$/g, '');
     this.currentFolder = relative;
-    // Library data isn't rendered while the file manager is the active view.
-    if (this.activeTab === 'files') return;
-    void this.loadBooks();
   }
 
   get fileManagerTypes(): string[] {
-    return this.allowedBookTypes.split(',').map(type => type.trim().replace(/^\\./, '')).filter(Boolean);
+    return this.allowedBookTypes.split(',').map(type => type.trim().replace(/^\./, '')).filter(Boolean);
   }
 
   /** Open a book selected from app-file-search using the same reader and
-   *  progress tracking as a library card. Library metadata wins when available;
-   *  raw Books-folder files still get a usable temporary BookEntry. */
+   *  progress tracking as before. Raw Books-folder files get a usable
+   *  temporary BookEntry (library metadata is no longer fetched up front). */
   async openBookFromFileSearch(file: FileEntry) {
     if (!file || file.isFolder || !file.id) return;
-    const existing = this.books.find(book => book.fileId === file.id);
     const title = file.givenFileName || this.titleFromFile(file);
-    const book = existing ?? Object.assign(new BookEntry(), {
+    const book = Object.assign(new BookEntry(), {
       fileId: file.id,
       title,
       fileType: (file.fileType || this.fileService.getFileExtension(file.fileName || '')).toLowerCase(),
@@ -359,15 +221,22 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
   }
 
   /** Uploader finished — register every uploaded book-format file so it appears
-   *  in the library immediately, then refresh (folders are picked up too). */
+   *  in the library (and thus the "My library" book filter), then refresh the
+   *  file browser so the new files show up immediately. */
   async uploadFinished(files: FileEntry[]) {
-    if (!files?.length || !this.isLoggedIn) { await this.loadBooks(); return; }
+    if (!files?.length || !this.isLoggedIn) {
+      try { this.fileSearch?.refreshDirectory(); } catch { }
+      return;
+    }
     const bookFiles = files.filter(f => {
       const name = (f.givenFileName || f.fileName || '').toLowerCase();
       const ext = name.includes('.') ? name.split('.').pop()! : '';
       return this.allowedBookTypes.split(',').includes('.' + ext);
     });
-    if (!bookFiles.length) { await this.loadBooks(); return; }
+    if (!bookFiles.length) {
+      try { this.fileSearch?.refreshDirectory(); } catch { }
+      return;
+    }
     const token = await this.parentRef?.getSessionToken();
     const ok = await this.booksService.bulkRegister(bookFiles.map(f => ({
       userId: this.userId,
@@ -378,7 +247,7 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
     this.parentRef?.showNotification(ok === bookFiles.length
       ? `Added ${ok} book${ok === 1 ? '' : 's'} to your library.`
       : `Added ${ok} of ${bookFiles.length} books — edit details to retry any missing.`);
-    await this.loadBooks();
+    try { this.fileSearch?.refreshDirectory(); } catch { }
   }
 
   private titleFromFile(f: FileEntry): string {
@@ -387,358 +256,9 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
     return dot > 0 ? name.slice(0, dot) : name;
   }
 
-  // ================= Bulk selection & metadata edit =================
-
-  toggleMassEdit() {
-    this.massEditMode = !this.massEditMode;
-    if (!this.massEditMode) {
-      this.selectedFileIds = [];
-      this.bulkEditOpen = false;
-    }
-  }
-
-  isSelected(book: BookEntry): boolean {
-    return this.selectedFileIds.includes(book.fileId);
-  }
-
-  toggleSelect(book: BookEntry) {
-    const i = this.selectedFileIds.indexOf(book.fileId);
-    if (i >= 0) this.selectedFileIds.splice(i, 1);
-    else this.selectedFileIds.push(book.fileId);
-  }
-
-  selectAllInFolder() {
-    for (const b of this.booksInFolder) {
-      if (!this.isSelected(b)) this.selectedFileIds.push(b.fileId);
-    }
-  }
-
-  clearSelection() { this.selectedFileIds = []; this.bulkEditOpen = false; }
-
-  get selectionCount(): number { return this.selectedFileIds.length; }
-
-  openBulkEdit() {
-    if (!this.selectionCount) return;
-    this.bulkTitle = '';
-    this.bulkAuthor = '';
-    this.bulkDescription = '';
-    this.bulkEditOpen = true;
-  }
-
-  closeBulkEdit() { this.bulkEditOpen = false; }
-
-  /** Applies title/author/description to every selected book. Empty fields are
-   *  left untouched, except an explicit single-book selection where a typed
-   *  title replaces the current one (title cannot stay empty on a book). */
-  async saveBulkEdit() {
-    if (!this.isLoggedIn || this.isBulkSaving || !this.selectionCount) return;
-    if (this.selectionCount === 1 && !this.bulkTitle.trim()) {
-      this.parentRef?.showNotification('Give the book a title.');
-      return;
-    }
-    this.isBulkSaving = true;
-    try {
-      const token = await this.parentRef?.getSessionToken();
-      const selected = this.books.filter(b => this.selectedFileIds.includes(b.fileId));
-      let ok = 0;
-      for (const book of selected) {
-        // Registered books update in place; unregistered files (bookId 0) are
-        // registered with their filename title unless the user typed one.
-        if (book.bookId > 0) {
-          const done = await this.booksService.updateBook({
-            userId: this.userId,
-            bookId: book.bookId,
-            title: this.bulkTitle.trim() || book.title,
-            author: this.bulkAuthor.trim() || book.author || undefined,
-            description: this.bulkDescription.trim() || book.description || undefined,
-          }, token);
-          if (done) ok++;
-        } else {
-          const done = await this.booksService.registerBook({
-            userId: this.userId,
-            fileId: book.fileId,
-            title: this.bulkTitle.trim() || book.title,
-            author: this.bulkAuthor.trim() || undefined,
-            description: this.bulkDescription.trim() || undefined,
-            isPublic: book.isPublic,
-          }, token);
-          if (done) ok++;
-        }
-      }
-      this.parentRef?.showNotification(`Updated ${ok} of ${selected.length} book${selected.length === 1 ? '' : 's'}.`);
-      this.bulkEditOpen = false;
-      this.massEditMode = false;
-      this.selectedFileIds = [];
-      await this.loadBooks();
-    } finally {
-      this.isBulkSaving = false;
-    }
-  }
-
-  // ================= Sharing =================
-
-  openSharePanel(book: BookEntry) {
-    this.shareBook = book;
-    this.shareUsername = '';
-    this.shareMessage = '';
-  }
-  closeSharePanel() { this.shareBook = undefined; this.shareMessage = ''; }
-
-  async sharePublicly() {
-    if (!this.shareBook || !this.isLoggedIn) return;
-    const token = await this.parentRef?.getSessionToken();
-    const res = await this.booksService.shareBook({
-      userId: this.userId, bookId: this.shareBook.bookId, makePublic: true,
-    }, token);
-    if (res?.success) {
-      this.shareMessage = 'Book is now public — everyone can see it in the catalog.';
-      await this.loadBooks();
-    } else {
-      this.shareMessage = 'Could not share the book. Try again.';
-    }
-  }
-
-  async shareWithUser() {
-    if (!this.shareBook || !this.isLoggedIn) return;
-    const name = this.shareUsername.trim();
-    if (!name) { this.shareMessage = 'Enter a username to share with.'; return; }
-    const token = await this.parentRef?.getSessionToken();
-    const res = await this.booksService.shareBook({
-      userId: this.userId, bookId: this.shareBook.bookId, usernames: [name],
-    }, token);
-    if (res?.success) {
-      if (res.unknownUsernames && res.unknownUsernames.length > 0) {
-        this.shareMessage = `User "${name}" was not found.`;
-      } else {
-        this.shareMessage = `Shared with ${name}.`;
-        this.shareUsername = '';
-        await this.loadBooks();
-      }
-    } else {
-      this.shareMessage = 'Could not share the book. Try again.';
-    }
-  }
-
-  async makePrivate() {
-    if (!this.shareBook || !this.isLoggedIn) return;
-    const token = await this.parentRef?.getSessionToken();
-    const ok = await this.booksService.unshareBook({
-      userId: this.userId, bookId: this.shareBook.bookId, makePublic: true,
-    }, token);
-    if (ok) {
-      this.shareMessage = 'Book is private again — only you (and anyone individually shared) can see it.';
-      await this.loadBooks();
-    } else {
-      this.shareMessage = 'Could not update sharing. Try again.';
-    }
-  }
-
-  sharedUserEntries(book: BookEntry): { id: number; label: string }[] {
-    return (book.sharedWith || []).map(id => ({ id, label: `user ${id}` }));
-  }
-
-  async removeSharedUser(id: number) {
-    if (!this.shareBook || !this.isLoggedIn) return;
-    const token = await this.parentRef?.getSessionToken();
-    const ok = await this.booksService.unshareBook({
-      userId: this.userId, bookId: this.shareBook.bookId, userIds: [id],
-    }, token);
-    if (ok) {
-      this.shareMessage = 'Removed from shared list.';
-      await this.loadBooks();
-    }
-  }
-
-  // ---- cover art ----
-  // Per-card cover state, keyed by fileId: undefined = still showing the real
-  // cover/SVG; 'loading' = PDF thumbnail rendering in the background; 'pdf' =
-  // first-page thumbnail; 'svg' = fell back to the generated cover.
-  private coverStates = new Map<number, 'loading' | 'pdf' | 'svg'>();
-
-  /** Source for a card's cover image: uploaded cover or generated SVG, unless
-   *  a rendered PDF first-page thumbnail is available for the card. */
-  coverSrc(book: BookEntry): string {
-    if (this.coverStates.get(book.fileId) === 'pdf') {
-      const thumb = this.booksService.peekPdfThumbnail(book.fileId);
-      if (thumb) return thumb;
-    }
-    return this.booksService.getCoverUrl(book);
-  }
-
-  /** First successful cover load — for PDFs without a custom cover, kick off
-   *  the first-page thumbnail render in the background and swap it in when done. */
-  async onCoverLoad(book: BookEntry) {
-    const fileId = book.fileId;
-    const state = this.coverStates.get(fileId);
-    if (state !== undefined) return; // thumbnail/fallback load — nothing to do
-    if ((book.fileType || '').toLowerCase() !== 'pdf' || !fileId) {
-      this.coverStates.set(fileId, 'svg');
-      return;
-    }
-    this.coverStates.set(fileId, 'loading');
-    const url = await this.booksService.getPdfThumbnail(fileId);
-    // The card may have left the DOM (tab switch/filter) while rendering.
-    if (url && this.books.some(b => b.fileId === fileId)) {
-      this.coverStates.set(fileId, 'pdf');
-      this.cdr.detectChanges();
-    } else if (!url) {
-      this.coverStates.set(fileId, 'svg');
-    }
-  }
-
-  /** Cover load failed — fall back through PDF thumbnail to the generated SVG. */
-  onCoverError(event: Event, book: BookEntry) {
-    const img = event.target as HTMLImageElement | null;
-    const fileId = book.fileId;
-    const state = this.coverStates.get(fileId);
-    if (state === 'loading') {
-      // Thumbnail render still in flight — show the generated SVG so the card
-      // never looks broken; the thumbnail swaps in when it lands.
-      if (img) img.src = this.booksService.getCoverUrl(book);
-      return;
-    }
-    if (state === undefined && (book.fileType || '').toLowerCase() === 'pdf' && fileId) {
-      // The real cover 404'd — try the PDF thumbnail before giving up on art.
-      this.coverStates.set(fileId, 'loading');
-      const cached = this.booksService.peekPdfThumbnail(fileId);
-      if (cached && img) { img.src = cached; return; }
-      void this.booksService.getPdfThumbnail(fileId).then(url => {
-        if (url && this.books.some(b => b.fileId === fileId)) {
-          this.coverStates.set(fileId, 'pdf');
-          this.cdr.detectChanges();
-        } else {
-          this.coverStates.set(fileId, 'svg');
-        }
-      });
-      if (img) img.removeAttribute('src');
-      return;
-    }
-    this.coverStates.set(fileId, 'svg');
-    if (img && state !== 'svg') img.src = this.booksService.getCoverUrl(book);
-    // state already 'svg' means the SVG itself failed — leave the image alone
-    // rather than re-setting the same URL and erroring forever.
-  }
-
-  /** Jump to the uploader's profile page. */
-  openOwner(event: Event, book: BookEntry) {
-    event.preventDefault();
-    event.stopPropagation();
-    if (book.ownerId && this.parentRef) {
-      this.parentRef.createComponent('User', { userId: book.ownerId });
-    }
-  }
-
-  canManage(book: BookEntry): boolean {
-    // Own library entry — edit/share/remove act on the entry itself, with
-    // sharing additionally gated to the file owner on the server.
-    return this.isLoggedIn && book.ownerId === this.userId;
-  }
-
-  /** True when the caller owns the underlying uploaded file (pre-caches data
-   *  predates fileOwnerId and is treated as owner). */
-  ownsFileOf(book: BookEntry): boolean {
-    return !book.fileOwnerId || book.fileOwnerId === this.userId;
-  }
-
-  /** True for raw Books/-folder files that have no library row yet. */
-  isUnregistered(book: BookEntry): boolean {
-    return !book.bookId;
-  }
-
-  /**
-   * True when this card represents someone else's book (registered or a raw
-   * directory file) that the caller can save into their own library — the
-   * inverse of the old behaviour, where the button appeared on your own raw
-   * uploads.
-   */
-  canAddToLibrary(book: BookEntry): boolean {
-    if (!this.isLoggedIn) return false;
-    if (!book.bookId) return book.fileOwnerId !== this.userId;
-    return book.ownerId !== this.userId;
-  }
-
-  /** One-click save of another user's book into the caller's library. */
-  async quickRegister(book: BookEntry) {
-    if (!this.isLoggedIn || !this.canAddToLibrary(book)) return;
-    const token = await this.parentRef?.getSessionToken();
-    const result = await this.booksService.registerBook({
-      userId: this.userId,
-      fileId: book.fileId,
-      title: book.title || 'Untitled',
-      isPublic: false, // a saved copy is private to the saver by default
-    }, token);
-    if (result) {
-      this.parentRef?.showNotification(`"${book.title}" added to your library.`);
-      await this.loadBooks();
-    } else {
-      this.parentRef?.showNotification('Could not add that book — it may not be public or shared with you.');
-    }
-  }
-
-  visibilityLabel(book: BookEntry): string {
-    if (book.isPublic) return '🌍 Public';
-    if ((book.sharedWith || []).length > 0) return `👥 Shared (${book.sharedWith.length})`;
-    return '🔒 Private';
-  }
-
-  formatLabel(ext: string): string {
-    switch ((ext || '').toLowerCase()) {
-      case 'pdf': return 'PDF';
-      case 'epub': return 'EPUB';
-      case 'txt': return 'TXT';
-      case 'doc': return 'DOC';
-      case 'docx': return 'DOCX';
-      case 'docm': return 'DOCM';
-      case 'dot': return 'DOT';
-      case 'dotx': return 'DOTX';
-      case 'dotm': return 'DOTM';
-      case 'rtf': return 'RTF';
-      case 'odt': return 'ODT';
-      default: return (ext || '').toUpperCase();
-    }
-  }
-
-  // ================= Edit / remove =================
-
-  openEditPanel(book: BookEntry) {
-    this.editBook = book;
-    this.editTitle = book.title;
-    this.editAuthor = book.author || '';
-    this.editDescription = book.description || '';
-  }
-  closeEditPanel() { this.editBook = undefined; }
-
-  async saveEdit() {
-    if (!this.editBook || !this.isLoggedIn) return;
-    if (!this.editTitle.trim()) { this.parentRef?.showNotification('Title cannot be empty.'); return; }
-    const token = await this.parentRef?.getSessionToken();
-    const ok = await this.booksService.updateBook({
-      userId: this.userId,
-      bookId: this.editBook.bookId,
-      title: this.editTitle.trim(),
-      author: this.editAuthor.trim() || undefined,
-      description: this.editDescription.trim() || undefined,
-    }, token);
-    if (ok) {
-      this.parentRef?.showNotification('Book updated.');
-      this.closeEditPanel();
-      await this.loadBooks();
-    } else {
-      this.parentRef?.showNotification('Could not update the book.');
-    }
-  }
-
-  async removeBook(book: BookEntry) {
-    if (!this.isLoggedIn || !this.canManage(book)) return;
-    if (!confirm(`Remove "${book.title}" from your library? The uploaded file itself is not deleted.`)) return;
-    const token = await this.parentRef?.getSessionToken();
-    const ok = await this.booksService.removeBook({ userId: this.userId, bookId: book.bookId }, token);
-    if (ok) {
-      this.parentRef?.showNotification(`Removed "${book.title}" from your library.`);
-      await this.loadBooks();
-    } else {
-      this.parentRef?.showNotification('Could not remove the book.');
-    }
+  /** Title-bar refresh: reload the file browser. */
+  async refreshAll() {
+    try { this.fileSearch?.refreshDirectory(); } catch { }
   }
 
   // ================= Reader =================
@@ -945,7 +465,7 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
     this.epubRendition?.themes?.fontSize(`${this.epubFontSize}%`);
   }
 
-  /** Card-level download of the book file (same stream the reader uses). */
+  /** Download of the book file (same stream the reader uses). */
   async downloadBookFile(book: BookEntry) {
     if (!book?.fileId) return;
     const blob = await this.booksService.downloadBook(book.fileId);
@@ -962,16 +482,6 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
     a.click();
     a.remove();
     setTimeout(() => { try { URL.revokeObjectURL(url); } catch { } }, 10000);
-  }
-
-  copyShareLink(book: BookEntry) {
-    // Always the canonical /Books/<fileId> deep link — it opens the eBooks
-    // reader for registered books and unregistered directory files alike.
-    const link = this.booksService.getShareLink(book);
-    navigator.clipboard?.writeText(link).then(
-      () => this.parentRef?.showNotification('Share link copied to clipboard.'),
-      () => this.parentRef?.showNotification(link),
-    );
   }
 
   zoomIn() { this.zoom = Math.min(2.5, +(this.zoom + 0.15).toFixed(2)); void this.renderPdfPage(); }

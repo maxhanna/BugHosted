@@ -86,23 +86,7 @@
   z-index: 1000;
   background: transparent;
 }
-
-.addTodoPopupPanel {
-  position: absolute;
-  top: calc(100% + 10px);
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 1001;
-  width: min(520px, calc(100vw - 40px));
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  background: var(--secondary-component-background-color);
-  border: var(--main-border);
-  border-radius: 12px;
-  padding: 14px 16px;
-  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.45);
-}
+ 
 
 .addTodoPopupRow {
   display: flex;

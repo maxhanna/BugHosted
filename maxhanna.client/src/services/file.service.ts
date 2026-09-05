@@ -271,9 +271,10 @@ export class FileService {
     actualCore?: string[],
     isNSFWAllowed?: boolean,
     signal?: AbortSignal,
+    bookFilter?: string,
   ): Promise<DirectoryResults | null> {
     // Create a unique key for this request based on parameters
-    const key = `${dir}|${visibility}|${ownership}|${page}|${pageSize}|${search}|${fileId}|${fileType?.join(',')}|${showHidden}|${sortOption}|${showFavouritesOnly}|${forceSameDirectory}|${includeRomMetadata}|${actualCore?.join(',')}|${isNSFWAllowed}`;
+    const key = `${dir}|${visibility}|${ownership}|${page}|${pageSize}|${search}|${fileId}|${fileType?.join(',')}|${showHidden}|${sortOption}|${showFavouritesOnly}|${forceSameDirectory}|${includeRomMetadata}|${actualCore?.join(',')}|${isNSFWAllowed}|${bookFilter ?? ''}`;
 
     // If already loading, return the existing promise
     if (this.directoryPromises[key]) {
@@ -307,6 +308,9 @@ export class FileService {
       }
       if (isNSFWAllowed) {
         params.append('isNSFWAllowed', String(isNSFWAllowed));
+      }
+      if (bookFilter) {
+        params.append('bookFilter', bookFilter);
       }
 
       try {

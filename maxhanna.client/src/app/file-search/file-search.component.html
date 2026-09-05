@@ -54,6 +54,16 @@
       Total: {{ directory ? directory.totalCount :0 }}
     </div>
   </div>
+  <!-- Book view filter — only in book view, inside the Books tree -->
+  <div class="bookFilterBar" *ngIf="isBookView && isInBooksDirectory() && userIsLoggedIn()">
+    <span class="bookFilterLabel">Books:</span>
+    <button class="bookFilterBtn" [class.active]="bookFilter === 'all'" (click)="setBookFilter('all')"
+      title="Show everything in this folder">All</button>
+    <button class="bookFilterBtn" [class.active]="bookFilter === 'library'" (click)="setBookFilter('library')"
+      title="Only books registered in your library (plus books shared with you)">📚 My library</button>
+    <button class="bookFilterBtn" [class.active]="bookFilter === 'community'" (click)="setBookFilter('community')"
+      title="Community books: publicly shared books and books shared with you">🌍 Community</button>
+  </div>
   <div *ngIf="!isLoading && isDirectoryEmpty">
     Empty.
     <button (click)="refreshDirectory()" class="refreshButton">Refresh</button>
@@ -62,7 +72,8 @@
   <div
     [class]="fileSearchMode ? 'inPopupComponent' : (displayRomMetadataDesktop && shouldShowRomMetadata() ? 'flexForRoms' : '')">
     <div id="fileTable">
-      <div *ngIf="showUpFolderRow && canChangeDirectory && !search?.nativeElement?.value">
+      <div *ngIf="showUpFolderRow && canChangeDirectory && !search?.nativeElement?.value
+        && !(isBookView && isBooksRootDirectory())">
         <div (click)="previousDirectory()" class="upOneFolder" title="Up one folder" (drop)="onDrop('...')"
           (dragover)="onDragOver($event)" colspan="4">
           ⬆️📁{{getPreviousDirectoryPath() ? getPreviousDirectoryPath() : '...'}}
@@ -969,6 +980,19 @@
           <option value="own" [selected]="filter.ownership === 'own'">Own{{getOwnershipIcon('own')}}</option>
           <option value="others" [selected]="filter.ownership === 'others'">Others{{getOwnershipIcon('others')}}
           </option>
+        </select>
+      </div>
+    </div>
+
+    <div class="optionsStatsDiv search-tips" *ngIf="isBookView && isInBooksDirectory() && userIsLoggedIn()">
+      <div class="optionsStatsHeader">
+        Books:
+      </div>
+      <div class="optionsStatsDescription">
+        <select (change)="onBookFilterChange($event)" title="Filter the Books folder like the old library/catalog tabs">
+          <option value="all" [selected]="bookFilter === 'all'">All books</option>
+          <option value="library" [selected]="bookFilter === 'library'">📚 My library</option>
+          <option value="community" [selected]="bookFilter === 'community'">🌍 Community books</option>
         </select>
       </div>
     </div>

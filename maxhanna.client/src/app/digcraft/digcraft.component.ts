@@ -5890,13 +5890,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
           (arrow as any).stickX = player.posX;
           (arrow as any).stickY = player.posY;
           (arrow as any).stickZ = player.posZ;
-          // Estimated damage: replicate backend formula (4 base, armor reduction)
-          if (!(arrow as any)._damageApplied && !this.isInvulnerable) {
-            (arrow as any)._damageApplied = true;
-            const estimatedDmg = this.estimateArrowDamage(4);
-            const newHealth = Math.max(0, (typeof this.health === 'number' ? this.health : 20) - estimatedDmg);
-            this.applyLocalHealth(newHealth, false, estimatedDmg);
-          }
+          // Damage is server-authoritative. The server already validates the
+          // arrow owner, impact position, line of fire, and per-player cooldown.
+          // Do not subtract health here or one arrow will be applied twice:
+          // once by this visual client prediction and again by the server sync.
         }
       }
 

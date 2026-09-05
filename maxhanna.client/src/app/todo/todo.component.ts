@@ -864,11 +864,12 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
       return;
     }
     this.isAddTodoPopupOpen = true;
-    // Wait a tick so the popup (and media selector) renders before focusing.
+    this.parentRef?.showOverlay();
     setTimeout(() => this.todoInput?.nativeElement?.focus());
   }
   closeAddTodoPopup() {
     this.isAddTodoPopupOpen = false;
+    this.parentRef?.closeOverlay();
   }
 
   // Export currently loaded todos to a plain-text .txt file

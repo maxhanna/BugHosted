@@ -260,7 +260,8 @@ namespace maxhanna.Server.Controllers
           [FromQuery] bool forceSameDirectory = false,
           [FromQuery] bool includeRomMetadata = false,
           [FromQuery] List<string>? actualCore = null,
-          [FromQuery] bool? isNSFWAllowed = false
+          [FromQuery] bool? isNSFWAllowed = false,
+          [FromQuery] string? bookFilter = null
         )
         {
             if (string.IsNullOrEmpty(directory))
@@ -298,6 +299,27 @@ namespace maxhanna.Server.Controllers
                 string favouritesCondition = showFavouritesOnly
                   ? " AND f.id IN (SELECT file_id FROM file_favourites WHERE user_id = @userId) "
                   : "";
+                // Book-scoped filters (only meaningful inside the Books tree).
+                // 'library' mirrors the books "My Library" view: my registered
+                // books plus books shared with me. 'community' mirrors the
+                // catalog: public books plus books shared with the caller.
+                // Unregistered book-format files are included naturally since
+                // the directory itself already lists them.
+                string bookFilterCondition = "";
+                if (!string.IsNullOrWhiteSpace(bookFilter))
+                {
+                    bookFilter = bookFilter.ToLowerInvariant();
+                    if (bookFilter == "library")
+                    {
+                        bookFilterCondition = @" AND (f.id IN (SELECT b.file_id FROM maxhanna.book_library b WHERE b.user_id = @userId)
+                                    OR (f.shared_with IS NOT NULL AND f.shared_with != '' AND FIND_IN_SET(@userId, f.shared_with) > 0)) ";
+                    }
+                    else if (bookFilter == "community")
+                    {
+                        bookFilterCondition = @" AND (f.is_public = 1
+                                    OR (f.shared_with IS NOT NULL AND f.shared_with != '' AND FIND_IN_SET(@userId, f.shared_with) > 0)) ";
+                    }
+                }
                 string orderBy = GetOrderBy(search, sortOption, isRomSearch, fileId);
                 int offset = (page - 1) * pageSize;
                 //Console.WriteLine($"DEBUG GetDirectory: combinedTypeCoreCondition: {combinedTypeCoreCondition}, showHidden: {showHidden}, showFavouritesOnly: {showFavouritesOnly}, sortOption: {sortOption}, includeRomMetadata: {includeRomMetadata}, fileId: {(fileId.HasValue ? fileId.Value.ToString() : "null")}");
@@ -327,6 +349,7 @@ namespace maxhanna.Server.Controllers
                             {ownershipCondition}
                             {hiddenCondition}
                             {favouritesCondition}
+                            {bookFilterCondition}
                             {fileIdCondition}
                         ";
                     //Console.WriteLine($"Count SQL: {countCommandSql}");
@@ -378,6 +401,7 @@ namespace maxhanna.Server.Controllers
                             {ownershipCondition}
                             {hiddenCondition}
                             {favouritesCondition}
+                            {bookFilterCondition}
                             {fileIdCondition} 
                             {orderBy} 
                         LIMIT @pageSize OFFSET @offset;";
