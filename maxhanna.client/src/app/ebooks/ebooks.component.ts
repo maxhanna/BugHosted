@@ -121,7 +121,8 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
   async ngOnInit() {
     if (this.inputtedParentRef) this.parentRef = this.inputtedParentRef;
     // Deep links (/Books/<fileId>) open the reader on top of the file manager.
-    // Resolved from the caller's library first, then the community catalog.
+    // Resolved from the caller's library first, then the community catalog,
+    // then directly by file id (covers own private uploads not yet in library).
     if (this.preloadBookId) {
       const token = this.isLoggedIn ? await this.parentRef?.getSessionToken() : undefined;
       const entries = this.isLoggedIn
@@ -132,7 +133,14 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
         ?? entries.find(b => b.bookId === this.preloadBookId)
         ?? catalog.find(b => b.fileId === this.preloadBookId)
         ?? catalog.find(b => b.bookId === this.preloadBookId);
-      if (pre) await this.openReader(pre);
+      if (pre) {
+        await this.openReader(pre);
+      } else if (this.isLoggedIn) {
+        try {
+          const f = await this.fileService.getFileEntryById(this.preloadBookId, this.userId);
+          if (f && !f.isFolder && f.id) await this.openBookFromFileSearch(f);
+        } catch { }
+      }
     }
   }
   ngAfterViewInit() {
@@ -241,9 +249,8 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
     await this.openReader(book);
   }
 
-  /** Uploader finished — register every uploaded book-format file so it appears
-   *  in the library (and thus the "My library" book filter), then refresh the
-   *  file browser so the new files show up immediately. */
+  /** Uploader finished — uploads land in the Books/ folder only. They do NOT
+   *  auto-join the library; the user adds them explicitly via "Add to library". */
   async uploadFinished(files: FileEntry[]) {
     if (!files?.length || !this.isLoggedIn) {
       try { this.fileSearch?.refreshDirectory(); } catch { }
@@ -254,20 +261,10 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
       const ext = name.includes('.') ? name.split('.').pop()! : '';
       return this.allowedBookTypes.split(',').includes('.' + ext);
     });
-    if (!bookFiles.length) {
-      try { this.fileSearch?.refreshDirectory(); } catch { }
-      return;
+    if (bookFiles.length) {
+      this.parentRef?.showNotification(
+        `Uploaded ${bookFiles.length} book${bookFiles.length === 1 ? '' : 's'} — click "Add to My Library" to save ${bookFiles.length === 1 ? 'it' : 'them'} to your library.`);
     }
-    const token = await this.parentRef?.getSessionToken();
-    const ok = await this.booksService.bulkRegister(bookFiles.map(f => ({
-      userId: this.userId,
-      fileId: f.id,
-      title: this.titleFromFile(f),
-      isPublic: (f.visibility || '').toLowerCase() === 'public',
-    })), token);
-    this.parentRef?.showNotification(ok === bookFiles.length
-      ? `Added ${ok} book${ok === 1 ? '' : 's'} to your library.`
-      : `Added ${ok} of ${bookFiles.length} books — edit details to retry any missing.`);
     try { this.fileSearch?.refreshDirectory(); } catch { }
   }
 

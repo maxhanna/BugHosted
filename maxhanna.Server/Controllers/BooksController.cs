@@ -61,15 +61,10 @@ namespace maxhanna.Server.Controllers
 				// A file shared with you matches via two rows (your saved entry +
 				// the sharer's entry) — keep one card, preferring your own entry.
 				registered = DedupByFile(registered, preferOwnerId: userId);
-				// The library also lists the owner's own book-format files sitting in
-				// the Books/ upload folder that were never registered via the Add
-				// Book dialog (e.g. uploaded straight through the Files app).
-				var unregistered = await QueryUnregisteredBookFiles(userId, onlyPublic: false);
-				// Saved copies of other users' books replace their catalog entries
-				// in your library view — one card per book, not two.
-				var savedFileIds = registered.Select(b => b.FileId).ToHashSet();
-				unregistered = unregistered.Where(u => !savedFileIds.Contains(u.FileId)).ToList();
-				return Ok(registered.Concat(unregistered).ToList());
+				// Only explicitly registered books belong in the library.
+				// Files merely uploaded into Books/ are NOT auto-members —
+				// the client offers a one-click "Add to library" for those.
+				return Ok(registered);
 			}
 			catch (Exception ex)
 			{

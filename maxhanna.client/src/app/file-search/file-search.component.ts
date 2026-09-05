@@ -1657,7 +1657,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     try {
       const token = await this.parentRef?.getSessionToken();
       const entries = await this.booksService.getMyLibrary(this.currentUser.id, token);
-      return entries.some(e => e.fileId === file.id);
+      // Only explicit registrations count — unregistered uploads (bookId 0)
+      // must show "Add to My Library", even when owned by the viewer.
+      return entries.some(e => e.fileId === file.id && (e.bookId ?? 0) > 0);
     } catch (e) {
       console.error('Error checking book library membership:', e);
       return false;
@@ -3064,9 +3066,10 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.isRemovingFromLibrary = true;
     try {
       const entries = await this.booksService.getMyLibrary(this.currentUser.id, token);
-      const entry = entries.find(e => e.fileId === file.id);
+      const entry = entries.find(e => e.fileId === file.id && (e.bookId ?? 0) > 0);
       if (!entry) {
         this.parentRef?.showNotification('This book is not in your library.');
+        this.isFileInMyLibraryCache.set(file.id, false);
         return;
       }
       const ok = await this.booksService.removeBook({
@@ -3123,7 +3126,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     try {
       const token = await this.parentRef?.getSessionToken();
       const entries = await this.booksService.getMyLibrary(this.currentUser.id, token);
-      const inLibrary = (entries ?? []).some(e => e.fileId === file.id);
+      const inLibrary = (entries ?? []).some(e => e.fileId === file.id && (e.bookId ?? 0) > 0);
       this.isFileInMyLibraryCache.set(file.id, inLibrary);
       try { this.changeDetectorRef.detectChanges(); } catch { }
     } catch (e) {
@@ -3141,7 +3144,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       if (!files.length || !this.currentUser?.id) return;
       const token = await this.parentRef?.getSessionToken();
       const entries = await this.booksService.getMyLibrary(this.currentUser.id, token);
-      const libraryFileIds = new Set((entries ?? []).map(e => e.fileId));
+      const libraryFileIds = new Set((entries ?? []).filter(e => (e.bookId ?? 0) > 0).map(e => e.fileId));
       for (const f of files) {
         this.isFileInMyLibraryCache.set(f.id, libraryFileIds.has(f.id));
       }
