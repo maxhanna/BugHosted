@@ -206,7 +206,7 @@
     transition: width .2s ease
 }
 
-.weapon-hud { 
+.weapon-hud {
     display: flex;
     gap: 6px;
     flex-wrap: wrap;
@@ -294,7 +294,7 @@
     opacity: .75
 }
 
-.upgrade-dock { 
+.upgrade-dock {
     z-index: 2;
     display: flex;
     flex-wrap: wrap;
@@ -410,6 +410,10 @@
     padding: 20px;
     text-align: center;
     box-shadow: 0 0 45px #03111f
+}
+
+.upgrade-card {
+    height: 300px;
 }
 
 .upgrade-card h2,
