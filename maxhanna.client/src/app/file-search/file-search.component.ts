@@ -1152,7 +1152,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     if (this.isBookView && this.draggedFilename) {
       const currentFile = this.directory?.data?.find(f => f.fileName === this.draggedFilename);
       if (currentFile && !currentFile.isFolder && this.isInBooksDirectory()) {
-        event.currentTarget?.setAttribute('data-book-drag', 'true');
+        (event.currentTarget as HTMLElement)?.setAttribute('data-book-drag', 'true');
       }
     }
   }
@@ -1203,7 +1203,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     if (!draggedFile) return 'That move is not allowed in the book view.';
     const folderName = destinationFolder || this.currentDirectory;
     return `Book files can only be moved within the Books tree. “${draggedFile.givenFileName ?? draggedFile.fileName}” cannot be moved to “${folderName}” because that location is outside Books/.`;
-
+  }
   getPreviousDirectoryPath() {
     const currDir = this.currentDirectory;
     const lastSlashIndex = currDir.lastIndexOf('/');
