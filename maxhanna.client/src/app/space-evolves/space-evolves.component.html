@@ -28,7 +28,7 @@
           <strong>WEAPON SLOTS</strong>
           <div class="slot-grid">
             <div class="weapon-slot" *ngFor="let slot of weaponSlots" [class.filled]="slot.filled"
-              [style.--weapon-color]="slot.color" [title]="slot.label">
+              [style.--weapon-color]="slot.color" [title]="slot.filled ? weaponTooltip(slot.weapon) : 'Empty slot'">
               <span class="slot-icon">{{slot.icon}}</span>
               <span class="slot-label">{{slot.label}}</span>
               <span class="slot-interval" *ngIf="slot.filled">{{slot.interval ? ('Every ' + (slot.interval |
