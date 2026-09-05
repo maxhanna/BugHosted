@@ -301,12 +301,16 @@ namespace maxhanna.Server.Controllers
                   ? " AND f.id IN (SELECT file_id FROM file_favourites WHERE user_id = @userId) "
                   : "";
                 // Book-scoped filters (only meaningful inside the Books tree).
-                // 'library' mirrors the books "My Library" view: my registered
-                // books plus books shared with me. 'community' mirrors the
-                // catalog: public books plus books shared with the caller.
+                // 'library' mirrors the books "My Library" view: only items
+                // the caller explicitly added (registered files AND folders)
+                // plus items shared with them. Folders are NOT auto-included
+                // here — an unadded folder must stay hidden in this view.
+                // 'community' mirrors the catalog: public books plus books
+                // shared with the caller. Folders stay visible there so the
+                // public tree remains navigable (unregistered folders are the
+                // only way to reach the public books inside them).
                 // Unregistered book-format files are included naturally since
-                // the directory itself already lists them. Folders are always
-                // kept visible in book view so navigation still works.
+                // the directory itself already lists them.
                 string folderEscape = includeFolders ? "f.is_folder = 1 OR " : "";
                 string bookFilterCondition = "";
                 if (!string.IsNullOrWhiteSpace(bookFilter))
@@ -314,7 +318,7 @@ namespace maxhanna.Server.Controllers
                     bookFilter = bookFilter.ToLowerInvariant();
                     if (bookFilter == "library")
                     {
-                        bookFilterCondition = $@" AND ({folderEscape}f.id IN (SELECT b.file_id FROM maxhanna.book_library b WHERE b.user_id = @userId)
+                        bookFilterCondition = $@" AND (f.id IN (SELECT b.file_id FROM maxhanna.book_library b WHERE b.user_id = @userId)
                                     OR (f.shared_with IS NOT NULL AND f.shared_with != '' AND FIND_IN_SET(@userId, f.shared_with) > 0)) ";
                     }
                     else if (bookFilter == "community")

@@ -73,18 +73,7 @@
         </div>
       </div>
     </div>
-
-    <!-- ============ Toolbar ============ -->
-    <div class="ebooks-toolbar" *ngIf="!readingBook">
-      <div class="toolbar-actions">
-        <app-file-upload *ngIf="isLoggedIn" [currentDirectory]="uploadDirectory" [user]="parentRef?.user!"
-          [inputtedParentRef]="parentRef" [uploadButtonText]="'Add Book(s)'" [maxSelectedFiles]="100"
-          [allowedFileTypes]="allowedBookTypes" [displayPrivatePublicOption]="true"
-          [displayOptionsAndTopicsButtons]="false" [disableFileCompression]="true"
-          (userUploadFinishedEvent)="uploadFinished($event)"></app-file-upload>
-      </div>
-    </div>
-
+ 
     <!-- ============ Main book file manager ============ -->
     <div class="file-manager-main" *ngIf="!readingBook" aria-label="Manage book files">
       <div class="file-manager-header">
@@ -121,6 +110,12 @@
 
     <!-- ============ Menu panel ============ -->
     <div class="menuPanel" *ngIf="isMenuPanelOpen">
+      <div class="toolbar-actions">
+        <app-file-upload *ngIf="isLoggedIn" [currentDirectory]="uploadDirectory" [user]="parentRef?.user!"
+          [inputtedParentRef]="parentRef" [uploadButtonText]="'Add Book(s)'" [maxSelectedFiles]="100"
+          [allowedFileTypes]="allowedBookTypes" [displayPrivatePublicOption]="true" [displayOptionsAndTopicsButtons]="false"
+          [disableFileCompression]="true" (userUploadFinishedEvent)="uploadFinished($event)"></app-file-upload>
+      </div>
       <button (click)="refreshAll()">🔄 Refresh</button>
       <button *ngIf="!showNewFolderPrompt" (click)="showNewFolderPrompt = true" [disabled]="!isLoggedIn">📂 New Folder</button>
       <ng-container *ngIf="showNewFolderPrompt">

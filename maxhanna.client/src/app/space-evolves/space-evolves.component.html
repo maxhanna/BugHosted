@@ -1,5 +1,5 @@
 <div class="space-evolves componentMain">
-  <app-title-bar [title]="'Space: Evolves'" (closeClicked)="remove_me('SpaceEvolvesComponent')"></app-title-bar>
+  <app-title-bar [title]="'Space: Evolves'" (closeClicked)="remove_me('SpaceEvolvesComponent')" (menuClicked)="showMenuPanel()"></app-title-bar>
   <div class="game-shell">
     <div class="hud">
       <div><strong>WAVE</strong><span>{{wave}}</span></div>
@@ -57,8 +57,7 @@
           are still forming.'}}</p>
         <div class="upgrade-grid" *ngIf="upgradeChoices.length"><button *ngFor="let upgrade of upgradeChoices"
             (click)="chooseUpgrade(upgrade)" [disabled]="!canPick"><span class="upgrade-icon"
-              [attr.aria-label]="upgrade.weapon" role="img">{{ upgrade.weapon === 'laser' ? '⚡' : upgrade.weapon ===
-              'missile' ? '🚀' : upgrade.weapon === 'shield' ? '🛡️' : '🛰️' }}</span><span
+              [attr.aria-label]="upgrade.weapon" role="img">{{ upgradeIcon(upgrade.weapon) }}</span><span
               class="upgrade-type">{{upgrade.weapon}}</span><strong>{{upgrade.name}}</strong><small>{{upgrade.description}}</small></button>
         </div>
         </ng-container>
@@ -83,5 +82,14 @@
           <span>{{entry.username}}</span><b>{{entry.score}}</b><small>W{{entry.wave}}</small></li>
       </ol>
     </aside>
+  </div>
+
+  <!-- Space Evolves Menu Popup -->
+  <div class="popupPanel" style="overflow: auto;" *ngIf="isMenuPanelOpen">
+    <div class="popupPanelTitle">Space: Evolves</div>
+    <div class="popupPanelContents gradientBackground" style="padding:10px;">
+      <button (click)="restartFromMenu()">🔄 Restart run (back to wave 1, level 0, 0 EXP)</button>
+    </div>
+    <button id="closeOverlay" class="closeButton" (click)="closeMenuPanel()">Close</button>
   </div>
 </div>

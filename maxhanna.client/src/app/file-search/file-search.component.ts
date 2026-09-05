@@ -3151,11 +3151,12 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         userId: this.currentUser.id,
         bookId: entry.bookId,
       }, token);
+      const kind = file.isFolder ? 'folder' : 'book';
       if (ok) {
-        this.parentRef?.showNotification('Removed book from your library.');
+        this.parentRef?.showNotification(`Removed ${kind} from your library.`);
         this.isFileInMyLibraryCache.set(file.id, false);
       } else {
-        this.parentRef?.showNotification('Failed to remove book from your library.');
+        this.parentRef?.showNotification(`Failed to remove ${kind} from your library.`);
       }
     } catch (e) {
       console.error('Error removing book from library:', e);

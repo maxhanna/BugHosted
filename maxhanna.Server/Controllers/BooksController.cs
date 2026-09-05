@@ -192,19 +192,23 @@ namespace maxhanna.Server.Controllers
 				{
 					await conn.OpenAsync();
 
-					// The file must exist, must be a book format and must be readable
-					// by the caller (owner, or public/shared for saving others' books).
+					// The entry must exist and must be readable by the caller (owner,
+					// or public/shared for saving others' books). Files must be a
+					// book format; folders are always allowed so whole collections
+					// can be added to the library.
 					string? folderPath = null, fileName = null;
 					bool isPublic = false;
 					bool ownsFile = false;
+					bool isFolder = false;
 					using (var cmd = new MySqlCommand(
-						"SELECT user_id, file_name, folder_path, is_public, file_type, shared_with FROM maxhanna.file_uploads WHERE id = @fileId LIMIT 1", conn))
+						"SELECT user_id, file_name, folder_path, is_public, file_type, shared_with, is_folder FROM maxhanna.file_uploads WHERE id = @fileId LIMIT 1", conn))
 					{
 						cmd.Parameters.AddWithValue("@fileId", req.FileId);
 						using var rdr = await cmd.ExecuteReaderAsync();
 						if (!await rdr.ReadAsync()) return NotFound("Uploaded file not found.");
 						var ownerId = rdr.GetInt32("user_id");
 						ownsFile = ownerId == req.UserId;
+						isFolder = !rdr.IsDBNull(rdr.GetOrdinal("is_folder")) && rdr.GetBoolean("is_folder");
 						if (!ownsFile)
 						{
 							// Adding someone else's book to your library — they must be
@@ -221,18 +225,22 @@ namespace maxhanna.Server.Controllers
 						fileName = rdr.GetString("file_name");
 						folderPath = rdr.GetString("folder_path");
 						isPublic = rdr.GetBoolean("is_public");
-						var ext = Path.GetExtension(fileName ?? "").TrimStart('.').ToLowerInvariant();
-						if (!BookExtensions.Contains(ext))
-							return BadRequest("Unsupported book format. Allowed: pdf, epub, txt, doc, docx, rtf, odt.");
+						if (!isFolder)
+						{
+							var ext = Path.GetExtension(fileName ?? "").TrimStart('.').ToLowerInvariant();
+							if (!BookExtensions.Contains(ext))
+								return BadRequest("Unsupported book format. Allowed: pdf, epub, txt, doc, docx, rtf, odt.");
+						}
 					}
 
 					// Keep every registered book inside the Books tree — but respect
 					// subfolders: a file already in Books/Foo/ stays in Books/Foo/.
+					// Folders are never relocated (they ARE locations).
 					var targetFolder = _baseTarget + BooksFolder();
 					var normalizedFolder = (folderPath ?? "").Replace("\\", "/").TrimEnd('/') + "/";
 					// Only the owner's copy is relocated into Books/ — saving someone
 					// else's book must never touch their file location.
-					if (ownsFile && !normalizedFolder.EndsWith("/Books/", StringComparison.OrdinalIgnoreCase)
+					if (!isFolder && ownsFile && !normalizedFolder.EndsWith("/Books/", StringComparison.OrdinalIgnoreCase)
 						&& !normalizedFolder.Contains("/Books/", StringComparison.OrdinalIgnoreCase))
 					{
 						// Move the file into Books/ (and move any DB registration with it).
