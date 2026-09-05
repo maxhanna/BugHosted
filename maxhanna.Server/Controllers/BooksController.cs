@@ -109,6 +109,65 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
+		/// <summary>
+		/// Lists the distinct subfolders (one level) under Books/{prefix} that
+		/// contain book-format files the caller can see. The client uses this to
+		/// navigate the Books folder like a mini file browser.
+		/// </summary>
+		[HttpGet("/Books/GetBookFolders")]
+		public async Task<IActionResult> GetBookFolders(
+			[FromQuery] int userId = 0,
+			[FromQuery] string? prefix = null)
+		{
+			try
+			{
+				// Normalize prefix: relative to Books/, e.g. "" → "%/Books/",
+				// "Sci-Fi/" → "%/Books/Sci-Fi/".
+				var clean = (prefix ?? "").Replace("\\", "/").Trim('/');
+				var baseLike = "%/Books/" + (clean.Length > 0 ? clean + "/" : "");
+				var exts = string.Join(',', BookExtensions.Select(e => $"'{e}'"));
+				var sql = $@"
+					SELECT DISTINCT f.folder_path
+					FROM maxhanna.file_uploads f
+					WHERE LOWER(SUBSTRING_INDEX(f.file_name, '.', -1)) IN ({exts})
+					  AND (f.is_folder IS NULL OR f.is_folder = 0)
+					  AND f.folder_path LIKE @base
+					  AND f.folder_path != @baseExact
+					  AND (f.is_public = 1 OR (@UserId > 0 AND (
+						   f.user_id = @UserId
+						   OR (f.shared_with IS NOT NULL AND f.shared_with != '' AND FIND_IN_SET(@UserId, f.shared_with) > 0))))";
+				var folders = new List<string>();
+				using (var conn = new MySqlConnection(_connectionString))
+				{
+					await conn.OpenAsync();
+					using var cmd = new MySqlCommand(sql, conn);
+					cmd.Parameters.AddWithValue("@base", baseLike + "%");
+					cmd.Parameters.AddWithValue("@baseExact", baseLike);
+					cmd.Parameters.AddWithValue("@UserId", userId);
+					using var rdr = await cmd.ExecuteReaderAsync();
+					while (await rdr.ReadAsync())
+					{
+						var fp = rdr.GetString(0).Replace("\\", "/");
+						// Take the first path segment below the requested base.
+						if (fp.Length > baseLike.Length)
+						{
+							var rel = fp[baseLike.Length..];
+							var slash = rel.IndexOf('/');
+							var name = slash > 0 ? rel[..slash] : rel.TrimEnd('/');
+							if (!string.IsNullOrWhiteSpace(name) && folders.IndexOf(name) < 0)
+								folders.Add(name);
+						}
+					}
+				}
+				return Ok(folders.OrderBy(f => f, StringComparer.OrdinalIgnoreCase).ToList());
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"GetBookFolders failed: {ex.Message}", userId, "BOOKS", true);
+				return StatusCode(500, "An error occurred while listing book folders.");
+			}
+		}
+
 		[HttpPost("/Books/Register")]
 		public async Task<IActionResult> RegisterBook(
 			[FromBody] RegisterBookRequest req,
@@ -901,6 +960,7 @@ namespace maxhanna.Server.Controllers
 					{
 						BookId = 0, // unregistered — client offers "Add to library"
 						FileId = rdr.GetInt32("id"),
+						FolderPath = rdr.IsDBNull(rdr.GetOrdinal("folder_path")) ? null : rdr.GetString("folder_path"),
 						OwnerId = rdr.GetInt32("user_id"),
 						FileOwnerId = rdr.GetInt32("user_id"),
 						OwnerName = rdr.IsDBNull(rdr.GetOrdinal("owner_name")) ? "Unknown" : rdr.GetString("owner_name"),
@@ -973,6 +1033,7 @@ namespace maxhanna.Server.Controllers
 				Description = r.IsDBNull(r.GetOrdinal("description")) ? null : r.GetString("description"),
 				CoverFileId = r.IsDBNull(r.GetOrdinal("cover_file_id")) ? null : r.GetInt32("cover_file_id"),
 				CoverUrl = coverUrl,
+				FolderPath = r.IsDBNull(r.GetOrdinal("folder_path")) ? null : r.GetString("folder_path"),
 				FileType = ext,
 				FileSize = r.IsDBNull(r.GetOrdinal("file_size")) ? 0 : r.GetInt64("file_size"),
 				IsPublic = r.GetBoolean("is_public"),
@@ -986,6 +1047,9 @@ namespace maxhanna.Server.Controllers
 			{
 				public int BookId { get; set; }
 				public int FileId { get; set; }
+				/// <summary>Absolute upload folder of the underlying file — the
+				/// client derives the Books/-relative folder from it.</summary>
+				public string? FolderPath { get; set; }
 				public int OwnerId { get; set; }
 				/// <summary>Owner of the underlying uploaded file (differs from
 				/// OwnerId when a user saved a copy of someone else's book).</summary>
