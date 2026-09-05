@@ -309,6 +309,21 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
     return this.currentFolder ? `Books/${this.currentFolder}/` : 'Books/';
   }
 
+  /** File-search uses the filesystem's Books/ path, including the trailing
+   *  slash expected by its directory navigator. */
+  get fileManagerDirectory(): string {
+    return this.currentFolder ? `Books/${this.currentFolder}/` : 'Books/';
+  }
+
+  onFileManagerDirectoryChanged(directory: string) {
+    const normalized = (directory || '').replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+    const marker = normalized.toLowerCase().indexOf('books');
+    if (marker < 0) return;
+    const relative = normalized.slice(marker + 'books'.length).replace(/^\/+|\/+$/g, '');
+    this.currentFolder = relative;
+    void this.loadBooks();
+  }
+
   get fileManagerTypes(): string[] {
     return this.allowedBookTypes.split(',').map(type => type.trim().replace(/^\\./, '')).filter(Boolean);
   }

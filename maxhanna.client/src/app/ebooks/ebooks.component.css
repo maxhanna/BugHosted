@@ -566,6 +566,49 @@
   cursor: pointer;
 }
 
+/* ============ shared file-search manager ============ */
+.file-manager-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 58;
+  background: rgba(0, 0, 0, .68);
+}
+.file-manager-panel {
+  position: fixed;
+  inset: 4dvh 4vw;
+  z-index: 59;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: .8rem;
+  overflow: hidden;
+  background: var(--main-bg-color, #1c1c1c);
+  color: var(--main-text-color);
+  border: 1px solid var(--main-border-color);
+  border-radius: 10px;
+  box-shadow: 0 10px 40px rgba(0,0,0,.5);
+}
+.file-manager-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: .8rem;
+  padding-bottom: .6rem;
+  border-bottom: 1px solid var(--main-border-color);
+}
+.file-manager-header > div {
+  display: flex;
+  flex-direction: column;
+  gap: .2rem;
+}
+.file-manager-header small { opacity: .72; }
+.file-manager-panel app-file-search {
+  display: block;
+  min-height: 0;
+  overflow: auto;
+  flex: 1;
+}
+
 /* ============ menu panel ============ */
 .menuPanel {
   position: absolute;
@@ -594,6 +637,11 @@
 
 /* ============ mobile ============ */
 @media (max-width: 600px) {
+  .file-manager-panel {
+    inset: 1dvh 1vw;
+    padding: .45rem;
+  }
+  .file-manager-header small { font-size: .72rem; }
   .books-grid {
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
     gap: 0.6rem;

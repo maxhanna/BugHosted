@@ -90,8 +90,44 @@
           [allowedFileTypes]="allowedBookTypes" [displayPrivatePublicOption]="true"
           [displayOptionsAndTopicsButtons]="false" [disableFileCompression]="true"
           (userUploadFinishedEvent)="uploadFinished($event)"></app-file-upload>
+        <button class="mini-btn" *ngIf="isLoggedIn" (click)="toggleFileManager()"
+          title="Browse, rename, move, download, and manage files in the Books folder">🗂️ Manage book files</button>
       </div>
     </div>
+
+    <!-- ============ Shared file-search manager ============ -->
+    <div class="file-manager-backdrop" *ngIf="showFileManager" (click)="closeFileManager()"></div>
+    <section class="file-manager-panel" *ngIf="showFileManager" aria-label="Manage book files">
+      <div class="file-manager-header">
+        <div>
+          <strong>🗂️ Manage book files</strong>
+          <small>Rename files and folders, move books, view comments, download files, and open PDFs in the eBook reader.</small>
+        </div>
+        <button class="mini-btn" title="Close book file manager" (click)="closeFileManager()">✕</button>
+      </div>
+      <app-file-search
+        [inputtedParentRef]="parentRef"
+        [currentDirectory]="fileManagerDirectory"
+        [allowedFileTypes]="fileManagerTypes"
+        [fileSearchMode]="true"
+        [clearAfterSelectFile]="true"
+        [canChangeDirectory]="true"
+        [canDragMove]="true"
+        [displayAsTable]="false"
+        [displayTotal]="true"
+        [displayFileActions]="true"
+        [displayComments]="true"
+        [displayReactions]="true"
+        [displayPicturesOnlyToggler]="false"
+        [displayVideosOnlyToggler]="false"
+        [displayNSFWToggler]="false"
+        [displayHiddenFilesToggler]="false"
+        [showPdfFirstPageCovers]="true"
+        (currentDirectoryChangeEvent)="onFileManagerDirectoryChanged($event)"
+        (selectFileEvent)="openBookFromFileSearch($event)"
+        (userNotificationEvent)="parentRef?.showNotification($event)">
+      </app-file-search>
+    </section>
 
     <!-- ============ Folder breadcrumb (library tab) ============ -->
     <div class="folder-bar" *ngIf="!readingBook && activeTab === 'library' && isLoggedIn">
