@@ -22,9 +22,9 @@
             <button class="reader-btn" (click)="prevPdfPage()" [disabled]="pdfPage <= 1">◀</button>
             <span class="pdf-page-indicator">page {{ pdfPage }} / {{ pdfPages }}</span>
             <button class="reader-btn" (click)="nextPdfPage()" [disabled]="pdfPage >= pdfPages">▶</button>
-            <button class="reader-btn" (click)="zoomOut()">−</button>
-            <span class="pdf-page-indicator">{{ zoom * 100 | number: '1.0-0' }}%</span>
-            <button class="reader-btn" (click)="zoomIn()">+</button>
+            <button class="reader-btn" (click)="zoomOut()" *ngIf="!onMobile()">−</button>
+            <span class="pdf-page-indicator" *ngIf="!onMobile()">{{ zoom * 100 | number: '1.0-0' }}%</span>
+            <button class="reader-btn" (click)="zoomIn()" *ngIf="!onMobile()">+</button>
           </div>
           <div class="reader-actions" *ngIf="readerBlobType === 'epub'">
             <select class="epub-toc" [(ngModel)]="epubTocHref" (ngModelChange)="epubTocChange()" [disabled]="!epubToc.length">
