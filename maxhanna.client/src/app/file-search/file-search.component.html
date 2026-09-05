@@ -111,7 +111,12 @@
                       <span class="bookViewLibraryInlineSpacer"></span>
                     </span>
                     <span>
-                      {{ file.isFolder ? '📁' : '' }}
+                      <ng-container
+                        *ngIf="isBookView && showPdfFirstPageCovers && file.isFolder && folderPdfCoverSrc(file) as folderRowCover; else folderRowIcon">
+                        <img class="file-search-folder-row-cover" [src]="folderRowCover"
+                          [alt]="file.givenFileName ?? file.fileName" loading="lazy" (error)="hideBrokenImg($event)" />
+                      </ng-container>
+                      <ng-template #folderRowIcon>{{ file.isFolder ? '📁' : '' }}</ng-template>
                       <span [innerHTML]="(displaySystemIcons && !file.isFolder) ? getFileIcon(file) : ''"></span>
 
                       <span [style.fontSize]="shouldShowRomMetadata() && !onMobile() ? 'x-large' : ''"
@@ -230,6 +235,21 @@
                   *ngIf="shouldShowRomMetadata() && file && file.romInlineThumbs && file.romInlineThumbs.length > 0">
                   <img *ngIf="file && file.romInlineThumbs[0]" [src]="file.romInlineThumbs[0]" loading="lazy"
                     (error)="hideBrokenImg($event)" />
+                </ng-container>
+                <!-- Book view folders show the first PDF's first-page cover
+                     instead of a plain folder tile. Falls back to the folder
+                     placeholder while resolving or when no PDF is inside. -->
+                <ng-container *ngIf="isBookView && showPdfFirstPageCovers && file.isFolder">
+                  <ng-container *ngIf="folderPdfCoverSrc(file) as folderCover; else folderGridPlaceholder">
+                    <img class="file-search-pdf-cover file-search-folder-cover" [src]="folderCover"
+                      [alt]="file.givenFileName ?? file.fileName" loading="lazy" (error)="hideBrokenImg($event)" />
+                    <span class="folder-cover-badge" title="Folder">📁</span>
+                  </ng-container>
+                  <ng-template #folderGridPlaceholder>
+                    <div class="grid-thumb-placeholder"><span class="placeholder-icon">📁</span><span
+                        class="placeholder-name">{{ file?.givenFileName ?? getFileWithoutExtension(file.fileName ?? '') }}</span>
+                    </div>
+                  </ng-template>
                 </ng-container>
                 <!-- PDF books use the actual first page as their cover. The
                      service caches and deduplicates the render per file id. -->

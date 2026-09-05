@@ -1035,6 +1035,36 @@
   border: 1px dashed rgba(255,193,7,0.3);
 }
 
+/* Book view folder covers: first PDF's page as the tile, with a folder badge
+   so folders stay distinguishable from plain PDF tiles. */
+.file-search-folder-cover {
+  object-fit: cover;
+}
+.folder-cover-badge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  background: rgba(0,0,0,0.7);
+  border-radius: 6px;
+  padding: 2px 6px;
+  font-size: 14px;
+  line-height: 1;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Table-view folder cover: small inline thumb replacing the 📁 emoji. */
+.file-search-folder-row-cover {
+  width: 34px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: 4px;
+  background: #fff;
+  vertical-align: middle;
+  margin-right: 4px;
+  border: 1px solid rgba(255,255,255,0.15);
+}
+
 /* Responsive grid */
 @media (max-width: 768px) {
   .file-grid {

@@ -194,6 +194,11 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   private scrollWatchInterval: any;
   private pdfCoverUrls = new Map<number, string>();
   private pdfCoverRequests = new Set<number>();
+  /** Book view folder covers: folder id -> first PDF file id inside it
+   *  (null = looked up, no PDF found). Keyed by folder id so covers survive
+   *  paging/navigation within the session. */
+  private folderCoverFileIds = new Map<number, number | null>();
+  private folderCoverRequests = new Set<number>();
 
   @ViewChild('search') search!: ElementRef<HTMLInputElement>;
   @ViewChild('popupSearch') popupSearch!: ElementRef<HTMLInputElement>;
@@ -1331,6 +1336,76 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       });
     }
     return '';
+  }
+
+  /** Book view folder cover: the first-page thumbnail of the first PDF inside
+   *  the folder. Returns '' while resolving/failed so the template falls back
+   *  to the plain folder icon. Only active with isBookView +
+   *  showPdfFirstPageCovers; other file-search usages never pay the lookup. */
+  folderPdfCoverSrc(folder: FileEntry): string {
+    if (!this.isBookView || !this.showPdfFirstPageCovers || !folder?.isFolder || !folder.id) return '';
+    const resolved = this.folderCoverFileIds.get(folder.id);
+    if (resolved === undefined) {
+      if (!this.folderCoverRequests.has(folder.id)) {
+        this.folderCoverRequests.add(folder.id);
+        void this.resolveFolderCover(folder).finally(() => {
+          try { this.changeDetectorRef.detectChanges(); } catch { }
+        });
+      }
+      return '';
+    }
+    if (!resolved) return '';
+    const cached = this.pdfCoverUrls.get(resolved);
+    if (cached) return cached;
+    if (!this.pdfCoverRequests.has(resolved)) {
+      this.pdfCoverRequests.add(resolved);
+      void this.booksService.getPdfThumbnail(resolved).then(url => {
+        if (url) this.pdfCoverUrls.set(resolved as number, url);
+        try { this.changeDetectorRef.detectChanges(); } catch { }
+      });
+    }
+    return '';
+  }
+
+  /** Finds the first PDF inside a folder (single small directory fetch) and
+   *  remembers its file id (or null when the folder holds no PDF). Failures
+   *  are treated as "no cover" so a broken folder never retries every frame. */
+  private async resolveFolderCover(folder: FileEntry): Promise<void> {
+    try {
+      const base = (folder.directory ?? this.currentDirectory ?? '').replace(/\\/g, '/');
+      const name = (folder.fileName ?? '').replace(/^\/+|\/+$/g, '');
+      if (!name) { this.folderCoverFileIds.set(folder.id, null); return; }
+      const childDir = `${base.replace(/\/+$/g, '')}/${name}/`.replace(/^\/+/, '');
+      const res = await this.fileService.getDirectory(
+        childDir,
+        this.filter.visibility,
+        this.filter.ownership,
+        this.currentUser,
+        1,
+        10,
+        '',
+        undefined,
+        ['pdf'],
+        false,
+        '',
+        false,
+        true,
+        false,
+        undefined,
+        this.isDisplayingNSFW,
+        undefined,
+        undefined,
+        false,
+      );
+      const firstPdf = (res?.data ?? []).find(f => !f?.isFolder && this.isPdfFile(f?.fileName) && f?.id);
+      this.folderCoverFileIds.set(folder.id, firstPdf ? firstPdf.id : null);
+      if (firstPdf) {
+        const url = await this.booksService.getPdfThumbnail(firstPdf.id);
+        if (url) this.pdfCoverUrls.set(firstPdf.id, url);
+      }
+    } catch {
+      this.folderCoverFileIds.set(folder.id, null);
+    }
   }
 
   isMediaFile(fileName?: string): boolean {
