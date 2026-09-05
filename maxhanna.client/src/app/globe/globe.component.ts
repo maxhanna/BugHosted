@@ -16,6 +16,7 @@ import { FlightService } from '../../services/flight.service';
 import { TrackedFlight } from '../../services/datacontracts/flight';
 import { UserService, UserWithLocation } from '../../services/user.service';
 import { GlobePingService, GlobeUserPing } from '../../services/globe-ping.service';
+import { FileService } from '../../services/file.service';
 import { User } from '../../services/datacontracts/user/user';
 import { CITY_COORDS, COUNTRY_COORDS, TOWN_COORDS } from './coordinates';
 
@@ -324,7 +325,8 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     private userService: UserService,
     private crawlerService: CrawlerService,
     private commentService: CommentService,
-    private globePingService: GlobePingService
+    private globePingService: GlobePingService,
+    private fileService: FileService
   ) { }
 
   async ngOnInit(): Promise<void> {
@@ -1063,6 +1065,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   pendingPingLat = 0;
   pendingPingLon = 0;
   pendingPingLabel = '';
+  pendingPingNote = '';
   isSavingPing = false;
 
   /** Opens the label prompt for a new ping at the tapped location. */
@@ -1074,18 +1077,22 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.pendingPingLat = lat;
     this.pendingPingLon = lon;
     this.pendingPingLabel = '';
+    this.pendingPingNote = '';
+    this.pendingPingPhotoFileId = undefined;
     this.showPingSavePrompt = true;
   }
 
   cancelPingSave(): void {
     this.showPingSavePrompt = false;
     this.pendingPingLabel = '';
+    this.pendingPingNote = '';
+    this.pendingPingPhotoFileId = undefined;
   }
 
   confirmPingSave(): void {
     if (this.isSavingPing) return;
     this.isSavingPing = true;
-    void this.savePingAt(this.pendingPingLat, this.pendingPingLon, this.pendingPingLabel)
+    void this.savePingAt(this.pendingPingLat, this.pendingPingLon, this.pendingPingLabel, this.pendingPingNote)
       .finally(() => {
         this.isSavingPing = false;
         this.showPingSavePrompt = false;
@@ -1093,16 +1100,22 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /** Creates a ping at the clicked location. Empty label → derived from the
-   *  nearest known place, or coordinates. */
-  async savePingAt(lat: number, lon: number, label?: string): Promise<void> {
+   *  nearest known place, or coordinates. A photo picked in the create flow
+   *  attaches right after the ping exists. */
+  async savePingAt(lat: number, lon: number, label?: string, note?: string): Promise<void> {
     if (!this.userId) {
       this.inputtedParentRef?.showNotification('Log in to drop custom pings.');
       return;
     }
     const token = await this.inputtedParentRef?.getSessionToken();
     const finalLabel = (label ?? '').trim() || this.nearestPlaceLabel(lat, lon);
-    const created = await this.globePingService.create(this.userId, lat, lon, finalLabel, token);
+    const created = await this.globePingService.create(this.userId, lat, lon, finalLabel, token, note);
     if (created) {
+      if (this.pendingPingPhotoFileId) {
+        const ok = await this.globePingService.update(created.id, this.userId, { photoFileId: this.pendingPingPhotoFileId }, token);
+        if (ok) created.photoFileId = this.pendingPingPhotoFileId;
+        this.pendingPingPhotoFileId = undefined;
+      }
       this.userPings = [created, ...this.userPings];
       this.inputtedParentRef?.showNotification(`Ping saved at ${lat.toFixed(2)}°, ${lon.toFixed(2)}°.`);
     } else {
@@ -1120,6 +1133,110 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     } else {
       this.inputtedParentRef?.showNotification('Could not remove the ping.');
     }
+  }
+
+  // ---- ping notes & photos ----
+  pingNoteDraft = '';
+  pingPhotoInput?: HTMLInputElement;
+  isUploadingPingPhoto = false;
+  /** id of a photo uploaded during the current create flow (not yet attached). */
+  pendingPingPhotoFileId?: number;
+
+  /** Begin editing a ping's note (owners only) — prefilled from current note. */
+  startPingNoteEdit(ping: GlobeUserPing): void {
+    if (!this.canDeletePing(ping)) return;
+    this.pingNoteDraft = ping.note || '';
+    this.editingPingId = ping.id;
+  }
+
+  private editingPingId?: number;
+
+  cancelPingNoteEdit(): void {
+    this.editingPingId = undefined;
+    this.pingNoteDraft = '';
+  }
+
+  isEditingPing(ping: GlobeUserPing): boolean {
+    return this.editingPingId === ping.id;
+  }
+
+  /** Saves the note draft onto the ping (server owner-checked). */
+  async savePingNote(ping: GlobeUserPing): Promise<void> {
+    if (!this.canDeletePing(ping)) return;
+    const token = await this.inputtedParentRef?.getSessionToken();
+    const ok = await this.globePingService.update(ping.id, this.userId, { note: this.pingNoteDraft.trim() }, token);
+    if (ok) {
+      ping.note = this.pingNoteDraft.trim() || null;
+      this.editingPingId = undefined;
+      this.inputtedParentRef?.showNotification('Ping note saved.');
+    } else {
+      this.inputtedParentRef?.showNotification('Could not save the note.');
+    }
+  }
+
+  /** Opens the file picker for a ping photo (create flow or existing ping). */
+  pickPingPhoto(ping?: GlobeUserPing): void {
+    if (ping && !this.canDeletePing(ping)) return;
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = () => {
+      const file = input.files?.[0];
+      if (file) void this.uploadPingPhoto(file, ping);
+    };
+    input.click();
+  }
+
+  /** Uploads via the standard file API into GlobePings/, then attaches the
+   *  returned file id to the ping (immediately, or in the create flow). */
+  private async uploadPingPhoto(file: File, ping?: GlobeUserPing): Promise<void> {
+    if (!this.userId) return;
+    const token = await this.inputtedParentRef?.getSessionToken();
+    if (!token) return;
+    this.isUploadingPingPhoto = true;
+    try {
+      const formData = new FormData();
+      formData.append('files', file);
+      let photoFileId: number | null = null;
+      await new Promise<void>((resolve) => {
+        this.fileService.uploadFileWithProgress(formData, 'GlobePings/', false, this.userId, false, token)
+          .subscribe({
+            next: async (event: any) => {
+              if (event.type === 4 /* HttpEventType.Response */) {
+                try {
+                  const parsed = JSON.parse(event.body) as Array<{ id: number }>;
+                  photoFileId = parsed?.[0]?.id ?? null;
+                } catch { photoFileId = null; }
+                resolve();
+              }
+            },
+            error: () => resolve(),
+          });
+      });
+      if (!photoFileId) {
+        this.inputtedParentRef?.showNotification('Photo upload failed.');
+        return;
+      }
+      if (ping) {
+        const ok = await this.globePingService.update(ping.id, this.userId, { photoFileId }, token);
+        if (ok) {
+          ping.photoFileId = photoFileId;
+          this.inputtedParentRef?.showNotification('Photo attached.');
+        } else {
+          this.inputtedParentRef?.showNotification('Could not attach the photo.');
+        }
+      } else {
+        this.pendingPingPhotoFileId = photoFileId;
+        this.inputtedParentRef?.showNotification('Photo ready — it will attach when you save the ping.');
+      }
+    } finally {
+      this.isUploadingPingPhoto = false;
+    }
+  }
+
+  /** Asset URL for a ping's attached photo (server-built). */
+  pingPhotoUrl(ping: GlobeUserPing): string | null {
+    return ping.photoUrl ?? null;
   }
 
   /** Human-readable label for a ping: nearest city/town/country name, else

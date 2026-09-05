@@ -196,10 +196,11 @@
       <div class="ping-feed">
         <div class="ping-feed-title">Live pings</div>
         <div class="ping-feed-item" *ngFor="let ping of recentPings" (click)="goToPing(ping)">
-          <span class="ping-feed-dot">📍</span>
+          <img class="ping-feed-thumb" *ngIf="ping.photoFileId" [src]="pingPhotoUrl(ping)" alt="" loading="lazy" />
+          <span class="ping-feed-dot" *ngIf="!ping.photoFileId">📍</span>
           <span class="ping-feed-main">
             <span class="ping-feed-label">{{ ping.label || 'Ping' }}</span>
-            <span class="ping-feed-owner" *ngIf="ping.username">@{{ ping.username }}</span>
+            <span class="ping-feed-owner" *ngIf="ping.username">&#64;{{ ping.username }}</span>
           </span>
           <span class="ping-feed-age">{{ pingAge(ping) }}</span>
         </div>
@@ -554,6 +555,16 @@
         <input type="text" [(ngModel)]="pendingPingLabel" maxlength="120"
           placeholder="e.g. Meeting spot" (keyup.enter)="confirmPingSave()" class="flight-input" />
       </div>
+      <div class="form-group">
+        <label>Note (optional):</label>
+        <textarea class="flight-input ping-note-input" [(ngModel)]="pendingPingNote" maxlength="2000" rows="3"
+          placeholder="What's here?"></textarea>
+      </div>
+      <div class="ping-photo-row">
+        <button class="add-flight-btn" (click)="pickPingPhoto()" [disabled]="isUploadingPingPhoto">
+          {{ isUploadingPingPhoto ? 'Uploading…' : '📷 Attach photo' }}</button>
+        <span class="ping-photo-ready" *ngIf="pendingPingPhotoFileId">photo ready ✓</span>
+      </div>
       <p class="ping-save-hint">Pings are visible to everyone. Leave empty for an auto label.</p>
       <div class="popupPanelActions">
         <button class="add-flight-btn" (click)="confirmPingSave()" [disabled]="isSavingPing">
@@ -571,9 +582,29 @@
       <p class="ping-detail-coords">{{ selectedPingDetail.lat.toFixed(4) }}°, {{ selectedPingDetail.lon.toFixed(4) }}°</p>
       <p class="ping-detail-owner" *ngIf="selectedPingDetail.username">Dropped by <strong>&#64;{{ selectedPingDetail.username }}</strong></p>
       <p class="ping-detail-date" *ngIf="selectedPingDetail.createdUtc">{{ selectedPingDetail.createdUtc | date:'medium' }}</p>
-      <div class="popupPanelActions" *ngIf="canDeletePing(selectedPingDetail)">
-        <button class="add-flight-btn ping-delete-btn" (click)="deleteUserPing(selectedPingDetail!)">🗑 Delete my ping</button>
-      </div>
+
+      <img class="ping-detail-photo" *ngIf="selectedPingDetail.photoFileId && !isEditingPing(selectedPingDetail)"
+        [src]="pingPhotoUrl(selectedPingDetail)" alt="Ping photo" (click)="pickPingPhoto(selectedPingDetail)"
+        [title]="canDeletePing(selectedPingDetail) ? 'Click to replace photo' : ''" />
+
+      <div class="ping-detail-note" *ngIf="selectedPingDetail.note && !isEditingPing(selectedPingDetail)">{{ selectedPingDetail.note }}</div>
+
+      <ng-container *ngIf="canDeletePing(selectedPingDetail)">
+        <div class="ping-note-editor" *ngIf="isEditingPing(selectedPingDetail)">
+          <textarea class="flight-input ping-note-input" [(ngModel)]="pingNoteDraft" maxlength="2000" rows="3"
+            placeholder="Write a note about this place…"></textarea>
+          <div class="popupPanelActions">
+            <button class="add-flight-btn" (click)="savePingNote(selectedPingDetail!)">💾 Save note</button>
+            <button class="add-flight-btn" (click)="cancelPingNoteEdit()">Cancel</button>
+          </div>
+        </div>
+        <div class="ping-owner-actions" *ngIf="!isEditingPing(selectedPingDetail)">
+          <button class="add-flight-btn" (click)="startPingNoteEdit(selectedPingDetail!)">📝 {{ selectedPingDetail.note ? 'Edit note' : 'Add note' }}</button>
+          <button class="add-flight-btn" *ngIf="!selectedPingDetail.photoFileId" (click)="pickPingPhoto(selectedPingDetail!)" [disabled]="isUploadingPingPhoto">
+            {{ isUploadingPingPhoto ? 'Uploading…' : '📷 Attach photo' }}</button>
+          <button class="add-flight-btn ping-delete-btn" (click)="deleteUserPing(selectedPingDetail!)">🗑 Delete my ping</button>
+        </div>
+      </ng-container>
     </div>
   </div>
 
