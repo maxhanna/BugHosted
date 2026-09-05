@@ -10,6 +10,9 @@ export interface SpaceEvolvesRun {
   player: any;
   stats: any;
   upgrades: string[];
+  /** Kills completed toward the current wave quota — restores the boss
+   *  countdown correctly after a refresh. */
+  waveKills?: number;
   gameOver: boolean;
 }
 

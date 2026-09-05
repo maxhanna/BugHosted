@@ -1,5 +1,5 @@
 <div [class.componentMain]="showTitleBar">
-  <app-title-bar *ngIf="showTitleBar" [title]="'eBooks'" (closeClicked)="safeDestroy();"
+  <app-title-bar *ngIf="showTitleBar" [title]="'eBooks'" (closeClicked)="remove_me('EbooksComponent');"
     (menuClicked)="showMenuPanel()"></app-title-bar>
 
   <app-prompt [type]="'login'" [message]="'Log in to build your own library and share books.'"
