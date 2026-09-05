@@ -1373,3 +1373,72 @@
 .ping-delete-btn:hover {
   background: rgba(255, 85, 125, 0.28);
 }
+
+/* ============ Live ping feed (data panel, Users tab) ============ */
+
+.ping-feed {
+  margin-top: 12px;
+  border-top: 1px solid rgba(58, 58, 90, 0.6);
+  padding-top: 10px;
+}
+
+.ping-feed-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(0, 221, 255, 0.9);
+  margin-bottom: 6px;
+}
+
+.ping-feed-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.ping-feed-item:hover {
+  background: rgba(0, 221, 255, 0.1);
+}
+
+.ping-feed-dot {
+  flex-shrink: 0;
+  font-size: 13px;
+}
+
+.ping-feed-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ping-feed-label {
+  font-size: 12px;
+  color: rgba(221, 221, 221, 1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ping-feed-owner {
+  font-size: 10px;
+  color: rgba(136, 136, 136, 1);
+}
+
+.ping-feed-age {
+  flex-shrink: 0;
+  font-size: 10px;
+  color: rgba(136, 136, 136, 1);
+  font-family: monospace;
+}
+
+.ping-feed-empty {
+  font-size: 11px;
+  color: rgba(136, 136, 136, 1);
+  padding: 6px;
+}
