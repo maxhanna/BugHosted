@@ -747,6 +747,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
     this.isFirstLoad = false;
     this.stopLoading();
+    void this.preloadLibraryCache();
   }
 
   // Helper: normalize rom metadata fields and derive inline thumbnails for a file entry
@@ -1662,7 +1663,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       return false;
     }
   }
-
+  
   async addToFavourites(optionsFile?: FileEntry) {
     if (!optionsFile || !optionsFile.id) return;
 
@@ -3074,7 +3075,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       }, token);
       if (ok) {
         this.parentRef?.showNotification('Removed book from your library.');
-        await this.refreshLibraryState(file);
+        this.isFileInMyLibraryCache.set(file.id, false);
       } else {
         this.parentRef?.showNotification('Failed to remove book from your library.');
       }
@@ -3103,7 +3104,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       }, token);
       if (result) {
         this.parentRef?.showNotification(`Added folder “${title}” to your library.`);
-        await this.refreshLibraryState(folder);
+        this.isFileInMyLibraryCache.set(folder.id, true);
       } else {
         this.parentRef?.showNotification(`Could not add folder “${title}” to your library.`);
       }
@@ -3118,12 +3119,36 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   /** Refresh the in-memory library membership state for a file so the book view
    *  buttons reflect the latest add/remove result without a full page reload. */
   private async refreshLibraryState(file: FileEntry) {
-    try { this.changeDetectorRef.markForCheck(); } catch { }
-    this.directory?.data?.forEach(item => {
-      if (item.id === file.id) {
-        // Membership is derived asynchronously in the template; nothing to patch here.
+    if (!file?.id || !this.currentUser?.id) return;
+    try {
+      const token = await this.parentRef?.getSessionToken();
+      const entries = await this.booksService.getMyLibrary(this.currentUser.id, token);
+      const inLibrary = (entries ?? []).some(e => e.fileId === file.id);
+      this.isFileInMyLibraryCache.set(file.id, inLibrary);
+      try { this.changeDetectorRef.detectChanges(); } catch { }
+    } catch (e) {
+      console.error('Error refreshing book library state:', e);
+    }
+  }
+
+  /** Fetch the user's book library once and mark every listed file's membership
+   *  in `isFileInMyLibraryCache`, so the book-view buttons show Add vs Remove
+   *  without per-row (and per-change-detection) requests. */
+  private async preloadLibraryCache(): Promise<void> {
+    try {
+      if (!this.isBookView || !this.isInBooksDirectory() || !this.userIsLoggedIn()) return;
+      const files = this.directory?.data?.filter(f => f && !f.isFolder && f.id != null) ?? [];
+      if (!files.length || !this.currentUser?.id) return;
+      const token = await this.parentRef?.getSessionToken();
+      const entries = await this.booksService.getMyLibrary(this.currentUser.id, token);
+      const libraryFileIds = new Set((entries ?? []).map(e => e.fileId));
+      for (const f of files) {
+        this.isFileInMyLibraryCache.set(f.id, libraryFileIds.has(f.id));
       }
-    });
+      try { this.changeDetectorRef.detectChanges(); } catch { }
+    } catch (e) {
+      console.error('Error preloading book library state:', e);
+    }
   }
 
   // ---- book view helpers (display only) ----
@@ -3161,7 +3186,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       }, token);
       if (result) {
         this.parentRef?.showNotification(`Added “${title}” to your library.`);
-        await this.invalidateLibraryCache(file.id);
+        this.isFileInMyLibraryCache.set(file.id, true);
       } else {
         this.parentRef?.showNotification(`Could not add “${title}” to your library.`);
       }
@@ -3172,11 +3197,6 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       this.isAddingToLibrary = false;
     }
   } 
-
-  private async invalidateLibraryCache(fileId: number) {
-    this.isFileInMyLibraryCache.set(fileId, null);
-    try { this.changeDetectorRef.markForCheck(); } catch { }
-  }
 }
 
 type SlotNumber = 0 | 1 | 2 | 3 | 4 | 5;
