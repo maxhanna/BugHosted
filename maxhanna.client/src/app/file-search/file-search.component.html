@@ -104,9 +104,9 @@
                     <span class="bookViewLibraryInlineActions" *ngIf="isBookView && isInBooksDirectory() && userIsLoggedIn()">
                       <button class="bookLibraryBtn"
                         [disabled]="isAddingToLibrary || isRemovingFromLibrary"
-                        [title]="file.isFolder ? ('Add folder to My Library') : (isFileInMyLibrary(file) ? 'Remove from My Library' : 'Add book to My Library')"
-                        (click)="file.isFolder ? addFolderToLibrary(file) : (isFileInMyLibrary(file) ? removeFromLibrary(file) : addToLibrary(file))"
-                        *ngIf="file.isFolder || isFileInMyLibrary(file) !== null">
+                        [title]="file.isFolder ? ('Add folder to My Library') : (getIsFileInMyLibrary(file) ? 'Remove from My Library' : 'Add book to My Library')"
+                        (click)="file.isFolder ? addFolderToLibrary(file) : (getIsFileInMyLibrary(file) ? removeFromLibrary(file) : addToLibrary(file))"
+                        *ngIf="file.isFolder || getIsFileInMyLibrary(file) !== null">
                         {{ getIsFileInMyLibrary(file) ? '🧡 Remove from My Library' : '📚 Add to My Library' }}
                       </button>
                       <span class="bookViewLibraryInlineSpacer"></span>
