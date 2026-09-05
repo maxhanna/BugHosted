@@ -3049,46 +3049,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       this.appending = false;
     }, 1000);
   }
-
-  /** Add a book-format file into the current user's library (register it as a
-   *  book). Folders are intentionally skipped here — they are handled via the
-   *  dedicated add-to-library action in the book view. */
-  async addToLibrary(file?: FileEntry) {
-    if (!file || !file.id) return;
-    if (file.isFolder) {
-      await this.addFolderToLibrary(file);
-      return;
-    }
-    const user = this.currentUser;
-    if (!user?.id) {
-      this.parentRef?.showNotification('You must be logged in to add books to your library.');
-      return;
-    }
-    this.isAddingToLibrary = true;
-    try {
-      const token = await this.parentRef?.getSessionToken();
-      const title = file.givenFileName ?? this.titleFromFile(file);
-      const result = await this.booksService.registerBook({
-        userId: user.id,
-        fileId: file.id,
-        title,
-        description: file.description ?? undefined,
-        isPublic: (file.visibility ?? '').toLowerCase() === 'public',
-      }, token);
-      if (result) {
-        this.parentRef?.showNotification(`Added “${title}” to your library.`);
-        await this.refreshLibraryState(file);
-      } else {
-        this.parentRef?.showNotification(`Could not add “${title}” to your library.`);
-      }
-    } catch (e) {
-      console.error('Error adding book to library:', e);
-      this.parentRef?.showNotification('Failed to add book to library.');
-    } finally {
-      this.isAddingToLibrary = false;
-    }
-  }
-
+ 
   /** Remove the current user’s library registration for a book (the uploaded
    *  file itself is untouched). */
   async removeFromLibrary(file?: FileEntry) {
@@ -3137,7 +3098,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         userId: this.currentUser.id,
         fileId: folder.id,
         title,
-        description: folder.description ?? undefined,
+        description: undefined,
         isPublic: (folder.visibility ?? '').toLowerCase() === 'public',
       }, token);
       if (result) {
@@ -3170,7 +3131,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   async isFileInMyLibrary(file: FileEntry): Promise<boolean> {
     if (!file?.id) return false;
     const cached = this.isFileInMyLibraryCache.get(file.id);
-    if (cached !== undefined) return cached;
+    if (cached !== undefined) return !!cached;
     const result = await this.getIsFileInMyLibrary(file);
     this.isFileInMyLibraryCache.set(file.id, result);
     return result;
@@ -3195,7 +3156,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         userId: user.id,
         fileId: file.id,
         title,
-        description: file.description ?? undefined,
+        description: undefined,
         isPublic: (file.visibility ?? '').toLowerCase() === 'public',
       }, token);
       if (result) {
@@ -3210,70 +3171,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     } finally {
       this.isAddingToLibrary = false;
     }
-  }
-
-  async addFolderToLibrary(folder?: FileEntry) {
-    if (!folder || !folder.id || !this.currentUser?.id) return;
-    this.isAddingToLibrary = true;
-    try {
-      const token = await this.parentRef?.getSessionToken();
-      const title = folder.givenFileName ?? folder.fileName ?? 'Untitled folder';
-      const result = await this.booksService.registerBook({
-        userId: this.currentUser.id,
-        fileId: folder.id,
-        title,
-        description: folder.description ?? undefined,
-        isPublic: (folder.visibility ?? '').toLowerCase() === 'public',
-      }, token);
-      if (result) {
-        this.parentRef?.showNotification(`Added folder “${title}” to your library.`);
-        await this.invalidateLibraryCache(folder.id);
-      } else {
-        this.parentRef?.showNotification(`Could not add folder “${title}” to your library.`);
-      }
-    } catch (e) {
-      console.error('Error adding folder to library:', e);
-      this.parentRef?.showNotification('Failed to add folder to library.');
-    } finally {
-      this.isAddingToLibrary = false;
-    }
-  }
-
-  async removeFromLibrary(file?: FileEntry) {
-    if (!file || !file.id || !this.currentUser?.id) return;
-    if (!file.isFolder) {
-      const inLibrary = await this.getIsFileInMyLibrary(file);
-      if (!inLibrary) {
-        this.parentRef?.showNotification('This book is not in your library.');
-        return;
-      }
-    }
-    this.isRemovingFromLibrary = true;
-    try {
-      const token = await this.parentRef?.getSessionToken();
-      const entries = await this.booksService.getMyLibrary(this.currentUser.id, token);
-      const entry = entries.find(e => e.fileId === file.id);
-      if (!entry) {
-        this.parentRef?.showNotification('This item is not in your library.');
-        return;
-      }
-      const ok = await this.booksService.removeBook({
-        userId: this.currentUser.id,
-        bookId: entry.bookId,
-      }, token);
-      if (ok) {
-        this.parentRef?.showNotification('Removed item from your library.');
-        await this.invalidateLibraryCache(file.id);
-      } else {
-        this.parentRef?.showNotification('Failed to remove item from your library.');
-      }
-    } catch (e) {
-      console.error('Error removing item from library:', e);
-      this.parentRef?.showNotification('Failed to remove item from library.');
-    } finally {
-      this.isRemovingFromLibrary = false;
-    }
-  }
+  } 
 
   private async invalidateLibraryCache(fileId: number) {
     this.isFileInMyLibraryCache.set(fileId, null);
