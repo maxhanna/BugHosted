@@ -76,13 +76,6 @@
  
     <!-- ============ Main book file manager ============ -->
     <div class="file-manager-main" *ngIf="!readingBook" aria-label="Manage book files">
-      <div class="file-manager-header">
-        <div>
-          <strong>🗂️ Manage book files</strong>
-          <small>Browse, rename, move, download, and read books. Rename files and folders, view comments, and manage
-            visibility — the Books folder is the source of truth.</small>
-        </div>
-      </div>
       <app-file-search
         [inputtedParentRef]="parentRef"
         [currentDirectory]="fileManagerDirectory"
