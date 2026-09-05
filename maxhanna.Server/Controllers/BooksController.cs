@@ -148,10 +148,15 @@ namespace maxhanna.Server.Controllers
 					while (await rdr.ReadAsync())
 					{
 						var fp = rdr.GetString(0).Replace("\\", "/");
-						// Take the first path segment below the requested base.
-						if (fp.Length > baseLike.Length)
+						// folder_path is a full disk path, so locate the real /Books/<clean>/
+						// segment inside it — baseLike contains a SQL '%' wildcard and must
+						// never be used to slice actual path strings.
+						var baseSuffix = "/Books/" + (clean.Length > 0 ? clean + "/" : "");
+						var baseIdx = fp.LastIndexOf(baseSuffix, StringComparison.OrdinalIgnoreCase);
+						if (baseIdx >= 0)
 						{
-							var rel = fp[baseLike.Length..];
+							// Take the first path segment below the requested base.
+							var rel = fp[(baseIdx + baseSuffix.Length)..];
 							var slash = rel.IndexOf('/');
 							var name = slash > 0 ? rel[..slash] : rel.TrimEnd('/');
 							if (!string.IsNullOrWhiteSpace(name) && folders.IndexOf(name) < 0)
