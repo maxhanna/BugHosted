@@ -272,9 +272,10 @@ export class FileService {
     isNSFWAllowed?: boolean,
     signal?: AbortSignal,
     bookFilter?: string,
+    includeFolders?: boolean,
   ): Promise<DirectoryResults | null> {
     // Create a unique key for this request based on parameters
-    const key = `${dir}|${visibility}|${ownership}|${page}|${pageSize}|${search}|${fileId}|${fileType?.join(',')}|${showHidden}|${sortOption}|${showFavouritesOnly}|${forceSameDirectory}|${includeRomMetadata}|${actualCore?.join(',')}|${isNSFWAllowed}|${bookFilter ?? ''}`;
+    const key = `${dir}|${visibility}|${ownership}|${page}|${pageSize}|${search}|${fileId}|${fileType?.join(',')}|${showHidden}|${sortOption}|${showFavouritesOnly}|${forceSameDirectory}|${includeRomMetadata}|${actualCore?.join(',')}|${isNSFWAllowed}|${bookFilter ?? ''}|${includeFolders ? '1' : ''}`;
 
     // If already loading, return the existing promise
     if (this.directoryPromises[key]) {
@@ -311,6 +312,9 @@ export class FileService {
       }
       if (bookFilter) {
         params.append('bookFilter', bookFilter);
+      }
+      if (includeFolders) {
+        params.append('includeFolders', 'true');
       }
 
       try {

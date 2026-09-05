@@ -611,6 +611,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         this.isDisplayingNSFW,
         this.getDirectoryAbortController.signal,
         this.isBookView && this.bookFilter !== 'all' ? this.bookFilter : undefined,
+        // Book view always keeps folders visible — folders carry no file_type,
+        // so the book-types filter would otherwise hide them entirely.
+        this.isBookView,
       ).then(async res => {
         const noData = !res;
         if (res && append && this.directory && this.directory.data) {

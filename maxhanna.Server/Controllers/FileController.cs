@@ -261,7 +261,8 @@ namespace maxhanna.Server.Controllers
           [FromQuery] bool includeRomMetadata = false,
           [FromQuery] List<string>? actualCore = null,
           [FromQuery] bool? isNSFWAllowed = false,
-          [FromQuery] string? bookFilter = null
+          [FromQuery] string? bookFilter = null,
+          [FromQuery] bool includeFolders = false
         )
         {
             if (string.IsNullOrEmpty(directory))
@@ -288,7 +289,7 @@ namespace maxhanna.Server.Controllers
                 List<FileEntry> fileEntries = new List<FileEntry>();
                 List<string> normalizedFileTypes = GetNormalizedTypes(fileType, AcceptedFileTypes);
                 List<string> normalizedActualCores = GetNormalizedTypes(actualCore, Cores);
-                string combinedTypeCoreCondition = BuildFileTypeAndCoreCondition(normalizedFileTypes, normalizedActualCores, Cores);
+                string combinedTypeCoreCondition = BuildFileTypeAndCoreCondition(normalizedFileTypes, normalizedActualCores, Cores, includeFolders);
                 bool nsfwAllowed = isNSFWAllowed ?? false;
                 bool isIdMatch = sortOption == "Id Match";
                 string fileIdCondition = fileId.HasValue && !isIdMatch ? " AND f.id = @fileId" : "";
@@ -304,19 +305,21 @@ namespace maxhanna.Server.Controllers
                 // books plus books shared with me. 'community' mirrors the
                 // catalog: public books plus books shared with the caller.
                 // Unregistered book-format files are included naturally since
-                // the directory itself already lists them.
+                // the directory itself already lists them. Folders are always
+                // kept visible in book view so navigation still works.
+                string folderEscape = includeFolders ? "f.is_folder = 1 OR " : "";
                 string bookFilterCondition = "";
                 if (!string.IsNullOrWhiteSpace(bookFilter))
                 {
                     bookFilter = bookFilter.ToLowerInvariant();
                     if (bookFilter == "library")
                     {
-                        bookFilterCondition = @" AND (f.id IN (SELECT b.file_id FROM maxhanna.book_library b WHERE b.user_id = @userId)
+                        bookFilterCondition = $@" AND ({folderEscape}f.id IN (SELECT b.file_id FROM maxhanna.book_library b WHERE b.user_id = @userId)
                                     OR (f.shared_with IS NOT NULL AND f.shared_with != '' AND FIND_IN_SET(@userId, f.shared_with) > 0)) ";
                     }
                     else if (bookFilter == "community")
                     {
-                        bookFilterCondition = @" AND (f.is_public = 1
+                        bookFilterCondition = $@" AND ({folderEscape}f.is_public = 1
                                     OR (f.shared_with IS NOT NULL AND f.shared_with != '' AND FIND_IN_SET(@userId, f.shared_with) > 0)) ";
                     }
                 }
@@ -3633,7 +3636,8 @@ namespace maxhanna.Server.Controllers
           [FromQuery] bool forceSameDirectory = false,
           [FromQuery] bool includeRomMetadata = false,
           [FromQuery] List<string>? actualCore = null,
-          [FromQuery] bool? isNSFWAllowed = false
+          [FromQuery] bool? isNSFWAllowed = false,
+          bool includeFolders = false
         )
         {
             if (string.IsNullOrEmpty(directory))
@@ -3660,7 +3664,7 @@ namespace maxhanna.Server.Controllers
                 List<FileEntry> fileEntries = new List<FileEntry>();
                 List<string> normalizedFileTypes = GetNormalizedTypes(fileType, AcceptedFileTypes);
                 List<string> normalizedActualCores = GetNormalizedTypes(actualCore, Cores);
-                string combinedTypeCoreCondition = BuildFileTypeAndCoreCondition(normalizedFileTypes, normalizedActualCores, Cores);
+                string combinedTypeCoreCondition = BuildFileTypeAndCoreCondition(normalizedFileTypes, normalizedActualCores, Cores, includeFolders);
                 bool nsfwAllowed = isNSFWAllowed ?? false;
                 bool isIdMatch = sortOption == "Id Match";
                 string fileIdCondition = fileId.HasValue && !isIdMatch ? " AND f.id = @fileId" : "";
@@ -4201,7 +4205,7 @@ namespace maxhanna.Server.Controllers
             return $"https://bughosted.com/assets/{Path.Combine(relativePath, fileName).Replace(Path.DirectorySeparatorChar, '/')}";
         }
         // Returns a single SQL condition string for file type and core filters
-        private static string BuildFileTypeAndCoreCondition(List<string> normalizedFileTypes, List<string> normalizedActualCores, HashSet<string> cores)
+        private static string BuildFileTypeAndCoreCondition(List<string> normalizedFileTypes, List<string> normalizedActualCores, HashSet<string> cores, bool includeFolders = false)
         {
             if (!normalizedFileTypes.Any() && !normalizedActualCores.Any())
                 return string.Empty;
@@ -4213,7 +4217,12 @@ namespace maxhanna.Server.Controllers
             {
                 var sanitized = normalizedFileTypes.Select(ft => "'" + (ft ?? string.Empty).ToLower().Replace("'", "''") + "'").ToArray();
                 var replaced = string.Join(",", sanitized);
-                fileTypeCondition = $" AND LOWER(f.file_type) IN ({replaced}) ";
+                // Folders carry no file_type, so a type filter would hide them
+                // entirely — includeFolders lets book-style views keep folders
+                // navigable while still filtering the files themselves.
+                fileTypeCondition = includeFolders
+                  ? $" AND (LOWER(f.file_type) IN ({replaced}) OR f.is_folder = 1) "
+                  : $" AND LOWER(f.file_type) IN ({replaced}) ";
             }
 
             if (normalizedActualCores.Any())

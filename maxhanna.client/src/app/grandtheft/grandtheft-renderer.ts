@@ -719,6 +719,18 @@ export class GrandTheftRenderer {
   private static readonly HUMAN_SKIN_INTERVAL = 1 / 30;
   private _scratchScale: [number, number, number] = [1, 1, 1];
   public playerMesh: CityMesh | CityMesh[] | null = null;
+  /** Skeleton owned by the procedural local player. It must not share the
+   * renderer-wide GLTF skeleton state: streamed assets can finish in any
+   * order, and a later asset must never rebind the player's vertices. */
+  private playerRig: {
+    boneParents: Int32Array;
+    boneLocalMatrices: Float32Array;
+    inverseBindMatrices: Float32Array;
+    skinRootWorld: Float32Array;
+    boneCount: number;
+    nodeNames: string[];
+  } | null = null;
+  private playerRigJoints: Float32Array | null = null;
   public lampMesh: CityMesh | CityMesh[] | null = null;
   public npcMesh: CityMesh | CityMesh[] | null = null;
   public npcMeshes: CityMesh[][] = [];
@@ -1571,6 +1583,32 @@ void main() {
     this.skelNodeNames = [];
     this.skelIsReady = false;
     this.playerMesh = this.getPlayerMesh([0.2, 0.5, 0.8], appearanceRole, appearanceSeed, appearanceGender);
+    this.bindPlayerRig(this.playerMesh);
+  }
+
+  /** Return a guaranteed procedural player mesh. Deferred GLTF loads are not
+   * allowed to leave the local character without a body for a frame. */
+  getOrCreatePlayerMesh(appearanceRole: Role = 'generic', appearanceSeed: number | string = 1, appearanceGender?: string): CityMesh {
+    if (!this.playerMesh) {
+      this.playerMesh = this.getPlayerMesh([0.2, 0.5, 0.8], appearanceRole, appearanceSeed, appearanceGender);
+    }
+    this.bindPlayerRig(this.playerMesh);
+    return Array.isArray(this.playerMesh) ? this.playerMesh[0] : this.playerMesh;
+  }
+
+  private bindPlayerRig(meshes: CityMesh | CityMesh[] | null): void {
+    if (!meshes) return;
+    const list = Array.isArray(meshes) ? meshes : [meshes];
+    const skeleton = list.find(m => m.skeleton)?.skeleton;
+    if (!skeleton || skeleton.boneCount <= 0) return;
+    if (this.playerRig !== skeleton) {
+      this.playerRig = skeleton;
+      this.playerRigJoints = new Float32Array(skeleton.boneCount * 16);
+    }
+    // Keep procedural animation lookups tied to this rig. The GLTF loader has
+    // a separate renderer-wide skeleton for streamed assets and may update its
+    // node names later in the load, which must not change player animation.
+    this.skelNodeNames = skeleton.nodeNames.slice();
   }
   /**
    * Sample a GLTF animation at time t (seconds). Writes local transforms into
@@ -2018,7 +2056,7 @@ void main() {
     this.flinchTimers.set(entityId, 0.18);
   }
   private playerBone(...tokens: string[]): number {
-    const names = this.skelNodeNames;
+    const names = this.playerRig?.nodeNames ?? this.skelNodeNames;
     const normalized = (value: string) => value.toLowerCase().replace(/[^a-z]/g, '');
     const wanted = tokens.map(normalized);
     for (let i = 0; i < names.length; i++) {
@@ -2084,14 +2122,23 @@ void main() {
   }
   skinPlayerMesh(meshes: CityMesh | CityMesh[], dt: number = 0): void {
     try {
-      const skel = this;
-      if (!skel.skelBoneParents || !skel.skelBoneLocalMatrices || !skel.skelInverseBindMatrices || !skel.skelSkinRootWorld) return;
+      const meshList = Array.isArray(meshes) ? meshes : [meshes];
+      // Always use the local player's own procedural rig. The renderer also
+      // loads GLTFs for cars, buildings, and viewmodels; those assets may
+      // replace the old shared skeleton fields after the initial frame and
+      // applying one of their bone arrays to a human mesh can move every vertex
+      // off-screen or corrupt the VBO.
+      const skel = this.playerRig;
+      if (!skel) return;
       const gl = this.gl;
-      const numBones = skel.skelBoneCount;
-      const parents = skel.skelBoneParents;
-      const invBind = skel.skelInverseBindMatrices;
-      const jointMat = skel.skelJointMatrices!;
-      const animLocal = new Float32Array(skel.skelBoneLocalMatrices);
+      const numBones = skel.boneCount;
+      const parents = skel.boneParents;
+      const invBind = skel.inverseBindMatrices;
+      if (!this.playerRigJoints || this.playerRigJoints.length !== numBones * 16) {
+        this.playerRigJoints = new Float32Array(numBones * 16);
+      }
+      const jointMat = this.playerRigJoints;
+      const animLocal = new Float32Array(skel.boneLocalMatrices);
       if (this.isMobile) {
         this._playerSkinAccumulator += Math.max(0, dt);
         const actionActive = this.punchTime > 0 || this.playerFireTime > 0;
@@ -2110,7 +2157,7 @@ void main() {
         if (parents[b] < 0) {
           mat4.multiply(
             new Float32Array(jointMat.buffer, b * 16 * 4, 16),
-            skel.skelSkinRootWorld,
+            skel.skinRootWorld,
             new Float32Array(animLocal.buffer, b * 16 * 4, 16)
           );
         }
@@ -2132,7 +2179,6 @@ void main() {
         mat4.multiply(tempMat, w, ib);
         for (let i = 0; i < 16; i++) w[i] = tempMat[i];
       }
-      const meshList = Array.isArray(meshes) ? meshes : [meshes];
       for (const mesh of meshList) {
         if (!mesh.jointIndices || !mesh.jointWeights || !mesh.restPositions || !mesh.restNormals || !mesh.vbo) continue;
         const vCount = mesh.vertexCount || 0;
@@ -2159,14 +2205,18 @@ void main() {
         const jw = mesh.jointWeights;
         const rp = mesh.restPositions;
         const rn = mesh.restNormals;
-        const needsRotation = this.skelNeedsRotation;
-        const cosX = this.skelCosX, sinX = this.skelSinX;
-        const needsYFlip = this.skelNeedsYFlip;
-        const needsYFlipMoped = this.skelNeedsYFlipMoped;
-        const needsY90 = this.skelNeedsY90;
-        const cx = this.skelCenterX, cy = this.skelCenterY, cz = this.skelCenterZ;
-        const sf = this.skelScaleFactor;
-        const ex = this.skelExtraScale[0], ey = this.skelExtraScale[1], ez = this.skelExtraScale[2];
+        // The procedural human vertices are already in player model space.
+        // Never apply the normalization/axis correction belonging to the last
+        // streamed GLTF here: those values are global asset-loader state and
+        // used to translate the player away from the camera after loading.
+        const needsRotation = false;
+        const cosX = 1, sinX = 0;
+        const needsYFlip = false;
+        const needsYFlipMoped = false;
+        const needsY90 = false;
+        const cx = 0, cy = 0, cz = 0;
+        const sf = 1;
+        const ex = 1, ey = 1, ez = 1;
         for (let v = 0; v < safeVCount; v++) {
           let px = 0, py = 0, pz = 0;
           let nx = 0, ny = 0, nz = 0;
@@ -4486,6 +4536,7 @@ void main() {
     for(let i=0;i<vCount;i++){ const x=restPos[i*3], y=restPos[i*3+1], z=restPos[i*3+2]; if(y<minY)minY=y; if(y>maxY)maxY=y; if(x<minX)minX=x; if(x>maxX)maxX=x; if(z<minZ)minZ=z; if(z>maxZ)maxZ=z; }
     const mesh: CityMesh = { vao, vbo, ibo, indexCount: indices.length, indexType: use32? gl.UNSIGNED_INT: gl.UNSIGNED_SHORT, vertexCount: vCount, restPositions: new Float32Array(restPos), restNormals: new Float32Array(restNrm), jointIndices: new Uint16Array(jIndices), jointWeights: new Float32Array(jWeights), skeleton, animations: null, originalVBO: new Float32Array(interleaved), minY, maxY, minX, maxX, minZ, maxZ } as any;
     (mesh as any).isHuman = true;
+    (mesh as any).isLocalPlayer = false;
     return mesh;
   }
   getBoatMesh(seed: number | string = 0): CityMesh | CityMesh[] {

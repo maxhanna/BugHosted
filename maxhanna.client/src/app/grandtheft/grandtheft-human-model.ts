@@ -178,12 +178,27 @@ export function createHumanSkeleton(): {
   trans(new Float32Array(locals.buffer,17*64,16), 0, -0.42, 0);
   trans(new Float32Array(locals.buffer,18*64,16), 0, -0.42, 0.06);
 
-  // Inverse bind = inverse of world bind (for CPU skinning we compute on fly; init as identity, renderer will compute)
-  for (let i=0;i<boneCount;i++) {
-    const m = new Float32Array(invBind.buffer, i*64,16); ident(m);
+  // Inverse bind matrices must cancel each bone's *world* bind translation.
+  // The procedural vertices are authored in model space, while the skeleton
+  // locals contain the anatomical offsets (hips, spine, limbs). Using identity
+  // inverse binds makes the first CPU-skin pass add those offsets a second time;
+  // the character then jumps away from its bind pose as soon as loading finishes
+  // and can appear to disappear below/away from the camera. Build the bind
+  // transforms explicitly (the procedural skeleton uses translations only), so
+  // bind-pose skinning is an identity transform and later animation rotates the
+  // mesh around the correct joints.
+  const bindWorld = new Array<{ x: number; y: number; z: number }>(boneCount);
+  for (let i = 0; i < boneCount; i++) {
+    const local = new Float32Array(locals.buffer, i * 64, 16);
+    const parent = parents[i];
+    const p = parent >= 0 ? bindWorld[parent] : { x: 0, y: 0, z: 0 };
+    bindWorld[i] = { x: p.x + local[12], y: p.y + local[13], z: p.z + local[14] };
+    const inverse = new Float32Array(invBind.buffer, i * 64, 16);
+    ident(inverse);
+    inverse[12] = -bindWorld[i].x;
+    inverse[13] = -bindWorld[i].y;
+    inverse[14] = -bindWorld[i].z;
   }
-  // Simple invert: since we use only translations, inverse is -translation accumulated, but we let renderer compute via computeJointMatrices
-  // Initialize as identity; the renderer’s computeJointMatrices will handle hierarchically — we just need inverseBind to be identity for procedural verts
   const skinRoot = new Float32Array(16); ident(skinRoot);
   return { boneParents: parents, boneLocalMatrices: locals, inverseBindMatrices: invBind, skinRootWorld: skinRoot, nodeToBoneIdx: map, boneCount, nodeNames: names };
 }
