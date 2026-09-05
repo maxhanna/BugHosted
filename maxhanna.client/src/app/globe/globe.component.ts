@@ -15,6 +15,7 @@ import { TileCacheService } from '../../services/tile-cache.service';
 import { FlightService } from '../../services/flight.service';
 import { TrackedFlight } from '../../services/datacontracts/flight';
 import { UserService, UserWithLocation } from '../../services/user.service';
+import { GlobePingService, GlobeUserPing } from '../../services/globe-ping.service';
 import { User } from '../../services/datacontracts/user/user';
 import { CITY_COORDS, COUNTRY_COORDS, TOWN_COORDS } from './coordinates';
 
@@ -160,6 +161,9 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   showNewsPins = true;
   showUsersPins = true;
   showFlightsPins = true;
+  // User-placed custom pings (shared across all users) + their data-panel toggle.
+  showCustomPings = true;
+  userPings: GlobeUserPing[] = [];
   showCityCoords = false;
   showCountryCoords = false;
   showTownCoords = false;
@@ -252,6 +256,8 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   showWikipediaPopup = false;
   selectedWikipediaData: any = null;
   wikipediaLoading = false;
+  showPingDetailPopup = false;
+  selectedPingDetail: GlobeUserPing | null = null;
   flightArcs: Arc[] = [];
   accordionStates: { [key: string]: boolean } = {
     news: false,
@@ -317,7 +323,8 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     private flightService: FlightService,
     private userService: UserService,
     private crawlerService: CrawlerService,
-    private commentService: CommentService
+    private commentService: CommentService,
+    private globePingService: GlobePingService
   ) { }
 
   async ngOnInit(): Promise<void> {
@@ -327,6 +334,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.loadNewsPins();
     this.loadFlights();
     this.loadAllFlights();
+    this.loadUserPings();
     this.filterCoordinates();
     if (this.userId) {
       this.centerCurrentLocation();
@@ -357,6 +365,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroyed = true;
     this.stopPingTour();
+    this.stopPingFeed();
     cancelAnimationFrame(this.rafId);
     this.destroyWebGL();
   }
@@ -936,6 +945,200 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     } catch { /* non-fatal */ }
   }
 
+  // =========================================================================
+  // Custom pings — user-placed, shared with everyone
+  // =========================================================================
+
+  private async loadUserPings(): Promise<void> {
+    try {
+      this.userPings = await this.globePingService.getAll();
+    } catch { /* non-fatal */ }
+  }
+
+  // ---- live ping feed (data panel) ----
+  private pingFeedTimer: any = null;
+  private pingFeedCount = 0;
+
+  /** Refreshes the ping list on a 30 s loop while the data panel is open, so
+   *  other users' new pings appear in the live feed without a manual refresh. */
+  startPingFeed(): void {
+    this.stopPingFeed();
+    this.pingFeedCount = this.userPings.length;
+    this.pingFeedTimer = setInterval(async () => {
+      try {
+        const fresh = await this.globePingService.getAll();
+        if (fresh.length !== this.pingFeedCount) {
+          this.pingFeedCount = fresh.length;
+          this.userPings = fresh;
+        }
+      } catch { /* non-fatal */ }
+    }, 30000);
+  }
+
+  stopPingFeed(): void {
+    if (this.pingFeedTimer) {
+      clearInterval(this.pingFeedTimer);
+      this.pingFeedTimer = null;
+    }
+  }
+
+  /** Recent pings, newest first, capped for the data-panel feed. */
+  get recentPings(): GlobeUserPing[] {
+    return this.userPings.slice(0, 25);
+  }
+
+  /** Flies the globe to a ping and opens its detail popup. */
+  goToPing(ping: GlobeUserPing): void {
+    this.selectedPingDetail = ping;
+    this.showPingDetailPopup = false; // reset so (re)opening replays focus
+    this.focusPing({
+      id: `gping:${ping.id}`,
+      lat: ping.lat,
+      lon: ping.lon,
+      label: ping.label || ping.username || 'Ping',
+      zoom: 75,
+      source: 'custom',
+      data: { type: 'gping', ping },
+    });
+    this.showPingDetailPopup = true;
+  }
+
+  /** Time-ago label for feed entries. */
+  pingAge(ping: GlobeUserPing): string {
+    if (!ping.createdUtc) return '';
+    const t = new Date(ping.createdUtc + (ping.createdUtc.endsWith('Z') ? '' : 'Z')).getTime();
+    if (isNaN(t)) return '';
+    const s = Math.max(0, Math.floor((Date.now() - t) / 1000));
+    if (s < 60) return 'just now';
+    const m = Math.floor(s / 60);
+    if (m < 60) return `${m}m ago`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h ago`;
+    return `${Math.floor(h / 24)}d ago`;
+  }
+
+  /** Screen pixel → globe lat/lon. Exact inverse of projectPin: rebuild the
+   *  camera ray through the clicked pixel, intersect with the unit sphere,
+   *  unrotate the surface point by Rᵀ, convert to lat/lon. Returns null when
+   *  the ray misses the globe (sky). */
+  private screenToLatLon(px: number, py: number): { lat: number; lon: number } | null {
+    const canvas = this.globeCanvasRef.nativeElement;
+    const w = canvas.width, h = canvas.height;
+    const fov = 35 * Math.PI / 180;
+    const f = 1.0 / Math.tan(fov / 2);
+    const asp = w / h;
+    // Eye-plane coordinates of the clicked pixel (camera space, z = 0 plane),
+    // matching projectPin's viewport transform exactly.
+    const ndcX = (px / w) * 2 - 1;                    // -1..1 left→right
+    const ndcY = 1 - (py / h) * 2;                    // -1..1 bottom→top
+    const ex = ndcX * asp / f;
+    const ey = ndcY / f;
+    // Camera sits at (0, 0, camDist) looking down -z; ray C + t·D with D = (ex, ey, -1).
+    const camDist = this.camDist;
+    const a = ex * ex + ey * ey + 1;
+    const disc = camDist * camDist - a * (camDist * camDist - 1);
+    if (disc < 0) return null;                        // ray misses the sphere
+    // Near intersection (smaller t root of |C + tD|² = 1).
+    const t = (camDist - Math.sqrt(disc)) / a;
+    const cx = t * ex;
+    const cy = t * ey;
+    const cz = camDist - t;
+    // Unrotate camera-space surface point into world space (Rᵀ · p).
+    const R = this.rot;
+    const wx = R[0] * cx + R[3] * cy + R[6] * cz;
+    const wy = R[1] * cx + R[4] * cy + R[7] * cz;
+    const wz = R[2] * cx + R[5] * cy + R[8] * cz;
+    const lat = Math.asin(Math.max(-1, Math.min(1, wy))) * 180 / Math.PI;
+    const lon = Math.atan2(wx, wz) * 180 / Math.PI;
+    return { lat, lon };
+  }
+
+  /** True when the caller may remove this ping. */
+  canDeletePing(ping: GlobeUserPing): boolean {
+    return !!this.userId && ping.userId === this.userId;
+  }
+
+  // ---- ping save prompt (small popup panel) ----
+  showPingSavePrompt = false;
+  pendingPingLat = 0;
+  pendingPingLon = 0;
+  pendingPingLabel = '';
+  isSavingPing = false;
+
+  /** Opens the label prompt for a new ping at the tapped location. */
+  promptPingSave(lat: number, lon: number): void {
+    if (!this.userId) {
+      this.inputtedParentRef?.showNotification('Log in to drop custom pings.');
+      return;
+    }
+    this.pendingPingLat = lat;
+    this.pendingPingLon = lon;
+    this.pendingPingLabel = '';
+    this.showPingSavePrompt = true;
+  }
+
+  cancelPingSave(): void {
+    this.showPingSavePrompt = false;
+    this.pendingPingLabel = '';
+  }
+
+  confirmPingSave(): void {
+    if (this.isSavingPing) return;
+    this.isSavingPing = true;
+    void this.savePingAt(this.pendingPingLat, this.pendingPingLon, this.pendingPingLabel)
+      .finally(() => {
+        this.isSavingPing = false;
+        this.showPingSavePrompt = false;
+      });
+  }
+
+  /** Creates a ping at the clicked location. Empty label → derived from the
+   *  nearest known place, or coordinates. */
+  async savePingAt(lat: number, lon: number, label?: string): Promise<void> {
+    if (!this.userId) {
+      this.inputtedParentRef?.showNotification('Log in to drop custom pings.');
+      return;
+    }
+    const token = await this.inputtedParentRef?.getSessionToken();
+    const finalLabel = (label ?? '').trim() || this.nearestPlaceLabel(lat, lon);
+    const created = await this.globePingService.create(this.userId, lat, lon, finalLabel, token);
+    if (created) {
+      this.userPings = [created, ...this.userPings];
+      this.inputtedParentRef?.showNotification(`Ping saved at ${lat.toFixed(2)}°, ${lon.toFixed(2)}°.`);
+    } else {
+      this.inputtedParentRef?.showNotification('Could not save the ping.');
+    }
+  }
+
+  async deleteUserPing(ping: GlobeUserPing): Promise<void> {
+    if (!this.canDeletePing(ping)) return;
+    const ok = await this.globePingService.remove(ping.id, this.userId);
+    if (ok) {
+      this.userPings = this.userPings.filter(p => p.id !== ping.id);
+      this.showPingDetailPopup = false;
+      this.inputtedParentRef?.showNotification('Ping removed.');
+    } else {
+      this.inputtedParentRef?.showNotification('Could not remove the ping.');
+    }
+  }
+
+  /** Human-readable label for a ping: nearest city/town/country name, else
+   *  formatted coordinates. */
+  private nearestPlaceLabel(lat: number, lon: number): string {
+    let best: { name: string; dist: number } | null = null;
+    const consider = (name: string, la: number, lo: number) => {
+      const d = (la - lat) * (la - lat) + (lo - lon) * (lo - lon);
+      if (!best || d < best.dist) best = { name, dist: d };
+    };
+    for (const [city, coords] of Object.entries(CITY_COORDS)) consider(city, coords[0], coords[1]);
+    for (const [town, coords] of Object.entries(TOWN_COORDS)) consider(town, coords[0], coords[1]);
+    for (const [country, coords] of Object.entries(COUNTRY_COORDS)) consider(country, coords[0], coords[1]);
+    const bestMatch = best as { name: string; dist: number } | null;
+    // Only trust the nearest place when it is genuinely close (~50km crude).
+    if (bestMatch && bestMatch.dist < 0.25) return bestMatch.name;
+    return `${lat.toFixed(2)}°, ${lon.toFixed(2)}°`;
+  }
+
   private resolveUserLocations(): void {
     for (const user of this.usersWithLocations) {
       const result = this.findBestLocationMatch(user.city, user.country);
@@ -1190,9 +1393,20 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     const newsPings = this.showNewsPins ? this.filteredNewsPins
       .map(pin => this.newsPinToPing(pin))
       .filter((ping): ping is ResolvedGlobePing => !!ping) : [];
-    const customPings = this.customPings
+    const customPings = this.showCustomPings ? this.customPings
       .map((ping, index) => this.resolveCustomPing(ping, index))
-      .filter((ping): ping is ResolvedGlobePing => !!ping);
+      .filter((ping): ping is ResolvedGlobePing => !!ping) : [];
+    // User-placed custom pings ride the same 'custom' source (blue) and
+    // therefore the same render/hover/click pipeline as the rest.
+    const savedPings = this.showCustomPings ? this.userPings.map(p => ({
+      id: `gping:${p.id}`,
+      lat: p.lat,
+      lon: p.lon,
+      label: `📍 ${p.label || p.username || 'Ping'}`,
+      zoom: 70,
+      source: 'custom' as const,
+      data: { type: 'gping' as const, ping: p },
+    })) : [];
     const userPings = this.showUsersPins ? this.usersWithLocations
       .map(user => this.userToPing(user))
       .filter((ping): ping is ResolvedGlobePing => !!ping) : [];
@@ -1240,7 +1454,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     const flightPings = this.showFlightsPins ? this.getFlightPings() : [];
-    return [...flightPings, ...storyPings, ...commentPings, ...newsPings, ...customPings, ...userPings, ...coordPings];
+    return [...flightPings, ...storyPings, ...commentPings, ...newsPings, ...customPings, ...savedPings, ...userPings, ...coordPings];
   }
 
   private getFlightPings(): ResolvedGlobePing[] {
@@ -2548,6 +2762,11 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     const ping = this.findPingAtEvent(e);
     if (!ping) {
       this.flightArcs = [];
+      // Mobile empty-space tap: same ping-save flow as desktop.
+      const canvas = this.globeCanvasRef.nativeElement;
+      const rect = canvas.getBoundingClientRect();
+      const loc = this.screenToLatLon(e.clientX - rect.left, e.clientY - rect.top);
+      if (loc) void this.promptPingSave(loc.lat, loc.lon);
       return;
     }
 
@@ -2586,6 +2805,13 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     const pingData = ping.data as any;
+    if (pingData?.type === 'gping') {
+      this.selectedPingDetail = pingData.ping as GlobeUserPing;
+      this.showPingDetailPopup = true;
+      this.focusPing(ping);
+      return;
+    }
+
     if (pingData?.type === 'flight') {
       this.onFlightClick(ping);
       return;
@@ -2658,6 +2884,11 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     const ping = this.findPingAtEvent(e);
     if (!ping) {
       this.flightArcs = [];
+      // Empty space: offer to drop a custom ping at that exact spot.
+      const canvas = this.globeCanvasRef.nativeElement;
+      const rect = canvas.getBoundingClientRect();
+      const loc = this.screenToLatLon(e.clientX - rect.left, e.clientY - rect.top);
+      if (loc) void this.promptPingSave(loc.lat, loc.lon);
       return;
     }
 
@@ -2696,6 +2927,13 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     const pingData = ping.data as any;
+    if (pingData?.type === 'gping') {
+      this.selectedPingDetail = pingData.ping as GlobeUserPing;
+      this.showPingDetailPopup = true;
+      this.focusPing(ping);
+      return;
+    }
+
     if (pingData?.type === 'flight') {
       this.onFlightClick(ping);
       return;

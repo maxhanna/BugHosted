@@ -28,7 +28,7 @@
   </div>
 
   <!-- Top right data toggle button -->
-  <button class="data-toggle-btn-top" (click)="showDataPanel = !showDataPanel">
+  <button class="data-toggle-btn-top" (click)="showDataPanel = !showDataPanel; showDataPanel ? startPingFeed() : stopPingFeed()">
     📊 Data
   </button>
 
@@ -43,7 +43,7 @@
   </div>
   <div class="popupPanel data-popup-panel" *ngIf="showDataPanel">
     <div class="popupPanelTitle">Data</div>
-    <button class="close-btn" (click)="showDataPanel = false">×</button>
+    <button class="close-btn" (click)="showDataPanel = false; stopPingFeed()">×</button>
 
     <div class="data-tabs">
       <button type="button" class="tab-btn" [class.active]="activeDataTab === 'stories'"
@@ -185,6 +185,25 @@
           <input type="checkbox" [checked]="showUsersPins" (change)="showUsersPins = $any($event.target).checked">
           <span class="pin-toggle-slider"></span>
         </label>
+      </div>
+      <div class="pin-toggle-row">
+        <label class="pin-toggle">
+          <span class="pin-toggle-label">Show Custom Pings ({{ userPings.length }})</span>
+          <input type="checkbox" [checked]="showCustomPings" (change)="showCustomPings = $any($event.target).checked">
+          <span class="pin-toggle-slider"></span>
+        </label>
+      </div>
+      <div class="ping-feed">
+        <div class="ping-feed-title">Live pings</div>
+        <div class="ping-feed-item" *ngFor="let ping of recentPings" (click)="goToPing(ping)">
+          <span class="ping-feed-dot">📍</span>
+          <span class="ping-feed-main">
+            <span class="ping-feed-label">{{ ping.label || 'Ping' }}</span>
+            <span class="ping-feed-owner" *ngIf="ping.username">@{{ ping.username }}</span>
+          </span>
+          <span class="ping-feed-age">{{ pingAge(ping) }}</span>
+        </div>
+        <div class="ping-feed-empty" *ngIf="recentPings.length === 0">No pings yet — tap the globe to drop one.</div>
       </div>
       <div class="users-search">
         <input type="text" (input)="onUserSearch($event)" placeholder="Search users by name or ID..."
@@ -524,6 +543,40 @@
 </div>
 
   <!-- Coords Edit Popup -->
+  <!-- ============ Custom ping save prompt ============ -->
+  <div class="popupPanel ping-save-panel" *ngIf="showPingSavePrompt">
+    <div class="popupPanelTitle">📍 Drop a ping</div>
+    <button class="close-btn" (click)="cancelPingSave()">×</button>
+    <div class="data-content">
+      <p class="ping-save-coords">{{ pendingPingLat.toFixed(4) }}°, {{ pendingPingLon.toFixed(4) }}°</p>
+      <div class="form-group">
+        <label>Label (optional):</label>
+        <input type="text" [(ngModel)]="pendingPingLabel" maxlength="120"
+          placeholder="e.g. Meeting spot" (keyup.enter)="confirmPingSave()" class="flight-input" />
+      </div>
+      <p class="ping-save-hint">Pings are visible to everyone. Leave empty for an auto label.</p>
+      <div class="popupPanelActions">
+        <button class="add-flight-btn" (click)="confirmPingSave()" [disabled]="isSavingPing">
+          {{ isSavingPing ? 'Saving…' : 'Save ping' }}</button>
+        <button class="add-flight-btn" (click)="cancelPingSave()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ Custom ping detail popup ============ -->
+  <div class="popupPanel ping-detail-panel" *ngIf="showPingDetailPopup && selectedPingDetail">
+    <div class="popupPanelTitle">📍 {{ selectedPingDetail.label || 'Custom ping' }}</div>
+    <button class="close-btn" (click)="showPingDetailPopup = false">×</button>
+    <div class="data-content">
+      <p class="ping-detail-coords">{{ selectedPingDetail.lat.toFixed(4) }}°, {{ selectedPingDetail.lon.toFixed(4) }}°</p>
+      <p class="ping-detail-owner" *ngIf="selectedPingDetail.username">Dropped by <strong>&#64;{{ selectedPingDetail.username }}</strong></p>
+      <p class="ping-detail-date" *ngIf="selectedPingDetail.createdUtc">{{ selectedPingDetail.createdUtc | date:'medium' }}</p>
+      <div class="popupPanelActions" *ngIf="canDeletePing(selectedPingDetail)">
+        <button class="add-flight-btn ping-delete-btn" (click)="deleteUserPing(selectedPingDetail!)">🗑 Delete my ping</button>
+      </div>
+    </div>
+  </div>
+
   <div class="popupPanel data-popup-panel" *ngIf="isCoordsEditPopupOpen">
     <div class="popupPanelTitle">Edit Coordinates</div>
     <button class="close-btn" (click)="closeCoordsEditPopup()">×</button>

@@ -1296,3 +1296,80 @@
   font-size: 11px;
   font-family: monospace;
 }
+/* ============ Custom ping popups ============ */
+
+.ping-save-panel,
+.ping-detail-panel {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 340px;
+  max-width: calc(100vw - 40px);
+  padding: 0;
+  z-index: 1200;
+  background: rgba(10, 10, 20, 0.97);
+  border: 1px solid rgba(68, 170, 255, 0.5);
+  border-radius: 10px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.7);
+}
+
+.ping-save-panel .popupPanelTitle,
+.ping-detail-panel .popupPanelTitle {
+  padding: 14px 40px 0 18px;
+  margin-bottom: 4px;
+}
+
+.ping-save-panel .close-btn,
+.ping-detail-panel .close-btn {
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  background: none;
+  border: none;
+  color: rgba(136, 136, 136, 1);
+  font-size: 22px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.ping-save-panel .data-content,
+.ping-detail-panel .data-content {
+  padding: 10px 18px 16px;
+}
+
+.ping-save-coords,
+.ping-detail-coords {
+  margin: 4px 0 10px;
+  font-family: monospace;
+  font-size: 13px;
+  color: rgba(0, 221, 255, 1);
+}
+
+.ping-save-hint {
+  margin: 8px 0 4px;
+  font-size: 11px;
+  color: rgba(136, 136, 136, 1);
+}
+
+.ping-detail-owner {
+  margin: 4px 0;
+  font-size: 13px;
+  color: rgba(221, 221, 221, 1);
+}
+
+.ping-detail-date {
+  margin: 2px 0 10px;
+  font-size: 11px;
+  color: rgba(136, 136, 136, 1);
+}
+
+.ping-delete-btn {
+  border-color: rgba(255, 85, 125, 1);
+  background: rgba(255, 85, 125, 0.12);
+  color: rgba(255, 85, 125, 1);
+}
+
+.ping-delete-btn:hover {
+  background: rgba(255, 85, 125, 0.28);
+}

@@ -83,18 +83,41 @@
           <option value="">All formats</option>
           <option *ngFor="let f of availableFormats" [value]="f">{{ formatLabel(f) }}</option>
         </select>
-        <button class="add-book-btn" (click)="openAddPanel()" *ngIf="isLoggedIn">➕ Add Book</button>
+        <button class="mini-btn" *ngIf="isLoggedIn" (click)="toggleMassEdit()"
+          [class.danger]="massEditMode">{{ massEditMode ? '✕ Done' : '✏️ Edit' }}</button>
+        <app-file-upload *ngIf="isLoggedIn" [currentDirectory]="uploadDirectory" [user]="parentRef?.user!"
+          [inputtedParentRef]="parentRef" [uploadButtonText]="'Add Book(s)'" [maxSelectedFiles]="100"
+          [allowedFileTypes]="allowedBookTypes" [displayPrivatePublicOption]="true"
+          [displayOptionsAndTopicsButtons]="false" [disableFileCompression]="true"
+          (userUploadFinishedEvent)="uploadFinished($event)"></app-file-upload>
       </div>
+    </div>
+
+    <!-- ============ Folder breadcrumb (library tab) ============ -->
+    <div class="folder-bar" *ngIf="!readingBook && activeTab === 'library' && isLoggedIn">
+      <button class="crumb-btn" (click)="goToRoot()" [disabled]="!currentFolder">📚 Books</button>
+      <ng-container *ngFor="let crumb of folderCrumbs; let i = index">
+        <span class="crumb-sep">/</span>
+        <button class="crumb-btn" (click)="goToCrumb(i)">{{ crumb }}</button>
+      </ng-container>
+      <span class="folder-bar-spacer"></span>
+      <button class="mini-btn" *ngIf="!showNewFolderPrompt" (click)="showNewFolderPrompt = true">📂 New Folder</button>
+      <ng-container *ngIf="showNewFolderPrompt">
+        <input class="folder-name-input" type="text" placeholder="Folder name" [(ngModel)]="newFolderName"
+          maxlength="60" (keyup.enter)="createBookFolder()" />
+        <button class="mini-btn" (click)="createBookFolder()">Create</button>
+        <button class="mini-btn" (click)="showNewFolderPrompt = false; newFolderName = ''">✕</button>
+      </ng-container>
     </div>
 
     <!-- ============ Book grid ============ -->
     <div class="books-grid" *ngIf="!readingBook">
       <div class="loading" *ngIf="isLoading">Loading books…</div>
-      <div class="empty-state" *ngIf="!isLoading && filteredBooks.length === 0">
+      <div class="empty-state" *ngIf="!isLoading && booksInFolder.length === 0 && folders.length === 0">
         <ng-container *ngIf="activeTab === 'library'; else catalogEmpty">
           <div class="empty-icon">📚</div>
-          <p>Your library is empty.</p>
-          <button class="add-book-btn" (click)="openAddPanel()">➕ Add your first book</button>
+          <p>{{ currentFolder ? 'This folder is empty.' : 'Your library is empty.' }}</p>
+          <p class="empty-hint">Use ➕ Add Book(s) above to upload PDFs, EPUBs or documents.</p>
         </ng-container>
         <ng-template #catalogEmpty>
           <div class="empty-icon">🌍</div>
@@ -102,7 +125,16 @@
         </ng-template>
       </div>
 
-      <div class="book-card" *ngFor="let book of filteredBooks" (click)="openReader(book)">
+      <!-- Subfolder cards -->
+      <div class="folder-card" *ngFor="let folder of folders" (click)="enterFolder(folder)" title="Open folder">
+        <div class="folder-icon">📂</div>
+        <div class="folder-name">{{ folder }}</div>
+      </div>
+
+      <div class="book-card" *ngFor="let book of booksInFolder" (click)="massEditMode ? toggleSelect(book) : openReader(book)">
+        <label class="select-box" *ngIf="massEditMode" (click)="$event.stopPropagation()">
+          <input type="checkbox" [checked]="isSelected(book)" (change)="toggleSelect(book)" />
+        </label>
         <div class="cover-wrap">
           <img class="cover-img" [src]="coverSrc(book)" [alt]="book.title" loading="lazy"
             (load)="onCoverLoad(book)" (error)="onCoverError($event, book)" />
@@ -132,49 +164,33 @@
       </div>
     </div>
 
-    <!-- ============ Add book panel ============ -->
-    <div class="modal-backdrop" *ngIf="isAddPanelOpen" (click)="closeAddPanel()"></div>
-    <div class="book-modal" *ngIf="isAddPanelOpen">
+    <!-- ============ Bulk edit selection bar ============ -->
+    <div class="bulk-bar" *ngIf="massEditMode && !readingBook">
+      <span>{{ selectionCount }} selected</span>
+      <button class="mini-btn" (click)="selectAllInFolder()" [disabled]="!booksInFolder.length">Select all in folder</button>
+      <button class="mini-btn" (click)="clearSelection()" [disabled]="!selectionCount">Clear</button>
+      <button class="primary-btn" (click)="openBulkEdit()" [disabled]="!selectionCount">✏️ Edit details</button>
+    </div>
+
+    <!-- ============ Bulk edit panel ============ -->
+    <div class="modal-backdrop" *ngIf="bulkEditOpen" (click)="closeBulkEdit()"></div>
+    <div class="book-modal" *ngIf="bulkEditOpen">
       <div class="modal-header">
-        <span>➕ Add a book to your library</span>
-        <button class="mini-btn" (click)="closeAddPanel()">✕</button>
+        <span>✏️ Edit {{ selectionCount }} book{{ selectionCount === 1 ? '' : 's' }}</span>
+        <button class="mini-btn" (click)="closeBulkEdit()">✕</button>
       </div>
-
       <div class="modal-section">
-        <label class="modal-label">Book file (PDF, TXT, DOC/DOCX, RTF, ODT) *</label>
-        <app-media-selector [inputtedParentRef]="parentRef" [user]="parentRef?.user"
-          [currentDirectory]="'Books/'" [maxSelectedFiles]="1" [allowedFileTypes]="allowedBookTypes"
-          [uploadButtonText]="'Upload book'" [closeInitialPopup]="true"
-          (selectFileEvent)="onBookFileSelected($event)"></app-media-selector>
-        <div class="picked-file" *ngIf="selectedBookFile">
-          📄 {{ selectedBookFile.givenFileName || selectedBookFile.fileName }}
-        </div>
-      </div>
-
-      <div class="modal-section">
-        <label class="modal-label">Cover image (optional)</label>
-        <app-media-selector [inputtedParentRef]="parentRef" [user]="parentRef?.user"
-          [currentDirectory]="'Books/Covers/'" [maxSelectedFiles]="1" [allowedFileTypes]="'image/*'"
-          [uploadButtonText]="'Upload cover'" [closeInitialPopup]="true"
-          (selectFileEvent)="onCoverFileSelected($event)"></app-media-selector>
-        <div class="picked-file" *ngIf="selectedCoverFile">
-          🖼️ {{ selectedCoverFile.givenFileName || selectedCoverFile.fileName }}
-        </div>
-      </div>
-
-      <div class="modal-section">
-        <label class="modal-label">Title *</label>
-        <input type="text" [(ngModel)]="newTitle" placeholder="Book title" maxlength="200" />
+        <p class="bulk-hint">Leave a field empty to keep each book's existing value. With exactly one book selected, everything you type replaces its current details.</p>
+        <label class="modal-label">Title {{ selectionCount === 1 ? '' : '(applied to all selected)' }}</label>
+        <input type="text" [(ngModel)]="bulkTitle" [placeholder]="selectionCount === 1 ? 'Book title' : 'Same title for every selected book'" maxlength="200" />
         <label class="modal-label">Author</label>
-        <input type="text" [(ngModel)]="newAuthor" placeholder="Author name" maxlength="120" />
+        <input type="text" [(ngModel)]="bulkAuthor" placeholder="Author name" maxlength="120" />
         <label class="modal-label">Description</label>
-        <textarea [(ngModel)]="newDescription" rows="3" placeholder="What is this book about?"
-          maxlength="1000"></textarea>
+        <textarea [(ngModel)]="bulkDescription" rows="3" placeholder="What is this book about?" maxlength="1000"></textarea>
       </div>
-
       <div class="modal-footer">
-        <button class="primary-btn" (click)="submitBook()" [disabled]="isSubmittingBook">
-          {{ isSubmittingBook ? 'Adding…' : '📚 Add to library' }}
+        <button class="primary-btn" (click)="saveBulkEdit()" [disabled]="isBulkSaving">
+          {{ isBulkSaving ? 'Saving…' : '💾 Save to ' + selectionCount + ' book' + (selectionCount === 1 ? '' : 's') }}
         </button>
       </div>
     </div>

@@ -44,6 +44,8 @@ import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { BookEntry } from '../../services/datacontracts/books/book-entry';
 import { BooksService } from '../../services/books.service';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
+import { FileUploadComponent } from '../file-upload/file-upload.component';
+import { FileService } from '../../services/file.service';
 
 type BooksTab = 'library' | 'catalog';
 
@@ -60,6 +62,7 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
   @Output() hasData = new EventEmitter<boolean>();
 
   @ViewChild(MediaSelectorComponent) mediaSelector?: MediaSelectorComponent;
+  @ViewChild(FileUploadComponent) fileUploader?: FileUploadComponent;
   @ViewChild('pdfCanvas') pdfCanvas?: ElementRef<HTMLCanvasElement>;
   @ViewChild('epubHost') epubHost?: ElementRef<HTMLDivElement>;
 
@@ -68,14 +71,22 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
   activeTab: BooksTab = 'library';
   isMenuPanelOpen = false;
 
-  // ---- add-book flow ----
-  isAddPanelOpen = false;
-  selectedBookFile?: FileEntry;
-  selectedCoverFile?: FileEntry;
-  newTitle = '';
-  newAuthor = '';
-  newDescription = '';
-  isSubmittingBook = false;
+  // ---- uploads & folders ----
+  // Books-relative folder currently browsed ('' = Books root). Uploads via the
+  // toolbar uploader land in the folder being viewed.
+  currentFolder = '';
+  folders: string[] = [];
+  showNewFolderPrompt = false;
+  newFolderName = '';
+
+  // ---- bulk metadata edit ----
+  massEditMode = false;
+  selectedFileIds: number[] = [];
+  bulkEditOpen = false;
+  bulkTitle = '';
+  bulkAuthor = '';
+  bulkDescription = '';
+  isBulkSaving = false;
 
   // ---- sharing ----
   shareBook?: BookEntry;
@@ -124,7 +135,7 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
 
   public readonly allowedBookTypes = '.pdf,.epub,.txt,.doc,.docx,.docm,.dot,.dotx,.dotm,.rtf,.odt';
 
-  constructor(public booksService: BooksService, private cdr: ChangeDetectorRef) { super(); }
+  constructor(public booksService: BooksService, private fileService: FileService, private cdr: ChangeDetectorRef) { super(); }
 
   async ngOnInit() {
     if (this.inputtedParentRef) this.parentRef = this.inputtedParentRef;
@@ -195,8 +206,70 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
       if (this.shareBook) {
         this.shareBook = this.books.find(b => b.bookId === this.shareBook!.bookId) ?? this.shareBook;
       }
+      // Subfolders of the folder being viewed (library tab only).
+      this.folders = this.isLoggedIn
+        ? await this.booksService.getBookFolders(this.userId, this.currentFolder)
+        : [];
+      // Refreshing invalidates any stale bulk selection.
+      this.selectedFileIds = this.selectedFileIds.filter(id => this.books.some(b => b.fileId === id));
     } finally {
       this.isLoading = false;
+    }
+  }
+
+  // ================= Folder navigation =================
+
+  /** Books-relative folder of a book ('' = root, 'Sci-Fi' = Books/Sci-Fi/). */
+  folderOf(book: BookEntry): string {
+    const fp = (book as BookEntry & { folderPath?: string }).folderPath || '';
+    const norm = fp.replace(/\\/g, '/');
+    const marker = '/Books/';
+    const idx = norm.lastIndexOf(marker);
+    if (idx < 0) return '';
+    const rel = norm.slice(idx + marker.length).replace(/\/+$/, '');
+    return rel;
+  }
+
+  /** Books live in the folder being browsed; other folders are listed as cards. */
+  get booksInFolder(): BookEntry[] {
+    return this.filteredBooks.filter(b => this.folderOf(b) === this.currentFolder);
+  }
+
+  get folderCrumbs(): string[] {
+    return this.currentFolder ? this.currentFolder.split('/').filter(Boolean) : [];
+  }
+
+  enterFolder(name: string) {
+    this.currentFolder = this.currentFolder ? `${this.currentFolder}/${name}` : name;
+    void this.loadBooks();
+  }
+
+  goToCrumb(index: number) {
+    this.currentFolder = this.folderCrumbs.slice(0, index + 1).join('/');
+    void this.loadBooks();
+  }
+
+  goToRoot() {
+    if (!this.currentFolder) return;
+    this.currentFolder = '';
+    void this.loadBooks();
+  }
+
+  async createBookFolder() {
+    const name = this.newFolderName.trim().replace(/[/\\]/g, '-');
+    if (!name) return;
+    if (!this.isLoggedIn) return;
+    const token = await this.parentRef?.getSessionToken();
+    if (!token) return;
+    const target = this.currentFolder ? `Books/${this.currentFolder}/${name}` : `Books/${name}`;
+    const res = await this.fileService.createDirectory(this.userId, target, false, token);
+    if (res !== null) {
+      this.parentRef?.showNotification(`Created folder ${name}.`);
+      this.showNewFolderPrompt = false;
+      this.newFolderName = '';
+      await this.loadBooks();
+    } else {
+      this.parentRef?.showNotification('Could not create the folder.');
     }
   }
 
@@ -225,31 +298,32 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
     return Array.from(set).sort();
   }
 
-  // ================= Add book flow =================
-
-  openAddPanel() {
-    if (!this.isLoggedIn) { this.onLoginClick(); return; }
-    this.isAddPanelOpen = true;
-  }
-  closeAddPanel() {
-    this.isAddPanelOpen = false;
-    this.selectedBookFile = undefined;
-    this.selectedCoverFile = undefined;
-    this.newTitle = '';
-    this.newAuthor = '';
-    this.newDescription = '';
+  /** Books-relative upload target: '' → Books/, 'Sci-Fi' → Books/Sci-Fi/. */
+  get uploadDirectory(): string {
+    return this.currentFolder ? `Books/${this.currentFolder}/` : 'Books/';
   }
 
-  onBookFileSelected(files: FileEntry[]) {
-    const first = files && files.length > 0 ? files[0] : undefined;
-    this.selectedBookFile = first;
-    if (first && !this.newTitle.trim()) {
-      this.newTitle = this.titleFromFile(first);
-    }
-  }
-  onCoverFileSelected(files: FileEntry[]) {
-    const first = files && files.length > 0 ? files[0] : undefined;
-    this.selectedCoverFile = first;
+  /** Uploader finished — register every uploaded book-format file so it appears
+   *  in the library immediately, then refresh (folders are picked up too). */
+  async uploadFinished(files: FileEntry[]) {
+    if (!files?.length || !this.isLoggedIn) { await this.loadBooks(); return; }
+    const bookFiles = files.filter(f => {
+      const name = (f.givenFileName || f.fileName || '').toLowerCase();
+      const ext = name.includes('.') ? name.split('.').pop()! : '';
+      return this.allowedBookTypes.split(',').includes('.' + ext);
+    });
+    if (!bookFiles.length) { await this.loadBooks(); return; }
+    const token = await this.parentRef?.getSessionToken();
+    const ok = await this.booksService.bulkRegister(bookFiles.map(f => ({
+      userId: this.userId,
+      fileId: f.id,
+      title: this.titleFromFile(f),
+      isPublic: (f.visibility || '').toLowerCase() === 'public',
+    })), token);
+    this.parentRef?.showNotification(ok === bookFiles.length
+      ? `Added ${ok} book${ok === 1 ? '' : 's'} to your library.`
+      : `Added ${ok} of ${bookFiles.length} books — edit details to retry any missing.`);
+    await this.loadBooks();
   }
 
   private titleFromFile(f: FileEntry): string {
@@ -258,39 +332,91 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
     return dot > 0 ? name.slice(0, dot) : name;
   }
 
-  async submitBook() {
-    if (!this.isLoggedIn || this.isSubmittingBook) return;
-    if (!this.selectedBookFile?.id) {
-      this.parentRef?.showNotification('Pick a book file (PDF, TXT or Word) first.');
+  // ================= Bulk selection & metadata edit =================
+
+  toggleMassEdit() {
+    this.massEditMode = !this.massEditMode;
+    if (!this.massEditMode) {
+      this.selectedFileIds = [];
+      this.bulkEditOpen = false;
+    }
+  }
+
+  isSelected(book: BookEntry): boolean {
+    return this.selectedFileIds.includes(book.fileId);
+  }
+
+  toggleSelect(book: BookEntry) {
+    const i = this.selectedFileIds.indexOf(book.fileId);
+    if (i >= 0) this.selectedFileIds.splice(i, 1);
+    else this.selectedFileIds.push(book.fileId);
+  }
+
+  selectAllInFolder() {
+    for (const b of this.booksInFolder) {
+      if (!this.isSelected(b)) this.selectedFileIds.push(b.fileId);
+    }
+  }
+
+  clearSelection() { this.selectedFileIds = []; this.bulkEditOpen = false; }
+
+  get selectionCount(): number { return this.selectedFileIds.length; }
+
+  openBulkEdit() {
+    if (!this.selectionCount) return;
+    this.bulkTitle = '';
+    this.bulkAuthor = '';
+    this.bulkDescription = '';
+    this.bulkEditOpen = true;
+  }
+
+  closeBulkEdit() { this.bulkEditOpen = false; }
+
+  /** Applies title/author/description to every selected book. Empty fields are
+   *  left untouched, except an explicit single-book selection where a typed
+   *  title replaces the current one (title cannot stay empty on a book). */
+  async saveBulkEdit() {
+    if (!this.isLoggedIn || this.isBulkSaving || !this.selectionCount) return;
+    if (this.selectionCount === 1 && !this.bulkTitle.trim()) {
+      this.parentRef?.showNotification('Give the book a title.');
       return;
     }
-    if (!this.newTitle.trim()) {
-      this.parentRef?.showNotification('Give your book a title.');
-      return;
-    }
-    this.isSubmittingBook = true;
+    this.isBulkSaving = true;
     try {
       const token = await this.parentRef?.getSessionToken();
-      const result = await this.booksService.registerBook({
-        userId: this.userId,
-        fileId: this.selectedBookFile.id,
-        title: this.newTitle.trim(),
-        author: this.newAuthor.trim() || undefined,
-        description: this.newDescription.trim() || undefined,
-        coverFileId: this.selectedCoverFile?.id,
-        isPublic: false,
-      }, token);
-      if (result) {
-        this.parentRef?.showNotification(result.updated
-          ? `Updated "${this.newTitle.trim()}" in your library.`
-          : `"${this.newTitle.trim()}" added to your library.`);
-        this.closeAddPanel();
-        await this.loadBooks();
-      } else {
-        this.parentRef?.showNotification('Could not add the book. Supported: pdf, txt, doc, docx, rtf, odt.');
+      const selected = this.books.filter(b => this.selectedFileIds.includes(b.fileId));
+      let ok = 0;
+      for (const book of selected) {
+        // Registered books update in place; unregistered files (bookId 0) are
+        // registered with their filename title unless the user typed one.
+        if (book.bookId > 0) {
+          const done = await this.booksService.updateBook({
+            userId: this.userId,
+            bookId: book.bookId,
+            title: this.bulkTitle.trim() || book.title,
+            author: this.bulkAuthor.trim() || book.author || undefined,
+            description: this.bulkDescription.trim() || book.description || undefined,
+          }, token);
+          if (done) ok++;
+        } else {
+          const done = await this.booksService.registerBook({
+            userId: this.userId,
+            fileId: book.fileId,
+            title: this.bulkTitle.trim() || book.title,
+            author: this.bulkAuthor.trim() || undefined,
+            description: this.bulkDescription.trim() || undefined,
+            isPublic: book.isPublic,
+          }, token);
+          if (done) ok++;
+        }
       }
+      this.parentRef?.showNotification(`Updated ${ok} of ${selected.length} book${selected.length === 1 ? '' : 's'}.`);
+      this.bulkEditOpen = false;
+      this.massEditMode = false;
+      this.selectedFileIds = [];
+      await this.loadBooks();
     } finally {
-      this.isSubmittingBook = false;
+      this.isBulkSaving = false;
     }
   }
 

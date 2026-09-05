@@ -291,6 +291,36 @@ export class BooksService {
     }
   }
 
+  /** Registers many uploaded files as books in one pass. Files that already
+   *  have a registration for this user are updated with the given defaults;
+   *  everything else is inserted. Uses one server call per file — returns the
+   *  number of successes so the UI can report partial failures. */
+  async bulkRegister(payloads: Array<{
+    userId: number; fileId: number; title: string; author?: string; description?: string;
+    isPublic?: boolean;
+  }>, sessionToken?: string): Promise<number> {
+    let ok = 0;
+    for (const p of payloads) {
+      const r = await this.registerBook(p, sessionToken);
+      if (r) ok++;
+    }
+    return ok;
+  }
+
+  /** Distinct subfolder names (one level) under Books/{prefix} the user can see. */
+  async getBookFolders(userId: number, prefix = ''): Promise<string[]> {
+    try {
+      const params = new URLSearchParams({ userId: String(userId) });
+      if (prefix) params.set('prefix', prefix);
+      const response = await fetch(`/books/getbookfolders?${params.toString()}`);
+      if (!response.ok) return [];
+      return (await response.json()) as string[];
+    } catch (error) {
+      console.error('Error fetching book folders:', error);
+      return [];
+    }
+  }
+
   /** Streams the actual book file for reading/downloading. */
   async downloadBook(fileId: number): Promise<Blob | null> {
     try {
