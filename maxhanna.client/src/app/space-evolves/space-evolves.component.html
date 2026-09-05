@@ -6,43 +6,74 @@
       <div><strong>SCORE</strong><span>{{score}}</span></div>
       <div><strong>LEVEL</strong><span>{{level}}</span></div>
       <div><strong>HULL</strong><span>{{player.hp | number:'1.0-0'}} / {{player.maxHp}}</span></div>
-      <div class="enemy-counter" [class.boss-pending]="isBossActive"><strong>TO NEXT WAVE</strong><span>{{enemyCountLabel}}</span></div>
+      <div class="enemy-counter" [class.boss-pending]="isBossActive"><strong>TO NEXT
+          WAVE</strong><span>{{enemyCountLabel}}</span></div>
       <div *ngIf="player.shield > 0"><strong>SHIELD</strong><span>{{player.shield | number:'1.0-0'}}</span></div>
       <div class="experience-bar" aria-label="Experience progress">
         <div class="experience-label"><span>EXP</span><strong>{{experience}} / {{nextLevel}}</strong></div>
-        <div class="experience-track"><div class="experience-fill" [style.width.%]="nextLevel > 0 ? Math.min(100, experience / nextLevel * 100) : 0"></div></div>
+        <div class="experience-track">
+          <div class="experience-fill"
+            [style.width.%]="nextLevel > 0 ? Math.min(100, experience / nextLevel * 100) : 0"></div>
+        </div>
       </div>
       <button type="button" (click)="togglePause()">{{paused ? 'Resume' : 'Pause'}}</button>
     </div>
     <div class="arena-wrap">
-      <canvas #gameCanvas class="arena"></canvas>
+      <canvas #gameCanvas class="arena"></canvas> 
+    </div>
+    <div>
       <div class="status">{{status}}</div>
       <div class="weapon-hud">
         <div class="weapon-row" *ngFor="let weapon of weaponStatus" [style.--weapon-color]="weapon.color">
-          <strong>{{weapon.name}}</strong><span>{{weapon.interval ? ('Every ' + (weapon.interval | number:'1.1-2') + 's') : 'Passive'}}</span>
+          <strong>{{weapon.name}}</strong><span>{{weapon.interval ? ('Every ' + (weapon.interval | number:'1.1-2') +
+            's') : 'Passive'}}</span>
         </div>
       </div>
       <div class="upgrade-dock" *ngIf="upgradeSections.length">
         <div class="upgrade-section" *ngFor="let section of upgradeSections">
           <strong>{{section.icon}} {{section.label}}</strong>
-          <span *ngFor="let upgrade of section.upgrades" [title]="upgrade.description + (upgrade.chanceText ? ' · Current free-upgrade chance: ' + upgrade.chanceText : '')">{{upgrade.name}} +{{upgrade.count}}{{upgrade.chanceText ? ' · ' + upgrade.chanceText : ''}}</span>
+          <span *ngFor="let upgrade of section.upgrades"
+            [title]="upgrade.description + (upgrade.chanceText ? ' · Current free-upgrade chance: ' + upgrade.chanceText : '')">{{upgrade.name}}
+            +{{upgrade.count}}{{upgrade.chanceText ? ' · ' + upgrade.chanceText : ''}}</span>
         </div>
       </div>
-      <div class="pause-card" *ngIf="paused && !gameOver"><h2>Paused</h2><button (click)="togglePause()">Resume run</button></div>
-      <div class="gameover-card" *ngIf="gameOver"><h2>Ship lost</h2><p>{{status}}</p><button (click)="restart()">Start a new run</button></div>
+      <div class="pause-card" *ngIf="paused && !gameOver">
+        <h2>Paused</h2><button (click)="togglePause()">Resume run</button>
+      </div>
+      <div class="gameover-card" *ngIf="gameOver">
+        <h2>Ship lost</h2>
+        <p>{{status}}</p><button (click)="restart()">Start a new run</button>
+      </div>
       <div class="upgrade-card" *ngIf="upgradeChoices.length > 0 || grantedUpgrades.length">
-        <h2 *ngIf="upgradeChoices.length">Evolution fork{{canPick ? '' : ' (choose in a moment)'}}</h2><p *ngIf="upgradeChoices.length">{{canPick ? 'Pick one mutation. The brood will adapt.' : 'Hold on — mutations are still forming.'}}</p>
-        <div class="upgrade-grid" *ngIf="upgradeChoices.length"><button *ngFor="let upgrade of upgradeChoices" (click)="chooseUpgrade(upgrade)" [disabled]="!canPick"><span class="upgrade-icon" [attr.aria-label]="upgrade.weapon" role="img">{{ upgrade.weapon === 'laser' ? '⚡' : upgrade.weapon === 'missile' ? '🚀' : upgrade.weapon === 'shield' ? '🛡️' : '🛰️' }}</span><span class="upgrade-type">{{upgrade.weapon}}</span><strong>{{upgrade.name}}</strong><small>{{upgrade.description}}</small></button></div>
-        <div class="free-grants" *ngIf="grantedUpgrades.length"><h2>⚡ Free upgrades granted</h2><p>The brood rewarded your upgrades:</p><div class="granted-list"><span *ngFor="let g of grantedUpgrades" class="granted-chip">{{ upgradeIcon(g.weapon) }} {{g.name}} +{{ upgradeCount(g.id) }}</span></div>        <button class="dismiss" (click)="grantedUpgrades = []">Continue</button></div>
+        <h2 *ngIf="upgradeChoices.length">Evolution fork{{canPick ? '' : ' (choose in a moment)'}}</h2>
+        <p *ngIf="upgradeChoices.length">{{canPick ? 'Pick one mutation. The brood will adapt.' : 'Hold on — mutations
+          are still forming.'}}</p>
+        <div class="upgrade-grid" *ngIf="upgradeChoices.length"><button *ngFor="let upgrade of upgradeChoices"
+            (click)="chooseUpgrade(upgrade)" [disabled]="!canPick"><span class="upgrade-icon"
+              [attr.aria-label]="upgrade.weapon" role="img">{{ upgrade.weapon === 'laser' ? '⚡' : upgrade.weapon ===
+              'missile' ? '🚀' : upgrade.weapon === 'shield' ? '🛡️' : '🛰️' }}</span><span
+              class="upgrade-type">{{upgrade.weapon}}</span><strong>{{upgrade.name}}</strong><small>{{upgrade.description}}</small></button>
+        </div>
+        <div class="free-grants" *ngIf="grantedUpgrades.length">
+          <h2>⚡ Free upgrades granted</h2>
+          <p>The brood rewarded your upgrades:</p>
+          <div class="granted-list"><span *ngFor="let g of grantedUpgrades" class="granted-chip">{{
+              upgradeIcon(g.weapon) }} {{g.name}} +{{ upgradeCount(g.id) }}</span></div> <button class="dismiss"
+            (click)="grantedUpgrades = []">Continue</button>
+        </div>
       </div>
     </div>
     <aside class="side-panel">
-      <h2>Space: Evolves</h2><p>Steer the ship through an endless vertical descent. Destroy evolving bugs, collect mutations, and build a run that can survive the Queen.</p>
-      <h3>Enemy guide</h3>
-      <ul class="enemy-guide"><li><b>Scuttler</b><span>Fast common swarm bug. Its many segments make it dangerous in groups.</span></li><li><b>Mantis</b><span>Durable attacker with higher contact damage and a larger body.</span></li><li><b>Queen</b><span>Large, tough brood carrier with high health and regeneration.</span></li><li><b>Boss Titan</b><span>Level-end enemy with massive segmented health and projectile volleys.</span></li><li><b>Traits</b><span>Chargers move faster, armored bugs resist damage, splitters divide, weavers zigzag, volatile bugs hit harder, and regenerators recover health.</span></li></ul>
+      <h2>Space: Evolves</h2>
+      <p>Steer the ship through an endless vertical descent. Destroy evolving bugs, collect mutations, and build a run
+        that can survive the Queen.</p>
+       
       <h3>High scores</h3>
       <div *ngIf="loadingScores">Loading scores…</div>
-      <ol class="scores"><li *ngFor="let entry of highScores"><span>{{entry.username}}</span><b>{{entry.score}}</b><small>W{{entry.wave}}</small></li></ol>
+      <ol class="scores">
+        <li *ngFor="let entry of highScores">
+          <span>{{entry.username}}</span><b>{{entry.score}}</b><small>W{{entry.wave}}</small></li>
+      </ol>
     </aside>
   </div>
 </div>

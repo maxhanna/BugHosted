@@ -46,6 +46,7 @@ import { BooksService } from '../../services/books.service';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
 import { FileUploadComponent } from '../file-upload/file-upload.component';
 import { FileService } from '../../services/file.service';
+import { FileSearchComponent } from '../file-search/file-search.component';
 
 type BooksTab = 'library' | 'catalog';
 
@@ -63,6 +64,7 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
 
   @ViewChild(MediaSelectorComponent) mediaSelector?: MediaSelectorComponent;
   @ViewChild(FileUploadComponent) fileUploader?: FileUploadComponent;
+  @ViewChild(FileSearchComponent) fileSearch?: FileSearchComponent;
   @ViewChild('pdfCanvas') pdfCanvas?: ElementRef<HTMLCanvasElement>;
   @ViewChild('epubHost') epubHost?: ElementRef<HTMLDivElement>;
 
@@ -78,6 +80,10 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
   folders: string[] = [];
   showNewFolderPrompt = false;
   newFolderName = '';
+  /** The shared file browser is the source of truth for Books-folder operations
+   *  such as renaming files/folders, moving items, comments, downloads, and
+   *  visibility. The library cards remain the metadata/catalog view. */
+  showFileManager = false;
 
   // ---- bulk metadata edit ----
   massEditMode = false;
@@ -301,6 +307,41 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
   /** Books-relative upload target: '' → Books/, 'Sci-Fi' → Books/Sci-Fi/. */
   get uploadDirectory(): string {
     return this.currentFolder ? `Books/${this.currentFolder}/` : 'Books/';
+  }
+
+  get fileManagerTypes(): string[] {
+    return this.allowedBookTypes.split(',').map(type => type.trim().replace(/^\\./, '')).filter(Boolean);
+  }
+
+  toggleFileManager() {
+    this.showFileManager = !this.showFileManager;
+    if (this.showFileManager) this.parentRef?.showOverlay();
+    else this.parentRef?.closeOverlay();
+  }
+
+  closeFileManager() {
+    this.showFileManager = false;
+    this.parentRef?.closeOverlay();
+  }
+
+  /** Open a book selected from app-file-search using the same reader and
+   *  progress tracking as a library card. Library metadata wins when available;
+   *  raw Books-folder files still get a usable temporary BookEntry. */
+  async openBookFromFileSearch(file: FileEntry) {
+    if (!file || file.isFolder || !file.id) return;
+    const existing = this.books.find(book => book.fileId === file.id);
+    const title = file.givenFileName || this.titleFromFile(file);
+    const book = existing ?? Object.assign(new BookEntry(), {
+      fileId: file.id,
+      title,
+      fileType: (file.fileType || this.fileService.getFileExtension(file.fileName || '')).toLowerCase(),
+      fileSize: file.fileSize || 0,
+      ownerId: file.user?.id || 0,
+      fileOwnerId: file.user?.id || 0,
+      ownerName: file.user?.username || 'Unknown',
+    });
+    this.closeFileManager();
+    await this.openReader(book);
   }
 
   /** Uploader finished — register every uploaded book-format file so it appears

@@ -19,6 +19,7 @@ import { OfflineFileInfo } from '../../services/local-rom.service';
 import { FileAccessLog } from '../../services/datacontracts/file/file-access-log';
 import { FileNote } from '../../services/datacontracts/file/file-note';
 import { Core, CoreDescriptor } from '../emulator/emulator-types';
+import { BooksService } from '../../services/books.service';
 
 @Component({
   selector: 'app-file-search',
@@ -51,6 +52,10 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   @Input() displayRomMetadata = false;
   @Input() displayAsTable: boolean = true;
   @Input() displayRomMetadataDesktop: boolean = false;
+  /** Render the first page of PDF files as thumbnails when this browser is used
+   *  for book management. The normal file browser keeps its lightweight icon
+   *  placeholders unless explicitly opted in. */
+  @Input() showPdfFirstPageCovers: boolean = false;
   @Input() autoload: boolean = false;
   @Input() canDragMove: boolean = true;
   @Input() fileId?: number | undefined = undefined;
@@ -175,6 +180,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   private windowScrollHandler: Function;
   private containerScrollHandler: Function;
   private scrollWatchInterval: any;
+  private pdfCoverUrls = new Map<number, string>();
+  private pdfCoverRequests = new Set<number>();
 
   @ViewChild('search') search!: ElementRef<HTMLInputElement>;
   @ViewChild('popupSearch') popupSearch!: ElementRef<HTMLInputElement>;
@@ -198,7 +205,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     private followService: FollowService,
     private route: ActivatedRoute,
     private changeDetectorRef: ChangeDetectorRef,
-    private sanitizer: DomSanitizer) {
+    private sanitizer: DomSanitizer,
+    private booksService: BooksService) {
     super();
     this.windowScrollHandler = this.debounce(this.onWindowScroll.bind(this), 200);
     this.containerScrollHandler = this.debounce(this.onContainerScroll.bind(this), 200);
@@ -1198,6 +1206,26 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.currentPage = 1;
     this.maxResults = 10;
     this.totalPages = this.defaultTotalPages;
+  }
+
+  isPdfFile(fileName?: string): boolean {
+    return !!fileName && fileName.toLowerCase().endsWith('.pdf');
+  }
+
+  /** Returns a cached first-page PDF cover and starts one deduplicated render
+   *  when the file first appears in a grid. */
+  pdfCoverSrc(file: FileEntry): string {
+    if (!this.showPdfFirstPageCovers || file.isFolder || !this.isPdfFile(file.fileName) || !file.id) return '';
+    const cached = this.pdfCoverUrls.get(file.id);
+    if (cached) return cached;
+    if (!this.pdfCoverRequests.has(file.id)) {
+      this.pdfCoverRequests.add(file.id);
+      void this.booksService.getPdfThumbnail(file.id).then(url => {
+        if (url) this.pdfCoverUrls.set(file.id, url);
+        try { this.changeDetectorRef.detectChanges(); } catch { }
+      });
+    }
+    return '';
   }
 
   isMediaFile(fileName?: string): boolean {

@@ -386,6 +386,22 @@ export class FileService {
       return null;
     }
   }
+  async renameFile(userId: number, fileId: number, newName: string, sessionToken?: string): Promise<string | null> {
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (sessionToken) headers['Encrypted-UserId'] = sessionToken;
+      const response = await fetch('/file/rename', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ userId, fileId, newName }),
+      });
+      return await response.text();
+    } catch (error) {
+      console.error('Error renaming file or folder:', error);
+      return null;
+    }
+  }
+
   async createDirectory(userId: number, directory: string, isPublic: boolean, sessionToken: string) {
     try {
       const response = await fetch(`/file/makedirectory`, {

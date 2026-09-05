@@ -211,13 +211,24 @@
                   <img *ngIf="file && file.romInlineThumbs[0]" [src]="file.romInlineThumbs[0]" loading="lazy"
                     (error)="hideBrokenImg($event)" />
                 </ng-container>
-                <!-- Non-image / folder placeholder -->
-                <ng-container *ngIf="!shouldShowRomMetadata() && !file.isFolder && !isImageFile(file.fileName)">
-                  <div class="grid-thumb-placeholder">
-                    <span class="placeholder-icon">{{ getFileEmoji(file.fileName ?? '') }}</span>
-                    <span class="placeholder-name">{{ file?.givenFileName ?? getFileWithoutExtension(file.fileName ?? '') }}</span>
-                  </div>
+                <!-- PDF books use the actual first page as their cover. The
+                     service caches and deduplicates the render per file id. -->
+                <ng-container *ngIf="showPdfFirstPageCovers && !file.isFolder && isPdfFile(file.fileName); else nonPdfPlaceholder">
+                  <ng-container *ngIf="pdfCoverSrc(file) as pdfCover; else pdfCoverLoading">
+                    <img class="file-search-pdf-cover" [src]="pdfCover" [alt]="file.givenFileName ?? file.fileName" />
+                  </ng-container>
+                  <ng-template #pdfCoverLoading>
+                    <div class="grid-thumb-placeholder"><span class="placeholder-icon">📄</span><span class="placeholder-name">Loading cover…</span></div>
+                  </ng-template>
                 </ng-container>
+                <ng-template #nonPdfPlaceholder>
+                  <ng-container *ngIf="!shouldShowRomMetadata() && !file.isFolder && !isImageFile(file.fileName)">
+                    <div class="grid-thumb-placeholder">
+                      <span class="placeholder-icon">{{ getFileEmoji(file.fileName ?? '') }}</span>
+                      <span class="placeholder-name">{{ file?.givenFileName ?? getFileWithoutExtension(file.fileName ?? '') }}</span>
+                    </div>
+                  </ng-container>
+                </ng-template>
                 <span *ngIf="!file.isFolder && offlineBadgeFor(file.fileName) as ob" [class]="ob.cls"
                   [title]="ob.title">{{ ob.icon }}</span>
                 <!-- File type badge -->

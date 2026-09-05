@@ -121,47 +121,49 @@ namespace maxhanna.Server.Controllers
 		{
 			try
 			{
-				// Normalize prefix: relative to Books/, e.g. "" → "%/Books/",
-				// "Sci-Fi/" → "%/Books/Sci-Fi/".
+				// Folder rows are authoritative. The previous implementation only
+				// inspected book files, which hid empty folders and made nested folders
+				// disappear until a book had been uploaded into them. Read both folder
+				// rows and book-file rows, then derive the immediate child folder from
+				// the real stored path in C#.
 				var clean = (prefix ?? "").Replace("\\", "/").Trim('/');
-				var baseLike = "%/Books/" + (clean.Length > 0 ? clean + "/" : "");
 				var exts = string.Join(',', BookExtensions.Select(e => $"'{e}'"));
 				var sql = $@"
-					SELECT DISTINCT f.folder_path
+					SELECT f.folder_path, f.file_name, f.is_folder
 					FROM maxhanna.file_uploads f
-					WHERE LOWER(SUBSTRING_INDEX(f.file_name, '.', -1)) IN ({exts})
-					  AND (f.is_folder IS NULL OR f.is_folder = 0)
-					  AND f.folder_path LIKE @base
-					  AND f.folder_path != @baseExact
+					WHERE REPLACE(f.folder_path, CHAR(92), '/') LIKE @booksRoot
+					  AND (
+							f.is_folder = 1
+							OR LOWER(SUBSTRING_INDEX(f.file_name, '.', -1)) IN ({exts})
+					  )
 					  AND (f.is_public = 1 OR (@UserId > 0 AND (
 						   f.user_id = @UserId
 						   OR (f.shared_with IS NOT NULL AND f.shared_with != '' AND FIND_IN_SET(@UserId, f.shared_with) > 0))))";
-				var folders = new List<string>();
+				var folders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 				using (var conn = new MySqlConnection(_connectionString))
 				{
 					await conn.OpenAsync();
 					using var cmd = new MySqlCommand(sql, conn);
-					cmd.Parameters.AddWithValue("@base", baseLike + "%");
-					cmd.Parameters.AddWithValue("@baseExact", baseLike);
+					cmd.Parameters.AddWithValue("@booksRoot", "%/Books/%");
 					cmd.Parameters.AddWithValue("@UserId", userId);
 					using var rdr = await cmd.ExecuteReaderAsync();
 					while (await rdr.ReadAsync())
 					{
-						var fp = rdr.GetString(0).Replace("\\", "/");
-						// folder_path is a full disk path, so locate the real /Books/<clean>/
-						// segment inside it — baseLike contains a SQL '%' wildcard and must
-						// never be used to slice actual path strings.
-						var baseSuffix = "/Books/" + (clean.Length > 0 ? clean + "/" : "");
-						var baseIdx = fp.LastIndexOf(baseSuffix, StringComparison.OrdinalIgnoreCase);
-						if (baseIdx >= 0)
-						{
-							// Take the first path segment below the requested base.
-							var rel = fp[(baseIdx + baseSuffix.Length)..];
-							var slash = rel.IndexOf('/');
-							var name = slash > 0 ? rel[..slash] : rel.TrimEnd('/');
-							if (!string.IsNullOrWhiteSpace(name) && folders.IndexOf(name) < 0)
-								folders.Add(name);
-						}
+						var parent = rdr.IsDBNull(0) ? "" : rdr.GetString(0).Replace("\\", "/");
+						var name = rdr.IsDBNull(1) ? "" : rdr.GetString(1);
+						var isFolder = !rdr.IsDBNull(2) && rdr.GetBoolean(2);
+						var itemPath = isFolder ? parent.TrimEnd('/') + "/" + name : parent;
+						var marker = "/Books/";
+						var booksIndex = itemPath.LastIndexOf(marker, StringComparison.OrdinalIgnoreCase);
+						if (booksIndex < 0) continue;
+						var relativeFolder = itemPath[(booksIndex + marker.Length)..].Trim('/');
+						if (!isFolder && relativeFolder.Equals(clean, StringComparison.OrdinalIgnoreCase)) continue;
+						var requiredPrefix = string.IsNullOrEmpty(clean) ? "" : clean + "/";
+						if (!relativeFolder.StartsWith(requiredPrefix, StringComparison.OrdinalIgnoreCase)) continue;
+						var remainder = relativeFolder[requiredPrefix.Length..];
+						var slash = remainder.IndexOf('/');
+						var child = slash >= 0 ? remainder[..slash] : remainder;
+						if (!string.IsNullOrWhiteSpace(child)) folders.Add(child);
 					}
 				}
 				return Ok(folders.OrderBy(f => f, StringComparer.OrdinalIgnoreCase).ToList());

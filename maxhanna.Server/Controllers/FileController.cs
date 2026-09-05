@@ -1411,6 +1411,168 @@ namespace maxhanna.Server.Controllers
         }
 
 
+        [HttpPost("/File/Rename", Name = "RenameFile")]
+        public async Task<IActionResult> RenameFile(
+            [FromBody] RenameFileRequest request,
+            [FromHeader(Name = "Encrypted-UserId")] string? encryptedUserIdHeader = null)
+        {
+            if (request == null || request.FileId <= 0)
+                return BadRequest("A file or folder id is required.");
+
+            if (!await _log.ValidateUserLoggedIn(request.UserId, encryptedUserIdHeader ?? ""))
+                return StatusCode(500, "Access Denied.");
+
+            var newName = (request.NewName ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(newName) || newName is "." or ".." ||
+                newName.IndexOfAny(new[] { '/', '\\' }) >= 0 ||
+                newName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 || newName.Length > 180)
+                return BadRequest("Invalid file or folder name.");
+
+            string? folderPath = null;
+            string? oldName = null;
+            var isFolder = false;
+            var ownerId = 0;
+
+            try
+            {
+                using var conn = new MySqlConnection(_connectionString);
+                await conn.OpenAsync();
+
+                using (var select = new MySqlCommand(@"
+                    SELECT user_id, folder_path, file_name, is_folder
+                    FROM maxhanna.file_uploads
+                    WHERE id = @id LIMIT 1", conn))
+                {
+                    select.Parameters.AddWithValue("@id", request.FileId);
+                    using var reader = await select.ExecuteReaderAsync();
+                    if (!await reader.ReadAsync()) return NotFound("File or folder not found.");
+                    ownerId = reader.IsDBNull("user_id") ? 0 : reader.GetInt32("user_id");
+                    folderPath = reader.IsDBNull("folder_path") ? null : reader.GetString("folder_path");
+                    oldName = reader.IsDBNull("file_name") ? null : reader.GetString("file_name");
+                    isFolder = !reader.IsDBNull("is_folder") && reader.GetBoolean("is_folder");
+                }
+
+                // Rename is deliberately owner-only. Unlike the general file UI,
+                // administrators do not get a bypass here: a folder's owner must
+                // be the account making the request.
+                if (ownerId != request.UserId)
+                    return StatusCode(403, "Only the owner can rename this item.");
+                if (string.IsNullOrWhiteSpace(folderPath) || string.IsNullOrWhiteSpace(oldName))
+                    return BadRequest("The item has no valid parent path.");
+                if (string.Equals(oldName, newName, StringComparison.Ordinal))
+                    return Ok("No rename was needed.");
+
+                var parentPath = ResolveStoredUploadPath(folderPath);
+                var oldPath = Path.GetFullPath(Path.Combine(parentPath, oldName));
+                var newPath = Path.GetFullPath(Path.Combine(parentPath, newName));
+                if (!IsWithinUploadRoot(oldPath) || !IsWithinUploadRoot(newPath))
+                    return BadRequest("The item must remain inside the upload directory.");
+                if (isFolder ? !Directory.Exists(oldPath) : !System.IO.File.Exists(oldPath))
+                    return NotFound("The item does not exist on disk.");
+                if (System.IO.File.Exists(newPath) || Directory.Exists(newPath))
+                    return Conflict("A file or folder with that name already exists.");
+
+                if (isFolder)
+                {
+                    Directory.Move(oldPath, newPath);
+                    try
+                    {
+                        var oldPrefix = oldPath.Replace("\\", "/").TrimEnd('/') + "/";
+                        var newPrefix = newPath.Replace("\\", "/").TrimEnd('/') + "/";
+                        var updates = new List<(int Id, string Path)>();
+
+                        using (var descendants = new MySqlCommand(@"
+                            SELECT id, folder_path
+                            FROM maxhanna.file_uploads
+                            WHERE REPLACE(folder_path, '\\\\', '/') LIKE @prefix", conn))
+                        {
+                            descendants.Parameters.AddWithValue("@prefix", oldPrefix + "%");
+                            using var reader = await descendants.ExecuteReaderAsync();
+                            while (await reader.ReadAsync())
+                            {
+                                var path = reader.IsDBNull("folder_path") ? "" : reader.GetString("folder_path");
+                                var normalized = path.Replace("\\", "/");
+                                if (normalized.StartsWith(oldPrefix, StringComparison.OrdinalIgnoreCase))
+                                    updates.Add((reader.GetInt32("id"), newPrefix + normalized[oldPrefix.Length..]));
+                            }
+                        }
+
+                        await using var tx = await conn.BeginTransactionAsync();
+                        foreach (var update in updates)
+                        {
+                            using var updateCommand = new MySqlCommand(
+                                "UPDATE maxhanna.file_uploads SET folder_path = @path WHERE id = @id",
+                                conn, tx);
+                            updateCommand.Parameters.AddWithValue("@path", update.Path);
+                            updateCommand.Parameters.AddWithValue("@id", update.Id);
+                            await updateCommand.ExecuteNonQueryAsync();
+                        }
+
+                        using (var updateSelf = new MySqlCommand(@"
+                            UPDATE maxhanna.file_uploads
+                            SET file_name = @name, last_updated = UTC_TIMESTAMP(), last_updated_by_user_id = @user
+                            WHERE id = @id", conn, tx))
+                        {
+                            updateSelf.Parameters.AddWithValue("@name", newName);
+                            updateSelf.Parameters.AddWithValue("@user", request.UserId);
+                            updateSelf.Parameters.AddWithValue("@id", request.FileId);
+                            await updateSelf.ExecuteNonQueryAsync();
+                        }
+                        await tx.CommitAsync();
+                    }
+                    catch
+                    {
+                        try { Directory.Move(newPath, oldPath); } catch { }
+                        throw;
+                    }
+                }
+                else
+                {
+                    System.IO.File.Move(oldPath, newPath);
+                    try
+                    {
+                        using var update = new MySqlCommand(@"
+                            UPDATE maxhanna.file_uploads
+                            SET file_name = @name, last_updated = UTC_TIMESTAMP(), last_updated_by_user_id = @user
+                            WHERE id = @id", conn);
+                        update.Parameters.AddWithValue("@name", newName);
+                        update.Parameters.AddWithValue("@user", request.UserId);
+                        update.Parameters.AddWithValue("@id", request.FileId);
+                        await update.ExecuteNonQueryAsync();
+                    }
+                    catch
+                    {
+                        try { System.IO.File.Move(newPath, oldPath); } catch { }
+                        throw;
+                    }
+                }
+
+                return Ok(isFolder ? "Folder renamed successfully." : "File renamed successfully.");
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db($"Rename failed for file id {request.FileId}: {ex.Message}", request.UserId, "FILE", true);
+                return StatusCode(500, "An error occurred while renaming the item.");
+            }
+        }
+
+        private string ResolveStoredUploadPath(string storedPath)
+        {
+            var normalized = (storedPath ?? "").Replace("\\", "/");
+            var rooted = normalized.Contains(":/") || normalized.StartsWith("/");
+            var combined = rooted ? normalized : Path.Combine(_baseTarget, normalized.TrimStart('/'));
+            return Path.GetFullPath(combined);
+        }
+
+        private bool IsWithinUploadRoot(string path)
+        {
+            var root = Path.GetFullPath(_baseTarget).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var full = Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            return full.Equals(root, StringComparison.OrdinalIgnoreCase) ||
+                   full.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) ||
+                   full.StartsWith(root + Path.AltDirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+        }
+
         [HttpPost("/File/UpdateFileVisibility", Name = "UpdateFileVisibility")]
         public async Task<IActionResult> UpdateFileVisibility([FromBody] UpdateFileVisibilityRequest request)
         {
