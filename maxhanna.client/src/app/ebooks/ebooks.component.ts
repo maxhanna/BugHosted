@@ -48,7 +48,7 @@ import { FileUploadComponent } from '../file-upload/file-upload.component';
 import { FileService } from '../../services/file.service';
 import { FileSearchComponent } from '../file-search/file-search.component';
 
-type BooksTab = 'library' | 'catalog';
+type BooksTab = 'files' | 'library' | 'catalog';
 
 @Component({
   selector: 'app-ebooks',
@@ -70,7 +70,8 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
 
   books: BookEntry[] = [];
   filteredBooks: BookEntry[] = [];
-  activeTab: BooksTab = 'library';
+  // The file manager is the default, main view; library/catalog grids are tabs.
+  activeTab: BooksTab = 'files';
   isMenuPanelOpen = false;
 
   // ---- uploads & folders ----
@@ -80,10 +81,6 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
   folders: string[] = [];
   showNewFolderPrompt = false;
   newFolderName = '';
-  /** The shared file browser is the source of truth for Books-folder operations
-   *  such as renaming files/folders, moving items, comments, downloads, and
-   *  visibility. The library cards remain the metadata/catalog view. */
-  showFileManager = false;
 
   // ---- bulk metadata edit ----
   massEditMode = false;
@@ -282,6 +279,18 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
   async switchTab(tab: BooksTab) {
     if (this.activeTab === tab) return;
     this.activeTab = tab;
+    // The file manager needs no library data — load only for the grid tabs.
+    if (tab === 'files') return;
+    await this.loadBooks();
+  }
+
+  /** Title-bar refresh: in the default files view reload the file browser,
+   *  otherwise reload the current library/catalog tab. */
+  async refreshAll() {
+    if (this.activeTab === 'files') {
+      try { this.fileSearch?.refreshDirectory(); } catch { }
+      return;
+    }
     await this.loadBooks();
   }
 
@@ -321,22 +330,13 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
     if (marker < 0) return;
     const relative = normalized.slice(marker + 'books'.length).replace(/^\/+|\/+$/g, '');
     this.currentFolder = relative;
+    // Library data isn't rendered while the file manager is the active view.
+    if (this.activeTab === 'files') return;
     void this.loadBooks();
   }
 
   get fileManagerTypes(): string[] {
     return this.allowedBookTypes.split(',').map(type => type.trim().replace(/^\\./, '')).filter(Boolean);
-  }
-
-  toggleFileManager() {
-    this.showFileManager = !this.showFileManager;
-    if (this.showFileManager) this.parentRef?.showOverlay();
-    else this.parentRef?.closeOverlay();
-  }
-
-  closeFileManager() {
-    this.showFileManager = false;
-    this.parentRef?.closeOverlay();
   }
 
   /** Open a book selected from app-file-search using the same reader and
@@ -355,7 +355,6 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
       fileOwnerId: file.user?.id || 0,
       ownerName: file.user?.username || 'Unknown',
     });
-    this.closeFileManager();
     await this.openReader(book);
   }
 

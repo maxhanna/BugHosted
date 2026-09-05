@@ -28,6 +28,7 @@
           <strong>{{weapon.name}}</strong><span>{{weapon.interval ? ('Every ' + (weapon.interval | number:'1.1-2') +
             's') : 'Passive'}}</span>
         </div>
+        <div class="weapon-slots"><strong>WEAPON SLOTS</strong><span *ngFor="let weapon of equippedWeapons; let i = index">{{i + 1}}. {{weaponLabel(weapon)}}</span><span *ngIf="equippedWeapons.length < weaponSlotLimit">{{weaponSlotLimit - equippedWeapons.length}} open</span></div>
       </div>
       <div class="upgrade-dock" *ngIf="upgradeSections.length">
         <div class="upgrade-section" *ngFor="let section of upgradeSections">
@@ -44,7 +45,13 @@
         <h2>Ship lost</h2>
         <p>{{status}}</p><button (click)="restart()">Start a new run</button>
       </div>
-      <div class="upgrade-card" *ngIf="upgradeChoices.length > 0 || grantedUpgrades.length">
+      <div class="upgrade-card" *ngIf="startingWeaponChoicePending || upgradeChoices.length > 0 || grantedUpgrades.length">
+        <ng-container *ngIf="startingWeaponChoicePending">
+          <h2>Choose your first weapon</h2>
+          <p>Pick one starting weapon. It occupies one of your three weapon slots.</p>
+          <div class="upgrade-grid starting-weapon-grid"><button *ngFor="let upgrade of startingWeaponChoices" (click)="chooseStartingWeapon(upgrade)" [disabled]="!canPick"><span class="upgrade-icon">{{upgradeIcon(upgrade.weapon)}}</span><span class="upgrade-type">STARTING WEAPON</span><strong>{{upgrade.name}}</strong><small>{{upgrade.description}}</small></button></div>
+        </ng-container>
+        <ng-container *ngIf="!startingWeaponChoicePending">
         <h2 *ngIf="upgradeChoices.length">Evolution fork{{canPick ? '' : ' (choose in a moment)'}}</h2>
         <p *ngIf="upgradeChoices.length">{{canPick ? 'Pick one mutation. The brood will adapt.' : 'Hold on — mutations
           are still forming.'}}</p>
@@ -54,6 +61,7 @@
               'missile' ? '🚀' : upgrade.weapon === 'shield' ? '🛡️' : '🛰️' }}</span><span
               class="upgrade-type">{{upgrade.weapon}}</span><strong>{{upgrade.name}}</strong><small>{{upgrade.description}}</small></button>
         </div>
+        </ng-container>
         <div class="free-grants" *ngIf="grantedUpgrades.length">
           <h2>⚡ Free upgrades granted</h2>
           <p>The brood rewarded your upgrades:</p>

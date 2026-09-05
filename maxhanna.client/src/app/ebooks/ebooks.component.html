@@ -71,39 +71,38 @@
     <!-- ============ Tabs + tools ============ -->
     <div class="ebooks-toolbar" *ngIf="!readingBook">
       <div class="tabs">
+        <button class="tab-btn" [class.active]="activeTab === 'files'" (click)="switchTab('files')">🗂️ Manage Files</button>
         <button class="tab-btn" [class.active]="activeTab === 'library'" (click)="switchTab('library')"
           [disabled]="!isLoggedIn">📚 My Library</button>
         <button class="tab-btn" [class.active]="activeTab === 'catalog'" (click)="switchTab('catalog')">🌍
           Community Catalog</button>
       </div>
       <div class="toolbar-actions">
-        <input class="search-input" type="text" placeholder="Search title, author, owner…" [(ngModel)]="searchQuery"
-          (ngModelChange)="applyFilter()" />
-        <select class="format-select" [(ngModel)]="formatFilter" (ngModelChange)="applyFilter()">
-          <option value="">All formats</option>
-          <option *ngFor="let f of availableFormats" [value]="f">{{ formatLabel(f) }}</option>
-        </select>
-        <button class="mini-btn" *ngIf="isLoggedIn" (click)="toggleMassEdit()"
-          [class.danger]="massEditMode">{{ massEditMode ? '✕ Done' : '✏️ Edit' }}</button>
+        <ng-container *ngIf="activeTab !== 'files'">
+          <input class="search-input" type="text" placeholder="Search title, author, owner…" [(ngModel)]="searchQuery"
+            (ngModelChange)="applyFilter()" />
+          <select class="format-select" [(ngModel)]="formatFilter" (ngModelChange)="applyFilter()">
+            <option value="">All formats</option>
+            <option *ngFor="let f of availableFormats" [value]="f">{{ formatLabel(f) }}</option>
+          </select>
+          <button class="mini-btn" *ngIf="isLoggedIn" (click)="toggleMassEdit()"
+            [class.danger]="massEditMode">{{ massEditMode ? '✕ Done' : '✏️ Edit' }}</button>
+        </ng-container>
         <app-file-upload *ngIf="isLoggedIn" [currentDirectory]="uploadDirectory" [user]="parentRef?.user!"
           [inputtedParentRef]="parentRef" [uploadButtonText]="'Add Book(s)'" [maxSelectedFiles]="100"
           [allowedFileTypes]="allowedBookTypes" [displayPrivatePublicOption]="true"
           [displayOptionsAndTopicsButtons]="false" [disableFileCompression]="true"
           (userUploadFinishedEvent)="uploadFinished($event)"></app-file-upload>
-        <button class="mini-btn" *ngIf="isLoggedIn" (click)="toggleFileManager()"
-          title="Browse, rename, move, download, and manage files in the Books folder">🗂️ Manage book files</button>
       </div>
     </div>
 
-    <!-- ============ Shared file-search manager ============ -->
-    <div class="file-manager-backdrop" *ngIf="showFileManager" (click)="closeFileManager()"></div>
-    <section class="file-manager-panel" *ngIf="showFileManager" aria-label="Manage book files">
+    <!-- ============ Main book file manager (default view) ============ -->
+    <div class="file-manager-main" *ngIf="!readingBook && activeTab === 'files'" aria-label="Manage book files">
       <div class="file-manager-header">
         <div>
           <strong>🗂️ Manage book files</strong>
           <small>Rename files and folders, move books, view comments, download files, and open PDFs in the eBook reader.</small>
         </div>
-        <button class="mini-btn" title="Close book file manager" (click)="closeFileManager()">✕</button>
       </div>
       <app-file-search
         [inputtedParentRef]="parentRef"
@@ -127,10 +126,10 @@
         (selectFileEvent)="openBookFromFileSearch($event)"
         (userNotificationEvent)="parentRef?.showNotification($event)">
       </app-file-search>
-    </section>
+    </div>
 
     <!-- ============ Folder breadcrumb (library tab) ============ -->
-    <div class="folder-bar" *ngIf="!readingBook && activeTab === 'library' && isLoggedIn">
+    <div class="folder-bar" *ngIf="!readingBook && (activeTab === 'library' || activeTab === 'files') && isLoggedIn">
       <button class="crumb-btn" (click)="goToRoot()" [disabled]="!currentFolder">📚 Books</button>
       <ng-container *ngFor="let crumb of folderCrumbs; let i = index">
         <span class="crumb-sep">/</span>
@@ -147,7 +146,7 @@
     </div>
 
     <!-- ============ Book grid ============ -->
-    <div class="books-grid" *ngIf="!readingBook">
+    <div class="books-grid" *ngIf="!readingBook && activeTab !== 'files'">
       <div class="loading" *ngIf="isLoading">Loading books…</div>
       <div class="empty-state" *ngIf="!isLoading && booksInFolder.length === 0 && folders.length === 0">
         <ng-container *ngIf="activeTab === 'library'; else catalogEmpty">
@@ -285,7 +284,7 @@
 
     <!-- ============ Menu panel ============ -->
     <div class="menuPanel" *ngIf="isMenuPanelOpen">
-      <button (click)="loadBooks()">🔄 Refresh</button>
+      <button (click)="refreshAll()">🔄 Refresh</button>
       <button (click)="hideMenuPanel()">✕ Close</button>
     </div>
 

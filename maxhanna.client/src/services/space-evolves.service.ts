@@ -10,6 +10,9 @@ export interface SpaceEvolvesRun {
   player: any;
   stats: any;
   upgrades: string[];
+  /** Equipped weapon ids, persisted separately from their upgrade history so
+   *  a run can contain only the weapons the player actually selected. */
+  equippedWeapons?: string[];
   /** Kills completed toward the current wave quota — restores the boss
    *  countdown correctly after a refresh. */
   waveKills?: number;
