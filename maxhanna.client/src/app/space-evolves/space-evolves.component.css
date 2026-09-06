@@ -560,11 +560,16 @@
     .upgrade-card {
         inset: 5% 4%;
         overflow: auto;
-        max-height: 550px !important;
     }
 
     .gameover-card,
     .pause-card {
         inset: 38% 12%;
+    }
+}
+
+@media only screen and (max-width : 667px) {
+    .upgrade-card {
+        max-height: 550px !important;
     }
 }

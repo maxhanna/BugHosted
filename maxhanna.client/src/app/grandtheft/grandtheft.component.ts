@@ -5827,6 +5827,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       const models = Array.isArray(bld.model) ? bld.model : [bld.model];
       for (const m of models) {
         if (m.minX === undefined || m.maxX === undefined || m.minZ === undefined || m.maxZ === undefined) continue;
+        // Before inStore is set, leave the front doorway open so the player can
+        // physically cross the threshold. Once inside, the whole store is
+        // ignored above and movement remains unconstrained by the visual shell.
+        if (m.carName?.includes('convenience_store_procedural')
+          && this.isAtConvenienceStoreDoor({ x: bld.x, z: bld.z, yaw: bld.yaw ?? 0, isConvenience: true })) continue;
         const solid = this.buildingSolidRect(bld, m, margin);
         if (!solid) continue;
         const dx = this.carX - solid.cx;
@@ -5978,21 +5983,30 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       }
     }
     this._nearStore = best;
-    // Convenience stores have an open storefront: entering the front apron
-    // should transition into the interior automatically, without an E prompt.
-    // Convenience stores have no door interaction, but crossing the threshold
-    // must remain continuous: do not teleport the player to the back of the
-    // building. The normal walking collision path now permits the storefront
-    // opening and the player enters naturally.
-    if (best?.isConvenience && bestD < STORE_ENTER_DIST && !this.inStore) {
-      // Convenience stores are open-front interiors. Enter continuously as the
-      // player crosses the storefront threshold; no E prompt or teleport is
-      // needed. The short distance guard prevents accidental entry from afar.
+    // Convenience stores are open-front interiors. Enter continuously as the
+    // player crosses the actual doorway; there is no E prompt and, importantly,
+    // enterStore() does not relocate the player. The local doorway gate keeps
+    // the trigger from firing beside a wall or through the back of the shop.
+    if (best?.isConvenience && bestD < STORE_ENTER_DIST && !this.inStore
+      && this.isAtConvenienceStoreDoor(best)) {
       this.enterStore(best);
       return;
     }
     this.nearStoreDoor = !!best && bestD < STORE_ENTER_DIST;
   }
+  /** True when the player is crossing the open, front-facing convenience-store doorway. */
+  private isAtConvenienceStoreDoor(sm: { x: number; z: number; yaw: number; isConvenience?: boolean }): boolean {
+    if (!sm.isConvenience) return false;
+    const dx = this.carX - sm.x;
+    const dz = this.carZ - sm.z;
+    const cosY = Math.cos(sm.yaw), sinY = Math.sin(sm.yaw);
+    // Inverse of the renderer's Y rotation: local X is across the storefront,
+    // local Z runs from the open front (-Z) into the shop.
+    const localX = dx * cosY - dz * sinY;
+    const localZ = dx * sinY + dz * cosY;
+    return Math.abs(localX) < 3.8 && localZ < -10.0 && localZ > -16.5;
+  }
+
   // World-space checkout register position for a store. The procedural
   // convenience store's counter sits (+8, -5) in local space (front-right of the
   // building, where the register mesh is drawn); every other store keeps the
@@ -6010,13 +6024,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private enterStore(sm: { x: number; z: number; yaw: number; hd: number; doorX: number; doorZ: number; key: string; isConvenience?: boolean }) {
     if (this.isInCar || this.isPassenger) return;
     this.renderer.convenienceStoreDoorOpen = true;
-    const frontX = -Math.sin(sm.yaw), frontZ = -Math.cos(sm.yaw);
-    // Step in and stand ~1.8 units off the back wall, facing the register.
+    // Keep the player's exact world position and velocity. The doorway is an
+    // ordinary opening in the shell, so walking across it feels continuous
+    // instead of snapping to a preset interior coordinate.
     this.inStore = sm;
-    this.carX = sm.x - frontX * Math.max(1.2, sm.hd - 1.8);
-    this.carZ = sm.z - frontZ * Math.max(1.2, sm.hd - 1.8);
-    this.carYaw = sm.yaw;
-    this.carVx = 0; this.carVz = 0; this.carSpeed = 0;
     this._savedCamDist = this.camDist;
     this._savedCamHeight = this.camHeight;
     this.camDist = STORE_INTERIOR_CAM_DIST;
