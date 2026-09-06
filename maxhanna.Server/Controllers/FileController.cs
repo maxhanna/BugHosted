@@ -3912,7 +3912,7 @@ namespace maxhanna.Server.Controllers
                                 CommentsCount = reader.IsDBNull("comment_count") ? 0 : reader.GetInt32("comment_count"),
                                 FavouriteCount = reader.IsDBNull("favourite_count") ? 0 : reader.GetInt32("favourite_count"),
                                 IsFavourited = reader.IsDBNull("is_favourited") ? false : reader.GetBoolean("is_favourited"),
-                                AverageRating = reader.IsDBNull("average_rating") ? 0 : reader.GetDouble("average_rating"),
+                                AverageRating = reader.IsDBNull("average_rating") ? 0 : Convert.ToDouble(reader["average_rating"]),
                                 RatingCount = reader.IsDBNull("rating_count") ? 0 : reader.GetInt32("rating_count"),
                                 ReactionCount = reader.IsDBNull("reaction_count") ? 0 : reader.GetInt32("reaction_count"),
                                 TopicCount = reader.IsDBNull("topic_count") ? 0 : reader.GetInt32("topic_count"),
@@ -3927,7 +3927,7 @@ namespace maxhanna.Server.Controllers
                                   ? (long?)null
                                   : reader.GetInt64("romFirstReleaseDateUnix"),
 
-                                    TotalRating = reader.IsDBNull("romTotalRating") ? (double?)null : reader.GetDouble("romTotalRating"),
+                                    TotalRating = reader.IsDBNull("romTotalRating") ? (double?)null : Convert.ToDouble(reader["romTotalRating"]),
                                     TotalRatingCount = reader.IsDBNull("romTotalRatingCount") ? (int?)null : reader.GetInt32("romTotalRatingCount"),
 
                                     CoverUrl = reader.IsDBNull("romCoverUrl") ? null : reader.GetString("romCoverUrl"),
@@ -3950,7 +3950,7 @@ namespace maxhanna.Server.Controllers
 
 
                     //_ = _log.Db($"DEBUG GetDirectory: userId={user?.Id}, fileId={fileId}, hiddenCondition={(string.IsNullOrWhiteSpace(hiddenCondition) ? "OFF" : "ON")}", user?.Id ?? 0, "FILE", true);
-                    return fileEntries[0];
+                    return fileEntries.FirstOrDefault();
                 }
             }
             catch (Exception ex)

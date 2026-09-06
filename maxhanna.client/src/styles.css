@@ -123,6 +123,7 @@ fieldset {
 .menuBackButton::before,
 .helpButton::before {
   z-index: 1;
+  pointer-events: none;
 }
 
 .refreshButton::before,

@@ -14,7 +14,29 @@
     font-family: owreKynge;
     src: url("../../assets/bones/OwreKynge.ttf")
 }
-.titleSpan { display: block; overflow: hidden; text-overflow: ellipsis; } 
+.titleSpan { display: block; overflow: hidden; text-overflow: ellipsis; }
+
+/* Keep the close control a real, touchable element on iOS. The shared icon is
+   drawn by ::before, but the button itself owns the full 50x46 hit area. */
+.closeButton {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 50px;
+  height: 46px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  z-index: 2;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.closeButton::before {
+  pointer-events: none;
+}
+
 .titleUserLink {
   cursor: pointer;
   color: #8ab4ff;

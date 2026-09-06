@@ -626,6 +626,22 @@ singleAttachment {
   justify-content: space-evenly;
 }
 
+/* Safari/iPhone can miss a click on the inherited pseudo-element-only close
+   styling. Give Social's popup close controls a real touch target. */
+.socialCloseButton {
+  position: relative;
+  z-index: 2;
+  min-width: 88px;
+  min-height: 44px;
+  padding: 8px 16px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.socialCloseButton::before {
+  pointer-events: none;
+}
+
 .editingTextAreaButtonWrapperDiv {
   display: flex;
   flex-wrap: nowrap;

@@ -766,6 +766,9 @@ export class FileService {
       });
 
       this.fileEntryPromises[fileId] = fetchPromise.then(async (res) => {
+        if (!res.ok) {
+          throw new Error(`Error fetching file entry ${fileId}: ${res.statusText}`);
+        }
         const data = await res.json();
         delete this.fileEntryPromises[fileId];
         return data;

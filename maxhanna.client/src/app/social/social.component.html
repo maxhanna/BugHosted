@@ -1,12 +1,12 @@
 <div class="componentMain" #componentMain>
-  <app-title-bar [title]="chatId ? (chatRoomName || 'Group') : 'Social'" [showTitle]="!user && !showOnlyPost" [hasMenu]="!!(!user && !showOnlyPost)"
-    [showMenu]="!!(!user && !showOnlyPost)" [hasClose]="!!(!user && !showOnlyPost)"
-    [showClose]="!!(!user && !showOnlyPost)" [hasBack]="!!(!user && !showOnlyPost)"
-    [showBack]="!!(!user && !showOnlyPost)"ls
+  <app-title-bar [title]="chatId ? (chatRoomName || 'Group') : 'Social'" [showTitle]="!user && !showOnlyPost"
+    [hasMenu]="!!(!user && !showOnlyPost)" [showMenu]="!!(!user && !showOnlyPost)"
+    [hasClose]="!!(!user && !showOnlyPost)" [showClose]="!!(!user && !showOnlyPost)"
+    [hasBack]="!!(!user && !showOnlyPost)" [showBack]="!!(!user && !showOnlyPost)" ls
     [hasNotifications]="!!(showTopicSelector && !!parentRef?.user?.id && !showOnlyPost)"
     [showNotifications]="!!(showTopicSelector && !!parentRef?.user?.id && !showOnlyPost)"
     [hasSearch]="!!((showTopicSelector || !!user) && !showOnlyPost && !!!user)"
-    [showSearch]="!!((showTopicSelector || !!user) && !showOnlyPost && !!!user)" [inputtedParentRef]="parentRef" 
+    [showSearch]="!!((showTopicSelector || !!user) && !showOnlyPost && !!!user)" [inputtedParentRef]="parentRef"
     (backClicked)="backButtonPressed()" (menuClicked)="showMenuPanel()" (searchClicked)="showSearchSocialsPanel()"
     (notificationRead)="refreshDOM()" (closeClicked)="remove_me('SocialComponent');">
   </app-title-bar>
@@ -18,8 +18,10 @@
       <div class="groupSocialDescription" *ngIf="chatRoomDescription">{{ chatRoomDescription }}</div>
       <div class="groupSocialActions">
         <button (click)="openGroupChat()" class="coloredBgButton" title="Open this group's chat">💬 Open Chat</button>
-        <button (click)="toggleGroupMembersPanel()" class="coloredBgButton" title="View & add group members">👥 Members ({{ groupChatUsers.length }})</button>
-        <button *ngIf="isChatRoomModerator" (click)="openGroupInfoEditor()" class="coloredBgButton" title="Edit room title & description">✏️ Edit Room</button>
+        <button (click)="toggleGroupMembersPanel()" class="coloredBgButton" title="View & add group members">👥 Members
+          ({{ groupChatUsers.length }})</button>
+        <button *ngIf="isChatRoomModerator" (click)="openGroupInfoEditor()" class="coloredBgButton"
+          title="Edit room title & description">✏️ Edit Room</button>
         <button *ngIf="!isChatRoomModerator" (click)="toggleModRequestBox()" class="coloredBgButton"
           [title]="hasPendingModRequest ? 'Your request is pending review' : 'Ask this board\'s moderators for moderator status'">
           {{ hasPendingModRequest ? '⏳ Request pending' : (showModRequestBox ? 'Cancel' : '🙋 Request Mod') }}
@@ -29,47 +31,56 @@
         <textarea class="groupModRequestTextarea" [(ngModel)]="modRequestText" maxlength="500"
           placeholder="Tell the moderators why you'd make a good moderator…"></textarea>
         <div class="groupModRequestActions">
-          <button class="coloredBgButton" (click)="submitModRequest()" [disabled]="isSubmittingModRequest || !modRequestText.trim()">
+          <button class="coloredBgButton" (click)="submitModRequest()"
+            [disabled]="isSubmittingModRequest || !modRequestText.trim()">
             {{ isSubmittingModRequest ? 'Sending…' : 'Submit request' }}
           </button>
-          <span *ngIf="modRequestMessage" class="smallFont" [class.error]="modRequestMessageIsError" [class.thirdFontColor]="!modRequestMessageIsError">{{ modRequestMessage }}</span>
+          <span *ngIf="modRequestMessage" class="smallFont" [class.error]="modRequestMessageIsError"
+            [class.thirdFontColor]="!modRequestMessageIsError">{{ modRequestMessage }}</span>
         </div>
       </div>
       <div class="groupMembersPanel" *ngIf="isGroupMembersPanelOpen">
         <div class="groupMembersList">
           <span *ngFor="let member of groupChatUsers" class="groupMemberTag">
-            <app-user-tag [user]="member" [inputtedParentRef]="parentRef ?? parent" [displayMiniTag]="true" [displayHoverPicture]="true"></app-user-tag>
+            <app-user-tag [user]="member" [inputtedParentRef]="parentRef ?? parent" [displayMiniTag]="true"
+              [displayHoverPicture]="true"></app-user-tag>
           </span>
         </div>
         <div class="groupAddMembers">
-          <div class="smallFont thirdFontColor" style="margin-bottom:4px;">Add people to this group (and its chat):</div>
-          <app-user-list [searchOnly]="true" [inputtedParentRef]="parentRef ?? parent" (groupChatEvent)="addChatMembers($event)"></app-user-list>
+          <div class="smallFont thirdFontColor" style="margin-bottom:4px;">Add people to this group (and its chat):
+          </div>
+          <app-user-list [searchOnly]="true" [inputtedParentRef]="parentRef ?? parent"
+            (groupChatEvent)="addChatMembers($event)"></app-user-list>
         </div>
       </div>
       <div class="groupInfoEditPanel" *ngIf="isGroupInfoEditOpen">
         <div class="groupInfoEditTitle">✏️ Edit Room Info</div>
         <label class="smallFont thirdFontColor">Room Name</label>
-        <input type="text" class="groupInfoEditInput" placeholder="Room name" maxlength="80"
-          [value]="editGroupName" (input)="onEditGroupNameInput($any($event.target).value)" />
+        <input type="text" class="groupInfoEditInput" placeholder="Room name" maxlength="80" [value]="editGroupName"
+          (input)="onEditGroupNameInput($any($event.target).value)" />
         <label class="smallFont thirdFontColor">Description</label>
         <textarea class="groupInfoEditTextarea" placeholder="What is this community about?" maxlength="500" rows="3"
           [value]="editGroupDescription" (input)="onEditGroupDescriptionInput($any($event.target).value)"></textarea>
         <label class="smallFont thirdFontColor">Community Icon (emoji)</label>
         <div class="groupInfoIconRow">
           <span class="groupInfoIconPreview">{{ editGroupIcon || '🌐' }}</span>
-          <input type="text" class="groupInfoEditInput groupInfoIconInput" placeholder="e.g. 🏁 🎮 ⚽ 🐺 (or leave blank for the globe)"
-            maxlength="8" [value]="editGroupIcon" (input)="onEditGroupIconInput($any($event.target).value)" />
+          <input type="text" class="groupInfoEditInput groupInfoIconInput"
+            placeholder="e.g. 🏁 🎮 ⚽ 🐺 (or leave blank for the globe)" maxlength="8" [value]="editGroupIcon"
+            (input)="onEditGroupIconInput($any($event.target).value)" />
           <span class="groupInfoEmojiQuick" *ngFor="let e of ['🏁','🎮','⚽','🏀','🐺','⚔️','🚀','🏖️','🎵','🐉']"
             (click)="onEditGroupIconInput(e)" [title]="'Use ' + e">{{ e }}</span>
         </div>
         <label class="smallFont thirdFontColor">Board Theme</label>
         <select class="groupInfoEditInput" (change)="onEditGroupThemeChange($any($event.target).value)">
           <option [value]="0" [selected]="!editGroupThemeId">Default (site theme)</option>
-          <option *ngFor="let t of boardThemes" [value]="t.id" [selected]="editGroupThemeId === t.id">{{ t.name }}</option>
+          <option *ngFor="let t of boardThemes" [value]="t.id" [selected]="editGroupThemeId === t.id">{{ t.name }}
+          </option>
         </select>
         <div class="groupInfoEditActions">
-          <button class="coloredBgButton" (click)="saveGroupInfo()" [disabled]="isSavingGroupInfo">{{ isSavingGroupInfo ? 'Saving…' : '💾 Save' }}</button>
-          <button class="coloredBgButton" (click)="isGroupInfoEditOpen = false" [disabled]="isSavingGroupInfo">Cancel</button>
+          <button class="coloredBgButton" (click)="saveGroupInfo()" [disabled]="isSavingGroupInfo">{{ isSavingGroupInfo
+            ? 'Saving…' : '💾 Save' }}</button>
+          <button class="coloredBgButton" (click)="isGroupInfoEditOpen = false"
+            [disabled]="isSavingGroupInfo">Cancel</button>
         </div>
       </div>
     </div>
@@ -146,7 +157,7 @@
           </label>
         </div>
       </div>
-      <button id="closeOverlay" (click)="closeSearchSocialsPanel()" class="closeButton">Close</button>
+      <button type="button" id="closeOverlay" (pointerdown)="$event.preventDefault(); $event.stopPropagation(); closeSearchSocialsPanel()" class="closeButton socialCloseButton">Close</button>
     </div>
 
     <!-- Menu Popup -->
@@ -159,18 +170,14 @@
         class="menuPopupSection">
         <div class="userProfileSection" *ngIf="parentRef?.user?.id">
           <div class="avatarContainer">
-            <app-user-tag [user]="parentRef?.user" [userId]="parentRef?.user?.id ?? 0" [inputtedParentRef]="parentRef ?? parent"
-              [displayHoverPicture]="true"></app-user-tag>
+            <app-user-tag [user]="parentRef?.user" [userId]="parentRef?.user?.id ?? 0"
+              [inputtedParentRef]="parentRef ?? parent" [displayHoverPicture]="true"></app-user-tag>
           </div>
         </div>
 
         <div
           style=" display: inline-flex; flex-direction: column; align-content: center; justify-content: center; align-items: center; flex-wrap: nowrap;">
-          <!-- Share this feed view (keeps the active topic filter in the URL) -->
-          <div class="menuPopupSection menuPopupMiniOptions">
-            <app-share-button [inputtedParentRef]="parentRef ?? parent" [link]="getSocialShareLink()"
-              [text]="'🔗Share this view'"></app-share-button>
-          </div>
+
 
           <div *ngIf="totalPagesArray.length > 1" class="menuPopupSection menuPopupMiniOptions">
             <span>Page Select:</span>
@@ -210,12 +217,19 @@
         </label>
       </div>
 
+      <!-- Share this feed view (keeps the active topic filter in the URL) -->
+      <div class="menuPopupSection menuPopupMiniOptions">
+        <app-share-button [inputtedParentRef]="parentRef ?? parent" [link]="getSocialShareLink()"
+          [text]="'🔗Share this view'"></app-share-button>
+      </div>
+
       <!-- Moderators for the current topic (or general moderators) -->
       <div class="menuPopupSection">
         <div class="menuPopupTitle">
           🛡️ Moderators
           <span class="xxSmallFont thirdFontColor">
-            {{ currentModeratorTopic ? '— topic “' + currentModeratorTopic.topicText + '”' : (chatId ? '— board & general moderators' : '— general moderators') }}
+            {{ currentModeratorTopic ? '— topic “' + currentModeratorTopic.topicText + '”' : (chatId ? '— board &
+            general moderators' : '— general moderators') }}
           </span>
         </div>
         <div *ngIf="topicModeratorsLoading" class="xxSmallFont thirdFontColor">Loading…</div>
@@ -224,18 +238,19 @@
         </div>
         <div *ngIf="!topicModeratorsLoading && topicModerators.length > 0" class="topicModeratorList">
           <div *ngFor="let mod of topicModerators" class="topicModeratorRow">
-            <app-user-tag [userId]="mod.userId" [inputtedParentRef]="parentRef ?? parent"
-              [displayMiniTag]="true" [displayHoverPicture]="true"></app-user-tag>
-            <span [class]="'topicModeratorRole modRoleBadge ' + modBadgeClass(mod)">{{ getModRoleBadgeLabel(mod) }}</span>
+            <app-user-tag [userId]="mod.userId" [inputtedParentRef]="parentRef ?? parent" [displayMiniTag]="true"
+              [displayHoverPicture]="true"></app-user-tag>
+            <span [class]="'topicModeratorRole modRoleBadge ' + modBadgeClass(mod)">{{ getModRoleBadgeLabel(mod)
+              }}</span>
           </div>
         </div>
 
         <!-- Self-enroll as a topic moderator (lands in the moderator panel) -->
         <div *ngIf="parentRef?.user?.id && currentModeratorTopic && !isTopicModerator" class="topicModRequestBox">
-          <button class="coloredBgButton" (click)="toggleTopicModRequestBox()"
-            [disabled]="isSubmittingTopicModRequest"
+          <button class="coloredBgButton" (click)="toggleTopicModRequestBox()" [disabled]="isSubmittingTopicModRequest"
             [title]="hasPendingTopicModRequest ? 'Your request is pending review' : 'Apply to moderate this topic'">
-            {{ hasPendingTopicModRequest ? '⏳ Request pending' : (showTopicModRequestBox ? 'Cancel' : '🙋 Request to moderate') }}
+            {{ hasPendingTopicModRequest ? '⏳ Request pending' : (showTopicModRequestBox ? 'Cancel' : '🙋 Request to
+            moderate') }}
           </button>
           <div *ngIf="showTopicModRequestBox && !hasPendingTopicModRequest" class="topicModRequestPanel">
             <textarea class="groupModRequestTextarea" [(ngModel)]="topicModRequestText" maxlength="500"
@@ -258,7 +273,7 @@
         recipient, ensuring your
         data stays private and secure.
       </div>
-      <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button>
+      <button type="button" id="closeOverlay" (pointerdown)="$event.preventDefault(); $event.stopPropagation(); closeMenuPanel()" class="closeButton socialCloseButton">Close</button>
     </div>
 
 
@@ -276,9 +291,9 @@
         class="storyContainer">
         <app-social-post [socialId]="story.id" [story]="story" [user]="user" [profileUserId]="userProfileId"
           [commentId]="commentId" [feedIndex]="s" [canLoad]="canLoad" [compactness]="compactness"
-          [autoOpenComments]="!!storyId" [inputtedParentRef]="parentRef ?? parent"
-          (postDeleted)="onPostDeleted($event)" (topicClicked)="onPostTopicClicked($event)"
-          (topicIgnored)="onPostTopicIgnored()" (postHidden)="onPostHidden()">
+          [autoOpenComments]="!!storyId" [inputtedParentRef]="parentRef ?? parent" (postDeleted)="onPostDeleted($event)"
+          (topicClicked)="onPostTopicClicked($event)" (topicIgnored)="onPostTopicIgnored()"
+          (postHidden)="onPostHidden()">
         </app-social-post>
       </div>
       <div style="display: flex;">
@@ -307,8 +322,8 @@
     </div>
     <!-- Shared link to a visibility-restricted post: the social-post component
          renders its "Follow to view" prompt card. -->
-    <app-social-post *ngIf="deepLinkDenied" [accessDenied]="deepLinkDenied"
-      [inputtedParentRef]="parentRef ?? parent" [user]="user" [profileUserId]="userProfileId">
+    <app-social-post *ngIf="deepLinkDenied" [accessDenied]="deepLinkDenied" [inputtedParentRef]="parentRef ?? parent"
+      [user]="user" [profileUserId]="userProfileId">
     </app-social-post>
     <div class="mainTableDiv emptyPage" *ngIf="!storyResponse && isLoading">
       <app-loading-spinner [fontSize]="'small'" [label]="'Loading...'" [icon]="'💬'"></app-loading-spinner>

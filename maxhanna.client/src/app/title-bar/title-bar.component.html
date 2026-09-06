@@ -1,4 +1,4 @@
-<div class="closeButton" *ngIf="showClose" title="Close" (click)="closeClicked.emit($event)"></div>
+<button type="button" class="closeButton" *ngIf="showClose" title="Close" aria-label="Close" (pointerdown)="$event.preventDefault(); closeClicked.emit($event)"></button>
 <div class="refreshButton" *ngIf="showRefresh" title="Refresh" (click)="refreshClicked.emit($event)"></div>
 <div class="menuButton" *ngIf="showMenu" title="Open Menu" (click)="menuClicked.emit($event);"></div>
 <div class="helpButton" *ngIf="showHelp" title="Show Help" (click)="helpClicked.emit($event)"></div>

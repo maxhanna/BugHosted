@@ -6048,7 +6048,14 @@ void main() {
     }
     gl.depthMask(true);
     if (this.droppedWeapons && this.droppedWeapons.length > 0) {
-      const haloMesh = this.getSphereMesh(0.8);
+      const haloCore = this.getSphereMesh(0.8);
+      const haloRing = this.getWeaponHaloRingMesh();
+      const haloBeam = this.getWeaponHaloBeamMesh();
+      // Halo layers are translucent. Keeping depth writes off prevents the
+      // first sphere/ring from flattening every later layer into a dull blob,
+      // while depth testing still hides the effect behind nearby geometry.
+      gl.depthMask(false);
+      gl.disable(gl.CULL_FACE);
       for (const dw of this.droppedWeapons) {
         if (dw == null || dw.weaponType == null) continue;
         const hover = Math.sin((now / 1000) * 3 + (dw.id || 0)) * 0.15;
@@ -6056,17 +6063,27 @@ void main() {
         // terrain rather than assuming every drop is on a flat road at Y=0.
         const surfaceY = getTerrainHeight(dw.posX, dw.posZ);
         const pickupY = surfaceY + 0.85 + hover;
-        const pulse = 0.82 + 0.18 * Math.sin((now / 1000) * 4 + (dw.id || 0));
-        // Draw a soft gold beacon behind the pickup first. It is deliberately
-        // translucent and slightly larger than the weapon so it remains easy
-        // to spot against asphalt and buildings without adding particles.
-        this.drawMesh(
-          haloMesh,
-          dw.posX, pickupY, dw.posZ,
-          0,
-          [0.7 + pulse * 0.18, 0.7 + pulse * 0.18, 0.7 + pulse * 0.18],
-          [1.0, 0.72, 0.08, 0.24]
-        );
+        const phase = (dw.id || 0) * 0.73;
+        const pulse = 0.84 + 0.16 * Math.sin((now / 1000) * 4 + phase);
+        const spin = pickupYaw * 0.65 + phase;
+        const haloColor: [number, number, number] = dw.weaponType === 1
+          ? [0.18, 0.55, 1.0]       // pistol: electric blue
+          : dw.weaponType === 2
+            ? [0.16, 0.95, 1.0]     // rifle: cyan
+            : dw.weaponType === 3
+              ? [1.0, 0.34, 0.08]   // shotgun: hot orange
+              : dw.weaponType === 4
+                ? [0.82, 0.20, 1.0] // launcher: violet
+                : [0.35, 1.0, 0.55];
+        const ringColor: [number, number, number, number] = [haloColor[0], haloColor[1], haloColor[2], 0.72];
+        const beamColor: [number, number, number, number] = [haloColor[0], haloColor[1], haloColor[2], 0.12 + pulse * 0.06];
+        // A bright inner core keeps the pickup readable even over light ground.
+        this.drawMesh(haloCore, dw.posX, pickupY, dw.posZ, 0, [0.54 + pulse * 0.10, 0.54 + pulse * 0.10, 0.54 + pulse * 0.10], [haloColor[0], haloColor[1], haloColor[2], 0.16]);
+        // Two interleaved rings create a stylized sci-fi beacon instead of a
+        // single opaque yellow sphere. The second ring is tilted and rotated.
+        this.drawMesh(haloRing, dw.posX, surfaceY + 0.035, dw.posZ, spin, [0.95 + pulse * 0.18, 1, 0.95 + pulse * 0.18], ringColor);
+        this.drawMesh(haloRing, dw.posX, pickupY - 0.18, dw.posZ, -spin * 1.35, [0.62 + pulse * 0.12, 1, 0.62 + pulse * 0.12], [haloColor[0], haloColor[1], haloColor[2], 0.30]);
+        this.drawMesh(haloBeam, dw.posX, surfaceY + 0.04, dw.posZ, spin * 0.7, [0.82 + pulse * 0.10, 0.78 + pulse * 0.08, 0.82 + pulse * 0.10], beamColor);
         this.drawMesh(
           this.getWeaponPickupMesh(dw.weaponType),
           dw.posX, pickupY, dw.posZ,
@@ -6075,6 +6092,8 @@ void main() {
           [1, 1, 1, 1]
         );
       }
+      gl.enable(gl.CULL_FACE);
+      gl.depthMask(true);
     }
     gl.enable(gl.DEPTH_TEST);
     // The procedural sky is the authoritative background. Do not draw the
@@ -6238,6 +6257,58 @@ void main() {
     this.meshCache.set(key, mesh);
     return mesh;
   }
+  private getWeaponHaloRingMesh(): CityMesh {
+    const key = 'weapon_halo_ring';
+    if (this.meshCache.has(key)) return this.meshCache.get(key)!;
+    const verts: number[] = [], indices: number[] = [];
+    const segments = 32;
+    const innerRadius = 0.82;
+    const outerRadius = 1.18;
+    for (let i = 0; i < segments; i++) {
+      const a0 = (i / segments) * Math.PI * 2;
+      const a1 = ((i + 1) / segments) * Math.PI * 2;
+      const base = verts.length / 10;
+      const push = (a: number, radius: number, alpha: number) => {
+        verts.push(
+          Math.cos(a) * radius, 0, Math.sin(a) * radius,
+          0, 1, 0,
+          1, 1, 1, alpha
+        );
+      };
+      push(a0, innerRadius, 0.2); push(a0, outerRadius, 1.0);
+      push(a1, outerRadius, 1.0); push(a1, innerRadius, 0.2);
+      indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
+    }
+    const mesh = this.createMesh(verts, indices);
+    this.meshCache.set(key, mesh);
+    return mesh;
+  }
+
+  private getWeaponHaloBeamMesh(): CityMesh {
+    const key = 'weapon_halo_beam';
+    if (this.meshCache.has(key)) return this.meshCache.get(key)!;
+    const verts: number[] = [], indices: number[] = [];
+    const segments = 12;
+    const bottomRadius = 0.88;
+    const topRadius = 0.28;
+    const height = 2.45;
+    for (let i = 0; i < segments; i++) {
+      const a0 = (i / segments) * Math.PI * 2;
+      const a1 = ((i + 1) / segments) * Math.PI * 2;
+      const base = verts.length / 10;
+      const push = (a: number, y: number, radius: number, alpha: number) => {
+        const nx = Math.cos(a), nz = Math.sin(a);
+        verts.push(nx * radius, y, nz * radius, nx, 0.15, nz, 1, 1, 1, alpha);
+      };
+      push(a0, 0, bottomRadius, 0.0); push(a0, height, topRadius, 0.9);
+      push(a1, height, topRadius, 0.9); push(a1, 0, bottomRadius, 0.0);
+      indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
+    }
+    const mesh = this.createMesh(verts, indices);
+    this.meshCache.set(key, mesh);
+    return mesh;
+  }
+
   private getSphereMesh(radius: number): CityMesh {
     const key = `sphere_${radius}`;
     if (this.meshCache.has(key)) return this.meshCache.get(key)!;

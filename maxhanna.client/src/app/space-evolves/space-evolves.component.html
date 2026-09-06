@@ -16,7 +16,6 @@
             [style.width.%]="nextLevel > 0 ? Math.min(100, experience / nextLevel * 100) : 0"></div>
         </div>
       </div>
-      <button type="button" (click)="togglePause()">{{paused ? 'Resume' : 'Pause'}}</button>
     </div>
     <div class="arena-wrap">
       <canvas #gameCanvas class="arena"></canvas> 
@@ -45,7 +44,7 @@
             +{{upgrade.count}}{{upgrade.chanceText ? ' · ' + upgrade.chanceText : ''}}</span>
         </div>
       </div>
-      <div class="pause-card" *ngIf="paused && !gameOver">
+      <div class="pause-card" *ngIf="paused && !gameOver && !isMenuPanelOpen">
         <h2>Paused</h2><button (click)="togglePause()">Resume run</button>
       </div>
       <div class="gameover-card" *ngIf="gameOver">

@@ -82,8 +82,11 @@
         <div>{{cal.date | date:'shortTime'}}</div>
         <div>
           <div *ngIf="!isEditingEntry.includes(cal)" class="calEntryInfo">
-            <span class="calEntryTypeChip" title="Event type">{{ eventSymbolMap[cal.type!] || '📌' }} {{ cal.type }}</span>
-            <span>{{ cal.type !== "Milestone" && cal.type !== "Anniversary" ? cal.note : (cal.type === "Anniversary" ? formatAnniversaryDisplay(cal) : (cal.date ? '(' + cal.date.toString().substring(0, cal.date.toString().indexOf('-')) + ') ' + cal.note : cal.note)) }}</span>
+            <span class="calEntryTypeChip" title="Event type">{{ eventSymbolMap[cal.type!] || '📌' }} {{ cal.type
+              }}</span>
+            <span>{{ cal.type !== "Milestone" && cal.type !== "Anniversary" ? cal.note : (cal.type === "Anniversary" ?
+              formatAnniversaryDisplay(cal) : (cal.date ? '(' + cal.date.toString().substring(0,
+              cal.date.toString().indexOf('-')) + ') ' + cal.note : cal.note)) }}</span>
           </div>
           <div *ngIf="!isEditingEntry.includes(cal)" style="display:flex; gap:6px; margin-top:6px; flex-wrap:wrap;">
           </div>
@@ -101,12 +104,13 @@
             <div>Type: <select id="calendarEditingType" [(ngModel)]="cal.type" name="calEditType"
                 (ngModelChange)="hasEditedCalendarEntry = true">
                 <option *ngFor="let t of getEventTypes()" [ngValue]="t">{{t}}</option>
-                <option *ngIf="cal.type && !getEventTypes().includes(cal.type)" [ngValue]="cal.type">{{ cal.type }}</option>
+                <option *ngIf="cal.type && !getEventTypes().includes(cal.type)" [ngValue]="cal.type">{{ cal.type }}
+                </option>
               </select></div>
             <div *ngIf="calendarNotificationsEnabled">Notify me:
-              <input id="calendarEditingReminder" type="number" min="0" step="5"
-                [value]="cal.reminder ?? 60" (input)="hasEditedCalendarEntry = true"
-                style="width:80px;" title="Minutes before the event to send a notification (0 = don't notify)" /> minutes before
+              <input id="calendarEditingReminder" type="number" min="0" step="5" [value]="cal.reminder ?? 60"
+                (input)="hasEditedCalendarEntry = true" style="width:80px;"
+                title="Minutes before the event to send a notification (0 = don't notify)" /> minutes before
             </div>
           </div>
         </div>
@@ -123,20 +127,6 @@
       <legend>New calendar entry</legend>
       <textarea #calendarNoteEntry rows="4" cols="50" placeholder="Description" required
         class="saveEntryInput"></textarea>
-      <div class="calendarEventSharing">
-        <button type="button" (click)="isEventShareOpen = !isEventShareOpen" class="calendarShareToggle">
-          👥 {{ selectedEventShareUsers.length ? ('Shared with ' + selectedEventShareUsers.length + ' user' + (selectedEventShareUsers.length === 1 ? '' : 's')) : 'Share with other users (optional)' }}
-        </button>
-        <div *ngIf="isEventShareOpen" class="calendarSharePanel">
-          <p class="xSmallFont secondaryFontColor">The event will be created on each selected user's calendar. Your calendar is included automatically.</p>
-          <app-user-list [searchOnly]="true" [sharingSearch]="true" [selectionMode]="true"
-            [inputtedParentRef]="parentRef" (userSelectClickEvent)="onEventShareUsersChanged($event)">
-          </app-user-list>
-        </div>
-      </div>
-      <div *ngIf="selectedEventShareUsers.length > 0" class="calendarSelectedShares">
-        Sharing with: <span *ngFor="let user of selectedEventShareUsers; let last = last">{{ user.username }}<span *ngIf="!last">, </span></span>
-      </div>
       <div class="saveEntryDiv">
         <select #calendarTypeEntry class="saveEntrySelect">
           <ng-container *ngFor="let eventType of getEventTypes()">
@@ -144,9 +134,28 @@
           </ng-container>
         </select>
         <input #calendarTimeEntry type="time" value="00:00" class="saveEntryInput" />
+        <div class="calendarEventSharing">
+          <button type="button" (click)="isEventShareOpen = !isEventShareOpen" class="calendarShareToggle">
+            👥 {{ selectedEventShareUsers.length ? ('Shared with ' + selectedEventShareUsers.length + ' user' +
+            (selectedEventShareUsers.length === 1 ? '' : 's')) : 'Share with other users (optional)' }}
+          </button>
+          <div *ngIf="isEventShareOpen" class="calendarSharePanel">
+            <p class="xSmallFont secondaryFontColor">The event will be created on each selected user's calendar. Your
+              calendar
+              is included automatically.</p>
+            <app-user-list [searchOnly]="true" [sharingSearch]="true" [selectionMode]="true"
+              [inputtedParentRef]="parentRef" (userSelectClickEvent)="onEventShareUsersChanged($event)">
+            </app-user-list>
+          </div>
+        </div>
+        <div *ngIf="selectedEventShareUsers.length > 0" class="calendarSelectedShares">
+          Sharing with: <span *ngFor="let user of selectedEventShareUsers; let last = last">{{ user.username }}<span
+              *ngIf="!last">, </span></span>
+        </div>
         <span class="saveEntryReminder" *ngIf="calendarNotificationsEnabled">Notify me
           <input #calendarReminderEntry type="number" min="0" step="5" value="60"
-            class="saveEntryInput saveEntryReminderInput" title="Minutes before the event to send a notification (0 = don't notify)" />
+            class="saveEntryInput saveEntryReminderInput"
+            title="Minutes before the event to send a notification (0 = don't notify)" />
           min before</span>
         <input type="button" (click)="validateNoteEntry()" value="💾" class="saveEntryButton" />
       </div>
@@ -207,47 +216,57 @@
           Calendar notifications are sent using your local timezone (e.g. 15 min before, 1 hr before), not the server's.
         </div>
       </div>
-    </div>    </div>
-    <div class="optionsStatsDiv calendarSyncCard">
-      <div class="calendarSyncHeader">
-        <span class="calendarSyncIcon" aria-hidden="true">🗓️</span>
-        <div>
-          <div class="calendarSyncTitle">Connect your whole calendar</div>
-          <div class="calendarSyncSubtitle">Keep BugHosted and your everyday calendar in sync.</div>
-        </div>
-      </div>
-      <div class="optionsStatsDescription calendarSyncDescription">
-        <p class="calendarSyncLead">Export <strong>all of your BugHosted events</strong> at once, or create a private subscription that refreshes automatically.</p>
-        <div class="calendarSyncSteps">
-          <div class="calendarSyncStep"><span>1</span><strong>Choose an app</strong><small>Google Calendar or Apple Calendar</small></div>
-          <div class="calendarSyncStep"><span>2</span><strong>Download your events</strong><small>Get one .ics file for the selected month</small></div>
-          <div class="calendarSyncStep"><span>3</span><strong>Import once</strong><small>Follow the short Google or iPhone instructions below</small></div>
-        </div>
-        <div class="calendarSyncActions">
-          <button class="calendarSyncPrimary" (click)="downloadIcs()">⬇️ Download all events (.ics)</button>
-          <button (click)="openGoogleImportHelp()">📅 How to import into Google</button>
-          <button (click)="openAppleImportHelp()">🍎 How to add on iPhone</button>
-        </div>
-        <div class="calendarSyncNote">Currently exporting {{ calendarEntries.length }} event{{ calendarEntries.length === 1 ? '' : 's' }} from the selected month. Re-export after adding or editing events.</div>
-        <div class="calendarFeedSection" *ngIf="parentRef?.user?.id">            <div class="calendarFeedTitle">🔄 Permanent subscription</div>
-          <p class="xSmallFont secondaryFontColor">Create one private link and let Google Calendar or Apple Calendar refresh your latest events automatically.</p>
-          <button (click)="connectCalendarFeed()" [disabled]="calendarFeedLoading">🔄 {{ calendarFeedLoading ? 'Creating link...' : 'Create subscription link' }}</button>
-          <div *ngIf="calendarFeedUrl" class="calendarFeedUrlRow">
-            <input [value]="calendarFeedUrl" readonly aria-label="Private calendar subscription link" />
-            <button (click)="copyCalendarFeedUrl()">📋 Copy</button>
-            <button (click)="revokeCalendarFeed()">🛑 Revoke</button>
-          </div>
-          <small class="calendarFeedHelp">Google: Other calendars → From URL. iPhone: Settings → Calendar → Accounts → Add Account → Other → Add Subscribed Calendar.</small>
-        </div>
+    </div>
+  </div>
+  <div class="optionsStatsDiv calendarSyncCard">
+    <div class="calendarSyncHeader">
+      <span class="calendarSyncIcon" aria-hidden="true">🗓️</span>
+      <div>
+        <div class="calendarSyncTitle">Connect your whole calendar</div>
+        <div class="calendarSyncSubtitle">Keep BugHosted and your everyday calendar in sync.</div>
       </div>
     </div>
+    <div class="optionsStatsDescription calendarSyncDescription">
+      <p class="calendarSyncLead">Export <strong>all of your BugHosted events</strong> at once, or create a private
+        subscription that refreshes automatically.</p>
+      <div class="calendarSyncSteps">
+        <div class="calendarSyncStep"><span>1</span><strong>Choose an app</strong><small>Google Calendar or Apple
+            Calendar</small></div>
+        <div class="calendarSyncStep"><span>2</span><strong>Download your events</strong><small>Get one .ics file for
+            the selected month</small></div>
+        <div class="calendarSyncStep"><span>3</span><strong>Import once</strong><small>Follow the short Google or iPhone
+            instructions below</small></div>
+      </div>
+      <div class="calendarSyncActions">
+        <button class="calendarSyncPrimary" (click)="downloadIcs()">⬇️ Download all events (.ics)</button>
+        <button (click)="openGoogleImportHelp()">📅 How to import into Google</button>
+        <button (click)="openAppleImportHelp()">🍎 How to add on iPhone</button>
+      </div>
+      <div class="calendarSyncNote">Currently exporting {{ calendarEntries.length }} event{{ calendarEntries.length ===
+        1 ? '' : 's' }} from the selected month. Re-export after adding or editing events.</div>
+      <div class="calendarFeedSection" *ngIf="parentRef?.user?.id">
+        <div class="calendarFeedTitle">🔄 Permanent subscription</div>
+        <p class="xSmallFont secondaryFontColor">Create one private link and let Google Calendar or Apple Calendar
+          refresh your latest events automatically.</p>
+        <button (click)="connectCalendarFeed()" [disabled]="calendarFeedLoading">🔄 {{ calendarFeedLoading ? 'Creating
+          link...' : 'Create subscription link' }}</button>
+        <div *ngIf="calendarFeedUrl" class="calendarFeedUrlRow">
+          <input [value]="calendarFeedUrl" readonly aria-label="Private calendar subscription link" />
+          <button (click)="copyCalendarFeedUrl()">📋 Copy</button>
+          <button (click)="revokeCalendarFeed()">🛑 Revoke</button>
+        </div>
+        <small class="calendarFeedHelp">Google: Other calendars → From URL. iPhone: Settings → Calendar → Accounts → Add
+          Account → Other → Add Subscribed Calendar.</small>
+      </div>
+    </div>
+  </div>
 
 
   <div class="sentNotificationsSection" *ngIf="parentRef?.user?.id">
     <div class="optionsStatsHeader">
       Notifications Sent :
-      <button class="sentNotificationsRefresh" (click)="loadSentNotifications()"
-        [disabled]="sentNotificationsLoading" title="Refresh">🔄</button>
+      <button class="sentNotificationsRefresh" (click)="loadSentNotifications()" [disabled]="sentNotificationsLoading"
+        title="Refresh">🔄</button>
     </div>
     <div class="xSmallFont secondaryFontColor">
       The last event notifications delivered to your device (kept for 24 hours).

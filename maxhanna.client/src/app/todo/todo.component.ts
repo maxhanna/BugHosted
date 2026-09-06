@@ -421,7 +421,7 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
     this.mediaSelector?.removeAllFiles();
     this.selectedFile = undefined;
     // The composer popup served its purpose — collapse it back down.
-    this.isAddTodoPopupOpen = false;
+    this.closeAddTodoPopup();
 
     // If we're currently viewing the main "Todo" list, increment the navigation counter
     try {
