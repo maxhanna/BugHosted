@@ -294,6 +294,22 @@
     opacity: .75
 }
 
+.weapon-slot {
+    pointer-events: auto;
+    cursor: pointer;
+}
+
+.weapon-slot.filled:hover {
+    filter: brightness(1.25);
+}
+
+.weaponInfoHow {
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--main-font-color, #e0e0e0);
+    margin: 0 0 10px 0;
+}
+
 .upgrade-dock {
     z-index: 2;
     display: flex;

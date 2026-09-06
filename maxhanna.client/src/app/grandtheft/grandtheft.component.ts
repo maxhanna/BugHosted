@@ -66,7 +66,7 @@ const VENDING_MACHINE_INTERVAL = 10;
 const VENDING_MACHINE_HEAL_DIST = 4;
 const VENDING_MACHINE_OFFSET = 12;
 // Grocery-store interiors: walk in through the front door, stick up the register.
-const STORE_LOOK_RADIUS = 14;       // how close you must be to a supermarket to detect its door
+const STORE_LOOK_RADIUS = 30;       // scan far enough to find the storefront before reaching its door
 const STORE_ENTER_DIST = 2.6;       // distance to the door point (outside) to enter
 const STORE_EXIT_DIST = 3.4;        // distance to the door point (inside) to leave
 const STORE_REGISTER_DIST = 4.5;    // distance to the register (store centre) to rob
@@ -344,11 +344,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   nearStoreDoor = false;
   nearStoreRegister = false;
   nearStoreExit = false;
-  inStore: { x: number; z: number; yaw: number; hd: number; doorX: number; doorZ: number; key: string } | null = null;
+  inStore: { x: number; z: number; yaw: number; hd: number; doorX: number; doorZ: number; key: string; isConvenience?: boolean } | null = null;
   private _nearStore: { x: number; z: number; yaw: number; hd: number; doorX: number; doorZ: number; key: string; isConvenience?: boolean } | null = null;
   // The grocery-store cashier: idles at the register, bolts for the door when
   // the register is stuck up. Client-local like localPedestrians.
-  storeCashier: { id: number; x: number; z: number; yaw: number; gender: string; mesh: CityMesh | CityMesh[]; speed: number; panicUntil: number; doorX: number; doorZ: number } | null = null;
+  storeCashier: { id: number; x: number; z: number; yaw: number; gender: string; mesh: CityMesh | CityMesh[]; speed: number; panicUntil: number; doorX: number; doorZ: number; storeKey: string; health: number } | null = null;
   storeToast = '';
   private _storeToastTimer: any = null;
   private _savedCamDist = 0;
@@ -5985,7 +5985,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
   /** Keep one deterministic cashier positioned behind the convenience-store register. */
   private ensureStoreCashier(sm: { x: number; z: number; yaw: number; hd: number; doorX: number; doorZ: number; key: string; isConvenience?: boolean }): void {
-    if (!sm.isConvenience || this.storeCashier) return;
+    if (!sm.isConvenience) return;
+    // A player can move from one nearby shop to another without leaving the
+    // 30-unit lookup window. Never leave the first shop's cashier standing in
+    // the second shop or suppress creation of the correct register clerk.
+    if (this.storeCashier?.storeKey === sm.key) return;
+    this.storeCashier = null;
     const sinY = Math.sin(sm.yaw), cosY = Math.cos(sm.yaw);
     const cashierId = --this.pedIdCounter;
     const cashierGender = (Math.abs(Math.floor(sm.x * 31 + sm.z * 17)) % 2) === 0 ? 'female' : 'male';
@@ -6001,6 +6006,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       panicUntil: 0,
       doorX: sm.doorX,
       doorZ: sm.doorZ,
+      storeKey: sm.key,
+      health: 100,
     };
   }
 

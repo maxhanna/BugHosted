@@ -730,6 +730,20 @@ namespace maxhanna.Server.Controllers
 		private static readonly object _randomWeaponSpawnLock = new();
 		private const int RANDOM_WEAPON_DROP_MAX = 8;
 		private const float RANDOM_WEAPON_DROP_MIN_DISTANCE = 18f;
+		// Random pickups are world fixtures, not player-relative loot. Keeping the
+		// authored slots deterministic prevents every poll (or a new player joining)
+		// from making the same weapon appear to move around the map.
+		private static readonly (float X, float Z)[] RANDOM_WEAPON_SPAWN_SLOTS =
+		{
+			(40f, 40f),
+			(120f, -40f),
+			(-80f, 80f),
+			(840f, 40f),
+			(760f, 120f),
+			(1960f, 40f),
+			(3320f, 480f),
+			(4880f, 80f),
+		};
 		private static long _nextDropId = 1000000;
 		private static long GetNextDropId() => Interlocked.Increment(ref _nextDropId);
 		private class DroppedWeapon
@@ -982,7 +996,11 @@ namespace maxhanna.Server.Controllers
 				foreach (var kv in _deadPlayerBodies) if ((now - kv.Value.DiedAt).TotalSeconds > DEAD_BODY_TIMEOUT_SECONDS) deadBodies.Add(kv.Key);
 				foreach (var pid in deadBodies) _deadPlayerBodies.TryRemove(pid, out _);
 				var dropped = new List<long>();
-				foreach (var kv in _droppedWeapons) if ((now - kv.Value.DroppedAt).TotalSeconds > 30) dropped.Add(kv.Key);
+				foreach (var kv in _droppedWeapons)
+				{
+					// Fixed random world slots persist; only player death drops age out.
+					if (!kv.Value.IsRandom && (now - kv.Value.DroppedAt).TotalSeconds > 30) dropped.Add(kv.Key);
+				}
 				foreach (var k in dropped) _droppedWeapons.TryRemove(k, out _);
 				var shooters = new List<int>();
 				foreach (var kv in _shootingPlayers) if ((now - kv.Value.LastUpdated).TotalSeconds > 10) shooters.Add(kv.Key);
@@ -3507,7 +3525,9 @@ namespace maxhanna.Server.Controllers
 			var expiredKeys = new List<long>();
 			foreach (var kv in _droppedWeapons)
 			{
-				if ((now - kv.Value.DroppedAt).TotalSeconds > 30)
+				// Random pickups belong to fixed world slots and remain there until a
+				// player collects them. Death drops still expire normally.
+				if (!kv.Value.IsRandom && (now - kv.Value.DroppedAt).TotalSeconds > 30)
 					expiredKeys.Add(kv.Key);
 				else
 					result.Add(new { id = kv.Key, posX = kv.Value.PosX, posZ = kv.Value.PosZ, weaponType = kv.Value.WeaponType, isRandom = kv.Value.IsRandom });
@@ -3526,49 +3546,33 @@ namespace maxhanna.Server.Controllers
 		}
 		private static void EnsureRandomWeaponDrops()
 		{
-			var activePlayers = new List<(float X, float Z)>();
-			var activeCutoff = DateTime.UtcNow.AddMinutes(-5);
-			foreach (var kv in _lastSeen)
-			{
-				if (kv.Value < activeCutoff) continue;
-				if (!_playerX.TryGetValue(kv.Key, out var x) || !_playerZ.TryGetValue(kv.Key, out var z)) continue;
-				activePlayers.Add((x, z));
-			}
-			if (activePlayers.Count == 0) return;
-
 			lock (_randomWeaponSpawnLock)
 			{
-				int randomCount = _droppedWeapons.Values.Count(d => d.IsRandom);
-				int targetCount = Math.Min(RANDOM_WEAPON_DROP_MAX, Math.Max(3, activePlayers.Count * 2));
-				if (randomCount >= targetCount) return;
-				var rng = Random.Shared;
-				var existing = _droppedWeapons.Values.ToArray();
-				int attempts = 0;
-				while (randomCount < targetCount && attempts++ < 160)
+				var existingSlots = new HashSet<(float X, float Z)>();
+				foreach (var drop in _droppedWeapons.Values)
 				{
-					var anchor = activePlayers[rng.Next(activePlayers.Count)];
-					double angle = rng.NextDouble() * Math.PI * 2.0;
-					float distance = 90f + (float)rng.NextDouble() * 230f;
-					float x = anchor.X + (float)Math.Sin(angle) * distance;
-					float z = anchor.Z + (float)Math.Cos(angle) * distance;
-					if (IsWaterPosition(x, z) || CityLayout.IsBuildingAt(x, z, 3f)) continue;
-					if (existing.Any(d =>
-					{
-						float dx = d.PosX - x;
-						float dz = d.PosZ - z;
-						return dx * dx + dz * dz < RANDOM_WEAPON_DROP_MIN_DISTANCE * RANDOM_WEAPON_DROP_MIN_DISTANCE;
-					})) continue;
-					int weaponType = 1 + rng.Next(4);
+					if (!drop.IsRandom) continue;
+					existingSlots.Add((drop.PosX, drop.PosZ));
+				}
+
+				for (int slot = 0; slot < RANDOM_WEAPON_SPAWN_SLOTS.Length; slot++)
+				{
+					var authored = RANDOM_WEAPON_SPAWN_SLOTS[slot];
+					if (existingSlots.Contains(authored)) continue;
+					if (IsWaterPosition(authored.X, authored.Z) || CityLayout.IsBuildingAt(authored.X, authored.Z, 3f)) continue;
+
+					// Slot and weapon type are both deterministic. A collected slot is
+					// refilled at this exact location, never near the current player.
+					int weaponType = 1 + (slot % 4);
 					int ammo = weaponType == 1 ? 15 : weaponType == 2 ? 30 : weaponType == 3 ? 10 : 5;
 					var drop = new DroppedWeapon
 					{
-						Id = GetNextDropId(), PosX = x, PosZ = z,
+						Id = GetNextDropId(), PosX = authored.X, PosZ = authored.Z,
 						WeaponType = weaponType, Ammo = ammo,
 						IsRandom = true, DroppedAt = DateTime.UtcNow
 					};
 					_droppedWeapons[drop.Id] = drop;
-					existing = existing.Append(drop).ToArray();
-					randomCount++;
+					existingSlots.Add(authored);
 				}
 			}
 		}

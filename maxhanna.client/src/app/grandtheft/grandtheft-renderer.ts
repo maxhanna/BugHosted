@@ -284,33 +284,51 @@ function isMarinaChunk(cx: number, cz: number): boolean {
   return touchesBridgeCorner || hash % 7 === 0;
 }
 
-/** True only inside the marina's modeled inlet, never on its roads or land apron. */
-export function isMarinaWaterPosition(x: number, z: number): boolean {
+/** Depth of the modeled marina basin at a world position.
+ *
+ * The basin is deliberately inset from the road running along the shoreline:
+ * the coordinate parallel to the shore may be a road, but the shoreline
+ * coordinate itself must not turn the entire inlet into a road strip. This is
+ * what previously made many marinas render as a plain blue area with no usable
+ * land shoulder or recognizable slips.
+ */
+export function getMarinaWaterDepth(x: number, z: number): number {
   const cx = Math.floor(x / CHUNK_SIZE);
   const cz = Math.floor(z / CHUNK_SIZE);
-  if (!isMarinaChunk(cx, cz)) return false;
+  if (!isMarinaChunk(cx, cz)) return 0;
   const localX = x - cx * CHUNK_SIZE;
   const localZ = z - cz * CHUNK_SIZE;
   const nearGrid = (value: number) => {
     const f = ((value % GRID_PITCH) + GRID_PITCH) % GRID_PITCH;
     return f <= ROAD_HALF_WIDTH || f >= GRID_PITCH - ROAD_HALF_WIDTH;
   };
-  // Roads and the broad land shoulder remain walkable even where an inlet
-  // touches the edge of the tile.
-  if (nearGrid(localX) || nearGrid(localZ)) return false;
-  const waterDepth = 25;
+  const waterDepth = 31;
   const oceanSides = [
     !isInAnyIsland(cx + 1, cz) ? [1, 0] : null,
     !isInAnyIsland(cx - 1, cz) ? [-1, 0] : null,
     !isInAnyIsland(cx, cz + 1) ? [0, 1] : null,
     !isInAnyIsland(cx, cz - 1) ? [0, -1] : null,
   ].filter((side): side is [number, number] => side !== null);
-  return oceanSides.some(([sideX, sideZ]) =>
-    sideX > 0 ? localX >= CHUNK_SIZE - waterDepth
-      : sideX < 0 ? localX <= waterDepth
-        : sideZ > 0 ? localZ >= CHUNK_SIZE - waterDepth
-          : localZ <= waterDepth
-  );
+  let deepest = 0;
+  for (const [sideX, sideZ] of oceanSides) {
+    // Keep cross-streets crossing the basin walkable, while leaving the
+    // shoreline-facing edge open for docks and boats.
+    if (sideX !== 0 ? nearGrid(localZ) : nearGrid(localX)) continue;
+    const distance = sideX > 0 ? localX - (CHUNK_SIZE - waterDepth)
+      : sideX < 0 ? waterDepth - localX
+        : sideZ > 0 ? localZ - (CHUNK_SIZE - waterDepth)
+          : waterDepth - localZ;
+    if (distance <= 0) continue;
+    const t = Math.max(0, Math.min(1, distance / waterDepth));
+    const smooth = t * t * (3 - 2 * t);
+    deepest = Math.max(deepest, 1.75 * smooth);
+  }
+  return deepest;
+}
+
+/** True only inside the marina's modeled inlet, never on its roads or land apron. */
+export function isMarinaWaterPosition(x: number, z: number): boolean {
+  return getMarinaWaterDepth(x, z) > 0.08;
 }
 const BRIDGE_RANGES = BRIDGES;
 const SIDEWALK_RAISE = 0.3;
@@ -411,9 +429,11 @@ export function getTerrainHeight(x: number, z: number, currentY?: number, forceB
     return -2.5;
   }
   if (biome === 'marina') {
-    // Match the inlet geometry exactly: land, roads, and the bridge shoulder
-    // use the shared ground datum; only the modeled basin is below the shore.
-    return isMarinaWaterPosition(x, z) ? -1.75 : 0.0;
+    // The visible inlet and movement surface share one graded height field.
+    // Returning a fixed depth here made the rendered shoulder slope into a
+    // vertical step and could leave players walking on the blue basin.
+    const depth = getMarinaWaterDepth(x, z);
+    return depth > 0 ? -depth : 0.0;
   }
   if (biome === 'bridge_connector') {
     const bridge = BRIDGE_RANGES.find(br =>
@@ -1932,6 +1952,19 @@ void main() {
         this._jointScratch.set(entityId, localMatrices);
       }
       localMatrices.set(skeleton.boneLocalMatrices);
+      const applyX = (bone:number, ang:number) => {
+        if (bone < 0 || bone >= skeleton.boneCount) return;
+        const m = new Float32Array(localMatrices.buffer, bone * 64, 16);
+        const qx = Math.sin(ang / 2), qw = Math.cos(ang / 2);
+        const rot = new Float32Array([1, 0, 0, 0, 0, qw, qx, 0, 0, -qx, qw, 0, 0, 0, 0, 1]);
+        const tmp = new Float32Array(16);
+        for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) {
+          let v = 0;
+          for (let k = 0; k < 4; k++) v += m[r * 4 + k] * rot[k * 4 + c];
+          tmp[r * 4 + c] = v;
+        }
+        m.set(tmp);
+      };
       // walk cycle — hips bob + thigh/shin + arm swing
       if (state === 'walk' || state === 'run') {
         const swing = state === 'run' ? 0.46 : 0.30;
@@ -1972,6 +2005,48 @@ void main() {
         applyX(armL,-0.55); applyX(foreL,-0.85); applyX(armR,-0.55); applyX(foreR,-0.85);
         const thighLIdx=13, thighRIdx=16;
         applyX(thighLIdx, -1.05); applyX(thighRIdx, -1.05);
+      } else {
+        // Breathing and an alternating weight shift keep an idle pedestrian
+        // alive without making the whole body bob as one rigid piece.
+        const breathe = Math.sin(animator.time * 1.7) * 0.018;
+        const shift = Math.sin(animator.time * 0.85) * 0.035;
+        applyX(2, breathe);
+        applyX(3, -breathe * 0.55);
+        applyX(4, -breathe * 0.35);
+        applyX(13, shift);
+        applyX(16, -shift);
+        applyX(6, -0.06 + shift * 0.35);
+        applyX(10, -0.06 - shift * 0.35);
+        applyX(7, -0.10);
+        applyX(11, -0.10);
+      }
+      // Hit recoil and cover poses must run inside the procedural branch too;
+      // otherwise the shared human model looks unaffected when an NPC is shot.
+      const flinchLeft = this.flinchTimers.get(entityId) ?? 0;
+      if (flinchLeft > 0) {
+        const recoil = Math.sin(Math.min(1, flinchLeft / 0.18) * Math.PI) * 0.30;
+        const recoilChest = new Float32Array(localMatrices.buffer, 2 * 64, 16);
+        const recoilRot = new Float32Array(16);
+        mat4.identity(recoilRot); mat4.rotateX(recoilRot, recoilRot, -recoil);
+        const recoilOut = new Float32Array(16);
+        mat4.multiply(recoilOut, recoilChest, recoilRot);
+        recoilChest.set(recoilOut);
+        applyX(13, -recoil * 0.5);
+        applyX(16, -recoil * 0.5);
+      }
+      if (this.duckingEntities.has(entityId)) {
+        applyX(13, 0.42);
+        applyX(16, 0.42);
+        applyX(14, -0.72);
+        applyX(17, -0.72);
+        const hm = new Float32Array(localMatrices.buffer, 0, 16);
+        hm[13] -= 0.18;
+      }
+      if (this.arrestingEntities.has(entityId)) {
+        applyX(10, -0.95);
+        applyX(11, -0.78);
+        applyX(6, -0.35);
+        applyX(7, -0.22);
       }
       // punch / fire overrides (visible to peers)
       const punchLeft = this.punchTimers.get(entityId) ?? 0;
@@ -2953,35 +3028,47 @@ void main() {
       for (const side of [[1, 0], [-1, 0], [0, 1], [0, -1]] as [number, number][]) {
         if (getBiome(cx + side[0], cz + side[1]) === 'ocean') oceanSides.push(side);
       }
-      const tileSize = 10;
-      const waterDepth = oceanSides.length > 1 ? 25 : 31;
+      const waterDepth = 31;
       const marinaBridgeCorner = BRIDGE_CONNECTORS.some(conn =>
         Math.abs(cx - conn.cx) <= 1 && cz === conn.cz
-      );      const isRoadCell = (localX: number, localZ: number) => {
+      );
+      const isRoadCell = (localX: number, localZ: number) => {
         const nearGrid = (value: number) => {
           const f = ((value % GRID_PITCH) + GRID_PITCH) % GRID_PITCH;
           return f <= ROAD_HALF_WIDTH || f >= GRID_PITCH - ROAD_HALF_WIDTH;
         };
         return nearGrid(localX) || nearGrid(localZ);
       };
-      for (let row = 0; row < 8; row++) {
-        for (let col = 0; col < 8; col++) {
-          const localX = col * tileSize + tileSize / 2;
-          const localZ = row * tileSize + tileSize / 2;
-          const harbourWater = isMarinaWaterPosition(worldOriginX + localX, worldOriginZ + localZ);
-          const land = !harbourWater || isRoadCell(localX, localZ);
-          this.addBox(
-            verts, indices,
-            worldOriginX + localX, land ? 0.02 : -1.75, worldOriginZ + localZ,
-            tileSize + 0.08, 0.12, tileSize + 0.08,
-            land ? (marinaBridgeCorner ? 0.25 : 0.22) : 0.04,
-            land ? (marinaBridgeCorner ? 0.29 : 0.28) : 0.22,
-            land ? (marinaBridgeCorner ? 0.25 : 0.20) : 0.34,
-            1.0, idxOffset
-          );
-          idxOffset += 24;
+      // One shared, low-resolution heightfield gives the marina a continuous
+      // shoulder: dry apron at y=0, a shallow shelf, then the deeper basin.
+      // It is intentionally only 8x8 cells so mobile devices do not pay for
+      // high-density water geometry in every loaded chunk.
+      const surfaceSegments = 8;
+      const surfaceStep = CHUNK_SIZE / surfaceSegments;
+      for (let row = 0; row <= surfaceSegments; row++) {
+        for (let col = 0; col <= surfaceSegments; col++) {
+          const localX = Math.min(col * surfaceStep, CHUNK_SIZE - 0.01);
+          const localZ = Math.min(row * surfaceStep, CHUNK_SIZE - 0.01);
+          const depth = getMarinaWaterDepth(worldOriginX + localX, worldOriginZ + localZ);
+          const road = isRoadCell(localX, localZ);
+          const land = road || depth <= 0.08;
+          const y = land ? 0.02 : -depth;
+          const wet = land ? 0 : Math.min(1, depth / 1.75);
+          const r = land ? (marinaBridgeCorner ? 0.25 : 0.22) : 0.04 + wet * 0.02;
+          const g = land ? (marinaBridgeCorner ? 0.29 : 0.28) : 0.22 + wet * 0.04;
+          const b = land ? (marinaBridgeCorner ? 0.25 : 0.20) : 0.34 + wet * 0.10;
+          verts.push(worldOriginX + localX, y, worldOriginZ + localZ, r, g, b, 1.0);
         }
       }
+      const surfaceBase = idxOffset;
+      const surfaceRow = surfaceSegments + 1;
+      for (let row = 0; row < surfaceSegments; row++) {
+        for (let col = 0; col < surfaceSegments; col++) {
+          const a = surfaceBase + row * surfaceRow + col;
+          indices.push(a, a + surfaceRow, a + 1, a + 1, a + surfaceRow, a + surfaceRow + 1);
+        }
+      }
+      idxOffset += surfaceRow * surfaceRow;
       // Shore retaining walls make the land shoulder legible and stop the
       // ocean plane from visually cutting through the marina apron.
       for (const [sideX, sideZ] of oceanSides) {
@@ -4269,7 +4356,13 @@ void main() {
         }
       }
       const smModel = this.cityBuildingMeshes.find(m => m.length > 0 && m[0].carName && m[0].carName.includes('supermarket'));
-      if (smModel && supermarkets.length < 1 && rng() < 0.20) {
+      const gasStationInChunk = buildings.some(b => b.model && b.model.length > 0
+        && b.model[0].carName?.includes('gas_station'));
+      // The fallback authored supermarket path must obey the same exclusion as
+      // the procedural convenience store. Otherwise a gas station generated
+      // earlier in this chunk can still receive a supermarket shell over its
+      // pumps even though the convenience-store path is protected.
+      if (smModel && supermarkets.length < 1 && !gasStationInChunk && rng() < 0.20) {
         const blockWorldX = worldOriginX + 40;
         const blockWorldZ = worldOriginZ + 40;
         const halfSW = SIDEWALK_SIZE / 2;
@@ -4294,8 +4387,22 @@ void main() {
         const scale = Math.max(w, d) / 18 * 3.5;
         const cityMinY = this.getModelMinY(smModel);
         const scArr: [number, number, number] = [scale, scale, scale];
-        buildings.push({ model: smModel, x: px, y: -cityMinY * scale + 0.15, z: pz, yaw, scale: scArr });
-        supermarkets.push({ x: px, z: pz, yaw, hd: this.supermarketHalfDepth(smModel, scArr, yaw) });
+        const modelHalfW = Math.max(8, w / 2);
+        const modelHalfD = Math.max(8, d / 2);
+        const fallbackBounds = {
+          minX: px - modelHalfW - 2, maxX: px + modelHalfW + 2,
+          minZ: pz - modelHalfD - 2, maxZ: pz + modelHalfD + 2,
+        };
+        const occupancy = Array.from(this.buildingOccupancyByChunk.values()).flat();
+        const overlapsExisting = occupancy.some(bb => fallbackBounds.minX < bb.maxX && fallbackBounds.maxX > bb.minX
+          && fallbackBounds.minZ < bb.maxZ && fallbackBounds.maxZ > bb.minZ);
+        if (!overlapsExisting) {
+          buildings.push({ model: smModel, x: px, y: -cityMinY * scale + 0.15, z: pz, yaw, scale: scArr });
+          const localOccupancy = this.buildingOccupancyByChunk.get(key) ?? [];
+          localOccupancy.push(fallbackBounds);
+          this.buildingOccupancyByChunk.set(key, localOccupancy);
+          supermarkets.push({ x: px, z: pz, yaw, hd: this.supermarketHalfDepth(smModel, scArr, yaw) });
+        }
       }
     }
     for (const entry of GrandTheftRenderer.AIRPORT_ENTRY_ROADS) {
@@ -4567,32 +4674,65 @@ void main() {
     if (variant.bodyType==='dwarf'){ torsoH*=0.85; legLen*=0.68; armLen*=0.72; headR*=1.08; }
     if (variant.gender==='female'){ torsoW*=0.88; torsoD*=0.92; }
     const addRounded = (cx:number, cy:number, cz:number, rx:number, ry:number, rz:number, col:[number,number,number], bone:number) => {
-      // Higher tessellation keeps joints and silhouettes round at the close
-      // third-person camera distance instead of reading as faceted boxes.
-      // Dense enough to remove the toy-like bubble silhouette, while still
-      // keeping the shared human mesh bounded for crowded scenes.
-      // One shared anatomical surface resolution is used for players and NPCs.
-      // Keep it high enough for close third-person silhouettes without the
-      // extreme per-part tessellation that caused startup stalls.
-      const rings = this.isMobile ? 8 : 12, slices = this.isMobile ? 12 : 18;
+      // A tapered capsule is used instead of a sphere. The straight middle
+      // keeps a limb cylindrical, while the short rounded ends overlap the
+      // neighboring joint without producing the connected-ball silhouette.
+      // Keep the radial resolution bounded because this mesh is shared by every
+      // nearby pedestrian and is CPU-skinned on every animated update.
+      const slices = this.isMobile ? 10 : 14;
+      const transverse = Math.max(0.018, Math.min(rx, rz));
+      const coreHalf = Math.max(0, ry - transverse);
+      const profile = coreHalf > transverse * 0.35
+        ? [
+            { y: -ry, r: 0.12 },
+            { y: -coreHalf - transverse * 0.72, r: 0.72 },
+            { y: -coreHalf, r: 1 },
+            { y: coreHalf, r: 1 },
+            { y: coreHalf + transverse * 0.72, r: 0.72 },
+            { y: ry, r: 0.12 },
+          ]
+        : [
+            { y: -ry, r: 0.12 },
+            { y: -ry * 0.72, r: 0.72 },
+            { y: 0, r: 1 },
+            { y: ry * 0.72, r: 0.72 },
+            { y: ry, r: 0.12 },
+          ];
       const start = restPos.length / 3;
-      for (let iy = 0; iy <= rings; iy++) {
-        const phi = (iy / rings) * Math.PI;
+      const rowWidth = slices + 1;
+      for (let iy = 0; iy < profile.length; iy++) {
+        const band = profile[iy];
+        // A subtle shoulder-to-wrist taper gives the arm a real upper/lower
+        // anatomy instead of two equally wide beads. It is neutral for torso
+        // volumes because their short profiles are nearly symmetrical.
+        const taper = 0.92 + (iy / Math.max(1, profile.length - 1)) * 0.16;
         for (let ix = 0; ix <= slices; ix++) {
-          const theta = (ix / slices) * Math.PI * 2;
-          const nx = Math.sin(phi) * Math.cos(theta);
-          const ny = Math.cos(phi);
-          const nz = Math.sin(phi) * Math.sin(theta);
-          const px = cx + nx * rx, py = cy + ny * ry, pz = cz + nz * rz;
-          verts.push(px, py, pz, nx, ny, nz, col[0], col[1], col[2], 1, 0, 0);
-          restPos.push(px, py, pz); restNrm.push(nx, ny, nz);
+          const theta = ix / slices * Math.PI * 2;
+          const nx = Math.cos(theta);
+          const nz = Math.sin(theta);
+          const px = cx + nx * rx * band.r * taper;
+          const py = cy + band.y;
+          const pz = cz + nz * rz * band.r * taper;
+          // The ring normal follows the capsule profile and remains stable at
+          // the capped tips, which avoids black pinched highlights.
+          const ny = coreHalf > transverse * 0.35
+            ? (Math.abs(band.y) > coreHalf ? (band.y > 0 ? 0.62 : -0.62) : 0)
+            : band.y / Math.max(ry, 0.001) * 0.55;
+          const nl = Math.hypot(nx, ny, nz) || 1;
+          verts.push(px, py, pz, nx / nl, ny / nl, nz / nl, col[0], col[1], col[2], 1, 0, 0);
+          restPos.push(px, py, pz);
+          restNrm.push(nx / nl, ny / nl, nz / nl);
           jIndices.push(bone, 0, 0, 0); jWeights.push(1, 0, 0, 0);
         }
       }
-      const width = slices + 1;
-      for (let iy = 0; iy < rings; iy++) for (let ix = 0; ix < slices; ix++) {
-        const a = start + iy * width + ix, b = a + 1, c = a + width, d = c + 1;
-        indices.push(a, c, b, b, c, d);
+      for (let iy = 0; iy < profile.length - 1; iy++) {
+        for (let ix = 0; ix < slices; ix++) {
+          const a = start + iy * rowWidth + ix;
+          const b = a + 1;
+          const c = a + rowWidth;
+          const d = c + 1;
+          indices.push(a, c, b, b, c, d);
+        }
       }
     };
     // Rounded anatomical volumes replace the old box-only silhouette. Slightly
@@ -4663,11 +4803,15 @@ void main() {
     // eliminating the floating-leg appearance during gait and ragdoll poses.
     addRounded(-hipOff, -0.08, 0, legW * 0.72, 0.11, legW * 0.72, pantTone, 2);
     addRounded(hipOff, -0.08, 0, legW * 0.72, 0.11, legW * 0.72, pantTone, 2);
-    addRounded(-hipOff,-0.12,0,legW*0.58,thighH*0.54,legW*0.56,pantTone,13); addRounded(-hipOff,-0.12-thighH,0,legW*0.48,shinH*0.54,legW*0.46,pantTone,14); addRounded(-hipOff,-0.12-thighH-shinH+0.04,0.04,0.08,0.04,0.12,[0.12,0.08,0.06],15);
+    addRounded(-hipOff,-0.12,0,legW*0.58,thighH*0.54,legW*0.56,pantTone,13); addRounded(-hipOff,-0.12-thighH,0,legW*0.48,shinH*0.54,legW*0.46,pantTone,14);    addRounded(-hipOff, -0.12 - thighH - shinH + 0.04, 0.04, 0.08, 0.04, 0.12, [0.12,0.08,0.06], 15);
+    // A wider toe box and sole give the foot a stable contact patch instead of
+    // leaving a needle-like shoe at the end of each leg.
+    addRounded(-hipOff, -0.12 - thighH - shinH + 0.035, 0.10, 0.095, 0.045, 0.16, [0.08,0.06,0.05], 15);
     // Knee and calf shaping keeps the legs cylindrical but not balloon-like.
     addRounded(-hipOff, -0.12 - thighH * 0.92, 0.005, legW * 0.54, legW * 0.34, legW * 0.54, pantTone, 14);
     addRounded(-hipOff, -0.12 - thighH - shinH * 0.58, 0.006, legW * 0.50, shinH * 0.34, legW * 0.50, pantTone, 14);
-    addRounded(hipOff,-0.12,0,legW*0.58,thighH*0.54,legW*0.56,pantTone,16); addRounded(hipOff,-0.12-thighH,0,legW*0.48,shinH*0.54,legW*0.46,pantTone,17); addRounded(hipOff,-0.12-thighH-shinH+0.04,0.04,0.08,0.04,0.12,[0.12,0.08,0.06],18);
+    addRounded(hipOff,-0.12,0,legW*0.58,thighH*0.54,legW*0.56,pantTone,16); addRounded(hipOff,-0.12-thighH,0,legW*0.48,shinH*0.54,legW*0.46,pantTone,17);    addRounded(hipOff, -0.12 - thighH - shinH + 0.04, 0.04, 0.08, 0.04, 0.12, [0.12,0.08,0.06], 18);
+    addRounded(hipOff, -0.12 - thighH - shinH + 0.035, 0.10, 0.095, 0.045, 0.16, [0.08,0.06,0.05], 18);
     addRounded(hipOff, -0.12 - thighH * 0.92, 0.005, legW * 0.54, legW * 0.34, legW * 0.54, pantTone, 17);
     addRounded(hipOff, -0.12 - thighH - shinH * 0.58, 0.006, legW * 0.50, shinH * 0.34, legW * 0.50, pantTone, 17);
     if (variant.role==='cop' && variant.accent) addBox(0.08,0.22,0.10,0.06,0.06,0.01,variant.accent,2);

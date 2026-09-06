@@ -157,26 +157,31 @@ export function createHumanSkeleton(): {
     const m = new Float32Array(locals.buffer, i*16*4, 16);
     ident(m);
   }
-  // Bind pose offsets (meters, Y up, facing +X in model space after Y-flip handling)
-  trans(new Float32Array(locals.buffer, 0*64,16), 0, 0.92, 0); // hips
-  trans(new Float32Array(locals.buffer, 1*64,16), 0, 0.14, 0);
-  trans(new Float32Array(locals.buffer, 2*64,16), 0, 0.28, 0);
-  trans(new Float32Array(locals.buffer, 3*64,16), 0, 0.22, 0);
-  trans(new Float32Array(locals.buffer, 4*64,16), 0, 0.18, 0);
-  trans(new Float32Array(locals.buffer, 5*64,16), -0.18, 0.12, 0);
-  trans(new Float32Array(locals.buffer, 6*64,16), 0, -0.22, 0);
-  trans(new Float32Array(locals.buffer, 7*64,16), 0, -0.22, 0);
-  trans(new Float32Array(locals.buffer, 8*64,16), 0, -0.12, 0);
-  trans(new Float32Array(locals.buffer, 9*64,16), 0.18, 0.12, 0);
-  trans(new Float32Array(locals.buffer,10*64,16), 0, -0.22, 0);
-  trans(new Float32Array(locals.buffer,11*64,16), 0, -0.22, 0);
-  trans(new Float32Array(locals.buffer,12*64,16), 0, -0.12, 0);
-  trans(new Float32Array(locals.buffer,13*64,16), -0.09, -0.12, 0);
-  trans(new Float32Array(locals.buffer,14*64,16), 0, -0.42, 0);
-  trans(new Float32Array(locals.buffer,15*64,16), 0, -0.42, 0.06);
-  trans(new Float32Array(locals.buffer,16*64,16), 0.09, -0.12, 0);
-  trans(new Float32Array(locals.buffer,17*64,16), 0, -0.42, 0);
-  trans(new Float32Array(locals.buffer,18*64,16), 0, -0.42, 0.06);
+  // Bind pose offsets use the same model-space joint coordinates as the
+  // procedural body below. The previous rig was rooted at y=.92 while the
+  // mesh was authored around hips y=0; rotations therefore happened far above
+  // the shoulders, elbows, hips, and knees, making limbs visibly detach.
+  // Keep every pivot at its anatomical location so bind-pose skinning remains
+  // an identity transform and animation rotates each segment around its joint.
+  trans(new Float32Array(locals.buffer, 0*64,16), 0, 0.00, 0); // hips / pelvis
+  trans(new Float32Array(locals.buffer, 1*64,16), 0, 0.12, 0); // spine
+  trans(new Float32Array(locals.buffer, 2*64,16), 0, 0.16, 0); // chest
+  trans(new Float32Array(locals.buffer, 3*64,16), 0, 0.18, 0); // neck
+  trans(new Float32Array(locals.buffer, 4*64,16), 0, 0.09, 0); // head
+  trans(new Float32Array(locals.buffer, 5*64,16), -0.20, 0.02, 0); // left shoulder
+  trans(new Float32Array(locals.buffer, 6*64,16), 0, 0.00, 0); // left upper-arm / shoulder pivot
+  trans(new Float32Array(locals.buffer, 7*64,16), 0, -0.24, 0); // left elbow
+  trans(new Float32Array(locals.buffer, 8*64,16), 0, -0.24, 0); // left wrist
+  trans(new Float32Array(locals.buffer, 9*64,16), 0.20, 0.02, 0); // right shoulder
+  trans(new Float32Array(locals.buffer,10*64,16), 0, 0.00, 0); // right upper-arm / shoulder pivot
+  trans(new Float32Array(locals.buffer,11*64,16), 0, -0.24, 0); // right elbow
+  trans(new Float32Array(locals.buffer,12*64,16), 0, -0.24, 0); // right wrist
+  trans(new Float32Array(locals.buffer,13*64,16), -0.09, -0.08, 0); // left hip
+  trans(new Float32Array(locals.buffer,14*64,16), 0, -0.24, 0); // left knee
+  trans(new Float32Array(locals.buffer,15*64,16), 0, -0.16, 0.06); // left ankle
+  trans(new Float32Array(locals.buffer,16*64,16), 0.09, -0.08, 0); // right hip
+  trans(new Float32Array(locals.buffer,17*64,16), 0, -0.24, 0); // right knee
+  trans(new Float32Array(locals.buffer,18*64,16), 0, -0.16, 0.06); // right ankle
 
   // Inverse bind matrices must cancel each bone's *world* bind translation.
   // The procedural vertices are authored in model space, while the skeleton

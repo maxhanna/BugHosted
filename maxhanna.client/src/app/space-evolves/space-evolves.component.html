@@ -27,7 +27,8 @@
           <strong>WEAPON SLOTS</strong>
           <div class="slot-grid">
             <div class="weapon-slot" *ngFor="let slot of weaponSlots" [class.filled]="slot.filled"
-              [style.--weapon-color]="slot.color" [title]="slot.filled ? weaponTooltip(slot.weapon) : 'Empty slot'">
+              [style.--weapon-color]="slot.color" [title]="slot.filled ? weaponTooltip(slot.weapon) : 'Empty slot'"
+              (click)="slot.filled && openWeaponInfo(slot.weapon)">
               <span class="slot-icon">{{slot.icon}}</span>
               <span class="slot-label">{{slot.label}}</span>
               <span class="slot-interval" *ngIf="slot.filled">{{slot.interval ? ('Every ' + (slot.interval |
@@ -88,6 +89,22 @@
           <span>{{entry.username}}</span><b>{{entry.score}}</b><small>W{{entry.wave}}</small></li>
       </ol>
     </aside>
+  </div>
+
+  <!-- Weapon Info Popup -->
+  <div class="popupPanel" style="overflow: auto;" *ngIf="isWeaponInfoPanelOpen && selectedWeapon">
+    <div class="popupPanelTitle">{{upgradeIcon(selectedWeapon)}} {{weaponLabel(selectedWeapon)}}</div>
+    <div class="popupPanelContents gradientBackground" style="padding:10px; max-width: 420px;">
+      <p class="weaponInfoHow">{{weaponHowItWorks[selectedWeapon]}}</p>
+      <div class="optionsStatsDiv" *ngFor="let line of weaponDetailLines(selectedWeapon)">
+        <div class="optionsStatsDescription" style="width:100%;">{{line}}</div>
+      </div>
+      <div class="popupPanelTitle" style="font-size: medium; margin-top: 10px;">Upgrades</div>
+      <div class="optionsStatsDiv" *ngFor="let line of weaponUpgradeLines(selectedWeapon)">
+        <div class="optionsStatsDescription" style="width:100%;">{{line}}</div>
+      </div>
+    </div>
+    <button id="closeOverlay" class="closeButton" (click)="closeWeaponInfo()">Close</button>
   </div>
 
   <!-- Space Evolves Menu Popup -->
