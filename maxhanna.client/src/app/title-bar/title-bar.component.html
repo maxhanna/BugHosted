@@ -1,10 +1,10 @@
-<button type="button" class="closeButton" *ngIf="showClose" title="Close" aria-label="Close" (click)="closeClicked.emit($event)"></button>
-<button type="button" class="refreshButton" *ngIf="showRefresh" title="Refresh" aria-label="Refresh" (click)="refreshClicked.emit($event)"></button>
-<button type="button" class="menuButton" *ngIf="showMenu" title="Open Menu" aria-label="Open Menu" (click)="menuClicked.emit($event)"></button>
-<button type="button" class="helpButton" *ngIf="showHelp" title="Show Help" aria-label="Show Help" (click)="helpClicked.emit($event)"></button>
-<div class="searchButton" *ngIf="showSearch" title="Show Search" (click)="searchClicked.emit($event)"
+<button type="button" class="closeButton" *ngIf="showClose" title="Close" aria-label="Close" (click)="usePointerDown ? $event.preventDefault() : closeClicked.emit($event)" (pointerDown)="usePointerDown ? closeClicked.emit($event) : $event.preventDefault()"></button>
+<button type="button" class="refreshButton" *ngIf="showRefresh" title="Refresh" aria-label="Refresh" (click)="usePointerDown ? $event.preventDefault() : refreshClicked.emit($event)" (pointerDown)="usePointerDown ? refreshClicked.emit($event) : $event.preventDefault()"></button>
+<button type="button" class="menuButton" *ngIf="showMenu" title="Open Menu" aria-label="Open Menu" (click)="usePointerDown ? $event.preventDefault() : menuClicked.emit($event)" (pointerDown)="usePointerDown ? menuClicked.emit($event) : $event.preventDefault()"></button>
+<button type="button" class="helpButton" *ngIf="showHelp" title="Show Help" aria-label="Show Help" (click)="usePointerDown ? $event.preventDefault() : helpClicked.emit($event)" (pointerDown)="usePointerDown ? helpClicked.emit($event) : $event.preventDefault()"></button>
+<div class="searchButton" *ngIf="showSearch" title="Show Search" (click)="usePointerDown ? $event.preventDefault() : searchClicked.emit($event)" (pointerDown)="usePointerDown ? searchClicked.emit($event) : $event.preventDefault()"
   [style.right]="searchRight" class="searchButton"></div>
-<div class="menuBackButton" *ngIf="showBack" title="Back to User List" (click)="backClicked.emit();"></div>
+<div class="menuBackButton" *ngIf="showBack" title="Back to User List" (click)="usePointerDown ? $event.preventDefault() : backClicked.emit();" (pointerDown)="usePointerDown ? backClicked.emit() : $event.preventDefault()"></div>
 <div class="componentTitle" *ngIf="showTitle">
   <span [class]="titleSpanClass" [ngStyle]="font ? { 'font-family': font } : {}">
     <span>{{ title }}</span>      <ng-container *ngIf="titleUsers && titleUsers.length > 0">

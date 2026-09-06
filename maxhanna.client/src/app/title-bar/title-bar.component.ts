@@ -26,6 +26,7 @@ export class TitleBarComponent implements OnInit, OnChanges {
   @Input() showHelp?: boolean;
   @Input() hasRefresh: boolean = false;
   @Input() showRefresh?: boolean;
+  @Input() usePointerDown: boolean = false;
   @Input() font?: string;
   // Optional clickable @user tags appended to the title (e.g. chat partners).
   // When provided, the title text is the static prefix and each user renders as

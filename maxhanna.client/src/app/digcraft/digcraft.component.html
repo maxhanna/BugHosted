@@ -4,6 +4,7 @@
     [font]="'minecraftFont'" 
     [style.z-index]="100"
     [style.position]="'relative'"
+    [usePointerDown]="true"
     (closeClicked)="safeExit($event); $event.preventDefault();"
     (menuClicked)="openPanel('menu'); $event.preventDefault();">
   </app-title-bar>
