@@ -1319,6 +1319,27 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           // charge in to subdue/arrest if the player is unarmed. Parked cruisers
           // have nobody inside, so (per the design) they stay quiet.
           if (v.type === 'police' && !isParked) {
+            // Keep the cruiser at the stop position after its crew exits. The
+            // stolen vehicle becomes the player's car, so this is a separate
+            // empty parked visual rather than the same object rendered twice.
+            const parkedPoliceId = --this.pedIdCounter;
+            const parkedPoliceX = v.x ?? this.carX;
+            const parkedPoliceZ = v.z ?? this.carZ;
+            this.parkedCars.push({
+              id: parkedPoliceId,
+              x: parkedPoliceX,
+              z: parkedPoliceZ,
+              y: v.y,
+              yaw: v.yaw ?? this.carYaw,
+              type: 'police',
+              mesh: this.renderer.getPoliceCarMesh(),
+              health: Math.max(1, v.health ?? 200),
+              colorR: v.colorR ?? 0.1,
+              colorG: v.colorG ?? 0.1,
+              colorB: v.colorB ?? 0.2,
+              hasDriver: false,
+              passengerCount: 0,
+            } as any);
             this.evictedCopId = undefined; // re-arm the hostility below
             const crew = (v.passengerCount ?? 0) > 0 ? 3 : 2;
             const cx0 = v.x ?? this.carX, cz0 = v.z ?? this.carZ;
@@ -1892,7 +1913,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private getServerVehicleMesh(vehicle: any): CityMesh | CityMesh[] {
     const color: [number, number, number] = [vehicle.colorR ?? 0.5, vehicle.colorG ?? 0.5, vehicle.colorB ?? 0.5];
     switch (vehicle.type) {
-      case 'police': return this.renderer.getPoliceCarMesh();
+      case 'police': return this.renderer.getPoliceResponseMesh(vehicle.id, true);
       case 'taxi': return this.renderer.getTaxiMesh();
       case 'bus': return this.renderer.busMesh || this.renderer.getNPCCarMesh(color, vehicle.id);
       case 'motorcycle': return this.renderer.getMotorcycleMesh(color, vehicle.id);
@@ -4893,6 +4914,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.renderer.playerIsInCar = this.isInCar;
     this.renderer.playerVehicleMesh = this.playerVehicleMesh;
     this.renderer.playerVehicleType = this.vehicleType;
+    this.renderer.wantedLevel = this.wantedLevel;
     // The renderer owns the visible local character. Keep its movement state
     // synchronized even when the player is walking on foot; otherwise the
     // model can remain at a stale/hidden pose after switching views or exiting

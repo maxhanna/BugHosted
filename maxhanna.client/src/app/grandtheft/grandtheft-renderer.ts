@@ -324,7 +324,9 @@ export function getMarinaWaterDepth(x: number, z: number): number {
     if (distance <= 0) continue;
     const t = Math.max(0, Math.min(1, distance / waterDepth));
     const smooth = t * t * (3 - 2 * t);
-    deepest = Math.max(deepest, 1.75 * smooth);
+    // Match the neighboring ocean datum at the outer edge so the two
+    // water surfaces meet without a visible vertical step.
+    deepest = Math.max(deepest, 2.5 * smooth);
   }
   return deepest;
 }
@@ -413,9 +415,13 @@ export function getTerrainHeight(x: number, z: number, currentY?: number, forceB
     // profile while inside its collision corridor. Using the previous frame's
     // Y here caused a one-frame water fallback when crossing chunk seams.
     if (!forceBridgeDeck && currentY !== undefined && currentY < deckY - 1.5) {
-      const deckStartX = bridgeHit.startCx * 80;
-      const deckEndX = (bridgeHit.endCx + 1) * 80;
-      if (x >= deckStartX && x <= deckEndX) return deckY;
+      // Aircraft and boats can legitimately occupy the lower layer beneath a
+      // bridge. Returning the deck height here made their movement loop clamp
+      // carY upward every frame, appearing as an instant teleport onto the
+      // roadway. Ground vehicles pass forceBridgeDeck=true and still use the
+      // raised deck.
+      const underBiome = getBiome(Math.floor(x / CHUNK_SIZE), Math.floor(z / CHUNK_SIZE));
+      return underBiome === 'ocean' || underBiome === 'bridge' ? -2.5 : 0;
     }
     return deckY;
   }
@@ -460,11 +466,14 @@ export function getTerrainHeight(x: number, z: number, currentY?: number, forceB
     // prevents the beach/ocean tile boundary from becoming a sheer drop.
     const adjacentBeach = getBiome(cx + 1, cz) === 'beach' || getBiome(cx - 1, cz) === 'beach'
       || getBiome(cx, cz + 1) === 'beach' || getBiome(cx, cz - 1) === 'beach';
-    if (adjacentBeach) {
+    const adjacentMarina = getBiome(cx + 1, cz) === 'marina' || getBiome(cx - 1, cz) === 'marina'
+      || getBiome(cx, cz + 1) === 'marina' || getBiome(cx, cz - 1) === 'marina';
+    if (adjacentBeach || adjacentMarina) {
       const localX = x - cx * 80;
       const localZ = z - cz * 80;
       const edge = Math.min(localX, 80 - localX, localZ, 80 - localZ);
-      const shelfT = Math.max(0, Math.min(1, edge / 32));
+      const shelfWidth = adjacentMarina ? 38 : 32;
+      const shelfT = Math.max(0, Math.min(1, edge / shelfWidth));
       return -2.5 * (1 - shelfT * shelfT * (3 - 2 * shelfT));
     }
     return -2.5;
@@ -833,6 +842,9 @@ export class GrandTheftRenderer {
   public planeMeshes: CityMesh[][] = [];
   public motorcycleMeshes: CityMesh[][] = [];
   public policeCarMesh: CityMesh[] | null = null;
+  /** Wanted-level police response vehicle selection, set by the game component. */
+  public wantedLevel = 0;
+  private policeTankMesh: CityMesh[] | null = null;
   public hospitalMesh: CityMesh[] | null = null;
   public vendingMachineMesh: CityMesh[] | null = null;
   public homeBaseMesh: CityMesh[] | null = null;
@@ -3067,7 +3079,7 @@ void main() {
           const road = isRoadCell(localX, localZ);
           const land = road || depth <= 0.08;
           const y = land ? 0.02 : -depth;
-          const wet = land ? 0 : Math.min(1, depth / 1.75);
+          const wet = land ? 0 : Math.min(1, depth / 2.5);
           const r = land ? (marinaBridgeCorner ? 0.25 : 0.22) : 0.04 + wet * 0.02;
           const g = land ? (marinaBridgeCorner ? 0.29 : 0.28) : 0.22 + wet * 0.04;
           const b = land ? (marinaBridgeCorner ? 0.25 : 0.20) : 0.34 + wet * 0.10;
@@ -5868,6 +5880,8 @@ void main() {
       if (npc.type === 'police') {
         const isRed = (performance.now() / 300) % 2 < 1;
         const lightColor: [number, number, number, number] = isRed ? [1, 0, 0, 1] : [0, 0, 1, 1];
+        const responseMesh = this.wantedLevel >= 5 ? this.getPoliceResponseMesh(npc.id) : this.getPoliceCarMesh();
+        if (this.wantedLevel >= 5) this.drawMesh(responseMesh, npc.x, expY, npc.z, npc.yaw, [1, 1, 1], [1, 1, 1, 1]);
         this.drawMesh(this.getBoxMesh(0.8, 0.2, 0.4), npc.x, expY + 1.2, npc.z, npc.yaw, [1, 1, 1], lightColor);
       }
       if (npc.state === 'stop') {
@@ -6470,6 +6484,30 @@ void main() {
     const mesh = this.createMesh(verts, indices);
     this.meshCache.set(key, mesh);
     return mesh;
+  }
+  getPoliceResponseMesh(id: number | string = 0, police = true): CityMesh | CityMesh[] {
+    if (!police || this.wantedLevel < 5) return this.getPoliceCarMesh();
+    // The Jeep asset is the final vehicle slot loaded by the Grand Theft car
+    // manifest. Use it for level-5 pursuit units, with the lightbar drawn in
+    // the shared police-vehicle pass below.
+    // Every fourth dispatched unit is a tank, while the remaining level-5
+    // units use the Jeep asset. Both retain the `police` vehicle type so
+    // stealing either vehicle ejects police crew through the existing theft
+    // response path.
+    const numericId = typeof id === 'number' ? Math.abs(id) : hashSeed(id);
+    if (numericId % 4 === 0) return this.getPoliceTankMesh();
+    if (this.carMeshes.length > 10 && this.carMeshes[10]) return this.carMeshes[10];
+    return this.getPoliceTankMesh();
+  }
+  private getPoliceTankMesh(): CityMesh[] {
+    if (this.policeTankMesh) return this.policeTankMesh;
+    const verts:number[]=[];const indices:number[]=[];
+    this.addBox(verts,indices,0,.55,0,2.5,.8,4.2,.22,.25,.28,1,0);
+    this.addBox(verts,indices,0,1.05,0,1.8,.65,2.1,.3,.34,.38,1,24);
+    this.addBox(verts,indices,0,1.5,-.15,.72,.28,1.7,.16,.18,.2,1,48);
+    this.addBox(verts,indices,0,1.7,-1.25,.22,.22,2.2,.12,.14,.16,1,72);
+    for(const x of [-1.18,1.18]) for(const z of [-1.25,1.25]) this.addBox(verts,indices,x,.48,z,.52,.32,.52,.08,.09,.1,1,96);
+    const mesh=this.createMesh(verts,indices);mesh.carName='procedural_police_tank';this.policeTankMesh=[mesh];return this.policeTankMesh;
   }
   getPoliceCarMesh(): CityMesh | CityMesh[] {
     if (this.policeCarMesh) return this.policeCarMesh;
