@@ -3944,6 +3944,17 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           const models = Array.isArray(bld.model) ? bld.model : [bld.model];
           for (const m of models) {
             if (!m || m.minX === undefined || m.maxX === undefined || m.minZ === undefined || m.maxZ === undefined) continue;
+            const isConvenience = m.carName?.includes('convenience_store_procedural');
+            if (isConvenience) {
+              const localDx = x - bld.x;
+              const localDz = z - bld.z;
+              const cosY = Math.cos(bld.yaw ?? 0), sinY = Math.sin(bld.yaw ?? 0);
+              const localX = localDx * cosY - localDz * sinY;
+              const localZ = localDx * sinY + localDz * cosY;
+              // The procedural shop has a real open storefront. Keep that
+              // opening passable for pedestrian pathing as well as the player.
+              if (Math.abs(localX) < 3.8 && localZ < -10 && localZ > -16.5) continue;
+            }
             const solid = this.buildingSolidRect(bld, m, 0.35);
             if (!solid) continue;
             const ox = x - solid.cx, oz = z - solid.cz;
@@ -5869,6 +5880,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           const models = Array.isArray(bld.model) ? bld.model : [bld.model];
           for (const m of models) {
             if (m.minX === undefined || m.maxX === undefined || m.minZ === undefined || m.maxZ === undefined || m.minY === undefined || m.maxY === undefined) continue;
+            // Convenience stores are open-front interiors, not climbable roof
+            // volumes. Treating their shell as a roof lifts the player onto the
+            // building before the natural doorway entry can run.
+            if (m.carName?.includes('convenience_store_procedural')) continue;
             const solid = this.buildingSolidRect(bld, m, 0);
             if (!solid) continue;
             const dx2 = x - solid.cx, dz2 = z - solid.cz;
