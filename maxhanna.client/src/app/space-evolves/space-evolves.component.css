@@ -513,32 +513,32 @@
 
     .side-panel {
         margin: 14px auto;
-        max-width: 720px
+        max-width: 720px;
     }
 
     .hud {
-        margin-bottom: 8px
+        margin-bottom: 8px;
     }
 
     .hud>div {
         min-width: 58px;
-        padding: 5px 7px
+        padding: 5px 7px;
     }
 
     .hud .experience-bar {
         flex: 1 1 120px;
-        min-width: 90px
+        min-width: 90px;
     }
 
     .arena {
         height: calc(100dvh - 250px);
-        min-height: 430px
+        min-height: 430px;
     }
 
     .weapon-hud {
         bottom: 92px;
         left: 6px;
-        right: 6px
+        right: 6px;
     }
 
     .upgrade-dock {
@@ -546,24 +546,25 @@
         max-height: 72px;
         overflow-y: auto;
         font-size: 10px;
-        padding: 5px
+        padding: 5px;
     }
 
     .upgrade-section {
-        gap: 3px
+        gap: 3px;
     }
 
     .upgrade-grid {
-        grid-template-columns: 1fr
+        grid-template-columns: 1fr;
     }
 
     .upgrade-card {
         inset: 5% 4%;
-        overflow: auto
+        overflow: auto;
+        max-height: 550px !important;
     }
 
     .gameover-card,
     .pause-card {
-        inset: 38% 12%
+        inset: 38% 12%;
     }
 }
