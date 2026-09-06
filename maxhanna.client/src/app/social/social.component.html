@@ -218,8 +218,11 @@
       </div>
 
       <!-- Share this feed view (keeps the active topic filter in the URL) -->
-      <div class="menuPopupSection menuPopupMiniOptions">
-        <app-share-button [inputtedParentRef]="parentRef ?? parent" [link]="getSocialShareLink()"
+      <div class="menuPopupSection menuPopupMiniOptions" style="justify-content: center;">
+        <app-share-button 
+          [inputtedParentRef]="parentRef ?? parent" 
+          [link]="getSocialShareLink()"
+          (linkCopiedEvent)="closeMenuPanel()"
           [text]="'🔗Share this view'"></app-share-button>
       </div>
 
