@@ -5376,6 +5376,13 @@ void main() {
     this._mopedWheelMesh = mesh;
     return mesh;
   }
+  private groundedModelY(mesh: CityMesh | CityMesh[] | null, terrainY: number): number {
+    const list = Array.isArray(mesh) ? mesh : (mesh ? [mesh] : []);
+    let minY = 0;
+    for (const part of list) if (Number.isFinite((part as any).minY)) minY = Math.min(minY, (part as any).minY);
+    return terrainY - minY + 0.015;
+  }
+
   render(
     camX: number, camY: number, camZ: number, camYaw: number, camPitch: number, aspect: number,
     targetX: number, targetY: number, targetZ: number, carYaw: number,
@@ -5486,7 +5493,7 @@ void main() {
         // Always draw the local character in third-person. `playerIsInCar`
         // only controls whether the vehicle is rendered; hiding the player
         // here made the on-foot model disappear after leaving a car.
-        this.drawMesh(playerMesh, targetX, targetY, targetZ, carYaw, [1, 1, 1], [1, 1, 1, 1], true, 0, carRoll);
+        this.drawMesh(playerMesh, targetX, this.groundedModelY(playerMesh, targetY), targetZ, carYaw, [1, 1, 1], [1, 1, 1, 1], true, 0, carRoll);
       }
       gl.disable(gl.POLYGON_OFFSET_FILL);
     } else {
@@ -5632,14 +5639,14 @@ void main() {
           for (const barrel of chunk.barrels) {
             const key = `${barrel.x},${barrel.z}`;
             if (this.explodedBarrels.has(key)) continue;
-            this.drawMesh(this.barrelMesh, barrel.x, 0, barrel.z, barrel.yaw, [0.5, 0.5, 0.5], [1, 1, 1, 1]);
+            this.drawMesh(this.barrelMesh, barrel.x, this.groundedModelY(this.barrelMesh, getTerrainHeight(barrel.x, barrel.z)), barrel.z, barrel.yaw, [0.5, 0.5, 0.5], [1, 1, 1, 1]);
           }
         }
         if (this.chickenMesh && ring <= 1) {
           for (const chicken of chunk.chickens) {
             const key = `${chicken.x},${chicken.z}`;
             if (this.deadChickens.has(key)) continue;
-            this.drawMesh(this.chickenMesh, chicken.x, 0, chicken.z, chicken.yaw, [0.3, 0.3, 0.3], [1, 1, 1, 1]);
+            this.drawMesh(this.chickenMesh, chicken.x, getTerrainHeight(chicken.x, chicken.z), chicken.z, chicken.yaw, [0.3, 0.3, 0.3], [1, 1, 1, 1]);
           }
         }
         for (const bld of chunk.buildings) {
@@ -5752,14 +5759,15 @@ void main() {
         // Procedural helicopter meshes are authored around their own origin;
         // place the complete airframe above the pad, not just the rotor.
         const aircraftY = aircraft.type === 'helicopter' ? 0.32 : 0.15;
-        this.drawMesh(aircraftMesh, aircraft.x, aircraftY, aircraft.z, aircraft.yaw);
+        const helicopterYaw = aircraft.yaw + Math.PI;
+        this.drawMesh(aircraftMesh, aircraft.x, aircraftY, aircraft.z, helicopterYaw);
         if (aircraft.type === 'helicopter') {
           const spin = now * 0.02;
           const rotor = this.getRotorBladeMesh();
-          this.drawMesh(rotor, aircraft.x, aircraftY + 2.02, aircraft.z, aircraft.yaw + spin, [0.58, 0.58, 0.58], [0.18, 0.2, 0.22, 0.82]);
-          const tailX = aircraft.x + Math.sin(aircraft.yaw) * 2.65;
-          const tailZ = aircraft.z + Math.cos(aircraft.yaw) * 2.65;
-          this.drawMesh(rotor, tailX, aircraftY + 1.2, tailZ, aircraft.yaw + spin * 2.75, [0.18, 0.18, 0.18], [0.2, 0.22, 0.24, 0.8]);
+          this.drawMesh(rotor, aircraft.x, aircraftY + 2.02, aircraft.z, helicopterYaw + spin, [0.58, 0.58, 0.58], [0.18, 0.2, 0.22, 0.82]);
+          const tailX = aircraft.x + Math.sin(helicopterYaw) * 2.65;
+          const tailZ = aircraft.z + Math.cos(helicopterYaw) * 2.65;
+          this.drawMesh(rotor, tailX, aircraftY + 1.2, tailZ, helicopterYaw + spin * 2.75, [0.18, 0.18, 0.18], [0.2, 0.22, 0.24, 0.8]);
         }
       }
     }
@@ -5803,28 +5811,29 @@ void main() {
       const submerged = biome === 'ocean';
       const isAircraft = npc.type === 'helicopter' || npc.type === 'plane';
       const terrainY = submerged ? -1.5 : getTerrainHeight(npc.x, npc.z);
-      const expY = isAircraft ? (npc.y || 0) : (npc as any)._expY ?? terrainY;
+      const expY = isAircraft ? (npc.y || 0) : (isHumanNpc ? terrainY : (npc as any)._expY ?? terrainY);
       if (npc.type === 'helicopter') {
         const copHeli = !!(npc as any).isPolice || !!(npc as any).isCop;
         const heliMesh = copHeli ? this.getHelicopterMesh(npc.id, true) : this.getHelicopterMesh(npc.id, false);
         // Keep the body and its rotor in the same local coordinate frame. The
         // body mesh is centered near Y=1, so expY is the airframe base height.
-        this.drawMesh(heliMesh, npc.x, expY, npc.z, npc.yaw, [1, 1, 1], [1, 1, 1, 1]);
+        this.drawMesh(heliMesh, npc.x, expY, npc.z, npc.yaw + Math.PI, [1, 1, 1], [1, 1, 1, 1]);
         const rotorMesh = this.getRotorBladeMesh();
         const now = performance.now() / 1000;
         const mainRotorY = expY + 2.08;  
         const mainSpin = now * 20;       
-        this.drawMesh(rotorMesh, npc.x, mainRotorY, npc.z, npc.yaw + mainSpin, [0.58, 0.58, 0.58], [0.55, 0.55, 0.55, 0.5]);
-        const tailOffX = Math.sin(npc.yaw) * 2.65;
-        const tailOffZ = Math.cos(npc.yaw) * 2.65;
+        this.drawMesh(rotorMesh, npc.x, mainRotorY, npc.z, npc.yaw + Math.PI + mainSpin, [0.58, 0.58, 0.58], [0.55, 0.55, 0.55, 0.5]);
+        const helicopterYaw = npc.yaw + Math.PI;
+        const tailOffX = Math.sin(helicopterYaw) * 2.65;
+        const tailOffZ = Math.cos(helicopterYaw) * 2.65;
         const tailSpin = now * 55;       
-        this.drawMesh(rotorMesh, npc.x + tailOffX, expY + 1.18, npc.z + tailOffZ, npc.yaw + tailSpin, [0.18, 0.18, 0.18], [0.4, 0.4, 0.4, 0.45]);
+        this.drawMesh(rotorMesh, npc.x + tailOffX, expY + 1.18, npc.z + tailOffZ, helicopterYaw + tailSpin, [0.18, 0.18, 0.18], [0.4, 0.4, 0.4, 0.45]);
       } else {
         const isSwimming = !!npc.isSwimming && submerged;
         const npcScale: [number, number, number] = isSwimming
           ? [1.05, 0.48, 1.05]
           : (flinchLeft > 0 ? [1.05, 0.88, 1.05] : [1, 1, 1]);
-        const npcY = isSwimming ? -1.35 : expY;
+        const npcY = isSwimming ? -1.35 : this.groundedModelY(npc.mesh, expY);
         const reaction = (this as any).npcImpactReactions?.get(npc.id);
         const reactionProgress = reaction ? Math.min(1, reaction.age / reaction.duration) : 0;
         const reactionLift = reaction ? Math.sin(reactionProgress * Math.PI) * Math.min(2.2, Math.hypot(reaction.vx, reaction.vz) * 0.12) : 0;
@@ -5847,13 +5856,13 @@ void main() {
         const dwx = npc.x + (dOffX * cosY + dOffZ * sinY);
         const dwz = npc.z + (-dOffX * sinY + dOffZ * cosY);
         const driverY = expY - 0.3;
-        this.drawMesh(dMesh, dwx, driverY, dwz, npc.yaw, [0.85, 0.85, 0.85]);
+        this.drawMesh(dMesh, dwx, this.groundedModelY(dMesh, expY) - 0.3, dwz, npc.yaw, [0.85, 0.85, 0.85]);
         if ((npc.passengerCount || 0) > 0) {
           const pMesh = this.getPedestrianMesh('female', npc.id + 1);
           const pOffX = -0.3, pOffZ = 0.2;
           const pwx = npc.x + (pOffX * cosY + pOffZ * sinY);
           const pwz = npc.z + (-pOffX * sinY + pOffZ * cosY);
-          this.drawMesh(pMesh, pwx, driverY, pwz, npc.yaw, [0.7, 0.7, 0.7]);
+          this.drawMesh(pMesh, pwx, this.groundedModelY(pMesh, expY) - 0.3, pwz, npc.yaw, [0.7, 0.7, 0.7]);
         }
       }
       if (npc.type === 'police') {
@@ -5914,7 +5923,7 @@ void main() {
       const finalScale: [number, number, number] = impactReaction
         ? [1.08, Math.max(0.72, 1 - impactProgress * 0.28), 1.08]
         : pedScale;
-      this.drawMesh(ped.mesh, impactX, (isSwimming ? -1.35 : pedTerrainY) + impactLift, impactZ, impactYaw, finalScale);
+      this.drawMesh(ped.mesh, impactX, (isSwimming ? -1.35 : this.groundedModelY(ped.mesh, pedTerrainY)) + impactLift, impactZ, impactYaw, finalScale);
     }
     if (dt > 0 && Math.random() < 0.05) {
       const activeIds = new Set<number>();
@@ -5998,21 +6007,22 @@ void main() {
       const localVehicleMesh = this.playerVehicleType === 'helicopter'
         ? this.getHelicopterMesh(0, false)
         : this.playerVehicleMesh;
-      if (localVehicleMesh) this.drawMesh(localVehicleMesh, targetX, vehicleY, targetZ, carYaw, [1, 1, 1], [1, 1, 1, 1], false, 0, carRoll);
+      if (localVehicleMesh) this.drawMesh(localVehicleMesh, targetX, vehicleY, targetZ, this.playerVehicleType === 'helicopter' ? carYaw + Math.PI : carYaw, [1, 1, 1], [1, 1, 1, 1], false, 0, carRoll);
       if (this.playerVehicleType === 'helicopter') {
         const rotor = this.getRotorBladeMesh();
         const spin = performance.now() * 0.02;
-        this.drawMesh(rotor, targetX, vehicleY + 2.08, targetZ, carYaw + spin, [0.58, 0.58, 0.58], [0.55, 0.55, 0.55, 0.5]);
-        const tailX = targetX + Math.sin(carYaw) * 2.65;
-        const tailZ = targetZ + Math.cos(carYaw) * 2.65;
-        this.drawMesh(rotor, tailX, vehicleY + 1.18, tailZ, carYaw + spin * 2.75, [0.18, 0.18, 0.18], [0.4, 0.4, 0.4, 0.45]);
+        this.drawMesh(rotor, targetX, vehicleY + 2.08, targetZ, carYaw + Math.PI + spin, [0.58, 0.58, 0.58], [0.55, 0.55, 0.55, 0.5]);
+        const helicopterYaw = carYaw + Math.PI;
+        const tailX = targetX + Math.sin(helicopterYaw) * 2.65;
+        const tailZ = targetZ + Math.cos(helicopterYaw) * 2.65;
+        this.drawMesh(rotor, tailX, vehicleY + 1.18, tailZ, helicopterYaw + spin * 2.75, [0.18, 0.18, 0.18], [0.4, 0.4, 0.4, 0.45]);
       }
     }
     if (playerMesh && !this.playerIsInCar) {
       // Franklin has a verified full-body skeleton but no embedded clips, so
       // use the procedural player pose path rather than the NPC clip matcher.
       this.skinPlayerMesh(playerMesh, dt);
-      this.drawMesh(playerMesh, targetX, targetY, targetZ, carYaw, [1, 1, 1], [1, 1, 1, 1], false, 0, carRoll);
+      this.drawMesh(playerMesh, targetX, this.groundedModelY(playerMesh, targetY), targetZ, carYaw, [1, 1, 1], [1, 1, 1, 1], false, 0, carRoll);
       this.updateWeaponPitch(dt);
       this.drawPlayerWeapon(targetX, targetY, targetZ, carYaw);
     }
@@ -6703,6 +6713,10 @@ void main() {
     // The eased weaponYaw lets the gun swing smoothly to the aim instead of
     // snapping, and stays at the walk facing when idling without a weapon out.
     const aimYaw = this.playerWeapon > 0 ? this.weaponYaw : yaw;
+    // The shotgun asset is authored facing local -Z while the renderer's aim
+    // convention is local +Z. Rotate only this weapon by 180 degrees so its
+    // barrel, muzzle flash, and projectile direction agree with the crosshair.
+    const weaponYaw = weaponType === 3 ? aimYaw + Math.PI : aimYaw;
     const forward = 0.62;
     const side = 0.22;
     const fx = Math.sin(aimYaw), fz = Math.cos(aimYaw);
@@ -6713,7 +6727,7 @@ void main() {
       x + fx * forward + rx * side,
       y + 1.18,
       z + fz * forward + rz * side,
-      aimYaw,
+      weaponYaw,
       [scale, scale, scale],
       [1, 1, 1, 1],
       false,
@@ -6786,7 +6800,8 @@ void main() {
         const wx = camX + fx * 0.3 + rightX * 0.08;
         const wy = camY + fy * fpDown - 2.2 + recoil;
         const wz = camZ + fz * fpFwd + rightZ * 0.08;
-        this.drawMesh(fpWeapon, wx, wy, wz, camYaw, [fpScale, fpScale, fpScale], [1, 1, 1, 1]);
+        const viewmodelYaw = weapon === 3 ? camYaw + Math.PI : camYaw;
+        this.drawMesh(fpWeapon, wx, wy, wz, viewmodelYaw, [fpScale, fpScale, fpScale], [1, 1, 1, 1]);
       }
     }
     gl.enable(gl.BLEND);
