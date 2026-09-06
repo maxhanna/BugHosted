@@ -4905,9 +4905,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     // Fix Y for on-foot other players so they stand on building roofs when applicable
     for (const op of this.otherPlayers) {
       if (!op.isInCar && !op.passengerOfUserId) {
+        const opBiome = getBiome(Math.floor(op.posX / CHUNK_SIZE), Math.floor(op.posZ / CHUNK_SIZE));
         const opTerrainY = getTerrainHeight(op.posX, op.posZ);
+        const opSurfaceY = opBiome === 'beach' ? Math.max(0, opTerrainY) : opTerrainY;
         const opRoofY = this.getBuildingRoofY(op.posX, op.posZ);
-        op.posY = opRoofY > opTerrainY ? opRoofY : opTerrainY;
+        op.posY = opRoofY > opSurfaceY ? opRoofY : opSurfaceY;
       }
     }
     try {
@@ -5137,8 +5139,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.carX += this.carVx * dt;
     this.carZ += this.carVz * dt;
     const footTerrainY = getTerrainHeight(this.carX, this.carZ, this.carY, true);
+    const footBiome = getBiome(Math.floor(this.carX / CHUNK_SIZE), Math.floor(this.carZ / CHUNK_SIZE));
+    // Pedestrians use the dry sand landing; do not let the shallow tidal
+    // heightfield pull their feet below the beach surface. Water movement is
+    // handled separately once the player reaches an ocean tile.
+    const footSurfaceY = footBiome === 'beach' ? Math.max(0, footTerrainY) : footTerrainY;
     const footRoofY = this.getBuildingRoofY(this.carX, this.carZ);
-    this.carY = CAR_HEIGHT + (footRoofY > footTerrainY ? footRoofY : footTerrainY);
+    this.carY = CAR_HEIGHT + (footRoofY > footSurfaceY ? footRoofY : footSurfaceY);
     this.carSpeed = Math.sqrt(this.carVx * this.carVx + this.carVz * this.carVz);
     this.pushOutOfBuildings();
     if (!this.isInCar) this.pushPedestrianOutOfCars();

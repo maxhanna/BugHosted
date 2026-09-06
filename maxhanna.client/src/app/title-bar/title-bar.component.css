@@ -59,6 +59,7 @@
 }
 .menuButton {
   right: 53px;
+  color: var(--main-font-color);
 }
 .refreshButton {
   right: 53px;

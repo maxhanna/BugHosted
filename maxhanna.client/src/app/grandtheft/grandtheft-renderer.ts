@@ -384,6 +384,10 @@ function getBeachHeight(x: number, z: number): number {
   // ocean datum at -2.5. Smoothstep keeps both ends tangent to the adjoining
   // flat surfaces so the slope does not create a sharp crease.
   const shelfWidth = 60;
+  // Keep the playable beach surface strictly within the modeled shelf. The
+  // explicit clamp avoids negative/overshooting samples when a chunk has more
+  // than one ocean-facing edge or is sampled exactly on a chunk seam.
+  minDist = Math.max(0, Math.min(shelfWidth, minDist));
   const t = Math.max(0, Math.min(1, minDist / shelfWidth));
   const smooth = t * t * (3 - 2 * t);
   return -2.5 * (1 - smooth);
@@ -2947,7 +2951,9 @@ void main() {
     const isRural = isRuralFarm || isRuralHills || isRuralMountain || isRuralLakes || isRuralDesert;
     const blocksPerChunk = CHUNK_SIZE / GRID_PITCH;
     if (isBeach) {
-      idxOffset = this.addBeachGround(verts, indices, worldOriginX, worldOriginZ, idxOffset);
+      // Use a denser shoreline grid so the beach slope does not become a
+      // staircase that clips character feet at the sand/water boundary.
+      idxOffset = this.addBeachGround(verts, indices, worldOriginX, worldOriginZ, idxOffset, 20);
       if (isWaterAdjacent()) {
         const cx2 = cx * CHUNK_SIZE + CHUNK_SIZE / 2;
         const cz2 = cz * CHUNK_SIZE + CHUNK_SIZE / 2;
@@ -2971,6 +2977,10 @@ void main() {
               verts, indices, boundary, cz2, 'x', ddx, 0.8, 0.8,
               CHUNK_SIZE, idxOffset, 12, true
             );
+            // Two secondary foam tongues make the landing read as moving surf
+            // instead of a single hard biome line. They remain above the shared
+            // water datum and are cheap enough for mobile.
+            idxOffset = this.addShoreStrip(verts, indices, boundary, cz2 + 2.5, 'x', ddx, 1.8, 1.1, CHUNK_SIZE, idxOffset, 10, true);
           } else {
             const boundary = ddz > 0 ? (cz + 1) * CHUNK_SIZE : cz * CHUNK_SIZE;
             idxOffset = this.addShoreStrip(
@@ -2981,6 +2991,7 @@ void main() {
               verts, indices, boundary, cx2, 'z', ddz, 0.8, 0.8,
               CHUNK_SIZE, idxOffset, 12, true
             );
+            idxOffset = this.addShoreStrip(verts, indices, boundary, cx2 + 2.5, 'z', ddz, 1.8, 1.1, CHUNK_SIZE, idxOffset, 10, true);
           }
         }
         for (let i = 0; i < oceanSides.length; i++) {
