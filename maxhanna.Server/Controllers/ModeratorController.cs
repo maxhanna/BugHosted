@@ -252,10 +252,17 @@ namespace maxhanna.Server.Controllers
             JOIN maxhanna.users u ON u.id = ur.user_id
             LEFT JOIN maxhanna.user_display_pictures udp ON udp.user_id = u.id
             WHERE ur.role = 'moderator'";
-        if (request.CallerUserId != 1)
-        {
-          sql += " UNION ALL SELECT 1, 'Owner', NULL, 'admin', 'global', NULL";
-        }
+        // The site owner is always listed among the general moderators (with at
+        // minimum the site-owner role), no matter who is asking. Dedup below
+        // is first-occurrence-wins, so when the owner also holds a scoped or
+        // global role that more specific badge takes precedence; otherwise
+        // this global admin row — with the owner's real username — is what
+        // the client badges as the site owner.
+        sql += @" UNION ALL
+            SELECT u.id AS user_id, u.username, udp.file_id AS display_file_id, 'admin' AS role, 'global' AS target_type, NULL AS target_id
+            FROM maxhanna.users u
+            LEFT JOIN maxhanna.user_display_pictures udp ON udp.user_id = u.id
+            WHERE u.id = 1";
         using var cmd = new MySqlCommand(sql, conn);
         if (request.TopicId > 0) cmd.Parameters.AddWithValue("@TopicId", request.TopicId);
         if (request.ChatId is > 0) cmd.Parameters.AddWithValue("@ChatId", request.ChatId.Value);

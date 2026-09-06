@@ -357,11 +357,12 @@ function getBeachHeight(x: number, z: number): number {
       if (dist < minDist) minDist = dist;
     }
   }
-  // A broad, smooth tidal shelf: the shoreline reaches the waterline over
-  // 44 world units instead of dropping at the beach/ocean biome seam. The
-  // ocean surface sits at -2.5, so shallow water remains drivable before the
-  // vehicle gradually becomes submerged.
-  const shelfWidth = 44;
+  // A real beach is a broad tidal shelf, not a one-cell cliff. The full 60
+  // world-unit transition gives pedestrians and vehicles a visible downhill
+  // landing: dry sand at y=0, shallow water through the middle, and the deep
+  // ocean datum at -2.5. Smoothstep keeps both ends tangent to the adjoining
+  // flat surfaces so the slope does not create a sharp crease.
+  const shelfWidth = 60;
   const t = Math.max(0, Math.min(1, minDist / shelfWidth));
   const smooth = t * t * (3 - 2 * t);
   return -2.5 * (1 - smooth);
@@ -460,8 +461,11 @@ export function getTerrainHeight(x: number, z: number, currentY?: number, forceB
   if (biome === 'rural_hills' || biome === 'rural_mountain') return getMountainHeight(x, z);
   if (biome === 'beach') {
     const base = getBeachHeight(x, z);
+    // Preserve the shallow negative part of the beach shelf. Clamping this to
+    // zero made the player step from flat sand straight onto deep water even
+    // though the rendered beach already contained a smooth downward landing.
     if (isOnSidewalk(x, z)) return Math.max(base + SIDEWALK_RAISE, 0);
-    return Math.max(base, 0);  
+    return base;
   }
   if (isOnSidewalk(x, z)) return SIDEWALK_RAISE;
   return 0.0;
@@ -2870,7 +2874,9 @@ void main() {
         const cz2 = cz * CHUNK_SIZE + CHUNK_SIZE / 2;
         const dirs = [[0, 1], [0, -1], [1, 0], [-1, 0]] as const;
         const oceanSides: [number, number][] = [];
-        const slopeInward = 28;
+        // Match the terrain height field's broad tidal shelf so the visible
+      // shoreline mesh and collision/ground sampling describe one slope.
+      const slopeInward = 60;
         for (const [ddx, ddz] of dirs) {
           if (getBiome(cx + ddx, cz + ddz) !== 'ocean') continue;
           oceanSides.push([ddx, ddz]);
@@ -6047,6 +6053,49 @@ void main() {
       this.drawMesh(fireMesh, fx, 0.8, fz, 0, [s, s, s], fireColor);
     }
     gl.depthMask(true);
+    // Animate a small number of cached shore ribbons instead of allocating
+    // particles. Waves are only drawn for nearby beach chunks; mobile gets the
+    // nearest shoreline pass while desktop gets a second translucent crest.
+    const waveChunkRadius = this.isMobile ? 0 : 1;
+    const waveTime = now / 1000;
+    const waveMesh = this.getBeachWaveMesh(false);
+    const foamMesh = this.getBeachWaveMesh(true);
+    for (let waveDz = -waveChunkRadius; waveDz <= waveChunkRadius; waveDz++) {
+      for (let waveDx = -waveChunkRadius; waveDx <= waveChunkRadius; waveDx++) {
+        const waveChunkX = pcx + waveDx;
+        const waveChunkZ = pcz + waveDz;
+        if (getBiome(waveChunkX, waveChunkZ) !== 'beach') continue;
+        const waveOriginX = waveChunkX * CHUNK_SIZE;
+        const waveOriginZ = waveChunkZ * CHUNK_SIZE;
+        const waveCenterX = waveOriginX + CHUNK_SIZE / 2;
+        const waveCenterZ = waveOriginZ + CHUNK_SIZE / 2;
+        const waveSides: [number, number][] = [];
+        for (const side of [[1, 0], [-1, 0], [0, 1], [0, -1]] as [number, number][]) {
+          if (getBiome(waveChunkX + side[0], waveChunkZ + side[1]) === 'ocean') waveSides.push(side);
+        }
+        for (let sideIndex = 0; sideIndex < waveSides.length; sideIndex++) {
+          const [sideX, sideZ] = waveSides[sideIndex];
+          const boundaryX = sideX !== 0
+            ? waveOriginX + (sideX > 0 ? CHUNK_SIZE : 0)
+            : waveCenterX;
+          const boundaryZ = sideZ !== 0
+            ? waveOriginZ + (sideZ > 0 ? CHUNK_SIZE : 0)
+            : waveCenterZ;
+          const phase = waveChunkX * 0.71 + waveChunkZ * 1.13 + sideIndex * 0.9;
+          const bob = Math.sin(waveTime * 2.4 + phase) * 0.035;
+          const yaw = sideX !== 0 ? 0 : Math.PI / 2;
+          // Move the crest slightly onto the sand-facing side of the seam. It
+          // sits just above the -2.5 water plane and follows the sloped landing.
+          const shoreX = boundaryX - sideX * 1.4;
+          const shoreZ = boundaryZ - sideZ * 1.4;
+          this.drawMesh(waveMesh, shoreX, -2.43 + bob, shoreZ, yaw, [1, 1, 1], [1, 1, 1, 0.9]);
+          if (!this.isMobile) {
+            const crestBob = Math.sin(waveTime * 2.9 + phase + 1.7) * 0.028;
+            this.drawMesh(foamMesh, shoreX - sideX * 1.8, -2.39 + crestBob, shoreZ - sideZ * 1.8, yaw, [0.82, 1, 0.82], [1, 1, 1, 0.9]);
+          }
+        }
+      }
+    }
     if (this.droppedWeapons && this.droppedWeapons.length > 0) {
       const haloCore = this.getSphereMesh(0.8);
       const haloRing = this.getWeaponHaloRingMesh();
@@ -6303,6 +6352,42 @@ void main() {
       push(a0, 0, bottomRadius, 0.0); push(a0, height, topRadius, 0.9);
       push(a1, height, topRadius, 0.9); push(a1, 0, bottomRadius, 0.0);
       indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
+    }
+    const mesh = this.createMesh(verts, indices);
+    this.meshCache.set(key, mesh);
+    return mesh;
+  }
+
+  private getBeachWaveMesh(foam: boolean): CityMesh {
+    const key = foam ? 'beach_wave_foam' : 'beach_wave_water';
+    if (this.meshCache.has(key)) return this.meshCache.get(key)!;
+    const verts: number[] = [];
+    const indices: number[] = [];
+    const strips = foam ? 2 : 3;
+    const segments = 24;
+    const length = 68;
+    const stripWidth = foam ? 0.34 : 0.5;
+    const crossOffsets = foam ? [-0.42, 0.42] : [-0.95, 0, 0.95];
+    const baseColor = foam ? [0.82, 0.94, 0.92] : [0.10, 0.54, 0.78];
+    for (let strip = 0; strip < strips; strip++) {
+      const cross = crossOffsets[strip];
+      for (let i = 0; i <= segments; i++) {
+        const t = i / segments;
+        const z = -length / 2 + t * length;
+        const swell = Math.sin(t * Math.PI * 6 + strip * 1.7) * (foam ? 0.025 : 0.04);
+        const alpha = foam
+          ? 0.12 + 0.34 * (0.5 + 0.5 * Math.sin(t * Math.PI * 4 + strip))
+          : 0.16 + 0.16 * (0.5 + 0.5 * Math.sin(t * Math.PI * 3 + strip));
+        const rowStart = verts.length / 7;
+        // Generated meshes use the compact position/color layout (x, y, z,
+        // r, g, b, a); createMesh derives normals from the indexed triangles.
+        verts.push(cross - stripWidth / 2, swell, z, baseColor[0], baseColor[1], baseColor[2], alpha);
+        verts.push(cross + stripWidth / 2, swell, z, baseColor[0], baseColor[1], baseColor[2], alpha * 0.65);
+        if (i > 0) {
+          const prev = rowStart - 2;
+          indices.push(prev, rowStart, prev + 1, prev + 1, rowStart, rowStart + 1);
+        }
+      }
     }
     const mesh = this.createMesh(verts, indices);
     this.meshCache.set(key, mesh);

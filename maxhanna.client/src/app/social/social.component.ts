@@ -925,7 +925,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     if (!mod) return 'Moderator';
     if (mod.targetType === 'chat') return '🗨️ Chat Moderator';
     if (mod.targetType === 'topic') return '📌 Topic Moderator';
-    if (mod.username === 'Owner') return '👑 Owner';
+    if (mod.userId === 1 || mod.username === 'Owner') return '👑 Owner';
     return '🌐 General';
   }
   modBadgeClass(mod: any): string {
