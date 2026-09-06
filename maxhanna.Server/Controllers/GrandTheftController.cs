@@ -601,11 +601,12 @@ namespace maxhanna.Server.Controllers
 		private static readonly ConcurrentDictionary<int, double> _lastDamageTime = new();
 		private static readonly ConcurrentDictionary<int, int> _playerWantedLevels = new();
 		private static readonly ConcurrentDictionary<int, DateTime> _lastUndetectedTime = new();
-		// Wanted-level decay: after breaking sight, the heat burns off star by star.
-		// Each star drops faster than the last (low wanted levels clear quickly),
-		// so clean getaways reward staying hidden and unseen.
-		private const double WANTED_DECAY_GRACE_SECONDS = 4.0;   // no decay right after breaking sight
-		private static readonly double[] WANTED_STAR_SECONDS = { 3, 5, 8, 11, 15 }; // index = level-1: time for that star to drop
+		// Wanted-level decay: after breaking sight, heat burns off exactly one
+		// star at a time. Each star requires a full minute without any police
+		// unit seeing the player; the timer restarts after every sighting and
+		// after every individual star is removed.
+		private const double WANTED_DECAY_GRACE_SECONDS = 0.0;
+		private const double WANTED_STAR_SECONDS = 60.0;
 		// Arrest: a foot cop that catches an unarmed player up close grabs and
 		// books them instead of shooting — a short hold (grab pose) while the
 		// arrest plays out, then weapons are stripped and the player respawns
@@ -1620,8 +1621,7 @@ namespace maxhanna.Server.Controllers
 								chatMessages.Add(new { userId = m.UserId, username = m.Username, message = m.Message, timestamp = m.Timestamp });
 						}
 					}
-				}
-				int wantedLevel = 0;
+				}				int wantedLevel = 0;
 				if (_playerWantedLevels.TryGetValue(req.UserId, out var w)) wantedLevel = w;
 				if (wantedLevel > 0)
 				{
@@ -1633,14 +1633,10 @@ namespace maxhanna.Server.Controllers
 						{
 							var npc = kv.Value;
 							if (npc.DeadAt != null || npc.Health <= 0) continue;
-							if (npc.TargetUserId != req.UserId) continue;
 							if (npc.Type == "helicopter")
 							{
-								// A search heli re-spots the player from above within its sweep
-								// radius — altitude line of sight is effectively unobstructed —
-								// and radios the live position so ground units re-converge.
-								if (npc.IsPoliceHeli && npc.IsSearching &&
-									wantedLevel >= 3 &&
+								if (npc.TargetUserId != req.UserId) continue;
+								if (npc.IsPoliceHeli && npc.IsSearching && wantedLevel >= 3 &&
 									(npc.X - px) * (npc.X - px) + (npc.Z - pz) * (npc.Z - pz) < HELI_SPOT_RADIUS * HELI_SPOT_RADIUS)
 								{
 									detected = true;
@@ -1649,9 +1645,10 @@ namespace maxhanna.Server.Controllers
 								continue;
 							}
 							if (npc.Type != "police" && npc.Type != "cop") continue;
-							// A cop only counts as "detected" if it can actually see the player
-							// (vision cone + line of sight), so sneaking behind a cop starts
-							// the hidden clock instead of a telepathic 25-unit radius.
+							if (npc.Type == "police" && !npc.HasDriver) continue;
+							// Any active police unit can reset the timer, even before dispatch
+							// has assigned it a pursuit target. Actual line of sight still
+							// comes from CopSeesPlayer (range, cone, and building occlusion).
 							if (CopSeesPlayer(npc, px, pz)) { detected = true; break; }
 						}
 					}
@@ -1661,39 +1658,17 @@ namespace maxhanna.Server.Controllers
 					}
 					else if (_lastUndetectedTime.TryGetValue(req.UserId, out var last))
 					{
-						// Accelerating decay: the longer the player stays hidden and
-						// unseen, the faster each remaining star ticks down.
-						double hidden = (DateTime.UtcNow - last).TotalSeconds - WANTED_DECAY_GRACE_SECONDS;
-						if (hidden > 0)
+						// One uninterrupted hidden minute removes exactly one star. Reset
+						// the anchor so every remaining star requires another full minute.
+						if ((DateTime.UtcNow - last).TotalSeconds >= WANTED_STAR_SECONDS)
 						{
-							int lvl = wantedLevel;
-							double need = 0;
-							int drops = 0;
-							while (lvl > 0)
-							{
-								need += WANTED_STAR_SECONDS[lvl - 1];
-								if (hidden < need) break;
-								drops++;
-								lvl--;
-							}
-							if (drops > 0)
-							{
-								int newWanted = Math.Max(0, wantedLevel - drops);
-								_playerWantedLevels[req.UserId] = newWanted;
-								// Fully clean — drop the hidden-time anchor so a later crime
-								// never inherits this episode's hidden seconds, and stand down
-								// any search heli still sweeping the area.
+							int newWanted = Math.Max(0, wantedLevel - 1);
+							_playerWantedLevels[req.UserId] = newWanted;
+							_lastUndetectedTime[req.UserId] = DateTime.UtcNow;
 							if (newWanted == 0)
 							{
-								// Full escape: line of sight broken and the last star burned
-								// off — the assault is forgotten. Drop the last-known anchor
-								// so nothing re-dispatches to the old scene and release any
-								// search heli; dispatched cruisers linger and patrol the old
-							// scene for a short while before standing down to patrol.
-							// Getting the heat to burn all the way off = a clean escape.
-							_playerEscapes[req.UserId] = (_playerEscapes.TryGetValue(req.UserId, out var pe) ? pe : 0) + 1;
-							ForgetPlayerCrime(req.UserId, req.WorldId, linger: true);
-							}
+								_playerEscapes[req.UserId] = (_playerEscapes.TryGetValue(req.UserId, out var pe) ? pe : 0) + 1;
+								ForgetPlayerCrime(req.UserId, req.WorldId, linger: true);
 							}
 						}
 					}
@@ -1701,13 +1676,10 @@ namespace maxhanna.Server.Controllers
 					{
 						_lastUndetectedTime[req.UserId] = DateTime.UtcNow;
 					}
-					// When ground pursuit is broken, a heli is dispatched to sweep the
-					// last known area from above — it can still re-spot the player.
 					if (!detected) MaybeDispatchSearchHelicopter(req.UserId, req.WorldId, DateTime.UtcNow);
-					// Reflect any decayed value in this poll's response so the client's
-					// HUD stars tick down immediately rather than a poll later.
 					if (_playerWantedLevels.TryGetValue(req.UserId, out var w2)) wantedLevel = w2;
 				}
+
 				var players = new List<object>();
 				var cutoffTime = DateTime.UtcNow.AddSeconds(-INACTIVITY_TIMEOUT_SECONDS);
 				foreach (var kv in _lastSeen)
@@ -4474,6 +4446,7 @@ namespace maxhanna.Server.Controllers
 			}
 			var hitAnything = false;
 			bool hitNpc = false;
+			bool hitPoliceVehicle = false;
 			bool targetDied = false;
 			float deathX = 0, deathZ = 0;
 			int targetHealthResult = 0;
@@ -4508,6 +4481,10 @@ namespace maxhanna.Server.Controllers
 						victimIsPed = isPedTarget;
 						bool isCopTarget = kv.Value.Type == "cop" || kv.Value.Type == "police";
 						bool isAircraftTarget = kv.Value.Type == "helicopter" || kv.Value.Type == "plane";
+						if (kv.Value.Type == "police" && req.Weapon != 0 && req.AttackerId > 0)
+						{
+							hitPoliceVehicle = true;
+						}
 						if (req.Weapon == 0 && isPedTarget && !isCopTarget && req.AttackerId > 0)
 						{
 							kv.Value.TargetUserId = req.AttackerId;
@@ -4667,13 +4644,16 @@ namespace maxhanna.Server.Controllers
 			if (hitAnything && req.AttackerId > 0 && (req.Weapon != 0 || !hitNpc || targetDied || witnessedByCop))
 			{
 				if (_playerWantedLevels.TryGetValue(req.AttackerId, out var w))
-					_playerWantedLevels[req.AttackerId] = Math.Min(5, w + 1);
+					_playerWantedLevels[req.AttackerId] = hitPoliceVehicle ? Math.Max(2, Math.Min(5, w + 1)) : Math.Min(5, w + 1);
 				else
-					_playerWantedLevels[req.AttackerId] = 1;
+					_playerWantedLevels[req.AttackerId] = hitPoliceVehicle ? 2 : 1;
+				// The concealment clock starts at the instant the police vehicle is
+				// hit, not when the next position poll happens.
 				_lastUndetectedTime[req.AttackerId] = DateTime.UtcNow;
 				_playerLastKnown[req.AttackerId] = (req.AttackerX, req.AttackerZ, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
 			}
-			return Ok(new { ok = true, hit = hitAnything, targetHealth = targetHealthResult, targetDied = targetDied });
+			int responseWanted = req.AttackerId > 0 && _playerWantedLevels.TryGetValue(req.AttackerId, out var responseLevel) ? responseLevel : 0;
+			return Ok(new { ok = true, hit = hitAnything, targetHealth = targetHealthResult, targetDied = targetDied, wantedLevel = responseWanted });
 		}
 		[HttpPost("robbery")]
 		public IActionResult Robbery([FromBody] GTRobberyRequest req)

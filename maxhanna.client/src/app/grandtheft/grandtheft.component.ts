@@ -470,10 +470,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private meleeAttack: 'punch' | 'kick' = 'punch';
   health = 100;
   wantedLevel = 0;
-  // Keep police heat active long enough for the pursuit to feel intentional.
-  // The server remains authoritative; this timer only controls local decay.
+  // The server is authoritative for wanted decay. This local value is only a
+  // visual fallback between polls and must never clear stars before the server
+  // confirms that the player has been hidden from every police unit.
   private wantedDecayTimer = 0;
-  private static readonly WANTED_DECAY_DELAY_SECONDS = 45;
+  private static readonly WANTED_DECAY_DELAY_SECONDS = 60;
   private hasNearbyPolice(): boolean {
     const rangeSq = 28 * 28;
     const isPolice = (entity: any) => entity && entity.health > 0 && (entity.type === 'police' || entity.type === 'cop' || entity.isPolice === true || entity.isCop === true);
@@ -3190,6 +3191,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.wantedPopTimer = 0.7;
   }
   private checkBulletHit(ox: number, oy: number, oz: number, dx: number, dy: number, dz: number, maxRange: number = 50) {
+    const reportedPoliceHits = new Set<number>();
     const checkTargets = (list: any[], isPlayer: boolean) => {
       for (const t of list) {
         const tx = t.posX || t.x;
@@ -3234,6 +3236,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
               t.playerDamage = Math.min(t.maxHealth, (t.playerDamage ?? 0) + dmg);
               if (wasAlive && t.health <= 0) t.killedByPlayer = true;
             }
+            if (t.type === 'police') reportedPoliceHits.add(t.id);
             this.gtService.hit(this.getUserId(), t.id, 1, dmg, ox, oz, this.currentWeapon);
             if (region === 'head' || region === 'legs') {
               this.npcImpactReactions.set(t.id, {
@@ -3292,14 +3295,21 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     // world until their actual health reaches zero.
     const policeCars = [...this.serverNPCs, ...this.parkedCars].filter(v => v.type === 'police' && v.health > 0);
     for (const police of policeCars) {
+      if (reportedPoliceHits.has(police.id)) continue;
       const vx = police.x - ox, vz = police.z - oz;
       const proj = vx * dx + vz * dz;
       if (proj < 0 || proj > maxRange) continue;
       const closestX = ox + dx * proj, closestZ = oz + dz * proj;
       if (Math.hypot(police.x - closestX, police.z - closestZ) > 2.2) continue;
       if (this.wantedLevel < 2) this.wantedLevel = 2;
+      // The server starts the authoritative 60-second hidden interval when the
+      // hit is accepted. Keep the fallback armed until that poll arrives.
       this.wantedDecayTimer = GrandTheftComponent.WANTED_DECAY_DELAY_SECONDS;
       this.wantedPopTimer = 0.8;
+      // Report the vehicle impact as a witnessed weapons crime. This keeps the
+      // wanted level and concealment clock authoritative even when the shot
+      // clips the cruiser body without hitting its driver.
+      this.gtService.hit(this.getUserId(), police.id, 1, 1, ox, oz, this.currentWeapon);
       this.savePlayerState();
       break;
     }
@@ -4390,26 +4400,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
     if (this.murderFlashTimer > 0) this.murderFlashTimer -= dt;
     if (this.murderFlashAlpha > 0) this.murderFlashAlpha = Math.max(0, this.murderFlashAlpha - dt * 1.4);
-    if (this.wantedPopTimer > 0) this.wantedPopTimer -= dt;
-    // Do not let wanted stars vanish immediately after the last crime. Resetting
-    // this timer whenever a crime is reported gives police a meaningful pursuit
-    // window while still allowing heat to clear naturally when the player hides.
-    if (this.wantedLevel > 0) {
-      // Nearby police maintain active visual contact; wanted stars must not
-      // decay while an officer or cruiser is within the pursuit bubble.
-      if (this.hasNearbyPolice()) {
-        this.wantedDecayTimer = GrandTheftComponent.WANTED_DECAY_DELAY_SECONDS;
-      } else {
-        this.wantedDecayTimer = Math.max(0, this.wantedDecayTimer - dt);
-      }
-      if (this.wantedDecayTimer === 0) {
-        this.wantedLevel = Math.max(0, this.wantedLevel - 1);
-        this.wantedDecayTimer = this.wantedLevel > 0 ? GrandTheftComponent.WANTED_DECAY_DELAY_SECONDS : 0;
-        this.savePlayerState();
-      }
-    } else {
-      this.wantedDecayTimer = 0;
-    }
+    if (this.wantedPopTimer > 0) this.wantedPopTimer -= dt;    // Wanted decay is intentionally server-authoritative. The server checks
+    // actual police line of sight and removes only one star after 60 seconds of
+    // uninterrupted concealment. Do not run a second client-side proximity
+    // countdown: it could erase stars early or disagree with the server.
+    if (this.wantedLevel <= 0) this.wantedDecayTimer = 0;
     for (const v of [...this.serverNPCs, ...this.parkedCars, ...this.trafficCars]) {
       if (v.health <= 0 && !this.deadNPCIds.has(v.id)) {
         this.deadNPCIds.add(v.id);

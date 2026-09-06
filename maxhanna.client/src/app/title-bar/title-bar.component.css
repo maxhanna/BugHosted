@@ -37,6 +37,36 @@
   pointer-events: none;
 }
 
+/* Same rescue as .closeButton above: the menu/refresh/help controls are empty
+   elements whose visible icon lives in ::before (globally pointer-events:
+   none), so each needs its own positioned hit box or taps fall through and
+   the control is dead. Positions mirror the old ::before geometry. */
+.menuButton,
+.refreshButton,
+.helpButton {
+  position: absolute;
+  top: 0;
+  width: 50px;
+  height: 46px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  z-index: 2;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.menuButton {
+  right: 53px;
+}
+.refreshButton {
+  right: 53px;
+}
+.helpButton {
+  right: 103px;
+}
+
 .titleUserLink {
   cursor: pointer;
   color: #8ab4ff;
