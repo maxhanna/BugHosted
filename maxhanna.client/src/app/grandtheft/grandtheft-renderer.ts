@@ -3859,6 +3859,10 @@ void main() {
           const bb = modelWorldAABB(model, px, pz, scale, yaw);
           if (!bb || overlapsExisting(bb)) return false;
           placedAABBs.push(bb);
+          // Keep accepted bounds in the cross-chunk registry too. The special
+          // convenience-store pass runs after gas stations and must see their
+          // footprint, otherwise a store and its pumps can occupy the same spot.
+          globalPlacedAABBs.push(bb);
           return true;
         };
         const nativeBounds = (model: CityMesh | CityMesh[]) => {
@@ -4251,7 +4255,12 @@ void main() {
         const storeBounds = { minX: sx - 16, maxX: sx + 16, minZ: sz - 14, maxZ: sz + 16 };
         const occupied = Array.from(this.buildingOccupancyByChunk.values()).flat();
         const overlapsStore = occupied.some(bb => storeBounds.minX - 2 < bb.maxX && storeBounds.maxX + 2 > bb.minX && storeBounds.minZ - 2 < bb.maxZ && storeBounds.maxZ + 2 > bb.minZ);
-        if (!overlapsStore) {
+        // A convenience store is never allowed to share a footprint with a
+        // gas station. Besides looking wrong, that would put explosive pumps
+        // inside the shop and make shooting the cashier detonate the forecourt.
+        const gasStationInChunk = buildings.some(b => b.model && b.model.length > 0
+          && b.model[0].carName?.includes('gas_station'));
+        if (!overlapsStore && !gasStationInChunk) {
           buildings.push({ model: store, x: sx, y: 0.15, z: sz, yaw: 0, scale: storeScale });
           const localOccupancy = this.buildingOccupancyByChunk.get(key) ?? [];
           localOccupancy.push(storeBounds);

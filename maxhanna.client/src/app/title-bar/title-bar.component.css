@@ -67,6 +67,16 @@
   right: 103px;
 }
 
+/* The buttons above now own their hit boxes, so their icons must draw inside
+   the button — not at the old global offsets (which are relative to the
+   button now and would shove the glyphs left over their neighbors). */
+.menuButton::before,
+.refreshButton::before,
+.helpButton::before {
+  left: 0;
+  right: 0;
+}
+
 .titleUserLink {
   cursor: pointer;
   color: #8ab4ff;

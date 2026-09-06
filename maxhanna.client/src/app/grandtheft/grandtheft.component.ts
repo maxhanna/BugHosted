@@ -5926,23 +5926,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (this.inStore) {
       // Keep the robbery target alive until the register has actually been
       // robbed; only the post-robbery panic animation may remove the cashier.
-      if (!this.storeCashier) {
-        const sinY = Math.sin(this.inStore.yaw), cosY = Math.cos(this.inStore.yaw);
-        const regX = this.getStoreRegisterX(this.inStore), regZ = this.getStoreRegisterZ(this.inStore);
-        const cashierId = --this.pedIdCounter;
-        this.storeCashier = {
-          id: cashierId,
-          x: regX + sinY * 1.15,
-          z: regZ + cosY * 1.15,
-          yaw: this.inStore.yaw + Math.PI,
-          gender: (Math.abs(Math.floor(this.inStore.x * 31 + this.inStore.z * 17)) % 2) === 0 ? 'female' : 'male',
-          mesh: this.renderer.getPedestrianMesh('male', cashierId),
-          speed: 0,
-          panicUntil: 0,
-          doorX: this.inStore.doorX,
-          doorZ: this.inStore.doorZ
-        };
-      }
+      this.ensureStoreCashier(this.inStore);
       const st = this.inStore;
       const regX = this.getStoreRegisterX(st), regZ = this.getStoreRegisterZ(st);
       const regDx = this.carX - regX, regDz = this.carZ - regZ;
@@ -5983,6 +5967,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       }
     }
     this._nearStore = best;
+    // The cashier is a real visible NPC at the register even before the player
+    // enters. It is kept only for nearby shops, so distant stores do not add a
+    // persistent local entity or extra render work.
+    if (best?.isConvenience && bestD < 45) this.ensureStoreCashier(best);
+    else if (!this.inStore && this.storeCashier) this.storeCashier = null;
     // Convenience stores are open-front interiors. Enter continuously as the
     // player crosses the actual doorway; there is no E prompt and, importantly,
     // enterStore() does not relocate the player. The local doorway gate keeps
@@ -5994,6 +5983,27 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
     this.nearStoreDoor = !!best && bestD < STORE_ENTER_DIST;
   }
+  /** Keep one deterministic cashier positioned behind the convenience-store register. */
+  private ensureStoreCashier(sm: { x: number; z: number; yaw: number; hd: number; doorX: number; doorZ: number; key: string; isConvenience?: boolean }): void {
+    if (!sm.isConvenience || this.storeCashier) return;
+    const sinY = Math.sin(sm.yaw), cosY = Math.cos(sm.yaw);
+    const cashierId = --this.pedIdCounter;
+    const cashierGender = (Math.abs(Math.floor(sm.x * 31 + sm.z * 17)) % 2) === 0 ? 'female' : 'male';
+    const regX = this.getStoreRegisterX(sm), regZ = this.getStoreRegisterZ(sm);
+    this.storeCashier = {
+      id: cashierId,
+      x: regX + sinY * 1.15,
+      z: regZ + cosY * 1.15,
+      yaw: sm.yaw + Math.PI,
+      gender: cashierGender,
+      mesh: this.renderer.getPedestrianMesh(cashierGender, cashierId),
+      speed: 0,
+      panicUntil: 0,
+      doorX: sm.doorX,
+      doorZ: sm.doorZ,
+    };
+  }
+
   /** True when the player is crossing the open, front-facing convenience-store doorway. */
   private isAtConvenienceStoreDoor(sm: { x: number; z: number; yaw: number; isConvenience?: boolean }): boolean {
     if (!sm.isConvenience) return false;
@@ -6034,31 +6044,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.camHeight = STORE_INTERIOR_CAM_HEIGHT;
     this.nearStoreDoor = false;
     this.nearStoreExit = false;
-    // Spawn the cashier behind the register (at the checkout counter, not in the
-    // aisles), facing the register. It stays put until the register is stuck
-    // up, then sprints for the door.
-    const cashierId = --this.pedIdCounter;
-    // The cashier is deterministic for this store during the session, so the
-    // register never appears empty after a routine polling/render update.
-    const cashierGender = (Math.abs(Math.floor(sm.x * 31 + sm.z * 17)) % 2) === 0 ? 'female' : 'male';
-    // The store interior lies opposite the street-facing front, so the cashier
-    // stands just inside the counter on the far side from the aisle.
-    const sinY = Math.sin(sm.yaw), cosY = Math.cos(sm.yaw);
-    const regX = this.getStoreRegisterX(sm), regZ = this.getStoreRegisterZ(sm);
-    this.storeCashier = {
-      id: cashierId,
-      // Keep the cashier physically behind the checkout counter, rather than
-      // in the aisle or on top of the player interaction point.
-      x: regX + sinY * 1.15,
-      z: regZ + cosY * 1.15,
-      yaw: sm.yaw + Math.PI,
-      gender: cashierGender,
-      mesh: this.renderer.getPedestrianMesh(cashierGender, cashierId),
-      speed: 0,
-      panicUntil: 0,
-      doorX: sm.doorX,
-      doorZ: sm.doorZ,
-    };
+    // The cashier is placed behind the register, never in an aisle.
+    this.ensureStoreCashier(sm);
   }
   private leaveStore() {
     if (!this.inStore) return;
@@ -6066,9 +6053,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const st = this.inStore;
     this.inStore = null;
     this.storeCashier = null;
-    this.carX = st.doorX - Math.sin(st.yaw) * 1.5;
-    this.carZ = st.doorZ - Math.cos(st.yaw) * 1.5;
-    this.carYaw = st.yaw + Math.PI; // face the street
+    // Leave at the player's current position. Exiting an open shop is a normal
+    // walk across the doorway, not a teleport to a preset exterior coordinate.
     this._storeLeaveUntil = Date.now() + 1500;
     this.carVx = 0; this.carVz = 0; this.carSpeed = 0;
     this.camDist = this._savedCamDist || 4;

@@ -187,6 +187,14 @@ fieldset {
   right: 0px;
 }
 
+/* Popup-panel text buttons project a ❌ at the panel's top-right via the
+   rule above. That phantom X must stay tappable (a tap on it fires its own
+   button's click); without this it falls through to the panel beneath and
+   the panel can only be closed from the bottom button or the backdrop. */
+.popupPanel .closeButton::before {
+  pointer-events: auto;
+}
+
 .refreshButton:active::before,
 .closeButton:active::before,
 .menuButton:active::before,

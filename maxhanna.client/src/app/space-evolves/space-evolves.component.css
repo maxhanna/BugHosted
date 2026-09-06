@@ -412,10 +412,6 @@
     box-shadow: 0 0 45px #03111f
 }
 
-.upgrade-card {
-    height: 300px;
-}
-
 .upgrade-card h2,
 .gameover-card h2,
 .pause-card h2 {
@@ -568,8 +564,13 @@
     }
 }
 
-@media only screen and (max-width : 667px) {
+@media only screen and (max-width : 850px) {
     .upgrade-card {
-        max-height: 550px !important;
+        height: 550px;
+    }
+}
+@media only screen and (min-width : 850px) {
+    .upgrade-card {
+        height: 300px;
     }
 }
