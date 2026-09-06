@@ -78,6 +78,17 @@ public sealed class SpaceEvolvesController : ControllerBase
         return Ok();
     }
 
+    [HttpGet("activeplayers")]
+    public async Task<IActionResult> ActivePlayers()
+    {
+        await using var connection = new MySqlConnection(_connectionString);
+        await connection.OpenAsync();
+        const string sql = "SELECT COUNT(*) FROM space_evolves_runs WHERE active=1 AND updated_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 MINUTE)";
+        await using var command = new MySqlCommand(sql, connection);
+        var count = Convert.ToInt32(await command.ExecuteScalarAsync());
+        return Ok(new { count });
+    }
+
     [HttpGet("highscores")]
     public async Task<IActionResult> HighScores([FromQuery] int limit = 10)
     {

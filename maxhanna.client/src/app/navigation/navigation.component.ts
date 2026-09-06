@@ -29,6 +29,7 @@ import { UserTheme } from '../../services/datacontracts/chat/chat-theme';
 import { DigcraftService } from '../../services/digcraft.service';
 import { GrandtheftService } from '../../services/grandtheft.service';
 import { RacingService } from '../../services/racing.service';
+import { SpaceEvolvesService } from '../../services/space-evolves.service';
 
 @Component({
   selector: 'app-navigation',
@@ -48,6 +49,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   private enderInterval: any;
   grandtheftActivePlayers: number | null = null;
   racingActivePlayers: number | null = null;
+  spaceEvolvesActivePlayers: number | null = null;
   digcraftActivePlayers: number | null = null;
   private digcraftInterval: any;
   bonesActivePlayers: number | null = null;
@@ -107,6 +109,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   isLoadingBones = false;
   isLoadingGrandTheft = false;
   isLoadingRacing = false;
+  isLoadingSpaceEvolves = false;
   isLoadingDigcraft = false;
   isLoadingNexus = false;
   isLoadingEmulator = false;
@@ -167,6 +170,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     private grandTheftService: GrandtheftService,
     private digcraftService: DigcraftService,
     private racingService: RacingService,
+    private spaceEvolvesService: SpaceEvolvesService,
     private newsService: NewsService) { }
 
   async ngOnInit() {
@@ -734,6 +738,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       Promise.resolve(this.getBonesPlayerInfo()),
       Promise.resolve(this.getGrandTheftPlayerInfo()),
       Promise.resolve(this.getRacingPlayerInfo()),
+      Promise.resolve(this.getSpaceEvolvesPlayerInfo()),
       Promise.resolve(this.getDigcraftPlayerInfo()),
       Promise.resolve(this.getMovieInfo())
     ].map(p =>
@@ -772,6 +777,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.scheduleRecurring('digcraft', () => { if (this._parent.notificationsActive) this.getDigcraftPlayerInfo(); }, this.time60Secs);
     this.scheduleRecurring('grandTheft', () => { if (this._parent.notificationsActive) this.getGrandTheftPlayerInfo(); }, this.time60Secs);
     this.scheduleRecurring('racing', () => { if (this._parent.notificationsActive) this.getRacingPlayerInfo(); }, this.time60Secs);
+    this.scheduleRecurring('spaceEvolves', () => { if (this._parent.notificationsActive) this.getSpaceEvolvesPlayerInfo(); }, this.time60Secs);
     this.scheduleRecurring('nexus', () => { if (this._parent.notificationsActive) this.getNexusPlayerInfo(); }, this.time60Secs);
     this.scheduleRecurring('meta', () => { if (this._parent.notificationsActive) this.getMetaPlayerInfo(); }, this.time60Secs);
     this.scheduleRecurring('music', () => { if (this._parent.notificationsActive) this.getMusicInfo(); }, this.time60Mins);
@@ -1467,6 +1473,24 @@ export class NavigationComponent implements OnInit, OnDestroy {
     }
     this.isLoadingRacing = false;
     this.updateLastRunTimestamp('racing');
+  }
+
+  private async getSpaceEvolvesPlayerInfo() {
+    const sig = this._abortController.signal;
+    if (sig.aborted || !this._parent.notificationsActive) return;
+    if (this._parent.lastRunTimestamps['spaceEvolves'] && Date.now() - this._parent.lastRunTimestamps['spaceEvolves'] < this.time60Secs) return;
+    this.isLoadingSpaceEvolves = true;
+    const nav = this._parent.navigationItems.find(x => x.title === 'Space: Evolves');
+    if (nav && this.hasUserSelectedNavItem('Space: Evolves')) {
+      try {
+        this.spaceEvolvesActivePlayers = await this.spaceEvolvesService.getActivePlayers(sig);
+        nav.content = (this.spaceEvolvesActivePlayers ?? 0).toString();
+      } catch {
+        this.spaceEvolvesActivePlayers = null;
+      }
+    }
+    this.isLoadingSpaceEvolves = false;
+    this.updateLastRunTimestamp('spaceEvolves');
   }
 
   private async getDigcraftPlayerInfo() {

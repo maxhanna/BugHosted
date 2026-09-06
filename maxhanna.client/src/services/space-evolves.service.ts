@@ -51,6 +51,15 @@ export class SpaceEvolvesService {
     } catch { return false; }
   }
 
+  async getActivePlayers(signal?: AbortSignal): Promise<number | null> {
+    try {
+      const response = await fetch('/spaceevolves/activeplayers', { signal });
+      if (!response.ok) return null;
+      const result = await response.json();
+      return typeof result === 'number' ? result : Number(result?.count ?? 0);
+    } catch { return null; }
+  }
+
   async getHighScores(limit = 10): Promise<any[]> {
     try {
       const response = await fetch(`/spaceevolves/highscores?limit=${Math.max(1, Math.min(100, limit))}`);

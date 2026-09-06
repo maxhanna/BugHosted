@@ -1440,6 +1440,12 @@ namespace maxhanna.Server.Controllers
     	JOIN maxhanna.grandtheft_player_state gtps ON gtps.user_id = u.id
     	WHERE gtps.last_seen >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 MINUTE)
     	GROUP BY u.id
+    	UNION
+    	SELECT u.id AS userId, u.username AS username, 'space-evolves' AS game, MAX(sr.updated_at) AS lastActivity
+    	FROM maxhanna.users u
+    	JOIN maxhanna.space_evolves_runs sr ON sr.user_id = u.id
+    	WHERE sr.active = 1 AND sr.updated_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 MINUTE)
+    	GROUP BY u.id
     ) t
     LEFT JOIN maxhanna.users u ON u.id = t.userId
     LEFT JOIN maxhanna.user_display_pictures dp ON dp.user_id = u.id
