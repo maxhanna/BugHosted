@@ -138,7 +138,13 @@ this.frame=requestAnimationFrame(this.loop);};private checkUserSwitch(){const ui
     else if(this.fastFrames>=240&&this.frameDetail<2){this.frameDetail++;this.fastFrames=0;this.detailCooldown=2;}
   }
   private updateBackgroundShips(dt:number){
-    this.backgroundShipTimer-=dt;\n    if(this.backgroundShipTimer<=0&&this.backgroundShips.length<3){\n      const fromLeft=Math.random()<.5, y=.12+Math.random()*.34, size=.012+Math.random()*.012, speed=.035+Math.random()*.025;\n      this.backgroundShips.push({x:fromLeft?-.12:1.12,y,vx:fromLeft?speed:-speed,size,life:0,maxLife:24,angle:fromLeft?0:Math.PI,enemy:Math.random()<.5,phase:Math.random()*Math.PI*2});\n      this.backgroundShipTimer=7+Math.random()*8;\n    }\n    for(let i=this.backgroundShips.length-1;i>=0;i--){const ship=this.backgroundShips[i];ship.x+=ship.vx*dt;ship.life+=dt;if(ship.life>ship.maxLife||ship.x<-.18||ship.x>1.18)this.backgroundShips.splice(i,1);}
+    this.backgroundShipTimer-=dt;
+    if(this.backgroundShipTimer<=0&&this.backgroundShips.length<3){
+      const fromLeft=Math.random()<.5, y=.12+Math.random()*.34, size=.012+Math.random()*.012, speed=.035+Math.random()*.025;
+      this.backgroundShips.push({x:fromLeft?-.12:1.12,y,vx:fromLeft?speed:-speed,size,life:0,maxLife:24,angle:fromLeft?0:Math.PI,enemy:Math.random()<.5,phase:Math.random()*Math.PI*2});
+      this.backgroundShipTimer=7+Math.random()*8;
+    }
+    for(let i=this.backgroundShips.length-1;i>=0;i--){const ship=this.backgroundShips[i];ship.x+=ship.vx*dt;ship.life+=dt;if(ship.life>ship.maxLife||ship.x<-.18||ship.x>1.18)this.backgroundShips.splice(i,1);}
   }
   private updateBackgroundClouds(dt:number){
     if(!this.backgroundCloudsReady){this.backgroundCloudsReady=true;for(let i=0;i<7;i++){const x=.08+((i*37)%84)/100,y=.12+((i*61)%72)/100;this.backgroundClouds.push({x,y,vx:0,vy:0,homeX:x,homeY:y,radius:.09+((i*17)%8)/100,mass:1+i*.12,seed:i*2.7});}}
