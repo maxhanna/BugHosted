@@ -4150,6 +4150,21 @@ void main() {
         }
       }
     }
+    // Bridge chunks deliberately contain only the bridge structure, but large
+    // authored buildings can still spill into the bridge corridor from a
+    // neighboring streamed chunk. Remove those placements here as a final
+    // guard so nothing can occupy the space beneath a deck or its approaches.
+    const bridgeClearance = (ROAD_HALF_WIDTH * 2 + 10) / 2 + 2;
+    const bridgeStartX = (br: BridgeDef) => (br.startCx - 1) * CHUNK_SIZE;
+    const bridgeEndX = (br: BridgeDef) => (br.endCx + 2) * CHUNK_SIZE;
+    const underBridge = (x: number, z: number) => BRIDGE_RANGES.some(br => {
+      const roadCenterZ = br.startCz * CHUNK_SIZE;
+      return x >= bridgeStartX(br) && x <= bridgeEndX(br)
+        && Math.abs(z - roadCenterZ) <= bridgeClearance;
+    });
+    for (let i = buildings.length - 1; i >= 0; i--) {
+      if (underBridge(buildings[i].x, buildings[i].z)) buildings.splice(i, 1);
+    }
     const INTERSECTION_CLEAR_RADIUS = ROAD_HALF_WIDTH + 2;
     const distanceToNearestGridNode = (x: number, z: number) => {
       const nx = Math.round(x / 80) * 80;
