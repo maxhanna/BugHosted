@@ -126,6 +126,38 @@ export interface ResolvedGlobePing {
   country?: string;
 }
 
+const OCEANS_AND_LAKES: ReadonlyArray<{ name: string; type: 'ocean' | 'lake'; lat: number; lon: number }> = [
+  { name: 'Pacific Ocean', type: 'ocean', lat: 0, lon: -160 },
+  { name: 'Atlantic Ocean', type: 'ocean', lat: 15, lon: -35 },
+  { name: 'Indian Ocean', type: 'ocean', lat: -20, lon: 80 },
+  { name: 'Southern Ocean', type: 'ocean', lat: -60, lon: 0 },
+  { name: 'Arctic Ocean', type: 'ocean', lat: 85, lon: 0 },
+  { name: 'Caspian Sea', type: 'lake', lat: 41.8, lon: 50.5 },
+  { name: 'Lake Superior', type: 'lake', lat: 47.7, lon: -87.5 },
+  { name: 'Lake Victoria', type: 'lake', lat: -1, lon: 33 },
+  { name: 'Lake Huron', type: 'lake', lat: 44.8, lon: -82.4 },
+  { name: 'Lake Michigan', type: 'lake', lat: 44, lon: -87 },
+  { name: 'Lake Tanganyika', type: 'lake', lat: -6.1, lon: 29.5 },
+  { name: 'Lake Baikal', type: 'lake', lat: 53.5, lon: 108 },
+  { name: 'Great Bear Lake', type: 'lake', lat: 66, lon: -121 },
+  { name: 'Lake Malawi', type: 'lake', lat: -12.2, lon: 34.4 },
+  { name: 'Great Slave Lake', type: 'lake', lat: 61.7, lon: -114 },
+  { name: 'Lake Erie', type: 'lake', lat: 42.2, lon: -81.2 },
+  { name: 'Lake Winnipeg', type: 'lake', lat: 52.1, lon: -98.8 },
+  { name: 'Lake Ontario', type: 'lake', lat: 43.7, lon: -77.9 },
+  { name: 'Lake Ladoga', type: 'lake', lat: 60.8, lon: 31 },
+  { name: 'Lake Onega', type: 'lake', lat: 61.7, lon: 35.5 },
+  { name: 'Lake Titicaca', type: 'lake', lat: -15.8, lon: -69.4 },
+  { name: 'Lake Nicaragua', type: 'lake', lat: 11.6, lon: -85.4 },
+  { name: 'Lake Turkana', type: 'lake', lat: 3.5, lon: 36 },
+  { name: 'Lake Maracaibo', type: 'lake', lat: 9.8, lon: -71.5 },
+  { name: 'Aral Sea', type: 'lake', lat: 45, lon: 59 },
+  { name: 'Lake Balkhash', type: 'lake', lat: 46.2, lon: 75.5 },
+  { name: 'Lake Chad', type: 'lake', lat: 13, lon: 14 },
+  { name: 'Dead Sea', type: 'lake', lat: 31.5, lon: 35.5 },
+  { name: 'Qinghai Lake', type: 'lake', lat: 37, lon: 100.2 },
+];
+
 // Ping type colors array - keeps all colors in one place for easy maintenance
 const pingTypeColors = [
   '255, 80, 80',      // Story (red)
@@ -168,6 +200,9 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   showCityCoords = false;
   showCountryCoords = false;
   showTownCoords = false;
+  showWaterPins = false;
+  readonly OCEANS_AND_LAKES = OCEANS_AND_LAKES;
+  generalTab: 'locations' | 'water' = 'locations';
   searchQuery: string = '';
   filteredCityCoords: Record<string, [number, number]> = {};
   filteredTownCoords: Record<string, [number, number]> = {};
@@ -874,7 +909,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.selectedClusterPings.filter(ping => {
       if (ping.source !== 'custom') return false;
       const d = ping.data as any;
-      return d && ['city', 'town', 'country'].includes(d.type);
+      return d && ['city', 'town', 'country', 'ocean', 'lake'].includes(d.type);
     });
   }
 
@@ -1574,6 +1609,20 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
           zoom: 70,
           source: 'custom',
           data: { type: 'town', name: town },
+        });
+      }
+    }
+
+    if (this.showWaterPins) {
+      for (const body of OCEANS_AND_LAKES) {
+        coordPings.push({
+          id: `${body.type}:${body.name}`,
+          lat: body.lat,
+          lon: body.lon,
+          label: body.name,
+          zoom: body.type === 'ocean' ? 35 : 62,
+          source: 'custom',
+          data: { type: body.type, name: body.name },
         });
       }
     }

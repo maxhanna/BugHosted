@@ -277,8 +277,8 @@ export class SpaceEvolvesComponent extends ChildComponent implements AfterViewIn
       this.effects.push({ x: x + (Math.random() - .5) * scale * .7, y: y + (Math.random() - .5) * scale * .7, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: l, maxLife: l, size: .016, color: i % 4 === 0 ? '#ffffff' : col, kind: 'edge', len: scale * (.35 + Math.random() * .5), angle: Math.random() * Math.PI * 2, spin: (Math.random() - .5) * 10 });
     }
   }
-  private damageBug(b: SpaceBug, d: number) { const oldSegs = b.segments; b.hp = Math.max(0, b.hp - d); b.segments = Math.max(0, Math.ceil(b.hp / (b.maxHp / Math.max(1, b.maxSegments)))); if (b.segments < oldSegs) { const t = performance.now() / 1000, spin = this.twistAngle(b, t); for (let i = b.segments; i < oldSegs; i++) { const u = oldSegs === 1 ? 0 : i / (oldSegs - 1) - .5, nx = Math.cos(spin + u * 2.8) * b.size * u * 1.55, ny = Math.sin(spin + u * 2.8) * b.size * u * .65; this.shatterUnit(b.x + nx, b.y + ny, b.size * (b.boss ? .66 : .5), this.bugColor(b), b.boss ? 12 : 9); } } } private killBug(i: number) {
-    const b = this.bugs[i]; if (!b) return; const t = performance.now() / 1000, spin = this.twistAngle(b, t), n = Math.max(1, b.segments); for (let s = 0; s < n; s++) { const u = n === 1 ? 0 : s / (n - 1) - .5, nx = Math.cos(spin + u * 2.8) * b.size * u * 1.55, ny = Math.sin(spin + u * 2.8) * b.size * u * .65; this.shatterUnit(b.x + nx, b.y + ny, b.size * (b.boss ? .66 : .5) * 1.3, this.bugColor(b), b.boss ? 10 : 8); } this.bugs.splice(i, 1); if (b.boss) { this.bossActive = false; this.wave++; this.waveKills = 0;      this.experience += this.experienceForBoss() + this.stats.expPerWave; return; } if (!b.ally) this.score += 10 * this.wave; if (!b.fragment && !b.ally) this.waveKills++;// Splitter fragments never count toward the wave quota — otherwise each
+  private damageBug(b: SpaceBug, d: number) { const oldSegs = b.segments; b.hp = Math.max(0, b.hp - d); b.segments = Math.max(0, Math.ceil(b.hp / (b.maxHp / Math.max(1, b.maxSegments)))); if (b.segments < oldSegs) { if (this.isLeviathan(b)) { this.shatterUnit(b.x, b.y, b.size * .9, this.bugColor(b), 9); return; } const t = performance.now() / 1000, spin = this.twistAngle(b, t); for (let i = b.segments; i < oldSegs; i++) { const u = oldSegs === 1 ? 0 : i / (oldSegs - 1) - .5, nx = Math.cos(spin + u * 2.8) * b.size * u * 1.55, ny = Math.sin(spin + u * 2.8) * b.size * u * .65; this.shatterUnit(b.x + nx, b.y + ny, b.size * (b.boss ? .66 : .5), this.bugColor(b), b.boss ? 12 : 9); } } } private killBug(i: number) {
+    const b = this.bugs[i]; if (!b) return; if (this.isLeviathan(b)) { this.shatterUnit(b.x, b.y, b.size * 1.4, this.bugColor(b), 16); this.shatterUnit(b.x, b.y, b.size * .8, '#ffffff', 8); } else { const t = performance.now() / 1000, spin = this.twistAngle(b, t), n = Math.max(1, b.segments); for (let s = 0; s < n; s++) { const u = n === 1 ? 0 : s / (n - 1) - .5, nx = Math.cos(spin + u * 2.8) * b.size * u * 1.55, ny = Math.sin(spin + u * 2.8) * b.size * u * .65; this.shatterUnit(b.x + nx, b.y + ny, b.size * (b.boss ? .66 : .5) * 1.3, this.bugColor(b), b.boss ? 10 : 8); } } this.bugs.splice(i, 1); if (b.boss) { this.bossActive = false; this.wave++; this.waveKills = 0;      this.experience += this.experienceForBoss() + this.stats.expPerWave; return; } if (!b.ally) this.score += 10 * this.wave; if (!b.fragment && !b.ally) this.waveKills++;// Splitter fragments never count toward the wave quota — otherwise each
     // splitter death raises the required kills by 3 (itself + 2 fragments) and
     // the "to next wave" counter climbs instead of reaching 0.
     if (!b.ally) this.experience += this.experienceForKill() * (1 + this.stats.expBonusPerKill);
@@ -389,17 +389,19 @@ export class SpaceEvolvesComponent extends ChildComponent implements AfterViewIn
   private drawShield(ctx: CanvasRenderingContext2D, x: number, y: number, z: number) { if (this.timers.shield > this.stats.shieldPulseInterval - this.stats.shieldVisibleFor) { ctx.save(); ctx.strokeStyle = this.stats.shieldKnockback > 0 ? '#8fb2ff' : '#55eaff'; ctx.shadowBlur = 18; ctx.shadowColor = this.stats.shieldKnockback > 0 ? '#8fb2ff' : '#55eaff'; ctx.lineWidth = Math.max(2, z * .045); ctx.beginPath(); ctx.arc(x, y, z * (1.45 + this.stats.shieldRadius * 4), 0, Math.PI * 2); ctx.stroke(); ctx.restore(); } }
   private drawBug(ctx: CanvasRenderingContext2D, x: number, y: number, z: number, b: SpaceBug) {
     const t = performance.now() / 1000;
+    // Leviathans (dodecahedrons) never use the tesseract chain — they get their own
+    // cheap single-body dodecahedron model (see drawLeviathanDodeca). No chain, no
+    // per-unit tesseracts, no shadowBlur/gradients: ~4 strokes total per bug.
+    if (this.isLeviathan(b)) { this.drawLeviathanDodeca(ctx, x, y, z, b, t); return; }
     // Cap the number of tesseract units actually drawn per bug — late waves give bugs
-    // Leviathans retain their silhouette with a compact visual sample; gameplay segments remain unchanged.
-    const drawUnits = this.isLeviathan(b) ? Math.min(14, b.maxSegments) : b.boss ? Math.min(10, b.maxSegments) : Math.min(8, b.maxSegments);
     // huge segment counts, and each unit is 16+ strokes. The HP bar semantics are kept
     // (segments still drive damage), only the visual chain length is clamped.
-    // Keep the rendered chain aligned with the actual destroyable shapes while\n    // retaining a hard visual cap for late-wave performance.\n    // Critical-hit warp: the bug's whole wireframe hue-shifts through the spectrum while
+    const drawUnits = b.boss ? Math.min(10, b.maxSegments) : Math.min(8, b.maxSegments);
+    // Critical-hit warp: the bug's whole wireframe hue-shifts through the spectrum while
     // its 4D rotation briefly accelerates, as if the hit knocked it through another dimension.
     let col = b.ally ? '#a66cff' : (b.chemDotTimer ?? 0) > 0 ? '#a8ff3e' : b.boss ? '#ff557d' : b.trait === 'inertial' ? '#ffc266' : b.trait === 'armored' ? '#b9c7d8' : b.trait === 'charger' ? '#ff9c4a' : b.trait === 'splitter' ? '#f5e85b' : b.trait === 'weaver' ? '#53d8ff' : b.trait === 'volatile' ? '#ff4b58' : b.trait === 'regenerator' ? '#74ff91' : b.kind === 'queen' ? '#ff557d' : b.kind === 'mantis' ? '#d875ff' : '#74ff91';
     if (b.hueWarp) col = this.hueWarpColor(col, t, b.hueWarp);
     ctx.save(); ctx.translate(x, y); ctx.rotate(Math.sin(t * 2 + b.phase) * .18); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-    if (this.isLeviathan(b)) { const phase = .5 + .5 * Math.sin(t * 2.8 + b.phase), invert = Math.sin(t * 1.7 + b.phase) < 0; ctx.globalAlpha = .24 + phase * .66; ctx.globalCompositeOperation = 'lighter'; if (invert) ctx.filter = 'hue-rotate(55deg)'; }
     // Per-unit wobble: each tesseract in the chain drifts on its own tiny orbit so the worm feels alive.
     // Node positions go into a shared Float64Array (x,y pairs) instead of per-bug tuple arrays.
     const unitCount = Math.min(Math.max(1, b.segments), drawUnits);
@@ -422,8 +424,7 @@ export class SpaceEvolvesComponent extends ChildComponent implements AfterViewIn
       const scale = z * (b.boss ? .66 : .5) * (1 + Math.sin(t * (b.boss ? 3 : 6) + b.phase + i) * .07);
       if (alive) {
         ctx.save(); ctx.translate(nx, ny);
-        this.drawTesseractUnit(ctx, scale, innerSpin + i * .9, col, this.isLeviathan(b) ? Math.min(this.frameDetail, 1) : this.frameDetail);
-        if (this.isLeviathan(b) && this.frameDetail > 0 && i % 3 === 0) { ctx.globalAlpha = .35; ctx.strokeStyle = '#f1e6ff'; ctx.lineWidth = Math.max(1, scale * .04); ctx.beginPath(); ctx.arc(0, 0, scale * (.9 + .1 * Math.sin(t * 2 + i)), 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1; }
+        this.drawTesseractUnit(ctx, scale, innerSpin + i * .9, col, this.frameDetail);
         ctx.restore();
       } else {
         // Destroyed segment: faint shattered outline where the unit used to be.
@@ -438,7 +439,97 @@ export class SpaceEvolvesComponent extends ChildComponent implements AfterViewIn
     if (b.ally) { const pulse = .5 + .5 * Math.sin(t * 4 + b.phase); ctx.save(); ctx.globalAlpha = .35 + .4 * pulse; ctx.strokeStyle = '#a66cff'; ctx.lineWidth = Math.max(1.5, z * .06); ctx.beginPath(); ctx.arc(0, 0, z * (1.1 + .15 * pulse), 0, Math.PI * 2); ctx.stroke(); ctx.restore(); }
     this.drawBugFace(ctx, z, b, t, col, unitCount);
     if ((b.chemDotTimer ?? 0) > 0) this.drawPoisonDetails(ctx, z, b, t, unitCount);
-    if (this.isLeviathan(b)) { ctx.filter = 'none'; ctx.globalCompositeOperation = 'source-over'; } ctx.restore(); }
+    ctx.restore(); }
+  // ─── Dodecahedron (leviathan) model — deliberately NOT a tesseract ───
+  // A single solid body: outer 12-gon shell + inner pentagon core + 5 spokes.
+  // No chain, no legs-per-unit, no spine, no shadowBlur, no gradients, no
+  // 'lighter' composite, no filter — ~4 canvas ops total per bug at full detail
+  // (1 at detail 0), versus 14 tesseract units × (struts + 2 cubes + glow +
+  // gradient core). Damage reads via shell shrink + HP ring, not lost chain links.
+  private drawLeviathanDodeca(ctx: CanvasRenderingContext2D, x: number, y: number, z: number, b: SpaceBug, t: number) {
+    const hpFrac = Math.max(0, Math.min(1, b.hp / Math.max(1, b.maxHp)));
+    let col = (b.chemDotTimer ?? 0) > 0 ? '#a8ff3e' : '#d9b8ff';
+    if (b.hueWarp) col = this.hueWarpColor(col, t, b.hueWarp);
+    const spin = t * (1.1 + b.speed * 4) + b.phase + (b.hueWarp ?? 0) * 16;
+    // Shell breathes slightly and shrinks as HP drops so damage is visible.
+    const s = z * 1.5 * (0.72 + 0.28 * hpFrac) * (1 + Math.sin(t * 3 + b.phase) * .04);
+    ctx.save(); ctx.translate(x, y); ctx.rotate(Math.sin(t * 2 + b.phase) * .12);
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    // Stubby single-stroke legs behind the shell (one path, no knees/claws/colors).
+    if (this.frameDetail > 0) {
+      ctx.strokeStyle = col; ctx.globalAlpha = .55; ctx.lineWidth = Math.max(1.2, z * .07);
+      ctx.beginPath();
+      for (const side of [-1, 1]) for (let i = 0; i < 3; i++) {
+        const hy = -z * .3 + i * z * .3;
+        ctx.moveTo(side * z * .5, hy);
+        ctx.lineTo(side * (z * 1.35 + Math.sin(t * 5 + b.phase + i * 2 + (side > 0 ? 3 : 0)) * z * .12), hy + z * .35);
+      }
+      ctx.stroke(); ctx.globalAlpha = 1;
+    }
+    this.drawDodecaUnit(ctx, s, spin, col, this.frameDetail);
+    // HP ring: the dodecahedron's "segment" readout — one cheap arc.
+    ctx.strokeStyle = col; ctx.globalAlpha = .85; ctx.lineWidth = Math.max(1.5, z * .07);
+    ctx.beginPath(); ctx.arc(0, 0, s * 1.18, -Math.PI / 2, -Math.PI / 2 + hpFrac * Math.PI * 2); ctx.stroke();
+    ctx.globalAlpha = 1;
+    // Face: two glowing eyes on the shell front + snapping mandibles.
+    const eyeZ = z * .16, ex = z * .42, ey = -z * .28;
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(-ex, ey, eyeZ, 0, Math.PI * 2); ctx.arc(ex, ey, eyeZ, 0, Math.PI * 2); ctx.fill();
+    const px = Math.cos(t * 1.7 + b.phase) * eyeZ * .35, py = Math.sin(t * 1.7 + b.phase) * eyeZ * .35;
+    ctx.fillStyle = col;
+    ctx.beginPath(); ctx.arc(-ex + px, ey + py, eyeZ * .45, 0, Math.PI * 2); ctx.arc(ex + px, ey + py, eyeZ * .45, 0, Math.PI * 2); ctx.fill();
+    const snap = b.lockedOn ? .5 + Math.abs(Math.sin(t * 14)) * .5 : .5 + Math.sin(t * 3 + b.phase) * .2;
+    ctx.strokeStyle = col; ctx.lineWidth = Math.max(1.5, z * .08);
+    ctx.beginPath();
+    for (const side of [-1, 1]) { ctx.moveTo(side * z * .14, z * .3); ctx.quadraticCurveTo(side * z * .5, z * (.44 + snap * .25), side * z * (.35 + snap * .3), z * .76); }
+    ctx.stroke();
+    if ((b.chemDotTimer ?? 0) > 0) {
+      ctx.strokeStyle = '#d8ff83'; ctx.globalAlpha = .6; ctx.lineWidth = Math.max(1, z * .05);
+      ctx.beginPath(); ctx.arc(Math.sin(t * 2.2 + b.phase) * z * .5, -z * .55, z * .1, 0, Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+  }
+  // Cheap flat dodecahedron projection: outer 12-gon, inner pentagon, 5 spokes.
+  // detail 0 = shell only (1 stroke), 1 = + inner core (2 strokes), 2 = + spokes.
+  // Zero allocations, no shadowBlur, no gradients — safe to call per frame per bug.
+  private drawDodecaUnit(ctx: CanvasRenderingContext2D, s: number, spin: number, col: string, detail: number) {
+    ctx.strokeStyle = col; ctx.lineWidth = Math.max(1.5, s * .055);
+    ctx.beginPath();
+    for (let i = 0; i < 12; i++) {
+      const a = spin * .6 + i * Math.PI / 6;
+      // Slight radius wobble on alternating verts fakes 3D depth without projection math.
+      const r = s * (i % 2 === 0 ? 1 : .88);
+      const px = Math.cos(a) * r, py = Math.sin(a) * r;
+      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.closePath(); ctx.stroke();
+    if (detail <= 0) return;
+    const inner = s * .45, innerSpin = -spin * .8;
+    ctx.lineWidth = Math.max(1, s * .04); ctx.globalAlpha = .9;
+    ctx.beginPath();
+    for (let i = 0; i < 5; i++) {
+      const a = innerSpin + i * Math.PI * 2 / 5 - Math.PI / 2;
+      const px = Math.cos(a) * inner, py = Math.sin(a) * inner;
+      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.closePath(); ctx.stroke();
+    if (detail <= 1) { ctx.globalAlpha = 1; return; }
+    // Spokes: inner pentagon corners out to the shell — one path, faint.
+    ctx.globalAlpha = .5; ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let i = 0; i < 5; i++) {
+      const a = innerSpin + i * Math.PI * 2 / 5 - Math.PI / 2;
+      ctx.moveTo(Math.cos(a) * inner, Math.sin(a) * inner);
+      const o = spin * .6 + (i * 2 + 1) * Math.PI / 6;
+      ctx.lineTo(Math.cos(o) * s * .88, Math.sin(o) * s * .88);
+    }
+    ctx.stroke(); ctx.globalAlpha = 1;
+    // Solid pinpoint core — one tiny fill instead of a radial gradient.
+    ctx.fillStyle = '#ffffff'; ctx.globalAlpha = .85;
+    ctx.beginPath(); ctx.arc(0, 0, Math.max(1, s * .06), 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 1;
+  }
   private drawPoisonDetails(ctx: CanvasRenderingContext2D, z: number, b: SpaceBug, t: number, unitCount: number) {
     // Poisoned bugs keep their normal locomotion. Their old visual effect injected
     // random node offsets and random particles during draw, which made the whole
