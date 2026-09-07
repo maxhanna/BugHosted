@@ -26,14 +26,15 @@
         <div class="weapon-slots">
           <strong>WEAPON SLOTS</strong>
           <div class="slot-grid">
-            <div class="weapon-slot" *ngFor="let slot of weaponSlots" [class.filled]="slot.filled"
-              [style.--weapon-color]="slot.color" [title]="slot.filled ? weaponTooltip(slot.weapon) : 'Empty slot'"
-              (click)="slot.filled && openWeaponInfo(slot.weapon)">
+            <button type="button" class="weapon-slot" *ngFor="let slot of weaponSlots; trackBy: trackWeaponSlot" [class.filled]="slot.filled"
+              [style.--weapon-color]="slot.color" [attr.title]="slot.filled ? weaponTooltip(slot.weapon) : 'Empty slot'"
+              [attr.aria-label]="slot.filled ? 'View ' + slot.label + ' weapon details' : 'Empty weapon slot'"
+              [disabled]="!slot.filled" (click)="openWeaponInfo(slot.weapon)">
               <span class="slot-icon">{{slot.icon}}</span>
               <span class="slot-label">{{slot.label}}</span>
               <span class="slot-interval" *ngIf="slot.filled">{{slot.interval ? ('Every ' + (slot.interval |
                 number:'1.1-2') + 's') : 'Passive'}}</span>
-            </div>
+            </button>
           </div>
         </div>
       </div>
@@ -71,9 +72,12 @@
         <div class="free-grants" *ngIf="grantedUpgrades.length">
           <h2>⚡ Free upgrades granted</h2>
           <p>The brood rewarded your upgrades:</p>
-          <div class="granted-list"><span *ngFor="let g of grantedUpgrades" class="granted-chip">{{
-              upgradeIcon(g.weapon) }} {{g.name}} +{{ upgradeCount(g.id) }}</span></div> <button class="dismiss"
-            (click)="grantedUpgrades = []">Continue</button>
+          <div class="granted-list">
+            <span *ngFor="let g of grantedUpgrades" class="granted-chip">
+              {{ upgradeIcon(g.weapon) }} {{g.name}} +{{ upgradeCount(g.id) }}
+            </span>
+          </div> 
+          <button class="dismiss" (click)="grantedUpgrades = []" class="cursorPointer">Continue</button>
         </div>
       </div>
     </div>

@@ -99,6 +99,7 @@
 }
 
 .status {
+    pointer-events: none;
     position: absolute;
     bottom: 9px;
     left: 12px;
@@ -211,7 +212,9 @@
     gap: 6px;
     flex-wrap: wrap;
     align-items: flex-end;
-    pointer-events: none
+    position: relative;
+    z-index: 4;
+    pointer-events: auto
 }
 
 .weapon-row,
@@ -262,6 +265,12 @@
     justify-content: center;
     gap: 2px;
     padding: 6px 4px;
+    box-sizing: border-box;
+    appearance: none;
+    -webkit-appearance: none;
+    font: inherit;
+    line-height: normal;
+    text-align: center;
     color: rgba(168, 196, 211, .5);
     background: rgba(10, 25, 50, .5)
 }
@@ -297,10 +306,23 @@
 .weapon-slot {
     pointer-events: auto;
     cursor: pointer;
+    touch-action: manipulation;
+    user-select: none;
 }
 
-.weapon-slot.filled:hover {
+.weapon-slot:disabled {
+    cursor: default;
+    opacity: 1;
+}
+
+.weapon-slot.filled:hover,
+.weapon-slot.filled:focus-visible {
     filter: brightness(1.25);
+}
+
+.weapon-slot.filled:focus-visible {
+    outline: 2px solid #ffffff;
+    outline-offset: 2px;
 }
 
 .weaponInfoHow {
