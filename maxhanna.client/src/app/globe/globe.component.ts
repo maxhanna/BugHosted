@@ -920,6 +920,14 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
         .map((comment: any) => {
           const value = comment as FileComment;
           value.date = value.date ? new Date(value.date) : undefined;
+          if (value.commentText && value.user?.id && !value.decrypted) {
+            try {
+              value.commentText = this.encryptionService.decryptContent(
+                value.commentText, String(value.user.id)
+              );
+              value.decrypted = true;
+            } catch { /* keep encrypted text when decryption is unavailable */ }
+          }
           return value;
         })
         .filter((comment: FileComment) => !!comment.city || !!comment.country);

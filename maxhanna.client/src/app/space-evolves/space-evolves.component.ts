@@ -44,7 +44,7 @@ export class SpaceEvolvesComponent extends ChildComponent implements AfterViewIn
   private defenceForStacks(stacks: number) { return Math.min(.95, 1 - Math.pow(.92, Math.max(0, stacks))); }
   private isInertial(b: SpaceBug) { return b.trait === 'inertial'; }
   private isLeviathan(b: SpaceBug) { return b.trait === 'leviathan'; }
-  private gravityWake(b: SpaceBug, dt: number) { if (!this.isLeviathan(b)) return; b.wakeTimer = Math.max(0, (b.wakeTimer ?? 0) - dt); if (b.wakeTimer <= 0 && this.effects.length < FX_MAX - 2) { b.wakeTimer = .16; this.effects.push({ x: b.x, y: b.y, vx: 0, vy: 0, life: .65, maxLife: .65, size: b.size * (1.2 + Math.random() * .4), color: '#b48cff', kind: 'ring', len: b.size * (1.2 + Math.random() * .8) }); } }
+  private gravityWake(b: SpaceBug, dt: number) { if (!this.isLeviathan(b)) return; b.wakeTimer = Math.max(0, (b.wakeTimer ?? 0) - dt); if (b.wakeTimer <= 0 && this.effects.length < FX_MAX - 2) { b.wakeTimer = .28; this.effects.push({ x: b.x, y: b.y, vx: 0, vy: 0, life: .5, maxLife: .5, size: b.size * 1.3, color: '#b48cff', kind: 'ring', len: b.size * 1.4 }); } }
   private controlResistance(b: SpaceBug, kind: 'stun' | 'knockback') {
     if (this.isLeviathan(b)) return 1;
     const waveResistance = b.boss
@@ -390,11 +390,11 @@ export class SpaceEvolvesComponent extends ChildComponent implements AfterViewIn
   private drawBug(ctx: CanvasRenderingContext2D, x: number, y: number, z: number, b: SpaceBug) {
     const t = performance.now() / 1000;
     // Cap the number of tesseract units actually drawn per bug — late waves give bugs
-    const drawUnits = this.isLeviathan(b) ? Math.min(42, b.maxSegments) : b.boss ? Math.min(10, b.maxSegments) : Math.min(8, b.maxSegments);
+    // Leviathans retain their silhouette with a compact visual sample; gameplay segments remain unchanged.
+    const drawUnits = this.isLeviathan(b) ? Math.min(14, b.maxSegments) : b.boss ? Math.min(10, b.maxSegments) : Math.min(8, b.maxSegments);
     // huge segment counts, and each unit is 16+ strokes. The HP bar semantics are kept
     // (segments still drive damage), only the visual chain length is clamped.
-    // Keep the rendered chain aligned with the actual destroyable shapes while\n    // retaining a hard visual cap for late-wave performance.\n    let col=b.ally?'#a66cff':(b.chemDotTimer??0)>0?'#a8ff3e':b.boss?'#ff557d':b.trait==='armored'?'#b9c7d8':b.trait==='charger'?'#ff9c4a':b.trait==='splitter'?'#f5e85b':b.trait==='weaver'?'#53d8ff':b.trait==='volatile'?'#ff4b58':b.trait==='regenerator'?'#74ff91':b.kind==='queen'?'#ff557d':b.kind==='mantis'?'#d875ff':'#74ff91';
-    // Critical-hit warp: the bug's whole wireframe hue-shifts through the spectrum while
+    // Keep the rendered chain aligned with the actual destroyable shapes while\n    // retaining a hard visual cap for late-wave performance.\n    // Critical-hit warp: the bug's whole wireframe hue-shifts through the spectrum while
     // its 4D rotation briefly accelerates, as if the hit knocked it through another dimension.
     let col = b.ally ? '#a66cff' : (b.chemDotTimer ?? 0) > 0 ? '#a8ff3e' : b.boss ? '#ff557d' : b.trait === 'inertial' ? '#ffc266' : b.trait === 'armored' ? '#b9c7d8' : b.trait === 'charger' ? '#ff9c4a' : b.trait === 'splitter' ? '#f5e85b' : b.trait === 'weaver' ? '#53d8ff' : b.trait === 'volatile' ? '#ff4b58' : b.trait === 'regenerator' ? '#74ff91' : b.kind === 'queen' ? '#ff557d' : b.kind === 'mantis' ? '#d875ff' : '#74ff91';
     if (b.hueWarp) col = this.hueWarpColor(col, t, b.hueWarp);
@@ -422,8 +422,8 @@ export class SpaceEvolvesComponent extends ChildComponent implements AfterViewIn
       const scale = z * (b.boss ? .66 : .5) * (1 + Math.sin(t * (b.boss ? 3 : 6) + b.phase + i) * .07);
       if (alive) {
         ctx.save(); ctx.translate(nx, ny);
-        this.drawTesseractUnit(ctx, scale, innerSpin + i * .9, col, this.frameDetail);
-        if (this.isLeviathan(b) && i % 2 === 0) { ctx.globalAlpha = .45; ctx.strokeStyle = '#f1e6ff'; ctx.lineWidth = Math.max(1, scale * .045); ctx.beginPath(); ctx.arc(0, 0, scale * (.8 + .2 * Math.sin(t * 4 + i)), 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1; }
+        this.drawTesseractUnit(ctx, scale, innerSpin + i * .9, col, this.isLeviathan(b) ? Math.min(this.frameDetail, 1) : this.frameDetail);
+        if (this.isLeviathan(b) && this.frameDetail > 0 && i % 3 === 0) { ctx.globalAlpha = .35; ctx.strokeStyle = '#f1e6ff'; ctx.lineWidth = Math.max(1, scale * .04); ctx.beginPath(); ctx.arc(0, 0, scale * (.9 + .1 * Math.sin(t * 2 + i)), 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1; }
         ctx.restore();
       } else {
         // Destroyed segment: faint shattered outline where the unit used to be.
