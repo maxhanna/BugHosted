@@ -331,9 +331,25 @@
 }
 
 .upgrade-section span {
+    color: #bdefff
+}
+
+.upgrade-summary {
     color: #bdefff;
+    background: transparent;
+    border: 0;
     border-bottom: 1px dotted #7cb7d2;
-    cursor: help
+    padding: 0;
+    font: inherit;
+    cursor: pointer;
+    text-align: left
+}
+
+.upgrade-summary:hover,
+.upgrade-summary:focus-visible {
+    color: #fff;
+    border-bottom-color: #fff;
+    outline: none
 }
 
 .side-panel {

@@ -40,9 +40,9 @@
       <div class="upgrade-dock" *ngIf="upgradeSections.length">
         <div class="upgrade-section" *ngFor="let section of upgradeSections">
           <strong>{{section.icon}} {{section.label}}</strong>
-          <span *ngFor="let upgrade of section.upgrades"
-            [title]="upgrade.description + (upgrade.chanceText ? ' · Current free-upgrade chance: ' + upgrade.chanceText : '')">{{upgrade.name}}
-            +{{upgrade.count}}{{upgrade.chanceText ? ' · ' + upgrade.chanceText : ''}}</span>
+          <button type="button" class="upgrade-summary" *ngFor="let upgrade of section.upgrades"
+            (click)="openUpgradeInfo(upgrade)">{{upgrade.name}}
+            +{{upgrade.count}}{{upgrade.chanceText ? ' · ' + upgrade.chanceText : ''}}</button>
         </div>
       </div>
       <div class="pause-card" *ngIf="paused && !gameOver && !isMenuPanelOpen">
@@ -105,6 +105,18 @@
       </div>
     </div>
     <button id="closeOverlay" class="closeButton" (click)="closeWeaponInfo()">Close</button>
+  </div>
+
+  <!-- Upgrade Detail Popup -->
+  <div class="popupPanel" style="overflow: auto;" *ngIf="isUpgradeInfoPanelOpen && selectedUpgrade">
+    <div class="popupPanelTitle">{{upgradeIcon(selectedUpgrade.weapon)}} {{selectedUpgrade.name}}</div>
+    <div class="popupPanelContents gradientBackground" style="padding:10px; max-width: 420px;">
+      <p class="weaponInfoHow">{{selectedUpgrade.description}}</p>
+      <div class="optionsStatsDiv" *ngFor="let line of upgradeInfoLines(selectedUpgrade)">
+        <div class="optionsStatsDescription" style="width:100%;">{{line}}</div>
+      </div>
+    </div>
+    <button id="closeOverlay" class="closeButton" (click)="closeUpgradeInfo()">Close</button>
   </div>
 
   <!-- Space Evolves Menu Popup -->
