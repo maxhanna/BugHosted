@@ -2829,8 +2829,8 @@ void main() {
       const g = sand[1] * (1 - smooth) + wetSand[1] * smooth;
       const b = sand[2] * (1 - smooth) + wetSand[2] * smooth;
       return direction === 'x'
-        ? [boundary + directionSign * distance, fixed + across, y, r, g, b, 1]
-        : [fixed + across, boundary + directionSign * distance, y, r, g, b, 1];
+        ? [boundary + directionSign * distance, y, fixed + across, r, g, b, 1]
+        : [fixed + across, y, boundary + directionSign * distance, r, g, b, 1];
     };
     for (let i = 0; i <= segments; i++) {
       const d = -inward + (inward + outward) * (i / segments);
@@ -5954,7 +5954,8 @@ void main() {
           const offX = -0.3, offZ = 0.2;
           const wx = host.posX + (offX * cosY + offZ * sinY);
           const wz = host.posZ + (-offX * sinY + offZ * cosY);
-          this.drawMesh(p.mesh, wx, -0.3, wz, host.yaw, [0.85, 0.85, 0.85]);
+          const hostY = host.vehicleType === 'helicopter' || host.vehicleType === 'plane' ? (host.posY || 0) + 0.45 : -0.3;
+          this.drawMesh(p.mesh, wx, hostY, wz, host.yaw, [0.85, 0.85, 0.85]);
         }
         continue;
       }
@@ -5976,7 +5977,8 @@ void main() {
         const offX = 0.3, offZ = 0.2;
         const wx = p.posX + (offX * cosY + offZ * sinY);
         const wz = p.posZ + (-offX * sinY + offZ * cosY);
-        this.drawMesh(p.mesh, wx, -0.3, wz, p.yaw, [0.85, 0.85, 0.85]);
+        const occupantY = vType === 'helicopter' || vType === 'plane' ? (p.posY || 0) + 0.45 : -0.3;
+        this.drawMesh(p.mesh, wx, occupantY, wz, p.yaw, [0.85, 0.85, 0.85]);
       } else {
         // Lifelike remote player — walk/idle + visible firing/punch for peers
         const dx = p.posX - ((p as any)._prevX ?? p.posX), dz = p.posZ - ((p as any)._prevZ ?? p.posZ);

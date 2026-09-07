@@ -4464,12 +4464,17 @@ namespace maxhanna.Server.Controllers
 					{
 						kv.Value.Health -= req.Damage;
 						hitAnything = true;
-						hitNpc = true;
-						bool isVehicle = kv.Value.Type == "car" || kv.Value.Type == "bus" || kv.Value.Type == "taxi" || kv.Value.Type == "police" || kv.Value.Type == "bike" || kv.Value.Type == "motorcycle" || kv.Value.Type == "helicopter" || kv.Value.Type == "plane";
+						hitNpc = true;						bool isVehicle = kv.Value.Type == "car" || kv.Value.Type == "bus" || kv.Value.Type == "taxi" || kv.Value.Type == "police" || kv.Value.Type == "bike" || kv.Value.Type == "motorcycle" || kv.Value.Type == "helicopter" || kv.Value.Type == "plane";
+						bool isMissileAircraftHit = (kv.Value.Type == "helicopter" || kv.Value.Type == "plane") && req.Weapon == 4;
+						if (isMissileAircraftHit) kv.Value.Health = 0;
 						if (kv.Value.Health <= 0)
 						{
-							if (isVehicle) { kv.Value.Health = 1; }
-							else { kv.Value.DeadAt = DateTime.UtcNow; targetDied = true; }
+							// A rocket is an anti-air weapon: one direct missile hit
+							// should bring down a helicopter instead of leaving it at
+							// the vehicle minimum-health floor used by cars.
+							if (isVehicle && !isMissileAircraftHit) { kv.Value.Health = 1; }
+							else if (!isVehicle) { kv.Value.DeadAt = DateTime.UtcNow; targetDied = true; }
+							else { targetDied = true; }
 							deathX = kv.Value.X;
 							deathZ = kv.Value.Z;
 							if (kv.Value.Type == "cop")

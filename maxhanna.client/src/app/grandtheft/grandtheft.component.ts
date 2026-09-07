@@ -1284,7 +1284,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
             this.driverInCarMesh = {
               mesh: this.renderer.playerMesh,
               offsetX: 0.3,
-              offsetY: -0.3,
+              offsetY: this.vehicleType === 'helicopter' ? 0.45 : -0.3,
               offsetZ: 0.2,
               yaw: 0,
               scale: 0.85,
@@ -1408,7 +1408,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
               this.playerVehicleColor = [1, 1, 1];
               this.currentCarId = 0;
               if (this.renderer.playerMesh) {
-                this.driverInCarMesh = { mesh: this.renderer.playerMesh, offsetX: 0.3, offsetY: -0.3, offsetZ: 0.2, yaw: 0, scale: 0.85 };
+                this.driverInCarMesh = { mesh: this.renderer.playerMesh, offsetX: 0.3, offsetY: 0.45, offsetZ: 0.2, yaw: 0, scale: 0.85 };
               }
               this.showVehicleBanner(this.vehicleType);
               if (!this.radioOn) this.randomRadio();
@@ -1905,6 +1905,36 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         targetX: p.posX, targetZ: p.posZ, targetYaw: p.yaw ?? 0,
         speed: p.speed ?? 0, lastUpdate: performance.now(),
       }));
+      // Parked vehicles are returned separately by the server. Keep this list
+      // synchronized so a police cruiser remains visible after its officer
+      // exits, instead of disappearing with the moving-NPC collection.
+      const serverParked = (data.parkedCars ?? []).map((pc: any) => {
+        const existing = this.parkedCars.find(p => p.id === pc.id);
+        const type = pc.type ?? 'car';
+        let mesh = existing?.mesh;
+        if (!mesh) {
+          if (type === 'police') mesh = this.renderer.getPoliceCarMesh();
+          else if (type === 'taxi') mesh = this.renderer.getTaxiMesh();
+          else if (type === 'bus') mesh = this.renderer.busMesh || this.renderer.getNPCCarMesh([pc.colorR ?? 0.5, pc.colorG ?? 0.5, pc.colorB ?? 0.5], pc.id);
+          else if (type === 'motorcycle') mesh = this.renderer.getMotorcycleMesh([pc.colorR ?? 0.5, pc.colorG ?? 0.5, pc.colorB ?? 0.5], pc.id);
+          else if (type === 'boat') mesh = this.renderer.getBoatMesh(pc.id);
+          else if (type === 'helicopter') mesh = this.renderer.getHelicopterMesh(pc.id, !!pc.isPolice);
+          else if (type === 'plane') mesh = this.renderer.getPlaneMesh(pc.id);
+          else mesh = this.renderer.getNPCCarMesh([pc.colorR ?? 0.5, pc.colorG ?? 0.5, pc.colorB ?? 0.5], pc.id);
+        }
+        return {
+          ...(existing ?? {}),
+          id: pc.id, x: pc.posX, y: pc.posY, z: pc.posZ, yaw: pc.yaw ?? 0,
+          type, health: pc.health ?? 100,
+          maxHealth: pc.maxHealth ?? 200,
+          isBurning: pc.isBurning === true, isSmoking: pc.isSmoking === true,
+          colorR: pc.colorR ?? 0.5, colorG: pc.colorG ?? 0.5, colorB: pc.colorB ?? 0.5,
+          mesh,
+        } as any;
+      });
+      const serverParkedIds = new Set(serverParked.map(p => p.id));
+      const localOnlyParked = this.parkedCars.filter(p => p.id < 0 && !serverParkedIds.has(p.id));
+      this.parkedCars = [...serverParked, ...localOnlyParked];
     } finally {
       this._npcPollInFlight = false;
     }
@@ -3570,7 +3600,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         this.driverInCarMesh = {
           mesh: this.renderer.playerMesh,
           offsetX: 0.3,
-          offsetY: -0.3,
+          offsetY: this.vehicleType === 'helicopter' ? 0.45 : -0.3,
           offsetZ: 0.2,
           yaw: 0,
           scale: 0.85,
@@ -3604,7 +3634,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.explosions.push({ x, y: 0.5, z, age: 0, lifetime: 2.6, scale: 2.6 });
     this.spawnExplosion(x, 0.5, z, 2.5);
   }
-  private spawnExplosion(x: number, y: number, z: number, blastScale: number = 1) {
+  private spawnExplosion(x: number, y: number, z: number, blastScale: number = 1, weapon: number = -1) {
     this.explosions.push({ x, y, z, age: 0, lifetime: 1.0, scale: blastScale });
     const BLAST_RADIUS = 12.0 * blastScale;
     const BLAST_MAX_DMG = Math.round(200 * blastScale);
@@ -3639,12 +3669,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
               (t as any).pushVelZ = ((t as any).pushVelZ ?? 0) + (dz / dist) * pushForce;
             }
           }
-          this.gtService.hit(this.getUserId(), t.id, 1, dmg, this.carX, this.carZ);
+          this.gtService.hit(this.getUserId(), t.id, 1, dmg, this.carX, this.carZ, weapon);
         } else {
           const wasAlive = (t.health ?? 100) > 0;
           t.health = (t.health ?? 100) - dmg;
           this.spawnBlood(tx, 1.0, tz, dx, 0, dz);
-          this.gtService.hit(this.getUserId(), t.id, 1, dmg, this.carX, this.carZ);
+          this.gtService.hit(this.getUserId(), t.id, 1, dmg, this.carX, this.carZ, weapon);
           // Report the killing blow of a client-local NPC so explosions on the
           // crowd draw police heat and count toward kill stats.
           if (list === this.localPedestrians && wasAlive && t.health <= 0) {
@@ -6466,7 +6496,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         if (Math.sqrt((npc.x - r.x) ** 2 + (npc.z - r.z) ** 2) < 2) { hit = true; break; }
       }
       if (hit || r.age >= r.lifetime) {
-        this.spawnExplosion(r.x, r.y, r.z);
+        this.spawnExplosion(r.x, r.y, r.z, 1, 4);
         this.rockets.splice(i, 1);
       }
     }
