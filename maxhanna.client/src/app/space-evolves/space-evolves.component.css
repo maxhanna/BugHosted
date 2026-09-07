@@ -332,7 +332,9 @@
 }
 
 .upgrade-dock {
-    z-index: 2;
+    position: relative;
+    z-index: 1001;
+    isolation: isolate;
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
@@ -356,6 +358,8 @@
 }
 
 .upgrade-summary {
+    position: relative;
+    z-index: 11;
     color: #bdefff;
     background: transparent;
     border: 0;
