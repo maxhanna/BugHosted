@@ -3360,7 +3360,7 @@ void main() {
             const y0 = topY - 5.5 * (t0 * t0);
             const y1 = topY - 5.5 * (t1 * t1);
             for (const lz of [tz - legZ, tz + legZ]) {
-              this.addBox(verts, indices, (x0 + x1) / 2, (y0 + y1) / 2, lz, Math.abs(x1 - x0) + 0.4, 0.35, 0.35, 0.55, 0.55, 0.57, 1.0, idxOffset); idxOffset += 24;
+              this.addRamp(verts, indices, x0, y0, x1, y1, lz, 0.35, 0.35, 0.55, 0.55, 0.57, 1.0, idxOffset); idxOffset += 24;
             }
           }
           // Back-stay cable: from the tower top down to the nearer deck end
@@ -3374,7 +3374,7 @@ void main() {
             const y0 = topY - (topY - deckY) * (t0 * t0);
             const y1 = topY - (topY - deckY) * (t1 * t1);
             for (const lz of [tz - legZ, tz + legZ]) {
-              this.addBox(verts, indices, (x0 + x1) / 2, (y0 + y1) / 2, lz, Math.abs(x1 - x0) + 0.4, 0.3, 0.3, 0.5, 0.5, 0.52, 1.0, idxOffset); idxOffset += 24;
+              this.addRamp(verts, indices, x0, y0, x1, y1, lz, 0.3, 0.3, 0.5, 0.5, 0.52, 1.0, idxOffset); idxOffset += 24;
             }
           }
           // Hangers: thin verticals from the main cable down to the deck,

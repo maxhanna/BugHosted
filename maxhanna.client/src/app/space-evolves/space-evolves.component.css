@@ -547,6 +547,10 @@
     color: #b8ffd3
 }
 
+.gameover-card {
+    z-index: 10;
+}
+
 .gameover-card,
 .pause-card {
     inset: 35% 20%;
