@@ -10,9 +10,9 @@ interface SpaceUpgrade { id: string; name: string; description: string; weapon: 
 interface SpaceScore { username: string; score: number; wave: number; }
 interface SpaceCloud { x: number; y: number; radius: number; life: number; maxLife: number; tick: number; }
 interface BackgroundCloud { x: number; y: number; vx: number; vy: number; homeX: number; homeY: number; radius: number; mass: number; seed: number; }
-interface BackgroundEscort { x: number; y: number; vx: number; vy: number; phase: number; }
+interface BackgroundEscort { x: number; y: number; vx: number; vy: number; phase: number; destroyed?: boolean; explosion?: number; }
 interface BackgroundThreat { x: number; y: number; vx: number; vy: number; phase: number; cooldown: number; }
-interface BackgroundShip { x: number; y: number; vx: number; vy: number; size: number; life: number; maxLife: number; angle: number; enemy: boolean; phase: number; evade: number; escorts: BackgroundEscort[]; threats: BackgroundThreat[]; }
+interface BackgroundShip { x: number; y: number; vx: number; vy: number; size: number; life: number; maxLife: number; angle: number; enemy: boolean; phase: number; evade: number; escorts: BackgroundEscort[]; threats: BackgroundThreat[]; bossScene?: boolean; }
 interface SpaceEffect { x: number; y: number; vx: number; vy: number; life: number; maxLife: number; size: number; color: string; kind?: 'dot' | 'edge' | 'beam' | 'ring'; len?: number; angle?: number; spin?: number; x2?: number; y2?: number; }
 
 // ─── Module-scope constants & scratch buffers ───
@@ -160,13 +160,14 @@ export class SpaceEvolvesComponent extends ChildComponent implements AfterViewIn
     this.backgroundShipTimer -= dt;
     if (this.backgroundShipTimer <= 0 && this.backgroundShips.length < 3) {
       const fromLeft = Math.random() < .5, y = .12 + Math.random() * .34, size = .012 + Math.random() * .012, speed = .035 + Math.random() * .025;
+      const rareBossScene = Math.random() < .045;
       const escorts: BackgroundEscort[] = []; const threats: BackgroundThreat[] = [];
-      const escortCount = Math.floor(Math.random() * 4);
-      for (let i = 0; i < escortCount; i++)escorts.push({ x: fromLeft ? -.12 : 1.12, y, vx: 0, vy: 0, phase: Math.random() * Math.PI * 2 });
-      const threatCount = 1 + Math.floor(Math.random() * 2);
-      for (let i = 0; i < threatCount; i++)threats.push({ x: fromLeft ? .18 + .08 * i : .82 - .08 * i, y: y + (Math.random() - .5) * .18, vx: fromLeft ? -.012 : .012, vy: 0, phase: Math.random() * Math.PI * 2, cooldown: .8 + Math.random() });
-      this.backgroundShips.push({ x: fromLeft ? -.12 : 1.12, y, vx: fromLeft ? speed : -speed, vy: 0, size, life: 0, maxLife: 24, angle: fromLeft ? 0 : Math.PI, enemy: Math.random() < .5, phase: Math.random() * Math.PI * 2, evade: 0, escorts, threats });
-      this.backgroundShipTimer = 7 + Math.random() * 8;
+      const escortCount = rareBossScene ? 3 : Math.floor(Math.random() * 4);
+      for (let i = 0; i < escortCount; i++) escorts.push({ x: fromLeft ? -.12 : 1.12, y: y + (i - 1) * .045, vx: 0, vy: 0, phase: Math.random() * Math.PI * 2 });
+      const threatCount = rareBossScene ? 0 : 1 + Math.floor(Math.random() * 2);
+      for (let i = 0; i < threatCount; i++) threats.push({ x: fromLeft ? .18 + .08 * i : .82 - .08 * i, y: y + (Math.random() - .5) * .18, vx: fromLeft ? -.012 : .012, vy: 0, phase: Math.random() * Math.PI * 2, cooldown: .8 + Math.random() });
+      this.backgroundShips.push({ x: fromLeft ? -.12 : 1.12, y, vx: fromLeft ? speed : -speed, vy: 0, size: rareBossScene ? .019 : size, life: 0, maxLife: rareBossScene ? 15 : 24, angle: fromLeft ? 0 : Math.PI, enemy: rareBossScene, phase: Math.random() * Math.PI * 2, evade: 0, escorts, threats, bossScene: rareBossScene });
+      this.backgroundShipTimer = rareBossScene ? 18 + Math.random() * 12 : 7 + Math.random() * 8;
     }
     for (let i = this.backgroundShips.length - 1; i >= 0; i--) {
       const ship = this.backgroundShips[i]; ship.life += dt;
@@ -175,7 +176,7 @@ export class SpaceEvolvesComponent extends ChildComponent implements AfterViewIn
       if (threat && threatDistance < .22) { const awayY = ship.y - threat.y; ship.evade = Math.min(1, ship.evade + dt * 3); ship.vy += (awayY >= 0 ? 1 : -1) * .11 * ship.evade * dt; }
       else { ship.evade = Math.max(0, ship.evade - dt * .7); ship.vy += (.25 + Math.sin(ship.life * 1.7 + ship.phase) * .05) * (-ship.y + .28) * dt; }
       ship.vy *= Math.pow(.08, dt); ship.y += ship.vy * dt; ship.y = Math.max(.08, Math.min(.52, ship.y)); ship.x += ship.vx * dt; ship.angle += (Math.max(-.35, Math.min(.35, ship.vy * 8)) - ship.angle) * Math.min(1, dt * 4);
-      for (const escort of ship.escorts) { const targetX = ship.x - ship.vx * .35 + Math.cos(ship.life * 2 + escort.phase) * .025, targetY = ship.y + Math.sin(ship.life * 2.4 + escort.phase) * .045; escort.vx += (targetX - escort.x) * 3.5 * dt; escort.vy += (targetY - escort.y) * 3.5 * dt; escort.vx *= Math.pow(.04, dt); escort.vy *= Math.pow(.04, dt); escort.x += escort.vx * dt; escort.y += escort.vy * dt; }
+      for (let escortIndex = 0; escortIndex < ship.escorts.length; escortIndex++) { const escort = ship.escorts[escortIndex]; if (ship.bossScene && !escort.destroyed && ship.life > 3.2 + escortIndex * 1.45) { escort.destroyed = true; escort.explosion = .8; } if (escort.destroyed) { escort.explosion = Math.max(0, (escort.explosion ?? 0) - dt); continue; } const targetX = ship.x - ship.vx * .35 + Math.cos(ship.life * 2 + escort.phase) * .025, targetY = ship.y + Math.sin(ship.life * 2.4 + escort.phase) * .045 + (ship.bossScene ? (escortIndex - 1) * .045 : 0); escort.vx += (targetX - escort.x) * 3.5 * dt; escort.vy += (targetY - escort.y) * 3.5 * dt; escort.vx *= Math.pow(.04, dt); escort.vy *= Math.pow(.04, dt); escort.x += escort.vx * dt; escort.y += escort.vy * dt; }
       for (const foe of ship.threats) { const dx = ship.x - foe.x, dy = ship.y - foe.y, n = Math.hypot(dx, dy) || 1; foe.vx += (dx / n * .018 - foe.vx) * dt; foe.vy += (dy / n * .018 + Math.sin(ship.life * 3 + foe.phase) * .006 - foe.vy) * dt; foe.x += foe.vx * dt; foe.y += foe.vy * dt; foe.cooldown -= dt; if (foe.cooldown <= 0) { foe.cooldown = 1.1 + Math.random() * .8; } }
       if (ship.life > ship.maxLife || ship.x < -.22 || ship.x > 1.22) this.backgroundShips.splice(i, 1);
     }
@@ -312,7 +313,7 @@ export class SpaceEvolvesComponent extends ChildComponent implements AfterViewIn
       if (!this.drawShipSprite(ctx, ship.x * w, ship.y * h, ship.size * w, Math.floor(ship.life * 8 + ship.phase) + 12, shipColor, ship.angle)) this.drawProceduralShip(ctx, ship.x * w, ship.y * h, ship.size * w, ship.angle, ship.enemy ? '#e3b7cc' : '#b9d9e8', shipColor);
       ctx.globalAlpha = .12 * fade; ctx.strokeStyle = shipColor; ctx.lineWidth = Math.max(1, w * .0015); ctx.beginPath(); ctx.moveTo((ship.x - ship.vx * 28) * w, ship.y * h); ctx.lineTo((ship.x - ship.vx * 7) * w, ship.y * h); ctx.stroke();
       ctx.restore();
-      for (const escort of ship.escorts) { const escortSize = ship.size * .42; ctx.save(); ctx.globalAlpha = .18 * fade; if (!this.drawShipSprite(ctx, escort.x * w, escort.y * h, escortSize, Math.floor(ship.life * 9 + escort.phase) + 12, '#8affff', ship.angle)) this.drawProceduralShip(ctx, escort.x * w, escort.y * h, escortSize, ship.angle, '#b8efff', '#8affff'); ctx.restore(); }
+      for (const escort of ship.escorts) { if (escort.destroyed) { const blast = Math.max(0, escort.explosion ?? 0); if (blast > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = blast * .45 * fade; ctx.fillStyle = '#ffb36b'; ctx.shadowBlur = 10; ctx.shadowColor = '#ff6b4a'; ctx.beginPath(); ctx.arc(escort.x * w, escort.y * h, ship.size * w * (.9 - blast * .25), 0, Math.PI * 2); ctx.fill(); ctx.restore(); } continue; } const escortSize = ship.size * .42; ctx.save(); ctx.globalAlpha = .18 * fade; if (!this.drawShipSprite(ctx, escort.x * w, escort.y * h, escortSize, Math.floor(ship.life * 9 + escort.phase) + 12, '#8affff', ship.angle)) this.drawProceduralShip(ctx, escort.x * w, escort.y * h, escortSize, ship.angle, '#b8efff', '#8affff'); ctx.restore(); }
       for (const foe of ship.threats) { const fx = foe.x * w, fy = foe.y * h, fr = Math.max(1.5, ship.size * w * .22), attack = Math.max(0, 1 - foe.cooldown / 1.1); ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .45 * fade; ctx.fillStyle = '#ff557d'; ctx.shadowBlur = 6; ctx.shadowColor = '#ff557d'; ctx.beginPath(); ctx.arc(fx, fy, fr, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = .2 * fade; ctx.strokeStyle = '#ff9ab0'; ctx.lineWidth = Math.max(1, w * .001); ctx.beginPath(); ctx.moveTo(fx, fy); ctx.lineTo(ship.x * w, ship.y * h); ctx.stroke(); if (attack > .85) { ctx.globalAlpha = .65 * fade; ctx.fillStyle = '#ffd1dd'; ctx.beginPath(); ctx.arc(fx + (ship.x - foe.x) * w * .22, fy + (ship.y - foe.y) * h * .22, Math.max(1, fr * .45), 0, Math.PI * 2); ctx.fill(); } ctx.restore(); }
     }
     for (const cloud of this.backgroundClouds) { const pulse = 1 + Math.sin(t * 1.4 + cloud.seed) * .08; ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .09; const g = ctx.createRadialGradient(cloud.x * w, cloud.y * h, 0, cloud.x * w, cloud.y * h, cloud.radius * w * pulse); g.addColorStop(0, cloud.seed % 3 === 0 ? '#a67cff' : cloud.seed % 3 === 1 ? '#4de1ff' : '#ff6bd6'); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect((cloud.x - cloud.radius) * w, (cloud.y - cloud.radius) * h, cloud.radius * 2 * w, cloud.radius * 2 * h); ctx.restore(); }
