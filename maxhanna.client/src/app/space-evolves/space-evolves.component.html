@@ -10,7 +10,7 @@
           WAVE</strong><span>{{enemyCountLabel}}</span></div>
       <div *ngIf="player.shield > 0"><strong>SHIELD</strong><span>{{player.shield | number:'1.0-0'}}</span></div>
       <div class="experience-bar" aria-label="Experience progress">
-        <div class="experience-label"><span>EXP</span><strong>{{experience}} / {{nextLevel}}</strong></div>
+        <div class="experience-label"><span>EXP</span><strong>{{experience | number:'1.0-0'}} / {{nextLevel | number:'1.0-0'}}</strong></div>
         <div class="experience-track">
           <div class="experience-fill"
             [style.width.%]="nextLevel > 0 ? Math.min(100, experience / nextLevel * 100) : 0"></div>
@@ -20,7 +20,7 @@
     <div class="arena-wrap">
       <canvas #gameCanvas class="arena"></canvas> 
     </div>
-    <div>
+    <div style="display: flex;" [style.flex-wrap]="onMobile() ? 'wrap' : 'nowrap'" [style.justify-content]="onMobile() ? 'center' : 'unset'">
       <div class="status">{{status}}</div>
       <div class="weapon-hud">
         <div class="weapon-slots">

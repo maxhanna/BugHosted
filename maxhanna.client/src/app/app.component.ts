@@ -1590,9 +1590,16 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
 
     text = this.replaceEmojisInMessage(text);
 
-    // Step 6: Replace || component:<component-name>|| with a clickable span
-    text = text.replace(/\|\|component:([\w-]+)\|\|/g, (match, componentName) => {
-      return `<span onClick="document.getElementById('componentCreateName').value='${componentName}';document.getElementById('componentCreateClickButton').click()" class="linkedComponent">${this.componentTitles[componentName] ?? componentName}${this.getIconByTitle(componentName)}</span>`;
+    // Step 6: Replace ||component:<component-name>|| with a clickable span.
+    // Component titles are not limited to identifier characters (for example,
+    // "Space: Evolves"), so capture everything up to the closing token instead
+    // of using [\\w-]+. The JSON value is escaped for the HTML attribute so a
+    // title can never break the inline click handler.
+    text = text.replace(/\|\|\s*component:([^|\r\n]+?)\s*\|\|/g, (match, rawComponentName) => {
+      const componentName = String(rawComponentName).trim();
+      const safeComponentValue = this.escapeHtmlAttributeValue(JSON.stringify(componentName));
+      const displayName = this.escapeHtml(this.componentTitles[componentName] ?? componentName);
+      return `<span onClick="document.getElementById('componentCreateName').value=${safeComponentValue};document.getElementById('componentCreateClickButton').click()" class="linkedComponent">${displayName}${this.getIconByTitle(componentName) ?? ''}</span>`;
     });
 
     // Step 7: Replace @username with a placeholder for UserTagComponent
@@ -1711,6 +1718,14 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
   private htmlEncodeForInput(str: string): string {
     return str.replaceAll("'", "");
   }
+  private escapeHtmlAttributeValue(value: string): string {
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/'/g, '&#39;');
+  }
   getIconByTitle(title: string): string | undefined {
     if (title.toLowerCase() == "reactions") return "🙂";
     const item = this.navigationItems.find(x => x.title === title);
@@ -1721,8 +1736,9 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     const escapedKeys = Object.keys(this.emojiMap).map(key => key.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&'));
     const emojiRegex = new RegExp(escapedKeys.join("|"), "g");
 
-    // Mask component tokens (e.g., || component:DigCraft||) so emojis inside them are not replaced.
-    const componentRegex = /\|\|component:([\w-]+)\|\|/g;
+    // Mask component tokens (including titles such as "Space: Evolves") so
+    // emojis inside them are not replaced before the clickable span is built.
+    const componentRegex = /\|\|\s*component:([^|\r\n]+?)\s*\|\|/g;
     const placeholders: string[] = [];
     const placeholderPrefix = '__COMPONENT_PLACEHOLDER_';
     const masked = msg.replace(componentRegex, (m) => {
