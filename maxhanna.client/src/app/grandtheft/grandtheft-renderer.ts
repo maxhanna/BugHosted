@@ -3783,11 +3783,11 @@ void main() {
             const heli: CityMesh[] = this.helicopterMeshes.length > 0
               ? this.helicopterMeshes[Math.floor(rng() * this.helicopterMeshes.length)]
               : this.getProceduralHelicopterMeshes().regular;
-            // Keep a stable, explicit aircraft placement record as well as the
-            // building placement. The render pass uses this record for culling
-            // and rotor animation; it must survive chunk construction.
+            // Keep a stable, explicit aircraft placement record for culling,
+            // interaction, and rotor animation. The dedicated aircraft pass
+            // renders it once; do not also add the helicopter to `buildings`,
+            // or every helipad shows two overlapping copies.
             const heliYaw = rng() * Math.PI * 2;
-            buildings.push({ model: heli, x: padX, y: -this.getModelMinY(heli) + 0.18, z: padZ, yaw: heliYaw, scale: [1, 1, 1] });
             decorativeAircraft.push({ x: padX, z: padZ, yaw: heliYaw, type: 'helicopter', model: heli });
             if (this.airportHangarMesh) {
               buildings.push({ model: this.airportHangarMesh, x: blockWorldX + 35, y: -this.getModelMinY(this.airportHangarMesh) * HS + 0.15, z: blockWorldZ, yaw: -Math.PI / 2, scale: [HS, HS, HS] });
