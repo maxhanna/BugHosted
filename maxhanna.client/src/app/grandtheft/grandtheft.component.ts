@@ -6721,12 +6721,14 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       const lotX = dl.gx * 80;
       const lotZ = dl.gz * 80;
       const npcId = --this.pedIdCounter;
+      const dealerMesh = this.renderer.getPedestrianMesh('dealer', `dealer:${dl.gx}:${dl.gz}`);
+      this.renderer.dealershipNPCs.push({ id: npcId, x: lotX + 18, z: lotZ + 25, yaw: -Math.PI / 2, mesh: dealerMesh });
       this.dealershipNPCs.push({
         id: npcId,
         x: lotX + 18,
         z: lotZ + 25,
         yaw: -Math.PI / 2,
-        mesh: this.renderer.getPedestrianMesh('male', npcId),
+        mesh: dealerMesh,
         lotGx: dl.gx,
         lotGz: dl.gz,
       });
@@ -8705,17 +8707,15 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       if (e.code === 'ArrowLeft') { e.preventDefault(); this.prevRadio(); }
       if (e.code === 'ArrowRight') { e.preventDefault(); this.nextRadio(); }
     }
-    if (e.code === 'Tab' || e.code === 'KeyR') {
-      if (e.code === 'KeyR' && this.dealershipMission != null) {
-        this.stopDealershipMission();
-      }
-      else if (this.nearDealerNPC && this.dealershipMission === null) {
-        this.startDealershipMission();
-      } else {
-        e.preventDefault();
-        this.showWeaponWheel = !this.showWeaponWheel;
-        if (this.isPointerLocked) document.exitPointerLock();
-      }
+    if (e.code === 'KeyQ') {
+      e.preventDefault();
+      if (this.nearDealerNPC && this.dealershipMission === null) this.startDealershipMission();
+    } else if (e.code === 'KeyR' && this.dealershipMission != null) {
+      this.stopDealershipMission();
+    } else if (e.code === 'Tab') {
+      e.preventDefault();
+      this.showWeaponWheel = !this.showWeaponWheel;
+      if (this.isPointerLocked) document.exitPointerLock();
     }
     if (e.code === 'Escape') {
       this.showWeaponWheel = false;

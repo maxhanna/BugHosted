@@ -24,7 +24,7 @@ import { CityMesh, GltfAnimation } from '../../services/grandtheft.service';
 // ---------------------------------------------------------------------------
 // Variant definition
 // ---------------------------------------------------------------------------
-export type Role = 'franklin' | 'cop' | 'taxi' | 'pizza' | 'hillbilly' | 'female' | 'hooker' | 'fat' | 'dwarf' | 'generic';
+export type Role = 'franklin' | 'cop' | 'taxi' | 'pizza' | 'hillbilly' | 'female' | 'hooker' | 'fat' | 'dwarf' | 'dealer' | 'generic';
 export type BodyType = 'slim' | 'muscular' | 'fat' | 'dwarf';
 export interface HumanVariant {
   role: Role;
@@ -115,6 +115,12 @@ export function pickVariant(role: Role, seed: number | string, genderHint?: stri
       outfitA = [0.42, 0.42, 0.45]; outfitB = [0.30, 0.30, 0.33]; break;
     case 'dwarf':
       outfitA = [0.55, 0.35, 0.15]; outfitB = [0.25, 0.35, 0.25]; break;
+    case 'dealer':
+      // A tailored dealership owner: dark suit, bright shirt/tie accent, and
+      // a deliberately polished palette that separates him from street peds.
+      outfitA = [0.07, 0.09, 0.14]; outfitB = [0.04, 0.05, 0.08];
+      accent = [0.92, 0.68, 0.12]; hasBeard = false; hasCap = false;
+      break;
     default:
       outfitA = [0.22 + rng() * 0.3, 0.22 + rng() * 0.3, 0.22 + rng() * 0.4];
       outfitB = [0.14 + rng() * 0.2, 0.14 + rng() * 0.2, 0.16 + rng() * 0.2];
@@ -391,6 +397,12 @@ export function generateHumanMesh(gl: WebGL2RenderingContext, variant: HumanVari
     addBoxRigged(0.16, 0.10, 0.04, 0.035, 0.10, 0.035, variant.accent, 10);
   }
   if (variant.role === 'pizza') addBoxRigged(0, 0.18, -0.12, 0.22, 0.28, 0.08, [0.95,0.85,0.65], 2);
+  if (variant.role === 'dealer') {
+    // Tie and pocket square make the owner read clearly even at the small
+    // scale used by the dealership marker.
+    addBoxRigged(0, 0.28, 0.105, 0.045, 0.16, 0.018, variant.accent ?? [0.92, 0.68, 0.12], 2);
+    addBoxRigged(0.14, 0.29, 0.105, 0.07, 0.04, 0.018, [0.92, 0.92, 0.96], 2);
+  }
 
   // Build skinned mesh data structures (mirror createMesh but with skeleton)
   const vertexCount = verts.length / 7;
