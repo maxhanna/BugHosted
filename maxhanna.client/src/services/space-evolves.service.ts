@@ -16,6 +16,8 @@ export interface SpaceEvolvesRun {
   /** Kills completed toward the current wave quota — restores the boss
    *  countdown correctly after a refresh. */
   waveKills?: number;
+  /** Upgrade cards already offered at the current level-up; must survive refreshes. */
+  upgradeChoices?: string[];
   gameOver: boolean;
 }
 

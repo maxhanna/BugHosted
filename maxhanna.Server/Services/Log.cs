@@ -485,9 +485,7 @@ public class Log
         totalDeleted += affected;
         Console.WriteLine($"Deleted {affected} old log(s) in this batch. Total deleted so far: {totalDeleted}.");
         
-        if (affected < batchSize)
-        {
-          Console.WriteLine("No more logs to delete.");
+        if (affected < batchSize) {
           break;  
         }
 

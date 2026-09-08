@@ -1,4 +1,4 @@
-import { AfterViewInit, ChangeDetectorRef, Component, ComponentRef, OnInit, Type, ViewChild, ViewContainerRef, createNgModuleRef } from '@angular/core';
+import { AfterViewInit, ChangeDetectorRef, Component, ComponentRef, HostListener, OnInit, Type, ViewChild, ViewContainerRef, createNgModuleRef } from '@angular/core';
 import { NavigationEnd, Router, RouterEvent, RouterOutlet } from '@angular/router';
 import { Location } from '@angular/common';
 import { CalendarComponent } from './calendar/calendar.component';
@@ -1599,7 +1599,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       const componentName = String(rawComponentName).trim();
       const safeComponentValue = this.escapeHtmlAttributeValue(JSON.stringify(componentName));
       const displayName = this.escapeHtml(this.componentTitles[componentName] ?? componentName);
-      return `<span onClick="document.getElementById('componentCreateName').value=${safeComponentValue};document.getElementById('componentCreateClickButton').click()" class="linkedComponent">${displayName}${this.getIconByTitle(componentName) ?? ''}</span>`;
+      return `<span class="linkedComponent" data-component="${safeComponentValue}" role="link" tabindex="0">${displayName}${this.getIconByTitle(componentName) ?? ''}</span>`;
     });
 
     // Step 7: Replace @username with a placeholder for UserTagComponent
@@ -1886,6 +1886,20 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       return false;
     }
   }
+  @HostListener('document:click', ['$event'])
+  onGeneratedComponentLinkClick(event: Event): void {
+    const target = event.target as HTMLElement | null;
+    const link = target?.closest<HTMLElement>('.linkedComponent[data-component]');
+    if (!link) return;
+    event.preventDefault();
+    const encoded = link.dataset['component'];
+    if (!encoded) return;
+    try {
+      const title = JSON.parse(encoded);
+      if (typeof title === 'string' && title.trim()) void this.createComponent(title.trim());
+    } catch { /* Ignore malformed generated content. */ }
+  }
+
   createComponentButtonClicked() {
     const title = (document.getElementById("componentCreateName") as HTMLInputElement).value;
     if (title) { this.createComponent(title); }
