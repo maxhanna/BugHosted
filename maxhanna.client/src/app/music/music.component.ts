@@ -521,20 +521,23 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     }
     if (!confirm("Deleting song. Are you sure?")) return;
     this.startLoading();
-    await this.todoService.deleteTodo(this.parentRef?.user?.id ?? 0, id);
-    const index = this.songs.findIndex(song => song.id === id);
-    if (index !== -1) {
-      this.songs.splice(index, 1);
-      this.updateSongTypeArrays();
-      this.updatePaginatedSongs();
+    try {
+      await this.todoService.deleteTodo(this.parentRef?.user?.id ?? 0, id);
+      const index = this.songs.findIndex(song => song.id === id);
+      if (index !== -1) {
+        this.songs.splice(index, 1);
+        this.updateSongTypeArrays();
+        this.updatePaginatedSongs();
+      }
+      this.clearInputs();
+      this.isEditing = this.isEditing.filter(x => x !== id);
+      this.hasEditedSong = false;
+      const parent = this.inputtedParentRef ?? this.parentRef;
+      parent?.closeOverlay(false);
+      this.cdr.detectChanges();
+    } finally {
+      this.stopLoading();
     }
-    if (document.getElementById("songId" + id)) {
-      document.getElementById("songId" + id)!.style.textDecoration = "line-through";
-    }
-    this.clearInputs();
-    this.closeEditPopup(false);
-    this.cdr.detectChanges();
-    this.stopLoading();
   }
 
   async selectType(type: 'youtube' | 'file' | 'radio') {
@@ -915,27 +918,38 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     if (!this.isEditing.includes(id)) {
       parent?.showOverlay();
       this.isEditing.push(id);
-    } else {
-      const todoDiv = document.getElementById('songId' + id) as HTMLTableCellElement;
-      const textInput = document.getElementById("editSongNameInput") as HTMLInputElement;
-      const urlInput = document.getElementById("editSongUrlInput") as HTMLInputElement;
+      this.cdr.detectChanges();
+      return;
+    }
 
-      try {
-        await this.todoService.editTodoUrlAndTitle(id, textInput.value, urlInput?.value).then(res => {
-          if (res) {
-            parent?.showNotification(res);
-          }
-        });
-        const todoIndex = this.songs.findIndex(todo => todo.id === id);
-        if (todoIndex !== -1) {
-          this.songs[todoIndex].todo = textInput.value;
-        }
-        parent?.closeOverlay();
-        this.isEditing = this.isEditing.filter(x => x !== id);
-      } catch (error) {
-        console.error("Error updating todo:", error);
-        parent?.showNotification("Failed to update todo");
+    const textInput = document.getElementById("editSongNameInput") as HTMLTextAreaElement | null;
+    const urlInput = document.getElementById("editSongUrlInput") as HTMLTextAreaElement | null;
+    if (!textInput || !urlInput) return;
+
+    this.startLoading();
+    try {
+      const title = textInput.value.trim();
+      const url = urlInput.value.trim();
+      const res = await this.todoService.editTodoUrlAndTitle(id, title, url);
+      if (res) parent?.showNotification(res);
+      const todoIndex = this.songs.findIndex(todo => todo.id === id);
+      if (todoIndex !== -1) {
+        this.songs[todoIndex].todo = title;
+        this.songs[todoIndex].url = url;
+        this.updateSongTypeArrays();
+        this.updatePaginatedSongs();
       }
+    } catch (error) {
+      console.error("Error updating todo:", error);
+      parent?.showNotification("Failed to update todo");
+    } finally {
+      // Always leave edit mode, including after a failed request, so the row and
+      // overlay cannot remain stuck in their popup presentation.
+      this.isEditing = this.isEditing.filter(x => x !== id);
+      this.hasEditedSong = false;
+      parent?.closeOverlay(false);
+      this.cdr.detectChanges();
+      this.stopLoading();
     }
   }
 
@@ -949,18 +963,23 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   }
   showYoutubeSearch() {
     const parent = this.inputtedParentRef ?? this.parentRef;
-    // This is a YouTube search, not a saved-playlist search. Always open it
-    // with an independent, empty query and never inherit crawler results.
+    // Carry the user's current local search into YouTube; it is usually the same
+    // phrase they want to look up externally. Capture it before clearing any
+    // shared YouTube search state.
+    const localSearch = this.searchInput?.nativeElement.value?.trim() ?? '';
     if (parent?.getYoutubeSearchKeyword()) parent.clearYoutubeSearchResults();
-    this.ytSearchTerm = '';
+    this.ytSearchTerm = localSearch;
     if (this.youtubeSearchComponent) {
       this.youtubeSearchComponent.videos = [];
-      this.youtubeSearchComponent.keyword = '';
+      this.youtubeSearchComponent.keyword = localSearch;
       this.youtubeSearchComponent.hasSearched = false;
     }
     this.isShowingYoutubeSearch = true;
-    this.parentRef?.showOverlay();
-    this.cdr.markForCheck();
+    parent?.showOverlay();
+    this.cdr.detectChanges();
+    // The popup is created by *ngIf, so focus after change detection has inserted
+    // the child input. Selecting the value makes the query immediately replaceable.
+    setTimeout(() => this.youtubeSearchComponent?.focusSearchInput(), 0);
   }
   closeYoutubeSearch() {
     this.isShowingYoutubeSearch = false;
@@ -1005,15 +1024,17 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   }
   closeEditPopup(editSong = true) {
     clearTimeout(this.debounceTimer);
-    this.debounceTimer = setTimeout(async () => {
-      if (this.parentRef) {
-        this.parentRef.closeOverlay(false);
-      }
-      if (this.hasEditedSong && editSong) {
-        this.editSong(this.isEditing[0]);
-      }
-      this.isEditing = [];
-    }, 50);
+    const id = this.isEditing[0];
+    const shouldSave = editSong && this.hasEditedSong && id != null;
+    if (shouldSave) {
+      void this.editSong(id);
+      return;
+    }
+    this.isEditing = [];
+    this.hasEditedSong = false;
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    parent?.closeOverlay(false);
+    this.cdr.detectChanges();
   }
   scrollToTop() {
     const div = document.getElementsByClassName("musicControls")[0] as HTMLDivElement;

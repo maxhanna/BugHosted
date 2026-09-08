@@ -25,6 +25,10 @@ export class YoutubeSearchComponent extends ChildComponent implements OnChanges,
 
   ngOnChanges(changes: SimpleChanges) {
     if (changes['keyword'] && this.keyword?.trim()) {
+      // The first input update can arrive before the template's search input has
+      // been created (especially when this component is opened by *ngIf). Wait for
+      // ngAfterViewInit, which copies the value and focuses the field.
+      if (!this.searchInput) return;
       const parent = this.inputtedParentRef ?? this.parentRef;
       if (this.keyword === parent?.getYoutubeSearchKeyword()) {
         this.videos = parent?.getYoutubeSearchResults() ?? [];
@@ -55,7 +59,15 @@ export class YoutubeSearchComponent extends ChildComponent implements OnChanges,
         }
       }
       this.videos = parent?.getYoutubeSearchResults() ?? [];
+      this.focusSearchInput();
     } catch (e) { console.error(e); }
+  }
+
+  focusSearchInput() {
+    const input = this.searchInput?.nativeElement;
+    if (!input) return;
+    input.focus();
+    input.select();
   }
 
   selectVideo(video: YoutubeVideo) {
