@@ -192,6 +192,7 @@
               <input type="text" id="loginInput" name="username" placeholder="Username" #loginUsername
                 (input)="onLoginUsernameInput($event)" (keydown.enter)="login()" [disabled]="isLoggingIn" />
               <input type="password" id="passwordInput" name="password" placeholder="Password" #loginPassword
+                autocomplete="current-password" autocapitalize="off" spellcheck="false" [attr.data-lpignore]="'true'"
                 (keydown.enter)="login()" [disabled]="isLoggingIn"
                 (keydown)="onSecretInputKey($event, 'login')" (keyup)="onSecretInputKey($event, 'login')"
                 (focus)="loginCapsLockOn = false" (blur)="loginCapsLockOn = false" />

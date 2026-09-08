@@ -321,8 +321,17 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
     this.cdr.detectChanges();
   }
 
+  private maskLoginPassword() {
+    // Firefox can briefly repaint an autofilled password as plain text while a
+    // form is submitted. Reassert the password input's type before reading it;
+    // this does not alter the value sent to the login endpoint.
+    const input = this.loginPassword?.nativeElement;
+    if (input && input.type !== 'password') input.type = 'password';
+  }
+
   onFormSubmit(event: Event) {
     event.preventDefault();
+    this.maskLoginPassword();
     this.login();
   }
 
@@ -1065,6 +1074,7 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
   }
 
   async login(guest?: string, fromUserCreation?: boolean) {
+    this.maskLoginPassword();
     this.startLoading();
     this.isLoggingIn = true;
     if (this.parentRef?.user) {
