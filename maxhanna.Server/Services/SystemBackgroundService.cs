@@ -885,24 +885,6 @@ namespace maxhanna.Server.Services
             await _log.Db("Fetching Crypto Calendar of events...", null, "CCS", outputToConsole: true);
             try
             {
-                await using (var conn1 = new MySqlConnection(_connectionString))
-                {
-                    await conn1.OpenAsync();
-                    var recentExistsSql = @"
-						SELECT 1
-						FROM crypto_calendar_events
-						WHERE updated >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 DAY)
-						LIMIT 1;";
-                    await using (var recentCmd = new MySqlCommand(recentExistsSql, conn1))
-                    {
-                        var hasRecent = await recentCmd.ExecuteScalarAsync() is not null;
-                        if (hasRecent)
-                        {
-                            await _log.Db("Crypto-calendar already updated in the last 24 h. Skipping fetch.", null, "CCS", outputToConsole: true);
-                            return;
-                        }
-                    }
-                }
                 var apiKey = _config.GetValue<string>("CoinMarketCal:ApiKey");
                 if (string.IsNullOrEmpty(apiKey))
                 {
@@ -939,27 +921,44 @@ namespace maxhanna.Server.Services
                     await deleteCmd.ExecuteNonQueryAsync();
                 }
                 var storedCount = 0;
+                // Cache aggressively: skip detail fetches for events already updated in the last 24 h.
+                // This keeps the daily sync cheap and lets a partially failed run retry only the missing events.
+                var freshEventIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var listIds = eventsResponse.Data.Where(i => !string.IsNullOrEmpty(i?.Id)).Select(i => i!.Id!).ToList();
+                if (listIds.Count > 0)
+                {
+                    var inClause = string.Join(",", listIds.Select((_, i) => $"@id{i}"));
+                    var freshSql = $@"
+						SELECT event_id
+						FROM crypto_calendar_events
+						WHERE event_id IN ({inClause})
+						  AND updated >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 DAY);";
+                    await using (var freshCmd = new MySqlCommand(freshSql, conn))
+                    {
+                        for (var i = 0; i < listIds.Count; i++)
+                        {
+                            freshCmd.Parameters.AddWithValue($"@id{i}", listIds[i]);
+                        }
+                        await using var freshReader = await freshCmd.ExecuteReaderAsync();
+                        while (await freshReader.ReadAsync())
+                        {
+                            freshEventIds.Add(freshReader.GetString(0));
+                        }
+                    }
+                }
                 foreach (var listItem in eventsResponse.Data)
                 {
                     var eventId = listItem?.Id;
                     if (string.IsNullOrEmpty(eventId)) continue;
                     try
                     {
-                        // Step 2: fetch detail for each event
-                        var detailRequest = new HttpRequestMessage
+                        if (freshEventIds.Contains(eventId))
                         {
-                            Method = HttpMethod.Get,
-                            RequestUri = new Uri($"https://api.coinmarketcal.com/v2/events/{eventId}"),
-                            Headers =
-              {
-                { "Accept", "application/json" },
-                { "x-api-key", apiKey },
-              },
-                        };
-                        using var detailResponse = await httpClient.SendAsync(detailRequest);
-                        detailResponse.EnsureSuccessStatusCode();
-                        var detailBody = await detailResponse.Content.ReadAsStringAsync();
-                        var eventItem = JsonConvert.DeserializeObject<CryptoEvent>(detailBody);
+                            // already fresh from a previous run - no detail call needed
+                            continue;
+                        }
+                        // Step 2: fetch detail for each event (with rate-limit backoff)
+                        var eventItem = await FetchCryptoEventDetailAsync(httpClient, apiKey, eventId);
                         if (eventItem == null) continue;
                         var categoriesStr = eventItem.Categories != null ? string.Join(",", eventItem.Categories) : null;
                         DateTime? dateEnd = null;
@@ -1017,20 +1016,66 @@ namespace maxhanna.Server.Services
                             await insertCmd.ExecuteNonQueryAsync();
                             storedCount++;
                         }
-                        // small delay to avoid rate limiting
-                        await Task.Delay(200);
+                        // polite pacing between detail requests
+                        await Task.Delay(TimeSpan.FromSeconds(Math.Max(1, _config.GetValue<double?>("CoinMarketCal:PacingDelaySeconds") ?? 5)));
                     }
                     catch (Exception ex)
                     {
                         await _log.Db($"Error fetching/storing event {eventId}: {ex.Message}", null, "CCS", outputToConsole: true);
                     }
                 }
-                await _log.Db($"Successfully stored {storedCount} crypto events from CoinMarketCal v2 API", null, "CCS", outputToConsole: true);
+                await _log.Db($"Successfully stored {storedCount} crypto events from CoinMarketCal v2 API (skipped {freshEventIds.Count} already fresh)", null, "CCS", outputToConsole: true);
             }
             catch (Exception ex)
             {
                 await _log.Db($"Error fetching crypto events: {ex.Message}", null, "CCS", outputToConsole: true);
             }
+        }
+        private async Task<CryptoEvent?> FetchCryptoEventDetailAsync(HttpClient httpClient, string apiKey, string eventId)
+        {
+            const int maxRetries = 5;
+            for (var attempt = 1; attempt <= maxRetries; attempt++)
+            {
+                using var detailRequest = new HttpRequestMessage
+                {
+                    Method = HttpMethod.Get,
+                    RequestUri = new Uri($"https://api.coinmarketcal.com/v2/events/{eventId}"),
+                    Headers =
+                    {
+                        { "Accept", "application/json" },
+                        { "x-api-key", apiKey },
+                    },
+                };
+                using var detailResponse = await httpClient.SendAsync(detailRequest);
+                if (detailResponse.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+                {
+                    // Honor Retry-After when the API provides it; otherwise use exponential backoff.
+                    var waitSeconds = Math.Min(120, Math.Pow(2, attempt));
+                    if (detailResponse.Headers.TryGetValues("Retry-After", out var retryValues))
+                    {
+                        var retryAfter = retryValues.FirstOrDefault();
+                        if (double.TryParse(retryAfter, out var retrySeconds))
+                        {
+                            waitSeconds = Math.Max(waitSeconds, retrySeconds + 1);
+                        }
+                        else if (DateTime.TryParse(retryAfter, out var retryDate))
+                        {
+                            var fromNow = (retryDate - DateTime.UtcNow).TotalSeconds;
+                            if (fromNow > 0)
+                            {
+                                waitSeconds = Math.Max(waitSeconds, fromNow + 1);
+                            }
+                        }
+                    }
+                    await _log.Db($"Rate limited fetching event {eventId} (attempt {attempt}/{maxRetries}); waiting {waitSeconds:F0}s", null, "CCS", outputToConsole: true);
+                    await Task.Delay(TimeSpan.FromSeconds(waitSeconds));
+                    continue;
+                }
+                detailResponse.EnsureSuccessStatusCode();
+                var detailBody = await detailResponse.Content.ReadAsStringAsync();
+                return JsonConvert.DeserializeObject<CryptoEvent>(detailBody);
+            }
+            throw new HttpRequestException($"CoinMarketCal rate limit persisted for event {eventId} after {maxRetries} attempts.");
         }
         private async Task FetchWebsiteMetadata()
         {
