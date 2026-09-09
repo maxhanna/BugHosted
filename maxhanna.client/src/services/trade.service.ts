@@ -117,8 +117,8 @@ export class TradeService {
   async updateApiKey(userId: number, apiKey: string, privateKey: string, encryptedUserId: string) {
     return this.post(`/trade/updateapikey`, { UserId: userId, ApiKey: apiKey, PrivateKey: privateKey }, 'text', encryptedUserId);
   } 
-  async hasApiKey(userId: number) {
-    return this.post(`/trade/hasapikey`, userId, 'json');
+  async hasApiKey(userId: number, encryptedUserId: string) {
+    return this.post(`/trade/hasapikey`, userId, 'json', encryptedUserId);
   }
   async startBot(userId: number, coin: string, strategy: string, encryptedUserId: string) {
     return this.post(`/trade/startbot`, { UserId: userId, Coin: coin, Strategy: strategy }, 'text', encryptedUserId);
@@ -176,8 +176,8 @@ export class TradeService {
   async getProfitData(userId: number, days = 100, encryptedUserId: string) {
     return this.post(`/trade/getprofitdata`, { UserId: userId, Days: days }, 'json', encryptedUserId);
   }
-  async getNumberOfTrades(userId: number) {
-    return this.post(`/trade/getnumberoftrades`, userId, 'text');
+  async getNumberOfTrades(userId: number, encryptedUserId: string) {
+    return this.post(`/trade/getnumberoftrades`, userId, 'json', encryptedUserId);
   }
   
   convertTimePeriodToHours(period: string): number {

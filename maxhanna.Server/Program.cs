@@ -5,8 +5,10 @@ using Google.Apis.Auth.OAuth2;
 using maxhanna.Api.Extensions;
 using maxhanna.Server.Controllers;
 using maxhanna.Server.Services;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.HttpOverrides;
+using maxhanna.Server.Authentication;
 using MySqlConnector; 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -16,6 +18,17 @@ builder.Services.Configure<HostOptions>(o => o.BackgroundServiceExceptionBehavio
 
 builder.Services.AddMySqlDataSource(builder.Configuration.GetValue<string>("ConnectionStrings:maxhanna")!);
 builder.Services.AddControllers();
+builder.Services.AddAuthentication(options =>
+{
+  options.DefaultAuthenticateScheme = SessionAuthenticationHandler.SchemeName;
+  options.DefaultChallengeScheme = SessionAuthenticationHandler.SchemeName;
+}).AddScheme<AuthenticationSchemeOptions, SessionAuthenticationHandler>(
+  SessionAuthenticationHandler.SchemeName, _ => { });
+builder.Services.AddAuthorization();
+// Protect exchange credentials with the server's Data Protection key ring.
+// Keep the key ring persistent and back it up securely in production; losing it
+// intentionally makes previously stored credentials unreadable.
+builder.Services.AddDataProtection();
 builder.Services.Configure<FormOptions>(options =>
 {
 	options.MultipartBodyLengthLimit = long.MaxValue; // Allows for large files 
@@ -126,6 +139,7 @@ app.Use(async (context, next) =>
 	await next();
 });
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();

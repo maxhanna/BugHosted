@@ -186,7 +186,9 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   }
   async getKrakenApiKeys() {
     if (this.isApiKeysToggled && this.parentRef?.user?.id && this.parentRef.user.id != 0) {
-      this.hasKrakenKeys = await this.tradeService.hasApiKey(this.parentRef.user.id);
+      const sessionToken = await this.parentRef.getSessionToken();
+      if (!sessionToken) return;
+      this.hasKrakenKeys = await this.tradeService.hasApiKey(this.parentRef.user.id, sessionToken) as boolean;
     }
   }
   async deleteNicehashApiKeys() {
@@ -206,8 +208,13 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     if (!confirm("Are you sure?")) return;
     const user = this.parentRef?.user;
     if (this.isApiKeysToggled && user?.id) {
+      const sessionToken = await this.parentRef?.getSessionToken();
+      if (!sessionToken) {
+        this.inputtedParentRef?.showNotification('You must be logged in to delete Kraken credentials.');
+        return;
+      }
       this.hasKrakenKeys = false;
-      await this.miningService.deleteKrakenApiInfo(user.id).then((res) => {
+      await this.miningService.deleteKrakenApiInfo(user.id, sessionToken).then((res) => {
         this.inputtedParentRef?.showNotification(res);
         this.krakenPrivateKey.nativeElement.value = '';
         this.krakenApiKey.nativeElement.value = '';

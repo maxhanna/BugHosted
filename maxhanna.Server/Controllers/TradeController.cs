@@ -1,10 +1,17 @@
+using System.Collections.Concurrent;
 using maxhanna.Server.Controllers.DataContracts.Crypto;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using maxhanna.Server.Services;
 
+[Authorize]
 public class TradeController : ControllerBase
 {
 	private readonly KrakenService _krakenService;
 	private readonly Log _log;
+	private static readonly ConcurrentDictionary<string, SemaphoreSlim> PositionOperationLocks = new();
+	private static readonly ConcurrentDictionary<string, DateTime> LastPositionOperations = new();
+	private static readonly TimeSpan PositionOperationCooldown = TimeSpan.FromSeconds(5);
 
 	public TradeController(KrakenService krakenService, Log log)
 	{
@@ -121,10 +128,17 @@ public class TradeController : ControllerBase
 	}
 
 	[HttpPost("/Trade/HasApiKey", Name = "HasApiKey")]
-	public async Task<IActionResult> HasApiKey([FromBody] int userId)
+	public async Task<IActionResult> HasApiKey(
+		[FromBody] int userId,
+		[FromHeader(Name = "Encrypted-UserId")] string encryptedUserId)
 	{
+		if (userId <= 0) return BadRequest("Invalid userId.");
 		try
 		{
+			// Do not disclose credential state unless the session owns this account.
+			if (!await _log.ValidateUserLoggedIn(userId, encryptedUserId))
+				return Unauthorized("Access Denied.");
+
 			bool result = await _krakenService.CheckIfUserHasApiKey(userId);
 			return Ok(result);
 		}
@@ -139,7 +153,9 @@ public class TradeController : ControllerBase
 		try
 		{
 			if (!await _log.ValidateUserLoggedIn(req.UserId, encryptedUserId)) return StatusCode(500, "Access Denied.");
-			var result = await _krakenService.StartBot(req.UserId, req.Coin, req.Strategy ?? "DCA");
+			if (!TradeInputValidator.TryNormalize(req.Coin, req.Strategy ?? "DCA", out string normalizedCoin, out string normalizedStrategy))
+				return BadRequest("Unsupported coin or strategy. Supported strategies: DCA, IND, HFT.");
+			var result = await _krakenService.StartBot(req.UserId, normalizedCoin, normalizedStrategy);
 			return Ok(result ? "Trading bot has started." : "Unable to start the trade bot.");
 		}
 		catch (Exception ex)
@@ -153,7 +169,9 @@ public class TradeController : ControllerBase
 		try
 		{
 			if (!await _log.ValidateUserLoggedIn(req.UserId, encryptedUserId)) return StatusCode(500, "Access Denied.");
-			var result = await _krakenService.StopBot(req.UserId, req.Coin, req.Strategy ?? "DCA");
+			if (!TradeInputValidator.TryNormalize(req.Coin, req.Strategy ?? "DCA", out string normalizedCoin, out string normalizedStrategy))
+				return BadRequest("Unsupported coin or strategy. Supported strategies: DCA, IND, HFT.");
+			var result = await _krakenService.StopBot(req.UserId, normalizedCoin, normalizedStrategy);
 			return Ok(result ? "Trading bot has stopped." : "Unable to stop the trade bot.");
 		}
 		catch (Exception ex)
@@ -296,6 +314,7 @@ public class TradeController : ControllerBase
 			return StatusCode(500, "Error getting trade bot logs. " + ex.Message);
 		}
 	}
+	[AllowAnonymous]
 	[HttpPost("/Trade/GetTradeVolume", Name = "GetTradeVolume")]
 	public async Task<IActionResult> GetTradeVolume([FromBody] int? days)
 	{
@@ -329,6 +348,7 @@ public class TradeController : ControllerBase
 		}
 	}
 
+	[AllowAnonymous]
 	[HttpPost("/Trade/GetTopActiveUsersByTradeCount", Name = "GetTopActiveUsersByTradeCount")]
 	public async Task<IActionResult> GetTopActiveUsersByTradeCount([FromBody] TopActiveUsersRequest request)
 	{
@@ -344,6 +364,7 @@ public class TradeController : ControllerBase
 		}
 	}
 
+	[AllowAnonymous]
 	[HttpPost("/Trade/GetTradeVolumeForGraph", Name = "GetTradeVolumeForGraph")]
 	public async Task<IActionResult> GetTradeVolumeForGraph([FromBody] GraphRangeRequest request)
 	{
@@ -440,8 +461,25 @@ public class TradeController : ControllerBase
 		try
 		{
 			if (!await _log.ValidateUserLoggedIn(req.UserId, encryptedUserId)) return StatusCode(500, "Access Denied.");
-			bool ok = await _krakenService.EnterPosition(req.UserId, req.Coin, req.Strategy ?? "XXX");
-			return Ok(ok);
+			if (!TradeInputValidator.TryNormalize(req.Coin, req.Strategy, out string normalizedCoin, out string normalizedStrategy))
+				return BadRequest("Unsupported coin or strategy. Supported strategies: DCA, IND, HFT.");
+			string operationKey = $"enter:{req.UserId}:{normalizedCoin}:{normalizedStrategy}".ToLowerInvariant();
+			if (LastPositionOperations.TryGetValue(operationKey, out DateTime last) && DateTime.UtcNow - last < PositionOperationCooldown)
+				return Conflict("A position entry was processed recently. Please wait before trying again.");
+			var operationLock = PositionOperationLocks.GetOrAdd(operationKey, _ => new SemaphoreSlim(1, 1));
+			if (!await operationLock.WaitAsync(0)) return Conflict("A position entry is already in progress.");
+			try
+			{
+				if (LastPositionOperations.TryGetValue(operationKey, out last) && DateTime.UtcNow - last < PositionOperationCooldown)
+					return Conflict("A position entry was processed recently. Please wait before trying again.");
+				bool ok = await _krakenService.EnterPosition(req.UserId, normalizedCoin, normalizedStrategy);
+				if (ok) LastPositionOperations[operationKey] = DateTime.UtcNow;
+				return Ok(ok);
+			}
+			finally
+			{
+				operationLock.Release();
+			}
 		}
 		catch (Exception ex)
 		{
@@ -459,8 +497,25 @@ public class TradeController : ControllerBase
 		try
 		{
 			if (!await _log.ValidateUserLoggedIn(req.UserId, encryptedUserId)) return StatusCode(500, "Access Denied.");
-			bool ok = await _krakenService.ExitPosition(req.UserId, req.Coin, req.Strategy);
-			return Ok(ok);
+			if (!TradeInputValidator.TryNormalize(req.Coin, req.Strategy, out string normalizedCoin, out string normalizedStrategy))
+				return BadRequest("Unsupported coin or strategy. Supported strategies: DCA, IND, HFT.");
+			string operationKey = $"exit:{req.UserId}:{normalizedCoin}:{normalizedStrategy}".ToLowerInvariant();
+			if (LastPositionOperations.TryGetValue(operationKey, out DateTime last) && DateTime.UtcNow - last < PositionOperationCooldown)
+				return Conflict("A position exit was processed recently. Please wait before trying again.");
+			var operationLock = PositionOperationLocks.GetOrAdd(operationKey, _ => new SemaphoreSlim(1, 1));
+			if (!await operationLock.WaitAsync(0)) return Conflict("A position exit is already in progress.");
+			try
+			{
+				if (LastPositionOperations.TryGetValue(operationKey, out last) && DateTime.UtcNow - last < PositionOperationCooldown)
+					return Conflict("A position exit was processed recently. Please wait before trying again.");
+				bool ok = await _krakenService.ExitPosition(req.UserId, normalizedCoin, normalizedStrategy);
+				if (ok) LastPositionOperations[operationKey] = DateTime.UtcNow;
+				return Ok(ok);
+			}
+			finally
+			{
+				operationLock.Release();
+			}
 		}
 		catch (Exception ex)
 		{
@@ -468,6 +523,7 @@ public class TradeController : ControllerBase
 		}
 	}
 
+	[AllowAnonymous]
 	[HttpPost("/Trade/GetTradeIndicators", Name = "GetTradeIndicators")]
 	public async Task<IActionResult> GetTradeIndicators([FromBody] TradebotIndicatorRequest req)
 	{
@@ -475,6 +531,7 @@ public class TradeController : ControllerBase
 		return Ok(ok);
 	}
 
+	[AllowAnonymous]
 	[HttpPost("/Trade/GetMacdData", Name = "GetMacdData")]
 	public async Task<IActionResult> GetMacdData([FromBody] MacdDataRequest request)
 	{
@@ -520,12 +577,22 @@ public class TradeController : ControllerBase
 	}
 
 	[HttpPost("/Trade/GetNumberOfTrades", Name = "GetNumberOfTrades")]
-	public async Task<int> GetNumberOfTrades([FromBody] int userId)
-	{ 
-		if (userId == 0)
+	public async Task<IActionResult> GetNumberOfTrades(
+		[FromBody] int userId,
+		[FromHeader(Name = "Encrypted-UserId")] string encryptedUserId)
+	{
+		if (userId <= 0) return BadRequest("Invalid userId.");
+		try
 		{
-			return 0;
-		} 
-		return await _krakenService.GetNumberOfTrades(userId);  
+			// Trade counts are user-specific; do not trust an arbitrary body userId.
+			if (!await _log.ValidateUserLoggedIn(userId, encryptedUserId))
+				return Unauthorized("Access Denied.");
+
+			return Ok(await _krakenService.GetNumberOfTrades(userId));
+		}
+		catch (Exception)
+		{
+			return StatusCode(500, "Error getting number of trades.");
+		}
 	}
 }  

@@ -3,6 +3,7 @@ using System.Data;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.AspNetCore.DataProtection;
 using maxhanna.Server.Controllers;
 using maxhanna.Server.Controllers.DataContracts.Crypto;
 using maxhanna.Server.Services;
@@ -31,6 +32,8 @@ public class KrakenService
   private long _lastNonce;
   private readonly Log _log;
   private readonly FirebaseNotificationService _firebaseNotificationService;
+  private readonly IDataProtector _credentialProtector;
+  private const string ProtectedCredentialPrefix = "dp:v1:";
   public static readonly Dictionary<string, string> CoinMappingsForDB = new Dictionary<string, string> { { "XBT", "btc" }, { "XXBT", "btc" }, { "BTC", "btc" }, { "USDC", "usdc" }, { "XRP", "xrp" }, { "XXRP", "xrp" }, { "XXDG", "xdg" }, { "XDG", "xdg" }, { "XETH", "eth" }, { "ETH", "eth" }, { "ETH.F", "eth" }, { "SOL.F", "sol" }, { "SOL", "sol" }, { "SUI", "sui" }, { "WIF", "wif" }, { "WIF.F", "wif" }, { "PENGU", "pengu" }, { "PEPE", "pepe" }, { "DOT", "dot" }, { "DOT.F", "dot" }, { "ADA", "ada" }, { "ADA.F", "ada" }, { "LTC", "ltc" }, { "LTC.F", "ltc" }, { "LINK", "link" }, { "LINK.F", "link" }, { "MATIC", "matic" }, { "MATIC.F", "matic" }, { "XLM", "xlm" }, { "XLM.F", "xlm" }, { "TRX", "trx" }, { "TRX.F", "trx" }, { "AVAX", "avax" }, { "AVAX.F", "avax" }, { "ATOM", "atom" }, { "ATOM.F", "atom" }, { "ALGO", "algo" }, { "ALGO.F", "algo" }, { "NEAR", "near" }, { "NEAR.F", "near" }, { "XMR", "xmr" }, { "XMR.F", "xmr" }, { "BCH", "bch" }, { "BCH.F", "bch" }, { "ZEC", "zec" }, { "ZEC.F", "zec" }, { "SHIB", "shib" }, { "SHIB.F", "shib" }, { "UNI", "uni" }, { "UNI.F", "uni" }, { "AAVE", "aave" }, { "AAVE.F", "aave" }, { "ZUSD", "usd" }, { "ZCAD", "cad" } };
   private static readonly Dictionary<string, string> CoinNameMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { { "BTC", "Bitcoin" }, { "XBT", "Bitcoin" }, { "ETH", "Ethereum" }, { "XDG", "Dogecoin" }, { "SOL", "Solana" } };
   private static readonly Dictionary<string, string> CoinSymbols = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { { "Bitcoin", "₿" }, { "Ethereum", "Ξ" }, { "Dogecoin", "Ɖ" }, { "Solana", "◎" } };
@@ -40,12 +43,39 @@ public class KrakenService
 
   public readonly bool viewDebugLogs = false;
   public readonly bool viewErrorDebugLogs = true;
-  public KrakenService(IConfiguration config, Log log, FirebaseNotificationService firebaseNotificationService)
+  public KrakenService(IConfiguration config, Log log, FirebaseNotificationService firebaseNotificationService, IDataProtectionProvider dataProtectionProvider)
   {
     _config = config;
     _log = log;
     _firebaseNotificationService = firebaseNotificationService;
+    _credentialProtector = dataProtectionProvider.CreateProtector("maxhanna.kraken-credentials.v1");
     _httpClient = new HttpClient();
+  }
+
+  private string ProtectCredential(string credential)
+  {
+    return ProtectedCredentialPrefix + _credentialProtector.Protect(credential);
+  }
+
+  private string? UnprotectCredential(string? storedCredential, out bool wasLegacyPlaintext)
+  {
+    wasLegacyPlaintext = false;
+    if (string.IsNullOrEmpty(storedCredential)) return storedCredential;
+    if (!storedCredential.StartsWith(ProtectedCredentialPrefix, StringComparison.Ordinal))
+    {
+      wasLegacyPlaintext = true;
+      return storedCredential;
+    }
+
+    try
+    {
+      return _credentialProtector.Unprotect(storedCredential[ProtectedCredentialPrefix.Length..]);
+    }
+    catch (Exception)
+    {
+      _ = _log.Db("⚠️Unable to decrypt stored Kraken credentials; credentials were not used.", null, "TRADE", viewErrorDebugLogs);
+      return null;
+    }
   }
   public async Task<bool> MakeATrade(int userId, string coin, UserKrakenApiKey keys, string strategy)
   {
@@ -3301,8 +3331,8 @@ LIMIT @PageSize OFFSET @Offset;";
                         private_key = @privateKey 
                     WHERE user_id = @userId;", connection);
 
-          updateCmd.Parameters.AddWithValue("@apiKey", request.ApiKey);
-          updateCmd.Parameters.AddWithValue("@privateKey", request.PrivateKey);
+          updateCmd.Parameters.AddWithValue("@apiKey", ProtectCredential(request.ApiKey));
+          updateCmd.Parameters.AddWithValue("@privateKey", ProtectCredential(request.PrivateKey));
           updateCmd.Parameters.AddWithValue("@userId", request.UserId);
 
           await updateCmd.ExecuteNonQueryAsync();
@@ -3315,8 +3345,8 @@ LIMIT @PageSize OFFSET @Offset;";
                     VALUES (@userId, @apiKey, @privateKey);", connection);
 
           insertCmd.Parameters.AddWithValue("@userId", request.UserId);
-          insertCmd.Parameters.AddWithValue("@apiKey", request.ApiKey);
-          insertCmd.Parameters.AddWithValue("@privateKey", request.PrivateKey);
+          insertCmd.Parameters.AddWithValue("@apiKey", ProtectCredential(request.ApiKey));
+          insertCmd.Parameters.AddWithValue("@privateKey", ProtectCredential(request.PrivateKey));
 
           await insertCmd.ExecuteNonQueryAsync();
         }
@@ -3325,6 +3355,7 @@ LIMIT @PageSize OFFSET @Offset;";
     catch (Exception ex)
     {
       _ = _log.Db("⚠️Error updating API keys: " + ex.Message, request.UserId, "TRADE", viewErrorDebugLogs);
+      throw;
     }
   }
   public async Task<UserKrakenApiKey?> GetApiKey(int userId)
@@ -3343,16 +3374,35 @@ LIMIT @PageSize OFFSET @Offset;";
 
         if (await reader.ReadAsync())
         {
-          // Create a UserKrakenApiKey object from the result
-          var apiKey = new UserKrakenApiKey
+          string? storedApiKey = reader.IsDBNull(2) ? null : reader.GetString(2);
+          string? storedPrivateKey = reader.IsDBNull(3) ? null : reader.GetString(3);
+          string? apiKeyValue = UnprotectCredential(storedApiKey, out bool apiKeyWasLegacy);
+          string? privateKeyValue = UnprotectCredential(storedPrivateKey, out bool privateKeyWasLegacy);
+          if ((apiKeyWasLegacy || privateKeyWasLegacy) && apiKeyValue != null && privateKeyValue != null)
+          {
+            // Migrate existing plaintext rows after this reader is closed below.
+            var migratedApiKey = new UserKrakenApiKey
+            {
+              Id = reader.GetInt32(0), UserId = reader.GetInt32(1),
+              ApiKey = apiKeyValue, PrivateKey = privateKeyValue
+            };
+            await reader.CloseAsync();
+            await UpdateApiKey(new UpdateApiKeyRequest
+            {
+              UserId = migratedApiKey.UserId,
+              ApiKey = migratedApiKey.ApiKey!,
+              PrivateKey = migratedApiKey.PrivateKey!
+            });
+            return migratedApiKey;
+          }
+
+          return new UserKrakenApiKey
           {
             Id = reader.GetInt32(0),
             UserId = reader.GetInt32(1),
-            ApiKey = reader.IsDBNull(2) ? null : reader.GetString(2),
-            PrivateKey = reader.IsDBNull(3) ? null : reader.GetString(3)
+            ApiKey = apiKeyValue,
+            PrivateKey = privateKeyValue
           };
-
-          return apiKey;
         }
 
         return null; // Return null if no record was found
@@ -3388,7 +3438,13 @@ LIMIT @PageSize OFFSET @Offset;";
   }
   public async Task<bool> StartBot(int userId, string coin, string strategy)
   {
-    string tmpCoin = coin.ToLowerInvariant();
+    if (!TradeInputValidator.TryNormalize(coin, strategy, out string normalizedCoin, out string normalizedStrategy))
+    {
+      await _log.Db($"⚠️ Invalid StartBot input: coin='{coin}', strategy='{strategy}'", userId, "TRADE", viewErrorDebugLogs);
+      return false;
+    }
+    strategy = normalizedStrategy;
+    string tmpCoin = normalizedCoin.ToLowerInvariant();
     tmpCoin = tmpCoin == "xbt" ? "btc" : tmpCoin;
 
     var allowedCoins = new HashSet<string> { "btc", "eth", "sol", "ada", "xrp", "xdg" };
@@ -3434,7 +3490,13 @@ LIMIT @PageSize OFFSET @Offset;";
 
   public async Task<bool> StopBot(int userId, string coin, string strategy)
   {
-    string tmpCoin = coin.ToLowerInvariant();
+    if (!TradeInputValidator.TryNormalize(coin, strategy, out string normalizedCoin, out string normalizedStrategy))
+    {
+      await _log.Db($"⚠️ Invalid StopBot input: coin='{coin}', strategy='{strategy}'", userId, "TRADE", viewErrorDebugLogs);
+      return false;
+    }
+    strategy = normalizedStrategy;
+    string tmpCoin = normalizedCoin.ToLowerInvariant();
     tmpCoin = tmpCoin == "xbt" ? "btc" : tmpCoin;
 
     var allowedCoins = new HashSet<string> { "btc", "eth", "sol", "ada", "xrp", "xdg" };
@@ -4816,7 +4878,14 @@ ON DUPLICATE KEY UPDATE
   /// </summary>
   public async Task<bool> ExitPosition(int userId, string coin, string? strategy)
   {
-    string tmpCoin = coin.ToUpper();
+    if (!TradeInputValidator.TryNormalize(coin, strategy, out string normalizedCoin, out string normalizedStrategy))
+    {
+      await _log.Db($"⚠️ Invalid ExitPosition input: coin='{coin}', strategy='{strategy}'", userId, "TRADE", viewErrorDebugLogs);
+      return false;
+    }
+    coin = normalizedCoin;
+    strategy = normalizedStrategy;
+    string tmpCoin = coin.ToUpperInvariant();
     tmpCoin = tmpCoin == "BTC" ? "XBT" : tmpCoin;
     try
     {
@@ -5071,7 +5140,14 @@ ON DUPLICATE KEY UPDATE
   /// <returns>Returns true if the position was successfully entered, otherwise false.</returns>
   public async Task<bool> EnterPosition(int userId, string coin, string strategy)
   {
-    string tmpCoin = coin.ToUpper();
+    if (!TradeInputValidator.TryNormalize(coin, strategy, out string normalizedCoin, out string normalizedStrategy))
+    {
+      await _log.Db($"⚠️ Invalid EnterPosition input: coin='{coin}', strategy='{strategy}'", userId, "TRADE", viewErrorDebugLogs);
+      return false;
+    }
+    coin = normalizedCoin;
+    strategy = normalizedStrategy;
+    string tmpCoin = coin.ToUpperInvariant();
     tmpCoin = tmpCoin == "BTC" ? "XBT" : tmpCoin;
     try
     {

@@ -555,7 +555,7 @@
             *ngIf="canShowTradePanelInfo() && hasKrakenApi">
             <button class="cursorPointer" (click)="enterPosition()"
               [title]="'Buy '+selectedTradebotCurrency?.nativeElement?.value+' On dip by splitting funds with _InitialMinimumFromAmountToStart (set in configuration).'+ hasKrakenApi ? '' : 'Disabled: No Kraken API keys found.'"
-              id="enter-button" aria-describedby="enter-desc" [disabled]="!hasKrakenApi">
+              id="enter-button" aria-describedby="enter-desc" [disabled]="!hasKrakenApi || isEnteringPosition || isExitingPosition">
               Enter {{selectedTradebotCurrency?.nativeElement?.value}} Position
             </button>
             <p class="button-description" id="enter-desc">
@@ -569,7 +569,7 @@
             *ngIf="canShowTradePanelInfo() && hasKrakenApi">
             <button class="cursorPointer" (click)="exitPosition()"
               [title]="'Sell all '+selectedTradebotCurrency?.nativeElement?.value+' at current price and exit '+selectedTradebotCurrency?.nativeElement?.value+' position. ' + hasKrakenApi ? '' : 'Disabled: No Kraken API keys found.' + tradeBotStatus['BTC'] ? '' : 'Disabled: Tradebot not started.'"
-              id="exit-button" aria-describedby="exit-desc" [disabled]="!hasKrakenApi || !tradeBotStatus['BTC']">
+              id="exit-button" aria-describedby="exit-desc" [disabled]="!hasKrakenApi || !tradeBotStatus['BTC'] || isEnteringPosition || isExitingPosition">
               Exit {{selectedTradebotCurrency?.nativeElement?.value}} Position
             </button>
             <p class="button-description" id="exit-desc">

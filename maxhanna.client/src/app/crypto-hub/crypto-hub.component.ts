@@ -61,6 +61,8 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   isGraphFullscreenedInPopup = false;
   hostAiToggled = false;
   hasKrakenApi = false;
+  isEnteringPosition = false;
+  isExitingPosition = false;
   showingTradeSettings = false;
   showingTradeLogs = false;
   isTradePanelOpen = false;
@@ -330,7 +332,9 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
 
   private async getKrakenApiInfo() {
     if (this.parentRef?.user?.id) {
-      await this.tradeService.hasApiKey(this.parentRef.user.id).then(res => {
+      const sessionToken = await this.parentRef.getSessionToken();
+      if (!sessionToken) return;
+      await this.tradeService.hasApiKey(this.parentRef.user.id, sessionToken).then(res => {
         this.hasKrakenApi = res;
       });
       this.getLastCoinConfigurationUpdated("", "");
@@ -1951,6 +1955,16 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
      
   }
   async enterPosition() {
+    if (this.isEnteringPosition || this.isExitingPosition) return;
+    this.isEnteringPosition = true;
+    try {
+      await this.performEnterPosition();
+    } finally {
+      this.isEnteringPosition = false;
+    }
+  }
+
+  private async performEnterPosition() {
     if (!this.hasKrakenApi) {
       return alert("You must have Kraken API keys configured.");
     }
@@ -2008,6 +2022,16 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     });
   }
   async exitPosition() {
+    if (this.isEnteringPosition || this.isExitingPosition) return;
+    this.isExitingPosition = true;
+    try {
+      await this.performExitPosition();
+    } finally {
+      this.isExitingPosition = false;
+    }
+  }
+
+  private async performExitPosition() {
     const userId = this.parentRef?.user?.id;
     let selectedCurrency = this.selectedTradebotCurrency?.nativeElement.value;
     let selectedStrategy = this.selectedTradebotStrategy?.nativeElement.value;
@@ -2404,15 +2428,16 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       default: return 0;
     }
   }
-  private getNumberOfTrades() {
+  private async getNumberOfTrades() {
     const parent = this.parentRef;
     const user = parent?.user;
     if (user?.id) {
-      this.tradeService.getNumberOfTrades(user.id).then(res => {
-        if (res) {
-          this.numberOfTrades = res ?? 0;
-        }
-      });
+      const sessionToken = await parent?.getSessionToken();
+      if (!sessionToken) return;
+      const res = await this.tradeService.getNumberOfTrades(user.id, sessionToken);
+      if (typeof res === 'number') {
+        this.numberOfTrades = res;
+      }
     }
   }
   fullscreenSelectedInPopup(event?: any) {

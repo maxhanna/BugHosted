@@ -113,27 +113,29 @@ namespace maxhanna.Server.Controllers
 		}
 
 		[HttpPost("/Mining/DeleteKrakenApiCredentials", Name = "DeleteKrakenApiCredentials")]
-		public async Task<bool> DeleteKrakenApiCredentials([FromBody] int userId)
+		public async Task<IActionResult> DeleteKrakenApiCredentials(
+			[FromBody] int userId,
+			[FromHeader(Name = "Encrypted-UserId")] string encryptedUserId)
 		{
+			if (userId <= 0) return BadRequest("Invalid userId.");
 			try
 			{
-				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-				{
-					await conn.OpenAsync();
+				// The session must belong to the user whose credentials are being deleted.
+				if (!await _log.ValidateUserLoggedIn(userId, encryptedUserId))
+					return Unauthorized("Access Denied.");
 
-					string sql = "DELETE FROM maxhanna.user_kraken_api_keys WHERE user_id = @Owner LIMIT 1;";
-					using (var cmd = new MySqlCommand(sql, conn))
-					{
-						cmd.Parameters.AddWithValue("@Owner", userId);
-						var result = await cmd.ExecuteScalarAsync();
-						return result != null;
-					}
-				}
+				await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+				await conn.OpenAsync();
+				const string sql = "DELETE FROM maxhanna.user_kraken_api_keys WHERE user_id = @UserId LIMIT 1;";
+				await using var cmd = new MySqlCommand(sql, conn);
+				cmd.Parameters.AddWithValue("@UserId", userId);
+				bool deleted = await cmd.ExecuteNonQueryAsync() > 0;
+				return Ok(deleted);
 			}
 			catch (Exception ex)
 			{
 				_ = _log.Db("Error occurred while deleting Kraken credentials. " + ex.Message, userId, "MINING", true);
-				throw;
+				return StatusCode(500, "Error deleting Kraken credentials.");
 			}
 		}
 

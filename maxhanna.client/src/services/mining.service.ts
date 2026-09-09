@@ -133,12 +133,13 @@ export class MiningService {
       return null;
     }
   }
-  async deleteKrakenApiInfo(userId: number) {
+  async deleteKrakenApiInfo(userId: number, encryptedUserId: string) {
     try {
       const response = await fetch(`/mining/deletekrakenapicredentials`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Encrypted-UserId': encryptedUserId,
         },
         body: JSON.stringify(userId),
       });

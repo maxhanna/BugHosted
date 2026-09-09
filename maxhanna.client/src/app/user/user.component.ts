@@ -1416,15 +1416,16 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
       });
     }
   }
-  private getNumberOfTrades() {
+  private async getNumberOfTrades() {
     const parent = this.inputtedParentRef ?? this.parentRef;
     const user = this.user ?? parent?.user;
     if (user?.id) {
-      this.tradeService.getNumberOfTrades(user.id).then(res => {
-        if (res) {
-          this.numberOfTrades = res ?? 0;
-        }
-      });
+      const sessionToken = await parent?.getSessionToken();
+      if (!sessionToken) return;
+      const res = await this.tradeService.getNumberOfTrades(user.id, sessionToken);
+      if (typeof res === 'number') {
+        this.numberOfTrades = res;
+      }
     }
   }
   setFilterHidden(event: Event): void {
