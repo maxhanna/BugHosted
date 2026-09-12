@@ -324,14 +324,17 @@
     <!-- Dealership mission HUD -->
     <div id="gt-dealer-hud" *ngIf="dealershipMission">
       <div class="gt-dealer-header">
-        <span class="gt-dealer-icon">CAR THEFT</span>
+        <span class="gt-dealer-icon">CAR THEFT · LVL {{ dealershipMission.level }}</span>
         <span class="gt-dealer-payout">${{ dealershipMission.payout }}</span>
       </div>
+      <div class="gt-dealer-timer" [class.gt-dealer-timer-warn]="dealershipMission.timer <= 20">
+        {{ dealershipMission.timer | number:'1.0-0' }}s
+      </div>
       <div class="gt-dealer-objective" *ngIf="dealershipMission.state === 'search'">
-        Steal the designated car (green marker) and bring it back
+        Steal the {{ dealershipMission.targetLabel }} (green marker) and bring it back
       </div>
       <div class="gt-dealer-objective" *ngIf="dealershipMission.state === 'return'">
-        Return to the dealership (green beam) with the stolen car
+        Return the {{ dealershipMission.targetLabel }} to the dealership (green beam)
       </div>
     </div>
     <div id="gt-dealer-prompt" *ngIf="nearDealerNPC && !dealershipMission" [style.pointer-events]="isMobile ? 'auto' : null" (click)="startDealershipMission()" (touchend)="$event.preventDefault(); startDealershipMission()">

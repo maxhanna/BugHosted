@@ -10,6 +10,8 @@ const BIOME_RADIUS_MOUNTAIN = 30;
 // use the explicit eastern chain below rather than the old random rural roll.
 const BEACH_CHANCE_DENOMINATOR = 3;
 const BRIDGE_DECK_Y = 12.0;
+const PLAYER_RENDER_SCALE = 1.35;
+const REMOTE_PLAYER_RENDER_SCALE = 1.35;
 interface IslandDef {
   cx: number; cz: number;
   cityR: number;
@@ -4906,7 +4908,17 @@ void main() {
     addRounded(hipOff, -0.12 - thighH - shinH + 0.035, 0.10, 0.095, 0.045, 0.16, [0.08,0.06,0.05], 18);
     addRounded(hipOff, -0.12 - thighH * 0.92, 0.005, legW * 0.54, legW * 0.34, legW * 0.54, pantTone, 17);
     addRounded(hipOff, -0.12 - thighH - shinH * 0.58, 0.006, legW * 0.50, shinH * 0.34, legW * 0.50, pantTone, 17);
-    if (variant.role==='cop' && variant.accent) addBox(0.08,0.22,0.10,0.06,0.06,0.01,variant.accent,2);
+    if (variant.role === 'cop') {
+      // Make officers read as uniformed police at gameplay distance: a bright
+      // shirt panel, shoulder epaulettes, duty belt, badge, and radio are all
+      // separate opaque pieces on the navy uniform rather than relying only on      // the base torso color.
+      addBox(0, 0.22, 0.105, torsoW * 0.48, 0.20, 0.018, [0.20, 0.32, 0.56], 2);
+      addBox(-0.15, 0.31, 0.02, 0.10, 0.045, 0.12, [0.08, 0.14, 0.32], 2);
+      addBox(0.15, 0.31, 0.02, 0.10, 0.045, 0.12, [0.08, 0.14, 0.32], 2);
+      addBox(0, -0.005, 0.105, torsoW * 0.82, 0.045, 0.025, [0.025, 0.035, 0.05], 2);
+      addBox(0.08, 0.22, 0.118, 0.065, 0.07, 0.012, variant.accent ?? [0.95, 0.76, 0.12], 2);
+      addBox(-0.13, 0.18, 0.118, 0.045, 0.09, 0.018, [0.025, 0.035, 0.05], 2);
+    }
     if (variant.role==='hooker' && variant.accent) {
       addBox(0,0.28,0.105,0.18,0.035,0.012,variant.accent,2);
       addBox(0.16,0.10,0.04,0.035,0.10,0.035,variant.accent,10);
@@ -5450,11 +5462,11 @@ void main() {
     this._mopedWheelMesh = mesh;
     return mesh;
   }
-  private groundedModelY(mesh: CityMesh | CityMesh[] | null, terrainY: number): number {
+  private groundedModelY(mesh: CityMesh | CityMesh[] | null, terrainY: number, scale = 1): number {
     const list = Array.isArray(mesh) ? mesh : (mesh ? [mesh] : []);
     let minY = 0;
     for (const part of list) if (Number.isFinite((part as any).minY)) minY = Math.min(minY, (part as any).minY);
-    return terrainY - minY + 0.015;
+    return terrainY - minY * scale + 0.015;
   }
 
   render(
@@ -5921,7 +5933,9 @@ void main() {
         this.drawMesh(npc.mesh, reactionX, npcY + reactionLift, reactionZ, reactionYaw, reactionScale);
       }
       if (npc.hasDriver !== false && npc.type !== 'cop') {
-        const dMesh = this.getPedestrianMesh(npc.gender || 'male', npc.id);
+        const isPoliceDriver = npc.type === 'police' || npc.type === 'cop'
+          || (npc as any).isPolice === true || (npc as any).isCop === true;
+        const dMesh = this.getPedestrianMesh(isPoliceDriver ? 'cop' : (npc.gender || 'male'), npc.id);
         // Lifelike driver — drive pose, visible to all peers, cheap LOD
         const ddx = npc.x - camX, ddz = npc.z - camZ;
         if (ddx*ddx+ddz*ddz < 150*150) this.animateAndSkinEntity(npc.id+900000, dMesh, 'drive', dt, 1);
@@ -5943,6 +5957,9 @@ void main() {
         const isRed = (performance.now() / 300) % 2 < 1;
         const lightColor: [number, number, number, number] = isRed ? [1, 0, 0, 1] : [0, 0, 1, 1];
         const responseMesh = this.wantedLevel >= 5 ? this.getPoliceResponseMesh(npc.id) : this.getPoliceCarMesh();
+        // At wanted level five the response vehicle is drawn explicitly here;
+        // this guarantees tanks use the opaque procedural tank mesh even when
+        // the NPC was originally synchronized before the wanted level changed.
         if (this.wantedLevel >= 5) this.drawMesh(responseMesh, npc.x, expY, npc.z, npc.yaw, [1, 1, 1], [1, 1, 1, 1]);
         this.drawMesh(this.getBoxMesh(0.8, 0.2, 0.4), npc.x, expY + 1.2, npc.z, npc.yaw, [1, 1, 1], lightColor);
       }
@@ -6024,7 +6041,7 @@ void main() {
           const wx = host.posX + (offX * cosY + offZ * sinY);
           const wz = host.posZ + (-offX * sinY + offZ * cosY);
           const hostY = host.vehicleType === 'helicopter' || host.vehicleType === 'plane' ? (host.posY || 0) + 0.45 : -0.3;
-          this.drawMesh(p.mesh, wx, hostY, wz, host.yaw, [0.85, 0.85, 0.85]);
+          this.drawMesh(p.mesh, wx, hostY, wz, host.yaw, [1.05, 1.05, 1.05]);
         }
         continue;
       }
@@ -6047,7 +6064,7 @@ void main() {
         const wx = p.posX + (offX * cosY + offZ * sinY);
         const wz = p.posZ + (-offX * sinY + offZ * cosY);
         const occupantY = vType === 'helicopter' || vType === 'plane' ? (p.posY || 0) + 0.45 : -0.3;
-        this.drawMesh(p.mesh, wx, occupantY, wz, p.yaw, [0.85, 0.85, 0.85]);
+        this.drawMesh(p.mesh, wx, occupantY, wz, p.yaw, [1.05, 1.05, 1.05]);
       } else {
         // Lifelike remote player — walk/idle + visible firing/punch for peers
         const dx = p.posX - ((p as any)._prevX ?? p.posX), dz = p.posZ - ((p as any)._prevZ ?? p.posZ);
@@ -6057,7 +6074,7 @@ void main() {
         if (p.isShooting) this.punchTimers.set(p.userId, 0.18);
         const ddx2 = p.posX - camX, ddz2 = p.posZ - camZ;
         if (ddx2*ddx2+ddz2*ddz2 < 150*150) this.animateAndSkinEntity(p.userId, p.mesh, state, dt, 1.2);
-        this.drawMesh(p.mesh, p.posX, p.posY, p.posZ, p.yaw);
+        this.drawMesh(p.mesh, p.posX, p.posY, p.posZ, p.yaw, [REMOTE_PLAYER_RENDER_SCALE, REMOTE_PLAYER_RENDER_SCALE, REMOTE_PLAYER_RENDER_SCALE]);
       }
     }
     if (this.hospitalMesh) this.drawMesh(this.hospitalMesh, 40, 0.06, 40, 0, [15, 10, 15]);
@@ -6107,7 +6124,7 @@ void main() {
       // Franklin has a verified full-body skeleton but no embedded clips, so
       // use the procedural player pose path rather than the NPC clip matcher.
       this.skinPlayerMesh(playerMesh, dt);
-      this.drawMesh(playerMesh, targetX, this.groundedModelY(playerMesh, targetY), targetZ, carYaw, [1, 1, 1], [1, 1, 1, 1], false, 0, carRoll);
+      this.drawMesh(playerMesh, targetX, this.groundedModelY(playerMesh, targetY, PLAYER_RENDER_SCALE), targetZ, carYaw, [PLAYER_RENDER_SCALE, PLAYER_RENDER_SCALE, PLAYER_RENDER_SCALE], [1, 1, 1, 1], false, 0, carRoll);
       this.updateWeaponPitch(dt);
       this.drawPlayerWeapon(targetX, targetY, targetZ, carYaw);
     }
@@ -6572,13 +6589,44 @@ void main() {
   }
   private getPoliceTankMesh(): CityMesh[] {
     if (this.policeTankMesh) return this.policeTankMesh;
-    const verts:number[]=[];const indices:number[]=[];
-    this.addBox(verts,indices,0,.55,0,2.5,.8,4.2,.22,.25,.28,1,0);
-    this.addBox(verts,indices,0,1.05,0,1.8,.65,2.1,.3,.34,.38,1,24);
-    this.addBox(verts,indices,0,1.5,-.15,.72,.28,1.7,.16,.18,.2,1,48);
-    this.addBox(verts,indices,0,1.7,-1.25,.22,.22,2.2,.12,.14,.16,1,72);
-    for(const x of [-1.18,1.18]) for(const z of [-1.25,1.25]) this.addBox(verts,indices,x,.48,z,.52,.32,.52,.08,.09,.1,1,96);
-    const mesh=this.createMesh(verts,indices);mesh.carName='procedural_police_tank';this.policeTankMesh=[mesh];return this.policeTankMesh;
+    const verts: number[] = [];
+    const indices: number[] = [];
+    let offset = 0;
+    const box = (x: number, y: number, z: number, w: number, h: number, d: number, r: number, g: number, b: number) => {
+      this.addBox(verts, indices, x, y, z, w, h, d, r, g, b, 1, offset);
+      offset += 24;
+    };
+    // Deliberately build the tank from opaque, lit solids rather than relying on
+    // an optional military asset. The previous placeholder reused vertex offsets
+    // for its wheels and could render as an effectively empty/transparent NPC on
+    // some WebGL drivers.
+    const armor = [0.16, 0.20, 0.22];
+    const darkArmor = [0.08, 0.11, 0.12];
+    const trim = [0.28, 0.34, 0.34];
+    // Wide tracked chassis and raised sloped-looking armor layers.
+    box(0, 0.62, 0, 3.8, 0.9, 5.0, armor[0], armor[1], armor[2]);
+    box(0, 1.22, 0.15, 3.25, 0.42, 3.7, 0.21, 0.26, 0.27);
+    box(-2.0, 0.62, 0, 0.42, 0.72, 4.65, darkArmor[0], darkArmor[1], darkArmor[2]);
+    box(2.0, 0.62, 0, 0.42, 0.72, 4.65, darkArmor[0], darkArmor[1], darkArmor[2]);
+    // Track cleats/wheels make the silhouette read as an armored vehicle.
+    for (const x of [-2.0, 2.0]) {
+      for (const z of [-1.65, -0.55, 0.55, 1.65]) {
+        box(x, 0.52, z, 0.5, 0.58, 0.72, 0.04, 0.05, 0.055);
+        box(x + (x < 0 ? -0.03 : 0.03), 0.52, z, 0.56, 0.12, 0.78, trim[0], trim[1], trim[2]);
+      }
+    }
+    // Turret, hatch, and a long cannon clearly identify it as a tank.
+    box(0, 1.66, 0.05, 1.95, 0.38, 1.95, 0.30, 0.35, 0.35);
+    box(0, 1.92, 0.05, 1.05, 0.22, 1.05, 0.12, 0.15, 0.16);
+    box(0, 1.94, -1.72, 0.28, 0.25, 3.35, 0.10, 0.12, 0.13);
+    box(0, 2.08, -3.35, 0.42, 0.16, 0.3, 0.38, 0.10, 0.06);
+    // Small red/blue response lights keep level-five units readable at night.
+    box(-0.62, 1.92, 0.28, 0.22, 0.10, 0.22, 0.85, 0.06, 0.05);
+    box(0.62, 1.92, 0.28, 0.22, 0.10, 0.22, 0.05, 0.18, 0.85);
+    const mesh = this.createMesh(verts, indices);
+    mesh.carName = 'procedural_police_tank';
+    this.policeTankMesh = [mesh];
+    return this.policeTankMesh;
   }
   getPoliceCarMesh(): CityMesh | CityMesh[] {
     if (this.policeCarMesh) return this.policeCarMesh;
@@ -6810,11 +6858,11 @@ void main() {
       : (this.playerFireTime > 0 ? this.playerFireWeapon : 0);
     if (this.playerIsInCar || weaponType <= 0) return;
     let weapon: CityMesh[] | null = null;
-    let scale = 0.24;
+    let scale = 0.18;
     if (weaponType === 1) weapon = this.coltMesh;
-    else if (weaponType === 2) { weapon = this.m4a1Mesh; scale = 0.3; }
-    else if (weaponType === 3) { weapon = this.shotgunMesh; scale = 0.3; }
-    else if (weaponType === 4) { weapon = this.rocketLauncherMesh; scale = 0.34; }
+    else if (weaponType === 2) { weapon = this.m4a1Mesh; scale = 0.235; }
+    else if (weaponType === 3) { weapon = this.shotgunMesh; scale = 0.235; }
+    else if (weaponType === 4) { weapon = this.rocketLauncherMesh; scale = 0.265; }
     if (!weapon) return;
     // Aim the barrel at the crosshair (camera) direction rather than the walk
     // facing: bullets/tracers/rockets all travel along this.playerAimYaw, so the
@@ -6834,7 +6882,7 @@ void main() {
     this.drawMesh(
       weapon,
       x + fx * forward + rx * side,
-      y + 1.18,
+      y + 1.18 * PLAYER_RENDER_SCALE,
       z + fz * forward + rz * side,
       weaponYaw,
       [scale, scale, scale],

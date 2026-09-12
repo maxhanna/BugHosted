@@ -1381,6 +1381,22 @@
   color: #4caf50;
   margin-right: 2px;
 }
+.gt-dealer-timer {
+  margin-top: 2px;
+  padding: 2px 14px;
+  color: #ffb347;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  background: rgba(0, 0, 0, 0.7);
+  border-radius: 4px;
+  text-shadow: 0 0 10px rgba(255, 179, 71, 0.55);
+}
+.gt-dealer-timer-warn {
+  color: #ff4444;
+  text-shadow: 0 0 14px rgba(255, 0, 0, 0.75);
+  animation: gt-taxi-pulse 0.8s ease-in-out infinite;
+}
 .gt-dealer-objective {
   padding: 5px 16px;
   background: rgba(0, 0, 0, 0.75);

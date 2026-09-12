@@ -198,9 +198,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   policeModeKills = 0;
   private currentCarId = 0;
   dealershipNPCs: { id: number; x: number; z: number; yaw: number; mesh: CityMesh | CityMesh[]; lotGx: number; lotGz: number }[] = [];
-  dealershipMission: { npcX: number; npcZ: number; state: 'search' | 'return'; payout: number; targetCarId: number; targetCarMesh: CityMesh | CityMesh[] } | null = null;
+  // Car-theft jobs get progressively harder: the clock shrinks while the target
+  // quality and payout climb. The level is persisted with the player's profile.
+  carTheftLevel = 1;
+  private dealershipSaveTimer = 0;
+  dealershipMission: { npcX: number; npcZ: number; state: 'search' | 'return'; payout: number; timer: number; level: number; targetLabel: string; targetCarId: number; targetCarMesh: CityMesh | CityMesh[] } | null = null;
   dealershipMarkers: { type: 'hail' | 'destination' | 'beam'; x: number; z: number; phase?: number }[] = [];
-  dealershipTargetCar: { id: number; x: number; z: number; yaw: number; mesh: CityMesh | CityMesh[]; health: number; colorR: number; colorG: number; colorB: number; type: string } | null = null;
+  dealershipTargetCar: { id: number; x: number; z: number; yaw: number; mesh: CityMesh | CityMesh[]; health: number; colorR: number; colorG: number; colorB: number; type: string; targetModelIndex?: number } | null = null;
   nearDealerNPC = false;
   private _wasDead = false;
   _carOnFire = false;
@@ -527,6 +531,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   bustCamTimer = 0;
   wantedPopTimer = 0;
   private crashShake = 0;
+  // High-speed exits briefly ragdoll the player while the abandoned car keeps
+  // coasting. Low-speed exits remain safe and stop the vehicle immediately.
+  private playerRagdollTimer = 0;
+  private playerRagdollVelocityX = 0;
+  private playerRagdollVelocityZ = 0;
+  private playerRagdollYaw = 0;
   private timeScale = 1;
   private slowMoTimer = 0;
   // Death-cam anchor: where the player died, so the camera can pan away into
@@ -1154,7 +1164,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       offsetY: -0.3,
       offsetZ: 0.2,
       yaw: 0,
-      scale: 0.85,
+      scale: 1.35,
     };
     this.stolenNpcIds.add(ped.id);
     this.localPedestrians = this.localPedestrians.filter(p => p.id !== ped.id);
@@ -1257,7 +1267,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private enterCar(onlyId?: number) {
     const userId = this.getUserId();
     if (!userId) return;
-    const tryEnter = (list: any[], isParked: boolean = false) => {
+    const tryEnter = (list: any[], isParked: boolean = false, isGarageCar: boolean = false) => {
       for (const v of list) {
         if (v.health <= 0) continue;
         if (onlyId !== undefined && v.id !== onlyId) continue;
@@ -1287,13 +1297,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
               offsetY: this.vehicleType === 'helicopter' ? 0.45 : -0.3,
               offsetZ: 0.2,
               yaw: 0,
-              scale: 0.85,
+              scale: 1.35,
             };
           }
           this.showVehicleBanner(this.vehicleType);
           if (!this.radioOn) this.randomRadio();
           this.setVehicleCameraProfile();
-          this.gtService.stealCar(v.id, userId).then((stealRes: any) => {
+          if (!isGarageCar) this.gtService.stealCar(v.id, userId).then((stealRes: any) => {
             if (stealRes && stealRes.evictedNpcs) {
               for (const ep of stealRes.evictedNpcs) {
                 if (!Number.isFinite(ep.posX) || !Number.isFinite(ep.posZ) || this.isPedestrianWaterPosition(ep.posX, ep.posZ)) continue;
@@ -1312,13 +1322,23 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
               }
             }
           });
-          this.stolenNpcIds.add(v.id);
-          this.currentCarId = v.id;
+          if (isGarageCar) {
+            // A garage car is a stored vehicle, not an NPC/server vehicle. Remove
+            // the stored record only after the deliberate break-in interaction so
+            // walking past the garage never consumes it.
+            this.gtService.removeGarageCar(userId).catch(() => { });
+            this.garageCar = null;
+            this.garageCarMesh = null;
+            this.garageStoreCooldown = 10;
+          } else {
+            this.stolenNpcIds.add(v.id);
+          }
+          this.currentCarId = isGarageCar ? 0 : v.id;
           // Commandering a driven police car ejects its crew. Those cops come
           // straight after the thief: they shoot if the player is armed and
           // charge in to subdue/arrest if the player is unarmed. Parked cruisers
           // have nobody inside, so (per the design) they stay quiet.
-          if (v.type === 'police' && !isParked) {
+          if (v.type === 'police' && !isParked && !isGarageCar) {
             // Keep the cruiser at the stop position after its crew exits. The
             // stolen vehicle becomes the player's car, so this is a separate
             // empty parked visual rather than the same object rendered twice.
@@ -1377,6 +1397,23 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (tryEnter(this.serverNPCs)) return;
     if (tryEnter(this.parkedCars, true)) return;
     if (tryEnter(this.trafficCars)) return;
+    // Stored garage cars use the same deliberate enter/break-in path as every
+    // other vehicle, but are offered only while the player is inside the garage.
+    if (this.isInGarageInterior() && this.garageCar && this.garageCarMesh) {
+      const garageVehicle = {
+        id: 0,
+        x: GARAGE_INTERIOR_X,
+        z: GARAGE_INTERIOR_Z,
+        yaw: this.garageCar.yaw,
+        type: this.garageCar.vehicleType,
+        mesh: this.garageCarMesh,
+        health: 200,
+        colorR: this.garageCar.colorR,
+        colorG: this.garageCar.colorG,
+        colorB: this.garageCar.colorB,
+      };
+      if (tryEnter([garageVehicle], true, true)) return;
+    }
     // Check decorative aircraft in nearby chunks' buildings
     {
       const cxa = Math.floor(this.carX / 80), cza = Math.floor(this.carZ / 80);
@@ -1458,7 +1495,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
             offsetY: -0.3,
             offsetZ: 0.2,
             yaw: 0,
-            scale: 0.85,
+            scale: 1.35,
           };
         }
         this.camDist = 8; this.camHeight = 3;
@@ -1593,6 +1630,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const angle = this.carYaw + Math.PI / 2;
     const mesh = this.playerVehicleMesh;
     const color = this.playerVehicleColor;
+    const exitVelocityX = this.carVx;
+    const exitVelocityZ = this.carVz;
+    const exitSpeed = Math.hypot(exitVelocityX, exitVelocityZ);
+    const isGroundVehicle = this.vehicleType !== 'boat' && this.vehicleType !== 'helicopter' && this.vehicleType !== 'plane';
+    const rollingExit = isGroundVehicle && exitSpeed > 3;
     if (mesh) {
       const tempId = -Date.now();
       this.parkedCars.push({
@@ -1601,6 +1643,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         z: this.carZ,
         yaw: this.carYaw,
         y: this.carY,
+        // A fast exit leaves the car with its current momentum. The generic
+        // jump/impulse update applies gentle rolling resistance until it stops.
+        pushVelX: rollingExit ? exitVelocityX : undefined,
+        pushVelZ: rollingExit ? exitVelocityZ : undefined,
         type: this.vehicleType,
         health: this.carHealth,
         isBurning: this._carOnFire || undefined,
@@ -1669,7 +1715,30 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const origCarX = this.carX, origCarZ = this.carZ;
     this.carX += Math.sin(angle) * exitDist;
     this.carZ += Math.cos(angle) * exitDist;
-    this.carVx = 0; this.carVz = 0; this.carSpeed = 0;
+    if (rollingExit) {
+      const forwardX = exitSpeed > 0.01 ? exitVelocityX / exitSpeed : Math.sin(this.carYaw);
+      const forwardZ = exitSpeed > 0.01 ? exitVelocityZ / exitSpeed : Math.cos(this.carYaw);
+      this.playerRagdollTimer = 0.9;
+      this.playerRagdollVelocityX = forwardX * Math.min(8, exitSpeed * 0.26);
+      this.playerRagdollVelocityZ = forwardZ * Math.min(8, exitSpeed * 0.26);
+      this.playerRagdollYaw = Math.atan2(forwardX, forwardZ);
+      this.carVx = this.playerRagdollVelocityX;
+      this.carVz = this.playerRagdollVelocityZ;
+      this.carSpeed = Math.hypot(this.carVx, this.carVz);
+      this.walkYaw = this.playerRagdollYaw;
+      // Scale the impact with the speed at the moment of exit. A slow roll is
+      // survivable; a full-speed bail can remove a substantial chunk of health.
+      const impactDamage = Math.round(Math.max(0, Math.min(65, (exitSpeed - 3) * 1.55)));
+      if (impactDamage > 0) {
+        this.health = Math.max(0, this.health - impactDamage);
+        this.damageAlpha = Math.min(0.9, 0.25 + impactDamage / 100);
+        this.crashShake = Math.min(1.2, 0.25 + impactDamage / 70);
+        this.gtService.hit(this.getUserId(), this.getUserId(), 1, impactDamage, this.carX, this.carZ);
+        this.spawnBlood(this.carX, this.carY + 1.0, this.carZ, forwardX, 0.15, forwardZ, true);
+      }
+    } else {
+      this.carVx = 0; this.carVz = 0; this.carSpeed = 0;
+    }
     const exitTerrainY = getTerrainHeight(this.carX, this.carZ, this.carY, true);
     const exitRoofY = this.getBuildingRoofY(this.carX, this.carZ);
     const carRoofY = this.getBuildingRoofY(origCarX, origCarZ);
@@ -2072,7 +2141,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         const localHp = prevPedHealth.get(p.id);
         const health = localHp !== undefined ? Math.min(localHp, serverHp) : serverHp;
         let mesh;
-        if (p.type === 'cop') {
+        if (p.type === 'cop' || p.type === 'police' || (p as any).isPolice === true || (p as any).isCop === true) {
           mesh = this.renderer.getPedestrianMesh('cop', p.id);
         } else {
           mesh = this.renderer.getPedestrianMesh(p.gender || 'male', p.id);
@@ -3591,30 +3660,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         });
       }
     }
-    if (nearGarage && !this.isInCar && !this.isPassenger && !this.garageExitedCar && this.garageCar && this.garageCarMesh && this.garageStoreCooldown <= 0) {
-      this.carX = GARAGE_INTERIOR_X;
-      this.carZ = GARAGE_INTERIOR_Z;
-      this.carYaw = this.garageCar.yaw;
-      this.carVx = 0; this.carVz = 0; this.carSpeed = 0;
-      this.isInCar = true;
-      this.vehicleType = this.garageCar.vehicleType as any;
-      this.carHealth = 200;
-      this.playerVehicleMesh = this.garageCarMesh;
-      this.playerVehicleColor = [this.garageCar.colorR, this.garageCar.colorG, this.garageCar.colorB];
-      if (this.renderer.playerMesh) {
-        this.driverInCarMesh = {
-          mesh: this.renderer.playerMesh,
-          offsetX: 0.3,
-          offsetY: this.vehicleType === 'helicopter' ? 0.45 : -0.3,
-          offsetZ: 0.2,
-          yaw: 0,
-          scale: 0.85,
-        };
-      }
-      this.setVehicleCameraProfile();
-      this.garageCar = null;
-      this.garageCarMesh = null;
-    }
+    // The stored vehicle is deliberately not entered by proximity. It remains
+    // a normal break-in target inside the garage and is handled by enterCar()
+    // after the player presses E (or the mobile CAR button).
     this.wasInGarage = inGarageInterior;
   }
   private isInGarageInterior(): boolean {
@@ -4386,6 +4434,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.carVx = 0; this.carVz = 0; this.carSpeed = 0;
     } else if (this.isPassenger) {
       this.updatePassengerFollow();
+    } else if (this.playerRagdollTimer > 0) {
+      this.updatePlayerRagdoll(dt);
     } else if (this.isInCar && this.vehicleType === 'boat') this.updateBoat(dt);
     else if (this.isInCar && this.vehicleType === 'helicopter') this.updateHelicopter(dt);
     else if (this.isInCar && this.vehicleType === 'plane') this.updatePlane(dt);
@@ -4954,8 +5004,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     // synchronized even when the player is walking on foot; otherwise the
     // model can remain at a stale/hidden pose after switching views or exiting
     // a vehicle.
-    this.renderer.walkSpeed = this.isInCar ? 0 : Math.hypot(this.carVx, this.carVz);
+    this.renderer.walkSpeed = this.isInCar || this.playerRagdollTimer > 0 ? 0 : Math.hypot(this.carVx, this.carVz);
     this.renderer.playerCarSpeed = this.isInCar ? this.carSpeed : 0;
+    this.renderer.playerRagdollTime = this.playerRagdollTimer;
     this.renderer.playerSteerInput = this._lastSteerInput;
     this.renderer.punchTime = this.punchTimer;
     if (this.punchTimer > 0) this.punchTimer = Math.max(0, this.punchTimer - dt);
@@ -5157,6 +5208,33 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.showStoreToast('🚨 BUSTED! Cops booked you — weapons confiscated');
     this.savePlayerState();
   }
+  private updatePlayerRagdoll(dt: number) {
+    const remaining = this.playerRagdollTimer;
+    this.playerRagdollTimer = Math.max(0, remaining - dt);
+    this.carX += this.playerRagdollVelocityX * dt;
+    this.carZ += this.playerRagdollVelocityZ * dt;
+    const drag = Math.max(0, 1 - 7 * dt);
+    this.playerRagdollVelocityX *= drag;
+    this.playerRagdollVelocityZ *= drag;
+    this.carVx = this.playerRagdollVelocityX;
+    this.carVz = this.playerRagdollVelocityZ;
+    this.carSpeed = Math.hypot(this.carVx, this.carVz);
+    this.carYaw = this.playerRagdollYaw;
+    this.walkYaw = this.playerRagdollYaw;
+    const terrainY = getTerrainHeight(this.carX, this.carZ, this.carY, true);
+    const biome = getBiome(Math.floor(this.carX / CHUNK_SIZE), Math.floor(this.carZ / CHUNK_SIZE));
+    const surfaceY = biome === 'beach' ? Math.max(0, terrainY) : terrainY;
+    const roofY = this.getBuildingRoofY(this.carX, this.carZ);
+    this.carY = CAR_HEIGHT + (roofY > surfaceY ? roofY : surfaceY);
+    if (this.playerRagdollTimer <= 0) {
+      this.playerRagdollVelocityX = 0;
+      this.playerRagdollVelocityZ = 0;
+      this.carVx = 0;
+      this.carVz = 0;
+      this.carSpeed = 0;
+    }
+  }
+
   private updateWalking(dt: number) {
     // Busted: frozen in the cop's grip — no walking during the arrest hold.
     if (this._arrested) { this.carVx = 0; this.carVz = 0; this.carSpeed = 0; return; }
@@ -6284,6 +6362,14 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (this.isInCar || this.isPassenger) { this.nearCar = false; this.nearTaxi = false; this.taxiEntrySide = null; return; }
     this.nearCar = [...this.serverNPCs, ...this.parkedCars].some(v => v.health > 0
       && Math.hypot(v.x - this.carX, v.z - this.carZ) < this.vehicleEntryDistance(v));
+    // Do not auto-enter or consume the garage vehicle just because the player
+    // crossed the garage trigger. Show the same normal enter interaction once
+    // the player is close enough to the stored car inside the garage.
+    if (!this.nearCar && this.isInGarageInterior() && this.garageCar && this.garageCarMesh) {
+      const garageVehicle = { mesh: this.garageCarMesh, id: 0 };
+      this.nearCar = Math.hypot(GARAGE_INTERIOR_X - this.carX, GARAGE_INTERIOR_Z - this.carZ)
+        < this.vehicleEntryDistance(garageVehicle);
+    }
     // Standing next to a taxi: the front doors (driver/passenger) steal it,
     // the back doors hail it as a passenger ride.
     const nearbyTaxi = this.getNearbyTaxi();
@@ -6866,6 +6952,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         wantedLevel: this.wantedLevel,
         ownedWeapons: this.ownedWeapons,
         ammo: this.ammo,
+        carTheftLevel: this.carTheftLevel,
         mission: this.captureMission()
       }));
     } catch { }
@@ -6883,6 +6970,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (!state) return;
     if (typeof state.money === 'number' && isFinite(state.money) && state.money >= 0) this.money = Math.floor(state.money);
     if (typeof state.wantedLevel === 'number' && isFinite(state.wantedLevel)) this.wantedLevel = Math.min(5, Math.max(0, Math.floor(state.wantedLevel)));
+    if (typeof state.carTheftLevel === 'number' && isFinite(state.carTheftLevel)) this.carTheftLevel = Math.min(8, Math.max(1, Math.floor(state.carTheftLevel)));
     if (Array.isArray(state.ownedWeapons) && state.ownedWeapons.length === 5) {
       this.ownedWeapons = state.ownedWeapons.map((v: any) => !!v);
     }
@@ -6904,6 +6992,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       const m = this.dealershipMission;
       const c = this.dealershipTargetCar;
       return { kind: 'dealership', npcX: m.npcX, npcZ: m.npcZ, state: m.state, payout: m.payout,
+        timer: m.timer, level: m.level, targetLabel: m.targetLabel, targetModelIndex: c.targetModelIndex,
         carX: c.x, carZ: c.z, carYaw: c.yaw, carHealth: c.health, colorR: c.colorR, colorG: c.colorG, colorB: c.colorB };
     }
     if (this.policeMode) {
@@ -6969,19 +7058,25 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       }
       const color: [number, number, number] = [num(mis.colorR, 0.5), num(mis.colorG, 0.5), num(mis.colorB, 0.5)];
       const newId = -Date.now(); // negative = local-only, survives the poll merge
-      const mesh = this.renderer.getNPCCarMesh(color, newId);
+      const targetModelIndex = Math.max(0, Math.min(this.renderer.carMeshes.length - 1, Math.floor(num(mis.targetModelIndex, this.getDealershipProfile(num(mis.level, 1)).modelIndex))));
+      const mesh = this.getDealershipTargetMesh(targetModelIndex, color, newId);
+      const restoredLevel = Math.min(8, Math.max(1, Math.floor(num(mis.level, this.carTheftLevel))));
       this.dealershipTargetCar = {
         id: newId, x: carX, z: carZ, yaw: num(mis.carYaw, 0), mesh,
         health: Math.max(1, num(mis.carHealth, 1000)),
-        colorR: color[0], colorG: color[1], colorB: color[2], type: 'car',
+        colorR: color[0], colorG: color[1], colorB: color[2], type: 'car', targetModelIndex,
       };
       this.parkedCars.push(this.dealershipTargetCar);
+      const restoredProfile = this.getDealershipProfile(restoredLevel);
       this.dealershipMission = {
         npcX: num(mis.npcX, this.carX), npcZ: num(mis.npcZ, this.carZ),
         // Re-entering the parked target car flips it back to 'return'; restoring
         // the 'return' state on foot would instantly fail the heist.
         state: 'search',
-        payout: Math.max(0, num(mis.payout, 5000)),
+        payout: Math.max(0, num(mis.payout, restoredProfile.payout)),
+        timer: Math.max(0, num(mis.timer, restoredProfile.timer)),
+        level: restoredLevel,
+        targetLabel: typeof mis.targetLabel === 'string' ? mis.targetLabel : restoredProfile.label,
         targetCarId: newId,
         targetCarMesh: mesh,
       };
@@ -7903,6 +7998,24 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this._missionRestoreGrace = 0;
     this._taxiReacquireGrace = 0;
   }
+  private getDealershipProfile(level = this.carTheftLevel): { timer: number; payout: number; modelIndex: number; label: string } {
+    const stage = Math.min(8, Math.max(1, Math.floor(level)));
+    // Early jobs use the less glamorous utility cars; the final jobs draw from
+    // the Countach and Lambo assets already loaded for the driving experience.
+    const targetModels = [5, 3, 4, 2, 6, 7, 1, 0];
+    const labels = ['old pickup', 'utility truck', 'family SUV', 'Mitsubishi', 'BRZ', 'Dodge Challenger', 'Lamborghini Countach', 'Lamborghini'];
+    return {
+      timer: Math.max(65, 150 - (stage - 1) * 12),
+      payout: 5000 + (stage - 1) * 2500,
+      modelIndex: targetModels[stage - 1],
+      label: labels[stage - 1],
+    };
+  }
+
+  private getDealershipTargetMesh(modelIndex: number, color: [number, number, number], id: number): CityMesh | CityMesh[] {
+    return this.renderer.carMeshes[modelIndex] || this.renderer.getNPCCarMesh(color, id);
+  }
+
   startDealershipMission() {
     const npc = this.dealershipNPCs.find(n => {
       const dx = n.x - this.carX, dz = n.z - this.carZ;
@@ -7910,8 +8023,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     });
     if (!npc || this.isInCar) return;
     const targetId = --this.pedIdCounter;
+    const profile = this.getDealershipProfile();
     const color: [number, number, number] = [0.2 + Math.random() * 0.6, 0.2 + Math.random() * 0.6, 0.2 + Math.random() * 0.6];
-    const targetMesh = this.renderer.getNPCCarMesh(color, targetId);
+    const targetMesh = this.getDealershipTargetMesh(profile.modelIndex, color, targetId);
     const angle = Math.random() * Math.PI * 2;
     const dist = 80 + Math.random() * 120;
     let tx = this.carX + Math.sin(angle) * dist;
@@ -7922,18 +8036,22 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     tz = snapZ + (tz >= snapZ ? 18 : -18);
     this.dealershipTargetCar = {
       id: targetId, x: tx, z: tz, yaw: Math.random() * Math.PI * 2,
-      mesh: targetMesh, health: 1000, type: 'car',
+      mesh: targetMesh, health: 1000, type: 'car', targetModelIndex: profile.modelIndex,
       colorR: color[0], colorG: color[1], colorB: color[2],
     };
     this.parkedCars.push(this.dealershipTargetCar);
-    const payout = 5000 + Math.floor(Math.random() * 5001);
     this.dealershipMission = {
       npcX: npc.x, npcZ: npc.z,
       state: 'search',
-      payout,
+      payout: profile.payout,
+      timer: profile.timer,
+      level: this.carTheftLevel,
+      targetLabel: profile.label,
       targetCarId: targetId,
       targetCarMesh: targetMesh,
     };
+    this.dealershipSaveTimer = 0;
+    this.savePlayerState();
   }
   // Cops ejected from a stolen, driven police car. They hunt the thief: chase
   // on foot, shoot while the player is armed, or charge and beat the player
@@ -8027,10 +8145,24 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
     if (!this.dealershipMission) return;
     const m = this.dealershipMission;
+    m.timer = Math.max(0, m.timer - dt);
+    this.dealershipSaveTimer -= dt;
+    if (this.dealershipSaveTimer <= 0) {
+      this.dealershipSaveTimer = 1;
+      this.savePlayerState();
+    }
+    if (m.timer <= 0) {
+      this.stopDealershipMission();
+      this.dealershipMarkers = [];
+      this.savePlayerState();
+      this.showMissionFailedToast('❌ CAR THEFT FAILED — TIME EXPIRED');
+      return;
+    }
     if (m.state === 'search' && this.dealershipTargetCar && this.dealershipTargetCar.health <= 0) {
       this.dealershipMission = null;
       this.dealershipTargetCar = null;
       this.parkedCars = this.parkedCars.filter(p => p.id !== m.targetCarId);
+      this.savePlayerState();
       return;
     }
     if (m.state === 'search') {
@@ -8050,18 +8182,21 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         this.dealershipTargetCar = null;
         this.parkedCars = this.parkedCars.filter(p => p.id !== m.targetCarId);
         this.dealershipMarkers = [];
+        this.savePlayerState();
         this.showMissionFailedToast('❌ MISSION FAILED');
         return;
       }
       const dx = m.npcX - this.carX, dz = m.npcZ - this.carZ;
       if (this.isInCar && this.currentCarId === m.targetCarId && Math.hypot(dx, dz) < 6) {
         this.money += m.payout;
+        this.carTheftLevel = Math.min(8, m.level + 1);
         this.moneyStacks.push({ x: m.npcX, z: m.npcZ, amount: m.payout, yaw: 0, age: 0, lifetime: 5 });
         this.dealershipMission = null;
         this.dealershipTargetCar = null;
         this.parkedCars = this.parkedCars.filter(p => p.id !== m.targetCarId);
         this.currentCarId = 0;
         this.exitCar();
+        this.savePlayerState();
       }
     }
   }
