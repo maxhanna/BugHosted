@@ -77,6 +77,13 @@
     text-shadow: 0 0 8px rgba(255, 85, 125, .6)
 }
 
+.upgrade-progress {
+    font-weight: 400;
+    font-size: 12px;
+    opacity: .75;
+    white-space: nowrap
+}
+
 .arena-wrap {
     position: relative;
     width: 100%;

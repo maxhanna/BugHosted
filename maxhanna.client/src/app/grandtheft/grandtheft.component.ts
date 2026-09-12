@@ -174,7 +174,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }[] = [];
   private stationCopSpawnTimer = 0;
   private stationCopIdCounter = 40000;
-  airportLotCars: { x: number; z: number; yaw: number; mesh: CityMesh | CityMesh[]; phase: number; dir: number; speed: number; p0: { x: number; z: number }; p1: { x: number; z: number } }[] = [];
+  airportLotCars: { id: number; x: number; z: number; yaw: number; type: string; mesh: CityMesh | CityMesh[]; health: number; colorR: number; colorG: number; colorB: number; phase: number; dir: number; speed: number; p0: { x: number; z: number }; p1: { x: number; z: number }; hasDriver?: boolean }[] = [];
   hudSpeed = 0;
   score = 0;
   private scoreTimer = 0;
@@ -1256,7 +1256,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private enterCar(onlyId?: number) {
     const userId = this.getUserId();
     if (!userId) return;
-    const tryEnter = (list: any[], isParked: boolean = false, isGarageCar: boolean = false) => {
+    const tryEnter = (list: any[], isParked: boolean = false, isGarageCar: boolean = false, isLocalOnly: boolean = false) => {
       for (const v of list) {
         if (v.health <= 0) continue;
         if (onlyId !== undefined && v.id !== onlyId) continue;
@@ -1292,7 +1292,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           this.showVehicleBanner(this.vehicleType);
           if (!this.radioOn) this.randomRadio();
           this.setVehicleCameraProfile();
-          if (!isGarageCar) this.gtService.stealCar(v.id, userId).then((stealRes: any) => {
+          if (!isGarageCar && !isLocalOnly) this.gtService.stealCar(v.id, userId).then((stealRes: any) => {
             if (stealRes && stealRes.evictedNpcs) {
               for (const ep of stealRes.evictedNpcs) {
                 if (!Number.isFinite(ep.posX) || !Number.isFinite(ep.posZ) || this.isPedestrianWaterPosition(ep.posX, ep.posZ)) continue;
@@ -1319,60 +1319,19 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
             this.garageCar = null;
             this.garageCarMesh = null;
             this.garageStoreCooldown = 10;
-          } else {
+          } else if (!isLocalOnly) {
             this.stolenNpcIds.add(v.id);
           }
-          this.currentCarId = isGarageCar ? 0 : v.id;
-          // Commandering a driven police car ejects its crew. Those cops come
-          // straight after the thief: they shoot if the player is armed and
-          // charge in to subdue/arrest if the player is unarmed. Parked cruisers
-          // have nobody inside, so (per the design) they stay quiet.
-          if (v.type === 'police' && !isParked && !isGarageCar) {
-            // Keep the cruiser at the stop position after its crew exits. The
-            // stolen vehicle becomes the player's car, so this is a separate
-            // empty parked visual rather than the same object rendered twice.
-            const parkedPoliceId = --this.pedIdCounter;
-            const parkedPoliceX = v.x ?? this.carX;
-            const parkedPoliceZ = v.z ?? this.carZ;
-            this.parkedCars.push({
-              id: parkedPoliceId,
-              x: parkedPoliceX,
-              z: parkedPoliceZ,
-              y: v.y,
-              yaw: v.yaw ?? this.carYaw,
-              type: 'police',
-              mesh: this.renderer.getPoliceCarMesh(),
-              health: Math.max(1, v.health ?? 200),
-              colorR: v.colorR ?? 0.1,
-              colorG: v.colorG ?? 0.1,
-              colorB: v.colorB ?? 0.2,
-              hasDriver: false,
-              passengerCount: 0,
-            } as any);
-            this.evictedCopId = undefined; // re-arm the hostility below
-            const crew = (v.passengerCount ?? 0) > 0 ? 3 : 2;
-            const cx0 = v.x ?? this.carX, cz0 = v.z ?? this.carZ;
-            const cyaw0 = v.yaw ?? this.carYaw;
-            for (let k = 0; k < crew; k++) {
-              const cid = --this.pedIdCounter;
-              const ang = cyaw0 + (k === 0 ? Math.PI : Math.PI / 2 + k * 0.6);
-              const dist = 1.6 + k * 0.35;
-              const sx = cx0 + Math.sin(ang) * dist;
-              const sz = cz0 + Math.cos(ang) * dist;
-              this.evictedCops.push({
-                id: cid, x: sx, z: sz, yaw: ang,
-                mesh: this.renderer.getPedestrianMesh('cop', cid),
-                health: 100,
-                targetX: this.carX, targetZ: this.carZ,
-                attackTimer: 0.8 + Math.random() * 0.6,
-                speed: 3.2,
-              });
-            }
-          }
+          this.currentCarId = isGarageCar || isLocalOnly ? 0 : v.id;
+          // Police crews are created and simulated by the backend's steal-car
+          // transaction. Do not create local officer/car copies here: the next
+          // authoritative NPC poll supplies the same officers to every player.
           // Transfer the exact vehicle object into the player state. Remove it
           // from its source collection before the next frame so the stolen car
           // cannot be rendered once as world traffic and again as the local car.
-          if (isParked) {
+          if (isLocalOnly) {
+            this.airportLotCars = this.airportLotCars.filter(car => car !== v && car.id !== v.id);
+          } else if (isParked) {
             this.parkedCars = this.parkedCars.filter(p => p !== v && p.id !== v.id);
           } else {
             this.serverNPCs = this.serverNPCs.filter(npc => npc !== v && npc.id !== v.id);
@@ -1386,6 +1345,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (tryEnter(this.serverNPCs)) return;
     if (tryEnter(this.parkedCars, true)) return;
     if (tryEnter(this.trafficCars)) return;
+    // Airport parking-lot cars are local authored fixtures rather than server
+    // NPCs. They still use the normal deliberate enter/break-in interaction, but
+    // must not be sent to stealcar (negative local IDs have another server meaning).
+    if (tryEnter(this.airportLotCars, true, false, true)) return;
     // Stored garage cars use the same deliberate enter/break-in path as every
     // other vehicle, but are offered only while the player is inside the garage.
     if (this.isInGarageInterior() && this.garageCar && this.garageCarMesh) {
@@ -4458,7 +4421,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.updateTaxiRide(dt);
     this.updateTaxiMission(dt);
     this.updatePoliceMode(dt);
-    this.updateEvictedCops(dt);
+    // Police pursuit officers are server-simulated and arrive through
+    // serverPedestrians; never run a client-only police simulation.
     this.updateDealershipMission(dt);
     this.updateAirportLotCars(dt);
     if (this.vehicleBannerTimer > 0) this.vehicleBannerTimer -= dt;
@@ -6325,7 +6289,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
   private checkNearCar() {
     if (this.isInCar || this.isPassenger || this.playerRagdollTimer > 0) { this.nearCar = false; this.nearTaxi = false; this.taxiEntrySide = null; return; }
-    this.nearCar = [...this.serverNPCs, ...this.parkedCars].some(v => v.health > 0
+    this.nearCar = [...this.serverNPCs, ...this.parkedCars, ...this.airportLotCars].some(v => v.health > 0
       && Math.hypot(v.x - this.carX, v.z - this.carZ) < this.vehicleEntryDistance(v));
     // Do not auto-enter or consume the garage vehicle just because the player
     // crossed the garage trigger. Show the same normal enter interaction once
@@ -6791,14 +6755,17 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       const lotX = pl.gx * 80;
       const lotZ = pl.gz * 80;
       const color = [0.3 + Math.random() * 0.5, 0.3 + Math.random() * 0.5, 0.3 + Math.random() * 0.5];
+      const airportCarId = -(1000 + spawned);
       this.airportLotCars.push({
-        x: lotX, z: lotZ + 20, yaw: 0,
-        mesh: this.renderer.getNPCCarMesh([color[0], color[1], color[2]], -(1000 + spawned)),
+        id: airportCarId,
+        x: lotX, z: lotZ + 20, yaw: 0, type: 'car', health: 1000,
+        colorR: color[0], colorG: color[1], colorB: color[2],
+        mesh: this.renderer.getNPCCarMesh([color[0], color[1], color[2]], airportCarId),
         phase: 0, dir: 1, speed: 6 + Math.random() * 4,
         p0: { x: lotX, z: lotZ + 20 },
         p1: { x: lotX, z: lotZ - 5 },
         hasDriver: false,
-      } as any);
+      });
       spawned++;
     }
     for (const dl of dealerships) {
@@ -8018,10 +7985,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.dealershipSaveTimer = 0;
     this.savePlayerState();
   }
-  // Cops ejected from a stolen, driven police car. They hunt the thief: chase
-  // on foot, shoot while the player is armed, or charge and beat the player
-  // down ("arrest") while unarmed. They give up and despawn if the player outruns
-  // them or drops out of sight of the road, and clear entirely on respawn.
+  // Kept as a compatibility stub for saved/client state from older builds.
+  // All police pursuit behavior now comes from GrandTheftController.
+  private updateEvictedCops(dt: number) { return; }
+  /* Legacy client-only police simulation removed. Previous implementation:
   private updateEvictedCops(dt: number) {
     for (let i = this.evictedCops.length - 1; i >= 0; i--) {
       const cop = this.evictedCops[i];
@@ -8097,6 +8064,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       }
     }
   }
+  */
   private updateDealershipMission(dt: number) {
     this.nearDealerNPC = false;
     this.dealershipMarkers = [];
