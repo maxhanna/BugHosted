@@ -26,6 +26,7 @@ import { NotificationService } from '../../services/notification.service';
   standalone: false
 })
 export class UpdateUserSettingsComponent extends ChildComponent implements OnInit {
+  isMenuPanelOpen = false;
   updateUserDivVisible = true;
   isGeneralToggled = false;
   isMenuIconsToggled = false;
@@ -1003,6 +1004,8 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
       this.remove_me('UpdateUserProfile');
     }
   }
+  showMenuPanel() { if (this.isMenuPanelOpen) { this.closeMenuPanel(); return; } this.isMenuPanelOpen = true; this.parentRef?.showOverlay(); this.inputtedParentRef?.showOverlay(); }
+  closeMenuPanel() { this.isMenuPanelOpen = false; this.parentRef?.closeOverlay(); this.inputtedParentRef?.closeOverlay(); }
   updatePushNotifications() {
     if (!this.parentRef?.user?.id) return;
     this.isPushNotificationsEnabled = this.pushNotificationsCheckmark.nativeElement.checked;

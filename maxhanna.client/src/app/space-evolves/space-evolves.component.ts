@@ -1,45 +1,25 @@
 import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, NgZone, OnDestroy, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { SpaceEvolvesRun, SpaceEvolvesService } from '../../services/space-evolves.service';
-
-interface SpaceBug { x: number; y: number; hp: number; maxHp: number; segments: number; maxSegments: number; speed: number; size: number; phase: number; kind: 'scuttler' | 'mantis' | 'queen' | 'boss'; trait: 'charger' | 'armored' | 'splitter' | 'weaver' | 'volatile' | 'regenerator' | 'inertial' | 'leviathan'; armor: number; zigzag: number; attack: number; regen: number; stunTimer?: number; knockbackTimer?: number; knockbackVx?: number; knockbackVy?: number; chemDotTimer?: number; chemSpreadCooldown?: number; wakeTimer?: number; boss?: boolean; ally?: boolean; conversionOrder?: number; lockedOn?: boolean; contactDamageTimer?: number; hueWarp?: number; _taken?: boolean; fragment?: boolean; }
-interface SpaceProjectile { x: number; y: number; vx: number; vy: number; damage: number; kind: 'laser' | 'missile' | 'plasma' | 'drone' | 'rail' | 'flak' | 'chem' | 'boss'; radius: number; range: number; homing: number; splash: number; age: number; bounces: number; lock?: SpaceBug; }
+import * as SpaceEvolvesRendering from './space-evolves-rendering';
+export interface SpaceBug { x: number; y: number; hp: number; maxHp: number; segments: number; maxSegments: number; speed: number; size: number; phase: number; kind: 'scuttler' | 'mantis' | 'queen' | 'boss'; trait: 'charger' | 'armored' | 'splitter' | 'weaver' | 'volatile' | 'regenerator' | 'inertial' | 'leviathan'; armor: number; zigzag: number; attack: number; regen: number; stunTimer?: number; knockbackTimer?: number; knockbackVx?: number; knockbackVy?: number; chemDotTimer?: number; chemSpreadCooldown?: number; wakeTimer?: number; boss?: boolean; ally?: boolean; conversionOrder?: number; lockedOn?: boolean; contactDamageTimer?: number; hueWarp?: number; _taken?: boolean; fragment?: boolean; }
+export interface SpaceProjectile { x: number; y: number; vx: number; vy: number; damage: number; kind: 'laser' | 'missile' | 'plasma' | 'drone' | 'rail' | 'flak' | 'chem' | 'boss'; radius: number; range: number; homing: number; splash: number; age: number; bounces: number; lock?: SpaceBug; }
 type WeaponId = 'laser' | 'missile' | 'shield' | 'plasma' | 'drone' | 'rail' | 'flak' | 'tesla' | 'chem';
 type UpgradeCategory = WeaponId | 'health' | 'utility' | 'ship';
 interface SpaceUpgrade { id: string; name: string; description: string; weapon: UpgradeCategory; isWeaponUnlock?: boolean; }
 interface SpaceScore { username: string; score: number; wave: number; }
-interface SpaceCloud { x: number; y: number; radius: number; life: number; maxLife: number; tick: number; }
-interface BackgroundCloud { x: number; y: number; vx: number; vy: number; homeX: number; homeY: number; radius: number; mass: number; seed: number; }
-interface BackgroundEscort { x: number; y: number; vx: number; vy: number; phase: number; destroyed?: boolean; explosion?: number; }
-interface BackgroundThreat { x: number; y: number; vx: number; vy: number; phase: number; cooldown: number; }
-interface BackgroundShip { x: number; y: number; vx: number; vy: number; size: number; life: number; maxLife: number; angle: number; enemy: boolean; phase: number; evade: number; escorts: BackgroundEscort[]; threats: BackgroundThreat[]; bossScene?: boolean; }
-interface SpaceEffect { x: number; y: number; vx: number; vy: number; life: number; maxLife: number; size: number; color: string; kind?: 'dot' | 'edge' | 'beam' | 'ring'; len?: number; angle?: number; spin?: number; x2?: number; y2?: number; }
-
-// ─── Module-scope constants & scratch buffers ───
-// The update/draw loop used to allocate constantly (array maps with object
-// spreads, closures and tuple arrays per tesseract unit, per-star color
-// strings). Everything constant lives here; hot helpers reuse preallocated
-// scratch so steady-state frames are allocation-free.
-const FX_LAYER_PARAS = [.02, .045, .08];
-const FX_LAYER_MULTS = [1, 2, 4];
-const FX_LAYER_COLORS = ['180,220,255', '210,225,255', '255,255,255'];
-const FX_LAYER_ALPHAS = [.5, .7, 1];
-const FX_LAYER_COUNTS = [70, 40, 22];
-const FX_STAR_COLORS = ['rgb(180,220,255)', 'rgb(210,225,255)', 'rgb(255,255,255)'];
-const FX_NEBULA_COLORS = ['rgba(96,70,190,.32)', 'rgba(28,150,180,.28)', 'rgba(190,60,130,.22)'];
+export interface SpaceCloud { x: number; y: number; radius: number; life: number; maxLife: number; tick: number; }
+export interface BackgroundCloud { x: number; y: number; vx: number; vy: number; homeX: number; homeY: number; radius: number; mass: number; seed: number; }
+export interface BackgroundEscort { x: number; y: number; vx: number; vy: number; phase: number; destroyed?: boolean; explosion?: number; }
+export interface BackgroundThreat { x: number; y: number; vx: number; vy: number; phase: number; cooldown: number; }
+export interface BackgroundShip { x: number; y: number; vx: number; vy: number; size: number; life: number; maxLife: number; angle: number; enemy: boolean; phase: number; evade: number; escorts: BackgroundEscort[]; threats: BackgroundThreat[]; bossScene?: boolean; }
+export interface SpaceEffect { x: number; y: number; vx: number; vy: number; life: number; maxLife: number; size: number; color: string; kind?: 'dot' | 'edge' | 'beam' | 'ring'; len?: number; angle?: number; spin?: number; x2?: number; y2?: number; }
 const FX_MAX = 420;
-// Shared scratch for bug chain node positions (x,y pairs) — written by drawBug,
-// read by drawBugLegs/drawBugFace/spine, so no per-bug tuple arrays are built.
-let BUG_NODE_XY = new Float64Array(20);
-// Shared scratch for the 8 projected corners of the outer/inner tesseract cubes.
-const TESS_OUTER = new Float64Array(16);
-const TESS_INNER = new Float64Array(16);
-
 @Component({ selector: 'app-space-evolves', templateUrl: './space-evolves.component.html', styleUrl: './space-evolves.component.css', standalone: false })
 export class SpaceEvolvesComponent extends ChildComponent implements AfterViewInit, OnDestroy {
   constructor(private spaceEvolvesService: SpaceEvolvesService, private ngZone: NgZone, private cdr: ChangeDetectorRef) { super(); }
   readonly Math = Math; @ViewChild('gameCanvas', { static: true }) gameCanvas!: ElementRef<HTMLCanvasElement>;
-  private ctx!: CanvasRenderingContext2D; private frame = 0; private playerSprite?: HTMLImageElement; private playerSpriteReady = false; private readonly playerSpriteUrl = 'assets/ender/shipsprite.png'; private lastTime = 0; private running = false; private saveTimer: any; private keys = new Set<string>(); private touchX: number | null = null; private spawnTimer = 0; private bossShotTimer = 1.1; private waveKills = 0; private bossActive = false; private serverUserId = 0; private serverRunId?: string; private persistedUpgrades: string[] = []; private loadedUserId = 0; private serverLoaded = false; private switchingUser = false; private lastSaveState = ''; private frameDetail = 2; private detailCooldown = 0; private slowFrames = 0; private fastFrames = 0; private hudSync = 0; private bgW = 0; private bgH = 0; private bgBase?: CanvasGradient; private bgVignette?: CanvasGradient; private backgroundClouds: BackgroundCloud[] = []; private backgroundCloudsReady = false; private backgroundShips: BackgroundShip[] = []; private backgroundShipTimer = 8;
+  private ctx!: CanvasRenderingContext2D; private frame = 0; private playerSprite?: HTMLImageElement; private playerSpriteReady = false; private readonly playerSpriteUrl = 'assets/ender/shipsprite.png'; private lastTime = 0; private running = false; private saveTimer: any; private keys = new Set<string>(); private touchX: number | null = null; private spawnTimer = 0; private bossShotTimer = 1.1; private waveKills = 0; private bossActive = false; private serverUserId = 0; private serverRunId?: string; private persistedUpgrades: string[] = []; private loadedUserId = 0; private serverLoaded = false; private switchingUser = false; private lastSaveState = ''; private frameDetail = 2; private detailCooldown = 0; private slowFrames = 0; private fastFrames = 0; private hudSync = 0; private backgroundClouds: BackgroundCloud[] = []; private backgroundCloudsReady = false; private backgroundShips: BackgroundShip[] = []; private backgroundShipTimer = 8;
   private stats = this.baseStats(); private conversionSequence = 0;
   private defenceForStacks(stacks: number) { return Math.min(.95, 1 - Math.pow(.92, Math.max(0, stacks))); }
   private isInertial(b: SpaceBug) { return b.trait === 'inertial'; }
@@ -58,9 +38,6 @@ export class SpaceEvolvesComponent extends ChildComponent implements AfterViewIn
   private migrateLegacyGenericUpgrades() { const legacy: Record<string, string> = { 'laser-speed': 'attack-speed', 'missile-speed': 'attack-speed', 'plasma-speed': 'attack-speed', 'drone-speed': 'attack-speed', 'rail-speed': 'attack-speed', 'flak-speed': 'attack-speed', 'tesla-speed': 'attack-speed', 'chem-speed': 'attack-speed', 'laser-crit-chance': 'critical-chance', 'missile-crit-chance': 'critical-chance', 'plasma-crit-chance': 'critical-chance', 'drone-crit-chance': 'critical-chance', 'rail-crit-chance': 'critical-chance', 'flak-crit-chance': 'critical-chance', 'tesla-crit-chance': 'critical-chance', 'chem-crit-chance': 'critical-chance', 'laser-crit-factor': 'critical-damage', 'missile-crit-factor': 'critical-damage', 'plasma-crit-factor': 'critical-damage', 'drone-crit-factor': 'critical-damage', 'rail-crit-factor': 'critical-damage', 'flak-crit-factor': 'critical-damage', 'tesla-crit-factor': 'critical-damage', 'chem-crit-factor': 'critical-damage', 'laser-salvo': 'salvo', 'missile-salvo': 'salvo', 'plasma-salvo': 'salvo', 'drone-salvo': 'salvo', 'rail-salvo': 'salvo', 'flak-salvo': 'salvo', 'tesla-salvo': 'salvo', 'chem-salvo': 'salvo', 'drone-volley': 'volley', 'missile-range': 'distance', 'tesla-range': 'distance', 'chem-spread-distance': 'distance', 'laser-meter': 'damage-distance', 'missile-meter': 'damage-distance', 'plasma-meter': 'damage-distance', 'drone-meter': 'damage-distance', 'rail-meter': 'damage-distance', 'flak-meter': 'damage-distance' }; const converted: string[] = []; for (const id of this.persistedUpgrades) converted.push(legacy[id] || id); this.persistedUpgrades = converted; }
   private migrateLegacyDamageUpgrades() { const legacy: Record<string, keyof typeof this.stats> = { 'laser-damage': 'laserDamage', 'missile-damage': 'missileDamage', 'plasma-damage': 'plasmaDamage', 'drone-damage': 'droneDamage', 'rail-damage': 'railDamage', 'flak-damage': 'flakDamage', 'tesla-damage': 'teslaDamage', 'chem-damage': 'chemDamage' }; let converted = 0; for (const [id, field] of Object.entries(legacy)) { const count = this.persistedUpgrades.filter(upgradeId => upgradeId === id).length; if (!count) continue; const value = Number(this.stats[field]); if (Number.isFinite(value)) this.stats[field] = value / Math.pow(1.25, count) as never; converted += count; } if (converted) { this.stats.damageMultiplier = (Number(this.stats.damageMultiplier) || 1) * Math.pow(1.25, converted); this.persistedUpgrades = this.persistedUpgrades.filter(id => !Object.prototype.hasOwnProperty.call(legacy, id)); this.persistedUpgrades.push(...Array(converted).fill('damage')); } }
   private restoreDamageMultiplier() {
-    // Generic multipliers are recomputed from upgrade stacks (single source of truth)
-    // and per-weapon bases are reset, so old saves that baked bonuses into
-    // per-weapon fields can neither lose nor double-apply them.
     const n = (id: string) => this.persistedUpgrades.filter(x => x === id).length;
     const S = this.stats, B = this.baseStats();
     S.damageMultiplier = Math.pow(1.25, n('damage'));
@@ -108,18 +85,12 @@ export class SpaceEvolvesComponent extends ChildComponent implements AfterViewIn
     { id: 'shield-size', name: 'Shield Size', description: 'Shield radius +20%.', weapon: 'shield' }, { id: 'shield-capacity', name: 'Shield Capacity', description: 'Shield strength +12, added to the base +24.', weapon: 'shield' }, { id: 'shield-knockback', name: 'Repulsion Field', description: 'Shield pushes nearby enemies away from the ship.', weapon: 'shield' }, { id: 'shield-duration', name: 'Shield Duration', description: 'Shield remains visible 20% longer.', weapon: 'shield' }, { id: 'shield-thorns', name: 'Thorns Damage', description: 'Reflects 15% of each attacker\'s damage per second back at them.', weapon: 'shield' },
     { id: 'health-max', name: 'Health', description: 'Maximum health +20 and fully heal.', weapon: 'health' }, { id: 'health-regen', name: 'Health Regen', description: 'Regenerate health every second.', weapon: 'health' }, { id: 'health-defence', name: 'Defence %', description: 'Diminishing-return damage reduction; each stack gets smaller and it never reaches 100%.', weapon: 'health' }, { id: 'health-absolute', name: 'Absolute Defence', description: 'Reduce every hit by 2 raw damage.', weapon: 'health' }, { id: 'health-lifesteal', name: 'Lifesteal', description: 'Convert 5% of dealt damage into health.', weapon: 'health' },
     { id: 'plasma-convert', name: 'Plasma Conversion', description: 'Adds 5 percentage points to Plasma\'s chance to convert an enemy into an allied kamikaze. Each selection increases the chance by another 5 percentage points. Converted enemies stop attacking you, hunt other enemies, and detonate on contact.', weapon: 'plasma' }, { id: 'plasma-conversion-cap', name: 'Conversion Capacity +1', description: 'Allow one additional converted plasma kamikaze to exist at the same time. If the limit is full, the oldest converted ally is destroyed when a new one is created.', weapon: 'plasma' },
-
     { id: 'rail-knockback', name: 'Railgun Knockback', description: 'Rail spikes have a 1% base chance to push enemies farther away on impact. Each upgrade adds 1%. Bosses can never be pushed outside the arena.', weapon: 'rail' },
     { id: 'tesla-stun', name: 'Tesla Stun Duration', description: 'Tesla briefly stuns every enemy it hits.', weapon: 'tesla' },
-
     { id: 'utility-wave-exp', name: 'EXP / Wave', description: 'Gain bonus experience when a wave begins.', weapon: 'utility' }, { id: 'utility-free-ship', name: 'Free Ship Upgrade', description: 'Each level adds +12% chance to gain a free random upgrade from the Ship pool on any level-up.', weapon: 'utility' }, { id: 'utility-free-health', name: 'Free Health Upgrade', description: 'Each level adds +12% chance to gain a free random upgrade from the Health pool on any level-up.', weapon: 'utility' }, { id: 'utility-free-utility', name: 'Free Utility Upgrade', description: 'Each level adds +12% chance to gain a free random upgrade from the Utility pool on any level-up.', weapon: 'utility' }, { id: 'utility-free-plasma', name: 'Free Plasma Upgrade', description: 'Each level adds +12% chance to gain a free random upgrade from the Plasma pool on any level-up.', weapon: 'utility' }, { id: 'utility-free-rail', name: 'Free Railgun Upgrade', description: 'Each level adds +12% chance to gain a free random upgrade from the Railgun pool on any level-up.', weapon: 'utility' }, { id: 'utility-free-tesla', name: 'Free Tesla Upgrade', description: 'Each level adds +12% chance to gain a free random upgrade from the Tesla pool on any level-up.', weapon: 'utility' }, { id: 'damage', name: 'Damage %', description: 'All weapon damage +25%, including weapons collected later in the run.', weapon: 'ship' }, { id: 'attack-speed', name: 'Attack Speed %', description: 'All weapons attack 18% faster, including weapons collected later in the run.', weapon: 'ship' }, { id: 'critical-chance', name: 'Critical Chance %', description: 'All weapons gain +8% critical chance.', weapon: 'ship' }, { id: 'critical-damage', name: 'Critical Damage %', description: 'All critical hits deal 30% more damage.', weapon: 'ship' }, { id: 'salvo', name: 'Salvo +1', description: 'Every weapon fires one additional attack, including weapons collected later in the run.', weapon: 'ship' }, { id: 'volley', name: 'Volley +1', description: 'Every weapon engages one additional target per volley, including weapons collected later in the run.', weapon: 'ship' }, { id: 'distance', name: 'Distance %', description: 'All weapon ranges, arc distances, and infection spread increase by 25%.', weapon: 'ship' }, { id: 'damage-distance', name: 'Damage / Distance', description: 'All weapons gain +10 damage for each meter their attacks travel.', weapon: 'ship' }, { id: 'ship-ordnance', name: 'Expanded Ordnance', description: 'Projectile size, blast radius, and shield radius +18%.', weapon: 'ship' },
   ];
   ngAfterViewInit() {
     this.ctx = this.gameCanvas.nativeElement.getContext('2d')!; this.playerSprite = new Image(); this.playerSprite.onload = () => this.playerSpriteReady = true; this.playerSprite.src = this.playerSpriteUrl; this.resizeCanvas(); const c = this.gameCanvas.nativeElement;
-    // Game loop + continuous input run outside Angular's zone: with zone.js, every rAF
-    // frame, keypress and canvas pointermove triggered a full app-wide change-detection
-    // pass (the same input-lag disease DigCraft/MTG had). Template-bound mutations
-    // re-enter via ngZone.run, and HUD numbers refresh via a 5 Hz detectChanges below.
     this.ngZone.runOutsideAngular(() => { window.addEventListener('resize', this.resizeCanvas); window.addEventListener('keydown', this.onKeyDown); window.addEventListener('keyup', this.onKeyUp); c.addEventListener('pointermove', (e: PointerEvent) => this.pointerMove(e)); c.addEventListener('pointerleave', () => this.pointerLeave()); c.addEventListener('pointerdown', (e: PointerEvent) => this.pointerMove(e)); this.ngZone.run(() => { this.prepareStartingChoice(); this.loadProgress(); }); void this.loadServerRun(); this.loadHighScores(); this.running = true; this.lastTime = performance.now(); this.frame = requestAnimationFrame(this.loop); this.saveTimer = setInterval(() => { this.autosave(); }, 5000); });
   }
   ngOnDestroy() { this.running = false; cancelAnimationFrame(this.frame); clearInterval(this.saveTimer); this.saveProgress(); this.persistRun(); window.removeEventListener('resize', this.resizeCanvas); window.removeEventListener('keydown', this.onKeyDown); window.removeEventListener('keyup', this.onKeyUp); }
@@ -161,7 +132,6 @@ export class SpaceEvolvesComponent extends ChildComponent implements AfterViewIn
       case 'rail-knockback': this.stats.railKnockback += .012; this.stats.railKnockbackChance = Math.min(.25, this.stats.railKnockbackChance + .01); break;
       case 'tesla-stun': this.stats.teslaStunDuration += .35; break;
       case 'chem-duration': this.stats.chemDuration *= 1.25; break;
-      
       case 'health-max': this.player.maxHp += 20; this.player.hp = this.player.maxHp; break;
       case 'health-regen': this.stats.healthRegen += 1.5; break;
       case 'health-defence': this.stats.defencePercent = this.defenceForStacks(this.upgradeCount('health-defence') + 1); break;
@@ -187,8 +157,6 @@ export class SpaceEvolvesComponent extends ChildComponent implements AfterViewIn
   private randomChoices() {
     const choices: SpaceUpgrade[] = [];
     const add = (u: SpaceUpgrade) => { if (!choices.some(x => x.id === u.id)) choices.push(u); };
-    // Once a weapon is equipped, only its upgrade pool is eligible. Unlock cards
-    // are offered only for weapons that are not equipped and only while a slot is open.
     for (const weapon of this.equippedWeapons) {
       const pool = this.upgrades.filter(x => x.weapon === weapon && !x.isWeaponUnlock);
       if (pool.length) add(pool[Math.floor(Math.random() * pool.length)]);
@@ -203,16 +171,15 @@ export class SpaceEvolvesComponent extends ChildComponent implements AfterViewIn
     }
     return choices.sort(() => Math.random() - .5).slice(0, 3);
   }
-  chooseUpgrade(u: SpaceUpgrade) { if (!this.canPick || this.startingWeaponChoicePending || performance.now() - this.lastOfferTime < 500) return; const accepted = u.isWeaponUnlock ? this.unlockWeapon(u) : true; if (!accepted) return; if (!u.isWeaponUnlock) { this.applyUpgrade(u); this.persistedUpgrades.push(u.id); } const levelThreshold = this.nextLevel; this.level++; this.nextLevel = Math.floor(this.nextLevel * 1.22); // Preserve overflow EXP so a high-value late-wave kill cannot erase progress toward the next fork.
-    this.experience = Math.max(0, this.experience - levelThreshold); this.upgradeChoices = []; const bonus = this.grantFreeUpgrades(); this.status = bonus ? `${u.name} evolved. +${bonus} free upgrade${bonus > 1 ? 's' : ''}!` : `${u.name} evolved.`; this.autosave(); }
+  chooseUpgrade(u: SpaceUpgrade) {
+    if (!this.canPick || this.startingWeaponChoicePending || performance.now() - this.lastOfferTime < 500) return; const accepted = u.isWeaponUnlock ? this.unlockWeapon(u) : true; if (!accepted) return; if (!u.isWeaponUnlock) { this.applyUpgrade(u); this.persistedUpgrades.push(u.id); } const levelThreshold = this.nextLevel; this.level++; this.nextLevel = Math.floor(this.nextLevel * 1.22);
+    this.experience = Math.max(0, this.experience - levelThreshold); this.upgradeChoices = []; const bonus = this.grantFreeUpgrades(); this.status = bonus ? `${u.name} evolved. +${bonus} free upgrade${bonus > 1 ? 's' : ''}!` : `${u.name} evolved.`; this.autosave();
+  }
   private grantFreeUpgrades() {
     let bonus = 0;
     const pools = [['laser', this.stats.freeLaserChance], ['missile', this.stats.freeMissileChance], ['plasma', this.stats.freePlasmaChance], ['drone', this.stats.freeDroneChance], ['rail', this.stats.freeRailChance], ['flak', this.stats.freeFlakChance], ['tesla', this.stats.freeTeslaChance], ['chem', this.stats.freeChemChance], ['ship', this.stats.freeShipChance], ['health', this.stats.freeHealthChance], ['utility', this.stats.freeUtilityChance]] as Array<[WeaponId | 'health' | 'utility' | 'ship', number]>;
     for (const [category, chance] of pools) {
       if (chance <= 0 || Math.random() >= Math.min(.95, chance)) continue;
-      // A free weapon upgrade may only target a weapon the player actually owns;
-      // defensive/utility/ship pools are always eligible. This prevents a free
-      // laser/rocket roll from silently doing nothing before that weapon is unlocked.
       const pool = this.upgrades.filter(x => x.weapon === category && !x.isWeaponUnlock && !x.id.startsWith('utility-free-') && (category === 'health' || category === 'utility' || category === 'ship' || this.hasWeapon(category)));
       if (!pool.length) continue;
       const pick = pool[Math.floor(Math.random() * pool.length)];
@@ -227,25 +194,15 @@ export class SpaceEvolvesComponent extends ChildComponent implements AfterViewIn
   upgradeCount(id: string) { return this.persistedUpgrades.filter(x => x === id).length; }
   upgradeIcon(weapon: string) { return weapon === 'laser' ? '⚡' : weapon === 'missile' ? '🚀' : weapon === 'shield' ? '🛡️' : weapon === 'plasma' ? '☄️' : weapon === 'drone' ? '🛸' : weapon === 'rail' ? '💥' : weapon === 'flak' ? '💣' : weapon === 'tesla' ? '🌩️' : weapon === 'chem' ? '☢️' : weapon === 'health' ? '❤️' : weapon === 'ship' ? '🛰️' : '🧬'; }
   weaponLabel(weapon: WeaponId) { return weapon === 'laser' ? 'Laser' : weapon === 'missile' ? 'Missile Rack' : weapon === 'shield' ? 'Pulse Shield' : weapon === 'plasma' ? 'Plasma Cannon' : weapon === 'rail' ? 'Railgun' : weapon === 'flak' ? 'Flak Cannon' : weapon === 'tesla' ? 'Tesla' : weapon === 'chem' ? 'Chem Cloud' : 'Combat Drone'; }
-  get enemyCount() {/* Enemies still standing between the player and the next wave:
- * kills left in the wave quota, or — once the quota is met — the bugs
- * left to clear off the field. During the boss fight it's the boss itself. */
+  get enemyCount() {
     if (this.bossActive) return 1; const left = Math.max(0, 8 + this.wave * 2 - this.waveKills); return left > 0 ? left : this.bugs.length;
   } get isBossActive() { return this.bossActive; } get enemyCountLabel() { return this.bossActive ? 'BOSS' : this.enemyCount; }
   private loop = (t: number) => {
-    if (!this.running) return; const dt = Math.min(.05, Math.max(0, (t - this.lastTime) / 1000)); this.lastTime = t; this.checkUserSwitch(); if (!this.paused && !this.gameOver && !this.upgradeChoices.length && !this.startingWeaponChoicePending) this.update(dt); this.draw();
-    // HUD bindings (wave/score/level/hull/exp/enemy counter/shield) now live outside the
-    // zone — refresh them at 5 Hz instead of relying on Angular-touched events.
+    if (!this.running) return; const dt = Math.min(.05, Math.max(0, (t - this.lastTime) / 1000)); this.lastTime = t; this.checkUserSwitch(); if (!this.paused && !this.gameOver && !this.upgradeChoices.length && !this.startingWeaponChoicePending) this.update(dt); SpaceEvolvesRendering.draw(this.gameCanvas.nativeElement, this.ctx, { bugs: this.bugs, shots: this.shots, effects: this.effects, clouds: this.clouds, backgroundShips: this.backgroundShips, backgroundClouds: this.backgroundClouds, player: this.player, orbitDrones: this.orbitDrones, shieldVisible: this.timers.shield > this.stats.shieldPulseInterval - this.stats.shieldVisibleFor, shieldRepulse: this.stats.shieldKnockback > 0, shieldRadius: this.stats.shieldRadius, frameDetail: this.frameDetail, sprite: this.playerSprite, spriteReady: this.playerSpriteReady });
     if (!this.paused && !this.gameOver && !this.upgradeChoices.length && !this.startingWeaponChoicePending) { this.hudSync += dt; if (this.hudSync >= .2) { this.hudSync = 0; this.cdr.detectChanges(); } }
     this.frame = requestAnimationFrame(this.loop);
   }; private checkUserSwitch() { const uid = this.getUserId(); if (uid !== this.loadedUserId && !this.switchingUser) { this.ngZone.run(() => { this.switchingUser = true; this.serverRunId = undefined; this.resetRun(); void this.loadServerRun().then(() => { this.switchingUser = false; }); }); } }
-  // Periodic autosave: skips the network write when nothing meaningful changed since the
-  // last save, so idle/paused sessions don't spam the server. Experience gained from kills
-  // (not just level-ups) is included in the run payload, so a refresh mid-wave no longer
-  // loses progress.
-  private autosave() { if (this.gameOver) return; const snap = JSON.stringify(this.currentRun()); if (snap === this.lastSaveState) return; this.lastSaveState = snap; this.saveProgress(); this.persistRun(); }  // Adaptive detail controller: tracks frame times over a rolling window. When the frame
-  // rate sags (heavy late-wave geometry), drop rendering detail a level; recover one level
-  // only after sustained smooth frames, so it doesn't oscillate.
+  private autosave() { if (this.gameOver) return; const snap = JSON.stringify(this.currentRun()); if (snap === this.lastSaveState) return; this.lastSaveState = snap; this.saveProgress(); this.persistRun(); }
   private updateDetail(dt: number) {
     if (dt >= 1 / 34) { this.slowFrames++; this.fastFrames = 0; } else if (dt <= 1 / 52) { this.fastFrames++; } else { this.slowFrames = Math.max(0, this.slowFrames - 1); this.fastFrames = Math.max(0, this.fastFrames - 1); }
     if (this.detailCooldown > 0) { this.detailCooldown -= dt; return; }
@@ -282,14 +239,12 @@ export class SpaceEvolvesComponent extends ChildComponent implements AfterViewIn
     for (const c of this.backgroundClouds) { const spring = 1.8 / c.mass; c.vx += (c.homeX - c.x) * spring * dt; c.vy += (c.homeY - c.y) * spring * dt; c.vx *= Math.pow(.18, dt); c.vy *= Math.pow(.18, dt); c.x += c.vx * dt; c.y += c.vy * dt; }
   }
   private update(dt: number) {
-    this.updateDetail(dt); this.updateBackgroundShips(dt); this.updateBackgroundClouds(dt); this.player.x = .5; this.player.y = .5; for (const weapon of this.equippedWeapons) { this.timers[weapon] -= dt; } if (this.hasWeapon('laser') && this.timers.laser <= 0) { this.fireLasers(); this.timers.laser = this.weaponInterval(this.stats.laserInterval); } if (this.hasWeapon('missile') && this.timers.missile <= 0) { this.fireMissiles(); this.timers.missile = this.weaponInterval(this.stats.missileInterval); } if (this.hasWeapon('plasma') && this.timers.plasma <= 0) { if (this.firePlasma()) this.timers.plasma = this.weaponInterval(this.stats.plasmaInterval); else this.timers.plasma = .05; } this.updateDrones(dt); this.updateClouds(dt); if (this.hasWeapon('rail') && this.timers.rail <= 0) { this.fireRail(); this.timers.rail = this.weaponInterval(this.stats.railInterval); } if (this.hasWeapon('flak') && this.timers.flak <= 0) { this.fireFlak(); this.timers.flak = this.weaponInterval(this.stats.flakInterval); } if (this.hasWeapon('tesla') && this.timers.tesla <= 0) { this.fireTesla(); this.timers.tesla = this.weaponInterval(this.stats.teslaInterval); } if (this.hasWeapon('chem') && this.timers.chem <= 0) { this.fireChem(); this.timers.chem = this.weaponInterval(this.stats.chemInterval); } if (this.hasWeapon('shield') && this.timers.shield <= 0) { this.shieldPulse(); this.timers.shield = this.stats.shieldPulseInterval; } if (this.stats.healthRegen > 0) this.player.hp = Math.min(this.player.maxHp, this.player.hp + this.stats.healthRegen * dt); this.spawnTimer -= dt; if (!Number.isFinite(this.spawnTimer)) this.spawnTimer = 0; if (this.spawnTimer <= 0 && !this.bossActive && this.waveKills < 8 + this.wave * 2) { this.spawnWaveBug(); this.spawnTimer = this.wave === 1 ? 1.0 : Math.max(.14, 1.0 - (this.wave - 1) * .02); } for (const s of this.shots) { s.age += dt; const eligible = this.canRehome(s.kind); if (s.kind !== 'boss' && eligible) { const current = s.lock && this.bugs.includes(s.lock) ? s.lock : undefined; const speed = Math.hypot(s.vx, s.vy) || 1; const forward = current ? ((current.x - s.x) * s.vx + (current.y - s.y) * s.vy) / (speed * speed) : -1; if (!current || forward < 0) { const target = this.rehomeTarget(s); if (target) s.lock = target; } if (s.lock && this.bugs.includes(s.lock) && (s.homing || !current)) { const dx = s.lock.x - s.x, dy = s.lock.y - s.y, n = Math.hypot(dx, dy) || 1; const shotSpeed = Math.max(.25, speed); s.vx = dx / n * shotSpeed; s.vy = dy / n * shotSpeed; } } else if (s.kind === 'missile' && s.homing) { const target = s.lock && this.bugs.includes(s.lock) ? s.lock : this.nearestIncoming(s.x, s.y); if (target) { const dx = target.x - s.x, dy = target.y - s.y, n = Math.hypot(dx, dy) || 1; const shotSpeed = Math.max(.25, Math.hypot(s.vx, s.vy)); s.vx = dx / n * shotSpeed; s.vy = dy / n * shotSpeed; } } s.x += s.vx * dt; s.y += s.vy * dt; s.damage = s.kind === 'laser' ? this.weaponDamage(this.stats.laserDamage + this.weaponMeter(this.stats.laserDamagePerMeter) * Math.abs(s.vy) * s.age) : s.kind === 'missile' ? this.weaponDamage(this.stats.missileDamage + this.weaponMeter(this.stats.missileDamagePerMeter) * Math.hypot(s.vx, s.vy) * s.age) : s.kind === 'plasma' ? this.weaponDamage(this.stats.plasmaDamage + this.weaponMeter(this.stats.plasmaDamagePerMeter) * Math.hypot(s.vx, s.vy) * s.age) : s.kind === 'rail' ? this.weaponDamage(this.stats.railDamage + this.weaponMeter(this.stats.railDamagePerMeter) * Math.hypot(s.vx, s.vy) * s.age) : s.kind === 'flak' ? this.weaponDamage(this.stats.flakDamage + this.weaponMeter(this.stats.flakDamagePerMeter) * Math.hypot(s.vx, s.vy) * s.age) : s.kind === 'chem' ? this.weaponDamage(this.stats.chemDamage) : this.weaponDamage(this.stats.droneDamage + this.weaponMeter(this.stats.droneDamagePerMeter) * Math.hypot(s.vx, s.vy) * s.age); if (s.kind === 'missile' && Math.random() < .4 && this.effects.length < FX_MAX) this.effects.push({ x: s.x, y: s.y, vx: (Math.random() - .5) * .01, vy: (Math.random() - .5) * .01, life: .35, maxLife: .35, size: .014, color: '#ffb066' }); if (s.kind === 'plasma' && Math.random() < .5 && this.effects.length < FX_MAX) this.effects.push({ x: s.x, y: s.y, vx: (Math.random() - .5) * .01, vy: (Math.random() - .5) * .01, life: .3, maxLife: .3, size: .012, color: '#ff9df0' }); if (s.kind === 'chem' && Math.random() < .4 && this.effects.length < FX_MAX) this.effects.push({ x: s.x, y: s.y, vx: (Math.random() - .5) * .01, vy: (Math.random() - .5) * .01, life: .3, maxLife: .3, size: .012, color: '#b6ff4d' }); if (s.kind === 'flak' && Math.random() < .35 && this.effects.length < FX_MAX) this.effects.push({ x: s.x, y: s.y, vx: (Math.random() - .5) * .01, vy: (Math.random() - .5) * .01, life: .25, maxLife: .25, size: .01, color: '#ff8a5d' }); if (s.kind === 'rail' && Math.random() < .3 && this.effects.length < FX_MAX) this.effects.push({ x: s.x, y: s.y, vx: (Math.random() - .5) * .01, vy: (Math.random() - .5) * .01, life: .22, maxLife: .22, size: .009, color: '#e0ff70' }); }// Effects advance in place — the old map+spread+filter rebuilt the whole
-    // array (a fresh object per particle) every frame.
-    let fxWrite = 0; const fx = this.effects; for (let i = 0; i < fx.length; i++) { const e = fx[i]; e.x += e.vx * dt; e.y += e.vy * dt; e.life -= dt; if (e.life > 0) fx[fxWrite++] = e; } fx.length = fxWrite; for (let i = this.shots.length - 1; i >= 0; i--) { const s = this.shots[i]; if (s.kind === 'boss' && Math.hypot(s.x - this.player.x, s.y - this.player.y) < s.radius + .035) { this.damagePlayer(s.damage); this.shots.splice(i, 1); } }// Shots compact in place — the old filter allocated a fresh array per frame.
+    this.updateDetail(dt); this.updateBackgroundShips(dt); this.updateBackgroundClouds(dt); this.player.x = .5; this.player.y = .5; for (const weapon of this.equippedWeapons) { this.timers[weapon] -= dt; } if (this.hasWeapon('laser') && this.timers.laser <= 0) { this.fireLasers(); this.timers.laser = this.weaponInterval(this.stats.laserInterval); } if (this.hasWeapon('missile') && this.timers.missile <= 0) { this.fireMissiles(); this.timers.missile = this.weaponInterval(this.stats.missileInterval); } if (this.hasWeapon('plasma') && this.timers.plasma <= 0) { if (this.firePlasma()) this.timers.plasma = this.weaponInterval(this.stats.plasmaInterval); else this.timers.plasma = .05; } this.updateDrones(dt); this.updateClouds(dt); if (this.hasWeapon('rail') && this.timers.rail <= 0) { this.fireRail(); this.timers.rail = this.weaponInterval(this.stats.railInterval); } if (this.hasWeapon('flak') && this.timers.flak <= 0) { this.fireFlak(); this.timers.flak = this.weaponInterval(this.stats.flakInterval); } if (this.hasWeapon('tesla') && this.timers.tesla <= 0) { this.fireTesla(); this.timers.tesla = this.weaponInterval(this.stats.teslaInterval); } if (this.hasWeapon('chem') && this.timers.chem <= 0) { this.fireChem(); this.timers.chem = this.weaponInterval(this.stats.chemInterval); } if (this.hasWeapon('shield') && this.timers.shield <= 0) { this.shieldPulse(); this.timers.shield = this.stats.shieldPulseInterval; } if (this.stats.healthRegen > 0) this.player.hp = Math.min(this.player.maxHp, this.player.hp + this.stats.healthRegen * dt); this.spawnTimer -= dt; if (!Number.isFinite(this.spawnTimer)) this.spawnTimer = 0; if (this.spawnTimer <= 0 && !this.bossActive && this.waveKills < 8 + this.wave * 2) { this.spawnWaveBug(); this.spawnTimer = this.wave === 1 ? 1.0 : Math.max(.14, 1.0 - (this.wave - 1) * .02); } for (const s of this.shots) { s.age += dt; const eligible = this.canRehome(s.kind); if (s.kind !== 'boss' && eligible) { const current = s.lock && this.bugs.includes(s.lock) ? s.lock : undefined; const speed = Math.hypot(s.vx, s.vy) || 1; const forward = current ? ((current.x - s.x) * s.vx + (current.y - s.y) * s.vy) / (speed * speed) : -1; if (!current || forward < 0) { const target = this.rehomeTarget(s); if (target) s.lock = target; } if (s.lock && this.bugs.includes(s.lock) && (s.homing || !current)) { const dx = s.lock.x - s.x, dy = s.lock.y - s.y, n = Math.hypot(dx, dy) || 1; const shotSpeed = Math.max(.25, speed); s.vx = dx / n * shotSpeed; s.vy = dy / n * shotSpeed; } } else if (s.kind === 'missile' && s.homing) { const target = s.lock && this.bugs.includes(s.lock) ? s.lock : this.nearestIncoming(s.x, s.y); if (target) { const dx = target.x - s.x, dy = target.y - s.y, n = Math.hypot(dx, dy) || 1; const shotSpeed = Math.max(.25, Math.hypot(s.vx, s.vy)); s.vx = dx / n * shotSpeed; s.vy = dy / n * shotSpeed; } } s.x += s.vx * dt; s.y += s.vy * dt; s.damage = s.kind === 'laser' ? this.weaponDamage(this.stats.laserDamage + this.weaponMeter(this.stats.laserDamagePerMeter) * Math.abs(s.vy) * s.age) : s.kind === 'missile' ? this.weaponDamage(this.stats.missileDamage + this.weaponMeter(this.stats.missileDamagePerMeter) * Math.hypot(s.vx, s.vy) * s.age) : s.kind === 'plasma' ? this.weaponDamage(this.stats.plasmaDamage + this.weaponMeter(this.stats.plasmaDamagePerMeter) * Math.hypot(s.vx, s.vy) * s.age) : s.kind === 'rail' ? this.weaponDamage(this.stats.railDamage + this.weaponMeter(this.stats.railDamagePerMeter) * Math.hypot(s.vx, s.vy) * s.age) : s.kind === 'flak' ? this.weaponDamage(this.stats.flakDamage + this.weaponMeter(this.stats.flakDamagePerMeter) * Math.hypot(s.vx, s.vy) * s.age) : s.kind === 'chem' ? this.weaponDamage(this.stats.chemDamage) : this.weaponDamage(this.stats.droneDamage + this.weaponMeter(this.stats.droneDamagePerMeter) * Math.hypot(s.vx, s.vy) * s.age); if (s.kind === 'missile' && Math.random() < .4 && this.effects.length < FX_MAX) this.effects.push({ x: s.x, y: s.y, vx: (Math.random() - .5) * .01, vy: (Math.random() - .5) * .01, life: .35, maxLife: .35, size: .014, color: '#ffb066' }); if (s.kind === 'plasma' && Math.random() < .5 && this.effects.length < FX_MAX) this.effects.push({ x: s.x, y: s.y, vx: (Math.random() - .5) * .01, vy: (Math.random() - .5) * .01, life: .3, maxLife: .3, size: .012, color: '#ff9df0' }); if (s.kind === 'chem' && Math.random() < .4 && this.effects.length < FX_MAX) this.effects.push({ x: s.x, y: s.y, vx: (Math.random() - .5) * .01, vy: (Math.random() - .5) * .01, life: .3, maxLife: .3, size: .012, color: '#b6ff4d' }); if (s.kind === 'flak' && Math.random() < .35 && this.effects.length < FX_MAX) this.effects.push({ x: s.x, y: s.y, vx: (Math.random() - .5) * .01, vy: (Math.random() - .5) * .01, life: .25, maxLife: .25, size: .01, color: '#ff8a5d' }); if (s.kind === 'rail' && Math.random() < .3 && this.effects.length < FX_MAX) this.effects.push({ x: s.x, y: s.y, vx: (Math.random() - .5) * .01, vy: (Math.random() - .5) * .01, life: .22, maxLife: .22, size: .009, color: '#e0ff70' }); }
+    let fxWrite = 0; const fx = this.effects; for (let i = 0; i < fx.length; i++) { const e = fx[i]; e.x += e.vx * dt; e.y += e.vy * dt; e.life -= dt; if (e.life > 0) fx[fxWrite++] = e; } fx.length = fxWrite; for (let i = this.shots.length - 1; i >= 0; i--) { const s = this.shots[i]; if (s.kind === 'boss' && Math.hypot(s.x - this.player.x, s.y - this.player.y) < s.radius + .035) { this.damagePlayer(s.damage); this.shots.splice(i, 1); } }
     let shotWrite = 0; const shots = this.shots; for (let i = 0; i < shots.length; i++) { const s = shots[i]; const alive = s.kind === 'boss' ? s.age < s.range && s.x > -.35 && s.x < 1.35 && s.y > -.35 && s.y < 1.35 : s.age < s.range && s.x > -.2 && s.x < 1.2 && s.y > -.2 && s.y < 1.2; if (alive) shots[shotWrite++] = s; } shots.length = shotWrite; for (const b of this.bugs) { if (b.boss) this.keepBossInArena(b); const dx = this.player.x - b.x, dy = this.player.y - b.y, d = Math.hypot(dx, dy) || 1, contact = b.size + .055; if (b.ally) { b.lockedOn = false; const target = this.nearestEnemyForAlly(b); if (target) { const ax = target.x - b.x, ay = target.y - b.y, an = Math.hypot(ax, ay) || 1; b.x += ax / an * Math.max(b.speed, .16) * dt; b.y += ay / an * Math.max(b.speed, .16) * dt; if (Math.hypot(target.x - b.x, target.y - b.y) < b.size + target.size) { this.kamikazeExplode(b); b.hp = 0; } } continue; } if ((b.knockbackTimer ?? 0) > 0) { b.knockbackTimer = Math.max(0, (b.knockbackTimer ?? 0) - dt); b.lockedOn = false; b.x += (b.knockbackVx ?? 0) * dt; b.y += (b.knockbackVy ?? 0) * dt; } else if ((b.stunTimer ?? 0) > 0) { b.stunTimer = Math.max(0, (b.stunTimer ?? 0) - dt); b.lockedOn = false; } else if (!b.lockedOn && d > contact) { const step = Math.min(d - contact, b.speed * dt); b.x += dx / d * step; b.y += dy / d * step; } else { const shieldVisible = this.timers.shield > this.stats.shieldPulseInterval - this.stats.shieldVisibleFor; if (shieldVisible && this.stats.shieldKnockback > 0 && d < this.stats.shieldRadius + b.size + .02) { b.lockedOn = false; const pushDx = b.x - this.player.x, pushDy = b.y - this.player.y, pushN = Math.hypot(pushDx, pushDy) || 1, push = this.stats.shieldKnockback * dt * 3; const knockbackFactor = 1 - this.controlResistance(b, 'knockback'); b.knockbackTimer = knockbackFactor > .05 ? (this.isInertial(b) ? .05 : .32) : 0; b.knockbackVx = pushDx / pushN * this.stats.shieldKnockback * (this.isInertial(b) ? .55 : 3.5) * knockbackFactor; b.knockbackVy = pushDy / pushN * this.stats.shieldKnockback * (this.isInertial(b) ? .55 : 3.5) * knockbackFactor; b.x += pushDx / pushN * push * knockbackFactor; b.y += pushDy / pushN * push * knockbackFactor; } else { b.lockedOn = true; b.contactDamageTimer = (b.contactDamageTimer ?? 0) - dt; if (b.contactDamageTimer <= 0) { this.damagePlayer(Math.ceil(b.attack)); if (this.stats.shieldThorns > 0) this.damageBug(b, b.attack * this.stats.shieldThorns); b.contactDamageTimer = .65; } } } if ((b.chemDotTimer ?? 0) > 0 && !b.ally) { b.chemDotTimer = Math.max(0, (b.chemDotTimer ?? 0) - dt); b.chemSpreadCooldown = Math.max(0, (b.chemSpreadCooldown ?? 0) - dt); const dot = Math.max(1, this.weaponDamage(this.stats.chemDamage * .18) - b.armor) * dt; this.damageBug(b, dot); if ((b.chemSpreadCooldown ?? 0) <= 0) { for (const nearby of this.bugs) { if (nearby === b || nearby.ally || nearby.boss || (nearby.chemDotTimer ?? 0) > 0) continue; if (Math.hypot(nearby.x - b.x, nearby.y - b.y) <= this.weaponRange(this.stats.chemSpreadDistance)) { nearby.chemDotTimer = 6; nearby.chemSpreadCooldown = .35; break; } } b.chemSpreadCooldown = .35; } } this.gravityWake(b, dt); if (b.regen > 0) b.hp = Math.min(b.maxHp, b.hp + b.regen * dt); if (b.hueWarp) b.hueWarp = Math.max(0, b.hueWarp - dt); } for (let i = this.bugs.length - 1; i >= 0; i--) { const b = this.bugs[i]; if (b.hp <= 0) { this.killBug(i); continue; } if (!b.lockedOn && !b.boss && (b.x < -.2 || b.x > 1.2 || b.y < -.2 || b.y > 1.2)) { this.bugs.splice(i, 1); continue; } for (let j = this.shots.length - 1; j >= 0; j--) { const s = this.shots[j]; if (Math.hypot(s.x - b.x, s.y - b.y) < b.size + s.radius) { let damage = Math.max(1, s.damage - b.armor); const critChance = this.weaponCritChance(s.kind === 'laser' ? this.stats.laserCritChance : s.kind === 'missile' ? this.stats.missileCritChance : s.kind === 'plasma' ? this.stats.plasmaCritChance : s.kind === 'rail' ? this.stats.railCritChance : s.kind === 'flak' ? this.stats.flakCritChance : s.kind === 'chem' ? this.stats.chemCritChance : this.stats.droneCritChance); const critFactor = this.weaponCritFactor(s.kind === 'laser' ? this.stats.laserCritFactor : s.kind === 'missile' ? this.stats.missileCritFactor : s.kind === 'plasma' ? this.stats.plasmaCritFactor : s.kind === 'rail' ? this.stats.railCritFactor : s.kind === 'flak' ? this.stats.flakCritFactor : s.kind === 'chem' ? this.stats.chemCritFactor : this.stats.droneCritFactor); if (Math.random() < critChance) { damage *= critFactor; b.hueWarp = .45; } if (b.ally) continue; this.damageBug(b, damage); if (s.kind === 'rail' && !b.ally && Math.random() < this.stats.railKnockbackChance) { const push = this.stats.railKnockback * dt * 60, dx = b.x - this.player.x, dy = b.y - this.player.y, n = Math.hypot(dx, dy) || 1; const knockbackFactor = 1 - this.controlResistance(b, 'knockback'); b.x += dx / n * push * knockbackFactor; b.y += dy / n * push * knockbackFactor; if (b.boss) this.keepBossInArena(b); b.lockedOn = false; } if (this.stats.lifesteal > 0) this.player.hp = Math.min(this.player.maxHp, this.player.hp + damage * this.stats.lifesteal); if (s.kind === 'plasma' && this.canPlasmaConvert(b) && Math.random() < this.stats.plasmaConvertChance) { if (this.convertedEnemyCount() >= this.stats.plasmaMaxConversions) this.removeOldestConverted(); b.ally = true; b.conversionOrder = ++this.conversionSequence; b.lockedOn = false; b.trait = 'charger'; b.attack = Math.max(b.attack * 1.5, s.damage * .8); b.hp = Math.max(1, b.hp); this.status = 'Plasma conversion: allied kamikaze acquired!'; this.effects.push({ x: b.x, y: b.y, vx: 0, vy: 0, life: .35, maxLife: .35, size: b.size * 1.8, color: '#a66cff', kind: 'ring', len: b.size * 2 }); this.shots.splice(j, 1); break; } if (s.kind === 'missile' || s.kind === 'flak' || s.kind === 'plasma' || s.kind === 'chem') { if (s.kind === 'chem') { this.spawnCloud(s.x, s.y); } else if (s.kind === 'missile') { this.explode(s.x, s.y, s.damage * s.splash, (this.stats.chemRadius + .045) * this.stats.projectileSize, '#ffb066'); } else { this.explode(s.x, s.y, s.damage * s.splash, (s.splash + .045) * this.stats.projectileSize, s.kind === 'plasma' ? '#ff66dd' : '#ff9d4d'); } if (s.bounces > 0) { let nb: SpaceBug | undefined; let nd = Infinity; for (const ob of this.bugs) { if (ob === b) continue; const d = Math.hypot(ob.x - s.x, ob.y - s.y); if (d < nd) { nd = d; nb = ob; } } if (!nb) nb = this.nearestIncoming(s.x, s.y); if (nb) { s.bounces--; s.lock = nb; const dx = nb.x - s.x, dy = nb.y - s.y, n = Math.hypot(dx, dy) || 1, sp = Math.max(.3, Math.hypot(s.vx, s.vy)); s.vx = dx / n * sp; s.vy = dy / n * sp; } } else { this.shots.splice(j, 1); } } else this.shots.splice(j, 1); if (b.hp <= 0) { this.killBug(i); if (b.trait === 'splitter') this.splitBug(b); } break; } } } if (!this.bossActive && this.waveKills >= 8 + this.wave * 2 && !this.hasLiveHostiles()) this.spawnBoss(); if (this.experience >= this.nextLevel) this.offerUpgrades();
   }
   get shieldCapacity() { return this.stats.shieldMax; }
   get weaponStatus() { return this.equippedWeapons.map(weapon => ({ name: this.weaponLabel(weapon), interval: weapon === 'laser' ? this.weaponInterval(this.stats.laserInterval) : weapon === 'missile' ? this.weaponInterval(this.stats.missileInterval) : weapon === 'shield' ? this.stats.shieldPulseInterval : weapon === 'plasma' ? this.weaponInterval(this.stats.plasmaInterval) : weapon === 'rail' ? this.weaponInterval(this.stats.railInterval) : weapon === 'flak' ? this.weaponInterval(this.stats.flakInterval) : weapon === 'tesla' ? this.weaponInterval(this.stats.teslaInterval) : weapon === 'chem' ? this.weaponInterval(this.stats.chemInterval) : this.weaponInterval(this.stats.droneInterval), color: weapon === 'laser' ? '#7cf7ff' : weapon === 'missile' ? '#ff9d4d' : weapon === 'shield' ? '#9d8cff' : weapon === 'plasma' ? '#ff66dd' : weapon === 'rail' ? '#e0ff70' : weapon === 'flak' ? '#ff5d5d' : weapon === 'tesla' ? '#9fd8ff' : weapon === 'chem' ? '#b6ff4d' : '#7dff9a' })); } trackWeaponSlot(index: number, slot: { filled: boolean; weapon: string }) { return slot.filled ? slot.weapon : `empty-${index}`; } get weaponSlots() { const status = this.weaponStatus; const slots: { filled: boolean; icon: string; label: string; interval: number; color: string; weapon: string }[] = []; for (let i = 0; i < this.weaponSlotLimit; i++) { const w = this.equippedWeapons[i]; const s = status[i]; if (w && s) { slots.push({ filled: true, icon: this.upgradeIcon(w), label: s.name, interval: s.interval, color: s.color, weapon: w }); } else { slots.push({ filled: false, icon: '+', label: 'Empty slot', interval: 0, color: '', weapon: '' }); } } return slots; } weaponUpgradeLines(weapon: string) { const lines: string[] = []; const n = (id: string) => this.upgradeCount(id); const dmg = n('damage'), spd = n('attack-speed'), cc = n('critical-chance'), cf = n('critical-damage'), sal = n('salvo'), vol = n('volley'), dist = n('distance'), meter = n('damage-distance'); if (dmg) lines.push('+' + (dmg * 25) + '% damage (all weapons)'); if (spd) lines.push('~' + Math.round((1 / Math.pow(.82, spd) - 1) * 100) + '% faster attacks (all weapons)'); if (cc) lines.push('+' + (cc * 8) + '% crit chance (all weapons)'); if (cf) lines.push('+' + (cf * 30) + '% crit damage (all weapons)'); if (sal && weapon !== 'tesla' && weapon !== 'shield') lines.push('+' + sal + ' projectile' + (sal > 1 ? 's' : '') + ' (all weapons)'); if (vol && weapon !== 'shield') lines.push('+' + vol + ' target' + (vol > 1 ? 's' : '') + ' per volley (all weapons)'); if (dist) lines.push('+' + (dist * 25) + '% range (all weapons)'); if (meter) lines.push('+' + (meter * 10) + ' damage / meter (all weapons)'); if (weapon === 'missile') { const r = n('missile-range'), b = n('missile-bounces'); if (r) lines.push('+' + (r * 25) + '% range'); if (b) lines.push('+' + b + ' bounce' + (b > 1 ? 's' : '')); } if (weapon === 'plasma' && n('plasma-convert')) lines.push('+' + (n('plasma-convert') * 5) + '% conversion chance'); if (weapon === 'plasma' && n('plasma-conversion-cap')) lines.push('+' + n('plasma-conversion-cap') + ' conversion capacity'); if (weapon === 'rail' && n('rail-knockback')) lines.push('+' + (n('rail-knockback') * .012).toFixed(3) + ' knockback distance · ' + (2 + n('rail-knockback') * 2) + '% chance'); if (weapon === 'tesla') lines.push((1 + sal) + ' outgoing thunderbolt' + (sal > 0 ? 's' : '')); if (weapon === 'tesla' && n('tesla-range')) lines.push('+' + (n('tesla-range') * 20) + '% arc range'); if (weapon === 'tesla' && n('tesla-stun')) lines.push('+' + (n('tesla-stun') * .35).toFixed(2) + 's stun duration'); if (weapon === 'chem' && n('chem-duration')) lines.push('+' + (n('chem-duration') * 25) + '% cloud duration'); if (weapon === 'shield') { const sz = n('shield-size'), cap = n('shield-capacity'), k = n('shield-knockback'), du = n('shield-duration'), th = n('shield-thorns'); if (sz) lines.push('+' + (sz * 20) + '% size'); if (cap) lines.push('+' + (cap * 12) + ' shield strength'); if (k) lines.push('+' + k + ' knockback'); if (du) lines.push('+' + (du * 20) + '% duration'); if (th) lines.push('reflect ' + (th * 15) + '% damage'); } if (!lines.length) lines.push('No upgrades yet'); return lines; } weaponTooltip(weapon: string) { return [this.weaponLabel(weapon as WeaponId), ...this.weaponUpgradeLines(weapon)].join('\n'); } weaponHowItWorks: Record<WeaponId, string> = { laser: 'Piercing beams auto-fire at the nearest bugs. Reliable single-target damage that scales hard with upgrades.', missile: 'Heavy homing rockets with a wide chem-sized blast. Slow but devastating, and bounces chain them between enemies.', plasma: 'Fast bolts with a small burst on impact. Balanced damage and fire rate.', drone: 'Unkillable escorts that orbit you, close in on nearby enemies, and fire reliable short-range sting beams. Upgrade sting damage, speed, volley, and drone numbers.', rail: 'An ultra-fast hail of tiny spikes. Very low damage per hit, overwhelming volume.', flak: 'Short-range scattergun: a wide fan of pellets with splash. Devastating up close, harmless far away.', tesla: 'Tesla fires thunderbolts outward from the ship. Each bolt chains through unhit enemies within arc range, and no target can be hit twice by the same salvo.', shield: 'A defensive pulse that absorbs hits, shoves enemies back, and reflects damage once Thorns is unlocked.', chem: 'Lobs corrosive globs that burst into lingering acid clouds, melting anything that stands inside.' }; weaponDetailLines(w: WeaponId) { const S = this.stats; const r1 = (v: number) => Math.round(v * 100) / 100; const crit = 'Crit ' + Math.round(this.weaponCritChance(S[w + 'CritChance' as keyof typeof S] as number) * 100) + '% ×' + r1(this.weaponCritFactor(S[w + 'CritFactor' as keyof typeof S] as number)); const meter: Partial<Record<WeaponId, number>> = { laser: this.weaponMeter(S.laserDamagePerMeter), missile: this.weaponMeter(S.missileDamagePerMeter), plasma: this.weaponMeter(S.plasmaDamagePerMeter), rail: this.weaponMeter(S.railDamagePerMeter), flak: this.weaponMeter(S.flakDamagePerMeter), }; const baseDamage = w === 'laser' ? S.laserDamage : w === 'missile' ? S.missileDamage : w === 'plasma' ? S.plasmaDamage : w === 'drone' ? S.droneDamage : w === 'rail' ? S.railDamage : w === 'flak' ? S.flakDamage : w === 'tesla' ? S.teslaDamage : w === 'chem' ? S.chemDamage : 0; const effectiveDamage = this.weaponDamage(baseDamage); const L: string[] = []; if (Object.prototype.hasOwnProperty.call(meter, w)) { const value = meter[w] ?? 0; L.push('Damage / meter ' + r1(value), value > 0 ? 'Adds this much damage for each meter travelled.' : 'No damage-per-meter upgrade yet.'); } switch (w) { case 'laser': L.push('Damage ' + r1(effectiveDamage), 'Every ' + r1(this.weaponInterval(S.laserInterval)) + 's', this.weaponCount(S.laserCount) + ' beam' + (this.weaponCount(S.laserCount) > 1 ? 's' : ''), crit); break; case 'missile': L.push('Damage ' + r1(effectiveDamage), 'Every ' + r1(this.weaponInterval(S.missileInterval)) + 's', this.weaponCount(S.missileCount) + ' missile' + (this.weaponCount(S.missileCount) > 1 ? 's' : ''), 'Blast radius ' + r1((S.chemRadius + .045) * S.projectileSize), 'Bounces ' + S.missileBounces, crit); break; case 'plasma': L.push('Damage ' + r1(effectiveDamage), 'Every ' + r1(this.weaponInterval(S.plasmaInterval)) + 's', this.weaponCount(S.plasmaCount) + ' bolt' + (this.weaponCount(S.plasmaCount) > 1 ? 's' : ''), 'Blast radius ' + r1((S.plasmaSplash + .045) * S.projectileSize), 'Convert chance ' + Math.round(S.plasmaConvertChance * 100) + '%', 'Converted allies ' + this.convertedEnemyCount() + '/' + S.plasmaMaxConversions, crit); break; case 'drone': L.push('Damage ' + r1(effectiveDamage), 'Every ' + r1(this.weaponInterval(S.droneInterval)) + 's', 'Short-range instant sting beam', (S.droneVolley + S.volleyBonus) + ' target' + ((S.droneVolley + S.volleyBonus) > 1 ? 's' : '') + ' per volley'); break; case 'rail': L.push('Damage ' + r1(effectiveDamage), 'Every ' + r1(this.weaponInterval(S.railInterval)) + 's', this.weaponCount(S.railCount) + ' spike' + (this.weaponCount(S.railCount) > 1 ? 's' : ''), 'Knockback ' + r1(S.railKnockback) + ' (' + Math.round(S.railKnockbackChance * 100) + '% chance)', crit); break; case 'flak': L.push('Pellet damage ' + r1(effectiveDamage), 'Every ' + r1(this.weaponInterval(S.flakInterval)) + 's', this.weaponCount(S.flakCount) + ' pellets', 'Blast radius ' + r1((S.flakSplash + .045) * S.projectileSize), crit); break; case 'tesla': L.push('Damage ' + r1(effectiveDamage), 'Every ' + r1(this.weaponInterval(S.teslaInterval)) + 's', this.weaponCount(S.teslaCount) + ' outgoing thunderbolt' + (this.weaponCount(S.teslaCount) > 1 ? 's' : ''), 'Arc range ' + r1(this.weaponRange(S.teslaRange)), 'Chains through every unhit target in range', 'Stun ' + r1(S.teslaStunDuration) + 's', crit); break; case 'chem': L.push('Glob damage ' + r1(effectiveDamage), 'Every ' + r1(this.weaponInterval(S.chemInterval)) + 's', this.weaponCount(S.chemCount) + ' glob' + (this.weaponCount(S.chemCount) > 1 ? 's' : ''), 'Cloud ' + r1(S.chemDuration) + 's / radius ' + r1(S.chemRadius * S.projectileSize), 'Cloud AOE damage ' + r1(effectiveDamage) + ' every 0.5s', 'Spread distance ' + r1(this.weaponRange(S.chemSpreadDistance)), 'Damage over time + chain spread', crit); break; case 'shield': L.push('Pulse every ' + r1(S.shieldPulseInterval) + 's', 'Radius ' + r1(S.shieldRadius), 'Knockback ' + r1(S.shieldKnockback), 'Thorns ' + Math.round(S.shieldThorns * 100) + '%', 'Visible ' + r1(S.shieldVisibleFor) + 's'); break; }return L; } get upgradeSections() { return (['laser', 'missile', 'shield', 'plasma', 'drone', 'rail', 'flak', 'tesla', 'chem', 'health', 'utility', 'ship'] as const).map(weapon => ({ weapon, label: weapon === 'laser' ? 'Laser' : weapon === 'missile' ? 'Missiles' : weapon === 'shield' ? 'Shield' : weapon === 'plasma' ? 'Plasma' : weapon === 'drone' ? 'Drones' : weapon === 'rail' ? 'Railgun' : weapon === 'flak' ? 'Flak' : weapon === 'tesla' ? 'Tesla' : weapon === 'chem' ? 'Chem' : weapon === 'health' ? 'Health' : weapon === 'utility' ? 'Utility' : 'Ship', icon: this.upgradeIcon(weapon), upgrades: this.upgrades.filter(u => u.weapon === weapon).map(u => ({ ...u, count: this.persistedUpgrades.filter(id => id === u.id).length, chanceText: u.id.startsWith('utility-free-') ? `${this.freeChance(u.id.replace('utility-free-', '') as 'laser' | 'missile' | 'plasma' | 'drone' | 'rail' | 'flak' | 'tesla' | 'chem' | 'ship' | 'health' | 'utility')}%` : `` })).filter(u => u.count > 0) })).filter(s => s.upgrades.length); }
-
   private canPlasmaConvert(b: SpaceBug) { return b.hp > 0 && !b.ally && !this.isLeviathan(b) && b.kind !== 'boss' && b.boss !== true; } private hasLiveHostiles() { for (const b of this.bugs) if (b.hp > 0 && !b.ally && Number.isFinite(b.x) && Number.isFinite(b.y)) return true; return false; } private convertedEnemyCount() { let count = 0; for (const b of this.bugs) if (b.ally && b.hp > 0) count++; return count; } private removeOldestConverted() { let index = -1; let oldest = Infinity; for (let i = 0; i < this.bugs.length; i++) { const b = this.bugs[i]; if (!b.ally || b.hp <= 0) continue; const order = b.conversionOrder ?? i; if (order < oldest) { oldest = order; index = i; } } if (index >= 0) this.killBug(index); } private nearestEnemyForAlly(ally: SpaceBug) { let best: SpaceBug | undefined; let distance = Infinity; for (const b of this.bugs) { if (b === ally || b.ally || b.hp <= 0) continue; const d = Math.hypot(b.x - ally.x, b.y - ally.y); if (d < distance) { distance = d; best = b; } } return best; } private nearestIncoming(x: number, y: number) { let best: SpaceBug | undefined; let distance = Infinity; for (const b of this.bugs) { if (b.ally || b.hp <= 0) continue; const d = Math.hypot(b.x - x, b.y - y); if (d < distance) { distance = d; best = b; } } return best; }
   private rehomeTarget(s: SpaceProjectile): SpaceBug | undefined {
     const speed = Math.hypot(s.vx, s.vy) || 1, fx = s.vx / speed, fy = s.vy / speed; let best: SpaceBug | undefined; let bestScore = Infinity;
@@ -299,8 +254,6 @@ export class SpaceEvolvesComponent extends ChildComponent implements AfterViewIn
   private canRehome(kind: SpaceProjectile['kind']) { return kind === 'missile'; }
   private distinctScratch: SpaceBug[] = [];
   private distinctTargets(count: number) {
-    // Selection into a reused scratch array (partial selection sort) — the old
-    // version spread+sorted+sliced the whole bug list on every volley.
     const src = this.bugs; const want = Math.max(1, count); this.distinctScratch.length = 0;
     const n = Math.min(want, src.length);
     for (let k = 0; k < n; k++) {
@@ -333,10 +286,7 @@ export class SpaceEvolvesComponent extends ChildComponent implements AfterViewIn
   }
   private fireMissiles() { const targets = this.distinctTargets(this.weaponTargets(this.stats.missileCount)); for (let i = 0; i < Math.max(targets.length, 1); i++) { const target = targets[i] ?? targets[0]; const dx = (target?.x ?? this.player.x) - this.player.x, dy = (target?.y ?? this.player.y) - this.player.y, n = Math.hypot(dx, dy) || 1; this.shots.push({ x: this.player.x, y: this.player.y, vx: dx / n * this.stats.missileSpeed, vy: dy / n * this.stats.missileSpeed, damage: this.stats.missileDamage, kind: 'missile', radius: .023 * this.stats.projectileSize, range: this.weaponRange(this.stats.missileRange), homing: Math.max(1, this.stats.missileHoming), splash: this.stats.missileSplash, age: 0, bounces: this.stats.missileBounces, lock: target }); } }
   private firePlasma() { const targets = this.distinctTargets(this.weaponTargets(this.stats.plasmaCount)); for (let i = 0; i < Math.max(targets.length, 1); i++) { const target = targets[i] ?? targets[0]; const dx = (target?.x ?? this.player.x) - this.player.x, dy = (target?.y ?? this.player.y - 1) - this.player.y, n = Math.hypot(dx, dy) || 1; this.shots.push({ x: this.player.x, y: this.player.y, vx: dx / n * this.stats.plasmaSpeed, vy: dy / n * this.stats.plasmaSpeed, damage: this.stats.plasmaDamage, kind: 'plasma', radius: .014 * this.stats.projectileSize, range: this.weaponRange(this.stats.plasmaRange), homing: 0, splash: this.stats.plasmaSplash, age: 0, bounces: 0, lock: target }); } return true; }
-  private droneStingTargets(x: number, y: number, count: number) { const out: SpaceBug[] = []; const want = Math.max(1, Math.floor(count)); for (let k = 0; k < want; k++) { let best: SpaceBug | undefined; let bd = Infinity; for (const b of this.bugs) { if (b.ally || b.hp <= 0 || !Number.isFinite(b.x) || !Number.isFinite(b.y) || out.includes(b)) continue; const dd = (b.x - x) * (b.x - x) + (b.y - y) * (b.y - y); if (dd < bd) { bd = dd; best = b; } } if (!best) break; out.push(best); } return out; }  private fireDroneStings(x: number, y: number) {
-    // Drones use their own dependable close-range sting beam. It is deliberately
-    // separate from the player's weapon stats, but lands instantly so a drone
-    // does not waste its short attack window on a slow projectile that misses.
+  private droneStingTargets(x: number, y: number, count: number) { const out: SpaceBug[] = []; const want = Math.max(1, Math.floor(count)); for (let k = 0; k < want; k++) { let best: SpaceBug | undefined; let bd = Infinity; for (const b of this.bugs) { if (b.ally || b.hp <= 0 || !Number.isFinite(b.x) || !Number.isFinite(b.y) || out.includes(b)) continue; const dd = (b.x - x) * (b.x - x) + (b.y - y) * (b.y - y); if (dd < bd) { bd = dd; best = b; } } if (!best) break; out.push(best); } return out; } private fireDroneStings(x: number, y: number) {
     const S = this.stats;
     const targets = this.droneStingTargets(x, y, Math.max(1, Math.floor(S.droneVolley + S.volleyBonus)));
     for (const target of targets) {
@@ -355,8 +305,7 @@ export class SpaceEvolvesComponent extends ChildComponent implements AfterViewIn
   private fireChem() { const targets = this.distinctTargets(this.weaponTargets(this.stats.chemCount)); for (let i = 0; i < Math.max(targets.length, 1); i++) { const target = targets[i] ?? targets[0]; const dx = (target?.x ?? this.player.x) - this.player.x, dy = (target?.y ?? this.player.y - 1) - this.player.y, n = Math.hypot(dx, dy) || 1; this.shots.push({ x: this.player.x, y: this.player.y, vx: dx / n * this.stats.chemSpeed, vy: dy / n * this.stats.chemSpeed, damage: this.stats.chemDamage, kind: 'chem', radius: .018 * this.stats.projectileSize, range: this.weaponRange(this.stats.chemRange), homing: 0, splash: 0, age: 0, bounces: 0, lock: target }); } }
   private updateClouds(dt: number) {
     if (!this.clouds.length) return; for (let i = this.clouds.length - 1; i >= 0; i--) {
-      const c = this.clouds[i]; c.life -= dt; if (c.life <= 0) { this.clouds.splice(i, 1); continue; } if (Math.random() < .35 && this.effects.length < FX_MAX) { const a = Math.random() * Math.PI * 2, rr = Math.random() * c.radius; this.effects.push({ x: c.x + Math.cos(a) * rr, y: c.y + Math.sin(a) * rr, vx: (Math.random() - .5) * .02, vy: -.02 - Math.random() * .02, life: .5, maxLife: .5, size: .016, color: Math.random() < .5 ? '#b6ff4d' : '#5da83c' }); } c.tick -= dt; if (c.tick > 0) continue; c.tick = .5;// The cloud uses the same damage value as the glob impact, so the AOE
-      // remains competitive instead of silently dealing half damage.
+      const c = this.clouds[i]; c.life -= dt; if (c.life <= 0) { this.clouds.splice(i, 1); continue; } if (Math.random() < .35 && this.effects.length < FX_MAX) { const a = Math.random() * Math.PI * 2, rr = Math.random() * c.radius; this.effects.push({ x: c.x + Math.cos(a) * rr, y: c.y + Math.sin(a) * rr, vx: (Math.random() - .5) * .02, vy: -.02 - Math.random() * .02, life: .5, maxLife: .5, size: .016, color: Math.random() < .5 ? '#b6ff4d' : '#5da83c' }); } c.tick -= dt; if (c.tick > 0) continue; c.tick = .5;
       const dmgBase = this.weaponDamage(this.stats.chemDamage); for (const b of this.bugs) { if (b.ally) continue; if (Math.hypot(b.x - c.x, b.y - c.y) < c.radius + b.size) { b.chemDotTimer = Math.max(b.chemDotTimer ?? 0, 6); b.chemSpreadCooldown = 0; let dmg = Math.max(1, dmgBase - b.armor); if (Math.random() < this.weaponCritChance(this.stats.chemCritChance)) { dmg *= this.weaponCritFactor(this.stats.chemCritFactor); b.hueWarp = .45; } this.damageBug(b, dmg); if (this.stats.lifesteal > 0) this.player.hp = Math.min(this.player.maxHp, this.player.hp + dmg * this.stats.lifesteal); } }
     } for (let i = this.bugs.length - 1; i >= 0; i--) { const b = this.bugs[i]; if (b.hp <= 0) { this.killBug(i); if (b.trait === 'splitter') this.splitBug(b); } }
   }
@@ -366,9 +315,6 @@ export class SpaceEvolvesComponent extends ChildComponent implements AfterViewIn
   private spawnLightning(x1: number, y1: number, x2: number, y2: number) { if (this.effects.length > FX_MAX) return; const segs = 6; let px = x1, py = y1; for (let i = 1; i <= segs; i++) { const t = i / segs; const nx = x1 + (x2 - x1) * t + (i < segs ? (Math.random() - .5) * .03 : 0); const ny = y1 + (y2 - y1) * t + (i < segs ? (Math.random() - .5) * .03 : 0); const dx = nx - px, dy = ny - py; this.effects.push({ x: (px + nx) / 2, y: (py + ny) / 2, vx: 0, vy: 0, life: .18, maxLife: .18, size: .012, color: Math.random() < .3 ? '#ffffff' : '#9fd8ff', kind: 'edge', len: Math.hypot(dx, dy), angle: Math.atan2(dy, dx), spin: 0 }); px = nx; py = ny; } }
   private kamikazeExplode(ally: SpaceBug) { const radius = Math.max(.11, ally.size * 3.2); const blastDamage = Math.max(1, ally.maxHp); for (const enemy of this.bugs) { if (enemy === ally || enemy.ally || enemy.hp <= 0) continue; if (Math.hypot(enemy.x - ally.x, enemy.y - ally.y) <= radius + enemy.size) {/* A kamikaze deals 100% of its own maximum health as damage to every hostile enemy in range. */this.damageBug(enemy, blastDamage); } } if (this.effects.length < FX_MAX) this.effects.push({ x: ally.x, y: ally.y, vx: 0, vy: 0, life: .5, maxLife: .5, size: radius * 1.2, color: '#a66cff', kind: 'ring', len: radius }); for (let i = 0; i < 18 && this.effects.length < FX_MAX; i++) { const a = Math.random() * Math.PI * 2, sp = .08 + Math.random() * .18; this.effects.push({ x: ally.x, y: ally.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: .35 + Math.random() * .25, maxLife: .6, size: .018 + Math.random() * .02, color: i % 2 ? '#d6a4ff' : '#ffffff' }); } } private explode(x: number, y: number, d: number, radius: number, ring: string) { for (const b of this.bugs) if (!b.ally && Math.hypot(b.x - x, b.y - y) < radius) this.damageBug(b, d * .35); if (this.effects.length < FX_MAX) this.effects.push({ x, y, vx: 0, vy: 0, life: .4, maxLife: .4, size: .012, color: ring, kind: 'ring', len: radius }); if (this.effects.length > FX_MAX) return; for (let i = 0; i < 26; i++) { const a = Math.random() * Math.PI * 2, sp = .06 + Math.random() * .22; this.effects.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: .3 + Math.random() * .4, maxLife: .7, size: .022 + Math.random() * .03, color: i % 3 === 0 ? '#fff3c2' : i % 3 === 1 ? '#ffb066' : '#ff6a3d' }); } } private shieldPulse() { this.player.shield = this.stats.shieldMax; const knock = this.stats.shieldKnockback; for (const b of this.bugs) { const d = Math.hypot(b.x - this.player.x, b.y - this.player.y); if (d < this.stats.shieldRadius + .06) { if (this.stats.shieldPulse > 0) this.damageBug(b, this.stats.shieldPulse); b.lockedOn = false; if (knock > 0) { const dx = b.x - this.player.x, dy = b.y - this.player.y, n = Math.hypot(dx, dy) || 1, push = knock * (this.wave === 1 ? 1 : .8) * (1 - this.controlResistance(b, 'knockback')); b.x += dx / n * push; b.y += dy / n * push; } } } }
   private shapeCountFor(kind: SpaceBug['kind'], trait: SpaceBug['trait']) {
-    // Shapes are deliberate progression, not an accidental side effect of HP.
-    // Level 1 always produces one destroyable tesseract shape; later levels add
-    // shapes while never exceeding the current player level.
     const levelCap = Math.max(1, Math.floor(this.level) || 1);
     const kindFactor = kind === 'queen' ? 1 : kind === 'mantis' ? .9 : .8;
     const traitBonus = trait === 'armored' || trait === 'regenerator' || trait === 'inertial' ? 1 : 0;
@@ -377,9 +323,6 @@ export class SpaceEvolvesComponent extends ChildComponent implements AfterViewIn
   private splitBug(b: SpaceBug) { for (let i = 0; i < 2; i++) { const hp = Math.max(5, b.maxHp * .22), childShapes = Math.max(1, Math.min(Math.max(1, Math.floor(this.level) || 1), Math.ceil(b.maxSegments * .35))); this.bugs.push({ ...b, x: b.x + (i ? -.035 : .035), y: b.y - .02, hp, maxHp: hp, size: b.size * .62, speed: b.speed * 1.25, trait: 'charger', armor: 0, attack: b.attack * .45, regen: 0, segments: childShapes, maxSegments: childShapes, fragment: true }); } }
   private spawnWaveBug() { const kind = ['scuttler', 'mantis', 'queen'][Math.floor(Math.random() * 3)] as SpaceBug['kind'], leviathan = this.wave >= 4 && Math.random() < Math.min(.12, .025 + this.wave * .006), traitRoll = Math.random(), trait = leviathan ? 'leviathan' : (this.wave >= 3 && traitRoll < Math.min(.22, .08 + this.wave * .012) ? 'inertial' : ['charger', 'armored', 'splitter', 'weaver', 'volatile', 'regenerator'][Math.floor(Math.random() * 6)]) as SpaceBug['trait'], scale = this.wave === 1 ? .40 : .55 + this.wave * .07, levelScale = 1 + Math.max(0, this.level - 1) * .08, base = leviathan ? 260 : (kind === 'queen' ? 130 : kind === 'mantis' ? 48 : 24) * scale * levelScale, healthRelief = leviathan ? 1 : kind === 'scuttler' ? .70 : .85, hp = base * healthRelief * (trait === 'armored' ? (this.wave === 1 ? 1.12 : 1.2) : trait === 'regenerator' ? (this.wave === 1 ? 1.05 : 1.12) : trait === 'inertial' ? 1.3 : trait === 'leviathan' ? 1.45 : 1), shapeCount = leviathan ? Math.min(120, Math.max(24, 18 + this.wave * 4)) : this.shapeCountFor(kind, trait), side = Math.floor(Math.random() * 4), edge = .04 + Math.random() * .92; this.bugs.push({ x: side === 0 ? -.06 : side === 1 ? 1.06 : edge, y: side === 2 ? -.06 : side === 3 ? 1.06 : edge, hp, maxHp: hp, speed: (leviathan ? .07 : (kind === 'queen' ? .065 : kind === 'mantis' ? .095 : .135) + Math.max(0, this.wave - 1) * .003) * (trait === 'charger' ? (this.wave === 1 ? 1.18 : 1.3) : trait === 'inertial' ? 1.08 : 1), size: leviathan ? .12 : (kind === 'queen' ? .055 : kind === 'mantis' ? .04 : .029), phase: Math.random() * 100, kind: leviathan ? 'boss' : kind, trait, armor: trait === 'armored' ? 5 + this.wave * .7 : trait === 'inertial' ? 2 + this.wave * .35 : trait === 'leviathan' ? 10 + this.wave * 1.2 : 0, zigzag: .05, attack: (leviathan ? 32 : kind === 'queen' ? 22 : kind === 'mantis' ? 13 : 7) * (this.wave === 1 ? .32 : .61 + Math.max(0, this.wave - 1) * .055), regen: trait === 'regenerator' ? base * .18 : 0, segments: shapeCount, maxSegments: shapeCount, boss: leviathan }); }
   private bugColor(b: SpaceBug) { return b.ally ? '#a66cff' : (b.chemDotTimer ?? 0) > 0 ? '#a8ff3e' : b.boss ? '#ff557d' : b.trait === 'leviathan' ? '#d9b8ff' : b.trait === 'inertial' ? '#ffc266' : b.trait === 'armored' ? '#b9c7d8' : b.trait === 'charger' ? '#ff9c4a' : b.trait === 'splitter' ? '#f5e85b' : b.trait === 'weaver' ? '#53d8ff' : b.trait === 'volatile' ? '#ff4b58' : b.trait === 'regenerator' ? '#74ff91' : b.kind === 'queen' ? '#ff557d' : b.kind === 'mantis' ? '#d875ff' : '#74ff91'; }
-  // When a tesseract unit is destroyed it bursts into glowing cube-edge shards: short
-  // spinning line segments that fly outward and fade — like the unit's wireframe
-  // disintegrating piece by piece.
   private shatterUnit(x: number, y: number, scale: number, col: string, count: number) {
     if (this.effects.length > 420) return;
     for (let i = 0; i < count; i++) {
@@ -387,10 +330,8 @@ export class SpaceEvolvesComponent extends ChildComponent implements AfterViewIn
       this.effects.push({ x: x + (Math.random() - .5) * scale * .7, y: y + (Math.random() - .5) * scale * .7, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: l, maxLife: l, size: .016, color: i % 4 === 0 ? '#ffffff' : col, kind: 'edge', len: scale * (.35 + Math.random() * .5), angle: Math.random() * Math.PI * 2, spin: (Math.random() - .5) * 10 });
     }
   }
-  private damageBug(b: SpaceBug, d: number) { const oldSegs = b.segments; b.hp = Math.max(0, b.hp - d); b.segments = Math.max(0, Math.ceil(b.hp / (b.maxHp / Math.max(1, b.maxSegments)))); if (b.segments < oldSegs) { if (this.isLeviathan(b)) { this.shatterUnit(b.x, b.y, b.size * .9, this.bugColor(b), 9); return; } const t = performance.now() / 1000, spin = this.twistAngle(b, t); for (let i = b.segments; i < oldSegs; i++) { const u = oldSegs === 1 ? 0 : i / (oldSegs - 1) - .5, nx = Math.cos(spin + u * 2.8) * b.size * u * 1.55, ny = Math.sin(spin + u * 2.8) * b.size * u * .65; this.shatterUnit(b.x + nx, b.y + ny, b.size * (b.boss ? .66 : .5), this.bugColor(b), b.boss ? 12 : 9); } } } private killBug(i: number) {
-    const b = this.bugs[i]; if (!b) return; if (this.isLeviathan(b)) { this.shatterUnit(b.x, b.y, b.size * 1.4, this.bugColor(b), 16); this.shatterUnit(b.x, b.y, b.size * .8, '#ffffff', 8); } else { const t = performance.now() / 1000, spin = this.twistAngle(b, t), n = Math.max(1, b.segments); for (let s = 0; s < n; s++) { const u = n === 1 ? 0 : s / (n - 1) - .5, nx = Math.cos(spin + u * 2.8) * b.size * u * 1.55, ny = Math.sin(spin + u * 2.8) * b.size * u * .65; this.shatterUnit(b.x + nx, b.y + ny, b.size * (b.boss ? .66 : .5) * 1.3, this.bugColor(b), b.boss ? 10 : 8); } } this.bugs.splice(i, 1); if (b.boss) { this.bossActive = false; this.wave++; this.waveKills = 0;      this.experience += this.experienceForBoss() + this.stats.expPerWave; return; } if (!b.ally) this.score += 10 * this.wave; if (!b.fragment && !b.ally) this.waveKills++;// Splitter fragments never count toward the wave quota — otherwise each
-    // splitter death raises the required kills by 3 (itself + 2 fragments) and
-    // the "to next wave" counter climbs instead of reaching 0.
+  private damageBug(b: SpaceBug, d: number) { const oldSegs = b.segments; b.hp = Math.max(0, b.hp - d); b.segments = Math.max(0, Math.ceil(b.hp / (b.maxHp / Math.max(1, b.maxSegments)))); if (b.segments < oldSegs) { if (this.isLeviathan(b)) { this.shatterUnit(b.x, b.y, b.size * .9, this.bugColor(b), 9); return; } const t = performance.now() / 1000, spin = SpaceEvolvesRendering.twistAngle(b, t); for (let i = b.segments; i < oldSegs; i++) { const u = oldSegs === 1 ? 0 : i / (oldSegs - 1) - .5, nx = Math.cos(spin + u * 2.8) * b.size * u * 1.55, ny = Math.sin(spin + u * 2.8) * b.size * u * .65; this.shatterUnit(b.x + nx, b.y + ny, b.size * (b.boss ? .66 : .5), this.bugColor(b), b.boss ? 12 : 9); } } } private killBug(i: number) {
+    const b = this.bugs[i]; if (!b) return; if (this.isLeviathan(b)) { this.shatterUnit(b.x, b.y, b.size * 1.4, this.bugColor(b), 16); this.shatterUnit(b.x, b.y, b.size * .8, '#ffffff', 8); } else { const t = performance.now() / 1000, spin = SpaceEvolvesRendering.twistAngle(b, t), n = Math.max(1, b.segments); for (let s = 0; s < n; s++) { const u = n === 1 ? 0 : s / (n - 1) - .5, nx = Math.cos(spin + u * 2.8) * b.size * u * 1.55, ny = Math.sin(spin + u * 2.8) * b.size * u * .65; this.shatterUnit(b.x + nx, b.y + ny, b.size * (b.boss ? .66 : .5) * 1.3, this.bugColor(b), b.boss ? 10 : 8); } } this.bugs.splice(i, 1); if (b.boss) { this.bossActive = false; this.wave++; this.waveKills = 0; this.experience += this.experienceForBoss() + this.stats.expPerWave; return; } if (!b.ally) this.score += 10 * this.wave; if (!b.fragment && !b.ally) this.waveKills++;
     if (!b.ally) this.experience += this.experienceForKill() * (1 + this.stats.expBonusPerKill);
   }
   private lateWaveExperienceBonus() { return Math.max(0, this.wave - 16); } private experienceForKill() { const waveProgress = Math.max(0, this.wave - 1); return Math.round(44 * (1 + waveProgress * .18 + this.lateWaveExperienceBonus() * .2)); }
@@ -401,412 +342,15 @@ export class SpaceEvolvesComponent extends ChildComponent implements AfterViewIn
   private offerUpgrades() { this.ngZone.run(() => { if (this.upgradeChoices.length) return; this.upgradeChoices = this.randomChoices(); this.grantedUpgrades = []; this.lastOfferTime = performance.now(); this.canPick = false; setTimeout(() => { if (this.upgradeChoices.length) this.canPick = true; }, 500); this.status = 'Evolution fork: improve an equipped weapon or fill an open slot.'; this.cdr.detectChanges(); this.autosave(); }); } private resetRun() { this.persistedUpgrades = []; this.stats = this.baseStats(); this.player = { x: .5, y: .5, hp: 120, maxHp: 120, shield: 0, speed: .55 }; this.shots = []; this.bugs = []; this.orbitDrones = []; this.clouds = []; this.backgroundShips = []; this.backgroundShipTimer = 5; this.wave = 1; this.score = 0; this.level = 0; this.bossActive = false; this.experience = 0; this.nextLevel = 90; this.gameOver = false; this.upgradeChoices = []; this.waveKills = 0; this.equippedWeapons = []; this.startingWeaponChoices = this.startingWeaponOptions; this.startingWeaponChoicePending = true; this.canPick = false; this.timers = { laser: 0, missile: 0, shield: 0, plasma: 0, drone: 0, rail: 0, flak: 0, tesla: 0, chem: 0 }; this.status = 'Choose one weapon to begin your run.'; this.saveProgress(); this.prepareStartingChoice(); }
   private endRun() {
     this.ngZone.run(() => {
-      this.gameOver = true; this.status = `Run ended at wave ${this.wave}. Score ${this.score}.`; this.saveProgress(true);// Deactivate the server-side run and record the score so it can't resurrect on next login.
+      this.gameOver = true; this.status = `Run ended at wave ${this.wave}. Score ${this.score}.`; this.saveProgress(true);
       const uid = this.getUserId(); if (uid && uid === this.loadedUserId) void this.spaceEvolvesService.endRun(uid, this.currentRun()); this.cdr.detectChanges();
     });
-  }  private currentRun(): SpaceEvolvesRun { return { runId: this.serverRunId, wave: this.wave, level: this.level, score: this.score, experience: this.experience, nextLevel: this.nextLevel, player: this.player, stats: this.stats, upgrades: this.persistedUpgrades, equippedWeapons: this.equippedWeapons, waveKills: this.bossActive ? 8 + this.wave * 2 : this.waveKills, upgradeChoices: this.upgradeChoices.map(u => u.id), gameOver: this.gameOver }; }  private restoreUpgradeChoices(ids: unknown): void { this.upgradeChoices = Array.isArray(ids) ? ids.map(id => this.upgrades.find(u => u.id === id)).filter((u): u is SpaceUpgrade => !!u) : []; if (this.upgradeChoices.length) { this.lastOfferTime = performance.now(); this.canPick = false; setTimeout(() => { if (this.upgradeChoices.length) this.canPick = true; }, 500); } }
+  } private currentRun(): SpaceEvolvesRun { return { runId: this.serverRunId, wave: this.wave, level: this.level, score: this.score, experience: this.experience, nextLevel: this.nextLevel, player: this.player, stats: this.stats, upgrades: this.persistedUpgrades, equippedWeapons: this.equippedWeapons, waveKills: this.bossActive ? 8 + this.wave * 2 : this.waveKills, upgradeChoices: this.upgradeChoices.map(u => u.id), gameOver: this.gameOver }; } private restoreUpgradeChoices(ids: unknown): void { this.upgradeChoices = Array.isArray(ids) ? ids.map(id => this.upgrades.find(u => u.id === id)).filter((u): u is SpaceUpgrade => !!u) : []; if (this.upgradeChoices.length) { this.lastOfferTime = performance.now(); this.canPick = false; setTimeout(() => { if (this.upgradeChoices.length) this.canPick = true; }, 500); } }
   private loadProgress() {
     try {
-      const uid = this.getUserId(); if (!uid) return;// Local cache is keyed per user so switching accounts never shows another player's run;
-      // the server run (loadServerRun) remains the source of truth for logged-in users.
+      const uid = this.getUserId(); if (!uid) return;
       const s = JSON.parse(localStorage.getItem(`space-evolves-progress-${uid}`) || 'null'); if (s && s.userId === uid && !s.gameOver) { Object.assign(this.player, s.player || {}); this.wave = Number.isFinite(s.wave) ? s.wave : 1; this.level = Number.isFinite(s.level) ? s.level : 0; this.score = Number.isFinite(s.score) ? s.score : 0; this.experience = Number.isFinite(s.experience) ? s.experience : 0; this.nextLevel = Number.isFinite(s.nextLevel) ? s.nextLevel : 100; this.waveKills = s.waveKills || 0; this.restoreUpgradeChoices(s.upgradeChoices); this.stats = { ...this.stats, ...s.stats }; this.persistedUpgrades = s.upgrades || []; this.migrateLegacyDamageUpgrades(); this.migrateLegacyGenericUpgrades(); this.restoreDamageMultiplier(); this.stats.defencePercent = this.defenceForStacks(this.persistedUpgrades.filter(id => id === 'health-defence').length); this.stats.plasmaConvertChance = .05 + this.persistedUpgrades.filter(id => id === 'plasma-convert').length * .05; this.stats.plasmaMaxConversions = 1 + this.persistedUpgrades.filter(id => id === 'plasma-conversion-cap').length; this.stats.defencePercent = this.defenceForStacks(this.persistedUpgrades.filter(id => id === 'health-defence').length); this.equippedWeapons = Array.isArray(s.equippedWeapons) ? s.equippedWeapons.filter((id: string): id is WeaponId => ['laser', 'missile', 'shield', 'plasma', 'drone', 'rail', 'flak', 'tesla', 'chem'].includes(id)).slice(0, this.weaponSlotLimit) : []; this.startingWeaponChoicePending = this.equippedWeapons.length === 0; this.startingWeaponChoices = this.startingWeaponChoicePending ? this.startingWeaponOptions : []; this.stats.railKnockbackChance = .01 + this.persistedUpgrades.filter(id => id === 'rail-knockback').length * .01; }
     } catch { }
   } private async loadServerRun() { this.ngZone.run(async () => { this.serverUserId = this.getUserId(); this.loadedUserId = this.serverUserId; if (!this.serverUserId) return; const s = await this.spaceEvolvesService.getActiveRun(this.serverUserId); if (s && !s.gameOver) { this.serverRunId = s.runId; Object.assign(this.player, s.player || {}); this.wave = Number.isFinite(s.wave) ? s.wave : 1; this.level = Number.isFinite(s.level) ? s.level : 0; this.score = Number.isFinite(s.score) ? s.score : 0; this.experience = Number.isFinite(s.experience) ? s.experience : 0; this.nextLevel = Number.isFinite(s.nextLevel) ? s.nextLevel : 100; this.waveKills = s.waveKills || 0; this.restoreUpgradeChoices(s.upgradeChoices); this.stats = { ...this.stats, ...s.stats }; this.persistedUpgrades = Array.isArray(s.upgrades) ? s.upgrades : []; this.migrateLegacyDamageUpgrades(); this.migrateLegacyGenericUpgrades(); this.restoreDamageMultiplier(); this.stats.defencePercent = this.defenceForStacks(this.persistedUpgrades.filter(id => id === 'health-defence').length); this.stats.plasmaConvertChance = .05 + this.persistedUpgrades.filter(id => id === 'plasma-convert').length * .05; this.stats.plasmaMaxConversions = 1 + this.persistedUpgrades.filter(id => id === 'plasma-conversion-cap').length; this.equippedWeapons = Array.isArray(s.equippedWeapons) ? s.equippedWeapons.filter((id: string): id is WeaponId => ['laser', 'missile', 'shield', 'plasma', 'drone', 'rail', 'flak', 'tesla', 'chem'].includes(id)).slice(0, this.weaponSlotLimit) : []; this.startingWeaponChoicePending = this.equippedWeapons.length === 0; this.startingWeaponChoices = this.startingWeaponChoicePending ? this.startingWeaponOptions : []; this.stats.railKnockbackChance = .01 + this.persistedUpgrades.filter(id => id === 'rail-knockback').length * .01; } this.serverLoaded = true; }); } private getUserId() { return Number(this.parentRef?.user?.id || 0); } private persistRun() { const uid = this.getUserId(); if (uid && uid === this.loadedUserId && this.serverLoaded && !this.gameOver) void this.spaceEvolvesService.saveRun(uid, this.currentRun()); } private saveProgress(dead = false) { try { const uid = this.getUserId(); if (!uid) return; localStorage.setItem(`space-evolves-progress-${uid}`, JSON.stringify({ ...this.currentRun(), gameOver: dead, userId: uid })); } catch { } }
   private async loadHighScores() { this.ngZone.run(async () => { try { const r = await fetch('/spaceevolves/highscores?limit=10'); if (r.ok) this.highScores = await r.json(); } catch { this.highScores = []; } finally { this.loadingScores = false; } }); }
-  private draw() {
-    const c = this.gameCanvas.nativeElement, ctx = this.ctx, w = c.clientWidth, h = c.clientHeight, t = performance.now() / 1000; ctx.clearRect(0, 0, w, h);
-    // Static background + vignette gradients are cached per canvas size — the old
-    // code built 2 CanvasGradients per frame (plus a literal color array in the
-    // starfield, and an 'rgb('+col+')' string per star per frame).
-    if (this.bgW !== w || this.bgH !== h || !this.bgBase || !this.bgVignette) { this.bgW = w; this.bgH = h; const bg = ctx.createRadialGradient(w * .5, h * .35, 10, w * .5, h * .5, w * 1.1); bg.addColorStop(0, '#0b1430'); bg.addColorStop(.55, '#050a1c'); bg.addColorStop(1, '#01030a'); this.bgBase = bg; const vg = ctx.createRadialGradient(w * .5, h * .5, Math.min(w, h) * .25, w * .5, h * .5, Math.max(w, h) * .75); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,10,.55)'); this.bgVignette = vg; } ctx.fillStyle = this.bgBase; ctx.fillRect(0, 0, w, h); ctx.save(); ctx.globalCompositeOperation = 'lighter'; for (let k = 0; k < 3; k++) { const nx = w * (.25 + .5 * (.5 + .5 * Math.sin(t * .05 + k * 2.1))), ny = h * (.3 + .4 * (.5 + .5 * Math.cos(t * .07 + k * 1.7))), nr = w * (.45 + k * .16); const ng = ctx.createRadialGradient(nx, ny, 0, nx, ny, nr); ng.addColorStop(0, FX_NEBULA_COLORS[k]); ng.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = ng; ctx.fillRect(0, 0, w, h); } ctx.restore();
-    // Animated nebula clouds use spring physics: shots scatter them outward, then
-    // their velocity damps and the spring returns each cloud to its original place.
-    for (const ship of this.backgroundShips) {
-      const fade = Math.min(1, ship.life / 1.2, (ship.maxLife - ship.life) / 1.2), shipColor = ship.enemy ? '#ff6b9d' : '#73d8ff';
-      ctx.save(); ctx.globalAlpha = .22 * fade; ctx.globalCompositeOperation = 'lighter';
-      if (!this.drawShipSprite(ctx, ship.x * w, ship.y * h, ship.size * w, Math.floor(ship.life * 8 + ship.phase) + 12, shipColor, ship.angle)) this.drawProceduralShip(ctx, ship.x * w, ship.y * h, ship.size * w, ship.angle, ship.enemy ? '#e3b7cc' : '#b9d9e8', shipColor);
-      ctx.globalAlpha = .12 * fade; ctx.strokeStyle = shipColor; ctx.lineWidth = Math.max(1, w * .0015); ctx.beginPath(); ctx.moveTo((ship.x - ship.vx * 28) * w, ship.y * h); ctx.lineTo((ship.x - ship.vx * 7) * w, ship.y * h); ctx.stroke();
-      ctx.restore();
-      for (const escort of ship.escorts) { if (escort.destroyed) { const blast = Math.max(0, escort.explosion ?? 0); if (blast > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = blast * .45 * fade; ctx.fillStyle = '#ffb36b'; ctx.shadowBlur = 10; ctx.shadowColor = '#ff6b4a'; ctx.beginPath(); ctx.arc(escort.x * w, escort.y * h, ship.size * w * (.9 - blast * .25), 0, Math.PI * 2); ctx.fill(); ctx.restore(); } continue; } const escortSize = ship.size * .42; ctx.save(); ctx.globalAlpha = .18 * fade; if (!this.drawShipSprite(ctx, escort.x * w, escort.y * h, escortSize, Math.floor(ship.life * 9 + escort.phase) + 12, '#8affff', ship.angle)) this.drawProceduralShip(ctx, escort.x * w, escort.y * h, escortSize, ship.angle, '#b8efff', '#8affff'); ctx.restore(); }
-      for (const foe of ship.threats) { const fx = foe.x * w, fy = foe.y * h, fr = Math.max(1.5, ship.size * w * .22), attack = Math.max(0, 1 - foe.cooldown / 1.1); ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .45 * fade; ctx.fillStyle = '#ff557d'; ctx.shadowBlur = 6; ctx.shadowColor = '#ff557d'; ctx.beginPath(); ctx.arc(fx, fy, fr, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = .2 * fade; ctx.strokeStyle = '#ff9ab0'; ctx.lineWidth = Math.max(1, w * .001); ctx.beginPath(); ctx.moveTo(fx, fy); ctx.lineTo(ship.x * w, ship.y * h); ctx.stroke(); if (attack > .85) { ctx.globalAlpha = .65 * fade; ctx.fillStyle = '#ffd1dd'; ctx.beginPath(); ctx.arc(fx + (ship.x - foe.x) * w * .22, fy + (ship.y - foe.y) * h * .22, Math.max(1, fr * .45), 0, Math.PI * 2); ctx.fill(); } ctx.restore(); }
-    }
-    for (const cloud of this.backgroundClouds) { const pulse = 1 + Math.sin(t * 1.4 + cloud.seed) * .08; ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .09; const g = ctx.createRadialGradient(cloud.x * w, cloud.y * h, 0, cloud.x * w, cloud.y * h, cloud.radius * w * pulse); g.addColorStop(0, cloud.seed % 3 === 0 ? '#a67cff' : cloud.seed % 3 === 1 ? '#4de1ff' : '#ff6bd6'); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect((cloud.x - cloud.radius) * w, (cloud.y - cloud.radius) * h, cloud.radius * 2 * w, cloud.radius * 2 * h); ctx.restore(); }
-    for (let layer = 0; layer < 3; layer++) { const par = FX_LAYER_PARAS[layer], mul = FX_LAYER_MULTS[layer], alpha = FX_LAYER_ALPHAS[layer], cnt = FX_LAYER_COUNTS[layer], colStr = FX_STAR_COLORS[layer], bright = par === .08, ss = par === .08 ? 2.4 : par === .045 ? 1.6 : 1; for (let i = 0; i < cnt; i++) { const sx = ((i * 61.8 + 37) % 101) / 100 * w, sy = (((i * 137.3 + 13) % 97) / 100 * h + t * mul) % h; const tw = .5 + .5 * Math.sin(t * (1 + par * 140) + i * 3.3); ctx.globalAlpha = alpha * (.35 + .55 * tw); ctx.fillStyle = bright && Math.abs(tw) > .82 ? '#eaf6ff' : colStr; ctx.fillRect(sx, sy, ss, ss); } } ctx.globalAlpha = 1; ctx.fillStyle = this.bgVignette; ctx.fillRect(0, 0, w, h); for (const b of this.bugs) this.drawBug(ctx, b.x * w, b.y * h, b.size * w, b); for (const c of this.clouds) { const a = Math.max(0, c.life / c.maxLife), r = Math.max(2, c.radius * w), pulse = 1 + .08 * Math.sin(t * 5 + c.x * 17); ctx.save(); ctx.translate(c.x * w, c.y * h); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .12 * a; const g = ctx.createRadialGradient(0, 0, r * .08, 0, 0, r * pulse); g.addColorStop(0, 'rgba(232,255,166,.95)'); g.addColorStop(.25, 'rgba(182,255,77,.7)'); g.addColorStop(.68, 'rgba(73,174,55,.28)'); g.addColorStop(1, 'rgba(20,70,35,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, r * pulse, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = .42 * a; ctx.strokeStyle = '#b6ff4d'; ctx.lineWidth = Math.max(1.5, w * .003); ctx.setLineDash([r * .12, r * .08]); ctx.beginPath(); ctx.arc(0, 0, r * (.72 + .08 * Math.sin(t * 3 + c.y * 11)), 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = .55 * a; ctx.strokeStyle = '#7dff5d'; ctx.lineWidth = Math.max(1, w * .002); for (let q = 0; q < 3; q++) { const ang = t * (.7 + q * .16) + q * 2.1 + c.x * 9; ctx.beginPath(); ctx.arc(Math.cos(ang) * r * .42, Math.sin(ang) * r * .42, r * .16, ang - .9, ang + .9); ctx.stroke(); } ctx.restore(); } ctx.globalAlpha = 1;      for (const e of this.effects) { const a = Math.max(0, e.life / e.maxLife); if (e.kind === 'beam') { const x1 = e.x * w, y1 = e.y * h, x2 = (e.x2 ?? e.x) * w, y2 = (e.y2 ?? e.y) * h; const dx = x2 - x1, dy = y2 - y1, beamLength = Math.hypot(dx, dy); if (beamLength > 0.5) { const ux = dx / beamLength, uy = dy / beamLength, thickness = Math.max(1, Math.min(3.5, Math.min(w, h) * 0.0042)); ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round'; ctx.globalAlpha = a * .42; ctx.strokeStyle = '#7cf7ff'; ctx.lineWidth = thickness * 3.5; ctx.shadowBlur = 10; ctx.shadowColor = '#7cf7ff'; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); ctx.globalAlpha = a * .9; ctx.shadowBlur = 0; ctx.strokeStyle = '#7cf7ff'; ctx.lineWidth = thickness * 1.45; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); ctx.globalAlpha = a; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = Math.max(.8, thickness * .48); ctx.beginPath(); ctx.moveTo(x1 + ux * thickness * .5, y1 + uy * thickness * .5); ctx.lineTo(x2 - ux * thickness * .5, y2 - uy * thickness * .5); ctx.stroke(); ctx.restore(); } continue; } if (e.kind === 'ring') { const p = 1 - Math.max(0, e.life / e.maxLife); const R = Math.max(1, (e.len || .1) * w * (.3 + .7 * p)); ctx.save(); ctx.globalAlpha = Math.max(0, e.life / e.maxLife); ctx.strokeStyle = e.color; ctx.lineWidth = Math.max(1.5, w * .006 * (1 - p) + 1); ctx.beginPath(); ctx.arc(e.x * w, e.y * h, R, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = Math.max(0, e.life / e.maxLife) * .3; ctx.fillStyle = e.color; ctx.beginPath(); ctx.arc(e.x * w, e.y * h, R, 0, Math.PI * 2); ctx.fill(); ctx.restore(); continue; } if (e.kind === 'edge') { const L = Math.max(0, e.len! * (.25 + .75 * a)) * w; ctx.save(); ctx.translate(e.x * w, e.y * h); ctx.rotate(e.angle! + e.spin! * (e.maxLife - e.life)); ctx.globalAlpha = Math.min(1, a * 1.6); ctx.strokeStyle = e.color; if (this.frameDetail > 0) { ctx.shadowBlur = 8; ctx.shadowColor = e.color; } ctx.lineWidth = Math.max(1, w * .003); ctx.beginPath(); ctx.moveTo(-L / 2, 0); ctx.lineTo(L / 2, 0); ctx.stroke(); ctx.restore(); continue; } ctx.globalAlpha = a; ctx.fillStyle = e.color; ctx.beginPath(); ctx.arc(e.x * w, e.y * h, Math.max(1, e.size * w * a), 0, Math.PI * 2); ctx.fill(); } ctx.globalAlpha = 1; for (const s of this.shots) { if (s.kind === 'missile') { this.drawMissile(ctx, s, w, h); continue; } if (s.kind === 'plasma') { this.drawPlasma(ctx, s, w, h); continue; } if (s.kind === 'chem') { this.drawChem(ctx, s, w, h); continue; } if (s.kind === 'flak') { this.drawFlak(ctx, s, w, h); continue; } if (s.kind === 'rail') { this.drawRail(ctx, s, w, h); continue; } if (s.kind === 'drone') { this.drawDroneBolt(ctx, s, w, h); continue; } if (s.kind === 'laser') { this.drawLaser(ctx, s, w, h); continue; } ctx.fillStyle = s.kind === 'boss' ? '#ff4f9a' : s.kind === 'drone' ? '#7dff9a' : '#7cf7ff'; ctx.beginPath(); ctx.arc(s.x * w, s.y * h, Math.max(2, s.radius * w), 0, Math.PI * 2); ctx.fill(); } this.drawShip(ctx, this.player.x * w, this.player.y * h, Math.min(w, h) * .042); this.drawDrones(ctx, w, h);
-  }
-  private drawShipSprite(ctx: CanvasRenderingContext2D, x: number, y: number, z: number, frame: number, glow: string, angle = 0) {
-    if (!this.playerSpriteReady || !this.playerSprite) return false;
-    const columns = 4, rows = 4, fw = this.playerSprite.naturalWidth / columns, fh = this.playerSprite.naturalHeight / rows;
-    if (!fw || !fh) return false;
-    const cell = ((Math.floor(frame) % (columns * rows)) + (columns * rows)) % (columns * rows), dw = z * 2.15, dh = dw * (fh / fw);
-    ctx.save(); ctx.translate(x, y); ctx.rotate(angle); ctx.imageSmoothingEnabled = false; ctx.shadowBlur = 16; ctx.shadowColor = glow;
-    ctx.drawImage(this.playerSprite, (cell % columns) * fw, Math.floor(cell / columns) * fh, fw, fh, -dw / 2, -dh / 2, dw, dh); ctx.restore(); return true;
-  }
-  private drawProceduralShip(ctx: CanvasRenderingContext2D, x: number, y: number, z: number, angle = 0, fill = '#b9d9e8', stroke = '#66ddff') {
-    ctx.save(); ctx.translate(x, y); ctx.rotate(angle); ctx.fillStyle = fill; ctx.strokeStyle = stroke; ctx.beginPath(); ctx.moveTo(0, -z * 1.35); ctx.lineTo(z * .82, z * .48); ctx.lineTo(z * .42, z * .7); ctx.lineTo(0, z * .55); ctx.lineTo(-z * .42, z * .7); ctx.lineTo(-z * .82, z * .48); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.fillStyle = stroke; ctx.beginPath(); ctx.ellipse(0, -z * .08, z * .22, z * .48, 0, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#8affff'; ctx.beginPath(); ctx.arc(0, z * .38, z * .12, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-  }
-  private drawShip(ctx: CanvasRenderingContext2D, x: number, y: number, z: number) {
-    const frame = Math.floor(performance.now() / 140) % 4 + 12;
-    if (this.drawShipSprite(ctx, x, y, z, frame, '#55dfff')) { this.drawShield(ctx, x, y, z); return; }
-    this.drawProceduralShip(ctx, x, y, z);
-    if (this.timers.shield > this.stats.shieldPulseInterval - this.stats.shieldVisibleFor) { ctx.save(); ctx.strokeStyle = '#55eaff'; ctx.shadowBlur = 18; ctx.shadowColor = '#55eaff'; ctx.lineWidth = Math.max(2, z * .045); ctx.beginPath(); ctx.arc(x, y, z * (1.45 + this.stats.shieldRadius * 4), 0, Math.PI * 2); ctx.stroke(); ctx.restore(); }
-  }
-  private drawRail(ctx: CanvasRenderingContext2D, s: SpaceProjectile, w: number, h: number) { const px = s.x * w, py = s.y * h, ang = Math.atan2(s.vy, s.vx), r = Math.max(4, s.radius * w); ctx.save(); ctx.translate(px, py); ctx.rotate(ang); ctx.shadowBlur = 20; ctx.shadowColor = '#e0ff70'; ctx.fillStyle = 'rgba(224,255,112,.3)'; ctx.beginPath(); ctx.ellipse(0, 0, r * 3.2, r * .5, 0, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#eefdb0'; ctx.beginPath(); ctx.ellipse(r * .4, 0, r * 2.2, r * .3, 0, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0; ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.ellipse(r * .6, 0, r * 1.4, r * .14, 0, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = 'rgba(224,255,112,.9)'; ctx.lineWidth = Math.max(1, r * .16); for (let i = 0; i < 2; i++) { const bx = -r * 1.2 + Math.random() * r * 3, bl = r * (.5 + Math.random() * .5), up = Math.random() < .5 ? -1 : 1; ctx.beginPath(); ctx.moveTo(bx, 0); ctx.lineTo(bx + r * .25, up * bl); ctx.lineTo(bx + r * .5, 0); ctx.stroke(); } ctx.restore(); }
-  private drawDroneBolt(ctx: CanvasRenderingContext2D, s: SpaceProjectile, w: number, h: number) {
-    // The drone's own attack: a small green sting dart, visually distinct from
-    // every player weapon. Cheap: one glow dot + one dart body, no gradients.
-    const px = s.x * w, py = s.y * h, ang = Math.atan2(s.vy, s.vx), r = Math.max(3, s.radius * w);
-    ctx.save(); ctx.translate(px, py); ctx.rotate(ang);
-    ctx.shadowBlur = 8; ctx.shadowColor = '#7dff9a';
-    ctx.fillStyle = 'rgba(125,255,154,.35)'; ctx.beginPath(); ctx.arc(0, 0, r * 1.1, 0, Math.PI * 2); ctx.fill();
-    ctx.shadowBlur = 0; ctx.fillStyle = '#7dff9a';
-    ctx.beginPath(); ctx.moveTo(r * 1.6, 0); ctx.lineTo(-r * .4, -r * .55); ctx.lineTo(-r * 1.1, 0); ctx.lineTo(-r * .4, r * .55); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#eafff0'; ctx.beginPath(); ctx.arc(r * .35, 0, r * .3, 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
-  }
-  private drawLaser(ctx: CanvasRenderingContext2D, s: SpaceProjectile, w: number, h: number) {
-    // Lasers are resolved instantly in fireInstantLaser; this fallback is only
-    // for legacy laser entries and deliberately renders no travelling projectile.
-    return;
-  }
-  private drawFlak(ctx: CanvasRenderingContext2D, s: SpaceProjectile, w: number, h: number) { const px = s.x * w, py = s.y * h, ang = Math.atan2(s.vy, s.vx), r = Math.max(4, s.radius * w); ctx.save(); ctx.translate(px, py); ctx.rotate(ang); ctx.shadowBlur = 14; ctx.shadowColor = '#ff5d5d'; ctx.fillStyle = '#7a1f1f'; ctx.beginPath(); ctx.moveTo(r * 1.8, 0); ctx.lineTo(r * .2, -r * .75); ctx.lineTo(-r * 1.2, -r * .5); ctx.lineTo(-r * 1.2, r * .5); ctx.lineTo(r * .2, r * .75); ctx.closePath(); ctx.fill(); ctx.shadowBlur = 0; ctx.fillStyle = '#ff5d5d'; ctx.beginPath(); ctx.moveTo(r * 1.8, 0); ctx.lineTo(r * .2, -r * .4); ctx.lineTo(-r * .9, -r * .28); ctx.lineTo(-r * .9, r * .28); ctx.lineTo(r * .2, r * .4); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#ffd9d9'; ctx.beginPath(); ctx.moveTo(r * 1.8, 0); ctx.lineTo(r * .7, -r * .16); ctx.lineTo(r * .7, r * .16); ctx.closePath(); ctx.fill(); ctx.restore(); }
-  private drawChem(ctx: CanvasRenderingContext2D, s: SpaceProjectile, w: number, h: number) { const px = s.x * w, py = s.y * h, r = Math.max(4, s.radius * w), t = performance.now() / 1000, pulse = 1 + .12 * Math.sin(t * 12 + s.age * 8), ang = Math.atan2(s.vy, s.vx); ctx.save(); ctx.translate(px, py); ctx.rotate(ang); ctx.globalCompositeOperation = 'lighter'; ctx.shadowBlur = 18; ctx.shadowColor = '#8dff4f'; ctx.fillStyle = 'rgba(80,220,62,.22)'; ctx.beginPath(); ctx.ellipse(-r * .65, 0, r * 2.2, r * .8, 0, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0; ctx.fillStyle = '#396f2d'; ctx.strokeStyle = '#b6ff4d'; ctx.lineWidth = Math.max(1, r * .12); ctx.beginPath(); ctx.moveTo(r * 1.25, 0); ctx.bezierCurveTo(r * .75, -r * .8, -r * .45, -r * .72, -r * .95, -r * .15); ctx.bezierCurveTo(-r * 1.25, r * .35, -r * .25, r * .75, r * 1.25, 0); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#9cff45'; ctx.beginPath(); ctx.ellipse(-r * .05, 0, r * .62 * pulse, r * .38 * pulse, 0, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#ecffd5'; ctx.beginPath(); ctx.ellipse(r * .25, -r * .13, r * .16, r * .1, 0, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#6dff62'; ctx.globalAlpha = .8; ctx.beginPath(); ctx.moveTo(-r * .7, 0); ctx.lineTo(-r * 2.1, Math.sin(t * 18) * r * .2); ctx.lineTo(-r * .8, r * .2); ctx.closePath(); ctx.fill(); ctx.restore(); }
-  private drawPlasma(ctx: CanvasRenderingContext2D, s: SpaceProjectile, w: number, h: number) { const px = s.x * w, py = s.y * h, ang = Math.atan2(s.vy, s.vx), r = Math.max(4, s.radius * w); ctx.save(); ctx.translate(px, py); ctx.rotate(ang); ctx.shadowBlur = 18; ctx.shadowColor = '#ff66dd'; ctx.fillStyle = 'rgba(255,102,221,.35)'; ctx.beginPath(); ctx.ellipse(0, 0, r * 2.2, r * .9, 0, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#ff9df0'; ctx.beginPath(); ctx.ellipse(0, 0, r * 1.4, r * .55, 0, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0; ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.ellipse(0, 0, r * .7, r * .28, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
-  private drawMissile(ctx: CanvasRenderingContext2D, s: SpaceProjectile, w: number, h: number) {
-    const px = s.x * w, py = s.y * h, ang = Math.atan2(s.vy, s.vx), r = Math.max(4, s.radius * w), pulse = .9 + Math.sin(performance.now() / 55 + s.age * 8) * .1;
-    ctx.save(); ctx.translate(px, py); ctx.rotate(ang);
-    // A compact military rocket: cylindrical fuselage, pointed warhead, control
-    // fins and a restrained hot exhaust instead of a cartoon arrow shape.
-    ctx.globalCompositeOperation = 'lighter'; ctx.shadowBlur = 10; ctx.shadowColor = '#ff6b32';
-    const plume = ctx.createLinearGradient(-r * 1.05, 0, -r * 3.8, 0); plume.addColorStop(0, '#fff8cf'); plume.addColorStop(.28, '#ffb347'); plume.addColorStop(1, 'rgba(255,77,32,0)');
-    ctx.fillStyle = plume; ctx.beginPath(); ctx.moveTo(-r * .8, -r * .18); ctx.lineTo(-r * (3.4 + pulse * .45), 0); ctx.lineTo(-r * .8, r * .18); ctx.closePath(); ctx.fill();
-    ctx.globalCompositeOperation = 'source-over'; ctx.shadowBlur = 0;
-    // Rear nozzle and engine bell.
-    ctx.fillStyle = '#202a35'; ctx.strokeStyle = '#8191a0'; ctx.lineWidth = Math.max(.7, r * .08); ctx.beginPath(); ctx.moveTo(-r * 1.02, -r * .29); ctx.lineTo(-r * 1.3, -r * .22); ctx.lineTo(-r * 1.3, r * .22); ctx.lineTo(-r * 1.02, r * .29); ctx.closePath(); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = '#ffbd61'; ctx.beginPath(); ctx.arc(-r * 1.12, 0, r * .13, 0, Math.PI * 2); ctx.fill();
-    // Stabiliser fins are swept back, not oversized toy wings.
-    ctx.fillStyle = '#263746'; ctx.strokeStyle = '#91a5b4'; ctx.lineWidth = Math.max(.6, r * .055);
-    ctx.beginPath(); ctx.moveTo(-r * .42, -r * .23); ctx.lineTo(-r * 1.02, -r * .9); ctx.lineTo(-r * .9, -r * .16); ctx.closePath(); ctx.fill(); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(-r * .42, r * .23); ctx.lineTo(-r * 1.02, r * .9); ctx.lineTo(-r * .9, r * .16); ctx.closePath(); ctx.fill(); ctx.stroke();
-    // Shadowed metal body with a distinct red guidance band and pointed nose cone.
-    const body = ctx.createLinearGradient(0, -r * .3, 0, r * .3); body.addColorStop(0, '#eef3f3'); body.addColorStop(.45, '#9daab0'); body.addColorStop(1, '#3e4b56');
-    ctx.fillStyle = body; ctx.strokeStyle = '#d8e2e4'; ctx.lineWidth = Math.max(.8, r * .07); ctx.beginPath(); ctx.moveTo(r * 1.65, 0); ctx.lineTo(r * .72, -r * .3); ctx.lineTo(-r * .9, -r * .3); ctx.lineTo(-r * 1.05, 0); ctx.lineTo(-r * .9, r * .3); ctx.lineTo(r * .72, r * .3); ctx.closePath(); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = '#a82f2b'; ctx.fillRect(-r * .28, -r * .305, r * .22, r * .61);
-    ctx.strokeStyle = '#596b78'; ctx.lineWidth = Math.max(.7, r * .045); ctx.beginPath(); ctx.moveTo(r * .62, -r * .27); ctx.lineTo(r * .62, r * .27); ctx.stroke();
-    // Dark seeker window and a tiny status light make the heading readable.
-    ctx.fillStyle = '#18232d'; ctx.strokeStyle = '#6d8794'; ctx.beginPath(); ctx.ellipse(r * .78, 0, r * .3, r * .13, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#ff5d4d'; ctx.beginPath(); ctx.arc(r * 1.02, 0, r * .055, 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
-  }
-  private drawDrones(ctx: CanvasRenderingContext2D, w: number, h: number) {
-    if (!this.orbitDrones.length) return;
-    const px = this.player.x * w, py = this.player.y * h, t = performance.now() / 1000;
-    ctx.save();
-    for (const d of this.orbitDrones) {
-      const x = d.x * w, y = d.y * h, sp = Math.hypot(d.vx, d.vy), angle = sp > .02 ? Math.atan2(d.vy, d.vx) + Math.PI / 2 : 0, z = Math.min(w, h) * .020;
-      // Drones use the same ship model as the player, but cycle through every
-      // sprite cell (all four rows and columns) to make each escort visibly animate.
-      const frame = Math.floor(t * 8 + d.phase * 16 / (Math.PI * 2)) % 16;
-      if (!this.drawShipSprite(ctx, x, y, z, frame, '#7dff9a', angle)) this.drawProceduralShip(ctx, x, y, z, angle, '#0d2b1a', '#7dff9a');
-    }
-    ctx.restore();
-  }
-  private drawShield(ctx: CanvasRenderingContext2D, x: number, y: number, z: number) { if (this.timers.shield > this.stats.shieldPulseInterval - this.stats.shieldVisibleFor) { ctx.save(); ctx.strokeStyle = this.stats.shieldKnockback > 0 ? '#8fb2ff' : '#55eaff'; ctx.shadowBlur = 18; ctx.shadowColor = this.stats.shieldKnockback > 0 ? '#8fb2ff' : '#55eaff'; ctx.lineWidth = Math.max(2, z * .045); ctx.beginPath(); ctx.arc(x, y, z * (1.45 + this.stats.shieldRadius * 4), 0, Math.PI * 2); ctx.stroke(); ctx.restore(); } }
-  private drawBug(ctx: CanvasRenderingContext2D, x: number, y: number, z: number, b: SpaceBug) {
-    const t = performance.now() / 1000;
-    // Leviathans (dodecahedrons) never use the tesseract chain — they get their own
-    // cheap single-body dodecahedron model (see drawLeviathanDodeca). No chain, no
-    // per-unit tesseracts, no shadowBlur/gradients: ~4 strokes total per bug.
-    if (this.isLeviathan(b)) { this.drawLeviathanDodeca(ctx, x, y, z, b, t); return; }
-    // Cap the number of tesseract units actually drawn per bug — late waves give bugs
-    // huge segment counts, and each unit is 16+ strokes. The HP bar semantics are kept
-    // (segments still drive damage), only the visual chain length is clamped.
-    const drawUnits = b.boss ? Math.min(10, b.maxSegments) : Math.min(8, b.maxSegments);
-    // Critical-hit warp: the bug's whole wireframe hue-shifts through the spectrum while
-    // its 4D rotation briefly accelerates, as if the hit knocked it through another dimension.
-    let col = b.ally ? '#a66cff' : (b.chemDotTimer ?? 0) > 0 ? '#a8ff3e' : b.boss ? '#ff557d' : b.trait === 'inertial' ? '#ffc266' : b.trait === 'armored' ? '#b9c7d8' : b.trait === 'charger' ? '#ff9c4a' : b.trait === 'splitter' ? '#f5e85b' : b.trait === 'weaver' ? '#53d8ff' : b.trait === 'volatile' ? '#ff4b58' : b.trait === 'regenerator' ? '#74ff91' : b.kind === 'queen' ? '#ff557d' : b.kind === 'mantis' ? '#d875ff' : '#74ff91';
-    if (b.hueWarp) col = this.hueWarpColor(col, t, b.hueWarp);
-    ctx.save(); ctx.translate(x, y); ctx.rotate(Math.sin(t * 2 + b.phase) * .18); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-    // Per-unit wobble: each tesseract in the chain drifts on its own tiny orbit so the worm feels alive.
-    // Node positions go into a shared Float64Array (x,y pairs) instead of per-bug tuple arrays.
-    const unitCount = Math.min(Math.max(1, b.segments), drawUnits);
-    if (unitCount * 2 > BUG_NODE_XY.length) { BUG_NODE_XY = new Float64Array(unitCount * 2); }
-    const spinBase = this.twistAngle(b, t) * (b.ally ? -1 : 1);
-    for (let i = 0; i < unitCount; i++) {
-      const u = unitCount === 1 ? 0 : i / (unitCount - 1) - .5;
-      const wob = Math.sin(t * 2.2 + b.phase + i * 1.7);
-      BUG_NODE_XY[i * 2] = Math.cos(spinBase + u * 2.8) * z * u * 1.55 + wob * z * .06 + ((b.chemDotTimer ?? 0) > 0 ? Math.sin(t * 4.6 + b.phase + i * 1.9) * z * .045 : 0);
-      BUG_NODE_XY[i * 2 + 1] = Math.sin(spinBase + u * 2.8) * z * u * .65 + Math.cos(t * 1.9 + i + b.phase) * z * .07 + (b.ally ? Math.sin(t * 3.2 + b.phase + i) * z * .1 : 0) + ((b.chemDotTimer ?? 0) > 0 ? Math.cos(t * 4.1 + b.phase + i * 2.3) * z * .045 : 0);
-    }
-    // Legs first so they sit visually behind the tesseract bodies (skipped in
-    // low-detail frames — 6 articulated legs × 3 strokes each is real cost).
-    if (this.frameDetail > 0) this.drawBugLegs(ctx, z, b, t, unitCount, col, this.frameDetail);
-    // Body: chain of true tesseracts (inner cube + outer cube + connecting struts), 4D-rotated.
-    const innerSpin = (b.ally ? -1 : 1) * (t * (1.2 + b.speed * 5) + b.phase) + (b.hueWarp ?? 0) * 16;
-    for (let i = 0; i < unitCount; i++) {
-      const alive = i < b.segments;
-      const nx = BUG_NODE_XY[i * 2], ny = BUG_NODE_XY[i * 2 + 1];
-      const scale = z * (b.boss ? .66 : .5) * (1 + Math.sin(t * (b.boss ? 3 : 6) + b.phase + i) * .07);
-      if (alive) {
-        ctx.save(); ctx.translate(nx, ny);
-        this.drawTesseractUnit(ctx, scale, innerSpin + i * .9, col, this.frameDetail);
-        ctx.restore();
-      } else {
-        // Destroyed segment: faint shattered outline where the unit used to be.
-        ctx.save(); ctx.translate(nx, ny); ctx.globalAlpha = .18; ctx.strokeStyle = col; ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.arc(0, 0, scale * .7, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
-      }
-    }
-    // Spine connecting the units.
-    ctx.strokeStyle = col; ctx.globalAlpha = .9; ctx.lineWidth = Math.max(1.5, z * .09); if (this.frameDetail > 1) { ctx.shadowBlur = 10; ctx.shadowColor = col; }
-    for (let i = 0; i < unitCount - 1; i++) { ctx.beginPath(); ctx.moveTo(BUG_NODE_XY[i * 2], BUG_NODE_XY[i * 2 + 1]); ctx.lineTo(BUG_NODE_XY[i * 2 + 2], BUG_NODE_XY[i * 2 + 3]); ctx.stroke(); }
-    ctx.globalAlpha = 1; ctx.shadowBlur = 0;
-    if (b.ally) { const pulse = .5 + .5 * Math.sin(t * 4 + b.phase); ctx.save(); ctx.globalAlpha = .35 + .4 * pulse; ctx.strokeStyle = '#a66cff'; ctx.lineWidth = Math.max(1.5, z * .06); ctx.beginPath(); ctx.arc(0, 0, z * (1.1 + .15 * pulse), 0, Math.PI * 2); ctx.stroke(); ctx.restore(); }
-    this.drawBugFace(ctx, z, b, t, col, unitCount);
-    if ((b.chemDotTimer ?? 0) > 0) this.drawPoisonDetails(ctx, z, b, t, unitCount);
-    ctx.restore(); }
-  // ─── Dodecahedron (leviathan) model — deliberately NOT a tesseract ───
-  // A single solid body: outer 12-gon shell + inner pentagon core + 5 spokes.
-  // No chain, no legs-per-unit, no spine, no shadowBlur, no gradients, no
-  // 'lighter' composite, no filter — ~4 canvas ops total per bug at full detail
-  // (1 at detail 0), versus 14 tesseract units × (struts + 2 cubes + glow +
-  // gradient core). Damage reads via shell shrink + HP ring, not lost chain links.
-  private drawLeviathanDodeca(ctx: CanvasRenderingContext2D, x: number, y: number, z: number, b: SpaceBug, t: number) {
-    const hpFrac = Math.max(0, Math.min(1, b.hp / Math.max(1, b.maxHp)));
-    let col = (b.chemDotTimer ?? 0) > 0 ? '#a8ff3e' : '#d9b8ff';
-    if (b.hueWarp) col = this.hueWarpColor(col, t, b.hueWarp);
-    const spin = t * (1.1 + b.speed * 4) + b.phase + (b.hueWarp ?? 0) * 16;
-    // Shell breathes slightly and shrinks as HP drops so damage is visible.
-    const s = z * 1.5 * (0.72 + 0.28 * hpFrac) * (1 + Math.sin(t * 3 + b.phase) * .04);
-    ctx.save(); ctx.translate(x, y); ctx.rotate(Math.sin(t * 2 + b.phase) * .12);
-    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-    // Stubby single-stroke legs behind the shell (one path, no knees/claws/colors).
-    if (this.frameDetail > 0) {
-      ctx.strokeStyle = col; ctx.globalAlpha = .55; ctx.lineWidth = Math.max(1.2, z * .07);
-      ctx.beginPath();
-      for (const side of [-1, 1]) for (let i = 0; i < 3; i++) {
-        const hy = -z * .3 + i * z * .3;
-        ctx.moveTo(side * z * .5, hy);
-        ctx.lineTo(side * (z * 1.35 + Math.sin(t * 5 + b.phase + i * 2 + (side > 0 ? 3 : 0)) * z * .12), hy + z * .35);
-      }
-      ctx.stroke(); ctx.globalAlpha = 1;
-    }
-    this.drawDodecaUnit(ctx, s, spin, col, this.frameDetail);
-    // HP ring: the dodecahedron's "segment" readout — one cheap arc.
-    ctx.strokeStyle = col; ctx.globalAlpha = .85; ctx.lineWidth = Math.max(1.5, z * .07);
-    ctx.beginPath(); ctx.arc(0, 0, s * 1.18, -Math.PI / 2, -Math.PI / 2 + hpFrac * Math.PI * 2); ctx.stroke();
-    ctx.globalAlpha = 1;
-    // Face: two glowing eyes on the shell front + snapping mandibles.
-    const eyeZ = z * .16, ex = z * .42, ey = -z * .28;
-    ctx.fillStyle = '#fff';
-    ctx.beginPath(); ctx.arc(-ex, ey, eyeZ, 0, Math.PI * 2); ctx.arc(ex, ey, eyeZ, 0, Math.PI * 2); ctx.fill();
-    const px = Math.cos(t * 1.7 + b.phase) * eyeZ * .35, py = Math.sin(t * 1.7 + b.phase) * eyeZ * .35;
-    ctx.fillStyle = col;
-    ctx.beginPath(); ctx.arc(-ex + px, ey + py, eyeZ * .45, 0, Math.PI * 2); ctx.arc(ex + px, ey + py, eyeZ * .45, 0, Math.PI * 2); ctx.fill();
-    const snap = b.lockedOn ? .5 + Math.abs(Math.sin(t * 14)) * .5 : .5 + Math.sin(t * 3 + b.phase) * .2;
-    ctx.strokeStyle = col; ctx.lineWidth = Math.max(1.5, z * .08);
-    ctx.beginPath();
-    for (const side of [-1, 1]) { ctx.moveTo(side * z * .14, z * .3); ctx.quadraticCurveTo(side * z * .5, z * (.44 + snap * .25), side * z * (.35 + snap * .3), z * .76); }
-    ctx.stroke();
-    if ((b.chemDotTimer ?? 0) > 0) {
-      ctx.strokeStyle = '#d8ff83'; ctx.globalAlpha = .6; ctx.lineWidth = Math.max(1, z * .05);
-      ctx.beginPath(); ctx.arc(Math.sin(t * 2.2 + b.phase) * z * .5, -z * .55, z * .1, 0, Math.PI * 2); ctx.stroke();
-      ctx.globalAlpha = 1;
-    }
-    ctx.restore();
-  }
-  // Cheap flat dodecahedron projection: outer 12-gon, inner pentagon, 5 spokes.
-  // detail 0 = shell only (1 stroke), 1 = + inner core (2 strokes), 2 = + spokes.
-  // Zero allocations, no shadowBlur, no gradients — safe to call per frame per bug.
-  private drawDodecaUnit(ctx: CanvasRenderingContext2D, s: number, spin: number, col: string, detail: number) {
-    ctx.strokeStyle = col; ctx.lineWidth = Math.max(1.5, s * .055);
-    ctx.beginPath();
-    for (let i = 0; i < 12; i++) {
-      const a = spin * .6 + i * Math.PI / 6;
-      // Slight radius wobble on alternating verts fakes 3D depth without projection math.
-      const r = s * (i % 2 === 0 ? 1 : .88);
-      const px = Math.cos(a) * r, py = Math.sin(a) * r;
-      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
-    }
-    ctx.closePath(); ctx.stroke();
-    if (detail <= 0) return;
-    const inner = s * .45, innerSpin = -spin * .8;
-    ctx.lineWidth = Math.max(1, s * .04); ctx.globalAlpha = .9;
-    ctx.beginPath();
-    for (let i = 0; i < 5; i++) {
-      const a = innerSpin + i * Math.PI * 2 / 5 - Math.PI / 2;
-      const px = Math.cos(a) * inner, py = Math.sin(a) * inner;
-      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
-    }
-    ctx.closePath(); ctx.stroke();
-    if (detail <= 1) { ctx.globalAlpha = 1; return; }
-    // Spokes: inner pentagon corners out to the shell — one path, faint.
-    ctx.globalAlpha = .5; ctx.lineWidth = 1;
-    ctx.beginPath();
-    for (let i = 0; i < 5; i++) {
-      const a = innerSpin + i * Math.PI * 2 / 5 - Math.PI / 2;
-      ctx.moveTo(Math.cos(a) * inner, Math.sin(a) * inner);
-      const o = spin * .6 + (i * 2 + 1) * Math.PI / 6;
-      ctx.lineTo(Math.cos(o) * s * .88, Math.sin(o) * s * .88);
-    }
-    ctx.stroke(); ctx.globalAlpha = 1;
-    // Solid pinpoint core — one tiny fill instead of a radial gradient.
-    ctx.fillStyle = '#ffffff'; ctx.globalAlpha = .85;
-    ctx.beginPath(); ctx.arc(0, 0, Math.max(1, s * .06), 0, Math.PI * 2); ctx.fill();
-    ctx.globalAlpha = 1;
-  }
-  private drawPoisonDetails(ctx: CanvasRenderingContext2D, z: number, b: SpaceBug, t: number, unitCount: number) {
-    // Poisoned bugs keep their normal locomotion. Their old visual effect injected
-    // random node offsets and random particles during draw, which made the whole
-    // body appear to jitter. Use deterministic sine motion for a smooth bubbling
-    // surface and slow droplets instead.
-    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
-    for (let i = 0; i < Math.min(unitCount, 4); i++) {
-      const nx = BUG_NODE_XY[i * 2], ny = BUG_NODE_XY[i * 2 + 1], phase = b.phase + i * 1.73;
-      const bubble = .5 + .5 * Math.sin(t * 3.8 + phase), bx = nx + Math.sin(t * 2.4 + phase) * z * .12, by = ny - z * (.2 + .08 * bubble);
-      ctx.globalAlpha = .35 + .25 * bubble; ctx.strokeStyle = '#d8ff83'; ctx.lineWidth = Math.max(1, z * .045); ctx.beginPath(); ctx.arc(bx, by, z * (.08 + .035 * bubble), 0, Math.PI * 2); ctx.stroke();
-      const drip = .18 + .14 * (.5 + .5 * Math.sin(t * 2.1 + phase * 1.7));
-      ctx.globalAlpha = .55; ctx.strokeStyle = '#9cff45'; ctx.lineWidth = Math.max(1, z * .055); ctx.beginPath(); ctx.moveTo(nx + Math.sin(phase) * z * .08, ny + z * .18); ctx.quadraticCurveTo(nx + Math.sin(t * 2.8 + phase) * z * .1, ny + z * .35, nx + Math.sin(t * 2.8 + phase) * z * .1, ny + z * (.35 + drip)); ctx.stroke();
-    }
-    ctx.globalAlpha = .7; ctx.fillStyle = '#efffc2'; const pulse = .5 + .5 * Math.sin(t * 5 + b.phase); ctx.beginPath(); ctx.arc(Math.sin(t * 2.2 + b.phase) * z * .32, -z * .38 - pulse * z * .05, z * .045, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-  }
-  private drawTesseractUnit(ctx: CanvasRenderingContext2D, s: number, spin: number, col: string, detail: number) {
-    // A tesseract projected to 2D: outer cube (w=+1), inner cube (w=-1), and the
-    // 8 struts connecting their corners. Rotating in the XW/YW planes makes the inner cube
-    // appear to turn inside-out through the outer one — the classic 4D effect.
-    // detail 2 = full (struts + inner cube + glow + gradient core), 1 = cube + core only
-    // (no shadowBlur — the single most expensive canvas op), 0 = outer cube outline only.
-    // All 16 corner projections go into module-scope scratch arrays. The old
-    // version built two projection closures plus two 8-tuple arrays per unit
-    // per frame — hundreds of throwaway objects per second with many bugs.
-    const cA = Math.cos(spin), sA = Math.sin(spin);
-    const cB = Math.cos(spin * .7 + 1), sB = Math.sin(spin * .7 + 1);
-    for (let c = 0; c < 8; c++) {
-      const X = ((c >> 2) & 1) ? 1 : -1, Y = ((c >> 1) & 1) ? 1 : -1, Z = (c & 1) ? 1 : -1;
-      const x1 = X * cA - Z * sA, z1 = X * sA + Z * cA;
-      let y1 = Y * cB - sB, w1 = Y * sB + cB;             // w = +1 (outer cube)
-      const pw = 3 / (3 - w1 * .9), pz = 3 / (3 - z1 * .9);
-      TESS_OUTER[c * 2] = x1 * s * pw * pz; TESS_OUTER[c * 2 + 1] = y1 * s * pw * pz;
-      y1 = Y * cB + sB; w1 = Y * sB - cB;                 // w = -1 (inner cube)
-      const qw = 3 / (3 - w1 * .9), qz = 3 / (3 - z1 * .9);
-      TESS_INNER[c * 2] = x1 * s * qw * qz; TESS_INNER[c * 2 + 1] = y1 * s * qw * qz;
-    }
-    if (detail <= 0) {
-      ctx.strokeStyle = col; ctx.lineWidth = Math.max(1.2, s * .09); this.strokeCubeIdx(ctx, TESS_OUTER);
-      return;
-    }
-    // Struts connecting inner to outer corners — the signature tesseract look.
-    if (detail > 1) {
-      ctx.strokeStyle = this.adjustBugColor(col, .55); ctx.globalAlpha = .55; ctx.lineWidth = 1;
-      for (let c = 0; c < 8; c++) { ctx.beginPath(); ctx.moveTo(TESS_OUTER[c * 2], TESS_OUTER[c * 2 + 1]); ctx.lineTo(TESS_INNER[c * 2], TESS_INNER[c * 2 + 1]); ctx.stroke(); }
-    }
-    // Outer cube: bright edges with a glow (glow disabled in low-detail mode — shadowBlur
-    // forces a slow path through the canvas compositor and is the main per-unit cost).
-    ctx.globalAlpha = 1; ctx.strokeStyle = col; if (detail > 1) { ctx.shadowBlur = 12; ctx.shadowColor = col; } ctx.lineWidth = Math.max(1.5, s * .08); this.strokeCubeIdx(ctx, TESS_OUTER);
-    // Inner cube: hot core, slightly lighter.
-    if (detail > 1) { ctx.strokeStyle = '#ffffff'; ctx.globalAlpha = .85; ctx.lineWidth = Math.max(1, s * .05); ctx.shadowBlur = 8; this.strokeCubeIdx(ctx, TESS_INNER); }
-    // Glowing energy core at the center of the tesseract (skipped in low-detail mode).
-    if (detail > 1) {
-      const cg = ctx.createRadialGradient(0, 0, 0, 0, 0, s * .5);
-      cg.addColorStop(0, '#ffffff'); cg.addColorStop(.4, col); cg.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.globalAlpha = .8; ctx.fillStyle = cg; ctx.beginPath(); ctx.arc(0, 0, s * .5, 0, Math.PI * 2); ctx.fill();
-    }
-    ctx.globalAlpha = 1; ctx.shadowBlur = 0;
-  }
-  /** Strokes a cube wireframe from a flat [x0,y0,x1,y1,…] scratch corner array. */
-  private strokeCubeIdx(ctx: CanvasRenderingContext2D, pts: Float64Array) {
-    ctx.beginPath();
-    ctx.moveTo(pts[0], pts[1]); ctx.lineTo(pts[2], pts[3]); ctx.lineTo(pts[6], pts[7]); ctx.lineTo(pts[4], pts[5]); ctx.closePath();
-    ctx.moveTo(pts[8], pts[9]); ctx.lineTo(pts[10], pts[11]); ctx.lineTo(pts[14], pts[15]); ctx.lineTo(pts[12], pts[13]); ctx.closePath();
-    ctx.moveTo(pts[0], pts[1]); ctx.lineTo(pts[8], pts[9]);
-    ctx.moveTo(pts[2], pts[3]); ctx.lineTo(pts[10], pts[11]);
-    ctx.moveTo(pts[4], pts[5]); ctx.lineTo(pts[12], pts[13]);
-    ctx.moveTo(pts[6], pts[7]); ctx.lineTo(pts[14], pts[15]);
-    ctx.stroke();
-  }
-  private drawBugLegs(ctx: CanvasRenderingContext2D, z: number, b: SpaceBug, t: number, unitCount: number, col: string, detail: number) {
-    // Three-joint legs (hip -> knee -> foot) with a stepping gait: each leg's foot lifts
-    // and swings forward on its own phase, like a real insect. Replaces the old flat
-    // quadratic-curve legs that read as fake.
-    const legPairs = b.boss ? 5 : 3;
-    ctx.strokeStyle = col; ctx.lineWidth = Math.max(1.2, z * .07); ctx.globalAlpha = .92;
-    for (const side of [-1, 1]) {
-      for (let i = 0; i < legPairs; i++) {
-        const ni = Math.min(i, unitCount - 1) * 2;
-        const baseX = BUG_NODE_XY[ni], baseY = BUG_NODE_XY[ni + 1];
-        const gait = t * (b.trait === 'weaver' ? 9 : 5) + b.phase + i * (Math.PI / legPairs) + (side > 0 ? Math.PI : 0);
-        const lift = Math.max(0, Math.sin(gait));       // foot in the air during the swing phase
-        const reach = Math.cos(gait);                   // foot sliding fore/aft while planted
-        const hipX = baseX + side * z * .3, hipY = baseY + z * .1;
-        const bodyR = z * (b.boss ? 1.5 : 1.1);
-        const footX = side * (bodyR + z * .5) + reach * z * .4;
-        const footY = z * .55 + i * z * .42 - lift * z * .45;
-        const kneeX = (hipX + footX) / 2 + side * z * .12;
-        const kneeY = (hipY + footY) / 2 - z * .35 - lift * z * .2;  // knees arch upward, insect-style
-        // Two segments drawn as slightly different strokes for depth.
-        ctx.lineWidth = Math.max(1.2, z * .075); ctx.strokeStyle = this.adjustBugColor(col, .8);
-        ctx.beginPath(); ctx.moveTo(hipX, hipY); ctx.lineTo(kneeX, kneeY); ctx.stroke();
-        ctx.lineWidth = Math.max(1, z * .06); ctx.strokeStyle = col;
-        ctx.beginPath(); ctx.moveTo(kneeX, kneeY); ctx.lineTo(footX, footY); ctx.stroke();
-        // Tiny claw at the foot tip (skipped in low-detail mode).
-        if (detail > 1) {
-          ctx.fillStyle = this.adjustBugColor(col, .6);
-          ctx.beginPath(); ctx.arc(footX, footY, z * .05, 0, Math.PI * 2); ctx.fill();
-        }
-      }
-    }
-    ctx.globalAlpha = 1;
-  }
-  private drawBugFace(ctx: CanvasRenderingContext2D, z: number, b: SpaceBug, t: number, col: string, unitCount: number) {
-    // Head is drawn on the first unit: glowing compound eyes that track the player ship.
-    const headX = BUG_NODE_XY[0], headY = BUG_NODE_XY[1];
-    const eyeZ = z * (b.boss ? .17 : .12);
-    ctx.save(); ctx.translate(headX, headY);
-    ctx.fillStyle = '#fff'; ctx.shadowBlur = 8; ctx.shadowColor = '#fff';
-    for (const side of [-1, 1]) { ctx.beginPath(); ctx.arc(side * z * (b.boss ? .42 : .3), -z * .1, eyeZ, 0, Math.PI * 2); ctx.fill(); }
-    // Pupils wander as the bug scans the arena.
-    const ang = Math.sin(t * 1.7 + b.phase) * .5;
-    for (const side of [-1, 1]) {
-      const ox = Math.cos(ang) * eyeZ * .35, oy = Math.sin(ang) * eyeZ * .35;
-      ctx.fillStyle = col; ctx.beginPath(); ctx.arc(side * z * (b.boss ? .42 : .3) + ox, -z * .1 + oy, eyeZ * .42, 0, Math.PI * 2); ctx.fill();
-    }
-    ctx.shadowBlur = 0;
-    // Mandibles that snap while locked onto the ship.
-    const snap = b.lockedOn ? Math.abs(Math.sin(t * 14)) * .5 + .5 : .5 + Math.sin(t * 3 + b.phase) * .2;
-    ctx.strokeStyle = this.adjustBugColor(col, .6); ctx.lineWidth = Math.max(1.5, z * .09);
-    for (const side of [-1, 1]) {
-      ctx.beginPath(); ctx.moveTo(side * z * .14, z * .16); ctx.quadraticCurveTo(side * z * .5, z * (.3 + snap * .25), side * z * (.35 + snap * .3), z * .62); ctx.stroke();
-    }
-    ctx.restore();
-    if (b.trait === 'armored') { ctx.strokeStyle = '#f0f5ff'; ctx.globalAlpha = .7; for (let i = 0; i < unitCount; i++) { ctx.beginPath(); ctx.arc(BUG_NODE_XY[i * 2], BUG_NODE_XY[i * 2 + 1], z * .5, 0, Math.PI * 2); ctx.stroke(); } ctx.globalAlpha = 1; }
-    if (b.trait === 'inertial') { ctx.strokeStyle = '#ffe0a3'; ctx.globalAlpha = .8; ctx.lineWidth = Math.max(1.5, z * .06); ctx.beginPath(); ctx.arc(0, 0, z * 1.15, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1; }
-    if (b.trait === 'weaver') { ctx.globalAlpha = .5; ctx.strokeStyle = '#a5f3fc'; ctx.beginPath(); ctx.arc(0, 0, z * (1.35 + Math.sin(t * 4 + b.phase) * .12), 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1; }
-  }
-  private twistAngle(b: SpaceBug, t: number) { return t * (1.1 + b.speed * 4) + b.phase; }
-  private adjustBugColorMemo = new Map<string, string>();
-  private adjustBugColor(hex: string, factor: number): string {
-    // Memoized: called per leg segment per frame, but the input space is tiny
-    // (fixed trait palette × 3 factors). Bounded so crit-warp hues can't grow it.
-    const key = hex + factor; const hit = this.adjustBugColorMemo.get(key); if (hit) return hit;
-    const n = parseInt(hex.slice(1), 16); const out = `rgb(${Math.min(255, Math.floor(((n >> 16) & 255) * factor))},${Math.min(255, Math.floor(((n >> 8) & 255) * factor))},${Math.min(255, Math.floor((n & 255) * factor))})`;
-    if (this.adjustBugColorMemo.size > 128) this.adjustBugColorMemo.clear();
-    this.adjustBugColorMemo.set(key, out); return out;
-  }
-  // Hue-shift a bug's color while it warps from a critical hit: the hue sweeps through the
-  // spectrum (t*540°/s), saturation and lightness briefly flare, then settle back as the
-  // warp decays. Returns hex so adjustBugColor keeps working on the warped color.
-  private hueWarpColor(hex: string, t: number, warp: number): string {
-    const n = parseInt(hex.slice(1), 16); let r = ((n >> 16) & 255) / 255, g = ((n >> 8) & 255) / 255, bl = (n & 255) / 255;
-    const mx = Math.max(r, g, bl), mn = Math.min(r, g, bl), l = (mx + mn) / 2; let h = 0, s = 0;
-    if (mx !== mn) {
-      const dd = mx - mn; s = l > .5 ? dd / (2 - mx - mn) : dd / (mx + mn);
-      if (mx === r) h = (g - bl) / dd + (g < bl ? 6 : 0); else if (mx === g) h = (bl - r) / dd + 2; else h = (r - g) / dd + 4; h *= 60;
-    }
-    h = (h + t * 540) % 360;
-    const k = Math.min(1, warp / .45);
-    const s2 = Math.min(1, s * 1.35 + .2), l2 = Math.min(.88, l * 1.1 + .16 * k);
-    const c = (1 - Math.abs(2 * l2 - 1)) * s2, x = c * (1 - Math.abs(((h / 60) % 2) - 1)), m = l2 - c / 2, hh = h / 60;
-    let rr = 0, gg = 0, bb = 0;
-    if (hh < 1) { rr = c; gg = x; } else if (hh < 2) { rr = x; gg = c; } else if (hh < 3) { gg = c; bb = x; } else if (hh < 4) { gg = x; bb = c; } else if (hh < 5) { rr = x; bb = c; } else { rr = c; bb = x; }
-    const to = (v: number) => Math.round(Math.max(0, Math.min(255, v * 255))).toString(16).padStart(2, '0');
-    return '#' + to(rr + m) + to(gg + m) + to(bb + m);
-  }
 }
