@@ -1541,7 +1541,7 @@ namespace maxhanna.Server.Controllers
 
                         using (var updateSelf = new MySqlCommand(@"
                             UPDATE maxhanna.file_uploads
-                            SET file_name = @name, last_updated = UTC_TIMESTAMP(), last_updated_by_user_id = @user
+                            SET file_name = @name, given_file_name = @name, last_updated = UTC_TIMESTAMP(), last_updated_by_user_id = @user
                             WHERE id = @id", conn, tx))
                         {
                             updateSelf.Parameters.AddWithValue("@name", newName);

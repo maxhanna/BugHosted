@@ -3795,7 +3795,9 @@ void main() {
               buildings.push({ model: this.airportHangarMesh, x: blockWorldX + 35, y: -this.getModelMinY(this.airportHangarMesh) * HS + 0.15, z: blockWorldZ, yaw: -Math.PI / 2, scale: [HS, HS, HS] });
               if (this.planeMeshes.length > 0) {
                 const planeModel = this.planeMeshes[Math.floor(rng() * this.planeMeshes.length)];
-                buildings.push({ model: planeModel, x: blockWorldX + 35, y: 0.15, z: blockWorldZ + 18, yaw: Math.PI, scale: [1, 1, 1] });
+                // Aircraft are rendered by the dedicated decorative-aircraft
+                // pass below. Do not also add the same plane to `buildings`,
+                // or every airport spawn point produces two overlapping planes.
                 decorativeAircraft.push({ x: blockWorldX + 35, z: blockWorldZ + 18, yaw: Math.PI, type: 'plane', model: planeModel });
               }
             }

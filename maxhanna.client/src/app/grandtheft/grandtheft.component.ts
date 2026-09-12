@@ -1400,6 +1400,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
               this._carSmokeStarted = 0;
               this._carSmokeBudget = CAR_SMOKE_SECONDS;
               this.playerVehicleMesh = da.model || (da.type === 'helicopter' ? this.renderer.getHelicopterMesh(0, (da as any).isPolice === true) : this.renderer.getPlaneMesh(0));
+              // Decorative airport aircraft are the actual parked vehicle being
+              // stolen. Remove that exact record from the chunk; otherwise the
+              // local player vehicle and the original helipad aircraft are both
+              // rendered after entry, creating a duplicate helicopter.
+              chunk.decorativeAircraft = chunk.decorativeAircraft.filter(aircraft => aircraft !== da);
               chunk.buildings = chunk.buildings.filter(b => Math.abs(b.x - da.x) > 0.1 || Math.abs(b.z - da.z) > 0.1);
               this.carY = da.type === 'helicopter' ? 5 : 3;
               this.carRoll = 0; this.carPitch = 0; this.carVy = 0;

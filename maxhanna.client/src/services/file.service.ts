@@ -403,6 +403,7 @@ export class FileService {
         headers,
         body: JSON.stringify({ userId, fileId, newName }),
       });
+      if (!response.ok) return null;
       return await response.text();
     } catch (error) {
       console.error('Error renaming file or folder:', error);

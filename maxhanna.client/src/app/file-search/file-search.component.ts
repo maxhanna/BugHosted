@@ -1035,20 +1035,38 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(async () => {
       if (this.currentUser) {
-        const res = await this.fileService.updateFileData(this.currentUser.id ?? 0, { FileId: fileId, GivenFileName: text, Description: '', LastUpdatedBy: this.currentUser });
+        // Folders rename for real (disk + DB file_name + descendant paths) so
+        // navigation keeps working; files only change their display name.
+        // Shared here, so ebooks and files components both get the fix.
+        const target = this.directory?.data?.find(d => d.id === fileId);
+        const finalName = target?.isFolder ? text.trim() : text;
+        const res = target?.isFolder
+          ? await this.fileService.renameFile(this.currentUser.id ?? 0, fileId, finalName, await this.parentRef?.getSessionToken() ?? undefined)
+          : await this.fileService.updateFileData(this.currentUser.id ?? 0, { FileId: fileId, GivenFileName: text, Description: '', LastUpdatedBy: this.currentUser });
         if (res) {
           this.notifyUser(res);
           this.isEditing = this.isEditing.filter(x => x != fileId);
           const local = this.directory?.data?.find(d => d.id === fileId);
           if (local) {
-            local.givenFileName = text;
+            if (target?.isFolder) {
+              local.fileName = finalName;
+            }
+            local.givenFileName = finalName;
           }
           if (this.optionsFile?.id === fileId) {
-            this.optionsFile.givenFileName = text;
+            if (target?.isFolder) {
+              this.optionsFile.fileName = finalName;
+            }
+            this.optionsFile.givenFileName = finalName;
           }
           if (this.selectedSharedFile?.id === fileId) {
-            this.selectedSharedFile.givenFileName = text;
+            if (target?.isFolder) {
+              this.selectedSharedFile.fileName = finalName;
+            }
+            this.selectedSharedFile.givenFileName = finalName;
           }
+        } else if (target?.isFolder) {
+          this.parentRef?.showNotification('Could not rename folder.');
         }
         setTimeout(() => {
           if (document.getElementById("fileIdName" + fileId) != null) {
