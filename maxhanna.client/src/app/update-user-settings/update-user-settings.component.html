@@ -472,6 +472,10 @@
         <div>Delete Nicehash Keys:</div>
         <div><button (click)="deleteNicehashApiKeys()">Delete</button></div>
       </div>
+      <div class="apiKeyInputWrapper sectionDescriptionSection">
+        <div>Information:</div>
+        <div><button (click)="showNicehashHelpPanel()">Help</button></div>
+      </div>
 
       <!-- KRAKEN KEYS -->
       <div class="sectionSubHeader smaller">Kraken API Keys</div>
@@ -606,4 +610,26 @@
   </ol>
 
   <button id="closeOverlay" (click)="closeKrakenHelpPanel()">Close</button>
+</div>
+<div class="popupPanel" *ngIf="isNicehashHelpPanelShowing">
+  <div class="popupPanelTitle popupPanelContent" style="margin-bottom:15px;">
+    ⛏️How to get NiceHash API keys?
+  </div>
+  <ol>
+    <li>First, sign up on NiceHash: <a href="https://www.nicehash.com/my/register" target="_blank">NiceHash Sign
+        Up</a>.</li>
+    <li>Go to your NiceHash API settings page: <a href="https://www.nicehash.com/my/settings/keys"
+        target="_blank">https://www.nicehash.com/my/settings/keys</a></li>
+    <li>Click on "Create new API key" button. Enable only the permissions the bot needs for mining (viewing balances
+      and managing your rigs).
+      <br>Enabling only these options offers the maximum security for your account. No withdrawals possible while
+      still allowing the bot to monitor and manage your mining on your behalf.
+    </li>
+    <li>Once you confirm the key (you will need your 2FA code), you will be shown your API Key and API Secret a single
+      time, copy and paste those into the inputs on this settings page.</li>
+    <li>Find your Organisation ID on your NiceHash organisation settings page and paste it into the Org Id input as
+      well.</li>
+  </ol>
+
+  <button id="closeOverlay" (click)="closeNicehashHelpPanel()">Close</button>
 </div>

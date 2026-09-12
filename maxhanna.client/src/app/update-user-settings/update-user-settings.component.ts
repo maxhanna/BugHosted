@@ -61,6 +61,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   expandedIconTitle: string | null = null;
   isProfilePicturesToggled = false;
   isKrakenHelpPanelShowing = false;
+  isNicehashHelpPanelShowing = false;
   isDisplayingNSFW = false;
   isPushNotificationsEnabled? = false;
   followPushEnabled = true;
@@ -1034,6 +1035,16 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   }
   closeKrakenHelpPanel() {
     this.isKrakenHelpPanelShowing = false;
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    parent?.closeOverlay();
+  }
+  showNicehashHelpPanel() {
+    this.isNicehashHelpPanelShowing = true;
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    parent?.showOverlay();
+  }
+  closeNicehashHelpPanel() {
+    this.isNicehashHelpPanelShowing = false;
     const parent = this.inputtedParentRef ?? this.parentRef;
     parent?.closeOverlay();
   }
