@@ -1,6 +1,9 @@
 <div class="componentMain">
-  <div class="closeButton" (click)="remove_me('UpdateUserProfile')"></div>
-  <div class="componentTitle">{{ !showOnlySelectableMenuItems ? 'Settings' : 'App Selection' }}</div>
+  <app-title-bar 
+    [title]="!showOnlySelectableMenuItems ? 'Settings' : 'App Selection'" 
+    (menuClicked)="showMenuPanel()" 
+    (closeClicked)="remove_me('UpdateUserProfile');">
+  </app-title-bar>
 
   <div class="settingsDiv">
     <!--USERNAME / PASSWORD-->
