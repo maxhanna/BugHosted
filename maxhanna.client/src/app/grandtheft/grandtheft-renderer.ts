@@ -1325,6 +1325,8 @@ export class GrandTheftRenderer {
   /** Per-entity flinch timers (a landed punch squashes the victim briefly). */
   public flinchTimers = new Map<number, number>();
   public playerCarSpeed = 0;
+  /** Remaining high-speed exit ragdoll time, supplied by the component. */
+  public playerRagdollTime = 0;
   public playerSteerInput = 0;
   private _mopedWheelMesh: CityMesh | null = null;
   private _mopedSpin = 0;
@@ -2283,7 +2285,24 @@ void main() {
     };
     const t = Math.max(0, Math.min(1, this.punchTime / 0.38));
     const attack = t < 0.5 ? t * 2 : 2 - t * 2;
-    if (this.punchTime > 0) {
+    if (this.playerRagdollTime > 0) {
+      // High-speed exits throw the player face-first. The pose eases from a
+      // braced launch into a loose forward sprawl, then returns to the normal
+      // procedural rig automatically when the timer expires.
+      const ragdollProgress = Math.max(0, Math.min(1, 1 - this.playerRagdollTime / 0.9));
+      const impact = 1 - Math.min(1, ragdollProgress * 1.4);
+      applyRot(hips, 0.35 * impact);
+      applyRot(leftThigh, 0.48 * impact);
+      applyRot(rightThigh, 0.48 * impact);
+      applyRot(leftCalf, -0.65 * impact);
+      applyRot(rightCalf, -0.65 * impact);
+      applyRot(leftArm, 0.95 * impact, 0, 0.18 * impact);
+      applyRot(rightArm, 0.95 * impact, 0, -0.18 * impact);
+      applyRot(leftForearm, 0.45 * impact);
+      applyRot(rightForearm, 0.45 * impact);
+      applyRot(this.playerBone('chest', 'spine'), -1.15 * impact);
+      applyRot(this.playerBone('neck'), -0.75 * impact);
+    } else if (this.punchTime > 0) {
       if (this.playerAttack === 'kick') {
         applyRot(rightThigh, -0.9 * attack, 0, 0.12 * attack);
         applyRot(rightCalf, 1.15 * attack);
