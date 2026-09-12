@@ -39,9 +39,9 @@
         </div>
       </div>
       <div class="upgrade-dock" *ngIf="upgradeSections.length">
-        <div class="upgrade-section" *ngFor="let section of upgradeSections">
+        <div class="upgrade-section" *ngFor="let section of upgradeSections; trackBy: trackUpgradeSection">
           <strong>{{section.icon}} {{section.label}}</strong>
-          <button type="button" class="upgrade-summary" *ngFor="let upgrade of section.upgrades"
+          <button type="button" class="upgrade-summary" *ngFor="let upgrade of section.upgrades; trackBy: trackUpgrade"
             (click)="openUpgradeInfo(upgrade)">{{upgrade.name}}
             +{{upgrade.count}}{{upgrade.chanceText ? ' · ' + upgrade.chanceText : ''}}</button>
         </div>

@@ -365,6 +365,39 @@ function bridgeYAt(x: number, br: BridgeDef): number {
     return t * t * (3 - 2 * t) * BRIDGE_DECK_Y;
   }
 }
+
+/**
+ * Resolves the solid side guardrails on the raised bridge deck. The bridge
+ * geometry is generated procedurally, so keep this footprint beside the same
+ * deck dimensions instead of treating the visible rail as decoration only.
+ * `surfaceY` is the terrain/deck height beneath the vehicle.
+ */
+export function getBridgeSideRailCorrection(
+  x: number,
+  z: number,
+  surfaceY: number,
+  vehicleRadius: number,
+): { z: number; normalZ: number } | null {
+  const bridgeW = (ROAD_HALF_WIDTH * 2) + 10;
+  const railOffset = bridgeW / 2 - 0.45;
+  const deckRailClearance = Math.max(0.75, vehicleRadius);
+  for (const br of BRIDGE_RANGES) {
+    const deckStartX = br.startCx * GRID_PITCH;
+    const deckEndX = (br.endCx + 1) * GRID_PITCH;
+    if (x < deckStartX || x > deckEndX) continue;
+    if (Math.abs(surfaceY - BRIDGE_DECK_Y) > 3.5) continue;
+    const roadCenterZ = br.startCz * GRID_PITCH;
+    for (const side of [-1, 1]) {
+      const signedOffset = (z - roadCenterZ) * side;
+      const maximumCenterOffset = railOffset - deckRailClearance;
+      if (signedOffset > maximumCenterOffset) {
+        return { z: roadCenterZ + side * maximumCenterOffset, normalZ: side };
+      }
+    }
+  }
+  return null;
+}
+
 function getBeachHeight(x: number, z: number): number {
   const cx = Math.floor(x / 80);
   const cz = Math.floor(z / 80);
@@ -4308,9 +4341,17 @@ void main() {
       if (lampBiome !== 'city' && lampBiome !== 'suburb' && lampBiome !== 'parking_lot') return false;
       const localX = ((x % GRID_PITCH) + GRID_PITCH) % GRID_PITCH;
       const localZ = ((z % GRID_PITCH) + GRID_PITCH) % GRID_PITCH;
-      const nearRoad = Math.min(localX, GRID_PITCH - localX) <= ROAD_HALF_WIDTH + 8
-        || Math.min(localZ, GRID_PITCH - localZ) <= ROAD_HALF_WIDTH + 8;
+      const distanceToVerticalRoad = Math.min(localX, GRID_PITCH - localX);
+      const distanceToHorizontalRoad = Math.min(localZ, GRID_PITCH - localZ);
+      const nearRoad = distanceToVerticalRoad <= ROAD_HALF_WIDTH + 10
+        || distanceToHorizontalRoad <= ROAD_HALF_WIDTH + 10;
       if (!nearRoad) return false;
+      // Never place a lamp in the road strip itself. The previous broad
+      // near-road test admitted positions up to the centre of a 32-unit road,
+      // which put boulevard lights directly in traffic. Keep a small curb
+      // margin so the pole sits on the sidewalk/grass side of the curb.
+      if (distanceToVerticalRoad <= ROAD_HALF_WIDTH + 0.75
+        || distanceToHorizontalRoad <= ROAD_HALF_WIDTH + 0.75) return false;
       // A lamp must sit on the walkable side of the road, not inside a building
       // footprint or over water. This also rejects cross-chunk false positives.
       if (getBiome(Math.floor(x / CHUNK_SIZE), Math.floor(z / CHUNK_SIZE)) === 'ocean') return false;
@@ -4322,8 +4363,9 @@ void main() {
       }
     };
     if (!isMountain && !isBeach && !isMarina && !isAeroport && !isBridge && !isBridgeConnector && !isRuralMountain && biome !== 'ocean') {
-      const halfSidewalk = SIDEWALK_SIZE / 2;
-      const sidewalkEdge = GRID_PITCH / 2 - halfSidewalk;
+      // Put poles just beyond the road edge, on the sidewalk shoulder. The old
+      // value landed on the road boundary and made the poles appear in traffic.
+      const sidewalkEdge = ROAD_HALF_WIDTH + 2.5;
       for (let ly = 0; ly < 2; ly++) {
         for (let lx = 0; lx < 2; lx++) {
           const lxPos = cx * CHUNK_SIZE + lx * GRID_PITCH - sidewalkEdge;
@@ -4340,17 +4382,17 @@ void main() {
         for (const gridX of [cx, cx + 1]) {
           if (!isBoulevard(gridX)) continue;
           const worldX = gridX * GRID_PITCH;
-          for (let z = worldOriginZ + 12; z < worldOriginZ + CHUNK_SIZE - 4; z += 24) {
-            addLamp(worldX - 6, z);
-            addLamp(worldX + 6, z);
+          for (let z = worldOriginZ + 20; z < worldOriginZ + CHUNK_SIZE - 12; z += 24) {
+            addLamp(worldX - (ROAD_HALF_WIDTH + 2.5), z);
+            addLamp(worldX + (ROAD_HALF_WIDTH + 2.5), z);
           }
         }
         for (const gridZ of [cz, cz + 1]) {
           if (!isBoulevard(gridZ)) continue;
           const worldZ = gridZ * GRID_PITCH;
-          for (let x = worldOriginX + 12; x < worldOriginX + CHUNK_SIZE - 4; x += 24) {
-            addLamp(x, worldZ - 6);
-            addLamp(x, worldZ + 6);
+          for (let x = worldOriginX + 20; x < worldOriginX + CHUNK_SIZE - 12; x += 24) {
+            addLamp(x, worldZ - (ROAD_HALF_WIDTH + 2.5));
+            addLamp(x, worldZ + (ROAD_HALF_WIDTH + 2.5));
           }
         }
       }

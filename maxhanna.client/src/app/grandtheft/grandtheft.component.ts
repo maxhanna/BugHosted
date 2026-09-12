@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AppModule } from '../app.module';
 import { ChildComponent } from '../child.component';
-import { GrandTheftRenderer, getBiome, getTerrainHeight } from './grandtheft-renderer';
+import { GrandTheftRenderer, getBiome, getTerrainHeight, getBridgeSideRailCorrection } from './grandtheft-renderer';
 import { BloodPool, BloodSplat, CityMesh, DeadBody, Explosion, GrandtheftService, MuzzleFlash, OtherPlayerState, ParkedCar, Rocket, Tracer, TrafficLane, VendingMachine } from '../../services/grandtheft.service';
 import { UserEventService } from '../../services/user-event.service';
 import { TodoService } from '../../services/todo.service';
@@ -5278,6 +5278,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
     this.carX += this.carVx * dt;
     this.carZ += this.carVz * dt;
+    this.resolveBridgeSideRailCollision();
     // The bridge height is resolved by the normal terrain pass below. Do not
     // force an unconditional deck snap here: side-wall impacts can place the
     // car inside the bridge's broad world range but outside its road corridor.
@@ -5477,6 +5478,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
     this.carX += this.carVx * dt;
     this.carZ += this.carVz * dt;
+    this.resolveBridgeSideRailCollision();
     // Resolve bridge height only after horizontal collision correction. The
     // terrain sampler limits bridge elevation to the actual deck corridor, so
     // a car stopped against the side wall remains at the lower terrain level
@@ -5786,6 +5788,32 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     } else {
       this.planeGrounded = false;
     }
+  }
+  private resolveBridgeSideRailCollision() {
+    if (!this.isInCar || this.vehicleType === 'plane' || this.vehicleType === 'boat') return;
+    // Use the vehicle's current deck layer rather than sampling at the new Z:
+    // after a single fast frame the car may already be outside the bridge's
+    // broad terrain corridor, while it is still physically on the bridge deck.
+    const vehicleSurfaceY = this.carY - CAR_HEIGHT;
+    const correction = getBridgeSideRailCorrection(this.carX, this.carZ, vehicleSurfaceY, 2.0);
+    if (!correction) return;
+    this.carZ = correction.z;
+    // Remove the component of velocity pointing into the rail while preserving
+    // any motion along the bridge, so the vehicle stops against the barrier
+    // instead of vibrating or sliding through it.
+    const intoRail = this.carVz * correction.normalZ;
+    if (intoRail > 0) this.carVz -= intoRail;
+    const impactSpeed = Math.hypot(this.carVx, this.carVz);
+    if (impactSpeed >= 9) {
+      const now = performance.now();
+      if (now - this._lastWallCrashTime > 450) {
+        this._lastWallCrashTime = now;
+        const severity = Math.min(1, impactSpeed / 28);
+        this.playCrashSound(severity);
+        this.applyCrashImpact(severity);
+      }
+    }
+    this.carSpeed = Math.hypot(this.carVx, this.carVz);
   }
   private pushOutOfBuildings() {
     const cx = Math.floor(this.carX / CHUNK_SIZE);
