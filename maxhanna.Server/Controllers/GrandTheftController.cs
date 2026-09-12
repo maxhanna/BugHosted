@@ -4239,6 +4239,16 @@ namespace maxhanna.Server.Controllers
 			{
 				var rng = new Random();
 				var evictedNpcs = new List<object>();
+				bool isPoliceVehicle = npc.Type == "police";
+				if (isPoliceVehicle && req.UserId > 0)
+				{
+					// Stealing a cruiser is a witnessed crime. The officers created
+					// below are authoritative server cops, so every client sees the
+					// same pursuit rather than inventing local police actors.
+					_playerWantedLevels[req.UserId] = Math.Max(2, _playerWantedLevels.TryGetValue(req.UserId, out var existingWanted) ? existingWanted : 0);
+					_lastUndetectedTime[req.UserId] = DateTime.UtcNow;
+					_playerLastKnown[req.UserId] = (npc.X, npc.Z, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+				}
 				if (npc.HasDriver)
 				{
 					long driverId = GetNextNpcId();
@@ -4251,20 +4261,22 @@ namespace maxhanna.Server.Controllers
 					_worldNpcs[req.WorldId][driverId] = new NpcState
 					{
 						Id = driverId,
-						Type = "ped_" + npc.Gender,
+						Type = isPoliceVehicle ? "cop" : "ped_" + npc.Gender,
 						Gender = npc.Gender,
 						X = driverX,
 						Z = driverZ,
 						TargetX = driverTx,
 						TargetZ = driverTz,
 						Yaw = driverYaw,
-						Speed = 2.0f,
 						Health = 100,
+						MaxHealth = 100,
+						TargetUserId = isPoliceVehicle ? req.UserId : 0,
+						Speed = isPoliceVehicle ? 3.2f : 2.0f,
 						Cr = 0.4f,
 						Cg = 0.4f,
 						Cb = 0.4f
 					};
-					evictedNpcs.Add(new { id = driverId, posX = driverX, posZ = driverZ, yaw = driverYaw, gender = npc.Gender, type = "ped_" + npc.Gender, health = 100, speed = 2.0f, colorR = 0.4f, colorG = 0.4f, colorB = 0.4f });
+					evictedNpcs.Add(new { id = driverId, posX = driverX, posZ = driverZ, yaw = driverYaw, gender = npc.Gender, type = isPoliceVehicle ? "cop" : "ped_" + npc.Gender, health = 100, speed = isPoliceVehicle ? 3.2f : 2.0f, colorR = 0.4f, colorG = 0.4f, colorB = 0.4f });
 				}
 				for (int p = 0; p < npc.PassengerCount; p++)
 				{
@@ -4279,20 +4291,22 @@ namespace maxhanna.Server.Controllers
 					_worldNpcs[req.WorldId][passengerId] = new NpcState
 					{
 						Id = passengerId,
-						Type = "ped_" + pGender,
+						Type = isPoliceVehicle ? "cop" : "ped_" + pGender,
 						Gender = pGender,
 						X = passX,
 						Z = passZ,
 						TargetX = passTx,
 						TargetZ = passTz,
 						Yaw = passYaw,
-						Speed = 2.0f,
 						Health = 100,
+						MaxHealth = 100,
+						TargetUserId = isPoliceVehicle ? req.UserId : 0,
+						Speed = isPoliceVehicle ? 3.2f : 2.0f,
 						Cr = 0.4f,
 						Cg = 0.4f,
 						Cb = 0.4f
 					};
-					evictedNpcs.Add(new { id = passengerId, posX = passX, posZ = passZ, yaw = passYaw, gender = pGender, type = "ped_" + pGender, health = 100, speed = 2.0f, colorR = 0.4f, colorG = 0.4f, colorB = 0.4f });
+					evictedNpcs.Add(new { id = passengerId, posX = passX, posZ = passZ, yaw = passYaw, gender = pGender, type = isPoliceVehicle ? "cop" : "ped_" + pGender, health = 100, speed = isPoliceVehicle ? 3.2f : 2.0f, colorR = 0.4f, colorG = 0.4f, colorB = 0.4f });
 				}
 				return Ok(new { ok = true, evictedNpcs });
 			}

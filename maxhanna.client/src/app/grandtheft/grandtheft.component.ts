@@ -692,7 +692,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       { path: 'assets/grandtheft/crownVic/scene.gltf', storeSkeleton: false, assign: m => this.renderer.policeCarMesh = m },
       { path: 'assets/grandtheft/taxi/scene.gltf', storeSkeleton: false, assign: m => this.renderer.taxiMesh = m },
       { path: 'assets/grandtheft/hospital/scene.gltf', storeSkeleton: false, assign: m => this.renderer.hospitalMesh = m },
-      { path: 'assets/grandtheft/japaneseShop/scene.gltf', storeSkeleton: false, assign: m => this.renderer.homeBaseMesh = m },
       { path: 'assets/grandtheft/vendingMachine/scene.gltf', storeSkeleton: false, assign: m => this.renderer.vendingMachineMesh = m },
       { path: 'assets/grandtheft/rocket/scene.gltf', storeSkeleton: false, assign: m => this.renderer.rocketMesh = m },
       { path: 'assets/grandtheft/colt/scene.gltf', storeSkeleton: false, assign: m => this.renderer.coltMesh = m },
@@ -717,7 +716,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       const sc = cfg.scale;
       const yo = cfg.yawOffset;
       const isCore = cfg.path.includes('crownVic')
-        || cfg.path.includes('taxi') || cfg.path.includes('hospital') || cfg.path.includes('japaneseShop');
+        || cfg.path.includes('taxi') || cfg.path.includes('hospital');
       const t: AssetTask = { load: () => this.renderer.loadGLTF(cfg.path, cfg.storeSkeleton).then(mesh => { if (mesh) { cfg.assign(mesh); if (sc) for (const m of mesh) m.renderScale = sc; if (yo) for (const m of mesh) m.yawOffset = yo; } }) };
       if (isCore) critical(t);
       tasks.push(t);
@@ -865,22 +864,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         if (!this._destroyed && this.isLoaded) this.startNPCPolling();
       }, 1200);
     });
-    // Build the initial local population only after the first playable frame is
-    // ready. Calling initTraffic before the renderer has road nodes can leave
-    // every initial car with an invalid route and the population then stays
-    // empty after the first update tick.
-    setTimeout(() => {
-      if (!this._destroyed && this.isLoaded) this.initTraffic();
-    }, 0);
-    // Keep trying until streamed road geometry is available. A renderer cache
-    // rebuild can finish after the first playable frame, so the initial no-node
-    // attempt must not permanently leave the local population empty.
-    const retryTraffic = () => {
-      if (this._destroyed || !this.isLoaded || this.trafficCars.length > 0) return;
-      this.initTraffic();
-      if (this.trafficCars.length === 0) setTimeout(retryTraffic, 750);
-    };
-    setTimeout(retryTraffic, 750);
+    // Ambient cars and pedestrians are created and simulated by the backend.
+    // Do not start the retired client-local traffic population; it would make
+    // duplicate entities that other players cannot see.
     setTimeout(() => this.trySpawnAirportLotCars(), 2000);
     setTimeout(() => this.trySpawnHospitalParkingCars(), 2500);
   }
@@ -1315,7 +1301,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
                   x: ep.posX, z: ep.posZ, yaw: ep.yaw,
                   gender: ep.gender || 'male',
                   type: ep.type,
-                  mesh: this.renderer.getPedestrianMesh(ep.gender || 'male', ep.id),
+                  mesh: this.renderer.getPedestrianMesh(ep.type === 'cop' ? 'cop' : (ep.gender || 'male'), ep.id),
                   health: ep.health ?? 100,
                   prevX: ep.posX, prevZ: ep.posZ, prevYaw: ep.yaw,
                   targetX: ep.posX, targetZ: ep.posZ, targetYaw: ep.yaw,
@@ -1976,7 +1962,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         ...p,
         x: p.posX, z: p.posZ, yaw: p.yaw ?? 0,
         gender: p.gender ?? 'male',
-        mesh: this.renderer.getPedestrianMesh(p.gender ?? 'male', p.id),
+        // The backend owns role assignment. Only an explicit cop type receives
+        // the police uniform and police behavior; gender is never a role hint.
+        mesh: this.renderer.getPedestrianMesh(p.type === 'cop' ? 'cop' : (p.gender ?? 'male'), p.id),
         health: p.health ?? 100,
         prevX: p.posX, prevZ: p.posZ, prevYaw: p.yaw ?? 0,
         targetX: p.posX, targetZ: p.posZ, targetYaw: p.yaw ?? 0,
@@ -2064,8 +2052,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         const serverHp = c.health ?? 100;
         const localHp = prevCarHealth.get(c.id);
         const health = localHp !== undefined ? Math.min(localHp, serverHp) : serverHp;
-        let mesh;
-        if (c.type === 'cop') {
+        let mesh;        if (c.type === 'cop') {
           mesh = this.renderer.getPedestrianMesh('cop', c.id);
         } else if (c.type === 'police') {
           mesh = this.renderer.getPoliceCarMesh();
@@ -4131,29 +4118,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this._lastPedChunkX = 999;
       this._lastPedChunkZ = 999;
     }
-    if (this.pedSpawnTimer > 0.28 && this.localPedestrians.length < this.LOCAL_PED_CAP && sidewalkNodes.length > 0) {
-      this.pedSpawnTimer = 0;
-      const srcNode = sidewalkNodes[Math.floor(Math.random() * sidewalkNodes.length)];
-      const dstNode = sidewalkNodes[Math.floor(Math.random() * sidewalkNodes.length)];
-      if (this.isPedestrianWaterPosition(srcNode.x, srcNode.z) || this.isPedestrianWaterPosition(dstNode.x, dstNode.z)) return;
-      const isHooker = Math.random() < 0.15;
-      const gender = isHooker ? 'hooker' : (Math.random() < 0.5 ? 'male' : 'female');
-      const type = isHooker ? 'hooker' : undefined;
-      const pedId = --this.pedIdCounter;
-      this.localPedestrians.push({
-        id: pedId,
-        x: srcNode.x,
-        z: srcNode.z,
-        yaw: Math.atan2(dstNode.x - srcNode.x, dstNode.z - srcNode.z),
-        gender,
-        type,
-        mesh: this.renderer.getPedestrianMesh(gender, pedId),
-        health: 100,
-        targetX: dstNode.x, targetZ: dstNode.z,
-        waitTimer: isHooker ? 1.5 + Math.random() * 4 : 0,
-        ...(isHooker ? { hookerStyle: Math.floor(Math.random() * 4), hookerGestureTimer: 0.4 + Math.random() * 1.2 } : {}),
-      });
-    }
+    // Ordinary pedestrians are spawned and simulated by GrandTheftController.
+    // Keep this method's local list only for mission actors (taxi passengers,
+    // store cashiers, etc.); never create ambient civilians on the client.
     for (let i = this.localPedestrians.length - 1; i >= 0; i--) {
       const ped = this.localPedestrians[i];
       if (this.isPedestrianWaterPosition(ped.x, ped.z)) {
@@ -4481,17 +4448,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.findLookTarget();
     }
     this._trafficTimer += dt;
-    if (this._trafficTimer >= 0.033) { // ~30 FPS
-      this.updateTraffic(this._trafficTimer);
-      this._trafficTimer = 0;
-    }
-    this._pedTimer += dt;
-    if (this._pedTimer >= 0.033) { // ~30 FPS
-      this.updatePedestrians(this._pedTimer);
-      this.updateStationCops(this._pedTimer);
-      this._pedTimer = 0;
-    }
-    this.updateNPCInterpolation();
+    // Traffic and ordinary pedestrians are authoritative server entities. Do
+    // not run a second client-local population here: it created duplicate cars,
+    // duplicate civilians, and civilians that could accidentally be dressed as
+    // officers. Mission-specific local actors still use their own update paths.
+    this._trafficTimer = 0;
+    this._pedTimer = 0;    this.updateNPCInterpolation();
     this.updatePoliceSiren();
     this.updateTaxiRide(dt);
     this.updateTaxiMission(dt);

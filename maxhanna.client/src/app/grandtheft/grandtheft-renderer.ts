@@ -885,6 +885,9 @@ export class GrandTheftRenderer {
   public hospitalMesh: CityMesh[] | null = null;
   public vendingMachineMesh: CityMesh[] | null = null;
   public homeBaseMesh: CityMesh[] | null = null;
+  /** Procedural garage shell and independently animated roll-up door. */
+  public garageMesh: CityMesh[] | null = null;
+  public garageDoorMesh: CityMesh[] | null = null;
   public garageDoorOpenness = 0;
   public garageCarMesh: CityMesh | CityMesh[] | null = null;
   public taxiMesh: CityMesh[] | null = null;
@@ -4742,7 +4745,8 @@ void main() {
     if (g === 'female') role = 'female';
     else if (g === 'cop') role = 'cop';
     else if (g === 'dealer') role = 'dealer';
-    else if (roll < 10) role = 'cop';
+    // Police uniforms are reserved for authoritative server entities with
+    // type="cop". Never let a random civilian seed select the cop role.
     else if (roll < 15) role = 'taxi';
     else if (roll < 20) role = 'pizza';
     else if (roll < 30) role = 'hillbilly';
@@ -5226,6 +5230,65 @@ void main() {
     this.meshCache.set(key, mesh);
     return mesh;
   }
+  getGarageMeshes(): { building: CityMesh[]; door: CityMesh[] } {
+    if (this.garageMesh && this.garageDoorMesh) {
+      return { building: this.garageMesh, door: this.garageDoorMesh };
+    }
+
+    const verts: number[] = [];
+    const indices: number[] = [];
+    let offset = 0;
+    const box = (x: number, y: number, z: number, w: number, h: number, d: number, r: number, g: number, b: number) => {
+      this.addBox(verts, indices, x, y, z, w, h, d, r, g, b, 1, offset);
+      offset += 24;
+    };
+
+    // A proper open-front workshop: the side walls, rear wall, roof, fascia,
+    // lights and door jambs remain visible while the car bay stays walkable.
+    box(0, 0.05, 0, 25, 0.10, 17, 0.16, 0.17, 0.19);
+    box(-12, 3.55, 0, 1.0, 7.0, 17, 0.24, 0.25, 0.27);
+    box(12, 3.55, 0, 1.0, 7.0, 17, 0.24, 0.25, 0.27);
+    box(0, 3.55, -8, 25, 7.0, 1.0, 0.20, 0.21, 0.23);
+    box(0, 7.25, 0, 26, 0.55, 18, 0.11, 0.12, 0.14);
+    box(0, 7.62, 0, 26.5, 0.16, 18.5, 0.82, 0.12, 0.04);
+    // Front pillars and lintel frame the roll-up door without sealing the bay.
+    box(-8.7, 3.5, 8, 6.6, 7.0, 1.0, 0.28, 0.29, 0.31);
+    box(8.7, 3.5, 8, 6.6, 7.0, 1.0, 0.28, 0.29, 0.31);
+    box(0, 6.55, 8, 10.8, 0.9, 1.0, 0.28, 0.29, 0.31);
+    // Side windows, warning stripes and a readable service sign make it look
+    // like a real garage instead of the old generic GLTF block.
+    for (const x of [-11.46, 11.46]) {
+      box(x, 4.6, -2.8, 0.03, 1.8, 4.4, 0.06, 0.18, 0.24);
+      box(x, 4.6, 2.4, 0.03, 1.8, 3.2, 0.06, 0.18, 0.24);
+    }
+    box(0, 6.85, 8.55, 8.5, 0.30, 0.08, 0.95, 0.72, 0.08);
+    box(-4.2, 6.85, 8.62, 0.28, 0.38, 0.10, 0.10, 0.10, 0.11);
+    box(4.2, 6.85, 8.62, 0.28, 0.38, 0.10, 0.10, 0.10, 0.11);
+    const building = this.createMesh(verts, indices);
+    building.carName = 'procedural_garage_building';
+    building.minX = -13; building.maxX = 13; building.minZ = -9; building.maxZ = 9;
+
+    const doorVerts: number[] = [];
+    const doorIndices: number[] = [];
+    let doorOffset = 0;
+    const doorBox = (x: number, y: number, z: number, w: number, h: number, d: number, r: number, g: number, b: number) => {
+      this.addBox(doorVerts, doorIndices, x, y, z, w, h, d, r, g, b, 1, doorOffset);
+      doorOffset += 24;
+    };
+    // The door mesh is authored in the closed position. Rendering translates it
+    // upward by garageDoorOpenness, so it can open smoothly without rebuilding GL buffers.
+    doorBox(0, 2.75, 8.58, 10.8, 5.5, 0.22, 0.20, 0.22, 0.24);
+    for (let y = 0.55; y <= 5.0; y += 0.75) {
+      doorBox(0, y, 8.73, 10.45, 0.045, 0.035, 0.44, 0.46, 0.48);
+    }
+    const door = this.createMesh(doorVerts, doorIndices);
+    door.carName = 'procedural_animated_garage_door';
+    door.minX = -5.4; door.maxX = 5.4; door.minZ = 8.45; door.maxZ = 8.8;
+    this.garageMesh = [building];
+    this.garageDoorMesh = [door];
+    return { building: this.garageMesh, door: this.garageDoorMesh };
+  }
+
   getTaxiMesh(): CityMesh | CityMesh[] {
     if (this.taxiMesh) return this.taxiMesh;
     const key = 'taxi_fallback';
@@ -5603,7 +5666,9 @@ void main() {
         this.drawMesh(p.mesh, p.posX, p.posY, p.posZ, p.yaw, [1, 1, 1], [1, 1, 1, 1], true);
       }
       if (this.hospitalMesh) this.drawMesh(this.hospitalMesh, 40, 0.06, 40, 0, [15, 10, 15], [1, 1, 1, 1], true);
-      if (this.homeBaseMesh) this.drawMesh(this.homeBaseMesh, 120, 0, 40, 0, [10, 10, 10], [1, 1, 1, 1], true);
+      const garage = this.getGarageMeshes();
+      this.drawMesh(garage.building, 120, 0, 45, 0, [1, 1, 1], [1, 1, 1, 1], true);
+      this.drawMesh(garage.door, 120, 5.6 * this.garageDoorOpenness, 45, 0, [1, 1, 1], [1, 1, 1, 1], true);
       if (this.vendingMachineMesh) {
         for (const vm of vendingMachines) {
           this.drawMesh(this.vendingMachineMesh, vm.x, 0, vm.z, vm.yaw, [1, 1, 1], [1, 1, 1, 1], true);
@@ -6112,7 +6177,9 @@ void main() {
       }
     }
     if (this.hospitalMesh) this.drawMesh(this.hospitalMesh, 40, 0.06, 40, 0, [15, 10, 15]);
-    if (this.homeBaseMesh) this.drawMesh(this.homeBaseMesh, 120, 0, 40, 0, [10, 10, 10]);
+    const garage = this.getGarageMeshes();
+    this.drawMesh(garage.building, 120, 0, 45, 0, [1, 1, 1], [1, 1, 1, 1]);
+    this.drawMesh(garage.door, 120, 5.6 * this.garageDoorOpenness, 45, 0, [1, 1, 1], [1, 1, 1, 1]);
     if (this.jumpRamps.length) {
       if (!this.jumpRampMesh) this.getJumpRampMesh();
       if (this.jumpRampMesh) {
