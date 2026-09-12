@@ -142,7 +142,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   firstPerson = false;
   private isPointerLocked = false;
   serverNPCs: { id: number; x: number; y: number; z: number; yaw: number; type: string; mesh: CityMesh | CityMesh[]; health: number; colorR: number; colorG: number; colorB: number; remoteShootTimer?: number; prevX: number; prevZ: number; prevYaw: number; targetX: number; targetZ: number; targetYaw: number; speed: number; lastUpdate: number; gender?: string; hasDriver?: boolean; passengerCount?: number; isShootingAt?: boolean; isBurning?: boolean; isSmoking?: boolean; isFleeing?: boolean; isArresting?: boolean; meleeTargetId?: number; maxHealth?: number; wreckFalling?: boolean; wreckStartedAt?: number; wreckStartY?: number }[] = [];
-  serverPedestrians: { id: number; x: number; z: number; yaw: number; gender: string; type?: string; mesh: CityMesh | CityMesh[]; health: number; prevX: number; prevZ: number; prevYaw: number; targetX: number; targetZ: number; targetYaw: number; speed: number; lastUpdate: number; isDucking?: boolean; isArresting?: boolean; isSwimming?: boolean; meleeTargetId?: number }[] = [];
+  serverPedestrians: { id: number; x: number; z: number; yaw: number; gender: string; type?: string; appearanceRole?: string; isPolice?: boolean; mesh: CityMesh | CityMesh[]; health: number; prevX: number; prevZ: number; prevYaw: number; targetX: number; targetZ: number; targetYaw: number; speed: number; lastUpdate: number; isDucking?: boolean; isArresting?: boolean; isSwimming?: boolean; meleeTargetId?: number }[] = [];
   parkedCars: ParkedCar[] = [];
   // World persistence: throttled snapshot of player position + nearby local
   // parked cars so a refresh drops you back where you were, cars included.
@@ -1301,7 +1301,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
                   x: ep.posX, z: ep.posZ, yaw: ep.yaw,
                   gender: ep.gender || 'male',
                   type: ep.type,
-                  mesh: this.renderer.getPedestrianMesh(ep.type === 'cop' ? 'cop' : (ep.gender || 'male'), ep.id),
+                  mesh: this.renderer.getPedestrianMesh(ep.isPolice === true || ep.appearanceRole === 'cop' || ep.type === 'cop' ? 'cop' : (ep.gender || 'male'), ep.id),
                   health: ep.health ?? 100,
                   prevX: ep.posX, prevZ: ep.posZ, prevYaw: ep.yaw,
                   targetX: ep.posX, targetZ: ep.posZ, targetYaw: ep.yaw,
@@ -1928,9 +1928,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         ...p,
         x: p.posX, z: p.posZ, yaw: p.yaw ?? 0,
         gender: p.gender ?? 'male',
+        appearanceRole: p.appearanceRole === 'cop' || p.isPolice === true || p.type === 'cop' ? 'cop' : 'generic',
+        isPolice: p.isPolice === true || p.appearanceRole === 'cop' || p.type === 'cop',
         // The backend owns role assignment. Only an explicit cop type receives
         // the police uniform and police behavior; gender is never a role hint.
-        mesh: this.renderer.getPedestrianMesh(p.type === 'cop' ? 'cop' : (p.gender ?? 'male'), p.id),
+        mesh: this.renderer.getPedestrianMesh(p.isPolice === true || p.appearanceRole === 'cop' || p.type === 'cop' ? 'cop' : (p.gender ?? 'male'), p.id),
         health: p.health ?? 100,
         prevX: p.posX, prevZ: p.posZ, prevYaw: p.yaw ?? 0,
         targetX: p.posX, targetZ: p.posZ, targetYaw: p.yaw ?? 0,
@@ -2093,11 +2095,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       .filter(p => Number.isFinite(p.posX) && Number.isFinite(p.posZ))
       .filter(p => !this.isPedestrianWaterPosition(p.posX, p.posZ))
       .map(p => {
-        const serverHp = p.health ?? 50;
+        const isPolicePed = p.type === 'cop' || p.type === 'police' || (p as any).isPolice === true || (p as any).isCop === true || (p as any).appearanceRole === 'cop';
+        const serverHp = isPolicePed ? Math.min(50, p.health ?? 50) : (p.health ?? 50);
         const localHp = prevPedHealth.get(p.id);
         const health = localHp !== undefined ? Math.min(localHp, serverHp) : serverHp;
         let mesh;
-        if (p.type === 'cop' || p.type === 'police' || (p as any).isPolice === true || (p as any).isCop === true) {
+        if (isPolicePed) {
           mesh = this.renderer.getPedestrianMesh('cop', p.id);
         } else {
           mesh = this.renderer.getPedestrianMesh(p.gender || 'male', p.id);
@@ -4271,7 +4274,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
             z: startZ,
             yaw: Math.atan2(targetX - startX, targetZ - startZ),
             mesh: this.renderer.getPedestrianMesh('cop', id),
-            health: 100,
+            health: 50,
             targetX,
             targetZ,
             walkingIn,

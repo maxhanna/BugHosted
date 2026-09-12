@@ -2064,6 +2064,13 @@ namespace maxhanna.Server.Controllers
 					}
 					continue;
 				}
+				// Foot officers use the same 50 HP pool as ordinary pedestrians.
+				// Police vehicles keep their separate vehicle health values.
+				if (npc.Type == "cop")
+				{
+					npc.MaxHealth = 50;
+					if (npc.Health > 50) npc.Health = 50;
+				}
 				if (npc.Health <= 0) { npc.DeadAt = now; continue; }
 				if (npc.Type == "police" || npc.Type == "cop")
 				{
@@ -2078,7 +2085,9 @@ namespace maxhanna.Server.Controllers
 						else
 						{
 							npc.HomeVehicleId = 0;
-							npc.Type = "ped_" + npc.Gender;
+							// Keep the foot officer authoritative as a cop after the chase
+							// ends. The client uses this role to render the uniform; changing
+							// it to ped_male made idle officers look like civilians.
 							GetRandomSidewalkPointNearPlayer(npc.X, npc.Z, out float sx, out float sz, rng);
 							npc.TargetX = sx;
 							npc.TargetZ = sz;
@@ -2118,13 +2127,15 @@ namespace maxhanna.Server.Controllers
 										X = npc.X,
 										Z = npc.Z,
 										Yaw = npc.Yaw,
-										Health = 200,
-										MaxHealth = 200,
+										Health = 50,
+										MaxHealth = 50,
 										Cr = 0.1f,
 										Cg = 0.1f,
 										Cb = 0.2f,
 									};
 									npc.Type = "cop";
+									npc.Health = 50;
+									npc.MaxHealth = 50;
 									npc.Speed = 5.0f;
 									npc.ApproachAngle = (float)Math.Atan2(npc.X - posX, npc.Z - posZ);
 									npc.HomeVehicleId = parkedId;
@@ -2459,8 +2470,9 @@ namespace maxhanna.Server.Controllers
 											TargetZ = driverTz,
 											Yaw = driverYaw,
 											Speed = 2.0f,
-											Health = 100,
-											Cr = 0.4f,
+										Health = 50,
+										MaxHealth = 50,
+										Cr = 0.4f,
 											Cg = 0.4f,
 											Cb = 0.4f
 										};
@@ -2944,7 +2956,8 @@ namespace maxhanna.Server.Controllers
 						}
 					}
 				}
-				var entry = new { id = npc.Id, posX = npc.X, posY = npc.Y, posZ = npc.Z, yaw = npc.Yaw, speed = npc.Speed, colorR = npc.Cr, colorG = npc.Cg, colorB = npc.Cb, type = npc.Type, gender = npc.Gender, health = npc.Health, hasDriver = npc.HasDriver, passengerCount = npc.PassengerCount, isShootingAt = npc.IsShootingAt, isBurning = npc.OnFire, maxHealth = npc.MaxHealth, isSmoking = npc.IsSmoking, isFleeing = npc.IsFleeing, isDucking = npc.IsDucking, isArresting = npc.IsArresting, isSwimming = npc.IsSwimming, targetNpcId = npc.TargetNpcId };
+				bool isFootOfficer = npc.Type == "cop";
+				var entry = new { id = npc.Id, posX = npc.X, posY = npc.Y, posZ = npc.Z, yaw = npc.Yaw, speed = npc.Speed, colorR = npc.Cr, colorG = npc.Cg, colorB = npc.Cb, type = npc.Type, gender = npc.Gender, appearanceRole = isFootOfficer ? "cop" : "generic", isPolice = isFootOfficer, health = npc.Health, hasDriver = npc.HasDriver, passengerCount = npc.PassengerCount, isShootingAt = npc.IsShootingAt, isBurning = npc.OnFire, maxHealth = npc.MaxHealth, isSmoking = npc.IsSmoking, isFleeing = npc.IsFleeing, isDucking = npc.IsDucking, isArresting = npc.IsArresting, isSwimming = npc.IsSwimming, targetNpcId = npc.TargetNpcId };
 				if (npc.Type == "ped_male" || npc.Type == "ped_female" || npc.Type == "cop") pedestrians.Add(entry);					else if (npc.Type == "helicopter" || npc.Type == "plane") aircraft.Add(entry);
 				else cars.Add(entry);
 			}
@@ -3044,8 +3057,8 @@ namespace maxhanna.Server.Controllers
 					TargetZ = z,
 					Yaw = (float)(rng.NextDouble() * Math.PI * 2.0),
 					Speed = 1.5f,
-					Health = 100,
-					MaxHealth = 100,
+					Health = 50,
+					MaxHealth = 50,
 					Cr = 0.15f,
 					Cg = 0.15f,
 					Cb = 0.45f
@@ -4207,7 +4220,8 @@ namespace maxhanna.Server.Controllers
 				npc.HomeVehicleId = 0;
 				if (npc.Type == "cop")
 				{
-					npc.Type = "ped_" + npc.Gender;
+					// A foot officer remains a cop while patrolling after a pursuit;
+					// never downgrade its authoritative role to a civilian pedestrian.
 					GetRandomSidewalkPointNearPlayer(npc.X, npc.Z, out float sx, out float sz, rng);
 					npc.TargetX = sx;
 					npc.TargetZ = sz;
@@ -4288,15 +4302,15 @@ namespace maxhanna.Server.Controllers
 						TargetX = driverTx,
 						TargetZ = driverTz,
 						Yaw = driverYaw,
-						Health = 100,
-						MaxHealth = 100,
+						Health = isPoliceVehicle ? 50 : 100,
+						MaxHealth = isPoliceVehicle ? 50 : 100,
 						TargetUserId = isPoliceVehicle ? req.UserId : 0,
 						Speed = isPoliceVehicle ? 3.2f : 2.0f,
 						Cr = 0.4f,
 						Cg = 0.4f,
 						Cb = 0.4f
 					};
-					evictedNpcs.Add(new { id = driverId, posX = driverX, posZ = driverZ, yaw = driverYaw, gender = npc.Gender, type = isPoliceVehicle ? "cop" : "ped_" + npc.Gender, health = 100, speed = isPoliceVehicle ? 3.2f : 2.0f, colorR = 0.4f, colorG = 0.4f, colorB = 0.4f });
+					evictedNpcs.Add(new { id = driverId, posX = driverX, posZ = driverZ, yaw = driverYaw, gender = npc.Gender, type = isPoliceVehicle ? "cop" : "ped_" + npc.Gender, appearanceRole = isPoliceVehicle ? "cop" : "generic", isPolice = isPoliceVehicle, health = isPoliceVehicle ? 50 : 100, speed = isPoliceVehicle ? 3.2f : 2.0f, colorR = 0.4f, colorG = 0.4f, colorB = 0.4f });
 				}
 				for (int p = 0; p < npc.PassengerCount; p++)
 				{
@@ -4318,15 +4332,15 @@ namespace maxhanna.Server.Controllers
 						TargetX = passTx,
 						TargetZ = passTz,
 						Yaw = passYaw,
-						Health = 100,
-						MaxHealth = 100,
+						Health = isPoliceVehicle ? 50 : 100,
+						MaxHealth = isPoliceVehicle ? 50 : 100,
 						TargetUserId = isPoliceVehicle ? req.UserId : 0,
 						Speed = isPoliceVehicle ? 3.2f : 2.0f,
 						Cr = 0.4f,
 						Cg = 0.4f,
 						Cb = 0.4f
 					};
-					evictedNpcs.Add(new { id = passengerId, posX = passX, posZ = passZ, yaw = passYaw, gender = pGender, type = isPoliceVehicle ? "cop" : "ped_" + pGender, health = 100, speed = isPoliceVehicle ? 3.2f : 2.0f, colorR = 0.4f, colorG = 0.4f, colorB = 0.4f });
+					evictedNpcs.Add(new { id = passengerId, posX = passX, posZ = passZ, yaw = passYaw, gender = pGender, type = isPoliceVehicle ? "cop" : "ped_" + pGender, appearanceRole = isPoliceVehicle ? "cop" : "generic", isPolice = isPoliceVehicle, health = 100, speed = isPoliceVehicle ? 3.2f : 2.0f, colorR = 0.4f, colorG = 0.4f, colorB = 0.4f });
 				}
 				return Ok(new { ok = true, evictedNpcs });
 			}

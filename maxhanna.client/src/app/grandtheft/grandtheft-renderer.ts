@@ -6006,13 +6006,14 @@ void main() {
         const heliMesh = copHeli ? this.getHelicopterMesh(npc.id, true) : this.getHelicopterMesh(npc.id, false);
         const wreckFalling = (npc as any).wreckFalling === true;
         const now = performance.now() / 1000;
+        const epochNow = Date.now() / 1000;
         if (wreckFalling) {
           // Rocket kills stay in the authoritative aircraft list. Animate the
           // same airframe from its networked start altitude into a wreck on the
           // ground instead of replacing it with a vanished/dead-body marker.
           const startedAt = Number((npc as any).wreckStartedAt) / 1000;
           const elapsed = Number.isFinite(startedAt) && startedAt > 0
-            ? Math.max(0, now - startedAt)
+            ? Math.max(0, epochNow - startedAt)
             : 0;
           const fallTime = Math.min(3.2, elapsed);
           const wreckStartY = Number((npc as any).wreckStartY ?? expY);
@@ -6068,6 +6069,12 @@ void main() {
         const isPoliceDriver = npc.type === 'police' || npc.type === 'cop'
           || (npc as any).isPolice === true || (npc as any).isCop === true;
         const dMesh = this.getPedestrianMesh(isPoliceDriver ? 'cop' : (npc.gender || 'male'), npc.id);
+        const vehicleParts = Array.isArray(npc.mesh) ? npc.mesh : [npc.mesh];
+        const isPizzaMoped = npc.type === 'motorcycle' && vehicleParts.some((part: any) => part?._isMotorcycle === true);
+        // The pizza-moped GLTF has a low seat/footwell relative to the shared
+        // vehicle baseline. Lift its riders onto the saddle; regular cars and
+        // all other vehicles keep their existing occupant placement.
+        const riderSeatLift = isPizzaMoped ? 0.72 : 0;
         // Lifelike driver — drive pose, visible to all peers, cheap LOD
         const ddx = npc.x - camX, ddz = npc.z - camZ;
         if (ddx*ddx+ddz*ddz < 150*150) this.animateAndSkinEntity(npc.id+900000, dMesh, 'drive', dt, 1);
@@ -6076,13 +6083,13 @@ void main() {
         const dwx = npc.x + (dOffX * cosY + dOffZ * sinY);
         const dwz = npc.z + (-dOffX * sinY + dOffZ * cosY);
         const driverY = expY - 0.3;
-        this.drawMesh(dMesh, dwx, this.groundedModelY(dMesh, expY, 1.1) - 0.3, dwz, npc.yaw, [1.1, 1.1, 1.1]);
+        this.drawMesh(dMesh, dwx, this.groundedModelY(dMesh, expY, 1.1) - 0.3 + riderSeatLift, dwz, npc.yaw, [1.1, 1.1, 1.1]);
         if ((npc.passengerCount || 0) > 0) {
           const pMesh = this.getPedestrianMesh('female', npc.id + 1);
           const pOffX = -0.3, pOffZ = 0.2;
           const pwx = npc.x + (pOffX * cosY + pOffZ * sinY);
           const pwz = npc.z + (-pOffX * sinY + pOffZ * cosY);
-          this.drawMesh(pMesh, pwx, this.groundedModelY(pMesh, expY, 0.95) - 0.3, pwz, npc.yaw, [0.95, 0.95, 0.95]);
+          this.drawMesh(pMesh, pwx, this.groundedModelY(pMesh, expY, 0.95) - 0.3 + riderSeatLift, pwz, npc.yaw, [0.95, 0.95, 0.95]);
         }
       }
       if (npc.type === 'police') {
@@ -6106,6 +6113,12 @@ void main() {
       this.drawMesh(dealer.mesh, dealer.x, this.groundedModelY(dealer.mesh, getTerrainHeight(dealer.x, dealer.z), NPC_HUMAN_RENDER_SCALE), dealer.z, dealer.yaw, [NPC_HUMAN_RENDER_SCALE, NPC_HUMAN_RENDER_SCALE, NPC_HUMAN_RENDER_SCALE], [1, 1, 1, 1]);
     }
     for (const ped of serverPedestrians) {
+      // Police role is authoritative. Re-select the uniform mesh at render time
+      // as well as during polling so an officer cannot retain a civilian mesh
+      // from an earlier snapshot or from the vehicle-exit transition.
+      const isPolicePed = ped.type === 'cop' || ped.type === 'police'
+        || (ped as any).isPolice === true || (ped as any).appearanceRole === 'cop';
+      const pedMesh = isPolicePed ? this.getPedestrianMesh('cop', ped.id) : ped.mesh;
       const pedSpeed = ped.speed ?? 0;
       // Server speeds are world units per second; even slow pedestrians need a
       // walk pose or the procedural rig falls back to a motionless idle.
@@ -6119,7 +6132,7 @@ void main() {
       const pedFlinch = this.flinchTimers.get(ped.id) ?? 0;
       if (pedFlinch > 0) this.flinchTimers.set(ped.id, Math.max(0, pedFlinch - dt));
       const pedDx = ped.x - camX, pedDz = ped.z - camZ;
-      (ped.mesh as any)._lastAnimDistanceSq = pedDx * pedDx + pedDz * pedDz;
+      (pedMesh as any)._lastAnimDistanceSq = pedDx * pedDx + pedDz * pedDz;
       // Hookers use a slower, confident walk. Their procedural female rig is
       // still the same shared human rig, but the speed makes them readable
       // from the street without adding another asset or animation clip.
@@ -6127,7 +6140,7 @@ void main() {
         ? 1.45
         : (pedState === 'walk' ? Math.max(0.75, Math.min(2.2, pedSpeed * 2.2 || 1)) : 1);
       if (pedDx * pedDx + pedDz * pedDz <= 150 * 150) {
-        this.animateAndSkinEntity(ped.id, ped.mesh, pedState, dt, animationSpeed);
+        this.animateAndSkinEntity(ped.id, pedMesh, pedState, dt, animationSpeed);
       }
       // Ducking (gunfire reaction): the crouch-and-cover pose (bent legs, low
       // hips) does the lowering — this mild squash is the fallback for distant
@@ -6156,7 +6169,7 @@ void main() {
       const finalScale: [number, number, number] = impactReaction
         ? [NPC_HUMAN_RENDER_SCALE, Math.max(0.72, NPC_HUMAN_RENDER_SCALE - impactProgress * 0.28), NPC_HUMAN_RENDER_SCALE]
         : pedScale;
-      this.drawMesh(ped.mesh, impactX, (isSwimming ? -1.35 : this.groundedModelY(ped.mesh, pedTerrainY, NPC_HUMAN_RENDER_SCALE)) + impactLift, impactZ, impactYaw, finalScale);
+      this.drawMesh(pedMesh, impactX, (isSwimming ? -1.35 : this.groundedModelY(pedMesh, pedTerrainY, NPC_HUMAN_RENDER_SCALE)) + impactLift, impactZ, impactYaw, finalScale);
     }
     if (dt > 0 && Math.random() < 0.05) {
       const activeIds = new Set<number>();
