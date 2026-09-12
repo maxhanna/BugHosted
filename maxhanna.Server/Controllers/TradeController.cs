@@ -604,4 +604,4 @@ public class TradeController : ControllerBase
 			return StatusCode(500, "Error getting number of trades.");
 		}
 	}
-}  
+}

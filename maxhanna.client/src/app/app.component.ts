@@ -536,6 +536,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     "Bones": BonesComponent,
     "MTG-Arena": MtgArenaComponent,
     "Space: Evolves": SpaceEvolvesComponent,
+    "SpaceEvolves": SpaceEvolvesComponent,
     "Planter": PlanterComponent,
     "Weaver": WeaverComponent,
     "Recipe": RecipeComponent,
