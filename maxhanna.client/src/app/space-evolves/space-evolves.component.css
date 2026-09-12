@@ -519,6 +519,18 @@
     filter: drop-shadow(0 0 6px rgba(124, 247, 255, .55))
 }
 
+.upgrade-affected {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    font-size: 20px;
+    line-height: 1;
+}
+
+.upgrade-affected span {
+    filter: drop-shadow(0 0 4px rgba(124, 247, 255, .45));
+}
+
 .upgrade-type {
     font-size: 10px;
     text-transform: uppercase;

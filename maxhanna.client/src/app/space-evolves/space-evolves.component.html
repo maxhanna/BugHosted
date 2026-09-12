@@ -66,7 +66,7 @@
         <div class="upgrade-grid" *ngIf="upgradeChoices.length"><button *ngFor="let upgrade of upgradeChoices"
             (click)="chooseUpgrade(upgrade)" [disabled]="!canPick"><span class="upgrade-icon"
               [attr.aria-label]="upgrade.weapon" role="img">{{ upgradeIcon(upgrade.weapon) }}</span><span
-              class="upgrade-type">{{upgrade.weapon}}</span><strong>{{upgrade.name}} <span class="upgrade-progress" *ngIf="upgradeCardProgress(upgrade) as progress">({{progress}})</span></strong><small>{{upgrade.description}}</small></button>
+              class="upgrade-type">{{upgrade.weapon}}</span><strong>{{upgrade.name}} <span class="upgrade-progress" *ngIf="upgradeCardProgress(upgrade) as progress">({{progress}})</span></strong><small>{{upgradeCardDescription(upgrade)}}</small><span class="upgrade-affected" *ngIf="upgradeAffectedWeapons(upgrade) as affected"><span *ngFor="let weapon of affected" [attr.title]="weaponLabel(weapon)" [attr.aria-label]="weaponLabel(weapon)">{{upgradeIcon(weapon)}}</span></span></button>
         </div>
         </ng-container>
         <div class="free-grants" *ngIf="grantedUpgrades.length">
