@@ -76,6 +76,66 @@
 }
 .menuPanel button:hover { background: var(--hover-bg-color); }
 .menuPanel button:disabled { opacity: 0.5; cursor: not-allowed; }
+.local-folder-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, .72);
+}
+.local-folder-popup {
+  width: min(520px, 100%);
+  padding: 1.2rem;
+  border: 1px solid var(--main-border-color);
+  border-radius: 10px;
+  background: var(--main-bg-color, #1c1c1c);
+  color: var(--main-text-color);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, .45);
+}
+.local-folder-popup h2 { margin: 0 0 .65rem; font-size: 1.15rem; }
+.local-folder-popup p { margin: .55rem 0; line-height: 1.45; }
+.local-folder-note {
+  padding: .65rem .75rem;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, .06);
+}
+.local-folder-warning { color: #fbbf24; }
+.local-folder-message { margin: .7rem 0; color: #9fe6ad; }
+.local-ebook-list {
+  max-height: 240px;
+  overflow: auto;
+  margin-top: .8rem;
+  border: 1px solid var(--main-border-color);
+  border-radius: 6px;
+}
+.local-ebook-list-title { padding: .45rem .6rem; font-weight: 700; border-bottom: 1px solid var(--main-border-color); }
+.local-ebook-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  padding: .4rem .55rem;
+  border: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, .08);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.local-ebook-row:hover { background: var(--hover-bg-color); }
+.local-ebook-row img { width: 32px; height: 42px; object-fit: cover; border-radius: 2px; }
+.local-ebook-row-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.local-ebook-row small { opacity: .7; white-space: nowrap; }
+.local-folder-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: .45rem;
+  margin-top: 1rem;
+}
 .folder-name-input {
   padding: 0.35rem 0.55rem;
   border: 1px solid var(--main-border-color);
@@ -163,6 +223,19 @@
 .reader-btn:hover { background: var(--hover-bg-color); }
 .reader-btn:disabled { opacity: 0.4; cursor: default; }
 .pdf-page-indicator { font-size: 0.78rem; opacity: 0.8; white-space: nowrap; }
+.pdf-page-jump { display: inline-flex; align-items: center; gap: .25rem; }
+.pdf-page-input {
+  width: 3.2rem;
+  padding: .25rem .3rem;
+  border: 1px solid var(--main-border-color);
+  border-radius: 4px;
+  background: var(--input-bg-color, rgba(0, 0, 0, .25));
+  color: var(--main-text-color);
+  text-align: center;
+  font-size: .78rem;
+}
+.pdf-page-input::-webkit-inner-spin-button,
+.pdf-page-input::-webkit-outer-spin-button { opacity: .75; }
 .reader-close:hover { background: #a33; color: #fff; border-color: #a33; }
 .reader-body {
   flex: 1;

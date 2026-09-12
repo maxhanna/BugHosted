@@ -36,6 +36,7 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
   @ViewChild('tradeVolumeSpikeMaxTradeOccurance') tradeVolumeSpikeMaxTradeOccurance!: ElementRef<HTMLInputElement>;
   @ViewChild('tradeMaxTradeTimeToLive') tradeMaxTradeTimeToLive!: ElementRef<HTMLInputElement>;
   @ViewChild('tradeMaximumFromBalance') tradeMaximumFromBalance!: ElementRef<HTMLInputElement>;
+  @ViewChild('tradeMaximumDailyBuyPercentage') tradeMaximumDailyBuyPercentage!: ElementRef<HTMLInputElement>;
 
   ttlFormatted = ''; 
   tradeConfigLastUpdated: Date | undefined = undefined;
@@ -67,6 +68,11 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
     if (!maxFromBalance || isNaN(parseFloat(maxFromBalance))) {
       return alert(`Invalid 'Maximum ${this.normalizeCoinName(fromCoin)} Balance' value. Set value to 0 to disable.`);
     }
+    const dailyBuyValue = getVal(this.tradeMaximumDailyBuyPercentage);
+    const dailyBuyPercentage = dailyBuyValue === '' ? null : parseFloat(dailyBuyValue);
+    if (dailyBuyPercentage !== null && (!Number.isFinite(dailyBuyPercentage) || dailyBuyPercentage < 0 || dailyBuyPercentage > 100)) {
+      return alert("Maximum daily buy percentage must be blank/null or between 0 and 100.");
+    }
 
     const sellPercOfReserveValue = this.TradeReserveSellPercentUSDValue;
     if (sellPercOfReserveValue < 5 && strategy != "HFT") {
@@ -85,6 +91,7 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
       TradeStopLossPercentage: parseNum(getVal(this.tradeStopLossPercentage)),
       VolumeSpikeMaxTradeOccurance: parseNum(getVal(this.tradeVolumeSpikeMaxTradeOccurance)),
       MaximumFromBalance: maxFromBalance,
+      MaximumDailyBuyPercentage: dailyBuyPercentage,
       MaxTradeTimeToLive: parseNum(getVal(this.tradeMaxTradeTimeToLive)),
     };
 
@@ -223,6 +230,7 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
       maxTradeTypeOccurances: 0,
       volumeSpikeMaxTradeOccurance: 0,
       maximumFromBalance: 0,
+      maximumDailyBuyPercentage: null,
       tradeStopLoss: 0,
       tradeStopLossPercentage: 0,
       updated: new Date() // Default last updated time
@@ -240,6 +248,11 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
     this.tradeTradeMaximumTypeOccurances.nativeElement.valueAsNumber = effectiveConfig.maxTradeTypeOccurances;
     this.tradeVolumeSpikeMaxTradeOccurance.nativeElement.valueAsNumber = effectiveConfig.volumeSpikeMaxTradeOccurance;
     this.tradeMaximumFromBalance.nativeElement.valueAsNumber = effectiveConfig.maximumFromBalance;
+    if (effectiveConfig.maximumDailyBuyPercentage === null || effectiveConfig.maximumDailyBuyPercentage === undefined) {
+      this.tradeMaximumDailyBuyPercentage.nativeElement.value = '';
+    } else {
+      this.tradeMaximumDailyBuyPercentage.nativeElement.valueAsNumber = effectiveConfig.maximumDailyBuyPercentage;
+    }
     this.tradeStopLoss.nativeElement.valueAsNumber = effectiveConfig.tradeStopLoss;
     this.tradeStopLossPercentage.nativeElement.valueAsNumber = effectiveConfig.tradeStopLossPercentage;
     this.tradeMaxTradeTimeToLive.nativeElement.valueAsNumber = effectiveConfig.maxTradeTimeToLive ?? 0;

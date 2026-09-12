@@ -558,6 +558,11 @@
     color: #b8ffd3
 }
 
+.granted-chip.cursorPointer:hover {
+    border-color: #7dffb0;
+    box-shadow: 0 0 8px rgba(125, 255, 176, .45)
+}
+
 .upgrade-card .dismiss {
     background: #0f2c1d;
     border: 1px solid #2fbf6e;

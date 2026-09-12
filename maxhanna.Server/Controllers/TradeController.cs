@@ -430,6 +430,7 @@ public class TradeController : ControllerBase
 					to,
 					req.Strategy ?? "DCA",
 					req.MaximumFromBalance ?? 0,
+					req.MaximumDailyBuyPercentage,
 					req.MinimumFromTradeAmount ?? 0,
 					req.TradeThreshold ?? 0,
 					req.MaximumToTradeAmount ?? 0,

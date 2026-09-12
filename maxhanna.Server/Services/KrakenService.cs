@@ -17,6 +17,7 @@ public class KrakenService
   private static decimal _TradeThresholdHFT = 0.001m;
   private static decimal _MinimumBTCTradeAmount = 0.00005m;
   private static decimal _MaximumBTCBalance = 0;
+  private static decimal? _MaximumDailyBuyPercentage = null;
   private static decimal _MaximumUSDCTradeAmount = 2000m;
   private static decimal _ReserveSellPercentage = 0.04m;
   private static decimal _ValueTradePercentagePremium = 0.05m;
@@ -26,6 +27,7 @@ public class KrakenService
   private static int _MaxTradeTypeOccurances = 5;
   private static int _VolumeSpikeMaxTradeOccurance = 1;
   private static int? _MaxTradeTimeToLive = null;
+  private static int _tradeConfigurationSchemaEnsured;
   private readonly HttpClient _httpClient;
   private static IConfiguration? _config;
   private readonly string _baseAddr = "https://api.kraken.com/";
@@ -300,6 +302,34 @@ public class KrakenService
     return false;
   }
 
+  private async Task<decimal> ApplyDailyBuyLimit(int userId, string coin, string strategy, decimal coinAmount)
+  {
+    if (!_MaximumDailyBuyPercentage.HasValue) return coinAmount;
+    if (_MaximumDailyBuyPercentage.Value <= 0) return 0;
+    if (_MaximumBTCBalance <= 0)
+    {
+      _ = _log.Db($"({coin}:{userId}:{strategy}) Daily buy limit is enabled but maximum coin balance is uncapped. Trade Cancelled.", userId, "TRADE", viewDebugLogs);
+      return 0;
+    }
+    decimal dailyMaximum = _MaximumBTCBalance * Math.Min(100m, _MaximumDailyBuyPercentage.Value) / 100m;
+    decimal boughtToday = await GetBoughtAmountToday(userId, coin, strategy);
+    decimal remaining = dailyMaximum - boughtToday;
+    if (remaining <= 0) return 0;
+    return Math.Min(coinAmount, remaining);
+  }
+
+  private async Task<decimal> GetBoughtAmountToday(int userId, string coin, string strategy)
+  {
+    const string sql = @"SELECT COALESCE(SUM(value), 0) FROM maxhanna.trade_history WHERE user_id = @UserId AND from_currency = 'USDC' AND to_currency = @Coin AND strategy = @Strategy AND timestamp >= UTC_DATE() AND timestamp < UTC_DATE() + INTERVAL 1 DAY;";
+    await using var conn = new MySqlConnection(_config?.GetValue<string>("ConnectionStrings:maxhanna"));
+    await conn.OpenAsync();
+    await using var cmd = new MySqlCommand(sql, conn);
+    cmd.Parameters.AddWithValue("@UserId", userId);
+    cmd.Parameters.AddWithValue("@Coin", coin);
+    cmd.Parameters.AddWithValue("@Strategy", strategy);
+    return Convert.ToDecimal(await cmd.ExecuteScalarAsync() ?? 0m, CultureInfo.InvariantCulture);
+  }
+
   private async Task<bool> HandleSell(int userId, string strategy, string tmpCoin, decimal coinPriceUSDC, decimal spreadThreshold)
   {
     int? matchingBuyOrderId = await FindMatchingBuyOrders(userId, tmpCoin, strategy, coinPriceUSDC);
@@ -324,6 +354,8 @@ public class KrakenService
   private async Task<bool> HandleHFTBuying(int userId, string coin, UserKrakenApiKey keys, string strategy, string tmpCoin, decimal coinPriceCAD, decimal currentPrice, decimal coinBalance, decimal usdcBalance)
   {
     decimal coinToTrade = _MinimumBTCTradeAmount;
+      coinToTrade = await ApplyDailyBuyLimit(userId, tmpCoin, strategy, coinToTrade);
+      if (coinToTrade < _MinimumBTCTradeAmount) return false;
 
     // Respect max balance setting from wallet configuration
     if (_MaximumBTCBalance > 0 && coinBalance + coinToTrade > _MaximumBTCBalance)
@@ -472,6 +504,8 @@ public class KrakenService
     decimal coinBalance = GetCoinBalanceFromDictionaryAndKey(balances, tmpCoin);
     decimal usdcBalance = GetCoinBalanceFromDictionaryAndKey(balances, "USDC");
     decimal coinToTrade = _MaximumUSDCTradeAmount / currentPrice;
+    coinToTrade = await ApplyDailyBuyLimit(userId, tmpCoin, strategy, coinToTrade);
+    if (coinToTrade < _MinimumBTCTradeAmount) return false;
 
     await ExecuteTrade(userId, tmpCoin, keys, FormatBTC(coinToTrade), "buy", coinBalance, usdcBalance, coinPriceCAD, currentPrice, strategy, null, null);
     await AddMomentumEntry(userId, tmpCoin, "USDC", strategy, currentPrice, null);
@@ -604,6 +638,15 @@ public class KrakenService
             return false;
           }
 
+          decimal dailyLimitedAmount = coinAmount;
+          dailyLimitedAmount = await ApplyDailyBuyLimit(userId, tmpCoin, strategy, dailyLimitedAmount);
+          if (dailyLimitedAmount < _MinimumBTCTradeAmount)
+          {
+            await DeleteMomentumStrategy(userId, "USDC", tmpCoin, strategy);
+            return false;
+          }
+          coinAmount = dailyLimitedAmount;
+          usdcValueToTrade = coinAmount * coinPriceUSDC;
           var spread2Message = firstPriceToday != null ? $"Spread2: {spread2:P} " : "";
           _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Spread is {spread:P} {spread2Message} (c:{coinPriceUSDC:F2}-l:{lastPrice:F2}){(firstPriceToday != null ? $" [First price today: {firstPriceToday}] " : "")}, buying {tmpCoin} with {FormatBTC(coinAmount)} {coin} worth of USDC(${usdcValueToTrade})", userId, "TRADE", viewDebugLogs);
 
@@ -1561,6 +1604,13 @@ public class KrakenService
     string from = tmpCoin;
     string to = "USDC";
     amount = amount.Trim();
+    if (buyOrSell.Equals("buy", StringComparison.OrdinalIgnoreCase)
+        && decimal.TryParse(amount, NumberStyles.Float, CultureInfo.InvariantCulture, out var requestedBuyAmount))
+    {
+      requestedBuyAmount = await ApplyDailyBuyLimit(userId, tmpCoin, strategy, requestedBuyAmount);
+      if (requestedBuyAmount < _MinimumBTCTradeAmount) return;
+      amount = FormatBTC(requestedBuyAmount);
+    }
 
     // fee is 0.4%; 
     var pair = $"{from}{to}";
@@ -4085,10 +4135,10 @@ ON DUPLICATE KEY UPDATE
     }
 
     return null;
-  }
+  } 
   public async Task<TradeConfiguration?> GetTradeConfiguration(int userId, string fromCoin, string toCoin, string strategy)
   {
-    if (string.IsNullOrEmpty(fromCoin) || string.IsNullOrEmpty(toCoin))
+     if (string.IsNullOrEmpty(fromCoin) || string.IsNullOrEmpty(toCoin))
     {
       return null;
     }
@@ -4120,6 +4170,7 @@ ON DUPLICATE KEY UPDATE
           ToCoin = reader.GetString("to_coin"),
           Updated = reader.GetDateTime("updated"),
           MaximumFromBalance = reader.GetDecimal("maximum_from_balance"),
+          MaximumDailyBuyPercentage = reader.IsDBNull(reader.GetOrdinal("maximum_daily_buy_percentage")) ? null : reader.GetDecimal("maximum_daily_buy_percentage"),
           MinimumFromTradeAmount = reader.GetDecimal("minimum_from_trade_amount"),
           TradeThreshold = reader.GetDecimal("trade_threshold"),
           MaximumToTradeAmount = reader.GetDecimal("maximum_to_trade_amount"),
@@ -4142,7 +4193,7 @@ ON DUPLICATE KEY UPDATE
     return null;
   }
   public async Task<bool> UpsertTradeConfiguration(int userId, string fromCoin,
-    string toCoin, string strategy, decimal maxFromBalance, decimal minFromAmount, decimal threshold,
+    string toCoin, string strategy, decimal maxFromBalance, decimal? maximumDailyBuyPercentage, decimal minFromAmount, decimal threshold,
     decimal maxToAmount, decimal reserveSellPercentage,
     decimal coinReserveUSDCValue, int maxtradeTypeOccurances, int volumeSpikeMaxTradeOccurance,
     decimal tradeStopLoss, decimal tradeStopLossPercentage, int? maxTradeTimeToLive = null)
@@ -4159,7 +4210,8 @@ ON DUPLICATE KEY UPDATE
 				to_coin, 
 				strategy, 
 				updated, 
-				maximum_from_balance,  
+				maximum_from_balance,
+				maximum_daily_buy_percentage,
 				minimum_from_trade_amount, 
 				trade_threshold,  
 				maximum_to_trade_amount,  
@@ -4173,7 +4225,7 @@ ON DUPLICATE KEY UPDATE
 			)
 			VALUES (
 				@userId, @fromCoin, @toCoin, @strategy, UTC_TIMESTAMP(),
-				@maxFromBalance, @minFromAmount,
+				@maxFromBalance, @maximumDailyBuyPercentage, @minFromAmount,
 				@threshold, @maxToAmount, @reserveSellPercentage, 
 				@coinReserveUSDCValue, 
 				@maxTradeTypeOccurances, 
@@ -4182,7 +4234,8 @@ ON DUPLICATE KEY UPDATE
 			)
 			ON DUPLICATE KEY UPDATE 
 				updated = UTC_TIMESTAMP(),
-				maximum_from_balance = @maxFromBalance, 
+				maximum_from_balance = @maxFromBalance,
+				maximum_daily_buy_percentage = @maximumDailyBuyPercentage,
 				minimum_from_trade_amount = @minFromAmount,
 				trade_threshold = @threshold, 
 				maximum_to_trade_amount = @maxToAmount, 
@@ -4200,6 +4253,7 @@ ON DUPLICATE KEY UPDATE
       cmd.Parameters.AddWithValue("@toCoin", toCoin);
       cmd.Parameters.AddWithValue("@strategy", strategy);
       cmd.Parameters.AddWithValue("@maxFromBalance", maxFromBalance);
+      cmd.Parameters.AddWithValue("@maximumDailyBuyPercentage", (object?)maximumDailyBuyPercentage ?? DBNull.Value);
       cmd.Parameters.AddWithValue("@minFromAmount", minFromAmount);
       cmd.Parameters.AddWithValue("@threshold", threshold);
       cmd.Parameters.AddWithValue("@maxToAmount", maxToAmount);
@@ -4226,6 +4280,7 @@ ON DUPLICATE KEY UPDATE
       return false;
 
     _MaximumBTCBalance = tc.MaximumFromBalance ?? 0;
+    _MaximumDailyBuyPercentage = tc.MaximumDailyBuyPercentage;
     _MinimumBTCTradeAmount = tc.MinimumFromTradeAmount ?? 0;
     _MaximumUSDCTradeAmount = tc.MaximumToTradeAmount ?? 0;
     _TradeThreshold = tc.TradeThreshold ?? 0;
@@ -5200,6 +5255,9 @@ ON DUPLICATE KEY UPDATE
       if (usdcValueToTrade > 0 && coinPriceUSDC.Value > 0)
       {
         decimal btcAmount = usdcValueToTrade / coinPriceUSDC.Value;
+        btcAmount = await ApplyDailyBuyLimit(userId, tmpCoin, strategy, btcAmount);
+        if (btcAmount < _MinimumBTCTradeAmount) return false;
+        usdcValueToTrade = btcAmount * coinPriceUSDC.Value;
 
         _ = _log.Db($"Entering Position - Buying {tmpCoin} with {FormatBTC(btcAmount)} {tmpCoin} worth of USDC(${usdcValueToTrade}), Strategy: {strategy}.", userId, "TRADE", viewDebugLogs);
         await ExecuteTrade(userId, tmpCoin, keys, FormatBTC(btcAmount), "buy", coinBalance, usdcBalance, coinPriceCAD.Value, coinPriceUSDC.Value, strategy, null, null);
@@ -5543,7 +5601,7 @@ ON DUPLICATE KEY UPDATE
     var nullProperties = config.GetType()
       .GetProperties()
       .Where(p => p.GetValue(config) == null)
-      .Where(p => p.Name != "MaxTradeTimeToLive")
+      .Where(p => p.Name != "MaxTradeTimeToLive" && p.Name != "MaximumDailyBuyPercentage")
       .Select(p => p.Name)
       .ToList();
 

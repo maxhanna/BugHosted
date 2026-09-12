@@ -20,7 +20,12 @@
           </div>
           <div class="reader-actions" *ngIf="readerBlobType === 'application/pdf'">
             <button class="reader-btn" (click)="prevPdfPage()" [disabled]="pdfPage <= 1">◀</button>
-            <span class="pdf-page-indicator">page {{ pdfPage }} / {{ pdfPages }}</span>
+            <label class="pdf-page-jump">
+              <span class="pdf-page-indicator">page</span>
+              <input class="pdf-page-input" type="number" min="1" [max]="pdfPages" [(ngModel)]="pdfPageInput"
+                (change)="goToPdfPage()" (keyup.enter)="goToPdfPage()" aria-label="Page number" />
+              <span class="pdf-page-indicator">/ {{ pdfPages }}</span>
+            </label>
             <button class="reader-btn" (click)="nextPdfPage()" [disabled]="pdfPage >= pdfPages">▶</button>
             <button class="reader-btn" (click)="zoomOut()" *ngIf="!onMobile()">−</button>
             <span class="pdf-page-indicator" *ngIf="!onMobile()">{{ zoom * 100 | number: '1.0-0' }}%</span>
@@ -103,6 +108,7 @@
 
     <!-- ============ Menu panel ============ -->
     <div class="menuPanel" *ngIf="isMenuPanelOpen">
+      <button (click)="openLocalFolderPopup()">💾 Open books from folder</button>
       <div class="toolbar-actions">
         <app-file-upload *ngIf="isLoggedIn" [currentDirectory]="uploadDirectory" [user]="parentRef?.user!"
           [inputtedParentRef]="parentRef" [uploadButtonText]="'Add Book(s)'" [maxSelectedFiles]="100"
@@ -118,6 +124,40 @@
         <button (click)="showNewFolderPrompt = false; newFolderName = ''">✕</button>
       </ng-container>
       <button (click)="hideMenuPanel()" id="closeOverlay">✕ Close</button>
+    </div>
+
+    <!-- Filesystem folder selection popup. It deliberately sits outside the
+         menu panel so choosing the option opens a focused dialog. -->
+    <div class="local-folder-overlay" *ngIf="isLocalFolderPopupOpen">
+      <div class="local-folder-popup" role="dialog" aria-modal="true" aria-labelledby="localEbookFolderTitle">
+        <h2 id="localEbookFolderTitle">Open eBooks from your computer</h2>
+        <p>Select a folder where eBook files and their page covers will be read from and saved locally.</p>
+        <p class="local-folder-note" *ngIf="localEbookFolderSupported; else unsupportedFolder">
+          <ng-container *ngIf="localEbookFolderName; else noLocalFolder">
+            📁 Current folder: <b>{{ localEbookFolderName }}</b>
+          </ng-container>
+          <ng-template #noLocalFolder>No folder selected yet.</ng-template>
+        </p>
+        <ng-template #unsupportedFolder>
+          <p class="local-folder-warning">This browser does not support direct folder access. Use a Chromium-based browser to open books directly from disk.</p>
+        </ng-template>
+        <p class="local-folder-warning" *ngIf="localEbookFolderNeedsReconnect">Folder access needs to be granted again.</p>
+        <div class="local-folder-message" *ngIf="localEbookFolderMessage">{{ localEbookFolderMessage }}</div>
+        <div class="local-ebook-list" *ngIf="localEbookFiles.length">
+          <div class="local-ebook-list-title">Books in this folder</div>
+          <button class="local-ebook-row" *ngFor="let localBook of localEbookFiles" (click)="openLocalEbook(localBook.name)">
+            <img *ngIf="localEbookCoverUrls.get(localBook.name) as cover" [src]="cover" alt="" />
+            <span class="local-ebook-row-name">{{ localBook.name }}</span>
+            <small>{{ localBook.size | number }} bytes</small>
+          </button>
+        </div>
+        <div class="local-folder-actions">
+          <button class="reader-btn" *ngIf="localEbookFolderNeedsReconnect" (click)="reconnectLocalEbookFolder()" [disabled]="localEbookFolderBusy">🔁 Reconnect</button>
+          <button class="reader-btn" (click)="chooseLocalEbookFolder()" [disabled]="!localEbookFolderSupported || localEbookFolderBusy">📁 Choose folder</button>
+          <button class="reader-btn" *ngIf="localEbookFolderName" (click)="clearLocalEbookFolder()" [disabled]="localEbookFolderBusy">Unlink</button>
+          <button class="reader-btn reader-close" (click)="closeLocalFolderPopup()">✕ Close</button>
+        </div>
+      </div>
     </div>
 
   </div>

@@ -108,6 +108,22 @@
         </div>
     </div>
 
+    <!-- Maximum coin bought per UTC day (all strategies; blank disables) -->
+    <div class="config-box">
+        <div class="config-header">
+            <span>Max Buy per Day (% of Max Balance)</span>
+            <span class="info-icon" (click)="toggleExplanation($event)">i</span>
+        </div>
+        <input type="number" #tradeMaximumDailyBuyPercentage min="0" max="100" step="0.1"
+            (input)="detectChange()"
+            placeholder="Blank = disabled"
+            title="Limit daily purchases to this percentage of the configured maximum coin balance. Leave blank to disable." />
+        <div class="config-explanation">
+            <p><strong>What it does:</strong> Limits the total amount bought during one UTC day to this percentage of your configured maximum {{normalizeCoinName(tradeFromCoinSelect?.value)}} balance.</p>
+            <p><strong>How to use it:</strong> Enter 10 to allow buying up to 10% of the maximum balance per day. Leave it blank to disable. The limit requires a non-zero Max Balance and applies to DCA, Indicator, and High Frequency strategies.</p>
+        </div>
+    </div>
+
     <!-- Min From Coin per Trade (DCA only) -->
     <div class="config-box" [style.display]="tradeStrategySelect.value == 'IND' ? 'none' : 'flex'">
         <div class="config-header">

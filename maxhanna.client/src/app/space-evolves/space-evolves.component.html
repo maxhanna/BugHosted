@@ -73,7 +73,7 @@
           <h2>⚡ Free upgrades granted</h2>
           <p>The brood rewarded your upgrades:</p>
           <div class="granted-list">
-            <span *ngFor="let g of grantedUpgrades" class="granted-chip">
+            <span *ngFor="let g of grantedUpgrades" class="granted-chip cursorPointer" (click)="openUpgradeInfo(g)" title="View what this upgrade did">
               {{ upgradeIcon(g.weapon) }} {{g.name}} +{{ upgradeCount(g.id) }}
             </span>
           </div> 

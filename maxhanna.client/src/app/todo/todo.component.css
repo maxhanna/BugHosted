@@ -313,14 +313,8 @@
   opacity: 0.7;
 }
 
-.todoActionBtn {
-  padding: 8px 14px;
-  border: none;
-  border-radius: 999px;
-  font-size: 0.8rem;
-  font-weight: 700;
-  cursor: pointer;
-  color: #fff;
+.todoActionBtn {   
+  cursor: pointer; 
   transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
 }
 

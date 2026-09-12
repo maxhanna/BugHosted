@@ -5,6 +5,8 @@ public class TradeConfiguration
 	public string? FromCoin { get; set; } = string.Empty;
 	public string? ToCoin { get; set; } = string.Empty;
 	public decimal? MaximumFromBalance { get; set; } 
+	/// <summary>Optional percentage of the configured maximum coin balance that may be bought per UTC day.</summary>
+	public decimal? MaximumDailyBuyPercentage { get; set; }
 	public decimal? MinimumFromTradeAmount { get; set; }
 	public decimal? MaximumToTradeAmount { get; set; }
 	public decimal? TradeThreshold { get; set; }  

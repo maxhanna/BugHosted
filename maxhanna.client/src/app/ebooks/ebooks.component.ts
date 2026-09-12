@@ -45,6 +45,7 @@ import { BookEntry } from '../../services/datacontracts/books/book-entry';
 import { BooksService } from '../../services/books.service';
 import { FileService } from '../../services/file.service';
 import { FileSearchComponent } from '../file-search/file-search.component';
+import { LocalEbookService } from '../../services/local-ebook.service';
 
 @Component({
   selector: 'app-ebooks',
@@ -62,6 +63,16 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
   @ViewChild('epubHost') epubHost?: ElementRef<HTMLDivElement>;
 
   isMenuPanelOpen = false;
+  isLocalFolderPopupOpen = false;
+  localEbookFolderSupported = false;
+  localEbookFolderName?: string;
+  localEbookFolderNeedsReconnect = false;
+  localEbookFolderBusy = false;
+  localEbookFolderMessage = '';
+  readerCoverUrl?: string;
+  localEbookFiles: import('../../services/local-ebook.service').LocalEbookFile[] = [];
+  localEbookCoverUrls = new Map<string, string>();
+  private readerLocalFileName?: string;
 
   // ---- uploads & folders ----
   // Books-relative folder currently browsed ('' = Books root). Uploads via the
@@ -83,6 +94,7 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
   readerError = '';
   textContent = '';
   pdfPage = 1;
+  pdfPageInput = 1;
   zoom = 1.0;
   pdfPages = 1;
   // Reading progress: fetched in parallel with the book download, restored once
@@ -116,10 +128,12 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
 
   public readonly allowedBookTypes = '.pdf,.epub,.txt,.doc,.docx,.docm,.dot,.dotx,.dotm,.rtf,.odt';
 
-  constructor(public booksService: BooksService, private fileService: FileService, private cdr: ChangeDetectorRef) { super(); }
+  constructor(public booksService: BooksService, private fileService: FileService, private localEbookService: LocalEbookService, private cdr: ChangeDetectorRef) { super(); }
 
   async ngOnInit() {
     if (this.inputtedParentRef) this.parentRef = this.inputtedParentRef;
+    this.localEbookFolderSupported = this.localEbookService.supportsFileSystemAccess();
+    void this.loadLocalEbookFolderState();
     // Deep links (/Books/<fileId>) open the reader on top of the file manager.
     // Resolved from the caller's library first, then the community catalog,
     // then directly by file id (covers own private uploads not yet in library).
@@ -183,6 +197,80 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
   }
   hideLoginPopup() {
     this.parentRef?.closeOverlay();
+  }
+  openLocalFolderPopup() {
+    this.isMenuPanelOpen = false;
+    this.isLocalFolderPopupOpen = true;
+    this.localEbookFolderMessage = '';
+    this.parentRef?.showOverlay();
+    void this.loadLocalEbookFolderState();
+  }
+  closeLocalFolderPopup() {
+    this.isLocalFolderPopupOpen = false;
+    this.localEbookFolderMessage = '';
+    this.parentRef?.closeOverlay();
+  }
+  private async loadLocalEbookFolderState() {
+    this.localEbookFolderName = (await this.localEbookService.getFolderName()) ?? undefined;
+    const permission = await this.localEbookService.permissionState();
+    this.localEbookFolderNeedsReconnect = !!this.localEbookFolderName && permission !== 'granted';
+    this.localEbookFiles = this.localEbookFolderNeedsReconnect ? [] : await this.localEbookService.listBooks();
+    if (!this.localEbookFolderNeedsReconnect) {
+      for (const book of this.localEbookFiles) {
+        if (this.localEbookCoverUrls.has(book.name)) continue;
+        const cover = await this.localEbookService.getLocalCoverObjectUrl(book.name);
+        if (cover) this.localEbookCoverUrls.set(book.name, cover);
+      }
+    }
+    this.cdr.detectChanges();
+  }
+  async openLocalEbook(name: string) {
+    if (!name || this.localEbookFolderBusy) return;
+    const file = await this.localEbookService.getLocalFile(name);
+    if (!file) {
+      this.localEbookFolderMessage = 'That local book could not be read.';
+      return;
+    }
+    const dot = name.lastIndexOf('.');
+    const extension = dot >= 0 ? name.slice(dot + 1).toLowerCase() : '';
+    const title = dot > 0 ? name.slice(0, dot) : name;
+    const book = Object.assign(new BookEntry(), { title, fileType: extension, fileSize: file.size });
+    this.closeLocalFolderPopup();
+    await this.openReader(book, name);
+  }
+  async chooseLocalEbookFolder() {
+    if (!this.localEbookFolderSupported || this.localEbookFolderBusy) return;
+    this.localEbookFolderBusy = true;
+    this.localEbookFolderMessage = '';
+    try {
+      const handle = await this.localEbookService.chooseFolder();
+      if (handle) {
+        this.localEbookFolderName = handle.name;
+        this.localEbookFolderNeedsReconnect = false;
+        this.localEbookFolderMessage = `Books and page covers will be saved in “${handle.name}”.`;
+      }
+    } catch {
+      this.localEbookFolderMessage = 'Could not access that folder.';
+    } finally {
+      this.localEbookFolderBusy = false;
+      this.cdr.detectChanges();
+    }
+  }
+  async reconnectLocalEbookFolder() {
+    if (this.localEbookFolderBusy) return;
+    this.localEbookFolderBusy = true;
+    const granted = await this.localEbookService.reconnectFolder();
+    this.localEbookFolderNeedsReconnect = !granted;
+    this.localEbookFolderMessage = granted ? 'Folder reconnected.' : 'Folder access was not granted.';
+    this.localEbookFolderBusy = false;
+    this.cdr.detectChanges();
+  }
+  async clearLocalEbookFolder() {
+    await this.localEbookService.clearFolder();
+    this.localEbookFolderName = undefined;
+    this.localEbookFolderNeedsReconnect = false;
+    this.localEbookFolderMessage = 'Local ebook storage disabled.';
+    this.cdr.detectChanges();
   }
   onLoginClick() {
     this.parentRef?.showOverlay();
@@ -281,11 +369,14 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
 
   // ================= Reader =================
 
-  async openReader(book: BookEntry) {
+  async openReader(book: BookEntry, localFileName?: string) {
+    this.readerLocalFileName = localFileName;
     this.readingBook = book;
     this.readerError = '';
     this.textContent = '';
+    this.readerCoverUrl = undefined;
     this.pdfPage = 1;
+    this.pdfPageInput = 1;
     this.zoom = 1.0;
     this.isLoadingReader = true;
     this.revokeReaderUrl();
@@ -299,7 +390,26 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
       this.savedProgress = await this.booksService.getReadingProgress(uid, book.fileId, token);
     }
     try {
-      const blob = await this.booksService.downloadBook(book.fileId);
+      // A selected folder is the preferred source. If its permission is lost or
+      // the book has not been cached yet, fall back to the authenticated server
+      // download and refresh the local copy in the background.
+      let blob = this.readerLocalFileName
+        ? await this.localEbookService.getLocalFile(this.readerLocalFileName)
+        : (this.localEbookFolderName && book.fileId > 0
+          ? await this.localEbookService.getBook(book.fileId, book.title, book.fileType)
+          : null);
+      if (this.readerLocalFileName) {
+        const cover = await this.localEbookService.getLocalCover(this.readerLocalFileName);
+        if (cover) this.readerCoverUrl = URL.createObjectURL(cover);
+      } else if (blob) {
+        const cover = await this.localEbookService.getCoverObjectUrl(book.fileId, book.title, book.fileType);
+        if (cover) this.readerCoverUrl = cover;
+      } else {
+        blob = await this.booksService.downloadBook(book.fileId);
+        if (blob && blob.size > 0 && this.localEbookFolderName && book.fileId > 0) {
+          void this.cacheLocalEbook(book, blob);
+        }
+      }
       if (!blob || blob.size === 0) {
         this.readerError = 'Could not load the book file (empty or missing).';
         return;
@@ -344,6 +454,7 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
       const saved = this.savedProgress;
       const savedPage = saved && saved.page > 0 && saved.page <= doc.numPages ? saved.page : 1;
       this.pdfPage = savedPage;
+      this.pdfPageInput = savedPage;
       this.restoringProgress = !!saved;
       // The canvas only exists after Angular renders the reader overlay — run
       // after the next change-detection pass.
@@ -363,8 +474,13 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
     void this.flushProgressSave();
     this.teardownEpub();
     this.readingBook = undefined;
+    this.readerLocalFileName = undefined;
     this.textContent = '';
     this.readerError = '';
+    if (this.readerCoverUrl?.startsWith('blob:')) {
+      try { URL.revokeObjectURL(this.readerCoverUrl); } catch { }
+    }
+    this.readerCoverUrl = undefined;
     this.revokeReaderUrl();
   }
 
@@ -432,8 +548,30 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
     }
     this.pdfRenderSeq++;
     if (this.pdfRenderTask) { try { this.pdfRenderTask.cancel(); } catch { } this.pdfRenderTask = undefined; }
-    if (this.pdfDoc) { void this.pdfDoc.destroy().catch(() => { }); this.pdfDoc = undefined; }
-    this.pdfPages = 1;
+    if (this.pdfDoc) { void this.pdfDoc.destroy().catch(() => { }); this.pdfDoc = undefined; }      this.pdfPages = 1;
+      this.pdfPageInput = 1;
+
+  }
+
+  private async cacheLocalEbook(book: BookEntry, blob: Blob) {
+    const saved = await this.localEbookService.saveBook(book.fileId, book.title, book.fileType, blob);
+    if (!saved) return;
+    let coverBlob: Blob | null = null;
+    if (book.coverUrl) {
+      try {
+        const response = await fetch(book.coverUrl);
+        if (response.ok) coverBlob = await response.blob();
+      } catch { }
+    }
+    // PDFs without an uploaded cover use the same first-page cover generator as
+    // the book list, then save that generated image beside the ebook too.
+    if (!coverBlob && book.fileType.toLowerCase() === 'pdf') {
+      try {
+        const dataUrl = await this.booksService.getPdfThumbnail(book.fileId);
+        if (dataUrl) coverBlob = await (await fetch(dataUrl)).blob();
+      } catch { }
+    }
+    if (coverBlob) await this.localEbookService.saveCover(book.fileId, book.title, book.fileType, coverBlob);
   }
 
   async downloadReadingBook() {
@@ -562,6 +700,7 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
     if (this.readerBlobType !== 'application/pdf') return;
     if (dir === 'next' ? this.pdfPage >= this.pdfPages : this.pdfPage <= 1) return;
     this.pdfPage += dir === 'next' ? 1 : -1;
+    this.pdfPageInput = this.pdfPage;
     this.pendingScroll = 0;
     this.resetPdfPaneScroll();
     await this.renderPdfPage();
@@ -569,6 +708,24 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
   }
   nextPdfPage() { void this.turnPdfPage('next'); }
   prevPdfPage() { void this.turnPdfPage('prev'); }
+
+  /** Jump directly to the page typed into the reader control. Invalid or
+   *  out-of-range values are clamped to the nearest real page. */
+  async goToPdfPage() {
+    if (this.readerBlobType !== 'application/pdf' || !this.pdfPages) return;
+    const requested = Number(this.pdfPageInput);
+    const target = Number.isFinite(requested)
+      ? Math.min(this.pdfPages, Math.max(1, Math.trunc(requested)))
+      : this.pdfPage;
+    this.pdfPageInput = target;
+    if (target === this.pdfPage) return;
+    const dir: 'next' | 'prev' = target > this.pdfPage ? 'next' : 'prev';
+    this.pdfPage = target;
+    this.pendingScroll = 0;
+    this.resetPdfPaneScroll();
+    await this.renderPdfPage();
+    this.playPageAnim(dir);
+  }
 
   private resetPdfPaneScroll() {
     const pane = this.pdfCanvas?.nativeElement?.parentElement as HTMLElement | null;
