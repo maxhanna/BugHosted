@@ -12,6 +12,10 @@ const BEACH_CHANCE_DENOMINATOR = 3;
 const BRIDGE_DECK_Y = 12.0;
 const PLAYER_RENDER_SCALE = 1.35;
 const REMOTE_PLAYER_RENDER_SCALE = 1.35;
+// Keep ordinary pedestrians visually comparable to the enlarged player model.
+// Vehicle occupants use smaller seated scales below because their pose is inside
+// a cabin, while standing pedestrians should not read like toy figures.
+const NPC_HUMAN_RENDER_SCALE = 1.30;
 interface IslandDef {
   cx: number; cz: number;
   cityR: number;
@@ -6043,13 +6047,13 @@ void main() {
         const dwx = npc.x + (dOffX * cosY + dOffZ * sinY);
         const dwz = npc.z + (-dOffX * sinY + dOffZ * cosY);
         const driverY = expY - 0.3;
-        this.drawMesh(dMesh, dwx, this.groundedModelY(dMesh, expY) - 0.3, dwz, npc.yaw, [0.85, 0.85, 0.85]);
+        this.drawMesh(dMesh, dwx, this.groundedModelY(dMesh, expY, 1.1) - 0.3, dwz, npc.yaw, [1.1, 1.1, 1.1]);
         if ((npc.passengerCount || 0) > 0) {
           const pMesh = this.getPedestrianMesh('female', npc.id + 1);
           const pOffX = -0.3, pOffZ = 0.2;
           const pwx = npc.x + (pOffX * cosY + pOffZ * sinY);
           const pwz = npc.z + (-pOffX * sinY + pOffZ * cosY);
-          this.drawMesh(pMesh, pwx, this.groundedModelY(pMesh, expY) - 0.3, pwz, npc.yaw, [0.7, 0.7, 0.7]);
+          this.drawMesh(pMesh, pwx, this.groundedModelY(pMesh, expY, 0.95) - 0.3, pwz, npc.yaw, [0.95, 0.95, 0.95]);
         }
       }
       if (npc.type === 'police') {
@@ -6070,8 +6074,7 @@ void main() {
       const ddx = dealer.x - camX, ddz = dealer.z - camZ;
       if (ddx * ddx + ddz * ddz > 220 * 220) continue;
       this.animateAndSkinEntity(dealer.id, dealer.mesh, 'idle', dt, 1);
-      const dealerY = this.groundedModelY(dealer.mesh, getTerrainHeight(dealer.x, dealer.z));
-      this.drawMesh(dealer.mesh, dealer.x, dealerY, dealer.z, dealer.yaw, [1.08, 1.08, 1.08], [1, 1, 1, 1]);
+      this.drawMesh(dealer.mesh, dealer.x, this.groundedModelY(dealer.mesh, getTerrainHeight(dealer.x, dealer.z), NPC_HUMAN_RENDER_SCALE), dealer.z, dealer.yaw, [NPC_HUMAN_RENDER_SCALE, NPC_HUMAN_RENDER_SCALE, NPC_HUMAN_RENDER_SCALE], [1, 1, 1, 1]);
     }
     for (const ped of serverPedestrians) {
       const pedSpeed = ped.speed ?? 0;
@@ -6104,9 +6107,11 @@ void main() {
       const isSwimming = !!ped.isSwimming && getBiome(Math.floor(ped.x / 80), Math.floor(ped.z / 80)) === 'ocean';
       const pedTerrainY = getTerrainHeight(ped.x, ped.z);
       let pedScale: [number, number, number] = isSwimming
-        ? [1.05, 0.42, 1.05]
-        : (ped.isDucking ? [0.95, 0.75, 0.95] : [1, 1, 1]);
-      if (pedFlinch > 0 && !isSwimming) pedScale = [1.05, pedScale[1] * 0.92, 1.05];        // Keep the rig's foot contact readable: the walk cycle is intentionally
+        ? [NPC_HUMAN_RENDER_SCALE, 0.42, NPC_HUMAN_RENDER_SCALE]
+        : (ped.isDucking
+          ? [NPC_HUMAN_RENDER_SCALE * 0.95, 0.75, NPC_HUMAN_RENDER_SCALE * 0.95]
+          : [NPC_HUMAN_RENDER_SCALE, NPC_HUMAN_RENDER_SCALE, NPC_HUMAN_RENDER_SCALE]);
+      if (pedFlinch > 0 && !isSwimming) pedScale = [NPC_HUMAN_RENDER_SCALE, pedScale[1] * 0.92, NPC_HUMAN_RENDER_SCALE];        // Keep the rig's foot contact readable: the walk cycle is intentionally
         // subtle and the lower body remains grounded while the hips bob.
       const impactReaction = (this as any).npcImpactReactions?.get(ped.id);
       const impactProgress = impactReaction ? Math.min(1, impactReaction.age / impactReaction.duration) : 0;
@@ -6120,9 +6125,9 @@ void main() {
       const impactZ = impactReaction ? ped.z + impactReaction.vz * impactTime : ped.z;
       const impactYaw = impactReaction ? ped.yaw + impactReaction.spin * impactTime * 8 : ped.yaw;
       const finalScale: [number, number, number] = impactReaction
-        ? [1.08, Math.max(0.72, 1 - impactProgress * 0.28), 1.08]
+        ? [NPC_HUMAN_RENDER_SCALE, Math.max(0.72, NPC_HUMAN_RENDER_SCALE - impactProgress * 0.28), NPC_HUMAN_RENDER_SCALE]
         : pedScale;
-      this.drawMesh(ped.mesh, impactX, (isSwimming ? -1.35 : this.groundedModelY(ped.mesh, pedTerrainY)) + impactLift, impactZ, impactYaw, finalScale);
+      this.drawMesh(ped.mesh, impactX, (isSwimming ? -1.35 : this.groundedModelY(ped.mesh, pedTerrainY, NPC_HUMAN_RENDER_SCALE)) + impactLift, impactZ, impactYaw, finalScale);
     }
     if (dt > 0 && Math.random() < 0.05) {
       const activeIds = new Set<number>();
