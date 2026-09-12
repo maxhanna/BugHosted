@@ -1050,6 +1050,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
   toggleWeaponWheel() { this.showWeaponWheel = !this.showWeaponWheel; }
   toggleCar() {
+    // The player cannot enter another vehicle or interrupt the fall until the
+    // high-speed exit has finished.
+    if (this.playerRagdollTimer > 0) return;
     // Car entry is a user gesture, so use it to unlock browser audio before
     // starting the YouTube-backed radio.
     this.unlockAudio();
@@ -6359,7 +6362,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     return Math.max(ENTER_CAR_DIST, maxHalf + 1.5);
   }
   private checkNearCar() {
-    if (this.isInCar || this.isPassenger) { this.nearCar = false; this.nearTaxi = false; this.taxiEntrySide = null; return; }
+    if (this.isInCar || this.isPassenger || this.playerRagdollTimer > 0) { this.nearCar = false; this.nearTaxi = false; this.taxiEntrySide = null; return; }
     this.nearCar = [...this.serverNPCs, ...this.parkedCars].some(v => v.health > 0
       && Math.hypot(v.x - this.carX, v.z - this.carZ) < this.vehicleEntryDistance(v));
     // Do not auto-enter or consume the garage vehicle just because the player

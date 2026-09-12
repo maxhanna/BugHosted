@@ -5,11 +5,9 @@
 }
 
 .componentMain {
-    height: 100%;
-    min-height: calc(100dvh - 58px);
+    max-height: calc(100dvh - 65px);
     background: #02040d;
     color: #dff7ff;
-    overflow: auto;
     font-family: system-ui, sans-serif
 }
 
@@ -211,7 +209,7 @@
     display: flex;
     gap: 6px;
     flex-wrap: wrap;
-    align-items: flex-end; 
+    align-items: flex-end;
     z-index: 4;
     pointer-events: auto
 }
@@ -593,7 +591,7 @@
     .arena {
         height: calc(100dvh - 250px);
         min-height: 430px;
-    } 
+    }
 
     .upgrade-dock {
         bottom: 6px;
@@ -626,6 +624,7 @@
         height: auto;
     }
 }
+
 @media only screen and (min-width : 850px) {
     .upgrade-card {
         height: auto;
