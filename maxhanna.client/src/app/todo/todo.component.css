@@ -329,12 +329,10 @@
 }
 
 .todoUpdateBtn {
-  background: linear-gradient(135deg, #2e8b57, #3cb371);
   box-shadow: 0 3px 10px rgba(46, 139, 87, 0.35);
 }
 
 .todoDeleteBtn {
-  background: linear-gradient(135deg, #d63031, #ff6b6b);
   box-shadow: 0 3px 10px rgba(214, 48, 49, 0.35);
 }
 
