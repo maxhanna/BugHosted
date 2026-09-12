@@ -2260,7 +2260,16 @@ void main() {
   private playerBone(...tokens: string[]): number {
     const names = this.playerRig?.nodeNames ?? this.skelNodeNames;
     const normalized = (value: string) => value.toLowerCase().replace(/[^a-z]/g, '');
-    const wanted = tokens.map(normalized);
+    const aliases = (value: string): string[] => {
+      const token = normalized(value);
+      const compact = token
+        .replace(/^left/, 'l')
+        .replace(/^right/, 'r')
+        .replace(/upperarm$/, 'arm')
+        .replace(/upleg$/, 'thigh');
+      return token === compact ? [token] : [token, compact];
+    };
+    const wanted = tokens.flatMap(aliases);
     for (let i = 0; i < names.length; i++) {
       const name = normalized(names[i]);
       if (wanted.some(token => name.includes(token))) return i;

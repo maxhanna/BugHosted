@@ -167,6 +167,7 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
       racing: { icon: navIcon('Racing', '🏎️'), description: 'Racing event', component: 'Racing' },
       marbles: { icon: navIcon('Marbles', '🌀'), description: 'Marbles event', component: 'Marbles' },
       save_note: { icon: navIcon('Notepad', '🗒️'), description: 'Note saved', component: 'Notepad' },
+      shared_link: { icon: '🔗', description: 'Link shared', component: null },
       downloaded_painting: { icon: navIcon('Paint', '🖍️'), description: 'Painting downloaded', component: 'Paint' },
       plant_added: { icon: navIcon('Planter', '🌱'), description: 'Plant Identified', component: 'Planter' },
       todo_added: { icon: navIcon('Todo', '✔️'), description: 'Todo Added', component: 'Todo' },

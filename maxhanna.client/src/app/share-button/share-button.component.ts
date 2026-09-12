@@ -1,5 +1,6 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { AppComponent } from '../app.component';
+import { UserEventService } from '../../services/user-event.service';
 
 @Component({
   selector: 'app-share-button',
@@ -8,7 +9,7 @@ import { AppComponent } from '../app.component';
   styleUrl: './share-button.component.css'
 })
 export class ShareButtonComponent {
-  constructor() {}
+  constructor(private userEventService: UserEventService) { }
   @Input() link = "";
   @Input() text = "📋Share";
   @Input() isExternalLink = false;
@@ -16,28 +17,28 @@ export class ShareButtonComponent {
   @Input() callback?: (() => void);
   @Output() linkCopiedEvent = new EventEmitter<void>();
 
-  copyLink() { 
+  copyLink() {
     let link = "";
-    if (this.link) { 
-      link = 
-        (this.isExternalLink || this.link.includes("bughosted.com") || this.link.includes("://")) 
-        ? this.link 
-        : `https://bughosted.com/${this.link}`;
+    if (this.link) {
+      link =
+        (this.isExternalLink || this.link.includes("bughosted.com") || this.link.includes("://"))
+          ? this.link
+          : `https://bughosted.com/${this.link}`;
       navigator.clipboard.writeText(link).then(() => {
         this.inputtedParentRef?.showNotification('Link copied to clipboard!');
         if (!this.inputtedParentRef) {
           alert('Link copied to clipboard!');
         }
+        this.userEventService.insertUserEvent(this.inputtedParentRef?.user?.id ?? 0, 'shared_link', `Copied link: ${link}`);
       }).catch(err => {
         this.inputtedParentRef?.showNotification('Failed to copy link!');
       });
     }
-    
+
     if (this.callback && typeof this.callback === 'function') {
       this.callback();
     }
     this.linkCopiedEvent.emit();
     this.inputtedParentRef?.closeOverlay();
-    
   }
 }
