@@ -42,8 +42,8 @@ export class CryptoTradeHistoryComponent extends ChildComponent implements After
     is_reserved: boolean | undefined,
   }[] = undefined;
   selectedTradeBalanceId?: number = undefined;
-  selectedCoin: string = 'BTC'; // Default value
-  selectedStrategy: string = 'DCA'; // Default value
+  selectedCoin: string = 'ALL'; // Show every coin by default
+  selectedStrategy: string = 'ALL'; // Show every strategy by default
   searchTerm = '';
   private searchDebounceTimer: any = null;
   tradeHistoryInterval: any;
@@ -68,12 +68,11 @@ export class CryptoTradeHistoryComponent extends ChildComponent implements After
   ngAfterViewInit(): void {
     // Initialize with default values if provided
     setTimeout(() => {
-      if (this.defaultCoin) {
-        this.selectedCoin = this.defaultCoin.replace("BTC", "XBT");
-      }
-      if (this.defaultStrategy) {
-        this.selectedStrategy = this.defaultStrategy;
-      }
+      // Trade history opens across every coin by default. The strategy
+      // selection remains independent of the parent bot's configured coin.
+      this.selectedCoin = 'ALL';
+      // Trade history opens across every coin and strategy by default.
+      this.selectedStrategy = 'ALL';
 
       console.log(this.selectedCoin, this.selectedStrategy);
       this.checkBalance();
@@ -84,27 +83,11 @@ export class CryptoTradeHistoryComponent extends ChildComponent implements After
     if (this.destroyed) {
       return;
     }
-    // When the parent changes the default coin or strategy, reload or clear the trade history
-    if (changes['defaultCoin'] && changes['defaultCoin'].currentValue !== changes['defaultCoin'].previousValue) {
-      if (this.defaultCoin) {
-        this.selectedCoin = this.defaultCoin.replace("BTC", "XBT");
-        this.currentTradePage = 1;
-        this.checkBalance();
-      } else {
-        // Clear existing data when no default coin is provided
-        this.tradebotBalances = [];
-        this.paginatedTradebotBalances = [];
-        this.totalTradePages = 0;
-        this.stopTradeHistoryPolling();
-        this.changeDetectorRef.detectChanges();
-      }
-    }
+    // The coin filter intentionally remains ALL when the parent bot selection
+    // changes; users can choose a specific coin from this component.
 
-    if (changes['defaultStrategy'] && changes['defaultStrategy'].currentValue !== changes['defaultStrategy'].previousValue) {
-      this.selectedStrategy = this.defaultStrategy ?? this.selectedStrategy;
-      this.currentTradePage = 1;
-      this.checkBalance();
-    }
+    // Keep the strategy filter at ALL when the parent bot selection changes;
+    // users can choose a specific strategy from this component.
   }
 
   ngOnDestroy(): void {
@@ -399,8 +382,8 @@ export class CryptoTradeHistoryComponent extends ChildComponent implements After
           userId,
           tradeId,
           this.tradesPerPage,
-          this.selectedCoin ?? 'XBT',
-          this.selectedStrategy ?? 'DCA',
+          this.selectedCoin ?? 'ALL',
+          this.selectedStrategy ?? 'ALL',
           sessionToken
         );
 
@@ -409,8 +392,8 @@ export class CryptoTradeHistoryComponent extends ChildComponent implements After
             userId,
             pageInfo,
             this.tradesPerPage,
-            this.selectedCoin ?? 'XBT',
-            this.selectedStrategy ?? 'DCA',
+            this.selectedCoin ?? 'ALL',
+            this.selectedStrategy ?? 'ALL',
             sessionToken
           );
 

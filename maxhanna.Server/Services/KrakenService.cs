@@ -2963,6 +2963,9 @@ public class KrakenService
     // Normalize coin symbol (BTC -> XBT)
     string tmpCoin = (coin ?? string.Empty).ToUpperInvariant();
     if (tmpCoin == "BTC") tmpCoin = "XBT";
+    bool allCoins = tmpCoin == "ALL";
+    string tmpStrategy = (strategy ?? string.Empty).ToUpperInvariant();
+    bool allStrategies = tmpStrategy == "ALL";
 
     // Export mode returns every matching row for CSV reports; paged mode caps
     // the page at 500 rows.
@@ -2999,9 +3002,9 @@ WITH filtered AS (
     matching_trade_id, is_reserved
   FROM trade_history
   WHERE user_id = @UserId
-    AND strategy = @Strategy
+    AND (@AllStrategies = 1 OR strategy = @Strategy)
     AND (@HasHours = 0 OR timestamp >= @StartTime)
-    AND (from_currency = @Coin OR to_currency = @Coin)
+    AND (@AllCoins = 1 OR from_currency = @Coin OR to_currency = @Coin)
     AND (@HasSearch = 0 OR CAST(id AS CHAR) LIKE CONCAT('%', @Search, '%') ESCAPE '\\'
       OR CAST(IFNULL(matching_trade_id, 0) AS CHAR) LIKE CONCAT('%', @Search, '%') ESCAPE '\\'
       OR from_currency LIKE CONCAT('%', @Search, '%') ESCAPE '\\'
@@ -3038,8 +3041,10 @@ LIMIT @PageSize OFFSET @Offset;";
 
       // Explicit parameter types/sizes
       cmd.Parameters.Add("@UserId", MySqlDbType.Int32).Value = userId;
-      cmd.Parameters.Add("@Strategy", MySqlDbType.VarChar, 3).Value = strategy ?? string.Empty;
+      cmd.Parameters.Add("@Strategy", MySqlDbType.VarChar, 3).Value = tmpStrategy;
+      cmd.Parameters.Add("@AllStrategies", MySqlDbType.Int32).Value = allStrategies ? 1 : 0;
       cmd.Parameters.Add("@Coin", MySqlDbType.VarChar, 45).Value = tmpCoin;
+      cmd.Parameters.Add("@AllCoins", MySqlDbType.Int32).Value = allCoins ? 1 : 0;
       cmd.Parameters.Add("@HasHours", MySqlDbType.Int32).Value = hasHours ? 1 : 0;
       cmd.Parameters.Add("@StartTime", MySqlDbType.DateTime).Value = hasHours ? startTimeUtc : (object)DBNull.Value;
       cmd.Parameters.Add("@HasSearch", MySqlDbType.Int32).Value = hasSearch ? 1 : 0;

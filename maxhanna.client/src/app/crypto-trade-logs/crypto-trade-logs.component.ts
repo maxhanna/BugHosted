@@ -41,12 +41,10 @@ export class CryptoTradeLogsComponent extends ChildComponent implements AfterVie
 
   async ngAfterViewInit() {
     setTimeout(() => {
-      if (this.defaultCoin) {
-        this.selectedCoin = this.defaultCoin.replace("BTC", "XBT");
-      }
-      if (this.defaultStrategy) {
-        this.selectedStrategy = this.defaultStrategy;
-      }
+      // Logs open across every coin and strategy by default. Users can still
+      // narrow either dimension independently.
+      this.selectedCoin = 'ALL';
+      this.selectedStrategy = 'ALL';
 
       if (!this.onMobile()) {
         this.logsPerPage = 30;
@@ -63,14 +61,14 @@ export class CryptoTradeLogsComponent extends ChildComponent implements AfterVie
     try {
       this.stopTradeLogPolling();
       this.startLoading();
-      const coin = selectedCoin ?? this.tradeLogCoinFilter?.nativeElement?.value;
-      const strategy = selectedStrategy ?? this.tradeLogStrategyFilter?.nativeElement?.value;
+      const coin = selectedCoin ?? this.tradeLogCoinFilter?.nativeElement?.value ?? this.selectedCoin ?? 'ALL';
+      const strategy = selectedStrategy ?? this.tradeLogStrategyFilter?.nativeElement?.value ?? this.selectedStrategy ?? 'ALL';
       const sessionToken = await this.inputtedParentRef.getSessionToken() ?? "";
       const userId = this.hasKrakenApi ? this.inputtedParentRef.user?.id ?? 1 : 1;
       const response = await this.tradeService.getTradeLogs(
         userId,
-        coin ?? this.selectedCoin ?? "BTC",
-        strategy ?? this.selectedStrategy ?? "DCA",
+        coin,
+        strategy,
         sessionToken,
         this.currentLogPage,
         this.logsPerPage,
@@ -207,8 +205,8 @@ export class CryptoTradeLogsComponent extends ChildComponent implements AfterVie
     }
     this.exportingLogs = true;
     try {
-      const coin = this.selectedCoin ?? this.tradeLogCoinFilter?.nativeElement?.value ?? 'BTC';
-      const strategy = this.selectedStrategy ?? this.tradeLogStrategyFilter?.nativeElement?.value ?? 'DCA';
+      const coin = this.selectedCoin ?? this.tradeLogCoinFilter?.nativeElement?.value ?? 'ALL';
+      const strategy = this.selectedStrategy ?? this.tradeLogStrategyFilter?.nativeElement?.value ?? 'ALL';
       const sessionToken = await this.inputtedParentRef.getSessionToken() ?? "";
       const userId = this.hasKrakenApi ? this.inputtedParentRef.user?.id ?? 1 : 1;
       const response = await this.tradeService.getTradeLogs(

@@ -2,6 +2,7 @@
     <div class="tradeHistoryTableCoinSelectWrapper">
         <div>
             <select #tradeBalanceCoinSelector [value]="selectedCoin" (change)="onCoinChange($event)">
+                <option value="ALL">ALL</option>
                 <option value="XBT">BTC</option>
                 <option value="XRP">XRP</option>
                 <option value="ETH">{{onMobile() ? 'ETH' : 'Ethereum'}}</option>
@@ -9,6 +10,7 @@
                 <option value="XDG">{{onMobile() ? 'DOGE': 'Dogecoin'}}</option>
             </select>
             <select #tradeBalanceStrategySelector [value]="selectedStrategy" (change)="onStrategyChange($event)">
+                <option value="ALL">ALL</option>
                 <option value="DCA">DCA</option>
                 <option value="IND">{{ onMobile() ? 'IND' : 'Indicator' }}</option>
                 <option value="HFT">{{ onMobile() ? 'HFT' : 'High-Frequency' }}</option>
@@ -99,8 +101,8 @@
             <tr>
                 <th [class]="onMobile() ? 'xxSmallFont' : 'smallFont'">ID</th>
                 <th [class]="onMobile() ? 'xxSmallFont' : 'smallFont'">Pair</th>
-                <th [class]="onMobile() ? 'xxSmallFont' : 'smallFont'">Value ({{ selectedCoin }}|$)</th>
-                <th [class]="onMobile() ? 'xxSmallFont' : 'smallFont'">{{ selectedCoin }} Price</th>
+                <th [class]="onMobile() ? 'xxSmallFont' : 'smallFont'">Value ({{ selectedCoin === 'ALL' ? 'coin' : selectedCoin }}|$)</th>
+                <th [class]="onMobile() ? 'xxSmallFont' : 'smallFont'">{{ selectedCoin === 'ALL' ? 'Coin' : selectedCoin }} Price</th>
                 <th [class]="onMobile() ? 'xxSmallFont' : 'smallFont'">Fees</th>
                 <th [class]="onMobile() ? 'xxSmallFont' : 'smallFont'">Timestamp</th>
                 <th [class]="onMobile() ? 'xxSmallFont' : 'smallFont'">Matched Trade</th>

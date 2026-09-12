@@ -2,6 +2,7 @@
     <div class="logFiltersWrapper">
         <div class="logTypeFiltersWrapper"> 
             <select (change)="filterLogsFromEvent()" #tradeLogCoinFilter [value]="selectedCoin">
+                <option value="ALL">ALL</option>
                 <option value="XBT">BTC</option>
                 <option value="XRP">XRP</option>
                 <option value="ETH">{{onMobile() ? 'ETH' : 'Ethereum'}}</option>
@@ -9,6 +10,7 @@
                 <option value="XDG">{{onMobile() ? 'DOGE': 'Dogecoin'}}</option>
             </select>
             <select (change)="filterLogsFromEvent()" #tradeLogStrategyFilter [value]="selectedStrategy">
+                <option value="ALL">ALL</option>
                 <option value="DCA">DCA</option>
                 <option value="HFT">{{onMobile() ? 'HFT' : 'High-Frequency'}}</option>
                 <option value="IND">{{onMobile() ? 'IND' : 'Indicator'}}</option>

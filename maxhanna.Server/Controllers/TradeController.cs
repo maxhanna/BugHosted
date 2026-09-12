@@ -271,11 +271,19 @@ public class TradeController : ControllerBase
 			if (req.UserId != 1 && !await _log.ValidateUserLoggedIn(req.UserId, encryptedUserId))
 				return StatusCode(500, "Access Denied.");
 
+			string requestedCoin = string.IsNullOrWhiteSpace(req.Coin) ? "ALL" : req.Coin.Trim();
+			string requestedStrategy = string.IsNullOrWhiteSpace(req.Strategy) ? "ALL" : req.Strategy.Trim();
+			bool allCoins = requestedCoin.Equals("ALL", StringComparison.OrdinalIgnoreCase);
+			bool allStrategies = requestedStrategy.Equals("ALL", StringComparison.OrdinalIgnoreCase);
+			string coinPart = allCoins ? ":" : $"({requestedCoin.Replace("BTC", "XBT")}:";
+			string strategyPart = allStrategies ? string.Empty : $":{requestedStrategy})";
+			string coinKeyword = $"{coinPart}{req.UserId}{strategyPart}";
+
 			var result = await _log.GetLogs(
 				req.UserId,
 				"TRADE",
 				req.ExportAll ? 25000 : (req.PageSize ?? 2500),
-				$"({req.Coin.Replace("BTC", "XBT")}:{req.UserId}:{req.Strategy})",
+				coinKeyword,
 				req.Page ?? 1,
 				req.Search,
 				req.FromDate,
@@ -285,7 +293,7 @@ public class TradeController : ControllerBase
 			var totalCount = await _log.GetLogsCount(
 				req.UserId,
 				"TRADE",
-				$"({req.Coin.Replace("BTC", "XBT")}:{req.UserId}:{req.Strategy})",
+				coinKeyword,
 				req.Search,
 				req.FromDate,
 				req.ToDate
