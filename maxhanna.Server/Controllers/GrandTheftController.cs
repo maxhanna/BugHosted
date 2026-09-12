@@ -1365,6 +1365,11 @@ namespace maxhanna.Server.Controllers
 			public int TargetUserId { get; set; } = 0;
 			public long TargetNpcId { get; set; } = 0;   // FightBackUntil target when it's another NPC (ped-vs-ped brawls)
 			public DateTime? DeadAt { get; set; } = null;
+			// Aircraft wrecks remain networked after destruction so clients can
+			// animate the carcass falling instead of making it vanish instantly.
+			public bool WreckFalling { get; set; } = false;
+			public float WreckStartY { get; set; } = 0f;
+			public DateTime? WreckStartedAt { get; set; } = null;
 			public float ApproachAngle { get; set; } = 0f;
 			public long HomeVehicleId { get; set; } = 0;
 			public List<int>? PathIndices { get; set; } = null;
@@ -2011,9 +2016,26 @@ namespace maxhanna.Server.Controllers
 				{
 					npc.IsSwimming = false;
 				}
+				float dx = npc.X - posX;
+				float dz = npc.Z - posZ;
+				float distSq = dx * dx + dz * dz;
 				if (npc.DeadAt != null)
 				{
-					if ((now - npc.DeadAt.Value).TotalSeconds > DEAD_BODY_TIMEOUT_SECONDS)
+					if (npc.WreckFalling && npc.WreckStartedAt.HasValue && (now - npc.WreckStartedAt.Value).TotalSeconds <= 12.0 && distSq <= 422500f)
+					{
+						aircraft.Add(new
+						{
+							id = npc.Id, posX = npc.X, posY = npc.WreckStartY, posZ = npc.Z,
+							yaw = npc.Yaw, speed = 0f, colorR = npc.Cr, colorG = npc.Cg, colorB = npc.Cb,
+							type = npc.Type, health = 1, maxHealth = npc.MaxHealth,
+							isBurning = true, isSmoking = true, wreckFalling = true,
+							wreckStartedAt = ((DateTimeOffset)npc.WreckStartedAt.Value).ToUnixTimeMilliseconds(),
+							wreckStartY = npc.WreckStartY
+						});
+						continue;
+					}
+					if ((now - npc.DeadAt.Value).TotalSeconds > DEAD_BODY_TIMEOUT_SECONDS ||
+						(npc.WreckFalling && npc.WreckStartedAt.HasValue && (now - npc.WreckStartedAt.Value).TotalSeconds > 12.0))
 					{
 						deadIds.Add(kv.Key);
 					}
@@ -2032,9 +2054,11 @@ namespace maxhanna.Server.Controllers
 								type = npc.Type,
 								gender = npc.Gender,
 								colorR = npc.Cr,
-								colorG = npc.Cg,
-								colorB = npc.Cb,
-								deathTime = ((DateTimeOffset)npc.DeadAt.Value).ToUnixTimeSeconds()
+								colorG = npc.Cg,														colorB = npc.Cb,
+														posY = npc.WreckFalling ? npc.WreckStartY : npc.Y,
+														wreckFalling = npc.WreckFalling,
+														deathTime = ((DateTimeOffset)npc.DeadAt.Value).ToUnixTimeSeconds()
+
 							});
 						}
 					}
@@ -2232,9 +2256,6 @@ namespace maxhanna.Server.Controllers
 						}
 					}
 				}
-				float dx = npc.X - posX;
-				float dz = npc.Z - posZ;
-				float distSq = dx * dx + dz * dz;
 				// Cull only NPCs nobody in the world is near — removing based on the
 				// requesting player alone would delete the scenery around other players.
 				if (!npc.IsParked && !IsNearAnyPlayer(activePlayers, npc.X, npc.Z))
@@ -2924,8 +2945,7 @@ namespace maxhanna.Server.Controllers
 					}
 				}
 				var entry = new { id = npc.Id, posX = npc.X, posY = npc.Y, posZ = npc.Z, yaw = npc.Yaw, speed = npc.Speed, colorR = npc.Cr, colorG = npc.Cg, colorB = npc.Cb, type = npc.Type, gender = npc.Gender, health = npc.Health, hasDriver = npc.HasDriver, passengerCount = npc.PassengerCount, isShootingAt = npc.IsShootingAt, isBurning = npc.OnFire, maxHealth = npc.MaxHealth, isSmoking = npc.IsSmoking, isFleeing = npc.IsFleeing, isDucking = npc.IsDucking, isArresting = npc.IsArresting, isSwimming = npc.IsSwimming, targetNpcId = npc.TargetNpcId };
-				if (npc.Type == "ped_male" || npc.Type == "ped_female" || npc.Type == "cop") pedestrians.Add(entry);
-				else if (npc.Type == "helicopter" || npc.Type == "plane") aircraft.Add(entry);
+				if (npc.Type == "ped_male" || npc.Type == "ped_female" || npc.Type == "cop") pedestrians.Add(entry);					else if (npc.Type == "helicopter" || npc.Type == "plane") aircraft.Add(entry);
 				else cars.Add(entry);
 			}
 			foreach (var id in deadIds) npcs.TryRemove(id, out _);
@@ -4490,8 +4510,18 @@ namespace maxhanna.Server.Controllers
 						kv.Value.Health -= req.Damage;
 						hitAnything = true;
 						hitNpc = true;						bool isVehicle = kv.Value.Type == "car" || kv.Value.Type == "bus" || kv.Value.Type == "taxi" || kv.Value.Type == "police" || kv.Value.Type == "bike" || kv.Value.Type == "motorcycle" || kv.Value.Type == "helicopter" || kv.Value.Type == "plane";
-						bool isMissileAircraftHit = (kv.Value.Type == "helicopter" || kv.Value.Type == "plane") && req.Weapon == 4;
-						if (isMissileAircraftHit) kv.Value.Health = 0;
+						bool isMissileAircraftHit = (kv.Value.Type == "helicopter" || kv.Value.Type == "plane") && req.Weapon == 4;							if (isMissileAircraftHit)
+							{
+								kv.Value.Health = 0;
+								// Preserve the aircraft as a falling wreck for the shared world.
+								// The client receives this state from GetNPCs and animates it.
+								if (kv.Value.Type == "helicopter")
+								{
+									kv.Value.WreckFalling = true;
+									kv.Value.WreckStartY = kv.Value.Y;
+									kv.Value.WreckStartedAt = DateTime.UtcNow;
+								}
+							}
 						if (kv.Value.Health <= 0)
 						{
 							// A rocket is an anti-air weapon: one direct missile hit
