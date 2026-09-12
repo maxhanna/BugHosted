@@ -108,13 +108,13 @@
 
     <!-- ============ Menu panel ============ -->
     <div class="menuPanel" *ngIf="isMenuPanelOpen">
-      <button (click)="openLocalFolderPopup()">💾 Open books from folder</button>
       <div class="toolbar-actions">
         <app-file-upload *ngIf="isLoggedIn" [currentDirectory]="uploadDirectory" [user]="parentRef?.user!"
           [inputtedParentRef]="parentRef" [uploadButtonText]="'Add Book(s)'" [maxSelectedFiles]="100"
           [allowedFileTypes]="allowedBookTypes" [displayPrivatePublicOption]="true" [displayOptionsAndTopicsButtons]="false"
           [disableFileCompression]="true" (userUploadFinishedEvent)="uploadFinished($event)"></app-file-upload>
       </div>
+      <button (click)="openLocalFolderPopup()">💾 Open books from folder</button>
       <button (click)="refreshAll()">🔄 Refresh</button>
       <button *ngIf="!showNewFolderPrompt" (click)="showNewFolderPrompt = true" [disabled]="!isLoggedIn">📂 New Folder</button>
       <ng-container *ngIf="showNewFolderPrompt">
