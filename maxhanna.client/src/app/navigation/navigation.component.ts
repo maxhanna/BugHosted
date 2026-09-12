@@ -112,6 +112,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   isLoadingGrandTheft = false;
   isLoadingRacing = false;
   isLoadingSpaceEvolves = false;
+  isLoadingUserEvents = false;
   isLoadingDigcraft = false;
   isLoadingNexus = false;
   isLoadingEmulator = false;
@@ -173,7 +174,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
     private digcraftService: DigcraftService,
     private racingService: RacingService,
     private spaceEvolvesService: SpaceEvolvesService,
-    private newsService: NewsService) { }
+    private newsService: NewsService,
+    private userEventService: UserEventService) { }
 
   async ngOnInit() {
     this.navbarReady = true;
@@ -741,6 +743,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       Promise.resolve(this.getGrandTheftPlayerInfo()),
       Promise.resolve(this.getRacingPlayerInfo()),
       Promise.resolve(this.getSpaceEvolvesPlayerInfo()),
+      Promise.resolve(this.getUserEventsInfo()),
       Promise.resolve(this.getDigcraftPlayerInfo()),
       Promise.resolve(this.getMovieInfo())
     ].map(p =>
@@ -780,6 +783,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.scheduleRecurring('grandTheft', () => { if (this._parent.notificationsActive) this.getGrandTheftPlayerInfo(); }, this.time60Secs);
     this.scheduleRecurring('racing', () => { if (this._parent.notificationsActive) this.getRacingPlayerInfo(); }, this.time60Secs);
     this.scheduleRecurring('spaceEvolves', () => { if (this._parent.notificationsActive) this.getSpaceEvolvesPlayerInfo(); }, this.time60Secs);
+    this.scheduleRecurring('userEvents', () => { if (this._parent.notificationsActive) this.getUserEventsInfo(); }, this.time60Secs);
     this.scheduleRecurring('nexus', () => { if (this._parent.notificationsActive) this.getNexusPlayerInfo(); }, this.time60Secs);
     this.scheduleRecurring('meta', () => { if (this._parent.notificationsActive) this.getMetaPlayerInfo(); }, this.time60Secs);
     this.scheduleRecurring('music', () => { if (this._parent.notificationsActive) this.getMusicInfo(); }, this.time60Mins);
@@ -1493,6 +1497,24 @@ export class NavigationComponent implements OnInit, OnDestroy {
     }
     this.isLoadingSpaceEvolves = false;
     this.updateLastRunTimestamp('spaceEvolves');
+  }
+
+  private async getUserEventsInfo() {
+    const sig = this._abortController.signal;
+    if (sig.aborted || !this._parent.notificationsActive) return;
+    if (this._parent.lastRunTimestamps['userEvents'] && Date.now() - this._parent.lastRunTimestamps['userEvents'] < this.time60Secs) return;
+    this.isLoadingUserEvents = true;
+    const nav = this._parent.navigationItems.find(x => x.title === 'User-Events');
+    if (nav && this.hasUserSelectedNavItem('User-Events')) {
+      try {
+        this.userEventsRecentCount = await this.userEventService.getRecentEventCount(5);
+        nav.content = (this.userEventsRecentCount ?? 0).toString();
+      } catch {
+        this.userEventsRecentCount = null;
+      }
+    }
+    this.isLoadingUserEvents = false;
+    this.updateLastRunTimestamp('userEvents');
   }
 
   private async getDigcraftPlayerInfo() {

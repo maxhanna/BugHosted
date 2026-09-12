@@ -133,9 +133,6 @@ export class SpaceEvolvesComponent extends ChildComponent implements AfterViewIn
       case 'utility-wave-exp': return `+${c * 20} → +${n * 20} EXP/wave`;
       case 'utility-kill-exp': return `+${c * 10}% → +${n * 10}% EXP`;
       case 'plasma-conversion-cap': return `cap ${1 + c} → ${2 + c} allies`;
-      case 'utility-wave-exp': return `+${c * 20} → +${n * 20}/wave`;
-      case 'utility-kill-exp': return `+${c * 10}% → +${n * 10}% EXP`;
-      case 'ship-ordnance': return `+${c * 18}% → +${n * 18}% size`;
       default:
         if (upgrade.id.startsWith('utility-free-')) return `+${c * 12}% → +${n * 12}% free chance`;
         return null;
