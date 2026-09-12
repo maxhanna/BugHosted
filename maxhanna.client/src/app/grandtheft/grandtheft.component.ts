@@ -3286,18 +3286,27 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         if (proj < 0 || proj > maxRange) continue;
         const closestX = ox + dx * proj, closestY = oy + dy * proj, closestZ = oz + dz * proj;
         const distSq = (tx - closestX) ** 2 + (ty - closestY) ** 2 + (tz - closestZ) ** 2;
+        const isVehicleTarget = ['car', 'bus', 'taxi', 'police', 'bike', 'motorcycle'].includes(t.type);
+        // Treat the rear quarter panels as the fuel-tank hit zone. The vehicle
+        // yaw uses the same local basis as the renderer: local +Z is the rear
+        // and local +/-X are the two sides. A tank shot is allowed outside the
+        // center-body sphere so aiming at the side of a car actually matters.
+        const localHitX = (closestX - tx) * Math.cos(t.yaw || 0) - (closestZ - tz) * Math.sin(t.yaw || 0);
+        const localHitZ = (closestX - tx) * Math.sin(t.yaw || 0) + (closestZ - tz) * Math.cos(t.yaw || 0);
+        const gasTankHit = isVehicleTarget && Math.abs(localHitX) >= 0.62 && Math.abs(localHitX) <= 1.7
+          && localHitZ >= 0.65 && localHitZ <= 2.35 && closestY >= 0.15 && closestY <= 1.35;
         // Use a compact vertical body profile instead of one center sphere.
         // Headshots are difficult but decisive; leg hits are weaker and produce
         // a stagger rather than the full-body reaction.
-        if (distSq < 1.0) {
+        if (gasTankHit || distSq < 1.0) {
           const baseY = t.posY || t.y || 0;
           const relativeY = ty - baseY;
           const region: 'head' | 'torso' | 'legs' = relativeY >= 1.65 ? 'head' : relativeY <= 0.72 ? 'legs' : 'torso';
           const regionRadiusSq = region === 'head' ? 0.34 : region === 'legs' ? 0.58 : 0.82;
-          if (distSq > regionRadiusSq) continue;
-          this.spawnBlood(tx, ty, tz, dx, dy, dz);
+          if (!gasTankHit && distSq > regionRadiusSq) continue;
+          if (!isVehicleTarget) this.spawnBlood(tx, ty, tz, dx, dy, dz);
           const baseDamage = WEAPON_DAMAGES[this.currentWeapon];
-          const dmg = Math.round(baseDamage * (region === 'head' ? 3.5 : region === 'legs' ? 0.55 : 1));
+          const dmg = gasTankHit ? 100000 : Math.round(baseDamage * (region === 'head' ? 3.5 : region === 'legs' ? 0.55 : 1));
           if (isPlayer) {
             t.health = Math.max(0, (t.health ?? 100) - dmg);
             this.gtService.hit(this.getUserId(), t.userId, 1, dmg, ox, oz, this.currentWeapon).then((res: any) => {
@@ -3321,7 +3330,15 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
               if (wasAlive && t.health <= 0) t.killedByPlayer = true;
             }
             if (t.type === 'police') reportedPoliceHits.add(t.id);
-            this.gtService.hit(this.getUserId(), t.id, 1, dmg, ox, oz, this.currentWeapon);
+            if (gasTankHit) {
+              t.health = 0;
+              // Local-only parked fixtures do not have a server NPC id. They
+              // still get the same immediate one-shot explosion and despawn.
+              if (t.id < 0) this.spawnExplosion(tx, 0.5, tz, 2.0);
+            }
+            if (t.id > 0 && list !== this.trafficCars) {
+              this.gtService.hit(this.getUserId(), t.id, 1, dmg, ox, oz, this.currentWeapon, false, gasTankHit);
+            }
             if (region === 'head' || region === 'legs') {
               this.npcImpactReactions.set(t.id, {
                 vx: dx * (region === 'head' ? 1.2 : 0.35),
@@ -3372,6 +3389,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     checkTargets(this.serverNPCs, false);
     checkTargets(this.policeModeThugCars, false);
     checkTargets(this.parkedCars, false);
+    checkTargets(this.airportLotCars, false);
+    checkTargets(this.trafficCars, false);
     if (this.currentWeapon === 0) return;
     // A shot that intersects a police vehicle immediately establishes a serious
     // police response, even if the bullet does not hit an occupant. Do not treat

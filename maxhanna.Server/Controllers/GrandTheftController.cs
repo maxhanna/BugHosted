@@ -4524,7 +4524,11 @@ namespace maxhanna.Server.Controllers
 						kv.Value.Health -= req.Damage;
 						hitAnything = true;
 						hitNpc = true;						bool isVehicle = kv.Value.Type == "car" || kv.Value.Type == "bus" || kv.Value.Type == "taxi" || kv.Value.Type == "police" || kv.Value.Type == "bike" || kv.Value.Type == "motorcycle" || kv.Value.Type == "helicopter" || kv.Value.Type == "plane";
-						bool isMissileAircraftHit = (kv.Value.Type == "helicopter" || kv.Value.Type == "plane") && req.Weapon == 4;							if (isMissileAircraftHit)
+						bool isMissileAircraftHit = (kv.Value.Type == "helicopter" || kv.Value.Type == "plane") && req.Weapon == 4;
+						// Gas-tank shots are an explicit hit result from the client-side
+						// vehicle silhouette test. Unlike ordinary body damage, they
+						// always destroy a ground vehicle in one shot.
+						bool isGasTankHit = req.GasTankHit && isVehicle && kv.Value.Type != "helicopter" && kv.Value.Type != "plane";							if (isMissileAircraftHit || isGasTankHit)
 							{
 								kv.Value.Health = 0;
 								// Preserve the aircraft as a falling wreck for the shared world.
@@ -4541,7 +4545,7 @@ namespace maxhanna.Server.Controllers
 							// A rocket is an anti-air weapon: one direct missile hit
 							// should bring down a helicopter instead of leaving it at
 							// the vehicle minimum-health floor used by cars.
-							if (isVehicle && !isMissileAircraftHit) { kv.Value.Health = 1; }
+							if (isVehicle && !isMissileAircraftHit && !isGasTankHit) { kv.Value.Health = 1; }
 							else if (!isVehicle) { kv.Value.DeadAt = DateTime.UtcNow; targetDied = true; }
 							else { targetDied = true; }
 							deathX = kv.Value.X;
@@ -4859,7 +4863,7 @@ namespace maxhanna.Server.Controllers
 	public class GrandTheftSaveRequest { public int UserId { get; set; } public float PosX { get; set; } public float PosZ { get; set; } public int Score { get; set; } }
 	public class GrandTheftScoreRequest { public int UserId { get; set; } public int Score { get; set; } }		public class GTUpdatePositionRequest { public int UserId { get; set; } public int WorldId { get; set; } = 1; public float PosX { get; set; } public float PosY { get; set; } public float PosZ { get; set; } public float Yaw { get; set; } public float Pitch { get; set; } public float CarYaw { get; set; } public float CarSpeed { get; set; } public int Health { get; set; } = 100; public int Weapon { get; set; } = 0; public bool IsShooting { get; set; } public string? ModelUrl { get; set; } public int Money { get; set; } = 0; public bool IsInCar { get; set; } public string? VehicleType { get; set; } public float CarColorR { get; set; } = 1f; public float CarColorG { get; set; } = 1f; public float CarColorB { get; set; } = 1f; public int PassengerOfUserId { get; set; } = 0; public string? ChatMessage { get; set; } public bool Respawned { get; set; } public bool[]? OwnedWeapons { get; set; } public int[]? Ammo { get; set; } public int WantedLevel { get; set; } = 0; }
 	public class GTShootRequest { public int UserId { get; set; } public int WorldId { get; set; } = 1; public int Weapon { get; set; } = 0; public float OriginX { get; set; } public float OriginY { get; set; } public float OriginZ { get; set; } public float DirX { get; set; } public float DirY { get; set; } public float DirZ { get; set; } }
-	public class GTHitRequest { public int AttackerId { get; set; } public long TargetId { get; set; } public int WorldId { get; set; } = 1; public int Damage { get; set; } = 10; public int Weapon { get; set; } = -1; public float AttackerX { get; set; } public float AttackerZ { get; set; } public bool NpcKill { get; set; } = false; }
+	public class GTHitRequest { public int AttackerId { get; set; } public long TargetId { get; set; } public int WorldId { get; set; } = 1; public int Damage { get; set; } = 10; public int Weapon { get; set; } = -1; public float AttackerX { get; set; } public float AttackerZ { get; set; } public bool NpcKill { get; set; } = false; public bool GasTankHit { get; set; } = false; }
 	public class GTRobberyRequest { public int UserId { get; set; } public float PosX { get; set; } public float PosZ { get; set; } }
 	public class GTSpawnTaxiRequest { public int WorldId { get; set; } = 1; public float PosX { get; set; } public float PosZ { get; set; } public float Yaw { get; set; } }
 	public class GTJumpRequest { public int UserId { get; set; } public int RampId { get; set; } public double Distance { get; set; } public double Height { get; set; } }

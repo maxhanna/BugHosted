@@ -476,9 +476,9 @@ export class GrandtheftService {
     }
   }
 
-  async hit(attackerId: number, targetId: number, worldId: number, damage: number, attackerX: number = 0, attackerZ: number = 0, weapon: number = -1, npcKill: boolean = false): Promise<any> {
+  async hit(attackerId: number, targetId: number, worldId: number, damage: number, attackerX: number = 0, attackerZ: number = 0, weapon: number = -1, npcKill: boolean = false, gasTankHit: boolean = false): Promise<any> {
     try {
-      return await this.http.post(`${this.baseUrl}/hit`, { attackerId, targetId, worldId, damage, weapon, attackerX, attackerZ, npcKill }).toPromise();
+      return await this.http.post(`${this.baseUrl}/hit`, { attackerId, targetId, worldId, damage, weapon, attackerX, attackerZ, npcKill, gasTankHit }).toPromise();
     } catch (e) {
       console.error('Error registering hit', e);
       return null;
