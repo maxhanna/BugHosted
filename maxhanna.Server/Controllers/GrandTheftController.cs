@@ -746,6 +746,17 @@ namespace maxhanna.Server.Controllers
 		};
 		private static long _nextDropId = 1000000;
 		private static long GetNextDropId() => Interlocked.Increment(ref _nextDropId);
+		private static int DefaultPickupAmmo(int weaponType)
+		{
+			return weaponType switch
+			{
+				1 => 15, // pistol
+				2 => 30, // rifle
+				3 => 10, // shotgun
+				4 => 5,  // rocket launcher
+				_ => 0,
+			};
+		}
 		private class DroppedWeapon
 		{
 			public long Id { get; set; }
@@ -3564,7 +3575,7 @@ namespace maxhanna.Server.Controllers
 					// Slot and weapon type are both deterministic. A collected slot is
 					// refilled at this exact location, never near the current player.
 					int weaponType = 1 + (slot % 4);
-					int ammo = weaponType == 1 ? 15 : weaponType == 2 ? 30 : weaponType == 3 ? 10 : 5;
+					int ammo = DefaultPickupAmmo(weaponType);
 					var drop = new DroppedWeapon
 					{
 						Id = GetNextDropId(), PosX = authored.X, PosZ = authored.Z,
@@ -4692,8 +4703,13 @@ namespace maxhanna.Server.Controllers
 				var pw = _playerWeapons[req.UserId];
 				var pa = _playerAmmo[req.UserId];
 				pw[drop.WeaponType] = true;
-				pa[drop.WeaponType] += drop.Ammo;
-				return Ok(new { ok = true, weaponType = drop.WeaponType, ammo = pa[drop.WeaponType] });
+				// Random world pickups must always be usable, even for a player
+				// acquiring this weapon for the first time. Keep the server-side
+				// floor here so a malformed/legacy zero-ammo drop cannot grant an
+				// empty weapon.
+				int grantedAmmo = drop.IsRandom ? Math.Max(drop.Ammo, DefaultPickupAmmo(drop.WeaponType)) : drop.Ammo;
+				pa[drop.WeaponType] += grantedAmmo;
+				return Ok(new { ok = true, weaponType = drop.WeaponType, ammo = pa[drop.WeaponType], isRandom = drop.IsRandom });
 			}
 			if (drop == null && req.DropId < 0)
 			{

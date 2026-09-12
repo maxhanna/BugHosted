@@ -41,6 +41,8 @@ export interface HumanVariant {
   hasBeard?: boolean;
   hasCap?: boolean;
   hasHelmet?: boolean;
+  /** Marks the local player so player-only accessories can use a fitted silhouette. */
+  isPlayer?: boolean;
   shoulderWidth?: number;
   hipWidth?: number;
   heightScale?: number;

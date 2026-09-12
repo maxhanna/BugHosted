@@ -4711,6 +4711,7 @@ void main() {
     const variant = pickVariant(appearanceRole, appearanceSeed, appearanceGender);
     // Override Franklin colors to be stable regardless of input color (keeps multiplayer tint for nameplate only)
     variant.outfitA = [0.16, 0.52, 0.22]; variant.outfitB = [0.14,0.14,0.16]; variant.accent = [0.92,0.92,0.96];
+    variant.isPlayer = true;
     const mesh = this.createLifelikeHumanMesh(variant);
     this.humanMeshCache.set(key, mesh);
     return mesh;
@@ -4890,10 +4891,24 @@ void main() {
     if ((variant.shirtStyle ?? 0) % 2 === 1) addBox(0,0.46,0.10,0.12,0.025,0.012,variant.outfitA,3);
     addBox(-0.04,0.56,0.11,0.04,0.02,0.01,[1,1,1],4); addBox(0.04,0.56,0.11,0.04,0.02,0.01,[1,1,1],4);
     addBox(-0.04,0.56,0.115,0.018,0.018,0.005,[0.05,0.05,0.05],4); addBox(0.04,0.56,0.115,0.018,0.018,0.005,[0.05,0.05,0.05],4);
-    if (variant.hasBeard) addBox(0,0.48,0.10,0.12,0.08,0.06,variant.hair,4);
-    if (variant.hasCap){
+    if (variant.hasBeard) addBox(0,0.48,0.10,0.12,0.08,0.06,variant.hair,4);    if(variant.hasCap){
       const capCol: [number,number,number]= variant.role==='cop'?[0.08,0.12,0.42]: variant.role==='pizza'?[0.92,0.08,0.08]:[0.30,0.22,0.12];
-      addBox(0,0.68,0,headR*1.5,0.06,headR*1.4,capCol,4); addBox(0,0.64,0.10,headR*1.3,0.02,0.10,capCol,4);
+      if (variant.isPlayer) {
+        // The old player hat was two thin cubes: it read as a floating slab and
+        // often clipped through the hair. Use a shallow rounded crown, a fitted
+        // hatband, and a short forward brim instead. The face looks toward +Z,
+        // so the brim stays attached to the forehead while the whole head turns.
+        addRounded(0, 0.675, -0.005, headR * 1.02, 0.052, headR * 0.92, capCol, 4);
+        addBox(0, 0.646, 0.005, headR * 1.62, 0.024, headR * 1.26, capCol, 4);
+        addBox(0, 0.638, 0.105, headR * 1.16, 0.022, 0.14, capCol, 4);
+        // A contrasting band makes the silhouette read as a proper cap rather
+        // than another block, without adding a separate material or draw call.
+        addBox(0, 0.653, 0.015, headR * 1.44, 0.018, headR * 1.12,
+          variant.role === 'cop' ? [0.04, 0.07, 0.22] : [0.12, 0.09, 0.06], 4);
+      } else {
+        // Preserve the established NPC cap proportions.
+        addBox(0,0.68,0,headR*1.5,0.06,headR*1.4,capCol,4); addBox(0,0.64,0.10,headR*1.3,0.02,0.10,capCol,4);
+      }
       if(variant.role==='cop') addBox(0,0.67,0.08,0.06,0.05,0.01,[0.88,0.70,0.12],4);
       if(variant.role==='pizza') addBox(0,0.67,0.08,0.10,0.06,0.01,[1,0.95,0.85],4);
     }
@@ -6140,12 +6155,17 @@ void main() {
       }
     }
     if (playerMesh && !this.playerIsInCar) {
+      // In third person the held weapon follows the camera aim. Turn the whole
+      // character to that same aim when armed so the gun, hands, shoulders and
+      // torso stay connected instead of looking like the weapon is floating off
+      // a sideways-facing body. Unarmed movement keeps its normal walk facing.
+      this.updateWeaponPitch(dt);
+      const bodyYaw = this.playerWeapon > 0 ? this.weaponYaw : carYaw;
       // Franklin has a verified full-body skeleton but no embedded clips, so
       // use the procedural player pose path rather than the NPC clip matcher.
       this.skinPlayerMesh(playerMesh, dt);
-      this.drawMesh(playerMesh, targetX, this.groundedModelY(playerMesh, targetY, PLAYER_RENDER_SCALE), targetZ, carYaw, [PLAYER_RENDER_SCALE, PLAYER_RENDER_SCALE, PLAYER_RENDER_SCALE], [1, 1, 1, 1], false, 0, carRoll);
-      this.updateWeaponPitch(dt);
-      this.drawPlayerWeapon(targetX, targetY, targetZ, carYaw);
+      this.drawMesh(playerMesh, targetX, this.groundedModelY(playerMesh, targetY, PLAYER_RENDER_SCALE), targetZ, bodyYaw, [PLAYER_RENDER_SCALE, PLAYER_RENDER_SCALE, PLAYER_RENDER_SCALE], [1, 1, 1, 1], false, 0, carRoll);
+      this.drawPlayerWeapon(targetX, targetY, targetZ, bodyYaw);
     }
     // Moped wheel animation: rear wheel spins with speed, front wheel also steers.
     const mopedArr = Array.isArray(playerMesh) ? playerMesh : (playerMesh ? [playerMesh] : []);
