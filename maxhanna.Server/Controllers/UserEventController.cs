@@ -106,6 +106,27 @@ namespace maxhanna.Server.Controllers
             }
         }
 
+        [HttpGet("RecentCount", Name = "GetRecentUserEventCount")]
+        public async Task<IActionResult> GetRecentUserEventCount([FromQuery] int minutes = 5)
+        {
+            if (minutes <= 0 || minutes > 1440) minutes = 5;
+            try
+            {
+                using var conn = await GetDbConnectionAsync();
+                // minutes is a validated int, safe to inline (MySQL placeholders
+                // are not allowed in all INTERVAL positions).
+                using var cmd = new MySqlCommand(
+                    $"SELECT COUNT(*) FROM maxhanna.user_events WHERE created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL {minutes} MINUTE)", conn);
+                var count = Convert.ToInt32(await cmd.ExecuteScalarAsync());
+                return Ok(count);
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("Error fetching recent user event count: " + ex.Message, null, "USEREVENT", true);
+                return StatusCode(500, "An error occurred while fetching recent user event count.");
+            }
+        }
+
         [HttpPost("/UserEvent/Insert", Name = "InsertUserEvent")]
         public async Task<IActionResult> InsertUserEvent([FromBody] UserEventsRequest request)
         {

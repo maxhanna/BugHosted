@@ -36,6 +36,20 @@ export class UserEventService {
     }
   }
 
+  async getRecentEventCount(minutes = 5): Promise<number | null> {
+    try {
+      const response = await fetch(`/userevent/recentcount?minutes=${minutes}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (!response.ok) return null;
+      const result = await response.json();
+      return typeof result === 'number' ? result : null;
+    } catch {
+      return null;
+    }
+  }
+
   async getAllEventTypes(): Promise<string[]> {
     try {
       const response = await fetch('/userevent/eventtypes', {

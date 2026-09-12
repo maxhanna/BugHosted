@@ -143,6 +143,7 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
       bones_death: { icon: navIcon('Bones', '💀'), description: 'Bones death', component: 'Bones' },
       ender_kill: { icon: navIcon('Ender', '🏍️'), description: 'Ender kill', component: 'Ender' },
       ender_death: { icon: navIcon('Ender', '💥'), description: 'Ender death', component: 'Ender' },
+      space_evolves: { icon: navIcon('Space-Evolves', '🧬'), description: 'Space-Evolves play', component: 'Space-Evolves' },
       digcraft_play: { icon: navIcon('DigCraft', '⛏️'), description: 'DigCraft play', component: 'DigCraft' },
       digcraft_death: { icon: navIcon('DigCraft', '⛏️'), description: 'DigCraft death', component: 'DigCraft' },
       digcraft_kill: { icon: navIcon('DigCraft', '⛏️'), description: 'DigCraft kill', component: 'DigCraft' },

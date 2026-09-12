@@ -30,6 +30,7 @@ import { DigcraftService } from '../../services/digcraft.service';
 import { GrandtheftService } from '../../services/grandtheft.service';
 import { RacingService } from '../../services/racing.service';
 import { SpaceEvolvesService } from '../../services/space-evolves.service';
+import { UserEventService } from '../../services/user-event.service';
 
 @Component({
   selector: 'app-navigation',
@@ -50,6 +51,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   grandtheftActivePlayers: number | null = null;
   racingActivePlayers: number | null = null;
   spaceEvolvesActivePlayers: number | null = null;
+  userEventsRecentCount: number | null = null;
   digcraftActivePlayers: number | null = null;
   private digcraftInterval: any;
   bonesActivePlayers: number | null = null;
