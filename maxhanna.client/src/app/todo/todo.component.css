@@ -139,29 +139,7 @@
   outline: none;
   border-color: var(--third-font-color, cornflowerblue);
   box-shadow: 0 0 0 3px rgba(100, 149, 237, 0.2);
-}
-
-.todoSaveBtn {
-  padding: 11px 24px;
-  border: none;
-  border-radius: 999px;
-  background: linear-gradient(135deg, #2e8b57, #3cb371);
-  color: #fff;
-  font-weight: 700;
-  font-size: 0.95rem;
-  cursor: pointer;
-  box-shadow: 0 4px 12px rgba(46, 139, 87, 0.35);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.todoSaveBtn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 18px rgba(46, 139, 87, 0.5);
-}
-
-.todoSaveBtn:active {
-  transform: translateY(0);
-}
+} 
 
 /* ─── Table ─── */
 .mainTableContainer {

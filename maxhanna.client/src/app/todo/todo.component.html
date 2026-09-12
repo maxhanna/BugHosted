@@ -31,8 +31,7 @@
     <input type="text" 
       (click)="openAddTodoPopup()" 
       (keydown.escape)="closeAddTodoPopup()" />
-    <button type="button" class="composerToggleBtn" title="Add {{selectedType.value}}"
-      (click)="openAddTodoPopup()">➕</button>
+    <button type="button" title="Add {{selectedType.value}}" (click)="openAddTodoPopup()">➕</button>
   </fieldset>
  
   <div class="popupPanel" *ngIf="isAddTodoPopupOpen">
@@ -52,7 +51,7 @@
         (selectFileEvent)="selectFile($event)"></app-media-selector>
     </div>
     <div class="addTodoPopupRow addTodoPopupActions">
-      <input type="submit" class="todoSaveBtn" value="💾Save" (click)="addTodo()" />
+      <input type="submit" value="💾Save" (click)="addTodo()" />
       <button type="button" class="closeButton" id="closeOverlay" (click)="closeAddTodoPopup()">Close</button>
     </div>
   </div>
