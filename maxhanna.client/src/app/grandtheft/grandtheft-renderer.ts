@@ -6004,19 +6004,48 @@ void main() {
       if (npc.type === 'helicopter') {
         const copHeli = !!(npc as any).isPolice || !!(npc as any).isCop;
         const heliMesh = copHeli ? this.getHelicopterMesh(npc.id, true) : this.getHelicopterMesh(npc.id, false);
-        // Keep the body and its rotor in the same local coordinate frame. The
-        // body mesh is centered near Y=1, so expY is the airframe base height.
-        this.drawMesh(heliMesh, npc.x, expY, npc.z, npc.yaw + Math.PI, [1, 1, 1], [1, 1, 1, 1]);
-        const rotorMesh = this.getRotorBladeMesh();
+        const wreckFalling = (npc as any).wreckFalling === true;
         const now = performance.now() / 1000;
-        const mainRotorY = expY + 2.08;  
-        const mainSpin = now * 20;       
-        this.drawMesh(rotorMesh, npc.x, mainRotorY, npc.z, npc.yaw + Math.PI + mainSpin, [0.58, 0.58, 0.58], [0.55, 0.55, 0.55, 0.5]);
-        const helicopterYaw = npc.yaw + Math.PI;
-        const tailOffX = Math.sin(helicopterYaw) * 2.65;
-        const tailOffZ = Math.cos(helicopterYaw) * 2.65;
-        const tailSpin = now * 55;       
-        this.drawMesh(rotorMesh, npc.x + tailOffX, expY + 1.18, npc.z + tailOffZ, helicopterYaw + tailSpin, [0.18, 0.18, 0.18], [0.4, 0.4, 0.4, 0.45]);
+        if (wreckFalling) {
+          // Rocket kills stay in the authoritative aircraft list. Animate the
+          // same airframe from its networked start altitude into a wreck on the
+          // ground instead of replacing it with a vanished/dead-body marker.
+          const startedAt = Number((npc as any).wreckStartedAt) / 1000;
+          const elapsed = Number.isFinite(startedAt) && startedAt > 0
+            ? Math.max(0, now - startedAt)
+            : 0;
+          const fallTime = Math.min(3.2, elapsed);
+          const wreckStartY = Number((npc as any).wreckStartY ?? expY);
+          const groundY = getTerrainHeight(npc.x, npc.z);
+          const fallY = Math.max(groundY + 0.35, wreckStartY - 4.9 * fallTime * fallTime);
+          const impactProgress = Math.min(1, fallTime / 3.2);
+          const wreckPitch = -impactProgress * Math.PI * 0.82;
+          const wreckRoll = Math.sin(elapsed * 8 + npc.id) * 0.32 + impactProgress * 0.7;
+          const wreckYaw = npc.yaw + Math.PI + Math.sin(elapsed * 2.5) * 0.35;
+          const fade = elapsed > 10 ? Math.max(0, 1 - (elapsed - 10) / 2) : 1;
+          this.drawMesh(heliMesh, npc.x, fallY, npc.z, wreckYaw, [1, 1, 1], [1, 1, 1, fade], false, wreckPitch, wreckRoll);
+          // The rotors wind down and wobble during the crash, then disappear
+          // with the wreck rather than continuing to spin like a live aircraft.
+          if (fade > 0 && elapsed < 4.5) {
+            const rotorMesh = this.getRotorBladeMesh();
+            const rotorY = fallY + 2.08 * (1 - impactProgress * 0.25);
+            const rotorSpin = elapsed * (20 - Math.min(16, elapsed * 4));
+            this.drawMesh(rotorMesh, npc.x, rotorY, npc.z, wreckYaw + rotorSpin, [0.58, 0.58, 0.58], [0.25, 0.25, 0.25, 0.55 * fade], false, wreckPitch, wreckRoll);
+          }
+        } else {
+          // Keep the body and its rotor in the same local coordinate frame. The
+          // body mesh is centered near Y=1, so expY is the airframe base height.
+          this.drawMesh(heliMesh, npc.x, expY, npc.z, npc.yaw + Math.PI, [1, 1, 1], [1, 1, 1, 1]);
+          const rotorMesh = this.getRotorBladeMesh();
+          const mainRotorY = expY + 2.08;
+          const mainSpin = now * 20;
+          this.drawMesh(rotorMesh, npc.x, mainRotorY, npc.z, npc.yaw + Math.PI + mainSpin, [0.58, 0.58, 0.58], [0.55, 0.55, 0.55, 0.5]);
+          const helicopterYaw = npc.yaw + Math.PI;
+          const tailOffX = Math.sin(helicopterYaw) * 2.65;
+          const tailOffZ = Math.cos(helicopterYaw) * 2.65;
+          const tailSpin = now * 55;
+          this.drawMesh(rotorMesh, npc.x + tailOffX, expY + 1.18, npc.z + tailOffZ, helicopterYaw + tailSpin, [0.18, 0.18, 0.18], [0.4, 0.4, 0.4, 0.45]);
+        }
       } else {
         const isSwimming = !!npc.isSwimming && submerged;
         const npcScale: [number, number, number] = isSwimming

@@ -141,7 +141,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   camHeight = 2;
   firstPerson = false;
   private isPointerLocked = false;
-  serverNPCs: { id: number; x: number; y: number; z: number; yaw: number; type: string; mesh: CityMesh | CityMesh[]; health: number; colorR: number; colorG: number; colorB: number; remoteShootTimer?: number; prevX: number; prevZ: number; prevYaw: number; targetX: number; targetZ: number; targetYaw: number; speed: number; lastUpdate: number; gender?: string; hasDriver?: boolean; passengerCount?: number; isShootingAt?: boolean; isBurning?: boolean; isSmoking?: boolean; isFleeing?: boolean; isArresting?: boolean; meleeTargetId?: number; maxHealth?: number }[] = [];
+  serverNPCs: { id: number; x: number; y: number; z: number; yaw: number; type: string; mesh: CityMesh | CityMesh[]; health: number; colorR: number; colorG: number; colorB: number; remoteShootTimer?: number; prevX: number; prevZ: number; prevYaw: number; targetX: number; targetZ: number; targetYaw: number; speed: number; lastUpdate: number; gender?: string; hasDriver?: boolean; passengerCount?: number; isShootingAt?: boolean; isBurning?: boolean; isSmoking?: boolean; isFleeing?: boolean; isArresting?: boolean; meleeTargetId?: number; maxHealth?: number; wreckFalling?: boolean; wreckStartedAt?: number; wreckStartY?: number }[] = [];
   serverPedestrians: { id: number; x: number; z: number; yaw: number; gender: string; type?: string; mesh: CityMesh | CityMesh[]; health: number; prevX: number; prevZ: number; prevYaw: number; targetX: number; targetZ: number; targetYaw: number; speed: number; lastUpdate: number; isDucking?: boolean; isArresting?: boolean; isSwimming?: boolean; meleeTargetId?: number }[] = [];
   parkedCars: ParkedCar[] = [];
   // World persistence: throttled snapshot of player position + nearby local
@@ -1918,6 +1918,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         prevX: c.posX, prevZ: c.posZ, prevYaw: c.yaw ?? 0,
         targetX: c.posX, targetZ: c.posZ, targetYaw: c.yaw ?? 0,
         speed: c.speed ?? 0, lastUpdate: performance.now(),
+        wreckFalling: c.wreckFalling === true,
+        wreckStartedAt: c.wreckStartedAt,
+        wreckStartY: c.wreckStartY,
       }));
       this.serverPedestrians = data.pedestrians
         .filter((p: any) => Number.isFinite(p.posX) && Number.isFinite(p.posZ) && !this.isPedestrianWaterPosition(p.posX, p.posZ))
@@ -4452,7 +4455,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     // countdown: it could erase stars early or disagree with the server.
     if (this.wantedLevel <= 0) this.wantedDecayTimer = 0;
     for (const v of [...this.serverNPCs, ...this.parkedCars, ...this.trafficCars]) {
-      if (v.health <= 0 && !this.deadNPCIds.has(v.id)) {
+      // A destroyed helicopter remains in the authoritative collection while
+      // its wreck falls. Do not convert that transient state into a ground
+      // corpse or remove it before the renderer has shown the descent.
+      if (v.health <= 0 && !(v as any).wreckFalling && !this.deadNPCIds.has(v.id)) {
         this.deadNPCIds.add(v.id);
         this.spawnExplosion(v.x, 0.5, v.z);
         this.dropMoneyAt(v.x, v.z, 100 + Math.floor(Math.random() * 900));
@@ -4488,7 +4494,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         this.bloodPools.push({ x: ped.x, z: ped.z - 1.0, age: 0, lifetime: 30, maxRadius: 3, variant: Math.floor(Math.random() * 4) });
       }
     }
-    this.serverNPCs = this.serverNPCs.filter(v => v.health > 0 || v.type === 'police');
+    this.serverNPCs = this.serverNPCs.filter(v => v.health > 0 || v.type === 'police' || (v as any).wreckFalling);
     this.serverPedestrians = this.serverPedestrians.filter(p => p.health > 0);
     // Locally parked cars are temporary world props, not a permanent cache.
     // Keep mission/garage vehicles exempt, but retire abandoned cars after a
