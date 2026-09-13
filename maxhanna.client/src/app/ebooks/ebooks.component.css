@@ -3,8 +3,7 @@
   position: relative;
 }
 
-/* ============ toolbar ============ */
-.local-folder-status {
+/* ============ toolbar ============ */.local-folder-status {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -12,16 +11,12 @@
   gap: .55rem;
   padding: .45rem .7rem;
   margin: .45rem .8rem 0;
-  border: 1px solid rgba(159, 230, 173, .45);
+  border: 1px solid rgba(251, 191, 36, .7);
   border-radius: 6px;
-  background: rgba(54, 126, 74, .2);
+  background: rgba(146, 91, 6, .28);
   color: var(--main-text-color);
   font-size: .82rem;
   text-align: center;
-}
-.local-folder-status.needs-reconnect {
-  border-color: rgba(251, 191, 36, .7);
-  background: rgba(146, 91, 6, .28);
 }
 .local-folder-status-action {
   padding: .25rem .55rem;
@@ -31,6 +26,11 @@
   color: inherit;
   font-weight: 700;
   cursor: pointer;
+}
+.menuPanel button span {
+  margin-left: .25rem;
+  font-size: .72rem;
+  opacity: .9;
 }
 .local-folder-status-action:hover { background: rgba(255, 255, 255, .12); }
 
@@ -181,8 +181,8 @@
   padding: 12px;
 }
 .reader-panel {
-  width: min(1000px, 100%);
-  height: min(92dvh, 100%);
+  width: min(100dvw, 100%);
+  height: min(97dvh, 100%);
   background: var(--main-bg-color, #1c1c1c);
   border: 1px solid var(--main-border-color);
   border-radius: 10px;

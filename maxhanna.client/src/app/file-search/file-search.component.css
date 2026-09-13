@@ -193,7 +193,7 @@
 }
 
 /* Fixed-size action chips never squish — only the reaction chips shrink. */
-.fileExtras > .fileOptionsAction {
+.fileExtras>.fileOptionsAction {
   flex: 0 0 auto;
 }
 
@@ -225,9 +225,9 @@
   text-overflow: ellipsis;
 }
 
-.fileOptionsActionWrapper ::ng-deep .reactionsContainer > button,
-.fileOptionsActionWrapper ::ng-deep .reactionsContainer > .addReactionSpan,
-.fileOptionsActionWrapper ::ng-deep .reactionsContainer > .addReactionSpanNoBorder {
+.fileOptionsActionWrapper ::ng-deep .reactionsContainer>button,
+.fileOptionsActionWrapper ::ng-deep .reactionsContainer>.addReactionSpan,
+.fileOptionsActionWrapper ::ng-deep .reactionsContainer>.addReactionSpanNoBorder {
   flex: 0 0 auto;
 }
 
@@ -846,23 +846,25 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  background: var(--component-background-color, rgba(255,255,255,0.02));
-  border: 1px solid rgba(255,255,255,0.04);
+  background: var(--component-background-color, rgba(255, 255, 255, 0.02));
+  border: 1px solid rgba(255, 255, 255, 0.04);
   border-radius: 12px;
   padding: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
   position: relative;
 }
+
 .grid-item:hover {
-  border-color: rgba(255,255,255,0.12);
-  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
   transform: translateY(-2px);
 }
+
 .grid-item.selected {
   border-color: var(--main-link-color, #4a9eff);
-  box-shadow: 0 0 0 2px var(--main-link-color, #4a9eff), 0 4px 16px rgba(74,158,255,0.2);
-  background: rgba(74,158,255,0.04);
+  box-shadow: 0 0 0 2px var(--main-link-color, #4a9eff), 0 4px 16px rgba(74, 158, 255, 0.2);
+  background: rgba(74, 158, 255, 0.04);
 }
 
 /* Thumbnail area */
@@ -871,12 +873,13 @@
   aspect-ratio: 1 / 1;
   border-radius: 8px;
   overflow: hidden;
-  background: rgba(0,0,0,0.2);
+  background: rgba(0, 0, 0, 0.2);
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
 }
+
 .grid-thumb app-media-viewer,
 .grid-thumb img {
   width: 100%;
@@ -890,8 +893,9 @@
    max-width:100% + height:auto, so a 16:9 clip fills this 16:9 box exactly. */
 .grid-item.video .grid-thumb {
   aspect-ratio: 16 / 9;
-  background: rgba(0,0,0,0.35);
+  background: rgba(0, 0, 0, 0.35);
 }
+
 .grid-item.video .grid-thumb app-media-viewer {
   width: 100%;
   height: 100%;
@@ -906,23 +910,25 @@
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: rgba(0,0,0,0.55);
-  border: 2px solid rgba(255,255,255,0.85);
+  background: rgba(0, 0, 0, 0.55);
+  border: 2px solid rgba(255, 255, 255, 0.85);
   color: #fff;
   font-size: 18px;
   line-height: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding-left: 4px; /* optically center the ▶ glyph */
+  padding-left: 4px;
+  /* optically center the ▶ glyph */
   pointer-events: none;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.4);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
   transition: transform 0.15s ease, background 0.15s ease;
   z-index: 2;
 }
+
 .grid-item.video:hover .grid-video-play {
   transform: translate(-50%, -50%) scale(1.12);
-  background: rgba(0,0,0,0.75);
+  background: rgba(0, 0, 0, 0.75);
 }
 
 /* Non-image file placeholder */
@@ -943,13 +949,15 @@
   justify-content: center;
   gap: 6px;
   padding: 12px;
-  background: linear-gradient(135deg, rgba(255,255,255,0.01), rgba(255,255,255,0.04));
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.01), rgba(255, 255, 255, 0.04));
   text-align: center;
 }
+
 .grid-thumb-placeholder .placeholder-icon {
   font-size: 32px;
   opacity: 0.6;
 }
+
 .grid-thumb-placeholder .placeholder-name {
   font-size: 11px;
   color: var(--secondary-font-color, #94a3b8);
@@ -961,7 +969,7 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
- 
+
 .offlineBadge {
   display: inline-block;
   font-size: 0.8em;
@@ -971,6 +979,9 @@
   position: absolute;
   top: 6px;
   right: 6px;
+  background: #000000b3;
+  border-radius: 6px;
+  padding: 2px 6px;
 }
 
 /* Real file in the user's folder — subtly emphasized. */
@@ -987,8 +998,8 @@
   position: absolute;
   bottom: 6px;
   right: 6px;
-  background: rgba(0,0,0,0.7);
-  color: rgba(255,255,255,0.7);
+  background: rgba(0, 0, 0, 0.7);
+  color: rgba(255, 255, 255, 0.7);
   font-size: 9px;
   font-weight: 700;
   padding: 2px 6px;
@@ -1003,8 +1014,8 @@
   position: absolute;
   bottom: 6px;
   left: 6px;
-  background: rgba(0,0,0,0.75);
-  color: rgba(255,255,255,0.9);
+  background: rgba(0, 0, 0, 0.75);
+  color: rgba(255, 255, 255, 0.9);
   font-size: 10px;
   font-weight: 700;
   padding: 2px 6px;
@@ -1013,7 +1024,7 @@
   pointer-events: none;
   font-variant-numeric: tabular-nums;
   z-index: 2;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
 }
 
 /* File name label */
@@ -1034,8 +1045,8 @@
 
 /* Folder item */
 .grid-item.folder .grid-thumb {
-  background: linear-gradient(135deg, rgba(255,193,7,0.08), rgba(255,152,0,0.04));
-  border: 1px dashed rgba(255,193,7,0.3);
+  background: linear-gradient(135deg, rgba(255, 193, 7, 0.08), rgba(255, 152, 0, 0.04));
+  border: 1px dashed rgba(255, 193, 7, 0.3);
 }
 
 /* Book view folder covers: first PDF's page as the tile, with a folder badge
@@ -1043,11 +1054,12 @@
 .file-search-folder-cover {
   object-fit: cover;
 }
+
 .folder-cover-badge {
   position: absolute;
   top: 6px;
   left: 6px;
-  background: rgba(0,0,0,0.7);
+  background: rgba(0, 0, 0, 0.7);
   border-radius: 6px;
   padding: 2px 6px;
   font-size: 14px;
@@ -1065,7 +1077,7 @@
   background: #fff;
   vertical-align: middle;
   margin-right: 4px;
-  border: 1px solid rgba(255,255,255,0.15);
+  border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
 /* Responsive grid */
@@ -1074,14 +1086,17 @@
     grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
     gap: 10px;
   }
+
   .grid-item {
     border-radius: 10px;
     padding: 6px;
     gap: 6px;
   }
+
   .grid-thumb {
     border-radius: 6px;
   }
+
   .grid-label {
     font-size: 11px;
   }
@@ -1092,10 +1107,13 @@
     grid-template-columns: repeat(3, 1fr);
     gap: 8px;
   }
+
   .grid-item {
     border-radius: 8px;
     padding: 4px;
-  }  .file-type-badge {
+  }
+
+  .file-type-badge {
     font-size: 7px;
     padding: 1px 4px;
   }
@@ -1109,15 +1127,18 @@
   gap: 0.35rem;
   padding: 0.35rem 0;
 }
+
 .bookFilterLabel {
   font-size: 0.8rem;
   font-weight: 700;
   opacity: 0.8;
-} 
+}
+
 .bookFilterBtn:hover {
   opacity: 0.85;
   cursor: pointer;
 }
+
 .bookFilterBtn.active {
   font-weight: 800;
   box-shadow: 2px 2px 2px var(--main-link-color);
@@ -1129,28 +1150,33 @@
   align-items: center;
   margin-right: 0.35rem;
 }
+
 .bookViewLibraryInlineSpacer {
   width: 0.35rem;
 }
+
 .bookLibraryBtn {
   font-size: 0.72rem;
   font-weight: 600;
   padding: 0.15rem 0.5rem;
   border-radius: 999px;
-  border: 1px solid var(--border-color, rgba(128,128,128,0.4));
-  background: var(--button-bg-color, rgba(128,128,128,0.12));
+  border: 1px solid var(--border-color, rgba(128, 128, 128, 0.4));
+  background: var(--button-bg-color, rgba(128, 128, 128, 0.12));
   color: inherit;
   cursor: pointer;
   white-space: nowrap;
 }
+
 .bookLibraryBtn:hover:not(:disabled) {
   opacity: 0.85;
   cursor: pointer;
 }
+
 .bookLibraryBtn:disabled {
   opacity: 0.55;
   cursor: wait;
 }
+
 .gridLibraryBtn {
   width: 100%;
   margin-top: 4px;

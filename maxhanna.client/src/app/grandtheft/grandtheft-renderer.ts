@@ -2378,7 +2378,12 @@ void main() {
         this._playerSkinAccumulator = 0;
       }
       if (this.walkSpeed > 0.1) {
-        this.walkTime += dt * Math.min(this.walkSpeed * 0.15, 2.0);
+        // The old phase rate made a normal 4-unit/s walk take roughly three
+        // seconds per stride, so the legs looked like they were moving in slow
+        // motion. Speed up the normal walk cadence while preserving the existing
+        // sprint cadence and animation amplitudes.
+        const phaseRate = this.walkSpeed <= 6 ? 0.30 : 0.21;
+        this.walkTime += dt * Math.min(this.walkSpeed * phaseRate, 2.8);
       }
       if (this.walkSpeed > 0.1 && this.punchTime <= 0) {
         this.applyWalkAnimation(animLocal);
@@ -5167,27 +5172,68 @@ void main() {
         for (const p of points) verts.push(p[0], p[1], p[2], c[0], c[1], c[2], 1);
         indices.push(base,base+1,base+2,base,base+2,base+3,base+4,base+6,base+5,base+4,base+7,base+6,base,base+4,base+5,base,base+5,base+1,base+3,base+2,base+6,base+3,base+6,base+7,base,base+3,base+7,base,base+7,base+4,base+1,base+5,base+6,base+1,base+6,base+2);
       };
+      const ellipsoid = (cx:number, cy:number, cz:number, rx:number, ry:number, rz:number, c:[number,number,number], segments = 12, rings = 6) => {
+        // Rounded low-poly volumes improve the silhouette without adding a
+        // separate asset or a large per-frame rendering cost.
+        const base = verts.length / 7;
+        for (let ring = 0; ring <= rings; ring++) {
+          const theta = ring / rings * Math.PI;
+          const sinTheta = Math.sin(theta), cosTheta = Math.cos(theta);
+          for (let segment = 0; segment <= segments; segment++) {
+            const phi = segment / segments * Math.PI * 2;
+            verts.push(cx + Math.cos(phi) * sinTheta * rx, cy + cosTheta * ry, cz + Math.sin(phi) * sinTheta * rz, c[0], c[1], c[2], 1);
+          }
+        }
+        for (let ring = 0; ring < rings; ring++) {
+          for (let segment = 0; segment < segments; segment++) {
+            const a = base + ring * (segments + 1) + segment;
+            const b = a + segments + 1;
+            indices.push(a, b, a + 1, b, b + 1, a + 1);
+          }
+        }
+      };
+      const tailFrustum = (z0:number, z1:number, y:number, r0:number, r1:number, c:[number,number,number], segments = 10) => {
+        const base = verts.length / 7;
+        for (const [z, radius] of [[z0, r0], [z1, r1]] as [number, number][]) {
+          for (let segment = 0; segment < segments; segment++) {
+            const angle = segment / segments * Math.PI * 2;
+            verts.push(Math.cos(angle) * radius, y + Math.sin(angle) * radius, z, c[0], c[1], c[2], 1);
+          }
+        }
+        for (let segment = 0; segment < segments; segment++) {
+          const next = (segment + 1) % segments;
+          indices.push(base + segment, base + next, base + segments + next, base + segment, base + segments + next, base + segments + segment);
+        }
+      };
       const body: [number,number,number] = police ? [0.06,0.10,0.20] : [0.28,0.30,0.32];
       const trim: [number,number,number] = police ? [0.88,0.90,0.94] : [0.72,0.70,0.64];
       const glass: [number,number,number] = police ? [0.08,0.16,0.24] : [0.035,0.08,0.11];
-      // The previous airframe was extremely flat and mostly hidden by the
-      // oversized rotor. Build a complete fuselage with a tapered nose,
-      // cabin glazing, tail boom, vertical fin, and landing skids.
-      box(0,1.08,0,1.42,0.88,1.92,body);
-      wedge(0,1.22,-1.08,1.24,0.78,1.10,body);
-      wedge(0,1.48,-1.18,1.08,0.44,0.72,glass);
-      box(-0.52,1.35,-0.82,0.08,0.36,0.72,glass); box(0.52,1.35,-0.82,0.08,0.36,0.72,glass);
-      box(0,1.16,1.15,0.42,0.42,2.5,body);
-      box(0,1.48,2.55,0.76,0.18,0.44,trim);
-      box(0,1.56,2.82,0.18,0.98,0.20,body);
-      box(-0.18,1.92,2.78,0.12,0.32,0.16,trim); box(0.18,1.92,2.78,0.12,0.32,0.16,trim);
-      box(-0.52,1.22,0,0.12,0.12,2.7,trim); box(0.52,1.22,0,0.12,0.12,2.7,trim);
-      box(-0.62,0.55,0,0.12,0.12,2.25,trim); box(0.62,0.55,0,0.12,0.12,2.25,trim);
-      box(-0.62,0.48,-0.75,0.1,0.1,0.18,trim); box(0.62,0.48,-0.75,0.1,0.1,0.18,trim);
-      box(0,2.02,0,0.2,0.12,0.2,[0.08,0.08,0.08]);
-      box(0,1.75,0.15,0.62,0.12,0.10,trim);
-      box(-0.72,0.68,-0.55,0.08,0.08,0.55,body); box(0.72,0.68,-0.55,0.08,0.08,0.55,body);
-      if (police) { box(0,1.68,0.2,0.85,0.12,0.18,[0.95,0.1,0.08]); box(0,1.68,-0.2,0.85,0.12,0.18,[0.08,0.2,0.95]); }
+      const darkBody: [number,number,number] = police ? [0.025,0.045,0.10] : [0.11,0.13,0.15];
+      // Rounded cabin, sloped windshield, and a tapered boom replace the old
+      // stack of rectangular blocks. Structural accents provide scale without
+      // adding a frame-by-frame rendering cost.
+      ellipsoid(0, 1.08, -0.02, 0.72, 0.46, 0.98, body, 12, 6);
+      ellipsoid(0, 1.34, -0.63, 0.56, 0.30, 0.50, glass, 12, 5);
+      tailFrustum(0.62, 3.08, 1.17, 0.28, 0.10, darkBody, 10);
+      ellipsoid(0, 1.53, -0.80, 0.45, 0.10, 0.16, trim, 10, 3);
+      box(-0.49,1.30,-0.62,0.06,0.32,0.48,trim); box(0.49,1.30,-0.62,0.06,0.32,0.48,trim);
+      // Door seams, tail fin, and horizontal stabilizers make the silhouette
+      // read as an aircraft from both the side and the top.
+      box(-0.60,1.00,-0.18,0.055,0.52,1.18,darkBody); box(0.60,1.00,-0.18,0.055,0.52,1.18,darkBody);
+      box(0,1.54,2.62,0.76,0.14,0.42,trim);
+      box(0,1.72,2.86,0.16,1.00,0.18,body);
+      box(-0.18,1.98,2.82,0.10,0.28,0.16,trim); box(0.18,1.98,2.82,0.10,0.28,0.16,trim);
+      box(0,1.57,2.55,0.18,0.12,0.18,darkBody);
+      // Landing skids sit below the cabin on visible support struts.
+      box(-0.52,0.77,0,0.10,0.10,2.55,trim); box(0.52,0.77,0,0.10,0.10,2.55,trim);
+      box(-0.60,0.49,-0.70,0.10,0.10,0.18,trim); box(0.60,0.49,-0.70,0.10,0.10,0.18,trim);
+      box(-0.60,0.49,0.70,0.10,0.10,0.18,trim); box(0.60,0.49,0.70,0.10,0.10,0.18,trim);
+      box(-0.52,0.78,-0.48,0.08,0.50,0.08,trim); box(0.52,0.78,-0.48,0.08,0.50,0.08,trim);
+      box(-0.52,0.78,0.48,0.08,0.50,0.08,trim); box(0.52,0.78,0.48,0.08,0.50,0.08,trim);
+      // Rotor mast and police livery.
+      box(0,1.78,0,0.14,0.48,0.14,darkBody);
+      box(0,2.02,0,0.20,0.12,0.20,[0.08,0.08,0.08]);
+      if (police) { box(0,1.48,0.18,0.82,0.10,0.16,[0.95,0.1,0.08]); box(0,1.48,-0.18,0.82,0.10,0.16,[0.08,0.2,0.95]); }
       const mesh = this.createMesh(verts, indices);
       mesh.carName = police ? 'procedural_police_helicopter' : 'procedural_helicopter';
       return [mesh];
