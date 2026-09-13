@@ -2664,9 +2664,34 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     // Only weapons can trigger explosive world props. Unarmed punches still
     // use the short-range hit query for NPC combat, but must not inspect gas
     // pumps or other firearm-only targets.
-    if (firedWeapon !== 0) {
-      this.checkBulletHit(originX, originY, originZ, dirX, dirY, dirZ, 50);
-    }
+      if (firedWeapon === 3) {
+        // A shotgun fires a small cone of pellets, not one rifle-like ray. The
+        // center pellet is included in the spread and the damage is divided
+        // across pellets so a close hit feels powerful without multiplying the
+        // weapon's intended damage by the number of visible tracers.
+        const pelletCount = 9;
+        const pelletDamageScale = 1 / pelletCount;
+        const pelletSpread = 0.14;
+        for (let i = 0; i < pelletCount; i++) {
+          const sx = dirX + (Math.random() - 0.5) * pelletSpread;
+          const sy = dirY + (Math.random() - 0.5) * pelletSpread;
+          const sz = dirZ + (Math.random() - 0.5) * pelletSpread;
+          const length = Math.hypot(sx, sy, sz) || 1;
+          this.checkBulletHit(
+            originX,
+            originY,
+            originZ,
+            sx / length,
+            sy / length,
+            sz / length,
+            50,
+            firedWeapon,
+            pelletDamageScale,
+          );
+        }
+      } else {
+        this.checkBulletHit(originX, originY, originZ, dirX, dirY, dirZ, 50, firedWeapon);
+      }
     this.playWeaponSound(firedWeapon);
   }
   private unlockAudio() {
@@ -3358,7 +3383,17 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.murderFlashTimer = 0.9;
     this.wantedPopTimer = 0.7;
   }
-  private checkBulletHit(ox: number, oy: number, oz: number, dx: number, dy: number, dz: number, maxRange: number = 50) {
+  private checkBulletHit(
+    ox: number,
+    oy: number,
+    oz: number,
+    dx: number,
+    dy: number,
+    dz: number,
+    maxRange: number = 50,
+    hitWeapon: number = this.currentWeapon,
+    damageScale: number = 1,
+  ) {
     const reportedPoliceHits = new Set<number>();
     const checkTargets = (list: any[], isPlayer: boolean) => {
       for (const t of list) {
@@ -3389,11 +3424,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           const regionRadiusSq = region === 'head' ? 0.34 : region === 'legs' ? 0.58 : 0.82;
           if (!gasTankHit && distSq > regionRadiusSq) continue;
           if (!isVehicleTarget) this.spawnBlood(tx, ty, tz, dx, dy, dz);
-          const baseDamage = WEAPON_DAMAGES[this.currentWeapon];
+          const baseDamage = Math.round(WEAPON_DAMAGES[hitWeapon] * damageScale);
           const dmg = gasTankHit ? 100000 : Math.round(baseDamage * (region === 'head' ? 3.5 : region === 'legs' ? 0.55 : 1));
           if (isPlayer) {
             t.health = Math.max(0, (t.health ?? 100) - dmg);
-            this.gtService.hit(this.getUserId(), t.userId, 1, dmg, ox, oz, this.currentWeapon).then((res: any) => {
+            this.gtService.hit(this.getUserId(), t.userId, 1, dmg, ox, oz, hitWeapon).then((res: any) => {
               if (res && res.targetHealth !== undefined) t.health = res.targetHealth;
             });
           } else {
@@ -3421,7 +3456,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
               if (t.id < 0) this.spawnExplosion(tx, 0.5, tz, 2.0);
             }
             if (t.id > 0 && list !== this.trafficCars) {
-              this.gtService.hit(this.getUserId(), t.id, 1, dmg, ox, oz, this.currentWeapon, false, gasTankHit);
+              this.gtService.hit(this.getUserId(), t.id, 1, dmg, ox, oz, hitWeapon, false, gasTankHit);
             }
             if (region === 'head' || region === 'legs') {
               this.npcImpactReactions.set(t.id, {
@@ -3475,7 +3510,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     checkTargets(this.parkedCars, false);
     checkTargets(this.airportLotCars, false);
     checkTargets(this.trafficCars, false);
-    if (this.currentWeapon === 0) return;
+    if (hitWeapon === 0) return;
     // A shot that intersects a police vehicle immediately establishes a serious
     // police response, even if the bullet does not hit an occupant. Do not treat
     // the wanted-level event as vehicle destruction: police cars remain in the
@@ -3496,7 +3531,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       // Report the vehicle impact as a witnessed weapons crime. This keeps the
       // wanted level and concealment clock authoritative even when the shot
       // clips the cruiser body without hitting its driver.
-      this.gtService.hit(this.getUserId(), police.id, 1, 1, ox, oz, this.currentWeapon);
+      this.gtService.hit(this.getUserId(), police.id, 1, 1, ox, oz, hitWeapon);
       this.savePlayerState();
       break;
     }
