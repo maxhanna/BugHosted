@@ -58,6 +58,25 @@ import { SpaceEvolvesComponent } from './space-evolves/space-evolves.component';
 import { MtgArenaComponent } from './mtg-arena/mtg-arena.component';
 import { EbooksComponent } from './ebooks/ebooks.component';
 
+/** Every component key accepted by createComponent, across the eager map and
+ *  the lazy loaders. Single source of truth: the type is derived from this
+ *  list, so adding a component here updates the type and the runtime guard. */
+export const APP_COMPONENT_NAMES = [
+  'Navigation', 'Favourites', 'Calendar', 'Weather', 'Files', 'Todo',
+  'Music', 'Movie', 'Notepad', 'Contacts', 'Array', 'Bug-Wars',
+  'Meta-Bots', 'Wordler', 'Mastermind', 'Art', 'SigInt', 'News',
+  'User', 'Social', 'HostAi', 'Theme', 'MediaViewer', 'Crawler',
+  'Meme', 'Top100', 'Ender', 'Bones', 'MTG-Arena', 'Space: Evolves',
+  'SpaceEvolves', 'Planter', 'Weaver', 'Recipe', 'eBooks',
+  'Notifications', 'UpdateUserSettings', 'User-Events', 'Paint',
+  'Moderator', 'Conversion', 'Marbles', 'Emulator', 'Chat',
+  'DigCraft', 'GrandTheft', 'Racing', 'Crypto-Hub',
+] as const;
+export type AppComponentName = (typeof APP_COMPONENT_NAMES)[number];
+export function isAppComponentName(value: string): value is AppComponentName {
+  return (APP_COMPONENT_NAMES as readonly string[]).includes(value);
+}
+
 
 @Component({
   selector: 'app-root',
@@ -130,7 +149,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   youtubeSearchResults: YoutubeVideo[] = [];
   youtubeSearchKeyword: string = '';
   componentsReferences = Array<ComponentRef<any>>();
-  previousComponent: { componentType: string, inputs?: { [key: string]: any; }, previousComponentParameters?: { [key: string]: any; } }[] = [];
+  previousComponent: { componentType: AppComponentName, inputs?: { [key: string]: any; }, previousComponentParameters?: { [key: string]: any; } }[] = [];
   private youtubeSearchClearTimer?: any;
   private lastLastSeenUpdate: number | null = null;
   private _serverUpCache: number | null = null;
@@ -505,7 +524,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
   private readonly SESSION_PRESENCE_WINDOW_MS = 6 * 60 * 60 * 1000;
   private readonly SESSION_WARNING_LEAD_MS = 15 * 60 * 1000;
   private sessionExpiresAt = 0;
-  private componentMap: { [key: string]: any; } = {
+  private componentMap: Partial<Record<AppComponentName, Type<any>>> = {
     "Navigation": NavigationComponent,
     "Favourites": FavouritesComponent,
     "Calendar": CalendarComponent,
@@ -554,7 +573,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
    * separate chunk fetched only when the app is first opened — keeping the
    * initial main.js payload small.
    */
-  private componentLoaders: { [key: string]: () => Promise<Type<any> | { type: Type<any>; module: Type<any>; }> } = {
+  private   componentLoaders: Partial<Record<AppComponentName, () => Promise<Type<any> | { type: Type<any>; module: Type<any>; }>>> = {
     "Marbles": () => import('./marbles/marbles.component').then(m => m.MarblesComponent),
     "Emulator": () => import('./emulator/emulator.component').then(m => m.EmulatorComponent),
     "Chat": () => import('./chat/chat.component').then(m => m.ChatComponent),
@@ -568,7 +587,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
   /** Guards against a slow lazy chunk resolving after a newer navigation superseded it. */
   private _createSeq = 0;
   /** Navigation deferred because the open component has unsaved text input. */
-  private _pendingNav: { componentType: string; inputs?: { [key: string]: any; }; previousComponentParameters?: { [key: string]: any; }; skipHistoryPush: boolean; popFirst?: boolean } | null = null;
+  private _pendingNav:   { componentType: AppComponentName; inputs?: { [key: string]: any; }; previousComponentParameters?: { [key: string]: any; }; skipHistoryPush: boolean; popFirst?: boolean } | null = null;
   userSelectedNavigationItems: Array<MenuItem> = [];
   constructor(private router: Router,
     private userService: UserService,
@@ -885,7 +904,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     }
   }
 
-  async createComponent(componentType: string, inputs?: { [key: string]: any; }, previousComponentParameters?: { [key: string]: any; }, skipHistoryPush: boolean = false) {
+  async   createComponent(componentType: AppComponentName, inputs?: { [key: string]: any; }, previousComponentParameters?: { [key: string]: any; }, skipHistoryPush: boolean = false) {
     //console.log("in create component : " + componentType);
     // Gameplay/full-canvas components must keep the desktop navigation hidden;
     // other components use the normal collapsed navigation state.
@@ -914,7 +933,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       return;
     }
 
-    let componentClass: Type<any> = eagerClass;
+    let componentClass: Type<any> | undefined = eagerClass;
     let moduleRef: any = undefined;
     if (loader) {
       const loaded = await loader();
@@ -1897,13 +1916,15 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     if (!encoded) return;
     try {
       const title = JSON.parse(encoded);
-      if (typeof title === 'string' && title.trim()) void this.createComponent(title.trim());
+      const name = typeof title === 'string' ? title.trim() : '';
+      if (name && isAppComponentName(name)) void this.createComponent(name);
     } catch { /* Ignore malformed generated content. */ }
   }
 
   createComponentButtonClicked() {
     const title = (document.getElementById("componentCreateName") as HTMLInputElement).value;
-    if (title) { this.createComponent(title); }
+    if (title && isAppComponentName(title)) { this.createComponent(title); }
+    else if (title) { this.navigationComponent?.maximizeNav(); this.showNotification('Invalid component type received. Returned to menu.'); }
   }
   visitExternalLinkButtonClicked() {
     const url = (document.getElementById("hiddenUrlToVisit") as HTMLInputElement).value;

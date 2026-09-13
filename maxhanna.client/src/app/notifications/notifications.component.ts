@@ -3,7 +3,7 @@ import { NotificationService } from '../../services/notification.service';
 import { CommentService } from '../../services/comment.service';
 import { ChildComponent } from '../child.component';
 import { UserNotification } from '../../services/datacontracts/notification/user-notification';
-import { AppComponent } from '../app.component';
+import { AppComponent, AppComponentName } from '../app.component';
 
 @Component({
   selector: 'app-notifications',
@@ -199,7 +199,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     }
   }
 
-  createComponent(name: string, args: any) {
+  createComponent(name: AppComponentName, args: any) {
     const parent = this.parentRef ?? this.inputtedParentRef;
     if (parent) {
       parent.createComponent(name, args);

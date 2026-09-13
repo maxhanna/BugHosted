@@ -2,7 +2,7 @@
 import { MiningService } from '../../services/mining.service';
 import { CalendarService } from '../../services/calendar.service';
 import { WeatherService } from '../../services/weather.service';
-import { AppComponent } from '../app.component';
+import { AppComponent, isAppComponentName } from '../app.component';
 import { CoinValueService } from '../../services/coin-value.service';
 import { WordlerService } from '../../services/wordler.service';
 import { User } from '../../services/datacontracts/user/user';
@@ -341,7 +341,11 @@ export class NavigationComponent implements OnInit, OnDestroy {
         if (res) parent.showNotification(res);
       });
     }
-    parent.createComponent(item.title);
+    if (isAppComponentName(item.title)) {
+      parent.createComponent(item.title);
+    } else {
+      parent.showNotification('Invalid component type received. Returned to menu.');
+    }
     this.clearNavSearch();
   }
 
@@ -1868,7 +1872,11 @@ export class NavigationComponent implements OnInit, OnDestroy {
     } else if (title == "UpdateUserSettings") {
       this._parent.createComponent(title, { inputtedParentRef: this._parent, areSelectableMenuItemsExplained: true, showOnlySelectableMenuItems: true });
     } else if (title.toLowerCase() != "help") {
-      this._parent.createComponent(title);
+      if (isAppComponentName(title)) {
+        this._parent.createComponent(title);
+      } else {
+        this._parent.showNotification('Invalid component type received. Returned to menu.');
+      }
     }
 
     if (title.toLowerCase() == "help") {

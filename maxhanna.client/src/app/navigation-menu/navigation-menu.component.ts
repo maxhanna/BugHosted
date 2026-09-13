@@ -1,5 +1,5 @@
 import { Component, Input } from '@angular/core';
-import { AppComponent } from '../app.component';
+import { AppComponent, isAppComponentName } from '../app.component';
 
 @Component({
   selector: 'app-navigation-menu',
@@ -14,7 +14,9 @@ export class NavigationMenuComponent {
 
   goTo(title: string, event?: any) {
     try {
-      if (title === 'UpdateUserSettings') {
+      if (!isAppComponentName(title)) {
+        this._parent.showNotification('Invalid component type received. Returned to menu.');
+      } else if (title === 'UpdateUserSettings') {
         this._parent.createComponent(title, { inputtedParentRef: this._parent });
       } else {
         this._parent.createComponent(title);

@@ -2,7 +2,7 @@
 import { ChildComponent } from '../child.component';
 import { UserEvent } from '../../services/datacontracts/user-event/user-event';
 import { UserEventService } from '../../services/user-event.service';
-import { AppComponent } from '../app.component';
+import { AppComponent, AppComponentName } from '../app.component';
 import { CommentService } from '../../services/comment.service';
 
 @Component({
@@ -117,7 +117,7 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
     return map[wrapped];
   }
 
-  getEvent(eventType: string): { icon: string; description: string; component: string | null } {
+  getEvent(eventType: string): { icon: string; description: string; component: AppComponentName | null } {
     const type = eventType.toLowerCase();
 
     let tmpIcon = undefined;
@@ -135,7 +135,7 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
 
     const map: Record<
       string,
-      { icon: string; description: string; component: string | null }
+      { icon: string; description: string; component: AppComponentName | null }
     > = {
       file_upload: {
         icon: navIcon("Files", "📁"),
@@ -247,7 +247,7 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
       youtube: {
         icon: navIcon("YouTube", "📺"),
         description: "YouTube watch",
-        component: "YouTube",
+        component: null,
       },
       link: { icon: "🔗", description: "Link shared", component: null },
       flighttracking: {
@@ -358,7 +358,7 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
       this.parentRef?.createComponent('Notepad', { 'noteId': e.referenceId });
     }
     else if (e.eventType === 'read_ebook') {
-      this.parentRef?.createComponent('Ebooks', { preloadBookId: e.referenceId });
+      this.parentRef?.createComponent('eBooks', { preloadBookId: e.referenceId });
     }
     else if (eData.component) {
       this.parentRef?.createComponent(eData.component);
