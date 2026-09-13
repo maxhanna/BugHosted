@@ -338,7 +338,7 @@
 
 .upgrade-dock {
     position: relative;
-    z-index: 1001;
+    z-index: 5;
     isolation: isolate;
     display: flex;
     flex-wrap: wrap;
@@ -507,7 +507,8 @@
     flex-direction: column;
     align-items: stretch;
     gap: 9px;
-    min-height: 238px;
+    min-height: 20vh;
+    min-height: 20dvh;
     text-align: left;
     background: linear-gradient(155deg, rgba(20, 65, 96, .98), rgba(7, 20, 42, .98));
     border-color: #397da3;
@@ -575,17 +576,6 @@
     filter: drop-shadow(0 0 4px rgba(124, 247, 255, .45))
 }
 
-.upgrade-type {
-    align-self: flex-start;
-    padding: 3px 7px;
-    border: 1px solid rgba(105, 231, 255, .45);
-    border-radius: 999px;
-    font-size: 10px;
-    text-transform: uppercase;
-    color: #8beeff;
-    letter-spacing: .12em
-}
-
 .upgrade-progress {
     display: block;
     padding: 7px 9px;
@@ -600,14 +590,7 @@
 .upgrade-progress b {
     color: #fff1c8
 }
-
-.upgrade-scope {
-    display: block;
-    color: #8fd5e9;
-    font-size: 11px;
-    line-height: 1.35
-}
-
+ 
 .upgrade-info-category {
     color: #8beeff;
     font-size: 10px;

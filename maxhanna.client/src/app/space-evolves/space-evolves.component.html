@@ -56,16 +56,15 @@
       <div class="upgrade-card" *ngIf="startingWeaponChoicePending || upgradeChoices.length > 0 || grantedUpgrades.length">
         <ng-container *ngIf="startingWeaponChoicePending">
           <h2>Choose your first weapon</h2>
-          <p>Choose one weapon to start with. You can carry up to three weapons, and every weapon has a different role.</p>
-          <div class="upgrade-grid starting-weapon-grid"><button *ngFor="let upgrade of startingWeaponChoices" (click)="chooseStartingWeapon(upgrade)" [disabled]="!canPick"><span class="upgrade-icon">{{upgradeIcon(upgrade.weapon)}}</span><span class="upgrade-type">{{upgradeCategoryLabel(upgrade)}}</span><strong class="upgrade-name">{{upgrade.name}}</strong><small class="upgrade-description">{{upgrade.description}}</small><span class="upgrade-scope">{{upgradeScopeText(upgrade)}}</span></button></div>
+          <p>Choose one weapon to start with. You can carry up to three weapons.</p>
+          <div class="upgrade-grid starting-weapon-grid"><button *ngFor="let upgrade of startingWeaponChoices" (click)="chooseStartingWeapon(upgrade)" [disabled]="!canPick"><span class="upgrade-icon">{{upgradeIcon(upgrade.weapon)}}</span><strong class="upgrade-name">{{upgrade.name}}</strong><small class="upgrade-description">{{upgrade.description}}</small></button></div>
         </ng-container>
         <ng-container *ngIf="!startingWeaponChoicePending">
         <h2 *ngIf="upgradeChoices.length">Evolution fork{{canPick ? '' : ' (choose in a moment)'}}</h2>
-        <p *ngIf="upgradeChoices.length">{{canPick ? 'Choose one upgrade. Read the effect, check the next stack, then make your pick.' : 'Preparing your upgrade choices…'}}</p>
+        <p *ngIf="upgradeChoices.length">{{canPick ? 'Choose an upgrade.' : 'Preparing your upgrade choices…'}}</p>
         <div class="upgrade-grid" *ngIf="upgradeChoices.length"><button *ngFor="let upgrade of upgradeChoices"
             (click)="chooseUpgrade(upgrade)" [disabled]="!canPick"><span class="upgrade-icon"
-              [attr.aria-label]="upgradeCategoryLabel(upgrade)" role="img">{{ upgradeIcon(upgrade.weapon) }}</span><span
-              class="upgrade-type">{{upgradeCategoryLabel(upgrade)}}</span><strong class="upgrade-name">{{upgrade.name}}</strong><small class="upgrade-description">{{upgradeCardDescription(upgrade)}}</small><span class="upgrade-progress" *ngIf="upgradeCardProgress(upgrade) as progress"><b>Next stack:</b> {{progress}}</span><span class="upgrade-scope">{{upgradeScopeText(upgrade)}}</span><span class="upgrade-affected" *ngIf="upgradeAffectedWeapons(upgrade).length > 0" [attr.aria-label]="'Affects ' + upgradeAffectedWeapons(upgrade).length + ' weapon types'"><span class="upgrade-affected-label">Affects</span><span *ngFor="let weapon of upgradeAffectedWeapons(upgrade)" [attr.title]="weaponLabel(weapon)" [attr.aria-label]="weaponLabel(weapon)">{{upgradeIcon(weapon)}}</span></span></button>
+              [attr.aria-label]="upgradeCategoryLabel(upgrade)" role="img">{{ upgradeIcon(upgrade.weapon) }}</span><strong class="upgrade-name">{{upgrade.name}}</strong><small class="upgrade-description">{{upgradeCardDescription(upgrade)}}</small><span class="upgrade-progress" *ngIf="upgradeCardProgress(upgrade) as progress"><b>Next stack:</b> {{progress}}</span><span class="upgrade-affected" *ngIf="upgradeAffectedWeapons(upgrade).length > 0" [attr.aria-label]="'Affects ' + upgradeAffectedWeapons(upgrade).length + ' weapon types'"><span class="upgrade-affected-label">Affects</span><span *ngFor="let weapon of upgradeAffectedWeapons(upgrade)" [attr.title]="weaponLabel(weapon)" [attr.aria-label]="weaponLabel(weapon)">{{upgradeIcon(weapon)}}</span></span></button>
         </div>
         </ng-container>
         <div class="free-grants" *ngIf="grantedUpgrades.length">

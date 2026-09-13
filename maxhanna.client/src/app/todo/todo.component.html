@@ -42,9 +42,11 @@
     </div>
     <div class="addTodoPopupRow">
       <input type="url" id="urlInput" placeholder="url?" #urlInput (keydown.enter)="addTodo()" />
-      <app-speech-recognition buttonStyle="width: 40px; height: 54px; line-height: 0; background: transparent; border: none;" (speechRecognitionEvent)="onVoiceInputForAdd($event)"></app-speech-recognition>
     </div>
     <div class="addTodoPopupRow">
+      <app-speech-recognition buttonStyle="width: 40px; height: 54px; line-height: 0; background: transparent; border: none;"
+              (speechRecognitionEvent)="onVoiceInputForAdd($event)"></app-speech-recognition>
+
       <app-media-selector #mediaSelector
         [currentDirectory]="'Users/' + (parentRef?.user && parentRef?.user?.id != 0 ? parentRef?.user?.username : 'Anonymous')"
         [user]="parentRef?.user" [inputtedParentRef]="parentRef" [maxSelectedFiles]="10" [uploadButtonText]="''"

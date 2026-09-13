@@ -415,13 +415,61 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private hookerPaymentRemainder = 0;
   carRocking = false;
   garageDoorOpenness = 0;
-  garageCar: { vehicleType: string; colorR: number; colorG: number; colorB: number; yaw: number } | null = null;
+  garageCar: { vehicleType: string; modelKey?: string; colorR: number; colorG: number; colorB: number; yaw: number } | null = null;
   private garageCarMesh: CityMesh | CityMesh[] | null = null;
   private garagePollTimer = 0;
   private wasInGarage = false;
   private garageExitedCar = false;
   private garageStoreCooldown = 0;
   private _cachedSidewalkNodes: { x: number; z: number }[] = [];
+  private garageMeshKey(mesh: CityMesh | CityMesh[] | null | undefined): string {
+    const parts = Array.isArray(mesh) ? mesh : (mesh ? [mesh] : []);
+    const name = String(parts[0]?.carName || '').toLowerCase();
+    if (!name) return '';
+    // Persist a compact deterministic key rather than the asset path. This keeps
+    // the existing garage table compatible while still identifying future car
+    // assets without relying on the asynchronous load order of carMeshes.
+    let hash = 2166136261;
+    for (let i = 0; i < name.length; i++) {
+      hash ^= name.charCodeAt(i);
+      hash = Math.imul(hash, 16777619);
+    }
+    return (hash >>> 0).toString(36);
+  }
+  private encodeGarageVehicleType(type: string, mesh: CityMesh | CityMesh[] | null | undefined): string {
+    const normalized = type || 'car';
+    const key = this.garageMeshKey(mesh);
+    return key ? `${normalized}#${key}` : normalized;
+  }
+  private decodeGarageVehicleType(value: string): { vehicleType: string; modelKey?: string } {
+    const raw = value || 'car';
+    const separator = raw.indexOf('#');
+    return separator > 0
+      ? { vehicleType: raw.slice(0, separator), modelKey: raw.slice(separator + 1) }
+      : { vehicleType: raw };
+  }
+  private getGarageVehicleMesh(vehicleType: string, modelKey: string | undefined, color: [number, number, number], seed: number): CityMesh | CityMesh[] {
+    if (modelKey) {
+      const pool = vehicleType === 'motorcycle' || vehicleType === 'bike'
+        ? this.renderer.motorcycleMeshes
+        : this.renderer.carMeshes;
+      const exact = pool.find(mesh => this.garageMeshKey(mesh) === modelKey);
+      if (exact) return exact;
+    }
+    if (vehicleType === 'taxi') return this.renderer.getTaxiMesh();
+    if (vehicleType === 'motorcycle' || vehicleType === 'bike') {
+      return this.renderer.motorcycleMeshes.length > 0
+        ? this.renderer.motorcycleMeshes[0]
+        : this.renderer.getNPCCarMesh(color, seed);
+    }
+    if (vehicleType === 'bus') return this.renderer.busMesh || this.renderer.getNPCCarMesh(color, seed);
+    if (vehicleType === 'police') return this.renderer.getPoliceCarMesh();
+    if (vehicleType === 'helicopter') return this.renderer.getHelicopterMesh(seed);
+    if (vehicleType === 'plane') return this.renderer.getPlaneMesh(seed);
+    if (vehicleType === 'boat') return this.renderer.getBoatMesh(seed);
+    return this.renderer.getNPCCarMesh(color, seed);
+  }
+
   private isOpenOceanPosition(x: number, z: number): boolean {
     return getBiome(Math.floor(x / CHUNK_SIZE), Math.floor(z / CHUNK_SIZE)) === 'ocean';
   }
@@ -1637,7 +1685,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       if (userId && mesh) {
         this.gtService.storeGarageCar(
           userId,
-          this.vehicleType,
+          this.encodeGarageVehicleType(this.vehicleType, mesh),
           color[0], color[1], color[2],
           this.carYaw
         ).then((result: any) => {
@@ -3592,31 +3640,22 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         if (userId) {
           this.gtService.getGarageCar(userId).then((res: any) => {
             if (res && res.hasCar) {
+              const storedVehicle = this.decodeGarageVehicleType(res.vehicleType || 'car');
               this.garageCar = {
-                vehicleType: res.vehicleType || 'car',
+                vehicleType: storedVehicle.vehicleType,
+                modelKey: storedVehicle.modelKey,
                 colorR: res.colorR ?? 1,
                 colorG: res.colorG ?? 1,
                 colorB: res.colorB ?? 1,
                 yaw: res.yaw ?? 0,
               };
               const col: [number, number, number] = [this.garageCar.colorR, this.garageCar.colorG, this.garageCar.colorB];
-              if (this.garageCar.vehicleType === 'taxi') {
-                this.garageCarMesh = this.renderer.getTaxiMesh();
-              } else if (this.garageCar.vehicleType === 'motorcycle') {
-                this.garageCarMesh = this.renderer.motorcycleMeshes.length > 0
-                  ? this.renderer.motorcycleMeshes[0]
-                  : this.renderer.getNPCCarMesh(col, userId);
-              } else if (this.garageCar.vehicleType === 'bus') {
-                this.garageCarMesh = this.renderer.busMesh || this.renderer.getNPCCarMesh(col, userId);
-              } else if (this.garageCar.vehicleType === 'police') {
-                this.garageCarMesh = this.renderer.getPoliceCarMesh();
-              } else if (this.garageCar.vehicleType === 'helicopter') {
-                this.garageCarMesh = this.renderer.getHelicopterMesh(userId);
-              } else if (this.garageCar.vehicleType === 'plane') {
-                this.garageCarMesh = this.renderer.getPlaneMesh(userId);
-              } else {
-                this.garageCarMesh = this.renderer.getNPCCarMesh(col, userId);
-              }
+              this.garageCarMesh = this.getGarageVehicleMesh(
+                this.garageCar.vehicleType,
+                this.garageCar.modelKey,
+                col,
+                userId,
+              );
             } else {
               this.garageCar = null;
               this.garageCarMesh = null;
@@ -5861,11 +5900,44 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       for (let dx = -1; dx <= 1; dx++) {
         const chunkCX = cx + dx;
         const chunkCZ = cz + dz;
+        // The garage has a real doorway with its own open/closed collision;
+        // the custom garage pass below handles the shell and door separately.
         if (nearGarage && chunkCX === 1 && chunkCZ === 0) continue;
         this.renderer.getCityChunk(chunkCX, chunkCZ);
         this.checkBuildingsInChunk(chunkCX, chunkCZ, margin);
         this.checkTreesInChunk(chunkCX, chunkCZ, margin);
       }
+    }
+    this.checkGarageCollision(margin);
+  }
+  private checkGarageCollision(margin: number) {
+    // The garage is intentionally left out of the generic building pass because
+    // its front bay is an opening. Keep the actual shell solid here, and make the
+    // roll-up door the only thing that changes between closed and open.
+    const garageX = GARAGE_ENTRANCE_X;
+    const garageZ = GARAGE_ENTRANCE_Z - 7;
+    const wallRects = [
+      { cx: garageX - 9.3, cz: garageZ, hw: 3.3, hd: 9 },
+      { cx: garageX + 9.3, cz: garageZ, hw: 3.3, hd: 9 },
+      { cx: garageX, cz: garageZ - 8.5, hw: 13, hd: .5 },
+    ];
+    const rects = this.garageDoorOpenness < .98
+      ? [...wallRects, { cx: garageX, cz: garageZ + 8.6, hw: 5.4, hd: .7 }]
+      : wallRects;
+    for (const rect of rects) {
+      const dx = this.carX - rect.cx;
+      const dz = this.carZ - rect.cz;
+      if (Math.abs(dx) >= rect.hw + margin || Math.abs(dz) >= rect.hd + margin || this.carY >= 15) continue;
+      const overlapX = rect.hw + margin - Math.abs(dx);
+      const overlapZ = rect.hd + margin - Math.abs(dz);
+      if (overlapX < overlapZ) {
+        this.carX += dx >= 0 ? overlapX : -overlapX;
+        this.carVx *= -0.3;
+      } else {
+        this.carZ += dz >= 0 ? overlapZ : -overlapZ;
+        this.carVz *= -0.3;
+      }
+      if (this.isInCar) this.carSpeed *= .5;
     }
   }
   private checkTreesInChunk(chunkCX: number, chunkCZ: number, margin: number) {
