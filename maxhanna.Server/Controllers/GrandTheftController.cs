@@ -94,12 +94,29 @@ namespace maxhanna.Server.Controllers
 			}
 			return false;
 		}
+		private const double MOUNTAIN_CHAIN_WEST = 36.0;
+		private const double MOUNTAIN_CHAIN_EAST = 86.0;
+		private const double MOUNTAIN_CHAIN_RAMP = 6.0;
+		private const double MOUNTAIN_FOOTHILL_WIDTH = 11.0;
+		private const double MOUNTAIN_CORE_WIDTH = 5.0;
+		private static double MountainLongitudinal(int cx)
+		{
+			double x = cx + 0.5;
+			if (x <= MOUNTAIN_CHAIN_WEST || x >= MOUNTAIN_CHAIN_EAST) return 0.0;
+			double Smooth(double t) { t = Math.Max(0.0, Math.Min(1.0, t)); return t * t * (3.0 - 2.0 * t); }
+			if (x < MOUNTAIN_CHAIN_WEST + MOUNTAIN_CHAIN_RAMP)
+				return Smooth((x - MOUNTAIN_CHAIN_WEST) / MOUNTAIN_CHAIN_RAMP);
+			if (x > MOUNTAIN_CHAIN_EAST - MOUNTAIN_CHAIN_RAMP)
+				return Smooth((MOUNTAIN_CHAIN_EAST - x) / MOUNTAIN_CHAIN_RAMP);
+			return 1.0;
+		}
+		private static double MountainRidgeCenter(int cx)
+			=> 6.0 + 2.6 * Math.Sin((cx - 41) * 0.26);
 		private static int MountainBand(int cx, int cz)
 		{
-			if (cx < 41 || !IsInAnyIsland(cx, cz)) return 0;
-			double centerZ = 6 + 2 * Math.Sin((cx - 41) * 0.38);
-			int distance = Math.Abs(cz - (int)Math.Floor(centerZ + 0.5));
-			return distance <= 2 ? 2 : distance <= 5 ? 1 : 0;
+			if (cx < 36 || cx > 86 || !IsInAnyIsland(cx, cz) || MountainLongitudinal(cx) <= 0.001) return 0;
+			double distance = Math.Abs(cz - MountainRidgeCenter(cx));
+			return distance <= MOUNTAIN_CORE_WIDTH ? 2 : distance <= MOUNTAIN_FOOTHILL_WIDTH ? 1 : 0;
 		}
 		private static bool BridgeContains(int cx, int cz)
 		{
@@ -107,7 +124,7 @@ namespace maxhanna.Server.Controllers
 				if (cx >= br.startCx && cx <= br.endCx && cz >= br.startCz && cz <= br.endCz) return true;
 			return false;
 		}
-		public static string GetBiome(int cx, int cz)
+		private static string GetBiomeWithoutBeach(int cx, int cz)
 		{
 			if (cx >= 0 && cx <= 3 && cz >= -3 && cz <= -1) return "aeroport";
 			if (cx >= 8 && cx <= 15 && cz >= -6 && cz <= -4) return "aeroport";
@@ -118,13 +135,9 @@ namespace maxhanna.Server.Controllers
 				if (cx >= br.startCx && cx <= br.endCx && cz >= br.startCz && cz <= br.endCz) return "bridge";
 			foreach (var conn in BRIDGE_CONNECTORS)
 				if (cx == conn.cx && cz == conn.cz) return "bridge_connector";
-			if (BridgeContains(cx, cz + 1)) return "ocean";
-			if (BridgeContains(cx, cz - 1)) return "ocean";
-			bool IsParkingPatch()
-			{
-				uint h = (uint)((cx * 100003 + cz * 70001) & 0xFFFFFFFF);
-				return (h % 9u) == 0u;
-			}
+			if (BridgeContains(cx, cz + 1) || BridgeContains(cx, cz - 1)) return "ocean";
+			var hash = (uint)((cx * 100003 + cz * 70001) & 0xFFFFFFFF);
+			bool isParkingPatch = (hash % 9u) == 0u;
 			(int cx, int cz, double cityR, double suburbR, double ruralR)? bestIsl = null;
 			double bestDist = double.MaxValue;
 			foreach (var isl in ISLANDS)
@@ -135,22 +148,54 @@ namespace maxhanna.Server.Controllers
 				if (dist < isl.ruralR && dist < bestDist) { bestIsl = isl; bestDist = dist; }
 			}
 			if (bestIsl == null) return "ocean";
-			var islV = bestIsl.Value;
-			double distV = bestDist;
-			if (!IsInAnyIsland(cx + 1, cz) || !IsInAnyIsland(cx - 1, cz) ||
-				!IsInAnyIsland(cx, cz + 1) || !IsInAnyIsland(cx, cz - 1)) return "beach";
+			var island = bestIsl.Value;
+			if (IsMarinaChunk(cx, cz)) return "marina";
 			int mountainBand = MountainBand(cx, cz);
 			if (mountainBand == 2) return "rural_mountain";
 			if (mountainBand == 1) return "rural_hills";
-			if (distV < islV.cityR) return IsParkingPatch() ? "parking_lot" : "city";
-			if (distV < islV.suburbR) return IsParkingPatch() ? "parking_lot" : "suburb";
-			uint hr = (uint)((cx * 100003 + cz * 70001) & 0xFFFFFFFF);
-			uint rv = hr % 5u;
-			if (rv == 0u) return "rural_farm";
-			if (rv == 1u) return "rural_hills";
-			if (rv == 2u) return "rural_mountain";
-			if (rv == 3u) return "rural_lakes";
+			if (bestDist < island.cityR) return isParkingPatch ? "parking_lot" : "city";
+			if (bestDist < island.suburbR) return isParkingPatch ? "parking_lot" : "suburb";
+			uint ruralHash = (uint)((cx * 100003 + cz * 70001) & 0xFFFFFFFF);
+			uint ruralValue = ruralHash % 6u;
+			if (ruralValue == 0u || ruralValue == 4u) return "rural_farm";
+			if (ruralValue == 1u || ruralValue == 5u) return "rural_hills";
+			if (ruralValue == 2u) return "rural_lakes";
 			return "rural_desert";
+		}
+		private static bool IsMarinaChunk(int cx, int cz)
+		{
+			if (!IsInAnyIsland(cx, cz) || BridgeContains(cx, cz)) return false;
+			if ((cx >= 0 && cx <= 3 && cz >= -3 && cz <= -1)
+				|| (cx >= 8 && cx <= 15 && cz >= -6 && cz <= -4)
+				|| (cx >= 22 && cx <= 30 && cz >= -8 && cz <= -6)
+				|| (cx >= 36 && cx <= 46 && cz >= -11 && cz <= -9)
+				|| (cx >= 33 && cx <= 46 && cz >= 12 && cz <= 16)) return false;
+			bool touchesWater = !IsInAnyIsland(cx + 1, cz) || !IsInAnyIsland(cx - 1, cz)
+				|| !IsInAnyIsland(cx, cz + 1) || !IsInAnyIsland(cx, cz - 1);
+			if (!touchesWater) return false;
+			bool touchesBridgeCorner = BRIDGE_CONNECTORS.Any(conn => Math.Abs(cx - conn.cx) <= 1 && cz == conn.cz);
+			uint hash = (uint)((cx * 100003 ^ cz * 70001) & 0xFFFFFFFF);
+			return touchesBridgeCorner || hash % 7u == 0u;
+		}
+		public static string GetBiome(int cx, int cz)
+		{
+			string baseBiome = GetBiomeWithoutBeach(cx, cz);
+			if (baseBiome == "ocean" || baseBiome == "aeroport" || baseBiome == "bridge"
+				|| baseBiome == "bridge_connector" || baseBiome == "marina") return baseBiome;
+			bool shoreline = !IsInAnyIsland(cx + 1, cz) || !IsInAnyIsland(cx - 1, cz)
+				|| !IsInAnyIsland(cx, cz + 1) || !IsInAnyIsland(cx, cz - 1);
+			if (!shoreline) return baseBiome;
+			bool HasRoadNeighbour(int dx, int dz)
+			{
+				string neighbour = GetBiomeWithoutBeach(cx + dx, cz + dz);
+				return neighbour == "city" || neighbour == "suburb" || neighbour == "parking_lot"
+					|| neighbour == "rural_farm" || neighbour == "rural_hills" || neighbour == "rural_mountain"
+					|| neighbour == "rural_lakes" || neighbour == "rural_desert" || neighbour == "bridge_connector" || neighbour == "marina";
+			}
+			uint shorelineHash = (uint)((cx * 100003 ^ cz * 70001) & 0xFFFFFFFF);
+			if (shorelineHash % 3u != 0u || (!HasRoadNeighbour(-1, 0) && !HasRoadNeighbour(1, 0)
+				&& !HasRoadNeighbour(0, -1) && !HasRoadNeighbour(0, 1))) return "beach";
+			return baseBiome;
 		}
 		public static bool IsAeroportParkingChunk(int cx, int cz)
 		{
@@ -356,7 +401,21 @@ namespace maxhanna.Server.Controllers
 			int cx = (int)Math.Floor(x / CHUNK_SIZE);
 			int cz = (int)Math.Floor(z / CHUNK_SIZE);
 			string biome = GetBiome(cx, cz);
-			if (biome == "ocean" || biome == "beach" || biome == "mountain") return false;
+			if (biome == "ocean" || biome == "mountain") return false;
+			if (biome == "beach")
+			{
+				// Beach chunks render a road only where the shoreline seam has a
+				// traversable land neighbour. Keep server collision/path checks on
+				// that same road strip so NPCs do not stop at the biome border.
+				float beachDx = x % GRID_PITCH; if (beachDx < 0) beachDx += GRID_PITCH;
+				float beachDz = z % GRID_PITCH; if (beachDz < 0) beachDz += GRID_PITCH;
+				bool onGridRoad = Math.Min(beachDx, GRID_PITCH - beachDx) < ROAD_HALF_WIDTH
+					|| Math.Min(beachDz, GRID_PITCH - beachDz) < ROAD_HALF_WIDTH;
+				if (!onGridRoad) return false;
+				return GetBiome(cx - 1, cz) != "ocean" || GetBiome(cx + 1, cz) != "ocean"
+					|| GetBiome(cx, cz - 1) != "ocean" || GetBiome(cx, cz + 1) != "ocean";
+			}
+
 			if (biome == "aeroport")
 			{
 				int gx = (int)Math.Round(x / GRID_PITCH);
@@ -391,52 +450,46 @@ namespace maxhanna.Server.Controllers
 			var seen = new HashSet<(int, int)>();
 			void AddNode(int gx, int gz)
 			{
-				if (!seen.Add((gx, gz))) return;
-				nodes.Add((gx * GRID_PITCH, gz * GRID_PITCH));
+				if (seen.Add((gx, gz))) nodes.Add((gx * GRID_PITCH, gz * GRID_PITCH));
 			}
 			int blocksPerChunk = CHUNK_SIZE / GRID_PITCH;
-			int startGx = (cx * blocksPerChunk) - radius;
-			int startGz = (cz * blocksPerChunk) - radius;
-			int endGx = (cx * blocksPerChunk + blocksPerChunk) + radius;
-			int endGz = (cz * blocksPerChunk + blocksPerChunk) + radius;
+			int startGx = cx * blocksPerChunk - radius;
+			int startGz = cz * blocksPerChunk - radius;
+			int endGx = cx * blocksPerChunk + blocksPerChunk + radius;
+			int endGz = cz * blocksPerChunk + blocksPerChunk + radius;
 			for (int gx = startGx; gx <= endGx; gx++)
 			{
 				for (int gz = startGz; gz <= endGz; gz++)
 				{
-					int nc = gx / blocksPerChunk;
-					int nz = gz / blocksPerChunk;
-					if (gx < 0) nc = (gx - blocksPerChunk + 1) / blocksPerChunk;
-					if (gz < 0) nz = (gz - blocksPerChunk + 1) / blocksPerChunk;
-					string biome = GetBiome(nc, nz);
-					bool isRoad = false;
-					if (biome == "ocean" || biome == "beach" || biome == "mountain") isRoad = false;
-					else if (biome == "aeroport")
-					{
-						foreach (var entry in AIRPORT_ENTRY_ROADS)
-						{
-							int minGz = Math.Min(entry.gzStart, entry.gzEnd);
-							int maxGz = Math.Max(entry.gzStart, entry.gzEnd);
-							if (entry.gx == gx && gz >= minGz && gz <= maxGz) { isRoad = true; break; }
-						}
-					}
-					else isRoad = true;
-					if (isRoad)
-					{
-						AddNode(gx, gz);
-					}
-					else
-					{
-						// Do not turn ocean cells beside a bridge into phantom road
-						// nodes. Only the actual bridge centerline is traversable.
-						bool isBridgeRoadNode = IsBridgeAtWorldPos(gx * GRID_PITCH, gz * GRID_PITCH);
-						if (isBridgeRoadNode)
-						{
-							AddNode(gx, gz);
-						}
-					}
+					if (IsRoadNode(gx, gz)) AddNode(gx, gz);
 				}
 			}
 			return nodes;
+		}
+		private static bool IsRoadNode(int gx, int gz)
+		{
+			int cx = (int)Math.Floor(gx * (double)GRID_PITCH / CHUNK_SIZE);
+			int cz = (int)Math.Floor(gz * (double)GRID_PITCH / CHUNK_SIZE);
+			string biome = GetBiome(cx, cz);
+			if (biome == "ocean" || biome == "beach" || biome == "mountain")
+			{
+				// Beach seam roads are rendered only when this cell has a traversable
+				// land neighbour on one axis. Ocean cells themselves stay excluded;
+				// bridge chunks are classified as bridge and remain valid nodes.
+				return (GetBiome(cx - 1, cz) != "ocean" && GetBiome(cx + 1, cz) != "ocean")
+					|| (GetBiome(cx, cz - 1) != "ocean" && GetBiome(cx, cz + 1) != "ocean");
+			}
+			if (biome == "aeroport")
+			{
+				foreach (var entry in AIRPORT_ENTRY_ROADS)
+				{
+					int minGz = Math.Min(entry.gzStart, entry.gzEnd);
+					int maxGz = Math.Max(entry.gzStart, entry.gzEnd);
+					if (entry.gx == gx && gz >= minGz && gz <= maxGz) return true;
+				}
+				return false;
+			}
+			return true;
 		}
 		public static List<(int from, int to)> GetRoadEdges(List<(float x, float z)> nodes)
 		{
@@ -483,6 +536,24 @@ namespace maxhanna.Server.Controllers
 			for (int i = 0; i < n; i++) graph.Adjacency[i] = adjLists[i].ToArray();
 			_roadGraphCache.TryAdd(key, graph);
 			return _roadGraphCache[key];
+		}
+		public static bool TryGetRoadWaypoint(float x, float z, float targetX, float targetZ, out float waypointX, out float waypointZ)
+		{
+			waypointX = x;
+			waypointZ = z;
+			int cx = (int)Math.Floor(x / CHUNK_SIZE);
+			int cz = (int)Math.Floor(z / CHUNK_SIZE);
+			var graph = GetRoadGraph(cx, cz);
+			if (graph.Nodes.Length < 2) return false;
+			int start = ClosestNodeArr(graph.Nodes, x, z);
+			int end = ClosestNodeArr(graph.Nodes, targetX, targetZ);
+			if (start == end) return false;
+			var path = FindPathCached(graph, start, end);
+			if (path == null || path.Count < 2) return false;
+			var next = graph.Nodes[path[1]];
+			waypointX = next.x;
+			waypointZ = next.z;
+			return true;
 		}
 		public static (float ox, float oz) GetLaneOffset(float fromX, float fromZ, float toX, float toZ, bool forward)
 		{
@@ -1848,19 +1919,28 @@ namespace maxhanna.Server.Controllers
 										}
 									}
 								}
-								else
-								{
-									if (npc.Type != "cop")
+									else
 									{
-										float tx = npc.TargetX, tz = npc.TargetZ;
-										if (npc.Type == "ped_male" || npc.Type == "ped_female")
+										if (npc.Type == "cop" && npc.TargetUserId == req.UserId && CityLayout.TryGetRoadWaypoint(npc.X, npc.Z, npc.TargetX, npc.TargetZ, out float copWaypointX, out float copWaypointZ))
+										{
+											float wdx = copWaypointX - npc.X;
+											float wdz = copWaypointZ - npc.Z;
+											float wdist = (float)Math.Sqrt(wdx * wdx + wdz * wdz);
+											if (wdist > 0.1f)
+											{
+												npc.X += (wdx / wdist) * npc.Speed * 0.1f;
+												npc.Z += (wdz / wdist) * npc.Speed * 0.1f;
+												npc.Yaw = (float)Math.Atan2(wdx, wdz);
+											}
+										}
+										else if (npc.Type != "cop")
+										{
+											float tx = npc.TargetX, tz = npc.TargetZ;
 											GetRandomSidewalkPointNearPlayer(npc.X, npc.Z, out tx, out tz, simRng);
-										else
-											GetRandomRoadPointNearPlayer(npc.X, npc.Z, out tx, out tz, simRng);
-										npc.TargetX = tx;
-										npc.TargetZ = tz;
+											npc.TargetX = tx;
+											npc.TargetZ = tz;
+										}
 									}
-								}
 							}
 						}
 					}
@@ -2370,9 +2450,25 @@ namespace maxhanna.Server.Controllers
 								int startIdx = CityLayout.ClosestNodeArr(nodes, npc.X, npc.Z);
 								// Post-escape linger: route toward the old scene so a lingering
 								// cruiser patrols the area instead of a random route.
-								int endIdx = npc.LingerUntil.HasValue
-									? CityLayout.ClosestNodeArr(nodes, npc.TargetX, npc.TargetZ)
-									: rng.Next(nodes.Length);
+								int endIdx;
+								if (npc.TargetUserId == userId && wantedLevel > 0)
+								{
+									// Pursuit vehicles must use the same road graph as traffic, but
+									// their destination is the player's live/last-known position,
+									// not a random patrol node. This keeps a chase moving across
+									// chunk and biome seams instead of circling one district.
+									float routeX = npc.IsSearching ? npc.LastKnownX : npc.TargetX;
+									float routeZ = npc.IsSearching ? npc.LastKnownZ : npc.TargetZ;
+									endIdx = CityLayout.ClosestNodeArr(nodes, routeX, routeZ);
+								}
+								else
+								{
+									// Post-escape linger: route toward the old scene so a lingering
+									// cruiser patrols the area instead of a random route.
+									endIdx = npc.LingerUntil.HasValue
+										? CityLayout.ClosestNodeArr(nodes, npc.TargetX, npc.TargetZ)
+										: rng.Next(nodes.Length);
+								}
 								if (endIdx == startIdx) endIdx = (startIdx + 1) % nodes.Length;
 								npc.PathIndices = CityLayout.FindPathCached(graph, startIdx, endIdx);
 								npc.PathIdx = 0;
@@ -2686,8 +2782,7 @@ namespace maxhanna.Server.Controllers
 							float nextZ = npc.Z + moveZ;
 							int copCX = (int)Math.Floor(nextX / CityLayout.CHUNK_SIZE);
 							int copCZ = (int)Math.Floor(nextZ / CityLayout.CHUNK_SIZE);
-							string copBiome = CityLayout.GetBiome(copCX, copCZ);
-							if (copBiome != "ocean" && copBiome != "beach" && !CityLayout.IsBuildingAt(nextX, nextZ))
+							string copBiome = CityLayout.GetBiome(copCX, copCZ);							if (copBiome != "ocean" && copBiome != "beach" && !CityLayout.IsBuildingAt(nextX, nextZ))
 							{
 								npc.X = nextX;
 								npc.Z = nextZ;

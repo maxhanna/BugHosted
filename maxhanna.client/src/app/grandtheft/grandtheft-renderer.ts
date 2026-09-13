@@ -227,35 +227,27 @@ export function getBiome(cx: number, cz: number): string {
   const key = `${cx},${cz}`;
   const cached = biomeCache.get(key);
   if (cached !== undefined) return cached;
-  // Re-entrant guard: a neighbouring chunk is asking about us while our own
-  // beach decision is still on the stack. Return the recursion-free base biome
-  // so the A<->B ping-pong terminates instead of exhausting the stack.
-  if (biomeInFlight.has(key)) return biomeWithoutBeach(cx, cz);
-  biomeInFlight.add(key);
-  try {
-    const base = biomeWithoutBeach(cx, cz);
-    let result = base;
-    if (base !== 'ocean' && base !== 'aeroport' && base !== 'bridge' && base !== 'bridge_connector' && base !== 'marina') {
-      // Keep the outer shoreline classification, but never let it split an
-      // inland road tile. Boundary roads are explicit connectors and must
-      // remain drivable on both sides of a biome seam.
-      const isRoadBiome = (b: string) => b === 'city' || b === 'suburb' || b === 'parking_lot'
-        || b === 'rural_farm' || b === 'rural_hills' || b === 'rural_mountain'
-        || b === 'rural_lakes' || b === 'rural_desert' || b === 'bridge_connector' || b === 'marina';
-      const hasRoadNeighbour = (dx: number, dz: number) => isRoadBiome(getBiome(cx + dx, cz + dz));
-      const shoreline = !isInAnyIsland(cx + 1, cz) || !isInAnyIsland(cx - 1, cz)
-        || !isInAnyIsland(cx, cz + 1) || !isInAnyIsland(cx, cz - 1);
-      const shorelineHash = (Math.imul(cx, 100003) ^ Math.imul(cz, 70001)) >>> 0;
-      if (shoreline && (shorelineHash % BEACH_CHANCE_DENOMINATOR !== 0
-        || (!hasRoadNeighbour(-1, 0) && !hasRoadNeighbour(1, 0)
-          && !hasRoadNeighbour(0, -1) && !hasRoadNeighbour(0, 1)))) result = 'beach';
-    }
-    if (biomeCache.size >= BIOME_CACHE_LIMIT) biomeCache.clear();
-    biomeCache.set(key, result);
-    return result;
-  } finally {
-    biomeInFlight.delete(key);
+  const base = biomeWithoutBeach(cx, cz);
+  let result = base;
+  if (base !== 'ocean' && base !== 'aeroport' && base !== 'bridge' && base !== 'bridge_connector' && base !== 'marina') {
+    // Keep this deliberately non-recursive. The backend uses the same base
+    // classification when deciding whether a shoreline tile may carry a road;
+    // recursive neighbour lookups made the two navigation maps diverge at biome
+    // seams and left NPCs unable to cross otherwise visible streets.
+    const isRoadBiome = (b: string) => b === 'city' || b === 'suburb' || b === 'parking_lot'
+      || b === 'rural_farm' || b === 'rural_hills' || b === 'rural_mountain'
+      || b === 'rural_lakes' || b === 'rural_desert' || b === 'bridge_connector' || b === 'marina';
+    const hasRoadNeighbour = (dx: number, dz: number) => isRoadBiome(biomeWithoutBeach(cx + dx, cz + dz));
+    const shoreline = !isInAnyIsland(cx + 1, cz) || !isInAnyIsland(cx - 1, cz)
+      || !isInAnyIsland(cx, cz + 1) || !isInAnyIsland(cx, cz - 1);
+    const shorelineHash = (Math.imul(cx, 100003) ^ Math.imul(cz, 70001)) >>> 0;
+    if (shoreline && (shorelineHash % BEACH_CHANCE_DENOMINATOR !== 0
+      || (!hasRoadNeighbour(-1, 0) && !hasRoadNeighbour(1, 0)
+        && !hasRoadNeighbour(0, -1) && !hasRoadNeighbour(0, 1)))) result = 'beach';
   }
+  if (biomeCache.size >= BIOME_CACHE_LIMIT) biomeCache.clear();
+  biomeCache.set(key, result);
+  return result;
 }
 export function isAeroportParkingChunk(cx: number, cz: number): boolean {
   if (cx >= 0 && cx <= 3 && cz === -3) return true;
