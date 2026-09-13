@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AppModule } from '../app.module';
 import { ChildComponent } from '../child.component';
-import { GrandTheftRenderer, getBiome, getTerrainHeight, getBridgeSideRailCorrection } from './grandtheft-renderer';
+import { GrandTheftRenderer, getBiome, getTerrainHeight, getBridgeSideRailCorrection, isAeroportParkingChunk } from './grandtheft-renderer';
 import { BloodPool, BloodSplat, CityMesh, DeadBody, Explosion, GrandtheftService, MuzzleFlash, OtherPlayerState, ParkedCar, Rocket, Tracer, TrafficLane, VendingMachine } from '../../services/grandtheft.service';
 import { UserEventService } from '../../services/user-event.service';
 import { TodoService } from '../../services/todo.service';
@@ -6770,32 +6770,51 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
   }
   private spawnAirportLotCars() {
-    if (this.renderer.carMeshes.length === 0) return;
+    if (this.renderer.carMeshes.length === 0 || this.airportLotCars.length > 0) return;
+
+    // Airport parking stalls used to contain renderer-only decorative car
+    // meshes. They looked stealable but were not present in any interaction
+    // collection, so pressing E could never enter them. Author the visible
+    // airport lot cars here instead, using the same stall coordinates as the
+    // renderer and the normal enter/break-in path.
+    const parkingChunks: { gx: number; gz: number }[] = [];
+    for (let gx = 0; gx <= 46; gx++) {
+      for (let gz = -11; gz <= 16; gz++) {
+        if (isAeroportParkingChunk(gx, gz)) parkingChunks.push({ gx, gz });
+      }
+    }
+    let fixtureIndex = 0;
+    for (const lot of parkingChunks) {
+      // Two cars per airport parking chunk is enough to make the lots feel
+      // occupied without recreating the hundreds of static meshes that used
+      // to be generated for every stall.
+      for (let slot = 0; slot < 2; slot++) {
+        const row = slot === 0 ? 0 : 4;
+        const col = slot === 0 ? 1 : 5;
+        // Keep these coordinates identical to the renderer's airport stall
+        // grid: each airport parking chunk contains one 80-unit block.
+        const blockWorldX = lot.gx * 80 + 40;
+        const blockWorldZ = lot.gz * 80 + 40;
+        const x = blockWorldX - 9 + col * 3;
+        const z = blockWorldZ - 14 + row * 6;
+        const color = [0.3 + Math.random() * 0.5, 0.3 + Math.random() * 0.5, 0.3 + Math.random() * 0.5];
+        const airportCarId = -(1000 + fixtureIndex++);
+        this.airportLotCars.push({
+          id: airportCarId,
+          x, z, yaw: row === 0 ? 0 : Math.PI, type: 'car', health: 1000,
+          colorR: color[0], colorG: color[1], colorB: color[2],
+          mesh: this.renderer.getNPCCarMesh([color[0], color[1], color[2]], airportCarId),
+          phase: 0, dir: 1, speed: 0,
+          p0: { x, z },
+          p1: { x, z },
+          hasDriver: false,
+        });
+      }
+    }
+
     const dealerships: { gx: number; gz: number }[] = [
       { gx: 12, gz: -6 }, { gx: 26, gz: -8 },
     ];
-    const parkingLots: { gx: number; gz: number }[] = [
-      { gx: 2, gz: -3 }, { gx: 41, gz: -11 }, { gx: 39, gz: 16 },
-    ];
-    let spawned = 0;
-    for (const pl of parkingLots) {
-      if (spawned >= 2) break;
-      const lotX = pl.gx * 80;
-      const lotZ = pl.gz * 80;
-      const color = [0.3 + Math.random() * 0.5, 0.3 + Math.random() * 0.5, 0.3 + Math.random() * 0.5];
-      const airportCarId = -(1000 + spawned);
-      this.airportLotCars.push({
-        id: airportCarId,
-        x: lotX, z: lotZ + 20, yaw: 0, type: 'car', health: 1000,
-        colorR: color[0], colorG: color[1], colorB: color[2],
-        mesh: this.renderer.getNPCCarMesh([color[0], color[1], color[2]], airportCarId),
-        phase: 0, dir: 1, speed: 6 + Math.random() * 4,
-        p0: { x: lotX, z: lotZ + 20 },
-        p1: { x: lotX, z: lotZ - 5 },
-        hasDriver: false,
-      });
-      spawned++;
-    }
     for (const dl of dealerships) {
       const lotX = dl.gx * 80;
       const lotZ = dl.gz * 80;
@@ -7157,6 +7176,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
   private updateAirportLotCars(dt: number) {
     for (const ac of this.airportLotCars) {
+      // Airport fixtures are parked cars, not traffic. Keep their p0/p1 fields
+      // for the existing shape, but never advance a zero-length route (which
+      // would produce NaN positions and make the car impossible to approach).
+      if (ac.p0.x === ac.p1.x && ac.p0.z === ac.p1.z) continue;
       ac.phase += dt * ac.dir * (ac.speed / Math.hypot(ac.p1.x - ac.p0.x, ac.p1.z - ac.p0.z));
       if (ac.phase >= 1) { ac.phase = 1; ac.dir = -1; }
       if (ac.phase <= 0) { ac.phase = 0; ac.dir = 1; }

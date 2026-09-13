@@ -3778,9 +3778,8 @@ void main() {
                 this.addBox(verts, indices, rx - stallW / 2, 0.02, rz, 0.15, 0.04, stallD, 0.9, 0.9, 0.9, 1.0, idxOffset); idxOffset += 24;
                 this.addBox(verts, indices, rx + stallW / 2, 0.02, rz, 0.15, 0.04, stallD, 0.9, 0.9, 0.9, 1.0, idxOffset); idxOffset += 24;
                 this.addBox(verts, indices, rx, 0.02, rz - stallD / 2, stallW, 0.04, 0.15, 0.9, 0.9, 0.9, 1.0, idxOffset); idxOffset += 24;
-                if ((col + row) % 2 === 0 && this.carMeshes.length > 0) {
-                  buildings.push({ model: this.carMeshes[Math.floor(rng() * this.carMeshes.length)], x: rx, y: 0.15, z: rz, yaw: 0, scale: [1, 1, 1] });
-                }
+                // Airport parking cars are supplied by the component as
+                // interactive fixtures; do not add decorative-only meshes.
               }
             }
             this.addBox(verts, indices, blockWorldX, 0.1, blockWorldZ - 18, 38, 0.2, 0.6, 0.3, 0.3, 0.32, 1.0, idxOffset); idxOffset += 24;
