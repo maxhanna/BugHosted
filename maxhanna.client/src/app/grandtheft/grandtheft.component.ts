@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AppModule } from '../app.module';
 import { ChildComponent } from '../child.component';
-import { GrandTheftRenderer, getBiome, getTerrainHeight, getBridgeSideRailCorrection, isAeroportParkingChunk } from './grandtheft-renderer';
+import { GrandTheftRenderer, getBiome, getTerrainHeight, getBridgeSideRailCorrection, isNearBridgeRoad, isAeroportParkingChunk } from './grandtheft-renderer';
 import { BloodPool, BloodSplat, CityMesh, DeadBody, Explosion, GrandtheftService, MuzzleFlash, OtherPlayerState, ParkedCar, Rocket, Tracer, TrafficLane, VendingMachine } from '../../services/grandtheft.service';
 import { UserEventService } from '../../services/user-event.service';
 import { TodoService } from '../../services/todo.service';
@@ -1635,7 +1635,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const exitSpeed = Math.hypot(exitVelocityX, exitVelocityZ);
     const isGroundVehicle = this.vehicleType !== 'boat' && this.vehicleType !== 'helicopter' && this.vehicleType !== 'plane';
     const rollingExit = isGroundVehicle && exitSpeed > 3;
-    if (mesh) {
+    const storingInGarage = this.isInGarageInterior();
+    if (mesh && !storingInGarage) {
       const tempId = -Date.now();
       this.parkedCars.push({
         id: tempId,
@@ -1680,7 +1681,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this._carSmokeBudget = CAR_SMOKE_SECONDS;
     this.playerVehicleMesh = null;
     this.driverInCarMesh = null;
-    if (this.isInGarageInterior()) {
+    if (storingInGarage) {
       const userId = this.getUserId();
       if (userId && mesh) {
         this.gtService.storeGarageCar(
@@ -4988,6 +4989,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.renderer.droppedWeapons = this.droppedWeapons;
     this.renderer.garageDoorOpenness = this.garageDoorOpenness;
     this.renderer.garageCarMesh = this.garageCarMesh;
+    this.renderer.garageCarVisible = this.isInGarageInterior() && !!this.garageCar && !!this.garageCarMesh;
     this.renderer.armOverrideActive = this.currentWeapon > 0 && !this.firstPerson;
     this.renderer.playerWeapon = this.currentWeapon;
     this.renderer.playerAttack = this.meleeAttack;
@@ -5896,6 +5898,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const garageDx = this.carX - GARAGE_ENTRANCE_X;
     const garageDz = this.carZ - GARAGE_ENTRANCE_Z;
     const nearGarage = (garageDx * garageDx + garageDz * garageDz) < (GARAGE_DETECT_RADIUS * GARAGE_DETECT_RADIUS);
+    const nearBridgeRoad = isNearBridgeRoad(this.carX, this.carZ, margin);
     for (let dz = -1; dz <= 1; dz++) {
       for (let dx = -1; dx <= 1; dx++) {
         const chunkCX = cx + dx;
@@ -5904,6 +5907,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         // the custom garage pass below handles the shell and door separately.
         if (nearGarage && chunkCX === 1 && chunkCZ === 0) continue;
         this.renderer.getCityChunk(chunkCX, chunkCZ);
+        // Bridge ramps and decks are intentionally kept free of generic
+        // building/tree colliders. Their visible roadway and side rails have
+        // their own collision rules; neighboring streamed props must not create
+        // an invisible bump across the approach slope.
+        if (nearBridgeRoad && this.isInCar) continue;
         this.checkBuildingsInChunk(chunkCX, chunkCZ, margin);
         this.checkTreesInChunk(chunkCX, chunkCZ, margin);
       }
@@ -8942,6 +8950,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       if (this.isPointerLocked) document.exitPointerLock();
     }
     if (e.code === 'Escape') {
+      if (this.showTaxiDestinations) {
+        e.preventDefault();
+        this.showTaxiDestinations = false;
+        return;
+      }
       this.showWeaponWheel = false;
       this.showLeaderboard = false;
       this.stopHsRefresh();

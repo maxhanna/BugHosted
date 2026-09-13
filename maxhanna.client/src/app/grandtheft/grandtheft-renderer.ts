@@ -61,7 +61,7 @@ function getBridgeAtWorldPos(x: number, z: number): BridgeDef | null {
   }
   return null;
 }
-function isNearBridgeRoad(x: number, z: number, margin: number): boolean {
+export function isNearBridgeRoad(x: number, z: number, margin: number): boolean {
   const bridgeW = (ROAD_HALF_WIDTH * 2) + 10;
   for (const br of BRIDGE_RANGES) {
     const roadCenterZ = br.startCz * 80;
@@ -898,6 +898,8 @@ export class GrandTheftRenderer {
   public garageDoorMesh: CityMesh[] | null = null;
   public garageDoorOpenness = 0;
   public garageCarMesh: CityMesh | CityMesh[] | null = null;
+  /** Stored garage vehicles are private to the local player and only render while that player is inside. */
+  public garageCarVisible = false;
   public taxiMesh: CityMesh[] | null = null;
   public hookerMesh: CityMesh[] | null = null;
   public rocketMesh: CityMesh[] | null = null;
@@ -6303,7 +6305,7 @@ void main() {
         }
       }
     }
-    if (this.garageCarMesh) this.drawMesh(this.garageCarMesh, 120, 0, 42, 0);
+    if (this.garageCarVisible && this.garageCarMesh) this.drawMesh(this.garageCarMesh, 120, 0, 42, 0);
     if (this.vendingMachineMesh) {
       for (const vm of vendingMachines) {
         this.drawMesh(this.vendingMachineMesh, vm.x, 0, vm.z, vm.yaw);
