@@ -143,6 +143,15 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
     if (this.inputtedParentRef) this.parentRef = this.inputtedParentRef;
     this.localEbookFolderSupported = this.localEbookService.supportsFileSystemAccess();
     void this.loadLocalEbookFolderState();
+    await this.openPreloadedBook();
+  }
+  async onReopen(inputs?: { [key: string]: any; }) {
+    if (inputs?.['preloadBookId']) {
+      this.preloadBookId = inputs['preloadBookId'];
+      await this.openPreloadedBook();
+    }
+  }
+  private async openPreloadedBook() {
     // Deep links (/Books/<fileId>) open the reader on top of the file manager.
     // Resolved from the caller's library first, then the community catalog,
     // then directly by file id (covers own private uploads not yet in library).
@@ -411,7 +420,8 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
       this.parentRef?.user?.id ?? 0,
       "read_ebook",
       book.title,
-    );  
+      book.fileId || undefined,
+    );
     // Fetch the saved position in parallel with the book itself — resume must
     // not add latency to opening the reader.
     const uid = this.userId;
@@ -659,7 +669,7 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
         this.queueProgressSave();
       });
 
-      this.userEventService.insertUserEvent(this.parentRef?.user?.id ?? 0, 'read_ebook', book.title);
+      this.userEventService.insertUserEvent(this.parentRef?.user?.id ?? 0, 'read_ebook', book.title, book.fileId || undefined);
 
       rendition.on('renderError', () => { });
       // Swipe-to-turn: epub.js forwards touch events from inside the book

@@ -352,6 +352,9 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
     else if (e.eventType === 'save_note') {
       this.parentRef?.createComponent('Notepad', { 'noteId': e.referenceId });
     }
+    else if (e.eventType === 'read_ebook') {
+      this.parentRef?.createComponent('Ebooks', { preloadBookId: e.referenceId });
+    }
     else if (eData.component) {
       this.parentRef?.createComponent(eData.component);
     }
