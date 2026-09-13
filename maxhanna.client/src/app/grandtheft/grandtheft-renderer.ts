@@ -16,6 +16,10 @@ const REMOTE_PLAYER_RENDER_SCALE = 1.35;
 // Vehicle occupants use smaller seated scales below because their pose is inside
 // a cabin, while standing pedestrians should not read like toy figures.
 const NPC_HUMAN_RENDER_SCALE = 1.30;
+// Helicopters should read as full-size aircraft rather than small toy props.
+// Keep this in one place so the fuselage, rotors, occupants, and shadows stay
+// in the same visual scale when the aircraft is rendered from any camera pass.
+const HELICOPTER_RENDER_SCALE = 1.5;
 interface IslandDef {
   cx: number; cz: number;
   cityR: number;
@@ -5163,9 +5167,9 @@ void main() {
         for (const p of points) verts.push(p[0], p[1], p[2], c[0], c[1], c[2], 1);
         indices.push(base,base+1,base+2,base,base+2,base+3,base+4,base+6,base+5,base+4,base+7,base+6,base,base+4,base+5,base,base+5,base+1,base+3,base+2,base+6,base+3,base+6,base+7,base,base+3,base+7,base,base+7,base+4,base+1,base+5,base+6,base+1,base+6,base+2);
       };
-      const body: [number,number,number] = police ? [0.06,0.10,0.20] : [0.16,0.36,0.58];
-      const trim: [number,number,number] = police ? [0.88,0.90,0.94] : [0.72,0.88,0.98];
-      const glass: [number,number,number] = police ? [0.08,0.16,0.24] : [0.04,0.18,0.28];
+      const body: [number,number,number] = police ? [0.06,0.10,0.20] : [0.28,0.30,0.32];
+      const trim: [number,number,number] = police ? [0.88,0.90,0.94] : [0.72,0.70,0.64];
+      const glass: [number,number,number] = police ? [0.08,0.16,0.24] : [0.035,0.08,0.11];
       // The previous airframe was extremely flat and mostly hidden by the
       // oversized rotor. Build a complete fuselage with a tapered nose,
       // cabin glazing, tail boom, vertical fin, and landing skids.
@@ -5958,14 +5962,18 @@ void main() {
         // place the complete airframe above the pad, not just the rotor.
         const aircraftY = aircraft.type === 'helicopter' ? 0.32 : 0.15;
         const helicopterYaw = aircraft.yaw + Math.PI;
-        this.drawMesh(aircraftMesh, aircraft.x, aircraftY, aircraft.z, helicopterYaw);
+        const aircraftScale: [number, number, number] = aircraft.type === 'helicopter'
+          ? [HELICOPTER_RENDER_SCALE, HELICOPTER_RENDER_SCALE, HELICOPTER_RENDER_SCALE]
+          : [1, 1, 1];
+        this.drawMesh(aircraftMesh, aircraft.x, aircraftY, aircraft.z, helicopterYaw, aircraftScale);
         if (aircraft.type === 'helicopter') {
           const spin = now * 0.02;
           const rotor = this.getRotorBladeMesh();
-          this.drawMesh(rotor, aircraft.x, aircraftY + 2.02, aircraft.z, helicopterYaw + spin, [0.58, 0.58, 0.58], [0.18, 0.2, 0.22, 0.82]);
-          const tailX = aircraft.x + Math.sin(helicopterYaw) * 2.65;
-          const tailZ = aircraft.z + Math.cos(helicopterYaw) * 2.65;
-          this.drawMesh(rotor, tailX, aircraftY + 1.2, tailZ, helicopterYaw + spin * 2.75, [0.18, 0.18, 0.18], [0.2, 0.22, 0.24, 0.8]);
+          const rotorScale = 0.58 * HELICOPTER_RENDER_SCALE;
+          this.drawMesh(rotor, aircraft.x, aircraftY + 2.02 * HELICOPTER_RENDER_SCALE, aircraft.z, helicopterYaw + spin, [rotorScale, rotorScale, rotorScale], [0.18, 0.2, 0.22, 0.82]);
+          const tailX = aircraft.x + Math.sin(helicopterYaw) * 2.65 * HELICOPTER_RENDER_SCALE;
+          const tailZ = aircraft.z + Math.cos(helicopterYaw) * 2.65 * HELICOPTER_RENDER_SCALE;
+          this.drawMesh(rotor, tailX, aircraftY + 1.2 * HELICOPTER_RENDER_SCALE, tailZ, helicopterYaw + spin * 2.75, [0.18 * HELICOPTER_RENDER_SCALE, 0.18 * HELICOPTER_RENDER_SCALE, 0.18 * HELICOPTER_RENDER_SCALE], [0.2, 0.22, 0.24, 0.8]);
         }
       }
     }
@@ -6033,28 +6041,32 @@ void main() {
           const wreckRoll = Math.sin(elapsed * 8 + npc.id) * 0.32 + impactProgress * 0.7;
           const wreckYaw = npc.yaw + Math.PI + Math.sin(elapsed * 2.5) * 0.35;
           const fade = elapsed > 10 ? Math.max(0, 1 - (elapsed - 10) / 2) : 1;
-          this.drawMesh(heliMesh, npc.x, fallY, npc.z, wreckYaw, [1, 1, 1], [1, 1, 1, fade], false, wreckPitch, wreckRoll);
+          const wreckScale: [number, number, number] = [HELICOPTER_RENDER_SCALE, HELICOPTER_RENDER_SCALE, HELICOPTER_RENDER_SCALE];
+          this.drawMesh(heliMesh, npc.x, fallY, npc.z, wreckYaw, wreckScale, [1, 1, 1, fade], false, wreckPitch, wreckRoll);
           // The rotors wind down and wobble during the crash, then disappear
           // with the wreck rather than continuing to spin like a live aircraft.
           if (fade > 0 && elapsed < 4.5) {
             const rotorMesh = this.getRotorBladeMesh();
-            const rotorY = fallY + 2.08 * (1 - impactProgress * 0.25);
+            const rotorScale = 0.58 * HELICOPTER_RENDER_SCALE;
+            const rotorY = fallY + 2.08 * HELICOPTER_RENDER_SCALE * (1 - impactProgress * 0.25);
             const rotorSpin = elapsed * (20 - Math.min(16, elapsed * 4));
-            this.drawMesh(rotorMesh, npc.x, rotorY, npc.z, wreckYaw + rotorSpin, [0.58, 0.58, 0.58], [0.25, 0.25, 0.25, 0.55 * fade], false, wreckPitch, wreckRoll);
+            this.drawMesh(rotorMesh, npc.x, rotorY, npc.z, wreckYaw + rotorSpin, [rotorScale, rotorScale, rotorScale], [0.25, 0.25, 0.25, 0.55 * fade], false, wreckPitch, wreckRoll);
           }
         } else {
           // Keep the body and its rotor in the same local coordinate frame. The
           // body mesh is centered near Y=1, so expY is the airframe base height.
-          this.drawMesh(heliMesh, npc.x, expY, npc.z, npc.yaw + Math.PI, [1, 1, 1], [1, 1, 1, 1]);
+          this.drawMesh(heliMesh, npc.x, expY, npc.z, npc.yaw + Math.PI, [HELICOPTER_RENDER_SCALE, HELICOPTER_RENDER_SCALE, HELICOPTER_RENDER_SCALE], [1, 1, 1, 1]);
           const rotorMesh = this.getRotorBladeMesh();
-          const mainRotorY = expY + 2.08;
+          const mainRotorY = expY + 2.08 * HELICOPTER_RENDER_SCALE;
           const mainSpin = now * 20;
-          this.drawMesh(rotorMesh, npc.x, mainRotorY, npc.z, npc.yaw + Math.PI + mainSpin, [0.58, 0.58, 0.58], [0.55, 0.55, 0.55, 0.5]);
+          const rotorScale = 0.58 * HELICOPTER_RENDER_SCALE;
+          this.drawMesh(rotorMesh, npc.x, mainRotorY, npc.z, npc.yaw + Math.PI + mainSpin, [rotorScale, rotorScale, rotorScale], [0.55, 0.55, 0.55, 0.5]);
           const helicopterYaw = npc.yaw + Math.PI;
-          const tailOffX = Math.sin(helicopterYaw) * 2.65;
-          const tailOffZ = Math.cos(helicopterYaw) * 2.65;
+          const tailOffX = Math.sin(helicopterYaw) * 2.65 * HELICOPTER_RENDER_SCALE;
+          const tailOffZ = Math.cos(helicopterYaw) * 2.65 * HELICOPTER_RENDER_SCALE;
           const tailSpin = now * 55;
-          this.drawMesh(rotorMesh, npc.x + tailOffX, expY + 1.18, npc.z + tailOffZ, helicopterYaw + tailSpin, [0.18, 0.18, 0.18], [0.4, 0.4, 0.4, 0.45]);
+          const tailRotorScale = 0.18 * HELICOPTER_RENDER_SCALE;
+          this.drawMesh(rotorMesh, npc.x + tailOffX, expY + 1.18 * HELICOPTER_RENDER_SCALE, npc.z + tailOffZ, helicopterYaw + tailSpin, [tailRotorScale, tailRotorScale, tailRotorScale], [0.4, 0.4, 0.4, 0.45]);
         }
       } else {
         const isSwimming = !!npc.isSwimming && submerged;
@@ -6266,15 +6278,17 @@ void main() {
       const localVehicleMesh = this.playerVehicleType === 'helicopter'
         ? this.getHelicopterMesh(0, false)
         : this.playerVehicleMesh;
-      if (localVehicleMesh) this.drawMesh(localVehicleMesh, targetX, vehicleY, targetZ, this.playerVehicleType === 'helicopter' ? carYaw + Math.PI : carYaw, [1, 1, 1], [1, 1, 1, 1], false, 0, carRoll);
+      if (localVehicleMesh) this.drawMesh(localVehicleMesh, targetX, vehicleY, targetZ, this.playerVehicleType === 'helicopter' ? carYaw + Math.PI : carYaw, this.playerVehicleType === 'helicopter' ? [HELICOPTER_RENDER_SCALE, HELICOPTER_RENDER_SCALE, HELICOPTER_RENDER_SCALE] : [1, 1, 1], [1, 1, 1, 1], false, 0, carRoll);
       if (this.playerVehicleType === 'helicopter') {
         const rotor = this.getRotorBladeMesh();
         const spin = performance.now() * 0.02;
-        this.drawMesh(rotor, targetX, vehicleY + 2.08, targetZ, carYaw + Math.PI + spin, [0.58, 0.58, 0.58], [0.55, 0.55, 0.55, 0.5]);
+        const rotorScale = 0.58 * HELICOPTER_RENDER_SCALE;
+        this.drawMesh(rotor, targetX, vehicleY + 2.08 * HELICOPTER_RENDER_SCALE, targetZ, carYaw + Math.PI + spin, [rotorScale, rotorScale, rotorScale], [0.55, 0.55, 0.55, 0.5]);
         const helicopterYaw = carYaw + Math.PI;
-        const tailX = targetX + Math.sin(helicopterYaw) * 2.65;
-        const tailZ = targetZ + Math.cos(helicopterYaw) * 2.65;
-        this.drawMesh(rotor, tailX, vehicleY + 1.18, tailZ, helicopterYaw + spin * 2.75, [0.18, 0.18, 0.18], [0.4, 0.4, 0.4, 0.45]);
+        const tailX = targetX + Math.sin(helicopterYaw) * 2.65 * HELICOPTER_RENDER_SCALE;
+        const tailZ = targetZ + Math.cos(helicopterYaw) * 2.65 * HELICOPTER_RENDER_SCALE;
+        const tailRotorScale = 0.18 * HELICOPTER_RENDER_SCALE;
+        this.drawMesh(rotor, tailX, vehicleY + 1.18 * HELICOPTER_RENDER_SCALE, tailZ, helicopterYaw + spin * 2.75, [tailRotorScale, tailRotorScale, tailRotorScale], [0.4, 0.4, 0.4, 0.45]);
       }
     }
     if (playerMesh && !this.playerIsInCar) {
