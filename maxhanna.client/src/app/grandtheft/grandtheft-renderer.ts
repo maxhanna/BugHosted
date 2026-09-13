@@ -1,10 +1,20 @@
-import { CityMesh, CityChunk, GltfAnimation, BuildingPlacement } from "../../services/grandtheft.service";
-import { HumanVariant, Role, pickVariant, createHumanSkeleton } from './grandtheft-human-model';
+import {
+  CityMesh,
+  CityChunk,
+  GltfAnimation,
+  BuildingPlacement,
+} from "../../services/grandtheft.service";
+import {
+  HumanVariant,
+  Role,
+  pickVariant,
+  createHumanSkeleton,
+} from "./grandtheft-human-model";
 const CHUNK_SIZE = 80;
 const GRID_PITCH = 80;
 const BLOCK_SIZE = 30;
 const SIDEWALK_SIZE = 48;
-const ROAD_HALF_WIDTH = (GRID_PITCH - SIDEWALK_SIZE) / 2; 
+const ROAD_HALF_WIDTH = (GRID_PITCH - SIDEWALK_SIZE) / 2;
 const BIOME_RADIUS_MOUNTAIN = 30;
 // Coastal land is intentionally more common than mountain terrain. Mountains
 // use the explicit eastern chain below rather than the old random rural roll.
@@ -15,34 +25,38 @@ const REMOTE_PLAYER_RENDER_SCALE = 1.35;
 // Keep ordinary pedestrians visually comparable to the enlarged player model.
 // Vehicle occupants use smaller seated scales below because their pose is inside
 // a cabin, while standing pedestrians should not read like toy figures.
-const NPC_HUMAN_RENDER_SCALE = 1.30;
+const NPC_HUMAN_RENDER_SCALE = 1.3;
 // Helicopters should read as full-size aircraft rather than small toy props.
 // Keep this in one place so the fuselage, rotors, occupants, and shadows stay
 // in the same visual scale when the aircraft is rendered from any camera pass.
 const HELICOPTER_RENDER_SCALE = 1.5;
 interface IslandDef {
-  cx: number; cz: number;
+  cx: number;
+  cz: number;
   cityR: number;
   suburbR: number;
   ruralR: number;
 }
 const ISLANDS: IslandDef[] = [
-  { cx: 0, cz: 0, cityR: 2.5, suburbR: 3.5, ruralR: 3.5 },     
-  { cx: 10, cz: 0, cityR: 5, suburbR: 7, ruralR: 8 },           
-  { cx: 24, cz: 0, cityR: 3, suburbR: 6, ruralR: 8 },           
-  { cx: 41, cz: 0, cityR: 5, suburbR: 8, ruralR: 11 },          
-  { cx: -10, cz: 0, cityR: 0, suburbR: 0, ruralR: 6 },          
-  { cx: 61, cz: 0, cityR: 0, suburbR: 0, ruralR: 11 },          
-  { cx: -18, cz: 0, cityR: 0, suburbR: 0, ruralR: 5 },          
-  { cx: 75, cz: 0, cityR: 0, suburbR: 0, ruralR: 9 },           
+  { cx: 0, cz: 0, cityR: 2.5, suburbR: 3.5, ruralR: 3.5 },
+  { cx: 10, cz: 0, cityR: 5, suburbR: 7, ruralR: 8 },
+  { cx: 24, cz: 0, cityR: 3, suburbR: 6, ruralR: 8 },
+  { cx: 41, cz: 0, cityR: 5, suburbR: 8, ruralR: 11 },
+  { cx: -10, cz: 0, cityR: 0, suburbR: 0, ruralR: 6 },
+  { cx: 61, cz: 0, cityR: 0, suburbR: 0, ruralR: 11 },
+  { cx: -18, cz: 0, cityR: 0, suburbR: 0, ruralR: 5 },
+  { cx: 75, cz: 0, cityR: 0, suburbR: 0, ruralR: 9 },
 ];
 interface BridgeDef {
-  startCx: number; endCx: number; startCz: number; endCz: number;
+  startCx: number;
+  endCx: number;
+  startCz: number;
+  endCz: number;
 }
 const BRIDGES: BridgeDef[] = [
-  { startCx: 4, endCx: 5, startCz: 0, endCz: 0 },     
-  { startCx: 16, endCx: 17, startCz: 0, endCz: 0 },   
-  { startCx: 31, endCx: 32, startCz: 0, endCz: 0 },   
+  { startCx: 4, endCx: 5, startCz: 0, endCz: 0 },
+  { startCx: 16, endCx: 17, startCz: 0, endCz: 0 },
+  { startCx: 31, endCx: 32, startCz: 0, endCz: 0 },
 ];
 const BRIDGE_CONNECTORS: { cx: number; cz: number }[] = [];
 for (const br of BRIDGES) {
@@ -50,7 +64,7 @@ for (const br of BRIDGES) {
   BRIDGE_CONNECTORS.push({ cx: br.endCx + 1, cz: br.endCz });
 }
 function getBridgeAtWorldPos(x: number, z: number): BridgeDef | null {
-  const bridgeW = (ROAD_HALF_WIDTH * 2) + 10; 
+  const bridgeW = ROAD_HALF_WIDTH * 2 + 10;
   for (const br of BRIDGE_RANGES) {
     const roadCenterZ = br.startCz * 80;
     if (Math.abs(z - roadCenterZ) > bridgeW / 2) continue;
@@ -61,8 +75,12 @@ function getBridgeAtWorldPos(x: number, z: number): BridgeDef | null {
   }
   return null;
 }
-export function isNearBridgeRoad(x: number, z: number, margin: number): boolean {
-  const bridgeW = (ROAD_HALF_WIDTH * 2) + 10;
+export function isNearBridgeRoad(
+  x: number,
+  z: number,
+  margin: number,
+): boolean {
+  const bridgeW = ROAD_HALF_WIDTH * 2 + 10;
   for (const br of BRIDGE_RANGES) {
     const roadCenterZ = br.startCz * 80;
     if (Math.abs(z - roadCenterZ) > bridgeW / 2 + margin) continue;
@@ -75,7 +93,8 @@ export function isNearBridgeRoad(x: number, z: number, margin: number): boolean 
 }
 function isInAnyIsland(cx: number, cz: number): boolean {
   for (const isl of ISLANDS) {
-    const dx = cx - isl.cx, dz = cz - isl.cz;
+    const dx = cx - isl.cx,
+      dz = cz - isl.cz;
     if (dx * dx + dz * dz < isl.ruralR * isl.ruralR) return true;
   }
   return false;
@@ -85,16 +104,19 @@ function isInAnyIsland(cx: number, cz: number): boolean {
 // bridges, the chain has a clear beginning and end that sit on the same level
 // as the surrounding ground, and it rises smoothly to full height across many
 // chunks — no isolated cliffs popping out of flat land.
-const MOUNTAIN_CHAIN_WEST = 36 * CHUNK_SIZE;  // first foothills (world x)
-const MOUNTAIN_CHAIN_EAST = 86 * CHUNK_SIZE;  // last foothills (world x)
-const MOUNTAIN_CHAIN_RAMP = 6 * CHUNK_SIZE;   // smooth gain/loss span (world units)
-const MOUNTAIN_FOOTHILL_WIDTH = 11;           // biome cells across the ridge belt
-const MOUNTAIN_CORE_WIDTH = 5;                 // high interior cells
+const MOUNTAIN_CHAIN_WEST = 36 * CHUNK_SIZE; // first foothills (world x)
+const MOUNTAIN_CHAIN_EAST = 86 * CHUNK_SIZE; // last foothills (world x)
+const MOUNTAIN_CHAIN_RAMP = 6 * CHUNK_SIZE; // smooth gain/loss span (world units)
+const MOUNTAIN_FOOTHILL_WIDTH = 11; // biome cells across the ridge belt
+const MOUNTAIN_CORE_WIDTH = 5; // high interior cells
 
 /** 0→1→0 envelope along the chain length, ramping up/down like a bridge approach. */
 function mountainLongitudinal(x: number): number {
   if (x <= MOUNTAIN_CHAIN_WEST || x >= MOUNTAIN_CHAIN_EAST) return 0;
-  const smooth = (t: number) => { const c = Math.max(0, Math.min(1, t)); return c * c * (3 - 2 * c); };
+  const smooth = (t: number) => {
+    const c = Math.max(0, Math.min(1, t));
+    return c * c * (3 - 2 * c);
+  };
   if (x < MOUNTAIN_CHAIN_WEST + MOUNTAIN_CHAIN_RAMP) {
     return smooth((x - MOUNTAIN_CHAIN_WEST) / MOUNTAIN_CHAIN_RAMP);
   }
@@ -128,16 +150,24 @@ function getMountainHeight(x: number, z: number): number {
   // tapered at both sides so lowland/city chunks meet real foothills instead
   // of exposing a vertical cliff at the biome classification boundary.
   const chainX = x / CHUNK_SIZE - 41;
-  const ridgeCenterZ = (6 + 2.6 * Math.sin(chainX * 0.26)) * CHUNK_SIZE + CHUNK_SIZE / 2;
+  const ridgeCenterZ =
+    (6 + 2.6 * Math.sin(chainX * 0.26)) * CHUNK_SIZE + CHUNK_SIZE / 2;
   const ridgeDistance = z - ridgeCenterZ;
-  const mainRidge = Math.exp(-(ridgeDistance * ridgeDistance) / (2 * 330 * 330));
+  const mainRidge = Math.exp(
+    -(ridgeDistance * ridgeDistance) / (2 * 330 * 330),
+  );
   const shoulderDistance = z - (ridgeCenterZ + 128 + 38 * Math.sin(x / 230));
-  const shoulder = Math.exp(-(shoulderDistance * shoulderDistance) / (2 * 115 * 115));
+  const shoulder = Math.exp(
+    -(shoulderDistance * shoulderDistance) / (2 * 115 * 115),
+  );
   const detail = 0.82 + 0.18 * Math.sin(x / 115 + Math.sin(z / 190) * 1.4);
   const profile = Math.max(0, mainRidge * (12 + 42 * detail) + shoulder * 10);
   // Keep a broad, low foothill apron so the terrain reaches street level over
   // several cells instead of ending at the first mountain tile.
-  const lateral = Math.max(0, Math.min(1, (Math.abs(ridgeDistance) - 520) / 300));
+  const lateral = Math.max(
+    0,
+    Math.min(1, (Math.abs(ridgeDistance) - 520) / 300),
+  );
   const edgeFade = 1 - lateral * lateral * (3 - 2 * lateral);
   return profile * edgeFade * mountainLongitudinal(x);
 }
@@ -150,7 +180,8 @@ function getMountainRoadHeight(x: number, z: number): number {
 
 function getMountainSwitchbackZ(x: number): number {
   const chainX = x / CHUNK_SIZE - 41;
-  const ridgeCenterZ = (6 + 2.6 * Math.sin(chainX * 0.26)) * CHUNK_SIZE + CHUNK_SIZE / 2;
+  const ridgeCenterZ =
+    (6 + 2.6 * Math.sin(chainX * 0.26)) * CHUNK_SIZE + CHUNK_SIZE / 2;
   // A long, deterministic shelf road follows the chain rather than making
   // isolated loops inside each mountain chunk.
   return ridgeCenterZ + 118 * Math.sin(x / 175 + 0.7);
@@ -172,54 +203,64 @@ const BIOME_CACHE_LIMIT = 250000;
 
 /** Island/bridge/ocean/aeroport classification with no neighbour-dependent logic. Never recurses. */
 function biomeWithoutBeach(cx: number, cz: number): string {
-  if (cx >= 0 && cx <= 3 && cz >= -3 && cz <= -1) return 'aeroport';
-  if (cx >= 8 && cx <= 15 && cz >= -6 && cz <= -4) return 'aeroport';
-  if (cx >= 22 && cx <= 30 && cz >= -8 && cz <= -6) return 'aeroport';
-  if (cx >= 36 && cx <= 46 && cz >= -11 && cz <= -9) return 'aeroport';
-  if (cx >= 33 && cx <= 46 && cz >= 12 && cz <= 16) return 'aeroport';
+  if (cx >= 0 && cx <= 3 && cz >= -3 && cz <= -1) return "aeroport";
+  if (cx >= 8 && cx <= 15 && cz >= -6 && cz <= -4) return "aeroport";
+  if (cx >= 22 && cx <= 30 && cz >= -8 && cz <= -6) return "aeroport";
+  if (cx >= 36 && cx <= 46 && cz >= -11 && cz <= -9) return "aeroport";
+  if (cx >= 33 && cx <= 46 && cz >= 12 && cz <= 16) return "aeroport";
   for (const br of BRIDGES) {
-    if (cx >= br.startCx && cx <= br.endCx && cz >= br.startCz && cz <= br.endCz) return 'bridge';
+    if (
+      cx >= br.startCx &&
+      cx <= br.endCx &&
+      cz >= br.startCz &&
+      cz <= br.endCz
+    )
+      return "bridge";
   }
   for (const conn of BRIDGE_CONNECTORS) {
-    if (cx === conn.cx && cz === conn.cz) return 'bridge_connector';
+    if (cx === conn.cx && cz === conn.cz) return "bridge_connector";
   }
-  if (isBridgeChunk(cx, cz + 1)) return 'ocean';
-  if (isBridgeChunk(cx, cz - 1)) return 'ocean';
+  if (isBridgeChunk(cx, cz + 1)) return "ocean";
+  if (isBridgeChunk(cx, cz - 1)) return "ocean";
   const isParkingPatch = () => {
-    const h = ((Math.imul(cx, 100003) + Math.imul(cz, 70001)) >>> 0);
-    return (h % 9) === 0;
+    const h = (Math.imul(cx, 100003) + Math.imul(cz, 70001)) >>> 0;
+    return h % 9 === 0;
   };
   let bestIsl: IslandDef | null = null;
   let bestDist = Infinity;
   for (const isl of ISLANDS) {
-    const dx = cx - isl.cx, dz = cz - isl.cz;
+    const dx = cx - isl.cx,
+      dz = cz - isl.cz;
     const dist = Math.sqrt(dx * dx + dz * dz);
-    if (dist < isl.ruralR && dist < bestDist) { bestIsl = isl; bestDist = dist; }
+    if (dist < isl.ruralR && dist < bestDist) {
+      bestIsl = isl;
+      bestDist = dist;
+    }
   }
-  if (!bestIsl) return 'ocean';
+  if (!bestIsl) return "ocean";
   const isl = bestIsl;
   const dist = bestDist;
-  if (isMarinaChunk(cx, cz)) return 'marina';
+  if (isMarinaChunk(cx, cz)) return "marina";
   const mountainBand = getMountainBand(cx, cz);
-  if (mountainBand === 2) return 'rural_mountain';
-  if (mountainBand === 1) return 'rural_hills';
+  if (mountainBand === 2) return "rural_mountain";
+  if (mountainBand === 1) return "rural_hills";
   if (dist < isl.cityR) {
-    return isParkingPatch() ? 'parking_lot' : 'city';
+    return isParkingPatch() ? "parking_lot" : "city";
   } else if (dist < isl.suburbR) {
-    return isParkingPatch() ? 'parking_lot' : 'suburb';
+    return isParkingPatch() ? "parking_lot" : "suburb";
   } else {
-    const hr = ((Math.imul(cx, 100003) + Math.imul(cz, 70001)) >>> 0);
+    const hr = (Math.imul(cx, 100003) + Math.imul(cz, 70001)) >>> 0;
     // Keep random mountain tiles out of the biome picker: the explicit chain
     // above is the only source of mountains, so every mountain area is a real
     // connected group instead of isolated spikes. Beaches remain common on
     // coastal boundaries and ordinary rural terrain stays varied.
     const rv = hr % 6;
-    if (rv === 0) return 'rural_farm';
-    if (rv === 1) return 'rural_hills';
-    if (rv === 2) return 'rural_lakes';
-    if (rv === 3) return 'rural_desert';
-    if (rv === 4) return 'rural_farm';
-    return 'rural_hills';
+    if (rv === 0) return "rural_farm";
+    if (rv === 1) return "rural_hills";
+    if (rv === 2) return "rural_lakes";
+    if (rv === 3) return "rural_desert";
+    if (rv === 4) return "rural_farm";
+    return "rural_hills";
   }
 }
 
@@ -229,21 +270,45 @@ export function getBiome(cx: number, cz: number): string {
   if (cached !== undefined) return cached;
   const base = biomeWithoutBeach(cx, cz);
   let result = base;
-  if (base !== 'ocean' && base !== 'aeroport' && base !== 'bridge' && base !== 'bridge_connector' && base !== 'marina') {
+  if (
+    base !== "ocean" &&
+    base !== "aeroport" &&
+    base !== "bridge" &&
+    base !== "bridge_connector" &&
+    base !== "marina"
+  ) {
     // Keep this deliberately non-recursive. The backend uses the same base
     // classification when deciding whether a shoreline tile may carry a road;
     // recursive neighbour lookups made the two navigation maps diverge at biome
     // seams and left NPCs unable to cross otherwise visible streets.
-    const isRoadBiome = (b: string) => b === 'city' || b === 'suburb' || b === 'parking_lot'
-      || b === 'rural_farm' || b === 'rural_hills' || b === 'rural_mountain'
-      || b === 'rural_lakes' || b === 'rural_desert' || b === 'bridge_connector' || b === 'marina';
-    const hasRoadNeighbour = (dx: number, dz: number) => isRoadBiome(biomeWithoutBeach(cx + dx, cz + dz));
-    const shoreline = !isInAnyIsland(cx + 1, cz) || !isInAnyIsland(cx - 1, cz)
-      || !isInAnyIsland(cx, cz + 1) || !isInAnyIsland(cx, cz - 1);
+    const isRoadBiome = (b: string) =>
+      b === "city" ||
+      b === "suburb" ||
+      b === "parking_lot" ||
+      b === "rural_farm" ||
+      b === "rural_hills" ||
+      b === "rural_mountain" ||
+      b === "rural_lakes" ||
+      b === "rural_desert" ||
+      b === "bridge_connector" ||
+      b === "marina";
+    const hasRoadNeighbour = (dx: number, dz: number) =>
+      isRoadBiome(biomeWithoutBeach(cx + dx, cz + dz));
+    const shoreline =
+      !isInAnyIsland(cx + 1, cz) ||
+      !isInAnyIsland(cx - 1, cz) ||
+      !isInAnyIsland(cx, cz + 1) ||
+      !isInAnyIsland(cx, cz - 1);
     const shorelineHash = (Math.imul(cx, 100003) ^ Math.imul(cz, 70001)) >>> 0;
-    if (shoreline && (shorelineHash % BEACH_CHANCE_DENOMINATOR !== 0
-      || (!hasRoadNeighbour(-1, 0) && !hasRoadNeighbour(1, 0)
-        && !hasRoadNeighbour(0, -1) && !hasRoadNeighbour(0, 1)))) result = 'beach';
+    if (
+      shoreline &&
+      (shorelineHash % BEACH_CHANCE_DENOMINATOR !== 0 ||
+        (!hasRoadNeighbour(-1, 0) &&
+          !hasRoadNeighbour(1, 0) &&
+          !hasRoadNeighbour(0, -1) &&
+          !hasRoadNeighbour(0, 1)))
+    )
+      result = "beach";
   }
   if (biomeCache.size >= BIOME_CACHE_LIMIT) biomeCache.clear();
   biomeCache.set(key, result);
@@ -259,7 +324,13 @@ export function isAeroportParkingChunk(cx: number, cz: number): boolean {
 }
 function isBridgeChunk(cx: number, cz: number): boolean {
   for (const br of BRIDGES) {
-    if (cx >= br.startCx && cx <= br.endCx && cz >= br.startCz && cz <= br.endCz) return true;
+    if (
+      cx >= br.startCx &&
+      cx <= br.endCx &&
+      cz >= br.startCz &&
+      cz <= br.endCz
+    )
+      return true;
   }
   return false;
 }
@@ -274,21 +345,30 @@ function getMarinaCoastSides(cx: number, cz: number): [number, number][] {
   // chunk may already be classified as beach, but it is still the coast that
   // the marina must cut into. Depending on getBiome made some marinas render
   // as dry land with no basin or docks.
-  return ([[1, 0], [-1, 0], [0, 1], [0, -1]] as [number, number][])
-    .filter(([dx, dz]) => !isInAnyIsland(cx + dx, cz + dz));
+  return (
+    [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ] as [number, number][]
+  ).filter(([dx, dz]) => !isInAnyIsland(cx + dx, cz + dz));
 }
 
 function isMarinaChunk(cx: number, cz: number): boolean {
   if (!isInAnyIsland(cx, cz) || isBridgeChunk(cx, cz)) return false;
-  if ((cx >= 0 && cx <= 3 && cz >= -3 && cz <= -1)
-    || (cx >= 8 && cx <= 15 && cz >= -6 && cz <= -4)
-    || (cx >= 22 && cx <= 30 && cz >= -8 && cz <= -6)
-    || (cx >= 36 && cx <= 46 && cz >= -11 && cz <= -9)
-    || (cx >= 33 && cx <= 46 && cz >= 12 && cz <= 16)) return false;
+  if (
+    (cx >= 0 && cx <= 3 && cz >= -3 && cz <= -1) ||
+    (cx >= 8 && cx <= 15 && cz >= -6 && cz <= -4) ||
+    (cx >= 22 && cx <= 30 && cz >= -8 && cz <= -6) ||
+    (cx >= 36 && cx <= 46 && cz >= -11 && cz <= -9) ||
+    (cx >= 33 && cx <= 46 && cz >= 12 && cz <= 16)
+  )
+    return false;
   const touchesWater = getMarinaCoastSides(cx, cz).length > 0;
   if (!touchesWater) return false;
-  const touchesBridgeCorner = BRIDGE_CONNECTORS.some(conn =>
-    Math.abs(cx - conn.cx) <= 1 && cz === conn.cz
+  const touchesBridgeCorner = BRIDGE_CONNECTORS.some(
+    (conn) => Math.abs(cx - conn.cx) <= 1 && cz === conn.cz,
   );
   const hash = (Math.imul(cx, 100003) ^ Math.imul(cz, 70001)) >>> 0;
   return touchesBridgeCorner || hash % 7 === 0;
@@ -319,10 +399,14 @@ export function getMarinaWaterDepth(x: number, z: number): number {
     // Keep cross-streets crossing the basin walkable, while leaving the
     // shoreline-facing edge open for docks and boats.
     if (sideX !== 0 ? nearGrid(localZ) : nearGrid(localX)) continue;
-    const distance = sideX > 0 ? localX - (CHUNK_SIZE - waterDepth)
-      : sideX < 0 ? waterDepth - localX
-        : sideZ > 0 ? localZ - (CHUNK_SIZE - waterDepth)
-          : waterDepth - localZ;
+    const distance =
+      sideX > 0
+        ? localX - (CHUNK_SIZE - waterDepth)
+        : sideX < 0
+          ? waterDepth - localX
+          : sideZ > 0
+            ? localZ - (CHUNK_SIZE - waterDepth)
+            : waterDepth - localZ;
     if (distance <= 0) continue;
     const t = Math.max(0, Math.min(1, distance / waterDepth));
     const smooth = t * t * (3 - 2 * t);
@@ -344,12 +428,28 @@ function isOnSidewalk(x: number, z: number): boolean {
   const cx = Math.floor(x / 80);
   const cz = Math.floor(z / 80);
   const biome = getBiome(cx, cz);
-  if (biome === 'beach' || biome === 'marina' || biome === 'aeroport' || biome === 'bridge' || biome === 'bridge_connector' || biome === 'rural_farm' || biome === 'rural_hills' || biome === 'rural_mountain' || biome === 'rural_lakes' || biome === 'rural_desert') return false;
-  const localX = ((x - cx * 80) + 80) % 80;
-  const localZ = ((z - cz * 80) + 80) % 80;
-  const halfRoad = (80 - 55) / 2; 
-  return localX >= halfRoad && localX < 80 - halfRoad &&
-    localZ >= halfRoad && localZ < 80 - halfRoad;
+  if (
+    biome === "beach" ||
+    biome === "marina" ||
+    biome === "aeroport" ||
+    biome === "bridge" ||
+    biome === "bridge_connector" ||
+    biome === "rural_farm" ||
+    biome === "rural_hills" ||
+    biome === "rural_mountain" ||
+    biome === "rural_lakes" ||
+    biome === "rural_desert"
+  )
+    return false;
+  const localX = (x - cx * 80 + 80) % 80;
+  const localZ = (z - cz * 80 + 80) % 80;
+  const halfRoad = (80 - 55) / 2;
+  return (
+    localX >= halfRoad &&
+    localX < 80 - halfRoad &&
+    localZ >= halfRoad &&
+    localZ < 80 - halfRoad
+  );
 }
 function bridgeYAt(x: number, br: BridgeDef): number {
   const rampStartX = (br.startCx - 1) * 80;
@@ -380,7 +480,7 @@ export function getBridgeSideRailCorrection(
   surfaceY: number,
   vehicleRadius: number,
 ): { z: number; normalZ: number } | null {
-  const bridgeW = (ROAD_HALF_WIDTH * 2) + 10;
+  const bridgeW = ROAD_HALF_WIDTH * 2 + 10;
   const railOffset = bridgeW / 2 - 0.45;
   const deckRailClearance = Math.max(0.75, vehicleRadius);
   for (const br of BRIDGE_RANGES) {
@@ -405,12 +505,22 @@ function getBeachHeight(x: number, z: number): number {
   const cz = Math.floor(z / 80);
   const CHUNK = 80;
   let minDist = CHUNK;
-  const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  const dirs = [
+    [1, 0],
+    [-1, 0],
+    [0, 1],
+    [0, -1],
+  ];
   for (const [dx, dz] of dirs) {
-    if (getBiome(cx + dx, cz + dz) === 'ocean') {
-      const boundary = dx !== 0
-        ? (dx > 0 ? (cx + 1) * CHUNK : cx * CHUNK)
-        : (dz > 0 ? (cz + 1) * CHUNK : cz * CHUNK);
+    if (getBiome(cx + dx, cz + dz) === "ocean") {
+      const boundary =
+        dx !== 0
+          ? dx > 0
+            ? (cx + 1) * CHUNK
+            : cx * CHUNK
+          : dz > 0
+            ? (cz + 1) * CHUNK
+            : cz * CHUNK;
       const dist = dx !== 0 ? Math.abs(x - boundary) : Math.abs(z - boundary);
       if (dist < minDist) minDist = dist;
     }
@@ -438,7 +548,12 @@ function isOnRoadGrid(x: number, z: number): boolean {
   };
   return nearGrid(x) || nearGrid(z);
 }
-export function getTerrainHeight(x: number, z: number, currentY?: number, forceBridgeDeck = false): number {
+export function getTerrainHeight(
+  x: number,
+  z: number,
+  currentY?: number,
+  forceBridgeDeck = false,
+): number {
   const bridgeHit = getBridgeAtWorldPos(x, z);
   if (bridgeHit) {
     const deckY = bridgeYAt(x, bridgeHit);
@@ -455,38 +570,53 @@ export function getTerrainHeight(x: number, z: number, currentY?: number, forceB
       // carY upward every frame, appearing as an instant teleport onto the
       // roadway. Ground vehicles pass forceBridgeDeck=true and still use the
       // raised deck.
-      const underBiome = getBiome(Math.floor(x / CHUNK_SIZE), Math.floor(z / CHUNK_SIZE));
-      return underBiome === 'ocean' || underBiome === 'bridge' ? -2.5 : 0;
+      const underBiome = getBiome(
+        Math.floor(x / CHUNK_SIZE),
+        Math.floor(z / CHUNK_SIZE),
+      );
+      return underBiome === "ocean" || underBiome === "bridge" ? -2.5 : 0;
     }
     return deckY;
   }
   const cx = Math.floor(x / 80);
   const cz = Math.floor(z / 80);
   const biome = getBiome(cx, cz);
-  if (biome === 'bridge') {
+  if (biome === "bridge") {
     // Only the deck corridor is elevated. A sample off the corridor (grass or
     // water beside the bridge) must not snap to deck height just because it
     // sits near a road grid line — that lifted players walking next to the
     // bridge as if they were already on it.
-    const bridge = BRIDGE_RANGES.find(br => cx >= br.startCx && cx <= br.endCx && cz >= br.startCz && cz <= br.endCz);
+    const bridge = BRIDGE_RANGES.find(
+      (br) =>
+        cx >= br.startCx &&
+        cx <= br.endCx &&
+        cz >= br.startCz &&
+        cz <= br.endCz,
+    );
     const roadCenterZ = cz * CHUNK_SIZE;
     const corridorHalf = (ROAD_HALF_WIDTH * 2 + 10) / 2;
-    if (bridge && Math.abs(z - roadCenterZ) <= corridorHalf && isOnRoadGrid(x, z)) {
+    if (
+      bridge &&
+      Math.abs(z - roadCenterZ) <= corridorHalf &&
+      isOnRoadGrid(x, z)
+    ) {
       return bridgeYAt(x, bridge);
     }
     return -2.5;
   }
-  if (biome === 'marina') {
+  if (biome === "marina") {
     // The visible inlet and movement surface share one graded height field.
     // Returning a fixed depth here made the rendered shoulder slope into a
     // vertical step and could leave players walking on the blue basin.
     const depth = getMarinaWaterDepth(x, z);
     return depth > 0 ? -depth : 0.0;
   }
-  if (biome === 'bridge_connector') {
-    const bridge = BRIDGE_RANGES.find(br =>
-      (cx === br.startCx - 1 && cz === br.startCz) ||
-      (cx === br.endCx + 1 && cz === br.endCz));
+  if (biome === "bridge_connector") {
+    const bridge = BRIDGE_RANGES.find(
+      (br) =>
+        (cx === br.startCx - 1 && cz === br.startCz) ||
+        (cx === br.endCx + 1 && cz === br.endCz),
+    );
     if (!bridge) return 0.0;
     // Same corridor rule as the deck: the approach ramp only carries traffic
     // inside its width; the rest of the connector chunk is flat ground.
@@ -495,14 +625,20 @@ export function getTerrainHeight(x: number, z: number, currentY?: number, forceB
     if (Math.abs(z - roadCenterZ) > corridorHalf) return 0.0;
     return bridgeYAt(x, bridge);
   }
-  if (biome === 'ocean') {
+  if (biome === "ocean") {
     if (isOnRoadGrid(x, z)) return 0.0;
     // Keep the first ocean band as a continuation of the beach shelf. This
     // prevents the beach/ocean tile boundary from becoming a sheer drop.
-    const adjacentBeach = getBiome(cx + 1, cz) === 'beach' || getBiome(cx - 1, cz) === 'beach'
-      || getBiome(cx, cz + 1) === 'beach' || getBiome(cx, cz - 1) === 'beach';
-    const adjacentMarina = getBiome(cx + 1, cz) === 'marina' || getBiome(cx - 1, cz) === 'marina'
-      || getBiome(cx, cz + 1) === 'marina' || getBiome(cx, cz - 1) === 'marina';
+    const adjacentBeach =
+      getBiome(cx + 1, cz) === "beach" ||
+      getBiome(cx - 1, cz) === "beach" ||
+      getBiome(cx, cz + 1) === "beach" ||
+      getBiome(cx, cz - 1) === "beach";
+    const adjacentMarina =
+      getBiome(cx + 1, cz) === "marina" ||
+      getBiome(cx - 1, cz) === "marina" ||
+      getBiome(cx, cz + 1) === "marina" ||
+      getBiome(cx, cz - 1) === "marina";
     if (adjacentBeach || adjacentMarina) {
       const localX = x - cx * 80;
       const localZ = z - cz * 80;
@@ -513,24 +649,37 @@ export function getTerrainHeight(x: number, z: number, currentY?: number, forceB
     }
     return -2.5;
   }
-  if ((biome === 'rural_hills' || biome === 'rural_mountain') && isOnRoadGrid(x, z)) {
+  if (
+    (biome === "rural_hills" || biome === "rural_mountain") &&
+    isOnRoadGrid(x, z)
+  ) {
     return getMountainRoadHeight(x, z);
   }
   // Sample the same continuous foothill field in the adjacent lowland band.
   // This prevents a player/camera from switching from height 0 to full ridge
   // height on the first mountain chunk boundary.
-  if (biome === 'city' || biome === 'suburb' || biome === 'parking_lot' || biome === 'beach' || biome === 'rural_farm' || biome === 'rural_lakes' || biome === 'rural_desert') {
+  if (
+    biome === "city" ||
+    biome === "suburb" ||
+    biome === "parking_lot" ||
+    biome === "beach" ||
+    biome === "rural_farm" ||
+    biome === "rural_lakes" ||
+    biome === "rural_desert"
+  ) {
     const nearbyMountain = getMountainHeight(x, z);
     if (nearbyMountain > 0.02) return nearbyMountain;
   }
-  if ((biome === 'beach' || biome.startsWith('rural')) && isOnRoadGrid(x, z)) {
+  if ((biome === "beach" || biome.startsWith("rural")) && isOnRoadGrid(x, z)) {
     // Mountain roads are cut into the continuous height field, while ordinary
     // rural roads stay at the shared lowland datum.
-    if (biome === 'rural_hills' || biome === 'rural_mountain') return getMountainRoadHeight(x, z);
+    if (biome === "rural_hills" || biome === "rural_mountain")
+      return getMountainRoadHeight(x, z);
     return 0.0;
   }
-  if (biome === 'rural_hills' || biome === 'rural_mountain') return getMountainHeight(x, z);
-  if (biome === 'beach') {
+  if (biome === "rural_hills" || biome === "rural_mountain")
+    return getMountainHeight(x, z);
+  if (biome === "beach") {
     const base = getBeachHeight(x, z);
     // Preserve the shallow negative part of the beach shelf. Clamping this to
     // zero made the player step from flat sand straight onto deep water even
@@ -544,52 +693,135 @@ export function getTerrainHeight(x: number, z: number, currentY?: number, forceB
 export function isBoulevard(gridCoord: number): boolean {
   return ((gridCoord % 4) + 4) % 4 === 0;
 }
-export interface RoadNode { x: number; z: number; }
-export interface RoadEdge { from: number; to: number; }
+export interface RoadNode {
+  x: number;
+  z: number;
+}
+export interface RoadEdge {
+  from: number;
+  to: number;
+}
 const mat4 = {
   create: () => new Float32Array(16),
   identity: (m: Float32Array) => {
-    m[0] = 1; m[1] = 0; m[2] = 0; m[3] = 0;
-    m[4] = 0; m[5] = 1; m[6] = 0; m[7] = 0;
-    m[8] = 0; m[9] = 0; m[10] = 1; m[11] = 0;
-    m[12] = 0; m[13] = 0; m[14] = 0; m[15] = 1;
+    m[0] = 1;
+    m[1] = 0;
+    m[2] = 0;
+    m[3] = 0;
+    m[4] = 0;
+    m[5] = 1;
+    m[6] = 0;
+    m[7] = 0;
+    m[8] = 0;
+    m[9] = 0;
+    m[10] = 1;
+    m[11] = 0;
+    m[12] = 0;
+    m[13] = 0;
+    m[14] = 0;
+    m[15] = 1;
     return m;
   },
-  perspective: (out: Float32Array, fovy: number, aspect: number, near: number, far: number) => {
+  perspective: (
+    out: Float32Array,
+    fovy: number,
+    aspect: number,
+    near: number,
+    far: number,
+  ) => {
     const f = 1.0 / Math.tan(fovy / 2);
     const nf = 1 / (near - far);
-    out[0] = f / aspect; out[1] = 0; out[2] = 0; out[3] = 0;
-    out[4] = 0; out[5] = f; out[6] = 0; out[7] = 0;
-    out[8] = 0; out[9] = 0; out[10] = (far + near) * nf; out[11] = -1;
-    out[12] = 0; out[13] = 0; out[14] = 2 * far * near * nf; out[15] = 0;
+    out[0] = f / aspect;
+    out[1] = 0;
+    out[2] = 0;
+    out[3] = 0;
+    out[4] = 0;
+    out[5] = f;
+    out[6] = 0;
+    out[7] = 0;
+    out[8] = 0;
+    out[9] = 0;
+    out[10] = (far + near) * nf;
+    out[11] = -1;
+    out[12] = 0;
+    out[13] = 0;
+    out[14] = 2 * far * near * nf;
+    out[15] = 0;
     return out;
   },
-  ortho: (out: Float32Array, l: number, r: number, b: number, t: number, n: number, f: number) => {
+  ortho: (
+    out: Float32Array,
+    l: number,
+    r: number,
+    b: number,
+    t: number,
+    n: number,
+    f: number,
+  ) => {
     const lr = 1 / (l - r);
     const bt = 1 / (b - t);
     const nf = 1 / (n - f);
-    out[0] = -2 * lr; out[1] = 0; out[2] = 0; out[3] = 0;
-    out[4] = 0; out[5] = -2 * bt; out[6] = 0; out[7] = 0;
-    out[8] = 0; out[9] = 0; out[10] = 2 * nf; out[11] = 0;
-    out[12] = (l + r) * lr; out[13] = (t + b) * bt; out[14] = (n + f) * nf; out[15] = 1;
+    out[0] = -2 * lr;
+    out[1] = 0;
+    out[2] = 0;
+    out[3] = 0;
+    out[4] = 0;
+    out[5] = -2 * bt;
+    out[6] = 0;
+    out[7] = 0;
+    out[8] = 0;
+    out[9] = 0;
+    out[10] = 2 * nf;
+    out[11] = 0;
+    out[12] = (l + r) * lr;
+    out[13] = (t + b) * bt;
+    out[14] = (n + f) * nf;
+    out[15] = 1;
     return out;
   },
-  lookAt: (out: Float32Array, eye: number[], center: number[], up: number[]) => {
+  lookAt: (
+    out: Float32Array,
+    eye: number[],
+    center: number[],
+    up: number[],
+  ) => {
     const [ex, ey, ez] = eye;
-    let zx = ex - center[0], zy = ey - center[1], zz = ez - center[2];
+    let zx = ex - center[0],
+      zy = ey - center[1],
+      zz = ez - center[2];
     let len = 1 / Math.hypot(zx, zy, zz);
-    zx *= len; zy *= len; zz *= len;
+    zx *= len;
+    zy *= len;
+    zz *= len;
     let xx = up[1] * zz - up[2] * zy;
     let xy = up[2] * zx - up[0] * zz;
     let xz = up[0] * zy - up[1] * zx;
     len = Math.hypot(xx, xy, xz);
-    if (!len) { xx = 0; xy = 0; xz = 0; } else { len = 1 / len; xx *= len; xy *= len; xz *= len; }
+    if (!len) {
+      xx = 0;
+      xy = 0;
+      xz = 0;
+    } else {
+      len = 1 / len;
+      xx *= len;
+      xy *= len;
+      xz *= len;
+    }
     const yx = zy * xz - zz * xy;
     const yy = zz * xx - zx * xz;
     const yz = zx * xy - zy * xx;
-    out[0] = xx; out[1] = yx; out[2] = zx; out[3] = 0;
-    out[4] = xy; out[5] = yy; out[6] = zy; out[7] = 0;
-    out[8] = xz; out[9] = yz; out[10] = zz; out[11] = 0;
+    out[0] = xx;
+    out[1] = yx;
+    out[2] = zx;
+    out[3] = 0;
+    out[4] = xy;
+    out[5] = yy;
+    out[6] = zy;
+    out[7] = 0;
+    out[8] = xz;
+    out[9] = yz;
+    out[10] = zz;
+    out[11] = 0;
     out[12] = -(xx * ex + xy * ey + xz * ez);
     out[13] = -(yx * ex + yy * ey + yz * ez);
     out[14] = -(zx * ex + zy * ey + zz * ez);
@@ -597,26 +829,50 @@ const mat4 = {
     return out;
   },
   multiply: (out: Float32Array, a: Float32Array, b: Float32Array) => {
-    const a00 = a[0], a01 = a[1], a02 = a[2], a03 = a[3];
-    const a10 = a[4], a11 = a[5], a12 = a[6], a13 = a[7];
-    const a20 = a[8], a21 = a[9], a22 = a[10], a23 = a[11];
-    const a30 = a[12], a31 = a[13], a32 = a[14], a33 = a[15];
-    let b0 = b[0], b1 = b[1], b2 = b[2], b3 = b[3];
+    const a00 = a[0],
+      a01 = a[1],
+      a02 = a[2],
+      a03 = a[3];
+    const a10 = a[4],
+      a11 = a[5],
+      a12 = a[6],
+      a13 = a[7];
+    const a20 = a[8],
+      a21 = a[9],
+      a22 = a[10],
+      a23 = a[11];
+    const a30 = a[12],
+      a31 = a[13],
+      a32 = a[14],
+      a33 = a[15];
+    let b0 = b[0],
+      b1 = b[1],
+      b2 = b[2],
+      b3 = b[3];
     out[0] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
     out[1] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
     out[2] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
     out[3] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
-    b0 = b[4]; b1 = b[5]; b2 = b[6]; b3 = b[7];
+    b0 = b[4];
+    b1 = b[5];
+    b2 = b[6];
+    b3 = b[7];
     out[4] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
     out[5] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
     out[6] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
     out[7] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
-    b0 = b[8]; b1 = b[9]; b2 = b[10]; b3 = b[11];
+    b0 = b[8];
+    b1 = b[9];
+    b2 = b[10];
+    b3 = b[11];
     out[8] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
     out[9] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
     out[10] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
     out[11] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
-    b0 = b[12]; b1 = b[13]; b2 = b[14]; b3 = b[15];
+    b0 = b[12];
+    b1 = b[13];
+    b2 = b[14];
+    b3 = b[15];
     out[12] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
     out[13] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
     out[14] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
@@ -624,7 +880,9 @@ const mat4 = {
     return out;
   },
   translate: (out: Float32Array, a: Float32Array, v: number[]) => {
-    const x = v[0], y = v[1], z = v[2];
+    const x = v[0],
+      y = v[1],
+      z = v[2];
     if (a === out) {
       out[12] = a[0] * x + a[4] * y + a[8] * z + a[12];
       out[13] = a[1] * x + a[5] * y + a[9] * z + a[13];
@@ -640,9 +898,16 @@ const mat4 = {
     return out;
   },
   rotateY: (out: Float32Array, a: Float32Array, rad: number) => {
-    const s = Math.sin(rad), c = Math.cos(rad);
-    const a00 = a[0], a01 = a[1], a02 = a[2], a03 = a[3];
-    const a20 = a[8], a21 = a[9], a22 = a[10], a23 = a[11];
+    const s = Math.sin(rad),
+      c = Math.cos(rad);
+    const a00 = a[0],
+      a01 = a[1],
+      a02 = a[2],
+      a03 = a[3];
+    const a20 = a[8],
+      a21 = a[9],
+      a22 = a[10],
+      a23 = a[11];
     out[0] = a00 * c - a20 * s;
     out[1] = a01 * c - a21 * s;
     out[2] = a02 * c - a22 * s;
@@ -652,15 +917,28 @@ const mat4 = {
     out[10] = a02 * s + a22 * c;
     out[11] = a03 * s + a23 * c;
     if (a !== out) {
-      out[4] = a[4]; out[5] = a[5]; out[6] = a[6]; out[7] = a[7];
-      out[12] = a[12]; out[13] = a[13]; out[14] = a[14]; out[15] = a[15];
+      out[4] = a[4];
+      out[5] = a[5];
+      out[6] = a[6];
+      out[7] = a[7];
+      out[12] = a[12];
+      out[13] = a[13];
+      out[14] = a[14];
+      out[15] = a[15];
     }
     return out;
   },
   rotateX: (out: Float32Array, a: Float32Array, rad: number) => {
-    const s = Math.sin(rad), c = Math.cos(rad);
-    const a10 = a[4], a11 = a[5], a12 = a[6], a13 = a[7];
-    const a20 = a[8], a21 = a[9], a22 = a[10], a23 = a[11];
+    const s = Math.sin(rad),
+      c = Math.cos(rad);
+    const a10 = a[4],
+      a11 = a[5],
+      a12 = a[6],
+      a13 = a[7];
+    const a20 = a[8],
+      a21 = a[9],
+      a22 = a[10],
+      a23 = a[11];
     out[4] = a10 * c + a20 * s;
     out[5] = a11 * c + a21 * s;
     out[6] = a12 * c + a22 * s;
@@ -670,15 +948,28 @@ const mat4 = {
     out[10] = a22 * c - a12 * s;
     out[11] = a23 * c - a13 * s;
     if (a !== out) {
-      out[0] = a[0]; out[1] = a[1]; out[2] = a[2]; out[3] = a[3];
-      out[12] = a[12]; out[13] = a[13]; out[14] = a[14]; out[15] = a[15];
+      out[0] = a[0];
+      out[1] = a[1];
+      out[2] = a[2];
+      out[3] = a[3];
+      out[12] = a[12];
+      out[13] = a[13];
+      out[14] = a[14];
+      out[15] = a[15];
     }
     return out;
   },
   rotateZ: (out: Float32Array, a: Float32Array, rad: number) => {
-    const s = Math.sin(rad), c = Math.cos(rad);
-    const a00 = a[0], a01 = a[1], a02 = a[2], a03 = a[3];
-    const a10 = a[4], a11 = a[5], a12 = a[6], a13 = a[7];
+    const s = Math.sin(rad),
+      c = Math.cos(rad);
+    const a00 = a[0],
+      a01 = a[1],
+      a02 = a[2],
+      a03 = a[3];
+    const a10 = a[4],
+      a11 = a[5],
+      a12 = a[6],
+      a13 = a[7];
     out[0] = a00 * c - a10 * s;
     out[1] = a01 * c - a11 * s;
     out[2] = a02 * c - a12 * s;
@@ -688,47 +979,103 @@ const mat4 = {
     out[6] = a02 * s + a12 * c;
     out[7] = a03 * s + a13 * c;
     if (a !== out) {
-      out[8] = a[8]; out[9] = a[9]; out[10] = a[10]; out[11] = a[11];
-      out[12] = a[12]; out[13] = a[13]; out[14] = a[14]; out[15] = a[15];
+      out[8] = a[8];
+      out[9] = a[9];
+      out[10] = a[10];
+      out[11] = a[11];
+      out[12] = a[12];
+      out[13] = a[13];
+      out[14] = a[14];
+      out[15] = a[15];
     }
     return out;
   },
   scale: (out: Float32Array, a: Float32Array, v: number[]) => {
-    const x = v[0], y = v[1], z = v[2];
-    out[0] = a[0] * x; out[1] = a[1] * x; out[2] = a[2] * x; out[3] = a[3] * x;
-    out[4] = a[4] * y; out[5] = a[5] * y; out[6] = a[6] * y; out[7] = a[7] * y;
-    out[8] = a[8] * z; out[9] = a[9] * z; out[10] = a[10] * z; out[11] = a[11] * z;
-    out[12] = a[12]; out[13] = a[13]; out[14] = a[14]; out[15] = a[15];
+    const x = v[0],
+      y = v[1],
+      z = v[2];
+    out[0] = a[0] * x;
+    out[1] = a[1] * x;
+    out[2] = a[2] * x;
+    out[3] = a[3] * x;
+    out[4] = a[4] * y;
+    out[5] = a[5] * y;
+    out[6] = a[6] * y;
+    out[7] = a[7] * y;
+    out[8] = a[8] * z;
+    out[9] = a[9] * z;
+    out[10] = a[10] * z;
+    out[11] = a[11] * z;
+    out[12] = a[12];
+    out[13] = a[13];
+    out[14] = a[14];
+    out[15] = a[15];
     return out;
   },
-  targetTo: (out: Float32Array, eye: number[], target: number[], up: number[]) => {
+  targetTo: (
+    out: Float32Array,
+    eye: number[],
+    target: number[],
+    up: number[],
+  ) => {
     const [ex, ey, ez] = eye;
-    let zx = target[0] - ex, zy = target[1] - ey, zz = target[2] - ez;
+    let zx = target[0] - ex,
+      zy = target[1] - ey,
+      zz = target[2] - ez;
     let len = 1 / Math.hypot(zx, zy, zz);
-    zx *= len; zy *= len; zz *= len;
+    zx *= len;
+    zy *= len;
+    zz *= len;
     let xx = up[1] * zz - up[2] * zy;
     let xy = up[2] * zx - up[0] * zz;
     let xz = up[0] * zy - up[1] * zx;
     len = Math.hypot(xx, xy, xz);
-    if (!len) { xx = 0; xy = 0; xz = 0; } else { len = 1 / len; xx *= len; xy *= len; xz *= len; }
+    if (!len) {
+      xx = 0;
+      xy = 0;
+      xz = 0;
+    } else {
+      len = 1 / len;
+      xx *= len;
+      xy *= len;
+      xz *= len;
+    }
     const yx = zy * xz - zz * xy;
     const yy = zz * xx - zx * xz;
     const yz = zx * xy - zy * xx;
-    out[0] = xx; out[1] = yx; out[2] = zx; out[3] = 0;
-    out[4] = xy; out[5] = yy; out[6] = zy; out[7] = 0;
-    out[8] = xz; out[9] = yz; out[10] = zz; out[11] = 0;
+    out[0] = xx;
+    out[1] = yx;
+    out[2] = zx;
+    out[3] = 0;
+    out[4] = xy;
+    out[5] = yy;
+    out[6] = zy;
+    out[7] = 0;
+    out[8] = xz;
+    out[9] = yz;
+    out[10] = zz;
+    out[11] = 0;
     out[12] = -(xx * ex + xy * ey + xz * ez);
     out[13] = -(yx * ex + yy * ey + yz * ez);
     out[14] = -(zx * ex + zy * ey + zz * ez);
     out[15] = 1;
     return out;
-  }
+  },
 };
 function quatToMat4(q: number[], out: Float32Array): void {
-  const qx = q[0], qy = q[1], qz = q[2], qw = q[3];
-  const xx = qx * qx, yy = qy * qy, zz = qz * qz;
-  const xy = qx * qy, xz = qx * qz, yz = qy * qz;
-  const wx = qw * qx, wy = qw * qy, wz = qw * qz;
+  const qx = q[0],
+    qy = q[1],
+    qz = q[2],
+    qw = q[3];
+  const xx = qx * qx,
+    yy = qy * qy,
+    zz = qz * qz;
+  const xy = qx * qy,
+    xz = qx * qz,
+    yz = qy * qz;
+  const wx = qw * qx,
+    wy = qw * qy,
+    wz = qw * qz;
   out[0] = 1 - 2 * (yy + zz);
   out[1] = 2 * (xy + wz);
   out[2] = 2 * (xz - wy);
@@ -741,14 +1088,33 @@ function quatToMat4(q: number[], out: Float32Array): void {
   out[9] = 2 * (yz - wx);
   out[10] = 1 - 2 * (xx + yy);
   out[11] = 0;
-  out[12] = 0; out[13] = 0; out[14] = 0; out[15] = 1;
+  out[12] = 0;
+  out[13] = 0;
+  out[14] = 0;
+  out[15] = 1;
 }
-function quatPosScaleToMat4(q: number[], t: number[], s: number[], out: Float32Array): void {
-  const qx = q[0], qy = q[1], qz = q[2], qw = q[3];
-  const sx = s[0], sy = s[1], sz = s[2];
-  const xx = qx * qx, yy = qy * qy, zz = qz * qz;
-  const xy = qx * qy, xz = qx * qz, yz = qy * qz;
-  const wx = qw * qx, wy = qw * qy, wz = qw * qz;
+function quatPosScaleToMat4(
+  q: number[],
+  t: number[],
+  s: number[],
+  out: Float32Array,
+): void {
+  const qx = q[0],
+    qy = q[1],
+    qz = q[2],
+    qw = q[3];
+  const sx = s[0],
+    sy = s[1],
+    sz = s[2];
+  const xx = qx * qx,
+    yy = qy * qy,
+    zz = qz * qz;
+  const xy = qx * qy,
+    xz = qx * qz,
+    yz = qy * qz;
+  const wx = qw * qx,
+    wy = qw * qy,
+    wz = qw * qz;
   out[0] = (1 - 2 * (yy + zz)) * sx;
   out[1] = 2 * (xy + wz) * sx;
   out[2] = 2 * (xz - wy) * sx;
@@ -761,11 +1127,14 @@ function quatPosScaleToMat4(q: number[], t: number[], s: number[], out: Float32A
   out[9] = 2 * (yz - wx) * sz;
   out[10] = (1 - 2 * (xx + yy)) * sz;
   out[11] = 0;
-  out[12] = t[0]; out[13] = t[1]; out[14] = t[2]; out[15] = 1;
+  out[12] = t[0];
+  out[13] = t[1];
+  out[14] = t[2];
+  out[15] = 1;
 }
 function hashSeed(s: number | string): number {
   let h: number;
-  if (typeof s === 'number') {
+  if (typeof s === "number") {
     h = s | 0;
   } else {
     h = 0;
@@ -779,10 +1148,10 @@ function hashSeed(s: number | string): number {
   return h;
 }
 export interface EntityAnimator {
-  currentAnimation: string;        
-  time: number;                    
-  loop: boolean;                   
-  speed: number;                   
+  currentAnimation: string;
+  time: number;
+  loop: boolean;
+  speed: number;
 }
 export interface EntityAnimatorSkeleton {
   boneParents: Int32Array;
@@ -867,14 +1236,23 @@ export class GrandTheftRenderer {
   public npcMesh: CityMesh | CityMesh[] | null = null;
   public npcMeshes: CityMesh[][] = [];
   /** Mission-only dealership owners are client-rendered landmarks, not server peds. */
-  public dealershipNPCs: { id: number; x: number; z: number; yaw: number; mesh: CityMesh | CityMesh[] }[] = [];
+  public dealershipNPCs: {
+    id: number;
+    x: number;
+    z: number;
+    yaw: number;
+    mesh: CityMesh | CityMesh[];
+  }[] = [];
   public busMesh: CityMesh[] | null = null;
   /** Procedural cop meshes are generated by the same animated human rig as pedestrians. */
   public carMeshes: CityMesh[][] = [];
   public boatMeshes: CityMesh[][] = [];
   private marinaBoatFallback: CityMesh | null = null;
   public helicopterMeshes: CityMesh[][] = [];
-  private proceduralHelicopterMeshes: { regular: CityMesh[]; police: CityMesh[] } | null = null;
+  private proceduralHelicopterMeshes: {
+    regular: CityMesh[];
+    police: CityMesh[];
+  } | null = null;
   private proceduralHelicopterRotorMesh: CityMesh | null = null;
   public planeMeshes: CityMesh[][] = [];
   public motorcycleMeshes: CityMesh[][] = [];
@@ -903,33 +1281,63 @@ export class GrandTheftRenderer {
   public shotgunMesh: CityMesh[] | null = null;
   public cityBuildingMeshes: CityMesh[][] = [];
   /** Occupied world-space building footprints, shared across generated chunks. */
-  private buildingOccupancyByChunk = new Map<string, { minX: number; maxX: number; minZ: number; maxZ: number }[]>();
+  private buildingOccupancyByChunk = new Map<
+    string,
+    { minX: number; maxX: number; minZ: number; maxZ: number }[]
+  >();
   public airportBuildingMeshes: CityMesh[][] = [];
   public airportHangarMesh: CityMesh[] | null = null;
   public suburbBuildingMeshes: CityMesh[][] = [];
-  static AIRPORT_BUILDING_NAMES: string[] = [
-    'airport_buildings'
-  ];
+  static AIRPORT_BUILDING_NAMES: string[] = ["airport_buildings"];
   static CITY_BUILDING_NAMES = [
-    'abandonnedBuilding', 'buildingRandom', 'domeStructure',
-    'ecds_old_building_06', 'ecds_old_building_07',
-    'low_polly_building', 'low_poly_apartment_building_2', 'low_poly_apartment_building_3',
-    'low_poly_cinema', 'low_poly_city_hall', 'low_poly_hotel_1', 'low_poly_hotel_2',
-    'low_poly_pharmacy', 'low_poly_police_station', 'low_poly_school', 'low_poly_shopping_center',
-    'panel_apartment_placeholder', 'pyaterochka_3d',
-    'abandoned_building_gameready', 'building_1_low_poly',
-    'psx_japanese_warehouse', 'low_poly_apartment_building_1',
-    'fatboys_diner', 'brooklyn_street_building_low_poly', 'brooklyn_street_cornerhouse_low_poly',
-    'okraglak_round_office_building_poznan',
-    'psxprop_-_old_warehouse',
+    "abandonnedBuilding",
+    "buildingRandom",
+    "domeStructure",
+    "ecds_old_building_06",
+    "ecds_old_building_07",
+    "low_polly_building",
+    "low_poly_apartment_building_2",
+    "low_poly_apartment_building_3",
+    "low_poly_cinema",
+    "low_poly_city_hall",
+    "low_poly_hotel_1",
+    "low_poly_hotel_2",
+    "low_poly_pharmacy",
+    "low_poly_police_station",
+    "low_poly_school",
+    "low_poly_shopping_center",
+    "panel_apartment_placeholder",
+    "pyaterochka_3d",
+    "abandoned_building_gameready",
+    "building_1_low_poly",
+    "psx_japanese_warehouse",
+    "low_poly_apartment_building_1",
+    "fatboys_diner",
+    "brooklyn_street_building_low_poly",
+    "brooklyn_street_cornerhouse_low_poly",
+    "okraglak_round_office_building_poznan",
+    "psxprop_-_old_warehouse",
   ];
   static SUBURB_BUILDING_NAMES = [
-    'brooklynCornerhouse', 'brooklynStreetBuilding', 'cabin',
-    'hungry_jacks_restaurant_low_poly',
-    'low_poly_burger_restaurant', 'low_poly_cafe', 'low_poly_generic_restaurant', 'low_poly_generic_shop',
-    'low_poly_house_2', 'low_poly_house_3', 'low_poly_house_4', 'low_poly_house_5',
-    'low_poly_pizza_restaurant', 'low_poly_wooden_cabine', 'ichijoushi_002',
-    'low_poly_apartment_building_1', 'low_poly_house_1', 'fatboys_diner', 'psxprop_-_old_warehouse',
+    "brooklynCornerhouse",
+    "brooklynStreetBuilding",
+    "cabin",
+    "hungry_jacks_restaurant_low_poly",
+    "low_poly_burger_restaurant",
+    "low_poly_cafe",
+    "low_poly_generic_restaurant",
+    "low_poly_generic_shop",
+    "low_poly_house_2",
+    "low_poly_house_3",
+    "low_poly_house_4",
+    "low_poly_house_5",
+    "low_poly_pizza_restaurant",
+    "low_poly_wooden_cabine",
+    "ichijoushi_002",
+    "low_poly_apartment_building_1",
+    "low_poly_house_1",
+    "fatboys_diner",
+    "psxprop_-_old_warehouse",
   ];
   public trafficLightMesh: CityMesh[] | null = null;
   public hydrantMesh: CityMesh[] | null = null;
@@ -957,7 +1365,11 @@ export class GrandTheftRenderer {
   public deadChickens: Set<string> = new Set();
   static readonly GAS_STATION_COOLDOWN = 300000;
   public supermarketLastPayout: Map<string, number> = new Map();
-  getNearbyBarrels(x: number, z: number, radius: number): { x: number; z: number }[] {
+  getNearbyBarrels(
+    x: number,
+    z: number,
+    radius: number,
+  ): { x: number; z: number }[] {
     const result: { x: number; z: number }[] = [];
     const pcx = Math.floor(x / CHUNK_SIZE);
     const pcz = Math.floor(z / CHUNK_SIZE);
@@ -976,7 +1388,11 @@ export class GrandTheftRenderer {
     }
     return result;
   }
-  getNearbyChickens(x: number, z: number, radius: number): { x: number; z: number }[] {
+  getNearbyChickens(
+    x: number,
+    z: number,
+    radius: number,
+  ): { x: number; z: number }[] {
     const result: { x: number; z: number }[] = [];
     const pcx = Math.floor(x / CHUNK_SIZE);
     const pcz = Math.floor(z / CHUNK_SIZE);
@@ -999,10 +1415,21 @@ export class GrandTheftRenderer {
    * Street-facing half-depth (world units) of a supermarket building, used to
    * place its front door. Matches the component's building-collision extents.
    */
-  private supermarketHalfDepth(model: CityMesh[], scale: [number, number, number], yaw: number): number {
-    let mx = 0, mz = 0;
+  private supermarketHalfDepth(
+    model: CityMesh[],
+    scale: [number, number, number],
+    yaw: number,
+  ): number {
+    let mx = 0,
+      mz = 0;
     for (const m of model) {
-      if (m.minX === undefined || m.maxX === undefined || m.minZ === undefined || m.maxZ === undefined) continue;
+      if (
+        m.minX === undefined ||
+        m.maxX === undefined ||
+        m.minZ === undefined ||
+        m.maxZ === undefined
+      )
+        continue;
       mx = Math.max(mx, (m.maxX - m.minX) / 2);
       mz = Math.max(mz, (m.maxZ - m.minZ) / 2);
     }
@@ -1010,11 +1437,29 @@ export class GrandTheftRenderer {
     const hw = mx * (scale[0] ?? 1) * rs;
     const hd = mz * (scale[2] ?? 1) * rs;
     const rot = ((yaw % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
-    const swap = Math.abs(rot - Math.PI / 2) < 0.01 || Math.abs(rot - Math.PI * 3 / 2) < 0.01;
+    const swap =
+      Math.abs(rot - Math.PI / 2) < 0.01 ||
+      Math.abs(rot - (Math.PI * 3) / 2) < 0.01;
     return swap ? hw : hd;
   }
-  getNearbySupermarkets(x: number, z: number, radius: number): { x: number; z: number; yaw: number; hd: number; isConvenience?: boolean }[] {
-    const result: { x: number; z: number; yaw: number; hd: number; isConvenience?: boolean }[] = [];
+  getNearbySupermarkets(
+    x: number,
+    z: number,
+    radius: number,
+  ): {
+    x: number;
+    z: number;
+    yaw: number;
+    hd: number;
+    isConvenience?: boolean;
+  }[] {
+    const result: {
+      x: number;
+      z: number;
+      yaw: number;
+      hd: number;
+      isConvenience?: boolean;
+    }[] = [];
     const pcx = Math.floor(x / CHUNK_SIZE);
     const pcz = Math.floor(z / CHUNK_SIZE);
     for (let dz = -1; dz <= 1; dz++) {
@@ -1034,17 +1479,27 @@ export class GrandTheftRenderer {
     const verts: number[] = [];
     const indices: number[] = [];
     let offset = 0;
-    const box = (x: number, y: number, z: number, w: number, h: number, d: number, r: number, g: number, b: number) => {
+    const box = (
+      x: number,
+      y: number,
+      z: number,
+      w: number,
+      h: number,
+      d: number,
+      r: number,
+      g: number,
+      b: number,
+    ) => {
       this.addBox(verts, indices, x, y, z, w, h, d, r, g, b, 1, offset);
       offset += 24;
     };
     // A low shell with a generous front opening: the player can enter without
     // fighting a solid GLTF collision box. Layered walls and a roof lip give
     // the shop a more believable storefront silhouette.
-    box(0, 3.5, 11, 28, 7, 5, 0.16, 0.18, 0.20);
-    box(-12.5, 3.5, 0, 3, 7, 22, 0.18, 0.20, 0.22);
-    box(12.5, 3.5, 0, 3, 7, 22, 0.18, 0.20, 0.22);
-    box(0, 7.2, 0, 28, 0.8, 24, 0.20, 0.22, 0.24);
+    box(0, 3.5, 11, 28, 7, 5, 0.16, 0.18, 0.2);
+    box(-12.5, 3.5, 0, 3, 7, 22, 0.18, 0.2, 0.22);
+    box(12.5, 3.5, 0, 3, 7, 22, 0.18, 0.2, 0.22);
+    box(0, 7.2, 0, 28, 0.8, 24, 0.2, 0.22, 0.24);
     box(0, 7.68, 0, 29, 0.22, 24.5, 0.78, 0.08, 0.04);
     box(0, 7.84, 0, 28.4, 0.12, 23.8, 0.12, 0.14, 0.16);
     // Bright fascia and front sign, with an inset sign face and corner bands.
@@ -1061,46 +1516,72 @@ export class GrandTheftRenderer {
     for (const x of [-8, -2, 4]) {
       box(x, 1.8, 2, 1.0, 3.2, 10, 0.35, 0.24, 0.15);
       box(x, 3.5, 2, 1.25, 0.15, 10.4, 0.62, 0.42, 0.22);
-      for (let row = 0; row < 3; row++) box(x, 1.0 + row * 0.85, -2.3, 0.65, 0.45, 0.3, 0.85, 0.30 + row * 0.08, 0.10);
+      for (let row = 0; row < 3; row++)
+        box(
+          x,
+          1.0 + row * 0.85,
+          -2.3,
+          0.65,
+          0.45,
+          0.3,
+          0.85,
+          0.3 + row * 0.08,
+          0.1,
+        );
     }
-    box(8, 1.1, -5, 5.5, 1.8, 1.2, 0.42, 0.20, 0.10);
+    box(8, 1.1, -5, 5.5, 1.8, 1.2, 0.42, 0.2, 0.1);
     box(8, 2.15, -5, 0.8, 0.5, 0.55, 0.08, 0.08, 0.07);
     // Door frame and an animated door panel. Open state is rendered as a
     // separate visual transform in render(), while the opening stays passable.
-    box(-3, 2.8, -11, 0.35, 5.6, 0.35, 0.75, 0.78, 0.80);
-    box(3, 2.8, -11, 0.35, 5.6, 0.35, 0.75, 0.78, 0.80);
+    box(-3, 2.8, -11, 0.35, 5.6, 0.35, 0.75, 0.78, 0.8);
+    box(3, 2.8, -11, 0.35, 5.6, 0.35, 0.75, 0.78, 0.8);
     box(0, 0.18, -11.28, 7.0, 0.28, 0.8, 0.24, 0.25, 0.26);
     const mesh = this.createMesh(verts, indices);
-    mesh.carName = 'convenience_store_procedural';
-    mesh.minX = -14; mesh.maxX = 14; mesh.minZ = -12; mesh.maxZ = 14;
+    mesh.carName = "convenience_store_procedural";
+    mesh.minX = -14;
+    mesh.maxX = 14;
+    mesh.minZ = -12;
+    mesh.maxZ = 14;
     return [mesh];
   }
   getConvenienceStoreMesh(): CityMesh[] {
-    if (!this.convenienceStoreMesh) this.convenienceStoreMesh = this.createConvenienceStoreMesh();
+    if (!this.convenienceStoreMesh)
+      this.convenienceStoreMesh = this.createConvenienceStoreMesh();
     return this.convenienceStoreMesh;
   }
   private createGasStationMesh(): CityMesh[] {
     const verts: number[] = [];
     const indices: number[] = [];
     let offset = 0;
-    const box = (x: number, y: number, z: number, w: number, h: number, d: number, r: number, g: number, b: number) => {
+    const box = (
+      x: number,
+      y: number,
+      z: number,
+      w: number,
+      h: number,
+      d: number,
+      r: number,
+      g: number,
+      b: number,
+    ) => {
       this.addBox(verts, indices, x, y, z, w, h, d, r, g, b, 1, offset);
       offset += 24;
     };
     // Service building: layered fascia, windows and a recessed entrance make
     // the silhouette read as a small real convenience store rather than one
     // untextured block. The footprint stays unchanged for collision safety.
-    box(0, 3.5, 13, 24, 7, 7, 0.16, 0.18, 0.20);
+    box(0, 3.5, 13, 24, 7, 7, 0.16, 0.18, 0.2);
     box(0, 6.55, 9.35, 22.8, 0.35, 0.18, 0.82, 0.12, 0.04);
     box(-6.8, 3.35, 9.35, 3.2, 2.4, 0.12, 0.05, 0.18, 0.24);
     box(6.8, 3.35, 9.35, 3.2, 2.4, 0.12, 0.05, 0.18, 0.24);
     box(0, 2.5, 9.35, 2.8, 4.4, 0.14, 0.04, 0.05, 0.06);
     box(0, 4.9, 9.25, 1.0, 0.16, 0.18, 0.9, 0.9, 0.82);
     box(0, 7.5, 2, 30, 0.8, 25, 0.12, 0.14, 0.16);
-    for (const x of [-13, 13]) for (const z of [-8, 12]) {
-      box(x, 3.8, z, 0.65, 7.2, 0.65, 0.82, 0.84, 0.86);
-      box(x, 7.25, z, 0.92, 0.18, 0.92, 0.95, 0.95, 0.92);
-    }
+    for (const x of [-13, 13])
+      for (const z of [-8, 12]) {
+        box(x, 3.8, z, 0.65, 7.2, 0.65, 0.82, 0.84, 0.86);
+        box(x, 7.25, z, 0.92, 0.18, 0.92, 0.95, 0.95, 0.92);
+      }
     for (const x of [-7, 0, 7]) {
       box(x, 0.65, -1, 1.2, 1.3, 2.2, 0.85, 0.18, 0.08);
       box(x, 1.45, -1, 0.9, 0.25, 1.8, 0.94, 0.94, 0.88);
@@ -1109,19 +1590,26 @@ export class GrandTheftRenderer {
     // Branded canopy trim and a taller pylon sign.
     box(0, 7.98, 2, 30.4, 0.16, 25.4, 0.95, 0.13, 0.04);
     box(0, 7.82, 2, 29.6, 0.12, 24.6, 1.0, 0.78, 0.12);
-    box(0, 11, 14, 2.2, 7, 0.7, 0.18, 0.20, 0.22);
+    box(0, 11, 14, 2.2, 7, 0.7, 0.18, 0.2, 0.22);
     box(0, 14.5, 14, 7.5, 1.8, 0.8, 0.92, 0.12, 0.04);
     box(0, 14.5, 13.5, 5.5, 0.35, 0.82, 1.0, 0.78, 0.12);
     const mesh = this.createMesh(verts, indices);
-    mesh.carName = 'gas_station_procedural';
-    mesh.minX = -15; mesh.maxX = 15; mesh.minZ = -10; mesh.maxZ = 17;
+    mesh.carName = "gas_station_procedural";
+    mesh.minX = -15;
+    mesh.maxX = 15;
+    mesh.minZ = -10;
+    mesh.maxZ = 17;
     return [mesh];
   }
   getGasStationMesh(): CityMesh[] {
     if (!this.gasStationMesh) this.gasStationMesh = this.createGasStationMesh();
     return this.gasStationMesh;
   }
-  getNearbyGasStations(x: number, z: number, radius: number): { x: number; z: number }[] {
+  getNearbyGasStations(
+    x: number,
+    z: number,
+    radius: number,
+  ): { x: number; z: number }[] {
     const result: { x: number; z: number }[] = [];
     const pcx = Math.floor(x / CHUNK_SIZE);
     const pcz = Math.floor(z / CHUNK_SIZE);
@@ -1136,7 +1624,11 @@ export class GrandTheftRenderer {
           const key = `${bld.x},${bld.z}`;
           if (this.explodedGasStations.has(key)) continue;
           if (!bld.model || bld.model.length === 0) continue;
-          if (!bld.model[0].carName || !bld.model[0].carName.includes('gas_station')) continue;
+          if (
+            !bld.model[0].carName ||
+            !bld.model[0].carName.includes("gas_station")
+          )
+            continue;
           if (Math.hypot(bld.x - x, bld.z - z) < radius) {
             result.push({ x: bld.x, z: bld.z });
           }
@@ -1149,7 +1641,11 @@ export class GrandTheftRenderer {
    *  the arrest respawn so a busted player wakes up at the station. Includes
    *  the building's yaw and street-facing half-depth so the caller can place
    *  the spawn at the front door instead of the building's center. */
-  getNearestPoliceStation(x: number, z: number, radius: number): { x: number; z: number; yaw: number; hd: number } | null {
+  getNearestPoliceStation(
+    x: number,
+    z: number,
+    radius: number,
+  ): { x: number; z: number; yaw: number; hd: number } | null {
     let best: { x: number; z: number; yaw: number; hd: number } | null = null;
     let bestDist = Infinity;
     const pcx = Math.floor(x / CHUNK_SIZE);
@@ -1161,11 +1657,20 @@ export class GrandTheftRenderer {
         if (!chunk) continue;
         for (const bld of chunk.buildings) {
           if (!bld.model || bld.model.length === 0) continue;
-          if (!bld.model[0].carName || !bld.model[0].carName.includes('police_station')) continue;
+          if (
+            !bld.model[0].carName ||
+            !bld.model[0].carName.includes("police_station")
+          )
+            continue;
           const d = Math.hypot(bld.x - x, bld.z - z);
           if (d < bestDist) {
             bestDist = d;
-            best = { x: bld.x, z: bld.z, yaw: bld.yaw ?? 0, hd: this.supermarketHalfDepth(bld.model, bld.scale, bld.yaw ?? 0) };
+            best = {
+              x: bld.x,
+              z: bld.z,
+              yaw: bld.yaw ?? 0,
+              hd: this.supermarketHalfDepth(bld.model, bld.scale, bld.yaw ?? 0),
+            };
           }
         }
       }
@@ -1175,7 +1680,11 @@ export class GrandTheftRenderer {
   /** All police-station buildings within the radius (each with the building's
    *  yaw and street-facing half-depth so callers can compute front-door
    *  positions) — used for the ambient station-cop spawns. */
-  getPoliceStationsNear(x: number, z: number, radius: number): { x: number; z: number; yaw: number; hd: number }[] {
+  getPoliceStationsNear(
+    x: number,
+    z: number,
+    radius: number,
+  ): { x: number; z: number; yaw: number; hd: number }[] {
     const result: { x: number; z: number; yaw: number; hd: number }[] = [];
     const pcx = Math.floor(x / CHUNK_SIZE);
     const pcz = Math.floor(z / CHUNK_SIZE);
@@ -1186,9 +1695,18 @@ export class GrandTheftRenderer {
         if (!chunk) continue;
         for (const bld of chunk.buildings) {
           if (!bld.model || bld.model.length === 0) continue;
-          if (!bld.model[0].carName || !bld.model[0].carName.includes('police_station')) continue;
+          if (
+            !bld.model[0].carName ||
+            !bld.model[0].carName.includes("police_station")
+          )
+            continue;
           if (Math.hypot(bld.x - x, bld.z - z) > radius) continue;
-          result.push({ x: bld.x, z: bld.z, yaw: bld.yaw ?? 0, hd: this.supermarketHalfDepth(bld.model, bld.scale, bld.yaw ?? 0) });
+          result.push({
+            x: bld.x,
+            z: bld.z,
+            yaw: bld.yaw ?? 0,
+            hd: this.supermarketHalfDepth(bld.model, bld.scale, bld.yaw ?? 0),
+          });
         }
       }
     }
@@ -1201,7 +1719,11 @@ export class GrandTheftRenderer {
         // Include the complete pump housing, not only its center point. This
         // keeps the left and right pump collision footprints consistent with
         // the middle pump when a vehicle clips them at an angle.
-        if (Math.hypot(x - (station.x + px), z - (station.z - 1)) <= radius + 0.55) return true;
+        if (
+          Math.hypot(x - (station.x + px), z - (station.z - 1)) <=
+          radius + 0.55
+        )
+          return true;
       }
     }
     return false;
@@ -1217,18 +1739,37 @@ export class GrandTheftRenderer {
           const key = `${bld.x},${bld.z}`;
           if (this.explodedGasStations.has(key)) continue;
           if (!bld.model || bld.model.length === 0) continue;
-          if (!bld.model[0].carName || !bld.model[0].carName.includes('gas_station')) continue;
-          let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+          if (
+            !bld.model[0].carName ||
+            !bld.model[0].carName.includes("gas_station")
+          )
+            continue;
+          let minX = Infinity,
+            maxX = -Infinity,
+            minZ = Infinity,
+            maxZ = -Infinity;
           const meshes = Array.isArray(bld.model) ? bld.model : [bld.model];
           for (const m of meshes) {
             const rs = m.renderScale ?? 1;
             const sx = bld.scale[0] * rs;
             const sz = bld.scale[2] * rs;
-            const hw = (m.maxX !== undefined && m.minX !== undefined) ? (m.maxX - m.minX) / 2 * sx : 8;
-            const hd = (m.maxZ !== undefined && m.minZ !== undefined) ? (m.maxZ - m.minZ) / 2 * sz : 8;
+            const hw =
+              m.maxX !== undefined && m.minX !== undefined
+                ? ((m.maxX - m.minX) / 2) * sx
+                : 8;
+            const hd =
+              m.maxZ !== undefined && m.minZ !== undefined
+                ? ((m.maxZ - m.minZ) / 2) * sz
+                : 8;
             const rot = bld.yaw;
-            const cos = Math.cos(rot), sin = Math.sin(rot);
-            for (const c of [{ x: -hw, z: -hd }, { x: hw, z: -hd }, { x: hw, z: hd }, { x: -hw, z: hd }]) {
+            const cos = Math.cos(rot),
+              sin = Math.sin(rot);
+            for (const c of [
+              { x: -hw, z: -hd },
+              { x: hw, z: -hd },
+              { x: hw, z: hd },
+              { x: -hw, z: hd },
+            ]) {
               const wx = bld.x + c.x * cos - c.z * sin;
               const wz = bld.z + c.x * sin + c.z * cos;
               if (wx < minX) minX = wx;
@@ -1251,12 +1792,12 @@ export class GrandTheftRenderer {
   public firstPersonArmsMesh: CityMesh[] | null = null;
   public firstPersonArmsSkeleton: {
     boneParents: Int32Array;
-    boneLocalMatrices: Float32Array;      
+    boneLocalMatrices: Float32Array;
     inverseBindMatrices: Float32Array;
     skinRootWorld: Float32Array;
     nodeToBoneIdx: Map<number, number>;
     boneCount: number;
-    nodeNames: string[];                  
+    nodeNames: string[];
   } | null = null;
   private _fpArmsPunchOverride = false;
   public mark23Mesh: CityMesh[] | null = null;
@@ -1271,9 +1812,15 @@ export class GrandTheftRenderer {
   } | null = null;
   public mark23Animations: GltfAnimation[] | null = null;
   private _mark23AnimTime = 0;
-  private _mark23AnimName = '';
+  private _mark23AnimName = "";
   public entityAnimators: Map<number, EntityAnimator> = new Map();
-  private _meshAnimData: WeakMap<CityMesh, { animations: GltfAnimation[] | null; skeleton: EntityAnimatorSkeleton | null }> = new WeakMap();
+  private _meshAnimData: WeakMap<
+    CityMesh,
+    {
+      animations: GltfAnimation[] | null;
+      skeleton: EntityAnimatorSkeleton | null;
+    }
+  > = new WeakMap();
   public skelBoneParents: Int32Array | null = null;
   public skelBoneLocalMatrices: Float32Array | null = null;
   public skelInverseBindMatrices: Float32Array | null = null;
@@ -1301,7 +1848,7 @@ export class GrandTheftRenderer {
   public walkSpeed = 0;
   public walkTime = 0;
   public punchTime = 0;
-  public playerAttack: 'punch' | 'kick' = 'punch';
+  public playerAttack: "punch" | "kick" = "punch";
   public playerWeapon = 0;
   public playerFireWeapon = 0;
   public playerFireTime = 0;
@@ -1318,7 +1865,7 @@ export class GrandTheftRenderer {
   public weaponYaw = 0;
   public playerIsInCar = false;
   public playerVehicleMesh: CityMesh | CityMesh[] | null = null;
-  public playerVehicleType: string = 'car';
+  public playerVehicleType: string = "car";
   private _playerSkinAccumulator = 0;
   /** Per-entity punch/swing timers (keyed by entity id, seconds remaining). */
   public punchTimers = new Map<number, number>();
@@ -1344,24 +1891,43 @@ export class GrandTheftRenderer {
   private dayBlend = 1.0;
   // Stable daylight fill keeps low-poly vertex colors readable on every face.
   private lightColor = [0.82, 0.84, 0.88];
-  private ambientColor = [0.82, 0.84, 0.90];
+  private ambientColor = [0.82, 0.84, 0.9];
   private skyColor = [0.7, 0.8, 0.9];
   private dayBlendLoc: WebGLUniformLocation | null = null;
   public isMobile = false;
   private shadowMapSize = 2048;
-  reduceShadowMap() { this.shadowMapSize = 1024; this.setupShadowFBO(); }
+  reduceShadowMap() {
+    this.shadowMapSize = 1024;
+    this.setupShadowFBO();
+  }
   private setupShadowFBO() {
     const gl = this.gl;
     this.shadowTexture = gl.createTexture()!;
     gl.bindTexture(gl.TEXTURE_2D, this.shadowTexture);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT24, this.shadowMapSize, this.shadowMapSize, 0, gl.DEPTH_COMPONENT, gl.UNSIGNED_INT, null);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.DEPTH_COMPONENT24,
+      this.shadowMapSize,
+      this.shadowMapSize,
+      0,
+      gl.DEPTH_COMPONENT,
+      gl.UNSIGNED_INT,
+      null,
+    );
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     this.shadowFBO = gl.createFramebuffer()!;
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.shadowFBO);
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, this.shadowTexture, 0);
+    gl.framebufferTexture2D(
+      gl.FRAMEBUFFER,
+      gl.DEPTH_ATTACHMENT,
+      gl.TEXTURE_2D,
+      this.shadowTexture,
+      0,
+    );
     gl.drawBuffers([]);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   }
@@ -1374,12 +1940,22 @@ export class GrandTheftRenderer {
   private lightView = mat4.create();
   private lightSpaceMatrix = mat4.create();
   constructor(canvas: HTMLCanvasElement) {
-    const gl = canvas.getContext('webgl2', { antialias: true });
-    if (!gl) throw new Error('WebGL2 not supported');
+    const gl = canvas.getContext("webgl2", { antialias: true });
+    if (!gl) throw new Error("WebGL2 not supported");
     this.gl = gl;
     const whiteTex = gl.createTexture()!;
     gl.bindTexture(gl.TEXTURE_2D, whiteTex);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, 1, 1, 0, gl.RGB, gl.UNSIGNED_BYTE, new Uint8Array([128, 150, 180]));
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGB,
+      1,
+      1,
+      0,
+      gl.RGB,
+      gl.UNSIGNED_BYTE,
+      new Uint8Array([128, 150, 180]),
+    );
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     this.defaultTexture = whiteTex;
@@ -1506,25 +2082,34 @@ void main() {
 `;
     this.program = this.createProgram(vs, fs);
     gl.useProgram(this.program);
-    this.projLoc = gl.getUniformLocation(this.program, 'uProj')!;
-    this.viewLoc = gl.getUniformLocation(this.program, 'uView')!;
-    this.modelLoc = gl.getUniformLocation(this.program, 'uModel')!;
-    this.colorLoc = gl.getUniformLocation(this.program, 'uColor')!;
-    this.normalMatrixLoc = gl.getUniformLocation(this.program, 'uNormalMatrix');
-    this.lightDirLoc = gl.getUniformLocation(this.program, 'uLightDir');
-    this.viewPosLoc = gl.getUniformLocation(this.program, 'uViewPos');
-    this.textureLoc = gl.getUniformLocation(this.program, 'uTexture');
-    this.useTextureLoc = gl.getUniformLocation(this.program, 'uHasTexture');
-    this.lightColorLoc = gl.getUniformLocation(this.program, 'uLightColor');
-    this.ambientColorLoc = gl.getUniformLocation(this.program, 'uAmbientColor');
-    this.fogColorLoc = gl.getUniformLocation(this.program, 'uFogColor');
-    this.fogStartLoc = gl.getUniformLocation(this.program, 'uFogStart');
-    this.fogEndLoc = gl.getUniformLocation(this.program, 'uFogEnd');
-    this.lightSpaceLoc = gl.getUniformLocation(this.program, 'uLightSpaceMatrix');
-    this.shadowMapLoc = gl.getUniformLocation(this.program, 'uShadowMap');
-    this.numPointLightsLoc = gl.getUniformLocation(this.program, 'uNumPointLights');
-    this.dayBlendLoc = gl.getUniformLocation(this.program, 'uDayBlend');
-    this.pointLightPosLoc = gl.getUniformLocation(this.program, 'uPointLightPos[0]');
+    this.projLoc = gl.getUniformLocation(this.program, "uProj")!;
+    this.viewLoc = gl.getUniformLocation(this.program, "uView")!;
+    this.modelLoc = gl.getUniformLocation(this.program, "uModel")!;
+    this.colorLoc = gl.getUniformLocation(this.program, "uColor")!;
+    this.normalMatrixLoc = gl.getUniformLocation(this.program, "uNormalMatrix");
+    this.lightDirLoc = gl.getUniformLocation(this.program, "uLightDir");
+    this.viewPosLoc = gl.getUniformLocation(this.program, "uViewPos");
+    this.textureLoc = gl.getUniformLocation(this.program, "uTexture");
+    this.useTextureLoc = gl.getUniformLocation(this.program, "uHasTexture");
+    this.lightColorLoc = gl.getUniformLocation(this.program, "uLightColor");
+    this.ambientColorLoc = gl.getUniformLocation(this.program, "uAmbientColor");
+    this.fogColorLoc = gl.getUniformLocation(this.program, "uFogColor");
+    this.fogStartLoc = gl.getUniformLocation(this.program, "uFogStart");
+    this.fogEndLoc = gl.getUniformLocation(this.program, "uFogEnd");
+    this.lightSpaceLoc = gl.getUniformLocation(
+      this.program,
+      "uLightSpaceMatrix",
+    );
+    this.shadowMapLoc = gl.getUniformLocation(this.program, "uShadowMap");
+    this.numPointLightsLoc = gl.getUniformLocation(
+      this.program,
+      "uNumPointLights",
+    );
+    this.dayBlendLoc = gl.getUniformLocation(this.program, "uDayBlend");
+    this.pointLightPosLoc = gl.getUniformLocation(
+      this.program,
+      "uPointLightPos[0]",
+    );
     gl.enable(gl.DEPTH_TEST);
     gl.enable(gl.CULL_FACE);
     gl.cullFace(gl.BACK);
@@ -1542,8 +2127,11 @@ precision highp float;
 out vec4 FragColor;
 void main() { }`;
     this.depthProgram = this.createProgram(depthVs, depthFs);
-    this.depthLightSpaceLoc = gl.getUniformLocation(this.depthProgram, 'uLightSpaceMatrix')!;
-    this.depthModelLoc = gl.getUniformLocation(this.depthProgram, 'uModel')!;
+    this.depthLightSpaceLoc = gl.getUniformLocation(
+      this.depthProgram,
+      "uLightSpaceMatrix",
+    )!;
+    this.depthModelLoc = gl.getUniformLocation(this.depthProgram, "uModel")!;
     this.setupShadowFBO();
     this.initSkybox();
   }
@@ -1609,22 +2197,24 @@ void main() {
     FragColor = vec4(skyColor, 1.0);
 }`;
     this.skyProgram = this.createProgram(skyVs, skyFs);
-    this.skyProjLoc = gl.getUniformLocation(this.skyProgram, 'uProj')!;
-    this.skyViewLoc = gl.getUniformLocation(this.skyProgram, 'uView')!;
-    this.skySunDirLoc = gl.getUniformLocation(this.skyProgram, 'uSunDir')!;
-    this.skyMoonDirLoc = gl.getUniformLocation(this.skyProgram, 'uMoonDir')!;
-    this.skyDayBlendLoc = gl.getUniformLocation(this.skyProgram, 'uDayBlend')!;
-    this.skyTimeLoc = gl.getUniformLocation(this.skyProgram, 'uTime')!;
-    this.skyDayTexLoc = gl.getUniformLocation(this.skyProgram, 'uDaySky')!;
-    this.skyNightTexLoc = gl.getUniformLocation(this.skyProgram, 'uNightSky')!;
-    this.loadTexture('assets/grandtheft/sky_starry.png').then(t => this.skyStarryTexture = t);
+    this.skyProjLoc = gl.getUniformLocation(this.skyProgram, "uProj")!;
+    this.skyViewLoc = gl.getUniformLocation(this.skyProgram, "uView")!;
+    this.skySunDirLoc = gl.getUniformLocation(this.skyProgram, "uSunDir")!;
+    this.skyMoonDirLoc = gl.getUniformLocation(this.skyProgram, "uMoonDir")!;
+    this.skyDayBlendLoc = gl.getUniformLocation(this.skyProgram, "uDayBlend")!;
+    this.skyTimeLoc = gl.getUniformLocation(this.skyProgram, "uTime")!;
+    this.skyDayTexLoc = gl.getUniformLocation(this.skyProgram, "uDaySky")!;
+    this.skyNightTexLoc = gl.getUniformLocation(this.skyProgram, "uNightSky")!;
+    this.loadTexture("assets/grandtheft/sky_starry.png").then(
+      (t) => (this.skyStarryTexture = t),
+    );
     const verts = new Float32Array([
-      -1, -1, 1, 1, -1, 1, 1, 1, 1, -1, -1, 1, 1, 1, 1, -1, 1, 1,
-      1, -1, -1, -1, -1, -1, -1, 1, -1, 1, -1, -1, -1, 1, -1, 1, 1, -1,
-      -1, 1, 1, 1, 1, 1, 1, 1, -1, -1, 1, 1, 1, 1, -1, -1, 1, -1,
-      -1, -1, -1, 1, -1, -1, 1, -1, 1, -1, -1, -1, 1, -1, 1, -1, -1, 1,
-      1, -1, 1, 1, -1, -1, 1, 1, -1, 1, -1, 1, 1, 1, -1, 1, 1, 1,
-      -1, -1, -1, -1, -1, 1, -1, 1, 1, -1, -1, -1, -1, 1, 1, -1, 1, -1
+      -1, -1, 1, 1, -1, 1, 1, 1, 1, -1, -1, 1, 1, 1, 1, -1, 1, 1, 1, -1, -1, -1,
+      -1, -1, -1, 1, -1, 1, -1, -1, -1, 1, -1, 1, 1, -1, -1, 1, 1, 1, 1, 1, 1,
+      1, -1, -1, 1, 1, 1, 1, -1, -1, 1, -1, -1, -1, -1, 1, -1, -1, 1, -1, 1, -1,
+      -1, -1, 1, -1, 1, -1, -1, 1, 1, -1, 1, 1, -1, -1, 1, 1, -1, 1, -1, 1, 1,
+      1, -1, 1, 1, 1, -1, -1, -1, -1, -1, 1, -1, 1, 1, -1, -1, -1, -1, 1, 1, -1,
+      1, -1,
     ]);
     this.skyVao = gl.createVertexArray()!;
     gl.bindVertexArray(this.skyVao);
@@ -1657,10 +2247,16 @@ void main() {
   FragColor = texture(uTexture, vUV);
 }`;
     this.gltfSkyProgram = this.createProgram(gVs, gFs);
-    this.gltfSkyProjLoc = gl.getUniformLocation(this.gltfSkyProgram, 'uProj')!;
-    this.gltfSkyViewLoc = gl.getUniformLocation(this.gltfSkyProgram, 'uView')!;
-    this.gltfSkyModelLoc = gl.getUniformLocation(this.gltfSkyProgram, 'uModel')!;
-    this.gltfSkyTexLoc = gl.getUniformLocation(this.gltfSkyProgram, 'uTexture')!;
+    this.gltfSkyProjLoc = gl.getUniformLocation(this.gltfSkyProgram, "uProj")!;
+    this.gltfSkyViewLoc = gl.getUniformLocation(this.gltfSkyProgram, "uView")!;
+    this.gltfSkyModelLoc = gl.getUniformLocation(
+      this.gltfSkyProgram,
+      "uModel",
+    )!;
+    this.gltfSkyTexLoc = gl.getUniformLocation(
+      this.gltfSkyProgram,
+      "uTexture",
+    )!;
   }
   private renderSkybox() {
     const gl = this.gl;
@@ -1672,10 +2268,12 @@ void main() {
     // The authored sky asset is a camera-sized cube. Keep it centered on the
     // camera so its world-space origin cannot leave the view after driving away
     // from spawn. Fall back to the procedural sky when the texture is absent.
-    const texturedSky = this.skyboxMesh?.some(m => !!m.texture);
+    const texturedSky = this.skyboxMesh?.some((m) => !!m.texture);
     // A partially loaded/invalid authored sky must not replace the reliable
     // procedural sky with an empty draw. Require an actual drawable mesh.
-    const drawableSky = this.skyboxMesh?.some(m => !!m.texture && !!m.vao && m.indexCount > 0);
+    const drawableSky = this.skyboxMesh?.some(
+      (m) => !!m.texture && !!m.vao && m.indexCount > 0,
+    );
     if (texturedSky && drawableSky && this.gltfSkyProgram && this.skyboxMesh) {
       gl.useProgram(this.gltfSkyProgram);
       gl.uniformMatrix4fv(this.gltfSkyProjLoc, false, this.projMatrix);
@@ -1696,7 +2294,12 @@ void main() {
         gl.bindTexture(gl.TEXTURE_2D, mesh.texture);
         gl.uniform1i(this.gltfSkyTexLoc, 0);
         gl.bindVertexArray(mesh.vao);
-        gl.drawElements(gl.TRIANGLES, mesh.indexCount, mesh.indexType || gl.UNSIGNED_SHORT, 0);
+        gl.drawElements(
+          gl.TRIANGLES,
+          mesh.indexCount,
+          mesh.indexType || gl.UNSIGNED_SHORT,
+          0,
+        );
       }
       gl.bindVertexArray(null);
       gl.bindTexture(gl.TEXTURE_2D, null);
@@ -1704,15 +2307,31 @@ void main() {
       gl.useProgram(this.skyProgram);
       gl.uniformMatrix4fv(this.skyProjLoc, false, this.projMatrix);
       gl.uniformMatrix4fv(this.skyViewLoc, false, this.skyViewMatrix);
-      gl.uniform3f(this.skySunDirLoc, this.sunDir[0], this.sunDir[1], this.sunDir[2]);
-      gl.uniform3f(this.skyMoonDirLoc, this.moonDir[0], this.moonDir[1], this.moonDir[2]);
+      gl.uniform3f(
+        this.skySunDirLoc,
+        this.sunDir[0],
+        this.sunDir[1],
+        this.sunDir[2],
+      );
+      gl.uniform3f(
+        this.skyMoonDirLoc,
+        this.moonDir[0],
+        this.moonDir[1],
+        this.moonDir[2],
+      );
       gl.uniform1f(this.skyDayBlendLoc, this.dayBlend);
       gl.uniform1f(this.skyTimeLoc, performance.now() / 1000);
       gl.activeTexture(gl.TEXTURE2);
-      gl.bindTexture(gl.TEXTURE_2D, this.skyCloudyTexture || this.defaultTexture);
+      gl.bindTexture(
+        gl.TEXTURE_2D,
+        this.skyCloudyTexture || this.defaultTexture,
+      );
       gl.uniform1i(this.skyDayTexLoc, 2);
       gl.activeTexture(gl.TEXTURE3);
-      gl.bindTexture(gl.TEXTURE_2D, this.skyStarryTexture || this.defaultTexture);
+      gl.bindTexture(
+        gl.TEXTURE_2D,
+        this.skyStarryTexture || this.defaultTexture,
+      );
       gl.uniform1i(this.skyNightTexLoc, 3);
       gl.bindVertexArray(this.skyVao);
       gl.drawArrays(gl.TRIANGLES, 0, 36);
@@ -1724,30 +2343,52 @@ void main() {
     gl.enable(gl.BLEND);
     gl.depthMask(true);
   }
-  async initPlayerModel(modelUrl?: string, needsFlip: boolean = true, appearanceRole: Role = 'generic', appearanceSeed: number | string = 1, appearanceGender?: string): Promise<void> {
+  async initPlayerModel(
+    modelUrl?: string,
+    needsFlip: boolean = true,
+    appearanceRole: Role = "generic",
+    appearanceSeed: number | string = 1,
+    appearanceGender?: string,
+  ): Promise<void> {
     // All humanoids use the shared procedural rig; modelUrl is retained only
     // for API compatibility with older callers and is intentionally ignored.
     this.currentModelUrl = null;
     this.skelNodeNames = [];
     this.skelIsReady = false;
-    this.playerMesh = this.getPlayerMesh([0.2, 0.5, 0.8], appearanceRole, appearanceSeed, appearanceGender);
+    this.playerMesh = this.getPlayerMesh(
+      [0.2, 0.5, 0.8],
+      appearanceRole,
+      appearanceSeed,
+      appearanceGender,
+    );
     this.bindPlayerRig(this.playerMesh);
   }
 
   /** Return a guaranteed procedural player mesh. Deferred GLTF loads are not
    * allowed to leave the local character without a body for a frame. */
-  getOrCreatePlayerMesh(appearanceRole: Role = 'generic', appearanceSeed: number | string = 1, appearanceGender?: string): CityMesh {
+  getOrCreatePlayerMesh(
+    appearanceRole: Role = "generic",
+    appearanceSeed: number | string = 1,
+    appearanceGender?: string,
+  ): CityMesh {
     if (!this.playerMesh) {
-      this.playerMesh = this.getPlayerMesh([0.2, 0.5, 0.8], appearanceRole, appearanceSeed, appearanceGender);
+      this.playerMesh = this.getPlayerMesh(
+        [0.2, 0.5, 0.8],
+        appearanceRole,
+        appearanceSeed,
+        appearanceGender,
+      );
     }
     this.bindPlayerRig(this.playerMesh);
-    return Array.isArray(this.playerMesh) ? this.playerMesh[0] : this.playerMesh;
+    return Array.isArray(this.playerMesh)
+      ? this.playerMesh[0]
+      : this.playerMesh;
   }
 
   private bindPlayerRig(meshes: CityMesh | CityMesh[] | null): void {
     if (!meshes) return;
     const list = Array.isArray(meshes) ? meshes : [meshes];
-    const skeleton = list.find(m => m.skeleton)?.skeleton;
+    const skeleton = list.find((m) => m.skeleton)?.skeleton;
     if (!skeleton || skeleton.boneCount <= 0) return;
     if (this.playerRig !== skeleton) {
       this.playerRig = skeleton;
@@ -1771,7 +2412,7 @@ void main() {
       boneLocalMatrices: Float32Array;
       nodeToBoneIdx: Map<number, number>;
     },
-    outLocal: Float32Array
+    outLocal: Float32Array,
   ): void {
     outLocal.set(skeleton.boneLocalMatrices);
     let time = t;
@@ -1784,28 +2425,37 @@ void main() {
       if (n === 0) continue;
       let i = 0;
       while (i < n - 1 && s.input[i + 1] <= time) i++;
-      const comp = ch.path === 'rotation' ? 4 : 3;
+      const comp = ch.path === "rotation" ? 4 : 3;
       const interp = s.interpolation;
-      const cubic = interp === 'CUBICSPLINE';   
+      const cubic = interp === "CUBICSPLINE";
       const stride = cubic ? comp * 3 : comp;
       let frac = 0;
       if (i < n - 1) {
-        const t0 = s.input[i], t1 = s.input[i + 1];
+        const t0 = s.input[i],
+          t1 = s.input[i + 1];
         if (t1 > t0) frac = Math.min(1, Math.max(0, (time - t0) / (t1 - t0)));
       }
       const base = i * stride;
-      const v0 = s.output.subarray(base + (cubic ? comp : 0), base + (cubic ? comp * 2 : comp));
+      const v0 = s.output.subarray(
+        base + (cubic ? comp : 0),
+        base + (cubic ? comp * 2 : comp),
+      );
       let v1: Float32Array;
       if (i < n - 1) {
         const b1 = (i + 1) * stride;
-        v1 = s.output.subarray(b1 + (cubic ? comp : 0), b1 + (cubic ? comp * 2 : comp));
+        v1 = s.output.subarray(
+          b1 + (cubic ? comp : 0),
+          b1 + (cubic ? comp * 2 : comp),
+        );
       } else {
-        v1 = v0;   
+        v1 = v0;
       }
       const mOff = boneIdx * 16;
-      if (ch.path === 'translation') {
-        let x = v0[0], y = v0[1], z = v0[2];
-        if (interp !== 'STEP') {
+      if (ch.path === "translation") {
+        let x = v0[0],
+          y = v0[1],
+          z = v0[2];
+        if (interp !== "STEP") {
           x += (v1[0] - x) * frac;
           y += (v1[1] - y) * frac;
           z += (v1[2] - z) * frac;
@@ -1813,9 +2463,11 @@ void main() {
         outLocal[mOff + 12] = x;
         outLocal[mOff + 13] = y;
         outLocal[mOff + 14] = z;
-      } else if (ch.path === 'scale') {
-        let x = v0[0], y = v0[1], z = v0[2];
-        if (interp !== 'STEP') {
+      } else if (ch.path === "scale") {
+        let x = v0[0],
+          y = v0[1],
+          z = v0[2];
+        if (interp !== "STEP") {
           x += (v1[0] - x) * frac;
           y += (v1[1] - y) * frac;
           z += (v1[2] - z) * frac;
@@ -1823,33 +2475,63 @@ void main() {
         outLocal[mOff + 0] = x;
         outLocal[mOff + 5] = y;
         outLocal[mOff + 10] = z;
-      } else if (ch.path === 'rotation') {
-        let qx = v0[0], qy = v0[1], qz = v0[2], qw = v0[3];
-        if (interp !== 'STEP') {
+      } else if (ch.path === "rotation") {
+        let qx = v0[0],
+          qy = v0[1],
+          qz = v0[2],
+          qw = v0[3];
+        if (interp !== "STEP") {
           let dot = qx * v1[0] + qy * v1[1] + qz * v1[2] + qw * v1[3];
-          let q2x = v1[0], q2y = v1[1], q2z = v1[2], q2w = v1[3];
-          if (dot < 0) { q2x = -q2x; q2y = -q2y; q2z = -q2z; q2w = -q2w; dot = -dot; }
+          let q2x = v1[0],
+            q2y = v1[1],
+            q2z = v1[2],
+            q2w = v1[3];
+          if (dot < 0) {
+            q2x = -q2x;
+            q2y = -q2y;
+            q2z = -q2z;
+            q2w = -q2w;
+            dot = -dot;
+          }
           if (dot > 0.9995) {
-            qx += (q2x - qx) * frac; qy += (q2y - qy) * frac; qz += (q2z - qz) * frac; qw += (q2w - qw) * frac;
-            const l = Math.hypot(qx, qy, qz, qw) || 1; qx /= l; qy /= l; qz /= l; qw /= l;
+            qx += (q2x - qx) * frac;
+            qy += (q2y - qy) * frac;
+            qz += (q2z - qz) * frac;
+            qw += (q2w - qw) * frac;
+            const l = Math.hypot(qx, qy, qz, qw) || 1;
+            qx /= l;
+            qy /= l;
+            qz /= l;
+            qw /= l;
           } else {
-            const o = dot, theta = Math.acos(Math.min(1, Math.max(-1, o)));
+            const o = dot,
+              theta = Math.acos(Math.min(1, Math.max(-1, o)));
             const sTheta = Math.sin(theta);
             const w0 = Math.sin((1 - frac) * theta) / sTheta;
             const w1 = Math.sin(frac * theta) / sTheta;
-            qx = qx * w0 + q2x * w1; qy = qy * w0 + q2y * w1; qz = qz * w0 + q2z * w1; qw = qw * w0 + q2w * w1;
+            qx = qx * w0 + q2x * w1;
+            qy = qy * w0 + q2y * w1;
+            qz = qz * w0 + q2z * w1;
+            qw = qw * w0 + q2w * w1;
           }
         }
-        const tx = outLocal[mOff + 12], ty = outLocal[mOff + 13], tz = outLocal[mOff + 14];
-        quatToMat4([qx, qy, qz, qw], new Float32Array(outLocal.buffer, mOff * 4, 16));
-        outLocal[mOff + 12] = tx; outLocal[mOff + 13] = ty; outLocal[mOff + 14] = tz;
+        const tx = outLocal[mOff + 12],
+          ty = outLocal[mOff + 13],
+          tz = outLocal[mOff + 14];
+        quatToMat4(
+          [qx, qy, qz, qw],
+          new Float32Array(outLocal.buffer, mOff * 4, 16),
+        );
+        outLocal[mOff + 12] = tx;
+        outLocal[mOff + 13] = ty;
+        outLocal[mOff + 14] = tz;
       }
     }
   }
   /**
- * Given sampled local matrices, compute final joint matrices (world * invBind)
- * suitable for upload to a skinning uniform array, or for CPU skinning.
- */
+   * Given sampled local matrices, compute final joint matrices (world * invBind)
+   * suitable for upload to a skinning uniform array, or for CPU skinning.
+   */
   computeJointMatrices(
     skeleton: {
       boneCount: number;
@@ -1858,14 +2540,14 @@ void main() {
       inverseBindMatrices: Float32Array;
     },
     localMatrices: Float32Array,
-    outJoint: Float32Array        
+    outJoint: Float32Array,
   ): void {
     for (let b = 0; b < skeleton.boneCount; b++) {
       if (skeleton.boneParents[b] < 0) {
         mat4.multiply(
           new Float32Array(outJoint.buffer, b * 16 * 4, 16),
           skeleton.skinRootWorld,
-          new Float32Array(localMatrices.buffer, b * 16 * 4, 16)
+          new Float32Array(localMatrices.buffer, b * 16 * 4, 16),
         );
       }
     }
@@ -1875,7 +2557,7 @@ void main() {
         mat4.multiply(
           new Float32Array(outJoint.buffer, b * 16 * 4, 16),
           new Float32Array(outJoint.buffer, p * 16 * 4, 16),
-          new Float32Array(localMatrices.buffer, b * 16 * 4, 16)
+          new Float32Array(localMatrices.buffer, b * 16 * 4, 16),
         );
       }
     }
@@ -1883,18 +2565,24 @@ void main() {
       mat4.multiply(
         new Float32Array(outJoint.buffer, b * 16 * 4, 16),
         new Float32Array(outJoint.buffer, b * 16 * 4, 16),
-        new Float32Array(skeleton.inverseBindMatrices.buffer, b * 16 * 4, 16)
+        new Float32Array(skeleton.inverseBindMatrices.buffer, b * 16 * 4, 16),
       );
     }
   }
   skinMeshGeneric(
     meshes: CityMesh[],
     skeleton: { boneCount: number },
-    jointMatrices: Float32Array
+    jointMatrices: Float32Array,
   ): void {
     const gl = this.gl;
     for (const mesh of meshes) {
-      if (!mesh.restPositions || !mesh.jointIndices || !mesh.jointWeights || !mesh.vertexCount) continue;
+      if (
+        !mesh.restPositions ||
+        !mesh.jointIndices ||
+        !mesh.jointWeights ||
+        !mesh.vertexCount
+      )
+        continue;
       if (!mesh.originalVBO) continue;
       const vCount = mesh.vertexCount;
       let newData = this._skinScratch.get(mesh);
@@ -1907,7 +2595,9 @@ void main() {
         const px = mesh.restPositions[i * 3];
         const py = mesh.restPositions[i * 3 + 1];
         const pz = mesh.restPositions[i * 3 + 2];
-        let sx = 0, sy = 0, sz = 0;
+        let sx = 0,
+          sy = 0,
+          sz = 0;
         const j = mesh.jointIndices.subarray(i * 4, i * 4 + 4);
         const w = mesh.jointWeights.subarray(i * 4, i * 4 + 4);
         for (let k = 0; k < 4; k++) {
@@ -1924,7 +2614,9 @@ void main() {
           const nx = mesh.restNormals[i * 3];
           const ny = mesh.restNormals[i * 3 + 1];
           const nz = mesh.restNormals[i * 3 + 2];
-          let snx = 0, sny = 0, snz = 0;
+          let snx = 0,
+            sny = 0,
+            snz = 0;
           for (let k = 0; k < 4; k++) {
             if (w[k] <= 0) continue;
             const m = new Float32Array(jointMatrices.buffer, j[k] * 16 * 4, 16);
@@ -1943,16 +2635,19 @@ void main() {
     }
   }
   /** Find the best animation matching a desired state (idle, walk, run) */
-  matchAnimationName(animations: GltfAnimation[], state: 'idle' | 'walk' | 'run' | 'drive'): string | null {
+  matchAnimationName(
+    animations: GltfAnimation[],
+    state: "idle" | "walk" | "run" | "drive",
+  ): string | null {
     if (!animations || animations.length === 0) return null;
     const keywords: Record<string, string[]> = {
-      idle: ['idle', 'idle_', '_idle', 'standing', 'breathing'],
-      walk: ['walk', 'walking', 'walk_', '_walk', 'jog', 'jogging'],
-      run: ['run', 'running', 'sprint', 'sprinting'],
-      drive: ['drive', 'driving', 'steer', 'steering'],
+      idle: ["idle", "idle_", "_idle", "standing", "breathing"],
+      walk: ["walk", "walking", "walk_", "_walk", "jog", "jogging"],
+      run: ["run", "running", "sprint", "sprinting"],
+      drive: ["drive", "driving", "steer", "steering"],
     };
     const targets = keywords[state];
-    const lowerTargets = targets.map(t => t.toLowerCase());
+    const lowerTargets = targets.map((t) => t.toLowerCase());
     let best: { name: string; score: number } | null = null;
     for (const anim of animations) {
       const name = anim.name.toLowerCase();
@@ -1982,96 +2677,197 @@ void main() {
   animateAndSkinEntity(
     entityId: number,
     entityMesh: CityMesh | CityMesh[],
-    state: 'idle' | 'walk' | 'run' | 'drive',
+    state: "idle" | "walk" | "run" | "drive",
     dt: number,
-    speed: number = 1
+    speed: number = 1,
   ): boolean {
     const meshes = Array.isArray(entityMesh) ? entityMesh : [entityMesh];
     // Distant characters are visually negligible but still expensive to CPU
     // skin. Their last pose is retained until they return to the near field.
     const anyMesh = meshes[0] as any;
     const distanceSq = anyMesh?._lastAnimDistanceSq;
-    if (typeof distanceSq === 'number' && distanceSq > 220 * 220) return false;
+    if (typeof distanceSq === "number" && distanceSq > 220 * 220) return false;
     if (meshes.length === 0) return false;
     let animData = this._meshAnimData.get(meshes[0]);
     if (!animData) {
-      const src = meshes.find(m => m.skeleton);
+      const src = meshes.find((m) => m.skeleton);
       if (!src || !src.skeleton) return false;
-      animData = { animations: src.animations ?? null, skeleton: src.skeleton ?? null };
-      meshes.forEach(m => this._meshAnimData.set(m, animData!));
+      animData = {
+        animations: src.animations ?? null,
+        skeleton: src.skeleton ?? null,
+      };
+      meshes.forEach((m) => this._meshAnimData.set(m, animData!));
     }
     const { animations, skeleton } = animData;
     if (!skeleton || skeleton.boneCount === 0) return false;
     // ——— Procedural lifelike humans (no baked clips) — walk / run / punch / fire via math ———
-    const isHuman = (meshes[0] as any).isHuman;      if (isHuman && (!animations || animations.length === 0)) {
-
+    const isHuman = (meshes[0] as any).isHuman;
+    if (isHuman && (!animations || animations.length === 0)) {
       // maintain per-entity walk phase
       let animator = this.entityAnimators.get(entityId);
       if (!animator) {
         animator = { currentAnimation: state, time: 0, loop: true, speed: 1 };
         this.entityAnimators.set(entityId, animator);
       }
-      if (animator.currentAnimation !== state) { animator.currentAnimation = state; animator.time = 0; }
-      animator.time += dt * speed * (state === 'run' ? 1.6 : 1);
+      if (animator.currentAnimation !== state) {
+        animator.currentAnimation = state;
+        animator.time = 0;
+      }
+      animator.time += dt * speed * (state === "run" ? 1.6 : 1);
       let localMatrices = this._jointScratch.get(entityId);
       if (!localMatrices || localMatrices.length !== skeleton.boneCount * 16) {
         localMatrices = new Float32Array(skeleton.boneCount * 16);
         this._jointScratch.set(entityId, localMatrices);
       }
       localMatrices.set(skeleton.boneLocalMatrices);
-      const applyX = (bone:number, ang:number) => {
+      const applyX = (bone: number, ang: number) => {
         if (bone < 0 || bone >= skeleton.boneCount) return;
         const m = new Float32Array(localMatrices.buffer, bone * 64, 16);
-        const qx = Math.sin(ang / 2), qw = Math.cos(ang / 2);
-        const rot = new Float32Array([1, 0, 0, 0, 0, qw, qx, 0, 0, -qx, qw, 0, 0, 0, 0, 1]);
+        const qx = Math.sin(ang / 2),
+          qw = Math.cos(ang / 2);
+        const rot = new Float32Array([
+          1,
+          0,
+          0,
+          0,
+          0,
+          qw,
+          qx,
+          0,
+          0,
+          -qx,
+          qw,
+          0,
+          0,
+          0,
+          0,
+          1,
+        ]);
         const tmp = new Float32Array(16);
-        for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) {
-          let v = 0;
-          for (let k = 0; k < 4; k++) v += m[r * 4 + k] * rot[k * 4 + c];
-          tmp[r * 4 + c] = v;
-        }
+        for (let r = 0; r < 4; r++)
+          for (let c = 0; c < 4; c++) {
+            let v = 0;
+            for (let k = 0; k < 4; k++) v += m[r * 4 + k] * rot[k * 4 + c];
+            tmp[r * 4 + c] = v;
+          }
         m.set(tmp);
       };
       // walk cycle — hips bob + thigh/shin + arm swing
-      if (state === 'walk' || state === 'run') {
-        const swing = state === 'run' ? 0.46 : 0.30;
+      if (state === "walk" || state === "run") {
+        const swing = state === "run" ? 0.46 : 0.3;
         const variation = 0.88 + ((entityId * 17) % 23) / 100;
         const gait = Math.max(0.75, Math.min(1.18, speed * variation));
-        const t = animator.time * (state === 'run' ? 5.2 : 3.4) * gait;
-        const thighL = 13, shinL = 14, thighR = 16, shinR = 17;
-        const armL = 6, foreL = 7, armR = 10, foreR = 11;
+        const t = animator.time * (state === "run" ? 5.2 : 3.4) * gait;
+        const thighL = 13,
+          shinL = 14,
+          thighR = 16,
+          shinR = 17;
+        const armL = 6,
+          foreL = 7,
+          armR = 10,
+          foreR = 11;
         const hips = 0;
-        const applyX = (bone:number, ang:number) => {
-          if (bone <0 || bone >= skeleton.boneCount) return;
-          const m = new Float32Array(localMatrices.buffer, bone*64, 16);
-          const qx = Math.sin(ang/2), qw = Math.cos(ang/2);
-          const rot = new Float32Array([1,0,0,0, 0,qw, qx,0, 0,-qx,qw,0, 0,0,0,1]);
+        const applyX = (bone: number, ang: number) => {
+          if (bone < 0 || bone >= skeleton.boneCount) return;
+          const m = new Float32Array(localMatrices.buffer, bone * 64, 16);
+          const qx = Math.sin(ang / 2),
+            qw = Math.cos(ang / 2);
+          const rot = new Float32Array([
+            1,
+            0,
+            0,
+            0,
+            0,
+            qw,
+            qx,
+            0,
+            0,
+            -qx,
+            qw,
+            0,
+            0,
+            0,
+            0,
+            1,
+          ]);
           // multiply: m = m * rot  (approx, local space)
           const tmp = new Float32Array(16);
-          for(let r=0;r<4;r++) for(let c=0;c<4;c++){ let v=0; for(let k=0;k<4;k++) v+=m[r*4+k]*rot[k*4+c]; tmp[r*4+c]=v; }
-          for(let i=0;i<16;i++) m[i]=tmp[i];
+          for (let r = 0; r < 4; r++)
+            for (let c = 0; c < 4; c++) {
+              let v = 0;
+              for (let k = 0; k < 4; k++) v += m[r * 4 + k] * rot[k * 4 + c];
+              tmp[r * 4 + c] = v;
+            }
+          for (let i = 0; i < 16; i++) m[i] = tmp[i];
         };
-        applyX(thighL, Math.sin(t)*swing);
-        applyX(shinL, Math.max(0, -Math.sin(t))*0.42);
-        applyX(thighR, Math.sin(t+Math.PI)*swing);
-        applyX(shinR, Math.max(0, -Math.sin(t+Math.PI))*0.42);
-        applyX(armL, Math.sin(t+Math.PI)*swing*0.55);
+        applyX(thighL, Math.sin(t) * swing);
+        applyX(shinL, Math.max(0, -Math.sin(t)) * 0.42);
+        applyX(thighR, Math.sin(t + Math.PI) * swing);
+        applyX(shinR, Math.max(0, -Math.sin(t + Math.PI)) * 0.42);
+        applyX(armL, Math.sin(t + Math.PI) * swing * 0.55);
         applyX(foreL, -0.08);
-        applyX(armR, Math.sin(t)*swing*0.55);
+        applyX(armR, Math.sin(t) * swing * 0.55);
         applyX(foreR, -0.08);
-        if (hips>=0){ const hm = new Float32Array(localMatrices.buffer, hips*64,16); hm[13] += Math.abs(Math.sin(t))* -0.03; hm[12] += Math.sin(t * 0.5) * 0.012; }
+        if (hips >= 0) {
+          const hm = new Float32Array(localMatrices.buffer, hips * 64, 16);
+          hm[13] += Math.abs(Math.sin(t)) * -0.03;
+          hm[12] += Math.sin(t * 0.5) * 0.012;
+        }
         // A small counter-rotation through the chest and head makes the gait
         // feel less mechanical while keeping the feet planted.
-        const chest = 2, neck = 3, head = 4;
+        const chest = 2,
+          neck = 3,
+          head = 4;
         applyX(chest, Math.sin(t + Math.PI / 2) * 0.045);
         applyX(neck, Math.sin(t + Math.PI / 2) * -0.025);
         applyX(head, Math.sin(t + Math.PI / 2) * -0.018);
-      } else if (state === 'drive') {
-        const armL=6, foreL=7, armR=10, foreR=11, thighL=13, thighR=16;
-        const applyX = (bone:number, ang:number)=>{ if(bone<0) return; const m=new Float32Array(localMatrices.buffer,bone*64,16); const qx=Math.sin(ang/2),qw=Math.cos(ang/2); const rot=new Float32Array([1,0,0,0,0,qw,qx,0,0,-qx,qw,0,0,0,0,1]); const tmp=new Float32Array(16); for(let r=0;r<4;r++) for(let c=0;c<4;c++){let v=0; for(let k=0;k<4;k++) v+=m[r*4+k]*rot[k*4+c]; tmp[r*4+c]=v;} for(let i=0;i<16;i++) m[i]=tmp[i]; };
-        applyX(armL,-0.55); applyX(foreL,-0.85); applyX(armR,-0.55); applyX(foreR,-0.85);
-        const thighLIdx=13, thighRIdx=16;
-        applyX(thighLIdx, -1.05); applyX(thighRIdx, -1.05);
+      } else if (state === "drive") {
+        const armL = 6,
+          foreL = 7,
+          armR = 10,
+          foreR = 11,
+          thighL = 13,
+          thighR = 16;
+        const applyX = (bone: number, ang: number) => {
+          if (bone < 0) return;
+          const m = new Float32Array(localMatrices.buffer, bone * 64, 16);
+          const qx = Math.sin(ang / 2),
+            qw = Math.cos(ang / 2);
+          const rot = new Float32Array([
+            1,
+            0,
+            0,
+            0,
+            0,
+            qw,
+            qx,
+            0,
+            0,
+            -qx,
+            qw,
+            0,
+            0,
+            0,
+            0,
+            1,
+          ]);
+          const tmp = new Float32Array(16);
+          for (let r = 0; r < 4; r++)
+            for (let c = 0; c < 4; c++) {
+              let v = 0;
+              for (let k = 0; k < 4; k++) v += m[r * 4 + k] * rot[k * 4 + c];
+              tmp[r * 4 + c] = v;
+            }
+          for (let i = 0; i < 16; i++) m[i] = tmp[i];
+        };
+        applyX(armL, -0.55);
+        applyX(foreL, -0.85);
+        applyX(armR, -0.55);
+        applyX(foreR, -0.85);
+        const thighLIdx = 13,
+          thighRIdx = 16;
+        applyX(thighLIdx, -1.05);
+        applyX(thighRIdx, -1.05);
       } else {
         // Breathing and an alternating weight shift keep an idle pedestrian
         // alive without making the whole body bob as one rigid piece.
@@ -2084,17 +2880,18 @@ void main() {
         applyX(16, -shift);
         applyX(6, -0.06 + shift * 0.35);
         applyX(10, -0.06 - shift * 0.35);
-        applyX(7, -0.10);
-        applyX(11, -0.10);
+        applyX(7, -0.1);
+        applyX(11, -0.1);
       }
       // Hit recoil and cover poses must run inside the procedural branch too;
       // otherwise the shared human model looks unaffected when an NPC is shot.
       const flinchLeft = this.flinchTimers.get(entityId) ?? 0;
       if (flinchLeft > 0) {
-        const recoil = Math.sin(Math.min(1, flinchLeft / 0.18) * Math.PI) * 0.30;
+        const recoil = Math.sin(Math.min(1, flinchLeft / 0.18) * Math.PI) * 0.3;
         const recoilChest = new Float32Array(localMatrices.buffer, 2 * 64, 16);
         const recoilRot = new Float32Array(16);
-        mat4.identity(recoilRot); mat4.rotateX(recoilRot, recoilRot, -recoil);
+        mat4.identity(recoilRot);
+        mat4.rotateX(recoilRot, recoilRot, -recoil);
         const recoilOut = new Float32Array(16);
         mat4.multiply(recoilOut, recoilChest, recoilRot);
         recoilChest.set(recoilOut);
@@ -2118,13 +2915,47 @@ void main() {
       // punch / fire overrides (visible to peers)
       const punchLeft = this.punchTimers.get(entityId) ?? 0;
       if (punchLeft > 0) {
-        const t = punchLeft/0.3; const a = t<0.5? t*2 : 2 - t*2;
-        const armR=10, foreR=11;
-        const applyX2 = (bone:number, ang:number)=>{ if(bone<0) return; const m=new Float32Array(localMatrices.buffer,bone*64,16); const qx=Math.sin(ang/2),qw=Math.cos(ang/2); const rot=new Float32Array([1,0,0,0,0,qw,qx,0,0,-qx,qw,0,0,0,0,1]); const tmp=new Float32Array(16); for(let r=0;r<4;r++) for(let c=0;c<4;c++){let v=0; for(let k=0;k<4;k++) v+=m[r*4+k]*rot[k*4+c]; tmp[r*4+c]=v;} for(let i=0;i<16;i++) m[i]=tmp[i]; };
-        applyX2(armR, -1.0*a); applyX2(foreR, -0.85*a);
+        const t = punchLeft / 0.3;
+        const a = t < 0.5 ? t * 2 : 2 - t * 2;
+        const armR = 10,
+          foreR = 11;
+        const applyX2 = (bone: number, ang: number) => {
+          if (bone < 0) return;
+          const m = new Float32Array(localMatrices.buffer, bone * 64, 16);
+          const qx = Math.sin(ang / 2),
+            qw = Math.cos(ang / 2);
+          const rot = new Float32Array([
+            1,
+            0,
+            0,
+            0,
+            0,
+            qw,
+            qx,
+            0,
+            0,
+            -qx,
+            qw,
+            0,
+            0,
+            0,
+            0,
+            1,
+          ]);
+          const tmp = new Float32Array(16);
+          for (let r = 0; r < 4; r++)
+            for (let c = 0; c < 4; c++) {
+              let v = 0;
+              for (let k = 0; k < 4; k++) v += m[r * 4 + k] * rot[k * 4 + c];
+              tmp[r * 4 + c] = v;
+            }
+          for (let i = 0; i < 16; i++) m[i] = tmp[i];
+        };
+        applyX2(armR, -1.0 * a);
+        applyX2(foreR, -0.85 * a);
         this.punchTimers.set(entityId, Math.max(0, punchLeft - dt));
       }
-      const jointMatrices = new Float32Array(skeleton.boneCount*16);
+      const jointMatrices = new Float32Array(skeleton.boneCount * 16);
       this.computeJointMatrices(skeleton, localMatrices, jointMatrices);
       this.skinMeshGeneric(meshes, skeleton, jointMatrices);
       return true;
@@ -2134,14 +2965,19 @@ void main() {
     if (!desiredAnim) return false;
     let animator = this.entityAnimators.get(entityId);
     if (!animator) {
-      animator = { currentAnimation: desiredAnim, time: 0, loop: true, speed: 1 };
+      animator = {
+        currentAnimation: desiredAnim,
+        time: 0,
+        loop: true,
+        speed: 1,
+      };
       this.entityAnimators.set(entityId, animator);
     }
     if (animator.currentAnimation !== desiredAnim) {
       animator.currentAnimation = desiredAnim;
       animator.time = 0;
     }
-    const anim = animations.find(a => a.name === desiredAnim);
+    const anim = animations.find((a) => a.name === desiredAnim);
     if (!anim || anim.duration <= 0) return false;
     animator.time += dt * speed;
     if (animator.loop && anim.duration > 0) {
@@ -2159,14 +2995,23 @@ void main() {
         const punchAmount = t < 0.5 ? t * 2 : 2 - t * 2;
         const extendAngle = -0.8 * punchAmount;
         const m33 = new Float32Array(localMatrices.buffer, 33 * 16 * 4, 16);
-        quatToMat4([Math.sin(extendAngle / 2), 0, 0, Math.cos(extendAngle / 2)], m33);
-        m33[12] = 0; m33[13] = 0.709; m33[14] = 0;
+        quatToMat4(
+          [Math.sin(extendAngle / 2), 0, 0, Math.cos(extendAngle / 2)],
+          m33,
+        );
+        m33[12] = 0;
+        m33[13] = 0.709;
+        m33[14] = 0;
         const m34 = new Float32Array(localMatrices.buffer, 34 * 16 * 4, 16);
         quatToMat4([0, 0, 0, 1], m34);
-        m34[12] = 0; m34[13] = 1.142; m34[14] = 0;
+        m34[12] = 0;
+        m34[13] = 1.142;
+        m34[14] = 0;
         const m35 = new Float32Array(localMatrices.buffer, 35 * 16 * 4, 16);
         quatToMat4([0, 0, 0, 1], m35);
-        m35[12] = 0; m35[13] = 1.434; m35[14] = 0;
+        m35[12] = 0;
+        m35[13] = 1.434;
+        m35[14] = 0;
       }
       this.punchTimers.set(entityId, Math.max(0, punchLeft - dt));
     }
@@ -2176,13 +3021,19 @@ void main() {
     if (this.arrestingEntities.has(entityId) && skeleton.boneCount > 35) {
       const m33 = new Float32Array(localMatrices.buffer, 33 * 16 * 4, 16);
       quatToMat4([Math.sin(-0.8 / 2), 0, 0, Math.cos(-0.8 / 2)], m33);
-      m33[12] = 0; m33[13] = 0.709; m33[14] = 0;
+      m33[12] = 0;
+      m33[13] = 0.709;
+      m33[14] = 0;
       const m34 = new Float32Array(localMatrices.buffer, 34 * 16 * 4, 16);
       quatToMat4([0, 0, 0, 1], m34);
-      m34[12] = 0; m34[13] = 1.142; m34[14] = 0;
+      m34[12] = 0;
+      m34[13] = 1.142;
+      m34[14] = 0;
       const m35 = new Float32Array(localMatrices.buffer, 35 * 16 * 4, 16);
       quatToMat4([0, 0, 0, 1], m35);
-      m35[12] = 0; m35[13] = 1.434; m35[14] = 0;
+      m35[12] = 0;
+      m35[13] = 1.434;
+      m35[14] = 0;
     }
     // Crouch-and-cover: a ducking ped bends into a low stance instead of the
     // generic idle — hips drop, thighs flex, knees bend deep. Bone indices vary
@@ -2197,15 +3048,20 @@ void main() {
         let hips = -1;
         for (let b = 0; b < names.length; b++) {
           const n = names[b].toLowerCase();
-          if (hips < 0 && (n.includes('hip') || n.includes('pelvis'))) hips = b;
-          if (n.includes('thigh') || n.includes('upleg')) thighs.push(b);
-          else if (n.includes('calf') || (n.includes('leg') && !n.includes('toe'))) calves.push(b);
+          if (hips < 0 && (n.includes("hip") || n.includes("pelvis"))) hips = b;
+          if (n.includes("thigh") || n.includes("upleg")) thighs.push(b);
+          else if (
+            n.includes("calf") ||
+            (n.includes("leg") && !n.includes("toe"))
+          )
+            calves.push(b);
         }
         const temp = new Float32Array(16);
         const rot = new Float32Array(16);
         const applyRotX = (bone: number, angle: number) => {
           const m = new Float32Array(localMatrices.buffer, bone * 16 * 4, 16);
-          mat4.identity(rot); mat4.rotateX(rot, rot, angle);
+          mat4.identity(rot);
+          mat4.rotateX(rot, rot, angle);
           mat4.multiply(temp, m, rot);
           for (let i = 0; i < 16; i++) m[i] = temp[i];
         };
@@ -2260,34 +3116,35 @@ void main() {
   }
   private playerBone(...tokens: string[]): number {
     const names = this.playerRig?.nodeNames ?? this.skelNodeNames;
-    const normalized = (value: string) => value.toLowerCase().replace(/[^a-z]/g, '');
+    const normalized = (value: string) =>
+      value.toLowerCase().replace(/[^a-z]/g, "");
     const aliases = (value: string): string[] => {
       const token = normalized(value);
       const compact = token
-        .replace(/^left/, 'l')
-        .replace(/^right/, 'r')
-        .replace(/upperarm$/, 'arm')
-        .replace(/upleg$/, 'thigh');
+        .replace(/^left/, "l")
+        .replace(/^right/, "r")
+        .replace(/upperarm$/, "arm")
+        .replace(/upleg$/, "thigh");
       return token === compact ? [token] : [token, compact];
     };
     const wanted = tokens.flatMap(aliases);
     for (let i = 0; i < names.length; i++) {
       const name = normalized(names[i]);
-      if (wanted.some(token => name.includes(token))) return i;
+      if (wanted.some((token) => name.includes(token))) return i;
     }
     return -1;
   }
   private applyPlayerPose(animLocal: Float32Array): void {
-    const hips = this.playerBone('hips', 'pelvis');
-    const leftArm = this.playerBone('leftarm', 'leftupperarm');
-    const leftForearm = this.playerBone('leftforearm', 'leftlowerarm');
-    const rightArm = this.playerBone('rightarm', 'rightupperarm');
-    const rightForearm = this.playerBone('rightforearm', 'rightlowerarm');
-    const rightHand = this.playerBone('righthand');
-    const leftThigh = this.playerBone('leftupleg', 'leftthigh');
-    const leftCalf = this.playerBone('leftleg', 'leftcalf');
-    const rightThigh = this.playerBone('rightupleg', 'rightthigh');
-    const rightCalf = this.playerBone('rightleg', 'rightcalf');
+    const hips = this.playerBone("hips", "pelvis");
+    const leftArm = this.playerBone("leftarm", "leftupperarm");
+    const leftForearm = this.playerBone("leftforearm", "leftlowerarm");
+    const rightArm = this.playerBone("rightarm", "rightupperarm");
+    const rightForearm = this.playerBone("rightforearm", "rightlowerarm");
+    const rightHand = this.playerBone("righthand");
+    const leftThigh = this.playerBone("leftupleg", "leftthigh");
+    const leftCalf = this.playerBone("leftleg", "leftcalf");
+    const rightThigh = this.playerBone("rightupleg", "rightthigh");
+    const rightCalf = this.playerBone("rightleg", "rightcalf");
     const temp = new Float32Array(16);
     const rot = new Float32Array(16);
     const applyRot = (bone: number, x: number, y = 0, z = 0) => {
@@ -2306,7 +3163,10 @@ void main() {
       // Police gunfire should knock the local character down just like the
       // networked corpse animation. Keep the pose loose after impact so the
       // body does not snap back upright during the WASTED screen.
-      const deathProgress = Math.max(0, Math.min(1, 1 - this.playerDeathTime / 3));
+      const deathProgress = Math.max(
+        0,
+        Math.min(1, 1 - this.playerDeathTime / 3),
+      );
       const fallProgress = Math.min(1, deathProgress / 0.65);
       const easedFall = fallProgress * fallProgress * (3 - 2 * fallProgress);
       const impact = 1 - easedFall;
@@ -2319,13 +3179,16 @@ void main() {
       applyRot(rightArm, 1.0 * impact, 0, -0.22 * impact);
       applyRot(leftForearm, 0.55 * impact);
       applyRot(rightForearm, 0.55 * impact);
-      applyRot(this.playerBone('chest', 'spine'), -1.0 * impact);
-      applyRot(this.playerBone('neck'), -0.65 * impact);
+      applyRot(this.playerBone("chest", "spine"), -1.0 * impact);
+      applyRot(this.playerBone("neck"), -0.65 * impact);
     } else if (this.playerRagdollTime > 0) {
       // High-speed exits throw the player face-first. The pose eases from a
       // braced launch into a loose forward sprawl, then returns to the normal
       // procedural rig automatically when the timer expires.
-      const ragdollProgress = Math.max(0, Math.min(1, 1 - this.playerRagdollTime / 0.9));
+      const ragdollProgress = Math.max(
+        0,
+        Math.min(1, 1 - this.playerRagdollTime / 0.9),
+      );
       const impact = 1 - Math.min(1, ragdollProgress * 1.4);
       applyRot(hips, 0.35 * impact);
       applyRot(leftThigh, 0.48 * impact);
@@ -2336,10 +3199,10 @@ void main() {
       applyRot(rightArm, 0.95 * impact, 0, -0.18 * impact);
       applyRot(leftForearm, 0.45 * impact);
       applyRot(rightForearm, 0.45 * impact);
-      applyRot(this.playerBone('chest', 'spine'), -1.15 * impact);
-      applyRot(this.playerBone('neck'), -0.75 * impact);
+      applyRot(this.playerBone("chest", "spine"), -1.15 * impact);
+      applyRot(this.playerBone("neck"), -0.75 * impact);
     } else if (this.punchTime > 0) {
-      if (this.playerAttack === 'kick') {
+      if (this.playerAttack === "kick") {
         applyRot(rightThigh, -0.9 * attack, 0, 0.12 * attack);
         applyRot(rightCalf, 1.15 * attack);
         applyRot(leftArm, -0.25 * attack, 0, 0.15);
@@ -2382,7 +3245,10 @@ void main() {
       const numBones = skel.boneCount;
       const parents = skel.boneParents;
       const invBind = skel.inverseBindMatrices;
-      if (!this.playerRigJoints || this.playerRigJoints.length !== numBones * 16) {
+      if (
+        !this.playerRigJoints ||
+        this.playerRigJoints.length !== numBones * 16
+      ) {
         this.playerRigJoints = new Float32Array(numBones * 16);
       }
       const jointMat = this.playerRigJoints;
@@ -2398,20 +3264,21 @@ void main() {
         // seconds per stride, so the legs looked like they were moving in slow
         // motion. Speed up the normal walk cadence while preserving the existing
         // sprint cadence and animation amplitudes.
-        const phaseRate = this.walkSpeed <= 6 ? 0.30 : 0.21;
+        const phaseRate = this.walkSpeed <= 6 ? 0.3 : 0.21;
         this.walkTime += dt * Math.min(this.walkSpeed * phaseRate, 2.8);
       }
       if (this.walkSpeed > 0.1 && this.punchTime <= 0) {
         this.applyWalkAnimation(animLocal);
       }
       this.applyPlayerPose(animLocal);
-      if (this.playerFireTime > 0) this.playerFireTime = Math.max(0, this.playerFireTime - dt);
+      if (this.playerFireTime > 0)
+        this.playerFireTime = Math.max(0, this.playerFireTime - dt);
       for (let b = 0; b < numBones; b++) {
         if (parents[b] < 0) {
           mat4.multiply(
             new Float32Array(jointMat.buffer, b * 16 * 4, 16),
             skel.skinRootWorld,
-            new Float32Array(animLocal.buffer, b * 16 * 4, 16)
+            new Float32Array(animLocal.buffer, b * 16 * 4, 16),
           );
         }
       }
@@ -2420,7 +3287,7 @@ void main() {
           mat4.multiply(
             new Float32Array(jointMat.buffer, b * 16 * 4, 16),
             new Float32Array(jointMat.buffer, parents[b] * 16 * 4, 16),
-            new Float32Array(animLocal.buffer, b * 16 * 4, 16)
+            new Float32Array(animLocal.buffer, b * 16 * 4, 16),
           );
         }
       }
@@ -2433,23 +3300,43 @@ void main() {
         for (let i = 0; i < 16; i++) w[i] = tempMat[i];
       }
       for (const mesh of meshList) {
-        if (!mesh.jointIndices || !mesh.jointWeights || !mesh.restPositions || !mesh.restNormals || !mesh.vbo) continue;
+        if (
+          !mesh.jointIndices ||
+          !mesh.jointWeights ||
+          !mesh.restPositions ||
+          !mesh.restNormals ||
+          !mesh.vbo
+        )
+          continue;
         const vCount = mesh.vertexCount || 0;
         if (vCount === 0) continue;
         gl.bindBuffer(gl.ARRAY_BUFFER, mesh.vbo);
-        const bufferSize = gl.getBufferParameter(gl.ARRAY_BUFFER, gl.BUFFER_SIZE) as number;
+        const bufferSize = gl.getBufferParameter(
+          gl.ARRAY_BUFFER,
+          gl.BUFFER_SIZE,
+        ) as number;
         const vboVertexCount = Math.floor(bufferSize / (12 * 4));
         const safeVCount = Math.min(vCount, vboVertexCount);
         if (safeVCount === 0) continue;
-        const existing = new Float32Array(mesh.originalVBO!);  
+        const existing = new Float32Array(mesh.originalVBO!);
         gl.bufferSubData(gl.ARRAY_BUFFER, 0, existing);
-        if (existing[9] === 0 && existing[6] === 0 && existing[7] === 0 && existing[8] === 0) {
+        if (
+          existing[9] === 0 &&
+          existing[6] === 0 &&
+          existing[7] === 0 &&
+          existing[8] === 0
+        ) {
           let allZero = true;
           for (let i = 6; i < Math.min(60, safeVCount * 12); i++) {
-            if (existing[i] !== 0) { allZero = false; break; }
+            if (existing[i] !== 0) {
+              allZero = false;
+              break;
+            }
           }
           if (allZero) {
-            console.warn('skinPlayerMesh: VBO read returned zeros, skipping to avoid corruption');
+            console.warn(
+              "skinPlayerMesh: VBO read returned zeros, skipping to avoid corruption",
+            );
             gl.bindBuffer(gl.ARRAY_BUFFER, null);
             continue;
           }
@@ -2463,27 +3350,49 @@ void main() {
         // streamed GLTF here: those values are global asset-loader state and
         // used to translate the player away from the camera after loading.
         const needsRotation = false;
-        const cosX = 1, sinX = 0;
+        const cosX = 1,
+          sinX = 0;
         const needsYFlip = false;
         const needsYFlipMoped = false;
         const needsY90 = false;
-        const cx = 0, cy = 0, cz = 0;
+        const cx = 0,
+          cy = 0,
+          cz = 0;
         const sf = 1;
-        const ex = 1, ey = 1, ez = 1;
+        const ex = 1,
+          ey = 1,
+          ez = 1;
         for (let v = 0; v < safeVCount; v++) {
-          let px = 0, py = 0, pz = 0;
-          let nx = 0, ny = 0, nz = 0;
-          const rpx = rp[v * 3], rpy = rp[v * 3 + 1], rpz = rp[v * 3 + 2];
-          const rnx = rn[v * 3], rny = rn[v * 3 + 1], rnz = rn[v * 3 + 2];
+          let px = 0,
+            py = 0,
+            pz = 0;
+          let nx = 0,
+            ny = 0,
+            nz = 0;
+          const rpx = rp[v * 3],
+            rpy = rp[v * 3 + 1],
+            rpz = rp[v * 3 + 2];
+          const rnx = rn[v * 3],
+            rny = rn[v * 3 + 1],
+            rnz = rn[v * 3 + 2];
           for (let j = 0; j < 4; j++) {
             const w = jw[v * 4 + j];
             if (w === 0) continue;
             let boneIdx = ji[v * 4 + j];
             if (boneIdx >= numBones) boneIdx = 0;
             const bi = boneIdx * 16;
-            const m00 = jointMat[bi], m01 = jointMat[bi + 4], m02 = jointMat[bi + 8], m03 = jointMat[bi + 12];
-            const m10 = jointMat[bi + 1], m11 = jointMat[bi + 5], m12 = jointMat[bi + 9], m13 = jointMat[bi + 13];
-            const m20 = jointMat[bi + 2], m21 = jointMat[bi + 6], m22 = jointMat[bi + 10], m23 = jointMat[bi + 14];
+            const m00 = jointMat[bi],
+              m01 = jointMat[bi + 4],
+              m02 = jointMat[bi + 8],
+              m03 = jointMat[bi + 12];
+            const m10 = jointMat[bi + 1],
+              m11 = jointMat[bi + 5],
+              m12 = jointMat[bi + 9],
+              m13 = jointMat[bi + 13];
+            const m20 = jointMat[bi + 2],
+              m21 = jointMat[bi + 6],
+              m22 = jointMat[bi + 10],
+              m23 = jointMat[bi + 14];
             px += w * (m00 * rpx + m01 * rpy + m02 * rpz + m03);
             py += w * (m10 * rpx + m11 * rpy + m12 * rpz + m13);
             pz += w * (m20 * rpx + m21 * rpy + m22 * rpz + m23);
@@ -2492,30 +3401,58 @@ void main() {
             nz += w * (m20 * rnx + m21 * rny + m22 * rnz);
           }
           if (!isFinite(px) || !isFinite(py) || !isFinite(pz)) {
-            px = rpx; py = rpy; pz = rpz;
-            nx = rnx; ny = rny; nz = rnz;
+            px = rpx;
+            py = rpy;
+            pz = rpz;
+            nx = rnx;
+            ny = rny;
+            nz = rnz;
           }
           const nlen = Math.hypot(nx, ny, nz);
           if (!nlen || isNaN(nlen)) {
-            nx = 0; ny = 1; nz = 0;
+            nx = 0;
+            ny = 1;
+            nz = 0;
           } else {
-            nx /= nlen; ny /= nlen; nz /= nlen;
+            nx /= nlen;
+            ny /= nlen;
+            nz /= nlen;
           }
-          let fx = px, fy = py, fz = pz;
-          let fnx = nx, fny = ny, fnz = nz;
+          let fx = px,
+            fy = py,
+            fz = pz;
+          let fnx = nx,
+            fny = ny,
+            fnz = nz;
           if (needsRotation) {
             let ty = fy * cosX - fz * sinX;
             let tz = fy * sinX + fz * cosX;
-            fy = ty; fz = tz;
+            fy = ty;
+            fz = tz;
             let tny = fny * cosX - fnz * sinX;
             let tnz = fny * sinX + fnz * cosX;
-            fny = tny; fnz = tnz;
+            fny = tny;
+            fnz = tnz;
           }
-          if (needsYFlip) { fx = -fx; fz = -fz; fnx = -fnx; fnz = -fnz; }
-          if (needsYFlipMoped) { fx = -fx; fz = -fz; fnx = -fnx; fnz = -fnz; }
+          if (needsYFlip) {
+            fx = -fx;
+            fz = -fz;
+            fnx = -fnx;
+            fnz = -fnz;
+          }
+          if (needsYFlipMoped) {
+            fx = -fx;
+            fz = -fz;
+            fnx = -fnx;
+            fnz = -fnz;
+          }
           if (needsY90) {
-            const tx = fx; fx = fz; fz = -tx;
-            const tnx = fnx; fnx = fnz; fnz = -tnx;
+            const tx = fx;
+            fx = fz;
+            fz = -tx;
+            const tnx = fnx;
+            fnx = fnz;
+            fnz = -tnx;
           }
           const dst = v * 12;
           existing[dst] = (fx - cx) * sf * ex;
@@ -2529,30 +3466,33 @@ void main() {
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
       }
     } catch (e) {
-      console.error('skinPlayerMesh error', e);
+      console.error("skinPlayerMesh error", e);
     }
   }
   private applyWalkAnimation(animLocal: Float32Array): void {
     const t = this.walkTime;
-    const hips = this.playerBone('hips', 'pelvis');
-    const leftArm = this.playerBone('leftarm', 'leftupperarm');
-    const leftForearm = this.playerBone('leftforearm', 'leftlowerarm');
-    const rightArm = this.playerBone('rightarm', 'rightupperarm');
-    const rightForearm = this.playerBone('rightforearm', 'rightlowerarm');
-    const leftThigh = this.playerBone('leftupleg', 'leftthigh');
-    const leftKnee = this.playerBone('leftleg', 'leftcalf');
-    const rightThigh = this.playerBone('rightupleg', 'rightthigh');
-    const rightKnee = this.playerBone('rightleg', 'rightcalf');
-    const temp = new Float32Array(16), rot = new Float32Array(16);
+    const hips = this.playerBone("hips", "pelvis");
+    const leftArm = this.playerBone("leftarm", "leftupperarm");
+    const leftForearm = this.playerBone("leftforearm", "leftlowerarm");
+    const rightArm = this.playerBone("rightarm", "rightupperarm");
+    const rightForearm = this.playerBone("rightforearm", "rightlowerarm");
+    const leftThigh = this.playerBone("leftupleg", "leftthigh");
+    const leftKnee = this.playerBone("leftleg", "leftcalf");
+    const rightThigh = this.playerBone("rightupleg", "rightthigh");
+    const rightKnee = this.playerBone("rightleg", "rightcalf");
+    const temp = new Float32Array(16),
+      rot = new Float32Array(16);
     const applyRotX = (bone: number, angle: number) => {
       if (bone < 0) return;
       const m = new Float32Array(animLocal.buffer, bone * 16 * 4, 16);
-      mat4.identity(rot); mat4.rotateX(rot, rot, angle);
+      mat4.identity(rot);
+      mat4.rotateX(rot, rot, angle);
       mat4.multiply(temp, m, rot);
       for (let i = 0; i < 16; i++) m[i] = temp[i];
     };
-    const leftPhase = t, rightPhase = t + Math.PI;
-    const stride = 0.40;
+    const leftPhase = t,
+      rightPhase = t + Math.PI;
+    const stride = 0.4;
     const kneeBend = 0.22;
     applyRotX(leftThigh, Math.sin(leftPhase) * stride);
     applyRotX(leftKnee, Math.max(0, -Math.sin(leftPhase)) * kneeBend);
@@ -2571,7 +3511,8 @@ void main() {
       const hm = new Float32Array(animLocal.buffer, hips * 16 * 4, 16);
       hm[13] += Math.abs(Math.sin(t)) * -0.045;
       hm[12] += Math.sin(t * 0.5) * 0.008;
-      mat4.identity(rot); mat4.rotateY(rot, rot, Math.sin(t) * 0.05);
+      mat4.identity(rot);
+      mat4.rotateY(rot, rot, Math.sin(t) * 0.05);
       mat4.multiply(temp, hm, rot);
       for (let i = 0; i < 16; i++) hm[i] = temp[i];
     }
@@ -2583,11 +3524,14 @@ void main() {
   }
   private createShader(type: number, source: string): WebGLShader | null {
     const shader = this.gl.createShader(type);
-    if (!shader) { console.error('Failed to create shader'); return null; }
+    if (!shader) {
+      console.error("Failed to create shader");
+      return null;
+    }
     this.gl.shaderSource(shader, source);
     this.gl.compileShader(shader);
     if (!this.gl.getShaderParameter(shader, this.gl.COMPILE_STATUS)) {
-      console.error('Shader compile error:', this.gl.getShaderInfoLog(shader));
+      console.error("Shader compile error:", this.gl.getShaderInfoLog(shader));
       this.gl.deleteShader(shader);
       return null;
     }
@@ -2601,39 +3545,45 @@ void main() {
       if (vsh) this.gl.deleteShader(vsh);
       if (fsh) this.gl.deleteShader(fsh);
       this.gl.deleteProgram(program);
-      throw new Error('Shader compilation failed');
+      throw new Error("Shader compilation failed");
     }
     this.gl.attachShader(program, vsh);
     this.gl.attachShader(program, fsh);
-    this.gl.bindAttribLocation(program, 0, 'aPos');
-    this.gl.bindAttribLocation(program, 1, 'aNormal');
-    this.gl.bindAttribLocation(program, 2, 'aColor');
-    this.gl.bindAttribLocation(program, 3, 'aUV');
+    this.gl.bindAttribLocation(program, 0, "aPos");
+    this.gl.bindAttribLocation(program, 1, "aNormal");
+    this.gl.bindAttribLocation(program, 2, "aColor");
+    this.gl.bindAttribLocation(program, 3, "aUV");
     this.gl.linkProgram(program);
     if (!this.gl.getProgramParameter(program, this.gl.LINK_STATUS)) {
       const info = this.gl.getProgramInfoLog(program);
-      console.error('Shader link error:', info);
+      console.error("Shader link error:", info);
       this.gl.deleteProgram(program);
-      throw new Error('Program link failed');
+      throw new Error("Program link failed");
     }
     return program;
   }
   private mulberry32(seed: number) {
     return function () {
-      let t = seed += 0x6D2B79F5;
-      t = Math.imul(t ^ t >>> 15, t | 1);
-      t ^= t + Math.imul(t ^ t >>> 7, t | 61);
-      return ((t ^ t >>> 14) >>> 0) / 4294967296;
-    }
+      let t = (seed += 0x6d2b79f5);
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
   }
-  private createMesh(verts: number[], indices: number[], texture: WebGLTexture | null = null, storeOriginal: boolean = false): CityMesh {
+  private createMesh(
+    verts: number[],
+    indices: number[],
+    texture: WebGLTexture | null = null,
+    storeOriginal: boolean = false,
+  ): CityMesh {
     const gl = this.gl;
     const vao = gl.createVertexArray()!;
     const vbo = gl.createBuffer()!;
     const ibo = gl.createBuffer()!;
     gl.bindVertexArray(vao);
     let maxIndex = 0;
-    for (let i = 0; i < indices.length; i++) if (indices[i] > maxIndex) maxIndex = indices[i];
+    for (let i = 0; i < indices.length; i++)
+      if (indices[i] > maxIndex) maxIndex = indices[i];
     const vertexCount = maxIndex + 1;
     let floatsPerVertex = Math.round(verts.length / vertexCount) || 7;
     const targetFloats = 12;
@@ -2653,18 +3603,35 @@ void main() {
       }
       const normals = new Float32Array(vertexCount * 3);
       for (let i = 0; i < indices.length; i += 3) {
-        const ia = indices[i] * 3, ib = indices[i + 1] * 3, ic = indices[i + 2] * 3;
-        const v1x = positions[ib] - positions[ia], v1y = positions[ib + 1] - positions[ia + 1], v1z = positions[ib + 2] - positions[ia + 2];
-        const v2x = positions[ic] - positions[ia], v2y = positions[ic + 1] - positions[ia + 1], v2z = positions[ic + 2] - positions[ia + 2];
-        const nx = v1y * v2z - v1z * v2y, ny = v1z * v2x - v1x * v2z, nz = v1x * v2y - v1y * v2x;
-        normals[ia] += nx; normals[ia + 1] += ny; normals[ia + 2] += nz;
-        normals[ib] += nx; normals[ib + 1] += ny; normals[ib + 2] += nz;
-        normals[ic] += nx; normals[ic + 1] += ny; normals[ic + 2] += nz;
+        const ia = indices[i] * 3,
+          ib = indices[i + 1] * 3,
+          ic = indices[i + 2] * 3;
+        const v1x = positions[ib] - positions[ia],
+          v1y = positions[ib + 1] - positions[ia + 1],
+          v1z = positions[ib + 2] - positions[ia + 2];
+        const v2x = positions[ic] - positions[ia],
+          v2y = positions[ic + 1] - positions[ia + 1],
+          v2z = positions[ic + 2] - positions[ia + 2];
+        const nx = v1y * v2z - v1z * v2y,
+          ny = v1z * v2x - v1x * v2z,
+          nz = v1x * v2y - v1y * v2x;
+        normals[ia] += nx;
+        normals[ia + 1] += ny;
+        normals[ia + 2] += nz;
+        normals[ib] += nx;
+        normals[ib + 1] += ny;
+        normals[ib + 2] += nz;
+        normals[ic] += nx;
+        normals[ic + 1] += ny;
+        normals[ic + 2] += nz;
       }
       for (let i = 0; i < vertexCount; i++) {
         const ni = i * 3;
-        const l = Math.hypot(normals[ni], normals[ni + 1], normals[ni + 2]) || 1.0;
-        normals[ni] /= l; normals[ni + 1] /= l; normals[ni + 2] /= l;
+        const l =
+          Math.hypot(normals[ni], normals[ni + 1], normals[ni + 2]) || 1.0;
+        normals[ni] /= l;
+        normals[ni + 1] /= l;
+        normals[ni + 2] /= l;
       }
       for (let i = 0; i < vertexCount; i++) {
         const dst = i * targetFloats;
@@ -2696,8 +3663,18 @@ void main() {
     gl.bufferData(gl.ARRAY_BUFFER, interleaved, gl.STATIC_DRAW);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
     const useUint32 = maxIndex > 0xffff;
-    if (useUint32) gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(indices), gl.STATIC_DRAW);
-    else gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+    if (useUint32)
+      gl.bufferData(
+        gl.ELEMENT_ARRAY_BUFFER,
+        new Uint32Array(indices),
+        gl.STATIC_DRAW,
+      );
+    else
+      gl.bufferData(
+        gl.ELEMENT_ARRAY_BUFFER,
+        new Uint16Array(indices),
+        gl.STATIC_DRAW,
+      );
     const stride = targetFloats * 4;
     const posLoc = 0;
     gl.enableVertexAttribArray(posLoc);
@@ -2712,9 +3689,12 @@ void main() {
     gl.enableVertexAttribArray(uvLoc);
     gl.vertexAttribPointer(uvLoc, 2, gl.FLOAT, false, stride, 40);
     gl.bindVertexArray(null);
-    let meshMinY = 0, meshMaxY = 0;
-    let meshMinX = Infinity, meshMaxX = -Infinity;
-    let meshMinZ = Infinity, meshMaxZ = -Infinity;
+    let meshMinY = 0,
+      meshMaxY = 0;
+    let meshMinX = Infinity,
+      meshMaxX = -Infinity;
+    let meshMinZ = Infinity,
+      meshMaxZ = -Infinity;
     for (let i = 0; i < vertexCount; i++) {
       const x = interleaved[i * 12];
       const y = interleaved[i * 12 + 1];
@@ -2727,9 +3707,13 @@ void main() {
       if (z > meshMaxZ) meshMaxZ = z;
     }
     gl.bindVertexArray(null);
-    const originalVBO = storeOriginal ? new Float32Array(interleaved) : undefined;
+    const originalVBO = storeOriginal
+      ? new Float32Array(interleaved)
+      : undefined;
     return {
-      vao, vbo, ibo,
+      vao,
+      vbo,
+      ibo,
       indexCount: indices.length,
       indexType: useUint32 ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT,
       texture,
@@ -2739,66 +3723,170 @@ void main() {
       maxX: meshMaxX,
       minZ: meshMinZ,
       maxZ: meshMaxZ,
-      originalVBO
+      originalVBO,
     };
   }
   private computeNormalMatrix(out: Float32Array, m: Float32Array) {
-    const m00 = m[0], m01 = m[1], m02 = m[2];
-    const m10 = m[4], m11 = m[5], m12 = m[6];
-    const m20 = m[8], m21 = m[9], m22 = m[10];
-    const det = m00 * (m11 * m22 - m12 * m21) - m01 * (m10 * m22 - m12 * m20) + m02 * (m10 * m21 - m11 * m20);
+    const m00 = m[0],
+      m01 = m[1],
+      m02 = m[2];
+    const m10 = m[4],
+      m11 = m[5],
+      m12 = m[6];
+    const m20 = m[8],
+      m21 = m[9],
+      m22 = m[10];
+    const det =
+      m00 * (m11 * m22 - m12 * m21) -
+      m01 * (m10 * m22 - m12 * m20) +
+      m02 * (m10 * m21 - m11 * m20);
     if (!det) {
-      out[0] = 1; out[1] = 0; out[2] = 0; out[3] = 0; out[4] = 1; out[5] = 0; out[6] = 0; out[7] = 0; out[8] = 1;
+      out[0] = 1;
+      out[1] = 0;
+      out[2] = 0;
+      out[3] = 0;
+      out[4] = 1;
+      out[5] = 0;
+      out[6] = 0;
+      out[7] = 0;
+      out[8] = 1;
       return out;
     }
     const invDet = 1 / det;
-    out[0] = (m11 * m22 - m12 * m21) * invDet; out[1] = (m12 * m20 - m10 * m22) * invDet; out[2] = (m10 * m21 - m11 * m20) * invDet;
-    out[3] = (m02 * m21 - m01 * m22) * invDet; out[4] = (m00 * m22 - m02 * m20) * invDet; out[5] = (m02 * m10 - m00 * m12) * invDet;
-    out[6] = (m01 * m12 - m02 * m11) * invDet; out[7] = (m02 * m10 - m00 * m12) * invDet; out[8] = (m00 * m11 - m01 * m10) * invDet;
+    out[0] = (m11 * m22 - m12 * m21) * invDet;
+    out[1] = (m12 * m20 - m10 * m22) * invDet;
+    out[2] = (m10 * m21 - m11 * m20) * invDet;
+    out[3] = (m02 * m21 - m01 * m22) * invDet;
+    out[4] = (m00 * m22 - m02 * m20) * invDet;
+    out[5] = (m02 * m10 - m00 * m12) * invDet;
+    out[6] = (m01 * m12 - m02 * m11) * invDet;
+    out[7] = (m02 * m10 - m00 * m12) * invDet;
+    out[8] = (m00 * m11 - m01 * m10) * invDet;
     return out;
   }
-  private addBox(verts: number[], indices: number[], x: number, y: number, z: number, w: number, h: number, d: number, r: number, g: number, b: number, a: number, idxOffset: number) {
-    const hw = w / 2, hh = h / 2, hd = d / 2;
+  private addBox(
+    verts: number[],
+    indices: number[],
+    x: number,
+    y: number,
+    z: number,
+    w: number,
+    h: number,
+    d: number,
+    r: number,
+    g: number,
+    b: number,
+    a: number,
+    idxOffset: number,
+  ) {
+    const hw = w / 2,
+      hh = h / 2,
+      hd = d / 2;
     const faces = [
       [hw, hh, -hd, -hw, hh, -hd, -hw, hh, hd, hw, hh, hd],
       [-hw, -hh, -hd, hw, -hh, -hd, hw, -hh, hd, -hw, -hh, hd],
       [-hw, hh, hd, -hw, -hh, hd, hw, -hh, hd, hw, hh, hd],
       [hw, hh, -hd, hw, -hh, -hd, -hw, -hh, -hd, -hw, hh, -hd],
       [-hw, hh, -hd, -hw, -hh, -hd, -hw, -hh, hd, -hw, hh, hd],
-      [hw, hh, hd, hw, -hh, hd, hw, -hh, -hd, hw, hh, -hd]
+      [hw, hh, hd, hw, -hh, hd, hw, -hh, -hd, hw, hh, -hd],
     ];
     for (let i = 0; i < 6; i++) {
       const f = faces[i];
-      const shade = 0.8 + (i * 0.05);
+      const shade = 0.8 + i * 0.05;
       for (let j = 0; j < 12; j += 3) {
-        verts.push(x + f[j], y + f[j + 1], z + f[j + 2], r * shade, g * shade, b * shade, a);
+        verts.push(
+          x + f[j],
+          y + f[j + 1],
+          z + f[j + 2],
+          r * shade,
+          g * shade,
+          b * shade,
+          a,
+        );
       }
     }
     for (let i = 0; i < 24; i += 4) {
-      indices.push(i + idxOffset, i + 1 + idxOffset, i + 2 + idxOffset, i + idxOffset, i + 2 + idxOffset, i + 3 + idxOffset);
+      indices.push(
+        i + idxOffset,
+        i + 1 + idxOffset,
+        i + 2 + idxOffset,
+        i + idxOffset,
+        i + 2 + idxOffset,
+        i + 3 + idxOffset,
+      );
     }
   }
-  private addPlane(verts: number[], indices: number[], x: number, y: number, z: number, w: number, d: number, r: number, g: number, b: number, a: number, idxOffset: number) {
+  private addPlane(
+    verts: number[],
+    indices: number[],
+    x: number,
+    y: number,
+    z: number,
+    w: number,
+    d: number,
+    r: number,
+    g: number,
+    b: number,
+    a: number,
+    idxOffset: number,
+  ) {
     verts.push(
-      x - w / 2, y, z - d / 2, r, g, b, a,
-      x + w / 2, y, z - d / 2, r, g, b, a,
-      x + w / 2, y, z + d / 2, r, g, b, a,
-      x - w / 2, y, z + d / 2, r, g, b, a
+      x - w / 2,
+      y,
+      z - d / 2,
+      r,
+      g,
+      b,
+      a,
+      x + w / 2,
+      y,
+      z - d / 2,
+      r,
+      g,
+      b,
+      a,
+      x + w / 2,
+      y,
+      z + d / 2,
+      r,
+      g,
+      b,
+      a,
+      x - w / 2,
+      y,
+      z + d / 2,
+      r,
+      g,
+      b,
+      a,
     );
-    indices.push(idxOffset, idxOffset + 2, idxOffset + 1, idxOffset, idxOffset + 3, idxOffset + 2);
+    indices.push(
+      idxOffset,
+      idxOffset + 2,
+      idxOffset + 1,
+      idxOffset,
+      idxOffset + 3,
+      idxOffset + 2,
+    );
   }
   private addMountainGround(
-    verts: number[], indices: number[], worldOriginX: number, worldOriginZ: number,
-    idxOffset: number, segments = 8
+    verts: number[],
+    indices: number[],
+    worldOriginX: number,
+    worldOriginZ: number,
+    idxOffset: number,
+    segments = 8,
   ): number {
     const step = CHUNK_SIZE / segments;
     for (let zi = 0; zi <= segments; zi++) {
       for (let xi = 0; xi <= segments; xi++) {
         const x = worldOriginX + Math.min(xi * step, CHUNK_SIZE - 0.01);
         const z = worldOriginZ + Math.min(zi * step, CHUNK_SIZE - 0.01);
-        const y = isOnRoadGrid(x, z) ? getMountainRoadHeight(x, z) : getMountainHeight(x, z);
+        const y = isOnRoadGrid(x, z)
+          ? getMountainRoadHeight(x, z)
+          : getMountainHeight(x, z);
         const shade = Math.max(0.22, Math.min(0.62, 0.38 + y * 0.004));
-        const rock = y > 18 ? 0.10 : 0.16;
+        const rock = y > 18 ? 0.1 : 0.16;
         verts.push(x, y, z, shade, shade + 0.03, rock, 1);
       }
     }
@@ -2813,8 +3901,17 @@ void main() {
   }
 
   private addMountainRock(
-    verts: number[], indices: number[], x: number, y: number, z: number,
-    radius: number, height: number, r: number, g: number, b: number, idxOffset: number
+    verts: number[],
+    indices: number[],
+    x: number,
+    y: number,
+    z: number,
+    radius: number,
+    height: number,
+    r: number,
+    g: number,
+    b: number,
+    idxOffset: number,
   ): number {
     const sides = 6;
     const topY = y + height;
@@ -2822,28 +3919,44 @@ void main() {
       const ringRadius = ring === 0 ? radius : radius * 0.2;
       const ringY = ring === 0 ? y : topY;
       for (let side = 0; side < sides; side++) {
-        const angle = side / sides * Math.PI * 2;
+        const angle = (side / sides) * Math.PI * 2;
         const wobble = 0.85 + 0.15 * Math.sin(side * 2.7 + x * 0.03 + z * 0.02);
         verts.push(
           x + Math.cos(angle) * ringRadius * wobble,
           ringY,
           z + Math.sin(angle) * ringRadius * wobble,
-          r * (0.85 + side * 0.025), g * (0.85 + side * 0.02), b * (0.85 + side * 0.015), 1
+          r * (0.85 + side * 0.025),
+          g * (0.85 + side * 0.02),
+          b * (0.85 + side * 0.015),
+          1,
         );
       }
     }
     for (let side = 0; side < sides; side++) {
       const next = (side + 1) % sides;
-      indices.push(idxOffset + side, idxOffset + sides + side, idxOffset + next);
-      indices.push(idxOffset + next, idxOffset + sides + side, idxOffset + sides + next);
+      indices.push(
+        idxOffset + side,
+        idxOffset + sides + side,
+        idxOffset + next,
+      );
+      indices.push(
+        idxOffset + next,
+        idxOffset + sides + side,
+        idxOffset + sides + next,
+      );
     }
     return idxOffset + sides * 2;
   }
 
   private addMountainRoadSurface(
-    verts: number[], indices: number[],
-    x1: number, z1: number, x2: number, z2: number,
-    width: number, idxOffset: number
+    verts: number[],
+    indices: number[],
+    x1: number,
+    z1: number,
+    x2: number,
+    z2: number,
+    width: number,
+    idxOffset: number,
   ): number {
     const length = Math.hypot(x2 - x1, z2 - z1) || 1;
     const segments = Math.max(4, Math.ceil(length / 12));
@@ -2857,36 +3970,73 @@ void main() {
       const dx = bx - ax;
       const dz = bz - az;
       const segmentLength = Math.hypot(dx, dz) || 1;
-      const px = -dz / segmentLength * width / 2;
-      const pz = dx / segmentLength * width / 2;
+      const px = ((-dz / segmentLength) * width) / 2;
+      const pz = ((dx / segmentLength) * width) / 2;
       const ay = getMountainRoadHeight(ax, az) + 0.04;
       const by = getMountainRoadHeight(bx, bz) + 0.04;
-      const r = 0.13, g = 0.14, b = 0.12;
+      const r = 0.13,
+        g = 0.14,
+        b = 0.12;
       verts.push(
-        ax + px, ay, az + pz, r, g, b, 1,
-        bx + px, by, bz + pz, r, g, b, 1,
-        bx - px, by, bz - pz, r, g, b, 1,
-        ax - px, ay, az - pz, r, g, b, 1
+        ax + px,
+        ay,
+        az + pz,
+        r,
+        g,
+        b,
+        1,
+        bx + px,
+        by,
+        bz + pz,
+        r,
+        g,
+        b,
+        1,
+        bx - px,
+        by,
+        bz - pz,
+        r,
+        g,
+        b,
+        1,
+        ax - px,
+        ay,
+        az - pz,
+        r,
+        g,
+        b,
+        1,
       );
-      indices.push(idxOffset, idxOffset + 1, idxOffset + 2, idxOffset, idxOffset + 2, idxOffset + 3);
+      indices.push(
+        idxOffset,
+        idxOffset + 1,
+        idxOffset + 2,
+        idxOffset,
+        idxOffset + 2,
+        idxOffset + 3,
+      );
       idxOffset += 4;
     }
     return idxOffset;
   }
 
   private addBeachGround(
-    verts: number[], indices: number[], worldOriginX: number, worldOriginZ: number,
-    idxOffset: number, segments = 12
+    verts: number[],
+    indices: number[],
+    worldOriginX: number,
+    worldOriginZ: number,
+    idxOffset: number,
+    segments = 12,
   ): number {
-    const sand = [0.76, 0.70, 0.51];
-    const wetSand = [0.50, 0.57, 0.50];
+    const sand = [0.76, 0.7, 0.51];
+    const wetSand = [0.5, 0.57, 0.5];
     const step = CHUNK_SIZE / segments;
     for (let zi = 0; zi <= segments; zi++) {
       for (let xi = 0; xi <= segments; xi++) {
         const x = worldOriginX + Math.min(xi * step, CHUNK_SIZE - 0.01);
         const z = worldOriginZ + Math.min(zi * step, CHUNK_SIZE - 0.01);
-      const base = getBeachHeight(x, z);
-      const y = isOnRoadGrid(x, z)
+        const base = getBeachHeight(x, z);
+        const y = isOnRoadGrid(x, z)
           ? 0
           : isOnSidewalk(x, z)
             ? Math.max(base + SIDEWALK_RAISE, 0)
@@ -2908,13 +4058,21 @@ void main() {
     return idxOffset + (segments + 1) * (segments + 1);
   }
   private addShoreStrip(
-    verts: number[], indices: number[],
-    boundary: number, fixed: number, direction: 'x' | 'z', directionSign: 1 | -1,
-    inward: number, outward: number, width: number,
-    idxOffset: number, segments = 16, foam = false
+    verts: number[],
+    indices: number[],
+    boundary: number,
+    fixed: number,
+    direction: "x" | "z",
+    directionSign: 1 | -1,
+    inward: number,
+    outward: number,
+    width: number,
+    idxOffset: number,
+    segments = 16,
+    foam = false,
   ): number {
     const sand = foam ? [0.86, 0.88, 0.78] : [0.76, 0.69, 0.48];
-    const wetSand = foam ? [0.58, 0.72, 0.70] : [0.47, 0.55, 0.48];
+    const wetSand = foam ? [0.58, 0.72, 0.7] : [0.47, 0.55, 0.48];
     const vertexAt = (distance: number, across: number) => {
       const t = Math.max(0, Math.min(1, (distance + inward) / inward));
       const smooth = t * t * (3 - 2 * t);
@@ -2925,7 +4083,7 @@ void main() {
       const r = sand[0] * (1 - smooth) + wetSand[0] * smooth;
       const g = sand[1] * (1 - smooth) + wetSand[1] * smooth;
       const b = sand[2] * (1 - smooth) + wetSand[2] * smooth;
-      return direction === 'x'
+      return direction === "x"
         ? [boundary + directionSign * distance, y, fixed + across, r, g, b, 1]
         : [fixed + across, y, boundary + directionSign * distance, r, g, b, 1];
     };
@@ -2940,8 +4098,14 @@ void main() {
     return idxOffset + (segments + 1) * 2;
   }
   private addShoreCorner(
-    verts: number[], indices: number[], cornerX: number, cornerZ: number,
-    dx: number, dz: number, idxOffset: number, segments = 10
+    verts: number[],
+    indices: number[],
+    cornerX: number,
+    cornerZ: number,
+    dx: number,
+    dz: number,
+    idxOffset: number,
+    segments = 10,
   ): number {
     const innerRadius = 10;
     const outerRadius = 12;
@@ -2950,7 +4114,8 @@ void main() {
     for (let i = 0; i <= segments; i++) {
       const t = i / segments;
       const angle = (Math.PI / 2) * t;
-      const cos = Math.cos(angle), sin = Math.sin(angle);
+      const cos = Math.cos(angle),
+        sin = Math.sin(angle);
       for (const radius of [innerRadius, outerRadius]) {
         const x = cornerX - dx * cos * radius;
         const z = cornerZ - dz * sin * radius;
@@ -2979,13 +4144,19 @@ void main() {
   }
 
   /** Build a bounded chunk batch without monopolizing the main thread. */
-  prewarmChunksBatch(cx: number, cz: number, radius: number, budget = 2): boolean {
+  prewarmChunksBatch(
+    cx: number,
+    cz: number,
+    radius: number,
+    budget = 2,
+  ): boolean {
     const pending: { cx: number; cz: number }[] = [];
     for (let dz = -radius; dz <= radius; dz++) {
       for (let dx = -radius; dx <= radius; dx++) {
         const chunkX = cx + dx;
         const chunkZ = cz + dz;
-        if (!this.chunkCache.has(`${chunkX},${chunkZ}`)) pending.push({ cx: chunkX, cz: chunkZ });
+        if (!this.chunkCache.has(`${chunkX},${chunkZ}`))
+          pending.push({ cx: chunkX, cz: chunkZ });
       }
     }
     for (let i = 0; i < Math.min(Math.max(1, budget), pending.length); i++) {
@@ -3004,34 +4175,122 @@ void main() {
     const barrels: { x: number; z: number; yaw: number }[] = [];
     const chickens: { x: number; z: number; yaw: number }[] = [];
     const trees: { x: number; z: number; yaw: number; scale: number }[] = [];
-    const supermarkets: { x: number; z: number; yaw: number; hd: number; isConvenience?: boolean }[] = [];
+    const supermarkets: {
+      x: number;
+      z: number;
+      yaw: number;
+      hd: number;
+      isConvenience?: boolean;
+    }[] = [];
     const tatami: { x: number; z: number; yaw: number }[] = [];
     const cabins: { x: number; z: number; yaw: number }[] = [];
     const lighthouses: { x: number; z: number; yaw: number }[] = [];
     const tropicalShops: { x: number; z: number; yaw: number }[] = [];
-    const decorativeAircraft: { x: number; z: number; yaw: number; type: string; model?: CityMesh | CityMesh[] }[] = [];
+    const decorativeAircraft: {
+      x: number;
+      z: number;
+      yaw: number;
+      type: string;
+      model?: CityMesh | CityMesh[];
+    }[] = [];
     const worldOriginX = cx * CHUNK_SIZE;
     const worldOriginZ = cz * CHUNK_SIZE;
     const biome = getBiome(cx, cz);
     const seed = (cx * 100003 + cz * 70001) >>> 0;
     const rng = this.mulberry32(seed);
-    if (biome === 'ocean') {
+    if (biome === "ocean") {
       const cx2 = cx * CHUNK_SIZE + CHUNK_SIZE / 2;
       const cz2 = cz * CHUNK_SIZE + CHUNK_SIZE / 2;
-      this.addPlane(verts, indices, cx2, -2.5, cz2, CHUNK_SIZE, CHUNK_SIZE, 0.0, 0.10, 0.30, 0.85, idxOffset); idxOffset += 4;
-      this.addPlane(verts, indices, cx2, -2.2, cz2, CHUNK_SIZE, CHUNK_SIZE, 0.05, 0.25, 0.45, 0.55, idxOffset); idxOffset += 4;
-      this.addPlane(verts, indices, cx2, -1.9, cz2, CHUNK_SIZE, CHUNK_SIZE, 0.15, 0.40, 0.60, 0.40, idxOffset); idxOffset += 4;
-      if ((isBridgeChunk(cx, cz + 1) || isBridgeChunk(cx, cz - 1)) && this.boatMeshes.length > 0) {
+      this.addPlane(
+        verts,
+        indices,
+        cx2,
+        -2.5,
+        cz2,
+        CHUNK_SIZE,
+        CHUNK_SIZE,
+        0.0,
+        0.1,
+        0.3,
+        0.85,
+        idxOffset,
+      );
+      idxOffset += 4;
+      this.addPlane(
+        verts,
+        indices,
+        cx2,
+        -2.2,
+        cz2,
+        CHUNK_SIZE,
+        CHUNK_SIZE,
+        0.05,
+        0.25,
+        0.45,
+        0.55,
+        idxOffset,
+      );
+      idxOffset += 4;
+      this.addPlane(
+        verts,
+        indices,
+        cx2,
+        -1.9,
+        cz2,
+        CHUNK_SIZE,
+        CHUNK_SIZE,
+        0.15,
+        0.4,
+        0.6,
+        0.4,
+        idxOffset,
+      );
+      idxOffset += 4;
+      if (
+        (isBridgeChunk(cx, cz + 1) || isBridgeChunk(cx, cz - 1)) &&
+        this.boatMeshes.length > 0
+      ) {
         for (let bi = 0; bi < 2; bi++) {
-          const boatModel = this.boatMeshes[Math.floor(rng() * this.boatMeshes.length)];
+          const boatModel =
+            this.boatMeshes[Math.floor(rng() * this.boatMeshes.length)];
           const bx = cx * CHUNK_SIZE + 10 + rng() * (CHUNK_SIZE - 20);
           const bz = cz * CHUNK_SIZE + 5 + bi * 25;
-          buildings.push({ model: boatModel, x: bx, y: -1.5, z: bz, yaw: rng() * Math.PI * 2, scale: [1, 1, 1] });
-          decorativeAircraft.push({ x: bx, z: bz, yaw: 0, type: 'boat', model: boatModel });
+          buildings.push({
+            model: boatModel,
+            x: bx,
+            y: -1.5,
+            z: bz,
+            yaw: rng() * Math.PI * 2,
+            scale: [1, 1, 1],
+          });
+          decorativeAircraft.push({
+            x: bx,
+            z: bz,
+            yaw: 0,
+            type: "boat",
+            model: boatModel,
+          });
         }
       }
       const mesh = this.createMesh(verts, indices);
-      const chunk: CityChunk = { mesh, cx, cz, lamps: [], hydrants: [], buildings, benches: [], barrels: [], chickens: [], trees: [], supermarkets: [], tatami: [], cabins: [], lighthouses: [], tropicalShops: [], decorativeAircraft };
+      const chunk: CityChunk = {
+        mesh,
+        cx,
+        cz,
+        lamps: [],
+        hydrants: [],
+        buildings,
+        benches: [],
+        barrels: [],
+        chickens: [],
+        trees: [],
+        supermarkets: [],
+        tatami: [],
+        cabins: [],
+        lighthouses: [],
+        tropicalShops: [],
+        decorativeAircraft,
+      };
       this.chunkCache.set(key, chunk);
       return chunk;
     }
@@ -3039,68 +4298,147 @@ void main() {
       for (let dz = -1; dz <= 1; dz++)
         for (let dx = -1; dx <= 1; dx++) {
           if (dx === 0 && dz === 0) continue;
-          if (getBiome(cx + dx, cz + dz) === 'ocean') return true;
+          if (getBiome(cx + dx, cz + dz) === "ocean") return true;
         }
       return false;
     };
-  const isBeach = biome === 'beach';
-  const isMarina = biome === 'marina';
-  const isSuburb = biome === 'suburb';
-    const isCity = biome === 'city';
-    const isBridge = biome === 'bridge';
-    const isBridgeConnector = biome === 'bridge_connector';
-    const isAeroport = biome === 'aeroport';
-    const isParkingLot = biome === 'parking_lot';
-    const isMountain = biome === 'mountain';
-    const isRuralFarm = biome === 'rural_farm';
-    const isRuralHills = biome === 'rural_hills';
-    const isRuralMountain = biome === 'rural_mountain';
-    const isRuralLakes = biome === 'rural_lakes';
-    const isRuralDesert = biome === 'rural_desert';
-    const isRural = isRuralFarm || isRuralHills || isRuralMountain || isRuralLakes || isRuralDesert;
+    const isBeach = biome === "beach";
+    const isMarina = biome === "marina";
+    const isSuburb = biome === "suburb";
+    const isCity = biome === "city";
+    const isBridge = biome === "bridge";
+    const isBridgeConnector = biome === "bridge_connector";
+    const isAeroport = biome === "aeroport";
+    const isParkingLot = biome === "parking_lot";
+    const isMountain = biome === "mountain";
+    const isRuralFarm = biome === "rural_farm";
+    const isRuralHills = biome === "rural_hills";
+    const isRuralMountain = biome === "rural_mountain";
+    const isRuralLakes = biome === "rural_lakes";
+    const isRuralDesert = biome === "rural_desert";
+    const isRural =
+      isRuralFarm ||
+      isRuralHills ||
+      isRuralMountain ||
+      isRuralLakes ||
+      isRuralDesert;
     const blocksPerChunk = CHUNK_SIZE / GRID_PITCH;
     if (isBeach) {
       // Use a denser shoreline grid so the beach slope does not become a
       // staircase that clips character feet at the sand/water boundary.
-      idxOffset = this.addBeachGround(verts, indices, worldOriginX, worldOriginZ, idxOffset, 20);
+      idxOffset = this.addBeachGround(
+        verts,
+        indices,
+        worldOriginX,
+        worldOriginZ,
+        idxOffset,
+        20,
+      );
       if (isWaterAdjacent()) {
         const cx2 = cx * CHUNK_SIZE + CHUNK_SIZE / 2;
         const cz2 = cz * CHUNK_SIZE + CHUNK_SIZE / 2;
-        const dirs = [[0, 1], [0, -1], [1, 0], [-1, 0]] as const;
+        const dirs = [
+          [0, 1],
+          [0, -1],
+          [1, 0],
+          [-1, 0],
+        ] as const;
         const oceanSides: [number, number][] = [];
         // Match the terrain height field's broad tidal shelf so the visible
-      // shoreline mesh and collision/ground sampling describe one slope.
-      const slopeInward = 60;
+        // shoreline mesh and collision/ground sampling describe one slope.
+        const slopeInward = 60;
         for (const [ddx, ddz] of dirs) {
-          if (getBiome(cx + ddx, cz + ddz) !== 'ocean') continue;
+          if (getBiome(cx + ddx, cz + ddz) !== "ocean") continue;
           oceanSides.push([ddx, ddz]);
           if (ddx !== 0) {
             const boundary = ddx > 0 ? (cx + 1) * CHUNK_SIZE : cx * CHUNK_SIZE;
             idxOffset = this.addShoreStrip(
-              verts, indices, boundary, cz2, 'x', ddx, slopeInward, 0,
-              CHUNK_SIZE, idxOffset
+              verts,
+              indices,
+              boundary,
+              cz2,
+              "x",
+              ddx,
+              slopeInward,
+              0,
+              CHUNK_SIZE,
+              idxOffset,
             );
             // A thin foam line follows the same continuous shoreline rather than
             // being built from floating cubes.
             idxOffset = this.addShoreStrip(
-              verts, indices, boundary, cz2, 'x', ddx, 0.8, 0.8,
-              CHUNK_SIZE, idxOffset, 12, true
+              verts,
+              indices,
+              boundary,
+              cz2,
+              "x",
+              ddx,
+              0.8,
+              0.8,
+              CHUNK_SIZE,
+              idxOffset,
+              12,
+              true,
             );
             // Two secondary foam tongues make the landing read as moving surf
             // instead of a single hard biome line. They remain above the shared
             // water datum and are cheap enough for mobile.
-            idxOffset = this.addShoreStrip(verts, indices, boundary, cz2 + 2.5, 'x', ddx, 1.8, 1.1, CHUNK_SIZE, idxOffset, 10, true);
+            idxOffset = this.addShoreStrip(
+              verts,
+              indices,
+              boundary,
+              cz2 + 2.5,
+              "x",
+              ddx,
+              1.8,
+              1.1,
+              CHUNK_SIZE,
+              idxOffset,
+              10,
+              true,
+            );
           } else {
             const boundary = ddz > 0 ? (cz + 1) * CHUNK_SIZE : cz * CHUNK_SIZE;
             idxOffset = this.addShoreStrip(
-              verts, indices, boundary, cx2, 'z', ddz, slopeInward, 0,
-              CHUNK_SIZE, idxOffset
+              verts,
+              indices,
+              boundary,
+              cx2,
+              "z",
+              ddz,
+              slopeInward,
+              0,
+              CHUNK_SIZE,
+              idxOffset,
             );
             idxOffset = this.addShoreStrip(
-              verts, indices, boundary, cx2, 'z', ddz, 0.8, 0.8,
-              CHUNK_SIZE, idxOffset, 12, true
+              verts,
+              indices,
+              boundary,
+              cx2,
+              "z",
+              ddz,
+              0.8,
+              0.8,
+              CHUNK_SIZE,
+              idxOffset,
+              12,
+              true,
             );
-            idxOffset = this.addShoreStrip(verts, indices, boundary, cx2 + 2.5, 'z', ddz, 1.8, 1.1, CHUNK_SIZE, idxOffset, 10, true);
+            idxOffset = this.addShoreStrip(
+              verts,
+              indices,
+              boundary,
+              cx2 + 2.5,
+              "z",
+              ddz,
+              1.8,
+              1.1,
+              CHUNK_SIZE,
+              idxOffset,
+              10,
+              true,
+            );
           }
         }
         for (let i = 0; i < oceanSides.length; i++) {
@@ -3108,9 +4446,19 @@ void main() {
             const [dx1, dz1] = oceanSides[i];
             const [dx2, dz2] = oceanSides[j];
             if (dx1 * dx2 + dz1 * dz2 !== 0) continue;
-            const cornerX = cx * CHUNK_SIZE + (dx1 > 0 || dx2 > 0 ? CHUNK_SIZE : 0);
-            const cornerZ = cz * CHUNK_SIZE + (dz1 > 0 || dz2 > 0 ? CHUNK_SIZE : 0);
-            idxOffset = this.addShoreCorner(verts, indices, cornerX, cornerZ, dx1, dz2, idxOffset);
+            const cornerX =
+              cx * CHUNK_SIZE + (dx1 > 0 || dx2 > 0 ? CHUNK_SIZE : 0);
+            const cornerZ =
+              cz * CHUNK_SIZE + (dz1 > 0 || dz2 > 0 ? CHUNK_SIZE : 0);
+            idxOffset = this.addShoreCorner(
+              verts,
+              indices,
+              cornerX,
+              cornerZ,
+              dx1,
+              dz2,
+              idxOffset,
+            );
           }
         }
         // Wet-sand streaks and small shell/rock clusters give the waterline a
@@ -3121,30 +4469,95 @@ void main() {
           const [ddx, ddz] = side;
           const along = 10 + rng() * (CHUNK_SIZE - 20);
           const depth = 13 + rng() * 8;
-          const px = ddx !== 0
-            ? (ddx > 0 ? (cx + 1) * CHUNK_SIZE - depth : cx * CHUNK_SIZE + depth)
-            : worldOriginX + along;
-          const pz = ddz !== 0
-            ? worldOriginZ + along
-            : (ddz > 0 ? (cz + 1) * CHUNK_SIZE - depth : cz * CHUNK_SIZE + depth);
+          const px =
+            ddx !== 0
+              ? ddx > 0
+                ? (cx + 1) * CHUNK_SIZE - depth
+                : cx * CHUNK_SIZE + depth
+              : worldOriginX + along;
+          const pz =
+            ddz !== 0
+              ? worldOriginZ + along
+              : ddz > 0
+                ? (cz + 1) * CHUNK_SIZE - depth
+                : cz * CHUNK_SIZE + depth;
           const wetY = -0.04;
-          this.addBox(verts, indices, px, wetY, pz, ddx !== 0 ? 5 + rng() * 7 : 0.8, 0.025, ddz !== 0 ? 0.8 : 5 + rng() * 7, 0.78, 0.76, 0.58, 0.8, idxOffset); idxOffset += 24;
+          this.addBox(
+            verts,
+            indices,
+            px,
+            wetY,
+            pz,
+            ddx !== 0 ? 5 + rng() * 7 : 0.8,
+            0.025,
+            ddz !== 0 ? 0.8 : 5 + rng() * 7,
+            0.78,
+            0.76,
+            0.58,
+            0.8,
+            idxOffset,
+          );
+          idxOffset += 24;
           const shellX = px + (ddx !== 0 ? 0 : (rng() - 0.5) * 4);
           const shellZ = pz + (ddz !== 0 ? 0 : (rng() - 0.5) * 4);
-          this.addBox(verts, indices, shellX, 0.12, shellZ, 0.35, 0.18, 0.35, 0.92, 0.84, 0.62, 1.0, idxOffset); idxOffset += 24;
+          this.addBox(
+            verts,
+            indices,
+            shellX,
+            0.12,
+            shellZ,
+            0.35,
+            0.18,
+            0.35,
+            0.92,
+            0.84,
+            0.62,
+            1.0,
+            idxOffset,
+          );
+          idxOffset += 24;
           if (detail % 2 === 0) {
             const logLength = 2.8 + rng() * 2.5;
-            this.addBox(verts, indices, px + (ddx !== 0 ? 0 : 1.5), 0.18, pz + (ddz !== 0 ? 1.5 : 0), ddx !== 0 ? 0.35 : logLength, 0.3, ddz !== 0 ? 0.35 : logLength, 0.30, 0.20, 0.10, 1.0, idxOffset); idxOffset += 24;
+            this.addBox(
+              verts,
+              indices,
+              px + (ddx !== 0 ? 0 : 1.5),
+              0.18,
+              pz + (ddz !== 0 ? 1.5 : 0),
+              ddx !== 0 ? 0.35 : logLength,
+              0.3,
+              ddz !== 0 ? 0.35 : logLength,
+              0.3,
+              0.2,
+              0.1,
+              1.0,
+              idxOffset,
+            );
+            idxOffset += 24;
           }
           for (let grass = 0; grass < 2; grass++) {
             const gx = px + (ddx !== 0 ? (rng() - 0.5) * 3 : grass * 0.7);
             const gz = pz + (ddz !== 0 ? grass * 0.7 : (rng() - 0.5) * 3);
-            this.addBox(verts, indices, gx, 0.28, gz, 0.12, 0.55, 0.12, 0.18, 0.38, 0.12, 1.0, idxOffset); idxOffset += 24;
+            this.addBox(
+              verts,
+              indices,
+              gx,
+              0.28,
+              gz,
+              0.12,
+              0.55,
+              0.12,
+              0.18,
+              0.38,
+              0.12,
+              1.0,
+              idxOffset,
+            );
+            idxOffset += 24;
           }
         }
       }
-    }
-    else if (isMarina) {
+    } else if (isMarina) {
       // The marina is a real piece of land with a controlled inlet. Generate a
       // tiled shore/water transition so adjacent ocean does not swallow the
       // entire biome, then build the working harbour on top of it below.
@@ -3152,8 +4565,8 @@ void main() {
       // transition rather than an ocean biome, but it is still the inlet edge.
       const oceanSides: [number, number][] = getMarinaCoastSides(cx, cz);
       const waterDepth = 31;
-      const marinaBridgeCorner = BRIDGE_CONNECTORS.some(conn =>
-        Math.abs(cx - conn.cx) <= 1 && cz === conn.cz
+      const marinaBridgeCorner = BRIDGE_CONNECTORS.some(
+        (conn) => Math.abs(cx - conn.cx) <= 1 && cz === conn.cz,
       );
       const isRoadCell = (localX: number, localZ: number) => {
         const nearGrid = (value: number) => {
@@ -3172,15 +4585,34 @@ void main() {
         for (let col = 0; col <= surfaceSegments; col++) {
           const localX = Math.min(col * surfaceStep, CHUNK_SIZE - 0.01);
           const localZ = Math.min(row * surfaceStep, CHUNK_SIZE - 0.01);
-          const depth = getMarinaWaterDepth(worldOriginX + localX, worldOriginZ + localZ);
+          const depth = getMarinaWaterDepth(
+            worldOriginX + localX,
+            worldOriginZ + localZ,
+          );
           const road = isRoadCell(localX, localZ);
           const land = road || depth <= 0.08;
           const y = land ? 0.02 : -depth;
           const wet = land ? 0 : Math.min(1, depth / 2.5);
-          const r = land ? (marinaBridgeCorner ? 0.25 : 0.22) : 0.04 + wet * 0.02;
-          const g = land ? (marinaBridgeCorner ? 0.29 : 0.28) : 0.22 + wet * 0.04;
-          const b = land ? (marinaBridgeCorner ? 0.25 : 0.20) : 0.34 + wet * 0.10;
-          verts.push(worldOriginX + localX, y, worldOriginZ + localZ, r, g, b, 1.0);
+          const r = land
+            ? marinaBridgeCorner
+              ? 0.25
+              : 0.22
+            : 0.04 + wet * 0.02;
+          const g = land
+            ? marinaBridgeCorner
+              ? 0.29
+              : 0.28
+            : 0.22 + wet * 0.04;
+          const b = land ? (marinaBridgeCorner ? 0.25 : 0.2) : 0.34 + wet * 0.1;
+          verts.push(
+            worldOriginX + localX,
+            y,
+            worldOriginZ + localZ,
+            r,
+            g,
+            b,
+            1.0,
+          );
         }
       }
       const surfaceBase = idxOffset;
@@ -3188,21 +4620,42 @@ void main() {
       for (let row = 0; row < surfaceSegments; row++) {
         for (let col = 0; col < surfaceSegments; col++) {
           const a = surfaceBase + row * surfaceRow + col;
-          indices.push(a, a + surfaceRow, a + 1, a + 1, a + surfaceRow, a + surfaceRow + 1);
+          indices.push(
+            a,
+            a + surfaceRow,
+            a + 1,
+            a + 1,
+            a + surfaceRow,
+            a + surfaceRow + 1,
+          );
         }
       }
       idxOffset += surfaceRow * surfaceRow;
       // Shore retaining walls make the land shoulder legible and stop the
       // ocean plane from visually cutting through the marina apron.
       for (const [sideX, sideZ] of oceanSides) {
-        const shore = sideX !== 0 ? worldOriginX + (sideX > 0 ? CHUNK_SIZE - waterDepth : waterDepth) : worldOriginX + CHUNK_SIZE / 2;
-        const shoreZ = sideZ !== 0 ? worldOriginZ + (sideZ > 0 ? CHUNK_SIZE - waterDepth : waterDepth) : worldOriginZ + CHUNK_SIZE / 2;
+        const shore =
+          sideX !== 0
+            ? worldOriginX + (sideX > 0 ? CHUNK_SIZE - waterDepth : waterDepth)
+            : worldOriginX + CHUNK_SIZE / 2;
+        const shoreZ =
+          sideZ !== 0
+            ? worldOriginZ + (sideZ > 0 ? CHUNK_SIZE - waterDepth : waterDepth)
+            : worldOriginZ + CHUNK_SIZE / 2;
         this.addBox(
-          verts, indices, shore, 0.36, shoreZ,
+          verts,
+          indices,
+          shore,
+          0.36,
+          shoreZ,
           sideX !== 0 ? 0.45 : CHUNK_SIZE - 2,
           0.62,
           sideZ !== 0 ? 0.45 : CHUNK_SIZE - 2,
-          0.28, 0.30, 0.28, 1.0, idxOffset
+          0.28,
+          0.3,
+          0.28,
+          1.0,
+          idxOffset,
         );
         idxOffset += 24;
       }
@@ -3211,27 +4664,89 @@ void main() {
       // apron meet as one intersection rather than ending at the shoreline.
       for (const gridX of [cx, cx + 1]) {
         const roadX = gridX * GRID_PITCH;
-        this.addBox(verts, indices, roadX, 0.12, worldOriginZ + CHUNK_SIZE / 2, ROAD_HALF_WIDTH * 2, 0.16, CHUNK_SIZE, 0.12, 0.13, 0.14, 1.0, idxOffset);
+        this.addBox(
+          verts,
+          indices,
+          roadX,
+          0.12,
+          worldOriginZ + CHUNK_SIZE / 2,
+          ROAD_HALF_WIDTH * 2,
+          0.16,
+          CHUNK_SIZE,
+          0.12,
+          0.13,
+          0.14,
+          1.0,
+          idxOffset,
+        );
         idxOffset += 24;
       }
       for (const gridZ of [cz, cz + 1]) {
         const roadZ = gridZ * GRID_PITCH;
-        this.addBox(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.12, roadZ, CHUNK_SIZE, 0.16, ROAD_HALF_WIDTH * 2, 0.12, 0.13, 0.14, 1.0, idxOffset);
+        this.addBox(
+          verts,
+          indices,
+          worldOriginX + CHUNK_SIZE / 2,
+          0.12,
+          roadZ,
+          CHUNK_SIZE,
+          0.16,
+          ROAD_HALF_WIDTH * 2,
+          0.12,
+          0.13,
+          0.14,
+          1.0,
+          idxOffset,
+        );
         idxOffset += 24;
       }
       if (marinaBridgeCorner) {
-        const connector = BRIDGE_CONNECTORS.find(conn => Math.abs(cx - conn.cx) <= 1 && cz === conn.cz) ?? BRIDGE_CONNECTORS[0];
+        const connector =
+          BRIDGE_CONNECTORS.find(
+            (conn) => Math.abs(cx - conn.cx) <= 1 && cz === conn.cz,
+          ) ?? BRIDGE_CONNECTORS[0];
         if (connector) {
           // Keep the apron in the current chunk even when the connector is on
           // the neighboring side of the bridge. The old absolute center could
           // place most of the apron outside this chunk, leaving a visible gap.
-          const connectorLocalX = Math.max(16, Math.min(CHUNK_SIZE - 16, connector.cx * CHUNK_SIZE - worldOriginX));
+          const connectorLocalX = Math.max(
+            16,
+            Math.min(CHUNK_SIZE - 16, connector.cx * CHUNK_SIZE - worldOriginX),
+          );
           const ix = worldOriginX + connectorLocalX;
           const iz = connector.cz * CHUNK_SIZE;
-          this.addBox(verts, indices, ix, 0.18, iz, 48, 0.12, 48, 0.16, 0.17, 0.18, 1.0, idxOffset);
+          this.addBox(
+            verts,
+            indices,
+            ix,
+            0.18,
+            iz,
+            48,
+            0.12,
+            48,
+            0.16,
+            0.17,
+            0.18,
+            1.0,
+            idxOffset,
+          );
           idxOffset += 24;
           for (let mark = -18; mark <= 18; mark += 12) {
-            this.addBox(verts, indices, ix + mark, 0.27, iz, 5, 0.03, 0.28, 0.9, 0.76, 0.14, 1.0, idxOffset);
+            this.addBox(
+              verts,
+              indices,
+              ix + mark,
+              0.27,
+              iz,
+              5,
+              0.03,
+              0.28,
+              0.9,
+              0.76,
+              0.14,
+              1.0,
+              idxOffset,
+            );
             idxOffset += 24;
           }
         }
@@ -3241,25 +4756,69 @@ void main() {
       // blue patch. The deterministic layout keeps every client identical.
       for (let sideIndex = 0; sideIndex < oceanSides.length; sideIndex++) {
         const [sideX, sideZ] = oceanSides[sideIndex];
-        const shorelineX = sideX !== 0 ? worldOriginX + (sideX > 0 ? CHUNK_SIZE - waterDepth : waterDepth) : worldOriginX + CHUNK_SIZE / 2;
-        const shorelineZ = sideZ !== 0 ? worldOriginZ + (sideZ > 0 ? CHUNK_SIZE - waterDepth : waterDepth) : worldOriginZ + CHUNK_SIZE / 2;
+        const shorelineX =
+          sideX !== 0
+            ? worldOriginX + (sideX > 0 ? CHUNK_SIZE - waterDepth : waterDepth)
+            : worldOriginX + CHUNK_SIZE / 2;
+        const shorelineZ =
+          sideZ !== 0
+            ? worldOriginZ + (sideZ > 0 ? CHUNK_SIZE - waterDepth : waterDepth)
+            : worldOriginZ + CHUNK_SIZE / 2;
         const pierCount = 3;
         for (let pier = 0; pier < pierCount; pier++) {
           const along = 14 + pier * 24;
           const dockLength = waterDepth + 20;
-          const dockX = sideX !== 0 ? shorelineX + sideX * dockLength / 2 : worldOriginX + along;
-          const dockZ = sideZ !== 0 ? worldOriginZ + along : shorelineZ + sideZ * dockLength / 2;
-          this.addBox(verts, indices, dockX, 0.30, dockZ,
-            sideX !== 0 ? dockLength : 3.2, 0.34,
+          const dockX =
+            sideX !== 0
+              ? shorelineX + (sideX * dockLength) / 2
+              : worldOriginX + along;
+          const dockZ =
+            sideZ !== 0
+              ? worldOriginZ + along
+              : shorelineZ + (sideZ * dockLength) / 2;
+          this.addBox(
+            verts,
+            indices,
+            dockX,
+            0.3,
+            dockZ,
+            sideX !== 0 ? dockLength : 3.2,
+            0.34,
             sideZ !== 0 ? 3.2 : dockLength,
-            0.38, 0.24, 0.12, 1.0, idxOffset);
+            0.38,
+            0.24,
+            0.12,
+            1.0,
+            idxOffset,
+          );
           idxOffset += 24;
           const pilingCount = 3;
           for (let piling = 0; piling < pilingCount; piling++) {
-            const distance = 8 + piling * ((dockLength - 16) / (pilingCount - 1));
-            const px = sideX !== 0 ? shorelineX + sideX * distance : worldOriginX + along;
-            const pz = sideZ !== 0 ? worldOriginZ + along : shorelineZ + sideZ * distance;
-            this.addBox(verts, indices, px, -0.55, pz, 0.55, 1.9, 0.55, 0.20, 0.13, 0.08, 1.0, idxOffset);
+            const distance =
+              8 + piling * ((dockLength - 16) / (pilingCount - 1));
+            const px =
+              sideX !== 0
+                ? shorelineX + sideX * distance
+                : worldOriginX + along;
+            const pz =
+              sideZ !== 0
+                ? worldOriginZ + along
+                : shorelineZ + sideZ * distance;
+            this.addBox(
+              verts,
+              indices,
+              px,
+              -0.55,
+              pz,
+              0.55,
+              1.9,
+              0.55,
+              0.2,
+              0.13,
+              0.08,
+              1.0,
+              idxOffset,
+            );
             idxOffset += 24;
           }
           // Cross cleats on each slip make the repeated docks read as boat
@@ -3267,41 +4826,196 @@ void main() {
           for (const berthSide of [-1, 1]) {
             const cleatX = sideX !== 0 ? dockX : dockX + berthSide * 1.15;
             const cleatZ = sideZ !== 0 ? dockZ + berthSide * 1.15 : dockZ;
-            this.addBox(verts, indices, cleatX, 0.54, cleatZ, 0.35, 0.28, 0.35, 0.10, 0.10, 0.09, 1.0, idxOffset);
+            this.addBox(
+              verts,
+              indices,
+              cleatX,
+              0.54,
+              cleatZ,
+              0.35,
+              0.28,
+              0.35,
+              0.1,
+              0.1,
+              0.09,
+              1.0,
+              idxOffset,
+            );
             idxOffset += 24;
           }
-          const boat = this.boatMeshes.length > 0
-            ? this.boatMeshes[(Math.abs(cx * 17 + cz * 31 + sideIndex * 7 + pier) >>> 0) % this.boatMeshes.length]
-            : this.getMarinaBoatFallback();
-          const boatX = sideX !== 0 ? shorelineX + sideX * (waterDepth + 13) : worldOriginX + along;
-          const boatZ = sideZ !== 0 ? worldOriginZ + along : shorelineZ + sideZ * (waterDepth + 13);
-          decorativeAircraft.push({ x: boatX, z: boatZ, yaw: sideX !== 0 ? Math.PI / 2 : 0, type: 'boat', model: boat });
+          const boat =
+            this.boatMeshes.length > 0
+              ? this.boatMeshes[
+                  (Math.abs(cx * 17 + cz * 31 + sideIndex * 7 + pier) >>> 0) %
+                    this.boatMeshes.length
+                ]
+              : this.getMarinaBoatFallback();
+          const boatX =
+            sideX !== 0
+              ? shorelineX + sideX * (waterDepth + 13)
+              : worldOriginX + along;
+          const boatZ =
+            sideZ !== 0
+              ? worldOriginZ + along
+              : shorelineZ + sideZ * (waterDepth + 13);
+          decorativeAircraft.push({
+            x: boatX,
+            z: boatZ,
+            yaw: sideX !== 0 ? Math.PI / 2 : 0,
+            type: "boat",
+            model: boat,
+          });
         }
       }
       // A small harbour office, fuel canopy, and crane turn the shoulder into a
       // functional marina visually even if no authored boat asset is available.
       const landSide = oceanSides[0] ?? [0, 1];
-      const officeX = worldOriginX + (landSide[0] > 0 ? 17 : landSide[0] < 0 ? 63 : 40);
-      const officeZ = worldOriginZ + (landSide[1] > 0 ? 17 : landSide[1] < 0 ? 63 : 40);
-      this.addBox(verts, indices, officeX, 1.4, officeZ, 14, 2.8, 9, 0.72, 0.70, 0.56, 1.0, idxOffset); idxOffset += 24;
-      this.addBox(verts, indices, officeX, 3.05, officeZ, 16, 0.22, 11, 0.16, 0.22, 0.28, 1.0, idxOffset); idxOffset += 24;
-      this.addBox(verts, indices, officeX, 1.7, officeZ - 4.55, 5.5, 1.1, 0.12, 0.08, 0.24, 0.32, 1.0, idxOffset); idxOffset += 24;
+      const officeX =
+        worldOriginX + (landSide[0] > 0 ? 17 : landSide[0] < 0 ? 63 : 40);
+      const officeZ =
+        worldOriginZ + (landSide[1] > 0 ? 17 : landSide[1] < 0 ? 63 : 40);
+      this.addBox(
+        verts,
+        indices,
+        officeX,
+        1.4,
+        officeZ,
+        14,
+        2.8,
+        9,
+        0.72,
+        0.7,
+        0.56,
+        1.0,
+        idxOffset,
+      );
+      idxOffset += 24;
+      this.addBox(
+        verts,
+        indices,
+        officeX,
+        3.05,
+        officeZ,
+        16,
+        0.22,
+        11,
+        0.16,
+        0.22,
+        0.28,
+        1.0,
+        idxOffset,
+      );
+      idxOffset += 24;
+      this.addBox(
+        verts,
+        indices,
+        officeX,
+        1.7,
+        officeZ - 4.55,
+        5.5,
+        1.1,
+        0.12,
+        0.08,
+        0.24,
+        0.32,
+        1.0,
+        idxOffset,
+      );
+      idxOffset += 24;
       const fuelX = officeX + (landSide[0] === 0 ? 15 : 0);
       const fuelZ = officeZ + (landSide[1] === 0 ? 15 : 0);
-      this.addBox(verts, indices, fuelX, 2.2, fuelZ, 7, 0.16, 5, 0.18, 0.18, 0.20, 1.0, idxOffset); idxOffset += 24;
-      this.addBox(verts, indices, fuelX, 2.8, fuelZ, 0.18, 1.2, 0.18, 0.75, 0.75, 0.70, 1.0, idxOffset); idxOffset += 24;
-      this.addBox(verts, indices, fuelX, 3.42, fuelZ, 8, 0.18, 5.5, 0.84, 0.12, 0.04, 1.0, idxOffset); idxOffset += 24;
-    }
-    else if (isBridge) {
+      this.addBox(
+        verts,
+        indices,
+        fuelX,
+        2.2,
+        fuelZ,
+        7,
+        0.16,
+        5,
+        0.18,
+        0.18,
+        0.2,
+        1.0,
+        idxOffset,
+      );
+      idxOffset += 24;
+      this.addBox(
+        verts,
+        indices,
+        fuelX,
+        2.8,
+        fuelZ,
+        0.18,
+        1.2,
+        0.18,
+        0.75,
+        0.75,
+        0.7,
+        1.0,
+        idxOffset,
+      );
+      idxOffset += 24;
+      this.addBox(
+        verts,
+        indices,
+        fuelX,
+        3.42,
+        fuelZ,
+        8,
+        0.18,
+        5.5,
+        0.84,
+        0.12,
+        0.04,
+        1.0,
+        idxOffset,
+      );
+      idxOffset += 24;
+    } else if (isBridge) {
       const cx2 = cx * CHUNK_SIZE + CHUNK_SIZE / 2;
       const cz2 = cz * CHUNK_SIZE + CHUNK_SIZE / 2;
-      this.addPlane(verts, indices, cx2, -2.5, cz2, CHUNK_SIZE, CHUNK_SIZE, 0.0, 0.10, 0.30, 0.85, idxOffset); idxOffset += 4;
-      this.addPlane(verts, indices, cx2, -2.0, cz2, CHUNK_SIZE, CHUNK_SIZE, 0.10, 0.30, 0.50, 0.55, idxOffset); idxOffset += 4;
-      const bridge = BRIDGE_RANGES.find(br => cx >= br.startCx && cx <= br.endCx && cz >= br.startCz && cz <= br.endCz);
+      this.addPlane(
+        verts,
+        indices,
+        cx2,
+        -2.5,
+        cz2,
+        CHUNK_SIZE,
+        CHUNK_SIZE,
+        0.0,
+        0.1,
+        0.3,
+        0.85,
+        idxOffset,
+      );
+      idxOffset += 4;
+      this.addPlane(
+        verts,
+        indices,
+        cx2,
+        -2.0,
+        cz2,
+        CHUNK_SIZE,
+        CHUNK_SIZE,
+        0.1,
+        0.3,
+        0.5,
+        0.55,
+        idxOffset,
+      );
+      idxOffset += 4;
+      const bridge = BRIDGE_RANGES.find(
+        (br) =>
+          cx >= br.startCx &&
+          cx <= br.endCx &&
+          cz >= br.startCz &&
+          cz <= br.endCz,
+      );
       if (bridge) {
         const roadCenterZ = cz * CHUNK_SIZE;
-        const roadW = ROAD_HALF_WIDTH * 2;       // 32 — two lanes
-        const bridgeW = roadW + 10;              // 42 — deck spans wider than the road
+        const roadW = ROAD_HALF_WIDTH * 2; // 32 — two lanes
+        const bridgeW = roadW + 10; // 42 — deck spans wider than the road
         const surfaceYAt = (x: number) => bridgeYAt(x, bridge);
         const deckStartX = bridge.startCx * GRID_PITCH;
         const deckEndX = (bridge.endCx + 1) * GRID_PITCH;
@@ -3335,69 +5049,309 @@ void main() {
             const shaftCenterY = seabedY + shaftHeight / 2;
             const pierPositions = [-bridgeW / 2 + 5, 0, bridgeW / 2 - 5];
             for (const pz of pierPositions) {
-              this.addBox(verts, indices, sx, shaftCenterY, roadCenterZ + pz, 2.4, shaftHeight, 2.6, 0.32, 0.32, 0.34, 1.0, idxOffset); idxOffset += 24;
+              this.addBox(
+                verts,
+                indices,
+                sx,
+                shaftCenterY,
+                roadCenterZ + pz,
+                2.4,
+                shaftHeight,
+                2.6,
+                0.32,
+                0.32,
+                0.34,
+                1.0,
+                idxOffset,
+              );
+              idxOffset += 24;
               // Wider footing keeps the column visually planted rather than
               // ending at the water surface.
-              this.addBox(verts, indices, sx, seabedY - 0.2, roadCenterZ + pz, 3.6, 0.45, 3.8, 0.28, 0.28, 0.30, 1.0, idxOffset); idxOffset += 24;
+              this.addBox(
+                verts,
+                indices,
+                sx,
+                seabedY - 0.2,
+                roadCenterZ + pz,
+                3.6,
+                0.45,
+                3.8,
+                0.28,
+                0.28,
+                0.3,
+                1.0,
+                idxOffset,
+              );
+              idxOffset += 24;
             }
             // One broad cap beam ties all three shafts together and overlaps
             // the underside of the bridge deck across its full width.
-            this.addBox(verts, indices, sx, capCenterY, roadCenterZ, 3.4, capHeight, bridgeW + 1.0, 0.32, 0.32, 0.34, 1.0, idxOffset); idxOffset += 24;
+            this.addBox(
+              verts,
+              indices,
+              sx,
+              capCenterY,
+              roadCenterZ,
+              3.4,
+              capHeight,
+              bridgeW + 1.0,
+              0.32,
+              0.32,
+              0.34,
+              1.0,
+              idxOffset,
+            );
+            idxOffset += 24;
             // A broad neck penetrates the slab underside, visually joining all
             // three supports to the bridge rather than ending underneath it.
-            this.addBox(verts, indices, sx, deckBottomY + 0.18, roadCenterZ, 2.0, 0.55, bridgeW - 4.0, 0.36, 0.36, 0.38, 1.0, idxOffset); idxOffset += 24;
+            this.addBox(
+              verts,
+              indices,
+              sx,
+              deckBottomY + 0.18,
+              roadCenterZ,
+              2.0,
+              0.55,
+              bridgeW - 4.0,
+              0.36,
+              0.36,
+              0.38,
+              1.0,
+              idxOffset,
+            );
+            idxOffset += 24;
           }
           // Deck slab — full width with a visible underside so the deck reads
           // as a real structure instead of a floating plate.
-          this.addBox(verts, indices, sx, avgY - 0.3, roadCenterZ, sliceLen, 0.7, bridgeW, 0.26, 0.26, 0.28, 1.0, idxOffset); idxOffset += 24;
+          this.addBox(
+            verts,
+            indices,
+            sx,
+            avgY - 0.3,
+            roadCenterZ,
+            sliceLen,
+            0.7,
+            bridgeW,
+            0.26,
+            0.26,
+            0.28,
+            1.0,
+            idxOffset,
+          );
+          idxOffset += 24;
           // Road surface
-          this.addBox(verts, indices, sx, avgY + 0.07, roadCenterZ, sliceLen, 0.14, roadW, 0.13, 0.13, 0.14, 1.0, idxOffset); idxOffset += 24;
+          this.addBox(
+            verts,
+            indices,
+            sx,
+            avgY + 0.07,
+            roadCenterZ,
+            sliceLen,
+            0.14,
+            roadW,
+            0.13,
+            0.13,
+            0.14,
+            1.0,
+            idxOffset,
+          );
+          idxOffset += 24;
           // Sidewalks between the road and the parapet, with a curb at the road edge
           for (const side of [-1, 1]) {
             const sz = roadCenterZ + side * (roadW / 2 + 2.5);
-            this.addBox(verts, indices, sx, avgY + 0.24, sz, sliceLen, 0.2, 5, 0.52, 0.52, 0.54, 1.0, idxOffset); idxOffset += 24;
+            this.addBox(
+              verts,
+              indices,
+              sx,
+              avgY + 0.24,
+              sz,
+              sliceLen,
+              0.2,
+              5,
+              0.52,
+              0.52,
+              0.54,
+              1.0,
+              idxOffset,
+            );
+            idxOffset += 24;
             const curbZ = roadCenterZ + side * (roadW / 2);
-            this.addBox(verts, indices, sx, avgY + 0.34, curbZ, sliceLen, 0.18, 0.14, 0.42, 0.42, 0.44, 1.0, idxOffset); idxOffset += 24;
+            this.addBox(
+              verts,
+              indices,
+              sx,
+              avgY + 0.34,
+              curbZ,
+              sliceLen,
+              0.18,
+              0.14,
+              0.42,
+              0.42,
+              0.44,
+              1.0,
+              idxOffset,
+            );
+            idxOffset += 24;
           }
           // Lane markings — dashed yellow center line + solid white edge lines,
           // so the two directions read as separate lanes.
           if (si % 2 === 0) {
-            this.addBox(verts, indices, sx, avgY + 0.16, roadCenterZ, sliceW * 0.7, 0.02, 0.3, 0.9, 0.75, 0.15, 1.0, idxOffset); idxOffset += 24;
+            this.addBox(
+              verts,
+              indices,
+              sx,
+              avgY + 0.16,
+              roadCenterZ,
+              sliceW * 0.7,
+              0.02,
+              0.3,
+              0.9,
+              0.75,
+              0.15,
+              1.0,
+              idxOffset,
+            );
+            idxOffset += 24;
           }
           for (const side of [-1, 1]) {
             const lz = roadCenterZ + side * (roadW / 2 - 1.5);
-            this.addBox(verts, indices, sx, avgY + 0.16, lz, sliceLen, 0.02, 0.22, 0.85, 0.85, 0.85, 0.9, idxOffset); idxOffset += 24;
+            this.addBox(
+              verts,
+              indices,
+              sx,
+              avgY + 0.16,
+              lz,
+              sliceLen,
+              0.02,
+              0.22,
+              0.85,
+              0.85,
+              0.85,
+              0.9,
+              idxOffset,
+            );
+            idxOffset += 24;
           }
           // Parapet guardrail walls along the deck edges
           for (const side of [-1, 1]) {
             const pz = roadCenterZ + side * (bridgeW / 2 - 0.45);
             // Parapet rests ON the deck slab (slab top = avgY + 0.05) instead
             // of hovering 0.55 above it, and the cap sits on the parapet top.
-            this.addBox(verts, indices, sx, avgY + 0.5, pz, sliceLen, 0.9, 0.5, 0.5, 0.5, 0.52, 1.0, idxOffset); idxOffset += 24;
-            this.addBox(verts, indices, sx, avgY + 1.0, pz, sliceLen, 0.1, 0.12, 0.68, 0.68, 0.7, 1.0, idxOffset); idxOffset += 24;
+            this.addBox(
+              verts,
+              indices,
+              sx,
+              avgY + 0.5,
+              pz,
+              sliceLen,
+              0.9,
+              0.5,
+              0.5,
+              0.5,
+              0.52,
+              1.0,
+              idxOffset,
+            );
+            idxOffset += 24;
+            this.addBox(
+              verts,
+              indices,
+              sx,
+              avgY + 1.0,
+              pz,
+              sliceLen,
+              0.1,
+              0.12,
+              0.68,
+              0.68,
+              0.7,
+              1.0,
+              idxOffset,
+            );
+            idxOffset += 24;
           }
           // Deep edge girders under the deck so the span reads as a real
           // girder/truss bridge from the side and below, not a floating slab.
           for (const side of [-1, 1]) {
             const gz = roadCenterZ + side * (bridgeW / 2 - 1.9);
-            this.addBox(verts, indices, sx, avgY - 1.5, gz, sliceLen, 1.8, 0.55, 0.30, 0.30, 0.33, 1.0, idxOffset); idxOffset += 24;
+            this.addBox(
+              verts,
+              indices,
+              sx,
+              avgY - 1.5,
+              gz,
+              sliceLen,
+              1.8,
+              0.55,
+              0.3,
+              0.3,
+              0.33,
+              1.0,
+              idxOffset,
+            );
+            idxOffset += 24;
           }
           if (si % 2 === 0) {
             // Truss ladder cross-beams stay below the deck, where they are
             // structural detail rather than obstacles in the driving lane.
             // The cross-beam reaches the side girders instead of stopping
             // 0.3 units short of them.
-            this.addBox(verts, indices, sx, avgY - 1.15, roadCenterZ, sliceLen, 0.4, bridgeW - 3.6, 0.27, 0.27, 0.30, 1.0, idxOffset); idxOffset += 24;
+            this.addBox(
+              verts,
+              indices,
+              sx,
+              avgY - 1.15,
+              roadCenterZ,
+              sliceLen,
+              0.4,
+              bridgeW - 3.6,
+              0.27,
+              0.27,
+              0.3,
+              1.0,
+              idxOffset,
+            );
+            idxOffset += 24;
             // Railing posts rise from the parapet top to the handrail
             for (const side of [-1, 1]) {
               const pz = roadCenterZ + side * (bridgeW / 2 - 0.45);
-              this.addBox(verts, indices, sx, avgY + 1.43, pz, 0.18, 1.05, 0.18, 0.55, 0.55, 0.58, 1.0, idxOffset); idxOffset += 24;
+              this.addBox(
+                verts,
+                indices,
+                sx,
+                avgY + 1.43,
+                pz,
+                0.18,
+                1.05,
+                0.18,
+                0.55,
+                0.55,
+                0.58,
+                1.0,
+                idxOffset,
+              );
+              idxOffset += 24;
             }
           }
           // Handrail running along the parapet top, carried by the posts
           for (const side of [-1, 1]) {
             const pz = roadCenterZ + side * (bridgeW / 2 - 0.45);
-            this.addBox(verts, indices, sx, avgY + 1.95, pz, sliceLen, 0.1, 0.14, 0.68, 0.68, 0.7, 1.0, idxOffset); idxOffset += 24;
+            this.addBox(
+              verts,
+              indices,
+              sx,
+              avgY + 1.95,
+              pz,
+              sliceLen,
+              0.1,
+              0.14,
+              0.68,
+              0.68,
+              0.7,
+              1.0,
+              idxOffset,
+            );
+            idxOffset += 24;
           }
           // Lamp masts over the sidewalk every few slices. The mast base sits
           // on the sidewalk surface (top = avgY + 0.24) and the arm reaches
@@ -3405,9 +5359,39 @@ void main() {
           if (si % 4 === 2) {
             for (const side of [-1, 1]) {
               const pz = roadCenterZ + side * (bridgeW / 2 - 0.45);
-              this.addBox(verts, indices, sx, avgY + 2.04, pz, 0.24, 3.6, 0.24, 0.22, 0.22, 0.24, 1.0, idxOffset); idxOffset += 24;
+              this.addBox(
+                verts,
+                indices,
+                sx,
+                avgY + 2.04,
+                pz,
+                0.24,
+                3.6,
+                0.24,
+                0.22,
+                0.22,
+                0.24,
+                1.0,
+                idxOffset,
+              );
+              idxOffset += 24;
               const az = roadCenterZ + side * (bridgeW / 2 - 1.75);
-              this.addBox(verts, indices, sx, avgY + 3.7, az, 0.16, 0.15, 2.6, 0.32, 0.32, 0.35, 1.0, idxOffset); idxOffset += 24;
+              this.addBox(
+                verts,
+                indices,
+                sx,
+                avgY + 3.7,
+                az,
+                0.16,
+                0.15,
+                2.6,
+                0.32,
+                0.32,
+                0.35,
+                1.0,
+                idxOffset,
+              );
+              idxOffset += 24;
             }
           }
         }
@@ -3425,12 +5409,72 @@ void main() {
           const towerH = 26;
           const legZ = bridgeW / 2 - 2.2; // legs sit on the deck edges, clear of traffic
           for (const lz of [tz - legZ, tz + legZ]) {
-            this.addBox(verts, indices, tx - 1.4, baseY + towerH / 2, lz, 1.1, towerH, 1.1, 0.4, 0.4, 0.42, 1.0, idxOffset); idxOffset += 24;
-            this.addBox(verts, indices, tx + 1.4, baseY + towerH / 2, lz, 1.1, towerH, 1.1, 0.4, 0.4, 0.42, 1.0, idxOffset); idxOffset += 24;
+            this.addBox(
+              verts,
+              indices,
+              tx - 1.4,
+              baseY + towerH / 2,
+              lz,
+              1.1,
+              towerH,
+              1.1,
+              0.4,
+              0.4,
+              0.42,
+              1.0,
+              idxOffset,
+            );
+            idxOffset += 24;
+            this.addBox(
+              verts,
+              indices,
+              tx + 1.4,
+              baseY + towerH / 2,
+              lz,
+              1.1,
+              towerH,
+              1.1,
+              0.4,
+              0.4,
+              0.42,
+              1.0,
+              idxOffset,
+            );
+            idxOffset += 24;
             for (let by = 7; by < towerH; by += 7) {
-              this.addBox(verts, indices, tx, baseY + by, lz, 4.2, 0.7, 1.1, 0.45, 0.45, 0.47, 1.0, idxOffset); idxOffset += 24;
+              this.addBox(
+                verts,
+                indices,
+                tx,
+                baseY + by,
+                lz,
+                4.2,
+                0.7,
+                1.1,
+                0.45,
+                0.45,
+                0.47,
+                1.0,
+                idxOffset,
+              );
+              idxOffset += 24;
             }
-            this.addBox(verts, indices, tx, baseY + towerH + 0.8, lz, 4.2, 1.6, 1.1, 0.45, 0.45, 0.47, 1.0, idxOffset); idxOffset += 24;
+            this.addBox(
+              verts,
+              indices,
+              tx,
+              baseY + towerH + 0.8,
+              lz,
+              4.2,
+              1.6,
+              1.1,
+              0.45,
+              0.45,
+              0.47,
+              1.0,
+              idxOffset,
+            );
+            idxOffset += 24;
           }
           // Portal frames connecting both legs — one at the top, one just
           // above the deck — the classic suspension-tower silhouette.
@@ -3439,10 +5483,40 @@ void main() {
           // height, which appeared as horizontal bars cutting through the road.
           // The legs still provide the support silhouette while the clear span
           // remains open for cars.
-          this.addBox(verts, indices, tx, baseY + towerH + 1.0, tz, 1.2, 2.6, legZ * 2 - 0.4, 0.42, 0.42, 0.45, 1.0, idxOffset); idxOffset += 24;
+          this.addBox(
+            verts,
+            indices,
+            tx,
+            baseY + towerH + 1.0,
+            tz,
+            1.2,
+            2.6,
+            legZ * 2 - 0.4,
+            0.42,
+            0.42,
+            0.45,
+            1.0,
+            idxOffset,
+          );
+          idxOffset += 24;
           // Pedestals are placed under each leg rather than across the street.
           for (const lz of [tz - legZ, tz + legZ]) {
-            this.addBox(verts, indices, tx, baseY + 0.55, lz, 3.0, 1.1, 2.0, 0.36, 0.36, 0.39, 1.0, idxOffset); idxOffset += 24;
+            this.addBox(
+              verts,
+              indices,
+              tx,
+              baseY + 0.55,
+              lz,
+              3.0,
+              1.1,
+              2.0,
+              0.36,
+              0.36,
+              0.39,
+              1.0,
+              idxOffset,
+            );
+            idxOffset += 24;
           }
           const topY = baseY + towerH;
           // Main span cable: from this tower toward the span center (each
@@ -3457,7 +5531,23 @@ void main() {
             const y0 = topY - 5.5 * (t0 * t0);
             const y1 = topY - 5.5 * (t1 * t1);
             for (const lz of [tz - legZ, tz + legZ]) {
-              this.addRamp(verts, indices, x0, y0, x1, y1, lz, 0.35, 0.35, 0.55, 0.55, 0.57, 1.0, idxOffset); idxOffset += 24;
+              this.addRamp(
+                verts,
+                indices,
+                x0,
+                y0,
+                x1,
+                y1,
+                lz,
+                0.35,
+                0.35,
+                0.55,
+                0.55,
+                0.57,
+                1.0,
+                idxOffset,
+              );
+              idxOffset += 24;
             }
           }
           // Back-stay cable: from the tower top down to the nearer deck end
@@ -3471,7 +5561,23 @@ void main() {
             const y0 = topY - (topY - deckY) * (t0 * t0);
             const y1 = topY - (topY - deckY) * (t1 * t1);
             for (const lz of [tz - legZ, tz + legZ]) {
-              this.addRamp(verts, indices, x0, y0, x1, y1, lz, 0.3, 0.3, 0.5, 0.5, 0.52, 1.0, idxOffset); idxOffset += 24;
+              this.addRamp(
+                verts,
+                indices,
+                x0,
+                y0,
+                x1,
+                y1,
+                lz,
+                0.3,
+                0.3,
+                0.5,
+                0.5,
+                0.52,
+                1.0,
+                idxOffset,
+              );
+              idxOffset += 24;
             }
           }
           // Hangers: thin verticals from the main cable down to the deck,
@@ -3479,28 +5585,61 @@ void main() {
           const hDir = cableEndX > tx ? 1 : -1;
           for (let hi = 1; hi < 9; hi++) {
             const hx = tx + hDir * hi * 10;
-            if ((hDir > 0 && hx >= cableEndX - 2) || (hDir < 0 && hx <= cableEndX + 2)) break;
+            if (
+              (hDir > 0 && hx >= cableEndX - 2) ||
+              (hDir < 0 && hx <= cableEndX + 2)
+            )
+              break;
             if (hx < worldOriginX || hx >= worldOriginX + CHUNK_SIZE) continue;
             const t = (hx - tx) / (cableEndX - tx);
             const hy = topY - 5.5 * (t * t);
             for (const lz of [tz - legZ, tz + legZ]) {
-              this.addBox(verts, indices, hx, (hy + deckY) / 2, lz, 0.16, Math.max(0.5, hy - deckY), 0.16, 0.5, 0.5, 0.52, 1.0, idxOffset); idxOffset += 24;
+              this.addBox(
+                verts,
+                indices,
+                hx,
+                (hy + deckY) / 2,
+                lz,
+                0.16,
+                Math.max(0.5, hy - deckY),
+                0.16,
+                0.5,
+                0.5,
+                0.52,
+                1.0,
+                idxOffset,
+              );
+              idxOffset += 24;
             }
           }
         }
       }
-    }
-    else if (isBridgeConnector) {
+    } else if (isBridgeConnector) {
       const gv = (rng() - 0.5) * 0.08;
-      this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.0, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, 0.30 + gv, 0.52 + gv, 0.13 + gv, 1.0, idxOffset); idxOffset += 4;
-      const bridge = BRIDGE_RANGES.find(br =>
-        (cx === br.startCx - 1 && cz === br.startCz) ||
-        (cx === br.endCx + 1 && cz === br.endCz)
+      this.addPlane(
+        verts,
+        indices,
+        worldOriginX + CHUNK_SIZE / 2,
+        0.0,
+        worldOriginZ + CHUNK_SIZE / 2,
+        CHUNK_SIZE,
+        CHUNK_SIZE,
+        0.3 + gv,
+        0.52 + gv,
+        0.13 + gv,
+        1.0,
+        idxOffset,
+      );
+      idxOffset += 4;
+      const bridge = BRIDGE_RANGES.find(
+        (br) =>
+          (cx === br.startCx - 1 && cz === br.startCz) ||
+          (cx === br.endCx + 1 && cz === br.endCz),
       );
       if (bridge) {
         const roadCenterZ = cz * CHUNK_SIZE;
         const roadW = ROAD_HALF_WIDTH * 2;
-        const bridgeW = roadW + 10; 
+        const bridgeW = roadW + 10;
         const segments = 16;
         const segW = CHUNK_SIZE / segments;
         for (let s = 0; s < segments; s++) {
@@ -3512,142 +5651,712 @@ void main() {
           // It stays within the road corridor (deck + 1 unit lip per side)
           // instead of jutting 8 units past the sidewalk as a free-standing
           // concrete wall beside the approach.
-          this.addFilledRamp(verts, indices, x1, y1 - 0.32, x2, y2 - 0.32,
-            roadCenterZ, bridgeW + 2, -2.5, 0.22, 0.22, 0.24, 1.0, idxOffset); idxOffset += 24;
+          this.addFilledRamp(
+            verts,
+            indices,
+            x1,
+            y1 - 0.32,
+            x2,
+            y2 - 0.32,
+            roadCenterZ,
+            bridgeW + 2,
+            -2.5,
+            0.22,
+            0.22,
+            0.24,
+            1.0,
+            idxOffset,
+          );
+          idxOffset += 24;
           // Deck slab under the ramp, offset to match the deck chunk's slab
           // exactly (top = y + 0.05, bottom = y - 0.65) so the ramp/deck seam
           // has no visible step or gap.
-          this.addRamp(verts, indices, x1, y1 + 0.05, x2, y2 + 0.05, roadCenterZ, bridgeW, 0.7, 0.26, 0.26, 0.28, 1.0, idxOffset); idxOffset += 24;
-          this.addRamp(verts, indices, x1, y1 + 0.14, x2, y2 + 0.14, roadCenterZ, roadW, 0.14, 0.13, 0.13, 0.14, 1.0, idxOffset); idxOffset += 24;
+          this.addRamp(
+            verts,
+            indices,
+            x1,
+            y1 + 0.05,
+            x2,
+            y2 + 0.05,
+            roadCenterZ,
+            bridgeW,
+            0.7,
+            0.26,
+            0.26,
+            0.28,
+            1.0,
+            idxOffset,
+          );
+          idxOffset += 24;
+          this.addRamp(
+            verts,
+            indices,
+            x1,
+            y1 + 0.14,
+            x2,
+            y2 + 0.14,
+            roadCenterZ,
+            roadW,
+            0.14,
+            0.13,
+            0.13,
+            0.14,
+            1.0,
+            idxOffset,
+          );
+          idxOffset += 24;
           if (s % 2 === 0) {
-            this.addRamp(verts, indices, x1, y1 + 0.16, x2, y2 + 0.16, roadCenterZ, 0.3, 0.02, 0.9, 0.75, 0.15, 0.8, idxOffset); idxOffset += 24;
+            this.addRamp(
+              verts,
+              indices,
+              x1,
+              y1 + 0.16,
+              x2,
+              y2 + 0.16,
+              roadCenterZ,
+              0.3,
+              0.02,
+              0.9,
+              0.75,
+              0.15,
+              0.8,
+              idxOffset,
+            );
+            idxOffset += 24;
           }
           for (const side of [-1, 1]) {
             // Solid white edge line + sidewalk + parapet, matching the deck
             const lz = roadCenterZ + side * (roadW / 2 - 1.5);
-            this.addRamp(verts, indices, x1, y1 + 0.16, x2, y2 + 0.16, lz, 0.22, 0.02, 0.85, 0.85, 0.85, 0.9, idxOffset); idxOffset += 24;
+            this.addRamp(
+              verts,
+              indices,
+              x1,
+              y1 + 0.16,
+              x2,
+              y2 + 0.16,
+              lz,
+              0.22,
+              0.02,
+              0.85,
+              0.85,
+              0.85,
+              0.9,
+              idxOffset,
+            );
+            idxOffset += 24;
             const sz = roadCenterZ + side * (roadW / 2 + 2.5);
-            this.addRamp(verts, indices, x1, y1 + 0.24, x2, y2 + 0.24, sz, 5, 0.2, 0.52, 0.52, 0.54, 1.0, idxOffset); idxOffset += 24;
+            this.addRamp(
+              verts,
+              indices,
+              x1,
+              y1 + 0.24,
+              x2,
+              y2 + 0.24,
+              sz,
+              5,
+              0.2,
+              0.52,
+              0.52,
+              0.54,
+              1.0,
+              idxOffset,
+            );
+            idxOffset += 24;
             const pz = roadCenterZ + side * (bridgeW / 2 - 0.45);
             // Parapet base rests on the ramp slab (slab top = y + 0.05), with
             // cap and handrail stacked on it — no floating rails.
-            this.addRamp(verts, indices, x1, y1 + 0.95, x2, y2 + 0.95, pz, 0.5, 0.9, 0.5, 0.5, 0.52, 1.0, idxOffset); idxOffset += 24;
-            this.addRamp(verts, indices, x1, y1 + 1.05, x2, y2 + 1.05, pz, 0.12, 0.1, 0.68, 0.68, 0.7, 1.0, idxOffset); idxOffset += 24;
+            this.addRamp(
+              verts,
+              indices,
+              x1,
+              y1 + 0.95,
+              x2,
+              y2 + 0.95,
+              pz,
+              0.5,
+              0.9,
+              0.5,
+              0.5,
+              0.52,
+              1.0,
+              idxOffset,
+            );
+            idxOffset += 24;
+            this.addRamp(
+              verts,
+              indices,
+              x1,
+              y1 + 1.05,
+              x2,
+              y2 + 1.05,
+              pz,
+              0.12,
+              0.1,
+              0.68,
+              0.68,
+              0.7,
+              1.0,
+              idxOffset,
+            );
+            idxOffset += 24;
             // Matching deep girder under the ramp edge and handrail on top.
             // The girder top matches the deck girder exactly at the seam.
             const gz = roadCenterZ + side * (bridgeW / 2 - 1.9);
-            this.addRamp(verts, indices, x1, y1 - 0.6, x2, y2 - 0.6, gz, 0.55, 1.8, 0.30, 0.30, 0.33, 1.0, idxOffset); idxOffset += 24;
+            this.addRamp(
+              verts,
+              indices,
+              x1,
+              y1 - 0.6,
+              x2,
+              y2 - 0.6,
+              gz,
+              0.55,
+              1.8,
+              0.3,
+              0.3,
+              0.33,
+              1.0,
+              idxOffset,
+            );
+            idxOffset += 24;
             // Handrail at the deck rail's exact height, carried by posts like
             // the deck rail, so the ramp-to-deck transition is seamless.
-            this.addRamp(verts, indices, x1, y1 + 2.0, x2, y2 + 2.0, pz, 0.14, 0.1, 0.68, 0.68, 0.7, 1.0, idxOffset); idxOffset += 24;
+            this.addRamp(
+              verts,
+              indices,
+              x1,
+              y1 + 2.0,
+              x2,
+              y2 + 2.0,
+              pz,
+              0.14,
+              0.1,
+              0.68,
+              0.68,
+              0.7,
+              1.0,
+              idxOffset,
+            );
+            idxOffset += 24;
             if (s % 2 === 0) {
               const xm = (x1 + x2) / 2;
               const ym = bridgeYAt(xm, bridge);
-              this.addBox(verts, indices, xm, ym + 1.43, pz, 0.18, 1.05, 0.18, 0.55, 0.55, 0.58, 1.0, idxOffset); idxOffset += 24;
+              this.addBox(
+                verts,
+                indices,
+                xm,
+                ym + 1.43,
+                pz,
+                0.18,
+                1.05,
+                0.18,
+                0.55,
+                0.55,
+                0.58,
+                1.0,
+                idxOffset,
+              );
+              idxOffset += 24;
             }
           }
         }
       }
-    }
-    else if (isAeroport) {
-      this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.0, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, 0.22, 0.22, 0.24, 1.0, idxOffset); idxOffset += 4;
+    } else if (isAeroport) {
+      this.addPlane(
+        verts,
+        indices,
+        worldOriginX + CHUNK_SIZE / 2,
+        0.0,
+        worldOriginZ + CHUNK_SIZE / 2,
+        CHUNK_SIZE,
+        CHUNK_SIZE,
+        0.22,
+        0.22,
+        0.24,
+        1.0,
+        idxOffset,
+      );
+      idxOffset += 4;
       for (const entry of GrandTheftRenderer.AIRPORT_ENTRY_ROADS) {
         const minGz = Math.min(entry.gzStart, entry.gzEnd);
         const maxGz = Math.max(entry.gzStart, entry.gzEnd);
         if (entry.gx === cx && cz >= minGz && cz <= maxGz) {
           const roadX = entry.gx * GRID_PITCH;
-          this.addBox(verts, indices, roadX, 0.05, worldOriginZ + CHUNK_SIZE / 2, ROAD_HALF_WIDTH * 2, 0.1, CHUNK_SIZE, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
+          this.addBox(
+            verts,
+            indices,
+            roadX,
+            0.05,
+            worldOriginZ + CHUNK_SIZE / 2,
+            ROAD_HALF_WIDTH * 2,
+            0.1,
+            CHUNK_SIZE,
+            0.12,
+            0.12,
+            0.13,
+            1.0,
+            idxOffset,
+          );
+          idxOffset += 24;
         }
       }
-    }
-    else if (isParkingLot) {
-      this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.0, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, 0.10, 0.10, 0.11, 1.0, idxOffset); idxOffset += 4;
+    } else if (isParkingLot) {
+      this.addPlane(
+        verts,
+        indices,
+        worldOriginX + CHUNK_SIZE / 2,
+        0.0,
+        worldOriginZ + CHUNK_SIZE / 2,
+        CHUNK_SIZE,
+        CHUNK_SIZE,
+        0.1,
+        0.1,
+        0.11,
+        1.0,
+        idxOffset,
+      );
+      idxOffset += 4;
       for (const gridX of [cx, cx + 1]) {
         const worldX = gridX * GRID_PITCH;
-        this.addBox(verts, indices, worldX, 0.04, worldOriginZ + CHUNK_SIZE / 2, ROAD_HALF_WIDTH * 2, 0.08, CHUNK_SIZE, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
-        idxOffset = this.addRoadMarkings(verts, indices, idxOffset, false, worldX, 0.10, worldOriginZ, worldOriginZ + CHUNK_SIZE);
+        this.addBox(
+          verts,
+          indices,
+          worldX,
+          0.04,
+          worldOriginZ + CHUNK_SIZE / 2,
+          ROAD_HALF_WIDTH * 2,
+          0.08,
+          CHUNK_SIZE,
+          0.12,
+          0.12,
+          0.13,
+          1.0,
+          idxOffset,
+        );
+        idxOffset += 24;
+        idxOffset = this.addRoadMarkings(
+          verts,
+          indices,
+          idxOffset,
+          false,
+          worldX,
+          0.1,
+          worldOriginZ,
+          worldOriginZ + CHUNK_SIZE,
+        );
       }
       for (const gridZ of [cz, cz + 1]) {
         const worldZ = gridZ * GRID_PITCH;
-        this.addBox(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.04, worldZ, CHUNK_SIZE, 0.08, ROAD_HALF_WIDTH * 2, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
-        idxOffset = this.addRoadMarkings(verts, indices, idxOffset, true, worldZ, 0.10, worldOriginX, worldOriginX + CHUNK_SIZE);
+        this.addBox(
+          verts,
+          indices,
+          worldOriginX + CHUNK_SIZE / 2,
+          0.04,
+          worldZ,
+          CHUNK_SIZE,
+          0.08,
+          ROAD_HALF_WIDTH * 2,
+          0.12,
+          0.12,
+          0.13,
+          1.0,
+          idxOffset,
+        );
+        idxOffset += 24;
+        idxOffset = this.addRoadMarkings(
+          verts,
+          indices,
+          idxOffset,
+          true,
+          worldZ,
+          0.1,
+          worldOriginX,
+          worldOriginX + CHUNK_SIZE,
+        );
       }
-    }
-    else if (isRural) {
+    } else if (isRural) {
       const gv = (rng() - 0.5) * 0.08;
-      let gr = 0.30, gg = 0.50, gb = 0.13;
-      if (isRuralFarm) { gr = 0.25 + gv; gg = 0.55 + gv; gb = 0.12 + gv; }
-      else if (isRuralHills) { gr = 0.35 + gv; gg = 0.50 + gv; gb = 0.15 + gv; }
-      else if (isRuralMountain) { gr = 0.30 + gv; gg = 0.32 + gv; gb = 0.20 + gv; }
-      else if (isRuralLakes) { gr = 0.20 + gv; gg = 0.45 + gv; gb = 0.18 + gv; }
-      else if (isRuralDesert) { gr = 0.72 + gv * 0.5; gg = 0.65 + gv * 0.5; gb = 0.35 + gv * 0.5; }
-      if (isRuralHills || isRuralMountain || getMountainHeight(worldOriginX + CHUNK_SIZE / 2, worldOriginZ + CHUNK_SIZE / 2) > 0.02) {
-        idxOffset = this.addMountainGround(verts, indices, worldOriginX, worldOriginZ, idxOffset, this.isMobile ? 8 : 10);
+      let gr = 0.3,
+        gg = 0.5,
+        gb = 0.13;
+      if (isRuralFarm) {
+        gr = 0.25 + gv;
+        gg = 0.55 + gv;
+        gb = 0.12 + gv;
+      } else if (isRuralHills) {
+        gr = 0.35 + gv;
+        gg = 0.5 + gv;
+        gb = 0.15 + gv;
+      } else if (isRuralMountain) {
+        gr = 0.3 + gv;
+        gg = 0.32 + gv;
+        gb = 0.2 + gv;
+      } else if (isRuralLakes) {
+        gr = 0.2 + gv;
+        gg = 0.45 + gv;
+        gb = 0.18 + gv;
+      } else if (isRuralDesert) {
+        gr = 0.72 + gv * 0.5;
+        gg = 0.65 + gv * 0.5;
+        gb = 0.35 + gv * 0.5;
+      }
+      if (
+        isRuralHills ||
+        isRuralMountain ||
+        getMountainHeight(
+          worldOriginX + CHUNK_SIZE / 2,
+          worldOriginZ + CHUNK_SIZE / 2,
+        ) > 0.02
+      ) {
+        idxOffset = this.addMountainGround(
+          verts,
+          indices,
+          worldOriginX,
+          worldOriginZ,
+          idxOffset,
+          this.isMobile ? 8 : 10,
+        );
       } else {
-        this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.0, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, gr, gg, gb, 1.0, idxOffset); idxOffset += 4;
+        this.addPlane(
+          verts,
+          indices,
+          worldOriginX + CHUNK_SIZE / 2,
+          0.0,
+          worldOriginZ + CHUNK_SIZE / 2,
+          CHUNK_SIZE,
+          CHUNK_SIZE,
+          gr,
+          gg,
+          gb,
+          1.0,
+          idxOffset,
+        );
+        idxOffset += 4;
       }
       if (isRuralLakes) {
-        this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, -1.5, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE * 0.5, CHUNK_SIZE * 0.5, 0.05, 0.30, 0.55, 0.75, idxOffset); idxOffset += 4;
-        this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, -1.2, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE * 0.4, CHUNK_SIZE * 0.4, 0.10, 0.40, 0.60, 0.50, idxOffset); idxOffset += 4;
+        this.addPlane(
+          verts,
+          indices,
+          worldOriginX + CHUNK_SIZE / 2,
+          -1.5,
+          worldOriginZ + CHUNK_SIZE / 2,
+          CHUNK_SIZE * 0.5,
+          CHUNK_SIZE * 0.5,
+          0.05,
+          0.3,
+          0.55,
+          0.75,
+          idxOffset,
+        );
+        idxOffset += 4;
+        this.addPlane(
+          verts,
+          indices,
+          worldOriginX + CHUNK_SIZE / 2,
+          -1.2,
+          worldOriginZ + CHUNK_SIZE / 2,
+          CHUNK_SIZE * 0.4,
+          CHUNK_SIZE * 0.4,
+          0.1,
+          0.4,
+          0.6,
+          0.5,
+          idxOffset,
+        );
+        idxOffset += 4;
       }
     } else {
       const groundShade = isSuburb ? 0.12 : 0.08;
-      this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.0, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, groundShade, groundShade, groundShade, 1.0, idxOffset); idxOffset += 4;
+      this.addPlane(
+        verts,
+        indices,
+        worldOriginX + CHUNK_SIZE / 2,
+        0.0,
+        worldOriginZ + CHUNK_SIZE / 2,
+        CHUNK_SIZE,
+        CHUNK_SIZE,
+        groundShade,
+        groundShade,
+        groundShade,
+        1.0,
+        idxOffset,
+      );
+      idxOffset += 4;
       for (const gridX of [cx, cx + 1]) {
         const worldX = gridX * GRID_PITCH;
-        this.addBox(verts, indices, worldX, 0.04, worldOriginZ + CHUNK_SIZE / 2, ROAD_HALF_WIDTH * 2, 0.08, CHUNK_SIZE, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
-        idxOffset = this.addRoadMarkings(verts, indices, idxOffset, false, worldX, 0.10, worldOriginZ, worldOriginZ + CHUNK_SIZE);
+        this.addBox(
+          verts,
+          indices,
+          worldX,
+          0.04,
+          worldOriginZ + CHUNK_SIZE / 2,
+          ROAD_HALF_WIDTH * 2,
+          0.08,
+          CHUNK_SIZE,
+          0.12,
+          0.12,
+          0.13,
+          1.0,
+          idxOffset,
+        );
+        idxOffset += 24;
+        idxOffset = this.addRoadMarkings(
+          verts,
+          indices,
+          idxOffset,
+          false,
+          worldX,
+          0.1,
+          worldOriginZ,
+          worldOriginZ + CHUNK_SIZE,
+        );
       }
       for (const gridZ of [cz, cz + 1]) {
         const worldZ = gridZ * GRID_PITCH;
-        this.addBox(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.04, worldZ, CHUNK_SIZE, 0.08, ROAD_HALF_WIDTH * 2, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
-        idxOffset = this.addRoadMarkings(verts, indices, idxOffset, true, worldZ, 0.10, worldOriginX, worldOriginX + CHUNK_SIZE);
+        this.addBox(
+          verts,
+          indices,
+          worldOriginX + CHUNK_SIZE / 2,
+          0.04,
+          worldZ,
+          CHUNK_SIZE,
+          0.08,
+          ROAD_HALF_WIDTH * 2,
+          0.12,
+          0.12,
+          0.13,
+          1.0,
+          idxOffset,
+        );
+        idxOffset += 24;
+        idxOffset = this.addRoadMarkings(
+          verts,
+          indices,
+          idxOffset,
+          true,
+          worldZ,
+          0.1,
+          worldOriginX,
+          worldOriginX + CHUNK_SIZE,
+        );
       }
     }
     if ((isBeach || isRural) && !isMarina) {
       const nb = (dx: number, dz: number) => getBiome(cx + dx, cz + dz);
-      const isRoad = (b: string) => b === 'city' || b === 'suburb' || b === 'parking_lot' || b === 'bridge' || b === 'bridge_connector';
+      const isRoad = (b: string) =>
+        b === "city" ||
+        b === "suburb" ||
+        b === "parking_lot" ||
+        b === "bridge" ||
+        b === "bridge_connector";
       if (isRoad(nb(-1, 0))) {
-        this.addBox(verts, indices, cx * GRID_PITCH, 0.04, worldOriginZ + CHUNK_SIZE / 2, ROAD_HALF_WIDTH * 2, 0.08, CHUNK_SIZE, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
+        this.addBox(
+          verts,
+          indices,
+          cx * GRID_PITCH,
+          0.04,
+          worldOriginZ + CHUNK_SIZE / 2,
+          ROAD_HALF_WIDTH * 2,
+          0.08,
+          CHUNK_SIZE,
+          0.12,
+          0.12,
+          0.13,
+          1.0,
+          idxOffset,
+        );
+        idxOffset += 24;
       }
       // Add a short blended apron at every non-ocean road seam. It overlaps
       // both chunk meshes by a small amount, eliminating visible gaps when a
       // city, rural, beach, or connector tile meets another biome.
       const seamRoad = (dx: number, dz: number) => {
         const b = nb(dx, dz);
-        return isRoad(b) || b.startsWith('rural') || b === 'beach';
+        return isRoad(b) || b.startsWith("rural") || b === "beach";
       };
-      if (seamRoad(-1, 0)) this.addBox(verts, indices, cx * CHUNK_SIZE, 0.045, worldOriginZ + CHUNK_SIZE / 2, ROAD_HALF_WIDTH * 2 + 1.5, 0.09, CHUNK_SIZE, 0.13, 0.13, 0.14, 1.0, idxOffset), idxOffset += 24;
-      if (seamRoad(1, 0)) this.addBox(verts, indices, (cx + 1) * CHUNK_SIZE, 0.045, worldOriginZ + CHUNK_SIZE / 2, ROAD_HALF_WIDTH * 2 + 1.5, 0.09, CHUNK_SIZE, 0.13, 0.13, 0.14, 1.0, idxOffset), idxOffset += 24;
-      if (seamRoad(0, -1)) this.addBox(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.045, cz * CHUNK_SIZE, CHUNK_SIZE, 0.09, ROAD_HALF_WIDTH * 2 + 1.5, 0.13, 0.13, 0.14, 1.0, idxOffset), idxOffset += 24;
-      if (seamRoad(0, 1)) this.addBox(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.045, (cz + 1) * CHUNK_SIZE, CHUNK_SIZE, 0.09, ROAD_HALF_WIDTH * 2 + 1.5, 0.13, 0.13, 0.14, 1.0, idxOffset), idxOffset += 24;
+      if (seamRoad(-1, 0))
+        (this.addBox(
+          verts,
+          indices,
+          cx * CHUNK_SIZE,
+          0.045,
+          worldOriginZ + CHUNK_SIZE / 2,
+          ROAD_HALF_WIDTH * 2 + 1.5,
+          0.09,
+          CHUNK_SIZE,
+          0.13,
+          0.13,
+          0.14,
+          1.0,
+          idxOffset,
+        ),
+          (idxOffset += 24));
+      if (seamRoad(1, 0))
+        (this.addBox(
+          verts,
+          indices,
+          (cx + 1) * CHUNK_SIZE,
+          0.045,
+          worldOriginZ + CHUNK_SIZE / 2,
+          ROAD_HALF_WIDTH * 2 + 1.5,
+          0.09,
+          CHUNK_SIZE,
+          0.13,
+          0.13,
+          0.14,
+          1.0,
+          idxOffset,
+        ),
+          (idxOffset += 24));
+      if (seamRoad(0, -1))
+        (this.addBox(
+          verts,
+          indices,
+          worldOriginX + CHUNK_SIZE / 2,
+          0.045,
+          cz * CHUNK_SIZE,
+          CHUNK_SIZE,
+          0.09,
+          ROAD_HALF_WIDTH * 2 + 1.5,
+          0.13,
+          0.13,
+          0.14,
+          1.0,
+          idxOffset,
+        ),
+          (idxOffset += 24));
+      if (seamRoad(0, 1))
+        (this.addBox(
+          verts,
+          indices,
+          worldOriginX + CHUNK_SIZE / 2,
+          0.045,
+          (cz + 1) * CHUNK_SIZE,
+          CHUNK_SIZE,
+          0.09,
+          ROAD_HALF_WIDTH * 2 + 1.5,
+          0.13,
+          0.13,
+          0.14,
+          1.0,
+          idxOffset,
+        ),
+          (idxOffset += 24));
       if (isRoad(nb(1, 0))) {
-        this.addBox(verts, indices, (cx + 1) * GRID_PITCH, 0.04, worldOriginZ + CHUNK_SIZE / 2, ROAD_HALF_WIDTH * 2, 0.08, CHUNK_SIZE, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
+        this.addBox(
+          verts,
+          indices,
+          (cx + 1) * GRID_PITCH,
+          0.04,
+          worldOriginZ + CHUNK_SIZE / 2,
+          ROAD_HALF_WIDTH * 2,
+          0.08,
+          CHUNK_SIZE,
+          0.12,
+          0.12,
+          0.13,
+          1.0,
+          idxOffset,
+        );
+        idxOffset += 24;
       }
       if (isRoad(nb(0, -1))) {
-        this.addBox(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.04, cz * GRID_PITCH, CHUNK_SIZE, 0.08, ROAD_HALF_WIDTH * 2, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
+        this.addBox(
+          verts,
+          indices,
+          worldOriginX + CHUNK_SIZE / 2,
+          0.04,
+          cz * GRID_PITCH,
+          CHUNK_SIZE,
+          0.08,
+          ROAD_HALF_WIDTH * 2,
+          0.12,
+          0.12,
+          0.13,
+          1.0,
+          idxOffset,
+        );
+        idxOffset += 24;
       }
       if (isRoad(nb(0, 1))) {
-        this.addBox(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.04, (cz + 1) * GRID_PITCH, CHUNK_SIZE, 0.08, ROAD_HALF_WIDTH * 2, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
+        this.addBox(
+          verts,
+          indices,
+          worldOriginX + CHUNK_SIZE / 2,
+          0.04,
+          (cz + 1) * GRID_PITCH,
+          CHUNK_SIZE,
+          0.08,
+          ROAD_HALF_WIDTH * 2,
+          0.12,
+          0.12,
+          0.13,
+          1.0,
+          idxOffset,
+        );
+        idxOffset += 24;
       }
     }
-    if (!isBeach && !isMarina && !isBridge && !isBridgeConnector && !isAeroport) {
-      const gap = ROAD_HALF_WIDTH + 1; 
-      const segLen = CHUNK_SIZE - (gap * 2); 
-      for (const [ddx, ddz] of [[0, 1], [0, -1], [1, 0], [-1, 0]] as const) {
-        if (getBiome(cx + ddx, cz + ddz) !== 'ocean') continue;
+    if (
+      !isBeach &&
+      !isMarina &&
+      !isBridge &&
+      !isBridgeConnector &&
+      !isAeroport
+    ) {
+      const gap = ROAD_HALF_WIDTH + 1;
+      const segLen = CHUNK_SIZE - gap * 2;
+      for (const [ddx, ddz] of [
+        [0, 1],
+        [0, -1],
+        [1, 0],
+        [-1, 0],
+      ] as const) {
+        if (getBiome(cx + ddx, cz + ddz) !== "ocean") continue;
         let isNearBridge = false;
         for (const br of BRIDGES) {
-          if (Math.abs(cx - br.startCx) <= 2 && Math.abs(cz - br.startCz) <= 2) isNearBridge = true;
-          if (Math.abs(cx - br.endCx) <= 2 && Math.abs(cz - br.endCz) <= 2) isNearBridge = true;
+          if (Math.abs(cx - br.startCx) <= 2 && Math.abs(cz - br.startCz) <= 2)
+            isNearBridge = true;
+          if (Math.abs(cx - br.endCx) <= 2 && Math.abs(cz - br.endCz) <= 2)
+            isNearBridge = true;
         }
         if (isNearBridge) continue;
         if (ddx !== 0) {
           const wx = (cx + 0.5 + ddx * 0.49) * CHUNK_SIZE;
-          this.addBox(verts, indices, wx, 1.25, worldOriginZ + CHUNK_SIZE / 2, 2, 2.5, segLen, 0.45, 0.45, 0.47, 1.0, idxOffset); idxOffset += 24;
+          this.addBox(
+            verts,
+            indices,
+            wx,
+            1.25,
+            worldOriginZ + CHUNK_SIZE / 2,
+            2,
+            2.5,
+            segLen,
+            0.45,
+            0.45,
+            0.47,
+            1.0,
+            idxOffset,
+          );
+          idxOffset += 24;
         } else {
           const wz = (cz + 0.5 + ddz * 0.49) * CHUNK_SIZE;
-          this.addBox(verts, indices, worldOriginX + CHUNK_SIZE / 2, 1.25, wz, segLen, 2.5, 2, 0.45, 0.45, 0.47, 1.0, idxOffset); idxOffset += 24;
+          this.addBox(
+            verts,
+            indices,
+            worldOriginX + CHUNK_SIZE / 2,
+            1.25,
+            wz,
+            segLen,
+            2.5,
+            2,
+            0.45,
+            0.45,
+            0.47,
+            1.0,
+            idxOffset,
+          );
+          idxOffset += 24;
         }
       }
     }
@@ -3659,34 +6368,163 @@ void main() {
         const blockWorldZ = gz * GRID_PITCH + GRID_PITCH / 2;
         if (isParkingLot) {
           const rowSpacing = 6;
-          const stallW = 3, stallD = 5;
+          const stallW = 3,
+            stallD = 5;
           for (let row = 0; row < 5; row++) {
             const rz = blockWorldZ - 14 + row * rowSpacing;
             if (row === 2) continue;
             for (let col = 0; col < 7; col++) {
               const rx = blockWorldX - 9 + col * 3;
-              this.addBox(verts, indices, rx - stallW / 2, 0.02, rz, 0.15, 0.04, stallD, 0.9, 0.9, 0.9, 1.0, idxOffset); idxOffset += 24;
-              this.addBox(verts, indices, rx + stallW / 2, 0.02, rz, 0.15, 0.04, stallD, 0.9, 0.9, 0.9, 1.0, idxOffset); idxOffset += 24;
-              this.addBox(verts, indices, rx, 0.02, rz - stallD / 2, stallW, 0.04, 0.15, 0.9, 0.9, 0.9, 1.0, idxOffset); idxOffset += 24;
+              this.addBox(
+                verts,
+                indices,
+                rx - stallW / 2,
+                0.02,
+                rz,
+                0.15,
+                0.04,
+                stallD,
+                0.9,
+                0.9,
+                0.9,
+                1.0,
+                idxOffset,
+              );
+              idxOffset += 24;
+              this.addBox(
+                verts,
+                indices,
+                rx + stallW / 2,
+                0.02,
+                rz,
+                0.15,
+                0.04,
+                stallD,
+                0.9,
+                0.9,
+                0.9,
+                1.0,
+                idxOffset,
+              );
+              idxOffset += 24;
+              this.addBox(
+                verts,
+                indices,
+                rx,
+                0.02,
+                rz - stallD / 2,
+                stallW,
+                0.04,
+                0.15,
+                0.9,
+                0.9,
+                0.9,
+                1.0,
+                idxOffset,
+              );
+              idxOffset += 24;
             }
           }
-          this.addBox(verts, indices, blockWorldX, 0.1, blockWorldZ - 18, 38, 0.2, 0.6, 0.3, 0.3, 0.32, 1.0, idxOffset); idxOffset += 24;
-          this.addBox(verts, indices, blockWorldX, 0.1, blockWorldZ + 18, 38, 0.2, 0.6, 0.3, 0.3, 0.32, 1.0, idxOffset); idxOffset += 24;
+          this.addBox(
+            verts,
+            indices,
+            blockWorldX,
+            0.1,
+            blockWorldZ - 18,
+            38,
+            0.2,
+            0.6,
+            0.3,
+            0.3,
+            0.32,
+            1.0,
+            idxOffset,
+          );
+          idxOffset += 24;
+          this.addBox(
+            verts,
+            indices,
+            blockWorldX,
+            0.1,
+            blockWorldZ + 18,
+            38,
+            0.2,
+            0.6,
+            0.3,
+            0.3,
+            0.32,
+            1.0,
+            idxOffset,
+          );
+          idxOffset += 24;
           continue;
         }
-        if (!isBeach && !isMarina && !isAeroport && !isBridge && !isBridgeConnector && !isRural) {
-          const swShade = 0.38 + (rng() * 0.08);
+        if (
+          !isBeach &&
+          !isMarina &&
+          !isAeroport &&
+          !isBridge &&
+          !isBridgeConnector &&
+          !isRural
+        ) {
+          const swShade = 0.38 + rng() * 0.08;
           const swHalf = SIDEWALK_SIZE / 2;
-          this.addBox(verts, indices, blockWorldX, 0.15, blockWorldZ, SIDEWALK_SIZE, 0.3, SIDEWALK_SIZE, swShade, swShade, swShade, 1.0, idxOffset); idxOffset += 24;
-          const curbH = 0.1, curbW = 0.6;
+          this.addBox(
+            verts,
+            indices,
+            blockWorldX,
+            0.15,
+            blockWorldZ,
+            SIDEWALK_SIZE,
+            0.3,
+            SIDEWALK_SIZE,
+            swShade,
+            swShade,
+            swShade,
+            1.0,
+            idxOffset,
+          );
+          idxOffset += 24;
+          const curbH = 0.1,
+            curbW = 0.6;
           const roadDist = GRID_PITCH / 2 - swHalf;
           for (const side of [-1, 1]) {
             const cz_ = blockWorldZ + side * swHalf;
-            this.addBox(verts, indices, blockWorldX, 0.35, cz_, SIDEWALK_SIZE, curbH, curbW, 0.5 + swShade * 0.3, 0.5 + swShade * 0.3, 0.5 + swShade * 0.3, 1.0, idxOffset); idxOffset += 24;
+            this.addBox(
+              verts,
+              indices,
+              blockWorldX,
+              0.35,
+              cz_,
+              SIDEWALK_SIZE,
+              curbH,
+              curbW,
+              0.5 + swShade * 0.3,
+              0.5 + swShade * 0.3,
+              0.5 + swShade * 0.3,
+              1.0,
+              idxOffset,
+            );
+            idxOffset += 24;
           }
           for (const side of [-1, 1]) {
             const cx_ = blockWorldX + side * swHalf;
-            this.addBox(verts, indices, cx_, 0.35, blockWorldZ, curbW, curbH, SIDEWALK_SIZE, 0.5 + swShade * 0.3, 0.5 + swShade * 0.3, 0.5 + swShade * 0.3, 1.0, idxOffset); idxOffset += 24;
+            this.addBox(
+              verts,
+              indices,
+              cx_,
+              0.35,
+              blockWorldZ,
+              curbW,
+              curbH,
+              SIDEWALK_SIZE,
+              0.5 + swShade * 0.3,
+              0.5 + swShade * 0.3,
+              0.5 + swShade * 0.3,
+              1.0,
+              idxOffset,
+            );
+            idxOffset += 24;
           }
         }
         if (isBeach) {
@@ -3703,38 +6541,175 @@ void main() {
               pz = blockWorldZ + (rng() - 0.5) * (SIDEWALK_SIZE - 10);
               valid = true;
               for (const tp of tatamiPositions) {
-                if (Math.hypot(px - tp.x, pz - tp.z) < 10) { valid = false; break; }
+                if (Math.hypot(px - tp.x, pz - tp.z) < 10) {
+                  valid = false;
+                  break;
+                }
               }
               attempts++;
             } while (!valid && attempts < 10);
             if (this.palmTreeMesh) {
-              trees.push({ x: px, z: pz, yaw: rng() * 0.4 - 0.2, scale: 9 + rng() * 1.8 });
+              trees.push({
+                x: px,
+                z: pz,
+                yaw: rng() * 0.4 - 0.2,
+                scale: 9 + rng() * 1.8,
+              });
             } else {
               const ph = 5 + rng() * 3;
-              this.addBox(verts, indices, px, ph / 2, pz, 0.4, ph, 0.4, 0.3, 0.18, 0.05, 1.0, idxOffset); idxOffset += 24;
-              this.addBox(verts, indices, px, ph + 0.5, pz, 3, 0.6, 3, 0.1, 0.45, 0.05, 1.0, idxOffset); idxOffset += 24;
+              this.addBox(
+                verts,
+                indices,
+                px,
+                ph / 2,
+                pz,
+                0.4,
+                ph,
+                0.4,
+                0.3,
+                0.18,
+                0.05,
+                1.0,
+                idxOffset,
+              );
+              idxOffset += 24;
+              this.addBox(
+                verts,
+                indices,
+                px,
+                ph + 0.5,
+                pz,
+                3,
+                0.6,
+                3,
+                0.1,
+                0.45,
+                0.05,
+                1.0,
+                idxOffset,
+              );
+              idxOffset += 24;
             }
           }
           for (let i = 0; i < 5; i++) {
             if (rng() < 0.72) {
               const ux = blockWorldX - 12 + rng() * 24;
               const uz = blockWorldZ - 12 + rng() * 24;
-              const palette = [[1, 0.2, 0.2], [0.2, 0.5, 1], [1, 1, 0.2], [0.9, 0.4, 0.7]];
+              const palette = [
+                [1, 0.2, 0.2],
+                [0.2, 0.5, 1],
+                [1, 1, 0.2],
+                [0.9, 0.4, 0.7],
+              ];
               const col = palette[Math.floor(rng() * palette.length)];
-              this.addBox(verts, indices, ux, 1.5, uz, 0.1, 2.5, 0.1, 0.4, 0.3, 0.2, 1.0, idxOffset); idxOffset += 24; 
-              this.addBox(verts, indices, ux, 2.6, uz, 3, 0.2, 3, col[0], col[1], col[2], 1.0, idxOffset); idxOffset += 24; 
+              this.addBox(
+                verts,
+                indices,
+                ux,
+                1.5,
+                uz,
+                0.1,
+                2.5,
+                0.1,
+                0.4,
+                0.3,
+                0.2,
+                1.0,
+                idxOffset,
+              );
+              idxOffset += 24;
+              this.addBox(
+                verts,
+                indices,
+                ux,
+                2.6,
+                uz,
+                3,
+                0.2,
+                3,
+                col[0],
+                col[1],
+                col[2],
+                1.0,
+                idxOffset,
+              );
+              idxOffset += 24;
             }
           }
           if (rng() < 0.3) {
             const lx = blockWorldX + halfSW - 5;
             const lz = blockWorldZ + halfSW - 5;
-            this.addBox(verts, indices, lx, 1.0, lz, 1.2, 0.15, 1.2, 0.7, 0.5, 0.3, 1.0, idxOffset); idxOffset += 24; 
-            this.addBox(verts, indices, lx, 2.0, lz - 0.5, 0.15, 2, 0.15, 0.7, 0.5, 0.3, 1.0, idxOffset); idxOffset += 24; 
-            this.addBox(verts, indices, lx, 0.8, lz + 0.5, 0.15, 1.6, 0.15, 0.7, 0.5, 0.3, 1.0, idxOffset); idxOffset += 24; 
-            this.addBox(verts, indices, lx, 2.2, lz, 0.15, 0.8, 1.2, 0.7, 0.5, 0.3, 1.0, idxOffset); idxOffset += 24; 
+            this.addBox(
+              verts,
+              indices,
+              lx,
+              1.0,
+              lz,
+              1.2,
+              0.15,
+              1.2,
+              0.7,
+              0.5,
+              0.3,
+              1.0,
+              idxOffset,
+            );
+            idxOffset += 24;
+            this.addBox(
+              verts,
+              indices,
+              lx,
+              2.0,
+              lz - 0.5,
+              0.15,
+              2,
+              0.15,
+              0.7,
+              0.5,
+              0.3,
+              1.0,
+              idxOffset,
+            );
+            idxOffset += 24;
+            this.addBox(
+              verts,
+              indices,
+              lx,
+              0.8,
+              lz + 0.5,
+              0.15,
+              1.6,
+              0.15,
+              0.7,
+              0.5,
+              0.3,
+              1.0,
+              idxOffset,
+            );
+            idxOffset += 24;
+            this.addBox(
+              verts,
+              indices,
+              lx,
+              2.2,
+              lz,
+              0.15,
+              0.8,
+              1.2,
+              0.7,
+              0.5,
+              0.3,
+              1.0,
+              idxOffset,
+            );
+            idxOffset += 24;
           }
           if (rng() < 0.55 && !isAeroport) {
-            benches.push({ x: blockWorldX, z: blockWorldZ + halfSW - 3, yaw: Math.PI });
+            benches.push({
+              x: blockWorldX,
+              z: blockWorldZ + halfSW - 3,
+              yaw: Math.PI,
+            });
           }
           // Low-cost beach furniture, litter, driftwood, and umbrella poles.
           for (let prop = 0; prop < 5; prop++) {
@@ -3743,21 +6718,116 @@ void main() {
             if (isOnRoadGrid(px, pz)) continue;
             const kind = Math.floor(rng() * 4);
             if (kind === 0) {
-              this.addBox(verts, indices, px, 0.35, pz, 1.8, 0.12, 0.55, 0.88, 0.84, 0.72, 1.0, idxOffset); idxOffset += 24;
-              this.addBox(verts, indices, px, 0.65, pz, 0.12, 0.7, 0.12, 0.72, 0.42, 0.20, 1.0, idxOffset); idxOffset += 24;
+              this.addBox(
+                verts,
+                indices,
+                px,
+                0.35,
+                pz,
+                1.8,
+                0.12,
+                0.55,
+                0.88,
+                0.84,
+                0.72,
+                1.0,
+                idxOffset,
+              );
+              idxOffset += 24;
+              this.addBox(
+                verts,
+                indices,
+                px,
+                0.65,
+                pz,
+                0.12,
+                0.7,
+                0.12,
+                0.72,
+                0.42,
+                0.2,
+                1.0,
+                idxOffset,
+              );
+              idxOffset += 24;
             } else if (kind === 1) {
-              this.addBox(verts, indices, px, 0.16, pz, 1.6 + rng() * 1.8, 0.12, 0.18, 0.38, 0.24, 0.12, 1.0, idxOffset); idxOffset += 24;
+              this.addBox(
+                verts,
+                indices,
+                px,
+                0.16,
+                pz,
+                1.6 + rng() * 1.8,
+                0.12,
+                0.18,
+                0.38,
+                0.24,
+                0.12,
+                1.0,
+                idxOffset,
+              );
+              idxOffset += 24;
             } else if (kind === 2) {
-              this.addBox(verts, indices, px, 0.12, pz, 0.35, 0.22, 0.35, 0.78, 0.78, 0.68, 1.0, idxOffset); idxOffset += 24;
+              this.addBox(
+                verts,
+                indices,
+                px,
+                0.12,
+                pz,
+                0.35,
+                0.22,
+                0.35,
+                0.78,
+                0.78,
+                0.68,
+                1.0,
+                idxOffset,
+              );
+              idxOffset += 24;
             } else {
-              this.addBox(verts, indices, px, 1.25, pz, 0.10, 2.5, 0.10, 0.55, 0.32, 0.16, 1.0, idxOffset); idxOffset += 24;
-              this.addBox(verts, indices, px, 2.45, pz, 2.5, 0.12, 2.5, 0.95, 0.25 + rng() * 0.5, 0.18, 0.85, idxOffset); idxOffset += 24;
+              this.addBox(
+                verts,
+                indices,
+                px,
+                1.25,
+                pz,
+                0.1,
+                2.5,
+                0.1,
+                0.55,
+                0.32,
+                0.16,
+                1.0,
+                idxOffset,
+              );
+              idxOffset += 24;
+              this.addBox(
+                verts,
+                indices,
+                px,
+                2.45,
+                pz,
+                2.5,
+                0.12,
+                2.5,
+                0.95,
+                0.25 + rng() * 0.5,
+                0.18,
+                0.85,
+                idxOffset,
+              );
+              idxOffset += 24;
             }
           }
           if (this.tatamiRoomMesh) {
             for (let i = 0; i < 2; i++) {
               if (rng() < 0.5) {
-                const tx = blockWorldX - halfSW + 6 + i * (SIDEWALK_SIZE / 2.5) + rng() * 3;
+                const tx =
+                  blockWorldX -
+                  halfSW +
+                  6 +
+                  i * (SIDEWALK_SIZE / 2.5) +
+                  rng() * 3;
                 const tz = blockWorldZ - halfSW + 3;
                 tatami.push({ x: tx, z: tz, yaw: 0 });
               }
@@ -3771,13 +6841,21 @@ void main() {
           if (this.tropicalShopMesh && rng() < 0.15) {
             const sx = blockWorldX + (rng() - 0.5) * 22;
             const sz = blockWorldZ + halfSW - 4;
-            tropicalShops.push({ x: sx, z: sz, yaw: rng() > 0.5 ? 0 : Math.PI });
+            tropicalShops.push({
+              x: sx,
+              z: sz,
+              yaw: rng() > 0.5 ? 0 : Math.PI,
+            });
           }
           if (this.cylindricalTowerMesh && rng() < 0.03) {
             const corner = Math.floor(rng() * 4);
-            const cx = corner < 2 ? blockWorldX - halfSW + 2 : blockWorldX + halfSW - 2;
-            const cz = corner % 2 === 0 ? blockWorldZ - halfSW + 2 : blockWorldZ + halfSW - 2;
-            lighthouses.push({ x: cx, z: cz, yaw: corner * Math.PI / 2 });
+            const cx =
+              corner < 2 ? blockWorldX - halfSW + 2 : blockWorldX + halfSW - 2;
+            const cz =
+              corner % 2 === 0
+                ? blockWorldZ - halfSW + 2
+                : blockWorldZ + halfSW - 2;
+            lighthouses.push({ x: cx, z: cz, yaw: (corner * Math.PI) / 2 });
           }
           continue;
         }
@@ -3785,114 +6863,625 @@ void main() {
           const isParkingZone = isAeroportParkingChunk(cx, cz);
           if (isParkingZone) {
             const rowSpacing = 6;
-            const stallW = 3, stallD = 5;
+            const stallW = 3,
+              stallD = 5;
             for (let row = 0; row < 5; row++) {
               const rz = blockWorldZ - 14 + row * rowSpacing;
               if (row === 2) continue;
               for (let col = 0; col < 7; col++) {
                 const rx = blockWorldX - 9 + col * 3;
-                this.addBox(verts, indices, rx - stallW / 2, 0.02, rz, 0.15, 0.04, stallD, 0.9, 0.9, 0.9, 1.0, idxOffset); idxOffset += 24;
-                this.addBox(verts, indices, rx + stallW / 2, 0.02, rz, 0.15, 0.04, stallD, 0.9, 0.9, 0.9, 1.0, idxOffset); idxOffset += 24;
-                this.addBox(verts, indices, rx, 0.02, rz - stallD / 2, stallW, 0.04, 0.15, 0.9, 0.9, 0.9, 1.0, idxOffset); idxOffset += 24;
+                this.addBox(
+                  verts,
+                  indices,
+                  rx - stallW / 2,
+                  0.02,
+                  rz,
+                  0.15,
+                  0.04,
+                  stallD,
+                  0.9,
+                  0.9,
+                  0.9,
+                  1.0,
+                  idxOffset,
+                );
+                idxOffset += 24;
+                this.addBox(
+                  verts,
+                  indices,
+                  rx + stallW / 2,
+                  0.02,
+                  rz,
+                  0.15,
+                  0.04,
+                  stallD,
+                  0.9,
+                  0.9,
+                  0.9,
+                  1.0,
+                  idxOffset,
+                );
+                idxOffset += 24;
+                this.addBox(
+                  verts,
+                  indices,
+                  rx,
+                  0.02,
+                  rz - stallD / 2,
+                  stallW,
+                  0.04,
+                  0.15,
+                  0.9,
+                  0.9,
+                  0.9,
+                  1.0,
+                  idxOffset,
+                );
+                idxOffset += 24;
                 // Airport parking cars are supplied by the component as
                 // interactive fixtures; do not add decorative-only meshes.
               }
             }
-            this.addBox(verts, indices, blockWorldX, 0.1, blockWorldZ - 18, 38, 0.2, 0.6, 0.3, 0.3, 0.32, 1.0, idxOffset); idxOffset += 24;
-            this.addBox(verts, indices, blockWorldX, 0.1, blockWorldZ + 18, 38, 0.2, 0.6, 0.3, 0.3, 0.32, 1.0, idxOffset); idxOffset += 24;
-            const dCz = (cx >= 33 && cx <= 46 && cz >= 10) ? 1 : -1;
+            this.addBox(
+              verts,
+              indices,
+              blockWorldX,
+              0.1,
+              blockWorldZ - 18,
+              38,
+              0.2,
+              0.6,
+              0.3,
+              0.3,
+              0.32,
+              1.0,
+              idxOffset,
+            );
+            idxOffset += 24;
+            this.addBox(
+              verts,
+              indices,
+              blockWorldX,
+              0.1,
+              blockWorldZ + 18,
+              38,
+              0.2,
+              0.6,
+              0.3,
+              0.3,
+              0.32,
+              1.0,
+              idxOffset,
+            );
+            idxOffset += 24;
+            const dCz = cx >= 33 && cx <= 46 && cz >= 10 ? 1 : -1;
             const nextCz = cz + dCz;
             const biomeNext = getBiome(cx, nextCz);
-            if (biomeNext === 'aeroport' && !isAeroportParkingChunk(cx, nextCz)) {
-              const wallZ = dCz > 0 ? blockWorldZ + GRID_PITCH / 2 : blockWorldZ - GRID_PITCH / 2;
-              const entryRoad = GrandTheftRenderer.AIRPORT_ENTRY_ROADS.find(e => e.gx === gx);
+            if (
+              biomeNext === "aeroport" &&
+              !isAeroportParkingChunk(cx, nextCz)
+            ) {
+              const wallZ =
+                dCz > 0
+                  ? blockWorldZ + GRID_PITCH / 2
+                  : blockWorldZ - GRID_PITCH / 2;
+              const entryRoad = GrandTheftRenderer.AIRPORT_ENTRY_ROADS.find(
+                (e) => e.gx === gx,
+              );
               if (entryRoad) {
                 const roadX = entryRoad.gx * GRID_PITCH;
                 const entryGap = 20;
                 const halfSpan = GRID_PITCH / 2;
                 const segWidth = halfSpan - entryGap / 2;
-                this.addBox(verts, indices, roadX - entryGap / 2 - segWidth / 2, 1.5, wallZ, segWidth, 3, 0.4, 0.35, 0.35, 0.37, 1.0, idxOffset); idxOffset += 24;
-                this.addBox(verts, indices, roadX + entryGap / 2 + segWidth / 2, 1.5, wallZ, segWidth, 3, 0.4, 0.35, 0.35, 0.37, 1.0, idxOffset); idxOffset += 24;
-                const pillarH = 6, pillarW = 1;
-                this.addBox(verts, indices, roadX - entryGap / 2 - pillarW / 2, pillarH / 2, wallZ, pillarW, pillarH, pillarW, 0.5, 0.5, 0.52, 1.0, idxOffset); idxOffset += 24;
-                this.addBox(verts, indices, roadX + entryGap / 2 + pillarW / 2, pillarH / 2, wallZ, pillarW, pillarH, pillarW, 0.5, 0.5, 0.52, 1.0, idxOffset); idxOffset += 24;
-                this.addBox(verts, indices, roadX, pillarH - 0.3, wallZ, entryGap + pillarW * 2, 0.6, 0.8, 0.6, 0.6, 0.62, 1.0, idxOffset); idxOffset += 24;
-                const boothW = 2, boothD = 2.5, boothH = 2.5;
-                this.addBox(verts, indices, roadX - entryGap / 2 - 2, 0.05, wallZ - 5, boothW, 0.1, boothD, 0.25, 0.25, 0.27, 1.0, idxOffset); idxOffset += 24;
-                this.addBox(verts, indices, roadX - entryGap / 2 - 2, boothH / 2, wallZ - 5, boothW, boothH, boothD, 0.3, 0.3, 0.32, 1.0, idxOffset); idxOffset += 24;
-                this.addBox(verts, indices, roadX - entryGap / 2 - 2, boothH * 0.55, wallZ - 5, boothW * 0.9, boothH * 0.35, boothD * 0.05, 0.6, 0.8, 1.0, 0.6, idxOffset); idxOffset += 24;
-                this.addBox(verts, indices, roadX + entryGap / 2 + 2, 0.05, wallZ - 5, boothW, 0.1, boothD, 0.25, 0.25, 0.27, 1.0, idxOffset); idxOffset += 24;
-                this.addBox(verts, indices, roadX + entryGap / 2 + 2, boothH / 2, wallZ - 5, boothW, boothH, boothD, 0.3, 0.3, 0.32, 1.0, idxOffset); idxOffset += 24;
-                this.addBox(verts, indices, roadX + entryGap / 2 + 2, boothH * 0.55, wallZ - 5, boothW * 0.9, boothH * 0.35, boothD * 0.05, 0.6, 0.8, 1.0, 0.6, idxOffset); idxOffset += 24;
+                this.addBox(
+                  verts,
+                  indices,
+                  roadX - entryGap / 2 - segWidth / 2,
+                  1.5,
+                  wallZ,
+                  segWidth,
+                  3,
+                  0.4,
+                  0.35,
+                  0.35,
+                  0.37,
+                  1.0,
+                  idxOffset,
+                );
+                idxOffset += 24;
+                this.addBox(
+                  verts,
+                  indices,
+                  roadX + entryGap / 2 + segWidth / 2,
+                  1.5,
+                  wallZ,
+                  segWidth,
+                  3,
+                  0.4,
+                  0.35,
+                  0.35,
+                  0.37,
+                  1.0,
+                  idxOffset,
+                );
+                idxOffset += 24;
+                const pillarH = 6,
+                  pillarW = 1;
+                this.addBox(
+                  verts,
+                  indices,
+                  roadX - entryGap / 2 - pillarW / 2,
+                  pillarH / 2,
+                  wallZ,
+                  pillarW,
+                  pillarH,
+                  pillarW,
+                  0.5,
+                  0.5,
+                  0.52,
+                  1.0,
+                  idxOffset,
+                );
+                idxOffset += 24;
+                this.addBox(
+                  verts,
+                  indices,
+                  roadX + entryGap / 2 + pillarW / 2,
+                  pillarH / 2,
+                  wallZ,
+                  pillarW,
+                  pillarH,
+                  pillarW,
+                  0.5,
+                  0.5,
+                  0.52,
+                  1.0,
+                  idxOffset,
+                );
+                idxOffset += 24;
+                this.addBox(
+                  verts,
+                  indices,
+                  roadX,
+                  pillarH - 0.3,
+                  wallZ,
+                  entryGap + pillarW * 2,
+                  0.6,
+                  0.8,
+                  0.6,
+                  0.6,
+                  0.62,
+                  1.0,
+                  idxOffset,
+                );
+                idxOffset += 24;
+                const boothW = 2,
+                  boothD = 2.5,
+                  boothH = 2.5;
+                this.addBox(
+                  verts,
+                  indices,
+                  roadX - entryGap / 2 - 2,
+                  0.05,
+                  wallZ - 5,
+                  boothW,
+                  0.1,
+                  boothD,
+                  0.25,
+                  0.25,
+                  0.27,
+                  1.0,
+                  idxOffset,
+                );
+                idxOffset += 24;
+                this.addBox(
+                  verts,
+                  indices,
+                  roadX - entryGap / 2 - 2,
+                  boothH / 2,
+                  wallZ - 5,
+                  boothW,
+                  boothH,
+                  boothD,
+                  0.3,
+                  0.3,
+                  0.32,
+                  1.0,
+                  idxOffset,
+                );
+                idxOffset += 24;
+                this.addBox(
+                  verts,
+                  indices,
+                  roadX - entryGap / 2 - 2,
+                  boothH * 0.55,
+                  wallZ - 5,
+                  boothW * 0.9,
+                  boothH * 0.35,
+                  boothD * 0.05,
+                  0.6,
+                  0.8,
+                  1.0,
+                  0.6,
+                  idxOffset,
+                );
+                idxOffset += 24;
+                this.addBox(
+                  verts,
+                  indices,
+                  roadX + entryGap / 2 + 2,
+                  0.05,
+                  wallZ - 5,
+                  boothW,
+                  0.1,
+                  boothD,
+                  0.25,
+                  0.25,
+                  0.27,
+                  1.0,
+                  idxOffset,
+                );
+                idxOffset += 24;
+                this.addBox(
+                  verts,
+                  indices,
+                  roadX + entryGap / 2 + 2,
+                  boothH / 2,
+                  wallZ - 5,
+                  boothW,
+                  boothH,
+                  boothD,
+                  0.3,
+                  0.3,
+                  0.32,
+                  1.0,
+                  idxOffset,
+                );
+                idxOffset += 24;
+                this.addBox(
+                  verts,
+                  indices,
+                  roadX + entryGap / 2 + 2,
+                  boothH * 0.55,
+                  wallZ - 5,
+                  boothW * 0.9,
+                  boothH * 0.35,
+                  boothD * 0.05,
+                  0.6,
+                  0.8,
+                  1.0,
+                  0.6,
+                  idxOffset,
+                );
+                idxOffset += 24;
               } else {
-                this.addBox(verts, indices, blockWorldX, 1.5, wallZ, GRID_PITCH, 3, 0.4, 0.35, 0.35, 0.37, 1.0, idxOffset); idxOffset += 24;
+                this.addBox(
+                  verts,
+                  indices,
+                  blockWorldX,
+                  1.5,
+                  wallZ,
+                  GRID_PITCH,
+                  3,
+                  0.4,
+                  0.35,
+                  0.35,
+                  0.37,
+                  1.0,
+                  idxOffset,
+                );
+                idxOffset += 24;
               }
             }
             continue;
           }
-          this.addBox(verts, indices, blockWorldX, 0.1, blockWorldZ, 8, 0.2, GRID_PITCH, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
+          this.addBox(
+            verts,
+            indices,
+            blockWorldX,
+            0.1,
+            blockWorldZ,
+            8,
+            0.2,
+            GRID_PITCH,
+            0.12,
+            0.12,
+            0.13,
+            1.0,
+            idxOffset,
+          );
+          idxOffset += 24;
           for (let dz = -GRID_PITCH / 2 + 4; dz < GRID_PITCH / 2; dz += 8) {
-            this.addBox(verts, indices, blockWorldX, 0.11, blockWorldZ + dz, 0.5, 0.05, 3, 1, 1, 1, 0.8, idxOffset); idxOffset += 24;
+            this.addBox(
+              verts,
+              indices,
+              blockWorldX,
+              0.11,
+              blockWorldZ + dz,
+              0.5,
+              0.05,
+              3,
+              1,
+              1,
+              1,
+              0.8,
+              idxOffset,
+            );
+            idxOffset += 24;
           }
           const aRole = rng();
-          const hasTerminal = aRole < 0.02;            // Every airport apron gets a helipad. The old probabilistic branch
-            // left most airport chunks without a helicopter at all, making the
-            // airport feel empty and making visibility depend on chunk luck.
-            const hasHelipad = aRole >= 0.02 && aRole < 0.32;
+          const hasTerminal = aRole < 0.02; // Every airport apron gets a helipad. The old probabilistic branch
+          // left most airport chunks without a helicopter at all, making the
+          // airport feel empty and making visibility depend on chunk luck.
+          const hasHelipad = aRole >= 0.02 && aRole < 0.32;
           const HS = 2.5;
           if (hasTerminal && this.airportBuildingMeshes.length > 0) {
-            const term = this.airportBuildingMeshes[Math.floor(rng() * this.airportBuildingMeshes.length)];
+            const term =
+              this.airportBuildingMeshes[
+                Math.floor(rng() * this.airportBuildingMeshes.length)
+              ];
             const bMinY = this.getModelMinY(term);
             const bx_ = blockWorldX - 24;
             const bz_ = blockWorldZ + (rng() - 0.5) * 14;
-            buildings.push({ model: term, x: bx_, y: -bMinY * 3 + 0.15, z: bz_, yaw: Math.PI / 2, scale: [3, 3, 3] });
+            buildings.push({
+              model: term,
+              x: bx_,
+              y: -bMinY * 3 + 0.15,
+              z: bz_,
+              yaw: Math.PI / 2,
+              scale: [3, 3, 3],
+            });
             for (let pi = 0; pi < 5; pi++) {
               const sz = bz_ - 9 + pi * 3.5;
-              this.addBox(verts, indices, bx_ + 8, 0.02, sz, 0.15, 0.04, 5, 0.9, 0.9, 0.9, 1.0, idxOffset); idxOffset += 24;
-              this.addBox(verts, indices, bx_ + 12, 0.02, sz, 0.15, 0.04, 5, 0.9, 0.9, 0.9, 1.0, idxOffset); idxOffset += 24;
-              this.addBox(verts, indices, bx_ + 10, 0.02, sz - 2.5, 4, 0.04, 0.15, 0.9, 0.9, 0.9, 1.0, idxOffset); idxOffset += 24;
+              this.addBox(
+                verts,
+                indices,
+                bx_ + 8,
+                0.02,
+                sz,
+                0.15,
+                0.04,
+                5,
+                0.9,
+                0.9,
+                0.9,
+                1.0,
+                idxOffset,
+              );
+              idxOffset += 24;
+              this.addBox(
+                verts,
+                indices,
+                bx_ + 12,
+                0.02,
+                sz,
+                0.15,
+                0.04,
+                5,
+                0.9,
+                0.9,
+                0.9,
+                1.0,
+                idxOffset,
+              );
+              idxOffset += 24;
+              this.addBox(
+                verts,
+                indices,
+                bx_ + 10,
+                0.02,
+                sz - 2.5,
+                4,
+                0.04,
+                0.15,
+                0.9,
+                0.9,
+                0.9,
+                1.0,
+                idxOffset,
+              );
+              idxOffset += 24;
               if (pi % 2 === 0 && this.carMeshes.length > 0) {
-                buildings.push({ model: this.carMeshes[Math.floor(rng() * this.carMeshes.length)], x: bx_ + 10, y: 0.15, z: sz, yaw: 0, scale: [1, 1, 1] });
+                buildings.push({
+                  model:
+                    this.carMeshes[Math.floor(rng() * this.carMeshes.length)],
+                  x: bx_ + 10,
+                  y: 0.15,
+                  z: sz,
+                  yaw: 0,
+                  scale: [1, 1, 1],
+                });
               }
             }
             if (this.airportHangarMesh) {
               const hm = this.airportHangarMesh;
-              buildings.push({ model: hm, x: blockWorldX + 35, y: -this.getModelMinY(hm) * HS + 0.15, z: blockWorldZ, yaw: -Math.PI / 2, scale: [HS, HS, HS] });
+              buildings.push({
+                model: hm,
+                x: blockWorldX + 35,
+                y: -this.getModelMinY(hm) * HS + 0.15,
+                z: blockWorldZ,
+                yaw: -Math.PI / 2,
+                scale: [HS, HS, HS],
+              });
             }
           } else if (hasHelipad) {
             // Keep the complete pad inside the airport's active 40×40 block;
             // the previous -25 offset put its west edge outside the apron.
             const padX = blockWorldX - 18;
             const padZ = blockWorldZ;
-            this.addBox(verts, indices, padX, 0.05, padZ, 14, 0.1, 14, 0.4, 0.4, 0.42, 1.0, idxOffset); idxOffset += 24;
-            this.addBox(verts, indices, padX - 7, 0.06, padZ, 0.3, 0.05, 14, 0.9, 0.8, 0.1, 1.0, idxOffset); idxOffset += 24;
-            this.addBox(verts, indices, padX + 7, 0.06, padZ, 0.3, 0.05, 14, 0.9, 0.8, 0.1, 1.0, idxOffset); idxOffset += 24;
-            this.addBox(verts, indices, padX, 0.06, padZ - 7, 14, 0.05, 0.3, 0.9, 0.8, 0.1, 1.0, idxOffset); idxOffset += 24;
-            this.addBox(verts, indices, padX, 0.06, padZ + 7, 14, 0.05, 0.3, 0.9, 0.8, 0.1, 1.0, idxOffset); idxOffset += 24;
-            const hw = 0.8, hh = 4;
-            this.addBox(verts, indices, padX - 2.5, 0.06, padZ, hw, 0.06, hh, 1, 1, 1, 0.9, idxOffset); idxOffset += 24;
-            this.addBox(verts, indices, padX + 2.5, 0.06, padZ, hw, 0.06, hh, 1, 1, 1, 0.9, idxOffset); idxOffset += 24;
-            this.addBox(verts, indices, padX, 0.06, padZ, hh * 0.6, 0.06, hw, 1, 1, 1, 0.9, idxOffset); idxOffset += 24;
+            this.addBox(
+              verts,
+              indices,
+              padX,
+              0.05,
+              padZ,
+              14,
+              0.1,
+              14,
+              0.4,
+              0.4,
+              0.42,
+              1.0,
+              idxOffset,
+            );
+            idxOffset += 24;
+            this.addBox(
+              verts,
+              indices,
+              padX - 7,
+              0.06,
+              padZ,
+              0.3,
+              0.05,
+              14,
+              0.9,
+              0.8,
+              0.1,
+              1.0,
+              idxOffset,
+            );
+            idxOffset += 24;
+            this.addBox(
+              verts,
+              indices,
+              padX + 7,
+              0.06,
+              padZ,
+              0.3,
+              0.05,
+              14,
+              0.9,
+              0.8,
+              0.1,
+              1.0,
+              idxOffset,
+            );
+            idxOffset += 24;
+            this.addBox(
+              verts,
+              indices,
+              padX,
+              0.06,
+              padZ - 7,
+              14,
+              0.05,
+              0.3,
+              0.9,
+              0.8,
+              0.1,
+              1.0,
+              idxOffset,
+            );
+            idxOffset += 24;
+            this.addBox(
+              verts,
+              indices,
+              padX,
+              0.06,
+              padZ + 7,
+              14,
+              0.05,
+              0.3,
+              0.9,
+              0.8,
+              0.1,
+              1.0,
+              idxOffset,
+            );
+            idxOffset += 24;
+            const hw = 0.8,
+              hh = 4;
+            this.addBox(
+              verts,
+              indices,
+              padX - 2.5,
+              0.06,
+              padZ,
+              hw,
+              0.06,
+              hh,
+              1,
+              1,
+              1,
+              0.9,
+              idxOffset,
+            );
+            idxOffset += 24;
+            this.addBox(
+              verts,
+              indices,
+              padX + 2.5,
+              0.06,
+              padZ,
+              hw,
+              0.06,
+              hh,
+              1,
+              1,
+              1,
+              0.9,
+              idxOffset,
+            );
+            idxOffset += 24;
+            this.addBox(
+              verts,
+              indices,
+              padX,
+              0.06,
+              padZ,
+              hh * 0.6,
+              0.06,
+              hw,
+              1,
+              1,
+              1,
+              0.9,
+              idxOffset,
+            );
+            idxOffset += 24;
             // Park a helicopter on the pad. Prefer any loaded GLTF models, but
             // those were retired — fall back to the always-available procedural
             // helicopter so helipads are never left empty.
-            const heli: CityMesh[] = this.helicopterMeshes.length > 0
-              ? this.helicopterMeshes[Math.floor(rng() * this.helicopterMeshes.length)]
-              : this.getProceduralHelicopterMeshes().regular;
+            const heli: CityMesh[] =
+              this.helicopterMeshes.length > 0
+                ? this.helicopterMeshes[
+                    Math.floor(rng() * this.helicopterMeshes.length)
+                  ]
+                : this.getProceduralHelicopterMeshes().regular;
             // Keep a stable, explicit aircraft placement record for culling,
             // interaction, and rotor animation. The dedicated aircraft pass
             // renders it once; do not also add the helicopter to `buildings`,
             // or every helipad shows two overlapping copies.
             const heliYaw = rng() * Math.PI * 2;
-            decorativeAircraft.push({ x: padX, z: padZ, yaw: heliYaw, type: 'helicopter', model: heli });
+            decorativeAircraft.push({
+              x: padX,
+              z: padZ,
+              yaw: heliYaw,
+              type: "helicopter",
+              model: heli,
+            });
             if (this.airportHangarMesh) {
-              buildings.push({ model: this.airportHangarMesh, x: blockWorldX + 35, y: -this.getModelMinY(this.airportHangarMesh) * HS + 0.15, z: blockWorldZ, yaw: -Math.PI / 2, scale: [HS, HS, HS] });
+              buildings.push({
+                model: this.airportHangarMesh,
+                x: blockWorldX + 35,
+                y: -this.getModelMinY(this.airportHangarMesh) * HS + 0.15,
+                z: blockWorldZ,
+                yaw: -Math.PI / 2,
+                scale: [HS, HS, HS],
+              });
               if (this.planeMeshes.length > 0) {
-                const planeModel = this.planeMeshes[Math.floor(rng() * this.planeMeshes.length)];
+                const planeModel =
+                  this.planeMeshes[Math.floor(rng() * this.planeMeshes.length)];
                 // Aircraft are rendered by the dedicated decorative-aircraft
                 // pass below. Do not also add the same plane to `buildings`,
                 // or every airport spawn point produces two overlapping planes.
-                decorativeAircraft.push({ x: blockWorldX + 35, z: blockWorldZ + 18, yaw: Math.PI, type: 'plane', model: planeModel });
+                decorativeAircraft.push({
+                  x: blockWorldX + 35,
+                  z: blockWorldZ + 18,
+                  yaw: Math.PI,
+                  type: "plane",
+                  model: planeModel,
+                });
               }
             }
           } else {
@@ -3901,107 +7490,240 @@ void main() {
               const hz = blockWorldZ;
               buildings.push({
                 model: this.airportHangarMesh,
-                x: hx, y: -this.getModelMinY(this.airportHangarMesh) * HS + 0.15, z: hz,
+                x: hx,
+                y: -this.getModelMinY(this.airportHangarMesh) * HS + 0.15,
+                z: hz,
                 yaw: rng() > 0.5 ? -Math.PI / 2 : Math.PI / 2,
-                scale: [HS, HS, HS]
+                scale: [HS, HS, HS],
               });
               if (this.planeMeshes.length > 0) {
-                const planeModel = this.planeMeshes[Math.floor(rng() * this.planeMeshes.length)];
-                buildings.push({ model: planeModel, x: hx, y: 0.15, z: hz - 14, yaw: Math.PI, scale: [1, 1, 1] });
-                decorativeAircraft.push({ x: hx, z: hz - 14, yaw: Math.PI, type: 'plane', model: planeModel });
+                const planeModel =
+                  this.planeMeshes[Math.floor(rng() * this.planeMeshes.length)];
+                buildings.push({
+                  model: planeModel,
+                  x: hx,
+                  y: 0.15,
+                  z: hz - 14,
+                  yaw: Math.PI,
+                  scale: [1, 1, 1],
+                });
+                decorativeAircraft.push({
+                  x: hx,
+                  z: hz - 14,
+                  yaw: Math.PI,
+                  type: "plane",
+                  model: planeModel,
+                });
               }
             }
           }
-          for (const [ddx, ddz] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
-            if (getBiome(cx + ddx, cz + ddz) !== 'ocean') continue;
+          for (const [ddx, ddz] of [
+            [0, 1],
+            [0, -1],
+            [1, 0],
+            [-1, 0],
+          ]) {
+            if (getBiome(cx + ddx, cz + ddz) !== "ocean") continue;
             const wallLen = ddx !== 0 ? 2 : GRID_PITCH;
             const wallWid = ddz !== 0 ? 2 : GRID_PITCH;
-            const wx = ddx !== 0 ? blockWorldX + ddx * (GRID_PITCH / 2 - 1) : blockWorldX;
-            const wz = ddz !== 0 ? blockWorldZ + ddz * (GRID_PITCH / 2 - 1) : blockWorldZ;
-            this.addBox(verts, indices, wx, 1.25, wz, wallLen, 2.5, wallWid, 0.25, 0.25, 0.27, 1.0, idxOffset); idxOffset += 24;
+            const wx =
+              ddx !== 0
+                ? blockWorldX + ddx * (GRID_PITCH / 2 - 1)
+                : blockWorldX;
+            const wz =
+              ddz !== 0
+                ? blockWorldZ + ddz * (GRID_PITCH / 2 - 1)
+                : blockWorldZ;
+            this.addBox(
+              verts,
+              indices,
+              wx,
+              1.25,
+              wz,
+              wallLen,
+              2.5,
+              wallWid,
+              0.25,
+              0.25,
+              0.27,
+              1.0,
+              idxOffset,
+            );
+            idxOffset += 24;
           }
           continue;
         }
         if (isRural) {
           if (isRuralMountain || isRuralHills) {
             const roadClear = 14;
-            const rockCount = (this.isMobile ? 2 : 3) + Math.floor(rng() * (this.isMobile ? 2 : 4));
+            const rockCount =
+              (this.isMobile ? 2 : 3) +
+              Math.floor(rng() * (this.isMobile ? 2 : 4));
             for (let rock = 0; rock < rockCount; rock++) {
               const rx = blockWorldX + (rng() - 0.5) * 55;
               const rz = blockWorldZ + (rng() - 0.5) * 55;
-              const distGX = Math.min(Math.abs(rx - cx * CHUNK_SIZE), Math.abs(rx - (cx + 1) * CHUNK_SIZE));
-              const distGZ = Math.min(Math.abs(rz - cz * CHUNK_SIZE), Math.abs(rz - (cz + 1) * CHUNK_SIZE));
+              const distGX = Math.min(
+                Math.abs(rx - cx * CHUNK_SIZE),
+                Math.abs(rx - (cx + 1) * CHUNK_SIZE),
+              );
+              const distGZ = Math.min(
+                Math.abs(rz - cz * CHUNK_SIZE),
+                Math.abs(rz - (cz + 1) * CHUNK_SIZE),
+              );
               if (distGX < roadClear || distGZ < roadClear) continue;
               const rockY = getMountainHeight(rx, rz);
               idxOffset = this.addMountainRock(
-                verts, indices, rx, rockY + 0.02, rz,
-                1.5 + rng() * 3.5, 1.2 + rng() * 3.8,
-                0.22 + rng() * 0.10, 0.23 + rng() * 0.10, 0.20 + rng() * 0.08, idxOffset
+                verts,
+                indices,
+                rx,
+                rockY + 0.02,
+                rz,
+                1.5 + rng() * 3.5,
+                1.2 + rng() * 3.8,
+                0.22 + rng() * 0.1,
+                0.23 + rng() * 0.1,
+                0.2 + rng() * 0.08,
+                idxOffset,
               );
             }
             for (let ti = 0; ti < 3 + Math.floor(rng() * 3); ti++) {
               if (this.palmTreeMesh) {
                 const tx = blockWorldX + (rng() - 0.5) * 55;
                 const tz = blockWorldZ + (rng() - 0.5) * 55;
-                const distGX = Math.min(Math.abs(tx - cx * CHUNK_SIZE), Math.abs(tx - (cx + 1) * CHUNK_SIZE));
-                const distGZ = Math.min(Math.abs(tz - cz * CHUNK_SIZE), Math.abs(tz - (cz + 1) * CHUNK_SIZE));
+                const distGX = Math.min(
+                  Math.abs(tx - cx * CHUNK_SIZE),
+                  Math.abs(tx - (cx + 1) * CHUNK_SIZE),
+                );
+                const distGZ = Math.min(
+                  Math.abs(tz - cz * CHUNK_SIZE),
+                  Math.abs(tz - (cz + 1) * CHUNK_SIZE),
+                );
                 if (distGX < roadClear || distGZ < roadClear) continue;
-                trees.push({ x: tx, z: tz, yaw: rng() * 0.3, scale: 3.0 + rng() * 1.8 });
+                trees.push({
+                  x: tx,
+                  z: tz,
+                  yaw: rng() * 0.3,
+                  scale: 3.0 + rng() * 1.8,
+                });
               }
             }
-          }
-          else if (isRuralDesert) {
+          } else if (isRuralDesert) {
             for (let ci = 0; ci < 4 + Math.floor(rng() * 4); ci++) {
               const cx = blockWorldX + (rng() - 0.5) * 55;
               const cz = blockWorldZ + (rng() - 0.5) * 55;
               const ch = 2 + rng() * 3;
-              this.addBox(verts, indices, cx, ch / 2, cz, 0.3, ch, 0.3, 0.15, 0.40, 0.08, 1.0, idxOffset); idxOffset += 24;
+              this.addBox(
+                verts,
+                indices,
+                cx,
+                ch / 2,
+                cz,
+                0.3,
+                ch,
+                0.3,
+                0.15,
+                0.4,
+                0.08,
+                1.0,
+                idxOffset,
+              );
+              idxOffset += 24;
               if (rng() < 0.4) {
-                this.addBox(verts, indices, cx + (rng() - 0.5) * 1.5, ch + 0.3, cz + (rng() - 0.5) * 1.5, 0.3, 0.8, 0.3, 0.12, 0.35, 0.06, 1.0, idxOffset); idxOffset += 24;
+                this.addBox(
+                  verts,
+                  indices,
+                  cx + (rng() - 0.5) * 1.5,
+                  ch + 0.3,
+                  cz + (rng() - 0.5) * 1.5,
+                  0.3,
+                  0.8,
+                  0.3,
+                  0.12,
+                  0.35,
+                  0.06,
+                  1.0,
+                  idxOffset,
+                );
+                idxOffset += 24;
               }
             }
             if (rng() < 0.2 && this.ruralShopMesh) {
               const bx = blockWorldX + (rng() - 0.5) * 40;
               const bz = blockWorldZ + (rng() - 0.5) * 40;
               const bMinY = this.getModelMinY(this.ruralShopMesh);
-              buildings.push({ model: this.ruralShopMesh, x: bx, y: -bMinY * 2.5 + 0.15, z: bz, yaw: Math.floor(rng() * 4) * Math.PI / 2, scale: [2.5, 2.5, 2.5] });
+              buildings.push({
+                model: this.ruralShopMesh,
+                x: bx,
+                y: -bMinY * 2.5 + 0.15,
+                z: bz,
+                yaw: (Math.floor(rng() * 4) * Math.PI) / 2,
+                scale: [2.5, 2.5, 2.5],
+              });
             }
-          }
-          else if (isRuralLakes) {
+          } else if (isRuralLakes) {
             for (let ti = 0; ti < 3 + Math.floor(rng() * 4); ti++) {
               if (this.palmTreeMesh) {
                 const tx = blockWorldX + (rng() - 0.5) * 40;
                 const tz = blockWorldZ + (rng() - 0.5) * 40;
-                if (Math.abs(tx - blockWorldX) < 15 && Math.abs(tz - blockWorldZ) < 15) continue;
-                trees.push({ x: tx, z: tz, yaw: rng() * 0.3, scale: 2.4 + rng() * 1.5 });
+                if (
+                  Math.abs(tx - blockWorldX) < 15 &&
+                  Math.abs(tz - blockWorldZ) < 15
+                )
+                  continue;
+                trees.push({
+                  x: tx,
+                  z: tz,
+                  yaw: rng() * 0.3,
+                  scale: 2.4 + rng() * 1.5,
+                });
               }
             }
-          }
-          else {
+          } else {
             const hasBuilding = rng() < 0.35;
             if (hasBuilding) {
               const useHouse = rng() < 0.6;
               let model: CityMesh | CityMesh[];
               if (useHouse && this.suburbBuildingMeshes.length > 0) {
-                model = this.suburbBuildingMeshes[Math.floor(rng() * this.suburbBuildingMeshes.length)];
+                model =
+                  this.suburbBuildingMeshes[
+                    Math.floor(rng() * this.suburbBuildingMeshes.length)
+                  ];
               } else if (this.woodenCabineMesh && rng() < 0.5) {
                 model = this.woodenCabineMesh;
               } else if (this.ruralShopMesh) {
                 model = this.ruralShopMesh;
               } else if (this.suburbBuildingMeshes.length > 0) {
-                model = this.suburbBuildingMeshes[Math.floor(rng() * this.suburbBuildingMeshes.length)];
-              } else { model = this.woodenCabineMesh ? this.woodenCabineMesh : []; }
+                model =
+                  this.suburbBuildingMeshes[
+                    Math.floor(rng() * this.suburbBuildingMeshes.length)
+                  ];
+              } else {
+                model = this.woodenCabineMesh ? this.woodenCabineMesh : [];
+              }
               if (Array.isArray(model) && model.length > 0) {
                 const bx = blockWorldX + (rng() - 0.5) * 40;
                 const bz = blockWorldZ + (rng() - 0.5) * 40;
-                const bYaw = Math.floor(rng() * 4) * Math.PI / 2;
+                const bYaw = (Math.floor(rng() * 4) * Math.PI) / 2;
                 const bScale = this.isHungryJacksModel(model)
                   ? this.hungryJacksScale(model, 32, 32, bYaw)
-                  : (useHouse ? 2.5 + rng() * 2 : 3 + rng() * 2);
+                  : useHouse
+                    ? 2.5 + rng() * 2
+                    : 3 + rng() * 2;
                 const bMinY = this.getModelMinY(model);
-                buildings.push({ model, x: bx, y: -bMinY * bScale + 0.15, z: bz, yaw: bYaw, scale: [bScale, bScale, bScale] });
+                buildings.push({
+                  model,
+                  x: bx,
+                  y: -bMinY * bScale + 0.15,
+                  z: bz,
+                  yaw: bYaw,
+                  scale: [bScale, bScale, bScale],
+                });
                 for (let ci = 0; ci < 3 + Math.floor(rng() * 4); ci++) {
-                  chickens.push({ x: bx + (rng() - 0.5) * 12, z: bz + (rng() - 0.5) * 12, yaw: rng() * Math.PI * 2 });
+                  chickens.push({
+                    x: bx + (rng() - 0.5) * 12,
+                    z: bz + (rng() - 0.5) * 12,
+                    yaw: rng() * Math.PI * 2,
+                  });
                 }
               }
             }
@@ -4009,68 +7731,159 @@ void main() {
               if (this.palmTreeMesh && rng() < 0.7) {
                 const tx = blockWorldX + (rng() - 0.5) * 60;
                 const tz = blockWorldZ + (rng() - 0.5) * 60;
-                trees.push({ x: tx, z: tz, yaw: rng() * 0.3, scale: 2.4 + rng() * 1.8 });
+                trees.push({
+                  x: tx,
+                  z: tz,
+                  yaw: rng() * 0.3,
+                  scale: 2.4 + rng() * 1.8,
+                });
               }
             }
             if (isRuralFarm && rng() < 0.6) {
               for (let ri = 0; ri < 4 + Math.floor(rng() * 4); ri++) {
                 const cx = blockWorldX + (rng() - 0.5) * 50;
                 const cz = blockWorldZ + (rng() - 0.5) * 50;
-                this.addBox(verts, indices, cx, 0.15, cz, 1.5 + rng() * 3, 0.3 + rng() * 0.2, 0.5, 0.6 + rng() * 0.3, 0.5 + rng() * 0.2, 0.1, 1.0, idxOffset); idxOffset += 24;
+                this.addBox(
+                  verts,
+                  indices,
+                  cx,
+                  0.15,
+                  cz,
+                  1.5 + rng() * 3,
+                  0.3 + rng() * 0.2,
+                  0.5,
+                  0.6 + rng() * 0.3,
+                  0.5 + rng() * 0.2,
+                  0.1,
+                  1.0,
+                  idxOffset,
+                );
+                idxOffset += 24;
               }
             }
             if (rng() < 0.4) {
-              chickens.push({ x: blockWorldX + (rng() - 0.5) * 50, z: blockWorldZ + (rng() - 0.5) * 50, yaw: rng() * Math.PI * 2 });
+              chickens.push({
+                x: blockWorldX + (rng() - 0.5) * 50,
+                z: blockWorldZ + (rng() - 0.5) * 50,
+                yaw: rng() * Math.PI * 2,
+              });
             }
           }
           continue;
         }
         if (isMarina || isBridge || isBridgeConnector) continue;
-        const grassG = isSuburb ? 0.42 : 0.10;
-        this.addBox(verts, indices, blockWorldX, 0.075, blockWorldZ, BLOCK_SIZE, 0.15, BLOCK_SIZE, 0.08, grassG, 0.08, 1.0, idxOffset); idxOffset += 24;
+        const grassG = isSuburb ? 0.42 : 0.1;
+        this.addBox(
+          verts,
+          indices,
+          blockWorldX,
+          0.075,
+          blockWorldZ,
+          BLOCK_SIZE,
+          0.15,
+          BLOCK_SIZE,
+          0.08,
+          grassG,
+          0.08,
+          1.0,
+          idxOffset,
+        );
+        idxOffset += 24;
         if ((cx === 0 && cz === 0) || (cx === 1 && cz === 0)) continue;
         const halfSW = SIDEWALK_SIZE / 2;
         const edges = [
-          { dx: 0, dz: 1 }, { dx: 0, dz: -1 },
-          { dx: 1, dz: 0 }, { dx: -1, dz: 0 }
+          { dx: 0, dz: 1 },
+          { dx: 0, dz: -1 },
+          { dx: 1, dz: 0 },
+          { dx: -1, dz: 0 },
         ];
         // Keep a conservative cross-chunk occupancy registry. GLTF assets can
         // be much larger than their source block, so checking only the current
         // chunk lets a long storefront overlap the next chunk's buildings.
-        const placedAABBs: { minX: number; maxX: number; minZ: number; maxZ: number }[] = [];
+        const placedAABBs: {
+          minX: number;
+          maxX: number;
+          minZ: number;
+          maxZ: number;
+        }[] = [];
         const globalPlacedAABBs = this.buildingOccupancyByChunk.get(key) ?? [];
         this.buildingOccupancyByChunk.set(key, globalPlacedAABBs);
         for (const other of this.buildingOccupancyByChunk.values()) {
           if (other !== globalPlacedAABBs) placedAABBs.push(...other);
         }
-        const modelWorldAABB = (model: CityMesh | CityMesh[], px: number, pz: number, scale: [number, number, number], yaw: number): { minX: number; maxX: number; minZ: number; maxZ: number } | null => {
+        const modelWorldAABB = (
+          model: CityMesh | CityMesh[],
+          px: number,
+          pz: number,
+          scale: [number, number, number],
+          yaw: number,
+        ): {
+          minX: number;
+          maxX: number;
+          minZ: number;
+          maxZ: number;
+        } | null => {
           const arr = Array.isArray(model) ? model : [model];
-          let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+          let minX = Infinity,
+            maxX = -Infinity,
+            minZ = Infinity,
+            maxZ = -Infinity;
           for (const m of arr) {
-            if (m.minX === undefined || m.maxX === undefined || m.minZ === undefined || m.maxZ === undefined) return null;
+            if (
+              m.minX === undefined ||
+              m.maxX === undefined ||
+              m.minZ === undefined ||
+              m.maxZ === undefined
+            )
+              return null;
             const rs = m.renderScale ?? 1;
-            const sx = scale[0] * rs, sz = scale[2] * rs;
+            const sx = scale[0] * rs,
+              sz = scale[2] * rs;
             const rot = ((yaw % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
-            const corners = [[m.minX, m.minZ], [m.minX, m.maxZ], [m.maxX, m.minZ], [m.maxX, m.maxZ]];
+            const corners = [
+              [m.minX, m.minZ],
+              [m.minX, m.maxZ],
+              [m.maxX, m.minZ],
+              [m.maxX, m.maxZ],
+            ];
             for (const corner of corners) {
-              const lx = corner[0] * sx, lz = corner[1] * sz;
+              const lx = corner[0] * sx,
+                lz = corner[1] * sz;
               const wx = px + lx * Math.cos(rot) + lz * Math.sin(rot);
               const wz = pz - lx * Math.sin(rot) + lz * Math.cos(rot);
-              minX = Math.min(minX, wx); maxX = Math.max(maxX, wx);
-              minZ = Math.min(minZ, wz); maxZ = Math.max(maxZ, wz);
+              minX = Math.min(minX, wx);
+              maxX = Math.max(maxX, wx);
+              minZ = Math.min(minZ, wz);
+              maxZ = Math.max(maxZ, wz);
             }
           }
           return { minX, maxX, minZ, maxZ };
         };
-        const overlapsExisting = (bb: { minX: number; maxX: number; minZ: number; maxZ: number }): boolean => {
+        const overlapsExisting = (bb: {
+          minX: number;
+          maxX: number;
+          minZ: number;
+          maxZ: number;
+        }): boolean => {
           const gap = 2.0;
           for (const existing of placedAABBs) {
-            if (bb.minX - gap < existing.maxX && bb.maxX + gap > existing.minX &&
-              bb.minZ - gap < existing.maxZ && bb.maxZ + gap > existing.minZ) return true;
+            if (
+              bb.minX - gap < existing.maxX &&
+              bb.maxX + gap > existing.minX &&
+              bb.minZ - gap < existing.maxZ &&
+              bb.maxZ + gap > existing.minZ
+            )
+              return true;
           }
           return false;
         };
-        const tryPlace = (model: CityMesh | CityMesh[], px: number, pz: number, scale: [number, number, number], yaw: number): boolean => {
+        const tryPlace = (
+          model: CityMesh | CityMesh[],
+          px: number,
+          pz: number,
+          scale: [number, number, number],
+          yaw: number,
+        ): boolean => {
           const bb = modelWorldAABB(model, px, pz, scale, yaw);
           if (!bb || overlapsExisting(bb)) return false;
           placedAABBs.push(bb);
@@ -4082,34 +7895,63 @@ void main() {
         };
         const nativeBounds = (model: CityMesh | CityMesh[]) => {
           const arr = Array.isArray(model) ? model : [model];
-          let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+          let minX = Infinity,
+            maxX = -Infinity,
+            minZ = Infinity,
+            maxZ = -Infinity;
           for (const m of arr) {
             const rs = m.renderScale ?? 1;
-            if (m.minX === undefined || m.maxX === undefined || m.minZ === undefined || m.maxZ === undefined) return null;
-            minX = Math.min(minX, m.minX * rs); maxX = Math.max(maxX, m.maxX * rs);
-            minZ = Math.min(minZ, m.minZ * rs); maxZ = Math.max(maxZ, m.maxZ * rs);
+            if (
+              m.minX === undefined ||
+              m.maxX === undefined ||
+              m.minZ === undefined ||
+              m.maxZ === undefined
+            )
+              return null;
+            minX = Math.min(minX, m.minX * rs);
+            maxX = Math.max(maxX, m.maxX * rs);
+            minZ = Math.min(minZ, m.minZ * rs);
+            maxZ = Math.max(maxZ, m.maxZ * rs);
           }
           return { minX, maxX, minZ, maxZ };
         };
         if (isSuburb) {
           if (rng() < 0.25 && this.suburbBuildingMeshes.length > 0) {
-            const poiModels = this.suburbBuildingMeshes.filter((_, i) => i % 3 === 0);
+            const poiModels = this.suburbBuildingMeshes.filter(
+              (_, i) => i % 3 === 0,
+            );
             if (poiModels.length > 0) {
               const model = poiModels[Math.floor(rng() * poiModels.length)];
-              const pyaw = Math.floor(rng() * 4) * Math.PI / 2;
+              const pyaw = (Math.floor(rng() * 4) * Math.PI) / 2;
               const poiScale = this.isHungryJacksModel(model)
-                ? this.hungryJacksScale(model, SIDEWALK_SIZE - 8, SIDEWALK_SIZE - 8, pyaw)
+                ? this.hungryJacksScale(
+                    model,
+                    SIDEWALK_SIZE - 8,
+                    SIDEWALK_SIZE - 8,
+                    pyaw,
+                  )
                 : 5 + rng() * 2;
               const poiMinY = this.getModelMinY(model);
-              const sc: [number, number, number] = [poiScale, poiScale, poiScale];
+              const sc: [number, number, number] = [
+                poiScale,
+                poiScale,
+                poiScale,
+              ];
               if (tryPlace(model, blockWorldX, blockWorldZ, sc, pyaw)) {
-                buildings.push({ model, x: blockWorldX, y: -poiMinY * poiScale + 0.15, z: blockWorldZ, yaw: pyaw, scale: sc });
+                buildings.push({
+                  model,
+                  x: blockWorldX,
+                  y: -poiMinY * poiScale + 0.15,
+                  z: blockWorldZ,
+                  yaw: pyaw,
+                  scale: sc,
+                });
               }
             }
           }
           for (const edge of edges) {
             const numHouses = 1 + Math.floor(rng() * 2);
-            const houseWidth = (SIDEWALK_SIZE - 12) / numHouses; 
+            const houseWidth = (SIDEWALK_SIZE - 12) / numHouses;
             for (let i = 0; i < numHouses; i++) {
               if (rng() >= 0.7) continue;
               const w = houseWidth;
@@ -4127,54 +7969,136 @@ void main() {
               const models = this.suburbBuildingMeshes;
               if (models.length > 0) {
                 const model = models[Math.floor(rng() * models.length)];
-                let nativeMinX = 0, nativeMaxX = 1, nativeMinZ = 0, nativeMaxZ = 1;
-                { let mnX = Infinity, mxX = -Infinity, mnZ = Infinity, mxZ = -Infinity;
-                  for (const m of (Array.isArray(model) ? model : [model])) {
+                let nativeMinX = 0,
+                  nativeMaxX = 1,
+                  nativeMinZ = 0,
+                  nativeMaxZ = 1;
+                {
+                  let mnX = Infinity,
+                    mxX = -Infinity,
+                    mnZ = Infinity,
+                    mxZ = -Infinity;
+                  for (const m of Array.isArray(model) ? model : [model]) {
                     const rs = m.renderScale ?? 1;
-                    if (m.minX !== undefined) mnX = Math.min(mnX, m.minX * rs); if (m.maxX !== undefined) mxX = Math.max(mxX, m.maxX * rs);
-                    if (m.minZ !== undefined) mnZ = Math.min(mnZ, m.minZ * rs); if (m.maxZ !== undefined) mxZ = Math.max(mxZ, m.maxZ * rs);
+                    if (m.minX !== undefined) mnX = Math.min(mnX, m.minX * rs);
+                    if (m.maxX !== undefined) mxX = Math.max(mxX, m.maxX * rs);
+                    if (m.minZ !== undefined) mnZ = Math.min(mnZ, m.minZ * rs);
+                    if (m.maxZ !== undefined) mxZ = Math.max(mxZ, m.maxZ * rs);
                   }
-                  if (isFinite(mnX)) { nativeMinX = mnX; nativeMaxX = mxX; nativeMinZ = mnZ; nativeMaxZ = mxZ; } }
-              const nativeWidth = (edge.dx === 0) ? (nativeMaxX - nativeMinX) : (nativeMaxZ - nativeMinZ);
-              const nativeDepth = (edge.dx === 0) ? (nativeMaxZ - nativeMinZ) : (nativeMaxX - nativeMinX);
+                  if (isFinite(mnX)) {
+                    nativeMinX = mnX;
+                    nativeMaxX = mxX;
+                    nativeMinZ = mnZ;
+                    nativeMaxZ = mxZ;
+                  }
+                }
+                const nativeWidth =
+                  edge.dx === 0
+                    ? nativeMaxX - nativeMinX
+                    : nativeMaxZ - nativeMinZ;
+                const nativeDepth =
+                  edge.dx === 0
+                    ? nativeMaxZ - nativeMinZ
+                    : nativeMaxX - nativeMinX;
                 const scVal = this.isHungryJacksModel(model)
                   ? this.hungryJacksScale(model, w, SIDEWALK_SIZE - 2, yaw)
-                  : (nativeWidth > 0.01 ? w / nativeWidth : 1);
+                  : nativeWidth > 0.01
+                    ? w / nativeWidth
+                    : 1;
                 const actualDepth = nativeDepth * scVal;
                 if (edge.dx === 0) {
-                  px = blockWorldX - halfSW + 6 + houseWidth / 2 + i * houseWidth;
+                  px =
+                    blockWorldX - halfSW + 6 + houseWidth / 2 + i * houseWidth;
                   pz = blockWorldZ + edge.dz * (halfSW - 1 - actualDepth / 2);
                 } else {
-                  pz = blockWorldZ - halfSW + 6 + houseWidth / 2 + i * houseWidth;
+                  pz =
+                    blockWorldZ - halfSW + 6 + houseWidth / 2 + i * houseWidth;
                   px = blockWorldX + edge.dx * (halfSW - 1 - actualDepth / 2);
                 }
                 const sc: [number, number, number] = [scVal, scVal, scVal];
                 const subMinY = this.getModelMinY(model);
                 if (tryPlace(model, px, pz, sc, yaw)) {
-                  buildings.push({ model, x: px, y: -subMinY * scVal + 0.15, z: pz, yaw, scale: sc });
+                  buildings.push({
+                    model,
+                    x: px,
+                    y: -subMinY * scVal + 0.15,
+                    z: pz,
+                    yaw,
+                    scale: sc,
+                  });
                 }
               } else {
-                const r = 0.5 + rng() * 0.4, g = 0.4 + rng() * 0.3, b = 0.3 + rng() * 0.3;
+                const r = 0.5 + rng() * 0.4,
+                  g = 0.4 + rng() * 0.3,
+                  b = 0.3 + rng() * 0.3;
                 const h = 5 + rng() * 7;
-                this.addBox(verts, indices, px, h / 2 + 0.04, pz, w, h, d, r, g, b, 1.0, idxOffset); idxOffset += 24;
+                this.addBox(
+                  verts,
+                  indices,
+                  px,
+                  h / 2 + 0.04,
+                  pz,
+                  w,
+                  h,
+                  d,
+                  r,
+                  g,
+                  b,
+                  1.0,
+                  idxOffset,
+                );
+                idxOffset += 24;
               }
             }
           }
           if (rng() < 0.3) {
-            chickens.push({ x: blockWorldX + (rng() - 0.5) * 20, z: blockWorldZ + (rng() - 0.5) * 20, yaw: rng() * Math.PI * 2 });
+            chickens.push({
+              x: blockWorldX + (rng() - 0.5) * 20,
+              z: blockWorldZ + (rng() - 0.5) * 20,
+              yaw: rng() * Math.PI * 2,
+            });
           }
         } else {
-          const isBoulevardEdgeX = isBoulevard(gx);    
-          const isBoulevardEdgeZ = isBoulevard(gz);    
+          const isBoulevardEdgeX = isBoulevard(gx);
+          const isBoulevardEdgeZ = isBoulevard(gz);
           for (const edge of edges) {
             const numStores = 2 + Math.floor(rng() * 2);
             const storeWidth = (SIDEWALK_SIZE - 8) / numStores;
             for (let i = 0; i < numStores; i++) {
               if (rng() >= 0.78) {
                 if (rng() < 0.4) {
-                  const alleyX = edge.dx === 0 ? blockWorldX - halfSW + 4 + storeWidth / 2 + i * storeWidth : blockWorldX + edge.dx * (halfSW - 2);
-                  const alleyZ = edge.dz === 0 ? blockWorldZ - halfSW + 4 + storeWidth / 2 + i * storeWidth : blockWorldZ + edge.dz * (halfSW - 2);
-                  this.addBox(verts, indices, alleyX, 0.7, alleyZ, 1.6, 1.4, 1.2, 0.2, 0.45, 0.2, 1.0, idxOffset); idxOffset += 24;
+                  const alleyX =
+                    edge.dx === 0
+                      ? blockWorldX -
+                        halfSW +
+                        4 +
+                        storeWidth / 2 +
+                        i * storeWidth
+                      : blockWorldX + edge.dx * (halfSW - 2);
+                  const alleyZ =
+                    edge.dz === 0
+                      ? blockWorldZ -
+                        halfSW +
+                        4 +
+                        storeWidth / 2 +
+                        i * storeWidth
+                      : blockWorldZ + edge.dz * (halfSW - 2);
+                  this.addBox(
+                    verts,
+                    indices,
+                    alleyX,
+                    0.7,
+                    alleyZ,
+                    1.6,
+                    1.4,
+                    1.2,
+                    0.2,
+                    0.45,
+                    0.2,
+                    1.0,
+                    idxOffset,
+                  );
+                  idxOffset += 24;
                 }
                 continue;
               }
@@ -4193,52 +8117,137 @@ void main() {
               // Gas stations are generated locally so the forecourt and drive
               // lanes remain open instead of inheriting an opaque GLTF shell.
               const models = this.cityBuildingMeshes;
-              const gasStationChance = isCity || isSuburb ? 0.10 : 0;
+              const gasStationChance = isCity || isSuburb ? 0.1 : 0;
               if (gasStationChance > 0 && rng() < gasStationChance && i === 0) {
                 const station = this.getGasStationMesh();
                 const stationScale: [number, number, number] = [1, 1, 1];
                 const stationY = 0.15;
-                if (tryPlace(station, blockWorldX, blockWorldZ, stationScale, 0)) {
-                  buildings.push({ model: station, x: blockWorldX, y: stationY, z: blockWorldZ, yaw: 0, scale: stationScale });
+                if (
+                  tryPlace(station, blockWorldX, blockWorldZ, stationScale, 0)
+                ) {
+                  buildings.push({
+                    model: station,
+                    x: blockWorldX,
+                    y: stationY,
+                    z: blockWorldZ,
+                    yaw: 0,
+                    scale: stationScale,
+                  });
                 }
                 continue;
               }
               if (models.length > 0) {
                 const model = models[Math.floor(rng() * models.length)];
-                let nativeMinX = 0, nativeMaxX = 1, nativeMinZ = 0, nativeMaxZ = 1;
-                { let mnX = Infinity, mxX = -Infinity, mnZ = Infinity, mxZ = -Infinity;
-                  for (const m of (Array.isArray(model) ? model : [model])) {
+                let nativeMinX = 0,
+                  nativeMaxX = 1,
+                  nativeMinZ = 0,
+                  nativeMaxZ = 1;
+                {
+                  let mnX = Infinity,
+                    mxX = -Infinity,
+                    mnZ = Infinity,
+                    mxZ = -Infinity;
+                  for (const m of Array.isArray(model) ? model : [model]) {
                     const rs = m.renderScale ?? 1;
-                    if (m.minX !== undefined) mnX = Math.min(mnX, m.minX * rs); if (m.maxX !== undefined) mxX = Math.max(mxX, m.maxX * rs);
-                    if (m.minZ !== undefined) mnZ = Math.min(mnZ, m.minZ * rs); if (m.maxZ !== undefined) mxZ = Math.max(mxZ, m.maxZ * rs);
+                    if (m.minX !== undefined) mnX = Math.min(mnX, m.minX * rs);
+                    if (m.maxX !== undefined) mxX = Math.max(mxX, m.maxX * rs);
+                    if (m.minZ !== undefined) mnZ = Math.min(mnZ, m.minZ * rs);
+                    if (m.maxZ !== undefined) mxZ = Math.max(mxZ, m.maxZ * rs);
                   }
-                  if (isFinite(mnX)) { nativeMinX = mnX; nativeMaxX = mxX; nativeMinZ = mnZ; nativeMaxZ = mxZ; } }
-              const nativeWidth = (edge.dx === 0) ? (nativeMaxX - nativeMinX) : (nativeMaxZ - nativeMinZ);
-              const nativeDepth = (edge.dx === 0) ? (nativeMaxZ - nativeMinZ) : (nativeMaxX - nativeMinX);
+                  if (isFinite(mnX)) {
+                    nativeMinX = mnX;
+                    nativeMaxX = mxX;
+                    nativeMinZ = mnZ;
+                    nativeMaxZ = mxZ;
+                  }
+                }
+                const nativeWidth =
+                  edge.dx === 0
+                    ? nativeMaxX - nativeMinX
+                    : nativeMaxZ - nativeMinZ;
+                const nativeDepth =
+                  edge.dx === 0
+                    ? nativeMaxZ - nativeMinZ
+                    : nativeMaxX - nativeMinX;
                 let scVal = nativeWidth > 0.01 ? w / nativeWidth : 1;
-                if (model.length > 0 && model[0].carName && model[0].carName.includes('skyscraper')) scVal *= 10;
+                if (
+                  model.length > 0 &&
+                  model[0].carName &&
+                  model[0].carName.includes("skyscraper")
+                )
+                  scVal *= 10;
                 const actualDepth = nativeDepth * scVal;
                 if (edge.dx === 0) {
-                  px = blockWorldX - halfSW + 4 + storeWidth / 2 + i * storeWidth;
+                  px =
+                    blockWorldX - halfSW + 4 + storeWidth / 2 + i * storeWidth;
                   pz = blockWorldZ + edge.dz * (halfSW - 1 - actualDepth / 2);
                 } else {
-                  pz = blockWorldZ - halfSW + 4 + storeWidth / 2 + i * storeWidth;
+                  pz =
+                    blockWorldZ - halfSW + 4 + storeWidth / 2 + i * storeWidth;
                   px = blockWorldX + edge.dx * (halfSW - 1 - actualDepth / 2);
                 }
                 const sc: [number, number, number] = [scVal, scVal, scVal];
                 const cityMinY = this.getModelMinY(model);
                 if (tryPlace(model, px, pz, sc, yaw)) {
-                  buildings.push({ model, x: px, y: -cityMinY * scVal + 0.15, z: pz, yaw, scale: sc });
-                  if (model.length > 0 && model[0].carName && model[0].carName.includes('supermarket')) {
-                    supermarkets.push({ x: px, z: pz, yaw, hd: this.supermarketHalfDepth(model, sc, yaw) });
+                  buildings.push({
+                    model,
+                    x: px,
+                    y: -cityMinY * scVal + 0.15,
+                    z: pz,
+                    yaw,
+                    scale: sc,
+                  });
+                  if (
+                    model.length > 0 &&
+                    model[0].carName &&
+                    model[0].carName.includes("supermarket")
+                  ) {
+                    supermarkets.push({
+                      x: px,
+                      z: pz,
+                      yaw,
+                      hd: this.supermarketHalfDepth(model, sc, yaw),
+                    });
                   }
                 }
               } else {
-                const r = 0.4 + rng() * 0.4, g = 0.4 + rng() * 0.4, b = 0.4 + rng() * 0.4;
+                const r = 0.4 + rng() * 0.4,
+                  g = 0.4 + rng() * 0.4,
+                  b = 0.4 + rng() * 0.4;
                 const h = 12 + rng() * 35;
-                this.addBox(verts, indices, px, h / 2 + 0.04, pz, w, h, d, r, g, b, 1.0, idxOffset); idxOffset += 24;
+                this.addBox(
+                  verts,
+                  indices,
+                  px,
+                  h / 2 + 0.04,
+                  pz,
+                  w,
+                  h,
+                  d,
+                  r,
+                  g,
+                  b,
+                  1.0,
+                  idxOffset,
+                );
+                idxOffset += 24;
                 if (rng() < 0.4) {
-                  this.addBox(verts, indices, px, h * 0.6, pz + edge.dz * (d / 2 + 0.05), w * 0.7, h * 0.2, 0.1, 1.0, 0.9, 0.4, 0.7, idxOffset); idxOffset += 24;
+                  this.addBox(
+                    verts,
+                    indices,
+                    px,
+                    h * 0.6,
+                    pz + edge.dz * (d / 2 + 0.05),
+                    w * 0.7,
+                    h * 0.2,
+                    0.1,
+                    1.0,
+                    0.9,
+                    0.4,
+                    0.7,
+                    idxOffset,
+                  );
+                  idxOffset += 24;
                 }
               }
             }
@@ -4255,11 +8264,15 @@ void main() {
     const bridgeClearance = (ROAD_HALF_WIDTH * 2 + 10) / 2 + 2;
     const bridgeStartX = (br: BridgeDef) => (br.startCx - 1) * CHUNK_SIZE;
     const bridgeEndX = (br: BridgeDef) => (br.endCx + 2) * CHUNK_SIZE;
-    const underBridge = (x: number, z: number) => BRIDGE_RANGES.some(br => {
-      const roadCenterZ = br.startCz * CHUNK_SIZE;
-      return x >= bridgeStartX(br) && x <= bridgeEndX(br)
-        && Math.abs(z - roadCenterZ) <= bridgeClearance;
-    });
+    const underBridge = (x: number, z: number) =>
+      BRIDGE_RANGES.some((br) => {
+        const roadCenterZ = br.startCz * CHUNK_SIZE;
+        return (
+          x >= bridgeStartX(br) &&
+          x <= bridgeEndX(br) &&
+          Math.abs(z - roadCenterZ) <= bridgeClearance
+        );
+      });
     for (let i = buildings.length - 1; i >= 0; i--) {
       if (underBridge(buildings[i].x, buildings[i].z)) buildings.splice(i, 1);
     }
@@ -4269,22 +8282,80 @@ void main() {
       const nz = Math.round(z / 80) * 80;
       return Math.hypot(x - nx, z - nz);
     };
-    if (!isBeach && !isAeroport && !isBridge && !isBridgeConnector && !isParkingLot) {
+    if (
+      !isBeach &&
+      !isAeroport &&
+      !isBridge &&
+      !isBridgeConnector &&
+      !isParkingLot
+    ) {
       for (const gridX of [cx, cx + 1]) {
         if (!isBoulevard(gridX)) continue;
         const worldX = gridX * GRID_PITCH;
         const gap = INTERSECTION_CLEAR_RADIUS;
-        const segLen = CHUNK_SIZE - (gap * 2);
-        this.addBox(verts, indices, worldX, 0.15, worldOriginZ + CHUNK_SIZE / 2, 6, 0.3, segLen, 0.12, 0.30, 0.10, 1.0, idxOffset); idxOffset += 24;
-        for (let z = worldOriginZ + gap; z < worldOriginZ + CHUNK_SIZE - gap; z += 16) {
+        const segLen = CHUNK_SIZE - gap * 2;
+        this.addBox(
+          verts,
+          indices,
+          worldX,
+          0.15,
+          worldOriginZ + CHUNK_SIZE / 2,
+          6,
+          0.3,
+          segLen,
+          0.12,
+          0.3,
+          0.1,
+          1.0,
+          idxOffset,
+        );
+        idxOffset += 24;
+        for (
+          let z = worldOriginZ + gap;
+          z < worldOriginZ + CHUNK_SIZE - gap;
+          z += 16
+        ) {
           if (distanceToNearestGridNode(worldX, z) < gap) continue;
-          if (this.cityTreeMesh && Math.floor((z - worldOriginZ) / 16) % 3 === 0) {
+          if (
+            this.cityTreeMesh &&
+            Math.floor((z - worldOriginZ) / 16) % 3 === 0
+          ) {
             trees.push({ x: worldX, z, yaw: 0, scale: 4.5 + rng() * 1.2 });
           } else if (this.palmTreeMesh) {
             trees.push({ x: worldX, z, yaw: 0, scale: 7.2 + rng() * 1.8 });
           } else {
-            this.addBox(verts, indices, worldX, 3, z, 0.4, 6, 0.4, 0.3, 0.18, 0.05, 1.0, idxOffset); idxOffset += 24;
-            this.addBox(verts, indices, worldX, 6.2, z, 3, 0.7, 3, 0.1, 0.45, 0.05, 1.0, idxOffset); idxOffset += 24;
+            this.addBox(
+              verts,
+              indices,
+              worldX,
+              3,
+              z,
+              0.4,
+              6,
+              0.4,
+              0.3,
+              0.18,
+              0.05,
+              1.0,
+              idxOffset,
+            );
+            idxOffset += 24;
+            this.addBox(
+              verts,
+              indices,
+              worldX,
+              6.2,
+              z,
+              3,
+              0.7,
+              3,
+              0.1,
+              0.45,
+              0.05,
+              1.0,
+              idxOffset,
+            );
+            idxOffset += 24;
           }
           if (Math.floor((z - worldOriginZ) / 16) % 2 === 0) {
             if (distanceToNearestGridNode(worldX + 18, z) < gap) continue;
@@ -4296,17 +8367,69 @@ void main() {
         if (!isBoulevard(gridZ)) continue;
         const worldZ = gridZ * GRID_PITCH;
         const gap = INTERSECTION_CLEAR_RADIUS;
-        const segLen = CHUNK_SIZE - (gap * 2);
-        this.addBox(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.15, worldZ, segLen, 0.3, 6, 0.12, 0.30, 0.10, 1.0, idxOffset); idxOffset += 24;
-        for (let x = worldOriginX + gap; x < worldOriginX + CHUNK_SIZE - gap; x += 16) {
+        const segLen = CHUNK_SIZE - gap * 2;
+        this.addBox(
+          verts,
+          indices,
+          worldOriginX + CHUNK_SIZE / 2,
+          0.15,
+          worldZ,
+          segLen,
+          0.3,
+          6,
+          0.12,
+          0.3,
+          0.1,
+          1.0,
+          idxOffset,
+        );
+        idxOffset += 24;
+        for (
+          let x = worldOriginX + gap;
+          x < worldOriginX + CHUNK_SIZE - gap;
+          x += 16
+        ) {
           if (distanceToNearestGridNode(x, worldZ) < gap) continue;
-          if (this.cityTreeMesh && Math.floor((x - worldOriginX) / 16) % 3 === 0) {
+          if (
+            this.cityTreeMesh &&
+            Math.floor((x - worldOriginX) / 16) % 3 === 0
+          ) {
             trees.push({ x, z: worldZ, yaw: 0, scale: 4.5 + rng() * 1.2 });
           } else if (this.palmTreeMesh) {
             trees.push({ x, z: worldZ, yaw: 0, scale: 7.2 + rng() * 1.8 });
           } else {
-            this.addBox(verts, indices, x, 3, worldZ, 0.4, 6, 0.4, 0.3, 0.18, 0.05, 1.0, idxOffset); idxOffset += 24;
-            this.addBox(verts, indices, x, 6.2, worldZ, 3, 0.7, 3, 0.1, 0.45, 0.05, 1.0, idxOffset); idxOffset += 24;
+            this.addBox(
+              verts,
+              indices,
+              x,
+              3,
+              worldZ,
+              0.4,
+              6,
+              0.4,
+              0.3,
+              0.18,
+              0.05,
+              1.0,
+              idxOffset,
+            );
+            idxOffset += 24;
+            this.addBox(
+              verts,
+              indices,
+              x,
+              6.2,
+              worldZ,
+              3,
+              0.7,
+              3,
+              0.1,
+              0.45,
+              0.05,
+              1.0,
+              idxOffset,
+            );
+            idxOffset += 24;
           }
           if (Math.floor((x - worldOriginX) / 16) % 2 === 0) {
             if (distanceToNearestGridNode(x, worldZ + 18) < gap) continue;
@@ -4315,20 +8438,70 @@ void main() {
         }
       }
     }
-    if (!isMountain && !isBeach && !isAeroport && !isBridge && !isBridgeConnector && !isParkingLot && !isRural) {
-      const dashLen = 1.5, dashWid = 0.3, dashH = 0.02, dashSpacing = 4, dashOffset = 2;
+    if (
+      !isMountain &&
+      !isBeach &&
+      !isAeroport &&
+      !isBridge &&
+      !isBridgeConnector &&
+      !isParkingLot &&
+      !isRural
+    ) {
+      const dashLen = 1.5,
+        dashWid = 0.3,
+        dashH = 0.02,
+        dashSpacing = 4,
+        dashOffset = 2;
       for (let ri = 0; ri < 2; ri++) {
         const roadZ = cz * CHUNK_SIZE + ri * GRID_PITCH;
         if (isBoulevard(cz * blocksPerChunk + ri)) continue;
-        for (let x = cx * CHUNK_SIZE + dashOffset; x <= cx * CHUNK_SIZE + CHUNK_SIZE - dashOffset; x += dashSpacing) {
-          this.addBox(verts, indices, x, 0.145, roadZ, dashLen, dashH, dashWid, 1, 1, 1, 0.8, idxOffset); idxOffset += 24;
+        for (
+          let x = cx * CHUNK_SIZE + dashOffset;
+          x <= cx * CHUNK_SIZE + CHUNK_SIZE - dashOffset;
+          x += dashSpacing
+        ) {
+          this.addBox(
+            verts,
+            indices,
+            x,
+            0.145,
+            roadZ,
+            dashLen,
+            dashH,
+            dashWid,
+            1,
+            1,
+            1,
+            0.8,
+            idxOffset,
+          );
+          idxOffset += 24;
         }
       }
       for (let ri = 0; ri < 2; ri++) {
         const roadX = cx * CHUNK_SIZE + ri * GRID_PITCH;
         if (isBoulevard(cx * blocksPerChunk + ri)) continue;
-        for (let z = cz * CHUNK_SIZE + dashOffset; z <= cz * CHUNK_SIZE + CHUNK_SIZE - dashOffset; z += dashSpacing) {
-          this.addBox(verts, indices, roadX, 0.145, z, dashWid, dashH, dashLen, 1, 1, 1, 0.8, idxOffset); idxOffset += 24;
+        for (
+          let z = cz * CHUNK_SIZE + dashOffset;
+          z <= cz * CHUNK_SIZE + CHUNK_SIZE - dashOffset;
+          z += dashSpacing
+        ) {
+          this.addBox(
+            verts,
+            indices,
+            roadX,
+            0.145,
+            z,
+            dashWid,
+            dashH,
+            dashLen,
+            1,
+            1,
+            1,
+            0.8,
+            idxOffset,
+          );
+          idxOffset += 24;
         }
       }
     }
@@ -4342,28 +8515,70 @@ void main() {
       for (const ri of [0, 1]) {
         const roadZ = cz * CHUNK_SIZE + ri * GRID_PITCH;
         idxOffset = this.addMountainRoadSurface(
-          verts, indices, roadStartX, roadZ, roadEndX, roadZ,
-          roadW, idxOffset
+          verts,
+          indices,
+          roadStartX,
+          roadZ,
+          roadEndX,
+          roadZ,
+          roadW,
+          idxOffset,
         );
         for (const side of [-1, 1]) {
           const rz = roadZ + side * (roadHalf + 0.7);
           for (let px = roadStartX + 8; px < roadEndX; px += 16) {
             const py = getMountainRoadHeight(px, rz) + 0.055;
-            this.addBox(verts, indices, px, py, rz, 0.18, 0.45, 0.18, 0.42, 0.43, 0.40, 1.0, idxOffset); idxOffset += 24;
+            this.addBox(
+              verts,
+              indices,
+              px,
+              py,
+              rz,
+              0.18,
+              0.45,
+              0.18,
+              0.42,
+              0.43,
+              0.4,
+              1.0,
+              idxOffset,
+            );
+            idxOffset += 24;
           }
         }
       }
       for (const ri of [0, 1]) {
         const roadX = cx * CHUNK_SIZE + ri * GRID_PITCH;
         idxOffset = this.addMountainRoadSurface(
-          verts, indices, roadX, roadStartZ, roadX, roadEndZ,
-          roadW, idxOffset
+          verts,
+          indices,
+          roadX,
+          roadStartZ,
+          roadX,
+          roadEndZ,
+          roadW,
+          idxOffset,
         );
         for (const side of [-1, 1]) {
           const rx = roadX + side * (roadHalf + 0.7);
           for (let pz = roadStartZ + 8; pz < roadEndZ; pz += 16) {
             const py = getMountainRoadHeight(rx, pz) + 0.055;
-            this.addBox(verts, indices, rx, py, pz, 0.18, 0.45, 0.18, 0.42, 0.43, 0.40, 1.0, idxOffset); idxOffset += 24;
+            this.addBox(
+              verts,
+              indices,
+              rx,
+              py,
+              pz,
+              0.18,
+              0.45,
+              0.18,
+              0.42,
+              0.43,
+              0.4,
+              1.0,
+              idxOffset,
+            );
+            idxOffset += 24;
           }
         }
       }
@@ -4378,13 +8593,41 @@ void main() {
           const sx2 = roadStartX + (segment + 1) * switchbackStep;
           const sz1 = getMountainSwitchbackZ(sx1);
           const sz2 = getMountainSwitchbackZ(sx2);
-          if (Math.max(sz1, sz2) < roadStartZ - 18 || Math.min(sz1, sz2) > roadEndZ + 18) continue;
-          idxOffset = this.addMountainRoadSurface(verts, indices, sx1, sz1, sx2, sz2, roadW, idxOffset);
+          if (
+            Math.max(sz1, sz2) < roadStartZ - 18 ||
+            Math.min(sz1, sz2) > roadEndZ + 18
+          )
+            continue;
+          idxOffset = this.addMountainRoadSurface(
+            verts,
+            indices,
+            sx1,
+            sz1,
+            sx2,
+            sz2,
+            roadW,
+            idxOffset,
+          );
           for (const end of [0, 1]) {
             const tx = end === 0 ? sx1 : sx2;
             const tz = end === 0 ? sz1 : sz2;
             const py = getMountainRoadHeight(tx, tz) + 0.055;
-            this.addBox(verts, indices, tx, py, tz + (end === 0 ? roadHalf + 0.8 : -roadHalf - 0.8), 0.18, 0.5, 0.18, 0.42, 0.43, 0.40, 1.0, idxOffset); idxOffset += 24;
+            this.addBox(
+              verts,
+              indices,
+              tx,
+              py,
+              tz + (end === 0 ? roadHalf + 0.8 : -roadHalf - 0.8),
+              0.18,
+              0.5,
+              0.18,
+              0.42,
+              0.43,
+              0.4,
+              1.0,
+              idxOffset,
+            );
+            idxOffset += 24;
           }
         }
       }
@@ -4398,32 +8641,60 @@ void main() {
     // network. The old corner/boulevard heuristics also ran for parking and
     // partially generated edge chunks, leaving isolated lamp meshes in fields.
     const isValidLampPosition = (x: number, z: number): boolean => {
-      const lampBiome = getBiome(Math.floor(x / CHUNK_SIZE), Math.floor(z / CHUNK_SIZE));
-      if (lampBiome !== 'city' && lampBiome !== 'suburb' && lampBiome !== 'parking_lot') return false;
+      const lampBiome = getBiome(
+        Math.floor(x / CHUNK_SIZE),
+        Math.floor(z / CHUNK_SIZE),
+      );
+      if (
+        lampBiome !== "city" &&
+        lampBiome !== "suburb" &&
+        lampBiome !== "parking_lot"
+      )
+        return false;
       const localX = ((x % GRID_PITCH) + GRID_PITCH) % GRID_PITCH;
       const localZ = ((z % GRID_PITCH) + GRID_PITCH) % GRID_PITCH;
       const distanceToVerticalRoad = Math.min(localX, GRID_PITCH - localX);
       const distanceToHorizontalRoad = Math.min(localZ, GRID_PITCH - localZ);
-      const nearRoad = distanceToVerticalRoad <= ROAD_HALF_WIDTH + 10
-        || distanceToHorizontalRoad <= ROAD_HALF_WIDTH + 10;
+      const nearRoad =
+        distanceToVerticalRoad <= ROAD_HALF_WIDTH + 10 ||
+        distanceToHorizontalRoad <= ROAD_HALF_WIDTH + 10;
       if (!nearRoad) return false;
       // Never place a lamp in the road strip itself. The previous broad
       // near-road test admitted positions up to the centre of a 32-unit road,
       // which put boulevard lights directly in traffic. Keep a small curb
       // margin so the pole sits on the sidewalk/grass side of the curb.
-      if (distanceToVerticalRoad <= ROAD_HALF_WIDTH + 0.75
-        || distanceToHorizontalRoad <= ROAD_HALF_WIDTH + 0.75) return false;
+      if (
+        distanceToVerticalRoad <= ROAD_HALF_WIDTH + 0.75 ||
+        distanceToHorizontalRoad <= ROAD_HALF_WIDTH + 0.75
+      )
+        return false;
       // A lamp must sit on the walkable side of the road, not inside a building
       // footprint or over water. This also rejects cross-chunk false positives.
-      if (getBiome(Math.floor(x / CHUNK_SIZE), Math.floor(z / CHUNK_SIZE)) === 'ocean') return false;
+      if (
+        getBiome(Math.floor(x / CHUNK_SIZE), Math.floor(z / CHUNK_SIZE)) ===
+        "ocean"
+      )
+        return false;
       return !this.isBuildingOccupiedAt(x, z, 1.25);
     };
     const addLamp = (x: number, z: number) => {
-      if (isValidLampPosition(x, z) && !lamps.some(l => Math.abs(l.x - x) < 0.5 && Math.abs(l.z - z) < 0.5)) {
+      if (
+        isValidLampPosition(x, z) &&
+        !lamps.some((l) => Math.abs(l.x - x) < 0.5 && Math.abs(l.z - z) < 0.5)
+      ) {
         lamps.push({ x, z });
       }
     };
-    if (!isMountain && !isBeach && !isMarina && !isAeroport && !isBridge && !isBridgeConnector && !isRuralMountain && biome !== 'ocean') {
+    if (
+      !isMountain &&
+      !isBeach &&
+      !isMarina &&
+      !isAeroport &&
+      !isBridge &&
+      !isBridgeConnector &&
+      !isRuralMountain &&
+      biome !== "ocean"
+    ) {
       // Put poles just beyond the road edge, on the sidewalk shoulder. The old
       // value landed on the road boundary and made the poles appear in traffic.
       const sidewalkEdge = ROAD_HALF_WIDTH + 2.5;
@@ -4431,19 +8702,30 @@ void main() {
         for (let lx = 0; lx < 2; lx++) {
           const lxPos = cx * CHUNK_SIZE + lx * GRID_PITCH - sidewalkEdge;
           const lzPos = cz * CHUNK_SIZE + ly * GRID_PITCH - sidewalkEdge;
-          if (getBiome(Math.floor(lxPos / CHUNK_SIZE), Math.floor(lzPos / CHUNK_SIZE)) !== 'ocean') {
+          if (
+            getBiome(
+              Math.floor(lxPos / CHUNK_SIZE),
+              Math.floor(lzPos / CHUNK_SIZE),
+            ) !== "ocean"
+          ) {
             addLamp(lxPos, lzPos);
           }
-          const cornerSeed = ((cx * 100003 + cz * 70001) * 31 + ly * 7 + lx * 13) >>> 0;
+          const cornerSeed =
+            ((cx * 100003 + cz * 70001) * 31 + ly * 7 + lx * 13) >>> 0;
           const hydrantRng = this.mulberry32(cornerSeed);
-          if (hydrantRng() < 0.33) hydrants.push({ x: lxPos + 1.5, z: lzPos + 1.5 });
+          if (hydrantRng() < 0.33)
+            hydrants.push({ x: lxPos + 1.5, z: lzPos + 1.5 });
         }
       }
       if (isCity || isSuburb) {
         for (const gridX of [cx, cx + 1]) {
           if (!isBoulevard(gridX)) continue;
           const worldX = gridX * GRID_PITCH;
-          for (let z = worldOriginZ + 20; z < worldOriginZ + CHUNK_SIZE - 12; z += 24) {
+          for (
+            let z = worldOriginZ + 20;
+            z < worldOriginZ + CHUNK_SIZE - 12;
+            z += 24
+          ) {
             addLamp(worldX - (ROAD_HALF_WIDTH + 2.5), z);
             addLamp(worldX + (ROAD_HALF_WIDTH + 2.5), z);
           }
@@ -4451,7 +8733,11 @@ void main() {
         for (const gridZ of [cz, cz + 1]) {
           if (!isBoulevard(gridZ)) continue;
           const worldZ = gridZ * GRID_PITCH;
-          for (let x = worldOriginX + 20; x < worldOriginX + CHUNK_SIZE - 12; x += 24) {
+          for (
+            let x = worldOriginX + 20;
+            x < worldOriginX + CHUNK_SIZE - 12;
+            x += 24
+          ) {
             addLamp(x, worldZ - (ROAD_HALF_WIDTH + 2.5));
             addLamp(x, worldZ + (ROAD_HALF_WIDTH + 2.5));
           }
@@ -4466,10 +8752,17 @@ void main() {
       }
     }
     const isBridgeConnectorAdjacent = () => {
-      for (const conn of BRIDGE_CONNECTORS) if (Math.abs(cx - conn.cx) <= 1 && cz === conn.cz) return true;
+      for (const conn of BRIDGE_CONNECTORS)
+        if (Math.abs(cx - conn.cx) <= 1 && cz === conn.cz) return true;
       return false;
     };
-    if (!isMountain && !isAeroport && !isBridge && !isBridgeConnector && !isBridgeConnectorAdjacent()) {
+    if (
+      !isMountain &&
+      !isAeroport &&
+      !isBridge &&
+      !isBridgeConnector &&
+      !isBridgeConnectorAdjacent()
+    ) {
       // Never place explosive barrels on the street itself — reject any spot
       // that falls inside a road strip (within ROAD_HALF_WIDTH of a grid line).
       const barrelCount = 1 + Math.floor(rng() * 2);
@@ -4484,44 +8777,93 @@ void main() {
       }
     }
     if (isSuburb && rng() < 0.3) {
-      chickens.push({ x: worldOriginX + 5 + rng() * (CHUNK_SIZE - 10), z: worldOriginZ + 5 + rng() * (CHUNK_SIZE - 10), yaw: rng() * Math.PI * 2 });
+      chickens.push({
+        x: worldOriginX + 5 + rng() * (CHUNK_SIZE - 10),
+        z: worldOriginZ + 5 + rng() * (CHUNK_SIZE - 10),
+        yaw: rng() * Math.PI * 2,
+      });
     }
     if ((isCity || isSuburb) && this.cityBuildingMeshes.length > 0) {
       if (rng() < 0.16) {
         const store = this.getConvenienceStoreMesh();
-        const sx = worldOriginX + 40, sz = worldOriginZ + 40;
+        const sx = worldOriginX + 40,
+          sz = worldOriginZ + 40;
         const storeScale: [number, number, number] = [1, 1, 1];
-        const storeBounds = { minX: sx - 16, maxX: sx + 16, minZ: sz - 14, maxZ: sz + 16 };
-        const occupied = Array.from(this.buildingOccupancyByChunk.values()).flat();
-        const overlapsStore = occupied.some(bb => storeBounds.minX - 2 < bb.maxX && storeBounds.maxX + 2 > bb.minX && storeBounds.minZ - 2 < bb.maxZ && storeBounds.maxZ + 2 > bb.minZ);
+        const storeBounds = {
+          minX: sx - 16,
+          maxX: sx + 16,
+          minZ: sz - 14,
+          maxZ: sz + 16,
+        };
+        const occupied = Array.from(
+          this.buildingOccupancyByChunk.values(),
+        ).flat();
+        const overlapsStore = occupied.some(
+          (bb) =>
+            storeBounds.minX - 2 < bb.maxX &&
+            storeBounds.maxX + 2 > bb.minX &&
+            storeBounds.minZ - 2 < bb.maxZ &&
+            storeBounds.maxZ + 2 > bb.minZ,
+        );
         // A convenience store is never allowed to share a footprint with a
         // gas station. Besides looking wrong, that would put explosive pumps
         // inside the shop and make shooting the cashier detonate the forecourt.
-        const gasStationInChunk = buildings.some(b => b.model && b.model.length > 0
-          && b.model[0].carName?.includes('gas_station'));
+        const gasStationInChunk = buildings.some(
+          (b) =>
+            b.model &&
+            b.model.length > 0 &&
+            b.model[0].carName?.includes("gas_station"),
+        );
         if (!overlapsStore && !gasStationInChunk) {
-          buildings.push({ model: store, x: sx, y: 0.15, z: sz, yaw: 0, scale: storeScale });
+          buildings.push({
+            model: store,
+            x: sx,
+            y: 0.15,
+            z: sz,
+            yaw: 0,
+            scale: storeScale,
+          });
           const localOccupancy = this.buildingOccupancyByChunk.get(key) ?? [];
           localOccupancy.push(storeBounds);
           this.buildingOccupancyByChunk.set(key, localOccupancy);
-          supermarkets.push({ x: sx, z: sz, yaw: 0, hd: 13.4, isConvenience: true });
+          supermarkets.push({
+            x: sx,
+            z: sz,
+            yaw: 0,
+            hd: 13.4,
+            isConvenience: true,
+          });
         }
       }
-      const smModel = this.cityBuildingMeshes.find(m => m.length > 0 && m[0].carName && m[0].carName.includes('supermarket'));
-      const gasStationInChunk = buildings.some(b => b.model && b.model.length > 0
-        && b.model[0].carName?.includes('gas_station'));
+      const smModel = this.cityBuildingMeshes.find(
+        (m) =>
+          m.length > 0 && m[0].carName && m[0].carName.includes("supermarket"),
+      );
+      const gasStationInChunk = buildings.some(
+        (b) =>
+          b.model &&
+          b.model.length > 0 &&
+          b.model[0].carName?.includes("gas_station"),
+      );
       // The fallback authored supermarket path must obey the same exclusion as
       // the procedural convenience store. Otherwise a gas station generated
       // earlier in this chunk can still receive a supermarket shell over its
       // pumps even though the convenience-store path is protected.
-      if (smModel && supermarkets.length < 1 && !gasStationInChunk && rng() < 0.20) {
+      if (
+        smModel &&
+        supermarkets.length < 1 &&
+        !gasStationInChunk &&
+        rng() < 0.2
+      ) {
         const blockWorldX = worldOriginX + 40;
         const blockWorldZ = worldOriginZ + 40;
         const halfSW = SIDEWALK_SIZE / 2;
         const setback = 8;
         const edges = [
-          { dx: 0, dz: 1 }, { dx: 0, dz: -1 },
-          { dx: 1, dz: 0 }, { dx: -1, dz: 0 }
+          { dx: 0, dz: 1 },
+          { dx: 0, dz: -1 },
+          { dx: 1, dz: 0 },
+          { dx: -1, dz: 0 },
         ];
         const edge = edges[Math.floor(rng() * edges.length)];
         const w = 8 + rng() * 6;
@@ -4536,24 +8878,45 @@ void main() {
           px = blockWorldX + edge.dx * (halfSW - setback - d / 2);
           yaw = edge.dx > 0 ? -Math.PI / 2 : Math.PI / 2;
         }
-        const scale = Math.max(w, d) / 18 * 3.5;
+        const scale = (Math.max(w, d) / 18) * 3.5;
         const cityMinY = this.getModelMinY(smModel);
         const scArr: [number, number, number] = [scale, scale, scale];
         const modelHalfW = Math.max(8, w / 2);
         const modelHalfD = Math.max(8, d / 2);
         const fallbackBounds = {
-          minX: px - modelHalfW - 2, maxX: px + modelHalfW + 2,
-          minZ: pz - modelHalfD - 2, maxZ: pz + modelHalfD + 2,
+          minX: px - modelHalfW - 2,
+          maxX: px + modelHalfW + 2,
+          minZ: pz - modelHalfD - 2,
+          maxZ: pz + modelHalfD + 2,
         };
-        const occupancy = Array.from(this.buildingOccupancyByChunk.values()).flat();
-        const overlapsExisting = occupancy.some(bb => fallbackBounds.minX < bb.maxX && fallbackBounds.maxX > bb.minX
-          && fallbackBounds.minZ < bb.maxZ && fallbackBounds.maxZ > bb.minZ);
+        const occupancy = Array.from(
+          this.buildingOccupancyByChunk.values(),
+        ).flat();
+        const overlapsExisting = occupancy.some(
+          (bb) =>
+            fallbackBounds.minX < bb.maxX &&
+            fallbackBounds.maxX > bb.minX &&
+            fallbackBounds.minZ < bb.maxZ &&
+            fallbackBounds.maxZ > bb.minZ,
+        );
         if (!overlapsExisting) {
-          buildings.push({ model: smModel, x: px, y: -cityMinY * scale + 0.15, z: pz, yaw, scale: scArr });
+          buildings.push({
+            model: smModel,
+            x: px,
+            y: -cityMinY * scale + 0.15,
+            z: pz,
+            yaw,
+            scale: scArr,
+          });
           const localOccupancy = this.buildingOccupancyByChunk.get(key) ?? [];
           localOccupancy.push(fallbackBounds);
           this.buildingOccupancyByChunk.set(key, localOccupancy);
-          supermarkets.push({ x: px, z: pz, yaw, hd: this.supermarketHalfDepth(smModel, scArr, yaw) });
+          supermarkets.push({
+            x: px,
+            z: pz,
+            yaw,
+            hd: this.supermarketHalfDepth(smModel, scArr, yaw),
+          });
         }
       }
     }
@@ -4564,55 +8927,165 @@ void main() {
       const roadX = entry.gx * GRID_PITCH;
       const roadW = 20;
       const halfW = roadW / 2;
-      this.addBox(verts, indices, roadX, 0.05, worldOriginZ + CHUNK_SIZE / 2, roadW, 0.1, CHUNK_SIZE, 0.15, 0.15, 0.16, 1.0, idxOffset); idxOffset += 24;
-      this.addBox(verts, indices, roadX, 0.06, worldOriginZ + CHUNK_SIZE / 2, 0.3, 0.05, CHUNK_SIZE - 2, 1, 1, 1, 0.9, idxOffset); idxOffset += 24;
+      this.addBox(
+        verts,
+        indices,
+        roadX,
+        0.05,
+        worldOriginZ + CHUNK_SIZE / 2,
+        roadW,
+        0.1,
+        CHUNK_SIZE,
+        0.15,
+        0.15,
+        0.16,
+        1.0,
+        idxOffset,
+      );
+      idxOffset += 24;
+      this.addBox(
+        verts,
+        indices,
+        roadX,
+        0.06,
+        worldOriginZ + CHUNK_SIZE / 2,
+        0.3,
+        0.05,
+        CHUNK_SIZE - 2,
+        1,
+        1,
+        1,
+        0.9,
+        idxOffset,
+      );
+      idxOffset += 24;
       for (const side of [-4.5, 4.5]) {
         for (let dz = -CHUNK_SIZE / 2 + 4; dz < CHUNK_SIZE / 2; dz += 10) {
-          this.addBox(verts, indices, roadX + side, 0.06, worldOriginZ + CHUNK_SIZE / 2 + dz, 0.3, 0.05, 4, 1, 1, 1, 0.7, idxOffset); idxOffset += 24;
+          this.addBox(
+            verts,
+            indices,
+            roadX + side,
+            0.06,
+            worldOriginZ + CHUNK_SIZE / 2 + dz,
+            0.3,
+            0.05,
+            4,
+            1,
+            1,
+            1,
+            0.7,
+            idxOffset,
+          );
+          idxOffset += 24;
         }
       }
-      this.addBox(verts, indices, roadX - halfW + 0.3, 0.3, worldOriginZ + CHUNK_SIZE / 2, 0.6, 0.6, CHUNK_SIZE, 0.4, 0.4, 0.42, 1.0, idxOffset); idxOffset += 24;
-      this.addBox(verts, indices, roadX + halfW - 0.3, 0.3, worldOriginZ + CHUNK_SIZE / 2, 0.6, 0.6, CHUNK_SIZE, 0.4, 0.4, 0.42, 1.0, idxOffset); idxOffset += 24;
-    }        const chunk: CityChunk = { mesh, cx, cz, lamps, hydrants, buildings, benches, barrels, chickens, trees, supermarkets, tatami, cabins, lighthouses, tropicalShops, decorativeAircraft };
+      this.addBox(
+        verts,
+        indices,
+        roadX - halfW + 0.3,
+        0.3,
+        worldOriginZ + CHUNK_SIZE / 2,
+        0.6,
+        0.6,
+        CHUNK_SIZE,
+        0.4,
+        0.4,
+        0.42,
+        1.0,
+        idxOffset,
+      );
+      idxOffset += 24;
+      this.addBox(
+        verts,
+        indices,
+        roadX + halfW - 0.3,
+        0.3,
+        worldOriginZ + CHUNK_SIZE / 2,
+        0.6,
+        0.6,
+        CHUNK_SIZE,
+        0.4,
+        0.4,
+        0.42,
+        1.0,
+        idxOffset,
+      );
+      idxOffset += 24;
+    }
+    const chunk: CityChunk = {
+      mesh,
+      cx,
+      cz,
+      lamps,
+      hydrants,
+      buildings,
+      benches,
+      barrels,
+      chickens,
+      trees,
+      supermarkets,
+      tatami,
+      cabins,
+      lighthouses,
+      tropicalShops,
+      decorativeAircraft,
+    };
     this.chunkCache.set(key, chunk);
     return chunk;
   }
-  static readonly AIRPORT_ENTRY_ROADS: { gx: number; gzStart: number; gzEnd: number }[] = [
-    { gx: 2, gzStart: -1, gzEnd: -3 },   
-    { gx: 12, gzStart: -4, gzEnd: -6 },  
-    { gx: 26, gzStart: -7, gzEnd: -8 },  
-    { gx: 41, gzStart: -7, gzEnd: -11 }, 
-    { gx: 39, gzStart: 7, gzEnd: 16 },   
+  static readonly AIRPORT_ENTRY_ROADS: {
+    gx: number;
+    gzStart: number;
+    gzEnd: number;
+  }[] = [
+    { gx: 2, gzStart: -1, gzEnd: -3 },
+    { gx: 12, gzStart: -4, gzEnd: -6 },
+    { gx: 26, gzStart: -7, gzEnd: -8 },
+    { gx: 41, gzStart: -7, gzEnd: -11 },
+    { gx: 39, gzStart: 7, gzEnd: 16 },
   ];
   isRoadNode(gx: number, gz: number): boolean {
-    const cx = Math.floor(gx * GRID_PITCH / CHUNK_SIZE);
-    const cz = Math.floor(gz * GRID_PITCH / CHUNK_SIZE);
+    const cx = Math.floor((gx * GRID_PITCH) / CHUNK_SIZE);
+    const cz = Math.floor((gz * GRID_PITCH) / CHUNK_SIZE);
     const b = getBiome(cx, cz);
-    if (b === 'ocean' || b === 'beach' || b === 'mountain') {
+    if (b === "ocean" || b === "beach" || b === "mountain") {
       // A boundary node is still valid when the neighboring chunk exposes a
       // road. This gives the path graph the same seam-crossing connectors as
       // the rendered road mesh instead of terminating at the biome border.
-      return getBiome(cx - 1, cz) !== 'ocean' && getBiome(cx + 1, cz) !== 'ocean'
-        || getBiome(cx, cz - 1) !== 'ocean' && getBiome(cx, cz + 1) !== 'ocean';
+      return (
+        (getBiome(cx - 1, cz) !== "ocean" &&
+          getBiome(cx + 1, cz) !== "ocean") ||
+        (getBiome(cx, cz - 1) !== "ocean" && getBiome(cx, cz + 1) !== "ocean")
+      );
     }
-    if (b === 'aeroport') {
-      return GrandTheftRenderer.AIRPORT_ENTRY_ROADS.some(e =>
-        e.gx === gx && gz >= Math.min(e.gzStart, e.gzEnd) && gz <= Math.max(e.gzStart, e.gzEnd));
+    if (b === "aeroport") {
+      return GrandTheftRenderer.AIRPORT_ENTRY_ROADS.some(
+        (e) =>
+          e.gx === gx &&
+          gz >= Math.min(e.gzStart, e.gzEnd) &&
+          gz <= Math.max(e.gzStart, e.gzEnd),
+      );
     }
     return true;
   }
-  getRoadNodesInRadius(cx: number, cz: number, radius: number): { x: number; z: number }[] {
+  getRoadNodesInRadius(
+    cx: number,
+    cz: number,
+    radius: number,
+  ): { x: number; z: number }[] {
     const nodes: { x: number; z: number }[] = [];
     const seen = new Set<string>();
     const blocksPerChunk = CHUNK_SIZE / GRID_PITCH;
     const startGx = Math.floor((cx * CHUNK_SIZE) / GRID_PITCH) - radius;
     const startGz = Math.floor((cz * CHUNK_SIZE) / GRID_PITCH) - radius;
-    const endGx = Math.ceil((cx * CHUNK_SIZE + CHUNK_SIZE) / GRID_PITCH) + radius;
-    const endGz = Math.ceil((cz * CHUNK_SIZE + CHUNK_SIZE) / GRID_PITCH) + radius;
+    const endGx =
+      Math.ceil((cx * CHUNK_SIZE + CHUNK_SIZE) / GRID_PITCH) + radius;
+    const endGz =
+      Math.ceil((cz * CHUNK_SIZE + CHUNK_SIZE) / GRID_PITCH) + radius;
     for (let gx = startGx; gx <= endGx; gx++) {
       for (let gz = startGz; gz <= endGz; gz++) {
         if (!this.isRoadNode(gx, gz)) continue;
-        const key = gx + ',' + gz;
+        const key = gx + "," + gz;
         if (seen.has(key)) continue;
         seen.add(key);
         nodes.push({ x: gx * GRID_PITCH, z: gz * GRID_PITCH });
@@ -4626,7 +9099,10 @@ void main() {
       for (let j = i + 1; j < nodes.length; j++) {
         const dx = Math.abs(nodes[i].x - nodes[j].x);
         const dz = Math.abs(nodes[i].z - nodes[j].z);
-        if ((dx === GRID_PITCH && dz === 0) || (dx === 0 && dz === GRID_PITCH)) {
+        if (
+          (dx === GRID_PITCH && dz === 0) ||
+          (dx === 0 && dz === GRID_PITCH)
+        ) {
           edges.push([i, j]);
         }
       }
@@ -4643,8 +9119,14 @@ void main() {
    * Returns the updated index offset.
    */
   private addRoadMarkings(
-    verts: number[], indices: number[], idxOffset: number,
-    runsAlongX: boolean, grid: number, y: number, start: number, end: number
+    verts: number[],
+    indices: number[],
+    idxOffset: number,
+    runsAlongX: boolean,
+    grid: number,
+    y: number,
+    start: number,
+    end: number,
   ): number {
     // Flat-road markings must sit just above the actual road slab. Keeping the
     // offset here prevents them from floating when callers use different slab
@@ -4656,18 +9138,78 @@ void main() {
     if (runsAlongX) {
       const midX = (start + end) / 2;
       for (const side of [-1, 1]) {
-        this.addBox(verts, indices, midX, y, grid + side * edgeOff, end - start, 0.02, 0.22, 0.85, 0.85, 0.85, 0.9, idxOffset); idxOffset += 24;
+        this.addBox(
+          verts,
+          indices,
+          midX,
+          y,
+          grid + side * edgeOff,
+          end - start,
+          0.02,
+          0.22,
+          0.85,
+          0.85,
+          0.85,
+          0.9,
+          idxOffset,
+        );
+        idxOffset += 24;
       }
       for (let dx = start + dashLen / 2; dx < end; dx += dashGap) {
-        this.addBox(verts, indices, dx, y, grid, dashLen, 0.02, 0.3, 0.9, 0.75, 0.15, 1.0, idxOffset); idxOffset += 24;
+        this.addBox(
+          verts,
+          indices,
+          dx,
+          y,
+          grid,
+          dashLen,
+          0.02,
+          0.3,
+          0.9,
+          0.75,
+          0.15,
+          1.0,
+          idxOffset,
+        );
+        idxOffset += 24;
       }
     } else {
       const midZ = (start + end) / 2;
       for (const side of [-1, 1]) {
-        this.addBox(verts, indices, grid + side * edgeOff, y, midZ, 0.22, 0.02, end - start, 0.85, 0.85, 0.85, 0.9, idxOffset); idxOffset += 24;
+        this.addBox(
+          verts,
+          indices,
+          grid + side * edgeOff,
+          y,
+          midZ,
+          0.22,
+          0.02,
+          end - start,
+          0.85,
+          0.85,
+          0.85,
+          0.9,
+          idxOffset,
+        );
+        idxOffset += 24;
       }
       for (let dz = start + dashLen / 2; dz < end; dz += dashGap) {
-        this.addBox(verts, indices, grid, y, dz, 0.3, 0.02, dashLen, 0.9, 0.75, 0.15, 1.0, idxOffset); idxOffset += 24;
+        this.addBox(
+          verts,
+          indices,
+          grid,
+          y,
+          dz,
+          0.3,
+          0.02,
+          dashLen,
+          0.9,
+          0.75,
+          0.15,
+          1.0,
+          idxOffset,
+        );
+        idxOffset += 24;
       }
     }
     return idxOffset;
@@ -4680,12 +9222,34 @@ void main() {
     const verts: number[] = [];
     const indices: number[] = [];
     let offset = 0;
-    const box = (x: number, y: number, z: number, w: number, h: number, d: number, color: [number, number, number]) => {
-      this.addBox(verts, indices, x, y, z, w, h, d, color[0], color[1], color[2], 1, offset);
+    const box = (
+      x: number,
+      y: number,
+      z: number,
+      w: number,
+      h: number,
+      d: number,
+      color: [number, number, number],
+    ) => {
+      this.addBox(
+        verts,
+        indices,
+        x,
+        y,
+        z,
+        w,
+        h,
+        d,
+        color[0],
+        color[1],
+        color[2],
+        1,
+        offset,
+      );
       offset += 24;
     };
-    const metal: [number, number, number] = [0.16, 0.18, 0.20];
-    const darkMetal: [number, number, number] = [0.08, 0.10, 0.12];
+    const metal: [number, number, number] = [0.16, 0.18, 0.2];
+    const darkMetal: [number, number, number] = [0.08, 0.1, 0.12];
     const warmBulb: [number, number, number] = [1.0, 0.82, 0.25];
     box(0, 0.08, 0, 0.62, 0.16, 0.62, darkMetal);
     box(0, 2.35, 0, 0.18, 4.55, 0.18, metal);
@@ -4693,7 +9257,7 @@ void main() {
     box(0.82, 4.38, 0, 0.22, 0.32, 0.22, darkMetal);
     box(0.82, 4.25, 0, 0.16, 0.16, 0.16, warmBulb);
     const mesh = this.createMesh(verts, indices);
-    mesh.meshName = 'procedural_street_lamp';
+    mesh.meshName = "procedural_street_lamp";
     this.streetLampFallback = mesh;
     return mesh;
   }
@@ -4703,18 +9267,29 @@ void main() {
     const cz = Math.floor(z / CHUNK_SIZE);
     for (let dz = -1; dz <= 1; dz++) {
       for (let dx = -1; dx <= 1; dx++) {
-        const boxes = this.buildingOccupancyByChunk.get(`${cx + dx},${cz + dz}`);
+        const boxes = this.buildingOccupancyByChunk.get(
+          `${cx + dx},${cz + dz}`,
+        );
         if (!boxes) continue;
         for (const box of boxes) {
-          if (x >= box.minX - padding && x <= box.maxX + padding
-            && z >= box.minZ - padding && z <= box.maxZ + padding) return true;
+          if (
+            x >= box.minX - padding &&
+            x <= box.maxX + padding &&
+            z >= box.minZ - padding &&
+            z <= box.maxZ + padding
+          )
+            return true;
         }
       }
     }
     return false;
   }
 
-  getLampsNear(x: number, z: number, radius: number): { x: number; z: number }[] {
+  getLampsNear(
+    x: number,
+    z: number,
+    radius: number,
+  ): { x: number; z: number }[] {
     const lamps: { x: number; z: number }[] = [];
     const cx = Math.floor(x / CHUNK_SIZE);
     const cz = Math.floor(z / CHUNK_SIZE);
@@ -4733,9 +9308,13 @@ void main() {
   }
   // ---- Lifelike human variant cache (cheap, vertex-color, 19-bone rig) ----
   private humanMeshCache = new Map<string, CityMesh>();
-  private getHumanVariantMesh(role: Role, seed: number | string, genderHint?: string): CityMesh {
+  private getHumanVariantMesh(
+    role: Role,
+    seed: number | string,
+    genderHint?: string,
+  ): CityMesh {
     const v = pickVariant(role, seed, genderHint);
-    const key = `human_${v.role}_${v.bodyType}_${v.gender}_${v.skin.join(',')}_${v.hair.join(',')}_${v.outfitA.join(',')}_${v.outfitB.join(',')}_${v.shirtStyle ?? 0}_${v.pantsStyle ?? 0}_${v.hasBeard ? 1:0}_${v.hasCap?1:0}`;
+    const key = `human_${v.role}_${v.bodyType}_${v.gender}_${v.skin.join(",")}_${v.hair.join(",")}_${v.outfitA.join(",")}_${v.outfitB.join(",")}_${v.shirtStyle ?? 0}_${v.pantsStyle ?? 0}_${v.hasBeard ? 1 : 0}_${v.hasCap ? 1 : 0}`;
     if (this.humanMeshCache.has(key)) return this.humanMeshCache.get(key)!;
     const mesh = this.createLifelikeHumanMesh(v);
     this.humanMeshCache.set(key, mesh);
@@ -4743,14 +9322,25 @@ void main() {
     this.meshCache.set(key, mesh as any);
     return mesh;
   }
-  getPlayerMesh(color: [number, number, number], appearanceRole: Role = 'generic', appearanceSeed: number | string = 1, appearanceGender?: string): CityMesh {
+  getPlayerMesh(
+    color: [number, number, number],
+    appearanceRole: Role = "generic",
+    appearanceSeed: number | string = 1,
+    appearanceGender?: string,
+  ): CityMesh {
     // The local player uses the same deterministic NPC generator. The seed and
     // role are supplied by the component and persisted/sent to the server.
-    const key = `player_${appearanceRole}_${appearanceSeed}_${appearanceGender ?? ''}`;
+    const key = `player_${appearanceRole}_${appearanceSeed}_${appearanceGender ?? ""}`;
     if (this.humanMeshCache.has(key)) return this.humanMeshCache.get(key)!;
-    const variant = pickVariant(appearanceRole, appearanceSeed, appearanceGender);
+    const variant = pickVariant(
+      appearanceRole,
+      appearanceSeed,
+      appearanceGender,
+    );
     // Override Franklin colors to be stable regardless of input color (keeps multiplayer tint for nameplate only)
-    variant.outfitA = [0.16, 0.52, 0.22]; variant.outfitB = [0.14,0.14,0.16]; variant.accent = [0.92,0.92,0.96];
+    variant.outfitA = [0.16, 0.52, 0.22];
+    variant.outfitB = [0.14, 0.14, 0.16];
+    variant.accent = [0.92, 0.92, 0.96];
     variant.isPlayer = true;
     const mesh = this.createLifelikeHumanMesh(variant);
     this.humanMeshCache.set(key, mesh);
@@ -4758,38 +9348,41 @@ void main() {
   }
   getOtherPlayerMesh(color: [number, number, number]): CityMesh {
     // Remote player — same Franklin rig but tinted by passed color as accent so friends are recognizable
-    const key = `other_${color.join(',')}`;
+    const key = `other_${color.join(",")}`;
     if (this.humanMeshCache.has(key)) return this.humanMeshCache.get(key)!;
-    const v = pickVariant('franklin', key, 'male');
+    const v = pickVariant("franklin", key, "male");
     v.accent = [color[0], color[1], color[2]];
     const mesh = this.createLifelikeHumanMesh(v);
     this.humanMeshCache.set(key, mesh);
     return mesh;
   }
-  getPedestrianMesh(gender: string, seed: number | string = 0): CityMesh | CityMesh[] {
+  getPedestrianMesh(
+    gender: string,
+    seed: number | string = 0,
+  ): CityMesh | CityMesh[] {
     // Hookers use the same procedural, skinned human system as every other NPC.
     // The seed drives stable appearance variation, so they remain recognizable
     // without loading a separate GLTF asset.
-    if (gender === 'hooker') {
-      return this.getHumanVariantMesh('hooker', `hooker:${seed}`, 'female');
+    if (gender === "hooker") {
+      return this.getHumanVariantMesh("hooker", `hooker:${seed}`, "female");
     }
     // Infer lifelike role from gender + seed distribution — ensures every street has
     // cops, taxi drivers, pizza boys, hillbillies, women, fat & dwarf variants visible
     const h = hashSeed(seed);
     const roll = h % 100;
-    let role: Role = 'generic';
-    const g = (gender||'').toLowerCase();
-    if (g === 'female') role = 'female';
-    else if (g === 'cop') role = 'cop';
-    else if (g === 'dealer') role = 'dealer';
+    let role: Role = "generic";
+    const g = (gender || "").toLowerCase();
+    if (g === "female") role = "female";
+    else if (g === "cop") role = "cop";
+    else if (g === "dealer") role = "dealer";
     // Police uniforms are reserved for authoritative server entities with
     // type="cop". Never let a random civilian seed select the cop role.
-    else if (roll < 15) role = 'taxi';
-    else if (roll < 20) role = 'pizza';
-    else if (roll < 30) role = 'hillbilly';
-    else if (roll < 38) role = 'fat';
-    else if (roll < 43) role = 'dwarf';
-    else if (roll < 58) role = 'female';
+    else if (roll < 15) role = "taxi";
+    else if (roll < 20) role = "pizza";
+    else if (roll < 30) role = "hillbilly";
+    else if (roll < 38) role = "fat";
+    else if (roll < 43) role = "dwarf";
+    else if (roll < 58) role = "female";
     // fallback generic covers the rest
     return this.getHumanVariantMesh(role, seed, gender);
   }
@@ -4801,34 +9394,133 @@ void main() {
     const jWeights: number[] = [];
     const restPos: number[] = [];
     const restNrm: number[] = [];
-    const addBox = (cx:number, cy:number, cz:number, w:number, h:number, d:number, col:[number,number,number], bone:number) => {
-      const hw=w/2, hh=h/2, hd=d/2;
+    const addBox = (
+      cx: number,
+      cy: number,
+      cz: number,
+      w: number,
+      h: number,
+      d: number,
+      col: [number, number, number],
+      bone: number,
+    ) => {
+      const hw = w / 2,
+        hh = h / 2,
+        hd = d / 2;
       const faces = [
-        { n:[0,1,0], pts:[[-hw, hh,-hd],[hw, hh,-hd],[hw, hh,hd],[-hw, hh,hd]] },
-        { n:[0,-1,0], pts:[[-hw,-hh,-hd],[hw,-hh,-hd],[hw,-hh,hd],[-hw,-hh,hd]] },
-        { n:[0,0,1], pts:[[-hw, hh,hd],[-hw,-hh,hd],[hw,-hh,hd],[hw, hh,hd]] },
-        { n:[0,0,-1], pts:[[hw, hh,-hd],[hw,-hh,-hd],[-hw,-hh,-hd],[-hw, hh,-hd]] },
-        { n:[-1,0,0], pts:[[-hw, hh,-hd],[-hw,-hh,-hd],[-hw,-hh,hd],[-hw, hh,hd]] },
-        { n:[1,0,0], pts:[[hw, hh,hd],[hw,-hh,hd],[hw,-hh,-hd],[hw, hh,-hd]] },
+        {
+          n: [0, 1, 0],
+          pts: [
+            [-hw, hh, -hd],
+            [hw, hh, -hd],
+            [hw, hh, hd],
+            [-hw, hh, hd],
+          ],
+        },
+        {
+          n: [0, -1, 0],
+          pts: [
+            [-hw, -hh, -hd],
+            [hw, -hh, -hd],
+            [hw, -hh, hd],
+            [-hw, -hh, hd],
+          ],
+        },
+        {
+          n: [0, 0, 1],
+          pts: [
+            [-hw, hh, hd],
+            [-hw, -hh, hd],
+            [hw, -hh, hd],
+            [hw, hh, hd],
+          ],
+        },
+        {
+          n: [0, 0, -1],
+          pts: [
+            [hw, hh, -hd],
+            [hw, -hh, -hd],
+            [-hw, -hh, -hd],
+            [-hw, hh, -hd],
+          ],
+        },
+        {
+          n: [-1, 0, 0],
+          pts: [
+            [-hw, hh, -hd],
+            [-hw, -hh, -hd],
+            [-hw, -hh, hd],
+            [-hw, hh, hd],
+          ],
+        },
+        {
+          n: [1, 0, 0],
+          pts: [
+            [hw, hh, hd],
+            [hw, -hh, hd],
+            [hw, -hh, -hd],
+            [hw, hh, -hd],
+          ],
+        },
       ];
-      const base = verts.length/12;
+      const base = verts.length / 12;
       for (const f of faces) {
-        const start = verts.length/12;
-        for (let k=0;k<4;k++) {
+        const start = verts.length / 12;
+        for (let k = 0; k < 4; k++) {
           const p = f.pts[k] as number[];
-          verts.push(cx+p[0], cy+p[1], cz+p[2], f.n[0], f.n[1], f.n[2], col[0], col[1], col[2], 1, 0, 0);
-          restPos.push(cx+p[0], cy+p[1], cz+p[2]);
+          verts.push(
+            cx + p[0],
+            cy + p[1],
+            cz + p[2],
+            f.n[0],
+            f.n[1],
+            f.n[2],
+            col[0],
+            col[1],
+            col[2],
+            1,
+            0,
+            0,
+          );
+          restPos.push(cx + p[0], cy + p[1], cz + p[2]);
           restNrm.push(f.n[0], f.n[1], f.n[2]);
-          jIndices.push(bone,0,0,0); jWeights.push(1,0,0,0);
+          jIndices.push(bone, 0, 0, 0);
+          jWeights.push(1, 0, 0, 0);
         }
-        indices.push(start, start+1, start+2, start, start+2, start+3);
+        indices.push(start, start + 1, start + 2, start, start + 2, start + 3);
       }
     };
-    let torsoW=0.32, torsoH=0.38, torsoD=0.18, legLen=0.42, armLen=0.42, headR=0.13;
-    if (variant.bodyType==='fat'){ torsoW*=1.55; torsoD*=1.3; legLen*=0.92; }
-    if (variant.bodyType==='dwarf'){ torsoH*=0.85; legLen*=0.68; armLen*=0.72; headR*=1.08; }
-    if (variant.gender==='female'){ torsoW*=0.88; torsoD*=0.92; }
-    const addRounded = (cx:number, cy:number, cz:number, rx:number, ry:number, rz:number, col:[number,number,number], bone:number) => {
+    let torsoW = 0.32,
+      torsoH = 0.38,
+      torsoD = 0.18,
+      legLen = 0.42,
+      armLen = 0.42,
+      headR = 0.13;
+    if (variant.bodyType === "fat") {
+      torsoW *= 1.55;
+      torsoD *= 1.3;
+      legLen *= 0.92;
+    }
+    if (variant.bodyType === "dwarf") {
+      torsoH *= 0.85;
+      legLen *= 0.68;
+      armLen *= 0.72;
+      headR *= 1.08;
+    }
+    if (variant.gender === "female") {
+      torsoW *= 0.88;
+      torsoD *= 0.92;
+    }
+    const addRounded = (
+      cx: number,
+      cy: number,
+      cz: number,
+      rx: number,
+      ry: number,
+      rz: number,
+      col: [number, number, number],
+      bone: number,
+    ) => {
       // A tapered capsule is used instead of a sphere. The straight middle
       // keeps a limb cylindrical, while the short rounded ends overlap the
       // neighboring joint without producing the connected-ball silhouette.
@@ -4837,22 +9529,23 @@ void main() {
       const slices = this.isMobile ? 10 : 14;
       const transverse = Math.max(0.018, Math.min(rx, rz));
       const coreHalf = Math.max(0, ry - transverse);
-      const profile = coreHalf > transverse * 0.35
-        ? [
-            { y: -ry, r: 0.12 },
-            { y: -coreHalf - transverse * 0.72, r: 0.72 },
-            { y: -coreHalf, r: 1 },
-            { y: coreHalf, r: 1 },
-            { y: coreHalf + transverse * 0.72, r: 0.72 },
-            { y: ry, r: 0.12 },
-          ]
-        : [
-            { y: -ry, r: 0.12 },
-            { y: -ry * 0.72, r: 0.72 },
-            { y: 0, r: 1 },
-            { y: ry * 0.72, r: 0.72 },
-            { y: ry, r: 0.12 },
-          ];
+      const profile =
+        coreHalf > transverse * 0.35
+          ? [
+              { y: -ry, r: 0.12 },
+              { y: -coreHalf - transverse * 0.72, r: 0.72 },
+              { y: -coreHalf, r: 1 },
+              { y: coreHalf, r: 1 },
+              { y: coreHalf + transverse * 0.72, r: 0.72 },
+              { y: ry, r: 0.12 },
+            ]
+          : [
+              { y: -ry, r: 0.12 },
+              { y: -ry * 0.72, r: 0.72 },
+              { y: 0, r: 1 },
+              { y: ry * 0.72, r: 0.72 },
+              { y: ry, r: 0.12 },
+            ];
       const start = restPos.length / 3;
       const rowWidth = slices + 1;
       for (let iy = 0; iy < profile.length; iy++) {
@@ -4862,7 +9555,7 @@ void main() {
         // volumes because their short profiles are nearly symmetrical.
         const taper = 0.92 + (iy / Math.max(1, profile.length - 1)) * 0.16;
         for (let ix = 0; ix <= slices; ix++) {
-          const theta = ix / slices * Math.PI * 2;
+          const theta = (ix / slices) * Math.PI * 2;
           const nx = Math.cos(theta);
           const nz = Math.sin(theta);
           const px = cx + nx * rx * band.r * taper;
@@ -4870,14 +9563,33 @@ void main() {
           const pz = cz + nz * rz * band.r * taper;
           // The ring normal follows the capsule profile and remains stable at
           // the capped tips, which avoids black pinched highlights.
-          const ny = coreHalf > transverse * 0.35
-            ? (Math.abs(band.y) > coreHalf ? (band.y > 0 ? 0.62 : -0.62) : 0)
-            : band.y / Math.max(ry, 0.001) * 0.55;
+          const ny =
+            coreHalf > transverse * 0.35
+              ? Math.abs(band.y) > coreHalf
+                ? band.y > 0
+                  ? 0.62
+                  : -0.62
+                : 0
+              : (band.y / Math.max(ry, 0.001)) * 0.55;
           const nl = Math.hypot(nx, ny, nz) || 1;
-          verts.push(px, py, pz, nx / nl, ny / nl, nz / nl, col[0], col[1], col[2], 1, 0, 0);
+          verts.push(
+            px,
+            py,
+            pz,
+            nx / nl,
+            ny / nl,
+            nz / nl,
+            col[0],
+            col[1],
+            col[2],
+            1,
+            0,
+            0,
+          );
           restPos.push(px, py, pz);
           restNrm.push(nx / nl, ny / nl, nz / nl);
-          jIndices.push(bone, 0, 0, 0); jWeights.push(1, 0, 0, 0);
+          jIndices.push(bone, 0, 0, 0);
+          jWeights.push(1, 0, 0, 0);
         }
       }
       for (let iy = 0; iy < profile.length - 1; iy++) {
@@ -4899,107 +9611,484 @@ void main() {
     // ribcage, narrower waist, and wider pelvis create a recognizable torso
     // silhouette while the small overlaps hide seams during animation.
     // Low-poly tapered body sections read as one torso instead of stacked balls.
-    addRounded(0, 0.30, 0, torsoW * 0.62, torsoH * 0.45, torsoD * 0.54, variant.outfitA, 2);
-    addRounded(0, 0.16, 0, torsoW * 0.43, torsoH * 0.27, torsoD * 0.39, variant.outfitA, 2);
-    addRounded(0, 0.015, 0, torsoW * 0.38, torsoH * 0.18, torsoD * 0.37, variant.outfitB, 0);
+    addRounded(
+      0,
+      0.3,
+      0,
+      torsoW * 0.62,
+      torsoH * 0.45,
+      torsoD * 0.54,
+      variant.outfitA,
+      2,
+    );
+    addRounded(
+      0,
+      0.16,
+      0,
+      torsoW * 0.43,
+      torsoH * 0.27,
+      torsoD * 0.39,
+      variant.outfitA,
+      2,
+    );
+    addRounded(
+      0,
+      0.015,
+      0,
+      torsoW * 0.38,
+      torsoH * 0.18,
+      torsoD * 0.37,
+      variant.outfitB,
+      0,
+    );
     // Anatomical contour bands: these are deliberately separate, skinned
     // volumes rather than a single sphere, giving the torso a ribcage, waist,
     // and pelvis profile. Each call contributes real indexed vertices.
-    addRounded(0, 0.35, 0.004, torsoW * 0.50, torsoH * 0.16, torsoD * 0.47, variant.outfitA, 2);
-    addRounded(0, 0.015, 0.008, torsoW * 0.39, torsoH * 0.12, torsoD * 0.38, variant.outfitB, 0);
+    addRounded(
+      0,
+      0.35,
+      0.004,
+      torsoW * 0.5,
+      torsoH * 0.16,
+      torsoD * 0.47,
+      variant.outfitA,
+      2,
+    );
+    addRounded(
+      0,
+      0.015,
+      0.008,
+      torsoW * 0.39,
+      torsoH * 0.12,
+      torsoD * 0.38,
+      variant.outfitB,
+      0,
+    );
     // Shoulder and hip transition volumes bridge independently skinned limbs to
     // the torso, preventing visible gaps when the gait rotates the limbs.
-    addRounded(-0.15, 0.25, 0, 0.11, 0.10, 0.10, variant.outfitA, 2);
-    addRounded(0.15, 0.25, 0, 0.11, 0.10, 0.10, variant.outfitA, 2);
+    addRounded(-0.15, 0.25, 0, 0.11, 0.1, 0.1, variant.outfitA, 2);
+    addRounded(0.15, 0.25, 0, 0.11, 0.1, 0.1, variant.outfitA, 2);
     addRounded(-0.09, -0.08, 0, 0.11, 0.11, 0.11, variant.outfitB, 2);
     addRounded(0.09, -0.08, 0, 0.11, 0.11, 0.11, variant.outfitB, 2);
-    addBox(0,0.02,0, torsoW*1.02,0.05,torsoD*1.05, [0.15,0.12,0.10], 2);
-    addRounded(0,0.42,0,0.055,0.055,0.055, variant.skin, 3);
-    addRounded(0,0.55,0,headR*1.04,headR*1.08,headR*0.96, variant.skin, 4);
+    addBox(
+      0,
+      0.02,
+      0,
+      torsoW * 1.02,
+      0.05,
+      torsoD * 1.05,
+      [0.15, 0.12, 0.1],
+      2,
+    );
+    addRounded(0, 0.42, 0, 0.055, 0.055, 0.055, variant.skin, 3);
+    addRounded(
+      0,
+      0.55,
+      0,
+      headR * 1.04,
+      headR * 1.08,
+      headR * 0.96,
+      variant.skin,
+      4,
+    );
     // Cheekbones, temples, and jaw contour replace the perfectly spherical head
     // with a more human outline while remaining attached to the head bone.
-    addRounded(-headR * 0.44, 0.54, 0.02, headR * 0.58, headR * 0.52, headR * 0.78, variant.skin, 4);
-    addRounded(headR * 0.44, 0.54, 0.02, headR * 0.58, headR * 0.52, headR * 0.78, variant.skin, 4);
-    addRounded(0, 0.46, 0.045, headR * 0.52, headR * 0.24, headR * 0.58, variant.skin, 4);
+    addRounded(
+      -headR * 0.44,
+      0.54,
+      0.02,
+      headR * 0.58,
+      headR * 0.52,
+      headR * 0.78,
+      variant.skin,
+      4,
+    );
+    addRounded(
+      headR * 0.44,
+      0.54,
+      0.02,
+      headR * 0.58,
+      headR * 0.52,
+      headR * 0.78,
+      variant.skin,
+      4,
+    );
+    addRounded(
+      0,
+      0.46,
+      0.045,
+      headR * 0.52,
+      headR * 0.24,
+      headR * 0.58,
+      variant.skin,
+      4,
+    );
     // Ears, jaw/chin and a rounded hair cap give the player a readable face
     // silhouette rather than a floating sphere with a flat slab on top.
-    addRounded(-headR*0.92,0.55,0,0.028,0.045,0.035,variant.skin,4);
-    addRounded(headR*0.92,0.55,0,0.028,0.045,0.035,variant.skin,4);
-    addRounded(0,0.47,0.045,headR*0.48,headR*0.22,headR*0.55,variant.skin,4);
-    addRounded(0,0.65,-0.005,headR*0.98,headR*0.34,headR*0.90, variant.hair, 4);    if(variant.gender==='female') addBox(0,0.50,-0.14,0.10,0.18,0.08,variant.hair,4);
+    addRounded(-headR * 0.92, 0.55, 0, 0.028, 0.045, 0.035, variant.skin, 4);
+    addRounded(headR * 0.92, 0.55, 0, 0.028, 0.045, 0.035, variant.skin, 4);
+    addRounded(
+      0,
+      0.47,
+      0.045,
+      headR * 0.48,
+      headR * 0.22,
+      headR * 0.55,
+      variant.skin,
+      4,
+    );
+    addRounded(
+      0,
+      0.65,
+      -0.005,
+      headR * 0.98,
+      headR * 0.34,
+      headR * 0.9,
+      variant.hair,
+      4,
+    );
+    if (variant.gender === "female")
+      addBox(0, 0.5, -0.14, 0.1, 0.18, 0.08, variant.hair, 4);
     // Small face details and varied hairline/neck accents make repeated NPCs
     // read as individuals without adding a texture or extra draw call.
-    if ((variant.shirtStyle ?? 0) % 2 === 1) addBox(0,0.46,0.10,0.12,0.025,0.012,variant.outfitA,3);
-    addBox(-0.04,0.56,0.11,0.04,0.02,0.01,[1,1,1],4); addBox(0.04,0.56,0.11,0.04,0.02,0.01,[1,1,1],4);
-    addBox(-0.04,0.56,0.115,0.018,0.018,0.005,[0.05,0.05,0.05],4); addBox(0.04,0.56,0.115,0.018,0.018,0.005,[0.05,0.05,0.05],4);
-    if (variant.hasBeard) addBox(0,0.48,0.10,0.12,0.08,0.06,variant.hair,4);    if(variant.hasCap){
-      const capCol: [number,number,number]= variant.role==='cop'?[0.08,0.12,0.42]: variant.role==='pizza'?[0.92,0.08,0.08]:[0.30,0.22,0.12];
+    if ((variant.shirtStyle ?? 0) % 2 === 1)
+      addBox(0, 0.46, 0.1, 0.12, 0.025, 0.012, variant.outfitA, 3);
+    addBox(-0.04, 0.56, 0.11, 0.04, 0.02, 0.01, [1, 1, 1], 4);
+    addBox(0.04, 0.56, 0.11, 0.04, 0.02, 0.01, [1, 1, 1], 4);
+    addBox(-0.04, 0.56, 0.115, 0.018, 0.018, 0.005, [0.05, 0.05, 0.05], 4);
+    addBox(0.04, 0.56, 0.115, 0.018, 0.018, 0.005, [0.05, 0.05, 0.05], 4);
+    if (variant.hasBeard)
+      addBox(0, 0.48, 0.1, 0.12, 0.08, 0.06, variant.hair, 4);
+    if (variant.hasCap) {
+      const capCol: [number, number, number] =
+        variant.role === "cop"
+          ? [0.08, 0.12, 0.42]
+          : variant.role === "pizza"
+            ? [0.92, 0.08, 0.08]
+            : [0.3, 0.22, 0.12];
       if (variant.isPlayer) {
         // The old player hat was two thin cubes: it read as a floating slab and
         // often clipped through the hair. Use a shallow rounded crown, a fitted
         // hatband, and a short forward brim instead. The face looks toward +Z,
         // so the brim stays attached to the forehead while the whole head turns.
-        addRounded(0, 0.675, -0.005, headR * 1.02, 0.052, headR * 0.92, capCol, 4);
+        addRounded(
+          0,
+          0.675,
+          -0.005,
+          headR * 1.02,
+          0.052,
+          headR * 0.92,
+          capCol,
+          4,
+        );
         addBox(0, 0.646, 0.005, headR * 1.62, 0.024, headR * 1.26, capCol, 4);
         addBox(0, 0.638, 0.105, headR * 1.16, 0.022, 0.14, capCol, 4);
         // A contrasting band makes the silhouette read as a proper cap rather
         // than another block, without adding a separate material or draw call.
-        addBox(0, 0.653, 0.015, headR * 1.44, 0.018, headR * 1.12,
-          variant.role === 'cop' ? [0.04, 0.07, 0.22] : [0.12, 0.09, 0.06], 4);
+        addBox(
+          0,
+          0.653,
+          0.015,
+          headR * 1.44,
+          0.018,
+          headR * 1.12,
+          variant.role === "cop" ? [0.04, 0.07, 0.22] : [0.12, 0.09, 0.06],
+          4,
+        );
       } else {
         // Preserve the established NPC cap proportions.
-        addBox(0,0.68,0,headR*1.5,0.06,headR*1.4,capCol,4); addBox(0,0.64,0.10,headR*1.3,0.02,0.10,capCol,4);
+        addBox(0, 0.68, 0, headR * 1.5, 0.06, headR * 1.4, capCol, 4);
+        addBox(0, 0.64, 0.1, headR * 1.3, 0.02, 0.1, capCol, 4);
       }
-      if(variant.role==='cop') addBox(0,0.67,0.08,0.06,0.05,0.01,[0.88,0.70,0.12],4);
-      if(variant.role==='pizza') addBox(0,0.67,0.08,0.10,0.06,0.01,[1,0.95,0.85],4);
+      if (variant.role === "cop")
+        addBox(0, 0.67, 0.08, 0.06, 0.05, 0.01, [0.88, 0.7, 0.12], 4);
+      if (variant.role === "pizza")
+        addBox(0, 0.67, 0.08, 0.1, 0.06, 0.01, [1, 0.95, 0.85], 4);
     }
-    const armW = variant.bodyType==='fat'?0.10:(variant.bodyType==='muscular'?0.085:0.075);
-    const shoulder = (variant.shoulderWidth ?? 1) * (variant.bodyType === 'muscular' ? 1.08 : 1);
+    const armW =
+      variant.bodyType === "fat"
+        ? 0.1
+        : variant.bodyType === "muscular"
+          ? 0.085
+          : 0.075;
+    const shoulder =
+      (variant.shoulderWidth ?? 1) *
+      (variant.bodyType === "muscular" ? 1.08 : 1);
     const hipsWidth = variant.hipWidth ?? 1;
-    const armX = 0.20 * shoulder;
-    addRounded(-armX,0.19,0,armW*0.64,armLen*0.31,armW*0.66,variant.skin,6); addRounded(-armX,-0.04,0,armW*0.54,armLen*0.32,armW*0.56,variant.skin,7); addRounded(-armX,-0.24,0,0.052,0.065,0.052,variant.skin,8);
-    addRounded(armX,0.19,0,armW*0.64,armLen*0.31,armW*0.66,variant.skin,10); addRounded(armX,-0.04,0,armW*0.54,armLen*0.32,armW*0.56,variant.skin,11); addRounded(armX,-0.24,0,0.052,0.065,0.052,variant.skin,12);
+    const armX = 0.2 * shoulder;
+    addRounded(
+      -armX,
+      0.19,
+      0,
+      armW * 0.64,
+      armLen * 0.31,
+      armW * 0.66,
+      variant.skin,
+      6,
+    );
+    addRounded(
+      -armX,
+      -0.04,
+      0,
+      armW * 0.54,
+      armLen * 0.32,
+      armW * 0.56,
+      variant.skin,
+      7,
+    );
+    addRounded(-armX, -0.24, 0, 0.052, 0.065, 0.052, variant.skin, 8);
+    addRounded(
+      armX,
+      0.19,
+      0,
+      armW * 0.64,
+      armLen * 0.31,
+      armW * 0.66,
+      variant.skin,
+      10,
+    );
+    addRounded(
+      armX,
+      -0.04,
+      0,
+      armW * 0.54,
+      armLen * 0.32,
+      armW * 0.56,
+      variant.skin,
+      11,
+    );
+    addRounded(armX, -0.24, 0, 0.052, 0.065, 0.052, variant.skin, 12);
     // Collar and armpit blend volumes overlap the shoulder joints so the
     // animated arms never expose a gap while swinging or aiming.
-    addRounded(-armX * 0.72, 0.25, 0, armW * 0.82, 0.12, armW * 0.82, variant.outfitA, 2);
-    addRounded(armX * 0.72, 0.25, 0, armW * 0.82, 0.12, armW * 0.82, variant.outfitA, 2);
-    addRounded(-armX,0.20,0,armW*0.76,0.09,armW*0.76,variant.outfitA,6); addRounded(armX,0.20,0,armW*0.76,0.09,armW*0.76,variant.outfitA,10);
-    const legW = variant.bodyType==='fat'?0.15:(variant.bodyType==='muscular'?0.12:0.11); const thighH=legLen*0.48, shinH=legLen*0.48; const hipOff=0.09 * hipsWidth;
-    const pantTone: [number, number, number] = (variant.pantsStyle ?? 0) % 2 === 0
-      ? variant.outfitB
-      : [Math.min(1, variant.outfitB[0] * 1.18), Math.min(1, variant.outfitB[1] * 1.12), Math.min(1, variant.outfitB[2] * 1.08)];
+    addRounded(
+      -armX * 0.72,
+      0.25,
+      0,
+      armW * 0.82,
+      0.12,
+      armW * 0.82,
+      variant.outfitA,
+      2,
+    );
+    addRounded(
+      armX * 0.72,
+      0.25,
+      0,
+      armW * 0.82,
+      0.12,
+      armW * 0.82,
+      variant.outfitA,
+      2,
+    );
+    addRounded(
+      -armX,
+      0.2,
+      0,
+      armW * 0.76,
+      0.09,
+      armW * 0.76,
+      variant.outfitA,
+      6,
+    );
+    addRounded(
+      armX,
+      0.2,
+      0,
+      armW * 0.76,
+      0.09,
+      armW * 0.76,
+      variant.outfitA,
+      10,
+    );
+    const legW =
+      variant.bodyType === "fat"
+        ? 0.15
+        : variant.bodyType === "muscular"
+          ? 0.12
+          : 0.11;
+    const thighH = legLen * 0.48,
+      shinH = legLen * 0.48;
+    const hipOff = 0.09 * hipsWidth;
+    const pantTone: [number, number, number] =
+      (variant.pantsStyle ?? 0) % 2 === 0
+        ? variant.outfitB
+        : [
+            Math.min(1, variant.outfitB[0] * 1.18),
+            Math.min(1, variant.outfitB[1] * 1.12),
+            Math.min(1, variant.outfitB[2] * 1.08),
+          ];
     // Pelvis/upper-thigh transition volumes overlap the torso and thighs,
     // eliminating the floating-leg appearance during gait and ragdoll poses.
     addRounded(-hipOff, -0.08, 0, legW * 0.72, 0.11, legW * 0.72, pantTone, 2);
     addRounded(hipOff, -0.08, 0, legW * 0.72, 0.11, legW * 0.72, pantTone, 2);
-    addRounded(-hipOff,-0.12,0,legW*0.58,thighH*0.54,legW*0.56,pantTone,13); addRounded(-hipOff,-0.12-thighH,0,legW*0.48,shinH*0.54,legW*0.46,pantTone,14);    addRounded(-hipOff, -0.12 - thighH - shinH + 0.04, 0.04, 0.08, 0.04, 0.12, [0.12,0.08,0.06], 15);
+    addRounded(
+      -hipOff,
+      -0.12,
+      0,
+      legW * 0.58,
+      thighH * 0.54,
+      legW * 0.56,
+      pantTone,
+      13,
+    );
+    addRounded(
+      -hipOff,
+      -0.12 - thighH,
+      0,
+      legW * 0.48,
+      shinH * 0.54,
+      legW * 0.46,
+      pantTone,
+      14,
+    );
+    addRounded(
+      -hipOff,
+      -0.12 - thighH - shinH + 0.04,
+      0.04,
+      0.08,
+      0.04,
+      0.12,
+      [0.12, 0.08, 0.06],
+      15,
+    );
     // A wider toe box and sole give the foot a stable contact patch instead of
     // leaving a needle-like shoe at the end of each leg.
-    addRounded(-hipOff, -0.12 - thighH - shinH + 0.035, 0.10, 0.095, 0.045, 0.16, [0.08,0.06,0.05], 15);
+    addRounded(
+      -hipOff,
+      -0.12 - thighH - shinH + 0.035,
+      0.1,
+      0.095,
+      0.045,
+      0.16,
+      [0.08, 0.06, 0.05],
+      15,
+    );
     // Knee and calf shaping keeps the legs cylindrical but not balloon-like.
-    addRounded(-hipOff, -0.12 - thighH * 0.92, 0.005, legW * 0.54, legW * 0.34, legW * 0.54, pantTone, 14);
-    addRounded(-hipOff, -0.12 - thighH - shinH * 0.58, 0.006, legW * 0.50, shinH * 0.34, legW * 0.50, pantTone, 14);
-    addRounded(hipOff,-0.12,0,legW*0.58,thighH*0.54,legW*0.56,pantTone,16); addRounded(hipOff,-0.12-thighH,0,legW*0.48,shinH*0.54,legW*0.46,pantTone,17);    addRounded(hipOff, -0.12 - thighH - shinH + 0.04, 0.04, 0.08, 0.04, 0.12, [0.12,0.08,0.06], 18);
-    addRounded(hipOff, -0.12 - thighH - shinH + 0.035, 0.10, 0.095, 0.045, 0.16, [0.08,0.06,0.05], 18);
-    addRounded(hipOff, -0.12 - thighH * 0.92, 0.005, legW * 0.54, legW * 0.34, legW * 0.54, pantTone, 17);
-    addRounded(hipOff, -0.12 - thighH - shinH * 0.58, 0.006, legW * 0.50, shinH * 0.34, legW * 0.50, pantTone, 17);
-    if (variant.role === 'cop') {
+    addRounded(
+      -hipOff,
+      -0.12 - thighH * 0.92,
+      0.005,
+      legW * 0.54,
+      legW * 0.34,
+      legW * 0.54,
+      pantTone,
+      14,
+    );
+    addRounded(
+      -hipOff,
+      -0.12 - thighH - shinH * 0.58,
+      0.006,
+      legW * 0.5,
+      shinH * 0.34,
+      legW * 0.5,
+      pantTone,
+      14,
+    );
+    addRounded(
+      hipOff,
+      -0.12,
+      0,
+      legW * 0.58,
+      thighH * 0.54,
+      legW * 0.56,
+      pantTone,
+      16,
+    );
+    addRounded(
+      hipOff,
+      -0.12 - thighH,
+      0,
+      legW * 0.48,
+      shinH * 0.54,
+      legW * 0.46,
+      pantTone,
+      17,
+    );
+    addRounded(
+      hipOff,
+      -0.12 - thighH - shinH + 0.04,
+      0.04,
+      0.08,
+      0.04,
+      0.12,
+      [0.12, 0.08, 0.06],
+      18,
+    );
+    addRounded(
+      hipOff,
+      -0.12 - thighH - shinH + 0.035,
+      0.1,
+      0.095,
+      0.045,
+      0.16,
+      [0.08, 0.06, 0.05],
+      18,
+    );
+    addRounded(
+      hipOff,
+      -0.12 - thighH * 0.92,
+      0.005,
+      legW * 0.54,
+      legW * 0.34,
+      legW * 0.54,
+      pantTone,
+      17,
+    );
+    addRounded(
+      hipOff,
+      -0.12 - thighH - shinH * 0.58,
+      0.006,
+      legW * 0.5,
+      shinH * 0.34,
+      legW * 0.5,
+      pantTone,
+      17,
+    );
+    if (variant.role === "cop") {
       // Make officers read as uniformed police at gameplay distance: a bright
       // shirt panel, shoulder epaulettes, duty belt, badge, and radio are all
-      // separate opaque pieces on the navy uniform rather than relying only on      // the base torso color.
-      addBox(0, 0.22, 0.105, torsoW * 0.48, 0.20, 0.018, [0.20, 0.32, 0.56], 2);
-      addBox(-0.15, 0.31, 0.02, 0.10, 0.045, 0.12, [0.08, 0.14, 0.32], 2);
-      addBox(0.15, 0.31, 0.02, 0.10, 0.045, 0.12, [0.08, 0.14, 0.32], 2);
-      addBox(0, -0.005, 0.105, torsoW * 0.82, 0.045, 0.025, [0.025, 0.035, 0.05], 2);
-      addBox(0.08, 0.22, 0.118, 0.065, 0.07, 0.012, variant.accent ?? [0.95, 0.76, 0.12], 2);
+      // separate opaque pieces on the navy uniform rather than relying only on
+      // the base torso color.
+      addBox(0, 0.22, 0.105, torsoW * 0.48, 0.2, 0.018, [0.2, 0.32, 0.56], 2);
+      addBox(-0.15, 0.31, 0.02, 0.1, 0.045, 0.12, [0.08, 0.14, 0.32], 2);
+      addBox(0.15, 0.31, 0.02, 0.1, 0.045, 0.12, [0.08, 0.14, 0.32], 2);
+      addBox(
+        0,
+        -0.005,
+        0.105,
+        torsoW * 0.82,
+        0.045,
+        0.025,
+        [0.025, 0.035, 0.05],
+        2,
+      );
+      addBox(
+        0.08,
+        0.22,
+        0.118,
+        0.065,
+        0.07,
+        0.012,
+        variant.accent ?? [0.95, 0.76, 0.12],
+        2,
+      );
       addBox(-0.13, 0.18, 0.118, 0.045, 0.09, 0.018, [0.025, 0.035, 0.05], 2);
     }
-    if (variant.role==='hooker' && variant.accent) {
-      addBox(0,0.28,0.105,0.18,0.035,0.012,variant.accent,2);
-      addBox(0.16,0.10,0.04,0.035,0.10,0.035,variant.accent,10);
+    if (variant.role === "hooker" && variant.accent) {
+      addBox(0, 0.28, 0.105, 0.18, 0.035, 0.012, variant.accent, 2);
+      addBox(0.16, 0.1, 0.04, 0.035, 0.1, 0.035, variant.accent, 10);
     }
-    if (variant.role==='pizza') addBox(0,0.18,-0.12,0.22,0.28,0.08,[0.95,0.85,0.65],2);
-    return this.finalizeSkinnedMesh(verts, indices, jIndices, jWeights, restPos, restNrm, skeleton);
+    if (variant.role === "pizza")
+      addBox(0, 0.18, -0.12, 0.22, 0.28, 0.08, [0.95, 0.85, 0.65], 2);
+    return this.finalizeSkinnedMesh(
+      verts,
+      indices,
+      jIndices,
+      jWeights,
+      restPos,
+      restNrm,
+      skeleton,
+    );
   }
 
   /**
@@ -5018,29 +10107,102 @@ void main() {
     const restNrm: number[] = [];
     // Arm bones in the human skeleton: 5 l_shoulder,6 l_arm,7 l_forearm,8 l_hand
     //                            9 r_shoulder,10 r_arm,11 r_forearm,12 r_hand
-    const skin: [number, number, number] = [0.82, 0.60, 0.42];
+    const skin: [number, number, number] = [0.82, 0.6, 0.42];
     const sleeve: [number, number, number] = [0.16, 0.52, 0.22]; // franklin green polo
-    const addBox = (cx:number, cy:number, cz:number, w:number, h:number, d:number, col:[number,number,number], bone:number) => {
-      const hw=w/2, hh=h/2, hd=d/2;
+    const addBox = (
+      cx: number,
+      cy: number,
+      cz: number,
+      w: number,
+      h: number,
+      d: number,
+      col: [number, number, number],
+      bone: number,
+    ) => {
+      const hw = w / 2,
+        hh = h / 2,
+        hd = d / 2;
       const faces = [
-        { n:[0,1,0], pts:[[-hw, hh,-hd],[hw, hh,-hd],[hw, hh,hd],[-hw, hh,hd]] },
-        { n:[0,-1,0], pts:[[-hw,-hh,-hd],[hw,-hh,-hd],[hw,-hh,hd],[-hw,-hh,hd]] },
-        { n:[0,0,1], pts:[[-hw, hh,hd],[-hw,-hh,hd],[hw,-hh,hd],[hw, hh,hd]] },
-        { n:[0,0,-1], pts:[[hw, hh,-hd],[hw,-hh,-hd],[-hw,-hh,-hd],[-hw, hh,-hd]] },
-        { n:[-1,0,0], pts:[[-hw, hh,-hd],[-hw,-hh,-hd],[-hw,-hh,hd],[-hw, hh,hd]] },
-        { n:[1,0,0], pts:[[hw, hh,hd],[hw,-hh,hd],[hw,-hh,-hd],[hw, hh,-hd]] },
+        {
+          n: [0, 1, 0],
+          pts: [
+            [-hw, hh, -hd],
+            [hw, hh, -hd],
+            [hw, hh, hd],
+            [-hw, hh, hd],
+          ],
+        },
+        {
+          n: [0, -1, 0],
+          pts: [
+            [-hw, -hh, -hd],
+            [hw, -hh, -hd],
+            [hw, -hh, hd],
+            [-hw, -hh, hd],
+          ],
+        },
+        {
+          n: [0, 0, 1],
+          pts: [
+            [-hw, hh, hd],
+            [-hw, -hh, hd],
+            [hw, -hh, hd],
+            [hw, hh, hd],
+          ],
+        },
+        {
+          n: [0, 0, -1],
+          pts: [
+            [hw, hh, -hd],
+            [hw, -hh, -hd],
+            [-hw, -hh, -hd],
+            [-hw, hh, -hd],
+          ],
+        },
+        {
+          n: [-1, 0, 0],
+          pts: [
+            [-hw, hh, -hd],
+            [-hw, -hh, -hd],
+            [-hw, -hh, hd],
+            [-hw, hh, hd],
+          ],
+        },
+        {
+          n: [1, 0, 0],
+          pts: [
+            [hw, hh, hd],
+            [hw, -hh, hd],
+            [hw, -hh, -hd],
+            [hw, hh, -hd],
+          ],
+        },
       ];
-      const start = verts.length/12;
+      const start = verts.length / 12;
       for (const f of faces) {
-        const base = verts.length/12;
-        for (let k=0;k<4;k++) {
+        const base = verts.length / 12;
+        for (let k = 0; k < 4; k++) {
           const p = f.pts[k] as number[];
-          verts.push(cx+p[0], cy+p[1], cz+p[2], f.n[0], f.n[1], f.n[2], col[0], col[1], col[2], 1, 0, 0);
-          restPos.push(cx+p[0], cy+p[1], cz+p[2]);
+          verts.push(
+            cx + p[0],
+            cy + p[1],
+            cz + p[2],
+            f.n[0],
+            f.n[1],
+            f.n[2],
+            col[0],
+            col[1],
+            col[2],
+            1,
+            0,
+            0,
+          );
+          restPos.push(cx + p[0], cy + p[1], cz + p[2]);
           restNrm.push(f.n[0], f.n[1], f.n[2]);
-          jIndices.push(bone,0,0,0); jWeights.push(1,0,0,0);
+          jIndices.push(bone, 0, 0, 0);
+          jWeights.push(1, 0, 0, 0);
         }
-        indices.push(base, base+1, base+2, base, base+2, base+3);
+        indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
       }
     };
     // Arms hang forward/down toward the fists. y is the vertical, z reaches
@@ -5052,17 +10214,28 @@ void main() {
       const fo = side === -1 ? 7 : 11;
       const ha = side === -1 ? 8 : 12;
       const x = side * 0.24;
-      const shoulderY = 0.42, armLen = 0.42;
+      const shoulderY = 0.42,
+        armLen = 0.42;
       // Shoulder cap + short sleeve (outfit color)
-      addBox(x, shoulderY - 0.02, 0.02, 0.20, 0.12, 0.20, sleeve, sh);
+      addBox(x, shoulderY - 0.02, 0.02, 0.2, 0.12, 0.2, sleeve, sh);
       // Upper arm
-      addBox(x, shoulderY - 0.16, 0.05, 0.11, armLen*0.5, 0.12, sleeve, ar);
+      addBox(x, shoulderY - 0.16, 0.05, 0.11, armLen * 0.5, 0.12, sleeve, ar);
       // Forearm (skin)
-      addBox(x, shoulderY - 0.38, 0.07, 0.09, armLen*0.5, 0.095, skin, fo);
+      addBox(x, shoulderY - 0.38, 0.07, 0.09, armLen * 0.5, 0.095, skin, fo);
       // Fist/hand
-      addBox(x, shoulderY - 0.57, 0.10, 0.085, 0.10, 0.10, skin, ha);
+      addBox(x, shoulderY - 0.57, 0.1, 0.085, 0.1, 0.1, skin, ha);
     }
-    this.firstPersonArmsMesh = [this.finalizeSkinnedMesh(verts, indices, jIndices, jWeights, restPos, restNrm, skeleton)];
+    this.firstPersonArmsMesh = [
+      this.finalizeSkinnedMesh(
+        verts,
+        indices,
+        jIndices,
+        jWeights,
+        restPos,
+        restNrm,
+        skeleton,
+      ),
+    ];
     this.firstPersonArmsSkeleton = skeleton;
   }
 
@@ -5082,23 +10255,33 @@ void main() {
       // and recover over ~0.38s. bone 10 = r_arm, 11 = r_forearm, 8 = l_hand pull-back.
       const t = Math.max(0, Math.min(1, punch / 0.38));
       const attack = t < 0.5 ? t * 2 : 2 - t * 2;
-      const temp = new Float32Array(16), rot = new Float32Array(16);
+      const temp = new Float32Array(16),
+        rot = new Float32Array(16);
       const applyRotX = (bone: number, angle: number) => {
         if (bone < 0 || bone >= skel.boneCount) return;
         const m = new Float32Array(localMatrices.buffer, bone * 16 * 4, 16);
-        mat4.identity(rot); mat4.rotateX(rot, rot, angle);
+        mat4.identity(rot);
+        mat4.rotateX(rot, rot, angle);
         mat4.multiply(temp, m, rot);
         for (let i = 0; i < 16; i++) m[i] = temp[i];
       };
       applyRotX(10, -0.95 * attack);
       applyRotX(11, -0.75 * attack);
-      applyRotX(6, 0.20 * attack); // left arm counter-swing
+      applyRotX(6, 0.2 * attack); // left arm counter-swing
     }
     const jointMatrices = new Float32Array(skel.boneCount * 16);
     this.computeJointMatrices(skel, localMatrices, jointMatrices);
     this.skinMeshGeneric(mesh, skel, jointMatrices);
   }
-  private finalizeSkinnedMesh(verts:number[], indices:number[], jIndices:number[], jWeights:number[], restPos:number[], restNrm:number[], skeleton:any): CityMesh {
+  private finalizeSkinnedMesh(
+    verts: number[],
+    indices: number[],
+    jIndices: number[],
+    jWeights: number[],
+    restPos: number[],
+    restNrm: number[],
+    skeleton: any,
+  ): CityMesh {
     const gl = this.gl;
     const vao = gl.createVertexArray()!;
     const vbo = gl.createBuffer()!;
@@ -5115,18 +10298,67 @@ void main() {
       if (indices[i] > maxIdx) maxIdx = indices[i];
     }
     const use32 = maxIdx > 0xffff;
-    if(use32) gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(indices), gl.STATIC_DRAW);
-    else gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
-    const stride = 12*4;
-    gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0,3,gl.FLOAT,false,stride,0);
-    gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1,3,gl.FLOAT,false,stride,12);
-    gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2,4,gl.FLOAT,false,stride,24);
-    gl.enableVertexAttribArray(3); gl.vertexAttribPointer(3,2,gl.FLOAT,false,stride,40);
+    if (use32)
+      gl.bufferData(
+        gl.ELEMENT_ARRAY_BUFFER,
+        new Uint32Array(indices),
+        gl.STATIC_DRAW,
+      );
+    else
+      gl.bufferData(
+        gl.ELEMENT_ARRAY_BUFFER,
+        new Uint16Array(indices),
+        gl.STATIC_DRAW,
+      );
+    const stride = 12 * 4;
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
+    gl.enableVertexAttribArray(1);
+    gl.vertexAttribPointer(1, 3, gl.FLOAT, false, stride, 12);
+    gl.enableVertexAttribArray(2);
+    gl.vertexAttribPointer(2, 4, gl.FLOAT, false, stride, 24);
+    gl.enableVertexAttribArray(3);
+    gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 40);
     gl.bindVertexArray(null);
-    const vCount = restPos.length/3;
-    let minY=Infinity, maxY=-Infinity, minX=Infinity, maxX=-Infinity, minZ=Infinity, maxZ=-Infinity;
-    for(let i=0;i<vCount;i++){ const x=restPos[i*3], y=restPos[i*3+1], z=restPos[i*3+2]; if(y<minY)minY=y; if(y>maxY)maxY=y; if(x<minX)minX=x; if(x>maxX)maxX=x; if(z<minZ)minZ=z; if(z>maxZ)maxZ=z; }
-    const mesh: CityMesh = { vao, vbo, ibo, indexCount: indices.length, indexType: use32? gl.UNSIGNED_INT: gl.UNSIGNED_SHORT, vertexCount: vCount, restPositions: new Float32Array(restPos), restNormals: new Float32Array(restNrm), jointIndices: new Uint16Array(jIndices), jointWeights: new Float32Array(jWeights), skeleton, animations: null, originalVBO: new Float32Array(interleaved), minY, maxY, minX, maxX, minZ, maxZ } as any;
+    const vCount = restPos.length / 3;
+    let minY = Infinity,
+      maxY = -Infinity,
+      minX = Infinity,
+      maxX = -Infinity,
+      minZ = Infinity,
+      maxZ = -Infinity;
+    for (let i = 0; i < vCount; i++) {
+      const x = restPos[i * 3],
+        y = restPos[i * 3 + 1],
+        z = restPos[i * 3 + 2];
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (z < minZ) minZ = z;
+      if (z > maxZ) maxZ = z;
+    }
+    const mesh: CityMesh = {
+      vao,
+      vbo,
+      ibo,
+      indexCount: indices.length,
+      indexType: use32 ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT,
+      vertexCount: vCount,
+      restPositions: new Float32Array(restPos),
+      restNormals: new Float32Array(restNrm),
+      jointIndices: new Uint16Array(jIndices),
+      jointWeights: new Float32Array(jWeights),
+      skeleton,
+      animations: null,
+      originalVBO: new Float32Array(interleaved),
+      minY,
+      maxY,
+      minX,
+      maxX,
+      minZ,
+      maxZ,
+    } as any;
     (mesh as any).isHuman = true;
     (mesh as any).isLocalPlayer = false;
     return mesh;
@@ -5136,24 +10368,46 @@ void main() {
     const verts: number[] = [];
     const indices: number[] = [];
     let offset = 0;
-    const box = (x: number, y: number, z: number, w: number, h: number, d: number, c: [number, number, number]) => {
-      this.addBox(verts, indices, x, y, z, w, h, d, c[0], c[1], c[2], 1, offset);
+    const box = (
+      x: number,
+      y: number,
+      z: number,
+      w: number,
+      h: number,
+      d: number,
+      c: [number, number, number],
+    ) => {
+      this.addBox(
+        verts,
+        indices,
+        x,
+        y,
+        z,
+        w,
+        h,
+        d,
+        c[0],
+        c[1],
+        c[2],
+        1,
+        offset,
+      );
       offset += 24;
     };
     // Small fishing/work boat: hull, raised bow, cabin windows, mast and rails.
     // It is intentionally cheap because every marina can place several boats.
     box(0, 0.18, 0, 3.4, 0.36, 8.4, [0.18, 0.22, 0.25]);
-    box(0, 0.43, -2.3, 2.65, 0.20, 3.0, [0.32, 0.36, 0.40]);
+    box(0, 0.43, -2.3, 2.65, 0.2, 3.0, [0.32, 0.36, 0.4]);
     box(0, 0.76, 0.75, 2.0, 0.72, 2.1, [0.74, 0.76, 0.72]);
-    box(-1.03, 0.82, 0.72, 0.08, 0.38, 1.35, [0.08, 0.22, 0.30]);
-    box(1.03, 0.82, 0.72, 0.08, 0.38, 1.35, [0.08, 0.22, 0.30]);
-    box(0, 1.18, 0.72, 2.2, 0.10, 2.25, [0.18, 0.20, 0.22]);
-    box(0, 1.52, 0.20, 0.10, 1.55, 0.10, [0.22, 0.18, 0.12]);
-    box(0, 2.23, 0.20, 1.55, 0.08, 0.08, [0.88, 0.74, 0.28]);
-    box(-1.50, 0.72, -1.55, 0.10, 0.38, 0.10, [0.82, 0.70, 0.30]);
-    box(1.50, 0.72, -1.55, 0.10, 0.38, 0.10, [0.82, 0.70, 0.30]);
+    box(-1.03, 0.82, 0.72, 0.08, 0.38, 1.35, [0.08, 0.22, 0.3]);
+    box(1.03, 0.82, 0.72, 0.08, 0.38, 1.35, [0.08, 0.22, 0.3]);
+    box(0, 1.18, 0.72, 2.2, 0.1, 2.25, [0.18, 0.2, 0.22]);
+    box(0, 1.52, 0.2, 0.1, 1.55, 0.1, [0.22, 0.18, 0.12]);
+    box(0, 2.23, 0.2, 1.55, 0.08, 0.08, [0.88, 0.74, 0.28]);
+    box(-1.5, 0.72, -1.55, 0.1, 0.38, 0.1, [0.82, 0.7, 0.3]);
+    box(1.5, 0.72, -1.55, 0.1, 0.38, 0.1, [0.82, 0.7, 0.3]);
     this.marinaBoatFallback = this.createMesh(verts, indices);
-    this.marinaBoatFallback.meshName = 'procedural_marina_boat';
+    this.marinaBoatFallback.meshName = "procedural_marina_boat";
     return this.marinaBoatFallback;
   }
 
@@ -5164,39 +10418,143 @@ void main() {
     }
     return this.getNPCCarMesh([0.5, 0.5, 0.5], seed);
   }
-  getHelicopterMesh(seed: number | string = 0, police = false): CityMesh | CityMesh[] {
+  getHelicopterMesh(
+    seed: number | string = 0,
+    police = false,
+  ): CityMesh | CityMesh[] {
     const meshes = this.getProceduralHelicopterMeshes();
     return police ? meshes.police : meshes.regular;
   }
-  private getProceduralHelicopterMeshes(): { regular: CityMesh[]; police: CityMesh[] } {
+  private getProceduralHelicopterMeshes(): {
+    regular: CityMesh[];
+    police: CityMesh[];
+  } {
     if (this.proceduralHelicopterMeshes) return this.proceduralHelicopterMeshes;
     const make = (police: boolean): CityMesh[] => {
-      const verts: number[] = [], indices: number[] = [];
-      const box = (x:number,y:number,z:number,w:number,h:number,d:number,c:[number,number,number]) => {
+      const verts: number[] = [],
+        indices: number[] = [];
+      const box = (
+        x: number,
+        y: number,
+        z: number,
+        w: number,
+        h: number,
+        d: number,
+        c: [number, number, number],
+      ) => {
         const vertexOffset = verts.length / 7;
-        this.addBox(verts, indices, x, y, z, w, h, d, c[0], c[1], c[2], 1, vertexOffset);
+        this.addBox(
+          verts,
+          indices,
+          x,
+          y,
+          z,
+          w,
+          h,
+          d,
+          c[0],
+          c[1],
+          c[2],
+          1,
+          vertexOffset,
+        );
       };
-      const wedge = (x:number,y:number,z:number,w:number,h:number,d:number,c:[number,number,number]) => {
+      const wedge = (
+        x: number,
+        y: number,
+        z: number,
+        w: number,
+        h: number,
+        d: number,
+        c: [number, number, number],
+      ) => {
         const base = verts.length / 7;
-        const hw = w / 2, hd = d / 2;
-        const points = [[x-hw,y-h/2,z-hd],[x+hw,y-h/2,z-hd],[x+hw,y+h/2,z-hd],[x-hw,y+h/2,z-hd],[x-hw,y-h/2,z+hd],[x+hw,y-h/2,z+hd],[x+hw,y+h/2,z+hd],[x-hw,y+h/2,z+hd]];
+        const hw = w / 2,
+          hd = d / 2;
+        const points = [
+          [x - hw, y - h / 2, z - hd],
+          [x + hw, y - h / 2, z - hd],
+          [x + hw, y + h / 2, z - hd],
+          [x - hw, y + h / 2, z - hd],
+          [x - hw, y - h / 2, z + hd],
+          [x + hw, y - h / 2, z + hd],
+          [x + hw, y + h / 2, z + hd],
+          [x - hw, y + h / 2, z + hd],
+        ];
         // Keep the procedural primitive in the same 7-float vertex format as
         // addBox: position, color, alpha. Mixing 10-float wedge vertices into
         // the 7-float buffer corrupts every following index and can leave only
         // the rotor visible even though the fuselage was generated.
-        for (const p of points) verts.push(p[0], p[1], p[2], c[0], c[1], c[2], 1);
-        indices.push(base,base+1,base+2,base,base+2,base+3,base+4,base+6,base+5,base+4,base+7,base+6,base,base+4,base+5,base,base+5,base+1,base+3,base+2,base+6,base+3,base+6,base+7,base,base+3,base+7,base,base+7,base+4,base+1,base+5,base+6,base+1,base+6,base+2);
+        for (const p of points)
+          verts.push(p[0], p[1], p[2], c[0], c[1], c[2], 1);
+        indices.push(
+          base,
+          base + 1,
+          base + 2,
+          base,
+          base + 2,
+          base + 3,
+          base + 4,
+          base + 6,
+          base + 5,
+          base + 4,
+          base + 7,
+          base + 6,
+          base,
+          base + 4,
+          base + 5,
+          base,
+          base + 5,
+          base + 1,
+          base + 3,
+          base + 2,
+          base + 6,
+          base + 3,
+          base + 6,
+          base + 7,
+          base,
+          base + 3,
+          base + 7,
+          base,
+          base + 7,
+          base + 4,
+          base + 1,
+          base + 5,
+          base + 6,
+          base + 1,
+          base + 6,
+          base + 2,
+        );
       };
-      const ellipsoid = (cx:number, cy:number, cz:number, rx:number, ry:number, rz:number, c:[number,number,number], segments = 12, rings = 6) => {
+      const ellipsoid = (
+        cx: number,
+        cy: number,
+        cz: number,
+        rx: number,
+        ry: number,
+        rz: number,
+        c: [number, number, number],
+        segments = 12,
+        rings = 6,
+      ) => {
         // Rounded low-poly volumes improve the silhouette without adding a
         // separate asset or a large per-frame rendering cost.
         const base = verts.length / 7;
         for (let ring = 0; ring <= rings; ring++) {
-          const theta = ring / rings * Math.PI;
-          const sinTheta = Math.sin(theta), cosTheta = Math.cos(theta);
+          const theta = (ring / rings) * Math.PI;
+          const sinTheta = Math.sin(theta),
+            cosTheta = Math.cos(theta);
           for (let segment = 0; segment <= segments; segment++) {
-            const phi = segment / segments * Math.PI * 2;
-            verts.push(cx + Math.cos(phi) * sinTheta * rx, cy + cosTheta * ry, cz + Math.sin(phi) * sinTheta * rz, c[0], c[1], c[2], 1);
+            const phi = (segment / segments) * Math.PI * 2;
+            verts.push(
+              cx + Math.cos(phi) * sinTheta * rx,
+              cy + cosTheta * ry,
+              cz + Math.sin(phi) * sinTheta * rz,
+              c[0],
+              c[1],
+              c[2],
+              1,
+            );
           }
         }
         for (let ring = 0; ring < rings; ring++) {
@@ -5207,53 +10565,103 @@ void main() {
           }
         }
       };
-      const tailFrustum = (z0:number, z1:number, y:number, r0:number, r1:number, c:[number,number,number], segments = 10) => {
+      const tailFrustum = (
+        z0: number,
+        z1: number,
+        y: number,
+        r0: number,
+        r1: number,
+        c: [number, number, number],
+        segments = 10,
+      ) => {
         const base = verts.length / 7;
-        for (const [z, radius] of [[z0, r0], [z1, r1]] as [number, number][]) {
+        for (const [z, radius] of [
+          [z0, r0],
+          [z1, r1],
+        ] as [number, number][]) {
           for (let segment = 0; segment < segments; segment++) {
-            const angle = segment / segments * Math.PI * 2;
-            verts.push(Math.cos(angle) * radius, y + Math.sin(angle) * radius, z, c[0], c[1], c[2], 1);
+            const angle = (segment / segments) * Math.PI * 2;
+            verts.push(
+              Math.cos(angle) * radius,
+              y + Math.sin(angle) * radius,
+              z,
+              c[0],
+              c[1],
+              c[2],
+              1,
+            );
           }
         }
         for (let segment = 0; segment < segments; segment++) {
           const next = (segment + 1) % segments;
-          indices.push(base + segment, base + next, base + segments + next, base + segment, base + segments + next, base + segments + segment);
+          indices.push(
+            base + segment,
+            base + next,
+            base + segments + next,
+            base + segment,
+            base + segments + next,
+            base + segments + segment,
+          );
         }
       };
-      const body: [number,number,number] = police ? [0.06,0.10,0.20] : [0.28,0.30,0.32];
-      const trim: [number,number,number] = police ? [0.88,0.90,0.94] : [0.72,0.70,0.64];
-      const glass: [number,number,number] = police ? [0.08,0.16,0.24] : [0.035,0.08,0.11];
-      const darkBody: [number,number,number] = police ? [0.025,0.045,0.10] : [0.11,0.13,0.15];
+      const body: [number, number, number] = police
+        ? [0.06, 0.1, 0.2]
+        : [0.28, 0.3, 0.32];
+      const trim: [number, number, number] = police
+        ? [0.88, 0.9, 0.94]
+        : [0.72, 0.7, 0.64];
+      const glass: [number, number, number] = police
+        ? [0.08, 0.16, 0.24]
+        : [0.035, 0.08, 0.11];
+      const darkBody: [number, number, number] = police
+        ? [0.025, 0.045, 0.1]
+        : [0.11, 0.13, 0.15];
       // Rounded cabin, sloped windshield, and a tapered boom replace the old
       // stack of rectangular blocks. Structural accents provide scale without
       // adding a frame-by-frame rendering cost.
       ellipsoid(0, 1.08, -0.02, 0.72, 0.46, 0.98, body, 12, 6);
-      ellipsoid(0, 1.34, -0.63, 0.56, 0.30, 0.50, glass, 12, 5);
-      tailFrustum(0.62, 3.08, 1.17, 0.28, 0.10, darkBody, 10);
-      ellipsoid(0, 1.53, -0.80, 0.45, 0.10, 0.16, trim, 10, 3);
-      box(-0.49,1.30,-0.62,0.06,0.32,0.48,trim); box(0.49,1.30,-0.62,0.06,0.32,0.48,trim);
+      ellipsoid(0, 1.34, -0.63, 0.56, 0.3, 0.5, glass, 12, 5);
+      tailFrustum(0.62, 3.08, 1.17, 0.28, 0.1, darkBody, 10);
+      ellipsoid(0, 1.53, -0.8, 0.45, 0.1, 0.16, trim, 10, 3);
+      box(-0.49, 1.3, -0.62, 0.06, 0.32, 0.48, trim);
+      box(0.49, 1.3, -0.62, 0.06, 0.32, 0.48, trim);
       // Door seams, tail fin, and horizontal stabilizers make the silhouette
       // read as an aircraft from both the side and the top.
-      box(-0.60,1.00,-0.18,0.055,0.52,1.18,darkBody); box(0.60,1.00,-0.18,0.055,0.52,1.18,darkBody);
-      box(0,1.54,2.62,0.76,0.14,0.42,trim);
-      box(0,1.72,2.86,0.16,1.00,0.18,body);
-      box(-0.18,1.98,2.82,0.10,0.28,0.16,trim); box(0.18,1.98,2.82,0.10,0.28,0.16,trim);
-      box(0,1.57,2.55,0.18,0.12,0.18,darkBody);
+      box(-0.6, 1.0, -0.18, 0.055, 0.52, 1.18, darkBody);
+      box(0.6, 1.0, -0.18, 0.055, 0.52, 1.18, darkBody);
+      box(0, 1.54, 2.62, 0.76, 0.14, 0.42, trim);
+      box(0, 1.72, 2.86, 0.16, 1.0, 0.18, body);
+      box(-0.18, 1.98, 2.82, 0.1, 0.28, 0.16, trim);
+      box(0.18, 1.98, 2.82, 0.1, 0.28, 0.16, trim);
+      box(0, 1.57, 2.55, 0.18, 0.12, 0.18, darkBody);
       // Landing skids sit below the cabin on visible support struts.
-      box(-0.52,0.77,0,0.10,0.10,2.55,trim); box(0.52,0.77,0,0.10,0.10,2.55,trim);
-      box(-0.60,0.49,-0.70,0.10,0.10,0.18,trim); box(0.60,0.49,-0.70,0.10,0.10,0.18,trim);
-      box(-0.60,0.49,0.70,0.10,0.10,0.18,trim); box(0.60,0.49,0.70,0.10,0.10,0.18,trim);
-      box(-0.52,0.78,-0.48,0.08,0.50,0.08,trim); box(0.52,0.78,-0.48,0.08,0.50,0.08,trim);
-      box(-0.52,0.78,0.48,0.08,0.50,0.08,trim); box(0.52,0.78,0.48,0.08,0.50,0.08,trim);
+      box(-0.52, 0.77, 0, 0.1, 0.1, 2.55, trim);
+      box(0.52, 0.77, 0, 0.1, 0.1, 2.55, trim);
+      box(-0.6, 0.49, -0.7, 0.1, 0.1, 0.18, trim);
+      box(0.6, 0.49, -0.7, 0.1, 0.1, 0.18, trim);
+      box(-0.6, 0.49, 0.7, 0.1, 0.1, 0.18, trim);
+      box(0.6, 0.49, 0.7, 0.1, 0.1, 0.18, trim);
+      box(-0.52, 0.78, -0.48, 0.08, 0.5, 0.08, trim);
+      box(0.52, 0.78, -0.48, 0.08, 0.5, 0.08, trim);
+      box(-0.52, 0.78, 0.48, 0.08, 0.5, 0.08, trim);
+      box(0.52, 0.78, 0.48, 0.08, 0.5, 0.08, trim);
       // Rotor mast and police livery.
-      box(0,1.78,0,0.14,0.48,0.14,darkBody);
-      box(0,2.02,0,0.20,0.12,0.20,[0.08,0.08,0.08]);
-      if (police) { box(0,1.48,0.18,0.82,0.10,0.16,[0.95,0.1,0.08]); box(0,1.48,-0.18,0.82,0.10,0.16,[0.08,0.2,0.95]); }
+      box(0, 1.78, 0, 0.14, 0.48, 0.14, darkBody);
+      box(0, 2.02, 0, 0.2, 0.12, 0.2, [0.08, 0.08, 0.08]);
+      if (police) {
+        box(0, 1.48, 0.18, 0.82, 0.1, 0.16, [0.95, 0.1, 0.08]);
+        box(0, 1.48, -0.18, 0.82, 0.1, 0.16, [0.08, 0.2, 0.95]);
+      }
       const mesh = this.createMesh(verts, indices);
-      mesh.carName = police ? 'procedural_police_helicopter' : 'procedural_helicopter';
+      mesh.carName = police
+        ? "procedural_police_helicopter"
+        : "procedural_helicopter";
       return [mesh];
     };
-    this.proceduralHelicopterMeshes = { regular: make(false), police: make(true) };
+    this.proceduralHelicopterMeshes = {
+      regular: make(false),
+      police: make(true),
+    };
     return this.proceduralHelicopterMeshes;
   }
   getPlaneMesh(seed: number | string = 0): CityMesh | CityMesh[] {
@@ -5263,47 +10671,279 @@ void main() {
     }
     return this.getNPCCarMesh([0.5, 0.5, 0.5], seed);
   }
-  getNPCCarMesh(color: [number, number, number], seed: number | string = 0): CityMesh | CityMesh[] {
-    if (this.busMesh && (hashSeed(seed) % 10) < 1) {
+  getNPCCarMesh(
+    color: [number, number, number],
+    seed: number | string = 0,
+  ): CityMesh | CityMesh[] {
+    if (this.busMesh && hashSeed(seed) % 10 < 1) {
       return this.busMesh;
     }
     if (this.carMeshes.length > 0) {
       if (this.carMeshes.length === 1) return this.carMeshes[0];
       return this.carMeshes[hashSeed(seed) % this.carMeshes.length];
     }
-    const key = `car_${color.join(',')}`;
+    const key = `car_${color.join(",")}`;
     if (this.meshCache.has(key)) return this.meshCache.get(key)!;
     const verts: number[] = [];
     const indices: number[] = [];
-    this.addBox(verts, indices, 0, 0.4, 0, 2.0, 0.8, 4.0, color[0], color[1], color[2], 1.0, 0);
-    this.addBox(verts, indices, 0, 1.0, -0.2, 1.6, 0.6, 2.0, color[0] * 0.6, color[1] * 0.6, color[2] * 0.6, 1.0, 24);
-    this.addBox(verts, indices, -1.2, 0.2, -1.5, 0.3, 0.4, 0.3, 0.1, 0.1, 0.1, 1.0, 48);
-    this.addBox(verts, indices, 1.2, 0.2, -1.5, 0.3, 0.4, 0.3, 0.1, 0.1, 0.1, 1.0, 72);
-    this.addBox(verts, indices, -1.2, 0.2, 1.5, 0.3, 0.4, 0.3, 0.1, 0.1, 0.1, 1.0, 96);
-    this.addBox(verts, indices, 1.2, 0.2, 1.5, 0.3, 0.4, 0.3, 0.1, 0.1, 0.1, 1.0, 120);
-    this.addBox(verts, indices, -0.5, 0.3, -2.0, 0.3, 0.2, 0.1, 1.0, 0.9, 0.4, 1.0, 144);
-    this.addBox(verts, indices, 0.5, 0.3, -2.0, 0.3, 0.2, 0.1, 1.0, 0.9, 0.4, 1.0, 168);
-    this.addBox(verts, indices, -0.5, 0.3, 2.0, 0.3, 0.2, 0.1, 0.8, 0.0, 0.0, 1.0, 192);
-    this.addBox(verts, indices, 0.5, 0.3, 2.0, 0.3, 0.2, 0.1, 0.8, 0.0, 0.0, 1.0, 216);
+    this.addBox(
+      verts,
+      indices,
+      0,
+      0.4,
+      0,
+      2.0,
+      0.8,
+      4.0,
+      color[0],
+      color[1],
+      color[2],
+      1.0,
+      0,
+    );
+    this.addBox(
+      verts,
+      indices,
+      0,
+      1.0,
+      -0.2,
+      1.6,
+      0.6,
+      2.0,
+      color[0] * 0.6,
+      color[1] * 0.6,
+      color[2] * 0.6,
+      1.0,
+      24,
+    );
+    this.addBox(
+      verts,
+      indices,
+      -1.2,
+      0.2,
+      -1.5,
+      0.3,
+      0.4,
+      0.3,
+      0.1,
+      0.1,
+      0.1,
+      1.0,
+      48,
+    );
+    this.addBox(
+      verts,
+      indices,
+      1.2,
+      0.2,
+      -1.5,
+      0.3,
+      0.4,
+      0.3,
+      0.1,
+      0.1,
+      0.1,
+      1.0,
+      72,
+    );
+    this.addBox(
+      verts,
+      indices,
+      -1.2,
+      0.2,
+      1.5,
+      0.3,
+      0.4,
+      0.3,
+      0.1,
+      0.1,
+      0.1,
+      1.0,
+      96,
+    );
+    this.addBox(
+      verts,
+      indices,
+      1.2,
+      0.2,
+      1.5,
+      0.3,
+      0.4,
+      0.3,
+      0.1,
+      0.1,
+      0.1,
+      1.0,
+      120,
+    );
+    this.addBox(
+      verts,
+      indices,
+      -0.5,
+      0.3,
+      -2.0,
+      0.3,
+      0.2,
+      0.1,
+      1.0,
+      0.9,
+      0.4,
+      1.0,
+      144,
+    );
+    this.addBox(
+      verts,
+      indices,
+      0.5,
+      0.3,
+      -2.0,
+      0.3,
+      0.2,
+      0.1,
+      1.0,
+      0.9,
+      0.4,
+      1.0,
+      168,
+    );
+    this.addBox(
+      verts,
+      indices,
+      -0.5,
+      0.3,
+      2.0,
+      0.3,
+      0.2,
+      0.1,
+      0.8,
+      0.0,
+      0.0,
+      1.0,
+      192,
+    );
+    this.addBox(
+      verts,
+      indices,
+      0.5,
+      0.3,
+      2.0,
+      0.3,
+      0.2,
+      0.1,
+      0.8,
+      0.0,
+      0.0,
+      1.0,
+      216,
+    );
     const mesh = this.createMesh(verts, indices);
     this.meshCache.set(key, mesh);
     return mesh;
   }
-  getMotorcycleMesh(color: [number, number, number], seed: number | string = 0): CityMesh | CityMesh[] {
+  getMotorcycleMesh(
+    color: [number, number, number],
+    seed: number | string = 0,
+  ): CityMesh | CityMesh[] {
     if (this.motorcycleMeshes.length > 0) {
       if (this.motorcycleMeshes.length === 1) return this.motorcycleMeshes[0];
-      return this.motorcycleMeshes[hashSeed(seed) % this.motorcycleMeshes.length];
+      return this.motorcycleMeshes[
+        hashSeed(seed) % this.motorcycleMeshes.length
+      ];
     }
-    const key = `moto_${color.join(',')}`;
+    const key = `moto_${color.join(",")}`;
     if (this.meshCache.has(key)) return this.meshCache.get(key)!;
     const verts: number[] = [];
     const indices: number[] = [];
-    this.addBox(verts, indices, 0, 0.3, 0, 0.8, 0.5, 2.4, color[0], color[1], color[2], 1.0, 0);
-    this.addBox(verts, indices, 0, 0.6, -0.2, 0.6, 0.3, 0.8, color[0] * 0.7, color[1] * 0.7, color[2] * 0.7, 1.0, 24);
-    this.addBox(verts, indices, 0, 0.8, -1.0, 0.7, 0.1, 0.1, 0.2, 0.2, 0.2, 1.0, 48);
-    this.addBox(verts, indices, 0, 0.2, -1.0, 0.15, 0.4, 0.15, 0.05, 0.05, 0.05, 1.0, 72);
-    this.addBox(verts, indices, 0, 0.2, 1.0, 0.15, 0.4, 0.15, 0.05, 0.05, 0.05, 1.0, 96);
-    this.addBox(verts, indices, 0, 0.3, -1.3, 0.2, 0.15, 0.05, 1.0, 0.9, 0.4, 1.0, 120);
+    this.addBox(
+      verts,
+      indices,
+      0,
+      0.3,
+      0,
+      0.8,
+      0.5,
+      2.4,
+      color[0],
+      color[1],
+      color[2],
+      1.0,
+      0,
+    );
+    this.addBox(
+      verts,
+      indices,
+      0,
+      0.6,
+      -0.2,
+      0.6,
+      0.3,
+      0.8,
+      color[0] * 0.7,
+      color[1] * 0.7,
+      color[2] * 0.7,
+      1.0,
+      24,
+    );
+    this.addBox(
+      verts,
+      indices,
+      0,
+      0.8,
+      -1.0,
+      0.7,
+      0.1,
+      0.1,
+      0.2,
+      0.2,
+      0.2,
+      1.0,
+      48,
+    );
+    this.addBox(
+      verts,
+      indices,
+      0,
+      0.2,
+      -1.0,
+      0.15,
+      0.4,
+      0.15,
+      0.05,
+      0.05,
+      0.05,
+      1.0,
+      72,
+    );
+    this.addBox(
+      verts,
+      indices,
+      0,
+      0.2,
+      1.0,
+      0.15,
+      0.4,
+      0.15,
+      0.05,
+      0.05,
+      0.05,
+      1.0,
+      96,
+    );
+    this.addBox(
+      verts,
+      indices,
+      0,
+      0.3,
+      -1.3,
+      0.2,
+      0.15,
+      0.05,
+      1.0,
+      0.9,
+      0.4,
+      1.0,
+      120,
+    );
     const mesh = this.createMesh(verts, indices);
     this.meshCache.set(key, mesh);
     return mesh;
@@ -5316,17 +10956,27 @@ void main() {
     const verts: number[] = [];
     const indices: number[] = [];
     let offset = 0;
-    const box = (x: number, y: number, z: number, w: number, h: number, d: number, r: number, g: number, b: number) => {
+    const box = (
+      x: number,
+      y: number,
+      z: number,
+      w: number,
+      h: number,
+      d: number,
+      r: number,
+      g: number,
+      b: number,
+    ) => {
       this.addBox(verts, indices, x, y, z, w, h, d, r, g, b, 1, offset);
       offset += 24;
     };
 
     // A proper open-front workshop: the side walls, rear wall, roof, fascia,
     // lights and door jambs remain visible while the car bay stays walkable.
-    box(0, 0.05, 0, 25, 0.10, 17, 0.16, 0.17, 0.19);
+    box(0, 0.05, 0, 25, 0.1, 17, 0.16, 0.17, 0.19);
     box(-12, 3.55, 0, 1.0, 7.0, 17, 0.24, 0.25, 0.27);
     box(12, 3.55, 0, 1.0, 7.0, 17, 0.24, 0.25, 0.27);
-    box(0, 3.55, -8, 25, 7.0, 1.0, 0.20, 0.21, 0.23);
+    box(0, 3.55, -8, 25, 7.0, 1.0, 0.2, 0.21, 0.23);
     box(0, 7.25, 0, 26, 0.55, 18, 0.11, 0.12, 0.14);
     box(0, 7.62, 0, 26.5, 0.16, 18.5, 0.82, 0.12, 0.04);
     // Front pillars and lintel frame the roll-up door without sealing the bay.
@@ -5339,29 +10989,59 @@ void main() {
       box(x, 4.6, -2.8, 0.03, 1.8, 4.4, 0.06, 0.18, 0.24);
       box(x, 4.6, 2.4, 0.03, 1.8, 3.2, 0.06, 0.18, 0.24);
     }
-    box(0, 6.85, 8.55, 8.5, 0.30, 0.08, 0.95, 0.72, 0.08);
-    box(-4.2, 6.85, 8.62, 0.28, 0.38, 0.10, 0.10, 0.10, 0.11);
-    box(4.2, 6.85, 8.62, 0.28, 0.38, 0.10, 0.10, 0.10, 0.11);
+    box(0, 6.85, 8.55, 8.5, 0.3, 0.08, 0.95, 0.72, 0.08);
+    box(-4.2, 6.85, 8.62, 0.28, 0.38, 0.1, 0.1, 0.1, 0.11);
+    box(4.2, 6.85, 8.62, 0.28, 0.38, 0.1, 0.1, 0.1, 0.11);
     const building = this.createMesh(verts, indices);
-    building.carName = 'procedural_garage_building';
-    building.minX = -13; building.maxX = 13; building.minZ = -9; building.maxZ = 9;
+    building.carName = "procedural_garage_building";
+    building.minX = -13;
+    building.maxX = 13;
+    building.minZ = -9;
+    building.maxZ = 9;
 
     const doorVerts: number[] = [];
     const doorIndices: number[] = [];
     let doorOffset = 0;
-    const doorBox = (x: number, y: number, z: number, w: number, h: number, d: number, r: number, g: number, b: number) => {
-      this.addBox(doorVerts, doorIndices, x, y, z, w, h, d, r, g, b, 1, doorOffset);
+    const doorBox = (
+      x: number,
+      y: number,
+      z: number,
+      w: number,
+      h: number,
+      d: number,
+      r: number,
+      g: number,
+      b: number,
+    ) => {
+      this.addBox(
+        doorVerts,
+        doorIndices,
+        x,
+        y,
+        z,
+        w,
+        h,
+        d,
+        r,
+        g,
+        b,
+        1,
+        doorOffset,
+      );
       doorOffset += 24;
     };
     // The door mesh is authored in the closed position. Rendering translates it
     // upward by garageDoorOpenness, so it can open smoothly without rebuilding GL buffers.
-    doorBox(0, 2.75, 8.58, 10.8, 5.5, 0.22, 0.20, 0.22, 0.24);
+    doorBox(0, 2.75, 8.58, 10.8, 5.5, 0.22, 0.2, 0.22, 0.24);
     for (let y = 0.55; y <= 5.0; y += 0.75) {
       doorBox(0, y, 8.73, 10.45, 0.045, 0.035, 0.44, 0.46, 0.48);
     }
     const door = this.createMesh(doorVerts, doorIndices);
-    door.carName = 'procedural_animated_garage_door';
-    door.minX = -5.4; door.maxX = 5.4; door.minZ = 8.45; door.maxZ = 8.8;
+    door.carName = "procedural_animated_garage_door";
+    door.minX = -5.4;
+    door.maxX = 5.4;
+    door.minZ = 8.45;
+    door.maxZ = 8.8;
     this.garageMesh = [building];
     this.garageDoorMesh = [door];
     return { building: this.garageMesh, door: this.garageDoorMesh };
@@ -5369,50 +11049,280 @@ void main() {
 
   getTaxiMesh(): CityMesh | CityMesh[] {
     if (this.taxiMesh) return this.taxiMesh;
-    const key = 'taxi_fallback';
+    const key = "taxi_fallback";
     if (this.meshCache.has(key)) return this.meshCache.get(key)!;
     const verts: number[] = [];
     const indices: number[] = [];
-    this.addBox(verts, indices, 0, 0.4, 0, 2.0, 0.8, 4.0, 1.0, 0.85, 0.1, 1.0, 0);
-    this.addBox(verts, indices, 0, 1.0, -0.2, 1.6, 0.6, 2.0, 0.05, 0.05, 0.05, 1.0, 24);
-    this.addBox(verts, indices, -1.2, 0.2, -1.5, 0.3, 0.4, 0.3, 0.05, 0.05, 0.05, 1.0, 48);
-    this.addBox(verts, indices, 1.2, 0.2, -1.5, 0.3, 0.4, 0.3, 0.05, 0.05, 0.05, 1.0, 72);
-    this.addBox(verts, indices, -1.2, 0.2, 1.5, 0.3, 0.4, 0.3, 0.05, 0.05, 0.05, 1.0, 96);
-    this.addBox(verts, indices, 1.2, 0.2, 1.5, 0.3, 0.4, 0.3, 0.05, 0.05, 0.05, 1.0, 120);
-    this.addBox(verts, indices, -0.5, 0.3, -2.0, 0.3, 0.2, 0.1, 1.0, 0.9, 0.4, 1.0, 144);
-    this.addBox(verts, indices, 0.5, 0.3, -2.0, 0.3, 0.2, 0.1, 1.0, 0.9, 0.4, 1.0, 168);
-    this.addBox(verts, indices, -0.5, 0.3, 2.0, 0.3, 0.2, 0.1, 0.8, 0.0, 0.0, 1.0, 192);
-    this.addBox(verts, indices, 0.5, 0.3, 2.0, 0.3, 0.2, 0.1, 0.8, 0.0, 0.0, 1.0, 216);
-    this.addBox(verts, indices, 0, 1.4, 0, 0.8, 0.2, 0.4, 0.05, 0.05, 0.05, 1.0, 240);
+    this.addBox(
+      verts,
+      indices,
+      0,
+      0.4,
+      0,
+      2.0,
+      0.8,
+      4.0,
+      1.0,
+      0.85,
+      0.1,
+      1.0,
+      0,
+    );
+    this.addBox(
+      verts,
+      indices,
+      0,
+      1.0,
+      -0.2,
+      1.6,
+      0.6,
+      2.0,
+      0.05,
+      0.05,
+      0.05,
+      1.0,
+      24,
+    );
+    this.addBox(
+      verts,
+      indices,
+      -1.2,
+      0.2,
+      -1.5,
+      0.3,
+      0.4,
+      0.3,
+      0.05,
+      0.05,
+      0.05,
+      1.0,
+      48,
+    );
+    this.addBox(
+      verts,
+      indices,
+      1.2,
+      0.2,
+      -1.5,
+      0.3,
+      0.4,
+      0.3,
+      0.05,
+      0.05,
+      0.05,
+      1.0,
+      72,
+    );
+    this.addBox(
+      verts,
+      indices,
+      -1.2,
+      0.2,
+      1.5,
+      0.3,
+      0.4,
+      0.3,
+      0.05,
+      0.05,
+      0.05,
+      1.0,
+      96,
+    );
+    this.addBox(
+      verts,
+      indices,
+      1.2,
+      0.2,
+      1.5,
+      0.3,
+      0.4,
+      0.3,
+      0.05,
+      0.05,
+      0.05,
+      1.0,
+      120,
+    );
+    this.addBox(
+      verts,
+      indices,
+      -0.5,
+      0.3,
+      -2.0,
+      0.3,
+      0.2,
+      0.1,
+      1.0,
+      0.9,
+      0.4,
+      1.0,
+      144,
+    );
+    this.addBox(
+      verts,
+      indices,
+      0.5,
+      0.3,
+      -2.0,
+      0.3,
+      0.2,
+      0.1,
+      1.0,
+      0.9,
+      0.4,
+      1.0,
+      168,
+    );
+    this.addBox(
+      verts,
+      indices,
+      -0.5,
+      0.3,
+      2.0,
+      0.3,
+      0.2,
+      0.1,
+      0.8,
+      0.0,
+      0.0,
+      1.0,
+      192,
+    );
+    this.addBox(
+      verts,
+      indices,
+      0.5,
+      0.3,
+      2.0,
+      0.3,
+      0.2,
+      0.1,
+      0.8,
+      0.0,
+      0.0,
+      1.0,
+      216,
+    );
+    this.addBox(
+      verts,
+      indices,
+      0,
+      1.4,
+      0,
+      0.8,
+      0.2,
+      0.4,
+      0.05,
+      0.05,
+      0.05,
+      1.0,
+      240,
+    );
     const fm = this.createMesh(verts, indices);
     this.meshCache.set(key, fm);
     return fm;
   }
   getHookerMesh(): CityMesh | CityMesh[] {
     if (this.hookerMesh) return this.hookerMesh;
-    const key = 'hooker_fallback';
+    const key = "hooker_fallback";
     if (this.meshCache.has(key)) return this.meshCache.get(key)!;
     const verts: number[] = [];
     const indices: number[] = [];
-    this.addBox(verts, indices, 0, 0.9, 0, 0.6, 1.2, 0.4, 0.95, 0.45, 0.65, 1.0, 0);
-    this.addBox(verts, indices, 0, 1.7, 0, 0.4, 0.4, 0.4, 0.95, 0.78, 0.65, 1.0, 24);
-    this.addBox(verts, indices, 0, 1.9, 0, 0.45, 0.2, 0.45, 0.65, 0.1, 0.15, 1.0, 48);
-    this.addBox(verts, indices, -0.15, 0.25, 0, 0.18, 0.6, 0.3, 0.4, 0.15, 0.3, 1.0, 0);
-    this.addBox(verts, indices, 0.15, 0.25, 0, 0.18, 0.6, 0.3, 0.4, 0.15, 0.3, 1.0, 0);
+    this.addBox(
+      verts,
+      indices,
+      0,
+      0.9,
+      0,
+      0.6,
+      1.2,
+      0.4,
+      0.95,
+      0.45,
+      0.65,
+      1.0,
+      0,
+    );
+    this.addBox(
+      verts,
+      indices,
+      0,
+      1.7,
+      0,
+      0.4,
+      0.4,
+      0.4,
+      0.95,
+      0.78,
+      0.65,
+      1.0,
+      24,
+    );
+    this.addBox(
+      verts,
+      indices,
+      0,
+      1.9,
+      0,
+      0.45,
+      0.2,
+      0.45,
+      0.65,
+      0.1,
+      0.15,
+      1.0,
+      48,
+    );
+    this.addBox(
+      verts,
+      indices,
+      -0.15,
+      0.25,
+      0,
+      0.18,
+      0.6,
+      0.3,
+      0.4,
+      0.15,
+      0.3,
+      1.0,
+      0,
+    );
+    this.addBox(
+      verts,
+      indices,
+      0.15,
+      0.25,
+      0,
+      0.18,
+      0.6,
+      0.3,
+      0.4,
+      0.15,
+      0.3,
+      1.0,
+      0,
+    );
     const fm = this.createMesh(verts, indices);
     this.meshCache.set(key, fm);
     return fm;
   }
   getHailMarkerMesh(): CityMesh {
-    if (this.meshCache.has('hail_marker')) return this.meshCache.get('hail_marker')!;
+    if (this.meshCache.has("hail_marker"))
+      return this.meshCache.get("hail_marker")!;
     const verts: number[] = [];
     const indices: number[] = [];
     const apex = [0, -1.0, 0];
     const r = 0.6;
     const topY = 0.5;
-    const base = [[
-      [-r, topY, -r], [r, topY, -r], [r, topY, r], [-r, topY, r],
-    ]];
+    const base = [
+      [
+        [-r, topY, -r],
+        [r, topY, -r],
+        [r, topY, r],
+        [-r, topY, r],
+      ],
+    ];
     const pushTri = (a: number[], b: number[], c: number[], n: number[]) => {
       const baseIdx = verts.length / 10;
       for (const p of [a, b, c]) {
@@ -5420,7 +11330,10 @@ void main() {
       }
       indices.push(baseIdx, baseIdx + 1, baseIdx + 2);
     };
-    const b0 = base[0][0], b1 = base[0][1], b2 = base[0][2], b3 = base[0][3];
+    const b0 = base[0][0],
+      b1 = base[0][1],
+      b2 = base[0][2],
+      b3 = base[0][3];
     pushTri(b0, b1, apex, [-0.4, 0.5, -0.4]);
     pushTri(b1, b2, apex, [0.4, 0.5, -0.4]);
     pushTri(b2, b3, apex, [0.4, 0.5, 0.4]);
@@ -5428,44 +11341,65 @@ void main() {
     pushTri(b0, b3, b2, [0, 1, 0]);
     pushTri(b0, b2, b1, [0, 1, 0]);
     const mesh = this.createMesh(verts, indices);
-    this.meshCache.set('hail_marker', mesh);
+    this.meshCache.set("hail_marker", mesh);
     return mesh;
   }
   getDestinationMarkerMesh(): CityMesh {
-    if (this.meshCache.has('dest_marker')) return this.meshCache.get('dest_marker')!;
+    if (this.meshCache.has("dest_marker"))
+      return this.meshCache.get("dest_marker")!;
     const verts: number[] = [];
     const indices: number[] = [];
     const SEG = 32;
-    const rOut = 4.0, rIn = 3.0;
+    const rOut = 4.0,
+      rIn = 3.0;
     for (let i = 0; i < SEG; i++) {
       const a0 = (i / SEG) * Math.PI * 2;
       const a1 = ((i + 1) / SEG) * Math.PI * 2;
       const baseIdx = verts.length / 10;
-      const pushV = (a: number, r: number) => verts.push(
-        Math.cos(a) * r, 0, Math.sin(a) * r,
-        0, 1, 0,
-        0.1, 1.0, 0.2, 1.0
+      const pushV = (a: number, r: number) =>
+        verts.push(
+          Math.cos(a) * r,
+          0,
+          Math.sin(a) * r,
+          0,
+          1,
+          0,
+          0.1,
+          1.0,
+          0.2,
+          1.0,
+        );
+      pushV(a0, rIn);
+      pushV(a0, rOut);
+      pushV(a1, rOut);
+      pushV(a1, rIn);
+      indices.push(
+        baseIdx,
+        baseIdx + 1,
+        baseIdx + 2,
+        baseIdx,
+        baseIdx + 2,
+        baseIdx + 3,
       );
-      pushV(a0, rIn); pushV(a0, rOut); pushV(a1, rOut); pushV(a1, rIn);
-      indices.push(baseIdx, baseIdx + 1, baseIdx + 2, baseIdx, baseIdx + 2, baseIdx + 3);
     }
     const mesh = this.createMesh(verts, indices);
-    this.meshCache.set('dest_marker', mesh);
+    this.meshCache.set("dest_marker", mesh);
     return mesh;
   }
   getPickupMesh(): CityMesh {
-    if (this.meshCache.has('pickup')) return this.meshCache.get('pickup')!;
+    if (this.meshCache.has("pickup")) return this.meshCache.get("pickup")!;
     const verts: number[] = [];
     const indices: number[] = [];
     this.addBox(verts, indices, 0, -0.15, 0.15, 0.3, 0.3, 0.3, 1, 1, 1, 1, 0);
     this.addBox(verts, indices, 0, 0, 0, 0.3, 0.3, 0.3, 1, 1, 1, 1, 0);
     this.addBox(verts, indices, -0.1, 0.15, 0, 0.1, 0.1, 0.2, 1, 1, 1, 1, 0);
     const mesh = this.createMesh(verts, indices);
-    this.meshCache.set('pickup', mesh);
+    this.meshCache.set("pickup", mesh);
     return mesh;
   }
   getDestinationBeamMesh(): CityMesh {
-    if (this.meshCache.has('dest_beam')) return this.meshCache.get('dest_beam')!;
+    if (this.meshCache.has("dest_beam"))
+      return this.meshCache.get("dest_beam")!;
     const verts: number[] = [];
     const indices: number[] = [];
     const SEG = 8;
@@ -5475,19 +11409,43 @@ void main() {
       const a0 = (i / SEG) * Math.PI * 2;
       const a1 = ((i + 1) / SEG) * Math.PI * 2;
       const baseIdx = verts.length / 10;
-      const pushV = (a: number, y: number) => verts.push(
-        Math.cos(a) * r, y, Math.sin(a) * r,
-        Math.cos(a), 0, Math.sin(a),
-        0.2, 1.0, 0.3, 0.35
+      const pushV = (a: number, y: number) =>
+        verts.push(
+          Math.cos(a) * r,
+          y,
+          Math.sin(a) * r,
+          Math.cos(a),
+          0,
+          Math.sin(a),
+          0.2,
+          1.0,
+          0.3,
+          0.35,
+        );
+      pushV(a0, 0);
+      pushV(a0, h);
+      pushV(a1, h);
+      pushV(a1, 0);
+      indices.push(
+        baseIdx,
+        baseIdx + 1,
+        baseIdx + 2,
+        baseIdx,
+        baseIdx + 2,
+        baseIdx + 3,
       );
-      pushV(a0, 0); pushV(a0, h); pushV(a1, h); pushV(a1, 0);
-      indices.push(baseIdx, baseIdx + 1, baseIdx + 2, baseIdx, baseIdx + 2, baseIdx + 3);
     }
     const mesh = this.createMesh(verts, indices);
-    this.meshCache.set('dest_beam', mesh);
+    this.meshCache.set("dest_beam", mesh);
     return mesh;
   }
-  projectToScreen(wx: number, wy: number, wz: number, canvasW: number, canvasH: number): { x: number; y: number } | null {
+  projectToScreen(
+    wx: number,
+    wy: number,
+    wz: number,
+    canvasW: number,
+    canvasH: number,
+  ): { x: number; y: number } | null {
     const vp = mat4.create();
     mat4.multiply(vp, this.projMatrix, this.viewMatrix);
     const x = vp[0] * wx + vp[4] * wy + vp[8] * wz + vp[12];
@@ -5495,7 +11453,7 @@ void main() {
     const z = vp[2] * wx + vp[6] * wy + vp[10] * wz + vp[14];
     const w = vp[3] * wx + vp[7] * wy + vp[11] * wz + vp[15];
     if (w <= 0) return null;
-    return { x: (x / w + 1) / 2 * canvasW, y: (1 - y / w) / 2 * canvasH };
+    return { x: ((x / w + 1) / 2) * canvasW, y: ((1 - y / w) / 2) * canvasH };
   }
   clearCache() {
     this.chunkCache.clear();
@@ -5503,17 +11461,21 @@ void main() {
   }
   private drawMesh(
     mesh: CityMesh | CityMesh[],
-    x: number, y: number, z: number,
+    x: number,
+    y: number,
+    z: number,
     yaw: number,
     scale: [number, number, number] = [1, 1, 1],
     color: [number, number, number, number] = [1, 1, 1, 1],
     isShadowPass: boolean = false,
     pitch: number = 0,
-    roll: number = 0
+    roll: number = 0,
   ) {
-    const meshes = Array.isArray(mesh) ? mesh : [mesh];  
+    const meshes = Array.isArray(mesh) ? mesh : [mesh];
     mat4.identity(this.modelMatrix);
-    this._scratchTranslate[0] = x; this._scratchTranslate[1] = y; this._scratchTranslate[2] = z;
+    this._scratchTranslate[0] = x;
+    this._scratchTranslate[1] = y;
+    this._scratchTranslate[2] = z;
     mat4.translate(this.modelMatrix, this.modelMatrix, this._scratchTranslate);
     if (roll) mat4.rotateZ(this.modelMatrix, this.modelMatrix, roll);
     if (pitch) mat4.rotateX(this.modelMatrix, this.modelMatrix, pitch);
@@ -5536,7 +11498,7 @@ void main() {
     if (needsFlip) {
       mat4.rotateX(this.modelMatrix, this.modelMatrix, Math.PI);
       mat4.rotateY(this.modelMatrix, this.modelMatrix, Math.PI);
-      mat4.translate(this.modelMatrix, this.modelMatrix, [0, -2, 0]); 
+      mat4.translate(this.modelMatrix, this.modelMatrix, [0, -2, 0]);
     }
     if (isMotorcycle) mat4.rotateY(this.modelMatrix, this.modelMatrix, Math.PI);
     if (maxRenderScale !== 1) {
@@ -5556,9 +11518,13 @@ void main() {
     } else {
       this.gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
       this.gl.uniform4f(this.colorLoc, color[0], color[1], color[2], color[3]);
-      if (this.normalMatrixLoc) { 
+      if (this.normalMatrixLoc) {
         this.computeNormalMatrix(this._scratchNormalMat, this.modelMatrix);
-        this.gl.uniformMatrix3fv(this.normalMatrixLoc, false, this._scratchNormalMat);
+        this.gl.uniformMatrix3fv(
+          this.normalMatrixLoc,
+          false,
+          this._scratchNormalMat,
+        );
       }
     }
     for (let i = 0; i < meshes.length; i++) {
@@ -5574,7 +11540,12 @@ void main() {
         }
       }
       this.gl.bindVertexArray(m.vao);
-      this.gl.drawElements(this.gl.TRIANGLES, m.indexCount, m.indexType || this.gl.UNSIGNED_SHORT, 0);
+      this.gl.drawElements(
+        this.gl.TRIANGLES,
+        m.indexCount,
+        m.indexType || this.gl.UNSIGNED_SHORT,
+        0,
+      );
     }
   }
   // A chunky pizza-moped wheel: a flat disc (rim ring + spokes + hub) in the YZ plane so it
@@ -5586,14 +11557,44 @@ void main() {
     const R = 0.44;
     const T = 0.1;
     const N = 14;
-    const push = (x: number, y: number, z: number, nx: number, ny: number, nz: number, r: number, g: number, b: number) => {
+    const push = (
+      x: number,
+      y: number,
+      z: number,
+      nx: number,
+      ny: number,
+      nz: number,
+      r: number,
+      g: number,
+      b: number,
+    ) => {
       verts.push(x, y, z, nx, ny, nz, r, g, b, 1);
     };
     // rim ring (tire side walls, closed cylinder so it reads from both sides)
     for (let i = 0; i <= N; i++) {
       const a = (i / N) * Math.PI * 2;
-      push(-T / 2, Math.cos(a) * R, Math.sin(a) * R, Math.cos(a), 0, Math.sin(a), 0.05, 0.05, 0.06);
-      push(T / 2, Math.cos(a) * R, Math.sin(a) * R, Math.cos(a), 0, Math.sin(a), 0.05, 0.05, 0.06);
+      push(
+        -T / 2,
+        Math.cos(a) * R,
+        Math.sin(a) * R,
+        Math.cos(a),
+        0,
+        Math.sin(a),
+        0.05,
+        0.05,
+        0.06,
+      );
+      push(
+        T / 2,
+        Math.cos(a) * R,
+        Math.sin(a) * R,
+        Math.cos(a),
+        0,
+        Math.sin(a),
+        0.05,
+        0.05,
+        0.06,
+      );
     }
     for (let i = 0; i < N; i++) {
       const a = i * 2;
@@ -5604,7 +11605,7 @@ void main() {
     }
     // Spokes radiating from the hub so rotation is clearly visible, both faces.
     const addFace = (sign: number) => {
-      const x = sign * T / 2;
+      const x = (sign * T) / 2;
       const spokeCount = 5;
       for (let s = 0; s < spokeCount; s++) {
         const a0 = (s / spokeCount) * Math.PI * 2;
@@ -5612,10 +11613,50 @@ void main() {
         const inner = 0.1;
         const outer = R - 0.02;
         const v = verts.length / 10;
-        push(x, Math.cos(a0) * inner, Math.sin(a0) * inner, sign, 0, 0, 0.5, 0.45, 0.4);
-        push(x, Math.cos(a1) * inner, Math.sin(a1) * inner, sign, 0, 0, 0.5, 0.45, 0.4);
-        push(x, Math.cos(a1) * outer, Math.sin(a1) * outer, sign, 0, 0, 0.5, 0.45, 0.4);
-        push(x, Math.cos(a0) * outer, Math.sin(a0) * outer, sign, 0, 0, 0.5, 0.45, 0.4);
+        push(
+          x,
+          Math.cos(a0) * inner,
+          Math.sin(a0) * inner,
+          sign,
+          0,
+          0,
+          0.5,
+          0.45,
+          0.4,
+        );
+        push(
+          x,
+          Math.cos(a1) * inner,
+          Math.sin(a1) * inner,
+          sign,
+          0,
+          0,
+          0.5,
+          0.45,
+          0.4,
+        );
+        push(
+          x,
+          Math.cos(a1) * outer,
+          Math.sin(a1) * outer,
+          sign,
+          0,
+          0,
+          0.5,
+          0.45,
+          0.4,
+        );
+        push(
+          x,
+          Math.cos(a0) * outer,
+          Math.sin(a0) * outer,
+          sign,
+          0,
+          0,
+          0.5,
+          0.45,
+          0.4,
+        );
         if (sign > 0) indices.push(v, v + 1, v + 2, v, v + 2, v + 3);
         else indices.push(v, v + 3, v + 2, v, v + 2, v + 1);
       }
@@ -5624,7 +11665,17 @@ void main() {
       push(x, 0, 0, sign, 0, 0, 0.3, 0.28, 0.25);
       for (let i = 0; i <= N; i++) {
         const a = (i / N) * Math.PI * 2;
-        push(x, Math.cos(a) * 0.14, Math.sin(a) * 0.14, sign, 0, 0, 0.3, 0.28, 0.25);
+        push(
+          x,
+          Math.cos(a) * 0.14,
+          Math.sin(a) * 0.14,
+          sign,
+          0,
+          0,
+          0.3,
+          0.28,
+          0.25,
+        );
       }
       for (let i = 0; i < N; i++) {
         if (sign > 0) indices.push(base, base + 1 + i, base + 2 + i);
@@ -5637,20 +11688,41 @@ void main() {
     this._mopedWheelMesh = mesh;
     return mesh;
   }
-  private groundedModelY(mesh: CityMesh | CityMesh[] | null, terrainY: number, scale = 1): number {
-    const list = Array.isArray(mesh) ? mesh : (mesh ? [mesh] : []);
+  private groundedModelY(
+    mesh: CityMesh | CityMesh[] | null,
+    terrainY: number,
+    scale = 1,
+  ): number {
+    const list = Array.isArray(mesh) ? mesh : mesh ? [mesh] : [];
     let minY = 0;
-    for (const part of list) if (Number.isFinite((part as any).minY)) minY = Math.min(minY, (part as any).minY);
+    for (const part of list)
+      if (Number.isFinite((part as any).minY))
+        minY = Math.min(minY, (part as any).minY);
     return terrainY - minY * scale + 0.015;
   }
 
   render(
-    camX: number, camY: number, camZ: number, camYaw: number, camPitch: number, aspect: number,
-    targetX: number, targetY: number, targetZ: number, carYaw: number,
+    camX: number,
+    camY: number,
+    camZ: number,
+    camYaw: number,
+    camPitch: number,
+    aspect: number,
+    targetX: number,
+    targetY: number,
+    targetZ: number,
+    carYaw: number,
 
-    serverNPCs: any[], otherPlayers: any[], serverPedestrians: any[], parkedCars: any[],
+    serverNPCs: any[],
+    otherPlayers: any[],
+    serverPedestrians: any[],
+    parkedCars: any[],
     dt: number = 0,
-    tracers: any[], muzzleFlashes: any[], rockets: any[], explosions: any[], bloodSplats: any[],
+    tracers: any[],
+    muzzleFlashes: any[],
+    rockets: any[],
+    explosions: any[],
+    bloodSplats: any[],
     bloodPools: any[],
     bulletSmoke: any[],
     carSmoke: any[],
@@ -5661,11 +11733,13 @@ void main() {
     markers: any[],
     attachedMeshes: any[],
     playerCarOnFire: boolean,
-    carFireX: number, carFireZ: number, carFireYaw: number,
+    carFireX: number,
+    carFireZ: number,
+    carFireYaw: number,
     trafficNodes?: { x: number; z: number }[],
     farPlane?: number,
     enableShadows: boolean = true,
-    carRoll: number = 0
+    carRoll: number = 0,
   ) {
     const gl = this.gl;
     const now = performance.now();
@@ -5681,15 +11755,31 @@ void main() {
     const nearbyLamps: { x: number; y: number; z: number }[] = [];
     if (enableShadows) {
       const shadowDist = 80.0;
-      mat4.ortho(this.lightProj, -shadowDist, shadowDist, -shadowDist, shadowDist, -shadowDist, shadowDist * 2);
-      const sunPos = [camX - this.sunDir[0] * 50, camY - this.sunDir[1] * 50, camZ - this.sunDir[2] * 50];
+      mat4.ortho(
+        this.lightProj,
+        -shadowDist,
+        shadowDist,
+        -shadowDist,
+        shadowDist,
+        -shadowDist,
+        shadowDist * 2,
+      );
+      const sunPos = [
+        camX - this.sunDir[0] * 50,
+        camY - this.sunDir[1] * 50,
+        camZ - this.sunDir[2] * 50,
+      ];
       mat4.lookAt(this.lightView, sunPos, [camX, camY, camZ], [0, 1, 0]);
       mat4.multiply(this.lightSpaceMatrix, this.lightProj, this.lightView);
       gl.bindFramebuffer(gl.FRAMEBUFFER, this.shadowFBO);
       gl.viewport(0, 0, this.shadowMapSize, this.shadowMapSize);
       gl.clear(gl.DEPTH_BUFFER_BIT);
       gl.useProgram(this.depthProgram);
-      gl.uniformMatrix4fv(this.depthLightSpaceLoc, false, this.lightSpaceMatrix);
+      gl.uniformMatrix4fv(
+        this.depthLightSpaceLoc,
+        false,
+        this.lightSpaceMatrix,
+      );
       gl.enable(gl.POLYGON_OFFSET_FILL);
       gl.polygonOffset(2.0, 2.0);
       for (let dz = -1; dz <= 1; dz++) {
@@ -5697,19 +11787,32 @@ void main() {
           const chunk = this.getCityChunk(pcx + dx, pcz + dz);
           const chunkCenterX = (pcx + dx) * CHUNK_SIZE + CHUNK_SIZE / 2;
           const chunkCenterZ = (pcz + dz) * CHUNK_SIZE + CHUNK_SIZE / 2;
-          const ddx = chunkCenterX - camX, ddz = chunkCenterZ - camZ;
+          const ddx = chunkCenterX - camX,
+            ddz = chunkCenterZ - camZ;
           const distSq = ddx * ddx + ddz * ddz;
-          if (distSq > 200 * 200) continue;  
-          const fwdX = Math.sin(camYaw), fwdZ = Math.cos(camYaw);
-          if (ddx * fwdX + ddz * fwdZ < -CHUNK_SIZE) continue; 
+          if (distSq > 200 * 200) continue;
+          const fwdX = Math.sin(camYaw),
+            fwdZ = Math.cos(camYaw);
+          if (ddx * fwdX + ddz * fwdZ < -CHUNK_SIZE) continue;
           this.drawMesh(chunk.mesh, 0, 0, 0, 0, [1, 1, 1], [1, 1, 1, 1], true);
           for (const bld of chunk.buildings) {
-            this.drawMesh(bld.model, bld.x, bld.y, bld.z, bld.yaw, bld.scale, [1, 1, 1, 1], true);
+            this.drawMesh(
+              bld.model,
+              bld.x,
+              bld.y,
+              bld.z,
+              bld.yaw,
+              bld.scale,
+              [1, 1, 1, 1],
+              true,
+            );
           }
           // A point light without its matching mesh reads as a floating lamp.
           // Do not emit halos while the lamp asset is missing or empty.
           if (this.lampMesh) {
-            const lampModels = Array.isArray(this.lampMesh) ? this.lampMesh.filter(Boolean) : [this.lampMesh];
+            const lampModels = Array.isArray(this.lampMesh)
+              ? this.lampMesh.filter(Boolean)
+              : [this.lampMesh];
             if (lampModels.length > 0) {
               for (const lamp of chunk.lamps) {
                 const distSq = (lamp.x - camX) ** 2 + (lamp.z - camZ) ** 2;
@@ -5728,36 +11831,117 @@ void main() {
         if (p.health <= 0) continue;
         if (p.passengerOfUserId && p.passengerOfUserId > 0) continue;
         if (p.isInCar) {
-          const vType = p.vehicleType || 'car';
+          const vType = p.vehicleType || "car";
           let carMesh: CityMesh | CityMesh[];
-          const col: [number, number, number] = [p.carColorR ?? 1, p.carColorG ?? 1, p.carColorB ?? 1];
-          if (vType === 'taxi') carMesh = this.getTaxiMesh();
-          else if (vType === 'bus') carMesh = this.busMesh || this.getNPCCarMesh(col, p.userId);
-          else if (vType === 'boat') carMesh = this.getBoatMesh(p.userId);
-          else if (vType === 'helicopter') carMesh = this.getHelicopterMesh(p.userId);
-          else if (vType === 'plane') carMesh = this.getPlaneMesh(p.userId);
-          else if (vType === 'motorcycle') carMesh = this.motorcycleMeshes.length > 0 ? this.motorcycleMeshes[0] : this.getNPCCarMesh(col, p.userId);
-          else if (vType === 'police') carMesh = this.getPoliceCarMesh();
-          else carMesh = this.carMeshes.length > 0 ? this.carMeshes[0] : this.getNPCCarMesh(col, p.userId);
-          const vehicleY = (vType === 'helicopter' || vType === 'plane') ? (p.posY || 0) : 0;
-          this.drawMesh(carMesh, p.posX, vehicleY, p.posZ, p.yaw, [1, 1, 1], [1, 1, 1, 1], true);
+          const col: [number, number, number] = [
+            p.carColorR ?? 1,
+            p.carColorG ?? 1,
+            p.carColorB ?? 1,
+          ];
+          if (vType === "taxi") carMesh = this.getTaxiMesh();
+          else if (vType === "bus")
+            carMesh = this.busMesh || this.getNPCCarMesh(col, p.userId);
+          else if (vType === "boat") carMesh = this.getBoatMesh(p.userId);
+          else if (vType === "helicopter")
+            carMesh = this.getHelicopterMesh(p.userId);
+          else if (vType === "plane") carMesh = this.getPlaneMesh(p.userId);
+          else if (vType === "motorcycle")
+            carMesh =
+              this.motorcycleMeshes.length > 0
+                ? this.motorcycleMeshes[0]
+                : this.getNPCCarMesh(col, p.userId);
+          else if (vType === "police") carMesh = this.getPoliceCarMesh();
+          else
+            carMesh =
+              this.carMeshes.length > 0
+                ? this.carMeshes[0]
+                : this.getNPCCarMesh(col, p.userId);
+          const vehicleY =
+            vType === "helicopter" || vType === "plane" ? p.posY || 0 : 0;
+          this.drawMesh(
+            carMesh,
+            p.posX,
+            vehicleY,
+            p.posZ,
+            p.yaw,
+            [1, 1, 1],
+            [1, 1, 1, 1],
+            true,
+          );
         }
-        this.drawMesh(p.mesh, p.posX, p.posY, p.posZ, p.yaw, [1, 1, 1], [1, 1, 1, 1], true);
+        this.drawMesh(
+          p.mesh,
+          p.posX,
+          p.posY,
+          p.posZ,
+          p.yaw,
+          [1, 1, 1],
+          [1, 1, 1, 1],
+          true,
+        );
       }
-      if (this.hospitalMesh) this.drawMesh(this.hospitalMesh, 40, 0.06, 40, 0, [15, 10, 15], [1, 1, 1, 1], true);
+      if (this.hospitalMesh)
+        this.drawMesh(
+          this.hospitalMesh,
+          40,
+          0.06,
+          40,
+          0,
+          [15, 10, 15],
+          [1, 1, 1, 1],
+          true,
+        );
       const garage = this.getGarageMeshes();
-      this.drawMesh(garage.building, 120, 0, 45, 0, [1, 1, 1], [1, 1, 1, 1], true);
-      this.drawMesh(garage.door, 120, 5.6 * this.garageDoorOpenness, 45, 0, [1, 1, 1], [1, 1, 1, 1], true);
+      this.drawMesh(
+        garage.building,
+        120,
+        0,
+        45,
+        0,
+        [1, 1, 1],
+        [1, 1, 1, 1],
+        true,
+      );
+      this.drawMesh(
+        garage.door,
+        120,
+        5.6 * this.garageDoorOpenness,
+        45,
+        0,
+        [1, 1, 1],
+        [1, 1, 1, 1],
+        true,
+      );
       if (this.vendingMachineMesh) {
         for (const vm of vendingMachines) {
-          this.drawMesh(this.vendingMachineMesh, vm.x, 0, vm.z, vm.yaw, [1, 1, 1], [1, 1, 1, 1], true);
+          this.drawMesh(
+            this.vendingMachineMesh,
+            vm.x,
+            0,
+            vm.z,
+            vm.yaw,
+            [1, 1, 1],
+            [1, 1, 1, 1],
+            true,
+          );
         }
       }
       if (playerMesh) {
         // Always draw the local character in third-person. `playerIsInCar`
         // only controls whether the vehicle is rendered; hiding the player
         // here made the on-foot model disappear after leaving a car.
-        this.drawMesh(playerMesh, targetX, this.groundedModelY(playerMesh, targetY), targetZ, carYaw, [1, 1, 1], [1, 1, 1, 1], true, 0, carRoll);
+        this.drawMesh(
+          playerMesh,
+          targetX,
+          this.groundedModelY(playerMesh, targetY),
+          targetZ,
+          carYaw,
+          [1, 1, 1],
+          [1, 1, 1, 1],
+          true,
+          0,
+          carRoll,
+        );
       }
       gl.disable(gl.POLYGON_OFFSET_FILL);
     } else {
@@ -5769,14 +11953,19 @@ void main() {
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
     // Keep a visible dusk-blue fallback while the procedural sky and optional
     // skybox texture are loading (or if the skybox asset fails).
-    gl.clearColor(0.10, 0.20, 0.38, 1.0);
+    gl.clearColor(0.1, 0.2, 0.38, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     const far = farPlane ?? 500.0;
     mat4.perspective(this.projMatrix, Math.PI / 4, aspect, 0.1, far);
     const dirX = Math.sin(camYaw) * Math.cos(camPitch);
     const dirY = -Math.sin(camPitch);
     const dirZ = Math.cos(camYaw) * Math.cos(camPitch);
-    mat4.lookAt(this.viewMatrix, [camX, camY, camZ], [camX + dirX, camY + dirY, camZ + dirZ], [0, 1, 0]);
+    mat4.lookAt(
+      this.viewMatrix,
+      [camX, camY, camZ],
+      [camX + dirX, camY + dirY, camZ + dirZ],
+      [0, 1, 0],
+    );
     this.skyViewMatrix.set(this.viewMatrix);
     // Sky geometry is centered on the camera and must not inherit world
     // translation. Keeping only camera rotation prevents it disappearing after
@@ -5800,13 +11989,24 @@ void main() {
     // Use a normalized, slightly camera-independent daylight direction. Keeping
     // it above the horizon avoids the all-black fallback seen after disabling
     // the old dynamic-light path.
-    const sunLen = Math.hypot(this.sunDir[0], this.sunDir[1], this.sunDir[2]) || 1;
-    gl.uniform3f(this.lightDirLoc, this.sunDir[0] / sunLen, Math.max(0.35, this.sunDir[1] / sunLen), this.sunDir[2] / sunLen);
+    const sunLen =
+      Math.hypot(this.sunDir[0], this.sunDir[1], this.sunDir[2]) || 1;
+    gl.uniform3f(
+      this.lightDirLoc,
+      this.sunDir[0] / sunLen,
+      Math.max(0.35, this.sunDir[1] / sunLen),
+      this.sunDir[2] / sunLen,
+    );
     gl.uniform3f(this.lightColorLoc, 0.95, 0.92, 0.86);
     // Lift the fill without flattening the scene: shaded faces retain gentle
     // contrast, but no material can collapse into near-black after shadows.
     gl.uniform3f(this.ambientColorLoc, 0.62, 0.66, 0.74);
-    gl.uniform3f(this.fogColorLoc, this.skyColor[0], this.skyColor[1], this.skyColor[2]);
+    gl.uniform3f(
+      this.fogColorLoc,
+      this.skyColor[0],
+      this.skyColor[1],
+      this.skyColor[2],
+    );
     // Fog tied to the view distance: starts at ~16% and is fully opaque at
     // ~66% of the far plane (the old hardcoded 80->330 range at the 500 default).
     gl.uniform1f(this.fogStartLoc, far * 0.16);
@@ -5815,7 +12015,12 @@ void main() {
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D, this.shadowTexture);
     gl.uniform1i(this.shadowMapLoc, 1);
-    nearbyLamps.sort((a, b) => (a.x - camX) ** 2 + (a.z - camZ) ** 2 - ((b.x - camX) ** 2 + (b.z - camZ) ** 2));
+    nearbyLamps.sort(
+      (a, b) =>
+        (a.x - camX) ** 2 +
+        (a.z - camZ) ** 2 -
+        ((b.x - camX) ** 2 + (b.z - camZ) ** 2),
+    );
     const pointLights = nearbyLamps.slice(0, 16);
     const pointLightPositions = new Float32Array(16 * 3);
     const numLights = Math.min(16, pointLights.length);
@@ -5842,56 +12047,126 @@ void main() {
         const ring = Math.max(Math.abs(dx), Math.abs(dz));
         this.drawMesh(chunk.mesh, 0, 0, 0, 0, [1, 1, 1], [1, 1, 1, 1]);
         if (this.lampMesh && ring <= 1) {
-          const lampModels = Array.isArray(this.lampMesh) ? this.lampMesh.filter(Boolean) : [this.lampMesh];
+          const lampModels = Array.isArray(this.lampMesh)
+            ? this.lampMesh.filter(Boolean)
+            : [this.lampMesh];
           if (lampModels.length === 0) continue;
           for (const lamp of chunk.lamps) {
-            const mi = Math.abs(Math.floor(lamp.x * 7 + lamp.z * 13)) % lampModels.length;
+            const mi =
+              Math.abs(Math.floor(lamp.x * 7 + lamp.z * 13)) %
+              lampModels.length;
             // The procedural fallback is already authored in world-sized units
             // (a 4.55-unit pole). Do not apply the old GLTF's shrink transform;
             // that made the visible pole ~1.3 units tall while its bulb light
             // stayed at y=4.25, producing floating lights.
-            this.drawMesh(lampModels[mi], lamp.x, 0, lamp.z, 0, [1, 1, 1], [1, 1, 1, 1]);
+            this.drawMesh(
+              lampModels[mi],
+              lamp.x,
+              0,
+              lamp.z,
+              0,
+              [1, 1, 1],
+              [1, 1, 1, 1],
+            );
           }
         }
         if (this.hydrantMesh && ring <= 1) {
           for (const hydrant of chunk.hydrants) {
-            this.drawMesh(this.hydrantMesh, hydrant.x, 0, hydrant.z, 0, [1, 1, 1], [1, 0, 0, 1]);
+            this.drawMesh(
+              this.hydrantMesh,
+              hydrant.x,
+              0,
+              hydrant.z,
+              0,
+              [1, 1, 1],
+              [1, 0, 0, 1],
+            );
           }
         }
         if ((this.palmTreeMesh || this.cityTreeMesh) && ring <= 1) {
           for (const tree of chunk.trees) {
             if (isNearBridgeRoad(tree.x, tree.z, tree.scale * 2)) continue;
-            const treeBiome = getBiome(Math.floor(tree.x / CHUNK_SIZE), Math.floor(tree.z / CHUNK_SIZE));
-            const isMountainTree = treeBiome === 'rural_hills' || treeBiome === 'rural_mountain';
+            const treeBiome = getBiome(
+              Math.floor(tree.x / CHUNK_SIZE),
+              Math.floor(tree.z / CHUNK_SIZE),
+            );
+            const isMountainTree =
+              treeBiome === "rural_hills" || treeBiome === "rural_mountain";
             // Use the regular 3D tree model everywhere. The old mountain "conifer"
             // (psx_tree_low_poly_no_black_background) read as a flat picture cutout,
             // so it is retired in favour of the palmTreeMesh used on every other tile.
             const treeModels = this.palmTreeMesh;
             if (!treeModels || treeModels.length === 0) continue;
             const treeY = isMountainTree ? getTerrainHeight(tree.x, tree.z) : 0;
-            const model = treeModels[Math.abs(Math.floor(tree.x * 7 + tree.z * 13)) % treeModels.length];
-            this.drawMesh(model, tree.x, treeY, tree.z, tree.yaw, [tree.scale, tree.scale, tree.scale], [1, 1, 1, 1]);
+            const model =
+              treeModels[
+                Math.abs(Math.floor(tree.x * 7 + tree.z * 13)) %
+                  treeModels.length
+              ];
+            this.drawMesh(
+              model,
+              tree.x,
+              treeY,
+              tree.z,
+              tree.yaw,
+              [tree.scale, tree.scale, tree.scale],
+              [1, 1, 1, 1],
+            );
           }
         }
         if (this.benchMeshes.length > 0 && ring <= 1) {
           for (const bench of chunk.benches) {
-            const bm = this.benchMeshes[Math.abs((bench.x * 100 + bench.z) | 0) % this.benchMeshes.length];
-            this.drawMesh(bm, bench.x, 0, bench.z, bench.yaw, [0.8, 0.8, 0.8], [1, 1, 1, 1]);
+            const bm =
+              this.benchMeshes[
+                Math.abs((bench.x * 100 + bench.z) | 0) %
+                  this.benchMeshes.length
+              ];
+            this.drawMesh(
+              bm,
+              bench.x,
+              0,
+              bench.z,
+              bench.yaw,
+              [0.8, 0.8, 0.8],
+              [1, 1, 1, 1],
+            );
           }
         }
         if (this.tatamiRoomMesh && ring <= 1) {
           for (const t of chunk.tatami) {
-            this.drawMesh(this.tatamiRoomMesh, t.x, 0, t.z, t.yaw, [1, 1, 1], [0.9, 0.8, 0.6, 1]);
+            this.drawMesh(
+              this.tatamiRoomMesh,
+              t.x,
+              0,
+              t.z,
+              t.yaw,
+              [1, 1, 1],
+              [0.9, 0.8, 0.6, 1],
+            );
           }
         }
         if (this.woodenCabineMesh && ring <= 1) {
           for (const c of chunk.cabins) {
-            this.drawMesh(this.woodenCabineMesh, c.x, 0, c.z, c.yaw, [2.5, 2.5, 2.5]);
+            this.drawMesh(
+              this.woodenCabineMesh,
+              c.x,
+              0,
+              c.z,
+              c.yaw,
+              [2.5, 2.5, 2.5],
+            );
           }
         }
         if (this.cylindricalTowerMesh && ring <= 2) {
           for (const l of chunk.lighthouses) {
-            this.drawMesh(this.cylindricalTowerMesh, l.x, 0, l.z, l.yaw, [1, 1, 1]);
+            this.drawMesh(
+              this.cylindricalTowerMesh,
+              l.x,
+              0,
+              l.z,
+              l.yaw,
+              [1, 1, 1],
+            );
           }
         }
         if (this.tropicalShopMesh && ring <= 2) {
@@ -5903,44 +12178,105 @@ void main() {
           for (const barrel of chunk.barrels) {
             const key = `${barrel.x},${barrel.z}`;
             if (this.explodedBarrels.has(key)) continue;
-            this.drawMesh(this.barrelMesh, barrel.x, this.groundedModelY(this.barrelMesh, getTerrainHeight(barrel.x, barrel.z)), barrel.z, barrel.yaw, [0.5, 0.5, 0.5], [1, 1, 1, 1]);
+            this.drawMesh(
+              this.barrelMesh,
+              barrel.x,
+              this.groundedModelY(
+                this.barrelMesh,
+                getTerrainHeight(barrel.x, barrel.z),
+              ),
+              barrel.z,
+              barrel.yaw,
+              [0.5, 0.5, 0.5],
+              [1, 1, 1, 1],
+            );
           }
         }
         if (this.chickenMesh && ring <= 1) {
           for (const chicken of chunk.chickens) {
             const key = `${chicken.x},${chicken.z}`;
             if (this.deadChickens.has(key)) continue;
-            this.drawMesh(this.chickenMesh, chicken.x, getTerrainHeight(chicken.x, chicken.z), chicken.z, chicken.yaw, [0.3, 0.3, 0.3], [1, 1, 1, 1]);
+            this.drawMesh(
+              this.chickenMesh,
+              chicken.x,
+              getTerrainHeight(chicken.x, chicken.z),
+              chicken.z,
+              chicken.yaw,
+              [0.3, 0.3, 0.3],
+              [1, 1, 1, 1],
+            );
           }
         }
         for (const bld of chunk.buildings) {
           const key = `${bld.x},${bld.z}`;
-          if (this.explodedGasStations.has(key) && bld.model && bld.model.length > 0 && bld.model[0].carName?.includes('gas_station')) {
+          if (
+            this.explodedGasStations.has(key) &&
+            bld.model &&
+            bld.model.length > 0 &&
+            bld.model[0].carName?.includes("gas_station")
+          ) {
             const timer = this.explodedGasStationTimers.get(key);
-            if (timer && performance.now() - timer < GrandTheftRenderer.GAS_STATION_COOLDOWN) {
-              this.drawMesh(bld.model, bld.x, bld.y, bld.z, bld.yaw, bld.scale, [0.15, 0.15, 0.15, 1]);
+            if (
+              timer &&
+              performance.now() - timer <
+                GrandTheftRenderer.GAS_STATION_COOLDOWN
+            ) {
+              this.drawMesh(
+                bld.model,
+                bld.x,
+                bld.y,
+                bld.z,
+                bld.yaw,
+                bld.scale,
+                [0.15, 0.15, 0.15, 1],
+              );
               continue;
             } else {
               this.explodedGasStations.delete(key);
               this.explodedGasStationTimers.delete(key);
             }
           }
-          const isDome = bld.model && bld.model.length > 0 && bld.model[0].carName?.includes('domeStructure');
+          const isDome =
+            bld.model &&
+            bld.model.length > 0 &&
+            bld.model[0].carName?.includes("domeStructure");
           // Outer rings: skip small-footprint buildings — they're sub-pixel
           // at this range and only bloat the draw call count. The large
           // buildings (skyscrapers, hotels, supermarkets...) keep the skyline.
           if (ring >= 3 && bld.model && bld.model.length > 0) {
             const m0 = bld.model[0];
             if (m0 && m0.minX !== undefined && m0.maxX !== undefined) {
-              const width = (m0.maxX - m0.minX) * (bld.scale[0] ?? 1) * (m0.renderScale ?? 1);
+              const width =
+                (m0.maxX - m0.minX) *
+                (bld.scale[0] ?? 1) *
+                (m0.renderScale ?? 1);
               if (width < 8) continue;
             }
           }
-          const isStore = bld.model && bld.model.length > 0 && bld.model[0].carName?.includes('convenience_store_procedural');
+          const isStore =
+            bld.model &&
+            bld.model.length > 0 &&
+            bld.model[0].carName?.includes("convenience_store_procedural");
           const doorOpen = isStore && this.convenienceStoreDoorOpen;
-          this.drawMesh(bld.model, bld.x, bld.y, bld.z, bld.yaw, bld.scale, isDome ? [0.25, 0.3, 0.22, 1] : [1, 1, 1, 1]);
+          this.drawMesh(
+            bld.model,
+            bld.x,
+            bld.y,
+            bld.z,
+            bld.yaw,
+            bld.scale,
+            isDome ? [0.25, 0.3, 0.22, 1] : [1, 1, 1, 1],
+          );
           if (doorOpen) {
-            this.drawMesh(this.getBoxMesh(5.2, 0.08, 0.12), bld.x, bld.y + 0.08, bld.z - 11.35, 0, [1, 1, 1], [0.16, 0.8, 0.35, 0.8]);
+            this.drawMesh(
+              this.getBoxMesh(5.2, 0.08, 0.12),
+              bld.x,
+              bld.y + 0.08,
+              bld.z - 11.35,
+              0,
+              [1, 1, 1],
+              [0.16, 0.8, 0.35, 0.8],
+            );
           }
         }
       }
@@ -5954,7 +12290,12 @@ void main() {
     if (trafficNodes) {
       const lightPhase = Math.floor(performance.now() / 6000) % 2;
       const sidewalkOffset = 22;
-      const yawCorner = [Math.PI / 4, -Math.PI / 4, 3 * Math.PI / 4, -3 * Math.PI / 4];
+      const yawCorner = [
+        Math.PI / 4,
+        -Math.PI / 4,
+        (3 * Math.PI) / 4,
+        (-3 * Math.PI) / 4,
+      ];
       const corners = [
         [-sidewalkOffset, -sidewalkOffset],
         [sidewalkOffset, -sidewalkOffset],
@@ -5967,49 +12308,144 @@ void main() {
       const lightCullSq = lightCull * lightCull;
       if (this.trafficLightMesh) {
         for (const node of trafficNodes) {
-          if (getBiome(Math.floor(node.x / CHUNK_SIZE), Math.floor(node.z / CHUNK_SIZE)) === 'ocean') continue;
-          const ndx = node.x - camX, ndz = node.z - camZ;
+          if (
+            getBiome(
+              Math.floor(node.x / CHUNK_SIZE),
+              Math.floor(node.z / CHUNK_SIZE),
+            ) === "ocean"
+          )
+            continue;
+          const ndx = node.x - camX,
+            ndz = node.z - camZ;
           if (ndx * ndx + ndz * ndz > lightCullSq) continue;
           for (let ci = 0; ci < corners.length; ci++) {
-            const px = node.x + corners[ci][0], pz = node.z + corners[ci][1];
-            if (getBiome(Math.floor(px / CHUNK_SIZE), Math.floor(pz / CHUNK_SIZE)) === 'ocean') continue;
-            this.drawMesh(this.trafficLightMesh, px, 0, pz, yawCorner[ci], [2, 2, 2], [0.25, 0.3, 0.22, 1]);
+            const px = node.x + corners[ci][0],
+              pz = node.z + corners[ci][1];
+            if (
+              getBiome(
+                Math.floor(px / CHUNK_SIZE),
+                Math.floor(pz / CHUNK_SIZE),
+              ) === "ocean"
+            )
+              continue;
+            this.drawMesh(
+              this.trafficLightMesh,
+              px,
+              0,
+              pz,
+              yawCorner[ci],
+              [2, 2, 2],
+              [0.25, 0.3, 0.22, 1],
+            );
           }
         }
         const redOn = lightPhase === 0;
         for (const node of trafficNodes) {
-          const ndx = node.x - camX, ndz = node.z - camZ;
+          const ndx = node.x - camX,
+            ndz = node.z - camZ;
           if (ndx * ndx + ndz * ndz > lightCullSq) continue;
           for (let ci = 0; ci < corners.length; ci++) {
             const lx = node.x + corners[ci][0];
             const lz = node.z + corners[ci][1];
-            this.drawMesh(this.getSphereMesh(0.075), lx + 0.15, 3.86, lz + 0.12, 0, [1, 1, 1], redOn ? [1, 0.1, 0.1, 1] : [0.05, 0.15, 0.05, 0.4]);
-            this.drawMesh(this.getSphereMesh(0.075), lx + 0.15, 3.70, lz + 0.12, 0, [1, 1, 1], redOn ? [0.05, 0.15, 0.05, 0.4] : [0.1, 1, 0.1, 1]);
-            this.drawMesh(this.getSphereMesh(0.075), lx - 1, 3.86, lz + 1.6, 0, [1, 1, 1], redOn ? [1, 0.1, 0.1, 1] : [0.05, 0.15, 0.05, 0.4]);
-            this.drawMesh(this.getSphereMesh(0.075), lx - 1, 3.70, lz + 1.6, 0, [1, 1, 1], redOn ? [0.05, 0.15, 0.05, 0.4] : [0.1, 1, 0.1, 1]);
+            this.drawMesh(
+              this.getSphereMesh(0.075),
+              lx + 0.15,
+              3.86,
+              lz + 0.12,
+              0,
+              [1, 1, 1],
+              redOn ? [1, 0.1, 0.1, 1] : [0.05, 0.15, 0.05, 0.4],
+            );
+            this.drawMesh(
+              this.getSphereMesh(0.075),
+              lx + 0.15,
+              3.7,
+              lz + 0.12,
+              0,
+              [1, 1, 1],
+              redOn ? [0.05, 0.15, 0.05, 0.4] : [0.1, 1, 0.1, 1],
+            );
+            this.drawMesh(
+              this.getSphereMesh(0.075),
+              lx - 1,
+              3.86,
+              lz + 1.6,
+              0,
+              [1, 1, 1],
+              redOn ? [1, 0.1, 0.1, 1] : [0.05, 0.15, 0.05, 0.4],
+            );
+            this.drawMesh(
+              this.getSphereMesh(0.075),
+              lx - 1,
+              3.7,
+              lz + 1.6,
+              0,
+              [1, 1, 1],
+              redOn ? [0.05, 0.15, 0.05, 0.4] : [0.1, 1, 0.1, 1],
+            );
           }
         }
       } else {
-        const poleMesh = this.meshCache.get('tl_pole');
+        const poleMesh = this.meshCache.get("tl_pole");
         if (!poleMesh) {
-          const pv: number[] = []; const pi: number[] = [];
-          this.addBox(pv, pi, 0, 2.3, 0, 0.2, 4.6, 0.2, 0.06, 0.06, 0.06, 1.0, 0);
-          this.meshCache.set('tl_pole', this.createMesh(pv, pi));
+          const pv: number[] = [];
+          const pi: number[] = [];
+          this.addBox(
+            pv,
+            pi,
+            0,
+            2.3,
+            0,
+            0.2,
+            4.6,
+            0.2,
+            0.06,
+            0.06,
+            0.06,
+            1.0,
+            0,
+          );
+          this.meshCache.set("tl_pole", this.createMesh(pv, pi));
         }
         for (const node of trafficNodes) {
-          const ndx = node.x - camX, ndz = node.z - camZ;
+          const ndx = node.x - camX,
+            ndz = node.z - camZ;
           if (ndx * ndx + ndz * ndz > lightCullSq) continue;
           for (let ci = 0; ci < corners.length; ci++) {
             const lx = node.x + corners[ci][0];
             const lz = node.z + corners[ci][1];
-            this.drawMesh(this.meshCache.get('tl_pole')!, lx, 0, lz, 0, [1, 1, 1], [0.25, 0.3, 0.22, 1]);
+            this.drawMesh(
+              this.meshCache.get("tl_pole")!,
+              lx,
+              0,
+              lz,
+              0,
+              [1, 1, 1],
+              [0.25, 0.3, 0.22, 1],
+            );
           }
           const redOn = lightPhase === 0;
           for (let ci = 0; ci < corners.length; ci++) {
             const lx = node.x + corners[ci][0];
             const lz = node.z + corners[ci][1];
-            this.drawMesh(this.getSphereMesh(0.06), lx, 2.6, lz, 0, [1, 1, 1], redOn ? [1, 0.1, 0.1, 1] : [0.05, 0.15, 0.05, 0.4]);
-            this.drawMesh(this.getSphereMesh(0.06), lx, 2.2, lz, 0, [1, 1, 1], redOn ? [0.05, 0.15, 0.05, 0.4] : [0.1, 1, 0.1, 1]);
+            this.drawMesh(
+              this.getSphereMesh(0.06),
+              lx,
+              2.6,
+              lz,
+              0,
+              [1, 1, 1],
+              redOn ? [1, 0.1, 0.1, 1] : [0.05, 0.15, 0.05, 0.4],
+            );
+            this.drawMesh(
+              this.getSphereMesh(0.06),
+              lx,
+              2.2,
+              lz,
+              0,
+              [1, 1, 1],
+              redOn ? [0.05, 0.15, 0.05, 0.4] : [0.1, 1, 0.1, 1],
+            );
           }
         }
       }
@@ -6022,33 +12458,83 @@ void main() {
         const aircraftMesh = aircraft.model;
         // Procedural helicopter meshes are authored around their own origin;
         // place the complete airframe above the pad, not just the rotor.
-        const aircraftY = aircraft.type === 'helicopter' ? 0.32 : 0.15;
+        const aircraftY = aircraft.type === "helicopter" ? 0.32 : 0.15;
         const helicopterYaw = aircraft.yaw + Math.PI;
-        const aircraftScale: [number, number, number] = aircraft.type === 'helicopter'
-          ? [HELICOPTER_RENDER_SCALE, HELICOPTER_RENDER_SCALE, HELICOPTER_RENDER_SCALE]
-          : [1, 1, 1];
-        this.drawMesh(aircraftMesh, aircraft.x, aircraftY, aircraft.z, helicopterYaw, aircraftScale);
-        if (aircraft.type === 'helicopter') {
+        const aircraftScale: [number, number, number] =
+          aircraft.type === "helicopter"
+            ? [
+                HELICOPTER_RENDER_SCALE,
+                HELICOPTER_RENDER_SCALE,
+                HELICOPTER_RENDER_SCALE,
+              ]
+            : [1, 1, 1];
+        this.drawMesh(
+          aircraftMesh,
+          aircraft.x,
+          aircraftY,
+          aircraft.z,
+          helicopterYaw,
+          aircraftScale,
+        );
+        if (aircraft.type === "helicopter") {
           const spin = now * 0.02;
           const rotor = this.getRotorBladeMesh();
           const rotorScale = 0.58 * HELICOPTER_RENDER_SCALE;
-          this.drawMesh(rotor, aircraft.x, aircraftY + 2.02 * HELICOPTER_RENDER_SCALE, aircraft.z, helicopterYaw + spin, [rotorScale, rotorScale, rotorScale], [0.18, 0.2, 0.22, 0.82]);
-          const tailX = aircraft.x + Math.sin(helicopterYaw) * 2.65 * HELICOPTER_RENDER_SCALE;
-          const tailZ = aircraft.z + Math.cos(helicopterYaw) * 2.65 * HELICOPTER_RENDER_SCALE;
-          this.drawMesh(rotor, tailX, aircraftY + 1.2 * HELICOPTER_RENDER_SCALE, tailZ, helicopterYaw + spin * 2.75, [0.18 * HELICOPTER_RENDER_SCALE, 0.18 * HELICOPTER_RENDER_SCALE, 0.18 * HELICOPTER_RENDER_SCALE], [0.2, 0.22, 0.24, 0.8]);
+          this.drawMesh(
+            rotor,
+            aircraft.x,
+            aircraftY + 2.02 * HELICOPTER_RENDER_SCALE,
+            aircraft.z,
+            helicopterYaw + spin,
+            [rotorScale, rotorScale, rotorScale],
+            [0.18, 0.2, 0.22, 0.82],
+          );
+          const tailX =
+            aircraft.x +
+            Math.sin(helicopterYaw) * 2.65 * HELICOPTER_RENDER_SCALE;
+          const tailZ =
+            aircraft.z +
+            Math.cos(helicopterYaw) * 2.65 * HELICOPTER_RENDER_SCALE;
+          this.drawMesh(
+            rotor,
+            tailX,
+            aircraftY + 1.2 * HELICOPTER_RENDER_SCALE,
+            tailZ,
+            helicopterYaw + spin * 2.75,
+            [
+              0.18 * HELICOPTER_RENDER_SCALE,
+              0.18 * HELICOPTER_RENDER_SCALE,
+              0.18 * HELICOPTER_RENDER_SCALE,
+            ],
+            [0.2, 0.22, 0.24, 0.8],
+          );
         }
       }
     }
     for (const pc of parkedCars) {
       const biome = getBiome(Math.floor(pc.x / 80), Math.floor(pc.z / 80));
-      const isBoat = pc.type === 'boat';
-      const submergeY = biome === 'ocean' ? (isBoat ? 0 : -1.5) : getTerrainHeight(pc.x, pc.z);
-      this.drawMesh(pc.mesh, pc.x, pc.y ?? (pc as any)._expY ?? submergeY, pc.z, pc.yaw);
+      const isBoat = pc.type === "boat";
+      const submergeY =
+        biome === "ocean" ? (isBoat ? 0 : -1.5) : getTerrainHeight(pc.x, pc.z);
+      this.drawMesh(
+        pc.mesh,
+        pc.x,
+        pc.y ?? (pc as any)._expY ?? submergeY,
+        pc.z,
+        pc.yaw,
+      );
     }
     for (const npc of serverNPCs) {
       const npcSpeed = npc.speed ?? 0;
-      const isHumanNpc = npc.type !== 'helicopter' && npc.type !== 'plane' && npc.type !== 'car' && npc.type !== 'bus' && npc.type !== 'taxi' && npc.type !== 'police' && npc.type !== 'boat';
-      const npcState = isHumanNpc && npcSpeed > 0.08 ? 'walk' : 'idle';
+      const isHumanNpc =
+        npc.type !== "helicopter" &&
+        npc.type !== "plane" &&
+        npc.type !== "car" &&
+        npc.type !== "bus" &&
+        npc.type !== "taxi" &&
+        npc.type !== "police" &&
+        npc.type !== "boat";
+      const npcState = isHumanNpc && npcSpeed > 0.08 ? "walk" : "idle";
       // Animation LOD: entities beyond ~220 units keep their last-skinned pose
       // (drawn as-is) instead of re-skinning every frame — with the cull radius
       // now spanning the whole view distance, distant traffic/peds would
@@ -6058,8 +12544,10 @@ void main() {
       if (npc.isDucking) this.duckingEntities.add(npc.id);
       else this.duckingEntities.delete(npc.id);
       const flinchLeft = this.flinchTimers.get(npc.id) ?? 0;
-      if (flinchLeft > 0) this.flinchTimers.set(npc.id, Math.max(0, flinchLeft - dt));
-      const npcDx = npc.x - camX, npcDz = npc.z - camZ;
+      if (flinchLeft > 0)
+        this.flinchTimers.set(npc.id, Math.max(0, flinchLeft - dt));
+      const npcDx = npc.x - camX,
+        npcDz = npc.z - camZ;
       (npc.mesh as any)._lastAnimDistanceSq = npcDx * npcDx + npcDz * npcDz;
       // Keep animation work in a tighter near-field than draw culling; distant
       // NPCs retain their last pose while still contributing to the skyline.
@@ -6068,21 +12556,34 @@ void main() {
         // distance gate left walk phases frozen as soon as a pedestrian crossed
         // the 180-unit animation radius, which made walking NPCs look like
         // sliding statues when they came back into view.
-        const animationSpeed = npcState === 'walk'
-          ? Math.max(0.75, Math.min(2.2, npcSpeed * 2.2 || 1))
-          : 1;
+        const animationSpeed =
+          npcState === "walk"
+            ? Math.max(0.75, Math.min(2.2, npcSpeed * 2.2 || 1))
+            : 1;
         if (npcDx * npcDx + npcDz * npcDz <= 150 * 150) {
-          this.animateAndSkinEntity(npc.id, npc.mesh, npcState, dt, animationSpeed);
+          this.animateAndSkinEntity(
+            npc.id,
+            npc.mesh,
+            npcState,
+            dt,
+            animationSpeed,
+          );
         }
       }
       const biome = getBiome(Math.floor(npc.x / 80), Math.floor(npc.z / 80));
-      const submerged = biome === 'ocean';
-      const isAircraft = npc.type === 'helicopter' || npc.type === 'plane';
+      const submerged = biome === "ocean";
+      const isAircraft = npc.type === "helicopter" || npc.type === "plane";
       const terrainY = submerged ? -1.5 : getTerrainHeight(npc.x, npc.z);
-      const expY = isAircraft ? (npc.y || 0) : (isHumanNpc ? terrainY : (npc as any)._expY ?? terrainY);
-      if (npc.type === 'helicopter') {
+      const expY = isAircraft
+        ? npc.y || 0
+        : isHumanNpc
+          ? terrainY
+          : ((npc as any)._expY ?? terrainY);
+      if (npc.type === "helicopter") {
         const copHeli = !!(npc as any).isPolice || !!(npc as any).isCop;
-        const heliMesh = copHeli ? this.getHelicopterMesh(npc.id, true) : this.getHelicopterMesh(npc.id, false);
+        const heliMesh = copHeli
+          ? this.getHelicopterMesh(npc.id, true)
+          : this.getHelicopterMesh(npc.id, false);
         const wreckFalling = (npc as any).wreckFalling === true;
         const now = performance.now() / 1000;
         const epochNow = Date.now() / 1000;
@@ -6091,121 +12592,279 @@ void main() {
           // same airframe from its networked start altitude into a wreck on the
           // ground instead of replacing it with a vanished/dead-body marker.
           const startedAt = Number((npc as any).wreckStartedAt) / 1000;
-          const elapsed = Number.isFinite(startedAt) && startedAt > 0
-            ? Math.max(0, epochNow - startedAt)
-            : 0;
+          const elapsed =
+            Number.isFinite(startedAt) && startedAt > 0
+              ? Math.max(0, epochNow - startedAt)
+              : 0;
           const fallTime = Math.min(3.2, elapsed);
           const wreckStartY = Number((npc as any).wreckStartY ?? expY);
           const groundY = getTerrainHeight(npc.x, npc.z);
-          const fallY = Math.max(groundY + 0.35, wreckStartY - 4.9 * fallTime * fallTime);
+          const fallY = Math.max(
+            groundY + 0.35,
+            wreckStartY - 4.9 * fallTime * fallTime,
+          );
           const impactProgress = Math.min(1, fallTime / 3.2);
           const wreckPitch = -impactProgress * Math.PI * 0.82;
-          const wreckRoll = Math.sin(elapsed * 8 + npc.id) * 0.32 + impactProgress * 0.7;
+          const wreckRoll =
+            Math.sin(elapsed * 8 + npc.id) * 0.32 + impactProgress * 0.7;
           const wreckYaw = npc.yaw + Math.PI + Math.sin(elapsed * 2.5) * 0.35;
           const fade = elapsed > 10 ? Math.max(0, 1 - (elapsed - 10) / 2) : 1;
-          const wreckScale: [number, number, number] = [HELICOPTER_RENDER_SCALE, HELICOPTER_RENDER_SCALE, HELICOPTER_RENDER_SCALE];
-          this.drawMesh(heliMesh, npc.x, fallY, npc.z, wreckYaw, wreckScale, [1, 1, 1, fade], false, wreckPitch, wreckRoll);
+          const wreckScale: [number, number, number] = [
+            HELICOPTER_RENDER_SCALE,
+            HELICOPTER_RENDER_SCALE,
+            HELICOPTER_RENDER_SCALE,
+          ];
+          this.drawMesh(
+            heliMesh,
+            npc.x,
+            fallY,
+            npc.z,
+            wreckYaw,
+            wreckScale,
+            [1, 1, 1, fade],
+            false,
+            wreckPitch,
+            wreckRoll,
+          );
           // The rotors wind down and wobble during the crash, then disappear
           // with the wreck rather than continuing to spin like a live aircraft.
           if (fade > 0 && elapsed < 4.5) {
             const rotorMesh = this.getRotorBladeMesh();
             const rotorScale = 0.58 * HELICOPTER_RENDER_SCALE;
-            const rotorY = fallY + 2.08 * HELICOPTER_RENDER_SCALE * (1 - impactProgress * 0.25);
+            const rotorY =
+              fallY +
+              2.08 * HELICOPTER_RENDER_SCALE * (1 - impactProgress * 0.25);
             const rotorSpin = elapsed * (20 - Math.min(16, elapsed * 4));
-            this.drawMesh(rotorMesh, npc.x, rotorY, npc.z, wreckYaw + rotorSpin, [rotorScale, rotorScale, rotorScale], [0.25, 0.25, 0.25, 0.55 * fade], false, wreckPitch, wreckRoll);
+            this.drawMesh(
+              rotorMesh,
+              npc.x,
+              rotorY,
+              npc.z,
+              wreckYaw + rotorSpin,
+              [rotorScale, rotorScale, rotorScale],
+              [0.25, 0.25, 0.25, 0.55 * fade],
+              false,
+              wreckPitch,
+              wreckRoll,
+            );
           }
         } else {
           // Keep the body and its rotor in the same local coordinate frame. The
           // body mesh is centered near Y=1, so expY is the airframe base height.
-          this.drawMesh(heliMesh, npc.x, expY, npc.z, npc.yaw + Math.PI, [HELICOPTER_RENDER_SCALE, HELICOPTER_RENDER_SCALE, HELICOPTER_RENDER_SCALE], [1, 1, 1, 1]);
+          this.drawMesh(
+            heliMesh,
+            npc.x,
+            expY,
+            npc.z,
+            npc.yaw + Math.PI,
+            [
+              HELICOPTER_RENDER_SCALE,
+              HELICOPTER_RENDER_SCALE,
+              HELICOPTER_RENDER_SCALE,
+            ],
+            [1, 1, 1, 1],
+          );
           const rotorMesh = this.getRotorBladeMesh();
           const mainRotorY = expY + 2.08 * HELICOPTER_RENDER_SCALE;
           const mainSpin = now * 20;
           const rotorScale = 0.58 * HELICOPTER_RENDER_SCALE;
-          this.drawMesh(rotorMesh, npc.x, mainRotorY, npc.z, npc.yaw + Math.PI + mainSpin, [rotorScale, rotorScale, rotorScale], [0.55, 0.55, 0.55, 0.5]);
+          this.drawMesh(
+            rotorMesh,
+            npc.x,
+            mainRotorY,
+            npc.z,
+            npc.yaw + Math.PI + mainSpin,
+            [rotorScale, rotorScale, rotorScale],
+            [0.55, 0.55, 0.55, 0.5],
+          );
           const helicopterYaw = npc.yaw + Math.PI;
-          const tailOffX = Math.sin(helicopterYaw) * 2.65 * HELICOPTER_RENDER_SCALE;
-          const tailOffZ = Math.cos(helicopterYaw) * 2.65 * HELICOPTER_RENDER_SCALE;
+          const tailOffX =
+            Math.sin(helicopterYaw) * 2.65 * HELICOPTER_RENDER_SCALE;
+          const tailOffZ =
+            Math.cos(helicopterYaw) * 2.65 * HELICOPTER_RENDER_SCALE;
           const tailSpin = now * 55;
           const tailRotorScale = 0.18 * HELICOPTER_RENDER_SCALE;
-          this.drawMesh(rotorMesh, npc.x + tailOffX, expY + 1.18 * HELICOPTER_RENDER_SCALE, npc.z + tailOffZ, helicopterYaw + tailSpin, [tailRotorScale, tailRotorScale, tailRotorScale], [0.4, 0.4, 0.4, 0.45]);
+          this.drawMesh(
+            rotorMesh,
+            npc.x + tailOffX,
+            expY + 1.18 * HELICOPTER_RENDER_SCALE,
+            npc.z + tailOffZ,
+            helicopterYaw + tailSpin,
+            [tailRotorScale, tailRotorScale, tailRotorScale],
+            [0.4, 0.4, 0.4, 0.45],
+          );
         }
       } else {
         const isSwimming = !!npc.isSwimming && submerged;
         const npcScale: [number, number, number] = isSwimming
           ? [1.05, 0.48, 1.05]
-          : (flinchLeft > 0 ? [1.05, 0.88, 1.05] : [1, 1, 1]);
+          : flinchLeft > 0
+            ? [1.05, 0.88, 1.05]
+            : [1, 1, 1];
         const npcY = isSwimming ? -1.35 : this.groundedModelY(npc.mesh, expY);
         const reaction = (this as any).npcImpactReactions?.get(npc.id);
-        const reactionProgress = reaction ? Math.min(1, reaction.age / reaction.duration) : 0;
-        const reactionLift = reaction ? Math.sin(reactionProgress * Math.PI) * Math.min(2.2, Math.hypot(reaction.vx, reaction.vz) * 0.12) : 0;
-      const reactionTime = reaction ? Math.max(0, reaction.age - dt) : 0;
-      const reactionX = reaction ? npc.x + reaction.vx * reactionTime : npc.x;
-      const reactionZ = reaction ? npc.z + reaction.vz * reactionTime : npc.z;
-      const reactionYaw = reaction ? npc.yaw + reaction.spin * reactionTime * 8 : npc.yaw;
+        const reactionProgress = reaction
+          ? Math.min(1, reaction.age / reaction.duration)
+          : 0;
+        const reactionLift = reaction
+          ? Math.sin(reactionProgress * Math.PI) *
+            Math.min(2.2, Math.hypot(reaction.vx, reaction.vz) * 0.12)
+          : 0;
+        const reactionTime = reaction ? Math.max(0, reaction.age - dt) : 0;
+        const reactionX = reaction ? npc.x + reaction.vx * reactionTime : npc.x;
+        const reactionZ = reaction ? npc.z + reaction.vz * reactionTime : npc.z;
+        const reactionYaw = reaction
+          ? npc.yaw + reaction.spin * reactionTime * 8
+          : npc.yaw;
         const reactionScale: [number, number, number] = reaction
           ? [1.08, Math.max(0.72, 1 - reactionProgress * 0.28), 1.08]
           : npcScale;
-        this.drawMesh(npc.mesh, reactionX, npcY + reactionLift, reactionZ, reactionYaw, reactionScale);
+        this.drawMesh(
+          npc.mesh,
+          reactionX,
+          npcY + reactionLift,
+          reactionZ,
+          reactionYaw,
+          reactionScale,
+        );
       }
-      if (npc.hasDriver !== false && npc.type !== 'cop') {
-        const isPoliceDriver = npc.type === 'police' || npc.type === 'cop'
-          || (npc as any).isPolice === true || (npc as any).isCop === true;
-        const dMesh = this.getPedestrianMesh(isPoliceDriver ? 'cop' : (npc.gender || 'male'), npc.id);
+      if (npc.hasDriver !== false && npc.type !== "cop") {
+        const isPoliceDriver =
+          npc.type === "police" ||
+          npc.type === "cop" ||
+          (npc as any).isPolice === true ||
+          (npc as any).isCop === true;
+        const dMesh = this.getPedestrianMesh(
+          isPoliceDriver ? "cop" : npc.gender || "male",
+          npc.id,
+        );
         const vehicleParts = Array.isArray(npc.mesh) ? npc.mesh : [npc.mesh];
-        const isPizzaMoped = npc.type === 'motorcycle' && vehicleParts.some((part: any) => part?._isMotorcycle === true);
+        const isPizzaMoped =
+          npc.type === "motorcycle" &&
+          vehicleParts.some((part: any) => part?._isMotorcycle === true);
         // The pizza-moped GLTF has a low seat/footwell relative to the shared
         // vehicle baseline. Lift its riders onto the saddle; regular cars and
         // all other vehicles keep their existing occupant placement.
         const riderSeatLift = isPizzaMoped ? 0.72 : 0;
         // Lifelike driver — drive pose, visible to all peers, cheap LOD
-        const ddx = npc.x - camX, ddz = npc.z - camZ;
-        if (ddx*ddx+ddz*ddz < 150*150) this.animateAndSkinEntity(npc.id+900000, dMesh, 'drive', dt, 1);
-        const sinY = Math.sin(npc.yaw), cosY = Math.cos(npc.yaw);
-        const dOffX = 0.3, dOffZ = 0.2;
+        const ddx = npc.x - camX,
+          ddz = npc.z - camZ;
+        if (ddx * ddx + ddz * ddz < 150 * 150)
+          this.animateAndSkinEntity(npc.id + 900000, dMesh, "drive", dt, 1);
+        const sinY = Math.sin(npc.yaw),
+          cosY = Math.cos(npc.yaw);
+        const dOffX = 0.3,
+          dOffZ = 0.2;
         const dwx = npc.x + (dOffX * cosY + dOffZ * sinY);
         const dwz = npc.z + (-dOffX * sinY + dOffZ * cosY);
         const driverY = expY - 0.3;
-        this.drawMesh(dMesh, dwx, this.groundedModelY(dMesh, expY, 1.1) - 0.3 + riderSeatLift, dwz, npc.yaw, [1.1, 1.1, 1.1]);
+        this.drawMesh(
+          dMesh,
+          dwx,
+          this.groundedModelY(dMesh, expY, 1.1) - 0.3 + riderSeatLift,
+          dwz,
+          npc.yaw,
+          [1.1, 1.1, 1.1],
+        );
         if ((npc.passengerCount || 0) > 0) {
-          const pMesh = this.getPedestrianMesh('female', npc.id + 1);
-          const pOffX = -0.3, pOffZ = 0.2;
+          const pMesh = this.getPedestrianMesh("female", npc.id + 1);
+          const pOffX = -0.3,
+            pOffZ = 0.2;
           const pwx = npc.x + (pOffX * cosY + pOffZ * sinY);
           const pwz = npc.z + (-pOffX * sinY + pOffZ * cosY);
-          this.drawMesh(pMesh, pwx, this.groundedModelY(pMesh, expY, 0.95) - 0.3 + riderSeatLift, pwz, npc.yaw, [0.95, 0.95, 0.95]);
+          this.drawMesh(
+            pMesh,
+            pwx,
+            this.groundedModelY(pMesh, expY, 0.95) - 0.3 + riderSeatLift,
+            pwz,
+            npc.yaw,
+            [0.95, 0.95, 0.95],
+          );
         }
       }
-      if (npc.type === 'police') {
+      if (npc.type === "police") {
         const isRed = (performance.now() / 300) % 2 < 1;
-        const lightColor: [number, number, number, number] = isRed ? [1, 0, 0, 1] : [0, 0, 1, 1];
-        const responseMesh = this.wantedLevel >= 5 ? this.getPoliceResponseMesh(npc.id) : this.getPoliceCarMesh();
+        const lightColor: [number, number, number, number] = isRed
+          ? [1, 0, 0, 1]
+          : [0, 0, 1, 1];
+        const responseMesh =
+          this.wantedLevel >= 5
+            ? this.getPoliceResponseMesh(npc.id)
+            : this.getPoliceCarMesh();
         // At wanted level five the response vehicle is drawn explicitly here;
         // this guarantees tanks use the opaque procedural tank mesh even when
         // the NPC was originally synchronized before the wanted level changed.
-        if (this.wantedLevel >= 5) this.drawMesh(responseMesh, npc.x, expY, npc.z, npc.yaw, [1, 1, 1], [1, 1, 1, 1]);
-        this.drawMesh(this.getBoxMesh(0.8, 0.2, 0.4), npc.x, expY + 1.2, npc.z, npc.yaw, [1, 1, 1], lightColor);
+        if (this.wantedLevel >= 5)
+          this.drawMesh(
+            responseMesh,
+            npc.x,
+            expY,
+            npc.z,
+            npc.yaw,
+            [1, 1, 1],
+            [1, 1, 1, 1],
+          );
+        this.drawMesh(
+          this.getBoxMesh(0.8, 0.2, 0.4),
+          npc.x,
+          expY + 1.2,
+          npc.z,
+          npc.yaw,
+          [1, 1, 1],
+          lightColor,
+        );
       }
-      if (npc.state === 'stop') {
-        this.drawMesh(this.getBoxMesh(0.4, 0.2, 0.3), npc.x, expY + 1.0, npc.z, npc.yaw, [1, 1, 1], [1, 0, 0, 1]);
+      if (npc.state === "stop") {
+        this.drawMesh(
+          this.getBoxMesh(0.4, 0.2, 0.3),
+          npc.x,
+          expY + 1.0,
+          npc.z,
+          npc.yaw,
+          [1, 1, 1],
+          [1, 0, 0, 1],
+        );
       }
     }
     for (const dealer of this.dealershipNPCs) {
-      const ddx = dealer.x - camX, ddz = dealer.z - camZ;
+      const ddx = dealer.x - camX,
+        ddz = dealer.z - camZ;
       if (ddx * ddx + ddz * ddz > 220 * 220) continue;
-      this.animateAndSkinEntity(dealer.id, dealer.mesh, 'idle', dt, 1);
-      this.drawMesh(dealer.mesh, dealer.x, this.groundedModelY(dealer.mesh, getTerrainHeight(dealer.x, dealer.z), NPC_HUMAN_RENDER_SCALE), dealer.z, dealer.yaw, [NPC_HUMAN_RENDER_SCALE, NPC_HUMAN_RENDER_SCALE, NPC_HUMAN_RENDER_SCALE], [1, 1, 1, 1]);
+      this.animateAndSkinEntity(dealer.id, dealer.mesh, "idle", dt, 1);
+      this.drawMesh(
+        dealer.mesh,
+        dealer.x,
+        this.groundedModelY(
+          dealer.mesh,
+          getTerrainHeight(dealer.x, dealer.z),
+          NPC_HUMAN_RENDER_SCALE,
+        ),
+        dealer.z,
+        dealer.yaw,
+        [
+          NPC_HUMAN_RENDER_SCALE,
+          NPC_HUMAN_RENDER_SCALE,
+          NPC_HUMAN_RENDER_SCALE,
+        ],
+        [1, 1, 1, 1],
+      );
     }
     for (const ped of serverPedestrians) {
       // Police role is authoritative. Re-select the uniform mesh at render time
       // as well as during polling so an officer cannot retain a civilian mesh
       // from an earlier snapshot or from the vehicle-exit transition.
-      const isPolicePed = ped.type === 'cop' || ped.type === 'police'
-        || (ped as any).isPolice === true || (ped as any).appearanceRole === 'cop';
-      const pedMesh = isPolicePed ? this.getPedestrianMesh('cop', ped.id) : ped.mesh;
+      const isPolicePed =
+        ped.type === "cop" ||
+        ped.type === "police" ||
+        (ped as any).isPolice === true ||
+        (ped as any).appearanceRole === "cop";
+      const pedMesh = isPolicePed
+        ? this.getPedestrianMesh("cop", ped.id)
+        : ped.mesh;
       const pedSpeed = ped.speed ?? 0;
       // Server speeds are world units per second; even slow pedestrians need a
       // walk pose or the procedural rig falls back to a motionless idle.
-      const pedState = pedSpeed > 0.08 ? 'walk' : 'idle';
+      const pedState = pedSpeed > 0.08 ? "walk" : "idle";
       // Animation LOD — see the NPC loop above: skin only what's close enough
       // to notice, draw the rest at their last pose.
       if (ped.isArresting) this.arrestingEntities.add(ped.id);
@@ -6213,50 +12872,98 @@ void main() {
       if (ped.isDucking) this.duckingEntities.add(ped.id);
       else this.duckingEntities.delete(ped.id);
       const pedFlinch = this.flinchTimers.get(ped.id) ?? 0;
-      if (pedFlinch > 0) this.flinchTimers.set(ped.id, Math.max(0, pedFlinch - dt));
-      const pedDx = ped.x - camX, pedDz = ped.z - camZ;
+      if (pedFlinch > 0)
+        this.flinchTimers.set(ped.id, Math.max(0, pedFlinch - dt));
+      const pedDx = ped.x - camX,
+        pedDz = ped.z - camZ;
       (pedMesh as any)._lastAnimDistanceSq = pedDx * pedDx + pedDz * pedDz;
       // Hookers use a slower, confident walk. Their procedural female rig is
       // still the same shared human rig, but the speed makes them readable
       // from the street without adding another asset or animation clip.
-      const animationSpeed = ped.type === 'hooker' || ped.gender === 'hooker'
-        ? 1.45
-        : (pedState === 'walk' ? Math.max(0.75, Math.min(2.2, pedSpeed * 2.2 || 1)) : 1);
+      const animationSpeed =
+        ped.type === "hooker" || ped.gender === "hooker"
+          ? 1.45
+          : pedState === "walk"
+            ? Math.max(0.75, Math.min(2.2, pedSpeed * 2.2 || 1))
+            : 1;
       if (pedDx * pedDx + pedDz * pedDz <= 150 * 150) {
-        this.animateAndSkinEntity(ped.id, pedMesh, pedState, dt, animationSpeed);
+        this.animateAndSkinEntity(
+          ped.id,
+          pedMesh,
+          pedState,
+          dt,
+          animationSpeed,
+        );
       }
       // Ducking (gunfire reaction): the crouch-and-cover pose (bent legs, low
       // hips) does the lowering — this mild squash is the fallback for distant
       // peds that skip skinning, and keeps the "hit the deck" read. A flinching
       // ped (a landed punch) gets an extra brief recoil squash on top.
-      const isSwimming = !!ped.isSwimming && getBiome(Math.floor(ped.x / 80), Math.floor(ped.z / 80)) === 'ocean';
+      const isSwimming =
+        !!ped.isSwimming &&
+        getBiome(Math.floor(ped.x / 80), Math.floor(ped.z / 80)) === "ocean";
       const pedTerrainY = getTerrainHeight(ped.x, ped.z);
       let pedScale: [number, number, number] = isSwimming
         ? [NPC_HUMAN_RENDER_SCALE, 0.42, NPC_HUMAN_RENDER_SCALE]
-        : (ped.isDucking
+        : ped.isDucking
           ? [NPC_HUMAN_RENDER_SCALE * 0.95, 0.75, NPC_HUMAN_RENDER_SCALE * 0.95]
-          : [NPC_HUMAN_RENDER_SCALE, NPC_HUMAN_RENDER_SCALE, NPC_HUMAN_RENDER_SCALE]);
-      if (pedFlinch > 0 && !isSwimming) pedScale = [NPC_HUMAN_RENDER_SCALE, pedScale[1] * 0.92, NPC_HUMAN_RENDER_SCALE];        // Keep the rig's foot contact readable: the walk cycle is intentionally
-        // subtle and the lower body remains grounded while the hips bob.
+          : [
+              NPC_HUMAN_RENDER_SCALE,
+              NPC_HUMAN_RENDER_SCALE,
+              NPC_HUMAN_RENDER_SCALE,
+            ];
+      if (pedFlinch > 0 && !isSwimming)
+        pedScale = [
+          NPC_HUMAN_RENDER_SCALE,
+          pedScale[1] * 0.92,
+          NPC_HUMAN_RENDER_SCALE,
+        ]; // Keep the rig's foot contact readable: the walk cycle is intentionally
+      // subtle and the lower body remains grounded while the hips bob.
       const impactReaction = (this as any).npcImpactReactions?.get(ped.id);
-      const impactProgress = impactReaction ? Math.min(1, impactReaction.age / impactReaction.duration) : 0;
-      const impactLift = impactReaction
-        ? (impactReaction.region === 'head'
-          ? Math.sin(impactProgress * Math.PI) * 0.9
-          : impactReaction.region === 'legs' ? 0.08 : Math.sin(impactProgress * Math.PI) * 0.35)
+      const impactProgress = impactReaction
+        ? Math.min(1, impactReaction.age / impactReaction.duration)
         : 0;
-      const impactTime = impactReaction ? Math.max(0, impactReaction.age - dt) : 0;
-      const impactX = impactReaction ? ped.x + impactReaction.vx * impactTime : ped.x;
-      const impactZ = impactReaction ? ped.z + impactReaction.vz * impactTime : ped.z;
-      const impactYaw = impactReaction ? ped.yaw + impactReaction.spin * impactTime * 8 : ped.yaw;
+      const impactLift = impactReaction
+        ? impactReaction.region === "head"
+          ? Math.sin(impactProgress * Math.PI) * 0.9
+          : impactReaction.region === "legs"
+            ? 0.08
+            : Math.sin(impactProgress * Math.PI) * 0.35
+        : 0;
+      const impactTime = impactReaction
+        ? Math.max(0, impactReaction.age - dt)
+        : 0;
+      const impactX = impactReaction
+        ? ped.x + impactReaction.vx * impactTime
+        : ped.x;
+      const impactZ = impactReaction
+        ? ped.z + impactReaction.vz * impactTime
+        : ped.z;
+      const impactYaw = impactReaction
+        ? ped.yaw + impactReaction.spin * impactTime * 8
+        : ped.yaw;
       const finalScale: [number, number, number] = impactReaction
-        ? [NPC_HUMAN_RENDER_SCALE, Math.max(0.72, NPC_HUMAN_RENDER_SCALE - impactProgress * 0.28), NPC_HUMAN_RENDER_SCALE]
+        ? [
+            NPC_HUMAN_RENDER_SCALE,
+            Math.max(0.72, NPC_HUMAN_RENDER_SCALE - impactProgress * 0.28),
+            NPC_HUMAN_RENDER_SCALE,
+          ]
         : pedScale;
-      this.drawMesh(pedMesh, impactX, (isSwimming ? -1.35 : this.groundedModelY(pedMesh, pedTerrainY, NPC_HUMAN_RENDER_SCALE)) + impactLift, impactZ, impactYaw, finalScale);
+      this.drawMesh(
+        pedMesh,
+        impactX,
+        (isSwimming
+          ? -1.35
+          : this.groundedModelY(pedMesh, pedTerrainY, NPC_HUMAN_RENDER_SCALE)) +
+          impactLift,
+        impactZ,
+        impactYaw,
+        finalScale,
+      );
     }
     if (dt > 0 && Math.random() < 0.05) {
       const activeIds = new Set<number>();
-      activeIds.add(-1); 
+      activeIds.add(-1);
       for (const npc of serverNPCs) activeIds.add(npc.id);
       for (const ped of serverPedestrians) activeIds.add(ped.id);
       this.cleanupAnimators(activeIds);
@@ -6264,64 +12971,120 @@ void main() {
     for (const p of otherPlayers) {
       if (p.health <= 0) continue;
       if (p.passengerOfUserId && p.passengerOfUserId > 0) {
-        const host = otherPlayers.find(h => h.userId === p.passengerOfUserId);
+        const host = otherPlayers.find((h) => h.userId === p.passengerOfUserId);
         if (host && host.isInCar) {
-          const sinY = Math.sin(host.yaw), cosY = Math.cos(host.yaw);
-          const offX = -0.3, offZ = 0.2;
+          const sinY = Math.sin(host.yaw),
+            cosY = Math.cos(host.yaw);
+          const offX = -0.3,
+            offZ = 0.2;
           const wx = host.posX + (offX * cosY + offZ * sinY);
           const wz = host.posZ + (-offX * sinY + offZ * cosY);
-          const hostY = host.vehicleType === 'helicopter' || host.vehicleType === 'plane' ? (host.posY || 0) + 0.45 : -0.3;
+          const hostY =
+            host.vehicleType === "helicopter" || host.vehicleType === "plane"
+              ? (host.posY || 0) + 0.45
+              : -0.3;
           this.drawMesh(p.mesh, wx, hostY, wz, host.yaw, [1.05, 1.05, 1.05]);
         }
         continue;
       }
       if (p.isInCar) {
-        const vType = p.vehicleType || 'car';
+        const vType = p.vehicleType || "car";
         let carMesh: CityMesh | CityMesh[];
-        const col: [number, number, number] = [p.carColorR ?? 1, p.carColorG ?? 1, p.carColorB ?? 1];
-        if (vType === 'taxi') carMesh = this.getTaxiMesh();
-        else if (vType === 'bus') carMesh = this.busMesh || this.getNPCCarMesh(col, p.userId);
-        else if (vType === 'boat') carMesh = this.getBoatMesh(p.userId);
-        else if (vType === 'helicopter') carMesh = this.getHelicopterMesh(p.userId);
-        else if (vType === 'plane') carMesh = this.getPlaneMesh(p.userId);
-        else if (vType === 'motorcycle') carMesh = this.motorcycleMeshes.length > 0 ? this.motorcycleMeshes[0] : this.getNPCCarMesh(col, p.userId);
-        else if (vType === 'police') carMesh = this.getPoliceCarMesh();
-        else carMesh = this.carMeshes.length > 0 ? this.carMeshes[0] : this.getNPCCarMesh(col, p.userId);
-        const vy = (vType === 'helicopter' || vType === 'plane') ? (p.posY || 0) : 0;
+        const col: [number, number, number] = [
+          p.carColorR ?? 1,
+          p.carColorG ?? 1,
+          p.carColorB ?? 1,
+        ];
+        if (vType === "taxi") carMesh = this.getTaxiMesh();
+        else if (vType === "bus")
+          carMesh = this.busMesh || this.getNPCCarMesh(col, p.userId);
+        else if (vType === "boat") carMesh = this.getBoatMesh(p.userId);
+        else if (vType === "helicopter")
+          carMesh = this.getHelicopterMesh(p.userId);
+        else if (vType === "plane") carMesh = this.getPlaneMesh(p.userId);
+        else if (vType === "motorcycle")
+          carMesh =
+            this.motorcycleMeshes.length > 0
+              ? this.motorcycleMeshes[0]
+              : this.getNPCCarMesh(col, p.userId);
+        else if (vType === "police") carMesh = this.getPoliceCarMesh();
+        else
+          carMesh =
+            this.carMeshes.length > 0
+              ? this.carMeshes[0]
+              : this.getNPCCarMesh(col, p.userId);
+        const vy =
+          vType === "helicopter" || vType === "plane" ? p.posY || 0 : 0;
         this.drawMesh(carMesh, p.posX, vy, p.posZ, p.yaw);
-        const sinY = Math.sin(p.yaw), cosY = Math.cos(p.yaw);
-        const offX = 0.3, offZ = 0.2;
+        const sinY = Math.sin(p.yaw),
+          cosY = Math.cos(p.yaw);
+        const offX = 0.3,
+          offZ = 0.2;
         const wx = p.posX + (offX * cosY + offZ * sinY);
         const wz = p.posZ + (-offX * sinY + offZ * cosY);
-        const occupantY = vType === 'helicopter' || vType === 'plane' ? (p.posY || 0) + 0.45 : -0.3;
+        const occupantY =
+          vType === "helicopter" || vType === "plane"
+            ? (p.posY || 0) + 0.45
+            : -0.3;
         this.drawMesh(p.mesh, wx, occupantY, wz, p.yaw, [1.05, 1.05, 1.05]);
       } else {
         // Lifelike remote player — walk/idle + visible firing/punch for peers
-        const dx = p.posX - ((p as any)._prevX ?? p.posX), dz = p.posZ - ((p as any)._prevZ ?? p.posZ);
+        const dx = p.posX - ((p as any)._prevX ?? p.posX),
+          dz = p.posZ - ((p as any)._prevZ ?? p.posZ);
         const moved = Math.hypot(dx, dz);
-        const state = p.isShooting ? 'walk' as const : (moved > 0.015 ? 'walk' as const : 'idle' as const);
-        (p as any)._prevX = p.posX; (p as any)._prevZ = p.posZ;
+        const state = p.isShooting
+          ? ("walk" as const)
+          : moved > 0.015
+            ? ("walk" as const)
+            : ("idle" as const);
+        (p as any)._prevX = p.posX;
+        (p as any)._prevZ = p.posZ;
         if (p.isShooting) this.punchTimers.set(p.userId, 0.18);
-        const ddx2 = p.posX - camX, ddz2 = p.posZ - camZ;
-        if (ddx2*ddx2+ddz2*ddz2 < 150*150) this.animateAndSkinEntity(p.userId, p.mesh, state, dt, 1.2);
-        this.drawMesh(p.mesh, p.posX, p.posY, p.posZ, p.yaw, [REMOTE_PLAYER_RENDER_SCALE, REMOTE_PLAYER_RENDER_SCALE, REMOTE_PLAYER_RENDER_SCALE]);
+        const ddx2 = p.posX - camX,
+          ddz2 = p.posZ - camZ;
+        if (ddx2 * ddx2 + ddz2 * ddz2 < 150 * 150)
+          this.animateAndSkinEntity(p.userId, p.mesh, state, dt, 1.2);
+        this.drawMesh(p.mesh, p.posX, p.posY, p.posZ, p.yaw, [
+          REMOTE_PLAYER_RENDER_SCALE,
+          REMOTE_PLAYER_RENDER_SCALE,
+          REMOTE_PLAYER_RENDER_SCALE,
+        ]);
       }
     }
-    if (this.hospitalMesh) this.drawMesh(this.hospitalMesh, 40, 0.06, 40, 0, [15, 10, 15]);
+    if (this.hospitalMesh)
+      this.drawMesh(this.hospitalMesh, 40, 0.06, 40, 0, [15, 10, 15]);
     const garage = this.getGarageMeshes();
     this.drawMesh(garage.building, 120, 0, 45, 0, [1, 1, 1], [1, 1, 1, 1]);
-    this.drawMesh(garage.door, 120, 5.6 * this.garageDoorOpenness, 45, 0, [1, 1, 1], [1, 1, 1, 1]);
+    this.drawMesh(
+      garage.door,
+      120,
+      5.6 * this.garageDoorOpenness,
+      45,
+      0,
+      [1, 1, 1],
+      [1, 1, 1, 1],
+    );
     if (this.jumpRamps.length) {
       if (!this.jumpRampMesh) this.getJumpRampMesh();
       if (this.jumpRampMesh) {
         for (const jr of this.jumpRamps) {
-          const jdx = jr.x - camX, jdz = jr.z - camZ;
+          const jdx = jr.x - camX,
+            jdz = jr.z - camZ;
           if (jdx * jdx + jdz * jdz > 300 * 300) continue;
-          this.drawMesh(this.jumpRampMesh, jr.x, 0, jr.z, jr.yaw, [1, 1, 1], [1, 1, 1, 1]);
+          this.drawMesh(
+            this.jumpRampMesh,
+            jr.x,
+            0,
+            jr.z,
+            jr.yaw,
+            [1, 1, 1],
+            [1, 1, 1, 1],
+          );
         }
       }
     }
-    if (this.garageCarVisible && this.garageCarMesh) this.drawMesh(this.garageCarMesh, 120, 0, 42, 0);
+    if (this.garageCarVisible && this.garageCarMesh)
+      this.drawMesh(this.garageCarMesh, 120, 0, 42, 0);
     if (this.vendingMachineMesh) {
       for (const vm of vendingMachines) {
         this.drawMesh(this.vendingMachineMesh, vm.x, 0, vm.z, vm.yaw);
@@ -6338,20 +13101,57 @@ void main() {
       // aprons and made its tires look half buried. Aircraft keep the same
       // targetY here because their altitude is already encoded in carY.
       const vehicleY = targetY;
-      const localVehicleMesh = this.playerVehicleType === 'helicopter'
-        ? this.getHelicopterMesh(0, false)
-        : this.playerVehicleMesh;
-      if (localVehicleMesh) this.drawMesh(localVehicleMesh, targetX, vehicleY, targetZ, this.playerVehicleType === 'helicopter' ? carYaw + Math.PI : carYaw, this.playerVehicleType === 'helicopter' ? [HELICOPTER_RENDER_SCALE, HELICOPTER_RENDER_SCALE, HELICOPTER_RENDER_SCALE] : [1, 1, 1], [1, 1, 1, 1], false, 0, carRoll);
-      if (this.playerVehicleType === 'helicopter') {
+      const localVehicleMesh =
+        this.playerVehicleType === "helicopter"
+          ? this.getHelicopterMesh(0, false)
+          : this.playerVehicleMesh;
+      if (localVehicleMesh)
+        this.drawMesh(
+          localVehicleMesh,
+          targetX,
+          vehicleY,
+          targetZ,
+          this.playerVehicleType === "helicopter" ? carYaw + Math.PI : carYaw,
+          this.playerVehicleType === "helicopter"
+            ? [
+                HELICOPTER_RENDER_SCALE,
+                HELICOPTER_RENDER_SCALE,
+                HELICOPTER_RENDER_SCALE,
+              ]
+            : [1, 1, 1],
+          [1, 1, 1, 1],
+          false,
+          0,
+          carRoll,
+        );
+      if (this.playerVehicleType === "helicopter") {
         const rotor = this.getRotorBladeMesh();
         const spin = performance.now() * 0.02;
         const rotorScale = 0.58 * HELICOPTER_RENDER_SCALE;
-        this.drawMesh(rotor, targetX, vehicleY + 2.08 * HELICOPTER_RENDER_SCALE, targetZ, carYaw + Math.PI + spin, [rotorScale, rotorScale, rotorScale], [0.55, 0.55, 0.55, 0.5]);
+        this.drawMesh(
+          rotor,
+          targetX,
+          vehicleY + 2.08 * HELICOPTER_RENDER_SCALE,
+          targetZ,
+          carYaw + Math.PI + spin,
+          [rotorScale, rotorScale, rotorScale],
+          [0.55, 0.55, 0.55, 0.5],
+        );
         const helicopterYaw = carYaw + Math.PI;
-        const tailX = targetX + Math.sin(helicopterYaw) * 2.65 * HELICOPTER_RENDER_SCALE;
-        const tailZ = targetZ + Math.cos(helicopterYaw) * 2.65 * HELICOPTER_RENDER_SCALE;
+        const tailX =
+          targetX + Math.sin(helicopterYaw) * 2.65 * HELICOPTER_RENDER_SCALE;
+        const tailZ =
+          targetZ + Math.cos(helicopterYaw) * 2.65 * HELICOPTER_RENDER_SCALE;
         const tailRotorScale = 0.18 * HELICOPTER_RENDER_SCALE;
-        this.drawMesh(rotor, tailX, vehicleY + 1.18 * HELICOPTER_RENDER_SCALE, tailZ, helicopterYaw + spin * 2.75, [tailRotorScale, tailRotorScale, tailRotorScale], [0.4, 0.4, 0.4, 0.45]);
+        this.drawMesh(
+          rotor,
+          tailX,
+          vehicleY + 1.18 * HELICOPTER_RENDER_SCALE,
+          tailZ,
+          helicopterYaw + spin * 2.75,
+          [tailRotorScale, tailRotorScale, tailRotorScale],
+          [0.4, 0.4, 0.4, 0.45],
+        );
       }
     }
     if (playerMesh && !this.playerIsInCar) {
@@ -6364,26 +13164,48 @@ void main() {
       // Franklin has a verified full-body skeleton but no embedded clips, so
       // use the procedural player pose path rather than the NPC clip matcher.
       this.skinPlayerMesh(playerMesh, dt);
-      const deathProgress = Math.max(0, Math.min(1, 1 - this.playerDeathTime / 3));
+      const deathProgress = Math.max(
+        0,
+        Math.min(1, 1 - this.playerDeathTime / 3),
+      );
       const fallProgress = Math.min(1, deathProgress / 0.65);
       const easedFall = fallProgress * fallProgress * (3 - 2 * fallProgress);
       const deathPitch = -(Math.PI / 2) * easedFall;
-      const deathRoll = Math.sin(this.playerDeathTime * 5.5) * 0.12 * (1 - easedFall);
-      this.drawMesh(playerMesh, targetX, this.groundedModelY(playerMesh, targetY, PLAYER_RENDER_SCALE), targetZ, bodyYaw, [PLAYER_RENDER_SCALE, PLAYER_RENDER_SCALE, PLAYER_RENDER_SCALE], [1, 1, 1, 1], false, this.playerDeathTime > 0 ? deathPitch : 0, this.playerDeathTime > 0 ? deathRoll : carRoll);
+      const deathRoll =
+        Math.sin(this.playerDeathTime * 5.5) * 0.12 * (1 - easedFall);
+      this.drawMesh(
+        playerMesh,
+        targetX,
+        this.groundedModelY(playerMesh, targetY, PLAYER_RENDER_SCALE),
+        targetZ,
+        bodyYaw,
+        [PLAYER_RENDER_SCALE, PLAYER_RENDER_SCALE, PLAYER_RENDER_SCALE],
+        [1, 1, 1, 1],
+        false,
+        this.playerDeathTime > 0 ? deathPitch : 0,
+        this.playerDeathTime > 0 ? deathRoll : carRoll,
+      );
       this.drawPlayerWeapon(targetX, targetY, targetZ, bodyYaw);
     }
     // Moped wheel animation: rear wheel spins with speed, front wheel also steers.
-    const mopedArr = Array.isArray(playerMesh) ? playerMesh : (playerMesh ? [playerMesh] : []);
+    const mopedArr = Array.isArray(playerMesh)
+      ? playerMesh
+      : playerMesh
+        ? [playerMesh]
+        : [];
     if (mopedArr.length > 0 && (mopedArr[0] as any)._isMotorcycle) {
       if (dt > 0) {
         // The wheel is authored in the YZ plane and rolls around the X axle.
         // The model's forward direction is -Z, so forward motion requires the
         // opposite pitch sign from the vehicle speed.
         this._mopedSpin -= this.playerCarSpeed * dt * 2.4;
-        this._mopedFrontSteer += (this.playerSteerInput - this._mopedFrontSteer) * Math.min(1, 10 * dt);
+        this._mopedFrontSteer +=
+          (this.playerSteerInput - this._mopedFrontSteer) *
+          Math.min(1, 10 * dt);
       }
       const wm = this.getMopedWheelMesh();
-      const sinY = Math.sin(carYaw), cosY = Math.cos(carYaw);
+      const sinY = Math.sin(carYaw),
+        cosY = Math.cos(carYaw);
       // Wheel centre sits at the tire radius above the ground (baked tire bottoms at y=0).
       const wy = targetY + 0.44;
       const d = 0.97;
@@ -6391,18 +13213,45 @@ void main() {
       // never z-fights the baked sidewall and always reads as the spinning tire.
       gl.depthMask(false);
       // rear wheel
-      this.drawMesh(wm, targetX - d * sinY, wy, targetZ - d * cosY, carYaw, [1, 1, 1], [1, 1, 1, 1], false, this._mopedSpin, carRoll);
+      this.drawMesh(
+        wm,
+        targetX - d * sinY,
+        wy,
+        targetZ - d * cosY,
+        carYaw,
+        [1, 1, 1],
+        [1, 1, 1, 1],
+        false,
+        this._mopedSpin,
+        carRoll,
+      );
       // front wheel (spins + steers)
-      this.drawMesh(wm, targetX + d * sinY, wy, targetZ + d * cosY, carYaw + this._mopedFrontSteer * 0.45, [1, 1, 1], [1, 1, 1, 1], false, this._mopedSpin, carRoll);
+      this.drawMesh(
+        wm,
+        targetX + d * sinY,
+        wy,
+        targetZ + d * cosY,
+        carYaw + this._mopedFrontSteer * 0.45,
+        [1, 1, 1],
+        [1, 1, 1, 1],
+        false,
+        this._mopedSpin,
+        carRoll,
+      );
       gl.depthMask(true);
     }
     if (attachedMeshes && attachedMeshes.length > 0) {
-      const sinY = Math.sin(carYaw), cosY = Math.cos(carYaw);
+      const sinY = Math.sin(carYaw),
+        cosY = Math.cos(carYaw);
       for (const am of attachedMeshes) {
         const wx = targetX + (am.offsetX * cosY + am.offsetZ * sinY);
         const wz = targetZ + (-am.offsetX * sinY + am.offsetZ * cosY);
         const s = am.scale ?? 1;
-        this.drawMesh(am.mesh, wx, targetY + am.offsetY, wz, carYaw + am.yaw, [s, s, s]);
+        this.drawMesh(am.mesh, wx, targetY + am.offsetY, wz, carYaw + am.yaw, [
+          s,
+          s,
+          s,
+        ]);
       }
     }
     // Effects are transparent, but remain depth-tested so opaque world geometry
@@ -6415,14 +13264,30 @@ void main() {
       const alpha = 1.0 - t;
       const sz = b.size * (1.0 - t * 0.3);
       const tint = 0.85 - t * 0.25;
-      this.drawMesh(this.getBloodMesh(), b.x, b.y, b.z, 0, [sz, sz, sz], [tint, 0.0, 0.0, alpha]);
+      this.drawMesh(
+        this.getBloodMesh(),
+        b.x,
+        b.y,
+        b.z,
+        0,
+        [sz, sz, sz],
+        [tint, 0.0, 0.0, alpha],
+      );
     }
     const smokeMesh = this.getSphereMesh(0.5);
     for (const s of bulletSmoke) {
       const t = s.age / s.lifetime;
       const alpha = (1.0 - t) * 0.35;
       const sz = s.size;
-      this.drawMesh(smokeMesh, s.x, s.y, s.z, 0, [sz, sz, sz], [0.7, 0.7, 0.75, alpha]);
+      this.drawMesh(
+        smokeMesh,
+        s.x,
+        s.y,
+        s.z,
+        0,
+        [sz, sz, sz],
+        [0.7, 0.7, 0.75, alpha],
+      );
     }
     for (const s of carSmoke) {
       const t = s.age / s.lifetime;
@@ -6431,7 +13296,15 @@ void main() {
       const sr = s.colorR ?? 0.25;
       const sg = s.colorG ?? 0.25;
       const sb = s.colorB ?? 0.28;
-      this.drawMesh(smokeMesh, s.x, s.y, s.z, 0, [sz, sz, sz], [sr, sg, sb, alpha]);
+      this.drawMesh(
+        smokeMesh,
+        s.x,
+        s.y,
+        s.z,
+        0,
+        [sz, sz, sz],
+        [sr, sg, sb, alpha],
+      );
     }
     gl.depthMask(false);
     const surfaceYAt = (x: number, z: number): number => {
@@ -6444,26 +13317,62 @@ void main() {
       const progress = bp.age / bp.lifetime;
       const poolScale = 1 + progress * bp.maxRadius;
       const alpha = Math.max(0, 1.0 - progress * 0.5);
-      const rot = ((bp.x * 0.7 + bp.z * 1.3) % (Math.PI * 2));
-      this.drawMesh(this.getBloodPoolMesh(bp.variant || 0), bp.x, surfaceYAt(bp.x, bp.z) + 0.015, bp.z, rot, [poolScale, 1, poolScale], [1.0, 1.0, 1.0, alpha]);
+      const rot = (bp.x * 0.7 + bp.z * 1.3) % (Math.PI * 2);
+      this.drawMesh(
+        this.getBloodPoolMesh(bp.variant || 0),
+        bp.x,
+        surfaceYAt(bp.x, bp.z) + 0.015,
+        bp.z,
+        rot,
+        [poolScale, 1, poolScale],
+        [1.0, 1.0, 1.0, alpha],
+      );
     }
     for (const ms of moneyStacks) {
       const progress = ms.age / ms.lifetime;
       const alpha = 1.0 - progress;
-      const spin = performance.now() / 1000 * 2 + ms.x;
+      const spin = (performance.now() / 1000) * 2 + ms.x;
       if (this.moneyMesh) {
-        this.drawMesh(this.moneyMesh, ms.x, (ms.y ?? surfaceYAt(ms.x, ms.z) + 0.12), ms.z, spin, [0.1, 0.1, 0.1], [1, 1, 1, alpha]);
+        this.drawMesh(
+          this.moneyMesh,
+          ms.x,
+          ms.y ?? surfaceYAt(ms.x, ms.z) + 0.12,
+          ms.z,
+          spin,
+          [0.1, 0.1, 0.1],
+          [1, 1, 1, alpha],
+        );
       } else {
-        this.drawMesh(this.getMoneyStackMesh(), ms.x, surfaceYAt(ms.x, ms.z) + 0.02, ms.z, spin, [1, 1, 1], [1, 1, 1, alpha]);
+        this.drawMesh(
+          this.getMoneyStackMesh(),
+          ms.x,
+          surfaceYAt(ms.x, ms.z) + 0.02,
+          ms.z,
+          spin,
+          [1, 1, 1],
+          [1, 1, 1, alpha],
+        );
       }
     }
     gl.depthMask(true);
     for (const db of deadBodies) {
-      const isHuman = db.type === 'player' || db.type === 'ped_male' || db.type === 'ped_female' || db.type === 'cop';
-      const elapsed = (performance.now() / 1000) - db.deathTime;
+      const isHuman =
+        db.type === "player" ||
+        db.type === "ped_male" ||
+        db.type === "ped_female" ||
+        db.type === "cop";
+      const elapsed = performance.now() / 1000 - db.deathTime;
       const fadeAlpha = Math.max(0.4, 1.0 - elapsed / 30);
       if (!isHuman) {
-        this.drawMesh(db.mesh, db.x, surfaceYAt(db.x, db.z) + 0.04, db.z, -db.yaw, [1, 1, 1], [0.4, 0.4, 0.4, fadeAlpha]);
+        this.drawMesh(
+          db.mesh,
+          db.x,
+          surfaceYAt(db.x, db.z) + 0.04,
+          db.z,
+          -db.yaw,
+          [1, 1, 1],
+          [0.4, 0.4, 0.4, fadeAlpha],
+        );
         continue;
       }
       // Ragdoll fall: instead of snapping instantly flat, the human tilts over
@@ -6475,24 +13384,45 @@ void main() {
       const eased = ft * ft * (3 - 2 * ft); // smoothstep
       const seed = Math.abs((db.id * 1.7 + db.deathTime * 3.1) % (Math.PI * 2));
       // Pitch from upright to flat with a slight over-rotation flop.
-      const flop = -(Math.PI / 2) * eased - Math.PI * 0.10 * Math.sin(Math.PI * ft);
+      const flop =
+        -(Math.PI / 2) * eased - Math.PI * 0.1 * Math.sin(Math.PI * ft);
       // Tumble sideways early, settling to a stable rest roll as it lands.
       const tumble = Math.sin(seed) * 0.45 * Math.sin(Math.PI * ft);
       // Body slides a short way opposite its facing while falling.
       const slide = 0.9 * eased;
       const sx = db.x - Math.sin(-db.yaw) * slide;
       const sz = db.z - Math.cos(-db.yaw) * slide;
-      this.drawMesh(db.mesh, sx, surfaceYAt(sx, sz) + 0.04, sz, -db.yaw, [1, 1, 1], [0.4, 0.4, 0.4, fadeAlpha], false, flop, tumble);
+      this.drawMesh(
+        db.mesh,
+        sx,
+        surfaceYAt(sx, sz) + 0.04,
+        sz,
+        -db.yaw,
+        [1, 1, 1],
+        [0.4, 0.4, 0.4, fadeAlpha],
+        false,
+        flop,
+        tumble,
+      );
     }
     // Keep projectile effects behind walls as well. They use the regular
     // program and therefore can participate in the world's depth buffer.
     gl.enable(gl.DEPTH_TEST);
     gl.depthMask(false);
     for (const t of tracers) {
-      const alpha = 1.0 - (t.age / t.lifetime);
+      const alpha = 1.0 - t.age / t.lifetime;
       const mesh = this.getTracerMesh();
       mat4.identity(this.modelMatrix);
-      mat4.targetTo(this.modelMatrix, [t.originX, t.originY, t.originZ], [t.originX + t.dirX * 50, t.originY + t.dirY * 50, t.originZ + t.dirZ * 50], [0, 1, 0]);
+      mat4.targetTo(
+        this.modelMatrix,
+        [t.originX, t.originY, t.originZ],
+        [
+          t.originX + t.dirX * 50,
+          t.originY + t.dirY * 50,
+          t.originZ + t.dirZ * 50,
+        ],
+        [0, 1, 0],
+      );
       const scaleMat = mat4.create();
       mat4.scale(scaleMat, scaleMat, [0.05, 0.05, 50]);
       mat4.multiply(this.modelMatrix, this.modelMatrix, scaleMat);
@@ -6500,12 +13430,25 @@ void main() {
       gl.uniform4f(this.colorLoc, 1.0, 0.8, 0.0, alpha);
       gl.uniform1i(this.useTextureLoc, 0);
       gl.bindVertexArray(mesh.vao);
-      gl.drawElements(gl.TRIANGLES, mesh.indexCount, mesh.indexType || gl.UNSIGNED_SHORT, 0);
+      gl.drawElements(
+        gl.TRIANGLES,
+        mesh.indexCount,
+        mesh.indexType || gl.UNSIGNED_SHORT,
+        0,
+      );
     }
     for (const r of rockets) {
       const yaw = Math.atan2(r.vx, r.vz);
       const rocketScale = this.rocketMesh ? [0.15, 0.15, 0.15] : [1, 1, 1];
-      this.drawMesh(this.getRocketMesh(), r.x, r.y, r.z, yaw, rocketScale as [number, number, number], [1, 1, 1, 1]);
+      this.drawMesh(
+        this.getRocketMesh(),
+        r.x,
+        r.y,
+        r.z,
+        yaw,
+        rocketScale as [number, number, number],
+        [1, 1, 1, 1],
+      );
     }
     for (const e of explosions) {
       const progress = e.age / e.lifetime;
@@ -6514,26 +13457,60 @@ void main() {
       const s = e.scale ?? 1;
       const coreScale = (1 + progress * 4) * s;
       const coreAlpha = (1.0 - progress) * 1.2;
-      this.drawMesh(this.getExplosionMesh(), e.x, e.y + 0.5 * s, e.z, 0, [coreScale, coreScale, coreScale], [1, 1, 1, Math.min(1, coreAlpha)]);
+      this.drawMesh(
+        this.getExplosionMesh(),
+        e.x,
+        e.y + 0.5 * s,
+        e.z,
+        0,
+        [coreScale, coreScale, coreScale],
+        [1, 1, 1, Math.min(1, coreAlpha)],
+      );
       const fireScale = (2 + progress * 8) * s;
       const fireAlpha = (1.0 - progress) * 0.8;
-      this.drawMesh(this.getExplosionMesh(), e.x, e.y + 1.0 * s, e.z, 0, [fireScale, fireScale * 0.8, fireScale], [1, 0.5, 0.0, fireAlpha]);
+      this.drawMesh(
+        this.getExplosionMesh(),
+        e.x,
+        e.y + 1.0 * s,
+        e.z,
+        0,
+        [fireScale, fireScale * 0.8, fireScale],
+        [1, 0.5, 0.0, fireAlpha],
+      );
       const smokeScale = (3 + progress * 12) * s;
       const smokeAlpha = (1.0 - progress) * 0.5;
-      this.drawMesh(this.getExplosionMesh(), e.x, e.y + 2.0 * s + progress * 3 * s, e.z, 0, [smokeScale, smokeScale, smokeScale], [0.2, 0.2, 0.2, smokeAlpha]);
+      this.drawMesh(
+        this.getExplosionMesh(),
+        e.x,
+        e.y + 2.0 * s + progress * 3 * s,
+        e.z,
+        0,
+        [smokeScale, smokeScale, smokeScale],
+        [0.2, 0.2, 0.2, smokeAlpha],
+      );
     }
     for (const m of muzzleFlashes) {
       const t = m.age / m.lifetime;
       const alpha = 1.0 - t;
       const weaponScale = m.weapon === 2 ? 1.4 : m.weapon === 1 ? 1.0 : 0.75;
       const dirLen = Math.hypot(m.dirX, m.dirY, m.dirZ) || 1;
-      const fx = m.dirX / dirLen, fy = m.dirY / dirLen, fz = m.dirZ / dirLen;
+      const fx = m.dirX / dirLen,
+        fy = m.dirY / dirLen,
+        fz = m.dirZ / dirLen;
       const barrelOffset = 1.5;
       const flashX = m.x + fx * barrelOffset;
       const flashY = m.y + fy * barrelOffset;
       const flashZ = m.z + fz * barrelOffset;
       const s = weaponScale * (0.9 + 0.2 * Math.sin(t * 40));
-      this.drawMesh(this.getMuzzleFlashMesh(), flashX, flashY, flashZ, 0, [s, s, s], [1.0, 1.0, 1.0, alpha]);
+      this.drawMesh(
+        this.getMuzzleFlashMesh(),
+        flashX,
+        flashY,
+        flashZ,
+        0,
+        [s, s, s],
+        [1.0, 1.0, 1.0, alpha],
+      );
     }
     if (markers && markers.length > 0) {
       const markerDistSq = 150 * 150;
@@ -6542,32 +13519,68 @@ void main() {
       gl.enable(gl.DEPTH_TEST);
       gl.depthMask(false);
       for (const m of markers) {
-        if (m.type === 'destination') {
-          const dx = m.x - camX, dz = m.z - camZ;
+        if (m.type === "destination") {
+          const dx = m.x - camX,
+            dz = m.z - camZ;
           const dSq = dx * dx + dz * dz;
           if (dSq > markerDistSq) continue;
-          const alpha = dSq > markerFadeDistSq ? 1 - (dSq - markerFadeDistSq) / (markerDistSq - markerFadeDistSq) : 1;
+          const alpha =
+            dSq > markerFadeDistSq
+              ? 1 - (dSq - markerFadeDistSq) / (markerDistSq - markerFadeDistSq)
+              : 1;
           const pulse = 1.0 + 0.15 * Math.sin(performance.now() / 250);
-          this.drawMesh(this.getDestinationMarkerMesh(), m.x, 0.02, m.z, 0, [pulse, 1, pulse], [1.0, 1.0, 1.0, alpha]);
+          this.drawMesh(
+            this.getDestinationMarkerMesh(),
+            m.x,
+            0.02,
+            m.z,
+            0,
+            [pulse, 1, pulse],
+            [1.0, 1.0, 1.0, alpha],
+          );
         }
       }
       gl.depthMask(true);
       gl.disable(gl.DEPTH_TEST);
       for (const m of markers) {
-        if (m.type === 'hail') {
-          const dx = m.x - camX, dz = m.z - camZ;
+        if (m.type === "hail") {
+          const dx = m.x - camX,
+            dz = m.z - camZ;
           const dSq = dx * dx + dz * dz;
           if (dSq > markerDistSq) continue;
-          const alpha = dSq > markerFadeDistSq ? 1 - (dSq - markerFadeDistSq) / (markerDistSq - markerFadeDistSq) : 1;
+          const alpha =
+            dSq > markerFadeDistSq
+              ? 1 - (dSq - markerFadeDistSq) / (markerDistSq - markerFadeDistSq)
+              : 1;
           const bob = Math.sin(performance.now() / 300 + (m.phase || 0)) * 0.3;
-          this.drawMesh(this.getHailMarkerMesh(), m.x, 3.2 + bob, m.z, performance.now() / 600, [1.4, 1.4, 1.4], [1.0, 1.0, 1.0, alpha]);
-        } else if (m.type === 'beam') {
-          const dx = m.x - camX, dz = m.z - camZ;
+          this.drawMesh(
+            this.getHailMarkerMesh(),
+            m.x,
+            3.2 + bob,
+            m.z,
+            performance.now() / 600,
+            [1.4, 1.4, 1.4],
+            [1.0, 1.0, 1.0, alpha],
+          );
+        } else if (m.type === "beam") {
+          const dx = m.x - camX,
+            dz = m.z - camZ;
           const dSq = dx * dx + dz * dz;
           if (dSq > markerDistSq) continue;
-          const alpha = dSq > markerFadeDistSq ? 1 - (dSq - markerFadeDistSq) / (markerDistSq - markerFadeDistSq) : 1;
+          const alpha =
+            dSq > markerFadeDistSq
+              ? 1 - (dSq - markerFadeDistSq) / (markerDistSq - markerFadeDistSq)
+              : 1;
           const pulse = 0.8 + 0.2 * Math.sin(performance.now() / 200);
-          this.drawMesh(this.getDestinationBeamMesh(), m.x, 0, m.z, 0, [1, 1, 1], [1.0, 1.0, 1.0, pulse * alpha]);
+          this.drawMesh(
+            this.getDestinationBeamMesh(),
+            m.x,
+            0,
+            m.z,
+            0,
+            [1, 1, 1],
+            [1.0, 1.0, 1.0, pulse * alpha],
+          );
         }
       }
       gl.enable(gl.DEPTH_TEST);
@@ -6578,25 +13591,47 @@ void main() {
     const fireScale = 0.6;
     for (const npc of serverNPCs) {
       if ((npc as any).isBurning) {
-        const sinYf = Math.sin(npc.yaw), cosYf = Math.cos(npc.yaw);
+        const sinYf = Math.sin(npc.yaw),
+          cosYf = Math.cos(npc.yaw);
         const fx = npc.x + cosYf * 0.8;
         const fz = npc.z + sinYf * 0.8;
-        const fireY = (npc.type === 'helicopter' || npc.type === 'plane') ? (npc.y || 0) + 0.6 : 0.6;
+        const fireY =
+          npc.type === "helicopter" || npc.type === "plane"
+            ? (npc.y || 0) + 0.6
+            : 0.6;
         const flicker = 0.85 + Math.sin(now / 100) * 0.15;
-        this.drawMesh(fireMesh, fx, fireY, fz, 0, [fireScale * flicker, fireScale * flicker, fireScale * flicker], fireColor);
+        this.drawMesh(
+          fireMesh,
+          fx,
+          fireY,
+          fz,
+          0,
+          [fireScale * flicker, fireScale * flicker, fireScale * flicker],
+          fireColor,
+        );
       }
     }
     for (const pc of parkedCars) {
       if ((pc as any).isBurning) {
-        const sinYf = Math.sin(pc.yaw), cosYf = Math.cos(pc.yaw);
+        const sinYf = Math.sin(pc.yaw),
+          cosYf = Math.cos(pc.yaw);
         const fx = pc.x + cosYf * 0.8;
         const fz = pc.z + sinYf * 0.8;
         const flicker = 0.85 + Math.sin(now / 100) * 0.15;
-        this.drawMesh(fireMesh, fx, 0.6, fz, 0, [fireScale * flicker, fireScale * flicker, fireScale * flicker], fireColor);
+        this.drawMesh(
+          fireMesh,
+          fx,
+          0.6,
+          fz,
+          0,
+          [fireScale * flicker, fireScale * flicker, fireScale * flicker],
+          fireColor,
+        );
       }
     }
     if (playerCarOnFire) {
-      const sinYf = Math.sin(carFireYaw), cosYf = Math.cos(carFireYaw);
+      const sinYf = Math.sin(carFireYaw),
+        cosYf = Math.cos(carFireYaw);
       const fx = carFireX + cosYf * 0.8;
       const fz = carFireZ + sinYf * 0.8;
       const growth = 1 + Math.min(this.carFireElapsed / 10, 1) * 2;
@@ -6617,23 +13652,31 @@ void main() {
       for (let waveDx = -waveChunkRadius; waveDx <= waveChunkRadius; waveDx++) {
         const waveChunkX = pcx + waveDx;
         const waveChunkZ = pcz + waveDz;
-        if (getBiome(waveChunkX, waveChunkZ) !== 'beach') continue;
+        if (getBiome(waveChunkX, waveChunkZ) !== "beach") continue;
         const waveOriginX = waveChunkX * CHUNK_SIZE;
         const waveOriginZ = waveChunkZ * CHUNK_SIZE;
         const waveCenterX = waveOriginX + CHUNK_SIZE / 2;
         const waveCenterZ = waveOriginZ + CHUNK_SIZE / 2;
         const waveSides: [number, number][] = [];
-        for (const side of [[1, 0], [-1, 0], [0, 1], [0, -1]] as [number, number][]) {
-          if (getBiome(waveChunkX + side[0], waveChunkZ + side[1]) === 'ocean') waveSides.push(side);
+        for (const side of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ] as [number, number][]) {
+          if (getBiome(waveChunkX + side[0], waveChunkZ + side[1]) === "ocean")
+            waveSides.push(side);
         }
         for (let sideIndex = 0; sideIndex < waveSides.length; sideIndex++) {
           const [sideX, sideZ] = waveSides[sideIndex];
-          const boundaryX = sideX !== 0
-            ? waveOriginX + (sideX > 0 ? CHUNK_SIZE : 0)
-            : waveCenterX;
-          const boundaryZ = sideZ !== 0
-            ? waveOriginZ + (sideZ > 0 ? CHUNK_SIZE : 0)
-            : waveCenterZ;
+          const boundaryX =
+            sideX !== 0
+              ? waveOriginX + (sideX > 0 ? CHUNK_SIZE : 0)
+              : waveCenterX;
+          const boundaryZ =
+            sideZ !== 0
+              ? waveOriginZ + (sideZ > 0 ? CHUNK_SIZE : 0)
+              : waveCenterZ;
           const phase = waveChunkX * 0.71 + waveChunkZ * 1.13 + sideIndex * 0.9;
           const bob = Math.sin(waveTime * 2.4 + phase) * 0.035;
           const yaw = sideX !== 0 ? 0 : Math.PI / 2;
@@ -6641,10 +13684,26 @@ void main() {
           // sits just above the -2.5 water plane and follows the sloped landing.
           const shoreX = boundaryX - sideX * 1.4;
           const shoreZ = boundaryZ - sideZ * 1.4;
-          this.drawMesh(waveMesh, shoreX, -2.43 + bob, shoreZ, yaw, [1, 1, 1], [1, 1, 1, 0.9]);
+          this.drawMesh(
+            waveMesh,
+            shoreX,
+            -2.43 + bob,
+            shoreZ,
+            yaw,
+            [1, 1, 1],
+            [1, 1, 1, 0.9],
+          );
           if (!this.isMobile) {
             const crestBob = Math.sin(waveTime * 2.9 + phase + 1.7) * 0.028;
-            this.drawMesh(foamMesh, shoreX - sideX * 1.8, -2.39 + crestBob, shoreZ - sideZ * 1.8, yaw, [0.82, 1, 0.82], [1, 1, 1, 0.9]);
+            this.drawMesh(
+              foamMesh,
+              shoreX - sideX * 1.8,
+              -2.39 + crestBob,
+              shoreZ - sideZ * 1.8,
+              yaw,
+              [0.82, 1, 0.82],
+              [1, 1, 1, 0.9],
+            );
           }
         }
       }
@@ -6668,30 +13727,75 @@ void main() {
         const phase = (dw.id || 0) * 0.73;
         const pulse = 0.84 + 0.16 * Math.sin((now / 1000) * 4 + phase);
         const spin = pickupYaw * 0.65 + phase;
-        const haloColor: [number, number, number] = dw.weaponType === 1
-          ? [0.18, 0.55, 1.0]       // pistol: electric blue
-          : dw.weaponType === 2
-            ? [0.16, 0.95, 1.0]     // rifle: cyan
-            : dw.weaponType === 3
-              ? [1.0, 0.34, 0.08]   // shotgun: hot orange
-              : dw.weaponType === 4
-                ? [0.82, 0.20, 1.0] // launcher: violet
-                : [0.35, 1.0, 0.55];
-        const ringColor: [number, number, number, number] = [haloColor[0], haloColor[1], haloColor[2], 0.72];
-        const beamColor: [number, number, number, number] = [haloColor[0], haloColor[1], haloColor[2], 0.12 + pulse * 0.06];
+        const haloColor: [number, number, number] =
+          dw.weaponType === 1
+            ? [0.18, 0.55, 1.0] // pistol: electric blue
+            : dw.weaponType === 2
+              ? [0.16, 0.95, 1.0] // rifle: cyan
+              : dw.weaponType === 3
+                ? [1.0, 0.34, 0.08] // shotgun: hot orange
+                : dw.weaponType === 4
+                  ? [0.82, 0.2, 1.0] // launcher: violet
+                  : [0.35, 1.0, 0.55];
+        const ringColor: [number, number, number, number] = [
+          haloColor[0],
+          haloColor[1],
+          haloColor[2],
+          0.72,
+        ];
+        const beamColor: [number, number, number, number] = [
+          haloColor[0],
+          haloColor[1],
+          haloColor[2],
+          0.12 + pulse * 0.06,
+        ];
         // A bright inner core keeps the pickup readable even over light ground.
-        this.drawMesh(haloCore, dw.posX, pickupY, dw.posZ, 0, [0.54 + pulse * 0.10, 0.54 + pulse * 0.10, 0.54 + pulse * 0.10], [haloColor[0], haloColor[1], haloColor[2], 0.16]);
+        this.drawMesh(
+          haloCore,
+          dw.posX,
+          pickupY,
+          dw.posZ,
+          0,
+          [0.54 + pulse * 0.1, 0.54 + pulse * 0.1, 0.54 + pulse * 0.1],
+          [haloColor[0], haloColor[1], haloColor[2], 0.16],
+        );
         // Two interleaved rings create a stylized sci-fi beacon instead of a
         // single opaque yellow sphere. The second ring is tilted and rotated.
-        this.drawMesh(haloRing, dw.posX, surfaceY + 0.035, dw.posZ, spin, [0.95 + pulse * 0.18, 1, 0.95 + pulse * 0.18], ringColor);
-        this.drawMesh(haloRing, dw.posX, pickupY - 0.18, dw.posZ, -spin * 1.35, [0.62 + pulse * 0.12, 1, 0.62 + pulse * 0.12], [haloColor[0], haloColor[1], haloColor[2], 0.30]);
-        this.drawMesh(haloBeam, dw.posX, surfaceY + 0.04, dw.posZ, spin * 0.7, [0.82 + pulse * 0.10, 0.78 + pulse * 0.08, 0.82 + pulse * 0.10], beamColor);
+        this.drawMesh(
+          haloRing,
+          dw.posX,
+          surfaceY + 0.035,
+          dw.posZ,
+          spin,
+          [0.95 + pulse * 0.18, 1, 0.95 + pulse * 0.18],
+          ringColor,
+        );
+        this.drawMesh(
+          haloRing,
+          dw.posX,
+          pickupY - 0.18,
+          dw.posZ,
+          -spin * 1.35,
+          [0.62 + pulse * 0.12, 1, 0.62 + pulse * 0.12],
+          [haloColor[0], haloColor[1], haloColor[2], 0.3],
+        );
+        this.drawMesh(
+          haloBeam,
+          dw.posX,
+          surfaceY + 0.04,
+          dw.posZ,
+          spin * 0.7,
+          [0.82 + pulse * 0.1, 0.78 + pulse * 0.08, 0.82 + pulse * 0.1],
+          beamColor,
+        );
         this.drawMesh(
           this.getWeaponPickupMesh(dw.weaponType),
-          dw.posX, pickupY, dw.posZ,
+          dw.posX,
+          pickupY,
+          dw.posZ,
           pickupYaw + (dw.id || 0),
           [PICKUP_SCALE, PICKUP_SCALE, PICKUP_SCALE],
-          [1, 1, 1, 1]
+          [1, 1, 1, 1],
         );
       }
       gl.enable(gl.CULL_FACE);
@@ -6705,26 +13809,31 @@ void main() {
     // reliable gradient remains visible on every device.
   }
   private getTracerMesh(): CityMesh {
-    if (this.meshCache.has('tracer')) return this.meshCache.get('tracer')!;
-    const verts: number[] = [], indices: number[] = [];
+    if (this.meshCache.has("tracer")) return this.meshCache.get("tracer")!;
+    const verts: number[] = [],
+      indices: number[] = [];
     this.addBox(verts, indices, 0, 0, 0.5, 1, 1, 1, 1.0, 0.8, 0.0, 1.0, 0);
     const mesh = this.createMesh(verts, indices);
-    this.meshCache.set('tracer', mesh);
+    this.meshCache.set("tracer", mesh);
     return mesh;
   }
   private getRocketMesh(): CityMesh | CityMesh[] {
     if (this.rocketMesh) return this.rocketMesh;
-    if (this.meshCache.has('rocket')) return this.meshCache.get('rocket')!;
-    const verts: number[] = [], indices: number[] = [];
+    if (this.meshCache.has("rocket")) return this.meshCache.get("rocket")!;
+    const verts: number[] = [],
+      indices: number[] = [];
     this.addBox(verts, indices, 0, 0, 0, 0.3, 0.3, 1.5, 1.0, 0.2, 0.2, 1.0, 0);
     const mesh = this.createMesh(verts, indices);
-    this.meshCache.set('rocket', mesh);
+    this.meshCache.set("rocket", mesh);
     return mesh;
   }
   private getExplosionMesh(): CityMesh {
-    if (this.meshCache.has('explosion')) return this.meshCache.get('explosion')!;
-    const verts: number[] = [], indices: number[] = [];
-    const stacks = 6, slices = 10;
+    if (this.meshCache.has("explosion"))
+      return this.meshCache.get("explosion")!;
+    const verts: number[] = [],
+      indices: number[] = [];
+    const stacks = 6,
+      slices = 10;
     let vIdx = 0;
     for (let stack = 0; stack <= stacks; stack++) {
       const phi = (stack / stacks) * Math.PI;
@@ -6752,33 +13861,83 @@ void main() {
       }
     }
     const mesh = this.createMesh(verts, indices);
-    this.meshCache.set('explosion', mesh);
+    this.meshCache.set("explosion", mesh);
     return mesh;
   }
   private getMuzzleFlashMesh(): CityMesh {
-    if (this.meshCache.has('muzzle_flash')) return this.meshCache.get('muzzle_flash')!;
-    const verts: number[] = [], indices: number[] = [];
+    if (this.meshCache.has("muzzle_flash"))
+      return this.meshCache.get("muzzle_flash")!;
+    const verts: number[] = [],
+      indices: number[] = [];
     this.addBox(verts, indices, 0, 0, 0, 0.4, 0.4, 0.4, 1.0, 0.95, 0.7, 1.0, 0);
-    this.addBox(verts, indices, 0, 0, 0.55, 0.18, 0.18, 1.1, 1.0, 0.85, 0.3, 1.0, 24);
-    this.addBox(verts, indices, 0.45, 0, 0, 0.9, 0.15, 0.15, 1.0, 0.6, 0.15, 1.0, 48);
-    this.addBox(verts, indices, 0, 0.45, 0, 0.15, 0.9, 0.15, 1.0, 0.6, 0.15, 1.0, 72);
+    this.addBox(
+      verts,
+      indices,
+      0,
+      0,
+      0.55,
+      0.18,
+      0.18,
+      1.1,
+      1.0,
+      0.85,
+      0.3,
+      1.0,
+      24,
+    );
+    this.addBox(
+      verts,
+      indices,
+      0.45,
+      0,
+      0,
+      0.9,
+      0.15,
+      0.15,
+      1.0,
+      0.6,
+      0.15,
+      1.0,
+      48,
+    );
+    this.addBox(
+      verts,
+      indices,
+      0,
+      0.45,
+      0,
+      0.15,
+      0.9,
+      0.15,
+      1.0,
+      0.6,
+      0.15,
+      1.0,
+      72,
+    );
     const mesh = this.createMesh(verts, indices);
-    this.meshCache.set('muzzle_flash', mesh);
+    this.meshCache.set("muzzle_flash", mesh);
     return mesh;
   }
   private getBloodMesh(): CityMesh {
-    if (this.meshCache.has('blood')) return this.meshCache.get('blood')!;
-    const verts: number[] = [], indices: number[] = [];
-    const stacks = 5, slices = 8;
+    if (this.meshCache.has("blood")) return this.meshCache.get("blood")!;
+    const verts: number[] = [],
+      indices: number[] = [];
+    const stacks = 5,
+      slices = 8;
     for (let i = 0; i <= stacks; i++) {
       const v = i / stacks;
       const theta = v * Math.PI;
-      const sinT = Math.sin(theta), cosT = Math.cos(theta);
+      const sinT = Math.sin(theta),
+        cosT = Math.cos(theta);
       for (let j = 0; j <= slices; j++) {
         const u = j / slices;
         const phi = u * Math.PI * 2;
-        const sinP = Math.sin(phi), cosP = Math.cos(phi);
-        const x = cosP * sinT, y = cosT, z = sinP * sinT;
+        const sinP = Math.sin(phi),
+          cosP = Math.cos(phi);
+        const x = cosP * sinT,
+          y = cosT,
+          z = sinP * sinT;
         verts.push(x * 0.5, y * 0.5, z * 0.5, x, y, z, 0.75, 0.0, 0.0, 1.0);
       }
     }
@@ -6790,23 +13949,24 @@ void main() {
       }
     }
     const mesh = this.createMesh(verts, indices);
-    this.meshCache.set('blood', mesh);
+    this.meshCache.set("blood", mesh);
     return mesh;
   }
   private getBloodPoolMesh(variant: number = 0): CityMesh {
     const key = `bloodpool_${variant}`;
     if (this.meshCache.has(key)) return this.meshCache.get(key)!;
-    const verts: number[] = [], indices: number[] = [];
+    const verts: number[] = [],
+      indices: number[] = [];
     const rng = this.mulberry32(variant * 7919 + 31);
     const SEGMENTS = 16;
     const centerIdx = 0;
     verts.push(0, 0, 0, 0.35, 0.0, 0.0, 1.0);
     for (let i = 0; i < SEGMENTS; i++) {
       const theta = (i / SEGMENTS) * Math.PI * 2;
-      const r = 0.85 + (rng() - 0.5) * 0.40;
+      const r = 0.85 + (rng() - 0.5) * 0.4;
       const x = Math.cos(theta) * r;
       const z = Math.sin(theta) * r;
-      const tint = 0.55 + (rng() - 0.5) * 0.10;
+      const tint = 0.55 + (rng() - 0.5) * 0.1;
       verts.push(x, 0, z, tint, 0.0, 0.0, 1.0);
     }
     for (let i = 0; i < SEGMENTS; i++) {
@@ -6817,7 +13977,10 @@ void main() {
     this.meshCache.set(key, mesh);
     return mesh;
   }
-  getPoliceResponseMesh(id: number | string = 0, police = true): CityMesh | CityMesh[] {
+  getPoliceResponseMesh(
+    id: number | string = 0,
+    police = true,
+  ): CityMesh | CityMesh[] {
     if (!police || this.wantedLevel < 5) return this.getPoliceCarMesh();
     // The Jeep asset is the final vehicle slot loaded by the Grand Theft car
     // manifest. Use it for level-5 pursuit units, with the lightbar drawn in
@@ -6826,9 +13989,10 @@ void main() {
     // units use the Jeep asset. Both retain the `police` vehicle type so
     // stealing either vehicle ejects police crew through the existing theft
     // response path.
-    const numericId = typeof id === 'number' ? Math.abs(id) : hashSeed(id);
+    const numericId = typeof id === "number" ? Math.abs(id) : hashSeed(id);
     if (numericId % 4 === 0) return this.getPoliceTankMesh();
-    if (this.carMeshes.length > 10 && this.carMeshes[10]) return this.carMeshes[10];
+    if (this.carMeshes.length > 10 && this.carMeshes[10])
+      return this.carMeshes[10];
     return this.getPoliceTankMesh();
   }
   private getPoliceTankMesh(): CityMesh[] {
@@ -6836,7 +14000,17 @@ void main() {
     const verts: number[] = [];
     const indices: number[] = [];
     let offset = 0;
-    const box = (x: number, y: number, z: number, w: number, h: number, d: number, r: number, g: number, b: number) => {
+    const box = (
+      x: number,
+      y: number,
+      z: number,
+      w: number,
+      h: number,
+      d: number,
+      r: number,
+      g: number,
+      b: number,
+    ) => {
       this.addBox(verts, indices, x, y, z, w, h, d, r, g, b, 1, offset);
       offset += 24;
     };
@@ -6844,31 +14018,61 @@ void main() {
     // an optional military asset. The previous placeholder reused vertex offsets
     // for its wheels and could render as an effectively empty/transparent NPC on
     // some WebGL drivers.
-    const armor = [0.16, 0.20, 0.22];
+    const armor = [0.16, 0.2, 0.22];
     const darkArmor = [0.08, 0.11, 0.12];
     const trim = [0.28, 0.34, 0.34];
     // Wide tracked chassis and raised sloped-looking armor layers.
     box(0, 0.62, 0, 3.8, 0.9, 5.0, armor[0], armor[1], armor[2]);
     box(0, 1.22, 0.15, 3.25, 0.42, 3.7, 0.21, 0.26, 0.27);
-    box(-2.0, 0.62, 0, 0.42, 0.72, 4.65, darkArmor[0], darkArmor[1], darkArmor[2]);
-    box(2.0, 0.62, 0, 0.42, 0.72, 4.65, darkArmor[0], darkArmor[1], darkArmor[2]);
+    box(
+      -2.0,
+      0.62,
+      0,
+      0.42,
+      0.72,
+      4.65,
+      darkArmor[0],
+      darkArmor[1],
+      darkArmor[2],
+    );
+    box(
+      2.0,
+      0.62,
+      0,
+      0.42,
+      0.72,
+      4.65,
+      darkArmor[0],
+      darkArmor[1],
+      darkArmor[2],
+    );
     // Track cleats/wheels make the silhouette read as an armored vehicle.
     for (const x of [-2.0, 2.0]) {
       for (const z of [-1.65, -0.55, 0.55, 1.65]) {
         box(x, 0.52, z, 0.5, 0.58, 0.72, 0.04, 0.05, 0.055);
-        box(x + (x < 0 ? -0.03 : 0.03), 0.52, z, 0.56, 0.12, 0.78, trim[0], trim[1], trim[2]);
+        box(
+          x + (x < 0 ? -0.03 : 0.03),
+          0.52,
+          z,
+          0.56,
+          0.12,
+          0.78,
+          trim[0],
+          trim[1],
+          trim[2],
+        );
       }
     }
     // Turret, hatch, and a long cannon clearly identify it as a tank.
-    box(0, 1.66, 0.05, 1.95, 0.38, 1.95, 0.30, 0.35, 0.35);
+    box(0, 1.66, 0.05, 1.95, 0.38, 1.95, 0.3, 0.35, 0.35);
     box(0, 1.92, 0.05, 1.05, 0.22, 1.05, 0.12, 0.15, 0.16);
-    box(0, 1.94, -1.72, 0.28, 0.25, 3.35, 0.10, 0.12, 0.13);
-    box(0, 2.08, -3.35, 0.42, 0.16, 0.3, 0.38, 0.10, 0.06);
+    box(0, 1.94, -1.72, 0.28, 0.25, 3.35, 0.1, 0.12, 0.13);
+    box(0, 2.08, -3.35, 0.42, 0.16, 0.3, 0.38, 0.1, 0.06);
     // Small red/blue response lights keep level-five units readable at night.
-    box(-0.62, 1.92, 0.28, 0.22, 0.10, 0.22, 0.85, 0.06, 0.05);
-    box(0.62, 1.92, 0.28, 0.22, 0.10, 0.22, 0.05, 0.18, 0.85);
+    box(-0.62, 1.92, 0.28, 0.22, 0.1, 0.22, 0.85, 0.06, 0.05);
+    box(0.62, 1.92, 0.28, 0.22, 0.1, 0.22, 0.05, 0.18, 0.85);
     const mesh = this.createMesh(verts, indices);
-    mesh.carName = 'procedural_police_tank';
+    mesh.carName = "procedural_police_tank";
     this.policeTankMesh = [mesh];
     return this.policeTankMesh;
   }
@@ -6878,46 +14082,164 @@ void main() {
     if (this.meshCache.has(key)) return this.meshCache.get(key)!;
     const verts: number[] = [];
     const indices: number[] = [];
-    this.addBox(verts, indices, 0, 0.4, 0, 2.0, 0.8, 4.0, 0.1, 0.1, 0.1, 1.0, 0);
-    this.addBox(verts, indices, 0, 0.6, 0, 2.1, 0.4, 2.0, 0.9, 0.9, 0.9, 1.0, 24);
-    this.addBox(verts, indices, 0, 1.0, -0.2, 1.6, 0.6, 2.0, 0.1, 0.1, 0.1, 1.0, 48);
+    this.addBox(
+      verts,
+      indices,
+      0,
+      0.4,
+      0,
+      2.0,
+      0.8,
+      4.0,
+      0.1,
+      0.1,
+      0.1,
+      1.0,
+      0,
+    );
+    this.addBox(
+      verts,
+      indices,
+      0,
+      0.6,
+      0,
+      2.1,
+      0.4,
+      2.0,
+      0.9,
+      0.9,
+      0.9,
+      1.0,
+      24,
+    );
+    this.addBox(
+      verts,
+      indices,
+      0,
+      1.0,
+      -0.2,
+      1.6,
+      0.6,
+      2.0,
+      0.1,
+      0.1,
+      0.1,
+      1.0,
+      48,
+    );
     const mesh = this.createMesh(verts, indices);
     this.meshCache.set(key, mesh);
     return mesh;
   }
   getMoneyStackMesh(): CityMesh {
-    if (this.meshCache.has('moneyStack')) return this.meshCache.get('moneyStack')!;
-    const verts: number[] = [], indices: number[] = [];
-    this.addBox(verts, indices, 0, 0.06, 0, 0.15, 0.12, 0.25, 0.2, 0.6, 0.2, 1.0, 0);
-    this.addBox(verts, indices, 0, 0.06, 0, 0.17, 0.02, 0.27, 1.0, 0.9, 0.1, 1.0, 24);
-    this.addBox(verts, indices, 0, 0.12, 0, 0.13, 0.02, 0.23, 0.3, 0.7, 0.3, 1.0, 48);
+    if (this.meshCache.has("moneyStack"))
+      return this.meshCache.get("moneyStack")!;
+    const verts: number[] = [],
+      indices: number[] = [];
+    this.addBox(
+      verts,
+      indices,
+      0,
+      0.06,
+      0,
+      0.15,
+      0.12,
+      0.25,
+      0.2,
+      0.6,
+      0.2,
+      1.0,
+      0,
+    );
+    this.addBox(
+      verts,
+      indices,
+      0,
+      0.06,
+      0,
+      0.17,
+      0.02,
+      0.27,
+      1.0,
+      0.9,
+      0.1,
+      1.0,
+      24,
+    );
+    this.addBox(
+      verts,
+      indices,
+      0,
+      0.12,
+      0,
+      0.13,
+      0.02,
+      0.23,
+      0.3,
+      0.7,
+      0.3,
+      1.0,
+      48,
+    );
     const mesh = this.createMesh(verts, indices);
-    this.meshCache.set('moneyStack', mesh);
+    this.meshCache.set("moneyStack", mesh);
     return mesh;
   }
   /** Procedural rotor blade - a flat elongated diamond shape that spins on Y axis */
   getRotorBladeMesh(): CityMesh {
-    if (this.meshCache.has('rotor_blade')) return this.meshCache.get('rotor_blade')!;
-    const verts: number[] = [], indices: number[] = [];
-    this.addBox(verts, indices, 0, 0, 0, 5.0, 0.08, 0.5, 0.15, 0.15, 0.15, 0.9, 0);
-    this.addBox(verts, indices, 0, 0, 0, 0.5, 0.08, 5.0, 0.15, 0.15, 0.15, 0.9, 24);
+    if (this.meshCache.has("rotor_blade"))
+      return this.meshCache.get("rotor_blade")!;
+    const verts: number[] = [],
+      indices: number[] = [];
+    this.addBox(
+      verts,
+      indices,
+      0,
+      0,
+      0,
+      5.0,
+      0.08,
+      0.5,
+      0.15,
+      0.15,
+      0.15,
+      0.9,
+      0,
+    );
+    this.addBox(
+      verts,
+      indices,
+      0,
+      0,
+      0,
+      0.5,
+      0.08,
+      5.0,
+      0.15,
+      0.15,
+      0.15,
+      0.9,
+      24,
+    );
     const mesh = this.createMesh(verts, indices);
-    this.meshCache.set('rotor_blade', mesh);
+    this.meshCache.set("rotor_blade", mesh);
     return mesh;
   }
   private getBoxMesh(w: number, h: number, d: number): CityMesh {
     const key = `box_${w}_${h}_${d}`;
     if (this.meshCache.has(key)) return this.meshCache.get(key)!;
-    const verts: number[] = [], indices: number[] = [];
+    const verts: number[] = [],
+      indices: number[] = [];
     this.addBox(verts, indices, 0, 0, 0, w, h, d, 1, 1, 1, 1, 0);
     const mesh = this.createMesh(verts, indices);
     this.meshCache.set(key, mesh);
     return mesh;
   }
   private getWeaponHaloRingMesh(): CityMesh {
-    const key = 'weapon_halo_ring';
+    const key = "weapon_halo_ring";
     if (this.meshCache.has(key)) return this.meshCache.get(key)!;
-    const verts: number[] = [], indices: number[] = [];
+    const verts: number[] = [],
+      indices: number[] = [];
     const segments = 32;
     const innerRadius = 0.82;
     const outerRadius = 1.18;
@@ -6927,13 +14249,22 @@ void main() {
       const base = verts.length / 10;
       const push = (a: number, radius: number, alpha: number) => {
         verts.push(
-          Math.cos(a) * radius, 0, Math.sin(a) * radius,
-          0, 1, 0,
-          1, 1, 1, alpha
+          Math.cos(a) * radius,
+          0,
+          Math.sin(a) * radius,
+          0,
+          1,
+          0,
+          1,
+          1,
+          1,
+          alpha,
         );
       };
-      push(a0, innerRadius, 0.2); push(a0, outerRadius, 1.0);
-      push(a1, outerRadius, 1.0); push(a1, innerRadius, 0.2);
+      push(a0, innerRadius, 0.2);
+      push(a0, outerRadius, 1.0);
+      push(a1, outerRadius, 1.0);
+      push(a1, innerRadius, 0.2);
       indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
     }
     const mesh = this.createMesh(verts, indices);
@@ -6942,9 +14273,10 @@ void main() {
   }
 
   private getWeaponHaloBeamMesh(): CityMesh {
-    const key = 'weapon_halo_beam';
+    const key = "weapon_halo_beam";
     if (this.meshCache.has(key)) return this.meshCache.get(key)!;
-    const verts: number[] = [], indices: number[] = [];
+    const verts: number[] = [],
+      indices: number[] = [];
     const segments = 12;
     const bottomRadius = 0.88;
     const topRadius = 0.28;
@@ -6954,11 +14286,14 @@ void main() {
       const a1 = ((i + 1) / segments) * Math.PI * 2;
       const base = verts.length / 10;
       const push = (a: number, y: number, radius: number, alpha: number) => {
-        const nx = Math.cos(a), nz = Math.sin(a);
+        const nx = Math.cos(a),
+          nz = Math.sin(a);
         verts.push(nx * radius, y, nz * radius, nx, 0.15, nz, 1, 1, 1, alpha);
       };
-      push(a0, 0, bottomRadius, 0.0); push(a0, height, topRadius, 0.9);
-      push(a1, height, topRadius, 0.9); push(a1, 0, bottomRadius, 0.0);
+      push(a0, 0, bottomRadius, 0.0);
+      push(a0, height, topRadius, 0.9);
+      push(a1, height, topRadius, 0.9);
+      push(a1, 0, bottomRadius, 0.0);
       indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
     }
     const mesh = this.createMesh(verts, indices);
@@ -6967,7 +14302,7 @@ void main() {
   }
 
   private getBeachWaveMesh(foam: boolean): CityMesh {
-    const key = foam ? 'beach_wave_foam' : 'beach_wave_water';
+    const key = foam ? "beach_wave_foam" : "beach_wave_water";
     if (this.meshCache.has(key)) return this.meshCache.get(key)!;
     const verts: number[] = [];
     const indices: number[] = [];
@@ -6976,24 +14311,48 @@ void main() {
     const length = 68;
     const stripWidth = foam ? 0.34 : 0.5;
     const crossOffsets = foam ? [-0.42, 0.42] : [-0.95, 0, 0.95];
-    const baseColor = foam ? [0.82, 0.94, 0.92] : [0.10, 0.54, 0.78];
+    const baseColor = foam ? [0.82, 0.94, 0.92] : [0.1, 0.54, 0.78];
     for (let strip = 0; strip < strips; strip++) {
       const cross = crossOffsets[strip];
       for (let i = 0; i <= segments; i++) {
         const t = i / segments;
         const z = -length / 2 + t * length;
-        const swell = Math.sin(t * Math.PI * 6 + strip * 1.7) * (foam ? 0.025 : 0.04);
+        const swell =
+          Math.sin(t * Math.PI * 6 + strip * 1.7) * (foam ? 0.025 : 0.04);
         const alpha = foam
           ? 0.12 + 0.34 * (0.5 + 0.5 * Math.sin(t * Math.PI * 4 + strip))
           : 0.16 + 0.16 * (0.5 + 0.5 * Math.sin(t * Math.PI * 3 + strip));
         const rowStart = verts.length / 7;
         // Generated meshes use the compact position/color layout (x, y, z,
         // r, g, b, a); createMesh derives normals from the indexed triangles.
-        verts.push(cross - stripWidth / 2, swell, z, baseColor[0], baseColor[1], baseColor[2], alpha);
-        verts.push(cross + stripWidth / 2, swell, z, baseColor[0], baseColor[1], baseColor[2], alpha * 0.65);
+        verts.push(
+          cross - stripWidth / 2,
+          swell,
+          z,
+          baseColor[0],
+          baseColor[1],
+          baseColor[2],
+          alpha,
+        );
+        verts.push(
+          cross + stripWidth / 2,
+          swell,
+          z,
+          baseColor[0],
+          baseColor[1],
+          baseColor[2],
+          alpha * 0.65,
+        );
         if (i > 0) {
           const prev = rowStart - 2;
-          indices.push(prev, rowStart, prev + 1, prev + 1, rowStart, rowStart + 1);
+          indices.push(
+            prev,
+            rowStart,
+            prev + 1,
+            prev + 1,
+            rowStart,
+            rowStart + 1,
+          );
         }
       }
     }
@@ -7005,18 +14364,33 @@ void main() {
   private getSphereMesh(radius: number): CityMesh {
     const key = `sphere_${radius}`;
     if (this.meshCache.has(key)) return this.meshCache.get(key)!;
-    const verts: number[] = [], indices: number[] = [];
-    const stacks = 10, slices = 16;
+    const verts: number[] = [],
+      indices: number[] = [];
+    const stacks = 10,
+      slices = 16;
     const startIndex = verts.length / 10;
     for (let i = 0; i <= stacks; i++) {
       const v = i / stacks;
       const theta = v * Math.PI;
-      const sinT = Math.sin(theta), cosT = Math.cos(theta);
+      const sinT = Math.sin(theta),
+        cosT = Math.cos(theta);
       for (let j = 0; j <= slices; j++) {
         const u = j / slices;
         const phi = u * Math.PI * 2;
-        const sinP = Math.sin(phi), cosP = Math.cos(phi);
-        verts.push(cosP * sinT * radius, cosT * radius, sinP * sinT * radius, cosP * sinT, cosT, sinP * sinT, 1, 1, 1, 1);
+        const sinP = Math.sin(phi),
+          cosP = Math.cos(phi);
+        verts.push(
+          cosP * sinT * radius,
+          cosT * radius,
+          sinP * sinT * radius,
+          cosP * sinT,
+          cosT,
+          sinP * sinT,
+          1,
+          1,
+          1,
+          1,
+        );
       }
     }
     for (let i = 0; i < stacks; i++) {
@@ -7033,7 +14407,7 @@ void main() {
   private loadTexture(url: string): Promise<WebGLTexture | null> {
     return new Promise((resolve) => {
       const img = new Image();
-      img.crossOrigin = 'anonymous';
+      img.crossOrigin = "anonymous";
       img.onload = () => {
         const tex = this.gl.createTexture();
         this.gl.bindTexture(this.gl.TEXTURE_2D, tex);
@@ -7041,36 +14415,78 @@ void main() {
         let source: TexImageSource = img;
         if (this.isMobile) {
           const maxDim = 256;
-          let w = img.width, h = img.height;
+          let w = img.width,
+            h = img.height;
           if (w > maxDim || h > maxDim) {
             const scale = Math.min(maxDim / w, maxDim / h);
             w = Math.floor(w * scale);
             h = Math.floor(h * scale);
-            const c = document.createElement('canvas');
+            const c = document.createElement("canvas");
             c.width = w;
             c.height = h;
-            const ctx = c.getContext('2d');
+            const ctx = c.getContext("2d");
             if (ctx) {
               ctx.imageSmoothingEnabled = true;
               ctx.drawImage(img, 0, 0, w, h);
               source = c;
             }
           }
-          this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, source);
-          this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR);
-          this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.LINEAR);
+          this.gl.texImage2D(
+            this.gl.TEXTURE_2D,
+            0,
+            this.gl.RGBA,
+            this.gl.RGBA,
+            this.gl.UNSIGNED_BYTE,
+            source,
+          );
+          this.gl.texParameteri(
+            this.gl.TEXTURE_2D,
+            this.gl.TEXTURE_MIN_FILTER,
+            this.gl.LINEAR,
+          );
+          this.gl.texParameteri(
+            this.gl.TEXTURE_2D,
+            this.gl.TEXTURE_MAG_FILTER,
+            this.gl.LINEAR,
+          );
         } else {
-          this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, img);
+          this.gl.texImage2D(
+            this.gl.TEXTURE_2D,
+            0,
+            this.gl.RGBA,
+            this.gl.RGBA,
+            this.gl.UNSIGNED_BYTE,
+            img,
+          );
           this.gl.generateMipmap(this.gl.TEXTURE_2D);
-          this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR_MIPMAP_LINEAR);
-          this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.LINEAR);
+          this.gl.texParameteri(
+            this.gl.TEXTURE_2D,
+            this.gl.TEXTURE_MIN_FILTER,
+            this.gl.LINEAR_MIPMAP_LINEAR,
+          );
+          this.gl.texParameteri(
+            this.gl.TEXTURE_2D,
+            this.gl.TEXTURE_MAG_FILTER,
+            this.gl.LINEAR,
+          );
         }
-        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.REPEAT);
-        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.REPEAT);
+        this.gl.texParameteri(
+          this.gl.TEXTURE_2D,
+          this.gl.TEXTURE_WRAP_S,
+          this.gl.REPEAT,
+        );
+        this.gl.texParameteri(
+          this.gl.TEXTURE_2D,
+          this.gl.TEXTURE_WRAP_T,
+          this.gl.REPEAT,
+        );
         resolve(tex);
       };
-      img.onerror = () => { console.error('Failed to load texture:', url); resolve(null); };
-      img.src = (url.startsWith('blob:') || url.startsWith('data:')) ? url : url;
+      img.onerror = () => {
+        console.error("Failed to load texture:", url);
+        resolve(null);
+      };
+      img.src = url.startsWith("blob:") || url.startsWith("data:") ? url : url;
     });
   }
   // Eases the held gun's pitch toward the crosshair aim while a shot is live,
@@ -7098,15 +14514,26 @@ void main() {
     this.weaponYaw += yawDiff * ky;
   }
   private drawPlayerWeapon(x: number, y: number, z: number, yaw: number): void {
-    const weaponType = this.playerWeapon > 0 ? this.playerWeapon
-      : (this.playerFireTime > 0 ? this.playerFireWeapon : 0);
+    const weaponType =
+      this.playerWeapon > 0
+        ? this.playerWeapon
+        : this.playerFireTime > 0
+          ? this.playerFireWeapon
+          : 0;
     if (this.playerIsInCar || weaponType <= 0) return;
     let weapon: CityMesh[] | null = null;
     let scale = 0.18;
     if (weaponType === 1) weapon = this.coltMesh;
-    else if (weaponType === 2) { weapon = this.m4a1Mesh; scale = 0.235; }
-    else if (weaponType === 3) { weapon = this.shotgunMesh; scale = 0.235; }
-    else if (weaponType === 4) { weapon = this.rocketLauncherMesh; scale = 0.265; }
+    else if (weaponType === 2) {
+      weapon = this.m4a1Mesh;
+      scale = 0.235;
+    } else if (weaponType === 3) {
+      weapon = this.shotgunMesh;
+      scale = 0.235;
+    } else if (weaponType === 4) {
+      weapon = this.rocketLauncherMesh;
+      scale = 0.265;
+    }
     if (!weapon) return;
     // Aim the barrel at the crosshair (camera) direction rather than the walk
     // facing: bullets/tracers/rockets all travel along this.playerAimYaw, so the
@@ -7120,8 +14547,10 @@ void main() {
     const weaponYaw = weaponType === 3 ? aimYaw + Math.PI : aimYaw;
     const forward = 0.62;
     const side = 0.22;
-    const fx = Math.sin(aimYaw), fz = Math.cos(aimYaw);
-    const rx = Math.cos(aimYaw), rz = -Math.sin(aimYaw);
+    const fx = Math.sin(aimYaw),
+      fz = Math.cos(aimYaw);
+    const rx = Math.cos(aimYaw),
+      rz = -Math.sin(aimYaw);
     const recoil = this.playerFireTime > 0 ? -0.08 : 0;
     this.drawMesh(
       weapon,
@@ -7132,15 +14561,18 @@ void main() {
       [scale, scale, scale],
       [1, 1, 1, 1],
       false,
-      this.weaponPitch + recoil
+      this.weaponPitch + recoil,
     );
   }
   renderFirstPersonWeapon(
-    camX: number, camY: number, camZ: number,
-    camYaw: number, camPitch: number,
+    camX: number,
+    camY: number,
+    camZ: number,
+    camYaw: number,
+    camPitch: number,
     weapon: number,
     mark23Anim: string | null,
-    dt: number
+    dt: number,
   ): void {
     const gl = this.gl;
     gl.disable(gl.DEPTH_TEST);
@@ -7148,7 +14580,8 @@ void main() {
     const fx = Math.sin(camYaw) * Math.cos(camPitch);
     const fy = -Math.sin(camPitch);
     const fz = Math.cos(camYaw) * Math.cos(camPitch);
-    const rightX = Math.cos(camYaw), rightZ = -Math.sin(camYaw);
+    const rightX = Math.cos(camYaw),
+      rightZ = -Math.sin(camYaw);
     this.ensureFirstPersonArms();
     if (this.firstPersonArmsMesh && this.firstPersonArmsSkeleton) {
       // Skin the procedural arms with a live punch (only when unarmed) so the
@@ -7157,21 +14590,30 @@ void main() {
       const ax = camX + fx * 0.2 + rightX * 0.06;
       const ay = camY + fy * 0.2 - 1.5;
       const az = camZ + fz * 1.2 + rightZ * 0.06;
-      this.drawMesh(this.firstPersonArmsMesh, ax, ay, az, camYaw + Math.PI, [0.42, 0.42, 0.42], [1, 1, 1, 1]);
+      this.drawMesh(
+        this.firstPersonArmsMesh,
+        ax,
+        ay,
+        az,
+        camYaw + Math.PI,
+        [0.42, 0.42, 0.42],
+        [1, 1, 1, 1],
+      );
     }
     if (weapon === 1 && this.mark23Mesh) {
       if (this.mark23Animations && this.mark23Skeleton) {
         const skel = this.mark23Skeleton;
         const anims = this.mark23Animations;
-        const mAnimName = mark23Anim ?? '';
+        const mAnimName = mark23Anim ?? "";
         if (mAnimName !== this._mark23AnimName) {
           this._mark23AnimName = mAnimName;
           this._mark23AnimTime = 0;
         }
-        const anim = anims.find(a => a.name === mAnimName) ?? anims[0];
+        const anim = anims.find((a) => a.name === mAnimName) ?? anims[0];
         if (anim && anim.duration > 0) {
           this._mark23AnimTime += dt;
-          if (this._mark23AnimTime > anim.duration) this._mark23AnimTime %= anim.duration;
+          if (this._mark23AnimTime > anim.duration)
+            this._mark23AnimTime %= anim.duration;
           const localMatrices = new Float32Array(skel.boneCount * 16);
           this.sampleAnimation(anim, this._mark23AnimTime, skel, localMatrices);
           const jointMatrices = new Float32Array(skel.boneCount * 16);
@@ -7182,7 +14624,15 @@ void main() {
       const mx = camX + fx * 0.4 + rightX * 0.06;
       const my = camY + fy * 2.4 - 2.2;
       const mz = camZ + fz * 3.4 + rightZ * 0.06;
-      this.drawMesh(this.mark23Mesh, mx, my, mz, camYaw, [1, 1, 1], [1, 1, 1, 1]);
+      this.drawMesh(
+        this.mark23Mesh,
+        mx,
+        my,
+        mz,
+        camYaw,
+        [1, 1, 1],
+        [1, 1, 1, 1],
+      );
     }
     // First-person viewmodel for the other weapons. Weapon 1 (mark23) has its
     // own dedicated model above; the M4 (2), shotgun (3), and rocket launcher
@@ -7191,28 +14641,52 @@ void main() {
     if (weapon >= 2) {
       let fpWeapon: CityMesh[] | null = null;
       let fpScale = 0.3;
-      let fpDown = 2.0;   // how deep the model sits below the camera eye
-      let fpFwd = 2.6;    // how far forward the model reaches
-      if (weapon === 2) { fpWeapon = this.m4a1Mesh; fpScale = 0.55; fpDown = 1.9; fpFwd = 3.0; }
-      else if (weapon === 3) { fpWeapon = this.shotgunMesh; fpScale = 0.55; fpDown = 1.9; fpFwd = 3.0; }
-      else if (weapon === 4) { fpWeapon = this.rocketLauncherMesh; fpScale = 0.6; fpDown = 1.7; fpFwd = 3.2; }
+      let fpDown = 2.0; // how deep the model sits below the camera eye
+      let fpFwd = 2.6; // how far forward the model reaches
+      if (weapon === 2) {
+        fpWeapon = this.m4a1Mesh;
+        fpScale = 0.55;
+        fpDown = 1.9;
+        fpFwd = 3.0;
+      } else if (weapon === 3) {
+        fpWeapon = this.shotgunMesh;
+        fpScale = 0.55;
+        fpDown = 1.9;
+        fpFwd = 3.0;
+      } else if (weapon === 4) {
+        fpWeapon = this.rocketLauncherMesh;
+        fpScale = 0.6;
+        fpDown = 1.7;
+        fpFwd = 3.2;
+      }
       if (fpWeapon && fpWeapon.length > 0) {
         const recoil = this.playerFireTime > 0 ? -0.06 : 0;
         const wx = camX + fx * 0.3 + rightX * 0.08;
         const wy = camY + fy * fpDown - 2.2 + recoil;
         const wz = camZ + fz * fpFwd + rightZ * 0.08;
         const viewmodelYaw = weapon === 3 ? camYaw + Math.PI : camYaw;
-        this.drawMesh(fpWeapon, wx, wy, wz, viewmodelYaw, [fpScale, fpScale, fpScale], [1, 1, 1, 1]);
+        this.drawMesh(
+          fpWeapon,
+          wx,
+          wy,
+          wz,
+          viewmodelYaw,
+          [fpScale, fpScale, fpScale],
+          [1, 1, 1, 1],
+        );
       }
     }
     gl.enable(gl.BLEND);
     gl.enable(gl.DEPTH_TEST);
   }
-  private extractGltfAnimations(json: any, buffers: ArrayBuffer[]): GltfAnimation[] | null {
+  private extractGltfAnimations(
+    json: any,
+    buffers: ArrayBuffer[],
+  ): GltfAnimation[] | null {
     if (!json.animations || !json.accessors || !json.bufferViews) return null;
     const out: GltfAnimation[] = [];
     for (const anim of json.animations) {
-      const channels: GltfAnimation['channels'] = [];
+      const channels: GltfAnimation["channels"] = [];
       let maxTime = 0;
       for (const ch of anim.channels || []) {
         const samplerDef = anim.samplers[ch.sampler];
@@ -7223,27 +14697,30 @@ void main() {
         const inOff = (inBV.byteOffset || 0) + (inAcc.byteOffset || 0);
         const inCount = inAcc.count;
         const inView = new Float32Array(inBuf, inOff, inCount);
-        const times = new Float32Array(inView);   
-        for (let i = 0; i < inCount; i++) if (times[i] > maxTime) maxTime = times[i];
+        const times = new Float32Array(inView);
+        for (let i = 0; i < inCount; i++)
+          if (times[i] > maxTime) maxTime = times[i];
         const outAcc = json.accessors[samplerDef.output];
         const outBV = json.bufferViews[outAcc.bufferView];
         const outBuf = buffers[outBV.buffer];
         const outOff = (outBV.byteOffset || 0) + (outAcc.byteOffset || 0);
         let comp = 3;
-        if (ch.path === 'rotation') comp = 4;
-        if (ch.path === 'weights') continue;                 
+        if (ch.path === "rotation") comp = 4;
+        if (ch.path === "weights") continue;
         const totalCount = outAcc.count * comp;
         const output = new Float32Array(outBuf, outOff, totalCount);
-        const interpolation = (samplerDef.interpolation || 'LINEAR') as
-          'LINEAR' | 'STEP' | 'CUBICSPLINE';
+        const interpolation = (samplerDef.interpolation || "LINEAR") as
+          | "LINEAR"
+          | "STEP"
+          | "CUBICSPLINE";
         channels.push({
           nodeIndex: ch.target.node,
-          path: ch.target.path as 'translation' | 'rotation' | 'scale',
+          path: ch.target.path as "translation" | "rotation" | "scale",
           sampler: { input: times, output, interpolation },
         });
       }
       out.push({
-        name: anim.name || ('anim_' + out.length),
+        name: anim.name || "anim_" + out.length,
         duration: maxTime,
         channels,
       });
@@ -7282,25 +14759,37 @@ void main() {
       parentVisited.add(frame.idx);
       (node as any).parent = frame.parent;
       const kids = node.children;
-      if (kids) for (let k = kids.length - 1; k >= 0; k--) parentStack.push({ idx: kids[k], parent: frame.idx });
+      if (kids)
+        for (let k = kids.length - 1; k >= 0; k--)
+          parentStack.push({ idx: kids[k], parent: frame.idx });
     }
     for (let b = 0; b < numBones; b++) {
       const node = json.nodes[jointNodes[b]];
       const pIdx = node.parent ?? -1;
-      if (pIdx >= 0 && nodeToBoneIdx.has(pIdx)) parents[b] = nodeToBoneIdx.get(pIdx)!;
+      if (pIdx >= 0 && nodeToBoneIdx.has(pIdx))
+        parents[b] = nodeToBoneIdx.get(pIdx)!;
       const local = mat4.identity(mat4.create());
-      if (node.matrix) { for (let i = 0; i < 16; i++) local[i] = node.matrix[i]; }
-      else if (node.rotation || node.translation) {
+      if (node.matrix) {
+        for (let i = 0; i < 16; i++) local[i] = node.matrix[i];
+      } else if (node.rotation || node.translation) {
         const q = node.rotation || [0, 0, 0, 1];
         const t = node.translation || [0, 0, 0];
         const s = node.scale || [1, 1, 1];
-        quatPosScaleToMat4([q[0], q[1], q[2], q[3]], [t[0], t[1], t[2]], [s[0], s[1], s[2]], local);
+        quatPosScaleToMat4(
+          [q[0], q[1], q[2], q[3]],
+          [t[0], t[1], t[2]],
+          [s[0], s[1], s[2]],
+          local,
+        );
       }
       for (let i = 0; i < 16; i++) boneLocalTf[b * 16 + i] = local[i];
     }
     let skeletonRootNodeIdx = -1;
     for (let b = 0; b < numBones; b++) {
-      if (parents[b] < 0) { skeletonRootNodeIdx = jointNodes[b]; break; }
+      if (parents[b] < 0) {
+        skeletonRootNodeIdx = jointNodes[b];
+        break;
+      }
     }
     let skinRootWorld = mat4.identity(mat4.create());
     if (skeletonRootNodeIdx >= 0) {
@@ -7311,10 +14800,14 @@ void main() {
         // (first-person arms/mark23) recursed until the stack overflowed.
         const nodeWorld = new Map<number, Float32Array>();
         const worldVisited = new Set<number>();
-        const skeletonWorldStack: { idx: number; parentWorld: Float32Array }[] = [];
+        const skeletonWorldStack: { idx: number; parentWorld: Float32Array }[] =
+          [];
         const skeletonWorldRoots = json.scenes[json.scene ?? 0]?.nodes || [];
         for (let r = skeletonWorldRoots.length - 1; r >= 0; r--) {
-          skeletonWorldStack.push({ idx: skeletonWorldRoots[r], parentWorld: mat4.identity(mat4.create()) });
+          skeletonWorldStack.push({
+            idx: skeletonWorldRoots[r],
+            parentWorld: mat4.identity(mat4.create()),
+          });
         }
         while (skeletonWorldStack.length > 0) {
           const frame = skeletonWorldStack.pop()!;
@@ -7323,15 +14816,26 @@ void main() {
           if (!n) continue;
           worldVisited.add(frame.idx);
           const local = mat4.identity(mat4.create());
-          if (n.matrix) { for (let i = 0; i < 16; i++) local[i] = n.matrix[i]; }
-          else if (n.rotation || n.translation) {
-            const q = n.rotation || [0, 0, 0, 1], t = n.translation || [0, 0, 0], s = n.scale || [1, 1, 1];
-            quatPosScaleToMat4([q[0], q[1], q[2], q[3]], [t[0], t[1], t[2]], [s[0], s[1], s[2]], local);
+          if (n.matrix) {
+            for (let i = 0; i < 16; i++) local[i] = n.matrix[i];
+          } else if (n.rotation || n.translation) {
+            const q = n.rotation || [0, 0, 0, 1],
+              t = n.translation || [0, 0, 0],
+              s = n.scale || [1, 1, 1];
+            quatPosScaleToMat4(
+              [q[0], q[1], q[2], q[3]],
+              [t[0], t[1], t[2]],
+              [s[0], s[1], s[2]],
+              local,
+            );
           }
-          const w = mat4.create(); mat4.multiply(w, frame.parentWorld, local);
+          const w = mat4.create();
+          mat4.multiply(w, frame.parentWorld, local);
           nodeWorld.set(frame.idx, w);
           const kids = n.children;
-          if (kids) for (let k = kids.length - 1; k >= 0; k--) skeletonWorldStack.push({ idx: kids[k], parentWorld: w });
+          if (kids)
+            for (let k = kids.length - 1; k >= 0; k--)
+              skeletonWorldStack.push({ idx: kids[k], parentWorld: w });
         }
         const pw = nodeWorld.get(rootParentIdx);
         if (pw) skinRootWorld = new Float32Array(pw);
@@ -7340,7 +14844,9 @@ void main() {
     // Bone-indexed joint names: json.nodes holds every scene node, but the
     // skeleton only exposes bones 0..boneCount-1 in joint order, so map the
     // joint node names directly (nodeNames[b] = name of bone b).
-    const nodeNames: string[] = jointNodes.map((j: number) => (json.nodes[j]?.name || ''));
+    const nodeNames: string[] = jointNodes.map(
+      (j: number) => json.nodes[j]?.name || "",
+    );
     return {
       boneParents: parents,
       boneLocalMatrices: boneLocalTf,
@@ -7354,7 +14860,10 @@ void main() {
   async loadGLTF(
     url: string,
     storeSkeleton: boolean = true,
-    out?: { animations?: GltfAnimation[] | null; skeleton?: ReturnType<GrandTheftRenderer['extractGltfSkeleton']> }
+    out?: {
+      animations?: GltfAnimation[] | null;
+      skeleton?: ReturnType<GrandTheftRenderer["extractGltfSkeleton"]>;
+    },
   ): Promise<CityMesh[] | null> {
     const cached = this.gltfCache.get(url);
     if (cached) return cached;
@@ -7365,27 +14874,35 @@ void main() {
   private async _loadGLTFImpl(
     url: string,
     storeSkeleton: boolean,
-    out?: { animations?: GltfAnimation[] | null; skeleton?: ReturnType<GrandTheftRenderer['extractGltfSkeleton']> }
+    out?: {
+      animations?: GltfAnimation[] | null;
+      skeleton?: ReturnType<GrandTheftRenderer["extractGltfSkeleton"]>;
+    },
   ): Promise<CityMesh[] | null> {
     try {
-      const isGLB = url.endsWith('.glb');
+      const isGLB = url.endsWith(".glb");
       let raw = await (await fetch(url)).arrayBuffer();
       let json: any;
       let binBuffer: ArrayBuffer | null = null;
       if (isGLB) {
         const header = new Uint32Array(raw, 0, 3);
         const version = header[1];
-        if (version !== 2) { console.error('Unsupported glTF version', version); return null; }
+        if (version !== 2) {
+          console.error("Unsupported glTF version", version);
+          return null;
+        }
         let offset = 12;
         while (offset < raw.byteLength) {
           const chunkHeader = new Uint32Array(raw, offset, 2);
           const chunkLen = chunkHeader[0];
           const chunkType = chunkHeader[1];
           offset += 8;
-          if (chunkType === 0x4E4F534A) {
+          if (chunkType === 0x4e4f534a) {
             const decoder = new TextDecoder();
-            json = JSON.parse(decoder.decode(new Uint8Array(raw, offset, chunkLen)));
-          } else if (chunkType === 0x004E4942) {
+            json = JSON.parse(
+              decoder.decode(new Uint8Array(raw, offset, chunkLen)),
+            );
+          } else if (chunkType === 0x004e4942) {
             binBuffer = raw.slice(offset, offset + chunkLen);
           }
           offset += chunkLen;
@@ -7395,16 +14912,17 @@ void main() {
         json = JSON.parse(decoder.decode(new Uint8Array(raw)));
       }
       if (!json) return null;
-      const base = url.substring(0, url.lastIndexOf('/') + 1);
+      const base = url.substring(0, url.lastIndexOf("/") + 1);
       let buffers: ArrayBuffer[] = [];
       if (json.buffers) {
         for (const buf of json.buffers) {
           if (buf.uri) {
-            if (buf.uri.startsWith('data:')) {
-              const b64 = buf.uri.split(',')[1];
+            if (buf.uri.startsWith("data:")) {
+              const b64 = buf.uri.split(",")[1];
               const binaryStr = atob(b64);
               const bytes = new Uint8Array(binaryStr.length);
-              for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+              for (let i = 0; i < binaryStr.length; i++)
+                bytes[i] = binaryStr.charCodeAt(i);
               buffers.push(bytes.buffer);
             } else {
               const bufRes = await fetch(base + buf.uri);
@@ -7418,12 +14936,31 @@ void main() {
         buffers.push(binBuffer);
       }
       const meshes: CityMesh[] = [];
-      let primitiveData: { verts: number[]; indices: number[]; texture: WebGLTexture | null; restPos?: Float32Array; restNrm?: Float32Array; jointIdx?: Uint16Array; jointWgt?: Float32Array; vCount: number; isSkinned?: boolean; meshName?: string }[] = [];
-      let globalMinX = Infinity, globalMaxX = -Infinity;
-      let globalMinY = Infinity, globalMaxY = -Infinity;
-      let globalMinZ = Infinity, globalMaxZ = -Infinity;
+      let primitiveData: {
+        verts: number[];
+        indices: number[];
+        texture: WebGLTexture | null;
+        restPos?: Float32Array;
+        restNrm?: Float32Array;
+        jointIdx?: Uint16Array;
+        jointWgt?: Float32Array;
+        vCount: number;
+        isSkinned?: boolean;
+        meshName?: string;
+      }[] = [];
+      let globalMinX = Infinity,
+        globalMaxX = -Infinity;
+      let globalMinY = Infinity,
+        globalMaxY = -Infinity;
+      let globalMinZ = Infinity,
+        globalMaxZ = -Infinity;
       const textureCache = new Map<number, WebGLTexture | null>();
-      const entries: { meshIndex: number; transform: Float32Array; nodeIndex: number; nodeName?: string }[] = [];
+      const entries: {
+        meshIndex: number;
+        transform: Float32Array;
+        nodeIndex: number;
+        nodeName?: string;
+      }[] = [];
       if (json.nodes && json.nodes.length > 0 && json.scenes) {
         const identity = mat4.identity(mat4.create());
         // Iterative pre-order DFS with an explicit stack. glTF node graphs come
@@ -7447,7 +14984,11 @@ void main() {
           if (visited.has(nodeIdx)) {
             if (!warnedCyclicRef) {
               warnedCyclicRef = true;
-              console.warn('Ignoring cyclic/duplicate glTF node reference', url, nodeIdx);
+              console.warn(
+                "Ignoring cyclic/duplicate glTF node reference",
+                url,
+                nodeIdx,
+              );
             }
             continue;
           }
@@ -7455,20 +14996,33 @@ void main() {
           if (!node) continue;
           visited.add(nodeIdx);
           const local = mat4.identity(mat4.create());
-          if (node.matrix) { for (let i = 0; i < 16; i++) local[i] = node.matrix[i]; }
-          else if (node.rotation || node.translation) {
+          if (node.matrix) {
+            for (let i = 0; i < 16; i++) local[i] = node.matrix[i];
+          } else if (node.rotation || node.translation) {
             const q = node.rotation || [0, 0, 0, 1];
             const t = node.translation || [0, 0, 0];
             const s = node.scale || [1, 1, 1];
-            quatPosScaleToMat4([q[0], q[1], q[2], q[3]], [t[0], t[1], t[2]], [s[0], s[1], s[2]], local);
+            quatPosScaleToMat4(
+              [q[0], q[1], q[2], q[3]],
+              [t[0], t[1], t[2]],
+              [s[0], s[1], s[2]],
+              local,
+            );
           }
           const world = mat4.create();
           mat4.multiply(world, frame.parentWorld, local);
-          if (node.mesh !== undefined) entries.push({ meshIndex: node.mesh, transform: world, nodeIndex: nodeIdx });
+          if (node.mesh !== undefined)
+            entries.push({
+              meshIndex: node.mesh,
+              transform: world,
+              nodeIndex: nodeIdx,
+            });
           // Push children reversed so the stack pops them in original order,
           // preserving the recursive pre-order entry sequence for tree graphs.
           const kids = node.children;
-          if (kids) for (let k = kids.length - 1; k >= 0; k--) stack.push({ nodeIdx: kids[k], parentWorld: world });
+          if (kids)
+            for (let k = kids.length - 1; k >= 0; k--)
+              stack.push({ nodeIdx: kids[k], parentWorld: world });
         }
       }
       if (entries.length === 0 && json.meshes) {
@@ -7494,8 +15048,13 @@ void main() {
         const ibmAcc = json.accessors[skin.inverseBindMatrices];
         const ibmBufView = json.bufferViews[ibmAcc.bufferView];
         const ibmBuf = buffers[ibmBufView.buffer];
-        const ibmByteOff = (ibmBufView.byteOffset || 0) + (ibmAcc.byteOffset || 0);
-        inverseBindMatrices = new Float32Array(ibmBuf, ibmByteOff, numBones * 16);
+        const ibmByteOff =
+          (ibmBufView.byteOffset || 0) + (ibmAcc.byteOffset || 0);
+        inverseBindMatrices = new Float32Array(
+          ibmBuf,
+          ibmByteOff,
+          numBones * 16,
+        );
         const boneLocalTf = new Float32Array(numBones * 16);
         const parents = new Int32Array(numBones);
         parents.fill(-1);
@@ -7516,7 +15075,9 @@ void main() {
           parentVisited.add(frame.idx);
           node.parent = frame.parent;
           const kids = node.children;
-          if (kids) for (let k = kids.length - 1; k >= 0; k--) parentStack.push({ idx: kids[k], parent: frame.idx });
+          if (kids)
+            for (let k = kids.length - 1; k >= 0; k--)
+              parentStack.push({ idx: kids[k], parent: frame.idx });
         }
         // Iterative world-transform walk (explicit stack, visited-guarded):
         // identical results to the old recursive walk for valid graphs, but
@@ -7525,7 +15086,10 @@ void main() {
         const worldStack: { idx: number; parentWorld: Float32Array }[] = [];
         const skinWorldRoots = json.scenes[json.scene ?? 0]?.nodes || [];
         for (let r = skinWorldRoots.length - 1; r >= 0; r--) {
-          worldStack.push({ idx: skinWorldRoots[r], parentWorld: mat4.identity(mat4.create()) });
+          worldStack.push({
+            idx: skinWorldRoots[r],
+            parentWorld: mat4.identity(mat4.create()),
+          });
         }
         while (worldStack.length > 0) {
           const frame = worldStack.pop()!;
@@ -7534,18 +15098,26 @@ void main() {
           if (!node) continue;
           nodeVisited.add(frame.idx);
           const local = mat4.identity(mat4.create());
-          if (node.matrix) { for (let i = 0; i < 16; i++) local[i] = node.matrix[i]; }
-          else if (node.rotation || node.translation) {
+          if (node.matrix) {
+            for (let i = 0; i < 16; i++) local[i] = node.matrix[i];
+          } else if (node.rotation || node.translation) {
             const q = node.rotation || [0, 0, 0, 1];
             const t = node.translation || [0, 0, 0];
             const s = node.scale || [1, 1, 1];
-            quatPosScaleToMat4([q[0], q[1], q[2], q[3]], [t[0], t[1], t[2]], [s[0], s[1], s[2]], local);
+            quatPosScaleToMat4(
+              [q[0], q[1], q[2], q[3]],
+              [t[0], t[1], t[2]],
+              [s[0], s[1], s[2]],
+              local,
+            );
           }
           const world = mat4.create();
           mat4.multiply(world, frame.parentWorld, local);
           nodeWorldTransforms.set(frame.idx, world);
           const kids = node.children;
-          if (kids) for (let k = kids.length - 1; k >= 0; k--) worldStack.push({ idx: kids[k], parentWorld: world });
+          if (kids)
+            for (let k = kids.length - 1; k >= 0; k--)
+              worldStack.push({ idx: kids[k], parentWorld: world });
         }
         for (let b = 0; b < numBones; b++) {
           const nodeIdx = jointNodes[b];
@@ -7557,33 +15129,47 @@ void main() {
             if (skeletonRootNodeIdx < 0) skeletonRootNodeIdx = nodeIdx;
           }
           const local = mat4.identity(mat4.create());
-          if (node.matrix) { for (let i = 0; i < 16; i++) local[i] = node.matrix[i]; }
-          else if (node.rotation || node.translation) {
+          if (node.matrix) {
+            for (let i = 0; i < 16; i++) local[i] = node.matrix[i];
+          } else if (node.rotation || node.translation) {
             const q = node.rotation || [0, 0, 0, 1];
             const t = node.translation || [0, 0, 0];
             const s = node.scale || [1, 1, 1];
-            quatPosScaleToMat4([q[0], q[1], q[2], q[3]], [t[0], t[1], t[2]], [s[0], s[1], s[2]], local);
+            quatPosScaleToMat4(
+              [q[0], q[1], q[2], q[3]],
+              [t[0], t[1], t[2]],
+              [s[0], s[1], s[2]],
+              local,
+            );
           }
           for (let i = 0; i < 16; i++) boneLocalTf[b * 16 + i] = local[i];
         }
         if (skeletonRootNodeIdx >= 0) {
           const rootNode = json.nodes[skeletonRootNodeIdx];
           const rootParentIdx = rootNode.parent ?? -1;
-          const parentWorld = rootParentIdx >= 0 ? nodeWorldTransforms.get(rootParentIdx) : undefined;
-          skinRootWorld = parentWorld ? new Float32Array(parentWorld) : mat4.identity(mat4.create());
+          const parentWorld =
+            rootParentIdx >= 0
+              ? nodeWorldTransforms.get(rootParentIdx)
+              : undefined;
+          skinRootWorld = parentWorld
+            ? new Float32Array(parentWorld)
+            : mat4.identity(mat4.create());
         } else {
           skinRootWorld = mat4.identity(mat4.create());
         }
         let rootBoneIdx = -1;
         for (let b = 0; b < numBones; b++) {
-          if (parents[b] < 0) { rootBoneIdx = b; break; }
+          if (parents[b] < 0) {
+            rootBoneIdx = b;
+            break;
+          }
         }
         if (rootBoneIdx >= 0) {
           rootBoneWorld = mat4.create();
           mat4.multiply(
             rootBoneWorld,
             skinRootWorld!,
-            new Float32Array(boneLocalTf.buffer, rootBoneIdx * 16 * 4, 16)
+            new Float32Array(boneLocalTf.buffer, rootBoneIdx * 16 * 4, 16),
           );
         }
         boneParents = parents;
@@ -7596,8 +15182,12 @@ void main() {
           this.skelBoneCount = numBones;
           this.skelNodeToBoneIdx = nodeToBoneIdx;
           this.skelJointMatrices = new Float32Array(numBones * 16);
-          this.skelSkinRootWorld = skinRootWorld ? new Float32Array(skinRootWorld) : null;
-          this.skelNodeNames = jointNodes.map((j: number) => json.nodes[j]?.name || '');
+          this.skelSkinRootWorld = skinRootWorld
+            ? new Float32Array(skinRootWorld)
+            : null;
+          this.skelNodeNames = jointNodes.map(
+            (j: number) => json.nodes[j]?.name || "",
+          );
           this.skelIsReady = false;
         }
         if (storeSkeleton) {
@@ -7605,9 +15195,13 @@ void main() {
           for (let b = 0; b < numBones; b++) {
             if (parents[b] < 0) {
               mat4.multiply(
-                new Float32Array(this.skelBindWorldMatrices.buffer, b * 16 * 4, 16),
+                new Float32Array(
+                  this.skelBindWorldMatrices.buffer,
+                  b * 16 * 4,
+                  16,
+                ),
                 skinRootWorld!,
-                new Float32Array(boneLocalTf.buffer, b * 16 * 4, 16)
+                new Float32Array(boneLocalTf.buffer, b * 16 * 4, 16),
               );
             }
           }
@@ -7615,20 +15209,40 @@ void main() {
             if (parents[b] >= 0) {
               const pIdx = parents[b];
               mat4.multiply(
-                new Float32Array(this.skelBindWorldMatrices.buffer, b * 16 * 4, 16),
-                new Float32Array(this.skelBindWorldMatrices.buffer, pIdx * 16 * 4, 16),
-                new Float32Array(boneLocalTf.buffer, b * 16 * 4, 16)
+                new Float32Array(
+                  this.skelBindWorldMatrices.buffer,
+                  b * 16 * 4,
+                  16,
+                ),
+                new Float32Array(
+                  this.skelBindWorldMatrices.buffer,
+                  pIdx * 16 * 4,
+                  16,
+                ),
+                new Float32Array(boneLocalTf.buffer, b * 16 * 4, 16),
               );
             }
           }
           this.skelBindJointMatrices = new Float32Array(numBones * 16);
           for (let b = 0; b < numBones; b++) {
-            const bindWorld = new Float32Array(this.skelBindWorldMatrices.buffer, b * 16 * 4, 16);
-            const invBind = new Float32Array(inverseBindMatrices.buffer, b * 16 * 4, 16);
+            const bindWorld = new Float32Array(
+              this.skelBindWorldMatrices.buffer,
+              b * 16 * 4,
+              16,
+            );
+            const invBind = new Float32Array(
+              inverseBindMatrices.buffer,
+              b * 16 * 4,
+              16,
+            );
             mat4.multiply(
-              new Float32Array(this.skelBindJointMatrices.buffer, b * 16 * 4, 16),
+              new Float32Array(
+                this.skelBindJointMatrices.buffer,
+                b * 16 * 4,
+                16,
+              ),
               bindWorld,
-              invBind
+              invBind,
             );
           }
         }
@@ -7637,23 +15251,51 @@ void main() {
         const meshDef = json.meshes[entry.meshIndex];
         if (!meshDef) continue;
         const tf = entry.transform;
-        const identityTf = tf[0] === 1 && tf[5] === 1 && tf[10] === 1 && tf[15] === 1
-          && tf[1] === 0 && tf[2] === 0 && tf[3] === 0 && tf[4] === 0
-          && tf[6] === 0 && tf[7] === 0 && tf[8] === 0 && tf[9] === 0
-          && tf[11] === 0 && tf[12] === 0 && tf[13] === 0 && tf[14] === 0;
+        const identityTf =
+          tf[0] === 1 &&
+          tf[5] === 1 &&
+          tf[10] === 1 &&
+          tf[15] === 1 &&
+          tf[1] === 0 &&
+          tf[2] === 0 &&
+          tf[3] === 0 &&
+          tf[4] === 0 &&
+          tf[6] === 0 &&
+          tf[7] === 0 &&
+          tf[8] === 0 &&
+          tf[9] === 0 &&
+          tf[11] === 0 &&
+          tf[12] === 0 &&
+          tf[13] === 0 &&
+          tf[14] === 0;
         const entryNode = json.nodes[entry.nodeIndex];
-        const isSkinned = isSkinnedModel && entryNode && entryNode.skin !== undefined;
+        const isSkinned =
+          isSkinnedModel && entryNode && entryNode.skin !== undefined;
         for (const prim of meshDef.primitives || []) {
           let skipMesh = false;
           if (prim.material !== undefined && json.materials[prim.material]) {
             const mat = json.materials[prim.material];
-            const matName = (mat.name || '').toLowerCase();
-            if ((mat.alphaMode === 'BLEND' && !mat.pbrMetallicRoughness?.baseColorTexture) || matName.includes('cone') || matName.includes('beam') || matName.includes('volume') || matName.includes('modular') || matName.includes('facad')) {
+            const matName = (mat.name || "").toLowerCase();
+            if (
+              (mat.alphaMode === "BLEND" &&
+                !mat.pbrMetallicRoughness?.baseColorTexture) ||
+              matName.includes("cone") ||
+              matName.includes("beam") ||
+              matName.includes("volume") ||
+              matName.includes("modular") ||
+              matName.includes("facad")
+            ) {
               skipMesh = true;
             }
           }
-          const meshName = (meshDef.name || '').toLowerCase();
-          if (meshName.includes('cone') || meshName.includes('beam') || meshName.includes('volume') || meshName.includes('modular') || meshName.includes('facad')) {
+          const meshName = (meshDef.name || "").toLowerCase();
+          if (
+            meshName.includes("cone") ||
+            meshName.includes("beam") ||
+            meshName.includes("volume") ||
+            meshName.includes("modular") ||
+            meshName.includes("facad")
+          ) {
             skipMesh = true;
           }
           if (skipMesh) continue;
@@ -7664,7 +15306,8 @@ void main() {
             const idxBufView = json.bufferViews[idxAcc.bufferView];
             const buf = buffers[idxBufView.buffer];
             const count = idxAcc.count;
-            const idxByteOffset = (idxBufView.byteOffset || 0) + (idxAcc.byteOffset || 0);
+            const idxByteOffset =
+              (idxBufView.byteOffset || 0) + (idxAcc.byteOffset || 0);
             if (idxAcc.componentType === 5125) {
               const view = new Uint32Array(buf, idxByteOffset, count);
               for (let i = 0; i < count; i++) indices.push(view[i]);
@@ -7683,20 +15326,24 @@ void main() {
           const posBufView = json.bufferViews[posAcc.bufferView];
           const posBuf = buffers[posBufView.buffer];
           const posStride = (posBufView.byteStride || 12) / 4;
-          const posOffset = (posBufView.byteOffset || 0) + (posAcc.byteOffset || 0);
+          const posOffset =
+            (posBufView.byteOffset || 0) + (posAcc.byteOffset || 0);
           const posData = new Float32Array(posBuf, 0, posBuf.byteLength / 4);
           let normData: Float32Array | null = null;
-          let normStride = 3, normOffset = 0;
+          let normStride = 3,
+            normOffset = 0;
           if (prim.attributes.NORMAL !== undefined) {
             const normAcc = json.accessors[prim.attributes.NORMAL];
             const normBufView = json.bufferViews[normAcc.bufferView];
             const normBuf = buffers[normBufView.buffer];
             normStride = (normBufView.byteStride || 12) / 4;
-            normOffset = (normBufView.byteOffset || 0) + (normAcc.byteOffset || 0);
+            normOffset =
+              (normBufView.byteOffset || 0) + (normAcc.byteOffset || 0);
             normData = new Float32Array(normBuf, 0, normBuf.byteLength / 4);
           }
           let uvData: Float32Array | null = null;
-          let uvStride = 2, uvOffset = 0;
+          let uvStride = 2,
+            uvOffset = 0;
           if (prim.attributes.TEXCOORD_0 !== undefined) {
             const uvAcc = json.accessors[prim.attributes.TEXCOORD_0];
             const uvBufView = json.bufferViews[uvAcc.bufferView];
@@ -7710,10 +15357,14 @@ void main() {
           let restNrm: Float32Array | undefined;
           let jointIdx: Uint16Array | undefined;
           let jointWgt: Float32Array | undefined;
-          if (isSkinned && prim.attributes.JOINTS_0 !== undefined && prim.attributes.WEIGHTS_0 !== undefined) {
+          if (
+            isSkinned &&
+            prim.attributes.JOINTS_0 !== undefined &&
+            prim.attributes.WEIGHTS_0 !== undefined
+          ) {
             restPos = new Float32Array(vCount * 3);
             for (let i = 0; i < vCount; i++) {
-              const pi = (posOffset / 4) + i * posStride;
+              const pi = posOffset / 4 + i * posStride;
               restPos[i * 3] = posData[pi];
               restPos[i * 3 + 1] = posData[pi + 1];
               restPos[i * 3 + 2] = posData[pi + 2];
@@ -7721,18 +15372,20 @@ void main() {
             restNrm = new Float32Array(vCount * 3);
             if (normData) {
               for (let i = 0; i < vCount; i++) {
-                const ni = (normOffset / 4) + i * normStride;
+                const ni = normOffset / 4 + i * normStride;
                 restNrm[i * 3] = normData[ni];
                 restNrm[i * 3 + 1] = normData[ni + 1];
                 restNrm[i * 3 + 2] = normData[ni + 2];
               }
             } else {
-              for (let i = 0; i < vCount * 3; i++) restNrm[i] = i % 3 === 1 ? 1 : 0;
+              for (let i = 0; i < vCount * 3; i++)
+                restNrm[i] = i % 3 === 1 ? 1 : 0;
             }
             const jiAcc = json.accessors[prim.attributes.JOINTS_0];
             const jiBufView = json.bufferViews[jiAcc.bufferView];
             const jiBuf = buffers[jiBufView.buffer];
-            const jiByteOff = (jiBufView.byteOffset || 0) + (jiAcc.byteOffset || 0);
+            const jiByteOff =
+              (jiBufView.byteOffset || 0) + (jiAcc.byteOffset || 0);
             const jiStride = jiBufView.byteStride || 8;
             jointIdx = new Uint16Array(vCount * 4);
             if (jiAcc.componentType === 5123) {
@@ -7772,7 +15425,8 @@ void main() {
             const wgtAcc = json.accessors[prim.attributes.WEIGHTS_0];
             const wgtBufView = json.bufferViews[wgtAcc.bufferView];
             const wgtBuf = buffers[wgtBufView.buffer];
-            const wgtByteOff = (wgtBufView.byteOffset || 0) + (wgtAcc.byteOffset || 0);
+            const wgtByteOff =
+              (wgtBufView.byteOffset || 0) + (wgtAcc.byteOffset || 0);
             const wgtStride = wgtBufView.byteStride || 16;
             jointWgt = new Float32Array(vCount * 4);
             const wgtView = new Float32Array(wgtBuf, 0, wgtBuf.byteLength / 4);
@@ -7787,30 +15441,41 @@ void main() {
             }
           }
           for (let i = 0; i < vCount; i++) {
-            const pi = (posOffset / 4) + i * posStride;
-            let x = posData[pi], y = posData[pi + 1], z = posData[pi + 2];
+            const pi = posOffset / 4 + i * posStride;
+            let x = posData[pi],
+              y = posData[pi + 1],
+              z = posData[pi + 2];
             if (!isSkinned && !identityTf) {
               let w = tf[3] * x + tf[7] * y + tf[11] * z + tf[15];
               let invW = w !== 0 ? 1 / w : 1;
               let nx = (tf[0] * x + tf[4] * y + tf[8] * z + tf[12]) * invW;
               let ny = (tf[1] * x + tf[5] * y + tf[9] * z + tf[13]) * invW;
               let nz = (tf[2] * x + tf[6] * y + tf[10] * z + tf[14]) * invW;
-              x = nx; y = ny; z = nz;
+              x = nx;
+              y = ny;
+              z = nz;
             }
             verts.push(x, y, z);
-            if (x < globalMinX) globalMinX = x; if (x > globalMaxX) globalMaxX = x;
-            if (y < globalMinY) globalMinY = y; if (y > globalMaxY) globalMaxY = y;
-            if (z < globalMinZ) globalMinZ = z; if (z > globalMaxZ) globalMaxZ = z;
+            if (x < globalMinX) globalMinX = x;
+            if (x > globalMaxX) globalMaxX = x;
+            if (y < globalMinY) globalMinY = y;
+            if (y > globalMaxY) globalMaxY = y;
+            if (z < globalMinZ) globalMinZ = z;
+            if (z > globalMaxZ) globalMaxZ = z;
             if (normData) {
-              const ni = (normOffset / 4) + i * normStride;
-              let nx = normData[ni], ny = normData[ni + 1], nz = normData[ni + 2];
+              const ni = normOffset / 4 + i * normStride;
+              let nx = normData[ni],
+                ny = normData[ni + 1],
+                nz = normData[ni + 2];
               if (!identityTf) {
                 let tnx = tf[0] * nx + tf[4] * ny + tf[8] * nz;
                 let tny = tf[1] * nx + tf[5] * ny + tf[9] * nz;
                 let tnz = tf[2] * nx + tf[6] * ny + tf[10] * nz;
                 let len = Math.hypot(tnx, tny, tnz);
                 if (len > 0.00001) {
-                  nx = tnx / len; ny = tny / len; nz = tnz / len;
+                  nx = tnx / len;
+                  ny = tny / len;
+                  nz = tnz / len;
                 }
               }
               verts.push(nx, ny, nz);
@@ -7819,7 +15484,7 @@ void main() {
             }
             verts.push(1, 1, 1, 1);
             if (uvData) {
-              const ui = (uvOffset / 4) + i * uvStride;
+              const ui = uvOffset / 4 + i * uvStride;
               verts.push(uvData[ui], uvData[ui + 1]);
             } else {
               verts.push(0, 0);
@@ -7837,30 +15502,49 @@ void main() {
                 if (mat.pbrMetallicRoughness) {
                   texInfo = mat.pbrMetallicRoughness.baseColorTexture;
                 }
-                if (!texInfo && mat.extensions && mat.extensions.KHR_materials_unlit) {
+                if (
+                  !texInfo &&
+                  mat.extensions &&
+                  mat.extensions.KHR_materials_unlit
+                ) {
                   texInfo = mat.extensions.KHR_materials_unlit.baseColorTexture;
                 }
-                if (!texInfo && mat.extensions && mat.extensions.KHR_materials_pbrSpecularGlossiness) {
-                  texInfo = mat.extensions.KHR_materials_pbrSpecularGlossiness.diffuseTexture;
+                if (
+                  !texInfo &&
+                  mat.extensions &&
+                  mat.extensions.KHR_materials_pbrSpecularGlossiness
+                ) {
+                  texInfo =
+                    mat.extensions.KHR_materials_pbrSpecularGlossiness
+                      .diffuseTexture;
                 }
                 if (!texInfo && mat.emissiveTexture) {
                   texInfo = mat.emissiveTexture;
                 }
                 if (texInfo) {
                   const textureIndex = texInfo.index;
-                  if (json.textures[textureIndex] && json.images[json.textures[textureIndex].source]) {
-                    const imageInfo = json.images[json.textures[textureIndex].source];
-                    let imgUrl = '';
+                  if (
+                    json.textures[textureIndex] &&
+                    json.images[json.textures[textureIndex].source]
+                  ) {
+                    const imageInfo =
+                      json.images[json.textures[textureIndex].source];
+                    let imgUrl = "";
                     let isBlob = false;
                     if (imageInfo.uri) {
-                      const cleanUri = imageInfo.uri.replace(/\\/g, '/');
-                      imgUrl = cleanUri.startsWith('data:') ? cleanUri : base + cleanUri;
+                      const cleanUri = imageInfo.uri.replace(/\\/g, "/");
+                      imgUrl = cleanUri.startsWith("data:")
+                        ? cleanUri
+                        : base + cleanUri;
                     } else if (imageInfo.bufferView !== undefined) {
                       const bView = json.bufferViews[imageInfo.bufferView];
                       const buf = buffers[bView.buffer];
                       const offset = bView.byteOffset || 0;
                       const len = bView.byteLength;
-                      const blob = new Blob([new Uint8Array(buf, offset, len)], { type: imageInfo.mimeType });
+                      const blob = new Blob(
+                        [new Uint8Array(buf, offset, len)],
+                        { type: imageInfo.mimeType },
+                      );
                       imgUrl = URL.createObjectURL(blob);
                       isBlob = true;
                     }
@@ -7874,7 +15558,18 @@ void main() {
               }
             }
           }
-          primitiveData.push({ verts, indices, texture, restPos, restNrm, jointIdx, jointWgt, vCount, isSkinned, meshName: meshDef.name || '' });
+          primitiveData.push({
+            verts,
+            indices,
+            texture,
+            restPos,
+            restNrm,
+            jointIdx,
+            jointWgt,
+            vCount,
+            isSkinned,
+            meshName: meshDef.name || "",
+          });
         }
       }
       if (primitiveData.length === 0) return null;
@@ -7882,27 +15577,41 @@ void main() {
       const dimY = globalMaxY - globalMinY;
       const dimZ = globalMaxZ - globalMinZ;
       let needsRotation = false;
-      if (url.includes('citylight') || url.includes('jillValentine') || url.includes('maleNPC') || url.includes('redneck')) {
+      if (
+        url.includes("citylight") ||
+        url.includes("jillValentine") ||
+        url.includes("maleNPC") ||
+        url.includes("redneck")
+      ) {
         if (dimY < dimX || dimY < dimZ) {
           needsRotation = true;
         }
       }
-      const needsYFlip = url.includes("crownVic") || url.includes("maleNPC")
-        || url.includes('taxi') || url.includes('hilux') || url.includes("toyota_corsa_b");
+      const needsYFlip =
+        url.includes("crownVic") ||
+        url.includes("maleNPC") ||
+        url.includes("taxi") ||
+        url.includes("hilux") ||
+        url.includes("toyota_corsa_b");
       // pizzaMoped raw model faces +X. The 90° Y rotation below (needsY90) plus the
       // shared motorcycle 180° draw-time flip in drawMesh orient it to face +Z
       // (the game's forward axis). A second load-time flip previously lived here,
       // which net-rotated the model 180° so the moped drove backwards — removed.
-      const needsY90 = url.includes('pizzaMoped');
+      const needsY90 = url.includes("pizzaMoped");
       const needsYFlipMoped = false;
       const angleX = needsRotation
-        ? (url.includes('redneck') ? Math.PI / 2 : -Math.PI / 2)
+        ? url.includes("redneck")
+          ? Math.PI / 2
+          : -Math.PI / 2
         : 0;
       const cosX = Math.cos(angleX);
       const sinX = Math.sin(angleX);
-      let rotMinX = Infinity, rotMaxX = -Infinity;
-      let rotMinY = Infinity, rotMaxY = -Infinity;
-      let rotMinZ = Infinity, rotMaxZ = -Infinity;
+      let rotMinX = Infinity,
+        rotMaxX = -Infinity;
+      let rotMinY = Infinity,
+        rotMaxY = -Infinity;
+      let rotMinZ = Infinity,
+        rotMaxZ = -Infinity;
       for (const p of primitiveData) {
         for (let i = 0; i < p.verts.length; i += 12) {
           let x = p.verts[i];
@@ -7918,23 +15627,28 @@ void main() {
             x = -x;
             z = -z;
           }
-          if (x < rotMinX) rotMinX = x; if (x > rotMaxX) rotMaxX = x;
-          if (y < rotMinY) rotMinY = y; if (y > rotMaxY) rotMaxY = y;
-          if (z < rotMinZ) rotMinZ = z; if (z > rotMaxZ) rotMaxZ = z;
+          if (x < rotMinX) rotMinX = x;
+          if (x > rotMaxX) rotMaxX = x;
+          if (y < rotMinY) rotMinY = y;
+          if (y > rotMaxY) rotMaxY = y;
+          if (z < rotMinZ) rotMinZ = z;
+          if (z > rotMaxZ) rotMaxZ = z;
         }
       }
       const finalHeight = rotMaxY - rotMinY;
-      const targetHeight = url.includes('citylight') ? 5.0 : 2.0;
+      const targetHeight = url.includes("citylight") ? 5.0 : 2.0;
       const scaleFactor = targetHeight / Math.max(0.001, finalHeight);
       const centerX = (rotMinX + rotMaxX) / 2;
       // Skyboxes must surround the camera. Ordinary models sit on the ground,
       // but using their minimum Y here leaves the camera above the normalized
       // sky cube and makes the authored texture disappear.
-      const centerY = url.includes('skybox_skydays_3')
+      const centerY = url.includes("skybox_skydays_3")
         ? (rotMinY + rotMaxY) / 2
         : rotMinY;
       const centerZ = (rotMinZ + rotMaxZ) / 2;
-      const extraScale: [number, number, number] = url.includes('/bus/') ? [2, 2, 2] : [1, 1, 1];
+      const extraScale: [number, number, number] = url.includes("/bus/")
+        ? [2, 2, 2]
+        : [1, 1, 1];
       if (isSkinnedModel && storeSkeleton) {
         this.skelNeedsRotation = needsRotation;
         this.skelAngleX = angleX;
@@ -7950,7 +15664,17 @@ void main() {
         this.skelExtraScale = extraScale;
       }
       for (const p of primitiveData) {
-        const { verts, indices, texture, restPos, restNrm, jointIdx, jointWgt, vCount, isSkinned } = p;
+        const {
+          verts,
+          indices,
+          texture,
+          restPos,
+          restNrm,
+          jointIdx,
+          jointWgt,
+          vCount,
+          isSkinned,
+        } = p;
         for (let i = 0; i < verts.length; i += 12) {
           let x = verts[i];
           let y = verts[i + 1];
@@ -7990,7 +15714,7 @@ void main() {
           verts[i + 2] = (z - centerZ) * scaleFactor * extraScale[2];
         }
         const mesh = this.createMesh(verts, indices, texture, isSkinned);
-        mesh.meshName = p.meshName || '';
+        mesh.meshName = p.meshName || "";
         if (isSkinned && restPos && restNrm && jointIdx && jointWgt) {
           mesh.vertexCount = vCount;
           mesh.restPositions = restPos;
@@ -8003,9 +15727,12 @@ void main() {
         }
       }
       if (meshes.length > 0) {
-        const rawName = url.replace('assets/grandtheft/', '').replace('/scene.gltf', '').replace('.glb', '');
+        const rawName = url
+          .replace("assets/grandtheft/", "")
+          .replace("/scene.gltf", "")
+          .replace(".glb", "");
         for (const m of meshes) m.carName = rawName;
-        if (rawName.includes('motorcycle') || rawName.includes('pizzaMoped')) {
+        if (rawName.includes("motorcycle") || rawName.includes("pizzaMoped")) {
           for (const m of meshes) (m as any)._isMotorcycle = true;
         }
       }
@@ -8021,12 +15748,12 @@ void main() {
       }
       json = null;
       buffers = [];
-      raw = new ArrayBuffer;
+      raw = new ArrayBuffer();
       binBuffer = null;
       primitiveData = [];
       return meshes.length > 0 ? meshes : null;
     } catch (e) {
-      console.error('Failed to load glTF', url, e);
+      console.error("Failed to load glTF", url, e);
       return null;
     }
   }
@@ -8036,7 +15763,10 @@ void main() {
     // |lateral| < 3.5 → 13 long × ~7 wide): a solid wedge with a wide asphalt
     // launch apron, painted slope markings, a striped tail face, a raised
     // launch lip, side skirts and corner footings.
-    const L = 6.5, W = 3.4, H = 1.5, y0 = 0.12;
+    const L = 6.5,
+      W = 3.4,
+      H = 1.5,
+      y0 = 0.12;
     const verts: number[] = [];
     const idx: number[] = [];
     const addFace = (pts: number[][], cr: number, cg: number, cb: number) => {
@@ -8049,84 +15779,403 @@ void main() {
       for (const p of pts) verts.push(p[0], p[1], p[2], cr, cg, cb, 1);
       idx.push(base, base + 1, base + 2);
     };
-    const slope = (z: number) => y0 + H * (z + L) / (2 * L);
-    const APRON = W + 2.4, APRON_Z = L + 1.2;
+    const slope = (z: number) => y0 + (H * (z + L)) / (2 * L);
+    const APRON = W + 2.4,
+      APRON_Z = L + 1.2;
     // 1. Wide asphalt apron the approach road widens into.
-    addFace([[-APRON, y0, -APRON_Z], [APRON, y0, -APRON_Z], [APRON, y0, APRON_Z], [-APRON, y0, APRON_Z]], 0.24, 0.24, 0.26);
+    addFace(
+      [
+        [-APRON, y0, -APRON_Z],
+        [APRON, y0, -APRON_Z],
+        [APRON, y0, APRON_Z],
+        [-APRON, y0, APRON_Z],
+      ],
+      0.24,
+      0.24,
+      0.26,
+    );
     // 2. Yellow safety ring around the apron.
     const ringY = y0 + 0.02;
-    addFace([[-APRON, ringY, -APRON_Z], [APRON, ringY, -APRON_Z], [APRON, ringY, -APRON_Z + 0.35], [-APRON, ringY, -APRON_Z + 0.35]], 0.92, 0.78, 0.2);
-    addFace([[-APRON, ringY, APRON_Z - 0.35], [APRON, ringY, APRON_Z - 0.35], [APRON, ringY, APRON_Z], [-APRON, ringY, APRON_Z]], 0.92, 0.78, 0.2);
-    addFace([[-APRON, ringY, -APRON_Z], [-APRON + 0.35, ringY, -APRON_Z], [-APRON + 0.35, ringY, APRON_Z], [-APRON, ringY, APRON_Z]], 0.92, 0.78, 0.2);
-    addFace([[APRON - 0.35, ringY, -APRON_Z], [APRON, ringY, -APRON_Z], [APRON, ringY, APRON_Z], [APRON - 0.35, ringY, APRON_Z]], 0.92, 0.78, 0.2);
+    addFace(
+      [
+        [-APRON, ringY, -APRON_Z],
+        [APRON, ringY, -APRON_Z],
+        [APRON, ringY, -APRON_Z + 0.35],
+        [-APRON, ringY, -APRON_Z + 0.35],
+      ],
+      0.92,
+      0.78,
+      0.2,
+    );
+    addFace(
+      [
+        [-APRON, ringY, APRON_Z - 0.35],
+        [APRON, ringY, APRON_Z - 0.35],
+        [APRON, ringY, APRON_Z],
+        [-APRON, ringY, APRON_Z],
+      ],
+      0.92,
+      0.78,
+      0.2,
+    );
+    addFace(
+      [
+        [-APRON, ringY, -APRON_Z],
+        [-APRON + 0.35, ringY, -APRON_Z],
+        [-APRON + 0.35, ringY, APRON_Z],
+        [-APRON, ringY, APRON_Z],
+      ],
+      0.92,
+      0.78,
+      0.2,
+    );
+    addFace(
+      [
+        [APRON - 0.35, ringY, -APRON_Z],
+        [APRON, ringY, -APRON_Z],
+        [APRON, ringY, APRON_Z],
+        [APRON - 0.35, ringY, APRON_Z],
+      ],
+      0.92,
+      0.78,
+      0.2,
+    );
     // 3. The wedge body — slope, underside slab, both painted side skirts.
-    addFace([[-W, slope(-L), -L], [W, slope(-L), -L], [W, slope(L), L], [-W, slope(L), L]], 0.92, 0.46, 0.12);
-    addFace([[-W, y0, -L], [W, y0, -L], [W, y0, L], [-W, y0, L]], 0.14, 0.14, 0.16);
-    addFace([[-W, y0, -L], [-W, slope(-L), -L], [-W, slope(L), L], [-W, y0, L]], 0.5, 0.5, 0.55);
-    addFace([[W, y0, -L], [W, slope(L), L], [W, slope(-L), -L], [W, y0, L]], 0.56, 0.56, 0.6);
+    addFace(
+      [
+        [-W, slope(-L), -L],
+        [W, slope(-L), -L],
+        [W, slope(L), L],
+        [-W, slope(L), L],
+      ],
+      0.92,
+      0.46,
+      0.12,
+    );
+    addFace(
+      [
+        [-W, y0, -L],
+        [W, y0, -L],
+        [W, y0, L],
+        [-W, y0, L],
+      ],
+      0.14,
+      0.14,
+      0.16,
+    );
+    addFace(
+      [
+        [-W, y0, -L],
+        [-W, slope(-L), -L],
+        [-W, slope(L), L],
+        [-W, y0, L],
+      ],
+      0.5,
+      0.5,
+      0.55,
+    );
+    addFace(
+      [
+        [W, y0, -L],
+        [W, slope(L), L],
+        [W, slope(-L), -L],
+        [W, y0, L],
+      ],
+      0.56,
+      0.56,
+      0.6,
+    );
     // 4. Launch zone painted on the top near the tip + centre guide stripe.
-    addFace([[-W, slope(4.4), 4.4], [W, slope(4.4), 4.4], [W, slope(L), L], [-W, slope(L), L]], 0.95, 0.82, 0.2);
-    addFace([[-0.4, slope(0.4), 0.4], [0.4, slope(0.4), 0.4], [0.4, slope(4.2), 4.2], [-0.4, slope(4.2), 4.2]], 0.94, 0.94, 0.88);
+    addFace(
+      [
+        [-W, slope(4.4), 4.4],
+        [W, slope(4.4), 4.4],
+        [W, slope(L), L],
+        [-W, slope(L), L],
+      ],
+      0.95,
+      0.82,
+      0.2,
+    );
+    addFace(
+      [
+        [-0.4, slope(0.4), 0.4],
+        [0.4, slope(0.4), 0.4],
+        [0.4, slope(4.2), 4.2],
+        [-0.4, slope(4.2), 4.2],
+      ],
+      0.94,
+      0.94,
+      0.88,
+    );
     // 5. Striped tail face (the launch end) + raised kicker lip.
     for (let s = 0; s < 4; s++) {
-      const x0 = -W + (2 * W / 4) * s, x1 = x0 + 2 * W / 4;
+      const x0 = -W + ((2 * W) / 4) * s,
+        x1 = x0 + (2 * W) / 4;
       const stripe = s % 2 === 0 ? [0.12, 0.12, 0.13] : [0.95, 0.95, 0.9];
-      addFace([[x0, y0, L], [x1, y0, L], [x1, slope(L), L], [x0, slope(L), L]], stripe[0], stripe[1], stripe[2]);
+      addFace(
+        [
+          [x0, y0, L],
+          [x1, y0, L],
+          [x1, slope(L), L],
+          [x0, slope(L), L],
+        ],
+        stripe[0],
+        stripe[1],
+        stripe[2],
+      );
     }
-    const lipZ1 = L, lipZ2 = L + 0.3, lipY = slope(L) + 0.14;
-    addFace([[-W - 0.5, lipY, lipZ1], [W + 0.5, lipY, lipZ1], [W + 0.5, lipY, lipZ2], [-W - 0.5, lipY, lipZ2]], 0.95, 0.95, 0.9);
-    addFace([[-W - 0.5, slope(L), lipZ2], [W + 0.5, slope(L), lipZ2], [W + 0.5, lipY, lipZ2], [-W - 0.5, lipY, lipZ2]], 0.75, 0.75, 0.7);
-    addFace([[-W - 0.5, slope(L), lipZ1], [W + 0.5, slope(L), lipZ1], [W + 0.5, lipY, lipZ1], [-W - 0.5, lipY, lipZ1]], 0.2, 0.2, 0.22);
-    addTri([[-W - 0.5, lipY, lipZ1], [-W - 0.5, slope(L), lipZ1], [-W - 0.5, lipY, lipZ2]], 0.6, 0.6, 0.63);
-    addTri([[W + 0.5, lipY, lipZ1], [W + 0.5, lipY, lipZ2], [W + 0.5, slope(L), lipZ1]], 0.6, 0.6, 0.63);
+    const lipZ1 = L,
+      lipZ2 = L + 0.3,
+      lipY = slope(L) + 0.14;
+    addFace(
+      [
+        [-W - 0.5, lipY, lipZ1],
+        [W + 0.5, lipY, lipZ1],
+        [W + 0.5, lipY, lipZ2],
+        [-W - 0.5, lipY, lipZ2],
+      ],
+      0.95,
+      0.95,
+      0.9,
+    );
+    addFace(
+      [
+        [-W - 0.5, slope(L), lipZ2],
+        [W + 0.5, slope(L), lipZ2],
+        [W + 0.5, lipY, lipZ2],
+        [-W - 0.5, lipY, lipZ2],
+      ],
+      0.75,
+      0.75,
+      0.7,
+    );
+    addFace(
+      [
+        [-W - 0.5, slope(L), lipZ1],
+        [W + 0.5, slope(L), lipZ1],
+        [W + 0.5, lipY, lipZ1],
+        [-W - 0.5, lipY, lipZ1],
+      ],
+      0.2,
+      0.2,
+      0.22,
+    );
+    addTri(
+      [
+        [-W - 0.5, lipY, lipZ1],
+        [-W - 0.5, slope(L), lipZ1],
+        [-W - 0.5, lipY, lipZ2],
+      ],
+      0.6,
+      0.6,
+      0.63,
+    );
+    addTri(
+      [
+        [W + 0.5, lipY, lipZ1],
+        [W + 0.5, lipY, lipZ2],
+        [W + 0.5, slope(L), lipZ1],
+      ],
+      0.6,
+      0.6,
+      0.63,
+    );
     // 6. Corner footer blocks anchoring the whole thing to the ground.
     for (const sx of [-1, 1]) {
       for (const sz of [-1, 1]) {
-        const fx = sx * (APRON - 0.9), fz = sz * (APRON_Z - 0.9);
-        addFace([[fx - 0.6, y0, fz - 0.6], [fx + 0.6, y0, fz - 0.6], [fx + 0.6, y0, fz + 0.6], [fx - 0.6, y0, fz + 0.6]], 0.58, 0.58, 0.62);
-        addFace([[fx - 0.6, y0, fz - 0.6], [fx + 0.6, y0, fz - 0.6], [fx + 0.6, y0 + 0.45, fz - 0.6], [fx - 0.6, y0 + 0.45, fz - 0.6]], 0.5, 0.5, 0.54);
-        addFace([[fx - 0.6, y0, fz + 0.6], [fx + 0.6, y0, fz + 0.6], [fx + 0.6, y0 + 0.45, fz + 0.6], [fx - 0.6, y0 + 0.45, fz + 0.6]], 0.5, 0.5, 0.54);
-        addFace([[fx - 0.6, y0, fz - 0.6], [fx - 0.6, y0, fz + 0.6], [fx - 0.6, y0 + 0.45, fz + 0.6], [fx - 0.6, y0 + 0.45, fz - 0.6]], 0.62, 0.62, 0.66);
-        addFace([[fx + 0.6, y0, fz - 0.6], [fx + 0.6, y0, fz + 0.6], [fx + 0.6, y0 + 0.45, fz + 0.6], [fx + 0.6, y0 + 0.45, fz - 0.6]], 0.62, 0.62, 0.66);
-        addTri([[fx - 0.6, y0 + 0.45, fz + 0.6], [fx + 0.6, y0 + 0.45, fz + 0.6], [fx - 0.6, y0 + 0.45, fz - 0.6]], 0.66, 0.66, 0.7);
-        addTri([[fx + 0.6, y0 + 0.45, fz + 0.6], [fx - 0.6, y0 + 0.45, fz - 0.6], [fx + 0.6, y0 + 0.45, fz - 0.6]], 0.66, 0.66, 0.7);
+        const fx = sx * (APRON - 0.9),
+          fz = sz * (APRON_Z - 0.9);
+        addFace(
+          [
+            [fx - 0.6, y0, fz - 0.6],
+            [fx + 0.6, y0, fz - 0.6],
+            [fx + 0.6, y0, fz + 0.6],
+            [fx - 0.6, y0, fz + 0.6],
+          ],
+          0.58,
+          0.58,
+          0.62,
+        );
+        addFace(
+          [
+            [fx - 0.6, y0, fz - 0.6],
+            [fx + 0.6, y0, fz - 0.6],
+            [fx + 0.6, y0 + 0.45, fz - 0.6],
+            [fx - 0.6, y0 + 0.45, fz - 0.6],
+          ],
+          0.5,
+          0.5,
+          0.54,
+        );
+        addFace(
+          [
+            [fx - 0.6, y0, fz + 0.6],
+            [fx + 0.6, y0, fz + 0.6],
+            [fx + 0.6, y0 + 0.45, fz + 0.6],
+            [fx - 0.6, y0 + 0.45, fz + 0.6],
+          ],
+          0.5,
+          0.5,
+          0.54,
+        );
+        addFace(
+          [
+            [fx - 0.6, y0, fz - 0.6],
+            [fx - 0.6, y0, fz + 0.6],
+            [fx - 0.6, y0 + 0.45, fz + 0.6],
+            [fx - 0.6, y0 + 0.45, fz - 0.6],
+          ],
+          0.62,
+          0.62,
+          0.66,
+        );
+        addFace(
+          [
+            [fx + 0.6, y0, fz - 0.6],
+            [fx + 0.6, y0, fz + 0.6],
+            [fx + 0.6, y0 + 0.45, fz + 0.6],
+            [fx + 0.6, y0 + 0.45, fz - 0.6],
+          ],
+          0.62,
+          0.62,
+          0.66,
+        );
+        addTri(
+          [
+            [fx - 0.6, y0 + 0.45, fz + 0.6],
+            [fx + 0.6, y0 + 0.45, fz + 0.6],
+            [fx - 0.6, y0 + 0.45, fz - 0.6],
+          ],
+          0.66,
+          0.66,
+          0.7,
+        );
+        addTri(
+          [
+            [fx + 0.6, y0 + 0.45, fz + 0.6],
+            [fx - 0.6, y0 + 0.45, fz - 0.6],
+            [fx + 0.6, y0 + 0.45, fz - 0.6],
+          ],
+          0.66,
+          0.66,
+          0.7,
+        );
       }
     }
     // Add a clearly modeled side profile and rear support faces so the ramp
     // reads as a complete object from every approach angle, not a floating
     // single-sided plane. The existing wedge remains the drivable top surface.
-    addFace([[-W, y0, -L], [-W, slope(-L), -L], [W, slope(-L), -L], [W, y0, -L]], 0.18, 0.18, 0.20);
-    addFace([[-W, y0, L], [W, y0, L], [W, slope(L), L], [-W, slope(L), L]], 0.20, 0.20, 0.22);
-    addFace([[-W, y0, -L], [-W, y0, L], [-W, slope(L), L], [-W, slope(-L), -L]], 0.42, 0.43, 0.46);
-    addFace([[W, y0, L], [W, y0, -L], [W, slope(-L), -L], [W, slope(L), L]], 0.46, 0.47, 0.50);
+    addFace(
+      [
+        [-W, y0, -L],
+        [-W, slope(-L), -L],
+        [W, slope(-L), -L],
+        [W, y0, -L],
+      ],
+      0.18,
+      0.18,
+      0.2,
+    );
+    addFace(
+      [
+        [-W, y0, L],
+        [W, y0, L],
+        [W, slope(L), L],
+        [-W, slope(L), L],
+      ],
+      0.2,
+      0.2,
+      0.22,
+    );
+    addFace(
+      [
+        [-W, y0, -L],
+        [-W, y0, L],
+        [-W, slope(L), L],
+        [-W, slope(-L), -L],
+      ],
+      0.42,
+      0.43,
+      0.46,
+    );
+    addFace(
+      [
+        [W, y0, L],
+        [W, y0, -L],
+        [W, slope(-L), -L],
+        [W, slope(L), L],
+      ],
+      0.46,
+      0.47,
+      0.5,
+    );
     // Reinforced side rails visually connect the ramp deck to its base.
     for (const sx of [-1, 1]) {
       const railX = sx * (W + 0.16);
-      addFace([[railX - 0.08, y0, -L], [railX + 0.08, y0, -L], [railX + 0.08, slope(-L), -L], [railX - 0.08, slope(-L), -L]], 0.85, 0.68, 0.12);
-      addFace([[railX - 0.08, y0, L], [railX + 0.08, y0, L], [railX + 0.08, slope(L), L], [railX - 0.08, slope(L), L]], 0.85, 0.68, 0.12);
+      addFace(
+        [
+          [railX - 0.08, y0, -L],
+          [railX + 0.08, y0, -L],
+          [railX + 0.08, slope(-L), -L],
+          [railX - 0.08, slope(-L), -L],
+        ],
+        0.85,
+        0.68,
+        0.12,
+      );
+      addFace(
+        [
+          [railX - 0.08, y0, L],
+          [railX + 0.08, y0, L],
+          [railX + 0.08, slope(L), L],
+          [railX - 0.08, slope(L), L],
+        ],
+        0.85,
+        0.68,
+        0.12,
+      );
     }
     this.jumpRampMesh = this.createMesh(verts, idx);
     return this.jumpRampMesh;
   }
   private addFilledRamp(
-    verts: number[], indices: number[],
-    x1: number, y1: number, x2: number, y2: number,
-    z: number, width: number, bottomY: number,
-    r: number, g: number, b: number, a: number, idxOffset: number
+    verts: number[],
+    indices: number[],
+    x1: number,
+    y1: number,
+    x2: number,
+    y2: number,
+    z: number,
+    width: number,
+    bottomY: number,
+    r: number,
+    g: number,
+    b: number,
+    a: number,
+    idxOffset: number,
   ) {
     const z1 = z - width / 2;
     const z2 = z + width / 2;
     const top = [
-      [x1, y1, z1], [x2, y2, z1], [x2, y2, z2], [x1, y1, z2],
+      [x1, y1, z1],
+      [x2, y2, z1],
+      [x2, y2, z2],
+      [x1, y1, z2],
     ];
     const bottom = [
-      [x1, bottomY, z1], [x2, bottomY, z1], [x2, bottomY, z2], [x1, bottomY, z2],
+      [x1, bottomY, z1],
+      [x2, bottomY, z1],
+      [x2, bottomY, z2],
+      [x1, bottomY, z2],
     ];
     let nextIndex = idxOffset;
     const face = (points: number[][], shade: number, reverse = false) => {
       const base = nextIndex;
-      for (const p of points) verts.push(p[0], p[1], p[2], r * shade, g * shade, b * shade, a);
-      if (reverse) indices.push(base, base + 2, base + 1, base, base + 3, base + 2);
+      for (const p of points)
+        verts.push(p[0], p[1], p[2], r * shade, g * shade, b * shade, a);
+      if (reverse)
+        indices.push(base, base + 2, base + 1, base, base + 3, base + 2);
       else indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
       nextIndex += 4;
     };
@@ -8138,76 +16187,276 @@ void main() {
     face([top[3], top[2], bottom[2], bottom[3]], 0.72, true);
   }
   private addRamp(
-    verts: number[], indices: number[],
-    x1: number, y1: number, x2: number, y2: number,
-    z: number, width: number, thickness: number,
-    r: number, g: number, b: number, a: number, idxOffset: number
+    verts: number[],
+    indices: number[],
+    x1: number,
+    y1: number,
+    x2: number,
+    y2: number,
+    z: number,
+    width: number,
+    thickness: number,
+    r: number,
+    g: number,
+    b: number,
+    a: number,
+    idxOffset: number,
   ) {
     const z1 = z - width / 2;
     const z2 = z + width / 2;
     const y1b = y1 - thickness;
     const y2b = y2 - thickness;
     verts.push(
-      x1, y1, z1, r * 0.8, g * 0.8, b * 0.8, a,
-      x2, y2, z1, r * 0.8, g * 0.8, b * 0.8, a,
-      x2, y2, z2, r * 0.8, g * 0.8, b * 0.8, a,
-      x1, y1, z2, r * 0.8, g * 0.8, b * 0.8, a
+      x1,
+      y1,
+      z1,
+      r * 0.8,
+      g * 0.8,
+      b * 0.8,
+      a,
+      x2,
+      y2,
+      z1,
+      r * 0.8,
+      g * 0.8,
+      b * 0.8,
+      a,
+      x2,
+      y2,
+      z2,
+      r * 0.8,
+      g * 0.8,
+      b * 0.8,
+      a,
+      x1,
+      y1,
+      z2,
+      r * 0.8,
+      g * 0.8,
+      b * 0.8,
+      a,
     );
-    indices.push(idxOffset, idxOffset + 1, idxOffset + 2, idxOffset, idxOffset + 2, idxOffset + 3);
+    indices.push(
+      idxOffset,
+      idxOffset + 1,
+      idxOffset + 2,
+      idxOffset,
+      idxOffset + 2,
+      idxOffset + 3,
+    );
     verts.push(
-      x1, y1b, z1, r * 0.6, g * 0.6, b * 0.6, a,
-      x2, y2b, z1, r * 0.6, g * 0.6, b * 0.6, a,
-      x2, y2b, z2, r * 0.6, g * 0.6, b * 0.6, a,
-      x1, y1b, z2, r * 0.6, g * 0.6, b * 0.6, a
+      x1,
+      y1b,
+      z1,
+      r * 0.6,
+      g * 0.6,
+      b * 0.6,
+      a,
+      x2,
+      y2b,
+      z1,
+      r * 0.6,
+      g * 0.6,
+      b * 0.6,
+      a,
+      x2,
+      y2b,
+      z2,
+      r * 0.6,
+      g * 0.6,
+      b * 0.6,
+      a,
+      x1,
+      y1b,
+      z2,
+      r * 0.6,
+      g * 0.6,
+      b * 0.6,
+      a,
     );
-    indices.push(idxOffset + 4, idxOffset + 6, idxOffset + 5, idxOffset + 4, idxOffset + 7, idxOffset + 6);
+    indices.push(
+      idxOffset + 4,
+      idxOffset + 6,
+      idxOffset + 5,
+      idxOffset + 4,
+      idxOffset + 7,
+      idxOffset + 6,
+    );
     verts.push(
-      x1, y1, z1, r * 0.7, g * 0.7, b * 0.7, a,
-      x2, y2, z1, r * 0.7, g * 0.7, b * 0.7, a,
-      x2, y2b, z1, r * 0.7, g * 0.7, b * 0.7, a,
-      x1, y1b, z1, r * 0.7, g * 0.7, b * 0.7, a
+      x1,
+      y1,
+      z1,
+      r * 0.7,
+      g * 0.7,
+      b * 0.7,
+      a,
+      x2,
+      y2,
+      z1,
+      r * 0.7,
+      g * 0.7,
+      b * 0.7,
+      a,
+      x2,
+      y2b,
+      z1,
+      r * 0.7,
+      g * 0.7,
+      b * 0.7,
+      a,
+      x1,
+      y1b,
+      z1,
+      r * 0.7,
+      g * 0.7,
+      b * 0.7,
+      a,
     );
-    indices.push(idxOffset + 8, idxOffset + 11, idxOffset + 10, idxOffset + 8, idxOffset + 10, idxOffset + 9);
+    indices.push(
+      idxOffset + 8,
+      idxOffset + 11,
+      idxOffset + 10,
+      idxOffset + 8,
+      idxOffset + 10,
+      idxOffset + 9,
+    );
     verts.push(
-      x1, y1, z2, r * 0.7, g * 0.7, b * 0.7, a,
-      x2, y2, z2, r * 0.7, g * 0.7, b * 0.7, a,
-      x2, y2b, z2, r * 0.7, g * 0.7, b * 0.7, a,
-      x1, y1b, z2, r * 0.7, g * 0.7, b * 0.7, a
+      x1,
+      y1,
+      z2,
+      r * 0.7,
+      g * 0.7,
+      b * 0.7,
+      a,
+      x2,
+      y2,
+      z2,
+      r * 0.7,
+      g * 0.7,
+      b * 0.7,
+      a,
+      x2,
+      y2b,
+      z2,
+      r * 0.7,
+      g * 0.7,
+      b * 0.7,
+      a,
+      x1,
+      y1b,
+      z2,
+      r * 0.7,
+      g * 0.7,
+      b * 0.7,
+      a,
     );
-    indices.push(idxOffset + 12, idxOffset + 14, idxOffset + 15, idxOffset + 12, idxOffset + 13, idxOffset + 14);
+    indices.push(
+      idxOffset + 12,
+      idxOffset + 14,
+      idxOffset + 15,
+      idxOffset + 12,
+      idxOffset + 13,
+      idxOffset + 14,
+    );
     verts.push(
-      x1, y1, z1, r * 0.9, g * 0.9, b * 0.9, a,
-      x1, y1, z2, r * 0.9, g * 0.9, b * 0.9, a,
-      x1, y1b, z2, r * 0.9, g * 0.9, b * 0.9, a,
-      x1, y1b, z1, r * 0.9, g * 0.9, b * 0.9, a
+      x1,
+      y1,
+      z1,
+      r * 0.9,
+      g * 0.9,
+      b * 0.9,
+      a,
+      x1,
+      y1,
+      z2,
+      r * 0.9,
+      g * 0.9,
+      b * 0.9,
+      a,
+      x1,
+      y1b,
+      z2,
+      r * 0.9,
+      g * 0.9,
+      b * 0.9,
+      a,
+      x1,
+      y1b,
+      z1,
+      r * 0.9,
+      g * 0.9,
+      b * 0.9,
+      a,
     );
-    indices.push(idxOffset + 16, idxOffset + 18, idxOffset + 19, idxOffset + 16, idxOffset + 17, idxOffset + 18);
+    indices.push(
+      idxOffset + 16,
+      idxOffset + 18,
+      idxOffset + 19,
+      idxOffset + 16,
+      idxOffset + 17,
+      idxOffset + 18,
+    );
     verts.push(
-      x2, y2, z1, r * 0.9, g * 0.9, b * 0.9, a,
-      x2, y2, z2, r * 0.9, g * 0.9, b * 0.9, a,
-      x2, y2b, z2, r * 0.9, g * 0.9, b * 0.9, a,
-      x2, y2b, z1, r * 0.9, g * 0.9, b * 0.9, a
+      x2,
+      y2,
+      z1,
+      r * 0.9,
+      g * 0.9,
+      b * 0.9,
+      a,
+      x2,
+      y2,
+      z2,
+      r * 0.9,
+      g * 0.9,
+      b * 0.9,
+      a,
+      x2,
+      y2b,
+      z2,
+      r * 0.9,
+      g * 0.9,
+      b * 0.9,
+      a,
+      x2,
+      y2b,
+      z1,
+      r * 0.9,
+      g * 0.9,
+      b * 0.9,
+      a,
     );
-    indices.push(idxOffset + 20, idxOffset + 23, idxOffset + 22, idxOffset + 20, idxOffset + 22, idxOffset + 21);
+    indices.push(
+      idxOffset + 20,
+      idxOffset + 23,
+      idxOffset + 22,
+      idxOffset + 20,
+      idxOffset + 22,
+      idxOffset + 21,
+    );
   }
   clearChunkCache() {
     this.chunkCache.clear();
     this.buildingOccupancyByChunk.clear();
   }
   getWeaponPickupMesh(weaponType: number): CityMesh | CityMesh[] {
-    if (weaponType === 1 && this.coltMesh) return this.coltMesh;             
-    if (weaponType === 2 && this.m4a1Mesh) return this.m4a1Mesh;             
-    if (weaponType === 3 && this.shotgunMesh) return this.shotgunMesh;       
-    if (weaponType === 4 && this.rocketLauncherMesh) return this.rocketLauncherMesh; 
+    if (weaponType === 1 && this.coltMesh) return this.coltMesh;
+    if (weaponType === 2 && this.m4a1Mesh) return this.m4a1Mesh;
+    if (weaponType === 3 && this.shotgunMesh) return this.shotgunMesh;
+    if (weaponType === 4 && this.rocketLauncherMesh)
+      return this.rocketLauncherMesh;
     if (!this._warnedPickups) this._warnedPickups = new Set();
     if (!this._warnedPickups.has(weaponType)) {
-      console.warn('[PICKUP] No GLTF model for weaponType', weaponType,
-        '— using box fallback. (colt=' + !!this.coltMesh,
-        'm4a1=' + !!this.m4a1Mesh,
-        'rocketLauncher=' + !!this.rocketLauncherMesh + ')');
+      console.warn(
+        "[PICKUP] No GLTF model for weaponType",
+        weaponType,
+        "— using box fallback. (colt=" + !!this.coltMesh,
+        "m4a1=" + !!this.m4a1Mesh,
+        "rocketLauncher=" + !!this.rocketLauncherMesh + ")",
+      );
       this._warnedPickups.add(weaponType);
     }
-    return this.getPickupMesh();                                             
+    return this.getPickupMesh();
   }
   private getModelMinY(meshes: CityMesh[]): number {
     let minY = 0;
@@ -8218,19 +16467,24 @@ void main() {
   }
   private isHungryJacksModel(model: CityMesh | CityMesh[]): boolean {
     const meshes = Array.isArray(model) ? model : [model];
-    return meshes.some(m => m.carName?.includes('hungry_jacks_restaurant_low_poly'));
+    return meshes.some((m) =>
+      m.carName?.includes("hungry_jacks_restaurant_low_poly"),
+    );
   }
   /** Keep the Hungry Jack's asset at a consistent restaurant scale across placement paths. */
   private hungryJacksScale(
     model: CityMesh | CityMesh[],
     maxFrontage: number,
     maxDepth: number,
-    yaw = 0
+    yaw = 0,
   ): number {
     const meshes = Array.isArray(model) ? model : [model];
-    let minX = Infinity, maxX = -Infinity;
-    let minY = Infinity, maxY = -Infinity;
-    let minZ = Infinity, maxZ = -Infinity;
+    let minX = Infinity,
+      maxX = -Infinity;
+    let minY = Infinity,
+      maxY = -Infinity;
+    let minZ = Infinity,
+      maxZ = -Infinity;
     for (const m of meshes) {
       const rs = m.renderScale ?? 1;
       if (m.minX !== undefined) minX = Math.min(minX, m.minX * rs);
@@ -8255,12 +16509,96 @@ void main() {
     const verts: number[] = [];
     const indices: number[] = [];
     const col: [number, number, number] = [0.2, 0.8, 1.0];
-    this.addBox(verts, indices, 0, 0.5, 0, 0.7, 0.8, 0.4, col[0], col[1], col[2], 1.0, 0);
-    this.addBox(verts, indices, 0, 1.15, 0, 0.4, 0.3, 0.4, col[0] * 0.9, col[1] * 0.9, col[2] * 0.9, 1.0, verts.length / 7);
-    this.addBox(verts, indices, -0.55, 0.7, 0, 0.2, 0.6, 0.2, col[0] * 0.8, col[1] * 0.8, col[2] * 0.8, 1.0, verts.length / 7);
-    this.addBox(verts, indices, 0.55, 0.7, 0, 0.2, 0.6, 0.2, col[0] * 0.8, col[1] * 0.8, col[2] * 0.8, 1.0, verts.length / 7);
-    this.addBox(verts, indices, -0.2, 0.05, 0, 0.2, 0.5, 0.2, col[0] * 0.7, col[1] * 0.7, col[2] * 0.7, 1.0, verts.length / 7);
-    this.addBox(verts, indices, 0.2, 0.05, 0, 0.2, 0.5, 0.2, col[0] * 0.7, col[1] * 0.7, col[2] * 0.7, 1.0, verts.length / 7);
+    this.addBox(
+      verts,
+      indices,
+      0,
+      0.5,
+      0,
+      0.7,
+      0.8,
+      0.4,
+      col[0],
+      col[1],
+      col[2],
+      1.0,
+      0,
+    );
+    this.addBox(
+      verts,
+      indices,
+      0,
+      1.15,
+      0,
+      0.4,
+      0.3,
+      0.4,
+      col[0] * 0.9,
+      col[1] * 0.9,
+      col[2] * 0.9,
+      1.0,
+      verts.length / 7,
+    );
+    this.addBox(
+      verts,
+      indices,
+      -0.55,
+      0.7,
+      0,
+      0.2,
+      0.6,
+      0.2,
+      col[0] * 0.8,
+      col[1] * 0.8,
+      col[2] * 0.8,
+      1.0,
+      verts.length / 7,
+    );
+    this.addBox(
+      verts,
+      indices,
+      0.55,
+      0.7,
+      0,
+      0.2,
+      0.6,
+      0.2,
+      col[0] * 0.8,
+      col[1] * 0.8,
+      col[2] * 0.8,
+      1.0,
+      verts.length / 7,
+    );
+    this.addBox(
+      verts,
+      indices,
+      -0.2,
+      0.05,
+      0,
+      0.2,
+      0.5,
+      0.2,
+      col[0] * 0.7,
+      col[1] * 0.7,
+      col[2] * 0.7,
+      1.0,
+      verts.length / 7,
+    );
+    this.addBox(
+      verts,
+      indices,
+      0.2,
+      0.05,
+      0,
+      0.2,
+      0.5,
+      0.2,
+      col[0] * 0.7,
+      col[1] * 0.7,
+      col[2] * 0.7,
+      1.0,
+      verts.length / 7,
+    );
     return this.createMesh(verts, indices);
   }
   clearGltfCache() {

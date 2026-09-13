@@ -1,270 +1,1818 @@
-import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, NgZone, OnDestroy, ViewChild } from '@angular/core';
-import { ChildComponent } from '../child.component';
-import { SpaceEvolvesRun, SpaceEvolvesService } from '../../services/space-evolves.service';
-import * as SpaceEvolvesRendering from './space-evolves-rendering';
-import { UserEventService } from '../../services/user-event.service';
-export interface SpaceBug { x: number; y: number; hp: number; maxHp: number; segments: number; maxSegments: number; speed: number; size: number; phase: number; kind: 'scuttler' | 'mantis' | 'queen' | 'boss'; trait: 'charger' | 'armored' | 'splitter' | 'weaver' | 'volatile' | 'regenerator' | 'inertial' | 'leviathan'; armor: number; zigzag: number; attack: number; regen: number; stunTimer?: number; knockbackTimer?: number; knockbackVx?: number; knockbackVy?: number; chemDotTimer?: number; chemSpreadCooldown?: number; burnTimer?: number; burnStacks?: number; wakeTimer?: number; boss?: boolean; ally?: boolean; conversionOrder?: number; lockedOn?: boolean; contactDamageTimer?: number; hueWarp?: number; _taken?: boolean; fragment?: boolean; }
-export interface SpaceProjectile { x: number; y: number; vx: number; vy: number; damage: number; kind: 'laser' | 'missile' | 'plasma' | 'drone' | 'rail' | 'flak' | 'chem' | 'flamer' | 'boss'; radius: number; range: number; homing: number; splash: number; age: number; bounces: number; lock?: SpaceBug; hitTargets?: SpaceBug[]; }
-type WeaponId = 'laser' | 'missile' | 'shield' | 'plasma' | 'drone' | 'rail' | 'flak' | 'tesla' | 'chem' | 'flamer';
-type UpgradeCategory = WeaponId | 'health' | 'utility' | 'ship';
-interface SpaceUpgrade { id: string; name: string; description: string; weapon: UpgradeCategory; isWeaponUnlock?: boolean; }
-interface SpaceScore { username: string; score: number; wave: number; }
-export interface SpaceCloud { x: number; y: number; radius: number; life: number; maxLife: number; tick: number; }
-export interface BackgroundCloud { x: number; y: number; vx: number; vy: number; homeX: number; homeY: number; radius: number; mass: number; seed: number; }
-export interface BackgroundEscort { x: number; y: number; vx: number; vy: number; phase: number; destroyed?: boolean; explosion?: number; }
-export interface BackgroundThreat { x: number; y: number; vx: number; vy: number; phase: number; cooldown: number; }
-export interface BackgroundShip { x: number; y: number; vx: number; vy: number; size: number; life: number; maxLife: number; angle: number; enemy: boolean; phase: number; evade: number; escorts: BackgroundEscort[]; threats: BackgroundThreat[]; bossScene?: boolean; }
-export interface SpaceEffect { x: number; y: number; vx: number; vy: number; life: number; maxLife: number; size: number; color: string; kind?: 'dot' | 'edge' | 'beam' | 'ring'; len?: number; angle?: number; spin?: number; x2?: number; y2?: number; }
+import {
+  AfterViewInit,
+  ChangeDetectorRef,
+  Component,
+  ElementRef,
+  NgZone,
+  OnDestroy,
+  ViewChild,
+} from "@angular/core";
+import { ChildComponent } from "../child.component";
+import {
+  SpaceEvolvesRun,
+  SpaceEvolvesService,
+} from "../../services/space-evolves.service";
+import * as SpaceEvolvesRendering from "./space-evolves-rendering";
+import { UserEventService } from "../../services/user-event.service";
+export interface SpaceBug {
+  x: number;
+  y: number;
+  hp: number;
+  maxHp: number;
+  segments: number;
+  maxSegments: number;
+  speed: number;
+  size: number;
+  phase: number;
+  kind: "scuttler" | "mantis" | "queen" | "boss";
+  trait:
+    | "charger"
+    | "armored"
+    | "splitter"
+    | "weaver"
+    | "volatile"
+    | "regenerator"
+    | "inertial"
+    | "leviathan";
+  armor: number;
+  zigzag: number;
+  attack: number;
+  regen: number;
+  stunTimer?: number;
+  knockbackTimer?: number;
+  knockbackVx?: number;
+  knockbackVy?: number;
+  chemDotTimer?: number;
+  chemSpreadCooldown?: number;
+  burnTimer?: number;
+  burnStacks?: number;
+  wakeTimer?: number;
+  boss?: boolean;
+  ally?: boolean;
+  conversionOrder?: number;
+  lockedOn?: boolean;
+  contactDamageTimer?: number;
+  hueWarp?: number;
+  _taken?: boolean;
+  fragment?: boolean;
+}
+export interface SpaceProjectile {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  damage: number;
+  kind:
+    | "laser"
+    | "missile"
+    | "plasma"
+    | "drone"
+    | "rail"
+    | "flak"
+    | "chem"
+    | "flamer"
+    | "boss";
+  radius: number;
+  range: number;
+  homing: number;
+  splash: number;
+  age: number;
+  bounces: number;
+  lock?: SpaceBug;
+  hitTargets?: SpaceBug[];
+}
+type WeaponId =
+  | "laser"
+  | "missile"
+  | "shield"
+  | "plasma"
+  | "drone"
+  | "rail"
+  | "flak"
+  | "tesla"
+  | "chem"
+  | "flamer";
+type UpgradeCategory = WeaponId | "health" | "utility" | "ship";
+interface SpaceUpgrade {
+  id: string;
+  name: string;
+  description: string;
+  weapon: UpgradeCategory;
+  isWeaponUnlock?: boolean;
+}
+interface SpaceScore {
+  username: string;
+  score: number;
+  wave: number;
+}
+export interface SpaceCloud {
+  x: number;
+  y: number;
+  radius: number;
+  life: number;
+  maxLife: number;
+  tick: number;
+}
+export interface BackgroundCloud {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  homeX: number;
+  homeY: number;
+  radius: number;
+  mass: number;
+  seed: number;
+}
+export interface BackgroundEscort {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  phase: number;
+  destroyed?: boolean;
+  explosion?: number;
+}
+export interface BackgroundThreat {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  phase: number;
+  cooldown: number;
+}
+export interface BackgroundShip {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  size: number;
+  life: number;
+  maxLife: number;
+  angle: number;
+  enemy: boolean;
+  phase: number;
+  evade: number;
+  escorts: BackgroundEscort[];
+  threats: BackgroundThreat[];
+  bossScene?: boolean;
+}
+export interface SpaceEffect {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  life: number;
+  maxLife: number;
+  size: number;
+  color: string;
+  kind?: "dot" | "edge" | "beam" | "ring";
+  len?: number;
+  angle?: number;
+  spin?: number;
+  x2?: number;
+  y2?: number;
+}
 const FX_MAX = 420;
 // Ambient celebration particles (shatter, blasts, drips, embers, wakes) stop
 // below the hard cap so weapon-fire visuals like tesla lightning always have
 // room — otherwise late waves saturate the budget and shots go invisible.
 const FX_HEADROOM = 48;
-@Component({ selector: 'app-space-evolves', templateUrl: './space-evolves.component.html', styleUrl: './space-evolves.component.css', standalone: false })
-export class SpaceEvolvesComponent extends ChildComponent implements AfterViewInit, OnDestroy {
-  constructor(private spaceEvolvesService: SpaceEvolvesService, private userEventService: UserEventService, private ngZone: NgZone, private cdr: ChangeDetectorRef) { super(); }
-  readonly Math = Math; @ViewChild('gameCanvas', { static: true }) gameCanvas!: ElementRef<HTMLCanvasElement>;
-  private ctx!: CanvasRenderingContext2D; private frame = 0; private playerSprite?: HTMLImageElement; private playerSpriteReady = false; private readonly playerSpriteUrl = 'assets/ender/shipsprite.png'; private lastTime = 0; private running = false; private saveTimer: any; private keys = new Set<string>(); private touchX: number | null = null; private spawnTimer = 0; private bossShotTimer = 1.1; private waveKills = 0; private spawnedThisWave = 0; private bossActive = false; private serverUserId = 0; private serverRunId?: string; private persistedUpgrades: string[] = []; private loadedUserId = 0; private serverLoaded = false; private switchingUser = false; private lastSaveState = ''; private frameDetail = 2; private detailCooldown = 0; private slowFrames = 0; private fastFrames = 0; private hudSync = 0; private backgroundClouds: BackgroundCloud[] = []; private backgroundCloudsReady = false; private backgroundShips: BackgroundShip[] = []; private backgroundShipTimer = 8;
-  private stats = this.baseStats(); private conversionSequence = 0;
-  private defenceForStacks(stacks: number) { return Math.min(.95, 1 - Math.pow(.92, Math.max(0, stacks))); }
-  private isInertial(b: SpaceBug) { return b.trait === 'inertial'; }
-  private isLeviathan(b: SpaceBug) { return b.trait === 'leviathan'; }
-  private gravityWake(b: SpaceBug, dt: number) { if (!this.isLeviathan(b)) return; b.wakeTimer = Math.max(0, (b.wakeTimer ?? 0) - dt); if (b.wakeTimer <= 0 && this.effects.length < FX_MAX - FX_HEADROOM) { b.wakeTimer = .28; this.effects.push({ x: b.x, y: b.y, vx: 0, vy: 0, life: .5, maxLife: .5, size: b.size * 1.3, color: '#b48cff', kind: 'ring', len: b.size * 1.4 }); } }
-  private controlEffectiveness() { return Math.pow(.75, Math.floor(this.wave / 25)); } private mobDamageMult() { const w = Math.max(0, this.wave / 25); return .25 * w * w; }
-  private controlResistance(b: SpaceBug, kind: 'stun' | 'knockback') {
+@Component({
+  selector: "app-space-evolves",
+  templateUrl: "./space-evolves.component.html",
+  styleUrl: "./space-evolves.component.css",
+  standalone: false,
+})
+export class SpaceEvolvesComponent
+  extends ChildComponent
+  implements AfterViewInit, OnDestroy
+{
+  constructor(
+    private spaceEvolvesService: SpaceEvolvesService,
+    private userEventService: UserEventService,
+    private ngZone: NgZone,
+    private cdr: ChangeDetectorRef,
+  ) {
+    super();
+  }
+  readonly Math = Math;
+  @ViewChild("gameCanvas", { static: true })
+  gameCanvas!: ElementRef<HTMLCanvasElement>;
+  private ctx!: CanvasRenderingContext2D;
+  private frame = 0;
+  private playerSprite?: HTMLImageElement;
+  private playerSpriteReady = false;
+  private readonly playerSpriteUrl = "assets/ender/shipsprite.png";
+  private lastTime = 0;
+  private running = false;
+  private saveTimer: any;
+  private keys = new Set<string>();
+  private touchX: number | null = null;
+  private spawnTimer = 0;
+  private bossShotTimer = 1.1;
+  private waveKills = 0;
+  private spawnedThisWave = 0;
+  private bossActive = false;
+  private serverUserId = 0;
+  private serverRunId?: string;
+  private persistedUpgrades: string[] = [];
+  private loadedUserId = 0;
+  private serverLoaded = false;
+  private switchingUser = false;
+  private lastSaveState = "";
+  private frameDetail = 2;
+  private detailCooldown = 0;
+  private slowFrames = 0;
+  private fastFrames = 0;
+  private hudSync = 0;
+  private backgroundClouds: BackgroundCloud[] = [];
+  private backgroundCloudsReady = false;
+  private backgroundShips: BackgroundShip[] = [];
+  private backgroundShipTimer = 8;
+  private stats = this.baseStats();
+  private conversionSequence = 0;
+  private defenceForStacks(stacks: number) {
+    return Math.min(0.95, 1 - Math.pow(0.92, Math.max(0, stacks)));
+  }
+  private isInertial(b: SpaceBug) {
+    return b.trait === "inertial";
+  }
+  private isLeviathan(b: SpaceBug) {
+    return b.trait === "leviathan";
+  }
+  private gravityWake(b: SpaceBug, dt: number) {
+    if (!this.isLeviathan(b)) return;
+    b.wakeTimer = Math.max(0, (b.wakeTimer ?? 0) - dt);
+    if (b.wakeTimer <= 0 && this.effects.length < FX_MAX - FX_HEADROOM) {
+      b.wakeTimer = 0.28;
+      this.effects.push({
+        x: b.x,
+        y: b.y,
+        vx: 0,
+        vy: 0,
+        life: 0.5,
+        maxLife: 0.5,
+        size: b.size * 1.3,
+        color: "#b48cff",
+        kind: "ring",
+        len: b.size * 1.4,
+      });
+    }
+  }
+  private controlEffectiveness() {
+    return Math.pow(0.75, Math.floor(this.wave / 25));
+  }
+  private mobDamageMult() {
+    const w = Math.max(0, this.wave / 25);
+    return 0.25 * w * w;
+  }
+  private controlResistance(b: SpaceBug, kind: "stun" | "knockback") {
     if (this.isLeviathan(b)) return 1;
     const waveResistance = b.boss
-      ? Math.min(.85, .08 + this.wave * .045)
-      : Math.min(.4, .012 + this.wave * .012);
-    const inertialResistance = this.isInertial(b) ? .72 : 0;
+      ? Math.min(0.85, 0.08 + this.wave * 0.045)
+      : Math.min(0.4, 0.012 + this.wave * 0.012);
+    const inertialResistance = this.isInertial(b) ? 0.72 : 0;
     const baseResistance = Math.max(waveResistance, inertialResistance);
-    return Math.min(.92, 1 - (1 - baseResistance) * this.controlEffectiveness());
+    return Math.min(
+      0.92,
+      1 - (1 - baseResistance) * this.controlEffectiveness(),
+    );
   }
-  private applyStun(b: SpaceBug, duration: number) { if (this.isLeviathan(b)) return; const effectiveDuration = duration * (1 - this.controlResistance(b, 'stun')); b.stunTimer = Math.max(b.stunTimer ?? 0, effectiveDuration); }
-  private baseStats() { return { laserDamage: 36, laserInterval: .30, laserSpeed: 1.15, laserRange: 1.15, laserCount: 1, laserCritChance: 0, laserCritFactor: 1.5, laserDamagePerMeter: 0, missileDamage: 60, missileInterval: 1.15, missileSpeed: .62, missileRange: 1.2, missileCount: 1, missileCritChance: 0, missileCritFactor: 1.5, missileDamagePerMeter: 0, missileHoming: 0, missileSplash: .5, shieldMax: 24, shieldRadius: .11, shieldRegen: 0, shieldThorns: 0, shieldKnockback: 0, shieldPulse: 0, shieldPulseInterval: 2.4, shieldMitigation: 1, shieldVisibleFor: 1, damageMultiplier: 1, attackSpeedMultiplier: 1, critChanceBonus: 0, critFactorBonus: 0, salvoBonus: 0, volleyBonus: 0, bounceBonus: 0, distanceMultiplier: 1, secondaryEffectMultiplier: 1, damagePerDistance: 0, plasmaDamage: 48, plasmaInterval: .65, plasmaSpeed: 1.05, plasmaRange: 1.1, plasmaCount: 1, plasmaCritChance: 0, plasmaCritFactor: 1.5, plasmaDamagePerMeter: 0, plasmaSplash: .07, plasmaConvertChance: .05, plasmaMaxConversions: 1, droneDamage: 18, droneInterval: .85, droneSpeed: .95, droneRange: .62, droneCount: 1, droneCritChance: 0, droneCritFactor: 1.5, droneDamagePerMeter: 0, droneVolley: 1, healthRegen: 0, defencePercent: 0, absoluteDefence: 0, lifesteal: 0, expPerWave: 0, expBonusPerKill: 0, freeLaserChance: 0, freeMissileChance: 0, freeShipChance: 0, freeHealthChance: 0, freeUtilityChance: 0, freePlasmaChance: 0, freeDroneChance: 0, freeRailChance: 0, freeFlakChance: 0, freeTeslaChance: 0, freeChemChance: 0, projectileSize: 1, missileBounces: 0, railDamage: 10, railInterval: .09, railSpeed: 1.6, railRange: 1.6, railCount: 1, railKnockback: .012, railKnockbackChance: .01, railCritChance: 0, railCritFactor: 1.5, railDamagePerMeter: 0, flakDamage: 14, flakInterval: 1.0, flakSpeed: .9, flakRange: .75, flakCount: 6, flakCritChance: 0, flakCritFactor: 1.5, flakDamagePerMeter: 0, flakSplash: .08, teslaDamage: 44, teslaInterval: 1.4, teslaCount: 1, teslaRange: .3, teslaCritChance: .12, teslaCritFactor: 1.8, teslaStunDuration: .45, chemDamage: 24, chemInterval: 1.0, chemSpeed: .7, chemRange: 1.0, chemCount: 1, chemCritChance: 0, chemCritFactor: 1.5, chemDuration: 4, chemRadius: .09, chemSpreadDistance: .12, chemDamagePerMeter: 0, flamerDamage: 6, flamerInterval: .18, flamerSpeed: 1.0, flamerRange: .30, flamerCount: 1, flamerCritChance: 0, flamerCritFactor: 1.5, flamerDamagePerMeter: 0, flamerSplash: .07, flamerBurnDuration: 3 }; }
-  private migrateLegacyGenericUpgrades() { const legacy: Record<string, string> = { 'laser-speed': 'attack-speed', 'missile-speed': 'attack-speed', 'plasma-speed': 'attack-speed', 'drone-speed': 'attack-speed', 'rail-speed': 'attack-speed', 'flak-speed': 'attack-speed', 'tesla-speed': 'attack-speed', 'chem-speed': 'attack-speed', 'laser-crit-chance': 'critical-chance', 'missile-crit-chance': 'critical-chance', 'plasma-crit-chance': 'critical-chance', 'drone-crit-chance': 'critical-chance', 'rail-crit-chance': 'critical-chance', 'flak-crit-chance': 'critical-chance', 'tesla-crit-chance': 'critical-chance', 'chem-crit-chance': 'critical-chance', 'laser-crit-factor': 'critical-damage', 'missile-crit-factor': 'critical-damage', 'plasma-crit-factor': 'critical-damage', 'drone-crit-factor': 'critical-damage', 'rail-crit-factor': 'critical-damage', 'flak-crit-factor': 'critical-damage', 'tesla-crit-factor': 'critical-damage', 'chem-crit-factor': 'critical-damage', 'laser-salvo': 'salvo', 'missile-salvo': 'salvo', 'plasma-salvo': 'salvo', 'drone-salvo': 'salvo', 'rail-salvo': 'salvo', 'flak-salvo': 'salvo', 'tesla-salvo': 'salvo', 'chem-salvo': 'salvo', 'drone-volley': 'volley', 'missile-bounces': 'bounces', 'plasma-conversion-cap': 'bounces', 'missile-range': 'distance', 'tesla-range': 'distance', 'chem-spread-distance': 'distance', 'tesla-stun': 'secondary-effect', 'chem-duration': 'secondary-effect', 'duration': 'secondary-effect', 'rail-knockback': 'secondary-effect', 'plasma-convert': 'secondary-effect', 'laser-meter': 'damage-distance', 'missile-meter': 'damage-distance', 'plasma-meter': 'damage-distance', 'drone-meter': 'damage-distance', 'rail-meter': 'damage-distance', 'flak-meter': 'damage-distance' }; const converted: string[] = []; for (const id of this.persistedUpgrades) converted.push(legacy[id] || id); this.persistedUpgrades = converted; }
-  private migrateLegacyDamageUpgrades() { const legacy: Record<string, keyof typeof this.stats> = { 'laser-damage': 'laserDamage', 'missile-damage': 'missileDamage', 'plasma-damage': 'plasmaDamage', 'drone-damage': 'droneDamage', 'rail-damage': 'railDamage', 'flak-damage': 'flakDamage', 'tesla-damage': 'teslaDamage', 'chem-damage': 'chemDamage' }; let converted = 0; for (const [id, field] of Object.entries(legacy)) { const count = this.persistedUpgrades.filter(upgradeId => upgradeId === id).length; if (!count) continue; const value = Number(this.stats[field]); if (Number.isFinite(value)) this.stats[field] = value / Math.pow(1.25, count) as never; converted += count; } if (converted) { this.stats.damageMultiplier = (Number(this.stats.damageMultiplier) || 1) * Math.pow(1.25, converted); this.persistedUpgrades = this.persistedUpgrades.filter(id => !Object.prototype.hasOwnProperty.call(legacy, id)); this.persistedUpgrades.push(...Array(converted).fill('damage')); } }
+  private applyStun(b: SpaceBug, duration: number) {
+    if (this.isLeviathan(b)) return;
+    const effectiveDuration =
+      duration * (1 - this.controlResistance(b, "stun"));
+    b.stunTimer = Math.max(b.stunTimer ?? 0, effectiveDuration);
+  }
+  private baseStats() {
+    return {
+      laserDamage: 36,
+      laserInterval: 0.3,
+      laserSpeed: 1.15,
+      laserRange: 1.15,
+      laserCount: 1,
+      laserCritChance: 0,
+      laserCritFactor: 1.5,
+      laserDamagePerMeter: 0,
+      missileDamage: 60,
+      missileInterval: 1.15,
+      missileSpeed: 0.62,
+      missileRange: 1.2,
+      missileCount: 1,
+      missileCritChance: 0,
+      missileCritFactor: 1.5,
+      missileDamagePerMeter: 0,
+      missileHoming: 0,
+      missileSplash: 0.5,
+      shieldMax: 24,
+      shieldRadius: 0.11,
+      shieldRegen: 0,
+      shieldThorns: 0,
+      shieldKnockback: 0,
+      shieldPulse: 0,
+      shieldPulseInterval: 2.4,
+      shieldMitigation: 1,
+      shieldVisibleFor: 1,
+      damageMultiplier: 1,
+      attackSpeedMultiplier: 1,
+      critChanceBonus: 0,
+      critFactorBonus: 0,
+      salvoBonus: 0,
+      volleyBonus: 0,
+      bounceBonus: 0,
+      distanceMultiplier: 1,
+      secondaryEffectMultiplier: 1,
+      damagePerDistance: 0,
+      plasmaDamage: 48,
+      plasmaInterval: 0.65,
+      plasmaSpeed: 1.05,
+      plasmaRange: 1.1,
+      plasmaCount: 1,
+      plasmaCritChance: 0,
+      plasmaCritFactor: 1.5,
+      plasmaDamagePerMeter: 0,
+      plasmaSplash: 0.07,
+      plasmaConvertChance: 0.05,
+      plasmaMaxConversions: 1,
+      droneDamage: 18,
+      droneInterval: 0.85,
+      droneSpeed: 0.95,
+      droneRange: 0.62,
+      droneCount: 1,
+      droneCritChance: 0,
+      droneCritFactor: 1.5,
+      droneDamagePerMeter: 0,
+      droneVolley: 1,
+      healthRegen: 0,
+      defencePercent: 0,
+      absoluteDefence: 0,
+      lifesteal: 0,
+      expPerWave: 0,
+      expBonusPerKill: 0,
+      freeLaserChance: 0,
+      freeMissileChance: 0,
+      freeShipChance: 0,
+      freeHealthChance: 0,
+      freeUtilityChance: 0,
+      freePlasmaChance: 0,
+      freeDroneChance: 0,
+      freeRailChance: 0,
+      freeFlakChance: 0,
+      freeTeslaChance: 0,
+      freeChemChance: 0,
+      projectileSize: 1,
+      missileBounces: 0,
+      railDamage: 10,
+      railInterval: 0.09,
+      railSpeed: 1.6,
+      railRange: 1.6,
+      railCount: 1,
+      railKnockback: 0.012,
+      railKnockbackChance: 0.01,
+      railCritChance: 0,
+      railCritFactor: 1.5,
+      railDamagePerMeter: 0,
+      flakDamage: 14,
+      flakInterval: 1.0,
+      flakSpeed: 0.9,
+      flakRange: 0.75,
+      flakCount: 6,
+      flakCritChance: 0,
+      flakCritFactor: 1.5,
+      flakDamagePerMeter: 0,
+      flakSplash: 0.08,
+      teslaDamage: 44,
+      teslaInterval: 1.4,
+      teslaCount: 1,
+      teslaRange: 0.3,
+      teslaCritChance: 0.12,
+      teslaCritFactor: 1.8,
+      teslaStunDuration: 0.45,
+      chemDamage: 24,
+      chemInterval: 1.0,
+      chemSpeed: 0.7,
+      chemRange: 1.0,
+      chemCount: 1,
+      chemCritChance: 0,
+      chemCritFactor: 1.5,
+      chemDuration: 4,
+      chemRadius: 0.09,
+      chemSpreadDistance: 0.12,
+      chemDamagePerMeter: 0,
+      flamerDamage: 6,
+      flamerInterval: 0.18,
+      flamerSpeed: 1.0,
+      flamerRange: 0.3,
+      flamerCount: 1,
+      flamerCritChance: 0,
+      flamerCritFactor: 1.5,
+      flamerDamagePerMeter: 0,
+      flamerSplash: 0.07,
+      flamerBurnDuration: 3,
+    };
+  }
+  private migrateLegacyGenericUpgrades() {
+    const legacy: Record<string, string> = {
+      "laser-speed": "attack-speed",
+      "missile-speed": "attack-speed",
+      "plasma-speed": "attack-speed",
+      "drone-speed": "attack-speed",
+      "rail-speed": "attack-speed",
+      "flak-speed": "attack-speed",
+      "tesla-speed": "attack-speed",
+      "chem-speed": "attack-speed",
+      "laser-crit-chance": "critical-chance",
+      "missile-crit-chance": "critical-chance",
+      "plasma-crit-chance": "critical-chance",
+      "drone-crit-chance": "critical-chance",
+      "rail-crit-chance": "critical-chance",
+      "flak-crit-chance": "critical-chance",
+      "tesla-crit-chance": "critical-chance",
+      "chem-crit-chance": "critical-chance",
+      "laser-crit-factor": "critical-damage",
+      "missile-crit-factor": "critical-damage",
+      "plasma-crit-factor": "critical-damage",
+      "drone-crit-factor": "critical-damage",
+      "rail-crit-factor": "critical-damage",
+      "flak-crit-factor": "critical-damage",
+      "tesla-crit-factor": "critical-damage",
+      "chem-crit-factor": "critical-damage",
+      "laser-salvo": "salvo",
+      "missile-salvo": "salvo",
+      "plasma-salvo": "salvo",
+      "drone-salvo": "salvo",
+      "rail-salvo": "salvo",
+      "flak-salvo": "salvo",
+      "tesla-salvo": "salvo",
+      "chem-salvo": "salvo",
+      "drone-volley": "volley",
+      "missile-bounces": "bounces",
+      "plasma-conversion-cap": "bounces",
+      "missile-range": "distance",
+      "tesla-range": "distance",
+      "chem-spread-distance": "distance",
+      "tesla-stun": "secondary-effect",
+      "chem-duration": "secondary-effect",
+      duration: "secondary-effect",
+      "rail-knockback": "secondary-effect",
+      "plasma-convert": "secondary-effect",
+      "laser-meter": "damage-distance",
+      "missile-meter": "damage-distance",
+      "plasma-meter": "damage-distance",
+      "drone-meter": "damage-distance",
+      "rail-meter": "damage-distance",
+      "flak-meter": "damage-distance",
+    };
+    const converted: string[] = [];
+    for (const id of this.persistedUpgrades) converted.push(legacy[id] || id);
+    this.persistedUpgrades = converted;
+  }
+  private migrateLegacyDamageUpgrades() {
+    const legacy: Record<string, keyof typeof this.stats> = {
+      "laser-damage": "laserDamage",
+      "missile-damage": "missileDamage",
+      "plasma-damage": "plasmaDamage",
+      "drone-damage": "droneDamage",
+      "rail-damage": "railDamage",
+      "flak-damage": "flakDamage",
+      "tesla-damage": "teslaDamage",
+      "chem-damage": "chemDamage",
+    };
+    let converted = 0;
+    for (const [id, field] of Object.entries(legacy)) {
+      const count = this.persistedUpgrades.filter(
+        (upgradeId) => upgradeId === id,
+      ).length;
+      if (!count) continue;
+      const value = Number(this.stats[field]);
+      if (Number.isFinite(value))
+        this.stats[field] = (value / Math.pow(1.25, count)) as never;
+      converted += count;
+    }
+    if (converted) {
+      this.stats.damageMultiplier =
+        (Number(this.stats.damageMultiplier) || 1) * Math.pow(1.25, converted);
+      this.persistedUpgrades = this.persistedUpgrades.filter(
+        (id) => !Object.prototype.hasOwnProperty.call(legacy, id),
+      );
+      this.persistedUpgrades.push(...Array(converted).fill("damage"));
+    }
+  }
   private restoreDamageMultiplier() {
-    const n = (id: string) => this.persistedUpgrades.filter(x => x === id).length;
-    const S = this.stats, B = this.baseStats();
-    S.damageMultiplier = Math.pow(1.25, n('damage'));
-    S.attackSpeedMultiplier = Math.pow(1 / .82, n('attack-speed'));
-    S.critChanceBonus = .08 * n('critical-chance');
-    S.critFactorBonus = .3 * n('critical-damage');
-    S.salvoBonus = n('salvo');
-    S.volleyBonus = n('volley');
-    S.distanceMultiplier = Math.pow(1.25, n('distance'));
-    S.secondaryEffectMultiplier = Math.pow(1.25, n('secondary-effect'));
-    S.shieldMax = this.shieldCapacityForStacks(n('shield-capacity'), n('secondary-effect'));
-    S.damagePerDistance = 10 * n('damage-distance');
-    S.laserDamage = B.laserDamage; S.missileDamage = B.missileDamage; S.plasmaDamage = B.plasmaDamage;
-    S.droneDamage = B.droneDamage; S.railDamage = B.railDamage; S.flakDamage = B.flakDamage;
-    S.teslaDamage = B.teslaDamage; S.chemDamage = B.chemDamage;
-    S.laserInterval = B.laserInterval; S.missileInterval = B.missileInterval; S.plasmaInterval = B.plasmaInterval;
-    S.droneInterval = B.droneInterval; S.railInterval = B.railInterval; S.flakInterval = B.flakInterval;
-    S.teslaInterval = B.teslaInterval; S.chemInterval = B.chemInterval;
-    S.laserCritChance = B.laserCritChance; S.missileCritChance = B.missileCritChance;
-    S.plasmaCritChance = B.plasmaCritChance; S.droneCritChance = B.droneCritChance;
-    S.railCritChance = B.railCritChance; S.flakCritChance = B.flakCritChance;
-    S.teslaCritChance = B.teslaCritChance; S.chemCritChance = B.chemCritChance;
-    S.laserCritFactor = B.laserCritFactor; S.missileCritFactor = B.missileCritFactor;
-    S.plasmaCritFactor = B.plasmaCritFactor; S.droneCritFactor = B.droneCritFactor;
-    S.railCritFactor = B.railCritFactor; S.flakCritFactor = B.flakCritFactor;
-    S.teslaCritFactor = B.teslaCritFactor; S.chemCritFactor = B.chemCritFactor;
-    S.laserCount = B.laserCount; S.missileCount = B.missileCount; S.plasmaCount = B.plasmaCount;
-    S.droneCount = B.droneCount; S.railCount = B.railCount; S.flakCount = B.flakCount;
-    S.teslaCount = B.teslaCount; S.chemCount = B.chemCount;
-    S.missileRange = B.missileRange; S.teslaRange = B.teslaRange; S.chemSpreadDistance = B.chemSpreadDistance;
-    S.droneVolley = B.droneVolley; S.bounceBonus = n('bounces'); S.missileBounces = B.missileBounces; S.expPerWave = 20 * Math.pow(n('utility-wave-exp'), 2); S.plasmaMaxConversions = B.plasmaMaxConversions;
-    S.teslaStunDuration = B.teslaStunDuration; S.chemDuration = B.chemDuration; S.plasmaConvertChance = B.plasmaConvertChance;
-    S.railKnockback = B.railKnockback; S.railKnockbackChance = B.railKnockbackChance;
-    S.laserDamagePerMeter = B.laserDamagePerMeter; S.missileDamagePerMeter = B.missileDamagePerMeter;
-    S.plasmaDamagePerMeter = B.plasmaDamagePerMeter; S.droneDamagePerMeter = B.droneDamagePerMeter;
-    S.railDamagePerMeter = B.railDamagePerMeter; S.flakDamagePerMeter = B.flakDamagePerMeter;
+    const n = (id: string) =>
+      this.persistedUpgrades.filter((x) => x === id).length;
+    const S = this.stats,
+      B = this.baseStats();
+    S.damageMultiplier = Math.pow(1.25, n("damage"));
+    S.attackSpeedMultiplier = Math.pow(1 / 0.82, n("attack-speed"));
+    S.critChanceBonus = 0.08 * n("critical-chance");
+    S.critFactorBonus = 0.3 * n("critical-damage");
+    S.salvoBonus = n("salvo");
+    S.volleyBonus = n("volley");
+    S.distanceMultiplier = Math.pow(1.25, n("distance"));
+    S.secondaryEffectMultiplier = Math.pow(1.25, n("secondary-effect"));
+    S.shieldMax = this.shieldCapacityForStacks(
+      n("shield-capacity"),
+      n("secondary-effect"),
+    );
+    S.damagePerDistance = 10 * n("damage-distance");
+    S.laserDamage = B.laserDamage;
+    S.missileDamage = B.missileDamage;
+    S.plasmaDamage = B.plasmaDamage;
+    S.droneDamage = B.droneDamage;
+    S.railDamage = B.railDamage;
+    S.flakDamage = B.flakDamage;
+    S.teslaDamage = B.teslaDamage;
+    S.chemDamage = B.chemDamage;
+    S.laserInterval = B.laserInterval;
+    S.missileInterval = B.missileInterval;
+    S.plasmaInterval = B.plasmaInterval;
+    S.droneInterval = B.droneInterval;
+    S.railInterval = B.railInterval;
+    S.flakInterval = B.flakInterval;
+    S.teslaInterval = B.teslaInterval;
+    S.chemInterval = B.chemInterval;
+    S.laserCritChance = B.laserCritChance;
+    S.missileCritChance = B.missileCritChance;
+    S.plasmaCritChance = B.plasmaCritChance;
+    S.droneCritChance = B.droneCritChance;
+    S.railCritChance = B.railCritChance;
+    S.flakCritChance = B.flakCritChance;
+    S.teslaCritChance = B.teslaCritChance;
+    S.chemCritChance = B.chemCritChance;
+    S.laserCritFactor = B.laserCritFactor;
+    S.missileCritFactor = B.missileCritFactor;
+    S.plasmaCritFactor = B.plasmaCritFactor;
+    S.droneCritFactor = B.droneCritFactor;
+    S.railCritFactor = B.railCritFactor;
+    S.flakCritFactor = B.flakCritFactor;
+    S.teslaCritFactor = B.teslaCritFactor;
+    S.chemCritFactor = B.chemCritFactor;
+    S.laserCount = B.laserCount;
+    S.missileCount = B.missileCount;
+    S.plasmaCount = B.plasmaCount;
+    S.droneCount = B.droneCount;
+    S.railCount = B.railCount;
+    S.flakCount = B.flakCount;
+    S.teslaCount = B.teslaCount;
+    S.chemCount = B.chemCount;
+    S.missileRange = B.missileRange;
+    S.teslaRange = B.teslaRange;
+    S.chemSpreadDistance = B.chemSpreadDistance;
+    S.droneVolley = B.droneVolley;
+    S.bounceBonus = n("bounces");
+    S.missileBounces = B.missileBounces;
+    S.expPerWave = 20 * Math.pow(n("utility-wave-exp"), 2);
+    S.plasmaMaxConversions = B.plasmaMaxConversions;
+    S.teslaStunDuration = B.teslaStunDuration;
+    S.chemDuration = B.chemDuration;
+    S.plasmaConvertChance = B.plasmaConvertChance;
+    S.railKnockback = B.railKnockback;
+    S.railKnockbackChance = B.railKnockbackChance;
+    S.laserDamagePerMeter = B.laserDamagePerMeter;
+    S.missileDamagePerMeter = B.missileDamagePerMeter;
+    S.plasmaDamagePerMeter = B.plasmaDamagePerMeter;
+    S.droneDamagePerMeter = B.droneDamagePerMeter;
+    S.railDamagePerMeter = B.railDamagePerMeter;
+    S.flakDamagePerMeter = B.flakDamagePerMeter;
   }
-  private weaponDamage(base: number) { return base * this.stats.damageMultiplier; }
-  private weaponMeter(base: number) { return base + this.stats.damagePerDistance; }
-  private weaponInterval(base: number) { return base / this.stats.attackSpeedMultiplier; }
-  private weaponRange(base: number) { return base * this.stats.distanceMultiplier; }
-  private teslaArcRange() { return this.weaponRange(this.stats.teslaRange); }
-  private secondaryEffect(base: number) { return base * this.stats.secondaryEffectMultiplier; }
-  private shieldCapacityForStacks(capacityStacks: number, effectStacks: number) {
-    return (this.baseStats().shieldMax + capacityStacks * 12) * Math.pow(1.25, effectStacks);
+  private weaponDamage(base: number) {
+    return base * this.stats.damageMultiplier;
   }
-  private syncShieldCapacity(capacityStacks = this.upgradeCount('shield-capacity'), effectStacks = this.upgradeCount('secondary-effect')) {
-    this.stats.shieldMax = this.shieldCapacityForStacks(capacityStacks, effectStacks);
+  private weaponMeter(base: number) {
+    return base + this.stats.damagePerDistance;
+  }
+  private weaponInterval(base: number) {
+    return base / this.stats.attackSpeedMultiplier;
+  }
+  private weaponRange(base: number) {
+    return base * this.stats.distanceMultiplier;
+  }
+  private teslaArcRange() {
+    return this.weaponRange(this.stats.teslaRange);
+  }
+  private secondaryEffect(base: number) {
+    return base * this.stats.secondaryEffectMultiplier;
+  }
+  private shieldCapacityForStacks(
+    capacityStacks: number,
+    effectStacks: number,
+  ) {
+    return (
+      (this.baseStats().shieldMax + capacityStacks * 12) *
+      Math.pow(1.25, effectStacks)
+    );
+  }
+  private syncShieldCapacity(
+    capacityStacks = this.upgradeCount("shield-capacity"),
+    effectStacks = this.upgradeCount("secondary-effect"),
+  ) {
+    this.stats.shieldMax = this.shieldCapacityForStacks(
+      capacityStacks,
+      effectStacks,
+    );
     this.player.shield = Math.min(this.player.shield, this.stats.shieldMax);
   }
-  private weaponCount(base: number) { return base + this.stats.salvoBonus; }
-  private weaponTargets(base: number) { return this.weaponCount(base) + this.stats.volleyBonus; }
-  private weaponCritChance(base: number) { return Math.min(.95, base + this.stats.critChanceBonus); }
-  private weaponCritFactor(base: number) { return base + this.stats.critFactorBonus; }
-  private timers = { laser: 0, missile: 0, shield: 0, plasma: 0, drone: 0, rail: 0, flak: 0, tesla: 0, chem: 0, flamer: 0 }; player = { x: .5, y: .5, hp: 120, maxHp: 120, shield: 0, speed: .55 }; shots: SpaceProjectile[] = []; bugs: SpaceBug[] = []; effects: SpaceEffect[] = []; clouds: SpaceCloud[] = []; wave = 1; score = 0; level = 0; experience = 0; nextLevel = 90; paused = false; gameOver = false; upgradeChoices: SpaceUpgrade[] = []; startingWeaponChoices: SpaceUpgrade[] = []; startingWeaponChoicePending = true; equippedWeapons: WeaponId[] = []; readonly weaponSlotLimit = 3; private orbitDrones: { x: number; y: number; vx: number; vy: number; timer: number; phase: number }[] = []; highScores: SpaceScore[] = []; loadingScores = true; status = 'Choose one weapon to begin your run.'; private lastOfferTime = 0; canPick = false; grantedUpgrades: SpaceUpgrade[] = [];
-  readonly upgrades: SpaceUpgrade[] = [    { id: 'unlock-missile', name: 'Unlock Missile Rack', description: 'Add the Missile Rack to an open weapon slot. Fires slow, powerful homing rockets with splash damage.', weapon: 'missile', isWeaponUnlock: true }, { id: 'unlock-plasma', name: 'Unlock Plasma Cannon', description: 'Add the Plasma Cannon to an open weapon slot. Fires fast bolts that can convert enemies into allies.', weapon: 'plasma', isWeaponUnlock: true }, { id: 'unlock-drone', name: 'Deploy Combat Drone', description: 'Add a Combat Drone to an open weapon slot. It orbits your ship and attacks nearby enemies automatically.', weapon: 'drone', isWeaponUnlock: true }, { id: 'unlock-shield', name: 'Pulse Shield', description: 'Add the Pulse Shield to an open weapon slot. It absorbs damage and pushes enemies away.', weapon: 'shield', isWeaponUnlock: true }, { id: 'unlock-rail', name: 'Railgun', description: 'Add the Railgun to an open weapon slot. Fires a rapid stream of high-speed spikes.', weapon: 'rail', isWeaponUnlock: true }, { id: 'unlock-flak', name: 'Flak Cannon', description: 'Add the Flak Cannon to an open weapon slot. Blasts a wide spread of pellets at close range.', weapon: 'flak', isWeaponUnlock: true }, { id: 'unlock-tesla', name: 'Tesla', description: 'Add Tesla to an open weapon slot. Lightning chains between enemies without hitting the same target twice.', weapon: 'tesla', isWeaponUnlock: true }, { id: 'unlock-chem', name: 'Chem Cloud', description: 'Add Chem Cloud to an open weapon slot. Acid clouds linger and spread between infected enemies.', weapon: 'chem', isWeaponUnlock: true }, { id: 'unlock-flamer', name: 'Flamethrower', description: 'Add the Flamethrower to an open weapon slot. Ignites enemies and deals damage over time.', weapon: 'flamer', isWeaponUnlock: true },    { id: 'shield-size', name: 'Shield Size', description: 'Increase the Pulse Shield\'s radius by 20%, so it protects more space around your ship.', weapon: 'shield' }, { id: 'shield-capacity', name: 'Shield Capacity', description: 'Increase the shield\'s maximum strength by 12 and refill it completely.', weapon: 'shield' }, { id: 'shield-knockback', name: 'Repulsion Field', description: 'Make the Pulse Shield push nearby enemies farther away from your ship.', weapon: 'shield' }, { id: 'shield-duration', name: 'Shield Duration', description: 'Keep the Pulse Shield active for 20% longer each time it pulses.', weapon: 'shield' }, { id: 'shield-thorns', name: 'Thorns Damage', description: 'Reflect 15% of incoming damage back at attackers whenever they touch your ship.', weapon: 'shield' },    { id: 'health-max', name: 'Hull Reinforcement', description: 'Increase maximum hull by 20 and restore your hull to full.', weapon: 'health' }, { id: 'health-regen', name: 'Hull Regeneration', description: 'Recover 1.5 hull per second.', weapon: 'health' }, { id: 'health-defence', name: 'Damage Resistance', description: 'Reduce incoming damage. Each stack is slightly less effective, so resistance can never reach 100%.', weapon: 'health' }, { id: 'health-absolute', name: 'Armor Plating', description: 'Reduce every hit by 2 damage before other defenses are applied.', weapon: 'health' }, { id: 'health-lifesteal', name: 'Lifesteal', description: 'Convert 5% of the damage you deal into hull.', weapon: 'health' },
-    
+  private weaponCount(base: number) {
+    return base + this.stats.salvoBonus;
+  }
+  private weaponTargets(base: number) {
+    return this.weaponCount(base) + this.stats.volleyBonus;
+  }
+  private weaponCritChance(base: number) {
+    return Math.min(0.95, base + this.stats.critChanceBonus);
+  }
+  private weaponCritFactor(base: number) {
+    return base + this.stats.critFactorBonus;
+  }
+  private timers = {
+    laser: 0,
+    missile: 0,
+    shield: 0,
+    plasma: 0,
+    drone: 0,
+    rail: 0,
+    flak: 0,
+    tesla: 0,
+    chem: 0,
+    flamer: 0,
+  };
+  player = { x: 0.5, y: 0.5, hp: 120, maxHp: 120, shield: 0, speed: 0.55 };
+  shots: SpaceProjectile[] = [];
+  bugs: SpaceBug[] = [];
+  effects: SpaceEffect[] = [];
+  clouds: SpaceCloud[] = [];
+  wave = 1;
+  score = 0;
+  level = 0;
+  experience = 0;
+  nextLevel = 90;
+  paused = false;
+  gameOver = false;
+  upgradeChoices: SpaceUpgrade[] = [];
+  startingWeaponChoices: SpaceUpgrade[] = [];
+  startingWeaponChoicePending = true;
+  equippedWeapons: WeaponId[] = [];
+  readonly weaponSlotLimit = 3;
+  private orbitDrones: {
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+    timer: number;
+    phase: number;
+  }[] = [];
+  highScores: SpaceScore[] = [];
+  loadingScores = true;
+  status = "Choose one weapon to begin your run.";
+  private lastOfferTime = 0;
+  canPick = false;
+  grantedUpgrades: SpaceUpgrade[] = [];
+  readonly upgrades: SpaceUpgrade[] = [
+    {
+      id: "unlock-missile",
+      name: "Unlock Missile Rack",
+      description:
+        "Add the Missile Rack to an open weapon slot. Fires slow, powerful homing rockets with splash damage.",
+      weapon: "missile",
+      isWeaponUnlock: true,
+    },
+    {
+      id: "unlock-plasma",
+      name: "Unlock Plasma Cannon",
+      description:
+        "Add the Plasma Cannon to an open weapon slot. Fires fast bolts that can convert enemies into allies.",
+      weapon: "plasma",
+      isWeaponUnlock: true,
+    },
+    {
+      id: "unlock-drone",
+      name: "Deploy Combat Drone",
+      description:
+        "Add a Combat Drone to an open weapon slot. It orbits your ship and attacks nearby enemies automatically.",
+      weapon: "drone",
+      isWeaponUnlock: true,
+    },
+    {
+      id: "unlock-shield",
+      name: "Pulse Shield",
+      description:
+        "Add the Pulse Shield to an open weapon slot. It absorbs damage and pushes enemies away.",
+      weapon: "shield",
+      isWeaponUnlock: true,
+    },
+    {
+      id: "unlock-rail",
+      name: "Railgun",
+      description:
+        "Add the Railgun to an open weapon slot. Fires a rapid stream of high-speed spikes.",
+      weapon: "rail",
+      isWeaponUnlock: true,
+    },
+    {
+      id: "unlock-flak",
+      name: "Flak Cannon",
+      description:
+        "Add the Flak Cannon to an open weapon slot. Blasts a wide spread of pellets at close range.",
+      weapon: "flak",
+      isWeaponUnlock: true,
+    },
+    {
+      id: "unlock-tesla",
+      name: "Tesla",
+      description:
+        "Add Tesla to an open weapon slot. Lightning chains between enemies without hitting the same target twice.",
+      weapon: "tesla",
+      isWeaponUnlock: true,
+    },
+    {
+      id: "unlock-chem",
+      name: "Chem Cloud",
+      description:
+        "Add Chem Cloud to an open weapon slot. Acid clouds linger and spread between infected enemies.",
+      weapon: "chem",
+      isWeaponUnlock: true,
+    },
+    {
+      id: "unlock-flamer",
+      name: "Flamethrower",
+      description:
+        "Add the Flamethrower to an open weapon slot. Ignites enemies and deals damage over time.",
+      weapon: "flamer",
+      isWeaponUnlock: true,
+    },
+    {
+      id: "shield-size",
+      name: "Shield Size",
+      description:
+        "Increase the Pulse Shield's radius by 20%, so it protects more space around your ship.",
+      weapon: "shield",
+    },
+    {
+      id: "shield-capacity",
+      name: "Shield Capacity",
+      description:
+        "Increase the shield's maximum strength by 12 and refill it completely.",
+      weapon: "shield",
+    },
+    {
+      id: "shield-knockback",
+      name: "Repulsion Field",
+      description:
+        "Make the Pulse Shield push nearby enemies farther away from your ship.",
+      weapon: "shield",
+    },
+    {
+      id: "shield-duration",
+      name: "Shield Duration",
+      description:
+        "Keep the Pulse Shield active for 20% longer each time it pulses.",
+      weapon: "shield",
+    },
+    {
+      id: "shield-thorns",
+      name: "Thorns Damage",
+      description:
+        "Reflect 15% of incoming damage back at attackers whenever they touch your ship.",
+      weapon: "shield",
+    },
+    {
+      id: "health-max",
+      name: "Hull Reinforcement",
+      description: "Increase maximum hull by 20 and restore your hull to full.",
+      weapon: "health",
+    },
+    {
+      id: "health-regen",
+      name: "Hull Regeneration",
+      description: "Recover 1.5 hull per second.",
+      weapon: "health",
+    },
+    {
+      id: "health-defence",
+      name: "Damage Resistance",
+      description:
+        "Reduce incoming damage. Each stack is slightly less effective, so resistance can never reach 100%.",
+      weapon: "health",
+    },
+    {
+      id: "health-absolute",
+      name: "Armor Plating",
+      description:
+        "Reduce every hit by 2 damage before other defenses are applied.",
+      weapon: "health",
+    },
+    {
+      id: "health-lifesteal",
+      name: "Lifesteal",
+      description: "Convert 5% of the damage you deal into hull.",
+      weapon: "health",
+    },
 
-    
-    { id: 'utility-wave-exp', name: 'Wave EXP', description: 'Gain bonus EXP at the start of every wave. Additional stacks grow this bonus faster.', weapon: 'utility' }, { id: 'utility-kill-exp', name: 'Kill EXP', description: 'Gain 10% more EXP whenever you defeat an enemy or boss.', weapon: 'utility' }, { id: 'utility-free-ship', name: 'Free Ship Upgrade', description: 'Each stack gives a 12% chance to receive an extra random Ship upgrade at level-up.', weapon: 'utility' }, { id: 'utility-free-health', name: 'Free Health Upgrade', description: 'Each stack gives a 12% chance to receive an extra random Health upgrade at level-up.', weapon: 'utility' }, { id: 'utility-free-utility', name: 'Free Utility Upgrade', description: 'Each stack gives a 12% chance to receive an extra random Utility upgrade at level-up.', weapon: 'utility' }, { id: 'damage', name: 'Damage', description: 'Increase the damage of every attack weapon by 25%. This also applies to weapons you unlock later.', weapon: 'ship' }, { id: 'attack-speed', name: 'Attack Speed', description: 'Make every attack weapon fire 18% faster. This also applies to weapons you unlock later.', weapon: 'ship' }, { id: 'critical-chance', name: 'Critical Chance', description: 'Give every attack weapon 8% more critical-hit chance.', weapon: 'ship' }, { id: 'critical-damage', name: 'Critical Damage', description: 'Make every critical hit deal 30% more damage.', weapon: 'ship' }, { id: 'salvo', name: 'Salvo +1', description: 'Every attack weapon fires one additional attack each time it activates.', weapon: 'ship' }, { id: 'volley', name: 'Volley +1', description: 'Every attack weapon can target one additional enemy per volley.', weapon: 'ship' }, { id: 'bounces', name: 'Bounces +1', description: 'Give weapons more chances to continue their attack: missiles, Tesla and Flamethrower chain farther, lasers pierce farther, and Plasma can support more converted allies.', weapon: 'ship' }, { id: 'distance', name: 'Distance', description: 'Increase weapon range, Tesla arc distance, Chem spread, and Railgun knockback distance by 25%.', weapon: 'ship' }, { id: 'secondary-effect', name: 'Effect Strength', description: 'Tesla stun duration, chem cloud duration, plasma conversion chance, railgun knockback chance, and Pulse Shield capacity +25%. Only weapons with those effects benefit.', weapon: 'ship' }, { id: 'damage-distance', name: 'Damage at Range', description: 'Attacks gain 10 bonus damage for every meter they travel.', weapon: 'ship' }, { id: 'ship-ordnance', name: 'Expanded Ordnance', description: 'Increase projectile size, all blast radii, Chem cloud size, and shield radius by 18%.', weapon: 'ship' },
+    {
+      id: "utility-wave-exp",
+      name: "Wave EXP",
+      description:
+        "Gain bonus EXP at the start of every wave. Additional stacks grow this bonus faster.",
+      weapon: "utility",
+    },
+    {
+      id: "utility-kill-exp",
+      name: "Kill EXP",
+      description: "Gain 10% more EXP whenever you defeat an enemy or boss.",
+      weapon: "utility",
+    },
+    {
+      id: "utility-free-ship",
+      name: "Free Ship Upgrade",
+      description:
+        "Each stack gives a 12% chance to receive an extra random Ship upgrade at level-up.",
+      weapon: "utility",
+    },
+    {
+      id: "utility-free-health",
+      name: "Free Health Upgrade",
+      description:
+        "Each stack gives a 12% chance to receive an extra random Health upgrade at level-up.",
+      weapon: "utility",
+    },
+    {
+      id: "utility-free-utility",
+      name: "Free Utility Upgrade",
+      description:
+        "Each stack gives a 12% chance to receive an extra random Utility upgrade at level-up.",
+      weapon: "utility",
+    },
+    {
+      id: "damage",
+      name: "Damage",
+      description:
+        "Increase the damage of every attack weapon by 25%. This also applies to weapons you unlock later.",
+      weapon: "ship",
+    },
+    {
+      id: "attack-speed",
+      name: "Attack Speed",
+      description:
+        "Make every attack weapon fire 18% faster. This also applies to weapons you unlock later.",
+      weapon: "ship",
+    },
+    {
+      id: "critical-chance",
+      name: "Critical Chance",
+      description: "Give every attack weapon 8% more critical-hit chance.",
+      weapon: "ship",
+    },
+    {
+      id: "critical-damage",
+      name: "Critical Damage",
+      description: "Make every critical hit deal 30% more damage.",
+      weapon: "ship",
+    },
+    {
+      id: "salvo",
+      name: "Salvo +1",
+      description:
+        "Every attack weapon fires one additional attack each time it activates.",
+      weapon: "ship",
+    },
+    {
+      id: "volley",
+      name: "Volley +1",
+      description:
+        "Every attack weapon can target one additional enemy per volley.",
+      weapon: "ship",
+    },
+    {
+      id: "bounces",
+      name: "Bounces +1",
+      description:
+        "Give weapons more chances to continue their attack: missiles, Tesla and Flamethrower chain farther, lasers pierce farther, and Plasma can support more converted allies.",
+      weapon: "ship",
+    },
+    {
+      id: "distance",
+      name: "Distance",
+      description:
+        "Increase weapon range, Tesla arc distance, Chem spread, and Railgun knockback distance by 25%.",
+      weapon: "ship",
+    },
+    {
+      id: "secondary-effect",
+      name: "Effect Strength",
+      description:
+        "Tesla stun duration, chem cloud duration, plasma conversion chance, railgun knockback chance, and Pulse Shield capacity +25%. Only weapons with those effects benefit.",
+      weapon: "ship",
+    },
+    {
+      id: "damage-distance",
+      name: "Damage at Range",
+      description: "Attacks gain 10 bonus damage for every meter they travel.",
+      weapon: "ship",
+    },
+    {
+      id: "ship-ordnance",
+      name: "Expanded Ordnance",
+      description:
+        "Increase projectile size, all blast radii, Chem cloud size, and shield radius by 18%.",
+      weapon: "ship",
+    },
   ];
   ngAfterViewInit() {
-    this.ctx = this.gameCanvas.nativeElement.getContext('2d')!; this.playerSprite = new Image(); this.playerSprite.onload = () => this.playerSpriteReady = true; this.playerSprite.src = this.playerSpriteUrl; this.resizeCanvas(); const c = this.gameCanvas.nativeElement;
-    this.ngZone.runOutsideAngular(() => { window.addEventListener('resize', this.resizeCanvas); window.addEventListener('keydown', this.onKeyDown); window.addEventListener('keyup', this.onKeyUp); c.addEventListener('pointermove', (e: PointerEvent) => this.pointerMove(e)); c.addEventListener('pointerleave', () => this.pointerLeave()); c.addEventListener('pointerdown', (e: PointerEvent) => this.pointerMove(e)); this.ngZone.run(() => { this.prepareStartingChoice(); this.loadProgress(); }); void this.loadServerRun(); this.loadHighScores(); this.running = true; this.lastTime = performance.now(); this.frame = requestAnimationFrame(this.loop); this.saveTimer = setInterval(() => { this.autosave(); }, 5000); });
-    this.userEventService.insertUserEvent(this.parentRef?.user?.id ?? 0, 'space_evolves', 'Started playing Space: Evolves!');
+    this.ctx = this.gameCanvas.nativeElement.getContext("2d")!;
+    this.playerSprite = new Image();
+    this.playerSprite.onload = () => (this.playerSpriteReady = true);
+    this.playerSprite.src = this.playerSpriteUrl;
+    this.resizeCanvas();
+    const c = this.gameCanvas.nativeElement;
+    this.ngZone.runOutsideAngular(() => {
+      window.addEventListener("resize", this.resizeCanvas);
+      window.addEventListener("keydown", this.onKeyDown);
+      window.addEventListener("keyup", this.onKeyUp);
+      c.addEventListener("pointermove", (e: PointerEvent) =>
+        this.pointerMove(e),
+      );
+      c.addEventListener("pointerleave", () => this.pointerLeave());
+      c.addEventListener("pointerdown", (e: PointerEvent) =>
+        this.pointerMove(e),
+      );
+      this.ngZone.run(() => {
+        this.prepareStartingChoice();
+        this.loadProgress();
+      });
+      void this.loadServerRun();
+      this.loadHighScores();
+      this.running = true;
+      this.lastTime = performance.now();
+      this.frame = requestAnimationFrame(this.loop);
+      this.saveTimer = setInterval(() => {
+        this.autosave();
+      }, 5000);
+    });
+    this.userEventService.insertUserEvent(
+      this.parentRef?.user?.id ?? 0,
+      "space_evolves",
+      "Started playing Space: Evolves!",
+    );
   }
-  ngOnDestroy() { this.running = false; cancelAnimationFrame(this.frame); clearInterval(this.saveTimer); this.saveProgress(); this.persistRun(); window.removeEventListener('resize', this.resizeCanvas); window.removeEventListener('keydown', this.onKeyDown); window.removeEventListener('keyup', this.onKeyUp); }
-  private resizeCanvas = () => { const c = this.gameCanvas.nativeElement, r = c.getBoundingClientRect(), d = Math.min(devicePixelRatio || 1, 2); c.width = Math.max(320, Math.floor(r.width * d)); c.height = Math.max(480, Math.floor(r.height * d)); this.ctx?.setTransform(d, 0, 0, d, 0, 0); };
-  private onKeyDown = (e: KeyboardEvent) => { const k = e.key.toLowerCase(); if (['arrowleft', 'arrowright', 'a', 'd', 'p', ' '].includes(k)) e.preventDefault(); if (k === 'p') this.ngZone.run(() => { this.paused = !this.paused; }); this.keys.add(k); }; private onKeyUp = (e: KeyboardEvent) => this.keys.delete(e.key.toLowerCase());
-  pointerMove(e: PointerEvent) { this.touchX = null; } pointerLeave() { this.touchX = null; } togglePause() { this.paused = !this.paused; } restart() { this.resetRun(); } isMenuPanelOpen = false; private menuPaused = false; showMenuPanel() { if (this.isMenuPanelOpen) { this.closeMenuPanel(); return; } this.isMenuPanelOpen = true; if (!this.paused && !this.gameOver) { this.paused = true; this.menuPaused = true; } try { this.parentRef?.showOverlay(); } catch { } } closeMenuPanel() { this.isMenuPanelOpen = false; if (this.menuPaused) { this.menuPaused = false; if (!this.weaponInfoPaused && !this.gameOver) this.paused = false; } try { this.parentRef?.closeOverlay(); } catch { } } restartFromMenu() { this.closeMenuPanel(); this.resetRun(); } selectedWeapon: WeaponId | null = null; selectedUpgrade: SpaceUpgrade | null = null; isWeaponInfoPanelOpen = false; isUpgradeInfoPanelOpen = false; private weaponInfoPaused = false; openWeaponInfo(weapon: string) { const w = weapon as WeaponId; if (!w) return; this.selectedWeapon = w; this.isWeaponInfoPanelOpen = true; if (!this.paused && !this.gameOver) { this.paused = true; this.weaponInfoPaused = true; } try { this.parentRef?.showOverlay(); } catch { } } closeWeaponInfo() { this.isWeaponInfoPanelOpen = false; this.selectedWeapon = null; if (this.weaponInfoPaused) { this.weaponInfoPaused = false; if (!this.menuPaused && !this.gameOver) this.paused = false; } try { this.parentRef?.closeOverlay(); } catch { } }
-  openUpgradeInfo(upgrade: SpaceUpgrade) { this.selectedUpgrade = upgrade; this.isUpgradeInfoPanelOpen = true; this.cdr.detectChanges(); if (!this.paused && !this.gameOver) { this.paused = true; this.weaponInfoPaused = true; } try { this.parentRef?.showOverlay(); } catch { } } closeUpgradeInfo() { this.isUpgradeInfoPanelOpen = false; this.selectedUpgrade = null; if (this.weaponInfoPaused) { this.weaponInfoPaused = false; if (!this.menuPaused && !this.gameOver) this.paused = false; } try { this.parentRef?.closeOverlay(); } catch { } } private upgradeNextTotal(upgrade: SpaceUpgrade, count: number): string | null { const n = count + 1, id = upgrade.id; const pct = (value: number) => `+${Math.round(value)}% total`; if (id === 'damage') return pct(n * 25) + ' damage to every weapon'; if (id.endsWith('-damage')) return pct(n * 25) + ' damage'; if (id.endsWith('-speed')) return `about +${Math.round((1 / Math.pow(.82, n) - 1) * 100)}% attack speed total`; if (id === 'critical-chance') return pct(n * 8) + ' crit chance for every weapon'; if (id === 'critical-damage') return pct(n * 30) + ' crit damage for every weapon'; if (id === 'salvo') return `+${n} attack${n === 1 ? '' : 's'} for every weapon`; if (id === 'volley') return `+${n} target${n === 1 ? '' : 's'} per volley for every weapon`; if (id === 'bounces') return `+${n} bounce${n === 1 ? '' : 's'} (missiles/tesla/flamer), pierce +${n} (lasers), +${n} conversion slot${n === 1 ? '' : 's'}`; if (id === 'distance') return pct(n * 25) + ' range for every weapon'; if (id === 'secondary-effect') return pct(n * 25) + ` special-effect strength; ${Math.round(this.shieldCapacityForStacks(this.upgradeCount('shield-capacity'), n))} shield capacity`; if (id === 'damage-distance') return `+${n * 10} damage / meter for every weapon`; if (id.endsWith('-crit-chance')) return pct(n * 8) + ' crit chance'; if (id.endsWith('-crit-factor')) return pct(n * 30) + ' crit damage'; if (id === 'tesla-salvo') return `+${n} outgoing thunderbolt${n === 1 ? '' : 's'}; each chains through distinct targets`; if (id.endsWith('-salvo')) return `+${n} projectile${n === 1 ? '' : 's'}`; if (id.endsWith('-meter')) return `+${n * (id.startsWith('laser-') ? 12 : id.startsWith('missile-') ? 16 : id.startsWith('plasma-') ? 14 : id.startsWith('rail-') ? 3 : id.startsWith('flak-') ? 8 : 10)} damage / meter`; switch (id) { case 'drone-volley': return `+${n} target${n === 1 ? '' : 's'} per drone volley`; case 'missile-range': return pct(n * 25) + ' range'; case 'missile-bounces': return `+${n} bounce${n === 1 ? '' : 's'}`; case 'plasma-convert': return `+${n * 5} percentage points to conversion chance (${Math.min(100, n * 5)}% total bonus)`; case 'plasma-conversion-cap': return `capacity ${n + 1}`; case 'rail-knockback': return `${Math.min(25, 1 + n)}% knockback chance`; case 'shield-size': return pct(n * 20) + ' shield radius'; case 'shield-capacity': return `${Math.round(this.shieldCapacityForStacks(this.upgradeCount('shield-capacity'), n))} → ${Math.round(this.shieldCapacityForStacks(this.upgradeCount('shield-capacity') + 1, n))} shield strength`; case 'shield-knockback': return `+${(n * .18).toFixed(2)} knockback; counters wave resistance`; case 'shield-duration': return pct(n * 20) + ' shield duration'; case 'shield-thorns': return pct(n * 15) + ' reflected damage'; case 'health-max': return `+${n * 20} maximum health`; case 'health-regen': return `+${(n * 1.5).toFixed(1)} health / second`; case 'health-defence': return `about +${Math.round(this.defenceForStacks(n) * 100)}% total damage reduction`; case 'health-absolute': return `+${n * 2} absolute defence`; case 'health-lifesteal': return pct(n * 5) + ' lifesteal'; case 'tesla-range': return pct(n * 20) + ' lightning arc range between targets'; case 'tesla-stun': return `+${(n * .35).toFixed(2)}s stun duration; counters wave resistance`; case 'chem-duration': return `+${n * 25}% cloud duration total`; case 'chem-spread-distance': return `+${(n * .06).toFixed(2)} spread distance (${(n * .06).toFixed(2)} total bonus)`; case 'utility-wave-exp': return `+${20 * n * n} EXP / wave total`; case 'utility-kill-exp': return pct(n * 10) + ' EXP per kill'; case 'utility-free-laser': case 'utility-free-missile': case 'utility-free-plasma': case 'utility-free-drone': case 'utility-free-rail': case 'utility-free-flak': case 'utility-free-tesla': case 'utility-free-chem': case 'utility-free-ship': case 'utility-free-health': case 'utility-free-utility': return pct(n * 12) + ' free-upgrade chance'; case 'ship-ordnance': return `+${n * 18}% projectile size / blast radius / shield radius total`; default: return null; } }
+  ngOnDestroy() {
+    this.running = false;
+    cancelAnimationFrame(this.frame);
+    clearInterval(this.saveTimer);
+    this.saveProgress();
+    this.persistRun();
+    window.removeEventListener("resize", this.resizeCanvas);
+    window.removeEventListener("keydown", this.onKeyDown);
+    window.removeEventListener("keyup", this.onKeyUp);
+  }
+  private resizeCanvas = () => {
+    const c = this.gameCanvas.nativeElement,
+      r = c.getBoundingClientRect(),
+      d = Math.min(devicePixelRatio || 1, 2);
+    c.width = Math.max(320, Math.floor(r.width * d));
+    c.height = Math.max(480, Math.floor(r.height * d));
+    this.ctx?.setTransform(d, 0, 0, d, 0, 0);
+  };
+  private onKeyDown = (e: KeyboardEvent) => {
+    const k = e.key.toLowerCase();
+    if (["arrowleft", "arrowright", "a", "d", "p", " "].includes(k))
+      e.preventDefault();
+    if (k === "p")
+      this.ngZone.run(() => {
+        this.paused = !this.paused;
+      });
+    this.keys.add(k);
+  };
+  private onKeyUp = (e: KeyboardEvent) => this.keys.delete(e.key.toLowerCase());
+  pointerMove(e: PointerEvent) {
+    this.touchX = null;
+  }
+  pointerLeave() {
+    this.touchX = null;
+  }
+  togglePause() {
+    this.paused = !this.paused;
+  }
+  restart() {
+    this.resetRun();
+  }
+  isMenuPanelOpen = false;
+  private menuPaused = false;
+  showMenuPanel() {
+    if (this.isMenuPanelOpen) {
+      this.closeMenuPanel();
+      return;
+    }
+    this.isMenuPanelOpen = true;
+    if (!this.paused && !this.gameOver) {
+      this.paused = true;
+      this.menuPaused = true;
+    }
+    try {
+      this.parentRef?.showOverlay();
+    } catch {}
+  }
+  closeMenuPanel() {
+    this.isMenuPanelOpen = false;
+    if (this.menuPaused) {
+      this.menuPaused = false;
+      if (!this.weaponInfoPaused && !this.gameOver) this.paused = false;
+    }
+    try {
+      this.parentRef?.closeOverlay();
+    } catch {}
+  }
+  restartFromMenu() {
+    this.closeMenuPanel();
+    this.resetRun();
+  }
+  selectedWeapon: WeaponId | null = null;
+  selectedUpgrade: SpaceUpgrade | null = null;
+  isWeaponInfoPanelOpen = false;
+  isUpgradeInfoPanelOpen = false;
+  private weaponInfoPaused = false;
+  openWeaponInfo(weapon: string) {
+    const w = weapon as WeaponId;
+    if (!w) return;
+    this.selectedWeapon = w;
+    this.isWeaponInfoPanelOpen = true;
+    if (!this.paused && !this.gameOver) {
+      this.paused = true;
+      this.weaponInfoPaused = true;
+    }
+    try {
+      this.parentRef?.showOverlay();
+    } catch {}
+  }
+  closeWeaponInfo() {
+    this.isWeaponInfoPanelOpen = false;
+    this.selectedWeapon = null;
+    if (this.weaponInfoPaused) {
+      this.weaponInfoPaused = false;
+      if (!this.menuPaused && !this.gameOver) this.paused = false;
+    }
+    try {
+      this.parentRef?.closeOverlay();
+    } catch {}
+  }
+  openUpgradeInfo(upgrade: SpaceUpgrade) {
+    this.selectedUpgrade = upgrade;
+    this.isUpgradeInfoPanelOpen = true;
+    this.cdr.detectChanges();
+    if (!this.paused && !this.gameOver) {
+      this.paused = true;
+      this.weaponInfoPaused = true;
+    }
+    try {
+      this.parentRef?.showOverlay();
+    } catch {}
+  }
+  closeUpgradeInfo() {
+    this.isUpgradeInfoPanelOpen = false;
+    this.selectedUpgrade = null;
+    if (this.weaponInfoPaused) {
+      this.weaponInfoPaused = false;
+      if (!this.menuPaused && !this.gameOver) this.paused = false;
+    }
+    try {
+      this.parentRef?.closeOverlay();
+    } catch {}
+  }
+  private upgradeNextTotal(
+    upgrade: SpaceUpgrade,
+    count: number,
+  ): string | null {
+    const n = count + 1,
+      id = upgrade.id;
+    const pct = (value: number) => `+${Math.round(value)}% total`;
+    if (id === "damage") return pct(n * 25) + " damage to every weapon";
+    if (id.endsWith("-damage")) return pct(n * 25) + " damage";
+    if (id.endsWith("-speed"))
+      return `about +${Math.round((1 / Math.pow(0.82, n) - 1) * 100)}% attack speed total`;
+    if (id === "critical-chance")
+      return pct(n * 8) + " crit chance for every weapon";
+    if (id === "critical-damage")
+      return pct(n * 30) + " crit damage for every weapon";
+    if (id === "salvo")
+      return `+${n} attack${n === 1 ? "" : "s"} for every weapon`;
+    if (id === "volley")
+      return `+${n} target${n === 1 ? "" : "s"} per volley for every weapon`;
+    if (id === "bounces")
+      return `+${n} bounce${n === 1 ? "" : "s"} (missiles/tesla/flamer), pierce +${n} (lasers), +${n} conversion slot${n === 1 ? "" : "s"}`;
+    if (id === "distance") return pct(n * 25) + " range for every weapon";
+    if (id === "secondary-effect")
+      return (
+        pct(n * 25) +
+        ` special-effect strength; ${Math.round(this.shieldCapacityForStacks(this.upgradeCount("shield-capacity"), n))} shield capacity`
+      );
+    if (id === "damage-distance")
+      return `+${n * 10} damage / meter for every weapon`;
+    if (id.endsWith("-crit-chance")) return pct(n * 8) + " crit chance";
+    if (id.endsWith("-crit-factor")) return pct(n * 30) + " crit damage";
+    if (id === "tesla-salvo")
+      return `+${n} outgoing thunderbolt${n === 1 ? "" : "s"}; each chains through distinct targets`;
+    if (id.endsWith("-salvo")) return `+${n} projectile${n === 1 ? "" : "s"}`;
+    if (id.endsWith("-meter"))
+      return `+${n * (id.startsWith("laser-") ? 12 : id.startsWith("missile-") ? 16 : id.startsWith("plasma-") ? 14 : id.startsWith("rail-") ? 3 : id.startsWith("flak-") ? 8 : 10)} damage / meter`;
+    switch (id) {
+      case "drone-volley":
+        return `+${n} target${n === 1 ? "" : "s"} per drone volley`;
+      case "missile-range":
+        return pct(n * 25) + " range";
+      case "missile-bounces":
+        return `+${n} bounce${n === 1 ? "" : "s"}`;
+      case "plasma-convert":
+        return `+${n * 5} percentage points to conversion chance (${Math.min(100, n * 5)}% total bonus)`;
+      case "plasma-conversion-cap":
+        return `capacity ${n + 1}`;
+      case "rail-knockback":
+        return `${Math.min(25, 1 + n)}% knockback chance`;
+      case "shield-size":
+        return pct(n * 20) + " shield radius";
+      case "shield-capacity":
+        return `${Math.round(this.shieldCapacityForStacks(this.upgradeCount("shield-capacity"), n))} → ${Math.round(this.shieldCapacityForStacks(this.upgradeCount("shield-capacity") + 1, n))} shield strength`;
+      case "shield-knockback":
+        return `+${(n * 0.18).toFixed(2)} knockback; counters wave resistance`;
+      case "shield-duration":
+        return pct(n * 20) + " shield duration";
+      case "shield-thorns":
+        return pct(n * 15) + " reflected damage";
+      case "health-max":
+        return `+${n * 20} maximum health`;
+      case "health-regen":
+        return `+${(n * 1.5).toFixed(1)} health / second`;
+      case "health-defence":
+        return `about +${Math.round(this.defenceForStacks(n) * 100)}% total damage reduction`;
+      case "health-absolute":
+        return `+${n * 2} absolute defence`;
+      case "health-lifesteal":
+        return pct(n * 5) + " lifesteal";
+      case "tesla-range":
+        return pct(n * 20) + " lightning arc range between targets";
+      case "tesla-stun":
+        return `+${(n * 0.35).toFixed(2)}s stun duration; counters wave resistance`;
+      case "chem-duration":
+        return `+${n * 25}% cloud duration total`;
+      case "chem-spread-distance":
+        return `+${(n * 0.06).toFixed(2)} spread distance (${(n * 0.06).toFixed(2)} total bonus)`;
+      case "utility-wave-exp":
+        return `+${20 * n * n} EXP / wave total`;
+      case "utility-kill-exp":
+        return pct(n * 10) + " EXP per kill";
+      case "utility-free-laser":
+      case "utility-free-missile":
+      case "utility-free-plasma":
+      case "utility-free-drone":
+      case "utility-free-rail":
+      case "utility-free-flak":
+      case "utility-free-tesla":
+      case "utility-free-chem":
+      case "utility-free-ship":
+      case "utility-free-health":
+      case "utility-free-utility":
+        return pct(n * 12) + " free-upgrade chance";
+      case "ship-ordnance":
+        return `+${n * 18}% projectile size / blast radius / shield radius total`;
+      default:
+        return null;
+    }
+  }
   upgradeCardProgress(upgrade: SpaceUpgrade): string | null {
     // Parenthetical shown on pick cards: current total → next total, so players
     // see what an upgrade adds relative to what they already have.
-    const c = this.upgradeCount(upgrade.id), n = c + 1;
+    const c = this.upgradeCount(upgrade.id),
+      n = c + 1;
     switch (upgrade.id) {
-      case 'damage': return `+${c * 25}% → +${n * 25}%`;
-      case 'attack-speed': return `~+${Math.round((1 / Math.pow(.82, c) - 1) * 100)}% → ~+${Math.round((1 / Math.pow(.82, n) - 1) * 100)}% speed`;
-      case 'critical-chance': return `+${c * 8}% → +${n * 8}% crit`;
-      case 'critical-damage': return `+${c * 30}% → +${n * 30}% crit dmg`;
-      case 'salvo': return `+${c} → +${n} attacks`;
-      case 'volley': return `+${c} → +${n} targets`;
-      case 'bounces': return `+${c} → +${n} bounce/slot/pierce`;
-      case 'distance': return `+${c * 25}% → +${n * 25}% range`;
-      case 'secondary-effect': return `+${c * 25}% → +${n * 25}% effect; shield ${Math.round(this.shieldCapacityForStacks(this.upgradeCount('shield-capacity'), c))} → ${Math.round(this.shieldCapacityForStacks(this.upgradeCount('shield-capacity'), n))}`;
-      case 'damage-distance': return `+${c * 10} → +${n * 10}/m`;
-      case 'ship-ordnance': return `+${c * 18}% → +${n * 18}% size`;
-      case 'shield-size': return `+${c * 20}% → +${n * 20}% radius`;
-      case 'shield-capacity': return `${Math.round(this.shieldCapacityForStacks(c, this.upgradeCount('secondary-effect')))} → ${Math.round(this.shieldCapacityForStacks(n, this.upgradeCount('secondary-effect')))} shield`;
-      case 'shield-knockback': return `+${(c * .18).toFixed(2)} → +${(n * .18).toFixed(2)} push`;
-      case 'shield-duration': return `+${c * 20}% → +${n * 20}% duration`;
-      case 'shield-thorns': return `+${c * 15}% → +${n * 15}% reflect`;
-      case 'health-max': return `+${c * 20} → +${n * 20} max HP`;
-      case 'health-regen': return `+${(c * 1.5).toFixed(1)} → +${(n * 1.5).toFixed(1)}/s`;
-      case 'health-defence': return `${Math.round(this.defenceForStacks(c) * 100)}% → ${Math.round(this.defenceForStacks(n) * 100)}% resist`;
-      case 'health-absolute': return `block ${c * 2} → ${n * 2} dmg`;
-      case 'health-lifesteal': return `+${c * 5}% → +${n * 5}% lifesteal`;
-      case 'utility-wave-exp': return `+${20 * c * c} → +${20 * n * n}/wave`;
-      case 'utility-kill-exp': return `+${c * 10}% → +${n * 10}% EXP`;
-      case 'plasma-conversion-cap': return `cap ${1 + c} → ${2 + c} allies`;
+      case "damage":
+        return `+${c * 25}% → +${n * 25}%`;
+      case "attack-speed":
+        return `~+${Math.round((1 / Math.pow(0.82, c) - 1) * 100)}% → ~+${Math.round((1 / Math.pow(0.82, n) - 1) * 100)}% speed`;
+      case "critical-chance":
+        return `+${c * 8}% → +${n * 8}% crit`;
+      case "critical-damage":
+        return `+${c * 30}% → +${n * 30}% crit dmg`;
+      case "salvo":
+        return `+${c} → +${n} attacks`;
+      case "volley":
+        return `+${c} → +${n} targets`;
+      case "bounces":
+        return `+${c} → +${n} bounce/slot/pierce`;
+      case "distance":
+        return `+${c * 25}% → +${n * 25}% range`;
+      case "secondary-effect":
+        return `+${c * 25}% → +${n * 25}% effect; shield ${Math.round(this.shieldCapacityForStacks(this.upgradeCount("shield-capacity"), c))} → ${Math.round(this.shieldCapacityForStacks(this.upgradeCount("shield-capacity"), n))}`;
+      case "damage-distance":
+        return `+${c * 10} → +${n * 10}/m`;
+      case "ship-ordnance":
+        return `+${c * 18}% → +${n * 18}% size`;
+      case "shield-size":
+        return `+${c * 20}% → +${n * 20}% radius`;
+      case "shield-capacity":
+        return `${Math.round(this.shieldCapacityForStacks(c, this.upgradeCount("secondary-effect")))} → ${Math.round(this.shieldCapacityForStacks(n, this.upgradeCount("secondary-effect")))} shield`;
+      case "shield-knockback":
+        return `+${(c * 0.18).toFixed(2)} → +${(n * 0.18).toFixed(2)} push`;
+      case "shield-duration":
+        return `+${c * 20}% → +${n * 20}% duration`;
+      case "shield-thorns":
+        return `+${c * 15}% → +${n * 15}% reflect`;
+      case "health-max":
+        return `+${c * 20} → +${n * 20} max HP`;
+      case "health-regen":
+        return `+${(c * 1.5).toFixed(1)} → +${(n * 1.5).toFixed(1)}/s`;
+      case "health-defence":
+        return `${Math.round(this.defenceForStacks(c) * 100)}% → ${Math.round(this.defenceForStacks(n) * 100)}% resist`;
+      case "health-absolute":
+        return `block ${c * 2} → ${n * 2} dmg`;
+      case "health-lifesteal":
+        return `+${c * 5}% → +${n * 5}% lifesteal`;
+      case "utility-wave-exp":
+        return `+${20 * c * c} → +${20 * n * n}/wave`;
+      case "utility-kill-exp":
+        return `+${c * 10}% → +${n * 10}% EXP`;
+      case "plasma-conversion-cap":
+        return `cap ${1 + c} → ${2 + c} allies`;
       default:
-        if (upgrade.id.startsWith('utility-free-')) return `+${c * 12}% → +${n * 12}% free chance`;
+        if (upgrade.id.startsWith("utility-free-"))
+          return `+${c * 12}% → +${n * 12}% free chance`;
         return null;
     }
   }
   upgradeCategoryLabel(upgrade: SpaceUpgrade): string {
-    if (upgrade.isWeaponUnlock) return 'NEW WEAPON';
-    if (upgrade.weapon === 'ship') return 'ALL WEAPONS';
-    if (upgrade.weapon === 'health') return 'SURVIVAL';
-    if (upgrade.weapon === 'utility') return 'RUN BONUS';
+    if (upgrade.isWeaponUnlock) return "NEW WEAPON";
+    if (upgrade.weapon === "ship") return "ALL WEAPONS";
+    if (upgrade.weapon === "health") return "SURVIVAL";
+    if (upgrade.weapon === "utility") return "RUN BONUS";
     return this.weaponLabel(upgrade.weapon as WeaponId).toUpperCase();
   }
   upgradeScopeText(upgrade: SpaceUpgrade): string | null {
-    if (upgrade.isWeaponUnlock) return 'Uses one open weapon slot.';
-    if (upgrade.weapon === 'ship') return 'Applies to every weapon you have now and unlock later.';
-    if (upgrade.weapon === 'health') return 'Improves your ship\'s survivability.';
-    if (upgrade.weapon === 'utility') return 'Helps you level up and build your run.';
+    if (upgrade.isWeaponUnlock) return "Uses one open weapon slot.";
+    if (upgrade.weapon === "ship")
+      return "Applies to every weapon you have now and unlock later.";
+    if (upgrade.weapon === "health")
+      return "Improves your ship's survivability.";
+    if (upgrade.weapon === "utility")
+      return "Helps you level up and build your run.";
     return `Improves ${this.weaponLabel(upgrade.weapon as WeaponId)}.`;
   }
-  upgradeCardDescription(upgrade: SpaceUpgrade) { return upgrade.description; }
+  upgradeCardDescription(upgrade: SpaceUpgrade) {
+    return upgrade.description;
+  }
   upgradeAffectedWeapons(upgrade: SpaceUpgrade): WeaponId[] {
     // Icon row on pick cards — must mirror the mechanics exactly.
     switch (upgrade.id) {
-      case 'bounces': return ['missile', 'tesla', 'laser', 'plasma', 'flamer'];
-      case 'distance': return ['missile', 'plasma', 'drone', 'rail', 'flak', 'tesla', 'chem', 'flamer'];
-      case 'secondary-effect': return ['tesla', 'chem', 'plasma', 'rail', 'shield'];
-      case 'damage-distance': return ['laser', 'missile', 'plasma', 'drone', 'rail', 'flak', 'chem', 'flamer'];
-      case 'ship-ordnance': return ['missile', 'plasma', 'rail', 'flak', 'chem', 'flamer', 'shield'];
-      case 'damage': case 'attack-speed': case 'critical-chance': case 'critical-damage': case 'salvo': case 'volley': return ['laser', 'missile', 'plasma', 'drone', 'rail', 'flak', 'tesla', 'chem', 'flamer'];
+      case "bounces":
+        return ["missile", "tesla", "laser", "plasma", "flamer"];
+      case "distance":
+        return [
+          "missile",
+          "plasma",
+          "drone",
+          "rail",
+          "flak",
+          "tesla",
+          "chem",
+          "flamer",
+        ];
+      case "secondary-effect":
+        return ["tesla", "chem", "plasma", "rail", "shield"];
+      case "damage-distance":
+        return [
+          "laser",
+          "missile",
+          "plasma",
+          "drone",
+          "rail",
+          "flak",
+          "chem",
+          "flamer",
+        ];
+      case "ship-ordnance":
+        return [
+          "missile",
+          "plasma",
+          "rail",
+          "flak",
+          "chem",
+          "flamer",
+          "shield",
+        ];
+      case "damage":
+      case "attack-speed":
+      case "critical-chance":
+      case "critical-damage":
+      case "salvo":
+      case "volley":
+        return [
+          "laser",
+          "missile",
+          "plasma",
+          "drone",
+          "rail",
+          "flak",
+          "tesla",
+          "chem",
+          "flamer",
+        ];
     }
-    if (upgrade.weapon === 'ship') return ['laser', 'missile', 'plasma', 'drone', 'rail', 'flak', 'tesla', 'chem', 'flamer'];
-    if (upgrade.weapon === 'health' || upgrade.weapon === 'utility') return [];
+    if (upgrade.weapon === "ship")
+      return [
+        "laser",
+        "missile",
+        "plasma",
+        "drone",
+        "rail",
+        "flak",
+        "tesla",
+        "chem",
+        "flamer",
+      ];
+    if (upgrade.weapon === "health" || upgrade.weapon === "utility") return [];
     return [upgrade.weapon];
   }
-  upgradeInfoLines(upgrade: SpaceUpgrade) { const count = this.upgradeCount(upgrade.id); const nextTotal = this.upgradeNextTotal(upgrade, count); const lines = [`Current stacks: ${count}.`, `This pick: ${upgrade.description}${nextTotal ? ` (${nextTotal})` : ''}`]; if (upgrade.id === 'damage') lines.push(`Current bonus: +${count * 25}% damage to every weapon · next: +25%`); else if (upgrade.id.endsWith('-damage')) lines.push(`Current bonus: +${count * 25}% damage · next: +25%`); else if (upgrade.id.endsWith('-speed')) lines.push(`Current bonus: about +${Math.round((1 / Math.pow(.82, count) - 1) * 100)}% attack speed · next selection improves firing interval by 18%`); else if (upgrade.id === 'critical-chance') lines.push(`Current bonus: +${count * 8}% crit chance for every weapon · next: +8%`); else if (upgrade.id === 'critical-damage') lines.push(`Current bonus: +${count * 30}% crit damage for every weapon · next: +30%`); else if (upgrade.id === 'salvo') lines.push(`Current bonus: +${count} attack${count === 1 ? '' : 's'} for every weapon · next: +1`); else if (upgrade.id === 'volley') lines.push(`Current bonus: +${count} target${count === 1 ? '' : 's'} per volley for every weapon · next: +1`); else if (upgrade.id === 'bounces') lines.push(`Current bonus: +${count} bounce${count === 1 ? '' : 's'} (missiles/tesla/flamer), pierce +${count} (lasers), +${count} conversion slot${count === 1 ? '' : 's'} · next: +1`); else if (upgrade.id === 'distance') lines.push(`Current bonus: +${count * 25}% range for every weapon · next: +25%`);      else if (upgrade.id === 'secondary-effect') lines.push(`Current effect strength: +${count * 25}% · next: +25%. Shield capacity: ${Math.round(this.shieldCapacityForStacks(this.upgradeCount('shield-capacity'), count))} → ${Math.round(this.shieldCapacityForStacks(this.upgradeCount('shield-capacity'), count + 1))}.`); else if (upgrade.id === 'damage-distance') lines.push(`Current bonus: +${count * 10} damage / meter for every weapon · next: +10`); else if (upgrade.id === 'tesla-salvo') lines.push(`Current salvo: ${1 + count} outgoing thunderbolt${count === 0 ? '' : 's'} · next: +1 bolt; each bolt chains through distinct targets`); else if (upgrade.id.endsWith('-salvo')) lines.push(`Current salvo: +${count} projectile${count === 1 ? '' : 's'} · next: +1`); else if (upgrade.id === 'drone-volley') lines.push(`Current targets per drone volley: ${Math.max(1, count)} · next: +1 distinct target`); else if (upgrade.id.endsWith('-meter')) lines.push(`Current damage-per-meter: ${count} upgrade${count === 1 ? '' : 's'} · next selection adds more damage for distance travelled`); else if (upgrade.id === 'rail-knockback') lines.push(`Current chance: ${Math.min(25, 1 + count)}% · next: +1% chance. Bosses stay inside the arena.`); else if (upgrade.id === 'plasma-conversion-cap') lines.push(`Current capacity: ${1 + count} converted enem${count === 0 ? 'y' : 'ies'} · next: +1 slot. When full, the oldest converted ally is destroyed.`); else if (upgrade.id === 'health-defence') lines.push(`Current reduction: ${Math.round(this.defenceForStacks(count) * 100)}% · next: ${Math.round(this.defenceForStacks(count + 1) * 100)}% (diminishing returns)`); else if (upgrade.id === 'shield-size') lines.push(`Current radius bonus: +${count * 20}% · next: +20%`); else if (upgrade.id === 'shield-thorns') lines.push(`Current reflected damage: ${count * 15}% · next: +15%`); else if (upgrade.id.startsWith('utility-free-')) lines.push(`Current free-upgrade chance: ${this.freeChance(upgrade.id.replace('utility-free-', '') as any)}% · next: +12%`); else if (upgrade.id === 'chem-spread-distance') lines.push(`Current spread distance bonus: +${(count * .06).toFixed(2)} · next selection adds +0.06 (for +${((count + 1) * .06).toFixed(2)} total). This is the distance from an infected enemy that can receive the Chem poison infection.`); else if (upgrade.id === 'plasma-convert') lines.push(`Current conversion chance bonus: +${count * 5} percentage points · next selection adds +5 percentage points (for +${(count + 1) * 5} points total). Plasma starts with a 5% base chance.`); else if (upgrade.id === 'utility-wave-exp') lines.push(`Current bonus: +${20 * count * count} EXP / wave · next: +${20 * (count + 1) * (count + 1)} EXP / wave`); else if (upgrade.id === 'utility-kill-exp') lines.push(`Current bonus: +${count * 10}% EXP per kill · next: +${(count + 1) * 10}%`); else if (upgrade.id === 'ship-ordnance') lines.push(`Current bonus: +${count * 18}% projectile size, blast radius, and shield radius · next: +18%`); else lines.push(`This upgrade has been selected ${count} time${count === 1 ? '' : 's'}; selecting it again applies another stack.`); return lines; }
-  private startingWeaponOption(id: WeaponId, name: string, description: string): SpaceUpgrade { return { id: `unlock-${id}`, name, description, weapon: id, isWeaponUnlock: true }; }
-  get startingWeaponOptions(): SpaceUpgrade[] { const missile = this.startingWeaponOption('missile', 'Missile Rack', 'Heavy homing rockets with splash damage. Benefits from all global weapon upgrades.'); const otherWeapons = [this.startingWeaponOption('laser', 'Laser', 'Reliable beams that pierce extra enemies with Bounces upgrades. Benefits from all global weapon upgrades.'), this.startingWeaponOption('plasma', 'Plasma Cannon', 'Fast plasma bolts. Benefits from all global weapon upgrades.'), this.startingWeaponOption('drone', 'Combat Drone', 'Orbiting escorts that zap nearby enemies with short-range stings. Benefits from all global weapon upgrades; Volley adds sting targets.'), this.startingWeaponOption('rail', 'Railgun', 'An extremely fast hail of tiny spikes. Benefits from all global weapon upgrades.'), this.startingWeaponOption('flak', 'Flak Cannon', 'A short-range scattergun with splash damage. Benefits from all global weapon upgrades.'), this.startingWeaponOption('tesla', 'Tesla', 'Thunderbolts fire outward from the ship and chain through unhit enemies. Benefits from all global weapon upgrades.'), this.startingWeaponOption('chem', 'Chem Cloud', 'Lobs corrosive globs that burst into lingering acid clouds. Benefits from all global weapon upgrades.'), this.startingWeaponOption('flamer', 'Flamethrower', 'Short-range fire that ignites bugs; burns intensify over time. Benefits from all global weapon upgrades.')]; return [missile, ...otherWeapons.sort(() => Math.random() - .5).slice(0, 2)]; }
-  private hasWeapon(weapon: WeaponId) { return this.equippedWeapons.includes(weapon); }
-  private prepareStartingChoice() { if (this.equippedWeapons.length > 0) { this.startingWeaponChoicePending = false; this.startingWeaponChoices = []; return; } this.startingWeaponChoicePending = true; this.startingWeaponChoices = this.startingWeaponOptions; this.canPick = false; this.lastOfferTime = performance.now(); setTimeout(() => { if (this.startingWeaponChoicePending) this.canPick = true; }, 500); }
-  chooseStartingWeapon(u: SpaceUpgrade) { if (!this.startingWeaponChoicePending || !this.canPick || performance.now() - this.lastOfferTime < 500) return; this.equippedWeapons = [u.weapon as WeaponId]; this.startingWeaponChoicePending = false; this.startingWeaponChoices = []; this.canPick = false; this.status = `${u.name} selected. Survive until the first level-up.`; this.autosave(); }
-  private unlockWeapon(u: SpaceUpgrade) { const weapon = u.weapon as WeaponId; if (this.equippedWeapons.length >= this.weaponSlotLimit || this.hasWeapon(weapon)) return false; this.equippedWeapons.push(weapon); this.status = `${u.name} unlocked.`; return true; }
+  upgradeInfoLines(upgrade: SpaceUpgrade) {
+    const count = this.upgradeCount(upgrade.id);
+    const nextTotal = this.upgradeNextTotal(upgrade, count);
+    const lines = [
+      `Current stacks: ${count}.`,
+      `This pick: ${upgrade.description}${nextTotal ? ` (${nextTotal})` : ""}`,
+    ];
+    if (upgrade.id === "damage")
+      lines.push(
+        `Current bonus: +${count * 25}% damage to every weapon · next: +25%`,
+      );
+    else if (upgrade.id.endsWith("-damage"))
+      lines.push(`Current bonus: +${count * 25}% damage · next: +25%`);
+    else if (upgrade.id.endsWith("-speed"))
+      lines.push(
+        `Current bonus: about +${Math.round((1 / Math.pow(0.82, count) - 1) * 100)}% attack speed · next selection improves firing interval by 18%`,
+      );
+    else if (upgrade.id === "critical-chance")
+      lines.push(
+        `Current bonus: +${count * 8}% crit chance for every weapon · next: +8%`,
+      );
+    else if (upgrade.id === "critical-damage")
+      lines.push(
+        `Current bonus: +${count * 30}% crit damage for every weapon · next: +30%`,
+      );
+    else if (upgrade.id === "salvo")
+      lines.push(
+        `Current bonus: +${count} attack${count === 1 ? "" : "s"} for every weapon · next: +1`,
+      );
+    else if (upgrade.id === "volley")
+      lines.push(
+        `Current bonus: +${count} target${count === 1 ? "" : "s"} per volley for every weapon · next: +1`,
+      );
+    else if (upgrade.id === "bounces")
+      lines.push(
+        `Current bonus: +${count} bounce${count === 1 ? "" : "s"} (missiles/tesla/flamer), pierce +${count} (lasers), +${count} conversion slot${count === 1 ? "" : "s"} · next: +1`,
+      );
+    else if (upgrade.id === "distance")
+      lines.push(
+        `Current bonus: +${count * 25}% range for every weapon · next: +25%`,
+      );
+    else if (upgrade.id === "secondary-effect")
+      lines.push(
+        `Current effect strength: +${count * 25}% · next: +25%. Shield capacity: ${Math.round(this.shieldCapacityForStacks(this.upgradeCount("shield-capacity"), count))} → ${Math.round(this.shieldCapacityForStacks(this.upgradeCount("shield-capacity"), count + 1))}.`,
+      );
+    else if (upgrade.id === "damage-distance")
+      lines.push(
+        `Current bonus: +${count * 10} damage / meter for every weapon · next: +10`,
+      );
+    else if (upgrade.id === "tesla-salvo")
+      lines.push(
+        `Current salvo: ${1 + count} outgoing thunderbolt${count === 0 ? "" : "s"} · next: +1 bolt; each bolt chains through distinct targets`,
+      );
+    else if (upgrade.id.endsWith("-salvo"))
+      lines.push(
+        `Current salvo: +${count} projectile${count === 1 ? "" : "s"} · next: +1`,
+      );
+    else if (upgrade.id === "drone-volley")
+      lines.push(
+        `Current targets per drone volley: ${Math.max(1, count)} · next: +1 distinct target`,
+      );
+    else if (upgrade.id.endsWith("-meter"))
+      lines.push(
+        `Current damage-per-meter: ${count} upgrade${count === 1 ? "" : "s"} · next selection adds more damage for distance travelled`,
+      );
+    else if (upgrade.id === "rail-knockback")
+      lines.push(
+        `Current chance: ${Math.min(25, 1 + count)}% · next: +1% chance. Bosses stay inside the arena.`,
+      );
+    else if (upgrade.id === "plasma-conversion-cap")
+      lines.push(
+        `Current capacity: ${1 + count} converted enem${count === 0 ? "y" : "ies"} · next: +1 slot. When full, the oldest converted ally is destroyed.`,
+      );
+    else if (upgrade.id === "health-defence")
+      lines.push(
+        `Current reduction: ${Math.round(this.defenceForStacks(count) * 100)}% · next: ${Math.round(this.defenceForStacks(count + 1) * 100)}% (diminishing returns)`,
+      );
+    else if (upgrade.id === "shield-size")
+      lines.push(`Current radius bonus: +${count * 20}% · next: +20%`);
+    else if (upgrade.id === "shield-thorns")
+      lines.push(`Current reflected damage: ${count * 15}% · next: +15%`);
+    else if (upgrade.id.startsWith("utility-free-"))
+      lines.push(
+        `Current free-upgrade chance: ${this.freeChance(upgrade.id.replace("utility-free-", "") as any)}% · next: +12%`,
+      );
+    else if (upgrade.id === "chem-spread-distance")
+      lines.push(
+        `Current spread distance bonus: +${(count * 0.06).toFixed(2)} · next selection adds +0.06 (for +${((count + 1) * 0.06).toFixed(2)} total). This is the distance from an infected enemy that can receive the Chem poison infection.`,
+      );
+    else if (upgrade.id === "plasma-convert")
+      lines.push(
+        `Current conversion chance bonus: +${count * 5} percentage points · next selection adds +5 percentage points (for +${(count + 1) * 5} points total). Plasma starts with a 5% base chance.`,
+      );
+    else if (upgrade.id === "utility-wave-exp")
+      lines.push(
+        `Current bonus: +${20 * count * count} EXP / wave · next: +${20 * (count + 1) * (count + 1)} EXP / wave`,
+      );
+    else if (upgrade.id === "utility-kill-exp")
+      lines.push(
+        `Current bonus: +${count * 10}% EXP per kill · next: +${(count + 1) * 10}%`,
+      );
+    else if (upgrade.id === "ship-ordnance")
+      lines.push(
+        `Current bonus: +${count * 18}% projectile size, blast radius, and shield radius · next: +18%`,
+      );
+    else
+      lines.push(
+        `This upgrade has been selected ${count} time${count === 1 ? "" : "s"}; selecting it again applies another stack.`,
+      );
+    return lines;
+  }
+  private startingWeaponOption(
+    id: WeaponId,
+    name: string,
+    description: string,
+  ): SpaceUpgrade {
+    return {
+      id: `unlock-${id}`,
+      name,
+      description,
+      weapon: id,
+      isWeaponUnlock: true,
+    };
+  }
+  get startingWeaponOptions(): SpaceUpgrade[] {
+    const missile = this.startingWeaponOption(
+      "missile",
+      "Missile Rack",
+      "Heavy homing rockets with splash damage. Benefits from all global weapon upgrades.",
+    );
+    const otherWeapons = [
+      this.startingWeaponOption(
+        "laser",
+        "Laser",
+        "Reliable beams that pierce extra enemies with Bounces upgrades. Benefits from all global weapon upgrades.",
+      ),
+      this.startingWeaponOption(
+        "plasma",
+        "Plasma Cannon",
+        "Fast plasma bolts. Benefits from all global weapon upgrades.",
+      ),
+      this.startingWeaponOption(
+        "drone",
+        "Combat Drone",
+        "Orbiting escorts that zap nearby enemies with short-range stings. Benefits from all global weapon upgrades; Volley adds sting targets.",
+      ),
+      this.startingWeaponOption(
+        "rail",
+        "Railgun",
+        "An extremely fast hail of tiny spikes. Benefits from all global weapon upgrades.",
+      ),
+      this.startingWeaponOption(
+        "flak",
+        "Flak Cannon",
+        "A short-range scattergun with splash damage. Benefits from all global weapon upgrades.",
+      ),
+      this.startingWeaponOption(
+        "tesla",
+        "Tesla",
+        "Thunderbolts fire outward from the ship and chain through unhit enemies. Benefits from all global weapon upgrades.",
+      ),
+      this.startingWeaponOption(
+        "chem",
+        "Chem Cloud",
+        "Lobs corrosive globs that burst into lingering acid clouds. Benefits from all global weapon upgrades.",
+      ),
+      this.startingWeaponOption(
+        "flamer",
+        "Flamethrower",
+        "Short-range fire that ignites bugs; burns intensify over time. Benefits from all global weapon upgrades.",
+      ),
+    ];
+    return [
+      missile,
+      ...otherWeapons.sort(() => Math.random() - 0.5).slice(0, 2),
+    ];
+  }
+  private hasWeapon(weapon: WeaponId) {
+    return this.equippedWeapons.includes(weapon);
+  }
+  private prepareStartingChoice() {
+    if (this.equippedWeapons.length > 0) {
+      this.startingWeaponChoicePending = false;
+      this.startingWeaponChoices = [];
+      return;
+    }
+    this.startingWeaponChoicePending = true;
+    this.startingWeaponChoices = this.startingWeaponOptions;
+    this.canPick = false;
+    this.lastOfferTime = performance.now();
+    setTimeout(() => {
+      if (this.startingWeaponChoicePending) this.canPick = true;
+    }, 500);
+  }
+  chooseStartingWeapon(u: SpaceUpgrade) {
+    if (
+      !this.startingWeaponChoicePending ||
+      !this.canPick ||
+      performance.now() - this.lastOfferTime < 500
+    )
+      return;
+    this.equippedWeapons = [u.weapon as WeaponId];
+    this.startingWeaponChoicePending = false;
+    this.startingWeaponChoices = [];
+    this.canPick = false;
+    this.status = `${u.name} selected. Survive until the first level-up.`;
+    this.autosave();
+  }
+  private unlockWeapon(u: SpaceUpgrade) {
+    const weapon = u.weapon as WeaponId;
+    if (
+      this.equippedWeapons.length >= this.weaponSlotLimit ||
+      this.hasWeapon(weapon)
+    )
+      return false;
+    this.equippedWeapons.push(weapon);
+    this.status = `${u.name} unlocked.`;
+    return true;
+  }
   applyUpgrade(u: SpaceUpgrade) {
-    if (u.isWeaponUnlock) { this.unlockWeapon(u); return; }
+    if (u.isWeaponUnlock) {
+      this.unlockWeapon(u);
+      return;
+    }
     switch (u.id) {
-      case 'laser-damage': case 'missile-damage': case 'plasma-damage': case 'drone-damage': case 'rail-damage': case 'flak-damage': case 'tesla-damage': case 'chem-damage': case 'damage': this.stats.damageMultiplier *= 1.25; break;
-      case 'attack-speed': case 'laser-speed': case 'missile-speed': case 'plasma-speed': case 'drone-speed': case 'rail-speed': case 'flak-speed': case 'tesla-speed': case 'chem-speed': this.stats.attackSpeedMultiplier /= .82; break;
-      case 'critical-chance': case 'laser-crit-chance': case 'missile-crit-chance': case 'plasma-crit-chance': case 'drone-crit-chance': case 'rail-crit-chance': case 'flak-crit-chance': case 'tesla-crit-chance': case 'chem-crit-chance': this.stats.critChanceBonus += .08; break;
-      case 'critical-damage': case 'laser-crit-factor': case 'missile-crit-factor': case 'plasma-crit-factor': case 'drone-crit-factor': case 'rail-crit-factor': case 'flak-crit-factor': case 'tesla-crit-factor': case 'chem-crit-factor': this.stats.critFactorBonus += .3; break;
-      case 'salvo': case 'laser-salvo': case 'missile-salvo': case 'plasma-salvo': case 'drone-salvo': case 'rail-salvo': case 'flak-salvo': case 'tesla-salvo': case 'chem-salvo': this.stats.salvoBonus += 1; break;
-      case 'distance': case 'laser-range': case 'missile-range': case 'tesla-range': case 'chem-spread-distance': this.stats.distanceMultiplier *= 1.25; break;
-      case 'damage-distance': this.stats.damagePerDistance += 10; break;
-      case 'laser-meter': this.stats.laserDamagePerMeter += 12; break;
-      case 'missile-meter': this.stats.missileDamagePerMeter += 16; break;
-      case 'plasma-meter': this.stats.plasmaDamagePerMeter += 14; break;
-      case 'drone-meter': this.stats.droneDamagePerMeter += 10; break;
-      case 'rail-meter': this.stats.railDamagePerMeter += 3; break;
-      case 'flak-meter': this.stats.flakDamagePerMeter += 8; break;
-      case 'shield-size': this.stats.shieldRadius *= 1.2; break;
-      case 'shield-capacity': this.syncShieldCapacity(this.upgradeCount('shield-capacity') + 1, this.upgradeCount('secondary-effect')); this.player.shield = this.stats.shieldMax; break;
-      case 'shield-duration': this.stats.shieldVisibleFor *= 1.2; break;
-      case 'shield-thorns': this.stats.shieldThorns += .15; break;
-      case 'shield-knockback': this.stats.shieldKnockback += .18; break;
+      case "laser-damage":
+      case "missile-damage":
+      case "plasma-damage":
+      case "drone-damage":
+      case "rail-damage":
+      case "flak-damage":
+      case "tesla-damage":
+      case "chem-damage":
+      case "damage":
+        this.stats.damageMultiplier *= 1.25;
+        break;
+      case "attack-speed":
+      case "laser-speed":
+      case "missile-speed":
+      case "plasma-speed":
+      case "drone-speed":
+      case "rail-speed":
+      case "flak-speed":
+      case "tesla-speed":
+      case "chem-speed":
+        this.stats.attackSpeedMultiplier /= 0.82;
+        break;
+      case "critical-chance":
+      case "laser-crit-chance":
+      case "missile-crit-chance":
+      case "plasma-crit-chance":
+      case "drone-crit-chance":
+      case "rail-crit-chance":
+      case "flak-crit-chance":
+      case "tesla-crit-chance":
+      case "chem-crit-chance":
+        this.stats.critChanceBonus += 0.08;
+        break;
+      case "critical-damage":
+      case "laser-crit-factor":
+      case "missile-crit-factor":
+      case "plasma-crit-factor":
+      case "drone-crit-factor":
+      case "rail-crit-factor":
+      case "flak-crit-factor":
+      case "tesla-crit-factor":
+      case "chem-crit-factor":
+        this.stats.critFactorBonus += 0.3;
+        break;
+      case "salvo":
+      case "laser-salvo":
+      case "missile-salvo":
+      case "plasma-salvo":
+      case "drone-salvo":
+      case "rail-salvo":
+      case "flak-salvo":
+      case "tesla-salvo":
+      case "chem-salvo":
+        this.stats.salvoBonus += 1;
+        break;
+      case "distance":
+      case "laser-range":
+      case "missile-range":
+      case "tesla-range":
+      case "chem-spread-distance":
+        this.stats.distanceMultiplier *= 1.25;
+        break;
+      case "damage-distance":
+        this.stats.damagePerDistance += 10;
+        break;
+      case "laser-meter":
+        this.stats.laserDamagePerMeter += 12;
+        break;
+      case "missile-meter":
+        this.stats.missileDamagePerMeter += 16;
+        break;
+      case "plasma-meter":
+        this.stats.plasmaDamagePerMeter += 14;
+        break;
+      case "drone-meter":
+        this.stats.droneDamagePerMeter += 10;
+        break;
+      case "rail-meter":
+        this.stats.railDamagePerMeter += 3;
+        break;
+      case "flak-meter":
+        this.stats.flakDamagePerMeter += 8;
+        break;
+      case "shield-size":
+        this.stats.shieldRadius *= 1.2;
+        break;
+      case "shield-capacity":
+        this.syncShieldCapacity(
+          this.upgradeCount("shield-capacity") + 1,
+          this.upgradeCount("secondary-effect"),
+        );
+        this.player.shield = this.stats.shieldMax;
+        break;
+      case "shield-duration":
+        this.stats.shieldVisibleFor *= 1.2;
+        break;
+      case "shield-thorns":
+        this.stats.shieldThorns += 0.15;
+        break;
+      case "shield-knockback":
+        this.stats.shieldKnockback += 0.18;
+        break;
 
+      case "volley":
+      case "drone-volley":
+        this.stats.volleyBonus += 1;
+        break;
 
-      case 'volley': case 'drone-volley': this.stats.volleyBonus += 1; break;
-
-      case 'secondary-effect': case 'duration': case 'tesla-stun': case 'chem-duration': case 'rail-knockback': case 'plasma-convert': {
+      case "secondary-effect":
+      case "duration":
+      case "tesla-stun":
+      case "chem-duration":
+      case "rail-knockback":
+      case "plasma-convert": {
         this.stats.secondaryEffectMultiplier *= 1.25;
-        if (u.id === 'secondary-effect') {
-          this.syncShieldCapacity(this.upgradeCount('shield-capacity'), this.upgradeCount('secondary-effect') + 1);
+        if (u.id === "secondary-effect") {
+          this.syncShieldCapacity(
+            this.upgradeCount("shield-capacity"),
+            this.upgradeCount("secondary-effect") + 1,
+          );
           this.player.shield = this.stats.shieldMax;
         }
         break;
       }
-      case 'health-max': this.player.maxHp += 20; this.player.hp = this.player.maxHp; break;
-      case 'health-regen': this.stats.healthRegen += 1.5; break;
-      case 'health-defence': this.stats.defencePercent = this.defenceForStacks(this.upgradeCount('health-defence') + 1); break;
-      case 'health-absolute': this.stats.absoluteDefence += 2; break;
-      case 'health-lifesteal': this.stats.lifesteal += .05; break;
-      case 'utility-wave-exp': this.stats.expPerWave = 20 * Math.pow(this.upgradeCount('utility-wave-exp') + 1, 2); break;
-      case 'utility-kill-exp': this.stats.expBonusPerKill += .10; break;
-      case 'utility-free-laser': this.stats.freeLaserChance += .12; break;
-      case 'utility-free-missile': this.stats.freeMissileChance += .12; break;
-      case 'utility-free-ship': this.stats.freeShipChance += .12; break;
-      case 'utility-free-health': this.stats.freeHealthChance += .12; break;
-      case 'utility-free-utility': this.stats.freeUtilityChance += .12; break;
-      case 'utility-free-plasma': this.stats.freePlasmaChance += .12; break;
-      case 'utility-free-drone': this.stats.freeDroneChance += .12; break;
-      case 'utility-free-rail': this.stats.freeRailChance += .12; break;
-      case 'utility-free-flak': this.stats.freeFlakChance += .12; break;
-      case 'utility-free-tesla': this.stats.freeTeslaChance += .12; break;
-      case 'utility-free-chem': this.stats.freeChemChance += .12; break;
-      case 'bounces': case 'missile-bounces': case 'plasma-conversion-cap': this.stats.bounceBonus += 1; break;
-      case 'ship-ordnance': this.stats.projectileSize *= 1.18; this.stats.shieldRadius *= 1.18; break;
+      case "health-max":
+        this.player.maxHp += 20;
+        this.player.hp = this.player.maxHp;
+        break;
+      case "health-regen":
+        this.stats.healthRegen += 1.5;
+        break;
+      case "health-defence":
+        this.stats.defencePercent = this.defenceForStacks(
+          this.upgradeCount("health-defence") + 1,
+        );
+        break;
+      case "health-absolute":
+        this.stats.absoluteDefence += 2;
+        break;
+      case "health-lifesteal":
+        this.stats.lifesteal += 0.05;
+        break;
+      case "utility-wave-exp":
+        this.stats.expPerWave =
+          20 * Math.pow(this.upgradeCount("utility-wave-exp") + 1, 2);
+        break;
+      case "utility-kill-exp":
+        this.stats.expBonusPerKill += 0.1;
+        break;
+      case "utility-free-laser":
+        this.stats.freeLaserChance += 0.12;
+        break;
+      case "utility-free-missile":
+        this.stats.freeMissileChance += 0.12;
+        break;
+      case "utility-free-ship":
+        this.stats.freeShipChance += 0.12;
+        break;
+      case "utility-free-health":
+        this.stats.freeHealthChance += 0.12;
+        break;
+      case "utility-free-utility":
+        this.stats.freeUtilityChance += 0.12;
+        break;
+      case "utility-free-plasma":
+        this.stats.freePlasmaChance += 0.12;
+        break;
+      case "utility-free-drone":
+        this.stats.freeDroneChance += 0.12;
+        break;
+      case "utility-free-rail":
+        this.stats.freeRailChance += 0.12;
+        break;
+      case "utility-free-flak":
+        this.stats.freeFlakChance += 0.12;
+        break;
+      case "utility-free-tesla":
+        this.stats.freeTeslaChance += 0.12;
+        break;
+      case "utility-free-chem":
+        this.stats.freeChemChance += 0.12;
+        break;
+      case "bounces":
+      case "missile-bounces":
+      case "plasma-conversion-cap":
+        this.stats.bounceBonus += 1;
+        break;
+      case "ship-ordnance":
+        this.stats.projectileSize *= 1.18;
+        this.stats.shieldRadius *= 1.18;
+        break;
     }
   }
   private randomChoices() {
     const choices: SpaceUpgrade[] = [];
-    const add = (u: SpaceUpgrade) => { if (!choices.some(x => x.id === u.id)) choices.push(u); };
+    const add = (u: SpaceUpgrade) => {
+      if (!choices.some((x) => x.id === u.id)) choices.push(u);
+    };
     for (const weapon of this.equippedWeapons) {
-      const pool = this.upgrades.filter(x => x.weapon === weapon && !x.isWeaponUnlock);
+      const pool = this.upgrades.filter(
+        (x) => x.weapon === weapon && !x.isWeaponUnlock,
+      );
       if (pool.length) add(pool[Math.floor(Math.random() * pool.length)]);
     }
-    for (const category of ['health', 'utility', 'ship'] as const) {
-      const pool = this.upgrades.filter(x => x.weapon === category && !x.isWeaponUnlock);
+    for (const category of ["health", "utility", "ship"] as const) {
+      const pool = this.upgrades.filter(
+        (x) => x.weapon === category && !x.isWeaponUnlock,
+      );
       if (pool.length) add(pool[Math.floor(Math.random() * pool.length)]);
     }
     if (this.equippedWeapons.length < this.weaponSlotLimit) {
-      const missing = this.upgrades.filter(x => x.isWeaponUnlock && !this.hasWeapon(x.weapon as WeaponId));
-      if (missing.length) add(missing[Math.floor(Math.random() * missing.length)]);
+      const missing = this.upgrades.filter(
+        (x) => x.isWeaponUnlock && !this.hasWeapon(x.weapon as WeaponId),
+      );
+      if (missing.length)
+        add(missing[Math.floor(Math.random() * missing.length)]);
     }
-    return choices.sort(() => Math.random() - .5).slice(0, 3);
+    return choices.sort(() => Math.random() - 0.5).slice(0, 3);
   }
   chooseUpgrade(u: SpaceUpgrade) {
-    if (!this.canPick || this.startingWeaponChoicePending || performance.now() - this.lastOfferTime < 500) return; const accepted = u.isWeaponUnlock ? this.unlockWeapon(u) : true; if (!accepted) return; if (!u.isWeaponUnlock) { this.applyUpgrade(u); this.persistedUpgrades.push(u.id); } const levelThreshold = this.nextLevel; this.level++; this.nextLevel = Math.floor(this.nextLevel * 1.22);
-    this.experience = Math.max(0, this.experience - levelThreshold); this.upgradeChoices = []; const bonus = this.grantFreeUpgrades(); this.status = bonus ? `${u.name} evolved. +${bonus} free upgrade${bonus > 1 ? 's' : ''}!` : `${u.name} evolved.`; this.autosave();
+    if (
+      !this.canPick ||
+      this.startingWeaponChoicePending ||
+      performance.now() - this.lastOfferTime < 500
+    )
+      return;
+    const accepted = u.isWeaponUnlock ? this.unlockWeapon(u) : true;
+    if (!accepted) return;
+    if (!u.isWeaponUnlock) {
+      this.applyUpgrade(u);
+      this.persistedUpgrades.push(u.id);
+    }
+    const levelThreshold = this.nextLevel;
+    this.level++;
+    this.nextLevel = Math.floor(this.nextLevel * 1.22);
+    this.experience = Math.max(0, this.experience - levelThreshold);
+    this.upgradeChoices = [];
+    const bonus = this.grantFreeUpgrades();
+    this.status = bonus
+      ? `${u.name} evolved. +${bonus} free upgrade${bonus > 1 ? "s" : ""}!`
+      : `${u.name} evolved.`;
+    this.autosave();
   }
   private grantFreeUpgrades() {
     let bonus = 0;
-    const pools = [['laser', this.stats.freeLaserChance], ['missile', this.stats.freeMissileChance], ['plasma', this.stats.freePlasmaChance], ['drone', this.stats.freeDroneChance], ['rail', this.stats.freeRailChance], ['flak', this.stats.freeFlakChance], ['tesla', this.stats.freeTeslaChance], ['chem', this.stats.freeChemChance], ['ship', this.stats.freeShipChance], ['health', this.stats.freeHealthChance], ['utility', this.stats.freeUtilityChance]] as Array<[WeaponId | 'health' | 'utility' | 'ship', number]>;
+    const pools = [
+      ["laser", this.stats.freeLaserChance],
+      ["missile", this.stats.freeMissileChance],
+      ["plasma", this.stats.freePlasmaChance],
+      ["drone", this.stats.freeDroneChance],
+      ["rail", this.stats.freeRailChance],
+      ["flak", this.stats.freeFlakChance],
+      ["tesla", this.stats.freeTeslaChance],
+      ["chem", this.stats.freeChemChance],
+      ["ship", this.stats.freeShipChance],
+      ["health", this.stats.freeHealthChance],
+      ["utility", this.stats.freeUtilityChance],
+    ] as Array<[WeaponId | "health" | "utility" | "ship", number]>;
     for (const [category, chance] of pools) {
       if (chance <= 0) continue;
       // Over 100% guarantees free upgrades: each full 100% is one guaranteed
@@ -275,7 +1823,16 @@ export class SpaceEvolvesComponent extends ChildComponent implements AfterViewIn
       // Free-utility rolls can grant any utility upgrade, including the other
       // free-chance upgrades (free ship/health/utility) — a free roll only applies
       // the upgrade, it never re-rolls, so this cannot recurse.
-      const pool = this.upgrades.filter(x => x.weapon === category && !x.isWeaponUnlock && (category === 'utility' || !x.id.startsWith('utility-free-')) && (category === 'health' || category === 'utility' || category === 'ship' || this.hasWeapon(category)));
+      const pool = this.upgrades.filter(
+        (x) =>
+          x.weapon === category &&
+          !x.isWeaponUnlock &&
+          (category === "utility" || !x.id.startsWith("utility-free-")) &&
+          (category === "health" ||
+            category === "utility" ||
+            category === "ship" ||
+            this.hasWeapon(category)),
+      );
       if (!pool.length) continue;
       for (let r = 0; r < rolls; r++) {
         const pick = pool[Math.floor(Math.random() * pool.length)];
@@ -287,114 +1844,1608 @@ export class SpaceEvolvesComponent extends ChildComponent implements AfterViewIn
     }
     return bonus;
   }
-  freeChance(cat: 'laser' | 'missile' | 'plasma' | 'drone' | 'rail' | 'flak' | 'tesla' | 'chem' | 'ship' | 'health' | 'utility') { return Math.round((cat === 'laser' ? this.stats.freeLaserChance : cat === 'missile' ? this.stats.freeMissileChance : cat === 'plasma' ? this.stats.freePlasmaChance : cat === 'drone' ? this.stats.freeDroneChance : cat === 'rail' ? this.stats.freeRailChance : cat === 'flak' ? this.stats.freeFlakChance : cat === 'tesla' ? this.stats.freeTeslaChance : cat === 'chem' ? this.stats.freeChemChance : cat === 'ship' ? this.stats.freeShipChance : cat === 'health' ? this.stats.freeHealthChance : this.stats.freeUtilityChance) * 100); }
-  upgradeCount(id: string) { return this.persistedUpgrades.filter(x => x === id).length; }
-  upgradeIcon(weapon: string) { return weapon === 'laser' ? '⚡' : weapon === 'missile' ? '🚀' : weapon === 'shield' ? '🛡️' : weapon === 'plasma' ? '☄️' : weapon === 'drone' ? '🛸' : weapon === 'rail' ? '💥' : weapon === 'flak' ? '💣' : weapon === 'tesla' ? '🌩️' : weapon === 'chem' ? '☢️' : weapon === 'flamer' ? '🔥' : weapon === 'health' ? '❤️' : weapon === 'ship' ? '🛰️' : '🧬'; }
-  weaponLabel(weapon: WeaponId) { return weapon === 'laser' ? 'Laser' : weapon === 'missile' ? 'Missile Rack' : weapon === 'shield' ? 'Pulse Shield' : weapon === 'plasma' ? 'Plasma Cannon' : weapon === 'rail' ? 'Railgun' : weapon === 'flak' ? 'Flak Cannon' : weapon === 'tesla' ? 'Tesla' : weapon === 'chem' ? 'Chem Cloud' : weapon === 'drone' ? 'Combat Drone' : 'Flamethrower'; }
-  private waveQuota() { return 8 + this.wave * 2; }
-  private liveHostileCount() { let n = 0; for (const b of this.bugs) if (!b.ally && b.hp > 0 && Number.isFinite(b.x) && Number.isFinite(b.y)) n++; return n; }
+  freeChance(
+    cat:
+      | "laser"
+      | "missile"
+      | "plasma"
+      | "drone"
+      | "rail"
+      | "flak"
+      | "tesla"
+      | "chem"
+      | "ship"
+      | "health"
+      | "utility",
+  ) {
+    return Math.round(
+      (cat === "laser"
+        ? this.stats.freeLaserChance
+        : cat === "missile"
+          ? this.stats.freeMissileChance
+          : cat === "plasma"
+            ? this.stats.freePlasmaChance
+            : cat === "drone"
+              ? this.stats.freeDroneChance
+              : cat === "rail"
+                ? this.stats.freeRailChance
+                : cat === "flak"
+                  ? this.stats.freeFlakChance
+                  : cat === "tesla"
+                    ? this.stats.freeTeslaChance
+                    : cat === "chem"
+                      ? this.stats.freeChemChance
+                      : cat === "ship"
+                        ? this.stats.freeShipChance
+                        : cat === "health"
+                          ? this.stats.freeHealthChance
+                          : this.stats.freeUtilityChance) * 100,
+    );
+  }
+  upgradeCount(id: string) {
+    return this.persistedUpgrades.filter((x) => x === id).length;
+  }
+  upgradeIcon(weapon: string) {
+    return weapon === "laser"
+      ? "⚡"
+      : weapon === "missile"
+        ? "🚀"
+        : weapon === "shield"
+          ? "🛡️"
+          : weapon === "plasma"
+            ? "☄️"
+            : weapon === "drone"
+              ? "🛸"
+              : weapon === "rail"
+                ? "💥"
+                : weapon === "flak"
+                  ? "💣"
+                  : weapon === "tesla"
+                    ? "🌩️"
+                    : weapon === "chem"
+                      ? "☢️"
+                      : weapon === "flamer"
+                        ? "🔥"
+                        : weapon === "health"
+                          ? "❤️"
+                          : weapon === "ship"
+                            ? "🛰️"
+                            : "🧬";
+  }
+  weaponLabel(weapon: WeaponId) {
+    return weapon === "laser"
+      ? "Laser"
+      : weapon === "missile"
+        ? "Missile Rack"
+        : weapon === "shield"
+          ? "Pulse Shield"
+          : weapon === "plasma"
+            ? "Plasma Cannon"
+            : weapon === "rail"
+              ? "Railgun"
+              : weapon === "flak"
+                ? "Flak Cannon"
+                : weapon === "tesla"
+                  ? "Tesla"
+                  : weapon === "chem"
+                    ? "Chem Cloud"
+                    : weapon === "drone"
+                      ? "Combat Drone"
+                      : "Flamethrower";
+  }
+  private waveQuota() {
+    return 8 + this.wave * 2;
+  }
+  private liveHostileCount() {
+    let n = 0;
+    for (const b of this.bugs)
+      if (!b.ally && b.hp > 0 && Number.isFinite(b.x) && Number.isFinite(b.y))
+        n++;
+    return n;
+  }
   get enemyCount() {
     // One consistent quantity all wave long: quota not yet spawned plus live
     // hostiles. Never jumps upward the way quota-left-then-bugs-length did.
     if (this.bossActive) return 1;
-    return Math.max(0, this.waveQuota() - this.spawnedThisWave) + this.liveHostileCount();
-  } 
-  get isBossActive() { return this.bossActive; } get enemyCountLabel() { return this.bossActive ? 'BOSS' : this.enemyCount; }
+    return (
+      Math.max(0, this.waveQuota() - this.spawnedThisWave) +
+      this.liveHostileCount()
+    );
+  }
+  get isBossActive() {
+    return this.bossActive;
+  }
+  get enemyCountLabel() {
+    return this.bossActive ? "BOSS" : this.enemyCount;
+  }
   private loop = (t: number) => {
-    if (!this.running) return; const dt = Math.min(.05, Math.max(0, (t - this.lastTime) / 1000)); this.lastTime = t; this.checkUserSwitch(); if (!this.paused && !this.gameOver && !this.upgradeChoices.length && !this.startingWeaponChoicePending) this.update(dt); SpaceEvolvesRendering.draw(this.gameCanvas.nativeElement, this.ctx, { bugs: this.bugs, shots: this.shots, effects: this.effects, clouds: this.clouds, backgroundShips: this.backgroundShips, backgroundClouds: this.backgroundClouds, player: this.player, orbitDrones: this.orbitDrones, shieldVisible: this.timers.shield > this.stats.shieldPulseInterval - this.stats.shieldVisibleFor, shieldRepulse: this.stats.shieldKnockback > 0, shieldRadius: this.stats.shieldRadius, frameDetail: this.frameDetail, sprite: this.playerSprite, spriteReady: this.playerSpriteReady });
-    if (!this.paused && !this.gameOver && !this.upgradeChoices.length && !this.startingWeaponChoicePending) { this.hudSync += dt; if (this.hudSync >= .2) { this.hudSync = 0; this.cdr.detectChanges(); } }
+    if (!this.running) return;
+    const dt = Math.min(0.05, Math.max(0, (t - this.lastTime) / 1000));
+    this.lastTime = t;
+    this.checkUserSwitch();
+    if (
+      !this.paused &&
+      !this.gameOver &&
+      !this.upgradeChoices.length &&
+      !this.startingWeaponChoicePending
+    )
+      this.update(dt);
+    SpaceEvolvesRendering.draw(this.gameCanvas.nativeElement, this.ctx, {
+      bugs: this.bugs,
+      shots: this.shots,
+      effects: this.effects,
+      clouds: this.clouds,
+      backgroundShips: this.backgroundShips,
+      backgroundClouds: this.backgroundClouds,
+      player: this.player,
+      orbitDrones: this.orbitDrones,
+      shieldVisible:
+        this.timers.shield >
+        this.stats.shieldPulseInterval - this.stats.shieldVisibleFor,
+      shieldRepulse: this.stats.shieldKnockback > 0,
+      shieldRadius: this.stats.shieldRadius,
+      frameDetail: this.frameDetail,
+      sprite: this.playerSprite,
+      spriteReady: this.playerSpriteReady,
+    });
+    if (
+      !this.paused &&
+      !this.gameOver &&
+      !this.upgradeChoices.length &&
+      !this.startingWeaponChoicePending
+    ) {
+      this.hudSync += dt;
+      if (this.hudSync >= 0.2) {
+        this.hudSync = 0;
+        this.cdr.detectChanges();
+      }
+    }
     this.frame = requestAnimationFrame(this.loop);
-  }; private checkUserSwitch() { const uid = this.getUserId(); if (uid !== this.loadedUserId && !this.switchingUser) { this.ngZone.run(() => { this.switchingUser = true; this.serverRunId = undefined; this.resetRun(); void this.loadServerRun().then(() => { this.switchingUser = false; }); }); } }
-  private autosave() { if (this.gameOver) return; const snap = JSON.stringify(this.currentRun()); if (snap === this.lastSaveState) return; this.lastSaveState = snap; this.saveProgress(); this.persistRun(); }
+  };
+  private checkUserSwitch() {
+    const uid = this.getUserId();
+    if (uid !== this.loadedUserId && !this.switchingUser) {
+      this.ngZone.run(() => {
+        this.switchingUser = true;
+        this.serverRunId = undefined;
+        this.resetRun();
+        void this.loadServerRun().then(() => {
+          this.switchingUser = false;
+        });
+      });
+    }
+  }
+  private autosave() {
+    if (this.gameOver) return;
+    const snap = JSON.stringify(this.currentRun());
+    if (snap === this.lastSaveState) return;
+    this.lastSaveState = snap;
+    this.saveProgress();
+    this.persistRun();
+  }
   private updateDetail(dt: number) {
-    if (dt >= 1 / 34) { this.slowFrames++; this.fastFrames = 0; } else if (dt <= 1 / 52) { this.fastFrames++; } else { this.slowFrames = Math.max(0, this.slowFrames - 1); this.fastFrames = Math.max(0, this.fastFrames - 1); }
-    if (this.detailCooldown > 0) { this.detailCooldown -= dt; return; }
-    if (this.slowFrames >= 18 && this.frameDetail > 0) { this.frameDetail--; this.slowFrames = 0; this.detailCooldown = 2; }
-    else if (this.fastFrames >= 240 && this.frameDetail < 2) { this.frameDetail++; this.fastFrames = 0; this.detailCooldown = 2; }
+    if (dt >= 1 / 34) {
+      this.slowFrames++;
+      this.fastFrames = 0;
+    } else if (dt <= 1 / 52) {
+      this.fastFrames++;
+    } else {
+      this.slowFrames = Math.max(0, this.slowFrames - 1);
+      this.fastFrames = Math.max(0, this.fastFrames - 1);
+    }
+    if (this.detailCooldown > 0) {
+      this.detailCooldown -= dt;
+      return;
+    }
+    if (this.slowFrames >= 18 && this.frameDetail > 0) {
+      this.frameDetail--;
+      this.slowFrames = 0;
+      this.detailCooldown = 2;
+    } else if (this.fastFrames >= 240 && this.frameDetail < 2) {
+      this.frameDetail++;
+      this.fastFrames = 0;
+      this.detailCooldown = 2;
+    }
   }
   private updateBackgroundShips(dt: number) {
     this.backgroundShipTimer -= dt;
     if (this.backgroundShipTimer <= 0 && this.backgroundShips.length < 3) {
-      const fromLeft = Math.random() < .5, y = .12 + Math.random() * .34, size = .012 + Math.random() * .012, speed = .035 + Math.random() * .025;
-      const rareBossScene = Math.random() < .045;
-      const escorts: BackgroundEscort[] = []; const threats: BackgroundThreat[] = [];
+      const fromLeft = Math.random() < 0.5,
+        y = 0.12 + Math.random() * 0.34,
+        size = 0.012 + Math.random() * 0.012,
+        speed = 0.035 + Math.random() * 0.025;
+      const rareBossScene = Math.random() < 0.045;
+      const escorts: BackgroundEscort[] = [];
+      const threats: BackgroundThreat[] = [];
       const escortCount = rareBossScene ? 3 : Math.floor(Math.random() * 4);
-      for (let i = 0; i < escortCount; i++) escorts.push({ x: fromLeft ? -.12 : 1.12, y: y + (i - 1) * .045, vx: 0, vy: 0, phase: Math.random() * Math.PI * 2 });
+      for (let i = 0; i < escortCount; i++)
+        escorts.push({
+          x: fromLeft ? -0.12 : 1.12,
+          y: y + (i - 1) * 0.045,
+          vx: 0,
+          vy: 0,
+          phase: Math.random() * Math.PI * 2,
+        });
       const threatCount = rareBossScene ? 0 : 1 + Math.floor(Math.random() * 2);
-      for (let i = 0; i < threatCount; i++) threats.push({ x: fromLeft ? .18 + .08 * i : .82 - .08 * i, y: y + (Math.random() - .5) * .18, vx: fromLeft ? -.012 : .012, vy: 0, phase: Math.random() * Math.PI * 2, cooldown: .8 + Math.random() });
-      this.backgroundShips.push({ x: fromLeft ? -.12 : 1.12, y, vx: fromLeft ? speed : -speed, vy: 0, size: rareBossScene ? .019 : size, life: 0, maxLife: rareBossScene ? 15 : 24, angle: fromLeft ? 0 : Math.PI, enemy: rareBossScene, phase: Math.random() * Math.PI * 2, evade: 0, escorts, threats, bossScene: rareBossScene });
-      this.backgroundShipTimer = rareBossScene ? 18 + Math.random() * 12 : 7 + Math.random() * 8;
+      for (let i = 0; i < threatCount; i++)
+        threats.push({
+          x: fromLeft ? 0.18 + 0.08 * i : 0.82 - 0.08 * i,
+          y: y + (Math.random() - 0.5) * 0.18,
+          vx: fromLeft ? -0.012 : 0.012,
+          vy: 0,
+          phase: Math.random() * Math.PI * 2,
+          cooldown: 0.8 + Math.random(),
+        });
+      this.backgroundShips.push({
+        x: fromLeft ? -0.12 : 1.12,
+        y,
+        vx: fromLeft ? speed : -speed,
+        vy: 0,
+        size: rareBossScene ? 0.019 : size,
+        life: 0,
+        maxLife: rareBossScene ? 15 : 24,
+        angle: fromLeft ? 0 : Math.PI,
+        enemy: rareBossScene,
+        phase: Math.random() * Math.PI * 2,
+        evade: 0,
+        escorts,
+        threats,
+        bossScene: rareBossScene,
+      });
+      this.backgroundShipTimer = rareBossScene
+        ? 18 + Math.random() * 12
+        : 7 + Math.random() * 8;
     }
     for (let i = this.backgroundShips.length - 1; i >= 0; i--) {
-      const ship = this.backgroundShips[i]; ship.life += dt;
-      let threatDistance = Infinity, threat: BackgroundThreat | undefined;
-      for (const foe of ship.threats) { const dx = ship.x - foe.x, dy = ship.y - foe.y, d = Math.hypot(dx, dy); if (d < threatDistance) { threatDistance = d; threat = foe; } }
-      if (threat && threatDistance < .22) { const awayY = ship.y - threat.y; ship.evade = Math.min(1, ship.evade + dt * 3); ship.vy += (awayY >= 0 ? 1 : -1) * .11 * ship.evade * dt; }
-      else { ship.evade = Math.max(0, ship.evade - dt * .7); ship.vy += (.25 + Math.sin(ship.life * 1.7 + ship.phase) * .05) * (-ship.y + .28) * dt; }
-      ship.vy *= Math.pow(.08, dt); ship.y += ship.vy * dt; ship.y = Math.max(.08, Math.min(.52, ship.y)); ship.x += ship.vx * dt; ship.angle += (Math.max(-.35, Math.min(.35, ship.vy * 8)) - ship.angle) * Math.min(1, dt * 4);
-      for (let escortIndex = 0; escortIndex < ship.escorts.length; escortIndex++) { const escort = ship.escorts[escortIndex]; if (ship.bossScene && !escort.destroyed && ship.life > 3.2 + escortIndex * 1.45) { escort.destroyed = true; escort.explosion = .8; } if (escort.destroyed) { escort.explosion = Math.max(0, (escort.explosion ?? 0) - dt); continue; } const targetX = ship.x - ship.vx * .35 + Math.cos(ship.life * 2 + escort.phase) * .025, targetY = ship.y + Math.sin(ship.life * 2.4 + escort.phase) * .045 + (ship.bossScene ? (escortIndex - 1) * .045 : 0); escort.vx += (targetX - escort.x) * 3.5 * dt; escort.vy += (targetY - escort.y) * 3.5 * dt; escort.vx *= Math.pow(.04, dt); escort.vy *= Math.pow(.04, dt); escort.x += escort.vx * dt; escort.y += escort.vy * dt; }
-      for (const foe of ship.threats) { const dx = ship.x - foe.x, dy = ship.y - foe.y, n = Math.hypot(dx, dy) || 1; foe.vx += (dx / n * .018 - foe.vx) * dt; foe.vy += (dy / n * .018 + Math.sin(ship.life * 3 + foe.phase) * .006 - foe.vy) * dt; foe.x += foe.vx * dt; foe.y += foe.vy * dt; foe.cooldown -= dt; if (foe.cooldown <= 0) { foe.cooldown = 1.1 + Math.random() * .8; } }
-      if (ship.life > ship.maxLife || ship.x < -.22 || ship.x > 1.22) this.backgroundShips.splice(i, 1);
+      const ship = this.backgroundShips[i];
+      ship.life += dt;
+      let threatDistance = Infinity,
+        threat: BackgroundThreat | undefined;
+      for (const foe of ship.threats) {
+        const dx = ship.x - foe.x,
+          dy = ship.y - foe.y,
+          d = Math.hypot(dx, dy);
+        if (d < threatDistance) {
+          threatDistance = d;
+          threat = foe;
+        }
+      }
+      if (threat && threatDistance < 0.22) {
+        const awayY = ship.y - threat.y;
+        ship.evade = Math.min(1, ship.evade + dt * 3);
+        ship.vy += (awayY >= 0 ? 1 : -1) * 0.11 * ship.evade * dt;
+      } else {
+        ship.evade = Math.max(0, ship.evade - dt * 0.7);
+        ship.vy +=
+          (0.25 + Math.sin(ship.life * 1.7 + ship.phase) * 0.05) *
+          (-ship.y + 0.28) *
+          dt;
+      }
+      ship.vy *= Math.pow(0.08, dt);
+      ship.y += ship.vy * dt;
+      ship.y = Math.max(0.08, Math.min(0.52, ship.y));
+      ship.x += ship.vx * dt;
+      ship.angle +=
+        (Math.max(-0.35, Math.min(0.35, ship.vy * 8)) - ship.angle) *
+        Math.min(1, dt * 4);
+      for (
+        let escortIndex = 0;
+        escortIndex < ship.escorts.length;
+        escortIndex++
+      ) {
+        const escort = ship.escorts[escortIndex];
+        if (
+          ship.bossScene &&
+          !escort.destroyed &&
+          ship.life > 3.2 + escortIndex * 1.45
+        ) {
+          escort.destroyed = true;
+          escort.explosion = 0.8;
+        }
+        if (escort.destroyed) {
+          escort.explosion = Math.max(0, (escort.explosion ?? 0) - dt);
+          continue;
+        }
+        const targetX =
+            ship.x -
+            ship.vx * 0.35 +
+            Math.cos(ship.life * 2 + escort.phase) * 0.025,
+          targetY =
+            ship.y +
+            Math.sin(ship.life * 2.4 + escort.phase) * 0.045 +
+            (ship.bossScene ? (escortIndex - 1) * 0.045 : 0);
+        escort.vx += (targetX - escort.x) * 3.5 * dt;
+        escort.vy += (targetY - escort.y) * 3.5 * dt;
+        escort.vx *= Math.pow(0.04, dt);
+        escort.vy *= Math.pow(0.04, dt);
+        escort.x += escort.vx * dt;
+        escort.y += escort.vy * dt;
+      }
+      for (const foe of ship.threats) {
+        const dx = ship.x - foe.x,
+          dy = ship.y - foe.y,
+          n = Math.hypot(dx, dy) || 1;
+        foe.vx += ((dx / n) * 0.018 - foe.vx) * dt;
+        foe.vy +=
+          ((dy / n) * 0.018 +
+            Math.sin(ship.life * 3 + foe.phase) * 0.006 -
+            foe.vy) *
+          dt;
+        foe.x += foe.vx * dt;
+        foe.y += foe.vy * dt;
+        foe.cooldown -= dt;
+        if (foe.cooldown <= 0) {
+          foe.cooldown = 1.1 + Math.random() * 0.8;
+        }
+      }
+      if (ship.life > ship.maxLife || ship.x < -0.22 || ship.x > 1.22)
+        this.backgroundShips.splice(i, 1);
     }
   }
   private updateBackgroundClouds(dt: number) {
-    if (!this.backgroundCloudsReady) { this.backgroundCloudsReady = true; for (let i = 0; i < 7; i++) { const x = .08 + ((i * 37) % 84) / 100, y = .12 + ((i * 61) % 72) / 100; this.backgroundClouds.push({ x, y, vx: 0, vy: 0, homeX: x, homeY: y, radius: .09 + ((i * 17) % 8) / 100, mass: 1 + i * .12, seed: i * 2.7 }); } }
-    for (const c of this.backgroundClouds) { const spring = 1.8 / c.mass; c.vx += (c.homeX - c.x) * spring * dt; c.vy += (c.homeY - c.y) * spring * dt; c.vx *= Math.pow(.18, dt); c.vy *= Math.pow(.18, dt); c.x += c.vx * dt; c.y += c.vy * dt; }
+    if (!this.backgroundCloudsReady) {
+      this.backgroundCloudsReady = true;
+      for (let i = 0; i < 7; i++) {
+        const x = 0.08 + ((i * 37) % 84) / 100,
+          y = 0.12 + ((i * 61) % 72) / 100;
+        this.backgroundClouds.push({
+          x,
+          y,
+          vx: 0,
+          vy: 0,
+          homeX: x,
+          homeY: y,
+          radius: 0.09 + ((i * 17) % 8) / 100,
+          mass: 1 + i * 0.12,
+          seed: i * 2.7,
+        });
+      }
+    }
+    for (const c of this.backgroundClouds) {
+      const spring = 1.8 / c.mass;
+      c.vx += (c.homeX - c.x) * spring * dt;
+      c.vy += (c.homeY - c.y) * spring * dt;
+      c.vx *= Math.pow(0.18, dt);
+      c.vy *= Math.pow(0.18, dt);
+      c.x += c.vx * dt;
+      c.y += c.vy * dt;
+    }
   }
   private update(dt: number) {
-    this.updateDetail(dt); this.updateBackgroundShips(dt); this.updateBackgroundClouds(dt); this.player.x = .5; this.player.y = .5; for (const weapon of this.equippedWeapons) { this.timers[weapon] -= dt; } if (this.hasWeapon('laser') && this.timers.laser <= 0) { this.fireLasers(); this.timers.laser = this.weaponInterval(this.stats.laserInterval); } if (this.hasWeapon('missile') && this.timers.missile <= 0) { this.fireMissiles(); this.timers.missile = this.weaponInterval(this.stats.missileInterval); } if (this.hasWeapon('plasma') && this.timers.plasma <= 0) { if (this.firePlasma()) this.timers.plasma = this.weaponInterval(this.stats.plasmaInterval); else this.timers.plasma = .05; } this.updateDrones(dt); this.updateClouds(dt); if (this.hasWeapon('rail') && this.timers.rail <= 0) { this.fireRail(); this.timers.rail = this.weaponInterval(this.stats.railInterval); } if (this.hasWeapon('flak') && this.timers.flak <= 0) { this.fireFlak(); this.timers.flak = this.weaponInterval(this.stats.flakInterval); } if (this.hasWeapon('tesla') && this.timers.tesla <= 0) { this.fireTesla(); this.timers.tesla = this.weaponInterval(this.stats.teslaInterval); } if (this.hasWeapon('chem') && this.timers.chem <= 0) { this.fireChem(); this.timers.chem = this.weaponInterval(this.stats.chemInterval); } if (this.hasWeapon('flamer') && this.timers.flamer <= 0) { this.fireFlamer(); this.timers.flamer = this.weaponInterval(this.stats.flamerInterval); } if (this.hasWeapon('shield') && this.timers.shield <= 0) { this.shieldPulse(); this.timers.shield = this.stats.shieldPulseInterval; } if (this.stats.healthRegen > 0) this.player.hp = Math.min(this.player.maxHp, this.player.hp + this.stats.healthRegen * dt); this.spawnTimer -= dt; if (!Number.isFinite(this.spawnTimer)) this.spawnTimer = 0; if (this.spawnTimer <= 0 && !this.bossActive && this.waveKills < 8 + this.wave * 2) { this.spawnWaveBug(); this.spawnTimer = this.wave === 1 ? 1.0 : Math.max(.14, 1.0 - (this.wave - 1) * .02); } for (const s of this.shots) { s.age += dt; const eligible = this.canRehome(s.kind); if (s.kind !== 'boss' && eligible) { const current = s.lock && this.bugs.includes(s.lock) ? s.lock : undefined; const speed = Math.hypot(s.vx, s.vy) || 1; const forward = current ? ((current.x - s.x) * s.vx + (current.y - s.y) * s.vy) / (speed * speed) : -1; if (!current || forward < 0) { const target = this.rehomeTarget(s); if (target) s.lock = target; } if (s.lock && this.bugs.includes(s.lock) && (s.homing || !current)) { const dx = s.lock.x - s.x, dy = s.lock.y - s.y, n = Math.hypot(dx, dy) || 1; const shotSpeed = Math.max(.25, speed); s.vx = dx / n * shotSpeed; s.vy = dy / n * shotSpeed; } } else if (s.kind === 'missile' && s.homing) { const target = s.lock && this.bugs.includes(s.lock) ? s.lock : this.nearestIncoming(s.x, s.y); if (target) { const dx = target.x - s.x, dy = target.y - s.y, n = Math.hypot(dx, dy) || 1; const shotSpeed = Math.max(.25, Math.hypot(s.vx, s.vy)); s.vx = dx / n * shotSpeed; s.vy = dy / n * shotSpeed; } } s.x += s.vx * dt; s.y += s.vy * dt; s.damage = s.kind === 'laser' ? this.weaponDamage(this.stats.laserDamage + this.weaponMeter(this.stats.laserDamagePerMeter) * Math.abs(s.vy) * s.age) : s.kind === 'missile' ? this.weaponDamage(this.stats.missileDamage + this.weaponMeter(this.stats.missileDamagePerMeter) * Math.hypot(s.vx, s.vy) * s.age) : s.kind === 'plasma' ? this.weaponDamage(this.stats.plasmaDamage + this.weaponMeter(this.stats.plasmaDamagePerMeter) * Math.hypot(s.vx, s.vy) * s.age) : s.kind === 'rail' ? this.weaponDamage(this.stats.railDamage + this.weaponMeter(this.stats.railDamagePerMeter) * Math.hypot(s.vx, s.vy) * s.age) : s.kind === 'flak' ? this.weaponDamage(this.stats.flakDamage + this.weaponMeter(this.stats.flakDamagePerMeter) * Math.hypot(s.vx, s.vy) * s.age) : s.kind === 'chem' ? this.weaponDamage(this.stats.chemDamage + this.weaponMeter(this.stats.chemDamagePerMeter) * Math.hypot(s.vx, s.vy) * s.age) : s.kind === 'flamer' ? this.weaponDamage(this.stats.flamerDamage + this.weaponMeter(this.stats.flamerDamagePerMeter) * Math.hypot(s.vx, s.vy) * s.age) : this.weaponDamage(this.stats.droneDamage + this.weaponMeter(this.stats.droneDamagePerMeter) * Math.hypot(s.vx, s.vy) * s.age); if (s.kind === 'missile' && Math.random() < .4 && this.effects.length < FX_MAX) this.effects.push({ x: s.x, y: s.y, vx: (Math.random() - .5) * .01, vy: (Math.random() - .5) * .01, life: .35, maxLife: .35, size: .014, color: '#ffb066' }); if (s.kind === 'plasma' && Math.random() < .5 && this.effects.length < FX_MAX) this.effects.push({ x: s.x, y: s.y, vx: (Math.random() - .5) * .01, vy: (Math.random() - .5) * .01, life: .3, maxLife: .3, size: .012, color: '#ff9df0' }); if (s.kind === 'chem' && Math.random() < .4 && this.effects.length < FX_MAX) this.effects.push({ x: s.x, y: s.y, vx: (Math.random() - .5) * .01, vy: (Math.random() - .5) * .01, life: .3, maxLife: .3, size: .012, color: '#b6ff4d' }); if (s.kind === 'flak' && Math.random() < .35 && this.effects.length < FX_MAX) this.effects.push({ x: s.x, y: s.y, vx: (Math.random() - .5) * .01, vy: (Math.random() - .5) * .01, life: .25, maxLife: .25, size: .01, color: '#ff8a5d' }); if (s.kind === 'rail' && Math.random() < .3 && this.effects.length < FX_MAX) this.effects.push({ x: s.x, y: s.y, vx: (Math.random() - .5) * .01, vy: (Math.random() - .5) * .01, life: .22, maxLife: .22, size: .009, color: '#e0ff70' }); }
-    let fxWrite = 0; const fx = this.effects; for (let i = 0; i < fx.length; i++) { const e = fx[i]; e.x += e.vx * dt; e.y += e.vy * dt; e.life -= dt; if (e.life > 0) fx[fxWrite++] = e; } fx.length = fxWrite; for (let i = this.shots.length - 1; i >= 0; i--) { const s = this.shots[i]; if (s.kind === 'boss' && Math.hypot(s.x - this.player.x, s.y - this.player.y) < s.radius + .035) { this.damagePlayer(s.damage); this.shots.splice(i, 1); } }
-    let shotWrite = 0; const shots = this.shots; for (let i = 0; i < shots.length; i++) { const s = shots[i]; const alive = s.kind === 'boss' ? s.age < s.range && s.x > -.35 && s.x < 1.35 && s.y > -.35 && s.y < 1.35 : s.age < s.range && s.x > -.2 && s.x < 1.2 && s.y > -.2 && s.y < 1.2; if (alive) shots[shotWrite++] = s; } shots.length = shotWrite; for (const b of this.bugs) { if (b.boss) this.keepBossInArena(b); const dx = this.player.x - b.x, dy = this.player.y - b.y, d = Math.hypot(dx, dy), contact = b.size + .055; if (b.ally) { b.lockedOn = false; const target = this.nearestEnemyForAlly(b); if (target) { const ax = target.x - b.x, ay = target.y - b.y, an = Math.hypot(ax, ay) || 1; b.x += ax / an * Math.max(b.speed, .16) * dt; b.y += ay / an * Math.max(b.speed, .16) * dt; if (Math.hypot(target.x - b.x, target.y - b.y) < b.size + target.size) { this.kamikazeExplode(b); b.hp = 0; } } continue;     } if ((b.knockbackTimer ?? 0) > 0) { b.knockbackTimer = Math.max(0, (b.knockbackTimer ?? 0) - dt); b.lockedOn = false; b.x += (b.knockbackVx ?? 0) * dt; b.y += (b.knockbackVy ?? 0) * dt; if (d <= contact) { b.contactDamageTimer = (b.contactDamageTimer ?? 0) - dt; if (b.contactDamageTimer <= 0) { this.damagePlayer(Math.ceil(b.attack)); b.contactDamageTimer = .65; } } } else if ((b.stunTimer ?? 0) > 0) { b.stunTimer = Math.max(0, (b.stunTimer ?? 0) - dt); b.lockedOn = false; if (d <= contact) { b.contactDamageTimer = (b.contactDamageTimer ?? 0) - dt; if (b.contactDamageTimer <= 0) { this.damagePlayer(Math.ceil(b.attack)); b.contactDamageTimer = .65; } } } else if (!b.lockedOn && d > contact) { const step = Math.min(d - contact, b.speed * dt); b.x += dx / d * step; b.y += dy / d * step; } else { const shieldVisible = this.timers.shield > this.stats.shieldPulseInterval - this.stats.shieldVisibleFor; if (shieldVisible && this.stats.shieldKnockback > 0 && d < this.stats.shieldRadius + b.size + .02) { b.lockedOn = false; const pushDx = b.x - this.player.x, pushDy = b.y - this.player.y, pushN = Math.hypot(pushDx, pushDy) || 1, push = this.stats.shieldKnockback * dt * 3; const knockbackFactor = 1 - this.controlResistance(b, 'knockback'); b.knockbackTimer = knockbackFactor > .05 ? (this.isInertial(b) ? .05 : .32) : 0; b.knockbackVx = pushDx / pushN * this.stats.shieldKnockback * (this.isInertial(b) ? .55 : 3.5) * knockbackFactor; b.knockbackVy = pushDy / pushN * this.stats.shieldKnockback * (this.isInertial(b) ? .55 : 3.5) * knockbackFactor; b.x += pushDx / pushN * push * knockbackFactor; b.y += pushDy / pushN * push * knockbackFactor; } else { b.lockedOn = true; b.contactDamageTimer = (b.contactDamageTimer ?? 0) - dt; if (b.contactDamageTimer <= 0) { this.damagePlayer(Math.ceil(b.attack)); if (this.stats.shieldThorns > 0) this.damageBug(b, b.attack * this.stats.shieldThorns); b.contactDamageTimer = .65; } } } if ((b.chemDotTimer ?? 0) > 0 && !b.ally) { b.chemDotTimer = Math.max(0, (b.chemDotTimer ?? 0) - dt); b.chemSpreadCooldown = Math.max(0, (b.chemSpreadCooldown ?? 0) - dt); const dot = Math.max(1, this.weaponDamage(this.stats.chemDamage * .18) - b.armor) * dt; this.damageBug(b, dot); if ((b.chemSpreadCooldown ?? 0) <= 0) { for (const nearby of this.bugs) { if (nearby === b || nearby.ally || nearby.boss || (nearby.chemDotTimer ?? 0) > 0) continue; if (Math.hypot(nearby.x - b.x, nearby.y - b.y) <= this.weaponRange(this.stats.chemSpreadDistance)) { nearby.chemDotTimer = 6; nearby.chemSpreadCooldown = .35; break; } } b.chemSpreadCooldown = .35; } } if ((b.burnTimer ?? 0) > 0 && !b.ally) { b.burnTimer = Math.max(0, (b.burnTimer ?? 0) - dt); const heat = b.burnStacks ?? 0; if (heat <= 0 || b.burnTimer <= 0) { b.burnTimer = 0; b.burnStacks = 0; } else { const heatDps = this.weaponDamage(this.stats.flamerDamage) * heat * .5; const dot = Math.max(1, heatDps - b.armor) * dt; this.damageBug(b, dot); if (this.stats.lifesteal > 0) this.player.hp = Math.min(this.player.maxHp, this.player.hp + dot * this.stats.lifesteal); const aura = this.stats.flamerSplash * this.stats.projectileSize; for (const o of this.bugs) { if (o === b || o.ally || o.hp <= 0) continue; if (Math.hypot(o.x - b.x, o.y - b.y) < aura + o.size) this.damageBug(o, Math.max(1, heatDps - o.armor) * dt); } if (Math.random() < .3 && this.effects.length < FX_MAX - FX_HEADROOM) this.effects.push({ x: b.x + (Math.random() - .5) * b.size, y: b.y + (Math.random() - .5) * b.size, vx: (Math.random() - .5) * .03, vy: -.04 - Math.random() * .04, life: .3, maxLife: .3, size: .012, color: Math.random() < .5 ? '#ff9d4d' : '#ffc46b' }); } } this.gravityWake(b, dt); if (b.regen > 0) b.hp = Math.min(b.maxHp, b.hp + b.regen * dt); if (b.hueWarp) b.hueWarp = Math.max(0, b.hueWarp - dt); } for (let i = this.bugs.length - 1; i >= 0; i--) { const b = this.bugs[i]; if (b.hp <= 0) { this.killBug(i); continue; } if (!b.lockedOn && !b.boss && (b.x < -.2 || b.x > 1.2 || b.y < -.2 || b.y > 1.2)) { this.bugs.splice(i, 1); continue; } for (let j = this.shots.length - 1; j >= 0; j--) { const s = this.shots[j]; if (Math.hypot(s.x - b.x, s.y - b.y) < b.size + s.radius) { let damage = Math.max(1, s.damage - b.armor); const critChance = this.weaponCritChance(s.kind === 'laser' ? this.stats.laserCritChance : s.kind === 'missile' ? this.stats.missileCritChance : s.kind === 'plasma' ? this.stats.plasmaCritChance : s.kind === 'rail' ? this.stats.railCritChance : s.kind === 'flak' ? this.stats.flakCritChance : s.kind === 'chem' ? this.stats.chemCritChance : s.kind === 'flamer' ? this.stats.flamerCritChance : this.stats.droneCritChance); const critFactor = this.weaponCritFactor(s.kind === 'laser' ? this.stats.laserCritFactor : s.kind === 'missile' ? this.stats.missileCritFactor : s.kind === 'plasma' ? this.stats.plasmaCritFactor : s.kind === 'rail' ? this.stats.railCritFactor : s.kind === 'flak' ? this.stats.flakCritFactor : s.kind === 'chem' ? this.stats.chemCritFactor : s.kind === 'flamer' ? this.stats.flamerCritFactor : this.stats.droneCritFactor); if (Math.random() < critChance) { damage *= critFactor; b.hueWarp = .45; } if (b.ally) continue; this.damageBug(b, damage); if (s.kind === 'rail' && !b.ally && Math.random() < Math.min(.25, this.secondaryEffect(this.stats.railKnockbackChance))) { const push = this.weaponRange(this.stats.railKnockback) * dt * 60, dx = b.x - this.player.x, dy = b.y - this.player.y, n = Math.hypot(dx, dy) || 1; const knockbackFactor = 1 - this.controlResistance(b, 'knockback'); b.x += dx / n     * push * knockbackFactor; b.y += dy / n * push * knockbackFactor; if (b.boss) this.keepBossInArena(b); b.lockedOn = false; } if (this.stats.lifesteal > 0) this.player.hp = Math.min(this.player.maxHp, this.player.hp + damage * this.stats.lifesteal); if (s.kind === 'plasma' && this.canPlasmaConvert(b) && Math.random() < this.secondaryEffect(this.stats.plasmaConvertChance) * this.controlEffectiveness()) { if (this.convertedEnemyCount() >= this.stats.plasmaMaxConversions + this.stats.bounceBonus) this.removeOldestConverted(); b.ally = true; b.conversionOrder = ++this.conversionSequence; b.lockedOn = false; b.trait = 'charger'; b.attack = Math.max(b.attack * 1.5, s.damage * .8); b.hp = Math.max(1, b.hp); this.status = 'Plasma conversion: allied kamikaze acquired!'; this.effects.push({ x: b.x, y: b.y, vx: 0, vy: 0, life: .35, maxLife: .35, size: b.size * 1.8, color: '#a66cff', kind: 'ring', len: b.size * 2 }); this.shots.splice(j, 1); break; } if (s.kind === 'flamer') {
-          b.burnTimer = Math.max(b.burnTimer ?? 0, this.stats.flamerBurnDuration);
-          b.burnStacks = Math.min(5, (b.burnStacks ?? 0) + 1);
-          const flameRadius = s.splash;
-          if (this.effects.length < FX_MAX) this.effects.push({ x: s.x, y: s.y, vx: 0, vy: 0, life: .3, maxLife: .3, size: .012, color: '#ff9d4d', kind: 'ring', len: flameRadius });
-          for (const o of this.bugs) {
-            if (o === b || o.ally || o.hp <= 0) continue;
-            if (Math.hypot(o.x - s.x, o.y - s.y) < flameRadius + o.size) {
-              this.damageBug(o, Math.max(1, s.damage - o.armor));
-              o.burnTimer = Math.max(o.burnTimer ?? 0, this.stats.flamerBurnDuration);
-              o.burnStacks = Math.min(5, (o.burnStacks ?? 0) + 1);
+    this.updateDetail(dt);
+    this.updateBackgroundShips(dt);
+    this.updateBackgroundClouds(dt);
+    this.player.x = 0.5;
+    this.player.y = 0.5;
+    for (const weapon of this.equippedWeapons) {
+      this.timers[weapon] -= dt;
+    }
+    if (this.hasWeapon("laser") && this.timers.laser <= 0) {
+      this.fireLasers();
+      this.timers.laser = this.weaponInterval(this.stats.laserInterval);
+    }
+    if (this.hasWeapon("missile") && this.timers.missile <= 0) {
+      this.fireMissiles();
+      this.timers.missile = this.weaponInterval(this.stats.missileInterval);
+    }
+    if (this.hasWeapon("plasma") && this.timers.plasma <= 0) {
+      if (this.firePlasma())
+        this.timers.plasma = this.weaponInterval(this.stats.plasmaInterval);
+      else this.timers.plasma = 0.05;
+    }
+    this.updateDrones(dt);
+    this.updateClouds(dt);
+    if (this.hasWeapon("rail") && this.timers.rail <= 0) {
+      this.fireRail();
+      this.timers.rail = this.weaponInterval(this.stats.railInterval);
+    }
+    if (this.hasWeapon("flak") && this.timers.flak <= 0) {
+      this.fireFlak();
+      this.timers.flak = this.weaponInterval(this.stats.flakInterval);
+    }
+    if (this.hasWeapon("tesla") && this.timers.tesla <= 0) {
+      this.fireTesla();
+      this.timers.tesla = this.weaponInterval(this.stats.teslaInterval);
+    }
+    if (this.hasWeapon("chem") && this.timers.chem <= 0) {
+      this.fireChem();
+      this.timers.chem = this.weaponInterval(this.stats.chemInterval);
+    }
+    if (this.hasWeapon("flamer") && this.timers.flamer <= 0) {
+      this.fireFlamer();
+      this.timers.flamer = this.weaponInterval(this.stats.flamerInterval);
+    }
+    if (this.hasWeapon("shield") && this.timers.shield <= 0) {
+      this.shieldPulse();
+      this.timers.shield = this.stats.shieldPulseInterval;
+    }
+    if (this.stats.healthRegen > 0)
+      this.player.hp = Math.min(
+        this.player.maxHp,
+        this.player.hp + this.stats.healthRegen * dt,
+      );
+    this.spawnTimer -= dt;
+    if (!Number.isFinite(this.spawnTimer)) this.spawnTimer = 0;
+    if (
+      this.spawnTimer <= 0 &&
+      !this.bossActive &&
+      this.waveKills < this.waveQuota()
+    ) {
+      this.spawnWaveBug();
+      this.spawnTimer =
+        this.wave === 1 ? 1.0 : Math.max(0.14, 1.0 - (this.wave - 1) * 0.02);
+    }
+    for (const s of this.shots) {
+      s.age += dt;
+      const eligible = this.canRehome(s.kind);
+      if (s.kind !== "boss" && eligible) {
+        const current =
+          s.lock && this.bugs.includes(s.lock) ? s.lock : undefined;
+        const speed = Math.hypot(s.vx, s.vy) || 1;
+        const forward = current
+          ? ((current.x - s.x) * s.vx + (current.y - s.y) * s.vy) /
+            (speed * speed)
+          : -1;
+        if (!current || forward < 0) {
+          const target = this.rehomeTarget(s);
+          if (target) s.lock = target;
+        }
+        if (s.lock && this.bugs.includes(s.lock) && (s.homing || !current)) {
+          const dx = s.lock.x - s.x,
+            dy = s.lock.y - s.y,
+            n = Math.hypot(dx, dy) || 1;
+          const shotSpeed = Math.max(0.25, speed);
+          s.vx = (dx / n) * shotSpeed;
+          s.vy = (dy / n) * shotSpeed;
+        }
+      } else if (s.kind === "missile" && s.homing) {
+        const target =
+          s.lock && this.bugs.includes(s.lock)
+            ? s.lock
+            : this.nearestIncoming(s.x, s.y);
+        if (target) {
+          const dx = target.x - s.x,
+            dy = target.y - s.y,
+            n = Math.hypot(dx, dy) || 1;
+          const shotSpeed = Math.max(0.25, Math.hypot(s.vx, s.vy));
+          s.vx = (dx / n) * shotSpeed;
+          s.vy = (dy / n) * shotSpeed;
+        }
+      }
+      s.x += s.vx * dt;
+      s.y += s.vy * dt;
+      s.damage =
+        s.kind === "laser"
+          ? this.weaponDamage(
+              this.stats.laserDamage +
+                this.weaponMeter(this.stats.laserDamagePerMeter) *
+                  Math.abs(s.vy) *
+                  s.age,
+            )
+          : s.kind === "missile"
+            ? this.weaponDamage(
+                this.stats.missileDamage +
+                  this.weaponMeter(this.stats.missileDamagePerMeter) *
+                    Math.hypot(s.vx, s.vy) *
+                    s.age,
+              )
+            : s.kind === "plasma"
+              ? this.weaponDamage(
+                  this.stats.plasmaDamage +
+                    this.weaponMeter(this.stats.plasmaDamagePerMeter) *
+                      Math.hypot(s.vx, s.vy) *
+                      s.age,
+                )
+              : s.kind === "rail"
+                ? this.weaponDamage(
+                    this.stats.railDamage +
+                      this.weaponMeter(this.stats.railDamagePerMeter) *
+                        Math.hypot(s.vx, s.vy) *
+                        s.age,
+                  )
+                : s.kind === "flak"
+                  ? this.weaponDamage(
+                      this.stats.flakDamage +
+                        this.weaponMeter(this.stats.flakDamagePerMeter) *
+                          Math.hypot(s.vx, s.vy) *
+                          s.age,
+                    )
+                  : s.kind === "chem"
+                    ? this.weaponDamage(
+                        this.stats.chemDamage +
+                          this.weaponMeter(this.stats.chemDamagePerMeter) *
+                            Math.hypot(s.vx, s.vy) *
+                            s.age,
+                      )
+                    : s.kind === "flamer"
+                      ? this.weaponDamage(
+                          this.stats.flamerDamage +
+                            this.weaponMeter(this.stats.flamerDamagePerMeter) *
+                              Math.hypot(s.vx, s.vy) *
+                              s.age,
+                        )
+                      : this.weaponDamage(
+                          this.stats.droneDamage +
+                            this.weaponMeter(this.stats.droneDamagePerMeter) *
+                              Math.hypot(s.vx, s.vy) *
+                              s.age,
+                        );
+      if (
+        s.kind === "missile" &&
+        Math.random() < 0.4 &&
+        this.effects.length < FX_MAX
+      )
+        this.effects.push({
+          x: s.x,
+          y: s.y,
+          vx: (Math.random() - 0.5) * 0.01,
+          vy: (Math.random() - 0.5) * 0.01,
+          life: 0.35,
+          maxLife: 0.35,
+          size: 0.014,
+          color: "#ffb066",
+        });
+      if (
+        s.kind === "plasma" &&
+        Math.random() < 0.5 &&
+        this.effects.length < FX_MAX
+      )
+        this.effects.push({
+          x: s.x,
+          y: s.y,
+          vx: (Math.random() - 0.5) * 0.01,
+          vy: (Math.random() - 0.5) * 0.01,
+          life: 0.3,
+          maxLife: 0.3,
+          size: 0.012,
+          color: "#ff9df0",
+        });
+      if (
+        s.kind === "chem" &&
+        Math.random() < 0.4 &&
+        this.effects.length < FX_MAX
+      )
+        this.effects.push({
+          x: s.x,
+          y: s.y,
+          vx: (Math.random() - 0.5) * 0.01,
+          vy: (Math.random() - 0.5) * 0.01,
+          life: 0.3,
+          maxLife: 0.3,
+          size: 0.012,
+          color: "#b6ff4d",
+        });
+      if (
+        s.kind === "flak" &&
+        Math.random() < 0.35 &&
+        this.effects.length < FX_MAX
+      )
+        this.effects.push({
+          x: s.x,
+          y: s.y,
+          vx: (Math.random() - 0.5) * 0.01,
+          vy: (Math.random() - 0.5) * 0.01,
+          life: 0.25,
+          maxLife: 0.25,
+          size: 0.01,
+          color: "#ff8a5d",
+        });
+      if (
+        s.kind === "rail" &&
+        Math.random() < 0.3 &&
+        this.effects.length < FX_MAX
+      )
+        this.effects.push({
+          x: s.x,
+          y: s.y,
+          vx: (Math.random() - 0.5) * 0.01,
+          vy: (Math.random() - 0.5) * 0.01,
+          life: 0.22,
+          maxLife: 0.22,
+          size: 0.009,
+          color: "#e0ff70",
+        });
+    }
+    let fxWrite = 0;
+    const fx = this.effects;
+    for (let i = 0; i < fx.length; i++) {
+      const e = fx[i];
+      e.x += e.vx * dt;
+      e.y += e.vy * dt;
+      e.life -= dt;
+      if (e.life > 0) fx[fxWrite++] = e;
+    }
+    fx.length = fxWrite;
+    for (let i = this.shots.length - 1; i >= 0; i--) {
+      const s = this.shots[i];
+      if (
+        s.kind === "boss" &&
+        Math.hypot(s.x - this.player.x, s.y - this.player.y) < s.radius + 0.035
+      ) {
+        this.damagePlayer(s.damage);
+        this.shots.splice(i, 1);
+      }
+    }
+    let shotWrite = 0;
+    const shots = this.shots;
+    for (let i = 0; i < shots.length; i++) {
+      const s = shots[i];
+      const alive =
+        s.kind === "boss"
+          ? s.age < s.range &&
+            s.x > -0.35 &&
+            s.x < 1.35 &&
+            s.y > -0.35 &&
+            s.y < 1.35
+          : s.age < s.range &&
+            s.x > -0.2 &&
+            s.x < 1.2 &&
+            s.y > -0.2 &&
+            s.y < 1.2;
+      if (alive) shots[shotWrite++] = s;
+    }
+    shots.length = shotWrite;
+    for (const b of this.bugs) {
+      if (b.boss) this.keepBossInArena(b);
+      const dx = this.player.x - b.x,
+        dy = this.player.y - b.y,
+        d = Math.hypot(dx, dy),
+        contact = b.size + 0.055;
+      if (b.ally) {
+        b.lockedOn = false;
+        const target = this.nearestEnemyForAlly(b);
+        if (target) {
+          const ax = target.x - b.x,
+            ay = target.y - b.y,
+            an = Math.hypot(ax, ay) || 1;
+          b.x += (ax / an) * Math.max(b.speed, 0.16) * dt;
+          b.y += (ay / an) * Math.max(b.speed, 0.16) * dt;
+          if (
+            Math.hypot(target.x - b.x, target.y - b.y) <
+            b.size + target.size
+          ) {
+            this.kamikazeExplode(b);
+            b.hp = 0;
+          }
+        }
+        continue;
+      }
+      if ((b.knockbackTimer ?? 0) > 0) {
+        b.knockbackTimer = Math.max(0, (b.knockbackTimer ?? 0) - dt);
+        b.lockedOn = false;
+        b.x += (b.knockbackVx ?? 0) * dt;
+        b.y += (b.knockbackVy ?? 0) * dt;
+        if (d <= contact) {
+          b.contactDamageTimer = (b.contactDamageTimer ?? 0) - dt;
+          if (b.contactDamageTimer <= 0) {
+            this.damagePlayer(Math.ceil(b.attack));
+            b.contactDamageTimer = 0.65;
+          }
+        }
+      } else if ((b.stunTimer ?? 0) > 0) {
+        b.stunTimer = Math.max(0, (b.stunTimer ?? 0) - dt);
+        b.lockedOn = false;
+        if (d <= contact) {
+          b.contactDamageTimer = (b.contactDamageTimer ?? 0) - dt;
+          if (b.contactDamageTimer <= 0) {
+            this.damagePlayer(Math.ceil(b.attack));
+            b.contactDamageTimer = 0.65;
+          }
+        }
+      } else if (!b.lockedOn && d > contact) {
+        const step = Math.min(d - contact, b.speed * dt);
+        b.x += (dx / d) * step;
+        b.y += (dy / d) * step;
+      } else {
+        const shieldVisible =
+          this.timers.shield >
+          this.stats.shieldPulseInterval - this.stats.shieldVisibleFor;
+        if (
+          shieldVisible &&
+          this.stats.shieldKnockback > 0 &&
+          d < this.stats.shieldRadius + b.size + 0.02
+        ) {
+          b.lockedOn = false;
+          const pushDx = b.x - this.player.x,
+            pushDy = b.y - this.player.y,
+            pushN = Math.hypot(pushDx, pushDy) || 1,
+            push = this.stats.shieldKnockback * dt * 3;
+          const knockbackFactor = 1 - this.controlResistance(b, "knockback");
+          b.knockbackTimer =
+            knockbackFactor > 0.05 ? (this.isInertial(b) ? 0.05 : 0.32) : 0;
+          b.knockbackVx =
+            (pushDx / pushN) *
+            this.stats.shieldKnockback *
+            (this.isInertial(b) ? 0.55 : 3.5) *
+            knockbackFactor;
+          b.knockbackVy =
+            (pushDy / pushN) *
+            this.stats.shieldKnockback *
+            (this.isInertial(b) ? 0.55 : 3.5) *
+            knockbackFactor;
+          b.x += (pushDx / pushN) * push * knockbackFactor;
+          b.y += (pushDy / pushN) * push * knockbackFactor;
+        } else {
+          b.lockedOn = true;
+          b.contactDamageTimer = (b.contactDamageTimer ?? 0) - dt;
+          if (b.contactDamageTimer <= 0) {
+            this.damagePlayer(Math.ceil(b.attack));
+            if (this.stats.shieldThorns > 0)
+              this.damageBug(b, b.attack * this.stats.shieldThorns);
+            b.contactDamageTimer = 0.65;
+          }
+        }
+      }
+      if ((b.chemDotTimer ?? 0) > 0 && !b.ally) {
+        b.chemDotTimer = Math.max(0, (b.chemDotTimer ?? 0) - dt);
+        b.chemSpreadCooldown = Math.max(0, (b.chemSpreadCooldown ?? 0) - dt);
+        const dot =
+          Math.max(
+            1,
+            this.weaponDamage(this.stats.chemDamage * 0.18) - b.armor,
+          ) * dt;
+        this.damageBug(b, dot);
+        if ((b.chemSpreadCooldown ?? 0) <= 0) {
+          for (const nearby of this.bugs) {
+            if (
+              nearby === b ||
+              nearby.ally ||
+              nearby.boss ||
+              (nearby.chemDotTimer ?? 0) > 0
+            )
+              continue;
+            if (
+              Math.hypot(nearby.x - b.x, nearby.y - b.y) <=
+              this.weaponRange(this.stats.chemSpreadDistance)
+            ) {
+              nearby.chemDotTimer = 6;
+              nearby.chemSpreadCooldown = 0.35;
+              break;
             }
           }
-          if (s.bounces > 0) {
-            const hitTargets = s.hitTargets ?? (s.hitTargets = []);
-            if (!hitTargets.includes(b)) hitTargets.push(b);
-            let next: SpaceBug | undefined;
-            let distance = this.weaponRange(this.stats.flamerRange);
+          b.chemSpreadCooldown = 0.35;
+        }
+      }
+      if ((b.burnTimer ?? 0) > 0 && !b.ally) {
+        b.burnTimer = Math.max(0, (b.burnTimer ?? 0) - dt);
+        const heat = b.burnStacks ?? 0;
+        if (heat <= 0 || b.burnTimer <= 0) {
+          b.burnTimer = 0;
+          b.burnStacks = 0;
+        } else {
+          const heatDps =
+            this.weaponDamage(this.stats.flamerDamage) * heat * 0.5;
+          const dot = Math.max(1, heatDps - b.armor) * dt;
+          this.damageBug(b, dot);
+          if (this.stats.lifesteal > 0)
+            this.player.hp = Math.min(
+              this.player.maxHp,
+              this.player.hp + dot * this.stats.lifesteal,
+            );
+          const aura = this.stats.flamerSplash * this.stats.projectileSize;
+          for (const o of this.bugs) {
+            if (o === b || o.ally || o.hp <= 0) continue;
+            if (Math.hypot(o.x - b.x, o.y - b.y) < aura + o.size)
+              this.damageBug(o, Math.max(1, heatDps - o.armor) * dt);
+          }
+          if (Math.random() < 0.3 && this.effects.length < FX_MAX - FX_HEADROOM)
+            this.effects.push({
+              x: b.x + (Math.random() - 0.5) * b.size,
+              y: b.y + (Math.random() - 0.5) * b.size,
+              vx: (Math.random() - 0.5) * 0.03,
+              vy: -0.04 - Math.random() * 0.04,
+              life: 0.3,
+              maxLife: 0.3,
+              size: 0.012,
+              color: Math.random() < 0.5 ? "#ff9d4d" : "#ffc46b",
+            });
+        }
+      }
+      this.gravityWake(b, dt);
+      if (b.regen > 0) b.hp = Math.min(b.maxHp, b.hp + b.regen * dt);
+      if (b.hueWarp) b.hueWarp = Math.max(0, b.hueWarp - dt);
+    }
+    for (let i = this.bugs.length - 1; i >= 0; i--) {
+      const b = this.bugs[i];
+      if (b.hp <= 0) {
+        this.killBug(i);
+        continue;
+      }
+      if (
+        !b.lockedOn &&
+        !b.boss &&
+        (b.x < -0.2 || b.x > 1.2 || b.y < -0.2 || b.y > 1.2)
+      ) {
+        this.bugs.splice(i, 1);
+        continue;
+      }
+      for (let j = this.shots.length - 1; j >= 0; j--) {
+        const s = this.shots[j];
+        if (Math.hypot(s.x - b.x, s.y - b.y) < b.size + s.radius) {
+          let damage = Math.max(1, s.damage - b.armor);
+          const critChance = this.weaponCritChance(
+            s.kind === "laser"
+              ? this.stats.laserCritChance
+              : s.kind === "missile"
+                ? this.stats.missileCritChance
+                : s.kind === "plasma"
+                  ? this.stats.plasmaCritChance
+                  : s.kind === "rail"
+                    ? this.stats.railCritChance
+                    : s.kind === "flak"
+                      ? this.stats.flakCritChance
+                      : s.kind === "chem"
+                        ? this.stats.chemCritChance
+                        : s.kind === "flamer"
+                          ? this.stats.flamerCritChance
+                          : this.stats.droneCritChance,
+          );
+          const critFactor = this.weaponCritFactor(
+            s.kind === "laser"
+              ? this.stats.laserCritFactor
+              : s.kind === "missile"
+                ? this.stats.missileCritFactor
+                : s.kind === "plasma"
+                  ? this.stats.plasmaCritFactor
+                  : s.kind === "rail"
+                    ? this.stats.railCritFactor
+                    : s.kind === "flak"
+                      ? this.stats.flakCritFactor
+                      : s.kind === "chem"
+                        ? this.stats.chemCritFactor
+                        : s.kind === "flamer"
+                          ? this.stats.flamerCritFactor
+                          : this.stats.droneCritFactor,
+          );
+          if (Math.random() < critChance) {
+            damage *= critFactor;
+            b.hueWarp = 0.45;
+          }
+          if (b.ally) continue;
+          this.damageBug(b, damage);
+          if (
+            s.kind === "rail" &&
+            !b.ally &&
+            Math.random() <
+              Math.min(
+                0.25,
+                this.secondaryEffect(this.stats.railKnockbackChance),
+              )
+          ) {
+            const push = this.weaponRange(this.stats.railKnockback) * dt * 60,
+              dx = b.x - this.player.x,
+              dy = b.y - this.player.y,
+              n = Math.hypot(dx, dy) || 1;
+            const knockbackFactor = 1 - this.controlResistance(b, "knockback");
+            b.x += (dx / n) * push * knockbackFactor;
+            b.y += (dy / n) * push * knockbackFactor;
+            if (b.boss) this.keepBossInArena(b);
+            b.lockedOn = false;
+          }
+          if (this.stats.lifesteal > 0)
+            this.player.hp = Math.min(
+              this.player.maxHp,
+              this.player.hp + damage * this.stats.lifesteal,
+            );
+          if (
+            s.kind === "plasma" &&
+            this.canPlasmaConvert(b) &&
+            Math.random() <
+              this.secondaryEffect(this.stats.plasmaConvertChance) *
+                this.controlEffectiveness()
+          ) {
+            if (
+              this.convertedEnemyCount() >=
+              this.stats.plasmaMaxConversions + this.stats.bounceBonus
+            )
+              this.removeOldestConverted();
+            b.ally = true;
+            b.conversionOrder = ++this.conversionSequence;
+            b.lockedOn = false;
+            b.trait = "charger";
+            b.attack = Math.max(b.attack * 1.5, s.damage * 0.8);
+            b.hp = Math.max(1, b.hp);
+            this.status = "Plasma conversion: allied kamikaze acquired!";
+            this.effects.push({
+              x: b.x,
+              y: b.y,
+              vx: 0,
+              vy: 0,
+              life: 0.35,
+              maxLife: 0.35,
+              size: b.size * 1.8,
+              color: "#a66cff",
+              kind: "ring",
+              len: b.size * 2,
+            });
+            this.shots.splice(j, 1);
+            break;
+          }
+          if (s.kind === "flamer") {
+            b.burnTimer = Math.max(
+              b.burnTimer ?? 0,
+              this.stats.flamerBurnDuration,
+            );
+            b.burnStacks = Math.min(5, (b.burnStacks ?? 0) + 1);
+            const flameRadius = s.splash;
+            if (this.effects.length < FX_MAX)
+              this.effects.push({
+                x: s.x,
+                y: s.y,
+                vx: 0,
+                vy: 0,
+                life: 0.3,
+                maxLife: 0.3,
+                size: 0.012,
+                color: "#ff9d4d",
+                kind: "ring",
+                len: flameRadius,
+              });
             for (const o of this.bugs) {
-              if (o === b || hitTargets.includes(o) || o.ally || o.hp <= 0) continue;
-              const d = Math.hypot(o.x - s.x, o.y - s.y);
-              if (d <= distance) { distance = d; next = o; }
+              if (o === b || o.ally || o.hp <= 0) continue;
+              if (Math.hypot(o.x - s.x, o.y - s.y) < flameRadius + o.size) {
+                this.damageBug(o, Math.max(1, s.damage - o.armor));
+                o.burnTimer = Math.max(
+                  o.burnTimer ?? 0,
+                  this.stats.flamerBurnDuration,
+                );
+                o.burnStacks = Math.min(5, (o.burnStacks ?? 0) + 1);
+              }
             }
-            if (next) {
-              s.bounces--;
-              hitTargets.push(next);
-              s.lock = next;
-              const dx = next.x - s.x, dy = next.y - s.y, n = Math.hypot(dx, dy) || 1, speed = Math.max(.3, Math.hypot(s.vx, s.vy));
-              s.vx = dx / n * speed;
-              s.vy = dy / n * speed;
+            if (s.bounces > 0) {
+              const hitTargets = s.hitTargets ?? (s.hitTargets = []);
+              if (!hitTargets.includes(b)) hitTargets.push(b);
+              let next: SpaceBug | undefined;
+              let distance = this.weaponRange(this.stats.flamerRange);
+              for (const o of this.bugs) {
+                if (o === b || hitTargets.includes(o) || o.ally || o.hp <= 0)
+                  continue;
+                const d = Math.hypot(o.x - s.x, o.y - s.y);
+                if (d <= distance) {
+                  distance = d;
+                  next = o;
+                }
+              }
+              if (next) {
+                s.bounces--;
+                hitTargets.push(next);
+                s.lock = next;
+                const dx = next.x - s.x,
+                  dy = next.y - s.y,
+                  n = Math.hypot(dx, dy) || 1,
+                  speed = Math.max(0.3, Math.hypot(s.vx, s.vy));
+                s.vx = (dx / n) * speed;
+                s.vy = (dy / n) * speed;
+              } else this.shots.splice(j, 1);
             } else this.shots.splice(j, 1);
+          } else if (
+            s.kind === "missile" ||
+            s.kind === "flak" ||
+            s.kind === "plasma" ||
+            s.kind === "chem"
+          ) {
+            if (s.kind === "chem") {
+              this.spawnCloud(s.x, s.y);
+            } else if (s.kind === "missile") {
+              this.explode(
+                s.x,
+                s.y,
+                s.damage * s.splash,
+                (this.stats.chemRadius + 0.045) * this.stats.projectileSize,
+                "#ffb066",
+              );
+            } else {
+              this.explode(
+                s.x,
+                s.y,
+                s.damage * s.splash,
+                (s.splash + 0.045) * this.stats.projectileSize,
+                s.kind === "plasma" ? "#ff66dd" : "#ff9d4d",
+              );
+            }
+            if (s.bounces > 0) {
+              let nb: SpaceBug | undefined;
+              let nd = Infinity;
+              for (const ob of this.bugs) {
+                if (ob === b) continue;
+                const d = Math.hypot(ob.x - s.x, ob.y - s.y);
+                if (d < nd) {
+                  nd = d;
+                  nb = ob;
+                }
+              }
+              if (!nb) nb = this.nearestIncoming(s.x, s.y);
+              if (nb) {
+                s.bounces--;
+                s.lock = nb;
+                const dx = nb.x - s.x,
+                  dy = nb.y - s.y,
+                  n = Math.hypot(dx, dy) || 1,
+                  sp = Math.max(0.3, Math.hypot(s.vx, s.vy));
+                s.vx = (dx / n) * sp;
+                s.vy = (dy / n) * sp;
+              }
+            } else {
+              this.shots.splice(j, 1);
+            }
           } else this.shots.splice(j, 1);
-        } else if (s.kind === 'missile' || s.kind === 'flak' || s.kind === 'plasma' || s.kind === 'chem') { if (s.kind === 'chem') { this.spawnCloud(s.x, s.y); } else if (s.kind === 'missile') { this.explode(s.x, s.y, s.damage * s.splash, (this.stats.chemRadius + .045) * this.stats.projectileSize, '#ffb066'); } else { this.explode(s.x, s.y, s.damage * s.splash, (s.splash + .045) * this.stats.projectileSize, s.kind === 'plasma' ? '#ff66dd' : '#ff9d4d'); } if (s.bounces > 0) { let nb: SpaceBug | undefined; let nd = Infinity; for (const ob of this.bugs) { if (ob === b) continue; const d = Math.hypot(ob.x - s.x, ob.y - s.y); if (d < nd) { nd = d; nb = ob; } } if (!nb) nb = this.nearestIncoming(s.x, s.y); if (nb) { s.bounces--; s.lock = nb; const dx = nb.x - s.x, dy = nb.y - s.y, n = Math.hypot(dx, dy) || 1, sp = Math.max(.3, Math.hypot(s.vx, s.vy)); s.vx = dx / n * sp; s.vy = dy / n * sp; } } else { this.shots.splice(j, 1); } } else this.shots.splice(j, 1); if (b.hp <= 0) { this.killBug(i); if (b.trait === 'splitter') this.splitBug(b); } break; } } } if (!this.bossActive && this.waveKills >= 8 + this.wave * 2 && !this.hasLiveHostiles()) this.spawnBoss(); if (this.experience >= this.nextLevel) this.offerUpgrades();
+          if (b.hp <= 0) {
+            this.killBug(i);
+            if (b.trait === "splitter") this.splitBug(b);
+          }
+          break;
+        }
+      }
+    }
+    if (
+      !this.bossActive &&
+      this.waveKills >= this.waveQuota() &&
+      !this.hasLiveHostiles()
+    )
+      this.spawnBoss();
+    if (this.experience >= this.nextLevel) this.offerUpgrades();
   }
-  get shieldCapacity() { return this.stats.shieldMax; }
-  get weaponStatus() { return this.equippedWeapons.map(weapon => ({ name: this.weaponLabel(weapon), interval: weapon === 'laser' ? this.weaponInterval(this.stats.laserInterval) : weapon === 'missile' ? this.weaponInterval(this.stats.missileInterval) : weapon === 'shield' ? this.stats.shieldPulseInterval : weapon === 'plasma' ? this.weaponInterval(this.stats.plasmaInterval) : weapon === 'rail' ? this.weaponInterval(this.stats.railInterval) : weapon === 'flak' ? this.weaponInterval(this.stats.flakInterval) : weapon === 'tesla' ? this.weaponInterval(this.stats.teslaInterval) : weapon === 'chem' ? this.weaponInterval(this.stats.chemInterval) : weapon === 'drone' ? this.weaponInterval(this.stats.droneInterval) : this.weaponInterval(this.stats.flamerInterval), color: weapon === 'laser' ? '#7cf7ff' : weapon === 'missile' ? '#ff9d4d' : weapon === 'shield' ? '#9d8cff' : weapon === 'plasma' ? '#ff66dd' : weapon === 'rail' ? '#e0ff70' : weapon === 'flak' ? '#ff5d5d' : weapon === 'tesla' ? '#9fd8ff' : weapon === 'chem' ? '#b6ff4d' : weapon === 'drone' ? '#7dff9a' : '#ff8c2e' })); } trackWeaponSlot(index: number, slot: { filled: boolean; weapon: string }) { return slot.filled ? slot.weapon : `empty-${index}`; } trackUpgradeSection(index: number, section: { weapon: string }) { return section.weapon; } trackUpgrade(index: number, upgrade: { id: string }) { return upgrade.id; } get weaponSlots() { const status = this.weaponStatus; const slots: { filled: boolean; icon: string; label: string; interval: number; color: string; weapon: string }[] = []; for (let i = 0; i < this.weaponSlotLimit; i++) { const w = this.equippedWeapons[i]; const s = status[i]; if (w && s) { slots.push({ filled: true, icon: this.upgradeIcon(w), label: s.name, interval: s.interval, color: s.color, weapon: w }); } else { slots.push({ filled: false, icon: '+', label: 'Empty slot', interval: 0, color: '', weapon: '' }); } } return slots; } weaponUpgradeLines(weapon: string) { const lines: string[] = []; const n = (id: string) => this.upgradeCount(id); const dmg = n('damage'), spd = n('attack-speed'), cc = n('critical-chance'), cf = n('critical-damage'), sal = n('salvo'), vol = n('volley'), dist = n('distance'), meter = n('damage-distance'), dur = n('secondary-effect'), bou = n('bounces'); if (dmg) lines.push('+' + (dmg * 25) + '% damage (all weapons)'); if (spd) lines.push('~' + Math.round((1 / Math.pow(.82, spd) - 1) * 100) + '% faster attacks (all weapons)'); if (cc) lines.push('+' + (cc * 8) + '% crit chance (all weapons)'); if (cf) lines.push('+' + (cf * 30) + '% crit damage (all weapons)'); if (sal && weapon !== 'tesla' && weapon !== 'shield') lines.push('+' + sal + ' projectile' + (sal > 1 ? 's' : '') + ' (all weapons)'); if (vol && weapon !== 'shield') lines.push('+' + vol + ' target' + (vol > 1 ? 's' : '') + ' per volley (all weapons)'); if (dist) lines.push('+' + (dist * 25) + '% range (all weapons)'); if (meter) lines.push('+' + (meter * 10) + ' damage / meter (all weapons)'); if (dur && (weapon === 'tesla' || weapon === 'chem' || weapon === 'rail' || weapon === 'plasma')) lines.push('+' + (dur * 25) + '% secondary effect'); if (bou && (weapon === 'missile' || weapon === 'tesla')) lines.push('+' + bou + ' bounce' + (bou > 1 ? 's' : '')); if (bou && weapon === 'flamer') lines.push('+' + bou + ' redirect' + (bou > 1 ? 's' : '')); if (bou && weapon === 'laser') lines.push('Pierce +' + bou + ' enem' + (bou > 1 ? 'ies' : 'y')); if (bou && weapon === 'plasma') lines.push('+' + bou + ' conversion capacity'); if (weapon === 'tesla') lines.push((1 + sal) + ' outgoing thunderbolt' + (sal > 0 ? 's' : '')); if (weapon === 'tesla' && n('tesla-range')) lines.push('+' + (n('tesla-range') * 20) + '% arc range'); if (weapon === 'shield') { const sz = n('shield-size'), cap = n('shield-capacity'), k = n('shield-knockback'), du = n('shield-duration'), th = n('shield-thorns'); if (sz) lines.push('+' + (sz * 20) + '% size'); if (cap || dur) lines.push(Math.round(this.shieldCapacityForStacks(cap, dur)) + ' shield strength'); if (k) lines.push('+' + k + ' knockback'); if (du) lines.push('+' + (du * 20) + '% duration'); if (th) lines.push('reflect ' + (th * 15) + '% damage'); } if (!lines.length) lines.push('No upgrades yet'); return lines; } weaponTooltip(weapon: string) { return [this.weaponLabel(weapon as WeaponId), ...this.weaponUpgradeLines(weapon)].join('\n'); } weaponHowItWorks: Record<WeaponId, string> = { laser: 'Piercing beams auto-fire at the nearest bugs. Reliable single-target damage that scales hard with upgrades.', missile: 'Heavy homing rockets with a wide chem-sized blast. Slow but devastating, and bounces chain them between enemies.', plasma: 'Fast bolts with a small burst on impact. Balanced damage and fire rate.', drone: 'Unkillable escorts that orbit you, close in on nearby enemies, and fire reliable short-range sting beams. Upgrade sting damage, speed, volley, and drone numbers.', rail: 'An ultra-fast hail of tiny spikes. Very low damage per hit, overwhelming volume.', flak: 'Short-range scattergun: a wide fan of pellets with splash. Devastating up close, harmless far away.', tesla: 'Tesla fires thunderbolts outward from the ship. Each bolt chains through unhit enemies within arc range, and no target can be hit twice by the same salvo.', shield: 'A defensive pulse that absorbs hits, shoves enemies back, and reflects damage once Thorns is unlocked.', chem: 'Lobs corrosive globs that burst into lingering acid clouds, melting anything that stands inside.', flamer: 'Short-range fire stream with full-strength impact bursts. Hits ignite bugs: the burn stacks up to 5x damage over time while it burns, and burning bugs scorch nearby enemies.' }; weaponDetailLines(w: WeaponId) { const S = this.stats; const r1 = (v: number) => Math.round(v * 100) / 100; const crit = 'Crit ' + Math.round(this.weaponCritChance(S[w + 'CritChance' as keyof typeof S] as number) * 100) + '% ×' + r1(this.weaponCritFactor(S[w + 'CritFactor' as keyof typeof S] as number)); const meter: Partial<Record<WeaponId, number>> = { laser: this.weaponMeter(S.laserDamagePerMeter), missile: this.weaponMeter(S.missileDamagePerMeter), plasma: this.weaponMeter(S.plasmaDamagePerMeter), rail: this.weaponMeter(S.railDamagePerMeter), flak: this.weaponMeter(S.flakDamagePerMeter), flamer: this.weaponMeter(S.flamerDamagePerMeter), chem: this.weaponMeter(S.chemDamagePerMeter), }; const baseDamage = w === 'laser' ? S.laserDamage : w === 'missile' ? S.missileDamage : w === 'plasma' ? S.plasmaDamage : w === 'drone' ? S.droneDamage : w === 'rail' ? S.railDamage : w === 'flak' ? S.flakDamage : w === 'tesla' ? S.teslaDamage : w === 'chem' ? S.chemDamage : w === 'flamer' ? S.flamerDamage : 0; const effectiveDamage = this.weaponDamage(baseDamage); const L: string[] = []; if (Object.prototype.hasOwnProperty.call(meter, w)) { const value = meter[w] ?? 0; L.push('Damage / meter ' + r1(value), value > 0 ? 'Adds this much damage for each meter travelled.' : 'No damage-per-meter upgrade yet.'); } switch (w) { case 'laser': L.push('Damage ' + r1(effectiveDamage), 'Every ' + r1(this.weaponInterval(S.laserInterval)) + 's', this.weaponCount(S.laserCount) + ' beam' + (this.weaponCount(S.laserCount) > 1 ? 's' : ''), 'Pierces ' + S.bounceBonus + ' extra enem' + (S.bounceBonus === 1 ? 'y' : 'ies'), crit); break; case 'missile': L.push('Damage ' + r1(effectiveDamage), 'Every ' + r1(this.weaponInterval(S.missileInterval)) + 's', this.weaponCount(S.missileCount) + ' missile' + (this.weaponCount(S.missileCount) > 1 ? 's' : ''), 'Blast radius ' + r1((S.chemRadius + .045) * S.projectileSize), 'Bounces ' + (S.missileBounces + S.bounceBonus), crit); break; case 'plasma': L.push('Damage ' + r1(effectiveDamage), 'Every ' + r1(this.weaponInterval(S.plasmaInterval)) + 's', this.weaponCount(S.plasmaCount) + ' bolt' + (this.weaponCount(S.plasmaCount) > 1 ? 's' : ''), 'Blast radius ' + r1((S.plasmaSplash + .045) * S.projectileSize), 'Convert chance ' + Math.round(this.secondaryEffect(S.plasmaConvertChance) * 100) + '%', 'Converted allies ' + this.convertedEnemyCount() + '/' + (S.plasmaMaxConversions + S.bounceBonus), crit); break; case 'drone': L.push('Damage ' + r1(effectiveDamage), 'Every ' + r1(this.weaponInterval(S.droneInterval)) + 's', 'Short-range instant sting beam', (S.droneVolley + S.volleyBonus) + ' target' + ((S.droneVolley + S.volleyBonus) > 1 ? 's' : '') + ' per volley'); break; case 'rail': L.push('Damage ' + r1(effectiveDamage), 'Every ' + r1(this.weaponInterval(S.railInterval)) + 's', this.weaponCount(S.railCount) + ' spike' + (this.weaponCount(S.railCount) > 1 ? 's' : ''), 'Knockback ' + r1(this.weaponRange(S.railKnockback)) + ' (' + Math.round(Math.min(.25, this.secondaryEffect(S.railKnockbackChance)) * 100) + '% chance)', crit); break; case 'flak': L.push('Pellet damage ' + r1(effectiveDamage), 'Every ' + r1(this.weaponInterval(S.flakInterval)) + 's', this.weaponCount(S.flakCount) + ' pellets', 'Blast radius ' + r1((S.flakSplash + .045) * S.projectileSize), crit); break; case 'tesla': L.push('Damage ' + r1(effectiveDamage), 'Every ' + r1(this.weaponInterval(S.teslaInterval)) + 's', this.weaponCount(S.teslaCount) + ' outgoing thunderbolt' + (this.weaponCount(S.teslaCount) > 1 ? 's' : ''), 'Arc range ' + r1(this.weaponRange(S.teslaRange)), 'Chains through every unhit target in range', 'Re-strikes ' + S.bounceBonus + ' shocked target' + (S.bounceBonus === 1 ? '' : 's'), 'Stun ' + r1(this.secondaryEffect(S.teslaStunDuration)) + 's', crit); break; case 'chem': L.push('Glob damage ' + r1(effectiveDamage), 'Every ' + r1(this.weaponInterval(S.chemInterval)) + 's', this.weaponCount(S.chemCount) + ' glob' + (this.weaponCount(S.chemCount) > 1 ? 's' : ''), 'Cloud ' + r1(this.secondaryEffect(S.chemDuration)) + 's / radius ' + r1(S.chemRadius * S.projectileSize), 'Cloud AOE damage ' + r1(effectiveDamage) + ' every 0.5s', 'Spread distance ' + r1(this.weaponRange(S.chemSpreadDistance)), 'Damage over time + chain spread', crit); break; case 'flamer': L.push('Damage ' + r1(effectiveDamage), 'Every ' + r1(this.weaponInterval(S.flamerInterval)) + 's', this.weaponCount(S.flamerCount) + ' burst' + (this.weaponCount(S.flamerCount) > 1 ? 's' : ''), 'Blast radius ' + r1(S.flamerSplash * S.projectileSize), 'Burn up to ' + r1(this.weaponDamage(S.flamerDamage) * 5 * .5) + '/s at full stacks', crit); break; case 'shield': L.push('Pulse every ' + r1(S.shieldPulseInterval) + 's', 'Radius ' + r1(S.shieldRadius), 'Knockback ' + r1(S.shieldKnockback), 'Thorns ' + Math.round(S.shieldThorns * 100) + '%', 'Visible ' + r1(S.shieldVisibleFor) + 's'); break; }return L; } get upgradeSections() { return (['laser', 'missile', 'shield', 'plasma', 'drone', 'rail', 'flak', 'tesla', 'chem', 'health', 'utility', 'ship'] as const).map(weapon => ({ weapon, label: weapon === 'laser' ? 'Laser' : weapon === 'missile' ? 'Missiles' : weapon === 'shield' ? 'Shield' : weapon === 'plasma' ? 'Plasma' : weapon === 'drone' ? 'Drones' : weapon === 'rail' ? 'Railgun' : weapon === 'flak' ? 'Flak' : weapon === 'tesla' ? 'Tesla' : weapon === 'chem' ? 'Chem' : weapon === 'health' ? 'Health' : weapon === 'utility' ? 'Utility' : 'Ship', icon: this.upgradeIcon(weapon), upgrades: this.upgrades.filter(u => u.weapon === weapon).map(u => ({ ...u, count: this.persistedUpgrades.filter(id => id === u.id).length, chanceText: u.id.startsWith('utility-free-') ? `${this.freeChance(u.id.replace('utility-free-', '') as 'laser' | 'missile' | 'plasma' | 'drone' | 'rail' | 'flak' | 'tesla' | 'chem' | 'ship' | 'health' | 'utility')}%` : `` })).filter(u => u.count > 0) })).filter(s => s.upgrades.length); }
-  private canPlasmaConvert(b: SpaceBug) { return b.hp > 0 && !b.ally && !this.isLeviathan(b) && b.kind !== 'boss' && b.boss !== true; }   private hasLiveHostiles() { return this.liveHostileCount() > 0; } private convertedEnemyCount() { let count = 0; for (const b of this.bugs) if (b.ally && b.hp > 0) count++; return count; } private removeOldestConverted() { let index = -1; let oldest = Infinity; for (let i = 0; i < this.bugs.length; i++) { const b = this.bugs[i]; if (!b.ally || b.hp <= 0) continue; const order = b.conversionOrder ?? i; if (order < oldest) { oldest = order; index = i; } } if (index >= 0) this.killBug(index); } private nearestEnemyForAlly(ally: SpaceBug) { let best: SpaceBug | undefined; let distance = Infinity; for (const b of this.bugs) { if (b === ally || b.ally || b.hp <= 0) continue; const d = Math.hypot(b.x - ally.x, b.y - ally.y); if (d < distance) { distance = d; best = b; } } return best; } private nearestIncoming(x: number, y: number) { let best: SpaceBug | undefined; let distance = Infinity; for (const b of this.bugs) { if (b.ally || b.hp <= 0) continue; const d = Math.hypot(b.x - x, b.y - y); if (d < distance) { distance = d; best = b; } } return best; }
-  private rehomeTarget(s: SpaceProjectile): SpaceBug | undefined {
-    const speed = Math.hypot(s.vx, s.vy) || 1, fx = s.vx / speed, fy = s.vy / speed; let best: SpaceBug | undefined; let bestScore = Infinity;
-    for (const b of this.bugs) { if (b.ally || b.hp <= 0) continue; const dx = b.x - s.x, dy = b.y - s.y, dist = Math.hypot(dx, dy) || 1; const forward = dx * fx + dy * fy; if (forward <= 0) continue; const lateral = Math.abs(dx * fy - dy * fx); const score = dist + lateral * 2 - forward * .18; if (score < bestScore) { bestScore = score; best = b; } }
+  get shieldCapacity() {
+    return this.stats.shieldMax;
+  }
+  get weaponStatus() {
+    return this.equippedWeapons.map((weapon) => ({
+      name: this.weaponLabel(weapon),
+      interval:
+        weapon === "laser"
+          ? this.weaponInterval(this.stats.laserInterval)
+          : weapon === "missile"
+            ? this.weaponInterval(this.stats.missileInterval)
+            : weapon === "shield"
+              ? this.stats.shieldPulseInterval
+              : weapon === "plasma"
+                ? this.weaponInterval(this.stats.plasmaInterval)
+                : weapon === "rail"
+                  ? this.weaponInterval(this.stats.railInterval)
+                  : weapon === "flak"
+                    ? this.weaponInterval(this.stats.flakInterval)
+                    : weapon === "tesla"
+                      ? this.weaponInterval(this.stats.teslaInterval)
+                      : weapon === "chem"
+                        ? this.weaponInterval(this.stats.chemInterval)
+                        : weapon === "drone"
+                          ? this.weaponInterval(this.stats.droneInterval)
+                          : this.weaponInterval(this.stats.flamerInterval),
+      color:
+        weapon === "laser"
+          ? "#7cf7ff"
+          : weapon === "missile"
+            ? "#ff9d4d"
+            : weapon === "shield"
+              ? "#9d8cff"
+              : weapon === "plasma"
+                ? "#ff66dd"
+                : weapon === "rail"
+                  ? "#e0ff70"
+                  : weapon === "flak"
+                    ? "#ff5d5d"
+                    : weapon === "tesla"
+                      ? "#9fd8ff"
+                      : weapon === "chem"
+                        ? "#b6ff4d"
+                        : weapon === "drone"
+                          ? "#7dff9a"
+                          : "#ff8c2e",
+    }));
+  }
+  trackWeaponSlot(index: number, slot: { filled: boolean; weapon: string }) {
+    return slot.filled ? slot.weapon : `empty-${index}`;
+  }
+  trackUpgradeSection(index: number, section: { weapon: string }) {
+    return section.weapon;
+  }
+  trackUpgrade(index: number, upgrade: { id: string }) {
+    return upgrade.id;
+  }
+  get weaponSlots() {
+    const status = this.weaponStatus;
+    const slots: {
+      filled: boolean;
+      icon: string;
+      label: string;
+      interval: number;
+      color: string;
+      weapon: string;
+    }[] = [];
+    for (let i = 0; i < this.weaponSlotLimit; i++) {
+      const w = this.equippedWeapons[i];
+      const s = status[i];
+      if (w && s) {
+        slots.push({
+          filled: true,
+          icon: this.upgradeIcon(w),
+          label: s.name,
+          interval: s.interval,
+          color: s.color,
+          weapon: w,
+        });
+      } else {
+        slots.push({
+          filled: false,
+          icon: "+",
+          label: "Empty slot",
+          interval: 0,
+          color: "",
+          weapon: "",
+        });
+      }
+    }
+    return slots;
+  }
+  weaponUpgradeLines(weapon: string) {
+    const lines: string[] = [];
+    const n = (id: string) => this.upgradeCount(id);
+    const dmg = n("damage"),
+      spd = n("attack-speed"),
+      cc = n("critical-chance"),
+      cf = n("critical-damage"),
+      sal = n("salvo"),
+      vol = n("volley"),
+      dist = n("distance"),
+      meter = n("damage-distance"),
+      dur = n("secondary-effect"),
+      bou = n("bounces");
+    if (dmg) lines.push("+" + dmg * 25 + "% damage (all weapons)");
+    if (spd)
+      lines.push(
+        "~" +
+          Math.round((1 / Math.pow(0.82, spd) - 1) * 100) +
+          "% faster attacks (all weapons)",
+      );
+    if (cc) lines.push("+" + cc * 8 + "% crit chance (all weapons)");
+    if (cf) lines.push("+" + cf * 30 + "% crit damage (all weapons)");
+    if (sal && weapon !== "tesla" && weapon !== "shield")
+      lines.push(
+        "+" + sal + " projectile" + (sal > 1 ? "s" : "") + " (all weapons)",
+      );
+    if (vol && weapon !== "shield")
+      lines.push(
+        "+" +
+          vol +
+          " target" +
+          (vol > 1 ? "s" : "") +
+          " per volley (all weapons)",
+      );
+    if (dist) lines.push("+" + dist * 25 + "% range (all weapons)");
+    if (meter) lines.push("+" + meter * 10 + " damage / meter (all weapons)");
+    if (
+      dur &&
+      (weapon === "tesla" ||
+        weapon === "chem" ||
+        weapon === "rail" ||
+        weapon === "plasma")
+    )
+      lines.push("+" + dur * 25 + "% secondary effect");
+    if (bou && (weapon === "missile" || weapon === "tesla"))
+      lines.push("+" + bou + " bounce" + (bou > 1 ? "s" : ""));
+    if (bou && weapon === "flamer")
+      lines.push("+" + bou + " redirect" + (bou > 1 ? "s" : ""));
+    if (bou && weapon === "laser")
+      lines.push("Pierce +" + bou + " enem" + (bou > 1 ? "ies" : "y"));
+    if (bou && weapon === "plasma")
+      lines.push("+" + bou + " conversion capacity");
+    if (weapon === "tesla")
+      lines.push(1 + sal + " outgoing thunderbolt" + (sal > 0 ? "s" : ""));
+    if (weapon === "tesla" && n("tesla-range"))
+      lines.push("+" + n("tesla-range") * 20 + "% arc range");
+    if (weapon === "shield") {
+      const sz = n("shield-size"),
+        cap = n("shield-capacity"),
+        k = n("shield-knockback"),
+        du = n("shield-duration"),
+        th = n("shield-thorns");
+      if (sz) lines.push("+" + sz * 20 + "% size");
+      if (cap || dur)
+        lines.push(
+          Math.round(this.shieldCapacityForStacks(cap, dur)) +
+            " shield strength",
+        );
+      if (k) lines.push("+" + k + " knockback");
+      if (du) lines.push("+" + du * 20 + "% duration");
+      if (th) lines.push("reflect " + th * 15 + "% damage");
+    }
+    if (!lines.length) lines.push("No upgrades yet");
+    return lines;
+  }
+  weaponTooltip(weapon: string) {
+    return [
+      this.weaponLabel(weapon as WeaponId),
+      ...this.weaponUpgradeLines(weapon),
+    ].join("\n");
+  }
+  weaponHowItWorks: Record<WeaponId, string> = {
+    laser:
+      "Piercing beams auto-fire at the nearest bugs. Reliable single-target damage that scales hard with upgrades.",
+    missile:
+      "Heavy homing rockets with a wide chem-sized blast. Slow but devastating, and bounces chain them between enemies.",
+    plasma:
+      "Fast bolts with a small burst on impact. Balanced damage and fire rate.",
+    drone:
+      "Unkillable escorts that orbit you, close in on nearby enemies, and fire reliable short-range sting beams. Upgrade sting damage, speed, volley, and drone numbers.",
+    rail: "An ultra-fast hail of tiny spikes. Very low damage per hit, overwhelming volume.",
+    flak: "Short-range scattergun: a wide fan of pellets with splash. Devastating up close, harmless far away.",
+    tesla:
+      "Tesla fires thunderbolts outward from the ship. Each bolt chains through unhit enemies within arc range, and no target can be hit twice by the same salvo.",
+    shield:
+      "A defensive pulse that absorbs hits, shoves enemies back, and reflects damage once Thorns is unlocked.",
+    chem: "Lobs corrosive globs that burst into lingering acid clouds, melting anything that stands inside.",
+    flamer:
+      "Short-range fire stream with full-strength impact bursts. Hits ignite bugs: the burn stacks up to 5x damage over time while it burns, and burning bugs scorch nearby enemies.",
+  };
+  weaponDetailLines(w: WeaponId) {
+    const S = this.stats;
+    const r1 = (v: number) => Math.round(v * 100) / 100;
+    const crit =
+      "Crit " +
+      Math.round(
+        this.weaponCritChance(
+          S[(w + "CritChance") as keyof typeof S] as number,
+        ) * 100,
+      ) +
+      "% ×" +
+      r1(
+        this.weaponCritFactor(
+          S[(w + "CritFactor") as keyof typeof S] as number,
+        ),
+      );
+    const meter: Partial<Record<WeaponId, number>> = {
+      laser: this.weaponMeter(S.laserDamagePerMeter),
+      missile: this.weaponMeter(S.missileDamagePerMeter),
+      plasma: this.weaponMeter(S.plasmaDamagePerMeter),
+      rail: this.weaponMeter(S.railDamagePerMeter),
+      flak: this.weaponMeter(S.flakDamagePerMeter),
+      flamer: this.weaponMeter(S.flamerDamagePerMeter),
+      chem: this.weaponMeter(S.chemDamagePerMeter),
+    };
+    const baseDamage =
+      w === "laser"
+        ? S.laserDamage
+        : w === "missile"
+          ? S.missileDamage
+          : w === "plasma"
+            ? S.plasmaDamage
+            : w === "drone"
+              ? S.droneDamage
+              : w === "rail"
+                ? S.railDamage
+                : w === "flak"
+                  ? S.flakDamage
+                  : w === "tesla"
+                    ? S.teslaDamage
+                    : w === "chem"
+                      ? S.chemDamage
+                      : w === "flamer"
+                        ? S.flamerDamage
+                        : 0;
+    const effectiveDamage = this.weaponDamage(baseDamage);
+    const L: string[] = [];
+    if (Object.prototype.hasOwnProperty.call(meter, w)) {
+      const value = meter[w] ?? 0;
+      L.push(
+        "Damage / meter " + r1(value),
+        value > 0
+          ? "Adds this much damage for each meter travelled."
+          : "No damage-per-meter upgrade yet.",
+      );
+    }
+    switch (w) {
+      case "laser":
+        L.push(
+          "Damage " + r1(effectiveDamage),
+          "Every " + r1(this.weaponInterval(S.laserInterval)) + "s",
+          this.weaponCount(S.laserCount) +
+            " beam" +
+            (this.weaponCount(S.laserCount) > 1 ? "s" : ""),
+          "Pierces " +
+            S.bounceBonus +
+            " extra enem" +
+            (S.bounceBonus === 1 ? "y" : "ies"),
+          crit,
+        );
+        break;
+      case "missile":
+        L.push(
+          "Damage " + r1(effectiveDamage),
+          "Every " + r1(this.weaponInterval(S.missileInterval)) + "s",
+          this.weaponCount(S.missileCount) +
+            " missile" +
+            (this.weaponCount(S.missileCount) > 1 ? "s" : ""),
+          "Blast radius " + r1((S.chemRadius + 0.045) * S.projectileSize),
+          "Bounces " + (S.missileBounces + S.bounceBonus),
+          crit,
+        );
+        break;
+      case "plasma":
+        L.push(
+          "Damage " + r1(effectiveDamage),
+          "Every " + r1(this.weaponInterval(S.plasmaInterval)) + "s",
+          this.weaponCount(S.plasmaCount) +
+            " bolt" +
+            (this.weaponCount(S.plasmaCount) > 1 ? "s" : ""),
+          "Blast radius " + r1((S.plasmaSplash + 0.045) * S.projectileSize),
+          "Convert chance " +
+            Math.round(this.secondaryEffect(S.plasmaConvertChance) * 100) +
+            "%",
+          "Converted allies " +
+            this.convertedEnemyCount() +
+            "/" +
+            (S.plasmaMaxConversions + S.bounceBonus),
+          crit,
+        );
+        break;
+      case "drone":
+        L.push(
+          "Damage " + r1(effectiveDamage),
+          "Every " + r1(this.weaponInterval(S.droneInterval)) + "s",
+          "Short-range instant sting beam",
+          S.droneVolley +
+            S.volleyBonus +
+            " target" +
+            (S.droneVolley + S.volleyBonus > 1 ? "s" : "") +
+            " per volley",
+        );
+        break;
+      case "rail":
+        L.push(
+          "Damage " + r1(effectiveDamage),
+          "Every " + r1(this.weaponInterval(S.railInterval)) + "s",
+          this.weaponCount(S.railCount) +
+            " spike" +
+            (this.weaponCount(S.railCount) > 1 ? "s" : ""),
+          "Knockback " +
+            r1(this.weaponRange(S.railKnockback)) +
+            " (" +
+            Math.round(
+              Math.min(0.25, this.secondaryEffect(S.railKnockbackChance)) * 100,
+            ) +
+            "% chance)",
+          crit,
+        );
+        break;
+      case "flak":
+        L.push(
+          "Pellet damage " + r1(effectiveDamage),
+          "Every " + r1(this.weaponInterval(S.flakInterval)) + "s",
+          this.weaponCount(S.flakCount) + " pellets",
+          "Blast radius " + r1((S.flakSplash + 0.045) * S.projectileSize),
+          crit,
+        );
+        break;
+      case "tesla":
+        L.push(
+          "Damage " + r1(effectiveDamage),
+          "Every " + r1(this.weaponInterval(S.teslaInterval)) + "s",
+          this.weaponCount(S.teslaCount) +
+            " outgoing thunderbolt" +
+            (this.weaponCount(S.teslaCount) > 1 ? "s" : ""),
+          "Arc range " + r1(this.weaponRange(S.teslaRange)),
+          "Chains through every unhit target in range",
+          "Re-strikes " +
+            S.bounceBonus +
+            " shocked target" +
+            (S.bounceBonus === 1 ? "" : "s"),
+          "Stun " + r1(this.secondaryEffect(S.teslaStunDuration)) + "s",
+          crit,
+        );
+        break;
+      case "chem":
+        L.push(
+          "Glob damage " + r1(effectiveDamage),
+          "Every " + r1(this.weaponInterval(S.chemInterval)) + "s",
+          this.weaponCount(S.chemCount) +
+            " glob" +
+            (this.weaponCount(S.chemCount) > 1 ? "s" : ""),
+          "Cloud " +
+            r1(this.secondaryEffect(S.chemDuration)) +
+            "s / radius " +
+            r1(S.chemRadius * S.projectileSize),
+          "Cloud AOE damage " + r1(effectiveDamage) + " every 0.5s",
+          "Spread distance " + r1(this.weaponRange(S.chemSpreadDistance)),
+          "Damage over time + chain spread",
+          crit,
+        );
+        break;
+      case "flamer":
+        L.push(
+          "Damage " + r1(effectiveDamage),
+          "Every " + r1(this.weaponInterval(S.flamerInterval)) + "s",
+          this.weaponCount(S.flamerCount) +
+            " burst" +
+            (this.weaponCount(S.flamerCount) > 1 ? "s" : ""),
+          "Blast radius " + r1(S.flamerSplash * S.projectileSize),
+          "Burn up to " +
+            r1(this.weaponDamage(S.flamerDamage) * 5 * 0.5) +
+            "/s at full stacks",
+          crit,
+        );
+        break;
+      case "shield":
+        L.push(
+          "Pulse every " + r1(S.shieldPulseInterval) + "s",
+          "Radius " + r1(S.shieldRadius),
+          "Knockback " + r1(S.shieldKnockback),
+          "Thorns " + Math.round(S.shieldThorns * 100) + "%",
+          "Visible " + r1(S.shieldVisibleFor) + "s",
+        );
+        break;
+    }
+    return L;
+  }
+  get upgradeSections() {
+    return (
+      [
+        "laser",
+        "missile",
+        "shield",
+        "plasma",
+        "drone",
+        "rail",
+        "flak",
+        "tesla",
+        "chem",
+        "health",
+        "utility",
+        "ship",
+      ] as const
+    )
+      .map((weapon) => ({
+        weapon,
+        label:
+          weapon === "laser"
+            ? "Laser"
+            : weapon === "missile"
+              ? "Missiles"
+              : weapon === "shield"
+                ? "Shield"
+                : weapon === "plasma"
+                  ? "Plasma"
+                  : weapon === "drone"
+                    ? "Drones"
+                    : weapon === "rail"
+                      ? "Railgun"
+                      : weapon === "flak"
+                        ? "Flak"
+                        : weapon === "tesla"
+                          ? "Tesla"
+                          : weapon === "chem"
+                            ? "Chem"
+                            : weapon === "health"
+                              ? "Health"
+                              : weapon === "utility"
+                                ? "Utility"
+                                : "Ship",
+        icon: this.upgradeIcon(weapon),
+        upgrades: this.upgrades
+          .filter((u) => u.weapon === weapon)
+          .map((u) => ({
+            ...u,
+            count: this.persistedUpgrades.filter((id) => id === u.id).length,
+            chanceText: u.id.startsWith("utility-free-")
+              ? `${this.freeChance(u.id.replace("utility-free-", "") as "laser" | "missile" | "plasma" | "drone" | "rail" | "flak" | "tesla" | "chem" | "ship" | "health" | "utility")}%`
+              : ``,
+          }))
+          .filter((u) => u.count > 0),
+      }))
+      .filter((s) => s.upgrades.length);
+  }
+  private canPlasmaConvert(b: SpaceBug) {
+    return (
+      b.hp > 0 &&
+      !b.ally &&
+      !this.isLeviathan(b) &&
+      b.kind !== "boss" &&
+      b.boss !== true
+    );
+  }
+  private hasLiveHostiles() {
+    return this.liveHostileCount() > 0;
+  }
+  private convertedEnemyCount() {
+    let count = 0;
+    for (const b of this.bugs) if (b.ally && b.hp > 0) count++;
+    return count;
+  }
+  private removeOldestConverted() {
+    let index = -1;
+    let oldest = Infinity;
+    for (let i = 0; i < this.bugs.length; i++) {
+      const b = this.bugs[i];
+      if (!b.ally || b.hp <= 0) continue;
+      const order = b.conversionOrder ?? i;
+      if (order < oldest) {
+        oldest = order;
+        index = i;
+      }
+    }
+    if (index >= 0) this.killBug(index);
+  }
+  private nearestEnemyForAlly(ally: SpaceBug) {
+    let best: SpaceBug | undefined;
+    let distance = Infinity;
+    for (const b of this.bugs) {
+      if (b === ally || b.ally || b.hp <= 0) continue;
+      const d = Math.hypot(b.x - ally.x, b.y - ally.y);
+      if (d < distance) {
+        distance = d;
+        best = b;
+      }
+    }
     return best;
   }
-  private canRehome(kind: SpaceProjectile['kind']) { return kind === 'missile'; }
+  private nearestIncoming(x: number, y: number) {
+    let best: SpaceBug | undefined;
+    let distance = Infinity;
+    for (const b of this.bugs) {
+      if (b.ally || b.hp <= 0) continue;
+      const d = Math.hypot(b.x - x, b.y - y);
+      if (d < distance) {
+        distance = d;
+        best = b;
+      }
+    }
+    return best;
+  }
+  private rehomeTarget(s: SpaceProjectile): SpaceBug | undefined {
+    const speed = Math.hypot(s.vx, s.vy) || 1,
+      fx = s.vx / speed,
+      fy = s.vy / speed;
+    let best: SpaceBug | undefined;
+    let bestScore = Infinity;
+    for (const b of this.bugs) {
+      if (b.ally || b.hp <= 0) continue;
+      const dx = b.x - s.x,
+        dy = b.y - s.y,
+        dist = Math.hypot(dx, dy) || 1;
+      const forward = dx * fx + dy * fy;
+      if (forward <= 0) continue;
+      const lateral = Math.abs(dx * fy - dy * fx);
+      const score = dist + lateral * 2 - forward * 0.18;
+      if (score < bestScore) {
+        bestScore = score;
+        best = b;
+      }
+    }
+    return best;
+  }
+  private canRehome(kind: SpaceProjectile["kind"]) {
+    return kind === "missile";
+  }
   private distinctScratch: SpaceBug[] = [];
   private distinctTargets(count: number) {
-    const src = this.bugs; const want = Math.max(1, count); this.distinctScratch.length = 0;
+    const src = this.bugs;
+    const want = Math.max(1, count);
+    this.distinctScratch.length = 0;
     const n = Math.min(want, src.length);
     for (let k = 0; k < n; k++) {
-      let best = -1; let bd = Infinity;
-      for (let i = 0; i < src.length; i++) { const b = src[i]; if (!b || b.ally || b.hp <= 0 || !Number.isFinite(b.x) || !Number.isFinite(b.y) || b._taken) continue; const d = (b.x - this.player.x) * (b.x - this.player.x) + (b.y - this.player.y) * (b.y - this.player.y); if (d < bd) { bd = d; best = i; } }
-      if (best < 0) break; src[best]._taken = true; this.distinctScratch.push(src[best]);
+      let best = -1;
+      let bd = Infinity;
+      for (let i = 0; i < src.length; i++) {
+        const b = src[i];
+        if (
+          !b ||
+          b.ally ||
+          b.hp <= 0 ||
+          !Number.isFinite(b.x) ||
+          !Number.isFinite(b.y) ||
+          b._taken
+        )
+          continue;
+        const d =
+          (b.x - this.player.x) * (b.x - this.player.x) +
+          (b.y - this.player.y) * (b.y - this.player.y);
+        if (d < bd) {
+          bd = d;
+          best = i;
+        }
+      }
+      if (best < 0) break;
+      src[best]._taken = true;
+      this.distinctScratch.push(src[best]);
     }
     for (const b of src) b._taken = false;
     return this.distinctScratch;
@@ -405,128 +3456,1270 @@ export class SpaceEvolvesComponent extends ChildComponent implements AfterViewIn
     else if (ux < 0) distances.push(-x / ux);
     if (uy > 0) distances.push((1 - y) / uy);
     else if (uy < 0) distances.push(-y / uy);
-    const distance = Math.max(0, Math.min(...distances.filter(Number.isFinite)));
+    const distance = Math.max(
+      0,
+      Math.min(...distances.filter(Number.isFinite)),
+    );
     return { x: x + ux * distance, y: y + uy * distance };
   }
-  private fireInstantLaser(x: number, y: number, target: SpaceBug, damageBase: number) {
+  private fireInstantLaser(
+    x: number,
+    y: number,
+    target: SpaceBug,
+    damageBase: number,
+  ) {
     // Lasers pierce: the beam hits the first enemy in its path, plus one more
     // enemy per Bounces upgrade (0 pierce by default). If the beam still has
     // unused pierces after its last hit, it continues to the edge of the screen.
-    const dx = target.x - x, dy = target.y - y, len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len;
+    const dx = target.x - x,
+      dy = target.y - y,
+      len = Math.hypot(dx, dy) || 1,
+      ux = dx / len,
+      uy = dy / len;
     const pierce = Math.max(0, Math.floor(this.stats.bounceBonus));
     const capacity = 1 + pierce;
     const edge = this.laserScreenEdge(x, y, ux, uy);
     const along: { b: SpaceBug; t: number }[] = [];
     for (const b of this.bugs) {
-      if (b.ally || b.hp <= 0 || !Number.isFinite(b.x) || !Number.isFinite(b.y)) continue;
-      const rx = b.x - x, ry = b.y - y, t = rx * ux + ry * uy;
-      if (t <= 0 || t > Math.hypot(edge.x - x, edge.y - y) || Math.abs(rx * uy - ry * ux) > b.size + .008) continue;
+      if (b.ally || b.hp <= 0 || !Number.isFinite(b.x) || !Number.isFinite(b.y))
+        continue;
+      const rx = b.x - x,
+        ry = b.y - y,
+        t = rx * ux + ry * uy;
+      if (
+        t <= 0 ||
+        t > Math.hypot(edge.x - x, edge.y - y) ||
+        Math.abs(rx * uy - ry * ux) > b.size + 0.008
+      )
+        continue;
       along.push({ b, t });
     }
     along.sort((a, b2) => a.t - b2.t);
-    const victims = along.slice(0, capacity).map(e => e.b);
+    const victims = along.slice(0, capacity).map((e) => e.b);
     const lastVictim = victims[victims.length - 1];
-    const beamEnd = lastVictim && victims.length >= capacity
-      ? lastVictim
-      : edge;
-    this.effects.push({ x, y, x2: beamEnd.x, y2: beamEnd.y, vx: 0, vy: 0, life: .12, maxLife: .12, size: .006, color: '#7cf7ff', kind: 'beam' });
+    const beamEnd =
+      lastVictim && victims.length >= capacity ? lastVictim : edge;
+    this.effects.push({
+      x,
+      y,
+      x2: beamEnd.x,
+      y2: beamEnd.y,
+      vx: 0,
+      vy: 0,
+      life: 0.12,
+      maxLife: 0.12,
+      size: 0.006,
+      color: "#7cf7ff",
+      kind: "beam",
+    });
     for (const victim of victims) {
-      const base = victim === target ? damageBase : this.stats.laserDamage + this.weaponMeter(this.stats.laserDamagePerMeter) * Math.hypot(victim.x - x, victim.y - y);
+      const base =
+        victim === target
+          ? damageBase
+          : this.stats.laserDamage +
+            this.weaponMeter(this.stats.laserDamagePerMeter) *
+              Math.hypot(victim.x - x, victim.y - y);
       let damage = Math.max(1, this.weaponDamage(base) - victim.armor);
-      if (Math.random() < this.weaponCritChance(this.stats.laserCritChance)) { damage *= this.weaponCritFactor(this.stats.laserCritFactor); victim.hueWarp = .45; }
+      if (Math.random() < this.weaponCritChance(this.stats.laserCritChance)) {
+        damage *= this.weaponCritFactor(this.stats.laserCritFactor);
+        victim.hueWarp = 0.45;
+      }
       this.damageBug(victim, damage);
-      if (this.stats.lifesteal > 0) this.player.hp = Math.min(this.player.maxHp, this.player.hp + damage * this.stats.lifesteal);
-      if (victim.hp <= 0) { const index = this.bugs.indexOf(victim); if (index >= 0) { this.killBug(index); if (victim.trait === 'splitter') this.splitBug(victim); } }
+      if (this.stats.lifesteal > 0)
+        this.player.hp = Math.min(
+          this.player.maxHp,
+          this.player.hp + damage * this.stats.lifesteal,
+        );
+      if (victim.hp <= 0) {
+        const index = this.bugs.indexOf(victim);
+        if (index >= 0) {
+          this.killBug(index);
+          if (victim.trait === "splitter") this.splitBug(victim);
+        }
+      }
     }
   }
   private fireLasers() {
-    const targets = this.distinctTargets(this.weaponTargets(this.stats.laserCount));
+    const targets = this.distinctTargets(
+      this.weaponTargets(this.stats.laserCount),
+    );
     for (let i = 0; i < Math.max(targets.length, 1); i++) {
       const target = targets[i] ?? targets[0];
       if (!target) {
-        this.effects.push({ x: this.player.x, y: this.player.y, x2: this.player.x, y2: Math.max(0, this.player.y - 1.35), vx: 0, vy: 0, life: .12, maxLife: .12, size: .006, color: '#7cf7ff', kind: 'beam' });
+        this.effects.push({
+          x: this.player.x,
+          y: this.player.y,
+          x2: this.player.x,
+          y2: Math.max(0, this.player.y - 1.35),
+          vx: 0,
+          vy: 0,
+          life: 0.12,
+          maxLife: 0.12,
+          size: 0.006,
+          color: "#7cf7ff",
+          kind: "beam",
+        });
         continue;
       }
-      this.fireInstantLaser(this.player.x, this.player.y, target, this.stats.laserDamage + this.weaponMeter(this.stats.laserDamagePerMeter) * Math.hypot(target.x - this.player.x, target.y - this.player.y));
+      this.fireInstantLaser(
+        this.player.x,
+        this.player.y,
+        target,
+        this.stats.laserDamage +
+          this.weaponMeter(this.stats.laserDamagePerMeter) *
+            Math.hypot(target.x - this.player.x, target.y - this.player.y),
+      );
     }
   }
-  private fireMissiles() { const targets = this.distinctTargets(this.weaponTargets(this.stats.missileCount)); for (let i = 0; i < Math.max(targets.length, 1); i++) { const target = targets[i] ?? targets[0]; const dx = (target?.x ?? this.player.x) - this.player.x, dy = (target?.y ?? this.player.y) - this.player.y, n = Math.hypot(dx, dy) || 1; this.shots.push({ x: this.player.x, y: this.player.y, vx: dx / n * this.stats.missileSpeed, vy: dy / n * this.stats.missileSpeed, damage: this.stats.missileDamage, kind: 'missile', radius: .023 * this.stats.projectileSize, range: this.weaponRange(this.stats.missileRange), homing: Math.max(1, this.stats.missileHoming), splash: this.stats.missileSplash, age: 0, bounces: this.stats.missileBounces + this.stats.bounceBonus, lock: target }); } }
-  private firePlasma() { const targets = this.distinctTargets(this.weaponTargets(this.stats.plasmaCount)); for (let i = 0; i < Math.max(targets.length, 1); i++) { const target = targets[i] ?? targets[0]; const dx = (target?.x ?? this.player.x) - this.player.x, dy = (target?.y ?? this.player.y - 1) - this.player.y, n = Math.hypot(dx, dy) || 1; this.shots.push({ x: this.player.x, y: this.player.y, vx: dx / n * this.stats.plasmaSpeed, vy: dy / n * this.stats.plasmaSpeed, damage: this.stats.plasmaDamage, kind: 'plasma', radius: .014 * this.stats.projectileSize, range: this.weaponRange(this.stats.plasmaRange), homing: 0, splash: this.stats.plasmaSplash, age: 0, bounces: 0, lock: target }); } return true; }
-  private droneStingTargets(x: number, y: number, count: number) { const out: SpaceBug[] = []; const want = Math.max(1, Math.floor(count)); for (let k = 0; k < want; k++) { let best: SpaceBug | undefined; let bd = Infinity; for (const b of this.bugs) { if (b.ally || b.hp <= 0 || !Number.isFinite(b.x) || !Number.isFinite(b.y) || out.includes(b)) continue; const dd = (b.x - x) * (b.x - x) + (b.y - y) * (b.y - y); if (dd < bd) { bd = dd; best = b; } } if (!best) break; out.push(best); } return out; } private fireDroneStings(x: number, y: number) {
+  private fireMissiles() {
+    const targets = this.distinctTargets(
+      this.weaponTargets(this.stats.missileCount),
+    );
+    for (let i = 0; i < Math.max(targets.length, 1); i++) {
+      const target = targets[i] ?? targets[0];
+      const dx = (target?.x ?? this.player.x) - this.player.x,
+        dy = (target?.y ?? this.player.y) - this.player.y,
+        n = Math.hypot(dx, dy) || 1;
+      this.shots.push({
+        x: this.player.x,
+        y: this.player.y,
+        vx: (dx / n) * this.stats.missileSpeed,
+        vy: (dy / n) * this.stats.missileSpeed,
+        damage: this.stats.missileDamage,
+        kind: "missile",
+        radius: 0.023 * this.stats.projectileSize,
+        range: this.weaponRange(this.stats.missileRange),
+        homing: Math.max(1, this.stats.missileHoming),
+        splash: this.stats.missileSplash,
+        age: 0,
+        bounces: this.stats.missileBounces + this.stats.bounceBonus,
+        lock: target,
+      });
+    }
+  }
+  private firePlasma() {
+    const targets = this.distinctTargets(
+      this.weaponTargets(this.stats.plasmaCount),
+    );
+    for (let i = 0; i < Math.max(targets.length, 1); i++) {
+      const target = targets[i] ?? targets[0];
+      const dx = (target?.x ?? this.player.x) - this.player.x,
+        dy = (target?.y ?? this.player.y - 1) - this.player.y,
+        n = Math.hypot(dx, dy) || 1;
+      this.shots.push({
+        x: this.player.x,
+        y: this.player.y,
+        vx: (dx / n) * this.stats.plasmaSpeed,
+        vy: (dy / n) * this.stats.plasmaSpeed,
+        damage: this.stats.plasmaDamage,
+        kind: "plasma",
+        radius: 0.014 * this.stats.projectileSize,
+        range: this.weaponRange(this.stats.plasmaRange),
+        homing: 0,
+        splash: this.stats.plasmaSplash,
+        age: 0,
+        bounces: 0,
+        lock: target,
+      });
+    }
+    return true;
+  }
+  private droneStingTargets(x: number, y: number, count: number) {
+    const out: SpaceBug[] = [];
+    const want = Math.max(1, Math.floor(count));
+    for (let k = 0; k < want; k++) {
+      let best: SpaceBug | undefined;
+      let bd = Infinity;
+      for (const b of this.bugs) {
+        if (
+          b.ally ||
+          b.hp <= 0 ||
+          !Number.isFinite(b.x) ||
+          !Number.isFinite(b.y) ||
+          out.includes(b)
+        )
+          continue;
+        const dd = (b.x - x) * (b.x - x) + (b.y - y) * (b.y - y);
+        if (dd < bd) {
+          bd = dd;
+          best = b;
+        }
+      }
+      if (!best) break;
+      out.push(best);
+    }
+    return out;
+  }
+  private fireDroneStings(x: number, y: number) {
     const S = this.stats;
-    const targets = this.droneStingTargets(x, y, Math.max(1, Math.floor(S.droneVolley + S.volleyBonus)));
+    const targets = this.droneStingTargets(
+      x,
+      y,
+      Math.max(1, Math.floor(S.droneVolley + S.volleyBonus)),
+    );
     for (const target of targets) {
-      const dx = target.x - x, dy = target.y - y, distance = Math.hypot(dx, dy);
+      const dx = target.x - x,
+        dy = target.y - y,
+        distance = Math.hypot(dx, dy);
       if (distance > this.weaponRange(S.droneRange) + target.size) continue;
-      this.effects.push({ x, y, x2: target.x, y2: target.y, vx: 0, vy: 0, life: .1, maxLife: .1, size: .0045, color: '#7dff9a', kind: 'beam' });
+      this.effects.push({
+        x,
+        y,
+        x2: target.x,
+        y2: target.y,
+        vx: 0,
+        vy: 0,
+        life: 0.1,
+        maxLife: 0.1,
+        size: 0.0045,
+        color: "#7dff9a",
+        kind: "beam",
+      });
       let damage = Math.max(1, this.weaponDamage(S.droneDamage) - target.armor);
-      if (Math.random() < this.weaponCritChance(S.droneCritChance)) { damage *= this.weaponCritFactor(S.droneCritFactor); target.hueWarp = .45; }
+      if (Math.random() < this.weaponCritChance(S.droneCritChance)) {
+        damage *= this.weaponCritFactor(S.droneCritFactor);
+        target.hueWarp = 0.45;
+      }
       this.damageBug(target, damage);
-      if (S.lifesteal > 0) this.player.hp = Math.min(this.player.maxHp, this.player.hp + damage * S.lifesteal);
-      if (target.hp <= 0) { const index = this.bugs.indexOf(target); if (index >= 0) { this.killBug(index); if (target.trait === 'splitter') this.splitBug(target); } }
+      if (S.lifesteal > 0)
+        this.player.hp = Math.min(
+          this.player.maxHp,
+          this.player.hp + damage * S.lifesteal,
+        );
+      if (target.hp <= 0) {
+        const index = this.bugs.indexOf(target);
+        if (index >= 0) {
+          this.killBug(index);
+          if (target.trait === "splitter") this.splitBug(target);
+        }
+      }
     }
   }
-  private updateDrones(dt: number) { if (!this.hasWeapon('drone')) { if (this.orbitDrones.length) this.orbitDrones = []; return; } const want = Math.max(1, Math.floor(this.weaponCount(this.stats.droneCount))); while (this.orbitDrones.length < want) { this.orbitDrones.push({ x: this.player.x + (Math.random() - .5) * .12, y: this.player.y + (Math.random() - .5) * .12, vx: 0, vy: 0, timer: Math.random() * .5, phase: Math.random() * Math.PI * 2 }); } if (this.orbitDrones.length > want) this.orbitDrones.length = want; const t = performance.now() / 1000, leash = .16, px = this.player.x, py = this.player.y; for (let k = 0; k < this.orbitDrones.length; k++) { const d = this.orbitDrones[k]; let tx = px + Math.cos(t * .9 + d.phase) * .07, ty = py + Math.sin(t * .9 + d.phase) * .07; const foe = this.nearestIncoming(d.x, d.y); if (foe) { let ox = foe.x - px, oy = foe.y - py; const od = Math.hypot(ox, oy); if (od > leash) { ox *= leash / od; oy *= leash / od; } const pw = Math.hypot(ox, oy) || 1; const wob = Math.sin(t * 2.1 + d.phase) * .025; tx = px + ox + (-oy / pw) * wob; ty = py + oy + (ox / pw) * wob; } for (const o of this.orbitDrones) { if (o === d) continue; const sx = d.x - o.x, sy = d.y - o.y, sd = Math.hypot(sx, sy); if (sd < .045 && sd > 1e-4) { d.vx += sx / sd * 1.2 * dt; d.vy += sy / sd * 1.2 * dt; } } d.vx += (tx - d.x) * 4 * dt; d.vy += (ty - d.y) * 4 * dt; d.vx *= 1 / (1 + 2.2 * dt); d.vy *= 1 / (1 + 2.2 * dt); const sp = Math.hypot(d.vx, d.vy); if (sp > .4) { d.vx *= .4 / sp; d.vy *= .4 / sp; } d.x += d.vx * dt; d.y += d.vy * dt; d.timer -= dt; if (d.timer > 0) continue; const tgt = this.nearestIncoming(d.x, d.y); if (!tgt) { d.timer = .15; continue; } d.timer = this.weaponInterval(this.stats.droneInterval); this.fireDroneStings(d.x, d.y); } }
-  private fireRail() { const targets = this.distinctTargets(this.weaponTargets(this.stats.railCount)); for (let i = 0; i < Math.max(targets.length, 1); i++) { const target = targets[i] ?? targets[0]; const dx = (target?.x ?? this.player.x) - this.player.x, dy = (target?.y ?? this.player.y - 1) - this.player.y, n = Math.hypot(dx, dy) || 1; this.shots.push({ x: this.player.x, y: this.player.y, vx: dx / n * this.stats.railSpeed, vy: dy / n * this.stats.railSpeed, damage: this.stats.railDamage, kind: 'rail', radius: .016 * this.stats.projectileSize, range: this.weaponRange(this.stats.railRange), homing: 0, splash: 0, age: 0, bounces: 0, lock: target }); } }
-  private fireFlak() { const target = this.nearestIncoming(this.player.x, this.player.y); const base = Math.atan2((target?.y ?? this.player.y - 1) - this.player.y, (target?.x ?? this.player.x) - this.player.x); const count = Math.max(1, this.weaponTargets(this.stats.flakCount)); for (let i = 0; i < count; i++) { const a = base + (i - (count - 1) / 2) * .16; this.shots.push({ x: this.player.x, y: this.player.y, vx: Math.cos(a) * this.stats.flakSpeed, vy: Math.sin(a) * this.stats.flakSpeed, damage: this.stats.flakDamage, kind: 'flak', radius: .011 * this.stats.projectileSize, range: this.weaponRange(this.stats.flakRange), homing: 0, splash: this.stats.flakSplash, age: 0, bounces: 0, lock: target }); } }
-  private fireChem() { const targets = this.distinctTargets(this.weaponTargets(this.stats.chemCount)); for (let i = 0; i < Math.max(targets.length, 1); i++) { const target = targets[i] ?? targets[0]; const dx = (target?.x ?? this.player.x) - this.player.x, dy = (target?.y ?? this.player.y - 1) - this.player.y, n = Math.hypot(dx, dy) || 1; this.shots.push({ x: this.player.x, y: this.player.y, vx: dx / n * this.stats.chemSpeed, vy: dy / n * this.stats.chemSpeed, damage: this.stats.chemDamage, kind: 'chem', radius: .018 * this.stats.projectileSize, range: this.weaponRange(this.stats.chemRange), homing: 0, splash: 0, age: 0, bounces: 0, lock: target }); } }
-  private fireFlamer() { const targets = this.distinctTargets(this.weaponTargets(this.stats.flamerCount)); for (let i = 0; i < Math.max(targets.length, 1); i++) { const target = targets[i] ?? targets[0]; const dx = (target?.x ?? this.player.x) - this.player.x, dy = (target?.y ?? this.player.y - 1) - this.player.y, n = Math.hypot(dx, dy) || 1; this.shots.push({ x: this.player.x, y: this.player.y, vx: dx / n * this.stats.flamerSpeed, vy: dy / n * this.stats.flamerSpeed, damage: this.stats.flamerDamage, kind: 'flamer', radius: .012 * this.stats.projectileSize, range: this.weaponRange(this.stats.flamerRange), homing: 0, splash: this.stats.flamerSplash * this.stats.projectileSize, age: 0, bounces: this.stats.bounceBonus, lock: target }); } }
-  private updateClouds(dt: number) {
-    if (!this.clouds.length) return; for (let i = this.clouds.length - 1; i >= 0; i--) {
-      const c = this.clouds[i]; c.life -= dt; if (c.life <= 0) { this.clouds.splice(i, 1); continue; } if (Math.random() < .35 && this.effects.length < FX_MAX - FX_HEADROOM) { const a = Math.random() * Math.PI * 2, rr = Math.random() * c.radius; this.effects.push({ x: c.x + Math.cos(a) * rr, y: c.y + Math.sin(a) * rr, vx: (Math.random() - .5) * .02, vy: -.02 - Math.random() * .02, life: .5, maxLife: .5, size: .016, color: Math.random() < .5 ? '#b6ff4d' : '#5da83c' }); } c.tick -= dt; if (c.tick > 0) continue; c.tick = .5;
-      const dmgBase = this.weaponDamage(this.stats.chemDamage); for (const b of this.bugs) { if (b.ally) continue; if (Math.hypot(b.x - c.x, b.y - c.y) < c.radius + b.size) { b.chemDotTimer = Math.max(b.chemDotTimer ?? 0, 6); b.chemSpreadCooldown = 0; let dmg = Math.max(1, dmgBase - b.armor); if (Math.random() < this.weaponCritChance(this.stats.chemCritChance)) { dmg *= this.weaponCritFactor(this.stats.chemCritFactor); b.hueWarp = .45; } this.damageBug(b, dmg); if (this.stats.lifesteal > 0) this.player.hp = Math.min(this.player.maxHp, this.player.hp + dmg * this.stats.lifesteal); } }
-    } for (let i = this.bugs.length - 1; i >= 0; i--) { const b = this.bugs[i]; if (b.hp <= 0) { this.killBug(i); if (b.trait === 'splitter') this.splitBug(b); } }
+  private updateDrones(dt: number) {
+    if (!this.hasWeapon("drone")) {
+      if (this.orbitDrones.length) this.orbitDrones = [];
+      return;
+    }
+    const want = Math.max(
+      1,
+      Math.floor(this.weaponCount(this.stats.droneCount)),
+    );
+    while (this.orbitDrones.length < want) {
+      this.orbitDrones.push({
+        x: this.player.x + (Math.random() - 0.5) * 0.12,
+        y: this.player.y + (Math.random() - 0.5) * 0.12,
+        vx: 0,
+        vy: 0,
+        timer: Math.random() * 0.5,
+        phase: Math.random() * Math.PI * 2,
+      });
+    }
+    if (this.orbitDrones.length > want) this.orbitDrones.length = want;
+    const t = performance.now() / 1000,
+      leash = 0.16,
+      px = this.player.x,
+      py = this.player.y;
+    for (let k = 0; k < this.orbitDrones.length; k++) {
+      const d = this.orbitDrones[k];
+      let tx = px + Math.cos(t * 0.9 + d.phase) * 0.07,
+        ty = py + Math.sin(t * 0.9 + d.phase) * 0.07;
+      const foe = this.nearestIncoming(d.x, d.y);
+      if (foe) {
+        let ox = foe.x - px,
+          oy = foe.y - py;
+        const od = Math.hypot(ox, oy);
+        if (od > leash) {
+          ox *= leash / od;
+          oy *= leash / od;
+        }
+        const pw = Math.hypot(ox, oy) || 1;
+        const wob = Math.sin(t * 2.1 + d.phase) * 0.025;
+        tx = px + ox + (-oy / pw) * wob;
+        ty = py + oy + (ox / pw) * wob;
+      }
+      for (const o of this.orbitDrones) {
+        if (o === d) continue;
+        const sx = d.x - o.x,
+          sy = d.y - o.y,
+          sd = Math.hypot(sx, sy);
+        if (sd < 0.045 && sd > 1e-4) {
+          d.vx += (sx / sd) * 1.2 * dt;
+          d.vy += (sy / sd) * 1.2 * dt;
+        }
+      }
+      d.vx += (tx - d.x) * 4 * dt;
+      d.vy += (ty - d.y) * 4 * dt;
+      d.vx *= 1 / (1 + 2.2 * dt);
+      d.vy *= 1 / (1 + 2.2 * dt);
+      const sp = Math.hypot(d.vx, d.vy);
+      if (sp > 0.4) {
+        d.vx *= 0.4 / sp;
+        d.vy *= 0.4 / sp;
+      }
+      d.x += d.vx * dt;
+      d.y += d.vy * dt;
+      d.timer -= dt;
+      if (d.timer > 0) continue;
+      const tgt = this.nearestIncoming(d.x, d.y);
+      if (!tgt) {
+        d.timer = 0.15;
+        continue;
+      }
+      d.timer = this.weaponInterval(this.stats.droneInterval);
+      this.fireDroneStings(d.x, d.y);
+    }
   }
-  private spawnCloud(x: number, y: number) { if (this.clouds.length > 24) return; this.clouds.push({ x, y, radius: this.stats.chemRadius * this.stats.projectileSize, life: this.secondaryEffect(this.stats.chemDuration), maxLife: this.secondaryEffect(this.stats.chemDuration), tick: 0 }); }
-  private fireTesla(sx: number = this.player.x, sy: number = this.player.y) { const radius = this.teslaArcRange(); let bouncesLeft = Math.max(0, Math.floor(this.stats.bounceBonus)); const hit = new Set<SpaceBug>(); let fromX = sx, fromY = sy, jump = 0; let cur = this.nearestHostileInRadius(fromX, fromY, radius); while (cur) { hit.add(cur); this.applyStun(cur, this.secondaryEffect(this.stats.teslaStunDuration)); let dmg = Math.max(1, this.weaponDamage(this.stats.teslaDamage) * Math.pow(.85, jump) - cur.armor); if (Math.random() < this.weaponCritChance(this.stats.teslaCritChance)) { dmg *= this.weaponCritFactor(this.stats.teslaCritFactor); cur.hueWarp = .45; } this.damageBug(cur, dmg); if (this.stats.lifesteal > 0) this.player.hp = Math.min(this.player.maxHp, this.player.hp + dmg * this.stats.lifesteal); this.spawnLightning(fromX, fromY, cur.x, cur.y); fromX = cur.x; fromY = cur.y; jump++; if (bouncesLeft <= 0) break; bouncesLeft--; cur = this.nearestUnhitTeslaTarget(fromX, fromY, hit, radius); } for (let i = this.bugs.length - 1; i >= 0; i--) { const b = this.bugs[i]; if (b.hp <= 0) { this.killBug(i); if (b.trait === 'splitter') this.splitBug(b); } } }
-  private nearestUnhitTeslaTarget(x: number, y: number, hit: Set<SpaceBug>, maxDistance = Infinity) { let best: SpaceBug | undefined; let distance = maxDistance; for (const b of this.bugs) { if (hit.has(b) || b.ally || b.hp <= 0 || !Number.isFinite(b.x) || !Number.isFinite(b.y)) continue; const d = Math.hypot(b.x - x, b.y - y); if (d <= distance) { distance = d; best = b; } } return best; }
-  private nearestHostileInRadius(fromX: number, fromY: number, radius: number) { let best: SpaceBug | undefined; let bd = radius; for (const b of this.bugs) { if (b.ally || b.hp <= 0 || !Number.isFinite(b.x) || !Number.isFinite(b.y)) continue; const d = Math.hypot(b.x - fromX, b.y - fromY); if (d <= bd) { bd = d; best = b; } } return best; }
-  private spawnLightning(x1: number, y1: number, x2: number, y2: number) { const segs = 6; let px = x1, py = y1; for (let i = 1; i <= segs; i++) { const t = i / segs; const nx = x1 + (x2 - x1) * t + (i < segs ? (Math.random() - .5) * .03 : 0); const ny = y1 + (y2 - y1) * t + (i < segs ? (Math.random() - .5) * .03 : 0); const dx = nx - px, dy = ny - py; if (this.effects.length < FX_MAX) this.effects.push({ x: (px + nx) / 2, y: (py + ny) / 2, vx: 0, vy: 0, life: .18, maxLife: .18, size: .012, color: Math.random() < .3 ? '#ffffff' : '#9fd8ff', kind: 'edge', len: Math.hypot(dx, dy), angle: Math.atan2(dy, dx), spin: 0 }); px = nx; py = ny; } }
-  private kamikazeExplode(ally: SpaceBug) { const radius = Math.max(.11, ally.size * 3.2); const blastDamage = Math.max(1, ally.maxHp); for (const enemy of this.bugs) { if (enemy === ally || enemy.ally || enemy.hp <= 0) continue; if (Math.hypot(enemy.x - ally.x, enemy.y - ally.y) <= radius + enemy.size) {/* A kamikaze deals 100% of its own maximum health as damage to every hostile enemy in range. */this.damageBug(enemy, blastDamage); } } if (this.effects.length < FX_MAX) this.effects.push({ x: ally.x, y: ally.y, vx: 0, vy: 0, life: .5, maxLife: .5, size: radius * 1.2, color: '#a66cff', kind: 'ring', len: radius }); for (let i = 0; i < 18 && this.effects.length < FX_MAX; i++) { const a = Math.random() * Math.PI * 2, sp = .08 + Math.random() * .18; this.effects.push({ x: ally.x, y: ally.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: .35 + Math.random() * .25, maxLife: .6, size: .018 + Math.random() * .02, color: i % 2 ? '#d6a4ff' : '#ffffff' }); } } private explode(x: number, y: number, d: number, radius: number, ring: string) { for (const b of this.bugs) if (!b.ally && Math.hypot(b.x - x, b.y - y) < radius) this.damageBug(b, d * .35); if (this.effects.length < FX_MAX) this.effects.push({ x, y, vx: 0, vy: 0, life: .4, maxLife: .4, size: .012, color: ring, kind: 'ring', len: radius }); if (this.effects.length > FX_MAX - FX_HEADROOM) return; for (let i = 0; i < 26; i++) { const a = Math.random() * Math.PI * 2, sp = .06 + Math.random() * .22; this.effects.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: .3 + Math.random() * .4, maxLife: .7, size: .022 + Math.random() * .03, color: i % 3 === 0 ? '#fff3c2' : i % 3 === 1 ? '#ffb066' : '#ff6a3d' }); } } private shieldPulse() { this.player.shield = this.stats.shieldMax; const knock = this.stats.shieldKnockback; for (const b of this.bugs) { const d = Math.hypot(b.x - this.player.x, b.y - this.player.y); if (d < this.stats.shieldRadius + .06) { if (this.stats.shieldPulse > 0) this.damageBug(b, this.stats.shieldPulse); b.lockedOn = false; if (knock > 0) { const dx = b.x - this.player.x, dy = b.y - this.player.y, n = Math.hypot(dx, dy) || 1, push = knock * (this.wave === 1 ? 1 : .8) * (1 - this.controlResistance(b, 'knockback')); b.x += dx / n * push; b.y += dy / n * push; } } } }
-  private shapeCountFor(kind: SpaceBug['kind'], trait: SpaceBug['trait']) {
-    const levelCap = Math.max(1, Math.floor(this.level) || 1);
-    const kindFactor = kind === 'queen' ? 1 : kind === 'mantis' ? .9 : .8;
-    const traitBonus = trait === 'armored' || trait === 'regenerator' || trait === 'inertial' ? 1 : 0;
-    return Math.max(1, Math.min(levelCap, Math.ceil(levelCap * kindFactor) + traitBonus));
+  private fireRail() {
+    const targets = this.distinctTargets(
+      this.weaponTargets(this.stats.railCount),
+    );
+    for (let i = 0; i < Math.max(targets.length, 1); i++) {
+      const target = targets[i] ?? targets[0];
+      const dx = (target?.x ?? this.player.x) - this.player.x,
+        dy = (target?.y ?? this.player.y - 1) - this.player.y,
+        n = Math.hypot(dx, dy) || 1;
+      this.shots.push({
+        x: this.player.x,
+        y: this.player.y,
+        vx: (dx / n) * this.stats.railSpeed,
+        vy: (dy / n) * this.stats.railSpeed,
+        damage: this.stats.railDamage,
+        kind: "rail",
+        radius: 0.016 * this.stats.projectileSize,
+        range: this.weaponRange(this.stats.railRange),
+        homing: 0,
+        splash: 0,
+        age: 0,
+        bounces: 0,
+        lock: target,
+      });
+    }
   }
-  private splitBug(b: SpaceBug) { for (let i = 0; i < 2; i++) { const hp = Math.max(5, b.maxHp * .22), childShapes = Math.max(1, Math.min(Math.max(1, Math.floor(this.level) || 1), Math.ceil(b.maxSegments * .35))); this.bugs.push({ ...b, x: b.x + (i ? -.035 : .035), y: b.y - .02, hp, maxHp: hp, size: b.size * .62, speed: b.speed * 1.25, trait: 'charger', armor: 0, attack: b.attack * .45, regen: 0, segments: childShapes, maxSegments: childShapes, fragment: true }); } }
-  private spawnWaveBug() { const kind = ['scuttler', 'mantis', 'queen'][Math.floor(Math.random() * 3)] as SpaceBug['kind'], leviathan = this.wave >= 4 && Math.random() < Math.min(.12, .025 + this.wave * .006), traitRoll = Math.random(), trait = leviathan ? 'leviathan' : (this.wave >= 3 && traitRoll < Math.min(.22, .08 + this.wave * .012) ? 'inertial' : ['charger', 'armored', 'splitter', 'weaver', 'volatile', 'regenerator'][Math.floor(Math.random() * 6)]) as SpaceBug['trait'], scale = this.wave === 1 ? .40 : .55 + this.wave * .07, levelScale = 1 + Math.max(0, this.level - 1) * .08, base = leviathan ? 32 : (kind === 'queen' ? 130 : kind === 'mantis' ? 48 : 24) * scale * levelScale, healthRelief = leviathan ? 1 : kind === 'scuttler' ? .70 : .85, waveHp = 1 + Math.max(0, this.wave - 1) * .12, hp = base * healthRelief * waveHp * (trait === 'armored' ? (this.wave === 1 ? 1.12 : 1.2) : trait === 'regenerator' ? (this.wave === 1 ? 1.05 : 1.12) : trait === 'inertial' ? 1.3 : 1), shapeCount = leviathan ? Math.min(120, Math.max(24, 18 + this.wave * 4)) : this.shapeCountFor(kind, trait), side = Math.floor(Math.random() * 4), edge = .04 + Math.random() * .92; this.bugs.push({ x: side === 0 ? -.06 : side === 1 ? 1.06 : edge, y: side === 2 ? -.06 : side === 3 ? 1.06 : edge, hp, maxHp: hp, speed: (leviathan ? .07 : (kind === 'queen' ? .065 : kind === 'mantis' ? .095 : .135) + Math.max(0, this.wave - 1) * .003) * (trait === 'charger' ? (this.wave === 1 ? 1.18 : 1.3) : trait === 'inertial' ? 1.08 : 1), size: leviathan ? .12 : (kind === 'queen' ? .055 : kind === 'mantis' ? .04 : .029), phase: Math.random() * 100, kind: leviathan ? 'boss' : kind, trait, armor: trait === 'armored' ? 5 + this.wave * .7 : trait === 'inertial' ? 2 + this.wave * .35 : trait === 'leviathan' ? 10 + this.wave * 1.2 : 0, zigzag: .05, attack: (leviathan ? 32 : kind === 'queen' ? 22 : kind === 'mantis' ? 13 : 7) * (this.wave === 1 ? .32 : .61 + Math.max(0, this.wave - 1) * .055) * this.mobDamageMult(), regen: trait === 'regenerator' ? base * .18 : 0, segments: shapeCount, maxSegments: shapeCount, boss: leviathan }); }
-  private bugColor(b: SpaceBug) { return b.ally ? '#a66cff' : (b.chemDotTimer ?? 0) > 0 ? '#a8ff3e' : b.boss ? '#ff557d' : b.trait === 'leviathan' ? '#d9b8ff' : b.trait === 'inertial' ? '#ffc266' : b.trait === 'armored' ? '#b9c7d8' : b.trait === 'charger' ? '#ff9c4a' : b.trait === 'splitter' ? '#f5e85b' : b.trait === 'weaver' ? '#53d8ff' : b.trait === 'volatile' ? '#ff4b58' : b.trait === 'regenerator' ? '#74ff91' : b.kind === 'queen' ? '#ff557d' : b.kind === 'mantis' ? '#d875ff' : '#74ff91'; }
-  private shatterUnit(x: number, y: number, scale: number, col: string, count: number) {
-    if (this.effects.length > FX_MAX - FX_HEADROOM) return;
+  private fireFlak() {
+    const target = this.nearestIncoming(this.player.x, this.player.y);
+    const base = Math.atan2(
+      (target?.y ?? this.player.y - 1) - this.player.y,
+      (target?.x ?? this.player.x) - this.player.x,
+    );
+    const count = Math.max(1, this.weaponTargets(this.stats.flakCount));
     for (let i = 0; i < count; i++) {
-      const a = Math.random() * Math.PI * 2, sp = .05 + Math.random() * .18, l = .45 + Math.random() * .55;
-      this.effects.push({ x: x + (Math.random() - .5) * scale * .7, y: y + (Math.random() - .5) * scale * .7, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: l, maxLife: l, size: .016, color: i % 4 === 0 ? '#ffffff' : col, kind: 'edge', len: scale * (.35 + Math.random() * .5), angle: Math.random() * Math.PI * 2, spin: (Math.random() - .5) * 10 });
+      const a = base + (i - (count - 1) / 2) * 0.16;
+      this.shots.push({
+        x: this.player.x,
+        y: this.player.y,
+        vx: Math.cos(a) * this.stats.flakSpeed,
+        vy: Math.sin(a) * this.stats.flakSpeed,
+        damage: this.stats.flakDamage,
+        kind: "flak",
+        radius: 0.011 * this.stats.projectileSize,
+        range: this.weaponRange(this.stats.flakRange),
+        homing: 0,
+        splash: this.stats.flakSplash,
+        age: 0,
+        bounces: 0,
+        lock: target,
+      });
     }
   }
-  private damageBug(b: SpaceBug, d: number) { const oldSegs = b.segments; b.hp = Math.max(0, b.hp - d); b.segments = Math.max(0, Math.ceil(b.hp / (b.maxHp / Math.max(1, b.maxSegments)))); if (b.segments < oldSegs) { if (this.isLeviathan(b)) { this.shatterUnit(b.x, b.y, b.size * .9, this.bugColor(b), 9); return; } const t = performance.now() / 1000, spin = SpaceEvolvesRendering.twistAngle(b, t); for (let i = b.segments; i < oldSegs; i++) { const u = oldSegs === 1 ? 0 : i / (oldSegs - 1) - .5, nx = Math.cos(spin + u * 2.8) * b.size * u * 1.55, ny = Math.sin(spin + u * 2.8) * b.size * u * .65; this.shatterUnit(b.x + nx, b.y + ny, b.size * (b.boss ? .66 : .5), this.bugColor(b), b.boss ? 12 : 9); } } } private killBug(i: number) {
-    const b = this.bugs[i]; if (!b) return; if (this.isLeviathan(b)) { this.shatterUnit(b.x, b.y, b.size * 1.4, this.bugColor(b), 16); this.shatterUnit(b.x, b.y, b.size * .8, '#ffffff', 8); } else { const t = performance.now() / 1000, spin = SpaceEvolvesRendering.twistAngle(b, t), n = Math.max(1, b.segments); for (let s = 0; s < n; s++) { const u = n === 1 ? 0 : s / (n - 1) - .5, nx = Math.cos(spin + u * 2.8) * b.size * u * 1.55, ny = Math.sin(spin + u * 2.8) * b.size * u * .65; this.shatterUnit(b.x + nx, b.y + ny, b.size * (b.boss ? .66 : .5) * 1.3, this.bugColor(b), b.boss ? 10 : 8); } } this.bugs.splice(i, 1); if (b.boss && !this.isLeviathan(b)) { this.bossActive = false; this.wave++; this.waveKills = 0; this.experience += this.experienceForBoss() + this.stats.expPerWave; return; } if (!b.ally) this.score += 10 * this.wave; if (!b.fragment && !b.ally) this.waveKills++;
-    if (!b.ally) this.experience += this.experienceForKill() * (1 + this.stats.expBonusPerKill);
+  private fireChem() {
+    const targets = this.distinctTargets(
+      this.weaponTargets(this.stats.chemCount),
+    );
+    for (let i = 0; i < Math.max(targets.length, 1); i++) {
+      const target = targets[i] ?? targets[0];
+      const dx = (target?.x ?? this.player.x) - this.player.x,
+        dy = (target?.y ?? this.player.y - 1) - this.player.y,
+        n = Math.hypot(dx, dy) || 1;
+      this.shots.push({
+        x: this.player.x,
+        y: this.player.y,
+        vx: (dx / n) * this.stats.chemSpeed,
+        vy: (dy / n) * this.stats.chemSpeed,
+        damage: this.stats.chemDamage,
+        kind: "chem",
+        radius: 0.018 * this.stats.projectileSize,
+        range: this.weaponRange(this.stats.chemRange),
+        homing: 0,
+        splash: 0,
+        age: 0,
+        bounces: 0,
+        lock: target,
+      });
+    }
   }
-  private lateWaveExperienceBonus() { return Math.max(0, this.wave - 16); } private experienceForKill() { const waveProgress = Math.max(0, this.wave - 1); return Math.round(44 * (1 + waveProgress * .18 + this.lateWaveExperienceBonus() * .2)); }
-  private experienceForBoss() { const waveProgress = Math.max(0, this.wave - 1); return Math.round(200 * (1 + waveProgress * .25 + this.lateWaveExperienceBonus() * .3)); }
-  private spawnBoss() { const hp = 600 * (1 + this.wave * .22) * (this.wave === 1 ? .32 : 1), shapeCount = this.shapeCountFor('boss', 'armored'); this.bossActive = true; this.status = `Wave ${this.wave} boss has surfaced — kill it to start wave ${this.wave + 1}!`; this.bugs.push({ x: .5, y: .08, hp, maxHp: hp, speed: .025, size: .16, phase: 0, kind: 'boss', trait: 'armored', armor: (2.5 + this.wave * .8) * (this.wave === 1 ? .5 : 1), zigzag: 0, attack: (20 + this.wave * 3) * (this.wave === 1 ? .32 : 1) * this.mobDamageMult(), regen: hp * (this.wave === 1 ? .002 : .008), segments: shapeCount, maxSegments: shapeCount, boss: true }); }
-  private keepBossInArena(b: SpaceBug) { const margin = Math.min(.45, Math.max(.02, b.size)); b.x = Math.max(margin, Math.min(1 - margin, b.x)); b.y = Math.max(margin, Math.min(1 - margin, b.y)); }
-  private damagePlayer(amount: number) { const reduced = Math.max(1, amount - this.stats.absoluteDefence) * (1 - this.stats.defencePercent); const incoming = Math.max(.25, reduced), shield = Math.min(this.player.shield, incoming); this.player.shield -= shield; this.player.hp -= Math.max(0, incoming - shield); if (this.player.hp <= 0) this.endRun(); }
-  private offerUpgrades() { this.ngZone.run(() => { if (this.upgradeChoices.length) return; this.upgradeChoices = this.randomChoices(); this.grantedUpgrades = []; this.lastOfferTime = performance.now(); this.canPick = false; setTimeout(() => { if (this.upgradeChoices.length) this.canPick = true; }, 500); this.status = 'Evolution fork: improve an equipped weapon or fill an open slot.'; this.cdr.detectChanges(); this.autosave(); }); } private resetRun() { this.persistedUpgrades = []; this.stats = this.baseStats(); this.player = { x: .5, y: .5, hp: 120, maxHp: 120, shield: 0, speed: .55 }; this.shots = []; this.bugs = []; this.orbitDrones = []; this.clouds = []; this.backgroundShips = []; this.backgroundShipTimer = 5; this.wave = 1; this.score = 0; this.level = 0; this.bossActive = false; this.experience = 0; this.nextLevel = 90; this.gameOver = false; this.upgradeChoices = []; this.waveKills = 0; this.equippedWeapons = []; this.startingWeaponChoices = this.startingWeaponOptions; this.startingWeaponChoicePending = true; this.canPick = false; this.timers = { laser: 0, missile: 0, shield: 0, plasma: 0, drone: 0, rail: 0, flak: 0, tesla: 0, chem: 0, flamer: 0 }; this.status = 'Choose one weapon to begin your run.'; this.saveProgress(); this.prepareStartingChoice(); }
-  private endRun() {
-    this.ngZone.run(() => {
-      this.gameOver = true; 
-      this.status = `Run ended at wave ${this.wave}. Score ${this.score}.`;
-      this.userEventService.insertUserEvent(this.parentRef?.user?.id ?? 0, 'space_evolves', this.status);
-      this.saveProgress(true);
-
-      const uid = this.getUserId(); if (uid && uid === this.loadedUserId) void this.spaceEvolvesService.endRun(uid, this.currentRun()); this.cdr.detectChanges();
+  private fireFlamer() {
+    const targets = this.distinctTargets(
+      this.weaponTargets(this.stats.flamerCount),
+    );
+    for (let i = 0; i < Math.max(targets.length, 1); i++) {
+      const target = targets[i] ?? targets[0];
+      const dx = (target?.x ?? this.player.x) - this.player.x,
+        dy = (target?.y ?? this.player.y - 1) - this.player.y,
+        n = Math.hypot(dx, dy) || 1;
+      this.shots.push({
+        x: this.player.x,
+        y: this.player.y,
+        vx: (dx / n) * this.stats.flamerSpeed,
+        vy: (dy / n) * this.stats.flamerSpeed,
+        damage: this.stats.flamerDamage,
+        kind: "flamer",
+        radius: 0.012 * this.stats.projectileSize,
+        range: this.weaponRange(this.stats.flamerRange),
+        homing: 0,
+        splash: this.stats.flamerSplash * this.stats.projectileSize,
+        age: 0,
+        bounces: this.stats.bounceBonus,
+        lock: target,
+      });
+    }
+  }
+  private updateClouds(dt: number) {
+    if (!this.clouds.length) return;
+    for (let i = this.clouds.length - 1; i >= 0; i--) {
+      const c = this.clouds[i];
+      c.life -= dt;
+      if (c.life <= 0) {
+        this.clouds.splice(i, 1);
+        continue;
+      }
+      if (Math.random() < 0.35 && this.effects.length < FX_MAX - FX_HEADROOM) {
+        const a = Math.random() * Math.PI * 2,
+          rr = Math.random() * c.radius;
+        this.effects.push({
+          x: c.x + Math.cos(a) * rr,
+          y: c.y + Math.sin(a) * rr,
+          vx: (Math.random() - 0.5) * 0.02,
+          vy: -0.02 - Math.random() * 0.02,
+          life: 0.5,
+          maxLife: 0.5,
+          size: 0.016,
+          color: Math.random() < 0.5 ? "#b6ff4d" : "#5da83c",
+        });
+      }
+      c.tick -= dt;
+      if (c.tick > 0) continue;
+      c.tick = 0.5;
+      const dmgBase = this.weaponDamage(this.stats.chemDamage);
+      for (const b of this.bugs) {
+        if (b.ally) continue;
+        if (Math.hypot(b.x - c.x, b.y - c.y) < c.radius + b.size) {
+          b.chemDotTimer = Math.max(b.chemDotTimer ?? 0, 6);
+          b.chemSpreadCooldown = 0;
+          let dmg = Math.max(1, dmgBase - b.armor);
+          if (
+            Math.random() < this.weaponCritChance(this.stats.chemCritChance)
+          ) {
+            dmg *= this.weaponCritFactor(this.stats.chemCritFactor);
+            b.hueWarp = 0.45;
+          }
+          this.damageBug(b, dmg);
+          if (this.stats.lifesteal > 0)
+            this.player.hp = Math.min(
+              this.player.maxHp,
+              this.player.hp + dmg * this.stats.lifesteal,
+            );
+        }
+      }
+    }
+    for (let i = this.bugs.length - 1; i >= 0; i--) {
+      const b = this.bugs[i];
+      if (b.hp <= 0) {
+        this.killBug(i);
+        if (b.trait === "splitter") this.splitBug(b);
+      }
+    }
+  }
+  private spawnCloud(x: number, y: number) {
+    if (this.clouds.length > 24) return;
+    this.clouds.push({
+      x,
+      y,
+      radius: this.stats.chemRadius * this.stats.projectileSize,
+      life: this.secondaryEffect(this.stats.chemDuration),
+      maxLife: this.secondaryEffect(this.stats.chemDuration),
+      tick: 0,
     });
   }
-  private currentRun(): SpaceEvolvesRun { return { runId: this.serverRunId, wave: this.wave, level: this.level, score: this.score, experience: this.experience, nextLevel: this.nextLevel, player: this.player, stats: this.stats, upgrades: this.persistedUpgrades, equippedWeapons: this.equippedWeapons, waveKills: this.bossActive ? 8 + this.wave * 2 : this.waveKills, upgradeChoices: this.upgradeChoices.map(u => u.id), gameOver: this.gameOver }; } private restoreUpgradeChoices(ids: unknown): void { this.upgradeChoices = Array.isArray(ids) ? ids.map(id => this.upgrades.find(u => u.id === id)).filter((u): u is SpaceUpgrade => !!u) : []; if (this.upgradeChoices.length) { this.lastOfferTime = performance.now(); this.canPick = false; setTimeout(() => { if (this.upgradeChoices.length) this.canPick = true; }, 500); } }
+  private fireTesla(sx: number = this.player.x, sy: number = this.player.y) {
+    const radius = this.teslaArcRange();
+    let bouncesLeft = Math.max(0, Math.floor(this.stats.bounceBonus));
+    const hit = new Set<SpaceBug>();
+    let fromX = sx,
+      fromY = sy,
+      jump = 0;
+    let cur = this.nearestHostileInRadius(fromX, fromY, radius);
+    while (cur) {
+      hit.add(cur);
+      this.applyStun(cur, this.secondaryEffect(this.stats.teslaStunDuration));
+      let dmg = Math.max(
+        1,
+        this.weaponDamage(this.stats.teslaDamage) * Math.pow(0.85, jump) -
+          cur.armor,
+      );
+      if (Math.random() < this.weaponCritChance(this.stats.teslaCritChance)) {
+        dmg *= this.weaponCritFactor(this.stats.teslaCritFactor);
+        cur.hueWarp = 0.45;
+      }
+      this.damageBug(cur, dmg);
+      if (this.stats.lifesteal > 0)
+        this.player.hp = Math.min(
+          this.player.maxHp,
+          this.player.hp + dmg * this.stats.lifesteal,
+        );
+      this.spawnLightning(fromX, fromY, cur.x, cur.y);
+      fromX = cur.x;
+      fromY = cur.y;
+      jump++;
+      if (bouncesLeft <= 0) break;
+      bouncesLeft--;
+      cur = this.nearestUnhitTeslaTarget(fromX, fromY, hit, radius);
+    }
+    for (let i = this.bugs.length - 1; i >= 0; i--) {
+      const b = this.bugs[i];
+      if (b.hp <= 0) {
+        this.killBug(i);
+        if (b.trait === "splitter") this.splitBug(b);
+      }
+    }
+  }
+  private nearestUnhitTeslaTarget(
+    x: number,
+    y: number,
+    hit: Set<SpaceBug>,
+    maxDistance = Infinity,
+  ) {
+    let best: SpaceBug | undefined;
+    let distance = maxDistance;
+    for (const b of this.bugs) {
+      if (
+        hit.has(b) ||
+        b.ally ||
+        b.hp <= 0 ||
+        !Number.isFinite(b.x) ||
+        !Number.isFinite(b.y)
+      )
+        continue;
+      const d = Math.hypot(b.x - x, b.y - y);
+      if (d <= distance) {
+        distance = d;
+        best = b;
+      }
+    }
+    return best;
+  }
+  private nearestHostileInRadius(fromX: number, fromY: number, radius: number) {
+    let best: SpaceBug | undefined;
+    let bd = radius;
+    for (const b of this.bugs) {
+      if (b.ally || b.hp <= 0 || !Number.isFinite(b.x) || !Number.isFinite(b.y))
+        continue;
+      const d = Math.hypot(b.x - fromX, b.y - fromY);
+      if (d <= bd) {
+        bd = d;
+        best = b;
+      }
+    }
+    return best;
+  }
+  private spawnLightning(x1: number, y1: number, x2: number, y2: number) {
+    const segs = 6;
+    let px = x1,
+      py = y1;
+    for (let i = 1; i <= segs; i++) {
+      const t = i / segs;
+      const nx =
+        x1 + (x2 - x1) * t + (i < segs ? (Math.random() - 0.5) * 0.03 : 0);
+      const ny =
+        y1 + (y2 - y1) * t + (i < segs ? (Math.random() - 0.5) * 0.03 : 0);
+      const dx = nx - px,
+        dy = ny - py;
+      if (this.effects.length < FX_MAX)
+        this.effects.push({
+          x: (px + nx) / 2,
+          y: (py + ny) / 2,
+          vx: 0,
+          vy: 0,
+          life: 0.18,
+          maxLife: 0.18,
+          size: 0.012,
+          color: Math.random() < 0.3 ? "#ffffff" : "#9fd8ff",
+          kind: "edge",
+          len: Math.hypot(dx, dy),
+          angle: Math.atan2(dy, dx),
+          spin: 0,
+        });
+      px = nx;
+      py = ny;
+    }
+  }
+  private kamikazeExplode(ally: SpaceBug) {
+    const radius = Math.max(0.11, ally.size * 3.2);
+    const blastDamage = Math.max(1, ally.maxHp);
+    for (const enemy of this.bugs) {
+      if (enemy === ally || enemy.ally || enemy.hp <= 0) continue;
+      if (
+        Math.hypot(enemy.x - ally.x, enemy.y - ally.y) <=
+        radius + enemy.size
+      ) {
+        /* A kamikaze deals 100% of its own maximum health as damage to every hostile enemy in range. */ this.damageBug(
+          enemy,
+          blastDamage,
+        );
+      }
+    }
+    if (this.effects.length < FX_MAX)
+      this.effects.push({
+        x: ally.x,
+        y: ally.y,
+        vx: 0,
+        vy: 0,
+        life: 0.5,
+        maxLife: 0.5,
+        size: radius * 1.2,
+        color: "#a66cff",
+        kind: "ring",
+        len: radius,
+      });
+    for (let i = 0; i < 18 && this.effects.length < FX_MAX; i++) {
+      const a = Math.random() * Math.PI * 2,
+        sp = 0.08 + Math.random() * 0.18;
+      this.effects.push({
+        x: ally.x,
+        y: ally.y,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp,
+        life: 0.35 + Math.random() * 0.25,
+        maxLife: 0.6,
+        size: 0.018 + Math.random() * 0.02,
+        color: i % 2 ? "#d6a4ff" : "#ffffff",
+      });
+    }
+  }
+  private explode(
+    x: number,
+    y: number,
+    d: number,
+    radius: number,
+    ring: string,
+  ) {
+    for (const b of this.bugs)
+      if (!b.ally && Math.hypot(b.x - x, b.y - y) < radius)
+        this.damageBug(b, d * 0.35);
+    if (this.effects.length < FX_MAX)
+      this.effects.push({
+        x,
+        y,
+        vx: 0,
+        vy: 0,
+        life: 0.4,
+        maxLife: 0.4,
+        size: 0.012,
+        color: ring,
+        kind: "ring",
+        len: radius,
+      });
+    if (this.effects.length > FX_MAX - FX_HEADROOM) return;
+    for (let i = 0; i < 26; i++) {
+      const a = Math.random() * Math.PI * 2,
+        sp = 0.06 + Math.random() * 0.22;
+      this.effects.push({
+        x,
+        y,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp,
+        life: 0.3 + Math.random() * 0.4,
+        maxLife: 0.7,
+        size: 0.022 + Math.random() * 0.03,
+        color: i % 3 === 0 ? "#fff3c2" : i % 3 === 1 ? "#ffb066" : "#ff6a3d",
+      });
+    }
+  }
+  private shieldPulse() {
+    this.player.shield = this.stats.shieldMax;
+    const knock = this.stats.shieldKnockback;
+    for (const b of this.bugs) {
+      const d = Math.hypot(b.x - this.player.x, b.y - this.player.y);
+      if (d < this.stats.shieldRadius + 0.06) {
+        if (this.stats.shieldPulse > 0)
+          this.damageBug(b, this.stats.shieldPulse);
+        b.lockedOn = false;
+        if (knock > 0) {
+          const dx = b.x - this.player.x,
+            dy = b.y - this.player.y,
+            n = Math.hypot(dx, dy) || 1,
+            push =
+              knock *
+              (this.wave === 1 ? 1 : 0.8) *
+              (1 - this.controlResistance(b, "knockback"));
+          b.x += (dx / n) * push;
+          b.y += (dy / n) * push;
+        }
+      }
+    }
+  }
+  private shapeCountFor(kind: SpaceBug["kind"], trait: SpaceBug["trait"]) {
+    const levelCap = Math.max(1, Math.floor(this.level) || 1);
+    const kindFactor = kind === "queen" ? 1 : kind === "mantis" ? 0.9 : 0.8;
+    const traitBonus =
+      trait === "armored" || trait === "regenerator" || trait === "inertial"
+        ? 1
+        : 0;
+    return Math.max(
+      1,
+      Math.min(levelCap, Math.ceil(levelCap * kindFactor) + traitBonus),
+    );
+  }
+  private splitBug(b: SpaceBug) {
+    for (let i = 0; i < 2; i++) {
+      const hp = Math.max(5, b.maxHp * 0.22),
+        childShapes = Math.max(
+          1,
+          Math.min(
+            Math.max(1, Math.floor(this.level) || 1),
+            Math.ceil(b.maxSegments * 0.35),
+          ),
+        );
+      this.bugs.push({
+        ...b,
+        x: b.x + (i ? -0.035 : 0.035),
+        y: b.y - 0.02,
+        hp,
+        maxHp: hp,
+        size: b.size * 0.62,
+        speed: b.speed * 1.25,
+        trait: "charger",
+        armor: 0,
+        attack: b.attack * 0.45,
+        regen: 0,
+        segments: childShapes,
+        maxSegments: childShapes,
+        fragment: true,
+      });
+    }
+    this.spawnedThisWave += 2;
+  }
+  private spawnWaveBug() {
+    const kind = ["scuttler", "mantis", "queen"][
+        Math.floor(Math.random() * 3)
+      ] as SpaceBug["kind"],
+      leviathan =
+        this.wave >= 4 &&
+        Math.random() < Math.min(0.12, 0.025 + this.wave * 0.006),
+      traitRoll = Math.random(),
+      trait = leviathan
+        ? "leviathan"
+        : ((this.wave >= 3 &&
+          traitRoll < Math.min(0.22, 0.08 + this.wave * 0.012)
+            ? "inertial"
+            : [
+                "charger",
+                "armored",
+                "splitter",
+                "weaver",
+                "volatile",
+                "regenerator",
+              ][Math.floor(Math.random() * 6)]) as SpaceBug["trait"]),
+      scale = this.wave === 1 ? 0.4 : 0.55 + this.wave * 0.07,
+      levelScale = 1 + Math.max(0, this.level - 1) * 0.08,
+      base = leviathan
+        ? 32
+        : (kind === "queen" ? 130 : kind === "mantis" ? 48 : 24) *
+          scale *
+          levelScale,
+      healthRelief = leviathan ? 1 : kind === "scuttler" ? 0.7 : 0.85,
+      waveHp = 1 + Math.max(0, this.wave - 1) * 0.12,
+      hp =
+        base *
+        healthRelief *
+        waveHp *
+        (trait === "armored"
+          ? this.wave === 1
+            ? 1.12
+            : 1.2
+          : trait === "regenerator"
+            ? this.wave === 1
+              ? 1.05
+              : 1.12
+            : trait === "inertial"
+              ? 1.3
+              : 1),
+      shapeCount = leviathan
+        ? Math.min(120, Math.max(24, 18 + this.wave * 4))
+        : this.shapeCountFor(kind, trait),
+      side = Math.floor(Math.random() * 4),
+      edge = 0.04 + Math.random() * 0.92;
+    this.bugs.push({
+      x: side === 0 ? -0.06 : side === 1 ? 1.06 : edge,
+      y: side === 2 ? -0.06 : side === 3 ? 1.06 : edge,
+      hp,
+      maxHp: hp,
+      speed:
+        (leviathan
+          ? 0.07
+          : (kind === "queen" ? 0.065 : kind === "mantis" ? 0.095 : 0.135) +
+            Math.max(0, this.wave - 1) * 0.003) *
+        (trait === "charger"
+          ? this.wave === 1
+            ? 1.18
+            : 1.3
+          : trait === "inertial"
+            ? 1.08
+            : 1),
+      size: leviathan
+        ? 0.12
+        : kind === "queen"
+          ? 0.055
+          : kind === "mantis"
+            ? 0.04
+            : 0.029,
+      phase: Math.random() * 100,
+      kind: leviathan ? "boss" : kind,
+      trait,
+      armor:
+        trait === "armored"
+          ? 5 + this.wave * 0.7
+          : trait === "inertial"
+            ? 2 + this.wave * 0.35
+            : trait === "leviathan"
+              ? 10 + this.wave * 1.2
+              : 0,
+      zigzag: 0.05,
+      attack:
+        (leviathan ? 32 : kind === "queen" ? 22 : kind === "mantis" ? 13 : 7) *
+        (this.wave === 1 ? 0.32 : 0.61 + Math.max(0, this.wave - 1) * 0.055) *
+        this.mobDamageMult(),
+      regen: trait === "regenerator" ? base * 0.18 : 0,
+      segments: shapeCount,
+      maxSegments: shapeCount,
+      boss: leviathan,
+    });
+    this.spawnedThisWave++;
+  }
+  private bugColor(b: SpaceBug) {
+    return b.ally
+      ? "#a66cff"
+      : (b.chemDotTimer ?? 0) > 0
+        ? "#a8ff3e"
+        : b.boss
+          ? "#ff557d"
+          : b.trait === "leviathan"
+            ? "#d9b8ff"
+            : b.trait === "inertial"
+              ? "#ffc266"
+              : b.trait === "armored"
+                ? "#b9c7d8"
+                : b.trait === "charger"
+                  ? "#ff9c4a"
+                  : b.trait === "splitter"
+                    ? "#f5e85b"
+                    : b.trait === "weaver"
+                      ? "#53d8ff"
+                      : b.trait === "volatile"
+                        ? "#ff4b58"
+                        : b.trait === "regenerator"
+                          ? "#74ff91"
+                          : b.kind === "queen"
+                            ? "#ff557d"
+                            : b.kind === "mantis"
+                              ? "#d875ff"
+                              : "#74ff91";
+  }
+  private shatterUnit(
+    x: number,
+    y: number,
+    scale: number,
+    col: string,
+    count: number,
+  ) {
+    if (this.effects.length > FX_MAX - FX_HEADROOM) return;
+    for (let i = 0; i < count; i++) {
+      const a = Math.random() * Math.PI * 2,
+        sp = 0.05 + Math.random() * 0.18,
+        l = 0.45 + Math.random() * 0.55;
+      this.effects.push({
+        x: x + (Math.random() - 0.5) * scale * 0.7,
+        y: y + (Math.random() - 0.5) * scale * 0.7,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp,
+        life: l,
+        maxLife: l,
+        size: 0.016,
+        color: i % 4 === 0 ? "#ffffff" : col,
+        kind: "edge",
+        len: scale * (0.35 + Math.random() * 0.5),
+        angle: Math.random() * Math.PI * 2,
+        spin: (Math.random() - 0.5) * 10,
+      });
+    }
+  }
+  private damageBug(b: SpaceBug, d: number) {
+    const oldSegs = b.segments;
+    b.hp = Math.max(0, b.hp - d);
+    b.segments = Math.max(
+      0,
+      Math.ceil(b.hp / (b.maxHp / Math.max(1, b.maxSegments))),
+    );
+    if (b.segments < oldSegs) {
+      if (this.isLeviathan(b)) {
+        this.shatterUnit(b.x, b.y, b.size * 0.9, this.bugColor(b), 9);
+        return;
+      }
+      const t = performance.now() / 1000,
+        spin = SpaceEvolvesRendering.twistAngle(b, t);
+      for (let i = b.segments; i < oldSegs; i++) {
+        const u = oldSegs === 1 ? 0 : i / (oldSegs - 1) - 0.5,
+          nx = Math.cos(spin + u * 2.8) * b.size * u * 1.55,
+          ny = Math.sin(spin + u * 2.8) * b.size * u * 0.65;
+        this.shatterUnit(
+          b.x + nx,
+          b.y + ny,
+          b.size * (b.boss ? 0.66 : 0.5),
+          this.bugColor(b),
+          b.boss ? 12 : 9,
+        );
+      }
+    }
+  }
+  private killBug(i: number) {
+    const b = this.bugs[i];
+    if (!b) return;
+    if (this.isLeviathan(b)) {
+      this.shatterUnit(b.x, b.y, b.size * 1.4, this.bugColor(b), 16);
+      this.shatterUnit(b.x, b.y, b.size * 0.8, "#ffffff", 8);
+    } else {
+      const t = performance.now() / 1000,
+        spin = SpaceEvolvesRendering.twistAngle(b, t),
+        n = Math.max(1, b.segments);
+      for (let s = 0; s < n; s++) {
+        const u = n === 1 ? 0 : s / (n - 1) - 0.5,
+          nx = Math.cos(spin + u * 2.8) * b.size * u * 1.55,
+          ny = Math.sin(spin + u * 2.8) * b.size * u * 0.65;
+        this.shatterUnit(
+          b.x + nx,
+          b.y + ny,
+          b.size * (b.boss ? 0.66 : 0.5) * 1.3,
+          this.bugColor(b),
+          b.boss ? 10 : 8,
+        );
+      }
+    }
+    this.bugs.splice(i, 1);
+    if (b.boss && !this.isLeviathan(b)) {
+      this.bossActive = false;
+      this.wave++;
+      this.waveKills = 0;
+      this.spawnedThisWave = 0;
+      this.experience += this.experienceForBoss() + this.stats.expPerWave;
+      return;
+    }
+    if (!b.ally) this.score += 10 * this.wave;
+    if (!b.fragment && !b.ally) this.waveKills++;
+    if (!b.ally)
+      this.experience +=
+        this.experienceForKill() * (1 + this.stats.expBonusPerKill);
+  }
+  private lateWaveExperienceBonus() {
+    return Math.max(0, this.wave - 16);
+  }
+  private experienceForKill() {
+    const waveProgress = Math.max(0, this.wave - 1);
+    return Math.round(
+      44 * (1 + waveProgress * 0.18 + this.lateWaveExperienceBonus() * 0.2),
+    );
+  }
+  private experienceForBoss() {
+    const waveProgress = Math.max(0, this.wave - 1);
+    return Math.round(
+      200 * (1 + waveProgress * 0.25 + this.lateWaveExperienceBonus() * 0.3),
+    );
+  }
+  private spawnBoss() {
+    const hp = 600 * (1 + this.wave * 0.22) * (this.wave === 1 ? 0.32 : 1),
+      shapeCount = this.shapeCountFor("boss", "armored");
+    this.bossActive = true;
+    this.status = `Wave ${this.wave} boss has surfaced — kill it to start wave ${this.wave + 1}!`;
+    this.bugs.push({
+      x: 0.5,
+      y: 0.08,
+      hp,
+      maxHp: hp,
+      speed: 0.025,
+      size: 0.16,
+      phase: 0,
+      kind: "boss",
+      trait: "armored",
+      armor: (2.5 + this.wave * 0.8) * (this.wave === 1 ? 0.5 : 1),
+      zigzag: 0,
+      attack:
+        (20 + this.wave * 3) *
+        (this.wave === 1 ? 0.32 : 1) *
+        this.mobDamageMult(),
+      regen: hp * (this.wave === 1 ? 0.002 : 0.008),
+      segments: shapeCount,
+      maxSegments: shapeCount,
+      boss: true,
+    });
+    this.spawnedThisWave++;
+  }
+  private keepBossInArena(b: SpaceBug) {
+    const margin = Math.min(0.45, Math.max(0.02, b.size));
+    b.x = Math.max(margin, Math.min(1 - margin, b.x));
+    b.y = Math.max(margin, Math.min(1 - margin, b.y));
+  }
+  private damagePlayer(amount: number) {
+    const reduced =
+      Math.max(1, amount - this.stats.absoluteDefence) *
+      (1 - this.stats.defencePercent);
+    const incoming = Math.max(0.25, reduced),
+      shield = Math.min(this.player.shield, incoming);
+    this.player.shield -= shield;
+    this.player.hp -= Math.max(0, incoming - shield);
+    if (this.player.hp <= 0) this.endRun();
+  }
+  private offerUpgrades() {
+    this.ngZone.run(() => {
+      if (this.upgradeChoices.length) return;
+      this.upgradeChoices = this.randomChoices();
+      this.grantedUpgrades = [];
+      this.lastOfferTime = performance.now();
+      this.canPick = false;
+      setTimeout(() => {
+        if (this.upgradeChoices.length) this.canPick = true;
+      }, 500);
+      this.status =
+        "Evolution fork: improve an equipped weapon or fill an open slot.";
+      this.cdr.detectChanges();
+      this.autosave();
+    });
+  }
+  private resetRun() {
+    this.persistedUpgrades = [];
+    this.stats = this.baseStats();
+    this.player = {
+      x: 0.5,
+      y: 0.5,
+      hp: 120,
+      maxHp: 120,
+      shield: 0,
+      speed: 0.55,
+    };
+    this.shots = [];
+    this.bugs = [];
+    this.orbitDrones = [];
+    this.clouds = [];
+    this.backgroundShips = [];
+    this.backgroundShipTimer = 5;
+    this.wave = 1;
+    this.score = 0;
+    this.level = 0;
+    this.bossActive = false;
+    this.experience = 0;
+    this.nextLevel = 90;
+    this.gameOver = false;
+    this.upgradeChoices = [];
+    this.waveKills = 0;
+    this.spawnedThisWave = 0;
+    this.equippedWeapons = [];
+    this.startingWeaponChoices = this.startingWeaponOptions;
+    this.startingWeaponChoicePending = true;
+    this.canPick = false;
+    this.timers = {
+      laser: 0,
+      missile: 0,
+      shield: 0,
+      plasma: 0,
+      drone: 0,
+      rail: 0,
+      flak: 0,
+      tesla: 0,
+      chem: 0,
+      flamer: 0,
+    };
+    this.status = "Choose one weapon to begin your run.";
+    this.saveProgress();
+    this.prepareStartingChoice();
+  }
+  private endRun() {
+    this.ngZone.run(() => {
+      this.gameOver = true;
+      this.status = `Run ended at wave ${this.wave}. Score ${this.score}.`;
+      this.userEventService.insertUserEvent(
+        this.parentRef?.user?.id ?? 0,
+        "space_evolves",
+        this.status,
+      );
+      this.saveProgress(true);
+
+      const uid = this.getUserId();
+      if (uid && uid === this.loadedUserId)
+        void this.spaceEvolvesService.endRun(uid, this.currentRun());
+      this.cdr.detectChanges();
+    });
+  }
+  private currentRun(): SpaceEvolvesRun {
+    return {
+      runId: this.serverRunId,
+      wave: this.wave,
+      level: this.level,
+      score: this.score,
+      experience: this.experience,
+      nextLevel: this.nextLevel,
+      player: this.player,
+      stats: this.stats,
+      upgrades: this.persistedUpgrades,
+      equippedWeapons: this.equippedWeapons,
+      waveKills: this.bossActive ? this.waveQuota() : this.waveKills,
+      spawnedThisWave: this.spawnedThisWave,
+      upgradeChoices: this.upgradeChoices.map((u) => u.id),
+      gameOver: this.gameOver,
+    };
+  }
+  private restoreUpgradeChoices(ids: unknown): void {
+    this.upgradeChoices = Array.isArray(ids)
+      ? ids
+          .map((id) => this.upgrades.find((u) => u.id === id))
+          .filter((u): u is SpaceUpgrade => !!u)
+      : [];
+    if (this.upgradeChoices.length) {
+      this.lastOfferTime = performance.now();
+      this.canPick = false;
+      setTimeout(() => {
+        if (this.upgradeChoices.length) this.canPick = true;
+      }, 500);
+    }
+  }
   private loadProgress() {
     try {
-      const uid = this.getUserId(); if (!uid) return;
-      const s = JSON.parse(localStorage.getItem(`space-evolves-progress-${uid}`) || 'null'); if (s && s.userId === uid && !s.gameOver) { Object.assign(this.player, s.player || {}); this.wave = Number.isFinite(s.wave) ? s.wave : 1; this.level = Number.isFinite(s.level) ? s.level : 0; this.score = Number.isFinite(s.score) ? s.score : 0; this.experience = Number.isFinite(s.experience) ? s.experience : 0; this.nextLevel = Number.isFinite(s.nextLevel) ? s.nextLevel : 100; this.waveKills = s.waveKills || 0; this.restoreUpgradeChoices(s.upgradeChoices); this.stats = { ...this.stats, ...s.stats }; this.persistedUpgrades = s.upgrades || []; this.migrateLegacyDamageUpgrades(); this.migrateLegacyGenericUpgrades(); this.restoreDamageMultiplier(); this.stats.defencePercent = this.defenceForStacks(this.persistedUpgrades.filter(id => id === 'health-defence').length);   this.stats.defencePercent = this.defenceForStacks(this.persistedUpgrades.filter(id => id === 'health-defence').length); this.equippedWeapons = Array.isArray(s.equippedWeapons) ? s.equippedWeapons.filter((id: string): id is WeaponId => ['laser', 'missile', 'shield', 'plasma', 'drone', 'rail', 'flak', 'tesla', 'chem', 'flamer'].includes(id)).slice(0, this.weaponSlotLimit) : []; this.startingWeaponChoicePending = this.equippedWeapons.length === 0; this.startingWeaponChoices = this.startingWeaponChoicePending ? this.startingWeaponOptions : [];  }
-    } catch { }
+      const uid = this.getUserId();
+      if (!uid) return;
+      const s = JSON.parse(
+        localStorage.getItem(`space-evolves-progress-${uid}`) || "null",
+      );
+      if (s && s.userId === uid && !s.gameOver) {
+        Object.assign(this.player, s.player || {});
+        this.wave = Number.isFinite(s.wave) ? s.wave : 1;
+        this.level = Number.isFinite(s.level) ? s.level : 0;
+        this.score = Number.isFinite(s.score) ? s.score : 0;
+        this.experience = Number.isFinite(s.experience) ? s.experience : 0;
+        this.nextLevel = Number.isFinite(s.nextLevel) ? s.nextLevel : 100;
+        this.waveKills = s.waveKills || 0;
+        this.spawnedThisWave = s.spawnedThisWave || 0;
+        this.restoreUpgradeChoices(s.upgradeChoices);
+        this.stats = { ...this.stats, ...s.stats };
+        this.persistedUpgrades = s.upgrades || [];
+        this.migrateLegacyDamageUpgrades();
+        this.migrateLegacyGenericUpgrades();
+        this.restoreDamageMultiplier();
+        this.stats.defencePercent = this.defenceForStacks(
+          this.persistedUpgrades.filter((id) => id === "health-defence").length,
+        );
+        this.stats.defencePercent = this.defenceForStacks(
+          this.persistedUpgrades.filter((id) => id === "health-defence").length,
+        );
+        this.equippedWeapons = Array.isArray(s.equippedWeapons)
+          ? s.equippedWeapons
+              .filter((id: string): id is WeaponId =>
+                [
+                  "laser",
+                  "missile",
+                  "shield",
+                  "plasma",
+                  "drone",
+                  "rail",
+                  "flak",
+                  "tesla",
+                  "chem",
+                  "flamer",
+                ].includes(id),
+              )
+              .slice(0, this.weaponSlotLimit)
+          : [];
+        this.startingWeaponChoicePending = this.equippedWeapons.length === 0;
+        this.startingWeaponChoices = this.startingWeaponChoicePending
+          ? this.startingWeaponOptions
+          : [];
+      }
+    } catch {}
   }
-  private async loadServerRun() { this.ngZone.run(async () => { this.serverUserId = this.getUserId(); this.loadedUserId = this.serverUserId; if (!this.serverUserId) return; const s = await this.spaceEvolvesService.getActiveRun(this.serverUserId); if (s && !s.gameOver) { this.serverRunId = s.runId; Object.assign(this.player, s.player || {}); this.wave = Number.isFinite(s.wave) ? s.wave : 1; this.level = Number.isFinite(s.level) ? s.level : 0; this.score = Number.isFinite(s.score) ? s.score : 0; this.experience = Number.isFinite(s.experience) ? s.experience : 0; this.nextLevel = Number.isFinite(s.nextLevel) ? s.nextLevel : 100; this.waveKills = s.waveKills || 0; this.restoreUpgradeChoices(s.upgradeChoices); this.stats = { ...this.stats, ...s.stats }; this.persistedUpgrades = Array.isArray(s.upgrades) ? s.upgrades : []; this.migrateLegacyDamageUpgrades(); this.migrateLegacyGenericUpgrades(); this.restoreDamageMultiplier(); this.stats.defencePercent = this.defenceForStacks(this.persistedUpgrades.filter(id => id === 'health-defence').length);   this.equippedWeapons = Array.isArray(s.equippedWeapons) ? s.equippedWeapons.filter((id: string): id is WeaponId => ['laser', 'missile', 'shield', 'plasma', 'drone', 'rail', 'flak', 'tesla', 'chem', 'flamer'].includes(id)).slice(0, this.weaponSlotLimit) : []; this.startingWeaponChoicePending = this.equippedWeapons.length === 0; this.startingWeaponChoices = this.startingWeaponChoicePending ? this.startingWeaponOptions : [];  } this.serverLoaded = true; }); } private getUserId() { return Number(this.parentRef?.user?.id || 0); } private persistRun() { const uid = this.getUserId(); if (uid && uid === this.loadedUserId && this.serverLoaded && !this.gameOver) void this.spaceEvolvesService.saveRun(uid, this.currentRun()); }
-  private saveProgress(dead = false) { try { const uid = this.getUserId(); if (!uid) return; localStorage.setItem(`space-evolves-progress-${uid}`, JSON.stringify({ ...this.currentRun(), gameOver: dead, userId: uid })); } catch { } }
-  private async loadHighScores() { this.ngZone.run(async () => { try { const r = await fetch('/spaceevolves/highscores?limit=10'); if (r.ok) this.highScores = await r.json(); } catch { this.highScores = []; } finally { this.loadingScores = false; } }); }
+  private async loadServerRun() {
+    this.ngZone.run(async () => {
+      this.serverUserId = this.getUserId();
+      this.loadedUserId = this.serverUserId;
+      if (!this.serverUserId) return;
+      const s = await this.spaceEvolvesService.getActiveRun(this.serverUserId);
+      if (s && !s.gameOver) {
+        this.serverRunId = s.runId;
+        Object.assign(this.player, s.player || {});
+        this.wave = Number.isFinite(s.wave) ? s.wave : 1;
+        this.level = Number.isFinite(s.level) ? s.level : 0;
+        this.score = Number.isFinite(s.score) ? s.score : 0;
+        this.experience = Number.isFinite(s.experience) ? s.experience : 0;
+        this.nextLevel = Number.isFinite(s.nextLevel) ? s.nextLevel : 100;
+        this.waveKills = s.waveKills || 0;
+        this.spawnedThisWave = s.spawnedThisWave || 0;
+        this.restoreUpgradeChoices(s.upgradeChoices);
+        this.stats = { ...this.stats, ...s.stats };
+        this.persistedUpgrades = Array.isArray(s.upgrades) ? s.upgrades : [];
+        this.migrateLegacyDamageUpgrades();
+        this.migrateLegacyGenericUpgrades();
+        this.restoreDamageMultiplier();
+        this.stats.defencePercent = this.defenceForStacks(
+          this.persistedUpgrades.filter((id) => id === "health-defence").length,
+        );
+        this.equippedWeapons = Array.isArray(s.equippedWeapons)
+          ? s.equippedWeapons
+              .filter((id: string): id is WeaponId =>
+                [
+                  "laser",
+                  "missile",
+                  "shield",
+                  "plasma",
+                  "drone",
+                  "rail",
+                  "flak",
+                  "tesla",
+                  "chem",
+                  "flamer",
+                ].includes(id),
+              )
+              .slice(0, this.weaponSlotLimit)
+          : [];
+        this.startingWeaponChoicePending = this.equippedWeapons.length === 0;
+        this.startingWeaponChoices = this.startingWeaponChoicePending
+          ? this.startingWeaponOptions
+          : [];
+      }
+      this.serverLoaded = true;
+    });
+  }
+  private getUserId() {
+    return Number(this.parentRef?.user?.id || 0);
+  }
+  private persistRun() {
+    const uid = this.getUserId();
+    if (uid && uid === this.loadedUserId && this.serverLoaded && !this.gameOver)
+      void this.spaceEvolvesService.saveRun(uid, this.currentRun());
+  }
+  private saveProgress(dead = false) {
+    try {
+      const uid = this.getUserId();
+      if (!uid) return;
+      localStorage.setItem(
+        `space-evolves-progress-${uid}`,
+        JSON.stringify({ ...this.currentRun(), gameOver: dead, userId: uid }),
+      );
+    } catch {}
+  }
+  private async loadHighScores() {
+    this.ngZone.run(async () => {
+      try {
+        const r = await fetch("/spaceevolves/highscores?limit=10");
+        if (r.ok) this.highScores = await r.json();
+      } catch {
+        this.highScores = [];
+      } finally {
+        this.loadingScores = false;
+      }
+    });
+  }
 }
