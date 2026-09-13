@@ -4170,6 +4170,9 @@ export class SpaceEvolvesComponent
     );
   }
   private splitBug(b: SpaceBug) {
+    // No late fragments: once the wave's quota has fully spawned, splitters die
+    // cleanly so the tail drains monotonically instead of regenerating.
+    if (this.spawnedThisWave >= this.waveQuota()) return;
     for (let i = 0; i < 2; i++) {
       const hp = Math.max(5, b.maxHp * 0.22),
         childShapes = Math.max(

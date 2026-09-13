@@ -181,7 +181,7 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
       space_evolves: {
         icon: navIcon("Space: Evolves", "🧬"),
         description: "Space-Evolves play",
-        component: "Space-Evolves",
+        component: "Space: Evolves",
       },
       digcraft_play: {
         icon: navIcon("DigCraft", "⛏️"),
@@ -331,6 +331,11 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
   }
 
   viewEvent(e: UserEvent) {
+    // Game-launch events carry no reference id — the destination is the game itself.
+    if (e.eventType === 'space_evolves') {
+      this.parentRef?.createComponent('Space: Evolves');
+      return;
+    }
     if (e.referenceId == null) return;
     const eData = this.getEvent(e.eventType);
 

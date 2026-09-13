@@ -554,7 +554,9 @@
     font-size: 13px;
     line-height: 1.45
 }
-
+.upgrade-affected-weapon {
+    font-size: small;
+}
 .upgrade-icon {
     align-self: center;
     font-size: 32px;
