@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AppModule } from '../app.module';
 import { ChildComponent } from '../child.component';
-import { GrandTheftRenderer, getBiome, getTerrainHeight, getBridgeSideRailCorrection, isNearBridgeRoad, isAeroportParkingChunk } from './grandtheft-renderer';
+import { GrandTheftRenderer, getBiome, getTerrainHeight, getBridgeSideRailCorrection, isNearBridgeRoad, isAeroportParkingChunk, isMarinaWaterPosition } from './grandtheft-renderer';
 import { BloodPool, BloodSplat, CityMesh, DeadBody, Explosion, GrandtheftService, MuzzleFlash, OtherPlayerState, ParkedCar, Rocket, Tracer, TrafficLane, VendingMachine } from '../../services/grandtheft.service';
 import { UserEventService } from '../../services/user-event.service';
 import { TodoService } from '../../services/todo.service';
@@ -5622,7 +5622,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const accel = 15, maxSpeed = 35, turnSpeed = 1.5;
     const ocx = Math.floor(this.carX / 80), ocz = Math.floor(this.carZ / 80);
     const biome = getBiome(ocx, ocz);
-    const onWater = biome === 'ocean' || (biome === 'bridge' && getTerrainHeight(this.carX, this.carZ, this.carY) <= -2.0);
+    const onMarinaWater = biome === 'marina' && isMarinaWaterPosition(this.carX, this.carZ);
+    const onWater = biome === 'ocean' || onMarinaWater
+      || (biome === 'bridge' && getTerrainHeight(this.carX, this.carZ, this.carY) <= -2.0);
     const forwardX = Math.sin(this.carYaw), forwardZ = Math.cos(this.carYaw);
 
     if (onWater) {

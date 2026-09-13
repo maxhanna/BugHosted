@@ -359,6 +359,7 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
       fileOwnerId: file.user?.id || 0,
       ownerName: file.user?.username || 'Unknown',
     });
+
     await this.openReader(book);
   }
 
@@ -405,6 +406,12 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
     this.zoom = 1.0;
     this.isLoadingReader = true;
     this.revokeReaderUrl();
+    
+    this.userEventService.insertUserEvent(
+      this.parentRef?.user?.id ?? 0,
+      "read_ebook",
+      book.title,
+    );  
     // Fetch the saved position in parallel with the book itself — resume must
     // not add latency to opening the reader.
     const uid = this.userId;
@@ -651,6 +658,7 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
         this.epubCurrentCfi = cfi;
         this.queueProgressSave();
       });
+
       this.userEventService.insertUserEvent(this.parentRef?.user?.id ?? 0, 'read_ebook', book.title);
 
       rendition.on('renderError', () => { });

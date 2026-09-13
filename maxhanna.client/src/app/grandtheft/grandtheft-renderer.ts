@@ -421,6 +421,45 @@ export function getMarinaWaterDepth(x: number, z: number): number {
 export function isMarinaWaterPosition(x: number, z: number): boolean {
   return getMarinaWaterDepth(x, z) > 0.08;
 }
+
+/** Return the top of a marina pier at this world position, if one is present.
+ * Piers intentionally continue a short distance into the adjacent ocean, so
+ * walking and boat movement both see the same clean shoreline transition. */
+export function getMarinaDockHeight(x: number, z: number): number | null {
+  const cx = Math.floor(x / CHUNK_SIZE);
+  const cz = Math.floor(z / CHUNK_SIZE);
+  let dockY: number | null = null;
+  for (let dz = -1; dz <= 1; dz++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      const marinaCx = cx + dx;
+      const marinaCz = cz + dz;
+      if (!isMarinaChunk(marinaCx, marinaCz)) continue;
+      const originX = marinaCx * CHUNK_SIZE;
+      const originZ = marinaCz * CHUNK_SIZE;
+      const waterDepth = 31;
+      const dockLength = waterDepth + 20;
+      for (const [sideX, sideZ] of getMarinaCoastSides(marinaCx, marinaCz)) {
+        const shorelineX = sideX !== 0
+          ? originX + (sideX > 0 ? CHUNK_SIZE - waterDepth : waterDepth)
+          : originX + CHUNK_SIZE / 2;
+        const shorelineZ = sideZ !== 0
+          ? originZ + (sideZ > 0 ? CHUNK_SIZE - waterDepth : waterDepth)
+          : originZ + CHUNK_SIZE / 2;
+        for (let pier = 0; pier < 3; pier++) {
+          const along = 14 + pier * 24;
+          const dockX = sideX !== 0 ? shorelineX + sideX * dockLength / 2 : originX + along;
+          const dockZ = sideZ !== 0 ? originZ + along : shorelineZ + sideZ * dockLength / 2;
+          const alongDistance = sideX !== 0 ? Math.abs(z - dockZ) : Math.abs(x - dockX);
+          const shoreDistance = sideX !== 0 ? (x - shorelineX) * sideX : (z - shorelineZ) * sideZ;
+          if (alongDistance <= 2.0 && shoreDistance >= -1.5 && shoreDistance <= dockLength + 1.5) {
+            dockY = Math.max(dockY ?? -Infinity, 0.48);
+          }
+        }
+      }
+    }
+  }
+  return dockY;
+}
 const BRIDGE_RANGES = BRIDGES;
 const SIDEWALK_RAISE = 0.3;
 /** Sidewalk zone: inner 55×55 of each 80×80 block in applicable biomes. */
@@ -605,6 +644,10 @@ export function getTerrainHeight(
     return -2.5;
   }
   if (biome === "marina") {
+    // Piers are a real walkable surface. Resolve them before the basin depth so
+    // the player does not sink through the dock while crossing to a boat.
+    const dockY = getMarinaDockHeight(x, z);
+    if (dockY !== null) return dockY;
     // The visible inlet and movement surface share one graded height field.
     // Returning a fixed depth here made the rendered shoulder slope into a
     // vertical step and could leave players walking on the blue basin.
@@ -4579,7 +4622,7 @@ void main() {
       // shoulder: dry apron at y=0, a shallow shelf, then the deeper basin.
       // It is intentionally only 8x8 cells so mobile devices do not pay for
       // high-density water geometry in every loaded chunk.
-      const surfaceSegments = 8;
+      const surfaceSegments = 16;
       const surfaceStep = CHUNK_SIZE / surfaceSegments;
       for (let row = 0; row <= surfaceSegments; row++) {
         for (let col = 0; col <= surfaceSegments; col++) {
@@ -4821,6 +4864,20 @@ void main() {
             );
             idxOffset += 24;
           }
+          // Plank seams make the pier read as a real wharf and provide a
+          // clear visual cue that this surface is walkable. They are placed on
+          // top of the same y=0.48 collision layer used by getTerrainHeight.
+          const plankCount = 7;
+          for (let plank = 1; plank < plankCount; plank++) {
+            const t = plank / plankCount;
+            const px = sideX !== 0 ? shorelineX + sideX * (t * dockLength) : dockX + berthSide * 0;
+            const pz = sideZ !== 0 ? dockZ + berthSide * 0 : shorelineZ + sideZ * (t * dockLength);
+            this.addBox(verts, indices, px, 0.505, pz,
+              sideX !== 0 ? 0.055 : 2.95, 0.025,
+              sideZ !== 0 ? 2.95 : 0.055,
+              0.16, 0.10, 0.055, 1.0, idxOffset);
+            idxOffset += 24;
+          }
           // Cross cleats on each slip make the repeated docks read as boat
           // berths instead of generic brown rectangles.
           for (const berthSide of [-1, 1]) {
@@ -4849,15 +4906,8 @@ void main() {
                   (Math.abs(cx * 17 + cz * 31 + sideIndex * 7 + pier) >>> 0) %
                     this.boatMeshes.length
                 ]
-              : this.getMarinaBoatFallback();
-          const boatX =
-            sideX !== 0
-              ? shorelineX + sideX * (waterDepth + 13)
-              : worldOriginX + along;
-          const boatZ =
-            sideZ !== 0
-              ? worldOriginZ + along
-              : shorelineZ + sideZ * (waterDepth + 13);
+              : this.getMarinaBoatFallback();          const boatX = sideX !== 0 ? shorelineX + sideX * (waterDepth + 13) : worldOriginX + along;
+          const boatZ = sideZ !== 0 ? worldOriginZ + along : shorelineZ + sideZ * (waterDepth + 13);
           decorativeAircraft.push({
             x: boatX,
             z: boatZ,

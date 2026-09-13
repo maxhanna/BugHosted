@@ -133,45 +133,189 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
     const navIcon = (title: string, fallback: string) =>
       this.parentRef?.navigationItems.find(x => x.title === title)?.icon || fallback;
 
-    const map: Record<string, { icon: string; description: string; component: string | null }> = {
-      file_upload: { icon: navIcon('Files', '📁'), description: 'File uploaded', component: 'Files' },
-      upload_file: { icon: navIcon('Files', '📁'), description: 'File uploaded', component: 'Files' },
-      story_post: { icon: navIcon('Social', '🌍'), description: 'Story posted', component: 'Social' },
-      grandtheft: { icon: navIcon('GrandTheft', '🚔'), description: 'Grand Theft Play', component: 'GrandTheft' },
-      comment: { icon: '💬', description: 'Comment added', component: null },
-      bones_kill: { icon: navIcon('Bones', '⚔️'), description: 'Bones kill', component: 'Bones' },
-      bones_death: { icon: navIcon('Bones', '💀'), description: 'Bones death', component: 'Bones' },
-      ender_kill: { icon: navIcon('Ender', '🏍️'), description: 'Ender kill', component: 'Ender' },
-      ender_death: { icon: navIcon('Ender', '💥'), description: 'Ender death', component: 'Ender' },
-      space_evolves: { icon: navIcon('Space: Evolves', '🧬'), description: 'Space-Evolves play', component: 'Space-Evolves' },
-      digcraft_play: { icon: navIcon('DigCraft', '⛏️'), description: 'DigCraft play', component: 'DigCraft' },
-      digcraft_death: { icon: navIcon('DigCraft', '⛏️'), description: 'DigCraft death', component: 'DigCraft' },
-      digcraft_kill: { icon: navIcon('DigCraft', '⛏️'), description: 'DigCraft kill', component: 'DigCraft' },
-      emulator_play: { icon: navIcon('Emulator', '🎮'), description: 'Emulator play', component: 'Emulator' },
-      nexus_play: { icon: navIcon('Bug-Wars', '🐛'), description: 'Bug-Wars play', component: 'Bug-Wars' },
-      meta_encounter: { icon: navIcon('Meta-Bots', '🤖'), description: 'Meta encounter', component: 'Meta-Bots' },
-      daily_meme: { icon: navIcon('Memes', '😂'), description: 'Daily meme', component: null },
-      favourite_add: { icon: '⭐', description: 'Favourite added', component: null },
-      digcraft_levelup: { icon: navIcon('DigCraft', '⬆️'), description: 'DigCraft level up', component: 'DigCraft' },
-      trade_executed: { icon: navIcon('Crypto-Hub', '₿'), description: 'Trade executed', component: 'Crypto-Hub' },
-      trophy: { icon: '🏆', description: 'Trophy earned', component: null },
-      reaction_added: { icon: tmpIcon || '😊', description: 'Reaction added', component: null },
-      wordler_win: { icon: navIcon('Wordler', '🧠'), description: 'Wordler win', component: 'Wordler' },
-      youtube: { icon: navIcon('YouTube', '📺'), description: 'YouTube watch', component: 'YouTube' },
-      link: { icon: '🔗', description: 'Link shared', component: null },
-      flighttracking: { icon: '✈️', description: 'Flight tracked', component: null },
-      weaver_card_added: { icon: navIcon('Weaver', '🕷️'), description: 'Weaver card added', component: 'Weaver' },
-      weaver_card_created: { icon: navIcon('Weaver', '🕷️'), description: 'Weaver card created', component: 'Weaver' },
-      recipe_edited: { icon: navIcon('Recipe', '🍳'), description: 'Recipe edited', component: 'Recipe' },
-      recipe_added: { icon: navIcon('Recipe', '🍳'), description: 'Recipe added', component: 'Recipe' },
-      racing: { icon: navIcon('Racing', '🏎️'), description: 'Racing event', component: 'Racing' },
-      marbles: { icon: navIcon('Marbles', '🌀'), description: 'Marbles event', component: 'Marbles' },
-      save_note: { icon: navIcon('Notepad', '🗒️'), description: 'Note saved', component: 'Notepad' },
-      shared_link: { icon: '🔗', description: 'Link shared', component: null },
-      downloaded_painting: { icon: navIcon('Paint', '🖍️'), description: 'Painting downloaded', component: 'Paint' },
-      plant_added: { icon: navIcon('Planter', '🌱'), description: 'Plant Identified', component: 'Planter' },
-      todo_added: { icon: navIcon('Todo', '✔️'), description: 'Todo Added', component: 'Todo' },
-      todo_deleted: { icon: navIcon('Todo', '✔️'), description: 'Todo Deleted', component: 'Todo' },
+    const map: Record<
+      string,
+      { icon: string; description: string; component: string | null }
+    > = {
+      file_upload: {
+        icon: navIcon("Files", "📁"),
+        description: "File uploaded",
+        component: "Files",
+      },
+      upload_file: {
+        icon: navIcon("Files", "📁"),
+        description: "File uploaded",
+        component: "Files",
+      },
+      story_post: {
+        icon: navIcon("Social", "🌍"),
+        description: "Story posted",
+        component: "Social",
+      },
+      grandtheft: {
+        icon: navIcon("GrandTheft", "🚔"),
+        description: "Grand Theft Play",
+        component: "GrandTheft",
+      },
+      comment: { icon: "💬", description: "Comment added", component: null },
+      bones_kill: {
+        icon: navIcon("Bones", "⚔️"),
+        description: "Bones kill",
+        component: "Bones",
+      },
+      bones_death: {
+        icon: navIcon("Bones", "💀"),
+        description: "Bones death",
+        component: "Bones",
+      },
+      ender_kill: {
+        icon: navIcon("Ender", "🏍️"),
+        description: "Ender kill",
+        component: "Ender",
+      },
+      ender_death: {
+        icon: navIcon("Ender", "💥"),
+        description: "Ender death",
+        component: "Ender",
+      },
+      space_evolves: {
+        icon: navIcon("Space: Evolves", "🧬"),
+        description: "Space-Evolves play",
+        component: "Space-Evolves",
+      },
+      digcraft_play: {
+        icon: navIcon("DigCraft", "⛏️"),
+        description: "DigCraft play",
+        component: "DigCraft",
+      },
+      digcraft_death: {
+        icon: navIcon("DigCraft", "⛏️"),
+        description: "DigCraft death",
+        component: "DigCraft",
+      },
+      digcraft_kill: {
+        icon: navIcon("DigCraft", "⛏️"),
+        description: "DigCraft kill",
+        component: "DigCraft",
+      },
+      emulator_play: {
+        icon: navIcon("Emulator", "🎮"),
+        description: "Emulator play",
+        component: "Emulator",
+      },
+      nexus_play: {
+        icon: navIcon("Bug-Wars", "🐛"),
+        description: "Bug-Wars play",
+        component: "Bug-Wars",
+      },
+      meta_encounter: {
+        icon: navIcon("Meta-Bots", "🤖"),
+        description: "Meta encounter",
+        component: "Meta-Bots",
+      },
+      daily_meme: {
+        icon: navIcon("Memes", "😂"),
+        description: "Daily meme",
+        component: null,
+      },
+      favourite_add: {
+        icon: "⭐",
+        description: "Favourite added",
+        component: null,
+      },
+      digcraft_levelup: {
+        icon: navIcon("DigCraft", "⬆️"),
+        description: "DigCraft level up",
+        component: "DigCraft",
+      },
+      trade_executed: {
+        icon: navIcon("Crypto-Hub", "₿"),
+        description: "Trade executed",
+        component: "Crypto-Hub",
+      },
+      trophy: { icon: "🏆", description: "Trophy earned", component: null },
+      reaction_added: {
+        icon: tmpIcon || "😊",
+        description: "Reaction added",
+        component: null,
+      },
+      wordler_win: {
+        icon: navIcon("Wordler", "🧠"),
+        description: "Wordler win",
+        component: "Wordler",
+      },
+      youtube: {
+        icon: navIcon("YouTube", "📺"),
+        description: "YouTube watch",
+        component: "YouTube",
+      },
+      link: { icon: "🔗", description: "Link shared", component: null },
+      flighttracking: {
+        icon: "✈️",
+        description: "Flight tracked",
+        component: null,
+      },
+      weaver_card_added: {
+        icon: navIcon("Weaver", "🕷️"),
+        description: "Weaver card added",
+        component: "Weaver",
+      },
+      weaver_card_created: {
+        icon: navIcon("Weaver", "🕷️"),
+        description: "Weaver card created",
+        component: "Weaver",
+      },
+      recipe_edited: {
+        icon: navIcon("Recipe", "🍳"),
+        description: "Recipe edited",
+        component: "Recipe",
+      },
+      recipe_added: {
+        icon: navIcon("Recipe", "🍳"),
+        description: "Recipe added",
+        component: "Recipe",
+      },
+      racing: {
+        icon: navIcon("Racing", "🏎️"),
+        description: "Racing event",
+        component: "Racing",
+      },
+      marbles: {
+        icon: navIcon("Marbles", "🌀"),
+        description: "Marbles event",
+        component: "Marbles",
+      },
+      save_note: {
+        icon: navIcon("Notepad", "🗒️"),
+        description: "Note saved",
+        component: "Notepad",
+      },
+      shared_link: { icon: "🔗", description: "Link shared", component: null },
+      downloaded_painting: {
+        icon: navIcon("Paint", "🖍️"),
+        description: "Painting downloaded",
+        component: "Paint",
+      },
+      plant_added: {
+        icon: navIcon("Planter", "🌱"),
+        description: "Plant Identified",
+        component: "Planter",
+      },
+      todo_added: {
+        icon: navIcon("Todo", "✔️"),
+        description: "Todo Added",
+        component: "Todo",
+      },
+      todo_deleted: {
+        icon: navIcon("Todo", "✔️"),
+        description: "Todo Deleted",
+        component: "Todo",
+      },
+      read_ebook: {
+        icon: navIcon("eBooks", "📚"),
+        description: "eBook read",
+        component: "eBooks",
+      },
     };
 
     return map[type] || { icon: '📌', description: eventType, component: null };
