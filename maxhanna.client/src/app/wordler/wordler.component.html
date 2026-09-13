@@ -109,7 +109,7 @@
       {{wordToGuess}}: {{definition}}
     </div>
 
-    <app-wordler-high-scores [mode]="['today', 'user']" [userId]="parentRef?.user?.id" #todayScores
+    <app-wordler-high-scores [mode]="['today', 'user', 'allPlayers']" [userId]="parentRef?.user?.id" #todayScores
       [inputtedParentRef]="parentRef" [headerClickable]="true" [displayWordlerInHeader]="false"
       [showHeaderTitles]="true"></app-wordler-high-scores>
   </div>

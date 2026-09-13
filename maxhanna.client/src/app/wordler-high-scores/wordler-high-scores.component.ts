@@ -1,7 +1,7 @@
 import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges } from '@angular/core';
 import { WordlerService } from '../../services/wordler.service';
 import { WordlerScore } from '../../services/datacontracts/wordler/wordler-score';
-type Mode = 'all' | 'user' | 'today' | 'best';
+type Mode = 'all' | 'user' | 'today' | 'best' | 'allPlayers';
 @Component({
   selector: 'app-wordler-high-scores',
   templateUrl: './wordler-high-scores.component.html',
@@ -34,7 +34,8 @@ export class WordlerHighScoresComponent implements OnInit, OnChanges {
     all: {},
     user: {},
     today: {},
-    best: {}
+    best: {},
+    allPlayers: {}
   };
   constructor(private wordlerService: WordlerService) { }
   collapsedModes: Record<string, boolean> = {};
@@ -73,7 +74,7 @@ export class WordlerHighScoresComponent implements OnInit, OnChanges {
       const modes = this.modesSelected;
       const includeUserMode = modes.includes('user') && !(modes.length === 1 && modes[0] === 'today');
       let allScores: WordlerScore[] | undefined = undefined;
-      if (modes.includes('all') || modes.includes('today')) {
+      if (modes.includes('all') || modes.includes('today') || modes.includes('allPlayers')) {
         const res = await this.wordlerService.getAllScores();
         if (Array.isArray(res)) {
           allScores = res as WordlerScore[];
@@ -90,6 +91,9 @@ export class WordlerHighScoresComponent implements OnInit, OnChanges {
       if (modes.includes('best') || modes.includes('all')) {
         const topAcrossAll = (allScores || []).slice().sort((a, b) => (b.score - a.score) || (a.time - b.time)).slice(0, 10);
         this.groupedByMode.best = { 999: topAcrossAll };
+      }
+      if (modes.includes('allPlayers')) {
+        this.groupedByMode.allPlayers = this.groupScores(allScores || []);
       }
       if (modes.includes('today')) {
         // The server stores submitted as DateTime.UtcNow and serializes it without

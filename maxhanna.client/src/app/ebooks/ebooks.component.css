@@ -200,6 +200,27 @@
   height: 100%;
   border: none;
   border-radius: 0;
+  position: relative;
+}
+
+/* Fullscreen: the reading area takes the whole screen with the PDF bleeding
+   under the header. The header sits at 15% visibility until hovered, or until
+   anything inside it is focused (covers mobile, where taps focus inputs and
+   buttons to reveal it). Non-fullscreen layout is untouched. */
+.reader-panel.fullscreen .reader-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  background: var(--main-bg-color, #1c1c1c);
+  opacity: .15;
+  transition: opacity .25s ease;
+}
+
+.reader-panel.fullscreen .reader-header:hover,
+.reader-panel.fullscreen .reader-header:focus-within {
+  opacity: 1;
 }
 .reader-header {
   display: flex;

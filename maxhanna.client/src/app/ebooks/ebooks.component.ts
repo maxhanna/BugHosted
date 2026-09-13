@@ -46,6 +46,7 @@ import { BooksService } from '../../services/books.service';
 import { FileService } from '../../services/file.service';
 import { FileSearchComponent } from '../file-search/file-search.component';
 import { LocalEbookService } from '../../services/local-ebook.service';
+import { UserEventService } from '../../services/user-event.service';
 
 @Component({
   selector: 'app-ebooks',
@@ -131,7 +132,12 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
 
   public readonly allowedBookTypes = '.pdf,.epub,.txt,.doc,.docx,.docm,.dot,.dotx,.dotm,.rtf,.odt';
 
-  constructor(public booksService: BooksService, private fileService: FileService, private localEbookService: LocalEbookService, private cdr: ChangeDetectorRef) { super(); }
+  constructor(public booksService: BooksService, private fileService: FileService,
+    private localEbookService: LocalEbookService, private userEventService: UserEventService, 
+    private cdr: ChangeDetectorRef) 
+  { 
+    super(); 
+  }
 
   async ngOnInit() {
     if (this.inputtedParentRef) this.parentRef = this.inputtedParentRef;
@@ -645,6 +651,8 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
         this.epubCurrentCfi = cfi;
         this.queueProgressSave();
       });
+      this.userEventService.insertUserEvent(this.parentRef?.user?.id ?? 0, 'read_ebook', book.title);
+
       rendition.on('renderError', () => { });
       // Swipe-to-turn: epub.js forwards touch events from inside the book
       // iframe through the rendition emitter, so gestures work over the text.
