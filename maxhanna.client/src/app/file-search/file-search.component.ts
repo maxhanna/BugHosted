@@ -78,6 +78,11 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   // each copy lives: a real file in the user's folder, or browser (IndexedDB)
   // storage. Matching rows get a small badge showing the source.
   @Input() offlineFiles: OfflineFileInfo[] = [];
+  /** Exact file names currently available in a connected local folder. This is
+   * intentionally separate from offlineFiles so book view can mark real
+   * hard-drive files without changing the emulator's ROM badges. */
+  @Input() localFolderFiles: string[] = [];
+  @Input() localFolderConnected = false;
   @Output() selectedForDeleteChange = new EventEmitter<number[]>();
   @Output() selectFileEvent = new EventEmitter<FileEntry>();
   @Output() currentDirectoryChangeEvent = new EventEmitter<string>();
@@ -1594,6 +1599,25 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
   getFileWithoutExtension(fileName: string) {
     return this.fileService.getFileWithoutExtension(fileName);
+  }
+
+  /** Badge for a book that is backed by a file in the connected local folder. */
+  localFolderBadgeFor(fileName?: string, file?: FileEntry): { icon: string; title: string; cls: string } | null {
+    if (!this.isBookView || !this.localFolderConnected || !fileName) return null;
+    const normalizedName = fileName.replace(/\\/g, '/').split('/').pop() ?? fileName;
+    const directMatch = this.localFolderFiles.some(name => {
+      const localName = name.replace(/\\/g, '/').split('/').pop() ?? name;
+      return localName === normalizedName;
+    });
+    // Server-cached books use the same stable name as LocalEbookService:
+    // ebook-{fileId}-{safe title}.{extension}. This lets the indicator work
+    // for books cached by the reader as well as manually copied files.
+    const title = file?.givenFileName || this.fileService.getFileWithoutExtension(normalizedName);
+    const extension = (file?.fileType || this.fileService.getFileExtension(normalizedName) || '').replace(/^\\./, '').toLowerCase();
+    const safeTitle = (title || 'book').replace(/[\\\\/:*?"<>|]+/g, '_').replace(/\\s+/g, ' ').trim().slice(0, 100) || 'book';
+    const cachedName = file?.id ? `ebook-${file.id}-${safeTitle}.${extension || 'bin'}` : '';
+    if (!directMatch && (!cachedName || !this.localFolderFiles.includes(cachedName))) return null;
+    return { icon: '💾', title: 'Available from your connected hard-drive folder', cls: 'offlineBadge localFolderBadge' };
   }
 
   /** Badge info for a file with a local copy, or null when none exists. */

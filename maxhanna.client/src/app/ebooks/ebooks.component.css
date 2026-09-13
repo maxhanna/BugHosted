@@ -4,13 +4,37 @@
 }
 
 /* ============ toolbar ============ */
-.ebooks-toolbar {
+.local-folder-status {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 0.6rem;
-  margin-bottom: 0.9rem;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: .55rem;
+  padding: .45rem .7rem;
+  margin: .45rem .8rem 0;
+  border: 1px solid rgba(159, 230, 173, .45);
+  border-radius: 6px;
+  background: rgba(54, 126, 74, .2);
+  color: var(--main-text-color);
+  font-size: .82rem;
+  text-align: center;
 }
+.local-folder-status.needs-reconnect {
+  border-color: rgba(251, 191, 36, .7);
+  background: rgba(146, 91, 6, .28);
+}
+.local-folder-status-action {
+  padding: .25rem .55rem;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.local-folder-status-action:hover { background: rgba(255, 255, 255, .12); }
+
+/* ============ toolbar ============ */
 .toolbar-actions {
   display: flex;
   align-items: center;

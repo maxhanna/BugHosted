@@ -123,6 +123,8 @@
                         class="romTitleText">
                         {{ file?.givenFileName ?? getFileWithoutExtension(file.fileName ?? '') }}
                       </span>
+                      <span *ngIf="localFolderBadgeFor(file.fileName, file) as localBadge" [class]="localBadge.cls"
+                        [title]="localBadge.title">{{ localBadge.icon }}</span>
                       <span *ngIf="!file.isFolder && offlineBadgeFor(file.fileName) as ob" [class]="ob.cls"
                         [title]="ob.title">{{ ob.icon }}</span>
                     </span>
@@ -269,6 +271,8 @@
                     </div>
                   </ng-container>
                 </ng-template>
+                <span *ngIf="localFolderBadgeFor(file.fileName, file) as localBadge" [class]="localBadge.cls"
+                  [title]="localBadge.title">{{ localBadge.icon }}</span>
                 <span *ngIf="!file.isFolder && offlineBadgeFor(file.fileName) as ob" [class]="ob.cls"
                   [title]="ob.title">{{ ob.icon }}</span>
                 <!-- File type badge -->

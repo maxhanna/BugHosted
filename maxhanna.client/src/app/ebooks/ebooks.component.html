@@ -9,6 +9,13 @@
 
   <div class="ebooks-component">
 
+    <div class="local-folder-status" *ngIf="localEbookFolderName" [class.needs-reconnect]="localEbookFolderNeedsReconnect" role="status">
+      <span *ngIf="localEbookFolderNeedsReconnect">⚠️ Local eBook folder needs reconnecting to read books from this device.</span>
+      <span *ngIf="!localEbookFolderNeedsReconnect">📁 Reading local eBooks from <b>{{ localEbookFolderName }}</b></span>
+      <button class="local-folder-status-action" *ngIf="localEbookFolderNeedsReconnect" (click)="openLocalFolderPopup()">Reconnect folder</button>
+      <button class="local-folder-status-action" *ngIf="!localEbookFolderNeedsReconnect" (click)="openLocalFolderPopup()">Manage</button>
+    </div>
+
     <!-- ============ Reader overlay ============ -->
     <div class="reader-overlay" [class.fullscreen]="readerFullscreen" *ngIf="readingBook">
       <div class="reader-panel" [class.fullscreen]="readerFullscreen">
@@ -100,6 +107,8 @@
         [displayNSFWToggler]="false"
         [displayHiddenFilesToggler]="false"
         [showPdfFirstPageCovers]="true"
+        [localFolderFiles]="connectedLocalEbookNames"
+        [localFolderConnected]="!!localEbookFolderName && !localEbookFolderNeedsReconnect"
         (currentDirectoryChangeEvent)="onFileManagerDirectoryChanged($event)"
         (selectFileEvent)="openBookFromFileSearch($event)"
         (userNotificationEvent)="parentRef?.showNotification($event)">
@@ -114,7 +123,7 @@
           [allowedFileTypes]="allowedBookTypes" [displayPrivatePublicOption]="true" [displayOptionsAndTopicsButtons]="false"
           [disableFileCompression]="true" (userUploadFinishedEvent)="uploadFinished($event)"></app-file-upload>
       </div>
-      <button (click)="openLocalFolderPopup()">💾 Open books from folder</button>
+      <button (click)="openLocalFolderPopup()">💾 Open books from folder<span *ngIf="localEbookFolderNeedsReconnect"> ⚠️ Reconnect needed</span></button>
       <button (click)="refreshAll()">🔄 Refresh</button>
       <button *ngIf="!showNewFolderPrompt" (click)="showNewFolderPrompt = true" [disabled]="!isLoggedIn">📂 New Folder</button>
       <ng-container *ngIf="showNewFolderPrompt">

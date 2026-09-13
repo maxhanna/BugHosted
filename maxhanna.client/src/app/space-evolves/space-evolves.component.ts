@@ -360,22 +360,37 @@ export class SpaceEvolvesComponent extends ChildComponent implements AfterViewIn
     for (const b of src) b._taken = false;
     return this.distinctScratch;
   }
+  private laserScreenEdge(x: number, y: number, ux: number, uy: number) {
+    const distances: number[] = [];
+    if (ux > 0) distances.push((1 - x) / ux);
+    else if (ux < 0) distances.push(-x / ux);
+    if (uy > 0) distances.push((1 - y) / uy);
+    else if (uy < 0) distances.push(-y / uy);
+    const distance = Math.max(0, Math.min(...distances.filter(Number.isFinite)));
+    return { x: x + ux * distance, y: y + uy * distance };
+  }
   private fireInstantLaser(x: number, y: number, target: SpaceBug, damageBase: number) {
     // Lasers pierce: the beam hits the first enemy in its path, plus one more
-    // enemy per Bounces upgrade (0 pierce by default). Damage does not fall off.
+    // enemy per Bounces upgrade (0 pierce by default). If the beam still has
+    // unused pierces after its last hit, it continues to the edge of the screen.
     const dx = target.x - x, dy = target.y - y, len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len;
     const pierce = Math.max(0, Math.floor(this.stats.bounceBonus));
+    const capacity = 1 + pierce;
+    const edge = this.laserScreenEdge(x, y, ux, uy);
     const along: { b: SpaceBug; t: number }[] = [];
     for (const b of this.bugs) {
       if (b.ally || b.hp <= 0 || !Number.isFinite(b.x) || !Number.isFinite(b.y)) continue;
       const rx = b.x - x, ry = b.y - y, t = rx * ux + ry * uy;
-      if (t <= 0 || Math.abs(rx * uy - ry * ux) > b.size + .008) continue;
+      if (t <= 0 || t > Math.hypot(edge.x - x, edge.y - y) || Math.abs(rx * uy - ry * ux) > b.size + .008) continue;
       along.push({ b, t });
     }
     along.sort((a, b2) => a.t - b2.t);
-    const victims = along.slice(0, 1 + pierce).map(e => e.b);
-    const end = victims.length ? victims[victims.length - 1] : target;
-    this.effects.push({ x, y, x2: end.x, y2: end.y, vx: 0, vy: 0, life: .12, maxLife: .12, size: .006, color: '#7cf7ff', kind: 'beam' });
+    const victims = along.slice(0, capacity).map(e => e.b);
+    const lastVictim = victims[victims.length - 1];
+    const beamEnd = lastVictim && victims.length >= capacity
+      ? lastVictim
+      : edge;
+    this.effects.push({ x, y, x2: beamEnd.x, y2: beamEnd.y, vx: 0, vy: 0, life: .12, maxLife: .12, size: .006, color: '#7cf7ff', kind: 'beam' });
     for (const victim of victims) {
       const base = victim === target ? damageBase : this.stats.laserDamage + this.weaponMeter(this.stats.laserDamagePerMeter) * Math.hypot(victim.x - x, victim.y - y);
       let damage = Math.max(1, this.weaponDamage(base) - victim.armor);

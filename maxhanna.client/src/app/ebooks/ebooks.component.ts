@@ -114,6 +114,9 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
   private epubRelocated = false;
   private epubArrowHandler?: (ev: KeyboardEvent) => void;
   private epubResizeHandler?: () => void;
+  private localEbookVisibilityHandler = () => {
+    if (!document.hidden) void this.loadLocalEbookFolderState();
+  };
   private pdfDoc?: PdfDoc;
   private pdfRenderTask?: { cancel(): void; promise: Promise<void> };
   private pdfRenderSeq = 0;
@@ -167,11 +170,15 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
     // Fullscreen exits: Esc key and the mobile back button.
     document.addEventListener('keydown', this.onReaderKeydown);
     window.addEventListener('popstate', this.onFsPopState);
+    document.addEventListener('visibilitychange', this.localEbookVisibilityHandler);
+    window.addEventListener('focus', this.localEbookVisibilityHandler);
   }
   ngOnDestroy(): void {
     document.removeEventListener('scroll', this.onReaderScroll, true);
     document.removeEventListener('keydown', this.onReaderKeydown);
     window.removeEventListener('popstate', this.onFsPopState);
+    document.removeEventListener('visibilitychange', this.localEbookVisibilityHandler);
+    window.removeEventListener('focus', this.localEbookVisibilityHandler);
     if (this.pageAnimTimer) clearTimeout(this.pageAnimTimer);
     this.exitReaderFullscreen();
     document.removeEventListener('scroll', this.onReaderScroll, true);
@@ -210,11 +217,17 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
     this.localEbookFolderMessage = '';
     this.parentRef?.closeOverlay();
   }
+  get connectedLocalEbookNames(): string[] {
+    return this.localEbookFolderName && !this.localEbookFolderNeedsReconnect
+      ? this.localEbookFiles.filter(file => file.source === 'folder').map(file => file.name)
+      : [];
+  }
+
   private async loadLocalEbookFolderState() {
     this.localEbookFolderName = (await this.localEbookService.getFolderName()) ?? undefined;
-    const permission = await this.localEbookService.permissionState();
+    const permission = await this.localEbookService.permissionState('readwrite');
     this.localEbookFolderNeedsReconnect = !!this.localEbookFolderName && permission !== 'granted';
-    this.localEbookFiles = this.localEbookFolderNeedsReconnect ? [] : await this.localEbookService.listBooks();
+    this.localEbookFiles = await this.localEbookService.listBooks();
     if (!this.localEbookFolderNeedsReconnect) {
       for (const book of this.localEbookFiles) {
         if (this.localEbookCoverUrls.has(book.name)) continue;
@@ -248,6 +261,7 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
         this.localEbookFolderName = handle.name;
         this.localEbookFolderNeedsReconnect = false;
         this.localEbookFolderMessage = `Books and page covers will be saved in “${handle.name}”.`;
+        await this.loadLocalEbookFolderState();
       }
     } catch {
       this.localEbookFolderMessage = 'Could not access that folder.';
@@ -261,7 +275,12 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
     this.localEbookFolderBusy = true;
     const granted = await this.localEbookService.reconnectFolder();
     this.localEbookFolderNeedsReconnect = !granted;
-    this.localEbookFolderMessage = granted ? 'Folder reconnected.' : 'Folder access was not granted.';
+    if (granted) {
+      await this.loadLocalEbookFolderState();
+      this.localEbookFolderMessage = 'Folder reconnected. Your local books are available again.';
+    } else {
+      this.localEbookFolderMessage = 'Folder access was not granted. Choose the folder again if Android keeps denying access.';
+    }
     this.localEbookFolderBusy = false;
     this.cdr.detectChanges();
   }
