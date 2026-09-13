@@ -336,6 +336,11 @@
     margin: 0 0 10px 0;
 }
 
+.evoForkHeader {
+    padding: 0px;
+    margin: 0px;
+}
+
 .upgrade-dock {
     position: relative;
     z-index: 5;
@@ -512,8 +517,13 @@
     text-align: left;
     background: linear-gradient(155deg, rgba(20, 65, 96, .98), rgba(7, 20, 42, .98));
     border-color: #397da3;
-    padding: 15px;
     transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease, background .16s ease
+}
+
+@media only screen and (min-width : 850px) {
+    .upgrade-grid button {
+        padding: 15px;
+    }
 }
 
 .upgrade-grid button:not(:disabled):hover,
@@ -590,7 +600,7 @@
 .upgrade-progress b {
     color: #fff1c8
 }
- 
+
 .upgrade-info-category {
     color: #8beeff;
     font-size: 10px;

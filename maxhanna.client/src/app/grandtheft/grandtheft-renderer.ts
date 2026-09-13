@@ -1332,6 +1332,9 @@ export class GrandTheftRenderer {
   public playerCarSpeed = 0;
   /** Remaining high-speed exit ragdoll time, supplied by the component. */
   public playerRagdollTime = 0;
+  /** Remaining local death animation time. The body stays rendered during the
+   * WASTED cinematic instead of freezing upright or vanishing into a vehicle. */
+  public playerDeathTime = 0;
   public playerSteerInput = 0;
   private _mopedWheelMesh: CityMesh | null = null;
   private _mopedSpin = 0;
@@ -2299,7 +2302,26 @@ void main() {
     };
     const t = Math.max(0, Math.min(1, this.punchTime / 0.38));
     const attack = t < 0.5 ? t * 2 : 2 - t * 2;
-    if (this.playerRagdollTime > 0) {
+    if (this.playerDeathTime > 0) {
+      // Police gunfire should knock the local character down just like the
+      // networked corpse animation. Keep the pose loose after impact so the
+      // body does not snap back upright during the WASTED screen.
+      const deathProgress = Math.max(0, Math.min(1, 1 - this.playerDeathTime / 3));
+      const fallProgress = Math.min(1, deathProgress / 0.65);
+      const easedFall = fallProgress * fallProgress * (3 - 2 * fallProgress);
+      const impact = 1 - easedFall;
+      applyRot(hips, 0.25 * impact);
+      applyRot(leftThigh, 0.42 * impact);
+      applyRot(rightThigh, 0.42 * impact);
+      applyRot(leftCalf, -0.58 * impact);
+      applyRot(rightCalf, -0.58 * impact);
+      applyRot(leftArm, 1.0 * impact, 0, 0.22 * impact);
+      applyRot(rightArm, 1.0 * impact, 0, -0.22 * impact);
+      applyRot(leftForearm, 0.55 * impact);
+      applyRot(rightForearm, 0.55 * impact);
+      applyRot(this.playerBone('chest', 'spine'), -1.0 * impact);
+      applyRot(this.playerBone('neck'), -0.65 * impact);
+    } else if (this.playerRagdollTime > 0) {
       // High-speed exits throw the player face-first. The pose eases from a
       // braced launch into a loose forward sprawl, then returns to the normal
       // procedural rig automatically when the timer expires.
@@ -5703,6 +5725,7 @@ void main() {
         }
       }
       for (const p of otherPlayers) {
+        if (p.health <= 0) continue;
         if (p.passengerOfUserId && p.passengerOfUserId > 0) continue;
         if (p.isInCar) {
           const vType = p.vehicleType || 'car';
@@ -6239,6 +6262,7 @@ void main() {
       this.cleanupAnimators(activeIds);
     }
     for (const p of otherPlayers) {
+      if (p.health <= 0) continue;
       if (p.passengerOfUserId && p.passengerOfUserId > 0) {
         const host = otherPlayers.find(h => h.userId === p.passengerOfUserId);
         if (host && host.isInCar) {
@@ -6340,7 +6364,12 @@ void main() {
       // Franklin has a verified full-body skeleton but no embedded clips, so
       // use the procedural player pose path rather than the NPC clip matcher.
       this.skinPlayerMesh(playerMesh, dt);
-      this.drawMesh(playerMesh, targetX, this.groundedModelY(playerMesh, targetY, PLAYER_RENDER_SCALE), targetZ, bodyYaw, [PLAYER_RENDER_SCALE, PLAYER_RENDER_SCALE, PLAYER_RENDER_SCALE], [1, 1, 1, 1], false, 0, carRoll);
+      const deathProgress = Math.max(0, Math.min(1, 1 - this.playerDeathTime / 3));
+      const fallProgress = Math.min(1, deathProgress / 0.65);
+      const easedFall = fallProgress * fallProgress * (3 - 2 * fallProgress);
+      const deathPitch = -(Math.PI / 2) * easedFall;
+      const deathRoll = Math.sin(this.playerDeathTime * 5.5) * 0.12 * (1 - easedFall);
+      this.drawMesh(playerMesh, targetX, this.groundedModelY(playerMesh, targetY, PLAYER_RENDER_SCALE), targetZ, bodyYaw, [PLAYER_RENDER_SCALE, PLAYER_RENDER_SCALE, PLAYER_RENDER_SCALE], [1, 1, 1, 1], false, this.playerDeathTime > 0 ? deathPitch : 0, this.playerDeathTime > 0 ? deathRoll : carRoll);
       this.drawPlayerWeapon(targetX, targetY, targetZ, bodyYaw);
     }
     // Moped wheel animation: rear wheel spins with speed, front wheel also steers.

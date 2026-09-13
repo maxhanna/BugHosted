@@ -60,7 +60,7 @@
           <div class="upgrade-grid starting-weapon-grid"><button *ngFor="let upgrade of startingWeaponChoices" (click)="chooseStartingWeapon(upgrade)" [disabled]="!canPick"><span class="upgrade-icon">{{upgradeIcon(upgrade.weapon)}}</span><strong class="upgrade-name">{{upgrade.name}}</strong><small class="upgrade-description">{{upgrade.description}}</small></button></div>
         </ng-container>
         <ng-container *ngIf="!startingWeaponChoicePending">
-        <h2 *ngIf="upgradeChoices.length">Evolution fork{{canPick ? '' : ' (choose in a moment)'}}</h2>
+        <h2 *ngIf="upgradeChoices.length" class="evoForkHeader">Evolution fork{{canPick ? '' : ' (choose in a moment)'}}</h2>
         <p *ngIf="upgradeChoices.length">{{canPick ? 'Choose an upgrade.' : 'Preparing your upgrade choices…'}}</p>
         <div class="upgrade-grid" *ngIf="upgradeChoices.length"><button *ngFor="let upgrade of upgradeChoices"
             (click)="chooseUpgrade(upgrade)" [disabled]="!canPick"><span class="upgrade-icon"

@@ -2282,7 +2282,25 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
   private startAutoFire() { this.stopAutoFire(); this.autoFireTimer = setInterval(() => this.shoot(), 50); }
   private stopAutoFire() { this.isShooting = false; if (this.autoFireTimer) { clearInterval(this.autoFireTimer); this.autoFireTimer = null; } }
-  getUserId(): number { return (this.parentRef as any)?.user?.id ?? 0; }
+  getUserId(): number { return (this.parentRef as any)?.user?.id ?? 0; }  private addRemotePlayerDeath(player: any, mesh: CityMesh | CityMesh[]): void {
+    const userId = Number(player.userId);
+    if (!Number.isFinite(userId) || userId <= 0) return;
+    const bodyId = -1000000 - userId;
+    if (this.deadBodies.some(body => body.id === bodyId)) return;
+    const x = Number(player.posX) || 0;
+    const z = Number(player.posZ) || 0;
+    this.deadBodies.push({
+      id: bodyId,
+      x, z,
+      yaw: Number(player.yaw ?? player.carYaw) || 0,
+      type: 'player',
+      mesh,
+      deathTime: performance.now() / 1000,
+      lifetime: 30,
+    });
+    this.bloodPools.push({ x, z: z - 1.0, age: 0, lifetime: 30, maxRadius: 3, variant: Math.floor(Math.random() * 4) });
+    this.spawnBlood(x, (Number(player.posY) || 0) + 1.0, z, 0, 0.3, 0);
+  }
   private async pollMultiplayer(): Promise<void> {
     if (this._destroyed || this._pollInFlight) return;
     this._pollInFlight = true;
@@ -2390,6 +2408,14 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       for (const p of res.players) {
         const existing = this.otherPlayers.find(op => op.userId === p.userId);
         if (existing) {
+          // Remote health is authoritative. Emit a local blood burst when a
+          // peer takes a hit so every observer sees the impact, not only the
+          // player who was shot.
+          const previousHealth = existing.health;
+          if (p.health < previousHealth) {
+            if (p.health > 0) this.spawnBlood(p.posX, p.posY + 1.0, p.posZ, 0, 0.25, 0);
+            else this.addRemotePlayerDeath(p, existing.mesh);
+          }
           existing.posX = p.posX; existing.posY = p.posY; existing.posZ = p.posZ;
           existing.yaw = p.carYaw; existing.carSpeed = p.carSpeed; existing.health = p.health; existing.weapon = p.weapon; existing.money = p.money;
           existing.isShooting = p.isShooting; existing.camYaw = p.yaw; existing.camPitch = p.pitch;
@@ -2432,6 +2458,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
             passengerOfUserId: p.passengerOfUserId ?? 0
           } as OtherPlayerState;
           this.otherPlayers.push(newPlayer);
+          if (newPlayer.health <= 0) this.addRemotePlayerDeath(p, newPlayer.mesh);
           if (!this.renderer.playerMesh) {
             setTimeout(() => {
               if (this.renderer.playerMesh && newPlayer.mesh !== this.renderer.playerMesh) {
@@ -2455,6 +2482,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (res && res.yourHealth !== undefined) {
       if (res.yourHealth < this.health) {
         this.damageAlpha = 0.4;
+        // Blood is spawned for the local victim as soon as authoritative damage
+        // arrives. This covers police fire even when the shooter is outside the
+        // client's currently streamed NPC list.
+        this.spawnBlood(this.carX, this.carY + 1.0, this.carZ, 0, 0.25, 0);
         let foundShooter = false;
         let nearestShotDist = Infinity;
         let shotX = 0, shotZ = 0;
@@ -2553,7 +2584,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           x: db.posX, z: db.posZ, yaw: db.yaw,
           type: 'player',
           mesh,
-          deathTime: db.deathTime,
+          // The server serializes epoch seconds while the renderer's animation
+          // clock uses performance.now(). Start the local death animation from
+          // the moment this client receives the body.
+          deathTime: performance.now() / 1000,
           lifetime: 30,
         });
         this.bloodPools.push({ x: db.posX, z: db.posZ - 1.0, age: 0, lifetime: 30, maxRadius: 3, variant: Math.floor(Math.random() * 4) });
@@ -4831,6 +4865,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       if (!this._wasDead) {
         this._wasDead = true;
         this.wastedTimer = 3;
+        // Keep the local body visible and animate it from standing to a loose
+        // collapse during the WASTED cinematic. The blood burst is separate from
+        // normal damage feedback so lethal police fire gets a clear final hit.
+        this.renderer.playerDeathTime = 3;
+        this.spawnBlood(this.carX, this.carY + 1.0, this.carZ, 0, 0.3, 0);
         // Cinematic death: the WASTED sting fires with the screen for symmetry
         // with the busted sequence (siren + BUSTED title).
         this.playWastedSting();
@@ -5005,7 +5044,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.renderer.walkSpeed = this.isInCar || this.playerRagdollTimer > 0 ? 0 : Math.hypot(this.carVx, this.carVz);
     this.renderer.playerCarSpeed = this.isInCar ? this.carSpeed : 0;
     this.renderer.playerRagdollTime = this.playerRagdollTimer;
-    this.renderer.playerSteerInput = this._lastSteerInput;
+        this.renderer.playerDeathTime = this.health <= 0 ? Math.max(0, this.wastedTimer) : 0;
+        this.renderer.playerSteerInput = this._lastSteerInput;
     this.renderer.punchTime = this.punchTimer;
     if (this.punchTimer > 0) this.punchTimer = Math.max(0, this.punchTimer - dt);
     // Fix Y for on-foot other players so they stand on building roofs when applicable
