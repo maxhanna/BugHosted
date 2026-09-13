@@ -380,7 +380,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private taxiRideStopX = 0;
   private taxiRideStopZ = 0;
   private taxiRideHidePlayer = false;
-  taxiAttachedMeshes: { mesh: CityMesh | CityMesh[]; offsetX: number; offsetY: number; offsetZ: number; yaw: number; scale?: number }[] = [];
+  taxiAttachedMeshes: { mesh: CityMesh | CityMesh[]; offsetX: number; offsetY: number; offsetZ: number; yaw: number; scale?: number; isVehicleOccupant?: boolean }[] = [];
   // Refresh-resume grace: the player respawns on foot next to their vehicle, so
   // an on-foot taxi/police mission gets a few seconds to re-enter the car before
   // aborting (climbing into a *different* vehicle still ends it instantly).
@@ -388,7 +388,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   // After a refresh the taxi passenger (a server ped) reappears with the first
   // poll — wait briefly for it before giving up on a restored fare.
   private _taxiReacquireGrace = 0;
-  private driverInCarMesh: { mesh: CityMesh | CityMesh[]; offsetX: number; offsetY: number; offsetZ: number; yaw: number; scale?: number } | null = null;
+  private driverInCarMesh: { mesh: CityMesh | CityMesh[]; offsetX: number; offsetY: number; offsetZ: number; yaw: number; scale?: number; isVehicleOccupant?: boolean } | null = null;
   passenger: {
     kind: 'npc' | 'player';
     id: number;
@@ -1331,10 +1331,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
             this.driverInCarMesh = {
               mesh: this.renderer.playerMesh,
               offsetX: 0.3,
-              offsetY: this.vehicleType === 'helicopter' ? 0.45 : -0.3,
+              offsetY: this.vehicleType === 'helicopter' ? 0.45 : 0.16,
               offsetZ: 0.2,
               yaw: 0,
-              scale: 1.35,
+              scale: 0.9,
+              isVehicleOccupant: true,
             };
           }
           this.showVehicleBanner(this.vehicleType);
@@ -5104,6 +5105,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
               offsetZ: this.passenger.offsetZ,
               yaw: this.passenger.yaw,
               scale: this.passenger.scale,
+              isVehicleOccupant: true,
             });
           }
           attached.push(...this.taxiAttachedMeshes);
@@ -7140,7 +7142,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         this.stolenNpcIds.add(passengerId);
         this.taxiAttachedMeshes = [{
           mesh: this.taxiMission.passengerMesh,
-          offsetX: 0.3, offsetY: -0.3, offsetZ: -1.0, yaw: 0, scale: 0.7,
+          offsetX: 0.3, offsetY: -0.3,          offsetZ: -1.0, yaw: 0, scale: 0.7, isVehicleOccupant: true,
         }];
       } else {
         this._taxiReacquireGrace = 8; // wait for the server ped to reappear
@@ -7780,6 +7782,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
             offsetZ: -1.0,
             yaw: 0,
             scale: 0.7,
+            isVehicleOccupant: true,
           }];
         }
       } else if (m.state === 'deliver') {

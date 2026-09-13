@@ -4413,7 +4413,10 @@ export class SpaceEvolvesComponent
       return;
     }
     if (!b.ally) this.score += 10 * this.wave;
-    if (!b.fragment && !b.ally) this.waveKills++;
+    // Every hostile kill — splitter fragments included — advances the wave.
+    // Excluding fragments let the spawner replace each fragment kill forever,
+    // so the countdown regenerated instead of draining to zero.
+    if (!b.ally) this.waveKills++;
     if (!b.ally)
       this.experience +=
         this.experienceForKill() * (1 + this.stats.expBonusPerKill);

@@ -33,6 +33,8 @@ export interface HumanVariant {
   seed: number;
   skin: [number, number, number];
   hair: [number, number, number];
+  /** Stable low-poly hairstyle variant shared by players and pedestrians. */
+  hairStyle?: number;
   outfitA: [number, number, number]; // torso
   outfitB: [number, number, number]; // legs
   accent?: [number, number, number];
@@ -77,6 +79,7 @@ export function pickVariant(role: Role, seed: number | string, genderHint?: stri
 
   const skin = SKIN_TONES[Math.floor(rng() * SKIN_TONES.length)];
   const hair = HAIR_TONES[Math.floor(rng() * HAIR_TONES.length)];
+  const hairStyle = Math.floor(rng() * 4);
 
   let outfitA: [number, number, number] = [0.2, 0.6, 0.25];
   let outfitB: [number, number, number] = [0.18, 0.18, 0.20];
@@ -127,7 +130,7 @@ export function pickVariant(role: Role, seed: number | string, genderHint?: stri
       outfitA = [0.22 + rng() * 0.3, 0.22 + rng() * 0.3, 0.22 + rng() * 0.4];
       outfitB = [0.14 + rng() * 0.2, 0.14 + rng() * 0.2, 0.16 + rng() * 0.2];
   }
-  return { role, gender, bodyType, seed: s, skin, hair, outfitA, outfitB, accent, shirtStyle, pantsStyle, hasBeard, hasCap, hasHelmet, shoulderWidth, hipWidth, heightScale, headScale };
+  return { role, gender, bodyType, seed: s, skin, hair, hairStyle, outfitA, outfitB, accent, shirtStyle, pantsStyle, hasBeard, hasCap, hasHelmet, shoulderWidth, hipWidth, heightScale, headScale };
 }
 
 function mulberry32(a: number) {

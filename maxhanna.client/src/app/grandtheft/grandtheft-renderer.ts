@@ -4870,8 +4870,8 @@ void main() {
           const plankCount = 7;
           for (let plank = 1; plank < plankCount; plank++) {
             const t = plank / plankCount;
-            const px = sideX !== 0 ? shorelineX + sideX * (t * dockLength) : dockX + berthSide * 0;
-            const pz = sideZ !== 0 ? dockZ + berthSide * 0 : shorelineZ + sideZ * (t * dockLength);
+            const px = sideX !== 0 ? shorelineX + sideX * (t * dockLength) : dockX;
+            const pz = sideZ !== 0 ? dockZ : shorelineZ + sideZ * (t * dockLength);
             this.addBox(verts, indices, px, 0.505, pz,
               sideX !== 0 ? 0.055 : 2.95, 0.025,
               sideZ !== 0 ? 2.95 : 0.055,
@@ -9364,7 +9364,7 @@ void main() {
     genderHint?: string,
   ): CityMesh {
     const v = pickVariant(role, seed, genderHint);
-    const key = `human_${v.role}_${v.bodyType}_${v.gender}_${v.skin.join(",")}_${v.hair.join(",")}_${v.outfitA.join(",")}_${v.outfitB.join(",")}_${v.shirtStyle ?? 0}_${v.pantsStyle ?? 0}_${v.hasBeard ? 1 : 0}_${v.hasCap ? 1 : 0}`;
+    const key = `human_${v.role}_${v.bodyType}_${v.gender}_${v.skin.join(",")}_${v.hair.join(",")}_${v.outfitA.join(",")}_${v.outfitB.join(",")}_${v.hairStyle ?? 0}_${v.shirtStyle ?? 0}_${v.pantsStyle ?? 0}_${v.hasBeard ? 1 : 0}_${v.hasCap ? 1 : 0}`;
     if (this.humanMeshCache.has(key)) return this.humanMeshCache.get(key)!;
     const mesh = this.createLifelikeHumanMesh(v);
     this.humanMeshCache.set(key, mesh);
@@ -9787,18 +9787,34 @@ void main() {
       variant.skin,
       4,
     );
-    addRounded(
-      0,
-      0.65,
-      -0.005,
-      headR * 0.98,
-      headR * 0.34,
-      headR * 0.9,
-      variant.hair,
-      4,
-    );
-    if (variant.gender === "female")
-      addBox(0, 0.5, -0.14, 0.1, 0.18, 0.08, variant.hair, 4);
+    // Hair is kept close to the scalp and shaped as a few soft low-poly
+    // volumes. The previous oversized box read like a helmet and intersected
+    // the forehead/face, especially on small NPCs. The seeded styles preserve
+    // variety without adding textures or draw calls.
+    const hairStyle = variant.hairStyle ?? 0;
+    const hairBone = 4;
+    if (hairStyle === 0) {
+      // Clean short cut with a subtle crown taper.
+      addRounded(0, 0.645, -0.01, headR * 0.98, headR * 0.48, headR * 0.9, variant.hair, hairBone);
+    } else if (hairStyle === 1) {
+      // Side-parted cut: the offset crown gives a recognizable silhouette while
+      // leaving the brow and eyes unobstructed.
+      addRounded(-headR * 0.14, 0.65, -0.015, headR * 0.88, headR * 0.5, headR * 0.86, variant.hair, hairBone);
+      addRounded(headR * 0.48, 0.625, 0.005, headR * 0.34, headR * 0.22, headR * 0.7, variant.hair, hairBone);
+    } else if (hairStyle === 2) {
+      // A compact textured/curly top uses three overlapping rounded clumps,
+      // which reads much better than a single geometric slab at distance.
+      for (const x of [-0.065, 0, 0.065])
+        addRounded(x, 0.665, -0.01, headR * 0.5, headR * 0.45, headR * 0.66, variant.hair, hairBone);
+    } else {
+      // Longer style: volume stays behind the head so it cannot cover the face.
+      addRounded(0, 0.645, -0.015, headR * 0.96, headR * 0.46, headR * 0.88, variant.hair, hairBone);
+      addRounded(0, 0.535, -headR * 0.76, headR * 0.82, headR * 0.72, headR * 0.28, variant.hair, hairBone);
+      addRounded(-headR * 0.72, 0.54, -headR * 0.38, headR * 0.28, headR * 0.55, headR * 0.3, variant.hair, hairBone);
+      addRounded(headR * 0.72, 0.54, -headR * 0.38, headR * 0.28, headR * 0.55, headR * 0.3, variant.hair, hairBone);
+    }
+    if (variant.gender === "female" && hairStyle !== 3)
+      addRounded(0, 0.54, -headR * 0.78, headR * 0.72, headR * 0.64, headR * 0.25, variant.hair, hairBone);
     // Small face details and varied hairline/neck accents make repeated NPCs
     // read as individuals without adding a texture or extra draw call.
     if ((variant.shirtStyle ?? 0) % 2 === 1)
@@ -11751,6 +11767,19 @@ void main() {
     return terrainY - minY * scale + 0.015;
   }
 
+  private seatedModelY(
+    mesh: CityMesh | CityMesh[] | null,
+    vehicleY: number,
+    scale: number,
+    floorOffset = 0.05,
+  ): number {
+    // Human meshes are authored around the hips, with their feet below the
+    // origin. Grounding them at the road and then subtracting an arbitrary
+    // offset put the feet below the vehicle floor, making legs protrude through
+    // the underside. Anchor the feet just above the cabin floor instead.
+    return this.groundedModelY(mesh, vehicleY + floorOffset, scale);
+  }
+
   render(
     camX: number,
     camY: number,
@@ -12807,14 +12836,22 @@ void main() {
           dOffZ = 0.2;
         const dwx = npc.x + (dOffX * cosY + dOffZ * sinY);
         const dwz = npc.z + (-dOffX * sinY + dOffZ * cosY);
-        const driverY = expY - 0.3;
+        const riderScale = npc.type === "motorcycle" ? 0.82 : 0.72;
+        const riderFloorOffset = npc.type === "helicopter" || npc.type === "plane"
+          ? 0.42
+          : npc.type === "boat"
+            ? 0.20
+            : isPizzaMoped
+              ? 0.30
+              : 0.06;
+        const riderY = this.seatedModelY(dMesh, expY, riderScale, riderFloorOffset);
         this.drawMesh(
           dMesh,
           dwx,
-          this.groundedModelY(dMesh, expY, 1.1) - 0.3 + riderSeatLift,
+          riderY,
           dwz,
           npc.yaw,
-          [1.1, 1.1, 1.1],
+          [riderScale, riderScale, riderScale],
         );
         if ((npc.passengerCount || 0) > 0) {
           const pMesh = this.getPedestrianMesh("female", npc.id + 1);
@@ -12822,13 +12859,21 @@ void main() {
             pOffZ = 0.2;
           const pwx = npc.x + (pOffX * cosY + pOffZ * sinY);
           const pwz = npc.z + (-pOffX * sinY + pOffZ * cosY);
+          const passengerScale = npc.type === "motorcycle" ? 0.78 : 0.68;
+          const passengerFloorOffset = npc.type === "helicopter" || npc.type === "plane"
+            ? 0.42
+            : npc.type === "boat"
+              ? 0.20
+              : isPizzaMoped
+                ? 0.30
+                : 0.06;
           this.drawMesh(
             pMesh,
             pwx,
-            this.groundedModelY(pMesh, expY, 0.95) - 0.3 + riderSeatLift,
+            this.seatedModelY(pMesh, expY, passengerScale, passengerFloorOffset),
             pwz,
             npc.yaw,
-            [0.95, 0.95, 0.95],
+            [passengerScale, passengerScale, passengerScale],
           );
         }
       }
@@ -13029,11 +13074,12 @@ void main() {
             offZ = 0.2;
           const wx = host.posX + (offX * cosY + offZ * sinY);
           const wz = host.posZ + (-offX * sinY + offZ * cosY);
-          const hostY =
+          const hostScale = host.vehicleType === "motorcycle" ? 0.78 : 0.68;
+          const hostFloorY =
             host.vehicleType === "helicopter" || host.vehicleType === "plane"
-              ? (host.posY || 0) + 0.45
-              : -0.3;
-          this.drawMesh(p.mesh, wx, hostY, wz, host.yaw, [1.05, 1.05, 1.05]);
+              ? this.seatedModelY(p.mesh, host.posY || 0, hostScale, 0.42)
+              : this.seatedModelY(p.mesh, getTerrainHeight(host.posX, host.posZ), hostScale, 0.06);
+          this.drawMesh(p.mesh, wx, hostFloorY, wz, host.yaw, [hostScale, hostScale, hostScale]);
         }
         continue;
       }
@@ -13072,11 +13118,16 @@ void main() {
           offZ = 0.2;
         const wx = p.posX + (offX * cosY + offZ * sinY);
         const wz = p.posZ + (-offX * sinY + offZ * cosY);
+        const occupantScale = vType === "motorcycle" ? 0.78 : 0.68;
         const occupantY =
           vType === "helicopter" || vType === "plane"
-            ? (p.posY || 0) + 0.45
-            : -0.3;
-        this.drawMesh(p.mesh, wx, occupantY, wz, p.yaw, [1.05, 1.05, 1.05]);
+            ? this.seatedModelY(p.mesh, p.posY || 0, occupantScale, 0.42)
+            : this.seatedModelY(p.mesh, getTerrainHeight(p.posX, p.posZ), occupantScale, 0.06);
+        this.drawMesh(p.mesh, wx, occupantY, wz, p.yaw, [
+          occupantScale,
+          occupantScale,
+          occupantScale,
+        ]);
       } else {
         // Lifelike remote player — walk/idle + visible firing/punch for peers
         const dx = p.posX - ((p as any)._prevX ?? p.posX),
@@ -13297,7 +13348,16 @@ void main() {
         const wx = targetX + (am.offsetX * cosY + am.offsetZ * sinY);
         const wz = targetZ + (-am.offsetX * sinY + am.offsetZ * cosY);
         const s = am.scale ?? 1;
-        this.drawMesh(am.mesh, wx, targetY + am.offsetY, wz, carYaw + am.yaw, [
+        let attachedY = targetY + am.offsetY;
+        if (am.isVehicleOccupant) {
+          const floorOffset = this.playerVehicleType === "motorcycle"
+            ? 0.30
+            : this.playerVehicleType === "helicopter" || this.playerVehicleType === "plane"
+              ? 0.42
+              : 0.06;
+          attachedY = this.seatedModelY(am.mesh, targetY, s, floorOffset);
+        }
+        this.drawMesh(am.mesh, wx, attachedY, wz, carYaw + am.yaw, [
           s,
           s,
           s,
