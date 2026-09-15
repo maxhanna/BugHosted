@@ -2269,7 +2269,11 @@ export class SpaceEvolvesComponent
     if (
       this.spawnTimer <= 0 &&
       !this.bossActive &&
-      this.waveKills < this.waveQuota()
+      this.waveKills < this.waveQuota() &&
+      // Once the full quota has spawned, only top up an empty field (covers
+      // quota kills lost to despawns) — never reinforce live stragglers, so
+      // the tail drains monotonically instead of regenerating.
+      (this.spawnedThisWave < this.waveQuota() || !this.hasLiveHostiles())
     ) {
       this.spawnWaveBug();
       this.spawnTimer =
