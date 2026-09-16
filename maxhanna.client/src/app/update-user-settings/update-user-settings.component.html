@@ -26,8 +26,13 @@
         <div><input type="text" placeholder="New Username" #updatedUsername [value]="parentRef!.user!.username" /></div>
       </div>
       <div class="sectionDescriptionSection">
-        <div>Password:</div>
-        <div><input type="password" placeholder="New Password" #updatedPassword /></div>
+        <div>Current Password:</div>
+        <div><input type="password" placeholder="Current Password (required to change it)" #currentPassword
+            autocomplete="current-password" /></div>
+      </div>
+      <div class="sectionDescriptionSection">
+        <div>New Password:</div>
+        <div><input type="password" placeholder="New Password" #updatedPassword autocomplete="new-password" /></div>
       </div>
     </div>
 
@@ -64,7 +69,7 @@
         </div>
         <div>
           <input type="checkbox" #followPushCheckbox [checked]="followPushEnabled"
-            (change)="updateFollowPush()" />
+            (change)="updateFollowPush($event)" />
         </div>
       </div>
       <div class="sectionDescriptionSection">
@@ -74,7 +79,7 @@
         </div>
         <div>
           <input type="checkbox" #followEmailCheckbox [checked]="followEmailEnabled"
-            (change)="updateFollowEmail()" />
+            (change)="updateFollowEmail($event)" />
         </div>
       </div>
     </div>

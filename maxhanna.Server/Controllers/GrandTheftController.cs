@@ -994,7 +994,7 @@ namespace maxhanna.Server.Controllers
 		// an NPC is invisible to everyone, so it's safe to recycle. Matches the
 		// client's max view distance (~4 chunks = 320 units per axis, ~450
 		// diagonal; 650 keeps the whole revealed area populated).
-		private const float WORLD_NPC_CULL_DIST = 650f;
+		private const float WORLD_NPC_CULL_DIST = 800f;
 		private static bool IsNearAnyPlayer(List<(float X, float Z)> activePlayers, float x, float z)
 		{
 			foreach (var (px, pz) in activePlayers)
@@ -2066,6 +2066,16 @@ namespace maxhanna.Server.Controllers
 				if (!_playerX.TryGetValue(pkv.Key, out var apx) || !_playerZ.TryGetValue(pkv.Key, out var apz)) continue;
 				activePlayers.Add((apx, apz));
 			}
+			// The requesting player may be between position updates (for example
+			// while flying quickly), so always include this authoritative position.
+			// Otherwise the cleanup pass can mistake the current area for abandoned
+			// space and delete the population before it is replenished.
+			if (userId > 0 && !activePlayers.Any(p =>
+				(p.X - posX) * (p.X - posX) + (p.Z - posZ) * (p.Z - posZ) < 1f))
+			{
+				activePlayers.Add((posX, posZ));
+			}
+			EnsureAmbientPopulation(npcs, posX, posZ, rng);
 			foreach (var kv in npcs)
 			{
 				var npc = kv.Value;
@@ -2362,9 +2372,9 @@ namespace maxhanna.Server.Controllers
 					else if (npc.Type == "helicopter" || npc.Type == "plane") { }
 					else if (!npc.IsParked) nearbyCars++;
 				}
-				// Send everything within the client's view distance (650 units) so
-				// distant roads carry cars and pedestrians, not just empty mesh.
-				if (distSq > 422500f) continue;
+				// Send the whole populated bubble so distant roads remain alive while
+				// the player crosses the map at speed.
+				if (distSq > 640000f) continue;
 				if (npc.IsParked) { parkedCars.Add(new { id = npc.Id, posX = npc.X, posY = npc.Y, posZ = npc.Z, yaw = npc.Yaw, speed = 0f, colorR = npc.Cr, colorG = npc.Cg, colorB = npc.Cb, type = npc.Type, health = npc.Health, isBurning = npc.OnFire, maxHealth = npc.MaxHealth, isSmoking = npc.IsSmoking }); continue; }
 				float tdx = npc.TargetX - npc.X;
 				float tdz = npc.TargetZ - npc.Z;
@@ -3750,6 +3760,58 @@ namespace maxhanna.Server.Controllers
 			=> type == "car" || type == "bus" || type == "bike" || type == "motorcycle"
 				|| type == "taxi" || type == "police";
 
+		// Keep the populated bubble filled before simulating and serializing a poll.
+		// Previously replenishment happened only after the response was built, so
+		// flying into a new area could receive an empty snapshot for one or more
+		// polls. The bounded attempts also prevent a malformed/generated block from
+		// trapping the request in an endless spawn loop.
+		private void EnsureAmbientPopulation(ConcurrentDictionary<long, NpcState> npcs, float posX, float posZ, Random rng)
+		{
+			const int desiredCars = 22;
+			const int desiredPeds = 40;
+			const float populationRadiusSq = 202500f;
+			int nearbyCars = npcs.Values.Count(n => !n.DeadAt.HasValue && !n.IsParked &&
+				(n.Type == "car" || n.Type == "bus" || n.Type == "bike" || n.Type == "motorcycle" || n.Type == "taxi") &&
+				(n.X - posX) * (n.X - posX) + (n.Z - posZ) * (n.Z - posZ) < populationRadiusSq);
+			int nearbyPeds = npcs.Values.Count(n => !n.DeadAt.HasValue &&
+				(n.Type == "ped_male" || n.Type == "ped_female" || n.Type == "cop") &&
+				(n.X - posX) * (n.X - posX) + (n.Z - posZ) * (n.Z - posZ) < populationRadiusSq);
+
+			for (int attempt = 0; nearbyCars < desiredCars && attempt < 180; attempt++)
+			{
+				GetRandomRoadPointNearPlayer(posX, posZ, out float x, out float z, rng, minDist: 150f);
+				var type = new[] { "car", "bus", "bike", "motorcycle", "taxi" }[rng.Next(5)];
+				long id = GetNextNpcId();
+				npcs[id] = new NpcState
+				{
+					Id = id, Type = type, X = x, Z = z, TargetX = x, TargetZ = z,
+					Yaw = (float)(rng.NextDouble() * Math.PI * 2.0),
+					Speed = type == "bike" || type == "motorcycle" ? 6f : 4f,
+					Health = type == "bike" || type == "motorcycle" ? 100 : 200,
+					MaxHealth = type == "bike" || type == "motorcycle" ? 100 : 200,
+					Cr = type == "taxi" ? 1f : (float)rng.NextDouble(),
+					Cg = type == "taxi" ? 0.85f : (float)rng.NextDouble(),
+					Cb = type == "taxi" ? 0.1f : (float)rng.NextDouble(),
+					HasDriver = true, PassengerCount = type == "bus" ? rng.Next(1, 4) : rng.Next(0, 2),
+					Gender = rng.Next(2) == 0 ? "male" : "female"
+				};
+				nearbyCars++;
+			}
+			for (int attempt = 0; nearbyPeds < desiredPeds && attempt < 240; attempt++)
+			{
+				GetRandomSidewalkPointNearPlayer(posX, posZ, out float x, out float z, rng, minDist: 30f);
+				var type = rng.Next(2) == 0 ? "ped_male" : "ped_female";
+				long id = GetNextNpcId();
+				npcs[id] = new NpcState
+				{
+					Id = id, Type = type, Gender = type == "ped_female" ? "female" : "male",
+					X = x, Z = z, TargetX = x, TargetZ = z,
+					Yaw = (float)(rng.NextDouble() * Math.PI * 2.0), Speed = 1.5f,
+					Health = 50, MaxHealth = 50, Cr = 0.4f, Cg = 0.4f, Cb = 0.4f
+				};
+				nearbyPeds++;
+			}
+		}
 		private void SeedNPCs(int worldId, float posX = 0, float posZ = 0)
 		{
 			var dict = _worldNpcs[worldId];

@@ -95,14 +95,25 @@ public sealed class SpaceEvolvesController : ControllerBase
         limit = Math.Clamp(limit, 1, 100);
         await using var connection = new MySqlConnection(_connectionString);
         await connection.OpenAsync();
-        const string sql = @"SELECT s.score, s.wave, u.username FROM space_evolves_scores s
+        const string sql = @"SELECT s.score, s.wave,
+                                    CAST(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(s.payload_json, '$.level')), '0') AS UNSIGNED) AS level,
+                                    s.created_at AS score_date,
+                                    u.username
+                             FROM space_evolves_scores s
                              LEFT JOIN maxhanna.users u ON u.id=s.user_id
                              ORDER BY s.score DESC, s.wave DESC, s.created_at ASC LIMIT @limit";
         await using var command = new MySqlCommand(sql, connection);
         command.Parameters.AddWithValue("@limit", limit);
         await using var reader = await command.ExecuteReaderAsync();
         var results = new List<object>();
-        while (await reader.ReadAsync()) results.Add(new { username = reader.IsDBNull(reader.GetOrdinal("username")) ? "Anonymous" : reader.GetString(reader.GetOrdinal("username")), score = Convert.ToInt32(reader["score"]), wave = Convert.ToInt32(reader["wave"]) });
+        while (await reader.ReadAsync()) results.Add(new
+        {
+            username = reader.IsDBNull(reader.GetOrdinal("username")) ? "Anonymous" : reader.GetString(reader.GetOrdinal("username")),
+            score = Convert.ToInt32(reader["score"]),
+            wave = Convert.ToInt32(reader["wave"]),
+            level = Convert.ToInt32(reader["level"]),
+            scoreDate = reader.GetDateTime("score_date")
+        });
         return Ok(results);
     }
 }

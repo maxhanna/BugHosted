@@ -55,6 +55,9 @@ export interface SpaceBug {
   hueWarp?: number;
   _taken?: boolean;
   fragment?: boolean;
+  dying?: boolean;
+  deathTimer?: number;
+  deathDuration?: number;
 }
 export interface SpaceProjectile {
   x: number;
@@ -104,6 +107,8 @@ interface SpaceScore {
   username: string;
   score: number;
   wave: number;
+  level: number;
+  scoreDate: string;
 }
 export interface SpaceCloud {
   x: number;
@@ -2490,6 +2495,10 @@ export class SpaceEvolvesComponent
     }
     shots.length = shotWrite;
     for (const b of this.bugs) {
+      if (b.dying) {
+        b.deathTimer = Math.max(0, (b.deathTimer ?? 0) - dt);
+        continue;
+      }
       if (b.boss) this.keepBossInArena(b);
       const dx = this.player.x - b.x,
         dy = this.player.y - b.y,
@@ -2651,6 +2660,10 @@ export class SpaceEvolvesComponent
     }
     for (let i = this.bugs.length - 1; i >= 0; i--) {
       const b = this.bugs[i];
+      if (b.dying) {
+        if ((b.deathTimer ?? 0) <= 0) this.finishBugDeath(i);
+        continue;
+      }
       if (b.hp <= 0) {
         this.killBug(i);
         continue;
@@ -4387,12 +4400,37 @@ export class SpaceEvolvesComponent
       }
     }
   }
+  private finishBugDeath(i: number) {
+    const b = this.bugs[i];
+    if (!b) return;
+    this.bugs.splice(i, 1);
+    if (b.boss && !this.isLeviathan(b)) {
+      this.bossActive = false;
+      this.wave++;
+      this.waveKills = 0;
+      this.spawnedThisWave = 0;
+      this.experience += this.experienceForBoss() + this.stats.expPerWave;
+      return;
+    }
+    if (!b.ally) this.score += 10 * this.wave;
+    if (!b.ally) this.waveKills++;
+    if (!b.ally)
+      this.experience +=
+        this.experienceForKill() * (1 + this.stats.expBonusPerKill);
+  }
   private killBug(i: number) {
     const b = this.bugs[i];
     if (!b) return;
     if (this.isLeviathan(b)) {
+      if (b.dying) return;
+      b.dying = true;
+      b.deathDuration = 1.15;
+      b.deathTimer = b.deathDuration;
+      b.hp = 0;
+      b.lockedOn = false;
       this.shatterUnit(b.x, b.y, b.size * 1.4, this.bugColor(b), 16);
       this.shatterUnit(b.x, b.y, b.size * 0.8, "#ffffff", 8);
+      return;
     } else {
       const t = performance.now() / 1000,
         spin = SpaceEvolvesRendering.twistAngle(b, t),
@@ -4410,23 +4448,7 @@ export class SpaceEvolvesComponent
         );
       }
     }
-    this.bugs.splice(i, 1);
-    if (b.boss && !this.isLeviathan(b)) {
-      this.bossActive = false;
-      this.wave++;
-      this.waveKills = 0;
-      this.spawnedThisWave = 0;
-      this.experience += this.experienceForBoss() + this.stats.expPerWave;
-      return;
-    }
-    if (!b.ally) this.score += 10 * this.wave;
-    // Every hostile kill — splitter fragments included — advances the wave.
-    // Excluding fragments let the spawner replace each fragment kill forever,
-    // so the countdown regenerated instead of draining to zero.
-    if (!b.ally) this.waveKills++;
-    if (!b.ally)
-      this.experience +=
-        this.experienceForKill() * (1 + this.stats.expBonusPerKill);
+    this.finishBugDeath(i);
   }
   private lateWaveExperienceBonus() {
     return Math.max(0, this.wave - 16);
@@ -4720,6 +4742,12 @@ export class SpaceEvolvesComponent
       );
     } catch {}
   }
+  formatScoreDate(value?: string): string {
+    if (!value) return "—";
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? "—" : date.toLocaleDateString();
+  }
+
   private async loadHighScores() {
     this.ngZone.run(async () => {
       try {

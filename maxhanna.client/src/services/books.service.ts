@@ -356,7 +356,7 @@ export class BooksService {
   }
 
   /** Streams the actual book file for reading/downloading. */
-  async downloadBook(fileId: number): Promise<Blob | null> {
+  async downloadBook(fileId: number, onProgress?: (percent: number) => void): Promise<Blob | null> {
     try {
       const response = await fetch(`/file/getfilebyid/${fileId}`, {
         method: 'POST',
@@ -364,7 +364,28 @@ export class BooksService {
         body: JSON.stringify(null),
       });
       if (!response.ok) return null;
-      return await response.blob();
+      if (!response.body || !onProgress) return await response.blob();
+
+      const total = Number(response.headers.get('content-length')) || 0;
+      const reader = response.body.getReader();
+      const chunks: BlobPart[] = [];
+      let loaded = 0;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (value) {
+          chunks.push(value);
+          loaded += value.byteLength;
+          // Without a content length, keep the indicator moving but reserve
+          // the final percentage for completion.
+          const percent = total > 0
+            ? Math.min(99, Math.round((loaded / total) * 100))
+            : Math.min(95, Math.round(loaded / (loaded + 256 * 1024) * 100));
+          onProgress(percent);
+        }
+      }
+      onProgress(100);
+      return new Blob(chunks, { type: response.headers.get('content-type') || 'application/octet-stream' });
     } catch (error) {
       console.error('Error downloading book:', error);
       return null;

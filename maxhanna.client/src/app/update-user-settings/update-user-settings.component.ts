@@ -90,6 +90,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
 
   @ViewChild('updatedUsername') updatedUsername!: ElementRef<HTMLInputElement>;
   @ViewChild('updatedPassword') updatedPassword!: ElementRef<HTMLInputElement>;
+  @ViewChild('currentPassword') currentPassword!: ElementRef<HTMLInputElement>;
   @ViewChild('orgId') orgId!: ElementRef<HTMLInputElement>;
   @ViewChild('apiKey') apiKey!: ElementRef<HTMLInputElement>;
   @ViewChild('apiSecret') apiSecret!: ElementRef<HTMLInputElement>;
@@ -512,28 +513,40 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     const parent = this.parentRef ?? this.inputtedParentRef;
     const username = this.updatedUsername.nativeElement.value;
     const password = this.updatedPassword.nativeElement.value;
+    const currentPassword = this.currentPassword?.nativeElement.value ?? '';
     if (!username) {
       return alert("Username cannot be empty!");
     }
     if (!parent) return alert("Parent cannot be null");
+    if (password && !currentPassword) {
+      return alert("Enter your current password before setting a new password.");
+    }
     const currUser = JSON.parse(parent.getCookie("user")) as User;
-    const tmpUser = new User(currUser.id, username, password);
+    const tmpUser = new User(currUser.id, username, password || undefined);
+    tmpUser.currentPassword = password ? currentPassword : undefined;
     this.startLoading();
     try {
       const sessionToken = await parent.getSessionToken();
       const res = await this.userService.updateUser(tmpUser, sessionToken);
-      const message = res["message"];
-      parent.setCookie("user", JSON.stringify(tmpUser), 10);
+      const message = res?.["message"] ?? res;
+      if (res?.["message"] && !res["error"]) {
+        parent.setCookie("user", JSON.stringify({ ...currUser, username }), 10);
+      }
       parent.showNotification(message);
+      if (res?.["error"] || !res?.["message"]) {
+        this.stopLoading();
+        return;
+      }
     } catch (error) {
       parent.showNotification(`Error updating user ${parent.user?.username}. Error: ${JSON.stringify(error)}`);
+      this.stopLoading();
+      return;
     }
-    // Re-login after a username change to refresh the user object and mint a
-    // fresh server session token.
-    const loginData = await this.userService.login(username, password) as { user: User; sessionToken: string } | undefined;
+    // Re-login after a username or password change to refresh the user object
+    // and mint a fresh server session token.
+    const loginData = await this.userService.login(username, password || currentPassword) as { user: User; sessionToken: string } | undefined;
     if (loginData?.user) {
       parent.user = loginData.user;
-      // Server also sets the token as an HttpOnly cookie (not JS-readable).
       parent.sessionToken = loginData.sessionToken;
     }
     this.stopLoading();
@@ -1014,19 +1027,29 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
       this.parentRef?.showNotification(res);
     });
   }
-  updateFollowPush() {
-    if (!this.parentRef?.user?.id) return;
-    this.followPushEnabled = !this.followPushEnabled;
-    this.userService.updateUserSettings(this.parentRef.user.id, [{ settingName: 'follow_notifications_push', value: this.followPushEnabled }]).then(res => {
-      console.log('Follow push setting saved:', res);
-    });
+  async updateFollowPush(event: Event) {
+    await this.saveFollowNotificationSetting('follow_notifications_push', 'followPushEnabled', event);
   }
-  updateFollowEmail() {
-    if (!this.parentRef?.user?.id) return;
-    this.followEmailEnabled = !this.followEmailEnabled;
-    this.userService.updateUserSettings(this.parentRef.user.id, [{ settingName: 'follow_notifications_email', value: this.followEmailEnabled }]).then(res => {
-      console.log('Follow email setting saved:', res);
-    });
+  async updateFollowEmail(event: Event) {
+    await this.saveFollowNotificationSetting('follow_notifications_email', 'followEmailEnabled', event);
+  }
+  private async saveFollowNotificationSetting(
+    settingName: 'follow_notifications_push' | 'follow_notifications_email',
+    property: 'followPushEnabled' | 'followEmailEnabled',
+    event: Event
+  ): Promise<void> {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const userId = parent?.user?.id;
+    if (!userId) return;
+    const enabled = (event.target as HTMLInputElement).checked;
+    this[property] = enabled;
+    try {
+      const response = await this.userService.updateUserSettings(userId, [{ settingName, value: enabled }]);
+      parent.showNotification(response || `${enabled ? 'Enabled' : 'Disabled'} follow notifications.`);
+    } catch {
+      this[property] = !enabled;
+      parent.showNotification('Could not save the follow notification setting.');
+    }
   }
   showKrakenHelpPanel() {
     this.isKrakenHelpPanelShowing = true;

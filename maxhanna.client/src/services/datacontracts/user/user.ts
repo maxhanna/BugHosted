@@ -5,6 +5,7 @@ export class User {
   id: number | undefined;
   username: string | undefined;
   pass: string | undefined;
+  currentPassword: string | undefined;
   displayPictureFile: FileEntry | undefined;
   profileBackgroundPictureFile: FileEntry | undefined;
   about: UserAbout | undefined;
@@ -15,6 +16,7 @@ export class User {
     this.id = id;
     this.username = username;
     this.pass = password;
+    this.currentPassword = undefined;
     this.displayPictureFile = displayPictureFile;
     this.profileBackgroundPictureFile = profileBackgroundPictureFile;
     this.about = about;

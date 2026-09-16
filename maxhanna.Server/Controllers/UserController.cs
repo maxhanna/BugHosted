@@ -994,13 +994,14 @@ namespace maxhanna.Server.Controllers
         {
           await conn.OpenAsync();
 
-          // Check if the user exists and get the current username and salt
-          string selectSql = "SELECT username, salt FROM maxhanna.users WHERE id = @Id";
+          // Check if the user exists and get the current username, password hash, and salt.
+          // A password change must prove knowledge of the current password.
+          string selectSql = "SELECT username, pass, salt FROM maxhanna.users WHERE id = @Id";
           using (MySqlCommand selectCmd = new MySqlCommand(selectSql, conn))
           {
             selectCmd.Parameters.AddWithValue("@Id", user.Id);
 
-            string oldUsername, existingSalt;
+            string oldUsername, existingPassword, existingSalt;
             using (var reader = await selectCmd.ExecuteReaderAsync())
             {
               if (!reader.Read())
@@ -1008,7 +1009,21 @@ namespace maxhanna.Server.Controllers
                 return NotFound("User not found");
               }
               oldUsername = reader.GetString("username");
-              existingSalt = reader.IsDBNull(1) ? GenerateSalt() : reader.GetString("salt"); // Handle missing salt
+              existingPassword = reader.IsDBNull(reader.GetOrdinal("pass")) ? "" : reader.GetString("pass");
+              existingSalt = reader.IsDBNull(reader.GetOrdinal("salt")) ? GenerateSalt() : reader.GetString("salt");
+            }
+
+            // Keep the existing password when only the username is being changed.
+            // Never silently replace it with a hash of an empty string.
+            string passwordToStore = existingPassword;
+            if (!string.IsNullOrEmpty(user.Pass))
+            {
+              if (string.IsNullOrEmpty(user.CurrentPassword) ||
+                  !string.Equals(HashPassword(user.CurrentPassword, existingSalt), existingPassword, StringComparison.Ordinal))
+              {
+                return BadRequest(new { message = "Current password is incorrect." });
+              }
+              passwordToStore = HashPassword(user.Pass, existingSalt);
             }
 
             // Check if the new username already exists in the database
@@ -1024,9 +1039,6 @@ namespace maxhanna.Server.Controllers
                 return Conflict("Username already exists!");
               }
             }
-
-            // Hash the new password with the existing salt
-            string hashedPassword = HashPassword(user.Pass ?? "", existingSalt);
 
             // Handle renaming directories if username changes
             if (!oldUsername.Equals(user.Username, StringComparison.OrdinalIgnoreCase))
@@ -1059,7 +1071,7 @@ namespace maxhanna.Server.Controllers
             using (MySqlCommand updateCmd = new MySqlCommand(updateSql, conn))
             {
               updateCmd.Parameters.AddWithValue("@Username", user.Username);
-              updateCmd.Parameters.AddWithValue("@Password", hashedPassword);
+              updateCmd.Parameters.AddWithValue("@Password", passwordToStore);
               updateCmd.Parameters.AddWithValue("@Salt", existingSalt);
               updateCmd.Parameters.AddWithValue("@Id", user.Id);
 

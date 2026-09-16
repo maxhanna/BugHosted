@@ -8,6 +8,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Users
 		public int? Id { get; set; } // leave nullable because users need to be able to login without IDs
 		public string? Username { get; set; }
 		public string? Pass { get; set; }
+		public string? CurrentPassword { get; set; }
 		public DateTime? Created { get; set; }
 		public DateTime? LastSeen { get; set; }
 		public FileEntry? DisplayPictureFile { get; set; }

@@ -88,7 +88,9 @@
       <div *ngIf="loadingScores">Loading scores…</div>
       <ol class="scores">
         <li *ngFor="let entry of highScores">
-          <span>{{entry.username}}</span><b>{{entry.score}}</b><small>W{{entry.wave}}</small></li>
+          <span>{{entry.username}}</span><b>{{entry.score}}</b>
+          <small>W{{entry.wave}} · Level {{entry.level}} · {{formatScoreDate(entry.scoreDate)}}</small>
+        </li>
       </ol>
     </aside>
   </div>

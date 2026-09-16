@@ -359,7 +359,7 @@ namespace maxhanna.Server.Hubs
                     p.Reserve = 0;
                     p.SpecialColor = _rng.Next(1, ColorCount + 1);
                     p.Score = 0;
-                    p.Board = GenerateStartBoard();
+                    p.Board = GenerateStartBoard(p.Difficulty);
                 }
                 players = new List<Player>(lobby.Players);
                 if (lobby.DropCts != null) { lobby.DropCts.Cancel(); lobby.DropCts.Dispose(); }
@@ -455,7 +455,7 @@ namespace maxhanna.Server.Hubs
                     p.Reserve = 0;
                     p.SpecialColor = _rng.Next(1, ColorCount + 1);
                     p.Score = 0;
-                    p.Board = GenerateStartBoard();
+                    p.Board = GenerateStartBoard(difficulty);
                 }
                 players = new List<Player>(lobby.Players);
 
@@ -523,7 +523,7 @@ namespace maxhanna.Server.Hubs
                     p.Reserve = 0;
                     p.SpecialColor = _rng.Next(1, ColorCount + 1);
                     p.Score = 0;
-                    p.Board = GenerateStartBoard();
+                    p.Board = GenerateStartBoard(0);
                 }
                 players = new List<Player>(lobby.Players);
 
@@ -1216,17 +1216,18 @@ namespace maxhanna.Server.Hubs
         }
 
         /// <summary>
-        /// Give both players a readable opening position. Multiplayer starts
-        /// with a small reserve of marbles so neither board is nearly full.
-        /// The first drops then build the board during play.
+        /// Give both players a readable opening position. The starting marble
+        /// count varies by difficulty (easy 3, medium 6, hard 9) since a fuller
+        /// board is closer to filling up and losing. Marbles stack upward from
+        /// the bottom row; the first drops then build the board during play.
         /// </summary>
-        private static int[][] GenerateStartBoard()
+        private static int[][] GenerateStartBoard(int difficulty)
         {
             var board = EmptyBoard();
-            var count = Math.Max(2, Math.Min(4, Cols / 3));
-            for (var c = 0; c < count; c++)
+            var count = difficulty switch { 2 => 9, 1 => 6, _ => 3 };
+            for (var i = 0; i < count; i++)
             {
-                board[Rows - 1][c] = _rng.Next(1, ColorCount + 1);
+                board[Rows - 1 - (i / Cols)][i % Cols] = _rng.Next(1, ColorCount + 1);
             }
             return board;
         }

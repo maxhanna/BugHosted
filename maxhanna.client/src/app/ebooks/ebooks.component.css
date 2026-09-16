@@ -347,6 +347,22 @@
   text-align: center;
   opacity: 0.85;
 }
+.reader-progress-track {
+  width: min(360px, 85%);
+  height: 8px;
+  margin: .8rem auto 0;
+  overflow: hidden;
+  border: 1px solid var(--main-border-color);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .1);
+}
+.reader-progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #57c7ff, #a879ff);
+  box-shadow: 0 0 10px rgba(87, 199, 255, .7);
+  transition: width .15s ease;
+}
 .download-pane {
   height: 100%;
   display: flex;

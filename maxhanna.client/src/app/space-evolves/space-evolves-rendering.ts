@@ -543,7 +543,8 @@ export function drawBug(
 ) {
   const t = performance.now() / 1000;
   if (b.trait === "leviathan") {
-    drawLeviathanDodeca(ctx, x, y, z, b, t, detail);
+    if (b.dying) drawLeviathanDeath(ctx, x, y, z, b, t, detail);
+    else drawLeviathanDodeca(ctx, x, y, z, b, t, detail);
     return;
   }
   const drawUnits = b.boss
@@ -661,6 +662,65 @@ export function drawBug(
   drawBugFace(ctx, z, b, t, col, unitCount, BUG_NODE_XY);
   if ((b.chemDotTimer ?? 0) > 0)
     drawPoisonDetails(ctx, z, b, t, unitCount, BUG_NODE_XY);
+  ctx.restore();
+}
+export function drawLeviathanDeath(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  z: number,
+  b: SpaceBug,
+  t: number,
+  detail: number,
+) {
+  const duration = Math.max(0.1, b.deathDuration ?? 1.15);
+  const progress = Math.max(0, Math.min(1, 1 - (b.deathTimer ?? 0) / duration));
+  const fade = Math.max(0, 1 - progress);
+  const spin = t * 2.4 + b.phase;
+  const col = "#d9b8ff";
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(progress * 1.8 + Math.sin(t * 4 + b.phase) * 0.08);
+  ctx.globalCompositeOperation = "lighter";
+
+  // The collapsing gravity shell makes the death readable before the facets
+  // separate, rather than making the large dodecahedron vanish on one frame.
+  ctx.globalAlpha = fade * 0.28;
+  ctx.fillStyle = "#b48cff";
+  ctx.shadowBlur = 18;
+  ctx.shadowColor = col;
+  ctx.beginPath();
+  ctx.arc(0, 0, z * (1.7 + progress * 1.2), 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = fade * 0.9;
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = Math.max(1.5, z * 0.07);
+  ctx.beginPath();
+  ctx.arc(0, 0, z * (1.45 + progress * 1.5), 0, Math.PI * 2);
+  ctx.stroke();
+
+  const shardCount = detail > 0 ? 12 : 8;
+  for (let i = 0; i < shardCount; i++) {
+    const a = (i * Math.PI * 2) / shardCount + b.phase;
+    const distance = z * (progress * (0.65 + (i % 3) * 0.22));
+    const sx = Math.cos(a) * distance;
+    const sy = Math.sin(a) * distance;
+    const shardScale = z * (0.18 + (i % 3) * 0.025) * (1 - progress * 0.3);
+    ctx.save();
+    ctx.translate(sx, sy);
+    ctx.rotate(spin * (i % 2 ? -1 : 1) + i);
+    ctx.globalAlpha = fade * (0.95 - (i % 3) * 0.12);
+    drawDodecaUnit(ctx, shardScale, spin + i * 0.7, i % 2 ? col : "#ffffff", detail > 1 ? 2 : 1);
+    ctx.restore();
+  }
+
+  // A bright collapsing core sells the final implosion and gives the player a
+  // clear hit-confirmation even when the enemy is very small on screen.
+  ctx.globalAlpha = fade * (1 - progress * 0.45);
+  ctx.fillStyle = "#ffffff";
+  ctx.beginPath();
+  ctx.arc(0, 0, Math.max(2, z * (0.45 - progress * 0.2)), 0, Math.PI * 2);
+  ctx.fill();
   ctx.restore();
 }
 export function drawLeviathanDodeca(

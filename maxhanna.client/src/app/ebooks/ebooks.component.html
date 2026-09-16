@@ -59,7 +59,12 @@
         </div>
 
         <div class="reader-body">
-          <div class="reader-loading" *ngIf="isLoadingReader">Loading book…</div>
+          <div class="reader-loading" *ngIf="isLoadingReader" role="status" aria-live="polite">
+            <div>Loading book… {{ readerLoadProgress }}%</div>
+            <div class="reader-progress-track" role="progressbar" [attr.aria-valuenow]="readerLoadProgress" aria-valuemin="0" aria-valuemax="100">
+              <div class="reader-progress-fill" [style.width.%]="readerLoadProgress"></div>
+            </div>
+          </div>
           <div class="reader-error" *ngIf="readerError">⚠️ {{ readerError }}</div>
 
           <div class="pdf-pane" *ngIf="readerBlobType === 'application/pdf' && !isLoadingReader && !readerError"

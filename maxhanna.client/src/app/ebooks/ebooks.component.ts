@@ -92,6 +92,7 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
   /** Whether a history entry was pushed so mobile back exits fullscreen. */
   private fsHistoryPushed = false;
   isLoadingReader = false;
+  readerLoadProgress = 0;
   readerError = '';
   textContent = '';
   pdfPage = 1;
@@ -414,6 +415,7 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
     this.pdfPageInput = 1;
     this.zoom = 1.0;
     this.isLoadingReader = true;
+    this.readerLoadProgress = 0;
     this.revokeReaderUrl();
     
     this.userEventService.insertUserEvent(
@@ -431,6 +433,7 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
       const token = await this.parentRef?.getSessionToken();
       this.savedProgress = await this.booksService.getReadingProgress(uid, book.fileId, token);
     }
+    this.readerLoadProgress = 8;
     try {
       // A selected folder is the preferred source. If its permission is lost or
       // the book has not been cached yet, fall back to the authenticated server
@@ -441,13 +444,17 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
           ? await this.localEbookService.getBook(book.fileId, book.title, book.fileType)
           : null);
       if (this.readerLocalFileName) {
+        this.readerLoadProgress = 55;
         const cover = await this.localEbookService.getLocalCover(this.readerLocalFileName);
         if (cover) this.readerCoverUrl = URL.createObjectURL(cover);
       } else if (blob) {
         const cover = await this.localEbookService.getCoverObjectUrl(book.fileId, book.title, book.fileType);
         if (cover) this.readerCoverUrl = cover;
       } else {
-        blob = await this.booksService.downloadBook(book.fileId);
+        blob = await this.booksService.downloadBook(book.fileId, percent => {
+          this.readerLoadProgress = 8 + Math.round(percent * 0.7);
+          this.cdr.detectChanges();
+        });
         if (blob && blob.size > 0 && this.localEbookFolderName && book.fileId > 0) {
           void this.cacheLocalEbook(book, blob);
         }
@@ -456,16 +463,19 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
         this.readerError = 'Could not load the book file (empty or missing).';
         return;
       }
+      this.readerLoadProgress = Math.max(this.readerLoadProgress, 78);
       const ext = (book.fileType || '').toLowerCase();
       if (ext === 'pdf') {
         this.readerBlobType = 'application/pdf';
       } else if (ext === 'epub') {
         this.readerBlobType = 'epub';
+        this.readerLoadProgress = 84;
         await this.openEpubBook(book, blob);
         return;
       } else if (ext === 'txt' || ext === 'md' || ext === 'rtf') {
         this.readerBlobType = 'text';
         this.textContent = await blob.text();
+        this.readerLoadProgress = 100;
         // Resume text readers at the saved scroll ratio once the pane exists.
         const saved = this.savedProgress;
         if (saved) {
@@ -481,6 +491,7 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
         // Word formats cannot be rendered natively by browsers — offer download.
         this.readerBlobType = 'download';
         this.readerObjectUrl = URL.createObjectURL(blob);
+        this.readerLoadProgress = 100;
         return;
       }
       // PDF: render it ourselves with pdf.js. Chrome's native blob-iframe viewer
@@ -488,6 +499,7 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
       // document — so we no longer depend on the browser's built-in viewer.
       const pdfjs = await this.loadPdfJs();
       const data = await blob.arrayBuffer();
+      this.readerLoadProgress = 86;
       const doc = await pdfjs.getDocument({ data }).promise;
       if (this.readingBook !== book) { void doc.destroy().catch(() => { }); return; } // closed/superseded while loading
       this.pdfDoc = doc;
@@ -498,6 +510,7 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
       this.pdfPage = savedPage;
       this.pdfPageInput = savedPage;
       this.restoringProgress = !!saved;
+      this.readerLoadProgress = 92;
       // The canvas only exists after Angular renders the reader overlay — run
       // after the next change-detection pass.
       setTimeout(() => { void this.renderPdfPage(); }, 0);
@@ -641,6 +654,7 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
       const data = await blob.arrayBuffer();
       // The host div only exists once the loading flag clears — flip it and run
       // change detection synchronously so the pane is in the DOM before renderTo.
+      this.readerLoadProgress = 96;
       this.isLoadingReader = false;
       this.cdr.detectChanges();
       const host = this.epubHost?.nativeElement;
@@ -698,6 +712,7 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
       } else {
         await rendition.display();
       }
+      this.readerLoadProgress = 100;
     } catch (ex) {
       console.error('Error opening EPUB:', ex);
       this.readerError = 'Failed to open the EPUB book.';
@@ -939,6 +954,7 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
       this.pdfRenderTask = task;
       await task.promise;
       if (seq !== this.pdfRenderSeq) return;
+      this.readerLoadProgress = 100;
       // Initial render of a resumed book: scroll the fresh canvas to the saved
       // in-page position, then hand control back to the reader.
       const restoring = this.restoringProgress;
