@@ -441,27 +441,137 @@
     padding: 2px 5px
 }
 
+.high-scores {
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid #17314a
+}
+
+.high-scores-heading {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px
+}
+
+.high-scores-heading h3 {
+    margin: 0;
+}
+
+.high-scores-caption {
+    color: #7898aa;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .1em
+}
+
 .scores {
-    padding-left: 25px
+    display: grid;
+    gap: 6px;
+    padding: 0;
+    margin: 0;
+    list-style: none;
+    counter-reset: none
 }
 
-.scores li {
-    padding: 7px 0;
-    border-bottom: 1px solid #17314a
+.score-row {
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr) auto;
+    grid-template-areas:
+        "rank player value"
+        "rank run run";
+    align-items: center;
+    column-gap: 9px;
+    row-gap: 4px;
+    padding: 9px 10px;
+    border: 1px solid #17314a;
+    border-radius: 8px;
+    background: rgba(10, 28, 50, .55)
 }
 
-.scores li span {
-    display: inline-block;
-    min-width: 100px
+.score-row:first-child {
+    border-color: #80672b;
+    background: linear-gradient(90deg, rgba(109, 82, 20, .28), rgba(10, 28, 50, .55))
 }
 
-.scores li b {
-    color: #7effb2
+.score-rank {
+    grid-area: rank;
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #173b55;
+    color: #bdefff;
+    font-size: 12px;
+    font-weight: 800
 }
 
-.scores li small {
-    float: right;
-    color: #8caabc
+.score-row:first-child .score-rank {
+    background: #a47b24;
+    color: #fff3bd
+}
+
+.score-player {
+    grid-area: player;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px
+}
+
+.score-player strong {
+    overflow: hidden;
+    color: #e4f8ff;
+    font-size: 13px;
+    text-overflow: ellipsis;
+    white-space: nowrap
+}
+
+.score-player small,
+.score-value small {
+    color: #7898aa;
+    font-size: 10px
+}
+
+.score-value {
+    grid-area: value;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px
+}
+
+.score-value b {
+    color: #7effb2;
+    font-size: 15px;
+    line-height: 1
+}
+
+.score-run {
+    grid-area: run;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    color: #a8c4d3;
+    font-size: 11px
+}
+
+.score-run span {
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: #122c45;
+    color: #a9d9e8
+}
+
+.scores-state {
+    padding: 12px 10px;
+    border: 1px dashed #315474;
+    border-radius: 8px;
+    color: #91b2c2;
+    font-size: 12px;
+    text-align: center
 }
 
 .upgrade-card,

@@ -146,8 +146,15 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
           this.userSettings = res;
           this.isDisplayingNSFW = res.nsfwEnabled ?? false;
           this.displayProfileLocation = res.displayProfileLocation ?? true;
-          this.followPushEnabled = res.followPushEnabled ?? true;
-          this.followEmailEnabled = res.followEmailEnabled ?? false;
+          // The server exposes these as followPushEnabled/followEmailEnabled.
+          // Accept the older property names too so existing deployments do not
+          // reset the controls to their defaults while the API is being updated.
+          const settings = res as UserSettings & {
+            followNotificationsPush?: boolean;
+            followNotificationsEmail?: boolean;
+          };
+          this.followPushEnabled = settings.followPushEnabled ?? settings.followNotificationsPush ?? true;
+          this.followEmailEnabled = settings.followEmailEnabled ?? settings.followNotificationsEmail ?? false;
           this.showNavSearch = res.showNavSearch ?? true;
           this.timezone = res.timezone ?? '';
           if (this.displayProfileLocationCheckmark?.nativeElement) {

@@ -1224,7 +1224,7 @@ namespace maxhanna.Server.Hubs
         private static int[][] GenerateStartBoard(int difficulty)
         {
             var board = EmptyBoard();
-            var count = difficulty switch { 2 => 9, 1 => 6, _ => 3 };
+            var count = difficulty switch { 2 => 40, 1 => 35, _ => 30 };
             for (var i = 0; i < count; i++)
             {
                 board[Rows - 1 - (i / Cols)][i % Cols] = _rng.Next(1, ColorCount + 1);

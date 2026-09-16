@@ -1,4 +1,6 @@
-﻿namespace maxhanna.Server.Controllers.DataContracts.Users
+﻿using System.Text.Json.Serialization;
+
+namespace maxhanna.Server.Controllers.DataContracts.Users
 {
     public class UserSettings
     {
@@ -26,9 +28,11 @@
         public int? PageSize { get; set; }
         public bool WeeklyDigestEnabled { get; set; } = true;
         [Newtonsoft.Json.JsonProperty("followPushEnabled")]
+        [JsonPropertyName("followPushEnabled")]
         public bool FollowNotificationsPush { get; set; } = true;
 
         [Newtonsoft.Json.JsonProperty("followEmailEnabled")]
+        [JsonPropertyName("followEmailEnabled")]
         public bool FollowNotificationsEmail { get; set; } = false;
 
         // Whether the search bar on the navigation page (top nav) is visible.

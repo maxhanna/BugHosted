@@ -21,7 +21,6 @@
       <canvas #gameCanvas class="arena"></canvas> 
     </div>
     <div style="display: flex;" [style.flex-wrap]="onMobile() ? 'wrap' : 'nowrap'" [style.justify-content]="onMobile() ? 'center' : 'unset'">
-      <div class="status">{{status}}</div>
       <div class="weapon-hud">
         <div class="weapon-slots">
           <strong>WEAPON SLOTS</strong>
@@ -84,14 +83,31 @@
       <p>Steer the ship through an endless vertical descent. Destroy evolving bugs, collect mutations, and build a run
         that can survive the Queen.</p>
        
-      <h3>High scores</h3>
-      <div *ngIf="loadingScores">Loading scores…</div>
-      <ol class="scores">
-        <li *ngFor="let entry of highScores">
-          <span>{{entry.username}}</span><b>{{entry.score}}</b>
-          <small>W{{entry.wave}} · Level {{entry.level}} · {{formatScoreDate(entry.scoreDate)}}</small>
-        </li>
-      </ol>
+      <section class="high-scores" aria-labelledby="space-high-scores-title">
+        <div class="high-scores-heading">
+          <h3 id="space-high-scores-title">High scores</h3>
+          <span class="high-scores-caption">Top runs</span>
+        </div>
+        <div *ngIf="loadingScores" class="scores-state" role="status">Loading scores…</div>
+        <div *ngIf="!loadingScores && !highScores.length" class="scores-state">No scores recorded yet. Be the first!</div>
+        <ol class="scores" *ngIf="!loadingScores && highScores.length">
+          <li *ngFor="let entry of highScores; let rank = index" class="score-row">
+            <span class="score-rank" aria-hidden="true">{{rank + 1}}</span>
+            <div class="score-player">
+              <strong>{{entry.username}}</strong>
+              <small>{{formatScoreDate(entry.scoreDate)}}</small>
+            </div>
+            <div class="score-value">
+              <b>{{entry.score | number}}</b>
+              <small>points</small>
+            </div>
+            <div class="score-run">
+              <span>Wave {{entry.wave}}</span>
+              <span>Level {{entry.level}}</span>
+            </div>
+          </li>
+        </ol>
+      </section>
     </aside>
   </div>
 

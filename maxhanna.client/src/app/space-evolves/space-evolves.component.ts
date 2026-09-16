@@ -655,6 +655,7 @@ export class SpaceEvolvesComponent
   nextLevel = 90;
   paused = false;
   gameOver = false;
+  status = "";
   upgradeChoices: SpaceUpgrade[] = [];
   startingWeaponChoices: SpaceUpgrade[] = [];
   startingWeaponChoicePending = true;
@@ -669,8 +670,7 @@ export class SpaceEvolvesComponent
     phase: number;
   }[] = [];
   highScores: SpaceScore[] = [];
-  loadingScores = true;
-  status = "Choose one weapon to begin your run.";
+  loadingScores = true; 
   private lastOfferTime = 0;
   canPick = false;
   grantedUpgrades: SpaceUpgrade[] = [];
@@ -1540,7 +1540,6 @@ export class SpaceEvolvesComponent
     this.startingWeaponChoicePending = false;
     this.startingWeaponChoices = [];
     this.canPick = false;
-    this.status = `${u.name} selected. Survive until the first level-up.`;
     this.autosave();
   }
   private unlockWeapon(u: SpaceUpgrade) {
@@ -1550,8 +1549,7 @@ export class SpaceEvolvesComponent
       this.hasWeapon(weapon)
     )
       return false;
-    this.equippedWeapons.push(weapon);
-    this.status = `${u.name} unlocked.`;
+    this.equippedWeapons.push(weapon); 
     return true;
   }
   applyUpgrade(u: SpaceUpgrade) {
@@ -1797,10 +1795,7 @@ export class SpaceEvolvesComponent
     this.nextLevel = Math.floor(this.nextLevel * 1.22);
     this.experience = Math.max(0, this.experience - levelThreshold);
     this.upgradeChoices = [];
-    const bonus = this.grantFreeUpgrades();
-    this.status = bonus
-      ? `${u.name} evolved. +${bonus} free upgrade${bonus > 1 ? "s" : ""}!`
-      : `${u.name} evolved.`;
+    const bonus = this.grantFreeUpgrades(); 
     this.autosave();
   }
   private grantFreeUpgrades() {
@@ -2762,7 +2757,6 @@ export class SpaceEvolvesComponent
             b.trait = "charger";
             b.attack = Math.max(b.attack * 1.5, s.damage * 0.8);
             b.hp = Math.max(1, b.hp);
-            this.status = "Plasma conversion: allied kamikaze acquired!";
             this.effects.push({
               x: b.x,
               y: b.y,
@@ -4469,7 +4463,6 @@ export class SpaceEvolvesComponent
     const hp = 600 * (1 + this.wave * 0.22) * (this.wave === 1 ? 0.32 : 1),
       shapeCount = this.shapeCountFor("boss", "armored");
     this.bossActive = true;
-    this.status = `Wave ${this.wave} boss has surfaced — kill it to start wave ${this.wave + 1}!`;
     this.bugs.push({
       x: 0.5,
       y: 0.08,
@@ -4518,8 +4511,7 @@ export class SpaceEvolvesComponent
       setTimeout(() => {
         if (this.upgradeChoices.length) this.canPick = true;
       }, 500);
-      this.status =
-        "Evolution fork: improve an equipped weapon or fill an open slot.";
+    
       this.cdr.detectChanges();
       this.autosave();
     });
@@ -4567,18 +4559,16 @@ export class SpaceEvolvesComponent
       chem: 0,
       flamer: 0,
     };
-    this.status = "Choose one weapon to begin your run.";
     this.saveProgress();
     this.prepareStartingChoice();
   }
   private endRun() {
     this.ngZone.run(() => {
       this.gameOver = true;
-      this.status = `Run ended at wave ${this.wave}. Score ${this.score}.`;
       this.userEventService.insertUserEvent(
         this.parentRef?.user?.id ?? 0,
         "space_evolves",
-        this.status,
+        `Run ended at wave ${this.wave}. Score ${this.score}.`,
       );
       this.saveProgress(true);
 
