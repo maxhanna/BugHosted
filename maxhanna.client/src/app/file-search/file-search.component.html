@@ -164,10 +164,11 @@
                     (click)="getFavouritedBy(file); $event.stopPropagation()">
                     ❤️{{file.favouriteCount}}
                   </div>
-                  <div *ngIf="!file.isFolder && file.notesCount"
+                  <div *ngIf="!file.isFolder && (file.notesCount || file.notes?.length)"
                     class="fileOptionsAction fileOptionsActionText coloredBgButton"
+                    title="View file notes"
                     (click)="showFileNotes(file); $event.stopPropagation()">
-                    📝{{file.notesCount}}
+                    📝{{file.notesCount || file.notes?.length}}
                   </div>
                   <div *ngIf="displayRatings && !file.isFolder && file.ratingCount"
                     [class.fileOptionsAction]="!starsComponent.isRatingsPanelOpen"

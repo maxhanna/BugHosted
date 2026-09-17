@@ -114,8 +114,9 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
   private epubRendition?: EpubRendition;
   private epubCurrentCfi: string | null = null;
   private epubRelocated = false;
-  private epubArrowHandler?: (ev: KeyboardEvent) => void;
   private epubResizeHandler?: () => void;
+  private epubFrameDocument?: Document;
+  private epubFrameKeydownHandler = (ev: KeyboardEvent) => this.onReaderKeydown(ev);
   private localEbookVisibilityHandler = () => {
     if (!document.hidden) void this.loadLocalEbookFolderState();
   };
@@ -573,21 +574,66 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
     }, 0);
   }
 
-  /** Esc exits fullscreen reading. */
+  /** Reader-only keyboard controls. The listener is registered once with the
+   *  component and removed in ngOnDestroy so arrows never leak into the rest of
+   *  the application after the reader closes. */
   private onReaderKeydown = (ev: KeyboardEvent) => {
+    if (!this.readingBook) return;
     if (ev.key === 'Escape' && this.readerFullscreen) {
       ev.preventDefault();
       this.exitReaderFullscreen();
+      return;
+    }
+
+    // Do not steal arrows while the page-number input or another editable
+    // control has focus.
+    const target = ev.target as HTMLElement | null;
+    const tag = target?.tagName?.toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || tag === 'select' || target?.isContentEditable) return;
+
+    if (ev.key === 'ArrowLeft' || ev.key === 'ArrowRight') {
+      ev.preventDefault();
+      const next = ev.key === 'ArrowRight';
+      if (this.readerBlobType === 'application/pdf') {
+        if (next) this.nextPdfPage(); else this.prevPdfPage();
+      } else if (this.readerBlobType === 'epub') {
+        if (next) this.epubNext(); else this.epubPrev();
+      }
+      return;
+    }
+
+    if (ev.key === 'ArrowUp' || ev.key === 'ArrowDown') {
+      ev.preventDefault();
+      this.scrollReaderBy(ev.key === 'ArrowDown' ? 0.8 : -0.8);
     }
   };
+
+  private scrollReaderBy(viewportFactor: number): void {
+    const pane = this.pdfCanvas?.nativeElement?.parentElement
+      ?? document.querySelector('.text-pane') as HTMLElement | null;
+    if (pane) {
+      pane.scrollBy({ top: pane.clientHeight * viewportFactor, behavior: 'smooth' });
+      return;
+    }
+
+    // EPUB.js renders inside an iframe. Scroll its document when the rendition
+    // exposes a scrollable page; paginated EPUBs simply ignore the request.
+    const iframe = this.epubHost?.nativeElement.querySelector('iframe');
+    const epubDocument = iframe?.contentDocument;
+    const epubScroller = epubDocument?.scrollingElement;
+    epubScroller?.scrollBy({ top: (epubScroller.clientHeight || 0) * viewportFactor, behavior: 'smooth' });
+  }
 
   /** Mobile back button exits fullscreen instead of leaving the reader. */
   private onFsPopState = () => {
     if (this.readerFullscreen) this.exitReaderFullscreen(true);
   };
   private teardownEpub() {
-    if (this.epubArrowHandler) { document.removeEventListener('keydown', this.epubArrowHandler); this.epubArrowHandler = undefined; }
     if (this.epubResizeHandler) { window.removeEventListener('resize', this.epubResizeHandler); this.epubResizeHandler = undefined; }
+    if (this.epubFrameDocument) {
+      this.epubFrameDocument.removeEventListener('keydown', this.epubFrameKeydownHandler);
+      this.epubFrameDocument = undefined;
+    }
     if (this.epubRendition) { try { this.epubRendition.destroy(); } catch { } this.epubRendition = undefined; }
     if (this.epubBook) { try { this.epubBook.destroy(); } catch { } this.epubBook = undefined; }
     this.epubToc = [];
@@ -685,19 +731,13 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
 
       this.userEventService.insertUserEvent(this.parentRef?.user?.id ?? 0, 'read_ebook', book.title, book.fileId || undefined);
 
+      rendition.on('rendered', () => this.bindEpubFrameKeyboard());
       rendition.on('renderError', () => { });
       // Swipe-to-turn: epub.js forwards touch events from inside the book
       // iframe through the rendition emitter, so gestures work over the text.
       rendition.on('touchstart', (payload: unknown) => this.onPaneTouchStart(payload as TouchEvent, 'epub'));
       rendition.on('touchmove', (payload: unknown) => this.onPaneTouchMove(payload as TouchEvent));
       rendition.on('touchend', (payload: unknown) => this.onPaneTouchEnd(payload as TouchEvent));
-      // Arrow keys page through the book while the reader is open.
-      this.epubArrowHandler = (ev: KeyboardEvent) => {
-        if (!this.readingBook || this.readerBlobType !== 'epub') return;
-        if (ev.key === 'ArrowLeft') { this.epubPrev(); }
-        else if (ev.key === 'ArrowRight') { this.epubNext(); }
-      };
-      document.addEventListener('keydown', this.epubArrowHandler);
       this.epubResizeHandler = () => rendition.resize?.('100%', '100%');
       window.addEventListener('resize', this.epubResizeHandler);
       // Restore the saved position if one exists, else open at the start. The
@@ -712,11 +752,23 @@ export class EbooksComponent extends ChildComponent implements AfterViewInit {
       } else {
         await rendition.display();
       }
+      this.bindEpubFrameKeyboard();
       this.readerLoadProgress = 100;
     } catch (ex) {
       console.error('Error opening EPUB:', ex);
       this.readerError = 'Failed to open the EPUB book.';
     }
+  }
+
+  private bindEpubFrameKeyboard(): void {
+    const iframe = this.epubHost?.nativeElement.querySelector('iframe');
+    const frameDocument = iframe?.contentDocument;
+    if (!frameDocument || frameDocument === this.epubFrameDocument) return;
+    if (this.epubFrameDocument) {
+      this.epubFrameDocument.removeEventListener('keydown', this.epubFrameKeydownHandler);
+    }
+    this.epubFrameDocument = frameDocument;
+    frameDocument.addEventListener('keydown', this.epubFrameKeydownHandler);
   }
 
   epubPrev() { if (this.epubRendition) { this.epubRendition.prev(); this.playPageAnim('prev'); } }
