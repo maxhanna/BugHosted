@@ -2571,8 +2571,7 @@ namespace maxhanna.Server.Controllers
         try
         {
           await conn.OpenAsync();
-          await EnsureSocialPostEncryptionColumnAsync(conn);
-          string selectSql = @"
+           string selectSql = @"
      SELECT 
      nsfw_enabled, 
      ghost_read, 
@@ -2698,8 +2697,7 @@ namespace maxhanna.Server.Controllers
         try
         {
           await conn.OpenAsync();
-          await EnsureSocialPostEncryptionColumnAsync(conn);
-          var columns = string.Join(", ", validSettings.Select(s => s.SettingName));
+           var columns = string.Join(", ", validSettings.Select(s => s.SettingName));
           var values = string.Join(", ", validSettings.Select((s, i) => $"@val{i}"));
           var updates = string.Join(", ", validSettings.Select(s => $"{s.SettingName} = VALUES({s.SettingName})"));
           string updateSql = $@"
@@ -2729,20 +2727,7 @@ namespace maxhanna.Server.Controllers
           conn.Close();
         }
       }
-    }
-
-    private async Task EnsureSocialPostEncryptionColumnAsync(MySqlConnection conn)
-    {
-      if (_ensuredSettingColumns.ContainsKey("social_posts_encrypted")) return;
-      try
-      {
-        await using var cmd = new MySqlCommand(
-          "ALTER TABLE maxhanna.user_settings ADD COLUMN social_posts_encrypted TINYINT(1) NULL DEFAULT 0;", conn);
-        await cmd.ExecuteNonQueryAsync();
-      }
-      catch (MySqlException ex) when (ex.Number == 1060) { }
-      _ensuredSettingColumns["social_posts_encrypted"] = true;
-    }
+    } 
 
     [HttpPost("/User/Menu", Name = "GetUserMenu")]
     public async Task<IActionResult> GetUserMenu([FromBody] int userId)
