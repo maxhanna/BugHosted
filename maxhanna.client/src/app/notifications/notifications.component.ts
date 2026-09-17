@@ -4,6 +4,8 @@ import { CommentService } from '../../services/comment.service';
 import { ChildComponent } from '../child.component';
 import { UserNotification } from '../../services/datacontracts/notification/user-notification';
 import { AppComponent, AppComponentName } from '../app.component';
+import { UserService } from '../../services/user.service';
+import { UserSettings } from '../../services/datacontracts/user/user-settings';
 
 @Component({
   selector: 'app-notifications',
@@ -12,7 +14,7 @@ import { AppComponent, AppComponentName } from '../app.component';
   standalone: false
 })
 export class NotificationsComponent extends ChildComponent implements OnInit, OnDestroy, OnChanges {
-  constructor(private notificationService: NotificationService, private commentService: CommentService) {
+  constructor(private notificationService: NotificationService, private commentService: CommentService, private userService: UserService) {
     super();
   }
 
@@ -37,15 +39,22 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
   categories: { name: string, count: number }[] = [];
 
   private pollingInterval: any;
+  private notificationsEnabled?: boolean;
 
   async ngOnInit() {
     if (this.inputtedParentRef && !this.parentRef) {
       this.parentRef = this.inputtedParentRef;
     }
     this.startLoading();
-    if (this.parentRef?.user?.id) { //only allow notifications pushed if user is logged in.
+    if (this.parentRef?.user?.id) { // only configure push notifications for logged-in users.
       try {
-        this.requestNotificationPermission();
+        const settings = await this.userService.getUserSettings(this.parentRef.user.id) as UserSettings | null;
+        this.notificationsEnabled = settings?.notificationsEnabled;
+        // undefined means the user has never made a choice. An explicit false
+        // is a durable opt-out and must never trigger another browser prompt.
+        if (this.notificationsEnabled !== false) {
+          await this.requestNotificationPermission();
+        }
       } catch (e) {
         console.log("error configuring firebase: ", e);
       }
@@ -486,6 +495,11 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     }
   }
   async requestNotificationPermission() {
+    const userId = this.parentRef?.user?.id;
+    if (!userId || this.notificationsEnabled === false) {
+      return;
+    }
+
     try {
       // Firebase is dynamically imported so the messaging SDK stays out of the
       // initial main.js bundle and loads only when push notifications are used.
@@ -515,6 +529,8 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
           await this.subscribeToNotificationTopic(token);
         } else {
           console.log('Notification permission denied');
+          this.notificationsEnabled = false;
+          await this.userService.updateNotificationsEnabled(userId, false);
         }
       } else {
         console.log('Permission already:', Notification.permission);

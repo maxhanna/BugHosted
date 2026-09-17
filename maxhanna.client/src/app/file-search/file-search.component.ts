@@ -2320,10 +2320,15 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     if (this.isOptionsPanelOpen) {
       this.closeOptionsPanel(false);
     }
-    this.notesFile = file;
     const parent = this.inputtedParentRef ?? this.parentRef;
     try {
-      this.fileNotes = (file.notes ?? []).slice();
+      const freshFile = await this.fileService.getFileEntryById(
+        file.id,
+        parent?.user?.id,
+        parent?.fileCache
+      );
+      this.notesFile = freshFile ?? file;
+      this.fileNotes = (this.notesFile.notes ?? []).slice();
       setTimeout(() => {
         parent?.showOverlay();
         this.isShowingFileNotes = true;

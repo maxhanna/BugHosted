@@ -384,8 +384,8 @@ namespace maxhanna.Server.Controllers
 				FROM stories AS s 
 				LEFT JOIN (SELECT story_id, COUNT(id) AS comments_count FROM comments GROUP BY story_id) AS c 
 					ON s.id = c.story_id
-				LEFT JOIN story_metadata AS sm ON s.id = sm.story_id  
-					LEFT JOIN hidden_stories hs ON hs.story_id = s.id AND hs.user_id = @userId  
+				LEFT JOIN story_metadata AS sm ON s.id = sm.story_id
+        LEFT JOIN hidden_stories hs ON hs.story_id = s.id AND hs.user_id = @userId  
 				{whereClause}  
     			{orderByClause} 
 				LIMIT @pageSize OFFSET @offset;";
@@ -455,6 +455,8 @@ namespace maxhanna.Server.Controllers
         await FetchAndAttachPollVotesAsync(storyResponse);
         storyResponse.Stories.ForEach(s =>
         {
+          // Keep the database/search representation plain, but encrypt every
+          // full story response over the wire using the author's user id.
           s.StoryText = _log.EncryptContent(s.StoryText ?? "", s.User?.Id + "");
         });
       }
@@ -1329,8 +1331,12 @@ namespace maxhanna.Server.Controllers
             }
           }
         }
-        // Use the request.userId for decryption so the server uses the same id the client used to encrypt
-        string decryptedText = _log.DecryptContent(request.story.StoryText ?? "", (request.userId ?? 0) + "");
+        // The browser encrypts the request only when the author opts in. The
+        // server decrypts it here, then stores plain text for BugHosted search.
+        bool encryptSocialPost = await SocialPostEncryptionEnabledAsync(request.userId);
+        string decryptedText = encryptSocialPost
+          ? _log.DecryptContent(request.story.StoryText ?? "", (request.userId ?? 0) + "")
+          : (request.story.StoryText ?? "");
         request.story.StoryText = decryptedText;
 
         // Shared pipeline (insert + files + topics + link metadata + sitemap +
@@ -1339,7 +1345,7 @@ namespace maxhanna.Server.Controllers
         string eventText = request.story.ProfileUserId.HasValue && request.story.ProfileUserId.Value != 0
           ? "posted on a profile"
           : "posted";
-        int? storyId = await _storyService.CreateStoryAsync(request.story, request.userId, eventText);
+        int? storyId = await _storyService.CreateStoryAsync(request.story, request.userId, eventText, encryptSocialPost);
         if (storyId == null)
         {
           return StatusCode(500, "Failed to post story.");
@@ -1468,15 +1474,21 @@ namespace maxhanna.Server.Controllers
             cmd.Parameters.AddWithValue("@UserId", request.userId);
             cmd.Parameters.AddWithValue("@StoryId", request.story.Id);
             // Use request.userId for decryption to match client-side encryption key selection
-            cmd.Parameters.AddWithValue("@Text", _log.DecryptContent(request.story.StoryText ?? "", (request.userId ?? 0) + ""));
-            cmd.Parameters.AddWithValue("@visibility", string.IsNullOrEmpty(request.story.Visibility) ? "public" : request.story.Visibility);
+            bool encryptSocialPost = await SocialPostEncryptionEnabledAsync(request.userId);
+            string editedStoryText = encryptSocialPost
+              ? _log.DecryptContent(request.story.StoryText ?? "", (request.userId ?? 0) + "")
+              : (request.story.StoryText ?? "");
+            string storedEditedStoryText = editedStoryText;
+            string editedVisibility = string.IsNullOrEmpty(request.story.Visibility) ? "public" : request.story.Visibility;
+            cmd.Parameters.AddWithValue("@Text", storedEditedStoryText);
+            cmd.Parameters.AddWithValue("@visibility", editedVisibility);
 
             int rowsAffected = await cmd.ExecuteNonQueryAsync();
 
             if (rowsAffected == 1)
             {
-              await _storyService.AppendToSitemapAsync(request.story.Id);
-              string[]? url = _crawler.ExtractUrls(request.story.StoryText);
+              await _storyService.AppendToSitemapAsync(request.story.Id, encryptSocialPost ? null : editedStoryText, editedVisibility);
+              string[]? url = _crawler.ExtractUrls(editedStoryText);
               if (url != null)
               {
                 Console.WriteLine($"Urls extracted for metadata: {string.Join(", ", url)}");
@@ -1499,6 +1511,18 @@ namespace maxhanna.Server.Controllers
         _ = _log.Db("An error occurred while deleting story." + ex.Message, request.userId, "SOCIAL", true);
         return StatusCode(500, "An error occurred while deleting story.");
       }
+    }
+
+    private async Task<bool> SocialPostEncryptionEnabledAsync(int? userId)
+    {
+      if (!userId.HasValue || userId.Value <= 0) return true;
+      await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+      await conn.OpenAsync();
+      const string sql = "SELECT social_posts_encrypted FROM maxhanna.user_settings WHERE user_id = @UserId LIMIT 1;";
+      await using var cmd = new MySqlCommand(sql, conn);
+      cmd.Parameters.AddWithValue("@UserId", userId.Value);
+      object? value = await cmd.ExecuteScalarAsync();
+      return value != null && value != DBNull.Value && Convert.ToInt32(value) == 1;
     }
 
     // Endpoint to replace files attached to a story (transactional replacement)

@@ -33,8 +33,10 @@ public class SocialStoryService
   /// Returns the new story id (null on failure). story.StoryText must already
   /// be plain text (the controller decrypts before calling).
   /// </summary>
-  public async Task<int?> CreateStoryAsync(Story story, int? userId, string? eventText = "posted")
+  public async Task<int?> CreateStoryAsync(Story story, int? userId, string? eventText = "posted", bool encryptedInTransit = false)
   {
+    // The request may be encrypted in transit, but story_text is deliberately
+    // stored as plain text so BugHosted's own search can index it.
     string storyText = story.StoryText ?? "";
     string visibility = string.IsNullOrEmpty(story.Visibility) ? "public" : story.Visibility;
     int? profileUserId = story.ProfileUserId.HasValue && story.ProfileUserId.Value != 0 ? story.ProfileUserId.Value : (int?)null;
@@ -86,9 +88,14 @@ public class SocialStoryService
     }
 
     // Link metadata (best-effort — a crawler failure must not drop the story).
-    await ScrapeAndInsertMetadataAsync(storyId, storyText, userId);
+    if (!encryptedInTransit)
+    {
+      await ScrapeAndInsertMetadataAsync(storyId, storyText, userId);
+    }
 
-    await AppendToSitemapAsync(storyId);
+    // Only public posts belong in a search-engine sitemap. AppendToSitemapAsync
+    // also removes an older entry if a post is restricted.
+    await AppendToSitemapAsync(storyId, encryptedInTransit ? null : storyText, visibility);
 
     if (userId.HasValue && userId.Value != 0)
     {
@@ -165,8 +172,15 @@ public class SocialStoryService
     return "Deleted metadata";
   }
 
-  public async Task AppendToSitemapAsync(int targetId)
+  public async Task AppendToSitemapAsync(int targetId, string? storyText = null, string? visibility = null)
   {
+    // A sitemap is public by definition. Never publish links for restricted posts.
+    if (!string.IsNullOrWhiteSpace(visibility) && !string.Equals(visibility, "public", StringComparison.OrdinalIgnoreCase))
+    {
+      await RemoveFromSitemapAsync(targetId);
+      return;
+    }
+
     string storyUrl = $"https://bughosted.com/Social/{targetId}";
     string lastMod = DateTime.UtcNow.ToString("yyyy-MM-dd");
 
@@ -174,16 +188,23 @@ public class SocialStoryService
     try
     {
       XNamespace ns = "http://www.sitemaps.org/schemas/sitemap/0.9";
+      XNamespace socialNs = "https://bughosted.com/schemas/sitemap-social/1.0";
       XDocument sitemap;
 
       if (System.IO.File.Exists(_sitemapPath))
       {
         sitemap = XDocument.Load(_sitemapPath);
+        sitemap.Root?.SetAttributeValue(XNamespace.Xmlns + "social", socialNs);
         var existingUrl = sitemap.Descendants(ns + "loc")
                                  .FirstOrDefault(x => x.Value == storyUrl);
         if (existingUrl != null && existingUrl.Parent != null)
         {
-          existingUrl.Parent.Element(ns + "lastmod")?.SetValue(lastMod);
+          var urlElement = existingUrl.Parent;
+          urlElement.Element(ns + "lastmod")?.SetValue(lastMod);
+          if (storyText != null)
+          {
+            SetSitemapPostText(urlElement, socialNs, storyText);
+          }
           sitemap.Save(_sitemapPath);
           return;
         }
@@ -191,6 +212,7 @@ public class SocialStoryService
       else
       {
         sitemap = new XDocument(new XElement(ns + "urlset"));
+        sitemap.Root?.SetAttributeValue(XNamespace.Xmlns + "social", socialNs);
       }
 
       XElement newUrlElement = new XElement(ns + "url",
@@ -199,6 +221,10 @@ public class SocialStoryService
           new XElement(ns + "changefreq", "daily"),
           new XElement(ns + "priority", "0.8")
       );
+      if (storyText != null)
+      {
+        SetSitemapPostText(newUrlElement, socialNs, storyText);
+      }
       sitemap.Root?.Add(newUrlElement);
       sitemap.Save(_sitemapPath);
     }
@@ -206,6 +232,16 @@ public class SocialStoryService
     {
       _sitemapLock.Release();
     }
+  }
+
+  private static void SetSitemapPostText(XElement urlElement, XNamespace socialNs, string storyText)
+  {
+    // Keep the text in a namespaced extension so the XML remains valid while
+    // giving crawlers a concise, searchable representation of the post.
+    string searchableText = storyText.Trim();
+    if (searchableText.Length > 5000) searchableText = searchableText[..5000];
+    urlElement.Element(socialNs + "content")?.Remove();
+    urlElement.Add(new XElement(socialNs + "content", searchableText));
   }
 
   public async Task RemoveFromSitemapAsync(int targetId)

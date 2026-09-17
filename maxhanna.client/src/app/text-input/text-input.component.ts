@@ -15,6 +15,8 @@ import { MediaSelectorComponent } from '../media-selector/media-selector.compone
 import { TopicsComponent } from '../topics/topics.component';
 import { EncryptionService } from '../../services/encryption.service';
 import { TopicRank } from '../../services/datacontracts/topics/topic-rank';
+import { UserService } from '../../services/user.service';
+import { UserSettings } from '../../services/datacontracts/user/user-settings';
 
 @Component({
   selector: 'app-text-input',
@@ -29,7 +31,8 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
     private commentService: CommentService,
     private chatService: ChatService,
     private socialService: SocialService,
-    private encryptionService: EncryptionService
+    private encryptionService: EncryptionService,
+    private userService: UserService
   ) { super(); }
 
   @Input() inputtedParentRef?: AppComponent;
@@ -86,6 +89,10 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
   showHelpPopup: boolean = false;
   highlightTopicsButton: boolean = false;
   isPostLoading: boolean = false;
+  // Preserve the existing private-by-default behavior until the user changes
+  // the setting in User Settings.
+  socialPostsEncrypted = false;
+  private socialSettingsReady: Promise<void> = Promise.resolve();
 
   // Prevent duplicate posts: simple debounce and in-flight guard
   _isPosting: boolean = false;
@@ -97,6 +104,9 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
       this.parentRef = this.inputtedParentRef;
     }
     if (this.parentRef?.user?.id && this.type == "Social") {
+      this.socialSettingsReady = this.userService.getUserSettings(this.parentRef.user.id).then((settings: UserSettings | undefined) => {
+        this.socialPostsEncrypted = settings?.socialPostsEncrypted ?? false;
+      }).catch(() => { /* retain the opt-in default */ });
       this.topicService.getFavTopics(this.parentRef.user).then(res => this.favTopics = res);
       this.topicService.getIgnoredTopics(this.parentRef.user).then(res => this.ignoredTopics = res);
     }
@@ -109,6 +119,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
 
   // Update existing content (comment, story, chat)
   async update() {
+    if (this.type === 'Social') await this.socialSettingsReady;
     const parent = this.parentRef;
     const user = parent?.user ?? new User(0, "Anonymous");
     const sessionToken = await parent?.getSessionToken();
@@ -280,6 +291,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
 
     this.startLoading();
     try {
+      if (this.type === 'Social') await this.socialSettingsReady;
       const parent = this.parentRef;
       const user = parent?.user ?? new User(0, "Anonymous");
       parent?.updateLastSeen();
@@ -748,6 +760,9 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
       }
 
       if (id === undefined || id === null) {
+        return msg;
+      }
+      if (this.type === "Social" && !this.socialPostsEncrypted) {
         return msg;
       }
       return this.encryptionService.encryptContent(msg, (id + "").trim());

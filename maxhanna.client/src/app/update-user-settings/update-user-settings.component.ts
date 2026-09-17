@@ -64,6 +64,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   isNicehashHelpPanelShowing = false;
   isDisplayingNSFW = false;
   isPushNotificationsEnabled? = false;
+  socialPostsEncrypted = false;
   followPushEnabled = true;
   followEmailEnabled = false;
   isSecurityQuestionsToggled = false;
@@ -170,6 +171,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
       this.userService.getUserSettings(user.id ?? 0).then((res?: UserSettings) => {
         if (res) {
           this.isPushNotificationsEnabled = res.notificationsEnabled;
+          this.socialPostsEncrypted = res.socialPostsEncrypted ?? false;
           if (this.isPushNotificationsEnabled == undefined || this.isPushNotificationsEnabled) {
             this.requestNotificationPermission();
           }
@@ -281,20 +283,29 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     about.birthday = this.updatedBirthday.nativeElement.value != '' ? new Date(this.updatedBirthday.nativeElement.value) : undefined;
     about.currency = this.selectedCurrencyDropdown.nativeElement.value != '' ? this.selectedCurrencyDropdown.nativeElement.value : undefined;
     about.website = this.updatedWebsite && this.updatedWebsite.nativeElement.value != '' ? this.updatedWebsite.nativeElement.value : undefined;
-    await this.userService.updateUserAbout(user.id, about).then(async res => {
-      this.stopLoading();
-      if (res) {
-        if (user && parent) {
-          user.about = about;
-          parent.resetUserCookie();
-          this.ngOnInit();
-          this.parentRef?.showNotification(res); 
-        }
-      }
-    });
-    await this.userService.updateUserSettings(user.id, [
-      { settingName: 'weekly_digest_enabled', value: this.weeklyDigestCheckbox.nativeElement.checked }
+    const weeklyDigestEnabled = this.weeklyDigestCheckbox?.nativeElement?.checked ?? true;
+    const aboutResponse = await this.userService.updateUserAbout(user.id, about);
+    if (aboutResponse && user && parent) {
+      user.about = about;
+      parent.resetUserCookie();
+    }
+
+    // Save the digest preference as part of the same Account/About save flow.
+    // Do this before reloading settings so the refresh cannot race the write.
+    const digestResponse = await this.userService.updateUserSettings(user.id, [
+      { settingName: 'weekly_digest_enabled', value: weeklyDigestEnabled }
     ]);
+    if (this.userSettings) {
+      this.userSettings.weeklyDigestEnabled = weeklyDigestEnabled;
+    }
+    this.stopLoading();
+    if (aboutResponse) {
+      this.parentRef?.showNotification(aboutResponse);
+    }
+    if (digestResponse && !digestResponse.toLowerCase().includes('error')) {
+      this.parentRef?.showNotification('Weekly email digest preference saved.');
+    }
+    await this.ngOnInit();
   }
   async updateKrakenAPIKeys() {
     const parent = this.inputtedParentRef ?? this.parentRef;
@@ -1033,6 +1044,16 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     this.userService.updateUserSettings(this.parentRef.user.id, [{ settingName: 'notifications_enabled', value: this.isPushNotificationsEnabled }]).then(res => {
       this.parentRef?.showNotification(res);
     });
+  }
+  updateSocialPostsEncryption(event: Event) {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const userId = parent?.user?.id;
+    if (!userId) return;
+    this.socialPostsEncrypted = (event.target as HTMLInputElement).checked;
+    this.userService.updateUserSettings(userId, [{
+      settingName: 'social_posts_encrypted',
+      value: this.socialPostsEncrypted
+    }]).then(res => parent.showNotification(res));
   }
   async updateFollowPush(event: Event) {
     await this.saveFollowNotificationSetting('follow_notifications_push', 'followPushEnabled', event);

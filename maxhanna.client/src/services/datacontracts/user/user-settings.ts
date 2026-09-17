@@ -28,4 +28,5 @@ export class UserSettings {
   timezone?: string;
   emulatorLocalRomStorage?: boolean;
   emulatorLeftHanded?: boolean;
+  socialPostsEncrypted?: boolean;
 }

@@ -108,6 +108,11 @@ export class SocialPostComponent extends ChildComponent implements OnInit {
 
     // Pre-loaded full story (deep-link) → use it directly, else fetch by id.
     if (this.story && this.story.id && this.story.storyText != null && this.story.storyText !== undefined) {
+      try {
+        this.story.storyText = this.encryptionService.decryptContent(this.story.storyText, this.story.user?.id + '');
+      } catch (ex) {
+        console.error(`Failed to decrypt story ID ${this.story.id}:`, ex);
+      }
       this.isLoading = false;
       await this.afterStoryReady();
     } else {

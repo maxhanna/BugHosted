@@ -64,6 +64,16 @@
       </div>
       <div class="sectionDescriptionSection">
         <div>
+          Social post privacy:
+          <div class="xSmallFont">Encryption keeps your posts private from search engines and other systems. When encryption is off, your post text is stored and published for the public internet, including the sitemap, so it can be found through search engines like Google.</div>
+        </div>
+        <div>
+          {{socialPostsEncrypted ? 'Encrypted' : 'Public'}}{{" "}}
+          <input type="checkbox" [checked]="socialPostsEncrypted" (change)="updateSocialPostsEncryption($event)" />
+        </div>
+      </div>
+      <div class="sectionDescriptionSection">
+        <div>
           Follow Notifications - Push:
           <div class="xSmallFont">Get a push notification when someone comments on a post, file, or comment you follow.</div>
         </div>
@@ -223,10 +233,9 @@
         <div><input type="text" #updatedEmail [value]="parentRef?.user?.about?.email ?? ''" maxlength="100" /></div>
       </div>
       <div class="sectionDescriptionSection">
-        <div>Weekly Email Digest:</div>
+        <div title="Receive a weekly email with notifications, stories from friends, top memes, and new songs">Weekly Email Digest:</div>
         <div>
           <input type="checkbox" #weeklyDigestCheckbox [checked]="userSettings?.weeklyDigestEnabled !== false" />
-          <span class="xSmallFont">Receive a weekly email with notifications, stories from friends, top memes, and new songs</span>
         </div>
       </div>
       <div class="sectionDescriptionSection">

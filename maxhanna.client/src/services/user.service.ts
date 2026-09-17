@@ -1134,4 +1134,5 @@ export type UserSettingName =
   | "show_nav_search"
   | "timezone"
   | "emulator_local_rom_storage"
-  | "emulator_left_handed";
+  | "emulator_left_handed"
+  | "social_posts_encrypted";

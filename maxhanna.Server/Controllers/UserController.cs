@@ -37,7 +37,8 @@ namespace maxhanna.Server.Controllers
         "show_nav_search",
         "timezone",
         "emulator_local_rom_storage",
-        "emulator_left_handed"
+        "emulator_left_handed",
+        "social_posts_encrypted"
     };
 
     private static readonly ConcurrentDictionary<string, bool> _ensuredSettingColumns = new();
@@ -2570,6 +2571,7 @@ namespace maxhanna.Server.Controllers
         try
         {
           await conn.OpenAsync();
+          await EnsureSocialPostEncryptionColumnAsync(conn);
           string selectSql = @"
      SELECT 
      nsfw_enabled, 
@@ -2599,7 +2601,8 @@ namespace maxhanna.Server.Controllers
      IFNULL(show_nav_search,1) AS show_nav_search,
      IFNULL(timezone,'') AS timezone,
      IFNULL(emulator_local_rom_storage,0) AS emulator_local_rom_storage,
-     IFNULL(emulator_left_handed,0) AS emulator_left_handed
+     IFNULL(emulator_left_handed,0) AS emulator_left_handed,
+     IFNULL(social_posts_encrypted,0) AS social_posts_encrypted
      FROM maxhanna.user_settings 
      WHERE user_id = @userId;";
           MySqlCommand selectCmd = new MySqlCommand(selectSql, conn);
@@ -2640,6 +2643,7 @@ namespace maxhanna.Server.Controllers
               userSettings.Timezone = reader.IsDBNull(reader.GetOrdinal("timezone")) ? null : reader.GetString("timezone");
               userSettings.EmulatorLocalRomStorage = !reader.IsDBNull(reader.GetOrdinal("emulator_local_rom_storage")) && reader.GetInt32("emulator_local_rom_storage") == 1;
               userSettings.EmulatorLeftHanded = !reader.IsDBNull(reader.GetOrdinal("emulator_left_handed")) && reader.GetInt32("emulator_left_handed") == 1;
+              userSettings.SocialPostsEncrypted = !reader.IsDBNull(reader.GetOrdinal("social_posts_encrypted")) && reader.GetInt32("social_posts_encrypted") == 1;
             }
           }
 
@@ -2694,6 +2698,7 @@ namespace maxhanna.Server.Controllers
         try
         {
           await conn.OpenAsync();
+          await EnsureSocialPostEncryptionColumnAsync(conn);
           var columns = string.Join(", ", validSettings.Select(s => s.SettingName));
           var values = string.Join(", ", validSettings.Select((s, i) => $"@val{i}"));
           var updates = string.Join(", ", validSettings.Select(s => $"{s.SettingName} = VALUES({s.SettingName})"));
@@ -2724,6 +2729,19 @@ namespace maxhanna.Server.Controllers
           conn.Close();
         }
       }
+    }
+
+    private async Task EnsureSocialPostEncryptionColumnAsync(MySqlConnection conn)
+    {
+      if (_ensuredSettingColumns.ContainsKey("social_posts_encrypted")) return;
+      try
+      {
+        await using var cmd = new MySqlCommand(
+          "ALTER TABLE maxhanna.user_settings ADD COLUMN social_posts_encrypted TINYINT(1) NULL DEFAULT 0;", conn);
+        await cmd.ExecuteNonQueryAsync();
+      }
+      catch (MySqlException ex) when (ex.Number == 1060) { }
+      _ensuredSettingColumns["social_posts_encrypted"] = true;
     }
 
     [HttpPost("/User/Menu", Name = "GetUserMenu")]

@@ -55,5 +55,10 @@ namespace maxhanna.Server.Controllers.DataContracts.Users
         // on the right, action buttons on the left) for left-handed play.
         [Newtonsoft.Json.JsonProperty("emulatorLeftHanded")]
         public bool EmulatorLeftHanded { get; set; }
+
+        // Encryption is opt-in; existing users keep public/plain social-post behavior until enabled.
+        [Newtonsoft.Json.JsonProperty("socialPostsEncrypted")]
+        [JsonPropertyName("socialPostsEncrypted")]
+        public bool SocialPostsEncrypted { get; set; } = false;
     }
 }

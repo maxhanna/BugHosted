@@ -749,9 +749,9 @@ export class FileService {
   }
 
   async getFileEntryById(fileId: number, userId?: number, fileCache?: FileEntry[], includeRomMetadata?: boolean) {
-    const tmpFile = fileCache?.filter(x => x.id === fileId)[0];
-    if (tmpFile) { return tmpFile; }
-
+    // Directory listings intentionally contain lightweight file rows and may
+    // have an empty/stale notes array. Always hydrate this detail endpoint so
+    // notes saved on the server survive navigation and refreshes.
     if (this.fileEntryPromises[fileId]) {
       return this.fileEntryPromises[fileId]!;
     }
@@ -780,7 +780,12 @@ export class FileService {
 
       const tmpFileEntry = await this.fileEntryPromises[fileId]!;
       if (fileCache && tmpFileEntry) {
-        fileCache.push(tmpFileEntry);
+        const cachedIndex = fileCache.findIndex(x => x.id === fileId);
+        if (cachedIndex >= 0) {
+          Object.assign(fileCache[cachedIndex], tmpFileEntry);
+        } else {
+          fileCache.push(tmpFileEntry);
+        }
       }
 
       return tmpFileEntry;
