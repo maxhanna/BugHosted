@@ -969,29 +969,39 @@ namespace maxhanna.Server.Controllers
 						{
 							int uid = rdr.GetInt32(0);
 							if (uid <= 0) continue;
-							int money = rdr.GetInt32(1);
-							int earnings = rdr.GetInt32(2);
-							int wins = rdr.GetInt32(3);
-							int races = rdr.GetInt32(4);
+							// NULL-tolerant, type-tolerant reads: one bad row used to throw,
+							// abort the whole loop, and the blanket catch below returned an
+							// EMPTY leaderboard (client then showed only the local player).
+							int money = rdr.IsDBNull(1) ? 0 : Convert.ToInt32(rdr.GetValue(1));
+							int earnings = rdr.IsDBNull(2) ? 0 : Convert.ToInt32(rdr.GetValue(2));
+							int wins = rdr.IsDBNull(3) ? 0 : Convert.ToInt32(rdr.GetValue(3));
+							int races = rdr.IsDBNull(4) ? 0 : Convert.ToInt32(rdr.GetValue(4));
 							string name = rdr.IsDBNull(5) ? "Unknown" : rdr.GetString(5);
-							scores.Add(new
+							try
 							{
-								playerId = uid,
-								playerName = name,
-								totalEarnings = earnings,
-								wins = wins,
-								races = races,
-								isBot = false
-							});
-							cash.Add(new
+								scores.Add(new
+								{
+									playerId = uid,
+									playerName = name,
+									totalEarnings = earnings,
+									wins = wins,
+									races = races,
+									isBot = false
+								});
+								cash.Add(new
+								{
+									playerId = uid,
+									playerName = name,
+									money = money,
+									wins = wins,
+									races = races,
+									isBot = false
+								});
+							}
+							catch (Exception rowEx)
 							{
-								playerId = uid,
-								playerName = name,
-								money = money,
-								wins = wins,
-								races = races,
-								isBot = false
-							});
+								Console.WriteLine($"[Racing] Wealth leaderboard: skipping row for user {uid}: {rowEx.Message}");
+							}
 						}
 					}
 				}
@@ -1007,7 +1017,13 @@ namespace maxhanna.Server.Controllers
 					.ToList();
 				return Ok(new { scores = rankedScores, cash = rankedCash });
 			}
-			catch { return Ok(new { scores = new List<object>(), cash = new List<object>() }); }
+			catch (Exception ex)
+			{
+				// Surface the failure (console) instead of silently returning an
+				// empty board that makes the client think nobody else has raced.
+				Console.WriteLine($"[Racing] GetWealthLeaderboard failed: {ex.Message}");
+				return Ok(new { scores = new List<object>(), cash = new List<object>() });
+			}
 		}
 		/// <summary>
 		/// Rebuilds a player's stored upgrades from the current tier table while

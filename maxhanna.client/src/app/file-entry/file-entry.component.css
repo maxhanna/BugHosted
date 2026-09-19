@@ -129,9 +129,8 @@
 
 .file-entry-shell .romRowArtwork {
   display: inline-flex;
-  flex: 0 0 auto;
-  width: 42px;
-  height: 52px;
+  flex: 0 0 auto; 
+  height: 250px;
   margin: 0 4px 0 8px;
   align-items: center;
   justify-content: center;
