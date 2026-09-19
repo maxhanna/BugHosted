@@ -326,7 +326,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
 
   constructor(private hub: MarblesHubService, private ngZone: NgZone, private cdr: ChangeDetectorRef, private marbles: MarblesService) {
     super();
-    this.playerName = this.parentRef?.user?.username ?? '';
+    this.playerName = this.parentRef?.user?.username?.trim() || 'Anon';
     try {
       const saved = localStorage.getItem('marbles.mapId');
       if (saved && BOARD_MAPS.some(m => m.id === saved)) this.selectedMapId = saved;
@@ -338,8 +338,10 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     // Default the player name to the logged-in user's username. `parentRef`
     // (and its loaded `user`) is only assigned after construction, so read it
     // here rather than in the constructor.
-    if (this.parentRef?.user?.username && !this.playerName) {
-      this.playerName = this.parentRef.user.username;
+    if (this.parentRef?.user?.username?.trim()) {
+      this.playerName = this.parentRef.user.username.trim();
+    } else if (!this.playerName.trim()) {
+      this.playerName = 'Anon';
     }
     this.resizeCanvas();
     this.initSplash();
@@ -468,7 +470,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
 
   /** Single-player: host a room, then immediately start vs the computer. */
   async playVsAI(difficulty: number): Promise<void> {
-    const name = this.playerName.trim() || 'Player';
+    const name = this.playerName.trim() || 'Anon';
     this.playerName = name;
     await this.join('');
     if (!this.connected || !this.roomCode) return;
@@ -491,7 +493,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
    *  match. P1 uses arrows + spacebar on the bottom board; P2 uses A/S/D/W
    *  (A/D select, W/S shift column, F rotates the center row) on the top. */
   async playLocal2P(): Promise<void> {
-    const name = this.playerName.trim() || 'Player 1';
+    const name = this.playerName.trim() || 'Anon';
     this.playerName = name;
     await this.join('');
     if (!this.connected || !this.roomCode) return;
@@ -514,7 +516,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
   }
 
   private async join(code: string, isPublic = false): Promise<void> {
-    const name = this.playerName.trim() || 'Player';
+    const name = this.playerName.trim() || 'Anon';
     const userId = this.parentRef?.user?.id ?? 0;
     const res = await this.hub.joinLobby(code, name, userId, isPublic);
     if (!res) {

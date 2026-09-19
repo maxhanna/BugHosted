@@ -105,7 +105,7 @@
           <div class="marbles-public-title">🌍 Public rooms — jump into any open match</div>
           <div class="marbles-public-list" *ngIf="publicRooms.length > 0">
             <div class="marbles-public-row" *ngFor="let r of publicRooms">
-              <span class="marbles-public-host">{{ r.hostName }}</span>
+              <span class="marbles-public-host">{{ r.hostName || 'Anon' }}</span>
               <span class="marbles-public-count">{{ r.players }}/2</span>
               <button class="win98-btn" (click)="joinPublicRoom(r)" [disabled]="!playerName.trim()">Join</button>
             </div>
@@ -119,7 +119,7 @@
           <div class="marbles-public-list" *ngIf="!highScoresLoading && highScores.length > 0">
             <div class="marbles-public-row" *ngFor="let s of highScores; let i = index">
               <span class="marbles-hs-rank">{{ i + 1 }}.</span>
-              <span class="marbles-public-host">{{ s.username || 'Anonymous' }}</span>
+              <span class="marbles-public-host">{{ s.username || 'Anon' }}</span>
               <span class="marbles-hs-diff" *ngIf="s.difficulty">{{ difficultyLabel(s.difficulty) }}</span>
               <span class="marbles-public-count">🏆 {{ s.score }}</span>
             </div>

@@ -215,6 +215,7 @@ namespace maxhanna.Server.Hubs
 
         public async Task<object?> JoinLobby(string code, string playerName, int playerId, bool isPublic = false)
         {
+            playerName = string.IsNullOrWhiteSpace(playerName) ? "Anon" : playerName.Trim();
             code = (code ?? "").Trim().ToUpperInvariant();
             var creating = code.Length < 3 || code.Length > 16;
             if (creating) code = NewCode();
@@ -243,7 +244,7 @@ namespace maxhanna.Server.Hubs
                     var player = new Player
                     {
                         ConnectionId = Context.ConnectionId,
-                        PlayerName = string.IsNullOrWhiteSpace(playerName) ? "Player" : playerName,
+                        PlayerName = playerName,
                         PlayerId = playerId,
                     };
                     if (lobby.Players.Count == 0)
@@ -568,7 +569,9 @@ namespace maxhanna.Server.Hubs
                     }
                     if (bot == null) { await Task.Delay(500, ct); continue; }
 
-                    var thinkMs = bot.Difficulty switch { 0 => 2300, 1 => 1200, _ => 750 };
+                    // Keep the computer responsive enough to capitalize on a
+                    // setup instead of waiting several drops between moves.
+                    var thinkMs = bot.Difficulty switch { 0 => 1800, 1 => 900, _ => 550 };
                     await Task.Delay(thinkMs, ct);
                     if (!_lobbies.TryGetValue(code, out lobby)) return;
 
@@ -641,7 +644,18 @@ namespace maxhanna.Server.Hubs
                 }
                 var setup = dropTests > 0 ? Math.Min(40, (setupSum / (double)dropTests) * 12) : 0;
 
-                var score = result.PoppedCount * 20 + result.ReserveGained * 10 + result.Garbage * 15 + (int)setup;
+                // A move that does not pop immediately can still be the right
+                // move if it creates a strong follow-up. The old bot mostly
+                // scored only the current move (and averaged over random drops),
+                // so it frequently wandered without ever building a pair.
+                var followUp = BestFollowUpScore(clone, specialColor);
+                var rowPotential = PitchRowPotential(clone);
+                var score = result.PoppedCount * 60
+                    + result.ReserveGained * 20
+                    + result.Garbage * 30
+                    + (int)setup
+                    + followUp
+                    + rowPotential;
 
                 candidates.Add(new AiMove
                 {
@@ -667,20 +681,72 @@ namespace maxhanna.Server.Hubs
             // fairly often, medium mostly takes the best, hard always takes it.
             if (difficulty == 0)
             {
+                // Easy should make mistakes, but it should still understand
+                // enough of the board to make occasional matches.
                 var roll = rng.Next(100);
-                if (roll < 30) return candidates[rng.Next(candidates.Count)];
-                if (roll < 55)
+                if (roll < 15) return candidates[rng.Next(candidates.Count)];
+                if (roll < 45)
                 {
-                    var decent = candidates.Where(x => x.Score >= bestScore - 30).ToList();
+                    var decent = candidates.Where(x => x.Score >= bestScore - 45).ToList();
                     return decent[rng.Next(decent.Count)];
                 }
             }
-            else if (difficulty == 1 && rng.Next(100) < 20)
+            else if (difficulty == 1 && rng.Next(100) < 10)
             {
-                var decent = candidates.Where(x => x.Score >= bestScore - 30).ToList();
+                var decent = candidates.Where(x => x.Score >= bestScore - 35).ToList();
                 return decent[rng.Next(decent.Count)];
             }
             return best[rng.Next(best.Count)];
+        }
+
+        /// <summary>
+        /// Look one move beyond a candidate. This deliberately searches legal
+        /// shifts rather than guessing the next random drop, because the bot
+        /// can choose its own column/row shift after the drop arrives.
+        /// </summary>
+        private static int BestFollowUpScore(int[][] board, int specialColor)
+        {
+            var best = 0;
+            void Consider(int kind, int col, int dir)
+            {
+                var next = CloneBoard(board);
+                if (kind == 0) ShiftRowOn(next, dir); else ShiftColumnOn(next, col, dir);
+                var result = SimulateResolve(next, specialColor);
+                var score = result.PoppedCount * 45
+                    + result.ReserveGained * 15
+                    + result.Garbage * 20
+                    + PitchRowPotential(next);
+                if (score > best) best = score;
+            }
+
+            Consider(0, 0, -1);
+            Consider(0, 0, 1);
+            for (var c = 0; c < Cols; c++)
+            {
+                Consider(1, c, -1);
+                Consider(1, c, 1);
+            }
+            return Math.Min(100, best);
+        }
+
+        /// <summary>Reward pairs and near-runs on the match row so the AI builds
+        /// toward a match instead of waiting for a lucky exact triple.</summary>
+        private static int PitchRowPotential(int[][] board)
+        {
+            var score = 0;
+            var longest = 0;
+            var c = 0;
+            while (c < Cols)
+            {
+                var color = board[PitchRow][c];
+                if (color == 0) { c++; continue; }
+                var start = c;
+                while (c < Cols && board[PitchRow][c] == color) c++;
+                var run = c - start;
+                longest = Math.Max(longest, run);
+                if (run >= 2) score += run == 2 ? 18 : 35;
+            }
+            return score + longest * 4;
         }
 
         /// <summary>True when the column has at least one empty cell.</summary>

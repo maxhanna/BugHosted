@@ -732,6 +732,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     } }));
     tasks.push(critical({ load: () => this.renderer.loadGLTF('assets/grandtheft/skybox_skydays_3/scene.gltf', false).then(m => { if (m) this.renderer.skyboxMesh = m; }) }));
     const specialMeshes: { path: string; storeSkeleton: boolean; assign: (m: CityMesh[]) => void; scale?: number; yawOffset?: number }[] = [
+      // Authored textured humans provide more natural facial proportions,
+      // clothing folds, and skin/hair materials than the procedural fallback.
+      { path: 'assets/grandtheft/char17/scene.gltf', storeSkeleton: false, assign: m => this.renderer.setRealisticHumanMesh('male', m) },
+      { path: 'assets/grandtheft/jessica_jones/scene.gltf', storeSkeleton: false, assign: m => this.renderer.setRealisticHumanMesh('female', m) },
+      { path: 'assets/grandtheft/policeMan/scene.gltf', storeSkeleton: false, assign: m => this.renderer.setRealisticHumanMesh('cop', m) },
+      { path: 'assets/grandtheft/franklin/scene.gltf', storeSkeleton: false, assign: m => this.renderer.setRealisticHumanMesh('player', m) },
       { path: 'assets/grandtheft/star_wars_luxury_yacht/scene.gltf', storeSkeleton: false, assign: m => this.renderer.boatMeshes.push(m), yawOffset: Math.PI },
       { path: 'assets/grandtheft/ultra-futuristic_luxury_yacht/scene.gltf', storeSkeleton: false, assign: m => this.renderer.boatMeshes.push(m) },
       { path: 'assets/grandtheft/cirrus_sr_22/scene.gltf', storeSkeleton: false, assign: m => this.renderer.planeMeshes.push(m), scale: 2.25 },
