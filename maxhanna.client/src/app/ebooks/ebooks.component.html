@@ -121,8 +121,8 @@
     <!-- ============ Menu panel ============ -->
     <div class="menuPanel" *ngIf="isMenuPanelOpen">
       <div class="toolbar-actions">
-        <app-file-upload *ngIf="isLoggedIn" [currentDirectory]="uploadDirectory" [user]="parentRef?.user!"
-          [inputtedParentRef]="parentRef" [uploadButtonText]="'Add Book(s)'" [maxSelectedFiles]="100"
+        <app-file-upload *ngIf="isLoggedIn" style="width:100%" [currentDirectory]="uploadDirectory" [user]="parentRef?.user!"
+          [inputtedParentRef]="parentRef" [uploadButtonText]="'Add Book(s)'" [maxSelectedFiles]="100" [labelStyle]="{ width: '100%' }"
           [allowedFileTypes]="allowedBookTypes" [displayPrivatePublicOption]="true" [displayOptionsAndTopicsButtons]="false"
           [disableFileCompression]="true" (userUploadFinishedEvent)="uploadFinished($event)"></app-file-upload>
       </div>

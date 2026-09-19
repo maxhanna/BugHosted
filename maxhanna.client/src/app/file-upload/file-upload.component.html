@@ -4,6 +4,7 @@
 <!-- Empty queue: a native <label> opens the picker on tap. This is far more
      reliable on mobile than programmatically calling input.click(). -->
 <label *ngIf="canUpload() && uploadFileList.length === 0 && !isUploading"
+  [ngStyle]="labelStyle"
   class="uploadButton uploadPickerLabel" [for]="fileInputId" role="button" tabindex="0"
   (keydown.enter)="openFilePicker()" (keydown.space.prevent)="openFilePicker()" title="Upload file(s)">
   ⏫{{uploadButtonText}}

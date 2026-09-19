@@ -110,11 +110,4 @@ export class FileEntryComponent {
     return this.file.givenFileName ?? this.c?.getFileWithoutExtension?.(this.file.fileName ?? '') ?? this.file.fileName ?? '';
   }
 
-  get romMetadataName(): string | null {
-    if (!this.isRomView || !this.file.romMetadata?.igdbName) return null;
-    const metadataName = this.file.romMetadata.igdbName.trim();
-    if (!metadataName) return null;
-    const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, '');
-    return normalize(metadataName) === normalize(this.displayName) ? null : metadataName;
-  }
 }
