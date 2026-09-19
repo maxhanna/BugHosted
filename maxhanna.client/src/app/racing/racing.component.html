@@ -51,6 +51,16 @@
           🏆 LEADERBOARDS
         </button>
       </div>
+      
+      <div class="race-menu-actions">
+        <button class="race-garage-btn" (click)="openGarage()">GARAGE</button>
+        <button class="race-garage-btn race-sound-btn" [class.on]="soundOn" (click)="toggleSound()">
+          {{ soundOn ? '🔊 SOUND: ON' : '🔇 SOUND: OFF' }}
+        </button>
+        <button class="race-garage-btn race-options-btn" (click)="toggleOptions()">
+          ⚙️ OPTIONS
+        </button>
+      </div>
 
       <!-- ─── Single Player Tracks ─── -->
       <div class="race-menu-tracks" *ngIf="!showMultiplayer">
@@ -307,17 +317,7 @@
             <button class="race-mp-chat-send" (click)="sendChatMessage()">Send</button>
           </div>
         </div>
-      </div>
-
-      <div class="race-menu-actions">
-        <button class="race-garage-btn" (click)="openGarage()">GARAGE</button>
-        <button class="race-garage-btn race-sound-btn" [class.on]="soundOn" (click)="toggleSound()">
-          {{ soundOn ? '🔊 SOUND: ON' : '🔇 SOUND: OFF' }}
-        </button>
-        <button class="race-garage-btn race-options-btn" (click)="toggleOptions()">
-          ⚙️ OPTIONS
-        </button>
-      </div>
+      </div> 
     </div>
 
     <!-- ─── Menu Options popup ─── -->
