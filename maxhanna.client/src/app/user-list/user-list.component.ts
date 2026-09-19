@@ -47,6 +47,9 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
   filterOption: string = 'all';
   friendSelected = false;
   activeGamers: ActiveGamer[] = [];
+  // Several initial requests run in parallel. Keep the list loading until all
+  // of them finish instead of allowing the fastest request to hide the state.
+  private loadingDepth = 0;
 
   constructor(private userService: UserService, private chatService: ChatService,
     private friendService: FriendService, private injector: Injector, private cdr: ChangeDetectorRef) {
@@ -84,6 +87,20 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
 
   async ngOnDestroy() {
     clearInterval(this.chatInfoInterval);
+  }
+
+  override startLoading() {
+    this.loadingDepth++;
+    if (this.loadingDepth === 1) {
+      super.startLoading();
+    }
+  }
+
+  override stopLoading() {
+    this.loadingDepth = Math.max(0, this.loadingDepth - 1);
+    if (this.loadingDepth === 0) {
+      super.stopLoading();
+    }
   }
 
   async searchUsers() {

@@ -1217,17 +1217,30 @@ namespace maxhanna.Server.Hubs
 
         /// <summary>
         /// Give both players a readable opening position. The starting marble
-        /// count varies by difficulty (easy 3, medium 6, hard 9) since a fuller
-        /// board is closer to filling up and losing. Marbles stack upward from
-        /// the bottom row; the first drops then build the board during play.
+        /// count varies by difficulty, but the opening stacks are centred around
+        /// the pitch row instead of being packed into the bottom-left corner.
+        /// Keeping each column contiguous preserves the same movement rules as
+        /// marbles added during play.
         /// </summary>
         private static int[][] GenerateStartBoard(int difficulty)
         {
             var board = EmptyBoard();
             var count = difficulty switch { 2 => 40, 1 => 35, _ => 30 };
-            for (var i = 0; i < count; i++)
+            var basePerColumn = count / Cols;
+            var extra = count % Cols;
+            var firstExtraColumn = (Cols - extra) / 2;
+
+            for (var col = 0; col < Cols; col++)
             {
-                board[Rows - 1 - (i / Cols)][i % Cols] = _rng.Next(1, ColorCount + 1);
+                var columnCount = basePerColumn
+                    + (col >= firstExtraColumn && col < firstExtraColumn + extra ? 1 : 0);
+                if (columnCount == 0) continue;
+
+                var top = PitchRow - (columnCount - 1) / 2;
+                for (var i = 0; i < columnCount; i++)
+                {
+                    board[top + i][col] = _rng.Next(1, ColorCount + 1);
+                }
             }
             return board;
         }

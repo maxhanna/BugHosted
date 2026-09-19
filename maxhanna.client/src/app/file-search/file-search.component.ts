@@ -2381,6 +2381,21 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     parent?.closeOverlay();
   }
 
+  /**
+   * Directory responses can come from different API serializers and may use
+   * either camelCase or PascalCase. Keep the notes badge independent of that
+   * detail and fall back to the hydrated notes array when no count is sent.
+   */
+  getFileNotesCount(file?: FileEntry): number {
+    if (!file) return 0;
+    const raw = file as FileEntry & { NotesCount?: number; Notes?: FileNote[] };
+    const count = raw.notesCount ?? raw.NotesCount;
+    const notesLength = raw.notes?.length ?? raw.Notes?.length ?? 0;
+    // A stale/default zero must not hide notes that were actually returned.
+    if (typeof count === 'number' && Number.isFinite(count) && count > 0) return count;
+    return notesLength > 0 ? notesLength : 0;
+  }
+
   async addNote(textarea: HTMLTextAreaElement) {
     if (!this.currentUser.id || !this.notesFile) return;
     const noteText = textarea.value.trim();

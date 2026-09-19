@@ -34,7 +34,7 @@
 
 /* The pre-chat tab bar sits above the user list — shrink the list so the
    combination never overflows the viewport. */
-.preChatTabs + .userPanel.expanded {
+.preChatTabs+.userPanel.expanded {
   height: CALC(100vh - 105px);
   height: CALC(100dvh - 105px);
 }
@@ -81,13 +81,14 @@
   padding: 8px 10px;
   border: 1px solid var(--main-border-color, #555);
   border-radius: 6px;
-  background: var(--secondary-component-background-color, rgba(0,0,0,0.25));
+  background: var(--secondary-component-background-color, rgba(0, 0, 0, 0.25));
 }
 
 .publicChatResultName {
   flex: 1;
   min-width: 0;
   overflow-wrap: anywhere;
+  text-align: left;
 }
 
 .publicChatResultActions {
@@ -227,7 +228,9 @@
   background-image: var(--main-background-image-url, none);
   background-size: cover;
   background-position: center;
-}  .chatConversation {
+}
+
+.chatConversation {
   display: flex;
   flex-direction: column;
   max-height: CALC(100vh - 115px);
@@ -325,10 +328,6 @@
   flex-direction: column;
 }
 
-.otherPersonsMessage {
-  /* kept for backwards compatibility — styling is handled by .messageRow */
-}
-
 .reactionDiv {
   display: flex;
   margin-top: 10px;
@@ -378,7 +377,7 @@
 }
 
 .popupPanelTitle {
-  display: flex; 
+  display: flex;
   justify-content: space-evenly;
 }
 
@@ -406,8 +405,8 @@
   border-radius: 8px;
 }
 
-.tiledChatMemberList { 
-  display: flex; 
+.tiledChatMemberList {
+  display: flex;
   flex-wrap: wrap;
 }
 
