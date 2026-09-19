@@ -64,7 +64,11 @@ export interface SearchSuggestions {
 })
 export class FileService {
   private directoryPromises: { [key: string]: Promise<DirectoryResults | null> | undefined } = {};
-  private fileEntryPromises: { [key: number]: Promise<FileEntry> | undefined } = {};
+  /** In-flight detail requests are separate from completed entries. Completed
+   * entries survive component destruction so revisiting a directory does not
+   * refetch every visible file. */
+  private fileEntryPromises: { [key: string]: Promise<FileEntry> | undefined } = {};
+  private fileEntryCache = new Map<string, FileEntry>();
   constructor(private http: HttpClient) { }
 
   videoFileExtensions = [
@@ -752,12 +756,21 @@ export class FileService {
     }
   }
 
-  async getFileEntryById(fileId: number, userId?: number, fileCache?: FileEntry[], includeRomMetadata?: boolean) {
-    // Directory listings intentionally contain lightweight file rows and may
-    // have an empty/stale notes array. Always hydrate this detail endpoint so
-    // notes saved on the server survive navigation and refreshes.
-    if (this.fileEntryPromises[fileId]) {
-      return this.fileEntryPromises[fileId]!;
+  async getFileEntryById(fileId: number, userId?: number, fileCache?: FileEntry[], includeRomMetadata?: boolean): Promise<FileEntry | null> {
+    // The detail response can contain user-specific fields (favourites and
+    // permissions), and ROM metadata is optional, so keep those dimensions in
+    // the cache key rather than accidentally sharing the wrong representation.
+    const cacheKey = `${fileId}|${userId ?? 0}|${includeRomMetadata ? 'rom' : 'basic'}`;
+    const completed = this.fileEntryCache.get(cacheKey);
+    if (completed) {
+      this.mergeFileEntryIntoCallerCache(completed, fileCache);
+      return completed;
+    }
+
+    if (this.fileEntryPromises[cacheKey]) {
+      const inFlight = await this.fileEntryPromises[cacheKey]!;
+      this.mergeFileEntryIntoCallerCache(inFlight, fileCache);
+      return inFlight;
     }
 
     try {
@@ -770,31 +783,41 @@ export class FileService {
         body: JSON.stringify({ fileId, includeRomMetadata }),
       });
 
-      this.fileEntryPromises[fileId] = fetchPromise.then(async (res) => {
+      this.fileEntryPromises[cacheKey] = fetchPromise.then(async (res) => {
         if (!res.ok) {
           throw new Error(`Error fetching file entry ${fileId}: ${res.statusText}`);
         }
-        const data = await res.json();
-        delete this.fileEntryPromises[fileId];
+        const data = await res.json() as FileEntry;
+        this.fileEntryCache.set(cacheKey, data);
         return data;
-      }).catch((err) => {
-        delete this.fileEntryPromises[fileId];
-        throw err;
       });
 
-      const tmpFileEntry = await this.fileEntryPromises[fileId]!;
-      if (fileCache && tmpFileEntry) {
-        const cachedIndex = fileCache.findIndex(x => x.id === fileId);
-        if (cachedIndex >= 0) {
-          Object.assign(fileCache[cachedIndex], tmpFileEntry);
-        } else {
-          fileCache.push(tmpFileEntry);
-        }
-      }
-
+      const tmpFileEntry = await this.fileEntryPromises[cacheKey]!;
+      this.mergeFileEntryIntoCallerCache(tmpFileEntry, fileCache);
       return tmpFileEntry;
     } catch (error) {
       return null;
+    } finally {
+      delete this.fileEntryPromises[cacheKey];
+    }
+  }
+
+  private mergeFileEntryIntoCallerCache(entry: FileEntry, fileCache?: FileEntry[]): void {
+    if (!fileCache || !entry) return;
+    const cachedIndex = fileCache.findIndex(x => x.id === entry.id);
+    if (cachedIndex >= 0) {
+      Object.assign(fileCache[cachedIndex], entry);
+    } else {
+      fileCache.push(entry);
+    }
+  }
+
+  /** Invalidate one hydrated entry after a mutation so the next view refreshes
+   * only that file instead of clearing every cached entry. */
+  invalidateFileEntryCache(fileId: number, userId?: number): void {
+    const prefix = `${fileId}|${userId ?? 0}|`;
+    for (const key of this.fileEntryCache.keys()) {
+      if (key.startsWith(prefix)) this.fileEntryCache.delete(key);
     }
   }
 
@@ -1262,7 +1285,9 @@ export class FileService {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, fileId, note }),
       });
-      return await response.text();
+      const text = await response.text();
+      if (response.ok) this.invalidateFileEntryCache(fileId, userId);
+      return text;
     } catch (error) {
       console.error(error);
       return null;
@@ -1276,7 +1301,9 @@ export class FileService {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, fileId, targetUserId }),
       });
-      return await response.text();
+      const text = await response.text();
+      if (response.ok) this.invalidateFileEntryCache(fileId, userId);
+      return text;
     } catch (error) {
       console.error(error);
       return null;

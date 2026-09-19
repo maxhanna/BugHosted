@@ -197,6 +197,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   private _hoverOverlayHost: HTMLElement | null = null;
   private _componentMainPrevPosition: string | null = null;
   private _savedDirectoryBeforeFileIdSearch: string | null = null;
+  /** Keep ROM hover artwork warm across entry components and emulator browser changes. */
+  private static readonly romHoverImageCache = new Map<string, Promise<void>>();
   private windowScrollHandler: Function;
   private containerScrollHandler: Function;
   private scrollWatchInterval: any;
@@ -643,7 +645,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
           if (res.currentDirectory) {
             for (const f of newItems) { f.directory = res.currentDirectory; }
           }
-          this.directory.data = this.directory.data.concat(newItems);
+          this.directory.data = this.foldersFirst(this.directory.data.concat(newItems));
           this.applyCachedMediaAspects();
 
           if (this.optionsFile) {
@@ -691,10 +693,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
           // Keep folders at the top, but otherwise preserve the backend's ordering.
           if (this.directory && this.directory.data) {
-            // Only reorder to ensure folders appear first; let the backend provide the remainder ordering.
-            const folders = this.directory.data.filter(d => d.isFolder);
-            const others = this.directory.data.filter(d => !d.isFolder);
-            this.directory.data = folders.concat(others);
+            this.directory.data = this.foldersFirst(this.directory.data);
           }
 
           this.directory?.data?.forEach(data => {
@@ -741,6 +740,18 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.isFirstLoad = false;
     this.stopLoading();
     void this.preloadLibraryCache();
+  }
+
+  /** Keep directory listings stable while putting every folder before files.
+   *  The stable partition preserves the backend's selected ordering within each
+   *  group, including custom sort options and appended pages. */
+  private foldersFirst(entries: FileEntry[]): FileEntry[] {
+    const folders: FileEntry[] = [];
+    const files: FileEntry[] = [];
+    for (const entry of entries) {
+      (entry?.isFolder ? folders : files).push(entry);
+    }
+    return folders.concat(files);
   }
 
   // Helper: normalize rom metadata fields and derive inline thumbnails for a file entry
@@ -799,7 +810,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
     const folders = existing.filter(d => d.isFolder);
     const others = existing.filter(d => !d.isFolder);
-    this.directory.data = folders.concat(newFiles, others);
+    this.directory.data = this.foldersFirst(folders.concat(newFiles, others));
 
     try { this.changeDetectorRef.detectChanges(); } catch { }
   }
@@ -825,8 +836,28 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
 
   onFileEntryHydrated(file: FileEntry): void {
-    if (this.shouldShowRomMetadata()) this.normalizeRomMetadata(file);
+    if (this.shouldShowRomMetadata()) {
+      this.normalizeRomMetadata(file);
+      const image = file.romInlineThumbs?.[0] ?? file.romMetadata?.coverUrl;
+      if (image) void this.preloadRomHoverImage(image);
+    }
     try { this.changeDetectorRef.detectChanges(); } catch { }
+  }
+
+  private preloadRomHoverImage(url: string): Promise<void> {
+    const cached = FileSearchComponent.romHoverImageCache.get(url);
+    if (cached) return cached;
+
+    const promise = new Promise<void>(resolve => {
+      const image = new Image();
+      image.decoding = 'async';
+      image.onload = () => resolve();
+      image.onerror = () => resolve();
+      image.src = url;
+      if (image.complete) resolve();
+    });
+    FileSearchComponent.romHoverImageCache.set(url, promise);
+    return promise;
   }
 
   shouldDisplayInlineMedia(file: FileEntry): boolean {
@@ -2934,7 +2965,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     return thumbs.slice(0, 2);
   }
 
-  handleFileHoverEnter(ev: Event, file: FileEntry) {
+  async handleFileHoverEnter(ev: Event, file: FileEntry): Promise<void> {
     try {
       if (!this.displayRomMetadataDesktop || !this.shouldShowRomMetadata()) return;
       if (!file || file.isFolder) return;
@@ -2993,7 +3024,11 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         this._hoverOverlayHost = host;
       }
 
-      // Update image and fade in
+      // Warm the image before revealing the overlay. The cache is shared by all
+      // file-search instances, so returning to an entry or changing emulator
+      // pages does not trigger another visible background load.
+      await this.preloadRomHoverImage(img);
+      if (this._hoverOverlayEl !== overlay) return;
       try {
         overlay.style.backgroundImage = `url('${img}')`;
       } catch (bgErr) {

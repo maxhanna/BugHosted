@@ -1,8 +1,9 @@
 <div class="file-entry-shell" appInView (inView)="onInView($event)">
   <div class="file-entry-placeholder" *ngIf="!isHydrated" [attr.aria-busy]="isLoading">
     <span>{{ file.isFolder ? '📁' : '📄' }}</span>
-    <span class="file-entry-placeholder-name">{{ file.givenFileName ?? file.fileName ?? 'Loading file…' }}</span>
-    <span *ngIf="isLoading">Loading details…</span>
+    <span class="file-entry-placeholder-name">
+      {{ file.givenFileName ?? file.fileName ?? (isLoading ? 'Loading file details…' : 'File details unavailable') }}
+    </span>
     <button type="button" *ngIf="loadFailed" (click)="retry(); $event.stopPropagation()">Retry</button>
   </div>
 
@@ -59,7 +60,31 @@
 
   <div *ngIf="isHydrated && !displayAsTable" class="grid-item" [class.folder]="file.isFolder"
     [class.video]="!file.isFolder && c.isVideoFileOnly(file.fileName)" (click)="c.onGridItemClick(file)">
-    <div class="grid-thumb">
+    <div class="grid-thumb book-grid-thumb" [class.book-grid-folder]="file.isFolder">
+      <ng-container *ngIf="c.isBookView">
+        <button *ngIf="c.userIsLoggedIn()" type="button" class="book-save-button"
+          [class.saved]="c.isInMyLibrary(file)" (click)="c.toggleLibrary(file, $event)"
+          [title]="c.isInMyLibrary(file) ? 'Remove from My Library' : (file.isFolder ? 'Save folder to My Library' : 'Save book to My Library')">
+          <span class="book-save-icon">{{ c.isInMyLibrary(file) ? '🔖' : '☆' }}</span>
+          <span>{{ c.isInMyLibrary(file) ? 'Saved' : 'Save' }}</span>
+        </button>
+        <ng-container *ngIf="file.isFolder && c.folderPdfCoverSrc(file) as folderCover; else bookCover">
+          <img class="book-cover" [src]="folderCover" [alt]="file.givenFileName ?? file.fileName" loading="lazy"
+            (error)="c.hideBrokenImg($event)" />
+        </ng-container>
+        <ng-template #bookCover>
+          <ng-container *ngIf="!file.isFolder && c.isPdfFile(file.fileName) && c.pdfCoverSrc(file) as cover; else bookPlaceholder">
+            <img class="book-cover" [src]="cover" [alt]="file.givenFileName ?? file.fileName" loading="lazy"
+              (error)="c.hideBrokenImg($event)" />
+          </ng-container>
+        </ng-template>
+        <ng-template #bookPlaceholder>
+          <div class="book-cover-placeholder">
+            <span class="book-cover-placeholder-icon">{{ file.isFolder ? '📁' : '📖' }}</span>
+          </div>
+        </ng-template>
+      </ng-container>
+      <ng-container *ngIf="!c.isBookView">
       <app-media-viewer *ngIf="!file.isFolder && c.isMediaFile(file.fileName)" [fileId]="file.id"
         [displayExpander]="false" [displayExtraInfo]="false" [displayLoading]="false"
         [showMediaLoading]="true" [autoplay]="false" [showCommentSection]="false"
@@ -87,9 +112,20 @@
       </ng-container>
       <span *ngIf="c.localFolderBadgeFor(file.fileName, file) as badge" [class]="badge.cls"
         [title]="badge.title">{{ badge.icon }}</span>
-    </div>      <div class="grid-label">{{ file.givenFileName ?? c.getFileWithoutExtension(file.fileName ?? '') }}</div>
-      <div class="file-type-badge" *ngIf="!file.isFolder && file.fileType">{{ file.fileType }}</div>
-    <button *ngIf="c.isBookView && c.userIsLoggedIn()" class="bookLibraryBtn gridLibraryBtn"
-      (click)="c.toggleLibrary(file, $event)">{{ c.isInMyLibrary(file) ? '🧡 Remove' : '📚 Add' }}</button>
+      </ng-container>
+    </div>
+    <div *ngIf="c.isBookView" class="book-grid-info">
+      <div class="book-grid-title" [title]="file.givenFileName ?? file.fileName">
+        {{ file.givenFileName ?? c.getFileWithoutExtension(file.fileName ?? '') }}
+      </div>
+      <div *ngIf="file.isFolder" class="book-grid-count">
+        <span *ngIf="bookCount === null">Books in folder…</span>
+        <span *ngIf="bookCount !== null">{{ bookCount }} {{ bookCount === 1 ? 'book' : 'books' }}</span>
+      </div>
+      <span *ngIf="!file.isFolder && c.localFolderBadgeFor(file.fileName, file) as badge" class="book-local-badge"
+        [title]="badge.title">{{ badge.icon }} Local copy</span>
+    </div>
+    <div *ngIf="!c.isBookView" class="grid-label">{{ file.givenFileName ?? c.getFileWithoutExtension(file.fileName ?? '') }}</div>
+    <div class="file-type-badge" *ngIf="!c.isBookView && !file.isFolder && file.fileType">{{ file.fileType }}</div>
   </div>
 </div>
