@@ -13,6 +13,7 @@ export class FileEntryComponent {
   @Input() userId?: number;
   @Input() fileCache?: FileEntry[];
   @Input() includeRomMetadata = false;
+  @Input() isRomView = false;
   @Input() displayAsTable = true;
   @Output('fileHydrated') hydrated = new EventEmitter<FileEntry>();
 
@@ -103,5 +104,17 @@ export class FileEntryComponent {
 
   commentsCount(): number {
     return this.file.commentsCount ?? this.c?.getTotalCommentCount?.(this.file.fileComments) ?? 0;
+  }
+
+  get displayName(): string {
+    return this.file.givenFileName ?? this.c?.getFileWithoutExtension?.(this.file.fileName ?? '') ?? this.file.fileName ?? '';
+  }
+
+  get romMetadataName(): string | null {
+    if (!this.isRomView || !this.file.romMetadata?.igdbName) return null;
+    const metadataName = this.file.romMetadata.igdbName.trim();
+    if (!metadataName) return null;
+    const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, '');
+    return normalize(metadataName) === normalize(this.displayName) ? null : metadataName;
   }
 }

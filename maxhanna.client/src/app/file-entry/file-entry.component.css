@@ -114,6 +114,19 @@
   object-fit: contain;
 }
 
+.file-entry-shell .file-entry-icon {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  margin: 0 4px;
+}
+
+.file-entry-shell .file-entry-icon img {
+  width: 25px;
+  height: 25px;
+  object-fit: contain;
+}
+
 .file-entry-shell .romRowArtwork {
   display: inline-flex;
   flex: 0 0 auto;
@@ -131,6 +144,15 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.file-entry-shell .romArtworkClickable {
+  cursor: pointer;
+}
+
+.file-entry-shell .romArtworkClickable:hover {
+  filter: brightness(1.15);
+  outline: 1px solid var(--main-link-color);
 }
 
 .file-entry-placeholder {

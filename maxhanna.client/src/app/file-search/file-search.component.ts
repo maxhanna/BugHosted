@@ -54,6 +54,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   @Input() displaySystemIcons: boolean = false;
   @Input() displayRatings: boolean = false;
   @Input() displayRomMetadata = false;
+  /** ROM-specific presentation mode used by the emulator file browser. */
+  @Input() isRomView = false;
   @Input() displayAsTable: boolean = true;
   @Input() displayRomMetadataDesktop: boolean = false;
   /** Render the first page of PDF files as thumbnails when this browser is used
@@ -3200,16 +3202,26 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.imageIndex = 0;
     this.parentRef?.closeOverlay();
   }
-  previousPreviewImage() {
-    console.log('previousPreviewImage : ', this.imagePreviewFile?.romInlineThumbs);
-    if (!this.imagePreviewFile || !this.imagePreviewFile.romInlineThumbs) return;
-    this.imagePreviewUrl = this.imagePreviewFile.romInlineThumbs[--this.imageIndex];
+  canGoToPreviousPreview(): boolean {
+    return !!this.imagePreviewFile?.romInlineThumbs?.length && this.imageIndex > 0;
+  }
+
+  canGoToNextPreview(): boolean {
+    const images = this.imagePreviewFile?.romInlineThumbs;
+    return !!images?.length && this.imageIndex < images.length - 1;
+  }
+
+  previousPreviewImage(): void {
+    if (!this.canGoToPreviousPreview()) return;
+    this.imageIndex -= 1;
+    this.imagePreviewUrl = this.imagePreviewFile!.romInlineThumbs![this.imageIndex];
     this.changeDetectorRef.detectChanges();
   }
-  nextPreviewImage() {
-    console.log('next preview image: ', this.imagePreviewFile?.romInlineThumbs);
-    if (!this.imagePreviewFile || !this.imagePreviewFile.romInlineThumbs) return;
-    this.imagePreviewUrl = this.imagePreviewFile.romInlineThumbs[++this.imageIndex];
+
+  nextPreviewImage(): void {
+    if (!this.canGoToNextPreview()) return;
+    this.imageIndex += 1;
+    this.imagePreviewUrl = this.imagePreviewFile!.romInlineThumbs![this.imageIndex];
     this.changeDetectorRef.detectChanges();
   }
   private startAppendingMode() {

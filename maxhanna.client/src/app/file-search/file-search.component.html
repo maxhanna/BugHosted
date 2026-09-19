@@ -86,14 +86,14 @@
         <ng-container *ngIf="displayAsTable">
           <ng-container *ngFor="let file of directory?.data ?? []">
             <app-file-entry [file]="file" [userId]="parentRef?.user?.id" [fileCache]="parentRef?.fileCache"
-              [includeRomMetadata]="shouldShowRomMetadata()" [displayAsTable]="true" [context]="fileSearchContext"
+              [includeRomMetadata]="shouldShowRomMetadata()" [isRomView]="isRomView" [displayAsTable]="true" [context]="fileSearchContext"
               (fileHydrated)="onFileEntryHydrated($event)"></app-file-entry>
           </ng-container>
         </ng-container>
         <ng-container *ngIf="!displayAsTable">
           <ng-container *ngFor="let file of directory?.data ?? []">
             <app-file-entry [file]="file" [userId]="parentRef?.user?.id" [fileCache]="parentRef?.fileCache"
-              [includeRomMetadata]="shouldShowRomMetadata()" [displayAsTable]="false" [context]="fileSearchContext"
+              [includeRomMetadata]="shouldShowRomMetadata()" [isRomView]="isRomView" [displayAsTable]="false" [context]="fileSearchContext"
               (fileHydrated)="onFileEntryHydrated($event)"></app-file-entry>
           </ng-container>
         </ng-container>
@@ -1130,8 +1130,10 @@
  <img [src]="imagePreviewUrl" class="imagePreviewLarge" loading="lazy" />
  </div>
  <div class="popupPanelActions">
- <button class="popupPanelAction" (click)="previousPreviewImage()">&#8249; Prev</button>
- <button class="popupPanelAction" (click)="nextPreviewImage()">Next &#8250;</button>
+ <button class="popupPanelAction" (click)="previousPreviewImage()"
+   [disabled]="!canGoToPreviousPreview()">&#8249; Prev</button>
+ <button class="popupPanelAction" (click)="nextPreviewImage()"
+   [disabled]="!canGoToNextPreview()">Next &#8250;</button>
  <button class="popupPanelAction" id="closeOverlay" (click)="closeImagePreview()">Close</button>
  </div>
  </div>

@@ -13,6 +13,8 @@ namespace maxhanna.Server.Services
     private readonly string _connectionString;
     private readonly string _romFolder = "E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Roms/";
     private readonly HttpClient _httpClient;
+    private readonly string _gameArtworkFolder;
+    private const string GameArtworkUrlRoot = "https://bughosted.com/assets/Uploads/GameArtwork/";
     private readonly IConfiguration _config;
     private readonly Log _log;
     private static readonly SemaphoreSlim _runLock = new SemaphoreSlim(1, 1);
@@ -22,7 +24,11 @@ namespace maxhanna.Server.Services
       _config = config;
       _connectionString = config.GetValue<string>("ConnectionStrings:maxhanna")!;
       _httpClient = new HttpClient();
+      _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("BugHosted/1.0 artwork cache");
       _log = log;
+      // Keep the existing ROM storage convention, but derive the artwork folder
+      // beside it so the files are served by the same static assets mapping.
+      _gameArtworkFolder = Path.GetFullPath(Path.Combine(_romFolder, "..", "GameArtwork"));
     }
 
     /// <summary>
@@ -432,6 +438,40 @@ namespace maxhanna.Server.Services
       static string Esc(string s) => (s ?? "").Replace("\"", "\\\"");
       static string IgdbImageUrl(string imageId, string size) => $"https://images.igdb.com/igdb/image/upload/{size}/{imageId}.jpg";
 
+      async Task<string> CacheArtworkAsync(string externalUrl, int gameId, string kind, string imageId, int userId)
+      {
+        var safeImageId = System.Text.RegularExpressions.Regex.Replace(imageId, "[^A-Za-z0-9_-]", "_");
+        var fileName = $"game-{gameId}-{kind}-{safeImageId}.jpg";
+        var physicalPath = Path.Combine(_gameArtworkFolder, fileName);
+        var publicUrl = GameArtworkUrlRoot + Uri.EscapeDataString(fileName);
+        Directory.CreateDirectory(_gameArtworkFolder);
+
+        if (!File.Exists(physicalPath))
+        {
+          var bytes = await _httpClient.GetByteArrayAsync(externalUrl, ct);
+          var temporaryPath = physicalPath + ".download";
+          await File.WriteAllBytesAsync(temporaryPath, bytes, ct);
+          File.Move(temporaryPath, physicalPath, true);
+        }
+
+        // Artwork is represented as a normal public file entry as well as a
+        // physical asset, so it can be discovered and managed by BugHosted.
+        await using var conn = new MySqlConnection(_connectionString);
+        await conn.OpenAsync(ct);
+        const string sql = @"
+INSERT IGNORE INTO maxhanna.file_uploads
+  (user_id, file_name, upload_date, folder_path, is_public, is_folder, file_size, last_updated, last_updated_by_user_id)
+VALUES
+  (@user_id, @file_name, UTC_TIMESTAMP(), @folder_path, 1, 0, @file_size, UTC_TIMESTAMP(), @user_id);";
+        await using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@user_id", userId);
+        cmd.Parameters.AddWithValue("@file_name", fileName);
+        cmd.Parameters.AddWithValue("@folder_path", _gameArtworkFolder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar);
+        cmd.Parameters.AddWithValue("@file_size", new FileInfo(physicalPath).Length);
+        await cmd.ExecuteNonQueryAsync(ct);
+        return publicUrl;
+      }
+
       static IEnumerable<string> BuildSearchTerms(string titleGuess)
       {
         yield return titleGuess;
@@ -670,7 +710,7 @@ limit 50;
 
       // --- Phase 1: files in file_uploads that have NO enrichment row yet (highest priority) ---
       const string pickNewSql = @"
-    SELECT fu.id, fu.file_name, fu.given_file_name
+    SELECT fu.id, fu.user_id, fu.file_name, fu.given_file_name
     FROM maxhanna.file_uploads fu
 LEFT JOIN maxhanna.rom_igdb_enrichment r ON r.file_id = fu.id
 WHERE fu.is_folder = 0
@@ -690,7 +730,7 @@ LIMIT @lim;";
       //   c) fetched_at older than 30 days (stale refresh)
       // Delete the old enrichment row so the upsert creates a fresh one.
       const string pickRedoSql = @"
-    SELECT r.file_id, fu.file_name, fu.given_file_name
+    SELECT r.file_id, fu.user_id, fu.file_name, fu.given_file_name
 FROM maxhanna.rom_igdb_enrichment r
 JOIN maxhanna.file_uploads fu ON fu.id = r.file_id
 WHERE (
@@ -706,7 +746,7 @@ LIMIT @lim;";
 
       int totalProcessed = 0;
 
-      var roms = new List<(int id, string fileName, string? givenFileName)>();
+      var roms = new List<(int id, int userId, string fileName, string? givenFileName)>();
 
       // Open a fresh connection to get one batch.
       await using (var conn = new MySqlConnection(_connectionString))
@@ -724,7 +764,8 @@ LIMIT @lim;";
             var id = r.GetInt32("id");
             var fn = r.IsDBNull(r.GetOrdinal("file_name")) ? string.Empty : r.GetString("file_name");
             var given = r.IsDBNull(r.GetOrdinal("given_file_name")) ? null : r.GetString("given_file_name");
-            roms.Add((id, fn, given));
+            var userId = r.IsDBNull(r.GetOrdinal("user_id")) ? 0 : r.GetInt32("user_id");
+            roms.Add((id, userId, fn, given));
           }
         }
 
@@ -740,7 +781,8 @@ LIMIT @lim;";
               var id = rr.GetInt32("file_id");
               var fn = rr.IsDBNull(rr.GetOrdinal("file_name")) ? string.Empty : rr.GetString("file_name");
               var given = rr.IsDBNull(rr.GetOrdinal("given_file_name")) ? null : rr.GetString("given_file_name");
-              roms.Add((id, fn, given));
+              var userId = rr.IsDBNull(rr.GetOrdinal("user_id")) ? 0 : rr.GetInt32("user_id");
+              roms.Add((id, userId, fn, given));
             }
           }
 
@@ -755,7 +797,7 @@ LIMIT @lim;";
         }
       } // connection returned to pool
 
-      foreach (var (fileId, romFileName, romGivenFileName) in roms)
+      foreach (var (fileId, userId, romFileName, romGivenFileName) in roms)
       {
         ct.ThrowIfCancellationRequested();
         // Prefer tags extracted from given file name if present, otherwise from stored file name
@@ -901,7 +943,7 @@ LIMIT @lim;";
           string? coverUrl = null;
           var coverId = best.SelectToken("cover.image_id")?.ToString();
           if (!string.IsNullOrWhiteSpace(coverId))
-            coverUrl = IgdbImageUrl(coverId!, "t_cover_big");
+            coverUrl = await CacheArtworkAsync(IgdbImageUrl(coverId!, "t_cover_big"), igdbId, "cover", coverId!, userId);
 
           Newtonsoft.Json.Linq.JArray? screenshots = null;
           var ss = best.SelectTokens("screenshots[*].image_id")
@@ -909,7 +951,12 @@ LIMIT @lim;";
             .Where(s => !string.IsNullOrWhiteSpace(s))
             .Take(10)
             .ToList();
-          if (ss.Count > 0) screenshots = new Newtonsoft.Json.Linq.JArray(ss.Select(id => IgdbImageUrl(id, "t_1080p")));
+          if (ss.Count > 0)
+          {
+            screenshots = new Newtonsoft.Json.Linq.JArray();
+            foreach (var imageId in ss)
+              screenshots.Add(await CacheArtworkAsync(IgdbImageUrl(imageId, "t_1080p"), igdbId, "screenshot", imageId, userId));
+          }
 
           Newtonsoft.Json.Linq.JArray? artworks = null;
           var aw = best.SelectTokens("artworks[*].image_id")
@@ -917,7 +964,12 @@ LIMIT @lim;";
             .Where(s => !string.IsNullOrWhiteSpace(s))
             .Take(6)
             .ToList();
-          if (aw.Count > 0) artworks = new Newtonsoft.Json.Linq.JArray(aw.Select(id => IgdbImageUrl(id, "t_1080p")));
+          if (aw.Count > 0)
+          {
+            artworks = new Newtonsoft.Json.Linq.JArray();
+            foreach (var imageId in aw)
+              artworks.Add(await CacheArtworkAsync(IgdbImageUrl(imageId, "t_1080p"), igdbId, "artwork", imageId, userId));
+          }
 
           Newtonsoft.Json.Linq.JArray? videos = null;
           var vids = best.SelectTokens("videos[*].video_id")
