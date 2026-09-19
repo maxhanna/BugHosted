@@ -5646,19 +5646,29 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       }
     } catch { }
   }
+  // Impact SFX buffers are synthesized once and reused: the old code rebuilt
+  // two noise buffers (~0.36s of samples) plus five WebAudio nodes per hit, and
+  // pile-ups chain several hits per second — a visible hitch at the exact
+  // moment of impact.
+  private static _impactBuf: AudioBuffer | null = null;
+  private static _impactClickBuf: AudioBuffer | null = null;
   private playImpactSound(intensity = 1, gainScale = 1) {
     if (this._destroyed || !this.soundOn || !this._audioCtx || this.gameState !== 'racing') return;
     try {
       const ctx = this._audioCtx;
       const t = ctx.currentTime;
       const dur = 0.3;
-      const len = Math.floor(ctx.sampleRate * dur);
-      const buf = ctx.createBuffer(1, len, ctx.sampleRate);
-      const d = buf.getChannelData(0);
-      for (let i = 0; i < len; i++) {
-        const env = Math.pow(1 - i / len, 3);
-        d[i] = (Math.random() * 2 - 1) * env;
+      if (!RacingComponent._impactBuf || RacingComponent._impactBuf.sampleRate !== ctx.sampleRate) {
+        const len = Math.floor(ctx.sampleRate * dur);
+        const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+        const d = buf.getChannelData(0);
+        for (let i = 0; i < len; i++) {
+          const env = Math.pow(1 - i / len, 3);
+          d[i] = (Math.random() * 2 - 1) * env;
+        }
+        RacingComponent._impactBuf = buf;
       }
+      const buf = RacingComponent._impactBuf;
       const src = ctx.createBufferSource();
       src.buffer = buf;
       const filter = ctx.createBiquadFilter();
@@ -5678,17 +5688,21 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       subGain.gain.setValueAtTime(peak * 1.4, t);
       subGain.gain.exponentialRampToValueAtTime(0.001, t + dur);
       // Sharp sheet-metal smack layered on the thump so a car-vs-car hit reads
-      // as a proper collision instead of a muffled bump.
+      // as a proper collision instead of a muffled bump. Buffer is cached (see
+      // _impactClickBuf) — only the short voice chain is rebuilt per hit.
       const clickDur = 0.06;
-      const clickLen = Math.floor(ctx.sampleRate * clickDur);
-      const cb = ctx.createBuffer(1, clickLen, ctx.sampleRate);
-      const cd = cb.getChannelData(0);
-      for (let i = 0; i < clickLen; i++) {
-        const env = Math.pow(1 - i / clickLen, 2.5);
-        cd[i] = (Math.random() * 2 - 1) * env;
+      if (!RacingComponent._impactClickBuf || RacingComponent._impactClickBuf.sampleRate !== ctx.sampleRate) {
+        const clickLen = Math.floor(ctx.sampleRate * clickDur);
+        const cb = ctx.createBuffer(1, clickLen, ctx.sampleRate);
+        const cd = cb.getChannelData(0);
+        for (let i = 0; i < clickLen; i++) {
+          const env = Math.pow(1 - i / clickLen, 2.5);
+          cd[i] = (Math.random() * 2 - 1) * env;
+        }
+        RacingComponent._impactClickBuf = cb;
       }
       const clickSrc = ctx.createBufferSource();
-      clickSrc.buffer = cb;
+      clickSrc.buffer = RacingComponent._impactClickBuf!;
       const clickFilter = ctx.createBiquadFilter();
       clickFilter.type = 'bandpass';
       clickFilter.frequency.value = 2400;

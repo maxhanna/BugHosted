@@ -1711,6 +1711,14 @@ export class RacingRenderer {
   modelMatrix = new Float32Array(16);
   private _trackPoints: TrackPoint[] = [];
   trackLen = 0;
+  /** Coarse spatial grid over _trackPoints so per-frame nearest-point lookups
+   *  (getDistFromPoint / getTrackLateral for every car) don't scan all 200
+   *  points each time — collisions bunch cars up right when the frame budget
+   *  is tightest, so this hot path is kept ~O(candidates) instead of O(trackLen). */
+  private _ptGrid = new Map<number, number[]>();
+  private _ptGridSize = 40;
+  private _ptGridMinX = 0;
+  private _ptGridMinZ = 0;
   /** Secret shipwreck shortcut on the pirate circuit: a straight chord across
    *  the cove neck connecting two route-far track sections. `pts` is the
    *  corridor polyline, `d1` the route distance at the entry, `gap` the route
@@ -3442,7 +3450,74 @@ void main() { FragColor = texture(uTex, vUV); }`;
       this.totalTrackDist += Math.hypot(ni.x - smoothPts[i].x, ni.z - smoothPts[i].z);
     }
     this.trackLen = smoothPts.length;
+    this.buildTrackPointGrid();
     this.buildShortcut();
+  }
+
+  /** Bucket _trackPoints into a coarse spatial grid (recomputed whenever the
+   *  circuit geometry is regenerated). Cells hold point indices; lookups scan
+   *  a 3x3 cell neighbourhood instead of every point on the circuit. */
+  private buildTrackPointGrid(): void {
+    const pts = this._trackPoints;
+    const grid = new Map<number, number[]>();
+    if (pts.length > 0) {
+      let minX = Infinity, minZ = Infinity, maxX = -Infinity, maxZ = -Infinity;
+      for (const p of pts) {
+        if (p.x < minX) minX = p.x; if (p.x > maxX) maxX = p.x;
+        if (p.z < minZ) minZ = p.z; if (p.z > maxZ) maxZ = p.z;
+      }
+      this._ptGridMinX = minX; this._ptGridMinZ = minZ;
+      const span = Math.max(maxX - minX, maxZ - minZ) || 1;
+      // Keep cells small enough that a 3x3 neighbourhood covers the road
+      // plus a generous off-track margin, but large enough that the point
+      // spacing (trackLen cells along the circuit) stays inside one cell.
+      this._ptGridSize = Math.max(this.trackLen, Math.ceil(span / 40));
+      for (let i = 0; i < pts.length; i++) {
+        const key = this.ptGridKey(pts[i].x, pts[i].z);
+        let cell = grid.get(key);
+        if (!cell) { cell = []; grid.set(key, cell); }
+        cell.push(i);
+      }
+    }
+    this._ptGrid = grid;
+  }
+
+  private ptGridKey(x: number, z: number): number {
+    const cx = Math.floor((x - this._ptGridMinX) / this._ptGridSize);
+    const cz = Math.floor((z - this._ptGridMinZ) / this._ptGridSize);
+    return cx * 4096 + cz;
+  }
+
+  /** Nearest centreline point index using the spatial grid; falls back to a
+   *  full scan when the point lies far outside the built grid bounds. */
+  private nearestTrackPointIdx(wx: number, wz: number): number {
+    const pts = this._trackPoints;
+    if (pts.length === 0) return 0;
+    const cx = Math.floor((wx - this._ptGridMinX) / this._ptGridSize);
+    const cz = Math.floor((wz - this._ptGridMinZ) / this._ptGridSize);
+    let bestIdx = 0, bestD = Infinity;
+    for (let ox = -1; ox <= 1; ox++) {
+      for (let oz = -1; oz <= 1; oz++) {
+        const cell = this._ptGrid.get((cx + ox) * 4096 + (cz + oz));
+        if (!cell) continue;
+        for (let k = 0; k < cell.length; k++) {
+          const p = pts[cell[k]];
+          const d = (p.x - wx) * (p.x - wx) + (p.z - wz) * (p.z - wz);
+          if (d < bestD) { bestD = d; bestIdx = cell[k]; }
+        }
+      }
+    }
+    // A car far off-track (shortcut approach, spin-outs) can leave the 3x3
+    // neighbourhood without a candidate; fall back to the full scan so the
+    // result matches the previous exhaustive search exactly.
+    if (bestD === Infinity) {
+      for (let i = 0; i < pts.length; i++) {
+        const p = pts[i];
+        const d = (p.x - wx) * (p.x - wx) + (p.z - wz) * (p.z - wz);
+        if (d < bestD) { bestD = d; bestIdx = i; }
+      }
+    }
+    return bestIdx;
   }
 
   /** Find the pirate circuit's cove neck — the two track sections that run
@@ -3834,16 +3909,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
       return this._shortcut.d1 + scT * this._shortcut.gap;
     }
     const pts = this._trackPoints;
-    let bestDistSq = Infinity;
-    let bestIdx = 0;
-    // Squared distances — the caller only needs the nearest index (Math.hypot
-    // is ~3x slower than dx*dx+dz*dz, and this scans every point per frame).
-    for (let i = 0; i < pts.length; i++) {
-      const p = pts[i];
-      const dx = p.x - wx, dz = p.z - wz;
-      const d = dx * dx + dz * dz;
-      if (d < bestDistSq) { bestDistSq = d; bestIdx = i; }
-    }
+    // Spatial-grid lookup instead of scanning all 200 points (this runs for
+    // the player + every bot + several render-path callers every frame).
+    const bestIdx = this.nearestTrackPointIdx(wx, wz);
     const proj = this.projectToTrack(wx, wz, bestIdx);
     return ((proj.seg + proj.t) / this.trackLen) * this.totalTrackDist;
   }
@@ -3874,12 +3942,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
   getTrackLateral(wx: number, wz: number): number {
     const pts = this._trackPoints;
     if (!pts.length) return 0;
-    let bestIdx = 0, bestDist = Infinity;
-    for (let i = 0; i < pts.length; i++) {
-      const p = pts[i];
-      const d = (p.x - wx) * (p.x - wx) + (p.z - wz) * (p.z - wz);
-      if (d < bestDist) { bestDist = d; bestIdx = i; }
-    }
+    const bestIdx = this.nearestTrackPointIdx(wx, wz);
     const n = pts.length;
     let seg = bestIdx, tt = 0, bestDSq = Infinity;
     for (let off = -1; off <= 0; off++) {

@@ -1741,6 +1741,21 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
   }
 
+  /** Open the ROM metadata panel for artwork clicks. On desktop that's the
+   *  inline side panel (the File Options popup would duplicate it); on
+   *  mobile, where there is no side panel, the popup is used instead. */
+  showRomArtworkPanel(file: FileEntry) {
+    if (!this.onMobile() && this.displayRomMetadataDesktop && this.shouldShowRomMetadata()) {
+      if (this.isOptionsPanelOpen) {
+        this.closeOptionsPanel();
+      }
+      this.optionsFile = file;
+      this.changeDetectorRef.markForCheck();
+      return;
+    }
+    this.showOptionsPanel(file);
+  }
+
   private async loadFileTopics(file: FileEntry) { 
     if (file.topics) return;
     file.topics = await this.fileService.getTopics(file.id) ?? []; 

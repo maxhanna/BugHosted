@@ -10,13 +10,13 @@
   height: 100%;
 }
 
-.file-entry-shell > .draggableDiv {
+.file-entry-shell>.draggableDiv {
   display: inline-block;
   width: 100%;
   min-width: 100%;
 }
 
-.file-entry-shell > .draggableDiv .fileNameDiv {
+.file-entry-shell>.draggableDiv .fileNameDiv {
   flex-flow: row;
   display: flex;
   justify-content: space-between;
@@ -28,7 +28,7 @@
   padding: 5px;
 }
 
-.file-entry-shell > .grid-item {
+.file-entry-shell>.grid-item {
   width: 100%;
   height: 100%;
   box-sizing: border-box;
@@ -129,14 +129,25 @@
 
 .file-entry-shell .romRowArtwork {
   display: inline-flex;
-  flex: 0 0 auto; 
-  height: 250px;
+  flex: 0 0 auto;
   margin: 0 4px 0 8px;
   align-items: center;
   justify-content: center;
   overflow: hidden;
   border-radius: 4px;
   background: rgba(0, 0, 0, .2);
+}
+
+@media only screen and (max-width: 800px) {
+  .file-entry-shell .romRowArtwork {
+    height: 150px;
+  }
+}
+
+@media only screen and (min-width: 800px) {
+  .file-entry-shell .romRowArtwork {
+    height: 250px;
+  }
 }
 
 .file-entry-shell .romRowArtwork img {
@@ -188,18 +199,18 @@
 
 /* These styles used to live in file-search.component.css. The row and tile now
    render in this component, so keep their visual boundaries here as well. */
-.file-entry-shell > .draggableDiv .fileNameDiv {
+.file-entry-shell>.draggableDiv .fileNameDiv {
   border-bottom: 1px solid color-mix(in srgb, var(--main-font-color) 16%, transparent);
   background: var(--component-background-color, transparent);
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 
-.file-entry-shell > .draggableDiv .fileNameDiv:hover {
+.file-entry-shell>.draggableDiv .fileNameDiv:hover {
   border-bottom: 1px dotted var(--main-link-color);
   background: color-mix(in srgb, var(--main-link-color) 4%, transparent);
 }
 
-.file-entry-shell > .draggableDiv + .mediaViewDiv {
+.file-entry-shell>.draggableDiv+.mediaViewDiv {
   border-bottom: 1px solid color-mix(in srgb, var(--main-font-color) 16%, transparent);
   padding: 8px 5px;
   box-sizing: border-box;
@@ -225,7 +236,7 @@
   text-overflow: ellipsis;
 }
 
-.file-entry-shell > .grid-item {
+.file-entry-shell>.grid-item {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -238,26 +249,26 @@
   position: relative;
 }
 
-.file-entry-shell > .grid-item:hover {
+.file-entry-shell>.grid-item:hover {
   border-color: var(--main-link-color, rgba(255, 255, 255, 0.3));
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
   transform: translateY(-2px);
 }
 
-.file-entry-shell > .grid-item.folder .grid-thumb {
+.file-entry-shell>.grid-item.folder .grid-thumb {
   background: linear-gradient(135deg, rgba(255, 193, 7, 0.08), rgba(255, 152, 0, 0.04));
   border: 1px dashed rgba(255, 193, 7, 0.3);
 }
 
-.file-entry-shell > .grid-item .grid-thumb app-media-viewer,
-.file-entry-shell > .grid-item .grid-thumb > img {
+.file-entry-shell>.grid-item .grid-thumb app-media-viewer,
+.file-entry-shell>.grid-item .grid-thumb>img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
 }
 
-.file-entry-shell > .grid-item .file-search-pdf-cover {
+.file-entry-shell>.grid-item .file-search-pdf-cover {
   display: block;
   width: 100%;
   height: 100%;
@@ -277,7 +288,7 @@
 }
 
 @media (max-width: 768px) {
-  .file-entry-shell > .grid-item {
+  .file-entry-shell>.grid-item {
     border-radius: 10px;
     padding: 6px;
     gap: 6px;
@@ -285,8 +296,8 @@
 }
 
 /* ============ Book view cards ============ */
-.file-entry-shell > .grid-item.book-card,
-.file-entry-shell > .grid-item:has(.book-grid-thumb) {
+.file-entry-shell>.grid-item.book-card,
+.file-entry-shell>.grid-item:has(.book-grid-thumb) {
   gap: 0;
   overflow: hidden;
   padding: 0;
@@ -313,7 +324,7 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: linear-gradient(115deg, rgba(255,255,255,.15), transparent 28%, transparent 70%, rgba(0,0,0,.22));
+  background: linear-gradient(115deg, rgba(255, 255, 255, .15), transparent 28%, transparent 70%, rgba(0, 0, 0, .22));
   z-index: 2;
 }
 
@@ -334,12 +345,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(145deg, rgba(255,255,255,.08), rgba(0,0,0,.25));
+  background: linear-gradient(145deg, rgba(255, 255, 255, .08), rgba(0, 0, 0, .25));
 }
 
 .book-cover-placeholder-icon {
   font-size: 4rem;
-  filter: drop-shadow(0 3px 6px rgba(0,0,0,.35));
+  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, .35));
 }
 
 .book-save-button {
@@ -354,11 +365,11 @@
   gap: 5px;
   min-width: 78px;
   padding: 5px 10px;
-  border: 1px solid rgba(255,255,255,.55);
+  border: 1px solid rgba(255, 255, 255, .55);
   border-radius: 999px;
   background: rgba(8, 13, 24, .82);
   color: #fff;
-  box-shadow: 0 2px 8px rgba(0,0,0,.42);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .42);
   font-size: .76rem;
   font-weight: 700;
   line-height: 1.1;
@@ -368,7 +379,7 @@
 
 .book-save-button:hover {
   background: rgba(34, 105, 176, .92);
-  border-color: rgba(255,255,255,.85);
+  border-color: rgba(255, 255, 255, .85);
   transform: translateX(-50%) translateY(-1px);
 }
 

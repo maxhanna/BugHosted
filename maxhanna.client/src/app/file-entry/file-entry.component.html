@@ -27,7 +27,7 @@
           <span class="romTitleText">{{ displayName }}</span>
           <span *ngIf="c.shouldShowRomMetadata() && file.romInlineThumbs?.length" class="romRowArtwork"
             [class.romArtworkClickable]="isRomView" aria-hidden="true"
-            (click)="isRomView ? c.showOptionsPanel(file) : null; $event.stopPropagation()">
+            (click)="isRomView ? c.showRomArtworkPanel(file) : null; $event.stopPropagation()">
             <img [src]="file.romInlineThumbs?.[0]" [alt]="isRomView ? 'Show game information' : ''" loading="lazy"
               (error)="c.hideBrokenImg($event)" />
           </span>
@@ -114,7 +114,7 @@
       <ng-container *ngIf="c.shouldShowRomMetadata() && file.romInlineThumbs?.length">
         <img *ngFor="let thumb of file.romInlineThumbs" class="romThumb" [src]="thumb" loading="lazy"
           [class.romArtworkClickable]="isRomView"
-          (click)="isRomView ? c.showOptionsPanel(file) : null; $event.stopPropagation()"
+          (click)="isRomView ? c.showRomArtworkPanel(file) : null; $event.stopPropagation()"
           (error)="c.hideBrokenImg($event)" />
       </ng-container>
       <span *ngIf="c.localFolderBadgeFor(file.fileName, file) as badge" [class]="badge.cls"
