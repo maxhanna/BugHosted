@@ -24,6 +24,9 @@
           </span>
           <span>{{ file.isFolder ? '📁' : '' }}</span>
           <span [innerHTML]="(!file.isFolder && c.displaySystemIcons) ? c.getFileIcon(file) : ''"></span>
+          <span *ngIf="c.shouldShowRomMetadata() && file.romInlineThumbs?.length" class="romRowArtwork" aria-hidden="true">
+            <img [src]="file.romInlineThumbs?.[0]" [alt]="" loading="lazy" (error)="c.hideBrokenImg($event)" />
+          </span>
           <span class="romTitleText">{{ file.givenFileName ?? c.getFileWithoutExtension(file.fileName ?? '') }}</span>
           <span *ngIf="c.shouldShowRomMetadata() && file.romMetadata?.igdbName" class="file-entry-rom-title">🎮 {{ file.romMetadata?.igdbName }}</span>
           <span *ngIf="c.localFolderBadgeFor(file.fileName, file) as badge" [class]="badge.cls"

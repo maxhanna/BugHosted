@@ -114,6 +114,25 @@
   object-fit: contain;
 }
 
+.file-entry-shell .romRowArtwork {
+  display: inline-flex;
+  flex: 0 0 auto;
+  width: 42px;
+  height: 52px;
+  margin: 0 8px 0 4px;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, .2);
+}
+
+.file-entry-shell .romRowArtwork img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .file-entry-placeholder {
   display: flex;
   align-items: center;

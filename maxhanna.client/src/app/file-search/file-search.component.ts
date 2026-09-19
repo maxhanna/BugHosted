@@ -197,8 +197,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   private _hoverOverlayHost: HTMLElement | null = null;
   private _componentMainPrevPosition: string | null = null;
   private _savedDirectoryBeforeFileIdSearch: string | null = null;
-  /** Keep ROM hover artwork warm across entry components and emulator browser changes. */
-  private static readonly romHoverImageCache = new Map<string, Promise<void>>();
+  /** Keep ROM artwork as a resolved object URL across file-search instances and
+   * emulator browser changes, avoiding repeat cover requests on re-hover. */
+  private static readonly romHoverImageCache = new Map<string, Promise<string>>();
   private windowScrollHandler: Function;
   private containerScrollHandler: Function;
   private scrollWatchInterval: any;
@@ -844,18 +845,17 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     try { this.changeDetectorRef.detectChanges(); } catch { }
   }
 
-  private preloadRomHoverImage(url: string): Promise<void> {
+  private preloadRomHoverImage(url: string): Promise<string> {
     const cached = FileSearchComponent.romHoverImageCache.get(url);
     if (cached) return cached;
 
-    const promise = new Promise<void>(resolve => {
-      const image = new Image();
-      image.decoding = 'async';
-      image.onload = () => resolve();
-      image.onerror = () => resolve();
-      image.src = url;
-      if (image.complete) resolve();
-    });
+    const promise = fetch(url, { cache: 'force-cache' })
+      .then(async response => {
+        if (!response.ok) return url;
+        const blob = await response.blob();
+        return URL.createObjectURL(blob);
+      })
+      .catch(() => url);
     FileSearchComponent.romHoverImageCache.set(url, promise);
     return promise;
   }
@@ -3027,10 +3027,10 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       // Warm the image before revealing the overlay. The cache is shared by all
       // file-search instances, so returning to an entry or changing emulator
       // pages does not trigger another visible background load.
-      await this.preloadRomHoverImage(img);
+      const cachedImageUrl = await this.preloadRomHoverImage(img);
       if (this._hoverOverlayEl !== overlay) return;
       try {
-        overlay.style.backgroundImage = `url('${img}')`;
+        overlay.style.backgroundImage = `url('${cachedImageUrl}')`;
       } catch (bgErr) {
         console.error('[HoverEnter] failed to set backgroundImage', bgErr);
       }
