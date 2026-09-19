@@ -23,8 +23,10 @@
             </button>
           </span>
           <span>{{ file.isFolder ? '📁' : '' }}</span>
-          <span class="file-entry-icon" [innerHTML]="(!file.isFolder && (isRomView || c.displaySystemIcons)) ? c.getFileIcon(file) : ''"></span>
-          <span class="romTitleText">{{ displayName }}</span>
+          <span class="romTitleText">
+            <span class="file-entry-icon" [innerHTML]="(!file.isFolder && (isRomView || c.displaySystemIcons)) ? c.getFileIcon(file) : ''"></span>
+            {{ displayName }}
+          </span>
           <span *ngIf="c.shouldShowRomMetadata() && file.romInlineThumbs?.length" class="romRowArtwork"
             [class.romArtworkClickable]="isRomView" aria-hidden="true"
             (click)="isRomView ? c.showRomArtworkPanel(file) : null; $event.stopPropagation()">
