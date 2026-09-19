@@ -238,6 +238,20 @@
   overscroll-behavior: contain;
 }
 
+/* Lazy file entries own their row markup, so retain the original list/grid
+   containers around the child components. */
+.directoryDisplayDiv.file-entry-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+.directoryDisplayDiv.file-entry-grid > app-file-entry {
+  display: block;
+  min-width: 0;
+}
+
 #fileContainer {
   display: flex;
   flex-direction: column;

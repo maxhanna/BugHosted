@@ -1,6 +1,115 @@
 .file-entry-shell {
   display: block;
   min-height: 42px;
+  width: 100%;
+}
+
+.file-entry-shell:has(> .grid-item) {
+  width: auto;
+  min-width: 0;
+}
+
+.file-entry-shell > .draggableDiv {
+  display: inline-block;
+  width: 100%;
+  min-width: 100%;
+}
+
+.file-entry-shell > .draggableDiv .fileNameDiv {
+  flex-flow: row;
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: nowrap;
+  border-top: var(--main-border);
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+  margin-top: 5px;
+  padding: 5px;
+}
+
+.file-entry-shell > .grid-item {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.file-entry-shell .fileNameWrapperSpan {
+  width: auto;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.file-entry-shell .fileFolderNameSpan {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  word-break: break-word;
+  cursor: pointer;
+  line-height: 30px;
+}
+
+.file-entry-shell .fileExtras {
+  display: inline-flex;
+  justify-content: flex-end;
+  align-items: center;
+  white-space: nowrap;
+  font-size: small;
+  margin-right: 5px;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 60%;
+  overflow: hidden;
+}
+
+.file-entry-shell .fileOptionsActionWrapper,
+.file-entry-shell .fileOptionsAction {
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  margin-left: 5px;
+  align-items: center;
+}
+
+.file-entry-shell .fileOptionsAction {
+  width: 25px;
+  height: 25px;
+}
+
+.file-entry-shell .mediaViewDiv {
+  display: flex;
+  width: 100%;
+}
+
+.file-entry-shell .grid-thumb {
+  position: relative;
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.file-entry-shell .grid-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 5px;
+  text-align: center;
+}
+
+.file-entry-shell .file-type-badge {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  font-size: 0.75em;
+}
+
+.file-entry-shell .romThumb {
+  max-width: 90px;
+  max-height: 70px;
+  object-fit: contain;
 }
 
 .file-entry-placeholder {
@@ -33,4 +142,102 @@
 
 .file-entry-placeholder button {
   margin-left: auto;
+}
+
+/* These styles used to live in file-search.component.css. The row and tile now
+   render in this component, so keep their visual boundaries here as well. */
+.file-entry-shell > .draggableDiv .fileNameDiv {
+  border-bottom: 1px solid color-mix(in srgb, var(--main-font-color) 16%, transparent);
+  background: var(--component-background-color, transparent);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.file-entry-shell > .draggableDiv .fileNameDiv:hover {
+  border-bottom: 1px dotted var(--main-link-color);
+  background: color-mix(in srgb, var(--main-link-color) 4%, transparent);
+}
+
+.file-entry-shell > .draggableDiv + .mediaViewDiv {
+  border-bottom: 1px solid color-mix(in srgb, var(--main-font-color) 16%, transparent);
+  padding: 8px 5px;
+  box-sizing: border-box;
+}
+
+.file-entry-shell .fileOptionsActionText {
+  font-size: small;
+}
+
+.file-entry-shell .fileOptionsActionWrapper ::ng-deep app-reaction,
+.file-entry-shell .fileOptionsActionWrapper ::ng-deep .reactionsContainer {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.file-entry-shell .fileOptionsActionWrapper ::ng-deep .reactionsDisplaySpan {
+  display: inline-block;
+  vertical-align: middle;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.file-entry-shell > .grid-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--component-background-color, rgba(255, 255, 255, 0.02));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 8px;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+  position: relative;
+}
+
+.file-entry-shell > .grid-item:hover {
+  border-color: var(--main-link-color, rgba(255, 255, 255, 0.3));
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+}
+
+.file-entry-shell > .grid-item.folder .grid-thumb {
+  background: linear-gradient(135deg, rgba(255, 193, 7, 0.08), rgba(255, 152, 0, 0.04));
+  border: 1px dashed rgba(255, 193, 7, 0.3);
+}
+
+.file-entry-shell > .grid-item .grid-thumb app-media-viewer,
+.file-entry-shell > .grid-item .grid-thumb > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.file-entry-shell > .grid-item .file-search-pdf-cover {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #fff;
+}
+
+@media only screen and (max-width: 800px) {
+  .file-entry-shell .fileExtras {
+    justify-content: space-between;
+  }
+
+  .file-entry-shell .fileFolderNameSpan {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+@media (max-width: 768px) {
+  .file-entry-shell > .grid-item {
+    border-radius: 10px;
+    padding: 6px;
+    gap: 6px;
+  }
 }
