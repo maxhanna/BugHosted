@@ -1,0 +1,36 @@
+.file-entry-shell {
+  display: block;
+  min-height: 42px;
+}
+
+.file-entry-placeholder {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 6px 8px;
+  box-sizing: border-box;
+  border: 1px solid color-mix(in srgb, var(--main-font-color) 18%, transparent);
+  border-radius: 4px;
+  opacity: 0.8;
+}
+
+.file-entry-placeholder-icon {
+  flex: 0 0 auto;
+}
+
+.file-entry-placeholder-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-entry-placeholder-status {
+  margin-left: auto;
+  font-size: 0.8em;
+  opacity: 0.7;
+}
+
+.file-entry-placeholder button {
+  margin-left: auto;
+}

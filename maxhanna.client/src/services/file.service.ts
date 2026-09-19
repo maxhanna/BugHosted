@@ -273,9 +273,10 @@ export class FileService {
     signal?: AbortSignal,
     bookFilter?: string,
     includeFolders?: boolean,
+    idsOnly?: boolean,
   ): Promise<DirectoryResults | null> {
     // Create a unique key for this request based on parameters
-    const key = `${dir}|${visibility}|${ownership}|${page}|${pageSize}|${search}|${fileId}|${fileType?.join(',')}|${showHidden}|${sortOption}|${showFavouritesOnly}|${forceSameDirectory}|${includeRomMetadata}|${actualCore?.join(',')}|${isNSFWAllowed}|${bookFilter ?? ''}|${includeFolders ? '1' : ''}`;
+    const key = `${dir}|${visibility}|${ownership}|${page}|${pageSize}|${search}|${fileId}|${fileType?.join(',')}|${showHidden}|${sortOption}|${showFavouritesOnly}|${forceSameDirectory}|${includeRomMetadata}|${actualCore?.join(',')}|${isNSFWAllowed}|${bookFilter ?? ''}|${includeFolders ? '1' : ''}|${idsOnly ? '1' : '0'}`;
 
     // If already loading, return the existing promise
     if (this.directoryPromises[key]) {
@@ -315,6 +316,9 @@ export class FileService {
       }
       if (includeFolders) {
         params.append('includeFolders', 'true');
+      }
+      if (idsOnly) {
+        params.append('idsOnly', 'true');
       }
 
       try {

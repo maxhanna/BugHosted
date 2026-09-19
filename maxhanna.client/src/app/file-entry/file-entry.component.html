@@ -1,0 +1,95 @@
+<div class="file-entry-shell" appInView (inView)="onInView($event)">
+  <div class="file-entry-placeholder" *ngIf="!isHydrated" [attr.aria-busy]="isLoading">
+    <span>{{ file.isFolder ? '📁' : '📄' }}</span>
+    <span class="file-entry-placeholder-name">{{ file.givenFileName ?? file.fileName ?? 'Loading file…' }}</span>
+    <span *ngIf="isLoading">Loading details…</span>
+    <button type="button" *ngIf="loadFailed" (click)="retry(); $event.stopPropagation()">Retry</button>
+  </div>
+
+  <div *ngIf="isHydrated && displayAsTable" class="draggableDiv" draggable="true"
+    (dragstart)="c.onDragStart($event, file.fileName ?? '')">
+    <div class="fileNameDiv" [class.folder]="file.isFolder" [id]="'fileIdDiv' + file.id"
+      (dragover)="c.onDragOver($event)" (drop)="c.onDrop(file.fileName ?? '')"
+      (mouseenter)="c.handleFileHoverEnter($event, file)" (mouseleave)="c.handleFileHoverLeave($event)">
+      <span class="fileNameWrapperSpan">
+        <input *ngIf="c.massDeleteMode" type="checkbox" [checked]="c.selectedForDelete.has(file.id)"
+          (click)="c.toggleSelectForDelete(file, $event)" />
+        <span class="fileFolderNameSpan" [class.folder]="file.isFolder"
+          (click)="!c.disabled && c.selectFile(file)" [id]="'fileIdName' + file.id">
+          <span *ngIf="c.isBookView && c.userIsLoggedIn()" class="bookViewLibraryInlineActions">
+            <button class="bookLibraryBtn" (click)="c.toggleLibrary(file, $event)">
+              {{ c.isInMyLibrary(file) ? '🧡 Remove' : '📚 Add' }}
+            </button>
+          </span>
+          <span>{{ file.isFolder ? '📁' : '' }}</span>
+          <span [innerHTML]="(!file.isFolder && c.displaySystemIcons) ? c.getFileIcon(file) : ''"></span>
+          <span class="romTitleText">{{ file.givenFileName ?? c.getFileWithoutExtension(file.fileName ?? '') }}</span>
+          <span *ngIf="c.shouldShowRomMetadata() && file.romMetadata?.igdbName" class="file-entry-rom-title">🎮 {{ file.romMetadata?.igdbName }}</span>
+          <span *ngIf="c.localFolderBadgeFor(file.fileName, file) as badge" [class]="badge.cls"
+            [title]="badge.title">{{ badge.icon }}</span>
+          <span *ngIf="!file.isFolder && c.offlineBadgeFor(file.fileName) as badge" [class]="badge.cls"
+            [title]="badge.title">{{ badge.icon }}</span>
+        </span>
+      </span>
+
+      <div class="fileExtras fileOptionsActionWrapper">
+        <app-reaction *ngIf="c.displayReactions && !file.isFolder" [user]="c.currentUser"
+          [inputtedParentRef]="c.inputtedParentRef ?? c.parentRef" [currentReactions]="file.reactions"
+          [component]="file" [fileId]="file.id" (click)="$event.stopPropagation()"></app-reaction>
+        <div *ngIf="c.displayComments && !file.isFolder" class="fileOptionsAction fileOptionsActionText coloredBgButton"
+          (click)="c.openFileWithComments(file); $event.stopPropagation()">🗨️{{ commentsCount() }}</div>
+        <div *ngIf="!file.isFolder && file.favouriteCount" class="fileOptionsAction fileOptionsActionText coloredBgButton"
+          (click)="c.getFavouritedBy(file); $event.stopPropagation()">❤️{{ file.favouriteCount }}</div>
+        <div *ngIf="!file.isFolder && notesCount() > 0" class="fileOptionsAction fileOptionsActionText coloredBgButton"
+          title="View file notes" (click)="c.showFileNotes(file); $event.stopPropagation()">📝{{ notesCount() }}</div>
+        <div *ngIf="c.displayFileActions" class="fileOptionsAction fileOptionsCogIcon coloredBgButton"
+          (click)="c.showOptionsPanel(file); $event.stopPropagation()">...</div>
+        <div *ngIf="c.displayFileType && file.visibility === 'Private'" class="typeTd fileOptionsAction"
+          (click)="c.selectFile(file); $event.stopPropagation()">🔒</div>
+      </div>
+    </div>
+
+    <div *ngIf="!file.isFolder && c.shouldDisplayInlineMedia(file)" class="mediaViewDiv"
+      (click)="c.selectFileNoPropagation($event, file)">
+      <app-media-viewer [fileId]="file.id" [autoplay]="true" [blockExpand]="c.fileSearchMode"
+        [showCommentSection]="true" [showTopics]="c.showTopics" [inputtedParentRef]="c.parentRef"
+        [displayExpander]="false" [displayExtraInfo]="false" [displayLoading]="true"></app-media-viewer>
+    </div>
+  </div>
+
+  <div *ngIf="isHydrated && !displayAsTable" class="grid-item" [class.folder]="file.isFolder"
+    [class.video]="!file.isFolder && c.isVideoFileOnly(file.fileName)" (click)="c.onGridItemClick(file)">
+    <div class="grid-thumb">
+      <app-media-viewer *ngIf="!file.isFolder && c.isMediaFile(file.fileName)" [fileId]="file.id"
+        [displayExpander]="false" [displayExtraInfo]="false" [displayLoading]="false"
+        [showMediaLoading]="true" [autoplay]="false" [showCommentSection]="false"
+        [showTopics]="false" [blockExpand]="true" [inputtedParentRef]="c.inputtedParentRef ?? c.parentRef"
+        (videoMetadataEvent)="c.onVideoMetadataEvent($event)" (mediaRenderedEvent)="c.onGridMediaRendered($event)">
+      </app-media-viewer>
+      <ng-container *ngIf="c.showPdfFirstPageCovers && file.isFolder && c.folderPdfCoverSrc(file) as folderCover; else normalFilePlaceholder">
+        <img class="file-search-pdf-cover file-search-folder-cover" [src]="folderCover"
+          [alt]="file.givenFileName ?? file.fileName" loading="lazy" (error)="c.hideBrokenImg($event)" />
+      </ng-container>
+      <ng-template #normalFilePlaceholder>
+        <ng-container *ngIf="c.showPdfFirstPageCovers && !file.isFolder && c.isPdfFile(file.fileName) && c.pdfCoverSrc(file) as pdfCover; else basicFilePlaceholder">
+          <img class="file-search-pdf-cover" [src]="pdfCover" [alt]="file.givenFileName ?? file.fileName" />
+        </ng-container>
+      </ng-template>
+      <ng-template #basicFilePlaceholder>
+        <div *ngIf="file.isFolder || !c.isMediaFile(file.fileName)" class="grid-thumb-placeholder">
+          <span class="placeholder-icon">{{ file.isFolder ? '📁' : c.getFileEmoji(file.fileName ?? '') }}</span>
+          <span class="placeholder-name">{{ file.givenFileName ?? c.getFileWithoutExtension(file.fileName ?? '') }}</span>
+        </div>
+      </ng-template>
+      <ng-container *ngIf="c.shouldShowRomMetadata() && file.romInlineThumbs?.length">
+        <img *ngFor="let thumb of file.romInlineThumbs" class="romThumb" [src]="thumb" loading="lazy"
+          (error)="c.hideBrokenImg($event)" />
+      </ng-container>
+      <span *ngIf="c.localFolderBadgeFor(file.fileName, file) as badge" [class]="badge.cls"
+        [title]="badge.title">{{ badge.icon }}</span>
+    </div>      <div class="grid-label">{{ file.givenFileName ?? c.getFileWithoutExtension(file.fileName ?? '') }}</div>
+      <div class="file-type-badge" *ngIf="!file.isFolder && file.fileType">{{ file.fileType }}</div>
+    <button *ngIf="c.isBookView && c.userIsLoggedIn()" class="bookLibraryBtn gridLibraryBtn"
+      (click)="c.toggleLibrary(file, $event)">{{ c.isInMyLibrary(file) ? '🧡 Remove' : '📚 Add' }}</button>
+  </div>
+</div>

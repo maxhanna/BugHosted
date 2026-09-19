@@ -262,7 +262,8 @@ namespace maxhanna.Server.Controllers
           [FromQuery] List<string>? actualCore = null,
           [FromQuery] bool? isNSFWAllowed = false,
           [FromQuery] string? bookFilter = null,
-          [FromQuery] bool includeFolders = false
+          [FromQuery] bool includeFolders = false,
+          [FromQuery] bool idsOnly = false
         )
         {
             if (string.IsNullOrEmpty(directory))
@@ -380,6 +381,40 @@ namespace maxhanna.Server.Controllers
                         offset = 0;
                         pageSize = 1;
                     }
+
+                    if (idsOnly)
+                    {
+                        var idCommand = new MySqlCommand($@"
+                            SELECT f.id AS fileId
+                            FROM maxhanna.file_uploads f
+                            {(actualCore?.Count > 0 ? @"LEFT JOIN maxhanna.rom_igdb_enrichment rigdb ON rigdb.file_id = f.id
+                            LEFT JOIN maxhanna.rom_system_overrides rso ON rso.file_id = f.id " : "")}
+                            WHERE 1=1
+                              {((fileId.HasValue && !isIdMatch || !string.IsNullOrWhiteSpace(search)) ? "" : " AND f.folder_path = @folderPath ")}
+                              AND (f.is_public = 1 OR f.user_id = @userId OR JSON_CONTAINS(f.shared_with_json, CAST(@userId AS JSON)))
+                              {searchCondition}
+                              {combinedTypeCoreCondition}
+                              {visibilityCondition}
+                              {ownershipCondition}
+                              {hiddenCondition}
+                              {favouritesCondition}
+                              {bookFilterCondition}
+                              {fileIdCondition}
+                              {orderBy}
+                            LIMIT @pageSize OFFSET @offset;", connection);
+                        foreach (var param in baseSearchParams.Select(p => (MySqlParameter)p.Clone())) idCommand.Parameters.Add(param);
+                        idCommand.Parameters.AddWithValue("@folderPath", directory);
+                        idCommand.Parameters.AddWithValue("@userId", user?.Id ?? 0);
+                        idCommand.Parameters.AddWithValue("@pageSize", pageSize);
+                        idCommand.Parameters.AddWithValue("@offset", offset);
+                        if (fileId.HasValue) idCommand.Parameters.AddWithValue("@fileId", fileId.Value);
+                        using (var idReader = await idCommand.ExecuteReaderAsync())
+                        {
+                            while (await idReader.ReadAsync()) fileEntries.Add(new FileEntry { Id = idReader.GetInt32("fileId") });
+                        }
+                        return new DirectoryResults { TotalCount = totalCount, CurrentDirectory = directory.Replace(_baseTarget, ""), Page = page, PageSize = pageSize, Data = fileEntries };
+                    }
+
                     var extraParameters = baseSearchParams.Select(p => (MySqlParameter)p.Clone()).ToList();
                     string sqlCommand = $@" 
                         SELECT
@@ -461,8 +496,7 @@ namespace maxhanna.Server.Controllers
                         TotalCount = totalCount,
                         CurrentDirectory = directory.Replace(_baseTarget, ""),
                         Page = page,
-                        PageSize = pageSize,
-                        Data = fileEntries
+                        PageSize = pageSize,                            Data = fileEntries
                     };
                     //_ = _log.Db($"DEBUG GetDirectory: userId={user?.Id}, fileId={fileId}, hiddenCondition={(string.IsNullOrWhiteSpace(hiddenCondition) ? "OFF" : "ON")}", user?.Id ?? 0, "FILE", true);
                     return result;

@@ -188,6 +188,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   appending = false;
   imageIndex: number = 0;
 
+  /** Context exposed to lazy file-entry rows for actions and display helpers. */
+  get fileSearchContext(): FileSearchComponent { return this; }
+
   private controllerIndex: number = -1;
   private getDirectoryAbortController: AbortController | null = null;
   private _hoverOverlayEl: HTMLElement | null = null;
@@ -627,6 +630,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         // Book view always keeps folders visible — folders carry no file_type,
         // so the book-types filter would otherwise hide them entirely.
         this.isBookView,
+        // Search results intentionally return only IDs; each visible row
+        // hydrates itself through app-file-entry when it enters the viewport.
+        true,
       ).then(async res => {
         const noData = !res;
         if (res && append && this.directory && this.directory.data) {
@@ -639,17 +645,6 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
           }
           this.directory.data = this.directory.data.concat(newItems);
           this.applyCachedMediaAspects();
-          if (this.isInRomDirectory) {
-            for (let x = 0; x < this.directory.data.length; x++) {
-              if (this.directory.data[x].notes) { continue; }
-              const fRes = await this.fileService.getFileEntryById(this.directory.data[x].id, this.parentRef?.user?.id, this.parentRef?.fileCache, true);
-              if (fRes) {
-                Object.assign(this.directory.data[x], fRes);
-                this.normalizeRomMetadata(this.directory.data[x]);
-                this.changeDetectorRef.detectChanges();
-              }
-            }
-          }
 
           if (this.optionsFile) {
             const linked = this.directory.data.find(d => d.id === this.optionsFile?.id);
@@ -661,18 +656,6 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         } else if (res) {
           this.directory = res;
           this.applyCachedMediaAspects();
-
-          if (this.shouldShowRomMetadata() && this.directory?.data?.length) {
-            for (let x = 0; x < this.directory.data.length; x++) {
-              if (this.directory.data[x].notes) { continue; }
-              const fRes = await this.fileService.getFileEntryById(this.directory.data[x].id, this.parentRef?.user?.id, this.parentRef?.fileCache, true);
-              if (fRes) {
-                Object.assign(this.directory.data[x], fRes);
-                this.normalizeRomMetadata(this.directory.data[x]);
-                this.changeDetectorRef.detectChanges();
-              }
-            }
-          }
 
           if (!isFileIdSearch && this.fileIdFilter == null) {
             if (this.directory && this.directory.currentDirectory) {
@@ -839,6 +822,16 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.sortOption = '';
     await this.getDirectory(undefined, id);
     this.sortOption = savedSort;
+  }
+
+  onFileEntryHydrated(file: FileEntry): void {
+    if (this.shouldShowRomMetadata()) this.normalizeRomMetadata(file);
+    try { this.changeDetectorRef.detectChanges(); } catch { }
+  }
+
+  shouldDisplayInlineMedia(file: FileEntry): boolean {
+    return !file.isFolder && ((!this.autoload && this.viewMediaFile && this.openedFiles.includes(file.id))
+      || this.autoload || ((this.fileId ?? 0) === file.id));
   }
 
   getFileExtension(filename: string) {

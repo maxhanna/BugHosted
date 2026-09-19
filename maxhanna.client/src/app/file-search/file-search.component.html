@@ -82,8 +82,23 @@
 
       <div *ngIf="directory && directory.totalCount! > 0" #directoryDisplayDiv class="directoryDisplayDiv"
         [class.disabled]="disabled">
+        <ng-container *ngIf="displayAsTable">
+          <ng-container *ngFor="let file of directory?.data ?? []">
+            <app-file-entry [file]="file" [userId]="parentRef?.user?.id" [fileCache]="parentRef?.fileCache"
+              [includeRomMetadata]="shouldShowRomMetadata()" [displayAsTable]="true" [context]="fileSearchContext"
+              (fileHydrated)="onFileEntryHydrated($event)"></app-file-entry>
+          </ng-container>
+        </ng-container>
+        <ng-container *ngIf="!displayAsTable">
+          <ng-container *ngFor="let file of directory?.data ?? []">
+            <app-file-entry [file]="file" [userId]="parentRef?.user?.id" [fileCache]="parentRef?.fileCache"
+              [includeRomMetadata]="shouldShowRomMetadata()" [displayAsTable]="false" [context]="fileSearchContext"
+              (fileHydrated)="onFileEntryHydrated($event)"></app-file-entry>
+          </ng-container>
+        </ng-container>
+        <ng-container *ngIf="false">
         <ng-container *ngIf="displayAsTable; else gridView">
-          <ng-container *ngFor="let file of directory.data; let i = index">
+          <ng-container *ngFor="let file of (directory?.data ?? []); let i = index">
             <div class="draggableDiv" draggable="true" (dragstart)="onDragStart($event, file.fileName ?? '')">
               <div class="fileNameDiv {{ file.isFolder ? 'folder' : '' }}" (dragover)="onDragOver($event)"
                 (drop)="onDrop(file.fileName ?? '')" [id]="'fileIdDiv'+file.id"
@@ -214,7 +229,7 @@
 
         <ng-template #gridView>
           <div class="file-grid">
-            <div *ngFor="let file of directory.data" class="grid-item" [class.selected]="optionsFile?.id === file.id || selectedSharedFile?.id === file.id" [class.folder]="file.isFolder" [class.video]="!file.isFolder && isVideoFileOnly(file.fileName)" (click)="onGridItemClick(file)">
+            <div *ngFor="let file of (directory?.data ?? [])" class="grid-item" [class.selected]="optionsFile?.id === file.id || selectedSharedFile?.id === file.id" [class.folder]="file.isFolder" [class.video]="!file.isFolder && isVideoFileOnly(file.fileName)" (click)="onGridItemClick(file)">
               <div class="grid-thumb"
                 [style.aspect-ratio]="file.mediaAspect ? file.mediaAspect : null">
                 <!-- Show image thumbnail for image/media files -->
@@ -289,6 +304,7 @@
             </div>
           </div>
         </ng-template>
+        </ng-container>
 
         <div *ngIf="!isLoading && currentPage < totalPages && directory?.data?.length">
           <button appInView (inView)="appendNextPage();" (click)="appendNextPage(); $event.preventDefault()">
