@@ -208,7 +208,7 @@
 
 .file-entry-shell>.draggableDiv .fileNameDiv:hover {
   border-bottom: 1px dotted var(--main-link-color);
-  background: color-mix(in srgb, var(--main-link-color) 4%, transparent);
+  background: var(--gradient-background);
 }
 
 .file-entry-shell>.draggableDiv+.mediaViewDiv {
