@@ -41,8 +41,8 @@ namespace maxhanna.Server.Controllers
 			public int TotalRaces = 0;
 			public int Wins = 0;
 			public int Money = 500;
-			public double BestLap = 0; 
-			public Dictionary<int, double> BestLapsByTrack = new(); 
+			public double BestLap = 0;
+			public Dictionary<int, double> BestLapsByTrack = new();
 			public int TotalEarnings = 0;
 			public bool Dirty = false;
 			public int Version = 0;
@@ -101,7 +101,7 @@ namespace maxhanna.Server.Controllers
 			}
 			RegisterShutdownDump(appLifetime);
 		}
-		 
+
 		private static string? GetConnStr()
 		{
 			if (!string.IsNullOrEmpty(_connStrCache)) return _connStrCache;
@@ -113,7 +113,7 @@ namespace maxhanna.Server.Controllers
 			catch { }
 			return _connStrCache;
 		}
-		 
+
 		private RacingCarState EnsureCarLoaded(int userId)
 		{
 			if (_cars.TryGetValue(userId, out var st)) return st;
@@ -166,11 +166,12 @@ namespace maxhanna.Server.Controllers
 								if (parsed != null) st.OwnedParts = new HashSet<int>(parsed);
 							}
 							catch { }
-						}					st.GlowIntensity = rdr.IsDBNull(15) ? 50 : Math.Clamp(rdr.GetInt32(15), 0, 100);
-					st.DecalColorId = rdr.IsDBNull(16) ? 0 : rdr.GetInt32(16);
-					st.TireId = rdr.IsDBNull(17) ? 0 : rdr.GetInt32(17);
-					st.HelmetId = rdr.IsDBNull(18) ? 0 : rdr.GetInt32(18);
-					st.AccessoryId = rdr.IsDBNull(19) ? 0 : rdr.GetInt32(19);
+						}
+						st.GlowIntensity = rdr.IsDBNull(15) ? 50 : Math.Clamp(rdr.GetInt32(15), 0, 100);
+						st.DecalColorId = rdr.IsDBNull(16) ? 0 : rdr.GetInt32(16);
+						st.TireId = rdr.IsDBNull(17) ? 0 : rdr.GetInt32(17);
+						st.HelmetId = rdr.IsDBNull(18) ? 0 : rdr.GetInt32(18);
+						st.AccessoryId = rdr.IsDBNull(19) ? 0 : rdr.GetInt32(19);
 					}
 				}
 				using var bestCmd = new MySqlCommand(@"
@@ -231,12 +232,12 @@ namespace maxhanna.Server.Controllers
 							}
 							catch { }
 						}
-					st.GlowIntensity = rdr.IsDBNull(16) ? 50 : Math.Clamp(rdr.GetInt32(16), 0, 100);
-					st.DecalColorId = rdr.IsDBNull(17) ? 0 : rdr.GetInt32(17);
-					st.TireId = rdr.IsDBNull(18) ? 0 : rdr.GetInt32(18);
-					st.HelmetId = rdr.IsDBNull(19) ? 0 : rdr.GetInt32(19);
-					st.AccessoryId = rdr.IsDBNull(20) ? 0 : rdr.GetInt32(20);
-					_cars[st.UserId] = st;
+						st.GlowIntensity = rdr.IsDBNull(16) ? 50 : Math.Clamp(rdr.GetInt32(16), 0, 100);
+						st.DecalColorId = rdr.IsDBNull(17) ? 0 : rdr.GetInt32(17);
+						st.TireId = rdr.IsDBNull(18) ? 0 : rdr.GetInt32(18);
+						st.HelmetId = rdr.IsDBNull(19) ? 0 : rdr.GetInt32(19);
+						st.AccessoryId = rdr.IsDBNull(20) ? 0 : rdr.GetInt32(20);
+						_cars[st.UserId] = st;
 						loaded++;
 					}
 				}
@@ -319,7 +320,7 @@ namespace maxhanna.Server.Controllers
 			};
 		}
 		private static void PersistAllToDb(object? state) => PersistAllToDbCore(false);
-		private static void PersistAllToDbBlocking() => PersistAllToDbCore(true); 
+		private static void PersistAllToDbBlocking() => PersistAllToDbCore(true);
 		private static void ScheduleFlush()
 		{
 			try { _ = Task.Run(PersistAllToDbBlocking); }
@@ -364,13 +365,13 @@ namespace maxhanna.Server.Controllers
 							cmd.Parameters.AddWithValue("@rm", st.RimId);
 							cmd.Parameters.AddWithValue("@ex", st.ExhaustId);
 							cmd.Parameters.AddWithValue("@dc", st.DecalId);
-						cmd.Parameters.AddWithValue("@glow", st.GlowId);
-						cmd.Parameters.AddWithValue("@acc", st.AccentId);
-						cmd.Parameters.AddWithValue("@gi", st.GlowIntensity);
-						cmd.Parameters.AddWithValue("@dci", st.DecalColorId);
-						cmd.Parameters.AddWithValue("@tire", st.TireId);
-						cmd.Parameters.AddWithValue("@helm", st.HelmetId);
-						cmd.Parameters.AddWithValue("@acc2", st.AccessoryId);
+							cmd.Parameters.AddWithValue("@glow", st.GlowId);
+							cmd.Parameters.AddWithValue("@acc", st.AccentId);
+							cmd.Parameters.AddWithValue("@gi", st.GlowIntensity);
+							cmd.Parameters.AddWithValue("@dci", st.DecalColorId);
+							cmd.Parameters.AddWithValue("@tire", st.TireId);
+							cmd.Parameters.AddWithValue("@helm", st.HelmetId);
+							cmd.Parameters.AddWithValue("@acc2", st.AccessoryId);
 							cmd.Parameters.AddWithValue("@races", st.TotalRaces);
 							cmd.Parameters.AddWithValue("@wins", st.Wins);
 							cmd.Parameters.AddWithValue("@money", st.Money);
@@ -379,7 +380,7 @@ namespace maxhanna.Server.Controllers
 							cmd.Parameters.AddWithValue("@owned", JsonSerializer.Serialize(st.OwnedParts.OrderBy(x => x).ToList()));
 							version = st.Version;
 						}
-						cmd.ExecuteNonQuery(); 
+						cmd.ExecuteNonQuery();
 						Dictionary<int, double> bestByTrack;
 						lock (st) { bestByTrack = new Dictionary<int, double>(st.BestLapsByTrack); }
 						foreach (var kvBest in bestByTrack)
@@ -402,7 +403,7 @@ namespace maxhanna.Server.Controllers
 					}
 				}
 				var results = new List<PendingRaceResult>();
-				while (_pendingResults.TryDequeue(out var r)) results.Add(r);				int resultsWritten = 0;
+				while (_pendingResults.TryDequeue(out var r)) results.Add(r); int resultsWritten = 0;
 				// Only real players' results are persisted — bot laps (negative user ids)
 				// are dropped so the leaderboard reflects human scores alone.
 				// Historical per-race rows were previously written to racing_results;
@@ -661,7 +662,7 @@ namespace maxhanna.Server.Controllers
 					TotalTime = result.TryGetProperty("totalTime", out var tt) ? tt.GetDouble() : 0,
 					MoneyEarned = result.TryGetProperty("moneyEarned", out var me) ? me.GetInt32() : 0,
 					TrackId = result.TryGetProperty("trackId", out var tk) ? tk.GetInt32() : 1,
-				});					ScheduleFlush();
+				}); ScheduleFlush();
 				return Ok(new { ok = true });
 			}
 			catch { return BadRequest(); }
@@ -676,7 +677,7 @@ namespace maxhanna.Server.Controllers
 				if (!string.IsNullOrEmpty(connStr))
 				{
 					using var conn = new MySqlConnection(connStr);
-					await conn.OpenAsync();					using var cmd = new MySqlCommand(@"
+					await conn.OpenAsync(); using var cmd = new MySqlCommand(@"
 						SELECT user_id, player_name, MIN(lap_time) AS lap_time,
 						       0 AS total_time
 						FROM (
@@ -695,15 +696,15 @@ namespace maxhanna.Server.Controllers
 						while (await rdr.ReadAsync())
 						{
 							results.Add(new LeaderboardEntry
-						{
-							PlayerId = rdr.GetInt32(0),
-							PlayerName = rdr.GetString(1),
-							LapTime = rdr.GetDouble(2),
-							TotalTime = rdr.GetDouble(3),
-							Position = 0,
-							MoneyEarned = 0,
-							IsBot = false
-						});
+							{
+								PlayerId = rdr.GetInt32(0),
+								PlayerName = rdr.GetString(1),
+								LapTime = rdr.GetDouble(2),
+								TotalTime = rdr.GetDouble(3),
+								Position = 0,
+								MoneyEarned = 0,
+								IsBot = false
+							});
 						}
 					}
 				}
@@ -830,7 +831,7 @@ namespace maxhanna.Server.Controllers
 				{
 					var ranked = kv.Value
 						.Select(p => new
-					{
+						{
 							playerId = p.Key,
 							playerName = names.TryGetValue(p.Key, out var n) ? n : "Unknown",
 							lapTime = p.Value
@@ -839,7 +840,7 @@ namespace maxhanna.Server.Controllers
 						.ToList();
 					var top = ranked.Take(20)
 						.Select(e => new LeaderboardEntry
-					{
+						{
 							PlayerId = e.playerId,
 							PlayerName = e.playerName,
 							LapTime = e.lapTime,
@@ -915,13 +916,13 @@ namespace maxhanna.Server.Controllers
 						double overall = kv.Value.Values.Min();
 						int trackId = kv.Value.First(p => p.Value == overall).Key;
 						return new
-					{
+						{
 							playerId = kv.Key,
 							playerName = names.TryGetValue(kv.Key, out var n) ? n : "Unknown",
 							lapTime = overall,
 							trackId,
 							bestLapsByTrack = kv.Value
-					};
+						};
 					})
 					.OrderBy(e => e.lapTime)
 					.Take(100)
@@ -1005,17 +1006,7 @@ namespace maxhanna.Server.Controllers
 						}
 					}
 				}
-				// var rankedScores = scores
-				// 	.OrderByDescending(e => ((dynamic)e).totalEarnings)
-				// 	.ThenByDescending(e => ((dynamic)e).wins)
-				// 	.Take(100)
-				// 	.ToList();
-				// var rankedCash = cash
-				// 	.OrderByDescending(e => ((dynamic)e).money)
-				// 	.ThenByDescending(e => ((dynamic)e).totalEarnings)
-				// 	.Take(100)
-				// 	.ToList();
-				return Ok(new { scores = scores, cash = cash });
+				return Ok(new { scores, cash });
 			}
 			catch (Exception ex)
 			{
