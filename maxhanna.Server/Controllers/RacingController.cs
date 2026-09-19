@@ -1005,17 +1005,17 @@ namespace maxhanna.Server.Controllers
 						}
 					}
 				}
-				var rankedScores = scores
-					.OrderByDescending(e => ((dynamic)e).totalEarnings)
-					.ThenByDescending(e => ((dynamic)e).wins)
-					.Take(100)
-					.ToList();
-				var rankedCash = cash
-					.OrderByDescending(e => ((dynamic)e).money)
-					.ThenByDescending(e => ((dynamic)e).totalEarnings)
-					.Take(100)
-					.ToList();
-				return Ok(new { scores = rankedScores, cash = rankedCash });
+				// var rankedScores = scores
+				// 	.OrderByDescending(e => ((dynamic)e).totalEarnings)
+				// 	.ThenByDescending(e => ((dynamic)e).wins)
+				// 	.Take(100)
+				// 	.ToList();
+				// var rankedCash = cash
+				// 	.OrderByDescending(e => ((dynamic)e).money)
+				// 	.ThenByDescending(e => ((dynamic)e).totalEarnings)
+				// 	.Take(100)
+				// 	.ToList();
+				return Ok(new { scores = scores, cash = cash });
 			}
 			catch (Exception ex)
 			{
