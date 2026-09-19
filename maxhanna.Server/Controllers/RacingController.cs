@@ -405,25 +405,12 @@ namespace maxhanna.Server.Controllers
 				while (_pendingResults.TryDequeue(out var r)) results.Add(r);				int resultsWritten = 0;
 				// Only real players' results are persisted — bot laps (negative user ids)
 				// are dropped so the leaderboard reflects human scores alone.
+				// Historical per-race rows were previously written to racing_results;
+				// that table is now retired — leaderboards read racing_best_laps.
 				foreach (var r in results)
 				{
-					try
-					{
-						if (r.UserId < 0) { resultsWritten++; continue; }
-						using var cmd = new MySqlCommand(@"
-							INSERT INTO racing_results (user_id, player_name, position, lap_time, total_time, money_earned, track_id, raced_at)
-							VALUES (@uid, @name, @pos, @lap, @total, @money, @track, UTC_TIMESTAMP())", conn);
-						cmd.Parameters.AddWithValue("@uid", r.UserId);
-						cmd.Parameters.AddWithValue("@name", r.PlayerName);
-						cmd.Parameters.AddWithValue("@pos", r.Position);
-						cmd.Parameters.AddWithValue("@lap", r.LapTime);
-						cmd.Parameters.AddWithValue("@total", r.TotalTime);
-						cmd.Parameters.AddWithValue("@money", r.MoneyEarned);
-						cmd.Parameters.AddWithValue("@track", r.TrackId);
-						cmd.ExecuteNonQuery();
-						resultsWritten++;
-					}
-					catch { _pendingResults.Enqueue(r); }
+					if (r.UserId < 0) { resultsWritten++; continue; }
+					resultsWritten++;
 				}
 				if (carsWritten > 0 || resultsWritten > 0)
 				{
@@ -689,24 +676,19 @@ namespace maxhanna.Server.Controllers
 				if (!string.IsNullOrEmpty(connStr))
 				{
 					using var conn = new MySqlConnection(connStr);
-					await conn.OpenAsync();
-					using var cmd = new MySqlCommand(@"
+					await conn.OpenAsync();					using var cmd = new MySqlCommand(@"
 						SELECT user_id, player_name, MIN(lap_time) AS lap_time,
-						       COALESCE(MAX(NULLIF(total_time, 0)), 0) AS total_time
-						FROM (								SELECT r.user_id, COALESCE(NULLIF(r.player_name, ''), u.username, 'Unknown') AS player_name,
-								       r.lap_time AS lap_time, r.total_time AS total_time
-								FROM racing_results r
-								LEFT JOIN users u ON r.user_id = u.id
-								WHERE r.lap_time > 0 AND r.track_id = @trackId
-							UNION ALL
-							SELECT bl.user_id, COALESCE(NULLIF(c.player_name, ''), u.username, 'Unknown') AS player_name,
-							       bl.best_lap AS lap_time, 0 AS total_time
+						       0 AS total_time
+						FROM (
+								SELECT bl.user_id, COALESCE(NULLIF(c.player_name, ''), u.username, 'Unknown') AS player_name,
+							       bl.best_lap AS lap_time
 							FROM racing_best_laps bl
 							LEFT JOIN racing_player_car c ON c.user_id = bl.user_id
 							LEFT JOIN users u ON bl.user_id = u.id
-							WHERE bl.best_lap > 0 AND bl.track_id = @trackId							) t
-							GROUP BY user_id, player_name
-							ORDER BY lap_time ASC LIMIT 100", conn);
+							WHERE bl.best_lap > 0 AND bl.track_id = @trackId
+						) t
+						GROUP BY user_id, player_name
+						ORDER BY lap_time ASC LIMIT 100", conn);
 					cmd.Parameters.AddWithValue("@trackId", trackId);
 					using (var rdr = await cmd.ExecuteReaderAsync())
 					{
@@ -758,26 +740,17 @@ namespace maxhanna.Server.Controllers
 					await conn2.OpenAsync();
 					using (var cntCmd = new MySqlCommand(@"
 						SELECT COUNT(*) FROM (
-							SELECT user_id, MIN(lap_time) AS best FROM (
-								SELECT r.user_id, r.lap_time AS lap_time FROM racing_results r
-								WHERE r.lap_time > 0 AND r.track_id = @trackId
-								UNION ALL
-								SELECT bl.user_id, bl.best_lap AS lap_time FROM racing_best_laps bl
-								WHERE bl.best_lap > 0 AND bl.track_id = @trackId
-							) u GROUP BY user_id
+							SELECT user_id, MIN(best_lap) AS best FROM racing_best_laps
+							WHERE best_lap > 0 AND track_id = @trackId
+							GROUP BY user_id
 						) t", conn2))
 					{
 						cntCmd.Parameters.AddWithValue("@trackId", trackId);
 						totalCount = Convert.ToInt32(await cntCmd.ExecuteScalarAsync());
 					}
 					using (var bestCmd = new MySqlCommand(@"
-						SELECT MIN(lap_time) FROM (
-							SELECT r.lap_time AS lap_time FROM racing_results r
-							WHERE r.lap_time > 0 AND r.track_id = @trackId AND r.user_id = @uid
-							UNION ALL
-							SELECT bl.best_lap AS lap_time FROM racing_best_laps bl
-							WHERE bl.best_lap > 0 AND bl.track_id = @trackId AND bl.user_id = @uid
-						) me", conn2))
+						SELECT MIN(best_lap) FROM racing_best_laps
+						WHERE best_lap > 0 AND track_id = @trackId AND user_id = @uid", conn2))
 					{
 						bestCmd.Parameters.AddWithValue("@trackId", trackId);
 						bestCmd.Parameters.AddWithValue("@uid", userId);
@@ -786,14 +759,10 @@ namespace maxhanna.Server.Controllers
 						{
 							using var rankCmd = new MySqlCommand(@"
 								SELECT COUNT(*) + 1 FROM (
-									SELECT user_id, MIN(lap_time) AS best FROM (
-										SELECT r.user_id, r.lap_time AS lap_time FROM racing_results r
-										WHERE r.lap_time > 0 AND r.track_id = @trackId
-										UNION ALL
-									SELECT bl.user_id, bl.best_lap AS lap_time FROM racing_best_laps bl
-									WHERE bl.best_lap > 0 AND bl.track_id = @trackId
-								) u GROUP BY user_id
-							) t WHERE t.best < @myBest", conn2);
+									SELECT user_id, MIN(best_lap) AS best FROM racing_best_laps
+									WHERE best_lap > 0 AND track_id = @trackId
+									GROUP BY user_id
+								) t WHERE t.best < @myBest", conn2);
 							rankCmd.Parameters.AddWithValue("@trackId", trackId);
 							rankCmd.Parameters.AddWithValue("@myBest", Convert.ToDouble(myBest));
 							userRank = Convert.ToInt32(await rankCmd.ExecuteScalarAsync());
@@ -818,13 +787,7 @@ namespace maxhanna.Server.Controllers
 					using var conn = new MySqlConnection(connStr);
 					await conn.OpenAsync();
 					using var cmd = new MySqlCommand(@"
-						SELECT id as track_id, user_id, lap_time, player_name FROM (
-							SELECT r.id, r.user_id, r.lap_time AS lap_time,
-							       COALESCE(u.username, 'Unknown') AS player_name
-							FROM racing_results r 
-							LEFT JOIN users u ON r.user_id = u.id
-							WHERE r.lap_time > 0 AND r.user_id != 0
-							UNION ALL
+						SELECT track_id, user_id, lap_time, player_name FROM (
 							SELECT bl.track_id, bl.user_id, bl.best_lap AS lap_time,
 							       COALESCE(NULLIF(c.player_name, ''), u.username, 'Unknown') AS player_name
 							FROM racing_best_laps bl
@@ -921,12 +884,6 @@ namespace maxhanna.Server.Controllers
 					await conn.OpenAsync();
 					using var cmd = new MySqlCommand(@"
 						SELECT user_id, track_id, lap_time, player_name FROM (
-							SELECT r.user_id, r.track_id, r.lap_time AS lap_time,
-							       COALESCE(NULLIF(r.player_name, ''), u.username, 'Unknown') AS player_name
-							FROM racing_results r
-							LEFT JOIN users u ON r.user_id = u.id
-							WHERE r.lap_time > 0 AND r.user_id > 0
-							UNION ALL
 							SELECT bl.user_id, bl.track_id, bl.best_lap AS lap_time,
 							       COALESCE(NULLIF(c.player_name, ''), u.username, 'Unknown') AS player_name
 							FROM racing_best_laps bl

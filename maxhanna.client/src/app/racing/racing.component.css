@@ -5301,7 +5301,8 @@
 .gp-standings {
   margin-top: 12px;
   width: min(420px, 92vw);
-  max-height: 40vh;
+  max-height: 15vh;
+  max-height: 15dvh;
   overflow-y: auto;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.08);
