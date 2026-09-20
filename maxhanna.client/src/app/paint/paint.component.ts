@@ -237,6 +237,16 @@ export class PaintComponent extends ChildComponent {
   constructor(private http: HttpClient, private userEventService: UserEventService) { super(); }
 
   @HostListener('document:keydown', ['$event'])
+  onBrushSizeWheel(e: WheelEvent): void {
+    // Keep touch/mobile controls unchanged; on desktop the wheel is a quick
+    // Photoshop-style brush-size control while the selector has focus/hover.
+    if (this.onMobile()) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const direction = e.deltaY < 0 ? 1 : -1;
+    this.brushSize = Math.max(1, Math.min(200, Number(this.brushSize) + direction));
+  }
+
   handleKeyboard(e: KeyboardEvent) {
     const t = e.target as HTMLElement | null;
     const typing = !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);

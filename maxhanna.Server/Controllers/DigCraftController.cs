@@ -2793,9 +2793,8 @@ var mobSpeed = t switch
                                 }
                             }
 
-                            // Health regeneration: players only stop regenerating when food drops below 3.
-                            const int REGEN_DEBUG_MULTIPLIER = 1; // Increase to test faster (e.g. 60 = 1 HP per 1.5s instead of 90s)
-                            const int regenIntervalMs = 90_000 / REGEN_DEBUG_MULTIPLIER;
+                            // Health regeneration: players regenerate while food is above 3.
+                            const int regenIntervalMs = 4_000;
                             foreach (var p in players)
                             {
                                 if (!playerStats.TryGetValue(p.userId, out var stats)) continue;
@@ -4063,6 +4062,9 @@ var mobSpeed = t switch
                     }
                 }
 
+                // Announce the join in world chat so every player sees it.
+                AnnouncePlayerJoined(req.WorldId, req.UserId, player?.Username);
+
                 return Ok(new
                 {
                     player,
@@ -4078,6 +4080,28 @@ var mobSpeed = t switch
                 _ = _log.Db("DigCraft JoinWorld error: " + ex.Message, req.UserId, "DIGCRAFT", true);
                 return StatusCode(500, "Internal error");
             }
+        }
+
+        /// <summary>Announce a player joining the world in world chat so every player can see it.</summary>
+        private void AnnouncePlayerJoined(int worldId, int userId, string? username)
+        {
+            try
+            {
+                var queue = _worldChats.GetOrAdd(worldId, _ => new ConcurrentQueue<ChatEntry>());
+                var joinName = string.IsNullOrWhiteSpace(username) ? $"Player {userId}" : username;
+                queue.Enqueue(new ChatEntry
+                {
+                    UserId = userId,
+                    Username = joinName,
+                    Message = "joined the game ⛏️",
+                    CreatedAt = DateTime.UtcNow
+                });
+
+                var cutoff = DateTime.UtcNow - CHAT_TTL;
+                while (queue.TryPeek(out var oldest) && oldest.CreatedAt < cutoff)
+                    queue.TryDequeue(out _);
+            }
+            catch { /* chat is best-effort; never fail a join over it */ }
         }
 
         /// <summary>Update player position (called periodically by client).</summary>

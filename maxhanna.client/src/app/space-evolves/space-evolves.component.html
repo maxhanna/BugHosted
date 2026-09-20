@@ -145,9 +145,35 @@
   <div class="popupPanel" style="overflow: auto;" *ngIf="isMenuPanelOpen">
     <div class="popupPanelTitle">Space: Evolves</div>
     <div class="popupPanelContents gradientBackground" style="padding:10px;">
+      <button (click)="openEvolutionShop()">🧬 Weapon Evolution Shop <span class="shop-hint">Spend score to fuse weapons</span></button>
       <button (click)="restartFromMenu()">🔄 Restart run (back to wave 1, level 0, 0 EXP)</button>
       <app-share-button [inputtedParentRef]="parentRef" [link]="'SpaceEvolves'" [text]="'🔗 Share Space: Evolves'"></app-share-button>
     </div>
     <button id="closeOverlay" class="closeButton" (click)="closeMenuPanel()">Close</button>
+  </div>
+
+  <!-- Predefined weapon-fusion shop. Each recipe consumes two equipped weapons,
+       creates one stronger weapon, and permanently frees one slot. -->
+  <div class="popupPanel evolution-shop-panel" *ngIf="isEvolutionShopOpen">
+    <div class="popupPanelTitle">🧬 Weapon Evolution Shop</div>
+    <div class="popupPanelContents gradientBackground evolution-shop-content">
+      <p>Spend score to fuse permitted weapon pairs. Evolutions use one slot and unlock a custom attack pattern.</p>
+      <p class="evolution-score">Available score: <strong>{{score | number}}</strong></p>
+      <div class="evolution-notice" *ngIf="evolutionNotice">{{evolutionNotice}}</div>
+      <div class="evolution-recipe" *ngFor="let recipe of weaponEvolutions">
+        <div class="evolution-recipe-heading">
+          <span class="upgrade-icon">{{upgradeIcon(recipe.id)}}</span>
+          <strong>{{recipe.name}}</strong>
+          <span class="evolution-cost">{{recipe.cost | number}} score</span>
+        </div>
+        <div class="evolution-ingredients">{{evolutionIngredients(recipe)}}</div>
+        <p>{{recipe.description}}</p>
+        <small>Visual: {{recipe.visual}}</small>
+        <button type="button" (click)="buyEvolution(recipe)" [disabled]="!canEvolve(recipe)">
+          {{hasWeapon(recipe.id) ? 'Already evolved' : canEvolve(recipe) ? 'Forge evolution' : 'Need both weapons and enough score'}}
+        </button>
+      </div>
+    </div>
+    <button id="closeOverlay" class="closeButton" (click)="closeEvolutionShop()">Close</button>
   </div>
 </div>

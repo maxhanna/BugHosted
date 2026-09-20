@@ -94,7 +94,9 @@ type WeaponId =
   | "flak"
   | "tesla"
   | "chem"
-  | "flamer";
+  | "flamer"
+  | "photon-lance"
+  | "storm-siege";
 type UpgradeCategory = WeaponId | "health" | "utility" | "ship";
 interface SpaceUpgrade {
   id: string;
@@ -102,6 +104,14 @@ interface SpaceUpgrade {
   description: string;
   weapon: UpgradeCategory;
   isWeaponUnlock?: boolean;
+}
+interface WeaponEvolution {
+  id: WeaponId;
+  name: string;
+  ingredients: readonly WeaponId[];
+  cost: number;
+  description: string;
+  visual: string;
 }
 interface SpaceScore {
   username: string;
@@ -642,6 +652,8 @@ export class SpaceEvolvesComponent
     tesla: 0,
     chem: 0,
     flamer: 0,
+    "photon-lance": 0,
+    "storm-siege": 0,
   };
   player = { x: 0.5, y: 0.5, hp: 120, maxHp: 120, shield: 0, speed: 0.55 };
   shots: SpaceProjectile[] = [];
@@ -1004,6 +1016,26 @@ export class SpaceEvolvesComponent
   }
   isMenuPanelOpen = false;
   private menuPaused = false;
+  isEvolutionShopOpen = false;
+  evolutionNotice = "";
+  readonly weaponEvolutions: readonly WeaponEvolution[] = [
+    {
+      id: "photon-lance",
+      name: "Photon Lance",
+      ingredients: ["laser", "plasma"],
+      cost: 2500,
+      description: "Fuses laser precision with plasma impact. Fires an instant piercing beam and a charged plasma bolt from the same slot.",
+      visual: "Gold-violet beam with a bright impact ring.",
+    },
+    {
+      id: "storm-siege",
+      name: "Storm Siege",
+      ingredients: ["missile", "tesla"],
+      cost: 3500,
+      description: "Fuses homing ordnance with chain lightning. Each salvo launches a rocket while lightning jumps through separate targets.",
+      visual: "Orange rocket trails wrapped in branching blue lightning.",
+    },
+  ];
   showMenuPanel() {
     if (this.isMenuPanelOpen) {
       this.closeMenuPanel();
@@ -1031,6 +1063,17 @@ export class SpaceEvolvesComponent
   restartFromMenu() {
     this.closeMenuPanel();
     this.resetRun();
+  }
+  openEvolutionShop(): void {
+    this.isEvolutionShopOpen = true;
+    this.evolutionNotice = "";
+    try { this.parentRef?.showOverlay(); } catch {}
+    this.cdr.detectChanges();
+  }
+  closeEvolutionShop(): void {
+    this.isEvolutionShopOpen = false;
+    this.evolutionNotice = "";
+    try { this.parentRef?.closeOverlay(); } catch {}
   }
   selectedWeapon: WeaponId | null = null;
   selectedUpgrade: SpaceUpgrade | null = null;
@@ -1512,8 +1555,39 @@ export class SpaceEvolvesComponent
       ...otherWeapons.sort(() => Math.random() - 0.5).slice(0, 2),
     ];
   }
-  private hasWeapon(weapon: WeaponId) {
+  hasWeapon(weapon: WeaponId) {
     return this.equippedWeapons.includes(weapon);
+  }
+  evolutionIngredients(recipe: WeaponEvolution): string {
+    return recipe.ingredients.map((weapon) => this.weaponLabel(weapon)).join(" + ");
+  }
+  canEvolve(recipe: WeaponEvolution): boolean {
+    return !this.hasWeapon(recipe.id) &&
+      this.score >= recipe.cost &&
+      recipe.ingredients.every((weapon) => this.hasWeapon(weapon));
+  }
+  buyEvolution(recipe: WeaponEvolution): void {
+    if (!this.canEvolve(recipe) || this.gameOver) return;
+    this.equippedWeapons = this.equippedWeapons.filter(
+      (weapon) => !recipe.ingredients.includes(weapon),
+    );
+    this.equippedWeapons.push(recipe.id);
+    this.score -= recipe.cost;
+    this.evolutionNotice = `${recipe.name} forged! Two weapons became one powerful slot.`;
+    this.effects.push({
+      x: this.player.x,
+      y: this.player.y,
+      vx: 0,
+      vy: 0,
+      life: 1.2,
+      maxLife: 1.2,
+      size: 0.22,
+      color: recipe.id === "photon-lance" ? "#e8a7ff" : "#73d8ff",
+      kind: "ring",
+      len: 0.35,
+    });
+    this.autosave();
+    this.cdr.detectChanges();
   }
   private prepareStartingChoice() {
     if (this.equippedWeapons.length > 0) {
@@ -1906,6 +1980,10 @@ export class SpaceEvolvesComponent
                       ? "☢️"
                       : weapon === "flamer"
                         ? "🔥"
+                        : weapon === "photon-lance"
+                          ? "🌈"
+                          : weapon === "storm-siege"
+                            ? "⚡🚀"
                         : weapon === "health"
                           ? "❤️"
                           : weapon === "ship"
@@ -1931,7 +2009,11 @@ export class SpaceEvolvesComponent
                     ? "Chem Cloud"
                     : weapon === "drone"
                       ? "Combat Drone"
-                      : "Flamethrower";
+                      : weapon === "photon-lance"
+                          ? "Photon Lance"
+                          : weapon === "storm-siege"
+                            ? "Storm Siege"
+                            : "Flamethrower";
   }
   private waveQuota() {
     return 8 + this.wave * 2;
@@ -2224,6 +2306,14 @@ export class SpaceEvolvesComponent
     this.player.y = 0.5;
     for (const weapon of this.equippedWeapons) {
       this.timers[weapon] -= dt;
+    }
+    if (this.hasWeapon("photon-lance") && this.timers["photon-lance"] <= 0) {
+      this.firePhotonLance();
+      this.timers["photon-lance"] = this.weaponInterval(0.42);
+    }
+    if (this.hasWeapon("storm-siege") && this.timers["storm-siege"] <= 0) {
+      this.fireStormSiege();
+      this.timers["storm-siege"] = this.weaponInterval(0.95);
     }
     if (this.hasWeapon("laser") && this.timers.laser <= 0) {
       this.fireLasers();
@@ -2939,6 +3029,10 @@ export class SpaceEvolvesComponent
                         ? this.weaponInterval(this.stats.chemInterval)
                         : weapon === "drone"
                           ? this.weaponInterval(this.stats.droneInterval)
+                          : weapon === "photon-lance"
+                        ? this.weaponInterval(0.42)
+                        : weapon === "storm-siege"
+                          ? this.weaponInterval(0.95)
                           : this.weaponInterval(this.stats.flamerInterval),
       color:
         weapon === "laser"
@@ -2959,6 +3053,10 @@ export class SpaceEvolvesComponent
                         ? "#b6ff4d"
                         : weapon === "drone"
                           ? "#7dff9a"
+                          : weapon === "photon-lance"
+                        ? "#e8a7ff"
+                        : weapon === "storm-siege"
+                          ? "#73d8ff"
                           : "#ff8c2e",
     }));
   }
@@ -3105,6 +3203,8 @@ export class SpaceEvolvesComponent
     chem: "Lobs corrosive globs that burst into lingering acid clouds, melting anything that stands inside.",
     flamer:
       "Short-range fire stream with full-strength impact bursts. Hits ignite bugs: the burn stacks up to 5x damage over time while it burns, and burning bugs scorch nearby enemies.",
+    "photon-lance": "A weapon evolution that fuses laser and plasma into a piercing violet beam with a charged impact bolt.",
+    "storm-siege": "A weapon evolution that fuses missiles and Tesla into homing rockets wrapped in chain lightning.",
   };
   weaponDetailLines(w: WeaponId) {
     const S = this.stats;
@@ -3113,13 +3213,15 @@ export class SpaceEvolvesComponent
       "Crit " +
       Math.round(
         this.weaponCritChance(
-          S[(w + "CritChance") as keyof typeof S] as number,
+          (S[(w + "CritChance") as keyof typeof S] as number) ??
+            (w === "photon-lance" ? S.laserCritChance : S.missileCritChance),
         ) * 100,
       ) +
       "% ×" +
       r1(
         this.weaponCritFactor(
-          S[(w + "CritFactor") as keyof typeof S] as number,
+          (S[(w + "CritFactor") as keyof typeof S] as number) ??
+            (w === "photon-lance" ? S.laserCritFactor : S.missileCritFactor),
         ),
       );
     const meter: Partial<Record<WeaponId, number>> = {
@@ -3276,6 +3378,24 @@ export class SpaceEvolvesComponent
           "Cloud AOE damage " + r1(effectiveDamage) + " every 0.5s",
           "Spread distance " + r1(this.weaponRange(S.chemSpreadDistance)),
           "Damage over time + chain spread",
+          crit,
+        );
+        break;
+      case "photon-lance":
+        L.push(
+          "Combined laser + plasma evolution",
+          "Damage " + r1(this.weaponDamage(S.laserDamage + S.plasmaDamage) * 1.35),
+          "Instant piercing beam plus charged plasma bolt",
+          "Consumes one weapon slot",
+          crit,
+        );
+        break;
+      case "storm-siege":
+        L.push(
+          "Combined missile + Tesla evolution",
+          "Homing rocket and chain lightning per salvo",
+          "Each attack uses distinct targets where possible",
+          "Consumes one weapon slot",
           crit,
         );
         break;
@@ -3599,6 +3719,48 @@ export class SpaceEvolvesComponent
             Math.hypot(target.x - this.player.x, target.y - this.player.y),
       );
     }
+  }
+  private firePhotonLance() {
+    const target = this.distinctTargets(1)[0];
+    if (target) {
+      this.fireInstantLaser(
+        this.player.x,
+        this.player.y,
+        target,
+        (this.stats.laserDamage + this.stats.plasmaDamage) * 1.35,
+      );
+      this.effects.push({
+        x: this.player.x,
+        y: this.player.y,
+        x2: target.x,
+        y2: target.y,
+        vx: 0,
+        vy: 0,
+        life: 0.2,
+        maxLife: 0.2,
+        size: 0.018,
+        color: "#e8a7ff",
+        kind: "beam",
+      });
+      this.firePlasma();
+    }
+  }
+  private fireStormSiege() {
+    this.fireMissiles();
+    this.fireTesla();
+    this.effects.push({
+      x: this.player.x,
+      y: this.player.y,
+      vx: 0,
+      vy: 0,
+      life: 0.28,
+      maxLife: 0.28,
+      size: 0.16,
+      color: "#73d8ff",
+      kind: "ring",
+      len: 0.3,
+      spin: performance.now() / 1000,
+    });
   }
   private fireMissiles() {
     const targets = this.distinctTargets(
@@ -4560,8 +4722,8 @@ export class SpaceEvolvesComponent
     this.gameOver = false;
     this.upgradeChoices = [];
     this.waveKills = 0;
-    this.spawnedThisWave = 0;
-    this.equippedWeapons = [];
+    this.spawnedThisWave = 0;      this.equippedWeapons = [];
+    this.evolutionNotice = "";
     this.startingWeaponChoices = this.startingWeaponOptions;
     this.startingWeaponChoicePending = true;
     this.canPick = false;
@@ -4576,6 +4738,8 @@ export class SpaceEvolvesComponent
       tesla: 0,
       chem: 0,
       flamer: 0,
+      "photon-lance": 0,
+      "storm-siege": 0,
     };
     this.saveProgress();
     this.prepareStartingChoice();
@@ -4670,6 +4834,8 @@ export class SpaceEvolvesComponent
                   "tesla",
                   "chem",
                   "flamer",
+                  "photon-lance",
+                  "storm-siege",
                 ].includes(id),
               )
               .slice(0, this.weaponSlotLimit)
@@ -4720,6 +4886,8 @@ export class SpaceEvolvesComponent
                   "tesla",
                   "chem",
                   "flamer",
+                  "photon-lance",
+                  "storm-siege",
                 ].includes(id),
               )
               .slice(0, this.weaponSlotLimit)

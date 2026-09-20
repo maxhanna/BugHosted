@@ -20,16 +20,19 @@ const BIOME_RADIUS_MOUNTAIN = 30;
 // use the explicit eastern chain below rather than the old random rural roll.
 const BEACH_CHANCE_DENOMINATOR = 3;
 const BRIDGE_DECK_Y = 12.0;
-const PLAYER_RENDER_SCALE = 1.35;
-const REMOTE_PLAYER_RENDER_SCALE = 1.35;
+// Human meshes are authored in compact procedural units. Keep standing
+// characters at a believable adult height relative to vehicles and buildings;
+// seated occupants use their own smaller scales below.
+const PLAYER_RENDER_SCALE = 1.85;
+const REMOTE_PLAYER_RENDER_SCALE = 1.8;
 // Keep ordinary pedestrians visually comparable to the enlarged player model.
 // Vehicle occupants use smaller seated scales below because their pose is inside
 // a cabin, while standing pedestrians should not read like toy figures.
-const NPC_HUMAN_RENDER_SCALE = 1.3;
+const NPC_HUMAN_RENDER_SCALE = 1.75;
 // Helicopters should read as full-size aircraft rather than small toy props.
 // Keep this in one place so the fuselage, rotors, occupants, and shadows stay
 // in the same visual scale when the aircraft is rendered from any camera pass.
-const HELICOPTER_RENDER_SCALE = 1.5;
+const HELICOPTER_RENDER_SCALE = 3.0;
 interface IslandDef {
   cx: number;
   cz: number;
@@ -9394,10 +9397,19 @@ void main() {
       appearanceSeed,
       appearanceGender,
     );
-    // Override Franklin colors to be stable regardless of input color (keeps multiplayer tint for nameplate only)
-    variant.outfitA = [0.16, 0.52, 0.22];
-    variant.outfitB = [0.14, 0.14, 0.16];
-    variant.accent = [0.92, 0.92, 0.96];
+    // The local player gets a deliberate, stable silhouette instead of inheriting
+    // the random civilian body roll. A slightly broader shoulder line, longer
+    // proportions, and smaller head read much more naturally in third person.
+    variant.bodyType = "muscular";
+    variant.shoulderWidth = 1.08;
+    variant.hipWidth = 1.02;
+    variant.heightScale = 1.04;
+    variant.headScale = 0.95;
+    // Use a layered everyday outfit rather than the high-saturation civilian
+    // palette. The nameplate still uses the supplied multiplayer color.
+    variant.outfitA = [0.12, 0.38, 0.18]; // dark green polo
+    variant.outfitB = [0.09, 0.11, 0.14]; // charcoal denim
+    variant.accent = [0.86, 0.84, 0.74];
     variant.isPlayer = true;
     const mesh = this.createLifelikeHumanMesh(variant);
     this.humanMeshCache.set(key, mesh);
@@ -9831,6 +9843,13 @@ void main() {
     addBox(0.04, 0.56, 0.115, 0.018, 0.018, 0.005, [0.05, 0.05, 0.05], 4);
     if (variant.hasBeard)
       addBox(0, 0.48, 0.1, 0.12, 0.08, 0.06, variant.hair, 4);
+    if (variant.isPlayer) {
+      // Small face planes keep the player readable without making the head look
+      // like a featureless ball at the close third-person camera distance.
+      addRounded(0, 0.515, 0.122, headR * 0.16, headR * 0.17, headR * 0.16, variant.skin, 4);
+      addBox(-0.045, 0.585, 0.108, 0.045, 0.014, 0.012, variant.hair, 4);
+      addBox(0.045, 0.585, 0.108, 0.045, 0.014, 0.012, variant.hair, 4);
+    }
     if (variant.hasCap) {
       const capCol: [number, number, number] =
         variant.role === "cop"
@@ -9932,6 +9951,16 @@ void main() {
     addRounded(armX, -0.24, 0, 0.052, 0.065, 0.052, variant.skin, 12);
     // Collar and armpit blend volumes overlap the shoulder joints so the
     // animated arms never expose a gap while swinging or aiming.
+    if (variant.isPlayer) {
+      // Polo collar, front placket, and shoulder seams add clothing structure
+      // while remaining part of the same skinned mesh and draw call.
+      const collar: [number, number, number] = [0.82, 0.8, 0.68];
+      addBox(-0.045, 0.435, 0.092, 0.075, 0.028, 0.035, collar, 2);
+      addBox(0.045, 0.435, 0.092, 0.075, 0.028, 0.035, collar, 2);
+      addBox(0, 0.365, 0.101, 0.026, 0.14, 0.014, [0.08, 0.23, 0.11], 2);
+      addBox(-armX, 0.14, 0.005, armW * 0.82, 0.025, armW * 0.82, [0.08, 0.24, 0.12], 6);
+      addBox(armX, 0.14, 0.005, armW * 0.82, 0.025, armW * 0.82, [0.08, 0.24, 0.12], 10);
+    }
     addRounded(
       -armX * 0.72,
       0.25,
@@ -10036,6 +10065,29 @@ void main() {
       15,
     );
     // Knee and calf shaping keeps the legs cylindrical but not balloon-like.
+    if (variant.isPlayer) {
+      const shoeSole: [number, number, number] = [0.035, 0.04, 0.045];
+      addRounded(
+        -hipOff,
+        -0.12 - thighH - shinH + 0.006,
+        0.105,
+        0.105,
+        0.018,
+        0.17,
+        shoeSole,
+        15,
+      );
+      addRounded(
+        hipOff,
+        -0.12 - thighH - shinH + 0.006,
+        0.105,
+        0.105,
+        0.018,
+        0.17,
+        shoeSole,
+        18,
+      );
+    }
     addRounded(
       -hipOff,
       -0.12 - thighH * 0.92,
@@ -10692,7 +10744,12 @@ void main() {
       // stack of rectangular blocks. Structural accents provide scale without
       // adding a frame-by-frame rendering cost.
       ellipsoid(0, 1.08, -0.02, 0.72, 0.46, 0.98, body, 12, 6);
+      // A faceted cockpit with a broad front pane and separate side panes gives
+      // the aircraft a readable, purpose-built silhouette instead of a toy box.
       ellipsoid(0, 1.34, -0.63, 0.56, 0.3, 0.5, glass, 12, 5);
+      box(-0.48, 1.3, -0.72, 0.035, 0.27, 0.38, glass);
+      box(0.48, 1.3, -0.72, 0.035, 0.27, 0.38, glass);
+      box(0, 1.57, -1.03, 0.5, 0.08, 0.06, trim);
       tailFrustum(0.62, 3.08, 1.17, 0.28, 0.1, darkBody, 10);
       ellipsoid(0, 1.53, -0.8, 0.45, 0.1, 0.16, trim, 10, 3);
       box(-0.49, 1.3, -0.62, 0.06, 0.32, 0.48, trim);
@@ -10701,6 +10758,14 @@ void main() {
       // read as an aircraft from both the side and the top.
       box(-0.6, 1.0, -0.18, 0.055, 0.52, 1.18, darkBody);
       box(0.6, 1.0, -0.18, 0.055, 0.52, 1.18, darkBody);
+      // Side doors and handles add scale cues when viewed from the street.
+      box(-0.63, 1.18, -0.05, 0.025, 0.36, 0.66, trim);
+      box(0.63, 1.18, -0.05, 0.025, 0.36, 0.66, trim);
+      box(-0.655, 1.25, -0.38, 0.025, 0.035, 0.12, [0.92, 0.78, 0.28]);
+      box(0.655, 1.25, -0.38, 0.025, 0.035, 0.12, [0.92, 0.78, 0.28]);
+      // A small nose lamp and rear exhaust break up the flat color blocks.
+      ellipsoid(0, 1.1, -1.01, 0.1, 0.08, 0.045, [0.95, 0.98, 1], 8, 3);
+      ellipsoid(0, 1.05, 1.22, 0.16, 0.13, 0.08, [0.08, 0.08, 0.09], 8, 3);
       box(0, 1.54, 2.62, 0.76, 0.14, 0.42, trim);
       box(0, 1.72, 2.86, 0.16, 1.0, 0.18, body);
       box(-0.18, 1.98, 2.82, 0.1, 0.28, 0.16, trim);
@@ -12018,10 +12083,10 @@ void main() {
         this.drawMesh(
           playerMesh,
           targetX,
-          this.groundedModelY(playerMesh, targetY),
+          this.groundedModelY(playerMesh, targetY, PLAYER_RENDER_SCALE),
           targetZ,
           carYaw,
-          [1, 1, 1],
+          [PLAYER_RENDER_SCALE, PLAYER_RENDER_SCALE, PLAYER_RENDER_SCALE],
           [1, 1, 1, 1],
           true,
           0,

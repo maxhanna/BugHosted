@@ -10,6 +10,9 @@ import { TodoService } from '../../services/todo.service';
 import { FileService } from '../../services/file.service';
 const CHUNK_SIZE = 80;
 const CAR_HEIGHT = 0.4;
+const PLAYER_BLOOD_DAMAGE_THRESHOLD = 50;
+const PLAYER_KNOCKDOWN_DAMAGE_THRESHOLD = 70;
+const PLAYER_KNOCKDOWN_DURATION = 1.35;
 const JUMP_GRAVITY = 18;
 const CAR_MAX_HEALTH = 200;
 // Cars start smoking at 35% of max health and can smoke for at most
@@ -1742,13 +1745,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.walkYaw = this.playerRagdollYaw;
       // Scale the impact with the speed at the moment of exit. A slow roll is
       // survivable; a full-speed bail can remove a substantial chunk of health.
-      const impactDamage = Math.round(Math.max(0, Math.min(65, (exitSpeed - 3) * 1.55)));
+      const impactDamage = Math.round(Math.max(0, Math.min(100, (exitSpeed - 3) * 1.55)));
       if (impactDamage > 0) {
         this.health = Math.max(0, this.health - impactDamage);
         this.damageAlpha = Math.min(0.9, 0.25 + impactDamage / 100);
         this.crashShake = Math.min(1.2, 0.25 + impactDamage / 70);
         this.gtService.hit(this.getUserId(), this.getUserId(), 1, impactDamage, this.carX, this.carZ);
-        this.spawnBlood(this.carX, this.carY + 1.0, this.carZ, forwardX, 0.15, forwardZ, true);
+        this.applyPlayerDamageFeedback(impactDamage, this.carX, this.carY + 1.0, this.carZ, forwardX, 0.15, forwardZ);
       }
     } else {
       this.carVx = 0; this.carVz = 0; this.carSpeed = 0;
@@ -1961,45 +1964,84 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       // The server owns authoritative NPC simulation; retain local traffic and
       // pedestrians when the endpoint is unavailable, but replace server data
       // atomically whenever a valid response arrives.
-      this.serverNPCs = data.cars.concat(data.aircraft ?? []).map((c: any) => ({
-        ...c,
-        id: c.id,
-        // Ground vehicles must carry the sampled road layer with them. Without
-        // this, a car on a bridge is still treated as Y=0 by collision/lead
-        // checks and can interact with traffic or props beneath the deck.
-        x: c.posX,
-        y: c.posY ?? (this.isGroundVehicleType(c.type || 'car')
+      const pollTimestamp = performance.now();
+      const previousServerCars = new Map(this.serverNPCs.map(car => [car.id, car]));
+      const previousServerPeds = new Map(this.serverPedestrians.map(ped => [ped.id, ped]));
+      this.serverNPCs = data.cars.concat(data.aircraft ?? []).map((c: any) => {
+        const existing = previousServerCars.get(c.id);
+        const newX = c.posX;
+        const newZ = c.posZ;
+        const newY = c.posY ?? (this.isGroundVehicleType(c.type || 'car')
           ? getTerrainHeight(c.posX, c.posZ, undefined, true)
-          : 0),
-        z: c.posZ,
-        yaw: c.yaw ?? 0,
-        type: c.type ?? 'car',
-        mesh: this.getServerVehicleMesh(c),
-        health: c.health ?? 100,
-        colorR: c.colorR ?? 0.5, colorG: c.colorG ?? 0.5, colorB: c.colorB ?? 0.5,
-        prevX: c.posX, prevZ: c.posZ, prevYaw: c.yaw ?? 0,
-        targetX: c.posX, targetZ: c.posZ, targetYaw: c.yaw ?? 0,
-        speed: c.speed ?? 0, lastUpdate: performance.now(),
-        wreckFalling: c.wreckFalling === true,
-        wreckStartedAt: c.wreckStartedAt,
-        wreckStartY: c.wreckStartY,
-      }));
+          : 0);
+        const newYaw = c.yaw ?? 0;
+        const jumped = !existing || Math.hypot(newX - existing.x, newZ - existing.z) > 50;
+        // Keep the previous rendered position as the start of the next segment.
+        // Recreating these fields at the server position on every poll was the
+        // source of the visible stop/jump rhythm between authoritative updates.
+        const interpolation = jumped
+          ? { prevX: newX, prevZ: newZ, prevYaw: newYaw, prevY: newY }
+          : { prevX: existing.x, prevZ: existing.z, prevYaw: existing.yaw, prevY: existing.y ?? newY };
+        return {
+          ...(existing ?? {}),
+          ...c,
+          id: c.id,
+          // Ground vehicles must carry the sampled road layer with them. Without
+          // this, a car on a bridge is still treated as Y=0 by collision/lead
+          // checks and can interact with traffic or props beneath the deck.
+          x: interpolation.prevX,
+          y: interpolation.prevY,
+          z: interpolation.prevZ,
+          yaw: interpolation.prevYaw,
+          targetX: newX,
+          targetZ: newZ,
+          targetY: newY,
+          targetYaw: newYaw,
+          ...interpolation,
+          type: c.type ?? 'car',
+          mesh: existing?.mesh ?? this.getServerVehicleMesh(c),
+          health: c.health ?? 100,
+          colorR: c.colorR ?? 0.5, colorG: c.colorG ?? 0.5, colorB: c.colorB ?? 0.5,
+          speed: c.speed ?? 0,
+          lastUpdate: pollTimestamp,
+          wreckFalling: c.wreckFalling === true,
+          wreckStartedAt: c.wreckStartedAt,
+          wreckStartY: c.wreckStartY,
+        };
+      });
       this.serverPedestrians = data.pedestrians
         .filter((p: any) => Number.isFinite(p.posX) && Number.isFinite(p.posZ) && !this.isPedestrianWaterPosition(p.posX, p.posZ))
-        .map((p: any) => ({
-        ...p,
-        x: p.posX, z: p.posZ, yaw: p.yaw ?? 0,
-        gender: p.gender ?? 'male',
-        appearanceRole: p.appearanceRole === 'cop' || p.isPolice === true || p.type === 'cop' ? 'cop' : 'generic',
-        isPolice: p.isPolice === true || p.appearanceRole === 'cop' || p.type === 'cop',
-        // The backend owns role assignment. Only an explicit cop type receives
-        // the police uniform and police behavior; gender is never a role hint.
-        mesh: this.renderer.getPedestrianMesh(p.isPolice === true || p.appearanceRole === 'cop' || p.type === 'cop' ? 'cop' : (p.gender ?? 'male'), p.id),
-        health: p.health ?? 100,
-        prevX: p.posX, prevZ: p.posZ, prevYaw: p.yaw ?? 0,
-        targetX: p.posX, targetZ: p.posZ, targetYaw: p.yaw ?? 0,
-        speed: p.speed ?? 0, lastUpdate: performance.now(),
-      }));
+        .map((p: any) => {
+        const existing = previousServerPeds.get(p.id);
+        const newX = p.posX;
+        const newZ = p.posZ;
+        const newYaw = p.yaw ?? 0;
+        const jumped = !existing || Math.hypot(newX - existing.x, newZ - existing.z) > 50;
+        const interpolation = jumped
+          ? { prevX: newX, prevZ: newZ, prevYaw: newYaw }
+          : { prevX: existing.x, prevZ: existing.z, prevYaw: existing.yaw };
+        const isPolice = p.isPolice === true || p.appearanceRole === 'cop' || p.type === 'cop';
+        return {
+          ...(existing ?? {}),
+          ...p,
+          x: interpolation.prevX,
+          z: interpolation.prevZ,
+          yaw: interpolation.prevYaw,
+          targetX: newX,
+          targetZ: newZ,
+          targetYaw: newYaw,
+          ...interpolation,
+          gender: p.gender ?? 'male',
+          appearanceRole: isPolice ? 'cop' : 'generic',
+          isPolice,
+          // The backend owns role assignment. Only an explicit cop type receives
+          // the police uniform and police behavior; gender is never a role hint.
+          mesh: existing?.mesh ?? this.renderer.getPedestrianMesh(isPolice ? 'cop' : (p.gender ?? 'male'), p.id),
+          health: p.health ?? 100,
+          speed: p.speed ?? 0,
+          lastUpdate: pollTimestamp,
+        };
+      });
       // Parked vehicles are returned separately by the server. Keep this list
       // synchronized so a police cruiser remains visible after its officer
       // exits, instead of disappearing with the moving-NPC collection.
@@ -2426,8 +2468,17 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           // player who was shot.
           const previousHealth = existing.health;
           if (p.health < previousHealth) {
-            if (p.health > 0) this.spawnBlood(p.posX, p.posY + 1.0, p.posZ, 0, 0.25, 0);
-            else this.addRemotePlayerDeath(p, existing.mesh);
+            const damageTaken = previousHealth - p.health;
+            if (p.health > 0) {
+              if (damageTaken >= PLAYER_BLOOD_DAMAGE_THRESHOLD) {
+                this.spawnBlood(p.posX, p.posY + 1.0, p.posZ, 0, 0.25, 0);
+              }
+              if (damageTaken >= PLAYER_KNOCKDOWN_DAMAGE_THRESHOLD) {
+                (existing as any).knockdownTimer = PLAYER_KNOCKDOWN_DURATION;
+              }
+            } else {
+              this.addRemotePlayerDeath(p, existing.mesh);
+            }
           }
           existing.posX = p.posX; existing.posY = p.posY; existing.posZ = p.posZ;
           existing.yaw = p.carYaw; existing.carSpeed = p.carSpeed; existing.health = p.health; existing.weapon = p.weapon; existing.money = p.money;
@@ -2498,7 +2549,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         // Blood is spawned for the local victim as soon as authoritative damage
         // arrives. This covers police fire even when the shooter is outside the
         // client's currently streamed NPC list.
-        this.spawnBlood(this.carX, this.carY + 1.0, this.carZ, 0, 0.25, 0);
+        const damageTaken = Math.max(0, this.health - res.yourHealth);
+        this.applyPlayerDamageFeedback(damageTaken, this.carX, this.carY + 1.0, this.carZ, 0, 0.25, 0);
         let foundShooter = false;
         let nearestShotDist = Infinity;
         let shotX = 0, shotZ = 0;
@@ -3435,9 +3487,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           const region: 'head' | 'torso' | 'legs' = relativeY >= 1.65 ? 'head' : relativeY <= 0.72 ? 'legs' : 'torso';
           const regionRadiusSq = region === 'head' ? 0.34 : region === 'legs' ? 0.58 : 0.82;
           if (!gasTankHit && distSq > regionRadiusSq) continue;
-          if (!isVehicleTarget) this.spawnBlood(tx, ty, tz, dx, dy, dz);
           const baseDamage = Math.round(WEAPON_DAMAGES[hitWeapon] * damageScale);
           const dmg = gasTankHit ? 100000 : Math.round(baseDamage * (region === 'head' ? 3.5 : region === 'legs' ? 0.55 : 1));
+          if (!isVehicleTarget && dmg >= PLAYER_BLOOD_DAMAGE_THRESHOLD) this.spawnBlood(tx, ty, tz, dx, dy, dz);
           if (isPlayer) {
             t.health = Math.max(0, (t.health ?? 100) - dmg);
             this.gtService.hit(this.getUserId(), t.userId, 1, dmg, ox, oz, hitWeapon).then((res: any) => {
@@ -3605,6 +3657,31 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       }
     }
   }
+  private applyPlayerDamageFeedback(
+    damage: number,
+    x: number,
+    y: number,
+    z: number,
+    dirX = 0,
+    dirY = 0,
+    dirZ = 0,
+  ): void {
+    if (damage >= PLAYER_BLOOD_DAMAGE_THRESHOLD) {
+      this.spawnBlood(x, y, z, dirX, dirY, dirZ, damage < PLAYER_KNOCKDOWN_DAMAGE_THRESHOLD);
+    }
+    if (damage >= PLAYER_KNOCKDOWN_DAMAGE_THRESHOLD && this.health > 0) {
+      // Reuse the existing exit-ragdoll transport/pose path: zero velocity makes
+      // this a knockdown in place, while the longer timer leaves the player down
+      // briefly before the procedural rig eases back upright.
+      this.playerRagdollTimer = Math.max(this.playerRagdollTimer, PLAYER_KNOCKDOWN_DURATION);
+      this.playerRagdollVelocityX = 0;
+      this.playerRagdollVelocityZ = 0;
+      this.carVx = 0;
+      this.carVz = 0;
+      this.carSpeed = 0;
+    }
+  }
+
   private spawnBlood(x: number, y: number, z: number, dirX: number = 0, dirY: number = 0, dirZ: number = 0, small = false) {
     const dirLen = Math.hypot(dirX, dirY, dirZ);
     const nx = dirLen > 0.0001 ? dirX / dirLen : 0;
@@ -3858,13 +3935,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           this.health = Math.max(0, this.health - passThrough);
           this.damageAlpha = 0.5;
           this.gtService.hit(this.getUserId(), this.getUserId(), 1, passThrough, this.carX, this.carZ);
-          this.spawnBlood(this.carX, this.carY + 1.0, this.carZ, selfDx, 0, selfDz);
+          this.applyPlayerDamageFeedback(passThrough, this.carX, this.carY + 1.0, this.carZ, selfDx, 0, selfDz);
         }
       } else {
         this.health = Math.max(0, this.health - selfDmg);
         this.damageAlpha = 0.5;
         this.gtService.hit(this.getUserId(), this.getUserId(), 1, selfDmg, this.carX, this.carZ);
-        this.spawnBlood(this.carX, this.carY + 1.0, this.carZ, selfDx, 0, selfDz);
+        this.applyPlayerDamageFeedback(selfDmg, this.carX, this.carY + 1.0, this.carZ, selfDx, 0, selfDz);
       }
     }
   }
@@ -4287,8 +4364,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
             ped.punchTimer = nowSec;
             // Swing the arm so the retaliation reads as a punch, not just blood.
             this.renderer.triggerPunch(ped.id);
-            this.spawnBlood(this.carX, 1.2, this.carZ, pdx / pdist, 0, pdz / pdist);
-            // Report as an anonymous NPC hit so the damage survives the next
+              // Report as an anonymous NPC hit so the damage survives the next
             // health poll sync (server _playerHealth is authoritative), without
             // raising the player's own wanted level.
             this.gtService.hit(0, this.getUserId(), 1, 4, this.carX, this.carZ, 0);
@@ -5374,28 +5450,35 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
   private updateCar(dt: number) {
     if (this._arrested) return; // can't drive away mid-arrest
-    // Sports cars (lambo, countach, BRZ, challenger) are faster — a supercar
-    // kick on top of the doubled base top speed.
+    // Sports cars (lambo, countach, BRZ, challenger) have a little more
+    // acceleration, but they should still build speed progressively instead of
+    // reaching highway speed in a single second.
     const sports = this.isSportsCarMesh(this.playerVehicleMesh);
-    const accelBoost = sports ? 1.4 : 1;
+    const accelBoost = sports ? 1.22 : 1;
     const surfaceBiome = getBiome(Math.floor(this.carX / CHUNK_SIZE), Math.floor(this.carZ / CHUNK_SIZE));
     const drivingOnSand = surfaceBiome === 'beach';
     const sandAccel = drivingOnSand ? 0.72 : 1;
     let accelForce = 0;
     let isReversing = false;
-    if (this.keys.has('KeyW')) accelForce = 62 * accelBoost * sandAccel;
+    // Acceleration is expressed in world units per second squared. The old
+    // 62 m/s² throttle impulse made a car jump from 0 to 100 km/h in about a
+    // second. A lower sustained force, combined with mild rolling resistance,
+    // gives normal cars a roughly 3.5–4 second 0–100 km/h run and sports cars
+    // a modestly quicker launch while preserving their higher top speed.
+    const forwardAccel = 12 * accelBoost * sandAccel;
+    if (this.keys.has('KeyW')) accelForce = forwardAccel;
     if (this.keys.has('KeyS')) {
       if (this.carSpeed > 1) { accelForce = -60 * sandAccel; }
-      else { isReversing = true; accelForce = -20 * sandAccel; }
+      else { isReversing = true; accelForce = -10 * sandAccel; }
     }
     let steer = 0;
     if (this.keys.has('KeyA')) steer = 1;
     if (this.keys.has('KeyD')) steer = -1;
     if (this.isMobile && this.joystickActive) {
-      if (this.joystickY < 0.1) accelForce = 62 * accelBoost * sandAccel * this.joystickY;
+      if (this.joystickY < 0.1) accelForce = forwardAccel * this.joystickY;
       else if (this.joystickY > -0.1) {
         if (this.carSpeed > 1) { accelForce = -60 * sandAccel * (-this.joystickY); }
-        else { isReversing = true; accelForce = -20 * sandAccel * (-this.joystickY); }
+        else { isReversing = true; accelForce = -10 * sandAccel * (-this.joystickY); }
       }
       steer += -this.joystickX;
     }
@@ -5415,7 +5498,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     // Sand absorbs more engine momentum and offers much less lateral grip than
     // asphalt. Keeping lateral velocity is what makes the car wash out and
     // slide instead of pivoting cleanly through every turn.
-    const forwardDrag = drivingOnSand ? 1.35 : 0.55;
+    const forwardDrag = drivingOnSand ? 0.45 : 0.30;
     fwdSpeed *= Math.max(0, 1 - forwardDrag * dt);
     const isHandbraking = this.keys.has('Space');
     const grip = isHandbraking ? (drivingOnSand ? 0.75 : 1.5) : (drivingOnSand ? 3.2 : 12.0);
@@ -6863,7 +6946,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           this.spawnBlood(pedTarget.x, 1.2, pedTarget.z, pdx / pd, 0, pdz / pd, true);
           this.renderer.triggerFlinch(pedTarget.id);
         } else {
-          this.spawnBlood(this.carX, this.carY + 1.0, this.carZ, dx / d3, dy / d3, dz / d3, true);
           this.damageAlpha = 0.45;
           this.crashShake = Math.max(this.crashShake, 0.12);
           // The damage vignette is an *ngIf overlay and this loop runs outside
@@ -7564,21 +7646,64 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const t = this.carRockPhase;
     return (Math.sin(t * 1.5) + Math.sin(t * 3.7) * 0.4) * 0.25;
   }
+  /** True when an entity can contribute to the current camera image. Server
+   * entities outside this cone are snapped to the latest authority instead of
+   * spending a frame-by-frame interpolation update on them. */
+  private isEntityInCameraView(x: number, z: number): boolean {
+    const cameraX = this.carX - Math.sin(this.camYaw) * this.camDist;
+    const cameraZ = this.carZ - Math.cos(this.camYaw) * this.camDist;
+    const dx = x - cameraX;
+    const dz = z - cameraZ;
+    const distanceSq = dx * dx + dz * dz;
+    const maxDistance = Math.max(120, this.viewDistance + 80);
+    if (distanceSq > maxDistance * maxDistance) return false;
+    if (distanceSq < 18 * 18) return true;
+    const forwardX = Math.sin(this.camYaw);
+    const forwardZ = Math.cos(this.camYaw);
+    const depth = dx * forwardX + dz * forwardZ;
+    if (depth <= -8) return false;
+    // Approximate the renderer's wide third-person frustum with a 110° cone.
+    const lateral = Math.abs(dx * forwardZ - dz * forwardX);
+    return lateral <= Math.max(12, depth * 1.43);
+  }
+
   private updateNPCInterpolation() {
     const now = performance.now();
-    for (const npc of this.serverNPCs) this.lerpNPC(npc, now);
-    for (const ped of this.serverPedestrians) this.lerpNPC(ped, now);
+    for (const npc of this.serverNPCs) this.lerpNPC(npc, now, this.isEntityInCameraView(npc.targetX ?? npc.x, npc.targetZ ?? npc.z));
+    for (const ped of this.serverPedestrians) this.lerpNPC(ped, now, this.isEntityInCameraView(ped.targetX ?? ped.x, ped.targetZ ?? ped.z));
   }
-  private lerpNPC(npc: any, now: number) {
+  private lerpNPC(npc: any, now: number, visible = true) {
     if (npc.lastUpdate === undefined || npc.targetX === undefined) return;
-    const t = Math.min(1, (now - npc.lastUpdate) / 1000);
-    npc.x = npc.prevX + (npc.targetX - npc.prevX) * t;
-    npc.z = npc.prevZ + (npc.targetZ - npc.prevZ) * t;
-    if (npc.targetY !== undefined) npc.y = npc.prevY + (npc.targetY - npc.prevY) * t;
-    let yawDiff = npc.targetYaw - npc.prevYaw;
+    if (!visible) {
+      // Keep off-screen entities authoritative and cheap. When they re-enter the
+      // view they begin from this current server position, so no stale movement
+      // catches up visibly behind the camera.
+      npc.x = npc.targetX;
+      npc.z = npc.targetZ;
+      if (npc.targetY !== undefined) npc.y = npc.targetY;
+      npc.yaw = npc.targetYaw ?? npc.yaw;
+      return;
+    }
+    const elapsed = Math.max(0, now - npc.lastUpdate);
+    const t = Math.min(1, elapsed / 1000);
+    const eased = t * t * (3 - 2 * t);
+    const targetYaw = npc.targetYaw ?? npc.prevYaw;
+    // Interpolate the authoritative segment, then continue for a short bounded
+    // period using the server's reported velocity. This removes the brief pause
+    // at the end of a slow poll without allowing a delayed request to launch a
+    // car indefinitely through the world.
+    const extrapolation = elapsed > 1000
+      ? Math.min(0.35, (elapsed - 1000) / 1000) * (npc.speed ?? 0)
+      : 0;
+    const velocityX = Math.sin(targetYaw) * extrapolation;
+    const velocityZ = Math.cos(targetYaw) * extrapolation;
+    npc.x = npc.prevX + (npc.targetX - npc.prevX) * eased + velocityX;
+    npc.z = npc.prevZ + (npc.targetZ - npc.prevZ) * eased + velocityZ;
+    if (npc.targetY !== undefined) npc.y = npc.prevY + (npc.targetY - npc.prevY) * eased;
+    let yawDiff = targetYaw - npc.prevYaw;
     while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
     while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
-    npc.yaw = npc.prevYaw + yawDiff * t;
+    npc.yaw = npc.prevYaw + yawDiff * eased;
   }
   // ── Taxi passenger ride (destination waypoints) ──────────────────────────
   private nearestDealership(): { x: number; z: number; yaw: number } {
@@ -8279,7 +8404,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           // so there's a fair window to fight back or flee.
           this.health = Math.max(0, this.health - 8);
           this.damageAlpha = 0.3;
-          this.spawnBlood(this.carX, this.carY + 1.0, this.carZ, Math.sin(cop.yaw), 0.3, Math.cos(cop.yaw), true);
           this.playPunchThud();
         }
       } else {

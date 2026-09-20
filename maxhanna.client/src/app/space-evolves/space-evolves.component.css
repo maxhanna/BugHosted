@@ -796,6 +796,78 @@
     color: #b8ffd3
 }
 
+.shop-hint {
+    display: block;
+    margin-top: 3px;
+    font-size: 11px;
+    opacity: .75;
+}
+
+.evolution-shop-panel {
+    width: min(94vw, 620px);
+    max-height: min(86vh, 720px);
+    overflow: auto;
+}
+
+.evolution-shop-content {
+    padding: 14px;
+}
+
+.evolution-score {
+    color: #ffe08a;
+    font-size: 1.05rem;
+}
+
+.evolution-notice {
+    padding: 9px 11px;
+    margin: 8px 0;
+    border: 1px solid #73d8ff;
+    border-radius: 8px;
+    color: #d7f6ff;
+    background: rgba(26, 105, 145, .28);
+}
+
+.evolution-recipe {
+    margin: 12px 0;
+    padding: 12px;
+    border: 1px solid #416783;
+    border-radius: 10px;
+    background: rgba(8, 24, 43, .72);
+}
+
+.evolution-recipe-heading {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #eaf8ff;
+    font-size: 1.05rem;
+}
+
+.evolution-cost {
+    margin-left: auto;
+    color: #ffe08a;
+    white-space: nowrap;
+}
+
+.evolution-ingredients {
+    margin: 5px 0;
+    color: #b9d9ff;
+    font-size: .9rem;
+}
+
+.evolution-recipe p {
+    margin: 7px 0;
+}
+
+.evolution-recipe small {
+    color: #a3c4d7;
+}
+
+.evolution-recipe button {
+    display: block;
+    margin-top: 10px;
+}
+
 .gameover-card,
 .pause-card {
     width: min(calc(100vw - 32px), 560px);
