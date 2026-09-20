@@ -142,7 +142,11 @@ namespace maxhanna.Server.Controllers
         // expensive on a huge index, so it runs concurrently but bounded, cached
         // per-query, and is never allowed to fail or stall the response — if it's
         // slow we fall back to the cached overall index count so paging still works.
-        var resultsTask = ExecuteResultsAsync(connectionString!, resultsSql, paramizer, ct);
+        // Broad terms can match a very large part of the index. Bound the
+        // result query independently so a slow relevance sort cannot hold the
+        // entire SearchUrl request until the proxy's timeout.
+        var resultsTask = ExecuteResultsWithFallbackAsync(connectionString!, resultsSql, paramizer, ct,
+          request.Url?.Trim() ?? string.Empty, pageSize, offset);
 
         string countKey = BuildSearchCountKey(request, searchAll, siteOnly, siteDomain);
         long? cachedTotal = null;
@@ -496,7 +500,9 @@ namespace maxhanna.Server.Controllers
                 AGAINST (@searchBoolean IN BOOLEAN MODE)
           AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
     ) AS u
-    ORDER BY u.`rnk` ASC, u.`ft_score` DESC, u.id DESC
+    -- For broad terms, avoid an expensive relevance sort over the entire
+    -- match set; the bounded first page still returns useful indexed hits.
+    ORDER BY u.id DESC
     LIMIT @pageSize OFFSET @offset;";
 
       countSql = @"
@@ -534,6 +540,7 @@ namespace maxhanna.Server.Controllers
       var compact = BuildCompact(raw);
       command.Parameters.AddWithValue("@searchCompact", compact);
       command.Parameters.AddWithValue("@searchCompactLike", "%" + compact + "%");
+      command.Parameters.AddWithValue("@keywordLike", "%" + raw + "%");
 
       // BOOLEAN MODE query
       var searchBoolean = BuildBooleanQuery(raw);
@@ -1567,13 +1574,63 @@ namespace maxhanna.Server.Controllers
       }
     }
 
+    private async Task<List<Metadata>> ExecuteResultsWithFallbackAsync(
+        string connectionString,
+        string sql,
+        Action<MySqlCommand> paramizer,
+        CancellationToken requestToken,
+        string query,
+        int pageSize,
+        int offset)
+    {
+      using var budgetCts = CancellationTokenSource.CreateLinkedTokenSource(requestToken);
+      budgetCts.CancelAfter(TimeSpan.FromSeconds(12));
+      try
+      {
+        var results = await ExecuteResultsAsync(connectionString, sql, paramizer, budgetCts.Token, 12);
+        if (results.Count > 0 || !IsKeywordQuery(query)) return results;
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db($"Crawler full-text result query failed; using bounded fallback: {ex.Message}", null, "CRAWLERCTRL", true);
+      }
+
+      // A common word such as "president" can make relevance ordering over a
+      // large FULLTEXT result set expensive. Return a useful first page from a
+      // bounded indexed-row lookup instead of failing the whole request.
+      try
+      {
+        using var fallbackCts = CancellationTokenSource.CreateLinkedTokenSource(requestToken);
+        fallbackCts.CancelAfter(TimeSpan.FromSeconds(8));
+        const string fallbackSql = @"
+          SELECT id, url, title, description, author, keywords, image_url, response_code
+          FROM search_results sr
+          WHERE (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
+            AND (sr.title LIKE @keywordLike
+              OR sr.description LIKE @keywordLike
+              OR sr.author LIKE @keywordLike
+              OR sr.keywords LIKE @keywordLike
+              OR sr.url LIKE @keywordLike)
+          ORDER BY sr.id DESC
+          LIMIT @pageSize OFFSET @offset;";
+        var fallback = await ExecuteResultsAsync(connectionString, fallbackSql, paramizer, fallbackCts.Token, 8);
+        return fallback;
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db($"Crawler bounded keyword fallback failed: {ex.Message}", null, "CRAWLERCTRL", true);
+        return new List<Metadata>();
+      }
+    }
+
     private async Task<List<Metadata>> ExecuteResultsAsync(
-        string connectionString, string sql, Action<MySqlCommand> paramizer, CancellationToken ct)
+        string connectionString, string sql, Action<MySqlCommand> paramizer,
+        CancellationToken ct, int commandTimeoutSeconds = 45)
     {
       var list = new List<Metadata>();
       await using var conn = new MySqlConnection(connectionString);
       await conn.OpenAsync(ct);
-      await using var cmd = new MySqlCommand(sql, conn) { CommandTimeout = 45 };
+      await using var cmd = new MySqlCommand(sql, conn) { CommandTimeout = commandTimeoutSeconds };
       paramizer(cmd);
 
       await using var reader = await cmd.ExecuteReaderAsync(ct);

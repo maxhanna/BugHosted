@@ -29,6 +29,8 @@ export class Story {
   hidden?: boolean;  
   polls?: Array<Poll> | undefined;
   visibility?: string | undefined;
+  /** True after the frontend has decrypted the wire representation. */
+  storyTextDecrypted?: boolean;
 } 
 export class MetaData {
   id?: number;

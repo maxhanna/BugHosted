@@ -352,7 +352,7 @@ namespace maxhanna.Server.Controllers
         try
         {
             string romDisplay = System.IO.Path.GetFileNameWithoutExtension(romFileName);
-            string eventText = $"is playing {romDisplay} on the emulator";
+            string eventText = $"is playing {romDisplay}";
             await UserEventController.InsertUserEventStatic(userId, "emulator_play", eventText, fileId, null, _config, _log);
         }
         catch (Exception ex)

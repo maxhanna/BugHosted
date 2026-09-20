@@ -54,16 +54,6 @@
       Total: {{ directory ? directory.totalCount :0 }}
     </div>
   </div>
-  <!-- Book view filter — only in book view, inside the Books tree -->
-  <div class="bookFilterBar" *ngIf="isBookView && isInBooksDirectory() && userIsLoggedIn()">
-    <span class="bookFilterLabel">Books:</span>
-    <button class="bookFilterBtn" [class.active]="bookFilter === 'all'" (click)="setBookFilter('all')"
-      title="Show everything in this folder">All</button>
-    <button class="bookFilterBtn" [class.active]="bookFilter === 'library'" (click)="setBookFilter('library')"
-      title="Only books registered in your library (plus books shared with you)">📚 My library</button>
-    <button class="bookFilterBtn" [class.active]="bookFilter === 'community'" (click)="setBookFilter('community')"
-      title="Community books: publicly shared books and books shared with you">🌍 Community</button>
-  </div>
   <div *ngIf="!isLoading && isDirectoryEmpty">
     Empty.
     <button (click)="refreshDirectory()" class="refreshButton">Refresh</button>

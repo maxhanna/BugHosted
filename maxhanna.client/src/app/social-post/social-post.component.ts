@@ -108,10 +108,16 @@ export class SocialPostComponent extends ChildComponent implements OnInit {
 
     // Pre-loaded full story (deep-link) → use it directly, else fetch by id.
     if (this.story && this.story.id && this.story.storyText != null && this.story.storyText !== undefined) {
-      try {
-        this.story.storyText = this.encryptionService.decryptContent(this.story.storyText, this.story.user?.id + '');
-      } catch (ex) {
-        console.error(`Failed to decrypt story ID ${this.story.id}:`, ex);
+      if (!this.story.storyTextDecrypted) {
+        try {
+          this.story.storyText = this.encryptionService.decryptContent(
+            this.story.storyText,
+            String(this.story.user?.id ?? 0)
+          );
+          this.story.storyTextDecrypted = true;
+        } catch (ex) {
+          console.error(`Failed to decrypt story ID ${this.story.id}:`, ex);
+        }
       }
       this.isLoading = false;
       await this.afterStoryReady();
@@ -153,10 +159,16 @@ export class SocialPostComponent extends ChildComponent implements OnInit {
         this.storyAccessDenied = s;
         this.checkIfFollowingAuthor();
       } else {
-        try {
-          s.storyText = this.encryptionService.decryptContent(s.storyText ?? '', s.user?.id + '');
-        } catch (ex) {
-          console.error(`Failed to decrypt story ID ${s.id}:`, ex);
+        if (!s.storyTextDecrypted) {
+          try {
+            s.storyText = this.encryptionService.decryptContent(
+              s.storyText ?? '',
+              String(s.user?.id ?? 0)
+            );
+            s.storyTextDecrypted = true;
+          } catch (ex) {
+            console.error(`Failed to decrypt story ID ${s.id}:`, ex);
+          }
         }
         this.story = s;
         await this.afterStoryReady();

@@ -375,6 +375,22 @@ button {
   left: 18px;
 }
 
+.equipment-crafting-btn {
+  align-self: center;
+  margin-top: 10px;
+  padding: 7px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 5px;
+  background: rgba(55, 85, 125, 0.8);
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.equipment-crafting-btn:hover {
+  background: rgba(75, 115, 170, 0.95);
+}
+
 .jump-btn {
   bottom: 82px;
   right: 18px;
@@ -645,6 +661,34 @@ button {
   z-index: 101;
   opacity: 90%;
 
+}
+
+.recipe-search {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: 10px 0;
+}
+
+.recipe-search label {
+  color: #cfd8e3;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.recipe-search input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.35);
+  color: #fff;
+  font: inherit;
+}
+
+.recipe-search input::placeholder {
+  color: #aab4c0;
 }
 
 .crafting-toggle {

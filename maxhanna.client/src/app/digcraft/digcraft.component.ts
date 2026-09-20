@@ -210,6 +210,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   public get showCrafting(): boolean { return this._showCrafting; }
   public set showCrafting(v: boolean) { this._showCrafting = v; this.onMenuStateChanged(); }
   availableRecipes: CraftRecipe[] = [];
+  recipeSearchQuery = '';
   craftingProgress = 0;
   craftingRecipeName = '';
   // Current crafting type: 'general' (default), 'smithing', or 'furnace'
@@ -941,6 +942,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     const isSolid = (b: number) => b !== BlockId.AIR && b !== BlockId.WATER && b !== BlockId.LAVA
       && b !== BlockId.LEAVES && b !== BlockId.TALLGRASS && b !== BlockId.SHRUB
+      && b !== BlockId.FLOWER_POPPY && b !== BlockId.FLOWER_DANDELION
+      && b !== BlockId.FLOWER_BLUE && b !== BlockId.FLOWER_WHITE && b !== BlockId.FLOWER_PINK
       && b !== BlockId.TREE && b !== BlockId.BONFIRE && b !== BlockId.CHEST
       && b !== BlockId.TORCH // TORCH
       && b !== BlockId.WINDOW_OPEN && b !== BlockId.DOOR_OPEN
@@ -2349,6 +2352,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         || b === BlockId.SHRUB
         || b === BlockId.TREE
         || b === BlockId.TALLGRASS
+        || b === BlockId.FLOWER_POPPY
+        || b === BlockId.FLOWER_DANDELION
+        || b === BlockId.FLOWER_BLUE
+        || b === BlockId.FLOWER_WHITE
+        || b === BlockId.FLOWER_PINK
         || b === BlockId.BONFIRE
         || b === BlockId.TORCH
         || b === BlockId.CAULDRON
@@ -5033,7 +5041,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private tryAutoPickupDroppedItems(): void {
     const userId = this.parentRef?.user?.id;
     if (!userId) return;
-    const pickupRadius = 1.35;
+    // Dropped items are placed 1.5 blocks in front of the camera. Use a little
+    // more than that distance so the player can collect an item while standing
+    // at its drop point instead of having to walk past it.
+    const pickupRadius = 2.25;
     for (const item of this.groundItems) {
       if (this.recentlyDropped.has(item.id)) continue;
       if (this.pendingDroppedItemPickups.has(item.id)) continue;
@@ -5045,12 +5056,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         this.pendingDroppedItemPickups.add(item.id);
         this.digcraftService.pickupItem(userId, this.worldId, item.id).then(res => {
           if (res?.ok) {
-            const added = this.addToInventory(res.itemId, res.quantity, res.durability);
-            if (added) {
-              this.groundItems = this.groundItems.filter(g => g.id !== item.id);
-              this.localDroppedItems.delete(item.id);
-              this.recentlyDropped.delete(item.id);
-            }
+            // The server has consumed the drop. Remove it locally even if a
+            // stale client inventory snapshot temporarily reports no room;
+            // otherwise the same already-consumed item remains stuck on the
+            // ground and every later pickup attempt can only return not_found.
+            this.addToInventory(res.itemId, res.quantity, res.durability);
+            this.groundItems = this.groundItems.filter(g => g.id !== item.id);
+            this.localDroppedItems.delete(item.id);
+            this.recentlyDropped.delete(item.id);
           }
         }).finally(() => {
           this.pendingDroppedItemPickups.delete(item.id);
@@ -6565,6 +6578,23 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         console.error('Failed to save known recipe to server');
       });
     }
+  }
+
+  get filteredAvailableRecipes(): CraftRecipe[] {
+    const query = this.recipeSearchQuery.trim().toLowerCase();
+    if (!query) return this.availableRecipes;
+    return this.availableRecipes.filter(recipe => {
+      const searchableText = [
+        recipe.name,
+        this.getItemName(recipe.result.itemId),
+        ...recipe.ingredients.map(ingredient => this.getItemName(ingredient.itemId))
+      ].join(' ').toLowerCase();
+      return searchableText.includes(query);
+    });
+  }
+
+  onRecipeSearchInput(event: Event): void {
+    this.recipeSearchQuery = (event.target as HTMLInputElement)?.value ?? '';
   }
 
   updateAvailableRecipes(): void {

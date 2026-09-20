@@ -243,6 +243,11 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
         icon: navIcon("Wordler", "🧠"),
         description: "Wordler win",
         component: "Wordler",
+      }, 
+      wordler_start: {
+        icon: navIcon("Wordler", "🧠"),
+        description: "Wordler started",
+        component: "Wordler",
       },
       youtube: {
         icon: navIcon("YouTube", "📺"),

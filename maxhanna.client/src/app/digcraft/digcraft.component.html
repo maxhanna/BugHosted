@@ -4,7 +4,7 @@
     [font]="'minecraftFont'" 
     [style.z-index]="100"
     [style.position]="'relative'"
-    [usePointerDown]="true"
+    [usePointerDown]="OnMobile()"
     (closeClicked)="safeExit($event); $event.preventDefault();"
     (menuClicked)="openPanel('menu'); $event.preventDefault();">
   </app-title-bar>
@@ -269,6 +269,10 @@
                 </div>
                 <div *ngIf="!leftHand || leftHand === 0" class="armor-empty">-</div>
               </div>
+              <button *ngIf="!onMobile()" class="equipment-crafting-btn"
+                (pointerdown)="openPanel('crafting', $event, 'general')" title="Open crafting">
+                🔨 Crafting
+              </button>
             </div>
 
             <div class="inv-grid" *ngIf="!showFacePicker">
@@ -603,6 +607,12 @@
         <button class="toggle-btn" [class.active]="craftingMode === 'crafting'" (pointerdown)="craftingMode = 'crafting'; updateAvailableRecipes()">Crafting</button>
         <button class="toggle-btn" [class.active]="craftingMode === 'recipes'" (pointerdown)="craftingMode = 'recipes'; updateAvailableRecipes()">Recipes</button>
       </div>
+      <div class="recipe-search" *ngIf="craftingMode === 'recipes' && (craftingProgress <= 0 || craftingProgress === 100)">
+        <label for="digcraft-recipe-search">Search recipes</label>
+        <input id="digcraft-recipe-search" type="search" [value]="recipeSearchQuery"
+          placeholder="Search by recipe, result, or ingredient…" autocomplete="off"
+          (input)="onRecipeSearchInput($event)" />
+      </div>
       <div *ngIf="craftingProgress > 0" class="craft-progress">
         <div class="craft-progress-bar" [style.width.%]="craftingProgress * 100"></div>
         <div class="craft-progress-text">
@@ -612,8 +622,8 @@
       </div>
       <div class="recipe-list" #recipeList
         style="overflow-y: auto; max-height: 50vh;"
-        *ngIf="availableRecipes.length > 0 && (craftingProgress <= 0 || craftingProgress === 100)">
-        <div *ngFor="let recipe of availableRecipes" class="recipe-card" id="recipe-{{recipe.result.itemId}}">
+        *ngIf="filteredAvailableRecipes.length > 0 && (craftingProgress <= 0 || craftingProgress === 100)">
+        <div *ngFor="let recipe of filteredAvailableRecipes" class="recipe-card" id="recipe-{{recipe.result.itemId}}">
           <div>
             <div class="recipe-result">
               <div class="item-icon" [style.background]="getItemColor(recipe.result.itemId)">
@@ -643,9 +653,10 @@
           </div>
         </div>
       </div>
-      <div *ngIf="availableRecipes.length === 0" class="no-recipes">
+      <div *ngIf="filteredAvailableRecipes.length === 0" class="no-recipes">
         <span *ngIf="craftingMode === 'crafting'">No recipes available. Gather more materials!</span>
-        <span *ngIf="craftingMode === 'recipes'">No recipes discovered yet. Craft something to unlock recipes!</span>
+        <span *ngIf="craftingMode === 'recipes' && recipeSearchQuery.trim()">No matching recipes found.</span>
+        <span *ngIf="craftingMode === 'recipes' && !recipeSearchQuery.trim()">No recipes discovered yet. Craft something to unlock recipes!</span>
       </div>
     </div>
   </div>

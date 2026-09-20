@@ -100,6 +100,30 @@
 }
 .menuPanel button:hover { background: var(--hover-bg-color); }
 .menuPanel button:disabled { opacity: 0.5; cursor: not-allowed; }
+.bookFilterBar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--main-border-color);
+}
+.bookFilterLabel {
+  font-size: 0.8rem;
+  font-weight: 700;
+  opacity: 0.8;
+  margin-right: 0.15rem;
+}
+.bookFilterBtn {
+  padding: 0.35rem 0.55rem !important;
+  text-align: center !important;
+  white-space: nowrap;
+}
+.bookFilterBtn:hover { opacity: 0.85; cursor: pointer; }
+.bookFilterBtn.active {
+  font-weight: 800;
+  box-shadow: 2px 2px 2px var(--main-link-color);
+}
 .local-folder-overlay {
   position: fixed;
   inset: 0;

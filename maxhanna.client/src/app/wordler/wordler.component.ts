@@ -162,7 +162,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
     
     this.userEventService.insertUserEvent(
       this.parentRef?.user?.id ?? 0,
-      "wordler_win",
+      "wordler_start",
       'Started a new Wordler game on ' + this.getDifficultyByValue(this.selectedDifficulty),
     ); 
 

@@ -474,7 +474,10 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
         }
         // Decrypt story text client-side to match normal flow
         try {
-          single.storyText = this.encryptionService.decryptContent(single.storyText ?? '', single.user?.id + '');
+          if (!single.storyTextDecrypted) {
+          single.storyText = this.encryptionService.decryptContent(single.storyText ?? '', String(single.user?.id ?? 0));
+          single.storyTextDecrypted = true;
+        }
         } catch (ex) {
           console.error('Failed to decrypt deep-linked story text', ex);
         }

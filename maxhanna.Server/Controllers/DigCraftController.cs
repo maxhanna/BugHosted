@@ -4410,8 +4410,11 @@ var mobSpeed = t switch
 
                 var armorPts = ArmorPointsForItem(tgtHelmet) + ArmorPointsForItem(tgtChest)
                               + ArmorPointsForItem(tgtLegs) + ArmorPointsForItem(tgtBoots);
-                var reduction = Math.Min(0.8f, armorPts * 0.04f);
-                int finalDamage = (int)Math.Max(1, Math.Floor(damage * (1.0f - reduction)));
+                // Armor protection scales by the defined armor points. A full
+                // diamond set is 20 points, so hostile/player damage is fully
+                // absorbed; weaker sets reduce progressively smaller amounts.
+                var reduction = Math.Min(1.0f, armorPts * 0.05f);
+                int finalDamage = (int)Math.Max(0, Math.Floor(damage * (1.0f - reduction)));
 
                 // Reduce armor durability in memory
                 if (armorPts > 0)
@@ -4512,7 +4515,7 @@ var mobSpeed = t switch
                 int helmet = eq?.Helmet ?? 0, chest = eq?.Chest ?? 0, legs = eq?.Legs ?? 0, boots = eq?.Boots ?? 0;
 
                 var armorPoints = ArmorPointsForItem(helmet) + ArmorPointsForItem(chest) + ArmorPointsForItem(legs) + ArmorPointsForItem(boots);
-                var reduction = Math.Min(0.8f, armorPoints * 0.04f);
+                var reduction = Math.Min(1.0f, armorPoints * 0.05f);
                 var reducedDamage = (int)Math.Floor(damage * (1.0f - reduction));
                 if (reducedDamage < 0) reducedDamage = 0;
 
@@ -8045,7 +8048,7 @@ var mobSpeed = t switch
                     }
 
                     int existingSlot = -1;
-                    int emptySlot = -1;
+                    var usedSlots = new HashSet<int>();
                     using (var invCmd = new MySqlCommand("SELECT slot, item_id FROM maxhanna.digcraft_inventory WHERE player_id = @pid", conn, tx))
                     {
                         invCmd.Parameters.AddWithValue("@pid", playerId);
@@ -8054,11 +8057,23 @@ var mobSpeed = t switch
                         {
                             int slot = ri.GetInt32("slot");
                             int iid = ri.GetInt32("item_id");
-                            if (iid == itemId) existingSlot = slot;
-                            else if (emptySlot < 0 && iid <= 0) emptySlot = slot;
+                            usedSlots.Add(slot);
+                            if (iid == itemId && existingSlot < 0) existingSlot = slot;
                         }
                     }
 
+                    // Empty inventory slots are intentionally not stored as rows.
+                    // Looking for an explicit item_id <= 0 therefore always made
+                    // pickups fail unless the player already carried that item.
+                    int emptySlot = -1;
+                    for (int slot = 0; slot < 36; slot++)
+                    {
+                        if (!usedSlots.Contains(slot))
+                        {
+                            emptySlot = slot;
+                            break;
+                        }
+                    }
                     int targetSlot = existingSlot >= 0 ? existingSlot : emptySlot;
                     if (targetSlot < 0) return Ok(new { ok = false, reason = "inventory_full" });
 
@@ -8531,8 +8546,8 @@ var mobSpeed = t switch
 
                 var armorPoints = ArmorPointsForItem(helmet) + ArmorPointsForItem(chest)
                                 + ArmorPointsForItem(legs) + ArmorPointsForItem(boots);
-                var reduction = Math.Min(0.8f, armorPoints * 0.04f);
-                var reducedDamage = Math.Max(1, (int)Math.Floor(damage * (1.0f - reduction)));
+                var reduction = Math.Min(1.0f, armorPoints * 0.05f);
+                var reducedDamage = Math.Max(0, (int)Math.Floor(damage * (1.0f - reduction)));
 
                 state.Health = Math.Max(0, state.Health - reducedDamage);
 

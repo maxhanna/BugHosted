@@ -122,9 +122,18 @@
     <div class="menuPanel" *ngIf="isMenuPanelOpen">
       <div class="toolbar-actions">
         <app-file-upload *ngIf="isLoggedIn" style="width:100%" [currentDirectory]="uploadDirectory" [user]="parentRef?.user!"
-          [inputtedParentRef]="parentRef" [uploadButtonText]="'Add Book(s)'" [maxSelectedFiles]="100" [labelStyle]="{ width: '100%' }"
+          [inputtedParentRef]="parentRef" [uploadButtonText]="'Add Book(s)'" [maxSelectedFiles]="100" [labelStyle]="{ width: '90%' }"
           [allowedFileTypes]="allowedBookTypes" [displayPrivatePublicOption]="true" [displayOptionsAndTopicsButtons]="false"
           [disableFileCompression]="true" (userUploadFinishedEvent)="uploadFinished($event)"></app-file-upload>
+      </div>
+      <div class="bookFilterBar" *ngIf="isLoggedIn">
+        <span class="bookFilterLabel">Books:</span>
+        <button class="bookFilterBtn" [class.active]="fileSearch?.bookFilter === 'all'" (click)="fileSearch?.setBookFilter('all')"
+          title="Show everything in this folder">All</button>
+        <button class="bookFilterBtn" [class.active]="fileSearch?.bookFilter === 'library'" (click)="fileSearch?.setBookFilter('library')"
+          title="Only books registered in your library (plus books shared with you)">📚 My library</button>
+        <button class="bookFilterBtn" [class.active]="fileSearch?.bookFilter === 'community'" (click)="fileSearch?.setBookFilter('community')"
+          title="Community books: publicly shared books and books shared with you">🌍 Community</button>
       </div>
       <button (click)="openLocalFolderPopup()" [attr.title]="localEbookFolderNeedsReconnect ? 'The saved folder needs permission again' : (localEbookFolderName ? 'Books folder connected' : 'Choose a folder for local eBooks')">
         💾 Open books from folder

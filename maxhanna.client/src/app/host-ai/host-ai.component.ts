@@ -90,18 +90,21 @@ export class HostAiComponent extends ChildComponent implements OnInit, AfterView
   }
 
   ngAfterViewInit() {
-    if (this.preloadedMessage && this.chatInput) {
-      const query = this.preloadedMessage.trim();
-      this.chatInput.nativeElement.value = query;
+    if (!this.preloadedMessage) return;
+
+    // Embedded crawler searches may use the collapsible chat layout. Expand it
+    // before looking up the input so the preloaded question can actually be
+    // submitted instead of leaving HostAI permanently empty.
+    this.aiChatExpanded = true;
+    const query = this.preloadedMessage.trim();
+    setTimeout(() => {
+      const input = this.chatInput?.nativeElement;
+      if (!query || !input || this.isStreaming || this.chatMessages?.length) return;
+      input.value = query;
       this.userMessage = query;
-      // Let the embedded view and parent reference settle before sending. Clear
-      // the preload afterward so change detection cannot re-trigger the same
-      // question and replace the server response with the greeting state.
-      setTimeout(() => {
-        if (!query || this.isStreaming || this.chatMessages?.length) return;
-        this.sendMessage();
-      }, 400);
-    }
+      // Let the embedded view and parent reference settle before sending.
+      this.sendMessage();
+    }, 400);
   }
 
 

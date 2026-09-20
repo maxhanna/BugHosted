@@ -36,6 +36,13 @@ export class EncryptionService {
   decryptContent(encryptedHex: string, password: string = 'defaultPassword'): string {
     if (!encryptedHex) return '';
     if (password === undefined) return encryptedHex;
+
+    // Social responses are encrypted only while travelling over the wire. Some
+    // older/public responses may already be plain text; do not feed those bytes
+    // through the hex decoder or they become replacement characters (�).
+    if (encryptedHex.length % 2 !== 0 || !/^[0-9a-fA-F]+$/.test(encryptedHex)) {
+      return encryptedHex;
+    }
  
     const key = `${password}-${encryptedHex}`;
     if (this.decryptedCache.has(key)) {
