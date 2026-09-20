@@ -1961,7 +1961,7 @@ namespace maxhanna.Server.Controllers
         using (var conn = new MySqlConnection(connStr))
         {
           await conn.OpenAsync();
-          var sql = @"SELECT id, url, title, description, image_url, author, keywords, response_code
+          var sql = @"SELECT id, url, title, description, image_url, author, keywords, response_code, last_crawled
                       FROM search_results WHERE id = @id LIMIT 1;";
           using var cmd = new MySqlCommand(sql, conn);
           cmd.Parameters.AddWithValue("@id", request.SearchId);
@@ -1978,6 +1978,7 @@ namespace maxhanna.Server.Controllers
               Author = reader.IsDBNull("author") ? null : reader.GetString("author"),
               Keywords = reader.IsDBNull("keywords") ? null : reader.GetString("keywords"),
               HttpStatus = reader.IsDBNull("response_code") ? null : reader.GetInt32("response_code"),
+              LastCrawled = reader.IsDBNull("last_crawled") ? null : reader.GetDateTime("last_crawled"),
             };
           }
         }

@@ -732,12 +732,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     } }));
     tasks.push(critical({ load: () => this.renderer.loadGLTF('assets/grandtheft/skybox_skydays_3/scene.gltf', false).then(m => { if (m) this.renderer.skyboxMesh = m; }) }));
     const specialMeshes: { path: string; storeSkeleton: boolean; assign: (m: CityMesh[]) => void; scale?: number; yawOffset?: number }[] = [
-      // Authored textured humans provide more natural facial proportions,
-      // clothing folds, and skin/hair materials than the procedural fallback.
-      { path: 'assets/grandtheft/char17/scene.gltf', storeSkeleton: false, assign: m => this.renderer.setRealisticHumanMesh('male', m) },
-      { path: 'assets/grandtheft/jessica_jones/scene.gltf', storeSkeleton: false, assign: m => this.renderer.setRealisticHumanMesh('female', m) },
-      { path: 'assets/grandtheft/policeMan/scene.gltf', storeSkeleton: false, assign: m => this.renderer.setRealisticHumanMesh('cop', m) },
-      { path: 'assets/grandtheft/franklin/scene.gltf', storeSkeleton: false, assign: m => this.renderer.setRealisticHumanMesh('player', m) },
+      // Humans (player, cops, civilians, hookers) use the built-in procedural
+      // lifelike rig from grandtheft-human-model.ts. No human GLTFs are queued
+      // here by design.
       { path: 'assets/grandtheft/star_wars_luxury_yacht/scene.gltf', storeSkeleton: false, assign: m => this.renderer.boatMeshes.push(m), yawOffset: Math.PI },
       { path: 'assets/grandtheft/ultra-futuristic_luxury_yacht/scene.gltf', storeSkeleton: false, assign: m => this.renderer.boatMeshes.push(m) },
       { path: 'assets/grandtheft/cirrus_sr_22/scene.gltf', storeSkeleton: false, assign: m => this.renderer.planeMeshes.push(m), scale: 2.25 },
@@ -914,9 +911,18 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       // Start server NPC synchronization only after the first playable frame.
       // The polling loop is guarded and independent from rendering, so a
       // transient backend failure cannot freeze movement or the local population.
-      setTimeout(() => {
-        if (!this._destroyed && this.isLoaded) this.startNPCPolling();
-      }, 1200);
+      // Retry until loaded: on mobile, critical assets stream one-at-a-time
+      // with pacing, so isLoaded is often still false at the first check —
+      // a one-shot timeout would then leave mobile with no NPCs ever.
+      const tryStartNPCs = () => {
+        if (this._destroyed) return;
+        if (this.isLoaded) {
+          this.startNPCPolling();
+          return;
+        }
+        setTimeout(tryStartNPCs, 500);
+      };
+      setTimeout(tryStartNPCs, 1200);
     });
     // Ambient cars and pedestrians are created and simulated by the backend.
     // Do not start the retired client-local traffic population; it would make

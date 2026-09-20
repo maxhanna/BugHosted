@@ -1939,7 +1939,12 @@ export class SpaceEvolvesComponent
   private liveHostileCount() {
     let n = 0;
     for (const b of this.bugs)
-      if (!b.ally && b.hp > 0 && Number.isFinite(b.x) && Number.isFinite(b.y))
+      if (
+        !b.ally &&
+        (b.hp > 0 || b.dying) &&
+        Number.isFinite(b.x) &&
+        Number.isFinite(b.y)
+      )
         n++;
     return n;
   }
@@ -2668,6 +2673,12 @@ export class SpaceEvolvesComponent
         !b.boss &&
         (b.x < -0.2 || b.x > 1.2 || b.y < -0.2 || b.y > 1.2)
       ) {
+        // Despawned hostiles still count toward wave progress. Otherwise a
+        // single bug slipping offscreen leaves waveKills permanently short of
+        // the quota and the spawner tops up an empty field forever (HUD stuck
+        // at 1, boss never spawns). Converted allies were already counted at
+        // conversion time, so only count non-allies here.
+        if (!b.ally) this.waveKills++;
         this.bugs.splice(i, 1);
         continue;
       }
@@ -2751,6 +2762,13 @@ export class SpaceEvolvesComponent
               this.stats.plasmaMaxConversions + this.stats.bounceBonus
             )
               this.removeOldestConverted();
+            // Converting a hostile removes it from the wave the same way a
+            // kill does. Count it here so waveKills can still reach the quota;
+            // the later ally death must not count again (finishBugDeath only
+            // counts non-allies). Without this, every conversion leaves the
+            // wave one kill short and the spawner refills an empty field
+            // forever with the counter stuck at 1 and no boss.
+            this.waveKills++;
             b.ally = true;
             b.conversionOrder = ++this.conversionSequence;
             b.lockedOn = false;

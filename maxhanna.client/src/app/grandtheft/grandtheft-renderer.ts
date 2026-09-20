@@ -2725,7 +2725,8 @@ void main() {
     speed: number = 1,
   ): boolean {
     const meshes = Array.isArray(entityMesh) ? entityMesh : [entityMesh];
-    if ((meshes[0] as any)?._staticRealisticHuman) return false;
+    // All humans use the built-in procedural rig; there are no static GLTF
+    // humans to skip.
     // Distant characters are visually negligible but still expensive to CPU
     // skin. Their last pose is retained until they return to the near field.
     const anyMesh = meshes[0] as any;
@@ -3278,10 +3279,8 @@ void main() {
   skinPlayerMesh(meshes: CityMesh | CityMesh[], dt: number = 0): void {
     try {
       const meshList = Array.isArray(meshes) ? meshes : [meshes];
-      // Textured authored characters already contain their bind-pose skinning.
-      // Do not run the lightweight 19-bone procedural rig against their
-      // unrelated GLTF skeleton or its pre-normalized rest positions.
-      if (meshList.some(mesh => (mesh as any)._staticRealisticHuman)) return;
+      // All player/NPC bodies are the procedural 19-bone rig, so always skin
+      // with the local player rig.
       // Always use the local player's own procedural rig. The renderer also
       // loads GLTFs for cars, buildings, and viewmodels; those assets may
       // replace the old shared skeleton fields after the initial frame and
@@ -9362,43 +9361,9 @@ void main() {
     return lamps;
   }
   // ---- Lifelike human variant cache (cheap, vertex-color, 19-bone rig) ----
+  // All humans (player, cops, hookers, civilians) use this built-in procedural
+  // rig. Human GLTFs are retired and must not be queued or assigned.
   private humanMeshCache = new Map<string, CityMesh>();
-  // Optional textured character assets are used for the main civilian, female,
-  // police, and player silhouettes. The procedural rig remains as a fallback
-  // for special roles and while these assets stream in.
-  private realisticMaleMesh: CityMesh[] | null = null;
-  private realisticFemaleMesh: CityMesh[] | null = null;
-  private realisticCopMesh: CityMesh[] | null = null;
-  private realisticPlayerMesh: CityMesh[] | null = null;
-
-  /** Register a textured human asset loaded by the component. */
-  setRealisticHumanMesh(role: "male" | "female" | "cop" | "player", mesh: CityMesh[]): void {
-    for (const part of mesh) {
-      (part as any)._staticRealisticHuman = true;
-      (part as any)._isHuman = true;
-      // The GLTF loader normalizes humans to a two-unit height. Keep them
-      // closer to the game's existing pedestrian scale without the inflated,
-      // toy-like appearance of the procedural fallback.
-      part.renderScale = 0.75;
-    }
-    if (role === "female") this.realisticFemaleMesh = mesh;
-    else if (role === "cop") this.realisticCopMesh = mesh;
-    else if (role === "player") {
-      this.realisticPlayerMesh = mesh;
-      // The asset may arrive after the procedural placeholder and after the
-      // initial render loop has started. Swap it in immediately and bind its
-      // own skeleton so local walk/aim/death poses stay attached correctly.
-      this.playerMesh = mesh;
-    } else this.realisticMaleMesh = mesh;
-  }
-
-  /** Replace the local procedural placeholder once the textured player model arrives. */
-  useRealisticPlayerMesh(mesh: CityMesh[]): void {
-    this.setRealisticHumanMesh("player", mesh);
-    this.playerMesh = mesh;
-    // Retained as a public convenience for callers that load a player asset
-    // outside the normal Grand Theft asset queue.
-  }
 
   private getHumanVariantMesh(
     role: Role,
@@ -9452,24 +9417,10 @@ void main() {
     gender: string,
     seed: number | string = 0,
   ): CityMesh | CityMesh[] {
-    // Hookers use the same procedural, skinned human system as every other NPC.
-    // The seed drives stable appearance variation, so they remain recognizable
-    // without loading a separate GLTF asset.
+    // Every NPC — cops, hookers, dealers, civilians — uses the built-in
+    // procedural skinned human. No human GLTF is consulted here.
     if (gender === "hooker") {
       return this.getHumanVariantMesh("hooker", `hooker:${seed}`, "female");
-    }
-    const normalizedGender = (gender || "").toLowerCase();
-    if (normalizedGender === "cop" && this.realisticCopMesh) return this.realisticCopMesh;
-    if (normalizedGender === "female" && this.realisticFemaleMesh) return this.realisticFemaleMesh;
-    // Generic male civilians use a textured, authored character when available.
-    // Special service roles continue through the procedural path so their
-    // uniforms, caps, and accessories remain visually distinct.
-    const seedText = String(seed).toLowerCase();
-    const explicitlyGeneric = seedText.startsWith("generic:") || seedText.startsWith("franklin:");
-    if (normalizedGender !== "female" && this.realisticMaleMesh) {
-      const h = hashSeed(seed);
-      const roll = h % 100;
-      if (explicitlyGeneric || typeof seed === "number" || roll >= 15) return this.realisticMaleMesh;
     }
     // Infer lifelike role from gender + seed distribution — ensures every street has
     // cops, taxi drivers, pizza boys, hillbillies, women, fat & dwarf variants visible
@@ -13009,7 +12960,7 @@ void main() {
         (ped as any).isPolice === true ||
         (ped as any).appearanceRole === "cop";      const pedMesh = isPolicePed
         ? this.getPedestrianMesh("cop", ped.id)
-        : ((ped.mesh as any)?._staticRealisticHuman ? ped.mesh : this.getPedestrianMesh(ped.gender || "male", ped.id));
+        : this.getPedestrianMesh(ped.gender || "male", ped.id);
       const pedSpeed = ped.speed ?? 0;
       // Server speeds are world units per second; even slow pedestrians need a
       // walk pose or the procedural rig falls back to a motionless idle.

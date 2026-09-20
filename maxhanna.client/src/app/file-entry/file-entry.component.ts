@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, OnDestroy, Output } from '@angular/core';
 import { FileService } from '../../services/file.service';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 
@@ -8,7 +8,7 @@ import { FileEntry } from '../../services/datacontracts/file/file-entry';
   styleUrl: './file-entry.component.css',
   standalone: false,
 })
-export class FileEntryComponent {
+export class FileEntryComponent implements OnDestroy {
   @Input() file!: FileEntry;
   @Input() userId?: number;
   @Input() fileCache?: FileEntry[];
@@ -23,10 +23,18 @@ export class FileEntryComponent {
   bookCount: number | null = null;
   private static readonly bookCountCache = new Map<string, number>();
 
-  constructor(private fileService: FileService) {}
+  constructor(private fileService: FileService, private host: ElementRef) {}
+
+  ngOnDestroy(): void {
+    this.pauseOutOfViewMedia();
+  }
 
   async onInView(inView: boolean): Promise<void> {
-    if (!inView || this.isHydrated || this.isLoading || !this.file?.id) return;
+    if (!inView) {
+      this.pauseOutOfViewMedia();
+      return;
+    }
+    if (this.isHydrated || this.isLoading || !this.file?.id) return;
     this.isLoading = true;
     this.loadFailed = false;
     const hydratedFile = await this.fileService.getFileEntryById(
@@ -44,6 +52,23 @@ export class FileEntryComponent {
   }
 
   retry(): void { void this.onInView(true); }
+
+  /** Pause any inline video/audio inside this entry. Called when the entry
+   *  scrolls out of view (e.g. a file-list inside meme.component) and on
+   *  destroy, so off-screen media never keeps playing. Fullscreen overlay
+   *  media is excluded — an active fullscreen session is intentional. */
+  private pauseOutOfViewMedia(): void {
+    try {
+      const root: HTMLElement | undefined = this.host?.nativeElement;
+      if (!root || !root.querySelectorAll) return;
+      root.querySelectorAll<HTMLMediaElement>('video, audio').forEach((m) => {
+        try {
+          if (m.closest?.('.fullscreen-overlay')) return;
+          if (!m.paused) m.pause();
+        } catch { /* per-element failure must not break the sweep */ }
+      });
+    } catch { /* host unavailable (e.g. during teardown) */ }
+  }
 
   @Input() context: any;
 

@@ -14,5 +14,6 @@ namespace maxhanna.Server.Controllers.DataContracts.Metadata
 		public bool? IsUserFavourite { get; set; }
 		public double? AverageRating { get; set; }
 		public int? RatingCount { get; set; }
+		public DateTime? LastCrawled { get; set; }
 	}
 }

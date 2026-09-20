@@ -302,7 +302,8 @@ export class CrawlerService {
         favouriteCount: json.favouriteCount ?? undefined,
         isUserFavourite: json.isUserFavourite ?? false,
         averageRating: json.averageRating ?? undefined,
-        ratingCount: json.ratingCount ?? undefined
+        ratingCount: json.ratingCount ?? undefined,
+        lastCrawled: json.lastCrawled ?? undefined
       };
     } catch {
       return null;

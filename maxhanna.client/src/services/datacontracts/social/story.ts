@@ -44,4 +44,5 @@ export class MetaData {
   averageRating?: number;
   ratingCount?: number;
   ratings?: Rating[] | undefined;
+  lastCrawled?: string;
 }

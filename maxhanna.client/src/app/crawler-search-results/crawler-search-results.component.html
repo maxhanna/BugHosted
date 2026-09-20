@@ -43,6 +43,9 @@
       <div *ngIf="detail.httpStatus && !hideStatus" class="descriptionDiv authorClass">
         {{ detail.httpStatus }} {{ getHttpStatusMeaning(detail.httpStatus) }}
       </div>
+      <div *ngIf="detail.lastCrawled" class="descriptionDiv authorClass" title="When this page was last crawled">
+        🕸️ Last crawled: {{ detail.lastCrawled | date:'medium' }}
+      </div>
       <div *ngIf="detail.keywords" class="descriptionDiv keywordsClass">{{ detail.keywords }}</div>
     </div>
     <div class="imageUrlPictureDiv" *ngIf="detail.imageUrl">
