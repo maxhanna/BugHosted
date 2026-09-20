@@ -39,6 +39,13 @@ export interface DrawState {
     vy: number;
     phase: number;
   }[];
+  infestedDrones: {
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+    phase: number;
+  }[];
   shieldVisible: boolean;
   shieldRepulse: boolean;
   shieldRadius: number;
@@ -485,6 +492,7 @@ export function drawDrones(
   drones: { x: number; y: number; vx: number; vy: number; phase: number }[],
   sprite: HTMLImageElement | undefined,
   spriteReady: boolean,
+  tint: string = "#7dff9a",
 ) {
   if (!drones.length) return;
   const t = performance.now() / 1000;
@@ -503,13 +511,13 @@ export function drawDrones(
         y,
         z,
         frame,
-        "#7dff9a",
+        tint,
         angle,
         sprite,
         spriteReady,
       )
     )
-      drawProceduralShip(ctx, x, y, z, angle, "#0d2b1a", "#7dff9a");
+      drawProceduralShip(ctx, x, y, z, angle, "#0d2b1a", tint);
   }
   ctx.restore();
 }
@@ -1601,6 +1609,15 @@ export function draw(
     state.shieldRadius,
   );
   drawDrones(ctx, w, h, state.orbitDrones, state.sprite, state.spriteReady);
+  drawDrones(
+    ctx,
+    w,
+    h,
+    state.infestedDrones,
+    state.sprite,
+    state.spriteReady,
+    "#c44dff",
+  );
 }
 export function drawShip(
   ctx: CanvasRenderingContext2D,

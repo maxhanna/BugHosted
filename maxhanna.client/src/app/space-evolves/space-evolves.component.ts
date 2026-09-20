@@ -109,7 +109,14 @@ type WeaponId =
   | "arc-coil"
   | "hunter-pack"
   | "bulwark"
-  | "blight-reactor";
+  | "blight-reactor"
+  | "hive-launcher"
+  | "firestorm"
+  | "solar-flare"
+  | "cluster-storm"
+  | "tesla-lance"
+  | "miasma-ward"
+  | "fireflies";
 type UpgradeCategory = WeaponId | "health" | "utility" | "ship";
 interface SpaceUpgrade {
   id: string;
@@ -677,6 +684,13 @@ export class SpaceEvolvesComponent
     "hunter-pack": 0,
     "bulwark": 0,
     "blight-reactor": 0,
+    "hive-launcher": 0,
+    "firestorm": 0,
+    "solar-flare": 0,
+    "cluster-storm": 0,
+    "tesla-lance": 0,
+    "miasma-ward": 0,
+    "fireflies": 0,
   };
   player = { x: 0.5, y: 0.5, hp: 120, maxHp: 120, shield: 0, speed: 0.55 };
   shots: SpaceProjectile[] = [];
@@ -697,6 +711,16 @@ export class SpaceEvolvesComponent
   equippedWeapons: WeaponId[] = [];
   readonly weaponSlotLimit = 3;
   private orbitDrones: {
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+    timer: number;
+    phase: number;
+  }[] = [];
+  /** Infested orbiters granted by the Hive Launcher evolution. They steer
+   *  like combat drones but lob corrosive bug-globs instead of sting beams. */
+  private infestedDrones: {
     x: number;
     y: number;
     vx: number;
@@ -1137,6 +1161,62 @@ export class SpaceEvolvesComponent
       cost: 290000,
       description: "Fuses chem corrosion with plasma charge. Lobs acid globs and charged bolts that melt anything standing inside.",
       visual: "Green acid clouds glowing with magenta plasma.",
+    },
+    {
+      id: "hive-launcher",
+      name: "Hive Launcher",
+      ingredients: ["chem", "drone"],
+      cost: 300000,
+      description: "Fuses chem corrosion with the combat drone. Your drones become infested and lob corrosive bug-globs that burst into acid.",
+      visual: "Purple-green infested drones spitting glowing bug-globs.",
+    },
+    {
+      id: "firestorm",
+      name: "Firestorm",
+      ingredients: ["tesla", "flamer"],
+      cost: 310000,
+      description: "Fuses chain lightning with flamethrower ignition. Every cycle calls down lightning and breathes an igniting fire burst.",
+      visual: "Blue-white thunderbolts crashing through walls of orange flame.",
+    },
+    {
+      id: "solar-flare",
+      name: "Solar Flare",
+      ingredients: ["plasma", "flamer"],
+      cost: 320000,
+      description: "Fuses plasma charge with flamethrower heat. Hurls charged bolts and igniting bursts that leave scorching impacts.",
+      visual: "Magenta bolts trailing golden solar fire.",
+    },
+    {
+      id: "cluster-storm",
+      name: "Cluster Storm",
+      ingredients: ["missile", "flak"],
+      cost: 280000,
+      description: "Fuses homing ordnance with flak scatter. Launches rockets while blasting a close-range pellet fan every cycle.",
+      visual: "Orange rocket trails fanning into red shrapnel bursts.",
+    },
+    {
+      id: "tesla-lance",
+      name: "Tesla Lance",
+      ingredients: ["laser", "tesla"],
+      cost: 290000,
+      description: "Fuses laser precision with chain lightning. Fires a piercing electric beam while lightning jumps through separate targets.",
+      visual: "Pale-blue beam crackling with branching arcs.",
+    },
+    {
+      id: "miasma-ward",
+      name: "Miasma Ward",
+      ingredients: ["shield", "chem"],
+      cost: 330000,
+      description: "Fuses the pulse shield with chem corrosion. Each cycle refreshes your shield and lobs acid globs that melt besiegers.",
+      visual: "Violet shield ring exhaling sickly green acid.",
+    },
+    {
+      id: "fireflies",
+      name: "Fireflies",
+      ingredients: ["drone", "flamer"],
+      cost: 300000,
+      description: "Fuses the combat drone with flamethrower ignition. Breathes fire bursts while firing a drone sting volley from the ship.",
+      visual: "Amber fireflies swarming around green sting beams.",
     },
   ];
   showMenuPanel() {
@@ -1707,6 +1787,20 @@ export class SpaceEvolvesComponent
                           ? "#9d8cff"
                           : recipe.id === "blight-reactor"
                             ? "#b6ff4d"
+                            : recipe.id === "hive-launcher"
+                              ? "#c44dff"
+                              : recipe.id === "firestorm"
+                                ? "#ff5a2e"
+                                : recipe.id === "solar-flare"
+                                  ? "#ffc44d"
+                                  : recipe.id === "cluster-storm"
+                                    ? "#ff8a5d"
+                                    : recipe.id === "tesla-lance"
+                                      ? "#8fd8ff"
+                                      : recipe.id === "miasma-ward"
+                                        ? "#a8ff3e"
+                                        : recipe.id === "fireflies"
+                                          ? "#ffd166"
                 : "#ff6a3d",
       kind: "ring",
       len: 0.35,
@@ -2129,6 +2223,20 @@ export class SpaceEvolvesComponent
                                               ? "🏰"
                                               : weapon === "blight-reactor"
                                                 ? "☣️"
+                                                : weapon === "hive-launcher"
+                                                  ? "🐛"
+                                                  : weapon === "firestorm"
+                                                    ? "🔥🌩️"
+                                                    : weapon === "solar-flare"
+                                                      ? "🌞"
+                                                      : weapon === "cluster-storm"
+                                                        ? "🎇"
+                                                        : weapon === "tesla-lance"
+                                                          ? "🔱"
+                                                          : weapon === "miasma-ward"
+                                                            ? "🦠"
+                                                            : weapon === "fireflies"
+                                                              ? "🪲"
                         : weapon === "health"
                           ? "❤️"
                           : weapon === "ship"
@@ -2178,6 +2286,20 @@ export class SpaceEvolvesComponent
                                               ? "Bulwark"
                                               : weapon === "blight-reactor"
                                                 ? "Blight Reactor"
+                                                : weapon === "hive-launcher"
+                                                  ? "Hive Launcher"
+                                                  : weapon === "firestorm"
+                                                    ? "Firestorm"
+                                                    : weapon === "solar-flare"
+                                                      ? "Solar Flare"
+                                                      : weapon === "cluster-storm"
+                                                        ? "Cluster Storm"
+                                                        : weapon === "tesla-lance"
+                                                          ? "Tesla Lance"
+                                                          : weapon === "miasma-ward"
+                                                            ? "Miasma Ward"
+                                                            : weapon === "fireflies"
+                                                              ? "Fireflies"
                             : "Flamethrower";
   }
   private waveQuota() {
@@ -2231,6 +2353,7 @@ export class SpaceEvolvesComponent
       backgroundClouds: this.backgroundClouds,
       player: this.player,
       orbitDrones: this.orbitDrones,
+      infestedDrones: this.infestedDrones,
       shieldVisible:
         this.timers.shield >
         this.stats.shieldPulseInterval - this.stats.shieldVisibleFor,
@@ -2520,6 +2643,30 @@ export class SpaceEvolvesComponent
       this.fireBlightReactor();
       this.timers["blight-reactor"] = this.weaponInterval(0.7);
     }
+    if (this.hasWeapon("firestorm") && this.timers["firestorm"] <= 0) {
+      this.fireFirestorm();
+      this.timers["firestorm"] = this.weaponInterval(0.7);
+    }
+    if (this.hasWeapon("solar-flare") && this.timers["solar-flare"] <= 0) {
+      this.fireSolarFlare();
+      this.timers["solar-flare"] = this.weaponInterval(0.65);
+    }
+    if (this.hasWeapon("cluster-storm") && this.timers["cluster-storm"] <= 0) {
+      this.fireClusterStorm();
+      this.timers["cluster-storm"] = this.weaponInterval(0.85);
+    }
+    if (this.hasWeapon("tesla-lance") && this.timers["tesla-lance"] <= 0) {
+      this.fireTeslaLance();
+      this.timers["tesla-lance"] = this.weaponInterval(0.55);
+    }
+    if (this.hasWeapon("miasma-ward") && this.timers["miasma-ward"] <= 0) {
+      this.fireMiasmaWard();
+      this.timers["miasma-ward"] = this.weaponInterval(1.5);
+    }
+    if (this.hasWeapon("fireflies") && this.timers["fireflies"] <= 0) {
+      this.fireFireflies();
+      this.timers["fireflies"] = this.weaponInterval(0.8);
+    }
     if (this.hasWeapon("laser") && this.timers.laser <= 0) {
       this.fireLasers();
       this.timers.laser = this.weaponInterval(this.stats.laserInterval);
@@ -2534,6 +2681,7 @@ export class SpaceEvolvesComponent
       else this.timers.plasma = 0.05;
     }
     this.updateDrones(dt);
+    this.updateInfestedDrones(dt);
     this.updateClouds(dt);
     if (this.hasWeapon("rail") && this.timers.rail <= 0) {
       this.fireRail();
@@ -3258,6 +3406,22 @@ export class SpaceEvolvesComponent
                                             ? this.weaponInterval(1.4)
                                             : weapon === "blight-reactor"
                                               ? this.weaponInterval(0.7)
+                                              : weapon === "hive-launcher"
+                                                ? this.weaponInterval(
+                                                    this.stats.chemInterval,
+                                                  )
+                                                : weapon === "firestorm"
+                                                  ? this.weaponInterval(0.7)
+                                                  : weapon === "solar-flare"
+                                                    ? this.weaponInterval(0.65)
+                                                    : weapon === "cluster-storm"
+                                                      ? this.weaponInterval(0.85)
+                                                      : weapon === "tesla-lance"
+                                                        ? this.weaponInterval(0.55)
+                                                        : weapon === "miasma-ward"
+                                                          ? this.weaponInterval(1.5)
+                                                          : weapon === "fireflies"
+                                                            ? this.weaponInterval(0.8)
                           : this.weaponInterval(this.stats.flamerInterval),
       color:
         weapon === "laser"
@@ -3302,6 +3466,20 @@ export class SpaceEvolvesComponent
                                             ? "#9d8cff"
                                             : weapon === "blight-reactor"
                                               ? "#b6ff4d"
+                                              : weapon === "hive-launcher"
+                                                ? "#c44dff"
+                                                : weapon === "firestorm"
+                                                  ? "#ff5a2e"
+                                                  : weapon === "solar-flare"
+                                                    ? "#ffc44d"
+                                                    : weapon === "cluster-storm"
+                                                      ? "#ff8a5d"
+                                                      : weapon === "tesla-lance"
+                                                        ? "#8fd8ff"
+                                                        : weapon === "miasma-ward"
+                                                          ? "#a8ff3e"
+                                                          : weapon === "fireflies"
+                                                            ? "#ffd166"
                           : "#ff8c2e",
     }));
   }
@@ -3460,6 +3638,13 @@ export class SpaceEvolvesComponent
     "hunter-pack": "A weapon evolution that fuses the combat drone with homing ordnance: rockets plus a drone sting volley.",
     "bulwark": "A weapon evolution that fuses the pulse shield with flak scatter: shield refresh plus a close-range pellet fan.",
     "blight-reactor": "A weapon evolution that fuses chem cloud and plasma into acid globs and charged bolts that melt anything inside.",
+    "hive-launcher": "A weapon evolution that fuses chem cloud with the combat drone: your drones become infested and lob corrosive bug-globs.",
+    "firestorm": "A weapon evolution that fuses Tesla with flamethrower into lightning strikes wrapped in igniting fire.",
+    "solar-flare": "A weapon evolution that fuses plasma with flamethrower into charged bolts trailing solar fire.",
+    "cluster-storm": "A weapon evolution that fuses missiles with flak into homing rockets plus a close-range pellet fan.",
+    "tesla-lance": "A weapon evolution that fuses laser with Tesla into a piercing electric beam plus chain lightning.",
+    "miasma-ward": "A weapon evolution that fuses the pulse shield with chem into shield refreshes plus acid globs.",
+    "fireflies": "A weapon evolution that fuses the combat drone with flamethrower into fire bursts plus a drone sting volley.",
   };
   weaponDetailLines(w: WeaponId) {
     const S = this.stats;
@@ -3735,6 +3920,72 @@ export class SpaceEvolvesComponent
         L.push(
           "Combined chem + plasma evolution",
           "Acid globs plus charged bolts with lingering clouds",
+          "Consumes one weapon slot",
+          crit,
+        );
+        break;
+      case "hive-launcher":
+        L.push(
+          "Combined chem + drone evolution",
+          "Infested drones lob corrosive bug-globs",
+          "Glob damage " + r1(this.weaponDamage(S.chemDamage)),
+          "Cloud " +
+            r1(this.secondaryEffect(S.chemDuration)) +
+            "s / radius " +
+            r1(S.chemRadius * S.projectileSize),
+          "Consumes one weapon slot",
+          crit,
+        );
+        break;
+      case "firestorm":
+        L.push(
+          "Combined Tesla + flamer evolution",
+          "Chain lightning plus igniting fire bursts",
+          "Burn up to " +
+            r1(this.weaponDamage(S.flamerDamage) * 5 * 0.5) +
+            "/s at full stacks",
+          "Consumes one weapon slot",
+          crit,
+        );
+        break;
+      case "solar-flare":
+        L.push(
+          "Combined plasma + flamer evolution",
+          "Charged bolts plus igniting fire bursts",
+          "Consumes one weapon slot",
+          crit,
+        );
+        break;
+      case "cluster-storm":
+        L.push(
+          "Combined missile + flak evolution",
+          "Homing rockets plus close-range pellet fan",
+          "Consumes one weapon slot",
+          crit,
+        );
+        break;
+      case "tesla-lance":
+        L.push(
+          "Combined laser + Tesla evolution",
+          "Damage " +
+            r1(this.weaponDamage(S.laserDamage + S.teslaDamage) * 1.15),
+          "Instant piercing electric beam plus chain lightning",
+          "Consumes one weapon slot",
+          crit,
+        );
+        break;
+      case "miasma-ward":
+        L.push(
+          "Combined shield + chem evolution",
+          "Shield refresh plus acid globs every cycle",
+          "Consumes one weapon slot",
+          crit,
+        );
+        break;
+      case "fireflies":
+        L.push(
+          "Combined drone + flamer evolution",
+          "Igniting fire bursts plus a drone sting volley",
           "Consumes one weapon slot",
           crit,
         );
@@ -4315,6 +4566,235 @@ export class SpaceEvolvesComponent
       len: 0.28,
       spin: performance.now() / 1000,
     });
+  }
+  private fireFirestorm() {
+    const mark = this.shots.length;
+    this.fireFlamer();
+    this.tintNewShots(mark, "#ff5a2e");
+    this.fireTesla();
+    this.effects.push({
+      x: this.player.x,
+      y: this.player.y,
+      vx: 0,
+      vy: 0,
+      life: 0.28,
+      maxLife: 0.28,
+      size: 0.16,
+      color: "#ff5a2e",
+      kind: "ring",
+      len: 0.3,
+      spin: performance.now() / 1000,
+    });
+  }
+  private fireSolarFlare() {
+    const mark = this.shots.length;
+    this.firePlasma();
+    this.fireFlamer();
+    this.tintNewShots(mark, "#ffc44d");
+    this.effects.push({
+      x: this.player.x,
+      y: this.player.y,
+      vx: 0,
+      vy: 0,
+      life: 0.3,
+      maxLife: 0.3,
+      size: 0.16,
+      color: "#ffc44d",
+      kind: "ring",
+      len: 0.3,
+      spin: performance.now() / 1000,
+    });
+  }
+  private fireClusterStorm() {
+    const mark = this.shots.length;
+    this.fireMissiles();
+    this.fireFlak();
+    this.tintNewShots(mark, "#ff8a5d");
+    this.effects.push({
+      x: this.player.x,
+      y: this.player.y,
+      vx: 0,
+      vy: 0,
+      life: 0.26,
+      maxLife: 0.26,
+      size: 0.15,
+      color: "#ff8a5d",
+      kind: "ring",
+      len: 0.3,
+      spin: performance.now() / 1000,
+    });
+  }
+  private fireTeslaLance() {
+    const target = this.distinctTargets(1)[0];
+    if (target) {
+      this.fireInstantLaser(
+        this.player.x,
+        this.player.y,
+        target,
+        (this.stats.laserDamage + this.stats.teslaDamage) * 1.15,
+      );
+      this.effects.push({
+        x: this.player.x,
+        y: this.player.y,
+        x2: target.x,
+        y2: target.y,
+        vx: 0,
+        vy: 0,
+        life: 0.2,
+        maxLife: 0.2,
+        size: 0.02,
+        color: "#8fd8ff",
+        kind: "beam",
+      });
+      this.fireTesla();
+    }
+  }
+  private fireMiasmaWard() {
+    this.shieldPulse();
+    const mark = this.shots.length;
+    this.fireChem();
+    this.tintNewShots(mark, "#a8ff3e");
+    this.effects.push({
+      x: this.player.x,
+      y: this.player.y,
+      vx: 0,
+      vy: 0,
+      life: 0.32,
+      maxLife: 0.32,
+      size: 0.18,
+      color: "#a8ff3e",
+      kind: "ring",
+      len: 0.32,
+      spin: performance.now() / 1000,
+    });
+  }
+  private fireFireflies() {
+    const mark = this.shots.length;
+    this.fireFlamer();
+    this.tintNewShots(mark, "#ffd166");
+    this.fireDroneStings(this.player.x, this.player.y);
+    this.effects.push({
+      x: this.player.x,
+      y: this.player.y,
+      vx: 0,
+      vy: 0,
+      life: 0.26,
+      maxLife: 0.26,
+      size: 0.14,
+      color: "#ffd166",
+      kind: "ring",
+      len: 0.28,
+      spin: performance.now() / 1000,
+    });
+  }
+  private updateInfestedDrones(dt: number) {
+    if (!this.hasWeapon("hive-launcher")) {
+      if (this.infestedDrones.length) this.infestedDrones = [];
+      return;
+    }
+    const want = Math.max(
+      1,
+      Math.floor(this.weaponCount(this.stats.droneCount)),
+    );
+    while (this.infestedDrones.length < want) {
+      this.infestedDrones.push({
+        x: this.player.x + (Math.random() - 0.5) * 0.12,
+        y: this.player.y + (Math.random() - 0.5) * 0.12,
+        vx: 0,
+        vy: 0,
+        timer: Math.random() * 0.5,
+        phase: Math.random() * Math.PI * 2,
+      });
+    }
+    if (this.infestedDrones.length > want) this.infestedDrones.length = want;
+    const t = performance.now() / 1000,
+      leash = 0.16,
+      px = this.player.x,
+      py = this.player.y;
+    for (const d of this.infestedDrones) {
+      let tx = px + Math.cos(t * 0.9 + d.phase) * 0.07,
+        ty = py + Math.sin(t * 0.9 + d.phase) * 0.07;
+      const foe = this.nearestIncoming(d.x, d.y);
+      if (foe) {
+        let ox = foe.x - px,
+          oy = foe.y - py;
+        const od = Math.hypot(ox, oy);
+        if (od > leash) {
+          ox *= leash / od;
+          oy *= leash / od;
+        }
+        const pw = Math.hypot(ox, oy) || 1;
+        const wob = Math.sin(t * 2.1 + d.phase) * 0.025;
+        tx = px + ox + (-oy / pw) * wob;
+        ty = py + oy + (ox / pw) * wob;
+      }
+      for (const o of this.infestedDrones) {
+        if (o === d) continue;
+        const sx = d.x - o.x,
+          sy = d.y - o.y,
+          sd = Math.hypot(sx, sy);
+        if (sd < 0.045 && sd > 1e-4) {
+          d.vx += (sx / sd) * 1.2 * dt;
+          d.vy += (sy / sd) * 1.2 * dt;
+        }
+      }
+      d.vx += (tx - d.x) * 4 * dt;
+      d.vy += (ty - d.y) * 4 * dt;
+      d.vx *= 1 / (1 + 2.2 * dt);
+      d.vy *= 1 / (1 + 2.2 * dt);
+      const sp = Math.hypot(d.vx, d.vy);
+      if (sp > 0.4) {
+        d.vx *= 0.4 / sp;
+        d.vy *= 0.4 / sp;
+      }
+      d.x += d.vx * dt;
+      d.y += d.vy * dt;
+      d.timer -= dt;
+      if (d.timer > 0) continue;
+      const tgt = this.nearestIncoming(d.x, d.y);
+      if (!tgt) {
+        d.timer = 0.15;
+        continue;
+      }
+      d.timer = this.weaponInterval(this.stats.chemInterval);
+      this.fireInfestedGlob(d.x, d.y, tgt);
+    }
+  }
+  /** Lob a single corrosive bug-glob from an infested drone. Kind "chem" so
+   *  impacts burst into lingering acid via the shared collision handling. */
+  private fireInfestedGlob(x: number, y: number, target: SpaceBug): void {
+    const dx = target.x - x,
+      dy = target.y - y,
+      n = Math.hypot(dx, dy) || 1;
+    this.shots.push({
+      x,
+      y,
+      vx: (dx / n) * this.stats.chemSpeed,
+      vy: (dy / n) * this.stats.chemSpeed,
+      damage: this.stats.chemDamage,
+      kind: "chem",
+      radius: 0.018 * this.stats.projectileSize,
+      range: this.weaponRange(this.stats.chemRange),
+      homing: 0,
+      splash: 0,
+      age: 0,
+      bounces: 0,
+      lock: target,
+      tint: "#c44dff",
+    });
+    if (this.effects.length < FX_MAX - FX_HEADROOM)
+      this.effects.push({
+        x,
+        y,
+        vx: 0,
+        vy: 0,
+        life: 0.25,
+        maxLife: 0.25,
+        size: 0.02,
+        color: "#c44dff",
+        kind: "ring",
+        len: 0.06,
+      });
   }
   private fireMissiles() {
     const targets = this.distinctTargets(
@@ -5264,6 +5744,7 @@ export class SpaceEvolvesComponent
     this.shots = [];
     this.bugs = [];
     this.orbitDrones = [];
+    this.infestedDrones = [];
     this.clouds = [];
     this.backgroundShips = [];
     this.backgroundShipTimer = 5;
@@ -5304,6 +5785,13 @@ export class SpaceEvolvesComponent
       "hunter-pack": 0,
       "bulwark": 0,
       "blight-reactor": 0,
+      "hive-launcher": 0,
+      "firestorm": 0,
+      "solar-flare": 0,
+      "cluster-storm": 0,
+      "tesla-lance": 0,
+      "miasma-ward": 0,
+      "fireflies": 0,
     };
     this.saveProgress();
     this.prepareStartingChoice();
@@ -5410,6 +5898,13 @@ export class SpaceEvolvesComponent
                   "hunter-pack",
                   "bulwark",
                   "blight-reactor",
+                  "hive-launcher",
+                  "firestorm",
+                  "solar-flare",
+                  "cluster-storm",
+                  "tesla-lance",
+                  "miasma-ward",
+                  "fireflies",
                 ].includes(id),
               )
               .slice(0, this.weaponSlotLimit)
@@ -5472,6 +5967,13 @@ export class SpaceEvolvesComponent
                   "hunter-pack",
                   "bulwark",
                   "blight-reactor",
+                  "hive-launcher",
+                  "firestorm",
+                  "solar-flare",
+                  "cluster-storm",
+                  "tesla-lance",
+                  "miasma-ward",
+                  "fireflies",
                 ].includes(id),
               )
               .slice(0, this.weaponSlotLimit)
