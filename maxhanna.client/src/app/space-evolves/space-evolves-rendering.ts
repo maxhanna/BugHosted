@@ -1453,21 +1453,24 @@ export function draw(
         const ux = dx / beamLength,
           uy = dy / beamLength,
           thickness = Math.max(1, Math.min(3.5, Math.min(w, h) * 0.0042));
+        // Beams render in their own color so each fusion's beam looks unique;
+        // base lasers keep pushing cyan.
+        const beamColor = e.color || "#7cf7ff";
         ctx.save();
         ctx.globalCompositeOperation = "lighter";
         ctx.lineCap = "round";
         ctx.globalAlpha = a * 0.42;
-        ctx.strokeStyle = "#7cf7ff";
+        ctx.strokeStyle = beamColor;
         ctx.lineWidth = thickness * 3.5;
         ctx.shadowBlur = 10;
-        ctx.shadowColor = "#7cf7ff";
+        ctx.shadowColor = beamColor;
         ctx.beginPath();
         ctx.moveTo(x1, y1);
         ctx.lineTo(x2, y2);
         ctx.stroke();
         ctx.globalAlpha = a * 0.9;
         ctx.shadowBlur = 0;
-        ctx.strokeStyle = "#7cf7ff";
+        ctx.strokeStyle = beamColor;
         ctx.lineWidth = thickness * 1.45;
         ctx.beginPath();
         ctx.moveTo(x1, y1);
@@ -1529,6 +1532,21 @@ export function draw(
   }
   ctx.globalAlpha = 1;
   for (const s of state.shots) {
+    // Evolution tint: a colored aura behind the projectile so each fusion's
+    // shots are visually distinct from the base weapons they were forged from.
+    if (s.tint) {
+      const haloR = Math.max(3, s.radius * w * 2.4);
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.globalAlpha = 0.35;
+      ctx.fillStyle = s.tint;
+      ctx.shadowBlur = 12;
+      ctx.shadowColor = s.tint;
+      ctx.beginPath();
+      ctx.arc(s.x * w, s.y * h, haloR, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
     if (s.kind === "missile") {
       drawMissile(ctx, s, w, h);
       continue;

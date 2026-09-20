@@ -83,6 +83,9 @@ export interface SpaceProjectile {
   bounces: number;
   lock?: SpaceBug;
   hitTargets?: SpaceBug[];
+  /** Optional evolution tint. When set, the renderer draws a colored aura
+   *  around the projectile so each fusion's shots look unique. */
+  tint?: string;
 }
 type WeaponId =
   | "laser"
@@ -96,7 +99,17 @@ type WeaponId =
   | "chem"
   | "flamer"
   | "photon-lance"
-  | "storm-siege";
+  | "storm-siege"
+  | "pulse-cannon"
+  | "aegis-swarm"
+  | "scrapstorm"
+  | "cinder-cloud"
+  | "nova-lance"
+  | "ion-storm"
+  | "arc-coil"
+  | "hunter-pack"
+  | "bulwark"
+  | "blight-reactor";
 type UpgradeCategory = WeaponId | "health" | "utility" | "ship";
 interface SpaceUpgrade {
   id: string;
@@ -654,6 +667,16 @@ export class SpaceEvolvesComponent
     flamer: 0,
     "photon-lance": 0,
     "storm-siege": 0,
+    "pulse-cannon": 0,
+    "aegis-swarm": 0,
+    "scrapstorm": 0,
+    "cinder-cloud": 0,
+    "nova-lance": 0,
+    "ion-storm": 0,
+    "arc-coil": 0,
+    "hunter-pack": 0,
+    "bulwark": 0,
+    "blight-reactor": 0,
   };
   player = { x: 0.5, y: 0.5, hp: 120, maxHp: 120, shield: 0, speed: 0.55 };
   shots: SpaceProjectile[] = [];
@@ -1023,7 +1046,7 @@ export class SpaceEvolvesComponent
       id: "photon-lance",
       name: "Photon Lance",
       ingredients: ["laser", "plasma"],
-      cost: 2500,
+      cost: 250000,
       description: "Fuses laser precision with plasma impact. Fires an instant piercing beam and a charged plasma bolt from the same slot.",
       visual: "Gold-violet beam with a bright impact ring.",
     },
@@ -1031,9 +1054,89 @@ export class SpaceEvolvesComponent
       id: "storm-siege",
       name: "Storm Siege",
       ingredients: ["missile", "tesla"],
-      cost: 3500,
+      cost: 300000,
       description: "Fuses homing ordnance with chain lightning. Each salvo launches a rocket while lightning jumps through separate targets.",
       visual: "Orange rocket trails wrapped in branching blue lightning.",
+    },
+    {
+      id: "pulse-cannon",
+      name: "Pulse Cannon",
+      ingredients: ["flamer", "laser"],
+      cost: 275000,
+      description: "Fuses flamethrower heat with laser precision. Fires a piercing thermal beam plus an igniting fire burst from the same slot.",
+      visual: "White-hot beam edged in flickering orange flame.",
+    },
+    {
+      id: "aegis-swarm",
+      name: "Aegis Swarm",
+      ingredients: ["drone", "shield"],
+      cost: 350000,
+      description: "Fuses the combat drone with the pulse shield. Each cycle refreshes your shield and fires a drone sting volley from the ship.",
+      visual: "Green sting beams inside an expanding violet shield ring.",
+    },
+    {
+      id: "scrapstorm",
+      name: "Scrapstorm",
+      ingredients: ["rail", "flak"],
+      cost: 260000,
+      description: "Fuses railgun velocity with flak spread. Every cycle sprays hyper-velocity spikes and a close-range pellet fan.",
+      visual: "Yellow-white spike tracers inside a red pellet burst.",
+    },
+    {
+      id: "cinder-cloud",
+      name: "Cinder Cloud",
+      ingredients: ["chem", "flamer"],
+      cost: 300000,
+      description: "Fuses chem corrosion with flamethrower ignition. Lobs acid globs and fire bursts that leave burning acid behind.",
+      visual: "Sickly green clouds laced with orange embers.",
+    },
+    {
+      id: "nova-lance",
+      name: "Nova Lance",
+      ingredients: ["laser", "missile"],
+      cost: 275000,
+      description: "Fuses laser precision with missile payload. Fires a piercing beam tipped with a homing rocket salvo from the same slot.",
+      visual: "Cyan beam with an orange rocket riding its core.",
+    },
+    {
+      id: "ion-storm",
+      name: "Ion Storm",
+      ingredients: ["plasma", "tesla"],
+      cost: 300000,
+      description: "Fuses plasma bolts with chain lightning. Every cycle sprays charged bolts while lightning jumps through separate targets.",
+      visual: "Magenta bolts crackling with blue-white arcs.",
+    },
+    {
+      id: "arc-coil",
+      name: "Arc Coil",
+      ingredients: ["rail", "tesla"],
+      cost: 260000,
+      description: "Fuses railgun velocity with Tesla arcs. Hyper-velocity spikes that discharge chain lightning on impact.",
+      visual: "Yellow spike tracers bursting into blue lightning.",
+    },
+    {
+      id: "hunter-pack",
+      name: "Hunter Pack",
+      ingredients: ["drone", "missile"],
+      cost: 280000,
+      description: "Fuses the combat drone with homing ordnance. Each cycle launches rockets and fires a drone sting volley from the ship.",
+      visual: "Orange rocket trails crossed by green sting beams.",
+    },
+    {
+      id: "bulwark",
+      name: "Bulwark",
+      ingredients: ["shield", "flak"],
+      cost: 320000,
+      description: "Fuses the pulse shield with flak scatter. Each cycle refreshes your shield and blasts a close-range pellet fan.",
+      visual: "Violet shield ring erupting into a red pellet burst.",
+    },
+    {
+      id: "blight-reactor",
+      name: "Blight Reactor",
+      ingredients: ["chem", "plasma"],
+      cost: 290000,
+      description: "Fuses chem corrosion with plasma charge. Lobs acid globs and charged bolts that melt anything standing inside.",
+      visual: "Green acid clouds glowing with magenta plasma.",
     },
   ];
   showMenuPanel() {
@@ -1582,7 +1685,29 @@ export class SpaceEvolvesComponent
       life: 1.2,
       maxLife: 1.2,
       size: 0.22,
-      color: recipe.id === "photon-lance" ? "#e8a7ff" : "#73d8ff",
+      color: recipe.id === "photon-lance"
+        ? "#e8a7ff"
+        : recipe.id === "storm-siege"
+          ? "#73d8ff"
+          : recipe.id === "pulse-cannon"
+            ? "#ffb14d"
+            : recipe.id === "aegis-swarm"
+              ? "#7dff9a"
+              : recipe.id === "scrapstorm"
+                ? "#e0ff70"
+                : recipe.id === "nova-lance"
+                  ? "#ffd54d"
+                  : recipe.id === "ion-storm"
+                    ? "#b388ff"
+                    : recipe.id === "arc-coil"
+                      ? "#9fd8ff"
+                      : recipe.id === "hunter-pack"
+                        ? "#ff9d4d"
+                        : recipe.id === "bulwark"
+                          ? "#9d8cff"
+                          : recipe.id === "blight-reactor"
+                            ? "#b6ff4d"
+                : "#ff6a3d",
       kind: "ring",
       len: 0.35,
     });
@@ -1984,6 +2109,26 @@ export class SpaceEvolvesComponent
                           ? "🌈"
                           : weapon === "storm-siege"
                             ? "⚡🚀"
+                            : weapon === "pulse-cannon"
+                              ? "🔆"
+                              : weapon === "aegis-swarm"
+                                ? "🛡️"
+                                : weapon === "scrapstorm"
+                                  ? "🌪️"
+                                  : weapon === "cinder-cloud"
+                                    ? "🌋"
+                                    : weapon === "nova-lance"
+                                      ? "☀️"
+                                      : weapon === "ion-storm"
+                                        ? "🌀"
+                                        : weapon === "arc-coil"
+                                          ? "🧲"
+                                          : weapon === "hunter-pack"
+                                            ? "🐺"
+                                            : weapon === "bulwark"
+                                              ? "🏰"
+                                              : weapon === "blight-reactor"
+                                                ? "☣️"
                         : weapon === "health"
                           ? "❤️"
                           : weapon === "ship"
@@ -2013,6 +2158,26 @@ export class SpaceEvolvesComponent
                           ? "Photon Lance"
                           : weapon === "storm-siege"
                             ? "Storm Siege"
+                            : weapon === "pulse-cannon"
+                              ? "Pulse Cannon"
+                              : weapon === "aegis-swarm"
+                                ? "Aegis Swarm"
+                                : weapon === "scrapstorm"
+                                  ? "Scrapstorm"
+                                  : weapon === "cinder-cloud"
+                                    ? "Cinder Cloud"
+                                    : weapon === "nova-lance"
+                                      ? "Nova Lance"
+                                      : weapon === "ion-storm"
+                                        ? "Ion Storm"
+                                        : weapon === "arc-coil"
+                                          ? "Arc Coil"
+                                          : weapon === "hunter-pack"
+                                            ? "Hunter Pack"
+                                            : weapon === "bulwark"
+                                              ? "Bulwark"
+                                              : weapon === "blight-reactor"
+                                                ? "Blight Reactor"
                             : "Flamethrower";
   }
   private waveQuota() {
@@ -2314,6 +2479,46 @@ export class SpaceEvolvesComponent
     if (this.hasWeapon("storm-siege") && this.timers["storm-siege"] <= 0) {
       this.fireStormSiege();
       this.timers["storm-siege"] = this.weaponInterval(0.95);
+    }
+    if (this.hasWeapon("pulse-cannon") && this.timers["pulse-cannon"] <= 0) {
+      this.firePulseCannon();
+      this.timers["pulse-cannon"] = this.weaponInterval(0.5);
+    }
+    if (this.hasWeapon("aegis-swarm") && this.timers["aegis-swarm"] <= 0) {
+      this.fireAegisSwarm();
+      this.timers["aegis-swarm"] = this.weaponInterval(1.6);
+    }
+    if (this.hasWeapon("scrapstorm") && this.timers["scrapstorm"] <= 0) {
+      this.fireScrapstorm();
+      this.timers["scrapstorm"] = this.weaponInterval(0.55);
+    }
+    if (this.hasWeapon("cinder-cloud") && this.timers["cinder-cloud"] <= 0) {
+      this.fireCinderCloud();
+      this.timers["cinder-cloud"] = this.weaponInterval(0.8);
+    }
+    if (this.hasWeapon("nova-lance") && this.timers["nova-lance"] <= 0) {
+      this.fireNovaLance();
+      this.timers["nova-lance"] = this.weaponInterval(0.6);
+    }
+    if (this.hasWeapon("ion-storm") && this.timers["ion-storm"] <= 0) {
+      this.fireIonStorm();
+      this.timers["ion-storm"] = this.weaponInterval(0.7);
+    }
+    if (this.hasWeapon("arc-coil") && this.timers["arc-coil"] <= 0) {
+      this.fireArcCoil();
+      this.timers["arc-coil"] = this.weaponInterval(0.5);
+    }
+    if (this.hasWeapon("hunter-pack") && this.timers["hunter-pack"] <= 0) {
+      this.fireHunterPack();
+      this.timers["hunter-pack"] = this.weaponInterval(0.9);
+    }
+    if (this.hasWeapon("bulwark") && this.timers["bulwark"] <= 0) {
+      this.fireBulwark();
+      this.timers["bulwark"] = this.weaponInterval(1.4);
+    }
+    if (this.hasWeapon("blight-reactor") && this.timers["blight-reactor"] <= 0) {
+      this.fireBlightReactor();
+      this.timers["blight-reactor"] = this.weaponInterval(0.7);
     }
     if (this.hasWeapon("laser") && this.timers.laser <= 0) {
       this.fireLasers();
@@ -3033,6 +3238,26 @@ export class SpaceEvolvesComponent
                         ? this.weaponInterval(0.42)
                         : weapon === "storm-siege"
                           ? this.weaponInterval(0.95)
+                          : weapon === "pulse-cannon"
+                            ? this.weaponInterval(0.5)
+                            : weapon === "aegis-swarm"
+                              ? this.weaponInterval(1.6)
+                              : weapon === "scrapstorm"
+                                ? this.weaponInterval(0.55)
+                                : weapon === "cinder-cloud"
+                                  ? this.weaponInterval(0.8)
+                                  : weapon === "nova-lance"
+                                    ? this.weaponInterval(0.6)
+                                    : weapon === "ion-storm"
+                                      ? this.weaponInterval(0.7)
+                                      : weapon === "arc-coil"
+                                        ? this.weaponInterval(0.5)
+                                        : weapon === "hunter-pack"
+                                          ? this.weaponInterval(0.9)
+                                          : weapon === "bulwark"
+                                            ? this.weaponInterval(1.4)
+                                            : weapon === "blight-reactor"
+                                              ? this.weaponInterval(0.7)
                           : this.weaponInterval(this.stats.flamerInterval),
       color:
         weapon === "laser"
@@ -3057,6 +3282,26 @@ export class SpaceEvolvesComponent
                         ? "#e8a7ff"
                         : weapon === "storm-siege"
                           ? "#73d8ff"
+                          : weapon === "pulse-cannon"
+                            ? "#ffb14d"
+                            : weapon === "aegis-swarm"
+                              ? "#7dff9a"
+                              : weapon === "scrapstorm"
+                                ? "#e0ff70"
+                                : weapon === "cinder-cloud"
+                                  ? "#ff6a3d"
+                                  : weapon === "nova-lance"
+                                    ? "#ffd54d"
+                                    : weapon === "ion-storm"
+                                      ? "#b388ff"
+                                      : weapon === "arc-coil"
+                                        ? "#9fd8ff"
+                                        : weapon === "hunter-pack"
+                                          ? "#ff9d4d"
+                                          : weapon === "bulwark"
+                                            ? "#9d8cff"
+                                            : weapon === "blight-reactor"
+                                              ? "#b6ff4d"
                           : "#ff8c2e",
     }));
   }
@@ -3205,6 +3450,16 @@ export class SpaceEvolvesComponent
       "Short-range fire stream with full-strength impact bursts. Hits ignite bugs: the burn stacks up to 5x damage over time while it burns, and burning bugs scorch nearby enemies.",
     "photon-lance": "A weapon evolution that fuses laser and plasma into a piercing violet beam with a charged impact bolt.",
     "storm-siege": "A weapon evolution that fuses missiles and Tesla into homing rockets wrapped in chain lightning.",
+    "pulse-cannon": "A weapon evolution that fuses flamethrower and laser into a pulsing thermal cannon: a piercing heat beam plus an igniting fire burst.",
+    "aegis-swarm": "A weapon evolution that fuses the combat drone with the pulse shield: every cycle refreshes your shield and fires a drone sting volley.",
+    "scrapstorm": "A weapon evolution that fuses railgun and flak into a shredding stream of hyper-velocity spikes and pellet fans.",
+    "cinder-cloud": "A weapon evolution that fuses chem cloud and flamethrower: corrosive globs and igniting bursts that leave burning acid behind.",
+    "nova-lance": "A weapon evolution that fuses laser and missile into a piercing beam tipped with a homing rocket salvo.",
+    "ion-storm": "A weapon evolution that fuses plasma and Tesla into charged bolts wrapped in chain lightning.",
+    "arc-coil": "A weapon evolution that fuses railgun and Tesla into hyper-velocity spikes that discharge chain lightning.",
+    "hunter-pack": "A weapon evolution that fuses the combat drone with homing ordnance: rockets plus a drone sting volley.",
+    "bulwark": "A weapon evolution that fuses the pulse shield with flak scatter: shield refresh plus a close-range pellet fan.",
+    "blight-reactor": "A weapon evolution that fuses chem cloud and plasma into acid globs and charged bolts that melt anything inside.",
   };
   weaponDetailLines(w: WeaponId) {
     const S = this.stats;
@@ -3395,6 +3650,91 @@ export class SpaceEvolvesComponent
           "Combined missile + Tesla evolution",
           "Homing rocket and chain lightning per salvo",
           "Each attack uses distinct targets where possible",
+          "Consumes one weapon slot",
+          crit,
+        );
+        break;
+      case "pulse-cannon":
+        L.push(
+          "Combined flamer + laser evolution",
+          "Damage " +
+            r1(this.weaponDamage(S.laserDamage + S.flamerDamage * 6) * 1.2),
+          "Instant piercing heat beam plus igniting fire burst",
+          "Consumes one weapon slot",
+          crit,
+        );
+        break;
+      case "aegis-swarm":
+        L.push(
+          "Combined drone + shield evolution",
+          "Shield refresh plus drone sting volley every cycle",
+          "Consumes one weapon slot",
+          crit,
+        );
+        break;
+      case "scrapstorm":
+        L.push(
+          "Combined rail + flak evolution",
+          "Hyper-velocity spikes plus close-range pellet fan",
+          "Consumes one weapon slot",
+          crit,
+        );
+        break;
+      case "cinder-cloud":
+        L.push(
+          "Combined chem + flamer evolution",
+          "Acid globs plus igniting bursts with lingering clouds",
+          "Consumes one weapon slot",
+          crit,
+        );
+        break;
+      case "nova-lance":
+        L.push(
+          "Combined laser + missile evolution",
+          "Damage " +
+            r1(this.weaponDamage(S.laserDamage + S.missileDamage) * 1.1),
+          "Instant piercing beam tipped with a homing rocket salvo",
+          "Consumes one weapon slot",
+          crit,
+        );
+        break;
+      case "ion-storm":
+        L.push(
+          "Combined plasma + Tesla evolution",
+          "Charged bolts and chain lightning per salvo",
+          "Each attack uses distinct targets where possible",
+          "Consumes one weapon slot",
+          crit,
+        );
+        break;
+      case "arc-coil":
+        L.push(
+          "Combined rail + Tesla evolution",
+          "Hyper-velocity spikes that discharge chain lightning",
+          "Consumes one weapon slot",
+          crit,
+        );
+        break;
+      case "hunter-pack":
+        L.push(
+          "Combined drone + missile evolution",
+          "Homing rockets plus a drone sting volley per salvo",
+          "Consumes one weapon slot",
+          crit,
+        );
+        break;
+      case "bulwark":
+        L.push(
+          "Combined shield + flak evolution",
+          "Shield refresh plus close-range pellet fan every cycle",
+          "Consumes one weapon slot",
+          crit,
+        );
+        break;
+      case "blight-reactor":
+        L.push(
+          "Combined chem + plasma evolution",
+          "Acid globs plus charged bolts with lingering clouds",
           "Consumes one weapon slot",
           crit,
         );
@@ -3742,11 +4082,21 @@ export class SpaceEvolvesComponent
         color: "#e8a7ff",
         kind: "beam",
       });
+      const mark = this.shots.length;
       this.firePlasma();
+      this.tintNewShots(mark, "#e8a7ff");
     }
   }
+  /** Stamp an evolution tint on every projectile spawned since mark, so each
+   *  fusion's shots render with their own aura color. */
+  private tintNewShots(mark: number, tint: string): void {
+    for (let i = Math.max(0, mark); i < this.shots.length; i++)
+      this.shots[i].tint = tint;
+  }
   private fireStormSiege() {
+    const mark = this.shots.length;
     this.fireMissiles();
+    this.tintNewShots(mark, "#73d8ff");
     this.fireTesla();
     this.effects.push({
       x: this.player.x,
@@ -3759,6 +4109,210 @@ export class SpaceEvolvesComponent
       color: "#73d8ff",
       kind: "ring",
       len: 0.3,
+      spin: performance.now() / 1000,
+    });
+  }
+  private firePulseCannon() {
+    const target = this.distinctTargets(1)[0];
+    if (target) {
+      this.fireInstantLaser(
+        this.player.x,
+        this.player.y,
+        target,
+        (this.stats.laserDamage + this.stats.flamerDamage * 6) * 1.2,
+      );
+      this.effects.push({
+        x: this.player.x,
+        y: this.player.y,
+        x2: target.x,
+        y2: target.y,
+        vx: 0,
+        vy: 0,
+        life: 0.2,
+        maxLife: 0.2,
+        size: 0.02,
+        color: "#ffb14d",
+        kind: "beam",
+      });
+      const pulseMark = this.shots.length;
+      this.fireFlamer();
+      this.tintNewShots(pulseMark, "#ffb14d");
+    }
+  }
+  private fireAegisSwarm() {
+    this.shieldPulse();
+    this.fireDroneStings(this.player.x, this.player.y);
+    this.effects.push({
+      x: this.player.x,
+      y: this.player.y,
+      vx: 0,
+      vy: 0,
+      life: 0.35,
+      maxLife: 0.35,
+      size: 0.18,
+      color: "#7dff9a",
+      kind: "ring",
+      len: 0.32,
+      spin: performance.now() / 1000,
+    });
+  }
+  private fireScrapstorm() {
+    const mark = this.shots.length;
+    this.fireRail();
+    this.fireFlak();
+    this.tintNewShots(mark, "#e0ff70");
+    this.effects.push({
+      x: this.player.x,
+      y: this.player.y,
+      vx: 0,
+      vy: 0,
+      life: 0.2,
+      maxLife: 0.2,
+      size: 0.12,
+      color: "#e0ff70",
+      kind: "ring",
+      len: 0.24,
+      spin: performance.now() / 1000,
+    });
+  }
+  private fireCinderCloud() {
+    const mark = this.shots.length;
+    this.fireChem();
+    this.fireFlamer();
+    this.tintNewShots(mark, "#ff6a3d");
+    this.effects.push({
+      x: this.player.x,
+      y: this.player.y,
+      vx: 0,
+      vy: 0,
+      life: 0.3,
+      maxLife: 0.3,
+      size: 0.15,
+      color: "#ff6a3d",
+      kind: "ring",
+      len: 0.28,
+      spin: performance.now() / 1000,
+    });
+  }
+  private fireNovaLance() {
+    const target = this.distinctTargets(1)[0];
+    if (target) {
+      this.fireInstantLaser(
+        this.player.x,
+        this.player.y,
+        target,
+        (this.stats.laserDamage + this.stats.missileDamage) * 1.1,
+      );
+      this.effects.push({
+        x: this.player.x,
+        y: this.player.y,
+        x2: target.x,
+        y2: target.y,
+        vx: 0,
+        vy: 0,
+        life: 0.2,
+        maxLife: 0.2,
+        size: 0.02,
+        color: "#ffd54d",
+        kind: "beam",
+      });
+      const novaMark = this.shots.length;
+      this.fireMissiles();
+      this.tintNewShots(novaMark, "#ffd54d");
+    }
+  }
+  private fireIonStorm() {
+    const mark = this.shots.length;
+    this.firePlasma();
+    this.tintNewShots(mark, "#b388ff");
+    this.fireTesla();
+    this.effects.push({
+      x: this.player.x,
+      y: this.player.y,
+      vx: 0,
+      vy: 0,
+      life: 0.28,
+      maxLife: 0.28,
+      size: 0.16,
+      color: "#b388ff",
+      kind: "ring",
+      len: 0.3,
+      spin: performance.now() / 1000,
+    });
+  }
+  private fireArcCoil() {
+    const mark = this.shots.length;
+    this.fireRail();
+    this.tintNewShots(mark, "#9fd8ff");
+    this.fireTesla();
+    this.effects.push({
+      x: this.player.x,
+      y: this.player.y,
+      vx: 0,
+      vy: 0,
+      life: 0.22,
+      maxLife: 0.22,
+      size: 0.13,
+      color: "#9fd8ff",
+      kind: "ring",
+      len: 0.26,
+      spin: performance.now() / 1000,
+    });
+  }
+  private fireHunterPack() {
+    const mark = this.shots.length;
+    this.fireMissiles();
+    this.tintNewShots(mark, "#ff9d4d");
+    this.fireDroneStings(this.player.x, this.player.y);
+    this.effects.push({
+      x: this.player.x,
+      y: this.player.y,
+      vx: 0,
+      vy: 0,
+      life: 0.26,
+      maxLife: 0.26,
+      size: 0.15,
+      color: "#ff9d4d",
+      kind: "ring",
+      len: 0.3,
+      spin: performance.now() / 1000,
+    });
+  }
+  private fireBulwark() {
+    this.shieldPulse();
+    const mark = this.shots.length;
+    this.fireFlak();
+    this.tintNewShots(mark, "#9d8cff");
+    this.effects.push({
+      x: this.player.x,
+      y: this.player.y,
+      vx: 0,
+      vy: 0,
+      life: 0.32,
+      maxLife: 0.32,
+      size: 0.18,
+      color: "#9d8cff",
+      kind: "ring",
+      len: 0.32,
+      spin: performance.now() / 1000,
+    });
+  }
+  private fireBlightReactor() {
+    const mark = this.shots.length;
+    this.fireChem();
+    this.firePlasma();
+    this.tintNewShots(mark, "#b6ff4d");
+    this.effects.push({
+      x: this.player.x,
+      y: this.player.y,
+      vx: 0,
+      vy: 0,
+      life: 0.3,
+      maxLife: 0.3,
+      size: 0.15,
+      color: "#b6ff4d",
+      kind: "ring",
+      len: 0.28,
       spin: performance.now() / 1000,
     });
   }
@@ -4740,6 +5294,16 @@ export class SpaceEvolvesComponent
       flamer: 0,
       "photon-lance": 0,
       "storm-siege": 0,
+      "pulse-cannon": 0,
+      "aegis-swarm": 0,
+      "scrapstorm": 0,
+      "cinder-cloud": 0,
+      "nova-lance": 0,
+      "ion-storm": 0,
+      "arc-coil": 0,
+      "hunter-pack": 0,
+      "bulwark": 0,
+      "blight-reactor": 0,
     };
     this.saveProgress();
     this.prepareStartingChoice();
@@ -4836,6 +5400,16 @@ export class SpaceEvolvesComponent
                   "flamer",
                   "photon-lance",
                   "storm-siege",
+                  "pulse-cannon",
+                  "aegis-swarm",
+                  "scrapstorm",
+                  "cinder-cloud",
+                  "nova-lance",
+                  "ion-storm",
+                  "arc-coil",
+                  "hunter-pack",
+                  "bulwark",
+                  "blight-reactor",
                 ].includes(id),
               )
               .slice(0, this.weaponSlotLimit)
@@ -4888,6 +5462,16 @@ export class SpaceEvolvesComponent
                   "flamer",
                   "photon-lance",
                   "storm-siege",
+                  "pulse-cannon",
+                  "aegis-swarm",
+                  "scrapstorm",
+                  "cinder-cloud",
+                  "nova-lance",
+                  "ion-storm",
+                  "arc-coil",
+                  "hunter-pack",
+                  "bulwark",
+                  "blight-reactor",
                 ].includes(id),
               )
               .slice(0, this.weaponSlotLimit)
