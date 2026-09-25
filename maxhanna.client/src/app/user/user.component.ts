@@ -32,6 +32,7 @@ import { ReactionService } from '../../services/reaction.service';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { TopService } from '../../services/top.service';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
+import { MusicComponent } from '../music/music.component';
 import { TradeService } from '../../services/trade.service';
 import { RomService } from '../../services/rom.service';
 import { MarblesService } from '../../services/marbles.service';
@@ -60,6 +61,9 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
   @ViewChild('loginUsername') loginUsername!: ElementRef<HTMLInputElement>;
   @ViewChild('loginPassword') loginPassword!: ElementRef<HTMLInputElement>;
   @ViewChild('loginPin') loginPin!: ElementRef<HTMLInputElement>;
+
+  // Reference to the embedded profile music player for programmatic control.
+  @ViewChild('profileMusic') profileMusic?: MusicComponent;
 
   // Caps Lock awareness on secret inputs: the state is read off the key events
   // themselves (getModifierState), so it works without any permission prompt.
@@ -613,6 +617,11 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
   }
   async gotPlaylistEvent(event: Array<Todo>) {
     this.playListCount = event.length;
+  }
+
+  /** The embedded profile music player, for other components to control programmatically. */
+  get musicPlayer(): MusicComponent | undefined {
+    return this.profileMusic;
   }
   async loadSongData() {
     const user = this.user ?? this.parentRef?.user;

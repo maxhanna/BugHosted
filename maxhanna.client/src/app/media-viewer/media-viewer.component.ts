@@ -1071,6 +1071,46 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     mediaNodes.forEach(el => this.unmuteMedia(el));
   }
 
+  /** Pause every media element in this viewer (keeps position, unlike stopAllMedia). */
+  pauseAllMedia() {
+    // Pause known ViewChild elements first
+    this.pauseMedia(this.mediaContainer?.nativeElement);
+    this.pauseMedia(this.fullscreenVideo?.nativeElement);
+    this.pauseMedia(this.fullscreenAudio?.nativeElement);
+
+    // Sweep all media elements in this component subtree
+    const root: Document | HTMLElement = this.mediaRoot?.nativeElement ?? document;
+    const mediaNodes = root.querySelectorAll<HTMLMediaElement>('video, audio');
+
+    mediaNodes.forEach(el => this.pauseMedia(el));
+  }
+
+  /** Resume playback of media elements paused via pauseAllMedia(). */
+  resumeAllMedia() {
+    this.resumeMedia(this.mediaContainer?.nativeElement);
+    this.resumeMedia(this.fullscreenVideo?.nativeElement);
+    this.resumeMedia(this.fullscreenAudio?.nativeElement);
+
+    const root: Document | HTMLElement = this.mediaRoot?.nativeElement ?? document;
+    const mediaNodes = root.querySelectorAll<HTMLMediaElement>('video, audio');
+
+    mediaNodes.forEach(el => this.resumeMedia(el));
+  }
+
+  private pauseMedia(media?: HTMLMediaElement): void {
+    if (!media || media.paused) return;
+    try { media.pause(); } catch (e) {
+      this.debugLog('Failed to pause media:', e);
+    }
+  }
+
+  private resumeMedia(media?: HTMLMediaElement): void {
+    if (!media || !media.paused || !media.currentSrc) return;
+    try { media.play().catch(e => this.debugLog('Failed to resume media:', e)); } catch (e) {
+      this.debugLog('Failed to resume media:', e);
+    }
+  }
+
   private unmuteMedia(media?: HTMLMediaElement): void {
     if (!media) return;
     try {

@@ -97,14 +97,28 @@ export class HostAiComponent extends ChildComponent implements OnInit, AfterView
     // submitted instead of leaving HostAI permanently empty.
     this.aiChatExpanded = true;
     const query = this.preloadedMessage.trim();
-    setTimeout(() => {
+    if (!query) return;
+    // The input lives behind the collapsible *ngIf, so force a render pass
+    // now — otherwise the ViewChild is still undefined when the send is
+    // attempted (the old one-shot timer raced change detection and silently
+    // gave up, leaving the input empty and nothing sent).
+    try { this.cdr.detectChanges(); } catch { }
+    let attempts = 0;
+    const trySend = () => {
+      attempts++;
       const input = this.chatInput?.nativeElement;
-      if (!query || !input || this.isStreaming || this.chatMessages?.length) return;
+      if (!input) {
+        // Embedded view may need another tick to settle — retry briefly.
+        if (attempts < 20) setTimeout(trySend, 250);
+        return;
+      }
+      if (this.isStreaming || (this.chatMessages && this.chatMessages.length)) return;
       input.value = query;
       this.userMessage = query;
       // Let the embedded view and parent reference settle before sending.
       this.sendMessage();
-    }, 400);
+    };
+    setTimeout(trySend, 100);
   }
 
 

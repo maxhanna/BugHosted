@@ -8,6 +8,7 @@ import { BloodPool, BloodSplat, CityMesh, DeadBody, Explosion, GrandtheftService
 import { UserEventService } from '../../services/user-event.service';
 import { TodoService } from '../../services/todo.service';
 import { FileService } from '../../services/file.service';
+import { MusicComponent } from '../music/music.component';
 const CHUNK_SIZE = 80;
 const CAR_HEIGHT = 0.4;
 const PLAYER_BLOOD_DAMAGE_THRESHOLD = 50;
@@ -682,6 +683,14 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     // YouTube player's ready handler, so setting the fields here is enough.
     this.restoreGtSettings();
     this.userEventService.insertUserEvent(this.parentRef?.user?.id ?? 0, "grandtheft", "Started playing Grand Theft!", undefined, "GrandTheft");
+    // Register for programmatic control of the app-music player (next/prev/
+    // playPause/stop/playRandom) via its static registry. The game keeps its
+    // own radio player for now; when you want it to drive the main music
+    // component instead, resolve the live instance like this:
+    //   MusicComponent.getActiveInstance(this.parentRef?.user?.id)?.nextSong()
+    if (!MusicComponent.getActiveInstance(this.parentRef?.user?.id)) {
+      console.log('[GrandTheft] No live MusicComponent registered yet — the profile/music view creates one on demand.');
+    }
   }
 
   /** View distance + volume sliders, persisted to localStorage under one key. */

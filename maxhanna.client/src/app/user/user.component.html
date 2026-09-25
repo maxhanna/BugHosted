@@ -624,7 +624,7 @@
         <span class="cursorPointerUnderlined">Music ({{songPlaylist.length}})</span>
       </label>
       <div *ngIf="isMusicContainerExpanded">
-        <app-music *ngIf="isMusicContainerExpanded" [user]="user" [inputtedParentRef]="parentRef"
+        <app-music #profileMusic *ngIf="isMusicContainerExpanded" [user]="user" [inputtedParentRef]="parentRef"
           [smallPlayer]="true" (gotPlaylistEvent)="gotPlaylistEvent($event)">
         </app-music>
       </div>

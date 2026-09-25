@@ -966,7 +966,7 @@ export class SpaceEvolvesComponent
       id: "secondary-effect",
       name: "Effect Strength",
       description:
-        "Tesla stun duration, chem cloud duration, plasma conversion chance, railgun knockback chance, and Pulse Shield capacity +25%. Only weapons with those effects benefit.",
+        "Tesla stun duration, chem cloud duration, plasma conversion chance, railgun knockback chance, flamethrower burn duration, and Pulse Shield capacity +25%. Only weapons with those effects benefit.",
       weapon: "ship",
     },
     {
@@ -3236,7 +3236,7 @@ export class SpaceEvolvesComponent
           if (s.kind === "flamer") {
             b.burnTimer = Math.max(
               b.burnTimer ?? 0,
-              this.stats.flamerBurnDuration,
+              this.secondaryEffect(this.stats.flamerBurnDuration),
             );
             b.burnStacks = Math.min(5, (b.burnStacks ?? 0) + 1);
             const flameRadius = s.splash;
@@ -3259,7 +3259,7 @@ export class SpaceEvolvesComponent
                 this.damageBug(o, Math.max(1, s.damage - o.armor));
                 o.burnTimer = Math.max(
                   o.burnTimer ?? 0,
-                  this.stats.flamerBurnDuration,
+                  this.secondaryEffect(this.stats.flamerBurnDuration),
                 );
                 o.burnStacks = Math.min(5, (o.burnStacks ?? 0) + 1);
               }
