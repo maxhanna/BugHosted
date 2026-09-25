@@ -1,4 +1,4 @@
-﻿import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild, NgZone, ChangeDetectorRef } from '@angular/core';
+﻿import { AfterViewInit, Component, ComponentRef, ElementRef, EnvironmentInjector, OnDestroy, OnInit, ViewChild, ViewContainerRef, NgZone, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AppModule } from '../app.module';
@@ -8,6 +8,7 @@ import { BloodPool, BloodSplat, CityMesh, DeadBody, Explosion, GrandtheftService
 import { UserEventService } from '../../services/user-event.service';
 import { TodoService } from '../../services/todo.service';
 import { FileService } from '../../services/file.service';
+import { RadioService } from '../../services/radio.service';
 import { MusicComponent } from '../music/music.component';
 const CHUNK_SIZE = 80;
 const CAR_HEIGHT = 0.4;
@@ -599,7 +600,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   // player is released at the station door, easing back behind them.
   private _bustCamStartYaw = 0;
   radioOn = false;
-  radioSongs: string[] = [];
+  /** Shared music player the car radio controls (lazily created, hidden). */
+  private musicPlayer?: MusicComponent;
+  private musicPlayerRef?: ComponentRef<MusicComponent>;
+  private musicPlayerHost?: HTMLDivElement;
   altUpPressed = false;
   altDownPressed = false;
   // Procedural Web Audio for the helicopter rotor (spool-up on the ground,
@@ -613,11 +617,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private _heliLfoGain: GainNode | null = null;
   private _heliSpool = 0;
   radioIndex = -1;
-  radioSongTitle = '';
   private radioShouldPlay = false;
-  private radioPlayerReady = false;
-  private ytPlayer: any = null;
-  private ytApiReady: Promise<void> | null = null;
   private joystickActive = false;
   private joystickId = -1;
   private joystickX = 0;
@@ -672,6 +672,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     private userEventService: UserEventService,
     private todoService: TodoService,
     private fileService: FileService,
+    private radioService: RadioService,
+    private vcr: ViewContainerRef,
+    private envInjector: EnvironmentInjector,
     private ngZone: NgZone,
     private cdr: ChangeDetectorRef) { super(); }
   ngOnInit() {
@@ -683,14 +686,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     // YouTube player's ready handler, so setting the fields here is enough.
     this.restoreGtSettings();
     this.userEventService.insertUserEvent(this.parentRef?.user?.id ?? 0, "grandtheft", "Started playing Grand Theft!", undefined, "GrandTheft");
-    // Register for programmatic control of the app-music player (next/prev/
-    // playPause/stop/playRandom) via its static registry. The game keeps its
-    // own radio player for now; when you want it to drive the main music
-    // component instead, resolve the live instance like this:
-    //   MusicComponent.getActiveInstance(this.parentRef?.user?.id)?.nextSong()
-    if (!MusicComponent.getActiveInstance(this.parentRef?.user?.id)) {
-      console.log('[GrandTheft] No live MusicComponent registered yet — the profile/music view creates one on demand.');
-    }
+    // Prime the shared music player (hidden) so the car radio can drive it;
+    // car radio buttons, the on-page player, and mediaSession keys all share it.
+    void this.initRadio();
   }
 
   /** View distance + volume sliders, persisted to localStorage under one key. */
@@ -1778,129 +1776,91 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (this.taxiMission) this.abortTaxiFare();
     this.stopRadio();
   }
+  // The car radio drives the shared MusicComponent (same player as the music
+  // page and profile small player) so every remote control — car radio buttons,
+  // keyboard, mediaSession lock-screen keys — operates one queue.
   private async initRadio() {
     const userId = this.getUserId();
     if (!userId) return;
-    const todos = await this.todoService.getTodo(userId, 'Music');
-    if (todos && Array.isArray(todos)) {
-      this.radioSongs = todos
-        .filter((s: any) => s.url && s.url.includes('youtube'))
-        .map((s: any) => this.fileService.parseYoutubeId(s.url))
-        .filter((id: string) => id.length > 0);
-    }
-    if (this.ytPlayer) {
-      this.tryStartRadio();
-      return;
-    }
-    this.ensureYtApi().then(() => {
-      const div = document.getElementById('gt-yt-player');
-      if (!div || this.ytPlayer) return;
-      this.ytPlayer = new (window as any).YT.Player('gt-yt-player', {
-        height: '0', width: '0',
-        playerVars: {
-          autoplay: 1,
-          controls: 0,
-          disablekb: 1,
-          enablejsapi: 1,
-          fs: 0,
-          modestbranding: 1,
-          origin: window.location.origin,
-          playsinline: 1,
-        },
-        events: {
-          onReady: () => {
-            this.radioPlayerReady = true;
-            try {
-              const iframe = this.ytPlayer?.getIframe?.() as HTMLIFrameElement | undefined;
-              iframe?.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture');
-            } catch { }
-            this.setRadioVolume();
-            this.tryStartRadio();
-          },
-          onStateChange: (e: any) => {
-            if (e.data === 1) {
-              if (this.audioUnlocked) this.ytPlayer?.unMute?.();
-              this.ngZone.run(() => {
-                this.radioSongTitle = this.ytPlayer?.getVideoData?.()?.title || '';
-              });
-            }
-            if (e.data === 0 && this.radioOn) this.nextRadio();
-          }
-        }
-      });
-    });
+    void this.ensureMusicPlayer(userId).then(p => p?.setVolume(this.radioVolume * 100));
   }
-  private ensureYtApi(): Promise<void> {
-    if (this.ytApiReady) return this.ytApiReady;
-    this.ytApiReady = new Promise<void>((resolve) => {
-      const w = window as any;
-      if (w.YT?.Player) { resolve(); return; }
-      w.onYouTubeIframeAPIReady = () => resolve();
-      if (!document.querySelector('script[src="https://www.youtube.com/iframe_api"]')) {
-        const tag = document.createElement('script');
-        tag.src = 'https://www.youtube.com/iframe_api';
-        tag.async = true;
-        document.head.appendChild(tag);
-      }
-    });
-    return this.ytApiReady;
-  }
-  private playRadio(index: number) {
-    this.radioShouldPlay = true;
-    if (!this.radioSongs.length) return;
-    this.radioIndex = (index + this.radioSongs.length) % this.radioSongs.length;
-    this.tryStartRadio();
-  }
-  private tryStartRadio() {
-    if (!this.isInCar || !this.radioShouldPlay || !this.radioSongs.length
-      || !this.ytPlayer || !this.radioPlayerReady) return;
-    if (this.radioIndex < 0) {
-      this.radioIndex = Math.floor(Math.random() * this.radioSongs.length);
+
+  /** Lazily create the hidden shared player, loading this user's Music list. */
+  private async ensureMusicPlayer(userId: number): Promise<MusicComponent | undefined> {
+    // Reuse an existing live instance (music page, profile small player, or a
+    // previously created hidden one) so every control drives the same queue.
+    const existing = MusicComponent.getActiveInstance(userId);
+    if (existing) {
+      this.musicPlayer = existing;
+      return existing;
     }
-    const id = this.radioSongs[this.radioIndex];
-    if (!id) return;
+
+    if (!this.musicPlayerHost) {
+      const host = document.createElement('div');
+      host.className = 'gt-music-player-host';
+      document.body.appendChild(host);
+      this.musicPlayerHost = host;
+    }
     try {
-      this.ytPlayer.loadVideoById(id);
-      // Muted autoplay is allowed by browsers. Car entry calls unlockAudio()
-      // from the user gesture, so unmute immediately when that permission exists.
-      if (this.audioUnlocked) this.ytPlayer.unMute?.();
-      else this.ytPlayer.mute?.();
-      this.ytPlayer.playVideo?.();
-      this.radioOn = true;
-      this.setRadioVolume();
-      this.ngZone.run(() => {
-        this.radioSongTitle = this.ytPlayer?.getVideoData?.()?.title || '';
+      const ref = this.vcr.createComponent(MusicComponent, {
+        environmentInjector: this.envInjector,
       });
-    } catch { }
+      const music = ref.instance;
+      music.parentRef = this.parentRef;
+      music.smallPlayer = true;
+      // Mount the detached component into the hidden host so the YouTube
+      // iframe can attach; keep the ref for teardown.
+      ref.hostView.detectChanges();
+      const nodes = (ref.hostView as any).rootNodes as Node[];
+      nodes.forEach(n => this.musicPlayerHost!.appendChild(n));
+      this.musicPlayer = music;
+      this.musicPlayerRef = ref;
+      return music;
+    } catch (e) {
+      console.error('[GrandTheft] failed to create shared music player', e);
+      try { this.musicPlayerRef?.destroy(); } catch { }
+      this.musicPlayerRef = undefined;
+      this.musicPlayer = undefined;
+      return undefined;
+    }
   }
-  setRadioVolume() {
-    if (!this.ytPlayer || typeof this.ytPlayer.setVolume !== 'function') return;
-    try {
-      this.ytPlayer.setVolume(Math.round(this.radioVolume * 100));
-    } catch { }
-  }
+
   nextRadio() {
-    if (!this.radioSongs.length) return;
-    if (!this.radioOn) { this.randomRadio(); return; }
-    this.playRadio(this.radioIndex + 1);
+    this.radioOn = true;
+    void this.ensureMusicPlayer(this.getUserId()).then(p => p?.nextSong());
   }
+
   prevRadio() {
-    if (!this.radioSongs.length) return;
-    if (!this.radioOn) { this.randomRadio(); return; }
-    this.playRadio(this.radioIndex - 1);
+    this.radioOn = true;
+    void this.ensureMusicPlayer(this.getUserId()).then(p => p?.previousSong());
   }
+
   randomRadio() {
-    this.radioShouldPlay = true;
-    if (!this.radioSongs.length) return;
-    if (this.radioOn && this.ytPlayer) try { this.ytPlayer.stopVideo(); } catch { }
-    this.playRadio(Math.floor(Math.random() * this.radioSongs.length));
+    this.radioOn = true;
+    void this.ensureMusicPlayer(this.getUserId()).then(p => p?.playRandom());
   }
+
   stopRadio() {
-    this.radioShouldPlay = false;
     this.radioOn = false;
-    this.radioSongTitle = '';
-    if (this.ytPlayer) try { this.ytPlayer.stopVideo(); } catch { }
+    this.radioShouldPlay = false;
+    this.musicPlayer?.stop();
   }
+
+  /** Settings-slider volume (0–1) → shared player (0–100). */
+  setRadioVolume() {
+    this.musicPlayer?.setVolume(this.radioVolume * 100);
+  }
+
+  /** Radio badge title, resolved against the shared player's song list. */
+  get radioSongTitle(): string {
+    return this.musicPlayer?.currentSongTitle ?? '';
+  }
+
+  /** Truthy once the shared player has a playlist — gates the car radio UI. */
+  get radioSongs(): string[] {
+    return (this.musicPlayer?.songs?.length ?? 0) > 0 ? ['has-songs'] : [];
+  }
+
   private showVehicleBanner(type: string) {
     const m = this.playerVehicleMesh;
     const carName = m ? (Array.isArray(m) ? (m.length > 0 ? m[0].carName : undefined) : (m as CityMesh).carName) : undefined;
@@ -2771,7 +2731,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (this.audioUnlocked) {
       // Shooting is also a user gesture, but must never restart an already
       // playing station. Only start the radio here when it is not currently on.
-      if (!this.radioOn) this.tryStartRadio();
+      if (!this.radioOn) this.randomRadio();
       return;
     }
     this.audioUnlocked = true;
@@ -2782,7 +2742,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       [this.uziSound, this.rocketSound, this.policeSirenSound].forEach(a => {
         if (a) { a.volume = 0; a.play().then(() => { a.pause(); a.currentTime = 0; a.volume = 0.3; }).catch(() => { }); }
       });
-      if (!this.radioOn) this.tryStartRadio();
+      if (!this.radioOn) this.randomRadio();
     } catch (e) { }
   }
   /** Fade gunfire with distance: full volume up close, faint past ~60 units. */
@@ -2922,10 +2882,14 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private stopAllGrandTheftAudio(): void {
     this.stopRadio();
     this.radioOn = false;
-    try { this.ytPlayer?.stopVideo?.(); } catch { }
-    try { this.ytPlayer?.destroy?.(); } catch { }
-    this.ytPlayer = null;
-    this.radioPlayerReady = false;
+    // Tear down the hidden shared player instance (if we created it).
+    try { this.musicPlayerRef?.destroy(); } catch { }
+    this.musicPlayerRef = undefined;
+    this.musicPlayer = undefined;
+    if (this.musicPlayerHost) {
+      try { this.musicPlayerHost.remove(); } catch { }
+      this.musicPlayerHost = undefined;
+    }
     this.stopEngineAudio();
     this.stopTrafficAudio();
     this.stopHeliAudio();

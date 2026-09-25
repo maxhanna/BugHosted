@@ -46,6 +46,7 @@ export interface SpaceBug {
   chemSpreadCooldown?: number;
   burnTimer?: number;
   burnStacks?: number;
+  burnDuration?: number;
   wakeTimer?: number;
   boss?: boolean;
   ally?: boolean;
@@ -966,7 +967,7 @@ export class SpaceEvolvesComponent
       id: "secondary-effect",
       name: "Effect Strength",
       description:
-        "Tesla stun duration, chem cloud duration, plasma conversion chance, railgun knockback chance, flamethrower burn duration, and Pulse Shield capacity +25%. Only weapons with those effects benefit.",
+        "Tesla stun duration, chem cloud duration, plasma conversion chance, railgun knockback chance, flamethrower burn duration and damage, and Pulse Shield capacity +25%. Only weapons with those effects benefit.",
       weapon: "ship",
     },
     {
@@ -3070,7 +3071,9 @@ export class SpaceEvolvesComponent
           b.burnStacks = 0;
         } else {
           const heatDps =
-            this.weaponDamage(this.stats.flamerDamage) * heat * 0.5;
+            this.secondaryEffect(this.weaponDamage(this.stats.flamerDamage)) *
+            heat *
+            0.5;
           const dot = Math.max(1, heatDps - b.armor) * dt;
           this.damageBug(b, dot);
           if (this.stats.lifesteal > 0)
@@ -3239,6 +3242,7 @@ export class SpaceEvolvesComponent
               this.secondaryEffect(this.stats.flamerBurnDuration),
             );
             b.burnStacks = Math.min(5, (b.burnStacks ?? 0) + 1);
+            b.burnDuration = this.secondaryEffect(this.stats.flamerBurnDuration);
             const flameRadius = s.splash;
             if (this.effects.length < FX_MAX)
               this.effects.push({
@@ -3262,6 +3266,7 @@ export class SpaceEvolvesComponent
                   this.secondaryEffect(this.stats.flamerBurnDuration),
                 );
                 o.burnStacks = Math.min(5, (o.burnStacks ?? 0) + 1);
+                o.burnDuration = this.secondaryEffect(this.stats.flamerBurnDuration);
               }
             }
             if (s.bounces > 0) {
@@ -3942,7 +3947,7 @@ export class SpaceEvolvesComponent
           "Combined Tesla + flamer evolution",
           "Chain lightning plus igniting fire bursts",
           "Burn up to " +
-            r1(this.weaponDamage(S.flamerDamage) * 5 * 0.5) +
+            r1(this.secondaryEffect(this.weaponDamage(S.flamerDamage)) * 5 * 0.5) +
             "/s at full stacks",
           "Consumes one weapon slot",
           crit,
@@ -3999,7 +4004,7 @@ export class SpaceEvolvesComponent
             (this.weaponCount(S.flamerCount) > 1 ? "s" : ""),
           "Blast radius " + r1(S.flamerSplash * S.projectileSize),
           "Burn up to " +
-            r1(this.weaponDamage(S.flamerDamage) * 5 * 0.5) +
+            r1(this.secondaryEffect(this.weaponDamage(S.flamerDamage)) * 5 * 0.5) +
             "/s at full stacks",
           crit,
         );

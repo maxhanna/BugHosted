@@ -670,8 +670,48 @@ export function drawBug(
   drawBugFace(ctx, z, b, t, col, unitCount, BUG_NODE_XY);
   if ((b.chemDotTimer ?? 0) > 0)
     drawPoisonDetails(ctx, z, b, t, unitCount, BUG_NODE_XY);
+  if ((b.burnTimer ?? 0) > 0 && (b.burnStacks ?? 0) > 0)
+    drawBurnPips(ctx, z, b, t);
   ctx.restore();
 }
+
+/** Small flame-colored pips above a burning bug: one per burn stack, fading
+ *  out as the burn timer runs down so stacks about to expire are visible. */
+function drawBurnPips(
+  ctx: CanvasRenderingContext2D,
+  z: number,
+  b: SpaceBug,
+  t: number,
+) {
+  const stacks = Math.max(1, Math.min(5, b.burnStacks ?? 0));
+  const burnTotal = Math.max(0.1, b.burnDuration ?? 3);
+  const fade = Math.max(0, Math.min(1, (b.burnTimer ?? 0) / burnTotal));
+  const pipR = Math.max(1.2, z * 0.07);
+  const gap = pipR * 2.2;
+  const rowW = (stacks - 1) * gap;
+  const py = -z * 1.45 + Math.sin(t * 6 + b.phase) * pipR * 0.35;
+  ctx.save();
+  for (let i = 0; i < stacks; i++) {
+    const px = i * gap - rowW / 2;
+    // Per-pip flicker keeps the flame feel; the row alpha carries the fade.
+    const flick = 0.75 + 0.25 * Math.sin(t * 12 + i * 2.1 + b.phase);
+    ctx.globalAlpha = (0.25 + 0.75 * fade) * flick;
+    ctx.fillStyle = i === stacks - 1 ? "#ffd24d" : "#ff9d4d";
+    ctx.beginPath();
+    ctx.arc(px, py, pipR, 0, Math.PI * 2);
+    ctx.fill();
+    if (i === stacks - 1) {
+      // Newest (hottest) stack gets a bright core.
+      ctx.globalAlpha = 0.5 * fade;
+      ctx.fillStyle = "#fff3c4";
+      ctx.beginPath();
+      ctx.arc(px, py, pipR * 0.45, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
 export function drawLeviathanDeath(
   ctx: CanvasRenderingContext2D,
   x: number,

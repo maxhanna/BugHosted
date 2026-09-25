@@ -1548,7 +1548,7 @@ export class PaintComponent extends ChildComponent {
     reader.readAsDataURL(file);
   }
 
-  /** Paste: Ctrl+V / Cmd+V pastes a clipboard image onto a brand-new top layer.
+  /** Paste: Ctrl+V / Cmd+V pastes the clipboard (image or text) onto a brand-new top layer.
    *  Lets text fields keep their own paste behavior. */
   @HostListener('document:paste', ['$event'])
   handlePaste(e: ClipboardEvent) {
@@ -1568,13 +1568,20 @@ export class PaintComponent extends ChildComponent {
         }
       }
     }
+    // No image on the clipboard — paste plain text as a text layer instead,
+    // so "what is in my clipboard" always lands on the canvas.
+    const text = e.clipboardData?.getData('text/plain');
+    if (text && text.trim()) {
+      e.preventDefault();
+      this.pasteTextAsLayer(text);
+    }
   }
 
   /** Toolbar fallback (touch devices have no Ctrl+V): reads the clipboard directly. */
   async pasteFromClipboard() {
     try {
       if (!navigator.clipboard?.read) {
-        this.parentRef?.showNotification('Clipboard images are not supported in this browser.');
+        this.parentRef?.showNotification('Press Ctrl+V to paste the clipboard onto the canvas.');
         return;
       }
       const items = await navigator.clipboard.read();
@@ -1586,11 +1593,53 @@ export class PaintComponent extends ChildComponent {
           this.parentRef?.showNotification('Image pasted on a new layer.');
           return;
         }
+        // Chromium path for text-only clipboards.
+        if (item.types.includes('text/plain')) {
+          const text = await (await item.getType('text/plain')).text();
+          if (text.trim()) {
+            this.pasteTextAsLayer(text);
+            return;
+          }
+        }
       }
-      this.parentRef?.showNotification('No image found on the clipboard.');
+      this.parentRef?.showNotification('No image or text found on the clipboard.');
     } catch {
-      this.parentRef?.showNotification('Could not read the clipboard.');
+      // Permission denied or read unsupported — the Ctrl+V paste path still works.
+      this.parentRef?.showNotification('Could not read the clipboard — press Ctrl+V instead.');
     }
+  }
+
+  /** Renders clipboard text at the canvas centre on a brand-new top layer. */
+  private pasteTextAsLayer(text: string) {
+    const layer = this.makeLayer('Pasted text');
+    const lctx = layer.canvas.getContext('2d')!;
+    lctx.font = `${Math.max(16, this.fontSize)}px ${this.fontFamily}`;
+    lctx.fillStyle = this.currentColor;
+    lctx.textBaseline = 'top';
+    // Wrap at the canvas edge and centre the block vertically.
+    const maxWidth = this.canvasWidth * 0.9;
+    const lines: string[] = [];
+    for (const rawLine of text.replace(/\r\n/g, '\n').split('\n')) {
+      let current = '';
+      for (const word of rawLine.split(' ')) {
+        const candidate = current ? current + ' ' + word : word;
+        if (lctx.measureText(candidate).width > maxWidth && current) {
+          lines.push(current);
+          current = word;
+        } else {
+          current = candidate;
+        }
+      }
+      lines.push(current);
+    }
+    const lineHeight = Math.max(16, this.fontSize) * 1.2;
+    const startY = Math.max(8, (this.canvasHeight - lines.length * lineHeight) / 2);
+    lines.forEach((line, i) => lctx.fillText(line, this.canvasWidth * 0.05, startY + i * lineHeight));
+    this.layers.push(layer);
+    this.activeLayerId = layer.id;
+    this.compositeLayers();
+    this.saveState();
+    this.parentRef?.showNotification('Text pasted on a new layer.');
   }
 
   // ── Eyedropper ───────────────────────────────────────────────────────────
