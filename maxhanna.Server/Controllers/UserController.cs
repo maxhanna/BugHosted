@@ -417,7 +417,6 @@ namespace maxhanna.Server.Controllers
             {
               try
               {
-                await EnsureGuestAccountCountTableAsync(conn);
                 string guestCountSql = @"INSERT INTO maxhanna.guest_account_counts (id, guest_count) VALUES (1, 1)
 ON DUPLICATE KEY UPDATE guest_count = guest_count + 1;";
                 using (var guestCountCmd = new MySqlCommand(guestCountSql, conn))
@@ -1357,27 +1356,6 @@ ON DUPLICATE KEY UPDATE guest_count = guest_count + 1;";
       }
     }
 
-    // Single-row counter table for guest account sign-ups. There is no migration
-    // tooling in this project, so the table is ensured on use by both the reader
-    // endpoint and the CreateUser increment path.
-    private static async Task EnsureGuestAccountCountTableAsync(MySqlConnection conn)
-    {
-      string createSql = @"CREATE TABLE IF NOT EXISTS maxhanna.guest_account_counts (
-  id TINYINT UNSIGNED NOT NULL PRIMARY KEY,
-  guest_count INT UNSIGNED NOT NULL DEFAULT 0,
-  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);";
-      using (var cmd = new MySqlCommand(createSql, conn))
-      {
-        await cmd.ExecuteNonQueryAsync();
-      }
-      string seedSql = "INSERT IGNORE INTO maxhanna.guest_account_counts (id, guest_count) VALUES (1, 0);";
-      using (var cmd = new MySqlCommand(seedSql, conn))
-      {
-        await cmd.ExecuteNonQueryAsync();
-      }
-    }
-
     [HttpGet("/User/GuestAccountCount", Name = "GetGuestAccountCount")]
     public async Task<IActionResult> GetGuestAccountCount()
     {
@@ -1385,8 +1363,6 @@ ON DUPLICATE KEY UPDATE guest_count = guest_count + 1;";
       try
       {
         conn.Open();
-
-        await EnsureGuestAccountCountTableAsync(conn);
 
         string sql = "SELECT guest_count FROM maxhanna.guest_account_counts WHERE id = 1";
         MySqlCommand cmd = new MySqlCommand(sql, conn);
