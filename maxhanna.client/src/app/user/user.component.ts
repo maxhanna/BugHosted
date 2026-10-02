@@ -88,6 +88,7 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
   updateUserDivVisible = true;
   notifications: Array<string> = [];
   usersCount: string | null = null;
+  guestAccountsCount: string | null = null;
   isGeneralToggled = false;
   isNicehashApiKeysToggled = false;
   isWeatherLocationToggled = false;
@@ -263,6 +264,7 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
       }
       if (!this.user) {
         this.usersCount = await this.userService.getUserCount();
+        this.guestAccountsCount = await this.userService.getGuestAccountCount();
         const lidRes = await this.socialService.getLatestStoryId();
         if (lidRes) {
           this.latestSocialStoryId = parseInt(lidRes);

@@ -118,6 +118,7 @@
       <div id="gt-mode-indicator" *ngIf="isInCar">{{ vehicleType | uppercase }}</div>
       <div id="gt-weapon-info">
         <span id="gt-weapon-name">{{ weaponNames[currentWeapon] }}</span>
+        <span id="gt-weapon-ammo" *ngIf="currentWeapon > 0">({{ ammo[currentWeapon] }})</span>
         <span id="gt-weapon-hint">(Q to switch)</span>
       </div>
       <div id="gt-health-bar">

@@ -35,6 +35,11 @@
     <span>Page {{currentPage}} of {{totalPages}}</span>
     <button (click)="nextPage()" [disabled]="currentPage === totalPages">Next</button>
   </div>
+  <!-- Loading symbol shown while news is being fetched -->
+  <div class="newsLoadingDiv" *ngIf="isLoading">
+    <app-loading-spinner [label]="'Loading news'"></app-loading-spinner>
+    <span>Loading news...</span>
+  </div>
   <!-- Display list of news articles -->
   <div class="newsList mainTableContainer" *ngIf="newsArticles != null" #newsList>
     <span class="smallFont">Results: {{newsArticles.totalResults}}</span>
@@ -111,7 +116,7 @@
     <div class="closeButton" (click)="selectedArticle = undefined"></div>
   </div>
 
-  <div *ngIf="newsArticles == null || !newsArticles">
+  <div *ngIf="!isLoading && (newsArticles == null || !newsArticles)">
     No news to show
   </div>
 

@@ -2019,7 +2019,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         const type = pc.type ?? 'car';
         let mesh = existing?.mesh;
         if (!mesh) {
-          if (type === 'police') mesh = this.renderer.getPoliceCarMesh();
+          // A pursuing police vehicle that just parked (crew bailed out) keeps
+          // the exact mesh it wore while chasing. Without this, a level-5 tank
+          // re-resolves to the plain cruiser the moment its cops step out.
+          if (type === 'police') mesh = previousServerCars.get(pc.id)?.mesh ?? this.renderer.getPoliceCarMesh();
           else if (type === 'taxi') mesh = this.renderer.getTaxiMesh();
           else if (type === 'bus') mesh = this.renderer.busMesh || this.renderer.getNPCCarMesh([pc.colorR ?? 0.5, pc.colorG ?? 0.5, pc.colorB ?? 0.5], pc.id);
           else if (type === 'motorcycle') mesh = this.renderer.getMotorcycleMesh([pc.colorR ?? 0.5, pc.colorG ?? 0.5, pc.colorB ?? 0.5], pc.id);

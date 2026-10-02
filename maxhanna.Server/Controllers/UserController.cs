@@ -409,6 +409,28 @@ namespace maxhanna.Server.Controllers
               await AppendToSitemapAsync(userId);
             }
 
+            // The login page's Guest button generates a "GuestXYZ" username, so
+            // any account whose name starts with "guest" is a guest sign-up.
+            // Count it in a dedicated single-row table; a counter failure must
+            // never block the account itself.
+            if (!string.IsNullOrEmpty(user.Username) && user.Username.StartsWith("guest", StringComparison.OrdinalIgnoreCase))
+            {
+              try
+              {
+                await EnsureGuestAccountCountTableAsync(conn);
+                string guestCountSql = @"INSERT INTO maxhanna.guest_account_counts (id, guest_count) VALUES (1, 1)
+ON DUPLICATE KEY UPDATE guest_count = guest_count + 1;";
+                using (var guestCountCmd = new MySqlCommand(guestCountSql, conn))
+                {
+                  await guestCountCmd.ExecuteNonQueryAsync();
+                }
+              }
+              catch (Exception gex)
+              {
+                _ = _log.Db("Failed to increment guest account counter: " + gex.Message, userId, "USER", false);
+              }
+            }
+
             // Ensure a user directory exists under Users/ and mark it private
             try
             {
@@ -1327,6 +1349,59 @@ namespace maxhanna.Server.Controllers
       catch (Exception ex)
       {
         _ = _log.Db("An error occurred while processing the GetUserCount request. " + ex.Message, null, "USER", true);
+        return StatusCode(500, "An error occurred while processing the request.");
+      }
+      finally
+      {
+        conn.Close();
+      }
+    }
+
+    // Single-row counter table for guest account sign-ups. There is no migration
+    // tooling in this project, so the table is ensured on use by both the reader
+    // endpoint and the CreateUser increment path.
+    private static async Task EnsureGuestAccountCountTableAsync(MySqlConnection conn)
+    {
+      string createSql = @"CREATE TABLE IF NOT EXISTS maxhanna.guest_account_counts (
+  id TINYINT UNSIGNED NOT NULL PRIMARY KEY,
+  guest_count INT UNSIGNED NOT NULL DEFAULT 0,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);";
+      using (var cmd = new MySqlCommand(createSql, conn))
+      {
+        await cmd.ExecuteNonQueryAsync();
+      }
+      string seedSql = "INSERT IGNORE INTO maxhanna.guest_account_counts (id, guest_count) VALUES (1, 0);";
+      using (var cmd = new MySqlCommand(seedSql, conn))
+      {
+        await cmd.ExecuteNonQueryAsync();
+      }
+    }
+
+    [HttpGet("/User/GuestAccountCount", Name = "GetGuestAccountCount")]
+    public async Task<IActionResult> GetGuestAccountCount()
+    {
+      MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+      try
+      {
+        conn.Open();
+
+        await EnsureGuestAccountCountTableAsync(conn);
+
+        string sql = "SELECT guest_count FROM maxhanna.guest_account_counts WHERE id = 1";
+        MySqlCommand cmd = new MySqlCommand(sql, conn);
+        using (var reader = await cmd.ExecuteReaderAsync())
+        {
+          if (reader.Read())
+          {
+            return Ok(reader["guest_count"].ToString());
+          }
+          return Ok("0");
+        }
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("An error occurred while processing the GetGuestAccountCount request. " + ex.Message, null, "USER", true);
         return StatusCode(500, "An error occurred while processing the request.");
       }
       finally

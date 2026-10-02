@@ -6,7 +6,7 @@
     </span>
     <span *ngIf="showRefreshControls && timeLeft === 0 && !autoRefresh" class="xxSmallFont">
       <button (click)="onManualRefresh()">Refresh</button>
-      <label style="margin-left:8px; cursor:pointer;">
+      <label *ngIf="refreshPressed" style="margin-left:8px; cursor:pointer;">
         <input type="checkbox" [checked]="autoRefresh" (change)="onAutoRefreshToggle($event)" style="vertical-align:middle; margin-right:4px;" />
         Auto-refresh
       </label>

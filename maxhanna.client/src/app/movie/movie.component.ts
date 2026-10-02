@@ -46,6 +46,7 @@ export class MovieComponent extends ChildComponent implements OnInit, OnDestroy,
   paginatedSongs: Array<Todo> = [];
   orders: Array<string> = ["Newest", "Oldest", "Alphanumeric ASC", "Alphanumeric DESC", "Random"];
   isMusicPlaying = false;
+  isMusicPaused = false;
   selectedFile?: FileEntry;
   fileIdPlaylist?: number[];
   fileIdPlaying?: number;
@@ -111,6 +112,13 @@ export class MovieComponent extends ChildComponent implements OnInit, OnDestroy,
   // Consecutive onError events (broken/blocked videos) before auto-advance
   // stops — prevents cycling a whole dead playlist forever.
   private ytErrorStreak = 0;
+  // ── Transport-state sync (play/pause icon) ──
+  // The YT player state is polled so the UI icon also reflects pauses/resumes
+  // made with the iframe's own controls. Command sites open a short grace
+  // window so a stale in-flight poll can't revert their immediate UI update.
+  private static readonly BROADCAST_DEBOUNCE_MS = 200;
+  private transportPollTimer?: number;
+  private commandGraceUntil = 0;
 
   ytSearchTerm = '';
 
@@ -150,10 +158,25 @@ export class MovieComponent extends ChildComponent implements OnInit, OnDestroy,
     }
   }
 
+  // Ctrl+Right / Ctrl+Left skip to the next / previous video. Only claimed
+  // while this component has an active session (playing or paused mid-video).
+  @HostListener('document:keydown', ['$event'])
+  handleMusicShortcut(event: KeyboardEvent) {
+    if (!event.ctrlKey || event.shiftKey || event.altKey || event.metaKey) return;
+    if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
+    if (!this.isMusicPlaying) return;
+    event.preventDefault();
+    if (event.key === 'ArrowRight') {
+      this.next();
+    } else {
+      this.prev();
+    }
+  }
+
   @HostListener('document:visibilitychange')
   onVisChange() {
     if (document.visibilityState === 'visible') {
-      if (this.isMusicPlaying) {
+      if (this.isMusicPlaying && !this.isMusicPaused) {
         try { this.ytPlayer?.playVideo(); } catch { }
       }
     }
@@ -196,6 +219,7 @@ export class MovieComponent extends ChildComponent implements OnInit, OnDestroy,
   }
 
   ngOnDestroy(): void {
+    this.stopTransportStateWatch();
     this.destroyYTPlayer();
     // Clear timers
     if (this.debounceTimer) {
@@ -220,6 +244,7 @@ export class MovieComponent extends ChildComponent implements OnInit, OnDestroy,
   private destroyYTPlayer() {
     // stop health timers and observers
     this.stopYtHealthWatch();
+    this.stopTransportStateWatch();
     this.mo?.disconnect();
 
     // stop playback
@@ -274,8 +299,27 @@ export class MovieComponent extends ChildComponent implements OnInit, OnDestroy,
     this.buildPlayerFromSongs();
   }
 
-  async next() { this.playByIndex(this.ytIndex + 1); }
-  async prev() { this.playByIndex(this.ytIndex - 1); }
+  async next() {
+    if (this.selectedType === 'file' && this.fileIdPlaylist?.length) {
+      const idx = this.fileIdPlaylist.indexOf(this.fileIdPlaying!);
+      const nextIdx = idx < 0 ? 0 : (idx + 1) % this.fileIdPlaylist.length;
+      this.play(undefined, this.fileIdPlaylist[nextIdx]);
+      return;
+    }
+    if (this.selectedType !== 'youtube') return;
+    this.playByIndex(this.ytIndex + 1);
+  }
+
+  async prev() {
+    if (this.selectedType === 'file' && this.fileIdPlaylist?.length) {
+      const idx = this.fileIdPlaylist.indexOf(this.fileIdPlaying!);
+      const prevIdx = idx < 0 ? this.fileIdPlaylist.length - 1 : (idx - 1 + this.fileIdPlaylist.length) % this.fileIdPlaylist.length;
+      this.play(undefined, this.fileIdPlaylist[prevIdx]);
+      return;
+    }
+    if (this.selectedType !== 'youtube') return;
+    this.playByIndex(this.ytIndex - 1);
+  }
 
 
   private consumePendingPlay() {
@@ -304,6 +348,8 @@ export class MovieComponent extends ChildComponent implements OnInit, OnDestroy,
     // Reflect autoplay in UI state
     this.currentUrl = this.songs[0].url;
     this.isMusicPlaying = true;
+    this.isMusicPaused = false;
+    this.commandGraceUntil = Date.now() + MovieComponent.BROADCAST_DEBOUNCE_MS;
     this.isMusicControlsDisplayed(true);
     this.cdr.markForCheck();
   }
@@ -575,6 +621,8 @@ export class MovieComponent extends ChildComponent implements OnInit, OnDestroy,
     this.currentUrl = url;
     this.currentFileId = null;
     this.isMusicPlaying = true;
+    this.isMusicPaused = false;
+    this.commandGraceUntil = Date.now() + MovieComponent.BROADCAST_DEBOUNCE_MS;
     this.setupMediaSession();
     this.keepScreenAwake(true);
     this.isMusicControlsDisplayed(true);
@@ -620,6 +668,8 @@ export class MovieComponent extends ChildComponent implements OnInit, OnDestroy,
     this.currentUrl = randomSong.url;
     this.currentFileId = null;
     this.isMusicPlaying = true;
+    this.isMusicPaused = false;
+    this.commandGraceUntil = Date.now() + MovieComponent.BROADCAST_DEBOUNCE_MS;
     this.isMusicControlsDisplayed(true);
     this.cdr.markForCheck();
   }
@@ -729,7 +779,9 @@ export class MovieComponent extends ChildComponent implements OnInit, OnDestroy,
   }
 
   stopMusic() {
+    this.commandGraceUntil = Date.now() + MovieComponent.BROADCAST_DEBOUNCE_MS;
     this.isMusicPlaying = false;
+    this.isMusicPaused = false;
     this.isMusicControlsDisplayed(false);
 
     // Stop YT without unloading the iframe
@@ -741,6 +793,27 @@ export class MovieComponent extends ChildComponent implements OnInit, OnDestroy,
     }
     this.fileIdPlaying = undefined;
     this.keepScreenAwake(false);
+  }
+
+  togglePlayPause() {
+    this.commandGraceUntil = Date.now() + MovieComponent.BROADCAST_DEBOUNCE_MS;
+    let state: number | undefined;
+    try { state = this.ytPlayer?.getPlayerState?.(); } catch { state = undefined; }
+
+    if (state === YT.PlayerState.PLAYING || state === YT.PlayerState.BUFFERING) {
+      // Pause: YouTube keeps the video loaded at its position (unlike stop).
+      try { this.ytPlayer?.pauseVideo(); } catch { }
+      if (this.radioAudioEl) { try { this.radioAudioEl.pause(); } catch { } }
+      if (this.fileIdPlaying != undefined) { this.fileMediaViewer?.pauseAllMedia(); }
+      this.isMusicPaused = true;
+    } else {
+      // Resume — or start if nothing was playing yet.
+      try { this.ytPlayer?.playVideo(); } catch { }
+      if (this.radioAudioEl) { try { void this.radioAudioEl.play()?.catch(() => { }); } catch { } }
+      if (this.fileIdPlaying != undefined) { this.fileMediaViewer?.resumeAllMedia(); }
+      this.isMusicPaused = false;
+    }
+    this.cdr.markForCheck();
   }
 
 
@@ -774,6 +847,8 @@ export class MovieComponent extends ChildComponent implements OnInit, OnDestroy,
   isMusicControlsDisplayed(setter: boolean) {
     const elements = [
       document.getElementById("stopMusicButton"),
+      document.getElementById("prevSongButton"),
+      document.getElementById("nextSongButton"),
       document.getElementById("followLinkButton"),
       document.getElementById("openPlaylistButton"),
       document.getElementById("fullscreenMusicButton"),
@@ -1106,15 +1181,29 @@ export class MovieComponent extends ChildComponent implements OnInit, OnDestroy,
                 } catch { }
               } catch { }
 
-              this.ngZone.run(() => this.startYtHealthWatch());
+              this.ngZone.run(() => {
+                this.startYtHealthWatch();
+                this.startTransportStateWatch();
+              });
             },
 
             onStateChange: (e: any) => {
               if (e.data === YT.PlayerState.ENDED) this.playByIndex(this.ytIndex + 1);
+              if (e.data === YT.PlayerState.PAUSED) this.queuePauseUiSync();
               if (e.data === YT.PlayerState.PLAYING) {
                 this.ytErrorStreak = 0;
+                // Playback actually started (user or API) — clear pause state.
+                this.isMusicPaused = false;
+                this.cdr.markForCheck();
                 const vid = this.ytPlayer?.getVideoData()?.video_id;
-                if (vid) this.currentUrl = `https://www.youtube.com/watch?v=${vid}`;
+                if (vid) {
+                  this.currentUrl = `https://www.youtube.com/watch?v=${vid}`;
+                  // Sync the queue index when the video changes outside
+                  // playByIndex (e.g. YouTube's own next/prev in the iframe),
+                  // so our next()/prev() continue from the right spot.
+                  const idx = this.ytIds.indexOf(vid);
+                  if (idx >= 0 && idx !== this.ytIndex) this.ytIndex = idx;
+                }
               }
             },
 
@@ -1337,6 +1426,8 @@ export class MovieComponent extends ChildComponent implements OnInit, OnDestroy,
 
       this.currentRadioStation = station;
       this.isMusicPlaying = true;
+      this.isMusicPaused = false;
+      this.commandGraceUntil = Date.now() + MovieComponent.BROADCAST_DEBOUNCE_MS;
 
       // Create an audio element to play the radio stream
       const audioPlayer = document.createElement('audio');
@@ -1407,6 +1498,42 @@ export class MovieComponent extends ChildComponent implements OnInit, OnDestroy,
     }
   }
 
+  private startTransportStateWatch() {
+    this.stopTransportStateWatch();
+    this.transportPollTimer = window.setInterval(() => this.syncPauseUiFromPlayer(), 500);
+  }
+
+  private stopTransportStateWatch() {
+    if (this.transportPollTimer) {
+      clearInterval(this.transportPollTimer);
+      this.transportPollTimer = undefined;
+    }
+  }
+
+  /** Adopt the YT player's actual pause state into the UI (debounced). */
+  private syncPauseUiFromPlayer() {
+    // Only sync while the YT player is the active source; radio/file playback
+    // has its own state the poll must not override.
+    if (!this.isMusicPlaying || this.currentRadioStation || this.fileIdPlaying != undefined) return;
+    if (Date.now() < this.commandGraceUntil) return;
+    let state: number | undefined;
+    try { state = this.ytPlayer?.getPlayerState?.(); } catch { return; }
+    if (state == null) return;
+    const paused = state === YT.PlayerState.PAUSED;
+    if (paused !== this.isMusicPaused) {
+      this.isMusicPaused = paused;
+      this.cdr.markForCheck();
+    }
+  }
+
+  /** Handle a PAUSED event from the iframe: update UI, skipping any in-flight poll. */
+  private queuePauseUiSync() {
+    if (!this.isMusicPlaying || this.currentRadioStation || this.fileIdPlaying != undefined) return;
+    this.isMusicPaused = true;
+    this.commandGraceUntil = Date.now() + MovieComponent.BROADCAST_DEBOUNCE_MS;
+    this.cdr.markForCheck();
+  }
+
   private parseYoutubeId(url: string): string {
     return this.fileService.parseYoutubeId(url);
   }
@@ -1421,6 +1548,8 @@ export class MovieComponent extends ChildComponent implements OnInit, OnDestroy,
     this.currentUrl = `https://www.youtube.com/watch?v=${id}`;
     this.currentFileId = null;
     this.isMusicPlaying = true;
+    this.isMusicPaused = false;
+    this.commandGraceUntil = Date.now() + MovieComponent.BROADCAST_DEBOUNCE_MS;
 
     // If player not ready, queue it
     if (!this.ytReady || !this.ytPlayer || !this.playerReady) {

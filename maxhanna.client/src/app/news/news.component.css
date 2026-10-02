@@ -95,6 +95,15 @@
   margin-top: 5px;
 }
 
+.newsLoadingDiv {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 20px;
+  color: var(--secondary-font-color);
+}
+
 .newsItem {
   cursor: pointer;
   padding: 10px;

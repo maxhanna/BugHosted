@@ -39,6 +39,9 @@ export class NewsComponent extends ChildComponent implements OnInit {
     super();
   }
   async ngOnInit() {
+    // Show the loading symbol immediately so "No news to show" never flashes
+    // before the first fetch resolves.
+    this.isLoading = true;
     let preventLoadNews = false;
     // When opened from the nav search suggestions, the caller passes the term
     // directly — no need to fetch the user's saved default search.
@@ -119,6 +122,7 @@ export class NewsComponent extends ChildComponent implements OnInit {
           return await this.loadNews();
         }
 
+        this.startLoading();
         const response = await this.newsService.searchNews(
           keywords,
           this.currentPage,
@@ -126,12 +130,14 @@ export class NewsComponent extends ChildComponent implements OnInit {
         );
 
         if (response == null) {
+          this.stopLoading();
           this.parentRef?.showNotification("Error fetching news data");
           return;
         }
 
         this.loadNews(response);
       } catch {
+        this.stopLoading();
         this.parentRef?.showNotification("Error fetching news data");
       }
     }, 100);

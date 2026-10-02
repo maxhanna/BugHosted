@@ -63,6 +63,8 @@ export class LineGraphComponent implements OnInit, OnChanges, AfterViewInit, OnD
   showCountdown: boolean = true;
   showRefreshControls: boolean = false;
   autoRefresh: boolean = false;
+  // The auto-refresh option only appears after the user has pressed Refresh once.
+  refreshPressed: boolean = false;
   private refreshInterval: any = null;
   timeLeft = 120;
   defaultTimeLeft = 120;
@@ -1136,6 +1138,7 @@ export class LineGraphComponent implements OnInit, OnChanges, AfterViewInit, OnD
   }
 
   onManualRefresh() {
+    this.refreshPressed = true;
     this.showRefreshControls = false;
     this.showCountdown = true;
     this.timeLeft = this.defaultTimeLeft;

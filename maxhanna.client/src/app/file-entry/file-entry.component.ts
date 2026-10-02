@@ -1,4 +1,4 @@
-import { Component, ElementRef, EventEmitter, Input, OnDestroy, Output } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, OnDestroy, AfterViewInit, Output } from '@angular/core';
 import { FileService } from '../../services/file.service';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 
@@ -8,7 +8,7 @@ import { FileEntry } from '../../services/datacontracts/file/file-entry';
   styleUrl: './file-entry.component.css',
   standalone: false,
 })
-export class FileEntryComponent implements OnDestroy {
+export class FileEntryComponent implements AfterViewInit, OnDestroy {
   @Input() file!: FileEntry;
   @Input() userId?: number;
   @Input() fileCache?: FileEntry[];
@@ -21,19 +21,53 @@ export class FileEntryComponent implements OnDestroy {
   isLoading = false;
   loadFailed = false;
   bookCount: number | null = null;
+  /** True while this entry is outside the viewport. Any media element that
+   *  mounts while set (e.g. a lazy-loaded video whose src arrives after the
+   *  user already scrolled past) is paused immediately, so off-screen media
+   *  never plays. */
+  private isOutOfView = false;
+  private mediaMountObserver?: MutationObserver;
   private static readonly bookCountCache = new Map<string, number>();
 
   constructor(private fileService: FileService, private host: ElementRef) {}
 
+  ngAfterViewInit(): void {
+    // Watch for media elements mounting inside this entry while it is scrolled
+    // out of view. The InView sweep alone cannot handle them: a video that
+    // mounts after the sweep ran (lazy src + autoplay) would start playing
+    // off-screen. Pausing in the mutation callback wins that race.
+    try {
+      const root: HTMLElement | undefined = this.host?.nativeElement;
+      if (!root || typeof MutationObserver === 'undefined') return;
+      this.mediaMountObserver = new MutationObserver((mutations) => {
+        if (!this.isOutOfView) return;
+        for (const mutation of mutations) {
+          mutation.addedNodes?.forEach((node) => {
+            const el = node as HTMLElement;
+            if (!el || !el.querySelectorAll) return;
+            if (el.tagName === 'VIDEO' || el.tagName === 'AUDIO') this.pauseMediaElement(el as HTMLMediaElement);
+            el.querySelectorAll<HTMLMediaElement>('video, audio').forEach(m => this.pauseMediaElement(m));
+          });
+        }
+      });
+      this.mediaMountObserver.observe(root, { childList: true, subtree: true });
+    } catch { /* host unavailable during early teardown */ }
+  }
+
   ngOnDestroy(): void {
+    this.isOutOfView = true;
+    try { this.mediaMountObserver?.disconnect(); } catch { }
+    this.mediaMountObserver = undefined;
     this.pauseOutOfViewMedia();
   }
 
   async onInView(inView: boolean): Promise<void> {
     if (!inView) {
+      this.isOutOfView = true;
       this.pauseOutOfViewMedia();
       return;
     }
+    this.isOutOfView = false;
     if (this.isHydrated || this.isLoading || !this.file?.id) return;
     this.isLoading = true;
     this.loadFailed = false;
@@ -56,18 +90,23 @@ export class FileEntryComponent implements OnDestroy {
   /** Pause any inline video/audio inside this entry. Called when the entry
    *  scrolls out of view (e.g. a file-list inside meme.component) and on
    *  destroy, so off-screen media never keeps playing. Fullscreen overlay
-   *  media is excluded — an active fullscreen session is intentional. */
+   *  media is excluded — an active fullscreen session is intentional. Also
+   *  clears the autoplay flag: a mounted-but-still-buffering video would
+   *  otherwise begin playback the moment data arrives, even off-screen. */
   private pauseOutOfViewMedia(): void {
     try {
       const root: HTMLElement | undefined = this.host?.nativeElement;
       if (!root || !root.querySelectorAll) return;
-      root.querySelectorAll<HTMLMediaElement>('video, audio').forEach((m) => {
-        try {
-          if (m.closest?.('.fullscreen-overlay')) return;
-          if (!m.paused) m.pause();
-        } catch { /* per-element failure must not break the sweep */ }
-      });
+      root.querySelectorAll<HTMLMediaElement>('video, audio').forEach((m) => this.pauseMediaElement(m));
     } catch { /* host unavailable (e.g. during teardown) */ }
+  }
+
+  private pauseMediaElement(m: HTMLMediaElement): void {
+    try {
+      if (m.closest?.('.fullscreen-overlay')) return;
+      if (m.tagName === 'VIDEO') m.autoplay = false;
+      if (!m.paused) m.pause();
+    } catch { /* per-element failure must not break the sweep */ }
   }
 
   @Input() context: any;

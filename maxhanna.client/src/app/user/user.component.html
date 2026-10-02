@@ -182,6 +182,7 @@
               <p class="welcomeTitle">{{ !usersCount && !isLoading ? '' : 'Total users: ' }}<span
                   [class]="!usersCount && !isLoading ? 'redText' : ''">{{usersCount ? usersCount :
                   !usersCount && !isLoading ? 'Server is down!' : !isLoading ? 'Unknown' : 'Loading...' }}</span></p>
+              <p class="welcomeTitle" *ngIf="guestAccountsCount">Guest accounts created: <span>{{ guestAccountsCount }}</span></p>
             </div>
 
             <div *ngIf="loginOnly" class="loginOnlyInstructionDiv">

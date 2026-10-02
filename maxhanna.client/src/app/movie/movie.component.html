@@ -49,6 +49,9 @@
         <button title="Shrink Fullscreen" (click)="closeFullscreen()" id="closeOverlay" *ngIf="isFullscreen">Shrink</button>
         <div class="musicControls">
           <label id="stopMusicButton" (click)="stopMusic()" title="Stop">🛑</label>
+          <label (click)="togglePlayPause()" title="Play/Pause">{{ isMusicPaused ? '▶️' : '⏸' }}</label>
+          <label id="prevSongButton" (click)="prev()" title="Previous Video">⏮</label>
+          <label id="nextSongButton" (click)="next()" title="Next Video">⏭</label>
           <label id="fullscreenMusicButton" (click)="fullscreen()" title="Expand Fullscreen">◼</label>
           <label id="followLinkButton" *ngIf="!fileIdPlaylist" (click)="followLink()" title="Open in Youtube">🕸</label>
           <label (click)="randomSong()" title="Random Video">⚡</label>

@@ -194,6 +194,11 @@
   text-shadow: 0 0 8px rgba(255, 152, 0, 0.4);
   font-family: pricedown;
 }
+#gt-weapon-ammo {
+  color: #ffd8a1;
+  font-size: 13px;
+  font-weight: bold;
+}
 #gt-weapon-hint {
   color: rgba(255, 255, 255, 0.3);
   font-size: 10px;

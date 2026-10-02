@@ -64,6 +64,18 @@ export class UserService {
     }
   }
 
+  async getGuestAccountCount() {
+    try {
+      const response = await fetch('/user/guestaccountcount');
+
+      const responseData = await response.text();
+      return responseData;
+    } catch (error) {
+      console.error('Error fetching guest account count:', error);
+      return null;
+    }
+  }
+
   async login(username: string, password: string, pin?: string): Promise<{ user: User; sessionToken: string } | { isLocked: boolean; lockedAt: string; reason: string; hasPendingAppeal: boolean } | { requirePin: true; pin: string } | undefined> {
     try {
       const body: any = { username, password };
