@@ -27,7 +27,6 @@ public class KrakenService
   private static int _MaxTradeTypeOccurances = 5;
   private static int _VolumeSpikeMaxTradeOccurance = 1;
   private static int? _MaxTradeTimeToLive = null;
-  private static int _tradeConfigurationSchemaEnsured;
   private readonly HttpClient _httpClient;
   private static IConfiguration? _config;
   private readonly string _baseAddr = "https://api.kraken.com/";
