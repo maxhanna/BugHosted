@@ -240,17 +240,30 @@ export interface CityChunk {
   cz: number;
   lamps: { x: number; z: number }[];
   hydrants: { x: number; z: number }[];
+  barberShops: { x: number; z: number }[];
   buildings: BuildingPlacement[];
   benches: { x: number; z: number; yaw: number }[];
   barrels: { x: number; z: number; yaw: number }[];
   chickens: { x: number; z: number; yaw: number }[];
   trees: { x: number; z: number; yaw: number; scale: number }[];
-  supermarkets: { x: number; z: number; yaw: number; hd: number; isConvenience?: boolean }[];
+  supermarkets: {
+    x: number;
+    z: number;
+    yaw: number;
+    hd: number;
+    isConvenience?: boolean;
+  }[];
   tatami: { x: number; z: number; yaw: number }[];
   cabins: { x: number; z: number; yaw: number }[];
   lighthouses: { x: number; z: number; yaw: number }[];
   tropicalShops: { x: number; z: number; yaw: number }[];
-  decorativeAircraft: { x: number; z: number; yaw: number; type: string; model?: CityMesh | CityMesh[] }[];
+  decorativeAircraft: {
+    x: number;
+    z: number;
+    yaw: number;
+    type: string;
+    model?: CityMesh | CityMesh[];
+  }[];
 }
 export interface Tracer {
   originX: number; originY: number; originZ: number;
