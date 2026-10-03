@@ -1,4 +1,4 @@
-﻿import { AfterViewInit, Component, ComponentRef, ElementRef, EnvironmentInjector, OnDestroy, OnInit, ViewChild, ViewContainerRef, NgZone, ChangeDetectorRef } from '@angular/core';
+﻿import { AfterViewInit, Component, ComponentRef, ElementRef, OnDestroy, OnInit, ViewChild, NgZone, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AppModule } from '../app.module';
@@ -9,7 +9,7 @@ import { UserEventService } from '../../services/user-event.service';
 import { TodoService } from '../../services/todo.service';
 import { FileService } from '../../services/file.service';
 import { RadioService } from '../../services/radio.service';
-import { MusicComponent } from '../music/music.component';
+import { GTAppearance, GT_APPEARANCE_SKIN_COLORS, GT_APPEARANCE_HAIR_COLORS, GT_APPEARANCE_SHIRT_COLORS, GT_APPEARANCE_PANTS_COLORS, GT_APPEARANCE_BODY_TYPES } from './grandtheft-human-model';
 const CHUNK_SIZE = 80;
 const CAR_HEIGHT = 0.4;
 const PLAYER_BLOOD_DAMAGE_THRESHOLD = 50;
@@ -51,6 +51,9 @@ const JUMP_RAMPS = [
 ];
 const WEAPON_NAMES = ['Unarmed', 'Pistol', 'Rifle', 'Shotgun', 'Rocket Launcher'];
 const WEAPON_COOLDOWNS = [400, 300, 150, 800, 1500];
+/** How far a gunshot of each weapon type carries as a panic trigger (world units). */
+const weaponTypeToPanicRadius = (weapon: number): number =>
+  weapon === 4 ? 60 : weapon === 3 ? 45 : weapon === 2 ? 40 : 30;
 const HOSPITAL_X = 40;
 const HOSPITAL_Z = 40;
 const HOSPITAL_SPAWN_X = HOSPITAL_X;
@@ -601,9 +604,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private _bustCamStartYaw = 0;
   radioOn = false;
   /** Shared music player the car radio controls (lazily created, hidden). */
-  private musicPlayer?: MusicComponent;
-  private musicPlayerRef?: ComponentRef<MusicComponent>;
-  private musicPlayerHost?: HTMLDivElement;
+  // Standalone car-radio player — deliberately NOT the shared MusicComponent:
+  // the radio works (and stays invisible) independently of the music page.
+  private radioPlayer?: GtRadioPlayer;
   altUpPressed = false;
   altDownPressed = false;
   // Procedural Web Audio for the helicopter rotor (spool-up on the ground,
@@ -643,13 +646,40 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     timer: number;
   } | null = null;
   private _carYankCooldown = 0;
+  // Gunfire panic: local peds within earshot of a shot flee away from the
+  // muzzle (blocked-terrain sidestep included). Server-steered peds keep
+  // their authoritative server paths — the client only relocates its own
+  // mission/actor list.
+  private _panicPeds = new Set<number>();
   private walkYaw = 0;
+  /** Procedural barber shops near the player this chunk (for door prompt + sit). */
+  barberShops: { x: number; z: number; yaw: number }[] = [];
+  nearBarberChair = false;
+  isSittingBarber = false;
+  /** Barber-shop customization menu model — bound with ngModel in the template. */
+  barberMenuOpen = false;
+  barberDraft: Required<Pick<GTAppearance, 'skin' | 'hair' | 'hairStyle' | 'shirt' | 'pants' | 'beard' | 'bodyType'>> = {
+    skin: 0, hair: 0, hairStyle: 0, shirt: 0, pants: 0, beard: 0, bodyType: 'slim',
+  };
+  barberSkinColors = GT_APPEARANCE_SKIN_COLORS;
+  barberHairColors = GT_APPEARANCE_HAIR_COLORS;
+  barberShirtColors = GT_APPEARANCE_SHIRT_COLORS;
+  barberPantsColors = GT_APPEARANCE_PANTS_COLORS;
+  barberBodyTypes = GT_APPEARANCE_BODY_TYPES;
+  private _savedBarberCamDist = 0;
+  private _savedBarberCamHeight = 0;
+  private _barberSitPos: { x: number; z: number; yaw: number } | null = null;
+  /** Appearance payload queued for the next updatePosition poll. */
+  pendingAppearanceJson = '';
   nearCar = false;
   /** Persisted once per account so this player's NPC-style appearance is
    * identical in third person and on every other client's screen. */
   private playerAppearanceSeed = 0;
   private playerAppearanceRole = 'generic';
   private playerAppearanceGender = 'male';
+  /** Explicit customization (barber shop) overriding the seeded appearance.
+   * Null until the player gets their first haircut. */
+  playerAppearance: GTAppearance | null = null;
 
   private ensurePlayerAppearance(): void {
     if (this.playerAppearanceSeed) return;
@@ -658,6 +688,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       const raw = localStorage.getItem(key);
       if (raw) {
         const saved = JSON.parse(raw);
+        if (saved.custom && typeof saved.custom === 'object') {
+          this.playerAppearance = saved.custom as GTAppearance;
+        }
         if (Number.isFinite(saved.seed) && saved.seed !== 0) {
           this.playerAppearanceSeed = Math.abs(Math.trunc(saved.seed));
           this.playerAppearanceRole = typeof saved.role === 'string' ? saved.role : 'generic';
@@ -688,8 +721,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     private todoService: TodoService,
     private fileService: FileService,
     private radioService: RadioService,
-    private vcr: ViewContainerRef,
-    private envInjector: EnvironmentInjector,
     private ngZone: NgZone,
     private cdr: ChangeDetectorRef) { super(); }
   ngOnInit() {
@@ -797,7 +828,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       if (isCore) critical(t);
       tasks.push(t);
     }
-    const carConfigs = [
+    const carConfigs: { path: string; scale?: number; yawOffset?: number; critical?: boolean; assign?: (m: CityMesh[]) => void }[] = [
       { path: 'assets/grandtheft/lambo/scene.gltf', critical: true },
       { path: 'assets/grandtheft/2024_lamborghini_countach_lp5000_qv_lbworks/scene.gltf' },
       { path: 'assets/grandtheft/mitsubishi/scene.gltf' },
@@ -808,12 +839,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       { path: 'assets/grandtheft/1970_dodge_challenger_rt_lp/scene.gltf' },
       { path: 'assets/grandtheft/truck_toyota_corsa_b/scene.gltf', scale: 2, yawOffset: Math.PI },
       { path: 'assets/grandtheft/monsterTruck/scene.gltf', scale: 2.25 },
-      { path: 'assets/grandtheft/jeep/scene.gltf', scale: 1.5 },
+      { path: 'assets/grandtheft/jeep/scene.gltf', scale: 1.5, assign: m => this.renderer.policeJeepMesh = m },
     ];
     for (const cfg of carConfigs) {
       const sc = cfg.scale;
       const yo = cfg.yawOffset;
-      const t: AssetTask = { load: () => this.renderer.loadGLTF(cfg.path).then(car => { if (!car) return; if (sc) for (const m of car) m.renderScale = sc; if (yo) for (const m of car) m.yawOffset = yo; this.renderer.carMeshes.push(car); }) };
+      const assign = cfg.assign;
+      const t: AssetTask = { load: () => this.renderer.loadGLTF(cfg.path).then(car => { if (!car) return; if (sc) for (const m of car) m.renderScale = sc; if (yo) for (const m of car) m.yawOffset = yo; this.renderer.carMeshes.push(car); assign?.(car); }) };
       if (cfg.critical) critical(t);
       tasks.push(t);
     }
@@ -1132,6 +1164,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       if (this.nearStoreRegister) { this.robStore(); return; }
       if (this.nearStoreExit) { this.leaveStore(); return; }
       return;
+    }
+    if (this.nearBarberChair && !this.isInCar && !this.isPassenger && !this.isSittingBarber) {
+      this.sitBarberChair(); return;
     }
     if (this.nearStoreDoor && !this.isInCar && !this.isPassenger && this._nearStore && !this._nearStore.isConvenience) {
       this.enterStore(this._nearStore); return;
@@ -1791,89 +1826,59 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (this.taxiMission) this.abortTaxiFare();
     this.stopRadio();
   }
-  // The car radio drives the shared MusicComponent (same player as the music
-  // page and profile small player) so every remote control — car radio buttons,
-  // keyboard, mediaSession lock-screen keys — operates one queue.
+  // The car radio uses its own hidden player (GtRadioPlayer below) with the
+  // user's Music queue — completely independent of the music page's player.
   private async initRadio() {
     const userId = this.getUserId();
     if (!userId) return;
-    void this.ensureMusicPlayer(userId).then(p => p?.setVolume(this.radioVolume * 100));
+    void this.ensureRadio().then(p => p?.setVolume(this.radioVolume * 100));
   }
 
-  /** Lazily create the hidden shared player, loading this user's Music list. */
-  private async ensureMusicPlayer(userId: number): Promise<MusicComponent | undefined> {
-    // Reuse an existing live instance (music page, profile small player, or a
-    // previously created hidden one) so every control drives the same queue.
-    const existing = MusicComponent.getActiveInstance(userId);
-    if (existing) {
-      this.musicPlayer = existing;
-      return existing;
+  /** Lazily create the standalone radio player and load the Music list. */
+  private async ensureRadio(): Promise<GtRadioPlayer | undefined> {
+    const userId = this.getUserId();
+    if (!userId) return undefined;
+    if (!this.radioPlayer) {
+      this.radioPlayer = new GtRadioPlayer(this.todoService, this.fileService);
     }
-
-    if (!this.musicPlayerHost) {
-      const host = document.createElement('div');
-      host.className = 'gt-music-player-host';
-      document.body.appendChild(host);
-      this.musicPlayerHost = host;
-    }
-    try {
-      const ref = this.vcr.createComponent(MusicComponent, {
-        environmentInjector: this.envInjector,
-      });
-      const music = ref.instance;
-      music.parentRef = this.parentRef;
-      music.smallPlayer = true;
-      // Mount the detached component into the hidden host so the YouTube
-      // iframe can attach; keep the ref for teardown.
-      ref.hostView.detectChanges();
-      const nodes = (ref.hostView as any).rootNodes as Node[];
-      nodes.forEach(n => this.musicPlayerHost!.appendChild(n));
-      this.musicPlayer = music;
-      this.musicPlayerRef = ref;
-      return music;
-    } catch (e) {
-      console.error('[GrandTheft] failed to create shared music player', e);
-      try { this.musicPlayerRef?.destroy(); } catch { }
-      this.musicPlayerRef = undefined;
-      this.musicPlayer = undefined;
-      return undefined;
-    }
+    await this.radioPlayer.ensureLoaded(userId);
+    return this.radioPlayer;
   }
 
   nextRadio() {
     this.radioOn = true;
-    void this.ensureMusicPlayer(this.getUserId()).then(p => p?.nextSong());
+    void this.ensureRadio().then(p => p?.next());
   }
 
   prevRadio() {
     this.radioOn = true;
-    void this.ensureMusicPlayer(this.getUserId()).then(p => p?.previousSong());
+    void this.ensureRadio().then(p => p?.prev());
   }
 
   randomRadio() {
     this.radioOn = true;
-    void this.ensureMusicPlayer(this.getUserId()).then(p => p?.playRandom());
+    void this.ensureRadio().then(p => p?.playRandom());
   }
 
   stopRadio() {
     this.radioOn = false;
     this.radioShouldPlay = false;
-    this.musicPlayer?.stop();
+    this.radioPlayer?.stop();
   }
 
-  /** Settings-slider volume (0–1) → shared player (0–100). */
+  /** Settings-slider volume (0–1) → radio player (0–100). */
   setRadioVolume() {
-    this.musicPlayer?.setVolume(this.radioVolume * 100);
+    this.radioPlayer?.setVolume(this.radioVolume * 100);
   }
 
-  /** Radio badge title, resolved against the shared player's song list. */
+  /** Radio badge title, resolved against the radio's own queue. */
   get radioSongTitle(): string {
-    return this.musicPlayer?.currentSongTitle ?? '';
+    return this.radioPlayer?.currentSongTitle ?? '';
   }
 
-  /** Truthy once the shared player has a playlist — gates the car radio UI. */
+  /** Truthy once the radio has a playlist — gates the car radio UI. */
   get radioSongs(): string[] {
-    return (this.musicPlayer?.songs?.length ?? 0) > 0 ? ['has-songs'] : [];
+    return this.radioPlayer?.hasSongs ? ['has-songs'] : [];
   }
 
   private showVehicleBanner(type: string) {
@@ -1988,9 +1993,17 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           colorR: c.colorR ?? 0.5, colorG: c.colorG ?? 0.5, colorB: c.colorB ?? 0.5,
           speed: c.speed ?? 0,
           lastUpdate: pollTimestamp,
-          wreckFalling: c.wreckFalling === true,
-          wreckStartedAt: c.wreckStartedAt,
-          wreckStartY: c.wreckStartY,
+          wreckFalling: c.wreckFalling === true || (existing as any)?.wreckFalling === true,
+          // Crash takeover: keep the earliest start (true hit time) and the
+          // highest known altitude so the server handoff never makes the
+          // falling wreck jump upward or restart its descent from ~0.
+          wreckStartedAt: (existing as any)?.wreckStartedAt && c.wreckStartedAt
+            ? Math.min((existing as any).wreckStartedAt, c.wreckStartedAt)
+            : (c.wreckStartedAt ?? (existing as any)?.wreckStartedAt),
+          wreckStartY: Math.max(
+            Number((existing as any)?.wreckStartY ?? 0),
+            Number(c.wreckStartY ?? 0),
+          ) || (existing as any)?.wreckStartY,
         };
       });
       this.serverPedestrians = data.pedestrians
@@ -2373,8 +2386,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this._justRespawned,
       this.weaponsSynced ? this.ownedWeapons : undefined,
       this.weaponsSynced ? this.ammo : undefined,
-      this.wantedLevel
+      this.wantedLevel,
+      this.pendingAppearanceJson || undefined
     );
+    this.pendingAppearanceJson = '';
     if (res && res.evicted && this.isInCar) {
       this.exitCar();
     }
@@ -2477,7 +2492,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           existing.carColorB = p.carColorB ?? 1;
           existing.passengerOfUserId = p.passengerOfUserId ?? 0;
           const remoteSeed = Number((p as any).appearanceSeed ?? p.userId) || p.userId;
-          existing.mesh = this.renderer.getPedestrianMesh(String((p as any).appearanceGender ?? 'male'), `${String((p as any).appearanceRole ?? 'generic')}:${remoteSeed}`);
+          const remoteAppearance = (p as any).appearance as GTAppearance | undefined;
+          existing.appearance = remoteAppearance;
+          existing.mesh = remoteAppearance
+            ? this.renderer.getCustomHumanMesh(remoteAppearance, String((p as any).appearanceGender ?? 'male'), remoteSeed)
+            : this.renderer.getPedestrianMesh(String((p as any).appearanceGender ?? 'male'), `${String((p as any).appearanceRole ?? 'generic')}:${remoteSeed}`);
           if (p.modelUrl && p.modelUrl !== existing.modelUrl) {
             existing.modelUrl = p.modelUrl;
             (async () => {
@@ -2493,13 +2512,18 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           const appearanceGender = String((p as any).appearanceGender ?? 'male');
           const appearanceRole = String((p as any).appearanceRole ?? 'generic');
           const placeholderMesh = this.renderer.getPedestrianMesh(appearanceGender, `${appearanceRole}:${appearanceSeed}`);
+          const remoteAppearance = (p as any).appearance as GTAppearance | undefined;
+          const placeholderMesh2 = remoteAppearance
+            ? this.renderer.getCustomHumanMesh(remoteAppearance, appearanceGender, appearanceSeed)
+            : placeholderMesh;
           const newPlayer = {
             userId: p.userId, posX: p.posX, posY: p.posY, posZ: p.posZ,
             yaw: p.carYaw, carSpeed: p.carSpeed, health: p.health, weapon: p.weapon, money: p.money,
-            username: p.username, mesh: placeholderMesh, modelUrl: p.modelUrl,
+            username: p.username, mesh: placeholderMesh2, modelUrl: p.modelUrl,
             appearanceSeed: (p as any).appearanceSeed,
             appearanceRole: (p as any).appearanceRole,
             appearanceGender: (p as any).appearanceGender,
+            appearance: remoteAppearance,
             isShooting: p.isShooting, camYaw: p.yaw, camPitch: p.pitch, remoteShootTimer: 0,
             isInCar: p.isInCar || false,
             vehicleType: p.vehicleType || 'car',
@@ -2580,8 +2604,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         this.health = res.yourHealth;
       }
     }
-    if (res && res.wantedLevel !== undefined) {        this.wantedLevel = res.wantedLevel;
-        this.wantedDecayTimer = this.wantedLevel > 0 ? GrandTheftComponent.WANTED_DECAY_DELAY_SECONDS : 0;
+    if (res && res.wantedLevel !== undefined) {
+      this.wantedLevel = res.wantedLevel;
+      this.wantedDecayTimer = this.wantedLevel > 0 ? GrandTheftComponent.WANTED_DECAY_DELAY_SECONDS : 0;
     }
 
     if (res && res.yourMoney !== undefined) {
@@ -2590,6 +2615,17 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     // Persist the authoritative state right away so a refresh mid-session keeps
     // money / wanted / weapons (≤1s staleness on the poll cadence).
     if (res) this.savePlayerState();
+    // Adopt the server's stored appearance once per session (new device / new
+    // server boot). Skip while seated — the barber preview owns the mesh then.
+    if (res && (res as any).yourAppearance !== undefined && !this.playerAppearance) {
+      try {
+        const parsed = typeof (res as any).yourAppearance === 'string' ? JSON.parse((res as any).yourAppearance) : (res as any).yourAppearance;
+        if (parsed && typeof parsed === 'object') {
+          this.playerAppearance = parsed as GTAppearance;
+          this.renderer.setPlayerAppearance(parsed, this.playerAppearanceSeed || 1, this.playerAppearanceGender);
+        }
+      } catch { }
+    }
     // 🏆 NEW HIGH SCORE toasts: the server reports a new all-time balance
     // peak (newMoneyRecord) and the running kill total; toast on records and
     // kill milestones without spamming.
@@ -2680,6 +2716,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const originX = this.carX;
     const originY = this.carY + (this.isInCar ? 0.5 : 1.2);
     const originZ = this.carZ;
+    // Muzzle position is known here: scare every ped within earshot.
+    if (firedWeapon !== 0) this.panicNearbyPeds(originX, originZ, weaponTypeToPanicRadius(firedWeapon));
     if (firedWeapon === 0) {
       this.meleeAttack = this.meleeAttack === 'punch' ? 'kick' : 'punch';
       this.punchTimer = 0.38;
@@ -2768,6 +2806,57 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const dist = Math.hypot(x - this.carX, z - this.carZ);
     return Math.max(0.1, 1 - dist / 60);
   }
+  /** Gunshot panic trigger: sets flee state on every local ped in earshot. */
+  private panicNearbyPeds(x: number, z: number, radius: number) {
+    const nowSec = performance.now() / 1000;
+    for (const ped of this.localPedestrians) {
+      if (ped.health <= 0 || ped.fightBackUntil) continue;
+      const d = Math.hypot(ped.x - x, ped.z - z);
+      if (d > radius) continue;
+      ped.panicUntil = nowSec + 5;
+      ped.panicFromX = x;
+      ped.panicFromZ = z;
+      this._panicPeds.add(ped.id);
+      this.renderer.playPanic();
+    }
+  }
+
+  /**
+   * Client-side flee engine for local peds: overrides both the panic-run
+   * branch and the idle branch while the panic is active — the ped sprints
+   * away from the gunshot origin with slight jitter (evading fire), playing
+   * the cached arms-up panic pose when not currently run-cycling.
+   */
+  private updatePanicFlee(dt: number) {
+    const nowSec = performance.now() / 1000;
+    for (const ped of this.localPedestrians) {
+      if (!ped.panicUntil || nowSec >= ped.panicUntil) {
+        if (ped.panicUntil === undefined || nowSec >= ped.panicUntil) this._panicPeds.delete(ped.id);
+        continue;
+      }
+      const dx = ped.x - (ped.panicFromX ?? ped.x);
+      const dz = ped.z - (ped.panicFromZ ?? ped.z);
+      const dist = Math.hypot(dx, dz) || 0.01;
+      const jitter = Math.sin(performance.now() / 130 + ped.id) * 0.55;
+      ped.yaw = Math.atan2(dx, dz) + jitter;
+      const fleeSpeed = 3.4;
+      const nx = ped.x + Math.sin(ped.yaw) * fleeSpeed * dt;
+      const nz = ped.z + Math.cos(ped.yaw) * fleeSpeed * dt;
+      if (!this.isPedestrianPositionBlocked(nx, nz)) {
+        ped.x = nx;
+        ped.z = nz;
+      } else {
+        // Blocked: try sidestepping around the obstacle instead of freezing.
+        const sideX = Math.cos(ped.yaw) * fleeSpeed * dt;
+        const sideZ = -Math.sin(ped.yaw) * fleeSpeed * dt;
+        if (!this.isPedestrianPositionBlocked(ped.x + sideX, ped.z + sideZ)) {
+          ped.x += sideX;
+          ped.z += sideZ;
+        }
+      }
+    }
+  }
+
   private playWeaponSound(weapon: number, volumeScale: number = 1) {
     if (weapon === 0) return;
     try {
@@ -2900,14 +2989,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private stopAllGrandTheftAudio(): void {
     this.stopRadio();
     this.radioOn = false;
-    // Tear down the hidden shared player instance (if we created it).
-    try { this.musicPlayerRef?.destroy(); } catch { }
-    this.musicPlayerRef = undefined;
-    this.musicPlayer = undefined;
-    if (this.musicPlayerHost) {
-      try { this.musicPlayerHost.remove(); } catch { }
-      this.musicPlayerHost = undefined;
-    }
+    // Tear down the standalone radio player (if we created one).
+    try { this.radioPlayer?.dispose(); } catch { }
+    this.radioPlayer = undefined;
     this.stopEngineAudio();
     this.stopTrafficAudio();
     this.stopHeliAudio();
@@ -4368,27 +4452,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           continue;
         }
       }
-      // Panicking peds sprint away from the fight for ~5s, then resume their
-      // sidewalk routine.
-      if (ped.panicUntil) {
-        const nowSec = performance.now() / 1000;
-        if (nowSec >= ped.panicUntil) {
-          ped.panicUntil = undefined;
-        } else {
-          const pdx = ped.x - (ped.panicFromX ?? ped.x);
-          const pdz = ped.z - (ped.panicFromZ ?? ped.z);
-          const pdist = Math.hypot(pdx, pdz) || 0.01;
-          ped.yaw = Math.atan2(pdx, pdz);
-          const panicSpeed = 3.4;
-          const nextX = ped.x + Math.sin(ped.yaw) * panicSpeed * dt;
-          const nextZ = ped.z + Math.cos(ped.yaw) * panicSpeed * dt;
-          if (!this.isPedestrianPositionBlocked(nextX, nextZ)) {
-            ped.x = nextX;
-            ped.z = nextZ;
-          }
-          continue;
-        }
-      }
+      // Panic movement is driven solely by updatePanicFlee (same speed and
+      // duration, plus heading jitter and obstacle sidestep) — keeping this
+      // branch too double-stepped every fleeing ped per frame.
       if (ped.waitTimer > 0) {
         ped.waitTimer -= dt;
         if (ped.type === 'hooker') {
@@ -4600,6 +4666,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.updateStoreCashier(dt);
     this.updateCamera(dt);
     this.updateCarYank(dt);
+    this.updatePanicFlee(dt);
     this.updateScore(dt);
     this.updateProjectiles(dt);
     this.updateRemoteShooting(dt);
@@ -4612,6 +4679,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.checkNearVendingMachine();
       this.checkNearStore();
       this.checkNearOtherPlayerCar();
+      this.updateBarberShops();
+      this.checkNearBarberChair();
       this.updateVendingMachines();
       this.updateNPCCrashSounds();
     }
@@ -4671,6 +4740,17 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       // its wreck falls. Do not convert that transient state into a ground
       // corpse or remove it before the renderer has shown the descent.
       if (v.health <= 0 && !(v as any).wreckFalling && !this.deadNPCIds.has(v.id)) {
+        // A destroyed helicopter starts its crash descent locally, from its
+        // true current altitude. Waiting for the next poll to confirm the
+        // server's wreck state left a gap where the wreck teleported to the
+        // ground as a corpse. The server's own wreckStartedAt (epoch ms) then
+        // takes over seamlessly on the following poll.
+        if (v.type === 'helicopter') {
+          (v as any).wreckFalling = true;
+          (v as any).wreckStartedAt = Date.now();
+          (v as any).wreckStartY = Math.max(v.y || 0, (v as any).targetY || 0, getTerrainHeight(v.x, v.z) + 1.4);
+          continue;
+        }
         this.deadNPCIds.add(v.id);
         this.spawnExplosion(v.x, 0.5, v.z);
         this.dropMoneyAt(v.x, v.z, 100 + Math.floor(Math.random() * 900));
@@ -5157,7 +5237,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     // synchronized even when the player is walking on foot; otherwise the
     // model can remain at a stale/hidden pose after switching views or exiting
     // a vehicle.
-    this.renderer.walkSpeed = this.isInCar || this.playerRagdollTimer > 0 ? 0 : Math.hypot(this.carVx, this.carVz);
+    this.renderer.walkSpeed = this.isInCar || this.isSittingBarber || this.playerRagdollTimer > 0 ? 0 : Math.hypot(this.carVx, this.carVz);
+    if (this.isSittingBarber && this._barberSitPos) {
+      this.carX = this._barberSitPos.x;
+      this.carZ = this._barberSitPos.z;
+      this.carVx = 0; this.carVz = 0; this.carSpeed = 0;
+      this.carYaw = this._barberSitPos.yaw;
+    }
     this.renderer.playerCarSpeed = this.isInCar ? this.carSpeed : 0;
     this.renderer.playerRagdollTime = this.playerRagdollTimer;
         this.renderer.playerDeathTime = this.health <= 0 ? Math.max(0, this.wastedTimer) : 0;
@@ -6512,6 +6598,96 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     });
     this.showStoreToast(`💰 STUCK UP! $${payout.toLocaleString()} spilled — grab it!`);
   }
+
+  /** Mirror of updateVendingMachines: which nearby chunks have a barber shop.
+   * Uses the same 5×5-chunk cadence as the renderer's placement. */
+  private updateBarberShops() {
+    const chunkX = Math.floor(this.carX / 80);
+    const chunkZ = Math.floor(this.carZ / 80);
+    const barberList: { x: number; z: number; yaw: number }[] = [];
+    for (let dz = -1; dz <= 1; dz++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const gx = chunkX + dx;
+        const gz = chunkZ + dz;
+        if (((gx % 5) + 5) % 5 !== 2 || ((gz % 5) + 5) % 5 !== 2) continue;
+        const baseX = gx * 80;
+        const baseZ = gz * 80;
+        // Skip when the renderer actually refused to place the shop (an
+        // overlapping building won the footprint).
+        const chunk = this.renderer.getCityChunk(gx, gz);
+        if (!chunk || chunk.barberShops.length === 0) continue;
+        barberList.push({ x: baseX + 37.5, z: baseZ + 43.7, yaw: 0 });
+      }
+    }
+    this.barberShops = barberList;
+  }
+
+  private checkNearBarberChair() {
+    if (this.isInCar || this.isPassenger || this.isSittingBarber) {
+      this.nearBarberChair = false;
+      return;
+    }
+    this.nearBarberChair = this.barberShops.some(bs => {
+      const dx = this.carX - (bs.x + 0.15), dz = this.carZ - (bs.z - 0.55);
+      return Math.sqrt(dx * dx + dz * dz) < 2.2;
+    });
+  }
+
+  private sitBarberChair() {
+    if (this.isSittingBarber || this.isInCar || this.isPassenger) return;
+    const bs = this.barberShops.find(b => {
+      const dx = this.carX - (b.x + 0.15), dz = this.carZ - (b.z - 0.55);
+      return Math.sqrt(dx * dx + dz * dz) < 2.2;
+    });
+    if (!bs) return;
+    this.isSittingBarber = true;
+    this.nearBarberChair = false;
+    this._savedBarberCamDist = this.camDist;
+    this._savedBarberCamHeight = this.camHeight;
+    this._barberSitPos = { x: bs.x + 0.15, z: bs.z - 0.55, yaw: bs.yaw };
+    this.camDist = 2.6;
+    this.camHeight = 1.7;
+    this.renderer.playerSitting = true;
+    this.showStoreToast('💇 Pick a new look, then save or stand up');
+  }
+
+  standUpBarberChair() {
+    if (!this.isSittingBarber) return;
+    this.isSittingBarber = false;
+    this.barberMenuOpen = false;
+    this.camDist = this._savedBarberCamDist || 4;
+    this.camHeight = this._savedBarberCamHeight || 2;
+    this.renderer.playerSitting = false;
+    this._barberSitPos = null;
+  }
+
+  /** Live preview: rebuild the local mesh from the draft on every change. */
+  updateBarberPreview() {
+    if (!this.isSittingBarber) return;
+    this.renderer.setPlayerAppearance({ ...this.barberDraft }, this.playerAppearanceSeed || 1, this.playerAppearanceGender);
+  }
+
+  async saveBarberAppearance() {
+    if (!this.isSittingBarber) return;
+    const appearance: GTAppearance = { ...this.barberDraft };
+    this.playerAppearance = appearance;
+    this.renderer.setPlayerAppearance(appearance, this.playerAppearanceSeed || 1, this.playerAppearanceGender);
+    try {
+      const key = `gt_appearance_${this.getUserId() || 'guest'}`;
+      localStorage.setItem(key, JSON.stringify({ seed: this.playerAppearanceSeed, role: this.playerAppearanceRole, gender: this.playerAppearanceGender, custom: appearance }));
+    } catch { }
+    const userId = this.getUserId();
+    if (userId) {
+      try {
+        await this.gtService.updateGTAppearance(userId, JSON.stringify(appearance));
+      } catch { }
+      this.pendingAppearanceJson = JSON.stringify(appearance);
+      this.showStoreToast('✂️ New look saved — everyone sees it now');
+    }
+  }
+
+  openBarberMenu() { if (this.isSittingBarber) { this.barberMenuOpen = true; this.updateBarberPreview(); } }
+
   /** Moves the store cashier: idle at the register, sprint to the door when panicked. */
   private updateStoreCashier(dt: number) {
     const c = this.storeCashier;
@@ -9356,4 +9532,210 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.isShooting = false;
     this.stopAutoFire();
   };
+}
+
+/**
+ * Standalone car-radio player. Deliberately independent of MusicComponent:
+ * it owns a hidden YouTube iframe and its own queue built from the user's
+ * Music list, so the radio never drives — and never renders through — the
+ * music page's player. The host element is hidden with INLINE styles because
+ * it lives on document.body, outside any Angular component's scoped CSS
+ * (a stylesheet rule would never match it, which is how the music UI used
+ * to leak visibly into the game).
+ */
+class GtRadioPlayer {
+  private yt: any = null;
+  private host: HTMLDivElement | null = null;
+  private songs: Array<{ url?: string; todo?: string }> = [];
+  private ytIds: string[] = [];
+  private index = 0;
+  private volume = 100;
+  private apiPromise?: Promise<void>;
+  private loading?: Promise<void>;
+  private pendingId: string | null = null;
+
+  constructor(
+    private todoService: TodoService,
+    private fileService: FileService,
+  ) { }
+
+  get hasSongs(): boolean {
+    return this.ytIds.length > 0;
+  }
+
+  get currentSongTitle(): string {
+    const id = this.ytIds[this.index];
+    if (!id) return '';
+    const song = this.songs.find(
+      s => this.fileService.parseYoutubeId(s.url || '') === id,
+    );
+    return song?.todo ?? '';
+  }
+
+  /** Load the user's Music list once; later calls reuse it. */
+  async ensureLoaded(userId: number): Promise<void> {
+    if (this.loading) return this.loading;
+    this.loading = (async () => {
+      try {
+        const list = await this.todoService.getTodo(userId, 'Music');
+        this.songs = (list || []).filter(
+          (s: any) => !!this.fileService.parseYoutubeId(s.url || ''),
+        );
+        this.ytIds = this.songs
+          .map(s => this.fileService.parseYoutubeId(s.url || ''))
+          .filter(Boolean);
+      } catch (e) {
+        console.error('[GtRadio] failed to load the Music list', e);
+        this.songs = [];
+        this.ytIds = [];
+      }
+    })();
+    return this.loading;
+  }
+
+  async playRandom(): Promise<void> {
+    if (!this.ytIds.length) return;
+    if (!this.yt) {
+      // First start: build the player on a random song; playback resumes in
+      // onReady (autoplay needs the iframe ready first).
+      await this.ensureApi();
+      if (this.yt) return this.playIndex(this.index);
+      const start = Math.floor(Math.random() * this.ytIds.length);
+      this.index = start;
+      this.pendingId = this.ytIds[start];
+      this.buildPlayer(this.pendingId);
+      return;
+    }
+    let i = Math.floor(Math.random() * this.ytIds.length);
+    if (this.ytIds.length > 1 && i === this.index) i = (i + 1) % this.ytIds.length;
+    this.playIndex(i);
+  }
+
+  async next(): Promise<void> {
+    if (!this.ytIds.length) return;
+    if (!this.yt) return this.playRandom();
+    this.playIndex(this.index + 1);
+  }
+
+  async prev(): Promise<void> {
+    if (!this.ytIds.length) return;
+    if (!this.yt) return this.playRandom();
+    this.playIndex(this.index - 1);
+  }
+
+  stop(): void {
+    try { this.yt?.stopVideo?.(); } catch { }
+  }
+
+  setVolume(volume: number): void {
+    this.volume = Math.max(0, Math.min(100, Math.round(volume)));
+    try { this.yt?.setVolume?.(this.volume); } catch { }
+  }
+
+  dispose(): void {
+    try { this.yt?.destroy?.(); } catch { }
+    this.yt = null;
+    try { this.host?.remove(); } catch { }
+    this.host = null;
+    this.songs = [];
+    this.ytIds = [];
+    this.index = 0;
+    this.pendingId = null;
+    this.loading = undefined;
+  }
+
+  private playIndex(i: number): void {
+    if (!this.ytIds.length) return;
+    this.index = ((i % this.ytIds.length) + this.ytIds.length) % this.ytIds.length;
+    const id = this.ytIds[this.index];
+    try {
+      if (this.yt?.loadVideoById) this.yt.loadVideoById(id);
+      else {
+        this.pendingId = id;
+        this.buildPlayer(id);
+      }
+    } catch (e) {
+      console.error('[GtRadio] playback failed', e);
+    }
+  }
+
+  private buildPlayer(firstId: string): void {
+    if (this.yt || !this.host && !this.ensureHost()) return;
+    const w = window as any;
+    try {
+      this.yt = new w.YT.Player(this.host!.id, {
+        videoId: firstId,
+        playerVars: {
+          autoplay: 1,
+          controls: 0,
+          disablekb: 1,
+          playsinline: 1,
+          origin: location.origin,
+        },
+        events: {
+          onReady: () => {
+            try {
+              this.yt?.setVolume?.(this.volume);
+              this.yt?.unMute?.();
+            } catch { }
+            if (this.pendingId) {
+              const id = this.pendingId;
+              this.pendingId = null;
+              try { this.yt?.loadVideoById?.(id); } catch { }
+            }
+          },
+          onStateChange: (e: any) => {
+            const YTState = (window as any).YT?.PlayerState;
+            // Auto-advance when a song ends; nudge play if autoplay stalled.
+            if (e.data === (YTState?.ENDED ?? 0)) void this.next();
+            else if (e.data === (YTState?.UNSTARTED ?? -1)) {
+              try { this.yt?.playVideo?.(); } catch { }
+            }
+          },
+        },
+      });
+    } catch (e) {
+      console.error('[GtRadio] failed to create the YouTube player', e);
+      this.yt = null;
+    }
+  }
+
+  private ensureHost(): boolean {
+    if (this.host) return true;
+    const host = document.createElement('div');
+    host.id = 'gt-radio-yt-' + Math.floor(Math.random() * 1e9);
+    host.setAttribute(
+      'style',
+      'position:fixed;left:-9999px;top:0;width:200px;height:150px;overflow:hidden;opacity:0;pointer-events:none;z-index:-1;',
+    );
+    document.body.appendChild(host);
+    this.host = host;
+    return true;
+  }
+
+  private ensureApi(): Promise<void> {
+    if (this.apiPromise) return this.apiPromise;
+    this.apiPromise = new Promise<void>((resolve, reject) => {
+      const w = window as any;
+      if (w.YT?.Player) {
+        resolve();
+        return;
+      }
+      // Chain instead of clobbering: another component (music/movie page)
+      // may already be waiting on the same global ready callback.
+      const previous = w.onYouTubeIframeAPIReady;
+      w.onYouTubeIframeAPIReady = () => {
+        try { previous?.(); } catch { }
+        resolve();
+      };
+      if (!document.querySelector('script[src="https://www.youtube.com/iframe_api"]')) {
+        const tag = document.createElement('script');
+        tag.src = 'https://www.youtube.com/iframe_api';
+        tag.async = true;
+        tag.onerror = () => reject(new Error('Failed to load YouTube IFrame API'));
+        document.head.appendChild(tag);
+      }
+    });
+    return this.apiPromise;
+  }
 }

@@ -80,6 +80,65 @@
     <div id="gt-store-exit-prompt" *ngIf="nearStoreExit && !nearStoreRegister" [style.pointer-events]="isMobile ? 'auto' : null" (click)="toggleCar()" (touchend)="$event.preventDefault(); toggleCar()">
       {{ isMobile ? '🚪 Tap to leave store' : '🚪 Press E to leave store' }}
     </div>
+
+    <div id="gt-barber-sit-prompt" *ngIf="nearBarberChair && !isSittingBarber" [style.pointer-events]="isMobile ? 'auto' : null" (click)="toggleCar()" (touchend)="$event.preventDefault(); toggleCar()">
+      {{ isMobile ? '💇 Tap to sit in the barber chair' : '💇 Press E to sit in the barber chair' }}
+    </div>
+    <div id="gt-barber-open-prompt" *ngIf="isSittingBarber && !barberMenuOpen" [style.pointer-events]="isMobile ? 'auto' : null" (click)="openBarberMenu()" (touchend)="$event.preventDefault(); openBarberMenu()">
+      {{ isMobile ? '💇 Tap to change your look' : '💇 Press E to change your look' }}
+    </div>
+
+    <div id="gt-barber-menu" *ngIf="barberMenuOpen && isSittingBarber">
+      <div class="gt-barber-title">✂️ BARBER SHOP</div>
+      <div class="gt-barber-row">
+        <span class="gt-barber-label">Skin</span>
+        <div class="gt-barber-swatches">
+          <button *ngFor="let c of barberSkinColors; let i = index" type="button" class="gt-barber-swatch" [class.gt-barber-swatch-active]="barberDraft.skin === i" [ngStyle]="{ 'background-color': 'rgb(' + (c[0]*255) + ',' + (c[1]*255) + ',' + (c[2]*255) + ')' }" (click)="barberDraft.skin = i; updateBarberPreview()"></button>
+        </div>
+      </div>
+      <div class="gt-barber-row">
+        <span class="gt-barber-label">Hair color</span>
+        <div class="gt-barber-swatches">
+          <button *ngFor="let c of barberHairColors; let i = index" type="button" class="gt-barber-swatch" [class.gt-barber-swatch-active]="barberDraft.hair === i" [ngStyle]="{ 'background-color': 'rgb(' + (c[0]*255) + ',' + (c[1]*255) + ',' + (c[2]*255) + ')' }" (click)="barberDraft.hair = i; updateBarberPreview()"></button>
+        </div>
+      </div>
+      <div class="gt-barber-row">
+        <span class="gt-barber-label">Hair style</span>
+        <div class="gt-barber-swatches">
+          <button *ngFor="let s of [0, 1, 2, 3]; let i = index" type="button" class="gt-barber-style" [class.gt-barber-swatch-active]="barberDraft.hairStyle === s" (click)="barberDraft.hairStyle = s; updateBarberPreview()">{{ s + 1 }}</button>
+        </div>
+      </div>
+      <div class="gt-barber-row">
+        <span class="gt-barber-label">Shirt</span>
+        <div class="gt-barber-swatches">
+          <button *ngFor="let c of barberShirtColors; let i = index" type="button" class="gt-barber-swatch" [class.gt-barber-swatch-active]="barberDraft.shirt === i" [ngStyle]="{ 'background-color': 'rgb(' + (c[0]*255) + ',' + (c[1]*255) + ',' + (c[2]*255) + ')' }" (click)="barberDraft.shirt = i; updateBarberPreview()"></button>
+        </div>
+      </div>
+      <div class="gt-barber-row">
+        <span class="gt-barber-label">Pants</span>
+        <div class="gt-barber-swatches">
+          <button *ngFor="let c of barberPantsColors; let i = index" type="button" class="gt-barber-swatch" [class.gt-barber-swatch-active]="barberDraft.pants === i" [ngStyle]="{ 'background-color': 'rgb(' + (c[0]*255) + ',' + (c[1]*255) + ',' + (c[2]*255) + ')' }" (click)="barberDraft.pants = i; updateBarberPreview()"></button>
+        </div>
+      </div>
+      <div class="gt-barber-row">
+        <span class="gt-barber-label">Build</span>
+        <div class="gt-barber-swatches">
+          <button *ngFor="let b of barberBodyTypes" type="button" class="gt-barber-style" [class.gt-barber-swatch-active]="barberDraft.bodyType === b.id" (click)="barberDraft.bodyType = b.id; updateBarberPreview()">{{ b.label }}</button>
+        </div>
+      </div>
+      <div class="gt-barber-row">
+        <span class="gt-barber-label">Beard</span>
+        <div class="gt-barber-swatches">
+          <button type="button" class="gt-barber-style" [class.gt-barber-swatch-active]="barberDraft.beard === 0" (click)="barberDraft.beard = 0; updateBarberPreview()">Clean</button>
+          <button type="button" class="gt-barber-style" [class.gt-barber-swatch-active]="barberDraft.beard === 1" (click)="barberDraft.beard = 1; updateBarberPreview()">Beard</button>
+        </div>
+      </div>
+      <div class="gt-barber-actions">
+        <button type="button" class="gt-barber-btn gt-barber-save" (click)="saveBarberAppearance()">Save look</button>
+        <button type="button" class="gt-barber-btn gt-barber-close" (click)="barberMenuOpen = false">Close</button>
+        <button type="button" class="gt-barber-btn gt-barber-stand" (click)="standUpBarberChair()">Stand up</button>
+      </div>
+    </div>
     <div id="gt-vending-prompt" *ngIf="nearVendingMachine" [style.pointer-events]="isMobile ? 'auto' : 'none'"
       (click)="health = 100" (touchend)="$event.preventDefault(); health = 100">
       {{ isMobile ? '🥤 Tap to replenish health' : '🥤 Press E to replenish health' }}

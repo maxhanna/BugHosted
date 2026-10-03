@@ -9,6 +9,9 @@ import {
   Role,
   pickVariant,
   createHumanSkeleton,
+  GTAppearance,
+  appearanceCacheKey,
+  applyAppearanceToVariant,
 } from "./grandtheft-human-model";
 const CHUNK_SIZE = 80;
 const GRID_PITCH = 80;
@@ -1303,6 +1306,9 @@ export class GrandTheftRenderer {
   public planeMeshes: CityMesh[][] = [];
   public motorcycleMeshes: CityMesh[][] = [];
   public policeCarMesh: CityMesh[] | null = null;
+  /** Dedicated level-5 police Jeep (assigned directly at load — never via the
+   *  race-y carMeshes index). */
+  public policeJeepMesh: CityMesh[] | null = null;
   /** Wanted-level police response vehicle selection, set by the game component. */
   public wantedLevel = 0;
   private policeTankMesh: CityMesh[] | null = null;
@@ -1405,6 +1411,13 @@ export class GrandTheftRenderer {
   /** Procedural convenience-store interior/exterior model. */
   public convenienceStoreMesh: CityMesh[] | null = null;
   public convenienceStoreDoorOpen = false;
+  /** Procedural barber-shop storefront + interior chair model. */
+  public barberShopMesh: CityMesh[] | null = null;
+  /** Active appearance overriding the seeded variant (null = seeded). */
+  public playerAppearance: GTAppearance | null = null;
+  public barberChairMesh: CityMesh | null = null;
+  /** Local player is seated in a barber chair (drives the sit pose). */
+  public playerSitting = false;
   public explodedBarrels: Set<string> = new Set();
   public explodedGasStations: Set<string> = new Set();
   public explodedGasStationTimers: Map<string, number> = new Map();
@@ -1594,6 +1607,144 @@ export class GrandTheftRenderer {
     if (!this.convenienceStoreMesh)
       this.convenienceStoreMesh = this.createConvenienceStoreMesh();
     return this.convenienceStoreMesh;
+  }
+
+  /** A human mesh built from an explicit appearance (barber-shop result) rather
+   * than a seeded roll. Cached per appearance key so remotes sharing an
+   * appearance share one GPU mesh. */
+  getCustomHumanMesh(
+    appearance: GTAppearance,
+    genderHint?: string,
+    seed: number | string = 1,
+  ): CityMesh {
+    const key = `custom_${appearanceCacheKey(appearance)}_${genderHint ?? ""}`;
+    if (this.humanMeshCache.has(key)) return this.humanMeshCache.get(key)!;
+    const variant = pickVariant("generic", seed, genderHint);
+    applyAppearanceToVariant(variant, appearance);
+    const mesh = this.createLifelikeHumanMesh(variant);
+    (mesh as any).isHuman = true;
+    this.humanMeshCache.set(key, mesh);
+    this.meshCache.set(key, mesh as any);
+    return mesh;
+  }
+
+  /** Rebuild the local player mesh with an explicit appearance and rebind the
+   * animation rig. Call after saving a haircut. */
+  setPlayerAppearance(
+    appearance: GTAppearance,
+    appearanceSeed: number | string,
+    genderHint?: string,
+  ): void {
+    this.playerAppearance = appearance;
+    const mesh = this.getCustomHumanMesh(
+      appearance,
+      genderHint,
+      appearanceSeed,
+    );
+    this.playerMesh = mesh;
+    this.bindPlayerRig(mesh);
+  }
+
+  /** Procedural barber shop — a small striped-pole storefront with a lit
+   * interior. Model faces +Z (door on the street side), same convention the
+   * supermarket placement path expects. */
+  private createBarberShopMesh(): CityMesh[] {
+    const verts: number[] = [];
+    const indices: number[] = [];
+    const box = (
+      x: number, y: number, z: number,
+      w: number, h: number, d: number,
+      r: number, g: number, b: number,
+    ) => {
+      const start = verts.length / 12;
+      const hw = w / 2, hh = h / 2, hd = d / 2;
+      const corners = [
+        [-hw, -hh, -hd], [hw, -hh, -hd], [hw, hh, -hd], [-hw, hh, -hd],
+        [-hw, -hh, hd], [hw, -hh, hd], [hw, hh, hd], [-hw, hh, hd],
+      ];
+      for (const c of corners) verts.push(x + c[0], y + c[1], z + c[2], 0, 1, 0, r, g, b, 1, 0, 0);
+      const faces = [
+        [0, 1, 2, 0, -1, 0], [5, 4, 7, 0, 1, 0],
+        [4, 0, 3, -1, 0, 0], [1, 5, 6, 1, 0, 0],
+        [3, 7, 6, 0, 0, 1], [4, 5, 1, 0, 0, -1],
+      ];
+      for (const f of faces) {
+        const q = f[3] === 0 && f[4] === 0 ? [start, start + 1, start + 2, start + 3] : [start + 4, start + 5, start + 6, start + 7];
+        indices.push(q[0], q[1], q[2], q[0], q[2], q[3]);
+      }
+    };
+    // Shell: floor, back/side walls, roof lip
+    box(0, 0.06, 0, 12, 0.12, 12, 0.32, 0.28, 0.25);
+    box(0, 1.7, 5.85, 12, 3.4, 0.3, 0.85, 0.82, 0.78);
+    box(-5.85, 1.7, 0, 0.3, 3.4, 12, 0.85, 0.82, 0.78);
+    box(5.85, 1.7, 0, 0.3, 3.4, 12, 0.85, 0.82, 0.78);
+    box(0, 3.55, 0, 12.4, 0.35, 12.4, 0.55, 0.2, 0.18);
+    // Front wall with a wide door gap (door spans x -2..2)
+    box(-4.15, 1.7, -5.85, 3.7, 3.4, 0.3, 0.2, 0.42, 0.72);
+    box(4.15, 1.7, -5.85, 3.7, 3.4, 0.3, 0.2, 0.42, 0.72);
+    box(0, 3.05, -5.85, 4.6, 1.0, 0.3, 0.2, 0.42, 0.72);
+    // Display windows either side of the door
+    box(-6.2, 1.9, -5.95, 1.6, 1.8, 0.1, 0.55, 0.8, 0.9,);
+    box(6.2, 1.9, -5.95, 1.6, 1.8, 0.1, 0.55, 0.8, 0.9,);
+    // Classic red/white barber pole by the door
+    for (let i = 0; i < 5; i++)
+      box(2.9, 0.7 + i * 0.42, -5.5, 0.24, 0.42, 0.24, i % 2 === 0 ? 0.85 : 0.95, i % 2 === 0 ? 0.16 : 0.95, i % 2 === 0 ? 0.14 : 0.95);
+    box(2.9, 2.9, -5.5, 0.3, 0.16, 0.3, 0.75, 0.78, 0.8);
+    // Mirror + counter along the back wall
+    box(-2.5, 1.9, 5.6, 4.2, 1.6, 0.12, 0.75, 0.82, 0.86);
+    box(-2.5, 0.9, 5.4, 4.6, 0.16, 0.7, 0.42, 0.26, 0.14);
+    const mesh = this.createMesh(verts, indices);
+    mesh.carName = "barber_shop_procedural";
+    mesh.minX = -6.4;
+    mesh.maxX = 6.4;
+    mesh.minZ = -6.2;
+    mesh.maxZ = 6.2;
+    return [mesh];
+  }
+  getBarberShopMesh(): CityMesh[] {
+    if (!this.barberShopMesh)
+      this.barberShopMesh = this.createBarberShopMesh();
+    return this.barberShopMesh;
+  }
+  /** Barber chair — chrome base, red leather seat/back, footrest. The seated
+   * human anchors its feet at y+0.55. */
+  getBarberChairMesh(): CityMesh {
+    if (this.barberChairMesh) return this.barberChairMesh;
+    const verts: number[] = [];
+    const indices: number[] = [];
+    const box = (
+      x: number, y: number, z: number,
+      w: number, h: number, d: number,
+      r: number, g: number, b: number,
+    ) => {
+      const start = verts.length / 12;
+      const hw = w / 2, hh = h / 2, hd = d / 2;
+      const corners = [
+        [-hw, -hh, -hd], [hw, -hh, -hd], [hw, hh, -hd], [-hw, hh, -hd],
+        [-hw, -hh, hd], [hw, -hh, hd], [hw, hh, hd], [-hw, hh, hd],
+      ];
+      for (const c of corners) verts.push(x + c[0], y + c[1], z + c[2], 0, 1, 0, r, g, b, 1, 0, 0);
+      const faces = [
+        [0, 1, 2, 0, -1, 0], [5, 4, 7, 0, 1, 0],
+        [4, 0, 3, -1, 0, 0], [1, 5, 6, 1, 0, 0],
+        [3, 7, 6, 0, 0, 1], [4, 5, 1, 0, 0, -1],
+      ];
+      for (const f of faces) {
+        const q = f[3] === 0 && f[4] === 0 ? [start, start + 1, start + 2, start + 3] : [start + 4, start + 5, start + 6, start + 7];
+        indices.push(q[0], q[1], q[2], q[0], q[2], q[3]);
+      }
+    };
+    box(0, 0.06, 0, 0.9, 0.12, 0.9, 0.75, 0.76, 0.78); // base plate
+    box(0, 0.3, 0, 0.18, 0.4, 0.18, 0.72, 0.73, 0.76); // column
+    box(0, 0.55, 0.08, 0.72, 0.14, 0.78, 0.62, 0.09, 0.09); // seat cushion
+    box(0, 0.95, -0.42, 0.72, 0.75, 0.16, 0.62, 0.09, 0.09); // backrest
+    box(-0.42, 0.78, 0.02, 0.1, 0.3, 0.6, 0.62, 0.09, 0.09); // left armrest
+    box(0.42, 0.78, 0.02, 0.1, 0.3, 0.6, 0.62, 0.09, 0.09); // right armrest
+    box(0, 0.16, 0.5, 0.6, 0.08, 0.3, 0.72, 0.73, 0.76); // footrest
+    const mesh = this.createMesh(verts, indices);
+    mesh.carName = "barber_chair_procedural";
+    this.barberChairMesh = mesh;
+    return mesh;
   }
   private createGasStationMesh(): CityMesh[] {
     const verts: number[] = [];
@@ -2686,7 +2837,7 @@ void main() {
   /** Find the best animation matching a desired state (idle, walk, run) */
   matchAnimationName(
     animations: GltfAnimation[],
-    state: "idle" | "walk" | "run" | "drive",
+    state: "idle" | "walk" | "run" | "drive" | "sit",
   ): string | null {
     if (!animations || animations.length === 0) return null;
     const keywords: Record<string, string[]> = {
@@ -2726,7 +2877,7 @@ void main() {
   animateAndSkinEntity(
     entityId: number,
     entityMesh: CityMesh | CityMesh[],
-    state: "idle" | "walk" | "run" | "drive",
+    state: "idle" | "walk" | "run" | "drive" | "sit",
     dt: number,
     speed: number = 1,
   ): boolean {
@@ -2919,6 +3070,20 @@ void main() {
           thighRIdx = 16;
         applyX(thighLIdx, -1.05);
         applyX(thighRIdx, -1.05);
+      } else if (state === "sit") {
+        // Barber chair: upright torso, thighs forward, shins down, hands at
+        // rest on the armrests. A subtle breathing roll keeps it alive.
+        const breathe = Math.sin(animator.time * 1.6) * 0.02;
+        applyX(0, breathe * 0.5);
+        applyX(13, -1.35);
+        applyX(14, 1.25);
+        applyX(16, -1.35);
+        applyX(17, 1.25);
+        applyX(6, -0.32);
+        applyX(7, -0.5);
+        applyX(10, -0.32);
+        applyX(11, -0.5);
+        applyX(2, breathe * 0.4);
       } else {
         // Breathing and an alternating weight shift keep an idle pedestrian
         // alive without making the whole body bob as one rigid piece.
@@ -3274,6 +3439,17 @@ void main() {
       applyRot(rightForearm, 0.45 * impact);
       applyRot(this.playerBone("chest", "spine"), -1.15 * impact);
       applyRot(this.playerBone("neck"), -0.75 * impact);
+    } else if (this.playerSitting) {
+      // Barber chair: upright torso, thighs forward, shins down, hands resting
+      // on the armrests. Arms get a slight outward Z so they clear the hips.
+      applyRot(leftThigh, -1.32);
+      applyRot(rightThigh, -1.32);
+      applyRot(leftCalf, 1.22);
+      applyRot(rightCalf, 1.22);
+      applyRot(leftArm, -0.3, 0, 0.12);
+      applyRot(rightArm, -0.3, 0, -0.12);
+      applyRot(leftForearm, -0.5);
+      applyRot(rightForearm, -0.5);
     } else if (this.punchTime > 0) {
       if (this.playerAttack === "kick") {
         applyRot(rightThigh, -0.9 * attack, 0, 0.12 * attack);
@@ -4242,6 +4418,8 @@ void main() {
   getCityChunk(cx: number, cz: number): CityChunk {
     const key = `${cx},${cz}`;
     if (this.chunkCache.has(key)) return this.chunkCache.get(key)!;
+    const gx = cx;
+    const gz = cz;
     const verts: number[] = [];
     const indices: number[] = [];
     let idxOffset = 0;
@@ -4258,6 +4436,7 @@ void main() {
       isConvenience?: boolean;
     }[] = [];
     const tatami: { x: number; z: number; yaw: number }[] = [];
+    const barberShops: { x: number; z: number; yaw: number }[] = [];
     const cabins: { x: number; z: number; yaw: number }[] = [];
     const lighthouses: { x: number; z: number; yaw: number }[] = [];
     const tropicalShops: { x: number; z: number; yaw: number }[] = [];
@@ -8866,6 +9045,12 @@ void main() {
       });
     }
     if ((isCity || isSuburb) && this.cityBuildingMeshes.length > 0) {
+      const gasStationInChunk = buildings.some(
+        (b) =>
+          b.model &&
+          b.model.length > 0 &&
+          b.model[0].carName?.includes("gas_station"),
+      );
       if (rng() < 0.16) {
         const store = this.getConvenienceStoreMesh();
         const sx = worldOriginX + 40,
@@ -8917,15 +9102,54 @@ void main() {
           });
         }
       }
+      // A barber shop spawns on a fixed 5×5-chunk cadence (guaranteed coverage
+      // near any player), never sharing a chunk with a convenience store.
+      if (
+        barberShops.length === 0 &&
+        supermarkets.length === 0 &&
+        !gasStationInChunk &&
+        ((gx % 5) + 5) % 5 === 2 &&
+        ((gz % 5) + 5) % 5 === 2
+      ) {
+        const shop = this.getBarberShopMesh();
+        const bx = worldOriginX + 40,
+          bz = worldOriginZ + 40;
+        const barberBounds = {
+          minX: bx - 15,
+          maxX: bx + 15,
+          minZ: bz - 15,
+          maxZ: bz + 15,
+        };
+        const barberOccupied = Array.from(
+          this.buildingOccupancyByChunk.values(),
+        ).flat();
+        const barberOverlaps = barberOccupied.some(
+          (bb) =>
+            barberBounds.minX - 2 < bb.maxX &&
+            barberBounds.maxX + 2 > bb.minX &&
+            barberBounds.minZ - 2 < bb.maxZ &&
+            barberBounds.maxZ + 2 > bb.minZ,
+        );
+        if (!barberOverlaps) {
+          buildings.push({
+            model: shop,
+            x: bx,
+            y: 0.15,
+            z: bz,
+            yaw: Math.PI,
+            scale: [1, 1, 1],
+          });
+          const barberLocal = this.buildingOccupancyByChunk.get(key) ?? [];
+          barberLocal.push(barberBounds);
+          this.buildingOccupancyByChunk.set(key, barberLocal);
+          // Chairs sit right of the back mirror/counter; model is yawed π so
+          // its +Z face points at the street.
+          barberShops.push({ x: bx - 2.5, z: bz + 3.7, yaw: Math.PI });
+        }
+      }
       const smModel = this.cityBuildingMeshes.find(
         (m) =>
           m.length > 0 && m[0].carName && m[0].carName.includes("supermarket"),
-      );
-      const gasStationInChunk = buildings.some(
-        (b) =>
-          b.model &&
-          b.model.length > 0 &&
-          b.model[0].carName?.includes("gas_station"),
       );
       // The fallback authored supermarket path must obey the same exclusion as
       // the procedural convenience store. Otherwise a gas station generated
@@ -9107,6 +9331,7 @@ void main() {
       trees,
       supermarkets,
       tatami,
+      barberShops,
       cabins,
       lighthouses,
       tropicalShops,
@@ -12078,7 +12303,15 @@ void main() {
             vehicleY,
             p.posZ,
             p.yaw,
-            [1, 1, 1],
+            // Remote helicopters use the same flyable airframe scale as the
+            // local player; everything else stays unscaled.
+            vType === "helicopter"
+              ? [
+                  HELICOPTER_RENDER_SCALE,
+                  HELICOPTER_RENDER_SCALE,
+                  HELICOPTER_RENDER_SCALE,
+                ]
+              : [1, 1, 1],
             [1, 1, 1, 1],
             true,
           );
@@ -12471,6 +12704,10 @@ void main() {
             bld.model &&
             bld.model.length > 0 &&
             bld.model[0].carName?.includes("convenience_store_procedural");
+          const isBarber =
+            bld.model &&
+            bld.model.length > 0 &&
+            bld.model[0].carName?.includes("barber_shop_procedural");
           const doorOpen = isStore && this.convenienceStoreDoorOpen;
           this.drawMesh(
             bld.model,
@@ -12491,6 +12728,21 @@ void main() {
               [1, 1, 1],
               [0.16, 0.8, 0.35, 0.8],
             );
+          }
+          if (isBarber) {
+            // The chair is interior furniture, always drawn regardless of the
+            // building-cull ring so the seat spot never visually disappears.
+            for (const bs of chunk.barberShops) {
+              this.drawMesh(
+                this.getBarberChairMesh(),
+                bs.x,
+                0.18,
+                bs.z,
+                bs.yaw,
+                [1, 1, 1],
+                [1, 1, 1, 1],
+              );
+            }
           }
         }
       }
@@ -12703,6 +12955,13 @@ void main() {
             [rotorScale, rotorScale, rotorScale],
             [0.18, 0.2, 0.22, 0.82],
           );
+          // Static parked disc so the rotors are visible even when the spin
+          // animation makes the blades momentarily edge-on.
+          this.drawRotorDisc(
+            aircraft.x,
+            aircraftY + 2.02 * HELICOPTER_RENDER_SCALE,
+            aircraft.z,
+          );
           const tailX =
             aircraft.x +
             Math.sin(helicopterYaw) * 2.65 * HELICOPTER_RENDER_SCALE;
@@ -12730,13 +12989,34 @@ void main() {
       const isBoat = pc.type === "boat";
       const submergeY =
         biome === "ocean" ? (isBoat ? 0 : -1.5) : getTerrainHeight(pc.x, pc.z);
+      // Parked helicopters keep the flyable airframe scale. The procedural
+      // heli mesh is authored for HELICOPTER_RENDER_SCALE, so without it a
+      // heli you just exited shrinks to a third of its flying size. The Y
+      // mirrors the landed flying convention (origin = terrain + CAR_HEIGHT
+      // from the game component) when the parked record has no saved height.
+      const isHeli = pc.type === "helicopter";
+      const heliY = pc.y ?? (pc as any)._expY ?? submergeY + 0.4;
       this.drawMesh(
         pc.mesh,
         pc.x,
-        pc.y ?? (pc as any)._expY ?? submergeY,
+        isHeli ? heliY : (pc.y ?? (pc as any)._expY ?? submergeY),
         pc.z,
         pc.yaw,
+        isHeli
+          ? [
+              HELICOPTER_RENDER_SCALE,
+              HELICOPTER_RENDER_SCALE,
+              HELICOPTER_RENDER_SCALE,
+            ]
+          : undefined,
       );
+      if (isHeli) {
+        // Parked rotor: engine off, blades stopped. Same hub position the
+        // flying path uses. The static cross alone is nearly invisible
+        // edge-on, so a faint disc accompanies the blades to make the
+        // propeller read from any angle.
+        this.drawParkedHeliRotors(pc.x, heliY, pc.z, pc.yaw);
+      }
     }
     for (const npc of serverNPCs) {
       const npcSpeed = npc.speed ?? 0;
@@ -12810,14 +13090,22 @@ void main() {
             Number.isFinite(startedAt) && startedAt > 0
               ? Math.max(0, epochNow - startedAt)
               : 0;
-          const fallTime = Math.min(3.2, elapsed);
+          // A slow, spooling-down crash descent: the wreck accelerates gently
+          // (capped fall rate) instead of the old 4.9·t² gravity snap, so a
+          // shot-down helicopter visibly spirals down from altitude over a
+          // couple of seconds before the ground-impact tumble begins.
           const wreckStartY = Number((npc as any).wreckStartY ?? expY);
           const groundY = getTerrainHeight(npc.x, npc.z);
+          const fallDistance = Math.max(0.1, wreckStartY - (groundY + 0.35));
+          // ~2.8s total: a 10-unit drop falls at ~3.6 u/s average, a 30-unit
+          // drop at ~10.7 u/s — always a readable descent, never a snap.
+          const fallTime = Math.min(2.8, elapsed);
+          const easedFall = fallTime * fallTime * 0.128; // ease-in sink
           const fallY = Math.max(
             groundY + 0.35,
-            wreckStartY - 4.9 * fallTime * fallTime,
+            wreckStartY - Math.min(fallDistance, easedFall),
           );
-          const impactProgress = Math.min(1, fallTime / 3.2);
+          const impactProgress = fallY <= groundY + 0.36 ? 1 : Math.min(0.85, easedFall / fallDistance * 0.85);
           const wreckPitch = -impactProgress * Math.PI * 0.82;
           const wreckRoll =
             Math.sin(elapsed * 8 + npc.id) * 0.32 + impactProgress * 0.7;
@@ -12971,14 +13259,23 @@ void main() {
           dOffZ = 0.2;
         const dwx = npc.x + (dOffX * cosY + dOffZ * sinY);
         const dwz = npc.z + (-dOffX * sinY + dOffZ * cosY);
-        const riderScale = npc.type === "motorcycle" ? 0.82 : 0.72;
-        const riderFloorOffset = npc.type === "helicopter" || npc.type === "plane"
-          ? 0.42
-          : npc.type === "boat"
-            ? 0.20
-            : isPizzaMoped
-              ? 0.30
-              : 0.06;
+        const npcHeli = npc.type === "helicopter";
+        const riderScale = npcHeli
+          ? 1.55
+          : npc.type === "motorcycle"
+            ? 0.82
+            : 0.72;
+        // Helicopter cabins sit ~2.2 world units above the vehicle origin at
+        // the 3x airframe scale — anchor and size riders to match.
+        const riderFloorOffset = npcHeli
+          ? 2.2
+          : npc.type === "plane"
+            ? 0.42
+            : npc.type === "boat"
+              ? 0.20
+              : isPizzaMoped
+                ? 0.30
+                : 0.06;
         const riderY = this.seatedModelY(dMesh, expY, riderScale, riderFloorOffset);
         this.drawMesh(
           dMesh,
@@ -12994,14 +13291,20 @@ void main() {
             pOffZ = 0.2;
           const pwx = npc.x + (pOffX * cosY + pOffZ * sinY);
           const pwz = npc.z + (-pOffX * sinY + pOffZ * cosY);
-          const passengerScale = npc.type === "motorcycle" ? 0.78 : 0.68;
-          const passengerFloorOffset = npc.type === "helicopter" || npc.type === "plane"
-            ? 0.42
-            : npc.type === "boat"
-              ? 0.20
-              : isPizzaMoped
-                ? 0.30
-                : 0.06;
+          const passengerScale = npcHeli
+            ? 1.55
+            : npc.type === "motorcycle"
+              ? 0.78
+              : 0.68;
+          const passengerFloorOffset = npcHeli
+            ? 2.2
+            : npc.type === "plane"
+              ? 0.42
+              : npc.type === "boat"
+                ? 0.20
+                : isPizzaMoped
+                  ? 0.30
+                  : 0.06;
           this.drawMesh(
             pMesh,
             pwx,
@@ -13208,9 +13511,15 @@ void main() {
             offZ = 0.2;
           const wx = host.posX + (offX * cosY + offZ * sinY);
           const wz = host.posZ + (-offX * sinY + offZ * cosY);
-          const hostScale = host.vehicleType === "motorcycle" ? 0.78 : 0.68;
-          const hostFloorY =
-            host.vehicleType === "helicopter" || host.vehicleType === "plane"
+          const hostHeli = host.vehicleType === "helicopter";
+          const hostScale = hostHeli
+            ? 1.55
+            : host.vehicleType === "motorcycle"
+              ? 0.78
+              : 0.68;
+          const hostFloorY = hostHeli
+            ? this.seatedModelY(p.mesh, host.posY || 0, hostScale, 2.2)
+            : host.vehicleType === "plane"
               ? this.seatedModelY(p.mesh, host.posY || 0, hostScale, 0.42)
               : this.seatedModelY(p.mesh, getTerrainHeight(host.posX, host.posZ), hostScale, 0.06);
           this.drawMesh(p.mesh, wx, hostFloorY, wz, host.yaw, [hostScale, hostScale, hostScale]);
@@ -13252,9 +13561,15 @@ void main() {
           offZ = 0.2;
         const wx = p.posX + (offX * cosY + offZ * sinY);
         const wz = p.posZ + (-offX * sinY + offZ * cosY);
-        const occupantScale = vType === "motorcycle" ? 0.78 : 0.68;
-        const occupantY =
-          vType === "helicopter" || vType === "plane"
+        const occupantHeli = vType === "helicopter";
+        const occupantScale = occupantHeli
+          ? 1.55
+          : vType === "motorcycle"
+            ? 0.78
+            : 0.68;
+        const occupantY = occupantHeli
+          ? this.seatedModelY(p.mesh, p.posY || 0, occupantScale, 2.2)
+          : vType === "plane"
             ? this.seatedModelY(p.mesh, p.posY || 0, occupantScale, 0.42)
             : this.seatedModelY(p.mesh, getTerrainHeight(p.posX, p.posZ), occupantScale, 0.06);
         this.drawMesh(p.mesh, wx, occupantY, wz, p.yaw, [
@@ -13483,18 +13798,28 @@ void main() {
         const wz = targetZ + (-am.offsetX * sinY + am.offsetZ * cosY);
         const s = am.scale ?? 1;
         let attachedY = targetY + am.offsetY;
+        let drawScale = s;
         if (am.isVehicleOccupant) {
+          const heli = this.playerVehicleType === "helicopter";
           const floorOffset = this.playerVehicleType === "motorcycle"
             ? 0.30
-            : this.playerVehicleType === "helicopter" || this.playerVehicleType === "plane"
-              ? 0.42
-              : 0.06;
-          attachedY = this.seatedModelY(am.mesh, targetY, s, floorOffset);
+            : heli
+              ? 2.2
+              : this.playerVehicleType === "plane"
+                ? 0.42
+                : 0.06;
+          // The helicopter airframe renders at HELICOPTER_RENDER_SCALE (3x),
+          // so its cabin floor sits ~2.2 world units above the vehicle origin.
+          // Anchor the pilot there and size them to airframe proportions —
+          // anchoring at the old 0.42 left the pilot fully beneath the craft.
+          const occupantScale = heli ? 1.55 : s;
+          attachedY = this.seatedModelY(am.mesh, targetY, occupantScale, floorOffset);
+          drawScale = occupantScale;
         }
         this.drawMesh(am.mesh, wx, attachedY, wz, carYaw + am.yaw, [
-          s,
-          s,
-          s,
+          drawScale,
+          drawScale,
+          drawScale,
         ]);
       }
     }
@@ -14226,17 +14551,15 @@ void main() {
     police = true,
   ): CityMesh | CityMesh[] {
     if (!police || this.wantedLevel < 5) return this.getPoliceCarMesh();
-    // The Jeep asset is the final vehicle slot loaded by the Grand Theft car
-    // manifest. Use it for level-5 pursuit units, with the lightbar drawn in
-    // the shared police-vehicle pass below.
-    // Every fourth dispatched unit is a tank, while the remaining level-5
-    // units use the Jeep asset. Both retain the `police` vehicle type so
-    // stealing either vehicle ejects police crew through the existing theft
-    // response path.
+    // Level-5 heavy response: every fourth dispatched unit is a tank, the rest
+    // use the dedicated Jeep slot. (This used to read carMeshes[10] — but that
+    // array fills in async load-completion order, so the slot randomly held
+    // the monster truck or a supercar and cops rolled out in monster trucks.)
+    // Both heavy types keep the `police` vehicle type so stealing either
+    // ejects the crew through the existing theft response path.
     const numericId = typeof id === "number" ? Math.abs(id) : hashSeed(id);
     if (numericId % 4 === 0) return this.getPoliceTankMesh();
-    if (this.carMeshes.length > 10 && this.carMeshes[10])
-      return this.carMeshes[10];
+    if (this.policeJeepMesh) return this.policeJeepMesh;
     return this.getPoliceTankMesh();
   }
   private getPoliceTankMesh(): CityMesh[] {
@@ -14326,52 +14649,58 @@ void main() {
     if (this.meshCache.has(key)) return this.meshCache.get(key)!;
     const verts: number[] = [];
     const indices: number[] = [];
-    this.addBox(
-      verts,
-      indices,
-      0,
-      0.4,
-      0,
-      2.0,
-      0.8,
-      4.0,
-      0.1,
-      0.1,
-      0.1,
-      1.0,
-      0,
-    );
-    this.addBox(
-      verts,
-      indices,
-      0,
-      0.6,
-      0,
-      2.1,
-      0.4,
-      2.0,
-      0.9,
-      0.9,
-      0.9,
-      1.0,
-      24,
-    );
-    this.addBox(
-      verts,
-      indices,
-      0,
-      1.0,
-      -0.2,
-      1.6,
-      0.6,
-      2.0,
-      0.1,
-      0.1,
-      0.1,
-      1.0,
-      48,
-    );
+    const box = (
+      x: number,
+      y: number,
+      z: number,
+      w: number,
+      h: number,
+      d: number,
+      c: [number, number, number],
+    ) => {
+      this.addBox(
+        verts,
+        indices,
+        x,
+        y,
+        z,
+        w,
+        h,
+        d,
+        c[0],
+        c[1],
+        c[2],
+        1.0,
+        verts.length / 7,
+      );
+    };
+    // A proper black-and-white cruiser at street scale. The old placeholder
+    // was three stacked boxes with no wheels, which read as a monster truck.
+    const white: [number, number, number] = [0.92, 0.92, 0.94];
+    const black: [number, number, number] = [0.06, 0.07, 0.09];
+    const glass: [number, number, number] = [0.15, 0.22, 0.3];
+    const chrome: [number, number, number] = [0.7, 0.72, 0.75];
+    // Sedan footprint matching the NPC traffic car so cruisers sit at the
+    // same height/width as everything else on the road.
+    box(0, 0.42, 0, 1.9, 0.5, 4.0, white); // main body
+    box(0, 0.34, 0.02, 1.94, 0.28, 4.04, black); // black lower band
+    box(0, 0.98, -0.25, 1.6, 0.46, 1.9, white); // cabin
+    box(0, 1.0, -1.22, 1.5, 0.36, 0.1, glass); // windshield
+    box(0, 1.0, 0.72, 1.5, 0.34, 0.1, glass); // rear glass
+    box(0, 0.66, -1.55, 1.7, 0.1, 0.7, black); // hood accent
+    box(0, 0.34, -2.02, 1.85, 0.22, 0.14, chrome); // front bumper
+    box(0, 0.34, 2.02, 1.85, 0.22, 0.14, chrome); // rear bumper
+    // Wheels (the old model had none).
+    for (const wx of [-0.95, 0.95]) {
+      for (const wz of [-1.3, 1.3]) box(wx, 0.22, wz, 0.3, 0.44, 0.44, black);
+    }
+    // Roof lightbar with red/blue segments.
+    box(0, 1.26, -0.25, 1.1, 0.12, 0.3, black);
+    box(-0.28, 1.32, -0.25, 0.42, 0.14, 0.26, [0.9, 0.08, 0.06]);
+    box(0.28, 1.32, -0.25, 0.42, 0.14, 0.26, [0.06, 0.15, 0.9]);
     const mesh = this.createMesh(verts, indices);
+    mesh.carName = "police";
+    this.policeCarMesh = [mesh];
     this.meshCache.set(key, mesh);
     return mesh;
   }
@@ -14430,6 +14759,97 @@ void main() {
     return mesh;
   }
   /** Procedural rotor blade - a flat elongated diamond shape that spins on Y axis */
+  /**
+   * Engine-off rotors for a parked helicopter: a visible blade cross (blades
+   * drooped slightly) plus a faint translucent rotor disc so the propeller
+   * reads from any viewing angle. Thin, static blades alone vanish edge-on,
+   * which is why parked helis looked propeller-less.
+   */
+  private drawParkedHeliRotors(x: number, y: number, z: number, yaw: number): void {
+    const hubY = y + 2.08 * HELICOPTER_RENDER_SCALE;
+    const rotor = this.getRotorBladeMesh();
+    const rotorScale = 0.58 * HELICOPTER_RENDER_SCALE;
+    this.drawMesh(
+      rotor,
+      x,
+      hubY,
+      z,
+      yaw,
+      [rotorScale, rotorScale, rotorScale],
+      [0.14, 0.15, 0.16, 1],
+    );
+    this.drawRotorDisc(x, hubY, z);
+  }
+
+  private rotorDiscMesh: CityMesh | null = null;
+  /** Faint translucent disc marking the main-rotor sweep at world (x, y, z). */
+  private drawRotorDisc(x: number, y: number, z: number): void {
+    if (!this.rotorDiscMesh) {
+      const disc = this.buildRotorDiscGeometry(2.9);
+      this.rotorDiscMesh = this.createMesh(disc.verts, disc.indices);
+    }
+    this.drawMesh(this.rotorDiscMesh, x, y + 0.02, z, 0, [1, 1, 1], [
+      0.75,
+      0.78,
+      0.8,
+      0.16,
+    ]);
+  }
+
+  /** Low-poly flat disc (N-gon) in the XZ plane centered on the origin. */
+  private buildRotorDiscGeometry(radius: number): {
+    verts: number[];
+    indices: number[];
+  } {
+    const verts: number[] = [];
+    const indices: number[] = [];
+    const segments = 20;
+    verts.push(0, 0, 0, 1, 1, 1, 1);
+    for (let s = 0; s < segments; s++) {
+      const a = (s / segments) * Math.PI * 2;
+      verts.push(
+        Math.cos(a) * radius,
+        0,
+        Math.sin(a) * radius,
+        1,
+        1,
+        1,
+        1,
+      );
+    }
+    for (let s = 0; s < segments; s++)
+      indices.push(0, 1 + s, 1 + ((s + 1) % segments));
+    return { verts, indices };
+  }
+
+  /** Cached civilian flee-to-safety animation pose (built once, shared). */
+  private fleePose: { mat4Array: Float32Array; boneCount: number } | null = null;
+  /** One-shot panic reaction (arms raised): cached and shared by every nearby
+   *  ped that flees gunfire, so crowds panic without extra per-ped animation
+   *  state or per-frame cost. */
+  playPanic(): void {
+    if (this.fleePose) return;
+    const skeleton = createHumanSkeleton();
+    const boneCount = skeleton.boneCount;
+    const localMatrices = new Float32Array(skeleton.boneLocalMatrices);
+    const panic = (bone: number, ang: number) => {
+      if (bone < 0 || bone >= boneCount) return;
+      const m = new Float32Array(localMatrices.buffer, bone * 16 * 4, 16);
+      const qx = Math.sin(ang / 2), qw = Math.cos(ang / 2);
+      const rot = new Float32Array([1,0,0,0, 0,qw,qx,0, 0,-qx,qw,0, 0,0,0,1]);
+      const tmp = new Float32Array(16);
+      mat4.multiply(tmp, m, rot);
+      m.set(tmp);
+    };
+    // Arms flail up and back (classic hands-over-head scare), slight hunch.
+    panic(6, -2.6);   // l_arm raised
+    panic(10, -2.6);  // r_arm raised
+    panic(7, -0.3);   // l_forearm
+    panic(11, -0.3);  // r_forearm
+    panic(2, 0.18);   // chest hunch
+    this.fleePose = { mat4Array: localMatrices, boneCount };
+  }
+
   getRotorBladeMesh(): CityMesh {
     if (this.meshCache.has("rotor_blade"))
       return this.meshCache.get("rotor_blade")!;

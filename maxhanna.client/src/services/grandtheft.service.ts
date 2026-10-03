@@ -165,6 +165,7 @@ export interface OtherPlayerState {
   appearanceSeed?: number;
   appearanceRole?: string;
   appearanceGender?: string;
+  appearance?: { skin?: number; hair?: number; hairStyle?: number; shirt?: number; pants?: number; beard?: number; bodyType?: 'slim' | 'muscular' | 'fat' | 'dwarf' };
   isShooting: boolean;
   camYaw: number;
   camPitch: number;
@@ -353,6 +354,15 @@ export class GrandtheftService {
     }
   }
 
+  /** Persist a barber-shop appearance for the account (barber_shop column). */
+  async updateGTAppearance(userId: number, appearanceJson: string): Promise<{ ok: boolean } | null> {
+    try {
+      return await this.http.post<{ ok: boolean }>(`${this.baseUrl}/appearance`, { userId, appearanceJson }).toPromise() ?? null;
+    } catch {
+      return null;
+    }
+  }
+
   async updatePosition(
     userId: number, worldId: number,
     posX: number, posY: number, posZ: number,
@@ -368,7 +378,8 @@ export class GrandtheftService {
     respawned?: boolean,
     ownedWeapons?: boolean[],
     ammo?: number[],
-    wantedLevel?: number
+    wantedLevel?: number,
+    appearanceJson?: string
   ): Promise<GTUpdatePositionResponse | null> {
     try {
       const body: any = { userId, worldId, posX, posY, posZ, yaw, pitch, carYaw, carSpeed, health, weapon, isShooting };
@@ -385,6 +396,7 @@ export class GrandtheftService {
       if (ownedWeapons) body.ownedWeapons = ownedWeapons;
       if (ammo) body.ammo = ammo;
       if (wantedLevel !== undefined) body.wantedLevel = wantedLevel;
+      if (appearanceJson) body.appearanceJson = appearanceJson;
       const response = await fetch(`${this.baseUrl}/updateposition`, {
         method: 'POST',
         credentials: 'same-origin',

@@ -119,14 +119,10 @@ export class EnderHighScoresComponent implements OnInit, OnChanges {
         }
       }
 
+      this.hasData.emit(allScores && allScores.length > 0);
     } catch (e) {
       console.error('ender-high-scores.refresh failed', e);
     }
-    // emit whether any scores were loaded
-    try {
-      const any = Object.values(this.groupedByMode || {}).some(g => Object.keys(g || {}).length > 0);
-      this.hasData.emit(any);
-    } catch {}
     this.loading = false;
   }
 

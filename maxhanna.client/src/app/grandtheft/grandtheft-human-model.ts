@@ -58,6 +58,82 @@ const HAIR_TONES: [number, number, number][] = [
   [0.12, 0.08, 0.06], [0.42, 0.26, 0.12], [0.85, 0.75, 0.55], [0.18, 0.12, 0.08], [0.55, 0.05, 0.05], [0.30, 0.20, 0.10]
 ];
 
+/** Character-customization knobs a barber-shop chair can change. All fields
+ * optional so older saves/payloads degrade to the seeded defaults. */
+export interface GTAppearance {
+  skin?: number; // SKIN_TONES index
+  hair?: number; // HAIR_TONES index
+  hairStyle?: number; // 0-3
+  shirt?: number; // SHIRT_COLORS index
+  pants?: number; // PANTS_COLORS index
+  beard?: number; // 0 = none, 1 = beard
+  bodyType?: 'slim' | 'muscular' | 'fat' | 'dwarf';
+}
+
+/** Palettes mirrored from the renderer's SKIN_TONES / HAIR_TONES for UI swatches. */
+export const GT_APPEARANCE_SKIN_COLORS: [number, number, number][] = [
+  [0.82, 0.6, 0.42], [0.65, 0.44, 0.28], [0.92, 0.75, 0.62],
+  [0.48, 0.32, 0.22], [0.88, 0.66, 0.52], [0.35, 0.22, 0.14],
+];
+export const GT_APPEARANCE_HAIR_COLORS: [number, number, number][] = [
+  [0.12, 0.08, 0.06], [0.42, 0.26, 0.12], [0.85, 0.75, 0.55],
+  [0.18, 0.12, 0.08], [0.55, 0.05, 0.05], [0.3, 0.2, 0.1],
+];
+export const GT_APPEARANCE_SHIRT_COLORS: [number, number, number][] = [
+  [0.2, 0.6, 0.25], [0.9, 0.15, 0.15], [0.15, 0.35, 0.8], [0.95, 0.75, 0.1],
+  [0.85, 0.85, 0.85], [0.1, 0.1, 0.12], [0.72, 0.22, 0.42], [0.1, 0.45, 0.45],
+];
+export const GT_APPEARANCE_PANTS_COLORS: [number, number, number][] = [
+  [0.18, 0.18, 0.2], [0.15, 0.15, 0.18], [0.25, 0.3, 0.45],
+  [0.45, 0.28, 0.15], [0.5, 0.5, 0.5], [0.1, 0.1, 0.12],
+];
+export const GT_APPEARANCE_BODY_TYPES: { id: NonNullable<GTAppearance['bodyType']>; label: string }[] = [
+  { id: 'slim', label: 'Slim' },
+  { id: 'muscular', label: 'Fit' },
+  { id: 'fat', label: 'Big' },
+  { id: 'dwarf', label: 'Short' },
+];
+
+/** Stable cache key for a fully-resolved appearance (or null for seeded defaults). */
+export function appearanceCacheKey(a: GTAppearance | null | undefined): string {
+  if (!a) return 'seeded';
+  return [
+    a.skin ?? '-', a.hair ?? '-', a.hairStyle ?? '-', a.shirt ?? '-',
+    a.pants ?? '-', a.beard ?? '-', a.bodyType ?? '-',
+  ].join('|');
+}
+
+/** Overwrite the random parts of a seeded variant with an explicit appearance.
+ * Skin/hair palettes match the renderer's tone arrays; bodyType keeps its
+ * anatomical proportions but clears the role-forced fat/dwarf copies. */
+export function applyAppearanceToVariant(v: HumanVariant, a: GTAppearance | null | undefined): void {
+  if (!a) return;
+  const tones = SKIN_TONES;
+  if (typeof a.skin === 'number' && a.skin >= 0 && a.skin < tones.length) v.skin = [...tones[a.skin]] as [number, number, number];
+  if (typeof a.hair === 'number' && a.hair >= 0 && a.hair < HAIR_TONES.length) v.hair = [...HAIR_TONES[a.hair]] as [number, number, number];
+  if (typeof a.hairStyle === 'number' && a.hairStyle >= 0) v.hairStyle = a.hairStyle % 4;
+  if (typeof a.shirt === 'number' && a.shirt >= 0) v.outfitA = [...SHIRT_COLORS[a.shirt % SHIRT_COLORS.length]] as [number, number, number];
+  if (typeof a.pants === 'number' && a.pants >= 0) v.outfitB = [...PANTS_COLORS[a.pants % PANTS_COLORS.length]] as [number, number, number];
+  if (typeof a.beard === 'number') v.hasBeard = a.beard === 1;
+  if (a.bodyType) {
+    v.bodyType = a.bodyType;
+    if (a.bodyType !== 'fat' && a.bodyType !== 'dwarf') {
+      v.shoulderWidth = 0.92 + ((v.seed >>> 3) % 100) / 625; // 0.92..1.08
+      v.hipWidth = 0.9 + ((v.seed >>> 5) % 100) / 555;      // 0.90..1.08
+      v.heightScale = 0.94 + ((v.seed >>> 7) % 100) / 714;  // 0.94..1.08
+    }
+  }
+}
+
+const SHIRT_COLORS: [number, number, number][] = [
+  [0.2, 0.6, 0.25], [0.9, 0.15, 0.15], [0.15, 0.35, 0.8], [0.95, 0.75, 0.1],
+  [0.85, 0.85, 0.85], [0.1, 0.1, 0.12], [0.72, 0.22, 0.42], [0.1, 0.45, 0.45],
+];
+const PANTS_COLORS: [number, number, number][] = [
+  [0.18, 0.18, 0.2], [0.15, 0.15, 0.18], [0.25, 0.3, 0.45],
+  [0.45, 0.28, 0.15], [0.5, 0.5, 0.5], [0.1, 0.1, 0.12],
+];
+
 export function hashSeed(v: number | string): number {
   if (typeof v === 'number') return v >>> 0;
   let h = 2166136261;
