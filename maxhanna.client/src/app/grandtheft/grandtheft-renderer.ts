@@ -4539,6 +4539,7 @@ void main() {
         chickens: [],
         trees: [],
         supermarkets: [],
+        barberShops: [],
         tatami: [],
         cabins: [],
         lighthouses: [],
