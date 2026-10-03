@@ -240,7 +240,7 @@ export interface CityChunk {
   cz: number;
   lamps: { x: number; z: number }[];
   hydrants: { x: number; z: number }[];
-  barberShops: { x: number; z: number }[];
+  barberShops: { x: number; z: number; yaw: number }[];
   buildings: BuildingPlacement[];
   benches: { x: number; z: number; yaw: number }[];
   barrels: { x: number; z: number; yaw: number }[];
