@@ -1915,6 +1915,9 @@ export class GrandTheftRenderer {
   private _playerSkinAccumulator = 0;
   /** Per-entity punch/swing timers (keyed by entity id, seconds remaining). */
   public punchTimers = new Map<number, number>();
+  /** Per-entity door-yank timers: an NPC grabbing a car door to rip the driver
+   *  out holds the straight-arm grab pose while its timer is running. */
+  public yankTimers = new Map<number, number>();
   /** Entities currently held in the arrest grab pose (arm extended toward the
    *  victim while a foot cop books the caught player). */
   public arrestingEntities = new Set<number>();
@@ -2954,7 +2957,13 @@ void main() {
         const hm = new Float32Array(localMatrices.buffer, 0, 16);
         hm[13] -= 0.18;
       }
-      if (this.arrestingEntities.has(entityId)) {
+      // Door yank: while an NPC rips the driver out it holds the arrest grab
+      // pose — arm locked out on the door handle — instead of a punch swing.
+      const yankLeft = this.yankTimers.get(entityId) ?? 0;
+      if (yankLeft > 0) {
+        this.yankTimers.set(entityId, Math.max(0, yankLeft - dt));
+      }
+      if (this.arrestingEntities.has(entityId) || yankLeft > 0) {
         applyX(10, -0.95);
         applyX(11, -0.78);
         applyX(6, -0.35);
@@ -3066,7 +3075,13 @@ void main() {
     // Arrest grab: while a cop holds a caught player, keep its arm fully
     // extended toward the victim (the same straight-arm pose the punch uses at
     // full extension) so the takedown reads as a grab, not a jab.
-    if (this.arrestingEntities.has(entityId) && skeleton.boneCount > 35) {
+    // Door yank: same straight-arm grab as the arrest, held for the yank
+    // duration, so pulling a driver out reads as a grip on the door handle.
+    const yankLeft = this.yankTimers.get(entityId) ?? 0;
+    if (yankLeft > 0) {
+      this.yankTimers.set(entityId, Math.max(0, yankLeft - dt));
+    }
+    if ((this.arrestingEntities.has(entityId) || yankLeft > 0) && skeleton.boneCount > 35) {
       const m33 = new Float32Array(localMatrices.buffer, 33 * 16 * 4, 16);
       quatToMat4([Math.sin(-0.8 / 2), 0, 0, Math.cos(-0.8 / 2)], m33);
       m33[12] = 0;
@@ -3138,6 +3153,11 @@ void main() {
         this.punchTimers.delete(id);
       }
     }
+    for (const id of this.yankTimers.keys()) {
+      if (!activeEntityIds.has(id)) {
+        this.yankTimers.delete(id);
+      }
+    }
     for (const id of this.arrestingEntities) {
       if (!activeEntityIds.has(id)) {
         this.arrestingEntities.delete(id);
@@ -3157,6 +3177,11 @@ void main() {
   /** Queue a visible punch/swing animation for an entity (0.3s arm extend). */
   triggerPunch(entityId: number): void {
     this.punchTimers.set(entityId, 0.3);
+  }
+  /** Door-yank grab: hold the straight-arm grab pose while an NPC rips the
+   *  driver out of a vehicle (the component refreshes it every grab frame). */
+  triggerYank(entityId: number): void {
+    this.yankTimers.set(entityId, 0.9);
   }
   /** Brief recoil squash when an entity is hit (0.18s), read by the draw loops. */
   triggerFlinch(entityId: number): void {
@@ -9683,9 +9708,9 @@ void main() {
       0,
       0.3,
       0,
-      torsoW * 0.62,
-      torsoH * 0.45,
-      torsoD * 0.54,
+      torsoW * 0.66,
+      torsoH * 0.4,
+      torsoD * 0.44,
       variant.outfitA,
       2,
     );
@@ -9693,9 +9718,9 @@ void main() {
       0,
       0.16,
       0,
-      torsoW * 0.43,
-      torsoH * 0.27,
-      torsoD * 0.39,
+      torsoW * 0.47,
+      torsoH * 0.25,
+      torsoD * 0.32,
       variant.outfitA,
       2,
     );
@@ -9703,9 +9728,9 @@ void main() {
       0,
       0.015,
       0,
-      torsoW * 0.38,
-      torsoH * 0.18,
-      torsoD * 0.37,
+      torsoW * 0.44,
+      torsoH * 0.17,
+      torsoD * 0.36,
       variant.outfitB,
       0,
     );
@@ -9716,9 +9741,9 @@ void main() {
       0,
       0.35,
       0.004,
-      torsoW * 0.5,
+      torsoW * 0.58,
       torsoH * 0.16,
-      torsoD * 0.47,
+      torsoD * 0.4,
       variant.outfitA,
       2,
     );
@@ -9726,16 +9751,16 @@ void main() {
       0,
       0.015,
       0.008,
-      torsoW * 0.39,
+      torsoW * 0.45,
       torsoH * 0.12,
-      torsoD * 0.38,
+      torsoD * 0.37,
       variant.outfitB,
       0,
     );
     // Shoulder and hip transition volumes bridge independently skinned limbs to
     // the torso, preventing visible gaps when the gait rotates the limbs.
-    addRounded(-0.15, 0.25, 0, 0.11, 0.1, 0.1, variant.outfitA, 2);
-    addRounded(0.15, 0.25, 0, 0.11, 0.1, 0.1, variant.outfitA, 2);
+    addRounded(-0.16, 0.25, 0, 0.12, 0.08, 0.1, variant.outfitA, 2);
+    addRounded(0.16, 0.25, 0, 0.12, 0.08, 0.1, variant.outfitA, 2);
     addRounded(-0.09, -0.08, 0, 0.11, 0.11, 0.11, variant.outfitB, 2);
     addRounded(0.09, -0.08, 0, 0.11, 0.11, 0.11, variant.outfitB, 2);
     addBox(
@@ -9748,14 +9773,14 @@ void main() {
       [0.15, 0.12, 0.1],
       2,
     );
-    addRounded(0, 0.42, 0, 0.055, 0.055, 0.055, variant.skin, 3);
+    addRounded(0, 0.44, 0, 0.05, 0.075, 0.052, variant.skin, 3);
     addRounded(
       0,
       0.55,
       0,
-      headR * 1.04,
-      headR * 1.08,
-      headR * 0.96,
+      headR * 1.0,
+      headR * 1.12,
+      headR * 0.9,
       variant.skin,
       4,
     );
@@ -9907,13 +9932,15 @@ void main() {
       (variant.bodyType === "muscular" ? 1.08 : 1);
     const hipsWidth = variant.hipWidth ?? 1;
     const armX = 0.2 * shoulder;
+    // Arms use an elliptical cross-section (flatter side-to-side, deeper
+    // front-to-back) so limbs read as arms rather than tubes.
     addRounded(
       -armX,
       0.19,
       0,
-      armW * 0.64,
+      armW * 0.52,
       armLen * 0.31,
-      armW * 0.66,
+      armW * 0.72,
       variant.skin,
       6,
     );
@@ -9921,20 +9948,22 @@ void main() {
       -armX,
       -0.04,
       0,
-      armW * 0.54,
+      armW * 0.46,
       armLen * 0.32,
-      armW * 0.56,
+      armW * 0.62,
       variant.skin,
       7,
     );
-    addRounded(-armX, -0.24, 0, 0.052, 0.065, 0.052, variant.skin, 8);
+    // Boxier palm plus a thumb reads as a hand instead of a ball.
+    addBox(-armX, -0.24, 0.005, 0.07, 0.12, 0.045, variant.skin, 8);
+    addBox(-armX + 0.045, -0.2, 0.02, 0.024, 0.055, 0.03, variant.skin, 8);
     addRounded(
       armX,
       0.19,
       0,
-      armW * 0.64,
+      armW * 0.52,
       armLen * 0.31,
-      armW * 0.66,
+      armW * 0.72,
       variant.skin,
       10,
     );
@@ -9942,13 +9971,14 @@ void main() {
       armX,
       -0.04,
       0,
-      armW * 0.54,
+      armW * 0.46,
       armLen * 0.32,
-      armW * 0.56,
+      armW * 0.62,
       variant.skin,
       11,
     );
-    addRounded(armX, -0.24, 0, 0.052, 0.065, 0.052, variant.skin, 12);
+    addBox(armX, -0.24, 0.005, 0.07, 0.12, 0.045, variant.skin, 12);
+    addBox(armX - 0.045, -0.2, 0.02, 0.024, 0.055, 0.03, variant.skin, 12);
     // Collar and armpit blend volumes overlap the shoulder joints so the
     // animated arms never expose a gap while swinging or aiming.
     if (variant.isPlayer) {
@@ -9961,43 +9991,51 @@ void main() {
       addBox(-armX, 0.14, 0.005, armW * 0.82, 0.025, armW * 0.82, [0.08, 0.24, 0.12], 6);
       addBox(armX, 0.14, 0.005, armW * 0.82, 0.025, armW * 0.82, [0.08, 0.24, 0.12], 10);
     }
+    // Shoulder yokes bridge the chest to the sleeves so no bare shoulder
+    // shows between torso and arm. Sized against the widest variant (player
+    // muscular shoulderWidth 1.08 → armX ≈ 0.233, skin capsule outer ≈ 0.288):
+    // the old ±0.72×armX / 0.82×armW yoke stopped at ≈0.24 and left the outer
+    // shoulder sliver poking out of the shirt.
     addRounded(
-      -armX * 0.72,
-      0.25,
+      -armX * 0.8,
+      0.27,
       0,
-      armW * 0.82,
-      0.12,
-      armW * 0.82,
+      armW * 1.0,
+      0.11,
+      armW * 1.0,
       variant.outfitA,
       2,
     );
     addRounded(
-      armX * 0.72,
-      0.25,
+      armX * 0.8,
+      0.27,
       0,
-      armW * 0.82,
-      0.12,
-      armW * 0.82,
+      armW * 1.0,
+      0.11,
+      armW * 1.0,
       variant.outfitA,
       2,
     );
+    // Short sleeves must fully envelop the skin shoulder capsule up over the
+    // arm pivot (skin spans y ≈ 0.06–0.32; the old 0.11–0.29 sleeve exposed a
+    // bare shoulder sliver above the seam at rest and while swinging/aiming).
     addRounded(
       -armX,
-      0.2,
+      0.215,
       0,
-      armW * 0.76,
-      0.09,
-      armW * 0.76,
+      armW * 0.84,
+      0.12,
+      armW * 0.84,
       variant.outfitA,
       6,
     );
     addRounded(
       armX,
-      0.2,
+      0.215,
       0,
-      armW * 0.76,
-      0.09,
-      armW * 0.76,
+      armW * 0.84,
+      0.12,
+      armW * 0.84,
       variant.outfitA,
       10,
     );
@@ -10026,9 +10064,9 @@ void main() {
       -hipOff,
       -0.12,
       0,
-      legW * 0.58,
+      legW * 0.52,
       thighH * 0.54,
-      legW * 0.56,
+      legW * 0.62,
       pantTone,
       13,
     );
@@ -10036,9 +10074,9 @@ void main() {
       -hipOff,
       -0.12 - thighH,
       0,
-      legW * 0.48,
+      legW * 0.42,
       shinH * 0.54,
-      legW * 0.46,
+      legW * 0.52,
       pantTone,
       14,
     );
@@ -10112,9 +10150,9 @@ void main() {
       hipOff,
       -0.12,
       0,
-      legW * 0.58,
+      legW * 0.52,
       thighH * 0.54,
-      legW * 0.56,
+      legW * 0.62,
       pantTone,
       16,
     );
@@ -10122,9 +10160,9 @@ void main() {
       hipOff,
       -0.12 - thighH,
       0,
-      legW * 0.48,
+      legW * 0.42,
       shinH * 0.54,
-      legW * 0.46,
+      legW * 0.52,
       pantTone,
       17,
     );
@@ -10740,38 +10778,57 @@ void main() {
       const darkBody: [number, number, number] = police
         ? [0.025, 0.045, 0.1]
         : [0.11, 0.13, 0.15];
-      // Rounded cabin, sloped windshield, and a tapered boom replace the old
-      // stack of rectangular blocks. Structural accents provide scale without
-      // adding a frame-by-frame rendering cost.
-      ellipsoid(0, 1.08, -0.02, 0.72, 0.46, 0.98, body, 12, 6);
-      // A faceted cockpit with a broad front pane and separate side panes gives
-      // the aircraft a readable, purpose-built silhouette instead of a toy box.
-      ellipsoid(0, 1.34, -0.63, 0.56, 0.3, 0.5, glass, 12, 5);
-      box(-0.48, 1.3, -0.72, 0.035, 0.27, 0.38, glass);
-      box(0.48, 1.3, -0.72, 0.035, 0.27, 0.38, glass);
-      box(0, 1.57, -1.03, 0.5, 0.08, 0.06, trim);
-      tailFrustum(0.62, 3.08, 1.17, 0.28, 0.1, darkBody, 10);
-      ellipsoid(0, 1.53, -0.8, 0.45, 0.1, 0.16, trim, 10, 3);
-      box(-0.49, 1.3, -0.62, 0.06, 0.32, 0.48, trim);
-      box(0.49, 1.3, -0.62, 0.06, 0.32, 0.48, trim);
-      // Door seams, tail fin, and horizontal stabilizers make the silhouette
-      // read as an aircraft from both the side and the top.
-      box(-0.6, 1.0, -0.18, 0.055, 0.52, 1.18, darkBody);
-      box(0.6, 1.0, -0.18, 0.055, 0.52, 1.18, darkBody);
-      // Side doors and handles add scale cues when viewed from the street.
-      box(-0.63, 1.18, -0.05, 0.025, 0.36, 0.66, trim);
-      box(0.63, 1.18, -0.05, 0.025, 0.36, 0.66, trim);
-      box(-0.655, 1.25, -0.38, 0.025, 0.035, 0.12, [0.92, 0.78, 0.28]);
-      box(0.655, 1.25, -0.38, 0.025, 0.035, 0.12, [0.92, 0.78, 0.28]);
-      // A small nose lamp and rear exhaust break up the flat color blocks.
-      ellipsoid(0, 1.1, -1.01, 0.1, 0.08, 0.045, [0.95, 0.98, 1], 8, 3);
-      ellipsoid(0, 1.05, 1.22, 0.16, 0.13, 0.08, [0.08, 0.08, 0.09], 8, 3);
-      box(0, 1.54, 2.62, 0.76, 0.14, 0.42, trim);
-      box(0, 1.72, 2.86, 0.16, 1.0, 0.18, body);
-      box(-0.18, 1.98, 2.82, 0.1, 0.28, 0.16, trim);
-      box(0.18, 1.98, 2.82, 0.1, 0.28, 0.16, trim);
-      box(0, 1.57, 2.55, 0.18, 0.12, 0.18, darkBody);
-      // Landing skids sit below the cabin on visible support struts.
+      // A coherent light-utility helicopter: one continuous hull with an
+      // integrated wrap-around canopy, an engine deck that feeds a slim tail
+      // boom, and detailing mounted ON the hull surface (the old model buried
+      // its door seams and handles inside the cabin ellipsoid, so they never
+      // rendered, leaving a featureless blob with a bubble on the nose).
+      // Rotor anchors stay compatible: main hub ≈ y 2.02–2.08, tail disc at
+      // (0, ≈1.2, 2.65) — both are hard-coded by the world draw code.
+      // ── Hull ──
+      ellipsoid(0, 1.06, -0.05, 0.68, 0.44, 1.0, body, 18, 8);
+      ellipsoid(0, 0.8, 0.12, 0.46, 0.2, 0.66, darkBody, 12, 5);
+      ellipsoid(0, 0.94, -0.82, 0.34, 0.18, 0.22, body, 12, 5);
+      // ── Canopy: swept glass with body-colored A-pillars and a header rail ──
+      ellipsoid(0, 1.24, -0.58, 0.5, 0.3, 0.5, glass, 16, 7);
+      box(-0.5, 1.3, -0.48, 0.06, 0.44, 0.16, body);
+      box(0.5, 1.3, -0.48, 0.06, 0.44, 0.16, body);
+      box(0, 1.5, -0.52, 0.8, 0.08, 0.34, trim);
+      box(0, 0.98, -0.94, 0.72, 0.1, 0.1, trim);
+      // ── Engine deck, intakes, exhausts ──
+      ellipsoid(0, 1.44, 0.34, 0.4, 0.17, 0.6, body, 14, 6);
+      box(-0.34, 1.55, 0.14, 0.1, 0.15, 0.3, darkBody);
+      box(0.34, 1.55, 0.14, 0.1, 0.15, 0.3, darkBody);
+      box(-0.2, 1.4, 0.9, 0.09, 0.09, 0.28, [0.1, 0.1, 0.11]);
+      box(0.2, 1.4, 0.9, 0.09, 0.09, 0.28, [0.1, 0.1, 0.11]);
+      box(0.3, 1.68, 0.52, 0.02, 0.26, 0.02, [0.08, 0.08, 0.09]);
+      // ── Tail boom, stabilizer, fins ──
+      tailFrustum(0.8, 2.95, 1.28, 0.2, 0.08, body, 12);
+      box(0, 1.3, 2.32, 0.94, 0.05, 0.2, trim);
+      box(-0.44, 1.37, 2.32, 0.05, 0.16, 0.18, trim);
+      box(0.44, 1.37, 2.32, 0.05, 0.16, 0.18, trim);
+      box(0, 1.74, 2.95, 0.1, 0.92, 0.13, body);
+      box(0, 1.05, 2.95, 0.09, 0.34, 0.11, body);
+      box(0, 1.2, 2.65, 0.17, 0.17, 0.12, darkBody);
+      box(0, 2.18, 2.94, 0.06, 0.08, 0.16, [0.92, 0.78, 0.28]);
+      // ── Side glazing, door seams and handles (mounted proud of the hull) ──
+      box(-0.645, 1.12, -0.3, 0.05, 0.3, 0.52, glass);
+      box(0.645, 1.12, -0.3, 0.05, 0.3, 0.52, glass);
+      box(-0.63, 1.1, 0.28, 0.05, 0.26, 0.34, glass);
+      box(0.63, 1.1, 0.28, 0.05, 0.26, 0.34, glass);
+      box(-0.64, 0.92, 0.02, 0.045, 0.5, 0.045, darkBody);
+      box(0.64, 0.92, 0.02, 0.045, 0.5, 0.045, darkBody);
+      box(-0.63, 1.2, -0.44, 0.03, 0.035, 0.12, [0.92, 0.78, 0.28]);
+      box(0.63, 1.2, -0.44, 0.03, 0.035, 0.12, [0.92, 0.78, 0.28]);
+      box(-0.63, 1.2, 0.12, 0.03, 0.035, 0.12, [0.92, 0.78, 0.28]);
+      box(0.63, 1.2, 0.12, 0.03, 0.035, 0.12, [0.92, 0.78, 0.28]);
+      // ── Nose lamp, belly beacon, nav lights ──
+      ellipsoid(0, 1.06, -1.06, 0.09, 0.07, 0.05, [0.95, 0.98, 1], 8, 3);
+      ellipsoid(0, 0.6, 0.15, 0.05, 0.05, 0.05, [0.9, 0.08, 0.06], 8, 3);
+      box(-0.54, 1.24, -0.5, 0.05, 0.06, 0.06, [0.85, 0.08, 0.06]);
+      box(0.54, 1.24, -0.5, 0.05, 0.06, 0.06, [0.08, 0.8, 0.18]);
+      box(0, 1.08, 1.3, 0.3, 0.16, 0.14, [0.08, 0.08, 0.09]);
+      // ── Landing skids on arched struts ──
       box(-0.52, 0.77, 0, 0.1, 0.1, 2.55, trim);
       box(0.52, 0.77, 0, 0.1, 0.1, 2.55, trim);
       box(-0.6, 0.49, -0.7, 0.1, 0.1, 0.18, trim);
@@ -10782,12 +10839,19 @@ void main() {
       box(0.52, 0.78, -0.48, 0.08, 0.5, 0.08, trim);
       box(-0.52, 0.78, 0.48, 0.08, 0.5, 0.08, trim);
       box(0.52, 0.78, 0.48, 0.08, 0.5, 0.08, trim);
-      // Rotor mast and police livery.
-      box(0, 1.78, 0, 0.14, 0.48, 0.14, darkBody);
-      box(0, 2.02, 0, 0.2, 0.12, 0.2, [0.08, 0.08, 0.08]);
+      // ── Rotor mast and hub (hub spans y 2.0–2.12 so both the decorative
+      // 2.02 and live 2.08 rotor anchors seat inside it) ──
+      box(0, 1.8, 0, 0.12, 0.44, 0.12, darkBody);
+      box(0, 2.06, 0, 0.2, 0.12, 0.2, [0.08, 0.08, 0.08]);
       if (police) {
-        box(0, 1.48, 0.18, 0.82, 0.1, 0.16, [0.95, 0.1, 0.08]);
-        box(0, 1.48, -0.18, 0.82, 0.1, 0.16, [0.08, 0.2, 0.95]);
+        // Roof lightbar with red/blue segments, side livery stripe, and a
+        // belly searchlight so the patrol helicopter reads from the street.
+        box(0, 1.66, 0.1, 0.15, 0.1, 0.74, [0.05, 0.05, 0.06]);
+        box(0, 1.66, -0.16, 0.16, 0.11, 0.26, [0.9, 0.08, 0.06]);
+        box(0, 1.66, 0.36, 0.16, 0.11, 0.26, [0.08, 0.2, 0.9]);
+        box(-0.67, 1.02, 0.12, 0.03, 0.22, 0.7, [0.95, 0.1, 0.08]);
+        box(0.67, 1.02, 0.12, 0.03, 0.22, 0.7, [0.08, 0.2, 0.95]);
+        ellipsoid(0, 0.58, -0.32, 0.12, 0.08, 0.12, [0.95, 0.95, 0.8], 10, 4);
       }
       const mesh = this.createMesh(verts, indices);
       mesh.carName = police

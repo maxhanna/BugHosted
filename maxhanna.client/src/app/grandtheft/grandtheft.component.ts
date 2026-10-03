@@ -628,6 +628,21 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private touchCamLastY = 0;
   private joystickThumbEl: HTMLElement | null = null;
   private lastMouseMoveTime = 0;
+  // Raw on-foot movement input captured each frame (normalized, camera-relative
+  // axes). The camera heading-lock uses it to tell forward travel apart from
+  // strafes/backpedals: foot movement is defined relative to the camera, so
+  // chasing the heading on a strafe would orbit the camera endlessly.
+  private _footInputX = 0;
+  private _footInputZ = 0;
+  // Driver-door rip-out: an attacker that reaches the driver door of the
+  // player's slow car grabs it and hauls the player out (GTA-style carjack).
+  private _carYank: {
+    npcId: number;
+    npcList: any[];
+    phase: 'approach' | 'grab';
+    timer: number;
+  } | null = null;
+  private _carYankCooldown = 0;
   private walkYaw = 0;
   nearCar = false;
   /** Persisted once per account so this player's NPC-style appearance is
@@ -4584,6 +4599,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
     this.updateStoreCashier(dt);
     this.updateCamera(dt);
+    this.updateCarYank(dt);
     this.updateScore(dt);
     this.updateProjectiles(dt);
     this.updateRemoteShooting(dt);
@@ -5376,7 +5392,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
   private updateWalking(dt: number) {
     // Busted: frozen in the cop's grip — no walking during the arrest hold.
-    if (this._arrested) { this.carVx = 0; this.carVz = 0; this.carSpeed = 0; return; }
+    if (this._arrested) { this.carVx = 0; this.carVz = 0; this.carSpeed = 0; this._footInputX = 0; this._footInputZ = 0; return; }
     let moveX = 0, moveZ = 0;
     if (this.isMobile && this.joystickActive) {
       moveX -= this.joystickX;
@@ -5389,6 +5405,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
     const len = Math.sqrt(moveX * moveX + moveZ * moveZ);
     if (len > 0.01) {
+      // Remember the travel direction (normalized) for the camera heading-lock.
+      this._footInputX = moveX / len;
+      this._footInputZ = moveZ / len;
       const fX = Math.sin(this.camYaw), fZ = Math.cos(this.camYaw);
       const rX = Math.cos(this.camYaw), rZ = -Math.sin(this.camYaw);
       const worldX = moveX * rX + moveZ * fX;
@@ -5407,6 +5426,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.walkYaw += yawDiff * Math.min(1, 20 * dt);
       this.carYaw = this.walkYaw;
     } else {
+      this._footInputX = 0;
+      this._footInputZ = 0;
       this.carVx *= Math.max(0, 1 - 15 * dt);
       this.carVz *= Math.max(0, 1 - 15 * dt);
     }
@@ -6750,26 +6771,162 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       }
     }
   }
-  private updateCamera(_dt: number) {
-    if (this.isInCar && !this.firstPerson) {
-      const timeSinceMouse = performance.now() - this.lastMouseMoveTime;
-      if (this.vehicleType === 'helicopter') {
-        if (timeSinceMouse > 1500) {
-          let yawDiff = this.carYaw - this.camYaw;
-          while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
-          while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
-          this.camYaw += yawDiff * 0.05;
-        }
-      } else if (this.carSpeed < 0) {
-        if (timeSinceMouse > 1500) {
-          const targetYaw = this.carYaw + Math.PI;
-          let yawDiff = targetYaw - this.camYaw;
-          while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
-          while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
-          this.camYaw += yawDiff * 0.05;
-        }
-      }
+  /**
+   * GTA-style heading lock: the camera eases in behind whatever the player is
+   * controlling and turns with it. Vehicles (car, plane, helicopter, boat,
+   * motorcycle) always chase their nose; on foot the camera only locks while
+   * travelling forward, because foot movement is camera-relative and chasing
+   * the heading on a strafe/backpedal would orbit the camera endlessly.
+   * Moving the mouse hands the camera back to the player for 2s of free look,
+   * after which it blends smoothly (exponential, frame-rate independent) to
+   * the travel heading instead of snapping.
+   */
+  private updateCamera(dt: number) {
+    // First person is the player's eyes and the cinematic cams (death pan,
+    // bust release) own the yaw completely — never fight them for it.
+    if (this.firstPerson || this.health <= 0 || this.wastedTimer > 0 || this.bustCamTimer > 0) return;
+    const FREE_LOOK_MS = 2000;
+    if (performance.now() - this.lastMouseMoveTime < FREE_LOOK_MS) return;
+    let targetYaw: number | null = null;
+    if (this.isInCar) {
+      // Locked to the vehicle's nose. Reversing keeps the camera facing the
+      // way the car actually travels (backwards) so reversing stays readable.
+      targetYaw = this.vehicleType !== 'helicopter' && this.carSpeed < -0.5
+        ? this.carYaw + Math.PI
+        : this.carYaw;
+    } else if (this.carSpeed > 0.5 && this._footInputZ > 0.95 && Math.abs(this._footInputX) < 0.3) {
+      // Forward travel only (W / joystick ahead); keeps a gentle GTA-style
+      // camera assist on slight diagonals without the strafe spin.
+      targetYaw = this.walkYaw;
     }
+    if (targetYaw === null) return;
+    // Exponential chase gives the ease-out tail: fast to correct at first,
+    // settling smoothly as the camera aligns with the heading.
+    const blend = 1 - Math.exp(-(this.isInCar ? 3.5 : 2.5) * dt);
+    let yawDiff = targetYaw - this.camYaw;
+    while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
+    while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
+    this.camYaw += yawDiff * blend;
+    if (Math.abs(yawDiff) < 0.0005) this.camYaw = targetYaw;
+  }
+  /**
+   * Driver-door rip-out: an NPC that was attacking the player can yank them
+   * out of a slow car through the driver door. Only slow cars are vulnerable
+   * (driving away fast must stay a valid escape, matching the server's
+   * steal-back speed cap). The NPC first approaches the door, then holds the
+   * grab/yank pose and finally hauls the player out with a short stagger.
+   */
+  private updateCarYank(dt: number) {
+    if (this._carYankCooldown > 0) this._carYankCooldown -= dt;
+    const yank = this._carYank;
+    if (!yank) {
+      this.tryStartCarYank();
+      return;
+    }
+    const npc = yank.npcList.find(e => e.id === yank.npcId);
+    // The yanker died or despawned, or the player left the car.
+    if (!npc || npc.health <= 0 || !this.isInCar || this.isPassenger || this.health <= 0) {
+      this._carYank = null;
+      this._carYankCooldown = 2;
+      return;
+    }
+    if (this.carSpeed >= 8) {
+      // Floored it — the yanker loses its grip on the door.
+      this._carYank = null;
+      this._carYankCooldown = 3;
+      return;
+    }
+    // Driver-door world position (same side exitCar places the player).
+    const doorAngle = this.carYaw + Math.PI / 2;
+    const doorX = this.carX + Math.sin(doorAngle) * 1.4;
+    const doorZ = this.carZ + Math.cos(doorAngle) * 1.4;
+    if (yank.phase === 'approach') {
+      yank.timer -= dt;
+      const dx = doorX - npc.x, dz = doorZ - npc.z;
+      const dist = Math.hypot(dx, dz);
+      npc.yaw = Math.atan2(dx, dz);
+      if (yank.npcList === this.localPedestrians && dist > 1.2) {
+        // Client-simulated peds walk to the door themselves; server NPCs are
+        // server-steered and only need to get within reach.
+        const speed = 3.4;
+        const nx = npc.x + Math.sin(npc.yaw) * speed * dt;
+        const nz = npc.z + Math.cos(npc.yaw) * speed * dt;
+        if (!this.isPedestrianPositionBlocked(nx, nz)) { npc.x = nx; npc.z = nz; }
+      }
+      if (dist <= 1.6) {
+        yank.phase = 'grab';
+        yank.timer = 0.55;
+        this.carVx = 0; this.carVz = 0; this.carSpeed = 0;  // grip on the door
+      } else if (yank.timer <= 0) {
+        this._carYank = null;
+        this._carYankCooldown = 2;
+      }
+      return;
+    }
+    // Grab phase: hold the pose, pin the car, then rip.
+    yank.timer -= dt;
+    this.renderer.triggerYank(npc.id);
+    npc.yaw = Math.atan2(this.carX - npc.x, this.carZ - npc.z);
+    this.carVx = 0; this.carVz = 0; this.carSpeed = 0;
+    if (yank.timer <= 0) this.ripPlayerOutOfCar(npc, yank.npcList);
+  }
+  /** Pick the closest attacker near the driver door to attempt the yank. */
+  private tryStartCarYank() {
+    if (this._carYankCooldown > 0) return;
+    if (!this.isInCar || this.isPassenger || this.taxiRideActive) return;
+    if (this.health <= 0 || this._arrested || this.bustCamTimer > 0 || this.wastedTimer > 0) return;
+    if (this.carSpeed >= 6) return;  // matches the server steal-back speed cap
+    const vt = this.vehicleType;
+    if (vt === 'boat' || vt === 'helicopter' || vt === 'plane') return;
+    const nowSec = performance.now() / 1000;
+    const doorAngle = this.carYaw + Math.PI / 2;
+    const doorX = this.carX + Math.sin(doorAngle) * 1.4;
+    const doorZ = this.carZ + Math.cos(doorAngle) * 1.4;
+    const YANK_SEEK = 7;
+    let best: any = null;
+    let bestList: any[] = [];
+    let bestDist = YANK_SEEK;
+    const consider = (list: any[], hostile: (e: any) => boolean) => {
+      for (const e of list) {
+        if (!e || e.health <= 0) continue;
+        if (!hostile(e)) continue;
+        const d = Math.hypot(e.x - doorX, e.z - doorZ);
+        if (d < bestDist) { bestDist = d; best = e; bestList = list; }
+      }
+    };
+    const onFootType = (t: any) => t === 'cop' || t === 'police' || t === 'ped_male' || t === 'ped_female';
+    // Cops hunt a wanted driver outright; civilians only retaliate after
+    // witnessing/hosting an attack (server hostility memory or local fight-back).
+    consider(this.serverNPCs, (e: any) => onFootType(e.type) && (
+      (e.type === 'cop' || e.type === 'police') ? this.wantedLevel >= 1 : (e._hostileUntil ?? 0) > nowSec));
+    consider(this.localPedestrians, (e: any) => (e.fightBackUntil ?? 0) > nowSec);
+    if (!best) return;
+    this._carYank = { npcId: best.id, npcList: bestList, phase: 'approach', timer: 5 };
+  }
+  /** The grab completes: pull the player out the driver door with a stagger. */
+  private ripPlayerOutOfCar(npc: any, npcList: any[]) {
+    this._carYank = null;
+    this._carYankCooldown = 8;
+    const outX = Math.sin(this.carYaw + Math.PI / 2);
+    const outZ = Math.cos(this.carYaw + Math.PI / 2);
+    const carX = this.carX, carZ = this.carZ;
+    this.renderer.triggerPunch(npc.id);   // finishing tug
+    this.exitCar();                        // parks the car beside the door
+    // Hauled out: brief stagger away from the door, facing the attacker.
+    this.playerRagdollTimer = 0.6;
+    this.playerRagdollVelocityX = outX * 2.2;
+    this.playerRagdollVelocityZ = outZ * 2.2;
+    this.playerRagdollYaw = Math.atan2(carX - this.carX, carZ - this.carZ);
+    this.walkYaw = this.playerRagdollYaw;
+    this.health = Math.max(0, this.health - 6);
+    this.damageAlpha = 0.5;
+    this.crashShake = Math.max(this.crashShake, 0.2);
+    this.playPunchThud();
+    // Anonymous NPC hit — mirrors the ped-retaliation damage path so the
+    // server health sync confirms it without raising the player's wanted level.
+    this.gtService.hit(0, this.getUserId(), 1, 6, this.carX, this.carZ, 0);
+    if (npcList === this.localPedestrians) npc.fightBackUntil = performance.now() / 1000 + 8;
+    this.showStoreToast('🚪 You were pulled out of the car!');
   }
   private updateProjectiles(dt: number) {
     this.tracers = this.tracers.filter(t => (t.age += dt) < t.lifetime);
@@ -6874,6 +7031,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const checkNPC = (npc: any) => {
       if (npc.type !== 'cop' && npc.type !== 'police' && npc.type !== 'helicopter' && npc.type !== 'ped_male' && npc.type !== 'ped_female') return;
       if (!npc.isShootingAt) return;
+      // Hostility memory for the driver-door yank: any NPC caught attacking
+      // the player counts as a potential door-yanker for a few seconds.
+      npc._hostileUntil = performance.now() / 1000 + 4;
       const dx = this.carX - npc.x;
       const dz = this.carZ - npc.z;
       const targetY = this.carY + 1.0;
