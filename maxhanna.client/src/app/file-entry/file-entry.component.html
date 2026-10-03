@@ -69,7 +69,7 @@
 
     <div *ngIf="!file.isFolder && c.shouldDisplayInlineMedia(file)" class="mediaViewDiv"
       (click)="c.selectFileNoPropagation($event, file)">
-      <app-media-viewer [fileId]="file.id" [autoplay]="true" [blockExpand]="c.fileSearchMode"
+      <app-media-viewer [fileId]="file.id" [autoplay]="!isOutOfView" [blockExpand]="c.fileSearchMode"
         [showCommentSection]="true" [showTopics]="c.showTopics" [inputtedParentRef]="c.parentRef"
         [displayExpander]="false" [displayExtraInfo]="false" [displayLoading]="true"></app-media-viewer>
     </div>
