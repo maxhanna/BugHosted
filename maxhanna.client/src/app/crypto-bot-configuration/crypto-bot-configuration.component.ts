@@ -10,6 +10,8 @@ import { ChildComponent } from '../child.component';
   styleUrl: './crypto-bot-configuration.component.css'
 })
 export class CryptoBotConfigurationComponent extends ChildComponent {
+  static readonly MINIMUM_TRADE_THRESHOLD = 0.008;
+
   constructor(private tradeService: TradeService, private cdRef: ChangeDetectorRef) { super(); }
   @Input() inputtedParentRef?: AppComponent;
   @Input() btcToCadPrice?: number;
@@ -99,6 +101,9 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
     if (invalidField) {
       return alert(`Invalid value for '${invalidField[0]}'.`);
     }
+    if (!this.isTradeThresholdAboveEstimatedFees(fields.TradeThreshold)) {
+      return alert("Trade threshold must be greater than 0.8% to cover the estimated 0.4% buy and sell fees. Enter a value greater than 0.008.");
+    }
     if ((fields?.TradeStopLossPercentage ?? 0) <= 0 && strategy == "IND") {
       return alert(`Invalid value for 'TradeStopLossPercentage'. Value must be above 0.`);
     }
@@ -116,7 +121,7 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
     try {
       const sessionToken = await this.inputtedParentRef.getSessionToken();
       const result: any = await this.tradeService.upsertTradeConfiguration(config, sessionToken);
-      if (result === true || (typeof result === "string" && result !== "Access Denied" && !result.toLowerCase().includes("minimum trade amount"))) {
+      if (result === true || (typeof result === "string" && result !== "Access Denied" && !result.toLowerCase().includes("minimum trade amount") && !result.toLowerCase().includes("trade threshold"))) {
           this.inputtedParentRef?.showNotification(`Updated (${fromCoin}|${toCoin}:${strategy}) configuration: ${result}`);
           this.updatedTradeConfig.emit(fromCoin);
           this.tradeConfigLastUpdated = new Date();
@@ -134,6 +139,11 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
       } finally {
         this.isSavingConfiguration = false;
       }
+  }
+
+  isTradeThresholdAboveEstimatedFees(threshold: number | null): boolean {
+    return threshold !== null && Number.isFinite(threshold)
+      && threshold > CryptoBotConfigurationComponent.MINIMUM_TRADE_THRESHOLD;
   }
 
   getCoinPrice(coin?: string) {
@@ -155,6 +165,21 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
   get MaxFromBalanceEnteredPrice() {
     return parseFloat(this.tradeMaximumFromBalance?.nativeElement?.value || '1') * this.getCoinPrice(this.tradeFromCoinSelect?.nativeElement?.value ?? '0');
   } 
+
+  get MaxDailyBuyEnteredPrice(): number | null {
+    const percentageValue = this.tradeMaximumDailyBuyPercentage?.nativeElement?.value;
+    if (percentageValue === undefined || percentageValue === '') return null;
+
+    const percentage = Number(percentageValue);
+    const maximumBalance = Number(this.tradeMaximumFromBalance?.nativeElement?.value);
+    const coinPrice = this.getCoinPrice(this.tradeFromCoinSelect?.nativeElement?.value);
+    if (!Number.isFinite(percentage) || !Number.isFinite(maximumBalance) || maximumBalance <= 0 || coinPrice <= 0) {
+      return null;
+    }
+
+    const dailyMaximum = maximumBalance * coinPrice * (percentage / 100);
+    return Math.round(dailyMaximum * 100) / 100;
+  }
 
   get MinFromTradeEnteredPrice() {
     return parseFloat(this.tradeMinimumFromTradeAmount?.nativeElement?.value || '1') * this.getCoinPrice(this.tradeFromCoinSelect?.nativeElement?.value ?? '0');

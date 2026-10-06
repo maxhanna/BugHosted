@@ -118,6 +118,12 @@
             (input)="detectChange()"
             placeholder="Blank = disabled"
             title="Limit daily purchases to this percentage of the configured maximum coin balance. Leave blank to disable." />
+        <div *ngIf="tradeMaximumDailyBuyPercentage.value !== ''" class="currentSettings">
+            <ng-container *ngIf="MaxDailyBuyEnteredPrice !== null; else missingDailyBuyBalance">
+                Daily maximum: {{ MaxDailyBuyEnteredPrice | currencySymbol:(selectedCurrency):false }}
+            </ng-container>
+            <ng-template #missingDailyBuyBalance>Set a non-zero Max Balance to calculate the daily amount.</ng-template>
+        </div>
         <div class="config-explanation">
             <p><strong>What it does:</strong> Limits the total amount bought during one UTC day to this percentage of your configured maximum {{normalizeCoinName(tradeFromCoinSelect?.value)}} balance.</p>
             <p><strong>How to use it:</strong> Enter 10 to allow buying up to 10% of the maximum balance per day. Leave it blank to disable. The limit requires a non-zero Max Balance and applies to DCA, Indicator, and High Frequency strategies.</p>
@@ -178,8 +184,9 @@
             <span>Spread Trigger</span>
             <span class="info-icon" (click)="toggleExplanation($event)">i</span>
         </div>
-        <input type="number" #tradeTradeThreshold
-            title="Specify the minimum percentage spread required to trigger a trade." />
+        <input type="number" #tradeTradeThreshold step="any" min="0.008"
+            title="Specify the minimum percentage spread required to trigger a trade. Must be greater than 0.8% to cover estimated buy and sell fees." />
+        <div class="currentSettings">Must be greater than 0.8% (enter more than 0.008) to cover both estimated fees.</div>
         <div class="config-explanation">
             <p><strong>What it does:</strong> This field sets the minimum percentage difference (or "spread") between
                 the current market price and a reference price (e.g., last trade price or daily open) needed to trigger
@@ -187,11 +194,7 @@
             <p><strong>Why it matters:</strong> Trading costs money—fees, slippage, etc. A higher threshold ensures the
                 price movement justifies those costs, avoiding trades that barely break even. It's your profitability
                 gatekeeper, especially for frequent traders.</p>
-            <p><strong>How to use it:</strong> A value of 0.5% to 1% is common—e.g., if BTC is $50,000, a 1% threshold
-                means a $500 move triggers the trade. Set it higher (e.g., 2%) for bigger, less frequent wins, or lower
-                (e.g., 0.3%) for more action. Test it against past market data if possible. The default threshold for
-                triggering a trade is set at {{tradeTradeThreshold.value | number:'1.4-4'}}, which translates to {{
-                multiplyBy100(tradeTradeThreshold.value) | number:'1.2-2'}}%.</p>
+            <p><strong>How to use it:</strong> The threshold must be greater than 0.8% to cover the estimated 0.4% buy fee and 0.4% sell fee. For example, 0.85% leaves about 0.05% before slippage. Enter a decimal above 0.008; the default is {{tradeTradeThreshold.value | number:'1.4-4'}}, which translates to {{multiplyBy100(tradeTradeThreshold.value) | number:'1.2-2'}}%.</p>
         </div>
     </div> 
 

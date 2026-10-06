@@ -407,6 +407,9 @@ public class TradeController : ControllerBase
 			if (!await _log.ValidateUserLoggedIn(req.UserId, encryptedUserId))
 				return StatusCode(500, "Access Denied.");
 
+			if (!KrakenService.IsTradeThresholdAboveEstimatedFees(req.TradeThreshold))
+				return BadRequest("Trade threshold must be greater than 0.8% to cover the estimated 0.4% buy and sell fees. Enter a value greater than 0.008.");
+
 			string normalizedFrom = from.ToUpper() == "BTC" ? "XBT" : from.ToUpper();
 			string pair = $"{normalizedFrom}{to.ToUpper()}";
 
