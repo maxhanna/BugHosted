@@ -416,7 +416,7 @@ public class KrakenService
     string thresholdDiffStr = thresholdDiff.ToString("F2") + "%";
     string thresholdDiff2Str = thresholdDiff2?.ToString("F2") + "%" ?? "N/A";
 
-    string logMessage = $@"({tmpCoin}:{userId}:{strategy}) Last Price: {lastPrice} - Current Price: {currentPrice} = ({lastPrice} - {currentPrice}). Spread: {spreadStr} | {thresholdDiffStr} from threshold {((strategy != "HFT" && firstPriceToday != null) ? @$" - First Price Today: {firstPriceStr} - Spread2: {spread2Str} | {thresholdDiff2Str} from threshold." : "")}{(isFirstTradeEver ? " (isFirstTradeEver: true.)" : "")}";
+    string logMessage = $@"({tmpCoin}:{userId}:{strategy}) Last Price: {lastPrice} - Current Price: {currentPrice} = ({lastPrice - currentPrice}). Spread: {spreadStr} | {thresholdDiffStr} from threshold {((strategy != "HFT" && firstPriceToday != null) ? @$" - First Price Today: {firstPriceStr} - Spread2: {spread2Str} | {thresholdDiff2Str} from threshold." : "")}{(isFirstTradeEver ? " (isFirstTradeEver: true.)" : "")}";
     _ = _log.Db(logMessage.Trim(), userId, "TRADE", viewDebugLogs);
   }
 
