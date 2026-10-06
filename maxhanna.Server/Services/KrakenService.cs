@@ -193,7 +193,7 @@ public class KrakenService
           bool isValidTrade = await ValidateTrade(userId, tmpCoin, tmpCoin, "USDC", buyOrSell.ToLower(), usdcBalance, coinBalance, strategy);
           if (isValidTrade)
           {
-            _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Spread is {spread:P}, {spread2Message}(c:{currentPrice}-l:{lastPrice}). Balance: {coinBalance} {tmpCoin}.", userId, "TRADE", viewDebugLogs);
+            _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Spread is {spread:P}, {spread2Message}(Current Price:{currentPrice}-Last Price:{lastPrice}). Balance: {coinBalance} {tmpCoin}.", userId, "TRADE", viewDebugLogs);
             return await HandleHFTBuying(userId, coin, keys, strategy, tmpCoin, coinPriceCAD!.Value, currentPrice, coinBalance, usdcBalance);
           }
         }
@@ -203,7 +203,7 @@ public class KrakenService
           bool isValidTrade = await ValidateTrade(userId, tmpCoin, tmpCoin, "USDC", buyOrSell.ToLower(), usdcBalance, coinBalance, strategy);
           if (isValidTrade)
           {
-            _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Spread is {spread:P}, {spread2Message}(c:{currentPrice}-l:{lastPrice}). Balance: {coinBalance} {tmpCoin}.", userId, "TRADE", viewDebugLogs);
+            _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Spread is {spread:P}, {spread2Message}(Current Price:{currentPrice}-Last Price:{lastPrice}). Balance: {coinBalance} {tmpCoin}.", userId, "TRADE", viewDebugLogs);
             return await HandleSell(userId, strategy, tmpCoin, coinPriceUSDC.Value, spreadThreshold);
           }
         }
@@ -294,7 +294,7 @@ public class KrakenService
     if (usdcBalance > 0)
     {
       var spread2Message = firstPriceToday != null ? $"Spread2: {spread2:P} " : "";
-      _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Spread is {spread:P} {spread2Message} (c:{currentPrice}-l:{lastPrice}), buying {tmpCoin}.", userId, "TRADE", viewDebugLogs);
+      _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Spread is {spread:P} {spread2Message} (Current Price:{currentPrice}-Last Price:{lastPrice}), buying {tmpCoin}.", userId, "TRADE", viewDebugLogs);
 
       await AddMomentumEntry(userId, "USDC", tmpCoin, strategy, coinPriceUSDC, null);
     }
@@ -448,7 +448,7 @@ public class KrakenService
     string thresholdDiffStr = thresholdDiff.ToString("F2") + "%";
     string thresholdDiff2Str = thresholdDiff2?.ToString("F2") + "%" ?? "N/A";
 
-    string logMessage = $@"({tmpCoin}:{userId}:{strategy}) L:{lastPrice} - C:{currentPrice} - Spread: {spreadStr} | {thresholdDiffStr} from threshold {((strategy != "HFT" && firstPriceToday != null) ? @$" - First Price Today: {firstPriceStr} - Spread2: {spread2Str} | {thresholdDiff2Str} from threshold." : "")}{(isFirstTradeEver ? " (isFirstTradeEver: true.)" : "")}";
+    string logMessage = $@"({tmpCoin}:{userId}:{strategy}) Last Price: {lastPrice} - Current Price: {currentPrice} = ({lastPrice} - {currentPrice}). Spread: {spreadStr} | {thresholdDiffStr} from threshold {((strategy != "HFT" && firstPriceToday != null) ? @$" - First Price Today: {firstPriceStr} - Spread2: {spread2Str} | {thresholdDiff2Str} from threshold." : "")}{(isFirstTradeEver ? " (isFirstTradeEver: true.)" : "")}";
     _ = _log.Db(logMessage.Trim(), userId, "TRADE", viewDebugLogs);
   }
 
