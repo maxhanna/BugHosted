@@ -1156,6 +1156,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     // The player cannot enter another vehicle or interrupt the fall until the
     // high-speed exit has finished.
     if (this.playerRagdollTimer > 0) return;
+    // Sitting in the barber chair: E opens (or keeps open) the appearance menu
+    // instead of falling through to car-entry logic.
+    if (this.isSittingBarber) {
+      if (!this.barberMenuOpen) this.openBarberMenu();
+      return;
+    }
     // Car entry is a user gesture, so use it to unlock browser audio before
     // starting the YouTube-backed radio.
     this.unlockAudio();

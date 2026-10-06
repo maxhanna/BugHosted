@@ -41,16 +41,25 @@ export class CryptoTradeLogsComponent extends ChildComponent implements AfterVie
 
   async ngAfterViewInit() {
     setTimeout(() => {
-      // Logs open across every coin and strategy by default. Users can still
-      // narrow either dimension independently.
-      this.selectedCoin = 'ALL';
-      this.selectedStrategy = 'ALL';
+      // Pre-filter to the coin (and strategy) the housing view asked for —
+      // e.g. the live-trade-view section this table sits in — so its dropdown
+      // defaults to that coin instead of ALL. Without a default, every coin
+      // is shown.
+      this.selectedCoin = this.normalizeDefaultCoin(this.defaultCoin) ?? 'ALL';
+      this.selectedStrategy = this.defaultStrategy ?? 'ALL';
 
       if (!this.onMobile()) {
         this.logsPerPage = 30;
       }
       this.fetchTradeLogs(this.selectedCoin, this.selectedStrategy);
     }, 50);
+  }
+
+  /** The tradebot/API world says BTC while the dropdown options say XBT. */
+  private normalizeDefaultCoin(coin?: string): string | undefined {
+    if (!coin) return undefined;
+    const c = coin.toUpperCase();
+    return c === 'BTC' ? 'XBT' : c;
   }
 
   ngOnDestroy() {

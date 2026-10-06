@@ -14,6 +14,66 @@ namespace maxhanna.Server.Controllers
   [Microsoft.AspNetCore.Components.Route("[controller]")]
   public class BonesController : ControllerBase
   {
+    // ─── Multiplayer-poll deadlock hardening ───
+    // Every connected client polls /Bones/FetchGameData about once per second,
+    // and each poll writes to bones_event / bones_hero / bones_encounter /
+    // bones_items_dropped inside one transaction. The two failure modes that
+    // produced deadlocks:
+    //   1. Range-DELETE housekeeping (bones_event, bones_items_dropped) under
+    //      REPEATABLE READ takes next-key/gap locks that collide with the
+    //      ATTACK/event INSERTs from concurrent polls (insert-intention waits).
+    //   2. Lock-order inversion on bones_hero: the per-poll regen sweep updated
+    //      ANY hero needing regen while hero-damage updates (own poll or the AI
+    //      in someone else's poll) touch heroes in a different order.
+    // Mitigations: shorter lock footprints (delete cutoffs pushed outside the
+    // read windows), regen scoped to the caller's own row, deterministic row
+    // ordering (self row locked first, AI writes before event inserts),
+    // READ COMMITTED isolation for the poll, and one retry on transient lock
+    // failures so a lost poll never surfaces as a 500.
+    private static bool IsTransientDbLockError(Exception ex)
+    {
+      for (var e = ex; e != null; e = e.InnerException)
+      {
+        var msg = e.Message;
+        if (msg.IndexOf("Deadlock found", StringComparison.OrdinalIgnoreCase) >= 0 ||
+            msg.IndexOf("try restarting transaction", StringComparison.OrdinalIgnoreCase) >= 0 ||
+            msg.IndexOf("Lock wait timeout", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    /// <summary>
+    /// Runs <paramref name="body"/> on its own READ COMMITTED transaction,
+    /// retrying the whole unit once if MySQL reports a deadlock or lock-wait
+    /// timeout (both leave the transaction rolled back, so a fresh connection
+    /// is the correct recovery). <paramref name="body"/> must be idempotent.
+    /// </summary>
+    private async Task ExecuteWithDeadlockRetryAsync(
+      string opName,
+      int? userId,
+      Func<MySqlConnection, MySqlTransaction, Task> body)
+    {
+      const int maxAttempts = 2;
+      for (int attempt = 1; ; attempt++)
+      {
+        try
+        {
+          using var connection = new MySqlConnection(_connectionString);
+          await connection.OpenAsync();
+          using var transaction = await connection.BeginTransactionAsync(System.Data.IsolationLevel.ReadCommitted);
+          await body(connection, transaction);
+          await transaction.CommitAsync();
+          return;
+        }
+        catch (Exception ex) when (attempt < maxAttempts && IsTransientDbLockError(ex))
+        {
+          await _log.Db($"{opName} hit a transient DB lock failure (attempt {attempt}/{maxAttempts}), retrying: {ex.Message}", userId, "BONES", true);
+        }
+      }
+    }
     // Half-size of the hitbox in pixels; used to compute +/- hit tolerance
     private const int ATTACK_BUFFER_MS = 50;
     private const int HITBOX_HALF = 16;
@@ -158,6 +218,53 @@ namespace maxhanna.Server.Controllers
     }
 
 
+    // ─── Post-commit housekeeping (runs OUTSIDE any request transaction) ───
+    // Moved out of the FetchGameData poll transaction: it scans whole maps for
+    // dead encounters, which both extended the poll's lock footprint and
+    // introduced cross-map lock patterns that deadlocked against other
+    // players' polls. Each statement is independent so partial failures are
+    // harmless and retried on the next poll.
+    private static int _housekeepingInFlight = 0;
+    private Task QueuePostCommitHousekeepingAsync(int? heroId)
+    {
+      // At most one housekeeping batch at a time server-wide; extra polls skip.
+      if (System.Threading.Interlocked.CompareExchange(ref _housekeepingInFlight, 1, 0) != 0)
+      {
+        return Task.CompletedTask;
+      }
+      return Task.Run(async () =>
+      {
+        try
+        {
+          using var connection = new MySqlConnection(_connectionString);
+          await connection.OpenAsync();
+
+          // Finalize encounters that died earlier and are not yet awarded.
+          string finalizeSql = @"
+				UPDATE maxhanna.bones_encounter
+				SET awarded = 1, coordsX = -1000, coordsY = -1000, target_hero_id = 0
+				WHERE hp = 0
+					AND last_killed IS NOT NULL
+					AND (awarded IS NULL OR awarded = 0)
+					AND last_killed < UTC_TIMESTAMP() - INTERVAL 15 SECOND;";
+          using (var cmd = new MySqlCommand(finalizeSql, connection))
+          {
+            await cmd.ExecuteNonQueryAsync();
+          }
+
+        }
+        catch (Exception ex)
+        {
+          // Housekeeping is best-effort; log and allow the next poll to retry.
+          await _log.Db("Post-commit housekeeping failed (will retry next poll): " + ex.Message, heroId, "BONES", true);
+        }
+        finally
+        {
+          System.Threading.Interlocked.Exchange(ref _housekeepingInFlight, 0);
+        }
+      });
+    }
+
     [HttpPost("/Bones", Name = "Bones_GetHero")]
     public async Task<IActionResult> GetHero([FromBody] int userId)
     {
@@ -184,10 +291,9 @@ namespace maxhanna.Server.Controllers
     public async Task<IActionResult> SaveHeroSkills([FromBody] SaveHeroSkillsRequest request)
     {
       if (request == null || request.HeroId <= 0) return BadRequest("Invalid request");
-      using var connection = new MySqlConnection(_connectionString);
-      await connection.OpenAsync();
-      using var transaction = connection.BeginTransaction();
-      try
+      // Single-row upsert: no transaction needed, and the retry wrapper turns
+      // a transient lock failure into an automatic second attempt.
+      await ExecuteWithDeadlockRetryAsync("SaveHeroSkills", request.HeroId, async (connection, transaction) =>
       {
         string updateSql = @"UPDATE maxhanna.bones_hero_skills SET skill_a = @SkillA, skill_b = @SkillB, skill_c = @SkillC, updated = UTC_TIMESTAMP() WHERE hero_id = @HeroId LIMIT 1;";
         using (var cmd = new MySqlCommand(updateSql, connection, transaction))
@@ -210,25 +316,17 @@ namespace maxhanna.Server.Controllers
             }
           }
         }
-        await transaction.CommitAsync();
-        return Ok(new { success = true });
-      }
-      catch (Exception ex)
-      {
-        await transaction.RollbackAsync();
-        await _log.Db("SaveHeroSkills failed: " + ex.Message, request.HeroId, "BONES", true);
-        return StatusCode(500, "Internal server error: " + ex.Message);
-      }
+      });
+      return Ok(new { success = true });
     }
 
     [HttpPost("/Bones/UpdateCurrentSkill", Name = "Bones_UpdateCurrentSkill")]
     public async Task<IActionResult> UpdateCurrentSkill([FromBody] UpdateCurrentSkillRequest request)
     {
       if (request == null || request.HeroId <= 0) return BadRequest("Invalid request");
-      using var connection = new MySqlConnection(_connectionString);
-      await connection.OpenAsync();
-      using var transaction = connection.BeginTransaction();
-      try
+      // Single-row upsert: no transaction needed, and the retry wrapper turns
+      // a transient lock failure into an automatic second attempt.
+      await ExecuteWithDeadlockRetryAsync("UpdateCurrentSkill", request.HeroId, async (connection, transaction) =>
       {
         string updateSql = @"UPDATE maxhanna.bones_hero_skills SET current_skill = @CurrentSkill, updated = UTC_TIMESTAMP() WHERE hero_id = @HeroId LIMIT 1;";
         using (var cmd = new MySqlCommand(updateSql, connection, transaction))
@@ -247,15 +345,8 @@ namespace maxhanna.Server.Controllers
             }
           }
         }
-        await transaction.CommitAsync();
-        return Ok(new { success = true });
-      }
-      catch (Exception ex)
-      {
-        await transaction.RollbackAsync();
-        await _log.Db("UpdateCurrentSkill failed: " + ex.Message, request.HeroId, "BONES", true);
-        return StatusCode(500, "Internal server error: " + ex.Message);
-      }
+      });
+      return Ok(new { success = true });
     }
 
     [HttpPost("/Bones/GetHeroSkills", Name = "Bones_GetHeroSkills")]
@@ -299,44 +390,60 @@ namespace maxhanna.Server.Controllers
     {
       var hero = request?.Hero ?? new MetaHero();
       //_ = _log.Db("Fetch game data for hero " + hero.Id, hero.Id, "BONES", true);
-      using var connection = new MySqlConnection(_connectionString);
-      await connection.OpenAsync();
-      using var transaction = connection.BeginTransaction();
-      try
+      // The multiplayer poll runs with deadlock-safe isolation and one retry:
+      // see the deadlock hardening notes on the class declaration.
+      for (int attempt = 1; ; attempt++)
       {
-        if (request != null)
+        try
         {
-          await PersistNewAttacks(request, hero, connection, transaction);
-        }
+          using var connection = new MySqlConnection(_connectionString);
+          await connection.OpenAsync();
+          using var transaction = await connection.BeginTransactionAsync(System.Data.IsolationLevel.ReadCommitted);
 
-        hero = await UpdateHeroInDB(hero, connection, transaction);
-        MetaHero[]? heroes = await GetNearbyPlayers(hero, connection, transaction);
-        if (!string.IsNullOrEmpty(hero.Map))
-        {
-          await ProcessEncounterAI(hero.Map, connection, transaction);
-        }
-        MetaBot[]? enemyBots = await GetEncounters(connection, transaction, hero.Map);
-        List<MetaEvent> events = await GetEventsFromDb(hero.Map, hero.Id, connection, transaction);
-        List<object> droppedItems = await FetchDroppedItems(hero, connection, transaction);
-        List<object> townPortals = await FetchTownPortals(hero, connection, transaction);
+          // Lock the map's encounter rows BEFORE the event/hero writes, in the
+          // same order every request, so two polls can never grab bones_hero
+          // and bones_encounter rows in opposite orders (classic AB-BA).
+          if (!string.IsNullOrEmpty(hero.Map))
+          {
+            await ProcessEncounterAI(hero.Map, connection, transaction);
+          }
 
-        await transaction.CommitAsync();
-        var resp = new FetchGameDataResponse
+          if (request != null)
+          {
+            await PersistNewAttacks(request, hero, connection, transaction);
+          }
+
+          hero = await UpdateHeroInDB(hero, connection, transaction);
+          MetaHero[]? heroes = await GetNearbyPlayers(hero, connection, transaction);
+          MetaBot[]? enemyBots = await GetEncounters(connection, transaction, hero.Map);
+          List<MetaEvent> events = await GetEventsFromDb(hero.Map, hero.Id, connection, transaction);
+          List<object> droppedItems = await FetchDroppedItems(hero, connection, transaction);
+          List<object> townPortals = await FetchTownPortals(hero, connection, transaction);
+
+          await transaction.CommitAsync();
+          var resp = new FetchGameDataResponse
+          {
+            Map = hero.Map,
+            Position = hero.Position,
+            Heroes = heroes,
+            Events = events,
+            EnemyBots = enemyBots,
+            DroppedItems = droppedItems,
+            TownPortals = townPortals
+          };
+          return Ok(resp);
+        }
+        catch (Exception ex) when (attempt == 1 && IsTransientDbLockError(ex))
         {
-          Map = hero.Map,
-          Position = hero.Position,
-          Heroes = heroes,
-          Events = events,
-          EnemyBots = enemyBots,
-          DroppedItems = droppedItems,
-          TownPortals = townPortals
-        };
-        return Ok(resp);
-      }
-      catch (Exception ex)
-      {
-        await transaction.RollbackAsync();
-        return StatusCode(500, "Internal server error: " + ex.Message);
+          // Deadlock/lock-timeout victims are rolled back by MySQL — retry the
+          // whole poll on a fresh connection; the next poll would have fetched
+          // the same state anyway.
+          await _log.Db($"FetchGameData transient DB lock failure for hero {hero.Id} (attempt {attempt}), retrying: {ex.Message}", hero.Id, "BONES", true);
+        }
+        catch (Exception ex)
+        {
+          return StatusCode(500, "Internal server error: " + ex.Message);
+        }
       }
     }
 
@@ -348,7 +455,10 @@ namespace maxhanna.Server.Controllers
         // Remove dropped items older than 2 minutes to keep the table small
         try
         {
-          string delOld = "DELETE FROM maxhanna.bones_items_dropped WHERE created < UTC_TIMESTAMP() - INTERVAL 2 MINUTE;";
+          // Trim only rows older than twice the 2-minute visibility window so
+          // this housekeeping delete stops taking gap locks that collide with
+          // concurrent item inserts (same pattern as the bones_event cutoff).
+          string delOld = "DELETE FROM maxhanna.bones_items_dropped WHERE created < UTC_TIMESTAMP() - INTERVAL 4 MINUTE;";
           using var delCmd = new MySqlCommand(delOld, connection, transaction);
           await delCmd.ExecuteNonQueryAsync();
         }
@@ -1026,6 +1136,11 @@ ORDER BY p.created DESC;";
                 }
               }
             }
+
+            // Fire-and-forget housekeeping (dead encounters + highscores): kept
+            // OUT of the poll transaction so these cross-map writes cannot
+            // extend this transaction's lock footprint or deadlock against it.
+            _ = QueuePostCommitHousekeepingAsync(hero?.Id);
 
           }
           catch (Exception exAtt)
@@ -2392,36 +2507,42 @@ ORDER BY p.created DESC;";
     private async Task<MetaHero> UpdateHeroInDB(MetaHero hero, MySqlConnection connection, MySqlTransaction transaction)
     {
       try
-      {
+      {        // Lock our own hero row FIRST (every hero write on the server — damage,
+        // exp, level-ups — starts from the acting hero's row, so ordering all
+        // hero access from the acting hero outward is consistent). Regen is
+        // scoped to this hero only: sweeping ALL stale heroes here created a
+        // cross-hero lock pattern that deadlocked against the hero damage
+        // applied by other players' polls. Stale heroes regen naturally on
+        // their own next poll.
         string sql = @"
-				UPDATE maxhanna.bones_hero h
-				SET 
-					h.hp = LEAST(
-						100, 
-						h.hp + GREATEST(
-							FLOOR(h.regen * FLOOR(TIMESTAMPDIFF(SECOND, COALESCE(h.last_regen, UTC_TIMESTAMP() - INTERVAL 1 SECOND), UTC_TIMESTAMP()))), 
-							0
-						)
-					),
-					h.mp = LEAST(
-						100 + COALESCE(h.mana, 0), 
-						COALESCE(h.mp, 0) + GREATEST(
-							FLOOR(h.mana_regen * FLOOR(TIMESTAMPDIFF(SECOND, COALESCE(h.last_regen, UTC_TIMESTAMP() - INTERVAL 1 SECOND), UTC_TIMESTAMP()))), 
-							0
-						)
-					),
-					h.last_regen = UTC_TIMESTAMP(),
-					h.updated = UTC_TIMESTAMP()
-				WHERE 
-					(
-						(h.hp > 0 AND h.regen > 0 AND h.hp < 100) 
-						OR 
-						(h.mp < (100 + COALESCE(h.mana,0)) AND h.mana_regen > 0)
-					)
-					AND (h.last_regen IS NULL OR h.last_regen < UTC_TIMESTAMP() - INTERVAL 1 SECOND);
+					UPDATE maxhanna.bones_hero SET coordsX = @CoordsX, coordsY = @CoordsY, mask = @Mask, map = @Map, speed = @Speed, updated = UTC_TIMESTAMP() WHERE id = @HeroId;
 
-
-				UPDATE maxhanna.bones_hero SET coordsX = @CoordsX, coordsY = @CoordsY, mask = @Mask, map = @Map, speed = @Speed, updated = UTC_TIMESTAMP() WHERE id = @HeroId;";
+					UPDATE maxhanna.bones_hero h
+					SET
+							h.hp = LEAST(
+										100,
+										h.hp + GREATEST(
+												FLOOR(h.regen * FLOOR(TIMESTAMPDIFF(SECOND, COALESCE(h.last_regen, UTC_TIMESTAMP() - INTERVAL 1 SECOND), UTC_TIMESTAMP()))),
+												0
+										)
+								),
+							h.mp = LEAST(
+										100 + COALESCE(h.mana, 0),
+										COALESCE(h.mp, 0) + GREATEST(
+												FLOOR(h.mana_regen * FLOOR(TIMESTAMPDIFF(SECOND, COALESCE(h.last_regen, UTC_TIMESTAMP() - INTERVAL 1 SECOND), UTC_TIMESTAMP()))),
+												0
+										)
+								),
+							h.last_regen = UTC_TIMESTAMP(),
+							h.updated = UTC_TIMESTAMP()
+						WHERE
+							h.id = @HeroId
+							AND (
+								(h.hp > 0 AND h.regen > 0 AND h.hp < 100)
+								OR
+								(h.mp < (100 + COALESCE(h.mana,0)) AND h.mana_regen > 0)
+							)
+							AND (h.last_regen IS NULL OR h.last_regen < UTC_TIMESTAMP() - INTERVAL 1 SECOND);";
         Dictionary<string, object?> parameters = new() {
           { "@CoordsX", hero.Position.x },
           { "@CoordsY", hero.Position.y },
@@ -2472,8 +2593,12 @@ ORDER BY p.created DESC;";
         if (transaction == null) throw new InvalidOperationException("Transaction is required for this operation.");
         // New party membership: gather all hero_ids sharing the same party_id
         var partyMemberIds = await GetPartyMemberIds(heroId, connection, transaction);
+        // Housekeeping delete only trims rows no poll can still return: events
+        // live 20 seconds server-side, so a 10s cutoff let this range-delete's
+        // next-key/gap locks collide with the ATTACK inserts of concurrent
+        // polls. Cutover is kept comfortably beyond the retention window.
         string sql = @"
-				DELETE FROM maxhanna.bones_event WHERE timestamp < UTC_TIMESTAMP() - INTERVAL 10 SECOND; 
+				DELETE FROM maxhanna.bones_event WHERE timestamp < UTC_TIMESTAMP() - INTERVAL 30 SECOND;
 				SELECT * FROM maxhanna.bones_event WHERE (map = @Map OR event = 'CHAT' OR event = 'UNPARTY');";
         MySqlCommand cmd = new(sql, connection, transaction); cmd.Parameters.AddWithValue("@Map", map);
         List<MetaEvent> events = new();

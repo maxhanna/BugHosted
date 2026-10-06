@@ -599,9 +599,7 @@
         </div>
         <div *ngIf="isTradebotBalanceShowing && parentRef && selectedCurrency && !isLoading" style="width:100%">
           <app-crypto-trade-history [inputtedParentRef]="parentRef" [hasKrakenApi]="hasKrakenApi"
-            [selectedCurrency]="selectedCurrency"
-            [defaultCoin]="selectedTradebotCurrency?.nativeElement?.value ?? 'BTC'"
-            [defaultStrategy]="selectedTradebotStrategy?.nativeElement?.value ?? 'DCA'"></app-crypto-trade-history>
+            [selectedCurrency]="selectedCurrency"></app-crypto-trade-history>
         </div>
         <div *ngIf="isTradeLiveViewShowing && parentRef && selectedCurrency && latestCurrencyPriceRespectToCAD"
           class="live-trade-view-container">
@@ -706,9 +704,7 @@
 
         <div *ngIf="showingTradeLogs && parentRef && !isLoading" style="width:100%"
           [style.opacity]="isLoading ? '25%' : ''">
-          <app-crypto-trade-logs [inputtedParentRef]="parentRef" [hasKrakenApi]="hasKrakenApi"
-            [defaultCoin]="selectedTradebotCurrency?.nativeElement?.value ?? 'BTC'"
-            [defaultStrategy]="selectedTradebotStrategy?.nativeElement?.value ?? 'DCA'"></app-crypto-trade-logs>
+          <app-crypto-trade-logs [inputtedParentRef]="parentRef" [hasKrakenApi]="hasKrakenApi"></app-crypto-trade-logs>
         </div>
 
         <div *ngIf="isShowingTradeSimulator && tradebotSimulationGraphData && tradebotSimulationGraphData.length > 0"

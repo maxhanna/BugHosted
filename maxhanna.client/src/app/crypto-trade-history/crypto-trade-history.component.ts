@@ -68,15 +68,23 @@ export class CryptoTradeHistoryComponent extends ChildComponent implements After
   ngAfterViewInit(): void {
     // Initialize with default values if provided
     setTimeout(() => {
-      // Trade history opens across every coin by default. The strategy
-      // selection remains independent of the parent bot's configured coin.
-      this.selectedCoin = 'ALL';
-      // Trade history opens across every coin and strategy by default.
-      this.selectedStrategy = 'ALL';
+      // Pre-filter to the coin (and strategy) the housing view asked for —
+      // e.g. the live-trade-view section this table sits in — so its dropdown
+      // defaults to that coin instead of ALL. Without a default, every coin
+      // and strategy is shown.
+      this.selectedCoin = this.normalizeDefaultCoin(this.defaultCoin) ?? 'ALL';
+      this.selectedStrategy = this.defaultStrategy ?? 'ALL';
 
       console.log(this.selectedCoin, this.selectedStrategy);
       this.checkBalance();
     }, 0);
+  }
+
+  /** The tradebot/API world says BTC while the dropdown options say XBT. */
+  private normalizeDefaultCoin(coin?: string): string | undefined {
+    if (!coin) return undefined;
+    const c = coin.toUpperCase();
+    return c === 'BTC' ? 'XBT' : c;
   }
 
   ngOnChanges(changes: SimpleChanges) {
