@@ -237,7 +237,7 @@ public class KrakenService
         {
           if (strategy == "HFT")
           {
-            return await HandleHFTSelling(userId, keys, strategy, tmpCoin, coinPriceCAD!.Value, currentPrice, coinBalance, usdcBalance, spreadThreshold);
+            return await HandleHFTSelling(userId, keys, strategy, tmpCoin, coinPriceCAD!.Value, currentPrice, coinBalance, usdcBalance, tc!.TradeThreshold ?? 0m);
           }
           else
           {
@@ -251,6 +251,31 @@ public class KrakenService
         }
       }
     }
+
+    // HFT selling is deliberately not gated by the sensitive HFT spread threshold
+    // (_TradeThresholdHFT = 0.001m). Once a buy lot meets the configured trade threshold
+    // (e.g. the user-set 0.85% spread), it can be sold immediately whenever coin balance
+    // exists, instead of waiting for a separate 0.001m downward cross. The configured
+    // threshold is applied inside HandleHFTSelling via GetProfitableOpenBuyPositionsAsync.
+    if (strategy == "HFT")
+    {
+      var hftBalances = await GetBalance(userId, tmpCoin, strategy, keys);
+      if (hftBalances != null)
+      {
+        decimal hftCoinBalance = GetCoinBalanceFromDictionaryAndKey(hftBalances, tmpCoin);
+        decimal hftUsdcBalance = GetCoinBalanceFromDictionaryAndKey(hftBalances, "USDC");
+        _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) HFT sell check: balance {hftCoinBalance} {tmpCoin}, usdc {hftUsdcBalance}.", userId, "TRADE", viewDebugLogs);
+        if (hftCoinBalance > 0)
+        {
+          bool isValidTrade = await ValidateTrade(userId, tmpCoin, "USDC", tmpCoin, "sell", hftUsdcBalance, hftCoinBalance, strategy);
+          if (isValidTrade)
+          {
+            return await HandleHFTSelling(userId, keys, strategy, tmpCoin, coinPriceCAD!.Value, currentPrice, hftCoinBalance, hftUsdcBalance, tc!.TradeThreshold ?? 0m);
+          }
+        }
+      }
+    }
+
     return false;
   }
 
