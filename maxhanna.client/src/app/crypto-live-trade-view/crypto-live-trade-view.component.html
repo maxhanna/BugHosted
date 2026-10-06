@@ -39,8 +39,7 @@
             <div class="tradeLogsContainer">
                 <div class="subsectionLabel smallFont">Trade Logs <span class="thirdFontColor xxSmallFont">(use the dropdowns to filter coin / strategy)</span></div>
                 <app-crypto-trade-logs [inputtedParentRef]="inputtedParentRef"
-                    [hasKrakenApi]="hasKrakenApi" [defaultCoin]="bot.currency"
-                    [defaultStrategy]="firstStrategyFor(bot.currency)"></app-crypto-trade-logs>
+                    [hasKrakenApi]="hasKrakenApi" [defaultCoin]="bot.currency"></app-crypto-trade-logs>
             </div>
             <div class="tradeHistoryContainer">
                 <div class="subsectionLabel smallFont">Trade History <span class="thirdFontColor xxSmallFont">(use the dropdowns to filter coin / strategy)</span></div>
@@ -48,8 +47,7 @@
                     [inputtedParentRef]="inputtedParentRef"
                     [hasKrakenApi]="hasKrakenApi"
                     [selectedCurrency]="selectedCurrency"
-                    [defaultCoin]="bot.currency"
-                    [defaultStrategy]="firstStrategyFor(bot.currency)"></app-crypto-trade-history>
+                    [defaultCoin]="bot.currency"></app-crypto-trade-history>
             </div>
         </div>
     </div>
