@@ -14,6 +14,7 @@ using Newtonsoft.Json.Linq;
 public class KrakenService
 {
   private static decimal _TradeThreshold = 0.0085m;
+  private static decimal _TradeThresholdHFT = 0.001m;
   private const decimal EstimatedKrakenTakerFeeRate = 0.004m;
   public const decimal MinimumTradeThreshold = EstimatedKrakenTakerFeeRate * 2m;
   private static decimal _MinimumBTCTradeAmount = 0.00005m;
@@ -97,7 +98,7 @@ public class KrakenService
 
     // HFT exits are gated by each buy's profit floor below; the generic TTL exit
     // can sell at a loss, so it must not bypass that rule for HFT.
-    if (strategy != "HFT" && _MaxTradeTimeToLive.HasValue && _MaxTradeTimeToLive.Value > 0)
+    if (_MaxTradeTimeToLive.HasValue && _MaxTradeTimeToLive.Value > 0)
     {
       bool soldExpired = await AutoSellExpiredTrades(userId, tmpCoin, strategy, keys);
       if (soldExpired) return true;
@@ -137,7 +138,7 @@ public class KrakenService
 
     // HFT is a direct threshold strategy, not the DCA/IND momentum state machine.
     // Ignore any stale HFT momentum rows so they cannot intercept its configured triggers.
-    if (strategy != "HFT")
+    if (strategy == "DCA")
     {
       MomentumStrategy? UpwardsMomentum = await GetMomentumStrategy(userId, tmpCoin, "USDC", strategy);
       if (UpwardsMomentum != null && UpwardsMomentum.Timestamp != null)
@@ -158,7 +159,7 @@ public class KrakenService
     }
     // Use this call's persisted config, rather than the mutable static config field,
     // so another bot invocation cannot change the threshold while this trade is running.
-    decimal spreadThreshold = tc!.TradeThreshold ?? 0m;
+    decimal spreadThreshold = strategy == "HFT" ? _TradeThresholdHFT : tc!.TradeThreshold ?? 0m;
     LogSpreads(userId, strategy, tmpCoin, firstPriceToday, lastPrice, currentPrice, spread, spread2, isFirstTradeEver, spreadThreshold);
     // HFT direction is based only on the last HFT price-check anchor. The daily
     // spread2 reference is for DCA/IND and must not reverse an HFT buy/sell signal.
