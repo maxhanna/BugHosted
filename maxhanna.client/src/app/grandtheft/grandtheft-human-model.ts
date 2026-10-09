@@ -24,7 +24,7 @@ import { CityMesh, GltfAnimation } from '../../services/grandtheft.service';
 // ---------------------------------------------------------------------------
 // Variant definition
 // ---------------------------------------------------------------------------
-export type Role = 'franklin' | 'cop' | 'taxi' | 'pizza' | 'hillbilly' | 'female' | 'hooker' | 'fat' | 'dwarf' | 'dealer' | 'generic';
+export type Role = 'franklin' | 'cop' | 'taxi' | 'pizza' | 'hillbilly' | 'female' | 'hooker' | 'fat' | 'dwarf' | 'dealer' | 'barber' | 'generic';
 export type BodyType = 'slim' | 'muscular' | 'fat' | 'dwarf';
 export interface HumanVariant {
   role: Role;
@@ -201,6 +201,12 @@ export function pickVariant(role: Role, seed: number | string, genderHint?: stri
       // a deliberately polished palette that separates him from street peds.
       outfitA = [0.07, 0.09, 0.14]; outfitB = [0.04, 0.05, 0.08];
       accent = [0.92, 0.68, 0.12]; hasBeard = false; hasCap = false;
+      break;
+    case 'barber':
+      // A working barber's light shirt and dark apron read clearly through
+      // the storefront while staying within the shared low-poly human rig.
+      outfitA = [0.82, 0.79, 0.7]; outfitB = [0.12, 0.12, 0.14];
+      accent = [0.72, 0.12, 0.16]; hasBeard = false; hasCap = false;
       break;
     default:
       outfitA = [0.22 + rng() * 0.3, 0.22 + rng() * 0.3, 0.22 + rng() * 0.4];
@@ -483,6 +489,14 @@ export function generateHumanMesh(gl: WebGL2RenderingContext, variant: HumanVari
     // scale used by the dealership marker.
     addBoxRigged(0, 0.28, 0.105, 0.045, 0.16, 0.018, variant.accent ?? [0.92, 0.68, 0.12], 2);
     addBoxRigged(0.14, 0.29, 0.105, 0.07, 0.04, 0.018, [0.92, 0.92, 0.96], 2);
+  }
+  if (variant.role === 'barber') {
+    // Front apron panel and shoulder straps are attached to the chest bone so
+    // they follow the idle and walk poses instead of floating off the NPC.
+    addBoxRigged(0, 0.12, 0.105, torsoW * 0.68, 0.28, 0.025, [0.12, 0.13, 0.16], 2);
+    addBoxRigged(-0.12, 0.29, 0.105, 0.035, 0.16, 0.025, [0.12, 0.13, 0.16], 2);
+    addBoxRigged(0.12, 0.29, 0.105, 0.035, 0.16, 0.025, [0.12, 0.13, 0.16], 2);
+    addBoxRigged(0.1, 0.12, 0.123, 0.035, 0.08, 0.015, variant.accent ?? [0.72, 0.12, 0.16], 2);
   }
 
   // Build skinned mesh data structures (mirror createMesh but with skeleton)

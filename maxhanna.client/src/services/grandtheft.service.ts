@@ -234,13 +234,25 @@ export interface BuildingPlacement {
   yaw: number;
   scale: [number, number, number];
 }
+export interface BarberShopPlacement {
+  x: number;
+  z: number;
+  yaw: number;
+  chairX: number;
+  chairZ: number;
+  doorX: number;
+  doorZ: number;
+  barberX: number;
+  barberZ: number;
+  barberYaw: number;
+}
 export interface CityChunk {
   mesh: CityMesh;
   cx: number;
   cz: number;
   lamps: { x: number; z: number }[];
   hydrants: { x: number; z: number }[];
-  barberShops: { x: number; z: number; yaw: number }[];
+  barberShops: BarberShopPlacement[];
   buildings: BuildingPlacement[];
   benches: { x: number; z: number; yaw: number }[];
   barrels: { x: number; z: number; yaw: number }[];

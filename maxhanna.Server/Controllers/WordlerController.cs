@@ -213,7 +213,7 @@ namespace maxhanna.Server.Controllers
 		      LEFT JOIN user_display_pictures udp ON u.id = udp.user_id
 					WHERE 1=1 " +
 						(userId != null ? "AND ws.user_id = @UserId " : String.Empty) +
-						"ORDER BY DATE(ws.submitted) desc, ws.score desc, ws.time asc LIMIT 20;";
+						"ORDER BY ws.score desc, ws.time asc LIMIT 20;";
 				using (var cmd = new MySqlCommand(sql, conn))
 				{
 					// No @currentDate parameter needed

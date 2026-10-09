@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { AppModule } from '../app.module';
 import { ChildComponent } from '../child.component';
 import { GrandTheftRenderer, getBiome, getTerrainHeight, getBridgeSideRailCorrection, isNearBridgeRoad, isAeroportParkingChunk, isMarinaWaterPosition } from './grandtheft-renderer';
-import { BloodPool, BloodSplat, CityMesh, DeadBody, Explosion, GrandtheftService, MuzzleFlash, OtherPlayerState, ParkedCar, Rocket, Tracer, TrafficLane, VendingMachine } from '../../services/grandtheft.service';
+import { BarberShopPlacement, BloodPool, BloodSplat, CityMesh, DeadBody, Explosion, GrandtheftService, MuzzleFlash, OtherPlayerState, ParkedCar, Rocket, Tracer, TrafficLane, VendingMachine } from '../../services/grandtheft.service';
 import { UserEventService } from '../../services/user-event.service';
 import { TodoService } from '../../services/todo.service';
 import { FileService } from '../../services/file.service';
@@ -243,6 +243,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private _mapPoliceStations: { x: number; z: number; yaw: number; hd: number }[] = [];
   private _mapPoliceCenterX = 0;
   private _mapPoliceCenterZ = 0;
+  private _mapBarberShops: BarberShopPlacement[] = [];
+  private _mapBarberCenterX = 0;
+  private _mapBarberCenterZ = 0;
+  private _mapBarberShopsScanned = false;
   _parkedSmokeTimers: { [id: number]: number } = {};
   private _npcSmokeTimers: { [id: number]: number } = {};
   private _npcSmokeStarted: { [id: number]: number } = {};
@@ -653,7 +657,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private _panicPeds = new Set<number>();
   private walkYaw = 0;
   /** Procedural barber shops near the player this chunk (for door prompt + sit). */
-  barberShops: { x: number; z: number; yaw: number }[] = [];
+  barberShops: BarberShopPlacement[] = [];
   nearBarberChair = false;
   isSittingBarber = false;
   /** Barber-shop customization menu model — bound with ngModel in the template. */
@@ -6308,6 +6312,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       const models = Array.isArray(bld.model) ? bld.model : [bld.model];
       for (const m of models) {
         if (m.minX === undefined || m.maxX === undefined || m.minZ === undefined || m.maxZ === undefined) continue;
+        // The procedural barber is an open storefront: leave its entrance and
+        // interior navigable so the player can reach the chair and barber.
+        if (m.carName?.includes('barber_shop_procedural')) continue;
         // Before inStore is set, leave the front doorway open so the player can
         // physically cross the threshold. Once inside, the whole store is
         // ignored above and movement remains unconstrained by the visual shell.
@@ -6350,6 +6357,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           const models = Array.isArray(bld.model) ? bld.model : [bld.model];
           for (const m of models) {
             if (m.minX === undefined || m.maxX === undefined || m.minZ === undefined || m.maxZ === undefined || m.minY === undefined || m.maxY === undefined) continue;
+            // The procedural barber is a walk-in shop, not a climbable roof.
+            if (m.carName?.includes('barber_shop_procedural')) continue;
             // Convenience stores are open-front interiors, not climbable roof
             // volumes. Treating their shell as a roof lifts the player onto the
             // building before the natural doorway entry can run.
@@ -6605,36 +6614,22 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.showStoreToast(`💰 STUCK UP! $${payout.toLocaleString()} spilled — grab it!`);
   }
 
-  /** Mirror of updateVendingMachines: which nearby chunks have a barber shop.
-   * Uses the same 5×5-chunk cadence as the renderer's placement. */
+  /** Share the renderer's actual deterministic shop placements with gameplay. */
   private updateBarberShops() {
-    const chunkX = Math.floor(this.carX / 80);
-    const chunkZ = Math.floor(this.carZ / 80);
-    const barberList: { x: number; z: number; yaw: number }[] = [];
-    for (let dz = -1; dz <= 1; dz++) {
-      for (let dx = -1; dx <= 1; dx++) {
-        const gx = chunkX + dx;
-        const gz = chunkZ + dz;
-        if (((gx % 5) + 5) % 5 !== 2 || ((gz % 5) + 5) % 5 !== 2) continue;
-        const baseX = gx * 80;
-        const baseZ = gz * 80;
-        // Skip when the renderer actually refused to place the shop (an
-        // overlapping building won the footprint).
-        const chunk = this.renderer.getCityChunk(gx, gz);
-        if (!chunk || chunk.barberShops.length === 0) continue;
-        barberList.push({ x: baseX + 37.5, z: baseZ + 43.7, yaw: 0 });
-      }
-    }
-    this.barberShops = barberList;
+    this.barberShops = this.renderer.getBarberShopsNear(this.carX, this.carZ, 70);
   }
 
   private checkNearBarberChair() {
     if (this.isInCar || this.isPassenger || this.isSittingBarber) {
       this.nearBarberChair = false;
+      this.renderer.barberDoorOpen = false;
       return;
     }
+    this.renderer.barberDoorOpen = this.barberShops.some(bs =>
+      Math.hypot(this.carX - bs.doorX, this.carZ - bs.doorZ) < 7,
+    );
     this.nearBarberChair = this.barberShops.some(bs => {
-      const dx = this.carX - (bs.x + 0.15), dz = this.carZ - (bs.z - 0.55);
+      const dx = this.carX - (bs.chairX + 0.15), dz = this.carZ - (bs.chairZ - 0.55);
       return Math.sqrt(dx * dx + dz * dz) < 2.2;
     });
   }
@@ -6642,7 +6637,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private sitBarberChair() {
     if (this.isSittingBarber || this.isInCar || this.isPassenger) return;
     const bs = this.barberShops.find(b => {
-      const dx = this.carX - (b.x + 0.15), dz = this.carZ - (b.z - 0.55);
+      const dx = this.carX - (b.chairX + 0.15), dz = this.carZ - (b.chairZ - 0.55);
       return Math.sqrt(dx * dx + dz * dz) < 2.2;
     });
     if (!bs) return;
@@ -6650,7 +6645,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.nearBarberChair = false;
     this._savedBarberCamDist = this.camDist;
     this._savedBarberCamHeight = this.camHeight;
-    this._barberSitPos = { x: bs.x + 0.15, z: bs.z - 0.55, yaw: bs.yaw };
+    this._barberSitPos = {
+      x: bs.chairX + 0.15,
+      z: bs.chairZ - 0.55,
+      yaw: Math.atan2(bs.barberX - (bs.chairX + 0.15), bs.barberZ - (bs.chairZ - 0.55)),
+    };
     this.camDist = 2.6;
     this.camHeight = 1.7;
     this.renderer.playerSitting = true;
@@ -9018,6 +9017,33 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       ctx.lineTo(gx - 0.4, gy - 0.4);
       ctx.stroke();
       ctx.lineCap = 'butt';
+    }
+    // Barbershops — pulsing pink scissors markers. Refresh from the renderer's
+    // actual placement data so the map never points at a shop that was culled.
+    if (!this._mapBarberShopsScanned || Math.hypot(this.carX - this._mapBarberCenterX, this.carZ - this._mapBarberCenterZ) > 40) {
+      this._mapBarberCenterX = this.carX;
+      this._mapBarberCenterZ = this.carZ;
+      this._mapBarberShops = this.renderer.getBarberShopsNear(this.carX, this.carZ, 310);
+      this._mapBarberShopsScanned = true;
+    }
+    for (const shop of this._mapBarberShops) {
+      const bx = cx + (shop.x - this.carX) * scale;
+      const by = cy + (shop.z - this.carZ) * scale;
+      if (bx < -10 || bx > 310 || by < -10 || by > 310) continue;
+      const pulse = 5 + Math.sin(now / 260) * 1.1;
+      ctx.fillStyle = 'rgba(255, 90, 190, 0.24)';
+      ctx.beginPath(); ctx.arc(bx, by, 8 + pulse, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#ff5abe';
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(bx, by, 6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 9px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('✂', bx, by + 0.5);
+      ctx.textAlign = 'start';
+      ctx.textBaseline = 'alphabetic';
     }
     // Police stations — pulsing blue shield badges (where a busted player
     // respawns), so players can find the nearest station after a bust.

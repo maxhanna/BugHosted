@@ -830,13 +830,15 @@
 }
 
 .fileNameDiv.controller-hover {
-  border-radius: 6px;
-  box-shadow: inset 0 0 0 2px var(--main-link-color), inset 0 0 10px var(--main-link-color);
-  background: var(--gradient-background);
+  border-bottom: 2px solid var(--main-link-color);
+  border-left: 2px solid var(--main-link-color);
+  border-right: 2px solid var(--main-link-color);
+  background: color-mix(in srgb, var(--main-link-color) 10%, var(--gradient-background));
 }
 
 .fileNameDiv.controller-hover .fileFolderNameSpan {
   font-weight: 600;
+  color: var(--main-link-color);
 }
 
 .emulatorPopupPanel {
@@ -876,6 +878,12 @@
 }
 
 .grid-item.selected {
+  border-color: var(--main-link-color, #4a9eff);
+  box-shadow: 0 0 0 2px var(--main-link-color, #4a9eff), 0 4px 16px rgba(74, 158, 255, 0.2);
+  background: rgba(74, 158, 255, 0.04);
+}
+
+.grid-item.controller-hover {
   border-color: var(--main-link-color, #4a9eff);
   box-shadow: 0 0 0 2px var(--main-link-color, #4a9eff), 0 4px 16px rgba(74, 158, 255, 0.2);
   background: rgba(74, 158, 255, 0.04);

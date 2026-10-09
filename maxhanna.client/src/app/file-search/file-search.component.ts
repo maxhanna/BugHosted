@@ -2211,8 +2211,13 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
 
   private getFileElements(): HTMLElement[] {
+    if (this.displayAsTable) {
+      return Array.from(
+        document.getElementsByClassName('fileNameDiv')
+      ) as HTMLElement[];
+    }
     return Array.from(
-      document.getElementsByClassName('fileNameDiv')
+      document.getElementsByClassName('grid-item')
     ) as HTMLElement[];
   }
 
