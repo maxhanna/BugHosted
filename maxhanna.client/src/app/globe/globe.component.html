@@ -226,7 +226,28 @@
       <div class="data-tabs general-tabs">
         <button type="button" class="tab-btn" [class.active]="generalTab === 'locations'" (click)="generalTab = 'locations'">Locations</button>
         <button type="button" class="tab-btn" [class.active]="generalTab === 'water'" (click)="generalTab = 'water'">Oceans &amp; Lakes</button>
+        <button type="button" class="tab-btn" [class.active]="generalTab === 'tomtom'" (click)="generalTab = 'tomtom'">TomTom</button>
       </div>
+      <ng-container *ngIf="generalTab === 'tomtom'">
+        <div class="tomtom-panel">
+          <div class="tomtom-attribution">{{ tomTomAttribution }}</div>
+          <div class="pin-toggle-row"><label class="pin-toggle"><span class="pin-toggle-label">Live traffic flow</span><input type="checkbox" [checked]="showTomTomTraffic" (change)="setTomTomTraffic($any($event.target).checked)"><span class="pin-toggle-slider"></span></label></div>
+          <div class="pin-toggle-row"><label class="pin-toggle"><span class="pin-toggle-label">Traffic incidents</span><input type="checkbox" [checked]="showTomTomIncidents" (change)="setTomTomIncidents($any($event.target).checked)"><span class="pin-toggle-slider"></span></label></div>
+          <div class="pin-toggle-row"><label class="pin-toggle"><span class="pin-toggle-label">Gas stations near view</span><input type="checkbox" [checked]="showTomTomFuel" (change)="setTomTomFuel($any($event.target).checked)"><span class="pin-toggle-slider"></span></label></div>
+          <div class="tomtom-status" *ngIf="tomTomLoading">Loading TomTom data…</div>
+          <div class="tomtom-error" *ngIf="tomTomError">{{ tomTomError }}</div>
+          <div class="tomtom-location" *ngIf="tomTomLocation"><strong>Selected location</strong><div>{{ tomTomLocation.label }}</div><small>{{ tomTomLocation.lat | number:'1.4-4' }}, {{ tomTomLocation.lon | number:'1.4-4' }}</small></div>
+          <div class="tomtom-flow" *ngIf="tomTomFlowSegment?.currentSpeed != null">
+            <strong>Road flow</strong>
+            <div>Current speed: {{ tomTomFlowSegment.currentSpeed }} km/h</div>
+            <div>Free-flow speed: {{ tomTomFlowSegment.freeFlowSpeed }} km/h</div>
+            <div *ngIf="tomTomFlowSegment.currentTravelTime">Travel time: {{ tomTomFlowSegment.currentTravelTime }} sec</div>
+            <div *ngIf="tomTomFlowSegment.confidence != null">Confidence: {{ tomTomFlowSegment.confidence | percent }}</div>
+            <div *ngIf="tomTomFlowSegment.roadClosure">Road closed</div>
+          </div>
+          <div class="tomtom-counts">{{ tomTomIncidents.length }} incidents · {{ tomTomFuelStations.length }} nearby stations</div>
+        </div>
+      </ng-container>
       <ng-container *ngIf="generalTab === 'water'">
         <div class="pin-toggle-row"><label class="pin-toggle"><span class="pin-toggle-label">Show Oceans &amp; Lakes Pins ({{ OCEANS_AND_LAKES.length }})</span><input type="checkbox" [checked]="showWaterPins" (change)="showWaterPins = $any($event.target).checked"><span class="pin-toggle-slider"></span></label></div>
         <div class="water-list"><button type="button" class="coord-search-item" *ngFor="let body of OCEANS_AND_LAKES" (click)="rotateToLocation(body.lat, body.lon)"><span class="coord-search-label">{{ body.type === 'ocean' ? '🌊' : '🏞️' }} {{ body.name }}</span><span class="coord-search-coords">{{ body.lat | number:'1.1-1' }}, {{ body.lon | number:'1.1-1' }}</span></button></div>
@@ -234,6 +255,7 @@
       <ng-container *ngIf="generalTab === 'locations'">
         <div class="pin-toggle-row">
           <label class="pin-toggle">
+          <span class="pin-toggle-label">Show City Coords</span>
           <input type="checkbox" [checked]="showCityCoords" (change)="showCityCoords = $any($event.target).checked">
           <span class="pin-toggle-slider"></span>
         </label>

@@ -1082,6 +1082,43 @@
 
 /* Pin Toggle Switch */
 
+.tomtom-panel {
+  color: rgba(221, 221, 221, 0.92);
+  font-size: 12px;
+}
+
+.tomtom-attribution {
+  margin: 0 0 12px;
+  color: rgba(170, 190, 205, 0.8);
+  font-size: 11px;
+}
+
+.tomtom-status,
+.tomtom-counts {
+  margin: 8px 0;
+  color: rgba(170, 190, 205, 0.8);
+}
+
+.tomtom-error {
+  margin: 8px 0;
+  color: #ff8585;
+}
+
+.tomtom-location,
+.tomtom-flow {
+  margin: 10px 0;
+  padding: 10px;
+  border: 1px solid rgba(68, 170, 255, 0.3);
+  border-radius: 6px;
+  background: rgba(18, 26, 38, 0.7);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.tomtom-location small {
+  color: rgba(170, 190, 205, 0.8);
+}
+
 .pin-toggle-row {
   padding: 0 0 12px;
   border-bottom: 1px solid rgba(58, 58, 90, 1);

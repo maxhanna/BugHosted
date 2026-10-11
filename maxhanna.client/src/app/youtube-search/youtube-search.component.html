@@ -12,7 +12,7 @@
     </button>
   </div>
 
-  <div *ngIf="isLoading" class="statusText">Loading...</div>
+  <div *ngIf="isLoading || isSearchingYoutube" class="statusText">Searching YouTube...</div>
 
   <div *ngIf="!isLoading && videos.length === 0 && hasSearched" class="statusText">
     No videos found.

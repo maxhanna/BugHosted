@@ -1654,60 +1654,61 @@ export class GrandTheftRenderer {
   private createBarberShopMesh(): CityMesh[] {
     const verts: number[] = [];
     const indices: number[] = [];
+    let offset = 0;
     const box = (
       x: number, y: number, z: number,
       w: number, h: number, d: number,
       r: number, g: number, b: number,
     ) => {
-      const start = verts.length / 12;
-      const hw = w / 2, hh = h / 2, hd = d / 2;
-      const corners = [
-        [-hw, -hh, -hd], [hw, -hh, -hd], [hw, hh, -hd], [-hw, hh, -hd],
-        [-hw, -hh, hd], [hw, -hh, hd], [hw, hh, hd], [-hw, hh, hd],
-      ];
-      for (const c of corners) verts.push(x + c[0], y + c[1], z + c[2], 0, 1, 0, r, g, b, 1, 0, 0);
-      const faces = [
-        [0, 1, 2, 0, -1, 0], [5, 4, 7, 0, 1, 0],
-        [4, 0, 3, -1, 0, 0], [1, 5, 6, 1, 0, 0],
-        [3, 7, 6, 0, 0, 1], [4, 5, 1, 0, 0, -1],
-      ];
-      for (const f of faces) {
-        const q = f[3] === 0 && f[4] === 0 ? [start, start + 1, start + 2, start + 3] : [start + 4, start + 5, start + 6, start + 7];
-        indices.push(q[0], q[1], q[2], q[0], q[2], q[3]);
-      }
+      this.addBox(verts, indices, x, y, z, w, h, d, r, g, b, 1, offset);
+      offset += 24;
     };
     // Shell: floor, back/side walls, roof lip
-    box(0, 0.06, 0, 12, 0.12, 12, 0.32, 0.28, 0.25);
-    box(0, 1.7, 5.85, 12, 3.4, 0.3, 0.85, 0.82, 0.78);
-    box(-5.85, 1.7, 0, 0.3, 3.4, 12, 0.85, 0.82, 0.78);
-    box(5.85, 1.7, 0, 0.3, 3.4, 12, 0.85, 0.82, 0.78);
-    box(0, 3.55, 0, 12.4, 0.35, 12.4, 0.55, 0.2, 0.18);
-    // Bright fascia band and awning mark the entrance from street level.
-    box(0, 2.95, -6.05, 4.9, 0.22, 0.42, 0.9, 0.82, 0.18);
-    // Front wall with an open entrance; a glass panel swings automatically
-    // as the player approaches.
-    box(-4.15, 1.7, -5.85, 3.7, 3.4, 0.3, 0.2, 0.42, 0.72);
-    box(4.15, 1.7, -5.85, 3.7, 3.4, 0.3, 0.2, 0.42, 0.72);
-    box(0, 3.05, -5.85, 4.6, 1.0, 0.3, 0.2, 0.42, 0.72);
-    // Display windows either side of the door
-    box(-6.2, 1.9, -5.95, 1.6, 1.8, 0.1, 0.55, 0.8, 0.9,);
-    box(6.2, 1.9, -5.95, 1.6, 1.8, 0.1, 0.55, 0.8, 0.9,);
-    // Classic red/white barber pole by the door
-    for (let i = 0; i < 5; i++)
-      box(2.9, 0.7 + i * 0.42, -5.5, 0.24, 0.42, 0.24, i % 2 === 0 ? 0.85 : 0.95, i % 2 === 0 ? 0.16 : 0.95, i % 2 === 0 ? 0.14 : 0.95);
-    box(2.9, 2.9, -5.5, 0.3, 0.16, 0.3, 0.75, 0.78, 0.8);
-    // Mirror + counter along the back wall, plus a few tools on the shelf.
-    box(-2.5, 1.9, 5.6, 4.2, 1.6, 0.12, 0.75, 0.82, 0.86);
-    box(-2.5, 0.9, 5.4, 4.6, 0.16, 0.7, 0.42, 0.26, 0.14);
-    box(-3.8, 1.05, 5.05, 0.2, 0.16, 0.25, 0.82, 0.82, 0.78);
-    box(-2.6, 1.05, 5.05, 0.2, 0.16, 0.25, 0.82, 0.82, 0.78);
-    box(-1.4, 1.05, 5.05, 0.2, 0.16, 0.25, 0.82, 0.82, 0.78);
+    box(0, 0.06, 0, 14, 0.12, 16, 0.28, 0.25, 0.22);
+    // Side walls and rear wall; the front has large display windows and a real opening.
+    box(0, 2.1, 7.85, 14, 4.2, 0.3, 0.9, 0.87, 0.8);
+    box(-6.85, 2.1, 0, 0.3, 4.2, 16, 0.9, 0.87, 0.8);
+    box(6.85, 2.1, 0, 0.3, 4.2, 16, 0.9, 0.87, 0.8);
+    box(0, 4.35, 0, 14.4, 0.35, 16.4, 0.42, 0.12, 0.14);
+    // Iconic striped awning and tall high-contrast sign are visible from the road.
+    box(0, 3.35, -8.05, 14.1, 0.55, 0.65, 0.82, 0.08, 0.1);
+    for (let i = -6; i <= 6; i += 2) {
+      box(i, 3.35, -8.4, 0.9, 0.56, 0.08, 0.96, 0.94, 0.88);
+    }
+    box(0, 5.05, -8.05, 10.5, 1.0, 0.35, 0.78, 0.08, 0.1);
+    box(0, 5.05, -8.28, 9.6, 0.62, 0.08, 0.96, 0.92, 0.83);
+    // Front pillars, broad windows, and a wide entrance with glass transom.
+    box(-4.9, 2.15, -7.9, 3.3, 3.8, 0.28, 0.05, 0.22, 0.3);
+    box(4.9, 2.15, -7.9, 3.3, 3.8, 0.28, 0.05, 0.22, 0.3);
+    box(-4.9, 2.15, -8.08, 2.95, 0.12, 0.08, 0.22, 0.62, 0.72);
+    box(4.9, 2.15, -8.08, 2.95, 0.12, 0.08, 0.22, 0.62, 0.72);
+    box(-2.2, 3.95, -7.85, 0.24, 0.45, 0.3, 0.94, 0.78, 0.18);
+    box(2.2, 3.95, -7.85, 0.24, 0.45, 0.3, 0.94, 0.78, 0.18);
+    // Display windows either side of the door.
+    box(-5.0, 2.35, -8.12, 3.0, 2.35, 0.08, 0.3, 0.72, 0.82);
+    box(5.0, 2.35, -8.12, 3.0, 2.35, 0.08, 0.3, 0.72, 0.82);
+    // Barber pole by the entrance.
+    for (let i = 0; i < 6; i++)
+      box(3.2, 0.65 + i * 0.42, -8.4, 0.26, 0.42, 0.26, i % 2 === 0 ? 0.86 : 0.96, i % 2 === 0 ? 0.1 : 0.94, i % 2 === 0 ? 0.08 : 0.94);
+    box(3.2, 3.25, -8.4, 0.32, 0.16, 0.32, 0.78, 0.8, 0.82);
+    // Interior tiled floor runner, mirror, counter, and shelving.
+    box(0, 0.14, -2.2, 8.5, 0.08, 7.5, 0.72, 0.68, 0.58);
+    box(-2.8, 2.35, 7.55, 5.0, 2.0, 0.08, 0.7, 0.84, 0.9);
+    box(-2.8, 1.05, 7.2, 5.4, 0.25, 0.8, 0.34, 0.2, 0.13);
+    box(-4.2, 1.22, 6.8, 0.25, 0.14, 0.28, 0.84, 0.82, 0.76);
+    box(-2.8, 1.22, 6.8, 0.25, 0.14, 0.28, 0.84, 0.82, 0.76);
+    box(-1.4, 1.22, 6.8, 0.25, 0.14, 0.28, 0.84, 0.82, 0.76);
+    for (let shelf = 0; shelf < 3; shelf++) {
+      const x = 4.5 + shelf * 0.55;
+      box(x, 1.2, 4.2, 0.32, 1.7, 0.4, 0.42, 0.25, 0.16);
+      box(x, 2.05, 4.2, 0.42, 0.1, 0.48, 0.78, 0.76, 0.66);
+    }
     const mesh = this.createMesh(verts, indices);
     mesh.carName = "barber_shop_procedural";
-    mesh.minX = -6.4;
-    mesh.maxX = 6.4;
-    mesh.minZ = -6.2;
-    mesh.maxZ = 6.2;
+    mesh.minX = -7.2;
+    mesh.maxX = 7.2;
+    mesh.minZ = -8.6;
+    mesh.maxZ = 8.6;
     return [mesh];
   }
   getBarberShopMesh(): CityMesh[] {
@@ -1738,27 +1739,14 @@ export class GrandTheftRenderer {
     if (this.barberChairMesh) return this.barberChairMesh;
     const verts: number[] = [];
     const indices: number[] = [];
+    let offset = 0;
     const box = (
       x: number, y: number, z: number,
       w: number, h: number, d: number,
       r: number, g: number, b: number,
     ) => {
-      const start = verts.length / 12;
-      const hw = w / 2, hh = h / 2, hd = d / 2;
-      const corners = [
-        [-hw, -hh, -hd], [hw, -hh, -hd], [hw, hh, -hd], [-hw, hh, -hd],
-        [-hw, -hh, hd], [hw, -hh, hd], [hw, hh, hd], [-hw, hh, hd],
-      ];
-      for (const c of corners) verts.push(x + c[0], y + c[1], z + c[2], 0, 1, 0, r, g, b, 1, 0, 0);
-      const faces = [
-        [0, 1, 2, 0, -1, 0], [5, 4, 7, 0, 1, 0],
-        [4, 0, 3, -1, 0, 0], [1, 5, 6, 1, 0, 0],
-        [3, 7, 6, 0, 0, 1], [4, 5, 1, 0, 0, -1],
-      ];
-      for (const f of faces) {
-        const q = f[3] === 0 && f[4] === 0 ? [start, start + 1, start + 2, start + 3] : [start + 4, start + 5, start + 6, start + 7];
-        indices.push(q[0], q[1], q[2], q[0], q[2], q[3]);
-      }
+      this.addBox(verts, indices, x, y, z, w, h, d, r, g, b, 1, offset);
+      offset += 24;
     };
     box(0, 0.06, 0, 0.9, 0.12, 0.9, 0.75, 0.76, 0.78); // base plate
     box(0, 0.3, 0, 0.18, 0.4, 0.18, 0.72, 0.73, 0.76); // column
@@ -4588,7 +4576,7 @@ void main() {
     const isSuburb = biome === "suburb";
     const isCity = biome === "city";
     const hasScheduledBarberShop =
-      ((cx % 5) + 5) % 5 === 2 && ((cz % 5) + 5) % 5 === 0;
+      ((cx % 3) + 3) % 3 === 1 && ((cz % 3) + 3) % 3 === 1;
     const isBridge = biome === "bridge";
     const isBridgeConnector = biome === "bridge_connector";
     const isAeroport = biome === "aeroport";
@@ -8101,6 +8089,23 @@ void main() {
         for (const other of this.buildingOccupancyByChunk.values()) {
           if (other !== globalPlacedAABBs) placedAABBs.push(...other);
         }
+        // Keep the scheduled barbershop's center block free before any random
+        // frontage/POI placement can claim it. Otherwise the later placement
+        // pass could reject the shop itself and leave the map with no marker.
+        if (
+          hasScheduledBarberShop &&
+          (isCity || isSuburb) &&
+          !isNearBridgeRoad(blockWorldX, blockWorldZ, 18)
+        ) {
+          const shopReserve = {
+            minX: blockWorldX - 9,
+            maxX: blockWorldX + 9,
+            minZ: blockWorldZ - 10,
+            maxZ: blockWorldZ + 10,
+          };
+          placedAABBs.push(shopReserve);
+          globalPlacedAABBs.push(shopReserve);
+        }
         const modelWorldAABB = (
           model: CityMesh | CityMesh[],
           px: number,
@@ -9138,72 +9143,45 @@ void main() {
           });
         }
       }
-      // A barber shop is placed at one fixed chunk in each 5×5 grid cell.
-      // The offset keeps it out of the hospital plaza at the world origin.
+      // A deterministic shop sits in every third chunk on the urban grid. The
+      // central open block is kept clear of ordinary buildings so each scheduled
+      // landmark always exists and can be found on foot and on the minimap.
       if (
         hasScheduledBarberShop &&
+        (isCity || isSuburb) &&
         !isNearBridgeRoad(worldOriginX + 40, worldOriginZ + 40, 18)
       ) {
         const shop = this.getBarberShopMesh();
         const bx = worldOriginX + 40,
           bz = worldOriginZ + 40;
-        // The mesh itself spans about 12.8 units; reserve a small margin so
-        // nearby frontage buildings do not suppress this central landmark.
+        const yaw = Math.PI;
         const barberBounds = {
-          minX: bx - 8,
-          maxX: bx + 8,
-          minZ: bz - 8,
-          maxZ: bz + 8,
+          minX: bx - 9,
+          maxX: bx + 9,
+          minZ: bz - 10,
+          maxZ: bz + 10,
         };
+        // Clear only the reserved shop block from already-registered occupancy;
+        // the earlier random street-front pass uses this same block center.
         const barberChunkOccupancy = this.buildingOccupancyByChunk.get(key) ?? [];
         this.buildingOccupancyByChunk.set(key, barberChunkOccupancy);
-        const barberOccupied = Array.from(
-          this.buildingOccupancyByChunk.values(),
-        ).flat();
-        const barberOverlaps = barberOccupied.some(
-          (bb) =>
-            barberBounds.minX - 2 < bb.maxX &&
-            barberBounds.maxX + 2 > bb.minX &&
-            barberBounds.minZ - 2 < bb.maxZ &&
-            barberBounds.maxZ + 2 > bb.minZ,
-        );
-        if (!barberOverlaps) {
-          buildings.push({
-            model: shop,
-            x: bx,
-            y: 0.15,
-            z: bz,
-            yaw: Math.PI,
-            scale: [1, 1, 1],
-          });
-          // Props and interaction points are authored in the shop's local
-          // space, then transformed by the storefront yaw in the renderer.
-          const yaw = Math.PI;
-          const worldPoint = (localX: number, localZ: number) => ({
-            x: bx + localX * Math.cos(yaw) + localZ * Math.sin(yaw),
-            z: bz - localX * Math.sin(yaw) + localZ * Math.cos(yaw),
-          });
-          const chair = worldPoint(-2.5, 3.7);
-          const door = worldPoint(0, -6.35);
-          const barber = worldPoint(-1.25, 2.8);
-          const barberYaw = Math.atan2(
-            chair.x - barber.x,
-            chair.z - barber.z,
-          );
-          barberShops.push({
-            x: bx,
-            z: bz,
-            yaw,
-            chairX: chair.x,
-            chairZ: chair.z,
-            doorX: door.x,
-            doorZ: door.z,
-            barberX: barber.x,
-            barberZ: barber.z,
-            barberYaw,
-          });
-          barberChunkOccupancy.push(barberBounds);
-        }
+        // The block was reserved before random buildings were generated, so
+        // always place the landmark and publish matching interaction/map data.
+        buildings.push({ model: shop, x: bx, y: 0.15, z: bz, yaw, scale: [1, 1, 1] });
+        const worldPoint = (localX: number, localZ: number) => ({
+          x: bx + localX * Math.cos(yaw) + localZ * Math.sin(yaw),
+          z: bz - localX * Math.sin(yaw) + localZ * Math.cos(yaw),
+        });
+        const chair = worldPoint(-2.5, 2.4);
+        const door = worldPoint(0, -8.5);
+        const barber = worldPoint(-1.2, 4.8);
+        const barberYaw = Math.atan2(chair.x - barber.x, chair.z - barber.z);
+        barberShops.push({
+          x: bx, z: bz, yaw, chairX: chair.x, chairZ: chair.z,
+          doorX: door.x, doorZ: door.z,
+          barberX: barber.x, barberZ: barber.z, barberYaw,
+        });
+        barberChunkOccupancy.push(barberBounds);
       }
       const smModel = this.cityBuildingMeshes.find(
         (m) =>
@@ -12823,23 +12801,24 @@ void main() {
                 [NPC_HUMAN_RENDER_SCALE, NPC_HUMAN_RENDER_SCALE, NPC_HUMAN_RENDER_SCALE],
               );
               const doorKey = `${bs.x},${bs.z}`;
-              const nearDoor = this.barberDoorOpen && Math.hypot(targetX - bs.doorX, targetZ - bs.doorZ) < 7;
+              const nearDoor = Math.hypot(targetX - bs.doorX, targetZ - bs.doorZ) < 10;
               let openness = this.barberDoorOpenness.get(doorKey) ?? 0;
               openness += ((nearDoor ? 1 : 0) - openness) * Math.min(1, dt * 5);
               this.barberDoorOpenness.set(doorKey, openness);
+              // The doorway faces local -Z. A hinged panel is placed across the
+              // opening when shut and rotates clear as the player approaches.
               const angle = openness * Math.PI / 2;
-              const hingeX = bs.doorX - Math.cos(bs.yaw) * 1.9;
-              const hingeZ = bs.doorZ - Math.sin(bs.yaw) * 1.9;
-              const panelX = hingeX + Math.cos(bs.yaw + angle) * 1.9;
-              const panelZ = hingeZ + Math.sin(bs.yaw + angle) * 1.9;
+              const hinge = { x: bs.doorX - Math.cos(bs.yaw) * 1.55, z: bs.doorZ + Math.sin(bs.yaw) * 1.55 };
+              const panelX = hinge.x + Math.cos(bs.yaw + angle) * 1.55;
+              const panelZ = hinge.z + Math.sin(bs.yaw + angle) * 1.55;
               this.drawMesh(
-                this.getBoxMesh(3.8, 2.9, 0.12),
+                this.getBoxMesh(3.1, 3.2, 0.12),
                 panelX,
-                bld.y + 1.6,
+                bld.y + 1.75,
                 panelZ,
                 bs.yaw + angle,
                 [1, 1, 1],
-                [0.36, 0.68, 0.78, 0.82],
+                [0.42, 0.82, 0.88, 0.7],
               );
             }
           }

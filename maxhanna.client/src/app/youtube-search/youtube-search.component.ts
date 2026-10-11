@@ -14,6 +14,7 @@ import { YoutubeVideo } from '../../services/datacontracts/youtube';
 export class YoutubeSearchComponent extends ChildComponent implements OnChanges, OnInit, AfterViewInit { 
   videos: YoutubeVideo[] = []; 
   hasSearched = false;
+  isSearchingYoutube = false;
 
   @Input() keyword: string = '';
   @Input() inputtedParentRef?: AppComponent;
@@ -78,7 +79,10 @@ export class YoutubeSearchComponent extends ChildComponent implements OnChanges,
 
   async search() {
     this.startLoading();
-    this.videos = []; 
+    this.isSearchingYoutube =  true;
+    this.videos = [];    
+    this.cdr.markForCheck();
+
     const keyword = this.searchInput?.nativeElement?.value?.trim();
     if (keyword) {
       const result = await this.crawlerService.searchYoutube(keyword);
@@ -92,6 +96,7 @@ export class YoutubeSearchComponent extends ChildComponent implements OnChanges,
     } 
     this.hasSearched = true;
     this.stopLoading();
+    this.isSearchingYoutube = false;
     this.cdr.markForCheck();
   }
 }

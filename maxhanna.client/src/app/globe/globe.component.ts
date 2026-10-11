@@ -202,7 +202,32 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   showTownCoords = false;
   showWaterPins = false;
   readonly OCEANS_AND_LAKES = OCEANS_AND_LAKES;
-  generalTab: 'locations' | 'water' = 'locations';
+  generalTab: 'locations' | 'water' | 'tomtom' = 'locations';
+  showTomTomTraffic = false;
+  showTomTomIncidents = false;
+  showTomTomFuel = false;
+  tomTomLoading = false;
+  tomTomError = '';
+  tomTomIncidents: Array<{ id: string; lat: number; lon: number; category?: number; delay?: number; road?: string; description?: string }> = [];
+  tomTomFuelStations: Array<{ id: string; name: string; lat: number; lon: number; address?: string }> = [];
+  tomTomLocation: { label: string; lat: number; lon: number } | null = null;
+  tomTomFlowSegment: any = null;
+  tomTomAttribution = 'Traffic and place data © TomTom';
+  private tomTomRequestStamp = 0;
+  private tomTomLastFetchAt = 0;
+  private tomTomReverseLookupAt = 0;
+  private tomTomReverseCache = new Map<string, string>();
+  private tomTomReverseRequestStamp = 0;
+  private tomTomFlowRequestStamp = 0;
+  private tomTomTrafficTileKeys = new Set<string>();
+  private tomTomTrafficTiles = new Map<string, HTMLImageElement>();
+  private tomTomTrafficTileCacheOrder: string[] = [];
+  private tomTomPendingTrafficTiles = new Set<string>();
+  private tomTomTrafficTileRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+  private tomTomTrafficTileRefreshGeneration = 0;
+  private readonly TOMTOM_TRAFFIC_TILE_CACHE_LIMIT = 64;
+  private readonly TOMTOM_MAX_TRAFFIC_TILE_REQUESTS = 4;
+  private tomTomLastCenter: { lat: number; lon: number; zoom: number } | null = null;
   searchQuery: string = '';
   filteredCityCoords: Record<string, [number, number]> = {};
   filteredTownCoords: Record<string, [number, number]> = {};
@@ -403,6 +428,11 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.destroyed = true;
     this.stopPingTour();
     this.stopPingFeed();
+    if (this.tomTomTrafficTileRefreshTimer) clearTimeout(this.tomTomTrafficTileRefreshTimer);
+    this.tomTomTrafficTileRefreshGeneration++;
+    this.tomTomRequestStamp++;
+    this.tomTomReverseRequestStamp++;
+    this.tomTomFlowRequestStamp++;
     cancelAnimationFrame(this.rafId);
     this.destroyWebGL();
   }
@@ -1628,7 +1658,205 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     const flightPings = this.showFlightsPins ? this.getFlightPings() : [];
-    return [...flightPings, ...storyPings, ...commentPings, ...newsPings, ...customPings, ...savedPings, ...userPings, ...coordPings];
+    return [...flightPings, ...storyPings, ...commentPings, ...newsPings, ...customPings, ...savedPings, ...userPings, ...coordPings, ...this.getTomTomPings()];
+  }
+
+  private tomTomFetchInProgress = false;
+
+  private refreshTomTomDataIfNeeded(): void {
+    if ((!this.showTomTomIncidents && !this.showTomTomFuel) || this.tomTomFetchInProgress) return;
+    const [lon, lat] = this.getCenterLonLat();
+    const zoom = Math.max(5, Math.min(12, this.camDistToTileZoom()));
+    const moved = !this.tomTomLastCenter
+      || Math.abs(this.tomTomLastCenter.lat - lat) > 0.2
+      || Math.abs(this.tomTomLastCenter.lon - lon) > 0.2
+      || this.tomTomLastCenter.zoom !== zoom;
+    if (!moved || Date.now() - this.tomTomLastFetchAt < 30000) return;
+
+    this.tomTomLastCenter = { lat, lon, zoom };
+    this.tomTomLastFetchAt = Date.now();
+    const requestStamp = ++this.tomTomRequestStamp;
+    this.tomTomFetchInProgress = true;
+    this.tomTomLoading = true;
+    this.tomTomError = '';
+    const [centerLon, centerLat] = this.getCenterLonLat();
+    const longitudeSpan = Math.min(2.5, Math.max(0.1, this.visibleCapDeg() * 2));
+    const latitudeSpan = Math.min(2.5, Math.max(0.1, this.visibleCapDeg() * 2));
+    const minLat = Math.max(-85, centerLat - latitudeSpan);
+    const maxLat = Math.min(85, centerLat + latitudeSpan);
+    const actualLatitudeSpan = maxLat - minLat;
+    const maxIncidentWidth = actualLatitudeSpan > 0
+      ? 10000 / (111.32 * 111.32 * Math.max(0.15, Math.cos(centerLat * Math.PI / 180)) * actualLatitudeSpan)
+      : 0;
+    const boundedLongitudeSpan = Math.min(longitudeSpan, maxIncidentWidth);
+    const incidentMinLon = Math.max(-180, centerLon - boundedLongitudeSpan);
+    const incidentMaxLon = Math.min(180, centerLon + boundedLongitudeSpan);
+    const requests: Promise<void>[] = [];
+    if (this.showTomTomIncidents && incidentMaxLon > incidentMinLon && maxLat > minLat) {
+      const query = new URLSearchParams({ minLon: String(incidentMinLon), minLat: String(minLat), maxLon: String(incidentMaxLon), maxLat: String(maxLat) });
+      requests.push(fetch(`/tomtom/incidents?${query}`).then(async response => {
+        if (!response.ok) throw new Error('Traffic incident lookup failed.');
+        const data = await response.json();
+        const features = data?.incidents || data?.features || [];
+        if (requestStamp !== this.tomTomRequestStamp) return;
+        this.tomTomIncidents = features.flatMap((feature: any, index: number) => {
+          const coordinates = feature?.geometry?.coordinates;
+          let lon = Number(coordinates?.[0]);
+          let lat = Number(coordinates?.[1]);
+          if (feature?.geometry?.type === 'LineString' && Array.isArray(coordinates?.[0])) {
+            const mid = coordinates[Math.floor(coordinates.length / 2)];
+            lon = Number(mid?.[0]); lat = Number(mid?.[1]);
+          }
+          if (!Number.isFinite(lat) || !Number.isFinite(lon)) return [];
+          const properties = feature.properties || {};
+          const event = properties.events?.[0];
+          return [{
+            id: String(properties.id || properties.incidentId || `${index}:${lat.toFixed(4)}:${lon.toFixed(4)}`),
+            lat, lon,
+            category: Number(properties.iconCategory) || undefined,
+            delay: Number(properties.delay) || undefined,
+            road: properties.from || properties.roadNumbers?.[0],
+            description: event?.description || event?.code || 'Traffic incident',
+          }];
+        });
+      }));
+    }
+
+    if (this.showTomTomFuel) {
+      const query = new URLSearchParams({ lat: String(centerLat), lon: String(centerLon), radius: '12000' });
+      requests.push(fetch(`/tomtom/nearby-fuel?${query}`).then(async response => {
+        if (!response.ok) throw new Error('Nearby gas-station lookup failed.');
+        const data = await response.json();
+        if (requestStamp !== this.tomTomRequestStamp) return;
+        this.tomTomFuelStations = (data?.results || []).flatMap((result: any, index: number) => {
+          const lat = Number(result?.position?.lat);
+          const lon = Number(result?.position?.lon);
+          if (!Number.isFinite(lat) || !Number.isFinite(lon)) return [];
+          return [{
+            id: String(result.id || `${index}:${lat.toFixed(4)}:${lon.toFixed(4)}`),
+            name: result.poi?.name || result.address?.freeformAddress || 'Gas station',
+            lat, lon,
+            address: result.address?.freeformAddress,
+          }];
+        });
+      }));
+    }
+
+    void Promise.all(requests).catch(error => {
+      if (requestStamp === this.tomTomRequestStamp) this.tomTomError = error instanceof Error ? error.message : 'TomTom data is unavailable.';
+    }).finally(() => {
+      if (requestStamp === this.tomTomRequestStamp) {
+        this.tomTomFetchInProgress = false;
+        this.tomTomLoading = false;
+        if (this.showTomTomIncidents || this.showTomTomFuel) this.tomTomLastFetchAt = Date.now();
+      }
+    });
+  }
+
+  private async lookupTomTomLocation(lat: number, lon: number): Promise<void> {
+    const key = `${lat.toFixed(3)}:${lon.toFixed(3)}`;
+    if (this.tomTomReverseCache.has(key)) {
+      this.tomTomLocation = { label: this.tomTomReverseCache.get(key)!, lat, lon };
+      this.activeDataTab = 'general';
+      this.generalTab = 'tomtom';
+      this.showDataPanel = true;
+      return;
+    }
+    if (Date.now() - this.tomTomReverseLookupAt < 1000) return;
+    this.tomTomReverseLookupAt = Date.now();
+    this.tomTomLocation = { label: 'Resolving address…', lat, lon };
+    this.tomTomError = '';
+    const requestStamp = ++this.tomTomReverseRequestStamp;
+    this.activeDataTab = 'general';
+    this.generalTab = 'tomtom';
+    this.showDataPanel = true;
+    try {
+      const response = await fetch(`/tomtom/reverse-geocode?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}`);
+      if (!response.ok) throw new Error('Reverse geocoding is unavailable.');
+      const data = await response.json();
+      if (requestStamp !== this.tomTomReverseRequestStamp) return;
+      const address = data?.addresses?.[0]?.address;
+      const label = address?.freeformAddress || address?.municipality || address?.country || `${lat.toFixed(4)}°, ${lon.toFixed(4)}°`;
+      this.tomTomReverseCache.set(key, label);
+      while (this.tomTomReverseCache.size > 100) this.tomTomReverseCache.delete(this.tomTomReverseCache.keys().next().value!);
+      this.tomTomLocation = { label, lat, lon };
+      this.activeDataTab = 'general';
+      this.generalTab = 'tomtom';
+      this.showDataPanel = true;
+    } catch (error) {
+      if (requestStamp === this.tomTomReverseRequestStamp)
+        this.tomTomError = error instanceof Error ? error.message : 'Reverse geocoding is unavailable.';
+    }
+  }
+
+  private async loadTomTomFlowSegment(lat: number, lon: number): Promise<void> {
+    const requestStamp = ++this.tomTomFlowRequestStamp;
+    this.tomTomFlowSegment = null;
+    try {
+      const zoom = Math.max(5, Math.min(18, this.camDistToTileZoom()));
+      const response = await fetch(`/tomtom/traffic/flow-segment?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&zoom=${zoom}`);
+      if (!response.ok) throw new Error('Road traffic details are unavailable.');
+      const data = await response.json();
+      if (requestStamp !== this.tomTomFlowRequestStamp) return;
+      this.tomTomFlowSegment = data?.flowSegmentData || data;
+    } catch (error) {
+      if (requestStamp === this.tomTomFlowRequestStamp)
+        this.tomTomError = error instanceof Error ? error.message : 'Road traffic details are unavailable.';
+    }
+  }
+
+  setTomTomTraffic(enabled: boolean): void {
+    this.showTomTomTraffic = enabled;
+    if (enabled) {
+      this.updateTomTomTrafficTiles();
+      this.scheduleTomTomTrafficTileRefresh();
+    }
+    if (!enabled) {
+      if (this.tomTomTrafficTileRefreshTimer) clearTimeout(this.tomTomTrafficTileRefreshTimer);
+      this.tomTomTrafficTileRefreshTimer = null;
+      this.tomTomTrafficTileRefreshGeneration++;
+      this.tomTomTrafficTileKeys.clear();
+      this.tomTomTrafficTiles.clear();
+      this.tomTomTrafficTileCacheOrder = [];
+    }
+  }
+
+  setTomTomIncidents(enabled: boolean): void {
+    this.showTomTomIncidents = enabled;
+    if (enabled) {
+      this.tomTomLastFetchAt = 0;
+      this.tomTomLastCenter = null;
+    } else this.tomTomIncidents = [];
+  }
+
+  setTomTomFuel(enabled: boolean): void {
+    this.showTomTomFuel = enabled;
+    if (enabled) {
+      this.tomTomLastFetchAt = 0;
+      this.tomTomLastCenter = null;
+    } else this.tomTomFuelStations = [];
+  }
+
+  private getTomTomPings(): ResolvedGlobePing[] {
+    const incidents = this.showTomTomIncidents ? this.tomTomIncidents.map(incident => ({
+      id: `tomtom:incident:${incident.id}`,
+      lat: incident.lat,
+      lon: incident.lon,
+      label: incident.road || incident.description || 'Traffic incident',
+      zoom: 75,
+      source: 'custom' as const,
+      data: { type: 'tomtom-incident', incident },
+    })) : [];
+    const stations = this.showTomTomFuel ? this.tomTomFuelStations.map(station => ({
+      id: `tomtom:fuel:${station.id}`,
+      lat: station.lat,
+      lon: station.lon,
+      label: station.name,
+      zoom: 78,
+      source: 'custom' as const,
+      data: { type: 'tomtom-fuel', station },
+    })) : [];
+    return [...incidents, ...stations];
   }
 
   private getFlightPings(): ResolvedGlobePing[] {
@@ -2390,7 +2618,10 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.resizeCanvas();
     this.renderGlobe();
+    this.updateTomTomTrafficTiles();
+    this.renderTrafficTiles();
     this.renderPins();
+    this.refreshTomTomDataIfNeeded();
     this.renderArcs();
   }
 
@@ -2460,6 +2691,133 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   // =========================================================================
   // Pin rendering (2D overlay)
   // =========================================================================
+  private renderTrafficTiles(): void {
+    const canvas = this.detailCanvasRef.nativeElement;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (!this.showTomTomTraffic) return;
+    this.loadPendingTomTomTrafficTiles();
+
+    for (const key of this.tomTomTrafficTileKeys) {
+      const image = this.tomTomTrafficTiles.get(key);
+      if (!image) continue;
+      const [z, x, y] = key.split('/').map(Number);
+      this.drawTomTomTrafficTile(ctx, image, z, x, y, canvas.width, canvas.height);
+    }
+  }
+
+  private drawTomTomTrafficTile(ctx: CanvasRenderingContext2D, image: HTMLImageElement, z: number, x: number, y: number, width: number, height: number): void {
+    const n = Math.pow(2, z);
+    const latMin = Math.atan(Math.sinh(Math.PI * (1 - 2 * (y + 1) / n))) * 180 / Math.PI;
+    const latMax = Math.atan(Math.sinh(Math.PI * (1 - 2 * y / n))) * 180 / Math.PI;
+    const lonMin = x / n * 360 - 180;
+    const lonMax = (x + 1) / n * 360 - 180;
+    const sampleCount = 6;
+    ctx.save();
+    ctx.globalAlpha = 0.82;
+    for (let row = 0; row < sampleCount; row++) {
+      const north = latMax - (row / sampleCount) * (latMax - latMin);
+      const south = latMax - ((row + 1) / sampleCount) * (latMax - latMin);
+      for (let column = 0; column < sampleCount; column++) {
+        const west = lonMin + (column / sampleCount) * (lonMax - lonMin);
+        const east = lonMin + ((column + 1) / sampleCount) * (lonMax - lonMin);
+        const nw = this.projectPin(north, west, width, height);
+        const ne = this.projectPin(north, east, width, height);
+        const sw = this.projectPin(south, west, width, height);
+        const se = this.projectPin(south, east, width, height);
+        const visibleCorners = [nw, ne, sw, se].filter((point): point is { x: number; y: number } => point !== null);
+        if (visibleCorners.length < 2) continue;
+        const dx = visibleCorners.reduce((sum, point) => sum + point.x, 0) / visibleCorners.length;
+        const dy = visibleCorners.reduce((sum, point) => sum + point.y, 0) / visibleCorners.length;
+        const horizontalWidths = [nw && ne ? Math.hypot(ne.x - nw.x, ne.y - nw.y) : 0, sw && se ? Math.hypot(se.x - sw.x, se.y - sw.y) : 0].filter(value => value > 0);
+        const verticalHeights = [nw && sw ? Math.hypot(sw.x - nw.x, sw.y - nw.y) : 0, ne && se ? Math.hypot(se.x - ne.x, se.y - ne.y) : 0].filter(value => value > 0);
+        const cellWidth = horizontalWidths.reduce((sum, value) => sum + value, 0) / horizontalWidths.length;
+        const cellHeight = verticalHeights.reduce((sum, value) => sum + value, 0) / verticalHeights.length;
+        if (!Number.isFinite(cellWidth) || !Number.isFinite(cellHeight) || cellWidth <= 0 || cellHeight <= 0) continue;
+        const sx = (column / sampleCount) * image.width;
+        const sy = (row / sampleCount) * image.height;
+        ctx.drawImage(image, sx, sy, image.width / sampleCount, image.height / sampleCount,
+          dx - cellWidth / 2, dy - cellHeight / 2, Math.max(1, cellWidth), Math.max(1, cellHeight));
+      }
+    }
+    ctx.restore();
+  }
+
+  private loadTomTomTrafficTile(key: string): void {
+    const [z, x, y] = key.split('/').map(Number);
+    this.tomTomPendingTrafficTiles.add(key);
+    const image = new Image();
+    image.onload = () => {
+      this.tomTomPendingTrafficTiles.delete(key);
+      image.dataset['fetchedAt'] = String(Date.now());
+      this.tomTomTrafficTiles.set(key, image);
+      this.tomTomTrafficTileCacheOrder = this.tomTomTrafficTileCacheOrder.filter(cached => cached !== key);
+      this.tomTomTrafficTileCacheOrder.push(key);
+      while (this.tomTomTrafficTileCacheOrder.length > this.TOMTOM_TRAFFIC_TILE_CACHE_LIMIT) {
+        const expiredKey = this.tomTomTrafficTileCacheOrder.shift();
+        if (expiredKey) this.tomTomTrafficTiles.delete(expiredKey);
+      }
+      this.loadPendingTomTomTrafficTiles();
+    };
+    image.onerror = () => {
+      this.tomTomPendingTrafficTiles.delete(key);
+      this.loadPendingTomTomTrafficTiles();
+    };
+    image.src = `/tomtom/traffic/flow-tile?z=${z}&x=${x}&y=${y}`;
+  }
+
+  private loadPendingTomTomTrafficTiles(): void {
+    const available = this.TOMTOM_MAX_TRAFFIC_TILE_REQUESTS - this.tomTomPendingTrafficTiles.size;
+    if (available <= 0) return;
+    for (const key of this.tomTomTrafficTileKeys) {
+      if (this.tomTomPendingTrafficTiles.has(key) || this.tomTomTrafficTiles.has(key)) continue;
+      this.loadTomTomTrafficTile(key);
+      if (this.tomTomPendingTrafficTiles.size >= this.TOMTOM_MAX_TRAFFIC_TILE_REQUESTS) break;
+    }
+  }
+
+  private updateTomTomTrafficTiles(): void {
+    if (!this.showTomTomTraffic) {
+      this.tomTomTrafficTileKeys.clear();
+      return;
+    }
+    const [lon, lat] = this.getCenterLonLat();
+    const z = Math.max(5, Math.min(12, this.camDistToTileZoom()));
+    const [cx, cy] = this.lonLatToTile(lon, lat, z);
+    const radius = z <= 6 ? 1 : 2;
+    const nextKeys = new Set<string>();
+    for (let dy = -radius; dy <= radius; dy++) {
+      for (let dx = -radius; dx <= radius; dx++) {
+        const x = ((cx + dx) % (1 << z) + (1 << z)) % (1 << z);
+        const y = cy + dy;
+        if (y >= 0 && y < (1 << z)) nextKeys.add(`${z}/${x}/${y}`);
+      }
+    }
+    if (nextKeys.size !== this.tomTomTrafficTileKeys.size || [...nextKeys].some(key => !this.tomTomTrafficTileKeys.has(key))) {
+      this.tomTomTrafficTileKeys = nextKeys;
+      this.scheduleTomTomTrafficTileRefresh();
+      this.loadPendingTomTomTrafficTiles();
+    }
+  }
+
+  private scheduleTomTomTrafficTileRefresh(): void {
+    if (this.tomTomTrafficTileRefreshTimer) clearTimeout(this.tomTomTrafficTileRefreshTimer);
+    const generation = ++this.tomTomTrafficTileRefreshGeneration;
+    this.tomTomTrafficTileRefreshTimer = setTimeout(() => {
+      this.tomTomTrafficTileRefreshTimer = null;
+      if (generation !== this.tomTomTrafficTileRefreshGeneration || !this.showTomTomTraffic) return;
+      const maxAgeMs = 60_000;
+      const staleKeys = [...this.tomTomTrafficTileKeys].filter(key => {
+        const image = this.tomTomTrafficTiles.get(key);
+        return image && Date.now() - Number(image.dataset['fetchedAt'] || 0) >= maxAgeMs;
+      });
+      for (const key of staleKeys) this.tomTomTrafficTiles.delete(key);
+      this.loadPendingTomTomTrafficTiles();
+      this.scheduleTomTomTrafficTileRefresh();
+    }, 60_000);
+  }
+
   private renderPins(): void {
     const canvas = this.pinCanvasRef.nativeElement;
     const ctx = canvas.getContext('2d');
@@ -2492,10 +2850,21 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       }
 
       const flightData = ping.data as any;
+      const isTomTomFeature = flightData?.type === 'tomtom-incident' || flightData?.type === 'tomtom-fuel';
       const isFlight = flightData?.type === 'flight';
       const isAirport = flightData?.type === 'airport';
 
-      if (isFlight) {
+      if (isTomTomFeature) {
+        this.drawTomTomIcon(ctx, x, y, flightData?.type === 'tomtom-incident' ? '#ff4d4f' : '#57d68d', flightData?.type === 'tomtom-incident' ? '!' : '$');
+        if (this.hoveredPin?.id === ping.id || isActive) {
+          ctx.font = 'bold 12px sans-serif';
+          ctx.fillStyle = '#ffffff';
+          ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+          ctx.lineWidth = 3;
+          ctx.strokeText(ping.label, x + 9, y - 8);
+          ctx.fillText(ping.label, x + 9, y - 8);
+        }
+      } else if (isFlight) {
         this.drawPlaneIcon(ctx, x, y, flightData?.heading, isActive, flightData?.isTracked);
 
         // Show callsign on hover for flights
@@ -2566,6 +2935,23 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
         }
       }
     }
+  }
+
+  private drawTomTomIcon(ctx: CanvasRenderingContext2D, x: number, y: number, color: string, symbol: string): void {
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(x, y, 8, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1.5;
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#10202a';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(symbol, x, y + 0.5);
+    ctx.restore();
   }
 
   private drawPlaneIcon(ctx: CanvasRenderingContext2D, x: number, y: number, heading: number | undefined | null, isActive: boolean, isTracked: boolean = false): void {
@@ -2932,7 +3318,6 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   // Handle pin clicks specifically for touch events
   private handleClickOnPin(e: any): void {
     if (this.dragMoved) return;
-
     const ping = this.findPingAtEvent(e);
     if (!ping) {
       this.flightArcs = [];
@@ -2940,7 +3325,10 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       const canvas = this.globeCanvasRef.nativeElement;
       const rect = canvas.getBoundingClientRect();
       const loc = this.screenToLatLon(e.clientX - rect.left, e.clientY - rect.top);
-      if (loc) void this.promptPingSave(loc.lat, loc.lon);
+      if (loc) {
+        void this.lookupTomTomLocation(loc.lat, loc.lon);
+        void this.promptPingSave(loc.lat, loc.lon);
+      }
       return;
     }
 
@@ -2979,6 +3367,23 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     const pingData = ping.data as any;
+    if (pingData?.type === 'tomtom-incident') {
+      this.tomTomLocation = { label: pingData.incident.road || pingData.incident.description || 'Traffic incident', lat: ping.lat, lon: ping.lon };
+      this.focusPing(ping);
+      this.activeDataTab = 'general';
+      this.generalTab = 'tomtom';
+      this.showDataPanel = true;
+      void this.loadTomTomFlowSegment(ping.lat, ping.lon);
+      return;
+    }
+    if (pingData?.type === 'tomtom-fuel') {
+      this.tomTomLocation = { label: pingData.station.name, lat: ping.lat, lon: ping.lon };
+      this.focusPing(ping);
+      this.activeDataTab = 'general';
+      this.generalTab = 'tomtom';
+      this.showDataPanel = true;
+      return;
+    }
     if (pingData?.type === 'gping') {
       this.selectedPingDetail = pingData.ping as GlobeUserPing;
       this.showPingDetailPopup = true;
@@ -3062,7 +3467,10 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       const canvas = this.globeCanvasRef.nativeElement;
       const rect = canvas.getBoundingClientRect();
       const loc = this.screenToLatLon(e.clientX - rect.left, e.clientY - rect.top);
-      if (loc) void this.promptPingSave(loc.lat, loc.lon);
+      if (loc) {
+        void this.lookupTomTomLocation(loc.lat, loc.lon);
+        void this.promptPingSave(loc.lat, loc.lon);
+      }
       return;
     }
 

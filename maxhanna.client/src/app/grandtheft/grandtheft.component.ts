@@ -349,6 +349,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   explosions: Explosion[] = [];
   bloodSplats: BloodSplat[] = [];
   bloodPools: BloodPool[] = [];
+  /** Temporary blood transferred onto the player's tire contact patches. */
+  private tireBlood = { remaining: 0, age: 0, nextMarkIn: 0 };
+  private tireBloodMarkSpacing = 0.85;
   bulletSmoke: { x: number; y: number; z: number; vx: number; vy: number; vz: number; size: number; age: number; lifetime: number }[] = [];
   carSmoke: { x: number; y: number; z: number; vx: number; vy: number; vz: number; size: number; age: number; lifetime: number; colorR?: number; colorG?: number; colorB?: number }[] = [];
   deadBodies: DeadBody[] = [];
@@ -6620,14 +6623,15 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
 
   private checkNearBarberChair() {
+    // Door automation applies to anyone approaching on foot; being in a car
+    // only disables the chair prompt, not the automatic storefront door.
+    this.renderer.barberDoorOpen = !this.isPassenger && this.barberShops.some(bs =>
+      Math.hypot(this.carX - bs.doorX, this.carZ - bs.doorZ) < 10,
+    );
     if (this.isInCar || this.isPassenger || this.isSittingBarber) {
       this.nearBarberChair = false;
-      this.renderer.barberDoorOpen = false;
       return;
     }
-    this.renderer.barberDoorOpen = this.barberShops.some(bs =>
-      Math.hypot(this.carX - bs.doorX, this.carZ - bs.doorZ) < 7,
-    );
     this.nearBarberChair = this.barberShops.some(bs => {
       const dx = this.carX - (bs.chairX + 0.15), dz = this.carZ - (bs.chairZ - 0.55);
       return Math.sqrt(dx * dx + dz * dz) < 2.2;
@@ -6921,6 +6925,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         });
         ped.health -= Math.max(18, Math.min(70, 18 + actualSpeed * 1.5));
         this.spawnBlood(ped.x, 1.0, ped.z, Math.cos(angle), 0.2, Math.sin(angle));
+        if (actualSpeed >= 4) {
+          // Carry blood briefly on the tires; mark placement runs every frame so
+          // a moving car leaves a spaced, short-lived pair of wheel-track stains.
+          this.tireBlood.remaining = 1.8;
+          this.tireBlood.age = 0;
+          this.tireBlood.nextMarkIn = 0;
+        }
         if (actualSpeed >= 8) {
           this.spawnBlood(ped.x, 1.25, ped.z, Math.cos(angle), 0.35, Math.sin(angle), true);
         }
@@ -7110,6 +7121,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.showStoreToast('🚪 You were pulled out of the car!');
   }
   private updateProjectiles(dt: number) {
+    this.updateTireBloodMarks(dt);
     this.tracers = this.tracers.filter(t => (t.age += dt) < t.lifetime);
     this.muzzleFlashes = this.muzzleFlashes.filter(m => (m.age += dt) < m.lifetime);
     const GRAVITY = 9.8;
@@ -7173,6 +7185,39 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       if (reaction.age >= reaction.duration) this.npcImpactReactions.delete(id);
     }
   }
+  /** Spawn blood on the ground at both wheel paths while fresh tire blood remains. */
+  private updateTireBloodMarks(dt: number) {
+    const blood = this.tireBlood;
+    if (blood.remaining <= 0) return;
+    blood.remaining = Math.max(0, blood.remaining - dt);
+    blood.age += dt;
+    blood.nextMarkIn -= dt;
+    if (blood.nextMarkIn > 0 || !this.isInCar || this.vehicleType === 'plane' || this.vehicleType === 'helicopter' || this.vehicleType === 'boat') return;
+
+    const speed = Math.hypot(this.carVx, this.carVz);
+    if (speed < 0.8) return;
+    const sinYaw = Math.sin(this.carYaw);
+    const cosYaw = Math.cos(this.carYaw);
+    const wheelTrack = 1.15;
+    // Place marks a little behind the axle so they read as tire tracks left in
+    // the direction the vehicle traveled, rather than blood smeared ahead.
+    const rearX = this.carX - sinYaw * 1.05;
+    const rearZ = this.carZ - cosYaw * 1.05;
+    for (const side of [-1, 1]) {
+      const x = rearX + cosYaw * wheelTrack * side;
+      const z = rearZ - sinYaw * wheelTrack * side;
+      this.bloodPools.push({
+        x,
+        z,
+        age: 0,
+        lifetime: Math.min(2.4, Math.max(0.8, blood.remaining + 0.6)),
+        maxRadius: 0.28,
+        variant: (Math.abs(Math.floor(x * 17 + z * 31)) % 4),
+      });
+    }
+    blood.nextMarkIn = this.tireBloodMarkSpacing / speed;
+  }
+
   private updateRemoteShooting(dt: number) {
     for (const p of this.otherPlayers) {
       if (!p.isShooting) { p.remoteShootTimer = 0; continue; }
@@ -9018,8 +9063,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       ctx.stroke();
       ctx.lineCap = 'butt';
     }
-    // Barbershops — pulsing pink scissors markers. Refresh from the renderer's
-    // actual placement data so the map never points at a shop that was culled.
+    // Barbershops — persistent pink scissors landmarks, loaded from the same
+    // deterministic chunk placements used by the world renderer.
     if (!this._mapBarberShopsScanned || Math.hypot(this.carX - this._mapBarberCenterX, this.carZ - this._mapBarberCenterZ) > 40) {
       this._mapBarberCenterX = this.carX;
       this._mapBarberCenterZ = this.carZ;
@@ -9042,6 +9087,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText('✂', bx, by + 0.5);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 7px sans-serif';
+      ctx.fillText('BARBER', bx, by + 12);
       ctx.textAlign = 'start';
       ctx.textBaseline = 'alphabetic';
     }

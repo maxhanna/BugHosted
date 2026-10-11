@@ -18,6 +18,7 @@ builder.Services.Configure<HostOptions>(o => o.BackgroundServiceExceptionBehavio
 
 builder.Services.AddMySqlDataSource(builder.Configuration.GetValue<string>("ConnectionStrings:maxhanna")!);
 builder.Services.AddControllers();
+builder.Services.AddMemoryCache();
 builder.Services.AddAuthentication(options =>
 {
   options.DefaultAuthenticateScheme = SessionAuthenticationHandler.SchemeName;

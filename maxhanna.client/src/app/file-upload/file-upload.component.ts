@@ -263,7 +263,7 @@ export class FileUploadComponent implements AfterViewInit {
       );
       this.uploadFileList = keepFrom.slice(0, this.maxSelectedFiles);
     }
-    if (this.getOverallProgress() > 0) {
+    if (this.isUploading || this.getOverallProgress() > 0) {
       return;
     }
     if (this.areAllFilesDuplicates()) {
@@ -298,15 +298,28 @@ export class FileUploadComponent implements AfterViewInit {
     }
 
     // Require a real logged-in user AND a valid session token (the encrypted
-    // user id) before anything leaves the client.
+    // user id) before anything leaves the client. Lock synchronously so rapid
+    // repeated clicks cannot launch parallel upload queues while the token loads.
     const userId = this.userId;
     if (userId <= 0) {
       this.userNotificationEvent.emit("You must be logged in to upload files.");
       return;
     }
-    const sessionToken =
-      (await this.inputtedParentRef?.getSessionToken()) ?? "";
+    if (this.isUploading) return;
+    this.isUploading = true;
+    let sessionToken = "";
+    try {
+      sessionToken = (await this.inputtedParentRef?.getSessionToken()) ?? "";
+    } catch (error) {
+      this.isUploading = false;
+      this.userNotificationEvent.emit(
+        "Could not verify your session. Please sign in again to upload files.",
+      );
+      console.error("Could not get upload session token:", error);
+      return;
+    }
     if (!sessionToken) {
+      this.isUploading = false;
       this.userNotificationEvent.emit(
         "Your session has expired. Please sign in again to upload files.",
       );
@@ -314,7 +327,6 @@ export class FileUploadComponent implements AfterViewInit {
     }
 
     this.nonDupUploadedCount = 0;
-    this.isUploading = true;
     this.displayFileUploadOptions = false;
     this.displayFileUploadTopics = false;
 
@@ -359,51 +371,123 @@ export class FileUploadComponent implements AfterViewInit {
 
     const directoryInput = (this.currentDirectory || "").replace(/\/+$/, "");
 
-    try {
-      filesArray.forEach((file) => {
+    const compress =
+      (!this.disableFileCompression &&
+        this.compressCheckbox?.nativeElement?.checked) ??
+      true;
+    await this.uploadFilesSequentially(
+      filesArray,
+      directoryInput || undefined,
+      isPublic,
+      userId,
+      sessionToken,
+      compress,
+    );
+  }
+
+  /** Start each request only after the previous file has reached a terminal
+   * response/error. This prevents large selections from flooding the server. */
+  private async uploadFilesSequentially(
+    files: File[],
+    directory: string | undefined,
+    isPublic: boolean,
+    userId: number,
+    sessionToken: string,
+    compress: boolean,
+  ): Promise<void> {
+    for (const file of files) {
+      if (!this.isUploading) break;
+      await this.uploadSingleFile(
+        file,
+        files,
+        directory,
+        isPublic,
+        userId,
+        sessionToken,
+        compress,
+      );
+    }
+  }
+
+  /** Resolves only after this file's response or failure has been processed. */
+  private uploadSingleFile(
+    file: File,
+    files: File[],
+    directory: string | undefined,
+    isPublic: boolean,
+    userId: number,
+    sessionToken: string,
+    compress: boolean,
+  ): Promise<void> {
+    return new Promise((resolve) => {
+      let responseReceived = false;
+      let finished = false;
+      const finish = () => {
+        if (finished) return;
+        finished = true;
+        resolve();
+      };
+      const fail = async (error: any) => {
+        if (finished) return;
+        console.error(`Error uploading ${file.name}:`, error);
+        this.uploadErrors[file.name] =
+          error?.error?.message || error?.message || "Upload failed";
+        this.uploadProgress[file.name] = -1;
+        try {
+          await this.lastFileUploadedCheck(files, this.uploadedFileList.length);
+        } finally {
+          finish();
+        }
+      };
+
+      try {
         const formData = new FormData();
         formData.append("files", file);
-        const compress =
-          (!this.disableFileCompression &&
-            this.compressCheckbox?.nativeElement?.checked) ??
-          true;
         const uploadReq = this.fileService.uploadFileWithProgress(
           formData,
-          directoryInput || undefined,
+          directory,
           isPublic,
           userId,
           compress,
           sessionToken,
         );
-        if (uploadReq) {
-          uploadReq.subscribe({
-            next: async (event) => {
-              if (event.type === HttpEventType.UploadProgress) {
-                this.uploadProgress[file.name] = Math.round(
-                  100 * (event.loaded / event.total!),
-                );
-              } else if (event.type === HttpEventType.Response) {
-                this.handleUploadedFile(event, filesArray);
-              }
-            },
-            error: (error) => {
-              console.error(`Error uploading ${file.name}:`, error);
-              const msg =
-                error?.error?.message || error?.message || "Upload failed";
-              this.uploadErrors[file.name] = msg;
-              this.uploadProgress[file.name] = -1;
-              this.lastFileUploadedCheck(
-                filesArray,
-                this.uploadedFileList.length,
-              );
-            },
-          });
+        if (!uploadReq) {
+          void fail(new Error("Upload could not be started"));
+          return;
         }
-      });
-    } catch (ex) {
-      console.log(ex);
-      this.userNotificationEvent.emit((ex as Error).message);
-    }
+        uploadReq.subscribe({
+          next: (event) => {
+            if (event.type === HttpEventType.UploadProgress) {
+              if (event.total) {
+                this.uploadProgress[file.name] = Math.round(
+                  100 * (event.loaded / event.total),
+                );
+              }
+            } else if (event.type === HttpEventType.Response) {
+              responseReceived = true;
+              this.uploadProgress[file.name] = 100;
+              void this.handleUploadedFile(event, files)
+                .catch((error) => {
+                  // The HTTP upload succeeded; report follow-up processing
+                  // trouble without allowing it to stall the remaining queue.
+                  console.error(`Error processing ${file.name}:`, error);
+                })
+                .finally(finish);
+            }
+          },
+          error: (error) => {
+            if (!responseReceived) void fail(error);
+          },
+          complete: () => {
+            if (!responseReceived) {
+              void fail(new Error("Upload ended without a response"));
+            }
+          },
+        });
+      } catch (error) {
+        void fail(error);
+      }
+    });
   }
 
   private async checkNames() {
@@ -464,7 +548,9 @@ export class FileUploadComponent implements AfterViewInit {
         });
       }
 
+      const firstUploadedFile = this.uploadedFileList[0];
       if (
+        firstUploadedFile &&
         this.userId > 0 &&
         this.currentDirectory.toLowerCase().includes("meme")
       ) {
@@ -473,19 +559,21 @@ export class FileUploadComponent implements AfterViewInit {
           this.user?.username ??
             this.inputtedParentRef?.user?.username ??
             "Anonymous",
-          this.uploadedFileList[0].id,
+          firstUploadedFile.id,
           this.uploadedFileList.length,
         );
       }
       this.userUploadFinishedEvent.emit(this.uploadedFileList);
       const msg = `Uploaded ${fileUploadCount} file${fileUploadCount > 1 ? "s" : ""} to ${this.currentDirectory}.`;
       this.userNotificationEvent.emit(msg);
-      await this.userEventService.insertUserEvent(
-        this.userId,
-        "file_upload",
-        msg,
-        this.uploadedFileList[0].id,
-      );
+      if (firstUploadedFile) {
+        await this.userEventService.insertUserEvent(
+          this.userId,
+          "file_upload",
+          msg,
+          firstUploadedFile.id,
+        );
+      }
       if (this.duplicateFileNames.length > 0) {
         this.userNotificationEvent.emit(
           `Skipped duplicates: ${this.duplicateFileNames.join(", ")}`,
