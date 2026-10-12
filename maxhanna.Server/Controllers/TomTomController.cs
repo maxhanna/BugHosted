@@ -39,7 +39,7 @@ public sealed class TomTomController : ControllerBase
             return BadRequest("Tile coordinates are outside the selected zoom.");
 
         var apiKey = GetApiKey();
-        if (apiKey is null) return StatusCode(StatusCodes.Status503ServiceUnavailable, "TomTom API key is not configured on the server.");
+        if (apiKey is null) return StatusCode(StatusCodes.Status503ServiceUnavailable, new { error = "TomTom API key is not configured on the server." });
 
         var url = $"{TomTomRoot}/traffic/map/4/tile/flow/relative0/{z}/{x}/{y}.png?key={Uri.EscapeDataString(apiKey)}&tileSize=256";
         try
@@ -48,7 +48,7 @@ public sealed class TomTomController : ControllerBase
             client.Timeout = TimeSpan.FromSeconds(15);
             using var response = await client.GetAsync(url, cancellationToken);
             if (!response.IsSuccessStatusCode)
-                return StatusCode((int)response.StatusCode, "TomTom traffic tile request failed.");
+                return TomTomErrorResponse(response);
 
             var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
             Response.Headers.CacheControl = "no-store";
@@ -56,11 +56,11 @@ public sealed class TomTomController : ControllerBase
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
-            return StatusCode(StatusCodes.Status504GatewayTimeout, "TomTom traffic tile request timed out.");
+            return StatusCode(StatusCodes.Status504GatewayTimeout, new { error = "TomTom traffic tile request timed out." });
         }
         catch (HttpRequestException)
         {
-            return StatusCode(StatusCodes.Status502BadGateway, "TomTom traffic tile service is unavailable.");
+            return StatusCode(StatusCodes.Status502BadGateway, new { error = "TomTom traffic tile service is unavailable." });
         }
     }
 
@@ -76,7 +76,7 @@ public sealed class TomTomController : ControllerBase
             return Task.FromResult<IActionResult>(BadRequest("Invalid incident search bounds."));
 
         var bbox = string.Join(',', new[] { minLon, minLat, maxLon, maxLat }.Select(FormatCoordinate));
-        const string fields = "{incidents{type,geometry,properties{iconCategory,magnitudeOfDelay,events,from,to,length,delay,roadNumbers,timeValidity,probabilityOfOccurrence}}}";
+        const string fields = "{incidents{type,geometry{type,coordinates},properties{id,iconCategory,magnitudeOfDelay,events{description,code,iconCategory},from,to,length,delay,roadNumbers,timeValidity,probabilityOfOccurrence}}}";
         var url = $"{TomTomRoot}/traffic/services/5/incidentDetails?bbox={Uri.EscapeDataString(bbox)}&fields={Uri.EscapeDataString(fields)}&language=en-US&timeValidityFilter=present";
         return GetJson(url, $"incidents:{bbox}", cancellationToken);
     }
@@ -154,7 +154,7 @@ public sealed class TomTomController : ControllerBase
             client.Timeout = TimeSpan.FromSeconds(15);
             using var response = await client.GetAsync(keyedUrl, cancellationToken);
             if (!response.IsSuccessStatusCode)
-                return StatusCode((int)response.StatusCode, "TomTom data request failed.");
+                return TomTomErrorResponse(response);
 
             var json = await response.Content.ReadAsStringAsync(cancellationToken);
             var cacheControl = response.Headers.CacheControl;
@@ -172,16 +172,32 @@ public sealed class TomTomController : ControllerBase
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
-            return StatusCode(StatusCodes.Status504GatewayTimeout, "TomTom data request timed out.");
+            return StatusCode(StatusCodes.Status504GatewayTimeout, new { error = "TomTom data request timed out." });
         }
         catch (HttpRequestException)
         {
-            return StatusCode(StatusCodes.Status502BadGateway, "TomTom service is unavailable.");
+            return StatusCode(StatusCodes.Status502BadGateway, new { error = "TomTom service is unavailable." });
         }
         finally
         {
             JsonCacheGate.Release();
         }
+    }
+
+    private IActionResult TomTomErrorResponse(HttpResponseMessage response)
+    {
+        Response.Headers.CacheControl = "no-store";
+        var explanation = response.StatusCode switch
+        {
+            System.Net.HttpStatusCode.BadRequest => "TomTom rejected the request parameters.",
+            System.Net.HttpStatusCode.Forbidden => "TomTom denied this request. Check that the configured API key is valid and enabled for this product.",
+            System.Net.HttpStatusCode.Unauthorized => "TomTom did not authorize the request. Check the configured API key.",
+            (System.Net.HttpStatusCode)429 => "TomTom rate limit or quota was reached.",
+            System.Net.HttpStatusCode.ServiceUnavailable or System.Net.HttpStatusCode.BadGateway => "TomTom is temporarily unavailable.",
+            _ => "TomTom could not complete the request."
+        };
+        var message = $"{explanation} (HTTP {(int)response.StatusCode}).";
+        return StatusCode((int)response.StatusCode, new { error = message });
     }
 
     private JsonResult CachedJson(string json)

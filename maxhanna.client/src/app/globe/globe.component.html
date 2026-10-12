@@ -235,7 +235,7 @@
           <div class="pin-toggle-row"><label class="pin-toggle"><span class="pin-toggle-label">Traffic incidents</span><input type="checkbox" [checked]="showTomTomIncidents" (change)="setTomTomIncidents($any($event.target).checked)"><span class="pin-toggle-slider"></span></label></div>
           <div class="pin-toggle-row"><label class="pin-toggle"><span class="pin-toggle-label">Gas stations near view</span><input type="checkbox" [checked]="showTomTomFuel" (change)="setTomTomFuel($any($event.target).checked)"><span class="pin-toggle-slider"></span></label></div>
           <div class="tomtom-status" *ngIf="tomTomLoading">Loading TomTom data…</div>
-          <div class="tomtom-error" *ngIf="tomTomError">{{ tomTomError }}</div>
+          <div class="tomtom-error" *ngIf="tomTomError" role="alert">{{ tomTomError }}</div>
           <div class="tomtom-location" *ngIf="tomTomLocation"><strong>Selected location</strong><div>{{ tomTomLocation.label }}</div><small>{{ tomTomLocation.lat | number:'1.4-4' }}, {{ tomTomLocation.lon | number:'1.4-4' }}</small></div>
           <div class="tomtom-flow" *ngIf="tomTomFlowSegment?.currentSpeed != null">
             <strong>Road flow</strong>
@@ -246,6 +246,7 @@
             <div *ngIf="tomTomFlowSegment.roadClosure">Road closed</div>
           </div>
           <div class="tomtom-counts">{{ tomTomIncidents.length }} incidents · {{ tomTomFuelStations.length }} nearby stations</div>
+          <button type="button" class="tomtom-retry" *ngIf="showTomTomTraffic && tomTomError.startsWith('Traffic flow is unavailable:')" (click)="retryTomTomTraffic()">Retry traffic flow</button>
         </div>
       </ng-container>
       <ng-container *ngIf="generalTab === 'water'">

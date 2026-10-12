@@ -220,9 +220,12 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   private tomTomReverseRequestStamp = 0;
   private tomTomFlowRequestStamp = 0;
   private tomTomTrafficTileKeys = new Set<string>();
-  private tomTomTrafficTiles = new Map<string, HTMLImageElement>();
+  private tomTomTrafficTiles = new Map<string, { bitmap: ImageBitmap; fetchedAt: number }>();
   private tomTomTrafficTileCacheOrder: string[] = [];
   private tomTomPendingTrafficTiles = new Set<string>();
+  private tomTomTrafficTileFailures = new Map<string, number>();
+  private tomTomTrafficTileRetryAt = new Map<string, number>();
+  private tomTomTrafficTileRetryTimer: ReturnType<typeof setTimeout> | null = null;
   private tomTomTrafficTileRefreshTimer: ReturnType<typeof setTimeout> | null = null;
   private tomTomTrafficTileRefreshGeneration = 0;
   private readonly TOMTOM_TRAFFIC_TILE_CACHE_LIMIT = 64;
@@ -429,6 +432,8 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.stopPingTour();
     this.stopPingFeed();
     if (this.tomTomTrafficTileRefreshTimer) clearTimeout(this.tomTomTrafficTileRefreshTimer);
+    if (this.tomTomTrafficTileRetryTimer) clearTimeout(this.tomTomTrafficTileRetryTimer);
+    for (const tile of this.tomTomTrafficTiles.values()) tile.bitmap.close();
     this.tomTomTrafficTileRefreshGeneration++;
     this.tomTomRequestStamp++;
     this.tomTomReverseRequestStamp++;
@@ -1677,8 +1682,10 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.tomTomLastFetchAt = Date.now();
     const requestStamp = ++this.tomTomRequestStamp;
     this.tomTomFetchInProgress = true;
-    this.tomTomLoading = true;
-    this.tomTomError = '';
+    this.ngZone.run(() => {
+      this.tomTomLoading = true;
+      this.tomTomError = '';
+    });
     const [centerLon, centerLat] = this.getCenterLonLat();
     const longitudeSpan = Math.min(2.5, Math.max(0.1, this.visibleCapDeg() * 2));
     const latitudeSpan = Math.min(2.5, Math.max(0.1, this.visibleCapDeg() * 2));
@@ -1695,11 +1702,11 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.showTomTomIncidents && incidentMaxLon > incidentMinLon && maxLat > minLat) {
       const query = new URLSearchParams({ minLon: String(incidentMinLon), minLat: String(minLat), maxLon: String(incidentMaxLon), maxLat: String(maxLat) });
       requests.push(fetch(`/tomtom/incidents?${query}`).then(async response => {
-        if (!response.ok) throw new Error('Traffic incident lookup failed.');
+        if (!response.ok) throw await this.tomTomResponseError(response, 'Traffic incident lookup failed.');
         const data = await response.json();
         const features = data?.incidents || data?.features || [];
         if (requestStamp !== this.tomTomRequestStamp) return;
-        this.tomTomIncidents = features.flatMap((feature: any, index: number) => {
+        const incidents = features.flatMap((feature: any, index: number) => {
           const coordinates = feature?.geometry?.coordinates;
           let lon = Number(coordinates?.[0]);
           let lat = Number(coordinates?.[1]);
@@ -1719,16 +1726,17 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
             description: event?.description || event?.code || 'Traffic incident',
           }];
         });
+        this.ngZone.run(() => this.tomTomIncidents = incidents);
       }));
     }
 
     if (this.showTomTomFuel) {
       const query = new URLSearchParams({ lat: String(centerLat), lon: String(centerLon), radius: '12000' });
       requests.push(fetch(`/tomtom/nearby-fuel?${query}`).then(async response => {
-        if (!response.ok) throw new Error('Nearby gas-station lookup failed.');
+        if (!response.ok) throw await this.tomTomResponseError(response, 'Nearby gas-station lookup failed.');
         const data = await response.json();
         if (requestStamp !== this.tomTomRequestStamp) return;
-        this.tomTomFuelStations = (data?.results || []).flatMap((result: any, index: number) => {
+        const stations = (data?.results || []).flatMap((result: any, index: number) => {
           const lat = Number(result?.position?.lat);
           const lon = Number(result?.position?.lon);
           if (!Number.isFinite(lat) || !Number.isFinite(lon)) return [];
@@ -1739,18 +1747,33 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
             address: result.address?.freeformAddress,
           }];
         });
+        this.ngZone.run(() => this.tomTomFuelStations = stations);
       }));
     }
 
     void Promise.all(requests).catch(error => {
-      if (requestStamp === this.tomTomRequestStamp) this.tomTomError = error instanceof Error ? error.message : 'TomTom data is unavailable.';
+      if (requestStamp === this.tomTomRequestStamp) {
+        const message = error instanceof Error ? error.message : 'TomTom data is unavailable.';
+        this.ngZone.run(() => this.tomTomError = message);
+      }
     }).finally(() => {
       if (requestStamp === this.tomTomRequestStamp) {
         this.tomTomFetchInProgress = false;
-        this.tomTomLoading = false;
+        this.ngZone.run(() => this.tomTomLoading = false);
         if (this.showTomTomIncidents || this.showTomTomFuel) this.tomTomLastFetchAt = Date.now();
       }
     });
+  }
+
+  private async tomTomResponseError(response: Response, fallback: string): Promise<Error> {
+    try {
+      const body = await response.json();
+      if (typeof body?.error === 'string' && body.error.trim()) return new Error(body.error);
+      if (typeof body?.message === 'string' && body.message.trim()) return new Error(body.message);
+    } catch {
+      // Fall through to an HTTP status message if the error body is not JSON.
+    }
+    return new Error(`${fallback} (HTTP ${response.status}).`);
   }
 
   private async lookupTomTomLocation(lat: number, lon: number): Promise<void> {
@@ -1772,20 +1795,22 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.showDataPanel = true;
     try {
       const response = await fetch(`/tomtom/reverse-geocode?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}`);
-      if (!response.ok) throw new Error('Reverse geocoding is unavailable.');
+      if (!response.ok) throw await this.tomTomResponseError(response, 'Reverse geocoding is unavailable.');
       const data = await response.json();
       if (requestStamp !== this.tomTomReverseRequestStamp) return;
       const address = data?.addresses?.[0]?.address;
       const label = address?.freeformAddress || address?.municipality || address?.country || `${lat.toFixed(4)}°, ${lon.toFixed(4)}°`;
       this.tomTomReverseCache.set(key, label);
       while (this.tomTomReverseCache.size > 100) this.tomTomReverseCache.delete(this.tomTomReverseCache.keys().next().value!);
-      this.tomTomLocation = { label, lat, lon };
+      this.ngZone.run(() => this.tomTomLocation = { label, lat, lon });
       this.activeDataTab = 'general';
       this.generalTab = 'tomtom';
       this.showDataPanel = true;
     } catch (error) {
-      if (requestStamp === this.tomTomReverseRequestStamp)
-        this.tomTomError = error instanceof Error ? error.message : 'Reverse geocoding is unavailable.';
+      if (requestStamp === this.tomTomReverseRequestStamp) {
+        const message = error instanceof Error ? error.message : 'Reverse geocoding is unavailable.';
+        this.ngZone.run(() => this.tomTomError = message);
+      }
     }
   }
 
@@ -1795,14 +1820,25 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     try {
       const zoom = Math.max(5, Math.min(18, this.camDistToTileZoom()));
       const response = await fetch(`/tomtom/traffic/flow-segment?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&zoom=${zoom}`);
-      if (!response.ok) throw new Error('Road traffic details are unavailable.');
+      if (!response.ok) throw await this.tomTomResponseError(response, 'Road traffic details are unavailable.');
       const data = await response.json();
       if (requestStamp !== this.tomTomFlowRequestStamp) return;
-      this.tomTomFlowSegment = data?.flowSegmentData || data;
+      this.ngZone.run(() => this.tomTomFlowSegment = data?.flowSegmentData || data);
     } catch (error) {
-      if (requestStamp === this.tomTomFlowRequestStamp)
-        this.tomTomError = error instanceof Error ? error.message : 'Road traffic details are unavailable.';
+      if (requestStamp === this.tomTomFlowRequestStamp) {
+        const message = error instanceof Error ? error.message : 'Road traffic details are unavailable.';
+        this.ngZone.run(() => this.tomTomError = message);
+      }
     }
+  }
+
+  retryTomTomTraffic(): void {
+    this.tomTomError = '';
+    this.tomTomTrafficTileFailures.clear();
+    this.tomTomTrafficTileRetryAt.clear();
+    if (this.tomTomTrafficTileRetryTimer) clearTimeout(this.tomTomTrafficTileRetryTimer);
+    this.tomTomTrafficTileRetryTimer = null;
+    this.loadPendingTomTomTrafficTiles();
   }
 
   setTomTomTraffic(enabled: boolean): void {
@@ -1811,13 +1847,25 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       this.updateTomTomTrafficTiles();
       this.scheduleTomTomTrafficTileRefresh();
     }
+    if (enabled) {
+      this.tomTomError = '';
+      this.tomTomTrafficTileRetryAt.clear();
+      this.tomTomTrafficTileFailures.clear();
+      this.updateTomTomTrafficTiles();
+      this.scheduleTomTomTrafficTileRefresh();
+    }
     if (!enabled) {
       if (this.tomTomTrafficTileRefreshTimer) clearTimeout(this.tomTomTrafficTileRefreshTimer);
+      if (this.tomTomTrafficTileRetryTimer) clearTimeout(this.tomTomTrafficTileRetryTimer);
       this.tomTomTrafficTileRefreshTimer = null;
+      this.tomTomTrafficTileRetryTimer = null;
       this.tomTomTrafficTileRefreshGeneration++;
       this.tomTomTrafficTileKeys.clear();
+      for (const tile of this.tomTomTrafficTiles.values()) tile.bitmap.close();
       this.tomTomTrafficTiles.clear();
       this.tomTomTrafficTileCacheOrder = [];
+      this.tomTomTrafficTileFailures.clear();
+      this.tomTomTrafficTileRetryAt.clear();
     }
   }
 
@@ -2697,17 +2745,16 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!ctx) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     if (!this.showTomTomTraffic) return;
-    this.loadPendingTomTomTrafficTiles();
 
     for (const key of this.tomTomTrafficTileKeys) {
-      const image = this.tomTomTrafficTiles.get(key);
-      if (!image) continue;
+      const tile = this.tomTomTrafficTiles.get(key);
+      if (!tile) continue;
       const [z, x, y] = key.split('/').map(Number);
-      this.drawTomTomTrafficTile(ctx, image, z, x, y, canvas.width, canvas.height);
+      this.drawTomTomTrafficTile(ctx, tile.bitmap, z, x, y, canvas.width, canvas.height);
     }
   }
 
-  private drawTomTomTrafficTile(ctx: CanvasRenderingContext2D, image: HTMLImageElement, z: number, x: number, y: number, width: number, height: number): void {
+  private drawTomTomTrafficTile(ctx: CanvasRenderingContext2D, image: ImageBitmap, z: number, x: number, y: number, width: number, height: number): void {
     const n = Math.pow(2, z);
     const latMin = Math.atan(Math.sinh(Math.PI * (1 - 2 * (y + 1) / n))) * 180 / Math.PI;
     const latMax = Math.atan(Math.sinh(Math.PI * (1 - 2 * y / n))) * 180 / Math.PI;
@@ -2747,34 +2794,77 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   private loadTomTomTrafficTile(key: string): void {
     const [z, x, y] = key.split('/').map(Number);
     this.tomTomPendingTrafficTiles.add(key);
-    const image = new Image();
-    image.onload = () => {
-      this.tomTomPendingTrafficTiles.delete(key);
-      image.dataset['fetchedAt'] = String(Date.now());
-      this.tomTomTrafficTiles.set(key, image);
-      this.tomTomTrafficTileCacheOrder = this.tomTomTrafficTileCacheOrder.filter(cached => cached !== key);
-      this.tomTomTrafficTileCacheOrder.push(key);
-      while (this.tomTomTrafficTileCacheOrder.length > this.TOMTOM_TRAFFIC_TILE_CACHE_LIMIT) {
-        const expiredKey = this.tomTomTrafficTileCacheOrder.shift();
-        if (expiredKey) this.tomTomTrafficTiles.delete(expiredKey);
-      }
-      this.loadPendingTomTomTrafficTiles();
-    };
-    image.onerror = () => {
-      this.tomTomPendingTrafficTiles.delete(key);
-      this.loadPendingTomTomTrafficTiles();
-    };
-    image.src = `/tomtom/traffic/flow-tile?z=${z}&x=${x}&y=${y}`;
+    void fetch(`/tomtom/traffic/flow-tile?z=${z}&x=${x}&y=${y}`)
+      .then(async response => {
+        if (!response.ok) throw await this.tomTomResponseError(response, 'Traffic flow tile request failed');
+        const contentType = response.headers.get('content-type') || '';
+        if (!contentType.toLowerCase().includes('image/'))
+          throw new Error(`TomTom traffic flow returned an unexpected response (${contentType || 'unknown content type'}).`);
+        return createImageBitmap(await response.blob());
+      })
+      .then(bitmap => {
+        this.tomTomPendingTrafficTiles.delete(key);
+        if (!this.showTomTomTraffic || !this.tomTomTrafficTileKeys.has(key)) {
+          bitmap.close();
+          this.loadPendingTomTomTrafficTiles();
+          return;
+        }
+        const previous = this.tomTomTrafficTiles.get(key);
+        previous?.bitmap.close();
+        this.tomTomTrafficTiles.set(key, { bitmap, fetchedAt: Date.now() });
+        if (this.tomTomError.startsWith('Traffic flow is unavailable:'))
+          this.ngZone.run(() => this.tomTomError = '');
+        this.tomTomTrafficTileFailures.delete(key);
+        this.tomTomTrafficTileRetryAt.delete(key);
+        this.tomTomTrafficTileCacheOrder = this.tomTomTrafficTileCacheOrder.filter(cached => cached !== key);
+        this.tomTomTrafficTileCacheOrder.push(key);
+        while (this.tomTomTrafficTileCacheOrder.length > this.TOMTOM_TRAFFIC_TILE_CACHE_LIMIT) {
+          const expiredKey = this.tomTomTrafficTileCacheOrder.shift();
+          if (expiredKey) {
+            this.tomTomTrafficTiles.get(expiredKey)?.bitmap.close();
+            this.tomTomTrafficTiles.delete(expiredKey);
+          }
+        }
+        this.loadPendingTomTomTrafficTiles();
+      })
+      .catch(error => {
+        this.tomTomPendingTrafficTiles.delete(key);
+        const failures = (this.tomTomTrafficTileFailures.get(key) || 0) + 1;
+        this.tomTomTrafficTileFailures.set(key, failures);
+        const retryDelay = Math.min(5 * 60_000, 15_000 * 2 ** Math.min(failures - 1, 4));
+        this.tomTomTrafficTileRetryAt.set(key, Date.now() + retryDelay);
+        const detail = error instanceof Error ? error.message : 'Unknown error';
+        this.ngZone.run(() => this.tomTomError = `Traffic flow is unavailable: ${detail}`);
+        this.loadPendingTomTomTrafficTiles();
+        this.scheduleTomTomTrafficTileRetry();
+      });
   }
 
   private loadPendingTomTomTrafficTiles(): void {
     const available = this.TOMTOM_MAX_TRAFFIC_TILE_REQUESTS - this.tomTomPendingTrafficTiles.size;
     if (available <= 0) return;
+    const now = Date.now();
     for (const key of this.tomTomTrafficTileKeys) {
       if (this.tomTomPendingTrafficTiles.has(key) || this.tomTomTrafficTiles.has(key)) continue;
+      if ((this.tomTomTrafficTileRetryAt.get(key) || 0) > now) continue;
       this.loadTomTomTrafficTile(key);
       if (this.tomTomPendingTrafficTiles.size >= this.TOMTOM_MAX_TRAFFIC_TILE_REQUESTS) break;
     }
+  }
+
+  private scheduleTomTomTrafficTileRetry(): void {
+    if (this.tomTomTrafficTileRetryTimer || !this.showTomTomTraffic) return;
+    const now = Date.now();
+    const pendingRetryTimes = [...this.tomTomTrafficTileKeys]
+      .map(key => this.tomTomTrafficTileRetryAt.get(key))
+      .filter((retryAt): retryAt is number => retryAt !== undefined && retryAt > now);
+    if (!pendingRetryTimes.length) return;
+    const delay = Math.min(...pendingRetryTimes) - now;
+    this.tomTomTrafficTileRetryTimer = setTimeout(() => {
+      this.tomTomTrafficTileRetryTimer = null;
+      this.loadPendingTomTomTrafficTiles();
+      this.scheduleTomTomTrafficTileRetry();
+    }, delay);
   }
 
   private updateTomTomTrafficTiles(): void {
@@ -2785,7 +2875,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     const [lon, lat] = this.getCenterLonLat();
     const z = Math.max(5, Math.min(12, this.camDistToTileZoom()));
     const [cx, cy] = this.lonLatToTile(lon, lat, z);
-    const radius = z <= 6 ? 1 : 2;
+    const radius = 1;
     const nextKeys = new Set<string>();
     for (let dy = -radius; dy <= radius; dy++) {
       for (let dx = -radius; dx <= radius; dx++) {
@@ -2798,6 +2888,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       this.tomTomTrafficTileKeys = nextKeys;
       this.scheduleTomTomTrafficTileRefresh();
       this.loadPendingTomTomTrafficTiles();
+      this.scheduleTomTomTrafficTileRetry();
     }
   }
 
@@ -2809,10 +2900,13 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       if (generation !== this.tomTomTrafficTileRefreshGeneration || !this.showTomTomTraffic) return;
       const maxAgeMs = 60_000;
       const staleKeys = [...this.tomTomTrafficTileKeys].filter(key => {
-        const image = this.tomTomTrafficTiles.get(key);
-        return image && Date.now() - Number(image.dataset['fetchedAt'] || 0) >= maxAgeMs;
+        const tile = this.tomTomTrafficTiles.get(key);
+        return tile && Date.now() - tile.fetchedAt >= maxAgeMs;
       });
-      for (const key of staleKeys) this.tomTomTrafficTiles.delete(key);
+      for (const key of staleKeys) {
+        this.tomTomTrafficTiles.get(key)?.bitmap.close();
+        this.tomTomTrafficTiles.delete(key);
+      }
       this.loadPendingTomTomTrafficTiles();
       this.scheduleTomTomTrafficTileRefresh();
     }, 60_000);
