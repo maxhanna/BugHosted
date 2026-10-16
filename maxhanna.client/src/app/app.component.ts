@@ -70,7 +70,7 @@ export const APP_COMPONENT_NAMES = [
   'SpaceEvolves', 'Planter', 'Weaver', 'Recipe', 'eBooks',
   'Notifications', 'UpdateUserSettings', 'User-Events', 'Paint',
   'Moderator', 'Conversion', 'Marbles', 'Emulator', 'Chat',
-  'DigCraft', 'GrandTheft', 'Racing', 'Crypto-Hub',
+  'DigCraft', 'GrandTheft', 'Racing', 'Crypto-Hub', 'D2Survivors',
 ] as const;
 export type AppComponentName = (typeof APP_COMPONENT_NAMES)[number];
 export function isAppComponentName(value: string): value is AppComponentName {
@@ -104,6 +104,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     'MtgArenaComponent',
     'GrandTheftComponent',
     'RacingComponent',
+    'D2SurvivorsComponent',
     'SpaceEvolvesComponent',
     'MarblesComponent',
     'MetaComponent',
@@ -192,6 +193,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "👤", title: "User", content: undefined },
     { ownership: 0, icon: "🖍️", title: "Paint", content: undefined },
     { ownership: 0, icon: "🏎️", title: "Racing", content: undefined },
+    { ownership: 0, icon: "🗡️", title: "D2Survivors", content: undefined },
     { ownership: 0, icon: "🧬", title: "Space: Evolves", content: undefined },
     { ownership: 0, icon: "👁️", title: "Moderator", content: undefined },
     { ownership: 0, icon: "📡", title: "SigInt", content: undefined },
@@ -214,6 +216,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     'Bug-Wars': 'Bug Wars',
     'Marbles': 'Lose Your Marbles',
     'Racing': 'Grand Prix',
+    'D2Survivors': 'D2 Survivors',
     'Space: Evolves': 'Space: Evolves'
   }
   navigationItemDescriptions: MenuItem[] = [
@@ -345,6 +348,11 @@ export class AppComponent implements OnInit, AfterViewInit {
       ownership: 0,
       title: 'Art',
       content: `Submit your art to the site and have others appraise your work!`
+    },
+    {
+      ownership: 0,
+      title: 'D2Survivors',
+      content: `D2 Survivors: a Diablo-inspired Vampire Survivors-style roguelike. Survive ten minutes, level up weapons, loot gear and visit Charsi's Wares.`
     },
     {
       ownership: 0,
@@ -580,6 +588,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     "DigCraft": () => import('./digcraft/digcraft.component').then(m => m.DigCraftComponent),
     "GrandTheft": () => import('./grandtheft/grandtheft.component').then(m => m.GrandTheftComponent),
     "Racing": () => import('./racing/racing.component').then(m => m.RacingComponent),
+    "D2Survivors": () => import('./d2survivors/d2survivors.component').then(m => m.D2SurvivorsComponent),
     "Space: Evolves": () => import('./space-evolves/space-evolves.component').then(m => m.SpaceEvolvesComponent),
     "MTG-Arena": () => import('./mtg-arena/mtg-arena.component').then(m => m.MtgArenaComponent),
     "Crypto-Hub": () => import('./crypto-hub/crypto-hub.module').then(m => ({ type: m.CryptoHubComponent, module: m.CryptoModule })),
@@ -796,6 +805,10 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         else if (this.router.url.toLowerCase().includes('grandtheft')) {
           this.checkAndClearRouterOutlet();
           this.createComponent('GrandTheft');
+        }
+        else if (this.router.url.toLowerCase().includes('d2survivors')) {
+          this.checkAndClearRouterOutlet();
+          this.createComponent('D2Survivors');
         }
         else if (this.router.url.toLowerCase().includes('planter')) {
           this.checkAndClearRouterOutlet();

@@ -58,6 +58,7 @@ const routes: Routes = [
   { path: 'MTG-Arena', component: AppComponent },
   { path: 'MTGArena', component: AppComponent },
   { path: 'Marbles', component: AppComponent },
+  { path: 'D2Survivors', component: AppComponent },
   { path: 'Recipe/:recipeId', component: AppComponent },
   { path: 'Recipe', component: AppComponent },
   { path: 'ResetPassword/:token/:username', component: AppComponent },

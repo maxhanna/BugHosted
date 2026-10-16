@@ -1,0 +1,85 @@
+<div class="componentMain d2s-root">
+  <app-title-bar [title]="'D2 Survivors'" [hasMenu]="false" (closeClicked)="remove_me('D2SurvivorsComponent')">
+  </app-title-bar>
+
+  <div class="d2s-toolbar">
+    <button type="button" (click)="togglePause()" [disabled]="phase !== 'playing' && phase !== 'paused'">
+      {{ phase === 'paused' ? 'Resume' : 'Pause' }}
+    </button>
+    <button type="button" (click)="openShop()" [disabled]="phase !== 'playing' && phase !== 'paused'">Charsi's Wares (C)</button>
+    <button type="button" [class.on]="soundOn" (click)="toggleSound()">Sound</button>
+    <button type="button" [class.on]="musicOn" (click)="toggleMusic()">Music</button>
+    <button type="button" [class.on]="muted" (click)="toggleMute()">Mute</button>
+    <button type="button" [class.on]="autoStats" (click)="autoStats = !autoStats">Auto stats</button>
+    <button type="button" (click)="newRun()">New run</button>
+    <span class="d2s-hint">WASD / arrows move · click loot · P pause · H potion</span>
+  </div>
+
+  <div class="d2s-stage">
+    <canvas #gameCanvas class="d2s-canvas" (click)="onCanvasClick($event)"></canvas>
+
+    <div class="d2s-overlay" *ngIf="phase === 'paused'">
+      <h2>Paused</h2>
+      <button type="button" (click)="togglePause()">Resume</button>
+    </div>
+
+    <div class="d2s-overlay" *ngIf="phase === 'levelup'">
+      <h2>Level Up</h2>
+      <p>You reached level {{ level }}. Choose a boon.</p>
+      <div class="d2s-choices">
+        <button type="button" class="d2s-choice" *ngFor="let choice of choices; let i = index" (click)="chooseUpgrade(i)">
+          <strong>{{ choice.label }}</strong>
+          <small>{{ choice.desc }}</small>
+        </button>
+      </div>
+    </div>
+
+    <div class="d2s-overlay" *ngIf="phase === 'gameover' || phase === 'victory'">
+      <h2>{{ phase === 'victory' ? 'You survived the Mausoleum!' : 'You were slain' }}</h2>
+      <p>Time {{ timeText }} · Level {{ level }} · {{ kills }} kills · {{ gold }} gold</p>
+      <button type="button" (click)="newRun()">Play again</button>
+    </div>
+
+    <div class="d2s-overlay d2s-shop" *ngIf="phase === 'shop'">
+      <div class="d2s-shop-head">
+        <h2>Charsi's Wares</h2>
+        <span class="d2s-gold">{{ gold }} gold</span>
+        <button type="button" (click)="closeShop()">Close (Esc)</button>
+      </div>
+
+      <div class="d2s-shop-cols">
+        <div class="d2s-col">
+          <h3>For sale</h3>
+          <button type="button" class="d2s-stock" *ngFor="let entry of shopStock" [disabled]="gold < entry.price" (click)="buy(entry)">
+            <strong>{{ entry.name }}</strong>
+            <span>{{ entry.price }}g</span>
+            <small>{{ entry.desc }}</small>
+          </button>
+        </div>
+
+        <div class="d2s-col">
+          <h3>Equipped</h3>
+          <button type="button" class="d2s-slot" *ngFor="let slot of slots" [disabled]="!equipped[slot]" (click)="onEquippedClick(slot)">
+            <span class="d2s-slot-name">{{ slot }}</span>
+            <span [ngClass]="equipped[slot]?.rarity ?? ''">{{ equipped[slot]?.name || 'empty' }}</span>
+          </button>
+
+          <h3>Inventory ({{ inventory.length }}/{{ maxInventory }}) · Potions {{ potions }}</h3>
+          <div class="d2s-grid">
+            <button type="button" class="d2s-item" *ngFor="let item of inventory" [ngClass]="item.rarity"
+              [title]="describeItem(item)" (click)="onInventoryClick(item, $event)"
+              (contextmenu)="onInventoryRightClick(item, $event)">
+              {{ item.name }}
+            </button>
+          </div>
+
+          <div class="d2s-details" *ngIf="selectedItem as item">
+            <strong [ngClass]="item.rarity">{{ item.name }}</strong>
+            <pre>{{ describeItem(item) }}</pre>
+          </div>
+          <p class="d2s-hint">Click to inspect · Right-click to equip · Shift-click to sell · Esc to close</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
