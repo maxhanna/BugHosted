@@ -111,6 +111,14 @@
   font-size: 12px;
 }
 
+.d2s-overlay .d2s-choice,
+.d2s-shop .d2s-stock,
+.d2s-shop .d2s-details {
+  background: transparent;
+  border: 14px solid transparent;
+  border-image: url('/assets/d2survivors/panel.png') 32 fill / 14px stretch;
+}
+
 .d2s-shop {
   align-items: stretch;
   justify-content: flex-start;

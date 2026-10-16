@@ -3918,6 +3918,10 @@ ON DUPLICATE KEY UPDATE
         var prettyPost = JsonConvert.SerializeObject(postData, Formatting.Indented);
 
         _ = _log.Db($"Kraken API error: {errorMessages}. Url: {urlPath}. Data: {prettyPost}. User: {userId}", userId, "TRADE", viewErrorDebugLogs);
+        if (errorMessages.Contains("Permission denied", StringComparison.OrdinalIgnoreCase))
+        {
+          _ = _log.Db($"Kraken rejected {urlPath} with a permission error. Check the API key's permissions on Kraken (Query Funds is needed for balances; Create & Modify Orders for trades) and any IP restriction on the key.", userId, "TRADE", viewErrorDebugLogs);
+        }
         // Attach the pair (coin) to the cooldown reason so the notification says WHICH
         // coin failed (e.g. "volume minimum not met (pair: XBTUSDC)") instead of a bare error.
         string cooldownReason = errorMessages;

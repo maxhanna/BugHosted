@@ -37,6 +37,25 @@ const MAX_WEAPON_LEVEL = 5;
 const POTION_HEAL = 35;
 const TAU = Math.PI * 2;
 
+// CC0 sprite sheets (see assets/d2survivors/CREDITS.md). Each spec gives frame size,
+// frame count, animation speed and which sheet row to use.
+type SpriteKey = 'hero' | 'skeleton' | 'fallen' | 'zombie' | 'bat' | 'lord';
+interface SpriteSpec { file: string; fw: number; fh: number; frames: number; fps: number; row: number; }
+const SPRITE_SPECS: Record<SpriteKey, SpriteSpec> = {
+  hero: { file: 'assets/d2survivors/hero.png', fw: 128, fh: 128, frames: 1, fps: 1, row: 0 },
+  skeleton: { file: 'assets/d2survivors/skeleton.png', fw: 128, fh: 128, frames: 1, fps: 1, row: 0 },
+  fallen: { file: 'assets/d2survivors/fallen.png', fw: 32, fh: 32, frames: 9, fps: 10, row: 0 },
+  zombie: { file: 'assets/d2survivors/zombie.png', fw: 31, fh: 36, frames: 4, fps: 6, row: 0 },
+  bat: { file: 'assets/d2survivors/bat.gif', fw: 32, fh: 32, frames: 5, fps: 12, row: 0 },
+  lord: { file: 'assets/d2survivors/lord.png', fw: 64, fh: 64, frames: 3, fps: 5, row: 0 },
+};
+const ENEMY_SPRITE: Record<EnemyKind, SpriteKey> = {
+  skeleton: 'skeleton', fallen: 'fallen', zombie: 'zombie', bat: 'bat', lord: 'lord',
+};
+const ENEMY_SPRITE_HEIGHT: Record<EnemyKind, number> = {
+  skeleton: 30, fallen: 28, zombie: 34, bat: 24, lord: 110,
+};
+
 const WEAPON_INFO: Record<WeaponKey, { name: string; desc: string }> = {
   bolt: { name: 'Sorcery Bolt', desc: 'Fires bolts at the nearest foes.' },
   orbit: { name: 'Whirling Blades', desc: 'Blades orbit you and cut anything they touch.' },
@@ -157,6 +176,7 @@ export class D2SurvivorsComponent extends ChildComponent implements AfterViewIni
   private droneOscs: OscillatorNode[] = [];
   private droneGain: GainNode | null = null;
   private lastSfxAt = 0;
+  private sprites: Partial<Record<SpriteKey, HTMLImageElement>> = {};
 
   constructor(private ngZone: NgZone, private cdr: ChangeDetectorRef) {
     super();
@@ -164,6 +184,7 @@ export class D2SurvivorsComponent extends ChildComponent implements AfterViewIni
 
   ngAfterViewInit(): void {
     this.newRun();
+    this.loadSprites();
     window.addEventListener('keydown', this.onKeyDown);
     window.addEventListener('keyup', this.onKeyUp);
     this.ngZone.runOutsideAngular(() => {
@@ -956,6 +977,34 @@ export class D2SurvivorsComponent extends ChildComponent implements AfterViewIni
     this.floaters = this.floaters.filter(f => f.life > 0);
   }
 
+  // ---------- Sprites ----------
+
+  private loadSprites(): void {
+    (Object.keys(SPRITE_SPECS) as SpriteKey[]).forEach(key => {
+      const img = new Image();
+      img.src = SPRITE_SPECS[key].file;
+      this.sprites[key] = img;
+    });
+  }
+
+  /** Draws one animation frame centred on (cx, cy). Returns false until the sheet has loaded. */
+  private drawSpriteFrame(
+    ctx: CanvasRenderingContext2D, key: SpriteKey, t: number,
+    cx: number, cy: number, height: number, flip: boolean,
+  ): boolean {
+    const img = this.sprites[key];
+    if (!img || !img.complete || img.naturalWidth === 0) return false;
+    const spec = SPRITE_SPECS[key];
+    const frame = Math.floor(t * spec.fps) % spec.frames;
+    const width = height * (spec.fw / spec.fh);
+    ctx.save();
+    ctx.translate(cx, cy);
+    if (flip) ctx.scale(-1, 1);
+    ctx.drawImage(img, frame * spec.fw, spec.row * spec.fh, spec.fw, spec.fh, -width / 2, -height / 2, width, height);
+    ctx.restore();
+    return true;
+  }
+
   // ---------- Rendering ----------
 
   private render(ctx: CanvasRenderingContext2D): void {
@@ -1055,6 +1104,11 @@ export class D2SurvivorsComponent extends ChildComponent implements AfterViewIni
     const r = e.r;
     ctx.save();
     ctx.translate(e.x, e.y);
+    if (!flash && this.drawSpriteFrame(ctx, ENEMY_SPRITE[e.kind], e.phase, 0, 0, ENEMY_SPRITE_HEIGHT[e.kind], e.x > this.player.x)) {
+      ctx.restore();
+      this.drawEnemyHealth(ctx, e);
+      return;
+    }
     switch (e.kind) {
       case 'skeleton': {
         ctx.fillStyle = flash ? '#ffffff' : '#d8d2c0';
@@ -1147,15 +1201,17 @@ export class D2SurvivorsComponent extends ChildComponent implements AfterViewIni
       }
     }
     ctx.restore();
+    this.drawEnemyHealth(ctx, e);
+  }
 
-    if (e.hp < e.maxHp || e.boss) {
-      const width = e.boss ? 120 : r * 2.2;
-      const frac = Math.max(0, e.hp / e.maxHp);
-      ctx.fillStyle = '#000';
-      ctx.fillRect(e.x - width / 2, e.y - r - 9, width, 4);
-      ctx.fillStyle = '#c0392b';
-      ctx.fillRect(e.x - width / 2, e.y - r - 9, width * frac, 4);
-    }
+  private drawEnemyHealth(ctx: CanvasRenderingContext2D, e: Enemy): void {
+    if (e.hp >= e.maxHp && !e.boss) return;
+    const width = e.boss ? 120 : e.r * 2.2;
+    const frac = Math.max(0, e.hp / e.maxHp);
+    ctx.fillStyle = '#000';
+    ctx.fillRect(e.x - width / 2, e.y - e.r - 9, width, 4);
+    ctx.fillStyle = '#c0392b';
+    ctx.fillRect(e.x - width / 2, e.y - e.r - 9, width * frac, 4);
   }
 
   private drawPlayer(ctx: CanvasRenderingContext2D): void {
@@ -1168,14 +1224,16 @@ export class D2SurvivorsComponent extends ChildComponent implements AfterViewIni
     ctx.ellipse(0, PLAYER_R, 12, 5, 0, 0, TAU);
     ctx.fill();
     ctx.globalAlpha = blink ? 0.4 : 1;
-    ctx.fillStyle = '#3d6d9c';
-    ctx.beginPath();
-    ctx.arc(0, 0, PLAYER_R, 0, TAU);
-    ctx.fill();
-    ctx.fillStyle = '#d4bb7e';
-    ctx.beginPath();
-    ctx.arc(0, -3, PLAYER_R * 0.55, 0, TAU);
-    ctx.fill();
+    if (!this.drawSpriteFrame(ctx, 'hero', this.time, 0, 0, 44, Math.cos(p.facing) < 0)) {
+      ctx.fillStyle = '#3d6d9c';
+      ctx.beginPath();
+      ctx.arc(0, 0, PLAYER_R, 0, TAU);
+      ctx.fill();
+      ctx.fillStyle = '#d4bb7e';
+      ctx.beginPath();
+      ctx.arc(0, -3, PLAYER_R * 0.55, 0, TAU);
+      ctx.fill();
+    }
     ctx.strokeStyle = '#e8e8e8';
     ctx.lineWidth = 3;
     ctx.beginPath();
