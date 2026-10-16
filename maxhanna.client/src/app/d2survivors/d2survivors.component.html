@@ -54,6 +54,18 @@
     <div class="d2s-arena-wrap">
       <canvas #arena class="d2s-arena" width="500" height="500" (keydown)="onKeyDown($event)" (keyup)="onKeyUp($event)" tabindex="0"></canvas>
       <div class="d2s-model-hint" *ngIf="textureLoadError">Character textures did not load yet.</div>
+
+      <div class="d2s-belt">
+        <span class="d2s-belt-label">Belt</span>
+        <span
+          *ngFor="let count of potionBelts; let i = index"
+          class="d2s-bottle"
+          [class.active]="activeBottleSlot === i"
+          (click)="selectBottle(i)">
+          {{ count }}
+        </span>
+        <span class="d2s-belt-hint">1-4 bottles · click to select · P drink</span>
+      </div>
     </div>
 
     <div class="d2s-owned" *ngIf="ownedSkills.length">
@@ -68,18 +80,36 @@
 
     <div class="d2s-inv-panel">
       <h2>Inventory</h2>
-      <div class="d2s-inv">
-        <div class="d2s-inv-slot"
-          *ngFor="let slot of inventoryGrid"
+      <div
+        class="d2s-inv"
+        (mousedown)="onInventoryPointerDown($event)"
+        (mousemove)="onInventoryPointerMove($event)"
+        (mouseup)="onInventoryPointerUp($event)"
+        (mouseleave)="onInventoryPointerLeave($event)">
+        <div
+          class="d2s-inv-slot"
+          *ngFor="let slot of inventoryGrid; let i = index"
           [class.filled]="slot.item"
           [class.rare]="slot.item?.rarity === 'rare'"
           [class.magic]="slot.item?.rarity === 'magic'"
           [class.normal]="slot.item?.rarity === 'normal'"
-          [class.empty]="!slot.item">
+          [class.empty]="!slot.item"
+          [class.selected]="selectedSlotIndex === i"
+          [class.drag-over]="dragGhostSlotIndex === i"
+          [class.drag-denied]="dragGhostSlotIndex === i && dragState && !canDropOnSlot(dragState.slotIndex, i, dragState.item)"
+          (click)="selectInventoryItem(i, slot.item)">
           <span class="d2s-inv-name">{{ slot.item?.name || '' }}</span>
         </div>
       </div>
-      <p class="d2s-hint">Artifacts and loot drop into the grid. Rares are gold, magics are blue.</p>
+      <div class="d2s-item-window" *ngIf="selectedItemDisplay">
+        <div class="d2s-item-window-inner">
+          <button type="button" class="d2s-item-window-close" (click)="selectInventoryItem(selectedSlotIndex ?? -1, null)">×</button>
+          <h3 class="d2s-item-window-title">{{ selectedItemDisplay.name }}</h3>
+          <p class="d2s-item-window-sub">{{ selectedItemDisplay.rarity }} · {{ selectedItemDisplay.slot }}</p>
+          <pre class="d2s-item-window-stats">{{ getItemStatText(selectedItemDisplay) | join:'\n' }}</pre>
+        </div>
+      </div>
+      <p class="d2s-hint">Drag items to move them · illegal drops are blocked · click to inspect stats</p>
     </div>
 
   </section>

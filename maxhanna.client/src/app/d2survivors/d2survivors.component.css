@@ -86,6 +86,7 @@
 }
 
 .d2s-arena {
+  position: relative;
   display: block;
   width: 500px;
   height: 500px;
@@ -102,6 +103,54 @@
   font-size: 0.75rem;
   background: #0e0f14cc;
   padding: 2px 6px;
+  z-index: 5;
+}
+
+.d2s-belt {
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #1a1c22;
+  border: 1px solid #2b2b2b;
+  padding: 3px 6px;
+  z-index: 6;
+}
+
+.d2s-belt-label {
+  color: #cbb07c;
+  font-size: 0.65rem;
+  letter-spacing: 0.05em;
+  margin-right: 4px;
+}
+
+.d2s-bottle {
+  width: 18px;
+  height: 18px;
+  background: #0b0c10;
+  border: 1px solid #2b2b2b;
+  color: #cbb07c;
+  font-size: 0.7rem;
+  font-family: ui-monospace, monospace;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.d2s-bottle.active {
+  border-color: #ffd27a;
+  background: #1a1408;
+}
+
+.d2s-belt-hint {
+  color: #777;
+  font-size: 0.6rem;
+  margin-left: 6px;
+  white-space: nowrap;
 }
 
 .d2s-owned {
@@ -163,4 +212,75 @@
 .d2s-inv-name {
   color: #cbb07c;
   line-height: 1.1;
+}
+
+.d2s-inv-slot.selected {
+  border-color: #ffd27a !important;
+  background: #1a1408 !important;
+}
+
+.d2s-inv-slot.drag-over {
+  border-color: #5aa6ff !important;
+  background: #0e1826 !important;
+}
+
+.d2s-inv-slot.drag-denied {
+  border-color: #ff6b6b !important;
+  background: #2a0e0e !important;
+}
+
+.d2s-item-window {
+  position: absolute;
+  right: 1rem;
+  bottom: 4rem;
+  width: 240px;
+  background: #1a1c22;
+  border: 1px solid #2b2b2b;
+  z-index: 20;
+  box-shadow: 0 0 0 1px #0e0f14;
+}
+
+.d2s-item-window-inner {
+  position: relative;
+}
+
+.d2s-item-window-close {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  background: transparent;
+  border: 1px solid #2b2b2b;
+  color: #cbb07c;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.d2s-item-window-title {
+  margin: 0.4rem 0.5rem 0;
+  font-size: 0.9rem;
+  color: #ffd27a;
+}
+
+.d2s-item-window-sub {
+  margin: 0 0.5rem 0.4rem;
+  font-size: 0.7rem;
+  color: #cbb07c;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.d2s-item-window-stats {
+  margin: 0.3rem 0.6rem 0.4rem;
+  font-family: ui-monospace, monospace;
+  font-size: 0.7rem;
+  color: #cbb07c;
+  white-space: pre-line;
+  line-height: 1.3;
 }

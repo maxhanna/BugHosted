@@ -268,6 +268,15 @@ export class D2SurvivorsComponent implements OnInit, OnDestroy {
   inventoryGrid: Array<{ item?: D2InventoryItem }> = [];
   inventoryColumns = 4;
   inventoryRows = 10;
+  potionBeltCount = 4;
+  potionBelts: number[] = [0, 0, 0, 0];
+  activeBottleSlot = 0;
+  lastPotionDrinkTime = 0;
+
+  selectedItem: D2InventoryItem | null = null;
+  selectedSlotIndex: number | null = null;
+  dragState: DragState | null = null;
+  dragGhostSlotIndex: number | null = null;
 
   private rebuildInventoryGrid(): void {
     const grid: Array<{ item?: D2InventoryItem }> = [];
@@ -278,26 +287,154 @@ export class D2SurvivorsComponent implements OnInit, OnDestroy {
   }
 
   private randomItem(): D2InventoryItem {
+    const pick = Math.random();
+    if (pick < 0.35) {
+      return this.randomWeapon();
+    }
+    if (pick < 0.62) {
+      return this.randomArmor();
+    }
+    return this.randomCharmOrPotion();
+  }
+
+  private randomWeapon(): D2InventoryItem {
     const names = [
       'Steel Shortsword',
-      'Iron Helm',
+      'Iron Longsword',
+      'Battle Scimitar',
+      'Quikening Sword',
+      'Gnarlid Blade',
+      'Bone Sword',
+      "Demon's Touch",
+      'Witching Wand',
+    ];
+    const safeNames = names.map((n) => n);
+    const name = names[Math.floor(Math.random() * names.length)];
+    const rarity = Math.random() < 0.08 ? 'rare' : Math.random() < 0.35 ? 'magic' : 'normal';
+    const baseDm = rarity === 'rare' ? 80 : rarity === 'magic' ? 55 : 30;
+    const d1 = baseDm + Math.floor(Math.random() * 12);
+    const d2 = d1 + 2 + Math.floor(Math.random() * 14);
+    const stats: D2ItemStats = {
+      damageMin: d1,
+      damageMax: d2,
+    };
+    const affixes: string[] = [];
+    if (rarity === 'magic' || rarity === 'rare') {
+      affixes.push('+1 to Maximum Damage');
+    }
+    if (rarity === 'rare') {
+      affixes.push('6% increased Damage Reduction');
+      affixes.push('Life +8');
+    }
+    return {
+      id: crypto.randomUUID ? crypto.randomUUID() : String(Math.random()),
+      name,
+      rarity,
+      slot: 'weapon',
+      desc: rarity === 'rare' ? 'Unusual weapon' : rarity === 'magic' ? 'Magical weapon' : 'Simple weapon',
+      stats,
+      affixes,
+    };
+  }
+
+  private randomArmor(): D2InventoryItem {
+    const names = [
       'Cloth Armor',
-      'Health Potion',
-      'Soulstone',
-      'Small Charm',
-      'Scroll of Lightning',
-      'Gold Amulet',
-      'Ring of the Artisan',
-      'Quill of the Fates',
+      'Leather Armor',
+      'Chain Mail',
+      'Plate Mail',
+      'Scalemail Vest',
+      'Bone Mail',
+      'Demonmail Vest',
+      'Armor of the Fur',
     ];
     const name = names[Math.floor(Math.random() * names.length)];
     const rarity = Math.random() < 0.08 ? 'rare' : Math.random() < 0.35 ? 'magic' : 'normal';
+    const baseArmor = rarity === 'rare' ? 120 : rarity === 'magic' ? 80 : 35;
+    const stats: D2ItemStats = {
+      armor: baseArmor + Math.floor(Math.random() * 20),
+    };
+    const affixes: string[] = [];
+    if (rarity === 'magic') {
+      affixes.push('+5 to Vitality');
+    }
+    if (rarity === 'rare') {
+      affixes.push('5% increased Damage Reduction');
+      affixes.push('Life +12');
+    }
+    return {
+      id: crypto.randomUUID ? crypto.randomUUID() : String(Math.random()),
+      name,
+      rarity,
+      slot: 'armor',
+      desc: rarity === 'rare' ? 'Unusual armor' : rarity === 'magic' ? 'Magical armor' : 'Simple armor',
+      stats,
+      affixes,
+    };
+  }
+
+  private randomCharmOrPotion(): D2InventoryItem {
+    const pick = Math.random();
+    if (pick < 0.6) {
+      return this.randomCharm();
+    }
+    return this.randomPotion();
+  }
+
+  private randomCharm(): D2InventoryItem {
+    const names = [
+      'Small Charm',
+      'Gold Amulet',
+      'Silver Charm',
+      'Ring of the Artisan',
+      "Monk's Token",
+      'Quill of the Fates',
+      'Soulstone',
+      'Talisman of the Fates',
+    ];
+    const name = names[Math.floor(Math.random() * names.length)];
+    const rarity = Math.random() < 0.08 ? 'rare' : Math.random() < 0.35 ? 'magic' : 'normal';
+    const stats: D2ItemStats = {
+      plusDamage: rarity === 'rare' ? 3 : rarity === 'magic' ? 1 : 0,
+      plusStrength: rarity === 'rare' ? 8 : rarity === 'magic' ? 3 : 0,
+      plusVitality: rarity === 'rare' ? 6 : rarity === 'magic' ? 2 : 0,
+    };
+    const affixes: string[] = [];
+    if (rarity === 'magic') {
+      affixes.push('+1 to Life');
+    }
+    if (rarity === 'rare') {
+      affixes.push('+2 to Maximum Damage');
+      affixes.push('+3 to Strength');
+    }
     return {
       id: crypto.randomUUID ? crypto.randomUUID() : String(Math.random()),
       name,
       rarity,
       slot: 'charm',
-      desc: rarity === 'rare' ? 'Unusual item' : rarity === 'magic' ? 'Magical item' : 'Simple item',
+      desc: rarity === 'rare' ? 'Unusual charm' : rarity === 'magic' ? 'Magical charm' : 'Simple charm',
+      stats,
+      affixes,
+    };
+  }
+
+  private randomPotion(): D2InventoryItem {
+    const names = [
+      'Small Health Potion',
+      'Health Potion',
+      'Large Health Potion',
+      'Super Health Potion',
+      'Small Mana Potion',
+      'Mana Potion',
+      'Large Mana Potion',
+    ];
+    const name = names[Math.floor(Math.random() * names.length)];
+    return {
+      id: crypto.randomUUID ? crypto.randomUUID() : String(Math.random()),
+      name,
+      rarity: 'normal',
+      slot: 'charm',
+      desc: 'Consumable potion',
     };
   }
 
@@ -307,10 +444,126 @@ export class D2SurvivorsComponent implements OnInit, OnDestroy {
       event.preventDefault();
       this.keysDown.add(key);
     }
+    if (key === 'p') {
+      event.preventDefault();
+      this.drinkPotion();
+    }
+    if (['1', '2', '3', '4'].includes(key)) {
+      event.preventDefault();
+      const idx = parseInt(key, 10) - 1;
+      if (idx >= 0 && idx < this.potionBelts.length) {
+        this.selectBottle(idx);
+      }
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      this.selectedItem = null;
+      this.selectedSlotIndex = null;
+      this.dragState = null;
+      this.dragGhostSlotIndex = null;
+    }
   }
 
   onKeyUp(event: KeyboardEvent): void {
     this.keysDown.delete(event.key.toLowerCase());
+    if (event.key === 'Escape') {
+      this.selectedItem = null;
+      this.selectedSlotIndex = null;
+      this.dragState = null;
+      this.dragGhostSlotIndex = null;
+    }
+  }
+
+  selectBottle(idx: number): void {
+    if (idx >= 0 && idx < this.potionBelts.length) {
+      this.activeBottleSlot = idx;
+    }
+  }
+
+  drinkPotion(): void {
+    if (!this.runActive) {
+      return;
+    }
+    if (this.potionBelts[this.activeBottleSlot] <= 0) {
+      this.floatingTexts.push({
+        x: this.playerX,
+        y: this.playerY - 40,
+        text: 'no potion there',
+        color: '#ff6b6b',
+        life: 1.6,
+      });
+      return;
+    }
+    this.potionBelts[this.activeBottleSlot] -= 1;
+    this.playerHp = Math.min(this.playerMaxHp, this.playerHp + 20);
+    this.floatingTexts.push({
+      x: this.playerX,
+      y: this.playerY - 40,
+      text: 'potion +20 HP',
+      color: '#ffd27a',
+      life: 1.8,
+    });
+    this.lastPotionDrinkTime = this.runTime;
+  }
+
+  onInventoryPointerDown(event: MouseEvent): void {
+    if (!this.runActive || !this.arenaRef?.nativeElement) {
+      return;
+    }
+    const idx = this.getInventorySlotIndexFromPoint(event.clientX, event.clientY);
+    if (idx >= 0) {
+      event.preventDefault();
+      if (event.button === 0) {
+        if (this.selectedSlotIndex === idx && this.selectedItem?.id === this.inventoryGrid[idx]?.item?.id) {
+          this.selectedItem = null;
+          this.selectedSlotIndex = null;
+          this.dragState = null;
+        } else {
+          this.startDrag(idx, event);
+        }
+      }
+    }
+  }
+
+  onInventoryPointerMove(event: MouseEvent): void {
+    if (!this.runActive) {
+      return;
+    }
+    if (!this.dragState) {
+      return;
+    }
+    event.preventDefault();
+    this.updateDrag(event);
+  }
+
+  onInventoryPointerUp(event: MouseEvent): void {
+    if (!this.runActive) {
+      return;
+    }
+    if (!this.dragState) {
+      return;
+    }
+    event.preventDefault();
+    this.endDrag(event);
+  }
+
+  onInventoryPointerLeave(event: MouseEvent): void {
+    if (!this.runActive) {
+      return;
+    }
+    if (!this.dragState) {
+      return;
+    }
+    event.preventDefault();
+    this.endDrag(event);
+  }
+
+  private getInventorySlotIndexFromPoint(clientX: number, clientY: number): number {
+    return this.inventorySlotIndexFromPoint(clientX, clientY);
+  }
+
+  canDropOnSlot(sourceIndex: number, targetIndex: number, sourceItem?: D2InventoryItem): boolean {
+    return this.canDropOnSlot(sourceIndex, targetIndex, sourceItem);
   }
 
   ngOnInit(): void {
@@ -343,6 +596,9 @@ export class D2SurvivorsComponent implements OnInit, OnDestroy {
     this.floatingTexts = [];
     this.inventory = [];
     this.rebuildInventoryGrid();
+    this.potionBelts = [0, 0, 0, 0];
+    this.activeBottleSlot = 0;
+    this.lastPotionDrinkTime = 0;
     this.runTime = 0;
     this.spawnAcc = 0;
     this.chestTimer = 0;
@@ -582,8 +838,27 @@ export class D2SurvivorsComponent implements OnInit, OnDestroy {
       });
     }
 
-    if (Math.random() < 0.25) {
-      this.inventory.push(this.randomItem());
+    if (Math.random() < 0.4) {
+      const item = this.randomItem();
+      if (item.name.toLowerCase().includes('potion')) {
+        const empty = this.potionBelts.findIndex((n) => n === 0);
+        if (empty !== -1) {
+          this.potionBelts[empty] = 1;
+          this.floatingTexts.push({
+            x: c.x,
+            y: c.y - 44,
+            text: 'potion in belt',
+            color: '#ffd27a',
+            life: 2.4,
+          });
+        } else {
+          this.inventory.push(item);
+          this.rebuildInventoryGrid();
+        }
+      } else {
+        this.inventory.push(item);
+        this.rebuildInventoryGrid();
+      }
     }
   }
 
@@ -607,6 +882,195 @@ export class D2SurvivorsComponent implements OnInit, OnDestroy {
     return this.skills.find((s) => s.name === name)?.desc;
   }
 
+  private makePouchSlotDefs(): InventorySlotDef[] {
+    const cols = this.inventoryColumns;
+    const rows = this.inventoryRows;
+    const slots: InventorySlotDef[] = [];
+    for (let i = 0; i < cols * rows; i++) {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      slots.push({
+        id: `pouch-${i}`,
+        kind: 'pouch',
+        x: col,
+        y: row,
+      });
+    }
+    return slots;
+  }
+
+  selectInventoryItem(slotIndex: number, item: D2InventoryItem | undefined): void {
+    if (!item) {
+      if (this.selectedSlotIndex === slotIndex) {
+        this.selectedItem = null;
+        this.selectedSlotIndex = null;
+        this.dragState = null;
+      }
+      return;
+    }
+    if (this.selectedItem?.id === item.id && this.selectedSlotIndex === slotIndex) {
+      this.selectedItem = null;
+      this.selectedSlotIndex = null;
+      this.dragState = null;
+      return;
+    }
+    this.selectedItem = item;
+    this.selectedSlotIndex = slotIndex;
+    this.dragState = null;
+  }
+
+  private isDropTargetSlot(index: number): boolean {
+    return index >= 0 && index < this.inventoryGrid.length;
+  }
+
+  private canDropOnSlot(sourceIndex: number, targetIndex: number, sourceItem?: D2InventoryItem): boolean {
+    if (!this.isDropTargetSlot(targetIndex)) {
+      return false;
+    }
+    if (targetIndex === sourceIndex) {
+      return true;
+    }
+
+    const targetItem = this.inventoryGrid[targetIndex].item;
+
+    if (!sourceItem) {
+      if (targetItem) {
+        return false;
+      }
+      return true;
+    }
+
+    if (!targetItem) {
+      return true;
+    }
+
+    if (isItemPotion(sourceItem) && isItemPotion(targetItem)) {
+      return true;
+    }
+
+    if (sourceItem.slot === targetItem.slot && isSameItemType(sourceItem, targetItem)) {
+      return true;
+    }
+
+    if (sourceItem.slot === 'charm' && targetItem.slot === 'charm' && isSameItemType(sourceItem, targetItem)) {
+      return true;
+    }
+
+    return false;
+  }
+
+  private startDrag(slotIndex: number, event: MouseEvent): void {
+    const item = this.inventoryGrid[slotIndex]?.item;
+    this.dragState = {
+      slotIndex,
+      clientX: event.clientX,
+      clientY: event.clientY,
+      item,
+    };
+    this.dragGhostSlotIndex = null;
+  }
+
+  private updateDrag(event: MouseEvent): void {
+    if (!this.dragState) {
+      return;
+    }
+    this.dragState.clientX = event.clientX;
+    this.dragState.clientY = event.clientY;
+    const target = this.inventorySlotIndexFromPoint(event.clientX, event.clientY);
+    this.dragGhostSlotIndex = target;
+  }
+
+  private endDrag(event: MouseEvent): void {
+    if (!this.dragState) {
+      return;
+    }
+    const sourceIndex = this.dragState.slotIndex;
+    const targetIndex = this.dragGhostSlotIndex ?? sourceIndex;
+    const sourceItem = this.dragState.item;
+
+    if (targetIndex !== sourceIndex && this.canDropOnSlot(sourceIndex, targetIndex, sourceItem)) {
+      this.moveInventoryItem(sourceIndex, targetIndex);
+    } else if (targetIndex !== sourceIndex) {
+      this.showDropDenied();
+    }
+
+    this.dragState = null;
+    this.dragGhostSlotIndex = null;
+  }
+
+  private showDropDenied(): void {
+    if (this.selectedSlotIndex !== null && this.inventoryGrid[this.selectedSlotIndex]?.item) {
+      this.selectedItem = this.inventoryGrid[this.selectedSlotIndex].item;
+    }
+    this.floatingTexts.push({
+      x: this.playerX,
+      y: this.playerY - 50,
+      text: 'illegal drop',
+      color: '#ff6b6b',
+      life: 0.9,
+    });
+  }
+
+  private moveInventoryItem(sourceIndex: number, targetIndex: number): void {
+    const source = this.inventoryGrid[sourceIndex];
+    const target = this.inventoryGrid[targetIndex];
+    const item = source.item;
+    if (!item) {
+      return;
+    }
+    if (targetIndex === sourceIndex) {
+      this.inventoryGrid[sourceIndex] = { item };
+      return;
+    }
+    this.inventoryGrid[sourceIndex] = { item: target.item };
+    this.inventoryGrid[targetIndex] = { item };
+
+    this.selectedItem = item;
+    this.selectedSlotIndex = targetIndex;
+  }
+
+  private finalizeInventoryFromGrid(): void {
+    const flat = this.inventoryGrid
+      .map((s) => s.item)
+      .filter((i): i is D2InventoryItem => i !== undefined);
+    this.inventory = flat;
+  }
+
+  private inventorySlotIndexFromPoint(clientX: number, clientY: number): number {
+    const el = this.arenaRef?.nativeElement;
+    if (!el) {
+      return -1;
+    }
+    const rect = el.getBoundingClientRect();
+    if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) {
+      return -1;
+    }
+    const cols = this.inventoryColumns;
+    const rows = this.inventoryRows;
+    const gap = 3;
+    const pad = 3;
+    const availW = rect.width - pad * 2 - gap * (cols - 1);
+    const slotW = availW / cols;
+    const slotH = slotW;
+    const startX = rect.left + pad;
+    const startY = rect.top + pad;
+    const relX = clientX - startX;
+    const relY = clientY - startY;
+    if (relX < 0 || relY < 0) {
+      return -1;
+    }
+    const col = Math.floor(relX / (slotW + gap));
+    const row = Math.floor(relY / (slotH + gap));
+    if (col < 0 || col >= cols || row < 0 || row >= rows) {
+      return -1;
+    }
+    return row * cols + col;
+  }
+
+  private getDropTargetSlotIndex(clientX: number, clientY: number): number {
+    return this.inventorySlotIndexFromPoint(clientX, clientY);
+  }
+
   draw(): void {
     const canvas = this.arenaRef?.nativeElement;
     if (!canvas) {
@@ -616,6 +1080,12 @@ export class D2SurvivorsComponent implements OnInit, OnDestroy {
     if (!ctx) {
       return;
     }
+    ctx.clearRect(0, 0, this.arenaW, this.arenaH);
+
+    if (this.dragState) {
+      this.drawDragOverlay(ctx, this.dragState);
+    }
+
     ctx.fillStyle = '#0e0f14';
     ctx.fillRect(0, 0, this.arenaW, this.arenaH);
 
@@ -681,7 +1151,183 @@ export class D2SurvivorsComponent implements OnInit, OnDestroy {
       ctx.textAlign = 'center';
       ctx.fillText(f.text, f.x, f.y);
     }
+
+    this.drawInventoryOverlay(ctx);
   }
+
+  private drawDragOverlay(ctx: CanvasRenderingContext2D, drag: DragState): void {
+    if (!drag.item) {
+      return;
+    }
+    const canvas = this.arenaRef?.nativeElement;
+    if (!canvas) {
+      return;
+    }
+    const rect = canvas.getBoundingClientRect();
+    const x = drag.clientX - rect.left;
+    const y = drag.clientY - rect.top;
+    const size = 36;
+    ctx.save();
+    ctx.fillStyle = 'rgba(10,12,16,0.7)';
+    ctx.strokeStyle = drag.item.rarity === 'rare' ? '#ffd27a' : drag.item.rarity === 'magic' ? '#5aa6ff' : '#cbb07c';
+    ctx.lineWidth = 2;
+    roundRect(ctx, x - size / 2, y - size / 2, size, size, 4);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#cbb07c';
+    ctx.font = 'bold 9px ui-monospace, monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(drag.item.name, x, y);
+    ctx.textBaseline = 'alphabetic';
+    ctx.restore();
+  }
+
+  private drawInventoryOverlay(ctx: CanvasRenderingContext2D): void {
+    if (!this.runActive) {
+      return;
+    }
+    if (!this.arenaRef?.nativeElement) {
+      return;
+    }
+    const canvas = this.arenaRef.nativeElement;
+    if (!canvas) {
+      return;
+    }
+    const ctx2 = ctx;
+    const rrc = RRC;
+    const invX = 8;
+    const invY = this.arenaH - this.inventoryRows * 32 - 12;
+    const slotW = 30;
+    const slotH = 30;
+    const gap = 3;
+
+    ctx2.save();
+    ctx2.font = '9px ui-monospace, monospace';
+
+    for (let i = 0; i < this.inventoryGrid.length; i++) {
+      const slot = this.inventoryGrid[i];
+      const col = i % this.inventoryColumns;
+      const row = Math.floor(i / this.inventoryColumns);
+      const x = invX + col * (slotW + gap);
+      const y = invY + row * (slotH + gap);
+      const isDragSource = this.dragState?.slotIndex === i;
+      const isDragTarget = this.dragGhostSlotIndex === i;
+      const isSelected = this.selectedSlotIndex === i;
+
+      if (isDragSource && this.dragState?.item) {
+        continue;
+      }
+
+      ctx2.fillStyle = '#0b0c10';
+      ctx2.strokeStyle = '#2b2b2b';
+      ctx2.lineWidth = 1;
+      this.roundRect(ctx2, x, y, slotW, slotH, 2);
+      ctx2.fill();
+      ctx2.stroke();
+
+      if (isDragTarget && this.dragState?.item && !this.canDropOnSlot(this.dragState.slotIndex, i, this.dragState.item)) {
+        ctx2.strokeStyle = '#ff6b6b';
+        ctx2.lineWidth = 1.5;
+        this.roundRect(ctx2, x, y, slotW, slotH, 2);
+        ctx2.stroke();
+      } else if (slot.item || isDragTarget) {
+        ctx2.strokeStyle = slot.item?.rarity === 'rare' ? '#ffd27a' : slot.item?.rarity === 'magic' ? '#5aa6ff' : '#cbb07c';
+        ctx2.lineWidth = 1.5;
+        this.roundRect(ctx2, x + 1, y + 1, slotW - 2, slotH - 2, 2);
+        ctx2.stroke();
+      }
+
+      if (isDragTarget && this.dragState?.item && this.canDropOnSlot(this.dragState.slotIndex, i, this.dragState.item)) {
+        ctx2.strokeStyle = '#5aa6ff';
+        ctx2.lineWidth = 1.5;
+        this.roundRect(ctx2, x, y, slotW, slotH, 2);
+        ctx2.stroke();
+      }
+
+      if (slot.item) {
+        ctx2.fillStyle = '#cbb07c';
+        ctx2.textAlign = 'center';
+        ctx2.textBaseline = 'middle';
+        const shortName = slot.item.name.length > 9 ? slot.item.name.slice(0, 8) + '…' : slot.item.name;
+        ctx2.fillText(shortName, x + slotW / 2, y + slotH / 2 - 4);
+        if (slot.item.stats?.damageMin != null || slot.item.stats?.armor != null) {
+          const dmg = slot.item.stats?.damageMin != null ? slot.item.stats!.damageMin + '-' + slot.item.stats!.damageMax : '';
+          const armor = slot.item.stats?.armor != null ? slot.item.stats!.armor + ' armor' : '';
+          const line2 = [dmg, armor].filter(Boolean).join(' / ') || '';
+          ctx2.font = '7px ui-monospace, monospace';
+          ctx2.fillText(line2, x + slotW / 2, y + slotH / 2 + 6);
+          ctx2.font = '9px ui-monospace, monospace';
+        }
+      }
+
+      if (isSelected) {
+        ctx2.strokeStyle = '#ffd27a';
+        ctx2.lineWidth = 1.5;
+        this.roundRect(ctx2, x - 1, y - 1, slotW + 2, slotH + 2, 2);
+        ctx2.stroke();
+      }
+    }
+
+    ctx2.restore();
+  }
+
+  private get selectedItemDisplay(): D2InventoryItem | null {
+    if (!this.selectedItem) {
+      return null;
+    }
+    const ref = this.inventoryGrid[this.selectedSlotIndex ?? -1];
+    if (ref && ref.item?.id === this.selectedItem.id) {
+      return this.selectedItem;
+    }
+    const found = this.inventoryGrid.find((s) => s.item?.id === this.selectedItem.id);
+    if (found?.item) {
+      return found.item;
+    }
+    return null;
+  }
+
+  getItemStatText(item: D2InventoryItem | null): string[] {
+    if (!item) {
+      return [];
+    }
+    const lines: string[] = [];
+    lines.push(`${item.name} (${item.rarity})`);
+    if (item.stats) {
+      const s = item.stats;
+      if (s.damageMin != null && s.damageMax != null) {
+        lines.push(`Damage: ${s.damageMin} to ${s.damageMax}`);
+      }
+      if (s.armor != null) {
+        lines.push(`Armor: ${s.armor}`);
+      }
+      if (s.plusDamage != null && s.plusDamage > 0) {
+        lines.push(`+${s.plusDamage} to Maximum Damage`);
+      }
+      if (s.plusStrength != null && s.plusStrength > 0) {
+        lines.push(`+${s.plusStrength} Strength`);
+      }
+      if (s.plusVitality != null && s.plusVitality > 0) {
+        lines.push(`+${s.plusVitality} to Maximum Life`);
+      }
+      if (s.requiresStrength != null && s.requiresStrength > 0) {
+        lines.push(`Requires ${s.requiresStrength} Strength`);
+      }
+    }
+    if (item.affixes && item.affixes.length) {
+      lines.push('Affixes');
+      for (const a of item.affixes) {
+        lines.push(`  ${a}`);
+      }
+    }
+    if (!lines.length) {
+      lines.push(item.desc || 'No stats');
+    }
+    return lines;
+  }
+
+  private lastPointerX = 0;
+  private lastPointerY = 0;
 
   drawPlayerModel(ctx: CanvasRenderingContext2D, x: number, y: number): void {
     const scale = 1.4;
@@ -823,4 +1469,35 @@ interface D2InventoryItem {
   rarity: 'normal' | 'magic' | 'rare';
   slot: 'weapon' | 'armor' | 'charm';
   desc: string;
+  stats?: D2ItemStats;
+  affixes?: string[];
+}
+
+interface D2ItemStats {
+  damageMin?: number;
+  damageMax?: number;
+  requiresStrength?: number;
+  requiresDexterity?: number;
+  requiresVitality?: number;
+  requiresEnergy?: number;
+  armor?: number;
+  plusDamage?: number;
+  plusStrength?: number;
+  plusVitality?: number;
+}
+
+interface DragState {
+  slotIndex: number;
+  clientX: number;
+  clientY: number;
+  item?: D2InventoryItem;
+}
+
+type InventorySlotKind = 'pouch' | 'weapon' | 'armor' | 'charm';
+
+interface InventorySlotDef {
+  id: string;
+  kind: InventorySlotKind;
+  x: number;
+  y: number;
 }
