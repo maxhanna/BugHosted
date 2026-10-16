@@ -1,105 +1,86 @@
-<div class="componentMain d2s-root">
-  <app-title-bar [title]="'D2 Survivors'" [hasMenu]="false" (closeClicked)="remove_me('D2SurvivorsComponent')">
-  </app-title-bar>
-
-  <div class="d2s-toolbar">
-    <button type="button" (click)="togglePause()" [disabled]="phase !== 'playing' && phase !== 'paused'">
-      {{ phase === 'paused' ? 'Resume' : 'Pause' }}
+<div class="d2s">
+  <div class="d2s-tabs">
+    <button type="button" class="d2s-tab" [class.active]="activeTab === 'lore'" (click)="activeTab = 'lore'">
+      Lore / classes / skills
     </button>
-    <button type="button" (click)="openShop()" [disabled]="phase !== 'playing' && phase !== 'paused'">Charsi's Wares (C)</button>
-    <button type="button" [class.on]="soundOn" (click)="toggleSound()">Sound</button>
-    <button type="button" [class.on]="musicOn" (click)="toggleMusic()">Music</button>
-    <button type="button" [class.on]="muted" (click)="toggleMute()">Mute</button>
-    <button type="button" [class.on]="autoStats" (click)="autoStats = !autoStats">Auto stats</button>
-    <button type="button" (click)="openSelect()">New run</button>
-    <span class="d2s-hint">WASD / arrows move · click loot · P pause · H potion</span>
+    <button type="button" class="d2s-tab" [class.active]="activeTab === 'run'" (click)="activeTab = 'run'">
+      Quick chest run
+    </button>
   </div>
 
-  <div class="d2s-stage">
-    <canvas #gameCanvas class="d2s-canvas" (click)="onCanvasClick($event)"></canvas>
+  <section class="d2s-block" *ngIf="activeTab === 'lore'">
+    <h1>D2 Survivors</h1>
+    <p class="d2s-sub">Diablo-inspired survivor page. This is a content page, not a full Diablo remake.</p>
 
-    <div class="d2s-highscores" *ngIf="phase === 'select' && highScores.length > 0">
-      <h3>High scores</h3>
-      <ol>
-        <li *ngFor="let s of highScores">
-          <strong>{{ s.score }}</strong> {{ s.username }}
-          <small>{{ s.timeSeconds }}s · Lv {{ s.level }} · {{ s.kills }} kills{{ s.victory ? ' · victory' : '' }}</small>
+    <h2>Character classes</h2>
+    <ul class="d2s-list">
+      <li *ngFor="let cls of classes" class="d2s-row">
+        <span><strong>{{ cls.name }}</strong></span>
+        <span class="d2s-desc">{{ cls.desc }}</span>
+      </li>
+    </ul>
+
+    <h2>Skill and passive descriptions</h2>
+    <ul class="d2s-list">
+      <li *ngFor="let skill of skills" class="d2s-skill">
+        <strong>{{ skill.name }}</strong>
+        <span class="d2s-desc">{{ skill.desc }}</span>
+      </li>
+    </ul>
+
+    <h2>Map / area references</h2>
+    <ul class="d2s-list">
+      <li *ngFor="let area of mapAreas" class="d2s-item">{{ area }}</li>
+    </ul>
+
+    <h2>Item properties</h2>
+    <ul class="d2s-list">
+      <li *ngFor="let prop of itemProperties" class="d2s-item">{{ prop }}</li>
+    </ul>
+  </section>
+
+  <section class="d2s-run" *ngIf="activeTab === 'run'">
+    <h1>Quick chest run</h1>
+    <p class="d2s-sub">Bosses and champion packs drop chests. Collect a chest for +1 to a random skill you already have.</p>
+
+    <div class="d2s-run-hud">
+      <span class="d2s-hud">HP {{ playerHp }}/{{ playerMaxHp }}</span>
+      <span class="d2s-hud">Gold {{ playerGold }}</span>
+      <span class="d2s-hud">Time {{ runTime.toFixed(0) }}s</span>
+      <span class="d2s-hud">Enemies {{ enemies.length }}</span>
+      <span class="d2s-hud">Chests {{ openChestCount }}</span>
+    </div>
+
+    <div class="d2s-arena-wrap">
+      <canvas #arena class="d2s-arena" width="500" height="500" (keydown)="onKeyDown($event)" (keyup)="onKeyUp($event)" tabindex="0"></canvas>
+      <div class="d2s-model-hint" *ngIf="textureLoadError">Character textures did not load yet.</div>
+    </div>
+
+    <div class="d2s-owned" *ngIf="ownedSkills.length">
+      <h2>Owned skills</h2>
+      <ul class="d2s-list">
+        <li *ngFor="let name of ownedSkills" class="d2s-skill">
+          <strong>{{ name }}</strong>
+          <span class="d2s-desc">level {{ getSkillLevel(name) }} — {{ getSkillDescription(name) }}</span>
         </li>
-      </ol>
+      </ul>
     </div>
 
-    <div class="d2s-overlay d2s-select" *ngIf="phase === 'select'">
-      <h2>Select Hero Class</h2>
-      <div class="d2s-choices">
-        <button type="button" class="d2s-choice" *ngFor="let hero of heroClasses; let i = index" (click)="chooseHero(i)">
-          <strong>{{ hero.name }}</strong>
-          <small>{{ hero.desc }}</small>
-        </button>
-      </div>
-    </div>
-
-    <div class="d2s-overlay" *ngIf="phase === 'paused'">
-      <h2>Paused</h2>
-      <button type="button" (click)="togglePause()">Resume</button>
-    </div>
-
-    <div class="d2s-overlay" *ngIf="phase === 'levelup'">
-      <h2>Level Up</h2>
-      <p>You reached level {{ level }}. Choose a boon.</p>
-      <div class="d2s-choices">
-        <button type="button" class="d2s-choice" *ngFor="let choice of choices; let i = index" (click)="chooseUpgrade(i)">
-          <strong>{{ choice.label }}</strong>
-          <small>{{ choice.desc }}</small>
-        </button>
-      </div>
-    </div>
-
-    <div class="d2s-overlay" *ngIf="phase === 'gameover' || phase === 'victory'">
-      <h2>{{ phase === 'victory' ? 'You survived the Mausoleum!' : 'You were slain' }}</h2>
-      <p>Time {{ timeText }} · Level {{ level }} · {{ kills }} kills · {{ gold }} gold</p>
-      <button type="button" (click)="openSelect()">Choose hero</button>
-    </div>
-
-    <div class="d2s-overlay d2s-shop" *ngIf="phase === 'shop'">
-      <div class="d2s-shop-head">
-        <h2>Charsi's Wares</h2>
-        <span class="d2s-gold">{{ gold }} gold</span>
-        <button type="button" (click)="closeShop()">Close (Esc)</button>
-      </div>
-
-      <div class="d2s-shop-cols">
-        <div class="d2s-col">
-          <h3>For sale</h3>
-          <button type="button" class="d2s-stock" *ngFor="let entry of shopStock" [disabled]="gold < entry.price" (click)="buy(entry)">
-            <strong>{{ entry.name }}</strong>
-            <span>{{ entry.price }}g</span>
-            <small>{{ entry.desc }}</small>
-          </button>
-        </div>
-
-        <div class="d2s-col">
-          <h3>Equipped</h3>
-          <button type="button" class="d2s-slot" *ngFor="let slot of slots" [disabled]="!equipped[slot]" (click)="onEquippedClick(slot)">
-            <span class="d2s-slot-name">{{ slot }}</span>
-            <span [ngClass]="equipped[slot]?.rarity ?? ''">{{ equipped[slot]?.name || 'empty' }}</span>
-          </button>
-
-          <h3>Inventory ({{ inventory.length }}/{{ maxInventory }}) · Potions {{ potions }}</h3>
-          <div class="d2s-grid">
-            <button type="button" class="d2s-item" *ngFor="let item of inventory" [ngClass]="item.rarity"
-              [title]="describeItem(item)" (click)="onInventoryClick(item, $event)"
-              (contextmenu)="onInventoryRightClick(item, $event)">
-              {{ item.name }}
-            </button>
-          </div>
-
-          <div class="d2s-details" *ngIf="selectedItem as item">
-            <strong [ngClass]="item.rarity">{{ item.name }}</strong>
-            <pre>{{ describeItem(item) }}</pre>
-          </div>
-          <p class="d2s-hint">Click to inspect · Right-click to equip · Shift-click to sell · Esc to close</p>
+    <div class="d2s-inv-panel">
+      <h2>Inventory</h2>
+      <div class="d2s-inv">
+        <div class="d2s-inv-slot"
+          *ngFor="let slot of inventoryGrid"
+          [class.filled]="slot.item"
+          [class.rare]="slot.item?.rarity === 'rare'"
+          [class.magic]="slot.item?.rarity === 'magic'"
+          [class.normal]="slot.item?.rarity === 'normal'"
+          [class.empty]="!slot.item">
+          <span class="d2s-inv-name">{{ slot.item?.name || '' }}</span>
         </div>
       </div>
+      <p class="d2s-hint">Artifacts and loot drop into the grid. Rares are gold, magics are blue.</p>
     </div>
-  </div>
+
+  </section>
 </div>

@@ -44,7 +44,8 @@
                 "glob": "*.png",
                 "input": "src/assets",
                 "output": "assets"
-              },{
+              },
+              {
                 "glob": "*.exe",
                 "input": "src/assets",
                 "output": "assets"
@@ -73,6 +74,11 @@
                 "glob": "pdf.worker.min.mjs",
                 "input": "node_modules/pdfjs-dist/build",
                 "output": "assets/pdfjs"
+              },
+              {
+                "glob": "**/*",
+                "input": "src/assets/d2-models",
+                "output": "assets/d2-models"
               }
             ],
             "styles": [
@@ -190,7 +196,7 @@
             "assets": [
               "src/favicon.ico",
               "src/sitemap.xml",
-              "src/assets", 
+              "src/assets",
               "src/firebase-messaging-sw.js"
             ],
             "styles": [
