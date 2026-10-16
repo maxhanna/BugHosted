@@ -3,11 +3,12 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AppModule } from '../app.module';
 import { ChildComponent } from '../child.component';
+import { D2SurvivorsService, D2HighScore } from '../../services/d2survivors.service';
 
 // Original Diablo-inspired survivor game. All art is drawn procedurally on a
 // canvas; no Blizzard or third-party sprites, sounds or code are used.
 
-type Phase = 'playing' | 'paused' | 'levelup' | 'shop' | 'gameover' | 'victory';
+type Phase = 'select' | 'playing' | 'paused' | 'levelup' | 'shop' | 'gameover' | 'victory';
 type Slot = 'weapon' | 'armor' | 'charm';
 type Rarity = 'normal' | 'magic' | 'rare';
 type StatKey = 'damage' | 'maxHp' | 'speed' | 'area' | 'cooldown' | 'magnet' | 'armor' | 'regen';
@@ -19,15 +20,28 @@ interface GroundItem { x: number; y: number; item: Item; age: number; }
 interface Enemy {
   kind: EnemyKind; x: number; y: number; hp: number; maxHp: number; speed: number; r: number;
   dmg: number; xp: number; gold: number; boss: boolean; flash: number; orbitCd: number; phase: number;
+  /** Pyromancer ember stacks on this foe (see addBrand). */
+  brand?: number;
 }
 interface Projectile { x: number; y: number; vx: number; vy: number; dmg: number; life: number; }
+interface Mine { x: number; y: number; life: number; arm: number; }
 interface Drop { x: number; y: number; v: number; kind: 'xp' | 'gold'; }
 interface Effect { kind: 'ring' | 'arc'; x: number; y: number; r: number; pts: number[]; life: number; maxLife: number; }
 interface Floater { x: number; y: number; text: string; color: string; life: number; }
 interface Choice { kind: 'weapon' | 'stat'; key: WeaponKey | StatKey; label: string; desc: string; }
 interface ShopItem { id: 'potion' | 'crate' | 'rare'; name: string; price: number; desc: string; }
+/** Roguelite progress that survives death and New run. */
+interface MetaSave { gold: number; potions: number; inventory: Item[]; equipped: Partial<Record<Slot, Item>>; }
+/** The in-progress run, saved on the server so a refresh resumes it. */
+interface RunSnapshot {
+  heroId: string; time: number; kills: number; level: number; xp: number;
+  weapons: Record<WeaponKey, number>; weaponTimers: Record<WeaponKey, number>; orbitAngle: number;
+  upgrades: Record<StatKey, number>; hp: number; x: number; y: number; facing: number;
+  pendingLevelUps: number; spawnAcc: number; nextBossIndex: number;
+}
 
 const TILE = 64;
+const META_KEY = 'd2survivors.meta.v1';
 const PLAYER_R = 13;
 const RUN_SECONDS = 600;
 const BOSS_TIMES = [150, 300, 450];
@@ -39,21 +53,22 @@ const TAU = Math.PI * 2;
 
 // CC0 sprite sheets (see assets/d2survivors/CREDITS.md). Each spec gives frame size,
 // frame count, animation speed and which sheet row to use.
-type SpriteKey = 'hero' | 'skeleton' | 'fallen' | 'zombie' | 'bat' | 'lord';
-interface SpriteSpec { file: string; fw: number; fh: number; frames: number; fps: number; row: number; }
+type SpriteKey = 'hero' | 'skeleton' | 'fallen' | 'zombie' | 'bat' | 'lord' | 'floor';
+interface SpriteSpec { file: string; fw: number; fh: number; frames: number; fps: number; row: number; ox?: number; oy?: number; }
 const SPRITE_SPECS: Record<SpriteKey, SpriteSpec> = {
   hero: { file: 'assets/d2survivors/hero.png', fw: 128, fh: 128, frames: 1, fps: 1, row: 0 },
   skeleton: { file: 'assets/d2survivors/skeleton.png', fw: 128, fh: 128, frames: 1, fps: 1, row: 0 },
-  fallen: { file: 'assets/d2survivors/fallen.png', fw: 32, fh: 32, frames: 9, fps: 10, row: 0 },
+  fallen: { file: 'assets/d2survivors/denzi_monsters.png', fw: 32, fh: 48, frames: 1, fps: 1, row: 0, ox: 0, oy: 96 },
+  floor: { file: 'assets/d2survivors/denzi_tiles.png', fw: 32, fh: 32, frames: 1, fps: 1, row: 0, ox: 0, oy: 96 },
   zombie: { file: 'assets/d2survivors/zombie.png', fw: 31, fh: 36, frames: 4, fps: 6, row: 0 },
   bat: { file: 'assets/d2survivors/bat.gif', fw: 32, fh: 32, frames: 5, fps: 12, row: 0 },
-  lord: { file: 'assets/d2survivors/lord.png', fw: 64, fh: 64, frames: 3, fps: 5, row: 0 },
+  lord: { file: 'assets/d2survivors/denzi_monsters.png', fw: 32, fh: 48, frames: 1, fps: 1, row: 0, ox: 224, oy: 192 },
 };
 const ENEMY_SPRITE: Record<EnemyKind, SpriteKey> = {
   skeleton: 'skeleton', fallen: 'fallen', zombie: 'zombie', bat: 'bat', lord: 'lord',
 };
 const ENEMY_SPRITE_HEIGHT: Record<EnemyKind, number> = {
-  skeleton: 30, fallen: 28, zombie: 34, bat: 24, lord: 110,
+  skeleton: 30, fallen: 34, zombie: 34, bat: 24, lord: 110,
 };
 
 const WEAPON_INFO: Record<WeaponKey, { name: string; desc: string }> = {
@@ -107,6 +122,15 @@ const SHOP_STOCK: ShopItem[] = [
   { id: 'rare', name: 'Rare Crate', price: 150, desc: 'A random item of at least magic quality.' },
 ];
 
+interface HeroClass { id: string; name: string; desc: string; color: string; start: WeaponKey; bonus: Partial<Record<StatKey, number>>; }
+
+const HERO_CLASSES: HeroClass[] = [
+  { id: 'knight', name: 'Knight', desc: 'Sturdy and slow. Ward cuts damage taken by 15%. Starts with Whirling Blades.', color: '#7a8594', start: 'orbit', bonus: { maxHp: 40, speed: -15 } },
+  { id: 'pyromancer', name: 'Pyromancer', desc: 'Frail caster. Every third bolt on a foe bursts in flame. Starts with Sorcery Bolt.', color: '#c4502a', start: 'bolt', bonus: { damage: 0.15, maxHp: -25 } },
+  { id: 'rogue', name: 'Rogue', desc: 'Quick and light. Drops snare mines as it moves. Starts with Storm Arc.', color: '#4f7a4a', start: 'arc', bonus: { speed: 25, cooldown: 0.08 } },
+  { id: 'warden', name: 'Warden', desc: 'Steady guardian. A spirit strikes the nearest foe. Starts with Nova Burst.', color: '#6b5a8a', start: 'nova', bonus: { armor: 2, area: 0.1 } },
+];
+
 function randInt(min: number, max: number): number {
   return Math.floor(min + Math.random() * (max - min + 1));
 }
@@ -131,7 +155,9 @@ export class D2SurvivorsComponent extends ChildComponent implements AfterViewIni
   readonly weaponInfo = WEAPON_INFO;
 
   // Session state
-  phase: Phase = 'playing';
+  phase: Phase = 'select';
+  selectedClass: HeroClass = HERO_CLASSES[0];
+  readonly heroClasses = HERO_CLASSES;
   private beforeModal: Phase = 'playing';
   time = 0;
   kills = 0;
@@ -155,6 +181,10 @@ export class D2SurvivorsComponent extends ChildComponent implements AfterViewIni
   weapons: Record<WeaponKey, number> = { bolt: 0, orbit: 0, nova: 0, arc: 0 };
   private weaponTimers: Record<WeaponKey, number> = { bolt: 0, orbit: 0, nova: 0, arc: 0 };
   private orbitAngle = 0;
+  mines: Mine[] = [];
+  private mineTimer = 0;
+  private spiritTimer = 0;
+  private spiritAngle = 0;
   upgrades: Record<StatKey, number> = { damage: 0, maxHp: 0, speed: 0, area: 0, cooldown: 0, magnet: 0, armor: 0, regen: 0 };
   equipped: Partial<Record<Slot, Item>> = {};
   inventory: Item[] = [];
@@ -177,19 +207,33 @@ export class D2SurvivorsComponent extends ChildComponent implements AfterViewIni
   private droneGain: GainNode | null = null;
   private lastSfxAt = 0;
   private sprites: Partial<Record<SpriteKey, HTMLImageElement>> = {};
+  highScores: D2HighScore[] = [];
+  private authToken = '';
+  private serverReady = false;
+  private serverSaveTimer: any;
+  private runSaveInterval: any;
 
-  constructor(private ngZone: NgZone, private cdr: ChangeDetectorRef) {
+  constructor(private ngZone: NgZone, private cdr: ChangeDetectorRef, private d2sService: D2SurvivorsService) {
     super();
   }
 
   ngAfterViewInit(): void {
+    this.loadMeta();
     this.newRun();
+    this.phase = 'select';
     this.loadSprites();
+    this.loadHighScores();
+    void this.restoreFromServer();
     window.addEventListener('keydown', this.onKeyDown);
     window.addEventListener('keyup', this.onKeyUp);
+    window.addEventListener('beforeunload', this.onBeforeUnload);
     this.ngZone.runOutsideAngular(() => {
       this.lastTime = performance.now();
       this.raf = requestAnimationFrame(this.frame);
+      // Snapshot the run every few seconds so a refresh resumes it.
+      this.runSaveInterval = setInterval(() => {
+        if (this.isRunActive()) void this.pushToServer(false);
+      }, 5000);
     });
   }
 
@@ -197,6 +241,11 @@ export class D2SurvivorsComponent extends ChildComponent implements AfterViewIni
     cancelAnimationFrame(this.raf);
     window.removeEventListener('keydown', this.onKeyDown);
     window.removeEventListener('keyup', this.onKeyUp);
+    window.removeEventListener('beforeunload', this.onBeforeUnload);
+    this.saveMeta();
+    void this.pushToServer(true);
+    clearInterval(this.runSaveInterval);
+    clearTimeout(this.serverSaveTimer);
     this.stopDrone();
     this.audioCtx?.close();
     this.audioCtx = null;
@@ -213,6 +262,165 @@ export class D2SurvivorsComponent extends ChildComponent implements AfterViewIni
     return 10 + this.level * 8;
   }
 
+  // ---------- Saved progress ----------
+
+  /** Restores gold, potions, inventory and equipped items from the last save. */
+  private loadMeta(): void {
+    try {
+      const raw = localStorage.getItem(META_KEY);
+      if (!raw) return;
+      this.applyMeta(JSON.parse(raw) as Partial<MetaSave>);
+    } catch (err) {
+      console.warn('D2 Survivors: could not load saved progress.', err);
+    }
+  }
+
+  /** Applies saved gold, potions, inventory and equipment. */
+  private applyMeta(meta: Partial<MetaSave>): void {
+    this.gold = typeof meta.gold === 'number' && meta.gold >= 0 ? Math.floor(meta.gold) : 0;
+    this.potions = typeof meta.potions === 'number' && meta.potions >= 0 ? Math.floor(meta.potions) : 0;
+    this.inventory = Array.isArray(meta.inventory) ? meta.inventory.slice(0, MAX_INVENTORY) : [];
+    this.equipped = meta.equipped ?? {};
+    const ids = [...this.inventory, ...Object.values(this.equipped)]
+      .filter((item): item is Item => !!item)
+      .map(item => item.id);
+    this.nextItemId = Math.max(0, ...ids) + 1;
+  }
+
+  private get userId(): number {
+    return this.parentRef?.user?.id ?? 0;
+  }
+
+  private parseJson<T>(text: string | undefined | null, fallback: T): T {
+    if (!text) return fallback;
+    try {
+      return JSON.parse(text) as T;
+    } catch {
+      return fallback;
+    }
+  }
+
+  /** Loads gold, inventory and any in-progress run from the server for a logged-in player. */
+  private async restoreFromServer(): Promise<void> {
+    if (!this.userId) return;
+    this.authToken = (await this.parentRef?.getSessionToken()) ?? '';
+    const res = await this.d2sService.getSave(this.userId, this.authToken);
+    if (!res.ok || !res.data) return;
+    this.serverReady = true;
+    const data = res.data;
+    if (!data.exists) {
+      // First sync for this player: push local progress up to the server.
+      this.saveMeta();
+      return;
+    }
+    this.applyMeta({
+      gold: data.gold,
+      potions: data.potions,
+      inventory: this.parseJson<Item[]>(data.inventory, []),
+      equipped: this.parseJson<Partial<Record<Slot, Item>>>(data.equipped, {}),
+    });
+    this.saveMeta();
+    if (data.runSnapshot && this.restoreRun(data.runSnapshot)) {
+      if (this.pendingLevelUps > 0) {
+        this.choices = this.buildChoices();
+        this.setPhase('levelup');
+      } else {
+        this.setPhase('paused');
+      }
+      this.toast('Run restored from the server.');
+    }
+  }
+
+  /** Sends meta and any in-progress run to the server. Guests and failed loads are skipped. */
+  private async pushToServer(keepalive: boolean): Promise<void> {
+    if (!this.serverReady || !this.userId) return;
+    await this.d2sService.save({
+      userId: this.userId,
+      gold: this.gold,
+      potions: this.potions,
+      inventory: JSON.stringify(this.inventory),
+      equipped: JSON.stringify(this.equipped),
+      runSnapshot: this.isRunActive() ? JSON.stringify(this.captureRun()) : null,
+    }, this.authToken, keepalive);
+  }
+
+  private scheduleServerSave(): void {
+    if (!this.serverReady || !this.userId) return;
+    clearTimeout(this.serverSaveTimer);
+    this.serverSaveTimer = setTimeout(() => void this.pushToServer(false), 800);
+  }
+
+  private isRunActive(): boolean {
+    return this.phase === 'playing' || this.phase === 'paused' || this.phase === 'levelup' || this.phase === 'shop';
+  }
+
+  private captureRun(): RunSnapshot {
+    return {
+      heroId: this.selectedClass.id, time: this.time, kills: this.kills, level: this.level, xp: this.xp,
+      weapons: { ...this.weapons }, weaponTimers: { ...this.weaponTimers }, orbitAngle: this.orbitAngle,
+      upgrades: { ...this.upgrades }, hp: this.player.hp, x: this.player.x, y: this.player.y,
+      facing: this.player.facing, pendingLevelUps: this.pendingLevelUps, spawnAcc: this.spawnAcc,
+      nextBossIndex: this.nextBossIndex,
+    };
+  }
+
+  /** Rebuilds a run from a saved snapshot. Enemies are not saved, so the field starts clear. */
+  private restoreRun(text: string): boolean {
+    const s = this.parseJson<Partial<RunSnapshot> | null>(text, null);
+    if (!s) return false;
+    const num = (v: unknown, fallback = 0): number => (typeof v === 'number' && Number.isFinite(v) ? v : fallback);
+    this.selectedClass = HERO_CLASSES.find(h => h.id === s.heroId) ?? HERO_CLASSES[0];
+    this.newRun();
+    this.time = num(s.time);
+    this.kills = Math.max(0, Math.floor(num(s.kills)));
+    this.level = Math.min(200, Math.max(1, Math.floor(num(s.level, 1))));
+    this.xp = Math.max(0, num(s.xp));
+    this.weapons = { bolt: num(s.weapons?.bolt), orbit: num(s.weapons?.orbit), nova: num(s.weapons?.nova), arc: num(s.weapons?.arc) };
+    this.weaponTimers = { bolt: 0, orbit: 0, nova: 0, arc: 0 };
+    this.orbitAngle = num(s.orbitAngle);
+    this.upgrades = {
+      damage: num(s.upgrades?.damage), maxHp: num(s.upgrades?.maxHp), speed: num(s.upgrades?.speed), area: num(s.upgrades?.area),
+      cooldown: num(s.upgrades?.cooldown), magnet: num(s.upgrades?.magnet), armor: num(s.upgrades?.armor), regen: num(s.upgrades?.regen),
+    };
+    this.pendingLevelUps = Math.max(0, Math.floor(num(s.pendingLevelUps)));
+    this.spawnAcc = num(s.spawnAcc);
+    this.nextBossIndex = Math.max(0, Math.floor(num(s.nextBossIndex)));
+    this.player = {
+      x: num(s.x), y: num(s.y), hp: Math.min(this.maxHp, Math.max(1, num(s.hp, this.maxHp))), invuln: 0, facing: num(s.facing),
+    };
+    return true;
+  }
+
+  /** Records a finished run for logged-in players. Guest runs stay local. */
+  private async recordRunRemote(victory: boolean): Promise<void> {
+    if (this.userId && this.serverReady) {
+      await this.d2sService.recordRun({
+        userId: this.userId, timeSeconds: Math.floor(this.time), kills: this.kills, level: this.level, victory,
+      }, this.authToken);
+    }
+    await this.loadHighScores();
+  }
+
+  /** Top runs from the server, shown on the hero select screen. */
+  async loadHighScores(): Promise<void> {
+    const res = await this.d2sService.getHighScores(10);
+    if (res.ok && res.data) {
+      this.highScores = res.data;
+      this.ngZone.run(() => this.cdr.detectChanges());
+    }
+  }
+
+  /** Writes the roguelite progress so it survives death, New run and page reloads. */
+  private saveMeta(): void {
+    const meta: MetaSave = { gold: this.gold, potions: this.potions, inventory: this.inventory, equipped: this.equipped };
+    try {
+      localStorage.setItem(META_KEY, JSON.stringify(meta));
+    } catch (err) {
+      console.warn('D2 Survivors: could not save progress.', err);
+    }
+    this.scheduleServerSave();
+  }
+
   // ---------- Run lifecycle ----------
 
   newRun(): void {
@@ -220,22 +428,24 @@ export class D2SurvivorsComponent extends ChildComponent implements AfterViewIni
     this.kills = 0;
     this.level = 1;
     this.xp = 0;
-    this.gold = 0;
-    this.potions = 0;
     this.message = '';
     this.messageTimer = 0;
     this.choices = [];
     this.selectedItem = null;
-    this.player = { x: 0, y: 0, hp: BASE_STATS.maxHp, invuln: 0, facing: 0 };
-    this.weapons = { bolt: 1, orbit: 0, nova: 0, arc: 0 };
+    this.player = { x: 0, y: 0, hp: 0, invuln: 0, facing: 0 };
+    this.weapons = { bolt: 0, orbit: 0, nova: 0, arc: 0 };
+    this.weapons[this.selectedClass.start] = 1;
     this.weaponTimers = { bolt: 0, orbit: 0, nova: 0, arc: 0 };
     this.orbitAngle = 0;
     this.upgrades = { damage: 0, maxHp: 0, speed: 0, area: 0, cooldown: 0, magnet: 0, armor: 0, regen: 0 };
-    this.equipped = {};
-    this.inventory = [];
+    this.player.hp = this.maxHp;
     this.groundItems = [];
     this.enemies = [];
     this.projectiles = [];
+    this.mines = [];
+    this.mineTimer = 0;
+    this.spiritTimer = 0;
+    this.spiritAngle = 0;
     this.drops = [];
     this.effects = [];
     this.floaters = [];
@@ -251,10 +461,12 @@ export class D2SurvivorsComponent extends ChildComponent implements AfterViewIni
   private endRun(victory: boolean): void {
     this.setPhase(victory ? 'victory' : 'gameover');
     this.sfx(victory ? 660 : 110, 0.6, 'triangle', 0.08);
+    void this.recordRunRemote(victory);
   }
 
   private setPhase(next: Phase): void {
     this.phase = next;
+    this.saveMeta();
     this.ngZone.run(() => this.cdr.detectChanges());
   }
 
@@ -266,7 +478,7 @@ export class D2SurvivorsComponent extends ChildComponent implements AfterViewIni
   // ---------- Stats ----------
 
   stat(key: StatKey): number {
-    let total = BASE_STATS[key] + this.upgrades[key];
+    let total = BASE_STATS[key] + this.upgrades[key] + (this.selectedClass.bonus[key] ?? 0);
     for (const slot of this.slots) {
       total += this.equipped[slot]?.stats[key] ?? 0;
     }
@@ -299,6 +511,165 @@ export class D2SurvivorsComponent extends ChildComponent implements AfterViewIni
   private onKeyUp = (e: KeyboardEvent): void => {
     this.keys.delete(e.key.toLowerCase());
   };
+
+  private onBeforeUnload = (): void => {
+    this.saveMeta();
+    void this.pushToServer(true);
+  };
+
+  // ---------- Hero select ----------
+
+  openSelect(): void {
+    this.setPhase('select');
+    this.loadHighScores();
+  }
+
+  chooseHero(index: number): void {
+    const hero = HERO_CLASSES[index];
+    if (!hero) return;
+    this.selectedClass = hero;
+    this.newRun();
+  }
+
+  /** Draws the hero select scene: heroes gathered around a campfire in a dark settlement. */
+  private drawFirePit(ctx: CanvasRenderingContext2D): void {
+    const W = ctx.canvas.width;
+    const H = ctx.canvas.height;
+    const t = performance.now() / 1000;
+    const cx = W / 2;
+    const cy = H * 0.5;
+    const groundY = H * 0.42;
+    ctx.imageSmoothingEnabled = false;
+
+    ctx.fillStyle = '#060508';
+    ctx.fillRect(0, 0, W, H);
+
+    // Dark stone buildings with a few flickering windows.
+    for (let i = 0; i < 9; i++) {
+      const x = (i / 9) * W;
+      const bw = W / 9 + 4;
+      const bh = H * (0.22 + ((i * 37) % 11) / 60);
+      ctx.fillStyle = '#100c09';
+      ctx.fillRect(x, groundY - bh, bw, bh);
+      if (i % 2 === 0) {
+        ctx.fillStyle = `rgba(214, 140, 60, ${0.35 * (0.6 + 0.4 * Math.sin(t * 3 + i))})`;
+        ctx.fillRect(x + bw * 0.3, groundY - bh * 0.7, 8, 10);
+      }
+    }
+
+    // Ground: dimmed floor tiles.
+    ctx.fillStyle = '#1a140e';
+    ctx.fillRect(0, groundY, W, H - groundY);
+    const floor = this.sprites.floor;
+    if (floor && floor.complete && floor.naturalWidth > 0) {
+      const spec = SPRITE_SPECS.floor;
+      ctx.globalAlpha = 0.5;
+      for (let x = 0; x < W; x += TILE) {
+        for (let y = groundY; y < H; y += TILE) {
+          const v = hashTile(Math.floor(x / TILE), Math.floor(y / TILE)) % 3;
+          ctx.drawImage(floor, v * spec.fw + (spec.ox ?? 0), spec.oy ?? 0, spec.fw, spec.fh, x, y, TILE, TILE);
+        }
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // Warm light spilling from the fire.
+    const glow = ctx.createRadialGradient(cx, cy, 8, cx, cy, Math.max(W, H) * 0.5);
+    glow.addColorStop(0, 'rgba(255, 140, 50, 0.55)');
+    glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, W, H);
+
+    // Stone ring and logs.
+    for (let k = 0; k < 14; k++) {
+      const a = (k / 14) * TAU;
+      ctx.fillStyle = '#2d2822';
+      ctx.beginPath();
+      ctx.ellipse(cx + Math.cos(a) * 46, cy + 4 + Math.sin(a) * 16, 9, 7, 0, 0, TAU);
+      ctx.fill();
+    }
+    ctx.fillStyle = '#3b2414';
+    ctx.save(); ctx.translate(cx, cy + 4); ctx.rotate(-0.25); ctx.fillRect(-34, -5, 68, 10); ctx.restore();
+    ctx.save(); ctx.translate(cx, cy + 4); ctx.rotate(0.3); ctx.fillRect(-30, -4, 60, 9); ctx.restore();
+
+    // Flames rising from the logs.
+    for (let i = 0; i < 28; i++) {
+      const seed = i * 0.37;
+      const life = (t * 0.7 + seed) % 1;
+      const x = cx + Math.sin(seed * 9.1 + t * 4) * (4 + life * 10);
+      const y = cy - 4 - life * 74;
+      ctx.globalAlpha = 0.9 * (1 - life);
+      ctx.fillStyle = life < 0.3 ? '#ffe68a' : life < 0.65 ? '#ff8c2e' : '#b8320f';
+      ctx.beginPath();
+      ctx.arc(x, y, 3 + 9 * (1 - life), 0, TAU);
+      ctx.fill();
+    }
+
+    // Embers drifting up.
+    for (let i = 0; i < 12; i++) {
+      const life = (t * 0.25 + i * 0.13) % 1;
+      const x = cx + Math.sin(i * 5.3 + t + life * 4) * (20 + life * 60);
+      const y = cy - 20 - life * 200;
+      ctx.globalAlpha = 0.8 * (1 - life);
+      ctx.fillStyle = '#ffb347';
+      ctx.fillRect(x, y, 2, 2);
+    }
+    ctx.globalAlpha = 1;
+
+    // Heroes gathered around the fire.
+    const spacing = Math.min(150, W / (this.heroClasses.length + 1));
+    this.heroClasses.forEach((hero, i) => {
+      const x = cx + (i - (this.heroClasses.length - 1) / 2) * spacing;
+      this.drawHeroFigure(ctx, hero, x, cy + 20, t, i);
+    });
+  }
+
+  private drawHeroFigure(ctx: CanvasRenderingContext2D, hero: HeroClass, x: number, y: number, t: number, index: number): void {
+    ctx.save();
+    ctx.translate(x, y + Math.sin(t * 2 + index * 1.3) * 1.5);
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    ctx.beginPath();
+    ctx.ellipse(0, 28, 14, 5, 0, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = '#1b1612';
+    ctx.fillRect(-7, 12, 5, 16);
+    ctx.fillRect(2, 12, 5, 16);
+    ctx.fillStyle = hero.color;
+    ctx.fillRect(-10, -6, 20, 20);
+    ctx.fillStyle = '#c9a27a';
+    ctx.beginPath();
+    ctx.arc(0, -14, 7, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = hero.color;
+    ctx.beginPath();
+    ctx.arc(0, -15, 8, Math.PI, 0);
+    ctx.fill();
+    // Class gear.
+    switch (hero.id) {
+      case 'knight':
+        ctx.fillStyle = '#c8ccd4';
+        ctx.fillRect(12, -18, 3, 26);
+        break;
+      case 'pyromancer':
+        ctx.fillStyle = '#5a3a1e';
+        ctx.fillRect(-14, -20, 2, 30);
+        ctx.fillStyle = '#ff8c2e';
+        ctx.beginPath();
+        ctx.arc(-13, -22, 4, 0, TAU);
+        ctx.fill();
+        break;
+      case 'rogue':
+        ctx.fillStyle = '#c8ccd4';
+        ctx.fillRect(10, -2, 8, 2);
+        break;
+      default:
+        ctx.fillStyle = '#6b5a8a';
+        ctx.beginPath();
+        ctx.arc(-14, 2, 7, 0, TAU);
+        ctx.fill();
+    }
+    ctx.restore();
+  }
 
   togglePause(): void {
     if (this.phase === 'playing') this.setPhase('paused');
@@ -648,7 +1019,8 @@ export class D2SurvivorsComponent extends ChildComponent implements AfterViewIni
       const ctx = canvas.getContext('2d');
       if (ctx && canvas.width > 0 && canvas.height > 0) {
         if (this.phase === 'playing') this.update(dt, canvas);
-        this.render(ctx);
+        if (this.phase === 'select') this.drawFirePit(ctx);
+        else this.render(ctx);
       }
     }
     this.raf = requestAnimationFrame(this.frame);
@@ -664,6 +1036,7 @@ export class D2SurvivorsComponent extends ChildComponent implements AfterViewIni
     this.updatePlayer(dt);
     this.updateSpawns(dt, canvas);
     this.updateWeapons(dt);
+    this.updateClassMechanics(dt);
     this.updateProjectiles(dt);
     this.updateEnemies(dt);
     this.updateDrops(dt);
@@ -808,6 +1181,109 @@ export class D2SurvivorsComponent extends ChildComponent implements AfterViewIni
     }
   }
 
+  /** Pyromancer: every third bolt on the same foe bursts in flame around it. */
+  private addBrand(e: Enemy, dmg: number): void {
+    e.brand = (e.brand ?? 0) + 1;
+    if (e.brand < 3) {
+      this.floaters.push({ x: e.x, y: e.y - e.r - 10, text: `Ember ${e.brand}`, color: '#ffb347', life: 0.5 });
+      return;
+    }
+    e.brand = 0;
+    const radius = 70 * (1 + this.stat('area'));
+    for (const other of this.enemies) {
+      if (other.hp > 0 && Math.hypot(other.x - e.x, other.y - e.y) <= radius + other.r) {
+        this.damageEnemy(other, dmg * 1.5);
+      }
+    }
+    this.effects.push({ kind: 'ring', x: e.x, y: e.y, r: radius, pts: [], life: 0.4, maxLife: 0.4 });
+    this.sfx(330, 0.12, 'sawtooth', 0.03);
+  }
+
+  /** Rogue lays snare mines as it moves; Warden is accompanied by a guardian spirit. */
+  private updateClassMechanics(dt: number): void {
+    const id = this.selectedClass.id;
+    const damageMul = 1 + this.stat('damage');
+    const cooldownMul = Math.max(0.35, 1 - this.stat('cooldown'));
+
+    if (id === 'rogue') {
+      this.mineTimer -= dt;
+      if (this.mineTimer <= 0) {
+        this.mineTimer = 4 * cooldownMul;
+        this.mines.push({ x: this.player.x, y: this.player.y, life: 12, arm: 0.6 });
+        if (this.mines.length > 20) this.mines.shift();
+      }
+    }
+    for (const m of this.mines) {
+      m.life -= dt;
+      m.arm -= dt;
+      if (m.arm > 0 || m.life <= 0) continue;
+      if (!this.enemies.some(e => e.hp > 0 && Math.hypot(e.x - m.x, e.y - m.y) < e.r + 10)) continue;
+      m.life = 0;
+      const radius = 50 * (1 + this.stat('area'));
+      for (const e of this.enemies) {
+        if (e.hp > 0 && Math.hypot(e.x - m.x, e.y - m.y) <= radius + e.r) {
+          this.damageEnemy(e, (24 + 4 * this.level) * damageMul);
+        }
+      }
+      this.effects.push({ kind: 'ring', x: m.x, y: m.y, r: radius, pts: [], life: 0.35, maxLife: 0.35 });
+      this.sfx(90, 0.15, 'square', 0.03);
+    }
+    this.mines = this.mines.filter(m => m.life > 0);
+
+    if (id === 'warden') {
+      this.spiritAngle += dt * 1.8;
+      this.spiritTimer -= dt;
+      if (this.spiritTimer <= 0) {
+        const target = this.nearestEnemies(1, 200)[0];
+        if (!target) {
+          this.spiritTimer = 0.25;
+        } else {
+          this.spiritTimer = 1.2 * cooldownMul;
+          const spirit = this.spiritPos();
+          this.damageEnemy(target, (10 + 3 * this.level) * damageMul);
+          this.effects.push({ kind: 'arc', x: 0, y: 0, r: 0, pts: [spirit.x, spirit.y, target.x, target.y], life: 0.2, maxLife: 0.2 });
+          this.sfx(900, 0.05, 'triangle', 0.02);
+        }
+      }
+    }
+  }
+
+  private spiritPos(): { x: number; y: number } {
+    const rx = 46 + this.stat('area') * 40;
+    return {
+      x: this.player.x + Math.cos(this.spiritAngle) * rx,
+      y: this.player.y + Math.sin(this.spiritAngle) * rx * 0.6,
+    };
+  }
+
+  private drawClassMechanics(ctx: CanvasRenderingContext2D): void {
+    for (const m of this.mines) {
+      const armed = m.arm <= 0;
+      ctx.save();
+      ctx.fillStyle = armed ? '#e05555' : '#7a5a5a';
+      if (armed) {
+        ctx.shadowColor = '#ff4040';
+        ctx.shadowBlur = 8;
+      }
+      ctx.beginPath();
+      ctx.arc(m.x, m.y, 5, 0, TAU);
+      ctx.fill();
+      ctx.restore();
+    }
+    if (this.selectedClass.id === 'warden') {
+      const s = this.spiritPos();
+      ctx.save();
+      ctx.globalAlpha = 0.75;
+      ctx.fillStyle = '#b39ddb';
+      ctx.shadowColor = '#7e57c2';
+      ctx.shadowBlur = 12;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, 6, 0, TAU);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
   private fireBolts(level: number, damageMul: number): void {
     const targets = this.nearestEnemies(level, 900);
     if (targets.length === 0) return;
@@ -873,6 +1349,7 @@ export class D2SurvivorsComponent extends ChildComponent implements AfterViewIni
       for (const e of this.enemies) {
         if (e.hp > 0 && Math.hypot(e.x - p.x, e.y - p.y) < e.r + 5) {
           this.damageEnemy(e, p.dmg);
+          if (this.selectedClass.id === 'pyromancer') this.addBrand(e, p.dmg);
           p.life = 0;
           break;
         }
@@ -913,7 +1390,9 @@ export class D2SurvivorsComponent extends ChildComponent implements AfterViewIni
   }
 
   private damagePlayer(amount: number): void {
-    const taken = Math.max(1, amount - this.stat('armor'));
+    // Knight's Ward: a constant 15% reduction before armor.
+    const ward = this.selectedClass.id === 'knight' ? 0.85 : 1;
+    const taken = Math.max(1, amount * ward - this.stat('armor'));
     this.player.hp -= taken;
     this.player.invuln = 0.5;
     this.floaters.push({ x: this.player.x, y: this.player.y - 20, text: `-${Math.round(taken)}`, color: '#ff6b6b', life: 0.7 });
@@ -1000,7 +1479,7 @@ export class D2SurvivorsComponent extends ChildComponent implements AfterViewIni
     ctx.save();
     ctx.translate(cx, cy);
     if (flip) ctx.scale(-1, 1);
-    ctx.drawImage(img, frame * spec.fw, spec.row * spec.fh, spec.fw, spec.fh, -width / 2, -height / 2, width, height);
+    ctx.drawImage(img, (spec.ox ?? 0) + frame * spec.fw, (spec.oy ?? 0) + spec.row * spec.fh, spec.fw, spec.fh, -width / 2, -height / 2, width, height);
     ctx.restore();
     return true;
   }
@@ -1013,6 +1492,7 @@ export class D2SurvivorsComponent extends ChildComponent implements AfterViewIni
     const camX = this.player.x - W / 2;
     const camY = this.player.y - H / 2;
 
+    ctx.imageSmoothingEnabled = false;
     ctx.fillStyle = '#0d0a08';
     ctx.fillRect(0, 0, W, H);
     this.drawGround(ctx, W, H, camX, camY);
@@ -1024,6 +1504,7 @@ export class D2SurvivorsComponent extends ChildComponent implements AfterViewIni
     for (const e of this.enemies) this.drawEnemy(ctx, e);
     this.drawPlayer(ctx);
     this.drawWeaponsWorld(ctx);
+    this.drawClassMechanics(ctx);
     for (const f of this.floaters) {
       ctx.globalAlpha = Math.min(1, f.life * 2);
       ctx.fillStyle = f.color;
@@ -1033,6 +1514,13 @@ export class D2SurvivorsComponent extends ChildComponent implements AfterViewIni
     }
     ctx.globalAlpha = 1;
     ctx.restore();
+
+    // Torchlight falloff: darkens the edges of the screen around the hero.
+    const vignette = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.3, W / 2, H / 2, Math.max(W, H) * 0.75);
+    vignette.addColorStop(0, 'rgba(0,0,0,0)');
+    vignette.addColorStop(1, 'rgba(0,0,0,0.8)');
+    ctx.fillStyle = vignette;
+    ctx.fillRect(0, 0, W, H);
 
     this.drawHud(ctx, W, H);
   }
@@ -1047,6 +1535,12 @@ export class D2SurvivorsComponent extends ChildComponent implements AfterViewIni
         const h = hashTile(ix, iy);
         const sx = ix * TILE - camX;
         const sy = iy * TILE - camY;
+        const floor = this.sprites.floor;
+        if (floor && floor.complete && floor.naturalWidth > 0) {
+          const spec = SPRITE_SPECS.floor;
+          ctx.drawImage(floor, (h % 3) * spec.fw + (spec.ox ?? 0), spec.oy ?? 0, spec.fw, spec.fh, sx, sy, TILE, TILE);
+          continue;
+        }
         ctx.fillStyle = h % 3 === 0 ? '#2b2118' : '#241b13';
         ctx.fillRect(sx, sy, TILE, TILE);
         if (h % 7 === 0) {

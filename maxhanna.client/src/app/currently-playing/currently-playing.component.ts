@@ -50,6 +50,7 @@ export class CurrentlyPlayingComponent implements OnInit {
     if (g === 'racing' || g === 'race') return 'Racing';
     if (g === 'marbles' || g === 'marble') return 'Marbles';
     if (g === 'space-evolves' || g === 'space evolves' || g === 'spaceevolves') return 'Space: Evolves';
+    if (g === 'd2survivors' || g === 'd2s') return 'D2Survivors';
     return game;
   }
 }

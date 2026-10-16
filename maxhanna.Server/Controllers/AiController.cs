@@ -30,6 +30,9 @@ namespace maxhanna.Server.Controllers
     private readonly int _maxVisionThumbnails;
     private readonly long _maxCombinedImageBytes;
     private readonly int[] _resizeSteps = new[] { 768, 640, 512, 384 }; // adaptive downscale steps
+    // All AI chat and vision traffic goes to the local Ollama instance.
+    private const string LocalAiBaseUrl = "http://localhost:11434/v1";
+    private const string LocalAiModel = "gemma4";
 		private readonly string _memeDirectory = "E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Meme/";
 
     public AiController(Log log, IConfiguration config, KrakenService krakenService)
@@ -327,8 +330,8 @@ namespace maxhanna.Server.Controllers
     {
       try
       {
-        var ollamaBaseUrl = _config.GetValue<string>("Ai:MedicalBaseUrl");
-        var medicalModel = _config.GetValue<string>("Ai:MedicalModel");
+        var ollamaBaseUrl = LocalAiBaseUrl;
+        var medicalModel = LocalAiModel;
 
         var messages = requestBody.GetProperty("messages");
 
@@ -854,8 +857,8 @@ namespace maxhanna.Server.Controllers
         string prompt = detailed ? BuildDetailedPrompt(base64ImagesClean.Count > 1) : BuildConcisePrompt();
 
         // Build OpenAI-compatible vision payload
-        var baseUrl = _config.GetValue<string>("Ai:MedicalBaseUrl");
-        var aiModel = _config.GetValue<string>("Ai:MedicalModel") ?? "gemma3:4b";
+        var baseUrl = LocalAiBaseUrl;
+        var aiModel = LocalAiModel;
 
         var contentList = new List<object>();
         contentList.Add(new { type = "text", text = prompt });
@@ -938,7 +941,7 @@ namespace maxhanna.Server.Controllers
 
           // Second attempt: LLaVA 7B
           var retry2 = await SendVisionAsync(
-            model: "gemma3:4b",
+            model: LocalAiModel,
             prompt: gentlePrompt,
             base64Images: base64ImagesClean.ToArray(),
             temperature: 0.6,
@@ -978,7 +981,7 @@ namespace maxhanna.Server.Controllers
       string[]? stop = null,
       CancellationToken? ctOpt = null)
     {
-      var baseUrl = _config.GetValue<string>("Ai:MedicalBaseUrl");
+      var baseUrl = LocalAiBaseUrl;
       if (string.IsNullOrEmpty(baseUrl)) return null;
 
       var contentList = new List<object>();
@@ -1676,20 +1679,20 @@ Constraints:
 
     /// <summary>
     /// Centralized vision call that accepts base64-encoded images directly (no DB file id required).
-    /// Uses the configured medical/vision model (e.g. "medgemma4" via Ai:MedicalModel).
+    /// Uses the local Ollama vision model (gemma4).
     /// </summary>
     [NonAction]
     public async Task<string?> SendVisionBase64Async(string prompt, string[] base64Images, double temperature = 0.2, string? model = null, CancellationToken? ct = null)
     {
       if (base64Images == null || base64Images.Length == 0 || string.IsNullOrWhiteSpace(prompt)) return null;
-      var aiModel = model ?? _config.GetValue<string>("Ai:MedicalModel") ?? "gemma3:4b";
+      var aiModel = model ?? LocalAiModel;
       return await SendVisionAsync(aiModel, prompt, base64Images, temperature, null, ct);
     }
 
     public async Task<string> SendChatToAI(string prompt, string? url = null, string? model = null)
     {
-      var baseUrl = url ?? _config.GetValue<string>("Ai:MedicalBaseUrl");
-      var aiModel = model ?? (url == null ? _config.GetValue<string>("Ai:MedicalModel") : null) ?? "gemma3:4b";
+      var baseUrl = url ?? LocalAiBaseUrl;
+      var aiModel = model ?? LocalAiModel;
 
       var payload = new
       {
@@ -1730,8 +1733,8 @@ Constraints:
     /// </summary>
     public async Task<string?> StreamChatToAI(string prompt, Func<string, CancellationToken, Task> onToken, CancellationToken ct, string? url = null, string? model = null)
     {
-      var baseUrl = url ?? _config.GetValue<string>("Ai:MedicalBaseUrl");
-      var aiModel = model ?? (url == null ? _config.GetValue<string>("Ai:MedicalModel") : null) ?? "gemma3:4b";
+      var baseUrl = url ?? LocalAiBaseUrl;
+      var aiModel = model ?? LocalAiModel;
 
       var payload = new
       {
@@ -1802,8 +1805,8 @@ Constraints:
 
     public async Task<string> SendVisionToAI(string prompt, int imageFileId, string? url = null, string? model = null)
     {
-      var baseUrl = url ?? _config.GetValue<string>("Ai:MedicalBaseUrl");
-      var aiModel = model ?? (url == null ? _config.GetValue<string>("Ai:MedicalModel") : null) ?? "gemma3:4b";
+      var baseUrl = url ?? LocalAiBaseUrl;
+      var aiModel = model ?? LocalAiModel;
 
       var imageBase64 = await LoadImageAsBase64(imageFileId);
       if (imageBase64 == null)
@@ -1858,8 +1861,8 @@ Constraints:
     /// </summary>
     public async Task<string?> StreamVisionToAI(string prompt, int imageFileId, Func<string, CancellationToken, Task> onToken, CancellationToken ct, string? url = null, string? model = null)
     {
-      var baseUrl = url ?? _config.GetValue<string>("Ai:MedicalBaseUrl");
-      var aiModel = model ?? (url == null ? _config.GetValue<string>("Ai:MedicalModel") : null) ?? "gemma3:4b";
+      var baseUrl = url ?? LocalAiBaseUrl;
+      var aiModel = model ?? LocalAiModel;
 
       var imageBase64 = await LoadImageAsBase64(imageFileId);
       if (imageBase64 == null)

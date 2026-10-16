@@ -1392,6 +1392,7 @@ ON DUPLICATE KEY UPDATE guest_count = guest_count + 1;";
       try
       {
         await conn.OpenAsync();
+        await D2SurvivorsController.EnsureTablesAsync(_config.GetValue<string>("ConnectionStrings:maxhanna") ?? "");
         // Combine the union of activity sources with user/profile info in one query to avoid per-row lookups
         string sql = @"	SELECT t.userId, t.username, t.game, t.lastActivity,
     		 u.created, u.last_seen,
@@ -1503,6 +1504,12 @@ ON DUPLICATE KEY UPDATE guest_count = guest_count + 1;";
     	FROM maxhanna.users u
     	JOIN maxhanna.grandtheft_player_state gtps ON gtps.user_id = u.id
     	WHERE gtps.last_seen >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 MINUTE)
+    	GROUP BY u.id
+    	UNION
+    	SELECT u.id AS userId, u.username AS username, 'd2survivors' AS game, MAX(d2s.updated_at) AS lastActivity
+    	FROM maxhanna.users u
+    	JOIN maxhanna.d2survivors_save d2s ON d2s.user_id = u.id
+    	WHERE d2s.updated_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 MINUTE)
     	GROUP BY u.id
     	UNION
     	SELECT u.id AS userId, u.username AS username, 'space-evolves' AS game, MAX(sr.updated_at) AS lastActivity

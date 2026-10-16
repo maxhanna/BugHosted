@@ -11,12 +11,32 @@
     <button type="button" [class.on]="musicOn" (click)="toggleMusic()">Music</button>
     <button type="button" [class.on]="muted" (click)="toggleMute()">Mute</button>
     <button type="button" [class.on]="autoStats" (click)="autoStats = !autoStats">Auto stats</button>
-    <button type="button" (click)="newRun()">New run</button>
+    <button type="button" (click)="openSelect()">New run</button>
     <span class="d2s-hint">WASD / arrows move · click loot · P pause · H potion</span>
   </div>
 
   <div class="d2s-stage">
     <canvas #gameCanvas class="d2s-canvas" (click)="onCanvasClick($event)"></canvas>
+
+    <div class="d2s-highscores" *ngIf="phase === 'select' && highScores.length > 0">
+      <h3>High scores</h3>
+      <ol>
+        <li *ngFor="let s of highScores">
+          <strong>{{ s.score }}</strong> {{ s.username }}
+          <small>{{ s.timeSeconds }}s · Lv {{ s.level }} · {{ s.kills }} kills{{ s.victory ? ' · victory' : '' }}</small>
+        </li>
+      </ol>
+    </div>
+
+    <div class="d2s-overlay d2s-select" *ngIf="phase === 'select'">
+      <h2>Select Hero Class</h2>
+      <div class="d2s-choices">
+        <button type="button" class="d2s-choice" *ngFor="let hero of heroClasses; let i = index" (click)="chooseHero(i)">
+          <strong>{{ hero.name }}</strong>
+          <small>{{ hero.desc }}</small>
+        </button>
+      </div>
+    </div>
 
     <div class="d2s-overlay" *ngIf="phase === 'paused'">
       <h2>Paused</h2>
@@ -37,7 +57,7 @@
     <div class="d2s-overlay" *ngIf="phase === 'gameover' || phase === 'victory'">
       <h2>{{ phase === 'victory' ? 'You survived the Mausoleum!' : 'You were slain' }}</h2>
       <p>Time {{ timeText }} · Level {{ level }} · {{ kills }} kills · {{ gold }} gold</p>
-      <button type="button" (click)="newRun()">Play again</button>
+      <button type="button" (click)="openSelect()">Choose hero</button>
     </div>
 
     <div class="d2s-overlay d2s-shop" *ngIf="phase === 'shop'">
