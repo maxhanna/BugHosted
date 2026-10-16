@@ -900,6 +900,53 @@ export class D2SurvivorsComponent implements OnInit, OnDestroy {
     this.floatingTexts = this.floatingTexts.filter((f) => f.life > 0);
   }
 
+  selectedItem: D2InventoryItem | null = null;
+  selectedSlotIndex: number | null = null;
+  dragState: DragState | null = null;
+  dragGhostSlotIndex: number | null = null;
+
+  readonly selectedItemDisplay: D2InventoryItem | null = null;
+  getItemStatText(item: D2InventoryItem | null): string[] {
+    if (!item) {
+      return [];
+    }
+    const lines: string[] = [];
+    lines.push(`${item.name} (${item.rarity})`);
+    if (item.stats) {
+      const s = item.stats;
+      if (s.damageMin != null && s.damageMax != null) {
+        lines.push(`Damage: ${s.damageMin} to ${s.damageMax}`);
+      }
+      if (s.armor != null) {
+        lines.push(`Armor: ${s.armor}`);
+      }
+      if (s.plusDamage != null && s.plusDamage > 0) {
+        lines.push(`+${s.plusDamage} to Maximum Damage`);
+      }
+      if (s.plusStrength != null && s.plusStrength > 0) {
+        lines.push(`+${s.plusStrength} Strength`);
+      }
+      if (s.plusVitality != null && s.plusVitality > 0) {
+        lines.push(`+${s.plusVitality} to Maximum Life`);
+      }
+      if (s.requiresStrength != null && s.requiresStrength > 0) {
+        lines.push(`Requires ${s.requiresStrength} Strength`);
+      }
+    }
+    if (item.affixes && item.affixes.length) {
+      lines.push('Affixes');
+      for (const a of item.affixes) {
+        lines.push(`  ${a}`);
+      }
+    }
+    if (!lines.length) {
+      lines.push(item.desc || 'No stats');
+    }
+    return lines;
+  }
+
+  readonly itemStatText = this.getItemStatText.bind(this);
+
   spawnEnemies(dt: number): void {
     const spawnRate = this.runTime < 20 ? 0.12 : 0.22;
     this.spawnAcc += spawnRate * (dt / 1000);
@@ -1282,4 +1329,23 @@ interface D2InventoryItem {
   rarity: "normal" | "magic" | "rare";
   slot: "weapon" | "armor" | "charm";
   desc: string;
+  stats?: D2ItemStats;
+  affixes?: string[];
+}
+
+interface D2ItemStats {
+  damageMin?: number;
+  damageMax?: number;
+  armor?: number;
+  plusDamage?: number;
+  plusStrength?: number;
+  plusVitality?: number;
+  requiresStrength?: number;
+}
+
+interface DragState {
+  slotIndex: number;
+  clientX: number;
+  clientY: number;
+  item?: D2InventoryItem;
 }
