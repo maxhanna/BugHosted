@@ -93,6 +93,8 @@
   background: #0e0f14;
   outline: none;
   image-rendering: auto;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .d2s-model-hint {

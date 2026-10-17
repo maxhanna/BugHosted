@@ -642,6 +642,8 @@ export class D2SurvivorsComponent implements OnInit, OnDestroy {
   ownedSkills: string[] = [];
   skillLevels: Record<string, number> = {};
   selectedClass = "amazon";
+  potionBelts: number[] = [4, 4, 4, 4];
+  activeBottleSlot = 0;
   loadedClassTextures: Record<string, HTMLImageElement | null> = {};
   bodyImg: HTMLImageElement | null = null;
   headImg: HTMLImageElement | null = null;
@@ -662,7 +664,7 @@ export class D2SurvivorsComponent implements OnInit, OnDestroy {
   spawnAcc = 0;
   nextChestInterval = 8;
   chestTimer = 0;
-  inventory: D2InventoryItem[] = [];
+  inventory: Array<D2InventoryItem | null> = [];
   inventoryGrid: Array<{ item?: D2InventoryItem }> = [];
   inventoryColumns = 4;
   inventoryRows = 10;
@@ -675,7 +677,25 @@ export class D2SurvivorsComponent implements OnInit, OnDestroy {
     this.inventoryGrid = grid;
   }
 
+  private clearInventorySource(slotIndex: number): void {
+    if (slotIndex < 0 || slotIndex >= this.inventory.length) {
+      return;
+    }
+    this.inventory[slotIndex] = null;
+    this.inventoryGrid[slotIndex] = { item: undefined };
+  }
+
   private randomItem(): D2InventoryItem {
+    return {
+      id: crypto.randomUUID ? crypto.randomUUID() : String(Math.random()),
+      name: "Simple Item",
+      rarity: "normal",
+      slot: "weapon",
+      desc: "Simple item",
+    };
+  } 
+
+  private randomItemOfRarity(): D2InventoryItem {
     const names = [
       "Steel Shortsword",
       "Iron Helm",
@@ -756,6 +776,8 @@ export class D2SurvivorsComponent implements OnInit, OnDestroy {
     this.enemies = [];
     this.chests = [];
     this.floatingTexts = [];
+    this.potionBelts = [4, 4, 4, 4];
+    this.activeBottleSlot = 0;
     this.inventory = [];
     this.rebuildInventoryGrid();
     this.runTime = 0;
@@ -764,6 +786,27 @@ export class D2SurvivorsComponent implements OnInit, OnDestroy {
     this.lastTime = performance.now();
     this.loadSelectedClassTextures();
     this.loop(this.lastTime);
+  }
+
+  selectBottle(slotIndex: number): void {
+    this.activeBottleSlot = slotIndex;
+  }
+
+  onInventoryPointerDown(event: MouseEvent): void {
+    if (!this.runActive || !this.arenaRef?.nativeElement) {
+      return;
+    }
+    const idx = this.getInventorySlotIndexFromPoint(event.clientX, event.clientY);
+    if (idx >= 0 && event.button === 0) {
+      event.preventDefault();
+      if (this.selectedSlotIndex === idx && this.selectedItem?.id === this.getItemAtSlot(idx)?.id) {
+        this.selectedItem = null;
+        this.selectedSlotIndex = null;
+        this.dragState = null;
+      } else {
+        this.startDrag(idx, event);
+      }
+    }
   }
 
   loadSelectedClassTextures(): void {
@@ -946,6 +989,232 @@ export class D2SurvivorsComponent implements OnInit, OnDestroy {
   }
 
   readonly itemStatText = this.getItemStatText.bind(this);
+
+  getItemAtSlot(slotIndex: number): D2InventoryItem | undefined {
+    return this.inventoryGrid[slotIndex]?.item ?? undefined;
+  }
+
+  getInventorySlotIndexFromPoint(clientX: number, clientY: number): number {
+    if (!this.arenaRef?.nativeElement) {
+      return -1;
+    }
+    const canvas = this.arenaRef.nativeElement;
+    const rect = canvas.getBoundingClientRect();
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+    const slotW = (rect.width - 3 * 3) / this.inventoryColumns;
+    const slotH = (rect.height - 3 * 3) / this.inventoryRows;
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const fx = x * scaleX;
+    const fy = y * scaleY;
+    const startX = 3 * scaleX;
+    const startY = 3 * scaleY;
+    if (fx < startX || fy < startY) {
+      return -1;
+    }
+    const col = Math.floor((fx - startX) / (slotW * scaleX + 3 * scaleX));
+    const row = Math.floor((fy - startY) / (slotH * scaleY + 3 * scaleY));
+    const idx = row * this.inventoryColumns + col;
+    if (idx < 0 || idx >= this.inventoryGrid.length) {
+      return -1;
+    }
+    return idx;
+  }
+
+  internalCanDrop(sourceIndex: number, targetIndex: number, sourceItem?: D2InventoryItem): boolean {
+    if (!this.runActive) {
+      return false;
+    }
+    if (sourceIndex === targetIndex) {
+      return false;
+    }
+    const atSource = this.getItemAtSlot(sourceIndex);
+    const atTarget = this.getItemAtSlot(targetIndex);
+    if (atTarget && atTarget.id !== sourceItem?.id && atSource?.id !== sourceItem?.id) {
+      return false;
+    }
+    if (sourceIndex < 0 || sourceIndex >= this.inventoryGrid.length) {
+      return false;
+    }
+    if (targetIndex < 0 || targetIndex >= this.inventoryGrid.length) {
+      return false;
+    }
+    if (!sourceItem && !atSource) {
+      return false;
+    }
+    const heldItem = sourceItem ?? atSource;
+    if (!heldItem) {
+      return false;
+    }
+    if (!atTarget && !this.inventory[targetIndex]) {
+      return true;
+    }
+    return true;
+  }
+
+  startDrag(slotIndex: number, event: MouseEvent): void {
+    if (!this.runActive || !this.arenaRef?.nativeElement) {
+      return;
+    }
+    const item = this.getItemAtSlot(slotIndex);
+    if (!item) {
+      this.dragState = null;
+      return;
+    }
+    event.stopPropagation();
+    this.dragState = {
+      slotIndex,
+      item,
+      offsetX: event.offsetX,
+      offsetY: event.offsetY,
+      clientX: event.clientX,
+      clientY: event.clientY,
+      targetSlotIndex: null,
+    };
+    this.dragGhostSlotIndex = slotIndex;
+    if (this.selectedSlotIndex !== slotIndex || this.selectedItem?.id !== item.id) {
+      this.selectedItem = item;
+      this.selectedSlotIndex = slotIndex;
+    }
+  }
+
+  onInventoryPointerMove(event: MouseEvent): void {
+    if (!this.dragState || !this.arenaRef?.nativeElement) {
+      return;
+    }
+    event.preventDefault();
+    this.dragState.clientX = event.clientX;
+    this.dragState.clientY = event.clientY;
+    const target = this.getInventorySlotIndexFromPoint(event.clientX, event.clientY);
+    if (target < 0) {
+      this.dragGhostSlotIndex = null;
+      this.dragState.targetSlotIndex = null;
+      return;
+    }
+    const denied = !this.internalCanDrop(this.dragState.slotIndex, target, this.dragState.item);
+    if (denied) {
+      this.dragGhostSlotIndex = target;
+      this.dragState.targetSlotIndex = null;
+      return;
+    }
+    if (target !== this.dragState.slotIndex) {
+      this.dragGhostSlotIndex = target;
+      this.dragState.targetSlotIndex = target;
+    } else {
+      this.dragGhostSlotIndex = null;
+      this.dragState.targetSlotIndex = null;
+    }
+  }
+
+  onInventoryPointerUp(event: MouseEvent): void {
+    if (!this.dragState) {
+      return;
+    }
+    const sourceIndex = this.dragState.slotIndex;
+    const heldItem = this.dragState.item;
+    let targetIndex = this.dragState.targetSlotIndex;
+    if (targetIndex == null) {
+      targetIndex = this.getInventorySlotIndexFromPoint(event.clientX, event.clientY);
+      if (targetIndex < 0 || !this.internalCanDrop(sourceIndex, targetIndex, heldItem)) {
+        targetIndex = sourceIndex;
+      }
+    }
+    let didMove = false;
+    if (targetIndex !== sourceIndex) {
+      const clearSource = () => this.clearInventorySource(sourceIndex);
+      if (this.getItemAtSlot(targetIndex)) {
+        clearSource();
+        this.inventory[targetIndex] = heldItem;
+        this.inventoryGrid[targetIndex].item = heldItem;
+      } else {
+        this.inventory[targetIndex] = heldItem;
+        this.inventoryGrid[targetIndex].item = heldItem;
+        clearSource();
+      }
+      didMove = true;
+    }
+    this.dragState = null;
+    this.dragGhostSlotIndex = null;
+    if (!didMove) {
+      this.selectedItem = null;
+      this.selectedSlotIndex = null;
+      return;
+    }
+    this.selectedItem = heldItem;
+    this.selectedSlotIndex = targetIndex;
+    const targetRef = this.inventoryGrid[targetIndex];
+    if (targetRef?.item?.id === heldItem.id) {
+      return;
+    }
+    const found = this.inventoryGrid.find((s) => s.item?.id === heldItem.id);
+    this.selectedItem = found?.item ?? null;
+    this.selectedSlotIndex = found !== undefined ? this.inventoryGrid.indexOf(found) : null;
+  }
+
+  updateDrag(event: MouseEvent): void {
+    if (!this.dragState) {
+      return;
+    }
+    const clientX = event.clientX;
+    const clientY = event.clientY;
+    const arena = this.arenaRef?.nativeElement;
+    if (!arena) {
+      return;
+    }
+    event.preventDefault();
+    this.dragState.clientX = clientX;
+    this.dragState.clientY = clientY;
+    const target = this.getInventorySlotIndexFromPoint(clientX, clientY);
+    if (target < 0) {
+      this.dragGhostSlotIndex = null;
+      this.dragState.targetSlotIndex = null;
+      return;
+    }
+    const denied = !this.internalCanDrop(this.dragState.slotIndex, target, this.dragState.item);
+    if (denied) {
+      this.dragGhostSlotIndex = target;
+      this.dragState.targetSlotIndex = null;
+      return;
+    }
+    if (target !== this.dragState.slotIndex) {
+      this.dragGhostSlotIndex = target;
+      this.dragState.targetSlotIndex = target;
+    } else {
+      this.dragGhostSlotIndex = null;
+      this.dragState.targetSlotIndex = null;
+    }
+  }
+
+  onInventoryPointerLeave(event: MouseEvent): void {
+    if (!this.dragState) {
+      return;
+    }
+    this.onInventoryPointerUp(event);
+  } 
+ 
+  selectInventoryItem(slotIndex: number, item: D2InventoryItem | null): void {
+    if (!item && this.selectedSlotIndex === slotIndex) {
+      this.selectedItem = null;
+      this.selectedSlotIndex = null;
+      this.dragState = null;
+      return;
+    }
+    if (item?.id === this.selectedItem?.id && this.selectedSlotIndex === slotIndex) {
+      this.selectedItem = null;
+      this.selectedSlotIndex = null;
+      this.dragState = null;
+      return;
+    }
+    this.selectedItem = item;
+    this.selectedSlotIndex = slotIndex;
+    this.dragState = null;
+  }
+
+  canDropOnSlot(sourceIndex: number, targetIndex: number, sourceItem?: D2InventoryItem): boolean {
+    return this.internalCanDrop(sourceIndex, targetIndex, sourceItem);
+  }
+
 
   spawnEnemies(dt: number): void {
     const spawnRate = this.runTime < 20 ? 0.12 : 0.22;
@@ -1333,6 +1602,8 @@ interface D2InventoryItem {
   affixes?: string[];
 }
 
+type InventoryCellItem = D2InventoryItem | null;
+
 interface D2ItemStats {
   damageMin?: number;
   damageMax?: number;
@@ -1345,7 +1616,10 @@ interface D2ItemStats {
 
 interface DragState {
   slotIndex: number;
+  item: D2InventoryItem;
+  offsetX: number;
+  offsetY: number;
   clientX: number;
   clientY: number;
-  item?: D2InventoryItem;
+  targetSlotIndex: number | null;
 }
