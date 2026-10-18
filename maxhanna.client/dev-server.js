@@ -63,7 +63,7 @@ const proxyContext = [
   '/ender', '/search', '/bones', '/ratings', '/digcraft', '/tilecache', '/tomtom',
   "/weaver", "/bughosted", "/grandtheft", "/healthtracker", "/paint",
   "/recipe", "/moderator", "/follow", "/hubs", "/racing", "/conversion",
-  "/marbles", "/mtgarena", "/spaceevolves", "/books",
+  "/marbles", "/mtgarena", "/spaceevolves", "/books", "/d2survivors", "/tomtom"
 ];
 
 // Apply proxy middleware for API routes

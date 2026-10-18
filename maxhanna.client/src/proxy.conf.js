@@ -86,6 +86,7 @@ const PROXY_CONFIG = [
       "/spaceevolves",
       "/mtgarena",
       "/books",
+      "/d2survivors",
     ],
     target,
     changeOrigin: true, // This helps with certain CORS issues and forwards headers correctly 
