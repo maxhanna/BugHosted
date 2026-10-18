@@ -1,7 +1,7 @@
 <div class="d2s" [class.d2s-in-menu]="activeTab === 'menu'" [class.d2s-in-character-select]="activeTab === 'menu' && menuPanel === 'characters'">
   <div class="d2s-tabs" *ngIf="activeTab !== 'menu'">
     <button type="button" class="d2s-tab" (click)="returnToMenu()">Main Menu</button>
-    <button type="button" class="d2s-tab" [class.active]="activeTab === 'lore'" (click)="activeTab = 'lore'">
+    <button type="button" class="d2s-tab" [class.active]="activeTab === 'lore'" (click)="openLore()">
       Lore / classes / skills
     </button>
     <button type="button" class="d2s-tab" [class.active]="activeTab === 'run'" (click)="resumeRun()">
@@ -12,8 +12,11 @@
   <section class="d2s-menu-scene" *ngIf="activeTab === 'menu'">
     <div class="d2s-menu-arch" aria-hidden="true"></div>
     <div class="d2s-menu-sparks" aria-hidden="true"></div>
+    <div class="d2s-menu-embers" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
     <div class="d2s-menu-frame">
       <header class="d2s-menu-title">
+        <button type="button" class="d2s-audio-toggle" [attr.aria-label]="ambientAudioEnabled ? 'Mute title-screen ambience' : 'Enable title-screen ambience'" [attr.aria-pressed]="ambientAudioEnabled" [title]="ambientAudioEnabled ? 'Mute ambience' : 'Enable ambience'" (click)="toggleAmbientAudio()"><span aria-hidden="true">{{ ambientAudioEnabled ? '♫' : '♪' }}</span><span class="d2s-audio-toggle-text">{{ ambientAudioEnabled ? 'Sound on' : 'Sound off' }}</span></button>
+        <span class="d2s-audio-status" aria-live="polite">{{ ambientAudioStatus }}</span>
         <div class="d2s-menu-kicker"><span></span> THE GATES OF SANCTUARY <span></span></div>
         <div class="d2s-logo-mark" aria-hidden="true"><i></i><b></b></div>
         <h1><span>D2</span> SURVIVORS</h1>
@@ -28,7 +31,7 @@
           <button type="button" class="d2s-menu-button" (click)="openCharacterSelect()">
             <span>Choose Your Hero</span><small>{{ selectedClassName }} · Character select</small>
           </button>
-          <button type="button" class="d2s-menu-button" (click)="activeTab = 'lore'">
+          <button type="button" class="d2s-menu-button" (click)="openLore()">
             <span>Lore &amp; Skills</span><small>Classes, abilities, and the world</small>
           </button>
           <button type="button" class="d2s-menu-button" (click)="menuPanel = 'credits'">
@@ -74,7 +77,7 @@
         </section>
 
         <aside class="d2s-menu-hero-card">
-          <div class="d2s-portal" aria-hidden="true"><div class="d2s-portal-core"></div><i></i><b></b></div>
+          <div class="d2s-portal" aria-hidden="true"><div class="d2s-portal-flare"></div><div class="d2s-portal-core"></div><i></i><b></b><em></em></div>
           <div class="d2s-hero-plaque">
             <span class="d2s-class-gem large" [attr.data-initial]="selectedClassName.charAt(0)"></span>
             <div><small>YOUR DESTINY</small><strong>{{ selectedClassName }}</strong><span>{{ selectedClassDescription }}</span></div>

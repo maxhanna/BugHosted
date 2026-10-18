@@ -96,6 +96,13 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
   private previewModelRequest = 0;
   private previewLastFrameAt = 0;
   private readonly reducedMotion = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  ambientAudioEnabled = false;
+  ambientAudioStatus = "Ambience muted";
+  private audioContext?: AudioContext;
+  private ambientMasterGain?: GainNode;
+  private ambientAudioNodes: OscillatorNode[] = [];
+  private ambientAudioTimeout?: number;
+  private ambienceRequestId = 0;
 
   // Static lore page state
   classes = [
@@ -707,6 +714,132 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
     this.runActive = false;
   }
 
+  openLore(): void {
+    this.stopAmbientAudio();
+    this.activeTab = "lore";
+  }
+
+  toggleAmbientAudio(): void {
+    if (this.ambientAudioEnabled) {
+      this.stopAmbientAudio();
+      this.ambientAudioStatus = "Ambience muted";
+      return;
+    }
+
+    const AudioContextConstructor = window.AudioContext;
+    if (!AudioContextConstructor) {
+      this.ambientAudioStatus = "Ambient audio is not supported in this browser";
+      return;
+    }
+
+    this.ambientAudioEnabled = true;
+    this.ambientAudioStatus = "Starting ambient sound";
+    const requestId = ++this.ambienceRequestId;
+    void this.startAmbientAudio(requestId);
+  }
+
+  private async startAmbientAudio(requestId: number): Promise<void> {
+    try {
+      this.audioContext ??= new window.AudioContext();
+      await this.audioContext.resume();
+      if (!this.ambientAudioEnabled || requestId !== this.ambienceRequestId) {
+        return;
+      }
+
+      const context = this.audioContext;
+      const master = context.createGain();
+      master.gain.setValueAtTime(0, context.currentTime);
+      master.gain.linearRampToValueAtTime(0.12, context.currentTime + 2.5);
+      master.connect(context.destination);
+      this.ambientMasterGain = master;
+
+      const droneFilter = context.createBiquadFilter();
+      droneFilter.type = "lowpass";
+      droneFilter.frequency.value = 180;
+      droneFilter.connect(master);
+      [55, 82.41].forEach((frequency, index) => {
+        const oscillator = context.createOscillator();
+        const voiceGain = context.createGain();
+        oscillator.type = index === 0 ? "sine" : "triangle";
+        oscillator.frequency.value = frequency;
+        voiceGain.gain.value = index === 0 ? 0.55 : 0.16;
+        oscillator.connect(voiceGain);
+        voiceGain.connect(droneFilter);
+        oscillator.start();
+        this.ambientAudioNodes.push(oscillator);
+      });
+
+      this.ambientAudioStatus = "Ambient sound on";
+      this.scheduleAmbientChime(requestId);
+    } catch (error) {
+      if (requestId === this.ambienceRequestId) {
+        console.warn("Could not start title-screen ambience", error);
+        this.stopAmbientAudio();
+        this.ambientAudioStatus = "Ambient audio could not start";
+      }
+    }
+  }
+
+  private scheduleAmbientChime(requestId: number): void {
+    if (!this.ambientAudioEnabled || requestId !== this.ambienceRequestId || !this.audioContext || !this.ambientMasterGain) {
+      return;
+    }
+
+    const delay = 8000 + Math.random() * 7000;
+    this.ambientAudioTimeout = window.setTimeout(() => {
+      if (!this.audioContext || !this.ambientMasterGain || !this.ambientAudioEnabled || requestId !== this.ambienceRequestId) {
+        return;
+      }
+
+      const context = this.audioContext;
+      const chime = context.createOscillator();
+      const envelope = context.createGain();
+      const tone = [329.63, 392, 493.88, 587.33][Math.floor(Math.random() * 4)];
+      const now = context.currentTime;
+      chime.type = "sine";
+      chime.frequency.setValueAtTime(tone, now);
+      chime.frequency.exponentialRampToValueAtTime(tone * 0.997, now + 1.8);
+      envelope.gain.setValueAtTime(0.0001, now);
+      envelope.gain.exponentialRampToValueAtTime(0.04, now + 0.08);
+      envelope.gain.exponentialRampToValueAtTime(0.0001, now + 2.2);
+      chime.connect(envelope);
+      envelope.connect(this.ambientMasterGain);
+      chime.onended = () => {
+        chime.disconnect();
+        envelope.disconnect();
+      };
+      chime.start(now);
+      chime.stop(now + 2.25);
+      this.scheduleAmbientChime(requestId);
+    }, delay);
+  }
+
+  private stopAmbientAudio(): void {
+    this.ambientAudioEnabled = false;
+    this.ambienceRequestId++;
+    if (this.ambientAudioTimeout !== undefined) {
+      window.clearTimeout(this.ambientAudioTimeout);
+      this.ambientAudioTimeout = undefined;
+    }
+    if (this.audioContext && this.ambientMasterGain) {
+      const context = this.audioContext;
+      const master = this.ambientMasterGain;
+      master.gain.cancelScheduledValues(context.currentTime);
+      master.gain.setTargetAtTime(0, context.currentTime, 0.06);
+      window.setTimeout(() => master.disconnect(), 250);
+    }
+    for (const oscillator of this.ambientAudioNodes) {
+      try {
+        oscillator.stop();
+        oscillator.disconnect();
+      } catch {
+        // Oscillators already stopped after a rapid toggle.
+      }
+    }
+    this.ambientAudioNodes = [];
+    this.ambientMasterGain = undefined;
+  }
+
   resumeRun(): void {
     this.activeTab = "run";
     this.runActive = true;
@@ -715,13 +848,15 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   openCharacterSelect(): void {
+    this.stopAmbientAudio();
+    this.ambientAudioStatus = "Ambience muted";
     this.menuPanel = "characters";
     this.startClassPreview();
   }
 
   closeCharacterSelect(): void {
     this.menuPanel = "main";
-    this.stopClassPreview();
+    this.startClassPreview();
   }
 
   selectClass(classId: string): void {
@@ -1077,10 +1212,15 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
     });
     this.characterRenderer?.dispose();
     this.stopClassPreview();
+    this.stopAmbientAudio();
+    void this.audioContext?.close();
+    this.audioContext = undefined;
   }
 
   startRun(): void {
     this.stopClassPreview();
+    this.stopAmbientAudio();
+    this.ambientAudioStatus = "Ambience muted";
     this.runActive = false;
     this.activeTab = "run";
     this.menuPanel = "main";
