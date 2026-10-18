@@ -60,7 +60,7 @@ const proxyContext = [
   '/friend', '/wordler', '/comment', '/coinvalue', '/currencyvalue',
   '/reaction', '/array', '/nexus', '/notification', '/meta', '/ai',
   '/favourite', '/crawler', '/trade', '/top', '/poll', '/mastermind',
-  '/ender', '/search', '/bones', '/ratings', '/digcraft', '/tilecache',
+  '/ender', '/search', '/bones', '/ratings', '/digcraft', '/tilecache', '/tomtom',
   "/weaver", "/bughosted", "/grandtheft", "/healthtracker", "/paint",
   "/recipe", "/moderator", "/follow", "/hubs", "/racing", "/conversion",
   "/marbles", "/mtgarena", "/spaceevolves", "/books",

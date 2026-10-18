@@ -1,18 +1,23 @@
 import {
   Component,
+  AfterViewInit,
   OnDestroy,
   OnInit,
+  HostListener,
   ViewChild,
   ElementRef,
 } from "@angular/core";
 import { CommonModule } from "@angular/common";
+import * as THREE from "three";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 const MODEL_BASE = "assets/d2-models";
 const CLASS_MODEL: Record<
   string,
-  { body: string; head: string; hair?: string; armor?: string; weapon?: string }
+  { model: string; body: string; head: string; hair?: string; armor?: string; weapon?: string }
 > = {
   amazon: {
+    model: `${MODEL_BASE}/amazon/amazon.glb`,
     body: `${MODEL_BASE}/amazon/textures/amazon_body_alb.png`,
     head: `${MODEL_BASE}/amazon/textures/amazon_head_alb.png`,
     hair: `${MODEL_BASE}/amazon/textures/amazon_hair_alb.png`,
@@ -20,36 +25,42 @@ const CLASS_MODEL: Record<
     weapon: `${MODEL_BASE}/amazon/textures/weapon_pike_albout.png`,
   },
   assassin: {
+    model: `${MODEL_BASE}/assassin/assassin.glb`,
     body: `${MODEL_BASE}/assassin/textures/assassins_body_alb.png`,
     head: `${MODEL_BASE}/assassin/textures/assassin_face_alb.png`,
     hair: `${MODEL_BASE}/assassin/textures/assassin_hair_alb.png`,
     armor: `${MODEL_BASE}/assassin/textures/assassin_armormed_alb.png`,
   },
   barbarian: {
+    model: `${MODEL_BASE}/barbarian/barbarian.glb`,
     body: `${MODEL_BASE}/barbarian/textures/body_alb.png`,
     head: `${MODEL_BASE}/barbarian/textures/head_alb.png`,
     hair: `${MODEL_BASE}/barbarian/textures/barbarian_hair_new_alb.png`,
     armor: `${MODEL_BASE}/barbarian/textures/barb_armormed_alb.png`,
   },
   druid: {
+    model: `${MODEL_BASE}/druid/druid.glb`,
     body: `${MODEL_BASE}/druid/textures/body_alb.png`,
     head: `${MODEL_BASE}/druid/textures/face_alb.png`,
     hair: `${MODEL_BASE}/druid/textures/druid_hair_white_alb.png`,
     armor: `${MODEL_BASE}/druid/textures/druid_armormed_alb.png`,
   },
   necromancer: {
+    model: `${MODEL_BASE}/necromancer/necromancer.glb`,
     body: `${MODEL_BASE}/necromancer/textures/necro_body_alb.png`,
     head: `${MODEL_BASE}/necromancer/textures/necro_head_alb.png`,
     hair: `${MODEL_BASE}/necromancer/textures/necro_hair_alb.png`,
     armor: `${MODEL_BASE}/necromancer/textures/necro_armormed_alb.png`,
   },
   paladin: {
+    model: `${MODEL_BASE}/paladin/paladin.glb`,
     body: `${MODEL_BASE}/paladin/textures/paladin_body_alb.png`,
     head: `${MODEL_BASE}/paladin/textures/paladin_face_alb.png`,
     hair: `${MODEL_BASE}/paladin/textures/paladin_hair_alb.png`,
     armor: `${MODEL_BASE}/paladin/textures/paladin_armormed_alb.png`,
   },
   sorceress: {
+    model: `${MODEL_BASE}/sorceress/sorceress.glb`,
     body: `${MODEL_BASE}/sorceress/textures/sorceress_body_albedo.png`,
     head: `${MODEL_BASE}/sorceress/textures/sorceress_head_albedo.png`,
     hair: `${MODEL_BASE}/sorceress/textures/sorceress_hair_alb.png`,
@@ -60,12 +71,31 @@ const CLASS_MODEL: Record<
 
 @Component({
   selector: "app-d2-survivors",
-  standalone: false,
+  standalone: true,
+  imports: [CommonModule],
   templateUrl: "./d2survivors.component.html",
   styleUrls: ["./d2survivors.component.css"],
 })
-export class D2SurvivorsComponent implements OnInit, OnDestroy {
+export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild("arena") arenaRef?: ElementRef<HTMLCanvasElement>;
+  @ViewChild("characterCanvas") characterCanvasRef?: ElementRef<HTMLCanvasElement>;
+
+  private characterRenderer?: THREE.WebGLRenderer;
+  private characterScene?: THREE.Scene;
+  private characterCamera?: THREE.OrthographicCamera;
+  private characterModel?: THREE.Group;
+  private loadedModelClass = "";
+  modelLoadError = false;
+  @ViewChild("classPreviewCanvas") private classPreviewCanvasRef?: ElementRef<HTMLCanvasElement>;
+  private previewRenderer?: THREE.WebGLRenderer;
+  private previewScene?: THREE.Scene;
+  private previewCamera?: THREE.PerspectiveCamera;
+  previewModel?: THREE.Group;
+  previewLoadError = false;
+  private previewFrameId = 0;
+  private previewModelRequest = 0;
+  private previewLastFrameAt = 0;
+  private readonly reducedMotion = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   // Static lore page state
   classes = [
@@ -631,19 +661,225 @@ export class D2SurvivorsComponent implements OnInit, OnDestroy {
     "act",
   ];
 
-  // Mini-run state
-  activeTab: "lore" | "run" = "lore";
+  // Menu and mini-run state
+  activeTab: "menu" | "lore" | "run" = "menu";
+  menuPanel: "main" | "characters" | "credits" = "main";
   runActive = false;
   playerX = 250;
   playerY = 250;
   playerHp = 20;
   playerMaxHp = 20;
+  playerMana = 20;
+  playerMaxMana = 20;
   playerGold = 0;
   ownedSkills: string[] = [];
   skillLevels: Record<string, number> = {};
   selectedClass = "amazon";
-  potionBelts: number[] = [4, 4, 4, 4];
+  private readonly classStartingStats: Record<string, { title: string; specialty: string; life: number; mana: number; stamina: number; attributes: [number, number, number, number] }> = {
+    amazon: { title: "Spear & Bow Mastery", specialty: "Balanced · Ranged Combat", life: 24, mana: 15, stamina: 84, attributes: [20, 25, 20, 15] },
+    assassin: { title: "Shadow Discipline", specialty: "Agile · Traps & Martial Arts", life: 20, mana: 25, stamina: 95, attributes: [20, 20, 20, 25] },
+    barbarian: { title: "Master of Arms", specialty: "Melee · Strength & Endurance", life: 30, mana: 10, stamina: 92, attributes: [30, 20, 25, 10] },
+    druid: { title: "Keeper of the Wild", specialty: "Nature · Elemental & Summoning", life: 25, mana: 20, stamina: 90, attributes: [25, 20, 25, 20] },
+    necromancer: { title: "Lord of the Dead", specialty: "Dark Arts · Bone & Summoning", life: 15, mana: 25, stamina: 80, attributes: [15, 25, 15, 25] },
+    paladin: { title: "Holy Warrior", specialty: "Melee · Auras & Defense", life: 25, mana: 15, stamina: 90, attributes: [25, 15, 25, 15] },
+    sorceress: { title: "Elemental Adept", specialty: "Spellcaster · Fire, Cold & Lightning", life: 10, mana: 35, stamina: 74, attributes: [10, 25, 10, 35] },
+  };
+
+  get selectedClassStats(): { title: string; specialty: string; life: number; mana: number; stamina: number; attributes: Array<{ name: string; value: number }> } {
+    const stats = this.classStartingStats[this.selectedClass] ?? this.classStartingStats["amazon"];
+    return {
+      ...stats,
+      attributes: ["Strength", "Dexterity", "Vitality", "Energy"].map((name, index) => ({ name, value: stats.attributes[index] })),
+    };
+  }
+
+  get selectedClassName(): string {
+    return this.classes.find((characterClass) => characterClass.id === this.selectedClass)?.name ?? "Amazon";
+  }
+
+  get selectedClassDescription(): string {
+    return this.classes.find((characterClass) => characterClass.id === this.selectedClass)?.desc ?? "Choose a hero to begin.";
+  }
+
+  returnToMenu(): void {
+    this.activeTab = "menu";
+    this.menuPanel = "main";
+    this.runActive = false;
+  }
+
+  resumeRun(): void {
+    this.activeTab = "run";
+    this.runActive = true;
+    this.lastTime = performance.now();
+    this.loop(this.lastTime);
+  }
+
+  openCharacterSelect(): void {
+    this.menuPanel = "characters";
+    this.startClassPreview();
+  }
+
+  closeCharacterSelect(): void {
+    this.menuPanel = "main";
+    this.stopClassPreview();
+  }
+
+  selectClass(classId: string): void {
+    if (!CLASS_MODEL[classId]) {
+      return;
+    }
+    this.selectedClass = classId;
+    if (this.menuPanel === "characters") {
+      this.loadPreviewModel();
+    }
+  }
+
+  private startClassPreview(): void {
+    if (!this.classPreviewCanvasRef) {
+      requestAnimationFrame(() => this.startClassPreview());
+      return;
+    }
+    if (this.previewRenderer?.domElement === this.classPreviewCanvasRef.nativeElement) {
+      this.resizeClassPreview();
+      return;
+    }
+    this.stopClassPreview();
+    try {
+      const canvas = this.classPreviewCanvasRef.nativeElement;
+      this.previewRenderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+      this.previewRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      this.previewRenderer.setClearColor(0x000000, 0);
+      this.previewRenderer.outputColorSpace = THREE.SRGBColorSpace;
+      this.previewScene = new THREE.Scene();
+      this.previewCamera = new THREE.PerspectiveCamera(30, 1, 0.1, 2000);
+      this.previewCamera.position.set(0, 115, 260);
+      this.previewCamera.lookAt(0, 58, 0);
+      this.previewScene.add(new THREE.HemisphereLight(0xe7eaff, 0x2e1b16, 2.5));
+      const keyLight = new THREE.DirectionalLight(0xffe1b5, 3.4);
+      keyLight.position.set(-140, 240, 180);
+      this.previewScene.add(keyLight);
+      const fillLight = new THREE.DirectionalLight(0x9bcaff, 2.2);
+      fillLight.position.set(150, 130, -140);
+      this.previewScene.add(fillLight);
+      this.resizeClassPreview();
+      this.loadPreviewModel();
+      this.previewLastFrameAt = performance.now();
+      this.animateClassPreview(this.previewLastFrameAt);
+    } catch (error) {
+      console.error("Could not initialize the class preview", error);
+      this.previewLoadError = true;
+    }
+  }
+
+  private stopClassPreview(): void {
+    if (this.previewFrameId) {
+      cancelAnimationFrame(this.previewFrameId);
+      this.previewFrameId = 0;
+    }
+    this.previewModelRequest++;
+    this.disposePreviewModel();
+    this.previewRenderer?.dispose();
+    this.previewRenderer = undefined;
+    this.previewScene = undefined;
+    this.previewCamera = undefined;
+  }
+
+  private disposePreviewModel(): void {
+    if (!this.previewModel) {
+      return;
+    }
+    this.previewScene?.remove(this.previewModel);
+    this.previewModel.traverse((object) => {
+      const mesh = object as THREE.Mesh;
+      if (!mesh.isMesh) {
+        return;
+      }
+      mesh.geometry?.dispose();
+      const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      materials.forEach((material) => material.dispose());
+    });
+    this.previewModel = undefined;
+  }
+
+  @HostListener("window:resize")
+  private resizeClassPreview(): void {
+    const canvas = this.classPreviewCanvasRef?.nativeElement;
+    if (!canvas || !this.previewRenderer || !this.previewCamera) {
+      return;
+    }
+    const rect = canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) {
+      return;
+    }
+    this.previewRenderer.setSize(rect.width, rect.height, false);
+    this.previewCamera.aspect = rect.width / rect.height;
+    this.previewCamera.updateProjectionMatrix();
+  }
+
+  private loadPreviewModel(): void {
+    if (!this.previewScene || !this.previewCamera || !this.previewRenderer) {
+      return;
+    }
+    const definition = CLASS_MODEL[this.selectedClass];
+    if (!definition) {
+      return;
+    }
+    const requestId = ++this.previewModelRequest;
+    const modelClass = this.selectedClass;
+    this.previewLoadError = false;
+    this.disposePreviewModel();
+    new GLTFLoader().load(definition.model, (gltf) => {
+      const model = gltf.scene;
+      if (!this.previewScene || requestId !== this.previewModelRequest || modelClass !== this.selectedClass || this.menuPanel !== "characters") {
+        model.traverse((object) => {
+          const mesh = object as THREE.Mesh;
+          if (!mesh.isMesh) {
+            return;
+          }
+          mesh.geometry?.dispose();
+          const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+          materials.forEach((material) => material.dispose());
+        });
+        return;
+      }
+      this.applyClassTextures(model, modelClass);
+      this.normalizeCharacterModel(model, 148);
+      this.previewModel = model;
+      this.previewScene.add(model);
+      this.previewLoadError = false;
+    }, undefined, (error: unknown) => {
+      if (requestId !== this.previewModelRequest) {
+        return;
+      }
+      console.error(`Could not load the ${modelClass} class preview`, error);
+      this.previewLoadError = true;
+    });
+  }
+
+  private animateClassPreview(now: number): void {
+    if (!this.previewRenderer || !this.previewScene || !this.previewCamera) {
+      return;
+    }
+    const dt = Math.min(50, now - this.previewLastFrameAt) / 1000;
+    this.previewLastFrameAt = now;
+    if (this.previewModel && !this.reducedMotion) {
+      this.previewModel.rotation.y += dt * 0.28;
+      this.previewModel.position.y = Math.sin(now / 850) * 2.4;
+    }
+    this.resizeClassPreview();
+    this.previewRenderer.render(this.previewScene, this.previewCamera);
+    this.previewFrameId = requestAnimationFrame((time) => this.animateClassPreview(time));
+  }
+
+  private modelLoadRequest = 0;
+  beltSlots: Array<{ kind: "health" | "mana" | null }> = [
+    { kind: "health" }, { kind: "mana" }, { kind: "health" }, { kind: "mana" },
+    { kind: "health" }, { kind: "mana" }, { kind: "health" }, { kind: "mana" },
+    { kind: null }, { kind: null }, { kind: null }, { kind: null },
+    { kind: null }, { kind: null }, { kind: null }, { kind: null },
+  ];
   activeBottleSlot = 0;
+  combatOrbsTime = 0;
   loadedClassTextures: Record<string, HTMLImageElement | null> = {};
   bodyImg: HTMLImageElement | null = null;
   headImg: HTMLImageElement | null = null;
@@ -653,6 +889,7 @@ export class D2SurvivorsComponent implements OnInit, OnDestroy {
   textureLoadError = false;
   enemies: Enemy[] = [];
   chests: Chest[] = [];
+  potionDrops: PotionDrop[] = [];
   openChestCount = 0;
   floatingTexts: FloatingText[] = [];
   runTime = 0;
@@ -668,80 +905,145 @@ export class D2SurvivorsComponent implements OnInit, OnDestroy {
   inventoryGrid: Array<{ item?: D2InventoryItem }> = [];
   inventoryColumns = 4;
   inventoryRows = 10;
+  inventoryStatus = "";
 
   private rebuildInventoryGrid(): void {
-    const grid: Array<{ item?: D2InventoryItem }> = [];
-    for (let i = 0; i < this.inventoryColumns * this.inventoryRows; i++) {
-      grid.push({ item: this.inventory[i] ?? undefined });
-    }
-    this.inventoryGrid = grid;
+    const slotCount = this.inventoryColumns * this.inventoryRows;
+    this.inventory = Array.from({ length: slotCount }, (_, index) => this.inventory[index] ?? null);
+    this.inventoryGrid = this.inventory.map((item) => ({ item: item ?? undefined }));
   }
 
-  private clearInventorySource(slotIndex: number): void {
-    if (slotIndex < 0 || slotIndex >= this.inventory.length) {
-      return;
+  private addInventoryItem(item: D2InventoryItem): boolean {
+    const slotIndex = this.inventory.findIndex((slot) => slot === null);
+    if (slotIndex < 0) {
+      this.inventoryStatus = "Inventory full — item could not be picked up.";
+      return false;
     }
-    this.inventory[slotIndex] = null;
-    this.inventoryGrid[slotIndex] = { item: undefined };
+    this.inventory[slotIndex] = item;
+    this.inventoryGrid[slotIndex].item = item;
+    this.inventoryStatus = "";
+    return true;
   }
 
   private randomItem(): D2InventoryItem {
-    return {
-      id: crypto.randomUUID ? crypto.randomUUID() : String(Math.random()),
-      name: "Simple Item",
-      rarity: "normal",
-      slot: "weapon",
-      desc: "Simple item",
-    };
-  } 
-
-  private randomItemOfRarity(): D2InventoryItem {
-    const names = [
-      "Steel Shortsword",
-      "Iron Helm",
-      "Cloth Armor",
-      "Health Potion",
-      "Soulstone",
-      "Small Charm",
-      "Scroll of Lightning",
-      "Gold Amulet",
-      "Ring of the Artisan",
-      "Quill of the Fates",
+    const bases: Array<Pick<D2InventoryItem, "name" | "slot" | "stats" | "desc">> = [
+      { name: "Short Sword", slot: "weapon", stats: { damageMin: 3, damageMax: 7 }, desc: "A balanced blade suited to quick strikes." },
+      { name: "War Pike", slot: "weapon", stats: { damageMin: 5, damageMax: 12 }, desc: "A long, heavy spear with excellent reach." },
+      { name: "Leather Cap", slot: "armor", stats: { armor: 8, requiresStrength: 10 }, desc: "A simple cap reinforced with boiled leather." },
+      { name: "Chain Hauberk", slot: "armor", stats: { armor: 18, requiresStrength: 20 }, desc: "Interlocking rings offer dependable protection." },
+      { name: "Crimson Small Charm", slot: "charm", stats: { plusVitality: 4 }, desc: "A palm-sized charm warm to the touch." },
+      { name: "Azure Small Charm", slot: "charm", stats: { plusStrength: 2 }, desc: "A blue charm etched with a protective rune." },
+      { name: "Gold Amulet", slot: "charm", stats: { plusVitality: 3 }, desc: "An old amulet bearing a faint golden glow." },
+      { name: "Ring of the Artisan", slot: "charm", stats: { plusDamage: 2 }, desc: "A finely worked ring made for a master craftsperson." },
+      { name: "Soulstone Shard", slot: "charm", stats: { plusStrength: 1, plusVitality: 2 }, desc: "A dangerous fragment that hums with trapped power." },
+      { name: "Quill of the Fates", slot: "charm", stats: { plusDamage: 1, plusVitality: 2 }, desc: "An ink-dark quill said to record every bargain." },
     ];
-    const name = names[Math.floor(Math.random() * names.length)];
-    const rarity =
-      Math.random() < 0.08 ? "rare" : Math.random() < 0.35 ? "magic" : "normal";
+    type Affix = { name: string; stat: "plusDamage" | "plusStrength" | "plusVitality"; label: string; min: number; max: number };
+    const prefixes: Affix[] = [
+      { name: "Stalwart", stat: "plusVitality", label: "Life", min: 2, max: 6 },
+      { name: "Savage", stat: "plusDamage", label: "Maximum Damage", min: 2, max: 6 },
+      { name: "Mighty", stat: "plusStrength", label: "Strength", min: 1, max: 4 },
+      { name: "Vigorous", stat: "plusVitality", label: "Life", min: 3, max: 7 },
+      { name: "Keen", stat: "plusDamage", label: "Maximum Damage", min: 1, max: 4 },
+    ];
+    const suffixes: Affix[] = [
+      { name: "of Might", stat: "plusStrength", label: "Strength", min: 1, max: 4 },
+      { name: "of the Fox", stat: "plusVitality", label: "Life", min: 2, max: 5 },
+      { name: "of Haste", stat: "plusDamage", label: "Maximum Damage", min: 1, max: 3 },
+      { name: "of the Bear", stat: "plusVitality", label: "Life", min: 3, max: 6 },
+      { name: "of Precision", stat: "plusDamage", label: "Maximum Damage", min: 2, max: 5 },
+    ];
+    const base = bases[Math.floor(Math.random() * bases.length)];
+    const roll = Math.random();
+    const rarity: D2InventoryItem["rarity"] = roll < 0.12 ? "rare" : roll < 0.48 ? "magic" : "normal";
+    const stats: D2ItemStats = { ...base.stats };
+    const affixes: string[] = [];
+    let prefixName = "";
+    let suffixName = "";
+    const applyAffix = (affix: Affix): void => {
+      const amount = affix.min + Math.floor(Math.random() * (affix.max - affix.min + 1));
+      stats[affix.stat] = (stats[affix.stat] ?? 0) + amount;
+      affixes.push(`+${amount} ${affix.label} (${affix.name})`);
+    };
+
+    if (rarity === "magic") {
+      if (Math.random() < 0.5) {
+        const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+        prefixName = prefix.name;
+        applyAffix(prefix);
+      } else {
+        const suffix = suffixes[Math.floor(Math.random() * suffixes.length)];
+        suffixName = suffix.name;
+        applyAffix(suffix);
+      }
+    } else if (rarity === "rare") {
+      const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+      const suffix = suffixes[Math.floor(Math.random() * suffixes.length)];
+      prefixName = prefix.name;
+      suffixName = suffix.name;
+      applyAffix(prefix);
+      applyAffix(suffix);
+    }
+
+    const displayName = rarity === "normal"
+      ? base.name
+      : `${prefixName ? prefixName + " " : ""}${base.name}${suffixName ? " " + suffixName : ""}`;
     return {
       id: crypto.randomUUID ? crypto.randomUUID() : String(Math.random()),
-      name,
+      name: displayName,
+      baseName: base.name,
       rarity,
-      slot: "charm",
-      desc:
-        rarity === "rare"
-          ? "Unusual item"
-          : rarity === "magic"
-            ? "Magical item"
-            : "Simple item",
+      slot: base.slot,
+      desc: base.desc,
+      stats,
+      affixes,
     };
   }
 
   onKeyDown(event: KeyboardEvent): void {
     const key = event.key.toLowerCase();
-    if (
-      [
-        "w",
-        "a",
-        "s",
-        "d",
-        "arrowup",
-        "arrowdown",
-        "arrowleft",
-        "arrowright",
-      ].includes(key)
-    ) {
+    if (["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(key)) {
       event.preventDefault();
       this.keysDown.add(key);
+      return;
     }
+    if (/^[1-4]$/.test(key)) {
+      this.drinkBeltPotion(Number(key) - 1);
+      this.drinkBeltPotion(Number(key) + 3);
+      this.drinkBeltPotion(Number(key) + 7);
+      this.drinkBeltPotion(Number(key) + 11);
+    } else if (key === "p") {
+      this.drinkBeltPotion(this.activeBottleSlot);
+    }
+  }
+
+  drinkBeltPotion(slotIndex: number): void {
+    const slot = this.beltSlots[slotIndex];
+    if (!slot?.kind) {
+      return;
+    }
+    if (slot.kind === "health" && this.playerHp < this.playerMaxHp) {
+      this.playerHp = Math.min(this.playerMaxHp, this.playerHp + 8);
+      slot.kind = null;
+      this.combatOrbsTime = 2.5;
+    } else if (slot.kind === "mana" && this.playerMana < this.playerMaxMana) {
+      this.playerMana = Math.min(this.playerMaxMana, this.playerMana + 8);
+      slot.kind = null;
+      this.combatOrbsTime = 2.5;
+    }
+  }
+
+  selectBottle(slotIndex: number): void {
+    this.activeBottleSlot = slotIndex;
+    this.arenaRef?.nativeElement.focus();
+  }
+
+  get healthOrbFill(): number {
+    return Math.max(0, Math.min(1, this.playerHp / this.playerMaxHp));
+  }
+
+  get manaOrbFill(): number {
+    return Math.max(0, Math.min(1, this.playerMana / this.playerMaxMana));
   }
 
   onKeyUp(event: KeyboardEvent): void {
@@ -749,23 +1051,46 @@ export class D2SurvivorsComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    this.loadSelectedClassTextures();
-    this.startRun();
+    this.runActive = false;
+    this.activeTab = "menu";
+    this.rebuildInventoryGrid();
+  }
+
+  ngAfterViewInit(): void {
+    // Keep class selection lightweight; the selected model is loaded once gameplay starts.
   }
 
   ngOnDestroy(): void {
+    this.runActive = false;
     if (this.rafId) {
       cancelAnimationFrame(this.rafId);
       this.rafId = 0;
     }
+    this.characterModel?.traverse((object) => {
+      const mesh = object as THREE.Mesh;
+      mesh.geometry?.dispose();
+      if (Array.isArray(mesh.material)) {
+        mesh.material.forEach((material) => material.dispose());
+      } else {
+        mesh.material?.dispose();
+      }
+    });
+    this.characterRenderer?.dispose();
+    this.stopClassPreview();
   }
 
   startRun(): void {
-    this.runActive = true;
+    this.stopClassPreview();
+    this.runActive = false;
     this.activeTab = "run";
+    this.menuPanel = "main";
     this.playerX = 250;
     this.playerY = 250;
+    const startingStats = this.classStartingStats[this.selectedClass] ?? this.classStartingStats["amazon"];
+    this.playerMaxHp = startingStats.life;
+    this.playerMaxMana = startingStats.mana;
     this.playerHp = this.playerMaxHp;
+    this.playerMana = this.playerMaxMana;
     this.playerGold = 0;
     this.ownedSkills = ["Fire Ball", "Chain Lightning", "Blade Fury"];
     this.skillLevels = {
@@ -775,85 +1100,41 @@ export class D2SurvivorsComponent implements OnInit, OnDestroy {
     };
     this.enemies = [];
     this.chests = [];
+    this.potionDrops = [];
     this.floatingTexts = [];
-    this.potionBelts = [4, 4, 4, 4];
+    this.beltSlots = [
+      { kind: "health" }, { kind: "mana" }, { kind: "health" }, { kind: "mana" },
+      { kind: "health" }, { kind: "mana" }, { kind: "health" }, { kind: "mana" },
+      { kind: null }, { kind: null }, { kind: null }, { kind: null },
+      { kind: null }, { kind: null }, { kind: null }, { kind: null },
+    ];
     this.activeBottleSlot = 0;
+    this.combatOrbsTime = 0;
     this.inventory = [];
     this.rebuildInventoryGrid();
+    this.selectedItem = null;
+    this.selectedSlotIndex = null;
+    this.dragState = null;
+    this.dragGhostSlotIndex = null;
+    this.inventoryStatus = "";
     this.runTime = 0;
     this.spawnAcc = 0;
     this.chestTimer = 0;
     this.lastTime = performance.now();
-    this.loadSelectedClassTextures();
+    this.initializeCharacterRenderer();
+    if (this.characterRenderer && this.characterScene && this.loadedModelClass !== this.selectedClass) {
+      this.loadCharacterModel();
+    } else if (!this.characterRenderer || !this.characterScene) {
+      this.modelLoadError = true;
+    }
+    this.runActive = true;
     this.loop(this.lastTime);
   }
 
-  selectBottle(slotIndex: number): void {
-    this.activeBottleSlot = slotIndex;
-  }
-
-  onInventoryPointerDown(event: MouseEvent): void {
-    if (!this.runActive || !this.arenaRef?.nativeElement) {
-      return;
-    }
-    const idx = this.getInventorySlotIndexFromPoint(event.clientX, event.clientY);
-    if (idx >= 0 && event.button === 0) {
-      event.preventDefault();
-      if (this.selectedSlotIndex === idx && this.selectedItem?.id === this.getItemAtSlot(idx)?.id) {
-        this.selectedItem = null;
-        this.selectedSlotIndex = null;
-        this.dragState = null;
-      } else {
-        this.startDrag(idx, event);
-      }
-    }
-  }
-
   loadSelectedClassTextures(): void {
-    this.textureLoadError = false;
-    const def = CLASS_MODEL[this.selectedClass];
-    if (!def) {
-      return;
-    }
-    this.loadedClassTextures = {};
-    this.bodyImg = null;
-    this.headImg = null;
-    this.hairImg = null;
-    this.armorImg = null;
-    this.weaponImg = null;
-    if (def.body) {
-      this.bodyImg = this.loadImage(def.body);
-      this.loadedClassTextures[def.body] = this.bodyImg;
-    }
-    if (def.head) {
-      this.headImg = this.loadImage(def.head);
-      this.loadedClassTextures[def.head] = this.headImg;
-    }
-    if (def.hair) {
-      this.hairImg = this.loadImage(def.hair);
-      this.loadedClassTextures[def.hair] = this.hairImg;
-    }
-    if (def.armor) {
-      this.armorImg = this.loadImage(def.armor);
-      this.loadedClassTextures[def.armor] = this.armorImg;
-    }
-    if (def.weapon) {
-      this.weaponImg = this.loadImage(def.weapon);
-      this.loadedClassTextures[def.weapon] = this.weaponImg;
-    }
-    if (!this.bodyImg && !this.headImg && !this.hairImg) {
-      this.textureLoadError = true;
-    }
-  }
-
-  private loadImage(url: string): HTMLImageElement | null {
-    const img = new Image();
-    img.decoding = "async";
-    img.src = url;
-    if (img.complete && img.naturalWidth > 0) {
-      return img;
-    }
-    return img;
+    // FBX class models include the correctly rigged meshes and their materials.
+    // Kept as the existing class-selection hook, now loading that actual model.
+    this.loadCharacterModel();
   }
 
   loop(now: number): void {
@@ -864,15 +1145,19 @@ export class D2SurvivorsComponent implements OnInit, OnDestroy {
     }
     this.update(dt);
     this.draw();
+    this.renderCharacter();
     this.rafId = requestAnimationFrame((t) => this.loop(t));
   }
 
   update(dt: number): void {
     this.runTime += dt / 1000;
+    this.combatOrbsTime = Math.max(0, this.combatOrbsTime - dt / 1000);
+    this.playerMana = Math.min(this.playerMaxMana, this.playerMana + dt * 0.0015);
 
     this.movePlayer(dt);
     this.updateEnemies(dt);
     this.updateChests(dt);
+    this.updatePotionDrops(dt);
     this.updateFloatingTexts(dt);
     this.spawnEnemies(dt);
     this.spawnChests(dt);
@@ -935,6 +1220,41 @@ export class D2SurvivorsComponent implements OnInit, OnDestroy {
     this.chests = this.chests.filter((c) => !c.open || c.life > 0);
   }
 
+  updatePotionDrops(dt: number): void {
+    for (const drop of this.potionDrops) {
+      drop.bob += dt / 1000;
+      drop.life -= dt / 1000;
+      drop.pickupDelay = Math.max(0, drop.pickupDelay - dt / 1000);
+      if (drop.pickupDelay > 0 || Math.hypot(this.playerX - drop.x, this.playerY - drop.y) >= 28) {
+        continue;
+      }
+      const slot = this.beltSlots.find((candidate) => candidate.kind === null);
+      if (!slot) {
+        if (!drop.notifiedFull) {
+          this.floatingTexts.push({
+            x: drop.x,
+            y: drop.y - 18,
+            text: "BELT FULL",
+            color: "#ffcf72",
+            life: 1.8,
+          });
+          drop.notifiedFull = true;
+        }
+        continue;
+      }
+      slot.kind = drop.kind;
+      drop.collected = true;
+      this.floatingTexts.push({
+        x: drop.x,
+        y: drop.y - 18,
+        text: `${drop.kind.toUpperCase()} POTION`,
+        color: drop.kind === "health" ? "#ff7171" : "#73c9ff",
+        life: 2,
+      });
+    }
+    this.potionDrops = this.potionDrops.filter((drop) => !drop.collected && drop.life > 0);
+  }
+
   updateFloatingTexts(dt: number): void {
     for (const f of this.floatingTexts) {
       f.y -= 0.25 * (dt / 1000) * 60;
@@ -948,267 +1268,130 @@ export class D2SurvivorsComponent implements OnInit, OnDestroy {
   dragState: DragState | null = null;
   dragGhostSlotIndex: number | null = null;
 
-  readonly selectedItemDisplay: D2InventoryItem | null = null;
   getItemStatText(item: D2InventoryItem | null): string[] {
     if (!item) {
       return [];
     }
     const lines: string[] = [];
-    lines.push(`${item.name} (${item.rarity})`);
     if (item.stats) {
-      const s = item.stats;
-      if (s.damageMin != null && s.damageMax != null) {
-        lines.push(`Damage: ${s.damageMin} to ${s.damageMax}`);
+      const stats = item.stats;
+      if (stats.damageMin != null && stats.damageMax != null) {
+        lines.push(`Damage: ${stats.damageMin} to ${stats.damageMax}`);
       }
-      if (s.armor != null) {
-        lines.push(`Armor: ${s.armor}`);
+      if (stats.armor != null) {
+        lines.push(`Armor: ${stats.armor}`);
       }
-      if (s.plusDamage != null && s.plusDamage > 0) {
-        lines.push(`+${s.plusDamage} to Maximum Damage`);
+      if (stats.plusDamage != null && stats.plusDamage > 0) {
+        lines.push(`+${stats.plusDamage} to Maximum Damage`);
       }
-      if (s.plusStrength != null && s.plusStrength > 0) {
-        lines.push(`+${s.plusStrength} Strength`);
+      if (stats.plusStrength != null && stats.plusStrength > 0) {
+        lines.push(`+${stats.plusStrength} Strength`);
       }
-      if (s.plusVitality != null && s.plusVitality > 0) {
-        lines.push(`+${s.plusVitality} to Maximum Life`);
+      if (stats.plusVitality != null && stats.plusVitality > 0) {
+        lines.push(`+${stats.plusVitality} to Maximum Life`);
       }
-      if (s.requiresStrength != null && s.requiresStrength > 0) {
-        lines.push(`Requires ${s.requiresStrength} Strength`);
-      }
-    }
-    if (item.affixes && item.affixes.length) {
-      lines.push('Affixes');
-      for (const a of item.affixes) {
-        lines.push(`  ${a}`);
+      if (stats.requiresStrength != null && stats.requiresStrength > 0) {
+        lines.push(`Requires ${stats.requiresStrength} Strength`);
       }
     }
-    if (!lines.length) {
-      lines.push(item.desc || 'No stats');
+    if (item.affixes?.length) {
+      lines.push(...item.affixes);
     }
-    return lines;
+    return lines.length ? lines : ["No additional bonuses"] ;
   }
 
   readonly itemStatText = this.getItemStatText.bind(this);
 
   getItemAtSlot(slotIndex: number): D2InventoryItem | undefined {
-    return this.inventoryGrid[slotIndex]?.item ?? undefined;
+    return this.inventoryGrid[slotIndex]?.item;
   }
 
-  getInventorySlotIndexFromPoint(clientX: number, clientY: number): number {
-    if (!this.arenaRef?.nativeElement) {
+  getInventorySlotIndexFromElement(target: EventTarget | null): number {
+    const element = target instanceof Element ? target.closest<HTMLElement>("[data-inventory-slot]") : null;
+    if (!element) {
       return -1;
     }
-    const canvas = this.arenaRef.nativeElement;
-    const rect = canvas.getBoundingClientRect();
-    const x = clientX - rect.left;
-    const y = clientY - rect.top;
-    const slotW = (rect.width - 3 * 3) / this.inventoryColumns;
-    const slotH = (rect.height - 3 * 3) / this.inventoryRows;
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    const fx = x * scaleX;
-    const fy = y * scaleY;
-    const startX = 3 * scaleX;
-    const startY = 3 * scaleY;
-    if (fx < startX || fy < startY) {
-      return -1;
-    }
-    const col = Math.floor((fx - startX) / (slotW * scaleX + 3 * scaleX));
-    const row = Math.floor((fy - startY) / (slotH * scaleY + 3 * scaleY));
-    const idx = row * this.inventoryColumns + col;
-    if (idx < 0 || idx >= this.inventoryGrid.length) {
-      return -1;
-    }
-    return idx;
+    const slotIndex = Number(element.dataset["inventorySlot"]);
+    return Number.isInteger(slotIndex) && slotIndex >= 0 && slotIndex < this.inventoryGrid.length
+      ? slotIndex
+      : -1;
   }
 
   internalCanDrop(sourceIndex: number, targetIndex: number, sourceItem?: D2InventoryItem): boolean {
-    if (!this.runActive) {
+    if (sourceIndex < 0 || sourceIndex >= this.inventoryGrid.length || targetIndex < 0 || targetIndex >= this.inventoryGrid.length || sourceIndex === targetIndex) {
       return false;
     }
-    if (sourceIndex === targetIndex) {
+    const source = this.inventoryGrid[sourceIndex]?.item;
+    const heldItem = sourceItem ?? source;
+    if (!heldItem || source?.id !== heldItem.id) {
       return false;
     }
-    const atSource = this.getItemAtSlot(sourceIndex);
-    const atTarget = this.getItemAtSlot(targetIndex);
-    if (atTarget && atTarget.id !== sourceItem?.id && atSource?.id !== sourceItem?.id) {
-      return false;
-    }
-    if (sourceIndex < 0 || sourceIndex >= this.inventoryGrid.length) {
-      return false;
-    }
-    if (targetIndex < 0 || targetIndex >= this.inventoryGrid.length) {
-      return false;
-    }
-    if (!sourceItem && !atSource) {
-      return false;
-    }
-    const heldItem = sourceItem ?? atSource;
-    if (!heldItem) {
-      return false;
-    }
-    if (!atTarget && !this.inventory[targetIndex]) {
-      return true;
-    }
+    // This is a bag grid rather than an equipment layout, so any item may move to any other cell.
+    // Dropping on an occupied cell swaps its contents.
     return true;
   }
 
-  startDrag(slotIndex: number, event: MouseEvent): void {
-    if (!this.runActive || !this.arenaRef?.nativeElement) {
-      return;
-    }
+  startDrag(slotIndex: number, event: DragEvent): void {
     const item = this.getItemAtSlot(slotIndex);
     if (!item) {
-      this.dragState = null;
+      event.preventDefault();
       return;
     }
-    event.stopPropagation();
-    this.dragState = {
-      slotIndex,
-      item,
-      offsetX: event.offsetX,
-      offsetY: event.offsetY,
-      clientX: event.clientX,
-      clientY: event.clientY,
-      targetSlotIndex: null,
-    };
-    this.dragGhostSlotIndex = slotIndex;
-    if (this.selectedSlotIndex !== slotIndex || this.selectedItem?.id !== item.id) {
-      this.selectedItem = item;
-      this.selectedSlotIndex = slotIndex;
-    }
-  }
-
-  onInventoryPointerMove(event: MouseEvent): void {
-    if (!this.dragState || !this.arenaRef?.nativeElement) {
-      return;
-    }
-    event.preventDefault();
-    this.dragState.clientX = event.clientX;
-    this.dragState.clientY = event.clientY;
-    const target = this.getInventorySlotIndexFromPoint(event.clientX, event.clientY);
-    if (target < 0) {
-      this.dragGhostSlotIndex = null;
-      this.dragState.targetSlotIndex = null;
-      return;
-    }
-    const denied = !this.internalCanDrop(this.dragState.slotIndex, target, this.dragState.item);
-    if (denied) {
-      this.dragGhostSlotIndex = target;
-      this.dragState.targetSlotIndex = null;
-      return;
-    }
-    if (target !== this.dragState.slotIndex) {
-      this.dragGhostSlotIndex = target;
-      this.dragState.targetSlotIndex = target;
-    } else {
-      this.dragGhostSlotIndex = null;
-      this.dragState.targetSlotIndex = null;
-    }
-  }
-
-  onInventoryPointerUp(event: MouseEvent): void {
-    if (!this.dragState) {
-      return;
-    }
-    const sourceIndex = this.dragState.slotIndex;
-    const heldItem = this.dragState.item;
-    let targetIndex = this.dragState.targetSlotIndex;
-    if (targetIndex == null) {
-      targetIndex = this.getInventorySlotIndexFromPoint(event.clientX, event.clientY);
-      if (targetIndex < 0 || !this.internalCanDrop(sourceIndex, targetIndex, heldItem)) {
-        targetIndex = sourceIndex;
-      }
-    }
-    let didMove = false;
-    if (targetIndex !== sourceIndex) {
-      const clearSource = () => this.clearInventorySource(sourceIndex);
-      if (this.getItemAtSlot(targetIndex)) {
-        clearSource();
-        this.inventory[targetIndex] = heldItem;
-        this.inventoryGrid[targetIndex].item = heldItem;
-      } else {
-        this.inventory[targetIndex] = heldItem;
-        this.inventoryGrid[targetIndex].item = heldItem;
-        clearSource();
-      }
-      didMove = true;
-    }
-    this.dragState = null;
-    this.dragGhostSlotIndex = null;
-    if (!didMove) {
-      this.selectedItem = null;
-      this.selectedSlotIndex = null;
-      return;
-    }
-    this.selectedItem = heldItem;
-    this.selectedSlotIndex = targetIndex;
-    const targetRef = this.inventoryGrid[targetIndex];
-    if (targetRef?.item?.id === heldItem.id) {
-      return;
-    }
-    const found = this.inventoryGrid.find((s) => s.item?.id === heldItem.id);
-    this.selectedItem = found?.item ?? null;
-    this.selectedSlotIndex = found !== undefined ? this.inventoryGrid.indexOf(found) : null;
-  }
-
-  updateDrag(event: MouseEvent): void {
-    if (!this.dragState) {
-      return;
-    }
-    const clientX = event.clientX;
-    const clientY = event.clientY;
-    const arena = this.arenaRef?.nativeElement;
-    if (!arena) {
-      return;
-    }
-    event.preventDefault();
-    this.dragState.clientX = clientX;
-    this.dragState.clientY = clientY;
-    const target = this.getInventorySlotIndexFromPoint(clientX, clientY);
-    if (target < 0) {
-      this.dragGhostSlotIndex = null;
-      this.dragState.targetSlotIndex = null;
-      return;
-    }
-    const denied = !this.internalCanDrop(this.dragState.slotIndex, target, this.dragState.item);
-    if (denied) {
-      this.dragGhostSlotIndex = target;
-      this.dragState.targetSlotIndex = null;
-      return;
-    }
-    if (target !== this.dragState.slotIndex) {
-      this.dragGhostSlotIndex = target;
-      this.dragState.targetSlotIndex = target;
-    } else {
-      this.dragGhostSlotIndex = null;
-      this.dragState.targetSlotIndex = null;
-    }
-  }
-
-  onInventoryPointerLeave(event: MouseEvent): void {
-    if (!this.dragState) {
-      return;
-    }
-    this.onInventoryPointerUp(event);
-  } 
- 
-  selectInventoryItem(slotIndex: number, item: D2InventoryItem | null): void {
-    if (!item && this.selectedSlotIndex === slotIndex) {
-      this.selectedItem = null;
-      this.selectedSlotIndex = null;
-      this.dragState = null;
-      return;
-    }
-    if (item?.id === this.selectedItem?.id && this.selectedSlotIndex === slotIndex) {
-      this.selectedItem = null;
-      this.selectedSlotIndex = null;
-      this.dragState = null;
-      return;
-    }
+    this.dragState = { slotIndex, item };
     this.selectedItem = item;
     this.selectedSlotIndex = slotIndex;
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", item.id);
+    }
+  }
+
+  onInventoryDragOver(slotIndex: number, event: DragEvent): void {
+    if (!this.dragState) {
+      return;
+    }
+    if (this.internalCanDrop(this.dragState.slotIndex, slotIndex, this.dragState.item)) {
+      event.preventDefault();
+      if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = "move";
+      }
+      this.dragGhostSlotIndex = slotIndex;
+      return;
+    }
+    this.dragGhostSlotIndex = slotIndex;
+  }
+
+  onInventoryDrop(slotIndex: number, event: DragEvent): void {
+    event.preventDefault();
+    const drag = this.dragState;
+    if (!drag || !this.internalCanDrop(drag.slotIndex, slotIndex, drag.item)) {
+      this.inventoryStatus = "That item cannot be placed there.";
+      this.clearDragState();
+      return;
+    }
+    const targetItem = this.inventoryGrid[slotIndex].item;
+    this.inventory[drag.slotIndex] = targetItem ?? null;
+    this.inventoryGrid[drag.slotIndex].item = targetItem;
+    this.inventory[slotIndex] = drag.item;
+    this.inventoryGrid[slotIndex].item = drag.item;
+    this.selectedItem = drag.item;
+    this.selectedSlotIndex = slotIndex;
+    this.inventoryStatus = "";
+    this.clearDragState();
+  }
+
+  onInventoryDragEnd(): void {
+    this.clearDragState();
+  }
+
+  private clearDragState(): void {
     this.dragState = null;
+    this.dragGhostSlotIndex = null;
+  }
+
+  selectInventoryItem(slotIndex: number, item: D2InventoryItem | null): void {
+    this.selectedItem = item;
+    this.selectedSlotIndex = item ? slotIndex : null;
   }
 
   canDropOnSlot(sourceIndex: number, targetIndex: number, sourceItem?: D2InventoryItem): boolean {
@@ -1321,8 +1504,35 @@ export class D2SurvivorsComponent implements OnInit, OnDestroy {
       });
     }
 
-    if (Math.random() < 0.25) {
-      this.inventory.push(this.randomItem());
+    this.spawnPotionDrops(c.x, c.y);
+
+    const droppedItem = this.randomItem();
+    if (this.addInventoryItem(droppedItem)) {
+      this.floatingTexts.push({
+        x: c.x,
+        y: c.y - 34,
+        text: droppedItem.name,
+        color: droppedItem.rarity === "rare" ? "#ffd27a" : droppedItem.rarity === "magic" ? "#78bbff" : "#ded8cb",
+        life: 3,
+      });
+    }
+  }
+
+  private spawnPotionDrops(x: number, y: number): void {
+    const dropCount = Math.random() < 0.35 ? 2 : 1;
+    for (let index = 0; index < dropCount; index += 1) {
+      const angle = Math.random() * Math.PI * 2;
+      const distance = 24 + index * 12;
+      this.potionDrops.push({
+        x: Math.max(18, Math.min(this.arenaW - 18, x + Math.cos(angle) * distance)),
+        y: Math.max(18, Math.min(this.arenaH - 18, y + Math.sin(angle) * distance)),
+        kind: Math.random() < 0.5 ? "health" : "mana",
+        bob: 0,
+        life: 25,
+        pickupDelay: 0.9,
+        notifiedFull: false,
+        collected: false,
+      });
     }
   }
 
@@ -1394,26 +1604,11 @@ export class D2SurvivorsComponent implements OnInit, OnDestroy {
       this.drawChest(ctx, c);
     }
 
-    // player model
-    if (!this.textureLoadError) {
-      this.drawPlayerModel(ctx, this.playerX, this.playerY);
-    } else {
-      ctx.fillStyle = "#ffd27a";
-      ctx.beginPath();
-      ctx.arc(this.playerX, this.playerY, 14, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = "#7a4a00";
-      ctx.lineWidth = 2;
-      ctx.stroke();
+    for (const drop of this.potionDrops) {
+      this.drawPotionDrop(ctx, drop);
     }
 
-    // hp bar
-    const hpPct = Math.max(0, this.playerHp / this.playerMaxHp);
-    ctx.fillStyle = "#2a1a12";
-    ctx.fillRect(this.playerX - 22, this.playerY - 32, 44, 6);
-    ctx.fillStyle =
-      hpPct > 0.5 ? "#4caf50" : hpPct > 0.25 ? "#ff9800" : "#f44336";
-    ctx.fillRect(this.playerX - 22, this.playerY - 32, 44 * hpPct, 6);
+    // The player is rendered as a lit FBX model on the transparent WebGL overlay.
 
     for (const f of this.floatingTexts) {
       ctx.fillStyle = f.color;
@@ -1423,83 +1618,215 @@ export class D2SurvivorsComponent implements OnInit, OnDestroy {
     }
   }
 
-  drawPlayerModel(ctx: CanvasRenderingContext2D, x: number, y: number): void {
-    const scale = 1.4;
-    const baseSize = 64;
-    const pw = baseSize * scale;
-    const ph = baseSize * scale;
-    const ox = x - pw / 2;
-    const oy = y - ph + 12;
-
-    if (this.bodyImg) {
-      this.drawTiledSprite(ctx, this.bodyImg, ox, oy, pw, ph);
+  private initializeCharacterRenderer(): void {
+    if (this.characterRenderer && this.characterScene && this.characterCamera) {
+      const canvas = this.characterCanvasRef?.nativeElement;
+      if (canvas && this.characterRenderer.domElement !== canvas) {
+        this.characterRenderer.dispose();
+        this.characterRenderer = undefined;
+      } else {
+        return;
+      }
     }
-    if (this.headImg) {
-      const headW = pw * 0.36;
-      const headH = ph * 0.4;
-      this.drawTiledSprite(
-        ctx,
-        this.headImg,
-        x - headW / 2,
-        oy - headH + 6,
-        headW,
-        headH,
-      );
+    const canvas = this.characterCanvasRef?.nativeElement;
+    if (!canvas) {
+      return;
     }
-    if (this.hairImg) {
-      const hairW = pw * 0.36;
-      const hairH = ph * 0.4;
-      this.drawTiledSprite(
-        ctx,
-        this.hairImg,
-        x - hairW / 2,
-        oy - hairH + 6,
-        hairW,
-        hairH,
-      );
-    }
-    if (this.armorImg) {
-      const armorW = pw * 0.52;
-      const armorH = ph * 0.52;
-      this.drawTiledSprite(
-        ctx,
-        this.armorImg,
-        x - armorW / 2,
-        oy + ph * 0.22,
-        armorW,
-        armorH,
-      );
-    }
-    if (this.weaponImg) {
-      const weaponW = pw * 1.2;
-      const weaponH = ph * 0.5;
-      this.drawTiledSprite(
-        ctx,
-        this.weaponImg,
-        x - weaponW / 2 + ph * 0.2,
-        oy + ph * 0.2,
-        weaponW,
-        weaponH,
-      );
+    try {
+      this.characterRenderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+      this.characterRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      this.characterRenderer.setSize(this.arenaW, this.arenaH, false);
+      this.characterRenderer.setClearColor(0x000000, 0);
+      this.characterRenderer.outputColorSpace = THREE.SRGBColorSpace;
+      this.characterScene = new THREE.Scene();
+      this.characterCamera = new THREE.OrthographicCamera(-250, 250, 250, -250, 0.1, 2000);
+      this.characterCamera.position.set(0, 600, 150);
+      this.characterCamera.lookAt(0, 0, 0);
+      this.characterScene.add(new THREE.HemisphereLight(0xdce7ff, 0x30251b, 2.4));
+      const keyLight = new THREE.DirectionalLight(0xffe1b0, 3.2);
+      keyLight.position.set(-180, 360, 240);
+      this.characterScene.add(keyLight);
+      const fillLight = new THREE.DirectionalLight(0x9abaff, 1.6);
+      fillLight.position.set(180, 180, -240);
+      this.characterScene.add(fillLight);
+    } catch (error) {
+      console.error("Could not initialize the character renderer", error);
+      this.modelLoadError = true;
     }
   }
 
-  private drawTiledSprite(
-    ctx: CanvasRenderingContext2D,
-    img: HTMLImageElement,
-    dx: number,
-    dy: number,
-    dw: number,
-    dh: number,
-  ): void {
-    if (!img || img.naturalWidth === 0) {
+  private loadCharacterModel(): void {
+    const definition = CLASS_MODEL[this.selectedClass];
+    if (!definition || !this.characterScene || !this.characterRenderer) {
       return;
     }
-    ctx.save();
-    ctx.globalAlpha = 1;
-    ctx.imageSmoothingEnabled = true;
-    ctx.drawImage(img, dx, dy, dw, dh);
-    ctx.restore();
+    this.modelLoadError = false;
+    const requestId = ++this.modelLoadRequest;
+    const modelClass = this.selectedClass;
+    const loader = new GLTFLoader();
+    loader.load(
+      definition.model,
+      (gltf) => {
+        const model = gltf.scene;
+        if (!this.characterScene || requestId !== this.modelLoadRequest || modelClass !== this.selectedClass) {
+          model.traverse((object) => {
+            const mesh = object as THREE.Mesh;
+            if (!mesh.isMesh) {
+              return;
+            }
+            mesh.geometry?.dispose();
+            const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+            materials.forEach((material) => material.dispose());
+          });
+          return;
+        }
+        if (this.characterModel) {
+          this.characterScene.remove(this.characterModel);
+          this.characterModel.traverse((object) => {
+            const mesh = object as THREE.Mesh;
+            if (!mesh.isMesh) {
+              return;
+            }
+            mesh.geometry?.dispose();
+            const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+            materials.forEach((material) => material.dispose());
+          });
+          this.characterModel = undefined;
+          this.loadedModelClass = "";
+        }
+        this.applyClassTextures(model, modelClass);
+        const bounds = new THREE.Box3().setFromObject(model);
+        const size = bounds.getSize(new THREE.Vector3());
+        const center = bounds.getCenter(new THREE.Vector3());
+        if (size.y <= 0 || !Number.isFinite(size.y)) {
+          model.traverse((object) => {
+            const mesh = object as THREE.Mesh;
+            if (mesh.isMesh) {
+              mesh.geometry?.dispose();
+              const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+              materials.forEach((material) => material.dispose());
+            }
+          });
+          this.modelLoadError = true;
+          return;
+        }
+        this.normalizeCharacterModel(model, 72);
+        model.rotation.y = 0;
+
+        // Keep the normalized model offset separate from the world-space player anchor.
+        // Replacing the GLTF root position directly while moving discards its centering offset.
+        const playerAnchor = new THREE.Group();
+        playerAnchor.add(model);
+        this.characterModel = playerAnchor;
+        this.characterScene.add(playerAnchor);
+        this.loadedModelClass = modelClass;
+        this.modelLoadError = false;
+        this.renderCharacter();
+      },
+      undefined,
+      (error: unknown) => {
+        if (requestId !== this.modelLoadRequest) {
+          return;
+        }
+        console.error(`Could not load the ${modelClass} 3D character model`, error);
+        this.characterModel = undefined;
+        this.loadedModelClass = "";
+        this.modelLoadError = true;
+      },
+    );
+  }
+
+  private applyClassTextures(model: THREE.Group, modelClass: string): void {
+    const definition = CLASS_MODEL[modelClass];
+    if (!definition) {
+      return;
+    }
+    model.traverse((object) => {
+      const mesh = object as THREE.Mesh;
+      if (!mesh.isMesh) {
+        return;
+      }
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      for (const material of materials) {
+        material.side = THREE.DoubleSide;
+        const texturedMaterial = material as THREE.MeshStandardMaterial;
+        if (texturedMaterial.map) {
+          // The source model exports placeholder maps; replace them with this class's atlas.
+          const texturePath = this.getTextureForMesh(object.name, modelClass, definition);
+          if (texturePath) {
+            texturedMaterial.map.dispose();
+            const texture = new THREE.TextureLoader().load(texturePath);
+            texture.colorSpace = THREE.SRGBColorSpace;
+            texture.anisotropy = this.previewRenderer?.capabilities.getMaxAnisotropy()
+              ?? this.characterRenderer?.capabilities.getMaxAnisotropy()
+              ?? 1;
+            texturedMaterial.map = texture;
+          }
+          texturedMaterial.map.colorSpace = THREE.SRGBColorSpace;
+          texturedMaterial.map.anisotropy = this.previewRenderer?.capabilities.getMaxAnisotropy()
+            ?? this.characterRenderer?.capabilities.getMaxAnisotropy()
+            ?? 1;
+          texturedMaterial.map.needsUpdate = true;
+        }
+        if (material instanceof THREE.MeshPhongMaterial) {
+          material.color.set(0xffffff);
+          material.emissive.set(0x111111);
+        }
+        material.needsUpdate = true;
+      }
+    });
+  }
+
+  private normalizeCharacterModel(model: THREE.Group, targetHeight: number): void {
+    model.updateMatrixWorld(true);
+    const bounds = new THREE.Box3().setFromObject(model);
+    const size = bounds.getSize(new THREE.Vector3());
+    const center = bounds.getCenter(new THREE.Vector3());
+    if (size.y <= 0 || !Number.isFinite(size.y)) {
+      throw new Error("Character model has invalid dimensions.");
+    }
+    model.scale.setScalar(targetHeight / size.y);
+    model.position.set(-center.x * model.scale.x, -bounds.min.y * model.scale.y, -center.z * model.scale.z);
+  }
+
+  private getTextureForMesh(meshName: string, modelClass: string, definition: (typeof CLASS_MODEL)[string]): string | null {
+    const textureRoot = `${MODEL_BASE}/${modelClass}/textures/`;
+    const name = meshName.toLowerCase();
+    if (name.includes("hair")) {
+      return definition.hair ?? definition.head;
+    }
+    if (name.includes("head") || name.includes("eye_") || name.includes("teeth") || name.includes("tongue") || name.includes("face")) {
+      return definition.head;
+    }
+    if (name.includes("pike") || name.includes("weapon")) {
+      return definition.weapon ?? definition.body;
+    }
+    if (name.includes("armor") || name.includes("shoulder") || name.includes("skirt") || name.includes("tabard") || name.includes("pants")) {
+      return definition.armor ?? definition.body;
+    }
+    if (name.includes("body") || name.includes("legs") || name.includes("arm")) {
+      return definition.body;
+    }
+    return definition.body || `${textureRoot}${modelClass}_body_alb.png`;
+  }
+
+  private renderCharacter(): void {
+    if (!this.characterRenderer || !this.characterScene || !this.characterCamera) {
+      return;
+    }
+    if (this.characterModel) {
+      const cameraHeight = this.characterCamera.position.y;
+      const cameraDepth = this.characterCamera.position.z;
+      const groundDepthScale = Math.hypot(cameraHeight, cameraDepth) / Math.abs(cameraHeight);
+      this.characterModel.position.set(
+        this.playerX - this.arenaW / 2,
+        0,
+        -(this.playerY - this.arenaH / 2) * groundDepthScale,
+      );
+    }
+    this.characterRenderer.render(this.characterScene, this.characterCamera);
   }
 
   drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy): void {
@@ -1545,6 +1872,36 @@ export class D2SurvivorsComponent implements OnInit, OnDestroy {
     ctx.fillRect(e.x - w / 2, e.y - e.r - 8, w * pct, h);
   }
 
+  drawPotionDrop(ctx: CanvasRenderingContext2D, drop: PotionDrop): void {
+    const x = drop.x;
+    const y = drop.y + Math.sin(drop.bob * 5) * 2;
+    const potionColor = drop.kind === "health" ? "#e52b3c" : "#36a8f0";
+    ctx.save();
+    ctx.shadowColor = potionColor;
+    ctx.shadowBlur = 9;
+    ctx.fillStyle = "#a69b82";
+    ctx.fillRect(x - 3, y - 9, 6, 4);
+    ctx.fillStyle = potionColor;
+    ctx.beginPath();
+    ctx.moveTo(x - 5, y - 5);
+    ctx.lineTo(x + 5, y - 5);
+    ctx.lineTo(x + 4, y + 5);
+    ctx.lineTo(x + 2, y + 8);
+    ctx.lineTo(x - 2, y + 8);
+    ctx.lineTo(x - 4, y + 5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = "#d6c7a4";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.fillStyle = "#f4e7cb";
+    ctx.font = "bold 8px Georgia, serif";
+    ctx.textAlign = "center";
+    ctx.fillText(drop.kind === "health" ? "LIFE" : "MANA", x, y + 19);
+    ctx.restore();
+  }
+
   drawChest(ctx: CanvasRenderingContext2D, c: Chest): void {
     const x = c.x;
     const y = c.y + Math.sin(c.bob * 4) * 4;
@@ -1584,6 +1941,17 @@ interface Chest {
   life: number;
 }
 
+interface PotionDrop {
+  x: number;
+  y: number;
+  kind: "health" | "mana";
+  bob: number;
+  life: number;
+  pickupDelay: number;
+  notifiedFull: boolean;
+  collected: boolean;
+}
+
 interface FloatingText {
   x: number;
   y: number;
@@ -1595,6 +1963,7 @@ interface FloatingText {
 interface D2InventoryItem {
   id: string;
   name: string;
+  baseName?: string;
   rarity: "normal" | "magic" | "rare";
   slot: "weapon" | "armor" | "charm";
   desc: string;
@@ -1617,9 +1986,4 @@ interface D2ItemStats {
 interface DragState {
   slotIndex: number;
   item: D2InventoryItem;
-  offsetX: number;
-  offsetY: number;
-  clientX: number;
-  clientY: number;
-  targetSlotIndex: number | null;
 }

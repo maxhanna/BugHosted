@@ -40,6 +40,7 @@
     "@emulatorjs/core-ppsspp": "^4.2.3",
     "@emulatorjs/cores": "^4.2.3",
     "@microsoft/signalr": "^10.0.0",
+    "@types/three": "^0.186.0",
     "chart.js": "^4.4.3",
     "epubjs": "^0.3.93",
     "firebase": "^12.4.0",
@@ -48,6 +49,7 @@
     "pdfjs-dist": "^4.10.38",
     "run-script-os": "*",
     "rxjs": "~7.8.0",
+    "three": "^0.186.1",
     "tslib": "^2.3.0",
     "zone.js": "~0.15.0"
   },

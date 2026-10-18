@@ -68,6 +68,7 @@ const PROXY_CONFIG = [
       "/ratings",
       "/digcraft",
       "/tilecache",
+      "/tomtom",
       "/flight",
       "/planter",
       "/weaver",

@@ -1,12 +1,90 @@
-<div class="d2s">
-  <div class="d2s-tabs">
+<div class="d2s" [class.d2s-in-menu]="activeTab === 'menu'" [class.d2s-in-character-select]="activeTab === 'menu' && menuPanel === 'characters'">
+  <div class="d2s-tabs" *ngIf="activeTab !== 'menu'">
+    <button type="button" class="d2s-tab" (click)="returnToMenu()">Main Menu</button>
     <button type="button" class="d2s-tab" [class.active]="activeTab === 'lore'" (click)="activeTab = 'lore'">
       Lore / classes / skills
     </button>
-    <button type="button" class="d2s-tab" [class.active]="activeTab === 'run'" (click)="activeTab = 'run'">
-      Quick chest run
+    <button type="button" class="d2s-tab" [class.active]="activeTab === 'run'" (click)="resumeRun()">
+      Resume Run
     </button>
   </div>
+
+  <section class="d2s-menu-scene" *ngIf="activeTab === 'menu'">
+    <div class="d2s-menu-arch" aria-hidden="true"></div>
+    <div class="d2s-menu-sparks" aria-hidden="true"></div>
+    <div class="d2s-menu-frame">
+      <header class="d2s-menu-title">
+        <div class="d2s-menu-kicker"><span></span> THE GATES OF SANCTUARY <span></span></div>
+        <div class="d2s-logo-mark" aria-hidden="true"><i></i><b></b></div>
+        <h1><span>D2</span> SURVIVORS</h1>
+        <p>THE ETERNAL NIGHT HAS FALLEN</p>
+      </header>
+
+      <div class="d2s-menu-content" [class.subpanel-open]="menuPanel !== 'main'">
+        <div class="d2s-menu-options" *ngIf="menuPanel === 'main'">
+          <button type="button" class="d2s-menu-button primary" (click)="openCharacterSelect()">
+            <span>Single Player</span><small>Choose a hero and enter Sanctuary</small>
+          </button>
+          <button type="button" class="d2s-menu-button" (click)="openCharacterSelect()">
+            <span>Choose Your Hero</span><small>{{ selectedClassName }} · Character select</small>
+          </button>
+          <button type="button" class="d2s-menu-button" (click)="activeTab = 'lore'">
+            <span>Lore &amp; Skills</span><small>Classes, abilities, and the world</small>
+          </button>
+          <button type="button" class="d2s-menu-button" (click)="menuPanel = 'credits'">
+            <span>Credits</span><small>About this tribute</small>
+          </button>
+        </div>
+
+        <section class="d2s-menu-subpanel d2s-character-select" *ngIf="menuPanel === 'characters'">
+          <div class="d2s-panel-heading"><button type="button" class="d2s-back-button" (click)="closeCharacterSelect()">‹ Back</button><span>Choose Your Hero</span></div>
+          <div class="d2s-character-details">
+            <div class="d2s-class-grid" aria-label="Available heroes">
+              <button type="button" *ngFor="let cls of classes" class="d2s-class-choice" [class.chosen]="selectedClass === cls.id" [attr.aria-pressed]="selectedClass === cls.id" (click)="selectClass(cls.id)">
+                <span class="d2s-class-gem" [attr.data-initial]="cls.name.charAt(0)"></span>
+                <span>{{ cls.name }}</span>
+              </button>
+            </div>
+            <div class="d2s-class-description">
+              <p>{{ selectedClassDescription }}</p>
+              <small>LEVEL 1 · {{ selectedClassStats.specialty }}</small>
+            </div>
+            <div class="d2s-hero-stats" aria-label="Starting hero attributes">
+              <div class="d2s-stat-row" *ngFor="let stat of selectedClassStats.attributes">
+                <span>{{ stat.name }}</span><b>{{ stat.value }}</b>
+                <span class="d2s-stat-meter"><i [style.width.%]="stat.value / 40 * 100"></i></span>
+              </div>
+              <div class="d2s-derived-stats"><span>Life <b>{{ selectedClassStats.life }}</b></span><span>Mana <b>{{ selectedClassStats.mana }}</b></span><span>Stamina <b>{{ selectedClassStats.stamina }}</b></span></div>
+            </div>
+            <button type="button" class="d2s-menu-button primary d2s-begin-button" (click)="startRun()"><span>Begin Journey</span><small>Enter Sanctuary as the {{ selectedClassName }}</small></button>
+          </div>
+          <div class="d2s-class-preview" [class.loading]="!previewModel && !previewLoadError">
+            <canvas #classPreviewCanvas class="d2s-class-preview-canvas" [attr.aria-label]="selectedClassName + ' 3D hero preview'" role="img"></canvas>
+            <div class="d2s-preview-loading" *ngIf="!previewModel && !previewLoadError"><span></span>Summoning hero…</div>
+            <div class="d2s-preview-error" *ngIf="previewLoadError">Hero preview unavailable</div>
+            <div class="d2s-preview-plaque"><span class="d2s-class-gem large" [attr.data-initial]="selectedClassName.charAt(0)"></span><div><small>CHOSEN HERO</small><strong>{{ selectedClassName }}</strong><span>{{ selectedClassStats.title }}</span></div></div>
+          </div>
+        </section>
+
+        <section class="d2s-menu-subpanel d2s-credits-panel" *ngIf="menuPanel === 'credits'">
+          <div class="d2s-panel-heading"><button type="button" class="d2s-back-button" (click)="menuPanel = 'main'">‹ Back</button><span>Credits</span></div>
+          <p>A fan-made survivor tribute inspired by the dark fantasy of Sanctuary.</p>
+          <p>Game art assets are public domain / CC0 and are not affiliated with Blizzard Entertainment.</p>
+          <button type="button" class="d2s-menu-button" (click)="menuPanel = 'main'"><span>Return</span></button>
+        </section>
+
+        <aside class="d2s-menu-hero-card">
+          <div class="d2s-portal" aria-hidden="true"><div class="d2s-portal-core"></div><i></i><b></b></div>
+          <div class="d2s-hero-plaque">
+            <span class="d2s-class-gem large" [attr.data-initial]="selectedClassName.charAt(0)"></span>
+            <div><small>YOUR DESTINY</small><strong>{{ selectedClassName }}</strong><span>{{ selectedClassDescription }}</span></div>
+          </div>
+          <div class="d2s-menu-version">A DARK FANTASY SURVIVOR</div>
+        </aside>
+      </div>
+      <footer class="d2s-menu-footer"><span>W A S D &nbsp; TO MOVE</span><span>ENTER SANCTUARY AT YOUR OWN RISK</span><span>© FAN-MADE TRIBUTE</span></footer>
+    </div>
+  </section>
 
   <section class="d2s-block" *ngIf="activeTab === 'lore'">
     <h1>D2 Survivors</h1>
@@ -39,12 +117,11 @@
     </ul>
   </section>
 
-  <section class="d2s-run" *ngIf="activeTab === 'run'">
+  <section class="d2s-run" [hidden]="activeTab !== 'run'">
     <h1>Quick chest run</h1>
-    <p class="d2s-sub">Bosses and champion packs drop chests. Collect a chest for +1 to a random skill you already have.</p>
+    <p class="d2s-sub">Bosses and champions drop chests with skill upgrades, gear, and potions. Walk over potions to stock empty belt slots; press 1–4 to drink from each belt column.</p>
 
     <div class="d2s-run-hud">
-      <span class="d2s-hud">HP {{ playerHp }}/{{ playerMaxHp }}</span>
       <span class="d2s-hud">Gold {{ playerGold }}</span>
       <span class="d2s-hud">Time {{ runTime.toFixed(0) }}s</span>
       <span class="d2s-hud">Enemies {{ enemies.length }}</span>
@@ -53,18 +130,38 @@
 
     <div class="d2s-arena-wrap">
       <canvas #arena class="d2s-arena" width="500" height="500" (keydown)="onKeyDown($event)" (keyup)="onKeyUp($event)" tabindex="0"></canvas>
-      <div class="d2s-model-hint" *ngIf="textureLoadError">Character textures did not load yet.</div>
-
-      <div class="d2s-belt">
-        <span class="d2s-belt-label">Belt</span>
-        <span
-          *ngFor="let count of potionBelts; let i = index"
-          class="d2s-bottle"
-          [class.active]="activeBottleSlot === i"
-          (click)="selectBottle(i)">
-          {{ count }}
-        </span>
-        <span class="d2s-belt-hint">1-4 bottles · click to select · P drink</span>
+      <canvas #characterCanvas class="d2s-character-canvas" width="500" height="500" aria-hidden="true"></canvas>
+      <div class="d2s-model-hint" *ngIf="modelLoadError">3D character model could not load.</div>
+      <div class="d2s-classic-hud" aria-label="Character life and mana, with potion belt">
+        <div class="d2s-orb d2s-health-orb" [style.--orb-fill]="healthOrbFill">
+          <div class="d2s-orb-liquid" [style.height.%]="healthOrbFill * 100"></div>
+          <div class="d2s-orb-gloss"></div>
+          <div class="d2s-orb-text"><strong>Life</strong><span>{{ playerHp | number:'1.0-0' }} / {{ playerMaxHp }}</span></div>
+        </div>
+        <div class="d2s-belt-frame" aria-label="Potion belt">
+          <div class="d2s-belt-grid">
+            <button
+              type="button"
+              *ngFor="let slot of beltSlots; let i = index"
+              class="d2s-belt-slot"
+              [class.selected]="activeBottleSlot === i"
+              [class.health-potion]="slot.kind === 'health'"
+              [class.mana-potion]="slot.kind === 'mana'"
+              [attr.aria-label]="slot.kind ? slot.kind + ' potion, belt slot ' + (i + 1) : 'Empty belt slot ' + (i + 1)"
+              (click)="selectBottle(i); drinkBeltPotion(i)"
+              [title]="slot.kind ? 'Use ' + slot.kind + ' potion (' + ((i % 4) + 1) + ')' : 'Empty belt slot'">
+              <span *ngIf="slot.kind" class="d2s-potion-bottle" [class.red-potion]="slot.kind === 'health'" [class.blue-potion]="slot.kind === 'mana'"></span>
+            </button>
+          </div>
+          <div class="d2s-belt-keys" aria-hidden="true">
+            <span *ngFor="let key of [1, 2, 3, 4]">{{ key }}</span>
+          </div>
+        </div>
+        <div class="d2s-orb d2s-mana-orb" [style.--orb-fill]="manaOrbFill">
+          <div class="d2s-orb-liquid" [style.height.%]="manaOrbFill * 100"></div>
+          <div class="d2s-orb-gloss"></div>
+          <div class="d2s-orb-text"><strong>Mana</strong><span>{{ playerMana | number:'1.0-0' }} / {{ playerMaxMana }}</span></div>
+        </div>
       </div>
     </div>
 
@@ -80,15 +177,18 @@
 
     <div class="d2s-inv-panel">
       <h2>Inventory</h2>
-      <div
-        class="d2s-inv"
-        (mousedown)="onInventoryPointerDown($event)"
-        (mousemove)="onInventoryPointerMove($event)"
-        (mouseup)="onInventoryPointerUp($event)"
-        (mouseleave)="onInventoryPointerLeave($event)">
+      <div class="d2s-inv" role="grid" aria-label="Inventory grid">
         <div
           class="d2s-inv-slot"
           *ngFor="let slot of inventoryGrid; let i = index"
+          role="gridcell"
+          [attr.aria-label]="slot.item ? slot.item.name + ', ' + slot.item.rarity : 'Empty slot'"
+          [attr.data-inventory-slot]="i"
+          [draggable]="!!slot.item"
+          (dragstart)="startDrag(i, $event)"
+          (dragover)="onInventoryDragOver(i, $event)"
+          (drop)="onInventoryDrop(i, $event)"
+          (dragend)="onInventoryDragEnd()"
           [class.filled]="slot.item"
           [class.rare]="slot.item?.rarity === 'rare'"
           [class.magic]="slot.item?.rarity === 'magic'"
@@ -97,19 +197,24 @@
           [class.selected]="selectedSlotIndex === i"
           [class.drag-over]="dragGhostSlotIndex === i"
           [class.drag-denied]="dragGhostSlotIndex === i && dragState && !canDropOnSlot(dragState.slotIndex, i, dragState.item)"
-          (click)="selectInventoryItem(i, slot.item)">
+          (click)="selectInventoryItem(i, slot.item ?? null)">
           <span class="d2s-inv-name">{{ slot.item?.name || '' }}</span>
         </div>
       </div>
       <div class="d2s-item-window" *ngIf="selectedItem">
         <div class="d2s-item-window-inner">
           <button type="button" class="d2s-item-window-close" (click)="selectInventoryItem(selectedSlotIndex ?? -1, null)">×</button>
-          <h3 class="d2s-item-window-title">{{ selectedItem?.name }}</h3>
-          <p class="d2s-item-window-sub">{{ selectedItem?.rarity }} · {{ selectedItem?.slot }}</p>
-          <pre class="d2s-item-window-stats">{{ itemStatText(selectedItem) }}</pre>
+          <p class="d2s-item-window-kicker">{{ selectedItem.rarity }} {{ selectedItem.slot }}</p>
+          <h3 class="d2s-item-window-title">{{ selectedItem.name }}</h3>
+          <p class="d2s-item-window-base" *ngIf="selectedItem.baseName && selectedItem.baseName !== selectedItem.name">Base item: {{ selectedItem.baseName }}</p>
+          <p class="d2s-item-window-description">{{ selectedItem.desc }}</p>
+          <div class="d2s-item-window-stats">
+            <p *ngFor="let line of itemStatText(selectedItem)">{{ line }}</p>
+          </div>
         </div>
       </div>
-      <p class="d2s-hint">Drag items to move them · illegal drops are blocked · click to inspect stats</p>
+      <p class="d2s-inventory-status" role="status" *ngIf="inventoryStatus">{{ inventoryStatus }}</p>
+      <p class="d2s-hint">Drag items between slots · occupied slots swap · click an item to inspect its stats</p>
     </div>
 
   </section>
