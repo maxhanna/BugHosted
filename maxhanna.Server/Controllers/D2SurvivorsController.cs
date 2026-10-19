@@ -34,8 +34,6 @@ namespace maxhanna.Server.Controllers
   {
     private const int MaxSaveBytes = 262144;
     private const int MaxLobbyMessageLength = 500;
-    private static bool _tablesReady;
-    private static readonly SemaphoreSlim _tableLock = new(1, 1);
 
     private readonly Log _log;
     private readonly string _connectionString;
@@ -48,97 +46,6 @@ namespace maxhanna.Server.Controllers
       _lobbyService = lobbyService;
     }
 
-    /// <summary>Creates the D2 Survivors tables once per process. Safe to call from other controllers.</summary>
-    public static async Task EnsureTablesAsync(string connectionString)
-    {
-      if (_tablesReady) return;
-      await _tableLock.WaitAsync();
-      try
-      {
-        if (_tablesReady) return;
-        await using var conn = new MySqlConnection(connectionString);
-        await conn.OpenAsync();
-        string[] statements = {
-          @"CREATE TABLE IF NOT EXISTS maxhanna.d2survivors_save (
-              user_id INT NOT NULL PRIMARY KEY,
-              gold INT NOT NULL DEFAULT 0,
-              potions INT NOT NULL DEFAULT 0,
-              inventory TEXT NOT NULL,
-              equipped TEXT NOT NULL,
-              run_snapshot MEDIUMTEXT NULL,
-              updated_at DATETIME NOT NULL
-            );",
-          @"CREATE TABLE IF NOT EXISTS maxhanna.d2survivors_highscore (
-              id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-              user_id INT NOT NULL,
-              score INT NOT NULL,
-              time_seconds INT NOT NULL,
-              kills INT NOT NULL,
-              level INT NOT NULL,
-              victory TINYINT(1) NOT NULL DEFAULT 0,
-              created_at DATETIME NOT NULL,
-              INDEX idx_d2s_score (score),
-              INDEX idx_d2s_user (user_id)
-            );",
-          @"CREATE TABLE IF NOT EXISTS maxhanna.d2survivors_character_history (
-              id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-              run_id CHAR(36) NULL,
-              user_id INT NOT NULL,
-              character_name VARCHAR(48) NOT NULL,
-              class_id VARCHAR(24) NOT NULL,
-              score INT NOT NULL,
-              time_seconds INT NOT NULL,
-              kills INT NOT NULL,
-              level INT NOT NULL,
-              victory TINYINT(1) NOT NULL DEFAULT 0,
-              died TINYINT(1) NOT NULL DEFAULT 1,
-              created_at DATETIME NOT NULL,
-              INDEX idx_d2s_character_ranking (score, created_at, id),
-              INDEX idx_d2s_character_user (user_id),
-              UNIQUE KEY uq_d2s_character_run (run_id)
-            );",
-          @"CREATE TABLE IF NOT EXISTS maxhanna.d2survivors_lobby_chat (
-              id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-              user_id INT NOT NULL,
-              message VARCHAR(500) NOT NULL,
-              created_at DATETIME NOT NULL,
-              INDEX idx_d2s_lobby_chat (id)
-            );"
-        };
-        foreach (var sql in statements)
-        {
-          await using var cmd = new MySqlCommand(sql, conn);
-          await cmd.ExecuteNonQueryAsync();
-        }
-
-        // Upgrade an existing history table without replacing any legacy records.
-        const string hasRunIdSql = @"SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
-            WHERE TABLE_SCHEMA = 'maxhanna' AND TABLE_NAME = 'd2survivors_character_history' AND COLUMN_NAME = 'run_id';";
-        await using (var check = new MySqlCommand(hasRunIdSql, conn))
-        {
-          if (Convert.ToInt32(await check.ExecuteScalarAsync()) == 0)
-          {
-            await using var addColumn = new MySqlCommand("ALTER TABLE maxhanna.d2survivors_character_history ADD COLUMN run_id CHAR(36) NULL;", conn);
-            await addColumn.ExecuteNonQueryAsync();
-          }
-        }
-        const string hasRunIndexSql = @"SELECT COUNT(*) FROM INFORMATION_SCHEMA.STATISTICS
-            WHERE TABLE_SCHEMA = 'maxhanna' AND TABLE_NAME = 'd2survivors_character_history' AND INDEX_NAME = 'uq_d2s_character_run';";
-        await using (var checkIndex = new MySqlCommand(hasRunIndexSql, conn))
-        {
-          if (Convert.ToInt32(await checkIndex.ExecuteScalarAsync()) == 0)
-          {
-            await using var addIndex = new MySqlCommand("ALTER TABLE maxhanna.d2survivors_character_history ADD UNIQUE KEY uq_d2s_character_run (run_id);", conn);
-            await addIndex.ExecuteNonQueryAsync();
-          }
-        }
-        _tablesReady = true;
-      }
-      finally
-      {
-        _tableLock.Release();
-      }
-    }
 
     public sealed class D2SLeaderboardEntry
     {
@@ -204,7 +111,6 @@ namespace maxhanna.Server.Controllers
       try
       {
         if (!await _log.ValidateUserLoggedIn(req.UserId, encryptedUserIdHeader ?? "")) return Unauthorized();
-        await EnsureTablesAsync(_connectionString);
 
         await using var conn = new MySqlConnection(_connectionString);
         await conn.OpenAsync();
@@ -246,7 +152,6 @@ namespace maxhanna.Server.Controllers
       try
       {
         if (!await _log.ValidateUserLoggedIn(req.UserId, encryptedUserIdHeader ?? "")) return Unauthorized();
-        await EnsureTablesAsync(_connectionString);
 
         await using var conn = new MySqlConnection(_connectionString);
         await conn.OpenAsync();
@@ -284,7 +189,6 @@ namespace maxhanna.Server.Controllers
       try
       {
         if (!await _log.ValidateUserLoggedIn(req.UserId, encryptedUserIdHeader ?? "")) return Unauthorized();
-        await EnsureTablesAsync(_connectionString);
 
         await using var conn = new MySqlConnection(_connectionString);
         await conn.OpenAsync();
@@ -398,7 +302,6 @@ namespace maxhanna.Server.Controllers
       if (limit <= 0 || limit > 50) limit = 10;
       try
       {
-        await EnsureTablesAsync(_connectionString);
         await using var conn = new MySqlConnection(_connectionString);
         await conn.OpenAsync();
         const string sql = @"SELECT h.id, h.user_id, u.username, h.score, h.time_seconds, h.kills, h.level, h.victory, h.created_at
