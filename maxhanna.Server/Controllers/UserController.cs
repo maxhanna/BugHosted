@@ -1392,8 +1392,6 @@ ON DUPLICATE KEY UPDATE guest_count = guest_count + 1;";
       try
       {
         await conn.OpenAsync();
-        await D2SurvivorsController.EnsureTablesAsync(_config.GetValue<string>("ConnectionStrings:maxhanna") ?? "");
-        // Combine the union of activity sources with user/profile info in one query to avoid per-row lookups
         string sql = @"	SELECT t.userId, t.username, t.game, t.lastActivity,
     		 u.created, u.last_seen,
     		 dp.file_id AS latest_file_id, 
