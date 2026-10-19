@@ -17,6 +17,7 @@ import { Subscription } from "rxjs";
 import { D2LeaderboardEntry, D2LobbyMessage, D2RecordCharacterRequest, D2SurvivorsService } from "../../services/d2survivors.service";
 import { User } from "../../services/datacontracts/user/user";
 import { AppComponent } from "../app.component";
+import { ChildComponent } from "../child.component";
 
 const MODEL_BASE = "assets/d2-models";
 const RUN_SAVE_KEY = "d2survivors.run.v1";
@@ -86,10 +87,13 @@ const CLASS_MODEL: Record<
   templateUrl: "./d2survivors.component.html",
   styleUrls: ["./d2survivors.component.css"],
 })
-export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
+export class D2SurvivorsComponent extends ChildComponent implements OnInit, AfterViewInit, OnDestroy {
+  constructor() { super(); }
+  escapeMenuOpen = false;
+  inventoryOpen = false;
   private readonly d2SurvivorsService = inject(D2SurvivorsService);
   @Input() inputtedParentRef?: AppComponent;
-  parentRef?: AppComponent;
+  override parentRef?: AppComponent;
   @ViewChild("lobbyChatLog") private lobbyChatLogRef?: ElementRef<HTMLDivElement>;
   @ViewChild("arena") arenaRef?: ElementRef<HTMLCanvasElement>;
   @ViewChild("characterCanvas") characterCanvasRef?: ElementRef<HTMLCanvasElement>;
@@ -99,6 +103,7 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
   private characterCamera?: THREE.OrthographicCamera;
   private characterModel?: THREE.Group;
   private loadedModelClass = "";
+  private readonly enemySprites: Partial<Record<EnemySpecies, EnemySprite>> = {};
   modelLoadError = false;
   @ViewChild("classPreviewCanvas") private classPreviewCanvasRef?: ElementRef<HTMLCanvasElement>;
   private previewRenderer?: THREE.WebGLRenderer;
@@ -703,7 +708,19 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
   private recordRetryTimer?: number;
   private runKillCount = 0;
   private lastLeaderboardRefreshAt = 0;
+  private attackCooldown = 0;
+  private attackSequence = 0;
+  xpToNextLevel = 5;
   runActive = false;
+  playerLevel = 1;
+  playerXp = 0;
+  pendingLevelUps = 0;
+  basicAttackName = "Basic Attack";
+  basicAttackCooldown = 0.55;
+  basicAttackDamage = 12;
+  attackProjectiles: AttackProjectile[] = [];
+  upgradeChoices: SkillUpgrade[] = [];
+  levelUpNotice = "";
   playerX = 250;
   playerY = 250;
   playerHp = 20;
@@ -809,6 +826,16 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
     const startingStats = this.classStartingStats[savedClass] ?? this.classStartingStats["amazon"];
     this.lobbyRunId = typeof saved.runId === "string" && saved.runId ? saved.runId : crypto.randomUUID();
     this.runKillCount = typeof saved.runKillCount === "number" && Number.isFinite(saved.runKillCount) ? Math.max(0, Math.floor(saved.runKillCount)) : 0;
+    const basicAttack = this.basicAttackForClass(savedClass);
+    this.playerLevel = Math.floor(numberValue(saved.playerLevel, 1, 1, 10000));
+    this.playerXp = Math.floor(numberValue(saved.playerXp, 0, 0, 1_000_000_000));
+    this.pendingLevelUps = Math.floor(numberValue(saved.pendingLevelUps, 0, 0, 10000));
+    this.xpToNextLevel = Math.floor(numberValue(saved.xpToNextLevel, this.xpForLevel(this.playerLevel), 1, 1_000_000));
+    this.basicAttackName = typeof saved.basicAttackName === "string" && BASIC_ATTACK_NAMES.includes(saved.basicAttackName) ? saved.basicAttackName : basicAttack.name;
+    this.basicAttackCooldown = numberValue(saved.basicAttackCooldown, basicAttack.cooldown, 0.18, 5);
+    this.basicAttackDamage = numberValue(saved.basicAttackDamage, basicAttack.damage, 1, 100000);
+    this.attackCooldown = 0;
+    this.attackProjectiles = [];
     this.arenaW = numberValue(saved.arenaW, 500, 100, 5000);
     this.arenaH = numberValue(saved.arenaH, 500, 100, 5000);
     this.playerX = numberValue(saved.playerX, this.arenaW / 2, 32, this.arenaW - 32);
@@ -823,8 +850,12 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
     this.chestTimer = numberValue(saved.chestTimer, 0, -3600, 3600);
     this.nextChestInterval = numberValue(saved.nextChestInterval, 8, 1, 3600);
     this.enemies = Array.isArray(saved.enemies)
-      ? saved.enemies.slice(0, 220).filter(isRecord).map((enemy) => ({
-          kind: enemy["kind"] === "boss" || enemy["kind"] === "champion" ? enemy["kind"] : "normal",
+      ? saved.enemies.slice(0, 220).filter(isRecord).map((enemy) => {
+          const kind: EnemyKind = enemy["kind"] === "boss" || enemy["kind"] === "champion" ? enemy["kind"] : "normal";
+          return {
+          kind,
+          species: sanitizeEnemySpecies(enemy["species"], kind),
+          spriteFrame: numberValue(enemy["spriteFrame"], 0, 0, 47),
           x: numberValue(enemy["x"], 250, 0, this.arenaW),
           y: numberValue(enemy["y"], 250, 0, this.arenaH),
           hp: numberValue(enemy["hp"], 1, 0, 1_000_000),
@@ -833,7 +864,8 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
           r: numberValue(enemy["r"], 14, 1, 100),
           dmg: numberValue(enemy["dmg"], 1, 0, 1_000_000),
           ...(typeof enemy["cd"] === "number" ? { cd: numberValue(enemy["cd"], 0, 0, 3600) } : {}),
-        }))
+        };
+        })
       : [];
     this.chests = Array.isArray(saved.chests)
       ? saved.chests.slice(0, 300).filter(isRecord).map((chest) => ({
@@ -856,26 +888,50 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
           collected: drop["collected"] === true,
         }))
       : [];
+    this.equipment = createEmptyEquipment();
+    if (saved.equipment && typeof saved.equipment === "object") {
+      for (const slot of PAPERDOLL_SLOTS) {
+        const item = sanitizeInventoryItem(saved.equipment[slot]);
+        if (item && isCompatibleWithEquipment(item, slot)) this.equipment[slot] = item;
+      }
+    }
+    const equippedBelt = sanitizeInventoryItem(saved.equippedBelt);
+    if (!saved.equipment && equippedBelt?.slot === "belt" && equippedBelt.beltQuality) {
+      this.equipment.belt = equippedBelt;
+    }
     this.beltSlots = Array.isArray(saved.beltSlots)
       ? Array.from({ length: 16 }, (_, index) => {
           const kind = saved.beltSlots?.[index]?.kind;
           return { kind: kind === "health" || kind === "mana" ? kind : null };
         })
       : this.beltSlots;
+    this.normalizeBeltSlots();
     this.ownedSkills = Array.isArray(saved.ownedSkills)
-      ? saved.ownedSkills.filter((name): name is string => typeof name === "string" && this.skills.some((skill) => skill.name === name)).slice(0, 100)
-      : [];
+      ? saved.ownedSkills.filter((name): name is string => typeof name === "string" && this.isKnownSkill(name)).slice(0, 100)
+      : [this.basicAttackName];
+
     this.skillLevels = {};
     if (isRecord(saved.skillLevels)) {
       for (const [name, level] of Object.entries(saved.skillLevels)) {
-        if (this.ownedSkills.includes(name) && typeof level === "number" && Number.isFinite(level)) {
+        if ((this.ownedSkills.includes(name) || this.isKnownSkill(name)) && typeof level === "number" && Number.isFinite(level)) {
           this.skillLevels[name] = Math.floor(Math.max(1, Math.min(100, level)));
         }
       }
     }
-    this.inventory = Array.isArray(saved.inventory)
+    if (!this.ownedSkills.includes(this.basicAttackName)) this.ownedSkills.unshift(this.basicAttackName);
+    this.skillLevels[this.basicAttackName] = Math.max(1, this.skillLevels[this.basicAttackName] ?? 1);
+    this.upgradeChoices = [];
+    if (this.pendingLevelUps > 0) this.prepareUpgradeChoices();
+    const restoredInventory = Array.isArray(saved.inventory)
       ? saved.inventory.slice(0, this.inventoryColumns * this.inventoryRows).map((item) => sanitizeInventoryItem(item))
       : [];
+    this.inventory = Array.from({ length: this.inventoryColumns * this.inventoryRows }, () => null);
+    for (let oldIndex = 0; oldIndex < restoredInventory.length; oldIndex += 1) {
+      const item = restoredInventory[oldIndex];
+      if (!item) continue;
+      const index = this.canPlaceItemAt(item, oldIndex) ? oldIndex : this.findInventoryPlacement(item);
+      if (index >= 0) this.inventory[index] = item;
+    }
     this.rebuildInventoryGrid();
     this.openChestCount = this.chests.filter((chest) => !chest.open).length;
     this.hasSavedRun = true;
@@ -906,12 +962,21 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
         playerGold: this.playerGold,
         runTime: this.runTime,
         runKillCount: this.runKillCount,
+        playerLevel: this.playerLevel,
+        playerXp: this.playerXp,
+        pendingLevelUps: this.pendingLevelUps,
+        xpToNextLevel: this.xpToNextLevel,
+        basicAttackName: this.basicAttackName,
+        basicAttackCooldown: this.basicAttackCooldown,
+        basicAttackDamage: this.basicAttackDamage,
         ownedSkills: this.ownedSkills,
         skillLevels: this.skillLevels,
         enemies: this.enemies,
         chests: this.chests,
         potionDrops: this.potionDrops,
         beltSlots: this.beltSlots,
+        equippedBelt: this.equippedBelt,
+        equipment: this.equipment,
         inventory: this.inventory,
         spawnAcc: this.spawnAcc,
         chestTimer: this.chestTimer,
@@ -933,6 +998,8 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
 
   saveRunNow(): void {
     this.persistRunProgress(true);
+    this.escapeMenuOpen = false;
+    this.inventoryOpen = false;
     this.runActive = false;
     if (this.rafId) {
       cancelAnimationFrame(this.rafId);
@@ -1300,11 +1367,11 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
       this.previewCamera = new THREE.PerspectiveCamera(30, 1, 0.1, 2000);
       this.previewCamera.position.set(0, 115, 260);
       this.previewCamera.lookAt(0, 58, 0);
-      this.previewScene.add(new THREE.HemisphereLight(0xe7eaff, 0x2e1b16, 2.5));
-      const keyLight = new THREE.DirectionalLight(0xffe1b5, 3.4);
+      this.previewScene.add(new THREE.HemisphereLight(0xe7eaff, 0x2e1b16, 0.75));
+      const keyLight = new THREE.DirectionalLight(0xffe1b5, 1.25);
       keyLight.position.set(-140, 240, 180);
       this.previewScene.add(keyLight);
-      const fillLight = new THREE.DirectionalLight(0x9bcaff, 2.2);
+      const fillLight = new THREE.DirectionalLight(0x9bcaff, 0.45);
       fillLight.position.set(150, 130, -140);
       this.previewScene.add(fillLight);
       this.resizeClassPreview();
@@ -1374,25 +1441,39 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
     const modelClass = this.selectedClass;
     this.previewLoadError = false;
     this.disposePreviewModel();
-    new GLTFLoader().load(definition.model, (gltf) => {
+    new GLTFLoader().load(definition.model, async (gltf) => {
       const model = gltf.scene;
-      if (!this.previewScene || requestId !== this.previewModelRequest || modelClass !== this.selectedClass || this.menuPanel !== "characters") {
-        model.traverse((object) => {
-          const mesh = object as THREE.Mesh;
-          if (!mesh.isMesh) {
-            return;
-          }
-          mesh.geometry?.dispose();
-          const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-          materials.forEach((material) => material.dispose());
+      const isStale = (): boolean => !this.previewScene || requestId !== this.previewModelRequest || modelClass !== this.selectedClass || this.menuPanel !== "characters";
+      const disposeModel = (): void => model.traverse((object) => {
+        const mesh = object as THREE.Mesh;
+        if (!mesh.isMesh) return;
+        mesh.geometry?.dispose();
+        const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+        materials.forEach((material) => {
+          if ("map" in material && material.map instanceof THREE.Texture) material.map.dispose();
+          material.dispose();
         });
+      });
+      if (isStale()) {
+        disposeModel();
         return;
       }
-      this.applyClassTextures(model, modelClass);
-      this.normalizeCharacterModel(model, 148);
-      this.previewModel = model;
-      this.previewScene.add(model);
-      this.previewLoadError = false;
+      try {
+        await this.applyClassTextures(model, modelClass);
+        if (isStale()) {
+          disposeModel();
+          return;
+        }
+        this.normalizeCharacterModel(model, 148);
+        this.previewModel = model;
+        this.previewScene?.add(model);
+        this.previewLoadError = false;
+      } catch (error: unknown) {
+        disposeModel();
+        if (requestId !== this.previewModelRequest) return;
+        console.error(`Could not apply ${modelClass} class textures`, error);
+        this.previewLoadError = true;
+      }
     }, undefined, (error: unknown) => {
       if (requestId !== this.previewModelRequest) {
         return;
@@ -1420,10 +1501,29 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
   private modelLoadRequest = 0;
   beltSlots: Array<{ kind: "health" | "mana" | null }> = [
     { kind: "health" }, { kind: "mana" }, { kind: "health" }, { kind: "mana" },
-    { kind: "health" }, { kind: "mana" }, { kind: "health" }, { kind: "mana" },
-    { kind: null }, { kind: null }, { kind: null }, { kind: null },
-    { kind: null }, { kind: null }, { kind: null }, { kind: null },
+    ...Array.from({ length: 12 }, () => ({ kind: null })),
   ];
+  get beltRows(): number {
+    return this.equippedBelt?.beltQuality === "exceptional" ? 3
+      : this.equippedBelt?.beltQuality === "elite" ? 4
+        : this.equippedBelt?.slot === "belt" ? 2
+          : 1;
+  }
+  get visibleBeltSlots(): Array<{ kind: "health" | "mana" | null }> {
+    return this.beltSlots.slice(0, this.beltRows * 4);
+  }
+  private normalizeBeltSlots(): void {
+    this.beltSlots = Array.from({ length: 16 }, (_, index) => this.beltSlots[index] ?? { kind: null });
+    this.activeBottleSlot = Math.min(this.activeBottleSlot, this.beltRows * 4 - 1);
+  }
+
+  getBeltRows(item: D2InventoryItem | null | undefined): number {
+    return item?.beltQuality === "exceptional" ? 3
+      : item?.beltQuality === "elite" ? 4
+        : item?.slot === "belt" ? 2
+          : 1;
+  }
+
   activeBottleSlot = 0;
   combatOrbsTime = 0;
   loadedClassTextures: Record<string, HTMLImageElement | null> = {};
@@ -1448,41 +1548,180 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
   nextChestInterval = 8;
   chestTimer = 0;
   inventory: Array<D2InventoryItem | null> = [];
-  inventoryGrid: Array<{ item?: D2InventoryItem }> = [];
-  inventoryColumns = 4;
-  inventoryRows = 10;
+  inventoryGrid: InventoryGridCell[] = [];
+  inventoryColumns = 10;
+  inventoryRows = 4;
   inventoryStatus = "";
+  equipment: Record<PaperdollSlot, D2InventoryItem | null> = createEmptyEquipment();
+  readonly paperdollLayout: Array<{ slot: PaperdollSlot; label: string; icon: string; position: string }> = [
+    { slot: "helmet", label: "Helm", icon: "♙", position: "helmet" },
+    { slot: "weapon", label: "Weapon", icon: "⚔", position: "weapon" },
+    { slot: "amulet", label: "Amulet", icon: "◇", position: "amulet" },
+    { slot: "shield", label: "Shield", icon: "◈", position: "shield" },
+    { slot: "ringLeft", label: "Ring", icon: "○", position: "ring-left" },
+    { slot: "body", label: "Armor", icon: "♜", position: "body" },
+    { slot: "ringRight", label: "Ring", icon: "○", position: "ring-right" },
+    { slot: "gloves", label: "Gloves", icon: "♧", position: "gloves" },
+    { slot: "belt", label: "Belt", icon: "▤", position: "belt" },
+    { slot: "boots", label: "Boots", icon: "♢", position: "boots" },
+  ];
+
+  get equippedBelt(): D2InventoryItem | null {
+    return this.equipment.belt;
+  }
+
+  set equippedBelt(item: D2InventoryItem | null) {
+    this.equipment.belt = item;
+  }
+
+  getEquipmentItem(slot: PaperdollSlot): D2InventoryItem | null {
+    return this.equipment[slot];
+  }
+
+  getEquipmentType(item: D2InventoryItem): EquipmentType {
+    return getEquipmentType(item);
+  }
+
+  equipmentItemIcon(item: D2InventoryItem): string {
+    const icons: Record<EquipmentType, string> = { weapon: "⚔", helmet: "♙", body: "♜", shield: "◈", gloves: "♧", boots: "♢", belt: "▤", ring: "○", amulet: "◇", charm: "✦" };
+    return icons[getEquipmentType(item)];
+  }
 
   private rebuildInventoryGrid(): void {
     const slotCount = this.inventoryColumns * this.inventoryRows;
     this.inventory = Array.from({ length: slotCount }, (_, index) => this.inventory[index] ?? null);
-    this.inventoryGrid = this.inventory.map((item) => ({ item: item ?? undefined }));
+    const cells: InventoryGridCell[] = [];
+    for (let index = 0; index < slotCount; index += 1) {
+      const item = this.inventory[index];
+      if (item) {
+        const { width, height } = this.itemSize(item);
+        cells.push({ slotIndex: index, item, width, height });
+      } else if (this.getItemAnchorAt(index) < 0) {
+        cells.push({ slotIndex: index, width: 1, height: 1 });
+      }
+    }
+    this.inventoryGrid = cells;
+  }
+
+  inventoryGridStyle(cell: InventoryGridCell): Record<string, string> {
+    const column = cell.slotIndex % this.inventoryColumns + 1;
+    const row = Math.floor(cell.slotIndex / this.inventoryColumns) + 1;
+    return {
+      gridColumn: `${column} / span ${cell.width}`,
+      gridRow: `${row} / span ${cell.height}`,
+    };
+  }
+
+  private itemSize(item: D2InventoryItem): { width: number; height: number } {
+    if (item.width && item.height) return { width: item.width, height: item.height };
+    switch (getEquipmentType(item)) {
+      case "body": return { width: 2, height: 3 };
+      case "helmet": case "shield": case "gloves": case "boots": return { width: 2, height: 2 };
+      case "belt": return { width: 2, height: 1 };
+      case "weapon": return /pike|polearm|staff|bow/i.test(item.baseName ?? item.name) ? { width: 2, height: 4 } : { width: 1, height: 3 };
+      default: return { width: 1, height: 1 };
+    }
+  }
+
+  private canPlaceItemAt(item: D2InventoryItem, index: number, ignoredAnchors: number[] = []): boolean {
+    if (index < 0 || index >= this.inventoryColumns * this.inventoryRows) return false;
+    const { width, height } = this.itemSize(item);
+    const column = index % this.inventoryColumns;
+    const row = Math.floor(index / this.inventoryColumns);
+    if (column + width > this.inventoryColumns || row + height > this.inventoryRows) return false;
+    const ignored = new Set(ignoredAnchors);
+    for (let y = row; y < row + height; y += 1) {
+      for (let x = column; x < column + width; x += 1) {
+        for (let anchor = 0; anchor < this.inventory.length; anchor += 1) {
+          const existing = this.inventory[anchor];
+          if (!existing || ignored.has(anchor)) continue;
+          const existingSize = this.itemSize(existing);
+          const existingColumn = anchor % this.inventoryColumns;
+          const existingRow = Math.floor(anchor / this.inventoryColumns);
+          if (x >= existingColumn && x < existingColumn + existingSize.width && y >= existingRow && y < existingRow + existingSize.height) return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  private findInventoryPlacement(item: D2InventoryItem, startAt = 0, ignoredAnchors: number[] = []): number {
+    for (let index = startAt; index < this.inventoryColumns * this.inventoryRows; index += 1) {
+      if (this.canPlaceItemAt(item, index, ignoredAnchors)) return index;
+    }
+    for (let index = 0; index < startAt; index += 1) {
+      if (this.canPlaceItemAt(item, index, ignoredAnchors)) return index;
+    }
+    return -1;
   }
 
   private addInventoryItem(item: D2InventoryItem): boolean {
-    const slotIndex = this.inventory.findIndex((slot) => slot === null);
+    const slotIndex = this.findInventoryPlacement(item);
     if (slotIndex < 0) {
-      this.inventoryStatus = "Inventory full — item could not be picked up.";
+      this.inventoryStatus = "Inventory full — make room for this item’s footprint.";
       return false;
     }
     this.inventory[slotIndex] = item;
-    this.inventoryGrid[slotIndex].item = item;
+    this.rebuildInventoryGrid();
     this.inventoryStatus = "";
     return true;
   }
 
+  equipBeltFromInventory(slotIndex: number): void {
+    const belt = this.inventory[slotIndex];
+    if (!belt || belt.slot !== "belt" || !belt.beltQuality) {
+      return;
+    }
+    if (this.beltSlots.slice(this.getBeltRows(belt) * 4).some((slot) => slot.kind !== null)) {
+      this.inventoryStatus = "Drink or move potions from the extra rows before equipping this smaller belt.";
+      return;
+    }
+    this.dragState = { source: "inventory", slotIndex, item: belt };
+    this.onEquipmentDrop("belt", { preventDefault: () => undefined } as DragEvent);
+    this.selectedItem = null;
+    this.selectedSlotIndex = null;
+  }
+
+  unequipBelt(): void {
+    if (!this.equippedBelt) {
+      return;
+    }
+    if (this.beltSlots.slice(4).some((slot) => slot.kind !== null)) {
+      this.inventoryStatus = "Drink or move potions from the extra rows before unequipping this belt.";
+      return;
+    }
+    const slotIndex = this.findInventoryPlacement(this.equippedBelt);
+    if (slotIndex < 0) {
+      this.inventoryStatus = "Inventory full — make room before unequipping your belt.";
+      return;
+    }
+    this.inventory[slotIndex] = this.equippedBelt;
+    this.equippedBelt = null;
+    this.normalizeBeltSlots();
+    this.rebuildInventoryGrid();
+    this.persistRunProgress(true);
+    this.inventoryStatus = "Belt unequipped.";
+  }
+
   private randomItem(): D2InventoryItem {
-    const bases: Array<Pick<D2InventoryItem, "name" | "slot" | "stats" | "desc">> = [
+    const bases: Array<Pick<D2InventoryItem, "name" | "slot" | "stats" | "desc"> & { equipmentType?: EquipmentType; beltQuality?: BeltQuality }> = [
+      { name: "Sash", slot: "belt", beltQuality: "normal", stats: { armor: 2 }, desc: "A simple sash that holds two rows of potions." },
+      { name: "Demonhide Sash", slot: "belt", beltQuality: "exceptional", stats: { armor: 5 }, desc: "An exceptional belt with room for three rows of potions." },
+      { name: "Sharkskin Belt", slot: "belt", beltQuality: "exceptional", stats: { armor: 5 }, desc: "An exceptional belt with room for three rows of potions." },
+      { name: "Vampirefang Belt", slot: "belt", beltQuality: "elite", stats: { armor: 8 }, desc: "An elite belt with room for four rows of potions." },
       { name: "Short Sword", slot: "weapon", stats: { damageMin: 3, damageMax: 7 }, desc: "A balanced blade suited to quick strikes." },
       { name: "War Pike", slot: "weapon", stats: { damageMin: 5, damageMax: 12 }, desc: "A long, heavy spear with excellent reach." },
-      { name: "Leather Cap", slot: "armor", stats: { armor: 8, requiresStrength: 10 }, desc: "A simple cap reinforced with boiled leather." },
-      { name: "Chain Hauberk", slot: "armor", stats: { armor: 18, requiresStrength: 20 }, desc: "Interlocking rings offer dependable protection." },
-      { name: "Crimson Small Charm", slot: "charm", stats: { plusVitality: 4 }, desc: "A palm-sized charm warm to the touch." },
-      { name: "Azure Small Charm", slot: "charm", stats: { plusStrength: 2 }, desc: "A blue charm etched with a protective rune." },
-      { name: "Gold Amulet", slot: "charm", stats: { plusVitality: 3 }, desc: "An old amulet bearing a faint golden glow." },
-      { name: "Ring of the Artisan", slot: "charm", stats: { plusDamage: 2 }, desc: "A finely worked ring made for a master craftsperson." },
-      { name: "Soulstone Shard", slot: "charm", stats: { plusStrength: 1, plusVitality: 2 }, desc: "A dangerous fragment that hums with trapped power." },
-      { name: "Quill of the Fates", slot: "charm", stats: { plusDamage: 1, plusVitality: 2 }, desc: "An ink-dark quill said to record every bargain." },
+      { name: "Leather Cap", slot: "armor", equipmentType: "helmet", stats: { armor: 8, requiresStrength: 10 }, desc: "A simple cap reinforced with boiled leather." },
+      { name: "Chain Hauberk", slot: "armor", equipmentType: "body", stats: { armor: 18, requiresStrength: 20 }, desc: "Interlocking rings offer dependable protection." },
+      { name: "Buckler", slot: "armor", equipmentType: "shield", stats: { armor: 12, requiresStrength: 12 }, desc: "A small shield that turns aside incoming blows." },
+      { name: "Leather Gloves", slot: "armor", equipmentType: "gloves", stats: { armor: 3 }, desc: "Worn leather gloves protect the hands." },
+      { name: "Heavy Boots", slot: "armor", equipmentType: "boots", stats: { armor: 4 }, desc: "Sturdy boots made for a long journey." },
+      { name: "Crimson Small Charm", slot: "charm", equipmentType: "charm", stats: { plusVitality: 4 }, desc: "A palm-sized charm warm to the touch." },
+      { name: "Azure Small Charm", slot: "charm", equipmentType: "charm", stats: { plusStrength: 2 }, desc: "A blue charm etched with a protective rune." },
+      { name: "Gold Amulet", slot: "charm", equipmentType: "amulet", stats: { plusVitality: 3 }, desc: "An old amulet bearing a faint golden glow." },
+      { name: "Ring of the Artisan", slot: "charm", equipmentType: "ring", stats: { plusDamage: 2 }, desc: "A finely worked ring made for a master craftsperson." },
+      { name: "Soulstone Shard", slot: "charm", equipmentType: "charm", stats: { plusStrength: 1, plusVitality: 2 }, desc: "A dangerous fragment that hums with trapped power." },
+      { name: "Quill of the Fates", slot: "charm", equipmentType: "charm", stats: { plusDamage: 1, plusVitality: 2 }, desc: "An ink-dark quill said to record every bargain." },
     ];
     type Affix = { name: string; stat: "plusDamage" | "plusStrength" | "plusVitality"; label: string; min: number; max: number };
     const prefixes: Affix[] = [
@@ -1540,6 +1779,8 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
       baseName: base.name,
       rarity,
       slot: base.slot,
+      ...(base.equipmentType ? { equipmentType: base.equipmentType } : {}),
+      ...(base.beltQuality ? { beltQuality: base.beltQuality } : {}),
       desc: base.desc,
       stats,
       affixes,
@@ -1548,22 +1789,24 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
 
   onKeyDown(event: KeyboardEvent): void {
     const key = event.key.toLowerCase();
+    if (this.escapeMenuOpen || this.inventoryOpen || this.pendingLevelUps > 0) return;
     if (["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(key)) {
       event.preventDefault();
       this.keysDown.add(key);
       return;
     }
-    if (/^[1-4]$/.test(key)) {
-      this.drinkBeltPotion(Number(key) - 1);
-      this.drinkBeltPotion(Number(key) + 3);
-      this.drinkBeltPotion(Number(key) + 7);
-      this.drinkBeltPotion(Number(key) + 11);
-    } else if (key === "p") {
-      this.drinkBeltPotion(this.activeBottleSlot);
+    if (key === " " || key === "j" || key === "f") {
+      event.preventDefault();
+      this.attackNearestEnemy();
+      return;
     }
+    if (key === "p") this.drinkBeltPotion(this.activeBottleSlot);
   }
 
   drinkBeltPotion(slotIndex: number): void {
+    if (slotIndex < 0 || slotIndex >= this.beltRows * 4) {
+      return;
+    }
     const slot = this.beltSlots[slotIndex];
     if (!slot?.kind) {
       return;
@@ -1596,6 +1839,45 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
     this.keysDown.delete(event.key.toLowerCase());
   }
 
+  @HostListener("window:keydown", ["$event"])
+  onGlobalAttackKey(event: KeyboardEvent): void {
+    if (this.activeTab !== "run" || !this.runActive || event.repeat) return;
+    const key = event.key.toLowerCase();
+    const target = event.target as HTMLElement | null;
+    const isEditable = !!target && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
+
+    if (key === "escape") {
+      event.preventDefault();
+      if (this.inventoryOpen) {
+        this.inventoryOpen = false;
+        this.escapeMenuOpen = true;
+      } else {
+        this.escapeMenuOpen = !this.escapeMenuOpen;
+      }
+      this.keysDown.clear();
+      requestAnimationFrame(() => this.arenaRef?.nativeElement.focus());
+      return;
+    }
+    if (isEditable) return;
+    if (key === "i") {
+      event.preventDefault();
+      this.inventoryOpen = !this.inventoryOpen;
+      this.escapeMenuOpen = false;
+      this.keysDown.clear();
+      requestAnimationFrame(() => this.arenaRef?.nativeElement.focus());
+      return;
+    }
+    if (this.escapeMenuOpen || this.inventoryOpen) return;
+    if (["1", "2", "3", "4"].includes(key)) {
+      event.preventDefault();
+      this.useSkillHotkey(Number(key) - 1);
+      return;
+    }
+    if (![" ", "j", "f"].includes(key)) return;
+    event.preventDefault();
+    this.attackNearestEnemy();
+  }
+
   async ngOnInit(): Promise<void> {
     this.runActive = false;
     this.activeTab = "menu";
@@ -1608,13 +1890,123 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
     this.lobbyRefreshTimer = window.setInterval(() => void this.refreshLobbyHistory(), 5000);
   }
 
+  toggleInventory(): void {
+    this.inventoryOpen = !this.inventoryOpen;
+    if (this.inventoryOpen) {
+      this.escapeMenuOpen = false;
+      this.keysDown.clear();
+    }
+    requestAnimationFrame(() => this.arenaRef?.nativeElement.focus());
+  }
+
+  showEscapeMenu(): void {
+    this.escapeMenuOpen = true;
+    this.inventoryOpen = false;
+    this.keysDown.clear();
+    if (this.pendingLevelUps > 0 && this.upgradeChoices.length === 0) this.prepareUpgradeChoices();
+  }
+
+  closeEscapeMenu(): void {
+    this.escapeMenuOpen = false;
+    this.keysDown.clear();
+    if (this.pendingLevelUps > 0 && this.upgradeChoices.length === 0) this.prepareUpgradeChoices();
+    requestAnimationFrame(() => this.arenaRef?.nativeElement.focus());
+  }
+
+  get equippedSkills(): string[] {
+    return this.ownedSkills.filter((name) => name !== this.basicAttackName).slice(0, 4);
+  }
+
+  get emptySkillSlots(): number[] {
+    return Array.from({ length: Math.max(0, 4 - this.equippedSkills.length) }, (_, index) => index);
+  }
+
+  get basicAttackIcon(): string {
+    return this.skillIcon(this.basicAttackName);
+  }
+
+  skillIcon(skill: string): string {
+    const icons: Record<string, string> = {
+      "Guided Arrow": "➶", "Throwing Knife": "⟋", "Axe Throw": "⚒", "Spirit Claw": "✦",
+      "Bone Bolt": "☠", "Holy Bolt": "✧", "Fire Bolt": "♨", Multishot: "➶",
+      "Faster Attacks": "»", Vitality: "♥", "Arcane Focus": "◉", "Weapon Mastery": "⚔",
+    };
+    return icons[skill] ?? skill.charAt(0).toUpperCase();
+  }
+
+  useSkillHotkey(slot: number): void {
+    const skill = this.equippedSkills[slot];
+    if (skill) this.activateOwnedSkill(skill);
+  }
+
+  activateOwnedSkill(skill: string): void {
+    const nearest = this.enemies
+      .filter((enemy) => enemy.hp > 0)
+      .sort((a, b) => Math.hypot(a.x - this.playerX, a.y - this.playerY) - Math.hypot(b.x - this.playerX, b.y - this.playerY))[0];
+    if (!nearest) return;
+    const attack = this.basicAttackForClass(this.selectedClass);
+    const multiplier = Math.max(1, this.skillLevels[skill] ?? 1);
+    const distance = Math.hypot(nearest.x - this.playerX, nearest.y - this.playerY);
+    const damage = this.basicAttackDamage * (skill === this.basicAttackName ? 1 : 1.5) + (multiplier - 1) * 3;
+    if (distance <= nearest.r + 12) {
+      nearest.hp -= damage;
+      this.floatingTexts.push({ x: nearest.x, y: nearest.y - nearest.r, text: `-${Math.floor(damage)}`, color: attack.color, life: 0.8 });
+    } else {
+      this.attackProjectiles.push({
+        x: this.playerX, y: this.playerY, startX: this.playerX, startY: this.playerY,
+        targetX: nearest.x, targetY: nearest.y, targetId: this.attackSequence++, speed: 700,
+        damage, life: Math.max(3, distance / 700 + 1), radius: 5, color: attack.color, kind: attack.kind,
+      });
+    }
+    this.attackCooldown = Math.max(this.attackCooldown, this.basicAttackCooldown * 0.65);
+  }
+
   @HostListener("window:pagehide")
   saveProgressBeforeLeaving(): void {
     this.persistRunProgress(true);
   }
 
   ngAfterViewInit(): void {
-    // Keep class selection lightweight; the selected model is loaded once gameplay starts.
+    this.loadEnemySprites();
+  }
+
+  private loadEnemySprites(): void {
+    for (const species of ENEMY_SPECIES) {
+      const layout = ENEMY_SPRITE_LAYOUTS[species];
+      const cell = ENEMY_SPRITE_CELLS[species];
+      if (!cell) {
+        continue;
+      }
+      const source = new Image();
+      source.onload = () => {
+        const columns = layout.columns;
+        const rows = layout.rows;
+        if (source.naturalWidth % columns !== 0 || source.naturalHeight % rows !== 0) {
+          console.warn(`Invalid sprite-sheet layout for ${species}`, source.naturalWidth, source.naturalHeight);
+          return;
+        }
+        const actualCell = { width: source.naturalWidth / columns, height: source.naturalHeight / rows };
+        const canvas = document.createElement("canvas");
+        canvas.width = source.naturalWidth;
+        canvas.height = source.naturalHeight;
+        const context = canvas.getContext("2d", { willReadFrequently: true });
+        if (!context) {
+          return;
+        }
+        context.imageSmoothingEnabled = false;
+        context.drawImage(source, 0, 0);
+        this.enemySprites[species] = {
+          image: canvas,
+          ...layout,
+          columns,
+          rows,
+          cell: actualCell,
+          bounds: new Map(),
+        };
+      };
+      source.onerror = () => console.warn(`Could not load enemy sprite asset: ${ENEMY_SPRITE_PATHS[species]}`);
+      source.src = ENEMY_SPRITE_PATHS[species];
+    }
   }
 
   ngOnDestroy(): void {
@@ -1646,6 +2038,174 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
     this.audioContext = undefined;
   }
 
+  private basicAttackForClass(classId: string): { name: string; kind: AttackProjectile["kind"]; color: string; damage: number; cooldown: number } {
+    const attacks: Record<string, { name: string; kind: AttackProjectile["kind"]; color: string; damage: number; cooldown: number }> = {
+      amazon: { name: "Guided Arrow", kind: "arrow", color: "#ffd78a", damage: 18, cooldown: 0.72 },
+      assassin: { name: "Throwing Knife", kind: "blade", color: "#b9d5ff", damage: 16, cooldown: 0.58 },
+      barbarian: { name: "Axe Throw", kind: "blade", color: "#ffb36b", damage: 23, cooldown: 0.82 },
+      druid: { name: "Spirit Claw", kind: "claw", color: "#9dffb1", damage: 17, cooldown: 0.68 },
+      necromancer: { name: "Bone Bolt", kind: "bone", color: "#e4e0ce", damage: 17, cooldown: 0.72 },
+      paladin: { name: "Holy Bolt", kind: "holy", color: "#fff0a8", damage: 17, cooldown: 0.72 },
+      sorceress: { name: "Fire Bolt", kind: "fire", color: "#ff7645", damage: 16, cooldown: 0.66 },
+    };
+    return attacks[classId] ?? attacks["amazon"];
+  }
+
+  private xpForLevel(level: number): number {
+    return 5 + Math.max(0, level - 1) * 3;
+  }
+
+  private isKnownSkill(name: string): boolean {
+    return this.skills.some((skill) => skill.name === name) || name in UPGRADE_DESCRIPTIONS || BASIC_ATTACK_NAMES.includes(name);
+  }
+
+  private grantExperience(amount: number): void {
+    if (!this.runActive || amount <= 0) return;
+    this.playerXp += amount;
+    while (this.playerXp >= this.xpToNextLevel) {
+      this.playerXp -= this.xpToNextLevel;
+      this.playerLevel += 1;
+      this.pendingLevelUps += 1;
+      this.xpToNextLevel = this.xpForLevel(this.playerLevel);
+    }
+    if (this.pendingLevelUps > 0) this.prepareUpgradeChoices();
+    this.persistRunProgress(true);
+  }
+
+  private prepareUpgradeChoices(): void {
+    if (this.pendingLevelUps <= 0) { this.upgradeChoices = []; return; }
+    // Keep the basic damage upgrade in every offer so a level can always improve the
+    // character's starting attack, even after other skills have been learned.
+    const choices: SkillUpgrade[] = [
+      { id: "attack-damage", name: `${this.basicAttackName} + damage`, description: `Increase basic attack damage by 6 (currently ${this.basicAttackDamage}).`, kind: "attack" },
+      { id: "attack-speed", name: "Faster Attacks", description: `Reduce basic attack cooldown by 10% (currently ${this.basicAttackCooldown.toFixed(2)}s).`, kind: "attack" },
+      { id: "multishot", name: "Multishot", description: `Fire at one additional nearby monster (rank ${this.skillLevels["Multishot"] ?? 0}).`, kind: "attack" },
+      { id: "vitality", name: "Vitality", description: `Gain 5 maximum life and heal 5 life (currently ${this.playerMaxHp}).`, kind: "stat" },
+      { id: "focus", name: "Arcane Focus", description: `Gain 5 maximum mana and restore 5 mana (currently ${this.playerMaxMana}).`, kind: "stat" },
+      { id: "weapon-mastery", name: "Weapon Mastery", description: `Increase all basic attack damage by 4 (rank ${this.skillLevels["Weapon Mastery"] ?? 0}).`, kind: "attack" },
+    ];
+    const optionalChoices = choices.slice(1).sort((a, b) => hashString(`${this.playerLevel}:${a.id}`) - hashString(`${this.playerLevel}:${b.id}`));
+    this.upgradeChoices = [choices[0], ...optionalChoices.slice(0, 2)];
+    this.levelUpNotice = `Level ${this.playerLevel} reached — choose an upgrade.`;
+  }
+
+  private updateBasicAttack(): void {
+    if (!this.runActive || this.pendingLevelUps > 0 || this.attackCooldown > 0) return;
+    const target = this.enemies
+      .filter((enemy) => enemy.hp > 0)
+      .sort((a, b) => Math.hypot(a.x - this.playerX, a.y - this.playerY) - Math.hypot(b.x - this.playerX, b.y - this.playerY))[0];
+    if (!target) return;
+
+    const attack = this.basicAttackForClass(this.selectedClass);
+    const attackLevel = this.skillLevels[this.basicAttackName] ?? 1;
+    const damage = this.basicAttackDamage + (attackLevel - 1) * 2 + (this.skillLevels["Weapon Mastery"] ?? 0) * 4;
+    const distance = Math.hypot(target.x - this.playerX, target.y - this.playerY);
+    if (distance <= target.r + 12) {
+      target.hp -= damage;
+      this.floatingTexts.push({ x: target.x, y: target.y - target.r - 8, text: `-${damage}`, color: attack.color, life: 0.65 });
+    } else {
+      this.attackSequence += 1;
+      this.attackProjectiles.push({
+        x: this.playerX, y: this.playerY - 8, startX: this.playerX, startY: this.playerY - 8,
+        targetX: target.x, targetY: target.y, target, speed: 700,
+        damage, life: Math.max(3, distance / 700 + 1), radius: 5, color: attack.color, kind: attack.kind,
+      });
+    }
+    this.attackCooldown = this.basicAttackCooldown;
+  }
+
+  chooseLevelUpgrade(choice: SkillUpgrade): void {
+    if (!this.upgradeChoices.some((candidate) => candidate.id === choice.id) || this.pendingLevelUps <= 0) return;
+    switch (choice.id) {
+      case "attack-damage": this.basicAttackDamage += 6; this.skillLevels[this.basicAttackName] = (this.skillLevels[this.basicAttackName] ?? 1) + 1; break;
+      case "attack-speed": this.basicAttackCooldown = Math.max(0.18, this.basicAttackCooldown * 0.9); this.skillLevels["Faster Attacks"] = (this.skillLevels["Faster Attacks"] ?? 0) + 1; break;
+      case "multishot": this.skillLevels["Multishot"] = (this.skillLevels["Multishot"] ?? 0) + 1; break;
+      case "vitality": this.playerMaxHp += 5; this.playerHp = Math.min(this.playerMaxHp, this.playerHp + 5); this.skillLevels["Vitality"] = (this.skillLevels["Vitality"] ?? 0) + 1; break;
+      case "focus": this.playerMaxMana += 5; this.playerMana = Math.min(this.playerMaxMana, this.playerMana + 5); this.skillLevels["Arcane Focus"] = (this.skillLevels["Arcane Focus"] ?? 0) + 1; break;
+      case "weapon-mastery": this.skillLevels["Weapon Mastery"] = (this.skillLevels["Weapon Mastery"] ?? 0) + 1; this.basicAttackDamage += 4; break;
+    }
+    if (!this.ownedSkills.includes(choice.name)) this.ownedSkills.push(choice.name);
+    this.pendingLevelUps -= 1;
+    this.upgradeChoices = [];
+    this.levelUpNotice = this.pendingLevelUps > 0 ? `${this.pendingLevelUps} more level upgrade${this.pendingLevelUps === 1 ? "" : "s"} to choose.` : "Upgrade applied.";
+    if (this.pendingLevelUps > 0) this.prepareUpgradeChoices();
+    this.persistRunProgress(true);
+  }
+
+  attackNearestEnemy(): void {
+    if (!this.runActive || this.pendingLevelUps > 0 || this.attackCooldown > 0 || this.enemies.length === 0) return;
+    const targets = this.enemies
+      .filter((enemy) => enemy.hp > 0)
+      .sort((a, b) => Math.hypot(a.x - this.playerX, a.y - this.playerY) - Math.hypot(b.x - this.playerX, b.y - this.playerY))
+      .slice(0, 1 + (this.skillLevels["Multishot"] ?? 0));
+    if (!targets.length) return;
+    const attack = this.basicAttackForClass(this.selectedClass);
+    const attackLevel = this.skillLevels[this.basicAttackName] ?? 1;
+    const damage = this.basicAttackDamage + (attackLevel - 1) * 2 + (this.skillLevels["Weapon Mastery"] ?? 0) * 4;
+    for (const target of targets) {
+      const distance = Math.hypot(target.x - this.playerX, target.y - this.playerY);
+      if (distance <= target.r + 12) {
+        target.hp -= damage;
+        this.floatingTexts.push({ x: target.x, y: target.y - target.r - 8, text: `-${damage}`, color: attack.color, life: 0.65 });
+        continue;
+      }
+      this.attackSequence += 1;
+      this.attackProjectiles.push({
+        x: this.playerX, y: this.playerY - 8, startX: this.playerX, startY: this.playerY - 8,
+        targetX: target.x, targetY: target.y, target, speed: 700,
+        damage, life: Math.max(3, distance / 700 + 1), radius: 5, color: attack.color, kind: attack.kind,
+      });
+    }
+    this.attackCooldown = this.basicAttackCooldown;
+  }
+
+  private updateAttackProjectiles(dt: number): void {
+    const seconds = dt / 1000;
+    for (const projectile of this.attackProjectiles) {
+      projectile.life -= seconds;
+      const target = projectile.target;
+      const targetIsAlive = !!target && this.enemies.includes(target) && target.hp > 0;
+      if (targetIsAlive) {
+        projectile.targetX = target.x;
+        projectile.targetY = target.y;
+      }
+      const dx = projectile.targetX - projectile.x;
+      const dy = projectile.targetY - projectile.y;
+      const distance = Math.hypot(dx, dy);
+      const step = projectile.speed * seconds;
+      if (distance <= step + (targetIsAlive ? target.r : 4)) {
+        if (targetIsAlive) target.hp -= projectile.damage;
+        projectile.life = 0;
+        this.floatingTexts.push({ x: projectile.targetX, y: projectile.targetY - 12, text: targetIsAlive ? `-${projectile.damage}` : "Miss", color: projectile.color, life: 0.65 });
+      } else if (distance > 0) {
+        projectile.x += dx / distance * step;
+        projectile.y += dy / distance * step;
+      }
+    }
+    this.attackProjectiles = this.attackProjectiles.filter((projectile) => projectile.life > 0);
+  }
+
+  private drawAttackProjectile(ctx: CanvasRenderingContext2D, projectile: AttackProjectile): void {
+    const point = this.projectArenaPoint(projectile.x, projectile.y);
+    const start = this.projectArenaPoint(projectile.startX, projectile.startY);
+    ctx.save();
+    ctx.strokeStyle = projectile.color;
+    ctx.fillStyle = projectile.color;
+    ctx.shadowColor = projectile.color;
+    ctx.shadowBlur = 12;
+    ctx.lineWidth = projectile.kind === "lightning" ? 3 : 2;
+    ctx.beginPath();
+    ctx.moveTo(start.x, start.y - 8);
+    ctx.lineTo(point.x, point.y - 8);
+    ctx.stroke();
+    if (projectile.kind === "lightning") {
+      ctx.beginPath(); ctx.moveTo(point.x - 5, point.y - 12); ctx.lineTo(point.x + 5, point.y - 4); ctx.stroke();
+    } else {
+      ctx.beginPath(); ctx.arc(point.x, point.y - 8, projectile.radius, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+  }
+
   startRun(): void {
     this.lobbyRunId = crypto.randomUUID();
     this.runKillCount = 0;
@@ -1666,23 +2226,33 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
     this.playerHp = this.playerMaxHp;
     this.playerMana = this.playerMaxMana;
     this.playerGold = 0;
-    this.ownedSkills = ["Fire Ball", "Chain Lightning", "Blade Fury"];
-    this.skillLevels = {
-      "Fire Ball": 1,
-      "Chain Lightning": 1,
-      "Blade Fury": 1,
-    };
+    const basicAttack = this.basicAttackForClass(this.selectedClass);
+    this.playerLevel = 1;
+    this.playerXp = 0;
+    this.pendingLevelUps = 0;
+    this.xpToNextLevel = this.xpForLevel(1);
+    this.basicAttackName = basicAttack.name;
+    this.basicAttackCooldown = basicAttack.cooldown;
+    this.basicAttackDamage = basicAttack.damage;
+    this.attackCooldown = 0;
+    this.attackSequence = 0;
+    this.attackProjectiles = [];
+    this.upgradeChoices = [];
+    this.levelUpNotice = "";
+    this.ownedSkills = [this.basicAttackName];
+    this.skillLevels = { [this.basicAttackName]: 1 };
     this.enemies = [];
     this.chests = [];
     this.potionDrops = [];
     this.floatingTexts = [];
     this.beltSlots = [
       { kind: "health" }, { kind: "mana" }, { kind: "health" }, { kind: "mana" },
-      { kind: "health" }, { kind: "mana" }, { kind: "health" }, { kind: "mana" },
-      { kind: null }, { kind: null }, { kind: null }, { kind: null },
-      { kind: null }, { kind: null }, { kind: null }, { kind: null },
+      ...Array.from({ length: 12 }, () => ({ kind: null })),
     ];
+    this.equipment = createEmptyEquipment();
     this.activeBottleSlot = 0;
+    this.escapeMenuOpen = false;
+    this.inventoryOpen = false;
     this.combatOrbsTime = 0;
     this.inventory = [];
     this.rebuildInventoryGrid();
@@ -1691,6 +2261,7 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
     this.dragState = null;
     this.dragGhostSlotIndex = null;
     this.inventoryStatus = "";
+    this.selectedEquipmentSlot = null;
     this.runTime = 0;
     this.spawnAcc = 0;
     this.chestTimer = 0;
@@ -1719,7 +2290,7 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!this.runActive) {
       return;
     }
-    this.update(dt);
+    if (!this.escapeMenuOpen && !this.inventoryOpen) this.update(dt);
     this.draw();
     this.renderCharacter();
     this.rafId = requestAnimationFrame((t) => this.loop(t));
@@ -1728,9 +2299,16 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
   update(dt: number): void {
     this.runTime += dt / 1000;
     this.combatOrbsTime = Math.max(0, this.combatOrbsTime - dt / 1000);
+    this.attackCooldown = Math.max(0, this.attackCooldown - dt / 1000);
     this.playerMana = Math.min(this.playerMaxMana, this.playerMana + dt * 0.0015);
 
     this.movePlayer(dt);
+
+    this.updateAttackProjectiles(dt);
+    if (this.pendingLevelUps > 0 && this.upgradeChoices.length === 0) this.prepareUpgradeChoices();
+    if (this.pendingLevelUps > 0) this.attackProjectiles = [];
+    else this.updateBasicAttack();
+
     this.updateEnemies(dt);
     this.updateChests(dt);
     this.updatePotionDrops(dt);
@@ -1754,49 +2332,33 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   updateEnemies(dt: number): void {
-    for (const e of this.enemies) {
-      const t = this.playerX;
-      const ty = this.playerY;
-      const ex = e.x;
-      const ey = e.y;
-      const ddx = t - ex;
-      const ddy = ty - ey;
-      const dist = Math.hypot(ddx, ddy) || 1;
-      const spd = e.speed * (dt / 1000);
-      e.x += (ddx / dist) * spd;
-      e.y += (ddy / dist) * spd;
-      if (e.kind !== "normal") {
-        if (dist < 36) {
-          this.playerHp -= e.dmg * (dt / 1000);
-          e.cd = 0.4;
-        }
-      }
-      if (e.cd !== undefined) {
-        e.cd = Math.max(0, e.cd - dt / 1000);
-      }
+    for (const enemy of this.enemies) {
+      const dx = this.playerX - enemy.x;
+      const dy = this.playerY - enemy.y;
+      const distance = Math.hypot(dx, dy) || 1;
+      const speed = enemy.speed * (dt / 1000);
+      enemy.x += (dx / distance) * speed;
+      enemy.y += (dy / distance) * speed;
+      if (enemy.kind !== "normal" && distance < 36) this.playerHp -= enemy.dmg * (dt / 1000);
+      if (enemy.cd !== undefined) enemy.cd = Math.max(0, enemy.cd - dt / 1000);
     }
-    const defeatedEnemies = this.enemies.filter((e) => e.hp <= 0);
+    const defeatedEnemies = this.enemies.filter((enemy) => enemy.hp <= 0);
+    for (const enemy of defeatedEnemies) this.grantExperience(enemy.kind === "boss" ? 8 : enemy.kind === "champion" ? 3 : 1);
     this.runKillCount += defeatedEnemies.length;
-    this.enemies = this.enemies.filter((e) => e.hp > 0 && this.playerHp > 0);
-    if (this.playerHp <= 0) {
-      this.endRun(false);
-    }
+    this.enemies = this.enemies.filter((enemy) => enemy.hp > 0 && this.playerHp > 0);
+    if (this.playerHp <= 0) this.endRun(false);
   }
 
   updateChests(dt: number): void {
     this.openChestCount = 0;
-    for (const c of this.chests) {
-      if (!c.open) {
-        c.bob += dt / 1000;
+    for (const chest of this.chests) {
+      if (!chest.open) {
+        chest.bob += dt / 1000;
         this.openChestCount += 1;
-        const ddx = this.playerX - c.x;
-        const ddy = this.playerY - c.y;
-        if (Math.hypot(ddx, ddy) < 42) {
-          this.openChest(c);
-        }
+        if (Math.hypot(this.playerX - chest.x, this.playerY - chest.y) < 42) this.openChest(chest);
       }
     }
-    this.chests = this.chests.filter((c) => !c.open || c.life > 0);
+    this.chests = this.chests.filter((chest) => !chest.open || chest.life > 0);
   }
 
   updatePotionDrops(dt: number): void {
@@ -1804,46 +2366,33 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
       drop.bob += dt / 1000;
       drop.life -= dt / 1000;
       drop.pickupDelay = Math.max(0, drop.pickupDelay - dt / 1000);
-      if (drop.pickupDelay > 0 || Math.hypot(this.playerX - drop.x, this.playerY - drop.y) >= 28) {
-        continue;
-      }
-      const slot = this.beltSlots.find((candidate) => candidate.kind === null);
+      if (drop.pickupDelay > 0 || Math.hypot(this.playerX - drop.x, this.playerY - drop.y) >= 28) continue;
+      const slot = this.beltSlots.slice(0, this.beltRows * 4).find((candidate) => candidate.kind === null);
       if (!slot) {
         if (!drop.notifiedFull) {
-          this.floatingTexts.push({
-            x: drop.x,
-            y: drop.y - 18,
-            text: "BELT FULL",
-            color: "#ffcf72",
-            life: 1.8,
-          });
+          this.floatingTexts.push({ x: drop.x, y: drop.y - 18, text: "BELT FULL", color: "#ffcf72", life: 1.8 });
           drop.notifiedFull = true;
         }
         continue;
       }
       slot.kind = drop.kind;
       drop.collected = true;
-      this.floatingTexts.push({
-        x: drop.x,
-        y: drop.y - 18,
-        text: `${drop.kind.toUpperCase()} POTION`,
-        color: drop.kind === "health" ? "#ff7171" : "#73c9ff",
-        life: 2,
-      });
+      this.floatingTexts.push({ x: drop.x, y: drop.y - 18, text: `${drop.kind.toUpperCase()} POTION`, color: drop.kind === "health" ? "#ff7171" : "#73c9ff", life: 2 });
     }
     this.potionDrops = this.potionDrops.filter((drop) => !drop.collected && drop.life > 0);
   }
 
   updateFloatingTexts(dt: number): void {
-    for (const f of this.floatingTexts) {
-      f.y -= 0.25 * (dt / 1000) * 60;
-      f.life -= dt / 1000;
+    for (const floatingText of this.floatingTexts) {
+      floatingText.y -= 0.25 * (dt / 1000) * 60;
+      floatingText.life -= dt / 1000;
     }
-    this.floatingTexts = this.floatingTexts.filter((f) => f.life > 0);
+    this.floatingTexts = this.floatingTexts.filter((floatingText) => floatingText.life > 0);
   }
 
   selectedItem: D2InventoryItem | null = null;
   selectedSlotIndex: number | null = null;
+  selectedEquipmentSlot: PaperdollSlot | null = null;
   dragState: DragState | null = null;
   dragGhostSlotIndex: number | null = null;
 
@@ -1882,60 +2431,164 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly itemStatText = this.getItemStatText.bind(this);
 
   getItemAtSlot(slotIndex: number): D2InventoryItem | undefined {
-    return this.inventoryGrid[slotIndex]?.item;
+    return this.inventory[slotIndex] ?? undefined;
   }
 
   getInventorySlotIndexFromElement(target: EventTarget | null): number {
     const element = target instanceof Element ? target.closest<HTMLElement>("[data-inventory-slot]") : null;
-    if (!element) {
-      return -1;
-    }
+    if (!element) return -1;
     const slotIndex = Number(element.dataset["inventorySlot"]);
-    return Number.isInteger(slotIndex) && slotIndex >= 0 && slotIndex < this.inventoryGrid.length
-      ? slotIndex
-      : -1;
+    return Number.isInteger(slotIndex) && slotIndex >= 0 && slotIndex < this.inventory.length ? slotIndex : -1;
+  }
+
+  private getItemAnchorAt(index: number): number {
+    for (let anchor = 0; anchor < this.inventory.length; anchor += 1) {
+      const item = this.inventory[anchor];
+      if (!item) continue;
+      const size = this.itemSize(item);
+      const column = index % this.inventoryColumns;
+      const row = Math.floor(index / this.inventoryColumns);
+      const itemColumn = anchor % this.inventoryColumns;
+      const itemRow = Math.floor(anchor / this.inventoryColumns);
+      if (column >= itemColumn && column < itemColumn + size.width && row >= itemRow && row < itemRow + size.height) return anchor;
+    }
+    return -1;
   }
 
   internalCanDrop(sourceIndex: number, targetIndex: number, sourceItem?: D2InventoryItem): boolean {
-    if (sourceIndex < 0 || sourceIndex >= this.inventoryGrid.length || targetIndex < 0 || targetIndex >= this.inventoryGrid.length || sourceIndex === targetIndex) {
-      return false;
-    }
-    const source = this.inventoryGrid[sourceIndex]?.item;
+    if (targetIndex < 0 || targetIndex >= this.inventory.length) return false;
+    if (this.dragState?.source === "equipment") return this.canPlaceItemAt(this.dragState.item, targetIndex);
+    if (sourceIndex < 0 || sourceIndex >= this.inventory.length || sourceIndex === targetIndex) return false;
+    const source = this.inventory[sourceIndex];
     const heldItem = sourceItem ?? source;
-    if (!heldItem || source?.id !== heldItem.id) {
-      return false;
-    }
-    // This is a bag grid rather than an equipment layout, so any item may move to any other cell.
-    // Dropping on an occupied cell swaps its contents.
-    return true;
+    if (!heldItem || source?.id !== heldItem.id) return false;
+    const targetAnchor = this.getItemAnchorAt(targetIndex);
+    if (targetAnchor === sourceIndex) return false;
+    const ignored = targetAnchor >= 0 ? [sourceIndex, targetAnchor] : [sourceIndex];
+    if (!this.canPlaceItemAt(heldItem, targetIndex, ignored)) return false;
+    if (targetAnchor < 0) return true;
+    const targetItem = this.inventory[targetAnchor];
+    return !!targetItem && this.canPlaceItemAt(targetItem, sourceIndex, ignored);
   }
 
   startDrag(slotIndex: number, event: DragEvent): void {
-    const item = this.getItemAtSlot(slotIndex);
+    const anchor = this.getItemAnchorAt(slotIndex);
+    const item = anchor >= 0 ? this.inventory[anchor] : null;
     if (!item) {
       event.preventDefault();
       return;
     }
-    this.dragState = { slotIndex, item };
+    this.dragState = { source: "inventory", slotIndex: anchor, item };
     this.selectedItem = item;
-    this.selectedSlotIndex = slotIndex;
+    this.selectedSlotIndex = anchor;
     if (event.dataTransfer) {
       event.dataTransfer.effectAllowed = "move";
       event.dataTransfer.setData("text/plain", item.id);
     }
   }
 
-  onInventoryDragOver(slotIndex: number, event: DragEvent): void {
-    if (!this.dragState) {
+  startEquipmentDrag(slot: PaperdollSlot, event: DragEvent): void {
+    const item = this.equipment[slot];
+    if (!item) { event.preventDefault(); return; }
+    this.dragState = { source: "equipment", slotIndex: -1, equipmentSlot: slot, item };
+    if (event.dataTransfer) { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", item.id); }
+  }
+
+  onEquipmentDrop(slot: PaperdollSlot, event: DragEvent): void {
+    event.preventDefault();
+    const drag = this.dragState;
+    if (!drag || drag.source !== "inventory" || !isCompatibleWithEquipment(drag.item, slot)) {
+      this.inventoryStatus = "That item cannot be equipped there.";
+      this.clearDragState();
       return;
     }
+    if (slot === "belt" && this.beltSlots.slice(this.getBeltRows(drag.item) * 4).some((potion) => potion.kind !== null)) {
+      this.inventoryStatus = "Move or use potions from the extra rows before equipping a smaller belt.";
+      this.clearDragState();
+      return;
+    }
+    const oldEquipment = this.equipment[slot];
+    const sourceAnchor = drag.slotIndex;
+    this.inventory[sourceAnchor] = null;
+    if (oldEquipment && !this.canPlaceItemAt(oldEquipment, sourceAnchor)) {
+      const replacement = this.findInventoryPlacement(oldEquipment);
+      if (replacement < 0) {
+        this.inventory[sourceAnchor] = drag.item;
+        this.inventoryStatus = "Inventory full — make room for the equipped item first.";
+        this.clearDragState();
+        return;
+      }
+      this.inventory[replacement] = oldEquipment;
+    } else if (oldEquipment) {
+      this.inventory[sourceAnchor] = oldEquipment;
+    }
+    this.equipment[slot] = drag.item;
+    this.normalizeBeltSlots();
+    this.rebuildInventoryGrid();
+    this.selectedEquipmentSlot = slot;
+    this.selectedItem = drag.item;
+    this.selectedSlotIndex = null;
+    this.persistRunProgress(true);
+    this.inventoryStatus = `${drag.item.name} equipped.`;
+    this.clearDragState();
+  }
+
+  dropEquipmentToInventory(slot: PaperdollSlot, targetIndex: number, event: DragEvent): void {
+    event.preventDefault();
+    const item = this.equipment[slot];
+    if (slot === "belt" && this.beltSlots.slice(4).some((potion) => potion.kind !== null)) {
+      this.inventoryStatus = "Move or use potions from the extra rows before removing your belt.";
+      this.clearDragState();
+      return;
+    }
+    const targetAnchor = this.getItemAnchorAt(targetIndex);
+    const targetItem = targetAnchor >= 0 ? this.inventory[targetAnchor] : null;
+    if (!item || !this.canPlaceItemAt(item, targetIndex, targetAnchor >= 0 ? [targetAnchor] : [])) {
+      this.inventoryStatus = "That item will not fit in that inventory space.";
+      this.clearDragState();
+      return;
+    }
+    if (targetItem && targetAnchor >= 0) {
+      this.inventory[targetAnchor] = null;
+      this.inventory[targetIndex] = item;
+      const replacement = this.findInventoryPlacement(targetItem);
+      if (replacement < 0) {
+        this.inventory[targetIndex] = null;
+        this.inventory[targetAnchor] = targetItem;
+        this.inventoryStatus = "Inventory full — make room for the displaced item.";
+        this.clearDragState();
+        return;
+      }
+      this.inventory[replacement] = targetItem;
+    } else {
+      this.inventory[targetIndex] = item;
+    }
+    this.equipment[slot] = null;
+    this.normalizeBeltSlots();
+    this.rebuildInventoryGrid();
+    this.selectedItem = item;
+    this.selectedSlotIndex = targetIndex;
+    this.selectedEquipmentSlot = null;
+    this.persistRunProgress(true);
+    this.inventoryStatus = `${item.name} moved to inventory.`;
+    this.clearDragState();
+  }
+
+  equipSelectedItem(slotIndex: number, slot?: PaperdollSlot): void {
+    const item = this.inventory[slotIndex];
+    if (!item) return;
+    const compatibleSlots = PAPERDOLL_SLOTS.filter((candidate) => isCompatibleWithEquipment(item, candidate));
+    const target = slot ?? compatibleSlots.find((candidate) => !this.equipment[candidate]) ?? compatibleSlots[0];
+    if (!target) return;
+    this.dragState = { source: "inventory", slotIndex, item };
+    this.onEquipmentDrop(target, { preventDefault: () => undefined } as DragEvent);
+  }
+
+  onInventoryDragOver(slotIndex: number, event: DragEvent): void {
+    if (!this.dragState) return;
     if (this.internalCanDrop(this.dragState.slotIndex, slotIndex, this.dragState.item)) {
       event.preventDefault();
-      if (event.dataTransfer) {
-        event.dataTransfer.dropEffect = "move";
-      }
-      this.dragGhostSlotIndex = slotIndex;
-      return;
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
     }
     this.dragGhostSlotIndex = slotIndex;
   }
@@ -1948,14 +2601,21 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
       this.clearDragState();
       return;
     }
-    const targetItem = this.inventoryGrid[slotIndex].item;
-    this.inventory[drag.slotIndex] = targetItem ?? null;
-    this.inventoryGrid[drag.slotIndex].item = targetItem;
+    if (drag.source === "equipment" && drag.equipmentSlot) {
+      this.dropEquipmentToInventory(drag.equipmentSlot, slotIndex, event);
+      return;
+    }
+    const targetAnchor = this.getItemAnchorAt(slotIndex);
+    const targetItem = targetAnchor >= 0 ? this.inventory[targetAnchor] : null;
+    this.inventory[drag.slotIndex] = null;
+    if (targetItem && targetAnchor >= 0) this.inventory[targetAnchor] = null;
     this.inventory[slotIndex] = drag.item;
-    this.inventoryGrid[slotIndex].item = drag.item;
+    if (targetItem && targetAnchor >= 0) this.inventory[drag.slotIndex] = targetItem;
+    this.rebuildInventoryGrid();
     this.selectedItem = drag.item;
     this.selectedSlotIndex = slotIndex;
     this.inventoryStatus = "";
+    this.persistRunProgress(true);
     this.clearDragState();
   }
 
@@ -1971,9 +2631,41 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
   selectInventoryItem(slotIndex: number, item: D2InventoryItem | null): void {
     this.selectedItem = item;
     this.selectedSlotIndex = item ? slotIndex : null;
+    this.selectedEquipmentSlot = null;
+  }
+
+  selectEquipmentItem(slot: PaperdollSlot): void {
+    this.selectedEquipmentSlot = slot;
+    this.selectedItem = this.equipment[slot];
+    this.selectedSlotIndex = null;
+  }
+
+  unequipEquipmentSlot(slot: PaperdollSlot, event: MouseEvent): void {
+    event.preventDefault();
+    this.unequipItem(slot);
+  }
+
+  unequipItem(slot: PaperdollSlot): void {
+    const item = this.equipment[slot];
+    if (!item) return;
+    if (slot === "belt" && this.beltSlots.slice(4).some((potion) => potion.kind !== null)) {
+      this.inventoryStatus = "Move or use potions from the extra rows before unequipping your belt.";
+      return;
+    }
+    const index = this.findInventoryPlacement(item);
+    if (index < 0) { this.inventoryStatus = "Inventory full — make room before unequipping this item."; return; }
+    this.inventory[index] = item;
+    this.equipment[slot] = null;
+    this.normalizeBeltSlots();
+    this.rebuildInventoryGrid();
+    this.selectedEquipmentSlot = null;
+    this.selectedItem = null;
+    this.persistRunProgress(true);
+    this.inventoryStatus = `${item.name} moved to inventory.`;
   }
 
   canDropOnSlot(sourceIndex: number, targetIndex: number, sourceItem?: D2InventoryItem): boolean {
+    if (this.dragState?.source === "equipment") return this.canPlaceItemAt(this.dragState.item, targetIndex);
     return this.internalCanDrop(sourceIndex, targetIndex, sourceItem);
   }
 
@@ -2018,8 +2710,12 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   makeEnemy(kind: "normal" | "champion" | "boss"): Enemy {
+    const speciesOptions = ENEMY_SPECIES_BY_KIND[kind];
+    const species = speciesOptions[Math.floor(Math.random() * speciesOptions.length)];
     const base: Enemy = {
       kind: "normal",
+      species,
+      spriteFrame: species === "demon" ? Math.floor(Math.random() * 48) : 0,
       x: 30 + Math.random() * (this.arenaW - 60),
       y: -40,
       hp: 18,
@@ -2056,32 +2752,10 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
   openChest(c: Chest): void {
     c.open = true;
     c.life = 0;
-    const owned = this.ownedSkills.filter(
-      (s) => this.skillLevels[s] !== undefined,
-    );
-    let chosen = owned[Math.floor(Math.random() * owned.length)];
-    if (!chosen && this.ownedSkills.length) {
-      chosen =
-        this.ownedSkills[Math.floor(Math.random() * this.ownedSkills.length)];
-    }
-    if (chosen) {
-      this.skillLevels[chosen] = (this.skillLevels[chosen] ?? 0) + 1;
-      this.floatingTexts.push({
-        x: c.x,
-        y: c.y - 20,
-        text: "+1 " + chosen,
-        color: "#ffd27a",
-        life: 2.4,
-      });
-    } else {
-      this.floatingTexts.push({
-        x: c.x,
-        y: c.y - 20,
-        text: "chest (no owned skill)",
-        color: "#ff6b6b",
-        life: 2.4,
-      });
-    }
+    this.grantExperience(4);
+    this.skillLevels[this.basicAttackName] = (this.skillLevels[this.basicAttackName] ?? 1) + 1;
+    this.basicAttackDamage += 2;
+    this.floatingTexts.push({ x: c.x, y: c.y - 20, text: `+1 ${this.basicAttackName}`, color: "#ffd27a", life: 2.4 });
 
     this.spawnPotionDrops(c.x, c.y);
 
@@ -2133,12 +2807,32 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.skillLevels[name] ?? 0;
   }
 
+  get levelXpFill(): number {
+    return this.xpToNextLevel > 0 ? Math.max(0, Math.min(1, this.playerXp / this.xpToNextLevel)) : 0;
+  }
+
   getOwnedSkills(): string[] {
     return this.ownedSkills.slice();
   }
 
   getSkillDescription(name: string): string | undefined {
-    return this.skills.find((s) => s.name === name)?.desc;
+    return this.skills.find((s) => s.name === name)?.desc ??
+      (name === this.basicAttackName ? `Your automatic ${name.toLowerCase()} hits the nearest monster.` : UPGRADE_DESCRIPTIONS[name]);
+  }
+
+  private projectArenaPoint(x: number, y: number): { x: number; y: number } {
+    const worldCenterX = this.arenaW / 2;
+    const worldCenterY = this.arenaH / 2;
+    const canvas = this.arenaRef?.nativeElement;
+    const screenCenterX = (canvas?.width ?? 800) / 2;
+    const screenCenterY = (canvas?.height ?? 500) / 2;
+    const dx = x - worldCenterX;
+    const dy = y - worldCenterY;
+    // 2:1 diamond projection, calibrated to the orthographic 3D character camera.
+    return {
+      x: screenCenterX + (dx - dy) * 0.7071,
+      y: screenCenterY + (dx + dy) * 0.35355,
+    };
   }
 
   draw(): void {
@@ -2150,57 +2844,73 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!ctx) {
       return;
     }
-    ctx.fillStyle = "#0e0f14";
-    ctx.fillRect(0, 0, this.arenaW, this.arenaH);
+    ctx.fillStyle = "#08090d";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Diablo-style tiled floor
-    const tileX = 48;
-    const tileY = 48;
+    // Draw the floor as a diamond grid: world coordinates remain square for movement/combat,
+    // while only rendering is projected into the familiar Diablo-style isometric view.
+    const tile = 48;
     ctx.save();
-    for (let y = 0; y < this.arenaH + tileY; y += tileY) {
-      for (let x = 0; x < this.arenaW + tileX; x += tileX) {
-        const shaded = (x / tileX + y / tileY) % 2 === 0;
-        ctx.fillStyle = shaded ? "#12141a" : "#0e0f14";
-        ctx.fillRect(x, y, tileX, tileY);
+    const first = this.projectArenaPoint(0, 0);
+    const last = this.projectArenaPoint(this.arenaW, this.arenaH);
+    const halfW = tile * 0.7071;
+    const halfH = tile * 0.35355;
+    for (let row = -2; row <= Math.ceil(this.arenaH / tile) + 2; row += 1) {
+      for (let column = -2; column <= Math.ceil(this.arenaW / tile) + 2; column += 1) {
+        const worldX = column * tile;
+        const worldY = row * tile;
+        const point = this.projectArenaPoint(worldX, worldY);
+        ctx.fillStyle = (column + row) % 2 === 0 ? "#17191f" : "#12141a";
+        ctx.beginPath();
+        ctx.moveTo(point.x, point.y - halfH);
+        ctx.lineTo(point.x + halfW, point.y);
+        ctx.lineTo(point.x, point.y + halfH);
+        ctx.lineTo(point.x - halfW, point.y);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = "#242630";
+        ctx.lineWidth = 1;
+        ctx.stroke();
       }
     }
-    ctx.restore();
 
-    ctx.strokeStyle = "#1b1e26";
-    ctx.lineWidth = 1;
-    for (let x = 0; x <= this.arenaW; x += tileX) {
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, this.arenaH);
-      ctx.stroke();
-    }
-    for (let y = 0; y <= this.arenaH; y += tileY) {
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(this.arenaW, y);
-      ctx.stroke();
-    }
+    // Frame the projected play space so its diamond boundaries read clearly.
+    ctx.strokeStyle = "#65523a";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(first.x, first.y);
+    ctx.lineTo(this.projectArenaPoint(this.arenaW, 0).x, this.projectArenaPoint(this.arenaW, 0).y);
+    ctx.lineTo(last.x, last.y);
+    ctx.lineTo(this.projectArenaPoint(0, this.arenaH).x, this.projectArenaPoint(0, this.arenaH).y);
+    ctx.closePath();
+    ctx.stroke();
 
-    for (const e of this.enemies) {
-      this.drawEnemy(ctx, e);
-    }
+    const drawOrder = [
+      ...this.enemies.map((entity) => ({ depth: this.projectArenaPoint(entity.x, entity.y).y, draw: () => this.drawEnemy(ctx, entity) })),
+      ...this.chests.filter((chest) => !chest.open).map((entity) => ({ depth: this.projectArenaPoint(entity.x, entity.y).y, draw: () => this.drawChest(ctx, entity) })),
+      ...this.potionDrops.map((entity) => ({ depth: this.projectArenaPoint(entity.x, entity.y).y, draw: () => this.drawPotionDrop(ctx, entity) })),
+    ].sort((a, b) => a.depth - b.depth);
+    for (const entity of drawOrder) entity.draw();
 
-    for (const c of this.chests) {
-      this.drawChest(ctx, c);
+    for (const projectile of this.attackProjectiles) this.drawAttackProjectile(ctx, projectile);
+    for (const floatingText of this.floatingTexts) {
+      const point = this.projectArenaPoint(floatingText.x, floatingText.y);
+      ctx.fillStyle = floatingText.color;
+      ctx.font = "bold 14px ui-monospace, monospace";
+      ctx.textAlign = "center";
+      ctx.fillText(floatingText.text, point.x, point.y);
     }
-
-    for (const drop of this.potionDrops) {
-      this.drawPotionDrop(ctx, drop);
+    if (this.runActive && this.enemies.length === 0) {
+      ctx.save();
+      ctx.fillStyle = "#d4c49b";
+      ctx.textAlign = "center";
+      ctx.font = "bold 14px Georgia, serif";
+      ctx.fillText("Monsters approaching…", this.arenaW / 2, 38);
+      ctx.restore();
     }
 
     // The player is rendered as a lit FBX model on the transparent WebGL overlay.
 
-    for (const f of this.floatingTexts) {
-      ctx.fillStyle = f.color;
-      ctx.font = "bold 14px ui-monospace, monospace";
-      ctx.textAlign = "center";
-      ctx.fillText(f.text, f.x, f.y);
-    }
   }
 
   private initializeCharacterRenderer(): void {
@@ -2220,18 +2930,18 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
     try {
       this.characterRenderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
       this.characterRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-      this.characterRenderer.setSize(this.arenaW, this.arenaH, false);
+      this.characterRenderer.setSize(canvas.width, canvas.height, false);
       this.characterRenderer.setClearColor(0x000000, 0);
       this.characterRenderer.outputColorSpace = THREE.SRGBColorSpace;
       this.characterScene = new THREE.Scene();
-      this.characterCamera = new THREE.OrthographicCamera(-250, 250, 250, -250, 0.1, 2000);
-      this.characterCamera.position.set(0, 600, 150);
+      this.characterCamera = new THREE.OrthographicCamera(-400, 400, 250, -250, 0.1, 2000);
+      this.characterCamera.position.set(600, 490, 600);
       this.characterCamera.lookAt(0, 0, 0);
-      this.characterScene.add(new THREE.HemisphereLight(0xdce7ff, 0x30251b, 2.4));
-      const keyLight = new THREE.DirectionalLight(0xffe1b0, 3.2);
+      this.characterScene.add(new THREE.HemisphereLight(0xdce7ff, 0x30251b, 0.75));
+      const keyLight = new THREE.DirectionalLight(0xffe1b0, 1.2);
       keyLight.position.set(-180, 360, 240);
       this.characterScene.add(keyLight);
-      const fillLight = new THREE.DirectionalLight(0x9abaff, 1.6);
+      const fillLight = new THREE.DirectionalLight(0x9abaff, 0.45);
       fillLight.position.set(180, 180, -240);
       this.characterScene.add(fillLight);
     } catch (error) {
@@ -2251,18 +2961,20 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
     const loader = new GLTFLoader();
     loader.load(
       definition.model,
-      (gltf) => {
+      async (gltf) => {
         const model = gltf.scene;
-        if (!this.characterScene || requestId !== this.modelLoadRequest || modelClass !== this.selectedClass) {
-          model.traverse((object) => {
-            const mesh = object as THREE.Mesh;
-            if (!mesh.isMesh) {
-              return;
-            }
-            mesh.geometry?.dispose();
-            const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-            materials.forEach((material) => material.dispose());
+        const disposeModel = (): void => model.traverse((object) => {
+          const mesh = object as THREE.Mesh;
+          if (!mesh.isMesh) return;
+          mesh.geometry?.dispose();
+          const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+          materials.forEach((material) => {
+            if ("map" in material && material.map instanceof THREE.Texture) material.map.dispose();
+            material.dispose();
           });
+        });
+        if (!this.characterScene || requestId !== this.modelLoadRequest || modelClass !== this.selectedClass) {
+          disposeModel();
           return;
         }
         if (this.characterModel) {
@@ -2279,19 +2991,25 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
           this.characterModel = undefined;
           this.loadedModelClass = "";
         }
-        this.applyClassTextures(model, modelClass);
+        try {
+          await this.applyClassTextures(model, modelClass);
+        } catch (error: unknown) {
+          disposeModel();
+          if (requestId === this.modelLoadRequest) {
+            console.error(`Could not apply ${modelClass} character textures`, error);
+            this.modelLoadError = true;
+          }
+          return;
+        }
+        if (!this.characterScene || requestId !== this.modelLoadRequest || modelClass !== this.selectedClass) {
+          disposeModel();
+          return;
+        }
         const bounds = new THREE.Box3().setFromObject(model);
         const size = bounds.getSize(new THREE.Vector3());
         const center = bounds.getCenter(new THREE.Vector3());
         if (size.y <= 0 || !Number.isFinite(size.y)) {
-          model.traverse((object) => {
-            const mesh = object as THREE.Mesh;
-            if (mesh.isMesh) {
-              mesh.geometry?.dispose();
-              const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-              materials.forEach((material) => material.dispose());
-            }
-          });
+          disposeModel();
           this.modelLoadError = true;
           return;
         }
@@ -2321,43 +3039,83 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
     );
   }
 
-  private applyClassTextures(model: THREE.Group, modelClass: string): void {
+  private async applyClassTextures(model: THREE.Group, modelClass: string): Promise<void> {
     const definition = CLASS_MODEL[modelClass];
-    if (!definition) {
-      return;
-    }
+    if (!definition) return;
+
+    const anisotropy = this.previewRenderer?.capabilities.getMaxAnisotropy()
+      ?? this.characterRenderer?.capabilities.getMaxAnisotropy()
+      ?? 1;
+    const texturePaths = new Set<string>();
     model.traverse((object) => {
       const mesh = object as THREE.Mesh;
-      if (!mesh.isMesh) {
-        return;
-      }
+      if (!mesh.isMesh) return;
+      const texturePath = this.getTextureForMesh(object.name, modelClass, definition);
+      if (texturePath) texturePaths.add(texturePath);
+    });
+
+    // Wait for atlas image data before cloning textures: cloning a TextureLoader result before
+    // onLoad copies its still-empty image and leaves the character sampling blank materials.
+    const textureEntries = await Promise.all([...texturePaths].map(async (path) => {
+      const atlas = await new THREE.TextureLoader().loadAsync(path);
+      atlas.flipY = false;
+      atlas.colorSpace = THREE.SRGBColorSpace;
+      atlas.anisotropy = anisotropy;
+      return [path, atlas] as const;
+    }));
+    const atlases = new Map(textureEntries);
+    const mappedTextures = new Map<string, THREE.Texture>();
+
+    model.traverse((object) => {
+      const mesh = object as THREE.Mesh;
+      if (!mesh.isMesh) return;
       mesh.castShadow = true;
       mesh.receiveShadow = true;
+
       const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
       for (const material of materials) {
         material.side = THREE.DoubleSide;
         const texturedMaterial = material as THREE.MeshStandardMaterial;
-        if (texturedMaterial.map) {
-          // The source model exports placeholder maps; replace them with this class's atlas.
-          const texturePath = this.getTextureForMesh(object.name, modelClass, definition);
-          if (texturePath) {
-            texturedMaterial.map.dispose();
-            const texture = new THREE.TextureLoader().load(texturePath);
-            texture.colorSpace = THREE.SRGBColorSpace;
-            texture.anisotropy = this.previewRenderer?.capabilities.getMaxAnisotropy()
-              ?? this.characterRenderer?.capabilities.getMaxAnisotropy()
-              ?? 1;
-            texturedMaterial.map = texture;
+        const texturePath = this.getTextureForMesh(object.name, modelClass, definition);
+        if (texturePath) {
+          const atlas = atlases.get(texturePath);
+          if (!atlas) return;
+          const sourceMap = texturedMaterial.map;
+          const transformKey = sourceMap
+            ? JSON.stringify([sourceMap.channel, sourceMap.mapping, sourceMap.wrapS, sourceMap.wrapT,
+              sourceMap.offset.toArray(), sourceMap.repeat.toArray(), sourceMap.center.toArray(), sourceMap.rotation])
+            : "default";
+          const textureKey = `${texturePath}|${transformKey}`;
+          let colorMap = mappedTextures.get(textureKey);
+          if (!colorMap) {
+            // Keep UV transforms independent, while sharing identical material maps.
+            colorMap = atlas.clone();
+            colorMap.flipY = false;
+            colorMap.colorSpace = THREE.SRGBColorSpace;
+            colorMap.anisotropy = anisotropy;
+            if (sourceMap) {
+              colorMap.channel = sourceMap.channel;
+              colorMap.mapping = sourceMap.mapping;
+              colorMap.wrapS = sourceMap.wrapS;
+              colorMap.wrapT = sourceMap.wrapT;
+              colorMap.offset.copy(sourceMap.offset);
+              colorMap.repeat.copy(sourceMap.repeat);
+              colorMap.center.copy(sourceMap.center);
+              colorMap.rotation = sourceMap.rotation;
+            }
+            colorMap.needsUpdate = true;
+            mappedTextures.set(textureKey, colorMap);
           }
-          texturedMaterial.map.colorSpace = THREE.SRGBColorSpace;
-          texturedMaterial.map.anisotropy = this.previewRenderer?.capabilities.getMaxAnisotropy()
-            ?? this.characterRenderer?.capabilities.getMaxAnisotropy()
-            ?? 1;
-          texturedMaterial.map.needsUpdate = true;
+          texturedMaterial.map = colorMap;
+          if (material instanceof THREE.MeshStandardMaterial || material instanceof THREE.MeshPhongMaterial) {
+            material.color.set(0xffffff);
+          }
         }
-        if (material instanceof THREE.MeshPhongMaterial) {
-          material.color.set(0xffffff);
-          material.emissive.set(0x111111);
+        if (material instanceof THREE.MeshPhongMaterial) material.emissive.set(0x000000);
+        if (material instanceof THREE.MeshStandardMaterial) {
+          material.emissive.set(0x000000);
+          material.metalness = Math.min(material.metalness, 0.08);
+          material.roughness = Math.max(material.roughness, 0.72);
         }
         material.needsUpdate = true;
       }
@@ -2379,22 +3137,58 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
   private getTextureForMesh(meshName: string, modelClass: string, definition: (typeof CLASS_MODEL)[string]): string | null {
     const textureRoot = `${MODEL_BASE}/${modelClass}/textures/`;
     const name = meshName.toLowerCase();
-    if (name.includes("hair")) {
-      return definition.hair ?? definition.head;
-    }
-    if (name.includes("head") || name.includes("eye_") || name.includes("teeth") || name.includes("tongue") || name.includes("face")) {
-      return definition.head;
-    }
-    if (name.includes("pike") || name.includes("weapon")) {
-      return definition.weapon ?? definition.body;
-    }
-    if (name.includes("armor") || name.includes("shoulder") || name.includes("skirt") || name.includes("tabard") || name.includes("pants")) {
+    const texture = (file: string | undefined, fallback?: string): string | null =>
+      file ? `${textureRoot}${file}` : fallback ?? null;
+    const isHeavyArmor = /hvy|heavy/.test(name);
+    const isMediumArmor = /med/.test(name);
+    const isLightArmor = /lit|light/.test(name);
+
+    if (/pike|weapon|staff|bow/.test(name)) return definition.weapon ?? definition.body;
+    if (/hair|hairtie/.test(name) || (modelClass === "amazon" && /headband/.test(name))) return definition.hair ?? definition.head;
+    // Some armor mesh names include "opposite_faces" as a surface marker; keep those on their
+    // armor tier atlas instead of mistaking the word "faces" for facial skin.
+    if (/head|eye_|teeth|tongue|face|earring|eyelash/.test(name) && !/shoulder/.test(name)) return definition.head;
+    // The rigs name skin meshes explicitly (for example larm_body_hvy), while armor meshes
+    // often omit "armor" entirely (larm_hvy, legs_med). Resolve body first, then tiered armor.
+    if (/body|skin|underwear/.test(name)) return definition.body;
+
+    if (/armor|shoulder|skirt|tabard|pants|leg_plates|legplates|buckle|strap|(?:hvy|heavy|med|medium|lit|light)/.test(name)) {
+      if (isHeavyArmor) {
+        return texture({
+          amazon: "amazon_armorhvy_alb.png",
+          assassin: "assassin_armorhvy_alb.png",
+          barbarian: "barb_armorheavy_alb.png",
+          druid: "druid_armorhvy_alb.png",
+          necromancer: "necro_armorhvy_alb.png",
+          paladin: "paladin_armorhvy_alb.png",
+          sorceress: "sorceress_heavyarmor_alb.png",
+        }[modelClass], definition.armor ?? definition.body);
+      }
+      if (isLightArmor) {
+        return texture({
+          amazon: "amazon_armorlit_alb.png",
+          assassin: "assassin_armorlit_alb.png",
+          barbarian: "armors_alb.png",
+          druid: "armors_alb.png",
+          paladin: "paladin_armorlit_alb.png",
+          sorceress: "sorceress_lightarmor_albedo.png",
+        }[modelClass], definition.armor ?? definition.body);
+      }
+      if (isMediumArmor) {
+        return texture({
+          amazon: "amazon_armormed_alb.png",
+          assassin: "assassin_armormed_alb.png",
+          barbarian: "barb_armormed_alb.png",
+          druid: "druid_armormed_alb.png",
+          necromancer: "necro_armormed_alb.png",
+          paladin: "paladin_armormed_alb.png",
+          sorceress: "sorc_armormed_alb.png",
+        }[modelClass], definition.armor ?? definition.body);
+      }
       return definition.armor ?? definition.body;
     }
-    if (name.includes("body") || name.includes("legs") || name.includes("arm")) {
-      return definition.body;
-    }
-    return definition.body || `${textureRoot}${modelClass}_body_alb.png`;
+
+    return definition.body ?? `${textureRoot}${modelClass}_body_alb.png`;
   }
 
   private renderCharacter(): void {
@@ -2402,64 +3196,103 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     if (this.characterModel) {
-      const cameraHeight = this.characterCamera.position.y;
-      const cameraDepth = this.characterCamera.position.z;
-      const groundDepthScale = Math.hypot(cameraHeight, cameraDepth) / Math.abs(cameraHeight);
       this.characterModel.position.set(
         this.playerX - this.arenaW / 2,
         0,
-        -(this.playerY - this.arenaH / 2) * groundDepthScale,
+        this.playerY - this.arenaH / 2,
       );
     }
     this.characterRenderer.render(this.characterScene, this.characterCamera);
   }
 
   drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy): void {
-    if (e.kind === "boss") {
-      ctx.fillStyle = "#6b3a1a";
-      ctx.beginPath();
-      ctx.arc(e.x, e.y, e.r, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = "#ffb347";
-      ctx.lineWidth = 3;
-      ctx.stroke();
-      this.drawHpBar(ctx, e, "#ffb347");
-      return;
+    const ground = this.projectArenaPoint(e.x, e.y);
+    const sprite = this.enemySprites[e.species];
+    const color = e.kind === "boss" ? "#ffb347" : e.kind === "champion" ? "#ffd27a" : "#8a94a6";
+    const size = e.r * (e.kind === "boss" ? 3.5 : e.kind === "champion" ? 3 : 2.65);
+    const dx = this.playerX - e.x;
+    const dy = this.playerY - e.y;
+
+    let spriteDrawn = false;
+    if (sprite && sprite.image.width > 0 && sprite.image.height > 0) {
+      const direction = enemySpriteSourceDirection(e.species, enemySpriteRow(e.species, dx, dy));
+      const frame = enemySpriteSourceFrame(e.species, enemySpriteFrame(e.species, e.x, e.y, this.runTime));
+      const sheetIndex = enemySpriteSheetIndex(e.species, sprite, frame, direction);
+      const cell = sprite.cell;
+      const sourceRow = enemySpriteSourceRow(e.species, direction);
+      const bounds = enemySpriteCellBounds(e.species, sprite, sheetIndex, sourceRow);
+      if (bounds) {
+        const drawHeight = size;
+        const drawWidth = drawHeight * bounds.width / bounds.height;
+        const drawX = ground.x - drawWidth / 2;
+        const drawY = ground.y - drawHeight * 0.78;
+
+        if (e.kind !== "normal") {
+          ctx.save();
+          ctx.globalAlpha = 0.3;
+          ctx.fillStyle = color;
+          ctx.beginPath();
+          ctx.ellipse(ground.x, ground.y - e.r * 0.12, size * 0.42, e.r * 0.32, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(
+          sprite.image,
+          sheetIndex * cell.width + bounds.x,
+          sourceRow * cell.height + bounds.y,
+          bounds.width,
+          bounds.height,
+          drawX,
+          drawY,
+          drawWidth,
+          drawHeight,
+        );
+        spriteDrawn = true;
+
+        if (e.kind !== "normal") {
+          ctx.save();
+          ctx.strokeStyle = color;
+          ctx.lineWidth = e.kind === "boss" ? 3 : 2;
+          ctx.shadowColor = color;
+          ctx.shadowBlur = e.kind === "boss" ? 14 : 8;
+          ctx.beginPath();
+          ctx.ellipse(ground.x, ground.y - e.r * 0.12, size * 0.42, e.r * 0.32, 0, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
     }
-    if (e.kind === "champion") {
-      ctx.fillStyle = "#9a6b3a";
+
+    if (!spriteDrawn) {
+      ctx.fillStyle = e.kind === "boss" ? "#6b3a1a" : e.kind === "champion" ? "#9a6b3a" : "#3a4250";
       ctx.beginPath();
-      ctx.arc(e.x, e.y, e.r, 0, Math.PI * 2);
+      ctx.ellipse(ground.x, ground.y - e.r * 0.12, e.r, e.r * 0.55, 0, 0, Math.PI * 2);
       ctx.fill();
-      ctx.strokeStyle = "#ffd27a";
-      ctx.lineWidth = 2;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = e.kind === "boss" ? 3 : e.kind === "champion" ? 2 : 1;
       ctx.stroke();
-      this.drawHpBar(ctx, e, "#ffd27a");
-      return;
     }
-    ctx.fillStyle = "#3a4250";
-    ctx.beginPath();
-    ctx.arc(e.x, e.y, e.r, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = "#5a6470";
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    this.drawHpBar(ctx, e, "#8a94a6");
+
+    this.drawHpBar(ctx, e, color, size, ground);
   }
 
-  drawHpBar(ctx: CanvasRenderingContext2D, e: Enemy, color: string): void {
-    const w = e.r * 2 + 4;
-    const h = 4;
+  drawHpBar(ctx: CanvasRenderingContext2D, e: Enemy, color: string, spriteSize = e.r * 2, ground = this.projectArenaPoint(e.x, e.y)): void {
+    const w = Math.max(e.r * 2 + 4, spriteSize * 0.8);
+    const h = e.kind === "boss" ? 5 : 4;
     const pct = Math.max(0, e.hp / e.maxHp);
+    const barY = ground.y - spriteSize * 0.78 - 8;
     ctx.fillStyle = "#1a1c22";
-    ctx.fillRect(e.x - w / 2, e.y - e.r - 8, w, h);
+    ctx.fillRect(ground.x - w / 2, barY, w, h);
     ctx.fillStyle = color;
-    ctx.fillRect(e.x - w / 2, e.y - e.r - 8, w * pct, h);
+    ctx.fillRect(ground.x - w / 2, barY, w * pct, h);
   }
 
   drawPotionDrop(ctx: CanvasRenderingContext2D, drop: PotionDrop): void {
-    const x = drop.x;
-    const y = drop.y + Math.sin(drop.bob * 5) * 2;
+    const ground = this.projectArenaPoint(drop.x, drop.y);
+    const x = ground.x;
+    const y = ground.y - 3 + Math.sin(drop.bob * 5) * 2;
     const potionColor = drop.kind === "health" ? "#e52b3c" : "#36a8f0";
     ctx.save();
     ctx.shadowColor = potionColor;
@@ -2488,8 +3321,9 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   drawChest(ctx: CanvasRenderingContext2D, c: Chest): void {
-    const x = c.x;
-    const y = c.y + Math.sin(c.bob * 4) * 4;
+    const ground = this.projectArenaPoint(c.x, c.y);
+    const x = ground.x;
+    const y = ground.y - 8 + Math.sin(c.bob * 4) * 4;
     ctx.fillStyle = "#7a5a2a";
     ctx.fillRect(x - 12, y - 10, 24, 20);
     ctx.fillStyle = "#5a3f1a";
@@ -2527,12 +3361,21 @@ interface D2SavedRun {
   runTime: number;
   runId: string;
   runKillCount: number;
+  playerLevel?: number;
+  playerXp?: number;
+  pendingLevelUps?: number;
+  xpToNextLevel?: number;
+  basicAttackName?: string;
+  basicAttackCooldown?: number;
+  basicAttackDamage?: number;
   ownedSkills: string[];
   skillLevels: Record<string, number>;
   enemies: Enemy[];
   chests: Chest[];
   potionDrops: PotionDrop[];
   beltSlots: Array<{ kind: "health" | "mana" | null }>;
+  equippedBelt?: D2InventoryItem | null;
+  equipment?: Partial<Record<PaperdollSlot, D2InventoryItem | null>>;
   inventory: Array<D2InventoryItem | null>;
   spawnAcc: number;
   chestTimer: number;
@@ -2547,7 +3390,8 @@ function sanitizeInventoryItem(value: unknown): D2InventoryItem | null {
   if (!isRecord(value) || typeof value["id"] !== "string" || typeof value["name"] !== "string" ||
       typeof value["desc"] !== "string" ||
       (value["rarity"] !== "normal" && value["rarity"] !== "magic" && value["rarity"] !== "rare") ||
-      (value["slot"] !== "weapon" && value["slot"] !== "armor" && value["slot"] !== "charm")) {
+      (value["slot"] !== "weapon" && value["slot"] !== "armor" && value["slot"] !== "charm" && value["slot"] !== "belt") ||
+      (value["slot"] === "belt" && value["beltQuality"] !== "normal" && value["beltQuality"] !== "exceptional" && value["beltQuality"] !== "elite")) {
     return null;
   }
 
@@ -2564,20 +3408,238 @@ function sanitizeInventoryItem(value: unknown): D2InventoryItem | null {
   const affixes = Array.isArray(value["affixes"])
     ? value["affixes"].filter((affix): affix is string => typeof affix === "string").slice(0, 12)
     : undefined;
+  const equipmentTypes: EquipmentType[] = ["weapon", "helmet", "body", "shield", "gloves", "boots", "belt", "ring", "amulet", "charm"];
   return {
     id: value["id"].slice(0, 100),
     name: value["name"].slice(0, 160),
     ...(typeof value["baseName"] === "string" ? { baseName: value["baseName"].slice(0, 160) } : {}),
     rarity: value["rarity"],
     slot: value["slot"],
+    ...(equipmentTypes.includes(value["equipmentType"] as EquipmentType) ? { equipmentType: value["equipmentType"] as EquipmentType } : {}),
+    ...(typeof value["width"] === "number" && Number.isInteger(value["width"]) ? { width: Math.max(1, Math.min(2, value["width"])) } : {}),
+    ...(typeof value["height"] === "number" && Number.isInteger(value["height"]) ? { height: Math.max(1, Math.min(4, value["height"])) } : {}),
+    ...(value["beltQuality"] === "normal" || value["beltQuality"] === "exceptional" || value["beltQuality"] === "elite"
+      ? { beltQuality: value["beltQuality"] }
+      : {}),
     desc: value["desc"].slice(0, 500),
     ...(Object.keys(stats).length ? { stats } : {}),
     ...(affixes?.length ? { affixes } : {}),
   };
 }
 
+type BeltQuality = "normal" | "exceptional" | "elite";
+type EquipmentType = "weapon" | "helmet" | "body" | "shield" | "gloves" | "boots" | "belt" | "ring" | "amulet" | "charm";
+type PaperdollSlot = "weapon" | "helmet" | "shield" | "ringLeft" | "amulet" | "ringRight" | "gloves" | "body" | "boots" | "belt";
+
+const PAPERDOLL_SLOTS: PaperdollSlot[] = ["weapon", "helmet", "shield", "ringLeft", "amulet", "ringRight", "gloves", "body", "boots", "belt"];
+
+function createEmptyEquipment(): Record<PaperdollSlot, D2InventoryItem | null> {
+  return { weapon: null, helmet: null, shield: null, ringLeft: null, amulet: null, ringRight: null, gloves: null, body: null, boots: null, belt: null };
+}
+
+function getEquipmentType(item: D2InventoryItem): EquipmentType {
+  if (item.equipmentType) return item.equipmentType;
+  const name = `${item.baseName ?? ""} ${item.name}`.toLowerCase();
+  if (item.slot === "weapon") return "weapon";
+  if (item.slot === "belt") return "belt";
+  if (item.slot === "armor") return /cap|helm|crown|mask|circlet/.test(name) ? "helmet" : "body";
+  if (/ring/.test(name)) return "ring";
+  if (/amulet/.test(name)) return "amulet";
+  return "charm";
+}
+
+function isCompatibleWithEquipment(item: D2InventoryItem, slot: PaperdollSlot): boolean {
+  const type = getEquipmentType(item);
+  return type === slot || (type === "ring" && (slot === "ringLeft" || slot === "ringRight"));
+}
+
+type EnemyKind = "normal" | "champion" | "boss";
+type EnemySpecies = "fallen" | "zombie" | "skeleton" | "demon" | "lord";
+
+const ENEMY_SPRITE_PATHS: Record<EnemySpecies, string> = {
+  fallen: "assets/d2survivors/monster-fallen.png",
+  zombie: "assets/d2survivors/monster-zombie.png",
+  skeleton: "assets/d2survivors/monster-skeleton.png",
+  demon: "assets/d2survivors/monster-demon.png",
+  lord: "assets/d2survivors/monster-lord.png",
+};
+
+// Converted from the locally supplied DCC/COF files with an intentionally approximate generated
+// palette, because no base game palette was supplied. Sheets use 1x COF composition: direction rows,
+// animation frames across columns. Their cell bounds are obtained from the transparent gutters.
+const ENEMY_SPRITE_LAYOUTS: Record<EnemySpecies, { columns: number; rows: number; animated: boolean }> = {  fallen: { columns: 11, rows: 8, animated: true },
+  zombie: { columns: 24, rows: 8, animated: true },
+  skeleton: { columns: 8, rows: 8, animated: true },
+  demon: { columns: 14, rows: 8, animated: true },
+  lord: { columns: 6, rows: 8, animated: true },
+};
+
+const ENEMY_SPRITE_CELLS: Partial<Record<EnemySpecies, { width: number; height: number }>> = {
+  fallen: { width: 89, height: 63 },
+  zombie: { width: 47, height: 80 },
+  skeleton: { width: 56, height: 78 },
+  demon: { width: 83, height: 95 },
+  lord: { width: 118, height: 182 },
+};
+
+const ENEMY_SPRITE_ROWS: Partial<Record<EnemySpecies, number[]>> = {
+  fallen: [0, 1, 2, 3, 4, 5, 6, 7],
+  zombie: [0, 1, 2, 3, 4, 5, 6, 7],
+  skeleton: [0, 1, 2, 3, 4, 5, 6, 7],
+  demon: [0, 1, 2, 3, 4, 5, 6, 7],
+  lord: [0, 1, 2, 3, 4, 5, 6, 7],
+};
+const ENEMY_DEMON_SPRITE_ROWS = [0, 1, 2, 3, 4, 5, 6, 7];
+
+const ENEMY_SPRITE_DIRECTIONS: Record<EnemySpecies, number> = {
+  fallen: 8,
+  zombie: 8,
+  skeleton: 8,
+  demon: 8,
+  lord: 8,
+};
+const ENEMY_SPECIES: EnemySpecies[] = ["fallen", "zombie", "skeleton", "demon", "lord"];
+const ENEMY_SPECIES_BY_KIND: Record<EnemyKind, EnemySpecies[]> = {
+  normal: ["fallen", "zombie", "skeleton", "demon"],
+  champion: ["demon", "skeleton", "fallen"],
+  boss: ["lord", "demon"],
+};
+
+function sanitizeEnemySpecies(value: unknown, kind: EnemyKind): EnemySpecies {
+  return ENEMY_SPECIES.includes(value as EnemySpecies) && ENEMY_SPECIES_BY_KIND[kind].includes(value as EnemySpecies)
+    ? value as EnemySpecies
+    : ENEMY_SPECIES_BY_KIND[kind][0];
+}
+
+interface EnemySpriteBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+interface EnemySprite {
+  image: HTMLCanvasElement;
+  columns: number;
+  rows: number;
+  animated: boolean;
+  cell: { width: number; height: number };
+  bounds: Map<string, EnemySpriteBounds | null>;
+}
+
+function enemySpriteFrame(species: EnemySpecies, x: number, y: number, runTime: number): number {
+  const layout = ENEMY_SPRITE_LAYOUTS[species];
+  if (!layout.animated) {
+    return 0;
+  }
+  const phase = Math.floor(runTime * 8 + x * 0.09 + y * 0.05);
+  return ((phase % layout.columns) + layout.columns) % layout.columns;
+}
+
+function enemySpriteRow(species: EnemySpecies, dx: number, dy: number): number {
+  const directions = ENEMY_SPRITE_DIRECTIONS[species] ?? ENEMY_SPRITE_LAYOUTS[species].rows;
+  if (directions === 4) {
+    return dy > 0 ? 0 : dy < 0 ? 2 : dx < 0 ? 1 : 3;
+  }
+  if (directions === 8) {
+    const angle = Math.atan2(dy, dx);
+    return (Math.round((angle + Math.PI) / (Math.PI / 4)) + 8) % 8;
+  }
+  return 0;
+}
+
+function enemySpriteSourceRow(species: EnemySpecies, direction: number): number {
+  return ENEMY_SPRITE_ROWS[species]?.[direction] ?? direction;
+}
+
+function enemySpriteSourceFrame(_species: EnemySpecies, frame: number): number {
+  return frame;
+}
+
+function enemySpriteSourceDirection(_species: EnemySpecies, direction: number): number {
+  return direction;
+}
+
+function enemySpriteSheetIndex(species: EnemySpecies, _sprite: EnemySprite, frame: number, _direction: number): number {
+  return frame % ENEMY_SPRITE_LAYOUTS[species].columns;
+}
+
+function enemySpriteCellBounds(species: EnemySpecies, sprite: EnemySprite, frame: number, row: number): EnemySpriteBounds | null {
+  const key = `${frame}:${row}`;
+  if (sprite.bounds.has(key)) {
+    return sprite.bounds.get(key) ?? null;
+  }
+  const cell = sprite.cell;
+  const context = sprite.image.getContext("2d", { willReadFrequently: true });
+  const sourceRow = ENEMY_SPRITE_ROWS[species]?.[row] ?? row;
+  const pixels = context?.getImageData(frame * cell.width, sourceRow * cell.height, cell.width, cell.height).data;
+  if (!pixels) {
+    return null;
+  }
+  let minX = cell.width;
+  let minY = cell.height;
+  let maxX = -1;
+  let maxY = -1;
+  for (let y = 0; y < cell.height; y += 1) {
+    for (let x = 0; x < cell.width; x += 1) {
+      if (pixels[(y * cell.width + x) * 4 + 3] > 12) {
+        minX = Math.min(minX, x);
+        minY = Math.min(minY, y);
+        maxX = Math.max(maxX, x);
+        maxY = Math.max(maxY, y);
+      }
+    }
+  }
+  const bounds = maxX >= minX && maxY >= minY
+    ? { x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 }
+    : null;
+  sprite.bounds.set(key, bounds);
+  return bounds;
+}
+
+const BASIC_ATTACK_NAMES = ["Guided Arrow", "Throwing Knife", "Axe Throw", "Spirit Claw", "Bone Bolt", "Holy Bolt", "Fire Bolt"];
+const UPGRADE_DESCRIPTIONS: Record<string, string> = {
+  "Faster Attacks": "Basic attacks recharge faster.",
+  Multishot: "Basic attacks target additional nearby monsters.",
+  Vitality: "Increases maximum life.",
+  "Arcane Focus": "Increases maximum mana.",
+  "Weapon Mastery": "Basic attacks deal additional damage.",
+};
+
+function hashString(value: string): number {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) hash = (Math.imul(hash, 31) + value.charCodeAt(index)) | 0;
+  return hash >>> 0;
+}
+
+interface SkillUpgrade {
+  id: string;
+  name: string;
+  description: string;
+  kind: "attack" | "stat";
+}
+
+interface AttackProjectile {
+  target?: Enemy;
+  x: number;
+  y: number;
+  startX: number;
+  startY: number;
+  targetX: number;
+  targetY: number;
+  targetId?: number;
+  speed: number;
+  damage: number;
+  life: number;
+  radius: number;
+  color: string;
+  kind: "arrow" | "fire" | "lightning" | "blade" | "bone" | "holy" | "claw";
+}
+
 interface Enemy {
-  kind: "normal" | "champion" | "boss";
+  kind: EnemyKind;
+  species: EnemySpecies;
+  spriteFrame: number;
   x: number;
   y: number;
   hp: number;
@@ -2620,7 +3682,11 @@ interface D2InventoryItem {
   name: string;
   baseName?: string;
   rarity: "normal" | "magic" | "rare";
-  slot: "weapon" | "armor" | "charm";
+  slot: "weapon" | "armor" | "charm" | "belt";
+  equipmentType?: EquipmentType;
+  width?: number;
+  height?: number;
+  beltQuality?: BeltQuality;
   desc: string;
   stats?: D2ItemStats;
   affixes?: string[];
@@ -2638,7 +3704,16 @@ interface D2ItemStats {
   requiresStrength?: number;
 }
 
-interface DragState {
+interface InventoryGridCell {
   slotIndex: number;
+  item?: D2InventoryItem;
+  width: number;
+  height: number;
+}
+
+interface DragState {
+  source: "inventory" | "equipment";
+  slotIndex: number;
+  equipmentSlot?: PaperdollSlot;
   item: D2InventoryItem;
 }

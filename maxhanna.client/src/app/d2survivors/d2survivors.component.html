@@ -1,4 +1,4 @@
-<div class="d2s" [class.d2s-in-menu]="activeTab === 'menu'" [class.d2s-in-character-select]="activeTab === 'menu' && menuPanel === 'characters'">
+<div class="d2s" [class.d2s-in-menu]="activeTab === 'menu'" [class.d2s-in-character-select]="activeTab === 'menu' && menuPanel === 'characters'" [class.d2s-in-run]="activeTab === 'run'">
   <div class="d2s-tabs" *ngIf="activeTab !== 'menu'">
     <button type="button" class="d2s-tab" (click)="returnToMenu()">Main Menu</button>
     <button type="button" class="d2s-tab" [class.active]="activeTab === 'lore'" (click)="openLore()">
@@ -156,34 +156,33 @@
   </section>
 
   <section class="d2s-run" [hidden]="activeTab !== 'run'">
-    <h1>Quick chest run</h1>
-    <p class="d2s-sub">Bosses and champions drop chests with skill upgrades, gear, and potions. Walk over potions to stock empty belt slots; press 1–4 to drink from each belt column.</p>
-
-    <div class="d2s-run-hud">
-      <span class="d2s-hud">{{ selectedClassName }}</span>
-      <span class="d2s-hud">Gold {{ playerGold }}</span>
-      <span class="d2s-hud">Time {{ runTime.toFixed(0) }}s</span>
-      <span class="d2s-hud">Enemies {{ enemies.length }}</span>
-      <span class="d2s-hud">Chests {{ openChestCount }}</span>
-      <button type="button" class="d2s-hud d2s-save-button" (click)="saveRunNow()">Save &amp; return to menu</button>
-    </div>
-
-    <p class="d2s-save-status" role="status" aria-live="polite" *ngIf="saveStatus">{{ saveStatus }}</p>
     <div class="d2s-arena-wrap">
+      <div class="d2s-upgrade-modal" *ngIf="pendingLevelUps > 0 && !escapeMenuOpen && !inventoryOpen" role="dialog" aria-modal="true" aria-labelledby="d2s-upgrade-title">
+        <section class="d2s-upgrade-panel">
+          <p class="d2s-upgrade-kicker">LEVEL {{ playerLevel }}</p>
+          <h2 id="d2s-upgrade-title">Choose an upgrade</h2>
+          <p>Your next level waits until you select one.</p>
+          <button type="button" *ngFor="let choice of upgradeChoices" class="d2s-upgrade-choice" (click)="chooseLevelUpgrade(choice)">
+            <strong>{{ choice.name }}</strong><span>{{ choice.description }}</span>
+          </button>
+        </section>
+      </div>
       <canvas #arena class="d2s-arena" width="500" height="500" (keydown)="onKeyDown($event)" (keyup)="onKeyUp($event)" tabindex="0"></canvas>
+      <button type="button" class="d2s-touch-menu" (click)="showEscapeMenu()" aria-label="Open game menu" title="Game menu (Esc)">☰</button>
       <canvas #characterCanvas class="d2s-character-canvas" width="500" height="500" aria-hidden="true"></canvas>
       <div class="d2s-model-hint" *ngIf="modelLoadError">3D character model could not load.</div>
-      <div class="d2s-classic-hud" aria-label="Character life and mana, with potion belt">
+      <div class="d2s-classic-hud" aria-label="Life and mana orbs, potion belt, skill icons and experience">
         <div class="d2s-orb d2s-health-orb" [style.--orb-fill]="healthOrbFill">
           <div class="d2s-orb-liquid" [style.height.%]="healthOrbFill * 100"></div>
           <div class="d2s-orb-gloss"></div>
           <div class="d2s-orb-text"><strong>Life</strong><span>{{ playerHp | number:'1.0-0' }} / {{ playerMaxHp }}</span></div>
         </div>
-        <div class="d2s-belt-frame" aria-label="Potion belt">
-          <div class="d2s-belt-grid">
+        <div class="d2s-hud-center">
+          <div class="d2s-belt-frame" aria-label="Potion belt">
+            <div class="d2s-belt-grid" [attr.data-belt-rows]="beltRows">
             <button
               type="button"
-              *ngFor="let slot of beltSlots; let i = index"
+              *ngFor="let slot of visibleBeltSlots; let i = index"
               class="d2s-belt-slot"
               [class.selected]="activeBottleSlot === i"
               [class.health-potion]="slot.kind === 'health'"
@@ -194,8 +193,20 @@
               <span *ngIf="slot.kind" class="d2s-potion-bottle" [class.red-potion]="slot.kind === 'health'" [class.blue-potion]="slot.kind === 'mana'"></span>
             </button>
           </div>
-          <div class="d2s-belt-keys" aria-hidden="true">
-            <span *ngFor="let key of [1, 2, 3, 4]">{{ key }}</span>
+            <div class="d2s-belt-keys" aria-hidden="true">
+              <span *ngFor="let key of [1, 2, 3, 4]">{{ key }}</span>
+            </div>
+          </div>
+          <div class="d2s-skill-bar" aria-label="Equipped skill hotkeys">
+            <div class="d2s-skill-slot basic-skill" [attr.title]="basicAttackName + ' · automatic attack'" [attr.aria-label]="basicAttackName + ', automatic attack'">
+              <span class="d2s-skill-icon">{{ basicAttackIcon }}</span>
+            </div>
+            <button type="button" class="d2s-skill-slot" *ngFor="let skill of equippedSkills; let index = index" (click)="activateOwnedSkill(skill)" [attr.title]="skill + ' · hotkey ' + (index + 1)" [attr.aria-label]="skill + ', hotkey ' + (index + 1)">
+              <span class="d2s-skill-icon">{{ skillIcon(skill) }}</span><small>{{ index + 1 }}</small>
+            </button>
+            <button type="button" class="d2s-skill-slot empty-skill" *ngFor="let slot of emptySkillSlots; let index = index" (click)="showEscapeMenu()" [attr.title]="'Assign a skill · hotkey ' + (equippedSkills.length + index + 1)" [attr.aria-label]="'Empty skill slot ' + (equippedSkills.length + index + 1)">
+              <span class="d2s-skill-icon">＋</span><small>{{ equippedSkills.length + index + 1 }}</small>
+            </button>
           </div>
         </div>
         <div class="d2s-orb d2s-mana-orb" [style.--orb-fill]="manaOrbFill">
@@ -204,43 +215,98 @@
           <div class="d2s-orb-text"><strong>Mana</strong><span>{{ playerMana | number:'1.0-0' }} / {{ playerMaxMana }}</span></div>
         </div>
       </div>
+      <div class="d2s-experience-progress" role="progressbar" [attr.aria-valuenow]="playerXp" [attr.aria-valuemin]="0" [attr.aria-valuemax]="xpToNextLevel" [attr.aria-label]="'Level ' + playerLevel + ' experience'">
+        <strong>Level {{ playerLevel }}</strong><span class="d2s-experience-track"><i [style.width.%]="levelXpFill * 100"></i></span>
+      </div>
+      <section class="d2s-escape-menu" *ngIf="escapeMenuOpen" role="dialog" aria-modal="true" aria-label="Game menu" (click)="$event.stopPropagation()">
+        <header class="d2s-escape-title"><span>THE WORLDSTONE CHAMBER</span><h2>Game Menu</h2><small>Paused · {{ selectedClassName }} · Level {{ playerLevel }}</small></header>
+        <div class="d2s-run-details" aria-label="Character and run statistics">
+          <span><b>Class</b>{{ selectedClassName }}</span>
+          <span><b>Level</b>{{ playerLevel }}</span>
+          <span><b>Attack</b>{{ basicAttackDamage }} damage</span>
+          <span><b>Gold</b>{{ playerGold }}</span>
+          <span><b>Time</b>{{ runTime.toFixed(0) }}s</span>
+          <span><b>Enemies</b>{{ enemies.length }}</span>
+          <span><b>Chests</b>{{ openChestCount }}</span>
+          <span><b>Skills</b>{{ ownedSkills.length }}</span>
+          <span><b>Experience</b>{{ playerXp }} / {{ xpToNextLevel }}</span>
+        </div>
+        <p class="d2s-menu-status" role="status" *ngIf="saveStatus || levelUpNotice">{{ saveStatus || levelUpNotice }}</p>
+        <div class="d2s-escape-menu-items">
+          <button type="button" (click)="closeEscapeMenu()">Return to Game</button>
+          <button type="button" (click)="toggleInventory()">Inventory</button>
+          <button type="button" (click)="saveRunNow()">Save and Exit Game</button>
+        </div>
+        <p class="d2s-escape-hint">Press ESC to return to the fight</p>
+        <div class="d2s-menu-skills" *ngIf="ownedSkills.length">
+          <h3>Skills &amp; Upgrades</h3>
+          <ul class="d2s-list"><li *ngFor="let name of ownedSkills" class="d2s-skill"><strong>{{ name }}</strong><span class="d2s-desc">Level {{ getSkillLevel(name) }} — {{ getSkillDescription(name) }}</span></li></ul>
+        </div>
+      </section>
     </div>
 
-    <div class="d2s-owned" *ngIf="ownedSkills.length">
-      <h2>Owned skills</h2>
-      <ul class="d2s-list">
-        <li *ngFor="let name of ownedSkills" class="d2s-skill">
-          <strong>{{ name }}</strong>
-          <span class="d2s-desc">level {{ getSkillLevel(name) }} — {{ getSkillDescription(name) }}</span>
-        </li>
-      </ul>
-    </div>
 
-    <div class="d2s-inv-panel">
-      <h2>Inventory</h2>
-      <div class="d2s-inv" role="grid" aria-label="Inventory grid">
+    <section id="d2s-inventory-overlay" class="d2s-inv-panel" [class.open]="inventoryOpen" [attr.aria-hidden]="!inventoryOpen" aria-label="Character equipment and inventory" (click)="$event.stopPropagation()">
+      <header class="d2s-inventory-overlay-header">
+        <h2>Inventory</h2>
+        <button type="button" class="d2s-inventory-close" (click)="toggleInventory()" aria-label="Close inventory">Close</button>
+      </header>
+      <div class="d2s-inventory-layout">
+        <section class="d2s-paperdoll" aria-label="Character equipment">
+          <h3 class="d2s-inventory-heading">Character</h3>
+          <div class="d2s-paperdoll-board">
+            <div class="d2s-paperdoll-silhouette" aria-hidden="true"><span></span></div>
+            <button
+              type="button"
+              *ngFor="let slot of paperdollLayout"
+              class="d2s-equipment-slot"
+              [class]="'d2s-equipment-slot position-' + slot.position"
+              [class.equipped]="!!getEquipmentItem(slot.slot)"
+              [class.rare]="getEquipmentItem(slot.slot)?.rarity === 'rare'"
+              [class.magic]="getEquipmentItem(slot.slot)?.rarity === 'magic'"
+              [attr.data-equipment-slot]="slot.slot"
+              [attr.aria-label]="slot.label + (getEquipmentItem(slot.slot) ? ': ' + getEquipmentItem(slot.slot)?.name : ', empty')"
+              [draggable]="!!getEquipmentItem(slot.slot)"
+              (dragstart)="startEquipmentDrag(slot.slot, $event)"
+              (dragover)="$event.preventDefault()"
+              (drop)="onEquipmentDrop(slot.slot, $event)"
+              (contextmenu)="unequipEquipmentSlot(slot.slot, $event)"
+              (click)="selectEquipmentItem(slot.slot)">
+              <span class="d2s-equipment-icon" aria-hidden="true">{{ getEquipmentItem(slot.slot) ? equipmentItemIcon(getEquipmentItem(slot.slot)!) : slot.icon }}</span>
+              <span class="d2s-equipment-label">{{ getEquipmentItem(slot.slot)?.name || slot.label }}</span>
+            </button>
+          </div>
+          <div class="d2s-paperdoll-stats"><span>Strength <b>{{ selectedClassStats.attributes[0].value }}</b></span><span>Dexterity <b>{{ selectedClassStats.attributes[1].value }}</b></span><span>Vitality <b>{{ selectedClassStats.attributes[2].value }}</b></span><span>Energy <b>{{ selectedClassStats.attributes[3].value }}</b></span></div>
+          <p class="d2s-equipped-belt">Belt: <strong>{{ equippedBelt?.name || 'Empty' }}</strong> · {{ beltRows }} potion row{{ beltRows === 1 ? '' : 's' }}</p>
+        </section>
+        <section class="d2s-bag" aria-label="Inventory backpack">
+          <h3 class="d2s-inventory-heading">Inventory</h3>
+          <div class="d2s-inv" role="grid" aria-label="10 by 4 inventory grid" [style.--inventory-columns]="inventoryColumns" [style.--inventory-rows]="inventoryRows">
         <div
           class="d2s-inv-slot"
           *ngFor="let slot of inventoryGrid; let i = index"
           role="gridcell"
           [attr.aria-label]="slot.item ? slot.item.name + ', ' + slot.item.rarity : 'Empty slot'"
-          [attr.data-inventory-slot]="i"
+          [attr.data-inventory-slot]="slot.slotIndex"
           [draggable]="!!slot.item"
-          (dragstart)="startDrag(i, $event)"
-          (dragover)="onInventoryDragOver(i, $event)"
-          (drop)="onInventoryDrop(i, $event)"
+          (dragstart)="startDrag(slot.slotIndex, $event)"
+          (dragover)="onInventoryDragOver(slot.slotIndex, $event)"
+          (drop)="onInventoryDrop(slot.slotIndex, $event)"
           (dragend)="onInventoryDragEnd()"
           [class.filled]="slot.item"
           [class.rare]="slot.item?.rarity === 'rare'"
           [class.magic]="slot.item?.rarity === 'magic'"
           [class.normal]="slot.item?.rarity === 'normal'"
           [class.empty]="!slot.item"
-          [class.selected]="selectedSlotIndex === i"
-          [class.drag-over]="dragGhostSlotIndex === i"
-          [class.drag-denied]="dragGhostSlotIndex === i && dragState && !canDropOnSlot(dragState.slotIndex, i, dragState.item)"
-          (click)="selectInventoryItem(i, slot.item ?? null)">
+          [class.selected]="selectedSlotIndex === slot.slotIndex"
+          [class.drag-over]="dragGhostSlotIndex === slot.slotIndex"
+          [class.drag-denied]="dragGhostSlotIndex === slot.slotIndex && dragState && !canDropOnSlot(dragState.slotIndex, slot.slotIndex, dragState.item)"
+          [ngStyle]="inventoryGridStyle(slot)"
+          (click)="selectInventoryItem(slot.slotIndex, slot.item ?? null)">
           <span class="d2s-inv-name">{{ slot.item?.name || '' }}</span>
         </div>
+          </div>
+        </section>
       </div>
       <div class="d2s-item-window" *ngIf="selectedItem">
         <div class="d2s-item-window-inner">
@@ -249,14 +315,17 @@
           <h3 class="d2s-item-window-title">{{ selectedItem.name }}</h3>
           <p class="d2s-item-window-base" *ngIf="selectedItem.baseName && selectedItem.baseName !== selectedItem.name">Base item: {{ selectedItem.baseName }}</p>
           <p class="d2s-item-window-description">{{ selectedItem.desc }}</p>
+          <p class="d2s-item-window-description" *ngIf="getEquipmentType(selectedItem) === 'belt'">{{ selectedItem.beltQuality }} belt · {{ getBeltRows(selectedItem) }} potion rows</p>
+          <button type="button" class="d2s-equip-belt" *ngIf="selectedSlotIndex !== null && getEquipmentType(selectedItem) !== 'charm'" (click)="equipSelectedItem(selectedSlotIndex)">Equip {{ getEquipmentType(selectedItem) }}</button>
+          <button type="button" class="d2s-equip-belt" *ngIf="selectedEquipmentSlot" (click)="unequipItem(selectedEquipmentSlot)">Unequip</button>
           <div class="d2s-item-window-stats">
             <p *ngFor="let line of itemStatText(selectedItem)">{{ line }}</p>
           </div>
         </div>
       </div>
       <p class="d2s-inventory-status" role="status" *ngIf="inventoryStatus">{{ inventoryStatus }}</p>
-      <p class="d2s-hint">Drag items between slots · occupied slots swap · click an item to inspect its stats</p>
-    </div>
+      <p class="d2s-hint">Drag gear to a matching paper-doll slot to equip · drag equipment back to your bag · items occupy their full footprint · right-click an equipped slot to unequip</p>
+    </section>
 
   </section>
 </div>
