@@ -18,7 +18,6 @@ namespace maxhanna.Server.Services
 
     public async Task RecordCharacterAsync(D2SurvivorsController.D2SRecordCharacterRequest request)
     {
-      await D2SurvivorsController.EnsureTablesAsync(_connectionString);
       await using var conn = new MySqlConnection(_connectionString);
       await conn.OpenAsync();
       const string sql = @"INSERT INTO maxhanna.d2survivors_character_history
@@ -42,7 +41,6 @@ namespace maxhanna.Server.Services
 
     public async Task<List<D2SurvivorsController.D2SLeaderboardEntry>> GetLeaderboardAsync(int limit)
     {
-      await D2SurvivorsController.EnsureTablesAsync(_connectionString);
       await using var conn = new MySqlConnection(_connectionString);
       await conn.OpenAsync();
       const string sql = @"SELECT h.id, h.user_id, h.character_name, h.class_id,
@@ -73,7 +71,6 @@ namespace maxhanna.Server.Services
 
     public async Task<List<D2SurvivorsController.D2SLobbyMessage>> GetChatHistoryAsync(int limit)
     {
-      await D2SurvivorsController.EnsureTablesAsync(_connectionString);
       await using var conn = new MySqlConnection(_connectionString);
       await conn.OpenAsync();
       const string sql = @"SELECT m.id, m.user_id, COALESCE(u.username, 'Anonymous') AS username, m.message, m.created_at
@@ -99,7 +96,6 @@ namespace maxhanna.Server.Services
 
     public async Task<D2SurvivorsController.D2SLobbyMessage> SendChatMessageAsync(D2SurvivorsController.D2SLobbyMessageRequest request)
     {
-      await D2SurvivorsController.EnsureTablesAsync(_connectionString);
       await using var conn = new MySqlConnection(_connectionString);
       await conn.OpenAsync();
       const string insertSql = @"INSERT INTO maxhanna.d2survivors_lobby_chat (user_id, message, created_at)
