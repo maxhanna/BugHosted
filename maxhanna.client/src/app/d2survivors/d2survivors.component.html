@@ -25,11 +25,11 @@
 
       <div class="d2s-menu-content" [class.subpanel-open]="menuPanel !== 'main'">
         <div class="d2s-menu-options" *ngIf="menuPanel === 'main'">
-          <button type="button" class="d2s-menu-button primary" (click)="openCharacterSelect()">
-            <span>Single Player</span><small>Choose a hero and enter Sanctuary</small>
+          <button type="button" class="d2s-menu-button primary" *ngIf="hasSavedRun" (click)="openLobby()">
+            <span>Return to Sanctuary Lobby</span><small>{{ savedRunSummary }} · Gather in the realm before continuing</small>
           </button>
-          <button type="button" class="d2s-menu-button" (click)="openCharacterSelect()">
-            <span>Choose Your Hero</span><small>{{ selectedClassName }} · Character select</small>
+          <button type="button" class="d2s-menu-button primary" *ngIf="!hasSavedRun" (click)="openLobby()">
+            <span>Battle.net</span><small>Enter the Sanctuary lobby · all-time heroes and world chat</small>
           </button>
           <button type="button" class="d2s-menu-button" (click)="openLore()">
             <span>Lore &amp; Skills</span><small>Classes, abilities, and the world</small>
@@ -39,8 +39,43 @@
           </button>
         </div>
 
+        <section class="d2s-menu-subpanel d2s-lobby" *ngIf="menuPanel === 'lobby'">
+          <div class="d2s-panel-heading"><button type="button" class="d2s-back-button" (click)="returnToMainMenu()">‹ Main menu</button><span>Sanctuary · Battle.net</span><button type="button" class="d2s-back-button" (click)="openCharacterSelect()">Choose Hero ›</button></div>
+          <div class="d2s-lobby-panels">
+            <section class="d2s-lobby-ranking" aria-labelledby="d2s-ranking-title">
+              <div class="d2s-lobby-section-heading"><div><small>THE IMMORTAL ARCHIVE</small><h2 id="d2s-ranking-title">Greatest heroes of all time</h2></div><span class="d2s-online-indicator"><i></i> REALM ONLINE</span></div>
+              <p class="d2s-lobby-error" role="status" *ngIf="lobbyError">{{ lobbyError }}</p>
+              <div class="d2s-ranking-list" *ngIf="lobbyLeaderboard.length; else noRankings">
+                <div class="d2s-ranking-row" *ngFor="let hero of lobbyLeaderboard; let i = index" [class.top-rank]="i < 3">
+                  <span class="d2s-rank-number">{{ (i + 1).toString().padStart(2, '0') }}</span>
+                  <span class="d2s-class-sigil" [attr.data-initial]="hero.classId.charAt(0).toUpperCase()"></span>
+                  <span class="d2s-ranking-identity"><strong>{{ hero.characterName }}</strong><small>{{ hero.username }} · {{ hero.classId | titlecase }}</small></span>
+                  <span class="d2s-ranking-result" [class.hero-fallen]="hero.died"><strong>{{ hero.died ? 'FALLEN' : 'VICTOR' }}</strong><small>Lv {{ hero.level }} · {{ hero.timeSeconds }}s · {{ hero.kills }} kills</small></span>
+                  <strong class="d2s-ranking-score">{{ hero.score | number }}</strong>
+                </div>
+              </div>
+              <ng-template #noRankings><div class="d2s-lobby-empty"><span aria-hidden="true">✦</span><strong>{{ lobbyLoading ? 'Summoning the archive…' : 'No fallen heroes yet' }}</strong><small>Every completed journey will be remembered here.</small></div></ng-template>
+              <div class="d2s-lobby-note">A permanent record of every journey. The dead are never forgotten.</div>
+            </section>
+            <section class="d2s-lobby-chat" aria-labelledby="d2s-chat-title">
+              <div class="d2s-lobby-chat-heading"><div><small>REALM CHANNEL · SANCTUARY</small><h2 id="d2s-chat-title">World chat</h2></div><span>{{ lobbyMessages.length }} messages</span></div>
+              <div #lobbyChatLog class="d2s-lobby-chat-log" role="log" aria-live="polite" aria-relevant="additions text">
+                <p class="d2s-chat-empty" *ngIf="!lobbyMessages.length">No one has spoken… be the first to greet the realm.</p>
+                <div class="d2s-chat-line" *ngFor="let item of lobbyMessages"><time>{{ item.createdAt | date:'shortTime' }}</time><strong>{{ item.username }}</strong><span>{{ item.message }}</span></div>
+              </div>
+              <p class="d2s-lobby-error chat-error" role="status" *ngIf="lobbyChatError">{{ lobbyChatError }}</p>
+              <form class="d2s-lobby-chat-form" (ngSubmit)="sendLobbyMessage()">
+                <input name="lobbyMessage" [(ngModel)]="lobbyMessageDraft" maxlength="500" autocomplete="off" placeholder="Speak to the realm…" aria-label="Lobby chat message" [disabled]="lobbySending" />
+                <button type="submit" [disabled]="lobbySending || !lobbyMessageDraft.trim()">{{ lobbySending ? '…' : 'Send' }}</button>
+              </form>
+              <small class="d2s-chat-signin-hint" *ngIf="!isLobbySignedIn">Sign in to send a message. The lobby is open to all.</small>
+            </section>
+          </div>
+          <div class="d2s-lobby-footer"><span>SEVEN CLASSES · ONE REALM</span><span>YOUR STORY WILL JOIN THE ARCHIVE</span><button type="button" *ngIf="hasSavedRun" (click)="resumeRun()">RESUME SAVED JOURNEY</button></div>
+        </section>
+
         <section class="d2s-menu-subpanel d2s-character-select" *ngIf="menuPanel === 'characters'">
-          <div class="d2s-panel-heading"><button type="button" class="d2s-back-button" (click)="closeCharacterSelect()">‹ Back</button><span>Choose Your Hero</span></div>
+          <div class="d2s-panel-heading"><button type="button" class="d2s-back-button" (click)="returnToLobby()">‹ Lobby</button><span>Choose Your Hero</span></div>
           <div class="d2s-character-details">
             <div class="d2s-class-grid" aria-label="Available heroes">
               <button type="button" *ngFor="let cls of classes" class="d2s-class-choice" [class.chosen]="selectedClass === cls.id" [attr.aria-pressed]="selectedClass === cls.id" (click)="selectClass(cls.id)">
@@ -59,7 +94,7 @@
               </div>
               <div class="d2s-derived-stats"><span>Life <b>{{ selectedClassStats.life }}</b></span><span>Mana <b>{{ selectedClassStats.mana }}</b></span><span>Stamina <b>{{ selectedClassStats.stamina }}</b></span></div>
             </div>
-            <button type="button" class="d2s-menu-button primary d2s-begin-button" (click)="startRun()"><span>Begin Journey</span><small>Enter Sanctuary as the {{ selectedClassName }}</small></button>
+            <button type="button" class="d2s-menu-button primary d2s-begin-button" (click)="startRun()"><span>{{ hasSavedRun ? 'Start New Journey' : 'Begin Journey' }}</span><small>{{ hasSavedRun ? 'Replace the saved run with the ' + selectedClassName : 'Enter Sanctuary as the ' + selectedClassName }}</small></button>
           </div>
           <div class="d2s-class-preview" [class.loading]="!previewModel && !previewLoadError">
             <canvas #classPreviewCanvas class="d2s-class-preview-canvas" [attr.aria-label]="selectedClassName + ' 3D hero preview'" role="img"></canvas>
@@ -125,12 +160,15 @@
     <p class="d2s-sub">Bosses and champions drop chests with skill upgrades, gear, and potions. Walk over potions to stock empty belt slots; press 1–4 to drink from each belt column.</p>
 
     <div class="d2s-run-hud">
+      <span class="d2s-hud">{{ selectedClassName }}</span>
       <span class="d2s-hud">Gold {{ playerGold }}</span>
       <span class="d2s-hud">Time {{ runTime.toFixed(0) }}s</span>
       <span class="d2s-hud">Enemies {{ enemies.length }}</span>
       <span class="d2s-hud">Chests {{ openChestCount }}</span>
+      <button type="button" class="d2s-hud d2s-save-button" (click)="saveRunNow()">Save &amp; return to menu</button>
     </div>
 
+    <p class="d2s-save-status" role="status" aria-live="polite" *ngIf="saveStatus">{{ saveStatus }}</p>
     <div class="d2s-arena-wrap">
       <canvas #arena class="d2s-arena" width="500" height="500" (keydown)="onKeyDown($event)" (keyup)="onKeyUp($event)" tabindex="0"></canvas>
       <canvas #characterCanvas class="d2s-character-canvas" width="500" height="500" aria-hidden="true"></canvas>

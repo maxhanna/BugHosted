@@ -6,12 +6,22 @@ import {
   HostListener,
   ViewChild,
   ElementRef,
+  Input,
+  inject,
 } from "@angular/core";
 import { CommonModule } from "@angular/common";
+import { FormsModule } from "@angular/forms";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { Subscription } from "rxjs";
+import { D2LeaderboardEntry, D2LobbyMessage, D2RecordCharacterRequest, D2SurvivorsService } from "../../services/d2survivors.service";
+import { User } from "../../services/datacontracts/user/user";
+import { AppComponent } from "../app.component";
 
 const MODEL_BASE = "assets/d2-models";
+const RUN_SAVE_KEY = "d2survivors.run.v1";
+const RUN_SAVE_VERSION = 1;
+const RUN_SAVE_INTERVAL_MS = 2500;
 const CLASS_MODEL: Record<
   string,
   { model: string; body: string; head: string; hair?: string; armor?: string; weapon?: string }
@@ -72,11 +82,15 @@ const CLASS_MODEL: Record<
 @Component({
   selector: "app-d2-survivors",
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: "./d2survivors.component.html",
   styleUrls: ["./d2survivors.component.css"],
 })
 export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
+  private readonly d2SurvivorsService = inject(D2SurvivorsService);
+  @Input() inputtedParentRef?: AppComponent;
+  parentRef?: AppComponent;
+  @ViewChild("lobbyChatLog") private lobbyChatLogRef?: ElementRef<HTMLDivElement>;
   @ViewChild("arena") arenaRef?: ElementRef<HTMLCanvasElement>;
   @ViewChild("characterCanvas") characterCanvasRef?: ElementRef<HTMLCanvasElement>;
 
@@ -670,7 +684,25 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // Menu and mini-run state
   activeTab: "menu" | "lore" | "run" = "menu";
-  menuPanel: "main" | "characters" | "credits" = "main";
+  menuPanel: "main" | "lobby" | "characters" | "credits" = "main";
+  lobbyLeaderboard: D2LeaderboardEntry[] = [];
+  lobbyMessages: D2LobbyMessage[] = [];
+  lobbyMessageDraft = "";
+  lobbyLoading = false;
+  lobbyError = "";
+  lobbyChatError = "";
+  lobbySending = false;
+  private lobbyLoaded = false;
+  private lobbyMessageSubscription?: Subscription;
+  private leaderboardSubscription?: Subscription;
+  private leaderboardRefreshTimer?: number;
+  private lobbyRefreshTimer?: number;
+  private lobbySession?: { userId: number; token: string; username: string };
+  private lobbyRunId = "";
+  private lastRecordedRunId = "";
+  private recordRetryTimer?: number;
+  private runKillCount = 0;
+  private lastLeaderboardRefreshAt = 0;
   runActive = false;
   playerX = 250;
   playerY = 250;
@@ -682,6 +714,9 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
   ownedSkills: string[] = [];
   skillLevels: Record<string, number> = {};
   selectedClass = "amazon";
+  hasSavedRun = false;
+  saveStatus = "";
+  private lastRunSaveAt = 0;
   private readonly classStartingStats: Record<string, { title: string; specialty: string; life: number; mana: number; stamina: number; attributes: [number, number, number, number] }> = {
     amazon: { title: "Spear & Bow Mastery", specialty: "Balanced · Ranged Combat", life: 24, mana: 15, stamina: 84, attributes: [20, 25, 20, 15] },
     assassin: { title: "Shadow Discipline", specialty: "Agile · Traps & Martial Arts", life: 20, mana: 25, stamina: 95, attributes: [20, 20, 20, 25] },
@@ -708,7 +743,208 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.classes.find((characterClass) => characterClass.id === this.selectedClass)?.desc ?? "Choose a hero to begin.";
   }
 
+  get savedRunSummary(): string {
+    const savedClass = this.savedRunClass;
+    const className = this.classes.find((characterClass) => characterClass.id === savedClass)?.name ?? this.selectedClassName;
+    return `${className} · ${Math.floor(this.runTime)} seconds survived`;
+  }
+
+  get isLobbySignedIn(): boolean {
+    return !!(this.inputtedParentRef?.user ?? this.parentRef?.user);
+  }
+
+  private get savedRunClass(): string {
+    return this.savedRun?.selectedClass ?? this.selectedClass;
+  }
+
+  private get savedRun(): D2SavedRun | null {
+    if (typeof window === "undefined") {
+      return null;
+    }
+    try {
+      const raw = window.localStorage.getItem(RUN_SAVE_KEY);
+      if (!raw) {
+        return null;
+      }
+      const save = JSON.parse(raw) as Partial<D2SurvivorsSave>;
+      return save.version === RUN_SAVE_VERSION && save.run && typeof save.run === "object" && !Array.isArray(save.run)
+        ? save.run as D2SavedRun
+        : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private readSavedProgress(): void {
+    if (typeof window === "undefined") {
+      return;
+    }
+    try {
+      const raw = window.localStorage.getItem(RUN_SAVE_KEY);
+      if (!raw) {
+        return;
+      }
+      const save = JSON.parse(raw) as Partial<D2SurvivorsSave>;
+      if (save.version !== RUN_SAVE_VERSION) {
+        return;
+      }
+      if (typeof save.selectedClass === "string" && CLASS_MODEL[save.selectedClass]) {
+        this.selectedClass = save.selectedClass;
+      }
+      if (!save.run || typeof save.run !== "object" || Array.isArray(save.run)) {
+        return;
+      }
+      this.restoreRunState(save.run as Partial<D2SavedRun>);
+    } catch (error) {
+      console.warn("Could not restore saved D2 Survivors progress", error);
+    }
+  }
+
+  private restoreRunState(saved: Partial<D2SavedRun>): void {
+    const numberValue = (value: unknown, fallback: number, min: number, max: number): number =>
+      typeof value === "number" && Number.isFinite(value) ? Math.max(min, Math.min(max, value)) : fallback;
+    const savedClass = typeof saved.selectedClass === "string" && CLASS_MODEL[saved.selectedClass]
+      ? saved.selectedClass
+      : this.selectedClass;
+    const startingStats = this.classStartingStats[savedClass] ?? this.classStartingStats["amazon"];
+    this.lobbyRunId = typeof saved.runId === "string" && saved.runId ? saved.runId : crypto.randomUUID();
+    this.runKillCount = typeof saved.runKillCount === "number" && Number.isFinite(saved.runKillCount) ? Math.max(0, Math.floor(saved.runKillCount)) : 0;
+    this.arenaW = numberValue(saved.arenaW, 500, 100, 5000);
+    this.arenaH = numberValue(saved.arenaH, 500, 100, 5000);
+    this.playerX = numberValue(saved.playerX, this.arenaW / 2, 32, this.arenaW - 32);
+    this.playerY = numberValue(saved.playerY, this.arenaH / 2, 32, this.arenaH - 32);
+    this.playerMaxHp = numberValue(saved.playerMaxHp, startingStats.life, 1, 10000);
+    this.playerMaxMana = numberValue(saved.playerMaxMana, startingStats.mana, 1, 10000);
+    this.playerHp = numberValue(saved.playerHp, this.playerMaxHp, 0, this.playerMaxHp);
+    this.playerMana = numberValue(saved.playerMana, this.playerMaxMana, 0, this.playerMaxMana);
+    this.playerGold = Math.floor(numberValue(saved.playerGold, 0, 0, 1_000_000_000));
+    this.runTime = numberValue(saved.runTime, 0, 0, 1_000_000_000);
+    this.spawnAcc = numberValue(saved.spawnAcc, 0, 0, 1);
+    this.chestTimer = numberValue(saved.chestTimer, 0, -3600, 3600);
+    this.nextChestInterval = numberValue(saved.nextChestInterval, 8, 1, 3600);
+    this.enemies = Array.isArray(saved.enemies)
+      ? saved.enemies.slice(0, 220).filter(isRecord).map((enemy) => ({
+          kind: enemy["kind"] === "boss" || enemy["kind"] === "champion" ? enemy["kind"] : "normal",
+          x: numberValue(enemy["x"], 250, 0, this.arenaW),
+          y: numberValue(enemy["y"], 250, 0, this.arenaH),
+          hp: numberValue(enemy["hp"], 1, 0, 1_000_000),
+          maxHp: numberValue(enemy["maxHp"], 1, 1, 1_000_000),
+          speed: numberValue(enemy["speed"], 80, 0, 10_000),
+          r: numberValue(enemy["r"], 14, 1, 100),
+          dmg: numberValue(enemy["dmg"], 1, 0, 1_000_000),
+          ...(typeof enemy["cd"] === "number" ? { cd: numberValue(enemy["cd"], 0, 0, 3600) } : {}),
+        }))
+      : [];
+    this.chests = Array.isArray(saved.chests)
+      ? saved.chests.slice(0, 300).filter(isRecord).map((chest) => ({
+          x: numberValue(chest["x"], 250, 0, this.arenaW),
+          y: numberValue(chest["y"], 250, 0, this.arenaH),
+          bob: numberValue(chest["bob"], 0, 0, 1_000_000),
+          open: chest["open"] === true,
+          life: numberValue(chest["life"], 30, 0, 3600),
+        }))
+      : [];
+    this.potionDrops = Array.isArray(saved.potionDrops)
+      ? saved.potionDrops.slice(0, 300).filter(isRecord).map((drop) => ({
+          x: numberValue(drop["x"], 250, 0, this.arenaW),
+          y: numberValue(drop["y"], 250, 0, this.arenaH),
+          kind: drop["kind"] === "mana" ? "mana" : "health",
+          bob: numberValue(drop["bob"], 0, 0, 1_000_000),
+          life: numberValue(drop["life"], 25, 0, 3600),
+          pickupDelay: numberValue(drop["pickupDelay"], 0, 0, 3600),
+          notifiedFull: drop["notifiedFull"] === true,
+          collected: drop["collected"] === true,
+        }))
+      : [];
+    this.beltSlots = Array.isArray(saved.beltSlots)
+      ? Array.from({ length: 16 }, (_, index) => {
+          const kind = saved.beltSlots?.[index]?.kind;
+          return { kind: kind === "health" || kind === "mana" ? kind : null };
+        })
+      : this.beltSlots;
+    this.ownedSkills = Array.isArray(saved.ownedSkills)
+      ? saved.ownedSkills.filter((name): name is string => typeof name === "string" && this.skills.some((skill) => skill.name === name)).slice(0, 100)
+      : [];
+    this.skillLevels = {};
+    if (isRecord(saved.skillLevels)) {
+      for (const [name, level] of Object.entries(saved.skillLevels)) {
+        if (this.ownedSkills.includes(name) && typeof level === "number" && Number.isFinite(level)) {
+          this.skillLevels[name] = Math.floor(Math.max(1, Math.min(100, level)));
+        }
+      }
+    }
+    this.inventory = Array.isArray(saved.inventory)
+      ? saved.inventory.slice(0, this.inventoryColumns * this.inventoryRows).map((item) => sanitizeInventoryItem(item))
+      : [];
+    this.rebuildInventoryGrid();
+    this.openChestCount = this.chests.filter((chest) => !chest.open).length;
+    this.hasSavedRun = true;
+    this.runActive = false;
+  }
+
+  private persistRunProgress(force = false): void {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const now = performance.now();
+    if (!force && now - this.lastRunSaveAt < RUN_SAVE_INTERVAL_MS) {
+      return;
+    }
+    try {
+      const run: D2SavedRun | null = this.hasSavedRun ? {
+        hasSavedRun: true,
+        runId: this.lobbyRunId || crypto.randomUUID(),
+        selectedClass: this.runActive || this.activeTab === "run" ? this.selectedClass : this.savedRunClass,
+        arenaW: this.arenaW,
+        arenaH: this.arenaH,
+        playerX: this.playerX,
+        playerY: this.playerY,
+        playerHp: this.playerHp,
+        playerMaxHp: this.playerMaxHp,
+        playerMana: this.playerMana,
+        playerMaxMana: this.playerMaxMana,
+        playerGold: this.playerGold,
+        runTime: this.runTime,
+        runKillCount: this.runKillCount,
+        ownedSkills: this.ownedSkills,
+        skillLevels: this.skillLevels,
+        enemies: this.enemies,
+        chests: this.chests,
+        potionDrops: this.potionDrops,
+        beltSlots: this.beltSlots,
+        inventory: this.inventory,
+        spawnAcc: this.spawnAcc,
+        chestTimer: this.chestTimer,
+        nextChestInterval: this.nextChestInterval,
+      } : null;
+      const serialized = JSON.stringify({
+        version: RUN_SAVE_VERSION,
+        selectedClass: this.selectedClass,
+        run,
+      } satisfies D2SurvivorsSave);
+      window.localStorage.setItem(RUN_SAVE_KEY, serialized);
+      this.hasSavedRun = run !== null;
+      this.lastRunSaveAt = now;
+    } catch (error) {
+      console.warn("Could not save D2 Survivors progress", error);
+      this.saveStatus = "Unable to save progress in this browser.";
+    }
+  }
+
+  saveRunNow(): void {
+    this.persistRunProgress(true);
+    this.runActive = false;
+    if (this.rafId) {
+      cancelAnimationFrame(this.rafId);
+      this.rafId = 0;
+    }
+    this.saveStatus = "Journey saved. You can resume from the title screen.";
+    this.activeTab = "menu";
+    this.menuPanel = "main";
+  }
+
   returnToMenu(): void {
+    this.persistRunProgress(true);
     this.activeTab = "menu";
     this.menuPanel = "main";
     this.runActive = false;
@@ -716,6 +952,7 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
 
   openLore(): void {
     this.stopAmbientAudio();
+    this.ambientAudioStatus = "Ambience muted";
     this.activeTab = "lore";
   }
 
@@ -765,6 +1002,10 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
         voiceGain.gain.value = index === 0 ? 0.55 : 0.16;
         oscillator.connect(voiceGain);
         voiceGain.connect(droneFilter);
+        oscillator.onended = () => {
+          oscillator.disconnect();
+          voiceGain.disconnect();
+        };
         oscillator.start();
         this.ambientAudioNodes.push(oscillator);
       });
@@ -828,12 +1069,12 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
       master.gain.setTargetAtTime(0, context.currentTime, 0.06);
       window.setTimeout(() => master.disconnect(), 250);
     }
+    const stopAt = this.audioContext ? this.audioContext.currentTime + 0.22 : undefined;
     for (const oscillator of this.ambientAudioNodes) {
       try {
-        oscillator.stop();
-        oscillator.disconnect();
+        oscillator.stop(stopAt);
       } catch {
-        // Oscillators already stopped after a rapid toggle.
+        // Oscillators can already be stopping after a rapid toggle.
       }
     }
     this.ambientAudioNodes = [];
@@ -841,13 +1082,183 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   resumeRun(): void {
+    if (!this.hasSavedRun || this.runActive) {
+      return;
+    }
+    const savedRun = this.savedRun;
+    if (!savedRun) {
+      this.hasSavedRun = false;
+      return;
+    }
+    this.restoreRunState(savedRun);
+    if (CLASS_MODEL[savedRun.selectedClass]) {
+      this.selectedClass = savedRun.selectedClass;
+    }
     this.activeTab = "run";
-    this.runActive = true;
+    this.menuPanel = "main";
+    this.initializeCharacterRenderer();
+    if (this.characterRenderer && this.characterScene && this.loadedModelClass !== this.selectedClass) {
+      this.loadCharacterModel();
+    }
+    this.selectedClass = savedRun.selectedClass;
+    this.selectedClass = savedRun.selectedClass;
+    this.persistRunProgress(true);
     this.lastTime = performance.now();
+    this.runActive = true;
     this.loop(this.lastTime);
   }
 
+  async openLobby(): Promise<void> {
+    this.stopAmbientAudio();
+    this.ambientAudioStatus = "Ambience muted";
+    this.menuPanel = "lobby";
+    await this.loadLobby();
+    if (this.lobbyRunId && !this.runActive && this.playerHp <= 0) void this.recordCompletedCharacter(false);
+  }
+
+  returnToMainMenu(): void {
+    this.menuPanel = "main";
+    this.startClassPreview();
+  }
+
+  returnToLobby(): void {
+    this.closeCharacterSelect();
+  }
+
+  private async getLobbySession(): Promise<{ userId: number; token: string; username: string } | null> {
+    const app = this.inputtedParentRef ?? this.parentRef;
+    const user = app?.user as User | undefined;
+    const userId = Number(user?.id ?? 0);
+    if (!userId || !app) return null;
+    const token = await app.getSessionToken();
+    return token ? { userId, token, username: user?.username?.trim() || "Hero" } : null;
+  }
+
+  private async loadLobby(): Promise<void> {
+    this.lobbyLoading = true;
+    this.lobbyError = "";
+    const [leaderboard, history, connected] = await Promise.all([
+      this.d2SurvivorsService.getLeaderboard(12),
+      this.d2SurvivorsService.getLobbyHistory(60),
+      this.d2SurvivorsService.connectLobby(),
+    ]);
+    if (leaderboard.ok && leaderboard.data) this.lobbyLeaderboard = leaderboard.data;
+    else this.lobbyError = "Rankings are temporarily unavailable. Retrying…";
+    if (history.ok && history.data) this.lobbyMessages = history.data;
+    else this.lobbyChatError = "Chat history is temporarily unavailable.";
+    if (!connected && !this.lobbyError) this.lobbyError = "Live lobby connection is unavailable; reconnecting…";
+    this.lobbyLoaded = true;
+    this.lobbyLoading = false;
+    this.lobbySession = await this.getLobbySession() ?? undefined;
+    if (this.menuPanel === "lobby") this.scrollLobbyChatToBottom();
+  }
+
+  private async refreshLeaderboard(): Promise<void> {
+    const now = Date.now();
+    if (now - this.lastLeaderboardRefreshAt < 1000) return;
+    this.lastLeaderboardRefreshAt = now;
+    const result = await this.d2SurvivorsService.getLeaderboard(12);
+    if (result.ok && result.data) {
+      this.lobbyLeaderboard = result.data;
+      this.lobbyError = "";
+    }
+  }
+
+  private async refreshLobbyHistory(): Promise<void> {
+    if (!this.lobbyLoaded) return;
+    const result = await this.d2SurvivorsService.getLobbyHistory(60);
+    if (result.ok && result.data) {
+      this.lobbyMessages = result.data;
+      if (this.menuPanel === "lobby") this.scrollLobbyChatToBottom();
+    }
+  }
+
+  private addLobbyMessage(message: D2LobbyMessage): void {
+    if (this.lobbyMessages.some((existing) => existing.id === message.id)) return;
+    this.lobbyMessages = [...this.lobbyMessages, message].slice(-60);
+    if (this.menuPanel === "lobby") this.scrollLobbyChatToBottom();
+  }
+
+  private scrollLobbyChatToBottom(): void {
+    requestAnimationFrame(() => {
+      const log = this.lobbyChatLogRef?.nativeElement;
+      if (log) log.scrollTop = log.scrollHeight;
+    });
+  }
+
+  async sendLobbyMessage(): Promise<void> {
+    const message = this.lobbyMessageDraft.trim();
+    if (!message || this.lobbySending) return;
+    const session = await this.getLobbySession();
+    if (!session) {
+      this.lobbyChatError = "Sign in to speak in the Sanctuary lobby.";
+      return;
+    }
+    this.lobbySending = true;
+    this.lobbyChatError = "";
+    const result = await this.d2SurvivorsService.sendLobbyMessage(session.userId, message, session.token);
+    if (result.ok && result.data) {
+      this.lobbyMessageDraft = "";
+      this.addLobbyMessage(result.data);
+    } else {
+      this.lobbyChatError = "Message could not be sent. Please try again.";
+    }
+    this.lobbySending = false;
+  }
+
+  getCharacterName(): string {
+    const accountName = this.lobbySession?.username ?? "Wanderer";
+    return `${accountName} ${this.selectedClassName}`.slice(0, 48);
+  }
+
+  private async recordCompletedCharacter(victory: boolean, retry = false): Promise<void> {
+    const runId = this.lobbyRunId;
+    if (!runId || (!retry && this.lastRecordedRunId === runId)) return;
+    this.lastRecordedRunId = runId;
+    const session = await this.getLobbySession();
+    if (!session) {
+      this.lastRecordedRunId = "";
+      this.saveStatus = "Sign in and return to the lobby to archive this completed hero.";
+      if (this.recordRetryTimer !== undefined) window.clearTimeout(this.recordRetryTimer);
+      this.recordRetryTimer = window.setTimeout(() => {
+        this.recordRetryTimer = undefined;
+        if (this.lobbyRunId === runId && !this.runActive) void this.recordCompletedCharacter(victory, true);
+      }, 15000);
+      return;
+    }
+    const request: D2RecordCharacterRequest = {
+      runId,
+      userId: session.userId,
+      characterName: this.getCharacterName(),
+      classId: this.selectedClass,
+      timeSeconds: Math.floor(this.runTime),
+      kills: this.runKillCount,
+      level: 1 + Object.values(this.skillLevels).reduce((sum, level) => sum + Math.max(0, level - 1), 0),
+      victory,
+    };
+    const result = await this.d2SurvivorsService.recordCharacter(request, session.token);
+    if (result.ok) {
+      this.hasSavedRun = false;
+      this.lobbyRunId = "";
+      this.persistRunProgress(true);
+      this.activeTab = "menu";
+      this.menuPanel = "lobby";
+      await this.refreshLeaderboard();
+    } else {
+      if (this.recordRetryTimer !== undefined) window.clearTimeout(this.recordRetryTimer);
+      this.recordRetryTimer = window.setTimeout(() => {
+        this.recordRetryTimer = undefined;
+        if (this.lobbyRunId === runId) void this.recordCompletedCharacter(victory, true);
+      }, 5000);
+      this.saveStatus = "Character record could not reach the server. Retrying…";
+    }
+  }
+
   openCharacterSelect(): void {
+    if (this.hasSavedRun && this.playerHp > 0) {
+      this.resumeRun();
+      return;
+    }
     this.stopAmbientAudio();
     this.ambientAudioStatus = "Ambience muted";
     this.menuPanel = "characters";
@@ -855,8 +1266,8 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   closeCharacterSelect(): void {
-    this.menuPanel = "main";
-    this.startClassPreview();
+    this.menuPanel = "lobby";
+    this.stopClassPreview();
   }
 
   selectClass(classId: string): void {
@@ -1185,10 +1596,21 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
     this.keysDown.delete(event.key.toLowerCase());
   }
 
-  ngOnInit(): void {
+  async ngOnInit(): Promise<void> {
     this.runActive = false;
     this.activeTab = "menu";
     this.rebuildInventoryGrid();
+    this.readSavedProgress();
+    this.lobbyMessageSubscription = this.d2SurvivorsService.lobbyMessage$.subscribe((message) => this.addLobbyMessage(message));
+    this.leaderboardSubscription = this.d2SurvivorsService.leaderboardUpdated$.subscribe(() => void this.refreshLeaderboard());
+    await this.loadLobby();
+    this.leaderboardRefreshTimer = window.setInterval(() => void this.refreshLeaderboard(), 15000);
+    this.lobbyRefreshTimer = window.setInterval(() => void this.refreshLobbyHistory(), 5000);
+  }
+
+  @HostListener("window:pagehide")
+  saveProgressBeforeLeaving(): void {
+    this.persistRunProgress(true);
   }
 
   ngAfterViewInit(): void {
@@ -1196,6 +1618,13 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.persistRunProgress(true);
+    this.lobbyMessageSubscription?.unsubscribe();
+    this.leaderboardSubscription?.unsubscribe();
+    if (this.leaderboardRefreshTimer !== undefined) window.clearInterval(this.leaderboardRefreshTimer);
+    if (this.lobbyRefreshTimer !== undefined) window.clearInterval(this.lobbyRefreshTimer);
+    if (this.recordRetryTimer !== undefined) window.clearTimeout(this.recordRetryTimer);
+    void this.d2SurvivorsService.disconnectLobby();
     this.runActive = false;
     if (this.rafId) {
       cancelAnimationFrame(this.rafId);
@@ -1218,6 +1647,11 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   startRun(): void {
+    this.lobbyRunId = crypto.randomUUID();
+    this.runKillCount = 0;
+    this.hasSavedRun = true;
+    this.runActive = false;
+    this.saveStatus = "";
     this.stopClassPreview();
     this.stopAmbientAudio();
     this.ambientAudioStatus = "Ambience muted";
@@ -1261,6 +1695,7 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
     this.spawnAcc = 0;
     this.chestTimer = 0;
     this.lastTime = performance.now();
+    this.lastRunSaveAt = 0;
     this.initializeCharacterRenderer();
     if (this.characterRenderer && this.characterScene && this.loadedModelClass !== this.selectedClass) {
       this.loadCharacterModel();
@@ -1268,6 +1703,7 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
       this.modelLoadError = true;
     }
     this.runActive = true;
+    this.persistRunProgress(true);
     this.loop(this.lastTime);
   }
 
@@ -1301,6 +1737,7 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
     this.updateFloatingTexts(dt);
     this.spawnEnemies(dt);
     this.spawnChests(dt);
+    this.persistRunProgress();
   }
 
   movePlayer(dt: number): void {
@@ -1338,6 +1775,8 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
         e.cd = Math.max(0, e.cd - dt / 1000);
       }
     }
+    const defeatedEnemies = this.enemies.filter((e) => e.hp <= 0);
+    this.runKillCount += defeatedEnemies.length;
     this.enemies = this.enemies.filter((e) => e.hp > 0 && this.playerHp > 0);
     if (this.playerHp <= 0) {
       this.endRun(false);
@@ -1677,7 +2116,13 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   endRun(victory: boolean): void {
+    if (!this.runActive) return;
     this.runActive = false;
+    void this.recordCompletedCharacter(victory);
+    if (!victory) {
+      this.hasSavedRun = false;
+      this.persistRunProgress(true);
+    }
     if (this.rafId) {
       cancelAnimationFrame(this.rafId);
       this.rafId = 0;
@@ -2059,6 +2504,76 @@ export class D2SurvivorsComponent implements OnInit, AfterViewInit, OnDestroy {
     ctx.textAlign = "center";
     ctx.fillText("chest", x, y - 16);
   }
+}
+
+interface D2SurvivorsSave {
+  version: number;
+  selectedClass: string;
+  run: D2SavedRun | null;
+}
+
+interface D2SavedRun {
+  hasSavedRun: true;
+  selectedClass: string;
+  arenaW: number;
+  arenaH: number;
+  playerX: number;
+  playerY: number;
+  playerHp: number;
+  playerMaxHp: number;
+  playerMana: number;
+  playerMaxMana: number;
+  playerGold: number;
+  runTime: number;
+  runId: string;
+  runKillCount: number;
+  ownedSkills: string[];
+  skillLevels: Record<string, number>;
+  enemies: Enemy[];
+  chests: Chest[];
+  potionDrops: PotionDrop[];
+  beltSlots: Array<{ kind: "health" | "mana" | null }>;
+  inventory: Array<D2InventoryItem | null>;
+  spawnAcc: number;
+  chestTimer: number;
+  nextChestInterval: number;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function sanitizeInventoryItem(value: unknown): D2InventoryItem | null {
+  if (!isRecord(value) || typeof value["id"] !== "string" || typeof value["name"] !== "string" ||
+      typeof value["desc"] !== "string" ||
+      (value["rarity"] !== "normal" && value["rarity"] !== "magic" && value["rarity"] !== "rare") ||
+      (value["slot"] !== "weapon" && value["slot"] !== "armor" && value["slot"] !== "charm")) {
+    return null;
+  }
+
+  const stats: D2ItemStats = {};
+  if (isRecord(value["stats"])) {
+    const statKeys: Array<keyof D2ItemStats> = ["damageMin", "damageMax", "armor", "plusDamage", "plusStrength", "plusVitality", "requiresStrength"];
+    for (const key of statKeys) {
+      const stat = value["stats"][key];
+      if (typeof stat === "number" && Number.isFinite(stat)) {
+        stats[key] = Math.max(0, Math.min(1_000_000, stat));
+      }
+    }
+  }
+  const affixes = Array.isArray(value["affixes"])
+    ? value["affixes"].filter((affix): affix is string => typeof affix === "string").slice(0, 12)
+    : undefined;
+  return {
+    id: value["id"].slice(0, 100),
+    name: value["name"].slice(0, 160),
+    ...(typeof value["baseName"] === "string" ? { baseName: value["baseName"].slice(0, 160) } : {}),
+    rarity: value["rarity"],
+    slot: value["slot"],
+    desc: value["desc"].slice(0, 500),
+    ...(Object.keys(stats).length ? { stats } : {}),
+    ...(affixes?.length ? { affixes } : {}),
+  };
 }
 
 interface Enemy {

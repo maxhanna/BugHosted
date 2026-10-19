@@ -1,4 +1,5 @@
 using System.Text.Json;
+using maxhanna.Server.Services;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 
@@ -32,16 +33,19 @@ namespace maxhanna.Server.Controllers
   public class D2SurvivorsController : ControllerBase
   {
     private const int MaxSaveBytes = 262144;
+    private const int MaxLobbyMessageLength = 500;
     private static bool _tablesReady;
     private static readonly SemaphoreSlim _tableLock = new(1, 1);
 
     private readonly Log _log;
     private readonly string _connectionString;
+    private readonly D2SurvivorsLobbyService _lobbyService;
 
-    public D2SurvivorsController(Log log, IConfiguration config)
+    public D2SurvivorsController(Log log, IConfiguration config, D2SurvivorsLobbyService lobbyService)
     {
       _log = log;
       _connectionString = config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+      _lobbyService = lobbyService;
     }
 
     /// <summary>Creates the D2 Survivors tables once per process. Safe to call from other controllers.</summary>
@@ -75,6 +79,30 @@ namespace maxhanna.Server.Controllers
               created_at DATETIME NOT NULL,
               INDEX idx_d2s_score (score),
               INDEX idx_d2s_user (user_id)
+            );",
+          @"CREATE TABLE IF NOT EXISTS maxhanna.d2survivors_character_history (
+              id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+              run_id CHAR(36) NULL,
+              user_id INT NOT NULL,
+              character_name VARCHAR(48) NOT NULL,
+              class_id VARCHAR(24) NOT NULL,
+              score INT NOT NULL,
+              time_seconds INT NOT NULL,
+              kills INT NOT NULL,
+              level INT NOT NULL,
+              victory TINYINT(1) NOT NULL DEFAULT 0,
+              died TINYINT(1) NOT NULL DEFAULT 1,
+              created_at DATETIME NOT NULL,
+              INDEX idx_d2s_character_ranking (score, created_at, id),
+              INDEX idx_d2s_character_user (user_id),
+              UNIQUE KEY uq_d2s_character_run (run_id)
+            );",
+          @"CREATE TABLE IF NOT EXISTS maxhanna.d2survivors_lobby_chat (
+              id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+              user_id INT NOT NULL,
+              message VARCHAR(500) NOT NULL,
+              created_at DATETIME NOT NULL,
+              INDEX idx_d2s_lobby_chat (id)
             );"
         };
         foreach (var sql in statements)
@@ -82,12 +110,78 @@ namespace maxhanna.Server.Controllers
           await using var cmd = new MySqlCommand(sql, conn);
           await cmd.ExecuteNonQueryAsync();
         }
+
+        // Upgrade an existing history table without replacing any legacy records.
+        const string hasRunIdSql = @"SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = 'maxhanna' AND TABLE_NAME = 'd2survivors_character_history' AND COLUMN_NAME = 'run_id';";
+        await using (var check = new MySqlCommand(hasRunIdSql, conn))
+        {
+          if (Convert.ToInt32(await check.ExecuteScalarAsync()) == 0)
+          {
+            await using var addColumn = new MySqlCommand("ALTER TABLE maxhanna.d2survivors_character_history ADD COLUMN run_id CHAR(36) NULL;", conn);
+            await addColumn.ExecuteNonQueryAsync();
+          }
+        }
+        const string hasRunIndexSql = @"SELECT COUNT(*) FROM INFORMATION_SCHEMA.STATISTICS
+            WHERE TABLE_SCHEMA = 'maxhanna' AND TABLE_NAME = 'd2survivors_character_history' AND INDEX_NAME = 'uq_d2s_character_run';";
+        await using (var checkIndex = new MySqlCommand(hasRunIndexSql, conn))
+        {
+          if (Convert.ToInt32(await checkIndex.ExecuteScalarAsync()) == 0)
+          {
+            await using var addIndex = new MySqlCommand("ALTER TABLE maxhanna.d2survivors_character_history ADD UNIQUE KEY uq_d2s_character_run (run_id);", conn);
+            await addIndex.ExecuteNonQueryAsync();
+          }
+        }
         _tablesReady = true;
       }
       finally
       {
         _tableLock.Release();
       }
+    }
+
+    public sealed class D2SLeaderboardEntry
+    {
+      public long Id { get; set; }
+      public int UserId { get; set; }
+      public string CharacterName { get; set; } = "";
+      public string ClassId { get; set; } = "";
+      public string Username { get; set; } = "Anonymous";
+      public int Score { get; set; }
+      public int TimeSeconds { get; set; }
+      public int Kills { get; set; }
+      public int Level { get; set; }
+      public bool Victory { get; set; }
+      public bool Died { get; set; }
+      public DateTime CreatedAt { get; set; }
+    }
+
+    public sealed class D2SLobbyMessage
+    {
+      public long Id { get; set; }
+      public int UserId { get; set; }
+      public string Username { get; set; } = "Anonymous";
+      public string Message { get; set; } = "";
+      public DateTime CreatedAt { get; set; }
+    }
+
+    public sealed class D2SRecordCharacterRequest
+    {
+      public int UserId { get; set; }
+      public string RunId { get; set; } = "";
+      public string CharacterName { get; set; } = "";
+      public string ClassId { get; set; } = "";
+      public int TimeSeconds { get; set; }
+      public int Kills { get; set; }
+      public int Level { get; set; }
+      public bool Victory { get; set; }
+      public int Score { get; set; }
+    }
+
+    public sealed class D2SLobbyMessageRequest
+    {
+      public int UserId { get; set; }
+      public string Message { get; set; } = "";
     }
 
     private static bool IsValidJson(string text)
@@ -209,7 +303,6 @@ namespace maxhanna.Server.Controllers
           await insert.ExecuteNonQueryAsync();
         }
 
-        // The run is over, so drop its snapshot.
         const string clearSql = "UPDATE maxhanna.d2survivors_save SET run_snapshot = NULL, updated_at = UTC_TIMESTAMP() WHERE user_id = @UserId;";
         await using (var clear = new MySqlCommand(clearSql, conn, tx))
         {
@@ -223,6 +316,78 @@ namespace maxhanna.Server.Controllers
       catch (Exception ex)
       {
         _ = _log.Db("D2Survivors RecordRun failed: " + ex.Message, req.UserId, "D2SURVIVORS", true);
+        return StatusCode(500, "Internal server error.");
+      }
+    }
+
+    [HttpPost("/D2Survivors/RecordCharacter", Name = "D2Survivors_RecordCharacter")]
+    public async Task<IActionResult> RecordCharacter([FromBody] D2SRecordCharacterRequest req, [FromHeader(Name = "Encrypted-UserId")] string? encryptedUserIdHeader = null)
+    {
+      if (req == null || req.UserId <= 0) return BadRequest("userId required.");
+      string characterName = (req.CharacterName ?? "").Trim();
+      string classId = (req.ClassId ?? "").Trim().ToLowerInvariant();
+      string[] validClasses = ["amazon", "assassin", "barbarian", "druid", "necromancer", "paladin", "sorceress"];
+      if (!Guid.TryParse(req.RunId, out var runId) || characterName.Length is < 1 or > 48 || characterName.Any(char.IsControl) || !validClasses.Contains(classId))
+        return BadRequest("Invalid character data.");
+      req.RunId = runId.ToString("D");
+      req.CharacterName = characterName;
+      req.ClassId = classId;
+      req.TimeSeconds = Math.Clamp(req.TimeSeconds, 0, 31_536_000);
+      req.Kills = Math.Clamp(req.Kills, 0, 10_000_000);
+      req.Level = Math.Clamp(req.Level, 1, 200);
+      req.Score = req.TimeSeconds + req.Kills * 5 + req.Level * 20 + (req.Victory ? 500 : 0);
+      try
+      {
+        if (!await _log.ValidateUserLoggedIn(req.UserId, encryptedUserIdHeader ?? "")) return Unauthorized();
+        await _lobbyService.RecordCharacterAsync(req);
+        return Ok(new { score = req.Score });
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("D2Survivors RecordCharacter failed: " + ex.Message, req.UserId, "D2SURVIVORS", true);
+        return StatusCode(500, "Internal server error.");
+      }
+    }
+
+    [HttpPost("/D2Survivors/Leaderboard", Name = "D2Survivors_Leaderboard")]
+    public async Task<IActionResult> Leaderboard([FromBody] int limit)
+    {
+      limit = Math.Clamp(limit, 1, 100);
+      try { return Ok(await _lobbyService.GetLeaderboardAsync(limit)); }
+      catch (Exception ex)
+      {
+        _ = _log.Db("D2Survivors Leaderboard failed: " + ex.Message, null, "D2SURVIVORS", true);
+        return StatusCode(500, "Internal server error.");
+      }
+    }
+
+    [HttpPost("/D2Survivors/LobbyHistory", Name = "D2Survivors_LobbyHistory")]
+    public async Task<IActionResult> LobbyHistory([FromBody] int limit)
+    {
+      limit = Math.Clamp(limit, 1, 100);
+      try { return Ok(await _lobbyService.GetChatHistoryAsync(limit)); }
+      catch (Exception ex)
+      {
+        _ = _log.Db("D2Survivors LobbyHistory failed: " + ex.Message, null, "D2SURVIVORS", true);
+        return StatusCode(500, "Internal server error.");
+      }
+    }
+
+    [HttpPost("/D2Survivors/LobbyMessage", Name = "D2Survivors_LobbyMessage")]
+    public async Task<IActionResult> LobbyMessage([FromBody] D2SLobbyMessageRequest req, [FromHeader(Name = "Encrypted-UserId")] string? encryptedUserIdHeader = null)
+    {
+      string message = req?.Message?.Trim() ?? "";
+      if (req == null || req.UserId <= 0) return BadRequest("userId required.");
+      if (message.Length is < 1 or > MaxLobbyMessageLength || message.Any(char.IsControl)) return BadRequest("Invalid chat message.");
+      try
+      {
+        if (!await _log.ValidateUserLoggedIn(req.UserId, encryptedUserIdHeader ?? "")) return Unauthorized();
+        req.Message = message;
+        return Ok(await _lobbyService.SendChatMessageAsync(req));
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("D2Survivors LobbyMessage failed: " + ex.Message, req.UserId, "D2SURVIVORS", true);
         return StatusCode(500, "Internal server error.");
       }
     }

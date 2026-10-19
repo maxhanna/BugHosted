@@ -62,6 +62,7 @@ builder.Services.AddHttpClient<KrakenService>();
 builder.Services.AddHttpClient<maxhanna.Server.Services.EmailService>();
 builder.Services.AddHttpClient<WebCrawler>();
 builder.Services.AddSingleton<Log>();
+builder.Services.AddSingleton<maxhanna.Server.Services.D2SurvivorsLobbyService>();
 builder.Services.AddSingleton<WebCrawler>();
 builder.Services.AddSingleton<AiController>();
 builder.Services.AddSingleton<NewsService>();
@@ -149,6 +150,7 @@ app.MapControllers();
 app.MapHub<maxhanna.Server.Hubs.CoEditHub>("/hubs/coEdit");
 app.MapHub<maxhanna.Server.Hubs.RacingHub>("/hubs/racing");
 app.MapHub<maxhanna.Server.Hubs.ChatHub>("/hubs/chat");
+app.MapHub<maxhanna.Server.Hubs.D2SurvivorsLobbyHub>("/hubs/d2-survivors-lobby");
 app.MapHub<maxhanna.Server.Hubs.MarblesHub>("/hubs/marbles");
 
 

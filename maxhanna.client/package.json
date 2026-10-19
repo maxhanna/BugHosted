@@ -37,8 +37,6 @@
     "@angular/platform-browser": "^19.2.4",
     "@angular/platform-browser-dynamic": "^19.2.4",
     "@angular/router": "^19.2.4",
-    "@emulatorjs/core-ppsspp": "^4.2.3",
-    "@emulatorjs/cores": "^4.2.3",
     "@microsoft/signalr": "^10.0.0",
     "@types/three": "^0.186.0",
     "chart.js": "^4.4.3",
@@ -54,8 +52,8 @@
     "zone.js": "~0.15.0"
   },
   "devDependencies": {
-    "@angular-devkit/build-angular": "^19.2.5",
-    "@angular/cli": "^19.2.5",
+    "@angular-devkit/build-angular": "19.2.27",
+    "@angular/cli": "19.2.27",
     "@angular/compiler-cli": "^19.2.4",
     "@types/jasmine": "~5.1.0",
     "@types/node": "^20.10.0",
