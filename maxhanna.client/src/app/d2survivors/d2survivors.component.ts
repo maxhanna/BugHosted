@@ -102,10 +102,35 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private characterScene?: THREE.Scene;
   private characterCamera?: THREE.OrthographicCamera;
   private characterModel?: THREE.Group;
+  private playerRigBones: PlayerRigBones = {};
+  private playerAnimationTime = 0;
+  private playerAnimationDelta = 16;
+  private playerMotionBlend = 0;
+  private playerMoveX = 0;
+  private playerMoveY = 0;
+  private playerFacingX = 1;
+  private playerFacingY = 0;
+  private isPlayerMoving = false;
   private loadedModelClass = "";
   private readonly enemySprites: Partial<Record<EnemySpecies, EnemySprite>> = {};
   modelLoadError = false;
   @ViewChild("classPreviewCanvas") private classPreviewCanvasRef?: ElementRef<HTMLCanvasElement>;
+  @ViewChild("menuHeroCanvas") private menuHeroCanvasRef?: ElementRef<HTMLCanvasElement>;
+  private menuHeroRenderer?: THREE.WebGLRenderer;
+  private menuHeroScene?: THREE.Scene;
+  private menuHeroCamera?: THREE.PerspectiveCamera;
+  menuHeroModel?: THREE.Group;
+  menuHeroLoadError = false;
+  private menuHeroFrameId = 0;
+  private menuHeroModelRequest = 0;
+  private menuHeroLastFrameAt = 0;
+  private menuHeroElapsed = 0;
+  private menuHeroPoseBones: Array<{ bone: THREE.Bone; baseQuaternion: THREE.Quaternion; phase: number; side: -1 | 1 }> = [];
+  menuHeroZoom = 1.55;
+  private menuHeroRotation = 0;
+  private menuHeroDragPointer?: number;
+  private menuHeroLastPointerX = 0;
+  menuHeroDragging = false;
   private previewRenderer?: THREE.WebGLRenderer;
   private previewScene?: THREE.Scene;
   private previewCamera?: THREE.PerspectiveCamera;
@@ -114,6 +139,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private previewFrameId = 0;
   private previewModelRequest = 0;
   private previewLastFrameAt = 0;
+  private previewElapsed = 0;
+  private previewPoseBones: Array<{ bone: THREE.Bone; baseQuaternion: THREE.Quaternion; phase: number; side: -1 | 1 }> = [];
   private readonly reducedMotion = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   ambientAudioEnabled = false;
   ambientAudioStatus = "Ambience muted";
@@ -1015,6 +1042,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.activeTab = "menu";
     this.menuPanel = "main";
     this.runActive = false;
+    this.startMenuHeroPreview();
   }
 
   openLore(): void {
@@ -1176,6 +1204,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   async openLobby(): Promise<void> {
+    this.stopMenuHeroPreview();
     this.stopAmbientAudio();
     this.ambientAudioStatus = "Ambience muted";
     this.menuPanel = "lobby";
@@ -1185,7 +1214,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   returnToMainMenu(): void {
     this.menuPanel = "main";
-    this.startClassPreview();
+    this.startMenuHeroPreview();
   }
 
   returnToLobby(): void {
@@ -1323,18 +1352,21 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   openCharacterSelect(): void {
     if (this.hasSavedRun && this.playerHp > 0) {
+      this.stopMenuHeroPreview();
       this.resumeRun();
       return;
     }
     this.stopAmbientAudio();
     this.ambientAudioStatus = "Ambience muted";
     this.menuPanel = "characters";
+    this.stopMenuHeroPreview();
     this.startClassPreview();
   }
 
   closeCharacterSelect(): void {
     this.menuPanel = "lobby";
     this.stopClassPreview();
+    this.stopMenuHeroPreview();
   }
 
   selectClass(classId: string): void {
@@ -1345,6 +1377,193 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (this.menuPanel === "characters") {
       this.loadPreviewModel();
     }
+    if (this.activeTab === "menu" && this.menuPanel !== "characters") {
+      this.loadMenuHeroModel();
+    }
+  }
+
+  private startMenuHeroPreview(): void {
+    if (this.activeTab !== "menu" || this.menuPanel === "characters") return;
+    if (!this.menuHeroCanvasRef) {
+      requestAnimationFrame(() => this.startMenuHeroPreview());
+      return;
+    }
+    if (this.menuHeroRenderer?.domElement === this.menuHeroCanvasRef.nativeElement) {
+      this.resizeMenuHeroPreview();
+      return;
+    }
+    this.stopMenuHeroPreview();
+    try {
+      const canvas = this.menuHeroCanvasRef.nativeElement;
+      this.menuHeroRenderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+      this.menuHeroRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      this.menuHeroRenderer.setClearColor(0x000000, 0);
+      this.menuHeroRenderer.outputColorSpace = THREE.SRGBColorSpace;
+      this.menuHeroScene = new THREE.Scene();
+      this.menuHeroCamera = new THREE.PerspectiveCamera(30, 1, 0.1, 2000);
+      this.menuHeroCamera.position.set(0, 68, 430);
+      this.menuHeroCamera.lookAt(0, 44, 0);
+      this.updateMenuHeroZoom();
+      this.menuHeroScene.add(new THREE.HemisphereLight(0xe7eaff, 0x2e1b16, 0.75));
+      const keyLight = new THREE.DirectionalLight(0xffe1b5, 1.25);
+      keyLight.position.set(-140, 240, 180);
+      this.menuHeroScene.add(keyLight);
+      const fillLight = new THREE.DirectionalLight(0x9bcaff, 0.45);
+      fillLight.position.set(150, 130, -140);
+      this.menuHeroScene.add(fillLight);
+      this.resizeMenuHeroPreview();
+      this.loadMenuHeroModel();
+      this.menuHeroLastFrameAt = performance.now();
+      this.animateMenuHeroPreview(this.menuHeroLastFrameAt);
+    } catch (error) {
+      console.error("Could not initialize the main-menu hero preview", error);
+      this.menuHeroLoadError = true;
+    }
+  }
+
+  private stopMenuHeroPreview(): void {
+    if (this.menuHeroFrameId) {
+      cancelAnimationFrame(this.menuHeroFrameId);
+      this.menuHeroFrameId = 0;
+    }
+    this.menuHeroModelRequest++;
+    this.menuHeroPoseBones = [];
+    this.menuHeroElapsed = 0;
+    this.disposeMenuHeroModel();
+    this.menuHeroLoadError = false;
+    this.menuHeroRenderer?.dispose();
+    this.menuHeroRenderer = undefined;
+    this.menuHeroScene = undefined;
+    this.menuHeroCamera = undefined;
+  }
+
+  private disposeMenuHeroModel(): void {
+    if (!this.menuHeroModel) return;
+    this.menuHeroScene?.remove(this.menuHeroModel);
+    this.menuHeroModel.traverse((object) => {
+      const mesh = object as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      mesh.geometry?.dispose();
+      const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      materials.forEach((material) => {
+        if ("map" in material && material.map instanceof THREE.Texture) material.map.dispose();
+        material.dispose();
+      });
+    });
+    this.menuHeroModel = undefined;
+  }
+
+  zoomMenuHero(direction: -1 | 1): void {
+    this.menuHeroZoom = THREE.MathUtils.clamp(this.menuHeroZoom + direction * 0.15, 0.7, 1.9);
+    this.updateMenuHeroZoom();
+  }
+
+  onMenuHeroWheel(event: WheelEvent): void {
+    event.preventDefault();
+    if (event.deltaY !== 0) this.zoomMenuHero(event.deltaY < 0 ? 1 : -1);
+  }
+
+  onMenuHeroPointerDown(event: PointerEvent): void {
+    if (event.button !== 0) return;
+    this.menuHeroDragPointer = event.pointerId;
+    this.menuHeroLastPointerX = event.clientX;
+    this.menuHeroDragging = true;
+    (event.currentTarget as HTMLCanvasElement).setPointerCapture(event.pointerId);
+  }
+
+  onMenuHeroPointerMove(event: PointerEvent): void {
+    if (!this.menuHeroDragging || this.menuHeroDragPointer !== event.pointerId) return;
+    this.menuHeroRotation += (event.clientX - this.menuHeroLastPointerX) * 0.012;
+    this.menuHeroLastPointerX = event.clientX;
+    if (this.menuHeroModel) this.menuHeroModel.rotation.y = this.menuHeroRotation;
+  }
+
+  onMenuHeroPointerUp(event: PointerEvent): void {
+    if (this.menuHeroDragPointer !== event.pointerId) return;
+    this.menuHeroDragPointer = undefined;
+    this.menuHeroDragging = false;
+  }
+
+  private updateMenuHeroZoom(): void {
+    if (!this.menuHeroCamera) return;
+    this.menuHeroCamera.fov = 30 / this.menuHeroZoom;
+    this.menuHeroCamera.updateProjectionMatrix();
+  }
+
+  @HostListener("window:resize")
+  private resizeMenuHeroPreview(): void {
+    const canvas = this.menuHeroCanvasRef?.nativeElement;
+    if (!canvas || !this.menuHeroRenderer || !this.menuHeroCamera) return;
+    const rect = canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    this.menuHeroRenderer.setSize(rect.width, rect.height, false);
+    this.menuHeroCamera.aspect = rect.width / rect.height;
+    this.menuHeroCamera.updateProjectionMatrix();
+  }
+
+  private loadMenuHeroModel(): void {
+    if (!this.menuHeroScene || !this.menuHeroCamera || !this.menuHeroRenderer) return;
+    const definition = CLASS_MODEL[this.selectedClass];
+    if (!definition) return;
+    const requestId = ++this.menuHeroModelRequest;
+    const modelClass = this.selectedClass;
+    this.menuHeroLoadError = false;
+    this.disposeMenuHeroModel();
+    new GLTFLoader().load(definition.model, async (gltf) => {
+      const model = gltf.scene;
+      const isStale = (): boolean => !this.menuHeroScene || requestId !== this.menuHeroModelRequest
+        || modelClass !== this.selectedClass || this.activeTab !== "menu" || this.menuPanel === "characters";
+      const disposeModel = (): void => model.traverse((object) => {
+        const mesh = object as THREE.Mesh;
+        if (!mesh.isMesh) return;
+        mesh.geometry?.dispose();
+        const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+        materials.forEach((material) => {
+          if ("map" in material && material.map instanceof THREE.Texture) material.map.dispose();
+          material.dispose();
+        });
+      });
+      if (isStale()) { disposeModel(); return; }
+      try {
+        await this.applyClassTextures(model, modelClass);
+        if (isStale()) { disposeModel(); return; }
+        this.normalizeCharacterModel(model, 88);
+        model.rotation.y = this.menuHeroRotation;
+        this.menuHeroPoseBones = this.getPreviewPoseBones(model);
+        this.menuHeroModel = model;
+        this.menuHeroScene?.add(model);
+      } catch (error: unknown) {
+        disposeModel();
+        if (requestId !== this.menuHeroModelRequest) return;
+        console.error(`Could not apply ${modelClass} main-menu hero textures`, error);
+        this.menuHeroLoadError = true;
+      }
+    }, undefined, (error: unknown) => {
+      if (requestId !== this.menuHeroModelRequest) return;
+      console.error(`Could not load the ${modelClass} main-menu hero model`, error);
+      this.menuHeroLoadError = true;
+    });
+  }
+
+  private animateMenuHeroPreview(now: number): void {
+    if (!this.menuHeroRenderer || !this.menuHeroScene || !this.menuHeroCamera) return;
+    const dt = Math.min(50, now - this.menuHeroLastFrameAt) / 1000;
+    this.menuHeroLastFrameAt = now;
+    if (this.menuHeroModel) {
+      if (!this.reducedMotion) this.menuHeroElapsed += dt;
+      const time = this.menuHeroElapsed;
+      this.menuHeroModel.rotation.y = this.menuHeroRotation + (this.reducedMotion ? 0 : Math.sin(time * 0.45) * 0.035);
+      this.menuHeroModel.position.y = this.reducedMotion ? 0 : Math.sin(time * 1.6) * 0.8;
+      const fadeIn = this.reducedMotion ? 1 : Math.min(1, time / 0.8);
+      for (const pose of this.menuHeroPoseBones) {
+        const sway = this.reducedMotion ? 0 : Math.sin(time * 1.7 + pose.phase) * 0.018;
+        const rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), pose.side * (0.16 + sway) * fadeIn);
+        pose.bone.quaternion.copy(pose.baseQuaternion).multiply(rotation);
+      }
+    }
+    this.resizeMenuHeroPreview();
+    this.menuHeroRenderer.render(this.menuHeroScene, this.menuHeroCamera);
+    this.menuHeroFrameId = requestAnimationFrame((time) => this.animateMenuHeroPreview(time));
   }
 
   private startClassPreview(): void {
@@ -1365,8 +1584,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.previewRenderer.outputColorSpace = THREE.SRGBColorSpace;
       this.previewScene = new THREE.Scene();
       this.previewCamera = new THREE.PerspectiveCamera(30, 1, 0.1, 2000);
-      this.previewCamera.position.set(0, 115, 260);
-      this.previewCamera.lookAt(0, 58, 0);
+      this.previewCamera.position.set(0, 92, 430);
+      this.previewCamera.lookAt(0, 68, 0);
       this.previewScene.add(new THREE.HemisphereLight(0xe7eaff, 0x2e1b16, 0.75));
       const keyLight = new THREE.DirectionalLight(0xffe1b5, 1.25);
       keyLight.position.set(-140, 240, 180);
@@ -1390,7 +1609,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.previewFrameId = 0;
     }
     this.previewModelRequest++;
+    this.previewPoseBones = [];
+    this.previewElapsed = 0;
     this.disposePreviewModel();
+    this.previewLoadError = false;
     this.previewRenderer?.dispose();
     this.previewRenderer = undefined;
     this.previewScene = undefined;
@@ -1464,7 +1686,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           disposeModel();
           return;
         }
-        this.normalizeCharacterModel(model, 148);
+        this.normalizeCharacterModel(model, 88);
+        this.previewPoseBones = this.getPreviewPoseBones(model);
         this.previewModel = model;
         this.previewScene?.add(model);
         this.previewLoadError = false;
@@ -1490,8 +1713,22 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const dt = Math.min(50, now - this.previewLastFrameAt) / 1000;
     this.previewLastFrameAt = now;
     if (this.previewModel && !this.reducedMotion) {
-      this.previewModel.rotation.y += dt * 0.28;
-      this.previewModel.position.y = Math.sin(now / 850) * 2.4;
+      this.previewElapsed += dt;
+      const time = this.previewElapsed;
+      this.previewModel.rotation.y = Math.sin(time * 0.45) * 0.12;
+      this.previewModel.position.y = Math.sin(time * 1.6) * 0.8;
+      // The supplied rigs contain bind poses but no animation clips; subtly settle the shoulders
+      // and upper arms into an alert idle so the hero reads as selected rather than T-posed.
+      const fadeIn = Math.min(1, time / 0.8);
+      for (const pose of this.previewPoseBones) {
+        const sway = Math.sin(time * 1.7 + pose.phase) * 0.018;
+        const rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), pose.side * (0.16 + sway) * fadeIn);
+        pose.bone.quaternion.copy(pose.baseQuaternion).multiply(rotation);
+      }
+    } else if (this.previewModel) {
+      this.previewElapsed += dt;
+      this.previewModel.rotation.y = 0;
+      for (const pose of this.previewPoseBones) pose.bone.quaternion.copy(pose.baseQuaternion);
     }
     this.resizeClassPreview();
     this.previewRenderer.render(this.previewScene, this.previewCamera);
@@ -1968,6 +2205,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   ngAfterViewInit(): void {
     this.loadEnemySprites();
+    if (this.activeTab === "menu" && this.menuPanel !== "characters") this.startMenuHeroPreview();
   }
 
   private loadEnemySprites(): void {
@@ -2033,6 +2271,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     });
     this.characterRenderer?.dispose();
     this.stopClassPreview();
+    this.stopMenuHeroPreview();
     this.stopAmbientAudio();
     void this.audioContext?.close();
     this.audioContext = undefined;
@@ -2210,6 +2449,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.lobbyRunId = crypto.randomUUID();
     this.runKillCount = 0;
     this.hasSavedRun = true;
+    this.stopMenuHeroPreview();
     this.runActive = false;
     this.saveStatus = "";
     this.stopClassPreview();
@@ -2291,6 +2531,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       return;
     }
     if (!this.escapeMenuOpen && !this.inventoryOpen) this.update(dt);
+    else {
+      this.isPlayerMoving = false;
+      this.playerMoveX = 0;
+      this.playerMoveY = 0;
+    }
+    this.playerAnimationDelta = dt;
     this.draw();
     this.renderCharacter();
     this.rafId = requestAnimationFrame((t) => this.loop(t));
@@ -2321,14 +2567,34 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   movePlayer(dt: number): void {
     const speed = 220;
     const move = speed * (dt / 1000);
-    let dx = 0;
-    let dy = 0;
-    if (this.keysDown.has("w") || this.keysDown.has("arrowup")) dy -= move;
-    if (this.keysDown.has("s") || this.keysDown.has("arrowdown")) dy += move;
-    if (this.keysDown.has("a") || this.keysDown.has("arrowleft")) dx -= move;
-    if (this.keysDown.has("d") || this.keysDown.has("arrowright")) dx += move;
+    const previousX = this.playerX;
+    const previousY = this.playerY;
+    // Translate screen-relative input into the square world plane used by gameplay.
+    // With the isometric projection, world-left/up-left points screen-up-left; compensate
+    // along the depth axis so A remains strictly horizontal on screen.
+    let screenX = 0;
+    let screenY = 0;
+    if (this.keysDown.has("w") || this.keysDown.has("arrowup")) screenY -= move;
+    if (this.keysDown.has("s") || this.keysDown.has("arrowdown")) screenY += move;
+    if (this.keysDown.has("a") || this.keysDown.has("arrowleft")) screenX -= move;
+    if (this.keysDown.has("d") || this.keysDown.has("arrowright")) screenX += move;
+    const diagonalLength = Math.hypot(screenX, screenY);
+    if (diagonalLength > move && move > 0) {
+      screenX *= move / diagonalLength;
+      screenY *= move / diagonalLength;
+    }
+    const projectionScale = 0.7071;
+    const dx = (screenX + 2 * screenY) / (2 * projectionScale);
+    const dy = (2 * screenY - screenX) / (2 * projectionScale);
     this.playerX = Math.max(32, Math.min(this.arenaW - 32, this.playerX + dx));
     this.playerY = Math.max(32, Math.min(this.arenaH - 32, this.playerY + dy));
+    this.playerMoveX = this.playerX - previousX;
+    this.playerMoveY = this.playerY - previousY;
+    this.isPlayerMoving = Math.hypot(this.playerMoveX, this.playerMoveY) > 0.01;
+    if (this.isPlayerMoving) {
+      this.playerFacingX = this.playerMoveX / Math.hypot(this.playerMoveX, this.playerMoveY);
+      this.playerFacingY = this.playerMoveY / Math.hypot(this.playerMoveX, this.playerMoveY);
+    }
   }
 
   updateEnemies(dt: number): void {
@@ -2715,7 +2981,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const base: Enemy = {
       kind: "normal",
       species,
-      spriteFrame: species === "demon" ? Math.floor(Math.random() * 48) : 0,
+      spriteFrame: Math.floor(Math.random() * ENEMY_SPRITE_LAYOUTS[species].columns),
       x: 30 + Math.random() * (this.arenaW - 60),
       y: -40,
       hp: 18,
@@ -3015,6 +3281,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         }
         this.normalizeCharacterModel(model, 72);
         model.rotation.y = 0;
+        this.playerRigBones = this.getPlayerRigBones(model);
+        this.playerAnimationTime = 0;
+        this.playerMotionBlend = 0;
+        this.playerMoveX = 0;
+        this.playerMoveY = 0;
+        this.playerFacingX = 1;
+        this.playerFacingY = 0;
+        this.isPlayerMoving = false;
 
         // Keep the normalized model offset separate from the world-space player anchor.
         // Replacing the GLTF root position directly while moving discards its centering offset.
@@ -3122,6 +3396,129 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     });
   }
 
+  private getPlayerRigBones(model: THREE.Group): PlayerRigBones {
+    const bones: PlayerRigBones = { legs: [], knees: [], feet: [], arms: [] };
+    model.traverse((object) => {
+      if (!(object instanceof THREE.Bone)) return;
+      const name = object.name.toLowerCase();
+      const side = this.rigBoneSide(name);
+      if (/(?:^|[_-])(?:pelvis|hips?)(?:[_-]|$)/.test(name) && !bones.pelvis) {
+        bones.pelvis = object;
+        bones.pelvisBaseQuaternion = object.quaternion.clone();
+      }
+      if (/(?:^|[_-])spine[_-]?(?:01|1)(?:[_-]|$)/.test(name) && !bones.spine) {
+        bones.spine = object;
+        bones.spineBaseQuaternion = object.quaternion.clone();
+      }
+      const legRoot = /^(?:l|r|left|right)[_-](?:leg[_-]?01|upper[_-]?leg|thigh)(?:[_-].*)?$/.test(name)
+        || /^(?:hip|upper[_-]?leg|thigh)[_-](?:l|r|left|right)(?:[_-].*)?$/.test(name)
+        || /^(?:hip[_-]?(?:l|r|left|right)|(?:l|r|left|right)[_-]hip)(?:[_-].*)?$/.test(name);
+      const lowerLeg = /^(?:l|r|left|right)[_-](?:leg[_-]?02|lower[_-]?leg|calf|shin|knee)(?:[_-].*)?$/.test(name)
+        || /^(?:knee|calf|shin)[_-](?:l|r|left|right)(?:[_-].*)?$/.test(name);
+      const foot = /^(?:l|r|left|right)[_-](?:foot|ankle)(?:[_-].*)?$/.test(name)
+        || /^(?:foot|ankle)[_-](?:l|r|left|right)(?:[_-].*)?$/.test(name);
+      if (side && legRoot && !/twist|helper|pad|armor/.test(name)) {
+        bones.legs?.push({ bone: object, baseQuaternion: object.quaternion.clone(), side });
+      } else if (side && lowerLeg && !/twist|helper|pad|armor|cord/.test(name)) {
+        bones.knees?.push({ bone: object, baseQuaternion: object.quaternion.clone(), side });
+      } else if (side && foot && !/helper/.test(name)) {
+        bones.feet?.push({ bone: object, baseQuaternion: object.quaternion.clone(), side });
+      }
+      const shoulder = /(?:^|[_-])(?:l|left|r|right)[_-]?shoulder(?:[_-].*)?/.test(name)
+        || /(?:^|[_-])shoulder[_-]?(?:l|r)(?:[_-].*)?/.test(name);
+      const upperArm = /(?:^|[_-])(?:l|left|r|right)[_-]?(?:upr|upper)[_-]?arm(?:[_-].*)?/.test(name)
+        || /^(?:l|r)_(?:upperarm|clavicle)$/.test(name);
+      if (side && (shoulder || upperArm) && !/twist|pad|plate|helper/.test(name)) {
+        bones.arms?.push({ bone: object, baseQuaternion: object.quaternion.clone(), side });
+      }
+    });
+    // Prefer the shoulder pivot for arm swing when both shoulder and upper-arm joints exist.
+    bones.arms = bones.arms?.filter((entry, index, all) =>
+      !all.slice(0, index).some((prior) => prior.side === entry.side && /shoulder/.test(prior.bone.name.toLowerCase())));
+    return bones;
+  }
+
+  private rigBoneSide(name: string): -1 | 1 | undefined {
+    if (/^(?:r|right)[_-]/.test(name) || /[_-](?:r|right)(?:[_-]|$)/.test(name)) return -1;
+    if (/^(?:l|left)[_-]/.test(name) || /[_-](?:l|left)(?:[_-]|$)/.test(name)) return 1;
+    return undefined;
+  }
+
+  private animatePlayerModel(dt: number): void {
+    if (!this.characterModel) return;
+    const seconds = Math.max(0, dt / 1000);
+    this.playerAnimationTime += seconds;
+    const targetBlend = this.isPlayerMoving ? 1 : 0;
+    this.playerMotionBlend += (targetBlend - this.playerMotionBlend) * (1 - Math.exp(-seconds * 8));
+    const moving = this.playerMotionBlend;
+    const phase = this.playerAnimationTime * (2.1 + moving * 6.4);
+    const stride = Math.sin(phase);
+    const oppositeStride = -stride;
+    const hipAmplitude = 0.035 + moving * 0.34;
+
+    // These class rigs ship in bind pose without clips. Animate the hip, knee, foot, and
+    // shoulder joints together for a grounded Diablo-style gait while preserving bind poses.
+    for (const leg of this.playerRigBones.legs ?? []) {
+      const swing = new THREE.Quaternion().setFromAxisAngle(
+        new THREE.Vector3(1, 0, 0),
+        Math.sin(phase + (leg.side < 0 ? Math.PI : 0)) * hipAmplitude,
+      );
+      leg.bone.quaternion.copy(leg.baseQuaternion).multiply(swing);
+    }
+    for (const knee of this.playerRigBones.knees ?? []) {
+      const legPhase = phase + (knee.side < 0 ? Math.PI : 0);
+      const bend = (0.06 + moving * 0.48) * Math.max(0, Math.sin(legPhase + Math.PI * 0.35));
+      const flex = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), bend);
+      knee.bone.quaternion.copy(knee.baseQuaternion).multiply(flex);
+    }
+    for (const foot of this.playerRigBones.feet ?? []) {
+      const legPhase = phase + (foot.side < 0 ? Math.PI : 0);
+      const roll = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.sin(legPhase) * moving * 0.12);
+      foot.bone.quaternion.copy(foot.baseQuaternion).multiply(roll);
+    }
+    for (const arm of this.playerRigBones.arms ?? []) {
+      // Relax the arms from their bind pose and counter-swing them against each leg.
+      const relax = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -0.2);
+      const swing = new THREE.Quaternion().setFromAxisAngle(
+        new THREE.Vector3(1, 0, 0),
+        (arm.side < 0 ? oppositeStride : stride) * moving * 0.16,
+      );
+      arm.bone.quaternion.copy(arm.baseQuaternion).multiply(relax).multiply(swing);
+    }
+    if (this.playerRigBones.pelvis) {
+      const base = this.playerRigBones.pelvisBaseQuaternion ?? this.playerRigBones.pelvis.quaternion;
+      const sway = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.sin(phase) * moving * 0.025);
+      this.playerRigBones.pelvis.quaternion.copy(base).multiply(sway);
+    }
+    if (this.playerRigBones.spine) {
+      const base = this.playerRigBones.spineBaseQuaternion ?? this.playerRigBones.spine.quaternion;
+      const lean = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -0.035 * moving + Math.sin(phase * 2) * moving * 0.012);
+      this.playerRigBones.spine.quaternion.copy(base).multiply(lean);
+    }
+    const yawTarget = this.isPlayerMoving ? Math.atan2(this.playerMoveX, this.playerMoveY) : Math.atan2(this.playerFacingX, this.playerFacingY);
+    const yawDelta = Math.atan2(Math.sin(yawTarget - this.characterModel.rotation.y), Math.cos(yawTarget - this.characterModel.rotation.y));
+    this.characterModel.rotation.y += yawDelta * (1 - Math.exp(-seconds * 10));
+    // Keep footfalls subtle so the model stays grounded instead of hovering between steps.
+    this.characterModel.position.y = Math.abs(Math.sin(phase * 2)) * moving * 0.35;
+  }
+
+  private getPreviewPoseBones(model: THREE.Group): Array<{ bone: THREE.Bone; baseQuaternion: THREE.Quaternion; phase: number; side: -1 | 1 }> {
+    const poses: Array<{ bone: THREE.Bone; baseQuaternion: THREE.Quaternion; phase: number; side: -1 | 1 }> = [];
+    model.traverse((object) => {
+      if (!(object instanceof THREE.Bone)) return;
+      const name = object.name.toLowerCase();
+      const isShoulder = /(?:^|[_-])(?:l|left|r|right)[_-]?shoulder(?:[_-].*)?/.test(name)
+        || /(?:^|[_-])shoulder[_-]?(?:l|r)(?:[_-].*)?/.test(name);
+      const isUpperArm = /(?:^|[_-])(?:l|left|r|right)[_-]?(?:upr|upper)[_-]?arm(?:[_-].*)?/.test(name)
+        || /(?:^|[_-])(?:l|r)[_-]?upperarm(?:[_-].*)?/.test(name);
+      const isBarbarianOrNecroArm = /^(?:l|r)_(?:upperarm|clavicle)$/.test(name);
+      if (!isShoulder && !isUpperArm && !isBarbarianOrNecroArm) return;
+      const side: -1 | 1 = /^(?:r|right)[_-]/.test(name) || /[_-](?:r|right)(?:[_-]|$)/.test(name) ? -1 : 1;
+      poses.push({ bone: object, baseQuaternion: object.quaternion.clone(), phase: poses.length * 0.75, side });
+    });
+    return poses;
+  }
+
   private normalizeCharacterModel(model: THREE.Group, targetHeight: number): void {
     model.updateMatrixWorld(true);
     const bounds = new THREE.Box3().setFromObject(model);
@@ -3196,11 +3593,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       return;
     }
     if (this.characterModel) {
-      this.characterModel.position.set(
-        this.playerX - this.arenaW / 2,
-        0,
-        this.playerY - this.arenaH / 2,
-      );
+      this.animatePlayerModel(this.playerAnimationDelta);
+      this.characterModel.position.x = this.playerX - this.arenaW / 2;
+      this.characterModel.position.z = this.playerY - this.arenaH / 2;
     }
     this.characterRenderer.render(this.characterScene, this.characterCamera);
   }
@@ -3454,7 +3849,7 @@ function isCompatibleWithEquipment(item: D2InventoryItem, slot: PaperdollSlot): 
 }
 
 type EnemyKind = "normal" | "champion" | "boss";
-type EnemySpecies = "fallen" | "zombie" | "skeleton" | "demon" | "lord";
+type EnemySpecies = "fallen" | "zombie" | "skeleton" | "demon" | "lord" | "acidbeast" | "goatman" | "succubus" | "knight" | "clawviper" | "darkmage" | "gargoyle";
 
 const ENEMY_SPRITE_PATHS: Record<EnemySpecies, string> = {
   fallen: "assets/d2survivors/monster-fallen.png",
@@ -3462,16 +3857,31 @@ const ENEMY_SPRITE_PATHS: Record<EnemySpecies, string> = {
   skeleton: "assets/d2survivors/monster-skeleton.png",
   demon: "assets/d2survivors/monster-demon.png",
   lord: "assets/d2survivors/monster-lord.png",
+  acidbeast: "assets/d2survivors/monster-acidbeast.png",
+  goatman: "assets/d2survivors/monster-goatman.png",
+  succubus: "assets/d2survivors/monster-succubus.png",
+  knight: "assets/d2survivors/monster-knight.png",
+  clawviper: "assets/d2survivors/monster-clawviper.png",
+  darkmage: "assets/d2survivors/monster-darkmage.png",
+  gargoyle: "assets/d2survivors/monster-gargoyle.png",
 };
 
 // Converted from the locally supplied DCC/COF files with an intentionally approximate generated
 // palette, because no base game palette was supplied. Sheets use 1x COF composition: direction rows,
 // animation frames across columns. Their cell bounds are obtained from the transparent gutters.
-const ENEMY_SPRITE_LAYOUTS: Record<EnemySpecies, { columns: number; rows: number; animated: boolean }> = {  fallen: { columns: 11, rows: 8, animated: true },
+const ENEMY_SPRITE_LAYOUTS: Record<EnemySpecies, { columns: number; rows: number; animated: boolean }> = {
+  fallen: { columns: 11, rows: 8, animated: true },
   zombie: { columns: 24, rows: 8, animated: true },
   skeleton: { columns: 8, rows: 8, animated: true },
   demon: { columns: 14, rows: 8, animated: true },
   lord: { columns: 6, rows: 8, animated: true },
+  acidbeast: { columns: 12, rows: 8, animated: true },
+  goatman: { columns: 10, rows: 8, animated: true },
+  succubus: { columns: 16, rows: 8, animated: true },
+  knight: { columns: 16, rows: 8, animated: true },
+  clawviper: { columns: 13, rows: 8, animated: true },
+  darkmage: { columns: 21, rows: 8, animated: true },
+  gargoyle: { columns: 14, rows: 8, animated: true },
 };
 
 const ENEMY_SPRITE_CELLS: Partial<Record<EnemySpecies, { width: number; height: number }>> = {
@@ -3480,6 +3890,13 @@ const ENEMY_SPRITE_CELLS: Partial<Record<EnemySpecies, { width: number; height: 
   skeleton: { width: 56, height: 78 },
   demon: { width: 83, height: 95 },
   lord: { width: 118, height: 182 },
+  acidbeast: { width: 1, height: 1 },
+  goatman: { width: 1, height: 1 },
+  succubus: { width: 1, height: 1 },
+  knight: { width: 1, height: 1 },
+  clawviper: { width: 1, height: 1 },
+  darkmage: { width: 1, height: 1 },
+  gargoyle: { width: 1, height: 1 },
 };
 
 const ENEMY_SPRITE_ROWS: Partial<Record<EnemySpecies, number[]>> = {
@@ -3488,6 +3905,13 @@ const ENEMY_SPRITE_ROWS: Partial<Record<EnemySpecies, number[]>> = {
   skeleton: [0, 1, 2, 3, 4, 5, 6, 7],
   demon: [0, 1, 2, 3, 4, 5, 6, 7],
   lord: [0, 1, 2, 3, 4, 5, 6, 7],
+  acidbeast: [0, 1, 2, 3, 4, 5, 6, 7],
+  goatman: [0, 1, 2, 3, 4, 5, 6, 7],
+  succubus: [0, 1, 2, 3, 4, 5, 6, 7],
+  knight: [0, 1, 2, 3, 4, 5, 6, 7],
+  clawviper: [0, 1, 2, 3, 4, 5, 6, 7],
+  darkmage: [0, 1, 2, 3, 4, 5, 6, 7],
+  gargoyle: [0, 1, 2, 3, 4, 5, 6, 7],
 };
 const ENEMY_DEMON_SPRITE_ROWS = [0, 1, 2, 3, 4, 5, 6, 7];
 
@@ -3497,11 +3921,18 @@ const ENEMY_SPRITE_DIRECTIONS: Record<EnemySpecies, number> = {
   skeleton: 8,
   demon: 8,
   lord: 8,
+  acidbeast: 8,
+  goatman: 8,
+  succubus: 8,
+  knight: 8,
+  clawviper: 8,
+  darkmage: 8,
+  gargoyle: 8,
 };
-const ENEMY_SPECIES: EnemySpecies[] = ["fallen", "zombie", "skeleton", "demon", "lord"];
+const ENEMY_SPECIES: EnemySpecies[] = ["fallen", "zombie", "skeleton", "demon", "lord", "acidbeast", "goatman", "succubus", "knight", "clawviper", "darkmage", "gargoyle"];
 const ENEMY_SPECIES_BY_KIND: Record<EnemyKind, EnemySpecies[]> = {
-  normal: ["fallen", "zombie", "skeleton", "demon"],
-  champion: ["demon", "skeleton", "fallen"],
+  normal: ["fallen", "zombie", "skeleton", "demon", "acidbeast", "goatman", "succubus", "knight", "clawviper", "darkmage", "gargoyle"],
+  champion: ["demon", "skeleton", "fallen", "succubus", "knight", "clawviper", "darkmage", "gargoyle"],
   boss: ["lord", "demon"],
 };
 
@@ -3634,6 +4065,23 @@ interface AttackProjectile {
   radius: number;
   color: string;
   kind: "arrow" | "fire" | "lightning" | "blade" | "bone" | "holy" | "claw";
+}
+
+interface RigAnimationBone {
+  bone: THREE.Bone;
+  baseQuaternion: THREE.Quaternion;
+  side: -1 | 1;
+}
+
+interface PlayerRigBones {
+  pelvis?: THREE.Bone;
+  pelvisBaseQuaternion?: THREE.Quaternion;
+  spine?: THREE.Bone;
+  spineBaseQuaternion?: THREE.Quaternion;
+  legs?: RigAnimationBone[];
+  knees?: RigAnimationBone[];
+  feet?: RigAnimationBone[];
+  arms?: RigAnimationBone[];
 }
 
 interface Enemy {

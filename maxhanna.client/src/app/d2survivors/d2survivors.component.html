@@ -112,7 +112,14 @@
         </section>
 
         <aside class="d2s-menu-hero-card">
-          <div class="d2s-portal" aria-hidden="true"><div class="d2s-portal-flare"></div><div class="d2s-portal-core"></div><i></i><b></b><em></em></div>
+          <canvas #menuHeroCanvas class="d2s-menu-hero-canvas" [class.dragging]="menuHeroDragging" [attr.aria-label]="selectedClassName + ' 3D character. Drag to rotate; use the zoom buttons or mouse wheel to change zoom.'" (pointerdown)="onMenuHeroPointerDown($event)" (pointermove)="onMenuHeroPointerMove($event)" (pointerup)="onMenuHeroPointerUp($event)" (pointercancel)="onMenuHeroPointerUp($event)" (wheel)="onMenuHeroWheel($event)" role="img"></canvas>
+          <div class="d2s-menu-hero-controls" role="group" aria-label="Character view controls">
+            <button type="button" (click)="zoomMenuHero(1)" aria-label="Zoom in on character" title="Zoom in">+</button>
+            <button type="button" (click)="zoomMenuHero(-1)" aria-label="Zoom out from character" title="Zoom out">−</button>
+          </div>
+          <div class="d2s-menu-hero-hint" aria-hidden="true">DRAG TO ROTATE · SCROLL TO ZOOM</div>
+          <div class="d2s-menu-hero-loading" *ngIf="!menuHeroModel && !menuHeroLoadError"><span></span>Summoning hero…</div>
+          <div class="d2s-menu-hero-error" *ngIf="menuHeroLoadError">Hero model unavailable</div>
           <div class="d2s-hero-plaque">
             <span class="d2s-class-gem large" [attr.data-initial]="selectedClassName.charAt(0)"></span>
             <div><small>YOUR DESTINY</small><strong>{{ selectedClassName }}</strong><span>{{ selectedClassDescription }}</span></div>
