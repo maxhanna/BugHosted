@@ -1779,16 +1779,18 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     const dt = Math.min(50, now - this.previewLastFrameAt) / 1000;
     this.previewLastFrameAt = now;
-    if (this.previewModel && !this.reducedMotion) {
+    if (this.previewModel) {
       this.previewElapsed += dt;
       const time = this.previewElapsed;
-      this.previewModel.rotation.y = this.previewRotation + (this.previewDragging ? 0 : Math.sin(time * 0.35) * 0.025);
-      this.previewModel.position.y = Math.sin(time * 1.4) * 0.55;
+      const idleMotion = this.reducedMotion ? 0 : 1;
+      this.previewModel.rotation.y = this.previewRotation + (this.previewDragging ? 0 : Math.sin(time * 0.35) * 0.025 * idleMotion);
+      this.previewModel.position.y = Math.sin(time * 1.4) * 0.55 * idleMotion;
       // The supplied class rigs have no clips, so give the selection preview a grounded,
       // slightly asymmetrical idle instead of leaving the hero in its rigid bind pose.
-      const fadeIn = Math.min(1, time / 0.45);
+      // Reduced-motion users keep the settled pose but skip its breathing and turntable sway.
+      const fadeIn = this.reducedMotion ? 1 : Math.min(1, time / 0.45);
       for (const pose of this.previewPoseBones) {
-        const sway = Math.sin(time * 1.35 + pose.phase) * 0.018 * fadeIn;
+        const sway = Math.sin(time * 1.35 + pose.phase) * 0.018 * fadeIn * idleMotion;
         let rotation: THREE.Quaternion;
         switch (pose.role) {
           case "arm":
@@ -1814,10 +1816,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         const settled = new THREE.Quaternion().slerpQuaternions(new THREE.Quaternion(), rotation, fadeIn);
         pose.bone.quaternion.copy(pose.baseQuaternion).multiply(settled);
       }
-    } else if (this.previewModel) {
-      this.previewElapsed += dt;
-      this.previewModel.rotation.y = this.previewRotation;
-      for (const pose of this.previewPoseBones) pose.bone.quaternion.copy(pose.baseQuaternion);
     }
     this.resizeClassPreview();
     this.previewRenderer.render(this.previewScene, this.previewCamera);
@@ -3413,6 +3411,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     model.traverse((object) => {
       const mesh = object as THREE.Mesh;
       if (!mesh.isMesh) return;
+      if (modelClass === "amazon" && this.isInactiveAmazonArmorVariant(object.name)) {
+        // The Amazon GLB contains heavy, medium, and light equipment meshes together.
+        // Keep the medium look used by this character and hide the other overlapping tiers.
+        mesh.visible = false;
+        return;
+      }
       const texturePath = this.getTextureForMesh(object.name, modelClass, definition);
       if (texturePath) texturePaths.add(texturePath);
     });
@@ -3431,7 +3435,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
     model.traverse((object) => {
       const mesh = object as THREE.Mesh;
-      if (!mesh.isMesh) return;
+      if (!mesh.isMesh || !mesh.visible) return;
       mesh.castShadow = true;
       mesh.receiveShadow = true;
 
@@ -3616,6 +3620,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     model.scale.setScalar(targetHeight / size.y);
     model.position.set(-center.x * model.scale.x, -bounds.min.y * model.scale.y, -center.z * model.scale.z);
+  }
+
+  private isInactiveAmazonArmorVariant(meshName: string): boolean {
+    const name = meshName.toLowerCase();
+    return /(?:^|[_-])(?:hvy|heavy|lit|light)(?:[_-]|shape|$)/.test(name)
+      || /(?:full|half)helmet|valkyrie_vfx/.test(name);
   }
 
   private getTextureForMesh(meshName: string, modelClass: string, definition: (typeof CLASS_MODEL)[string]): string | null {
