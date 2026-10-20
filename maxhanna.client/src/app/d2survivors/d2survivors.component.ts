@@ -23,6 +23,28 @@ const MODEL_BASE = "assets/d2-models";
 const RUN_SAVE_KEY = "d2survivors.run.v1";
 const RUN_SAVE_VERSION = 1;
 const RUN_SAVE_INTERVAL_MS = 2500;
+
+function createRunId(): string {
+  const cryptoApi = typeof globalThis !== "undefined" ? globalThis.crypto : undefined;
+  if (typeof cryptoApi?.randomUUID === "function") {
+    return cryptoApi.randomUUID();
+  }
+
+  if (typeof cryptoApi?.getRandomValues === "function") {
+    const bytes = cryptoApi.getRandomValues(new Uint8Array(16));
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    const hex = Array.from(bytes, (value) => value.toString(16).padStart(2, "0")).join("");
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  }
+
+  // Run IDs are identifiers, not credentials; keep older/insecure browser contexts usable.
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (marker) => {
+    const value = Math.floor(Math.random() * 16);
+    return (marker === "x" ? value : (value & 0x3) | 0x8).toString(16);
+  });
+}
+
 const CLASS_MODEL: Record<
   string,
   { model: string; body: string; head: string; hair?: string; armor?: string; weapon?: string }
@@ -140,7 +162,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private previewModelRequest = 0;
   private previewLastFrameAt = 0;
   private previewElapsed = 0;
-  private previewPoseBones: Array<{ bone: THREE.Bone; baseQuaternion: THREE.Quaternion; phase: number; side: -1 | 1 }> = [];
+  private previewPoseBones: PreviewPoseBone[] = [];
+  private previewZoom = 1;
+  private previewRotation = 0.18;
+  private previewDragPointer?: number;
+  private previewLastPointerX = 0;
+  previewDragging = false;
   private readonly reducedMotion = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   ambientAudioEnabled = false;
   ambientAudioStatus = "Ambience muted";
@@ -851,7 +878,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       ? saved.selectedClass
       : this.selectedClass;
     const startingStats = this.classStartingStats[savedClass] ?? this.classStartingStats["amazon"];
-    this.lobbyRunId = typeof saved.runId === "string" && saved.runId ? saved.runId : crypto.randomUUID();
+    this.lobbyRunId = typeof saved.runId === "string" && saved.runId ? saved.runId : createRunId();
     this.runKillCount = typeof saved.runKillCount === "number" && Number.isFinite(saved.runKillCount) ? Math.max(0, Math.floor(saved.runKillCount)) : 0;
     const basicAttack = this.basicAttackForClass(savedClass);
     this.playerLevel = Math.floor(numberValue(saved.playerLevel, 1, 1, 10000));
@@ -976,7 +1003,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     try {
       const run: D2SavedRun | null = this.hasSavedRun ? {
         hasSavedRun: true,
-        runId: this.lobbyRunId || crypto.randomUUID(),
+        runId: this.lobbyRunId || createRunId(),
         selectedClass: this.runActive || this.activeTab === "run" ? this.selectedClass : this.savedRunClass,
         arenaW: this.arenaW,
         arenaH: this.arenaH,
@@ -1586,6 +1613,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.previewCamera = new THREE.PerspectiveCamera(30, 1, 0.1, 2000);
       this.previewCamera.position.set(0, 92, 430);
       this.previewCamera.lookAt(0, 68, 0);
+      this.updateClassPreviewZoom();
       this.previewScene.add(new THREE.HemisphereLight(0xe7eaff, 0x2e1b16, 0.75));
       const keyLight = new THREE.DirectionalLight(0xffe1b5, 1.25);
       keyLight.position.set(-140, 240, 180);
@@ -1611,6 +1639,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.previewModelRequest++;
     this.previewPoseBones = [];
     this.previewElapsed = 0;
+    this.previewDragPointer = undefined;
+    this.previewDragging = false;
     this.disposePreviewModel();
     this.previewLoadError = false;
     this.previewRenderer?.dispose();
@@ -1634,6 +1664,43 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       materials.forEach((material) => material.dispose());
     });
     this.previewModel = undefined;
+  }
+
+  zoomClassPreview(direction: -1 | 1): void {
+    this.previewZoom = THREE.MathUtils.clamp(this.previewZoom + direction * 0.15, 0.7, 1.9);
+    this.updateClassPreviewZoom();
+  }
+
+  onClassPreviewWheel(event: WheelEvent): void {
+    event.preventDefault();
+    if (event.deltaY !== 0) this.zoomClassPreview(event.deltaY < 0 ? 1 : -1);
+  }
+
+  onClassPreviewPointerDown(event: PointerEvent): void {
+    if (event.button !== 0) return;
+    this.previewDragPointer = event.pointerId;
+    this.previewLastPointerX = event.clientX;
+    this.previewDragging = true;
+    (event.currentTarget as HTMLCanvasElement).setPointerCapture(event.pointerId);
+  }
+
+  onClassPreviewPointerMove(event: PointerEvent): void {
+    if (!this.previewDragging || this.previewDragPointer !== event.pointerId) return;
+    this.previewRotation += (event.clientX - this.previewLastPointerX) * 0.012;
+    this.previewLastPointerX = event.clientX;
+    if (this.previewModel) this.previewModel.rotation.y = this.previewRotation;
+  }
+
+  onClassPreviewPointerUp(event: PointerEvent): void {
+    if (this.previewDragPointer !== event.pointerId) return;
+    this.previewDragPointer = undefined;
+    this.previewDragging = false;
+  }
+
+  private updateClassPreviewZoom(): void {
+    if (!this.previewCamera) return;
+    this.previewCamera.fov = 30 / this.previewZoom;
+    this.previewCamera.updateProjectionMatrix();
   }
 
   @HostListener("window:resize")
@@ -1715,19 +1782,41 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (this.previewModel && !this.reducedMotion) {
       this.previewElapsed += dt;
       const time = this.previewElapsed;
-      this.previewModel.rotation.y = Math.sin(time * 0.45) * 0.12;
-      this.previewModel.position.y = Math.sin(time * 1.6) * 0.8;
-      // The supplied rigs contain bind poses but no animation clips; subtly settle the shoulders
-      // and upper arms into an alert idle so the hero reads as selected rather than T-posed.
-      const fadeIn = Math.min(1, time / 0.8);
+      this.previewModel.rotation.y = this.previewRotation + (this.previewDragging ? 0 : Math.sin(time * 0.35) * 0.025);
+      this.previewModel.position.y = Math.sin(time * 1.4) * 0.55;
+      // The supplied class rigs have no clips, so give the selection preview a grounded,
+      // slightly asymmetrical idle instead of leaving the hero in its rigid bind pose.
+      const fadeIn = Math.min(1, time / 0.45);
       for (const pose of this.previewPoseBones) {
-        const sway = Math.sin(time * 1.7 + pose.phase) * 0.018;
-        const rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), pose.side * (0.16 + sway) * fadeIn);
-        pose.bone.quaternion.copy(pose.baseQuaternion).multiply(rotation);
+        const sway = Math.sin(time * 1.35 + pose.phase) * 0.018 * fadeIn;
+        let rotation: THREE.Quaternion;
+        switch (pose.role) {
+          case "arm":
+            rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -0.34 + sway)
+              .multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), pose.side * (0.12 + sway)));
+            break;
+          case "leg":
+            rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), pose.side * 0.035 + sway);
+            break;
+          case "knee":
+            rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), 0.045 + Math.max(0, sway));
+            break;
+          case "foot":
+            rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -sway * 0.7);
+            break;
+          case "pelvis":
+            rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), sway * 0.5);
+            break;
+          case "spine":
+            rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -0.035 + sway * 0.4);
+            break;
+        }
+        const settled = new THREE.Quaternion().slerpQuaternions(new THREE.Quaternion(), rotation, fadeIn);
+        pose.bone.quaternion.copy(pose.baseQuaternion).multiply(settled);
       }
     } else if (this.previewModel) {
       this.previewElapsed += dt;
-      this.previewModel.rotation.y = 0;
+      this.previewModel.rotation.y = this.previewRotation;
       for (const pose of this.previewPoseBones) pose.bone.quaternion.copy(pose.baseQuaternion);
     }
     this.resizeClassPreview();
@@ -2011,7 +2100,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       ? base.name
       : `${prefixName ? prefixName + " " : ""}${base.name}${suffixName ? " " + suffixName : ""}`;
     return {
-      id: crypto.randomUUID ? crypto.randomUUID() : String(Math.random()),
+      id: createRunId(),
       name: displayName,
       baseName: base.name,
       rarity,
@@ -2446,7 +2535,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   startRun(): void {
-    this.lobbyRunId = crypto.randomUUID();
+    this.lobbyRunId = createRunId();
     this.runKillCount = 0;
     this.hasSavedRun = true;
     this.stopMenuHeroPreview();
@@ -3502,20 +3591,18 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.characterModel.position.y = Math.abs(Math.sin(phase * 2)) * moving * 0.35;
   }
 
-  private getPreviewPoseBones(model: THREE.Group): Array<{ bone: THREE.Bone; baseQuaternion: THREE.Quaternion; phase: number; side: -1 | 1 }> {
-    const poses: Array<{ bone: THREE.Bone; baseQuaternion: THREE.Quaternion; phase: number; side: -1 | 1 }> = [];
-    model.traverse((object) => {
-      if (!(object instanceof THREE.Bone)) return;
-      const name = object.name.toLowerCase();
-      const isShoulder = /(?:^|[_-])(?:l|left|r|right)[_-]?shoulder(?:[_-].*)?/.test(name)
-        || /(?:^|[_-])shoulder[_-]?(?:l|r)(?:[_-].*)?/.test(name);
-      const isUpperArm = /(?:^|[_-])(?:l|left|r|right)[_-]?(?:upr|upper)[_-]?arm(?:[_-].*)?/.test(name)
-        || /(?:^|[_-])(?:l|r)[_-]?upperarm(?:[_-].*)?/.test(name);
-      const isBarbarianOrNecroArm = /^(?:l|r)_(?:upperarm|clavicle)$/.test(name);
-      if (!isShoulder && !isUpperArm && !isBarbarianOrNecroArm) return;
-      const side: -1 | 1 = /^(?:r|right)[_-]/.test(name) || /[_-](?:r|right)(?:[_-]|$)/.test(name) ? -1 : 1;
-      poses.push({ bone: object, baseQuaternion: object.quaternion.clone(), phase: poses.length * 0.75, side });
-    });
+  private getPreviewPoseBones(model: THREE.Group): PreviewPoseBone[] {
+    const rig = this.getPlayerRigBones(model);
+    const poses: PreviewPoseBone[] = [];
+    const add = (entry: RigAnimationBone | undefined, role: PreviewPoseBone["role"]): void => {
+      if (entry) poses.push({ ...entry, role, phase: poses.length * 0.75 });
+    };
+    for (const arm of rig.arms ?? []) add(arm, "arm");
+    for (const leg of rig.legs ?? []) add(leg, "leg");
+    for (const knee of rig.knees ?? []) add(knee, "knee");
+    for (const foot of rig.feet ?? []) add(foot, "foot");
+    if (rig.pelvis) add({ bone: rig.pelvis, baseQuaternion: rig.pelvis.quaternion.clone(), side: 1 }, "pelvis");
+    if (rig.spine) add({ bone: rig.spine, baseQuaternion: rig.spine.quaternion.clone(), side: 1 }, "spine");
     return poses;
   }
 
@@ -4071,6 +4158,11 @@ interface RigAnimationBone {
   bone: THREE.Bone;
   baseQuaternion: THREE.Quaternion;
   side: -1 | 1;
+}
+
+interface PreviewPoseBone extends RigAnimationBone {
+  phase: number;
+  role: "arm" | "leg" | "knee" | "foot" | "pelvis" | "spine";
 }
 
 interface PlayerRigBones {

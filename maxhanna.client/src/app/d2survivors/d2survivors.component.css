@@ -150,6 +150,47 @@
   display: block;
   width: 100%;
   height: 100%;
+  cursor: grab;
+  touch-action: none;
+}
+
+.d2s-class-preview-canvas.dragging { cursor: grabbing; }
+
+.d2s-preview-controls {
+  position: absolute;
+  z-index: 2;
+  top: 18px;
+  right: 18px;
+  display: grid;
+  gap: 6px;
+}
+
+.d2s-preview-controls button {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  padding: 0;
+  color: #e8d4aa;
+  border: 1px solid #90734a;
+  background: #100d0ddd;
+  box-shadow: inset 0 0 0 2px #090809, 0 2px 6px #0009;
+  cursor: pointer;
+  font: 20px Georgia, serif;
+}
+
+.d2s-preview-controls button:hover,
+.d2s-preview-controls button:focus-visible { color: #fff0c7; border-color: #e1bd76; outline: 1px solid #e1bd76; }
+
+.d2s-preview-hint {
+  position: absolute;
+  top: 20px;
+  left: 22px;
+  color: #bba57e;
+  text-shadow: 0 2px 4px #000;
+  font: 9px Georgia, serif;
+  letter-spacing: 0.16em;
+  pointer-events: none;
 }
 
 .d2s-class-preview:not(.loading) .d2s-class-preview-canvas {
@@ -192,6 +233,7 @@
 
 .d2s-preview-plaque {
   position: absolute;
+  pointer-events: none;
   right: 16px;
   bottom: 18px;
   left: 16px;
