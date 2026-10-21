@@ -53,6 +53,7 @@
               {
                 "glob": "**/*",
                 "input": "src/assets/d2survivors",
+                "ignore": ["review/**"],
                 "output": "assets/d2survivors"
               },
               {
@@ -74,11 +75,6 @@
                 "glob": "pdf.worker.min.mjs",
                 "input": "node_modules/pdfjs-dist/build",
                 "output": "assets/pdfjs"
-              },
-              {
-                "glob": "**/*",
-                "input": "src/assets/d2-models",
-                "output": "assets/d2-models"
               }
             ],
             "styles": [

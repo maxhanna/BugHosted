@@ -19,7 +19,7 @@ import { User } from "../../services/datacontracts/user/user";
 import { AppComponent } from "../app.component";
 import { ChildComponent } from "../child.component";
 
-const MODEL_BASE = "assets/d2-models";
+const MODEL_BASE = "assets/d2survivors/models";
 const RUN_SAVE_KEY = "d2survivors.run.v1";
 const RUN_SAVE_VERSION = 1;
 const RUN_SAVE_INTERVAL_MS = 2500;
@@ -44,12 +44,12 @@ const CAMPAIGN_ACTS: CampaignAct[] = [
 ];
 
 const ENEMY_SPRITE_PATHS: Record<EnemySpecies, string> = {
-  fallen: "assets/d2survivors/enemy-anim-fallen.png",
-  goatman: "assets/d2survivors/enemy-anim-goatman.png",
-  skeleton: "assets/d2survivors/enemy-anim-skeleton.png",
+  fallen: "assets/d2survivors/enemies/animated/fallen.png",
+  goatman: "assets/d2survivors/enemies/animated/goatman.png",
+  skeleton: "assets/d2survivors/enemies/animated/skeleton.png",
   sandRaider: "assets/d2survivors/enemies/act2-sand-raider.png",
   sandMaggot: "assets/d2survivors/enemies/act2-sand-maggot.png",
-  scarab: "assets/d2survivors/enemy-anim-scarab.png",
+  scarab: "assets/d2survivors/enemies/animated/scarab.png",
   fetish: "assets/d2survivors/enemies/act3-flayer.png",
   fetishShaman: "assets/d2survivors/enemies/act3-flayer-shaman.png",
   council: "assets/d2survivors/enemies/act3-council-member.png",
@@ -57,13 +57,13 @@ const ENEMY_SPRITE_PATHS: Record<EnemySpecies, string> = {
   vileChild: "assets/d2survivors/enemies/act4-vile-child.png",
   vileMother: "assets/d2survivors/enemies/act4-vile-mother.png",
   bloodLord: "assets/d2survivors/enemies/act5-blood-lord.png",
-  minotaur: "assets/d2survivors/enemy-anim-minotaur.png",
-  deathMauler: "assets/d2survivors/enemy-anim-deathMauler.png",
-  wendigo: "assets/d2survivors/enemy-anim-wendigo.png",
-  andariel: "assets/d2survivors/enemy-anim-andariel.png",
-  duriel: "assets/d2survivors/monster-lord.png",
-  diablo: "assets/d2survivors/enemy-anim-diablo.png",
-  baalsMinion: "assets/d2survivors/enemy-anim-baalsMinion.png",
+  minotaur: "assets/d2survivors/enemies/animated/minotaur.png",
+  deathMauler: "assets/d2survivors/enemies/animated/death-mauler.png",
+  wendigo: "assets/d2survivors/enemies/animated/wendigo.png",
+  andariel: "assets/d2survivors/enemies/animated/andariel.png",
+  duriel: "assets/d2survivors/enemies/animated/duriel.png",
+  diablo: "assets/d2survivors/enemies/animated/diablo.png",
+  baalsMinion: "assets/d2survivors/enemies/animated/baals-minion.png",
 };
 
 const ENEMY_SPRITE_LAYOUTS: Record<EnemySpecies, { columns: number; rows: number; animated: boolean }> = {
