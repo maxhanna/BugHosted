@@ -30,17 +30,18 @@ interface CampaignAct {
   name: string;
   region: string;
   map: string;
+  mapAlpha: boolean;
   floorTiles: string;
   enemies: EnemySpecies[];
   boss: EnemySpecies;
 }
 
 const CAMPAIGN_ACTS: CampaignAct[] = [
-  { act: 1, name: "The Monastery Gate", region: "Rogue Barracks", map: "assets/d2survivors/maps/act1-barracks.png", floorTiles: "assets/d2survivors/maps/tiles/act1-floor-tiles.png", enemies: ["fallen", "goatman", "skeleton"], boss: "andariel" },
-  { act: 2, name: "The Buried Caves", region: "Rocky Waste", map: "assets/d2survivors/maps/act2-caves.png", floorTiles: "assets/d2survivors/maps/tiles/act2-floor-tiles.png", enemies: ["sandRaider", "sandMaggot", "scarab"], boss: "duriel" },
-  { act: 3, name: "The Flayer Jungle", region: "Kurast Wilds", map: "assets/d2survivors/maps/act3-jungle.png", floorTiles: "assets/d2survivors/maps/tiles/act3-floor-tiles.png", enemies: ["fetish", "fetishShaman", "council"], boss: "council" },
-  { act: 4, name: "The Chaos Sanctuary", region: "River of Flame", map: "assets/d2survivors/maps/act4-catacombs.png", floorTiles: "assets/d2survivors/maps/tiles/act4-floor-tiles.png", enemies: ["balrog", "vileChild", "vileMother"], boss: "diablo" },
-  { act: 5, name: "The Worldstone Keep", region: "Arreat Summit", map: "assets/d2survivors/maps/act5-worldstone.png", floorTiles: "assets/d2survivors/maps/tiles/act5-floor-tiles.png", enemies: ["bloodLord", "minotaur", "deathMauler", "wendigo"], boss: "baalsMinion" },
+  { act: 1, name: "The Monastery Gate", region: "Rogue Barracks", map: "assets/d2survivors/maps/act1-barracks.png", mapAlpha: true, floorTiles: "assets/d2survivors/maps/tiles/act1-floor-tiles.png", enemies: ["fallen", "goatman", "skeleton"], boss: "andariel" },
+  { act: 2, name: "The Buried Caves", region: "Rocky Waste", map: "assets/d2survivors/maps/act2-caves.png", mapAlpha: true, floorTiles: "assets/d2survivors/maps/tiles/act2-floor-tiles.png", enemies: ["sandRaider", "sandMaggot", "scarab"], boss: "duriel" },
+  { act: 3, name: "The Flayer Jungle", region: "Kurast Wilds", map: "assets/d2survivors/maps/act3-jungle.png", mapAlpha: true, floorTiles: "assets/d2survivors/maps/tiles/act3-floor-tiles.png", enemies: ["fetish", "fetishShaman", "council"], boss: "council" },
+  { act: 4, name: "The Chaos Sanctuary", region: "River of Flame", map: "assets/d2survivors/maps/act4-catacombs.png", mapAlpha: true, floorTiles: "assets/d2survivors/maps/tiles/act4-floor-tiles.png", enemies: ["balrog", "vileChild", "vileMother"], boss: "diablo" },
+  { act: 5, name: "The Worldstone Keep", region: "Arreat Summit", map: "assets/d2survivors/maps/act5-worldstone.png", mapAlpha: true, floorTiles: "assets/d2survivors/maps/tiles/act5-floor-tiles.png", enemies: ["bloodLord", "minotaur", "deathMauler", "wendigo"], boss: "baalsMinion" },
 ];
 
 const ENEMY_SPRITE_PATHS: Record<EnemySpecies, string> = {
@@ -266,6 +267,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private previewLastFrameAt = 0;
   private previewElapsed = 0;
   private previewPoseBones: PreviewPoseBone[] = [];
+  private previewAmazonPike?: THREE.Object3D;
+  private previewAmazonPikeBase?: THREE.Quaternion;
   private previewZoom = 1;
   private previewRotation = 0.18;
   private previewDragPointer?: number;
@@ -954,26 +957,64 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
     ctx.fillStyle = "#08090d";
     ctx.fillRect(0, 0, background.width, background.height);
+
+    // Each atlas cell is a 160x80 isometric diamond. Scale it down to one game
+    // ground tile, and match the tile-center spacing to the 2:1 world projection.
+    const atlasColumns = 4;
+    const atlasRows = 4;
+    const atlasTileWidth = floorTiles.naturalWidth / atlasColumns;
+    const atlasTileHeight = floorTiles.naturalHeight / atlasRows;
     const tileWorldSize = 48;
     const tileWidth = tileWorldSize * Math.SQRT2;
     const tileHeight = tileWorldSize / Math.SQRT2;
+    const halfW = tileWidth / 2;
+    const halfH = tileHeight / 2;
+    const minColumn = Math.floor(-this.arenaH / tileWorldSize) - 2;
+    const maxColumn = Math.ceil((this.arenaW + this.arenaH) / tileWorldSize) + 2;
+    const minRow = Math.floor(-this.arenaH / tileWorldSize) - 2;
+    const maxRow = Math.ceil((this.arenaW + this.arenaH) / tileWorldSize) + 2;
     ctx.imageSmoothingEnabled = false;
-    for (let row = -2; row <= Math.ceil(this.arenaH / tileWorldSize) + 2; row += 1) {
-      for (let column = -2; column <= Math.ceil(this.arenaW / tileWorldSize) + 2; column += 1) {
-        const point = this.projectArenaPoint(column * tileWorldSize, row * tileWorldSize);
-        if (point.x + tileWidth / 2 < 0 || point.x - tileWidth / 2 > background.width ||
-            point.y + tileHeight / 2 < 0 || point.y - tileHeight / 2 > background.height) continue;
+    for (let row = minRow; row <= maxRow; row += 1) {
+      for (let column = minColumn; column <= maxColumn; column += 1) {
+        const worldX = column * tileWorldSize;
+        const worldY = row * tileWorldSize;
+        const point = this.projectArenaPoint(worldX, worldY);
+        if (point.x + halfW < 0 || point.x - halfW > background.width ||
+            point.y + halfH < 0 || point.y - halfH > background.height) continue;
+
+        // Keep the full source diamond. Cropping the center strip clips its top and
+        // bottom points and creates visible seams between otherwise adjacent tiles.
         const hash = Math.imul(column + 97, 73856093) ^ Math.imul(row + 193, 19349663) ^ Math.imul(act.act, 83492791);
-        const variant = (hash >>> 0) % 16;
-        ctx.drawImage(floorTiles, (variant % 4) * 160, Math.floor(variant / 4) * 80, 160, 80,
-          point.x - tileWidth / 2, point.y - tileHeight / 2, tileWidth, tileHeight);
+        const variant = (hash >>> 0) % (atlasColumns * atlasRows);
+        ctx.drawImage(floorTiles,
+          (variant % atlasColumns) * atlasTileWidth,
+          Math.floor(variant / atlasColumns) * atlasTileHeight,
+          atlasTileWidth, atlasTileHeight,
+          point.x - halfW, point.y - halfH, tileWidth, tileHeight);
       }
     }
 
-    const mapHeight = background.width * map.naturalHeight / map.naturalWidth;
+    // Fit level art without distorting its 2:1 isometric aspect ratio. Transparent
+    // pixels reveal the repeated floor; structures and scenery blend over it.
+    const mapScale = Math.min(background.width / map.naturalWidth, background.height / map.naturalHeight);
+    const mapWidth = map.naturalWidth * mapScale;
+    const mapHeight = map.naturalHeight * mapScale;
+    const mapX = (background.width - mapWidth) / 2;
+    const mapY = (background.height - mapHeight) / 2;
     ctx.imageSmoothingEnabled = true;
-    ctx.drawImage(map, 0, (background.height - mapHeight) / 2, background.width, mapHeight);
-    ctx.fillStyle = "rgba(6, 7, 11, 0.14)";
+    if (act.mapAlpha) {
+      // These level cutouts are transparent 3D room/floor renders, not full-screen
+      // maps. Place them at the center of the tile field and let transparent edges
+      // reveal the continuous floor below instead of scaling the cutout to a background.
+      const overlayScale = Math.min(background.width / map.naturalWidth, background.height / map.naturalHeight);
+      const overlayWidth = map.naturalWidth * overlayScale;
+      const overlayHeight = map.naturalHeight * overlayScale;
+      ctx.drawImage(map, (background.width - overlayWidth) / 2,
+        (background.height - overlayHeight) / 2, overlayWidth, overlayHeight);
+    } else {
+      ctx.drawImage(map, mapX, mapY, mapWidth, mapHeight);
+    }
+    ctx.fillStyle = "rgba(6, 7, 11, 0.04)";
     ctx.fillRect(0, 0, background.width, background.height);
     ctx.strokeStyle = "rgba(190, 151, 91, 0.55)";
     ctx.lineWidth = 2;
@@ -1838,6 +1879,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     this.previewModelRequest++;
     this.previewPoseBones = [];
+    this.previewAmazonPike = undefined;
+    this.previewAmazonPikeBase = undefined;
     this.previewElapsed = 0;
     this.previewDragPointer = undefined;
     this.previewDragging = false;
@@ -1953,8 +1996,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           disposeModel();
           return;
         }
-        this.normalizeCharacterModel(model, 88);
+        this.normalizeCharacterModel(model, 88, modelClass === "amazon");
         this.previewPoseBones = this.getPreviewPoseBones(model);
+        this.previewAmazonPike = modelClass === "amazon"
+          ? model.getObjectByName("pikeShape_0") ?? undefined
+          : undefined;
+        this.previewAmazonPikeBase = this.previewAmazonPike?.quaternion.clone();
         this.previewModel = model;
         this.previewScene?.add(model);
         this.previewLoadError = false;
@@ -1984,7 +2031,17 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const time = this.previewElapsed;
       const idleMotion = this.reducedMotion ? 0 : 1;
       this.previewModel.rotation.y = this.previewRotation + (this.previewDragging ? 0 : Math.sin(time * 0.35) * 0.025 * idleMotion);
-      this.previewModel.position.y = Math.sin(time * 1.4) * 0.55 * idleMotion;
+      this.previewModel.rotation.z = this.selectedClass === "amazon" && !this.reducedMotion
+        ? Math.sin(time * 0.72) * 0.004
+        : 0;
+      this.previewModel.position.y = Math.sin(time * 1.4) * (this.selectedClass === "amazon" ? 0.3 : 0.55) * idleMotion;
+      if (this.previewAmazonPike && this.previewAmazonPikeBase) {
+        const gripSettle = this.selectedClass === "amazon" && !this.previewDragging
+          ? Math.sin(time * 0.9) * 0.012 * idleMotion
+          : 0;
+        const settle = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), gripSettle);
+        this.previewAmazonPike.quaternion.copy(this.previewAmazonPikeBase).multiply(settle);
+      }
       // The supplied class rigs have no clips, so give the selection preview a grounded,
       // slightly asymmetrical idle instead of leaving the hero in its rigid bind pose.
       // Reduced-motion users keep the settled pose but skip its breathing and turntable sway.
@@ -1993,10 +2050,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         const sway = Math.sin(time * 1.35 + pose.phase) * 0.018 * fadeIn * idleMotion;
         let rotation: THREE.Quaternion;
         switch (pose.role) {
-          case "arm":
-            rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -0.34 + sway)
-              .multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), pose.side * (0.12 + sway)));
+          case "arm": {
+            const amazonReadyStance = this.selectedClass === "amazon";
+            const armReach = amazonReadyStance ? -0.2 : -0.34;
+            const armSet = amazonReadyStance ? 0.075 : 0.12;
+            rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), armReach + sway * 0.7)
+              .multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), pose.side * (armSet + sway)));
             break;
+          }
           case "leg":
             rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), pose.side * 0.035 + sway);
             break;
@@ -2313,13 +2374,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   onKeyDown(event: KeyboardEvent): void {
     const key = event.key.toLowerCase();
-    if (this.escapeMenuOpen || this.inventoryOpen) return;
+    if (this.escapeMenuOpen || this.inventoryOpen || this.pendingLevelUps > 0) return;
     if (["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(key)) {
       event.preventDefault();
       this.keysDown.add(key);
       return;
     }
-    if (this.pendingLevelUps > 0) return;
     if (key === " " || key === "j" || key === "f") {
       event.preventDefault();
       this.attackNearestEnemy();
@@ -2402,13 +2462,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       requestAnimationFrame(() => this.arenaRef?.nativeElement.focus());
       return;
     }
-    if (this.escapeMenuOpen || this.inventoryOpen) return;
+    if (this.escapeMenuOpen || this.inventoryOpen || this.pendingLevelUps > 0) return;
     if (["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(key)) {
       event.preventDefault();
       this.keysDown.add(key);
       return;
     }
-    if (this.pendingLevelUps > 0) return;
     if (["1", "2", "3", "4"].includes(key)) {
       event.preventDefault();
       this.useSkillHotkey(Number(key) - 1);
@@ -2616,7 +2675,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.pendingLevelUps += 1;
       this.xpToNextLevel = this.xpForLevel(this.playerLevel);
     }
-    if (this.pendingLevelUps > 0) this.prepareUpgradeChoices();
+    if (this.pendingLevelUps > 0) {
+      this.keysDown.clear();
+      this.prepareUpgradeChoices();
+    }
     this.persistRunProgress(true);
   }
 
@@ -2845,7 +2907,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       if (this.campaignVictory) this.draw();
       return;
     }
-    if (!this.escapeMenuOpen && !this.inventoryOpen && !this.actTransitionReady && !this.campaignVictory) this.update(dt);
+    if (!this.escapeMenuOpen && !this.inventoryOpen && !this.actTransitionReady && !this.campaignVictory && this.pendingLevelUps === 0) this.update(dt);
     else {
       this.isPlayerMoving = false;
       this.playerMoveX = 0;
@@ -3912,9 +3974,20 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     return poses;
   }
 
-  private normalizeCharacterModel(model: THREE.Group, targetHeight: number): void {
+  private normalizeCharacterModel(model: THREE.Group, targetHeight: number, excludeAmazonWeaponFromBounds = false): void {
     model.updateMatrixWorld(true);
-    const bounds = new THREE.Box3().setFromObject(model);
+    const bounds = new THREE.Box3();
+    if (excludeAmazonWeaponFromBounds) {
+      // The Amazon's long pike is a separate, stretched mesh. Including it in the
+      // character bounds shifts her body sideways and makes her stance look canted.
+      model.traverse((object) => {
+        const mesh = object as THREE.Mesh;
+        if (!mesh.isMesh || !mesh.visible || /pike|weapon|valkyrie_vfx/i.test(mesh.name)) return;
+        bounds.expandByObject(mesh);
+      });
+    } else {
+      bounds.setFromObject(model);
+    }
     const size = bounds.getSize(new THREE.Vector3());
     const center = bounds.getCenter(new THREE.Vector3());
     if (size.y <= 0 || !Number.isFinite(size.y)) {
