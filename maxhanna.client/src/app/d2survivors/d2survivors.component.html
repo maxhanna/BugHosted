@@ -227,6 +227,19 @@
           <div class="d2s-orb-text"><strong>Mana</strong><span>{{ playerMana | number:'1.0-0' }} / {{ playerMaxMana }}</span></div>
         </div>
       </div>
+      <div class="d2s-act-banner" aria-label="Campaign act">
+        <span>ACT {{ currentAct }} / 5</span>
+        <strong>{{ currentActDetails.region }}</strong>
+        <small>{{ currentActDetails.name }}</small>
+        <span class="d2s-act-progress" role="progressbar" [attr.aria-valuenow]="actProgress" aria-valuemin="0" aria-valuemax="100" aria-label="Time until the act boss arrives"><i [style.width.%]="actProgress"></i></span>
+        <small>{{ actBossSpawned ? 'Boss battle' : 'Area boss in ' + (actSecondsRemaining | number:'1.0-0') + 's' }}</small>
+      </div>
+      <div class="d2s-act-transition" *ngIf="actTransitionReady" role="dialog" aria-modal="true" aria-labelledby="d2s-act-transition-title">
+        <section><p>ACT {{ currentAct }} CLEARED</p><h2 id="d2s-act-transition-title">{{ currentActDetails.name }}</h2><p>The way forward is open. Your wounds partially mend.</p><button type="button" class="d2s-menu-button primary" (click)="advanceAct()"><span>{{ currentAct < 5 ? 'Journey to Act ' + (currentAct + 1) : 'Face the Worldstone' }}</span></button></section>
+      </div>
+      <div class="d2s-campaign-victory" *ngIf="campaignVictory" role="dialog" aria-modal="true" aria-labelledby="d2s-campaign-victory-title">
+        <section><p>THE WORLDSTONE IS SAFE</p><h2 id="d2s-campaign-victory-title">Sanctuary Endures</h2><p>You have crossed all five acts and defeated the Lord of Destruction.</p><button type="button" class="d2s-menu-button primary" (click)="finishCampaign()"><span>Return to the Sanctuary lobby</span></button></section>
+      </div>
       <div class="d2s-experience-progress" role="progressbar" [attr.aria-valuenow]="playerXp" [attr.aria-valuemin]="0" [attr.aria-valuemax]="xpToNextLevel" [attr.aria-label]="'Level ' + playerLevel + ' experience'">
         <strong>Level {{ playerLevel }}</strong><span class="d2s-experience-track"><i [style.width.%]="levelXpFill * 100"></i></span>
       </div>
@@ -247,7 +260,7 @@
         <div class="d2s-escape-menu-items">
           <button type="button" (click)="closeEscapeMenu()">Return to Game</button>
           <button type="button" (click)="toggleInventory()">Inventory</button>
-          <button type="button" (click)="saveRunNow()">Save and Exit Game</button>
+          <button type="button" (click)="saveRunNow()">{{ campaignVictory ? 'Return to Sanctuary' : 'Save and Exit Game' }}</button>
         </div>
         <p class="d2s-escape-hint">Press ESC to return to the fight</p>
         <div class="d2s-menu-skills" *ngIf="ownedSkills.length">

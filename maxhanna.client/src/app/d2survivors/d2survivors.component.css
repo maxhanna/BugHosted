@@ -1154,6 +1154,60 @@
   box-sizing: border-box;
 }
 
+.d2s-act-banner {
+  position: absolute;
+  z-index: 5;
+  top: 14px;
+  left: 16px;
+  display: grid;
+  width: min(225px, 44%);
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid #927147;
+  background: linear-gradient(110deg, #100e0ee8, #160f0dc7);
+  box-shadow: inset 0 0 0 2px #090808, 0 3px 12px #000b;
+  color: #cbb98f;
+  font: 11px Georgia, serif;
+  pointer-events: none;
+}
+
+.d2s-act-banner > span:first-child,
+.d2s-act-banner > small { color: #a98b5f; font-size: 9px; letter-spacing: .12em; }
+.d2s-act-banner > strong { color: #f0d6a0; font-size: 15px; font-weight: normal; }
+.d2s-act-progress { display: block; height: 4px; overflow: hidden; border: 1px solid #665033; background: #080808; }
+.d2s-act-progress i { display: block; height: 100%; background: linear-gradient(90deg, #8a301c, #e6ad58); transition: width 200ms linear; }
+
+.d2s-act-transition,
+.d2s-campaign-victory {
+  position: absolute;
+  z-index: 12;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: #050506dd;
+}
+
+.d2s-act-transition > section,
+.d2s-campaign-victory > section {
+  display: grid;
+  width: min(430px, 100%);
+  gap: 12px;
+  padding: 26px;
+  border: 3px ridge #9b7d48;
+  background: radial-gradient(ellipse at 50% 0, #342119, #09090b 72%);
+  box-shadow: inset 0 0 0 3px #080707, 0 8px 40px #000;
+  color: #cbb98f;
+  text-align: center;
+}
+
+.d2s-act-transition > section > p:first-child,
+.d2s-campaign-victory > section > p:first-child { margin: 0; color: #d3a564; font: 11px Georgia, serif; letter-spacing: .22em; }
+.d2s-act-transition h2,
+.d2s-campaign-victory h2 { margin: 0; color: #f0d6a0; font: 28px Georgia, serif; }
+.d2s-act-transition > section > p:not(:first-child),
+.d2s-campaign-victory > section > p:not(:first-child) { margin: 0 0 6px; color: #b7a683; font: 13px/1.5 Georgia, serif; }
+
 .d2s-touch-menu {
   position: absolute;
   z-index: 9;
@@ -1575,6 +1629,8 @@
 
   .d2s-escape-menu { inset: -227px -0.8px; }
   .d2s-touch-menu { top: 242px; right: 14px; }
+  .d2s-act-banner { top: 12px; left: 12px; width: min(176px, 45%); padding: 7px 8px; }
+  .d2s-act-banner > strong { font-size: 12px; }
   .d2s-inv-panel { inset: -227px -0.8px; width: auto; height: calc(100% + 454px); }
 
   .d2s-orb {

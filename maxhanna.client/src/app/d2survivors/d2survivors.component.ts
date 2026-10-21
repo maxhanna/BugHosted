@@ -23,6 +23,101 @@ const MODEL_BASE = "assets/d2-models";
 const RUN_SAVE_KEY = "d2survivors.run.v1";
 const RUN_SAVE_VERSION = 1;
 const RUN_SAVE_INTERVAL_MS = 2500;
+const ACT_BOSS_TIME_SECONDS = 45;
+
+interface CampaignAct {
+  act: number;
+  name: string;
+  region: string;
+  map: string;
+  floorTiles: string;
+  enemies: EnemySpecies[];
+  boss: EnemySpecies;
+}
+
+const CAMPAIGN_ACTS: CampaignAct[] = [
+  { act: 1, name: "The Monastery Gate", region: "Rogue Barracks", map: "assets/d2survivors/maps/act1-barracks.png", floorTiles: "assets/d2survivors/maps/tiles/act1-floor-tiles.png", enemies: ["fallen", "goatman", "skeleton"], boss: "andariel" },
+  { act: 2, name: "The Buried Caves", region: "Rocky Waste", map: "assets/d2survivors/maps/act2-caves.png", floorTiles: "assets/d2survivors/maps/tiles/act2-floor-tiles.png", enemies: ["sandRaider", "sandMaggot", "scarab"], boss: "duriel" },
+  { act: 3, name: "The Flayer Jungle", region: "Kurast Wilds", map: "assets/d2survivors/maps/act3-jungle.png", floorTiles: "assets/d2survivors/maps/tiles/act3-floor-tiles.png", enemies: ["fetish", "fetishShaman", "council"], boss: "council" },
+  { act: 4, name: "The Chaos Sanctuary", region: "River of Flame", map: "assets/d2survivors/maps/act4-catacombs.png", floorTiles: "assets/d2survivors/maps/tiles/act4-floor-tiles.png", enemies: ["balrog", "vileChild", "vileMother"], boss: "diablo" },
+  { act: 5, name: "The Worldstone Keep", region: "Arreat Summit", map: "assets/d2survivors/maps/act5-worldstone.png", floorTiles: "assets/d2survivors/maps/tiles/act5-floor-tiles.png", enemies: ["bloodLord", "minotaur", "deathMauler", "wendigo"], boss: "baalsMinion" },
+];
+
+const ENEMY_SPRITE_PATHS: Record<EnemySpecies, string> = {
+  fallen: "assets/d2survivors/enemy-anim-fallen.png",
+  goatman: "assets/d2survivors/enemy-anim-goatman.png",
+  skeleton: "assets/d2survivors/enemy-anim-skeleton.png",
+  sandRaider: "assets/d2survivors/enemies/act2-sand-raider.png",
+  sandMaggot: "assets/d2survivors/enemies/act2-sand-maggot.png",
+  scarab: "assets/d2survivors/enemy-anim-scarab.png",
+  fetish: "assets/d2survivors/enemies/act3-flayer.png",
+  fetishShaman: "assets/d2survivors/enemies/act3-flayer-shaman.png",
+  council: "assets/d2survivors/enemies/act3-council-member.png",
+  balrog: "assets/d2survivors/enemies/act4-balrog.png",
+  vileChild: "assets/d2survivors/enemies/act4-vile-child.png",
+  vileMother: "assets/d2survivors/enemies/act4-vile-mother.png",
+  bloodLord: "assets/d2survivors/enemies/act5-blood-lord.png",
+  minotaur: "assets/d2survivors/enemy-anim-minotaur.png",
+  deathMauler: "assets/d2survivors/enemy-anim-deathMauler.png",
+  wendigo: "assets/d2survivors/enemy-anim-wendigo.png",
+  andariel: "assets/d2survivors/enemy-anim-andariel.png",
+  duriel: "assets/d2survivors/monster-lord.png",
+  diablo: "assets/d2survivors/enemy-anim-diablo.png",
+  baalsMinion: "assets/d2survivors/enemy-anim-baalsMinion.png",
+};
+
+const ENEMY_SPRITE_LAYOUTS: Record<EnemySpecies, { columns: number; rows: number; animated: boolean }> = {
+  fallen: { columns: 11, rows: 8, animated: true }, goatman: { columns: 10, rows: 8, animated: true },
+  skeleton: { columns: 8, rows: 8, animated: true }, sandRaider: { columns: 1, rows: 1, animated: false },
+  sandMaggot: { columns: 1, rows: 1, animated: false }, scarab: { columns: 12, rows: 8, animated: true },
+  fetish: { columns: 1, rows: 1, animated: false }, fetishShaman: { columns: 1, rows: 1, animated: false },
+  council: { columns: 1, rows: 1, animated: false }, balrog: { columns: 1, rows: 1, animated: false },
+  vileChild: { columns: 1, rows: 1, animated: false }, vileMother: { columns: 1, rows: 1, animated: false },
+  bloodLord: { columns: 1, rows: 1, animated: false }, minotaur: { columns: 10, rows: 8, animated: true },
+  deathMauler: { columns: 16, rows: 8, animated: true }, wendigo: { columns: 14, rows: 8, animated: true },
+  andariel: { columns: 16, rows: 8, animated: true }, duriel: { columns: 6, rows: 8, animated: true },
+  diablo: { columns: 14, rows: 8, animated: true }, baalsMinion: { columns: 13, rows: 8, animated: true },
+};
+
+const ENEMY_SPRITE_CELLS: Record<EnemySpecies, { width: number; height: number }> = {
+  fallen: { width: 1, height: 1 }, goatman: { width: 1, height: 1 }, skeleton: { width: 1, height: 1 },
+  sandRaider: { width: 32, height: 32 }, sandMaggot: { width: 59, height: 49 }, scarab: { width: 1, height: 1 },
+  fetish: { width: 31, height: 32 }, fetishShaman: { width: 28, height: 55 }, council: { width: 34, height: 89 },
+  balrog: { width: 42, height: 32 }, vileChild: { width: 49, height: 50 }, vileMother: { width: 42, height: 48 },
+  bloodLord: { width: 29, height: 25 }, minotaur: { width: 1, height: 1 }, deathMauler: { width: 1, height: 1 },
+  wendigo: { width: 1, height: 1 }, andariel: { width: 1, height: 1 }, duriel: { width: 1, height: 1 },
+  diablo: { width: 1, height: 1 }, baalsMinion: { width: 1, height: 1 },
+};
+
+
+const ENEMY_SPECIES: EnemySpecies[] = Object.keys(ENEMY_SPRITE_PATHS) as EnemySpecies[];
+const ENEMY_SPECIES_BY_KIND: Record<EnemyKind, EnemySpecies[]> = {
+  normal: ["fallen", "goatman", "skeleton", "sandRaider", "sandMaggot", "scarab", "fetish", "fetishShaman", "council", "balrog", "vileChild", "vileMother", "bloodLord", "minotaur", "deathMauler", "wendigo"],
+  champion: ["goatman", "skeleton", "scarab", "fetishShaman", "council", "balrog", "vileMother", "bloodLord", "minotaur", "deathMauler", "wendigo"],
+  boss: ["andariel", "duriel", "council", "diablo", "baalsMinion"],
+};
+
+function sanitizeEnemySpecies(value: unknown, kind: EnemyKind): EnemySpecies {
+  return ENEMY_SPECIES.includes(value as EnemySpecies)
+    ? value as EnemySpecies
+    : ENEMY_SPECIES_BY_KIND[kind][0];
+}
+
+interface EnemySpriteBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+interface EnemySprite {
+  image: HTMLCanvasElement;
+  columns: number;
+  rows: number;
+  animated: boolean;
+  cell: { width: number; height: number };
+  bounds: Map<string, EnemySpriteBounds | null>;
+}
 
 function createRunId(): string {
   const cryptoApi = typeof globalThis !== "undefined" ? globalThis.crypto : undefined;
@@ -135,6 +230,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private isPlayerMoving = false;
   private loadedModelClass = "";
   private readonly enemySprites: Partial<Record<EnemySpecies, EnemySprite>> = {};
+  private readonly campaignMapImages: Partial<Record<number, HTMLImageElement>> = {};
+  private readonly campaignFloorTileImages: Partial<Record<number, HTMLImageElement>> = {};
+  private readonly campaignBackgroundCanvases: Partial<Record<number, HTMLCanvasElement>> = {};
+  currentAct = 1;
+  actTime = 0;
+  actTransitionReady = false;
+  campaignVictory = false;
+  actBossSpawned = false;
   modelLoadError = false;
   @ViewChild("classPreviewCanvas") private classPreviewCanvasRef?: ElementRef<HTMLCanvasElement>;
   @ViewChild("menuHeroCanvas") private menuHeroCanvasRef?: ElementRef<HTMLCanvasElement>;
@@ -798,6 +901,86 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     sorceress: { title: "Elemental Adept", specialty: "Spellcaster · Fire, Cold & Lightning", life: 10, mana: 35, stamina: 74, attributes: [10, 25, 10, 35] },
   };
 
+  get currentActDetails(): CampaignAct {
+    return CAMPAIGN_ACTS[this.currentAct - 1] ?? CAMPAIGN_ACTS[0];
+  }
+
+  get actProgress(): number {
+    return this.actBossSpawned ? 100 : Math.min(100, this.actTime / ACT_BOSS_TIME_SECONDS * 100);
+  }
+
+  get actSecondsRemaining(): number {
+    return Math.max(0, ACT_BOSS_TIME_SECONDS - this.actTime);
+  }
+
+  private loadCampaignMaps(): void {
+    for (const act of CAMPAIGN_ACTS) {
+      const mapImage = new Image();
+      const tileImage = new Image();
+      const redrawWhenReady = (): void => {
+        if (!this.campaignMapImages[act.act] || !this.campaignFloorTileImages[act.act]) return;
+        this.renderCampaignBackground(act);
+        if (this.activeTab === "run" && this.currentAct === act.act) {
+          this.draw();
+          this.renderCharacter();
+        }
+      };
+      mapImage.onload = () => {
+        this.campaignMapImages[act.act] = mapImage;
+        redrawWhenReady();
+      };
+      mapImage.onerror = () => console.warn(`Could not load Act ${act.act} map art: ${act.map}`);
+      tileImage.onload = () => {
+        this.campaignFloorTileImages[act.act] = tileImage;
+        redrawWhenReady();
+      };
+      tileImage.onerror = () => console.warn(`Could not load Act ${act.act} floor tiles: ${act.floorTiles}`);
+      mapImage.src = act.map;
+      tileImage.src = act.floorTiles;
+    }
+  }
+
+  private renderCampaignBackground(act: CampaignAct): void {
+    const map = this.campaignMapImages[act.act];
+    const floorTiles = this.campaignFloorTileImages[act.act];
+    const arenaCanvas = this.arenaRef?.nativeElement;
+    if (!map || !floorTiles || !arenaCanvas) return;
+
+    const background = document.createElement("canvas");
+    background.width = arenaCanvas.width;
+    background.height = arenaCanvas.height;
+    const ctx = background.getContext("2d");
+    if (!ctx) return;
+
+    ctx.fillStyle = "#08090d";
+    ctx.fillRect(0, 0, background.width, background.height);
+    const tileWorldSize = 48;
+    const tileWidth = tileWorldSize * Math.SQRT2;
+    const tileHeight = tileWorldSize / Math.SQRT2;
+    ctx.imageSmoothingEnabled = false;
+    for (let row = -2; row <= Math.ceil(this.arenaH / tileWorldSize) + 2; row += 1) {
+      for (let column = -2; column <= Math.ceil(this.arenaW / tileWorldSize) + 2; column += 1) {
+        const point = this.projectArenaPoint(column * tileWorldSize, row * tileWorldSize);
+        if (point.x + tileWidth / 2 < 0 || point.x - tileWidth / 2 > background.width ||
+            point.y + tileHeight / 2 < 0 || point.y - tileHeight / 2 > background.height) continue;
+        const hash = Math.imul(column + 97, 73856093) ^ Math.imul(row + 193, 19349663) ^ Math.imul(act.act, 83492791);
+        const variant = (hash >>> 0) % 16;
+        ctx.drawImage(floorTiles, (variant % 4) * 160, Math.floor(variant / 4) * 80, 160, 80,
+          point.x - tileWidth / 2, point.y - tileHeight / 2, tileWidth, tileHeight);
+      }
+    }
+
+    const mapHeight = background.width * map.naturalHeight / map.naturalWidth;
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(map, 0, (background.height - mapHeight) / 2, background.width, mapHeight);
+    ctx.fillStyle = "rgba(6, 7, 11, 0.14)";
+    ctx.fillRect(0, 0, background.width, background.height);
+    ctx.strokeStyle = "rgba(190, 151, 91, 0.55)";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(2, 2, background.width - 4, background.height - 4);
+    this.campaignBackgroundCanvases[act.act] = background;
+  }
+
   get selectedClassStats(): { title: string; specialty: string; life: number; mana: number; stamina: number; attributes: Array<{ name: string; value: number }> } {
     const stats = this.classStartingStats[this.selectedClass] ?? this.classStartingStats["amazon"];
     return {
@@ -900,6 +1083,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.playerMana = numberValue(saved.playerMana, this.playerMaxMana, 0, this.playerMaxMana);
     this.playerGold = Math.floor(numberValue(saved.playerGold, 0, 0, 1_000_000_000));
     this.runTime = numberValue(saved.runTime, 0, 0, 1_000_000_000);
+    this.currentAct = Math.floor(numberValue(saved.currentAct, 1, 1, CAMPAIGN_ACTS.length));
+    this.actTime = numberValue(saved.actTime, 0, 0, 1_000_000_000);
+    this.actTransitionReady = saved.actTransitionReady === true;
+    this.campaignVictory = false;
+    this.actBossSpawned = saved.actBossSpawned === true || this.actTime >= ACT_BOSS_TIME_SECONDS;
+    if (this.actBossSpawned && !this.actTransitionReady && !saved.enemies?.some((enemy) => isRecord(enemy) && enemy["campaignBoss"] === true)) {
+      this.actTransitionReady = true;
+    }
     this.spawnAcc = numberValue(saved.spawnAcc, 0, 0, 1);
     this.chestTimer = numberValue(saved.chestTimer, 0, -3600, 3600);
     this.nextChestInterval = numberValue(saved.nextChestInterval, 8, 1, 3600);
@@ -907,11 +1098,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       ? saved.enemies.slice(0, 220).filter(isRecord).map((enemy) => {
           const kind: EnemyKind = enemy["kind"] === "boss" || enemy["kind"] === "champion" ? enemy["kind"] : "normal";
           return {
-          kind,
-          species: sanitizeEnemySpecies(enemy["species"], kind),
-          spriteFrame: numberValue(enemy["spriteFrame"], 0, 0, 47),
-          x: numberValue(enemy["x"], 250, 0, this.arenaW),
-          y: numberValue(enemy["y"], 250, 0, this.arenaH),
+            kind,
+            species: sanitizeEnemySpecies(enemy["species"], kind),
+            campaignBoss: enemy["campaignBoss"] === true,
+            spriteFrame: numberValue(enemy["spriteFrame"], 0, 0, 47),
+            x: numberValue(enemy["x"], 250, -40, this.arenaW + 40),
+            y: numberValue(enemy["y"], 250, -40, this.arenaH + 40),
           hp: numberValue(enemy["hp"], 1, 0, 1_000_000),
           maxHp: numberValue(enemy["maxHp"], 1, 1, 1_000_000),
           speed: numberValue(enemy["speed"], 80, 0, 10_000),
@@ -1015,6 +1207,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         playerMaxMana: this.playerMaxMana,
         playerGold: this.playerGold,
         runTime: this.runTime,
+        currentAct: this.currentAct,
+        actTime: this.actTime,
+        actBossSpawned: this.actBossSpawned,
+        actTransitionReady: this.actTransitionReady,
         runKillCount: this.runKillCount,
         playerLevel: this.playerLevel,
         playerXp: this.playerXp,
@@ -1051,6 +1247,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   saveRunNow(): void {
+    if (this.campaignVictory) {
+      this.finishCampaign();
+      return;
+    }
     this.persistRunProgress(true);
     this.escapeMenuOpen = false;
     this.inventoryOpen = false;
@@ -2113,12 +2313,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   onKeyDown(event: KeyboardEvent): void {
     const key = event.key.toLowerCase();
-    if (this.escapeMenuOpen || this.inventoryOpen || this.pendingLevelUps > 0) return;
+    if (this.escapeMenuOpen || this.inventoryOpen) return;
     if (["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(key)) {
       event.preventDefault();
       this.keysDown.add(key);
       return;
     }
+    if (this.pendingLevelUps > 0) return;
     if (key === " " || key === "j" || key === "f") {
       event.preventDefault();
       this.attackNearestEnemy();
@@ -2163,6 +2364,16 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.keysDown.delete(event.key.toLowerCase());
   }
 
+  @HostListener("window:keyup", ["$event"])
+  onGlobalMovementKeyUp(event: KeyboardEvent): void {
+    this.keysDown.delete(event.key.toLowerCase());
+  }
+
+  @HostListener("window:blur")
+  onWindowBlur(): void {
+    this.keysDown.clear();
+  }
+
   @HostListener("window:keydown", ["$event"])
   onGlobalAttackKey(event: KeyboardEvent): void {
     if (this.activeTab !== "run" || !this.runActive || event.repeat) return;
@@ -2192,6 +2403,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       return;
     }
     if (this.escapeMenuOpen || this.inventoryOpen) return;
+    if (["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(key)) {
+      event.preventDefault();
+      this.keysDown.add(key);
+      return;
+    }
+    if (this.pendingLevelUps > 0) return;
     if (["1", "2", "3", "4"].includes(key)) {
       event.preventDefault();
       this.useSkillHotkey(Number(key) - 1);
@@ -2292,6 +2509,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   ngAfterViewInit(): void {
     this.loadEnemySprites();
+    this.loadCampaignMaps();
     if (this.activeTab === "menu" && this.menuPanel !== "characters") this.startMenuHeroPreview();
   }
 
@@ -2299,33 +2517,37 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     for (const species of ENEMY_SPECIES) {
       const layout = ENEMY_SPRITE_LAYOUTS[species];
       const cell = ENEMY_SPRITE_CELLS[species];
-      if (!cell) {
-        continue;
-      }
       const source = new Image();
       source.onload = () => {
         const columns = layout.columns;
         const rows = layout.rows;
-        if (source.naturalWidth % columns !== 0 || source.naturalHeight % rows !== 0) {
-          console.warn(`Invalid sprite-sheet layout for ${species}`, source.naturalWidth, source.naturalHeight);
+        if (layout.animated && (source.naturalWidth % columns !== 0 || source.naturalHeight % rows !== 0)) {
+          console.warn(`Invalid animation sheet layout for ${species}`, source.naturalWidth, source.naturalHeight);
           return;
         }
-        const actualCell = { width: source.naturalWidth / columns, height: source.naturalHeight / rows };
+        const cellSize = layout.animated
+          ? { width: source.naturalWidth / columns, height: source.naturalHeight / rows }
+          : cell;
+        const expectedWidth = columns * cellSize.width;
+        const expectedHeight = rows * cellSize.height;
         const canvas = document.createElement("canvas");
-        canvas.width = source.naturalWidth;
-        canvas.height = source.naturalHeight;
+        canvas.width = expectedWidth;
+        canvas.height = expectedHeight;
         const context = canvas.getContext("2d", { willReadFrequently: true });
-        if (!context) {
-          return;
-        }
+        if (!context) return;
         context.imageSmoothingEnabled = false;
-        context.drawImage(source, 0, 0);
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        if (layout.animated) {
+          context.drawImage(source, 0, 0, expectedWidth, expectedHeight);
+        } else {
+          context.drawImage(source, 0, 0);
+        }
         this.enemySprites[species] = {
           image: canvas,
           ...layout,
           columns,
           rows,
-          cell: actualCell,
+          cell: cellSize,
           bounds: new Map(),
         };
       };
@@ -2543,8 +2765,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.stopAmbientAudio();
     this.ambientAudioStatus = "Ambience muted";
     this.runActive = false;
-    this.activeTab = "run";
-    this.menuPanel = "main";
+    this.activeTab = "run";        this.menuPanel = "main";
+    this.currentAct = 1;
+    this.actTime = 0;
+    this.actTransitionReady = false;
+    this.campaignVictory = false;
+    this.actBossSpawned = false;
     this.playerX = 250;
     this.playerY = 250;
     const startingStats = this.classStartingStats[this.selectedClass] ?? this.classStartingStats["amazon"];
@@ -2569,6 +2795,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.ownedSkills = [this.basicAttackName];
     this.skillLevels = { [this.basicAttackName]: 1 };
     this.enemies = [];
+    for (let index = 0; index < 5; index += 1) this.enemies.push(this.makeEnemy("normal"));
     this.chests = [];
     this.potionDrops = [];
     this.floatingTexts = [];
@@ -2615,9 +2842,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const dt = Math.min(50, now - this.lastTime);
     this.lastTime = now;
     if (!this.runActive) {
+      if (this.campaignVictory) this.draw();
       return;
     }
-    if (!this.escapeMenuOpen && !this.inventoryOpen) this.update(dt);
+    if (!this.escapeMenuOpen && !this.inventoryOpen && !this.actTransitionReady && !this.campaignVictory) this.update(dt);
     else {
       this.isPlayerMoving = false;
       this.playerMoveX = 0;
@@ -2631,6 +2859,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   update(dt: number): void {
     this.runTime += dt / 1000;
+    this.actTime += dt / 1000;
     this.combatOrbsTime = Math.max(0, this.combatOrbsTime - dt / 1000);
     this.attackCooldown = Math.max(0, this.attackCooldown - dt / 1000);
     this.playerMana = Math.min(this.playerMaxMana, this.playerMana + dt * 0.0015);
@@ -2698,6 +2927,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const defeatedEnemies = this.enemies.filter((enemy) => enemy.hp <= 0);
     for (const enemy of defeatedEnemies) this.grantExperience(enemy.kind === "boss" ? 8 : enemy.kind === "champion" ? 3 : 1);
     this.runKillCount += defeatedEnemies.length;
+    if (defeatedEnemies.some((enemy) => enemy.campaignBoss)) {
+      this.actTransitionReady = true;
+      this.floatingTexts.push({ x: this.playerX, y: this.playerY - 48, text: `ACT ${this.currentAct} BOSS DEFEATED`, color: "#ffd27a", life: 3 });
+      this.persistRunProgress(true);
+    }
     this.enemies = this.enemies.filter((enemy) => enemy.hp > 0 && this.playerHp > 0);
     if (this.playerHp <= 0) this.endRun(false);
   }
@@ -3024,19 +3258,61 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
 
   spawnEnemies(dt: number): void {
-    const spawnRate = this.runTime < 20 ? 0.12 : 0.22;
-    this.spawnAcc += spawnRate * (dt / 1000);
-    while (this.spawnAcc >= 1) {
-      this.spawnAcc -= 1;
-      this.enemies.push(this.makeEnemy("normal"));
-      if (this.enemies.length < 60 && Math.random() < 0.02) {
-        this.enemies.push(this.makeEnemy("champion"));
-      }
-      if (this.enemies.length < 40 && Math.random() < 0.005) {
-        this.enemies.push(this.makeEnemy("boss"));
+    if (!this.actBossSpawned && this.actTime >= ACT_BOSS_TIME_SECONDS) {
+      this.actBossSpawned = true;
+      this.spawnAcc = 0;
+      if (this.enemies.length >= 220) this.enemies.splice(0, this.enemies.length - 219);
+      this.enemies.push(this.makeEnemy("boss", true));
+      this.floatingTexts.push({ x: this.playerX, y: this.playerY - 54, text: `${this.currentActDetails.boss.toUpperCase()} APPROACHES`, color: "#ff9c63", life: 3 });
+    }
+    if (this.enemies.length < 220) {
+      const waveInterval = this.runTime < 20 ? 1.5 : 1.2;
+      this.spawnAcc += dt / 1000;
+      while (this.spawnAcc >= waveInterval && this.enemies.length < 220) {
+        this.spawnAcc -= waveInterval;
+        const packSize = this.runTime < 20 ? 2 : 3;
+        for (let index = 0; index < packSize && this.enemies.length < 220; index += 1) {
+          this.enemies.push(this.makeEnemy("normal"));
+        }
+        if (this.enemies.length < 60 && Math.random() < 0.06) {
+          this.enemies.push(this.makeEnemy("champion"));
+        }
       }
     }
     this.enemies = this.enemies.slice(0, 220);
+  }
+
+  advanceAct(): void {
+    if (!this.actTransitionReady || this.campaignVictory) return;
+    if (this.currentAct >= CAMPAIGN_ACTS.length) {
+      this.campaignVictory = true;
+      this.runActive = false;
+      if (this.rafId) {
+        cancelAnimationFrame(this.rafId);
+        this.rafId = 0;
+      }
+      this.draw();
+      return;
+    }
+    this.currentAct += 1;
+    this.runActive = true;
+    this.lastTime = performance.now();
+    this.actTime = 0;
+    this.actBossSpawned = false;
+    this.actTransitionReady = false;
+    this.enemies = [];
+    this.attackProjectiles = [];
+    this.chests = [];
+    this.potionDrops = [];
+    this.spawnAcc = 0;
+    this.playerX = this.arenaW / 2;
+    this.playerY = this.arenaH / 2;
+    this.playerHp = Math.min(this.playerMaxHp, this.playerHp + Math.ceil(this.playerMaxHp * 0.25));
+    this.floatingTexts = [{ x: this.playerX, y: this.playerY - 48, text: `ENTERING ACT ${this.currentAct}`, color: "#ffd27a", life: 2.5 }];
+    this.persistRunProgress(true);
+    this.draw();
+    this.renderCharacter();
+    this.rafId = requestAnimationFrame((time) => this.loop(time));
   }
 
   spawnChests(dt: number): void {
@@ -3062,15 +3338,27 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
   }
 
-  makeEnemy(kind: "normal" | "champion" | "boss"): Enemy {
-    const speciesOptions = ENEMY_SPECIES_BY_KIND[kind];
-    const species = speciesOptions[Math.floor(Math.random() * speciesOptions.length)];
+  makeEnemy(kind: "normal" | "champion" | "boss", campaignBoss = false): Enemy {
+    const actSpecies = this.currentActDetails.enemies;
+    const speciesOptions = kind === "boss" ? [this.currentActDetails.boss] : actSpecies;
+    const species = speciesOptions[Math.floor(Math.random() * speciesOptions.length)] ?? this.currentActDetails.enemies[0];
+    const actDifficulty = 1 + (this.currentAct - 1) * 0.18;
+    const randomFloorPosition = (): { x: number; y: number } => {
+      const angle = Math.random() * Math.PI * 2;
+      const distance = Math.max(this.arenaW, this.arenaH) * 0.67;
+      return {
+        x: Math.max(-40, Math.min(this.arenaW + 40, this.playerX + Math.cos(angle) * distance)),
+        y: Math.max(-40, Math.min(this.arenaH + 40, this.playerY + Math.sin(angle) * distance)),
+      };
+    };
+    const spawnPosition = randomFloorPosition();
     const base: Enemy = {
       kind: "normal",
       species,
+      campaignBoss,
       spriteFrame: Math.floor(Math.random() * ENEMY_SPRITE_LAYOUTS[species].columns),
-      x: 30 + Math.random() * (this.arenaW - 60),
-      y: -40,
+      x: spawnPosition.x,
+      y: spawnPosition.y,
       hp: 18,
       maxHp: 18,
       speed: 80 + Math.random() * 40,
@@ -3080,11 +3368,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (kind === "boss") {
       return {
         ...base,
-        hp: 140,
-        maxHp: 140,
+        hp: Math.round(140 * actDifficulty),
+        maxHp: Math.round(140 * actDifficulty),
         speed: 70,
         r: 26,
-        dmg: 6,
+        dmg: Math.ceil(6 * actDifficulty),
         kind: "boss",
       };
     }
@@ -3145,11 +3433,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   endRun(victory: boolean): void {
     if (!this.runActive) return;
     this.runActive = false;
+    if (!victory) this.hasSavedRun = false;
+    this.persistRunProgress(true);
     void this.recordCompletedCharacter(victory);
-    if (!victory) {
-      this.hasSavedRun = false;
-      this.persistRunProgress(true);
-    }
     if (this.rafId) {
       cancelAnimationFrame(this.rafId);
       this.rafId = 0;
@@ -3171,6 +3457,17 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   getSkillDescription(name: string): string | undefined {
     return this.skills.find((s) => s.name === name)?.desc ??
       (name === this.basicAttackName ? `Your automatic ${name.toLowerCase()} hits the nearest monster.` : UPGRADE_DESCRIPTIONS[name]);
+  }
+
+  finishCampaign(): void {
+    if (!this.campaignVictory) return;
+    this.campaignVictory = false;
+    this.hasSavedRun = false;
+    this.persistRunProgress(true);
+    this.activeTab = "menu";
+    this.menuPanel = "lobby";
+    void this.recordCompletedCharacter(true);
+    void this.refreshLeaderboard();
   }
 
   private projectArenaPoint(x: number, y: number): { x: number; y: number } {
@@ -3200,10 +3497,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     ctx.fillStyle = "#08090d";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Draw the floor as a diamond grid: world coordinates remain square for movement/combat,
-    // while only rendering is projected into the familiar Diablo-style isometric view.
-    const tile = 48;
-    ctx.save();
+    const background = this.campaignBackgroundCanvases[this.currentAct];
+    if (background) {
+      ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
+    } else {
+      // Use the original isometric ground grid until the locally supplied map image loads.
+      const tile = 48;
+      ctx.save();
     const first = this.projectArenaPoint(0, 0);
     const last = this.projectArenaPoint(this.arenaW, this.arenaH);
     const halfW = tile * 0.7071;
@@ -3227,16 +3527,18 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       }
     }
 
-    // Frame the projected play space so its diamond boundaries read clearly.
-    ctx.strokeStyle = "#65523a";
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(first.x, first.y);
-    ctx.lineTo(this.projectArenaPoint(this.arenaW, 0).x, this.projectArenaPoint(this.arenaW, 0).y);
-    ctx.lineTo(last.x, last.y);
-    ctx.lineTo(this.projectArenaPoint(0, this.arenaH).x, this.projectArenaPoint(0, this.arenaH).y);
-    ctx.closePath();
-    ctx.stroke();
+      // Frame the projected play space so its diamond boundaries read clearly.
+      ctx.strokeStyle = "#65523a";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(first.x, first.y);
+      ctx.lineTo(this.projectArenaPoint(this.arenaW, 0).x, this.projectArenaPoint(this.arenaW, 0).y);
+      ctx.lineTo(last.x, last.y);
+      ctx.lineTo(this.projectArenaPoint(0, this.arenaH).x, this.projectArenaPoint(0, this.arenaH).y);
+      ctx.closePath();
+      ctx.stroke();
+      ctx.restore();
+    }
 
     const drawOrder = [
       ...this.enemies.map((entity) => ({ depth: this.projectArenaPoint(entity.x, entity.y).y, draw: () => this.drawEnemy(ctx, entity) })),
@@ -3253,12 +3555,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       ctx.textAlign = "center";
       ctx.fillText(floatingText.text, point.x, point.y);
     }
-    if (this.runActive && this.enemies.length === 0) {
+    if (this.runActive && this.enemies.length === 0 && !this.actBossSpawned) {
       ctx.save();
       ctx.fillStyle = "#d4c49b";
       ctx.textAlign = "center";
       ctx.font = "bold 14px Georgia, serif";
-      ctx.fillText("Monsters approaching…", this.arenaW / 2, 38);
+      ctx.fillText("Monsters approaching…", canvas.width / 2, canvas.height / 2);
       ctx.restore();
     }
 
@@ -3707,11 +4009,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
     let spriteDrawn = false;
     if (sprite && sprite.image.width > 0 && sprite.image.height > 0) {
-      const direction = enemySpriteSourceDirection(e.species, enemySpriteRow(e.species, dx, dy));
-      const frame = enemySpriteSourceFrame(e.species, enemySpriteFrame(e.species, e.x, e.y, this.runTime));
-      const sheetIndex = enemySpriteSheetIndex(e.species, sprite, frame, direction);
+      const direction = enemySpriteRow(e.species, dx, dy);
+      const frame = enemySpriteFrame(e.species, e.x, e.y, this.runTime);
+      const sheetIndex = frame % sprite.columns;
       const cell = sprite.cell;
-      const sourceRow = enemySpriteSourceRow(e.species, direction);
+      const sourceRow = direction % sprite.rows;
       const bounds = enemySpriteCellBounds(e.species, sprite, sheetIndex, sourceRow);
       if (bounds) {
         const drawHeight = size;
@@ -3852,6 +4154,10 @@ interface D2SavedRun {
   playerGold: number;
   runTime: number;
   runId: string;
+  currentAct?: number;
+  actTime?: number;
+  actBossSpawned?: boolean;
+  actTransitionReady?: boolean;
   runKillCount: number;
   playerLevel?: number;
   playerXp?: number;
@@ -3946,129 +4252,18 @@ function isCompatibleWithEquipment(item: D2InventoryItem, slot: PaperdollSlot): 
 }
 
 type EnemyKind = "normal" | "champion" | "boss";
-type EnemySpecies = "fallen" | "zombie" | "skeleton" | "demon" | "lord" | "acidbeast" | "goatman" | "succubus" | "knight" | "clawviper" | "darkmage" | "gargoyle";
-
-const ENEMY_SPRITE_PATHS: Record<EnemySpecies, string> = {
-  fallen: "assets/d2survivors/monster-fallen.png",
-  zombie: "assets/d2survivors/monster-zombie.png",
-  skeleton: "assets/d2survivors/monster-skeleton.png",
-  demon: "assets/d2survivors/monster-demon.png",
-  lord: "assets/d2survivors/monster-lord.png",
-  acidbeast: "assets/d2survivors/monster-acidbeast.png",
-  goatman: "assets/d2survivors/monster-goatman.png",
-  succubus: "assets/d2survivors/monster-succubus.png",
-  knight: "assets/d2survivors/monster-knight.png",
-  clawviper: "assets/d2survivors/monster-clawviper.png",
-  darkmage: "assets/d2survivors/monster-darkmage.png",
-  gargoyle: "assets/d2survivors/monster-gargoyle.png",
-};
-
-// Converted from the locally supplied DCC/COF files with an intentionally approximate generated
-// palette, because no base game palette was supplied. Sheets use 1x COF composition: direction rows,
-// animation frames across columns. Their cell bounds are obtained from the transparent gutters.
-const ENEMY_SPRITE_LAYOUTS: Record<EnemySpecies, { columns: number; rows: number; animated: boolean }> = {
-  fallen: { columns: 11, rows: 8, animated: true },
-  zombie: { columns: 24, rows: 8, animated: true },
-  skeleton: { columns: 8, rows: 8, animated: true },
-  demon: { columns: 14, rows: 8, animated: true },
-  lord: { columns: 6, rows: 8, animated: true },
-  acidbeast: { columns: 12, rows: 8, animated: true },
-  goatman: { columns: 10, rows: 8, animated: true },
-  succubus: { columns: 16, rows: 8, animated: true },
-  knight: { columns: 16, rows: 8, animated: true },
-  clawviper: { columns: 13, rows: 8, animated: true },
-  darkmage: { columns: 21, rows: 8, animated: true },
-  gargoyle: { columns: 14, rows: 8, animated: true },
-};
-
-const ENEMY_SPRITE_CELLS: Partial<Record<EnemySpecies, { width: number; height: number }>> = {
-  fallen: { width: 89, height: 63 },
-  zombie: { width: 47, height: 80 },
-  skeleton: { width: 56, height: 78 },
-  demon: { width: 83, height: 95 },
-  lord: { width: 118, height: 182 },
-  acidbeast: { width: 1, height: 1 },
-  goatman: { width: 1, height: 1 },
-  succubus: { width: 1, height: 1 },
-  knight: { width: 1, height: 1 },
-  clawviper: { width: 1, height: 1 },
-  darkmage: { width: 1, height: 1 },
-  gargoyle: { width: 1, height: 1 },
-};
-
-const ENEMY_SPRITE_ROWS: Partial<Record<EnemySpecies, number[]>> = {
-  fallen: [0, 1, 2, 3, 4, 5, 6, 7],
-  zombie: [0, 1, 2, 3, 4, 5, 6, 7],
-  skeleton: [0, 1, 2, 3, 4, 5, 6, 7],
-  demon: [0, 1, 2, 3, 4, 5, 6, 7],
-  lord: [0, 1, 2, 3, 4, 5, 6, 7],
-  acidbeast: [0, 1, 2, 3, 4, 5, 6, 7],
-  goatman: [0, 1, 2, 3, 4, 5, 6, 7],
-  succubus: [0, 1, 2, 3, 4, 5, 6, 7],
-  knight: [0, 1, 2, 3, 4, 5, 6, 7],
-  clawviper: [0, 1, 2, 3, 4, 5, 6, 7],
-  darkmage: [0, 1, 2, 3, 4, 5, 6, 7],
-  gargoyle: [0, 1, 2, 3, 4, 5, 6, 7],
-};
-const ENEMY_DEMON_SPRITE_ROWS = [0, 1, 2, 3, 4, 5, 6, 7];
-
-const ENEMY_SPRITE_DIRECTIONS: Record<EnemySpecies, number> = {
-  fallen: 8,
-  zombie: 8,
-  skeleton: 8,
-  demon: 8,
-  lord: 8,
-  acidbeast: 8,
-  goatman: 8,
-  succubus: 8,
-  knight: 8,
-  clawviper: 8,
-  darkmage: 8,
-  gargoyle: 8,
-};
-const ENEMY_SPECIES: EnemySpecies[] = ["fallen", "zombie", "skeleton", "demon", "lord", "acidbeast", "goatman", "succubus", "knight", "clawviper", "darkmage", "gargoyle"];
-const ENEMY_SPECIES_BY_KIND: Record<EnemyKind, EnemySpecies[]> = {
-  normal: ["fallen", "zombie", "skeleton", "demon", "acidbeast", "goatman", "succubus", "knight", "clawviper", "darkmage", "gargoyle"],
-  champion: ["demon", "skeleton", "fallen", "succubus", "knight", "clawviper", "darkmage", "gargoyle"],
-  boss: ["lord", "demon"],
-};
-
-function sanitizeEnemySpecies(value: unknown, kind: EnemyKind): EnemySpecies {
-  return ENEMY_SPECIES.includes(value as EnemySpecies) && ENEMY_SPECIES_BY_KIND[kind].includes(value as EnemySpecies)
-    ? value as EnemySpecies
-    : ENEMY_SPECIES_BY_KIND[kind][0];
-}
-
-interface EnemySpriteBounds {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-interface EnemySprite {
-  image: HTMLCanvasElement;
-  columns: number;
-  rows: number;
-  animated: boolean;
-  cell: { width: number; height: number };
-  bounds: Map<string, EnemySpriteBounds | null>;
-}
+type EnemySpecies = "fallen" | "goatman" | "skeleton" | "sandRaider" | "sandMaggot" | "scarab" | "fetish" | "fetishShaman" | "council" | "balrog" | "vileChild" | "vileMother" | "bloodLord" | "minotaur" | "deathMauler" | "wendigo" | "andariel" | "duriel" | "diablo" | "baalsMinion";
 
 function enemySpriteFrame(species: EnemySpecies, x: number, y: number, runTime: number): number {
   const layout = ENEMY_SPRITE_LAYOUTS[species];
-  if (!layout.animated) {
-    return 0;
-  }
+  if (!layout.animated) return 0;
   const phase = Math.floor(runTime * 8 + x * 0.09 + y * 0.05);
   return ((phase % layout.columns) + layout.columns) % layout.columns;
 }
 
 function enemySpriteRow(species: EnemySpecies, dx: number, dy: number): number {
-  const directions = ENEMY_SPRITE_DIRECTIONS[species] ?? ENEMY_SPRITE_LAYOUTS[species].rows;
-  if (directions === 4) {
-    return dy > 0 ? 0 : dy < 0 ? 2 : dx < 0 ? 1 : 3;
-  }
+  const directions = ENEMY_SPRITE_LAYOUTS[species].rows;
+  if (directions === 4) return dy > 0 ? 0 : dy < 0 ? 2 : dx < 0 ? 1 : 3;
   if (directions === 8) {
     const angle = Math.atan2(dy, dx);
     return (Math.round((angle + Math.PI) / (Math.PI / 4)) + 8) % 8;
@@ -4076,31 +4271,14 @@ function enemySpriteRow(species: EnemySpecies, dx: number, dy: number): number {
   return 0;
 }
 
-function enemySpriteSourceRow(species: EnemySpecies, direction: number): number {
-  return ENEMY_SPRITE_ROWS[species]?.[direction] ?? direction;
-}
-
-function enemySpriteSourceFrame(_species: EnemySpecies, frame: number): number {
-  return frame;
-}
-
-function enemySpriteSourceDirection(_species: EnemySpecies, direction: number): number {
-  return direction;
-}
-
-function enemySpriteSheetIndex(species: EnemySpecies, _sprite: EnemySprite, frame: number, _direction: number): number {
-  return frame % ENEMY_SPRITE_LAYOUTS[species].columns;
-}
-
-function enemySpriteCellBounds(species: EnemySpecies, sprite: EnemySprite, frame: number, row: number): EnemySpriteBounds | null {
+function enemySpriteCellBounds(_species: EnemySpecies, sprite: EnemySprite, frame: number, row: number): EnemySpriteBounds | null {
   const key = `${frame}:${row}`;
   if (sprite.bounds.has(key)) {
     return sprite.bounds.get(key) ?? null;
   }
   const cell = sprite.cell;
   const context = sprite.image.getContext("2d", { willReadFrequently: true });
-  const sourceRow = ENEMY_SPRITE_ROWS[species]?.[row] ?? row;
-  const pixels = context?.getImageData(frame * cell.width, sourceRow * cell.height, cell.width, cell.height).data;
+  const pixels = context?.getImageData(frame * cell.width, row * cell.height, cell.width, cell.height).data;
   if (!pixels) {
     return null;
   }
@@ -4189,6 +4367,7 @@ interface PlayerRigBones {
 interface Enemy {
   kind: EnemyKind;
   species: EnemySpecies;
+  campaignBoss?: boolean;
   spriteFrame: number;
   x: number;
   y: number;
