@@ -18,30 +18,108 @@ import { D2LeaderboardEntry, D2LobbyMessage, D2RecordCharacterRequest, D2Survivo
 import { User } from "../../services/datacontracts/user/user";
 import { AppComponent } from "../app.component";
 import { ChildComponent } from "../child.component";
+import { D2_CLASS_SKILL_TREES, D2SkillDefinition, getAvailableClassSkills, getClassSkills } from "./d2survivors-skill-tree.data";
 
 const MODEL_BASE = "assets/d2survivors/models";
 const RUN_SAVE_KEY = "d2survivors.run.v1";
 const RUN_SAVE_VERSION = 1;
 const RUN_SAVE_INTERVAL_MS = 2500;
 const ACT_BOSS_TIME_SECONDS = 45;
-
+const MISSILE_OVERLAY_BASE = "assets/d2survivors/missiles";
+const MISSILE_FRAME_DURATIONS_MS: Record<string, number> = {
+  firebolt: 85, fireball: 85, acidbolt: 85, bloodcomet: 85, lightning: 85,
+};
+const MISSILE_FRAME_COUNTS: Record<string, number> = {
+  firebolt: 15, fireball: 15, acidbolt: 8, bloodcomet: 15, lightning: 8,
+};
+const SKILL_MISSILE_OVERLAYS: Record<string, string> = {
+  // Keep the existing game effects unless an extracted DCC is a direct match.
+  "Guided Arrow": "5",
+  "Throwing Knife": "30",
+  "Axe Throw": "30",
+  "Spirit Claw": "101",
+  "Bone Bolt": "8",
+  "Holy Bolt": "60",
+  "Fire Bolt": "firebolt",
+  Inferno: "1",
+  Blaze: "1",
+  Multishot: "5",
+  "Ice Arrow": "6",
+  Strafe: "5",
+  Fend: "30",
+  "Charged Strike": "52",
+  "Lightning Strike": "44",
+  "Plague Javelin": "acidbolt",
+  "Lightning Fury": "61",
+  "Freezing Arrow": "6",
+  "Immolation Arrow": "75",
+  Widowmaker: "5",
+  "Fire Ball": "fireball",
+  Meteor: "11",
+  "Frozen Orb": "6",
+  "Chain Lightning": "52",
+  "Thunder Storm": "44",
+  "Fire Wall": "1",
+  "Glacial Spike": "6",
+  Blizzard: "6",
+  "Bone Spear": "8",
+  "Bone Spirit": "8",
+  "Poison Nova": "149",
+  "Wake of Fire": "75",
+  "Wake of Inferno": "75",
+  "Lightning Sentry": "52",
+  "Death Sentry": "52",
+  "Blade Fury": "101",
+  "Blade Shield": "101",
+  "Phoenix Strike": "75",
+  "Claws of Thunder": "52",
+  "Blades of Ice": "6",
+  "Fist of the Heavens": "60",
+  "Zakarum's Hand": "52",
+  "Molten Boulder": "11",
+  Volcano: "11",
+  Armageddon: "11",
+  Tornado: "11",
+  Hurricane: "12",
+};
+const BASIC_ATTACK_MISSILE_OVERLAYS: Record<string, string> = {
+  "Guided Arrow": "5",
+  "Throwing Knife": "30",
+  "Axe Throw": "30",
+  "Spirit Claw": "101",
+  "Bone Bolt": "8",
+  "Holy Bolt": "61",
+  "Fire Bolt": "firebolt",
+};
+const ATTACK_KIND_MISSILE_OVERLAYS: Record<AttackProjectile["kind"], string> = {
+  arrow: "5",
+  fire: "75",
+  lightning: "44",
+  blade: "101",
+  bone: "8",
+  holy: "61",
+  claw: "101",
+  melee: "30",
+};
 interface CampaignAct {
   act: number;
   name: string;
   region: string;
+  levelLabel: string;
   map: string;
   mapAlpha: boolean;
   floorTiles: string;
+  baseFloorVariant: number;
   enemies: EnemySpecies[];
   boss: EnemySpecies;
 }
 
 const CAMPAIGN_ACTS: CampaignAct[] = [
-  { act: 1, name: "The Monastery Gate", region: "Rogue Barracks", map: "assets/d2survivors/maps/act1-barracks.png", mapAlpha: true, floorTiles: "assets/d2survivors/maps/tiles/act1-floor-tiles.png", enemies: ["fallen", "goatman", "skeleton"], boss: "andariel" },
-  { act: 2, name: "The Buried Caves", region: "Rocky Waste", map: "assets/d2survivors/maps/act2-caves.png", mapAlpha: true, floorTiles: "assets/d2survivors/maps/tiles/act2-floor-tiles.png", enemies: ["sandRaider", "sandMaggot", "scarab"], boss: "duriel" },
-  { act: 3, name: "The Flayer Jungle", region: "Kurast Wilds", map: "assets/d2survivors/maps/act3-jungle.png", mapAlpha: true, floorTiles: "assets/d2survivors/maps/tiles/act3-floor-tiles.png", enemies: ["fetish", "fetishShaman", "council"], boss: "council" },
-  { act: 4, name: "The Chaos Sanctuary", region: "River of Flame", map: "assets/d2survivors/maps/act4-catacombs.png", mapAlpha: true, floorTiles: "assets/d2survivors/maps/tiles/act4-floor-tiles.png", enemies: ["balrog", "vileChild", "vileMother"], boss: "diablo" },
-  { act: 5, name: "The Worldstone Keep", region: "Arreat Summit", map: "assets/d2survivors/maps/act5-worldstone.png", mapAlpha: true, floorTiles: "assets/d2survivors/maps/tiles/act5-floor-tiles.png", enemies: ["bloodLord", "minotaur", "deathMauler", "wendigo"], boss: "baalsMinion" },
+  { act: 1, name: "The Monastery Gate", region: "Rogue Encampment", levelLabel: "Blood Moor", map: "assets/d2survivors/maps/act1-barracks.png", mapAlpha: true, floorTiles: "assets/d2survivors/maps/tiles/act1-floor-tiles.png", baseFloorVariant: 1, enemies: ["fallen", "goatman", "skeleton"], boss: "andariel" },
+  { act: 2, name: "The Buried Caves", region: "Lut Gholein", levelLabel: "Rocky Waste", map: "assets/d2survivors/maps/act2-caves.png", mapAlpha: true, floorTiles: "assets/d2survivors/maps/tiles/act2-floor-tiles.png", baseFloorVariant: 0, enemies: ["sandRaider", "sandMaggot", "scarab"], boss: "duriel" },
+  { act: 3, name: "The Flayer Jungle", region: "Kurast Docks", levelLabel: "Spider Forest", map: "assets/d2survivors/maps/act3-jungle.png", mapAlpha: true, floorTiles: "assets/d2survivors/maps/tiles/act3-floor-tiles.png", baseFloorVariant: 5, enemies: ["fetish", "fetishShaman", "council"], boss: "council" },
+  { act: 4, name: "The Chaos Sanctuary", region: "Pandemonium Fortress", levelLabel: "Outer Steppes", map: "assets/d2survivors/maps/act4-catacombs.png", mapAlpha: true, floorTiles: "assets/d2survivors/maps/tiles/act4-floor-tiles.png", baseFloorVariant: 1, enemies: ["balrog", "vileChild", "vileMother"], boss: "diablo" },
+  { act: 5, name: "The Worldstone Keep", region: "Harrogath", levelLabel: "Bloody Foothills", map: "assets/d2survivors/maps/act5-worldstone.png", mapAlpha: true, floorTiles: "assets/d2survivors/maps/tiles/act5-floor-tiles.png", baseFloorVariant: 5, enemies: ["bloodLord", "minotaur", "deathMauler", "wendigo"], boss: "baalsMinion" },
 ];
 
 const ENEMY_SPRITE_PATHS: Record<EnemySpecies, string> = {
@@ -209,6 +287,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   constructor() { super(); }
   escapeMenuOpen = false;
   inventoryOpen = false;
+  skillTreeOpen = false;
   private readonly d2SurvivorsService = inject(D2SurvivorsService);
   @Input() inputtedParentRef?: AppComponent;
   override parentRef?: AppComponent;
@@ -229,11 +308,30 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private playerFacingX = 1;
   private playerFacingY = 0;
   private isPlayerMoving = false;
+  private attackAnimationTime = Number.POSITIVE_INFINITY;
+  private attackAnimationSide: -1 | 1 = -1;
+  private attackAnimationStyle: AttackAnimationStyle = "amazonJab";
+  private attackAnimationFacing = new THREE.Vector2(1, 0);
+  private attackAnimationTurn = 0;
+  private playerWeaponMeshes: THREE.Object3D[] = [];
+  private playerWeaponBaseQuaternions: THREE.Quaternion[] = [];
+  private playerWeaponOriginalVisibility = new Map<THREE.Object3D, boolean>();
+  private readonly meleeTrailEffects: MeleeTrailEffect[] = [];
   private loadedModelClass = "";
   private readonly enemySprites: Partial<Record<EnemySpecies, EnemySprite>> = {};
+  private readonly missileOverlayImages = new Map<string, HTMLImageElement[]>();
   private readonly campaignMapImages: Partial<Record<number, HTMLImageElement>> = {};
   private readonly campaignFloorTileImages: Partial<Record<number, HTMLImageElement>> = {};
+  private readonly campaignFloorTileOverlayCanvases: Partial<Record<number, HTMLCanvasElement>> = {};
   private readonly campaignBackgroundCanvases: Partial<Record<number, HTMLCanvasElement>> = {};
+  private campaignTileBitmaps: Partial<Record<number, HTMLCanvasElement[]>> = {};
+  private campaignGeneratedChunks = new Map<string, HTMLCanvasElement>();
+  private currentChunkCoordX = 0;
+  private currentChunkCoordY = 0;
+  private currentChunkLocalX = 0;
+  private currentChunkLocalY = 0;
+  private readonly chunkTileColumns = 12;
+  private readonly chunkTileRows = 8;
   currentAct = 1;
   actTime = 0;
   actTransitionReady = false;
@@ -267,6 +365,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private previewLastFrameAt = 0;
   private previewElapsed = 0;
   private previewPoseBones: PreviewPoseBone[] = [];
+  private previewAttackTime = Number.POSITIVE_INFINITY;
+  private previewAttackSide: -1 | 1 = -1;
+  private previewAttackStyle: AttackAnimationStyle = "amazonJab";
+  private previewAttackPending = false;
+  private previewModelClass?: string;
+  private previewLoadingClass?: string;
+  private previewWeapons: Array<{ object: THREE.Object3D; baseQuaternion: THREE.Quaternion }> = [];
   private previewAmazonPike?: THREE.Object3D;
   private previewAmazonPikeBase?: THREE.Quaternion;
   private previewZoom = 1;
@@ -599,14 +704,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     },
     { name: "Increased Speed", desc: "+8% movement speed" },
     {
-      name: "Find Potion",
-      desc: "slain monsters have a chance to leave a healing potion",
-    },
-    {
-      name: "Find Item",
-      desc: "slain monsters have a chance to leave gold and now and then an item",
-    },
-    {
       name: "Zakarum's Hand",
       desc: "the Hammerdin: 4 blessed hammers at once, whirling faster and wider",
     },
@@ -890,10 +987,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   playerGold = 0;
   ownedSkills: string[] = [];
   skillLevels: Record<string, number> = {};
+  private skillOfferSeed = 1;
   selectedClass = "amazon";
   hasSavedRun = false;
   saveStatus = "";
   private lastRunSaveAt = 0;
+  private deathRecovery = false;
+  private deathCount = 0;
   private readonly classStartingStats: Record<string, { title: string; specialty: string; life: number; mana: number; stamina: number; attributes: [number, number, number, number] }> = {
     amazon: { title: "Spear & Bow Mastery", specialty: "Balanced · Ranged Combat", life: 24, mana: 15, stamina: 84, attributes: [20, 25, 20, 15] },
     assassin: { title: "Shadow Discipline", specialty: "Agile · Traps & Martial Arts", life: 20, mana: 25, stamina: 95, attributes: [20, 20, 20, 25] },
@@ -935,12 +1035,38 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       mapImage.onerror = () => console.warn(`Could not load Act ${act.act} map art: ${act.map}`);
       tileImage.onload = () => {
         this.campaignFloorTileImages[act.act] = tileImage;
+        this.campaignFloorTileOverlayCanvases[act.act] = this.createKeyedFloorTileOverlay(tileImage);
+        this.campaignTileBitmaps[act.act] = this.extractCampaignTileBitmaps(act, tileImage);
+        this.campaignGeneratedChunks.clear();
         redrawWhenReady();
       };
       tileImage.onerror = () => console.warn(`Could not load Act ${act.act} floor tiles: ${act.floorTiles}`);
       mapImage.src = act.map;
       tileImage.src = act.floorTiles;
     }
+  }
+
+  private createKeyedFloorTileOverlay(source: HTMLImageElement): HTMLCanvasElement {
+    const overlay = document.createElement("canvas");
+    overlay.width = source.naturalWidth;
+    overlay.height = source.naturalHeight;
+    const context = overlay.getContext("2d", { willReadFrequently: true });
+    if (!context) return overlay;
+    context.drawImage(source, 0, 0);
+    const image = context.getImageData(0, 0, overlay.width, overlay.height);
+    const pixels = image.data;
+    for (let index = 0; index < pixels.length; index += 4) {
+      const red = pixels[index];
+      const green = pixels[index + 1];
+      const blue = pixels[index + 2];
+      const isBlackKey = red === 0 && green === 0 && blue === 0;
+      const isLightBlueKey = (red === 0 && green === 255 && blue === 255)
+        || (red === 173 && green === 216 && blue === 230);
+      const isPinkKey = red === 255 && green === 0 && blue === 255;
+      if (isBlackKey || isLightBlueKey || isPinkKey) pixels[index + 3] = 0;
+    }
+    context.putImageData(image, 0, 0);
+    return overlay;
   }
 
   private renderCampaignBackground(act: CampaignAct): void {
@@ -958,68 +1084,129 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     ctx.fillStyle = "#08090d";
     ctx.fillRect(0, 0, background.width, background.height);
 
-    // Each atlas cell is a 160x80 isometric diamond. Scale it down to one game
-    // ground tile, and match the tile-center spacing to the 2:1 world projection.
-    const atlasColumns = 4;
-    const atlasRows = 4;
-    const atlasTileWidth = floorTiles.naturalWidth / atlasColumns;
-    const atlasTileHeight = floorTiles.naturalHeight / atlasRows;
-    const tileWorldSize = 48;
-    const tileWidth = tileWorldSize * Math.SQRT2;
-    const tileHeight = tileWorldSize / Math.SQRT2;
-    const halfW = tileWidth / 2;
-    const halfH = tileHeight / 2;
-    const minColumn = Math.floor(-this.arenaH / tileWorldSize) - 2;
-    const maxColumn = Math.ceil((this.arenaW + this.arenaH) / tileWorldSize) + 2;
-    const minRow = Math.floor(-this.arenaH / tileWorldSize) - 2;
-    const maxRow = Math.ceil((this.arenaW + this.arenaH) / tileWorldSize) + 2;
+    // Generated world chunks are kept procedural and loaded on demand by draw().
+    // Keep this legacy-sized backing canvas ready only as a safe interim fallback.
     ctx.imageSmoothingEnabled = false;
-    for (let row = minRow; row <= maxRow; row += 1) {
-      for (let column = minColumn; column <= maxColumn; column += 1) {
-        const worldX = column * tileWorldSize;
-        const worldY = row * tileWorldSize;
-        const point = this.projectArenaPoint(worldX, worldY);
-        if (point.x + halfW < 0 || point.x - halfW > background.width ||
-            point.y + halfH < 0 || point.y - halfH > background.height) continue;
-
-        // Keep the full source diamond. Cropping the center strip clips its top and
-        // bottom points and creates visible seams between otherwise adjacent tiles.
-        const hash = Math.imul(column + 97, 73856093) ^ Math.imul(row + 193, 19349663) ^ Math.imul(act.act, 83492791);
-        const variant = (hash >>> 0) % (atlasColumns * atlasRows);
-        ctx.drawImage(floorTiles,
-          (variant % atlasColumns) * atlasTileWidth,
-          Math.floor(variant / atlasColumns) * atlasTileHeight,
-          atlasTileWidth, atlasTileHeight,
-          point.x - halfW, point.y - halfH, tileWidth, tileHeight);
+    const tiles = this.campaignTileBitmaps[act.act] ?? this.extractCampaignTileBitmaps(act, floorTiles);
+    this.campaignTileBitmaps[act.act] = tiles;
+    const baseTile = tiles[Math.max(0, Math.min(15, act.baseFloorVariant))];
+    if (baseTile) {
+      for (let y = 0; y < background.height; y += 48) {
+        for (let x = 0; x < background.width; x += 48) ctx.drawImage(baseTile, x, y, 68, 34);
       }
     }
-
-    // Fit level art without distorting its 2:1 isometric aspect ratio. Transparent
-    // pixels reveal the repeated floor; structures and scenery blend over it.
     const mapScale = Math.min(background.width / map.naturalWidth, background.height / map.naturalHeight);
     const mapWidth = map.naturalWidth * mapScale;
     const mapHeight = map.naturalHeight * mapScale;
-    const mapX = (background.width - mapWidth) / 2;
-    const mapY = (background.height - mapHeight) / 2;
-    ctx.imageSmoothingEnabled = true;
-    if (act.mapAlpha) {
-      // These level cutouts are transparent 3D room/floor renders, not full-screen
-      // maps. Place them at the center of the tile field and let transparent edges
-      // reveal the continuous floor below instead of scaling the cutout to a background.
-      const overlayScale = Math.min(background.width / map.naturalWidth, background.height / map.naturalHeight);
-      const overlayWidth = map.naturalWidth * overlayScale;
-      const overlayHeight = map.naturalHeight * overlayScale;
-      ctx.drawImage(map, (background.width - overlayWidth) / 2,
-        (background.height - overlayHeight) / 2, overlayWidth, overlayHeight);
-    } else {
-      ctx.drawImage(map, mapX, mapY, mapWidth, mapHeight);
-    }
-    ctx.fillStyle = "rgba(6, 7, 11, 0.04)";
-    ctx.fillRect(0, 0, background.width, background.height);
-    ctx.strokeStyle = "rgba(190, 151, 91, 0.55)";
-    ctx.lineWidth = 2;
-    ctx.strokeRect(2, 2, background.width - 4, background.height - 4);
+    if (act.mapAlpha) ctx.drawImage(map, (background.width - mapWidth) / 2, (background.height - mapHeight) / 2, mapWidth, mapHeight);
+    else ctx.drawImage(map, 0, 0, background.width, background.height);
     this.campaignBackgroundCanvases[act.act] = background;
+  }
+
+  private extractCampaignTileBitmaps(act: CampaignAct, floorTiles: HTMLImageElement): HTMLCanvasElement[] {
+    const atlasColumns = 4;
+    const tileWidth = Math.floor(floorTiles.naturalWidth / atlasColumns);
+    const tileHeight = Math.floor(floorTiles.naturalHeight / atlasColumns);
+    const sheet = document.createElement("canvas");
+    sheet.width = floorTiles.naturalWidth;
+    sheet.height = floorTiles.naturalHeight;
+    const context = sheet.getContext("2d", { willReadFrequently: true });
+    if (!context) return [];
+    context.drawImage(floorTiles, 0, 0);
+    const baseIndex = Math.max(0, Math.min(15, act.baseFloorVariant));
+    const baseCanvas = document.createElement("canvas");
+    baseCanvas.width = tileWidth;
+    baseCanvas.height = tileHeight;
+    const baseContext = baseCanvas.getContext("2d", { willReadFrequently: true });
+    if (!baseContext) return [];
+    baseContext.drawImage(sheet, (baseIndex % atlasColumns) * tileWidth, Math.floor(baseIndex / atlasColumns) * tileHeight, tileWidth, tileHeight, 0, 0, tileWidth, tileHeight);
+    const basePixels = baseContext.getImageData(0, 0, tileWidth, tileHeight).data;
+    const result: HTMLCanvasElement[] = [];
+    for (let index = 0; index < atlasColumns * atlasColumns; index += 1) {
+      const tile = document.createElement("canvas");
+      tile.width = tileWidth;
+      tile.height = tileHeight;
+      const tileContext = tile.getContext("2d", { willReadFrequently: true });
+      if (!tileContext) continue;
+      tileContext.drawImage(sheet, (index % atlasColumns) * tileWidth,
+        Math.floor(index / atlasColumns) * tileHeight, tileWidth, tileHeight, 0, 0, tileWidth, tileHeight);
+      const pixels = tileContext.getImageData(0, 0, tileWidth, tileHeight);
+      const overlayPixels = pixels.data;
+      if (index !== baseIndex) {
+        for (let offset = 0; offset < overlayPixels.length; offset += 4) {
+          const red = overlayPixels[offset], green = overlayPixels[offset + 1], blue = overlayPixels[offset + 2];
+          if ((red === 0 && green === 0 && blue === 0) || (red === 0 && green === 255 && blue === 255)
+              || (red === 173 && green === 216 && blue === 230) || (red === 255 && green === 0 && blue === 255)) {
+            overlayPixels[offset] = basePixels[offset];
+            overlayPixels[offset + 1] = basePixels[offset + 1];
+            overlayPixels[offset + 2] = basePixels[offset + 2];
+            overlayPixels[offset + 3] = basePixels[offset + 3];
+          }
+        }
+      }
+      tileContext.putImageData(pixels, 0, 0);
+      result.push(tile);
+    }
+    return result;
+  }
+
+  private getCampaignChunkCanvas(act: CampaignAct, chunkX: number, chunkY: number): HTMLCanvasElement {
+    const key = `${act.act}:${chunkX}:${chunkY}`;
+    const cached = this.campaignGeneratedChunks.get(key);
+    if (cached) return cached;
+    const tileWorldSize = 48;
+    const tileWidth = tileWorldSize * Math.SQRT2;
+    const tileHeight = tileWorldSize / Math.SQRT2;
+    const width = this.chunkTileColumns * tileWorldSize;
+    const height = this.chunkTileRows * tileWorldSize;
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.ceil(width * Math.SQRT2);
+    canvas.height = Math.ceil((width + height) / Math.SQRT2);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return canvas;
+    ctx.fillStyle = "#08090d";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const tiles = this.campaignTileBitmaps[act.act] ?? [];
+    const minColumn = -this.chunkTileRows - 2;
+    const maxColumn = this.chunkTileColumns + this.chunkTileRows + 2;
+    const minRow = -2;
+    const maxRow = this.chunkTileRows + 2;
+    for (let row = minRow; row <= maxRow; row += 1) {
+      for (let column = minColumn; column <= maxColumn; column += 1) {
+        const worldTileX = chunkX * this.chunkTileColumns + column;
+        const worldTileY = chunkY * this.chunkTileRows + row;
+        const localX = column * tileWorldSize + this.chunkTileRows * tileWorldSize;
+        const localY = row * tileWorldSize;
+        const screenX = (localX - localY) * 0.7071 + canvas.width / 2;
+        const screenY = (localX + localY) * 0.35355 + tileHeight;
+        if (screenX + tileWidth < 0 || screenX - tileWidth > canvas.width ||
+            screenY + tileHeight < 0 || screenY - tileHeight > canvas.height) continue;
+        const variant = this.connectedTileVariant(act.act, worldTileX, worldTileY, tiles.length);
+        const image = tiles[variant] ?? tiles[Math.max(0, Math.min(15, act.baseFloorVariant))];
+        if (image) ctx.drawImage(image, screenX - tileWidth / 2, screenY - tileHeight / 2, tileWidth, tileHeight);
+      }
+    }
+    this.campaignGeneratedChunks.set(key, canvas);
+    if (this.campaignGeneratedChunks.size > 36) {
+      const oldest = this.campaignGeneratedChunks.keys().next().value;
+      if (oldest) this.campaignGeneratedChunks.delete(oldest);
+    }
+    return canvas;
+  }
+
+  private connectedTileVariant(actId: number, worldTileX: number, worldTileY: number, tileCount: number): number {
+    if (tileCount <= 1) return 0;
+    const hash = (x: number, y: number, salt: number): number => {
+      let value = Math.imul(x ^ (actId * 0x45d9f3b), 0x27d4eb2d) ^ Math.imul(y ^ salt, 0x165667b1);
+      value = Math.imul(value ^ (value >>> 15), 0x85ebca6b);
+      value = Math.imul(value ^ (value >>> 13), 0xc2b2ae35);
+      return (value ^ (value >>> 16)) >>> 0;
+    };
+    const base = actId === 1 ? 1 : actId === 2 ? 0 : actId === 3 ? 5 : actId === 4 ? 1 : 5;
+    const transition = hash(Math.floor(worldTileX / 4), Math.floor(worldTileY / 4), 101) % 5;
+    const candidates = [base, (base + 1) % 16, (base + 5) % 16, (base + 3) % 16, (base + 4) % 16];
+    const choose = hash(worldTileX, worldTileY, 211) % candidates.length;
+    return candidates[(choose + transition) % candidates.length] ?? base;
   }
 
   get selectedClassStats(): { title: string; specialty: string; life: number; mana: number; stamina: number; attributes: Array<{ name: string; value: number }> } {
@@ -1041,7 +1228,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   get savedRunSummary(): string {
     const savedClass = this.savedRunClass;
     const className = this.classes.find((characterClass) => characterClass.id === savedClass)?.name ?? this.selectedClassName;
-    return `${className} · ${Math.floor(this.runTime)} seconds survived`;
+    return `${className} · ${Math.floor(this.runTime)} seconds survived${this.deathRecovery ? " · revived by the Necromancer" : ""}`;
   }
 
   get isLobbySignedIn(): boolean {
@@ -1101,27 +1288,38 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const savedClass = typeof saved.selectedClass === "string" && CLASS_MODEL[saved.selectedClass]
       ? saved.selectedClass
       : this.selectedClass;
+    this.selectedClass = savedClass;
     const startingStats = this.classStartingStats[savedClass] ?? this.classStartingStats["amazon"];
     this.lobbyRunId = typeof saved.runId === "string" && saved.runId ? saved.runId : createRunId();
     this.runKillCount = typeof saved.runKillCount === "number" && Number.isFinite(saved.runKillCount) ? Math.max(0, Math.floor(saved.runKillCount)) : 0;
     const basicAttack = this.basicAttackForClass(savedClass);
+    this.selectedClass = savedClass;
     this.playerLevel = Math.floor(numberValue(saved.playerLevel, 1, 1, 10000));
     this.playerXp = Math.floor(numberValue(saved.playerXp, 0, 0, 1_000_000_000));
     this.pendingLevelUps = Math.floor(numberValue(saved.pendingLevelUps, 0, 0, 10000));
+    this.skillOfferSeed = Math.floor(numberValue(saved.skillOfferSeed, 1, 0, 2_147_483_647));
     this.xpToNextLevel = Math.floor(numberValue(saved.xpToNextLevel, this.xpForLevel(this.playerLevel), 1, 1_000_000));
     this.basicAttackName = typeof saved.basicAttackName === "string" && BASIC_ATTACK_NAMES.includes(saved.basicAttackName) ? saved.basicAttackName : basicAttack.name;
+    if (saved.basicAttackName === "Fire Bolt" && savedClass === "sorceress") this.basicAttackName = "Attack";
     this.basicAttackCooldown = numberValue(saved.basicAttackCooldown, basicAttack.cooldown, 0.18, 5);
     this.basicAttackDamage = numberValue(saved.basicAttackDamage, basicAttack.damage, 1, 100000);
     this.attackCooldown = 0;
     this.attackProjectiles = [];
+    this.skillTreeOpen = false;
     this.arenaW = numberValue(saved.arenaW, 500, 100, 5000);
     this.arenaH = numberValue(saved.arenaH, 500, 100, 5000);
     this.playerX = numberValue(saved.playerX, this.arenaW / 2, 32, this.arenaW - 32);
     this.playerY = numberValue(saved.playerY, this.arenaH / 2, 32, this.arenaH - 32);
+    this.currentChunkCoordX = Math.floor(numberValue(saved.currentChunkCoordX, 0, -1_000_000, 1_000_000));
+    this.currentChunkCoordY = Math.floor(numberValue(saved.currentChunkCoordY, 0, -1_000_000, 1_000_000));
+    this.currentChunkLocalX = numberValue(saved.currentChunkLocalX, this.chunkTileColumns * 48 / 2, 0, this.chunkTileColumns * 48);
+    this.currentChunkLocalY = numberValue(saved.currentChunkLocalY, this.chunkTileRows * 48 / 2, 0, this.chunkTileRows * 48);
     this.playerMaxHp = numberValue(saved.playerMaxHp, startingStats.life, 1, 10000);
     this.playerMaxMana = numberValue(saved.playerMaxMana, startingStats.mana, 1, 10000);
     this.playerHp = numberValue(saved.playerHp, this.playerMaxHp, 0, this.playerMaxHp);
-    this.playerMana = numberValue(saved.playerMana, this.playerMaxMana, 0, this.playerMaxMana);
+    this.deathRecovery = saved.deathRecovery === true || this.playerHp <= 0;
+    this.deathCount = Math.floor(numberValue(saved.deathCount, 0, 0, 1_000_000));
+    this.playerMana = this.playerMaxMana;
     this.playerGold = Math.floor(numberValue(saved.playerGold, 0, 0, 1_000_000_000));
     this.runTime = numberValue(saved.runTime, 0, 0, 1_000_000_000);
     this.currentAct = Math.floor(numberValue(saved.currentAct, 1, 1, CAMPAIGN_ACTS.length));
@@ -1167,12 +1365,22 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       ? saved.potionDrops.slice(0, 300).filter(isRecord).map((drop) => ({
           x: numberValue(drop["x"], 250, 0, this.arenaW),
           y: numberValue(drop["y"], 250, 0, this.arenaH),
-          kind: drop["kind"] === "mana" ? "mana" : "health",
+          kind: drop["kind"] === "rejuvenation" ? "rejuvenation" as const : "health" as const,
           bob: numberValue(drop["bob"], 0, 0, 1_000_000),
-          life: numberValue(drop["life"], 25, 0, 3600),
+          life: numberValue(drop["life"], drop["kind"] === "rejuvenation" ? 40 : 25, 0, 3600),
           pickupDelay: numberValue(drop["pickupDelay"], 0, 0, 3600),
           notifiedFull: drop["notifiedFull"] === true,
           collected: drop["collected"] === true,
+        }))
+      : [];
+    this.goldDrops = Array.isArray(saved.goldDrops)
+      ? saved.goldDrops.slice(0, 500).filter(isRecord).map((drop) => ({
+          x: numberValue(drop["x"], this.playerX, -40, this.arenaW + 40),
+          y: numberValue(drop["y"], this.playerY, -40, this.arenaH + 40),
+          amount: Math.floor(numberValue(drop["amount"], 1, 1, 1_000_000)),
+          bob: numberValue(drop["bob"], 0, 0, 1_000_000),
+          life: numberValue(drop["life"], 18, 0, 3600),
+          pickupDelay: numberValue(drop["pickupDelay"], 0, 0, 3600),
         }))
       : [];
     this.equipment = createEmptyEquipment();
@@ -1186,22 +1394,21 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (!saved.equipment && equippedBelt?.slot === "belt" && equippedBelt.beltQuality) {
       this.equipment.belt = equippedBelt;
     }
-    this.beltSlots = Array.isArray(saved.beltSlots)
-      ? Array.from({ length: 16 }, (_, index) => {
-          const kind = saved.beltSlots?.[index]?.kind;
-          return { kind: kind === "health" || kind === "mana" ? kind : null };
-        })
-      : this.beltSlots;
+    this.beltSlots = Array.from({ length: 16 }, (_, index) => {
+      const kind = saved.beltSlots?.[index]?.kind;
+      return { kind: kind === "health" || kind === "rejuvenation" ? kind : null };
+    });
     this.normalizeBeltSlots();
+    const classSkills = new Set(getClassSkills(savedClass).map((definition) => definition.name));
     this.ownedSkills = Array.isArray(saved.ownedSkills)
-      ? saved.ownedSkills.filter((name): name is string => typeof name === "string" && this.isKnownSkill(name)).slice(0, 100)
+      ? saved.ownedSkills.filter((name): name is string => typeof name === "string" && (classSkills.has(name) || name in UPGRADE_DESCRIPTIONS || name === this.basicAttackName)).slice(0, 100)
       : [this.basicAttackName];
 
     this.skillLevels = {};
     if (isRecord(saved.skillLevels)) {
       for (const [name, level] of Object.entries(saved.skillLevels)) {
-        if ((this.ownedSkills.includes(name) || this.isKnownSkill(name)) && typeof level === "number" && Number.isFinite(level)) {
-          this.skillLevels[name] = Math.floor(Math.max(1, Math.min(100, level)));
+        if ((this.ownedSkills.includes(name) || classSkills.has(name) || name in UPGRADE_DESCRIPTIONS) && typeof level === "number" && Number.isFinite(level)) {
+          this.skillLevels[name] = Math.floor(Math.max(1, Math.min(20, level)));
         }
       }
     }
@@ -1244,7 +1451,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         playerY: this.playerY,
         playerHp: this.playerHp,
         playerMaxHp: this.playerMaxHp,
-        playerMana: this.playerMana,
+        deathRecovery: this.deathRecovery,
+        deathCount: this.deathCount,
+        currentChunkCoordX: this.currentChunkCoordX,
+        currentChunkCoordY: this.currentChunkCoordY,
+        currentChunkLocalX: this.currentChunkLocalX,
+        currentChunkLocalY: this.currentChunkLocalY,
+        playerMana: this.playerMaxMana,
         playerMaxMana: this.playerMaxMana,
         playerGold: this.playerGold,
         runTime: this.runTime,
@@ -1257,6 +1470,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         playerXp: this.playerXp,
         pendingLevelUps: this.pendingLevelUps,
         xpToNextLevel: this.xpToNextLevel,
+        skillOfferSeed: this.skillOfferSeed,
         basicAttackName: this.basicAttackName,
         basicAttackCooldown: this.basicAttackCooldown,
         basicAttackDamage: this.basicAttackDamage,
@@ -1265,6 +1479,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         enemies: this.enemies,
         chests: this.chests,
         potionDrops: this.potionDrops,
+        goldDrops: this.goldDrops,
         beltSlots: this.beltSlots,
         equippedBelt: this.equippedBelt,
         equipment: this.equipment,
@@ -1453,7 +1668,18 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.hasSavedRun = false;
       return;
     }
+    const recoveringNecromancer = savedRun.deathRecovery === true && savedRun.selectedClass === "necromancer";
     this.restoreRunState(savedRun);
+    if (recoveringNecromancer) {
+      this.playerHp = this.playerMaxHp;
+      this.actTransitionReady = false;
+      this.enemies = [];
+      this.chests = [];
+      this.potionDrops = [];
+      this.goldDrops = [];
+      this.deathRecovery = false;
+      this.persistRunProgress(true);
+    }
     if (CLASS_MODEL[savedRun.selectedClass]) {
       this.selectedClass = savedRun.selectedClass;
     }
@@ -1463,7 +1689,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (this.characterRenderer && this.characterScene && this.loadedModelClass !== this.selectedClass) {
       this.loadCharacterModel();
     }
-    this.selectedClass = savedRun.selectedClass;
     this.selectedClass = savedRun.selectedClass;
     this.persistRunProgress(true);
     this.lastTime = performance.now();
@@ -1477,7 +1702,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.ambientAudioStatus = "Ambience muted";
     this.menuPanel = "lobby";
     await this.loadLobby();
-    if (this.lobbyRunId && !this.runActive && this.playerHp <= 0) void this.recordCompletedCharacter(false);
+    if (this.lobbyRunId && !this.runActive && this.playerHp <= 0 && !(this.deathRecovery && this.selectedClass === "necromancer")) void this.recordCompletedCharacter(false);
   }
 
   returnToMainMenu(): void {
@@ -1580,13 +1805,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (!runId || (!retry && this.lastRecordedRunId === runId)) return;
     this.lastRecordedRunId = runId;
     const session = await this.getLobbySession();
-    if (!session) {
-      this.lastRecordedRunId = "";
-      this.saveStatus = "Sign in and return to the lobby to archive this completed hero.";
+    if (!session) {        this.lastRecordedRunId = "";
+        this.saveStatus = "Sign in and return to the lobby to archive this completed hero.";
       if (this.recordRetryTimer !== undefined) window.clearTimeout(this.recordRetryTimer);
       this.recordRetryTimer = window.setTimeout(() => {
         this.recordRetryTimer = undefined;
-        if (this.lobbyRunId === runId && !this.runActive) void this.recordCompletedCharacter(victory, true);
+        if (this.lobbyRunId === runId && !this.runActive && !(this.deathRecovery && this.selectedClass === "necromancer")) void this.recordCompletedCharacter(victory, true);
       }, 15000);
       return;
     }
@@ -1602,8 +1826,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     };
     const result = await this.d2SurvivorsService.recordCharacter(request, session.token);
     if (result.ok) {
-      this.hasSavedRun = false;
-      this.lobbyRunId = "";
+      const retainNecromancerRun = !victory && this.deathRecovery && this.selectedClass === "necromancer";
+      this.hasSavedRun = retainNecromancerRun;
+      if (!retainNecromancerRun) this.lobbyRunId = "";
       this.persistRunProgress(true);
       this.activeTab = "menu";
       this.menuPanel = "lobby";
@@ -1612,14 +1837,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       if (this.recordRetryTimer !== undefined) window.clearTimeout(this.recordRetryTimer);
       this.recordRetryTimer = window.setTimeout(() => {
         this.recordRetryTimer = undefined;
-        if (this.lobbyRunId === runId) void this.recordCompletedCharacter(victory, true);
+        if (this.lobbyRunId === runId && !(this.deathRecovery && this.selectedClass === "necromancer")) void this.recordCompletedCharacter(victory, true);
       }, 5000);
       this.saveStatus = "Character record could not reach the server. Retrying…";
     }
   }
 
   openCharacterSelect(): void {
-    if (this.hasSavedRun && this.playerHp > 0) {
+    if (this.hasSavedRun) {
       this.stopMenuHeroPreview();
       this.resumeRun();
       return;
@@ -1643,7 +1868,15 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     this.selectedClass = classId;
     if (this.menuPanel === "characters") {
-      this.loadPreviewModel();
+      this.previewAttackStyle = CLASS_ATTACK_ANIMATION[classId] ?? "amazonJab";
+      this.previewAttackSide = this.previewAttackSide === -1 ? 1 : -1;
+      if (this.previewModel && this.previewModelClass === classId) {
+        this.previewAttackTime = 0;
+        this.previewAttackPending = false;
+      } else {
+        this.previewAttackPending = true;
+        if (this.previewLoadingClass !== classId) this.loadPreviewModel();
+      }
     }
     if (this.activeTab === "menu" && this.menuPanel !== "characters") {
       this.loadMenuHeroModel();
@@ -1881,6 +2114,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.previewPoseBones = [];
     this.previewAmazonPike = undefined;
     this.previewAmazonPikeBase = undefined;
+    this.previewWeapons = [];
+    this.previewAttackTime = Number.POSITIVE_INFINITY;
+    this.previewAttackPending = false;
+    this.previewModelClass = undefined;
+    this.previewLoadingClass = undefined;
     this.previewElapsed = 0;
     this.previewDragPointer = undefined;
     this.previewDragging = false;
@@ -1897,6 +2135,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       return;
     }
     this.previewScene?.remove(this.previewModel);
+    this.previewModelClass = undefined;
+    this.previewWeapons = [];
     this.previewModel.traverse((object) => {
       const mesh = object as THREE.Mesh;
       if (!mesh.isMesh) {
@@ -1971,6 +2211,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     const requestId = ++this.previewModelRequest;
     const modelClass = this.selectedClass;
+    this.previewLoadingClass = modelClass;
     this.previewLoadError = false;
     this.disposePreviewModel();
     new GLTFLoader().load(definition.model, async (gltf) => {
@@ -2002,12 +2243,27 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           ? model.getObjectByName("pikeShape_0") ?? undefined
           : undefined;
         this.previewAmazonPikeBase = this.previewAmazonPike?.quaternion.clone();
+        this.previewWeapons = [];
+        model.traverse((object) => {
+          if (!(object as THREE.Mesh).isMesh || !/pike|spear|staff|weapon/i.test(object.name)) return;
+          this.previewWeapons.push({ object, baseQuaternion: object.quaternion.clone() });
+        });
         this.previewModel = model;
+        this.previewModelClass = modelClass;
+        this.previewLoadingClass = undefined;
+        if (this.previewAttackPending) {
+          this.previewAttackStyle = CLASS_ATTACK_ANIMATION[modelClass] ?? "amazonJab";
+          this.previewAttackSide = this.previewAttackSide === -1 ? 1 : -1;
+          this.previewAttackTime = 0;
+          this.previewAttackPending = false;
+        }
         this.previewScene?.add(model);
         this.previewLoadError = false;
       } catch (error: unknown) {
         disposeModel();
         if (requestId !== this.previewModelRequest) return;
+        this.previewLoadingClass = undefined;
+        this.previewAttackPending = false;
         console.error(`Could not apply ${modelClass} class textures`, error);
         this.previewLoadError = true;
       }
@@ -2015,6 +2271,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       if (requestId !== this.previewModelRequest) {
         return;
       }
+      this.previewLoadingClass = undefined;
+      this.previewAttackPending = false;
       console.error(`Could not load the ${modelClass} class preview`, error);
       this.previewLoadError = true;
     });
@@ -2030,17 +2288,29 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.previewElapsed += dt;
       const time = this.previewElapsed;
       const idleMotion = this.reducedMotion ? 0 : 1;
-      this.previewModel.rotation.y = this.previewRotation + (this.previewDragging ? 0 : Math.sin(time * 0.35) * 0.025 * idleMotion);
+      const attackProfile = ATTACK_ANIMATION_PROFILES[this.previewAttackStyle];
+      const attackActive = this.previewAttackTime < attackProfile.duration;
+      const attackProgress = attackActive ? Math.max(0, Math.min(1, this.previewAttackTime / attackProfile.duration)) : 1;
+      const attackMotion = attackActive ? attackMotionCurve(attackProgress) * (this.reducedMotion ? 0.45 : 1) : 0;
+      const attackFollowThrough = attackActive ? Math.sin(Math.PI * attackProgress) * (this.reducedMotion ? 0.45 : 1) : 0;
+      this.previewAttackTime += dt;
+      const turn = attackActive && attackProfile.spin ? attackProgress * Math.PI * 2 : 0;
+      this.previewModel.rotation.y = this.previewRotation + (this.previewDragging ? 0 : Math.sin(time * 0.35) * 0.025 * idleMotion) + turn;
       this.previewModel.rotation.z = this.selectedClass === "amazon" && !this.reducedMotion
         ? Math.sin(time * 0.72) * 0.004
         : 0;
       this.previewModel.position.y = Math.sin(time * 1.4) * (this.selectedClass === "amazon" ? 0.3 : 0.55) * idleMotion;
-      if (this.previewAmazonPike && this.previewAmazonPikeBase) {
-        const gripSettle = this.selectedClass === "amazon" && !this.previewDragging
-          ? Math.sin(time * 0.9) * 0.012 * idleMotion
-          : 0;
+      for (const weapon of this.previewWeapons) {
+        const isPike = weapon.object === this.previewAmazonPike;
+        const gripSettle = isPike && !this.previewDragging ? Math.sin(time * 0.9) * 0.012 * idleMotion : 0;
         const settle = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), gripSettle);
-        this.previewAmazonPike.quaternion.copy(this.previewAmazonPikeBase).multiply(settle);
+        const attack = new THREE.Quaternion().setFromEuler(new THREE.Euler(
+          attackMotion * attackProfile.weaponPitch,
+          0,
+          attackMotion * attackProfile.weaponRoll * (this.previewAttackSide < 0 ? -1 : 1),
+          "XYZ",
+        ));
+        weapon.object.quaternion.copy(weapon.baseQuaternion).multiply(settle).multiply(attack);
       }
       // The supplied class rigs have no clips, so give the selection preview a grounded,
       // slightly asymmetrical idle instead of leaving the hero in its rigid bind pose.
@@ -2048,19 +2318,31 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const fadeIn = this.reducedMotion ? 1 : Math.min(1, time / 0.45);
       for (const pose of this.previewPoseBones) {
         const sway = Math.sin(time * 1.35 + pose.phase) * 0.018 * fadeIn * idleMotion;
+        const isLead = pose.side === this.previewAttackSide;
         let rotation: THREE.Quaternion;
         switch (pose.role) {
-          case "arm": {
-            const amazonReadyStance = this.selectedClass === "amazon";
-            const armReach = amazonReadyStance ? -0.2 : -0.34;
-            const armSet = amazonReadyStance ? 0.075 : 0.12;
-            rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), armReach + sway * 0.7)
-              .multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), pose.side * (armSet + sway)));
-            break;
-          }
-          case "leg":
-            rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), pose.side * 0.035 + sway);
-            break;
+        case "arm": {
+          const amazonReadyStance = this.selectedClass === "amazon";
+          const armReach = amazonReadyStance ? -0.2 : -0.34;
+          const armSet = amazonReadyStance ? 0.075 : 0.12;
+          const attackPitch = attackMotion * (isLead ? attackProfile.leadArm : attackProfile.offArm);
+          const attackSweep = attackFollowThrough * (isLead ? attackProfile.armSweep : -attackProfile.armSweep * 0.55);
+          rotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(
+            armReach + sway * 0.7 + attackPitch,
+            attackSweep,
+            pose.side * (armSet + sway) + attackMotion * attackProfile.shoulderRoll * (isLead ? -1 : 1),
+            "XYZ",
+          ));
+          break;
+        }
+        case "forearm": {
+          const bend = Math.max(0, attackMotion) * (isLead ? attackProfile.elbowBend : attackProfile.offElbowBend);
+          rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), bend + Math.max(0, sway) * 0.2);
+          break;
+        }
+        case "leg":
+          rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), pose.side * 0.035 + sway);
+          break;
           case "knee":
             rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), 0.045 + Math.max(0, sway));
             break;
@@ -2071,7 +2353,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
             rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), sway * 0.5);
             break;
           case "spine":
-            rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -0.035 + sway * 0.4);
+            rotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(
+              -0.035 + sway * 0.4 - attackMotion * attackProfile.lean,
+              attackMotion * attackProfile.torsoTwist,
+              0,
+              "XYZ",
+            ));
             break;
         }
         const settled = new THREE.Quaternion().slerpQuaternions(new THREE.Quaternion(), rotation, fadeIn);
@@ -2084,17 +2371,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   private modelLoadRequest = 0;
-  beltSlots: Array<{ kind: "health" | "mana" | null }> = [
-    { kind: "health" }, { kind: "mana" }, { kind: "health" }, { kind: "mana" },
-    ...Array.from({ length: 12 }, () => ({ kind: null })),
-  ];
+  beltSlots: Array<{ kind: "health" | "rejuvenation" | null }> = Array.from({ length: 16 }, () => ({ kind: null }));
   get beltRows(): number {
     return this.equippedBelt?.beltQuality === "exceptional" ? 3
       : this.equippedBelt?.beltQuality === "elite" ? 4
         : this.equippedBelt?.slot === "belt" ? 2
           : 1;
   }
-  get visibleBeltSlots(): Array<{ kind: "health" | "mana" | null }> {
+  get visibleBeltSlots(): Array<{ kind: "health" | "rejuvenation" | null }> {
     return this.beltSlots.slice(0, this.beltRows * 4);
   }
   private normalizeBeltSlots(): void {
@@ -2121,6 +2405,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   enemies: Enemy[] = [];
   chests: Chest[] = [];
   potionDrops: PotionDrop[] = [];
+  goldDrops: GoldDrop[] = [];
   openChestCount = 0;
   floatingTexts: FloatingText[] = [];
   runTime = 0;
@@ -2129,6 +2414,16 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   keysDown = new Set<string>();
   arenaW = 500;
   arenaH = 500;
+  virtualJoystickVisible = false;
+  joystickX = 0;
+  joystickY = 0;
+  joystickKnobX = 0;
+  joystickKnobY = 0;
+  private joystickPointerId: number | null = null;
+  private joystickCenterX = 0;
+  private joystickCenterY = 0;
+  private readonly joystickRadius = 54;
+  private arenaResizeObserver?: ResizeObserver;
   spawnAcc = 0;
   nextChestInterval = 8;
   chestTimer = 0;
@@ -2372,9 +2667,73 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     };
   }
 
+  onArenaPointerDown(event: PointerEvent): void {
+    if (event.pointerType !== "touch" || this.activeTab !== "run" || !this.runActive || this.escapeMenuOpen || this.inventoryOpen || this.skillTreeOpen || this.pendingLevelUps > 0 || this.actTransitionReady || this.campaignVictory) return;
+    const target = event.target;
+    if (!(target instanceof Element) || target.closest("button, a, input, textarea, select, [role='button'], [role='dialog'], .d2s-classic-hud, .d2s-act-banner, .d2s-experience-progress")) return;
+    if (this.joystickPointerId !== null) return;
+    const rect = this.arenaRef?.nativeElement.getBoundingClientRect();
+    if (!rect) return;
+    this.joystickPointerId = event.pointerId;
+    this.joystickCenterX = event.clientX - rect.left;
+    this.joystickCenterY = event.clientY - rect.top;
+    this.joystickX = this.joystickCenterX;
+    this.joystickY = this.joystickCenterY;
+    this.joystickKnobX = 0;
+    this.joystickKnobY = 0;
+    this.virtualJoystickVisible = true;
+    this.updateJoystickDirection(event);
+    event.preventDefault();
+  }
+
+  onArenaPointerMove(event: PointerEvent): void {
+    if (event.pointerId !== this.joystickPointerId) return;
+    this.updateJoystickDirection(event);
+    event.preventDefault();
+  }
+
+  onArenaPointerEnd(event: PointerEvent): void {
+    if (event.pointerId !== this.joystickPointerId) return;
+    this.joystickPointerId = null;
+    this.virtualJoystickVisible = false;
+    this.joystickKnobX = 0;
+    this.joystickKnobY = 0;
+    this.keysDown.delete("w");
+    this.keysDown.delete("a");
+    this.keysDown.delete("s");
+    this.keysDown.delete("d");
+  }
+
+  private updateJoystickDirection(event: PointerEvent): void {
+    const rect = this.arenaRef?.nativeElement.getBoundingClientRect();
+    if (!rect) return;
+    const deltaX = event.clientX - rect.left - this.joystickCenterX;
+    const deltaY = event.clientY - rect.top - this.joystickCenterY;
+    const distance = Math.hypot(deltaX, deltaY);
+    const scale = distance > this.joystickRadius ? this.joystickRadius / distance : 1;
+    this.joystickKnobX = deltaX * scale;
+    this.joystickKnobY = deltaY * scale;
+    const deadZone = 9;
+    const normalizedX = distance > deadZone ? deltaX / distance : 0;
+    const normalizedY = distance > deadZone ? deltaY / distance : 0;
+    this.keysDown.delete("w");
+    this.keysDown.delete("a");
+    this.keysDown.delete("s");
+    this.keysDown.delete("d");
+    if (normalizedY < -0.35) this.keysDown.add("w");
+    if (normalizedY > 0.35) this.keysDown.add("s");
+    if (normalizedX < -0.35) this.keysDown.add("a");
+    if (normalizedX > 0.35) this.keysDown.add("d");
+  }
+
   onKeyDown(event: KeyboardEvent): void {
     const key = event.key.toLowerCase();
-    if (this.escapeMenuOpen || this.inventoryOpen || this.pendingLevelUps > 0) return;
+    if (key === "t") {
+      event.preventDefault();
+      this.toggleSkillTree();
+      return;
+    }
+    if (this.escapeMenuOpen || this.inventoryOpen || this.skillTreeOpen || this.pendingLevelUps > 0) return;
     if (["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(key)) {
       event.preventDefault();
       this.keysDown.add(key);
@@ -2400,10 +2759,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.playerHp = Math.min(this.playerMaxHp, this.playerHp + 8);
       slot.kind = null;
       this.combatOrbsTime = 2.5;
-    } else if (slot.kind === "mana" && this.playerMana < this.playerMaxMana) {
-      this.playerMana = Math.min(this.playerMaxMana, this.playerMana + 8);
+    } else if (slot.kind === "rejuvenation") {
+      this.playerHp = this.playerMaxHp;
       slot.kind = null;
       this.combatOrbsTime = 2.5;
+      this.floatingTexts.push({ x: this.playerX, y: this.playerY - 28, text: "FULL REJUVENATION", color: "#d68cff", life: 1.8 });
+      this.persistRunProgress(true);
     }
   }
 
@@ -2432,6 +2793,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   @HostListener("window:blur")
   onWindowBlur(): void {
     this.keysDown.clear();
+    this.joystickPointerId = null;
+    this.virtualJoystickVisible = false;
+    this.joystickKnobX = 0;
+    this.joystickKnobY = 0;
   }
 
   @HostListener("window:keydown", ["$event"])
@@ -2443,12 +2808,15 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
     if (key === "escape") {
       event.preventDefault();
-      if (this.inventoryOpen) {
+      if (this.skillTreeOpen) {
+        this.skillTreeOpen = false;
+      } else if (this.inventoryOpen) {
         this.inventoryOpen = false;
         this.escapeMenuOpen = true;
       } else {
         this.escapeMenuOpen = !this.escapeMenuOpen;
       }
+
       this.keysDown.clear();
       requestAnimationFrame(() => this.arenaRef?.nativeElement.focus());
       return;
@@ -2458,11 +2826,17 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       event.preventDefault();
       this.inventoryOpen = !this.inventoryOpen;
       this.escapeMenuOpen = false;
+      this.skillTreeOpen = false;
       this.keysDown.clear();
       requestAnimationFrame(() => this.arenaRef?.nativeElement.focus());
       return;
     }
-    if (this.escapeMenuOpen || this.inventoryOpen || this.pendingLevelUps > 0) return;
+    if (key === "t") {
+      event.preventDefault();
+      this.toggleSkillTree();
+      return;
+    }
+    if (this.escapeMenuOpen || this.inventoryOpen || this.skillTreeOpen || this.pendingLevelUps > 0) return;
     if (["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(key)) {
       event.preventDefault();
       this.keysDown.add(key);
@@ -2494,14 +2868,52 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.inventoryOpen = !this.inventoryOpen;
     if (this.inventoryOpen) {
       this.escapeMenuOpen = false;
+      this.skillTreeOpen = false;
       this.keysDown.clear();
     }
     requestAnimationFrame(() => this.arenaRef?.nativeElement.focus());
   }
 
+  toggleSkillTree(): void {
+    if (this.activeTab !== "run" || !this.runActive || this.escapeMenuOpen || this.inventoryOpen) return;
+    this.skillTreeOpen = !this.skillTreeOpen;
+    if (this.skillTreeOpen) {
+      this.escapeMenuOpen = false;
+      this.inventoryOpen = false;
+      this.keysDown.clear();
+    }
+    requestAnimationFrame(() => this.arenaRef?.nativeElement.focus());
+  }
+
+  get skillTreeSections(): Array<{ name: string; skills: Array<D2SkillDefinition & { state: "learned" | "available" | "locked"; reason: string }> }> {
+    const tree = D2_CLASS_SKILL_TREES[this.selectedClass];
+    const available = new Set(this.availableClassSkills.map((entry) => entry.name));
+    return (tree?.sections ?? []).map((section) => ({
+      name: section.name,
+      skills: section.skills.map((entry) => {
+        const rank = this.skillLevels[entry.name] ?? 0;
+        const state = rank > 0 ? "learned" : available.has(entry.name) ? "available" : "locked";
+        const missing = entry.prerequisites.filter((name) => !this.ownedSkills.includes(name));
+        const reason = rank > 0 ? `Rank ${rank}/20 · character level ${entry.level}+` : entry.level > this.playerLevel
+          ? `Unlocks at character level ${entry.level}`
+          : missing.length ? `Requires ${missing.join(", ")}` : "Available on a level-up";
+        return { ...entry, state, reason };
+      }),
+    }));
+  }
+
+  get availableClassSkills(): D2SkillDefinition[] {
+    return getAvailableClassSkills(this.selectedClass, this.playerLevel, this.ownedSkills, this.skillLevels);
+  }
+
+  get equippedWeaponName(): string {
+    return this.equipment.weapon?.baseName ?? this.equipment.weapon?.name ?? "bare hands";
+  }
+
   showEscapeMenu(): void {
     this.escapeMenuOpen = true;
     this.inventoryOpen = false;
+    this.skillTreeOpen = false;
     this.keysDown.clear();
     if (this.pendingLevelUps > 0 && this.upgradeChoices.length === 0) this.prepareUpgradeChoices();
   }
@@ -2521,11 +2933,29 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     return Array.from({ length: Math.max(0, 4 - this.equippedSkills.length) }, (_, index) => index);
   }
 
+  get equippedWeaponDamage(): number {
+    const item = this.equipment.weapon;
+    const weaponName = this.equippedWeaponName.toLowerCase();
+    const permitted = this.selectedClass === "amazon"
+      ? weaponName.includes("pike") || weaponName.includes("spear") || weaponName.includes("javelin")
+      : this.selectedClass === "sorceress" ? weaponName.includes("staff") : true;
+    return permitted && item ? Math.floor(((item.stats?.damageMin ?? 0) + (item.stats?.damageMax ?? 0)) / 2) : 0;
+  }
+
   get basicAttackIcon(): string {
-    return this.skillIcon(this.basicAttackName);
+    return BASIC_ATTACK_MISSILE_OVERLAYS[this.basicAttackName] ? "" : this.skillIcon(this.basicAttackName);
+  }
+
+  get basicAttackMissileOverlay(): string {
+    return BASIC_ATTACK_MISSILE_OVERLAYS[this.basicAttackName] ?? ATTACK_KIND_MISSILE_OVERLAYS[this.basicAttackForClass(this.selectedClass).kind];
+  }
+
+  getSkillMissileOverlay(skill: string): string {
+    return this.missileOverlayId(skill) ?? ATTACK_KIND_MISSILE_OVERLAYS[this.basicAttackForClass(this.selectedClass).kind];
   }
 
   skillIcon(skill: string): string {
+    if (SKILL_MISSILE_OVERLAYS[skill]) return "";
     const icons: Record<string, string> = {
       "Guided Arrow": "➶", "Throwing Knife": "⟋", "Axe Throw": "⚒", "Spirit Claw": "✦",
       "Bone Bolt": "☠", "Holy Bolt": "✧", "Fire Bolt": "♨", Multishot: "➶",
@@ -2544,21 +2974,52 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       .filter((enemy) => enemy.hp > 0)
       .sort((a, b) => Math.hypot(a.x - this.playerX, a.y - this.playerY) - Math.hypot(b.x - this.playerX, b.y - this.playerY))[0];
     if (!nearest) return;
+    if (!this.ownedSkills.includes(skill)) return;
     const attack = this.basicAttackForClass(this.selectedClass);
     const multiplier = Math.max(1, this.skillLevels[skill] ?? 1);
-    const distance = Math.hypot(nearest.x - this.playerX, nearest.y - this.playerY);
     const damage = this.basicAttackDamage * (skill === this.basicAttackName ? 1 : 1.5) + (multiplier - 1) * 3;
-    if (distance <= nearest.r + 12) {
-      nearest.hp -= damage;
-      this.floatingTexts.push({ x: nearest.x, y: nearest.y - nearest.r, text: `-${Math.floor(damage)}`, color: attack.color, life: 0.8 });
-    } else {
-      this.attackProjectiles.push({
-        x: this.playerX, y: this.playerY, startX: this.playerX, startY: this.playerY,
-        targetX: nearest.x, targetY: nearest.y, targetId: this.attackSequence++, speed: 700,
-        damage, life: Math.max(3, distance / 700 + 1), radius: 5, color: attack.color, kind: attack.kind,
-      });
+    const distance = Math.hypot(nearest.x - this.playerX, nearest.y - this.playerY);
+    this.playerFacingX = (nearest.x - this.playerX) / Math.max(1, distance);
+    this.playerFacingY = (nearest.y - this.playerY) / Math.max(1, distance);
+
+    if (skill === "Whirlwind" && this.selectedClass === "barbarian") {
+      const targets = this.enemies.filter((enemy) => enemy.hp > 0 && Math.hypot(enemy.x - this.playerX, enemy.y - this.playerY) <= 115);
+      if (!targets.length) return;
+      for (const target of targets) {
+        target.hp -= damage * 1.6;
+        this.floatingTexts.push({ x: target.x, y: target.y - target.r, text: `-${Math.floor(damage * 1.6)}`, color: attack.color, life: 0.8 });
+      }
+      this.triggerAttackAnimation("spin");
+      this.attackCooldown = Math.max(this.attackCooldown, 0.9);
+      return;
     }
-    this.attackCooldown = Math.max(this.attackCooldown, this.basicAttackCooldown * 0.65);
+
+    const rangedSpell = (skill === "Fire Bolt" && this.selectedClass === "sorceress")
+      || (skill === "Teeth" && this.selectedClass === "necromancer");
+    if (rangedSpell) {
+      const color = skill === "Fire Bolt" ? "#ff7645" : "#e4e0ce";
+      const kind: AttackProjectile["kind"] = skill === "Fire Bolt" ? "fire" : "bone";
+      const boltCount = skill === "Teeth" ? 3 : 1;
+      for (let index = 0; index < boltCount; index += 1) {
+        const spread = (index - (boltCount - 1) / 2) * 13;
+        this.attackProjectiles.push({
+          x: this.playerX, y: this.playerY - 8, startX: this.playerX, startY: this.playerY - 8,
+          targetX: nearest.x + spread, targetY: nearest.y, target: nearest, targetId: this.attackSequence++,
+          speed: 700, damage: damage * (skill === "Teeth" ? 0.55 : 1), life: Math.max(3, distance / 700 + 1),
+          radius: 5, color, kind, missileId: SKILL_MISSILE_OVERLAYS[skill],
+        });
+      }
+      this.triggerAttackAnimation(this.selectedClass === "sorceress" ? "sorceressCast" : "necromancerCast");
+      this.attackCooldown = Math.max(this.attackCooldown, this.basicAttackCooldown * 0.65);
+      return;
+    }
+
+    if (distance <= nearest.r + 28) {
+      nearest.hp -= damage;
+      this.triggerAttackAnimation();
+      this.floatingTexts.push({ x: nearest.x, y: nearest.y - nearest.r, text: `-${Math.floor(damage)}`, color: attack.color, life: 0.8 });
+      this.attackCooldown = Math.max(this.attackCooldown, this.basicAttackCooldown * 0.65);
+    }
   }
 
   @HostListener("window:pagehide")
@@ -2568,8 +3029,74 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   ngAfterViewInit(): void {
     this.loadEnemySprites();
+    this.loadMissileOverlays();
     this.loadCampaignMaps();
+    const arenaWrap = this.arenaRef?.nativeElement.parentElement;
+    if (arenaWrap && typeof ResizeObserver !== "undefined") {
+      this.arenaResizeObserver = new ResizeObserver(() => this.resizeRunCanvases());
+      this.arenaResizeObserver.observe(arenaWrap);
+    }
     if (this.activeTab === "menu" && this.menuPanel !== "characters") this.startMenuHeroPreview();
+  }
+
+  private resizeRunCanvases(): void {
+    const arena = this.arenaRef?.nativeElement;
+    const character = this.characterCanvasRef?.nativeElement;
+    if (!arena || !character) return;
+    const rect = arena.getBoundingClientRect();
+    const width = Math.max(1, Math.round(rect.width * Math.min(window.devicePixelRatio || 1, 2)));
+    const height = Math.max(1, Math.round(rect.height * Math.min(window.devicePixelRatio || 1, 2)));
+    if (arena.width !== width || arena.height !== height) {
+      arena.width = width;
+      arena.height = height;
+    }
+    if (character.width !== width || character.height !== height) {
+      character.width = width;
+      character.height = height;
+      this.characterRenderer?.setSize(rect.width, rect.height, false);
+    }
+    if (this.characterCamera && rect.width > 0 && rect.height > 0) {
+      const halfHeight = 250;
+      const halfWidth = halfHeight * rect.width / rect.height;
+      this.characterCamera.left = -halfWidth;
+      this.characterCamera.right = halfWidth;
+      this.characterCamera.top = halfHeight;
+      this.characterCamera.bottom = -halfHeight;
+      this.characterCamera.updateProjectionMatrix();
+    }
+    this.draw();
+    this.renderCharacter();
+  }
+
+  private loadMissileOverlays(): void {
+    const missileIds = new Set(Object.values(SKILL_MISSILE_OVERLAYS));
+    Object.values(BASIC_ATTACK_MISSILE_OVERLAYS).forEach((id) => missileIds.add(id));
+    Object.values(ATTACK_KIND_MISSILE_OVERLAYS).forEach((id) => missileIds.add(id));
+    for (const id of missileIds) {
+      const images: HTMLImageElement[] = [];
+      this.missileOverlayImages.set(id, images);
+      const frameCount = MISSILE_FRAME_COUNTS[id] ?? 1;
+      for (let frameIndex = 0; frameIndex < frameCount; frameIndex += 1) {
+        const image = new Image();
+        image.decoding = "async";
+        image.onload = () => {
+          if (this.activeTab === "run") this.draw();
+        };
+        image.onerror = () => {
+          if (frameIndex === 0) console.warn(`Could not load missile animation ${id}: ${MISSILE_OVERLAY_BASE}/${id}.webp`);
+        };
+        image.src = frameCount === 1
+          ? `${MISSILE_OVERLAY_BASE}/${id}.webp`
+          : ["firebolt", "fireball", "acidbolt", "bloodcomet", "lightning"].includes(id)
+            ? `${MISSILE_OVERLAY_BASE}/${id}/${String(frameIndex).padStart(4, "0")}.webp`
+            : `${MISSILE_OVERLAY_BASE}/${id}/${String(frameIndex).padStart(4, "0")}.webp`;
+        images.push(image);
+      }
+    }
+  }
+
+  private missileOverlayId(skill: string): string | undefined {
+    return SKILL_MISSILE_OVERLAYS[skill] ?? BASIC_ATTACK_MISSILE_OVERLAYS[skill];
   }
 
   private loadEnemySprites(): void {
@@ -2622,13 +3149,18 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (this.leaderboardRefreshTimer !== undefined) window.clearInterval(this.leaderboardRefreshTimer);
     if (this.lobbyRefreshTimer !== undefined) window.clearInterval(this.lobbyRefreshTimer);
     if (this.recordRetryTimer !== undefined) window.clearTimeout(this.recordRetryTimer);
-    void this.d2SurvivorsService.disconnectLobby();
-    this.runActive = false;
+    void this.d2SurvivorsService.disconnectLobby();    this.runActive = false;
+    this.arenaResizeObserver?.disconnect();
+    this.arenaResizeObserver = undefined;
+    this.playerWeaponMeshes = [];
+    this.playerWeaponBaseQuaternions = [];
     if (this.rafId) {
       cancelAnimationFrame(this.rafId);
       this.rafId = 0;
     }
     this.characterModel?.traverse((object) => {
+
+
       const mesh = object as THREE.Mesh;
       mesh.geometry?.dispose();
       if (Array.isArray(mesh.material)) {
@@ -2645,15 +3177,35 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.audioContext = undefined;
   }
 
+  private triggerAttackAnimation(style: AttackAnimationStyle = CLASS_ATTACK_ANIMATION[this.selectedClass] ?? "amazonJab"): void {
+    this.attackAnimationStyle = style;
+    this.attackAnimationTime = 0;
+    this.attackAnimationSide = this.attackAnimationSide === -1 ? 1 : -1;
+    this.attackAnimationFacing.set(this.playerFacingX, this.playerFacingY).normalize();
+    this.attackAnimationTurn = 0;
+    const profile = ATTACK_ANIMATION_PROFILES[style];
+    if (profile.trail) {
+      this.meleeTrailEffects.push({
+        style,
+        facingX: this.attackAnimationFacing.x,
+        facingY: this.attackAnimationFacing.y,
+        side: this.attackAnimationSide,
+        time: 0,
+        duration: profile.duration,
+        color: profile.trail,
+      });
+    }
+  }
+
   private basicAttackForClass(classId: string): { name: string; kind: AttackProjectile["kind"]; color: string; damage: number; cooldown: number } {
     const attacks: Record<string, { name: string; kind: AttackProjectile["kind"]; color: string; damage: number; cooldown: number }> = {
-      amazon: { name: "Guided Arrow", kind: "arrow", color: "#ffd78a", damage: 18, cooldown: 0.72 },
-      assassin: { name: "Throwing Knife", kind: "blade", color: "#b9d5ff", damage: 16, cooldown: 0.58 },
-      barbarian: { name: "Axe Throw", kind: "blade", color: "#ffb36b", damage: 23, cooldown: 0.82 },
-      druid: { name: "Spirit Claw", kind: "claw", color: "#9dffb1", damage: 17, cooldown: 0.68 },
-      necromancer: { name: "Bone Bolt", kind: "bone", color: "#e4e0ce", damage: 17, cooldown: 0.72 },
-      paladin: { name: "Holy Bolt", kind: "holy", color: "#fff0a8", damage: 17, cooldown: 0.72 },
-      sorceress: { name: "Fire Bolt", kind: "fire", color: "#ff7645", damage: 16, cooldown: 0.66 },
+      amazon: { name: "Jab", kind: "melee", color: "#ffd78a", damage: 18, cooldown: 0.72 },
+      assassin: { name: "Attack", kind: "melee", color: "#b9d5ff", damage: 16, cooldown: 0.58 },
+      barbarian: { name: "Attack", kind: "melee", color: "#ffb36b", damage: 23, cooldown: 0.82 },
+      druid: { name: "Attack", kind: "melee", color: "#9dffb1", damage: 17, cooldown: 0.68 },
+      necromancer: { name: "Attack", kind: "melee", color: "#e4e0ce", damage: 17, cooldown: 0.72 },
+      paladin: { name: "Attack", kind: "melee", color: "#fff0a8", damage: 17, cooldown: 0.72 },
+      sorceress: { name: "Attack", kind: "melee", color: "#ffb35c", damage: 16, cooldown: 0.66 },
     };
     return attacks[classId] ?? attacks["amazon"];
   }
@@ -2662,8 +3214,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     return 5 + Math.max(0, level - 1) * 3;
   }
 
-  private isKnownSkill(name: string): boolean {
-    return this.skills.some((skill) => skill.name === name) || name in UPGRADE_DESCRIPTIONS || BASIC_ATTACK_NAMES.includes(name);
+  private isKnownSkill(name: string, classId = this.selectedClass): boolean {
+    return getClassSkills(classId).some((skill) => skill.name === name) || this.skills.some((skill) => skill.name === name) || name in UPGRADE_DESCRIPTIONS || BASIC_ATTACK_NAMES.includes(name);
   }
 
   private grantExperience(amount: number): void {
@@ -2684,18 +3236,33 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   private prepareUpgradeChoices(): void {
     if (this.pendingLevelUps <= 0) { this.upgradeChoices = []; return; }
-    // Keep the basic damage upgrade in every offer so a level can always improve the
-    // character's starting attack, even after other skills have been learned.
     const choices: SkillUpgrade[] = [
-      { id: "attack-damage", name: `${this.basicAttackName} + damage`, description: `Increase basic attack damage by 6 (currently ${this.basicAttackDamage}).`, kind: "attack" },
-      { id: "attack-speed", name: "Faster Attacks", description: `Reduce basic attack cooldown by 10% (currently ${this.basicAttackCooldown.toFixed(2)}s).`, kind: "attack" },
-      { id: "multishot", name: "Multishot", description: `Fire at one additional nearby monster (rank ${this.skillLevels["Multishot"] ?? 0}).`, kind: "attack" },
+      { id: "attack-damage", name: `${this.basicAttackName} + damage`, description: `Increase melee attack damage by 6 (currently ${this.basicAttackDamage}).`, kind: "attack" },
+      { id: "attack-speed", name: "Faster Attacks", description: `Reduce melee attack cooldown by 10% (currently ${this.basicAttackCooldown.toFixed(2)}s).`, kind: "attack" },
+      { id: "multishot", name: "Multishot", description: `Strike one additional nearby monster with your basic attack (rank ${this.skillLevels["Multishot"] ?? 0}).`, kind: "attack" },
       { id: "vitality", name: "Vitality", description: `Gain 5 maximum life and heal 5 life (currently ${this.playerMaxHp}).`, kind: "stat" },
-      { id: "focus", name: "Arcane Focus", description: `Gain 5 maximum mana and restore 5 mana (currently ${this.playerMaxMana}).`, kind: "stat" },
-      { id: "weapon-mastery", name: "Weapon Mastery", description: `Increase all basic attack damage by 4 (rank ${this.skillLevels["Weapon Mastery"] ?? 0}).`, kind: "attack" },
+      { id: "weapon-mastery", name: "Weapon Mastery", description: `Increase all melee damage by 4 (rank ${this.skillLevels["Weapon Mastery"] ?? 0}).`, kind: "attack" },
     ];
-    const optionalChoices = choices.slice(1).sort((a, b) => hashString(`${this.playerLevel}:${a.id}`) - hashString(`${this.playerLevel}:${b.id}`));
-    this.upgradeChoices = [choices[0], ...optionalChoices.slice(0, 2)];
+    const eligibleSkills = this.availableClassSkills;
+    const shuffled = eligibleSkills.slice();
+    for (let index = shuffled.length - 1; index > 0; index -= 1) {
+      this.skillOfferSeed = (Math.imul(this.skillOfferSeed, 1664525) + 1013904223) >>> 0;
+      const swapIndex = this.skillOfferSeed % (index + 1);
+      [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+    }
+    const skillChoices = shuffled.slice(0, 3).map((entry): SkillUpgrade => ({
+      id: `class-skill:${entry.name}`,
+      name: entry.name,
+      description: `Diablo II ${this.selectedClassName} · level ${entry.level} · ${entry.prerequisites.length ? `Requires ${entry.prerequisites.join(", ")}` : "No prerequisites"}. ${this.getSkillDescription(entry.name) ?? "Unlock this class skill."}`,
+      kind: "class-skill",
+    }));
+    const fallback = choices.slice().sort((a, b) => hashString(`${this.playerLevel}:${a.id}`) - hashString(`${this.playerLevel}:${b.id}`));
+    const offer = [...skillChoices];
+    for (const choice of fallback) {
+      if (offer.length >= 3) break;
+      offer.push(choice);
+    }
+    this.upgradeChoices = offer;
     this.levelUpNotice = `Level ${this.playerLevel} reached — choose an upgrade.`;
   }
 
@@ -2708,30 +3275,40 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
     const attack = this.basicAttackForClass(this.selectedClass);
     const attackLevel = this.skillLevels[this.basicAttackName] ?? 1;
-    const damage = this.basicAttackDamage + (attackLevel - 1) * 2 + (this.skillLevels["Weapon Mastery"] ?? 0) * 4;
+    const damage = this.basicAttackDamage + (attackLevel - 1) * 2 + (this.skillLevels["Weapon Mastery"] ?? 0) * 4 + this.equippedWeaponDamage;
     const distance = Math.hypot(target.x - this.playerX, target.y - this.playerY);
-    if (distance <= target.r + 12) {
+    this.playerFacingX = (target.x - this.playerX) / Math.max(1, distance);
+    this.playerFacingY = (target.y - this.playerY) / Math.max(1, distance);
+    if (distance <= target.r + 28) {
       target.hp -= damage;
+      this.triggerAttackAnimation();
       this.floatingTexts.push({ x: target.x, y: target.y - target.r - 8, text: `-${damage}`, color: attack.color, life: 0.65 });
+      this.attackCooldown = this.basicAttackCooldown;
     } else {
-      this.attackSequence += 1;
-      this.attackProjectiles.push({
-        x: this.playerX, y: this.playerY - 8, startX: this.playerX, startY: this.playerY - 8,
-        targetX: target.x, targetY: target.y, target, speed: 700,
-        damage, life: Math.max(3, distance / 700 + 1), radius: 5, color: attack.color, kind: attack.kind,
-      });
+      // Move into weapon range before applying damage: a melee basic attack never becomes a missile.
+      this.attackCooldown = Math.min(0.12, this.basicAttackCooldown);
     }
-    this.attackCooldown = this.basicAttackCooldown;
   }
 
   chooseLevelUpgrade(choice: SkillUpgrade): void {
     if (!this.upgradeChoices.some((candidate) => candidate.id === choice.id) || this.pendingLevelUps <= 0) return;
+    if (choice.id.startsWith("class-skill:")) {
+      const skillName = choice.id.slice("class-skill:".length);
+      if (!this.availableClassSkills.some((entry) => entry.name === skillName)) return;
+      this.skillLevels[skillName] = Math.min(20, (this.skillLevels[skillName] ?? 0) + 1);
+      if (!this.ownedSkills.includes(skillName)) this.ownedSkills.push(skillName);
+      this.pendingLevelUps -= 1;
+      this.upgradeChoices = [];
+      this.levelUpNotice = this.pendingLevelUps > 0 ? `${this.pendingLevelUps} more level upgrade${this.pendingLevelUps === 1 ? "" : "s"} to choose.` : "Skill point spent.";
+      if (this.pendingLevelUps > 0) this.prepareUpgradeChoices();
+      this.persistRunProgress(true);
+      return;
+    }
     switch (choice.id) {
       case "attack-damage": this.basicAttackDamage += 6; this.skillLevels[this.basicAttackName] = (this.skillLevels[this.basicAttackName] ?? 1) + 1; break;
       case "attack-speed": this.basicAttackCooldown = Math.max(0.18, this.basicAttackCooldown * 0.9); this.skillLevels["Faster Attacks"] = (this.skillLevels["Faster Attacks"] ?? 0) + 1; break;
       case "multishot": this.skillLevels["Multishot"] = (this.skillLevels["Multishot"] ?? 0) + 1; break;
       case "vitality": this.playerMaxHp += 5; this.playerHp = Math.min(this.playerMaxHp, this.playerHp + 5); this.skillLevels["Vitality"] = (this.skillLevels["Vitality"] ?? 0) + 1; break;
-      case "focus": this.playerMaxMana += 5; this.playerMana = Math.min(this.playerMaxMana, this.playerMana + 5); this.skillLevels["Arcane Focus"] = (this.skillLevels["Arcane Focus"] ?? 0) + 1; break;
       case "weapon-mastery": this.skillLevels["Weapon Mastery"] = (this.skillLevels["Weapon Mastery"] ?? 0) + 1; this.basicAttackDamage += 4; break;
     }
     if (!this.ownedSkills.includes(choice.name)) this.ownedSkills.push(choice.name);
@@ -2751,21 +3328,19 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (!targets.length) return;
     const attack = this.basicAttackForClass(this.selectedClass);
     const attackLevel = this.skillLevels[this.basicAttackName] ?? 1;
-    const damage = this.basicAttackDamage + (attackLevel - 1) * 2 + (this.skillLevels["Weapon Mastery"] ?? 0) * 4;
+    const damage = this.basicAttackDamage + (attackLevel - 1) * 2 + (this.skillLevels["Weapon Mastery"] ?? 0) * 4 + this.equippedWeaponDamage;
+    let landedMeleeAttack = false;
     for (const target of targets) {
       const distance = Math.hypot(target.x - this.playerX, target.y - this.playerY);
-      if (distance <= target.r + 12) {
+      this.playerFacingX = (target.x - this.playerX) / Math.max(1, distance);
+      this.playerFacingY = (target.y - this.playerY) / Math.max(1, distance);
+      if (distance <= target.r + 28) {
         target.hp -= damage;
+        landedMeleeAttack = true;
         this.floatingTexts.push({ x: target.x, y: target.y - target.r - 8, text: `-${damage}`, color: attack.color, life: 0.65 });
-        continue;
       }
-      this.attackSequence += 1;
-      this.attackProjectiles.push({
-        x: this.playerX, y: this.playerY - 8, startX: this.playerX, startY: this.playerY - 8,
-        targetX: target.x, targetY: target.y, target, speed: 700,
-        damage, life: Math.max(3, distance / 700 + 1), radius: 5, color: attack.color, kind: attack.kind,
-      });
     }
+    if (landedMeleeAttack) this.triggerAttackAnimation();
     this.attackCooldown = this.basicAttackCooldown;
   }
 
@@ -2795,9 +3370,69 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.attackProjectiles = this.attackProjectiles.filter((projectile) => projectile.life > 0);
   }
 
+  private drawMeleeTrail(ctx: CanvasRenderingContext2D, effect: MeleeTrailEffect): void {
+    const progress = Math.max(0, Math.min(1, effect.time / effect.duration));
+    const strike = attackMotionCurve(progress);
+    const fade = Math.sin(Math.PI * progress);
+    if (fade <= 0.01) return;
+    const center = this.projectArenaPoint(this.playerX, this.playerY);
+    const facing = this.projectArenaPoint(this.playerX + effect.facingX, this.playerY + effect.facingY);
+    const angle = Math.atan2(facing.y - center.y, facing.x - center.x);
+    const profile = ATTACK_ANIMATION_PROFILES[effect.style];
+    const arc = profile.trailArc ?? 1.6;
+    const sweep = strike * 0.24 * effect.side;
+    const startAngle = effect.style === "spin" ? 0 : angle - arc / 2 + sweep;
+    const endAngle = effect.style === "spin" ? Math.PI * 2 : angle + arc / 2 + sweep;
+    const radius = 31 + Math.max(0, strike) * 10;
+    ctx.save();
+    ctx.globalAlpha = Math.min(0.88, fade * 0.9);
+    ctx.lineCap = "round";
+    ctx.shadowColor = effect.color;
+    ctx.shadowBlur = 13;
+    ctx.strokeStyle = effect.color;
+    ctx.lineWidth = effect.style === "barbarianCleave" || effect.style === "spin" ? 5 : 3;
+    ctx.beginPath();
+    ctx.arc(center.x, center.y - 12, radius, startAngle, endAngle);
+    ctx.stroke();
+    ctx.globalAlpha *= 0.6;
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = "#fff4d2";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(center.x, center.y - 12, radius - 3, startAngle + 0.12, endAngle - 0.12);
+    ctx.stroke();
+    ctx.restore();
+  }
+
   private drawAttackProjectile(ctx: CanvasRenderingContext2D, projectile: AttackProjectile): void {
+    if (projectile.kind === "melee") return;
     const point = this.projectArenaPoint(projectile.x, projectile.y);
     const start = this.projectArenaPoint(projectile.startX, projectile.startY);
+    const missileId = projectile.missileId ?? ATTACK_KIND_MISSILE_OVERLAYS[projectile.kind];
+    const overlays = this.missileOverlayImages.get(missileId);
+    const frameDuration = MISSILE_FRAME_DURATIONS_MS[missileId] ?? 85;
+    const desiredFrame = overlays?.length ? Math.floor(performance.now() / frameDuration) % overlays.length : 0;
+    let overlay = overlays?.[desiredFrame];
+    if (!overlay?.complete || overlay.naturalWidth === 0) {
+      overlay = overlays?.find((image) => image.complete && image.naturalWidth > 0);
+    }
+    if (overlay?.complete && overlay.naturalWidth > 0) {
+      const direction = Math.atan2(projectile.targetY - projectile.startY, projectile.targetX - projectile.startX);
+      const maxFrameSize = ["fireball", "bloodcomet"].includes(missileId) ? 72 : 54;
+      const frameScale = Math.min(1.25, Math.max(0.42, maxFrameSize / Math.max(overlay.naturalWidth, overlay.naturalHeight)));
+      const imageWidth = overlay.naturalWidth * frameScale;
+      const imageHeight = overlay.naturalHeight * frameScale;
+      ctx.save();
+      ctx.translate(point.x, point.y - 8);
+      ctx.rotate(direction);
+      ctx.globalCompositeOperation = "lighter";
+      ctx.shadowColor = projectile.color;
+      ctx.shadowBlur = 7;
+      // DCC uses a grayscale default palette until the native game palette is supplied.
+      ctx.drawImage(overlay, -imageWidth / 2, -imageHeight / 2, imageWidth, imageHeight);
+      ctx.restore();
+      return;
+    }
     ctx.save();
     ctx.strokeStyle = projectile.color;
     ctx.fillStyle = projectile.color;
@@ -2817,6 +3452,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   startRun(): void {
+    this.deathRecovery = false;
+    this.deathCount = 0;
     this.lobbyRunId = createRunId();
     this.runKillCount = 0;
     this.hasSavedRun = true;
@@ -2833,8 +3470,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.actTransitionReady = false;
     this.campaignVictory = false;
     this.actBossSpawned = false;
-    this.playerX = 250;
-    this.playerY = 250;
+    this.currentChunkCoordX = 0;
+    this.currentChunkCoordY = 0;
+    this.currentChunkLocalX = this.chunkTileColumns * 48 / 2;
+    this.currentChunkLocalY = this.chunkTileRows * 48 / 2;
+    this.playerX = this.arenaW / 2;
+    this.playerY = this.arenaH / 2;
     const startingStats = this.classStartingStats[this.selectedClass] ?? this.classStartingStats["amazon"];
     this.playerMaxHp = startingStats.life;
     this.playerMaxMana = startingStats.mana;
@@ -2845,6 +3486,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.playerLevel = 1;
     this.playerXp = 0;
     this.pendingLevelUps = 0;
+    this.skillOfferSeed = Math.floor(Math.random() * 0x7fffffff);
     this.xpToNextLevel = this.xpForLevel(1);
     this.basicAttackName = basicAttack.name;
     this.basicAttackCooldown = basicAttack.cooldown;
@@ -2852,6 +3494,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.attackCooldown = 0;
     this.attackSequence = 0;
     this.attackProjectiles = [];
+    this.skillTreeOpen = false;
+    this.attackAnimationTime = Number.POSITIVE_INFINITY;
+    this.attackAnimationStyle = CLASS_ATTACK_ANIMATION[this.selectedClass] ?? "amazonJab";
+    this.attackAnimationSide = -1;
     this.upgradeChoices = [];
     this.levelUpNotice = "";
     this.ownedSkills = [this.basicAttackName];
@@ -2860,15 +3506,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     for (let index = 0; index < 5; index += 1) this.enemies.push(this.makeEnemy("normal"));
     this.chests = [];
     this.potionDrops = [];
+    this.goldDrops = [];
     this.floatingTexts = [];
-    this.beltSlots = [
-      { kind: "health" }, { kind: "mana" }, { kind: "health" }, { kind: "mana" },
-      ...Array.from({ length: 12 }, () => ({ kind: null })),
-    ];
+    this.beltSlots = Array.from({ length: 16 }, () => ({ kind: null }));
     this.equipment = createEmptyEquipment();
     this.activeBottleSlot = 0;
     this.escapeMenuOpen = false;
     this.inventoryOpen = false;
+    this.skillTreeOpen = false;
     this.combatOrbsTime = 0;
     this.inventory = [];
     this.rebuildInventoryGrid();
@@ -2907,7 +3552,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       if (this.campaignVictory) this.draw();
       return;
     }
-    if (!this.escapeMenuOpen && !this.inventoryOpen && !this.actTransitionReady && !this.campaignVictory && this.pendingLevelUps === 0) this.update(dt);
+    if (!this.escapeMenuOpen && !this.inventoryOpen && !this.skillTreeOpen && !this.actTransitionReady && !this.campaignVictory && this.pendingLevelUps === 0) this.update(dt);
     else {
       this.isPlayerMoving = false;
       this.playerMoveX = 0;
@@ -2924,7 +3569,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.actTime += dt / 1000;
     this.combatOrbsTime = Math.max(0, this.combatOrbsTime - dt / 1000);
     this.attackCooldown = Math.max(0, this.attackCooldown - dt / 1000);
-    this.playerMana = Math.min(this.playerMaxMana, this.playerMana + dt * 0.0015);
 
     this.movePlayer(dt);
 
@@ -2936,6 +3580,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.updateEnemies(dt);
     this.updateChests(dt);
     this.updatePotionDrops(dt);
+    this.updateGoldDrops(dt);
     this.updateFloatingTexts(dt);
     this.spawnEnemies(dt);
     this.spawnChests(dt);
@@ -2964,8 +3609,16 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const projectionScale = 0.7071;
     const dx = (screenX + 2 * screenY) / (2 * projectionScale);
     const dy = (2 * screenY - screenX) / (2 * projectionScale);
-    this.playerX = Math.max(32, Math.min(this.arenaW - 32, this.playerX + dx));
-    this.playerY = Math.max(32, Math.min(this.arenaH - 32, this.playerY + dy));
+    const chunkWidth = this.chunkTileColumns * 48;
+    const chunkHeight = this.chunkTileRows * 48;
+    this.currentChunkLocalX += dx;
+    this.currentChunkLocalY += dy;
+    while (this.currentChunkLocalX < 0) { this.currentChunkLocalX += chunkWidth; this.currentChunkCoordX -= 1; }
+    while (this.currentChunkLocalX >= chunkWidth) { this.currentChunkLocalX -= chunkWidth; this.currentChunkCoordX += 1; }
+    while (this.currentChunkLocalY < 0) { this.currentChunkLocalY += chunkHeight; this.currentChunkCoordY -= 1; }
+    while (this.currentChunkLocalY >= chunkHeight) { this.currentChunkLocalY -= chunkHeight; this.currentChunkCoordY += 1; }
+    this.playerX = this.arenaW / 2 + this.currentChunkLocalX - chunkWidth / 2;
+    this.playerY = this.arenaH / 2 + this.currentChunkLocalY - chunkHeight / 2;
     this.playerMoveX = this.playerX - previousX;
     this.playerMoveY = this.playerY - previousY;
     this.isPlayerMoving = Math.hypot(this.playerMoveX, this.playerMoveY) > 0.01;
@@ -2983,19 +3636,24 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const speed = enemy.speed * (dt / 1000);
       enemy.x += (dx / distance) * speed;
       enemy.y += (dy / distance) * speed;
-      if (enemy.kind !== "normal" && distance < 36) this.playerHp -= enemy.dmg * (dt / 1000);
+      this.playerHp -= enemy.dmg * (dt / 1000) * (distance < 36 ? 1 : 0.18);
       if (enemy.cd !== undefined) enemy.cd = Math.max(0, enemy.cd - dt / 1000);
     }
     const defeatedEnemies = this.enemies.filter((enemy) => enemy.hp <= 0);
-    for (const enemy of defeatedEnemies) this.grantExperience(enemy.kind === "boss" ? 8 : enemy.kind === "champion" ? 3 : 1);
+    for (const enemy of defeatedEnemies) {
+      this.grantExperience(enemy.kind === "boss" ? 8 : enemy.kind === "champion" ? 3 : 1);
+      this.maybeDropGold(enemy);
+    }
     this.runKillCount += defeatedEnemies.length;
     if (defeatedEnemies.some((enemy) => enemy.campaignBoss)) {
       this.actTransitionReady = true;
       this.floatingTexts.push({ x: this.playerX, y: this.playerY - 48, text: `ACT ${this.currentAct} BOSS DEFEATED`, color: "#ffd27a", life: 3 });
       this.persistRunProgress(true);
     }
+    if (this.playerHp <= 0 && !this.consumeRejuvenationPotion()) {
+      this.endRun(false);
+    }
     this.enemies = this.enemies.filter((enemy) => enemy.hp > 0 && this.playerHp > 0);
-    if (this.playerHp <= 0) this.endRun(false);
   }
 
   updateChests(dt: number): void {
@@ -3026,9 +3684,22 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       }
       slot.kind = drop.kind;
       drop.collected = true;
-      this.floatingTexts.push({ x: drop.x, y: drop.y - 18, text: `${drop.kind.toUpperCase()} POTION`, color: drop.kind === "health" ? "#ff7171" : "#73c9ff", life: 2 });
+      this.floatingTexts.push({ x: drop.x, y: drop.y - 18, text: `${drop.kind.toUpperCase()} POTION`, color: drop.kind === "health" ? "#ff7171" : "#d68cff", life: 2 });
     }
     this.potionDrops = this.potionDrops.filter((drop) => !drop.collected && drop.life > 0);
+  }
+
+  updateGoldDrops(dt: number): void {
+    for (const drop of this.goldDrops) {
+      drop.bob += dt / 1000;
+      drop.life -= dt / 1000;
+      drop.pickupDelay = Math.max(0, drop.pickupDelay - dt / 1000);
+      if (drop.pickupDelay > 0 || Math.hypot(this.playerX - drop.x, this.playerY - drop.y) >= 34) continue;
+      this.playerGold = Math.min(1_000_000_000, this.playerGold + drop.amount);
+      drop.life = 0;
+      this.floatingTexts.push({ x: drop.x, y: drop.y - 20, text: `+${drop.amount} gold`, color: "#ffd45e", life: 1.4 });
+    }
+    this.goldDrops = this.goldDrops.filter((drop) => drop.life > 0);
   }
 
   updateFloatingTexts(dt: number): void {
@@ -3172,6 +3843,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.inventory[sourceAnchor] = oldEquipment;
     }
     this.equipment[slot] = drag.item;
+    if (slot === "weapon" && this.characterModel) this.configureClassMeleeWeapon(this.characterModel, this.selectedClass);
     this.normalizeBeltSlots();
     this.rebuildInventoryGrid();
     this.selectedEquipmentSlot = slot;
@@ -3213,6 +3885,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.inventory[targetIndex] = item;
     }
     this.equipment[slot] = null;
+    if (slot === "weapon" && this.characterModel) this.configureClassMeleeWeapon(this.characterModel, this.selectedClass);
     this.normalizeBeltSlots();
     this.rebuildInventoryGrid();
     this.selectedItem = item;
@@ -3224,13 +3897,100 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   equipSelectedItem(slotIndex: number, slot?: PaperdollSlot): void {
-    const item = this.inventory[slotIndex];
+    const anchor = this.getItemAnchorAt(slotIndex);
+    const item = anchor >= 0 ? this.inventory[anchor] : null;
     if (!item) return;
     const compatibleSlots = PAPERDOLL_SLOTS.filter((candidate) => isCompatibleWithEquipment(item, candidate));
     const target = slot ?? compatibleSlots.find((candidate) => !this.equipment[candidate]) ?? compatibleSlots[0];
     if (!target) return;
-    this.dragState = { source: "inventory", slotIndex, item };
+    this.dragState = { source: "inventory", slotIndex: anchor, item };
     this.onEquipmentDrop(target, { preventDefault: () => undefined } as DragEvent);
+  }
+
+  onInventoryItemClick(slotIndex: number, item: D2InventoryItem | null, event: MouseEvent): void {
+    if (event.ctrlKey && item) {
+      event.preventDefault();
+      this.sellInventoryItem(slotIndex);
+      return;
+    }
+    this.selectInventoryItem(slotIndex, item);
+  }
+
+  onInventoryContextMenu(slotIndex: number, event: MouseEvent): void {
+    event.preventDefault();
+    const anchor = this.getItemAnchorAt(slotIndex);
+    const item = anchor >= 0 ? this.inventory[anchor] : null;
+    if (!item) return;
+    const type = getEquipmentType(item);
+    if (type === "weapon" || ["helmet", "body", "shield", "gloves", "boots"].includes(type)) {
+      this.equipSelectedItem(anchor);
+    } else {
+      this.selectInventoryItem(anchor, item);
+    }
+  }
+
+  onEquipmentItemClick(slot: PaperdollSlot, event: MouseEvent): void {
+    if (event.ctrlKey && this.equipment[slot]) {
+      event.preventDefault();
+      this.sellEquippedItem(slot);
+      return;
+    }
+    this.selectEquipmentItem(slot);
+  }
+
+  getItemSellValue(item: D2InventoryItem): number {
+    const rarityMultiplier = item.rarity === "rare" ? 4 : item.rarity === "magic" ? 2 : 1;
+    const stats = item.stats;
+    const statValue = Math.floor((stats?.damageMin ?? 0) + (stats?.damageMax ?? 0)
+      + (stats?.armor ?? 0) + (stats?.plusDamage ?? 0) * 3
+      + (stats?.plusStrength ?? 0) * 2 + (stats?.plusVitality ?? 0) * 2);
+    return Math.max(1, Math.min(100_000, (5 + statValue) * rarityMultiplier));
+  }
+
+  sellInventoryItem(slotIndex: number): void {
+    const anchor = this.getItemAnchorAt(slotIndex);
+    if (anchor < 0) return;
+    const item = this.inventory[anchor];
+    if (!item) return;
+    const value = this.getItemSellValue(item);
+    this.inventory[anchor] = null;
+    this.playerGold = Math.min(1_000_000_000, this.playerGold + value);
+    this.rebuildInventoryGrid();
+    if (this.selectedItem?.id === item.id) {
+      this.selectedItem = null;
+      this.selectedSlotIndex = null;
+      this.selectedEquipmentSlot = null;
+    }
+    this.inventoryStatus = `${item.name} sold for ${value} gold.`;
+    this.persistRunProgress(true);
+  }
+
+  sellEquippedItem(slot: PaperdollSlot): void {
+    const item = this.equipment[slot];
+    if (!item) return;
+    if (slot === "belt" && this.beltSlots.slice(4).some((potion) => potion.kind !== null)) {
+      this.inventoryStatus = "Use or move potions from the extra rows before selling this belt.";
+      return;
+    }
+    const value = this.getItemSellValue(item);
+    this.equipment[slot] = null;
+    if (slot === "weapon" && this.characterModel) this.configureClassMeleeWeapon(this.characterModel, this.selectedClass);
+    this.normalizeBeltSlots();
+    this.playerGold = Math.min(1_000_000_000, this.playerGold + value);
+    this.rebuildInventoryGrid();
+    this.selectedItem = null;
+    this.selectedSlotIndex = null;
+    this.selectedEquipmentSlot = null;
+    this.inventoryStatus = `${item.name} sold for ${value} gold.`;
+    this.persistRunProgress(true);
+  }
+
+  sellSelectedItem(): void {
+    if (this.selectedEquipmentSlot) {
+      this.sellEquippedItem(this.selectedEquipmentSlot);
+    } else if (this.selectedSlotIndex !== null) {
+      this.sellInventoryItem(this.selectedSlotIndex);
+    }
   }
 
   onInventoryDragOver(slotIndex: number, event: DragEvent): void {
@@ -3305,6 +4065,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (index < 0) { this.inventoryStatus = "Inventory full — make room before unequipping this item."; return; }
     this.inventory[index] = item;
     this.equipment[slot] = null;
+    if (slot === "weapon" && this.characterModel) this.configureClassMeleeWeapon(this.characterModel, this.selectedClass);
     this.normalizeBeltSlots();
     this.rebuildInventoryGrid();
     this.selectedEquipmentSlot = null;
@@ -3357,6 +4118,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       return;
     }
     this.currentAct += 1;
+    this.currentChunkCoordX = 0;
+    this.currentChunkCoordY = 0;
+    this.currentChunkLocalX = this.chunkTileColumns * 48 / 2;
+    this.currentChunkLocalY = this.chunkTileRows * 48 / 2;
     this.runActive = true;
     this.lastTime = performance.now();
     this.actTime = 0;
@@ -3366,6 +4131,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.attackProjectiles = [];
     this.chests = [];
     this.potionDrops = [];
+    this.goldDrops = [];
     this.spawnAcc = 0;
     this.playerX = this.arenaW / 2;
     this.playerY = this.arenaH / 2;
@@ -3414,6 +4180,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       };
     };
     const spawnPosition = randomFloorPosition();
+    const normalHealth = Math.round(18 * actDifficulty);
     const base: Enemy = {
       kind: "normal",
       species,
@@ -3421,8 +4188,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       spriteFrame: Math.floor(Math.random() * ENEMY_SPRITE_LAYOUTS[species].columns),
       x: spawnPosition.x,
       y: spawnPosition.y,
-      hp: 18,
-      maxHp: 18,
+      hp: normalHealth,
+      maxHp: normalHealth,
       speed: 80 + Math.random() * 40,
       r: 14,
       dmg: 2,
@@ -3439,10 +4206,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       };
     }
     if (kind === "champion") {
+      const championHealth = Math.round(50 * actDifficulty);
       return {
         ...base,
-        hp: 50,
-        maxHp: 50,
+        hp: championHealth,
+        maxHp: championHealth,
         speed: 110,
         r: 18,
         dmg: 4,
@@ -3461,6 +4229,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.floatingTexts.push({ x: c.x, y: c.y - 20, text: `+1 ${this.basicAttackName}`, color: "#ffd27a", life: 2.4 });
 
     this.spawnPotionDrops(c.x, c.y);
+    const chestGold = Math.floor((8 + Math.random() * 9) * (1 + (this.currentAct - 1) * 0.75));
+    this.goldDrops.push({ x: c.x, y: c.y, amount: chestGold, bob: 0, life: 18, pickupDelay: 0.4 });
 
     const droppedItem = this.randomItem();
     if (this.addInventoryItem(droppedItem)) {
@@ -3475,29 +4245,73 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   private spawnPotionDrops(x: number, y: number): void {
+    if (Math.random() < 0.015) {
+      this.addPotionDrop(x, y, "rejuvenation", 0);
+      return;
+    }
+    if (Math.random() >= 0.35) return;
     const dropCount = Math.random() < 0.35 ? 2 : 1;
     for (let index = 0; index < dropCount; index += 1) {
       const angle = Math.random() * Math.PI * 2;
       const distance = 24 + index * 12;
-      this.potionDrops.push({
-        x: Math.max(18, Math.min(this.arenaW - 18, x + Math.cos(angle) * distance)),
-        y: Math.max(18, Math.min(this.arenaH - 18, y + Math.sin(angle) * distance)),
-        kind: Math.random() < 0.5 ? "health" : "mana",
-        bob: 0,
-        life: 25,
-        pickupDelay: 0.9,
-        notifiedFull: false,
-        collected: false,
-      });
+      this.addPotionDrop(x + Math.cos(angle) * distance, y + Math.sin(angle) * distance, "health", 0.9);
     }
+  }
+
+  private addPotionDrop(x: number, y: number, kind: PotionDrop["kind"], pickupDelay: number): void {
+    this.potionDrops.push({
+      x: Math.max(18, Math.min(this.arenaW - 18, x)),
+      y: Math.max(18, Math.min(this.arenaH - 18, y)),
+      kind,
+      bob: 0,
+      life: kind === "rejuvenation" ? 40 : 25,
+      pickupDelay,
+      notifiedFull: false,
+      collected: false,
+    });
+  }
+
+  private maybeDropGold(enemy: Enemy): void {
+    const difficulty = Math.max(1, enemy.maxHp / 18);
+    const chance = enemy.kind === "boss" ? 0.9 : enemy.kind === "champion" ? 0.48 : Math.min(0.65, 0.16 + (difficulty - 1) * 0.04);
+    if (Math.random() >= chance) return;
+    const actScale = 1 + (this.currentAct - 1) * 0.75;
+    const monsterScale = enemy.kind === "boss" ? 12 : enemy.kind === "champion" ? 4 : difficulty;
+    const gold = Math.max(1, Math.floor((2 + Math.random() * 5) * actScale * monsterScale));
+    this.goldDrops.push({ x: enemy.x, y: enemy.y, amount: gold, bob: 0, life: 18, pickupDelay: 0.4 });
+  }
+
+  private consumeRejuvenationPotion(): boolean {
+    for (let index = 0; index < this.beltRows * 4; index += 1) {
+      const slot = this.beltSlots[index];
+      if (slot?.kind !== "rejuvenation") continue;
+      slot.kind = null;
+      this.playerHp = this.playerMaxHp;
+      this.combatOrbsTime = 2.5;
+      this.floatingTexts.push({ x: this.playerX, y: this.playerY - 42, text: "REJUVENATION!", color: "#d68cff", life: 2.2 });
+      this.persistRunProgress(true);
+      return true;
+    }
+    return false;
   }
 
   endRun(victory: boolean): void {
     if (!this.runActive) return;
+    if (!victory && this.consumeRejuvenationPotion()) return;
     this.runActive = false;
-    if (!victory) this.hasSavedRun = false;
+    if (!victory) {
+      this.deathRecovery = this.selectedClass === "necromancer";
+      this.deathCount += 1;
+      this.potionDrops = [];
+      this.goldDrops = [];
+      this.playerHp = 0;
+      this.hasSavedRun = this.deathRecovery;
+    } else {
+      this.deathRecovery = false;
+      this.hasSavedRun = false;
+    }
     this.persistRunProgress(true);
-    void this.recordCompletedCharacter(victory);
+    if (victory || !this.deathRecovery) void this.recordCompletedCharacter(victory);
     if (this.rafId) {
       cancelAnimationFrame(this.rafId);
       this.rafId = 0;
@@ -3518,7 +4332,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   getSkillDescription(name: string): string | undefined {
     return this.skills.find((s) => s.name === name)?.desc ??
-      (name === this.basicAttackName ? `Your automatic ${name.toLowerCase()} hits the nearest monster.` : UPGRADE_DESCRIPTIONS[name]);
+      CLASS_SKILL_DESCRIPTIONS[name] ??
+      (name === this.basicAttackName ? `Your automatic melee ${name.toLowerCase()} strikes in weapon range.` : UPGRADE_DESCRIPTIONS[name]);
   }
 
   finishCampaign(): void {
@@ -3559,11 +4374,32 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     ctx.fillStyle = "#08090d";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    const background = this.campaignBackgroundCanvases[this.currentAct];
-    if (background) {
-      ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
-    } else {
-      // Use the original isometric ground grid until the locally supplied map image loads.
+    const act = this.currentActDetails;
+    const tileWorldSize = 48;
+    const chunkWidth = this.chunkTileColumns * tileWorldSize;
+    const chunkHeight = this.chunkTileRows * tileWorldSize;
+    const chunkPixelWidth = Math.ceil((chunkWidth + chunkHeight) * 0.7071);
+    const chunkPixelHeight = Math.ceil((chunkWidth + chunkHeight) * 0.35355 + tileWorldSize / Math.SQRT2);
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, canvas.width, canvas.height);
+    ctx.clip();
+    for (let offsetY = -2; offsetY <= 2; offsetY += 1) {
+      for (let offsetX = -2; offsetX <= 2; offsetX += 1) {
+        const chunkX = this.currentChunkCoordX + offsetX;
+        const chunkY = this.currentChunkCoordY + offsetY;
+        const background = this.getCampaignChunkCanvas(act, chunkX, chunkY);
+        const relativeX = offsetX * chunkWidth - this.currentChunkLocalX;
+        const relativeY = offsetY * chunkHeight - this.currentChunkLocalY;
+        const screenX = centerX + (relativeX - relativeY) * 0.7071 - chunkPixelWidth / 2;
+        const screenY = centerY + (relativeX + relativeY) * 0.35355 - chunkPixelHeight / 2;
+        ctx.drawImage(background, screenX, screenY);
+      }
+    }
+    ctx.restore();
+    if (!this.campaignTileBitmaps[this.currentAct]?.length) {
       const tile = 48;
       ctx.save();
     const first = this.projectArenaPoint(0, 0);
@@ -3606,10 +4442,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       ...this.enemies.map((entity) => ({ depth: this.projectArenaPoint(entity.x, entity.y).y, draw: () => this.drawEnemy(ctx, entity) })),
       ...this.chests.filter((chest) => !chest.open).map((entity) => ({ depth: this.projectArenaPoint(entity.x, entity.y).y, draw: () => this.drawChest(ctx, entity) })),
       ...this.potionDrops.map((entity) => ({ depth: this.projectArenaPoint(entity.x, entity.y).y, draw: () => this.drawPotionDrop(ctx, entity) })),
+      ...this.goldDrops.map((entity) => ({ depth: this.projectArenaPoint(entity.x, entity.y).y, draw: () => this.drawGoldDrop(ctx, entity) })),
     ].sort((a, b) => a.depth - b.depth);
     for (const entity of drawOrder) entity.draw();
 
     for (const projectile of this.attackProjectiles) this.drawAttackProjectile(ctx, projectile);
+    for (const effect of this.meleeTrailEffects) this.drawMeleeTrail(ctx, effect);
     for (const floatingText of this.floatingTexts) {
       const point = this.projectArenaPoint(floatingText.x, floatingText.y);
       ctx.fillStyle = floatingText.color;
@@ -3647,7 +4485,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     try {
       this.characterRenderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
       this.characterRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-      this.characterRenderer.setSize(canvas.width, canvas.height, false);
+      const rect = canvas.getBoundingClientRect();
+      this.characterRenderer.setSize(rect.width || canvas.width, rect.height || canvas.height, false);
       this.characterRenderer.setClearColor(0x000000, 0);
       this.characterRenderer.outputColorSpace = THREE.SRGBColorSpace;
       this.characterScene = new THREE.Scene();
@@ -3733,6 +4572,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         this.normalizeCharacterModel(model, 72);
         model.rotation.y = 0;
         this.playerRigBones = this.getPlayerRigBones(model);
+        this.selectedClass = modelClass;
+        this.configureClassMeleeWeapon(model, modelClass);
         this.playerAnimationTime = 0;
         this.playerMotionBlend = 0;
         this.playerMoveX = 0;
@@ -3752,8 +4593,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         this.renderCharacter();
       },
       undefined,
-      (error: unknown) => {
-        if (requestId !== this.modelLoadRequest) {
+      (error: unknown) => {          if (requestId !== this.modelLoadRequest) {
+
           return;
         }
         console.error(`Could not load the ${modelClass} 3D character model`, error);
@@ -3853,8 +4694,55 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     });
   }
 
+  private configureClassMeleeWeapon(model: THREE.Group, classId: string): void {
+    this.playerWeaponMeshes = [];
+    this.playerWeaponBaseQuaternions = [];
+    const nameContainsClassMeleeWeapon = (name: string): boolean => {
+      const lowerName = name.toLowerCase();
+      return classId === "amazon" ? /pike|polearm|spear|javelin/.test(lowerName)
+        : classId === "sorceress" ? /staff|horadric/.test(lowerName)
+        : classId === "barbarian" ? /axe|sword|mace|weapon|hammer|blade/.test(lowerName) && !/shield|armor/.test(lowerName)
+        : false;
+    };
+    model.traverse((object) => {
+      if (!(object as THREE.Mesh).isMesh) return;
+      const mesh = object as THREE.Mesh;
+      const name = `${mesh.name} ${mesh.parent?.name ?? ""}`.toLowerCase();
+      const isPikeOrStaff = /pike|polearm|spear|staff/.test(name);
+      const isBow = /bow|crossbow/.test(name);
+      if (classId === "amazon" && (isPikeOrStaff || isBow || /weapon|javelin/.test(name))) {
+        const showPike = isPikeOrStaff && !isBow;
+        mesh.visible = showPike;
+        mesh.userData["d2sHiddenByWeapon"] = !showPike;
+        if (showPike) {
+          this.playerWeaponMeshes.push(mesh);
+          this.playerWeaponBaseQuaternions.push(mesh.quaternion.clone());
+          mesh.userData["d2sWeaponSide"] = -1;
+        }
+        return;
+      }
+      if (classId === "sorceress" && isPikeOrStaff) {
+        const hasStaff = this.equippedWeaponName.toLowerCase().includes("staff");
+        if (!hasStaff) {
+          mesh.visible = false;
+          mesh.userData["d2sHiddenByWeapon"] = true;
+          return;
+        }
+        this.playerWeaponMeshes.push(mesh);
+        this.playerWeaponBaseQuaternions.push(mesh.quaternion.clone());
+        mesh.userData["d2sWeaponSide"] = -1;
+        return;
+      }
+      if (nameContainsClassMeleeWeapon(name)) {
+        this.playerWeaponMeshes.push(mesh);
+        this.playerWeaponBaseQuaternions.push(mesh.quaternion.clone());
+        mesh.userData["d2sWeaponSide"] = -1;
+      }
+    });
+  }
+
   private getPlayerRigBones(model: THREE.Group): PlayerRigBones {
-    const bones: PlayerRigBones = { legs: [], knees: [], feet: [], arms: [] };
+    const bones: PlayerRigBones = { legs: [], knees: [], feet: [], arms: [], forearms: [] };
     model.traverse((object) => {
       if (!(object instanceof THREE.Bone)) return;
       const name = object.name.toLowerCase();
@@ -3874,24 +4762,35 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         || /^(?:knee|calf|shin)[_-](?:l|r|left|right)(?:[_-].*)?$/.test(name);
       const foot = /^(?:l|r|left|right)[_-](?:foot|ankle)(?:[_-].*)?$/.test(name)
         || /^(?:foot|ankle)[_-](?:l|r|left|right)(?:[_-].*)?$/.test(name);
-      if (side && legRoot && !/twist|helper|pad|armor/.test(name)) {
+      const legJoint = legRoot || lowerLeg || foot;
+      const isTwistOrHelperLeg = /twist|helper|pad|armor|cord/.test(name);
+      const hasExplicitLegSide = /^(?:l|r|left|right)[_-]/.test(name)
+        || /[_-](?:l|r|left|right)(?:[_-]|$)/.test(name);
+      if (side && legRoot && hasExplicitLegSide && !isTwistOrHelperLeg) {
         bones.legs?.push({ bone: object, baseQuaternion: object.quaternion.clone(), side });
-      } else if (side && lowerLeg && !/twist|helper|pad|armor|cord/.test(name)) {
+      } else if (side && lowerLeg && hasExplicitLegSide && !isTwistOrHelperLeg) {
         bones.knees?.push({ bone: object, baseQuaternion: object.quaternion.clone(), side });
-      } else if (side && foot && !/helper/.test(name)) {
+      } else if (side && foot && hasExplicitLegSide && !isTwistOrHelperLeg) {
         bones.feet?.push({ bone: object, baseQuaternion: object.quaternion.clone(), side });
       }
       const shoulder = /(?:^|[_-])(?:l|left|r|right)[_-]?shoulder(?:[_-].*)?/.test(name)
         || /(?:^|[_-])shoulder[_-]?(?:l|r)(?:[_-].*)?/.test(name);
       const upperArm = /(?:^|[_-])(?:l|left|r|right)[_-]?(?:upr|upper)[_-]?arm(?:[_-].*)?/.test(name)
         || /^(?:l|r)_(?:upperarm|clavicle)$/.test(name);
+      const forearm = /(?:^|[_-])(?:l|left|r|right)[_-]?(?:forearm|fore[_-]?arm|lower[_-]?arm)(?:[_-].*)?/.test(name)
+        || /(?:^|[_-])(?:l|left|r|right)[_-]?(?:elbow)(?:[_-].*)?/.test(name);
       if (side && (shoulder || upperArm) && !/twist|pad|plate|helper/.test(name)) {
         bones.arms?.push({ bone: object, baseQuaternion: object.quaternion.clone(), side });
+      }
+      if (side && forearm && !/twist|helper|pad|plate|armor|cord/.test(name)) {
+        bones.forearms?.push({ bone: object, baseQuaternion: object.quaternion.clone(), side });
       }
     });
     // Prefer the shoulder pivot for arm swing when both shoulder and upper-arm joints exist.
     bones.arms = bones.arms?.filter((entry, index, all) =>
       !all.slice(0, index).some((prior) => prior.side === entry.side && /shoulder/.test(prior.bone.name.toLowerCase())));
+    bones.forearms = bones.forearms?.filter((entry, index, all) =>
+      !all.slice(0, index).some((prior) => prior.side === entry.side));
     return bones;
   }
 
@@ -3911,10 +4810,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const phase = this.playerAnimationTime * (2.1 + moving * 6.4);
     const stride = Math.sin(phase);
     const oppositeStride = -stride;
-    const hipAmplitude = 0.035 + moving * 0.34;
+    const hipAmplitude = moving * 0.16;
 
-    // These class rigs ship in bind pose without clips. Animate the hip, knee, foot, and
-    // shoulder joints together for a grounded Diablo-style gait while preserving bind poses.
+    // These class rigs ship in bind pose without clips. Keep procedural motion deliberately
+    // small and animate only the actual left/right leg chains; broad bone matching can swing
+    // duplicate armor/helper joints and creates the appearance of extra legs.
     for (const leg of this.playerRigBones.legs ?? []) {
       const swing = new THREE.Quaternion().setFromAxisAngle(
         new THREE.Vector3(1, 0, 0),
@@ -3924,39 +4824,70 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     for (const knee of this.playerRigBones.knees ?? []) {
       const legPhase = phase + (knee.side < 0 ? Math.PI : 0);
-      const bend = (0.06 + moving * 0.48) * Math.max(0, Math.sin(legPhase + Math.PI * 0.35));
+      const bend = moving * 0.22 * Math.max(0, Math.sin(legPhase + Math.PI * 0.35));
       const flex = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), bend);
       knee.bone.quaternion.copy(knee.baseQuaternion).multiply(flex);
     }
     for (const foot of this.playerRigBones.feet ?? []) {
       const legPhase = phase + (foot.side < 0 ? Math.PI : 0);
-      const roll = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.sin(legPhase) * moving * 0.12);
+      const roll = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.sin(legPhase) * moving * 0.06);
       foot.bone.quaternion.copy(foot.baseQuaternion).multiply(roll);
     }
+    this.attackAnimationTime += seconds;
+    const attackProfile = ATTACK_ANIMATION_PROFILES[this.attackAnimationStyle];
+    const attackProgress = Math.max(0, Math.min(1, this.attackAnimationTime / attackProfile.duration));
+    const attackActive = this.attackAnimationTime < attackProfile.duration;
+    const attackMotion = attackActive ? attackMotionCurve(attackProgress) : 0;
+    const attackFollowThrough = attackActive ? Math.sin(Math.PI * attackProgress) : 0;
+    this.attackAnimationTurn = attackActive && attackProfile.spin ? attackProgress * Math.PI * 2 : 0;
+    for (const effect of this.meleeTrailEffects) effect.time += seconds;
+    for (let index = this.meleeTrailEffects.length - 1; index >= 0; index -= 1) {
+      if (this.meleeTrailEffects[index].time >= this.meleeTrailEffects[index].duration) this.meleeTrailEffects.splice(index, 1);
+    }
     for (const arm of this.playerRigBones.arms ?? []) {
-      // Relax the arms from their bind pose and counter-swing them against each leg.
-      const relax = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -0.2);
-      const swing = new THREE.Quaternion().setFromAxisAngle(
-        new THREE.Vector3(1, 0, 0),
-        (arm.side < 0 ? oppositeStride : stride) * moving * 0.16,
-      );
-      arm.bone.quaternion.copy(arm.baseQuaternion).multiply(relax).multiply(swing);
+      const lead = arm.side === this.attackAnimationSide;
+      const armAmplitude = lead ? attackProfile.leadArm : attackProfile.offArm;
+      const locomotionSwing = (arm.side < 0 ? oppositeStride : stride) * moving * 0.08;
+      const pitch = locomotionSwing + attackMotion * armAmplitude;
+      const sweep = attackFollowThrough * (lead ? attackProfile.armSweep : -attackProfile.armSweep * 0.55);
+      const shoulderMotion = new THREE.Quaternion().setFromEuler(new THREE.Euler(pitch, sweep, lead ? -attackMotion * attackProfile.shoulderRoll : attackMotion * attackProfile.shoulderRoll, "XYZ"));
+      arm.bone.quaternion.copy(arm.baseQuaternion).multiply(shoulderMotion);
+    }
+    for (const forearm of this.playerRigBones.forearms ?? []) {
+      const lead = forearm.side === this.attackAnimationSide;
+      const locomotionBend = Math.max(0, Math.sin(phase + (forearm.side < 0 ? Math.PI : 0))) * moving * 0.06;
+      const bend = locomotionBend + Math.max(0, attackMotion) * (lead ? attackProfile.elbowBend : attackProfile.offElbowBend);
+      const flex = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), bend);
+      forearm.bone.quaternion.copy(forearm.baseQuaternion).multiply(flex);
+    }
+    for (let index = 0; index < this.playerWeaponMeshes.length; index += 1) {
+      const side = this.playerWeaponMeshes[index].userData["d2sWeaponSide"] as number;
+      const turn = new THREE.Quaternion().setFromEuler(new THREE.Euler(attackMotion * attackProfile.weaponPitch, 0, attackMotion * attackProfile.weaponRoll * (side < 0 ? -1 : 1), "XYZ"));
+      this.playerWeaponMeshes[index].quaternion.copy(this.playerWeaponBaseQuaternions[index]).multiply(turn);
     }
     if (this.playerRigBones.pelvis) {
+
       const base = this.playerRigBones.pelvisBaseQuaternion ?? this.playerRigBones.pelvis.quaternion;
       const sway = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.sin(phase) * moving * 0.025);
       this.playerRigBones.pelvis.quaternion.copy(base).multiply(sway);
     }
     if (this.playerRigBones.spine) {
       const base = this.playerRigBones.spineBaseQuaternion ?? this.playerRigBones.spine.quaternion;
-      const lean = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -0.035 * moving + Math.sin(phase * 2) * moving * 0.012);
+      const lean = new THREE.Quaternion().setFromEuler(new THREE.Euler(
+        -0.018 * moving + Math.sin(phase * 2) * moving * 0.006 - attackMotion * attackProfile.lean,
+        attackMotion * attackProfile.torsoTwist,
+        Math.sin(phase) * moving * 0.006,
+        "XYZ",
+      ));
       this.playerRigBones.spine.quaternion.copy(base).multiply(lean);
     }
     const yawTarget = this.isPlayerMoving ? Math.atan2(this.playerMoveX, this.playerMoveY) : Math.atan2(this.playerFacingX, this.playerFacingY);
     const yawDelta = Math.atan2(Math.sin(yawTarget - this.characterModel.rotation.y), Math.cos(yawTarget - this.characterModel.rotation.y));
     this.characterModel.rotation.y += yawDelta * (1 - Math.exp(-seconds * 10));
+    const modelRoot = this.characterModel.children[0];
+    if (modelRoot) modelRoot.rotation.y = this.attackAnimationTurn;
     // Keep footfalls subtle so the model stays grounded instead of hovering between steps.
-    this.characterModel.position.y = Math.abs(Math.sin(phase * 2)) * moving * 0.35;
+    this.characterModel.position.y = Math.abs(Math.sin(phase * 2)) * moving * 0.08 + Math.max(0, attackMotion) * attackProfile.bodyLift;
   }
 
   private getPreviewPoseBones(model: THREE.Group): PreviewPoseBone[] {
@@ -3966,6 +4897,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       if (entry) poses.push({ ...entry, role, phase: poses.length * 0.75 });
     };
     for (const arm of rig.arms ?? []) add(arm, "arm");
+    for (const forearm of rig.forearms ?? []) add(forearm, "forearm");
     for (const leg of rig.legs ?? []) add(leg, "leg");
     for (const knee of rig.knees ?? []) add(knee, "knee");
     for (const foot of rig.feet ?? []) add(foot, "foot");
@@ -4160,7 +5092,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const ground = this.projectArenaPoint(drop.x, drop.y);
     const x = ground.x;
     const y = ground.y - 3 + Math.sin(drop.bob * 5) * 2;
-    const potionColor = drop.kind === "health" ? "#e52b3c" : "#36a8f0";
+    const potionColor = drop.kind === "health" ? "#e52b3c" : "#b24ee8";
     ctx.save();
     ctx.shadowColor = potionColor;
     ctx.shadowBlur = 9;
@@ -4183,7 +5115,27 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     ctx.fillStyle = "#f4e7cb";
     ctx.font = "bold 8px Georgia, serif";
     ctx.textAlign = "center";
-    ctx.fillText(drop.kind === "health" ? "LIFE" : "MANA", x, y + 19);
+    ctx.fillText(drop.kind === "health" ? "LIFE" : "REJUV", x, y + 19);
+    ctx.restore();
+  }
+
+  drawGoldDrop(ctx: CanvasRenderingContext2D, drop: GoldDrop): void {
+    const point = this.projectArenaPoint(drop.x, drop.y);
+    const y = point.y - 3 + Math.sin(drop.bob * 5) * 2;
+    ctx.save();
+    ctx.fillStyle = "#ffd45e";
+    ctx.strokeStyle = "#fff0a8";
+    ctx.shadowColor = "#f9bd3f";
+    ctx.shadowBlur = 9;
+    ctx.beginPath();
+    ctx.ellipse(point.x, y, 8, 5, -0.15, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = "#5b3a12";
+    ctx.font = "bold 7px ui-monospace, monospace";
+    ctx.textAlign = "center";
+    ctx.fillText("G", point.x, y + 2.5);
     ctx.restore();
   }
 
@@ -4220,8 +5172,14 @@ interface D2SavedRun {
   arenaH: number;
   playerX: number;
   playerY: number;
+  currentChunkCoordX?: number;
+  currentChunkCoordY?: number;
+  currentChunkLocalX?: number;
+  currentChunkLocalY?: number;
   playerHp: number;
   playerMaxHp: number;
+  deathRecovery?: boolean;
+  deathCount?: number;
   playerMana: number;
   playerMaxMana: number;
   playerGold: number;
@@ -4239,12 +5197,14 @@ interface D2SavedRun {
   basicAttackName?: string;
   basicAttackCooldown?: number;
   basicAttackDamage?: number;
+  skillOfferSeed?: number;
   ownedSkills: string[];
   skillLevels: Record<string, number>;
   enemies: Enemy[];
   chests: Chest[];
   potionDrops: PotionDrop[];
-  beltSlots: Array<{ kind: "health" | "mana" | null }>;
+  goldDrops?: GoldDrop[];
+  beltSlots: Array<{ kind: "health" | "rejuvenation" | null }>;
   equippedBelt?: D2InventoryItem | null;
   equipment?: Partial<Record<PaperdollSlot, D2InventoryItem | null>>;
   inventory: Array<D2InventoryItem | null>;
@@ -4376,7 +5336,57 @@ function enemySpriteCellBounds(_species: EnemySpecies, sprite: EnemySprite, fram
   return bounds;
 }
 
-const BASIC_ATTACK_NAMES = ["Guided Arrow", "Throwing Knife", "Axe Throw", "Spirit Claw", "Bone Bolt", "Holy Bolt", "Fire Bolt"];
+const BASIC_ATTACK_NAMES = ["Guided Arrow", "Throwing Knife", "Axe Throw", "Spirit Claw", "Bone Bolt", "Holy Bolt", "Fire Bolt", "Jab", "Attack"];
+type AttackAnimationStyle = "amazonJab" | "assassinSlash" | "barbarianCleave" | "druidClaw" | "necromancerCast" | "paladinStrike" | "sorceressCast" | "spin" | "cast";
+interface AttackAnimationProfile {
+  duration: number;
+  leadArm: number;
+  offArm: number;
+  armSweep: number;
+  shoulderRoll: number;
+  elbowBend: number;
+  offElbowBend: number;
+  weaponPitch: number;
+  weaponRoll: number;
+  lean: number;
+  torsoTwist: number;
+  bodyLift: number;
+  spin: boolean;
+  trail?: string;
+  trailArc?: number;
+}
+const ATTACK_ANIMATION_PROFILES: Record<AttackAnimationStyle, AttackAnimationProfile> = {
+  amazonJab: { duration: 0.34, leadArm: 1.35, offArm: 0.12, armSweep: 0.08, shoulderRoll: 0.08, elbowBend: 0.16, offElbowBend: 0.08, weaponPitch: -0.9, weaponRoll: -0.08, lean: 0.1, torsoTwist: 0.03, bodyLift: 0.015, spin: false, trail: "#f6d28b", trailArc: 0.52 },
+  assassinSlash: { duration: 0.38, leadArm: 1.12, offArm: 0.2, armSweep: 0.62, shoulderRoll: 0.22, elbowBend: 0.82, offElbowBend: 0.12, weaponPitch: -0.6, weaponRoll: 0.5, lean: 0.05, torsoTwist: 0.22, bodyLift: 0.015, spin: false, trail: "#a8cfff", trailArc: 2.35 },
+  barbarianCleave: { duration: 0.52, leadArm: 1.45, offArm: 0.72, armSweep: -0.48, shoulderRoll: 0.16, elbowBend: 0.52, offElbowBend: 0.25, weaponPitch: -0.75, weaponRoll: -0.4, lean: 0.08, torsoTwist: 0.4, bodyLift: 0.025, spin: false, trail: "#ffc06a", trailArc: 2.75 },
+  druidClaw: { duration: 0.44, leadArm: 1.08, offArm: 0.72, armSweep: 0.42, shoulderRoll: 0.12, elbowBend: 0.48, offElbowBend: 0.28, weaponPitch: -0.45, weaponRoll: 0.3, lean: 0.06, torsoTwist: 0.2, bodyLift: 0.02, spin: false, trail: "#9dffb1", trailArc: 1.8 },
+  necromancerCast: { duration: 0.56, leadArm: 0.9, offArm: 0.48, armSweep: 0.2, shoulderRoll: 0.26, elbowBend: 0.75, offElbowBend: 0.5, weaponPitch: -0.28, weaponRoll: 0.16, lean: 0.04, torsoTwist: 0.12, bodyLift: 0.025, spin: false, trail: "#c6e5ff", trailArc: 0.95 },
+  paladinStrike: { duration: 0.46, leadArm: 1.38, offArm: 0.26, armSweep: -0.2, shoulderRoll: 0.1, elbowBend: 0.28, offElbowBend: 0.1, weaponPitch: -0.8, weaponRoll: -0.18, lean: 0.12, torsoTwist: 0.16, bodyLift: 0.02, spin: false, trail: "#fff0a8", trailArc: 1.7 },
+  sorceressCast: { duration: 0.58, leadArm: 1.02, offArm: 0.52, armSweep: 0.35, shoulderRoll: 0.32, elbowBend: 0.72, offElbowBend: 0.46, weaponPitch: -0.35, weaponRoll: 0.22, lean: 0.03, torsoTwist: 0.08, bodyLift: 0.035, spin: false, trail: "#ffb35c", trailArc: 0.9 },
+  spin: { duration: 0.68, leadArm: 1.35, offArm: 1.2, armSweep: 1.2, shoulderRoll: 0.5, elbowBend: 0.72, offElbowBend: 0.72, weaponPitch: -0.6, weaponRoll: 1.1, lean: 0, torsoTwist: 0.1, bodyLift: 0.02, spin: true, trail: "#ffce76", trailArc: Math.PI * 2 },
+  cast: { duration: 0.48, leadArm: 0.82, offArm: 0.35, armSweep: 0.25, shoulderRoll: 0.18, elbowBend: 0.55, offElbowBend: 0.24, weaponPitch: -0.25, weaponRoll: 0.12, lean: 0.03, torsoTwist: 0.08, bodyLift: 0.02, spin: false, trail: "#e6ddff", trailArc: 1.2 },
+
+};
+function attackMotionCurve(progress: number): number {
+  if (progress < 0.22) return -0.35 * Math.sin(progress / 0.22 * Math.PI / 2);
+  if (progress < 0.48) {
+    const strike = (progress - 0.22) / 0.26;
+    return -0.35 + 1.35 * (strike * strike * (3 - 2 * strike));
+  }
+  return Math.cos(Math.PI / 2 * (progress - 0.48) / 0.52);
+}
+const CLASS_ATTACK_ANIMATION: Record<string, AttackAnimationStyle> = {
+  amazon: "amazonJab", assassin: "assassinSlash", barbarian: "barbarianCleave",
+  druid: "druidClaw", necromancer: "necromancerCast", paladin: "paladinStrike", sorceress: "sorceressCast",
+};
+const CLASS_SKILL_DESCRIPTIONS: Record<string, string> = {
+  "Fire Bolt": "Level 1 Sorceress fire projectile.", Teeth: "Level 1 Necromancer bone shards fan out through enemies.",
+  "Whirlwind": "Level 30 Barbarian spins through nearby enemies, striking repeatedly.",
+  Jab: "A rapid melee thrust with a spear or pike.", Bash: "A forceful melee strike that staggers an enemy.", Smite: "Shield bash that knocks enemies back.", Sacrifice: "A powerful melee attack that costs a little life.",
+  "Raise Skeleton": "Raise a fallen monster as a skeleton warrior.", "Bone Spear": "A piercing spear of bone strikes enemies in a line.",
+  "Fire Ball": "Hurl an explosive ball of flame.", "Charged Bolt": "Release a spray of lightning bolts.", "Frost Nova": "A ring of frost bursts outward and chills nearby enemies.",
+};
+
 const UPGRADE_DESCRIPTIONS: Record<string, string> = {
   "Faster Attacks": "Basic attacks recharge faster.",
   Multishot: "Basic attacks target additional nearby monsters.",
@@ -4395,7 +5405,17 @@ interface SkillUpgrade {
   id: string;
   name: string;
   description: string;
-  kind: "attack" | "stat";
+  kind: "attack" | "stat" | "class-skill";
+}
+
+interface MeleeTrailEffect {
+  style: AttackAnimationStyle;
+  facingX: number;
+  facingY: number;
+  side: -1 | 1;
+  time: number;
+  duration: number;
+  color: string;
 }
 
 interface AttackProjectile {
@@ -4407,12 +5427,13 @@ interface AttackProjectile {
   targetX: number;
   targetY: number;
   targetId?: number;
+  missileId?: string;
   speed: number;
   damage: number;
   life: number;
   radius: number;
   color: string;
-  kind: "arrow" | "fire" | "lightning" | "blade" | "bone" | "holy" | "claw";
+  kind: "arrow" | "fire" | "lightning" | "blade" | "bone" | "holy" | "claw" | "melee";
 }
 
 interface RigAnimationBone {
@@ -4423,7 +5444,7 @@ interface RigAnimationBone {
 
 interface PreviewPoseBone extends RigAnimationBone {
   phase: number;
-  role: "arm" | "leg" | "knee" | "foot" | "pelvis" | "spine";
+  role: "arm" | "forearm" | "leg" | "knee" | "foot" | "pelvis" | "spine";
 }
 
 interface PlayerRigBones {
@@ -4435,6 +5456,7 @@ interface PlayerRigBones {
   knees?: RigAnimationBone[];
   feet?: RigAnimationBone[];
   arms?: RigAnimationBone[];
+  forearms?: RigAnimationBone[];
 }
 
 interface Enemy {
@@ -4463,12 +5485,21 @@ interface Chest {
 interface PotionDrop {
   x: number;
   y: number;
-  kind: "health" | "mana";
+  kind: "health" | "rejuvenation";
   bob: number;
   life: number;
   pickupDelay: number;
   notifiedFull: boolean;
   collected: boolean;
+}
+
+interface GoldDrop {
+  x: number;
+  y: number;
+  amount: number;
+  bob: number;
+  life: number;
+  pickupDelay: number;
 }
 
 interface FloatingText {

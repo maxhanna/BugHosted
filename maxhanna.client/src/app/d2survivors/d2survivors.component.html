@@ -14,11 +14,12 @@
     <div class="d2s-menu-sparks" aria-hidden="true"></div>
     <div class="d2s-menu-embers" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
     <div class="d2s-menu-frame">
+      <img class="d2s-classic-border" src="assets/d2survivors/ui/dc6/800borderframe/frame-00.webp" alt="" aria-hidden="true" />
       <header class="d2s-menu-title">
         <button type="button" class="d2s-audio-toggle" [attr.aria-label]="ambientAudioEnabled ? 'Mute title-screen ambience' : 'Enable title-screen ambience'" [attr.aria-pressed]="ambientAudioEnabled" [title]="ambientAudioEnabled ? 'Mute ambience' : 'Enable ambience'" (click)="toggleAmbientAudio()"><span aria-hidden="true">{{ ambientAudioEnabled ? '♫' : '♪' }}</span><span class="d2s-audio-toggle-text">{{ ambientAudioEnabled ? 'Sound on' : 'Sound off' }}</span></button>
         <span class="d2s-audio-status" aria-live="polite">{{ ambientAudioStatus }}</span>
         <div class="d2s-menu-kicker"><span></span> THE GATES OF SANCTUARY <span></span></div>
-        <div class="d2s-logo-mark" aria-hidden="true"><i></i><b></b></div>
+        <div class="d2s-logo-mark" aria-hidden="true"><img src="assets/d2survivors/ui/dc6/800ctrlpnl7/frame-00.webp" alt="" /><i></i><b></b></div>
         <h1><span>D2</span> SURVIVORS</h1>
         <p>THE ETERNAL NIGHT HAS FALLEN</p>
       </header>
@@ -132,7 +133,7 @@
           <div class="d2s-menu-version">A DARK FANTASY SURVIVOR</div>
         </aside>
       </div>
-      <footer class="d2s-menu-footer"><span>W A S D &nbsp; TO MOVE</span><span>ENTER SANCTUARY AT YOUR OWN RISK</span><span>© FAN-MADE TRIBUTE</span></footer>
+      <footer class="d2s-menu-footer"><span class="d2s-classic-ui-buttons" aria-hidden="true"><img src="assets/d2survivors/ui/dc6/800ctrlpnl7/frame-02.webp" alt="" /><img src="assets/d2survivors/ui/dc6/800ctrlpnl7/frame-03.webp" alt="" /><img src="assets/d2survivors/ui/dc6/800ctrlpnl7/frame-04.webp" alt="" /></span><span>W A S D &nbsp; TO MOVE</span><span>ENTER SANCTUARY AT YOUR OWN RISK</span><span>© FAN-MADE TRIBUTE</span></footer>
     </div>
   </section>
 
@@ -168,8 +169,8 @@
   </section>
 
   <section class="d2s-run" [hidden]="activeTab !== 'run'">
-    <div class="d2s-arena-wrap">
-      <div class="d2s-upgrade-modal" *ngIf="pendingLevelUps > 0 && !escapeMenuOpen && !inventoryOpen" role="dialog" aria-modal="true" aria-labelledby="d2s-upgrade-title">
+    <div class="d2s-arena-wrap" (pointerdown)="onArenaPointerDown($event)" (pointermove)="onArenaPointerMove($event)" (pointerup)="onArenaPointerEnd($event)" (pointercancel)="onArenaPointerEnd($event)" (lostpointercapture)="onArenaPointerEnd($event)">
+      <div class="d2s-upgrade-modal" *ngIf="pendingLevelUps > 0 && !escapeMenuOpen && !inventoryOpen && !skillTreeOpen" role="dialog" aria-modal="true" aria-labelledby="d2s-upgrade-title">
         <section class="d2s-upgrade-panel">
           <p class="d2s-upgrade-kicker">LEVEL {{ playerLevel }}</p>
           <h2 id="d2s-upgrade-title">Choose an upgrade</h2>
@@ -180,7 +181,9 @@
         </section>
       </div>
       <canvas #arena class="d2s-arena" width="500" height="500" (keydown)="onKeyDown($event)" (keyup)="onKeyUp($event)" tabindex="0"></canvas>
+      <div class="d2s-virtual-joystick" *ngIf="virtualJoystickVisible" [style.left.px]="joystickX" [style.top.px]="joystickY" aria-hidden="true"><span [style.transform]="'translate(-50%, -50%) translate(' + joystickKnobX + 'px, ' + joystickKnobY + 'px)' "></span></div>
       <button type="button" class="d2s-touch-menu" (click)="showEscapeMenu()" aria-label="Open game menu" title="Game menu (Esc)">☰</button>
+      <button type="button" class="d2s-skill-tree-button" (click)="toggleSkillTree()" aria-label="Open skill tree" title="Skill tree (T)">T</button>
       <canvas #characterCanvas class="d2s-character-canvas" width="500" height="500" aria-hidden="true"></canvas>
       <div class="d2s-model-hint" *ngIf="modelLoadError">3D character model could not load.</div>
       <div class="d2s-classic-hud" aria-label="Life and mana orbs, potion belt, skill icons and experience">
@@ -198,11 +201,11 @@
               class="d2s-belt-slot"
               [class.selected]="activeBottleSlot === i"
               [class.health-potion]="slot.kind === 'health'"
-              [class.mana-potion]="slot.kind === 'mana'"
+              [class.rejuvenation-potion]="slot.kind === 'rejuvenation'"
               [attr.aria-label]="slot.kind ? slot.kind + ' potion, belt slot ' + (i + 1) : 'Empty belt slot ' + (i + 1)"
               (click)="selectBottle(i); drinkBeltPotion(i)"
               [title]="slot.kind ? 'Use ' + slot.kind + ' potion (' + ((i % 4) + 1) + ')' : 'Empty belt slot'">
-              <span *ngIf="slot.kind" class="d2s-potion-bottle" [class.red-potion]="slot.kind === 'health'" [class.blue-potion]="slot.kind === 'mana'"></span>
+              <span *ngIf="slot.kind" class="d2s-potion-bottle" [class.red-potion]="slot.kind === 'health'" [class.rejuvenation-bottle]="slot.kind === 'rejuvenation'"></span>
             </button>
           </div>
             <div class="d2s-belt-keys" aria-hidden="true">
@@ -211,10 +214,11 @@
           </div>
           <div class="d2s-skill-bar" aria-label="Equipped skill hotkeys">
             <div class="d2s-skill-slot basic-skill" [attr.title]="basicAttackName + ' · automatic attack'" [attr.aria-label]="basicAttackName + ', automatic attack'">
-              <span class="d2s-skill-icon">{{ basicAttackIcon }}</span>
+              <img *ngIf="basicAttackIcon === ''; else basicAttackFallback" class="d2s-skill-overlay" [src]="'assets/d2survivors/missiles/' + basicAttackMissileOverlay + '.webp'" alt="" />
+              <ng-template #basicAttackFallback><span class="d2s-skill-icon">{{ basicAttackIcon }}</span></ng-template>
             </div>
             <button type="button" class="d2s-skill-slot" *ngFor="let skill of equippedSkills; let index = index" (click)="activateOwnedSkill(skill)" [attr.title]="skill + ' · hotkey ' + (index + 1)" [attr.aria-label]="skill + ', hotkey ' + (index + 1)">
-              <span class="d2s-skill-icon">{{ skillIcon(skill) }}</span><small>{{ index + 1 }}</small>
+              <img *ngIf="skillIcon(skill) === ''; else skillIconFallback" class="d2s-skill-overlay" [src]="'assets/d2survivors/missiles/' + getSkillMissileOverlay(skill) + '.webp'" alt="" /><ng-template #skillIconFallback><span class="d2s-skill-icon">{{ skillIcon(skill) }}</span></ng-template><small>{{ index + 1 }}</small>
             </button>
             <button type="button" class="d2s-skill-slot empty-skill" *ngFor="let slot of emptySkillSlots; let index = index" (click)="showEscapeMenu()" [attr.title]="'Assign a skill · hotkey ' + (equippedSkills.length + index + 1)" [attr.aria-label]="'Empty skill slot ' + (equippedSkills.length + index + 1)">
               <span class="d2s-skill-icon">＋</span><small>{{ equippedSkills.length + index + 1 }}</small>
@@ -230,7 +234,8 @@
       <div class="d2s-act-banner" aria-label="Campaign act">
         <span>ACT {{ currentAct }} / 5</span>
         <strong>{{ currentActDetails.region }}</strong>
-        <small>{{ currentActDetails.name }}</small>
+        <small>{{ currentActDetails.levelLabel }}</small>
+        <small class="d2s-campaign-area-name">{{ currentActDetails.name }}</small>
         <span class="d2s-act-progress" role="progressbar" [attr.aria-valuenow]="actProgress" aria-valuemin="0" aria-valuemax="100" aria-label="Time until the act boss arrives"><i [style.width.%]="actProgress"></i></span>
         <small>{{ actBossSpawned ? 'Boss battle' : 'Area boss in ' + (actSecondsRemaining | number:'1.0-0') + 's' }}</small>
       </div>
@@ -243,6 +248,23 @@
       <div class="d2s-experience-progress" role="progressbar" [attr.aria-valuenow]="playerXp" [attr.aria-valuemin]="0" [attr.aria-valuemax]="xpToNextLevel" [attr.aria-label]="'Level ' + playerLevel + ' experience'">
         <strong>Level {{ playerLevel }}</strong><span class="d2s-experience-track"><i [style.width.%]="levelXpFill * 100"></i></span>
       </div>
+      <section class="d2s-skill-tree" *ngIf="skillTreeOpen" role="dialog" aria-modal="true" [attr.aria-label]="selectedClassName + ' skill tree'" (click)="$event.stopPropagation()">
+        <header class="d2s-skill-tree-header">
+          <div><span>THE PATH OF YOUR HERO</span><h2>{{ selectedClassName }} Skill Tree</h2><small>Character level {{ playerLevel }} · Select skills from level-up offers</small></div>
+          <button type="button" class="d2s-skill-tree-close" (click)="toggleSkillTree()" aria-label="Close skill tree">Close <kbd>T</kbd></button>
+        </header>
+        <div class="d2s-skill-tree-legend"><span class="learned">Learned</span><span class="available">Eligible on level up</span><span class="locked">Locked</span></div>
+        <div class="d2s-skill-tree-sections">
+          <section class="d2s-skill-tree-tab" *ngFor="let section of skillTreeSections">
+            <h3>{{ section.name }}</h3>
+            <div class="d2s-skill-tree-grid">
+              <article class="d2s-tree-skill" *ngFor="let skill of section.skills" [class]="'d2s-tree-skill ' + skill.state" [attr.aria-label]="skill.name + ', ' + skill.state + ', unlock level ' + skill.level + '. ' + skill.reason">
+                <span class="d2s-tree-level">{{ skill.level }}</span><strong>{{ skill.name }}</strong><small *ngIf="getSkillLevel(skill.name)">Rank {{ getSkillLevel(skill.name) }}/20</small><small *ngIf="!getSkillLevel(skill.name)">{{ skill.reason }}</small>
+              </article>
+            </div>
+          </section>
+        </div>
+      </section>
       <section class="d2s-escape-menu" *ngIf="escapeMenuOpen" role="dialog" aria-modal="true" aria-label="Game menu" (click)="$event.stopPropagation()">
         <header class="d2s-escape-title"><span>THE WORLDSTONE CHAMBER</span><h2>Game Menu</h2><small>Paused · {{ selectedClassName }} · Level {{ playerLevel }}</small></header>
         <div class="d2s-run-details" aria-label="Character and run statistics">
@@ -261,8 +283,8 @@
           <button type="button" (click)="closeEscapeMenu()">Return to Game</button>
           <button type="button" (click)="toggleInventory()">Inventory</button>
           <button type="button" (click)="saveRunNow()">{{ campaignVictory ? 'Return to Sanctuary' : 'Save and Exit Game' }}</button>
-        </div>
-        <p class="d2s-escape-hint">Press ESC to return to the fight</p>
+        </div>          <p class="d2s-escape-hint">Press ESC to return to the fight · T opens the skill tree</p>
+
         <div class="d2s-menu-skills" *ngIf="ownedSkills.length">
           <h3>Skills &amp; Upgrades</h3>
           <ul class="d2s-list"><li *ngFor="let name of ownedSkills" class="d2s-skill"><strong>{{ name }}</strong><span class="d2s-desc">Level {{ getSkillLevel(name) }} — {{ getSkillDescription(name) }}</span></li></ul>
@@ -273,6 +295,7 @@
 
     <section id="d2s-inventory-overlay" class="d2s-inv-panel" [class.open]="inventoryOpen" [attr.aria-hidden]="!inventoryOpen" aria-label="Character equipment and inventory" (click)="$event.stopPropagation()">
       <header class="d2s-inventory-overlay-header">
+        <span aria-hidden="true"></span>
         <h2>Inventory</h2>
         <button type="button" class="d2s-inventory-close" (click)="toggleInventory()" aria-label="Close inventory">Close</button>
       </header>
@@ -296,7 +319,7 @@
               (dragover)="$event.preventDefault()"
               (drop)="onEquipmentDrop(slot.slot, $event)"
               (contextmenu)="unequipEquipmentSlot(slot.slot, $event)"
-              (click)="selectEquipmentItem(slot.slot)">
+              (click)="onEquipmentItemClick(slot.slot, $event)">
               <span class="d2s-equipment-icon" aria-hidden="true">{{ getEquipmentItem(slot.slot) ? equipmentItemIcon(getEquipmentItem(slot.slot)!) : slot.icon }}</span>
               <span class="d2s-equipment-label">{{ getEquipmentItem(slot.slot)?.name || slot.label }}</span>
             </button>
@@ -312,6 +335,7 @@
           *ngFor="let slot of inventoryGrid; let i = index"
           role="gridcell"
           [attr.aria-label]="slot.item ? slot.item.name + ', ' + slot.item.rarity : 'Empty slot'"
+          [attr.title]="slot.item?.name || null"
           [attr.data-inventory-slot]="slot.slotIndex"
           [draggable]="!!slot.item"
           (dragstart)="startDrag(slot.slotIndex, $event)"
@@ -327,7 +351,9 @@
           [class.drag-over]="dragGhostSlotIndex === slot.slotIndex"
           [class.drag-denied]="dragGhostSlotIndex === slot.slotIndex && dragState && !canDropOnSlot(dragState.slotIndex, slot.slotIndex, dragState.item)"
           [ngStyle]="inventoryGridStyle(slot)"
-          (click)="selectInventoryItem(slot.slotIndex, slot.item ?? null)">
+          (click)="onInventoryItemClick(slot.slotIndex, slot.item ?? null, $event)"
+          (contextmenu)="onInventoryContextMenu(slot.slotIndex, $event)">
+          <span class="d2s-inv-icon" *ngIf="slot.item" aria-hidden="true">{{ equipmentItemIcon(slot.item) }}</span>
           <span class="d2s-inv-name">{{ slot.item?.name || '' }}</span>
         </div>
           </div>
@@ -342,6 +368,7 @@
           <p class="d2s-item-window-description">{{ selectedItem.desc }}</p>
           <p class="d2s-item-window-description" *ngIf="getEquipmentType(selectedItem) === 'belt'">{{ selectedItem.beltQuality }} belt · {{ getBeltRows(selectedItem) }} potion rows</p>
           <button type="button" class="d2s-equip-belt" *ngIf="selectedSlotIndex !== null && getEquipmentType(selectedItem) !== 'charm'" (click)="equipSelectedItem(selectedSlotIndex)">Equip {{ getEquipmentType(selectedItem) }}</button>
+          <button type="button" class="d2s-equip-belt" *ngIf="selectedItem" (click)="sellSelectedItem()">Sell for {{ getItemSellValue(selectedItem) }} gold</button>
           <button type="button" class="d2s-equip-belt" *ngIf="selectedEquipmentSlot" (click)="unequipItem(selectedEquipmentSlot)">Unequip</button>
           <div class="d2s-item-window-stats">
             <p *ngFor="let line of itemStatText(selectedItem)">{{ line }}</p>
@@ -349,7 +376,7 @@
         </div>
       </div>
       <p class="d2s-inventory-status" role="status" *ngIf="inventoryStatus">{{ inventoryStatus }}</p>
-      <p class="d2s-hint">Drag gear to a matching paper-doll slot to equip · drag equipment back to your bag · items occupy their full footprint · right-click an equipped slot to unequip</p>
+      <p class="d2s-hint">Drag gear to equip · right-click a weapon or armor to equip or swap · Ctrl-click or use the item preview to sell · right-click equipped gear to unequip</p>
     </section>
 
   </section>

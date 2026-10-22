@@ -1,0 +1,92 @@
+[
+  {
+    "file": "frame-00.webp",
+    "frame": 0,
+    "width": 256,
+    "height": 256,
+    "offsetX": 0,
+    "offsetY": 0,
+    "flip": 0
+  },
+  {
+    "file": "frame-01.webp",
+    "frame": 1,
+    "width": 256,
+    "height": 256,
+    "offsetX": 0,
+    "offsetY": 0,
+    "flip": 0
+  },
+  {
+    "file": "frame-02.webp",
+    "frame": 2,
+    "width": 256,
+    "height": 256,
+    "offsetX": 0,
+    "offsetY": 0,
+    "flip": 0
+  },
+  {
+    "file": "frame-03.webp",
+    "frame": 3,
+    "width": 256,
+    "height": 256,
+    "offsetX": 0,
+    "offsetY": 0,
+    "flip": 0
+  },
+  {
+    "file": "frame-04.webp",
+    "frame": 4,
+    "width": 256,
+    "height": 256,
+    "offsetX": 0,
+    "offsetY": 0,
+    "flip": 0
+  },
+  {
+    "file": "frame-05.webp",
+    "frame": 5,
+    "width": 256,
+    "height": 256,
+    "offsetX": 0,
+    "offsetY": 0,
+    "flip": 0
+  },
+  {
+    "file": "frame-06.webp",
+    "frame": 6,
+    "width": 256,
+    "height": 256,
+    "offsetX": 0,
+    "offsetY": 0,
+    "flip": 0
+  },
+  {
+    "file": "frame-07.webp",
+    "frame": 7,
+    "width": 256,
+    "height": 256,
+    "offsetX": 0,
+    "offsetY": 0,
+    "flip": 0
+  },
+  {
+    "file": "frame-08.webp",
+    "frame": 8,
+    "width": 256,
+    "height": 256,
+    "offsetX": 0,
+    "offsetY": 0,
+    "flip": 0
+  },
+  {
+    "file": "frame-09.webp",
+    "frame": 9,
+    "width": 256,
+    "height": 256,
+    "offsetX": 0,
+    "offsetY": 0,
+    "flip": 0
+  }
+]

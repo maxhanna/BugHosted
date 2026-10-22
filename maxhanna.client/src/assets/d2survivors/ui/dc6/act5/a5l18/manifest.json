@@ -1,0 +1,20 @@
+[
+  {
+    "file": "frame-00.webp",
+    "frame": 0,
+    "width": 256,
+    "height": 31,
+    "offsetX": 0,
+    "offsetY": 0,
+    "flip": 0
+  },
+  {
+    "file": "frame-01.webp",
+    "frame": 1,
+    "width": 8,
+    "height": 31,
+    "offsetX": 0,
+    "offsetY": 0,
+    "flip": 0
+  }
+]

@@ -1,0 +1,983 @@
+{
+  "1": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 250,
+    "height": 272,
+    "frameDirectory": "1",
+    "frameDurationMs": 85
+  },
+  "2": {
+    "frames": 15,
+    "encodedFrames": 15,
+    "width": 576,
+    "height": 282
+  },
+  "3": {
+    "frames": 6,
+    "encodedFrames": 6,
+    "width": 139,
+    "height": 122
+  },
+  "4": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 114,
+    "height": 115
+  },
+  "5": {
+    "frames": 64,
+    "encodedFrames": 64,
+    "width": 110,
+    "height": 110,
+    "frameDirectory": "5",
+    "frameDurationMs": 85
+  },
+  "6": {
+    "frames": 8,
+    "encodedFrames": 8,
+    "width": 92,
+    "height": 114,
+    "frameDirectory": "6",
+    "frameDurationMs": 85
+  },
+  "7": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 134,
+    "height": 156
+  },
+  "8": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 359,
+    "height": 227,
+    "frameDirectory": "8",
+    "frameDurationMs": 85
+  },
+  "9": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 172,
+    "height": 197
+  },
+  "10": {
+    "frames": 20,
+    "encodedFrames": 20,
+    "width": 320,
+    "height": 258
+  },
+  "11": {
+    "frames": 23,
+    "encodedFrames": 23,
+    "width": 563,
+    "height": 348,
+    "frameDirectory": "11",
+    "frameDurationMs": 85
+  },
+  "12": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 362,
+    "height": 161
+  },
+  "13": {
+    "frames": 18,
+    "encodedFrames": 18,
+    "width": 362,
+    "height": 243
+  },
+  "14": {
+    "frames": 20,
+    "encodedFrames": 20,
+    "width": 170,
+    "height": 329
+  },
+  "15": {
+    "frames": 20,
+    "encodedFrames": 20,
+    "width": 454,
+    "height": 347
+  },
+  "16": {
+    "frames": 15,
+    "encodedFrames": 15,
+    "width": 406,
+    "height": 300
+  },
+  "17": {
+    "frames": 20,
+    "encodedFrames": 19,
+    "width": 235,
+    "height": 370
+  },
+  "18": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 447,
+    "height": 384
+  },
+  "19": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 528,
+    "height": 432
+  },
+  "20": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 384,
+    "height": 238
+  },
+  "21": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 98,
+    "height": 106
+  },
+  "22": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 566,
+    "height": 181
+  },
+  "23": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 635,
+    "height": 389
+  },
+  "24": {
+    "frames": 8,
+    "encodedFrames": 8,
+    "width": 66,
+    "height": 87
+  },
+  "25": {
+    "frames": 30,
+    "encodedFrames": 30,
+    "width": 282,
+    "height": 807
+  },
+  "26": {
+    "frames": 20,
+    "encodedFrames": 20,
+    "width": 302,
+    "height": 195
+  },
+  "27": {
+    "frames": 30,
+    "encodedFrames": 30,
+    "width": 277,
+    "height": 944
+  },
+  "28": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 133,
+    "height": 175
+  },
+  "29": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 81,
+    "height": 82
+  },
+  "30": {
+    "frames": 96,
+    "encodedFrames": 96,
+    "width": 128,
+    "height": 125,
+    "frameDirectory": "30",
+    "frameDurationMs": 85
+  },
+  "31": {
+    "frames": 10,
+    "encodedFrames": 8,
+    "width": 176,
+    "height": 173
+  },
+  "32": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 84,
+    "height": 142
+  },
+  "33": {
+    "frames": 20,
+    "encodedFrames": 20,
+    "width": 128,
+    "height": 165
+  },
+  "34": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 110,
+    "height": 99
+  },
+  "35": {
+    "frames": 106,
+    "encodedFrames": 106,
+    "width": 109,
+    "height": 110
+  },
+  "36": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 123,
+    "height": 119
+  },
+  "37": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 92,
+    "height": 132
+  },
+  "38": {
+    "frames": 20,
+    "encodedFrames": 20,
+    "width": 92,
+    "height": 122
+  },
+  "39": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 77,
+    "height": 70
+  },
+  "40": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 108,
+    "height": 114
+  },
+  "41": {
+    "frames": 16,
+    "encodedFrames": 16,
+    "width": 121,
+    "height": 122
+  },
+  "42": {
+    "frames": 6,
+    "encodedFrames": 6,
+    "width": 130,
+    "height": 131
+  },
+  "43": {
+    "frames": 6,
+    "encodedFrames": 6,
+    "width": 159,
+    "height": 472
+  },
+  "44": {
+    "frames": 96,
+    "encodedFrames": 96,
+    "width": 561,
+    "height": 411,
+    "frameDirectory": "44",
+    "frameDurationMs": 85
+  },
+  "45": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 160,
+    "height": 151
+  },
+  "46": {
+    "frames": 20,
+    "encodedFrames": 20,
+    "width": 322,
+    "height": 273
+  },
+  "47": {
+    "frames": 20,
+    "encodedFrames": 20,
+    "width": 280,
+    "height": 285
+  },
+  "48": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 172,
+    "height": 180
+  },
+  "49": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 80,
+    "height": 115
+  },
+  "50": {
+    "frames": 20,
+    "encodedFrames": 20,
+    "width": 218,
+    "height": 292
+  },
+  "51": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 73,
+    "height": 97
+  },
+  "52": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 78,
+    "height": 114,
+    "frameDirectory": "52",
+    "frameDurationMs": 85
+  },
+  "53": {
+    "frames": 20,
+    "encodedFrames": 19,
+    "width": 99,
+    "height": 219
+  },
+  "54": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 86,
+    "height": 81
+  },
+  "55": {
+    "frames": 6,
+    "encodedFrames": 6,
+    "width": 71,
+    "height": 177
+  },
+  "56": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 242,
+    "height": 208
+  },
+  "57": {
+    "frames": 19,
+    "encodedFrames": 19,
+    "width": 246,
+    "height": 223
+  },
+  "58": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 264,
+    "height": 180
+  },
+  "59": {
+    "frames": 20,
+    "encodedFrames": 20,
+    "width": 177,
+    "height": 175
+  },
+  "60": {
+    "frames": 48,
+    "encodedFrames": 48,
+    "width": 38,
+    "height": 53,
+    "frameDirectory": "60",
+    "frameDurationMs": 85
+  },
+  "61": {
+    "frames": 40,
+    "encodedFrames": 40,
+    "width": 99,
+    "height": 123,
+    "frameDirectory": "61",
+    "frameDurationMs": 85
+  },
+  "62": {
+    "frames": 20,
+    "encodedFrames": 20,
+    "width": 263,
+    "height": 212
+  },
+  "63": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 176,
+    "height": 153
+  },
+  "64": {
+    "frames": 16,
+    "encodedFrames": 16,
+    "width": 206,
+    "height": 183
+  },
+  "65": {
+    "frames": 20,
+    "encodedFrames": 20,
+    "width": 81,
+    "height": 66
+  },
+  "66": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 81,
+    "height": 67
+  },
+  "67": {
+    "frames": 6,
+    "encodedFrames": 6,
+    "width": 153,
+    "height": 128
+  },
+  "68": {
+    "frames": 8,
+    "encodedFrames": 8,
+    "width": 59,
+    "height": 137
+  },
+  "69": {
+    "frames": 20,
+    "encodedFrames": 20,
+    "width": 79,
+    "height": 137
+  },
+  "70": {
+    "frames": 15,
+    "encodedFrames": 15,
+    "width": 118,
+    "height": 120
+  },
+  "71": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 111,
+    "height": 117
+  },
+  "72": {
+    "frames": 8,
+    "encodedFrames": 8,
+    "width": 166,
+    "height": 84
+  },
+  "73": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 52,
+    "height": 152
+  },
+  "74": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 139,
+    "height": 189
+  },
+  "75": {
+    "frames": 96,
+    "encodedFrames": 96,
+    "width": 102,
+    "height": 84,
+    "frameDirectory": "75",
+    "frameDurationMs": 85
+  },
+  "76": {
+    "frames": 20,
+    "encodedFrames": 20,
+    "width": 153,
+    "height": 130
+  },
+  "77": {
+    "frames": 96,
+    "encodedFrames": 96,
+    "width": 130,
+    "height": 67
+  },
+  "78": {
+    "frames": 19,
+    "encodedFrames": 19,
+    "width": 152,
+    "height": 116
+  },
+  "79": {
+    "frames": 48,
+    "encodedFrames": 45,
+    "width": 674,
+    "height": 446
+  },
+  "80": {
+    "frames": 30,
+    "encodedFrames": 30,
+    "width": 243,
+    "height": 223
+  },
+  "81": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 109,
+    "height": 138
+  },
+  "82": {
+    "frames": 20,
+    "encodedFrames": 20,
+    "width": 234,
+    "height": 145
+  },
+  "83": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 72,
+    "height": 90
+  },
+  "84": {
+    "frames": 16,
+    "encodedFrames": 16,
+    "width": 250,
+    "height": 192
+  },
+  "85": {
+    "frames": 20,
+    "encodedFrames": 19,
+    "width": 66,
+    "height": 75
+  },
+  "86": {
+    "frames": 9,
+    "encodedFrames": 9,
+    "width": 102,
+    "height": 119
+  },
+  "87": {
+    "frames": 20,
+    "encodedFrames": 20,
+    "width": 147,
+    "height": 188
+  },
+  "88": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 205,
+    "height": 156
+  },
+  "89": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 207,
+    "height": 137
+  },
+  "90": {
+    "frames": 20,
+    "encodedFrames": 20,
+    "width": 357,
+    "height": 197
+  },
+  "91": {
+    "frames": 20,
+    "encodedFrames": 20,
+    "width": 369,
+    "height": 218
+  },
+  "92": {
+    "frames": 19,
+    "encodedFrames": 19,
+    "width": 243,
+    "height": 182
+  },
+  "93": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 445,
+    "height": 353
+  },
+  "94": {
+    "frames": 9,
+    "encodedFrames": 9,
+    "width": 256,
+    "height": 155
+  },
+  "95": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 102,
+    "height": 151
+  },
+  "96": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 102,
+    "height": 150
+  },
+  "97": {
+    "frames": 16,
+    "encodedFrames": 16,
+    "width": 223,
+    "height": 205
+  },
+  "98": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 223,
+    "height": 204
+  },
+  "99": {
+    "frames": 28,
+    "encodedFrames": 28,
+    "width": 184,
+    "height": 207
+  },
+  "100": {
+    "frames": 40,
+    "encodedFrames": 40,
+    "width": 246,
+    "height": 207
+  },
+  "101": {
+    "frames": 61,
+    "encodedFrames": 61,
+    "width": 428,
+    "height": 230,
+    "frameDirectory": "101",
+    "frameDurationMs": 85
+  },
+  "102": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 104,
+    "height": 100
+  },
+  "103": {
+    "frames": 38,
+    "encodedFrames": 38,
+    "width": 256,
+    "height": 232
+  },
+  "104": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 174,
+    "height": 101
+  },
+  "105": {
+    "frames": 64,
+    "encodedFrames": 64,
+    "width": 278,
+    "height": 229
+  },
+  "106": {
+    "frames": 27,
+    "encodedFrames": 26,
+    "width": 857,
+    "height": 589
+  },
+  "107": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 250,
+    "height": 231
+  },
+  "108": {
+    "frames": 16,
+    "encodedFrames": 16,
+    "width": 59,
+    "height": 52
+  },
+  "109": {
+    "frames": 16,
+    "encodedFrames": 16,
+    "width": 102,
+    "height": 52
+  },
+  "110": {
+    "frames": 48,
+    "encodedFrames": 48,
+    "width": 221,
+    "height": 156
+  },
+  "111": {
+    "frames": 20,
+    "encodedFrames": 20,
+    "width": 172,
+    "height": 187
+  },
+  "112": {
+    "frames": 30,
+    "encodedFrames": 30,
+    "width": 111,
+    "height": 140
+  },
+  "113": {
+    "frames": 27,
+    "encodedFrames": 27,
+    "width": 160,
+    "height": 187
+  },
+  "114": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 110,
+    "height": 116
+  },
+  "115": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 149,
+    "height": 697
+  },
+  "116": {
+    "frames": 26,
+    "encodedFrames": 26,
+    "width": 109,
+    "height": 128
+  },
+  "117": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 110,
+    "height": 116
+  },
+  "118": {
+    "frames": 20,
+    "encodedFrames": 20,
+    "width": 219,
+    "height": 695
+  },
+  "119": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 110,
+    "height": 120
+  },
+  "120": {
+    "frames": 28,
+    "encodedFrames": 28,
+    "width": 158,
+    "height": 188
+  },
+  "121": {
+    "frames": 8,
+    "encodedFrames": 8,
+    "width": 158,
+    "height": 240
+  },
+  "122": {
+    "frames": 18,
+    "encodedFrames": 17,
+    "width": 292,
+    "height": 461
+  },
+  "123": {
+    "frames": 96,
+    "encodedFrames": 96,
+    "width": 178,
+    "height": 117
+  },
+  "124": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 152,
+    "height": 142
+  },
+  "125": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 155,
+    "height": 143
+  },
+  "126": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 86,
+    "height": 126
+  },
+  "127": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 77,
+    "height": 86
+  },
+  "128": {
+    "frames": 15,
+    "encodedFrames": 15,
+    "width": 82,
+    "height": 125
+  },
+  "129": {
+    "frames": 14,
+    "encodedFrames": 14,
+    "width": 116,
+    "height": 252
+  },
+  "130": {
+    "frames": 80,
+    "encodedFrames": 80,
+    "width": 97,
+    "height": 53
+  },
+  "131": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 121,
+    "height": 68
+  },
+  "132": {
+    "frames": 8,
+    "encodedFrames": 8,
+    "width": 403,
+    "height": 194
+  },
+  "133": {
+    "frames": 20,
+    "encodedFrames": 15,
+    "width": 501,
+    "height": 278
+  },
+  "134": {
+    "frames": 14,
+    "encodedFrames": 14,
+    "width": 639,
+    "height": 641
+  },
+  "135": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 121,
+    "height": 68
+  },
+  "136": {
+    "frames": 20,
+    "encodedFrames": 20,
+    "width": 246,
+    "height": 223
+  },
+  "137": {
+    "frames": 20,
+    "encodedFrames": 19,
+    "width": 59,
+    "height": 78
+  },
+  "138": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 168,
+    "height": 115
+  },
+  "139": {
+    "frames": 20,
+    "encodedFrames": 20,
+    "width": 264,
+    "height": 349
+  },
+  "140": {
+    "frames": 1848,
+    "encodedFrames": 1160,
+    "width": 192,
+    "height": 133
+  },
+  "141": {
+    "frames": 100,
+    "encodedFrames": 100,
+    "width": 246,
+    "height": 345
+  },
+  "142": {
+    "frames": 20,
+    "encodedFrames": 20,
+    "width": 182,
+    "height": 138
+  },
+  "143": {
+    "frames": 20,
+    "encodedFrames": 20,
+    "width": 121,
+    "height": 207
+  },
+  "144": {
+    "frames": 30,
+    "encodedFrames": 30,
+    "width": 320,
+    "height": 90
+  },
+  "145": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 103,
+    "height": 30
+  },
+  "146": {
+    "frames": 10,
+    "encodedFrames": 10,
+    "width": 171,
+    "height": 179
+  },
+  "147": {
+    "frames": 96,
+    "encodedFrames": 96,
+    "width": 222,
+    "height": 221
+  },
+  "148": {
+    "frames": 35,
+    "encodedFrames": 35,
+    "width": 132,
+    "height": 154
+  },
+  "149": {
+    "frames": 96,
+    "encodedFrames": 96,
+    "width": 165,
+    "height": 165,
+    "frameDirectory": "149",
+    "frameDurationMs": 85
+  },
+  "150": {
+    "frames": 272,
+    "encodedFrames": 272,
+    "width": 332,
+    "height": 313
+  },
+  "firebolt": {
+    "frames": 15,
+    "encodedFrames": 15,
+    "width": 37,
+    "height": 34,
+    "frameDurationMs": 85,
+    "source": "DCC/default-grayscale-palette",
+    "dccName": "D1FireBolt",
+    "direction": 0,
+    "frameDirectory": "firebolt"
+  },
+  "fireball": {
+    "frames": 15,
+    "encodedFrames": 15,
+    "width": 45,
+    "height": 40,
+    "frameDurationMs": 85,
+    "source": "DCC/default-grayscale-palette",
+    "dccName": "D1FireBall",
+    "direction": 0,
+    "frameDirectory": "fireball"
+  },
+  "acidbolt": {
+    "frames": 8,
+    "encodedFrames": 8,
+    "width": 32,
+    "height": 18,
+    "frameDurationMs": 85,
+    "source": "DCC/default-grayscale-palette",
+    "dccName": "AcidBolt",
+    "direction": 0,
+    "frameDirectory": "acidbolt"
+  },
+  "bloodcomet": {
+    "frames": 15,
+    "encodedFrames": 15,
+    "width": 85,
+    "height": 77,
+    "frameDurationMs": 85,
+    "source": "DCC/default-grayscale-palette",
+    "dccName": "BloodComet",
+    "direction": 0,
+    "frameDirectory": "bloodcomet"
+  },
+  "lightning": {
+    "frames": 8,
+    "encodedFrames": 8,
+    "width": 84,
+    "height": 63,
+    "frameDurationMs": 85,
+    "source": "DCC/default-grayscale-palette",
+    "dccName": "D1Lightning",
+    "direction": 0,
+    "frameDirectory": "lightning"
+  }
+}

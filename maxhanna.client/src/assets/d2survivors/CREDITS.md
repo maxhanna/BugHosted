@@ -25,3 +25,8 @@ The static `enemies/act*.png` images and the `enemy-anim-*.png` animation sheets
 ## Locally supplied level backgrounds
 
 `maps/act1-barracks.png`, `maps/act2-caves.png`, `maps/act3-jungle.png`, `maps/act4-catacombs.png`, and `maps/act5-worldstone.png` are isometric room/map images from the user's local `D2 Tiles Collection/images` folder. `maps/tiles/act1-floor-tiles.png` through `maps/tiles/act5-floor-tiles.png` are generated sprite atlases of selected floor tiles extracted from the corresponding Act 1–5 floor atlas images in that collection. These are user-supplied Diablo II images, not CC0 artwork; verify that you have permission before publishing or redistributing them.
+
+## Locally supplied DC6 interface and level-name sprites
+
+`ui/dc6/800borderframe`, `ui/dc6/800ctrlpnl7`, and `ui/dc6/loadingscreen` contain transparent WebP conversions of 27 frames from the user's supplied Diablo II UI DC6 files. `ui/dc6/act1` through `ui/dc6/act5` contain 143 additional converted frames from the corresponding `A1L*`, `A2L*`, `A3L*`, `A4L*`, and `A5L*` level-label DC6s. The player UI imports the supplied control-panel and border sprites; the extracted area-name images are preserved as reference assets, while the campaign HUD displays locally transcribed level names. Palette indices are resolved using the 256-color table embedded in the user's supplied `File00009884.pcx`; transparent skip runs remain alpha-transparent. The source assets are user-provided Diablo II data, not redistributable game assets; verify that you have permission before publishing or redistributing them.
+
