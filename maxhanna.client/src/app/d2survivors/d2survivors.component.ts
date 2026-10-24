@@ -160,12 +160,12 @@ const CAMPAIGN_ACTS: CampaignAct[] = [
 ];
 
 const ENEMY_SPRITE_PATHS: Record<EnemySpecies, string> = {
-  fallen: "assets/d2survivors/enemies/fallen-shaman.png",
-  goatman: "assets/d2survivors/enemies/goatman-axe.png",
-  skeleton: "assets/d2survivors/enemies/skeleton-with-bow.png",
+  fallen: "assets/d2survivors/enemies/animated/fallen.png",
+  goatman: "assets/d2survivors/enemies/animated/goatman.png",
+  skeleton: "assets/d2survivors/enemies/animated/skeleton.png",
   sandRaider: "assets/d2survivors/enemies/sand-raider.png",
   sandMaggot: "assets/d2survivors/enemies/sand-maggot.png",
-  scarab: "assets/d2survivors/enemies/scarab-demon-light-armor-heavy-weapon.png",
+  scarab: "assets/d2survivors/enemies/animated/scarab.png",
   fetish: "assets/d2survivors/enemies/fetish-knife.png",
   fetishShaman: "assets/d2survivors/enemies/fetish-shaman.png",
   council: "assets/d2survivors/enemies/council-member.png",
@@ -173,34 +173,34 @@ const ENEMY_SPRITE_PATHS: Record<EnemySpecies, string> = {
   vileChild: "assets/d2survivors/enemies/vile-child.png",
   vileMother: "assets/d2survivors/enemies/vile-mother.png",
   bloodLord: "assets/d2survivors/enemies/blood-lord.png",
-  minotaur: "assets/d2survivors/enemies/minotaur.png",
-  deathMauler: "assets/d2survivors/enemies/death-mauler.png",
-  wendigo: "assets/d2survivors/enemies/wendigo.png",
-  andariel: "assets/d2survivors/enemies/andariel.png",
-  duriel: "assets/d2survivors/enemies/duriel.png",
-  diablo: "assets/d2survivors/enemies/diablo.png",
-  baalsMinion: "assets/d2survivors/enemies/baals-minion-light-weaponless.png",
+  minotaur: "assets/d2survivors/enemies/animated/minotaur.png",
+  deathMauler: "assets/d2survivors/enemies/animated/death-mauler.png",
+  wendigo: "assets/d2survivors/enemies/animated/wendigo.png",
+  andariel: "assets/d2survivors/enemies/animated/andariel.png",
+  duriel: "assets/d2survivors/enemies/animated/duriel.png",
+  diablo: "assets/d2survivors/enemies/animated/diablo.png",
+  baalsMinion: "assets/d2survivors/enemies/animated/baals-minion.png",
 };
 
 const ENEMY_SPRITE_LAYOUTS: Record<EnemySpecies, { columns: number; rows: number; animated: boolean }> = {
-  fallen: { columns: 1, rows: 1, animated: false }, goatman: { columns: 1, rows: 1, animated: false },
-  skeleton: { columns: 1, rows: 1, animated: false }, sandRaider: { columns: 1, rows: 1, animated: false },
-  sandMaggot: { columns: 1, rows: 1, animated: false }, scarab: { columns: 1, rows: 1, animated: false },
+  fallen: { columns: 13, rows: 1, animated: true }, goatman: { columns: 14, rows: 1, animated: true },
+  skeleton: { columns: 16, rows: 1, animated: true }, sandRaider: { columns: 1, rows: 1, animated: false },
+  sandMaggot: { columns: 1, rows: 1, animated: false }, scarab: { columns: 12, rows: 8, animated: true },
   fetish: { columns: 1, rows: 1, animated: false }, fetishShaman: { columns: 1, rows: 1, animated: false },
   council: { columns: 1, rows: 1, animated: false }, balrog: { columns: 1, rows: 1, animated: false },
   vileChild: { columns: 1, rows: 1, animated: false }, vileMother: { columns: 1, rows: 1, animated: false },
-  bloodLord: { columns: 1, rows: 1, animated: false }, minotaur: { columns: 1, rows: 1, animated: false },
-  deathMauler: { columns: 1, rows: 1, animated: false }, wendigo: { columns: 1, rows: 1, animated: false },
-  andariel: { columns: 1, rows: 1, animated: false }, duriel: { columns: 1, rows: 1, animated: false },
-  diablo: { columns: 1, rows: 1, animated: false }, baalsMinion: { columns: 1, rows: 1, animated: false },
+  bloodLord: { columns: 1, rows: 1, animated: false }, minotaur: { columns: 7, rows: 8, animated: true },
+  deathMauler: { columns: 16, rows: 8, animated: true }, wendigo: { columns: 23, rows: 8, animated: true },
+  andariel: { columns: 12, rows: 8, animated: true }, duriel: { columns: 6, rows: 8, animated: true },
+  diablo: { columns: 14, rows: 8, animated: true }, baalsMinion: { columns: 13, rows: 8, animated: true },
 };
 
 const ENEMY_SPRITE_CELLS: Record<EnemySpecies, { width: number; height: number }> = {
-  fallen: { width: 89, height: 63 }, goatman: { width: 77, height: 100 }, skeleton: { width: 56, height: 78 },
+  fallen: { width: 91, height: 75 }, goatman: { width: 84, height: 97 }, skeleton: { width: 70, height: 86 },
   sandRaider: { width: 114, height: 180 }, sandMaggot: { width: 172, height: 180 }, scarab: { width: 101, height: 100 },
   fetish: { width: 181, height: 180 }, fetishShaman: { width: 151, height: 180 }, council: { width: 214, height: 180 },
   balrog: { width: 290, height: 180 }, vileChild: { width: 195, height: 180 }, vileMother: { width: 273, height: 180 },
-  bloodLord: { width: 444, height: 180 }, minotaur: { width: 77, height: 100 }, deathMauler: { width: 84, height: 100 },
+  bloodLord: { width: 444, height: 180 }, minotaur: { width: 110, height: 100 }, deathMauler: { width: 84, height: 100 },
   wendigo: { width: 84, height: 100 }, andariel: { width: 240, height: 260 }, duriel: { width: 118, height: 182 },
   diablo: { width: 83, height: 95 }, baalsMinion: { width: 115, height: 100 },
 };
@@ -355,9 +355,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private playerWeaponBaseQuaternions: THREE.Quaternion[] = [];
   private playerWeaponOriginalVisibility = new Map<THREE.Object3D, boolean>();
   private readonly meleeTrailEffects: MeleeTrailEffect[] = [];
+  private readonly summonAttackEffects: SummonAttackEffect[] = [];
   private readonly skillVisualEffects: SkillVisualEffect[] = [];
   private loadedModelClass = "";
   private readonly enemySprites: Partial<Record<EnemySpecies, EnemySprite>> = {};
+  private readonly animatedSkeletonSprite = new Image();
+  private readonly animatedGolemSprite = new Image();
+  private animatedSkeletonFrames: HTMLCanvasElement[] = [];
+  private animatedGolemFrames: HTMLCanvasElement[] = [];
   private readonly missileOverlayImages = new Map<string, HTMLImageElement[]>();
   private readonly campaignMapImages: Partial<Record<number, HTMLImageElement>> = {};
   private readonly campaignFloorTileImages: Partial<Record<number, HTMLImageElement>> = {};
@@ -1509,6 +1514,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
             kind,
             species: sanitizeEnemySpecies(enemy["species"], kind),
             campaignBoss: enemy["campaignBoss"] === true,
+        summonType: enemy["summonType"] === "skeleton" || enemy["summonType"] === "golem" ? enemy["summonType"] : undefined,
+        summonSkill: typeof enemy["summonSkill"] === "string" ? enemy["summonSkill"] : undefined,
+            summonAttackCooldown: numberValue(enemy["summonAttackCooldown"], 0, 0, 60),
             spriteFrame: numberValue(enemy["spriteFrame"], 0, 0, 47),
             x: numberValue(enemy["x"], 250, -40, this.arenaW + 40),
             y: numberValue(enemy["y"], 250, -40, this.arenaH + 40),
@@ -1673,7 +1681,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         chestTimer: this.chestTimer,
         nextChestInterval: this.nextChestInterval,
       } : null
-        : this.hasSavedRun ? this.getSavedRunWithCharacterProfile() : null;
+        : this.hasSavedRun && this.deathRecovery ? this.getSavedRunWithCharacterProfile() : null;
       const serialized = JSON.stringify({
         version: RUN_SAVE_VERSION,
         selectedClass: this.selectedClass,
@@ -3344,6 +3352,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   activateOwnedSkill(skill: string): void {
     if (!this.ownedSkills.includes(skill)) return;
+    if (this.isPersistentSummonSkill(skill)) {
+      this.summonCompanion(skill);
+      this.addSkillVisualEffect(skill);
+      this.triggerAttackAnimation(this.selectedClass === "necromancer" ? "necromancerCast" : "cast");
+      return;
+    }
     const skillVisual = getClassSkills(this.selectedClass).find((entry) => entry.name === skill)?.visual ?? getD2SkillVisual(skill);
     if (skillVisual === "aura") {
       this.addSkillVisualEffect(skill);
@@ -3398,13 +3412,24 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (rangedSpell || (missileId && rangedSkills.has(skill)) || skillVisual === "projectile") {
       const kind: AttackProjectile["kind"] = visualMissile === "d2-bluestar" || visualMissile === "d2-lightning" ? "lightning"
         : visualMissile === "d2-holybolt" ? "holy" : visualMissile === "d2-bloodstar" || visualMissile === "d2-shadowbolt" ? "bone" : "fire";
-      const boltCount = skill === "Teeth" ? 3 : skill === "Charged Bolt" ? 5 : skill === "Lightning Fury" ? 6 : skill === "Blizzard" ? 3 : 1;
+      const boltCount = skill === "Teeth" ? 5 : skill === "Charged Bolt" ? 5 : skill === "Lightning Fury" ? 6 : skill === "Blizzard" ? 3 : 1;
       const color = kind === "lightning" ? "#a9dcff" : kind === "holy" ? "#fff0a8" : kind === "bone" ? "#ddd5c5" : "#ff9c50";
+      const perpendicularX = -this.playerFacingY;
+      const perpendicularY = this.playerFacingX;
       for (let index = 0; index < boltCount; index += 1) {
-        const spread = (index - (boltCount - 1) / 2) * 13;
+        const spread = (index - (boltCount - 1) / 2) * (skill === "Teeth" ? 0.14 : 13);
+        const rayX = skill === "Teeth" ? this.playerFacingX + perpendicularX * spread : 0;
+        const rayY = skill === "Teeth" ? this.playerFacingY + perpendicularY * spread : 0;
+        const rayLength = Math.hypot(rayX, rayY) || 1;
+        const teethRange = Math.max(distance + 80, 240);
         this.attackProjectiles.push({
           x: this.playerX, y: this.playerY - 8, startX: this.playerX, startY: this.playerY - 8,
-          targetX: nearest.x + spread, targetY: nearest.y, target: nearest, targetId: this.attackSequence++,
+          targetX: skill === "Teeth" ? this.playerX + rayX / rayLength * teethRange : nearest.x + spread,
+          targetY: skill === "Teeth" ? this.playerY + rayY / rayLength * teethRange : nearest.y,
+          target: skill === "Teeth" ? undefined : nearest, targetId: this.attackSequence++,
+          teethFan: skill === "Teeth" ? spread : undefined,
+          teethDirectionX: skill === "Teeth" ? this.playerFacingX : undefined,
+          teethDirectionY: skill === "Teeth" ? this.playerFacingY : undefined,
           speed: 700, damage: damage * (skill === "Teeth" ? 0.55 : 1), life: Math.max(3, distance / 700 + 1),
           radius: 5, color, kind, missileId: visualMissile,
         });
@@ -3427,6 +3452,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   ngAfterViewInit(): void {
     this.loadEnemySprites();
+    this.loadSummonSprites();
     this.loadMissileOverlays();
     this.loadCampaignMaps();
     const arenaWrap = this.arenaRef?.nativeElement.parentElement;
@@ -3510,6 +3536,77 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       ?? BASIC_ATTACK_MISSILE_OVERLAYS[skill];
   }
 
+  private loadSummonSprites(): void {
+    const loadSheet = (image: HTMLImageElement, url: string, onReady: (sheet: HTMLCanvasElement) => void): void => {
+      image.onload = () => {
+        if (!image.naturalWidth || !image.naturalHeight) {
+          console.warn(`Invalid summon animation sheet: ${url}`);
+          return;
+        }
+        const sheet = document.createElement("canvas");
+        sheet.width = image.naturalWidth;
+        sheet.height = image.naturalHeight;
+        const context = sheet.getContext("2d");
+        if (!context) return;
+        context.imageSmoothingEnabled = false;
+        context.drawImage(image, 0, 0);
+        const pixels = context.getImageData(0, 0, sheet.width, sheet.height);
+        const visited = new Uint8Array(sheet.width * sheet.height);
+        const queue: number[] = [];
+        const enqueueBackdropPixel = (x: number, y: number): void => {
+          const index = y * sheet.width + x;
+          if (visited[index]) return;
+          visited[index] = 1;
+          queue.push(index);
+        };
+        for (let x = 0; x < sheet.width; x += 1) {
+          enqueueBackdropPixel(x, 0);
+          enqueueBackdropPixel(x, sheet.height - 1);
+        }
+        for (let y = 0; y < sheet.height; y += 1) {
+          enqueueBackdropPixel(0, y);
+          enqueueBackdropPixel(sheet.width - 1, y);
+        }
+        const rgba = pixels.data;
+        for (let cursor = 0; cursor < queue.length; cursor += 1) {
+          const index = queue[cursor];
+          const offset = index * 4;
+          if (rgba[offset + 3] === 0 || Math.max(rgba[offset], rgba[offset + 1], rgba[offset + 2]) > 12) continue;
+          rgba[offset + 3] = 0;
+          const x = index % sheet.width;
+          const y = Math.floor(index / sheet.width);
+          if (x > 0) enqueueBackdropPixel(x - 1, y);
+          if (x + 1 < sheet.width) enqueueBackdropPixel(x + 1, y);
+          if (y > 0) enqueueBackdropPixel(x, y - 1);
+          if (y + 1 < sheet.height) enqueueBackdropPixel(x, y + 1);
+        }
+        context.putImageData(pixels, 0, 0);
+        onReady(sheet);
+        if (this.activeTab === "run") this.draw();
+      };
+      image.onerror = () => console.warn(`Could not load summon animation: ${url}`);
+      image.src = url;
+    };
+    // The animated skeleton sheet is a single 16-frame walk row.
+    loadSheet(this.animatedSkeletonSprite, "assets/d2survivors/enemies/animated/skeleton.png", (sheet) => {
+      this.animatedSkeletonFrames = [sheet];
+    });
+    // Use the supplied D2 skeleton walk sheet for the golem too, recolored with
+    // the golem's elemental tint. The imported minotaur atlas has no usable palette.
+    loadSheet(this.animatedGolemSprite, "assets/d2survivors/enemies/animated/skeleton.png", (sheet) => {
+      const tintedSheet = document.createElement("canvas");
+      tintedSheet.width = sheet.width;
+      tintedSheet.height = sheet.height;
+      const context = tintedSheet.getContext("2d");
+      if (!context) return;
+      context.drawImage(sheet, 0, 0);
+      context.globalCompositeOperation = "source-atop";
+      context.fillStyle = "rgba(158, 111, 77, 0.7)";
+      context.fillRect(0, 0, tintedSheet.width, tintedSheet.height);
+      this.animatedGolemFrames = [tintedSheet];
+    });
+  }
+
   private loadEnemySprites(): void {
     for (const species of ENEMY_SPECIES) {
       const layout = ENEMY_SPRITE_LAYOUTS[species];
@@ -3536,6 +3633,44 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         context.clearRect(0, 0, canvas.width, canvas.height);
         if (layout.animated) {
           context.drawImage(source, 0, 0, expectedWidth, expectedHeight);
+          const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
+          const rgba = pixels.data;
+          const cellArea = cellSize.width * cellSize.height;
+          for (let row = 0; row < rows; row += 1) {
+            for (let column = 0; column < columns; column += 1) {
+              const visited = new Uint8Array(cellArea);
+              const queue: number[] = [];
+              const enqueue = (x: number, y: number): void => {
+                const index = y * cellSize.width + x;
+                if (visited[index]) return;
+                visited[index] = 1;
+                queue.push(index);
+              };
+              for (let x = 0; x < cellSize.width; x += 1) {
+                enqueue(x, 0);
+                enqueue(x, cellSize.height - 1);
+              }
+              for (let y = 0; y < cellSize.height; y += 1) {
+                enqueue(0, y);
+                enqueue(cellSize.width - 1, y);
+              }
+              const originX = column * cellSize.width;
+              const originY = row * cellSize.height;
+              for (let cursor = 0; cursor < queue.length; cursor += 1) {
+                const index = queue[cursor];
+                const x = index % cellSize.width;
+                const y = Math.floor(index / cellSize.width);
+                const offset = ((originY + y) * canvas.width + originX + x) * 4;
+                if (rgba[offset + 3] === 0 || rgba[offset] >= 12 || rgba[offset + 1] >= 12 || rgba[offset + 2] >= 12) continue;
+                rgba[offset + 3] = 0;
+                if (x > 0) enqueue(x - 1, y);
+                if (x + 1 < cellSize.width) enqueue(x + 1, y);
+                if (y > 0) enqueue(x, y - 1);
+                if (y + 1 < cellSize.height) enqueue(x, y + 1);
+              }
+            }
+          }
+          context.putImageData(pixels, 0, 0);
         } else {
           context.drawImage(source, 0, 0);
         }
@@ -3701,6 +3836,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     );
     const livingEnemies = this.enemies.filter((enemy) => enemy.hp > 0);
     for (const skill of activeSkills) {
+      if (this.isPersistentSummonSkill(skill)) {
+        const existing = this.enemies.some((enemy) => enemy.summonSkill === skill && enemy.hp > 0);
+        if (!existing) this.activateOwnedSkill(skill);
+        this.skillCastCooldowns[skill] = Number.POSITIVE_INFINITY;
+        continue;
+      }
       const cooldown = Math.max(0, (this.skillCastCooldowns[skill] ?? 0) - seconds);
       this.skillCastCooldowns[skill] = cooldown;
       if (cooldown > 0) continue;
@@ -3810,6 +3951,42 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const seconds = dt / 1000;
     for (const projectile of this.attackProjectiles) {
       projectile.life -= seconds;
+      if (projectile.teethFan !== undefined) {
+        const deltaX = projectile.targetX - projectile.x;
+        const deltaY = projectile.targetY - projectile.y;
+        const distance = Math.hypot(deltaX, deltaY);
+        const step = projectile.speed * seconds / this.worldZoom;
+        const travel = Math.min(step, distance);
+        const nextX = projectile.x + (distance > 0 ? deltaX / distance * travel : 0);
+        const nextY = projectile.y + (distance > 0 ? deltaY / distance * travel : 0);
+        const segmentX = nextX - projectile.x;
+        const segmentY = nextY - projectile.y;
+        const segmentLengthSquared = segmentX * segmentX + segmentY * segmentY;
+        const hit = this.enemies
+          .filter((enemy) => enemy.hp > 0)
+          .map((enemy) => {
+            const relativeX = enemy.x - projectile.x;
+            const relativeY = enemy.y - projectile.y;
+            const along = segmentLengthSquared > 0
+              ? Math.max(0, Math.min(1, (relativeX * segmentX + relativeY * segmentY) / segmentLengthSquared))
+              : 0;
+            const miss = Math.hypot(relativeX - along * segmentX, relativeY - along * segmentY);
+            return { enemy, along, miss };
+          })
+          .filter(({ enemy, miss }) => miss <= enemy.r + 7)
+          .sort((a, b) => a.along - b.along)[0]?.enemy;
+        if (hit) {
+          hit.hp -= projectile.damage;
+          projectile.life = 0;
+          this.floatingTexts.push({ x: hit.x, y: hit.y - hit.r - 8, text: `-${Math.floor(projectile.damage)}`, color: projectile.color, life: 0.65 });
+        } else if (distance <= step) {
+          projectile.life = 0;
+        } else {
+          projectile.x = nextX;
+          projectile.y = nextY;
+        }
+        continue;
+      }
       const target = projectile.target;
       const targetIsAlive = !!target && this.enemies.includes(target) && target.hp > 0;
       if (targetIsAlive) {
@@ -3871,6 +4048,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const point = this.projectArenaPoint(projectile.x, projectile.y);
     const start = this.projectArenaPoint(projectile.startX, projectile.startY);
     const missileId = projectile.missileId ?? ATTACK_KIND_MISSILE_OVERLAYS[projectile.kind];
+    if (projectile.teethFan !== undefined) {
+      this.drawBoneTooth(ctx, point, start, projectile);
+      return;
+    }
     const overlays = this.missileOverlayImages.get(missileId);
     const frameDuration = MISSILE_FRAME_DURATIONS_MS[missileId] ?? 85;
     const desiredFrame = overlays?.length ? Math.floor(performance.now() / frameDuration) % overlays.length : 0;
@@ -3910,6 +4091,54 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     } else {
       ctx.beginPath(); ctx.arc(point.x, point.y - 8, projectile.radius, 0, Math.PI * 2); ctx.fill();
     }
+    ctx.restore();
+  }
+
+  private drawBoneTooth(
+    ctx: CanvasRenderingContext2D,
+    point: { x: number; y: number },
+    start: { x: number; y: number },
+    projectile: AttackProjectile,
+  ): void {
+    const progress = Math.min(1, Math.hypot(projectile.x - projectile.startX, projectile.y - projectile.startY)
+      / (Math.hypot(projectile.targetX - projectile.startX, projectile.targetY - projectile.startY) || 1));
+    const directionX = projectile.teethDirectionX ?? 1;
+    const directionY = projectile.teethDirectionY ?? 0;
+    const fan = (projectile.teethFan ?? 0) * progress;
+    const x = point.x - directionY * fan * this.worldZoom * 0.7071;
+    const y = point.y + directionX * fan * this.worldZoom * 0.35355;
+    const angle = Math.atan2(y - start.y, x - start.x);
+    const length = (24 + Math.min(9, Math.abs(projectile.teethFan ?? 0) * 0.32)) * this.worldZoom;
+    const width = 7 * this.worldZoom;
+
+    ctx.save();
+    ctx.translate(x, y - 8);
+    ctx.rotate(angle);
+    ctx.globalCompositeOperation = "source-over";
+    ctx.shadowColor = "#d7c8a8";
+    ctx.shadowBlur = 5;
+    ctx.fillStyle = "#d8ccb1";
+    ctx.strokeStyle = "#665943";
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(length * 0.72, 0);
+    ctx.lineTo(length * 0.05, -width * 0.5);
+    ctx.lineTo(-length * 0.18, -width * 0.22);
+    ctx.lineTo(-length * 0.62, 0);
+    ctx.lineTo(-length * 0.18, width * 0.22);
+    ctx.lineTo(length * 0.05, width * 0.5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = "#f5ecd7";
+    ctx.beginPath();
+    ctx.moveTo(length * 0.62, 0);
+    ctx.lineTo(-length * 0.12, -width * 0.14);
+    ctx.lineTo(-length * 0.48, 0);
+    ctx.lineTo(-length * 0.12, width * 0.14);
+    ctx.closePath();
+    ctx.fill();
     ctx.restore();
   }
 
@@ -4004,6 +4233,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.modelLoadError = true;
     }
     this.runActive = true;
+    this.restoreSummonsFromOwnedSkills();
     this.persistRunProgress(true);
     this.loop(this.lastTime);
   }
@@ -4066,6 +4296,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.updateAutomaticSkillCasts(dt);
     }
 
+    this.updateSummonAttacks(dt);
     this.updateEnemies(dt);
     this.updateChests(dt);
     this.updatePotionDrops(dt);
@@ -4099,8 +4330,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const dy = (2 * screenY - screenX) / (2 * projectionScale);
     const chunkWidth = this.chunkTileColumns * 48;
     const chunkHeight = this.chunkTileRows * 48;
-    this.currentChunkLocalX += dx;
-    this.currentChunkLocalY += dy;
+    // Floor coordinates are tile-grid units, while entities use gameplay units.
+    // Convert camera motion to tile-grid units so the scaled floor and loot move together.
+    this.currentChunkLocalX += dx / this.floorTileScale;
+    this.currentChunkLocalY += dy / this.floorTileScale;
     while (this.currentChunkLocalX < 0) { this.currentChunkLocalX += chunkWidth; this.currentChunkCoordX -= 1; }
     while (this.currentChunkLocalX >= chunkWidth) { this.currentChunkLocalX -= chunkWidth; this.currentChunkCoordX += 1; }
     while (this.currentChunkLocalY < 0) { this.currentChunkLocalY += chunkHeight; this.currentChunkCoordY -= 1; }
@@ -4149,8 +4382,94 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
   }
 
+  private isPersistentSummonSkill(skill: string): boolean {
+    return this.selectedClass === "necromancer" && /^(Raise Skeleton|Skeletal Mage|Clay Golem|Blood Golem|Iron Golem|Fire Golem|Revive)$/.test(skill);
+  }
+
+  private restoreSummonsFromOwnedSkills(): void {
+    for (const skill of this.ownedSkills) {
+      if (this.isPersistentSummonSkill(skill) && !this.enemies.some((enemy) => enemy.summonSkill === skill && enemy.hp > 0)) {
+        this.summonCompanion(skill);
+      }
+    }
+  }
+
+  private summonCompanion(skill: string): void {
+    if (!this.isPersistentSummonSkill(skill) || this.enemies.some((enemy) => enemy.summonSkill === skill && enemy.hp > 0)) return;
+    const rank = this.skillLevels[skill] ?? 1;
+    const playerMastery = this.skillLevels["Skeleton Mastery"] ?? 0;
+    const golemMastery = this.skillLevels["Golem Mastery"] ?? 0;
+    const isGolem = /Golem$/.test(skill);
+    const isMage = skill === "Skeletal Mage";
+    const baseHealth = skill === "Fire Golem" ? 220 : skill === "Iron Golem" ? 280 : skill === "Blood Golem" ? 320 : isGolem ? 260 : isMage ? 95 : 125;
+    const health = Math.round(baseHealth * (1 + (rank - 1) * 0.18 + (isGolem ? golemMastery * 0.25 : playerMastery * 0.2)));
+    const damage = Math.round((isGolem ? 17 : isMage ? 13 : 15) * (1 + (rank - 1) * 0.12 + (isGolem ? golemMastery * 0.1 : playerMastery * 0.2)));
+    const position = this.summonFollowPosition(this.enemies.filter((enemy) => enemy.summonType));
+    const companion: Enemy = {
+      kind: "normal",
+      species: isGolem ? "minotaur" : "skeleton",
+      campaignBoss: false,
+      spriteFrame: 0,
+      summonType: isGolem ? "golem" : "skeleton",
+      summonSkill: skill,
+      summonAttackCooldown: 0.45 + Math.random() * 0.25,
+      x: position.x,
+      y: position.y,
+      hp: health,
+      maxHp: health,
+      speed: isGolem ? 135 : 155,
+      r: isGolem ? 19 : 12,
+      dmg: damage,
+    };
+    this.enemies.push(companion);
+    this.floatingTexts.push({ x: position.x, y: position.y - 18, text: skill.toUpperCase(), color: "#d7c5aa", life: 1.2 });
+  }
+
+  private summonFollowPosition(summons: Enemy[]): { x: number; y: number } {
+    const index = summons.length;
+    const angle = index * Math.PI * 0.72 + Math.PI * 0.25;
+    const radius = 66 + (index % 2) * 22;
+    return { x: this.playerX + Math.cos(angle) * radius, y: this.playerY + Math.sin(angle) * radius };
+  }
+
   updateEnemies(dt: number): void {
+    const livingEnemies = this.enemies.filter((enemy) => !enemy.summonType && enemy.hp > 0);
+    const summons = this.enemies.filter((enemy) => !!enemy.summonType && enemy.hp > 0);
+    for (let index = 0; index < summons.length; index += 1) {
+      const summon = summons[index];
+      summon.summonAttackCooldown = Math.max(0, (summon.summonAttackCooldown ?? 0) - dt / 1000);
+      const target = livingEnemies
+        .filter((enemy) => enemy.hp > 0 && Math.hypot(enemy.x - this.playerX, enemy.y - this.playerY) < 360)
+        .sort((a, b) => Math.hypot(a.x - summon.x, a.y - summon.y) - Math.hypot(b.x - summon.x, b.y - summon.y))[0];
+      let targetX: number;
+      let targetY: number;
+      if (target) {
+        targetX = target.x;
+        targetY = target.y;
+        const distance = Math.hypot(target.x - summon.x, target.y - summon.y) || 1;
+        const attackRange = summon.summonType === "golem" ? 38 : summon.summonSkill === "Skeletal Mage" ? 150 : 34;
+        if (distance > attackRange) {
+          const step = summon.speed * dt / 1000 / this.worldZoom;
+          summon.x += (target.x - summon.x) / distance * Math.min(step, distance - attackRange * 0.7);
+          summon.y += (target.y - summon.y) / distance * Math.min(step, distance - attackRange * 0.7);
+        } else if (summon.summonAttackCooldown <= 0) {
+          this.summonAttack(summon, target);
+        }
+      } else {
+        const desired = this.summonFollowPosition(summons.slice(0, index));
+        targetX = desired.x;
+        targetY = desired.y;
+        const distance = Math.hypot(targetX - summon.x, targetY - summon.y);
+        if (distance > 25) {
+          const step = summon.speed * dt / 1000 / this.worldZoom;
+          summon.x += (targetX - summon.x) / distance * Math.min(step, distance);
+          summon.y += (targetY - summon.y) / distance * Math.min(step, distance);
+        }
+      }
+    }
+
     for (const enemy of this.enemies) {
+      if (enemy.summonType) continue;
       const dx = this.playerX - enemy.x;
       const dy = this.playerY - enemy.y;
       const distance = Math.hypot(dx, dy) || 1;
@@ -4164,7 +4483,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         enemy.cd = enemy.kind === "boss" ? 1.1 : enemy.kind === "champion" ? 0.9 : 0.8;
       }
     }
-    const defeatedEnemies = this.enemies.filter((enemy) => enemy.hp <= 0);
+    const defeatedEnemies = this.enemies.filter((enemy) => !enemy.summonType && enemy.hp <= 0);
     for (const enemy of defeatedEnemies) {
       this.grantExperience(enemy.kind === "boss" ? 8 : enemy.kind === "champion" ? 3 : 1);
       this.maybeDropGold(enemy);
@@ -4185,7 +4504,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.openChestCount = 0;
     for (const chest of this.chests) {
       if (!chest.open) {
-        chest.bob += dt / 1000;
         this.openChestCount += 1;
         if (Math.hypot(this.playerX - chest.x, this.playerY - chest.y) < 42) this.openChest(chest);
       }
@@ -4325,8 +4643,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const frameIndex = frameCount > 1
       ? Math.floor(performance.now() / frameDuration) % frameCount
       : 0;
-    let missileFrame = frameCount ? missileFrames?.[frameIndex] : undefined;
-    if (!missileFrame?.complete || missileFrame.naturalWidth === 0) {
+    let missileFrame = effect.name === "Teeth" ? undefined : frameCount ? missileFrames?.[frameIndex] : undefined;
+    if (effect.name !== "Teeth" && (!missileFrame?.complete || missileFrame.naturalWidth === 0)) {
       missileFrame = missileFrames?.find((image) => image.complete && image.naturalWidth > 0);
     }
     const icon = this.skillIcon(effect.name);
@@ -4342,7 +4660,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     ctx.shadowBlur = effect.kind === "aura" ? 16 : 10;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-    if (effect.kind === "projectile") {
+    if (effect.kind === "projectile" && effect.name === "Teeth") {
+      // Teeth is rendered as individual bone shards on the arena canvas below.
+      // Do not layer the unrelated purple-star missile over the skill effect.
+    } else if (effect.kind === "projectile") {
       const projectileProgress = effect.targetEnemy
         ? Math.min(1, Math.max(0.08, effect.time / effect.duration))
         : progress;
@@ -5146,25 +5467,28 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.deathCount += 1;
       this.potionDrops = [];
       this.goldDrops = [];
-    this.playerHp = 0;
-    this.hasSavedRun = true;  } else {
-    this.deathRecovery = false;
-    this.hasSavedRun = true;
-  }
-  this.persistRunProgress(true);
+      this.playerHp = 0;
+      // A dead hero must not leave a resumable, zero-health run behind. The
+      // character profile still retains that hero's independent gold and gear.
+      this.hasSavedRun = this.deathRecovery;
+    } else {
+      this.deathRecovery = false;
+      this.hasSavedRun = true;
+    }
+    this.persistRunProgress(true);
     if (victory || !this.deathRecovery) void this.recordCompletedCharacter(victory);
     if (this.rafId) {
       cancelAnimationFrame(this.rafId);
       this.rafId = 0;
     }
-    if (!victory && !this.deathRecovery) {
+    if (!victory) {
       this.activeTab = "menu";
-      this.menuPanel = "main";
+      this.menuPanel = "lobby";
       this.escapeMenuOpen = false;
       this.inventoryOpen = false;
       this.skillTreeOpen = false;
       this.stopAmbientAudio();
-      this.startMenuHeroPreview();
+      void this.openLobby();
     }
   }
 
@@ -5243,6 +5567,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const minRow = Math.floor((this.currentChunkLocalY - reach) / tileWorldSize);
     const maxRow = Math.ceil((this.currentChunkLocalY + reach) / tileWorldSize);
     ctx.save();
+    // Ground textures are enlarged far beyond their native sprite resolution;
+    // smooth their sampling so the floor doesn't render as harsh nearest-neighbor blocks.
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
     ctx.beginPath();
     ctx.rect(0, 0, canvas.width, canvas.height);
     ctx.clip();
@@ -5338,6 +5666,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
     for (const projectile of this.attackProjectiles) this.drawAttackProjectile(ctx, projectile);
     for (const effect of this.meleeTrailEffects) this.drawMeleeTrail(ctx, effect);
+    for (const effect of this.summonAttackEffects) this.drawSummonAttackEffect(ctx, effect);
     for (const floatingText of this.floatingTexts) {
       const point = this.projectArenaPoint(floatingText.x, floatingText.y);
       ctx.fillStyle = floatingText.color;
@@ -5929,6 +6258,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy): void {
     const ground = this.projectArenaPoint(e.x, e.y);
+    if (e.summonType) {
+      this.drawSummon(ctx, e, ground);
+      return;
+    }
     const sprite = this.enemySprites[e.species];
     const color = e.kind === "boss" ? "#ffb347" : e.kind === "champion" ? "#ffd27a" : "#8a94a6";
     const size = e.r * (e.kind === "boss" ? 4.2 : e.kind === "champion" ? 4.4 : 4.8) * this.worldZoom;
@@ -5944,7 +6277,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const sourceRow = direction % sprite.rows;
       const bounds = enemySpriteCellBounds(e.species, sprite, sheetIndex, sourceRow);
       if (bounds) {
-        const drawHeight = size;
+        const drawHeight = size * (e.kind === "boss" ? 1.35 : 1);
         const drawWidth = drawHeight * bounds.width / bounds.height;
         const drawX = ground.x - drawWidth / 2;
         const drawY = ground.y - drawHeight * 0.78;
@@ -6000,6 +6333,155 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.drawHpBar(ctx, e, color, size, ground);
   }
 
+  private drawSummon(ctx: CanvasRenderingContext2D, summon: Enemy, ground: { x: number; y: number }): void {
+    const isGolem = summon.summonType === "golem";
+    const frames = isGolem ? this.animatedGolemFrames : this.animatedSkeletonFrames;
+    const sheet = frames[0];
+    const frameWidth = isGolem ? 110 : 70;
+    const frameHeight = 86;
+    const columns = 16;
+    const dx = this.playerX - summon.x;
+    const strideFrame = Math.floor(this.runTime * 10) % columns;
+    const height = (isGolem ? 84 : 66) * this.worldZoom;
+    const width = height * frameWidth / frameHeight;
+    const mirror = !isGolem && dx < 0;
+    ctx.save();
+    ctx.fillStyle = "#050505";
+    ctx.globalAlpha = 0.55;
+    ctx.beginPath();
+    ctx.ellipse(ground.x, ground.y + 2, width * 0.34, height * 0.07, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    if (sheet) {
+      ctx.imageSmoothingEnabled = false;
+      ctx.save();
+      if (mirror) {
+        ctx.translate(ground.x, 0);
+        ctx.scale(-1, 1);
+      }
+      ctx.drawImage(
+        sheet,
+        strideFrame * frameWidth,
+        0,
+        frameWidth,
+        frameHeight,
+        (mirror ? -ground.x : ground.x) - width / 2,
+        ground.y - height * 0.82,
+        width,
+        height,
+      );
+      ctx.restore();
+    } else {
+      const glow = isGolem ? "#f07a31" : "#c7d6df";
+      ctx.fillStyle = glow;
+      ctx.strokeStyle = isGolem ? "#e6b45c" : "#e2edf2";
+      ctx.lineWidth = 3;
+      ctx.shadowColor = glow;
+      ctx.shadowBlur = 12;
+      ctx.beginPath();
+      ctx.ellipse(ground.x, ground.y - height * 0.48, width * 0.26, height * 0.42, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
+    if (isGolem && summon.summonSkill === "Fire Golem") {
+      ctx.globalCompositeOperation = "lighter";
+      ctx.globalAlpha = 0.3;
+      ctx.fillStyle = "#ff6c16";
+      ctx.beginPath();
+      ctx.ellipse(ground.x, ground.y - height * 0.42, width * 0.28, height * 0.38, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+
+    const hpRatio = Math.max(0, summon.hp / summon.maxHp);
+    const barWidth = Math.max(30, width * 0.65);
+    const barY = ground.y - height * 0.88 - 7;
+    ctx.fillStyle = "#171311";
+    ctx.fillRect(ground.x - barWidth / 2, barY, barWidth, 4);
+    ctx.fillStyle = isGolem ? summon.summonSkill === "Fire Golem" ? "#ff8136" : "#83bdb4" : "#b9d8e7";
+    ctx.fillRect(ground.x - barWidth / 2, barY, barWidth * hpRatio, 4);
+    ctx.fillStyle = isGolem ? "#f4bf76" : "#ded3bf";
+    ctx.font = "bold 9px Georgia, serif";
+    ctx.textAlign = "center";
+    ctx.shadowColor = "#08090b";
+    ctx.shadowBlur = 3;
+    ctx.fillText(summon.summonSkill ?? "Summon", ground.x, barY - 3);
+    ctx.shadowBlur = 0;
+  }
+
+  private summonAttack(summon: Enemy, target: Enemy): void {
+    summon.summonAttackCooldown = summon.summonType === "golem" ? 0.9 : summon.summonSkill === "Skeletal Mage" ? 1.25 : 0.72;
+    this.summonAttackEffects.push({
+      summon,
+      target,
+      time: 0,
+      duration: summon.summonType === "golem" ? 0.38 : 0.3,
+      damage: summon.dmg,
+    });
+  }
+
+  private updateSummonAttacks(dt: number): void {
+    for (const effect of this.summonAttackEffects) {
+      effect.time += dt / 1000;
+      if (effect.time < effect.duration || effect.target.hp <= 0) continue;
+      effect.target.hp -= effect.damage;
+      this.floatingTexts.push({
+        x: effect.target.x,
+        y: effect.target.y - effect.target.r - 8,
+        text: `-${effect.damage}`,
+        color: effect.summon.summonType === "golem" ? "#d9aa68" : "#d1e2e8",
+        life: 0.65,
+      });
+      effect.time = effect.duration + 1;
+    }
+    for (let index = this.summonAttackEffects.length - 1; index >= 0; index -= 1) {
+      if (this.summonAttackEffects[index].time >= this.summonAttackEffects[index].duration + 1) this.summonAttackEffects.splice(index, 1);
+    }
+  }
+
+  private drawSummonAttackEffect(ctx: CanvasRenderingContext2D, effect: SummonAttackEffect): void {
+    if (effect.time > effect.duration || effect.target.hp <= 0) return;
+    const progress = Math.min(1, effect.time / effect.duration);
+    const source = this.projectArenaPoint(effect.summon.x, effect.summon.y);
+    const target = this.projectArenaPoint(effect.target.x, effect.target.y);
+    const isMage = effect.summon.summonSkill === "Skeletal Mage";
+    const color = effect.summon.summonType === "golem" ? (effect.summon.summonSkill === "Fire Golem" ? "#ff7135" : "#d9aa68") : "#d7e5eb";
+    ctx.save();
+    ctx.globalAlpha = 1 - progress;
+    ctx.lineCap = "round";
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 14;
+    if (isMage) {
+      const x = source.x + (target.x - source.x) * progress;
+      const y = source.y + (target.y - source.y) * progress - 12;
+      ctx.beginPath();
+      ctx.arc(x, y, 5 + 3 * Math.sin(progress * Math.PI), 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "#fff3dc";
+      ctx.beginPath();
+      ctx.moveTo(x - 8, y);
+      ctx.lineTo(x + 8, y);
+      ctx.stroke();
+    } else {
+      const x = source.x + (target.x - source.x) * progress;
+      const y = source.y + (target.y - source.y) * progress - 10;
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(x - 9, y + 8);
+      ctx.lineTo(x + 9, y - 8);
+      ctx.stroke();
+      ctx.strokeStyle = "#fff3dc";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(x - 8, y + 7);
+      ctx.lineTo(x + 8, y - 7);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
   drawHpBar(ctx: CanvasRenderingContext2D, e: Enemy, color: string, spriteSize = e.r * 2, ground = this.projectArenaPoint(e.x, e.y)): void {
     const w = Math.max(e.r * 2 + 4, spriteSize * 0.8);
     const h = e.kind === "boss" ? 5 : 4;
@@ -6046,42 +6528,203 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   drawGoldDrop(ctx: CanvasRenderingContext2D, drop: GoldDrop): void {
     const point = this.projectArenaPoint(drop.x, drop.y);
     const scale = this.worldZoom;
-    const y = point.y - 3 * scale + Math.sin(drop.bob * 5) * 2 * scale;
+    const bob = Math.sin(drop.bob * 5) * 1.5 * scale;
+    const x = point.x;
+    const groundY = point.y;
     ctx.save();
-    ctx.fillStyle = "#ffd45e";
-    ctx.strokeStyle = "#fff0a8";
-    ctx.shadowColor = "#f9bd3f";
-    ctx.shadowBlur = 9;
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+
+    // A soft ground shadow and irregular overlapping coin silhouettes make this
+    // read as a little spill of loot rather than a single flat coin/orb.
+    ctx.fillStyle = "#080807";
+    ctx.globalAlpha = 0.62;
     ctx.beginPath();
-    ctx.ellipse(point.x, y, 8 * scale, 5 * scale, -0.15, 0, Math.PI * 2);
+    ctx.ellipse(x, groundY + 3 * scale, 12 * scale, 5 * scale, -0.08, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    const coins = [
+      { x: -7, y: 0, rx: 5.5, ry: 3.4, angle: -0.3 },
+      { x: -2, y: -2.5, rx: 6, ry: 3.7, angle: 0.16 },
+      { x: 4, y: -1, rx: 5.4, ry: 3.3, angle: -0.24 },
+      { x: 7, y: 1.1, rx: 4.4, ry: 2.8, angle: 0.32 },
+      { x: 0, y: 0.4, rx: 5.7, ry: 3.4, angle: 0.08 },
+    ];
+    ctx.shadowColor = "#dc9b22";
+    ctx.shadowBlur = 5 * scale;
+    for (const coin of coins) {
+      const coinX = x + coin.x * scale;
+      const coinY = groundY + coin.y * scale + bob;
+      ctx.save();
+      ctx.translate(coinX, coinY);
+      ctx.rotate(coin.angle);
+      ctx.fillStyle = "#80500d";
+      ctx.beginPath();
+      ctx.ellipse(0, 1.2 * scale, coin.rx * scale, coin.ry * scale, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#e6a92d";
+      ctx.strokeStyle = "#9a6415";
+      ctx.lineWidth = 1 * scale;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, coin.rx * scale, coin.ry * scale, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = "#ffe293";
+      ctx.lineWidth = 0.8 * scale;
+      ctx.beginPath();
+      ctx.ellipse(0, -0.45 * scale, coin.rx * 0.72 * scale, coin.ry * 0.52 * scale, 0, Math.PI * 1.08, Math.PI * 1.88);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // A small raised medallion on the top coin gives the pile a readable D2-style glint.
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = "#f6d46f";
+    ctx.strokeStyle = "#986016";
+    ctx.lineWidth = 0.8 * scale;
+    ctx.beginPath();
+    ctx.ellipse(x - 1 * scale, groundY - 2.3 * scale + bob, 2.7 * scale, 1.7 * scale, -0.12, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
-    ctx.shadowBlur = 0;
-    ctx.fillStyle = "#5b3a12";
-    ctx.font = `bold ${7 * scale}px ui-monospace, monospace`;
-    ctx.textAlign = "center";
-    ctx.fillText("G", point.x, y + 2.5 * scale);
+    ctx.strokeStyle = "#fff0b2";
+    ctx.lineWidth = 0.7 * scale;
+    ctx.beginPath();
+    ctx.moveTo(x - 2 * scale, groundY - 2.3 * scale + bob);
+    ctx.lineTo(x, groundY - 2.3 * scale + bob);
+    ctx.stroke();
     ctx.restore();
   }
 
   drawChest(ctx: CanvasRenderingContext2D, c: Chest): void {
     const ground = this.projectArenaPoint(c.x, c.y);
     const x = ground.x;
+    const y = ground.y;
     const scale = this.worldZoom;
-    const y = ground.y - 8 * scale + Math.sin(c.bob * 4) * 4 * scale;
-    ctx.fillStyle = "#7a5a2a";
-    ctx.fillRect(x - 12 * scale, y - 10 * scale, 24 * scale, 20 * scale);
-    ctx.fillStyle = "#5a3f1a";
-    ctx.fillRect(x - 12 * scale, y - 10 * scale, 24 * scale, 4 * scale);
-    ctx.fillStyle = "#cbb07c";
-    ctx.fillRect(x - 3 * scale, y - 4 * scale, 6 * scale, 8 * scale);
-    ctx.strokeStyle = "#ffd27a";
-    ctx.lineWidth = 2 * scale;
-    ctx.strokeRect(x - 12 * scale, y - 10 * scale, 24 * scale, 20 * scale);
-    ctx.fillStyle = "#ffd27a";
-    ctx.font = `bold ${10 * scale}px ui-monospace, monospace`;
-    ctx.textAlign = "center";
-    ctx.fillText("chest", x, y - 16 * scale);
+    const halfWidth = 20 * scale;
+    const depth = 11 * scale;
+    const bodyHeight = 17 * scale;
+    const lidHeight = 7 * scale;
+    const topY = y - bodyHeight - lidHeight;
+
+    const polygon = (points: Array<[number, number]>): void => {
+      ctx.beginPath();
+      ctx.moveTo(points[0][0], points[0][1]);
+      for (let index = 1; index < points.length; index += 1) ctx.lineTo(points[index][0], points[index][1]);
+      ctx.closePath();
+    };
+
+    ctx.save();
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+
+    // Dark contact shadow anchors the chest to the floor.
+    ctx.fillStyle = "#050505";
+    ctx.globalAlpha = 0.62;
+    ctx.beginPath();
+    ctx.ellipse(x, y + 2 * scale, 25 * scale, 8 * scale, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    // Front and right sides give the container a solid, three-dimensional body.
+    polygon([[x - halfWidth, topY + lidHeight], [x + halfWidth, topY + lidHeight], [x + halfWidth, y], [x - halfWidth, y]]);
+    ctx.fillStyle = "#68401d";
+    ctx.fill();
+    ctx.strokeStyle = "#2b1a10";
+    ctx.lineWidth = 1.5 * scale;
+    ctx.stroke();
+
+    polygon([[x + halfWidth, topY + lidHeight], [x + halfWidth + depth, topY + lidHeight - 3 * scale], [x + halfWidth + depth, y - 3 * scale], [x + halfWidth, y]]);
+    ctx.fillStyle = "#432713";
+    ctx.fill();
+    ctx.stroke();
+
+    // Individual front boards and dark seams suggest a carved wooden coffer.
+    for (let plank = 0; plank < 5; plank += 1) {
+      const plankX = x - halfWidth + (plank * 2 + 1) * halfWidth / 5;
+      ctx.strokeStyle = plank % 2 ? "#8b5928" : "#4d2d17";
+      ctx.lineWidth = 1.15 * scale;
+      ctx.beginPath();
+      ctx.moveTo(plankX, topY + lidHeight + 3 * scale);
+      ctx.lineTo(plankX, y - 2 * scale);
+      ctx.stroke();
+      ctx.strokeStyle = "#a6753b";
+      ctx.lineWidth = 0.65 * scale;
+      ctx.beginPath();
+      ctx.moveTo(plankX + 1.5 * scale, topY + lidHeight + 5 * scale);
+      ctx.lineTo(plankX + 1.5 * scale, y - 4 * scale);
+      ctx.stroke();
+    }
+
+    // Heavy lid: a beveled top plane, front fascia, and short end caps.
+    polygon([[x - halfWidth - 2 * scale, topY + 2 * scale], [x + halfWidth, topY], [x + halfWidth + depth + 2 * scale, topY + 3 * scale], [x - halfWidth + depth, topY + 6 * scale]]);
+    ctx.fillStyle = "#a66d2b";
+    ctx.fill();
+    ctx.strokeStyle = "#35200f";
+    ctx.lineWidth = 1.8 * scale;
+    ctx.stroke();
+
+    polygon([[x - halfWidth - 2 * scale, topY + 2 * scale], [x - halfWidth + depth, topY + 6 * scale], [x - halfWidth + depth, topY + lidHeight + 2 * scale], [x - halfWidth - 2 * scale, topY + lidHeight]]);
+    ctx.fillStyle = "#74451e";
+    ctx.fill();
+    ctx.stroke();
+
+    polygon([[x - halfWidth - 2 * scale, topY + lidHeight], [x - halfWidth + depth, topY + lidHeight + 4 * scale], [x + halfWidth + depth + 2 * scale, topY + lidHeight + scale], [x + halfWidth, topY + lidHeight - 2 * scale]]);
+    ctx.fillStyle = "#8a5423";
+    ctx.fill();
+    ctx.stroke();
+
+    // Iron bands wrap the front and right face; the central latch reads clearly at game scale.
+    ctx.strokeStyle = "#302c28";
+    ctx.lineWidth = 3.4 * scale;
+    for (const bandX of [x - halfWidth + 4 * scale, x + halfWidth - 4 * scale]) {
+      ctx.beginPath();
+      ctx.moveTo(bandX, topY + lidHeight);
+      ctx.lineTo(bandX, y);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = "#b19460";
+    ctx.lineWidth = 1.1 * scale;
+    for (const bandX of [x - halfWidth + 4 * scale, x + halfWidth - 4 * scale]) {
+      ctx.beginPath();
+      ctx.moveTo(bandX, topY + lidHeight + 2 * scale);
+      ctx.lineTo(bandX, y - scale);
+      ctx.stroke();
+    }
+
+    ctx.fillStyle = "#3c3325";
+    ctx.strokeStyle = "#c6a45f";
+    ctx.lineWidth = 1.5 * scale;
+    ctx.beginPath();
+    ctx.roundRect(x - 4 * scale, topY + lidHeight + 5 * scale, 8 * scale, 12 * scale, 1.5 * scale);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = "#e1c47b";
+    ctx.beginPath();
+    ctx.arc(x, topY + lidHeight + 9 * scale, 1.4 * scale, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#d2ad63";
+    ctx.lineWidth = 1.4 * scale;
+    ctx.beginPath();
+    ctx.moveTo(x, topY + lidHeight + 10.5 * scale);
+    ctx.lineTo(x, topY + lidHeight + 14 * scale);
+    ctx.stroke();
+
+    // A narrow gold-colored rim and corner studs finish the lid without a floating label.
+    ctx.strokeStyle = "#c4934c";
+    ctx.lineWidth = 1.2 * scale;
+    polygon([[x - halfWidth - scale, topY + 2.5 * scale], [x - halfWidth + depth, topY + 6.5 * scale], [x + halfWidth + depth + scale, topY + 3.5 * scale]]);
+    ctx.stroke();
+    ctx.fillStyle = "#d6b46d";
+    for (const studX of [x - halfWidth + 4 * scale, x + halfWidth - 4 * scale]) {
+      for (const studY of [topY + lidHeight + 4 * scale, y - 4 * scale]) {
+        ctx.beginPath();
+        ctx.arc(studX, studY, 1.15 * scale, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    ctx.restore();
   }
 }
 
@@ -6404,6 +7047,14 @@ interface MeleeTrailEffect {
   color: string;
 }
 
+interface SummonAttackEffect {
+  summon: Enemy;
+  target: Enemy;
+  time: number;
+  duration: number;
+  damage: number;
+}
+
 interface AttackProjectile {
   target?: Enemy;
   x: number;
@@ -6414,6 +7065,9 @@ interface AttackProjectile {
   targetY: number;
   targetId?: number;
   missileId?: string;
+  teethFan?: number;
+  teethDirectionX?: number;
+  teethDirectionY?: number;
   speed: number;
   damage: number;
   life: number;
@@ -6449,6 +7103,9 @@ interface Enemy {
   kind: EnemyKind;
   species: EnemySpecies;
   campaignBoss?: boolean;
+  summonType?: "skeleton" | "golem";
+  summonSkill?: string;
+  summonAttackCooldown?: number;
   spriteFrame: number;
   x: number;
   y: number;
