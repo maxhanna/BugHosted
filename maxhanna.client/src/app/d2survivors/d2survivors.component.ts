@@ -196,13 +196,13 @@ const ENEMY_SPRITE_LAYOUTS: Record<EnemySpecies, { columns: number; rows: number
 };
 
 const ENEMY_SPRITE_CELLS: Record<EnemySpecies, { width: number; height: number }> = {
-  fallen: { width: 146, height: 180 }, goatman: { width: 203, height: 180 }, skeleton: { width: 175, height: 180 },
-  sandRaider: { width: 114, height: 180 }, sandMaggot: { width: 172, height: 180 }, scarab: { width: 224, height: 180 },
+  fallen: { width: 89, height: 63 }, goatman: { width: 77, height: 100 }, skeleton: { width: 56, height: 78 },
+  sandRaider: { width: 114, height: 180 }, sandMaggot: { width: 172, height: 180 }, scarab: { width: 101, height: 100 },
   fetish: { width: 181, height: 180 }, fetishShaman: { width: 151, height: 180 }, council: { width: 214, height: 180 },
   balrog: { width: 290, height: 180 }, vileChild: { width: 195, height: 180 }, vileMother: { width: 273, height: 180 },
-  bloodLord: { width: 444, height: 180 }, minotaur: { width: 444, height: 180 }, deathMauler: { width: 215, height: 180 },
-  wendigo: { width: 438, height: 180 }, andariel: { width: 117, height: 180 }, duriel: { width: 174, height: 180 },
-  diablo: { width: 65, height: 180 }, baalsMinion: { width: 148, height: 180 },
+  bloodLord: { width: 444, height: 180 }, minotaur: { width: 77, height: 100 }, deathMauler: { width: 84, height: 100 },
+  wendigo: { width: 84, height: 100 }, andariel: { width: 240, height: 260 }, duriel: { width: 118, height: 182 },
+  diablo: { width: 83, height: 95 }, baalsMinion: { width: 115, height: 100 },
 };
 
 
@@ -370,7 +370,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private currentChunkLocalX = 0;
   private currentChunkLocalY = 0;
   private readonly worldZoom = 2.1;
-  private readonly floorTileScale = 2.35;
+  private readonly floorTileScale = 23.5;
   private readonly playerWorldScale = 1.8;
   private readonly chunkTileColumns = 12;
   private readonly chunkTileRows = 8;
@@ -989,7 +989,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   // Menu and mini-run state
   activeTab: "menu" | "lore" | "run" = "menu";
-  menuPanel: "main" | "lobby" | "characters" | "credits" = "main";
+  menuPanel: "main" | "lobby" | "characters" | "credits" | "shop" = "main";
   lobbyLeaderboard: D2LeaderboardEntry[] = [];
   lobbyMessages: D2LobbyMessage[] = [];
   lobbyMessageDraft = "";
@@ -1029,6 +1029,17 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   playerMana = 20;
   playerMaxMana = 20;
   playerGold = 0;
+  sanctuaryGold = 0;
+  sanctuaryBonuses = { maxLife: 0, attackDamage: 0 };
+  sanctuaryStash: D2InventoryItem[] = [];
+  private characterProfiles: Record<string, D2CharacterProfile> = {};
+  shopMessage = "";
+  readonly gheedsShopItems: Array<{ name: string; cost: number; desc: string; item: D2InventoryItem }> = [
+    { name: "Stalwart Cap", cost: 180, desc: "A sturdy helm that adds armor.", item: { id: "gheeds-stalwart-cap", name: "Stalwart Leather Cap", baseName: "Leather Cap", rarity: "magic", slot: "armor", equipmentType: "helmet", desc: "Gheed's trustworthy cap, reinforced with old leather.", stats: { armor: 20, requiresStrength: 10 }, affixes: ["+20 Defense"] } },
+    { name: "War Pike", cost: 260, desc: "A heavy reach weapon with a powerful opening strike.", item: { id: "gheeds-war-pike", name: "Savage War Pike", baseName: "War Pike", rarity: "magic", slot: "weapon", desc: "A long, heavy spear with excellent reach.", stats: { damageMin: 14, damageMax: 24, plusDamage: 5 }, affixes: ["14–24 Damage", "+5 Maximum Damage"] } },
+    { name: "Demonhide Sash", cost: 220, desc: "An exceptional belt with three potion rows.", item: { id: "gheeds-demonhide-sash", name: "Demonhide Sash", rarity: "normal", slot: "belt", beltQuality: "exceptional", desc: "An exceptional belt with room for three rows of potions.", stats: { armor: 8 } } },
+    { name: "Soulstone Ring", cost: 320, desc: "An equippable ring with a powerful damage bonus.", item: { id: "gheeds-soulstone-ring", name: "Soulstone Ring", rarity: "rare", slot: "charm", equipmentType: "ring", desc: "A dangerous fragment set in iron, humming with trapped power.", stats: { plusDamage: 8 }, affixes: ["+8 Maximum Damage"] } },
+  ];
   ownedSkills: string[] = [];
   skillLevels: Record<string, number> = {};
   private skillOfferSeed = 1;
@@ -1326,12 +1337,111 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       if (typeof save.selectedClass === "string" && CLASS_MODEL[save.selectedClass]) {
         this.selectedClass = save.selectedClass;
       }
-      if (!save.run || typeof save.run !== "object" || Array.isArray(save.run)) {
-        return;
+      const preferredClass = this.selectedClass;
+      const savedRun = isRecord(save.run) ? save.run : null;
+      const savedBonuses = isRecord(save.sanctuaryBonuses) ? save.sanctuaryBonuses : {};
+      const boundedInteger = (value: unknown, fallback: number, max: number): number =>
+        typeof value === "number" && Number.isFinite(value) ? Math.floor(Math.max(0, Math.min(max, value))) : fallback;
+        const legacyGold = boundedInteger(save.sanctuaryGold, boundedInteger(savedRun?.["playerGold"], 0, 1_000_000_000), 1_000_000_000);
+      this.sanctuaryGold = legacyGold;
+      this.characterProfiles = {};
+      if (isRecord(save.characterProfiles)) {
+        for (const [classId, profile] of Object.entries(save.characterProfiles)) {
+          if (CLASS_MODEL[classId]) {
+            const sanitized = sanitizeCharacterProfile(profile);
+            if (sanitized) this.characterProfiles[classId] = sanitized;
+          }
+        }
       }
-      this.restoreRunState(save.run as Partial<D2SavedRun>);
+      this.sanctuaryBonuses = {
+        maxLife: boundedInteger(savedBonuses["maxLife"], 0, 20),
+        attackDamage: boundedInteger(savedBonuses["attackDamage"], 0, 20),
+      };
+      this.sanctuaryStash = Array.isArray(save.sanctuaryStash)
+        ? save.sanctuaryStash.slice(0, 200).map((item) => sanitizeInventoryItem(item)).filter((item): item is D2InventoryItem => !!item)
+        : [];
+      if (savedRun && typeof save.run === "object" && !Array.isArray(save.run)) {
+        const legacyRun = save.run as Partial<D2SavedRun>;
+        this.restoreRunState(legacyRun);
+        const runClass = this.selectedClass;
+        if (this.characterProfiles[runClass]) this.loadCharacterProfile(runClass);
+        else this.saveCharacterProfile(runClass);
+        this.selectedClass = preferredClass;
+        this.hasSavedRun = true;
+        if (preferredClass !== runClass) {
+          this.loadCharacterProfile(preferredClass, 0);
+          this.runActive = false;
+        }
+      } else {
+        this.hasSavedRun = false;
+        this.runActive = false;
+        const hasProfile = this.loadCharacterProfile(preferredClass, legacyGold);
+        this.playerGold = this.sanctuaryGold;
+        if (!hasProfile && this.sanctuaryStash.length) {
+          const remainingStash: D2InventoryItem[] = [];
+          for (const item of this.sanctuaryStash) {
+            if (!this.addInventoryItem({ ...item, stats: item.stats ? { ...item.stats } : undefined })) remainingStash.push(item);
+          }
+          this.sanctuaryStash = remainingStash;
+          this.saveCharacterProfile(preferredClass);
+        }
+      }
+      this.persistRunProgress(true);
     } catch (error) {
       console.warn("Could not restore saved D2 Survivors progress", error);
+    }
+  }
+
+  private getSavedRunWithCharacterProfile(): D2SavedRun | null {
+    const saved = this.savedRun;
+    if (!saved || saved.selectedClass !== this.selectedClass) return saved;
+    const profile = this.characterProfiles[this.selectedClass];
+    return profile ? {
+      ...saved,
+      playerGold: profile.gold,
+      inventory: profile.inventory,
+      equipment: profile.equipment,
+      beltSlots: profile.beltSlots,
+      equippedBelt: profile.equipment.belt,
+    } : saved;
+  }
+
+  private loadCharacterProfile(classId: string, fallbackGold = 0): boolean {
+    const profile = this.characterProfiles[classId];
+    this.sanctuaryGold = Math.max(0, Math.min(1_000_000_000, Math.floor(profile?.gold ?? fallbackGold)));
+    this.playerGold = this.sanctuaryGold;
+    this.inventory = Array.from({ length: this.inventoryColumns * this.inventoryRows }, () => null);
+    this.equipment = createEmptyEquipment();
+    this.beltSlots = Array.from({ length: 16 }, (_, index) => ({ kind: profile?.beltSlots[index]?.kind ?? null }));
+    if (profile) {
+      for (let index = 0; index < Math.min(this.inventory.length, profile.inventory.length); index += 1) {
+        const item = profile.inventory[index];
+        if (item && this.canPlaceItemAt(item, index)) this.inventory[index] = item;
+      }
+      for (const slot of PAPERDOLL_SLOTS) {
+        const item = profile.equipment[slot];
+        if (item && isCompatibleWithEquipment(item, slot)) this.equipment[slot] = item;
+      }
+    }
+    this.normalizeBeltSlots();
+    this.rebuildInventoryGrid();
+    return !!profile;
+  }
+
+  private saveCharacterProfile(classId = this.selectedClass): void {
+    if (!CLASS_MODEL[classId]) return;
+    const equipment = createEmptyEquipment();
+    for (const slot of PAPERDOLL_SLOTS) {
+      const item = sanitizeInventoryItem(this.equipment[slot]);
+      if (item && isCompatibleWithEquipment(item, slot)) equipment[slot] = item;
+    }
+    if (classId === this.selectedClass) {
+      this.characterProfiles[classId] = {
+        gold: Math.max(0, Math.min(1_000_000_000, Math.floor(this.playerGold))),
+        inventory: this.inventory.slice(0, this.inventoryColumns * this.inventoryRows).map((item) => item ? sanitizeInventoryItem(item) : null),
+        equipment,
+        beltSlots: Array.from({ length: 16 }, (_, index) => ({ kind: this.beltSlots[index]?.kind ?? null })),
+      };
     }
   }
 
@@ -1375,7 +1485,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const savedHp = numberValue(saved.playerHp, savedMaxHp, 0, savedMaxHp);
     this.playerHp = savedMaxHp < this.playerMaxHp
       ? Math.max(1, Math.ceil(savedHp / savedMaxHp * this.playerMaxHp))
-      : savedHp;
+      : Math.min(this.playerMaxHp, savedHp);
     this.deathRecovery = saved.deathRecovery === true || this.playerHp <= 0;
     this.deathCount = Math.floor(numberValue(saved.deathCount, 0, 0, 1_000_000));
     this.playerMana = this.playerMaxMana;
@@ -1485,6 +1595,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const restoredInventory = Array.isArray(saved.inventory)
       ? saved.inventory.slice(0, this.inventoryColumns * this.inventoryRows).map((item) => sanitizeInventoryItem(item))
       : [];
+    if (!this.characterProfiles[savedClass]) {
+      const restoredItemIds = new Set([
+        ...restoredInventory.filter((item): item is D2InventoryItem => !!item).map((item) => item.id),
+        ...Object.values(this.equipment).filter((item): item is D2InventoryItem => !!item).map((item) => item.id),
+      ]);
+      this.sanctuaryStash = this.sanctuaryStash.filter((item) => !restoredItemIds.has(item.id));
+    }
     this.inventory = Array.from({ length: this.inventoryColumns * this.inventoryRows }, () => null);
     for (let oldIndex = 0; oldIndex < restoredInventory.length; oldIndex += 1) {
       const item = restoredInventory[oldIndex];
@@ -1507,7 +1624,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       return;
     }
     try {
-      const run: D2SavedRun | null = this.hasSavedRun ? {
+      this.saveCharacterProfile();
+      const run: D2SavedRun | null = this.runActive || this.activeTab === "run"
+        ? this.hasSavedRun ? {
         hasSavedRun: true,
         runId: this.lobbyRunId || createRunId(),
         selectedClass: this.runActive || this.activeTab === "run" ? this.selectedClass : this.savedRunClass,
@@ -1553,10 +1672,15 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         spawnAcc: this.spawnAcc,
         chestTimer: this.chestTimer,
         nextChestInterval: this.nextChestInterval,
-      } : null;
+      } : null
+        : this.hasSavedRun ? this.getSavedRunWithCharacterProfile() : null;
       const serialized = JSON.stringify({
         version: RUN_SAVE_VERSION,
         selectedClass: this.selectedClass,
+        sanctuaryGold: this.sanctuaryGold,
+        sanctuaryBonuses: this.sanctuaryBonuses,
+        sanctuaryStash: this.sanctuaryStash,
+        characterProfiles: this.characterProfiles,
         run,
       } satisfies D2SurvivorsSave);
       window.localStorage.setItem(RUN_SAVE_KEY, serialized);
@@ -1729,7 +1853,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (!this.hasSavedRun || this.runActive) {
       return;
     }
-    const savedRun = this.savedRun;
+    const savedRun = this.getSavedRunWithCharacterProfile();
     if (!savedRun) {
       this.hasSavedRun = false;
       return;
@@ -1910,11 +2034,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   openCharacterSelect(): void {
-    if (this.hasSavedRun) {
-      this.stopMenuHeroPreview();
-      this.resumeRun();
-      return;
-    }
     this.stopAmbientAudio();
     this.ambientAudioStatus = "Ambience muted";
     this.menuPanel = "characters";
@@ -1932,7 +2051,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (!CLASS_MODEL[classId]) {
       return;
     }
-    this.selectedClass = classId;
+    if (classId !== this.selectedClass) {
+      this.persistRunProgress(true);
+      this.selectedClass = classId;
+      this.loadCharacterProfile(classId, 0);
+      this.persistRunProgress(true);
+    }
     if (this.menuPanel === "characters") {
       this.previewAttackStyle = CLASS_ATTACK_ANIMATION[classId] ?? "amazonJab";
       this.previewAttackSide = this.previewAttackSide === -1 ? 1 : -1;
@@ -2658,6 +2782,132 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.inventoryStatus = "Belt unequipped.";
   }
 
+  get shopItemsForSale(): Array<{ item: D2InventoryItem; source: string; inventoryIndex?: number; equipmentSlot?: PaperdollSlot }> {
+    const items: Array<{ item: D2InventoryItem; source: string; inventoryIndex?: number; equipmentSlot?: PaperdollSlot }> = [];
+    const representedIds = new Set<string>();
+    this.inventory.forEach((item, inventoryIndex) => {
+      if (item) {
+        items.push({ item, source: "Pack", inventoryIndex });
+        representedIds.add(item.id);
+      }
+    });
+    for (const slot of PAPERDOLL_SLOTS) {
+      const item = this.equipment[slot];
+      if (item) {
+        items.push({ item, source: slot === "ringLeft" || slot === "ringRight" ? "Ring" : slot, equipmentSlot: slot });
+        representedIds.add(item.id);
+      }
+    }
+    for (const item of this.sanctuaryStash) {
+      if (!representedIds.has(item.id)) items.push({ item, source: "Stash" });
+    }
+    return items;
+  }
+
+  openGheedsShop(): void {
+    this.stopMenuHeroPreview();
+    this.shopMessage = "Gheed eyes your purse with a knowing grin.";
+    this.menuPanel = "shop";
+  }
+
+  openShopFromRun(): void {
+    this.persistRunProgress(true);
+    this.runActive = false;
+    if (this.rafId) {
+      cancelAnimationFrame(this.rafId);
+      this.rafId = 0;
+    }
+    this.activeTab = "menu";
+    this.openGheedsShop();
+  }
+
+  closeGheedsShop(): void {
+    this.menuPanel = "main";
+    this.startMenuHeroPreview();
+  }
+
+  buyGheedsItem(offer: (typeof this.gheedsShopItems)[number]): void {
+    if (!this.gheedsShopItems.includes(offer)) return;
+    if (this.sanctuaryGold < offer.cost) {
+      this.shopMessage = `You need ${offer.cost - this.sanctuaryGold} more gold for ${offer.name}.`;
+      return;
+    }
+    const item: D2InventoryItem = { ...offer.item, id: createRunId(), stats: offer.item.stats ? { ...offer.item.stats } : undefined };
+    if (!this.addInventoryItem(item)) {
+      this.shopMessage = "Your hero's pack is full. Make room before buying this item.";
+      return;
+    }
+    this.sanctuaryGold -= offer.cost;
+    this.playerGold = Math.max(0, this.playerGold - offer.cost);
+    this.shopMessage = `${item.name} purchased and added to ${this.selectedClassName}'s pack.`;
+    this.persistRunProgress(true);
+  }
+
+  getSanctuaryUpgradeCost(upgrade: "maxLife" | "attackDamage"): number {
+    return 250 + this.sanctuaryBonuses[upgrade] * 175;
+  }
+
+  get canCollectShopItem(): boolean {
+    return this.sanctuaryStash.length > 0;
+  }
+
+  takeItemFromSanctuaryStash(item: D2InventoryItem): void {
+    if (!this.sanctuaryStash.some((owned) => owned.id === item.id)) return;
+    const packItem = { ...item, stats: item.stats ? { ...item.stats } : undefined };
+    if (!this.addInventoryItem(packItem)) {
+      this.shopMessage = "Your hero's pack is full. Make room before collecting this stash item.";
+      return;
+    }
+    this.sanctuaryStash = this.sanctuaryStash.filter((owned) => owned.id !== item.id);
+    this.shopMessage = `${item.name} moved into your hero's pack.`;
+    this.persistRunProgress(true);
+  }
+
+  buySanctuaryUpgrade(upgrade: "maxLife" | "attackDamage"): void {
+    if (upgrade !== "maxLife" && upgrade !== "attackDamage") return;
+    const level = this.sanctuaryBonuses[upgrade];
+    const maxLevel = 20;
+    if (level >= maxLevel) {
+      this.shopMessage = "Gheed has no further improvement to offer.";
+      return;
+    }
+    const cost = this.getSanctuaryUpgradeCost(upgrade);
+    if (this.sanctuaryGold < cost) {
+      this.shopMessage = `You need ${cost - this.sanctuaryGold} more gold.`;
+      return;
+    }
+    this.sanctuaryGold -= cost;
+    this.playerGold = Math.max(0, this.playerGold - cost);
+    this.sanctuaryBonuses[upgrade] += 1;
+    const bonus = upgrade === "maxLife" ? "+50 starting life" : "+2 starting attack damage";
+    this.shopMessage = `${bonus} permanently acquired · rank ${this.sanctuaryBonuses[upgrade]}/${maxLevel}.`;
+    this.persistRunProgress(true);
+  }
+
+  sellShopItem(entry: { item: D2InventoryItem; source: string; inventoryIndex?: number; equipmentSlot?: PaperdollSlot }): void {
+    const { item } = entry;
+    if (entry.source === "Stash" && !this.sanctuaryStash.some((owned) => owned.id === item.id)) return;
+    if (entry.inventoryIndex !== undefined && this.inventory[entry.inventoryIndex]?.id !== item.id) return;
+    if (entry.equipmentSlot && this.equipment[entry.equipmentSlot]?.id !== item.id) return;
+    if (entry.equipmentSlot === "belt" && this.beltSlots.some((potion) => potion.kind !== null)) {
+      this.shopMessage = "Use or move all belt potions before selling this belt.";
+      return;
+    }
+    this.sanctuaryStash = this.sanctuaryStash.filter((owned) => owned.id !== item.id);
+    if (entry.inventoryIndex !== undefined) this.inventory[entry.inventoryIndex] = null;
+    if (entry.equipmentSlot) {
+      this.equipment[entry.equipmentSlot] = null;
+      if (entry.equipmentSlot === "weapon" && this.characterModel) this.configureClassMeleeWeapon(this.characterModel, this.selectedClass);
+      this.normalizeBeltSlots();
+    }
+    const value = this.getItemSellValue(item);
+    this.sanctuaryGold = Math.min(1_000_000_000, this.sanctuaryGold + value);
+    this.playerGold = Math.min(1_000_000_000, this.playerGold + value);
+    this.rebuildInventoryGrid();
+    this.shopMessage = `${item.name} sold to Gheed for ${value} gold.`;
+    this.persistRunProgress(true);
+  }
+
   private randomItem(): D2InventoryItem {
     const bases: Array<Pick<D2InventoryItem, "name" | "slot" | "stats" | "desc"> & { equipmentType?: EquipmentType; beltQuality?: BeltQuality }> = [
       { name: "Sash", slot: "belt", beltQuality: "normal", stats: { armor: 2 }, desc: "A simple sash that holds two rows of potions." },
@@ -2809,6 +3059,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       return;
     }
     if (this.escapeMenuOpen || this.inventoryOpen || this.skillTreeOpen || this.pendingLevelUps > 0) return;
+    if (["1", "2", "3", "4"].includes(key)) {
+      event.preventDefault();
+      this.drinkBeltRow(Number(key) - 1);
+      return;
+    }
     if (["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(key)) {
       event.preventDefault();
       this.keysDown.add(key);
@@ -2820,6 +3075,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       return;
     }
     if (key === "p") this.drinkBeltPotion(this.activeBottleSlot);
+  }
+
+  drinkBeltRow(rowIndex: number): void {
+    if (rowIndex < 0 || rowIndex >= this.beltRows) return;
+    const firstSlot = rowIndex * 4;
+    const slotIndex = this.beltSlots.findIndex((slot, index) => index >= firstSlot && index < firstSlot + 4 && slot.kind !== null);
+    if (slotIndex >= 0) this.drinkBeltPotion(slotIndex);
   }
 
   drinkBeltPotion(slotIndex: number): void {
@@ -2912,6 +3174,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       return;
     }
     if (this.escapeMenuOpen || this.inventoryOpen || this.skillTreeOpen || this.pendingLevelUps > 0) return;
+    if (["1", "2", "3", "4"].includes(key)) {
+      event.preventDefault();
+      this.drinkBeltRow(Number(key) - 1);
+      return;
+    }
     if (["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(key)) {
       event.preventDefault();
       this.keysDown.add(key);
@@ -3040,7 +3307,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const permitted = this.selectedClass === "amazon"
       ? weaponName.includes("pike") || weaponName.includes("spear") || weaponName.includes("javelin")
       : this.selectedClass === "sorceress" ? weaponName.includes("staff") : true;
-    return permitted && item ? Math.floor(((item.stats?.damageMin ?? 0) + (item.stats?.damageMax ?? 0)) / 2) : 0;
+    const damageBonus = Object.values(this.equipment).reduce((total, equipped) => total + (equipped?.stats?.plusDamage ?? 0), 0);
+    return (permitted && item ? Math.floor(((item.stats?.damageMin ?? 0) + (item.stats?.damageMax ?? 0)) / 2) : 0) + damageBonus;
+  }
+
+  get equippedArmor(): number {
+    return Object.values(this.equipment).reduce((total, item) => total + (item?.stats?.armor ?? 0), 0);
   }
 
   get basicAttackIcon(): string {
@@ -3185,6 +3457,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (skillEffects && (skillEffects.width !== width || skillEffects.height !== height)) {
       skillEffects.width = width;
       skillEffects.height = height;
+      skillEffects.getContext("2d", { alpha: true });
     }
     if (this.characterCamera && rect.width > 0 && rect.height > 0) {
       const halfHeight = 250;
@@ -3641,11 +3914,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   startRun(): void {
+    this.hasSavedRun = true;
+    this.runActive = false;
+    this.persistRunProgress(true);
     this.deathRecovery = false;
     this.deathCount = 0;
     this.lobbyRunId = createRunId();
     this.runKillCount = 0;
-    this.hasSavedRun = true;
     this.stopMenuHeroPreview();
     this.runActive = false;
     this.saveStatus = "";
@@ -3653,7 +3928,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.stopAmbientAudio();
     this.ambientAudioStatus = "Ambience muted";
     this.runActive = false;
-    this.activeTab = "run";        this.menuPanel = "main";
+    this.activeTab = "run";
+    this.menuPanel = "main";
     this.currentAct = 1;
     this.actTime = 0;
     this.actTransitionReady = false;
@@ -3666,11 +3942,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.playerX = this.arenaW / 2;
     this.playerY = this.arenaH / 2;
     const startingStats = this.classStartingStats[this.selectedClass] ?? this.classStartingStats["amazon"];
-    this.playerMaxHp = Math.max(400, startingStats.life);
+    this.playerMaxHp = Math.max(400, startingStats.life) + this.sanctuaryBonuses.maxLife * 50;
     this.playerMaxMana = startingStats.mana;
     this.playerHp = this.playerMaxHp;
     this.playerMana = this.playerMaxMana;
-    this.playerGold = 0;
+    this.playerGold = this.sanctuaryGold;
     const basicAttack = this.basicAttackForClass(this.selectedClass);
     this.playerLevel = 1;
     this.playerXp = 0;
@@ -3679,7 +3955,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.xpToNextLevel = this.xpForLevel(1);
     this.basicAttackName = basicAttack.name;
     this.basicAttackCooldown = basicAttack.cooldown;
-    this.basicAttackDamage = basicAttack.damage;
+    this.basicAttackDamage = basicAttack.damage + this.sanctuaryBonuses.attackDamage * 2;
     this.attackCooldown = 0;
     this.attackSequence = 0;
     this.attackProjectiles = [];
@@ -3698,14 +3974,17 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.potionDrops = [];
     this.goldDrops = [];
     this.floatingTexts = [];
-    this.beltSlots = Array.from({ length: 16 }, () => ({ kind: null }));
-    this.equipment = createEmptyEquipment();
-    this.activeBottleSlot = 0;
+    this.activeBottleSlot = Math.min(this.activeBottleSlot, this.beltRows * 4 - 1);
     this.escapeMenuOpen = false;
     this.inventoryOpen = false;
     this.skillTreeOpen = false;
     this.combatOrbsTime = 0;
-    this.inventory = [];
+    this.rebuildInventoryGrid();
+    const transferredStashIds = new Set<string>();
+    for (const item of this.sanctuaryStash) {
+      if (this.addInventoryItem({ ...item, stats: item.stats ? { ...item.stats } : undefined })) transferredStashIds.add(item.id);
+    }
+    this.sanctuaryStash = this.sanctuaryStash.filter((item) => !transferredStashIds.has(item.id));
     this.rebuildInventoryGrid();
     this.selectedItem = null;
     this.selectedSlotIndex = null;
@@ -3880,7 +4159,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       enemy.y += (dy / distance) * speed;
       if (enemy.cd !== undefined) enemy.cd = Math.max(0, enemy.cd - dt / 1000);
       if (distance < enemy.r + 18 && (enemy.cd === undefined || enemy.cd <= 0)) {
-        this.playerHp -= enemy.dmg;
+        const armorReduction = this.equippedArmor / (this.equippedArmor + 100);
+        this.playerHp -= Math.max(1, enemy.dmg * (1 - armorReduction));
         enemy.cd = enemy.kind === "boss" ? 1.1 : enemy.kind === "champion" ? 0.9 : 0.8;
       }
     }
@@ -3935,16 +4215,20 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   updateGoldDrops(dt: number): void {
+    let collectedGold = false;
     for (const drop of this.goldDrops) {
       drop.bob += dt / 1000;
       drop.life -= dt / 1000;
       drop.pickupDelay = Math.max(0, drop.pickupDelay - dt / 1000);
       if (drop.pickupDelay > 0 || Math.hypot(this.playerX - drop.x, this.playerY - drop.y) >= 34) continue;
       this.playerGold = Math.min(1_000_000_000, this.playerGold + drop.amount);
+      this.sanctuaryGold = Math.min(1_000_000_000, this.sanctuaryGold + drop.amount);
       drop.life = 0;
+      collectedGold = true;
       this.floatingTexts.push({ x: drop.x, y: drop.y - 20, text: `+${drop.amount} gold`, color: "#ffd45e", life: 1.4 });
     }
     this.goldDrops = this.goldDrops.filter((drop) => drop.life > 0);
+    if (collectedGold) this.persistRunProgress(true);
   }
 
   private addSkillVisualEffect(skillName: string, target?: Enemy): void {
@@ -4018,7 +4302,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   private drawSkillVisualEffects(): void {
     const canvas = this.skillEffectsCanvasRef?.nativeElement;
-    const ctx = canvas?.getContext("2d");
+    const ctx = canvas?.getContext("2d", { alpha: true });
     if (!canvas || !ctx) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     for (const effect of this.skillVisualEffects) this.drawSkillVisualEffect(ctx, effect);
@@ -4455,7 +4739,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const item = anchor >= 0 ? this.inventory[anchor] : null;
     if (!item) return;
     const type = getEquipmentType(item);
-    if (type === "weapon" || ["helmet", "body", "shield", "gloves", "boots"].includes(type)) {
+    if (type === "belt") {
+      this.equipBeltFromInventory(anchor);
+    } else if (type === "weapon" || ["helmet", "body", "shield", "gloves", "boots"].includes(type)) {
       this.equipSelectedItem(anchor);
     } else {
       this.selectInventoryItem(anchor, item);
@@ -4481,6 +4767,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   sellInventoryItem(slotIndex: number): void {
+    if (!this.runActive || this.activeTab !== "run") return;
     const anchor = this.getItemAnchorAt(slotIndex);
     if (anchor < 0) return;
     const item = this.inventory[anchor];
@@ -4488,6 +4775,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const value = this.getItemSellValue(item);
     this.inventory[anchor] = null;
     this.playerGold = Math.min(1_000_000_000, this.playerGold + value);
+    this.sanctuaryGold = this.playerGold;
+    this.sanctuaryStash = this.sanctuaryStash.filter((owned) => owned.id !== item.id);
     this.rebuildInventoryGrid();
     if (this.selectedItem?.id === item.id) {
       this.selectedItem = null;
@@ -4499,6 +4788,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   sellEquippedItem(slot: PaperdollSlot): void {
+    if (!this.runActive || this.activeTab !== "run") return;
     const item = this.equipment[slot];
     if (!item) return;
     if (slot === "belt" && this.beltSlots.slice(4).some((potion) => potion.kind !== null)) {
@@ -4510,6 +4800,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (slot === "weapon" && this.characterModel) this.configureClassMeleeWeapon(this.characterModel, this.selectedClass);
     this.normalizeBeltSlots();
     this.playerGold = Math.min(1_000_000_000, this.playerGold + value);
+    this.sanctuaryGold = this.playerGold;
+    this.sanctuaryStash = this.sanctuaryStash.filter((owned) => owned.id !== item.id);
     this.rebuildInventoryGrid();
     this.selectedItem = null;
     this.selectedSlotIndex = null;
@@ -4791,6 +5083,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         life: 3,
       });
     }
+    this.persistRunProgress(true);
   }
 
   private spawnPotionDrops(x: number, y: number): void {
@@ -4853,17 +5146,25 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.deathCount += 1;
       this.potionDrops = [];
       this.goldDrops = [];
-      this.playerHp = 0;
-      this.hasSavedRun = this.deathRecovery;
-    } else {
-      this.deathRecovery = false;
-      this.hasSavedRun = false;
-    }
-    this.persistRunProgress(true);
+    this.playerHp = 0;
+    this.hasSavedRun = true;  } else {
+    this.deathRecovery = false;
+    this.hasSavedRun = true;
+  }
+  this.persistRunProgress(true);
     if (victory || !this.deathRecovery) void this.recordCompletedCharacter(victory);
     if (this.rafId) {
       cancelAnimationFrame(this.rafId);
       this.rafId = 0;
+    }
+    if (!victory && !this.deathRecovery) {
+      this.activeTab = "menu";
+      this.menuPanel = "main";
+      this.escapeMenuOpen = false;
+      this.inventoryOpen = false;
+      this.skillTreeOpen = false;
+      this.stopAmbientAudio();
+      this.startMenuHeroPreview();
     }
   }
 
@@ -4926,14 +5227,16 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
     const act = this.currentActDetails;
     const tileWorldSize = 48;
-    const tileScreenSize = tileWorldSize * this.worldZoom * this.floorTileScale;
+    const tileWorldScale = this.worldZoom * this.floorTileScale;
+    const tileSpacingScale = this.floorTileScale;
+    const tileScreenSize = tileWorldSize * tileWorldScale;
     const tileWidth = tileScreenSize * Math.SQRT2;
     const tileHeight = tileScreenSize / Math.SQRT2;
     const tiles = this.campaignTileBitmaps[act.act] ?? [];
     const baseTile = tiles[Math.max(0, Math.min(15, act.baseFloorVariant))];
     const groundColor = this.getTileCenterColor(baseTile);
-    const reach = canvas.width / (4 * 0.7071 * this.worldZoom) / this.floorTileScale
-      + canvas.height / (4 * 0.35355 * this.worldZoom) / this.floorTileScale
+    const reach = canvas.width / (4 * 0.7071 * this.worldZoom * tileSpacingScale)
+      + canvas.height / (4 * 0.35355 * this.worldZoom * tileSpacingScale)
       + tileWorldSize;
     const minColumn = Math.floor((this.currentChunkLocalX - reach) / tileWorldSize);
     const maxColumn = Math.ceil((this.currentChunkLocalX + reach) / tileWorldSize);
@@ -4947,8 +5250,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       for (let column = minColumn; column <= maxColumn; column += 1) {
         const worldTileX = this.currentChunkCoordX * this.chunkTileColumns + column;
         const worldTileY = this.currentChunkCoordY * this.chunkTileRows + row;
-        const relativeX = (column * tileWorldSize + tileWorldSize / 2 - this.currentChunkLocalX) * this.floorTileScale;
-        const relativeY = (row * tileWorldSize + tileWorldSize / 2 - this.currentChunkLocalY) * this.floorTileScale;
+        const relativeX = (column * tileWorldSize + tileWorldSize / 2 - this.currentChunkLocalX) * tileSpacingScale;
+        const relativeY = (row * tileWorldSize + tileWorldSize / 2 - this.currentChunkLocalY) * tileSpacingScale;
         const point = this.projectArenaPoint(this.arenaW / 2 + relativeX, this.arenaH / 2 + relativeY);
         const variant = this.connectedTileVariant(act.act, worldTileX, worldTileY, tiles.length);
         const image = tiles[variant] ?? baseTile;
@@ -4982,16 +5285,21 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const tile = 48;
       const first = this.projectArenaPoint(0, 0);
       const last = this.projectArenaPoint(this.arenaW, this.arenaH);
-      const halfW = tile * 0.7071 * this.worldZoom;
-      const halfH = tile * 0.35355 * this.worldZoom;
+      const halfW = tile * 0.7071 * tileWorldScale;
+      const halfH = tile * 0.35355 * tileWorldScale;
       ctx.save();
-      for (let row = -2; row <= Math.ceil(this.arenaH / tile) + 2; row += 1) {
-        for (let column = -2; column <= Math.ceil(this.arenaW / tile) + 2; column += 1) {
+      const fallbackReach = canvas.width / (4 * 0.7071 * this.worldZoom * tileSpacingScale)
+        + canvas.height / (4 * 0.35355 * this.worldZoom * tileSpacingScale)
+        + tile;
+      const minTile = -Math.ceil(fallbackReach / tile);
+      const maxTile = Math.ceil(fallbackReach / tile);
+      for (let row = minTile; row <= maxTile; row += 1) {
+        for (let column = minTile; column <= maxTile; column += 1) {
         const worldX = column * tile;
         const worldY = row * tile;
         const point = this.projectArenaPoint(
-          this.arenaW / 2 + (worldX - this.currentChunkLocalX) * this.floorTileScale,
-          this.arenaH / 2 + (worldY - this.currentChunkLocalY) * this.floorTileScale,
+          this.arenaW / 2 + (worldX - this.currentChunkLocalX) * tileSpacingScale,
+          this.arenaH / 2 + (worldY - this.currentChunkLocalY) * tileSpacingScale,
         );
         ctx.fillStyle = (column + row) % 2 === 0 ? "#17191f" : "#12141a";
         ctx.beginPath();
@@ -5780,7 +6088,18 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 interface D2SurvivorsSave {
   version: number;
   selectedClass: string;
+  sanctuaryGold?: number;
+  sanctuaryBonuses?: { maxLife?: number; attackDamage?: number };
+  sanctuaryStash?: unknown[];
+  characterProfiles?: Record<string, unknown>;
   run: D2SavedRun | null;
+}
+
+interface D2CharacterProfile {
+  gold: number;
+  inventory: Array<D2InventoryItem | null>;
+  equipment: Record<PaperdollSlot, D2InventoryItem | null>;
+  beltSlots: Array<{ kind: "health" | "rejuvenation" | null }>;
 }
 
 interface D2SavedRun {
@@ -5833,6 +6152,29 @@ interface D2SavedRun {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function sanitizeCharacterProfile(value: unknown): D2CharacterProfile | null {
+  if (!isRecord(value)) return null;
+  const gold = typeof value["gold"] === "number" && Number.isFinite(value["gold"])
+    ? Math.floor(Math.max(0, Math.min(1_000_000_000, value["gold"])))
+    : 0;
+  const inventory = Array.isArray(value["inventory"])
+    ? value["inventory"].slice(0, 40).map((item) => sanitizeInventoryItem(item))
+    : [];
+  const equipment = createEmptyEquipment();
+  if (isRecord(value["equipment"])) {
+    for (const slot of PAPERDOLL_SLOTS) {
+      const item = sanitizeInventoryItem(value["equipment"][slot]);
+      if (item && isCompatibleWithEquipment(item, slot)) equipment[slot] = item;
+    }
+  }
+  const beltSlots: D2CharacterProfile["beltSlots"] = Array.from({ length: 16 }, (_, index) => {
+    const slot = Array.isArray(value["beltSlots"]) ? value["beltSlots"][index] : undefined;
+    const kind: "health" | "rejuvenation" | null = isRecord(slot) && (slot["kind"] === "health" || slot["kind"] === "rejuvenation") ? slot["kind"] : null;
+    return { kind };
+  });
+  return { gold, inventory, equipment, beltSlots };
 }
 
 function sanitizeInventoryItem(value: unknown): D2InventoryItem | null {

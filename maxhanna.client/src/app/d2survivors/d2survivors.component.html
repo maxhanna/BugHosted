@@ -31,6 +31,9 @@
           <button type="button" class="d2s-menu-button primary" *ngIf="!hasSavedRun" (click)="openLobby()">
             <span>Battle.net</span><small>Enter the Sanctuary lobby · all-time heroes and world chat</small>
           </button>
+          <button type="button" class="d2s-menu-button" (click)="openGheedsShop()">
+            <span>Gheed's Shop</span><small>Trade gold for lasting power and gear</small>
+          </button>
           <button type="button" class="d2s-menu-button" (click)="openLore()">
             <span>Lore &amp; Skills</span><small>Classes, abilities, and the world</small>
           </button>
@@ -107,6 +110,41 @@
             <div class="d2s-preview-error" *ngIf="previewLoadError">Hero preview unavailable</div>
             <div class="d2s-preview-plaque"><span class="d2s-class-gem large" [attr.data-initial]="selectedClassName.charAt(0)"></span><div><small>CHOSEN HERO</small><strong>{{ selectedClassName }}</strong><span>{{ selectedClassStats.title }}</span></div></div>
           </div>
+        </section>
+
+        <section class="d2s-menu-subpanel d2s-gheeds-shop" *ngIf="menuPanel === 'shop'">
+          <div class="d2s-panel-heading"><button type="button" class="d2s-back-button" (click)="closeGheedsShop()">‹ Main menu</button><span>Gheed's Shop</span><strong class="d2s-shop-wallet">✦ {{ sanctuaryGold | number:'1.0-0' }} GOLD</strong><small *ngIf="hasSavedRun">Saved pack {{ playerGold | number:'1.0-0' }} G</small></div>
+          <p class="d2s-shop-intro">“Heh. The price is the price. Unless you have something worth my time.” — Gheed</p>
+          <div class="d2s-shop-columns">
+            <section class="d2s-shop-section" aria-labelledby="d2s-shop-stock-title">
+              <div class="d2s-shop-section-heading"><h2 id="d2s-shop-stock-title">Goods &amp; services</h2><small>PERMANENT UPGRADES · GEAR GOES TO PACK OR STASH</small></div>
+              <div class="d2s-shop-stock">
+                <article class="d2s-shop-offer" *ngFor="let offer of gheedsShopItems">
+                  <span class="d2s-shop-offer-icon" aria-hidden="true">{{ equipmentItemIcon(offer.item) }}</span>
+                  <div><strong>{{ offer.name }}</strong><small>{{ offer.desc }}</small><span>{{ getItemStatText(offer.item).join(' · ') }}</span></div>
+                  <button type="button" [disabled]="sanctuaryGold < offer.cost" (click)="buyGheedsItem(offer)">✦ {{ offer.cost }}</button>
+                </article>
+              </div>
+              <div class="d2s-shop-upgrades">
+                <article><div><strong>Vitality Training</strong><small>Start every new run with +50 maximum life · rank {{ sanctuaryBonuses.maxLife }}/20</small></div><button type="button" [disabled]="sanctuaryBonuses.maxLife >= 20 || sanctuaryGold < getSanctuaryUpgradeCost('maxLife')" (click)="buySanctuaryUpgrade('maxLife')">{{ sanctuaryBonuses.maxLife >= 20 ? 'MAX' : '✦ ' + getSanctuaryUpgradeCost('maxLife') }}</button></article>
+                <article><div><strong>Weapon Drills</strong><small>Start every new run with +2 attack damage · rank {{ sanctuaryBonuses.attackDamage }}/20</small></div><button type="button" [disabled]="sanctuaryBonuses.attackDamage >= 20 || sanctuaryGold < getSanctuaryUpgradeCost('attackDamage')" (click)="buySanctuaryUpgrade('attackDamage')">{{ sanctuaryBonuses.attackDamage >= 20 ? 'MAX' : '✦ ' + getSanctuaryUpgradeCost('attackDamage') }}</button></article>
+              </div>
+            </section>
+            <section class="d2s-shop-section d2s-shop-sell" aria-labelledby="d2s-shop-sell-title">
+              <div class="d2s-shop-section-heading"><h2 id="d2s-shop-sell-title">Sell to Gheed</h2><small>{{ shopItemsForSale.length }} ITEMS</small></div>
+              <p class="d2s-shop-lock-hint">Purchases, sales, gold, and equipped gear belong to {{ selectedClassName }}. Each class keeps its own pack.</p>
+              <div class="d2s-shop-sell-list" *ngIf="shopItemsForSale.length; else shopEmpty">
+                <article class="d2s-shop-offer" *ngFor="let entry of shopItemsForSale">
+                  <span class="d2s-shop-offer-icon" aria-hidden="true">{{ equipmentItemIcon(entry.item) }}</span>
+                  <div><strong>{{ entry.item.name }}</strong><small>{{ entry.source }} · {{ entry.item.rarity }}</small><span>{{ getItemStatText(entry.item).join(' · ') }}</span></div>
+                  <button type="button" *ngIf="entry.source === 'Stash'" (click)="takeItemFromSanctuaryStash(entry.item)">Collect</button>
+                  <button type="button" [disabled]="entry.source !== 'Stash' && !hasSavedRun" [title]="entry.source !== 'Stash' && !hasSavedRun ? 'Start a journey before selling this gear' : ''" (click)="sellShopItem(entry)">Sell · ✦ {{ getItemSellValue(entry.item) }}</button>
+                </article>
+              </div>
+              <ng-template #shopEmpty><div class="d2s-shop-empty">{{ selectedClassName }}'s pack is empty. Gear found on a journey will appear here.</div></ng-template>
+            </section>
+          </div>
+          <p class="d2s-shop-message" role="status" aria-live="polite">{{ shopMessage }}</p>
         </section>
 
         <section class="d2s-menu-subpanel d2s-credits-panel" *ngIf="menuPanel === 'credits'">
@@ -329,7 +367,10 @@
           <p class="d2s-equipped-belt">Belt: <strong>{{ equippedBelt?.name || 'Empty' }}</strong> · {{ beltRows }} potion row{{ beltRows === 1 ? '' : 's' }}</p>
         </section>
         <section class="d2s-bag" aria-label="Inventory backpack">
-          <h3 class="d2s-inventory-heading">Inventory</h3>
+          <div class="d2s-bag-heading">
+            <h3 class="d2s-inventory-heading">Inventory</h3>
+            <p class="d2s-inventory-gold" aria-label="Gold carried"><span aria-hidden="true">✦</span> {{ playerGold | number:'1.0-0' }} <small>GOLD</small></p>
+          </div>
           <div class="d2s-inv" role="grid" aria-label="10 by 4 inventory grid" [style.--inventory-columns]="inventoryColumns" [style.--inventory-rows]="inventoryRows">
         <div
           class="d2s-inv-slot"

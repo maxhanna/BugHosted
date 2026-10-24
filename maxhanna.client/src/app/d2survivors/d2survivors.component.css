@@ -380,7 +380,9 @@
   position: relative;
   z-index: 1;
   width: min(100%, 1040px);
-  overflow: hidden;
+  max-height: calc(100svh - 48px);
+  overflow-x: hidden;
+  overflow-y: auto;
   border: 2px ridge #796342;
   background: linear-gradient(135deg, #171415ed, #0a0a0ceF 48%, #18110fed);
   box-shadow: 0 0 0 6px #0a0a0b, 0 0 0 8px #3b3022, 0 20px 70px #000;
@@ -524,6 +526,39 @@
   padding: 12px clamp(14px, 2.5vw, 30px) 16px;
 }
 
+.d2s-menu-content.subpanel-open:has(.d2s-gheeds-shop) {
+  padding: 12px clamp(14px, 2.5vw, 30px) 16px;
+}
+
+.d2s-gheeds-shop { width: 100%; min-width: 0; gap: 10px; }
+.d2s-gheeds-shop > .d2s-panel-heading { gap: 12px; font-size: 17px; }
+.d2s-shop-wallet { margin-left: auto; color: #f1cf80; font: 12px ui-monospace, monospace; white-space: nowrap; }
+.d2s-gheeds-shop > .d2s-panel-heading > small { color: #a99572; font: 10px ui-monospace, monospace; white-space: nowrap; }
+.d2s-shop-intro { margin: 0; color: #a99572; text-align: center; font: italic 12px Georgia, serif; }
+.d2s-shop-columns { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(260px, .8fr); gap: 12px; min-height: 325px; }
+.d2s-shop-section { display: flex; flex-direction: column; min-width: 0; padding: 11px; border: 1px solid #57452e; background: linear-gradient(150deg, #151214ed, #09090cf5); box-shadow: inset 0 0 0 2px #090809, 0 5px 14px #0009; }
+.d2s-shop-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-bottom: 8px; border-bottom: 1px solid #4b3925; }
+.d2s-shop-section-heading h2 { margin: 0; color: #e0c99b; font: 17px Georgia, serif; }
+.d2s-shop-section-heading small { color: #98764d; font: 8px Georgia, serif; letter-spacing: .1em; text-align: right; }
+.d2s-shop-stock, .d2s-shop-sell-list { display: grid; gap: 5px; max-height: 235px; overflow-y: auto; padding: 7px 2px; scrollbar-color: #655034 #100e0e; scrollbar-width: thin; }
+.d2s-shop-sell-list .d2s-shop-offer { grid-template-columns: 30px minmax(0, 1fr) auto auto; }
+.d2s-shop-offer { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 54px; padding: 6px; border: 1px solid #32291f; background: linear-gradient(90deg, #171515, #100f11); }
+.d2s-shop-offer-icon { display: grid; width: 28px; height: 34px; place-items: center; color: #d4b874; border: 1px solid #5d4b31; background: radial-gradient(ellipse, #40301d, #100d0c); font-size: 17px; }
+.d2s-shop-offer > div { display: grid; min-width: 0; gap: 2px; }
+.d2s-shop-offer strong { overflow: hidden; color: #e5d09d; text-overflow: ellipsis; white-space: nowrap; font: 12px Georgia, serif; }
+.d2s-shop-offer small { overflow: hidden; color: #988970; text-overflow: ellipsis; white-space: nowrap; font: 9px Georgia, serif; }
+.d2s-shop-offer > div > span { overflow: hidden; color: #b7a276; text-overflow: ellipsis; white-space: nowrap; font: 9px Georgia, serif; }
+.d2s-shop-offer > button, .d2s-shop-upgrades button { padding: 6px 8px; color: #f0d7a2; border: 1px solid #80643c; background: linear-gradient(#49351e, #1c140f); cursor: pointer; font: 10px ui-monospace, monospace; white-space: nowrap; }
+.d2s-shop-offer > button:disabled, .d2s-shop-upgrades button:disabled { opacity: .48; cursor: default; }
+.d2s-shop-upgrades { display: grid; gap: 5px; margin-top: auto; padding-top: 6px; }
+.d2s-shop-upgrades article { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px; border: 1px solid #493a27; background: #100e0d; }
+.d2s-shop-upgrades article > div { display: grid; gap: 3px; }
+.d2s-shop-upgrades strong { color: #ddc38b; font: 11px Georgia, serif; }
+.d2s-shop-upgrades small { color: #8c7a5e; font: 9px Georgia, serif; }
+.d2s-shop-empty { display: grid; flex: 1; place-items: center; padding: 20px; color: #8d8068; text-align: center; font: italic 12px/1.5 Georgia, serif; }
+.d2s-shop-lock-hint { margin: 6px 0 0; color: #b49a6b; text-align: center; font: 10px Georgia, serif; }
+.d2s-shop-message { min-height: 15px; margin: 0; color: #d4b777; text-align: center; font: 11px Georgia, serif; }
+
 .d2s-lobby { width: 100%; min-width: 0; gap: 10px; }
 .d2s-lobby > .d2s-panel-heading { gap: 10px; font-size: 16px; }
 .d2s-lobby-panels { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(270px, 0.8fr); gap: 12px; min-height: 350px; }
@@ -580,6 +615,14 @@
 .d2s-lobby-footer button { padding: 5px 9px; border: 1px solid #8b6c3f; background: #24180f; color: #e1c17e; cursor: pointer; font: 9px Georgia, serif; letter-spacing: .08em; }
 
 @media (max-width: 740px) {
+  .d2s-shop-columns { grid-template-columns: 1fr; }
+  .d2s-shop-sell { min-height: 200px; }
+  .d2s-gheeds-shop > .d2s-panel-heading { flex-wrap: wrap; justify-content: center; }
+  .d2s-shop-wallet { margin-left: 0; }
+  .d2s-shop-section-heading small { font-size: 7px; }
+  .d2s-shop-sell-list .d2s-shop-offer { grid-template-columns: 26px minmax(0, 1fr) auto; }
+  .d2s-shop-sell-list .d2s-shop-offer > button { grid-column: 3; }
+  .d2s-shop-sell-list .d2s-shop-offer > button:nth-of-type(2) { grid-column: 2 / -1; justify-self: end; }
   .d2s-lobby-panels { grid-template-columns: 1fr; }
   .d2s-lobby-chat { min-height: 285px; }
   .d2s-lobby-chat-log { min-height: 135px; }
@@ -1262,6 +1305,7 @@
   display: block;
   width: 100%;
   height: 100%;
+  mix-blend-mode: screen;
   pointer-events: none;
 }
 
@@ -1478,7 +1522,7 @@
 .d2s-skill-bar > .d2s-skill-slot:not(.basic-skill) { cursor: default; }
 .d2s-skill-icon { font: 27px/1 Georgia, serif; text-shadow: 0 1px 4px #000, 0 0 8px #d09245a8; }
 .d2s-skill-cooldown { position: absolute; z-index: 1; inset: 0; transform-origin: bottom; background: #05070ab3; pointer-events: none; }
-.d2s-skill-overlay { display: block; width: 34px; height: 34px; object-fit: contain; image-rendering: pixelated; filter: drop-shadow(0 0 4px #80bfff99); }
+.d2s-skill-overlay { display: block; width: 34px; height: 34px; object-fit: contain; image-rendering: pixelated; mix-blend-mode: screen; filter: drop-shadow(0 0 4px #80bfff99); }
 .d2s-skill-slot.basic-skill .d2s-skill-overlay { width: 38px; height: 38px; }
 .d2s-skill-slot small { position: absolute; right: 2px; bottom: 0; color: #eddbad; font: 10px/1 ui-monospace, monospace; text-shadow: 0 1px 3px #000; }
 
@@ -1640,7 +1684,13 @@
   grid-template-columns: repeat(4, minmax(44px, 1fr));
   grid-template-rows: repeat(var(--d2s-belt-rows, 1), 34px);
   gap: 4px;
+  max-height: 34px;
+  overflow: hidden;
+  transition: max-height 180ms ease;
 }
+
+.d2s-belt-frame:hover .d2s-belt-grid,
+.d2s-belt-frame:focus-within .d2s-belt-grid { max-height: 148px; }
 
 .d2s-belt-grid[data-belt-rows="1"] { --d2s-belt-rows: 1; }
 .d2s-belt-grid[data-belt-rows="2"] { --d2s-belt-rows: 2; }
@@ -1916,6 +1966,31 @@
   text-shadow: 0 2px 3px #000;
   text-transform: uppercase;
 }
+
+.d2s-bag-heading {
+  position: relative;
+  display: grid;
+  min-height: 20px;
+  place-items: center;
+}
+
+.d2s-bag-heading .d2s-inventory-heading { margin-bottom: 12px; }
+
+.d2s-inventory-gold {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  color: #f0cf72;
+  font: 14px/1.2 ui-monospace, monospace;
+  text-shadow: 0 1px 4px #000, 0 0 8px #c38b3266;
+}
+
+.d2s-inventory-gold > span { color: #ffdf80; font: 15px Georgia, serif; }
+.d2s-inventory-gold small { color: #a88d54; font: 9px Georgia, serif; letter-spacing: .12em; }
 
 
 .d2s-paperdoll-board {
