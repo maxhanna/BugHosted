@@ -212,17 +212,15 @@
               <span *ngFor="let key of [1, 2, 3, 4]">{{ key }}</span>
             </div>
           </div>
-          <div class="d2s-skill-bar" aria-label="Equipped skill hotkeys">
+          <div class="d2s-skill-bar" aria-label="Automatically casting skills">
             <div class="d2s-skill-slot basic-skill" [attr.title]="basicAttackName + ' · automatic attack'" [attr.aria-label]="basicAttackName + ', automatic attack'">
-              <img *ngIf="basicAttackIcon === ''; else basicAttackFallback" class="d2s-skill-overlay" [src]="'assets/d2survivors/missiles/' + basicAttackMissileOverlay + '.webp'" alt="" />
+              <img *ngIf="basicAttackIcon === ''; else basicAttackFallback" class="d2s-skill-overlay" [src]="missileOverlayPath(basicAttackMissileOverlay)" alt="" />
               <ng-template #basicAttackFallback><span class="d2s-skill-icon">{{ basicAttackIcon }}</span></ng-template>
             </div>
-            <button type="button" class="d2s-skill-slot" *ngFor="let skill of equippedSkills; let index = index" (click)="activateOwnedSkill(skill)" [attr.title]="skill + ' · hotkey ' + (index + 1)" [attr.aria-label]="skill + ', hotkey ' + (index + 1)">
-              <img *ngIf="skillIcon(skill) === ''; else skillIconFallback" class="d2s-skill-overlay" [src]="'assets/d2survivors/missiles/' + getSkillMissileOverlay(skill) + '.webp'" alt="" /><ng-template #skillIconFallback><span class="d2s-skill-icon">{{ skillIcon(skill) }}</span></ng-template><small>{{ index + 1 }}</small>
-            </button>
-            <button type="button" class="d2s-skill-slot empty-skill" *ngFor="let slot of emptySkillSlots; let index = index" (click)="showEscapeMenu()" [attr.title]="'Assign a skill · hotkey ' + (equippedSkills.length + index + 1)" [attr.aria-label]="'Empty skill slot ' + (equippedSkills.length + index + 1)">
-              <span class="d2s-skill-icon">＋</span><small>{{ equippedSkills.length + index + 1 }}</small>
-            </button>
+            <div class="d2s-skill-slot" *ngFor="let skill of equippedSkills" [attr.title]="skill + ' · automatic cast every ' + getSkillCastLabel(skill)" [attr.aria-label]="skill + ', casts automatically every ' + getSkillCastLabel(skill)">
+              <img *ngIf="skillIcon(skill) === ''; else skillIconFallback" class="d2s-skill-overlay" [src]="missileOverlayPath(getSkillMissileOverlay(skill))" alt="" /><ng-template #skillIconFallback><span class="d2s-skill-icon">{{ skillIcon(skill) }}</span></ng-template>
+              <span class="d2s-skill-cooldown" [style.transform]="'scaleY(' + (1 - skillCastProgress(skill)) + ') '" aria-hidden="true"></span>
+            </div>
           </div>
         </div>
         <div class="d2s-orb d2s-mana-orb" [style.--orb-fill]="manaOrbFill">

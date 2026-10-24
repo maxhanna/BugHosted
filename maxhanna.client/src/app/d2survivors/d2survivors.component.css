@@ -1475,7 +1475,9 @@
 .d2s-skill-slot:focus-visible { border-color: #e1bf78; color: #fff1c9; outline: 1px solid #e1bf78; }
 .d2s-skill-slot.empty-skill { color: #7b705d; border-style: dashed; }
 .d2s-skill-slot.basic-skill { cursor: default; }
+.d2s-skill-bar > .d2s-skill-slot:not(.basic-skill) { cursor: default; }
 .d2s-skill-icon { font: 27px/1 Georgia, serif; text-shadow: 0 1px 4px #000, 0 0 8px #d09245a8; }
+.d2s-skill-cooldown { position: absolute; z-index: 1; inset: 0; transform-origin: bottom; background: #05070ab3; pointer-events: none; }
 .d2s-skill-overlay { display: block; width: 34px; height: 34px; object-fit: contain; image-rendering: pixelated; filter: drop-shadow(0 0 4px #80bfff99); }
 .d2s-skill-slot.basic-skill .d2s-skill-overlay { width: 38px; height: 38px; }
 .d2s-skill-slot small { position: absolute; right: 2px; bottom: 0; color: #eddbad; font: 10px/1 ui-monospace, monospace; text-shadow: 0 1px 3px #000; }

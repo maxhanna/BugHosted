@@ -27,6 +27,7 @@ const RUN_SAVE_INTERVAL_MS = 2500;
 const ACT_BOSS_TIME_SECONDS = 45;
 const MISSILE_OVERLAY_BASE = "assets/d2survivors/missiles";
 const MISSILE_FRAME_DURATIONS_MS: Record<string, number> = {
+  "5": 85, "8": 85, "30": 85, "101": 85,
   firebolt: 85, fireball: 85, acidbolt: 85, bloodcomet: 85, lightning: 85,
   "d2-firebolt": 85, "d2-fireball": 85, "d2-acidbolt": 85, "d2-bloodcomet": 85,
   "d2-lightning": 85, "d2-inferno": 85, "d2-magmaball": 85, "d2-icebolt": 85,
@@ -36,6 +37,7 @@ const MISSILE_FRAME_DURATIONS_MS: Record<string, number> = {
   bloodstar: 85, shadowbolt: 85, holybolt: 85, bluestar: 85,
 };
 const MISSILE_FRAME_COUNTS: Record<string, number> = {
+  "5": 64, "8": 10, "30": 96, "101": 61,
   firebolt: 15, fireball: 15, acidbolt: 8, bloodcomet: 15, lightning: 8,
   "d2-firebolt": 15, "d2-fireball": 15, "d2-acidbolt": 8, "d2-bloodcomet": 15,
   "d2-lightning": 8, "d2-inferno": 20, "d2-magmaball": 16, "d2-icebolt": 16,
@@ -45,75 +47,86 @@ const MISSILE_FRAME_COUNTS: Record<string, number> = {
   bloodstar: 10, shadowbolt: 10, holybolt: 10, bluestar: 10,
 };
 const SKILL_MISSILE_OVERLAYS: Record<string, string> = {
-  // Match skills to their closest supplied D2 missile animation.
-  "Guided Arrow": "5",
-  "Throwing Knife": "30",
-  "Axe Throw": "30",
-  "Spirit Claw": "101",
-  "Bone Bolt": "8",
-  "Holy Bolt": "d2-holybolt",
-  "Fire Bolt": "d2-firebolt",
-  "Fire Ball": "d2-fireball",
-  Inferno: "d2-inferno",
-  Blaze: "d2-inferno",
-  "Fire Wall": "d2-inferno",
-  "Wake of Inferno": "d2-inferno",
-  "Ice Bolt": "d2-icebolt",
-  "Cold Arrow": "d2-icebolt",
-  Lightning: "d2-lightning",
-  "Charged Bolt": "d2-bluestar",
-  "Firestorm": "d2-magmaball",
-  Fissure: "d2-magmaball",
-  "Poison Nova": "d2-poisonbolt",
-  "Bone Spirit": "d2-bloodstar",
-  "Bone Spear": "d2-bloodstar",
-  Teeth: "d2-shadowbolt",
-  "Psychic Hammer": "d2-shadowbolt",
-  "Mind Blast": "d2-shadowbolt",
-  "Static Field": "d2-bluestar",
-  "Lightning Bolt": "d2-bluestar",
-  "Charged Strike": "d2-bluestar",
-  "Lightning Strike": "d2-bluestar",
-  "Lightning Fury": "d2-bluestar",
-  "Fist of the Heavens": "d2-holybolt",
-  "Chain Lightning": "d2-lightning",
-  "Thunder Storm": "d2-lightning",
-  "Freezing Arrow": "d2-icebolt",
-  "Ice Arrow": "d2-icebolt",
-  "Frozen Orb": "d2-icebolt",
-  "Glacial Spike": "d2-icebolt",
-  Blizzard: "d2-icebolt",
-  "Poison Javelin": "d2-acidbolt",
-  "Plague Javelin": "d2-acidbolt",
-  Multishot: "5",
-  Strafe: "5",
-  Fend: "30",
-  "Immolation Arrow": "d2-inferno",
-  Widowmaker: "5",
-  Meteor: "d2-bloodcomet",
-  "Wake of Fire": "d2-inferno",
-  "Lightning Sentry": "d2-bluestar",
-  "Death Sentry": "d2-bluestar",
-  "Blade Fury": "101",
-  "Blade Shield": "101",
-  "Phoenix Strike": "d2-bloodcomet",
-  "Claws of Thunder": "d2-bluestar",
-  "Blades of Ice": "d2-icebolt",
-  "Zakarum's Hand": "d2-holybolt",
-  "Molten Boulder": "d2-magmaball",
-  Volcano: "d2-magmaball",
-  Armageddon: "d2-bloodcomet",
-  Tornado: "d2-bloodcomet",
-  Hurricane: "d2-icebolt",
+  // Prefer a recognizable animation for skills with a close supplied match.
+  "Guided Arrow": "5", "Magic Arrow": "5", "Multiple Shot": "5", Strafe: "5",
+  "Fire Arrow": "d2-firebolt", "Fire Bolt": "d2-firebolt", "Fire Blast": "d2-firebolt",
+  "Exploding Arrow": "d2-fireball", "Fire Ball": "d2-fireball", Inferno: "d2-inferno",
+  Blaze: "d2-inferno", "Fire Wall": "d2-inferno", "Wake of Fire": "d2-inferno",
+  "Wake of Inferno": "d2-inferno", "Ice Arrow": "d2-icebolt", "Cold Arrow": "d2-icebolt",
+  "Ice Bolt": "d2-icebolt", "Ice Blast": "d2-icebolt", "Freezing Arrow": "d2-icebolt",
+  "Glacial Spike": "d2-icebolt", "Frozen Orb": "d2-icebolt", Blizzard: "d2-icebolt",
+  Lightning: "d2-lightning", "Chain Lightning": "d2-lightning", "Thunder Storm": "d2-lightning",
+  "Charged Bolt": "d2-bluestar", "Lightning Bolt": "d2-bluestar", "Lightning Fury": "d2-bluestar",
+  "Poison Javelin": "d2-acidbolt", "Plague Javelin": "d2-acidbolt", "Poison Nova": "d2-poisonbolt",
+  "Bone Spirit": "d2-bloodstar", "Bone Spear": "d2-bloodstar", Teeth: "d2-shadowbolt",
+  "Psychic Hammer": "d2-shadowbolt", "Holy Bolt": "d2-holybolt", "Fist of the Heavens": "d2-holybolt",
+  "Fire Mastery": "d2-fireball", Warmth: "d2-firebolt", Enchant: "d2-fireball",
+  "Cold Mastery": "d2-icebolt", "Lightning Mastery": "d2-lightning", "Energy Shield": "d2-bluestar",
+  "Static Field": "d2-bluestar", "Charged Strike": "d2-bluestar", Teleport: "d2-bluestar",
+  "Blessed Hammer": "d2-holybolt", "Holy Shield": "d2-holybolt", Conversion: "d2-holybolt",
+  "Frost Nova": "d2-icebolt", "Frozen Armor": "d2-icebolt", "Shiver Armor": "d2-icebolt",
+  "Chilling Armor": "d2-icebolt", "Cloak of Shadows": "d2-shadowbolt", "Mind Blast": "d2-shadowbolt",
+  "Amplify Damage": "d2-shadowbolt", "Dim Vision": "d2-shadowbolt", Weaken: "d2-shadowbolt",
+  "Iron Maiden": "d2-shadowbolt", Terror: "d2-shadowbolt", Confuse: "d2-shadowbolt",
+  "Life Tap": "d2-bloodstar", Attract: "d2-shadowbolt", Decrepify: "d2-shadowbolt",
+  "Poison Dagger": "d2-poisonbolt", "Poison Explosion": "d2-poisonbolt", "Corpse Explosion": "d2-bloodcomet",
+  "Bone Armor": "d2-bloodstar", "Bone Wall": "d2-bloodstar", "Bone Prison": "d2-bloodstar",
+  "Raise Skeleton": "d2-bloodstar", "Skeletal Mage": "d2-bloodstar", "Clay Golem": "d2-bloodcomet",
+  "Charged Bolt Sentry": "d2-bluestar", "Shock Web": "d2-bluestar", "Blade Sentinel": "101",
+  "Death Sentry": "d2-bluestar", "Lightning Sentry": "d2-lightning",
+  "Blade Fury": "101", "Blade Shield": "101", "Phoenix Strike": "d2-bloodcomet",
+  "Claws of Thunder": "d2-bluestar", "Blades of Ice": "d2-icebolt", "Fists of Fire": "d2-fireball",
+  "Dragon Tail": "d2-fireball",
+  Bash: "30", "Double Swing": "30", "Double Throw": "30", "Leap Attack": "30", Concentrate: "30",
+  Frenzy: "30", Berserk: "d2-bloodstar", Sacrifice: "30", Smite: "d2-holybolt", Zeal: "30",
+  Charge: "d2-holybolt", Vengeance: "d2-bloodcomet", Fissure: "d2-magmaball", Hydra: "d2-fireball",
+  Nova: "d2-bluestar", "Arctic Blast": "d2-icebolt", Twister: "d2-bloodcomet", "Werewolf": "d2-bloodstar",
+  "Werebear": "d2-bloodcomet", Maul: "30", "Feral Rage": "d2-bloodstar", Rabies: "d2-poisonbolt",
+  "Shock Wave": "d2-bloodcomet", Fury: "101", Raven: "5", "Summon Spirit Wolf": "d2-bloodcomet",
+  "Summon Dire Wolf": "d2-bloodcomet", "Summon Grizzly": "d2-bloodcomet", Valkyrie: "d2-holybolt",
+  Decoy: "d2-shadowbolt", "Shadow Warrior": "d2-shadowbolt", "Shadow Master": "d2-shadowbolt",
+  "Blood Golem": "d2-bloodcomet", "Iron Golem": "d2-bloodcomet", "Fire Golem": "d2-fireball",
+  "Poison Creeper": "d2-poisonbolt", "Carrion Vine": "d2-poisonbolt", "Solar Creeper": "d2-poisonbolt",
+  "Firestorm": "d2-magmaball", "Molten Boulder": "d2-magmaball", Volcano: "d2-magmaball",
+  Meteor: "d2-bloodcomet", Armageddon: "d2-bloodcomet", Tornado: "d2-bloodcomet",
+  Hurricane: "d2-icebolt", Whirlwind: "101",
+  Jab: "30", Fend: "30",
+  // Keep every class-tree skill tied to a real, animated D2 missile asset;
+  // passives and buffs use their matching elemental/curse/holy effect as feedback.
+  "Avoid": "d2-bluestar", "Axe Mastery": "30", "Battle Command": "d2-bloodcomet", "Battle Cry": "d2-bloodcomet",
+  "Battle Orders": "d2-holybolt", "Blessed Aim": "d2-holybolt", "Burst of Speed": "d2-bluestar", "Claw Mastery": "101",
+  "Cleansing": "d2-holybolt", "Cobra Strike": "d2-bloodstar", "Conviction": "d2-shadowbolt",
+  "Critical Strike": "d2-bloodstar", "Cyclone Armor": "d2-icebolt", "Defiance": "d2-holybolt", "Dodge": "d2-bluestar",
+  "Dragon Flight": "d2-bluestar", "Dragon Talon": "101", "Evade": "d2-bluestar", "Fade": "d2-shadowbolt",
+  "Fanaticism": "d2-holybolt", "Find Item": "d2-bloodcomet", "Find Potion": "d2-bloodcomet", "Fire Claws": "d2-fireball",
+  "Golem Mastery": "d2-bloodcomet", "Grim Ward": "d2-shadowbolt", "Heart of Wolverine": "d2-bloodcomet", "Howl": "d2-shadowbolt",
+  "Hunger": "d2-bloodstar", "Immolation Arrow": "d2-inferno", "Impale": "30", "Increased Speed": "d2-bluestar",
+  "Increased Stamina": "d2-bluestar", "Inner Sight": "d2-shadowbolt", "Iron Skin": "d2-holybolt", "Leap": "d2-bluestar",
+  "Lightning Strike": "d2-bluestar", "Lower Resist": "d2-shadowbolt", "Lycanthropy": "d2-bloodstar", "Mace Mastery": "30",
+  "Meditation": "d2-holybolt", "Might": "d2-holybolt", "Natural Resistance": "d2-holybolt", "Oak Sage": "d2-bloodcomet",
+  "Penetrate": "d2-bluestar", "Pierce": "d2-bluestar", "Polearm Mastery": "30", "Prayer": "d2-holybolt",
+  "Power Strike": "d2-bluestar", "Redemption": "d2-holybolt", "Resist Cold": "d2-icebolt", "Resist Fire": "d2-firebolt",
+  "Resist Lightning": "d2-bluestar", "Revive": "d2-bloodcomet", "Salvation": "d2-holybolt", "Sanctuary": "d2-holybolt",
+  "Shout": "d2-bloodcomet", "Skeleton Mastery": "d2-bloodstar", "Slow Missiles": "d2-shadowbolt", "Spear Mastery": "30",
+  "Spirit of Barbs": "d2-bloodcomet", "Stun": "30", "Summon Resist": "d2-holybolt", "Sword Mastery": "30",
+  "Taunt": "d2-shadowbolt", "Telekinesis": "d2-bluestar", "Thorns": "d2-holybolt", "Throwing Mastery": "30",
+  "Tiger Strike": "101", "Venom": "d2-poisonbolt", "Vigor": "d2-bluestar", "War Cry": "d2-bloodcomet",
+  "Weapon Block": "101", "Dragon Claw": "101", "Holy Fire": "d2-firebolt", "Holy Freeze": "d2-icebolt",
+  "Holy Shock": "d2-bluestar", "Concentration": "d2-holybolt",
+};
+const SKILL_VISUAL_MISSILES: Record<D2SkillVisual, string> = {
+  summon: "d2-bloodcomet",
+  aura: "d2-holybolt",
+  trap: "d2-bluestar",
+  wave: "d2-shadowbolt",
+  burst: "d2-bloodcomet",
+  movement: "d2-bluestar",
+  projectile: "d2-firebolt",
+  strike: "101",
 };
 const BASIC_ATTACK_MISSILE_OVERLAYS: Record<string, string> = {
-  "Guided Arrow": "5",
-  "Throwing Knife": "30",
-  "Axe Throw": "30",
-  "Spirit Claw": "101",
-  "Bone Bolt": "8",
-  "Holy Bolt": "d2-holybolt",
-  "Fire Bolt": "d2-firebolt",
+  "Guided Arrow": "5", "Throwing Knife": "30", "Axe Throw": "30", "Spirit Claw": "101",
+  "Bone Bolt": "8", "Holy Bolt": "d2-holybolt", "Fire Bolt": "d2-firebolt",
 };
 const ATTACK_KIND_MISSILE_OVERLAYS: Record<AttackProjectile["kind"], string> = {
   arrow: "5",
@@ -147,50 +160,49 @@ const CAMPAIGN_ACTS: CampaignAct[] = [
 ];
 
 const ENEMY_SPRITE_PATHS: Record<EnemySpecies, string> = {
-  fallen: "assets/d2survivors/enemies/animated/fallen.png",
-  goatman: "assets/d2survivors/enemies/animated/goatman.png",
-  skeleton: "assets/d2survivors/enemies/animated/skeleton.png",
-  sandRaider: "assets/d2survivors/enemies/act2-sand-raider.png",
-  sandMaggot: "assets/d2survivors/enemies/act2-sand-maggot.png",
-  scarab: "assets/d2survivors/enemies/animated/scarab.png",
-  fetish: "assets/d2survivors/enemies/act3-flayer.png",
-  fetishShaman: "assets/d2survivors/enemies/act3-flayer-shaman.png",
-  council: "assets/d2survivors/enemies/act3-council-member.png",
-  balrog: "assets/d2survivors/enemies/act4-balrog.png",
-  vileChild: "assets/d2survivors/enemies/act4-vile-child.png",
-  vileMother: "assets/d2survivors/enemies/act4-vile-mother.png",
-  bloodLord: "assets/d2survivors/enemies/act5-blood-lord.png",
-  minotaur: "assets/d2survivors/enemies/animated/minotaur.png",
-  deathMauler: "assets/d2survivors/enemies/animated/death-mauler.png",
-  wendigo: "assets/d2survivors/enemies/animated/wendigo.png",
+  fallen: "assets/d2survivors/enemies/fallen-shaman.png",
+  goatman: "assets/d2survivors/enemies/goatman-axe.png",
+  skeleton: "assets/d2survivors/enemies/skeleton-with-bow.png",
+  sandRaider: "assets/d2survivors/enemies/sand-raider.png",
+  sandMaggot: "assets/d2survivors/enemies/sand-maggot.png",
+  scarab: "assets/d2survivors/enemies/scarab-demon-light-armor-heavy-weapon.png",
+  fetish: "assets/d2survivors/enemies/fetish-knife.png",
+  fetishShaman: "assets/d2survivors/enemies/fetish-shaman.png",
+  council: "assets/d2survivors/enemies/council-member.png",
+  balrog: "assets/d2survivors/enemies/balrog-sword.png",
+  vileChild: "assets/d2survivors/enemies/vile-child.png",
+  vileMother: "assets/d2survivors/enemies/vile-mother.png",
+  bloodLord: "assets/d2survivors/enemies/blood-lord.png",
+  minotaur: "assets/d2survivors/enemies/minotaur.png",
+  deathMauler: "assets/d2survivors/enemies/death-mauler.png",
+  wendigo: "assets/d2survivors/enemies/wendigo.png",
   andariel: "assets/d2survivors/enemies/andariel.png",
-  duriel: "assets/d2survivors/enemies/animated/duriel.png",
-  diablo: "assets/d2survivors/enemies/animated/diablo.png",
-  baalsMinion: "assets/d2survivors/enemies/animated/baals-minion.png",
+  duriel: "assets/d2survivors/enemies/duriel.png",
+  diablo: "assets/d2survivors/enemies/diablo.png",
+  baalsMinion: "assets/d2survivors/enemies/baals-minion-light-weaponless.png",
 };
 
 const ENEMY_SPRITE_LAYOUTS: Record<EnemySpecies, { columns: number; rows: number; animated: boolean }> = {
-  fallen: { columns: 11, rows: 8, animated: true }, goatman: { columns: 10, rows: 8, animated: true },
-  skeleton: { columns: 8, rows: 8, animated: true }, sandRaider: { columns: 1, rows: 1, animated: false },
-  sandMaggot: { columns: 1, rows: 1, animated: false }, scarab: { columns: 12, rows: 8, animated: true },
+  fallen: { columns: 1, rows: 1, animated: false }, goatman: { columns: 1, rows: 1, animated: false },
+  skeleton: { columns: 1, rows: 1, animated: false }, sandRaider: { columns: 1, rows: 1, animated: false },
+  sandMaggot: { columns: 1, rows: 1, animated: false }, scarab: { columns: 1, rows: 1, animated: false },
   fetish: { columns: 1, rows: 1, animated: false }, fetishShaman: { columns: 1, rows: 1, animated: false },
   council: { columns: 1, rows: 1, animated: false }, balrog: { columns: 1, rows: 1, animated: false },
   vileChild: { columns: 1, rows: 1, animated: false }, vileMother: { columns: 1, rows: 1, animated: false },
-  bloodLord: { columns: 1, rows: 1, animated: false }, minotaur: { columns: 10, rows: 8, animated: true },
-  deathMauler: { columns: 16, rows: 8, animated: true }, wendigo: { columns: 14, rows: 8, animated: true },
-  andariel: { columns: 1, rows: 1, animated: false }, duriel: { columns: 6, rows: 8, animated: true },
-  diablo: { columns: 14, rows: 8, animated: true },  baalsMinion: { columns: 13, rows: 8, animated: true },
-
+  bloodLord: { columns: 1, rows: 1, animated: false }, minotaur: { columns: 1, rows: 1, animated: false },
+  deathMauler: { columns: 1, rows: 1, animated: false }, wendigo: { columns: 1, rows: 1, animated: false },
+  andariel: { columns: 1, rows: 1, animated: false }, duriel: { columns: 1, rows: 1, animated: false },
+  diablo: { columns: 1, rows: 1, animated: false }, baalsMinion: { columns: 1, rows: 1, animated: false },
 };
 
 const ENEMY_SPRITE_CELLS: Record<EnemySpecies, { width: number; height: number }> = {
-  fallen: { width: 1, height: 1 }, goatman: { width: 1, height: 1 }, skeleton: { width: 1, height: 1 },
-  sandRaider: { width: 32, height: 32 }, sandMaggot: { width: 59, height: 49 }, scarab: { width: 1, height: 1 },
-  fetish: { width: 31, height: 32 }, fetishShaman: { width: 28, height: 55 }, council: { width: 34, height: 89 },
-  balrog: { width: 42, height: 32 }, vileChild: { width: 49, height: 50 }, vileMother: { width: 42, height: 48 },
-  bloodLord: { width: 29, height: 25 }, minotaur: { width: 1, height: 1 }, deathMauler: { width: 1, height: 1 },
-  wendigo: { width: 1, height: 1 },  andariel: { width: 117, height: 180 }, duriel: { width: 1, height: 1 },
-  diablo: { width: 1, height: 1 }, baalsMinion: { width: 1, height: 1 },
+  fallen: { width: 146, height: 180 }, goatman: { width: 203, height: 180 }, skeleton: { width: 175, height: 180 },
+  sandRaider: { width: 114, height: 180 }, sandMaggot: { width: 172, height: 180 }, scarab: { width: 224, height: 180 },
+  fetish: { width: 181, height: 180 }, fetishShaman: { width: 151, height: 180 }, council: { width: 214, height: 180 },
+  balrog: { width: 290, height: 180 }, vileChild: { width: 195, height: 180 }, vileMother: { width: 273, height: 180 },
+  bloodLord: { width: 444, height: 180 }, minotaur: { width: 444, height: 180 }, deathMauler: { width: 215, height: 180 },
+  wendigo: { width: 438, height: 180 }, andariel: { width: 117, height: 180 }, duriel: { width: 174, height: 180 },
+  diablo: { width: 65, height: 180 }, baalsMinion: { width: 148, height: 180 },
 };
 
 
@@ -358,7 +370,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private currentChunkLocalX = 0;
   private currentChunkLocalY = 0;
   private readonly worldZoom = 2.1;
-  private readonly floorTileScale = 1.7;
+  private readonly floorTileScale = 2.35;
   private readonly playerWorldScale = 1.8;
   private readonly chunkTileColumns = 12;
   private readonly chunkTileRows = 8;
@@ -887,7 +899,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       desc: "spirits' boons and vines' meals are stronger",
     },
     { name: "Vitality", desc: "+20 maximum life" },
-    { name: "Faster Cast Rate", desc: "skills recharge faster" },
+    { name: "Faster Cast Rate", desc: "owned spells cast automatically and their individual cooldowns recover faster" },
     { name: "Faster Run/Walk", desc: "+10% movement speed" },
     { name: "Replenish Life", desc: "regenerate 1 life per second" },
     { name: "Telekinesis", desc: "pick things up from 40% farther away" },
@@ -998,6 +1010,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private lastLeaderboardRefreshAt = 0;
   private attackCooldown = 0;
   private attackSequence = 0;
+  readonly skillCastCooldowns: Record<string, number> = {};
   xpToNextLevel = 5;
   runActive = false;
   playerLevel = 1;
@@ -2904,11 +2917,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.keysDown.add(key);
       return;
     }
-    if (["1", "2", "3", "4"].includes(key)) {
-      event.preventDefault();
-      this.useSkillHotkey(Number(key) - 1);
-      return;
-    }
     if (![" ", "j", "f"].includes(key)) return;
     event.preventDefault();
     this.attackNearestEnemy();
@@ -2988,7 +2996,38 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   get equippedSkills(): string[] {
-    return this.ownedSkills.filter((name) => name !== this.basicAttackName).slice(0, 4);
+    return this.ownedSkills.filter((name) => name !== this.basicAttackName && getClassSkills(this.selectedClass).some((skill) => skill.name === name)).slice(0, 4);
+  }
+
+  skillCastProgress(skill: string): number {
+    const interval = this.getSkillCastInterval(skill);
+    const cooldown = this.skillCastCooldowns[skill] ?? 0;
+    return Number.isFinite(cooldown) ? Math.max(0, Math.min(1, cooldown / interval)) : 0;
+  }
+
+  getSkillCastLabel(skill: string): string {
+    return `${this.getSkillCastInterval(skill).toFixed(1)}s`;
+  }
+
+  getSkillCastInterval(skill: string): number {
+    const definition = getClassSkills(this.selectedClass).find((entry) => entry.name === skill);
+    const visual = definition?.visual ?? getD2SkillVisual(skill);
+    const baseIntervals: Record<D2SkillVisual, number> = {
+      summon: 7.5,
+      aura: 0,
+      trap: 5.5,
+      wave: 4.8,
+      burst: 4.6,
+      movement: 3.8,
+      projectile: 3.2,
+      strike: 2.7,
+    };
+    const unlockDelay = Math.max(0, (definition?.level ?? 1) - 1) * 0.035;
+    const rank = this.skillLevels[skill] ?? 1;
+    const rankBonus = Math.max(0.65, 1 - Math.max(0, rank - 1) * 0.025);
+    const castRateRank = this.skillLevels["Faster Cast Rate"] ?? 0;
+    const globalRate = Math.max(0.4, 1 - castRateRank * 0.1);
+    return Math.max(0.65, (baseIntervals[visual] + unlockDelay) * rankBonus * globalRate);
   }
 
   get emptySkillSlots(): number[] {
@@ -3012,15 +3051,17 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     return BASIC_ATTACK_MISSILE_OVERLAYS[this.basicAttackName] ?? ATTACK_KIND_MISSILE_OVERLAYS[this.basicAttackForClass(this.selectedClass).kind];
   }
 
+  missileOverlayPath(id: string): string {
+    return `${MISSILE_OVERLAY_BASE}/${id}${(MISSILE_FRAME_COUNTS[id] ?? 1) > 1 ? "/0000.webp" : ".webp"}`;
+  }
+
   getSkillMissileOverlay(skill: string): string {
     return this.missileOverlayId(skill) ?? ATTACK_KIND_MISSILE_OVERLAYS[this.basicAttackForClass(this.selectedClass).kind];
   }
 
   skillIcon(skill: string): string {
-    if (SKILL_MISSILE_OVERLAYS[skill]) return "";
+    if (this.missileOverlayId(skill)) return "";
     const icons: Record<string, string> = {
-      "Guided Arrow": "➶", "Throwing Knife": "⟋", "Axe Throw": "⚒", "Spirit Claw": "✦",
-      "Bone Bolt": "☠", "Holy Bolt": "✧", "Fire Bolt": "♨", Multishot: "➶",
       "Faster Attacks": "»", Vitality: "♥", "Arcane Focus": "◉", "Weapon Mastery": "⚔",
     };
     const visualIcons: Record<D2SkillVisual, string> = {
@@ -3029,14 +3070,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     return icons[skill] ?? visualIcons[getD2SkillVisual(skill)];
   }
 
-  useSkillHotkey(slot: number): void {
-    const skill = this.equippedSkills[slot];
-    if (skill) this.activateOwnedSkill(skill);
-  }
-
   activateOwnedSkill(skill: string): void {
     if (!this.ownedSkills.includes(skill)) return;
     const skillVisual = getClassSkills(this.selectedClass).find((entry) => entry.name === skill)?.visual ?? getD2SkillVisual(skill);
+    if (skillVisual === "aura") {
+      this.addSkillVisualEffect(skill);
+      this.triggerAttackAnimation(this.selectedClass === "sorceress" ? "sorceressCast" : "cast");
+      return;
+    }
     const castAnimation: AttackAnimationStyle = this.selectedClass === "sorceress" ? "sorceressCast" : this.selectedClass === "necromancer" ? "necromancerCast" : "cast";
     const visualMissile = this.missileOverlayId(skill) ?? ATTACK_KIND_MISSILE_OVERLAYS[this.basicAttackForClass(this.selectedClass).kind];
     const nearest = this.enemies
@@ -3044,7 +3085,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       .sort((a, b) => Math.hypot(a.x - this.playerX, a.y - this.playerY) - Math.hypot(b.x - this.playerX, b.y - this.playerY))[0];
     if (!nearest) {
       this.addSkillVisualEffect(skill);
-      if (skillVisual !== "strike") this.triggerAttackAnimation(castAnimation);
+      this.triggerAttackAnimation(castAnimation);
       return;
     }
     const distanceToTarget = Math.hypot(nearest.x - this.playerX, nearest.y - this.playerY) || 1;
@@ -3066,7 +3107,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         this.floatingTexts.push({ x: target.x, y: target.y - target.r, text: `-${Math.floor(damage * 1.6)}`, color: attack.color, life: 0.8 });
       }
       this.triggerAttackAnimation("spin");
-      this.attackCooldown = Math.max(this.attackCooldown, 0.9);
       return;
     }
 
@@ -3098,15 +3138,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         });
       }
       this.triggerAttackAnimation(castAnimation);
-      this.attackCooldown = Math.max(this.attackCooldown, this.basicAttackCooldown * 0.65);
       return;
     }
 
     if (distance <= nearest.r + 28) {
       nearest.hp -= damage;
-      this.triggerAttackAnimation(skillVisual === "strike" ? undefined : castAnimation);
+      this.triggerAttackAnimation(castAnimation);
       this.floatingTexts.push({ x: nearest.x, y: nearest.y - nearest.r, text: `-${Math.floor(damage)}`, color: attack.color, life: 0.8 });
-      this.attackCooldown = Math.max(this.attackCooldown, this.basicAttackCooldown * 0.65);
     }
   }
 
@@ -3163,9 +3201,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   private loadMissileOverlays(): void {
-    const missileIds = new Set(Object.values(SKILL_MISSILE_OVERLAYS));
-    Object.values(BASIC_ATTACK_MISSILE_OVERLAYS).forEach((id) => missileIds.add(id));
-    Object.values(ATTACK_KIND_MISSILE_OVERLAYS).forEach((id) => missileIds.add(id));
+    const missileIds = new Set([
+      ...Object.values(SKILL_MISSILE_OVERLAYS),
+      ...Object.values(SKILL_VISUAL_MISSILES),
+      ...Object.values(BASIC_ATTACK_MISSILE_OVERLAYS),
+      ...Object.values(ATTACK_KIND_MISSILE_OVERLAYS),
+    ]);
     for (const id of missileIds) {
       const images: HTMLImageElement[] = [];
       this.missileOverlayImages.set(id, images);
@@ -3191,7 +3232,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   private missileOverlayId(skill: string): string | undefined {
-    return SKILL_MISSILE_OVERLAYS[skill] ?? BASIC_ATTACK_MISSILE_OVERLAYS[skill];
+    return SKILL_MISSILE_OVERLAYS[skill]
+      ?? SKILL_VISUAL_MISSILES[getD2SkillVisual(skill)]
+      ?? BASIC_ATTACK_MISSILE_OVERLAYS[skill];
   }
 
   private loadEnemySprites(): void {
@@ -3354,14 +3397,49 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       description: `Diablo II ${this.selectedClassName} · level ${entry.level} · ${entry.prerequisites.length ? `Requires ${entry.prerequisites.join(", ")}` : "No prerequisites"}. ${this.getSkillDescription(entry.name) ?? "Unlock this class skill."}`,
       kind: "class-skill",
     }));
+    const castRateRank = this.skillLevels["Faster Cast Rate"] ?? 0;
+    const castRateChoice: SkillUpgrade = {
+      id: "cast-rate",
+      name: "Faster Cast Rate",
+      description: `Reduce every spell's cooldown by 10% (rank ${castRateRank}/6; each spell keeps its own timer).`,
+      kind: "attack",
+    };
+    const randomChoices = [...skillChoices, ...(castRateRank < 6 ? [castRateChoice] : [])];
+    for (let index = randomChoices.length - 1; index > 0; index -= 1) {
+      this.skillOfferSeed = (Math.imul(this.skillOfferSeed, 1664525) + 1013904223) >>> 0;
+      const swapIndex = this.skillOfferSeed % (index + 1);
+      [randomChoices[index], randomChoices[swapIndex]] = [randomChoices[swapIndex], randomChoices[index]];
+    }
     const fallback = choices.slice().sort((a, b) => hashString(`${this.playerLevel}:${a.id}`) - hashString(`${this.playerLevel}:${b.id}`));
-    const offer = [...skillChoices];
+    const offer = randomChoices.slice(0, 3);
     for (const choice of fallback) {
       if (offer.length >= 3) break;
       offer.push(choice);
     }
     this.upgradeChoices = offer;
     this.levelUpNotice = `Level ${this.playerLevel} reached — choose an upgrade.`;
+  }
+
+  private updateAutomaticSkillCasts(dt: number): void {
+    const seconds = dt / 1000;
+    const classSkills = getClassSkills(this.selectedClass);
+    const activeSkills = this.ownedSkills.filter((skill) =>
+      skill !== this.basicAttackName && classSkills.some((definition) => definition.name === skill),
+    );
+    const livingEnemies = this.enemies.filter((enemy) => enemy.hp > 0);
+    for (const skill of activeSkills) {
+      const cooldown = Math.max(0, (this.skillCastCooldowns[skill] ?? 0) - seconds);
+      this.skillCastCooldowns[skill] = cooldown;
+      if (cooldown > 0) continue;
+      const visual = classSkills.find((definition) => definition.name === skill)?.visual ?? getD2SkillVisual(skill);
+      // Auras and buffs activate once and stay active; combat skills wait for a target.
+      if (visual !== "aura" && !livingEnemies.some((enemy) => enemy.hp > 0)) continue;
+      this.activateOwnedSkill(skill);
+      this.skillCastCooldowns[skill] = visual === "aura" ? Number.POSITIVE_INFINITY : this.getSkillCastInterval(skill);
+    }
+    for (const skill of Object.keys(this.skillCastCooldowns)) {
+      if (!activeSkills.includes(skill)) delete this.skillCastCooldowns[skill];
+    }
   }
 
   private updateBasicAttack(): void {
@@ -3394,7 +3472,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const skillName = choice.id.slice("class-skill:".length);
       if (!this.availableClassSkills.some((entry) => entry.name === skillName)) return;
       this.skillLevels[skillName] = Math.min(20, (this.skillLevels[skillName] ?? 0) + 1);
-      if (!this.ownedSkills.includes(skillName)) this.ownedSkills.push(skillName);
+      if (!this.ownedSkills.includes(skillName)) {
+        this.ownedSkills.push(skillName);
+        this.skillCastCooldowns[skillName] = this.getSkillCastInterval(skillName);
+      }
       this.pendingLevelUps -= 1;
       this.upgradeChoices = [];
       this.levelUpNotice = this.pendingLevelUps > 0 ? `${this.pendingLevelUps} more level upgrade${this.pendingLevelUps === 1 ? "" : "s"} to choose.` : "Skill point spent.";
@@ -3405,6 +3486,16 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     switch (choice.id) {
       case "attack-damage": this.basicAttackDamage += 6; this.skillLevels[this.basicAttackName] = (this.skillLevels[this.basicAttackName] ?? 1) + 1; break;
       case "attack-speed": this.basicAttackCooldown = Math.max(0.18, this.basicAttackCooldown * 0.9); this.skillLevels["Faster Attacks"] = (this.skillLevels["Faster Attacks"] ?? 0) + 1; break;
+      case "cast-rate": {
+        const nextRank = Math.min(6, (this.skillLevels["Faster Cast Rate"] ?? 0) + 1);
+        this.skillLevels["Faster Cast Rate"] = nextRank;
+        for (const skill of this.ownedSkills) {
+          if (skill !== this.basicAttackName) {
+            this.skillCastCooldowns[skill] = Math.min(this.skillCastCooldowns[skill] ?? 0, this.getSkillCastInterval(skill));
+          }
+        }
+        break;
+      }
       case "multishot": this.skillLevels["Multishot"] = (this.skillLevels["Multishot"] ?? 0) + 1; break;
       case "vitality": this.playerMaxHp += 5; this.playerHp = Math.min(this.playerMaxHp, this.playerHp + 5); this.skillLevels["Vitality"] = (this.skillLevels["Vitality"] ?? 0) + 1; break;
       case "weapon-mastery": this.skillLevels["Weapon Mastery"] = (this.skillLevels["Weapon Mastery"] ?? 0) + 1; this.basicAttackDamage += 4; break;
@@ -3599,6 +3690,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.upgradeChoices = [];
     this.levelUpNotice = "";
     this.ownedSkills = [this.basicAttackName];
+    for (const skill of Object.keys(this.skillCastCooldowns)) delete this.skillCastCooldowns[skill];
     this.skillLevels = { [this.basicAttackName]: 1 };
     this.enemies = [];
     for (let index = 0; index < 5; index += 1) this.enemies.push(this.makeEnemy("normal"));
@@ -3690,7 +3782,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.updateAttackProjectiles(dt);
     if (this.pendingLevelUps > 0 && this.upgradeChoices.length === 0) this.prepareUpgradeChoices();
     if (this.pendingLevelUps > 0) this.attackProjectiles = [];
-    else this.updateBasicAttack();
+    else {
+      this.updateBasicAttack();
+      this.updateAutomaticSkillCasts(dt);
+    }
 
     this.updateEnemies(dt);
     this.updateChests(dt);
@@ -3871,7 +3966,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       targetEnemy: !!target && (kind === "projectile" || kind === "strike"),
       time: 0,
       duration: kind === "summon" ? 1.8 : kind === "projectile" ? target ? Math.min(0.9, Math.max(0.32, targetDistance / 520)) : 0.9 : 1.25,
-      color: this.skillVisualColor(kind),
+      color: this.skillVisualColorForName(skillName, kind),
       seed: hashString(skillName) % 628,
     });
     if (this.skillVisualEffects.length > 24) this.skillVisualEffects.splice(0, this.skillVisualEffects.length - 24);
@@ -3890,6 +3985,18 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (kind === "movement") return "#f5d58f";
     if (kind === "projectile") return this.selectedClass === "sorceress" ? "#ffab62" : "#a9dcff";
     return this.selectedClass === "barbarian" ? "#ffc06a" : "#e7d5ad";
+  }
+
+  private skillVisualColorForName(skillName: string, kind: D2SkillVisual): string {
+    const name = skillName.toLowerCase();
+    if (/fire|inferno|blaze|meteor|volcano|molten/.test(name)) return "#ff8a32";
+    if (/cold|ice|frost|freeze|blizzard|hurricane/.test(name)) return "#8bdcff";
+    if (/lightning|thunder|shock|charged|static/.test(name)) return "#a5c9ff";
+    if (/poison|rabies|creeper|vine/.test(name)) return "#9bdb56";
+    if (/bone|skeleton|golem|revive|raise/.test(name)) return "#d7c5aa";
+    if (/holy|blessed|paladin|prayer|redemption|sanctuary/.test(name)) return "#ffe28a";
+    if (/shadow|curse|terror|confuse|vision|taunt|howl/.test(name)) return "#b99cff";
+    return this.skillVisualColor(kind);
   }
 
   private updateSkillVisualEffects(dt: number): void {
@@ -4028,11 +4135,22 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     if ((effect.kind !== "projectile" || effect.targetEnemy) && missileFrame?.complete && missileFrame.naturalWidth > 0) {
       const size = effect.kind === "burst" ? 42 : 32;
+      const effectX = effect.kind === "projectile" && effect.targetEnemy
+        ? target.x - origin.x
+        : effect.kind === "aura" || effect.kind === "summon" || effect.kind === "trap" || effect.kind === "burst"
+          ? 0
+          : Math.min(1, progress * 2) * (target.x - origin.x);
+      const effectY = effect.kind === "projectile" && effect.targetEnemy
+        ? target.y - origin.y
+        : effect.kind === "aura" || effect.kind === "summon" || effect.kind === "trap" || effect.kind === "burst"
+          ? 0
+          : Math.min(1, progress * 2) * (target.y - origin.y);
       ctx.save();
-      ctx.globalCompositeOperation = "lighter";
-      ctx.globalAlpha = fade * 0.62;
-      ctx.shadowBlur = 0;
-      ctx.drawImage(missileFrame, -size / 2, -radius * 0.4 - size / 2, size, size);
+      ctx.globalCompositeOperation = "source-over";
+      ctx.globalAlpha = fade * 0.92;
+      ctx.shadowColor = effect.color;
+      ctx.shadowBlur = 8;
+      ctx.drawImage(missileFrame, effectX - size / 2, effectY - radius * 0.4 - size / 2, size, size);
       ctx.restore();
     }
     ctx.restore();
@@ -4843,7 +4961,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           ctx.lineTo(point.x - tileScreenSize * 0.7071 - 1, point.y);
           ctx.closePath();
           ctx.fill();
-          ctx.drawImage(image, point.x - tileWidth / 2 - 1, point.y - tileHeight / 2 - 1, tileWidth + 2, tileHeight + 2);
+          // Extend each transparent diamond beyond its nominal cell to hide sampling seams.
+          ctx.drawImage(image, point.x - tileWidth / 2 - 3, point.y - tileHeight / 2 - 3, tileWidth + 6, tileHeight + 6);
         } else {
           const halfW = tileScreenSize * 0.7071;
           const halfH = tileScreenSize * 0.35355;
@@ -5897,6 +6016,7 @@ const CLASS_SKILL_DESCRIPTIONS: Record<string, string> = {
 
 const UPGRADE_DESCRIPTIONS: Record<string, string> = {
   "Faster Attacks": "Basic attacks recharge faster.",
+  "Faster Cast Rate": "Owned active spells cast automatically, each on its own cooldown. Each rank reduces all spell cooldowns by 10%, up to rank 6.",
   Multishot: "Basic attacks target additional nearby monsters.",
   Vitality: "Increases maximum life.",
   "Arcane Focus": "Increases maximum mana.",

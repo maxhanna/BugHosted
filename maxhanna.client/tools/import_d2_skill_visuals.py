@@ -33,6 +33,22 @@ SKILL_ANIMATIONS = {
 FRAME_NAME = re.compile(r"decoded_d(\d+)_f(\d+)\.png$")
 
 
+def remove_black_background(image: Image.Image) -> Image.Image:
+    rgba = image.convert("RGBA")
+    alpha = rgba.getchannel("A")
+    # Existing transparent frames have already been keyed; leave them untouched
+    # so rerunning the importer is idempotent and doesn't fade spell sprites.
+    if alpha.getextrema() != (255, 255):
+        return rgba
+    luminance = rgba.convert("RGB").convert("L")
+    # DCC exports include black opaque canvases. Fade only near-black pixels
+    # into transparency to remove the square without hard, jagged edges.
+    black_key = luminance.point(lambda value: 0 if value <= 2 else min(255, round(value * 255 / 32)))
+    from PIL import ImageChops
+    rgba.putalpha(ImageChops.multiply(alpha, black_key))
+    return rgba
+
+
 def inspect_existing(output: Path, name: str, dcc_name: str) -> dict:
     frames = sorted(output.glob("*.webp"))
     if not frames:
@@ -42,7 +58,9 @@ def inspect_existing(output: Path, name: str, dcc_name: str) -> dict:
         with Image.open(frame_path) as image:
             image.verify()
         with Image.open(frame_path) as image:
-            dimensions.add(image.size)
+            rgba = remove_black_background(image)
+            dimensions.add(rgba.size)
+            rgba.save(frame_path, "WEBP", lossless=True, method=6)
     if len(dimensions) != 1:
         raise RuntimeError(f"Unstable frame dimensions for {dcc_name}: {sorted(dimensions)}")
     width, height = next(iter(dimensions))
@@ -112,7 +130,10 @@ def convert(d2_root: Path, converter: Path, name: str, dcc_name: str) -> dict:
         temp_output.mkdir()
         for index, (_, frame_path) in enumerate(frames):
             with Image.open(frame_path) as image:
-                image.convert("RGBA").save(temp_output / f"{index:04d}.webp", "WEBP", lossless=True, method=6)
+                rgba = remove_black_background(image)
+                rgba.save(temp_output / f"{index:04d}.webp", "WEBP", lossless=True, method=6)
+                if rgba.getchannel("A").getextrema()[0] != 0:
+                    raise RuntimeError(f"Missile frame has no transparent background: {dcc_name} frame {index}")
         temp_output.rename(output)
 
     width, height = next(iter(dimensions))

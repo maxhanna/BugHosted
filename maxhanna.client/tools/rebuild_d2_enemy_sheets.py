@@ -7,9 +7,10 @@ from PIL import Image
 ASSET_ROOT = Path(__file__).resolve().parents[1] / "src" / "assets" / "d2survivors"
 OUTPUT_ROOT = ASSET_ROOT / "enemies" / "animated"
 
-# Andariel's first 20x8 block is verified against the supplied character atlas.
+# The supplied assembled Andariel atlas is a 12-frame x 8-direction sheet.
+# Its frames are 240x260 pixels at source scale.
 ATLASES = {
-    "andariel": ("review/keys-Anda.png", (26, 26), 20, 8, (0, 0)),
+    "andariel": ("review/andariel-atlas-test.png", (240, 260), 12, 8, (0, 0)),
 }
 
 KEY_COLOR = (170, 170, 170)
