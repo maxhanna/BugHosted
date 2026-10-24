@@ -7,8 +7,7 @@ from PIL import Image
 ASSET_ROOT = Path(__file__).resolve().parents[1] / "src" / "assets" / "d2survivors"
 OUTPUT_ROOT = ASSET_ROOT / "enemies" / "animated"
 
-# Only rebuild sheets whose source block boundaries have been checked against
-# the atlas. Andariel's opening block is a 20-frame, eight-direction walk cycle.
+# Andariel's first 20x8 block is verified against the supplied character atlas.
 ATLASES = {
     "andariel": ("review/keys-Anda.png", (26, 26), 20, 8, (0, 0)),
 }
@@ -27,8 +26,13 @@ def keyed_sprite(source: Image.Image) -> Image.Image:
     for y in range(rgba.height):
         queue.extend(((0, y), (rgba.width - 1, y)))
 
+    visited = bytearray(rgba.width * rgba.height)
     while queue:
         x, y = queue.popleft()
+        index = y * rgba.width + x
+        if visited[index]:
+            continue
+        visited[index] = 1
         red, green, blue, alpha = pixels[x, y]
         if alpha == 0 or max(
             abs(red - KEY_COLOR[0]),
@@ -72,7 +76,7 @@ def rebuild(
             left = origin_x + frame * cell_width
             top = origin_y + direction * cell_height
             sprite = source.crop((left, top, left + cell_width, top + cell_height))
-            sheet.alpha_composite(keyed_sprite(sprite), (left, top))
+            sheet.alpha_composite(keyed_sprite(sprite), (frame * cell_width, direction * cell_height))
 
     output = OUTPUT_ROOT / f"{name}.png"
     sheet.save(output, optimize=True)
@@ -80,6 +84,9 @@ def rebuild(
 
 
 def main() -> None:
+    if not ATLASES:
+        print("No verified sprite-sheet layouts are configured; leaving imported assets unchanged.")
+        return
     for name, (source_name, cell, columns, rows, origin) in ATLASES.items():
         rebuild(name, source_name, cell, columns, rows, origin)
 

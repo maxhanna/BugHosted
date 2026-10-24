@@ -184,6 +184,7 @@
       <button type="button" class="d2s-touch-menu" (click)="showEscapeMenu()" aria-label="Open game menu" title="Game menu (Esc)">☰</button>
       <button type="button" class="d2s-skill-tree-button" (click)="toggleSkillTree()" aria-label="Open skill tree" title="Skill tree (T)">T</button>
       <canvas #characterCanvas class="d2s-character-canvas" width="500" height="500" aria-hidden="true"></canvas>
+      <canvas #skillEffectsCanvas class="d2s-skill-effects-canvas" width="500" height="500" aria-hidden="true"></canvas>
       <div class="d2s-model-hint" *ngIf="modelLoadError">3D character model could not load.</div>
       <div class="d2s-classic-hud" aria-label="Life and mana orbs, potion belt, skill icons and experience">
         <div class="d2s-orb d2s-health-orb" [style.--orb-fill]="healthOrbFill">
@@ -318,7 +319,10 @@
               (dragover)="$event.preventDefault()"
               (drop)="onEquipmentDrop(slot.slot, $event)"
               (contextmenu)="unequipEquipmentSlot(slot.slot, $event)"
-              (click)="onEquipmentItemClick(slot.slot, $event)">
+              (click)="onEquipmentItemClick(slot.slot, $event)"
+              (mouseenter)="onEquipmentItemHover(slot.slot, $event)"
+              (mousemove)="onItemPreviewMove($event)"
+              (mouseleave)="onItemPreviewLeave()">
               <span class="d2s-equipment-icon" aria-hidden="true">{{ getEquipmentItem(slot.slot) ? equipmentItemIcon(getEquipmentItem(slot.slot)!) : slot.icon }}</span>
               <span class="d2s-equipment-label">{{ getEquipmentItem(slot.slot)?.name || slot.label }}</span>
             </button>
@@ -351,6 +355,9 @@
           [class.drag-denied]="dragGhostSlotIndex === slot.slotIndex && dragState && !canDropOnSlot(dragState.slotIndex, slot.slotIndex, dragState.item)"
           [ngStyle]="inventoryGridStyle(slot)"
           (click)="onInventoryItemClick(slot.slotIndex, slot.item ?? null, $event)"
+          (mouseenter)="onInventoryItemHover(slot.slotIndex, slot.item ?? null, $event)"
+          (mousemove)="onItemPreviewMove($event)"
+          (mouseleave)="onItemPreviewLeave()"
           (contextmenu)="onInventoryContextMenu(slot.slotIndex, $event)">
           <span class="d2s-inv-icon" *ngIf="slot.item" aria-hidden="true">{{ equipmentItemIcon(slot.item) }}</span>
           <span class="d2s-inv-name">{{ slot.item?.name || '' }}</span>
@@ -358,25 +365,33 @@
           </div>
         </section>
       </div>
-      <div class="d2s-item-window" *ngIf="selectedItem">
-        <div class="d2s-item-window-inner">
-          <button type="button" class="d2s-item-window-close" (click)="selectInventoryItem(selectedSlotIndex ?? -1, null)">×</button>
-          <p class="d2s-item-window-kicker">{{ selectedItem.rarity }} {{ selectedItem.slot }}</p>
-          <h3 class="d2s-item-window-title">{{ selectedItem.name }}</h3>
-          <p class="d2s-item-window-base" *ngIf="selectedItem.baseName && selectedItem.baseName !== selectedItem.name">Base item: {{ selectedItem.baseName }}</p>
-          <p class="d2s-item-window-description">{{ selectedItem.desc }}</p>
-          <p class="d2s-item-window-description" *ngIf="getEquipmentType(selectedItem) === 'belt'">{{ selectedItem.beltQuality }} belt · {{ getBeltRows(selectedItem) }} potion rows</p>
-          <button type="button" class="d2s-equip-belt" *ngIf="selectedSlotIndex !== null && getEquipmentType(selectedItem) !== 'charm'" (click)="equipSelectedItem(selectedSlotIndex)">Equip {{ getEquipmentType(selectedItem) }}</button>
-          <button type="button" class="d2s-equip-belt" *ngIf="selectedItem" (click)="sellSelectedItem()">Sell for {{ getItemSellValue(selectedItem) }} gold</button>
-          <button type="button" class="d2s-equip-belt" *ngIf="selectedEquipmentSlot" (click)="unequipItem(selectedEquipmentSlot)">Unequip</button>
-          <div class="d2s-item-window-stats">
-            <p *ngFor="let line of itemStatText(selectedItem)">{{ line }}</p>
-          </div>
-        </div>
-      </div>
       <p class="d2s-inventory-status" role="status" *ngIf="inventoryStatus">{{ inventoryStatus }}</p>
       <p class="d2s-hint">Drag gear to equip · right-click a weapon or armor to equip or swap · Ctrl-click or use the item preview to sell · right-click equipped gear to unequip</p>
     </section>
+    <div class="d2s-item-window" *ngIf="inventoryOpen && itemPreviewItem"
+      [class.is-hover-preview]="!!hoveredItem"
+      [class.preview-left]="itemPreviewLeft"
+      [class.preview-below]="itemPreviewBelow"
+      [class.preview-above]="itemPreviewAbove"
+      [style.left.px]="itemPreviewX"
+      [style.top.px]="itemPreviewY">
+      <div class="d2s-item-window-inner">
+        <ng-container *ngIf="itemPreviewItem as previewItem">
+          <button type="button" class="d2s-item-window-close" *ngIf="selectedItem" (click)="selectInventoryItem(selectedSlotIndex ?? -1, null)">×</button>
+          <p class="d2s-item-window-kicker">{{ previewItem.rarity }} {{ previewItem.slot }}</p>
+          <h3 class="d2s-item-window-title">{{ previewItem.name }}</h3>
+          <p class="d2s-item-window-base" *ngIf="previewItem.baseName && previewItem.baseName !== previewItem.name">Base item: {{ previewItem.baseName }}</p>
+          <p class="d2s-item-window-description">{{ previewItem.desc }}</p>
+          <p class="d2s-item-window-description" *ngIf="getEquipmentType(previewItem) === 'belt'">{{ previewItem.beltQuality }} belt · {{ getBeltRows(previewItem) }} potion rows</p>
+          <button type="button" class="d2s-equip-belt" *ngIf="selectedItem === previewItem && selectedSlotIndex !== null && getEquipmentType(previewItem) !== 'charm'" (click)="equipSelectedItem(selectedSlotIndex)">Equip {{ getEquipmentType(previewItem) }}</button>
+          <button type="button" class="d2s-equip-belt" *ngIf="selectedItem === previewItem" (click)="sellSelectedItem()">Sell for {{ getItemSellValue(previewItem) }} gold</button>
+          <button type="button" class="d2s-equip-belt" *ngIf="selectedItem === previewItem && selectedEquipmentSlot" (click)="unequipItem(selectedEquipmentSlot)">Unequip</button>
+          <div class="d2s-item-window-stats">
+            <p *ngFor="let line of itemStatText(previewItem)">{{ line }}</p>
+          </div>
+        </ng-container>
+      </div>
+    </div>
 
   </section>
 </div>

@@ -21,11 +21,11 @@ export function getD2SkillVisual(name: string): D2SkillVisual {
   const lower = name.toLowerCase();
   if (/summon|valkyrie|shadow (?:warrior|master)|decoy|hydra|raven|golem|skeleton|creeper|vine|sage|grizzly|spirit wolf|dire wolf|revive/.test(lower)) return "summon";
   if (/sentry|trap|wake of|blade sentinel|blade shield|shock web/.test(lower)) return "trap";
+  if (/burst of speed|increased speed|leap|charge|teleport|flight|frenzy|whirlwind|faster attacks/.test(lower)) return "movement";
   if (/aura|armor|mastery|resist|dodge|avoid|evade|block|skin|stamina|speed|critical|penetrate|pierce|warmth|enchant|concentration|^might$|^prayer$|meditation|salvation|redemption|^vigor$|cleansing|defiance|^thorns$|vitality|arcane focus/.test(lower)) return "aura";
   if (/howl|shout|cry|taunt|terror|confuse|vision|curse|attract/.test(lower)) return "wave";
-  if (/leap|charge|teleport|flight|frenzy|whirlwind|faster attacks/.test(lower)) return "movement";
-  if (/nova|explosion|blast|storm|wall|fissure|volcano|meteor|blizzard|tornado|hurricane|armageddon|orb|shock wave/.test(lower)) return "burst";
-  if (/arrow|bolt|spear|javelin|throw|shot|teeth|fireball|lightning|missile/.test(lower)) return "projectile";
+  if (/nova|explosion|blast|storm|wall|fissure|volcano|meteor|blizzard|tornado|hurricane|armageddon|orb|shock wave|firestorm|frost nova|corpse explosion/.test(lower)) return "burst";
+  if (/arrow|bolt|spear|javelin|throw|shot|teeth|fireball|lightning|missile|fire blast|inferno|arctic blast|molten boulder|twister/.test(lower)) return "projectile";
   return "strike";
 }
 
