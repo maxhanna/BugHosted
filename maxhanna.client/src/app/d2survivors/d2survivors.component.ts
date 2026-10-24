@@ -18,7 +18,7 @@ import { D2LeaderboardEntry, D2LobbyMessage, D2RecordCharacterRequest, D2Survivo
 import { User } from "../../services/datacontracts/user/user";
 import { AppComponent } from "../app.component";
 import { ChildComponent } from "../child.component";
-import { D2_CLASS_SKILL_TREES, D2SkillDefinition, getAvailableClassSkills, getClassSkills } from "./d2survivors-skill-tree.data";
+import { D2_CLASS_SKILL_TREES, D2SkillDefinition, D2SkillVisual, getAvailableClassSkills, getClassSkills, getD2SkillVisual } from "./d2survivors-skill-tree.data";
 
 const MODEL_BASE = "assets/d2survivors/models";
 const RUN_SAVE_KEY = "d2survivors.run.v1";
@@ -342,6 +342,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private playerWeaponBaseQuaternions: THREE.Quaternion[] = [];
   private playerWeaponOriginalVisibility = new Map<THREE.Object3D, boolean>();
   private readonly meleeTrailEffects: MeleeTrailEffect[] = [];
+  private readonly skillVisualEffects: SkillVisualEffect[] = [];
   private loadedModelClass = "";
   private readonly enemySprites: Partial<Record<EnemySpecies, EnemySprite>> = {};
   private readonly missileOverlayImages = new Map<string, HTMLImageElement[]>();
@@ -356,6 +357,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private currentChunkLocalX = 0;
   private currentChunkLocalY = 0;
   private readonly worldZoom = 2.1;
+  private readonly floorTileScale = 1.7;
   private readonly playerWorldScale = 2.25;
   private readonly chunkTileColumns = 12;
   private readonly chunkTileRows = 8;
@@ -376,6 +378,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private menuHeroModelRequest = 0;
   private menuHeroLastFrameAt = 0;
   private menuHeroElapsed = 0;
+  private menuHeroPoseBases = new Map<THREE.Bone, THREE.Quaternion>();
   private menuHeroPoseBones: Array<{ bone: THREE.Bone; baseQuaternion: THREE.Quaternion; phase: number; side: -1 | 1 }> = [];
   menuHeroZoom = 1.55;
   private menuHeroRotation = 0;
@@ -1349,9 +1352,15 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.currentChunkCoordY = Math.floor(numberValue(saved.currentChunkCoordY, 0, -1_000_000, 1_000_000));
     this.currentChunkLocalX = numberValue(saved.currentChunkLocalX, this.chunkTileColumns * 48 / 2, 0, this.chunkTileColumns * 48);
     this.currentChunkLocalY = numberValue(saved.currentChunkLocalY, this.chunkTileRows * 48 / 2, 0, this.chunkTileRows * 48);
-    this.playerMaxHp = numberValue(saved.playerMaxHp, startingStats.life, 1, 10000);
+    // Old saves used the original 10–30 HP class stats; give returning runs the
+    // same survivable baseline as new runs while preserving their saved health ratio.
+    const savedMaxHp = numberValue(saved.playerMaxHp, startingStats.life, 1, 10000);
+    this.playerMaxHp = Math.max(400, savedMaxHp);
     this.playerMaxMana = numberValue(saved.playerMaxMana, startingStats.mana, 1, 10000);
-    this.playerHp = numberValue(saved.playerHp, this.playerMaxHp, 0, this.playerMaxHp);
+    const savedHp = numberValue(saved.playerHp, savedMaxHp, 0, savedMaxHp);
+    this.playerHp = savedMaxHp < this.playerMaxHp
+      ? Math.max(1, Math.ceil(savedHp / savedMaxHp * this.playerMaxHp))
+      : savedHp;
     this.deathRecovery = saved.deathRecovery === true || this.playerHp <= 0;
     this.deathCount = Math.floor(numberValue(saved.deathCount, 0, 0, 1_000_000));
     this.playerMana = this.playerMaxMana;
@@ -1383,7 +1392,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           speed: numberValue(enemy["speed"], 80, 0, 10_000),
           r: numberValue(enemy["r"], 14, 1, 100),
           dmg: numberValue(enemy["dmg"], 1, 0, 1_000_000),
-          ...(typeof enemy["cd"] === "number" ? { cd: numberValue(enemy["cd"], 0, 0, 3600) } : {}),
+          cd: typeof enemy["cd"] === "number"
+            ? numberValue(enemy["cd"], 0, 0, 3600)
+            : enemy["kind"] === "boss" ? 1.1 : enemy["kind"] === "champion" ? 0.9 : 0.8,
         };
         })
       : [];
@@ -1969,6 +1980,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     this.menuHeroModelRequest++;
     this.menuHeroPoseBones = [];
+    this.menuHeroPoseBases.clear();
     this.menuHeroElapsed = 0;
     this.disposeMenuHeroModel();
     this.menuHeroLoadError = false;
@@ -2071,6 +2083,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         this.normalizeCharacterModel(model, 88);
         model.rotation.y = this.menuHeroRotation;
         this.menuHeroPoseBones = this.getPreviewPoseBones(model);
+        this.menuHeroPoseBases = new Map(this.menuHeroPoseBones.map((pose) => [pose.bone, pose.baseQuaternion.clone()]));
         this.menuHeroModel = model;
         this.menuHeroScene?.add(model);
       } catch (error: unknown) {
@@ -2097,9 +2110,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.menuHeroModel.position.y = this.reducedMotion ? 0 : Math.sin(time * 1.6) * 0.8;
       const fadeIn = this.reducedMotion ? 1 : Math.min(1, time / 0.8);
       for (const pose of this.menuHeroPoseBones) {
-        const sway = this.reducedMotion ? 0 : Math.sin(time * 1.7 + pose.phase) * 0.018;
-        const rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), pose.side * (0.16 + sway) * fadeIn);
-        pose.bone.quaternion.copy(pose.baseQuaternion).multiply(rotation);
+        const sway = this.reducedMotion ? 0 : Math.sin(time * 1.15 + pose.phase) * 0.006;
+        const rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), pose.side * sway * fadeIn);
+        const base = this.menuHeroPoseBases.get(pose.bone) ?? pose.baseQuaternion;
+        pose.bone.quaternion.copy(base).multiply(rotation);
       }
     }
     this.resizeMenuHeroPreview();
@@ -2152,6 +2166,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     this.previewModelRequest++;
     this.previewPoseBones = [];
+    this.menuHeroPoseBones = [];
+    this.menuHeroPoseBases.clear();
     this.previewAmazonPike = undefined;
     this.previewAmazonPikeBase = undefined;
     this.previewWeapons = [];
@@ -2335,11 +2351,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const attackFollowThrough = attackActive ? Math.sin(Math.PI * attackProgress) * (this.reducedMotion ? 0.45 : 1) : 0;
       this.previewAttackTime += dt;
       const turn = attackActive && attackProfile.spin ? attackProgress * Math.PI * 2 : 0;
-      this.previewModel.rotation.y = this.previewRotation + (this.previewDragging ? 0 : Math.sin(time * 0.35) * 0.025 * idleMotion) + turn;
-      this.previewModel.rotation.z = this.selectedClass === "amazon" && !this.reducedMotion
-        ? Math.sin(time * 0.72) * 0.004
-        : 0;
-      this.previewModel.position.y = Math.sin(time * 1.4) * (this.selectedClass === "amazon" ? 0.3 : 0.55) * idleMotion;
+      this.previewModel.rotation.y = this.previewRotation + (this.previewDragging ? 0 : Math.sin(time * 0.25) * 0.012 * idleMotion) + turn;
+      this.previewModel.rotation.z = 0;
+      this.previewModel.position.y = Math.sin(time * 1.1) * 0.16 * idleMotion;
       for (const weapon of this.previewWeapons) {
         const isPike = weapon.object === this.previewAmazonPike;
         const gripSettle = isPike && !this.previewDragging ? Math.sin(time * 0.9) * 0.012 * idleMotion : 0;
@@ -2356,50 +2370,52 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       // slightly asymmetrical idle instead of leaving the hero in its rigid bind pose.
       // Reduced-motion users keep the settled pose but skip its breathing and turntable sway.
       const fadeIn = this.reducedMotion ? 1 : Math.min(1, time / 0.45);
+      const classPose = this.selectedClass;
+      const locomotion = this.reducedMotion ? 0 : 1;
       for (const pose of this.previewPoseBones) {
-        const sway = Math.sin(time * 1.35 + pose.phase) * 0.018 * fadeIn * idleMotion;
+        const sway = Math.sin(time * 1.05 + pose.phase) * 0.006 * fadeIn * locomotion;
         const isLead = pose.side === this.previewAttackSide;
         let rotation: THREE.Quaternion;
         switch (pose.role) {
         case "arm": {
-          const amazonReadyStance = this.selectedClass === "amazon";
-          const armReach = amazonReadyStance ? -0.2 : -0.34;
-          const armSet = amazonReadyStance ? 0.075 : 0.12;
-          const attackPitch = attackMotion * (isLead ? attackProfile.leadArm : attackProfile.offArm);
-          const attackSweep = attackFollowThrough * (isLead ? attackProfile.armSweep : -attackProfile.armSweep * 0.55);
+          const restArmPitch = classPose === "amazon" || classPose === "sorceress" || classPose === "necromancer" ? -0.11 : -0.16;
+          const attackPitch = attackMotion * (isLead ? attackProfile.leadArm : attackProfile.offArm) * 0.72;
+          const attackSweep = attackFollowThrough * (isLead ? attackProfile.armSweep : -attackProfile.armSweep * 0.4);
           rotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(
-            armReach + sway * 0.7 + attackPitch,
+            restArmPitch + sway * 0.45 + attackPitch,
             attackSweep,
-            pose.side * (armSet + sway) + attackMotion * attackProfile.shoulderRoll * (isLead ? -1 : 1),
+            pose.side * sway + attackMotion * attackProfile.shoulderRoll * (isLead ? -0.7 : 0.5),
             "XYZ",
           ));
           break;
         }
         case "forearm": {
-          const bend = Math.max(0, attackMotion) * (isLead ? attackProfile.elbowBend : attackProfile.offElbowBend);
-          rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), bend + Math.max(0, sway) * 0.2);
+          const bend = Math.max(0, attackMotion) * (isLead ? attackProfile.elbowBend : attackProfile.offElbowBend) * 0.65;
+          rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), bend + Math.max(0, sway) * 0.15);
           break;
         }
-        case "leg":
-          rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), pose.side * 0.035 + sway);
+        case "leg": {
+          const poseSideSwing = classPose === "assassin" ? -0.05 : classPose === "barbarian" ? -0.025 : -0.035;
+          rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), poseSideSwing * pose.side + sway);
           break;
-          case "knee":
-            rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), 0.045 + Math.max(0, sway));
-            break;
-          case "foot":
-            rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -sway * 0.7);
-            break;
-          case "pelvis":
-            rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), sway * 0.5);
-            break;
-          case "spine":
-            rotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(
-              -0.035 + sway * 0.4 - attackMotion * attackProfile.lean,
-              attackMotion * attackProfile.torsoTwist,
-              0,
-              "XYZ",
-            ));
-            break;
+        }
+        case "knee":
+          rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), 0.025 + Math.max(0, sway));
+          break;
+        case "foot":
+          rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -sway * 0.45);
+          break;
+        case "pelvis":
+          rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), sway * 0.25);
+          break;
+        case "spine":
+          rotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(
+            -0.012 + sway * 0.25 - attackMotion * attackProfile.lean * 0.55,
+            attackMotion * attackProfile.torsoTwist * 0.6,
+            sway * 0.2,
+            "XYZ",
+          ));
+          break;
         }
         const settled = new THREE.Quaternion().slerpQuaternions(new THREE.Quaternion(), rotation, fadeIn);
         pose.bone.quaternion.copy(pose.baseQuaternion).multiply(settled);
@@ -3001,7 +3017,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       "Bone Bolt": "☠", "Holy Bolt": "✧", "Fire Bolt": "♨", Multishot: "➶",
       "Faster Attacks": "»", Vitality: "♥", "Arcane Focus": "◉", "Weapon Mastery": "⚔",
     };
-    return icons[skill] ?? skill.charAt(0).toUpperCase();
+    const visualIcons: Record<D2SkillVisual, string> = {
+      summon: "♟", aura: "✧", trap: "⌘", wave: "〰", burst: "✹", movement: "➤", projectile: "➶", strike: "⚔",
+    };
+    return icons[skill] ?? visualIcons[getD2SkillVisual(skill)];
   }
 
   useSkillHotkey(slot: number): void {
@@ -3010,11 +3029,17 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   activateOwnedSkill(skill: string): void {
+    if (!this.ownedSkills.includes(skill)) return;
     const nearest = this.enemies
       .filter((enemy) => enemy.hp > 0)
       .sort((a, b) => Math.hypot(a.x - this.playerX, a.y - this.playerY) - Math.hypot(b.x - this.playerX, b.y - this.playerY))[0];
-    if (!nearest) return;
-    if (!this.ownedSkills.includes(skill)) return;
+    if (!nearest) {
+      this.addSkillVisualEffect(skill);
+      return;
+    }
+    const distanceToTarget = Math.hypot(nearest.x - this.playerX, nearest.y - this.playerY) || 1;
+    this.playerFacingX = (nearest.x - this.playerX) / distanceToTarget;
+    this.playerFacingY = (nearest.y - this.playerY) / distanceToTarget;
     const attack = this.basicAttackForClass(this.selectedClass);
     const multiplier = Math.max(1, this.skillLevels[skill] ?? 1);
     const damage = this.basicAttackDamage * (skill === this.basicAttackName ? 1 : 1.5) + (multiplier - 1) * 3;
@@ -3025,6 +3050,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (skill === "Whirlwind" && this.selectedClass === "barbarian") {
       const targets = this.enemies.filter((enemy) => enemy.hp > 0 && Math.hypot(enemy.x - this.playerX, enemy.y - this.playerY) <= 115);
       if (!targets.length) return;
+      this.addSkillVisualEffect(skill);
       for (const target of targets) {
         target.hp -= damage * 1.6;
         this.floatingTexts.push({ x: target.x, y: target.y - target.r, text: `-${Math.floor(damage * 1.6)}`, color: attack.color, life: 0.8 });
@@ -3061,6 +3087,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           radius: 5, color, kind, missileId,
         });
       }
+      this.addSkillVisualEffect(skill);
       this.triggerAttackAnimation(this.selectedClass === "sorceress" ? "sorceressCast" : this.selectedClass === "necromancer" ? "necromancerCast" : "cast");
       this.attackCooldown = Math.max(this.attackCooldown, this.basicAttackCooldown * 0.65);
       return;
@@ -3068,6 +3095,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
     if (distance <= nearest.r + 28) {
       nearest.hp -= damage;
+      this.addSkillVisualEffect(skill);
       this.triggerAttackAnimation();
       this.floatingTexts.push({ x: nearest.x, y: nearest.y - nearest.r, text: `-${Math.floor(damage)}`, color: attack.color, life: 0.8 });
       this.attackCooldown = Math.max(this.attackCooldown, this.basicAttackCooldown * 0.65);
@@ -3527,7 +3555,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.playerX = this.arenaW / 2;
     this.playerY = this.arenaH / 2;
     const startingStats = this.classStartingStats[this.selectedClass] ?? this.classStartingStats["amazon"];
-    this.playerMaxHp = startingStats.life;
+    this.playerMaxHp = Math.max(400, startingStats.life);
     this.playerMaxMana = startingStats.mana;
     this.playerHp = this.playerMaxHp;
     this.playerMana = this.playerMaxMana;
@@ -3632,6 +3660,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.updatePotionDrops(dt);
     this.updateGoldDrops(dt);
     this.updateFloatingTexts(dt);
+    this.updateSkillVisualEffects(dt);
     this.spawnEnemies(dt);
     this.spawnChests(dt);
     this.persistRunProgress();
@@ -3717,8 +3746,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const speed = enemy.speed * (dt / 1000) / this.worldZoom;
       enemy.x += (dx / distance) * speed;
       enemy.y += (dy / distance) * speed;
-      this.playerHp -= enemy.dmg * (dt / 1000) * (distance < 36 ? 1 : 0.18);
       if (enemy.cd !== undefined) enemy.cd = Math.max(0, enemy.cd - dt / 1000);
+      if (distance < enemy.r + 18 && (enemy.cd === undefined || enemy.cd <= 0)) {
+        this.playerHp -= enemy.dmg;
+        enemy.cd = enemy.kind === "boss" ? 1.1 : enemy.kind === "champion" ? 0.9 : 0.8;
+      }
     }
     const defeatedEnemies = this.enemies.filter((enemy) => enemy.hp <= 0);
     for (const enemy of defeatedEnemies) {
@@ -3781,6 +3813,168 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.floatingTexts.push({ x: drop.x, y: drop.y - 20, text: `+${drop.amount} gold`, color: "#ffd45e", life: 1.4 });
     }
     this.goldDrops = this.goldDrops.filter((drop) => drop.life > 0);
+  }
+
+  private addSkillVisualEffect(skillName: string): void {
+    const definition = getClassSkills(this.selectedClass).find((entry) => entry.name === skillName);
+    const kind = definition?.visual ?? getD2SkillVisual(skillName);
+    this.skillVisualEffects.push({
+      name: skillName,
+      kind,
+      x: this.playerX,
+      y: this.playerY,
+      targetX: this.playerX + this.playerFacingX * 90,
+      targetY: this.playerY + this.playerFacingY * 90,
+      facingX: this.playerFacingX,
+      facingY: this.playerFacingY,
+      time: 0,
+      duration: kind === "summon" ? 1.8 : 1.25,
+      color: this.skillVisualColor(kind),
+      seed: hashString(skillName) % 628,
+    });
+    if (this.skillVisualEffects.length > 24) this.skillVisualEffects.splice(0, this.skillVisualEffects.length - 24);
+  }
+
+  private skillVisualColor(kind: D2SkillVisual): string {
+    if (kind === "aura") return this.selectedClass === "paladin" ? "#ffe8a0" : "#9dcaff";
+    if (kind === "summon") return this.selectedClass === "necromancer" ? "#d7c7ff" : "#b9f09a";
+    if (kind === "trap") return "#ffc56e";
+    if (kind === "wave") return this.selectedClass === "barbarian" ? "#ffbd6d" : "#b7c8ff";
+    if (kind === "burst") return this.selectedClass === "sorceress" ? "#8edbff" : "#ff9d62";
+    if (kind === "movement") return "#f5d58f";
+    if (kind === "projectile") return this.selectedClass === "sorceress" ? "#ffab62" : "#a9dcff";
+    return this.selectedClass === "barbarian" ? "#ffc06a" : "#e7d5ad";
+  }
+
+  private updateSkillVisualEffects(dt: number): void {
+    const seconds = dt / 1000;
+    for (const effect of this.skillVisualEffects) {
+      effect.time += seconds;
+      effect.x = this.playerX;
+      effect.y = this.playerY;
+      effect.targetX = this.playerX + effect.facingX * 90;
+      effect.targetY = this.playerY + effect.facingY * 90;
+    }
+    for (let index = this.skillVisualEffects.length - 1; index >= 0; index -= 1) {
+      if (this.skillVisualEffects[index].time >= this.skillVisualEffects[index].duration) this.skillVisualEffects.splice(index, 1);
+    }
+  }
+
+  private drawSkillVisualEffect(ctx: CanvasRenderingContext2D, effect: SkillVisualEffect): void {
+    const progress = Math.max(0, Math.min(1, effect.time / effect.duration));
+    const fade = Math.sin(Math.PI * progress);
+    if (fade <= 0.01) return;
+    const origin = this.projectArenaPoint(effect.x, effect.y);
+    const target = this.projectArenaPoint(effect.targetX, effect.targetY);
+    const angle = Math.atan2(target.y - origin.y, target.x - origin.x);
+    const missileId = this.missileOverlayId(effect.name);
+    const missileFrames = missileId ? this.missileOverlayImages.get(missileId) : undefined;
+    const missileFrame = missileId && missileFrames?.length
+      ? missileFrames[Math.floor(performance.now() / (MISSILE_FRAME_DURATIONS_MS[missileId] ?? 85)) % missileFrames.length]
+      : undefined;
+    const icon = this.skillIcon(effect.name);
+    const label = effect.name.toUpperCase();
+    const radius = 22 + progress * (effect.kind === "wave" || effect.kind === "burst" ? 76 : 42);
+    ctx.save();
+    ctx.translate(origin.x, origin.y - 10);
+    ctx.rotate(angle);
+    ctx.globalAlpha = Math.min(0.95, fade);
+    ctx.strokeStyle = effect.color;
+    ctx.fillStyle = effect.color;
+    ctx.shadowColor = effect.color;
+    ctx.shadowBlur = effect.kind === "aura" ? 16 : 10;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    if (effect.kind === "projectile") {
+      const x = (target.x - origin.x) * progress;
+      const y = (target.y - origin.y) * progress;
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(x, y); ctx.stroke();
+      if (missileFrame?.complete && missileFrame.naturalWidth > 0) {
+        const size = effect.name === "Meteor" ? 28 : 20;
+        ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.shadowBlur = 0;
+        ctx.drawImage(missileFrame, x - size / 2, y - size / 2, size, size); ctx.restore();
+      } else {
+        ctx.beginPath(); ctx.arc(x, y, 5 + 3 * fade, 0, Math.PI * 2); ctx.fill();
+      }
+      for (let trail = 1; trail <= 3; trail += 1) {
+        const tail = Math.max(0, progress - trail * 0.055);
+        ctx.globalAlpha = fade * (1 - trail * 0.22);
+        ctx.beginPath(); ctx.arc((target.x - origin.x) * tail, (target.y - origin.y) * tail, 3, 0, Math.PI * 2); ctx.fill();
+      }
+    } else if (effect.kind === "aura") {
+      for (let ring = 0; ring < 3; ring += 1) {
+        ctx.globalAlpha = fade * (0.7 - ring * 0.16);
+        ctx.lineWidth = ring === 0 ? 3 : 1.5;
+        ctx.beginPath(); ctx.ellipse(0, 0, 27 + ring * 8 + Math.sin(progress * Math.PI * 2 + ring) * 3, 12 + ring * 4, 0, 0, Math.PI * 2); ctx.stroke();
+      }
+      for (let spark = 0; spark < 6; spark += 1) {
+        const theta = effect.seed / 100 + spark * Math.PI / 3 + progress * Math.PI * 3;
+        ctx.beginPath(); ctx.arc(Math.cos(theta) * (24 + 5 * Math.sin(progress * Math.PI)), Math.sin(theta) * 11 - 5, 2.5, 0, Math.PI * 2); ctx.fill();
+      }
+    } else if (effect.kind === "summon") {
+      ctx.globalAlpha = fade * 0.8;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.ellipse(0, 0, 18 + progress * 19, 8 + progress * 8, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, 5); ctx.lineTo(-9, -13 - 18 * progress); ctx.lineTo(0, -8 - 18 * progress); ctx.lineTo(9, -13 - 18 * progress); ctx.closePath(); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, -18 - 18 * progress, 6, 0, Math.PI * 2); ctx.stroke();
+      for (let spark = 0; spark < 4; spark += 1) {
+        const theta = spark * Math.PI / 2 + progress * Math.PI * 2;
+        ctx.beginPath(); ctx.arc(Math.cos(theta) * (18 + progress * 18), Math.sin(theta) * 9 - 5, 2, 0, Math.PI * 2); ctx.fill();
+      }
+    } else if (effect.kind === "trap") {
+      ctx.globalAlpha = fade;
+      ctx.rotate(progress * Math.PI / 4);
+      ctx.lineWidth = 2.5;
+      ctx.strokeRect(-radius * 0.55, -radius * 0.55, radius * 1.1, radius * 1.1);
+      ctx.beginPath(); ctx.moveTo(-radius, 0); ctx.lineTo(radius, 0); ctx.moveTo(0, -radius); ctx.lineTo(0, radius); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, 0, radius * (0.35 + 0.12 * Math.sin(progress * Math.PI * 4)), 0, Math.PI * 2); ctx.stroke();
+    } else if (effect.kind === "wave" || effect.kind === "burst") {
+      const rings = effect.kind === "burst" ? 3 : 2;
+      for (let ring = 0; ring < rings; ring += 1) {
+        ctx.globalAlpha = fade * (1 - ring * 0.24);
+        ctx.lineWidth = effect.kind === "burst" ? 2.5 : 3;
+        ctx.beginPath(); ctx.ellipse(0, 0, radius * (0.45 + ring * 0.22), radius * (0.2 + ring * 0.1), 0, 0, Math.PI * 2); ctx.stroke();
+      }
+      if (effect.kind === "burst") {
+        for (let ray = 0; ray < 8; ray += 1) {
+          const theta = ray * Math.PI / 4 + effect.seed / 100;
+          ctx.beginPath(); ctx.moveTo(Math.cos(theta) * radius * 0.35, Math.sin(theta) * radius * 0.18); ctx.lineTo(Math.cos(theta) * radius, Math.sin(theta) * radius * 0.48); ctx.stroke();
+        }
+      }
+    } else if (effect.kind === "movement") {
+      ctx.lineWidth = 5 * fade;
+      ctx.beginPath(); ctx.arc(-progress * 14, 0, 30 + progress * 18, -Math.PI * 0.72, Math.PI * 0.72); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(28 + progress * 34, -12); ctx.lineTo(28 + progress * 34, 12); ctx.closePath(); ctx.fill();
+    } else {
+      ctx.lineWidth = 5 * fade;
+      ctx.beginPath(); ctx.arc(20, 0, 26 + progress * 12, -1.15 + progress * 1.5, 1.15 + progress * 1.5); ctx.stroke();
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(34 + progress * 24, 0); ctx.stroke();
+    }
+    if (effect.kind !== "projectile" && missileFrame?.complete && missileFrame.naturalWidth > 0) {
+      const size = effect.kind === "burst" ? 34 : 24;
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.globalAlpha = fade * 0.62;
+      ctx.shadowBlur = 0;
+      ctx.drawImage(missileFrame, -size / 2, -radius * 0.4 - size / 2, size, size);
+      ctx.restore();
+    }
+    ctx.restore();
+    ctx.save();
+    ctx.globalAlpha = fade;
+    ctx.textAlign = "center";
+    ctx.font = "bold 9px Georgia, serif";
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = "#08090b";
+    ctx.fillStyle = effect.color;
+    ctx.shadowColor = effect.color;
+    ctx.shadowBlur = 5;
+    const title = `${icon ? `${icon} ` : ""}${label}`;
+    ctx.strokeText(title, origin.x, origin.y - 42 - progress * 12);
+    ctx.fillText(title, origin.x, origin.y - 42 - progress * 12);
+    ctx.restore();
   }
 
   updateFloatingTexts(dt: number): void {
@@ -4254,10 +4448,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const actDifficulty = 1 + (this.currentAct - 1) * 0.18;
     const randomFloorPosition = (): { x: number; y: number } => {
       const angle = Math.random() * Math.PI * 2;
-      const distance = Math.max(this.arenaW, this.arenaH) * 0.67;
+      // Keep the initial wave outside immediate contact range; clamping to the arena
+      // edge must not collapse distant spawns onto the hero near a screen corner.
+      const minimumDistance = Math.max(180, Math.min(this.arenaW, this.arenaH) * 0.42);
+      const distance = Math.max(minimumDistance, Math.max(this.arenaW, this.arenaH) * 0.67);
       return {
-        x: Math.max(-40, Math.min(this.arenaW + 40, this.playerX + Math.cos(angle) * distance)),
-        y: Math.max(-40, Math.min(this.arenaH + 40, this.playerY + Math.sin(angle) * distance)),
+        x: this.playerX + Math.cos(angle) * distance,
+        y: this.playerY + Math.sin(angle) * distance,
       };
     };
     const spawnPosition = randomFloorPosition();
@@ -4274,6 +4471,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       speed: 80 + Math.random() * 40,
       r: 14,
       dmg: 2,
+      cd: 0.8,
     };
     if (kind === "boss") {
       return {
@@ -4283,6 +4481,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         speed: 70,
         r: 26,
         dmg: Math.ceil(6 * actDifficulty),
+        cd: 1.1,
         kind: "boss",
       };
     }
@@ -4295,6 +4494,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         speed: 110,
         r: 18,
         dmg: 4,
+        cd: 0.9,
         kind: "champion",
       };
     }
@@ -4458,8 +4658,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
     const act = this.currentActDetails;
     const tileWorldSize = 48;
-    const tileWidth = tileWorldSize * Math.SQRT2 * this.worldZoom;
-    const tileHeight = tileWorldSize / Math.SQRT2 * this.worldZoom;
+    const tileScreenSize = tileWorldSize * this.worldZoom * this.floorTileScale;
+    const tileWidth = tileScreenSize * Math.SQRT2;
+    const tileHeight = tileScreenSize / Math.SQRT2;
     const tiles = this.campaignTileBitmaps[act.act] ?? [];
     const baseTile = tiles[Math.max(0, Math.min(15, act.baseFloorVariant))];
     const groundColor = this.getTileCenterColor(baseTile);
@@ -4484,16 +4685,16 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         if (image) {
           ctx.fillStyle = groundColor;
           ctx.beginPath();
-          ctx.moveTo(point.x, point.y - tileWorldSize * 0.35355 * this.worldZoom - 1);
-          ctx.lineTo(point.x + tileWorldSize * 0.7071 * this.worldZoom + 1, point.y);
-          ctx.lineTo(point.x, point.y + tileWorldSize * 0.35355 * this.worldZoom + 1);
-          ctx.lineTo(point.x - tileWorldSize * 0.7071 * this.worldZoom - 1, point.y);
+          ctx.moveTo(point.x, point.y - tileScreenSize * 0.35355 - 1);
+          ctx.lineTo(point.x + tileScreenSize * 0.7071 + 1, point.y);
+          ctx.lineTo(point.x, point.y + tileScreenSize * 0.35355 + 1);
+          ctx.lineTo(point.x - tileScreenSize * 0.7071 - 1, point.y);
           ctx.closePath();
           ctx.fill();
           ctx.drawImage(image, point.x - tileWidth / 2 - 1, point.y - tileHeight / 2 - 1, tileWidth + 2, tileHeight + 2);
         } else {
-          const halfW = tileWorldSize * 0.7071 * this.worldZoom;
-          const halfH = tileWorldSize * 0.35355 * this.worldZoom;
+          const halfW = tileScreenSize * 0.7071;
+          const halfH = tileScreenSize * 0.35355;
           ctx.fillStyle = (worldTileX + worldTileY) % 2 === 0 ? "#17191f" : "#12141a";
           ctx.beginPath();
           ctx.moveTo(point.x, point.y - halfH);
@@ -4555,6 +4756,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
     for (const projectile of this.attackProjectiles) this.drawAttackProjectile(ctx, projectile);
     for (const effect of this.meleeTrailEffects) this.drawMeleeTrail(ctx, effect);
+    for (const effect of this.skillVisualEffects) this.drawSkillVisualEffect(ctx, effect);
     for (const floatingText of this.floatingTexts) {
       const point = this.projectArenaPoint(floatingText.x, floatingText.y);
       ctx.fillStyle = floatingText.color;
@@ -4854,25 +5056,33 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       if (!(object instanceof THREE.Bone)) return;
       const name = object.name.toLowerCase();
       const side = this.rigBoneSide(name);
-      if (/(?:^|[_-])(?:pelvis|hips?)(?:[_-]|$)/.test(name) && !bones.pelvis) {
+      if ((/(?:^|[_-])(?:pelvis|hips?)(?:[_-]|$)/.test(name)
+        || (this.selectedClass === "assassin" && /^root_main_00_m_jnt$/.test(name))) && !bones.pelvis) {
         bones.pelvis = object;
         bones.pelvisBaseQuaternion = object.quaternion.clone();
       }
-      if (/(?:^|[_-])spine[_-]?(?:01|1)(?:[_-]|$)/.test(name) && !bones.spine) {
+      if ((/(?:^|[_-])spine[_-]?(?:01|1)(?:[_-]|$)/.test(name)
+        || (this.selectedClass === "assassin" && /^spine_01_m_jnt$/.test(name))) && !bones.spine) {
         bones.spine = object;
         bones.spineBaseQuaternion = object.quaternion.clone();
       }
       const legRoot = /^(?:l|r|left|right)[_-](?:leg[_-]?01|upper[_-]?leg|thigh)(?:[_-].*)?$/.test(name)
         || /^(?:hip|upper[_-]?leg|thigh)[_-](?:l|r|left|right)(?:[_-].*)?$/.test(name)
-        || /^(?:hip[_-]?(?:l|r|left|right)|(?:l|r|left|right)[_-]hip)(?:[_-].*)?$/.test(name);
+        || /^(?:hip[_-]?(?:l|r|left|right)|(?:l|r|left|right)[_-]hip)(?:[_-].*)?$/.test(name)
+        || (this.selectedClass === "assassin" && /^hip_[lr]_jnt$/.test(name))
+        || (this.selectedClass === "sorceress" && /^(?:l|r)[_-]thigh$/.test(name));
       const lowerLeg = /^(?:l|r|left|right)[_-](?:leg[_-]?02|lower[_-]?leg|calf|shin|knee)(?:[_-].*)?$/.test(name)
-        || /^(?:knee|calf|shin)[_-](?:l|r|left|right)(?:[_-].*)?$/.test(name);
+        || /^(?:knee|calf|shin)[_-](?:l|r|left|right)(?:[_-].*)?$/.test(name)
+        || (this.selectedClass === "assassin" && /^knee_[lr]_jnt$/.test(name))
+        || (this.selectedClass === "sorceress" && /^(?:l|r)[_-]calf$/.test(name));
       const foot = /^(?:l|r|left|right)[_-](?:foot|ankle)(?:[_-].*)?$/.test(name)
+        || (this.selectedClass === "assassin" && /^ankle_[lr]_jnt$/.test(name))
+        || (this.selectedClass === "sorceress" && /^(?:l|r)[_-]foot$/.test(name))
         || /^(?:foot|ankle)[_-](?:l|r|left|right)(?:[_-].*)?$/.test(name);
-      const legJoint = legRoot || lowerLeg || foot;
       const isTwistOrHelperLeg = /twist|helper|pad|armor|cord/.test(name);
       const hasExplicitLegSide = /^(?:l|r|left|right)[_-]/.test(name)
-        || /[_-](?:l|r|left|right)(?:[_-]|$)/.test(name);
+        || /[_-](?:l|r|left|right)(?:[_-]|$)/.test(name)
+        || (this.selectedClass === "assassin" && /_(?:l|r)_jnt$/.test(name));
       if (side && legRoot && hasExplicitLegSide && !isTwistOrHelperLeg) {
         bones.legs?.push({ bone: object, baseQuaternion: object.quaternion.clone(), side });
       } else if (side && lowerLeg && hasExplicitLegSide && !isTwistOrHelperLeg) {
@@ -4883,9 +5093,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const shoulder = /(?:^|[_-])(?:l|left|r|right)[_-]?shoulder(?:[_-].*)?/.test(name)
         || /(?:^|[_-])shoulder[_-]?(?:l|r)(?:[_-].*)?/.test(name);
       const upperArm = /(?:^|[_-])(?:l|left|r|right)[_-]?(?:upr|upper)[_-]?arm(?:[_-].*)?/.test(name)
-        || /^(?:l|r)_(?:upperarm|clavicle)$/.test(name);
+        || /^(?:l|r)_(?:upperarm|clavicle)$/.test(name)
+        || (this.selectedClass === "assassin" && /^shoulder_[lr]_jnt$/.test(name));
       const forearm = /(?:^|[_-])(?:l|left|r|right)[_-]?(?:forearm|fore[_-]?arm|lower[_-]?arm)(?:[_-].*)?/.test(name)
-        || /(?:^|[_-])(?:l|left|r|right)[_-]?(?:elbow)(?:[_-].*)?/.test(name);
+        || /(?:^|[_-])(?:l|left|r|right)[_-]?(?:elbow)(?:[_-].*)?/.test(name)
+        || (this.selectedClass === "assassin" && /^elbow_[lr]_jnt$/.test(name));
       if (side && (shoulder || upperArm) && !/twist|pad|plate|helper/.test(name)) {
         bones.arms?.push({ bone: object, baseQuaternion: object.quaternion.clone(), side });
       }
@@ -4893,17 +5105,31 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         bones.forearms?.push({ bone: object, baseQuaternion: object.quaternion.clone(), side });
       }
     });
-    // Prefer the shoulder pivot for arm swing when both shoulder and upper-arm joints exist.
-    bones.arms = bones.arms?.filter((entry, index, all) =>
-      !all.slice(0, index).some((prior) => prior.side === entry.side && /shoulder/.test(prior.bone.name.toLowerCase())));
-    bones.forearms = bones.forearms?.filter((entry, index, all) =>
-      !all.slice(0, index).some((prior) => prior.side === entry.side));
+    // Pick one real pivot per side. Child segments and helper joints in several GLBs
+    // were previously animated together, which made the preview limbs appear doubled.
+    const choosePrimaryPerSide = (entries: RigAnimationBone[] | undefined, score: (entry: RigAnimationBone) => number): RigAnimationBone[] =>
+      (entries ?? []).filter((entry, index, all) => {
+        const peers = all.filter((candidate) => candidate.side === entry.side);
+        const bestScore = Math.max(...peers.map(score));
+        return score(entry) === bestScore && peers.find((candidate) => score(candidate) === bestScore) === entry;
+      });
+    bones.arms = choosePrimaryPerSide(bones.arms, (entry) => {
+      const name = entry.bone.name.toLowerCase();
+      return /shoulder|clavicle/.test(name) ? 3 : /upper.?arm|upr_arm/.test(name) ? 2 : 1;
+    });
+    bones.forearms = choosePrimaryPerSide(bones.forearms, (entry) => {
+      const name = entry.bone.name.toLowerCase();
+      if (/^(?:l|r)_?fore_?arm(?:_jnt)?$/.test(name) || /^elbow_[lr]_jnt$/.test(name)) return 3;
+      return /forearm|fore_arm|elbow/.test(name) ? 2 : 1;
+    });
     return bones;
   }
 
   private rigBoneSide(name: string): -1 | 1 | undefined {
-    if (/^(?:r|right)[_-]/.test(name) || /[_-](?:r|right)(?:[_-]|$)/.test(name)) return -1;
-    if (/^(?:l|left)[_-]/.test(name) || /[_-](?:l|left)(?:[_-]|$)/.test(name)) return 1;
+    if (/^(?:r|right)[_-]/.test(name) || /[_-](?:r|right)(?:[_-]|$)/.test(name)
+      || /(?:^|_)r_jnt$/.test(name)) return -1;
+    if (/^(?:l|left)[_-]/.test(name) || /[_-](?:l|left)(?:[_-]|$)/.test(name)
+      || /(?:^|_)l_jnt$/.test(name)) return 1;
     return undefined;
   }
 
@@ -4914,10 +5140,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const targetBlend = this.isPlayerMoving ? 1 : 0;
     this.playerMotionBlend += (targetBlend - this.playerMotionBlend) * (1 - Math.exp(-seconds * 8));
     const moving = this.playerMotionBlend;
-    const phase = this.playerAnimationTime * (2.1 + moving * 6.4);
+    const isSorceress = this.selectedClass === "sorceress";
+    const isBarbarian = this.selectedClass === "barbarian";
+    const phase = this.playerAnimationTime * (2.1 + moving * (isSorceress ? 4.6 : isBarbarian ? 5.2 : 6.4));
     const stride = Math.sin(phase);
     const oppositeStride = -stride;
-    const hipAmplitude = moving * 0.16;
+    const hipAmplitude = moving * (isSorceress ? 0.095 : isBarbarian ? 0.34 : 0.16);
 
     // These class rigs ship in bind pose without clips. Keep procedural motion deliberately
     // small and animate only the actual left/right leg chains; broad bone matching can swing
@@ -4931,13 +5159,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     for (const knee of this.playerRigBones.knees ?? []) {
       const legPhase = phase + (knee.side < 0 ? Math.PI : 0);
-      const bend = moving * 0.22 * Math.max(0, Math.sin(legPhase + Math.PI * 0.35));
+      const bend = moving * (isSorceress ? 0.13 : isBarbarian ? 0.48 : 0.22) * Math.max(0, Math.sin(legPhase + Math.PI * (isBarbarian ? 0.18 : 0.35)));
       const flex = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), bend);
       knee.bone.quaternion.copy(knee.baseQuaternion).multiply(flex);
     }
     for (const foot of this.playerRigBones.feet ?? []) {
       const legPhase = phase + (foot.side < 0 ? Math.PI : 0);
-      const roll = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.sin(legPhase) * moving * 0.06);
+      const roll = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.sin(legPhase) * moving * (isSorceress ? 0.035 : isBarbarian ? 0.11 : 0.06));
       foot.bone.quaternion.copy(foot.baseQuaternion).multiply(roll);
     }
     this.attackAnimationTime += seconds;
@@ -4954,7 +5182,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     for (const arm of this.playerRigBones.arms ?? []) {
       const lead = arm.side === this.attackAnimationSide;
       const armAmplitude = lead ? attackProfile.leadArm : attackProfile.offArm;
-      const locomotionSwing = (arm.side < 0 ? oppositeStride : stride) * moving * 0.08;
+      const locomotionSwing = (arm.side < 0 ? oppositeStride : stride) * moving * (isSorceress ? 0.035 : isBarbarian ? 0.2 : 0.08);
       const pitch = locomotionSwing + attackMotion * armAmplitude;
       const sweep = attackFollowThrough * (lead ? attackProfile.armSweep : -attackProfile.armSweep * 0.55);
       const shoulderMotion = new THREE.Quaternion().setFromEuler(new THREE.Euler(pitch, sweep, lead ? -attackMotion * attackProfile.shoulderRoll : attackMotion * attackProfile.shoulderRoll, "XYZ"));
@@ -4962,7 +5190,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     for (const forearm of this.playerRigBones.forearms ?? []) {
       const lead = forearm.side === this.attackAnimationSide;
-      const locomotionBend = Math.max(0, Math.sin(phase + (forearm.side < 0 ? Math.PI : 0))) * moving * 0.06;
+      const locomotionBend = Math.max(0, Math.sin(phase + (forearm.side < 0 ? Math.PI : 0))) * moving * (isSorceress ? 0.025 : isBarbarian ? 0.12 : 0.06);
       const bend = locomotionBend + Math.max(0, attackMotion) * (lead ? attackProfile.elbowBend : attackProfile.offElbowBend);
       const flex = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), bend);
       forearm.bone.quaternion.copy(forearm.baseQuaternion).multiply(flex);
@@ -4975,15 +5203,15 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (this.playerRigBones.pelvis) {
 
       const base = this.playerRigBones.pelvisBaseQuaternion ?? this.playerRigBones.pelvis.quaternion;
-      const sway = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.sin(phase) * moving * 0.025);
+      const sway = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.sin(phase) * moving * (isSorceress ? 0.014 : isBarbarian ? 0.045 : 0.025));
       this.playerRigBones.pelvis.quaternion.copy(base).multiply(sway);
     }
     if (this.playerRigBones.spine) {
       const base = this.playerRigBones.spineBaseQuaternion ?? this.playerRigBones.spine.quaternion;
       const lean = new THREE.Quaternion().setFromEuler(new THREE.Euler(
-        -0.018 * moving + Math.sin(phase * 2) * moving * 0.006 - attackMotion * attackProfile.lean,
+        -(isSorceress ? 0.008 : isBarbarian ? 0.035 : 0.018) * moving + Math.sin(phase * 2) * moving * (isSorceress ? 0.003 : isBarbarian ? 0.012 : 0.006) - attackMotion * attackProfile.lean,
         attackMotion * attackProfile.torsoTwist,
-        Math.sin(phase) * moving * 0.006,
+        Math.sin(phase) * moving * (isSorceress ? 0.003 : isBarbarian ? 0.012 : 0.006),
         "XYZ",
       ));
       this.playerRigBones.spine.quaternion.copy(base).multiply(lean);
@@ -4994,7 +5222,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const modelRoot = this.characterModel.children[0];
     if (modelRoot) modelRoot.rotation.y = this.attackAnimationTurn;
     // Keep footfalls subtle so the model stays grounded instead of hovering between steps.
-    this.characterModel.position.y = Math.abs(Math.sin(phase * 2)) * moving * 0.08 + Math.max(0, attackMotion) * attackProfile.bodyLift;
+    this.characterModel.position.y = Math.abs(Math.sin(phase * 2)) * moving * (isSorceress ? 0.035 : isBarbarian ? 0.14 : 0.08) + Math.max(0, attackMotion) * attackProfile.bodyLift;
   }
 
   private getPreviewPoseBones(model: THREE.Group): PreviewPoseBone[] {
@@ -5516,6 +5744,21 @@ interface SkillUpgrade {
   name: string;
   description: string;
   kind: "attack" | "stat" | "class-skill";
+}
+
+interface SkillVisualEffect {
+  name: string;
+  kind: D2SkillVisual;
+  x: number;
+  y: number;
+  targetX: number;
+  targetY: number;
+  facingX: number;
+  facingY: number;
+  time: number;
+  duration: number;
+  color: string;
+  seed: number;
 }
 
 interface MeleeTrailEffect {

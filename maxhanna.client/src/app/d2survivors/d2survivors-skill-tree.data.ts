@@ -1,7 +1,10 @@
+export type D2SkillVisual = "summon" | "aura" | "trap" | "wave" | "burst" | "movement" | "projectile" | "strike";
+
 export interface D2SkillDefinition {
   name: string;
   level: number;
   prerequisites: string[];
+  visual: D2SkillVisual;
 }
 
 export interface D2SkillTreeSection {
@@ -14,7 +17,19 @@ export interface D2ClassSkillTree {
   sections: D2SkillTreeSection[];
 }
 
-const skill = (name: string, level: number, prerequisites: string[] = []): D2SkillDefinition => ({ name, level, prerequisites });
+export function getD2SkillVisual(name: string): D2SkillVisual {
+  const lower = name.toLowerCase();
+  if (/summon|valkyrie|shadow (?:warrior|master)|decoy|hydra|raven|golem|skeleton|creeper|vine|sage|grizzly|spirit wolf|dire wolf|revive/.test(lower)) return "summon";
+  if (/sentry|trap|wake of|blade sentinel|blade shield|shock web/.test(lower)) return "trap";
+  if (/aura|armor|mastery|resist|dodge|avoid|evade|block|skin|stamina|speed|critical|penetrate|pierce|warmth|enchant|concentration|^might$|^prayer$|meditation|salvation|redemption|^vigor$|cleansing|defiance|^thorns$|vitality|arcane focus/.test(lower)) return "aura";
+  if (/howl|shout|cry|taunt|terror|confuse|vision|curse|attract/.test(lower)) return "wave";
+  if (/leap|charge|teleport|flight|frenzy|whirlwind|faster attacks/.test(lower)) return "movement";
+  if (/nova|explosion|blast|storm|wall|fissure|volcano|meteor|blizzard|tornado|hurricane|armageddon|orb|shock wave/.test(lower)) return "burst";
+  if (/arrow|bolt|spear|javelin|throw|shot|teeth|fireball|lightning|missile/.test(lower)) return "projectile";
+  return "strike";
+}
+
+const skill = (name: string, level: number, prerequisites: string[] = []): D2SkillDefinition => ({ name, level, prerequisites, visual: getD2SkillVisual(name) });
 
 export const D2_CLASS_SKILL_TREES: Record<string, D2ClassSkillTree> = {
   amazon: { classId: "amazon", sections: [
@@ -118,6 +133,7 @@ export function validateD2ClassSkillTrees(): string[] {
     if (new Set(names).size !== names.length) errors.push(`${classId} has duplicate skill names`);
     for (const entry of tree.sections.flatMap((section) => section.skills)) {
       if (!validUnlockLevels.has(entry.level)) errors.push(`${classId}.${entry.name} has invalid unlock level ${entry.level}`);
+      if (!["summon", "aura", "trap", "wave", "burst", "movement", "projectile", "strike"].includes(entry.visual)) errors.push(`${classId}.${entry.name} has no visual effect`);
       for (const prerequisite of entry.prerequisites) {
         if (!names.includes(prerequisite)) errors.push(`${classId}.${entry.name} references missing prerequisite ${prerequisite}`);
         const parent = tree.sections.flatMap((section) => section.skills).find((candidate) => candidate.name === prerequisite);
