@@ -979,5 +979,148 @@
     "dccName": "D1Lightning",
     "direction": 0,
     "frameDirectory": "lightning"
+  },
+  "d2-firebolt": {
+    "frames": 15,
+    "encodedFrames": 15,
+    "width": 96,
+    "height": 96,
+    "frameDirectory": "d2-firebolt",
+    "frameDurationMs": 85,
+    "source": "user-supplied DCC",
+    "dccName": "D1FireBolt",
+    "direction": 0
+  },
+  "d2-fireball": {
+    "frames": 15,
+    "encodedFrames": 15,
+    "width": 115,
+    "height": 115,
+    "frameDirectory": "d2-fireball",
+    "frameDurationMs": 85,
+    "source": "user-supplied DCC",
+    "dccName": "D1FireBall",
+    "direction": 0
+  },
+  "d2-acidbolt": {
+    "frames": 8,
+    "encodedFrames": 8,
+    "width": 96,
+    "height": 96,
+    "frameDirectory": "d2-acidbolt",
+    "frameDurationMs": 85,
+    "source": "user-supplied DCC",
+    "dccName": "AcidBolt",
+    "direction": 0
+  },
+  "d2-bloodcomet": {
+    "frames": 15,
+    "encodedFrames": 15,
+    "width": 124,
+    "height": 97,
+    "frameDirectory": "d2-bloodcomet",
+    "frameDurationMs": 85,
+    "source": "user-supplied DCC",
+    "dccName": "BloodComet",
+    "direction": 0
+  },
+  "d2-lightning": {
+    "frames": 8,
+    "encodedFrames": 8,
+    "width": 100,
+    "height": 100,
+    "frameDirectory": "d2-lightning",
+    "frameDurationMs": 85,
+    "source": "user-supplied DCC",
+    "dccName": "D1Lightning",
+    "direction": 0
+  },
+  "d2-inferno": {
+    "frames": 20,
+    "encodedFrames": 20,
+    "width": 97,
+    "height": 69,
+    "frameDirectory": "d2-inferno",
+    "frameDurationMs": 85,
+    "source": "user-supplied DCC",
+    "dccName": "D1Inferno",
+    "direction": 0
+  },
+  "d2-magmaball": {
+    "frames": 16,
+    "encodedFrames": 16,
+    "width": 26,
+    "height": 20,
+    "frameDirectory": "d2-magmaball",
+    "frameDurationMs": 85,
+    "source": "user-supplied DCC",
+    "dccName": "D1MagmaBallTravel",
+    "direction": 0
+  },
+  "d2-icebolt": {
+    "frames": 16,
+    "encodedFrames": 16,
+    "width": 103,
+    "height": 73,
+    "frameDirectory": "d2-icebolt",
+    "frameDurationMs": 85,
+    "source": "user-supplied DCC",
+    "dccName": "SuccubusMissileIceTravel",
+    "direction": 0
+  },
+  "d2-poisonbolt": {
+    "frames": 16,
+    "encodedFrames": 16,
+    "width": 103,
+    "height": 73,
+    "frameDirectory": "d2-poisonbolt",
+    "frameDurationMs": 85,
+    "source": "user-supplied DCC",
+    "dccName": "SuccubusMissileGreenTravel",
+    "direction": 0
+  },
+  "d2-bloodstar": {
+    "frames": 16,
+    "encodedFrames": 16,
+    "width": 103,
+    "height": 73,
+    "frameDirectory": "d2-bloodstar",
+    "frameDurationMs": 85,
+    "source": "user-supplied DCC",
+    "dccName": "SuccubusMissileRedTravel",
+    "direction": 0
+  },
+  "d2-shadowbolt": {
+    "frames": 16,
+    "encodedFrames": 16,
+    "width": 103,
+    "height": 73,
+    "frameDirectory": "d2-shadowbolt",
+    "frameDurationMs": 85,
+    "source": "user-supplied DCC",
+    "dccName": "SuccubusMissilePurpleTravel",
+    "direction": 0
+  },
+  "d2-holybolt": {
+    "frames": 16,
+    "encodedFrames": 16,
+    "width": 95,
+    "height": 73,
+    "frameDirectory": "d2-holybolt",
+    "frameDurationMs": 85,
+    "source": "user-supplied DCC",
+    "dccName": "SuccubusMissileWhiteTravel",
+    "direction": 0
+  },
+  "d2-bluestar": {
+    "frames": 16,
+    "encodedFrames": 16,
+    "width": 95,
+    "height": 73,
+    "frameDirectory": "d2-bluestar",
+    "frameDurationMs": 85,
+    "source": "user-supplied DCC",
+    "dccName": "SuccubusMissileBlueTravel",
+    "direction": 0
   }
 }

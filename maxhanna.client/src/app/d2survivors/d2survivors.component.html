@@ -14,12 +14,11 @@
     <div class="d2s-menu-sparks" aria-hidden="true"></div>
     <div class="d2s-menu-embers" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
     <div class="d2s-menu-frame">
-      <img class="d2s-classic-border" src="assets/d2survivors/ui/dc6/800borderframe/frame-00.webp" alt="" aria-hidden="true" />
       <header class="d2s-menu-title">
         <button type="button" class="d2s-audio-toggle" [attr.aria-label]="ambientAudioEnabled ? 'Mute title-screen ambience' : 'Enable title-screen ambience'" [attr.aria-pressed]="ambientAudioEnabled" [title]="ambientAudioEnabled ? 'Mute ambience' : 'Enable ambience'" (click)="toggleAmbientAudio()"><span aria-hidden="true">{{ ambientAudioEnabled ? '♫' : '♪' }}</span><span class="d2s-audio-toggle-text">{{ ambientAudioEnabled ? 'Sound on' : 'Sound off' }}</span></button>
         <span class="d2s-audio-status" aria-live="polite">{{ ambientAudioStatus }}</span>
         <div class="d2s-menu-kicker"><span></span> THE GATES OF SANCTUARY <span></span></div>
-        <div class="d2s-logo-mark" aria-hidden="true"><img src="assets/d2survivors/ui/dc6/800ctrlpnl7/frame-00.webp" alt="" /><i></i><b></b></div>
+        <div class="d2s-logo-mark" aria-hidden="true"><i></i><b></b></div>
         <h1><span>D2</span> SURVIVORS</h1>
         <p>THE ETERNAL NIGHT HAS FALLEN</p>
       </header>
