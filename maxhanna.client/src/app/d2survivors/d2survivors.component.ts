@@ -160,9 +160,9 @@ const CAMPAIGN_ACTS: CampaignAct[] = [
 ];
 
 const ENEMY_SPRITE_PATHS: Record<EnemySpecies, string> = {
-  fallen: "assets/d2survivors/enemies/animated/fallen.png",
-  goatman: "assets/d2survivors/enemies/animated/goatman.png",
-  skeleton: "assets/d2survivors/enemies/animated/skeleton.png",
+  fallen: "assets/d2survivors/enemies/fallen-shaman.png",
+  goatman: "assets/d2survivors/enemies/goatman-axe.png",
+  skeleton: "assets/d2survivors/enemies/skeleton-with-bow.png",
   sandRaider: "assets/d2survivors/enemies/sand-raider.png",
   sandMaggot: "assets/d2survivors/enemies/sand-maggot.png",
   scarab: "assets/d2survivors/enemies/animated/scarab.png",
@@ -183,8 +183,8 @@ const ENEMY_SPRITE_PATHS: Record<EnemySpecies, string> = {
 };
 
 const ENEMY_SPRITE_LAYOUTS: Record<EnemySpecies, { columns: number; rows: number; animated: boolean }> = {
-  fallen: { columns: 13, rows: 1, animated: true }, goatman: { columns: 14, rows: 1, animated: true },
-  skeleton: { columns: 16, rows: 1, animated: true }, sandRaider: { columns: 1, rows: 1, animated: false },
+  fallen: { columns: 1, rows: 1, animated: false }, goatman: { columns: 1, rows: 1, animated: false },
+  skeleton: { columns: 1, rows: 1, animated: false }, sandRaider: { columns: 1, rows: 1, animated: false },
   sandMaggot: { columns: 1, rows: 1, animated: false }, scarab: { columns: 12, rows: 8, animated: true },
   fetish: { columns: 1, rows: 1, animated: false }, fetishShaman: { columns: 1, rows: 1, animated: false },
   council: { columns: 1, rows: 1, animated: false }, balrog: { columns: 1, rows: 1, animated: false },
@@ -201,7 +201,7 @@ const ENEMY_SPRITE_CELLS: Record<EnemySpecies, { width: number; height: number }
   fetish: { width: 181, height: 180 }, fetishShaman: { width: 151, height: 180 }, council: { width: 214, height: 180 },
   balrog: { width: 290, height: 180 }, vileChild: { width: 195, height: 180 }, vileMother: { width: 273, height: 180 },
   bloodLord: { width: 444, height: 180 }, minotaur: { width: 110, height: 100 }, deathMauler: { width: 84, height: 100 },
-  wendigo: { width: 84, height: 100 }, andariel: { width: 240, height: 260 }, duriel: { width: 118, height: 182 },
+  wendigo: { width: 84, height: 100 },  andariel: { width: 240, height: 260 }, duriel: { width: 118, height: 182 },
   diablo: { width: 83, height: 95 }, baalsMinion: { width: 115, height: 100 },
 };
 
@@ -1181,7 +1181,16 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const baseContext = baseCanvas.getContext("2d", { willReadFrequently: true });
     if (!baseContext) return [];
     baseContext.drawImage(sheet, (baseIndex % atlasColumns) * tileWidth, Math.floor(baseIndex / atlasColumns) * tileHeight, tileWidth, tileHeight, 0, 0, tileWidth, tileHeight);
-    const basePixels = baseContext.getImageData(0, 0, tileWidth, tileHeight).data;
+    const brighten = (value: number): number => Math.round(255 * Math.pow(value / 255, 0.72));
+    const baseImage = baseContext.getImageData(0, 0, tileWidth, tileHeight);
+    const basePixels = baseImage.data;
+    for (let offset = 0; offset < basePixels.length; offset += 4) {
+      if (basePixels[offset + 3] === 0) continue;
+      basePixels[offset] = brighten(basePixels[offset]);
+      basePixels[offset + 1] = brighten(basePixels[offset + 1]);
+      basePixels[offset + 2] = brighten(basePixels[offset + 2]);
+    }
+    baseContext.putImageData(baseImage, 0, 0);
     const centerOffset = (Math.floor(tileHeight / 2) * tileWidth + Math.floor(tileWidth / 2)) * 4;
     const groundColor = [basePixels[centerOffset], basePixels[centerOffset + 1], basePixels[centerOffset + 2]];
     const result: HTMLCanvasElement[] = [];
@@ -1203,6 +1212,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           overlayPixels[offset + 1] = groundColor[1];
           overlayPixels[offset + 2] = groundColor[2];
           overlayPixels[offset + 3] = 0;
+        } else if (overlayPixels[offset + 3] > 0) {
+          overlayPixels[offset] = brighten(red);
+          overlayPixels[offset + 1] = brighten(green);
+          overlayPixels[offset + 2] = brighten(blue);
         }
       }
       tileContext.putImageData(pixels, 0, 0);
@@ -2022,6 +2035,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       level: 1 + Object.values(this.skillLevels).reduce((sum, level) => sum + Math.max(0, level - 1), 0),
       victory,
     };
+    if (!victory) {
+      const minutes = Math.floor(request.timeSeconds / 60);
+      const seconds = request.timeSeconds % 60;
+      const runMessage = `☠ ${request.characterName} fell in Act ${this.currentAct} (${this.currentActDetails.levelLabel}) — Level ${request.level}, ${request.kills} kills, ${minutes}:${seconds.toString().padStart(2, "0")} survived.`;
+      const chatResult = await this.d2SurvivorsService.sendLobbyMessage(session.userId, runMessage, session.token);
+      if (chatResult.ok && chatResult.data) this.addLobbyMessage(chatResult.data);
+    }
     const result = await this.d2SurvivorsService.recordCharacter(request, session.token);
     if (result.ok) {
       const retainNecromancerRun = !victory && this.deathRecovery && this.selectedClass === "necromancer";
@@ -2527,19 +2547,19 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         case "arm": {
           const restArmPitch = classPose === "amazon" || classPose === "sorceress" || classPose === "necromancer" ? -0.11 : -0.16;
           const barbarian = classPose === "barbarian";
-          const attackPitch =      attackMotion * (isLead ? attackProfile.leadArm : attackProfile.offArm) * (barbarian ? 0.42 : 0.72);
+          const attackPitch = attackMotion * (isLead ? attackProfile.leadArm : attackProfile.offArm) * (barbarian ? 0.78 : 0.72);
           const attackSweep = attackFollowThrough * (isLead ? attackProfile.armSweep : -attackProfile.armSweep * 0.4);
           rotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(
             restArmPitch + sway * 0.45 + attackPitch,
-            attackSweep * (barbarian ? 0.42 : 1),
-            pose.side * sway + attackMotion * attackProfile.shoulderRoll * (isLead ? -0.7 : 0.5) * (barbarian ? 0.5 : 1),
+            attackSweep * (barbarian ? 0.78 : 1),
+            pose.side * sway + attackMotion * attackProfile.shoulderRoll * (isLead ? -0.7 : 0.5) * (barbarian ? 0.8 : 1),
             "XYZ",
           ));
           break;
         }
         case "forearm": {
           const barbarian = classPose === "barbarian";
-          const bend = Math.max(0, attackMotion) * (isLead ? attackProfile.elbowBend : attackProfile.offElbowBend) * (barbarian ? 0.38 : 0.65);
+          const bend = Math.max(0, attackMotion) * (isLead ? attackProfile.elbowBend : attackProfile.offElbowBend) * (barbarian ? 0.72 : 0.65);
           rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), bend + Math.max(0, sway) * 0.15);
           break;
         }
@@ -3383,7 +3403,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const distance = Math.hypot(nearest.x - this.playerX, nearest.y - this.playerY);
     this.playerFacingX = (nearest.x - this.playerX) / Math.max(1, distance);
     this.playerFacingY = (nearest.y - this.playerY) / Math.max(1, distance);
-    this.addSkillVisualEffect(skill, nearest);
 
     if (skill === "Whirlwind" && this.selectedClass === "barbarian") {
       const targets = this.enemies.filter((enemy) => enemy.hp > 0 && Math.hypot(enemy.x - this.playerX, enemy.y - this.playerY) <= 115);
@@ -3439,6 +3458,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
 
     if (distance <= nearest.r + 28) {
+      this.addSkillVisualEffect(skill, nearest);
       nearest.hp -= damage;
       this.triggerAttackAnimation(castAnimation);
       this.floatingTexts.push({ x: nearest.x, y: nearest.y - nearest.r, text: `-${Math.floor(damage)}`, color: attack.color, life: 0.8 });
@@ -3551,34 +3571,22 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         context.imageSmoothingEnabled = false;
         context.drawImage(image, 0, 0);
         const pixels = context.getImageData(0, 0, sheet.width, sheet.height);
-        const visited = new Uint8Array(sheet.width * sheet.height);
-        const queue: number[] = [];
-        const enqueueBackdropPixel = (x: number, y: number): void => {
-          const index = y * sheet.width + x;
-          if (visited[index]) return;
-          visited[index] = 1;
-          queue.push(index);
-        };
-        for (let x = 0; x < sheet.width; x += 1) {
-          enqueueBackdropPixel(x, 0);
-          enqueueBackdropPixel(x, sheet.height - 1);
-        }
-        for (let y = 0; y < sheet.height; y += 1) {
-          enqueueBackdropPixel(0, y);
-          enqueueBackdropPixel(sheet.width - 1, y);
-        }
         const rgba = pixels.data;
-        for (let cursor = 0; cursor < queue.length; cursor += 1) {
-          const index = queue[cursor];
-          const offset = index * 4;
-          if (rgba[offset + 3] === 0 || Math.max(rgba[offset], rgba[offset + 1], rgba[offset + 2]) > 12) continue;
-          rgba[offset + 3] = 0;
-          const x = index % sheet.width;
-          const y = Math.floor(index / sheet.width);
-          if (x > 0) enqueueBackdropPixel(x - 1, y);
-          if (x + 1 < sheet.width) enqueueBackdropPixel(x + 1, y);
-          if (y > 0) enqueueBackdropPixel(x, y - 1);
-          if (y + 1 < sheet.height) enqueueBackdropPixel(x, y + 1);
+        // This sheet was exported against an opaque black matte, not transparency.
+        // Remove it and lift/tint the remaining dark pixels so summons read clearly
+        // against the dark arena instead of disappearing into the floor.
+        for (let offset = 0; offset < rgba.length; offset += 4) {
+          const red = rgba[offset];
+          const green = rgba[offset + 1];
+          const blue = rgba[offset + 2];
+          if (rgba[offset + 3] === 0 || red <= 20 && green <= 20 && blue <= 20) {
+            rgba[offset + 3] = 0;
+            continue;
+          }
+          const luminance = (red * 0.3 + green * 0.59 + blue * 0.11) / 255;
+          rgba[offset] = Math.round(105 + luminance * 75);
+          rgba[offset + 1] = Math.round(145 + luminance * 75);
+          rgba[offset + 2] = Math.round(175 + luminance * 75);
         }
         context.putImageData(pixels, 0, 0);
         onReady(sheet);
@@ -3621,7 +3629,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         }
         const cellSize = layout.animated
           ? { width: source.naturalWidth / columns, height: source.naturalHeight / rows }
-          : cell;
+          : { width: Math.min(source.naturalWidth, cell.width), height: Math.min(source.naturalHeight, cell.height) };
         const expectedWidth = columns * cellSize.width;
         const expectedHeight = rows * cellSize.height;
         const canvas = document.createElement("canvas");
@@ -3672,7 +3680,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           }
           context.putImageData(pixels, 0, 0);
         } else {
-          context.drawImage(source, 0, 0);
+          context.drawImage(source, 0, 0, source.naturalWidth, source.naturalHeight, 0, 0, cellSize.width, cellSize.height);
         }
         this.enemySprites[species] = {
           image: canvas,
@@ -4019,27 +4027,44 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const angle = Math.atan2(facing.y - center.y, facing.x - center.x);
     const profile = ATTACK_ANIMATION_PROFILES[effect.style];
     const arc = profile.trailArc ?? 1.6;
-    const sweep = strike * (effect.style === "barbarianCleave" ? 0.42 : 0.24) * effect.side;
+    const sweep = strike * (effect.style === "barbarianCleave" ? 0.52 : 0.24) * effect.side;
     const startAngle = effect.style === "spin" ? 0 : angle - arc / 2 + sweep;
     const endAngle = effect.style === "spin" ? Math.PI * 2 : angle + arc / 2 + sweep;
-    const radius = effect.style === "barbarianCleave" ? 36 + Math.max(0, strike) * 12 : 31 + Math.max(0, strike) * 10;
+    const radius = effect.style === "barbarianCleave" ? 31 + Math.max(0, strike) * 16 : 31 + Math.max(0, strike) * 10;
     ctx.save();
     ctx.globalAlpha = Math.min(0.88, fade * 0.9);
     ctx.lineCap = "round";
     ctx.shadowColor = effect.color;
     ctx.shadowBlur = 13;
     ctx.strokeStyle = effect.color;
-    ctx.lineWidth = effect.style === "barbarianCleave" || effect.style === "spin" ? 3.5 : 3;
-    ctx.beginPath();
-    ctx.arc(center.x, center.y - 12, radius, startAngle, endAngle);
-    ctx.stroke();
-    ctx.globalAlpha *= 0.6;
-    ctx.shadowBlur = 0;
-    ctx.strokeStyle = "#fff4d2";
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.arc(center.x, center.y - 12, radius - 3, startAngle + 0.12, endAngle - 0.12);
-    ctx.stroke();
+    if (effect.style === "barbarianCleave") {
+      const cleaveProgress = Math.max(0, Math.min(1, (progress - 0.3) / 0.26));
+      const visibleArc = arc * Math.max(0.12, cleaveProgress);
+      const arcCenter = angle + sweep - effect.side * arc * (1 - cleaveProgress) * 0.5;
+      ctx.lineWidth = 7 + cleaveProgress * 2;
+      ctx.beginPath();
+      ctx.arc(center.x, center.y - 12, radius, arcCenter - visibleArc / 2, arcCenter + visibleArc / 2);
+      ctx.stroke();
+      ctx.globalAlpha *= 0.7;
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = "#fff4d2";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(center.x, center.y - 12, radius, arcCenter - visibleArc / 2, arcCenter + visibleArc / 2);
+      ctx.stroke();
+    } else {
+      ctx.lineWidth = effect.style === "spin" ? 3.5 : 3;
+      ctx.beginPath();
+      ctx.arc(center.x, center.y - 12, radius, startAngle, endAngle);
+      ctx.stroke();
+      ctx.globalAlpha *= 0.6;
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = "#fff4d2";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(center.x, center.y - 12, radius - 3, startAngle + 0.12, endAngle - 0.12);
+      ctx.stroke();
+    }
     ctx.restore();
   }
 
@@ -4061,8 +4086,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     if (overlay?.complete && overlay.naturalWidth > 0) {
       const direction = Math.atan2(projectile.targetY - projectile.startY, projectile.targetX - projectile.startX);
-      const maxFrameSize = ["fireball", "bloodcomet"].includes(missileId) ? 72 : 54;
-      const frameScale = Math.min(1.25, Math.max(0.42, maxFrameSize / Math.max(overlay.naturalWidth, overlay.naturalHeight)));
+      const maxFrameSize = ["fireball", "bloodcomet"].includes(missileId) ? 36 : 28;
+      const dpr = this.arenaRef?.nativeElement.clientWidth
+        ? this.arenaRef.nativeElement.width / this.arenaRef.nativeElement.clientWidth
+        : 1;
+      const frameScale = maxFrameSize * dpr / Math.max(overlay.naturalWidth, overlay.naturalHeight);
       const imageWidth = overlay.naturalWidth * frameScale * this.worldZoom;
       const imageHeight = overlay.naturalHeight * frameScale * this.worldZoom;
       ctx.save();
@@ -4071,7 +4099,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       ctx.globalCompositeOperation = "lighter";
       ctx.shadowColor = projectile.color;
       ctx.shadowBlur = 7;
-      // DCC uses a grayscale default palette until the native game palette is supplied.
+      // Missile frames are keyed and tinted from the supplied Missile.txt light colors.
       ctx.drawImage(overlay, -imageWidth / 2, -imageHeight / 2, imageWidth, imageHeight);
       ctx.restore();
       return;
@@ -4640,8 +4668,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const missileFrames = missileId ? this.missileOverlayImages.get(missileId) : undefined;
     const frameCount = missileFrames?.length ?? 0;
     const frameDuration = MISSILE_FRAME_DURATIONS_MS[missileId ?? ""] ?? 85;
+    const effectAge = Math.max(0, effect.time - 0.08);
     const frameIndex = frameCount > 1
-      ? Math.floor(performance.now() / frameDuration) % frameCount
+      ? Math.min(frameCount - 1, Math.floor(effectAge * 1000 / frameDuration))
       : 0;
     let missileFrame = effect.name === "Teeth" ? undefined : frameCount ? missileFrames?.[frameIndex] : undefined;
     if (effect.name !== "Teeth" && (!missileFrame?.complete || missileFrame.naturalWidth === 0)) {
@@ -4672,9 +4701,15 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       ctx.lineWidth = 3;
       ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(x, y); ctx.stroke();
       if (missileFrame?.complete && missileFrame.naturalWidth > 0) {
-        const size = effect.name === "Meteor" ? 42 : 34;
+        const impact = effect.targetEnemy && effect.time >= effect.duration * 0.82;
+        const size = effect.name === "Meteor" ? 48 : 34;
         ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.shadowBlur = 0;
-        ctx.drawImage(missileFrame, x - size / 2, y - size / 2, size, size); ctx.restore();
+        ctx.drawImage(missileFrame, x - size / 2, y - size / 2, size, size);
+        if (impact) {
+          ctx.globalAlpha = fade * 0.7;
+          ctx.beginPath(); ctx.arc(x, y, 12 + progress * 16, 0, Math.PI * 2); ctx.stroke();
+        }
+        ctx.restore();
       } else {
         ctx.beginPath(); ctx.arc(x, y, 7 + 3 * fade, 0, Math.PI * 2); ctx.fill();
       }
@@ -4739,24 +4774,22 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(34 + progress * 24, 0); ctx.stroke();
     }
     if ((effect.kind !== "projectile" || effect.targetEnemy) && missileFrame?.complete && missileFrame.naturalWidth > 0) {
-      const size = effect.kind === "burst" ? 42 : 32;
-      const effectX = effect.kind === "projectile" && effect.targetEnemy
-        ? target.x - origin.x
-        : effect.kind === "aura" || effect.kind === "summon" || effect.kind === "trap" || effect.kind === "burst"
+      if (effect.kind !== "projectile") {
+        const size = effect.kind === "burst" ? 42 : 32;
+        const effectX = effect.kind === "aura" || effect.kind === "summon" || effect.kind === "trap" || effect.kind === "burst"
           ? 0
           : Math.min(1, progress * 2) * (target.x - origin.x);
-      const effectY = effect.kind === "projectile" && effect.targetEnemy
-        ? target.y - origin.y
-        : effect.kind === "aura" || effect.kind === "summon" || effect.kind === "trap" || effect.kind === "burst"
+        const effectY = effect.kind === "aura" || effect.kind === "summon" || effect.kind === "trap" || effect.kind === "burst"
           ? 0
           : Math.min(1, progress * 2) * (target.y - origin.y);
-      ctx.save();
-      ctx.globalCompositeOperation = "source-over";
-      ctx.globalAlpha = fade * 0.92;
-      ctx.shadowColor = effect.color;
-      ctx.shadowBlur = 8;
-      ctx.drawImage(missileFrame, effectX - size / 2, effectY - radius * 0.4 - size / 2, size, size);
-      ctx.restore();
+        ctx.save();
+        ctx.globalCompositeOperation = "lighter";
+        ctx.globalAlpha = fade * 0.92;
+        ctx.shadowColor = effect.color;
+        ctx.shadowBlur = 8;
+        ctx.drawImage(missileFrame, effectX - size / 2, effectY - radius * 0.4 - size / 2, size, size);
+        ctx.restore();
+      }
     }
     ctx.restore();
     ctx.save();
@@ -5527,12 +5560,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const canvas = this.arenaRef?.nativeElement;
     const screenCenterX = (canvas?.width ?? 800) / 2;
     const screenCenterY = (canvas?.height ?? 500) / 2;
+    const dpr = canvas?.clientWidth ? canvas.width / canvas.clientWidth : 1;
     const dx = (x - worldCenterX) * this.worldZoom;
     const dy = (y - worldCenterY) * this.worldZoom;
     // 2:1 diamond projection, calibrated to the orthographic 3D character camera.
     return {
-      x: screenCenterX + (dx - dy) * 0.7071,
-      y: screenCenterY + (dx + dy) * 0.35355,
+      x: screenCenterX + (dx - dy) * 0.7071 * dpr,
+      y: screenCenterY + (dx + dy) * 0.35355 * dpr,
     };
   }
 
@@ -6093,10 +6127,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const lead = arm.side === this.attackAnimationSide;
       const armAmplitude = lead ? attackProfile.leadArm : attackProfile.offArm;
       const locomotionSwing = (arm.side < 0 ? oppositeStride : stride) * moving * (isSorceress ? 0.035 : isBarbarian ? 0.2 : 0.08);
-      const attackDrive = isBarbarian ? Math.max(0, attackMotion) : attackMotion;
-      const pitch = locomotionSwing + attackDrive * armAmplitude * (isBarbarian ? 0.62 : 1);
-      const sweep = attackFollowThrough * (lead ? attackProfile.armSweep : -attackProfile.armSweep * 0.55) * (isBarbarian ? 0.7 : 1);
-      const roll = attackDrive * attackProfile.shoulderRoll * (lead ? -1 : 1) * (isBarbarian ? 0.55 : 1);
+      const pitch = locomotionSwing + attackMotion * armAmplitude;
+      const sweep = attackFollowThrough * (lead ? attackProfile.armSweep : -attackProfile.armSweep * 0.55);
+      const roll = attackMotion * attackProfile.shoulderRoll * (lead ? -1 : 1);
       const shoulderMotion = new THREE.Quaternion().setFromEuler(new THREE.Euler(pitch, sweep, roll, "XYZ"));
       arm.bone.quaternion.copy(arm.baseQuaternion).multiply(shoulderMotion);
     }
@@ -6104,13 +6137,15 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const lead = forearm.side === this.attackAnimationSide;
       const locomotionBend = Math.max(0, Math.sin(phase + (forearm.side < 0 ? Math.PI : 0))) * moving * (isSorceress ? 0.025 : isBarbarian ? 0.12 : 0.06);
       const attackDrive = Math.max(0, attackMotion);
-      const bend = locomotionBend + attackDrive * (lead ? attackProfile.elbowBend : attackProfile.offElbowBend) * (isBarbarian ? 0.7 : 1);
+      const bend = locomotionBend + attackDrive * (lead ? attackProfile.elbowBend : attackProfile.offElbowBend);
       const flex = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), bend);
       forearm.bone.quaternion.copy(forearm.baseQuaternion).multiply(flex);
     }
     for (let index = 0; index < this.playerWeaponMeshes.length; index += 1) {
       const side = this.playerWeaponMeshes[index].userData["d2sWeaponSide"] as number;
-      const weaponDrive = isBarbarian ? Math.max(0, attackMotion) : attackMotion;
+      // The Barbarian weapons are parented to the animated hand; applying a second
+      // local swing rotates them around the mesh origin and makes the grip look broken.
+      const weaponDrive = isBarbarian ? 0 : attackMotion;
       const turn = new THREE.Quaternion().setFromEuler(new THREE.Euler(weaponDrive * attackProfile.weaponPitch, 0, weaponDrive * attackProfile.weaponRoll * (side < 0 ? -1 : 1), "XYZ"));
       this.playerWeaponMeshes[index].quaternion.copy(this.playerWeaponBaseQuaternions[index]).multiply(turn);
     }
@@ -6123,8 +6158,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (this.playerRigBones.spine) {
       const base = this.playerRigBones.spineBaseQuaternion ?? this.playerRigBones.spine.quaternion;
       const lean = new THREE.Quaternion().setFromEuler(new THREE.Euler(
-        -(isSorceress ? 0.008 : isBarbarian ? 0.035 : 0.018) * moving + Math.sin(phase * 2) * moving * (isSorceress ? 0.003 : isBarbarian ? 0.012 : 0.006) - (isBarbarian ? Math.max(0, attackMotion) : attackMotion) * attackProfile.lean * (isBarbarian ? 1.25 : 1),
-        (isBarbarian ? Math.max(0, attackMotion) : attackMotion) * attackProfile.torsoTwist * (isBarbarian ? 0.72 : 1),
+        -(isSorceress ? 0.008 : isBarbarian ? 0.035 : 0.018) * moving
+          + Math.sin(phase * 2) * moving * (isSorceress ? 0.003 : isBarbarian ? 0.012 : 0.006)
+          - attackMotion * attackProfile.lean * (isBarbarian ? 1.25 : 1),
+        attackMotion * attackProfile.torsoTwist,
         Math.sin(phase) * moving * (isSorceress ? 0.003 : isBarbarian ? 0.012 : 0.006),
         "XYZ",
       ));
@@ -6136,8 +6173,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const modelRoot = this.characterModel.children[0];
     if (modelRoot) modelRoot.rotation.y = this.attackAnimationTurn;
     // Keep footfalls subtle so the model stays grounded instead of hovering between steps.
-    const barbarianCrouch = isBarbarian && attackActive ? Math.max(0, -attackMotion) * 0.1 : 0;
-    const barbarianDrive = isBarbarian ? Math.max(0, attackMotion) : Math.max(0, attackMotion);
+    const barbarianCrouch = isBarbarian && attackActive ? Math.max(0, -attackMotion) * 0.16 : 0;
+    const barbarianDrive = Math.max(0, attackMotion);
     this.characterModel.position.y = Math.abs(Math.sin(phase * 2)) * moving * (isSorceress ? 0.035 : isBarbarian ? 0.14 : 0.08) - barbarianCrouch + barbarianDrive * attackProfile.bodyLift;
   }
 
@@ -6278,7 +6315,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const bounds = enemySpriteCellBounds(e.species, sprite, sheetIndex, sourceRow);
       if (bounds) {
         const drawHeight = size * (e.kind === "boss" ? 1.35 : 1);
-        const drawWidth = drawHeight * bounds.width / bounds.height;
+        const aspectRatio = bounds.width / bounds.height;
+        const drawWidth = drawHeight * Math.max(0.9, Math.min(1.7, aspectRatio));
         const drawX = ground.x - drawWidth / 2;
         const drawY = ground.y - drawHeight * 0.78;
 
@@ -6341,8 +6379,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const frameHeight = 86;
     const columns = 16;
     const dx = this.playerX - summon.x;
-    const strideFrame = Math.floor(this.runTime * 10) % columns;
-    const height = (isGolem ? 84 : 66) * this.worldZoom;
+    const dy = this.playerY - summon.y;
+    const isMoving = Math.hypot(dx, dy) > 4;
+    const strideFrame = isMoving ? Math.floor(this.runTime * 10) % columns : 3;
+    const height = (isGolem ? 84 : 90) * this.worldZoom;
     const width = height * frameWidth / frameHeight;
     const mirror = !isGolem && dx < 0;
     ctx.save();
@@ -6354,6 +6394,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     ctx.globalAlpha = 1;
     if (sheet) {
       ctx.imageSmoothingEnabled = false;
+      if (!isGolem) {
+        ctx.shadowColor = "#9edfff";
+        ctx.shadowBlur = 12;
+      }
       ctx.save();
       if (mirror) {
         ctx.translate(ground.x, 0);
@@ -6961,7 +7005,7 @@ interface AttackAnimationProfile {
 const ATTACK_ANIMATION_PROFILES: Record<AttackAnimationStyle, AttackAnimationProfile> = {
   amazonJab: { duration: 0.34, leadArm: 1.35, offArm: 0.12, armSweep: 0.08, shoulderRoll: 0.08, elbowBend: 0.16, offElbowBend: 0.08, weaponPitch: -0.9, weaponRoll: -0.08, lean: 0.1, torsoTwist: 0.03, bodyLift: 0.015, spin: false, trail: "#f6d28b", trailArc: 0.52 },
   assassinSlash: { duration: 0.38, leadArm: 1.12, offArm: 0.2, armSweep: 0.62, shoulderRoll: 0.22, elbowBend: 0.82, offElbowBend: 0.12, weaponPitch: -0.6, weaponRoll: 0.5, lean: 0.05, torsoTwist: 0.22, bodyLift: 0.015, spin: false, trail: "#a8cfff", trailArc: 2.35 },
-  barbarianCleave: { duration: 0.64, leadArm: 0.82, offArm: 0.16, armSweep: -0.9, shoulderRoll: 0.12, elbowBend: 0.62, offElbowBend: 0.08, weaponPitch: -0.42, weaponRoll: -0.18, lean: 0.22, torsoTwist: 0.18, bodyLift: 0.012, spin: false, trail: "#ffc06a", trailArc: 1.9 },
+  barbarianCleave: { duration: 0.58, leadArm: 1.28, offArm: 0.42, armSweep: -1.18, shoulderRoll: 0.34, elbowBend: 0.78, offElbowBend: 0.22, weaponPitch: -1.05, weaponRoll: -0.44, lean: 0.34, torsoTwist: 0.42, bodyLift: 0.018, spin: false, trail: "#ffc06a", trailArc: 2.1 },
   druidClaw: { duration: 0.44, leadArm: 1.08, offArm: 0.72, armSweep: 0.42, shoulderRoll: 0.12, elbowBend: 0.48, offElbowBend: 0.28, weaponPitch: -0.45, weaponRoll: 0.3, lean: 0.06, torsoTwist: 0.2, bodyLift: 0.02, spin: false, trail: "#9dffb1", trailArc: 1.8 },
   necromancerCast: { duration: 0.56, leadArm: 0.9, offArm: 0.48, armSweep: 0.2, shoulderRoll: 0.26, elbowBend: 0.75, offElbowBend: 0.5, weaponPitch: -0.28, weaponRoll: 0.16, lean: 0.04, torsoTwist: 0.12, bodyLift: 0.025, spin: false, trail: "#c6e5ff", trailArc: 0.95 },
   paladinStrike: { duration: 0.46, leadArm: 1.38, offArm: 0.26, armSweep: -0.2, shoulderRoll: 0.1, elbowBend: 0.28, offElbowBend: 0.1, weaponPitch: -0.8, weaponRoll: -0.18, lean: 0.12, torsoTwist: 0.16, bodyLift: 0.02, spin: false, trail: "#fff0a8", trailArc: 1.7 },
@@ -6972,13 +7016,17 @@ const ATTACK_ANIMATION_PROFILES: Record<AttackAnimationStyle, AttackAnimationPro
 };
 function attackMotionCurve(progress: number, style?: AttackAnimationStyle): number {
   if (style === "barbarianCleave") {
-    if (progress < 0.34) return -Math.sin(progress / 0.34 * Math.PI / 2);
-    if (progress < 0.62) {
-      const strike = (progress - 0.34) / 0.28;
-      return -1 + 2 * (strike * strike * (3 - 2 * strike));
+    if (progress < 0.3) {
+      const windup = progress / 0.3;
+      return -Math.sin(windup * Math.PI / 2);
     }
-    const recovery = (progress - 0.62) / 0.38;
-    return Math.cos(Math.PI * 0.5 * recovery) * (1 - recovery);
+    if (progress < 0.56) {
+      const strike = (progress - 0.3) / 0.26;
+      const easedStrike = strike * strike * (3 - 2 * strike);
+      return -Math.cos(easedStrike * Math.PI);
+    }
+    const recovery = Math.min(1, (progress - 0.56) / 0.44);
+    return Math.cos(recovery * Math.PI / 2) * (1 - recovery * 0.18);
   }
   if (progress < 0.22) return -0.35 * Math.sin(progress / 0.22 * Math.PI / 2);
   if (progress < 0.48) {

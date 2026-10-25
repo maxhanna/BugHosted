@@ -30,43 +30,103 @@ SKILL_ANIMATIONS = {
     "d2-holybolt": "SuccubusMissileWhiteTravel",
     "d2-bluestar": "SuccubusMissileBlueTravel",
 }
+
+# The supplied DCC decoder exports grayscale when no native palette is passed.
+# Missiles.txt provides the projectile's D2 light color; apply it to grayscale
+# pixels while leaving already-colored pixels and alpha untouched.
+MISSILE_TINTS = {
+    "d2-firebolt": (255, 178, 64),
+    "d2-fireball": (255, 178, 64),
+    "d2-acidbolt": (85, 235, 75),
+    "d2-bloodcomet": (255, 35, 35),
+    "d2-lightning": (125, 205, 255),
+    "d2-inferno": (255, 112, 36),
+    "d2-magmaball": (255, 112, 36),
+    "d2-icebolt": (105, 210, 255),
+    "d2-poisonbolt": (85, 235, 75),
+    "d2-bloodstar": (230, 65, 95),
+    "d2-shadowbolt": (185, 95, 255),
+    "d2-holybolt": (255, 235, 145),
+    "d2-bluestar": (95, 165, 255),
+}
 FRAME_NAME = re.compile(r"decoded_d(\d+)_f(\d+)\.png$")
 
 
 def remove_black_background(image: Image.Image) -> Image.Image:
     rgba = image.convert("RGBA")
-    alpha = rgba.getchannel("A")
-    # Existing transparent frames have already been keyed; leave them untouched
-    # so rerunning the importer is idempotent and doesn't fade spell sprites.
-    if alpha.getextrema() != (255, 255):
-        return rgba
-    luminance = rgba.convert("RGB").convert("L")
-    # DCC exports include black opaque canvases. Fade only near-black pixels
-    # into transparency to remove the square without hard, jagged edges.
-    black_key = luminance.point(lambda value: 0 if value <= 2 else min(255, round(value * 255 / 32)))
-    from PIL import ImageChops
-    rgba.putalpha(ImageChops.multiply(alpha, black_key))
+    pixels = rgba.load()
+    # Some exports contain a mix of transparent sprite pixels and an opaque black
+    # matte. Key the fully opaque black pixels even when other pixels are already
+    # transparent; only alter opaque pixels so rerunning this remains idempotent.
+    for y in range(rgba.height):
+        for x in range(rgba.width):
+            red, green, blue, alpha = pixels[x, y]
+            if alpha != 255:
+                continue
+            luminance = round(red * 0.299 + green * 0.587 + blue * 0.114)
+            if luminance <= 2:
+                pixels[x, y] = (red, green, blue, 0)
+            elif luminance <= 32:
+                pixels[x, y] = (red, green, blue, round(luminance * 255 / 32))
     return rgba
 
 
+def prepare_frames(images: list[Image.Image], name: str) -> list[Image.Image]:
+    """Key DCC matte, crop blank margins consistently, and colorize grayscale exports."""
+    keyed = [remove_black_background(image) for image in images]
+    bounds = [image.getchannel("A").getbbox() for image in keyed]
+    visible_indices = [index for index, box in enumerate(bounds) if box]
+    if not visible_indices:
+        raise RuntimeError(f"No visible pixels in skill animation {name}")
+    # A few supplied DCCs end on a fully transparent timing frame. Hold the last
+    # visible cel for that final tick rather than flashing the missile out early.
+    last_visible_index = visible_indices[-1]
+    for index in range(last_visible_index + 1, len(keyed)):
+        keyed[index] = keyed[last_visible_index].copy()
+        bounds[index] = bounds[last_visible_index]
+    visible_bounds = [box for box in bounds if box]
+    left = max(0, min(box[0] for box in visible_bounds) - 4)
+    top = max(0, min(box[1] for box in visible_bounds) - 4)
+    right = min(keyed[0].width, max(box[2] for box in visible_bounds) + 4)
+    bottom = min(keyed[0].height, max(box[3] for box in visible_bounds) + 4)
+    tint = MISSILE_TINTS[name]
+    prepared = []
+    for image in keyed:
+        if image.size != keyed[0].size:
+            raise RuntimeError(f"Unstable frame dimensions for {name}: {image.size} != {keyed[0].size}")
+        cropped = image.crop((left, top, right, bottom))
+        pixels = cropped.load()
+        for y in range(cropped.height):
+            for x in range(cropped.width):
+                red, green, blue, alpha = pixels[x, y]
+                if alpha == 0 or max(red, green, blue) - min(red, green, blue) > 4:
+                    continue
+                intensity = (max(red, green, blue) / 255) ** 0.8
+                pixels[x, y] = (
+                    round(tint[0] * intensity),
+                    round(tint[1] * intensity),
+                    round(tint[2] * intensity),
+                    alpha,
+                )
+        prepared.append(cropped)
+    return prepared
+
+
 def inspect_existing(output: Path, name: str, dcc_name: str) -> dict:
-    frames = sorted(output.glob("*.webp"))
-    if not frames:
+    frame_paths = sorted(output.glob("*.webp"))
+    if not frame_paths:
         raise RuntimeError(f"Existing skill asset directory has no WebP frames: {output}")
-    dimensions = set()
-    for frame_path in frames:
+    images = []
+    for frame_path in frame_paths:
         with Image.open(frame_path) as image:
-            image.verify()
-        with Image.open(frame_path) as image:
-            rgba = remove_black_background(image)
-            dimensions.add(rgba.size)
-            rgba.save(frame_path, "WEBP", lossless=True, method=6)
-    if len(dimensions) != 1:
-        raise RuntimeError(f"Unstable frame dimensions for {dcc_name}: {sorted(dimensions)}")
-    width, height = next(iter(dimensions))
+            images.append(image.convert("RGBA"))
+    prepared = prepare_frames(images, name)
+    width, height = prepared[0].size
+    for frame_path, image in zip(frame_paths, prepared):
+        image.save(frame_path, "WEBP", lossless=True, method=6)
     return {
-        "frames": len(frames),
-        "encodedFrames": len(frames),
+        "frames": len(frame_paths),
+        "encodedFrames": len(frame_paths),
         "width": width,
         "height": height,
         "frameDirectory": name,
@@ -119,24 +179,19 @@ def convert(d2_root: Path, converter: Path, name: str, dcc_name: str) -> dict:
         first_direction = frames[0][0]
         frames = [(frame_index, path) for direction, frame_index, path in frames if direction == first_direction]
 
-        dimensions = set()
+        source_images = []
         for _, frame_path in frames:
             with Image.open(frame_path) as image:
-                dimensions.add(image.size)
-        if len(dimensions) != 1:
-            raise RuntimeError(f"Unstable frame dimensions for {dcc_name}: {sorted(dimensions)}")
+                source_images.append(image.convert("RGBA"))
+        prepared = prepare_frames(source_images, name)
 
         temp_output = temp_root / "frames"
         temp_output.mkdir()
-        for index, (_, frame_path) in enumerate(frames):
-            with Image.open(frame_path) as image:
-                rgba = remove_black_background(image)
-                rgba.save(temp_output / f"{index:04d}.webp", "WEBP", lossless=True, method=6)
-                if rgba.getchannel("A").getextrema()[0] != 0:
-                    raise RuntimeError(f"Missile frame has no transparent background: {dcc_name} frame {index}")
+        for index, rgba in enumerate(prepared):
+            rgba.save(temp_output / f"{index:04d}.webp", "WEBP", lossless=True, method=6)
         temp_output.rename(output)
 
-    width, height = next(iter(dimensions))
+    width, height = prepared[0].size
     return {
         "frames": len(frames),
         "encodedFrames": len(frames),

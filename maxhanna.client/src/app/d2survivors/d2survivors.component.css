@@ -656,7 +656,11 @@
 
 .d2s-menu-button {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   min-height: 55px;
+  text-decoration: none;
   padding: 8px 18px;
   color: #c9b889;
   text-align: center;
