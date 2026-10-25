@@ -190,9 +190,9 @@ const ENEMY_SPRITE_LAYOUTS: Record<EnemySpecies, { columns: number; rows: number
   fetish: { columns: 1, rows: 1, animated: false }, fetishShaman: { columns: 1, rows: 1, animated: false },
   council: { columns: 1, rows: 1, animated: false }, balrog: { columns: 1, rows: 1, animated: false },
   vileChild: { columns: 1, rows: 1, animated: false }, vileMother: { columns: 1, rows: 1, animated: false },
-  bloodLord: { columns: 1, rows: 1, animated: false }, minotaur: { columns: 14, rows: 8, animated: true },
+  bloodLord: { columns: 1, rows: 1, animated: false }, minotaur: { columns: 7, rows: 8, animated: true },
   deathMauler: { columns: 12, rows: 8, animated: true }, wendigo: { columns: 12, rows: 8, animated: true },
-  andariel: { columns: 12, rows: 8, animated: true }, duriel: { columns: 12, rows: 8, animated: true },
+  andariel: { columns: 12, rows: 8, animated: true }, duriel: { columns: 6, rows: 8, animated: true },
   diablo: { columns: 14, rows: 8, animated: true }, baalsMinion: { columns: 13, rows: 8, animated: true },
 };
 
@@ -201,8 +201,8 @@ const ENEMY_SPRITE_CELLS: Record<EnemySpecies, { width: number; height: number }
   sandRaider: { width: 114, height: 180 }, sandMaggot: { width: 172, height: 180 }, scarab: { width: 101, height: 100 },
   fetish: { width: 181, height: 180 }, fetishShaman: { width: 151, height: 180 }, council: { width: 214, height: 180 },
   balrog: { width: 290, height: 180 }, vileChild: { width: 195, height: 180 }, vileMother: { width: 273, height: 180 },
-  bloodLord: { width: 444, height: 180 }, minotaur: { width: 110, height: 100 }, deathMauler: { width: 84, height: 100 },
-  wendigo: { width: 84, height: 100 },  andariel: { width: 240, height: 260 }, duriel: { width: 118, height: 182 },
+  bloodLord: { width: 444, height: 180 }, minotaur: { width: 110, height: 100 }, deathMauler: { width: 112, height: 100 },
+  wendigo: { width: 161, height: 100 }, andariel: { width: 240, height: 260 }, duriel: { width: 118, height: 182 },
   diablo: { width: 83, height: 95 }, baalsMinion: { width: 115, height: 100 },
 };
 
@@ -362,12 +362,18 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private readonly campaignBackgroundCanvases: Partial<Record<number, HTMLCanvasElement>> = {};
   private campaignTileBitmaps: Partial<Record<number, HTMLCanvasElement[]>> = {};
   private campaignGeneratedChunks = new Map<string, HTMLCanvasElement>();
+  private act1InteriorImage?: HTMLImageElement;
+  private act1InteriorOpen = false;
   private currentChunkCoordX = 0;
   private currentChunkCoordY = 0;
   private currentChunkLocalX = 0;
   private currentChunkLocalY = 0;
   private readonly worldZoom = 2.1;
-  private readonly floorTileScale = 23.5;
+  // The source tile cells are 160×80 px for a 2:1 diamond; their display size
+  // should follow the current isometric world zoom rather than being enlarged 23×.
+  private readonly floorTileScale = 1;
+  // Fixed first-chunk doorway placed a short walk from the starting position.
+  private readonly act1InteriorDoor = { x: 410, y: 240, radius: 12 };
   private readonly playerWorldScale = 1.8;
   private readonly chunkTileColumns = 12;
   private readonly chunkTileRows = 8;
@@ -1069,6 +1075,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   private loadCampaignMaps(): void {
+    const interior = new Image();
+    interior.onload = () => {
+      this.act1InteriorImage = interior;
+      if (this.activeTab === "run" && this.currentAct === 1) this.draw();
+    };
+    interior.onerror = () => console.warn("Could not load the supplied Act I interior artwork.");
+    interior.src = "assets/d2survivors/maps/act1-barracks-interior.png";
     for (const act of CAMPAIGN_ACTS) {
       const mapImage = new Image();
       const tileImage = new Image();
@@ -1120,6 +1133,68 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     context.putImageData(image, 0, 0);
     return overlay;
+  }
+
+  private updateAct1InteriorState(): void {
+    if (this.currentAct !== 1) {
+      this.act1InteriorOpen = false;
+      return;
+    }
+    const chunkWidth = this.chunkTileColumns * 48;
+    const chunkHeight = this.chunkTileRows * 48;
+    const worldX = this.currentChunkCoordX * chunkWidth + this.currentChunkLocalX;
+    const worldY = this.currentChunkCoordY * chunkHeight + this.currentChunkLocalY;
+    const currentChunk = this.currentChunkCoordX === 0 && this.currentChunkCoordY === 0;
+    const doorDistance = Math.hypot(worldX - this.act1InteriorDoor.x, worldY - this.act1InteriorDoor.y);
+    // Enter when the player reaches the doorway; keep the interior up for the
+    // whole room and return outdoors when movement carries them into another chunk.
+    const atDoor = this.act1InteriorOpen
+      ? currentChunk
+      : currentChunk && doorDistance <= this.act1InteriorDoor.radius;
+    if (atDoor !== this.act1InteriorOpen) {
+      this.act1InteriorOpen = atDoor;
+      if (this.runActive) this.floatingTexts.push({
+        x: this.playerX,
+        y: this.playerY - 48,
+        text: atDoor ? "ENTERING THE ROGUE MONASTERY" : "BACK TO THE BLOOD MOOR",
+        color: "#ffd27a",
+        life: 2.2,
+      });
+    }
+  }
+
+  private drawAct1BuildingAndDoor(ctx: CanvasRenderingContext2D): void {
+    const building = this.campaignMapImages[1];
+    if (!building?.complete || building.naturalWidth === 0) return;
+    const canvas = this.arenaRef?.nativeElement;
+    const dpr = canvas?.clientWidth ? canvas.width / canvas.clientWidth : 1;
+    const chunkWidth = this.chunkTileColumns * 48;
+    const chunkHeight = this.chunkTileRows * 48;
+    const worldX = this.currentChunkCoordX * chunkWidth + this.currentChunkLocalX;
+    const worldY = this.currentChunkCoordY * chunkHeight + this.currentChunkLocalY;
+    const offsetX = (this.act1InteriorDoor.x - worldX) * this.floorTileScale;
+    const offsetY = (this.act1InteriorDoor.y - worldY) * this.floorTileScale;
+    const center = this.projectArenaPoint(this.arenaW / 2 + offsetX, this.arenaH / 2 + offsetY);
+    const width = building.naturalWidth * dpr;
+    const height = building.naturalHeight * dpr;
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(building, center.x - width / 2, center.y - height / 2, width, height);
+    ctx.restore();
+  }
+
+  private drawAct1Interior(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement): void {
+    const interior = this.act1InteriorImage;
+    if (!interior?.complete || interior.naturalWidth === 0) return;
+    const scale = Math.min(canvas.width / interior.naturalWidth, canvas.height / interior.naturalHeight);
+    const width = interior.naturalWidth * scale;
+    const height = interior.naturalHeight * scale;
+    ctx.save();
+    ctx.fillStyle = "#08090d";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(interior, (canvas.width - width) / 2, (canvas.height - height) / 2, width, height);
+    ctx.restore();
   }
 
   private renderCampaignBackground(act: CampaignAct): void {
@@ -3404,6 +3479,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     const skillVisual = getClassSkills(this.selectedClass).find((entry) => entry.name === skill)?.visual ?? getD2SkillVisual(skill);
     if (skill === "Find Potion") return;
+    if (skill === "Frozen Armor") {
+      // This is a persistent defensive buff, not an attack or a retaliatory spell.
+      this.addSkillVisualEffect(skill);
+      return;
+    }
     if (skillVisual === "aura") {
       this.addSkillVisualEffect(skill);
       this.triggerAttackAnimation(this.selectedClass === "sorceress" ? "sorceressCast" : "cast");
@@ -3656,51 +3736,54 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         const cellSize = layout.animated
           ? { width: Math.ceil(source.naturalWidth / columns), height: Math.ceil(source.naturalHeight / rows) }
           : { width: Math.min(source.naturalWidth, cell.width), height: Math.min(source.naturalHeight, cell.height) };
-        const expectedWidth = columns * cellSize.width;
-        const expectedHeight = rows * cellSize.height;
         const canvas = document.createElement("canvas");
-        canvas.width = expectedWidth;
-        canvas.height = expectedHeight;
+        canvas.width = source.naturalWidth;
+        canvas.height = source.naturalHeight;
         const context = canvas.getContext("2d", { willReadFrequently: true });
         if (!context) return;
         context.imageSmoothingEnabled = false;
         context.clearRect(0, 0, canvas.width, canvas.height);
         if (layout.animated) {
-          context.drawImage(source, 0, 0, expectedWidth, expectedHeight);
+          // Keep source pixels at native resolution. Rescaling an uneven atlas to
+          // ceil(cellSize) * columns shifts every cut and makes adjacent frames bleed.
+          context.drawImage(source, 0, 0);
           const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
           const rgba = pixels.data;
-          const cellArea = cellSize.width * cellSize.height;
           for (let row = 0; row < rows; row += 1) {
+            const top = Math.round(row * source.naturalHeight / rows);
+            const bottom = Math.round((row + 1) * source.naturalHeight / rows);
+            const frameHeight = bottom - top;
             for (let column = 0; column < columns; column += 1) {
-              const visited = new Uint8Array(cellArea);
+              const left = Math.round(column * source.naturalWidth / columns);
+              const right = Math.round((column + 1) * source.naturalWidth / columns);
+              const frameWidth = right - left;
+              const visited = new Uint8Array(frameWidth * frameHeight);
               const queue: number[] = [];
               const enqueue = (x: number, y: number): void => {
-                const index = y * cellSize.width + x;
+                const index = y * frameWidth + x;
                 if (visited[index]) return;
                 visited[index] = 1;
                 queue.push(index);
               };
-              for (let x = 0; x < cellSize.width; x += 1) {
+              for (let x = 0; x < frameWidth; x += 1) {
                 enqueue(x, 0);
-                enqueue(x, cellSize.height - 1);
+                enqueue(x, frameHeight - 1);
               }
-              for (let y = 0; y < cellSize.height; y += 1) {
+              for (let y = 0; y < frameHeight; y += 1) {
                 enqueue(0, y);
-                enqueue(cellSize.width - 1, y);
+                enqueue(frameWidth - 1, y);
               }
-              const originX = column * cellSize.width;
-              const originY = row * cellSize.height;
               for (let cursor = 0; cursor < queue.length; cursor += 1) {
                 const index = queue[cursor];
-                const x = index % cellSize.width;
-                const y = Math.floor(index / cellSize.width);
-                const offset = ((originY + y) * canvas.width + originX + x) * 4;
+                const x = index % frameWidth;
+                const y = Math.floor(index / frameWidth);
+                const offset = ((top + y) * canvas.width + left + x) * 4;
                 if (rgba[offset + 3] === 0 || rgba[offset] >= 12 || rgba[offset + 1] >= 12 || rgba[offset + 2] >= 12) continue;
                 rgba[offset + 3] = 0;
                 if (x > 0) enqueue(x - 1, y);
-                if (x + 1 < cellSize.width) enqueue(x + 1, y);
+                if (x + 1 < frameWidth) enqueue(x + 1, y);
                 if (y > 0) enqueue(x, y - 1);
-                if (y + 1 < cellSize.height) enqueue(x, y + 1);
+                if (y + 1 < frameHeight) enqueue(x, y + 1);
               }
             }
           }
@@ -3712,40 +3795,20 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         for (let row = 0; row < rows; row += 1) {
           const directionFrames: HTMLCanvasElement[] = [];
           for (let column = 0; column < columns; column += 1) {
-            const left = Math.round(column * cellSize.width);
-            const top = Math.round(row * cellSize.height);
-            const right = Math.min(canvas.width, Math.round((column + 1) * cellSize.width));
-            const bottom = Math.min(canvas.height, Math.round((row + 1) * cellSize.height));
+            const left = layout.animated ? Math.round(column * source.naturalWidth / columns) : 0;
+            const top = layout.animated ? Math.round(row * source.naturalHeight / rows) : 0;
+            const right = layout.animated ? Math.round((column + 1) * source.naturalWidth / columns) : cellSize.width;
+            const bottom = layout.animated ? Math.round((row + 1) * source.naturalHeight / rows) : cellSize.height;
             const frame = document.createElement("canvas");
             frame.width = right - left;
             frame.height = bottom - top;
-            const frameContext = frame.getContext("2d", { willReadFrequently: true });
+            const frameContext = frame.getContext("2d");
             if (!frameContext) continue;
             frameContext.imageSmoothingEnabled = false;
             frameContext.drawImage(canvas, left, top, frame.width, frame.height, 0, 0, frame.width, frame.height);
-            const alpha = frameContext.getImageData(0, 0, frame.width, frame.height).data;
-            let minX = frame.width;
-            let minY = frame.height;
-            let maxX = -1;
-            let maxY = -1;
-            for (let y = 0; y < frame.height; y += 1) {
-              for (let x = 0; x < frame.width; x += 1) {
-                if (alpha[(y * frame.width + x) * 4 + 3] <= 12) continue;
-                minX = Math.min(minX, x);
-                minY = Math.min(minY, y);
-                maxX = Math.max(maxX, x);
-                maxY = Math.max(maxY, y);
-              }
-            }
-            if (maxX >= minX && maxY >= minY) {
-              const trimmed = document.createElement("canvas");
-              trimmed.width = maxX - minX + 1;
-              trimmed.height = maxY - minY + 1;
-              trimmed.getContext("2d")?.drawImage(frame, minX, minY, trimmed.width, trimmed.height, 0, 0, trimmed.width, trimmed.height);
-              directionFrames.push(trimmed);
-            } else {
-              directionFrames.push(frame);
-            }
+            // Preserve the full cell: trimming transparent margins independently
+            // per frame changes each frame's origin and makes the sprite jitter/cut.
+            directionFrames.push(frame);
           }
           frames.push(directionFrames);
         }
@@ -4377,6 +4440,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.attackCooldown = Math.max(0, this.attackCooldown - dt / 1000);
 
     this.movePlayer(dt);
+    this.updateAct1InteriorState();
 
     this.updateAttackProjectiles(dt);
     if (this.pendingLevelUps > 0 && this.upgradeChoices.length === 0) this.prepareUpgradeChoices();
@@ -4560,16 +4624,42 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
     for (const enemy of this.enemies) {
       if (enemy.summonType) continue;
-      const dx = this.playerX - enemy.x;
-      const dy = this.playerY - enemy.y;
+      const nearestSkeleton = summons
+        .filter((summon) => summon.summonType === "skeleton" && summon.hp > 0)
+        .sort((a, b) => Math.hypot(a.x - enemy.x, a.y - enemy.y) - Math.hypot(b.x - enemy.x, b.y - enemy.y))[0];
+      const playerDistance = Math.hypot(this.playerX - enemy.x, this.playerY - enemy.y);
+      const skeletonDistance = nearestSkeleton
+        ? Math.hypot(nearestSkeleton.x - enemy.x, nearestSkeleton.y - enemy.y)
+        : Number.POSITIVE_INFINITY;
+      const targetSummon = nearestSkeleton && skeletonDistance < playerDistance ? nearestSkeleton : undefined;
+      const targetX = targetSummon?.x ?? this.playerX;
+      const targetY = targetSummon?.y ?? this.playerY;
+      const dx = targetX - enemy.x;
+      const dy = targetY - enemy.y;
       const distance = Math.hypot(dx, dy) || 1;
       const speed = enemy.speed * (dt / 1000) / this.worldZoom;
       enemy.x += (dx / distance) * speed;
       enemy.y += (dy / distance) * speed;
       if (enemy.cd !== undefined) enemy.cd = Math.max(0, enemy.cd - dt / 1000);
-      if (distance < enemy.r + 18 && (enemy.cd === undefined || enemy.cd <= 0)) {
-        const armorReduction = this.equippedArmor / (this.equippedArmor + 100);
-        this.playerHp -= Math.max(1, enemy.dmg * (1 - armorReduction));
+      const attackRange = enemy.r + (targetSummon?.r ?? 18);
+      const distanceAfterMoving = Math.hypot(targetX - enemy.x, targetY - enemy.y);
+      if (distanceAfterMoving < attackRange && (enemy.cd === undefined || enemy.cd <= 0)) {
+        if (targetSummon) {
+          targetSummon.hp -= enemy.dmg;
+          this.floatingTexts.push({
+            x: targetSummon.x,
+            y: targetSummon.y - targetSummon.r - 8,
+            text: `-${Math.floor(enemy.dmg)}`,
+            color: "#ff9b82",
+            life: 0.65,
+          });
+        } else {
+          const armorReduction = this.equippedArmor / (this.equippedArmor + 100);
+          const frozenArmorReduction = this.isFrozenArmorActive()
+            ? Math.min(0.5, (this.skillLevels["Frozen Armor"] ?? 0) * 0.1)
+            : 0;
+          this.playerHp -= Math.max(1, enemy.dmg * (1 - armorReduction) * (1 - frozenArmorReduction));
+        }
         enemy.cd = enemy.kind === "boss" ? 1.1 : enemy.kind === "champion" ? 0.9 : 0.8;
       }
     }
@@ -4714,6 +4804,44 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (!canvas || !ctx) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     for (const effect of this.skillVisualEffects) this.drawSkillVisualEffect(ctx, effect);
+    if (this.runActive && this.isFrozenArmorActive()) this.drawFrozenArmorEffect(ctx);
+  }
+
+  private isFrozenArmorActive(): boolean {
+    return this.ownedSkills.includes("Frozen Armor") && (this.skillLevels["Frozen Armor"] ?? 0) > 0;
+  }
+
+  private drawFrozenArmorEffect(ctx: CanvasRenderingContext2D): void {
+    const player = this.projectArenaPoint(this.playerX, this.playerY);
+    const pulse = performance.now() * 0.0018;
+    ctx.save();
+    ctx.translate(player.x, player.y - 10);
+    ctx.globalCompositeOperation = "lighter";
+    ctx.strokeStyle = "rgba(143, 222, 255, 0.78)";
+    ctx.fillStyle = "rgba(186, 240, 255, 0.88)";
+    ctx.shadowColor = "#65cfff";
+    ctx.shadowBlur = 12;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(0, 2, 27 + Math.sin(pulse) * 2, 14 + Math.sin(pulse) * 1.2, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    for (let shard = 0; shard < 6; shard += 1) {
+      const angle = pulse * 0.32 + shard * Math.PI / 3;
+      const x = Math.cos(angle) * 24;
+      const y = Math.sin(angle) * 12 - 8;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(angle + Math.PI / 2);
+      ctx.beginPath();
+      ctx.moveTo(0, -6);
+      ctx.lineTo(3, 0);
+      ctx.lineTo(0, 6);
+      ctx.lineTo(-3, 0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+    ctx.restore();
   }
 
   private drawSkillVisualEffect(ctx: CanvasRenderingContext2D, effect: SkillVisualEffect): void {
@@ -5668,8 +5796,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const minRow = Math.floor((this.currentChunkLocalY - reach) / tileWorldSize);
     const maxRow = Math.ceil((this.currentChunkLocalY + reach) / tileWorldSize);
     ctx.save();
-    // Preserve the hand-painted pixel edges in the Diablo II tile art when it is
-    // enlarged for this zoomed-in arena; bilinear smoothing makes the ground muddy.
+    // Preserve the supplied game's pixel-art edges when scaling the floor atlas.
     ctx.imageSmoothingEnabled = false;
     ctx.beginPath();
     ctx.rect(0, 0, canvas.width, canvas.height);
@@ -5692,8 +5819,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           ctx.lineTo(point.x - tileScreenSize * 0.7071 - 1, point.y);
           ctx.closePath();
           ctx.fill();
-          // Extend each transparent diamond beyond its nominal cell to hide sampling seams.
-          ctx.drawImage(image, point.x - tileWidth / 2 - 3, point.y - tileHeight / 2 - 3, tileWidth + 6, tileHeight + 6);
+          ctx.drawImage(image, point.x - tileWidth / 2, point.y - tileHeight / 2, tileWidth, tileHeight);
         } else {
           const halfW = tileScreenSize * 0.7071;
           const halfH = tileScreenSize * 0.35355;
@@ -5709,6 +5835,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       }
     }
     ctx.restore();
+    if (act.act === 1) {
+      if (this.act1InteriorOpen) this.drawAct1Interior(ctx, canvas);
+      else this.drawAct1BuildingAndDoor(ctx);
+    }
     if (!this.campaignTileBitmaps[this.currentAct]?.length) {
       const tile = 48;
       const first = this.projectArenaPoint(0, 0);
@@ -6367,7 +6497,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     const sprite = this.enemySprites[e.species];
     const color = e.kind === "boss" ? "#ffb347" : e.kind === "champion" ? "#ffd27a" : "#8a94a6";
-    const size = e.r * (e.kind === "boss" ? 4.2 : e.kind === "champion" ? 4.4 : 4.8) * this.worldZoom;
+    const speciesScale = e.species === "andariel" ? 1.8 : 1;
+    const size = e.r * (e.kind === "boss" ? 4.2 : e.kind === "champion" ? 4.4 : 4.8) * this.worldZoom * speciesScale;
     const dx = this.playerX - e.x;
     const dy = this.playerY - e.y;
 
@@ -6393,9 +6524,19 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           ctx.restore();
         }
 
-        ctx.imageSmoothingEnabled = false;
+        ctx.save();
+        // Andariel's dark game-resolution art disappears against the arena; lift
+        // its contrast and add a restrained warm silhouette glow while enlarging it.
+        ctx.imageSmoothingEnabled = e.species === "andariel";
+        if (e.species === "andariel") {
+          ctx.imageSmoothingQuality = "high";
+          ctx.filter = "brightness(1.55) contrast(1.2) saturate(1.15)";
+          ctx.shadowColor = "rgba(255, 126, 54, 0.95)";
+          ctx.shadowBlur = Math.max(10, size * 0.16);
+        }
         // Draw a pre-cropped animation frame, never the source sprite atlas.
         ctx.drawImage(frame, drawX, drawY, drawWidth, drawHeight);
+        ctx.restore();
         spriteDrawn = true;
 
         if (e.kind !== "normal") {
@@ -7063,6 +7204,7 @@ const CLASS_ATTACK_ANIMATION: Record<string, AttackAnimationStyle> = {
 };
 const CLASS_SKILL_DESCRIPTIONS: Record<string, string> = {
   "Fire Bolt": "Level 1 Sorceress fire projectile.", Teeth: "Level 1 Necromancer bone shards fan out through enemies.",
+  "Frozen Armor": "Passive frost shield: automatically activates when learned and stays active during the run. Reduces incoming damage by 10% per rank, up to 50%; it does not retaliate against attackers.",
   "Whirlwind": "Level 30 Barbarian spins through nearby enemies, striking repeatedly.",
   Jab: "A rapid melee thrust with a spear or pike.", Bash: "A forceful melee strike that staggers an enemy.", Smite: "Shield bash that knocks enemies back.", Sacrifice: "A powerful melee attack that costs a little life.",
   "Raise Skeleton": "Raise a fallen monster as a skeleton warrior.", "Bone Spear": "A piercing spear of bone strikes enemies in a line.",
