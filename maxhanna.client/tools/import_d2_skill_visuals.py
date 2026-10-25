@@ -10,9 +10,9 @@ from PIL import Image
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 ASSET_ROOT = PROJECT_ROOT / "src" / "assets" / "d2survivors" / "missiles"
-DEFAULT_D2_ROOT = Path.home() / "Desktop" / "d2"
+DEFAULT_D2_ROOT = Path.home() / "Desktop" / "d2" / "Work"
 DECODER_ROOT = Path(tempfile.gettempdir()) / "d2-dcc-decoder"
-DEFAULT_CONVERTER = DEFAULT_D2_ROOT / "Work" / "maxhanna.client" / "dcc-converter-bin" / "dcc-convert.exe"
+DEFAULT_CONVERTER = DEFAULT_D2_ROOT / "maxhanna.client" / "dcc-converter-bin" / "dcc-convert.exe"
 
 # Import the first projectile direction; the runtime turns the sprite toward its target.
 SKILL_ANIMATIONS = {
@@ -55,19 +55,24 @@ FRAME_NAME = re.compile(r"decoded_d(\d+)_f(\d+)\.png$")
 def remove_black_background(image: Image.Image) -> Image.Image:
     rgba = image.convert("RGBA")
     pixels = rgba.load()
-    # Some exports contain a mix of transparent sprite pixels and an opaque black
-    # matte. Key the fully opaque black pixels even when other pixels are already
-    # transparent; only alter opaque pixels so rerunning this remains idempotent.
+    # DCC exports can carry the black matte in partially transparent pixels,
+    # not just fully opaque ones. Key those pixels too; otherwise alpha blending
+    # leaves a dark rectangle behind the bright missile when drawn on the arena.
+    # Keep the original alpha on colored sprite pixels.
     for y in range(rgba.height):
         for x in range(rgba.width):
             red, green, blue, alpha = pixels[x, y]
-            if alpha != 255:
+            if alpha == 0:
                 continue
             luminance = round(red * 0.299 + green * 0.587 + blue * 0.114)
             if luminance <= 2:
                 pixels[x, y] = (red, green, blue, 0)
-            elif luminance <= 32:
-                pixels[x, y] = (red, green, blue, round(luminance * 255 / 32))
+            elif max(red, green, blue) - min(red, green, blue) <= 4 and luminance <= 32:
+                # Faint grayscale antialias pixels over black retain a dark matte
+                # in their RGB. Reduce coverage to remove halos without muting
+                # authored dark-blue/cyan pixels that simply happen to be dim.
+                matte_coverage = (luminance - 2) / 30
+                pixels[x, y] = (red, green, blue, round(alpha * matte_coverage))
     return rgba
 
 
@@ -137,11 +142,28 @@ def inspect_existing(output: Path, name: str, dcc_name: str) -> dict:
     }
 
 
+def find_source_dcc(d2_root: Path, dcc_name: str) -> Path:
+    """Find the named animation source inside the one supplied Desktop/d2/Work tree."""
+    for directory in (d2_root, d2_root / "data" / "global" / "missiles"):
+        if directory.is_dir():
+            named_sources = sorted(
+                (path for path in directory.glob("*.dcc") if path.stem.lower() == dcc_name.lower()),
+                key=lambda path: path.as_posix().lower(),
+            )
+            if named_sources:
+                return named_sources[0]
+    # The supplied Work extraction is MPQ-flattened: numeric File########.xxx
+    # names are resolved through (listfile). Do not interpret those opaque files
+    # as skill sources without a decoded-name mapping.
+    raise FileNotFoundError(
+        f"Could not identify {dcc_name}.dcc under {d2_root}; the supplied Work tree "
+        "does not expose a named missile DCC or a decoded missile-to-file mapping."
+    )
+
+
 def convert(d2_root: Path, converter: Path, name: str, dcc_name: str) -> dict:
-    source = d2_root / "Data" / "Global" / "Missiles" / f"{dcc_name}.dcc"
+    source = find_source_dcc(d2_root, dcc_name)
     output = ASSET_ROOT / name
-    if not source.is_file():
-        raise FileNotFoundError(f"Missing supplied DCC: {source}")
     if not converter.is_file():
         raise FileNotFoundError(f"DCC converter is not available at {converter}")
     if output.exists():
@@ -207,13 +229,17 @@ def convert(d2_root: Path, converter: Path, name: str, dcc_name: str) -> dict:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Import skill missile animations from local Diablo II data.")
-    parser.add_argument("--d2-root", type=Path, default=DEFAULT_D2_ROOT)
+    parser.add_argument("--d2-root", type=Path, default=DEFAULT_D2_ROOT, help="One supplied asset tree; defaults to Desktop/d2/Work")
     parser.add_argument("--converter", type=Path, default=DEFAULT_CONVERTER)
     args = parser.parse_args()
+    missing = []
     for name, dcc_name in SKILL_ANIMATIONS.items():
-        source = args.d2_root / "Data" / "Global" / "Missiles" / f"{dcc_name}.dcc"
-        if not source.is_file():
-            raise FileNotFoundError(f"Missing supplied DCC: {source}")
+        try:
+            find_source_dcc(args.d2_root, dcc_name)
+        except FileNotFoundError as error:
+            missing.append(str(error))
+    if missing:
+        raise FileNotFoundError("\n".join(missing))
 
     manifest_path = ASSET_ROOT / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))

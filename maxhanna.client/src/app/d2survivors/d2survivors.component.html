@@ -298,7 +298,7 @@
             <h3>{{ section.name }}</h3>
             <div class="d2s-skill-tree-grid">
               <article class="d2s-tree-skill" *ngFor="let skill of section.skills" [class]="'d2s-tree-skill ' + skill.state" [attr.aria-label]="skill.name + ', ' + skill.state + ', unlock level ' + skill.level + '. ' + skill.reason">
-                <span class="d2s-tree-level">{{ skill.level }}</span><strong>{{ skill.name }}</strong><small *ngIf="getSkillLevel(skill.name)">Rank {{ getSkillLevel(skill.name) }}/20</small><small *ngIf="!getSkillLevel(skill.name)">{{ skill.reason }}</small>
+                <span class="d2s-tree-level">{{ skill.level }}</span><strong>{{ skill.name }}</strong><small *ngIf="getSkillLevel(skill.name)">Rank {{ getSkillLevel(skill.name) }}/20</small><small>{{ getSkillTreeReason(skill) }}</small>
               </article>
             </div>
           </section>

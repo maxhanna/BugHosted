@@ -27,23 +27,23 @@ const RUN_SAVE_INTERVAL_MS = 2500;
 const ACT_BOSS_TIME_SECONDS = 45;
 const MISSILE_OVERLAY_BASE = "assets/d2survivors/missiles";
 const MISSILE_FRAME_DURATIONS_MS: Record<string, number> = {
-  "5": 85, "8": 85, "30": 85, "101": 85,
+  "5": 85, "6": 85, "8": 85, "30": 85, "101": 85,
   firebolt: 85, fireball: 85, acidbolt: 85, bloodcomet: 85, lightning: 85,
   "d2-firebolt": 85, "d2-fireball": 85, "d2-acidbolt": 85, "d2-bloodcomet": 85,
   "d2-lightning": 85, "d2-inferno": 85, "d2-magmaball": 85, "d2-icebolt": 85,
   "d2-poisonbolt": 85, "d2-bloodstar": 85, "d2-shadowbolt": 85,
   "d2-holybolt": 85, "d2-bluestar": 85,
-  chargedbolt: 85, inferno: 85, magmaball: 85, icebolt: 85, poisonbolt: 85,
+  inferno: 85, magmaball: 85, icebolt: 85, poisonbolt: 85,
   bloodstar: 85, shadowbolt: 85, holybolt: 85, bluestar: 85,
 };
 const MISSILE_FRAME_COUNTS: Record<string, number> = {
-  "5": 64, "8": 10, "30": 96, "101": 61,
+  "5": 64, "6": 8, "8": 10, "30": 96, "101": 61,
   firebolt: 15, fireball: 15, acidbolt: 8, bloodcomet: 15, lightning: 8,
   "d2-firebolt": 15, "d2-fireball": 15, "d2-acidbolt": 8, "d2-bloodcomet": 15,
   "d2-lightning": 8, "d2-inferno": 20, "d2-magmaball": 16, "d2-icebolt": 16,
   "d2-poisonbolt": 16, "d2-bloodstar": 16, "d2-shadowbolt": 16,
   "d2-holybolt": 16, "d2-bluestar": 16,
-  chargedbolt: 8, inferno: 10, magmaball: 10, icebolt: 10, poisonbolt: 10,
+  inferno: 10, magmaball: 10, icebolt: 10, poisonbolt: 10,
   bloodstar: 10, shadowbolt: 10, holybolt: 10, bluestar: 10,
 };
 const SKILL_MISSILE_OVERLAYS: Record<string, string> = {
@@ -56,7 +56,8 @@ const SKILL_MISSILE_OVERLAYS: Record<string, string> = {
   "Ice Bolt": "d2-icebolt", "Ice Blast": "d2-icebolt", "Freezing Arrow": "d2-icebolt",
   "Glacial Spike": "d2-icebolt", "Frozen Orb": "d2-icebolt", Blizzard: "d2-icebolt",
   Lightning: "d2-lightning", "Chain Lightning": "d2-lightning", "Thunder Storm": "d2-lightning",
-  "Charged Bolt": "d2-bluestar", "Lightning Bolt": "d2-bluestar", "Lightning Fury": "d2-bluestar",
+  "Charged Bolt": "d2-lightning", "Lightning Bolt": "d2-bluestar", "Lightning Fury": "d2-bluestar",
+
   "Poison Javelin": "d2-acidbolt", "Plague Javelin": "d2-acidbolt", "Poison Nova": "d2-poisonbolt",
   "Bone Spirit": "d2-bloodstar", "Bone Spear": "d2-bloodstar", Teeth: "d2-shadowbolt",
   "Psychic Hammer": "d2-shadowbolt", "Holy Bolt": "d2-holybolt", "Fist of the Heavens": "d2-holybolt",
@@ -160,19 +161,19 @@ const CAMPAIGN_ACTS: CampaignAct[] = [
 ];
 
 const ENEMY_SPRITE_PATHS: Record<EnemySpecies, string> = {
-  fallen: "assets/d2survivors/enemies/fallen-shaman.png",
-  goatman: "assets/d2survivors/enemies/goatman-axe.png",
-  skeleton: "assets/d2survivors/enemies/skeleton-with-bow.png",
-  sandRaider: "assets/d2survivors/enemies/sand-raider.png",
-  sandMaggot: "assets/d2survivors/enemies/sand-maggot.png",
+  fallen: "assets/d2survivors/enemies/animated/fallen.png",
+  goatman: "assets/d2survivors/enemies/animated/goatman.png",
+  skeleton: "assets/d2survivors/enemies/animated/skeleton.png",
+  sandRaider: "assets/d2survivors/enemies/act2-sand-raider.png",
+  sandMaggot: "assets/d2survivors/enemies/act2-sand-maggot.png",
   scarab: "assets/d2survivors/enemies/animated/scarab.png",
-  fetish: "assets/d2survivors/enemies/fetish-knife.png",
-  fetishShaman: "assets/d2survivors/enemies/fetish-shaman.png",
-  council: "assets/d2survivors/enemies/council-member.png",
-  balrog: "assets/d2survivors/enemies/balrog-sword.png",
-  vileChild: "assets/d2survivors/enemies/vile-child.png",
-  vileMother: "assets/d2survivors/enemies/vile-mother.png",
-  bloodLord: "assets/d2survivors/enemies/blood-lord.png",
+  fetish: "assets/d2survivors/enemies/act3-flayer.png",
+  fetishShaman: "assets/d2survivors/enemies/act3-flayer-shaman.png",
+  council: "assets/d2survivors/enemies/act3-council-member.png",
+  balrog: "assets/d2survivors/enemies/act4-balrog.png",
+  vileChild: "assets/d2survivors/enemies/act4-vile-child.png",
+  vileMother: "assets/d2survivors/enemies/act4-vile-mother.png",
+  bloodLord: "assets/d2survivors/enemies/act5-blood-lord.png",
   minotaur: "assets/d2survivors/enemies/animated/minotaur.png",
   deathMauler: "assets/d2survivors/enemies/animated/death-mauler.png",
   wendigo: "assets/d2survivors/enemies/animated/wendigo.png",
@@ -183,15 +184,15 @@ const ENEMY_SPRITE_PATHS: Record<EnemySpecies, string> = {
 };
 
 const ENEMY_SPRITE_LAYOUTS: Record<EnemySpecies, { columns: number; rows: number; animated: boolean }> = {
-  fallen: { columns: 1, rows: 1, animated: false }, goatman: { columns: 1, rows: 1, animated: false },
-  skeleton: { columns: 1, rows: 1, animated: false }, sandRaider: { columns: 1, rows: 1, animated: false },
+  fallen: { columns: 16, rows: 1, animated: true }, goatman: { columns: 14, rows: 1, animated: true },
+  skeleton: { columns: 16, rows: 1, animated: true }, sandRaider: { columns: 1, rows: 1, animated: false },
   sandMaggot: { columns: 1, rows: 1, animated: false }, scarab: { columns: 12, rows: 8, animated: true },
   fetish: { columns: 1, rows: 1, animated: false }, fetishShaman: { columns: 1, rows: 1, animated: false },
   council: { columns: 1, rows: 1, animated: false }, balrog: { columns: 1, rows: 1, animated: false },
   vileChild: { columns: 1, rows: 1, animated: false }, vileMother: { columns: 1, rows: 1, animated: false },
-  bloodLord: { columns: 1, rows: 1, animated: false }, minotaur: { columns: 7, rows: 8, animated: true },
-  deathMauler: { columns: 16, rows: 8, animated: true }, wendigo: { columns: 23, rows: 8, animated: true },
-  andariel: { columns: 12, rows: 8, animated: true }, duriel: { columns: 6, rows: 8, animated: true },
+  bloodLord: { columns: 1, rows: 1, animated: false }, minotaur: { columns: 14, rows: 8, animated: true },
+  deathMauler: { columns: 12, rows: 8, animated: true }, wendigo: { columns: 12, rows: 8, animated: true },
+  andariel: { columns: 12, rows: 8, animated: true }, duriel: { columns: 12, rows: 8, animated: true },
   diablo: { columns: 14, rows: 8, animated: true }, baalsMinion: { columns: 13, rows: 8, animated: true },
 };
 
@@ -219,20 +220,11 @@ function sanitizeEnemySpecies(value: unknown, kind: EnemyKind): EnemySpecies {
     : ENEMY_SPECIES_BY_KIND[kind][0];
 }
 
-interface EnemySpriteBounds {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
 interface EnemySprite {
-  image: HTMLCanvasElement;
+  frames: HTMLCanvasElement[][];
   columns: number;
   rows: number;
   animated: boolean;
-  cell: { width: number; height: number };
-  bounds: Map<string, EnemySpriteBounds | null>;
 }
 
 function createRunId(): string {
@@ -738,7 +730,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     },
     {
       name: "Axe Mastery",
-      desc: "+12% physical damage and +10% chance of a critical strike",
+      desc: "+12% physical damage and +10% chance of a critical strike; only applies while wielding an axe.",
     },
     {
       name: "Throwing Mastery",
@@ -2943,6 +2935,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       { name: "Sharkskin Belt", slot: "belt", beltQuality: "exceptional", stats: { armor: 5 }, desc: "An exceptional belt with room for three rows of potions." },
       { name: "Vampirefang Belt", slot: "belt", beltQuality: "elite", stats: { armor: 8 }, desc: "An elite belt with room for four rows of potions." },
       { name: "Short Sword", slot: "weapon", stats: { damageMin: 3, damageMax: 7 }, desc: "A balanced blade suited to quick strikes." },
+      { name: "Hand Axe", slot: "weapon", stats: { damageMin: 3, damageMax: 8 }, desc: "A compact axe made for close combat." },
+      { name: "Mace", slot: "weapon", stats: { damageMin: 4, damageMax: 9 }, desc: "A solid blunt weapon that crushes armor." },
+      { name: "War Hammer", slot: "weapon", stats: { damageMin: 5, damageMax: 11 }, desc: "A heavy hammer that delivers crushing blows." },
       { name: "War Pike", slot: "weapon", stats: { damageMin: 5, damageMax: 12 }, desc: "A long, heavy spear with excellent reach." },
       { name: "Leather Cap", slot: "armor", equipmentType: "helmet", stats: { armor: 8, requiresStrength: 10 }, desc: "A simple cap reinforced with boiled leather." },
       { name: "Chain Hauberk", slot: "armor", equipmentType: "body", stats: { armor: 18, requiresStrength: 20 }, desc: "Interlocking rings offer dependable protection." },
@@ -3275,6 +3270,25 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     return this.equipment.weapon?.baseName ?? this.equipment.weapon?.name ?? "bare hands";
   }
 
+  getSkillTreeReason(skill: D2SkillDefinition & { state: "learned" | "available" | "locked"; reason: string }): string {
+    const mastery = this.weaponMasteryForName(skill.name);
+    if (!mastery) return skill.reason;
+    const weapon = this.equippedWeaponName.toLowerCase();
+    const matches = weapon !== "bare hands" && mastery.pattern.test(weapon);
+    const condition = matches ? `Active with ${this.equippedWeaponName}.` : `Inactive — equip a ${mastery.weaponLabel} to use this mastery.`;
+    return `${skill.reason} · ${condition}`;
+  }
+
+  private weaponMasteryForName(name: string): { weaponLabel: string; pattern: RegExp } | undefined {
+    if (name === "Axe Mastery") return { weaponLabel: "axe", pattern: /(?:^| )(?:hand )?axe(?:$| )/ };
+    if (name === "Sword Mastery") return { weaponLabel: "sword", pattern: /sword/ };
+    if (name === "Mace Mastery") return { weaponLabel: "mace, club, hammer, scepter, or wand", pattern: /mace|club|hammer|scepter|wand/ };
+    if (name === "Polearm Mastery") return { weaponLabel: "polearm or pike", pattern: /polearm|pike/ };
+    if (name === "Spear Mastery") return { weaponLabel: "spear or javelin", pattern: /spear|javelin/ };
+    if (name === "Throwing Mastery") return { weaponLabel: "throwing weapon", pattern: /throwing/ };
+    return undefined;
+  }
+
   showEscapeMenu(): void {
     this.escapeMenuOpen = true;
     this.inventoryOpen = false;
@@ -3339,6 +3353,16 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     return (permitted && item ? Math.floor(((item.stats?.damageMin ?? 0) + (item.stats?.damageMax ?? 0)) / 2) : 0) + damageBonus;
   }
 
+  private get weaponMasteryDamageBonus(): number {
+    if (this.selectedClass !== "barbarian") return this.skillLevels["Weapon Mastery"] ?? 0;
+    const equippedWeapon = this.equippedWeaponName.toLowerCase();
+    if (equippedWeapon === "bare hands") return 0;
+    const rank = ["Axe Mastery", "Sword Mastery", "Mace Mastery", "Polearm Mastery", "Spear Mastery", "Throwing Mastery"]
+      .filter((name) => this.weaponMasteryForName(name)?.pattern.test(equippedWeapon))
+      .reduce((highest, name) => Math.max(highest, this.skillLevels[name] ?? 0), 0);
+    return rank * 4;
+  }
+
   get equippedArmor(): number {
     return Object.values(this.equipment).reduce((total, item) => total + (item?.stats?.armor ?? 0), 0);
   }
@@ -3379,6 +3403,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       return;
     }
     const skillVisual = getClassSkills(this.selectedClass).find((entry) => entry.name === skill)?.visual ?? getD2SkillVisual(skill);
+    if (skill === "Find Potion") return;
     if (skillVisual === "aura") {
       this.addSkillVisualEffect(skill);
       this.triggerAttackAnimation(this.selectedClass === "sorceress" ? "sorceressCast" : "cast");
@@ -3418,6 +3443,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const rangedSpell = (skill === "Fire Bolt" && this.selectedClass === "sorceress")
       || (skill === "Teeth" && this.selectedClass === "necromancer");
     const missileId = this.missileOverlayId(skill);
+    const isChargedBolt = skill === "Charged Bolt";
     const rangedSkills = new Set([
       "Fire Bolt", "Fire Ball", "Inferno", "Blaze", "Fire Wall", "Wake of Inferno", "Wake of Fire",
       "Ice Bolt", "Cold Arrow", "Ice Arrow", "Frozen Orb", "Glacial Spike", "Blizzard",
@@ -3429,9 +3455,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       "Immolation Arrow", "Phoenix Strike", "Claws of Thunder", "Blades of Ice", "Zakarum's Hand",
     ]);
     if (rangedSpell || (missileId && rangedSkills.has(skill)) || skillVisual === "projectile") {
-      const kind: AttackProjectile["kind"] = visualMissile === "d2-bluestar" || visualMissile === "d2-lightning" ? "lightning"
+      const kind: AttackProjectile["kind"] = visualMissile === "d2-bluestar" || visualMissile === "d2-lightning" || isChargedBolt ? "lightning"
         : visualMissile === "d2-holybolt" ? "holy" : visualMissile === "d2-bloodstar" || visualMissile === "d2-shadowbolt" ? "bone" : "fire";
-      const boltCount = skill === "Teeth" ? 5 : skill === "Charged Bolt" ? 5 : skill === "Lightning Fury" ? 6 : skill === "Blizzard" ? 3 : 1;
+      const boltCount = skill === "Teeth" ? 5 : isChargedBolt ? 5 : skill === "Lightning Fury" ? 6 : skill === "Blizzard" ? 3 : 1;
       const color = kind === "lightning" ? "#a9dcff" : kind === "holy" ? "#fff0a8" : kind === "bone" ? "#ddd5c5" : "#ff9c50";
       const perpendicularX = -this.playerFacingY;
       const perpendicularY = this.playerFacingX;
@@ -3623,12 +3649,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       source.onload = () => {
         const columns = layout.columns;
         const rows = layout.rows;
-        if (layout.animated && (source.naturalWidth % columns !== 0 || source.naturalHeight % rows !== 0)) {
+        if (layout.animated && (source.naturalWidth < columns || source.naturalHeight < rows)) {
           console.warn(`Invalid animation sheet layout for ${species}`, source.naturalWidth, source.naturalHeight);
           return;
         }
         const cellSize = layout.animated
-          ? { width: source.naturalWidth / columns, height: source.naturalHeight / rows }
+          ? { width: Math.ceil(source.naturalWidth / columns), height: Math.ceil(source.naturalHeight / rows) }
           : { width: Math.min(source.naturalWidth, cell.width), height: Math.min(source.naturalHeight, cell.height) };
         const expectedWidth = columns * cellSize.width;
         const expectedHeight = rows * cellSize.height;
@@ -3682,14 +3708,48 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         } else {
           context.drawImage(source, 0, 0, source.naturalWidth, source.naturalHeight, 0, 0, cellSize.width, cellSize.height);
         }
-        this.enemySprites[species] = {
-          image: canvas,
-          ...layout,
-          columns,
-          rows,
-          cell: cellSize,
-          bounds: new Map(),
-        };
+        const frames: HTMLCanvasElement[][] = [];
+        for (let row = 0; row < rows; row += 1) {
+          const directionFrames: HTMLCanvasElement[] = [];
+          for (let column = 0; column < columns; column += 1) {
+            const left = Math.round(column * cellSize.width);
+            const top = Math.round(row * cellSize.height);
+            const right = Math.min(canvas.width, Math.round((column + 1) * cellSize.width));
+            const bottom = Math.min(canvas.height, Math.round((row + 1) * cellSize.height));
+            const frame = document.createElement("canvas");
+            frame.width = right - left;
+            frame.height = bottom - top;
+            const frameContext = frame.getContext("2d", { willReadFrequently: true });
+            if (!frameContext) continue;
+            frameContext.imageSmoothingEnabled = false;
+            frameContext.drawImage(canvas, left, top, frame.width, frame.height, 0, 0, frame.width, frame.height);
+            const alpha = frameContext.getImageData(0, 0, frame.width, frame.height).data;
+            let minX = frame.width;
+            let minY = frame.height;
+            let maxX = -1;
+            let maxY = -1;
+            for (let y = 0; y < frame.height; y += 1) {
+              for (let x = 0; x < frame.width; x += 1) {
+                if (alpha[(y * frame.width + x) * 4 + 3] <= 12) continue;
+                minX = Math.min(minX, x);
+                minY = Math.min(minY, y);
+                maxX = Math.max(maxX, x);
+                maxY = Math.max(maxY, y);
+              }
+            }
+            if (maxX >= minX && maxY >= minY) {
+              const trimmed = document.createElement("canvas");
+              trimmed.width = maxX - minX + 1;
+              trimmed.height = maxY - minY + 1;
+              trimmed.getContext("2d")?.drawImage(frame, minX, minY, trimmed.width, trimmed.height, 0, 0, trimmed.width, trimmed.height);
+              directionFrames.push(trimmed);
+            } else {
+              directionFrames.push(frame);
+            }
+          }
+          frames.push(directionFrames);
+        }
+        this.enemySprites[species] = { frames, columns, rows, animated: layout.animated };
       };
       source.onerror = () => console.warn(`Could not load enemy sprite asset: ${ENEMY_SPRITE_PATHS[species]}`);
       source.src = ENEMY_SPRITE_PATHS[species];
@@ -3873,7 +3933,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
     const attack = this.basicAttackForClass(this.selectedClass);
     const attackLevel = this.skillLevels[this.basicAttackName] ?? 1;
-    const damage = this.basicAttackDamage + (attackLevel - 1) * 2 + (this.skillLevels["Weapon Mastery"] ?? 0) * 4 + this.equippedWeaponDamage;
+    const damage = this.basicAttackDamage + (attackLevel - 1) * 2 + this.weaponMasteryDamageBonus + this.equippedWeaponDamage;
     const distance = Math.hypot(target.x - this.playerX, target.y - this.playerY);
     this.playerFacingX = (target.x - this.playerX) / Math.max(1, distance);
     this.playerFacingY = (target.y - this.playerY) / Math.max(1, distance);
@@ -3939,7 +3999,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (!targets.length) return;
     const attack = this.basicAttackForClass(this.selectedClass);
     const attackLevel = this.skillLevels[this.basicAttackName] ?? 1;
-    const damage = this.basicAttackDamage + (attackLevel - 1) * 2 + (this.skillLevels["Weapon Mastery"] ?? 0) * 4 + this.equippedWeaponDamage;
+    const damage = this.basicAttackDamage + (attackLevel - 1) * 2 + this.weaponMasteryDamageBonus + this.equippedWeaponDamage;
     let landedMeleeAttack = false;
     for (const target of targets) {
       const distance = Math.hypot(target.x - this.playerX, target.y - this.playerY);
@@ -4096,10 +4156,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       ctx.save();
       ctx.translate(point.x, point.y - 8);
       ctx.rotate(direction);
-      ctx.globalCompositeOperation = "lighter";
+      // Preserve the sprite's authored alpha instead of additively saturating it.
+      // Charged Bolt fans several overlapping bolts; additive blending turns their
+      // transparent cyan edges into a bright opaque-looking square at the origin.
+      ctx.globalCompositeOperation = "source-over";
       ctx.shadowColor = projectile.color;
-      ctx.shadowBlur = 7;
-      // Missile frames are keyed and tinted from the supplied Missile.txt light colors.
+      ctx.shadowBlur = 2;
       ctx.drawImage(overlay, -imageWidth / 2, -imageHeight / 2, imageWidth, imageHeight);
       ctx.restore();
       return;
@@ -5441,12 +5503,16 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   private spawnPotionDrops(x: number, y: number): void {
-    if (Math.random() < 0.015) {
+    const findPotionRank = this.ownedSkills.includes("Find Potion") ? this.skillLevels["Find Potion"] ?? 1 : 0;
+    const potionChanceBonus = Math.min(0.5, findPotionRank * 0.1);
+    const rejuvenationChance = Math.min(0.08, 0.015 + findPotionRank * 0.005);
+    if (Math.random() < rejuvenationChance) {
       this.addPotionDrop(x, y, "rejuvenation", 0);
       return;
     }
-    if (Math.random() >= 0.35) return;
-    const dropCount = Math.random() < 0.35 ? 2 : 1;
+    if (Math.random() >= 0.35 + potionChanceBonus) return;
+    const doubleDropChance = Math.min(0.7, 0.35 + findPotionRank * 0.05);
+    const dropCount = Math.random() < doubleDropChance ? 2 : 1;
     for (let index = 0; index < dropCount; index += 1) {
       const angle = Math.random() * Math.PI * 2;
       const distance = 24 + index * 12;
@@ -5467,6 +5533,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     });
   }
 
+  /** Each Find Potion rank adds 10 percentage points to health potion drops and 0.5 points to rejuvenation drops. */
   private maybeDropGold(enemy: Enemy): void {
     const difficulty = Math.max(1, enemy.maxHp / 18);
     const chance = enemy.kind === "boss" ? 0.9 : enemy.kind === "champion" ? 0.48 : Math.min(0.65, 0.16 + (difficulty - 1) * 0.04);
@@ -5601,10 +5668,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const minRow = Math.floor((this.currentChunkLocalY - reach) / tileWorldSize);
     const maxRow = Math.ceil((this.currentChunkLocalY + reach) / tileWorldSize);
     ctx.save();
-    // Ground textures are enlarged far beyond their native sprite resolution;
-    // smooth their sampling so the floor doesn't render as harsh nearest-neighbor blocks.
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = "high";
+    // Preserve the hand-painted pixel edges in the Diablo II tile art when it is
+    // enlarged for this zoomed-in arena; bilinear smoothing makes the ground muddy.
+    ctx.imageSmoothingEnabled = false;
     ctx.beginPath();
     ctx.rect(0, 0, canvas.width, canvas.height);
     ctx.clip();
@@ -6306,16 +6372,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const dy = this.playerY - e.y;
 
     let spriteDrawn = false;
-    if (sprite && sprite.image.width > 0 && sprite.image.height > 0) {
-      const direction = enemySpriteRow(e.species, dx, dy);
-      const frame = enemySpriteFrame(e.species, e.x, e.y, this.runTime);
-      const sheetIndex = frame % sprite.columns;
-      const cell = sprite.cell;
-      const sourceRow = direction % sprite.rows;
-      const bounds = enemySpriteCellBounds(e.species, sprite, sheetIndex, sourceRow);
-      if (bounds) {
+    if (sprite && sprite.frames.length > 0) {
+      const direction = enemySpriteRow(e.species, dx, dy) % sprite.rows;
+      const frameIndex = enemySpriteFrame(e.species, e.x, e.y, this.runTime) % sprite.columns;
+      const frame = sprite.frames[direction]?.[frameIndex];
+      if (frame && frame.width > 0 && frame.height > 0) {
         const drawHeight = size * (e.kind === "boss" ? 1.35 : 1);
-        const aspectRatio = bounds.width / bounds.height;
+        const aspectRatio = frame.width / frame.height;
         const drawWidth = drawHeight * Math.max(0.9, Math.min(1.7, aspectRatio));
         const drawX = ground.x - drawWidth / 2;
         const drawY = ground.y - drawHeight * 0.78;
@@ -6331,17 +6394,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         }
 
         ctx.imageSmoothingEnabled = false;
-        ctx.drawImage(
-          sprite.image,
-          sheetIndex * cell.width + bounds.x,
-          sourceRow * cell.height + bounds.y,
-          bounds.width,
-          bounds.height,
-          drawX,
-          drawY,
-          drawWidth,
-          drawHeight,
-        );
+        // Draw a pre-cropped animation frame, never the source sprite atlas.
+        ctx.drawImage(frame, drawX, drawY, drawWidth, drawHeight);
         spriteDrawn = true;
 
         if (e.kind !== "normal") {
@@ -6951,38 +7005,6 @@ function enemySpriteRow(species: EnemySpecies, dx: number, dy: number): number {
   return 0;
 }
 
-function enemySpriteCellBounds(_species: EnemySpecies, sprite: EnemySprite, frame: number, row: number): EnemySpriteBounds | null {
-  const key = `${frame}:${row}`;
-  if (sprite.bounds.has(key)) {
-    return sprite.bounds.get(key) ?? null;
-  }
-  const cell = sprite.cell;
-  const context = sprite.image.getContext("2d", { willReadFrequently: true });
-  const pixels = context?.getImageData(frame * cell.width, row * cell.height, cell.width, cell.height).data;
-  if (!pixels) {
-    return null;
-  }
-  let minX = cell.width;
-  let minY = cell.height;
-  let maxX = -1;
-  let maxY = -1;
-  for (let y = 0; y < cell.height; y += 1) {
-    for (let x = 0; x < cell.width; x += 1) {
-      if (pixels[(y * cell.width + x) * 4 + 3] > 12) {
-        minX = Math.min(minX, x);
-        minY = Math.min(minY, y);
-        maxX = Math.max(maxX, x);
-        maxY = Math.max(maxY, y);
-      }
-    }
-  }
-  const bounds = maxX >= minX && maxY >= minY
-    ? { x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 }
-    : null;
-  sprite.bounds.set(key, bounds);
-  return bounds;
-}
-
 const BASIC_ATTACK_NAMES = ["Guided Arrow", "Throwing Knife", "Axe Throw", "Spirit Claw", "Bone Bolt", "Holy Bolt", "Fire Bolt", "Jab", "Attack"];
 type AttackAnimationStyle = "amazonJab" | "assassinSlash" | "barbarianCleave" | "druidClaw" | "necromancerCast" | "paladinStrike" | "sorceressCast" | "spin" | "cast";
 interface AttackAnimationProfile {
@@ -7054,6 +7076,9 @@ const UPGRADE_DESCRIPTIONS: Record<string, string> = {
   Vitality: "Increases maximum life.",
   "Arcane Focus": "Increases maximum mana.",
   "Weapon Mastery": "Basic attacks deal additional damage.",
+  "Axe Mastery": "+12% physical damage and +10% chance of a critical strike; only applies while wielding an axe.",
+  "Sword Mastery": "+12% physical damage and +10% chance of a critical strike; only applies while wielding a sword.",
+  "Mace Mastery": "+12% physical damage and +10% chance of a critical strike; only applies while wielding a mace, club, hammer, scepter, or wand.",
 };
 
 function hashString(value: string): number {
