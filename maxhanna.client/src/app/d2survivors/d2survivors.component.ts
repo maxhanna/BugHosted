@@ -167,7 +167,7 @@ const CAMPAIGN_ACTS: CampaignAct[] = [
 
 const ENEMY_SPRITE_PATHS: Record<EnemySpecies, string> = {
   fallen: "assets/d2survivors/enemies/animated/fallen.png",
-  goatman: "assets/d2survivors/enemies/animated/goatman.png",
+  goatman: "assets/d2survivors/enemies/animated/goatman-walk.png",
   skeleton: "assets/d2survivors/enemies/animated/skeleton.png",
   sandRaider: "assets/d2survivors/enemies/act2-sand-raider.png",
   sandMaggot: "assets/d2survivors/enemies/act2-sand-maggot.png",
@@ -189,7 +189,7 @@ const ENEMY_SPRITE_PATHS: Record<EnemySpecies, string> = {
 };
 
 const ENEMY_SPRITE_LAYOUTS: Record<EnemySpecies, { columns: number; rows: number; animated: boolean }> = {
-  fallen: { columns: 13, rows: 1, animated: true }, goatman: { columns: 14, rows: 1, animated: true },
+  fallen: { columns: 13, rows: 1, animated: true }, goatman: { columns: 14, rows: 16, animated: true },
   skeleton: { columns: 16, rows: 1, animated: true }, sandRaider: { columns: 1, rows: 1, animated: false },
   sandMaggot: { columns: 1, rows: 1, animated: false }, scarab: { columns: 12, rows: 8, animated: true },
   fetish: { columns: 1, rows: 1, animated: false }, fetishShaman: { columns: 1, rows: 1, animated: false },
@@ -201,8 +201,13 @@ const ENEMY_SPRITE_LAYOUTS: Record<EnemySpecies, { columns: number; rows: number
   diablo: { columns: 14, rows: 8, animated: true }, baalsMinion: { columns: 13, rows: 8, animated: true },
 };
 
+const PALADIN_AURA_SKILLS = new Set([
+  "Might", "Holy Fire", "Holy Freeze", "Holy Shock", "Concentration", "Fanaticism", "Conviction", "Thorns",
+  "Blessed Aim", "Vigor", "Defiance", "Prayer", "Resist Fire", "Resist Cold", "Resist Lightning", "Salvation",
+  "Cleansing", "Meditation", "Redemption", "Sanctuary",
+]);
 const ENEMY_SPRITE_CELLS: Record<EnemySpecies, { width: number; height: number }> = {
-  fallen: { width: 91, height: 75 }, goatman: { width: 84, height: 97 }, skeleton: { width: 70, height: 86 },
+  fallen: { width: 91, height: 75 }, goatman: { width: 170, height: 180 }, skeleton: { width: 70, height: 86 },
   sandRaider: { width: 114, height: 180 }, sandMaggot: { width: 172, height: 180 }, scarab: { width: 101, height: 100 },
   fetish: { width: 181, height: 180 }, fetishShaman: { width: 151, height: 180 }, council: { width: 214, height: 180 },
   balrog: { width: 290, height: 180 }, vileChild: { width: 195, height: 180 }, vileMother: { width: 273, height: 180 },
@@ -230,6 +235,13 @@ interface EnemySprite {
   columns: number;
   rows: number;
   animated: boolean;
+}
+
+interface DruidAnimation {
+  frames: HTMLCanvasElement[][];
+  columns: number;
+  rows: number;
+  frameDurationMs: number;
 }
 
 type MissileOverlayFrame = HTMLImageElement | HTMLCanvasElement;
@@ -357,12 +369,17 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private readonly meleeTrailEffects: MeleeTrailEffect[] = [];
   private readonly summonAttackEffects: SummonAttackEffect[] = [];
   private readonly skillVisualEffects: SkillVisualEffect[] = [];
+  private readonly activePaladinAuras: Record<string, { remaining: number; tick: number }> = {};
   private loadedModelClass = "";
   private readonly enemySprites: Partial<Record<EnemySpecies, EnemySprite>> = {};
   private readonly animatedSkeletonSprite = new Image();
   private readonly animatedGolemSprite = new Image();
+  private readonly druidAnimations: Partial<Record<DruidAnimationName, DruidAnimation>> = {};
   private animatedSkeletonFrames: HTMLCanvasElement[] = [];
   private animatedGolemFrames: HTMLCanvasElement[] = [];
+  private druidForm: DruidForm | null = null;
+  private druidFormAnimationTime = 0;
+  private druidFormAttackTime = 0;
   private readonly missileOverlayImages = new Map<string, MissileOverlayFrame[]>();
   private readonly campaignMapImages: Partial<Record<number, HTMLImageElement>> = {};
   private readonly campaignFloorTileImages: Partial<Record<number, HTMLImageElement>> = {};
@@ -379,7 +396,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private readonly worldZoom = 2.1;
   // Fixed first-chunk doorway placed a short walk from the starting position.
   private readonly act1InteriorDoor = { x: 410, y: 240, radius: 12 };
-  private readonly playerWorldScale = 1.45;
+  private readonly playerWorldScale = 1.16;
   private readonly chunkTileColumns = 12;
   private readonly chunkTileRows = 8;
   currentAct = 1;
@@ -1019,6 +1036,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private attackCooldown = 0;
   private attackSequence = 0;
   readonly skillCastCooldowns: Record<string, number> = {};
+
   xpToNextLevel = 5;
   runActive = false;
   playerLevel = 1;
@@ -1631,6 +1649,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       ? Math.max(1, Math.ceil(savedHp / savedMaxHp * this.playerMaxHp))
       : Math.min(this.playerMaxHp, savedHp);
     this.deathRecovery = saved.deathRecovery === true || this.playerHp <= 0;
+    this.druidForm = savedClass === "druid" && (saved.druidForm === "werewolf" || saved.druidForm === "werebear") ? saved.druidForm : null;
+    this.druidFormAnimationTime = 0;
+    this.druidFormAttackTime = 0;
     this.deathCount = Math.floor(numberValue(saved.deathCount, 0, 0, 1_000_000));
     this.playerMana = this.playerMaxMana;
     this.playerGold = Math.floor(numberValue(saved.playerGold, 0, 0, 1_000_000_000));
@@ -1674,6 +1695,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         };
         })
       : [];
+    if (savedClass === "druid") {
+      // Older saves treated Werewolf as a Wendigo pet. That was never the Druid's form.
+      this.enemies = this.enemies.filter((enemy) => !(enemy.summonType === "druid" && enemy.summonSkill === "Werewolf"));
+    }
     this.chests = Array.isArray(saved.chests)
       ? saved.chests.slice(0, 300).filter(isRecord).map((chest) => ({
           x: numberValue(chest["x"], 250, 0, this.arenaW),
@@ -1796,6 +1821,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         playerMana: this.playerMaxMana,
         playerMaxMana: this.playerMaxMana,
         playerGold: this.playerGold,
+        druidForm: this.selectedClass === "druid" ? this.druidForm : null,
         runTime: this.runTime,
         currentAct: this.currentAct,
         actTime: this.actTime,
@@ -3488,11 +3514,19 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   skillCastProgress(skill: string): number {
     const interval = this.getSkillCastInterval(skill);
     const cooldown = this.skillCastCooldowns[skill] ?? 0;
+    const activeAura = this.activePaladinAuras[skill];
+    if (activeAura) return Math.max(0, Math.min(1, 1 - activeAura.remaining / this.paladinAuraDuration(skill)));
     return Number.isFinite(cooldown) ? Math.max(0, Math.min(1, cooldown / interval)) : 0;
   }
 
   getSkillCastLabel(skill: string): string {
-    return `${this.getSkillCastInterval(skill).toFixed(1)}s`;
+    const activeAura = this.activePaladinAuras[skill];
+    return activeAura ? `${Math.max(0, activeAura.remaining).toFixed(1)}s` : `${this.getSkillCastInterval(skill).toFixed(1)}s`;
+  }
+
+  private paladinAuraDuration(skill: string): number {
+    const rank = Math.max(1, this.skillLevels[skill] ?? 1);
+    return 7 + rank * 1.25;
   }
 
   getSkillCastInterval(skill: string): number {
@@ -3573,6 +3607,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   activateOwnedSkill(skill: string): void {
     if (!this.ownedSkills.includes(skill)) return;
+    if (this.isDruidFormSkill(skill)) {
+      this.druidForm = skill === "Werewolf" ? "werewolf" : "werebear";
+      this.druidFormAnimationTime = 0;
+      this.addSkillVisualEffect(skill);
+      this.renderCharacter();
+      this.draw();
+      return;
+    }
     if (this.isPersistentSummonSkill(skill)) {
       this.summonCompanion(skill);
       this.addSkillVisualEffect(skill);
@@ -3606,7 +3648,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.playerFacingY = (nearest.y - this.playerY) / distanceToTarget;
     const attack = this.basicAttackForClass(this.selectedClass);
     const multiplier = Math.max(1, this.skillLevels[skill] ?? 1);
-    const damage = this.basicAttackDamage * (skill === this.basicAttackName ? 1 : 1.5) + (multiplier - 1) * 3;
+    const baseDamage = this.basicAttackDamage * (skill === this.basicAttackName ? 1 : 1.5) + (multiplier - 1) * 3;
+    const damage = this.applyPaladinAuraDamage(baseDamage);
     const distance = Math.hypot(nearest.x - this.playerX, nearest.y - this.playerY);
     this.playerFacingX = (nearest.x - this.playerX) / Math.max(1, distance);
     this.playerFacingY = (nearest.y - this.playerY) / Math.max(1, distance);
@@ -3863,8 +3906,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         const pixels = context.getImageData(0, 0, sheet.width, sheet.height);
         const rgba = pixels.data;
         // This sheet was exported against an opaque black matte, not transparency.
-        // Remove it and lift/tint the remaining dark pixels so summons read clearly
-        // against the dark arena instead of disappearing into the floor.
+        // Remove the matte but preserve the source colors for the summon artwork.
         for (let offset = 0; offset < rgba.length; offset += 4) {
           const red = rgba[offset];
           const green = rgba[offset + 1];
@@ -3873,10 +3915,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
             rgba[offset + 3] = 0;
             continue;
           }
-          const luminance = (red * 0.3 + green * 0.59 + blue * 0.11) / 255;
-          rgba[offset] = Math.round(105 + luminance * 75);
-          rgba[offset + 1] = Math.round(145 + luminance * 75);
-          rgba[offset + 2] = Math.round(175 + luminance * 75);
         }
         context.putImageData(pixels, 0, 0);
         onReady(sheet);
@@ -3885,6 +3923,54 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       image.onerror = () => console.warn(`Could not load summon animation: ${url}`);
       image.src = url;
     };
+    const druidAnimationSources: Record<DruidAnimationName, { url: string; columns: number }> = {
+      werewolf: { url: "assets/d2survivors/models/druid/animations/werewolf.png", columns: 13 },
+      werebear: { url: "assets/d2survivors/models/druid/animations/werebear.png", columns: 13 },
+      raven: { url: "assets/d2survivors/models/druid/animations/raven.png", columns: 12 },
+      "poison-creeper": { url: "assets/d2survivors/models/druid/animations/poison-creeper.png", columns: 12 },
+    };
+    for (const [name, source] of Object.entries(druidAnimationSources) as [DruidAnimationName, typeof druidAnimationSources[DruidAnimationName]][]) {
+      const image = new Image();
+      image.onload = () => {
+        const rows = 8;
+        const canvas = document.createElement("canvas");
+        canvas.width = image.naturalWidth;
+        canvas.height = image.naturalHeight;
+        const context = canvas.getContext("2d");
+        if (!context) return;
+        context.imageSmoothingEnabled = false;
+        context.drawImage(image, 0, 0);
+        if (canvas.width % source.columns !== 0 || canvas.height % rows !== 0) {
+          console.warn(`Druid animation atlas does not divide into whole frames: ${source.url}`, canvas.width, canvas.height);
+          return;
+        }
+        const cellWidth = canvas.width / source.columns;
+        const cellHeight = canvas.height / rows;
+        const frames: HTMLCanvasElement[][] = [];
+        for (let direction = 0; direction < rows; direction += 1) {
+          frames.push([]);
+          for (let frame = 0; frame < source.columns; frame += 1) {
+            const cel = document.createElement("canvas");
+            cel.width = cellWidth;
+            cel.height = cellHeight;
+            const celContext = cel.getContext("2d");
+            if (!celContext) continue;
+            celContext.imageSmoothingEnabled = false;
+            const left = frame * cellWidth;
+            const top = direction * cellHeight;
+            celContext.drawImage(image, left, top, cellWidth, cellHeight, 0, 0, cellWidth, cellHeight);
+            frames[direction].push(cel);
+          }
+        }
+        this.druidAnimations[name] = { frames, columns: source.columns, rows, frameDurationMs: 85 };
+        if (this.activeTab === "run") {
+          this.draw();
+          this.renderCharacter();
+        }
+      };
+      image.onerror = () => console.warn(`Could not load Druid animation: ${source.url}`);
+      image.src = source.url;
+    }
     // The animated skeleton sheet is a single 16-frame walk row.
     loadSheet(this.animatedSkeletonSprite, "assets/d2survivors/enemies/animated/skeleton.png", (sheet) => {
       this.animatedSkeletonFrames = [sheet];
@@ -4043,6 +4129,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const skillEffectsContext = this.skillEffectsCanvasRef?.nativeElement.getContext("2d");
     skillEffectsContext?.clearRect(0, 0, this.skillEffectsCanvasRef?.nativeElement.width ?? 0, this.skillEffectsCanvasRef?.nativeElement.height ?? 0);
     this.skillVisualEffects.length = 0;
+    for (const skill of Object.keys(this.activePaladinAuras)) delete this.activePaladinAuras[skill];
     this.stopClassPreview();
     this.stopMenuHeroPreview();
     this.stopAmbientAudio();
@@ -4158,19 +4245,62 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const activeSkills = this.ownedSkills.filter((skill) =>
       skill !== this.basicAttackName && classSkills.some((definition) => definition.name === skill),
     );
-    const livingEnemies = this.enemies.filter((enemy) => enemy.hp > 0);
+    const livingEnemies = this.enemies.filter((enemy) => enemy.hp > 0 && !enemy.summonType);
     for (const skill of activeSkills) {
+      if (this.isDruidFormSkill(skill)) {
+        const desiredForm = skill === "Werewolf" ? "werewolf" : "werebear";
+        if (this.druidForm !== desiredForm) {
+          const cooldown = Math.max(0, (this.skillCastCooldowns[skill] ?? 0) - seconds);
+          this.skillCastCooldowns[skill] = cooldown;
+          if (cooldown <= 0) {
+            this.activateOwnedSkill(skill);
+            this.skillCastCooldowns[skill] = Number.POSITIVE_INFINITY;
+          }
+        } else {
+          this.skillCastCooldowns[skill] = Number.POSITIVE_INFINITY;
+        }
+        continue;
+      }
       if (this.isPersistentSummonSkill(skill)) {
         const existing = this.enemies.some((enemy) => enemy.summonSkill === skill && enemy.hp > 0);
         if (!existing) this.activateOwnedSkill(skill);
         this.skillCastCooldowns[skill] = Number.POSITIVE_INFINITY;
         continue;
       }
-      const cooldown = Math.max(0, (this.skillCastCooldowns[skill] ?? 0) - seconds);
+      const visual = classSkills.find((definition) => definition.name === skill)?.visual ?? getD2SkillVisual(skill);
+      if (this.selectedClass === "paladin" && visual === "aura" && PALADIN_AURA_SKILLS.has(skill)) {
+        const activeAura = this.activePaladinAuras[skill];
+        if (activeAura) {
+          activeAura.remaining -= seconds;
+          activeAura.tick -= seconds;
+          if (activeAura.tick <= 0) {
+            this.applyPaladinAuraTick(skill);
+            activeAura.tick = 1;
+          }
+          if (activeAura.remaining <= 0) {
+            delete this.activePaladinAuras[skill];
+            this.skillCastCooldowns[skill] = 2.5;
+          } else {
+            this.skillCastCooldowns[skill] = Number.POSITIVE_INFINITY;
+          }
+          continue;
+        }
+        const auraCooldown = Math.max(0, (this.skillCastCooldowns[skill] ?? 0) - seconds);
+        if (auraCooldown > 0) {
+          this.skillCastCooldowns[skill] = auraCooldown;
+          continue;
+        }
+        this.activateOwnedSkill(skill);
+        this.activePaladinAuras[skill] = { remaining: this.paladinAuraDuration(skill), tick: 0 };
+        this.skillCastCooldowns[skill] = Number.POSITIVE_INFINITY;
+        continue;
+      }
+      const meditationRank = this.selectedClass === "paladin" ? this.activePaladinAuraRank(["Meditation"]) : 0;
+      const cooldownRate = meditationRank > 0 ? 1 + Math.min(1, meditationRank * 0.08) : 1;
+      const cooldown = Math.max(0, (this.skillCastCooldowns[skill] ?? 0) - seconds * cooldownRate);
       this.skillCastCooldowns[skill] = cooldown;
       if (cooldown > 0) continue;
-      const visual = classSkills.find((definition) => definition.name === skill)?.visual ?? getD2SkillVisual(skill);
-      // Auras and buffs activate once and stay active; combat skills wait for a target.
+      // Non-Paladin buffs still activate once; Paladin auras use timed cycles above.
       if (visual !== "aura" && !livingEnemies.some((enemy) => enemy.hp > 0)) continue;
       this.activateOwnedSkill(skill);
       this.skillCastCooldowns[skill] = visual === "aura" ? Number.POSITIVE_INFINITY : this.getSkillCastInterval(skill);
@@ -4189,15 +4319,17 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
     const attack = this.basicAttackForClass(this.selectedClass);
     const attackLevel = this.skillLevels[this.basicAttackName] ?? 1;
-    const damage = this.basicAttackDamage + (attackLevel - 1) * 2 + this.weaponMasteryDamageBonus + this.equippedWeaponDamage;
+    const baseDamage = this.basicAttackDamage + (attackLevel - 1) * 2 + this.weaponMasteryDamageBonus + this.equippedWeaponDamage;
+    const damage = this.applyPaladinAuraDamage(baseDamage);
     const distance = Math.hypot(target.x - this.playerX, target.y - this.playerY);
     this.playerFacingX = (target.x - this.playerX) / Math.max(1, distance);
     this.playerFacingY = (target.y - this.playerY) / Math.max(1, distance);
     if (distance <= target.r + 28) {
+      if (this.druidForm) this.druidFormAttackTime = this.druidForm === "werebear" ? 0.56 : 0.38;
       target.hp -= damage;
       this.triggerAttackAnimation();
       this.floatingTexts.push({ x: target.x, y: target.y - target.r - 8, text: `-${damage}`, color: attack.color, life: 0.65 });
-      this.attackCooldown = this.basicAttackCooldown;
+      this.attackCooldown = this.paladinAuraAttackCooldown();
     } else {
       // Move into weapon range before applying damage: a melee basic attack never becomes a missile.
       this.attackCooldown = Math.min(0.12, this.basicAttackCooldown);
@@ -4255,7 +4387,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (!targets.length) return;
     const attack = this.basicAttackForClass(this.selectedClass);
     const attackLevel = this.skillLevels[this.basicAttackName] ?? 1;
-    const damage = this.basicAttackDamage + (attackLevel - 1) * 2 + this.weaponMasteryDamageBonus + this.equippedWeaponDamage;
+    const baseDamage = this.basicAttackDamage + (attackLevel - 1) * 2 + this.weaponMasteryDamageBonus + this.equippedWeaponDamage;
+    const damage = this.applyPaladinAuraDamage(baseDamage);
     let landedMeleeAttack = false;
     for (const target of targets) {
       const distance = Math.hypot(target.x - this.playerX, target.y - this.playerY);
@@ -4267,8 +4400,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         this.floatingTexts.push({ x: target.x, y: target.y - target.r - 8, text: `-${damage}`, color: attack.color, life: 0.65 });
       }
     }
-    if (landedMeleeAttack) this.triggerAttackAnimation();
-    this.attackCooldown = this.basicAttackCooldown;
+    if (landedMeleeAttack) {
+      if (this.druidForm) this.druidFormAttackTime = this.druidForm === "werebear" ? 0.56 : 0.38;
+      this.triggerAttackAnimation();
+    }
+    this.attackCooldown = this.paladinAuraAttackCooldown();
   }
 
   private updateAttackProjectiles(dt: number): void {
@@ -4318,8 +4454,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         continue;
       }
       const target = projectile.target;
-      const targetIsAlive = !!target && this.enemies.includes(target) && target.hp > 0;
-      if (targetIsAlive) {
+      const targetIsPlayer = projectile.targetPlayer === true;
+      const targetIsAlive = targetIsPlayer || (!!target && this.enemies.includes(target) && target.hp > 0);
+      if (targetIsPlayer) {
+        projectile.targetX = this.playerX;
+        projectile.targetY = this.playerY;
+      } else if (targetIsAlive && target) {
         projectile.targetX = target.x;
         projectile.targetY = target.y;
       }
@@ -4327,10 +4467,20 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const dy = projectile.targetY - projectile.y;
       const distance = Math.hypot(dx, dy);
       const step = projectile.speed * seconds / this.worldZoom;
-      if (distance <= step + (targetIsAlive ? target.r : 4)) {
+      const targetRadius = targetIsPlayer ? 18 : targetIsAlive && target ? target.r : 4;
+      if (distance <= step + targetRadius) {
         if (targetIsAlive) {
-          target.hp -= projectile.damage;
-          projectile.impactPoint = { x: target.x, y: target.y };
+          if (targetIsPlayer) {
+            const armorReduction = this.equippedArmor / (this.equippedArmor + 100);
+            const frozenArmorReduction = this.isFrozenArmorActive()
+              ? Math.min(0.5, (this.skillLevels["Frozen Armor"] ?? 0) * 0.1)
+              : 0;
+            this.playerHp -= this.applyPaladinAuraDefense(projectile.damage * (1 - armorReduction) * (1 - frozenArmorReduction));
+            projectile.impactPoint = { x: this.playerX, y: this.playerY };
+          } else if (target) {
+            target.hp -= projectile.damage;
+            projectile.impactPoint = { x: target.x, y: target.y };
+          }
           projectile.impactAge = 0;
         } else {
           projectile.life = 0;
@@ -4583,7 +4733,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.upgradeChoices = [];
     this.levelUpNotice = "";
     this.ownedSkills = [this.basicAttackName];
+    this.druidForm = null;
+    this.druidFormAnimationTime = 0;
+    this.druidFormAttackTime = 0;
     for (const skill of Object.keys(this.skillCastCooldowns)) delete this.skillCastCooldowns[skill];
+    for (const skill of Object.keys(this.activePaladinAuras)) delete this.activePaladinAuras[skill];
     this.skillLevels = { [this.basicAttackName]: 1 };
     this.enemies = [];
     for (let index = 0; index < 5; index += 1) this.enemies.push(this.makeEnemy("normal"));
@@ -4698,7 +4852,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   movePlayer(dt: number): void {
-    const speed = 220 / this.worldZoom;
+    const vigorRank = this.activePaladinAuraRank(["Vigor"]);
+    const speed = 220 * (vigorRank > 0 ? 1 + vigorRank * 0.035 : 1) / this.worldZoom;
+
+
     const move = speed * (dt / 1000);
     // Translate screen-relative input into the square world plane used by gameplay.
     // With the isometric projection, world-left/up-left points screen-up-left; compensate
@@ -4770,10 +4927,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
   }
 
+  private isDruidFormSkill(skill: string): skill is "Werewolf" | "Werebear" {
+    return this.selectedClass === "druid" && (skill === "Werewolf" || skill === "Werebear");
+  }
+
   private isPersistentSummonSkill(skill: string): boolean {
     return this.selectedClass === "necromancer"
       ? /^(Raise Skeleton|Skeletal Mage|Clay Golem|Blood Golem|Iron Golem|Fire Golem|Revive)$/.test(skill)
-      : this.selectedClass === "druid" && /^(Werewolf|Raven)$/.test(skill);
+      : this.selectedClass === "druid" && /^(Raven|Poison Creeper)$/.test(skill);
   }
 
   private restoreSummonsFromOwnedSkills(): void {
@@ -4788,19 +4949,19 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (!this.isPersistentSummonSkill(skill) || this.enemies.some((enemy) => enemy.summonSkill === skill && enemy.hp > 0)) return;
     const rank = this.skillLevels[skill] ?? 1;
     const isDruid = this.selectedClass === "druid";
-    const isWerewolf = skill === "Werewolf";
     const isRaven = skill === "Raven";
+    const isPoisonCreeper = skill === "Poison Creeper";
     const playerMastery = this.skillLevels["Skeleton Mastery"] ?? 0;
     const golemMastery = this.skillLevels["Golem Mastery"] ?? 0;
     const isGolem = /Golem$/.test(skill);
     const isMage = skill === "Skeletal Mage";
-    const baseHealth = isWerewolf ? 190 : isRaven ? 65 : skill === "Fire Golem" ? 220 : skill === "Iron Golem" ? 280 : skill === "Blood Golem" ? 320 : isGolem ? 260 : isMage ? 95 : 125;
+    const baseHealth = isRaven ? 65 : isPoisonCreeper ? 150 : skill === "Fire Golem" ? 220 : skill === "Iron Golem" ? 280 : skill === "Blood Golem" ? 320 : isGolem ? 260 : isMage ? 95 : 125;
     const health = Math.round(baseHealth * (1 + (rank - 1) * 0.18 + (isGolem ? golemMastery * 0.25 : isDruid ? 0 : playerMastery * 0.2)));
-    const damage = Math.round((isWerewolf ? 24 : isRaven ? 12 : isGolem ? 17 : isMage ? 13 : 15) * (1 + (rank - 1) * 0.12 + (isGolem ? golemMastery * 0.1 : isDruid ? 0 : playerMastery * 0.2)));
+    const damage = Math.round((isRaven ? 12 : isPoisonCreeper ? 19 : isGolem ? 17 : isMage ? 13 : 15) * (1 + (rank - 1) * 0.12 + (isGolem ? golemMastery * 0.1 : isDruid ? 0 : playerMastery * 0.2)));
     const position = this.summonFollowPosition(this.enemies.filter((enemy) => enemy.summonType));
     const companion: Enemy = {
       kind: "normal",
-      species: isWerewolf ? "wendigo" : isRaven ? "scarab" : isGolem ? "minotaur" : "skeleton",
+      species: isRaven ? "scarab" : isPoisonCreeper ? "sandMaggot" : isGolem ? "minotaur" : "skeleton",
       campaignBoss: false,
       spriteFrame: 0,
       summonType: isDruid ? "druid" : isGolem ? "golem" : "skeleton",
@@ -4810,8 +4971,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       y: position.y,
       hp: health,
       maxHp: health,
-      speed: isWerewolf ? 180 : isRaven ? 205 : isGolem ? 135 : 155,
-      r: isWerewolf ? 17 : isRaven ? 9 : isGolem ? 19 : 12,
+      speed: isRaven ? 205 : isPoisonCreeper ? 95 : isGolem ? 135 : 155,
+      r: isRaven ? 9 : isPoisonCreeper ? 15 : isGolem ? 19 : 12,
       dmg: damage,
     };
     this.enemies.push(companion);
@@ -4826,6 +4987,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   updateEnemies(dt: number): void {
+    this.druidFormAnimationTime += dt / 1000;
+    this.druidFormAttackTime = Math.max(0, this.druidFormAttackTime - dt / 1000);
     const livingEnemies = this.enemies.filter((enemy) => !enemy.summonType && enemy.hp > 0);
     const summons = this.enemies.filter((enemy) => !!enemy.summonType && enemy.hp > 0);
     for (let index = 0; index < summons.length; index += 1) {
@@ -4889,7 +5052,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       enemy.facingX = dx / distance;
       enemy.facingY = dy / distance;
       const speed = enemy.speed * (dt / 1000) / this.worldZoom;
-      const attackRange = enemy.r + (targetSummon?.r ?? 18);
+      const isSkeletonArcher = enemy.species === "skeleton";
+      const attackRange = isSkeletonArcher
+        ? 210 + (targetSummon?.r ?? 18)
+        : enemy.r + (targetSummon?.r ?? 18);
       const wasInAttackRange = distance <= attackRange;
       enemy.animationState = wasInAttackRange ? "idle" : "move";
       enemy.attackAnimationTime = Math.max(0, (enemy.attackAnimationTime ?? 0) - dt / 1000);
@@ -4898,6 +5064,23 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       enemy.y += (dy / distance) * travel;
       if (enemy.cd !== undefined) enemy.cd = Math.max(0, enemy.cd - dt / 1000);
       const distanceAfterMoving = Math.hypot(targetX - enemy.x, targetY - enemy.y);
+      if (isSkeletonArcher) {
+        if (distanceAfterMoving <= attackRange && (enemy.cd === undefined || enemy.cd <= 0)) {
+          enemy.animationState = "attack";
+          enemy.attackAnimationTime = 0.42;
+          this.attackProjectiles.push({
+            x: enemy.x, y: enemy.y, startX: enemy.x, startY: enemy.y,
+            targetX, targetY,
+            target: targetSummon,
+            targetPlayer: !targetSummon,
+            speed: 300, damage: enemy.dmg,
+            life: Math.max(1, distanceAfterMoving / 300 + 0.8), age: 0,
+            radius: 4, color: "#d7c5aa", kind: "arrow", missileId: "5",
+          });
+          enemy.cd = enemy.kind === "boss" ? 1.1 : enemy.kind === "champion" ? 1.15 : 1.35;
+        }
+        continue;
+      }
       if (distanceAfterMoving < attackRange && (enemy.cd === undefined || enemy.cd <= 0)) {
         enemy.animationState = "attack";
         enemy.attackAnimationTime = enemy.kind === "boss" ? 0.55 : 0.38;
@@ -4915,7 +5098,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           const frozenArmorReduction = this.isFrozenArmorActive()
             ? Math.min(0.5, (this.skillLevels["Frozen Armor"] ?? 0) * 0.1)
             : 0;
-          this.playerHp -= Math.max(1, enemy.dmg * (1 - armorReduction) * (1 - frozenArmorReduction));
+          this.playerHp -= this.applyPaladinAuraDefense(enemy.dmg * (1 - armorReduction) * (1 - frozenArmorReduction));
+          const thornsRank = this.activePaladinAuraRank(["Thorns"]);
+          if (thornsRank > 0) enemy.hp -= enemy.dmg * thornsRank * 0.5;
         }
         enemy.cd = enemy.kind === "boss" ? 1.1 : enemy.kind === "champion" ? 0.9 : 0.8;
       }
@@ -4924,6 +5109,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     for (const enemy of defeatedEnemies) {
       this.grantExperience(enemy.kind === "boss" ? 8 : enemy.kind === "champion" ? 3 : 1);
       this.maybeDropGold(enemy);
+    }
+    const redemptionRank = this.activePaladinAuraRank(["Redemption"]);
+    if (redemptionRank > 0 && defeatedEnemies.length > 0) {
+      this.playerHp = Math.min(this.playerMaxHp, this.playerHp + redemptionRank * 2 * defeatedEnemies.length);
     }
     this.runKillCount += defeatedEnemies.length;
     if (defeatedEnemies.some((enemy) => enemy.campaignBoss)) {
@@ -5069,7 +5258,96 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (!canvas || !ctx) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     for (const effect of this.skillVisualEffects) this.drawSkillVisualEffect(ctx, effect);
+    if (this.runActive && this.selectedClass === "paladin") this.drawActivePaladinAuras(ctx);
     if (this.runActive && this.isFrozenArmorActive()) this.drawFrozenArmorEffect(ctx);
+  }
+
+  private activePaladinAuraRank(skills: readonly string[]): number {
+    if (this.selectedClass !== "paladin") return 0;
+    return skills.reduce((rank, skill) =>
+      this.activePaladinAuras[skill] ? Math.max(rank, this.skillLevels[skill] ?? 1) : rank, 0);
+  }
+
+  private applyPaladinAuraDamage(damage: number): number {
+    const rank = this.activePaladinAuraRank(["Might", "Concentration", "Fanaticism", "Blessed Aim", "Conviction"]);
+    return damage * (rank > 0 ? 1 + rank * 0.08 : 1);
+  }
+
+  private applyPaladinAuraDefense(damage: number): number {
+    const rank = this.activePaladinAuraRank(["Defiance", "Resist Fire", "Resist Cold", "Resist Lightning", "Salvation"]);
+    return Math.max(1, damage * (1 - Math.min(0.65, rank * 0.025)));
+  }
+
+  private paladinAuraAttackCooldown(): number {
+    const rank = this.activePaladinAuraRank(["Fanaticism"]);
+    return Math.max(0.18, this.basicAttackCooldown * (rank > 0 ? 1 - Math.min(0.45, rank * 0.025) : 1));
+  }
+
+  private applyPaladinAuraTick(skill: string): void {
+    const rank = Math.max(1, this.skillLevels[skill] ?? 1);
+    const radius = 115 + rank * 5;
+    if (skill === "Prayer") this.playerHp = Math.min(this.playerMaxHp, this.playerHp + rank);
+    const damagePerTick: Record<string, number> = {
+      "Holy Fire": 2, "Holy Freeze": 1, "Holy Shock": 3, Sanctuary: 2,
+    };
+    const baseDamage = damagePerTick[skill];
+    if (baseDamage === undefined) return;
+    const damage = baseDamage * rank * (1 + (rank - 1) * 0.15);
+
+    for (const enemy of this.enemies) {
+      if (enemy.hp <= 0 || enemy.summonType || Math.hypot(enemy.x - this.playerX, enemy.y - this.playerY) > radius) continue;
+      enemy.hp -= damage;
+      this.floatingTexts.push({
+        x: enemy.x,
+        y: enemy.y - enemy.r - 8,
+        text: `-${Math.floor(damage)}`,
+        color: this.skillVisualColorForName(skill, "aura"),
+        life: 0.55,
+      });
+    }
+  }
+
+  private drawActivePaladinAuras(ctx: CanvasRenderingContext2D): void {
+    const active = Object.entries(this.activePaladinAuras)
+      .filter(([, aura]) => aura.remaining > 0)
+      .sort(([left], [right]) => left.localeCompare(right));
+    if (!active.length) return;
+    const player = this.projectArenaPoint(this.playerX, this.playerY);
+    const frame = performance.now() * 0.001;
+    ctx.save();
+    ctx.translate(player.x, player.y - 8);
+    for (const [index, [skill]] of active.entries()) {
+      const rank = Math.max(1, this.skillLevels[skill] ?? 1);
+      const color = this.skillVisualColorForName(skill, "aura");
+      const radius = 28 + index * 9 + Math.min(12, rank * 1.5);
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 10 + Math.min(10, rank);
+      ctx.globalAlpha = 0.72;
+      ctx.lineWidth = 2 + Math.min(1.5, rank * 0.12);
+      ctx.beginPath();
+      ctx.ellipse(0, 4, radius + Math.sin(frame * 2.3 + index) * 2, radius * 0.42, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      for (let spark = 0; spark < 8; spark += 1) {
+        const angle = frame * (skill === "Holy Freeze" ? -0.8 : 1.1) + spark * Math.PI / 4 + index * 0.6;
+        const orbit = radius * (0.58 + 0.14 * Math.sin(frame * 2 + spark));
+        const x = Math.cos(angle) * orbit;
+        const y = Math.sin(angle) * orbit * 0.42 - 3;
+        ctx.globalAlpha = 0.5 + 0.35 * Math.sin(frame * 3 + spark + index);
+        ctx.beginPath();
+        if (skill === "Holy Shock") {
+          ctx.moveTo(x - 3, y - 4); ctx.lineTo(x + 1, y); ctx.lineTo(x - 2, y + 2); ctx.lineTo(x + 3, y + 5);
+          ctx.stroke();
+        } else {
+          ctx.arc(x, y, skill === "Holy Fire" ? 2.8 : 2.2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      ctx.restore();
+    }
+    ctx.restore();
   }
 
   private isFrozenArmorActive(): boolean {
@@ -6148,7 +6426,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       ...this.potionDrops.map((entity) => ({ depth: this.projectArenaPoint(entity.x, entity.y).y, draw: () => this.drawPotionDrop(ctx, entity) })),
       ...this.goldDrops.map((entity) => ({ depth: this.projectArenaPoint(entity.x, entity.y).y, draw: () => this.drawGoldDrop(ctx, entity) })),
     ].sort((a, b) => a.depth - b.depth);
+    drawOrder.sort((a, b) => a.depth - b.depth);
     for (const entity of drawOrder) entity.draw();
+    if (this.druidForm) this.drawDruidForm(ctx);
 
     for (const projectile of this.attackProjectiles) this.drawAttackProjectile(ctx, projectile);
     for (const effect of this.meleeTrailEffects) this.drawMeleeTrail(ctx, effect);
@@ -6758,6 +7038,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.characterModel.position.x = (this.playerX - this.arenaW / 2) / this.worldZoom;
       this.characterModel.position.z = (this.playerY - this.arenaH / 2) / this.worldZoom;
       this.characterModel.scale.setScalar(this.playerWorldScale);
+      this.characterModel.visible = !this.druidForm;
     }
     if (this.playerShadow) {
       this.playerShadow.position.x = (this.playerX - this.arenaW / 2) / this.worldZoom;
@@ -6768,6 +7049,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy): void {
     const ground = this.projectArenaPoint(e.x, e.y);
+    if (this.druidForm && !e.summonType && e.x === this.playerX && e.y === this.playerY) return;
     if (e.summonType) {
       this.drawSummon(ctx, e, ground);
       return;
@@ -6783,7 +7065,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (sprite && sprite.frames.length > 0) {
       const directionX = e.facingX ?? dx;
       const directionY = e.facingY ?? dy;
-      const direction = enemySpriteRow(e.species, directionX, directionY) % sprite.rows;
+      const directionRow = enemySpriteRow(e.species, directionX, directionY);
+      const direction = e.species === "goatman"
+        ? directionRow + (e.animationState === "attack" ? 8 : 0)
+        : directionRow % sprite.rows;
       const frameIndex = enemySpriteFrame(e, sprite.columns, this.runTime);
       const frame = sprite.frames[direction]?.[frameIndex];
       if (frame && frame.width > 0 && frame.height > 0) {
@@ -6953,71 +7238,22 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   private drawDruidSummon(ctx: CanvasRenderingContext2D, summon: Enemy, ground: { x: number; y: number }): void {
     const isRaven = summon.summonSkill === "Raven";
-    const height = (isRaven ? 34 : 92) * this.worldZoom;
-    const width = height * 1.35;
-    const dx = this.playerX - summon.x;
-    const dy = this.playerY - summon.y;
-    const isMoving = summon.animationState === "move";
+    const isCreeper = summon.summonSkill === "Poison Creeper";
+    const animationName: DruidAnimationName = isRaven ? "raven" : "poison-creeper";
+    const animation = this.druidAnimations[animationName];
+    const height = (isRaven ? 36 : 50) * this.worldZoom;
+    const width = height * (isRaven ? 1.25 : 1.45);
+    const frame = animation ? druidAnimationFrame(summon, animation, this.runTime, this.playerMoveX, this.playerMoveY, isCreeper) : undefined;
     ctx.save();
     ctx.fillStyle = "#050505";
-    ctx.globalAlpha = 0.58;
+    ctx.globalAlpha = 0.56;
     ctx.beginPath();
-    ctx.ellipse(ground.x, ground.y + 2, width * 0.34, height * 0.09, 0, 0, Math.PI * 2);
+    ctx.ellipse(ground.x, ground.y + 2, width * (isCreeper ? 0.43 : 0.34), height * 0.09, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.globalAlpha = 1;
-    if (isRaven) {
-      const wing = Math.sin(this.runTime * 13 + summon.x * 0.02) * (isMoving ? 0.95 : 0.5);
-      const direction = dx < 0 ? -1 : 1;
-      ctx.translate(ground.x, ground.y - height * 0.48);
-      ctx.scale(direction, 1);
-      ctx.rotate(Math.atan2(-dy, Math.abs(dx) || 1) * 0.22);
-      ctx.fillStyle = "#14131b";
-      ctx.strokeStyle = "#777184";
-      ctx.lineWidth = 1.6 * this.worldZoom;
-      ctx.shadowColor = "#8275ae";
-      ctx.shadowBlur = 8 * this.worldZoom;
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.quadraticCurveTo(-width * 0.42, -height * (0.22 + wing * 0.35), -width * 0.68, -height * (0.05 + wing));
-      ctx.quadraticCurveTo(-width * 0.48, height * 0.12, -width * 0.18, height * 0.08);
-      ctx.quadraticCurveTo(width * 0.1, height * 0.2, width * 0.36, height * 0.02);
-      ctx.lineTo(width * 0.54, height * 0.09);
-      ctx.lineTo(width * 0.4, height * 0.18);
-      ctx.quadraticCurveTo(width * 0.08, height * 0.31, -width * 0.18, height * 0.1);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-      ctx.fillStyle = "#a99b62";
-      ctx.beginPath();
-      ctx.arc(width * 0.28, -height * 0.02, 1.5 * this.worldZoom, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = "#302a23";
-      ctx.beginPath();
-      ctx.moveTo(width * 0.38, height * 0.02);
-      ctx.lineTo(width * 0.53, height * 0.08);
-      ctx.lineTo(width * 0.34, height * 0.09);
-      ctx.closePath();
-      ctx.fill();
-    } else {
-      const sprite = this.enemySprites.wendigo;
-      const direction = sprite ? enemySpriteRow("wendigo", -dx, -dy) % sprite.rows : 0;
-      const frameIndex = sprite ? enemySpriteFrame(summon, sprite.columns, this.runTime) : 0;
-      const frame = sprite?.frames[direction]?.[frameIndex];
-      if (frame) {
-        ctx.imageSmoothingEnabled = false;
-        ctx.filter = "brightness(1.35) contrast(1.15) sepia(0.58) saturate(0.85)";
-        ctx.shadowColor = "#9a7048";
-        ctx.shadowBlur = 8 * this.worldZoom;
-        ctx.drawImage(frame, ground.x - width / 2, ground.y - height * 0.86, width, height);
-      } else {
-        ctx.fillStyle = "#5a4533";
-        ctx.strokeStyle = "#d5b98b";
-        ctx.lineWidth = 2 * this.worldZoom;
-        ctx.beginPath();
-        ctx.ellipse(ground.x, ground.y - height * 0.48, width * 0.3, height * 0.4, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-      }
+    if (frame) {
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(frame, ground.x - width / 2, ground.y - height * 0.86, width, height);
     }
     ctx.restore();
 
@@ -7026,18 +7262,55 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const barY = ground.y - height * 0.88 - 7;
     ctx.fillStyle = "#171311";
     ctx.fillRect(ground.x - barWidth / 2, barY, barWidth, 4);
-    ctx.fillStyle = isRaven ? "#9e8ed0" : "#a87a4b";
+    ctx.fillStyle = isRaven ? "#9e8ed0" : "#8cc34b";
     ctx.fillRect(ground.x - barWidth / 2, barY, barWidth * hpRatio, 4);
-    ctx.fillStyle = isRaven ? "#ddd3ff" : "#ead0a5";
+    ctx.fillStyle = isRaven ? "#ddd3ff" : "#c4e29c";
     ctx.font = "bold 9px Georgia, serif";
     ctx.textAlign = "center";
     ctx.shadowColor = "#08090b";
     ctx.shadowBlur = 3;
-    ctx.fillText(isRaven ? "Raven" : "Werewolf", ground.x, barY - 3);
+    ctx.fillText(isRaven ? "Raven" : "Poison Creeper", ground.x, barY - 3);
+  }
+
+  private druidFormAnimationName(): DruidAnimationName | undefined {
+    if (!this.druidForm) return undefined;
+    return this.druidForm;
+  }
+
+  private drawDruidForm(ctx: CanvasRenderingContext2D): void {
+    const animationName = this.druidFormAnimationName();
+    const animation = animationName ? this.druidAnimations[animationName] : undefined;
+    if (!this.druidForm || !animation) return;
+    const ground = this.projectArenaPoint(this.playerX, this.playerY);
+    const direction = druidDirection(this.playerFacingX, this.playerFacingY);
+    const formAttackDuration = this.druidForm === "werebear" ? 0.56 : 0.38;
+    const frameIndex = this.druidFormAttackTime > 0
+      ? druidAttackFrame(animation.columns, this.druidFormAttackTime, formAttackDuration)
+      : this.isPlayerMoving
+        ? Math.floor(this.runTime * 9) % Math.max(2, Math.ceil(animation.columns * 0.7))
+        : Math.min(animation.columns - 1, Math.floor(animation.columns * 0.12));
+    const frame = animation.frames[direction]?.[frameIndex];
+    if (!frame) return;
+    const height = (this.druidForm === "werebear" ? 92 : 82) * this.worldZoom;
+    const width = height * frame.width / frame.height;
+    ctx.save();
+    ctx.fillStyle = "#050505";
+    ctx.globalAlpha = 0.56;
+    ctx.beginPath();
+    ctx.ellipse(ground.x, ground.y + 2, width * 0.34, height * 0.07, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.imageSmoothingEnabled = false;
+    if (this.druidFormAttackTime > 0) {
+      ctx.shadowColor = "#edcf91";
+      ctx.shadowBlur = 8 * this.worldZoom;
+    }
+    ctx.drawImage(frame, ground.x - width / 2, ground.y - height * 0.86, width, height);
+    ctx.restore();
   }
 
   private summonAttack(summon: Enemy, target: Enemy): void {
-    summon.summonAttackCooldown = summon.summonType === "golem" ? 0.9 : summon.summonSkill === "Skeletal Mage" || summon.summonSkill === "Raven" ? 1.25 : summon.summonSkill === "Werewolf" ? 0.68 : 0.72;
+    summon.summonAttackCooldown = summon.summonType === "golem" ? 0.9 : summon.summonSkill === "Skeletal Mage" || summon.summonSkill === "Raven" ? 1.25 : summon.summonSkill === "Poison Creeper" ? 1.05 : 0.72;
     this.summonAttackEffects.push({
       summon,
       target,
@@ -7417,6 +7690,7 @@ interface D2SavedRun {
   basicAttackDamage?: number;
   skillOfferSeed?: number;
   ownedSkills: string[];
+  druidForm?: DruidForm | null;
   skillLevels: Record<string, number>;
   enemies: Enemy[];
   chests: Chest[];
@@ -7525,13 +7799,60 @@ function isCompatibleWithEquipment(item: D2InventoryItem, slot: PaperdollSlot): 
   return type === slot || (type === "ring" && (slot === "ringLeft" || slot === "ringRight"));
 }
 
+type DruidForm = "werewolf" | "werebear";
+type DruidAnimationName = DruidForm | "raven" | "poison-creeper";
 type EnemyKind = "normal" | "champion" | "boss";
+
+function druidDirection(dx: number, dy: number): number {
+  if (!Number.isFinite(dx) || !Number.isFinite(dy) || dx === 0 && dy === 0) return 0;
+  const angle = Math.atan2(dy, dx);
+  return (Math.round((angle + Math.PI) / (Math.PI / 4)) + 8) % 8;
+}
+
+function druidAttackFrame(columns: number, remainingSeconds: number, durationSeconds: number): number {
+  const frameCount = Math.min(4, Math.max(2, Math.ceil(columns * 0.3)));
+  const progress = 1 - Math.max(0, Math.min(1, remainingSeconds / durationSeconds));
+  const frameOffset = Math.min(frameCount - 1, Math.floor(progress * frameCount));
+  return Math.max(0, columns - frameCount + frameOffset);
+}
+
+function druidAnimationFrame(
+  summon: Enemy,
+  animation: DruidAnimation,
+  runTime: number,
+  _moveX: number,
+  _moveY: number,
+  isCreeper: boolean,
+): HTMLCanvasElement | undefined {
+  const direction = druidDirection(summon.facingX ?? 1, summon.facingY ?? 0);
+  const attackDuration = isCreeper ? 0.3 : 0.38;
+  const frameIndex = summon.animationState === "attack"
+    ? druidAttackFrame(animation.columns, summon.attackAnimationTime ?? attackDuration, attackDuration)
+    : summon.animationState === "move"
+      ? Math.floor(runTime * 9) % Math.max(2, Math.ceil(animation.columns * 0.7))
+      : Math.min(animation.columns - 1, Math.floor(animation.columns * 0.12));
+  return animation.frames[direction]?.[frameIndex];
+}
 type EnemySpecies = "fallen" | "goatman" | "skeleton" | "sandRaider" | "sandMaggot" | "scarab" | "fetish" | "fetishShaman" | "council" | "balrog" | "vileChild" | "vileMother" | "bloodLord" | "minotaur" | "deathMauler" | "wendigo" | "andariel" | "duriel" | "diablo" | "baalsMinion";
 
 function enemySpriteFrame(enemy: Enemy, columns: number, runTime: number): number {
   if (columns <= 1) return 0;
   const state = enemy.animationState ?? "idle";
   const phaseOffset = Math.abs(Math.floor(enemy.x * 0.09 + enemy.y * 0.05)) % columns;
+  if (enemy.species === "skeleton") {
+    // The available skeleton-archer sheet is a walk cycle only: animate it while
+    // closing distance, then hold a still bow-ready pose as the arrow is launched.
+    return state === "move" ? Math.floor(runTime * 10) % columns : 0;
+  }
+  if (enemy.species === "goatman") {
+    if (state === "attack") {
+      const duration = enemy.kind === "boss" ? 0.55 : 0.38;
+      const progress = 1 - Math.max(0, Math.min(1, (enemy.attackAnimationTime ?? duration) / duration));
+      return Math.min(columns - 1, Math.floor(progress * columns));
+    }
+    if (state === "move") return Math.floor(runTime * 10) % columns;
+    return Math.min(columns - 1, Math.floor(columns * 0.12));
+  }
   if (state === "attack") {
     const attackProgress = 1 - (enemy.attackAnimationTime ?? 0) / (enemy.kind === "boss" ? 0.55 : 0.38);
     // A brief, readable wind-up/strike/recovery cadence replaces the old
@@ -7554,6 +7875,7 @@ function enemySpriteFrame(enemy: Enemy, columns: number, runTime: number): numbe
 function enemySpriteRow(species: EnemySpecies, dx: number, dy: number): number {
   const directions = ENEMY_SPRITE_LAYOUTS[species].rows;
   if (directions === 4) return dy > 0 ? 0 : dy < 0 ? 2 : dx < 0 ? 1 : 3;
+  if (species === "goatman") return druidDirection(dx, dy);
   if (directions === 8) {
     const angle = Math.atan2(dy, dx);
     return (Math.round((angle + Math.PI) / (Math.PI / 4)) + 8) % 8;
@@ -7698,6 +8020,7 @@ interface AttackProjectile {
   teethFan?: number;
   teethDirectionX?: number;
   teethDirectionY?: number;
+  targetPlayer?: boolean;
   speed: number;
   damage: number;
   life: number;
