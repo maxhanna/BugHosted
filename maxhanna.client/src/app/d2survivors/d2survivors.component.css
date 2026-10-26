@@ -1202,6 +1202,44 @@
   box-sizing: border-box;
 }
 
+.d2s-enemy-hover-card {
+  position: absolute;
+  z-index: 7;
+  top: 16px;
+  left: 50%;
+  display: grid;
+  width: min(240px, 48vw);
+  gap: 6px;
+  padding: 7px 12px 8px;
+  transform: translateX(-50%);
+  border: 1px solid #76552e;
+  background: linear-gradient(180deg, #160f0eed, #080708e8);
+  box-shadow: inset 0 0 0 1px #050505, 0 3px 12px #000b;
+  color: #f0d6a0;
+  text-align: center;
+  font: 15px Georgia, serif;
+  text-shadow: 0 1px 3px #000;
+  pointer-events: none;
+}
+
+.d2s-enemy-hover-health {
+  display: block;
+  height: 7px;
+  overflow: hidden;
+  border: 1px solid #544237;
+  background: #170a0a;
+  box-shadow: inset 0 1px 2px #000;
+}
+
+.d2s-enemy-hover-health i {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform-origin: left center;
+  transition: transform 100ms linear;
+  background: #a81717;
+}
+
 .d2s-act-banner {
   position: absolute;
   z-index: 5;
@@ -1803,6 +1841,7 @@
   .d2s-escape-menu { inset: 0; }
   .d2s-touch-menu { top: 12px; right: 12px; }
   .d2s-act-banner { top: 12px; left: 12px; width: min(176px, 45%); padding: 7px 8px; }
+  .d2s-enemy-hover-card { top: 10px; width: min(210px, 52vw); padding: 6px 9px; font-size: 13px; }
   .d2s-act-banner > strong { font-size: 12px; }
   .d2s-inv-panel { inset: 50% auto auto 50%; width: 100%; height: 100%; padding: 14px 9px; transform: translate(-50%, -50%); }
 

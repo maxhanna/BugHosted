@@ -212,7 +212,7 @@
   </section>
 
   <section class="d2s-run" [hidden]="activeTab !== 'run'">
-    <div class="d2s-arena-wrap" (pointerdown)="onArenaPointerDown($event)" (pointermove)="onArenaPointerMove($event)" (pointerup)="onArenaPointerEnd($event)" (pointercancel)="onArenaPointerEnd($event)" (lostpointercapture)="onArenaPointerEnd($event)">
+    <div class="d2s-arena-wrap" (pointerdown)="onArenaPointerDown($event)" (pointermove)="onArenaPointerMove($event)" (pointerleave)="onArenaPointerLeave()" (pointerup)="onArenaPointerEnd($event)" (pointercancel)="onArenaPointerEnd($event)" (lostpointercapture)="onArenaPointerEnd($event)">
       <div class="d2s-upgrade-modal" *ngIf="pendingLevelUps > 0 && !escapeMenuOpen && !inventoryOpen && !skillTreeOpen" role="dialog" aria-modal="true" aria-labelledby="d2s-upgrade-title">
         <section class="d2s-upgrade-panel">
           <p class="d2s-upgrade-kicker">LEVEL {{ playerLevel }}</p>
@@ -229,6 +229,10 @@
       <button type="button" class="d2s-skill-tree-button" (click)="toggleSkillTree()" aria-label="Open skill tree" title="Skill tree (T)">T</button>
       <canvas #characterCanvas class="d2s-character-canvas" width="500" height="500" aria-hidden="true"></canvas>
       <canvas #skillEffectsCanvas class="d2s-skill-effects-canvas" width="500" height="500" aria-hidden="true"></canvas>
+      <div class="d2s-enemy-hover-card" *ngIf="hoveredEnemy as enemy" aria-live="polite">
+        <strong>{{ getEnemyDisplayName(enemy) }}</strong>
+        <span class="d2s-enemy-hover-health"><i [style.transform]="'scaleX(' + (enemy.hp / enemy.maxHp) + ')'" [style.background]="enemy.kind === 'boss' ? '#d53226' : '#a81717'"></i></span>
+      </div>
       <div class="d2s-model-hint" *ngIf="modelLoadError">3D character model could not load.</div>
       <div class="d2s-classic-hud" aria-label="Life and mana orbs, potion belt, skill icons and experience">
         <div class="d2s-orb d2s-health-orb" [style.--orb-fill]="healthOrbFill">

@@ -377,7 +377,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private readonly worldZoom = 2.1;
   // Fixed first-chunk doorway placed a short walk from the starting position.
   private readonly act1InteriorDoor = { x: 410, y: 240, radius: 12 };
-  private readonly playerWorldScale = 1.62;
+  private readonly playerWorldScale = 1.45;
   private readonly chunkTileColumns = 12;
   private readonly chunkTileRows = 8;
   currentAct = 1;
@@ -2742,6 +2742,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   chests: Chest[] = [];
   potionDrops: PotionDrop[] = [];
   goldDrops: GoldDrop[] = [];
+  hoveredEnemy: Enemy | null = null;
   openChestCount = 0;
   floatingTexts: FloatingText[] = [];
   runTime = 0;
@@ -3152,9 +3153,47 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   onArenaPointerMove(event: PointerEvent): void {
-    if (event.pointerId !== this.joystickPointerId) return;
-    this.updateJoystickDirection(event);
-    event.preventDefault();
+    if (event.pointerId === this.joystickPointerId) {
+      this.updateJoystickDirection(event);
+      event.preventDefault();
+      return;
+    }
+    if (event.pointerType === "mouse" && this.activeTab === "run" && this.runActive) {
+      this.updateHoveredEnemy(event);
+    }
+  }
+
+  onArenaPointerLeave(): void {
+    this.hoveredEnemy = null;
+  }
+
+  private updateHoveredEnemy(event: PointerEvent): void {
+    const canvas = this.arenaRef?.nativeElement;
+    const rect = canvas?.getBoundingClientRect();
+    if (!canvas || !rect || rect.width <= 0 || rect.height <= 0) {
+      this.hoveredEnemy = null;
+      return;
+    }
+    const pointerX = (event.clientX - rect.left) * canvas.width / rect.width;
+    const pointerY = (event.clientY - rect.top) * canvas.height / rect.height;
+    let closest: Enemy | null = null;
+    let closestDistance = Number.POSITIVE_INFINITY;
+    for (const enemy of this.enemies) {
+      if (enemy.hp <= 0 || enemy.summonType) continue;
+      const ground = this.projectArenaPoint(enemy.x, enemy.y);
+      const speciesScale = enemy.species === "andariel" ? 1.8 : 1;
+      const spriteSize = enemy.r * (enemy.kind === "boss" ? 4.2 : enemy.kind === "champion" ? 4.4 : 4.8) * this.worldZoom * speciesScale;
+      const spriteHeight = spriteSize * (enemy.kind === "boss" ? 1.35 : 1);
+      const spriteWidth = spriteHeight * 1.45;
+      const dx = (pointerX - ground.x) / (spriteWidth * 0.55);
+      const dy = (pointerY - (ground.y - spriteHeight * 0.39)) / (spriteHeight * 0.58);
+      const distance = dx * dx + dy * dy;
+      if (distance <= 1 && distance < closestDistance) {
+        closest = enemy;
+        closestDistance = distance;
+      }
+    }
+    this.hoveredEnemy = closest;
   }
 
   onArenaPointerEnd(event: PointerEvent): void {
@@ -6022,19 +6061,23 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     try {
       this.characterRenderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
-      this.characterRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      // The player render is a small transparent overlay; rendering it at full
+      // display resolution is disproportionately expensive on high-DPI screens.
+      this.characterRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25));
       const rect = canvas.getBoundingClientRect();
       this.characterRenderer.setSize(rect.width || canvas.width, rect.height || canvas.height, false);
       this.characterRenderer.setClearColor(0x000000, 0);
       this.characterRenderer.outputColorSpace = THREE.SRGBColorSpace;
       this.characterScene = new THREE.Scene();
-      const shadowGeometry = new THREE.CircleGeometry(38, 32);
+      const shadowGeometry = new THREE.CircleGeometry(38, 16);
       shadowGeometry.rotateX(-Math.PI / 2);
       const shadowMaterial = new THREE.MeshBasicMaterial({
         color: 0x000000,
         transparent: true,
-        opacity: 0.34,
+        opacity: 0.28,
         depthWrite: false,
+        // The ground shadow is a flat overlay; skip per-pixel lighting work.
+        toneMapped: false,
       });
       this.playerShadow = new THREE.Mesh(shadowGeometry, shadowMaterial);
       this.playerShadow.scale.z = 0.52;
@@ -6678,6 +6721,20 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
 
     this.drawHpBar(ctx, e, color, size, ground);
+  }
+
+  getEnemyDisplayName(enemy: Enemy): string {
+    const speciesNames: Record<EnemySpecies, string> = {
+      fallen: "Fallen", goatman: "Goatman", skeleton: "Skeleton", sandRaider: "Sand Raider",
+      sandMaggot: "Sand Maggot", scarab: "Sand Scarab", fetish: "Fetish", fetishShaman: "Fetish Shaman",
+      council: "Council Member", balrog: "Balrog", vileChild: "Vile Child", vileMother: "Vile Mother",
+      bloodLord: "Blood Lord", minotaur: "Minotaur", deathMauler: "Death Mauler", wendigo: "Wendigo",
+      andariel: "Andariel", duriel: "Duriel", diablo: "Diablo", baalsMinion: "Baal's Minion",
+    };
+    const baseName = speciesNames[enemy.species];
+    if (enemy.kind === "champion") return `Champion ${baseName}`;
+    if (enemy.kind === "boss" && !enemy.campaignBoss && !["andariel", "duriel", "diablo"].includes(enemy.species)) return `Unique ${baseName}`;
+    return baseName;
   }
 
   private drawSummon(ctx: CanvasRenderingContext2D, summon: Enemy, ground: { x: number; y: number }): void {
