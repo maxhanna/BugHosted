@@ -25,6 +25,7 @@ const RUN_SAVE_KEY = "d2survivors.run.v1";
 const RUN_SAVE_VERSION = 1;
 const RUN_SAVE_INTERVAL_MS = 2500;
 const ACT_BOSS_TIME_SECONDS = 45;
+const CAMPAIGN_TILE_WORLD_SIZE = 60;
 const MISSILE_OVERLAY_BASE = "assets/d2survivors/missiles";
 const MISSILE_FRAME_DURATIONS_MS: Record<string, number> = {
   "5": 85, "6": 85, "8": 85, "30": 85, "101": 85,
@@ -185,7 +186,7 @@ const ENEMY_SPRITE_PATHS: Record<EnemySpecies, string> = {
 };
 
 const ENEMY_SPRITE_LAYOUTS: Record<EnemySpecies, { columns: number; rows: number; animated: boolean }> = {
-  fallen: { columns: 16, rows: 1, animated: true }, goatman: { columns: 14, rows: 1, animated: true },
+  fallen: { columns: 13, rows: 1, animated: true }, goatman: { columns: 14, rows: 1, animated: true },
   skeleton: { columns: 16, rows: 1, animated: true }, sandRaider: { columns: 1, rows: 1, animated: false },
   sandMaggot: { columns: 1, rows: 1, animated: false }, scarab: { columns: 12, rows: 8, animated: true },
   fetish: { columns: 1, rows: 1, animated: false }, fetishShaman: { columns: 1, rows: 1, animated: false },
@@ -370,8 +371,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private currentChunkLocalX = 0;
   private currentChunkLocalY = 0;
   private readonly worldZoom = 2.1;
-  // Floor cells are 160×80 source pixels and render at the gameplay world zoom.
-  private readonly floorTileScale = this.worldZoom;
+  // Floor cells span 48 gameplay units; movement and projection both stay in the
+  // same coordinate system so ground, monsters, and pickups scroll together.
+  private readonly floorTileScale = 1;
   // Fixed first-chunk doorway placed a short walk from the starting position.
   private readonly act1InteriorDoor = { x: 410, y: 240, radius: 12 };
   private readonly playerWorldScale = 1.8;
@@ -1140,8 +1142,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.act1InteriorOpen = false;
       return;
     }
-    const chunkWidth = this.chunkTileColumns * 48;
-    const chunkHeight = this.chunkTileRows * 48;
+    const chunkWidth = this.chunkTileColumns * CAMPAIGN_TILE_WORLD_SIZE;
+    const chunkHeight = this.chunkTileRows * CAMPAIGN_TILE_WORLD_SIZE;
     const worldX = this.currentChunkCoordX * chunkWidth + this.currentChunkLocalX;
     const worldY = this.currentChunkCoordY * chunkHeight + this.currentChunkLocalY;
     const currentChunk = this.currentChunkCoordX === 0 && this.currentChunkCoordY === 0;
@@ -1168,12 +1170,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (!building?.complete || building.naturalWidth === 0) return;
     const canvas = this.arenaRef?.nativeElement;
     const dpr = canvas?.clientWidth ? canvas.width / canvas.clientWidth : 1;
-    const chunkWidth = this.chunkTileColumns * 48;
-    const chunkHeight = this.chunkTileRows * 48;
+    const chunkWidth = this.chunkTileColumns * CAMPAIGN_TILE_WORLD_SIZE;
+    const chunkHeight = this.chunkTileRows * CAMPAIGN_TILE_WORLD_SIZE;
     const worldX = this.currentChunkCoordX * chunkWidth + this.currentChunkLocalX;
     const worldY = this.currentChunkCoordY * chunkHeight + this.currentChunkLocalY;
-    const offsetX = (this.act1InteriorDoor.x - worldX) * this.floorTileScale;
-    const offsetY = (this.act1InteriorDoor.y - worldY) * this.floorTileScale;
+    // projectArenaPoint applies worldZoom itself; keep simulation-world offsets
+    // in world units here rather than scaling them a second time.
+    const offsetX = this.act1InteriorDoor.x - worldX;
+    const offsetY = this.act1InteriorDoor.y - worldY;
     const center = this.projectArenaPoint(this.arenaW / 2 + offsetX, this.arenaH / 2 + offsetY);
     const width = building.naturalWidth * dpr;
     const height = building.naturalHeight * dpr;
@@ -1241,7 +1245,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const context = sheet.getContext("2d", { willReadFrequently: true });
     if (!context) return [];
     context.drawImage(floorTiles, 0, 0);
-    const baseIndex = Math.max(0, Math.min(15, act.baseFloorVariant));
+    const baseIndex = (act.act === 1 ? 1 : act.act === 2 ? 0 : act.act === 3 ? 0 : act.act === 4 ? 1 : 0);
     const baseCanvas = document.createElement("canvas");
     baseCanvas.width = tileWidth;
     baseCanvas.height = tileHeight;
@@ -1271,15 +1275,42 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         Math.floor(index / atlasColumns) * tileHeight, tileWidth, tileHeight, 0, 0, tileWidth, tileHeight);
       const pixels = tileContext.getImageData(0, 0, tileWidth, tileHeight);
       const overlayPixels = pixels.data;
+      const isKeyColor = (red: number, green: number, blue: number): boolean =>
+        (red <= 8 && green <= 8 && blue <= 8) || (red === 0 && green === 255 && blue === 255)
+        || (red === 173 && green === 216 && blue === 230) || (red === 255 && green === 0 && blue === 255);
+      // The atlas matte appears opaque black in some variants and already
+      // transparent in others. Key only edge-connected matte pixels; preserve
+      // dark dirt/stone inside the diamond instead of punching black holes.
+      const width = tileWidth;
+      const height = tileHeight;
+      const visited = new Uint8Array(width * height);
+      const queue = new Int32Array(width * height);
+      let head = 0;
+      let tail = 0;
+      const enqueue = (x: number, y: number): void => {
+        const pixelIndex = y * width + x;
+        if (visited[pixelIndex]) return;
+        visited[pixelIndex] = 1;
+        queue[tail++] = pixelIndex;
+      };
+      for (let x = 0; x < width; x += 1) { enqueue(x, 0); enqueue(x, height - 1); }
+      for (let y = 0; y < height; y += 1) { enqueue(0, y); enqueue(width - 1, y); }
+      while (head < tail) {
+        const pixelIndex = queue[head++];
+        const x = pixelIndex % width;
+        const y = Math.floor(pixelIndex / width);
+        const offset = pixelIndex * 4;
+        const red = overlayPixels[offset], green = overlayPixels[offset + 1], blue = overlayPixels[offset + 2];
+        if (overlayPixels[offset + 3] === 0 || !isKeyColor(red, green, blue)) continue;
+        overlayPixels[offset + 3] = 0;
+        if (x > 0) enqueue(x - 1, y);
+        if (x + 1 < width) enqueue(x + 1, y);
+        if (y > 0) enqueue(x, y - 1);
+        if (y + 1 < height) enqueue(x, y + 1);
+      }
       for (let offset = 0; offset < overlayPixels.length; offset += 4) {
         const red = overlayPixels[offset], green = overlayPixels[offset + 1], blue = overlayPixels[offset + 2];
-        if ((red <= 8 && green <= 8 && blue <= 8) || (red === 0 && green === 255 && blue === 255)
-            || (red === 173 && green === 216 && blue === 230) || (red === 255 && green === 0 && blue === 255)) {
-          overlayPixels[offset] = groundColor[0];
-          overlayPixels[offset + 1] = groundColor[1];
-          overlayPixels[offset + 2] = groundColor[2];
-          overlayPixels[offset + 3] = 0;
-        } else if (overlayPixels[offset + 3] > 0) {
+        if (overlayPixels[offset + 3] > 0) {
           overlayPixels[offset] = brighten(red);
           overlayPixels[offset + 1] = brighten(green);
           overlayPixels[offset + 2] = brighten(blue);
@@ -1295,7 +1326,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const key = `${act.act}:${chunkX}:${chunkY}`;
     const cached = this.campaignGeneratedChunks.get(key);
     if (cached) return cached;
-    const tileWorldSize = 48;
+    const tileWorldSize = CAMPAIGN_TILE_WORLD_SIZE;
     const tileWidth = tileWorldSize * Math.SQRT2;
     const tileHeight = tileWorldSize / Math.SQRT2;
     const width = this.chunkTileColumns * tileWorldSize;
@@ -1351,11 +1382,17 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       value = Math.imul(value ^ (value >>> 13), 0xc2b2ae35);
       return (value ^ (value >>> 16)) >>> 0;
     };
-    const base = actId === 1 ? 1 : actId === 2 ? 0 : actId === 3 ? 5 : actId === 4 ? 1 : 5;
-    const transition = hash(Math.floor(worldTileX / 4), Math.floor(worldTileY / 4), 101) % 5;
-    const candidates = [base, (base + 1) % 16, (base + 5) % 16, (base + 3) % 16, (base + 4) % 16];
+    const variantsByAct: Record<number, number[]> = {
+      1: [1, 1, 1, 5, 7, 10, 12, 13, 14],
+      2: [0, 0, 0, 9, 12],
+      3: [0, 0, 2, 3, 7, 9, 10, 13],
+      4: [1, 1, 3, 5, 6, 8, 10, 13, 15],
+      5: [0, 0, 5, 9, 10, 12, 13],
+    };
+    const candidates = variantsByAct[actId] ?? [0];
+    const transition = hash(Math.floor(worldTileX / 4), Math.floor(worldTileY / 4), 101) % candidates.length;
     const choose = hash(worldTileX, worldTileY, 211) % candidates.length;
-    return candidates[(choose + transition) % candidates.length] ?? base;
+    return candidates[(choose + transition) % candidates.length] ?? candidates[0];
   }
 
   get selectedClassStats(): { title: string; specialty: string; life: number; mana: number; stamina: number; attributes: Array<{ name: string; value: number }> } {
@@ -1560,8 +1597,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.playerY = numberValue(saved.playerY, this.arenaH / 2, 32, this.arenaH - 32);
     this.currentChunkCoordX = Math.floor(numberValue(saved.currentChunkCoordX, 0, -1_000_000, 1_000_000));
     this.currentChunkCoordY = Math.floor(numberValue(saved.currentChunkCoordY, 0, -1_000_000, 1_000_000));
-    this.currentChunkLocalX = numberValue(saved.currentChunkLocalX, this.chunkTileColumns * 48 / 2, 0, this.chunkTileColumns * 48);
-    this.currentChunkLocalY = numberValue(saved.currentChunkLocalY, this.chunkTileRows * 48 / 2, 0, this.chunkTileRows * 48);
+    this.currentChunkLocalX = numberValue(saved.currentChunkLocalX, this.chunkTileColumns * CAMPAIGN_TILE_WORLD_SIZE / 2, 0, this.chunkTileColumns * CAMPAIGN_TILE_WORLD_SIZE);
+    this.currentChunkLocalY = numberValue(saved.currentChunkLocalY, this.chunkTileRows * CAMPAIGN_TILE_WORLD_SIZE / 2, 0, this.chunkTileRows * CAMPAIGN_TILE_WORLD_SIZE);
     // Old saves used the original 10–30 HP class stats; give returning runs the
     // same survivable baseline as new runs while preserving their saved health ratio.
     const savedMaxHp = numberValue(saved.playerMaxHp, startingStats.life, 1, 10000);
@@ -4351,8 +4388,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.actBossSpawned = false;
     this.currentChunkCoordX = 0;
     this.currentChunkCoordY = 0;
-    this.currentChunkLocalX = this.chunkTileColumns * 48 / 2;
-    this.currentChunkLocalY = this.chunkTileRows * 48 / 2;
+    this.currentChunkLocalX = this.chunkTileColumns * CAMPAIGN_TILE_WORLD_SIZE / 2;
+    this.currentChunkLocalY = this.chunkTileRows * CAMPAIGN_TILE_WORLD_SIZE / 2;
     this.playerX = this.arenaW / 2;
     this.playerY = this.arenaH / 2;
     const startingStats = this.classStartingStats[this.selectedClass] ?? this.classStartingStats["amazon"];
@@ -4514,12 +4551,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const projectionScale = 0.7071;
     const dx = (screenX + 2 * screenY) / (2 * projectionScale);
     const dy = (2 * screenY - screenX) / (2 * projectionScale);
-    const chunkWidth = this.chunkTileColumns * 48;
-    const chunkHeight = this.chunkTileRows * 48;
-    // Floor coordinates are tile-grid units, while entities use gameplay units.
-    // Convert camera motion to tile-grid units so the scaled floor and loot move together.
-    this.currentChunkLocalX += dx / this.floorTileScale;
-    this.currentChunkLocalY += dy / this.floorTileScale;
+    const chunkWidth = this.chunkTileColumns * CAMPAIGN_TILE_WORLD_SIZE;
+    const chunkHeight = this.chunkTileRows * CAMPAIGN_TILE_WORLD_SIZE;
+    // Camera and floor tile coordinates both use gameplay-world units.
+    this.currentChunkLocalX += dx;
+    this.currentChunkLocalY += dy;
     while (this.currentChunkLocalX < 0) { this.currentChunkLocalX += chunkWidth; this.currentChunkCoordX -= 1; }
     while (this.currentChunkLocalX >= chunkWidth) { this.currentChunkLocalX -= chunkWidth; this.currentChunkCoordX += 1; }
     while (this.currentChunkLocalY < 0) { this.currentChunkLocalY += chunkHeight; this.currentChunkCoordY -= 1; }
@@ -5504,8 +5540,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.currentAct += 1;
     this.currentChunkCoordX = 0;
     this.currentChunkCoordY = 0;
-    this.currentChunkLocalX = this.chunkTileColumns * 48 / 2;
-    this.currentChunkLocalY = this.chunkTileRows * 48 / 2;
+    this.currentChunkLocalX = this.chunkTileColumns * CAMPAIGN_TILE_WORLD_SIZE / 2;
+    this.currentChunkLocalY = this.chunkTileRows * CAMPAIGN_TILE_WORLD_SIZE / 2;
     this.runActive = true;
     this.lastTime = performance.now();
     this.actTime = 0;
@@ -5785,17 +5821,20 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     ctx.imageSmoothingEnabled = false;
 
     const act = this.currentActDetails;
-    const tileWorldSize = 48;
-    const tileWorldScale = this.worldZoom;
+    const tileWorldSize = CAMPAIGN_TILE_WORLD_SIZE;
     const tileSpacingScale = this.floorTileScale;
-    const tileScreenSize = tileWorldSize * tileWorldScale;
+    const tileScreenSize = tileWorldSize * this.worldZoom;
+    // Scale the source diamond to the exact 2:1 footprint implied by the
+    // isometric spacing; this keeps neighboring tile edges connected at any zoom.
     const tileWidth = tileScreenSize * Math.SQRT2;
     const tileHeight = tileScreenSize / Math.SQRT2;
     const tiles = this.campaignTileBitmaps[act.act] ?? [];
     const baseTile = tiles[Math.max(0, Math.min(15, act.baseFloorVariant))];
     const groundColor = this.getTileCenterColor(baseTile);
-    const reach = canvas.width / (4 * 0.7071 * this.worldZoom * tileSpacingScale)
-      + canvas.height / (4 * 0.35355 * this.worldZoom * tileSpacingScale)
+    // The isometric projection already applies worldZoom. Divide by it only
+    // once when finding the world-space range of tiles visible on the canvas.
+    const reach = canvas.width / (4 * 0.7071 * this.worldZoom)
+      + canvas.height / (4 * 0.35355 * this.worldZoom)
       + tileWorldSize;
     const minColumn = Math.floor((this.currentChunkLocalX - reach) / tileWorldSize);
     const maxColumn = Math.ceil((this.currentChunkLocalX + reach) / tileWorldSize);
@@ -5811,21 +5850,28 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       for (let column = minColumn; column <= maxColumn; column += 1) {
         const worldTileX = this.currentChunkCoordX * this.chunkTileColumns + column;
         const worldTileY = this.currentChunkCoordY * this.chunkTileRows + row;
-        const relativeX = (column * tileWorldSize + tileWorldSize / 2 - this.currentChunkLocalX) * tileSpacingScale;
-        const relativeY = (row * tileWorldSize + tileWorldSize / 2 - this.currentChunkLocalY) * tileSpacingScale;
+        // Tile centers and entity positions share the same simulation-world units.
+        // projectArenaPoint applies worldZoom, so pre-scaling these offsets creates
+        // gaps between tiles and makes the floor scroll faster than pickups.
+        const relativeX = column * tileWorldSize + tileWorldSize / 2 - this.currentChunkLocalX;
+        const relativeY = row * tileWorldSize + tileWorldSize / 2 - this.currentChunkLocalY;
         const point = this.projectArenaPoint(this.arenaW / 2 + relativeX, this.arenaH / 2 + relativeY);
         const variant = this.connectedTileVariant(act.act, worldTileX, worldTileY, tiles.length);
         const image = tiles[variant] ?? baseTile;
         if (image) {
+          // Fill the cell's full projected diamond first so transparent atlas
+          // corners cannot reveal the canvas background as thick tile borders.
+          const halfW = tileWidth / 2;
+          const halfH = tileHeight / 2;
           ctx.fillStyle = groundColor;
           ctx.beginPath();
-          ctx.moveTo(point.x, point.y - tileScreenSize * 0.35355 - 1);
-          ctx.lineTo(point.x + tileScreenSize * 0.7071 + 1, point.y);
-          ctx.lineTo(point.x, point.y + tileScreenSize * 0.35355 + 1);
-          ctx.lineTo(point.x - tileScreenSize * 0.7071 - 1, point.y);
+          ctx.moveTo(point.x, point.y - halfH - 1);
+          ctx.lineTo(point.x + halfW + 1, point.y);
+          ctx.lineTo(point.x, point.y + halfH + 1);
+          ctx.lineTo(point.x - halfW - 1, point.y);
           ctx.closePath();
           ctx.fill();
-          ctx.drawImage(image, point.x - tileWidth / 2, point.y - tileHeight / 2, tileWidth, tileHeight);
+          ctx.drawImage(image, point.x - halfW, point.y - halfH, tileWidth, tileHeight);
         } else {
           const halfW = tileScreenSize * 0.7071;
           const halfH = tileScreenSize * 0.35355;
@@ -5846,14 +5892,15 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       else this.drawAct1BuildingAndDoor(ctx);
     }
     if (!this.campaignTileBitmaps[this.currentAct]?.length) {
-      const tile = 48;
+      const tile = CAMPAIGN_TILE_WORLD_SIZE;
       const first = this.projectArenaPoint(0, 0);
       const last = this.projectArenaPoint(this.arenaW, this.arenaH);
-      const halfW = tile * 0.7071 * tileWorldScale;
-      const halfH = tile * 0.35355 * tileWorldScale;
+      const halfW = tile * 0.7071 * this.worldZoom;
+      const halfH = tile * 0.35355 * this.worldZoom;
+      const tileWorldScale = this.worldZoom;
       ctx.save();
-      const fallbackReach = canvas.width / (4 * 0.7071 * this.worldZoom * tileSpacingScale)
-        + canvas.height / (4 * 0.35355 * this.worldZoom * tileSpacingScale)
+      const fallbackReach = canvas.width / (4 * 0.7071 * this.worldZoom)
+        + canvas.height / (4 * 0.35355 * this.worldZoom)
         + tile;
       const minTile = -Math.ceil(fallbackReach / tile);
       const maxTile = Math.ceil(fallbackReach / tile);
@@ -5862,8 +5909,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         const worldX = column * tile;
         const worldY = row * tile;
         const point = this.projectArenaPoint(
-          this.arenaW / 2 + (worldX - this.currentChunkLocalX) * tileSpacingScale,
-          this.arenaH / 2 + (worldY - this.currentChunkLocalY) * tileSpacingScale,
+          this.arenaW / 2 + worldX - this.currentChunkLocalX,
+          this.arenaH / 2 + worldY - this.currentChunkLocalY,
         );
         ctx.fillStyle = (column + row) % 2 === 0 ? "#17191f" : "#12141a";
         ctx.beginPath();
