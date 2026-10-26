@@ -334,6 +334,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private characterScene?: THREE.Scene;
   private characterCamera?: THREE.OrthographicCamera;
   private characterModel?: THREE.Group;
+  private playerShadow?: THREE.Mesh<THREE.CircleGeometry, THREE.MeshBasicMaterial>;
   private playerRigBones: PlayerRigBones = {};
   private playerAnimationTime = 0;
   private playerAnimationDelta = 16;
@@ -376,7 +377,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private readonly worldZoom = 2.1;
   // Fixed first-chunk doorway placed a short walk from the starting position.
   private readonly act1InteriorDoor = { x: 410, y: 240, radius: 12 };
-  private readonly playerWorldScale = 1.8;
+  private readonly playerWorldScale = 1.62;
   private readonly chunkTileColumns = 12;
   private readonly chunkTileRows = 8;
   currentAct = 1;
@@ -1631,7 +1632,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
             kind,
             species: sanitizeEnemySpecies(enemy["species"], kind),
             campaignBoss: enemy["campaignBoss"] === true,
-        summonType: enemy["summonType"] === "skeleton" || enemy["summonType"] === "golem" ? enemy["summonType"] : undefined,
+            summonType: enemy["summonType"] === "skeleton" || enemy["summonType"] === "golem" || enemy["summonType"] === "druid" ? enemy["summonType"] : undefined,
         summonSkill: typeof enemy["summonSkill"] === "string" ? enemy["summonSkill"] : undefined,
             summonAttackCooldown: numberValue(enemy["summonAttackCooldown"], 0, 0, 60),
             spriteFrame: numberValue(enemy["spriteFrame"], 0, 0, 47),
@@ -3770,12 +3771,18 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       source.onload = () => {
         const columns = layout.columns;
         const rows = layout.rows;
-        if (layout.animated && (source.naturalWidth < columns || source.naturalHeight < rows)) {
-          console.warn(`Invalid animation sheet layout for ${species}`, source.naturalWidth, source.naturalHeight);
+        if (layout.animated && (
+          source.naturalWidth < columns
+          || source.naturalHeight < rows
+        )) {
+          console.warn(`Invalid animation sheet layout for ${species}`, source.naturalWidth, source.naturalHeight, layout);
           return;
         }
+        // Direction atlases can have non-multiple dimensions: their final column
+        // and row are partial cels. Do not reject or rescale those sheets; use
+        // integer boundaries so every source pixel belongs to exactly one cel.
         const cellSize = layout.animated
-          ? { width: Math.ceil(source.naturalWidth / columns), height: Math.ceil(source.naturalHeight / rows) }
+          ? { width: source.naturalWidth / columns, height: source.naturalHeight / rows }
           : { width: Math.min(source.naturalWidth, cell.width), height: Math.min(source.naturalHeight, cell.height) };
         const canvas = document.createElement("canvas");
         canvas.width = source.naturalWidth;
@@ -3791,12 +3798,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
           const rgba = pixels.data;
           for (let row = 0; row < rows; row += 1) {
-            const top = Math.round(row * source.naturalHeight / rows);
-            const bottom = Math.round((row + 1) * source.naturalHeight / rows);
+            const top = Math.floor(row * source.naturalHeight / rows);
+            const bottom = Math.floor((row + 1) * source.naturalHeight / rows);
             const frameHeight = bottom - top;
             for (let column = 0; column < columns; column += 1) {
-              const left = Math.round(column * source.naturalWidth / columns);
-              const right = Math.round((column + 1) * source.naturalWidth / columns);
+              const left = Math.floor(column * source.naturalWidth / columns);
+              const right = Math.floor((column + 1) * source.naturalWidth / columns);
               const frameWidth = right - left;
               const visited = new Uint8Array(frameWidth * frameHeight);
               const queue: number[] = [];
@@ -3836,10 +3843,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         for (let row = 0; row < rows; row += 1) {
           const directionFrames: HTMLCanvasElement[] = [];
           for (let column = 0; column < columns; column += 1) {
-            const left = layout.animated ? Math.round(column * source.naturalWidth / columns) : 0;
-            const top = layout.animated ? Math.round(row * source.naturalHeight / rows) : 0;
-            const right = layout.animated ? Math.round((column + 1) * source.naturalWidth / columns) : cellSize.width;
-            const bottom = layout.animated ? Math.round((row + 1) * source.naturalHeight / rows) : cellSize.height;
+            const left = layout.animated ? Math.floor(column * source.naturalWidth / columns) : 0;
+            const top = layout.animated ? Math.floor(row * source.naturalHeight / rows) : 0;
+            const right = layout.animated ? Math.floor((column + 1) * source.naturalWidth / columns) : cellSize.width;
+            const bottom = layout.animated ? Math.floor((row + 1) * source.naturalHeight / rows) : cellSize.height;
             const frame = document.createElement("canvas");
             frame.width = right - left;
             frame.height = bottom - top;
@@ -3888,6 +3895,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       }
     });
     this.characterRenderer?.dispose();
+    this.playerShadow?.geometry.dispose();
+    this.playerShadow?.material.dispose();
+    this.playerShadow = undefined;
     const skillEffectsContext = this.skillEffectsCanvasRef?.nativeElement.getContext("2d");
     skillEffectsContext?.clearRect(0, 0, this.skillEffectsCanvasRef?.nativeElement.width ?? 0, this.skillEffectsCanvasRef?.nativeElement.height ?? 0);
     this.skillVisualEffects.length = 0;
@@ -4612,7 +4622,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   private isPersistentSummonSkill(skill: string): boolean {
-    return this.selectedClass === "necromancer" && /^(Raise Skeleton|Skeletal Mage|Clay Golem|Blood Golem|Iron Golem|Fire Golem|Revive)$/.test(skill);
+    return this.selectedClass === "necromancer"
+      ? /^(Raise Skeleton|Skeletal Mage|Clay Golem|Blood Golem|Iron Golem|Fire Golem|Revive)$/.test(skill)
+      : this.selectedClass === "druid" && /^(Werewolf|Raven)$/.test(skill);
   }
 
   private restoreSummonsFromOwnedSkills(): void {
@@ -4626,28 +4638,31 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private summonCompanion(skill: string): void {
     if (!this.isPersistentSummonSkill(skill) || this.enemies.some((enemy) => enemy.summonSkill === skill && enemy.hp > 0)) return;
     const rank = this.skillLevels[skill] ?? 1;
+    const isDruid = this.selectedClass === "druid";
+    const isWerewolf = skill === "Werewolf";
+    const isRaven = skill === "Raven";
     const playerMastery = this.skillLevels["Skeleton Mastery"] ?? 0;
     const golemMastery = this.skillLevels["Golem Mastery"] ?? 0;
     const isGolem = /Golem$/.test(skill);
     const isMage = skill === "Skeletal Mage";
-    const baseHealth = skill === "Fire Golem" ? 220 : skill === "Iron Golem" ? 280 : skill === "Blood Golem" ? 320 : isGolem ? 260 : isMage ? 95 : 125;
-    const health = Math.round(baseHealth * (1 + (rank - 1) * 0.18 + (isGolem ? golemMastery * 0.25 : playerMastery * 0.2)));
-    const damage = Math.round((isGolem ? 17 : isMage ? 13 : 15) * (1 + (rank - 1) * 0.12 + (isGolem ? golemMastery * 0.1 : playerMastery * 0.2)));
+    const baseHealth = isWerewolf ? 190 : isRaven ? 65 : skill === "Fire Golem" ? 220 : skill === "Iron Golem" ? 280 : skill === "Blood Golem" ? 320 : isGolem ? 260 : isMage ? 95 : 125;
+    const health = Math.round(baseHealth * (1 + (rank - 1) * 0.18 + (isGolem ? golemMastery * 0.25 : isDruid ? 0 : playerMastery * 0.2)));
+    const damage = Math.round((isWerewolf ? 24 : isRaven ? 12 : isGolem ? 17 : isMage ? 13 : 15) * (1 + (rank - 1) * 0.12 + (isGolem ? golemMastery * 0.1 : isDruid ? 0 : playerMastery * 0.2)));
     const position = this.summonFollowPosition(this.enemies.filter((enemy) => enemy.summonType));
     const companion: Enemy = {
       kind: "normal",
-      species: isGolem ? "minotaur" : "skeleton",
+      species: isWerewolf ? "wendigo" : isRaven ? "scarab" : isGolem ? "minotaur" : "skeleton",
       campaignBoss: false,
       spriteFrame: 0,
-      summonType: isGolem ? "golem" : "skeleton",
+      summonType: isDruid ? "druid" : isGolem ? "golem" : "skeleton",
       summonSkill: skill,
       summonAttackCooldown: 0.45 + Math.random() * 0.25,
       x: position.x,
       y: position.y,
       hp: health,
       maxHp: health,
-      speed: isGolem ? 135 : 155,
-      r: isGolem ? 19 : 12,
+      speed: isWerewolf ? 180 : isRaven ? 205 : isGolem ? 135 : 155,
+      r: isWerewolf ? 17 : isRaven ? 9 : isGolem ? 19 : 12,
       dmg: damage,
     };
     this.enemies.push(companion);
@@ -4666,6 +4681,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const summons = this.enemies.filter((enemy) => !!enemy.summonType && enemy.hp > 0);
     for (let index = 0; index < summons.length; index += 1) {
       const summon = summons[index];
+      summon.animationState = "idle";
+      summon.attackAnimationTime = Math.max(0, (summon.attackAnimationTime ?? 0) - dt / 1000);
       summon.summonAttackCooldown = Math.max(0, (summon.summonAttackCooldown ?? 0) - dt / 1000);
       const target = livingEnemies
         .filter((enemy) => enemy.hp > 0 && Math.hypot(enemy.x - this.playerX, enemy.y - this.playerY) < 360)
@@ -4676,12 +4693,17 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         targetX = target.x;
         targetY = target.y;
         const distance = Math.hypot(target.x - summon.x, target.y - summon.y) || 1;
-        const attackRange = summon.summonType === "golem" ? 38 : summon.summonSkill === "Skeletal Mage" ? 150 : 34;
+        const attackRange = summon.summonType === "golem" ? 38 : summon.summonSkill === "Skeletal Mage" || summon.summonSkill === "Raven" ? 150 : 34;
+        summon.facingX = (target.x - summon.x) / distance;
+        summon.facingY = (target.y - summon.y) / distance;
         if (distance > attackRange) {
           const step = summon.speed * dt / 1000 / this.worldZoom;
           summon.x += (target.x - summon.x) / distance * Math.min(step, distance - attackRange * 0.7);
           summon.y += (target.y - summon.y) / distance * Math.min(step, distance - attackRange * 0.7);
+          summon.animationState = "move";
         } else if (summon.summonAttackCooldown <= 0) {
+          summon.animationState = "attack";
+          summon.attackAnimationTime = summon.summonSkill === "Werewolf" ? 0.42 : 0.25;
           this.summonAttack(summon, target);
         }
       } else {
@@ -4693,20 +4715,23 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           const step = summon.speed * dt / 1000 / this.worldZoom;
           summon.x += (targetX - summon.x) / distance * Math.min(step, distance);
           summon.y += (targetY - summon.y) / distance * Math.min(step, distance);
+          summon.animationState = "move";
+          summon.facingX = (targetX - summon.x) / distance;
+          summon.facingY = (targetY - summon.y) / distance;
         }
       }
     }
 
     for (const enemy of this.enemies) {
       if (enemy.summonType) continue;
-      const nearestSkeleton = summons
-        .filter((summon) => summon.summonType === "skeleton" && summon.hp > 0)
+      const nearestSummon = summons
+        .filter((summon) => summon.hp > 0 && (summon.summonType === "skeleton" || summon.summonType === "druid"))
         .sort((a, b) => Math.hypot(a.x - enemy.x, a.y - enemy.y) - Math.hypot(b.x - enemy.x, b.y - enemy.y))[0];
       const playerDistance = Math.hypot(this.playerX - enemy.x, this.playerY - enemy.y);
-      const skeletonDistance = nearestSkeleton
-        ? Math.hypot(nearestSkeleton.x - enemy.x, nearestSkeleton.y - enemy.y)
+      const summonDistance = nearestSummon
+        ? Math.hypot(nearestSummon.x - enemy.x, nearestSummon.y - enemy.y)
         : Number.POSITIVE_INFINITY;
-      const targetSummon = nearestSkeleton && skeletonDistance < playerDistance ? nearestSkeleton : undefined;
+      const targetSummon = nearestSummon && summonDistance < playerDistance ? nearestSummon : undefined;
       const targetX = targetSummon?.x ?? this.playerX;
       const targetY = targetSummon?.y ?? this.playerY;
       const dx = targetX - enemy.x;
@@ -6003,6 +6028,19 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.characterRenderer.setClearColor(0x000000, 0);
       this.characterRenderer.outputColorSpace = THREE.SRGBColorSpace;
       this.characterScene = new THREE.Scene();
+      const shadowGeometry = new THREE.CircleGeometry(38, 32);
+      shadowGeometry.rotateX(-Math.PI / 2);
+      const shadowMaterial = new THREE.MeshBasicMaterial({
+        color: 0x000000,
+        transparent: true,
+        opacity: 0.34,
+        depthWrite: false,
+      });
+      this.playerShadow = new THREE.Mesh(shadowGeometry, shadowMaterial);
+      this.playerShadow.scale.z = 0.52;
+      this.playerShadow.position.y = 0.04;
+      this.playerShadow.renderOrder = 1;
+      this.characterScene.add(this.playerShadow);
       this.characterCamera = new THREE.OrthographicCamera(-400, 400, 250, -250, 0.1, 2000);
       this.characterCamera.position.set(600, 490, 600);
       this.characterCamera.lookAt(0, 0, 0);
@@ -6546,9 +6584,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     if (this.characterModel) {
       this.animatePlayerModel(this.playerAnimationDelta);
-        this.characterModel.position.x = (this.playerX - this.arenaW / 2) / this.worldZoom;
+      this.characterModel.position.x = (this.playerX - this.arenaW / 2) / this.worldZoom;
       this.characterModel.position.z = (this.playerY - this.arenaH / 2) / this.worldZoom;
       this.characterModel.scale.setScalar(this.playerWorldScale);
+    }
+    if (this.playerShadow) {
+      this.playerShadow.position.x = (this.playerX - this.arenaW / 2) / this.worldZoom;
+      this.playerShadow.position.z = (this.playerY - this.arenaH / 2) / this.worldZoom;
     }
     this.characterRenderer.render(this.characterScene, this.characterCamera);
   }
@@ -6639,6 +6681,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   private drawSummon(ctx: CanvasRenderingContext2D, summon: Enemy, ground: { x: number; y: number }): void {
+    if (summon.summonType === "druid") {
+      this.drawDruidSummon(ctx, summon, ground);
+      return;
+    }
     const isGolem = summon.summonType === "golem";
     const frames = isGolem ? this.animatedGolemFrames : this.animatedSkeletonFrames;
     const sheet = frames[0];
@@ -6720,13 +6766,98 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     ctx.shadowBlur = 0;
   }
 
+  private drawDruidSummon(ctx: CanvasRenderingContext2D, summon: Enemy, ground: { x: number; y: number }): void {
+    const isRaven = summon.summonSkill === "Raven";
+    const height = (isRaven ? 34 : 92) * this.worldZoom;
+    const width = height * 1.35;
+    const dx = this.playerX - summon.x;
+    const dy = this.playerY - summon.y;
+    const isMoving = summon.animationState === "move";
+    ctx.save();
+    ctx.fillStyle = "#050505";
+    ctx.globalAlpha = 0.58;
+    ctx.beginPath();
+    ctx.ellipse(ground.x, ground.y + 2, width * 0.34, height * 0.09, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    if (isRaven) {
+      const wing = Math.sin(this.runTime * 13 + summon.x * 0.02) * (isMoving ? 0.95 : 0.5);
+      const direction = dx < 0 ? -1 : 1;
+      ctx.translate(ground.x, ground.y - height * 0.48);
+      ctx.scale(direction, 1);
+      ctx.rotate(Math.atan2(-dy, Math.abs(dx) || 1) * 0.22);
+      ctx.fillStyle = "#14131b";
+      ctx.strokeStyle = "#777184";
+      ctx.lineWidth = 1.6 * this.worldZoom;
+      ctx.shadowColor = "#8275ae";
+      ctx.shadowBlur = 8 * this.worldZoom;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.quadraticCurveTo(-width * 0.42, -height * (0.22 + wing * 0.35), -width * 0.68, -height * (0.05 + wing));
+      ctx.quadraticCurveTo(-width * 0.48, height * 0.12, -width * 0.18, height * 0.08);
+      ctx.quadraticCurveTo(width * 0.1, height * 0.2, width * 0.36, height * 0.02);
+      ctx.lineTo(width * 0.54, height * 0.09);
+      ctx.lineTo(width * 0.4, height * 0.18);
+      ctx.quadraticCurveTo(width * 0.08, height * 0.31, -width * 0.18, height * 0.1);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = "#a99b62";
+      ctx.beginPath();
+      ctx.arc(width * 0.28, -height * 0.02, 1.5 * this.worldZoom, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#302a23";
+      ctx.beginPath();
+      ctx.moveTo(width * 0.38, height * 0.02);
+      ctx.lineTo(width * 0.53, height * 0.08);
+      ctx.lineTo(width * 0.34, height * 0.09);
+      ctx.closePath();
+      ctx.fill();
+    } else {
+      const sprite = this.enemySprites.wendigo;
+      const direction = sprite ? enemySpriteRow("wendigo", -dx, -dy) % sprite.rows : 0;
+      const frameIndex = sprite ? enemySpriteFrame(summon, sprite.columns, this.runTime) : 0;
+      const frame = sprite?.frames[direction]?.[frameIndex];
+      if (frame) {
+        ctx.imageSmoothingEnabled = false;
+        ctx.filter = "brightness(1.35) contrast(1.15) sepia(0.58) saturate(0.85)";
+        ctx.shadowColor = "#9a7048";
+        ctx.shadowBlur = 8 * this.worldZoom;
+        ctx.drawImage(frame, ground.x - width / 2, ground.y - height * 0.86, width, height);
+      } else {
+        ctx.fillStyle = "#5a4533";
+        ctx.strokeStyle = "#d5b98b";
+        ctx.lineWidth = 2 * this.worldZoom;
+        ctx.beginPath();
+        ctx.ellipse(ground.x, ground.y - height * 0.48, width * 0.3, height * 0.4, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+
+    const hpRatio = Math.max(0, summon.hp / summon.maxHp);
+    const barWidth = Math.max(30, width * 0.65);
+    const barY = ground.y - height * 0.88 - 7;
+    ctx.fillStyle = "#171311";
+    ctx.fillRect(ground.x - barWidth / 2, barY, barWidth, 4);
+    ctx.fillStyle = isRaven ? "#9e8ed0" : "#a87a4b";
+    ctx.fillRect(ground.x - barWidth / 2, barY, barWidth * hpRatio, 4);
+    ctx.fillStyle = isRaven ? "#ddd3ff" : "#ead0a5";
+    ctx.font = "bold 9px Georgia, serif";
+    ctx.textAlign = "center";
+    ctx.shadowColor = "#08090b";
+    ctx.shadowBlur = 3;
+    ctx.fillText(isRaven ? "Raven" : "Werewolf", ground.x, barY - 3);
+  }
+
   private summonAttack(summon: Enemy, target: Enemy): void {
-    summon.summonAttackCooldown = summon.summonType === "golem" ? 0.9 : summon.summonSkill === "Skeletal Mage" ? 1.25 : 0.72;
+    summon.summonAttackCooldown = summon.summonType === "golem" ? 0.9 : summon.summonSkill === "Skeletal Mage" || summon.summonSkill === "Raven" ? 1.25 : summon.summonSkill === "Werewolf" ? 0.68 : 0.72;
     this.summonAttackEffects.push({
       summon,
       target,
       time: 0,
-      duration: summon.summonType === "golem" ? 0.38 : 0.3,
+      duration: summon.summonType === "golem" || summon.summonSkill === "Werewolf" ? 0.38 : 0.3,
       damage: summon.dmg,
     });
   }
@@ -6740,7 +6871,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         x: effect.target.x,
         y: effect.target.y - effect.target.r - 8,
         text: `-${effect.damage}`,
-        color: effect.summon.summonType === "golem" ? "#d9aa68" : "#d1e2e8",
+        color: effect.summon.summonSkill === "Raven" ? "#a99bda" : effect.summon.summonType === "golem" ? "#d9aa68" : effect.summon.summonSkill === "Werewolf" ? "#c9a273" : "#d1e2e8",
         life: 0.65,
       });
       effect.time = effect.duration + 1;
@@ -6755,8 +6886,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const progress = Math.min(1, effect.time / effect.duration);
     const source = this.projectArenaPoint(effect.summon.x, effect.summon.y);
     const target = this.projectArenaPoint(effect.target.x, effect.target.y);
-    const isMage = effect.summon.summonSkill === "Skeletal Mage";
-    const color = effect.summon.summonType === "golem" ? (effect.summon.summonSkill === "Fire Golem" ? "#ff7135" : "#d9aa68") : "#d7e5eb";
+    const isRanged = effect.summon.summonSkill === "Skeletal Mage" || effect.summon.summonSkill === "Raven";
+    const isRaven = effect.summon.summonSkill === "Raven";
+    const color = isRaven ? "#a99bda" : effect.summon.summonType === "golem" ? (effect.summon.summonSkill === "Fire Golem" ? "#ff7135" : "#d9aa68") : effect.summon.summonSkill === "Werewolf" ? "#c9a273" : "#d7e5eb";
     ctx.save();
     ctx.globalAlpha = 1 - progress;
     ctx.lineCap = "round";
@@ -6764,17 +6896,27 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     ctx.fillStyle = color;
     ctx.shadowColor = color;
     ctx.shadowBlur = 14;
-    if (isMage) {
+    if (isRanged) {
       const x = source.x + (target.x - source.x) * progress;
       const y = source.y + (target.y - source.y) * progress - 12;
-      ctx.beginPath();
-      ctx.arc(x, y, 5 + 3 * Math.sin(progress * Math.PI), 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = "#fff3dc";
-      ctx.beginPath();
-      ctx.moveTo(x - 8, y);
-      ctx.lineTo(x + 8, y);
-      ctx.stroke();
+      if (isRaven) {
+        const wing = Math.sin(progress * Math.PI * 3) * 5;
+        ctx.beginPath();
+        ctx.moveTo(x - 8, y);
+        ctx.quadraticCurveTo(x - 3, y - 8 - wing, x + 2, y);
+        ctx.quadraticCurveTo(x + 7, y - 7 + wing, x + 10, y - 1);
+        ctx.quadraticCurveTo(x + 2, y + 5, x - 8, y);
+        ctx.fill();
+      } else {
+        ctx.beginPath();
+        ctx.arc(x, y, 5 + 3 * Math.sin(progress * Math.PI), 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "#fff3dc";
+        ctx.beginPath();
+        ctx.moveTo(x - 8, y);
+        ctx.lineTo(x + 8, y);
+        ctx.stroke();
+      }
     } else {
       const x = source.x + (target.x - source.x) * progress;
       const y = source.y + (target.y - source.y) * progress - 10;
@@ -7409,7 +7551,7 @@ interface Enemy {
   kind: EnemyKind;
   species: EnemySpecies;
   campaignBoss?: boolean;
-  summonType?: "skeleton" | "golem";
+  summonType?: "skeleton" | "golem" | "druid";
   summonSkill?: string;
   summonAttackCooldown?: number;
   spriteFrame: number;
