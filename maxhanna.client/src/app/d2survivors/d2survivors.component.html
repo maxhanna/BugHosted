@@ -25,6 +25,9 @@
 
       <div class="d2s-menu-content" [class.subpanel-open]="menuPanel !== 'main'">
         <div class="d2s-menu-options" *ngIf="menuPanel === 'main'">
+          <button type="button" class="d2s-menu-button primary" *ngIf="hasSavedRun" (click)="resumeRun()">
+            <span>Continue Journey</span><small>{{ savedRunSummary }} · Resume where you left off</small>
+          </button>
           <button type="button" class="d2s-menu-button primary" *ngIf="hasSavedRun" (click)="openLobby()">
             <span>Return to Sanctuary Lobby</span><small>{{ savedRunSummary }} · Gather in the realm before continuing</small>
           </button>

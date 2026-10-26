@@ -26,6 +26,9 @@ const RUN_SAVE_VERSION = 1;
 const RUN_SAVE_INTERVAL_MS = 2500;
 const ACT_BOSS_TIME_SECONDS = 45;
 const CAMPAIGN_TILE_WORLD_SIZE = 60;
+// The source atlas tiles are 160x80 pixels; render at 2x their former screen
+// footprint using nearest-neighbour sampling to retain crisp pixel-art edges.
+const CAMPAIGN_TILE_RENDER_SCALE = 2;
 const MISSILE_OVERLAY_BASE = "assets/d2survivors/missiles";
 const MISSILE_FRAME_DURATIONS_MS: Record<string, number> = {
   "5": 85, "6": 85, "8": 85, "30": 85, "101": 85,
@@ -371,9 +374,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private currentChunkLocalX = 0;
   private currentChunkLocalY = 0;
   private readonly worldZoom = 2.1;
-  // Floor cells span 48 gameplay units; movement and projection both stay in the
-  // same coordinate system so ground, monsters, and pickups scroll together.
-  private readonly floorTileScale = 1;
   // Fixed first-chunk doorway placed a short walk from the starting position.
   private readonly act1InteriorDoor = { x: 410, y: 240, radius: 12 };
   private readonly playerWorldScale = 1.8;
@@ -1635,6 +1635,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         summonSkill: typeof enemy["summonSkill"] === "string" ? enemy["summonSkill"] : undefined,
             summonAttackCooldown: numberValue(enemy["summonAttackCooldown"], 0, 0, 60),
             spriteFrame: numberValue(enemy["spriteFrame"], 0, 0, 47),
+            animationState: enemy["animationState"] === "move" || enemy["animationState"] === "attack" ? enemy["animationState"] : "idle",
+            attackAnimationTime: numberValue(enemy["attackAnimationTime"], 0, 0, 1),
+            facingX: numberValue(enemy["facingX"], 0, -1, 1),
+            facingY: numberValue(enemy["facingY"], 1, -1, 1),
             x: numberValue(enemy["x"], 250, -40, this.arenaW + 40),
             y: numberValue(enemy["y"], 250, -40, this.arenaH + 40),
           hp: numberValue(enemy["hp"], 1, 0, 1_000_000),
@@ -4367,7 +4371,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   startRun(): void {
     this.hasSavedRun = true;
     this.runActive = false;
+    // Snapshot the outgoing run first, then make this class's profile the
+    // source of truth for the new run's gold, inventory, and equipped gear.
     this.persistRunProgress(true);
+    this.loadCharacterProfile(this.selectedClass, this.playerGold);
     this.deathRecovery = false;
     this.deathCount = 0;
     this.lobbyRunId = createRunId();
@@ -4705,13 +4712,21 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const dx = targetX - enemy.x;
       const dy = targetY - enemy.y;
       const distance = Math.hypot(dx, dy) || 1;
+      enemy.facingX = dx / distance;
+      enemy.facingY = dy / distance;
       const speed = enemy.speed * (dt / 1000) / this.worldZoom;
-      enemy.x += (dx / distance) * speed;
-      enemy.y += (dy / distance) * speed;
-      if (enemy.cd !== undefined) enemy.cd = Math.max(0, enemy.cd - dt / 1000);
       const attackRange = enemy.r + (targetSummon?.r ?? 18);
+      const wasInAttackRange = distance <= attackRange;
+      enemy.animationState = wasInAttackRange ? "idle" : "move";
+      enemy.attackAnimationTime = Math.max(0, (enemy.attackAnimationTime ?? 0) - dt / 1000);
+      const travel = wasInAttackRange ? 0 : Math.min(speed, distance - attackRange * 0.82);
+      enemy.x += (dx / distance) * travel;
+      enemy.y += (dy / distance) * travel;
+      if (enemy.cd !== undefined) enemy.cd = Math.max(0, enemy.cd - dt / 1000);
       const distanceAfterMoving = Math.hypot(targetX - enemy.x, targetY - enemy.y);
       if (distanceAfterMoving < attackRange && (enemy.cd === undefined || enemy.cd <= 0)) {
+        enemy.animationState = "attack";
+        enemy.attackAnimationTime = enemy.kind === "boss" ? 0.55 : 0.38;
         if (targetSummon) {
           targetSummon.hp -= enemy.dmg;
           this.floatingTexts.push({
@@ -5609,7 +5624,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       kind: "normal",
       species,
       campaignBoss,
-      spriteFrame: Math.floor(Math.random() * ENEMY_SPRITE_LAYOUTS[species].columns),
+      spriteFrame: Math.floor(ENEMY_SPRITE_LAYOUTS[species].columns * 0.12),
+      animationState: "move",
+      attackAnimationTime: 0,
+      facingX: -Math.cos(Math.atan2(spawnPosition.y - this.playerY, spawnPosition.x - this.playerX)),
+      facingY: -Math.sin(Math.atan2(spawnPosition.y - this.playerY, spawnPosition.x - this.playerX)),
       x: spawnPosition.x,
       y: spawnPosition.y,
       hp: normalHealth,
@@ -5732,6 +5751,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (!this.runActive) return;
     if (!victory && this.consumeRejuvenationPotion()) return;
     this.runActive = false;
+    // Keep the dead character's class-scoped pack intact for their next run.
+    this.saveCharacterProfile(this.selectedClass);
     if (!victory) {
       this.deathRecovery = this.selectedClass === "necromancer";
       this.deathCount += 1;
@@ -5822,26 +5843,24 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
     const act = this.currentActDetails;
     const tileWorldSize = CAMPAIGN_TILE_WORLD_SIZE;
-    const tileSpacingScale = this.floorTileScale;
-    const tileScreenSize = tileWorldSize * this.worldZoom;
-    // Scale the source diamond to the exact 2:1 footprint implied by the
-    // isometric spacing; this keeps neighboring tile edges connected at any zoom.
+    const tileScreenSize = tileWorldSize * this.worldZoom * CAMPAIGN_TILE_RENDER_SCALE;
+    // Tiles overlap at twice their gameplay spacing, matching a closer view
+    // without changing entity positions, movement speed, or collision sizes.
     const tileWidth = tileScreenSize * Math.SQRT2;
     const tileHeight = tileScreenSize / Math.SQRT2;
     const tiles = this.campaignTileBitmaps[act.act] ?? [];
     const baseTile = tiles[Math.max(0, Math.min(15, act.baseFloorVariant))];
-    const groundColor = this.getTileCenterColor(baseTile);
-    // The isometric projection already applies worldZoom. Divide by it only
-    // once when finding the world-space range of tiles visible on the canvas.
+    // The tiles render larger than their gameplay spacing. Expand visible tile
+    // coverage by the same factor so edge cells never leave gaps while zooming.
     const reach = canvas.width / (4 * 0.7071 * this.worldZoom)
       + canvas.height / (4 * 0.35355 * this.worldZoom)
-      + tileWorldSize;
+      + tileWorldSize * CAMPAIGN_TILE_RENDER_SCALE;
     const minColumn = Math.floor((this.currentChunkLocalX - reach) / tileWorldSize);
     const maxColumn = Math.ceil((this.currentChunkLocalX + reach) / tileWorldSize);
     const minRow = Math.floor((this.currentChunkLocalY - reach) / tileWorldSize);
     const maxRow = Math.ceil((this.currentChunkLocalY + reach) / tileWorldSize);
     ctx.save();
-    // Preserve the supplied game's pixel-art edges when scaling the floor atlas.
+    // Nearest-neighbour sampling keeps the enlarged atlas tiles crisp, not blurry.
     ctx.imageSmoothingEnabled = false;
     ctx.beginPath();
     ctx.rect(0, 0, canvas.width, canvas.height);
@@ -5859,19 +5878,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         const variant = this.connectedTileVariant(act.act, worldTileX, worldTileY, tiles.length);
         const image = tiles[variant] ?? baseTile;
         if (image) {
-          // Fill the cell's full projected diamond first so transparent atlas
-          // corners cannot reveal the canvas background as thick tile borders.
           const halfW = tileWidth / 2;
           const halfH = tileHeight / 2;
-          ctx.fillStyle = groundColor;
-          ctx.beginPath();
-          ctx.moveTo(point.x, point.y - halfH - 1);
-          ctx.lineTo(point.x + halfW + 1, point.y);
-          ctx.lineTo(point.x, point.y + halfH + 1);
-          ctx.lineTo(point.x - halfW - 1, point.y);
-          ctx.closePath();
-          ctx.fill();
-          ctx.drawImage(image, point.x - halfW, point.y - halfH, tileWidth, tileHeight);
+          // Extend the draw by one backing-store pixel to cover rasterization
+          // seams; the source alpha keeps outside-of-diamond pixels transparent.
+          ctx.drawImage(image, point.x - halfW - 1, point.y - halfH - 1, tileWidth + 2, tileHeight + 2);
         } else {
           const halfW = tileScreenSize * 0.7071;
           const halfH = tileScreenSize * 0.35355;
@@ -6557,11 +6568,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
     let spriteDrawn = false;
     if (sprite && sprite.frames.length > 0) {
-      const direction = enemySpriteRow(e.species, dx, dy) % sprite.rows;
-      const frameIndex = enemySpriteFrame(e.species, e.x, e.y, this.runTime) % sprite.columns;
+      const directionX = e.facingX ?? dx;
+      const directionY = e.facingY ?? dy;
+      const direction = enemySpriteRow(e.species, directionX, directionY) % sprite.rows;
+      const frameIndex = enemySpriteFrame(e, sprite.columns, this.runTime);
       const frame = sprite.frames[direction]?.[frameIndex];
       if (frame && frame.width > 0 && frame.height > 0) {
-        const drawHeight = size * (e.kind === "boss" ? 1.35 : 1);
+        const attackPulse = e.animationState === "attack" ? Math.sin((1 - (e.attackAnimationTime ?? 0) / 0.55) * Math.PI) : 0;
+        const drawHeight = size * (e.kind === "boss" ? 1.35 : 1) * (1 + attackPulse * 0.08);
         const aspectRatio = frame.width / frame.height;
         const drawWidth = drawHeight * Math.max(0.9, Math.min(1.7, aspectRatio));
         const drawX = ground.x - drawWidth / 2;
@@ -6578,17 +6592,22 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         }
 
         ctx.save();
-        // Andariel's dark game-resolution art disappears against the arena; lift
-        // its contrast and add a restrained warm silhouette glow while enlarging it.
+        // The imported DCCs use an approximate, cool-tinted palette. Warm and
+        // brighten them consistently so monsters read as creatures, not blue ghosts.
         ctx.imageSmoothingEnabled = e.species === "andariel";
+        if (e.species === "andariel") ctx.imageSmoothingQuality = "high";
+        ctx.filter = e.species === "andariel"
+          ? "brightness(1.55) contrast(1.2) sepia(0.32) saturate(1.1)"
+          : "brightness(1.28) contrast(1.18) sepia(0.72) saturate(0.9)";
         if (e.species === "andariel") {
-          ctx.imageSmoothingQuality = "high";
-          ctx.filter = "brightness(1.55) contrast(1.2) saturate(1.15)";
           ctx.shadowColor = "rgba(255, 126, 54, 0.95)";
           ctx.shadowBlur = Math.max(10, size * 0.16);
+        } else if (e.animationState === "attack") {
+          ctx.shadowColor = "rgba(255, 112, 64, 0.8)";
+          ctx.shadowBlur = Math.max(5, size * 0.12);
         }
-        // Draw a pre-cropped animation frame, never the source sprite atlas.
-        ctx.drawImage(frame, drawX, drawY, drawWidth, drawHeight);
+        // Draw one pre-cropped frame, choosing idle, movement, or attack pose timing.
+        ctx.drawImage(frame, drawX, drawY - attackPulse * size * 0.12, drawWidth, drawHeight);
         ctx.restore();
         spriteDrawn = true;
 
@@ -7182,11 +7201,27 @@ function isCompatibleWithEquipment(item: D2InventoryItem, slot: PaperdollSlot): 
 type EnemyKind = "normal" | "champion" | "boss";
 type EnemySpecies = "fallen" | "goatman" | "skeleton" | "sandRaider" | "sandMaggot" | "scarab" | "fetish" | "fetishShaman" | "council" | "balrog" | "vileChild" | "vileMother" | "bloodLord" | "minotaur" | "deathMauler" | "wendigo" | "andariel" | "duriel" | "diablo" | "baalsMinion";
 
-function enemySpriteFrame(species: EnemySpecies, x: number, y: number, runTime: number): number {
-  const layout = ENEMY_SPRITE_LAYOUTS[species];
-  if (!layout.animated) return 0;
-  const phase = Math.floor(runTime * 8 + x * 0.09 + y * 0.05);
-  return ((phase % layout.columns) + layout.columns) % layout.columns;
+function enemySpriteFrame(enemy: Enemy, columns: number, runTime: number): number {
+  if (columns <= 1) return 0;
+  const state = enemy.animationState ?? "idle";
+  const phaseOffset = Math.abs(Math.floor(enemy.x * 0.09 + enemy.y * 0.05)) % columns;
+  if (state === "attack") {
+    const attackProgress = 1 - (enemy.attackAnimationTime ?? 0) / (enemy.kind === "boss" ? 0.55 : 0.38);
+    // A brief, readable wind-up/strike/recovery cadence replaces the old
+    // endless walk cycle while the enemy attacks.
+    const attackStep = Math.min(2, Math.floor(Math.max(0, Math.min(0.999, attackProgress)) * 3));
+    return (Math.floor(columns * (0.45 + attackStep * 0.12)) + phaseOffset) % columns;
+  }
+  if (state === "idle" && enemy.spriteFrame >= 0 && enemy.spriteFrame < columns) {
+    return enemy.spriteFrame;
+  }
+  if (state === "move") {
+    const walkFrames = Math.max(2, Math.ceil(columns * 0.72));
+    return (Math.floor(runTime * 7) + phaseOffset) % walkFrames;
+  }
+  // Hold a stable neutral frame when standing still instead of cycling through
+  // locomotion sprites while the monster is waiting for its next attack.
+  return Math.min(columns - 1, Math.floor(columns * 0.12));
 }
 
 function enemySpriteRow(species: EnemySpecies, dx: number, dy: number): number {
@@ -7378,6 +7413,10 @@ interface Enemy {
   summonSkill?: string;
   summonAttackCooldown?: number;
   spriteFrame: number;
+  animationState?: "idle" | "move" | "attack";
+  attackAnimationTime?: number;
+  facingX?: number;
+  facingY?: number;
   x: number;
   y: number;
   hp: number;
