@@ -25,6 +25,8 @@ const RUN_SAVE_KEY = "d2survivors.run.v1";
 const RUN_SAVE_VERSION = 1;
 const RUN_SAVE_INTERVAL_MS = 2500;
 const ACT_BOSS_TIME_SECONDS = 45;
+const DRUID_FORM_DURATION_SECONDS = 15;
+const DRUID_FORM_COOLDOWN_SECONDS = 30;
 const CAMPAIGN_TILE_WORLD_SIZE = 60;
 // The source atlas tiles are 160x80 pixels; render at 2x their former screen
 // footprint using nearest-neighbour sampling to retain crisp pixel-art edges.
@@ -336,6 +338,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   escapeMenuOpen = false;
   inventoryOpen = false;
   skillTreeOpen = false;
+  hoveredSkillTooltip: { name: string; description: string; reason: string; rank: number; currentStats: string[]; nextStats: string[]; nextRankLabel: string; x: number; y: number } | null = null;
   private readonly d2SurvivorsService = inject(D2SurvivorsService);
   @Input() inputtedParentRef?: AppComponent;
   override parentRef?: AppComponent;
@@ -378,6 +381,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private animatedSkeletonFrames: HTMLCanvasElement[] = [];
   private animatedGolemFrames: HTMLCanvasElement[] = [];
   private druidForm: DruidForm | null = null;
+  private druidFormRemaining = 0;
+  private druidFormCooldown = 0;
   private druidFormAnimationTime = 0;
   private druidFormAttackTime = 0;
   private readonly missileOverlayImages = new Map<string, MissileOverlayFrame[]>();
@@ -385,6 +390,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private readonly campaignFloorTileImages: Partial<Record<number, HTMLImageElement>> = {};
   private readonly campaignFloorTileOverlayCanvases: Partial<Record<number, HTMLCanvasElement>> = {};
   private readonly campaignBackgroundCanvases: Partial<Record<number, HTMLCanvasElement>> = {};
+  private readonly lootSprites: Partial<Record<"chest" | "gold", HTMLCanvasElement>> = {};
   private campaignTileBitmaps: Partial<Record<number, HTMLCanvasElement[]>> = {};
   private campaignGeneratedChunks = new Map<string, HTMLCanvasElement>();
   private act1InteriorImage?: HTMLImageElement;
@@ -1650,6 +1656,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       : Math.min(this.playerMaxHp, savedHp);
     this.deathRecovery = saved.deathRecovery === true || this.playerHp <= 0;
     this.druidForm = savedClass === "druid" && (saved.druidForm === "werewolf" || saved.druidForm === "werebear") ? saved.druidForm : null;
+    this.druidFormRemaining = this.druidForm ? numberValue(saved.druidFormRemaining, DRUID_FORM_DURATION_SECONDS, 0, DRUID_FORM_DURATION_SECONDS) : 0;
+    this.druidFormCooldown = this.druidForm ? 0 : numberValue(saved.druidFormCooldown, 0, 0, DRUID_FORM_COOLDOWN_SECONDS);
     this.druidFormAnimationTime = 0;
     this.druidFormAttackTime = 0;
     this.deathCount = Math.floor(numberValue(saved.deathCount, 0, 0, 1_000_000));
@@ -1670,10 +1678,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.enemies = Array.isArray(saved.enemies)
       ? saved.enemies.slice(0, 220).filter(isRecord).map((enemy) => {
           const kind: EnemyKind = enemy["kind"] === "boss" || enemy["kind"] === "champion" ? enemy["kind"] : "normal";
+          const campaignBoss = enemy["campaignBoss"] === true;
           return {
             kind,
-            species: sanitizeEnemySpecies(enemy["species"], kind),
-            campaignBoss: enemy["campaignBoss"] === true,
+            species: campaignBoss ? this.currentActDetails.boss : sanitizeEnemySpecies(enemy["species"], kind),
+            campaignBoss,
             summonType: enemy["summonType"] === "skeleton" || enemy["summonType"] === "golem" || enemy["summonType"] === "druid" ? enemy["summonType"] : undefined,
         summonSkill: typeof enemy["summonSkill"] === "string" ? enemy["summonSkill"] : undefined,
             summonAttackCooldown: numberValue(enemy["summonAttackCooldown"], 0, 0, 60),
@@ -1822,6 +1831,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         playerMaxMana: this.playerMaxMana,
         playerGold: this.playerGold,
         druidForm: this.selectedClass === "druid" ? this.druidForm : null,
+        druidFormRemaining: this.selectedClass === "druid" ? this.druidFormRemaining : 0,
+        druidFormCooldown: this.selectedClass === "druid" ? this.druidFormCooldown : 0,
         runTime: this.runTime,
         currentAct: this.currentAct,
         actTime: this.actTime,
@@ -3440,6 +3451,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   toggleSkillTree(): void {
     if (this.activeTab !== "run" || !this.runActive || this.escapeMenuOpen || this.inventoryOpen) return;
     this.skillTreeOpen = !this.skillTreeOpen;
+    this.hideSkillTooltip();
     if (this.skillTreeOpen) {
       this.escapeMenuOpen = false;
       this.inventoryOpen = false;
@@ -3473,6 +3485,132 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     return this.equipment.weapon?.baseName ?? this.equipment.weapon?.name ?? "bare hands";
   }
 
+  showSkillTooltip(event: MouseEvent, skill: D2SkillDefinition & { state: "learned" | "available" | "locked"; reason: string }): void {
+    const rank = this.getSkillLevel(skill.name);
+    const canRankUp = skill.state !== "locked" && rank < 20 && skill.level <= this.playerLevel;
+    const nextRank = canRankUp ? Math.max(1, rank + 1) : rank;
+    const maxX = Math.max(8, window.innerWidth - 308);
+    const maxY = Math.max(8, window.innerHeight - 330);
+    const fallbackDescriptions: Record<D2SkillVisual, string> = {
+      summon: "Summons an ally to fight alongside you.",
+      aura: "Provides a passive or temporary enhancement to your character.",
+      trap: "Places a trap that attacks nearby enemies.",
+      wave: "Releases a wave that affects enemies in its path.",
+      burst: "Unleashes an area effect against nearby enemies.",
+      movement: "Improves movement or performs a rapid maneuver.",
+      projectile: "Launches a projectile at enemies.",
+      strike: "Delivers a close-range attack.",
+    };
+    this.hoveredSkillTooltip = {
+      name: skill.name,
+      description: this.getSkillDescription(skill.name) ?? fallbackDescriptions[skill.visual],
+      reason: this.getSkillTreeReason(skill),
+      rank,
+      currentStats: rank > 0 ? this.getSkillRankStats(skill.name, skill.visual, rank) : ["Not learned"],
+      nextStats: canRankUp ? this.getSkillRankStats(skill.name, skill.visual, nextRank) : [],
+      nextRankLabel: skill.state === "locked"
+        ? skill.reason
+        : rank >= 20 ? "Maximum rank reached"
+        : `Rank ${nextRank}/20`,
+      x: Math.min(event.clientX + 16, maxX),
+      y: Math.min(event.clientY + 16, maxY),
+    };
+  }
+
+  hideSkillTooltip(): void {
+    this.hoveredSkillTooltip = null;
+  }
+
+  private getSkillRankStats(name: string, visual: D2SkillVisual, rank: number): string[] {
+    const stats: string[] = [];
+    const auraSkills = new Set(["Might", "Concentration", "Fanaticism", "Blessed Aim", "Conviction"]);
+    const defenseAuras = new Set(["Defiance", "Resist Fire", "Resist Cold", "Resist Lightning", "Salvation"]);
+    const auraDamage: Record<string, number> = { "Holy Fire": 2, "Holy Freeze": 1, "Holy Shock": 3, Sanctuary: 2 };
+
+    if (this.selectedClass === "paladin" && PALADIN_AURA_SKILLS.has(name)) {
+      if (auraSkills.has(name)) stats.push(`While active: +${rank * 8}% attack damage`);
+      if (defenseAuras.has(name)) stats.push(`While active: ${Math.min(65, rank * 2.5).toFixed(1)}% less incoming damage`);
+      if (name === "Fanaticism") stats.push(`While active: ${Math.min(45, rank * 2.5).toFixed(1)}% lower attack cooldown`);
+      if (name === "Prayer") stats.push(`${rank} life restored per aura tick`);
+      if (auraDamage[name] !== undefined) {
+        const tickDamage = auraDamage[name] * rank * (1 + (rank - 1) * 0.15);
+        stats.push(`${Math.floor(tickDamage)} aura damage per tick`);
+      }
+      stats.unshift(`Active duration: ${this.paladinAuraDurationForRank(rank).toFixed(2)}s`);
+      return stats.length > 1 ? stats : [...stats, "No additional rank-scaled gameplay effect is currently applied."];
+    }
+
+    if (this.selectedClass === "barbarian" && /^(Axe|Sword|Mace|Polearm|Spear|Throwing) Mastery$/.test(name)) {
+      const mastery = this.weaponMasteryForName(name);
+      const matches = !!mastery && mastery.pattern.test(this.equippedWeaponName.toLowerCase()) && this.equippedWeaponName !== "bare hands";
+      return [matches ? `+${rank * 4} basic attack damage with your equipped ${mastery?.weaponLabel}` : `No damage bonus; equip a ${mastery?.weaponLabel ?? "matching weapon"}`];
+    }
+
+    if (this.selectedClass === "barbarian" && name === "Weapon Mastery") {
+      return [`+${rank * 5} basic attack damage`];
+    }
+
+    if (this.selectedClass === "necromancer" && name === "Skeleton Mastery") {
+      return [`+${rank * 20}% skeleton, mage, and revive life`, `+${rank * 20}% skeleton, mage, and revive damage`];
+    }
+
+    if (this.selectedClass === "necromancer" && name === "Golem Mastery") {
+      return [`+${rank * 25}% golem life`, `+${rank * 10}% golem damage`];
+    }
+
+    if (this.selectedClass === "druid" && (name === "Werewolf" || name === "Werebear")) {
+      const form = name === "Werewolf" ? "Werewolf" : "Werebear";
+      return [`Transformation: ${form} for ${DRUID_FORM_DURATION_SECONDS} seconds`, `${DRUID_FORM_COOLDOWN_SECONDS}-second cooldown after leaving form; automatically shifts back when ready.`];
+    }
+
+    if (name === "Vitality") return [`+${rank * 5} maximum life`];
+    if (name === "Faster Attacks") {
+      const currentRank = this.skillLevels[name] ?? 0;
+      const cooldown = Math.max(0.18, this.basicAttackCooldown * Math.pow(0.9, rank - currentRank));
+      return [`${cooldown.toFixed(2)}s basic attack cooldown`];
+    }
+    if (name === "Faster Cast Rate") return [`${Math.min(60, rank * 10)}% faster spell cooldown recovery`];
+    if (name === "Multishot") return [`Basic attacks can hit up to ${1 + rank} nearby enemies`];
+
+    if (this.selectedClass === "necromancer" || this.selectedClass === "druid") {
+      const summonStats = this.getSummonRankStats(name, rank);
+      if (summonStats.length) return summonStats;
+    }
+
+    if (name === "Frozen Armor") {
+      return [`${Math.min(50, rank * 10)}% less incoming damage`];
+    }
+
+    if (visual !== "aura") {
+      const baseDamage = this.basicAttackDamage * (name === this.basicAttackName ? 1 : 1.5) + (rank - 1) * 3;
+      stats.push(`${Math.floor(baseDamage)} base damage per hit before skill-specific modifiers`);
+      const interval = this.getSkillCastIntervalForRank(name, rank);
+      if (interval > 0) stats.push(`${interval.toFixed(2)}s automatic cast interval`);
+      return stats;
+    }
+
+    return ["No numeric per-rank combat bonus is currently applied to this skill."];
+  }
+
+  private getSummonRankStats(name: string, rank: number): string[] {
+    const druidSummon = this.selectedClass === "druid" && (name === "Raven" || name === "Poison Creeper");
+    const necromancerSummons = this.selectedClass === "necromancer" && /^(Raise Skeleton|Skeletal Mage|Clay Golem|Blood Golem|Iron Golem|Fire Golem|Revive)$/.test(name);
+    if (!druidSummon && !necromancerSummons) return [];
+
+    const isRaven = name === "Raven";
+    const isPoisonCreeper = name === "Poison Creeper";
+    const isGolem = /Golem$/.test(name);
+    const isMage = name === "Skeletal Mage";
+    const baseHealth = isRaven ? 65 : isPoisonCreeper ? 150 : name === "Fire Golem" ? 220 : name === "Iron Golem" ? 280 : name === "Blood Golem" ? 320 : isGolem ? 260 : isMage ? 95 : 125;
+    const baseDamage = isRaven ? 12 : isPoisonCreeper ? 19 : isGolem ? 17 : isMage ? 13 : 15;
+    const masteryRank = isGolem ? this.skillLevels["Golem Mastery"] ?? 0 : this.skillLevels["Skeleton Mastery"] ?? 0;
+    const masteryBonus = isGolem ? masteryRank * 0.25 : druidSummon ? 0 : masteryRank * 0.2;
+    const masteryDamageBonus = isGolem ? masteryRank * 0.1 : druidSummon ? 0 : masteryRank * 0.2;
+    const health = Math.round(baseHealth * (1 + (rank - 1) * 0.18 + masteryBonus));
+    const damage = Math.round(baseDamage * (1 + (rank - 1) * 0.12 + masteryDamageBonus));
+    return [`Summon life: ${health}`, `Summon damage: ${damage} per attack`];
+  }
+
   getSkillTreeReason(skill: D2SkillDefinition & { state: "learned" | "available" | "locked"; reason: string }): string {
     const mastery = this.weaponMasteryForName(skill.name);
     if (!mastery) return skill.reason;
@@ -3493,6 +3631,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   showEscapeMenu(): void {
+    this.hideSkillTooltip();
     this.escapeMenuOpen = true;
     this.inventoryOpen = false;
     this.skillTreeOpen = false;
@@ -3512,6 +3651,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   skillCastProgress(skill: string): number {
+    if (this.isDruidFormSkill(skill)) {
+      const form = skill === "Werewolf" ? "werewolf" : "werebear";
+      return this.druidForm === form
+        ? Math.max(0, Math.min(1, 1 - this.druidFormRemaining / DRUID_FORM_DURATION_SECONDS))
+        : this.druidFormCooldown > 0
+          ? Math.max(0, Math.min(1, 1 - this.druidFormCooldown / DRUID_FORM_COOLDOWN_SECONDS))
+          : 0;
+    }
     const interval = this.getSkillCastInterval(skill);
     const cooldown = this.skillCastCooldowns[skill] ?? 0;
     const activeAura = this.activePaladinAuras[skill];
@@ -3520,16 +3667,29 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   getSkillCastLabel(skill: string): string {
+    if (this.isDruidFormSkill(skill)) {
+      const form = skill === "Werewolf" ? "werewolf" : "werebear";
+      return this.druidForm === form
+        ? `form ${this.druidFormRemaining.toFixed(1)}s`
+        : this.druidFormCooldown > 0 ? `cooldown ${this.druidFormCooldown.toFixed(1)}s` : "ready";
+    }
     const activeAura = this.activePaladinAuras[skill];
     return activeAura ? `${Math.max(0, activeAura.remaining).toFixed(1)}s` : `${this.getSkillCastInterval(skill).toFixed(1)}s`;
   }
 
   private paladinAuraDuration(skill: string): number {
-    const rank = Math.max(1, this.skillLevels[skill] ?? 1);
+    return this.paladinAuraDurationForRank(Math.max(1, this.skillLevels[skill] ?? 1));
+  }
+
+  private paladinAuraDurationForRank(rank: number): number {
     return 7 + rank * 1.25;
   }
 
   getSkillCastInterval(skill: string): number {
+    return this.getSkillCastIntervalForRank(skill, this.skillLevels[skill] ?? 1);
+  }
+
+  private getSkillCastIntervalForRank(skill: string, rank: number): number {
     const definition = getClassSkills(this.selectedClass).find((entry) => entry.name === skill);
     const visual = definition?.visual ?? getD2SkillVisual(skill);
     const baseIntervals: Record<D2SkillVisual, number> = {
@@ -3543,7 +3703,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       strike: 2.7,
     };
     const unlockDelay = Math.max(0, (definition?.level ?? 1) - 1) * 0.035;
-    const rank = this.skillLevels[skill] ?? 1;
     const rankBonus = Math.max(0.65, 1 - Math.max(0, rank - 1) * 0.025);
     const castRateRank = this.skillLevels["Faster Cast Rate"] ?? 0;
     const globalRate = Math.max(0.4, 1 - castRateRank * 0.1);
@@ -3609,6 +3768,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (!this.ownedSkills.includes(skill)) return;
     if (this.isDruidFormSkill(skill)) {
       this.druidForm = skill === "Werewolf" ? "werewolf" : "werebear";
+      this.druidFormRemaining = DRUID_FORM_DURATION_SECONDS;
+      this.druidFormCooldown = 0;
+      this.skillCastCooldowns[skill] = DRUID_FORM_DURATION_SECONDS;
       this.druidFormAnimationTime = 0;
       this.addSkillVisualEffect(skill);
       this.renderCharacter();
@@ -4241,26 +4403,36 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   private updateAutomaticSkillCasts(dt: number): void {
     const seconds = dt / 1000;
+    if (!this.druidForm) this.druidFormCooldown = Math.max(0, this.druidFormCooldown - seconds);
     const classSkills = getClassSkills(this.selectedClass);
     const activeSkills = this.ownedSkills.filter((skill) =>
       skill !== this.basicAttackName && classSkills.some((definition) => definition.name === skill),
     );
     const livingEnemies = this.enemies.filter((enemy) => enemy.hp > 0 && !enemy.summonType);
-    for (const skill of activeSkills) {
-      if (this.isDruidFormSkill(skill)) {
-        const desiredForm = skill === "Werewolf" ? "werewolf" : "werebear";
-        if (this.druidForm !== desiredForm) {
-          const cooldown = Math.max(0, (this.skillCastCooldowns[skill] ?? 0) - seconds);
-          this.skillCastCooldowns[skill] = cooldown;
-          if (cooldown <= 0) {
-            this.activateOwnedSkill(skill);
-            this.skillCastCooldowns[skill] = Number.POSITIVE_INFINITY;
-          }
-        } else {
-          this.skillCastCooldowns[skill] = Number.POSITIVE_INFINITY;
+    const unlockedFormSkill = activeSkills.includes("Werewolf") ? "Werewolf"
+      : activeSkills.includes("Werebear") ? "Werebear" : undefined;
+    if (unlockedFormSkill) {
+      const activeForm = unlockedFormSkill === "Werewolf" ? "werewolf" : "werebear";
+      if (this.druidForm === activeForm) {
+        this.druidFormRemaining = Math.max(0, this.druidFormRemaining - seconds);
+        if (this.druidFormRemaining === 0) {
+          this.druidForm = null;
+          this.druidFormCooldown = DRUID_FORM_COOLDOWN_SECONDS;
+          this.skillCastCooldowns[unlockedFormSkill] = DRUID_FORM_COOLDOWN_SECONDS;
+          this.renderCharacter();
         }
-        continue;
+      } else if (!this.druidForm && this.druidFormCooldown === 0) {
+        this.druidForm = activeForm;
+        this.druidFormRemaining = DRUID_FORM_DURATION_SECONDS;
+        this.druidFormCooldown = 0;
+        this.skillCastCooldowns[unlockedFormSkill] = DRUID_FORM_DURATION_SECONDS;
+        this.druidFormAnimationTime = 0;
+        this.addSkillVisualEffect(unlockedFormSkill);
+        this.renderCharacter();
       }
+    }
+    for (const skill of activeSkills) {
+      if (this.isDruidFormSkill(skill)) continue;
       if (this.isPersistentSummonSkill(skill)) {
         const existing = this.enemies.some((enemy) => enemy.summonSkill === skill && enemy.hp > 0);
         if (!existing) this.activateOwnedSkill(skill);
@@ -4734,6 +4906,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.levelUpNotice = "";
     this.ownedSkills = [this.basicAttackName];
     this.druidForm = null;
+    this.druidFormRemaining = 0;
+    this.druidFormCooldown = 0;
     this.druidFormAnimationTime = 0;
     this.druidFormAttackTime = 0;
     for (const skill of Object.keys(this.skillCastCooldowns)) delete this.skillCastCooldowns[skill];
@@ -4987,8 +5161,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   updateEnemies(dt: number): void {
-    this.druidFormAnimationTime += dt / 1000;
-    this.druidFormAttackTime = Math.max(0, this.druidFormAttackTime - dt / 1000);
+    const elapsedSeconds = dt / 1000;
+    this.druidFormAnimationTime += elapsedSeconds;
+    this.druidFormAttackTime = Math.max(0, this.druidFormAttackTime - elapsedSeconds);
     const livingEnemies = this.enemies.filter((enemy) => !enemy.summonType && enemy.hp > 0);
     const summons = this.enemies.filter((enemy) => !!enemy.summonType && enemy.hp > 0);
     for (let index = 0; index < summons.length; index += 1) {
@@ -7436,205 +7611,107 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     ctx.restore();
   }
 
+  private getLootSprite(kind: "chest" | "gold"): HTMLCanvasElement {
+    const cached = this.lootSprites[kind];
+    if (cached) return cached;
+    const sprite = document.createElement("canvas");
+    sprite.width = kind === "chest" ? 40 : 18;
+    sprite.height = kind === "chest" ? 30 : 12;
+    const ctx = sprite.getContext("2d");
+    if (!ctx) {
+      this.lootSprites[kind] = sprite;
+      return sprite;
+    }
+    ctx.imageSmoothingEnabled = false;
+
+    if (kind === "gold") {
+      // Pixel-art pile of Diablo-like gold: irregular coin faces, dark stamped marks,
+      // staggered highlights, and a grounded shadow instead of a glowing coin orb.
+      ctx.fillStyle = "#090908";
+      ctx.fillRect(3, 9, 13, 2);
+      ctx.fillStyle = "#47300f";
+      ctx.fillRect(2, 7, 5, 2);
+      ctx.fillRect(6, 5, 6, 2);
+      ctx.fillRect(10, 7, 6, 2);
+      ctx.fillStyle = "#a8751d";
+      ctx.fillRect(3, 6, 4, 2);
+      ctx.fillRect(7, 4, 5, 2);
+      ctx.fillRect(11, 6, 4, 2);
+      ctx.fillStyle = "#d4a13c";
+      ctx.fillRect(3, 5, 3, 1);
+      ctx.fillRect(7, 3, 4, 1);
+      ctx.fillRect(11, 5, 3, 1);
+      ctx.fillStyle = "#f0cf70";
+      ctx.fillRect(4, 5, 1, 1);
+      ctx.fillRect(8, 3, 2, 1);
+      ctx.fillStyle = "#805618";
+      ctx.fillRect(5, 7, 1, 1);
+      ctx.fillRect(9, 5, 1, 1);
+      ctx.fillRect(13, 7, 1, 1);
+      this.lootSprites[kind] = sprite;
+      return sprite;
+    }
+
+    // Compact, hand-pixelled wooden coffer with dark iron bands and a worn latch.
+    ctx.fillStyle = "#090807";
+    ctx.fillRect(3, 26, 34, 2);
+    ctx.fillStyle = "#432713";
+    ctx.fillRect(5, 13, 30, 12);
+    ctx.fillRect(3, 9, 34, 5);
+    ctx.fillStyle = "#74451e";
+    ctx.fillRect(5, 14, 29, 2);
+    ctx.fillStyle = "#68401d";
+    ctx.fillRect(5, 16, 29, 8);
+    ctx.fillStyle = "#805126";
+    ctx.fillRect(7, 17, 4, 6);
+    ctx.fillRect(15, 17, 5, 6);
+    ctx.fillRect(25, 17, 5, 6);
+    ctx.fillStyle = "#342117";
+    ctx.fillRect(11, 16, 2, 8);
+    ctx.fillRect(22, 16, 2, 8);
+    ctx.fillStyle = "#302c28";
+    ctx.fillRect(8, 10, 3, 14);
+    ctx.fillRect(29, 10, 3, 14);
+    ctx.fillRect(4, 8, 32, 2);
+    ctx.fillStyle = "#9b6d2e";
+    ctx.fillRect(7, 8, 25, 1);
+    ctx.fillRect(6, 12, 28, 1);
+    ctx.fillStyle = "#b19460";
+    ctx.fillRect(9, 10, 1, 12);
+    ctx.fillRect(30, 10, 1, 12);
+    ctx.fillStyle = "#211914";
+    ctx.fillRect(18, 14, 5, 9);
+    ctx.fillStyle = "#a88750";
+    ctx.fillRect(19, 15, 3, 6);
+    ctx.fillStyle = "#e0c27a";
+    ctx.fillRect(20, 16, 1, 2);
+    ctx.fillStyle = "#b19460";
+    ctx.fillRect(6, 14, 1, 1);
+    ctx.fillRect(33, 14, 1, 1);
+    ctx.fillRect(6, 23, 1, 1);
+    ctx.fillRect(33, 23, 1, 1);
+    this.lootSprites[kind] = sprite;
+    return sprite;
+  }
+
   drawGoldDrop(ctx: CanvasRenderingContext2D, drop: GoldDrop): void {
     const point = this.projectArenaPoint(drop.x, drop.y);
     const scale = this.worldZoom;
-    const bob = Math.sin(drop.bob * 5) * 1.5 * scale;
-    const x = point.x;
-    const groundY = point.y;
+    const sprite = this.getLootSprite("gold");
+    const bob = Math.sin(drop.bob * 5) * scale;
     ctx.save();
-    ctx.lineJoin = "round";
-    ctx.lineCap = "round";
-
-    // A soft ground shadow and irregular overlapping coin silhouettes make this
-    // read as a little spill of loot rather than a single flat coin/orb.
-    ctx.fillStyle = "#080807";
-    ctx.globalAlpha = 0.62;
-    ctx.beginPath();
-    ctx.ellipse(x, groundY + 3 * scale, 12 * scale, 5 * scale, -0.08, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.globalAlpha = 1;
-
-    const coins = [
-      { x: -7, y: 0, rx: 5.5, ry: 3.4, angle: -0.3 },
-      { x: -2, y: -2.5, rx: 6, ry: 3.7, angle: 0.16 },
-      { x: 4, y: -1, rx: 5.4, ry: 3.3, angle: -0.24 },
-      { x: 7, y: 1.1, rx: 4.4, ry: 2.8, angle: 0.32 },
-      { x: 0, y: 0.4, rx: 5.7, ry: 3.4, angle: 0.08 },
-    ];
-    ctx.shadowColor = "#dc9b22";
-    ctx.shadowBlur = 5 * scale;
-    for (const coin of coins) {
-      const coinX = x + coin.x * scale;
-      const coinY = groundY + coin.y * scale + bob;
-      ctx.save();
-      ctx.translate(coinX, coinY);
-      ctx.rotate(coin.angle);
-      ctx.fillStyle = "#80500d";
-      ctx.beginPath();
-      ctx.ellipse(0, 1.2 * scale, coin.rx * scale, coin.ry * scale, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = "#e6a92d";
-      ctx.strokeStyle = "#9a6415";
-      ctx.lineWidth = 1 * scale;
-      ctx.beginPath();
-      ctx.ellipse(0, 0, coin.rx * scale, coin.ry * scale, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-      ctx.shadowBlur = 0;
-      ctx.strokeStyle = "#ffe293";
-      ctx.lineWidth = 0.8 * scale;
-      ctx.beginPath();
-      ctx.ellipse(0, -0.45 * scale, coin.rx * 0.72 * scale, coin.ry * 0.52 * scale, 0, Math.PI * 1.08, Math.PI * 1.88);
-      ctx.stroke();
-      ctx.restore();
-    }
-
-    // A small raised medallion on the top coin gives the pile a readable D2-style glint.
-    ctx.shadowBlur = 0;
-    ctx.fillStyle = "#f6d46f";
-    ctx.strokeStyle = "#986016";
-    ctx.lineWidth = 0.8 * scale;
-    ctx.beginPath();
-    ctx.ellipse(x - 1 * scale, groundY - 2.3 * scale + bob, 2.7 * scale, 1.7 * scale, -0.12, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-    ctx.strokeStyle = "#fff0b2";
-    ctx.lineWidth = 0.7 * scale;
-    ctx.beginPath();
-    ctx.moveTo(x - 2 * scale, groundY - 2.3 * scale + bob);
-    ctx.lineTo(x, groundY - 2.3 * scale + bob);
-    ctx.stroke();
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(sprite, point.x - sprite.width * scale / 2, point.y - sprite.height * scale + bob, sprite.width * scale, sprite.height * scale);
     ctx.restore();
   }
 
   drawChest(ctx: CanvasRenderingContext2D, c: Chest): void {
-    const ground = this.projectArenaPoint(c.x, c.y);
-    const x = ground.x;
-    const y = ground.y;
+    const point = this.projectArenaPoint(c.x, c.y);
     const scale = this.worldZoom;
-    const halfWidth = 20 * scale;
-    const depth = 11 * scale;
-    const bodyHeight = 17 * scale;
-    const lidHeight = 7 * scale;
-    const topY = y - bodyHeight - lidHeight;
-
-    const polygon = (points: Array<[number, number]>): void => {
-      ctx.beginPath();
-      ctx.moveTo(points[0][0], points[0][1]);
-      for (let index = 1; index < points.length; index += 1) ctx.lineTo(points[index][0], points[index][1]);
-      ctx.closePath();
-    };
-
+    const sprite = this.getLootSprite("chest");
     ctx.save();
-    ctx.lineJoin = "round";
-    ctx.lineCap = "round";
-
-    // Dark contact shadow anchors the chest to the floor.
-    ctx.fillStyle = "#050505";
-    ctx.globalAlpha = 0.62;
-    ctx.beginPath();
-    ctx.ellipse(x, y + 2 * scale, 25 * scale, 8 * scale, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.globalAlpha = 1;
-
-    // Front and right sides give the container a solid, three-dimensional body.
-    polygon([[x - halfWidth, topY + lidHeight], [x + halfWidth, topY + lidHeight], [x + halfWidth, y], [x - halfWidth, y]]);
-    ctx.fillStyle = "#68401d";
-    ctx.fill();
-    ctx.strokeStyle = "#2b1a10";
-    ctx.lineWidth = 1.5 * scale;
-    ctx.stroke();
-
-    polygon([[x + halfWidth, topY + lidHeight], [x + halfWidth + depth, topY + lidHeight - 3 * scale], [x + halfWidth + depth, y - 3 * scale], [x + halfWidth, y]]);
-    ctx.fillStyle = "#432713";
-    ctx.fill();
-    ctx.stroke();
-
-    // Individual front boards and dark seams suggest a carved wooden coffer.
-    for (let plank = 0; plank < 5; plank += 1) {
-      const plankX = x - halfWidth + (plank * 2 + 1) * halfWidth / 5;
-      ctx.strokeStyle = plank % 2 ? "#8b5928" : "#4d2d17";
-      ctx.lineWidth = 1.15 * scale;
-      ctx.beginPath();
-      ctx.moveTo(plankX, topY + lidHeight + 3 * scale);
-      ctx.lineTo(plankX, y - 2 * scale);
-      ctx.stroke();
-      ctx.strokeStyle = "#a6753b";
-      ctx.lineWidth = 0.65 * scale;
-      ctx.beginPath();
-      ctx.moveTo(plankX + 1.5 * scale, topY + lidHeight + 5 * scale);
-      ctx.lineTo(plankX + 1.5 * scale, y - 4 * scale);
-      ctx.stroke();
-    }
-
-    // Heavy lid: a beveled top plane, front fascia, and short end caps.
-    polygon([[x - halfWidth - 2 * scale, topY + 2 * scale], [x + halfWidth, topY], [x + halfWidth + depth + 2 * scale, topY + 3 * scale], [x - halfWidth + depth, topY + 6 * scale]]);
-    ctx.fillStyle = "#a66d2b";
-    ctx.fill();
-    ctx.strokeStyle = "#35200f";
-    ctx.lineWidth = 1.8 * scale;
-    ctx.stroke();
-
-    polygon([[x - halfWidth - 2 * scale, topY + 2 * scale], [x - halfWidth + depth, topY + 6 * scale], [x - halfWidth + depth, topY + lidHeight + 2 * scale], [x - halfWidth - 2 * scale, topY + lidHeight]]);
-    ctx.fillStyle = "#74451e";
-    ctx.fill();
-    ctx.stroke();
-
-    polygon([[x - halfWidth - 2 * scale, topY + lidHeight], [x - halfWidth + depth, topY + lidHeight + 4 * scale], [x + halfWidth + depth + 2 * scale, topY + lidHeight + scale], [x + halfWidth, topY + lidHeight - 2 * scale]]);
-    ctx.fillStyle = "#8a5423";
-    ctx.fill();
-    ctx.stroke();
-
-    // Iron bands wrap the front and right face; the central latch reads clearly at game scale.
-    ctx.strokeStyle = "#302c28";
-    ctx.lineWidth = 3.4 * scale;
-    for (const bandX of [x - halfWidth + 4 * scale, x + halfWidth - 4 * scale]) {
-      ctx.beginPath();
-      ctx.moveTo(bandX, topY + lidHeight);
-      ctx.lineTo(bandX, y);
-      ctx.stroke();
-    }
-    ctx.strokeStyle = "#b19460";
-    ctx.lineWidth = 1.1 * scale;
-    for (const bandX of [x - halfWidth + 4 * scale, x + halfWidth - 4 * scale]) {
-      ctx.beginPath();
-      ctx.moveTo(bandX, topY + lidHeight + 2 * scale);
-      ctx.lineTo(bandX, y - scale);
-      ctx.stroke();
-    }
-
-    ctx.fillStyle = "#3c3325";
-    ctx.strokeStyle = "#c6a45f";
-    ctx.lineWidth = 1.5 * scale;
-    ctx.beginPath();
-    ctx.roundRect(x - 4 * scale, topY + lidHeight + 5 * scale, 8 * scale, 12 * scale, 1.5 * scale);
-    ctx.fill();
-    ctx.stroke();
-    ctx.fillStyle = "#e1c47b";
-    ctx.beginPath();
-    ctx.arc(x, topY + lidHeight + 9 * scale, 1.4 * scale, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = "#d2ad63";
-    ctx.lineWidth = 1.4 * scale;
-    ctx.beginPath();
-    ctx.moveTo(x, topY + lidHeight + 10.5 * scale);
-    ctx.lineTo(x, topY + lidHeight + 14 * scale);
-    ctx.stroke();
-
-    // A narrow gold-colored rim and corner studs finish the lid without a floating label.
-    ctx.strokeStyle = "#c4934c";
-    ctx.lineWidth = 1.2 * scale;
-    polygon([[x - halfWidth - scale, topY + 2.5 * scale], [x - halfWidth + depth, topY + 6.5 * scale], [x + halfWidth + depth + scale, topY + 3.5 * scale]]);
-    ctx.stroke();
-    ctx.fillStyle = "#d6b46d";
-    for (const studX of [x - halfWidth + 4 * scale, x + halfWidth - 4 * scale]) {
-      for (const studY of [topY + lidHeight + 4 * scale, y - 4 * scale]) {
-        ctx.beginPath();
-        ctx.arc(studX, studY, 1.15 * scale, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(sprite, point.x - sprite.width * scale / 2, point.y - sprite.height * scale, sprite.width * scale, sprite.height * scale);
     ctx.restore();
   }
 }
@@ -7691,6 +7768,8 @@ interface D2SavedRun {
   skillOfferSeed?: number;
   ownedSkills: string[];
   druidForm?: DruidForm | null;
+  druidFormRemaining?: number;
+  druidFormCooldown?: number;
   skillLevels: Record<string, number>;
   enemies: Enemy[];
   chests: Chest[];

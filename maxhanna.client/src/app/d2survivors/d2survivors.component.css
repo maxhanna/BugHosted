@@ -1453,6 +1453,28 @@
 .d2s-tree-skill.available small { color: #a4c48d; }
 .d2s-tree-skill.locked { opacity: .76; }
 .d2s-tree-level { position: absolute; top: 5px; left: 5px; display: grid; width: 15px; height: 15px; place-items: center; border: 1px solid #6a5839; color: #dfc385; font: 8px ui-monospace, monospace; }
+.d2s-tree-skill { cursor: help; }
+.d2s-skill-tooltip {
+  position: fixed;
+  z-index: 40;
+  width: min(280px, calc(100vw - 24px));
+  padding: 11px 13px;
+  color: #d8c49b;
+  border: 1px solid #8b7045;
+  background: linear-gradient(145deg, #211a14f5, #09090af7 78%);
+  box-shadow: inset 0 0 0 2px #080809, 0 5px 18px #000c;
+  pointer-events: none;
+  box-sizing: border-box;
+}
+.d2s-skill-tooltip strong { display: block; margin-bottom: 5px; color: #f0d6a0; font: 15px Georgia, serif; }
+.d2s-skill-tooltip strong span { color: #d3b36f; font-size: 11px; }
+.d2s-skill-tooltip p { margin: 0 0 8px; color: #d0c3a7; font: 12px/1.4 Georgia, serif; }
+.d2s-skill-tooltip-stats { display: grid; gap: 7px; margin: 0 0 8px; }
+.d2s-skill-tooltip-stats section { padding: 6px 8px; border-left: 2px solid #806843; background: #ffffff08; }
+.d2s-skill-tooltip-stats b { color: #d9bd82; font: 10px Georgia, serif; }
+.d2s-skill-tooltip-stats ul { display: grid; gap: 3px; margin: 4px 0 0; padding-left: 15px; color: #c8b994; font: 10px/1.35 Georgia, serif; }
+.d2s-skill-tooltip-stats small { display: block; margin-top: 4px; }
+.d2s-skill-tooltip small { color: #a99773; font: 10px/1.35 Georgia, serif; }
 @media (max-width: 720px) { .d2s-skill-tree-sections { grid-template-columns: 1fr; } .d2s-skill-tree-tab { padding: 8px; } .d2s-tree-skill { min-height: 43px; } }
 
 .d2s-upgrade-modal {

@@ -304,13 +304,22 @@
           <section class="d2s-skill-tree-tab" *ngFor="let section of skillTreeSections">
             <h3>{{ section.name }}</h3>
             <div class="d2s-skill-tree-grid">
-              <article class="d2s-tree-skill" *ngFor="let skill of section.skills" [class]="'d2s-tree-skill ' + skill.state" [attr.aria-label]="skill.name + ', ' + skill.state + ', unlock level ' + skill.level + '. ' + skill.reason">
+              <article class="d2s-tree-skill" *ngFor="let skill of section.skills" [class]="'d2s-tree-skill ' + skill.state" [attr.aria-label]="skill.name + ', ' + skill.state + ', unlock level ' + skill.level + '. ' + skill.reason" (mouseenter)="showSkillTooltip($event, skill)" (mousemove)="showSkillTooltip($event, skill)" (mouseleave)="hideSkillTooltip()">
                 <span class="d2s-tree-level">{{ skill.level }}</span><strong>{{ skill.name }}</strong><small *ngIf="getSkillLevel(skill.name)">Rank {{ getSkillLevel(skill.name) }}/20</small><small>{{ getSkillTreeReason(skill) }}</small>
               </article>
             </div>
           </section>
         </div>
       </section>
+      <aside class="d2s-skill-tooltip" *ngIf="hoveredSkillTooltip as tooltip" [style.left.px]="tooltip.x" [style.top.px]="tooltip.y" role="tooltip">
+        <strong>{{ tooltip.name }}<span *ngIf="tooltip.rank"> · Rank {{ tooltip.rank }}/20</span></strong>
+        <p>{{ tooltip.description }}</p>
+        <div class="d2s-skill-tooltip-stats">
+          <section><b>Current stats</b><ul><li *ngFor="let stat of tooltip.currentStats">{{ stat }}</li></ul></section>
+          <section><b>Next rank · {{ tooltip.nextRankLabel }}</b><ul *ngIf="tooltip.nextStats.length; else noNextRankStats"><li *ngFor="let stat of tooltip.nextStats">{{ stat }}</li></ul><ng-template #noNextRankStats><small>{{ tooltip.rank >= 20 ? 'This skill is at maximum rank.' : 'Unlock this skill to view its next-rank stats.' }}</small></ng-template></section>
+        </div>
+        <small>{{ tooltip.reason }}</small>
+      </aside>
       <section class="d2s-escape-menu" *ngIf="escapeMenuOpen" role="dialog" aria-modal="true" aria-label="Game menu" (click)="$event.stopPropagation()">
         <header class="d2s-escape-title"><span>THE WORLDSTONE CHAMBER</span><h2>Game Menu</h2><small>Paused · {{ selectedClassName }} · Level {{ playerLevel }}</small></header>
         <div class="d2s-run-details" aria-label="Character and run statistics">
