@@ -211,7 +211,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   componentTitles: { [key: string]: string } = {
     'Notification': 'Notifications',
     'Crypto-Hub': 'Crypto Hub',
-    'UpdateUserSettings': 'Settings',
+    'UpdateUserSettings': 'Application Selection',
     'User-Events': 'User Events',
     'Bug-Wars': 'Bug Wars',
     'Marbles': 'Lose Your Marbles',

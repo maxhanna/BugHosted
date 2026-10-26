@@ -232,6 +232,8 @@ interface EnemySprite {
   animated: boolean;
 }
 
+type MissileOverlayFrame = HTMLImageElement | HTMLCanvasElement;
+
 function createRunId(): string {
   const cryptoApi = typeof globalThis !== "undefined" ? globalThis.crypto : undefined;
   if (typeof cryptoApi?.randomUUID === "function") {
@@ -361,7 +363,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private readonly animatedGolemSprite = new Image();
   private animatedSkeletonFrames: HTMLCanvasElement[] = [];
   private animatedGolemFrames: HTMLCanvasElement[] = [];
-  private readonly missileOverlayImages = new Map<string, HTMLImageElement[]>();
+  private readonly missileOverlayImages = new Map<string, MissileOverlayFrame[]>();
   private readonly campaignMapImages: Partial<Record<number, HTMLImageElement>> = {};
   private readonly campaignFloorTileImages: Partial<Record<number, HTMLImageElement>> = {};
   private readonly campaignFloorTileOverlayCanvases: Partial<Record<number, HTMLCanvasElement>> = {};
@@ -1191,14 +1193,33 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private drawAct1Interior(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement): void {
     const interior = this.act1InteriorImage;
     if (!interior?.complete || interior.naturalWidth === 0) return;
-    const scale = Math.min(canvas.width / interior.naturalWidth, canvas.height / interior.naturalHeight);
-    const width = interior.naturalWidth * scale;
-    const height = interior.naturalHeight * scale;
+    const dpr = canvas.clientWidth ? canvas.width / canvas.clientWidth : 1;
+    const scale = Math.min(canvas.clientWidth / interior.naturalWidth, canvas.clientHeight / interior.naturalHeight);
+    const width = interior.naturalWidth * scale * dpr;
+    const height = interior.naturalHeight * scale * dpr;
+    // Keep the room centered on the fixed player. Track the same camera offsets
+    // as the exterior floor so enemies, the player and the interior move together.
+    const chunkWidth = this.chunkTileColumns * CAMPAIGN_TILE_WORLD_SIZE;
+    const chunkHeight = this.chunkTileRows * CAMPAIGN_TILE_WORLD_SIZE;
+    const worldX = this.currentChunkCoordX * chunkWidth + this.currentChunkLocalX;
+    const worldY = this.currentChunkCoordY * chunkHeight + this.currentChunkLocalY;
+    const cameraOffsetX = worldX - this.act1InteriorDoor.x;
+    const cameraOffsetY = worldY - this.act1InteriorDoor.y;
+    const projectedOffset = this.projectArenaPoint(
+      this.arenaW / 2 + cameraOffsetX,
+      this.arenaH / 2 + cameraOffsetY,
+    );
     ctx.save();
     ctx.fillStyle = "#08090d";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(interior, (canvas.width - width) / 2, (canvas.height - height) / 2, width, height);
+    ctx.drawImage(
+      interior,
+      (canvas.width - width) / 2 - (projectedOffset.x - canvas.width / 2),
+      (canvas.height - height) / 2 - (projectedOffset.y - canvas.height / 2),
+      width,
+      height,
+    );
     ctx.restore();
   }
 
@@ -3714,13 +3735,15 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       ...Object.values(ATTACK_KIND_MISSILE_OVERLAYS),
     ]);
     for (const id of missileIds) {
-      const images: HTMLImageElement[] = [];
+      const images: MissileOverlayFrame[] = [];
       this.missileOverlayImages.set(id, images);
       const frameCount = MISSILE_FRAME_COUNTS[id] ?? 1;
       for (let frameIndex = 0; frameIndex < frameCount; frameIndex += 1) {
         const image = new Image();
         image.decoding = "async";
         image.onload = () => {
+          const preparedFrame = this.prepareMissileOverlayFrame(image);
+          images[frameIndex] = preparedFrame;
           if (this.activeTab === "run") {
             this.draw();
             this.drawSkillVisualEffects();
@@ -3735,6 +3758,86 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         images.push(image);
       }
     }
+  }
+
+  private prepareMissileOverlayFrame(source: HTMLImageElement): MissileOverlayFrame {
+    const canvas = document.createElement("canvas");
+    canvas.width = source.naturalWidth;
+    canvas.height = source.naturalHeight;
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    if (!context || canvas.width === 0 || canvas.height === 0) return source;
+    context.drawImage(source, 0, 0);
+    const image = context.getImageData(0, 0, canvas.width, canvas.height);
+    const rgba = image.data;
+    const width = canvas.width;
+    const height = canvas.height;
+    const isMattePixel = (pixel: number): boolean => {
+      const red = rgba[pixel];
+      const green = rgba[pixel + 1];
+      const blue = rgba[pixel + 2];
+      return rgba[pixel + 3] > 0
+        && Math.max(red, green, blue) <= 48
+        && Math.max(red, green, blue) - Math.min(red, green, blue) <= 28;
+    };
+    const queue = new Int32Array(width * height);
+    const visited = new Uint8Array(width * height);
+    let read = 0;
+    let write = 0;
+    const enqueue = (x: number, y: number): void => {
+      const index = y * width + x;
+      if (visited[index]) return;
+      const pixel = index * 4;
+      if (rgba[pixel + 3] !== 0 && !isMattePixel(pixel)) return;
+      visited[index] = 1;
+      queue[write++] = index;
+    };
+    for (let x = 0; x < width; x += 1) {
+      enqueue(x, 0);
+      enqueue(x, height - 1);
+    }
+    for (let y = 1; y < height - 1; y += 1) {
+      enqueue(0, y);
+      enqueue(width - 1, y);
+    }
+    let removedMatte = false;
+    // Walk through transparent and near-black pixels from the frame perimeter.
+    // This catches black mattes next to transparent padding even when the actual
+    // image edge is transparent, while preserving isolated dark sprite details.
+    while (read < write) {
+      const index = queue[read++];
+      const x = index % width;
+      const y = Math.floor(index / width);
+      const pixel = index * 4;
+      if (rgba[pixel + 3] !== 0) {
+        // Connected matte pixels are composited over black; remove their dark
+        // contribution by lifting the unassociated color and preserving coverage.
+        const luminance = rgba[pixel] * 0.299 + rgba[pixel + 1] * 0.587 + rgba[pixel + 2] * 0.114;
+        if (luminance <= 32) {
+          rgba[pixel + 3] = 0;
+        } else {
+          const matteCoverage = Math.min(1, luminance / 48);
+          rgba[pixel] = Math.min(255, Math.round(rgba[pixel] / matteCoverage));
+          rgba[pixel + 1] = Math.min(255, Math.round(rgba[pixel + 1] / matteCoverage));
+          rgba[pixel + 2] = Math.min(255, Math.round(rgba[pixel + 2] / matteCoverage));
+          rgba[pixel + 3] = Math.round(rgba[pixel + 3] * matteCoverage);
+        }
+        removedMatte = true;
+      }
+      if (x > 0) enqueue(x - 1, y);
+      if (x + 1 < width) enqueue(x + 1, y);
+      if (y > 0) enqueue(x, y - 1);
+      if (y + 1 < height) enqueue(x, y + 1);
+    }
+    if (!removedMatte) return source;
+    context.putImageData(image, 0, 0);
+    return canvas;
+  }
+
+  private isMissileFrameReady(frame: MissileOverlayFrame | undefined): frame is MissileOverlayFrame {
+    if (!frame) return false;
+    return frame instanceof HTMLImageElement
+      ? frame.complete && frame.naturalWidth > 0
+      : frame.width > 0 && frame.height > 0;
   }
 
   private missileOverlayId(skill: string): string | undefined {
@@ -4308,24 +4411,28 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const frameDuration = MISSILE_FRAME_DURATIONS_MS[missileId] ?? 85;
     const desiredFrame = overlays?.length ? Math.floor(renderAge * 1000 / frameDuration) % overlays.length : 0;
     let overlay = overlays?.[desiredFrame];
-    if (!overlay?.complete || overlay.naturalWidth === 0) {
-      overlay = overlays?.find((image) => image.complete && image.naturalWidth > 0);
+    if (!this.isMissileFrameReady(overlay)) {
+      overlay = overlays?.find((frame) => this.isMissileFrameReady(frame));
     }
-    if (overlay?.complete && overlay.naturalWidth > 0) {
-      const direction = Math.atan2(point.y - start.y, point.x - start.x);
+    if (this.isMissileFrameReady(overlay)) {
+      const direction = Math.atan2(point.y - start.y, point.x - start.x)
+        + (missileId.startsWith("d2-") ? Math.PI / 4 : 0);
+      const imageWidthNatural = overlay instanceof HTMLImageElement ? overlay.naturalWidth : overlay.width;
+      const imageHeightNatural = overlay instanceof HTMLImageElement ? overlay.naturalHeight : overlay.height;
       const maxFrameSize = ["fireball", "bloodcomet"].includes(missileId) ? 36 : 28;
       const dpr = this.arenaRef?.nativeElement.clientWidth
         ? this.arenaRef.nativeElement.width / this.arenaRef.nativeElement.clientWidth
         : 1;
-      const frameScale = maxFrameSize * dpr / Math.max(overlay.naturalWidth, overlay.naturalHeight);
-      const imageWidth = overlay.naturalWidth * frameScale * this.worldZoom;
-      const imageHeight = overlay.naturalHeight * frameScale * this.worldZoom;
+      const frameScale = maxFrameSize * dpr / Math.max(imageWidthNatural, imageHeightNatural);
+      const imageWidth = imageWidthNatural * frameScale * this.worldZoom;
+      const imageHeight = imageHeightNatural * frameScale * this.worldZoom;
       const travelX = point.x - start.x;
       const travelY = point.y - start.y;
       const traveledPixels = Math.hypot(travelX, travelY);
       ctx.save();
       ctx.translate(point.x, point.y - 8);
-      ctx.rotate(direction);
+      // DCC source frames point up-right rather than along Canvas's local +X.
+      ctx.rotate(direction + (missileId.startsWith("d2-") ? Math.PI / 4 : 0));
       // Faint previous DCC cels leave a short afterimage so the cast reads as a
       // moving, animated missile rather than a single icon sliding across the map.
       if (overlays?.length) {
@@ -4333,10 +4440,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           const trailAge = Math.max(0, renderAge - trail * 0.085);
           const trailFrameIndex = Math.floor(trailAge * 1000 / frameDuration) % overlays.length;
           const trailFrame = overlays[trailFrameIndex];
-          if (traveledPixels < trail * 7 || !trailFrame?.complete || trailFrame.naturalWidth === 0) continue;
+          if (traveledPixels < trail * 7 || !this.isMissileFrameReady(trailFrame)) continue;
           ctx.globalAlpha = trail === 1 ? 0.16 : 0.08;
           const back = trail * 0.12;
-          ctx.drawImage(trailFrame, -imageWidth / 2 - travelX * back, -imageHeight / 2 - travelY * back, imageWidth, imageHeight);
+          // The canvas is already rotated to the travel angle, so move the
+          // afterimage backward along its local X axis instead of rotating the
+          // screen-space travel vector a second time.
+          ctx.drawImage(trailFrame, -imageWidth / 2 - traveledPixels * back, -imageHeight / 2, imageWidth, imageHeight);
         }
       }
       ctx.globalAlpha = projectile.impactAge !== undefined ? Math.min(1, renderLife / 0.42) : 1;
@@ -4880,21 +4990,24 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const definition = getClassSkills(this.selectedClass).find((entry) => entry.name === skillName);
     const kind = definition?.visual ?? getD2SkillVisual(skillName);
     const targetDistance = target ? Math.hypot(target.x - this.playerX, target.y - this.playerY) || 1 : 1;
-    const facingX = target ? (target.x - this.playerX) / targetDistance : this.playerFacingX;
-    const facingY = target ? (target.y - this.playerY) / targetDistance : this.playerFacingY;
-    const visualTargetDistance = Math.min(targetDistance, 220);
+    const effectTarget = target && (kind === "projectile" || kind === "strike") ? target : undefined;
+    const facingX = effectTarget ? (effectTarget.x - this.playerX) / targetDistance : this.playerFacingX;
+    const facingY = effectTarget ? (effectTarget.y - this.playerY) / targetDistance : this.playerFacingY;
+    const visualTargetDistance = effectTarget ? Math.min(targetDistance, 220) : 110;
     this.skillVisualEffects.push({
       name: skillName,
       kind,
       x: this.playerX,
       y: this.playerY,
-      targetX: this.playerX + facingX * visualTargetDistance,
-      targetY: this.playerY + facingY * visualTargetDistance,
+      targetX: effectTarget ? effectTarget.x : this.playerX + facingX * visualTargetDistance,
+      targetY: effectTarget ? effectTarget.y : this.playerY + facingY * visualTargetDistance,
       facingX,
       facingY,
-      targetEnemy: !!target && (kind === "projectile" || kind === "strike"),
+      targetEnemy: !!effectTarget,
       time: 0,
-      duration: kind === "summon" ? 1.8 : kind === "projectile" ? target ? Math.min(0.9, Math.max(0.32, targetDistance / 520)) : 0.9 : 1.25,
+      duration: kind === "summon" ? 1.8 : kind === "projectile"
+        ? (effectTarget ? Math.min(0.9, Math.max(0.32, targetDistance / 520)) : 0.9)
+        : 1.25,
       color: this.skillVisualColorForName(skillName, kind),
       seed: hashString(skillName) % 628,
     });
@@ -4934,7 +5047,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       effect.time += seconds;
       effect.x = this.playerX;
       effect.y = this.playerY;
-      if (!effect.targetEnemy) {
+      if (effect.targetEnemy) {
+        effect.targetX -= this.playerMoveX;
+        effect.targetY -= this.playerMoveY;
+      } else {
+        effect.x = this.playerX;
+        effect.y = this.playerY;
         effect.targetX = this.playerX + effect.facingX * 110;
         effect.targetY = this.playerY + effect.facingY * 110;
       }
@@ -5002,6 +5120,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const angle = Math.atan2(target.y - origin.y, target.x - origin.x);
     const animationFrame = Math.floor(performance.now() / 60);
     const missileId = effect.kind === "projectile" ? this.missileOverlayId(effect.name) : undefined;
+    // The imported user-supplied DCC frames point diagonally up-right in their
+    // source art; rotate those frames so the nose follows the projected travel.
+    const missileArtworkAngle = angle + (missileId?.startsWith("d2-") ? Math.PI / 4 : 0);
     const missileFrames = missileId ? this.missileOverlayImages.get(missileId) : undefined;
     const frameCount = missileFrames?.length ?? 0;
     const frameDuration = MISSILE_FRAME_DURATIONS_MS[missileId ?? ""] ?? 85;
@@ -5010,15 +5131,18 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       ? Math.min(frameCount - 1, Math.floor(effectAge * 1000 / frameDuration))
       : 0;
     let missileFrame = effect.name === "Teeth" ? undefined : frameCount ? missileFrames?.[frameIndex] : undefined;
-    if (effect.name !== "Teeth" && (!missileFrame?.complete || missileFrame.naturalWidth === 0)) {
-      missileFrame = missileFrames?.find((image) => image.complete && image.naturalWidth > 0);
+    if (effect.name !== "Teeth" && !this.isMissileFrameReady(missileFrame)) {
+      missileFrame = missileFrames?.find((frame) => this.isMissileFrameReady(frame));
     }
     const icon = this.skillIcon(effect.name);
     const label = effect.name.toUpperCase();
     const radius = 22 + progress * (effect.kind === "wave" || effect.kind === "burst" ? 76 : 42);
     ctx.save();
     ctx.translate(origin.x, origin.y - 10);
-    ctx.rotate(angle);
+    // Projectile progress is already measured in projected screen coordinates.
+    // Rotating the whole context here rotated that travel vector a second time,
+    // sending skill missiles off course; rotate only the missile artwork below.
+    if (effect.kind !== "projectile") ctx.rotate(angle);
     ctx.globalAlpha = Math.min(0.95, fade);
     ctx.strokeStyle = effect.color;
     ctx.fillStyle = effect.color;
@@ -5035,19 +5159,23 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         : progress;
       const x = (target.x - origin.x) * projectileProgress;
       const y = (target.y - origin.y) * projectileProgress;
-      if (missileFrame?.complete && missileFrame.naturalWidth > 0) {
+      if (this.isMissileFrameReady(missileFrame)) {
         const impact = effect.targetEnemy && effect.time >= effect.duration * 0.82;
         const maxSize = effect.name === "Meteor" ? 48 : 38;
-        const scale = maxSize / Math.max(missileFrame.naturalWidth, missileFrame.naturalHeight);
-        const width = missileFrame.naturalWidth * scale;
-        const height = missileFrame.naturalHeight * scale;
-        ctx.save(); ctx.globalCompositeOperation = "source-over"; ctx.shadowBlur = 0;
-        ctx.drawImage(missileFrame, x - width / 2, y - height / 2, width, height);
+        const scale = maxSize / Math.max(missileFrame.width, missileFrame.height);
+        const width = missileFrame.width * scale;
+        const height = missileFrame.height * scale;
+        ctx.save();
+        ctx.globalCompositeOperation = "source-over";
+        ctx.shadowBlur = 0;
+        ctx.translate(x, y);
+        ctx.rotate(missileArtworkAngle);
+        ctx.drawImage(missileFrame, -width / 2, -height / 2, width, height);
+        ctx.restore();
         if (impact) {
           ctx.globalAlpha = fade * 0.7;
           ctx.beginPath(); ctx.arc(x, y, 12 + progress * 16, 0, Math.PI * 2); ctx.stroke();
         }
-        ctx.restore();
       } else {
         ctx.beginPath(); ctx.arc(x, y, 7 + 3 * fade, 0, Math.PI * 2); ctx.fill();
       }

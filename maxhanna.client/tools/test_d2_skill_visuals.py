@@ -36,6 +36,24 @@ class MissileTransparencyTests(unittest.TestCase):
         self.assertLess(result.getpixel((2, 0))[3], 255)
         self.assertEqual(result.getpixel((3, 0))[3], 128)
 
+    def test_removes_only_edge_connected_dark_matte(self):
+        image = Image.new("RGBA", (7, 7), (0, 0, 0, 0))
+        image.putpixel((0, 0), (18, 18, 18, 255))
+        for y in range(1, 6):
+            for x in range(1, 6):
+                image.putpixel((x, y), (80, 80, 80, 255))
+        for y in range(2, 5):
+            for x in range(2, 5):
+                image.putpixel((x, y), (22, 22, 22, 255))
+        image.putpixel((3, 3), (18, 18, 18, 255))
+        image.putpixel((2, 2), (30, 15, 8, 255))
+
+        result = remove_black_background(image)
+
+        self.assertEqual(result.getpixel((0, 0))[3], 0)
+        self.assertEqual(result.getpixel((3, 3)), (18, 18, 18, 255))
+        self.assertEqual(result.getpixel((2, 2)), (30, 15, 8, 255))
+
     def test_preserves_color_and_is_idempotent(self):
         image = Image.new("RGBA", (2, 1))
         image.putdata([(10, 20, 80, 255), (20, 20, 20, 100)])

@@ -4,6 +4,7 @@ import re
 import struct
 import subprocess
 import tempfile
+from collections import deque
 from pathlib import Path
 
 from PIL import Image
@@ -54,24 +55,59 @@ FRAME_NAME = re.compile(r"decoded_d(\d+)_f(\d+)\.png$")
 def remove_black_background(image: Image.Image) -> Image.Image:
     rgba = image.convert("RGBA")
     pixels = rgba.load()
-    # DCC exports can carry the black matte in partially transparent pixels,
-    # not just fully opaque ones. Key those pixels too; otherwise alpha blending
-    # leaves a dark rectangle behind the bright missile when drawn on the arena.
-    # Keep the original alpha on colored sprite pixels.
-    for y in range(rgba.height):
-        for x in range(rgba.width):
-            red, green, blue, alpha = pixels[x, y]
-            if alpha == 0:
-                continue
-            luminance = round(red * 0.299 + green * 0.587 + blue * 0.114)
-            if luminance <= 2:
+    width, height = rgba.size
+    visited = bytearray(width * height)
+    queue = deque()
+
+    def is_matte_pixel(x: int, y: int) -> bool:
+        red, green, blue, alpha = pixels[x, y]
+        return (
+            alpha > 0
+            and max(red, green, blue) <= 48
+            and max(red, green, blue) - min(red, green, blue) <= 28
+        )
+
+    def enqueue(x: int, y: int) -> None:
+        index = y * width + x
+        if visited[index]:
+            return
+        visited[index] = 1
+        if pixels[x, y][3] == 0 or is_matte_pixel(x, y):
+            queue.append(index)
+
+    for x in range(width):
+        enqueue(x, 0)
+        enqueue(x, height - 1)
+    for y in range(1, height - 1):
+        enqueue(0, y)
+        enqueue(width - 1, y)
+
+    while queue:
+        index = queue.popleft()
+        x, y = index % width, index // width
+        red, green, blue, alpha = pixels[x, y]
+        if alpha:
+            # Pure black matte is fully transparent; the remaining dark edge
+            # coverage is reduced smoothly to eliminate the black fringe.
+            luminance = red * 0.299 + green * 0.587 + blue * 0.114
+            matte_coverage = min(1.0, luminance / 48)
+            if luminance <= 32:
                 pixels[x, y] = (red, green, blue, 0)
-            elif max(red, green, blue) - min(red, green, blue) <= 4 and luminance <= 32:
-                # Faint grayscale antialias pixels over black retain a dark matte
-                # in their RGB. Reduce coverage to remove halos without muting
-                # authored dark-blue/cyan pixels that simply happen to be dim.
-                matte_coverage = (luminance - 2) / 30
-                pixels[x, y] = (red, green, blue, round(alpha * matte_coverage))
+            else:
+                pixels[x, y] = (
+                    min(255, round(red / matte_coverage)),
+                    min(255, round(green / matte_coverage)),
+                    min(255, round(blue / matte_coverage)),
+                    round(alpha * matte_coverage),
+                )
+        if x > 0:
+            enqueue(x - 1, y)
+        if x + 1 < width:
+            enqueue(x + 1, y)
+        if y > 0:
+            enqueue(x, y - 1)
+        if y + 1 < height:
+            enqueue(x, y + 1)
     return rgba
 
 
