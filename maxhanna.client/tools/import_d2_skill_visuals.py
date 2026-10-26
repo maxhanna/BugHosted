@@ -13,7 +13,6 @@ ASSET_ROOT = PROJECT_ROOT / "src" / "assets" / "d2survivors" / "missiles"
 DEFAULT_D2_ROOT = Path.home() / "Desktop" / "d2" / "Work"
 DECODER_ROOT = Path(tempfile.gettempdir()) / "d2-dcc-decoder"
 DEFAULT_CONVERTER = DEFAULT_D2_ROOT / "maxhanna.client" / "dcc-converter-bin" / "dcc-convert.exe"
-
 # Import the first projectile direction; the runtime turns the sprite toward its target.
 SKILL_ANIMATIONS = {
     "d2-firebolt": "D1FireBolt",
@@ -144,7 +143,8 @@ def inspect_existing(output: Path, name: str, dcc_name: str) -> dict:
 
 def find_source_dcc(d2_root: Path, dcc_name: str) -> Path:
     """Find the named animation source inside the one supplied Desktop/d2/Work tree."""
-    for directory in (d2_root, d2_root / "data" / "global" / "missiles"):
+    directories = (d2_root, d2_root / "data" / "global" / "missiles")
+    for directory in directories:
         if directory.is_dir():
             named_sources = sorted(
                 (path for path in directory.glob("*.dcc") if path.stem.lower() == dcc_name.lower()),

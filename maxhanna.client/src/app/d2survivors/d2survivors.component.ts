@@ -56,7 +56,8 @@ const SKILL_MISSILE_OVERLAYS: Record<string, string> = {
   "Ice Bolt": "d2-icebolt", "Ice Blast": "d2-icebolt", "Freezing Arrow": "d2-icebolt",
   "Glacial Spike": "d2-icebolt", "Frozen Orb": "d2-icebolt", Blizzard: "d2-icebolt",
   Lightning: "d2-lightning", "Chain Lightning": "d2-lightning", "Thunder Storm": "d2-lightning",
-  "Charged Bolt": "d2-lightning", "Lightning Bolt": "d2-bluestar", "Lightning Fury": "d2-bluestar",
+  "Charged Bolt": "d2-lightning", "Charged Bolt Sentry": "d2-bluestar",
+  "Lightning Bolt": "d2-bluestar", "Lightning Fury": "d2-bluestar",
 
   "Poison Javelin": "d2-acidbolt", "Plague Javelin": "d2-acidbolt", "Poison Nova": "d2-poisonbolt",
   "Bone Spirit": "d2-bloodstar", "Bone Spear": "d2-bloodstar", Teeth: "d2-shadowbolt",
@@ -73,7 +74,7 @@ const SKILL_MISSILE_OVERLAYS: Record<string, string> = {
   "Poison Dagger": "d2-poisonbolt", "Poison Explosion": "d2-poisonbolt", "Corpse Explosion": "d2-bloodcomet",
   "Bone Armor": "d2-bloodstar", "Bone Wall": "d2-bloodstar", "Bone Prison": "d2-bloodstar",
   "Raise Skeleton": "d2-bloodstar", "Skeletal Mage": "d2-bloodstar", "Clay Golem": "d2-bloodcomet",
-  "Charged Bolt Sentry": "d2-bluestar", "Shock Web": "d2-bluestar", "Blade Sentinel": "101",
+  "Shock Web": "d2-bluestar", "Blade Sentinel": "101",
   "Death Sentry": "d2-bluestar", "Lightning Sentry": "d2-lightning",
   "Blade Fury": "101", "Blade Shield": "101", "Phoenix Strike": "d2-bloodcomet",
   "Claws of Thunder": "d2-bluestar", "Blades of Ice": "d2-icebolt", "Fists of Fire": "d2-fireball",
@@ -369,9 +370,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private currentChunkLocalX = 0;
   private currentChunkLocalY = 0;
   private readonly worldZoom = 2.1;
-  // The source tile cells are 160×80 px for a 2:1 diamond; their display size
-  // should follow the current isometric world zoom rather than being enlarged 23×.
-  private readonly floorTileScale = 1;
+  // Floor cells are 160×80 source pixels and render at the gameplay world zoom.
+  private readonly floorTileScale = this.worldZoom;
   // Fixed first-chunk doorway placed a short walk from the starting position.
   private readonly act1InteriorDoor = { x: 410, y: 240, radius: 12 };
   private readonly playerWorldScale = 1.8;
@@ -3555,8 +3555,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           teethFan: skill === "Teeth" ? spread : undefined,
           teethDirectionX: skill === "Teeth" ? this.playerFacingX : undefined,
           teethDirectionY: skill === "Teeth" ? this.playerFacingY : undefined,
-          speed: 700, damage: damage * (skill === "Teeth" ? 0.55 : 1), life: Math.max(3, distance / 700 + 1),
-          radius: 5, color, kind, missileId: visualMissile,
+          speed: skill === "Teeth" ? 700 : 420, damage: damage * (skill === "Teeth" ? 0.55 : 1), life: Math.max(3, distance / 420 + 1),
+          radius: 5, color, kind, missileId: visualMissile, age: 0,
         });
       }
       this.triggerAttackAnimation(castAnimation);
@@ -4082,6 +4082,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const seconds = dt / 1000;
     for (const projectile of this.attackProjectiles) {
       projectile.life -= seconds;
+      projectile.age += seconds;
+      if (projectile.impactAge !== undefined) {
+        projectile.impactAge += seconds;
+        if (projectile.impactAge >= 0.42) projectile.life = 0;
+        continue;
+      }
       if (projectile.teethFan !== undefined) {
         const deltaX = projectile.targetX - projectile.x;
         const deltaY = projectile.targetY - projectile.y;
@@ -4127,14 +4133,19 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const dx = projectile.targetX - projectile.x;
       const dy = projectile.targetY - projectile.y;
       const distance = Math.hypot(dx, dy);
-      const step = projectile.speed * seconds;
+      const step = projectile.speed * seconds / this.worldZoom;
       if (distance <= step + (targetIsAlive ? target.r : 4)) {
-        if (targetIsAlive) target.hp -= projectile.damage;
-        projectile.life = 0;
+        if (targetIsAlive) {
+          target.hp -= projectile.damage;
+          projectile.impactPoint = { x: target.x, y: target.y };
+          projectile.impactAge = 0;
+        } else {
+          projectile.life = 0;
+        }
         this.floatingTexts.push({ x: projectile.targetX, y: projectile.targetY - 12, text: targetIsAlive ? `-${projectile.damage}` : "Miss", color: projectile.color, life: 0.65 });
       } else if (distance > 0) {
-        projectile.x += dx / distance * step / this.worldZoom;
-        projectile.y += dy / distance * step / this.worldZoom;
+        projectile.x += dx / distance * step;
+        projectile.y += dy / distance * step;
       }
     }
     this.attackProjectiles = this.attackProjectiles.filter((projectile) => projectile.life > 0);
@@ -4193,7 +4204,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   private drawAttackProjectile(ctx: CanvasRenderingContext2D, projectile: AttackProjectile): void {
     if (projectile.kind === "melee") return;
-    const point = this.projectArenaPoint(projectile.x, projectile.y);
+    const renderPoint = projectile.impactPoint ?? { x: projectile.x, y: projectile.y };
+    const renderAge = projectile.age;
+    const renderLife = projectile.impactAge === undefined ? projectile.life : Math.max(0, 0.42 - projectile.impactAge);
+    const point = this.projectArenaPoint(renderPoint.x, renderPoint.y);
     const start = this.projectArenaPoint(projectile.startX, projectile.startY);
     const missileId = projectile.missileId ?? ATTACK_KIND_MISSILE_OVERLAYS[projectile.kind];
     if (projectile.teethFan !== undefined) {
@@ -4202,13 +4216,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     const overlays = this.missileOverlayImages.get(missileId);
     const frameDuration = MISSILE_FRAME_DURATIONS_MS[missileId] ?? 85;
-    const desiredFrame = overlays?.length ? Math.floor(performance.now() / frameDuration) % overlays.length : 0;
+    const desiredFrame = overlays?.length ? Math.floor(renderAge * 1000 / frameDuration) % overlays.length : 0;
     let overlay = overlays?.[desiredFrame];
     if (!overlay?.complete || overlay.naturalWidth === 0) {
       overlay = overlays?.find((image) => image.complete && image.naturalWidth > 0);
     }
     if (overlay?.complete && overlay.naturalWidth > 0) {
-      const direction = Math.atan2(projectile.targetY - projectile.startY, projectile.targetX - projectile.startX);
+      const direction = Math.atan2(point.y - start.y, point.x - start.x);
       const maxFrameSize = ["fireball", "bloodcomet"].includes(missileId) ? 36 : 28;
       const dpr = this.arenaRef?.nativeElement.clientWidth
         ? this.arenaRef.nativeElement.width / this.arenaRef.nativeElement.clientWidth
@@ -4216,13 +4230,31 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const frameScale = maxFrameSize * dpr / Math.max(overlay.naturalWidth, overlay.naturalHeight);
       const imageWidth = overlay.naturalWidth * frameScale * this.worldZoom;
       const imageHeight = overlay.naturalHeight * frameScale * this.worldZoom;
+      const travelX = point.x - start.x;
+      const travelY = point.y - start.y;
+      const traveledPixels = Math.hypot(travelX, travelY);
       ctx.save();
       ctx.translate(point.x, point.y - 8);
       ctx.rotate(direction);
+      // Faint previous DCC cels leave a short afterimage so the cast reads as a
+      // moving, animated missile rather than a single icon sliding across the map.
+      if (overlays?.length) {
+        for (const trail of [1, 2]) {
+          const trailAge = Math.max(0, renderAge - trail * 0.085);
+          const trailFrameIndex = Math.floor(trailAge * 1000 / frameDuration) % overlays.length;
+          const trailFrame = overlays[trailFrameIndex];
+          if (traveledPixels < trail * 7 || !trailFrame?.complete || trailFrame.naturalWidth === 0) continue;
+          ctx.globalAlpha = trail === 1 ? 0.16 : 0.08;
+          const back = trail * 0.12;
+          ctx.drawImage(trailFrame, -imageWidth / 2 - travelX * back, -imageHeight / 2 - travelY * back, imageWidth, imageHeight);
+        }
+      }
+      ctx.globalAlpha = projectile.impactAge !== undefined ? Math.min(1, renderLife / 0.42) : 1;
       // Preserve the sprite's authored alpha instead of additively saturating it.
       // Charged Bolt fans several overlapping bolts; additive blending turns their
       // transparent cyan edges into a bright opaque-looking square at the origin.
       ctx.globalCompositeOperation = "source-over";
+      if (projectile.impactAge !== undefined) ctx.globalAlpha = Math.min(1, renderLife / 0.42);
       ctx.shadowColor = projectile.color;
       ctx.shadowBlur = 2;
       ctx.drawImage(overlay, -imageWidth / 2, -imageHeight / 2, imageWidth, imageHeight);
@@ -4854,7 +4886,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const target = this.projectArenaPoint(effect.targetX, effect.targetY);
     const angle = Math.atan2(target.y - origin.y, target.x - origin.x);
     const animationFrame = Math.floor(performance.now() / 60);
-    const missileId = this.missileOverlayId(effect.name) ?? ATTACK_KIND_MISSILE_OVERLAYS[this.basicAttackForClass(this.selectedClass).kind];
+    const missileId = effect.kind === "projectile" ? this.missileOverlayId(effect.name) : undefined;
     const missileFrames = missileId ? this.missileOverlayImages.get(missileId) : undefined;
     const frameCount = missileFrames?.length ?? 0;
     const frameDuration = MISSILE_FRAME_DURATIONS_MS[missileId ?? ""] ?? 85;
@@ -4888,13 +4920,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         : progress;
       const x = (target.x - origin.x) * projectileProgress;
       const y = (target.y - origin.y) * projectileProgress;
-      ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(x, y); ctx.stroke();
       if (missileFrame?.complete && missileFrame.naturalWidth > 0) {
         const impact = effect.targetEnemy && effect.time >= effect.duration * 0.82;
-        const size = effect.name === "Meteor" ? 48 : 34;
-        ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.shadowBlur = 0;
-        ctx.drawImage(missileFrame, x - size / 2, y - size / 2, size, size);
+        const maxSize = effect.name === "Meteor" ? 48 : 38;
+        const scale = maxSize / Math.max(missileFrame.naturalWidth, missileFrame.naturalHeight);
+        const width = missileFrame.naturalWidth * scale;
+        const height = missileFrame.naturalHeight * scale;
+        ctx.save(); ctx.globalCompositeOperation = "source-over"; ctx.shadowBlur = 0;
+        ctx.drawImage(missileFrame, x - width / 2, y - height / 2, width, height);
         if (impact) {
           ctx.globalAlpha = fade * 0.7;
           ctx.beginPath(); ctx.arc(x, y, 12 + progress * 16, 0, Math.PI * 2); ctx.stroke();
@@ -4902,15 +4935,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         ctx.restore();
       } else {
         ctx.beginPath(); ctx.arc(x, y, 7 + 3 * fade, 0, Math.PI * 2); ctx.fill();
-      }
-      for (let trail = 1; trail <= 4; trail += 1) {
-        const tail = Math.max(0, projectileProgress - trail * 0.045);
-        ctx.globalAlpha = fade * (1 - trail * 0.18);
-        ctx.beginPath(); ctx.arc((target.x - origin.x) * tail, (target.y - origin.y) * tail, 4, 0, Math.PI * 2); ctx.fill();
-      }
-      if (effect.targetEnemy && effect.time >= effect.duration * 0.88) {
-        ctx.globalAlpha = fade;
-        ctx.beginPath(); ctx.arc(target.x - origin.x, target.y - origin.y, 14 + progress * 22, 0, Math.PI * 2); ctx.stroke();
       }
     } else if (effect.kind === "aura") {
       for (let ring = 0; ring < 3; ring += 1) {
@@ -4962,24 +4986,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       ctx.beginPath(); ctx.arc(20, 0, 26 + progress * 12, -1.15 + progress * 1.5, 1.15 + progress * 1.5); ctx.stroke();
       ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(34 + progress * 24, 0); ctx.stroke();
-    }
-    if ((effect.kind !== "projectile" || effect.targetEnemy) && missileFrame?.complete && missileFrame.naturalWidth > 0) {
-      if (effect.kind !== "projectile") {
-        const size = effect.kind === "burst" ? 42 : 32;
-        const effectX = effect.kind === "aura" || effect.kind === "summon" || effect.kind === "trap" || effect.kind === "burst"
-          ? 0
-          : Math.min(1, progress * 2) * (target.x - origin.x);
-        const effectY = effect.kind === "aura" || effect.kind === "summon" || effect.kind === "trap" || effect.kind === "burst"
-          ? 0
-          : Math.min(1, progress * 2) * (target.y - origin.y);
-        ctx.save();
-        ctx.globalCompositeOperation = "lighter";
-        ctx.globalAlpha = fade * 0.92;
-        ctx.shadowColor = effect.color;
-        ctx.shadowBlur = 8;
-        ctx.drawImage(missileFrame, effectX - size / 2, effectY - radius * 0.4 - size / 2, size, size);
-        ctx.restore();
-      }
     }
     ctx.restore();
     ctx.save();
@@ -5780,7 +5786,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
     const act = this.currentActDetails;
     const tileWorldSize = 48;
-    const tileWorldScale = this.worldZoom * this.floorTileScale;
+    const tileWorldScale = this.worldZoom;
     const tileSpacingScale = this.floorTileScale;
     const tileScreenSize = tileWorldSize * tileWorldScale;
     const tileWidth = tileScreenSize * Math.SQRT2;
@@ -7286,6 +7292,9 @@ interface AttackProjectile {
   speed: number;
   damage: number;
   life: number;
+  age: number;
+  impactPoint?: { x: number; y: number };
+  impactAge?: number;
   radius: number;
   color: string;
   kind: "arrow" | "fire" | "lightning" | "blade" | "bone" | "holy" | "claw" | "melee";
