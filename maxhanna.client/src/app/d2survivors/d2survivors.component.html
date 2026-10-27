@@ -262,11 +262,13 @@
           </div>
           <div class="d2s-skill-bar" aria-label="Automatically casting skills">
             <div class="d2s-skill-slot basic-skill" [attr.title]="basicAttackName + ' · automatic attack'" [attr.aria-label]="basicAttackName + ', automatic attack'">
-              <img *ngIf="basicAttackIcon === ''; else basicAttackFallback" class="d2s-skill-overlay" [src]="missileOverlayPath(basicAttackMissileOverlay)" alt="" />
+              <img *ngIf="basicAttackName === 'Jab'; else basicAttackMissile" class="d2s-skill-art" [src]="skillIconPath(basicAttackName)" alt="" />
+              <ng-template #basicAttackMissile><img *ngIf="basicAttackIcon === ''; else basicAttackFallback" class="d2s-skill-overlay" [src]="missileOverlayPath(basicAttackMissileOverlay)" alt="" /></ng-template>
               <ng-template #basicAttackFallback><span class="d2s-skill-icon">{{ basicAttackIcon }}</span></ng-template>
             </div>
             <div class="d2s-skill-slot" *ngFor="let skill of equippedSkills" [attr.title]="skill + ' · automatic cast every ' + getSkillCastLabel(skill)" [attr.aria-label]="skill + ', casts automatically every ' + getSkillCastLabel(skill)">
-              <img *ngIf="skillIcon(skill) === ''; else skillIconFallback" class="d2s-skill-overlay" [src]="missileOverlayPath(getSkillMissileOverlay(skill))" alt="" /><ng-template #skillIconFallback><span class="d2s-skill-icon">{{ skillIcon(skill) }}</span></ng-template>
+              <img *ngIf="hasSkillIconImage(skill); else skillMissile" class="d2s-skill-art" [src]="skillIconPath(skill)" alt="" />
+              <ng-template #skillMissile><img *ngIf="skillIcon(skill) === ''; else skillIconFallback" class="d2s-skill-overlay" [src]="missileOverlayPath(getSkillMissileOverlay(skill))" alt="" /></ng-template><ng-template #skillIconFallback><span class="d2s-skill-icon">{{ skillIcon(skill) }}</span></ng-template>
               <span class="d2s-skill-cooldown" [style.transform]="'scaleY(' + (1 - skillCastProgress(skill)) + ') '" aria-hidden="true"></span>
             </div>
           </div>

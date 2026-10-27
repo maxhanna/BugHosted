@@ -17,6 +17,8 @@ DEFAULT_CONVERTER = DEFAULT_D2_ROOT / "maxhanna.client" / "dcc-converter-bin" / 
 # Import the first projectile direction; the runtime turns the sprite toward its target.
 SKILL_ANIMATIONS = {
     "d2-firebolt": "D1FireBolt",
+    "d2-fire-arrow": "FireArrow",
+    "d2-arctic-blast": "ArcticBlastIce",
     "d2-fireball": "D1FireBall",
     "d2-acidbolt": "AcidBolt",
     "d2-bloodcomet": "BloodComet",
@@ -31,11 +33,20 @@ SKILL_ANIMATIONS = {
     "d2-bluestar": "SuccubusMissileBlueTravel",
 }
 
+# Best-match opaque-file candidates reviewed against missile-table layouts and cel art.
+# These opaque mappings are recorded with confidence limits in D2_SKILL_ASSET_IMPORT.md.
+EXTRACTED_SOURCE_FILES = {
+    "FireArrow": "File00005601.xxx",
+    "ArcticBlastIce": "File00005568.xxx",
+}
+
 # The supplied DCC decoder exports grayscale when no native palette is passed.
 # Missiles.txt provides the projectile's D2 light color; apply it to grayscale
 # pixels while leaving already-colored pixels and alpha untouched.
 MISSILE_TINTS = {
     "d2-firebolt": (255, 178, 64),
+    "d2-fire-arrow": (255, 178, 64),
+    "d2-arctic-blast": (170, 225, 255),
     "d2-fireball": (255, 178, 64),
     "d2-acidbolt": (85, 235, 75),
     "d2-bloodcomet": (255, 35, 35),
@@ -178,7 +189,12 @@ def inspect_existing(output: Path, name: str, dcc_name: str) -> dict:
 
 
 def find_source_dcc(d2_root: Path, dcc_name: str) -> Path:
-    """Find the named animation source inside the one supplied Desktop/d2/Work tree."""
+    """Find a named DCC or its verified numbered file in the supplied Work tree."""
+    extracted_name = EXTRACTED_SOURCE_FILES.get(dcc_name)
+    if extracted_name:
+        extracted_source = d2_root / extracted_name
+        if extracted_source.is_file():
+            return extracted_source
     directories = (d2_root, d2_root / "data" / "global" / "missiles")
     for directory in directories:
         if directory.is_dir():
@@ -215,7 +231,9 @@ def convert(d2_root: Path, converter: Path, name: str, dcc_name: str) -> dict:
         # this header field in the temporary decoder input; source data is untouched.
         if struct.unpack_from("<I", source_data, 7)[0] != 1:
             struct.pack_into("<I", source_data, 7, 1)
-        decoder_source = temp_root / source.name
+        # Always use the logical DCC name in the temporary folder; the Work
+        # extraction often stores DCC bytes under opaque .xxx filenames.
+        decoder_source = temp_root / f"{dcc_name}.dcc"
         decoder_source.write_bytes(source_data)
         stem = temp_root / "decoded.png"
         result = subprocess.run(
@@ -267,9 +285,14 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Import skill missile animations from local Diablo II data.")
     parser.add_argument("--d2-root", type=Path, default=DEFAULT_D2_ROOT, help="One supplied asset tree; defaults to Desktop/d2/Work")
     parser.add_argument("--converter", type=Path, default=DEFAULT_CONVERTER)
+    parser.add_argument("--only", choices=sorted(SKILL_ANIMATIONS), help="Import only one missile asset")
     args = parser.parse_args()
+    selected_animations = {
+        name: dcc_name for name, dcc_name in SKILL_ANIMATIONS.items()
+        if args.only is None or name == args.only
+    }
     missing = []
-    for name, dcc_name in SKILL_ANIMATIONS.items():
+    for name, dcc_name in selected_animations.items():
         try:
             find_source_dcc(args.d2_root, dcc_name)
         except FileNotFoundError as error:
@@ -280,7 +303,7 @@ def main() -> None:
     manifest_path = ASSET_ROOT / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     imported = {}
-    for name, dcc_name in SKILL_ANIMATIONS.items():
+    for name, dcc_name in selected_animations.items():
         imported[name] = convert(args.d2_root, args.converter, name, dcc_name)
         print(f"{name}: {imported[name]['frames']} frames from {dcc_name}")
     manifest.update(imported)

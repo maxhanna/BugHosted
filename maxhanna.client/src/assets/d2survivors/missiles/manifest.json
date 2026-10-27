@@ -1122,5 +1122,27 @@
     "source": "user-supplied DCC",
     "dccName": "SuccubusMissileBlueTravel",
     "direction": 0
+  },
+  "d2-fire-arrow": {
+    "frames": 8,
+    "encodedFrames": 8,
+    "width": 11,
+    "height": 10,
+    "frameDirectory": "d2-fire-arrow",
+    "frameDurationMs": 85,
+    "source": "user-supplied DCC",
+    "dccName": "FireArrow",
+    "direction": 0
+  },
+  "d2-arctic-blast": {
+    "frames": 16,
+    "encodedFrames": 16,
+    "width": 78,
+    "height": 88,
+    "frameDirectory": "d2-arctic-blast",
+    "frameDurationMs": 85,
+    "source": "user-supplied DCC",
+    "dccName": "ArcticBlastIce",
+    "direction": 0
   }
 }

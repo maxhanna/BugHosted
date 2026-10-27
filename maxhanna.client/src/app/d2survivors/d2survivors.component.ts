@@ -34,7 +34,7 @@ const CAMPAIGN_TILE_RENDER_SCALE = 2;
 const MISSILE_OVERLAY_BASE = "assets/d2survivors/missiles";
 const MISSILE_FRAME_DURATIONS_MS: Record<string, number> = {
   "5": 85, "6": 85, "8": 85, "30": 85, "101": 85,
-  firebolt: 85, fireball: 85, acidbolt: 85, bloodcomet: 85, lightning: 85,
+  firebolt: 85, "d2-fire-arrow": 85, "d2-arctic-blast": 85, fireball: 85, acidbolt: 85, bloodcomet: 85, lightning: 85,
   "d2-firebolt": 85, "d2-fireball": 85, "d2-acidbolt": 85, "d2-bloodcomet": 85,
   "d2-lightning": 85, "d2-inferno": 85, "d2-magmaball": 85, "d2-icebolt": 85,
   "d2-poisonbolt": 85, "d2-bloodstar": 85, "d2-shadowbolt": 85,
@@ -44,7 +44,7 @@ const MISSILE_FRAME_DURATIONS_MS: Record<string, number> = {
 };
 const MISSILE_FRAME_COUNTS: Record<string, number> = {
   "5": 64, "6": 8, "8": 10, "30": 96, "101": 61,
-  firebolt: 15, fireball: 15, acidbolt: 8, bloodcomet: 15, lightning: 8,
+  firebolt: 15, "d2-fire-arrow": 8, "d2-arctic-blast": 16, fireball: 15, acidbolt: 8, bloodcomet: 15, lightning: 8,
   "d2-firebolt": 15, "d2-fireball": 15, "d2-acidbolt": 8, "d2-bloodcomet": 15,
   "d2-lightning": 8, "d2-inferno": 20, "d2-magmaball": 16, "d2-icebolt": 16,
   "d2-poisonbolt": 16, "d2-bloodstar": 16, "d2-shadowbolt": 16,
@@ -55,7 +55,7 @@ const MISSILE_FRAME_COUNTS: Record<string, number> = {
 const SKILL_MISSILE_OVERLAYS: Record<string, string> = {
   // Prefer a recognizable animation for skills with a close supplied match.
   "Guided Arrow": "5", "Magic Arrow": "5", "Multiple Shot": "5", Strafe: "5",
-  "Fire Arrow": "d2-firebolt", "Fire Bolt": "d2-firebolt", "Fire Blast": "d2-firebolt",
+  "Fire Arrow": "d2-fire-arrow", "Fire Bolt": "d2-firebolt", "Fire Blast": "d2-firebolt",
   "Exploding Arrow": "d2-fireball", "Fire Ball": "d2-fireball", Inferno: "d2-inferno",
   Blaze: "d2-inferno", "Fire Wall": "d2-inferno", "Wake of Fire": "d2-inferno",
   "Wake of Inferno": "d2-inferno", "Ice Arrow": "d2-icebolt", "Cold Arrow": "d2-icebolt",
@@ -88,7 +88,7 @@ const SKILL_MISSILE_OVERLAYS: Record<string, string> = {
   Bash: "30", "Double Swing": "30", "Double Throw": "30", "Leap Attack": "30", Concentrate: "30",
   Frenzy: "30", Berserk: "d2-bloodstar", Sacrifice: "30", Smite: "d2-holybolt", Zeal: "30",
   Charge: "d2-holybolt", Vengeance: "d2-bloodcomet", Fissure: "d2-magmaball", Hydra: "d2-fireball",
-  Nova: "d2-bluestar", "Arctic Blast": "d2-icebolt", Twister: "d2-bloodcomet", "Werewolf": "d2-bloodstar",
+  Nova: "d2-bluestar", "Arctic Blast": "d2-arctic-blast", Twister: "d2-bloodcomet", "Werewolf": "d2-bloodstar",
   "Werebear": "d2-bloodcomet", Maul: "30", "Feral Rage": "d2-bloodstar", Rabies: "d2-poisonbolt",
   "Shock Wave": "d2-bloodcomet", Fury: "101", Raven: "5", "Summon Spirit Wolf": "d2-bloodcomet",
   "Summon Dire Wolf": "d2-bloodcomet", "Summon Grizzly": "d2-bloodcomet", Valkyrie: "d2-holybolt",
@@ -136,11 +136,15 @@ const BASIC_ATTACK_MISSILE_OVERLAYS: Record<string, string> = {
   "Guided Arrow": "5", "Throwing Knife": "30", "Axe Throw": "30", "Spirit Claw": "101",
   "Bone Bolt": "8", "Holy Bolt": "d2-holybolt", "Fire Bolt": "d2-firebolt",
 };
+const SKILL_ICON_IMAGES: Record<string, string> = {
+  Jab: "assets/d2survivors/skills/jab-spear.png",
+};
 const HOMING_SKILLS = new Set(["Guided Arrow", "Bone Spirit"]);
 const MISSILE_SPRITE_ORIENTATIONS: Record<string, number> = {
   // Direction 0 in this D2 Fire Ball DCC points 45° above screen-right.
   "d2-fireball": Math.PI / 4,
 };
+const FIRE_ARROW_EFFECT_IDS = new Set(["d2-fire-arrow"]);
 const ATTACK_KIND_MISSILE_OVERLAYS: Record<AttackProjectile["kind"], string> = {
   arrow: "5",
   fire: "d2-fireball",
@@ -3757,7 +3761,16 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     return this.missileOverlayId(skill) ?? ATTACK_KIND_MISSILE_OVERLAYS[this.basicAttackForClass(this.selectedClass).kind];
   }
 
+  hasSkillIconImage(skill: string): boolean {
+    return Boolean(SKILL_ICON_IMAGES[skill]);
+  }
+
+  skillIconPath(skill: string): string {
+    return SKILL_ICON_IMAGES[skill] ?? "";
+  }
+
   skillIcon(skill: string): string {
+    if (this.hasSkillIconImage(skill)) return "";
     if (this.missileOverlayId(skill)) return "";
     const icons: Record<string, string> = {
       "Faster Attacks": "»", Vitality: "♥", "Arcane Focus": "◉", "Weapon Mastery": "⚔",
@@ -4757,7 +4770,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       + (MISSILE_SPRITE_ORIENTATIONS[missileId] ?? 0);
       const imageWidthNatural = overlay instanceof HTMLImageElement ? overlay.naturalWidth : overlay.width;
       const imageHeightNatural = overlay instanceof HTMLImageElement ? overlay.naturalHeight : overlay.height;
-      const maxFrameSize = ["fireball", "bloodcomet"].includes(missileId) ? 36 : 28;
+      const maxFrameSize = FIRE_ARROW_EFFECT_IDS.has(missileId)
+        ? 18
+        : ["fireball", "bloodcomet"].includes(missileId) ? 36 : 28;
       const dpr = this.arenaRef?.nativeElement.clientWidth
         ? this.arenaRef.nativeElement.width / this.arenaRef.nativeElement.clientWidth
         : 1;
@@ -4794,6 +4809,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       if (projectile.impactAge !== undefined) ctx.globalAlpha = Math.min(1, renderLife / 0.42);
       ctx.shadowColor = projectile.color;
       ctx.shadowBlur = 2;
+      if (FIRE_ARROW_EFFECT_IDS.has(missileId)) {
+        // The original FireArrow DCC animates the flame/arrowhead only; pair it
+        // with a small shaft so the projectile reads as an arrow in motion.
+        ctx.fillStyle = "#a66a24";
+        ctx.fillRect(-imageWidth * 0.78, -imageHeight * 0.035, imageWidth * 0.62, Math.max(1, imageHeight * 0.07));
+      }
       ctx.drawImage(overlay, -imageWidth / 2, -imageHeight / 2, imageWidth, imageHeight);
       ctx.restore();
       return;
@@ -7234,7 +7255,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
     let spriteDrawn = false;
     if (sprite && sprite.frames.length > 0) {
-      const directionX = e.facingX ?? dx;
+      const directionX = e.species === "andariel" ? -(e.facingX ?? dx) : e.facingX ?? dx;
       const directionY = e.facingY ?? dy;
       const directionRow = enemySpriteRow(e.species, directionX, directionY);
       const direction = e.species === "goatman"
@@ -7275,8 +7296,16 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           ctx.shadowColor = "rgba(255, 112, 64, 0.8)";
           ctx.shadowBlur = Math.max(5, size * 0.12);
         }
-        // Draw one pre-cropped frame, choosing idle, movement, or attack pose timing.
-        ctx.drawImage(frame, drawX, drawY - attackPulse * size * 0.12, drawWidth, drawHeight);
+        // The skeleton archer sheet only has a left-facing direction. Mirror it
+        // when its target is to the right so it turns toward the player or summon.
+        const drawYWithAttack = drawY - attackPulse * size * 0.12;
+        if (e.species === "skeleton" && directionX > 0) {
+          ctx.translate(ground.x, 0);
+          ctx.scale(-1, 1);
+          ctx.drawImage(frame, -drawWidth / 2, drawYWithAttack, drawWidth, drawHeight);
+        } else {
+          ctx.drawImage(frame, drawX, drawYWithAttack, drawWidth, drawHeight);
+        }
         ctx.restore();
         spriteDrawn = true;
 
@@ -7416,12 +7445,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const width = height * (isRaven ? 1.25 : 1.45);
     const frame = animation ? druidAnimationFrame(summon, animation, this.runTime, this.playerMoveX, this.playerMoveY, isCreeper) : undefined;
     ctx.save();
-    ctx.fillStyle = "#050505";
-    ctx.globalAlpha = 0.56;
-    ctx.beginPath();
-    ctx.ellipse(ground.x, ground.y + 2, width * (isCreeper ? 0.43 : 0.34), height * 0.09, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.globalAlpha = 1;
+    if (!isCreeper) {
+      ctx.fillStyle = "#050505";
+      ctx.globalAlpha = 0.56;
+      ctx.beginPath();
+      ctx.ellipse(ground.x, ground.y + 2, width * 0.34, height * 0.09, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
     if (frame) {
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(frame, ground.x - width / 2, ground.y - height * 0.86, width, height);
@@ -7453,7 +7484,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const animation = animationName ? this.druidAnimations[animationName] : undefined;
     if (!this.druidForm || !animation) return;
     const ground = this.projectArenaPoint(this.playerX, this.playerY);
-    const direction = druidDirection(this.playerFacingX, this.playerFacingY);
+    // The imported wereform atlas orders its horizontal facings opposite to the
+    // gameplay movement vector, so flip the x component when selecting its row.
+    const direction = druidDirection(-this.playerFacingX, this.playerFacingY);
     const formAttackDuration = this.druidForm === "werebear" ? 0.56 : 0.38;
     const frameIndex = this.druidFormAttackTime > 0
       ? druidAttackFrame(animation.columns, this.druidFormAttackTime, formAttackDuration)
