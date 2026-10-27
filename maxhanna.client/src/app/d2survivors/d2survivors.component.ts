@@ -136,6 +136,11 @@ const BASIC_ATTACK_MISSILE_OVERLAYS: Record<string, string> = {
   "Guided Arrow": "5", "Throwing Knife": "30", "Axe Throw": "30", "Spirit Claw": "101",
   "Bone Bolt": "8", "Holy Bolt": "d2-holybolt", "Fire Bolt": "d2-firebolt",
 };
+const HOMING_SKILLS = new Set(["Guided Arrow", "Bone Spirit"]);
+const MISSILE_SPRITE_ORIENTATIONS: Record<string, number> = {
+  // Direction 0 in this D2 Fire Ball DCC points 45° above screen-right.
+  "d2-fireball": Math.PI / 4,
+};
 const ATTACK_KIND_MISSILE_OVERLAYS: Record<AttackProjectile["kind"], string> = {
   arrow: "5",
   fire: "d2-fireball",
@@ -351,7 +356,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private characterScene?: THREE.Scene;
   private characterCamera?: THREE.OrthographicCamera;
   private characterModel?: THREE.Group;
-  private playerShadow?: THREE.Mesh<THREE.CircleGeometry, THREE.MeshBasicMaterial>;
   private playerRigBones: PlayerRigBones = {};
   private playerAnimationTime = 0;
   private playerAnimationDelta = 16;
@@ -3859,6 +3863,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           targetX: skill === "Teeth" ? this.playerX + rayX / rayLength * teethRange : nearest.x + spread,
           targetY: skill === "Teeth" ? this.playerY + rayY / rayLength * teethRange : nearest.y,
           target: skill === "Teeth" ? undefined : nearest, targetId: this.attackSequence++,
+          homing: HOMING_SKILLS.has(skill),
           teethFan: skill === "Teeth" ? spread : undefined,
           teethDirectionX: skill === "Teeth" ? this.playerFacingX : undefined,
           teethDirectionY: skill === "Teeth" ? this.playerFacingY : undefined,
@@ -4285,9 +4290,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       }
     });
     this.characterRenderer?.dispose();
-    this.playerShadow?.geometry.dispose();
-    this.playerShadow?.material.dispose();
-    this.playerShadow = undefined;
     const skillEffectsContext = this.skillEffectsCanvasRef?.nativeElement.getContext("2d");
     skillEffectsContext?.clearRect(0, 0, this.skillEffectsCanvasRef?.nativeElement.width ?? 0, this.skillEffectsCanvasRef?.nativeElement.height ?? 0);
     this.skillVisualEffects.length = 0;
@@ -4628,39 +4630,53 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const target = projectile.target;
       const targetIsPlayer = projectile.targetPlayer === true;
       const targetIsAlive = targetIsPlayer || (!!target && this.enemies.includes(target) && target.hp > 0);
-      if (targetIsPlayer) {
-        projectile.targetX = this.playerX;
-        projectile.targetY = this.playerY;
-      } else if (targetIsAlive && target) {
-        projectile.targetX = target.x;
-        projectile.targetY = target.y;
+      if (projectile.homing && targetIsAlive) {
+        if (targetIsPlayer) {
+          projectile.targetX = this.playerX;
+          projectile.targetY = this.playerY;
+        } else if (target) {
+          projectile.targetX = target.x;
+          projectile.targetY = target.y;
+        }
       }
       const dx = projectile.targetX - projectile.x;
       const dy = projectile.targetY - projectile.y;
       const distance = Math.hypot(dx, dy);
       const step = projectile.speed * seconds / this.worldZoom;
+      const travel = Math.min(step, distance);
+      const nextX = projectile.x + (distance > 0 ? dx / distance * travel : 0);
+      const nextY = projectile.y + (distance > 0 ? dy / distance * travel : 0);
+      const collisionX = targetIsPlayer ? this.playerX : target?.x;
+      const collisionY = targetIsPlayer ? this.playerY : target?.y;
       const targetRadius = targetIsPlayer ? 18 : targetIsAlive && target ? target.r : 4;
-      if (distance <= step + targetRadius) {
-        if (targetIsAlive) {
-          if (targetIsPlayer) {
-            const armorReduction = this.equippedArmor / (this.equippedArmor + 100);
-            const frozenArmorReduction = this.isFrozenArmorActive()
-              ? Math.min(0.5, (this.skillLevels["Frozen Armor"] ?? 0) * 0.1)
-              : 0;
-            this.playerHp -= this.applyPaladinAuraDefense(projectile.damage * (1 - armorReduction) * (1 - frozenArmorReduction));
-            projectile.impactPoint = { x: this.playerX, y: this.playerY };
-          } else if (target) {
-            target.hp -= projectile.damage;
-            projectile.impactPoint = { x: target.x, y: target.y };
-          }
-          projectile.impactAge = 0;
-        } else {
-          projectile.life = 0;
+      const segmentX = nextX - projectile.x;
+      const segmentY = nextY - projectile.y;
+      const segmentLengthSquared = segmentX * segmentX + segmentY * segmentY;
+      const relativeX = (collisionX ?? projectile.targetX) - projectile.x;
+      const relativeY = (collisionY ?? projectile.targetY) - projectile.y;
+      const along = segmentLengthSquared > 0
+        ? Math.max(0, Math.min(1, (relativeX * segmentX + relativeY * segmentY) / segmentLengthSquared))
+        : 0;
+      const missDistance = Math.hypot(relativeX - along * segmentX, relativeY - along * segmentY);
+      if (targetIsAlive && missDistance <= targetRadius + projectile.radius) {
+        if (targetIsPlayer) {
+          const armorReduction = this.equippedArmor / (this.equippedArmor + 100);
+          const frozenArmorReduction = this.isFrozenArmorActive()
+            ? Math.min(0.5, (this.skillLevels["Frozen Armor"] ?? 0) * 0.1)
+            : 0;
+          this.playerHp -= this.applyPaladinAuraDefense(projectile.damage * (1 - armorReduction) * (1 - frozenArmorReduction));
+          projectile.impactPoint = { x: this.playerX, y: this.playerY };
+        } else if (target) {
+          target.hp -= projectile.damage;
+          projectile.impactPoint = { x: target.x, y: target.y };
         }
-        this.floatingTexts.push({ x: projectile.targetX, y: projectile.targetY - 12, text: targetIsAlive ? `-${projectile.damage}` : "Miss", color: projectile.color, life: 0.65 });
-      } else if (distance > 0) {
-        projectile.x += dx / distance * step;
-        projectile.y += dy / distance * step;
+        projectile.impactAge = 0;
+        this.floatingTexts.push({ x: collisionX ?? projectile.targetX, y: (collisionY ?? projectile.targetY) - 12, text: `-${projectile.damage}`, color: projectile.color, life: 0.65 });
+      } else if (distance <= step) {
+        projectile.life = 0;
+      } else {
+        projectile.x = nextX;
+        projectile.y = nextY;
       }
     }
     this.attackProjectiles = this.attackProjectiles.filter((projectile) => projectile.life > 0);
@@ -4738,7 +4754,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     if (this.isMissileFrameReady(overlay)) {
       const direction = Math.atan2(point.y - start.y, point.x - start.x)
-        + (missileId.startsWith("d2-") ? Math.PI / 4 : 0);
+      + (MISSILE_SPRITE_ORIENTATIONS[missileId] ?? 0);
       const imageWidthNatural = overlay instanceof HTMLImageElement ? overlay.naturalWidth : overlay.width;
       const imageHeightNatural = overlay instanceof HTMLImageElement ? overlay.naturalHeight : overlay.height;
       const maxFrameSize = ["fireball", "bloodcomet"].includes(missileId) ? 36 : 28;
@@ -4753,8 +4769,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const traveledPixels = Math.hypot(travelX, travelY);
       ctx.save();
       ctx.translate(point.x, point.y - 8);
-      // DCC source frames point up-right rather than along Canvas's local +X.
-      ctx.rotate(direction + (missileId.startsWith("d2-") ? Math.PI / 4 : 0));
+      // Align the sprite's authored nose with the projectile's travel vector.
+      ctx.rotate(direction);
       // Faint previous DCC cels leave a short afterimage so the cast reads as a
       // moving, animated missile rather than a single icon sliding across the map.
       if (overlays?.length) {
@@ -4765,9 +4781,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           if (traveledPixels < trail * 7 || !this.isMissileFrameReady(trailFrame)) continue;
           ctx.globalAlpha = trail === 1 ? 0.16 : 0.08;
           const back = trail * 0.12;
-          // The canvas is already rotated to the travel angle, so move the
-          // afterimage backward along its local X axis instead of rotating the
-          // screen-space travel vector a second time.
+          // The canvas is aligned with the travel vector, so the trail sits
+          // behind the missile on the local X axis.
           ctx.drawImage(trailFrame, -imageWidth / 2 - traveledPixels * back, -imageHeight / 2, imageWidth, imageHeight);
         }
       }
@@ -5367,7 +5382,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       targetY: effectTarget ? effectTarget.y : this.playerY + facingY * visualTargetDistance,
       facingX,
       facingY,
-      targetEnemy: !!effectTarget,
+      targetEnemy: !!effectTarget && HOMING_SKILLS.has(skillName),
       time: 0,
       duration: kind === "summon" ? 1.8 : kind === "projectile"
         ? (effectTarget ? Math.min(0.9, Math.max(0.32, targetDistance / 520)) : 0.9)
@@ -5571,11 +5586,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const origin = this.projectArenaPoint(effect.x, effect.y);
     const target = this.projectArenaPoint(effect.targetX, effect.targetY);
     const angle = Math.atan2(target.y - origin.y, target.x - origin.x);
-    const animationFrame = Math.floor(performance.now() / 60);
     const missileId = effect.kind === "projectile" ? this.missileOverlayId(effect.name) : undefined;
-    // The imported user-supplied DCC frames point diagonally up-right in their
-    // source art; rotate those frames so the nose follows the projected travel.
-    const missileArtworkAngle = angle + (missileId?.startsWith("d2-") ? Math.PI / 4 : 0);
+    const missileArtworkAngle = angle + (MISSILE_SPRITE_ORIENTATIONS[missileId ?? ""] ?? 0);
+    const animationFrame = Math.floor(performance.now() / 60);
+    // Most imported missile art is used as-is; apply a source-angle correction
+    // only for Fire Ball's diagonal DCC art when it follows the target direction.
     const missileFrames = missileId ? this.missileOverlayImages.get(missileId) : undefined;
     const frameCount = missileFrames?.length ?? 0;
     const frameDuration = MISSILE_FRAME_DURATIONS_MS[missileId ?? ""] ?? 85;
@@ -6652,21 +6667,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.characterRenderer.setClearColor(0x000000, 0);
       this.characterRenderer.outputColorSpace = THREE.SRGBColorSpace;
       this.characterScene = new THREE.Scene();
-      const shadowGeometry = new THREE.CircleGeometry(38, 16);
-      shadowGeometry.rotateX(-Math.PI / 2);
-      const shadowMaterial = new THREE.MeshBasicMaterial({
-        color: 0x000000,
-        transparent: true,
-        opacity: 0.28,
-        depthWrite: false,
-        // The ground shadow is a flat overlay; skip per-pixel lighting work.
-        toneMapped: false,
-      });
-      this.playerShadow = new THREE.Mesh(shadowGeometry, shadowMaterial);
-      this.playerShadow.scale.z = 0.52;
-      this.playerShadow.position.y = 0.04;
-      this.playerShadow.renderOrder = 1;
-      this.characterScene.add(this.playerShadow);
       this.characterCamera = new THREE.OrthographicCamera(-400, 400, 250, -250, 0.1, 2000);
       this.characterCamera.position.set(600, 490, 600);
       this.characterCamera.lookAt(0, 0, 0);
@@ -7214,10 +7214,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.characterModel.position.z = (this.playerY - this.arenaH / 2) / this.worldZoom;
       this.characterModel.scale.setScalar(this.playerWorldScale);
       this.characterModel.visible = !this.druidForm;
-    }
-    if (this.playerShadow) {
-      this.playerShadow.position.x = (this.playerX - this.arenaW / 2) / this.worldZoom;
-      this.playerShadow.position.z = (this.playerY - this.arenaH / 2) / this.worldZoom;
     }
     this.characterRenderer.render(this.characterScene, this.characterCamera);
   }
@@ -8088,6 +8084,7 @@ interface SummonAttackEffect {
 
 interface AttackProjectile {
   target?: Enemy;
+  homing?: boolean;
   x: number;
   y: number;
   startX: number;
