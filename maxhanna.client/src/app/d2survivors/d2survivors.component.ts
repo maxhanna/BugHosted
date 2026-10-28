@@ -3848,15 +3848,16 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     const castAnimation: AttackAnimationStyle = this.selectedClass === "sorceress" ? "sorceressCast" : this.selectedClass === "necromancer" ? "necromancerCast" : "cast";
     const visualMissile = this.missileOverlayId(skill) ?? ATTACK_KIND_MISSILE_OVERLAYS[this.basicAttackForClass(this.selectedClass).kind];
+    const isAssassinKickSkill = this.selectedClass === "assassin" && (skill === "Dragon Talon" || skill === "Dragon Flight");
     let nearest = this.enemies
-      .filter((enemy) => enemy.hp > 0 && (skill !== "Dragon Talon" || !enemy.summonType))
+      .filter((enemy) => enemy.hp > 0 && (!isAssassinKickSkill || !enemy.summonType))
       .sort((a, b) => Math.hypot(a.x - this.playerX, a.y - this.playerY) - Math.hypot(b.x - this.playerX, b.y - this.playerY))[0];
     if (!nearest) {
       this.addSkillVisualEffect(skill);
       this.triggerAttackAnimation(castAnimation);
       return;
     }
-    if (skill === "Dragon Talon" && this.selectedClass === "assassin") {
+    if (skill === "Dragon Flight" && this.selectedClass === "assassin") {
       const canvas = this.arenaRef?.nativeElement;
       const dpr = canvas?.clientWidth ? canvas.width / canvas.clientWidth : 1;
       const targetDx = nearest.x - this.playerX;
@@ -3865,7 +3866,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const screenDy = (targetDx + targetDy) * 0.35355 * this.worldZoom * dpr;
       const screenRange = canvas ? Math.max(canvas.width, canvas.height) : Math.max(this.arenaW, this.arenaH);
       if (Math.hypot(screenDx, screenDy) > screenRange) return;
-      this.teleportNextToEnemy(nearest);
+      this.teleportNextToEnemy(nearest, skill);
     }
     const distanceToTarget = Math.hypot(nearest.x - this.playerX, nearest.y - this.playerY) || 1;
     this.playerFacingX = (nearest.x - this.playerX) / distanceToTarget;
@@ -3877,7 +3878,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const distance = Math.hypot(nearest.x - this.playerX, nearest.y - this.playerY);
     this.playerFacingX = (nearest.x - this.playerX) / Math.max(1, distance);
     this.playerFacingY = (nearest.y - this.playerY) / Math.max(1, distance);
-    if (skill === "Dragon Talon" && distance > nearest.r + 28) return;
+    if ((skill === "Dragon Talon" || skill === "Dragon Flight") && distance > nearest.r + 28) return;
 
     if (skill === "Whirlwind" && this.selectedClass === "barbarian") {
       const targets = this.enemies.filter((enemy) => enemy.hp > 0 && Math.hypot(enemy.x - this.playerX, enemy.y - this.playerY) <= 115);
@@ -3943,7 +3944,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (distance <= nearest.r + 28) {
       this.addSkillVisualEffect(skill, nearest);
       nearest.hp -= damage;
-      this.triggerAttackAnimation(skill === "Dragon Talon" ? "assassinKick" : castAnimation);
+      this.triggerAttackAnimation(isAssassinKickSkill ? "assassinKick" : castAnimation);
       this.floatingTexts.push({ x: nearest.x, y: nearest.y - nearest.r, text: `-${Math.floor(damage)}`, color: attack.color, life: 0.8 });
     }
   }
@@ -4785,6 +4786,41 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const endAngle = effect.style === "spin" ? Math.PI * 2 : angle + arc / 2 + sweep;
     const radius = effect.style === "barbarianCleave" ? 31 + Math.max(0, strike) * 16 : 31 + Math.max(0, strike) * 10;
     ctx.save();
+    if (effect.style === "assassinKick") {
+      const strikePhase = Math.max(0, Math.min(1, (progress - 0.28) / 0.3));
+      const reach = 18 + strikePhase * 32;
+      const lift = 8 + strikePhase * 10;
+      const startX = center.x + Math.cos(angle) * 9;
+      const startY = center.y - 8 + Math.sin(angle) * 5;
+      const endX = center.x + Math.cos(angle) * reach;
+      const endY = center.y - lift + Math.sin(angle) * reach * 0.45;
+      ctx.globalAlpha = Math.min(0.9, fade * 0.95);
+      ctx.lineCap = "round";
+      ctx.shadowColor = effect.color;
+      ctx.shadowBlur = 12;
+      ctx.strokeStyle = effect.color;
+      ctx.lineWidth = 5 + strikePhase * 2;
+      ctx.beginPath();
+      ctx.moveTo(startX, startY);
+      ctx.lineTo(endX, endY);
+      ctx.stroke();
+      ctx.globalAlpha *= 0.8;
+      ctx.strokeStyle = "#fff4d2";
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.moveTo(startX, startY - 2);
+      ctx.lineTo(endX, endY - 2);
+      ctx.stroke();
+      if (progress >= 0.48 && progress <= 0.7) {
+        ctx.globalAlpha = fade;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(endX, endY, 6 + strikePhase * 6, -0.9, 0.9);
+        ctx.stroke();
+      }
+      ctx.restore();
+      return;
+    }
     ctx.globalAlpha = Math.min(0.88, fade * 0.9);
     ctx.lineCap = "round";
     ctx.shadowColor = effect.color;
@@ -5180,7 +5216,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
   }
 
-  private teleportNextToEnemy(target: Enemy): void {
+  private teleportNextToEnemy(target: Enemy, skillName: string): void {
     const dx = target.x - this.playerX;
     const dy = target.y - this.playerY;
     const distance = Math.hypot(dx, dy);
@@ -5198,12 +5234,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     while (this.currentChunkLocalY < 0) { this.currentChunkLocalY += chunkHeight; this.currentChunkCoordY -= 1; }
     while (this.currentChunkLocalY >= chunkHeight) { this.currentChunkLocalY -= chunkHeight; this.currentChunkCoordY += 1; }
     this.translateWorldEntities(-moveX, -moveY);
-    this.addDragonTalonTeleportEffect(this.playerX - moveX, this.playerY - moveY);
+    this.addAssassinTeleportEffect(this.playerX - moveX, this.playerY - moveY, skillName);
   }
 
-  private addDragonTalonTeleportEffect(startX: number, startY: number): void {
+  private addAssassinTeleportEffect(startX: number, startY: number, skillName: string): void {
     this.skillVisualEffects.push({
-      name: "Dragon Talon",
+      name: skillName,
       kind: "movement",
       teleport: true,
       x: startX,
