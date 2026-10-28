@@ -25,10 +25,10 @@
 
       <div class="d2s-menu-content" [class.subpanel-open]="menuPanel !== 'main'">
         <div class="d2s-menu-options" *ngIf="menuPanel === 'main'">
-          <button type="button" class="d2s-menu-button primary" *ngIf="hasSavedRun" (click)="resumeRun()">
+          <button type="button" class="d2s-menu-button primary" *ngIf="canResumeSavedRun" (click)="resumeRun()">
             <span>Continue Journey</span><small>{{ savedRunSummary }} · Resume where you left off</small>
           </button>
-          <button type="button" class="d2s-menu-button primary" *ngIf="hasSavedRun" (click)="openLobby()">
+          <button type="button" class="d2s-menu-button primary" *ngIf="canResumeSavedRun" (click)="openLobby()">
             <span>Return to Sanctuary Lobby</span><small>{{ savedRunSummary }} · Gather in the realm before continuing</small>
           </button>
           <button type="button" class="d2s-menu-button primary" *ngIf="!hasSavedRun" (click)="openLobby()">
@@ -80,7 +80,7 @@
               <small class="d2s-chat-signin-hint" *ngIf="!isLobbySignedIn">Sign in to send a message. The lobby is open to all.</small>
             </section>
           </div>
-          <div class="d2s-lobby-footer"><span>SEVEN CLASSES · ONE REALM</span><span>YOUR STORY WILL JOIN THE ARCHIVE</span><button type="button" *ngIf="hasSavedRun" (click)="resumeRun()">RESUME SAVED JOURNEY</button></div>
+          <div class="d2s-lobby-footer"><span>SEVEN CLASSES · ONE REALM</span><span>YOUR STORY WILL JOIN THE ARCHIVE</span><button type="button" *ngIf="canResumeSavedRun" (click)="resumeRun()">RESUME SAVED JOURNEY</button></div>
         </section>
 
         <section class="d2s-menu-subpanel d2s-character-select" *ngIf="menuPanel === 'characters'">
@@ -103,7 +103,8 @@
               </div>
               <div class="d2s-derived-stats"><span>Life <b>{{ selectedClassStats.life }}</b></span><span>Mana <b>{{ selectedClassStats.mana }}</b></span><span>Stamina <b>{{ selectedClassStats.stamina }}</b></span></div>
             </div>
-            <button type="button" class="d2s-menu-button primary d2s-begin-button" (click)="startRun()"><span>{{ hasSavedRun ? 'Start New Journey' : 'Begin Journey' }}</span><small>{{ hasSavedRun ? 'Replace the saved run with the ' + selectedClassName : 'Enter Sanctuary as the ' + selectedClassName }}</small></button>
+            <button type="button" class="d2s-menu-button primary d2s-begin-button" (click)="startRun()"><span>{{ canResumeSelectedRun ? 'Start Fresh Journey' : 'Begin Journey' }}</span><small>{{ canResumeSelectedRun ? 'Start over as the ' + selectedClassName : 'Enter Sanctuary as the ' + selectedClassName }}</small></button>
+            <button type="button" class="d2s-menu-button d2s-begin-button" *ngIf="canResumeSelectedRun" (click)="resumeRun()"><span>Resume Saved Journey</span><small>{{ savedRunSummary }} · Continue this character where they left off</small></button>
           </div>
           <div class="d2s-class-preview" [class.loading]="!previewModel && !previewLoadError">
             <canvas #classPreviewCanvas class="d2s-class-preview-canvas" [class.dragging]="previewDragging" [attr.aria-label]="selectedClassName + ' 3D hero preview. Drag to rotate; use the zoom buttons or mouse wheel to change zoom.'" (pointerdown)="onClassPreviewPointerDown($event)" (pointermove)="onClassPreviewPointerMove($event)" (pointerup)="onClassPreviewPointerUp($event)" (pointercancel)="onClassPreviewPointerUp($event)" (wheel)="onClassPreviewWheel($event)" role="img"></canvas>
@@ -310,9 +311,10 @@
         <span class="d2s-act-progress" role="progressbar" [attr.aria-valuenow]="actProgress" aria-valuemin="0" aria-valuemax="100" aria-label="Time until the act boss arrives"><i [style.width.%]="actProgress"></i></span>
         <small>{{ actBossSpawned ? 'Boss battle' : 'Area boss in ' + (actSecondsRemaining | number:'1.0-0') + 's' }}</small>
       </div>
-      <div class="d2s-act-transition" *ngIf="actTransitionReady" role="dialog" aria-modal="true" aria-labelledby="d2s-act-transition-title">
-        <section><p>ACT {{ currentAct }} CLEARED</p><h2 id="d2s-act-transition-title">{{ currentActDetails.name }}</h2><p>The way forward is open. Your wounds partially mend.</p><button type="button" class="d2s-menu-button primary" (click)="advanceAct()"><span>{{ currentAct < 5 ? 'Journey to Act ' + (currentAct + 1) : 'Face the Worldstone' }}</span></button></section>
+      <div class="d2s-act-transition" *ngIf="actTransitionReady && !actPortalOpen" role="dialog" aria-modal="true" aria-labelledby="d2s-act-transition-title">
+        <section><p>ACT {{ currentAct }} CLEARED</p><h2 id="d2s-act-transition-title">{{ currentActDetails.name }}</h2><p>The way forward is open. Your wounds partially mend.</p><button type="button" class="d2s-menu-button primary" (click)="openActPortal()"><span>Open the red portal</span></button></section>
       </div>
+      <div class="d2s-act-portal-hint" *ngIf="actPortalOpen" role="status">Walk into the red portal to {{ currentAct < 5 ? 'journey to Act ' + (currentAct + 1) : 'face the Worldstone' }} · WASD / arrows</div>
       <div class="d2s-campaign-victory" *ngIf="campaignVictory" role="dialog" aria-modal="true" aria-labelledby="d2s-campaign-victory-title">
         <section><p>THE WORLDSTONE IS SAFE</p><h2 id="d2s-campaign-victory-title">Sanctuary Endures</h2><p>You have crossed all five acts and defeated the Lord of Destruction.</p><button type="button" class="d2s-menu-button primary" (click)="finishCampaign()"><span>Return to the Sanctuary lobby</span></button></section>
       </div>
@@ -362,6 +364,7 @@
         <div class="d2s-escape-menu-items">
           <button type="button" (click)="closeEscapeMenu()">Return to Game</button>
           <button type="button" (click)="toggleInventory()">Inventory</button>
+          <button type="button" *ngIf="canResumeSavedRun && !campaignVictory" (click)="restartRunFromLastSave()">Resume from Last Save</button>
           <button type="button" (click)="saveRunNow()">{{ campaignVictory ? 'Return to Sanctuary' : 'Save and Exit Game' }}</button>
         </div>          <p class="d2s-escape-hint">Press ESC to return to the fight · T opens the skill tree</p>
 
@@ -380,8 +383,31 @@
         <button type="button" class="d2s-inventory-close" (click)="toggleInventory()" aria-label="Close inventory">Close</button>
       </header>
       <div class="d2s-inventory-layout">
+        <section class="d2s-character-stats" aria-label="Character stats">
+          <h3 class="d2s-inventory-heading">{{ selectedClassName }}</h3>
+          <p class="d2s-stats-level">Level {{ playerLevel }}</p>
+          <div class="d2s-stats-block">
+            <h4>Attributes</h4>
+            <div><span>Strength</span><b>{{ selectedClassStats.attributes[0].value + equippedStrengthBonus }}<small *ngIf="equippedStrengthBonus"> (+{{ equippedStrengthBonus }})</small></b></div>
+            <div><span>Dexterity</span><b>{{ selectedClassStats.attributes[1].value }}</b></div>
+            <div><span>Vitality</span><b>{{ selectedClassStats.attributes[2].value }}</b></div>
+            <div><span>Energy</span><b>{{ selectedClassStats.attributes[3].value }}</b></div>
+          </div>
+          <div class="d2s-stats-block d2s-derived-stats">
+            <h4>Combat</h4>
+            <div><span>Damage</span><b>{{ inventoryAttackDamage }}</b></div>
+            <div><span>Defense</span><b>{{ equippedArmor }}</b></div>
+            <div><span>Stamina</span><b>{{ selectedClassStats.stamina }}</b></div>
+          </div>
+          <div class="d2s-stats-block d2s-resource-stats">
+            <div><span>Life</span><b>{{ playerHp | number:'1.0-0' }} / {{ playerMaxHp }}</b></div>
+            <div><span>Mana</span><b>{{ playerMana | number:'1.0-0' }} / {{ playerMaxMana }}</b></div>
+            <div *ngIf="equippedLifeBonus"><span>Life Bonus</span><b>+{{ equippedLifeBonus }}</b></div>
+          </div>
+        </section>
+        <div class="d2s-inventory-right">
         <section class="d2s-paperdoll" aria-label="Character equipment">
-          <h3 class="d2s-inventory-heading">Character</h3>
+          <h3 class="d2s-inventory-heading">Equipped Items</h3>
           <div class="d2s-paperdoll-board">
             <div class="d2s-paperdoll-silhouette" aria-hidden="true"><span></span></div>
             <button
@@ -403,11 +429,11 @@
               (mouseenter)="onEquipmentItemHover(slot.slot, $event)"
               (mousemove)="onItemPreviewMove($event)"
               (mouseleave)="onItemPreviewLeave()">
-              <span class="d2s-equipment-icon" aria-hidden="true">{{ getEquipmentItem(slot.slot) ? equipmentItemIcon(getEquipmentItem(slot.slot)!) : slot.icon }}</span>
+              <img *ngIf="getEquipmentItem(slot.slot) as equippedItem; else emptyEquipmentIcon" class="d2s-equipment-art" [src]="inventoryItemImage(equippedItem)" alt="" />
+              <ng-template #emptyEquipmentIcon><span class="d2s-equipment-icon" aria-hidden="true">{{ slot.icon }}</span></ng-template>
               <span class="d2s-equipment-label">{{ getEquipmentItem(slot.slot)?.name || slot.label }}</span>
             </button>
           </div>
-          <div class="d2s-paperdoll-stats"><span>Strength <b>{{ selectedClassStats.attributes[0].value }}</b></span><span>Dexterity <b>{{ selectedClassStats.attributes[1].value }}</b></span><span>Vitality <b>{{ selectedClassStats.attributes[2].value }}</b></span><span>Energy <b>{{ selectedClassStats.attributes[3].value }}</b></span></div>
           <p class="d2s-equipped-belt">Belt: <strong>{{ equippedBelt?.name || 'Empty' }}</strong> · {{ beltRows }} potion row{{ beltRows === 1 ? '' : 's' }}</p>
         </section>
         <section class="d2s-bag" aria-label="Inventory backpack">
@@ -442,11 +468,12 @@
           (mousemove)="onItemPreviewMove($event)"
           (mouseleave)="onItemPreviewLeave()"
           (contextmenu)="onInventoryContextMenu(slot.slotIndex, $event)">
-          <span class="d2s-inv-icon" *ngIf="slot.item" aria-hidden="true">{{ equipmentItemIcon(slot.item) }}</span>
+          <img *ngIf="slot.item as inventoryItem" class="d2s-inv-art" [src]="inventoryItemImage(inventoryItem)" alt="" />
           <span class="d2s-inv-name">{{ slot.item?.name || '' }}</span>
         </div>
           </div>
         </section>
+        </div>
       </div>
       <p class="d2s-inventory-status" role="status" *ngIf="inventoryStatus">{{ inventoryStatus }}</p>
       <p class="d2s-hint">Drag gear to equip · right-click a weapon or armor to equip or swap · Ctrl-click or use the item preview to sell · right-click equipped gear to unequip</p>
