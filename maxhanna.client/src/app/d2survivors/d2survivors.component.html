@@ -125,7 +125,10 @@
             <section class="d2s-shop-section" aria-labelledby="d2s-shop-stock-title">
               <div class="d2s-shop-section-heading"><h2 id="d2s-shop-stock-title">Goods &amp; services</h2><small>PERMANENT UPGRADES · GEAR GOES TO PACK OR STASH</small></div>
               <div class="d2s-shop-stock">
-                <article class="d2s-shop-offer" *ngFor="let offer of gheedsShopItems">
+                <article class="d2s-shop-offer" *ngFor="let offer of gheedsShopItems"
+                  (mouseenter)="onShopItemHover(offer.item, $event)"
+                  (mousemove)="onItemPreviewMove($event)"
+                  (mouseleave)="onItemPreviewLeave()">
                   <span class="d2s-shop-offer-icon" aria-hidden="true">{{ equipmentItemIcon(offer.item) }}</span>
                   <div><strong>{{ offer.name }}</strong><small>{{ offer.desc }}</small><span>{{ getItemStatText(offer.item).join(' · ') }}</span></div>
                   <button type="button" [disabled]="sanctuaryGold < offer.cost" (click)="buyGheedsItem(offer)">✦ {{ offer.cost }}</button>
@@ -140,15 +143,35 @@
               <div class="d2s-shop-section-heading"><h2 id="d2s-shop-sell-title">Sell to Gheed</h2><small>{{ shopItemsForSale.length }} ITEMS</small></div>
               <p class="d2s-shop-lock-hint">Purchases, sales, gold, and equipped gear belong to {{ selectedClassName }}. Each class keeps its own pack.</p>
               <div class="d2s-shop-sell-list" *ngIf="shopItemsForSale.length; else shopEmpty">
-                <article class="d2s-shop-offer" *ngFor="let entry of shopItemsForSale">
+                <article class="d2s-shop-offer" *ngFor="let entry of shopItemsForSale"
+                  (mouseenter)="onShopItemHover(entry.item, $event)"
+                  (mousemove)="onItemPreviewMove($event)"
+                  (mouseleave)="onItemPreviewLeave()">
                   <span class="d2s-shop-offer-icon" aria-hidden="true">{{ equipmentItemIcon(entry.item) }}</span>
                   <div><strong>{{ entry.item.name }}</strong><small>{{ entry.source }} · {{ entry.item.rarity }}</small><span>{{ getItemStatText(entry.item).join(' · ') }}</span></div>
                   <button type="button" *ngIf="entry.source === 'Stash'" (click)="takeItemFromSanctuaryStash(entry.item)">Collect</button>
-                  <button type="button" [disabled]="entry.source !== 'Stash' && !hasSavedRun" [title]="entry.source !== 'Stash' && !hasSavedRun ? 'Start a journey before selling this gear' : ''" (click)="sellShopItem(entry)">Sell · ✦ {{ getItemSellValue(entry.item) }}</button>
+                  <button type="button" (click)="sellShopItem(entry)">Sell · ✦ {{ getItemSellValue(entry.item) }}</button>
                 </article>
               </div>
               <ng-template #shopEmpty><div class="d2s-shop-empty">{{ selectedClassName }}'s pack is empty. Gear found on a journey will appear here.</div></ng-template>
             </section>
+          </div>
+          <div class="d2s-item-window is-hover-preview d2s-shop-item-window" *ngIf="hoveredItem as shopPreviewItem"
+            [class.preview-left]="itemPreviewLeft"
+            [class.preview-below]="itemPreviewBelow"
+            [class.preview-above]="itemPreviewAbove"
+            [style.left.px]="itemPreviewX"
+            [style.top.px]="itemPreviewY">
+            <div class="d2s-item-window-inner">
+              <p class="d2s-item-window-kicker">{{ shopPreviewItem.rarity }} {{ shopPreviewItem.slot }}</p>
+              <h3 class="d2s-item-window-title">{{ shopPreviewItem.name }}</h3>
+              <p class="d2s-item-window-base" *ngIf="shopPreviewItem.baseName && shopPreviewItem.baseName !== shopPreviewItem.name">Base item: {{ shopPreviewItem.baseName }}</p>
+              <p class="d2s-item-window-description">{{ shopPreviewItem.desc }}</p>
+              <p class="d2s-item-window-description" *ngIf="getEquipmentType(shopPreviewItem) === 'belt'">{{ shopPreviewItem.beltQuality }} belt · {{ getBeltRows(shopPreviewItem) }} potion rows</p>
+              <div class="d2s-item-window-stats">
+                <p *ngFor="let line of itemStatText(shopPreviewItem)">{{ line }}</p>
+              </div>
+            </div>
           </div>
           <p class="d2s-shop-message" role="status" aria-live="polite">{{ shopMessage }}</p>
         </section>
@@ -218,8 +241,8 @@
           <p class="d2s-upgrade-kicker">LEVEL {{ playerLevel }}</p>
           <h2 id="d2s-upgrade-title">Choose an upgrade</h2>
           <p>Your next level waits until you select one.</p>
-          <button type="button" *ngFor="let choice of upgradeChoices" class="d2s-upgrade-choice" (click)="chooseLevelUpgrade(choice)">
-            <strong>{{ choice.name }}</strong><span>{{ choice.description }}</span>
+          <button type="button" *ngFor="let choice of upgradeChoices; let index = index" class="d2s-upgrade-choice" (click)="chooseLevelUpgrade(choice)">
+            <kbd>{{ index + 1 }}</kbd><strong>{{ choice.name }}</strong><span>{{ choice.description }}</span>
           </button>
         </section>
       </div>

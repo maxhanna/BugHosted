@@ -1505,7 +1505,9 @@
 
 .d2s-upgrade-choice {
   display: grid;
-  gap: 4px;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 4px 10px;
+  align-items: center;
   padding: 12px;
   color: #d5c49d;
   text-align: left;
@@ -1515,7 +1517,8 @@
 }
 
 .d2s-upgrade-choice:hover,
-.d2s-upgrade-choice:focus-visible { border-color: #f0ce83; background: #302315; }
+.d2s-upgrade-choice:focus-visible { border-color: #f0ce83; background: #302315; outline: 1px solid #f0ce83; }
+.d2s-upgrade-choice kbd { grid-row: span 2; display: grid; width: 23px; height: 23px; place-items: center; color: #f2d696; border: 1px solid #8b7045; background: #0c0a09; font: 13px Georgia, serif; }
 .d2s-upgrade-choice strong { color: #f2d696; font: 16px Georgia, serif; }
 .d2s-upgrade-choice span { color: #ad9f85; font: 12px/1.4 Georgia, serif; }
 
@@ -1544,7 +1547,7 @@
   padding: 0 clamp(12px, 3vw, 44px) 42px;
   box-sizing: border-box;
   pointer-events: none;
-  background: linear-gradient(to top, #08090df2 0%, #11131bdc 67%, transparent 100%);
+  background: transparent;
 }
 
 .d2s-hud-center {
@@ -1748,6 +1751,7 @@
   display: grid;
   grid-template-columns: repeat(4, minmax(44px, 1fr));
   grid-template-rows: repeat(var(--d2s-belt-rows, 1), 34px);
+  grid-auto-flow: column;
   gap: 4px;
   max-height: 34px;
   overflow: hidden;
