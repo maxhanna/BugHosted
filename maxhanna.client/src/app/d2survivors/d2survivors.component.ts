@@ -79,7 +79,8 @@ const SKILL_MISSILE_OVERLAYS: Record<string, string> = {
   "Iron Maiden": "d2-shadowbolt", Terror: "d2-shadowbolt", Confuse: "d2-shadowbolt",
   "Life Tap": "d2-bloodstar", Attract: "d2-shadowbolt", Decrepify: "d2-shadowbolt",
   "Poison Dagger": "d2-poisonbolt", "Poison Explosion": "d2-poisonbolt", "Corpse Explosion": "d2-bloodcomet",
-  "Bone Armor": "d2-bloodstar", "Bone Wall": "d2-bloodstar", "Bone Prison": "d2-bloodstar",
+  "Bone Armor": "d2-bloodstar",  "Bone Wall": "d2-bloodstar", "Bone Prison": "d2-bloodstar",
+
   "Raise Skeleton": "d2-bloodstar", "Skeletal Mage": "d2-bloodstar", "Clay Golem": "d2-bloodcomet",
   "Shock Web": "d2-bluestar", "Blade Sentinel": "101",
   "Death Sentry": "d2-bluestar", "Lightning Sentry": "d2-lightning",
@@ -183,7 +184,7 @@ const ENEMY_SPRITE_PATHS: Record<EnemySpecies, string> = {
   skeleton: "assets/d2survivors/enemies/animated/skeleton.png",
   sandRaider: "assets/d2survivors/enemies/act2-sand-raider.png",
   sandMaggot: "assets/d2survivors/enemies/act2-sand-maggot.png",
-  scarab: "assets/d2survivors/enemies/scarab-demon-light-armor-heavy-weapon.png",
+  scarab: "assets/d2survivors/enemies/animated/scarab.png",
   fetish: "assets/d2survivors/enemies/animated/fetish.png",
   fetishShaman: "assets/d2survivors/enemies/act3-flayer-shaman.png",
   council: "assets/d2survivors/enemies/animated/council.png",
@@ -205,7 +206,7 @@ const ENEMY_SPRITE_PATHS: Record<EnemySpecies, string> = {
 const ENEMY_SPRITE_LAYOUTS: Record<EnemySpecies, { columns: number; rows: number; animated: boolean }> = {
   fallen: { columns: 13, rows: 1, animated: true }, goatman: { columns: 14, rows: 16, animated: true },
   skeleton: { columns: 16, rows: 1, animated: true }, sandRaider: { columns: 1, rows: 1, animated: false },
-  sandMaggot: { columns: 1, rows: 1, animated: false }, scarab: { columns: 1, rows: 1, animated: false },
+  sandMaggot: { columns: 1, rows: 1, animated: false }, scarab: { columns: 16, rows: 8, animated: true },
   fetish: { columns: 13, rows: 24, animated: true }, fetishShaman: { columns: 1, rows: 1, animated: false },
   council: { columns: 20, rows: 24, animated: true }, balrog: { columns: 1, rows: 1, animated: false },
   vileChild: { columns: 1, rows: 1, animated: false }, vileMother: { columns: 1, rows: 1, animated: false },
@@ -663,7 +664,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       desc: "a golem of fire, 600 life, 30 damage, with a Holy Fire aura that burns everything near it",
     },
     { name: "Bone Armor", desc: "bones orbit the Necromancer, absorbing a flat amount of incoming damage; duration and absorption increase with rank" },
-    { name: "Bone Wall", desc: "+10% magic damage" },
+    { name: "Bone Wall", desc: "Raises a bone barricade that blocks advancing enemies and absorbs incoming attacks; its health, length and duration increase with rank" },
     { name: "Lower Resist", desc: "+10% poison damage" },
     {
       name: "Skeleton Mastery",
@@ -1452,7 +1453,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const variantsByAct: Record<number, number[]> = {
       1: [1, 1, 1, 5, 7, 10, 12, 13, 14],
       2: [0, 0, 0, 9, 12],
-      3: [0, 0, 2, 3, 7, 9, 10, 13],
+      3: [0, 0, 0, 0, 2, 2, 7, 7, 9, 10, 13],
       4: [1, 1, 3, 5, 6, 8, 10, 13, 15],
       5: [0, 0, 5, 9, 10, 12, 13],
     };
@@ -1487,12 +1488,17 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   get canResumeSavedRun(): boolean {
     const saved = this.savedRun;
-    return this.hasSavedRun && !!saved && saved.deathRecovery !== true
+    return !!saved && saved.hasSavedRun === true && !!saved.selectedClass && !!CLASS_MODEL[saved.selectedClass]
+      && saved.deathRecovery !== true
       && (typeof saved.playerHp !== "number" || saved.playerHp > 0);
   }
 
   get canResumeSelectedRun(): boolean {
     return this.canResumeSavedRun && this.savedRunClass === this.selectedClass;
+  }
+
+  get canResumeRunFromCharacterSelect(): boolean {
+    return this.canResumeSavedRun;
   }
 
   get isLobbySignedIn(): boolean {
@@ -2915,13 +2921,33 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   inventoryItemImage(item: D2InventoryItem): string {
+    return this.equipmentImagePath(getEquipmentType(item));
+  }
+
+  equipmentSlotImage(slot: PaperdollSlot): string {
+    const typeBySlot: Record<PaperdollSlot, EquipmentType> = {
+      weapon: "weapon",
+      helmet: this.selectedClass === "barbarian" ? "barbarianHelm" : this.selectedClass === "druid" ? "druidPelt" : "helmet",
+      shield: this.selectedClass === "paladin" ? "paladinShield" : "shield",
+      ringLeft: "ring",
+      amulet: "amulet",
+      ringRight: "ring",
+      gloves: "gloves",
+      body: "body",
+      boots: "boots",
+      belt: "belt",
+    };
+    return this.equipmentImagePath(typeBySlot[slot]);
+  }
+
+  private equipmentImagePath(type: EquipmentType): string {
     const images: Record<EquipmentType, string> = {
       weapon: "weapon", wand: "wand", claw: "claw", orb: "orb", helmet: "helmet",
       barbarianHelm: "barbarian-helm", druidPelt: "druid-pelt", body: "body", shield: "shield",
       paladinShield: "paladin-shield", gloves: "gloves", boots: "boots", belt: "belt",
       ring: "ring", amulet: "amulet", charm: "charm",
     };
-    return `assets/d2survivors/items/${images[getEquipmentType(item)]}.png`;
+    return `assets/d2survivors/items/${images[type]}.png`;
   }
 
   private rebuildInventoryGrid(): void {
@@ -3283,6 +3309,18 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   onArenaPointerDown(event: PointerEvent): void {
+    if (this.activeTab === "run" && this.runActive && event.pointerType === "mouse" && event.button === 0
+      && event.target === this.arenaRef?.nativeElement && !this.escapeMenuOpen && !this.inventoryOpen
+      && !this.skillTreeOpen && this.pendingLevelUps === 0 && !(this.actTransitionReady && !this.actPortalOpen)
+      && !this.campaignVictory) {
+      this.updateHoveredEnemy(event);
+      const enemy = this.hoveredEnemy;
+      if (enemy) {
+        const distance = Math.hypot(enemy.x - this.playerX, enemy.y - this.playerY) || 1;
+        this.playerFacingX = (enemy.x - this.playerX) / distance;
+        this.playerFacingY = (enemy.y - this.playerY) / distance;
+      }
+    }
     if (event.pointerType !== "touch" || this.activeTab !== "run" || !this.runActive || this.escapeMenuOpen || this.inventoryOpen || this.skillTreeOpen || this.pendingLevelUps > 0 || (this.actTransitionReady && !this.actPortalOpen) || this.campaignVictory) return;
     const target = event.target;
     if (!(target instanceof Element) || target.closest("button, a, input, textarea, select, [role='button'], [role='dialog'], .d2s-classic-hud, .d2s-act-banner, .d2s-experience-progress")) return;
@@ -3920,6 +3958,37 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     return Object.values(this.equipment).reduce((total, item) => total + (item?.stats?.plusVitality ?? 0), 0);
   }
 
+  getItemStatDelta(item: D2InventoryItem, stat: "strength" | "vitality" | "damage" | "defense"): number | null {
+    if (this.selectedItem?.id !== item.id) return null;
+    const type = getEquipmentType(item);
+    const slot = type === "ring"
+      ? !this.equipment.ringLeft ? "ringLeft" : !this.equipment.ringRight ? "ringRight" : "ringLeft"
+      : PAPERDOLL_SLOTS.find((candidate) => isCompatibleWithEquipment(item, candidate, this.selectedClass));
+    if (!slot) return null;
+    const equipped = this.equipment[slot];
+    if (stat === "strength") return (item.stats?.plusStrength ?? 0) - (equipped?.stats?.plusStrength ?? 0);
+    if (stat === "defense") return (item.stats?.armor ?? 0) - (equipped?.stats?.armor ?? 0);
+    if (stat === "vitality") return (item.stats?.plusVitality ?? 0) - (equipped?.stats?.plusVitality ?? 0);
+    const baseDamage = (weapon: D2InventoryItem | null): number => {
+      if (!weapon) return 0;
+      const name = `${weapon.baseName ?? ""} ${weapon.name}`.toLowerCase();
+      const permitted = this.selectedClass === "amazon"
+        ? name.includes("pike") || name.includes("spear") || name.includes("javelin")
+        : this.selectedClass === "sorceress" ? name.includes("staff") : true;
+      return permitted ? Math.floor(((weapon.stats?.damageMin ?? 0) + (weapon.stats?.damageMax ?? 0)) / 2) : 0;
+    };
+    const weaponDelta = slot === "weapon" ? baseDamage(item) - baseDamage(equipped) : 0;
+    return weaponDelta + (item.stats?.plusDamage ?? 0) - (equipped?.stats?.plusDamage ?? 0);
+  }
+
+  getSelectedItemStatDelta(stat: "strength" | "vitality" | "damage" | "defense"): number | null {
+    return this.selectedItem ? this.getItemStatDelta(this.selectedItem, stat) : null;
+  }
+
+  formatItemStatDelta(delta: number): string {
+    return `${delta > 0 ? "+" : ""}${delta}`;
+  }
+
   get inventoryAttackDamage(): number {
     return Math.floor(this.basicAttackDamage + Math.max(0, (this.skillLevels[this.basicAttackName] ?? 1) - 1) * 2
       + this.weaponMasteryDamageBonus + this.equippedWeaponDamage);
@@ -3997,6 +4066,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.boneArmorRemaining = this.boneArmorDurationForRank(rank);
       this.boneArmorAbsorptionRemaining = this.boneArmorAbsorptionForRank(rank);
       this.addBoneArmorEffect();
+      this.triggerAttackAnimation("necromancerCast");
+      return;
+    }
+    if (skill === "Bone Wall" && this.selectedClass === "necromancer") {
+      this.plantBoneWall();
       this.triggerAttackAnimation("necromancerCast");
       return;
     }
@@ -4665,6 +4739,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       skill !== this.basicAttackName && classSkills.some((definition) => definition.name === skill),
     );
     const livingEnemies = this.enemies.filter((enemy) => enemy.hp > 0 && !enemy.summonType);
+    if (this.selectedClass === "necromancer" && !this.activeBoneWall()) delete this.skillCastCooldowns["Bone Wall"];
     const unlockedFormSkill = activeSkills.includes("Werewolf") ? "Werewolf"
       : activeSkills.includes("Werebear") ? "Werebear" : undefined;
     if (unlockedFormSkill) {
@@ -4702,6 +4777,20 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         const boneArmorCooldown = Math.max(0, (this.skillCastCooldowns[skill] ?? 0) - seconds);
         this.skillCastCooldowns[skill] = boneArmorCooldown;
         if (boneArmorCooldown > 0) continue;
+        this.activateOwnedSkill(skill);
+        this.skillCastCooldowns[skill] = Number.POSITIVE_INFINITY;
+        continue;
+      }
+      if (skill === "Bone Wall" && this.selectedClass === "necromancer") {
+        const activeWall = this.activeBoneWall();
+        if (activeWall) {
+          this.skillCastCooldowns[skill] = Number.POSITIVE_INFINITY;
+          continue;
+        }
+        const previousCooldown = this.skillCastCooldowns[skill] ?? 0;
+        const wallCooldown = Math.max(0, (Number.isFinite(previousCooldown) ? previousCooldown : 0) - seconds);
+        this.skillCastCooldowns[skill] = wallCooldown;
+        if (wallCooldown > 0) continue;
         this.activateOwnedSkill(skill);
         this.skillCastCooldowns[skill] = Number.POSITIVE_INFINITY;
         continue;
@@ -4879,6 +4968,23 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const existingProjectileCount = this.attackProjectiles.length;
     for (let projectileIndex = 0; projectileIndex < existingProjectileCount; projectileIndex += 1) {
       const projectile = this.attackProjectiles[projectileIndex];
+      if (projectile.boneWall) {
+        projectile.age += seconds;
+        if (projectile.wallHealth !== undefined && projectile.wallHealth <= 0) {
+          projectile.life = 0;
+          if (this.ownedSkills.includes("Bone Wall")) this.skillCastCooldowns["Bone Wall"] = this.getSkillCastInterval("Bone Wall");
+        } else {
+          projectile.life -= seconds;
+          if (projectile.life <= 0 && this.ownedSkills.includes("Bone Wall")) this.skillCastCooldowns["Bone Wall"] = this.getSkillCastInterval("Bone Wall");
+        }
+        continue;
+      }
+      if (projectile.impactPoint && !projectile.impactTrap && !projectile.corpseExplosion) {
+        projectile.impactAge = (projectile.impactAge ?? 0) + seconds;
+        projectile.impactDuration = 0.25;
+        if (projectile.impactAge >= projectile.impactDuration) projectile.life = 0;
+        continue;
+      }
       if (projectile.wakeOfFireTrap) {
         projectile.age += seconds;
         projectile.life = 3600;
@@ -4995,6 +5101,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const travel = Math.min(step, distance);
       const nextX = projectile.x + (distance > 0 ? dx / distance * travel : 0);
       const nextY = projectile.y + (distance > 0 ? dy / distance * travel : 0);
+      const blockingWall = projectile.targetPlayer
+        ? this.boneWallBlockingMove(projectile.x, projectile.y, nextX, nextY, projectile.radius)
+        : undefined;
+      if (blockingWall) {
+        this.damageBoneWall(blockingWall, projectile.damage, projectile.x + (nextX - projectile.x) * 0.5, projectile.y + (nextY - projectile.y) * 0.5);
+        projectile.life = 0;
+        continue;
+      }
       const collisionX = targetIsPlayer ? this.playerX : target?.x;
       const collisionY = targetIsPlayer ? this.playerY : target?.y;
       const targetRadius = targetIsPlayer ? 18 : targetIsAlive && target ? target.r : 4;
@@ -5140,6 +5254,132 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.draw();
   }
 
+  private plantBoneWall(): void {
+    const rank = Math.max(1, this.skillLevels["Bone Wall"] ?? 1);
+    const target = this.enemies
+      .filter((enemy) => enemy.hp > 0 && !enemy.summonType)
+      .sort((a, b) => Math.hypot(a.x - this.playerX, a.y - this.playerY) - Math.hypot(b.x - this.playerX, b.y - this.playerY))[0];
+    const directionX = target
+      ? (target.x - this.playerX) / (Math.hypot(target.x - this.playerX, target.y - this.playerY) || 1)
+      : this.playerFacingX;
+    const directionY = target
+      ? (target.y - this.playerY) / (Math.hypot(target.x - this.playerX, target.y - this.playerY) || 1)
+      : this.playerFacingY;
+    const normalLength = Math.hypot(directionX, directionY) || 1;
+    const normalX = directionX / normalLength;
+    const normalY = directionY / normalLength;
+    const enemyDistance = target ? Math.hypot(target.x - this.playerX, target.y - this.playerY) : 152;
+    const wallDistance = Math.max(30, Math.min(76, enemyDistance * 0.5));
+    const wallX = this.playerX + normalX * wallDistance;
+    const wallY = this.playerY + normalY * wallDistance;
+    this.attackProjectiles = this.attackProjectiles.filter((projectile) => !projectile.boneWall);
+    this.attackProjectiles.push({
+      x: wallX, y: wallY, startX: wallX, startY: wallY,
+      targetX: wallX, targetY: wallY,
+      speed: 0, damage: 0, life: 7 + rank * 1.25, age: 0,
+      radius: 10, color: "#d9d0b5", kind: "bone", boneWall: true,
+      wallNormalX: normalX, wallNormalY: normalY,
+      wallHalfLength: 68 + rank * 5,
+      wallHealth: 120 + rank * 35,
+      wallMaxHealth: 120 + rank * 35,
+      shotCooldown: 0,
+    });
+    this.draw();
+  }
+
+  private activeBoneWall(): AttackProjectile | undefined {
+    return this.attackProjectiles.find((projectile) => projectile.boneWall && projectile.life > 0 && (projectile.wallHealth ?? 0) > 0);
+  }
+
+  private boneWallBlockingMove(startX: number, startY: number, endX: number, endY: number, radius: number): AttackProjectile | undefined {
+    const wall = this.activeBoneWall();
+    if (!wall || wall.wallNormalX === undefined || wall.wallNormalY === undefined) return undefined;
+    const normalX = wall.wallNormalX;
+    const normalY = wall.wallNormalY;
+    const tangentX = -normalY;
+    const tangentY = normalX;
+    const startDeltaX = startX - wall.x;
+    const startDeltaY = startY - wall.y;
+    const endDeltaX = endX - wall.x;
+    const endDeltaY = endY - wall.y;
+    const startSide = startDeltaX * normalX + startDeltaY * normalY;
+    const endSide = endDeltaX * normalX + endDeltaY * normalY;
+    const halfLength = (wall.wallHalfLength ?? 0) + radius;
+    const thickness = 9 + radius;
+    const crossesWall = startSide >= -thickness && endSide <= thickness || startSide <= thickness && endSide >= -thickness;
+    if (!crossesWall) return undefined;
+    const denominator = startSide - endSide;
+    const t = Math.abs(denominator) > 0.001 ? Math.max(0, Math.min(1, startSide / denominator)) : 0;
+    const contactX = startX + (endX - startX) * t - wall.x;
+    const contactY = startY + (endY - startY) * t - wall.y;
+    return Math.abs(contactX * tangentX + contactY * tangentY) <= halfLength ? wall : undefined;
+  }
+
+  private damageBoneWall(wall: AttackProjectile, damage: number, x = wall.x, y = wall.y): void {
+    if (!Number.isFinite(wall.wallHealth) || damage <= 0) return;
+    wall.wallHealth = Math.max(0, (wall.wallHealth ?? 0) - damage);
+    this.floatingTexts.push({ x, y: y - 20, text: `-${Math.floor(damage)}`, color: "#ded5bd", life: 0.55 });
+    if (wall.wallHealth <= 0) {
+      wall.life = 0;
+      if (this.ownedSkills.includes("Bone Wall")) this.skillCastCooldowns["Bone Wall"] = this.getSkillCastInterval("Bone Wall");
+    }
+  }
+
+  private drawBoneWall(ctx: CanvasRenderingContext2D, wall: AttackProjectile): void {
+    if (wall.wallNormalX === undefined || wall.wallNormalY === undefined) return;
+    const tangentX = -wall.wallNormalY;
+    const tangentY = wall.wallNormalX;
+    const halfLength = wall.wallHalfLength ?? 70;
+    const left = this.projectArenaPoint(wall.x - tangentX * halfLength, wall.y - tangentY * halfLength);
+    const right = this.projectArenaPoint(wall.x + tangentX * halfLength, wall.y + tangentY * halfLength);
+    const progress = Math.max(0, (wall.wallHealth ?? 0) / (wall.wallMaxHealth ?? 1));
+    ctx.save();
+    ctx.lineCap = "round";
+    ctx.strokeStyle = "#382f28";
+    ctx.lineWidth = 13;
+    ctx.beginPath();
+    ctx.moveTo(left.x, left.y);
+    ctx.lineTo(right.x, right.y);
+    ctx.stroke();
+    ctx.strokeStyle = "#b9ad91";
+    ctx.lineWidth = 8;
+    ctx.beginPath();
+    ctx.moveTo(left.x, left.y - 2);
+    ctx.lineTo(right.x, right.y - 2);
+    ctx.stroke();
+    ctx.strokeStyle = "#eee4c9";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(left.x, left.y - 5);
+    ctx.lineTo(right.x, right.y - 5);
+    ctx.stroke();
+    const pillarCount = 9;
+    for (let index = 0; index < pillarCount; index += 1) {
+      const t = index / (pillarCount - 1);
+      const x = left.x + (right.x - left.x) * t;
+      const y = left.y + (right.y - left.y) * t;
+      const height = 16 + Math.sin(t * Math.PI * 4) * 4;
+      ctx.strokeStyle = index % 2 ? "#8e8269" : "#d0c5a7";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(x, y + 1);
+      ctx.lineTo(x + (index % 2 ? 2 : -2), y - height);
+      ctx.stroke();
+      ctx.fillStyle = "#e2d8bd";
+      ctx.beginPath();
+      ctx.arc(x + (index % 2 ? 2 : -2), y - height, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    const barLeft = Math.min(left.x, right.x);
+    const barWidth = Math.abs(right.x - left.x);
+    const barY = Math.min(left.y, right.y) - 30;
+    ctx.fillStyle = "#171311";
+    ctx.fillRect(barLeft, barY, barWidth, 3);
+    ctx.fillStyle = progress > 0.35 ? "#d8c89f" : "#9c4d40";
+    ctx.fillRect(barLeft, barY, barWidth * progress, 3);
+    ctx.restore();
+  }
+
   private drawWakeOfFireTrap(ctx: CanvasRenderingContext2D, trap: AttackProjectile): void {
     const point = this.projectArenaPoint(trap.x, trap.y);
     const dpr = this.arenaRef?.nativeElement.clientWidth
@@ -5254,7 +5494,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   private drawAttackProjectile(ctx: CanvasRenderingContext2D, projectile: AttackProjectile): void {
-    if (projectile.wakeOfFireTrap || projectile.kind === "melee" || (projectile.impactTrap && projectile.impactAge !== undefined)) return;
+    if (projectile.wakeOfFireTrap || projectile.boneWall || projectile.kind === "melee" || (projectile.impactTrap && projectile.impactAge !== undefined)) return;
     const renderPoint = projectile.impactPoint ?? { x: projectile.x, y: projectile.y };
     const renderAge = projectile.age;
     const impactDuration = projectile.impactDuration ?? 0.42;
@@ -5540,9 +5780,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       return;
     }
     if (this.actTransitionReady && this.actPortalOpen && !this.escapeMenuOpen && !this.inventoryOpen && !this.skillTreeOpen && this.pendingLevelUps === 0) {
-      this.runTime += dt / 1000;
-      this.movePlayer(dt);
-      this.updateAct1InteriorState();
+      this.update(dt);
       if (Math.hypot(this.playerX - this.actPortalX, this.playerY - this.actPortalY) <= 30) {
         this.advanceAct();
         return;
@@ -5571,7 +5809,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
     this.updateAttackProjectiles(dt);
     if (this.pendingLevelUps > 0 && this.upgradeChoices.length === 0) this.prepareUpgradeChoices();
-    if (this.pendingLevelUps > 0) this.attackProjectiles = this.attackProjectiles.filter((projectile) => projectile.wakeOfFireTrap);
+    if (this.pendingLevelUps > 0) this.attackProjectiles = this.attackProjectiles.filter((projectile) => projectile.wakeOfFireTrap || projectile.boneWall);
     else {
       this.updateBasicAttack();
       this.updateAutomaticSkillCasts(dt);
@@ -5584,7 +5822,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.updateGoldDrops(dt);
     this.updateFloatingTexts(dt);
     this.updateSkillVisualEffects(dt);
-    this.spawnEnemies(dt);
+    if (!this.actTransitionReady) this.spawnEnemies(dt);
     this.spawnChests(dt);
     this.persistRunProgress();
   }
@@ -5719,7 +5957,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       drop.y += offsetY;
     }
     for (const projectile of this.attackProjectiles) {
-      if (projectile.wakeOfFireTrap) {
+      if (projectile.wakeOfFireTrap || projectile.boneWall) {
         projectile.x += offsetX;
         projectile.y += offsetY;
         continue;
@@ -5803,7 +6041,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const isGolem = /Golem$/.test(skill);
     const isMage = skill === "Skeletal Mage";
     const baseHealth = isRaven ? 65 : isPoisonCreeper ? 150 : skill === "Fire Golem" ? 220 : skill === "Iron Golem" ? 280 : skill === "Blood Golem" ? 320 : isGolem ? 260 : isMage ? 95 : 125;
-    const health = Math.round(baseHealth * (1 + (rank - 1) * 0.18 + (isGolem ? golemMastery * 0.25 : isDruid ? 0 : playerMastery * 0.2)));
+    const health = Math.round(baseHealth * (1 + (rank - 1) * 0.18 + (isGolem ? golemMastery * 0.25 : isDruid ? 0 : playerMastery * 0.2)) * (skill === "Raise Skeleton" ? 0.5 : 1));
     const damage = Math.round((isRaven ? 12 : isPoisonCreeper ? 19 : isGolem ? 17 : isMage ? 13 : 15) * (1 + (rank - 1) * 0.12 + (isGolem ? golemMastery * 0.1 : isDruid ? 0 : playerMastery * 0.2)));
     const position = this.summonFollowPosition(this.enemies.filter((enemy) => enemy.summonType));
     if (skill === "Raise Skeleton") {
@@ -5902,6 +6140,24 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         enemy.attackAnimationTime = 0;
         continue;
       }
+      const activeBoneWall = this.activeBoneWall();
+      if (activeBoneWall && this.boneWallBlockingMove(enemy.x, enemy.y, this.playerX, this.playerY, enemy.r)) {
+        const wallDx = enemy.x - activeBoneWall.x;
+        const wallDy = enemy.y - activeBoneWall.y;
+        const wallDistance = Math.hypot(wallDx, wallDy) || 1;
+        enemy.facingX = wallDx / wallDistance;
+        enemy.facingY = wallDy / wallDistance;
+        enemy.animationState = "idle";
+        enemy.attackAnimationTime = 0;
+        enemy.cd = Math.max(0, (enemy.cd ?? 0) - elapsedSeconds);
+        if (enemy.cd <= 0) {
+          this.damageBoneWall(activeBoneWall, enemy.dmg, enemy.x, enemy.y);
+          enemy.cd = enemy.kind === "boss" ? 1.1 : enemy.kind === "champion" ? 0.9 : 0.8;
+          enemy.animationState = "attack";
+          enemy.attackAnimationTime = 0.35;
+        }
+        continue;
+      }
       const nearestSummon = summons
         .filter((summon) => summon.hp > 0 && (summon.summonType === "skeleton" || summon.summonType === "druid"))
         .sort((a, b) => Math.hypot(a.x - enemy.x, a.y - enemy.y) - Math.hypot(b.x - enemy.x, b.y - enemy.y))[0];
@@ -5938,8 +6194,20 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         && enemy.attackAnimationTime > 0
       ) enemy.animationState = "attack";
       const travel = wasInAttackRange ? 0 : Math.min(speed, distance - attackRange * 0.82);
-      enemy.x += (dx / distance) * travel;
-      enemy.y += (dy / distance) * travel;
+      const nextEnemyX = enemy.x + (dx / distance) * travel;
+      const nextEnemyY = enemy.y + (dy / distance) * travel;
+      const blockingWall = travel > 0 ? this.boneWallBlockingMove(enemy.x, enemy.y, nextEnemyX, nextEnemyY, enemy.r) : undefined;
+      if (blockingWall) {
+        if (enemy.cd === undefined || enemy.cd <= 0) {
+          this.damageBoneWall(blockingWall, enemy.dmg, enemy.x, enemy.y);
+          enemy.cd = enemy.kind === "boss" ? 1.1 : enemy.kind === "champion" ? 0.9 : 0.8;
+          enemy.animationState = "attack";
+          enemy.attackAnimationTime = 0.35;
+        }
+      } else {
+        enemy.x = nextEnemyX;
+        enemy.y = nextEnemyY;
+      }
       if (enemy.cd !== undefined) enemy.cd = Math.max(0, enemy.cd - dt / 1000);
       const distanceAfterMoving = Math.hypot(targetX - enemy.x, targetY - enemy.y);
       if (isAndariel) {
@@ -7800,6 +8068,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
 
     const drawOrder = [
+      ...this.attackProjectiles.filter((projectile) => projectile.boneWall).map((wall) => ({ depth: this.projectArenaPoint(wall.x, wall.y).y - 1, draw: () => this.drawBoneWall(ctx, wall) })),
       ...this.attackProjectiles.filter((projectile) => projectile.wakeOfFireTrap).map((trap) => ({ depth: this.projectArenaPoint(trap.x, trap.y).y - 1, draw: () => this.drawWakeOfFireTrap(ctx, trap) })),
       ...this.attackProjectiles.filter((projectile) => projectile.impactTrap && projectile.impactPoint).map((projectile) => ({ depth: this.projectArenaPoint(projectile.impactPoint!.x, projectile.impactPoint!.y).y - 1, draw: () => this.drawLightningWeb(ctx, projectile) })),
       ...this.enemies.map((entity) => ({ depth: this.projectArenaPoint(entity.x, entity.y).y, draw: () => this.drawEnemy(ctx, entity) })),
@@ -8597,18 +8866,16 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const width = height * frameWidth / frameHeight;
     const mirror = !isGolem && dx < 0;
     ctx.save();
-    ctx.fillStyle = "#050505";
-    ctx.globalAlpha = 0.55;
-    ctx.beginPath();
-    ctx.ellipse(ground.x, ground.y + 2, width * 0.34, height * 0.07, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.globalAlpha = 1;
+    if (isGolem) {
+      ctx.fillStyle = "#050505";
+      ctx.globalAlpha = 0.55;
+      ctx.beginPath();
+      ctx.ellipse(ground.x, ground.y + 2, width * 0.34, height * 0.07, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
     if (sheet) {
       ctx.imageSmoothingEnabled = false;
-      if (!isGolem) {
-        ctx.shadowColor = "#9edfff";
-        ctx.shadowBlur = 12;
-      }
       ctx.save();
       if (mirror) {
         ctx.translate(ground.x, 0);
@@ -9582,6 +9849,12 @@ interface AttackProjectile {
   corpseExplosion?: boolean;
   corpseExplosionDamage?: number;
   wakeOfFireTrap?: boolean;
+  boneWall?: boolean;
+  wallNormalX?: number;
+  wallNormalY?: number;
+  wallHalfLength?: number;
+  wallHealth?: number;
+  wallMaxHealth?: number;
   ammoRemaining?: number;
   trapDamage?: number;
   shotCooldown?: number;

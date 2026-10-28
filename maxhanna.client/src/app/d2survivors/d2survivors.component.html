@@ -28,6 +28,9 @@
           <button type="button" class="d2s-menu-button primary" *ngIf="canResumeSavedRun" (click)="resumeRun()">
             <span>Continue Journey</span><small>{{ savedRunSummary }} · Resume where you left off</small>
           </button>
+          <button type="button" class="d2s-menu-button" *ngIf="canResumeSavedRun" (click)="openCharacterSelect()">
+            <span>Choose Hero</span><small>Resume your saved journey or start a different character</small>
+          </button>
           <button type="button" class="d2s-menu-button primary" *ngIf="canResumeSavedRun" (click)="openLobby()">
             <span>Return to Sanctuary Lobby</span><small>{{ savedRunSummary }} · Gather in the realm before continuing</small>
           </button>
@@ -104,7 +107,7 @@
               <div class="d2s-derived-stats"><span>Life <b>{{ selectedClassStats.life }}</b></span><span>Mana <b>{{ selectedClassStats.mana }}</b></span><span>Stamina <b>{{ selectedClassStats.stamina }}</b></span></div>
             </div>
             <button type="button" class="d2s-menu-button primary d2s-begin-button" (click)="startRun()"><span>{{ canResumeSelectedRun ? 'Start Fresh Journey' : 'Begin Journey' }}</span><small>{{ canResumeSelectedRun ? 'Start over as the ' + selectedClassName : 'Enter Sanctuary as the ' + selectedClassName }}</small></button>
-            <button type="button" class="d2s-menu-button d2s-begin-button" *ngIf="canResumeSelectedRun" (click)="resumeRun()"><span>Resume Saved Journey</span><small>{{ savedRunSummary }} · Continue this character where they left off</small></button>
+            <button type="button" class="d2s-menu-button d2s-begin-button" *ngIf="canResumeRunFromCharacterSelect" (click)="resumeRun()"><span>Resume Saved Journey</span><small>{{ savedRunSummary }} · Continue the saved character where they left off</small></button>
           </div>
           <div class="d2s-class-preview" [class.loading]="!previewModel && !previewLoadError">
             <canvas #classPreviewCanvas class="d2s-class-preview-canvas" [class.dragging]="previewDragging" [attr.aria-label]="selectedClassName + ' 3D hero preview. Drag to rotate; use the zoom buttons or mouse wheel to change zoom.'" (pointerdown)="onClassPreviewPointerDown($event)" (pointermove)="onClassPreviewPointerMove($event)" (pointerup)="onClassPreviewPointerUp($event)" (pointercancel)="onClassPreviewPointerUp($event)" (wheel)="onClassPreviewWheel($event)" role="img"></canvas>
@@ -388,15 +391,15 @@
           <p class="d2s-stats-level">Level {{ playerLevel }}</p>
           <div class="d2s-stats-block">
             <h4>Attributes</h4>
-            <div><span>Strength</span><b>{{ selectedClassStats.attributes[0].value + equippedStrengthBonus }}<small *ngIf="equippedStrengthBonus"> (+{{ equippedStrengthBonus }})</small></b></div>
+            <div><span>Strength</span><b>{{ selectedClassStats.attributes[0].value + equippedStrengthBonus }}<small *ngIf="equippedStrengthBonus"> (+{{ equippedStrengthBonus }})</small><small class="d2s-stat-preview" *ngIf="getSelectedItemStatDelta('strength') as strengthDelta" [class.negative]="strengthDelta < 0"> {{ formatItemStatDelta(strengthDelta) }} str</small></b></div>
             <div><span>Dexterity</span><b>{{ selectedClassStats.attributes[1].value }}</b></div>
-            <div><span>Vitality</span><b>{{ selectedClassStats.attributes[2].value }}</b></div>
+            <div><span>Vitality</span><b>{{ selectedClassStats.attributes[2].value }}<small class="d2s-stat-preview" *ngIf="getSelectedItemStatDelta('vitality') as vitalityDelta" [class.negative]="vitalityDelta < 0"> {{ formatItemStatDelta(vitalityDelta) }} vit</small></b></div>
             <div><span>Energy</span><b>{{ selectedClassStats.attributes[3].value }}</b></div>
           </div>
           <div class="d2s-stats-block d2s-derived-stats">
             <h4>Combat</h4>
-            <div><span>Damage</span><b>{{ inventoryAttackDamage }}</b></div>
-            <div><span>Defense</span><b>{{ equippedArmor }}</b></div>
+            <div><span>Damage</span><b>{{ inventoryAttackDamage }}<small class="d2s-stat-preview" *ngIf="getSelectedItemStatDelta('damage') as damageDelta" [class.negative]="damageDelta < 0"> {{ formatItemStatDelta(damageDelta) }}</small></b></div>
+            <div><span>Defense</span><b>{{ equippedArmor }}<small class="d2s-stat-preview" *ngIf="getSelectedItemStatDelta('defense') as defenseDelta" [class.negative]="defenseDelta < 0"> {{ formatItemStatDelta(defenseDelta) }}</small></b></div>
             <div><span>Stamina</span><b>{{ selectedClassStats.stamina }}</b></div>
           </div>
           <div class="d2s-stats-block d2s-resource-stats">
@@ -429,8 +432,7 @@
               (mouseenter)="onEquipmentItemHover(slot.slot, $event)"
               (mousemove)="onItemPreviewMove($event)"
               (mouseleave)="onItemPreviewLeave()">
-              <img *ngIf="getEquipmentItem(slot.slot) as equippedItem; else emptyEquipmentIcon" class="d2s-equipment-art" [src]="inventoryItemImage(equippedItem)" alt="" />
-              <ng-template #emptyEquipmentIcon><span class="d2s-equipment-icon" aria-hidden="true">{{ slot.icon }}</span></ng-template>
+              <img class="d2s-equipment-art" [class.empty]="!getEquipmentItem(slot.slot)" [src]="getEquipmentItem(slot.slot) ? inventoryItemImage(getEquipmentItem(slot.slot)!) : equipmentSlotImage(slot.slot)" [alt]="getEquipmentItem(slot.slot) ? '' : 'Empty ' + slot.label + ' slot'" />
               <span class="d2s-equipment-label">{{ getEquipmentItem(slot.slot)?.name || slot.label }}</span>
             </button>
           </div>
