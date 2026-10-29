@@ -24,10 +24,11 @@ const MODEL_BASE = "assets/d2survivors/models";
 const RUN_SAVE_KEY = "d2survivors.run.v1";
 const RUN_SAVE_VERSION = 1;
 const RUN_SAVE_INTERVAL_MS = 2500;
-const ACT_BOSS_TIME_SECONDS = 45;
-const ACT5_BAAL_WAVE_END_SECONDS = 60;
+const ACT_BOSS_TIME_SECONDS = 135;
+const ACT5_BAAL_WAVE_END_SECONDS = 180;
 const DRUID_FORM_DURATION_SECONDS = 15;
 const DRUID_FORM_COOLDOWN_SECONDS = 30;
+const BONE_ARMOR_RECAST_SECONDS = 12;
 const CAMPAIGN_TILE_WORLD_SIZE = 60;
 // The source atlas tiles are 160x80 pixels; render at 2x their former screen
 // footprint using nearest-neighbour sampling to retain crisp pixel-art edges.
@@ -175,7 +176,7 @@ const CAMPAIGN_ACTS: CampaignAct[] = [
   { act: 2, name: "The Buried Caves", region: "Lut Gholein", levelLabel: "Rocky Waste", map: "assets/d2survivors/maps/act2-caves.png", mapAlpha: true, floorTiles: "assets/d2survivors/maps/tiles/act2-floor-tiles.png", baseFloorVariant: 0, enemies: ["sandRaider", "sandMaggot", "scarab"], boss: "duriel" },
   { act: 3, name: "The Flayer Jungle", region: "Kurast Docks", levelLabel: "Spider Forest", map: "assets/d2survivors/maps/act3-jungle.png", mapAlpha: true, floorTiles: "assets/d2survivors/maps/tiles/act3-floor-tiles.png", baseFloorVariant: 5, enemies: ["fetish", "fetishShaman", "council"], boss: "mephisto" },
   { act: 4, name: "The Chaos Sanctuary", region: "Pandemonium Fortress", levelLabel: "Outer Steppes", map: "assets/d2survivors/maps/act4-catacombs.png", mapAlpha: true, floorTiles: "assets/d2survivors/maps/tiles/act4-floor-tiles.png", baseFloorVariant: 1, enemies: ["balrog", "vileChild", "vileMother"], boss: "diablo" },
-  { act: 5, name: "The Worldstone Keep", region: "Harrogath", levelLabel: "Worldstone Keep", map: "assets/d2survivors/maps/act5-worldstone.png", mapAlpha: true, floorTiles: "assets/d2survivors/maps/tiles/act5-floor-tiles.png", baseFloorVariant: 5, enemies: ["baalsMinion"], boss: "baal" },
+  { act: 5, name: "The Worldstone Keep", region: "Harrogath", levelLabel: "Worldstone Keep", map: "assets/d2survivors/maps/act5-worldstone.png", mapAlpha: true, floorTiles: "assets/d2survivors/maps/tiles/act5-floor-tiles.png", baseFloorVariant: 0, enemies: ["baalsMinion"], boss: "baal" },
 ];
 
 const ENEMY_SPRITE_PATHS: Record<EnemySpecies, string> = {
@@ -214,7 +215,7 @@ const ENEMY_SPRITE_LAYOUTS: Record<EnemySpecies, { columns: number; rows: number
   deathMauler: { columns: 12, rows: 8, animated: true }, wendigo: { columns: 12, rows: 8, animated: true },
   andariel: { columns: 12, rows: 8, animated: true }, duriel: { columns: 25, rows: 8, animated: true },
   mephisto: { columns: 18, rows: 24, animated: true },
-  diablo: { columns: 16, rows: 24, animated: true }, baalsMinion: { columns: 16, rows: 24, animated: true },
+  diablo: { columns: 14, rows: 8, animated: true }, baalsMinion: { columns: 16, rows: 24, animated: true },
   baal: { columns: 14, rows: 24, animated: true },
 };
 
@@ -393,10 +394,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private loadedModelClass = "";
   private readonly enemySprites: Partial<Record<EnemySpecies, EnemySprite>> = {};
   private readonly animatedSkeletonSprite = new Image();
-  private readonly animatedGolemSprite = new Image();
   private readonly druidAnimations: Partial<Record<DruidAnimationName, DruidAnimation>> = {};
   private animatedSkeletonFrames: HTMLCanvasElement[] = [];
-  private animatedGolemFrames: HTMLCanvasElement[] = [];
   private druidForm: DruidForm | null = null;
   private druidFormRemaining = 0;
   private druidFormCooldown = 0;
@@ -663,8 +662,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       name: "Fire Golem",
       desc: "a golem of fire, 600 life, 30 damage, with a Holy Fire aura that burns everything near it",
     },
-    { name: "Bone Armor", desc: "bones orbit the Necromancer, absorbing a flat amount of incoming damage; duration and absorption increase with rank" },
-    { name: "Bone Wall", desc: "Raises a bone barricade that blocks advancing enemies and absorbs incoming attacks; its health, length and duration increase with rank" },
+    { name: "Bone Armor", desc: "bones orbit the Necromancer for a limited time, absorbing damage up to their remaining strength; rank increases duration and absorption, with a 12-second recast delay" },
+    { name: "Bone Wall", desc: "Raises bone barricades that block advancing enemies and absorb incoming attacks; each rank adds one simultaneous wall and increases their health and length" },
     { name: "Lower Resist", desc: "+10% poison damage" },
     {
       name: "Skeleton Mastery",
@@ -1455,7 +1454,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       2: [0, 0, 0, 9, 12],
       3: [0, 0, 0, 0, 2, 2, 7, 7, 9, 10, 13],
       4: [1, 1, 3, 5, 6, 8, 10, 13, 15],
-      5: [0, 0, 5, 9, 10, 12, 13],
+      5: [0],
     };
     const candidates = variantsByAct[actId] ?? [0];
     const transition = hash(Math.floor(worldTileX / 4), Math.floor(worldTileY / 4), 101) % candidates.length;
@@ -3725,7 +3724,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const maxAbsorption = this.boneArmorAbsorptionForRank(rank);
       const currentAbsorption = this.isBoneArmorActive() ? this.boneArmorAbsorptionRemaining : maxAbsorption;
       const status = this.isBoneArmorActive() ? `Active: ${this.boneArmorRemaining.toFixed(1)}s left` : `Active for ${this.boneArmorDurationForRank(rank).toFixed(1)}s`;
-      return [`Absorbs ${maxAbsorption} flat damage (${currentAbsorption} remaining)`, status];
+      return [`Absorbs ${maxAbsorption} flat damage (${currentAbsorption} remaining)`, status, `${BONE_ARMOR_RECAST_SECONDS}s recast delay after expiration or depletion`];
     }
 
     if (this.selectedClass === "druid" && (name === "Werewolf" || name === "Werebear")) {
@@ -3754,7 +3753,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
 
     if (name === "Bone Armor") {
-      return [`Absorbs ${this.boneArmorAbsorptionForRank(rank)} flat damage`, `Active for ${this.boneArmorDurationForRank(rank).toFixed(1)}s`];
+      return [`Absorbs ${this.boneArmorAbsorptionForRank(rank)} flat damage`, `Active for ${this.boneArmorDurationForRank(rank).toFixed(1)}s`, `${BONE_ARMOR_RECAST_SECONDS}s recast delay after expiration or depletion`];
     }
 
     if (name === "Corpse Explosion" && this.selectedClass === "necromancer") {
@@ -3876,11 +3875,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   private boneArmorDurationForRank(rank: number): number {
-    return 6 + Math.max(1, rank) * 2;
+    return 5 + Math.max(1, rank);
   }
 
   private boneArmorAbsorptionForRank(rank: number): number {
-    return 30 + Math.max(1, rank) * 20;
+    return 20 + Math.max(1, rank) * 10;
   }
 
   private isBoneArmorActive(): boolean {
@@ -3903,6 +3902,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   private getSkillCastIntervalForRank(skill: string, rank: number): number {
+    if (skill === "Bone Armor") return BONE_ARMOR_RECAST_SECONDS;
     const definition = getClassSkills(this.selectedClass).find((entry) => entry.name === skill);
     const visual = definition?.visual ?? getD2SkillVisual(skill);
     const baseIntervals: Record<D2SkillVisual, number> = {
@@ -4044,6 +4044,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       return;
     }
     if (this.isPersistentSummonSkill(skill)) {
+      const canSummon = !this.isGolemSkill(skill) || this.highestOwnedGolemSkill() === skill;
+      if (!canSummon) return;
       this.summonCompanion(skill);
       this.addSkillVisualEffect(skill);
       this.triggerAttackAnimation(this.selectedClass === "necromancer" ? "necromancerCast" : "cast");
@@ -4470,20 +4472,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     loadSheet(this.animatedSkeletonSprite, "assets/d2survivors/enemies/animated/skeleton.png", (sheet) => {
       this.animatedSkeletonFrames = [sheet];
     });
-    // Use the supplied D2 skeleton walk sheet for the golem too, recolored with
-    // the golem's elemental tint. The imported minotaur atlas has no usable palette.
-    loadSheet(this.animatedGolemSprite, "assets/d2survivors/enemies/animated/skeleton.png", (sheet) => {
-      const tintedSheet = document.createElement("canvas");
-      tintedSheet.width = sheet.width;
-      tintedSheet.height = sheet.height;
-      const context = tintedSheet.getContext("2d");
-      if (!context) return;
-      context.drawImage(sheet, 0, 0);
-      context.globalCompositeOperation = "source-atop";
-      context.fillStyle = "rgba(158, 111, 77, 0.7)";
-      context.fillRect(0, 0, tintedSheet.width, tintedSheet.height);
-      this.animatedGolemFrames = [tintedSheet];
-    });
   }
 
   private loadEnemySprites(): void {
@@ -4739,7 +4727,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       skill !== this.basicAttackName && classSkills.some((definition) => definition.name === skill),
     );
     const livingEnemies = this.enemies.filter((enemy) => enemy.hp > 0 && !enemy.summonType);
-    if (this.selectedClass === "necromancer" && !this.activeBoneWall()) delete this.skillCastCooldowns["Bone Wall"];
+    if (this.selectedClass === "necromancer" && this.activeBoneWalls().length < this.boneWallLimit()) delete this.skillCastCooldowns["Bone Wall"];
     const unlockedFormSkill = activeSkills.includes("Werewolf") ? "Werewolf"
       : activeSkills.includes("Werebear") ? "Werebear" : undefined;
     if (unlockedFormSkill) {
@@ -4765,6 +4753,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     for (const skill of activeSkills) {
       if (this.isDruidFormSkill(skill)) continue;
       if (this.isPersistentSummonSkill(skill)) {
+        if (this.isGolemSkill(skill)) {
+          if (skill === this.highestOwnedGolemSkill(activeSkills) && this.activeSummonCount(skill) === 0) this.summonCompanion(skill);
+          this.skillCastCooldowns[skill] = Number.POSITIVE_INFINITY;
+          continue;
+        }
         if (this.activeSummonCount(skill) < this.summonLimitForSkill(skill)) this.summonCompanion(skill);
         this.skillCastCooldowns[skill] = Number.POSITIVE_INFINITY;
         continue;
@@ -4782,8 +4775,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         continue;
       }
       if (skill === "Bone Wall" && this.selectedClass === "necromancer") {
-        const activeWall = this.activeBoneWall();
-        if (activeWall) {
+        if (this.activeBoneWalls().length >= this.boneWallLimit()) {
           this.skillCastCooldowns[skill] = Number.POSITIVE_INFINITY;
           continue;
         }
@@ -4970,13 +4962,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const projectile = this.attackProjectiles[projectileIndex];
       if (projectile.boneWall) {
         projectile.age += seconds;
-        if (projectile.wallHealth !== undefined && projectile.wallHealth <= 0) {
-          projectile.life = 0;
-          if (this.ownedSkills.includes("Bone Wall")) this.skillCastCooldowns["Bone Wall"] = this.getSkillCastInterval("Bone Wall");
-        } else {
-          projectile.life -= seconds;
-          if (projectile.life <= 0 && this.ownedSkills.includes("Bone Wall")) this.skillCastCooldowns["Bone Wall"] = this.getSkillCastInterval("Bone Wall");
-        }
+        if (projectile.wallHealth !== undefined && projectile.wallHealth <= 0) projectile.life = 0;
         continue;
       }
       if (projectile.impactPoint && !projectile.impactTrap && !projectile.corpseExplosion) {
@@ -5255,7 +5241,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   private plantBoneWall(): void {
-    const rank = Math.max(1, this.skillLevels["Bone Wall"] ?? 1);
+    const rank = this.boneWallLimit();
+    const activeWalls = this.activeBoneWalls();
+    if (activeWalls.length >= rank) return;
     const target = this.enemies
       .filter((enemy) => enemy.hp > 0 && !enemy.summonType)
       .sort((a, b) => Math.hypot(a.x - this.playerX, a.y - this.playerY) - Math.hypot(b.x - this.playerX, b.y - this.playerY))[0];
@@ -5265,18 +5253,18 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const directionY = target
       ? (target.y - this.playerY) / (Math.hypot(target.x - this.playerX, target.y - this.playerY) || 1)
       : this.playerFacingY;
-    const normalLength = Math.hypot(directionX, directionY) || 1;
-    const normalX = directionX / normalLength;
-    const normalY = directionY / normalLength;
+    const baseAngle = Math.atan2(directionY, directionX);
+    const wallAngle = baseAngle + activeWalls.length * Math.PI / 4;
+    const normalX = Math.cos(wallAngle);
+    const normalY = Math.sin(wallAngle);
     const enemyDistance = target ? Math.hypot(target.x - this.playerX, target.y - this.playerY) : 152;
     const wallDistance = Math.max(30, Math.min(76, enemyDistance * 0.5));
     const wallX = this.playerX + normalX * wallDistance;
     const wallY = this.playerY + normalY * wallDistance;
-    this.attackProjectiles = this.attackProjectiles.filter((projectile) => !projectile.boneWall);
     this.attackProjectiles.push({
       x: wallX, y: wallY, startX: wallX, startY: wallY,
       targetX: wallX, targetY: wallY,
-      speed: 0, damage: 0, life: 7 + rank * 1.25, age: 0,
+      speed: 0, damage: 0, life: Number.POSITIVE_INFINITY, age: 0,
       radius: 10, color: "#d9d0b5", kind: "bone", boneWall: true,
       wallNormalX: normalX, wallNormalY: normalY,
       wallHalfLength: 68 + rank * 5,
@@ -5287,13 +5275,23 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.draw();
   }
 
-  private activeBoneWall(): AttackProjectile | undefined {
-    return this.attackProjectiles.find((projectile) => projectile.boneWall && projectile.life > 0 && (projectile.wallHealth ?? 0) > 0);
+  private boneWallLimit(): number {
+    return Math.max(1, this.skillLevels["Bone Wall"] ?? 1);
+  }
+
+  private activeBoneWalls(): AttackProjectile[] {
+    return this.attackProjectiles.filter((projectile) => projectile.boneWall && projectile.life > 0 && (projectile.wallHealth ?? 0) > 0);
   }
 
   private boneWallBlockingMove(startX: number, startY: number, endX: number, endY: number, radius: number): AttackProjectile | undefined {
-    const wall = this.activeBoneWall();
-    if (!wall || wall.wallNormalX === undefined || wall.wallNormalY === undefined) return undefined;
+    for (const wall of this.activeBoneWalls()) {
+      if (this.boneWallBlocksMove(wall, startX, startY, endX, endY, radius)) return wall;
+    }
+    return undefined;
+  }
+
+  private boneWallBlocksMove(wall: AttackProjectile, startX: number, startY: number, endX: number, endY: number, radius: number): boolean {
+    if (wall.wallNormalX === undefined || wall.wallNormalY === undefined) return false;
     const normalX = wall.wallNormalX;
     const normalY = wall.wallNormalY;
     const tangentX = -normalY;
@@ -5307,12 +5305,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const halfLength = (wall.wallHalfLength ?? 0) + radius;
     const thickness = 9 + radius;
     const crossesWall = startSide >= -thickness && endSide <= thickness || startSide <= thickness && endSide >= -thickness;
-    if (!crossesWall) return undefined;
+    if (!crossesWall) return false;
     const denominator = startSide - endSide;
     const t = Math.abs(denominator) > 0.001 ? Math.max(0, Math.min(1, startSide / denominator)) : 0;
     const contactX = startX + (endX - startX) * t - wall.x;
     const contactY = startY + (endY - startY) * t - wall.y;
-    return Math.abs(contactX * tangentX + contactY * tangentY) <= halfLength ? wall : undefined;
+    return Math.abs(contactX * tangentX + contactY * tangentY) <= halfLength;
   }
 
   private damageBoneWall(wall: AttackProjectile, damage: number, x = wall.x, y = wall.y): void {
@@ -5637,11 +5635,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   startRun(): void {
-    this.hasSavedRun = true;
     this.runActive = false;
     // Snapshot the outgoing run first, then make this class's profile the
     // source of truth for the new run's gold, inventory, and equipped gear.
     this.persistRunProgress(true);
+    this.hasSavedRun = true;
     this.loadCharacterProfile(this.selectedClass, this.playerGold);
     this.deathRecovery = false;
     this.deathCount = 0;
@@ -6003,6 +6001,23 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     return this.enemies.filter((enemy) => enemy.summonSkill === skill && enemy.hp > 0).length;
   }
 
+  private isGolemSkill(skill: string): boolean {
+    return /^(Clay|Blood|Iron|Fire) Golem$/.test(skill);
+  }
+
+  private highestOwnedGolemSkill(skills: string[] = this.ownedSkills): string | undefined {
+    return ["Fire Golem", "Iron Golem", "Blood Golem", "Clay Golem"]
+      .find((skill) => skills.includes(skill));
+  }
+
+  private replaceActiveGolem(skill: string): void {
+    if (!this.isGolemSkill(skill)) return;
+    for (let index = this.enemies.length - 1; index >= 0; index -= 1) {
+      const enemy = this.enemies[index];
+      if (enemy.summonType === "golem" && enemy.summonSkill !== skill) this.enemies.splice(index, 1);
+    }
+  }
+
   private syncRaisedSkeletons(): void {
     const activeSkeletons = this.enemies.filter((enemy) => enemy.summonSkill === "Raise Skeleton" && enemy.hp > 0);
     const summonCap = this.summonLimitForSkill("Raise Skeleton");
@@ -6018,12 +6033,16 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   private restoreSummonsFromOwnedSkills(): void {
+    const ownedGolemSkill = this.highestOwnedGolemSkill();
+    if (ownedGolemSkill) this.summonCompanion(ownedGolemSkill);
+
     for (const skill of this.ownedSkills) {
       if (!this.isPersistentSummonSkill(skill)) continue;
       if (skill === "Raise Skeleton") {
         this.syncRaisedSkeletons();
         continue;
       }
+      if (this.isGolemSkill(skill)) continue;
       while (this.activeSummonCount(skill) < this.summonLimitForSkill(skill) && this.enemies.length < 220) {
         this.summonCompanion(skill);
       }
@@ -6031,7 +6050,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   private summonCompanion(skill: string): void {
-    if (!this.isPersistentSummonSkill(skill) || this.activeSummonCount(skill) >= this.summonLimitForSkill(skill)) return;
+    if (!this.isPersistentSummonSkill(skill)) return;
+    if (this.isGolemSkill(skill)) this.replaceActiveGolem(skill);
+    if (this.activeSummonCount(skill) >= this.summonLimitForSkill(skill)) return;
     const rank = this.skillLevels[skill] ?? 1;
     const isDruid = this.selectedClass === "druid";
     const isRaven = skill === "Raven";
@@ -6088,8 +6109,15 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       summon.animationState = "idle";
       summon.attackAnimationTime = Math.max(0, (summon.attackAnimationTime ?? 0) - dt / 1000);
       summon.summonAttackCooldown = Math.max(0, (summon.summonAttackCooldown ?? 0) - dt / 1000);
+      const raisedSkeleton = summon.summonSkill === "Raise Skeleton";
+      const summonDistanceToHero = Math.hypot(summon.x - this.playerX, summon.y - this.playerY);
+      const targetRange = raisedSkeleton ? 200 : 360;
+      const canEngageTarget = !raisedSkeleton || summonDistanceToHero <= 220;
       const target = livingEnemies
-        .filter((enemy) => enemy.hp > 0 && Math.hypot(enemy.x - this.playerX, enemy.y - this.playerY) < 360)
+        .filter((enemy) => canEngageTarget
+          && enemy.hp > 0
+          && Math.hypot(enemy.x - this.playerX, enemy.y - this.playerY) < targetRange
+          && (!raisedSkeleton || Math.hypot(enemy.x - summon.x, enemy.y - summon.y) < 190))
         .sort((a, b) => Math.hypot(a.x - summon.x, a.y - summon.y) - Math.hypot(b.x - summon.x, b.y - summon.y))[0];
       let targetX: number;
       let targetY: number;
@@ -6116,7 +6144,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         targetY = desired.y;
         const distance = Math.hypot(targetX - summon.x, targetY - summon.y);
         if (distance > 25) {
-          const step = summon.speed * dt / 1000 / this.worldZoom;
+          const followSpeed = summon.summonSkill === "Raise Skeleton" ? Math.max(summon.speed, 220) : summon.speed;
+          const step = followSpeed * dt / 1000 / this.worldZoom;
           summon.x += (targetX - summon.x) / distance * Math.min(step, distance);
           summon.y += (targetY - summon.y) / distance * Math.min(step, distance);
           summon.animationState = "move";
@@ -6140,8 +6169,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         enemy.attackAnimationTime = 0;
         continue;
       }
-      const activeBoneWall = this.activeBoneWall();
-      if (activeBoneWall && this.boneWallBlockingMove(enemy.x, enemy.y, this.playerX, this.playerY, enemy.r)) {
+      const blockingBoneWall = this.boneWallBlockingMove(enemy.x, enemy.y, this.playerX, this.playerY, enemy.r);
+      if (blockingBoneWall) {
+        const activeBoneWall = blockingBoneWall;
         const wallDx = enemy.x - activeBoneWall.x;
         const wallDy = enemy.y - activeBoneWall.y;
         const wallDistance = Math.hypot(wallDx, wallDy) || 1;
@@ -8753,7 +8783,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           ? (e.animationState === "attack" ? 16 : e.animationState === "move" ? 8 : 0) + directionRow
           : e.species === "council" || e.species === "mephisto"
             ? (e.animationState === "attack" ? 16 : e.animationState === "move" ? 8 : 0) + directionRow
-            : e.species === "diablo"
+            : e.species === "diablo" && sprite.rows === 24
               ? (e.animationState === "attack" ? 16 : e.animationState === "move" ? 8 : 0) + directionRow
               : e.species === "baalsMinion" || e.species === "baal"
                 ? (e.animationState === "attack" ? 16 : e.animationState === "move" ? 8 : 0) + directionRow
@@ -8853,14 +8883,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       return;
     }
     const isGolem = summon.summonType === "golem";
-    const frames = isGolem ? this.animatedGolemFrames : this.animatedSkeletonFrames;
-    const sheet = frames[0];
-    const frameWidth = isGolem ? 110 : 70;
+    const sheet = this.animatedSkeletonFrames[0];
+    const frameWidth = 70;
     const frameHeight = 86;
     const columns = 16;
     const dx = this.playerX - summon.x;
     const dy = this.playerY - summon.y;
-    const isMoving = Math.hypot(dx, dy) > 4;
+    const isMoving = summon.animationState === "move";
     const strideFrame = isMoving ? Math.floor(this.runTime * 10) % columns : 3;
     const height = (isGolem ? 84 : 90) * this.worldZoom;
     const width = height * frameWidth / frameHeight;
@@ -8874,9 +8903,16 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       ctx.fill();
       ctx.globalAlpha = 1;
     }
-    if (sheet) {
+    if (isGolem) {
+      this.drawClayGolem(ctx, summon, ground, width, height, isMoving);
+    } else if (sheet) {
       ctx.imageSmoothingEnabled = false;
       ctx.save();
+      if (summon.summonSkill === "Skeletal Mage") {
+        ctx.filter = "brightness(3.2) contrast(1.25) saturate(1.5)";
+        ctx.shadowColor = "rgba(145, 210, 255, 0.95)";
+        ctx.shadowBlur = 14 * this.worldZoom;
+      }
       if (mirror) {
         ctx.translate(ground.x, 0);
         ctx.scale(-1, 1);
@@ -8894,9 +8930,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       );
       ctx.restore();
     } else {
-      const glow = isGolem ? "#f07a31" : "#c7d6df";
+      const glow = "#c7d6df";
       ctx.fillStyle = glow;
-      ctx.strokeStyle = isGolem ? "#e6b45c" : "#e2edf2";
+      ctx.strokeStyle = "#e2edf2";
       ctx.lineWidth = 3;
       ctx.shadowColor = glow;
       ctx.shadowBlur = 12;
@@ -8929,6 +8965,120 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     ctx.shadowBlur = 3;
     ctx.fillText(summon.summonSkill ?? "Summon", ground.x, barY - 3);
     ctx.shadowBlur = 0;
+  }
+
+  private drawClayGolem(
+    ctx: CanvasRenderingContext2D,
+    summon: Enemy,
+    ground: { x: number; y: number },
+    width: number,
+    height: number,
+    isMoving: boolean,
+  ): void {
+    const fire = summon.summonSkill === "Fire Golem";
+    const blood = summon.summonSkill === "Blood Golem";
+    const iron = summon.summonSkill === "Iron Golem";
+    const stone = fire ? "#6e3424" : blood ? "#63352f" : iron ? "#59636a" : "#80634a";
+    const highlight = fire ? "#ee7837" : blood ? "#b35e4b" : iron ? "#9aa5a7" : "#bea27c";
+    const shadow = fire ? "#341c1c" : blood ? "#321d24" : iron ? "#292f36" : "#42352d";
+    const bob = isMoving ? Math.sin(this.runTime * 10) * height * 0.025 : Math.sin(this.runTime * 2.5) * height * 0.012;
+    const cx = ground.x;
+    const foot = ground.y + bob;
+    const limbWidth = width * 0.19;
+    const torsoWidth = width * 0.58;
+    ctx.save();
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.shadowColor = fire ? "#ff5829" : "#080706";
+    ctx.shadowBlur = fire ? 12 * this.worldZoom : 5 * this.worldZoom;
+    ctx.fillStyle = shadow;
+    ctx.beginPath();
+    ctx.ellipse(cx, foot + 2, width * 0.4, height * 0.075, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // Broad, irregular stone limbs and torso give the summon a golem silhouette.
+    ctx.strokeStyle = shadow;
+    ctx.lineWidth = limbWidth * 0.46;
+    ctx.beginPath();
+    ctx.moveTo(cx - torsoWidth * 0.33, foot - height * 0.48 + bob);
+    ctx.lineTo(cx - torsoWidth * 0.53, foot - height * 0.27 + bob);
+    ctx.lineTo(cx - torsoWidth * 0.58, foot - height * 0.08 + bob);
+    ctx.moveTo(cx + torsoWidth * 0.33, foot - height * 0.48 + bob);
+    ctx.lineTo(cx + torsoWidth * 0.53, foot - height * 0.28 + bob);
+    ctx.lineTo(cx + torsoWidth * 0.58, foot - height * 0.1 + bob);
+    ctx.moveTo(cx - torsoWidth * 0.18, foot - height * 0.15 + bob);
+    ctx.lineTo(cx - torsoWidth * 0.23, foot - height * 0.02 + bob);
+    ctx.moveTo(cx + torsoWidth * 0.18, foot - height * 0.15 + bob);
+    ctx.lineTo(cx + torsoWidth * 0.23, foot - height * 0.02 + bob);
+    ctx.stroke();
+    ctx.strokeStyle = highlight;
+    ctx.lineWidth = limbWidth * 0.25;
+    ctx.beginPath();
+    ctx.moveTo(cx - torsoWidth * 0.33, foot - height * 0.48 + bob);
+    ctx.lineTo(cx - torsoWidth * 0.53, foot - height * 0.27 + bob);
+    ctx.moveTo(cx + torsoWidth * 0.33, foot - height * 0.48 + bob);
+    ctx.lineTo(cx + torsoWidth * 0.53, foot - height * 0.28 + bob);
+    ctx.moveTo(cx - torsoWidth * 0.18, foot - height * 0.15 + bob);
+    ctx.lineTo(cx - torsoWidth * 0.23, foot - height * 0.02 + bob);
+    ctx.moveTo(cx + torsoWidth * 0.18, foot - height * 0.15 + bob);
+    ctx.lineTo(cx + torsoWidth * 0.23, foot - height * 0.02 + bob);
+    ctx.stroke();
+
+    ctx.fillStyle = stone;
+    ctx.strokeStyle = shadow;
+    ctx.lineWidth = Math.max(1.5, 2.2 * this.worldZoom);
+    ctx.beginPath();
+    ctx.moveTo(cx - torsoWidth * 0.25, foot - height * 0.62 + bob);
+    ctx.lineTo(cx - torsoWidth * 0.38, foot - height * 0.49 + bob);
+    ctx.lineTo(cx - torsoWidth * 0.34, foot - height * 0.22 + bob);
+    ctx.lineTo(cx - torsoWidth * 0.23, foot - height * 0.16 + bob);
+    ctx.lineTo(cx + torsoWidth * 0.23, foot - height * 0.16 + bob);
+    ctx.lineTo(cx + torsoWidth * 0.34, foot - height * 0.25 + bob);
+    ctx.lineTo(cx + torsoWidth * 0.39, foot - height * 0.48 + bob);
+    ctx.lineTo(cx + torsoWidth * 0.25, foot - height * 0.62 + bob);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = highlight;
+    ctx.beginPath();
+    ctx.moveTo(cx - torsoWidth * 0.27, foot - height * 0.57 + bob);
+    ctx.lineTo(cx - torsoWidth * 0.1, foot - height * 0.59 + bob);
+    ctx.lineTo(cx - torsoWidth * 0.15, foot - height * 0.27 + bob);
+    ctx.lineTo(cx - torsoWidth * 0.29, foot - height * 0.25 + bob);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = stone;
+    ctx.beginPath();
+    ctx.moveTo(cx - width * 0.2, foot - height * 0.61 + bob);
+    ctx.lineTo(cx - width * 0.17, foot - height * 0.78 + bob);
+    ctx.lineTo(cx - width * 0.08, foot - height * 0.87 + bob);
+    ctx.lineTo(cx + width * 0.12, foot - height * 0.87 + bob);
+    ctx.lineTo(cx + width * 0.21, foot - height * 0.76 + bob);
+    ctx.lineTo(cx + width * 0.2, foot - height * 0.61 + bob);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = highlight;
+    ctx.beginPath();
+    ctx.moveTo(cx - width * 0.13, foot - height * 0.82 + bob);
+    ctx.lineTo(cx - width * 0.04, foot - height * 0.85 + bob);
+    ctx.lineTo(cx - width * 0.08, foot - height * 0.68 + bob);
+    ctx.lineTo(cx - width * 0.16, foot - height * 0.67 + bob);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = fire ? "#fff0a0" : blood ? "#e47a62" : iron ? "#c5e8ee" : "#d9c68e";
+    ctx.shadowColor = fire ? "#ff481e" : blood ? "#d33546" : iron ? "#71c8e8" : "#b4d8a2";
+    ctx.shadowBlur = 7 * this.worldZoom;
+    for (const eyeX of [-1, 1]) {
+      ctx.beginPath();
+      ctx.ellipse(cx + eyeX * width * 0.074, foot - height * 0.75 + bob, width * 0.027, height * 0.018, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.shadowBlur = 0;
+    ctx.restore();
   }
 
   private drawDruidSummon(ctx: CanvasRenderingContext2D, summon: Enemy, ground: { x: number; y: number }): void {
@@ -9620,7 +9770,7 @@ function enemySpriteFrame(enemy: Enemy, columns: number, runTime: number): numbe
     if (state === "move") return Math.floor(runTime * 9 + phaseOffset) % frameCounts.move;
     return Math.floor(runTime * 3 + phaseOffset) % frameCounts.idle;
   }
-  if (enemy.species === "diablo") {
+  if (enemy.species === "diablo" && columns === 16) {
     if (state === "attack") {
       const progress = 1 - Math.max(0, Math.min(1, (enemy.attackAnimationTime ?? 0.55) / 0.55));
       return Math.min(15, Math.floor(progress * 16));
@@ -9658,7 +9808,7 @@ function enemySpriteFrame(enemy: Enemy, columns: number, runTime: number): numbe
 
 function enemySpriteRow(species: EnemySpecies, dx: number, dy: number): number {
   const layoutRows = ENEMY_SPRITE_LAYOUTS[species].rows;
-  const directions = species === "fetish" || species === "fetishShaman" || species === "diablo" || species === "baalsMinion" || species === "baal" ? layoutRows / 3 : layoutRows;
+  const directions = species === "fetish" || species === "fetishShaman" || (species === "diablo" && layoutRows === 24) || species === "baalsMinion" || species === "baal" ? layoutRows / 3 : layoutRows;
   if (directions === 4) return dy > 0 ? 0 : dy < 0 ? 2 : dx < 0 ? 1 : 3;
   if (species === "goatman") return druidDirection(dx, dy);
   if (directions === 8) {
