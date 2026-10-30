@@ -106,6 +106,70 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(hand.children.some((child) => child.name.startsWith("equipped_weapon_"))).toBeFalse();
   });
 
+  it("shows and removes an equipped shield at the off-hand attachment", () => {
+    const model = new THREE.Group();
+    const shieldAttach = new THREE.Bone();
+    shieldAttach.name = "shield_attach";
+    model.add(shieldAttach);
+
+    component.equipment.shield = { name: "Buckler", baseName: "Buckler", slot: "armor" } as any;
+    (component as any).configureClassMeleeWeapon(model, "paladin");
+
+    const shield = shieldAttach.children.find((child) => child.name === "equipped_shield_shield");
+    expect(shield).toBeDefined();
+    expect(shield?.children.length).toBeGreaterThanOrEqual(3);
+    expect((shield?.children[0] as THREE.Mesh).geometry).toBeInstanceOf(THREE.ExtrudeGeometry);
+
+    component.equipment.shield = null;
+    (component as any).configureClassMeleeWeapon(model, "paladin");
+    expect(shieldAttach.children.some((child) => child.name.startsWith("equipped_shield_"))).toBeFalse();
+  });
+
+  it("lets Barbarians equip an off-hand weapon or shield, and renders a second weapon on the left hand", () => {
+    component.selectedClass = "barbarian";
+    component.equipment.weapon = { id: "main", name: "Short Sword", baseName: "Short Sword", slot: "weapon" } as any;
+    component.inventory[0] = { id: "offhand", name: "Hand Axe", baseName: "Hand Axe", slot: "weapon" } as any;
+
+    component.equipSelectedItem(0);
+    expect(component.equipment.weapon?.id).toBe("main");
+    expect(component.equipment.shield?.id).toBe("offhand");
+    expect(component.equippedWeaponDamage).toBe(0);
+
+    const model = new THREE.Group();
+    const mainHand = new THREE.Bone();
+    mainHand.name = "R_weapon_attach";
+    const offhand = new THREE.Bone();
+    offhand.name = "L_weapon_attach";
+    model.add(mainHand, offhand);
+    (component as any).configureClassMeleeWeapon(model, "barbarian");
+
+    expect(mainHand.children.some((child) => child.name === "equipped_weapon_weapon")).toBeTrue();
+    expect(offhand.children.some((child) => child.name === "equipped_weapon_offhand_weapon")).toBeTrue();
+
+    component.equipment.shield = null;
+    (component as any).configureClassMeleeWeapon(model, "barbarian");
+    expect(offhand.children.some((child) => child.name.startsWith("equipped_weapon_offhand_") || child.name.startsWith("equipped_shield_"))).toBeFalse();
+
+    component.equipment.shield = { id: "offhand", name: "Hand Axe", baseName: "Hand Axe", slot: "weapon" } as any;
+    component.inventory[1] = { id: "shield", name: "Buckler", baseName: "Buckler", slot: "armor" } as any;
+    component.equipSelectedItem(1, "shield");
+    expect((component.equipment as any).shield?.id).toBe("shield");
+    expect(component.inventory[1]?.id).toBe("offhand");
+
+    component.selectedClass = "paladin";
+    component.inventory[2] = { id: "not-allowed", name: "Mace", baseName: "Mace", slot: "weapon" } as any;
+    component.equipSelectedItem(2, "shield");
+    expect((component.equipment as any).shield?.id).toBe("shield");
+    expect(component.inventoryStatus).toContain("cannot be equipped");
+  });
+
+  it("includes Barbarian off-hand weapon damage and mastery in the equipped attack damage", () => {
+    component.selectedClass = "barbarian";
+    component.equipment.weapon = { name: "Short Sword", baseName: "Short Sword", slot: "weapon", stats: { damageMin: 4, damageMax: 8 } } as any;
+    component.equipment.shield = { name: "Hand Axe", baseName: "Hand Axe", slot: "weapon", stats: { damageMin: 6, damageMax: 10 } } as any;
+    expect(component.equippedWeaponDamage).toBe(14);
+  });
+
   it("maps inventory items to art matching their equipment instead of defaulting legacy gear to body armor", () => {
     const imageFor = (name: string, slot: "weapon" | "armor" | "charm" | "belt", equipmentType?: string) =>
       component.inventoryItemImage({ name, slot, equipmentType } as any);
@@ -206,6 +270,35 @@ describe("D2SurvivorsComponent combat and equipment", () => {
 
     (component as any).triggerAttackAnimation();
     expect((component as any).attackAnimationSide).toBe(-1);
+  });
+
+  it("animates Barbarian arm attacks at the upper-arm joints without rotating the clavicles", () => {
+    component.selectedClass = "barbarian";
+    const model = new THREE.Group();
+    const clavicle = new THREE.Bone();
+    clavicle.name = "R_Clavicle";
+    const upperArm = new THREE.Bone();
+    upperArm.name = "R_UpperArm";
+    const forearm = new THREE.Bone();
+    forearm.name = "R_ForeArm";
+    model.add(clavicle);
+    clavicle.add(upperArm);
+    upperArm.add(forearm);
+
+    const anchor = new THREE.Group();
+    anchor.add(model);
+    (component as any).characterModel = anchor;
+    (component as any).playerRigBones = (component as any).getPlayerRigBones(model);
+    expect((component as any).playerRigBones.arms.map((entry: any) => entry.bone)).toContain(upperArm);
+    expect((component as any).playerRigBones.arms.map((entry: any) => entry.bone)).not.toContain(clavicle);
+
+    const clavicleBase = clavicle.quaternion.clone();
+    const upperArmBase = upperArm.quaternion.clone();
+    (component as any).triggerAttackAnimation();
+    (component as any).animatePlayerModel(150);
+
+    expect(clavicle.quaternion.angleTo(clavicleBase)).toBeCloseTo(0);
+    expect(upperArm.quaternion.angleTo(upperArmBase)).toBeGreaterThan(0.1);
   });
 
   it("keeps an enemy stationary during its attack and resumes pursuit afterward", () => {

@@ -422,7 +422,7 @@
               [class.rare]="getEquipmentItem(slot.slot)?.rarity === 'rare'"
               [class.magic]="getEquipmentItem(slot.slot)?.rarity === 'magic'"
               [attr.data-equipment-slot]="slot.slot"
-              [attr.aria-label]="slot.label + (getEquipmentItem(slot.slot) ? ': ' + getEquipmentItem(slot.slot)?.name : ', empty')"
+              [attr.aria-label]="equipmentSlotLabel(slot.slot) + (getEquipmentItem(slot.slot) ? ': ' + getEquipmentItem(slot.slot)?.name : ', empty')"
               [draggable]="!!getEquipmentItem(slot.slot)"
               (dragstart)="startEquipmentDrag(slot.slot, $event)"
               (dragover)="$event.preventDefault()"
@@ -432,8 +432,8 @@
               (mouseenter)="onEquipmentItemHover(slot.slot, $event)"
               (mousemove)="onItemPreviewMove($event)"
               (mouseleave)="onItemPreviewLeave()">
-              <img class="d2s-equipment-art" [class.empty]="!getEquipmentItem(slot.slot)" [src]="getEquipmentItem(slot.slot) ? inventoryItemImage(getEquipmentItem(slot.slot)!) : equipmentSlotImage(slot.slot)" [alt]="getEquipmentItem(slot.slot) ? '' : 'Empty ' + slot.label + ' slot'" />
-              <span class="d2s-equipment-label">{{ getEquipmentItem(slot.slot)?.name || slot.label }}</span>
+              <img class="d2s-equipment-art" [class.empty]="!getEquipmentItem(slot.slot)" [src]="getEquipmentItem(slot.slot) ? inventoryItemImage(getEquipmentItem(slot.slot)!) : equipmentSlotImage(slot.slot)" [alt]="getEquipmentItem(slot.slot) ? '' : 'Empty ' + equipmentSlotLabel(slot.slot) + ' slot'" />
+              <span class="d2s-equipment-label">{{ getEquipmentItem(slot.slot)?.name || equipmentSlotLabel(slot.slot) }}</span>
             </button>
           </div>
           <p class="d2s-equipped-belt">Belt: <strong>{{ equippedBelt?.name || 'Empty' }}</strong> · {{ beltRows }} potion row{{ beltRows === 1 ? '' : 's' }}</p>

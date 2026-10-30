@@ -386,6 +386,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private playerWeaponBaseQuaternions: THREE.Quaternion[] = [];
   private playerWeaponOriginalVisibility = new Map<THREE.Object3D, boolean>();
   private equippedWeaponVisual?: THREE.Group;
+  private equippedOffhandWeaponVisual?: THREE.Group;
+  private equippedShieldVisual?: THREE.Group;
   private equippedArmorMaterials = new Map<THREE.Mesh, THREE.Material | THREE.Material[]>();
   private loadedArmorAtlases = new Map<string, THREE.Texture>();
   private readonly meleeTrailEffects: MeleeTrailEffect[] = [];
@@ -2928,11 +2930,15 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     return this.equipmentImagePath(getEquipmentType(item));
   }
 
+  equipmentSlotLabel(slot: PaperdollSlot): string {
+    return slot === "shield" && this.selectedClass === "barbarian" ? "Off-hand" : this.paperdollLayout.find((entry) => entry.slot === slot)?.label ?? slot;
+  }
+
   equipmentSlotImage(slot: PaperdollSlot): string {
     const typeBySlot: Record<PaperdollSlot, EquipmentType> = {
       weapon: "weapon",
       helmet: this.selectedClass === "barbarian" ? "barbarianHelm" : this.selectedClass === "druid" ? "druidPelt" : "helmet",
-      shield: this.selectedClass === "paladin" ? "paladinShield" : "shield",
+      shield: this.selectedClass === "barbarian" ? "weapon" : this.selectedClass === "paladin" ? "paladinShield" : "shield",
       ringLeft: "ring",
       amulet: "amulet",
       ringRight: "ring",
@@ -3934,23 +3940,32 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   get equippedWeaponDamage(): number {
-    const item = this.equipment.weapon;
-    const weaponName = this.equippedWeaponName.toLowerCase();
-    const permitted = this.selectedClass === "amazon"
-      ? weaponName.includes("pike") || weaponName.includes("spear") || weaponName.includes("javelin")
-      : this.selectedClass === "sorceress" ? weaponName.includes("staff") : true;
+    const weaponDamage = (item: D2InventoryItem | null): number => {
+      if (!item) return 0;
+      const weaponName = `${item.baseName ?? ""} ${item.name}`.toLowerCase();
+      const permitted = this.selectedClass === "amazon"
+        ? weaponName.includes("pike") || weaponName.includes("spear") || weaponName.includes("javelin")
+        : this.selectedClass === "sorceress" ? weaponName.includes("staff") : true;
+      return permitted ? Math.floor(((item.stats?.damageMin ?? 0) + (item.stats?.damageMax ?? 0)) / 2) : 0;
+    };
+    const offhandWeapon = this.selectedClass === "barbarian" && this.equipment.shield?.slot === "weapon"
+      ? this.equipment.shield
+      : null;
     const damageBonus = Object.values(this.equipment).reduce((total, equipped) => total + (equipped?.stats?.plusDamage ?? 0), 0);
-    return (permitted && item ? Math.floor(((item.stats?.damageMin ?? 0) + (item.stats?.damageMax ?? 0)) / 2) : 0) + damageBonus;
+    return weaponDamage(this.equipment.weapon) + weaponDamage(offhandWeapon) + damageBonus;
   }
 
   private get weaponMasteryDamageBonus(): number {
     if (this.selectedClass !== "barbarian") return this.skillLevels["Weapon Mastery"] ?? 0;
-    const equippedWeapon = this.equippedWeaponName.toLowerCase();
-    if (equippedWeapon === "bare hands") return 0;
-    const rank = ["Axe Mastery", "Sword Mastery", "Mace Mastery", "Polearm Mastery", "Spear Mastery", "Throwing Mastery"]
-      .filter((name) => this.weaponMasteryForName(name)?.pattern.test(equippedWeapon))
-      .reduce((highest, name) => Math.max(highest, this.skillLevels[name] ?? 0), 0);
-    return rank * 4;
+    const equippedWeapons = [this.equipment.weapon, this.equipment.shield?.slot === "weapon" ? this.equipment.shield : null]
+      .filter((item): item is D2InventoryItem => !!item);
+    return equippedWeapons.reduce((total, item) => {
+      const name = `${item.baseName ?? ""} ${item.name}`.toLowerCase();
+      const rank = ["Axe Mastery", "Sword Mastery", "Mace Mastery", "Polearm Mastery", "Spear Mastery", "Throwing Mastery"]
+        .filter((mastery) => this.weaponMasteryForName(mastery)?.pattern.test(name))
+        .reduce((highest, mastery) => Math.max(highest, this.skillLevels[mastery] ?? 0), 0);
+      return total + rank * 4;
+    }, 0);
   }
 
   get equippedArmor(): number {
@@ -3975,7 +3990,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const type = getEquipmentType(item);
     const slot = type === "ring"
       ? !this.equipment.ringLeft ? "ringLeft" : !this.equipment.ringRight ? "ringRight" : "ringLeft"
-      : PAPERDOLL_SLOTS.find((candidate) => isCompatibleWithEquipment(item, candidate, this.selectedClass));
+      : this.selectedClass === "barbarian" && item.slot === "weapon" && this.equipment.weapon
+        ? "shield"
+        : PAPERDOLL_SLOTS.find((candidate) => isCompatibleWithEquipment(item, candidate, this.selectedClass));
     if (!slot) return null;
     const equipped = this.equipment[slot];
     if (stat === "strength") return (item.stats?.plusStrength ?? 0) - (equipped?.stats?.plusStrength ?? 0);
@@ -3989,7 +4006,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         : this.selectedClass === "sorceress" ? name.includes("staff") : true;
       return permitted ? Math.floor(((weapon.stats?.damageMin ?? 0) + (weapon.stats?.damageMax ?? 0)) / 2) : 0;
     };
-    const weaponDelta = slot === "weapon" ? baseDamage(item) - baseDamage(equipped) : 0;
+    const weaponDelta = slot === "weapon" || slot === "shield" && this.selectedClass === "barbarian"
+      ? baseDamage(item) - baseDamage(equipped)
+      : 0;
     return weaponDelta + (item.stats?.plusDamage ?? 0) - (equipped?.stats?.plusDamage ?? 0);
   }
 
@@ -7382,7 +7401,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.inventory[sourceAnchor] = oldEquipment;
     }
     this.equipment[slot] = drag.item;
-    if ((slot === "weapon" || slot === "body") && this.characterModel) this.configureClassMeleeWeapon(this.characterModel, this.selectedClass);
+    if ((slot === "weapon" || slot === "body" || slot === "shield") && this.characterModel) this.configureClassMeleeWeapon(this.characterModel, this.selectedClass);
     this.normalizeBeltSlots();
     this.rebuildInventoryGrid();
     this.selectedEquipmentSlot = slot;
@@ -7424,7 +7443,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.inventory[targetIndex] = item;
     }
     this.equipment[slot] = null;
-    if ((slot === "weapon" || slot === "body") && this.characterModel) this.configureClassMeleeWeapon(this.characterModel, this.selectedClass);
+    if ((slot === "weapon" || slot === "body" || slot === "shield") && this.characterModel) this.configureClassMeleeWeapon(this.characterModel, this.selectedClass);
     this.normalizeBeltSlots();
     this.rebuildInventoryGrid();
     this.selectedItem = item;
@@ -7442,7 +7461,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const type = getEquipmentType(item);
     const target = slot ?? (type === "ring"
       ? !this.equipment.ringLeft ? "ringLeft" : !this.equipment.ringRight ? "ringRight" : "ringLeft"
-      : PAPERDOLL_SLOTS.find((candidate) => isCompatibleWithEquipment(item, candidate, this.selectedClass)));
+      : this.selectedClass === "barbarian" && item.slot === "weapon" && this.equipment.weapon
+        ? "shield"
+        : PAPERDOLL_SLOTS.find((candidate) => isCompatibleWithEquipment(item, candidate, this.selectedClass)));
     if (!target || !isCompatibleWithEquipment(item, target, this.selectedClass)) {
       this.inventoryStatus = `${item.name} is restricted to ${item.restrictedClass ? item.restrictedClass + 's' : 'its class'} and cannot be equipped by ${this.selectedClassName}.`;
       return;
@@ -7581,7 +7602,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     const value = this.getItemSellValue(item);
     this.equipment[slot] = null;
-    if ((slot === "weapon" || slot === "body") && this.characterModel) this.configureClassMeleeWeapon(this.characterModel, this.selectedClass);
+    if ((slot === "weapon" || slot === "body" || slot === "shield") && this.characterModel) this.configureClassMeleeWeapon(this.characterModel, this.selectedClass);
     this.normalizeBeltSlots();
     this.playerGold = Math.min(1_000_000_000, this.playerGold + value);
     this.sanctuaryGold = this.playerGold;
@@ -7683,7 +7704,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (index < 0) { this.inventoryStatus = "Inventory full — make room before unequipping this item."; return; }
     this.inventory[index] = item;
     this.equipment[slot] = null;
-    if ((slot === "weapon" || slot === "body") && this.characterModel) this.configureClassMeleeWeapon(this.characterModel, this.selectedClass);
+    if ((slot === "weapon" || slot === "body" || slot === "shield") && this.characterModel) this.configureClassMeleeWeapon(this.characterModel, this.selectedClass);
     this.normalizeBeltSlots();
     this.rebuildInventoryGrid();
     this.selectedEquipmentSlot = null;
@@ -8500,14 +8521,18 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.configureClassArmor(model, classId);
     this.playerWeaponMeshes = [];
     this.playerWeaponBaseQuaternions = [];
-    this.equippedWeaponVisual?.parent?.remove(this.equippedWeaponVisual);
-    this.equippedWeaponVisual?.traverse((object) => {
-      const mesh = object as THREE.Mesh;
-      if (!mesh.isMesh) return;
-      mesh.geometry.dispose();
-      (Array.isArray(mesh.material) ? mesh.material : [mesh.material]).forEach((material) => material.dispose());
-    });
+    for (const visual of [this.equippedWeaponVisual, this.equippedOffhandWeaponVisual, this.equippedShieldVisual]) {
+      visual?.parent?.remove(visual);
+      visual?.traverse((object) => {
+        const mesh = object as THREE.Mesh;
+        if (!mesh.isMesh) return;
+        mesh.geometry.dispose();
+        (Array.isArray(mesh.material) ? mesh.material : [mesh.material]).forEach((material) => material.dispose());
+      });
+    }
     this.equippedWeaponVisual = undefined;
+    this.equippedOffhandWeaponVisual = undefined;
+    this.equippedShieldVisual = undefined;
     const nameContainsClassMeleeWeapon = (name: string): boolean => {
       const lowerName = name.toLowerCase();
       return classId === "amazon" ? /pike|polearm|spear|javelin/.test(lowerName)
@@ -8545,27 +8570,100 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         return;
       }
       if (nameContainsClassMeleeWeapon(name)) {
-        this.playerWeaponMeshes.push(mesh);
-        this.playerWeaponBaseQuaternions.push(mesh.quaternion.clone());
-        mesh.userData["d2sWeaponSide"] = -1;
+        mesh.visible = !this.equipment.weapon;
+        mesh.userData["d2sHiddenByWeapon"] = !!this.equipment.weapon;
+        if (!this.equipment.weapon) {
+          this.playerWeaponMeshes.push(mesh);
+          this.playerWeaponBaseQuaternions.push(mesh.quaternion.clone());
+          mesh.userData["d2sWeaponSide"] = -1;
+        }
       }
     });
     const item = this.equipment.weapon;
     const equippedName = this.equippedWeaponName.toLowerCase();
     const stockPikeIsUsed = classId === "amazon" && !item;
     const stockStaffIsUsed = classId === "sorceress" && /staff/.test(equippedName) && this.playerWeaponMeshes.length > 0;
-    if (!item || stockPikeIsUsed || stockStaffIsUsed) return;
-
     const hand = model.getObjectByName("R_weapon_attach")
       ?? model.getObjectByName("R_Wrist")
       ?? model.getObjectByName("R_hand_bind_jnt")
       ?? model.getObjectByName("R_Wrist_JNT")
       ?? model.getObjectByName("R_ForeArm")
       ?? model.getObjectByName("R_lwr_arm_bind_jnt");
-    if (!hand) return;
+    if (item && hand && !stockPikeIsUsed && !stockStaffIsUsed) {
+      this.equippedWeaponVisual = this.createEquippedWeaponVisual(item, hand, "weapon");
+    }
+
+    const offhandItem = this.equipment.shield;
+    if (classId === "barbarian" && offhandItem?.slot === "weapon") {
+      const offhand = model.getObjectByName("L_weapon_attach")
+        ?? model.getObjectByName("L_Wrist")
+        ?? model.getObjectByName("L_hand_bind_jnt")
+        ?? model.getObjectByName("L_lwr_arm_bind_jnt");
+      if (offhand) this.equippedOffhandWeaponVisual = this.createEquippedWeaponVisual(offhandItem, offhand, "offhand");
+    }
+
+    const shieldItem = offhandItem?.slot === "weapon" ? null : offhandItem;
+    const shieldAnchor = model.getObjectByName("shield_attach")
+      ?? model.getObjectByName("L_weapon_attach")
+      ?? model.getObjectByName("L_hand_bind_jnt")
+      ?? model.getObjectByName("L_Wrist")
+      ?? model.getObjectByName("wrist_L_JNT")
+      ?? model.getObjectByName("L_lwr_arm_bind_jnt");
+    if (!shieldItem || !shieldAnchor) return;
+
+    const shield = new THREE.Group();
+    shield.name = `equipped_shield_${getEquipmentType(shieldItem)}`;
+    const isRare = shieldItem.rarity === "rare";
+    const isMagic = shieldItem.rarity === "magic";
+    const rimMaterial = new THREE.MeshStandardMaterial({
+      color: isRare ? 0xe3bd57 : isMagic ? 0x62a9e2 : 0x9a8b70,
+      metalness: 0.68,
+      roughness: 0.32,
+      side: THREE.DoubleSide,
+    });
+    const faceMaterial = new THREE.MeshStandardMaterial({
+      color: isRare ? 0x79542b : isMagic ? 0x244b73 : 0x553921,
+      metalness: 0.16,
+      roughness: 0.78,
+      side: THREE.DoubleSide,
+    });
+    const shieldShape = new THREE.Shape();
+    shieldShape.moveTo(-0.0028, 0.0034);
+    shieldShape.quadraticCurveTo(0, 0.0042, 0.0028, 0.0034);
+    shieldShape.lineTo(0.0026, -0.0012);
+    shieldShape.quadraticCurveTo(0.0018, -0.0035, 0, -0.0041);
+    shieldShape.quadraticCurveTo(-0.0018, -0.0035, -0.0026, -0.0012);
+    shieldShape.closePath();
+    const shieldDepth = 0.00048;
+    const rim = new THREE.Mesh(new THREE.ExtrudeGeometry(shieldShape, { depth: shieldDepth, bevelEnabled: false }), rimMaterial);
+    rim.position.z = -shieldDepth / 2;
+    rim.castShadow = true;
+    shield.add(rim);
+    const face = new THREE.Mesh(new THREE.ShapeGeometry(shieldShape), faceMaterial);
+    face.scale.setScalar(0.76);
+    face.position.z = shieldDepth / 2 + 0.000015;
+    face.castShadow = true;
+    shield.add(face);
+    const bossMaterial = new THREE.MeshStandardMaterial({
+      color: 0xd4bf8a,
+      metalness: 0.78,
+      roughness: 0.28,
+      emissive: isMagic ? 0x10294a : 0x000000,
+    });
+    const boss = new THREE.Mesh(new THREE.SphereGeometry(0.00058, 8, 6), bossMaterial);
+    boss.position.z = shieldDepth / 2 + 0.00038;
+    boss.castShadow = true;
+    shield.add(boss);
+    shield.scale.setScalar(1.15);
+    shieldAnchor.add(shield);
+    this.equippedShieldVisual = shield;
+  }
+
+  private createEquippedWeaponVisual(item: D2InventoryItem, hand: THREE.Object3D, handName: "weapon" | "offhand"): THREE.Group {
     const type = getEquipmentType(item);
+    const equippedName = `${item.baseName ?? ""} ${item.name}`.toLowerCase();
     const weapon = new THREE.Group();
-    weapon.name = `equipped_weapon_${type}`;
+    weapon.name = handName === "weapon" ? `equipped_weapon_${type}` : `equipped_weapon_offhand_${type}`;
     const gripMaterial = new THREE.MeshStandardMaterial({ color: 0x684529, roughness: 0.86 });
     const metalMaterial = new THREE.MeshStandardMaterial({ color: 0xb6becb, metalness: 0.58, roughness: 0.38 });
     const accentMaterial = new THREE.MeshStandardMaterial({ color: type === "orb" ? 0x68baff : 0xd9a84f, metalness: 0.24, roughness: 0.42, emissive: type === "orb" ? 0x103969 : 0x000000 });
@@ -8602,13 +8700,15 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       for (const offset of [-0.00055, 0, 0.00055]) addPart(new THREE.BoxGeometry(0.00022, 0.003, 0.0002), metalMaterial, 0.003, offset, 0, offset * 320);
     } else if (type === "wand" || type === "orb" || /wand|orb/.test(equippedName)) {
       addGrip(type === "orb" ? 0.004 : 0.0055);
-      addPart(new THREE.SphereGeometry(type === "orb" ? 0.001 : 0.00055, 8, 6), accentMaterial, type === "orb" ? 0.003 : 0.003);
+      addPart(new THREE.SphereGeometry(type === "orb" ? 0.001 : 0.00055, 8, 6), accentMaterial, 0.003);
     } else {
       addGrip(0.0055);
       addBlade(0.006, /sword|blade/.test(equippedName) ? 0.00115 : 0.0008);
     }
+    weapon.scale.setScalar(1.55);
+    if (handName === "offhand") weapon.rotation.z = Math.PI;
     hand.add(weapon);
-    this.equippedWeaponVisual = weapon;
+    return weapon;
   }
 
   private getClassArmorTexture(modelClass: string, tier: "light" | "medium" | "heavy"): string | undefined {
@@ -8772,6 +8872,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       });
     bones.arms = choosePrimaryPerSide(bones.arms, (entry) => {
       const name = entry.bone.name.toLowerCase();
+      if (this.selectedClass === "barbarian") return /upper.?arm|upr_arm/.test(name) ? 3 : /shoulder|clavicle/.test(name) ? 1 : 2;
       return /shoulder|clavicle/.test(name) ? 3 : /upper.?arm|upr_arm/.test(name) ? 2 : 1;
     });
     bones.forearms = choosePrimaryPerSide(bones.forearms, (entry) => {
@@ -9948,6 +10049,7 @@ function isClassItemAllowed(item: D2InventoryItem, classId: string): boolean {
 
 function isCompatibleWithEquipment(item: D2InventoryItem, slot: PaperdollSlot, classId = ""): boolean {
   if (!isClassItemAllowed(item, classId)) return false;
+  if (classId === "barbarian" && slot === "shield" && item.slot === "weapon") return true;
   const type = getEquipmentType(item);
   if (type === "wand") return slot === "weapon";
   if (type === "claw") return classId === "assassin" && slot === "weapon";
