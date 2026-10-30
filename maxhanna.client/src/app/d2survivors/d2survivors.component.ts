@@ -9906,14 +9906,27 @@ function getEquipmentType(item: D2InventoryItem): EquipmentType {
   if (hasBase(DRUID_PELT_BASES)) return "druidPelt";
   if (hasBase(PALADIN_SHIELD_BASES)) return "paladinShield";
   if (hasBase(SORCERESS_ORB_BASES)) return "orb";
-  if (item.equipmentType) return item.equipmentType;
+
   const normalizedName = name.trim();
-  if (item.slot === "weapon") return normalizedName.includes("wand") ? "wand" : "weapon";
+  if (item.slot === "weapon") {
+    if (/wand/.test(normalizedName)) return "wand";
+    if (/orb|sphere|globe/.test(normalizedName)) return "orb";
+    return item.equipmentType ?? "weapon";
+  }
   if (item.slot === "belt") return "belt";
-  if (item.slot === "armor") return /cap|helm|crown|mask|circlet/.test(normalizedName) ? "helmet" : "body";
+  if (item.slot === "armor") {
+    // Older saved drops may not have equipmentType; infer their specific art from
+    // the base name before falling back to the generic body-armor icon.
+    if (/shield|buckler|targe|rondache|barrier/.test(normalizedName)) return "shield";
+    if (/glove|gauntlet|vambrace/.test(normalizedName)) return "gloves";
+    if (/boot|greave|sabatons/.test(normalizedName)) return "boots";
+    if (/cap|helm|crown|mask|circlet|tiara|diadem/.test(normalizedName)) return "helmet";
+    if (item.equipmentType) return item.equipmentType;
+    return "body";
+  }
   if (/ring/.test(normalizedName)) return "ring";
   if (/amulet/.test(normalizedName)) return "amulet";
-  return "charm";
+  return item.equipmentType ?? "charm";
 }
 
 type D2ClassId = "amazon" | "assassin" | "barbarian" | "druid" | "necromancer" | "paladin" | "sorceress";

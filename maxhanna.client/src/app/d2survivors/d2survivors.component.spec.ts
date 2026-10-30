@@ -106,6 +106,22 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(hand.children.some((child) => child.name.startsWith("equipped_weapon_"))).toBeFalse();
   });
 
+  it("maps inventory items to art matching their equipment instead of defaulting legacy gear to body armor", () => {
+    const imageFor = (name: string, slot: "weapon" | "armor" | "charm" | "belt", equipmentType?: string) =>
+      component.inventoryItemImage({ name, slot, equipmentType } as any);
+
+    expect(imageFor("Short Sword", "weapon")).toBe("assets/d2survivors/items/weapon.png");
+    expect(imageFor("Bone Wand", "weapon")).toBe("assets/d2survivors/items/wand.png");
+    expect(imageFor("Leather Cap", "armor")).toBe("assets/d2survivors/items/helmet.png");
+    expect(imageFor("Chain Hauberk", "armor")).toBe("assets/d2survivors/items/body.png");
+    expect(imageFor("Buckler", "armor")).toBe("assets/d2survivors/items/shield.png");
+    expect(imageFor("Leather Gloves", "armor")).toBe("assets/d2survivors/items/gloves.png");
+    expect(imageFor("Heavy Boots", "armor")).toBe("assets/d2survivors/items/boots.png");
+    expect(imageFor("Gold Amulet", "charm")).toBe("assets/d2survivors/items/amulet.png");
+    expect(imageFor("Ring of the Artisan", "charm")).toBe("assets/d2survivors/items/ring.png");
+    expect(imageFor("Vampirefang Belt", "belt")).toBe("assets/d2survivors/items/belt.png");
+  });
+
   it("maps light, medium, and heavy armor names to matching rig tiers", () => {
     const armorTier = (component as any).equippedArmorTier.bind(component);
     expect(armorTier({ name: "Leather Armor" } as any)).toBe("light");
