@@ -199,18 +199,6 @@
               "src/styles.css"
             ],
             "scripts": [],
-            "allowedCommonJsDependencies": [
-              "epubjs",
-              "lodash",
-              "lodash/throttle",
-              "path-webpack",
-              "@xmldom/xmldom",
-              "xmldom",
-              "jszip",
-              "event-emitter",
-              "localforage",
-              "marks-pane"
-            ],
             "karmaConfig": "karma.conf.js"
           }
         }

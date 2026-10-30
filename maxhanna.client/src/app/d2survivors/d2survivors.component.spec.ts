@@ -1,0 +1,232 @@
+import { ComponentFixture, TestBed } from "@angular/core/testing";
+import { Subject } from "rxjs";
+import * as THREE from "three";
+import { D2SurvivorsService } from "../../services/d2survivors.service";
+import { D2SurvivorsComponent } from "./d2survivors.component";
+
+describe("D2SurvivorsComponent combat and equipment", () => {
+  let fixture: ComponentFixture<D2SurvivorsComponent>;
+  let component: D2SurvivorsComponent;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [D2SurvivorsComponent],
+      providers: [{
+        provide: D2SurvivorsService,
+        useValue: {
+          lobbyMessage$: new Subject(),
+          leaderboardUpdated$: new Subject(),
+          disconnectLobby: () => Promise.resolve(),
+        },
+      }],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(D2SurvivorsComponent);
+    component = fixture.componentInstance;
+  });
+
+  afterEach(() => fixture.destroy());
+
+  it("holds the player in place for a melee attack, then lets movement resume", () => {
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    const target = { x: 260, y: 250, r: 12, hp: 100 } as any;
+    component.enemies = [target];
+    component.keysDown.add("d");
+
+    component.attackNearestEnemy();
+    expect((component as any).playerAttackLockRemaining).toBeGreaterThan(0);
+    component.movePlayer(100);
+
+    expect(component.playerX).toBe(250);
+    expect(component.playerY).toBe(250);
+
+    (component as any).playerAttackLockRemaining = 0;
+    component.movePlayer(100);
+    expect(target.x).toBeLessThan(260);
+  });
+
+  it("applies equipped attack speed to attack animation duration and cooldown", () => {
+    component.basicAttackCooldown = 0.72;
+    component.equipment.weapon = {
+      id: "quick-weapon",
+      name: "Quick Blade",
+      rarity: "magic",
+      slot: "weapon",
+      desc: "A fast blade.",
+      stats: { attackSpeedPercent: 50 },
+    };
+
+    expect(component.playerAttackSpeedMultiplier).toBe(1.5);
+    (component as any).triggerAttackAnimation("amazonJab");
+    expect((component as any).playerAttackLockRemaining).toBeCloseTo(0.38 / 1.5, 4);
+    expect((component as any).paladinAuraAttackCooldown()).toBeCloseTo(0.72 / 1.5, 4);
+    expect(component.getItemStatText(component.equipment.weapon)).toContain("+50% Attack Speed");
+  });
+
+  it("selects attack motion from the equipped weapon rather than only the character class", () => {
+    const trigger = (component as any).triggerAttackAnimation.bind(component);
+    component.selectedClass = "paladin";
+    component.equipment.weapon = { name: "War Pike", baseName: "War Pike", slot: "weapon" } as any;
+    trigger();
+    expect((component as any).attackAnimationStyle).toBe("amazonJab");
+
+    component.equipment.weapon = { name: "War Hammer", baseName: "War Hammer", slot: "weapon" } as any;
+    trigger();
+    expect((component as any).attackAnimationStyle).toBe("maceSmash");
+
+    component.equipment.weapon = { name: "Yew Wand", baseName: "Yew Wand", slot: "weapon", equipmentType: "wand" } as any;
+    trigger();
+    expect((component as any).attackAnimationStyle).toBe("necromancerCast");
+  });
+
+  it("updates the character weapon visual on equip and unequip", () => {
+    const model = new THREE.Group();
+    const hand = new THREE.Bone();
+    hand.name = "R_weapon_attach";
+    model.add(hand);
+    const baseWeapon = new THREE.Mesh(new THREE.BoxGeometry(0.002, 0.01, 0.001), new THREE.MeshStandardMaterial());
+    baseWeapon.name = "pikeShape_0";
+    model.add(baseWeapon);
+
+    (component as any).configureClassMeleeWeapon(model, "amazon");
+    expect(baseWeapon.visible).toBeTrue();
+    expect(hand.children.some((child) => child.name.startsWith("equipped_weapon_"))).toBeFalse();
+
+    component.equipment.weapon = { name: "Short Sword", baseName: "Short Sword", slot: "weapon" } as any;
+    (component as any).configureClassMeleeWeapon(model, "amazon");
+    const equippedWeapon = hand.children.find((child) => child.name === "equipped_weapon_weapon");
+    expect(baseWeapon.visible).toBeFalse();
+    expect(equippedWeapon).toBeDefined();
+
+    component.equipment.weapon = null;
+    (component as any).configureClassMeleeWeapon(model, "amazon");
+    expect(baseWeapon.visible).toBeTrue();
+    expect(hand.children.some((child) => child.name.startsWith("equipped_weapon_"))).toBeFalse();
+  });
+
+  it("maps light, medium, and heavy armor names to matching rig tiers", () => {
+    const armorTier = (component as any).equippedArmorTier.bind(component);
+    expect(armorTier({ name: "Leather Armor" } as any)).toBe("light");
+    expect(armorTier({ name: "Chain Hauberk" } as any)).toBe("medium");
+    expect(armorTier({ name: "Plate Mail" } as any)).toBe("heavy");
+  });
+
+  it("shows the selected class armor tier, tints equipped armor, and restores the base look when removed", () => {
+    component.equipment.body = { name: "Leather Armor", baseName: "Leather Armor", slot: "armor", stats: { armor: 8 } } as any;
+    const model = new THREE.Group();
+    const lightMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
+    const mediumMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
+    const heavyMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
+    const light = new THREE.Mesh(new THREE.BoxGeometry(), lightMaterial);
+    const medium = new THREE.Mesh(new THREE.BoxGeometry(), mediumMaterial);
+    const heavy = new THREE.Mesh(new THREE.BoxGeometry(), heavyMaterial);
+    light.name = "torso_armor_litShape_0";
+    medium.name = "torso_armor_medShape_0";
+    heavy.name = "torso_armor_hvyShape_0";
+    model.add(light, medium, heavy);
+
+    (component as any).configureClassMeleeWeapon(model, "paladin");
+    expect(light.visible).toBeTrue();
+    expect(medium.visible).toBeFalse();
+    expect(heavy.visible).toBeFalse();
+    expect((light.material as THREE.MeshStandardMaterial).color.getHex()).not.toBe(0xffffff);
+
+    component.equipment.body = null;
+    (component as any).configureClassMeleeWeapon(model, "paladin");
+    expect(light.visible).toBeFalse();
+    expect(medium.visible).toBeTrue();
+    expect(heavy.visible).toBeFalse();
+    expect(light.material).toBe(lightMaterial);
+    expect(lightMaterial.color.getHex()).toBe(0xffffff);
+
+    component.equipment.body = { name: "Chain Hauberk", baseName: "Chain Hauberk", slot: "armor", stats: { armor: 18 } } as any;
+    (component as any).configureClassMeleeWeapon(model, "paladin");
+    expect(light.visible).toBeFalse();
+    expect(medium.visible).toBeTrue();
+
+    component.equipment.body = { name: "Plate Mail", baseName: "Plate Mail", slot: "armor", stats: { armor: 30 } } as any;
+    (component as any).configureClassMeleeWeapon(model, "paladin");
+    expect(light.visible).toBeFalse();
+    expect(medium.visible).toBeFalse();
+    expect(heavy.visible).toBeTrue();
+  });
+
+  it("renders an equipped weapon at the hand attachment and moves it with the arm during a strike", () => {
+    component.selectedClass = "paladin";
+    component.equipment.weapon = { name: "Short Sword", baseName: "Short Sword", slot: "weapon" } as any;
+
+    const model = new THREE.Group();
+    const upperArm = new THREE.Bone();
+    upperArm.name = "R_UpperArm";
+    const forearm = new THREE.Bone();
+    forearm.name = "R_ForeArm";
+    const wrist = new THREE.Bone();
+    wrist.name = "R_Wrist";
+    const hand = new THREE.Bone();
+    hand.name = "R_weapon_attach";
+    model.add(upperArm);
+    upperArm.add(forearm);
+    forearm.add(wrist);
+    wrist.add(hand);
+
+    (component as any).configureClassMeleeWeapon(model, "paladin");
+    const weapon = hand.children.find((child) => child.name === "equipped_weapon_weapon");
+    expect(weapon).toBeDefined();
+    expect(weapon?.children.some((child) => (child as THREE.Mesh).isMesh)).toBeTrue();
+
+    const anchor = new THREE.Group();
+    anchor.add(model);
+    (component as any).characterModel = anchor;
+    (component as any).playerRigBones = (component as any).getPlayerRigBones(model);
+    const upperArmBase = upperArm.quaternion.clone();
+    (component as any).triggerAttackAnimation();
+    (component as any).animatePlayerModel(150);
+
+    expect(upperArm.quaternion.angleTo(upperArmBase)).toBeGreaterThan(0.1);
+    expect(weapon?.parent).toBe(hand);
+    expect((component as any).attackAnimationSide).toBe(-1);
+
+    (component as any).triggerAttackAnimation();
+    expect((component as any).attackAnimationSide).toBe(-1);
+  });
+
+  it("keeps an enemy stationary during its attack and resumes pursuit afterward", () => {
+    component.playerX = 250;
+    component.playerY = 250;
+    const enemy = {
+      kind: "normal",
+      species: "fallen",
+      spriteFrame: 0,
+      animationState: "attack",
+      attackAnimationTime: 0.3,
+      x: 290,
+      y: 250,
+      hp: 100,
+      maxHp: 100,
+      speed: 100,
+      r: 14,
+      dmg: 2,
+      cd: 0.8,
+    } as any;
+    component.enemies = [enemy];
+
+    component.updateEnemies(100);
+    expect(enemy.x).toBe(290);
+    expect(enemy.animationState).toBe("attack");
+
+    component.updateEnemies(250);
+    expect(enemy.x).toBeLessThan(290);
+  });
+
+  it("can roll attack speed as a randomized item affix", () => {
+    spyOn(Math, "random").and.returnValues(0, 0, 0.5, 0.5, 0, 0.5);
+
+    const item = (component as any).randomItem();
+
+    expect(item.stats.attackSpeedPercent).toBeGreaterThanOrEqual(5);
+    expect(item.stats.attackSpeedPercent).toBeLessThanOrEqual(12);
+    expect(item.affixes.some((affix: string) => affix.includes("Attack Speed"))).toBeTrue();
+  });
+});

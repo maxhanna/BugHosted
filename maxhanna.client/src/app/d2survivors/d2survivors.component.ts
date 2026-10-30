@@ -385,6 +385,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private playerWeaponMeshes: THREE.Object3D[] = [];
   private playerWeaponBaseQuaternions: THREE.Quaternion[] = [];
   private playerWeaponOriginalVisibility = new Map<THREE.Object3D, boolean>();
+  private equippedWeaponVisual?: THREE.Group;
+  private equippedArmorMaterials = new Map<THREE.Mesh, THREE.Material | THREE.Material[]>();
+  private loadedArmorAtlases = new Map<string, THREE.Texture>();
   private readonly meleeTrailEffects: MeleeTrailEffect[] = [];
   private readonly summonAttackEffects: SummonAttackEffect[] = [];
   private readonly skillVisualEffects: SkillVisualEffect[] = [];
@@ -1059,6 +1062,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private runKillCount = 0;
   private lastLeaderboardRefreshAt = 0;
   private attackCooldown = 0;
+  private playerAttackLockRemaining = 0;
   private attackSequence = 0;
   readonly skillCastCooldowns: Record<string, number> = {};
 
@@ -1679,6 +1683,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.basicAttackCooldown = numberValue(saved.basicAttackCooldown, basicAttack.cooldown, 0.18, 5);
     this.basicAttackDamage = numberValue(saved.basicAttackDamage, basicAttack.damage, 1, 100000);
     this.attackCooldown = 0;
+    this.playerAttackLockRemaining = 0;
     this.attackProjectiles = [];
     this.closeSkillTree();
     this.arenaW = numberValue(saved.arenaW, 500, 100, 5000);
@@ -3184,7 +3189,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (entry.inventoryIndex !== undefined) this.inventory[entry.inventoryIndex] = null;
     if (entry.equipmentSlot) {
       this.equipment[entry.equipmentSlot] = null;
-      if (entry.equipmentSlot === "weapon" && this.characterModel) this.configureClassMeleeWeapon(this.characterModel, this.selectedClass);
+      if (this.characterModel) this.configureClassMeleeWeapon(this.characterModel, this.selectedClass);
       this.normalizeBeltSlots();
     }
     const value = this.getItemSellValue(item);
@@ -3242,11 +3247,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       { name: "Soulstone Shard", slot: "charm", equipmentType: "charm", stats: { plusStrength: 1, plusVitality: 2 }, desc: "A dangerous fragment that hums with trapped power." },
       { name: "Quill of the Fates", slot: "charm", equipmentType: "charm", stats: { plusDamage: 1, plusVitality: 2 }, desc: "An ink-dark quill said to record every bargain." },
     ];
-    type Affix = { name: string; stat: "plusDamage" | "plusStrength" | "plusVitality"; label: string; min: number; max: number };
+    type Affix = { name: string; stat: "plusDamage" | "plusStrength" | "plusVitality" | "attackSpeedPercent"; label: string; min: number; max: number };
     const prefixes: Affix[] = [
       { name: "Stalwart", stat: "plusVitality", label: "Life", min: 2, max: 6 },
       { name: "Savage", stat: "plusDamage", label: "Maximum Damage", min: 2, max: 6 },
       { name: "Mighty", stat: "plusStrength", label: "Strength", min: 1, max: 4 },
+      { name: "Quick", stat: "attackSpeedPercent", label: "Attack Speed", min: 5, max: 12 },
       { name: "Vigorous", stat: "plusVitality", label: "Life", min: 3, max: 7 },
       { name: "Keen", stat: "plusDamage", label: "Maximum Damage", min: 1, max: 4 },
     ];
@@ -3256,6 +3262,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       { name: "of Haste", stat: "plusDamage", label: "Maximum Damage", min: 1, max: 3 },
       { name: "of the Bear", stat: "plusVitality", label: "Life", min: 3, max: 6 },
       { name: "of Precision", stat: "plusDamage", label: "Maximum Damage", min: 2, max: 5 },
+      { name: "of Swiftness", stat: "attackSpeedPercent", label: "Attack Speed", min: 5, max: 12 },
     ];
     const base = bases[Math.floor(Math.random() * bases.length)];
     const roll = Math.random();
@@ -3950,6 +3957,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     return Object.values(this.equipment).reduce((total, item) => total + (item?.stats?.armor ?? 0), 0);
   }
 
+  get playerAttackSpeedMultiplier(): number {
+    const bonus = Object.values(this.equipment).reduce((total, item) => total + (item?.stats?.attackSpeedPercent ?? 0), 0);
+    return 1 + Math.min(75, bonus) / 100;
+  }
+
   get equippedStrengthBonus(): number {
     return Object.values(this.equipment).reduce((total, item) => total + (item?.stats?.plusStrength ?? 0), 0);
   }
@@ -4617,16 +4629,23 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.audioContext = undefined;
   }
 
-  private triggerAttackAnimation(style: AttackAnimationStyle = CLASS_ATTACK_ANIMATION[this.selectedClass] ?? "amazonJab"): void {
-    this.attackAnimationStyle = style;
+  private triggerAttackAnimation(style?: AttackAnimationStyle): void {
+    const classDefault = style ?? CLASS_ATTACK_ANIMATION[this.selectedClass] ?? "amazonJab";
+    const isExplicitSkillAnimation = style !== undefined
+      && (style === "spin" || style === "assassinKick" || style === "cast" || style === "necromancerCast" || style === "sorceressCast");
+    const attackStyle = isExplicitSkillAnimation ? classDefault : this.attackStyleForEquippedWeapon(classDefault);
+    this.attackAnimationStyle = attackStyle;
     this.attackAnimationTime = 0;
-    this.attackAnimationSide = this.attackAnimationSide === -1 ? 1 : -1;
+    this.playerAttackLockRemaining = ATTACK_ANIMATION_PROFILES[attackStyle].duration / this.playerAttackSpeedMultiplier;
+    this.attackAnimationSide = this.equippedWeaponVisual || this.playerWeaponMeshes.length > 0
+      ? -1
+      : this.attackAnimationSide === -1 ? 1 : -1;
     this.attackAnimationFacing.set(this.playerFacingX, this.playerFacingY).normalize();
     this.attackAnimationTurn = 0;
-    const profile = ATTACK_ANIMATION_PROFILES[style];
+    const profile = ATTACK_ANIMATION_PROFILES[attackStyle];
     if (profile.trail) {
       this.meleeTrailEffects.push({
-        style,
+        style: attackStyle,
         facingX: this.attackAnimationFacing.x,
         facingY: this.attackAnimationFacing.y,
         side: this.attackAnimationSide,
@@ -4635,6 +4654,22 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         color: profile.trail,
       });
     }
+  }
+
+  private attackStyleForEquippedWeapon(classDefault: AttackAnimationStyle): AttackAnimationStyle {
+    const item = this.equipment.weapon;
+    if (!item) return classDefault;
+    const name = `${item.baseName ?? ""} ${item.name}`.toLowerCase();
+    const type = getEquipmentType(item);
+    if (type === "claw") return "assassinSlash";
+    if (type === "wand" || type === "orb" || /wand|orb/.test(name)) {
+      return this.selectedClass === "sorceress" ? "sorceressCast" : "necromancerCast";
+    }
+    if (/staff/.test(name)) return "staffStrike";
+    if (/pike|polearm|spear|javelin/.test(name)) return "amazonJab";
+    if (/hammer|mace|maul|club|flail/.test(name)) return "maceSmash";
+    if (/axe|sword|blade|dagger/.test(name)) return /axe/.test(name) ? "barbarianCleave" : "assassinSlash";
+    return classDefault;
   }
 
   private basicAttackForClass(classId: string): { name: string; kind: AttackProjectile["kind"]; color: string; damage: number; cooldown: number } {
@@ -4876,7 +4911,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       target.hp -= damage;
       this.triggerAttackAnimation();
       this.floatingTexts.push({ x: target.x, y: target.y - target.r - 8, text: `-${damage}`, color: attack.color, life: 0.65 });
-      this.attackCooldown = this.paladinAuraAttackCooldown();
+      this.attackCooldown = Math.max(this.playerAttackLockRemaining, this.paladinAuraAttackCooldown());
     } else {
       // Move into weapon range before applying damage: a melee basic attack never becomes a missile.
       this.attackCooldown = Math.min(0.12, this.basicAttackCooldown);
@@ -4952,7 +4987,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       if (this.druidForm) this.druidFormAttackTime = this.druidForm === "werebear" ? 0.56 : 0.38;
       this.triggerAttackAnimation();
     }
-    this.attackCooldown = this.paladinAuraAttackCooldown();
+    if (landedMeleeAttack) this.attackCooldown = Math.max(this.playerAttackLockRemaining, this.paladinAuraAttackCooldown());
+    else this.attackCooldown = Math.min(0.12, this.basicAttackCooldown);
   }
 
   private updateAttackProjectiles(dt: number): void {
@@ -5682,6 +5718,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.basicAttackCooldown = basicAttack.cooldown;
     this.basicAttackDamage = basicAttack.damage + this.sanctuaryBonuses.attackDamage * 2;
     this.attackCooldown = 0;
+    this.playerAttackLockRemaining = 0;
     this.attackSequence = 0;
     this.attackProjectiles = [];
     this.closeSkillTree();
@@ -5801,6 +5838,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.actTime += dt / 1000;
     this.combatOrbsTime = Math.max(0, this.combatOrbsTime - dt / 1000);
     this.attackCooldown = Math.max(0, this.attackCooldown - dt / 1000);
+    this.playerAttackLockRemaining = Math.max(0, this.playerAttackLockRemaining - dt / 1000);
 
     this.movePlayer(dt);
     this.updateAct1InteriorState();
@@ -5826,6 +5864,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   movePlayer(dt: number): void {
+    if (this.playerAttackLockRemaining > 0) {
+      this.playerMoveX = 0;
+      this.playerMoveY = 0;
+      this.isPlayerMoving = false;
+      return;
+    }
     const vigorRank = this.activePaladinAuraRank(["Vigor"]);
     const speed = 220 * (vigorRank > 0 ? 1 + vigorRank * 0.035 : 1) / this.worldZoom;
 
@@ -6107,8 +6151,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     for (let index = 0; index < summons.length; index += 1) {
       const summon = summons[index];
       summon.animationState = "idle";
-      summon.attackAnimationTime = Math.max(0, (summon.attackAnimationTime ?? 0) - dt / 1000);
-      summon.summonAttackCooldown = Math.max(0, (summon.summonAttackCooldown ?? 0) - dt / 1000);
+      summon.attackAnimationTime = Math.max(0, (summon.attackAnimationTime ?? 0) - elapsedSeconds);
+      summon.summonAttackCooldown = Math.max(0, (summon.summonAttackCooldown ?? 0) - elapsedSeconds);
+      const attackStillLocked = (summon.attackAnimationTime ?? 0) > 0;
+      if (attackStillLocked) summon.animationState = "attack";
       const raisedSkeleton = summon.summonSkill === "Raise Skeleton";
       const summonDistanceToHero = Math.hypot(summon.x - this.playerX, summon.y - this.playerY);
       const targetRange = raisedSkeleton ? 200 : 360;
@@ -6128,14 +6174,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         const attackRange = summon.summonType === "golem" ? 38 : summon.summonSkill === "Skeletal Mage" || summon.summonSkill === "Raven" ? 150 : 34;
         summon.facingX = (target.x - summon.x) / distance;
         summon.facingY = (target.y - summon.y) / distance;
-        if (distance > attackRange) {
+        if (distance > attackRange && !attackStillLocked) {
           const step = summon.speed * dt / 1000 / this.worldZoom;
           summon.x += (target.x - summon.x) / distance * Math.min(step, distance - attackRange * 0.7);
           summon.y += (target.y - summon.y) / distance * Math.min(step, distance - attackRange * 0.7);
           summon.animationState = "move";
         } else if (summon.summonAttackCooldown <= 0) {
           summon.animationState = "attack";
-          summon.attackAnimationTime = summon.summonSkill === "Werewolf" ? 0.42 : 0.25;
           this.summonAttack(summon, target);
         }
       } else {
@@ -6143,7 +6188,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         targetX = desired.x;
         targetY = desired.y;
         const distance = Math.hypot(targetX - summon.x, targetY - summon.y);
-        if (distance > 25) {
+        if (distance > 25 && !attackStillLocked) {
           const followSpeed = summon.summonSkill === "Raise Skeleton" ? Math.max(summon.speed, 220) : summon.speed;
           const step = followSpeed * dt / 1000 / this.worldZoom;
           summon.x += (targetX - summon.x) / distance * Math.min(step, distance);
@@ -6177,9 +6222,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         const wallDistance = Math.hypot(wallDx, wallDy) || 1;
         enemy.facingX = wallDx / wallDistance;
         enemy.facingY = wallDy / wallDistance;
-        enemy.animationState = "idle";
-        enemy.attackAnimationTime = 0;
+        enemy.attackAnimationTime = Math.max(0, (enemy.attackAnimationTime ?? 0) - elapsedSeconds);
+        enemy.animationState = enemy.attackAnimationTime > 0 ? "attack" : "idle";
         enemy.cd = Math.max(0, (enemy.cd ?? 0) - elapsedSeconds);
+        if (enemy.attackAnimationTime > 0) continue;
         if (enemy.cd <= 0) {
           this.damageBoneWall(activeBoneWall, enemy.dmg, enemy.x, enemy.y);
           enemy.cd = enemy.kind === "boss" ? 1.1 : enemy.kind === "champion" ? 0.9 : 0.8;
@@ -6217,13 +6263,16 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
             : enemy.r + (targetSummon?.r ?? 18);
       const wasInAttackRange = distance <= attackRange;
       enemy.animationState = wasInAttackRange ? "idle" : "move";
-      enemy.attackAnimationTime = Math.max(0, (enemy.attackAnimationTime ?? 0) - dt / 1000);
+      enemy.attackAnimationTime = Math.max(0, (enemy.attackAnimationTime ?? 0) - elapsedSeconds);
+      if (enemy.cd !== undefined) enemy.cd = Math.max(0, enemy.cd - elapsedSeconds);
+      const attackStillLocked = (enemy.attackAnimationTime ?? 0) > 0;
+      if (attackStillLocked) enemy.animationState = "attack";
       if (
         wasInAttackRange
         && (enemy.species === "fetish" || enemy.species === "fetishShaman")
         && enemy.attackAnimationTime > 0
       ) enemy.animationState = "attack";
-      const travel = wasInAttackRange ? 0 : Math.min(speed, distance - attackRange * 0.82);
+      const travel = wasInAttackRange || attackStillLocked ? 0 : Math.min(speed, distance - attackRange * 0.82);
       const nextEnemyX = enemy.x + (dx / distance) * travel;
       const nextEnemyY = enemy.y + (dy / distance) * travel;
       const blockingWall = travel > 0 ? this.boneWallBlockingMove(enemy.x, enemy.y, nextEnemyX, nextEnemyY, enemy.r) : undefined;
@@ -6238,7 +6287,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         enemy.x = nextEnemyX;
         enemy.y = nextEnemyY;
       }
-      if (enemy.cd !== undefined) enemy.cd = Math.max(0, enemy.cd - dt / 1000);
       const distanceAfterMoving = Math.hypot(targetX - enemy.x, targetY - enemy.y);
       if (isAndariel) {
         if (distanceAfterMoving <= attackRange && (enemy.cd === undefined || enemy.cd <= 0)) {
@@ -6810,7 +6858,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   private paladinAuraAttackCooldown(): number {
     const rank = this.activePaladinAuraRank(["Fanaticism"]);
-    return Math.max(0.18, this.basicAttackCooldown * (rank > 0 ? 1 - Math.min(0.45, rank * 0.025) : 1));
+    const auraRate = rank > 0 ? 1 - Math.min(0.45, rank * 0.025) : 1;
+    return Math.max(0.18, this.basicAttackCooldown * auraRate / this.playerAttackSpeedMultiplier);
   }
 
   private applyPaladinAuraTick(skill: string): void {
@@ -7225,6 +7274,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       if (stats.plusVitality != null && stats.plusVitality > 0) {
         lines.push(`+${stats.plusVitality} to Maximum Life`);
       }
+      if (stats.attackSpeedPercent != null && stats.attackSpeedPercent > 0) {
+        lines.push(`+${stats.attackSpeedPercent}% Attack Speed`);
+      }
       if (stats.requiresStrength != null && stats.requiresStrength > 0) {
         lines.push(`Requires ${stats.requiresStrength} Strength`);
       }
@@ -7330,7 +7382,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.inventory[sourceAnchor] = oldEquipment;
     }
     this.equipment[slot] = drag.item;
-    if (slot === "weapon" && this.characterModel) this.configureClassMeleeWeapon(this.characterModel, this.selectedClass);
+    if ((slot === "weapon" || slot === "body") && this.characterModel) this.configureClassMeleeWeapon(this.characterModel, this.selectedClass);
     this.normalizeBeltSlots();
     this.rebuildInventoryGrid();
     this.selectedEquipmentSlot = slot;
@@ -7372,7 +7424,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.inventory[targetIndex] = item;
     }
     this.equipment[slot] = null;
-    if (slot === "weapon" && this.characterModel) this.configureClassMeleeWeapon(this.characterModel, this.selectedClass);
+    if ((slot === "weapon" || slot === "body") && this.characterModel) this.configureClassMeleeWeapon(this.characterModel, this.selectedClass);
     this.normalizeBeltSlots();
     this.rebuildInventoryGrid();
     this.selectedItem = item;
@@ -7529,7 +7581,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     const value = this.getItemSellValue(item);
     this.equipment[slot] = null;
-    if (slot === "weapon" && this.characterModel) this.configureClassMeleeWeapon(this.characterModel, this.selectedClass);
+    if ((slot === "weapon" || slot === "body") && this.characterModel) this.configureClassMeleeWeapon(this.characterModel, this.selectedClass);
     this.normalizeBeltSlots();
     this.playerGold = Math.min(1_000_000_000, this.playerGold + value);
     this.sanctuaryGold = this.playerGold;
@@ -7631,7 +7683,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (index < 0) { this.inventoryStatus = "Inventory full — make room before unequipping this item."; return; }
     this.inventory[index] = item;
     this.equipment[slot] = null;
-    if (slot === "weapon" && this.characterModel) this.configureClassMeleeWeapon(this.characterModel, this.selectedClass);
+    if ((slot === "weapon" || slot === "body") && this.characterModel) this.configureClassMeleeWeapon(this.characterModel, this.selectedClass);
     this.normalizeBeltSlots();
     this.rebuildInventoryGrid();
     this.selectedEquipmentSlot = null;
@@ -8328,15 +8380,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     model.traverse((object) => {
       const mesh = object as THREE.Mesh;
       if (!mesh.isMesh) return;
-      if (modelClass === "amazon" && this.isInactiveAmazonArmorVariant(object.name)) {
-        // The Amazon GLB contains heavy, medium, and light equipment meshes together.
-        // Keep the medium look used by this character and hide the other overlapping tiers.
-        mesh.visible = false;
-        return;
-      }
       const texturePath = this.getTextureForMesh(object.name, modelClass, definition);
       if (texturePath) texturePaths.add(texturePath);
     });
+    for (const armorTier of ["light", "medium", "heavy"] as const) {
+      const armorTexture = this.getClassArmorTexture(modelClass, armorTier);
+      if (armorTexture) texturePaths.add(`${MODEL_BASE}/${modelClass}/textures/${armorTexture}`);
+    }
 
     // Wait for atlas image data before cloning textures: cloning a TextureLoader result before
     // onLoad copies its still-empty image and leaves the character sampling blank materials.
@@ -8348,11 +8398,16 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       return [path, atlas] as const;
     }));
     const atlases = new Map(textureEntries);
+    this.loadedArmorAtlases = atlases;
     const mappedTextures = new Map<string, THREE.Texture>();
+    const armorAtlas = (tier: "light" | "medium" | "heavy"): THREE.Texture | undefined => {
+      const file = this.getClassArmorTexture(modelClass, tier);
+      return file ? atlases.get(`${MODEL_BASE}/${modelClass}/textures/${file}`) : undefined;
+    };
 
     model.traverse((object) => {
       const mesh = object as THREE.Mesh;
-      if (!mesh.isMesh || !mesh.visible) return;
+      if (!mesh.isMesh) return;
       mesh.castShadow = true;
       mesh.receiveShadow = true;
 
@@ -8360,7 +8415,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       for (const material of materials) {
         material.side = THREE.DoubleSide;
         const texturedMaterial = material as THREE.MeshStandardMaterial;
-        const texturePath = this.getTextureForMesh(object.name, modelClass, definition);
+        const name = object.name.toLowerCase();
+        const tier = /hvy|heavy/.test(name) ? "heavy"
+          : /med|medium/.test(name) ? "medium"
+            : /lit|light/.test(name) ? "light"
+              : undefined;
+        const armorTierMesh = !!tier && /armor|torso|shoulder|skirt|tabard|pants|leg|arm|plate|buckle|strap/.test(name);
+        const texturePath = armorTierMesh ? null : this.getTextureForMesh(object.name, modelClass, definition);
         if (texturePath) {
           const atlas = atlases.get(texturePath);
           if (!atlas) return;
@@ -8394,6 +8455,35 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           if (material instanceof THREE.MeshStandardMaterial || material instanceof THREE.MeshPhongMaterial) {
             material.color.set(0xffffff);
           }
+        } else if (armorTierMesh && tier) {
+          const atlas = armorAtlas(tier);
+          if (atlas && texturedMaterial.map) {
+            const sourceMap = texturedMaterial.map;
+            const transformKey = JSON.stringify([sourceMap.channel, sourceMap.mapping, sourceMap.wrapS, sourceMap.wrapT,
+              sourceMap.offset.toArray(), sourceMap.repeat.toArray(), sourceMap.center.toArray(), sourceMap.rotation]);
+            const textureKey = `${modelClass}|armor-${tier}|${transformKey}`;
+            let colorMap = mappedTextures.get(textureKey);
+            if (!colorMap) {
+              colorMap = atlas.clone();
+              colorMap.flipY = false;
+              colorMap.colorSpace = THREE.SRGBColorSpace;
+              colorMap.anisotropy = anisotropy;
+              colorMap.channel = sourceMap.channel;
+              colorMap.mapping = sourceMap.mapping;
+              colorMap.wrapS = sourceMap.wrapS;
+              colorMap.wrapT = sourceMap.wrapT;
+              colorMap.offset.copy(sourceMap.offset);
+              colorMap.repeat.copy(sourceMap.repeat);
+              colorMap.center.copy(sourceMap.center);
+              colorMap.rotation = sourceMap.rotation;
+              colorMap.needsUpdate = true;
+              mappedTextures.set(textureKey, colorMap);
+            }
+            texturedMaterial.map = colorMap;
+            if (material instanceof THREE.MeshStandardMaterial || material instanceof THREE.MeshPhongMaterial) {
+              material.color.set(0xffffff);
+            }
+          }
         }
         if (material instanceof THREE.MeshPhongMaterial) material.emissive.set(0x000000);
         if (material instanceof THREE.MeshStandardMaterial) {
@@ -8407,8 +8497,17 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   private configureClassMeleeWeapon(model: THREE.Group, classId: string): void {
+    this.configureClassArmor(model, classId);
     this.playerWeaponMeshes = [];
     this.playerWeaponBaseQuaternions = [];
+    this.equippedWeaponVisual?.parent?.remove(this.equippedWeaponVisual);
+    this.equippedWeaponVisual?.traverse((object) => {
+      const mesh = object as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      mesh.geometry.dispose();
+      (Array.isArray(mesh.material) ? mesh.material : [mesh.material]).forEach((material) => material.dispose());
+    });
+    this.equippedWeaponVisual = undefined;
     const nameContainsClassMeleeWeapon = (name: string): boolean => {
       const lowerName = name.toLowerCase();
       return classId === "amazon" ? /pike|polearm|spear|javelin/.test(lowerName)
@@ -8423,7 +8522,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const isPikeOrStaff = /pike|polearm|spear|staff/.test(name);
       const isBow = /bow|crossbow/.test(name);
       if (classId === "amazon" && (isPikeOrStaff || isBow || /weapon|javelin/.test(name))) {
-        const showPike = isPikeOrStaff && !isBow;
+        const showPike = isPikeOrStaff && !isBow && !this.equipment.weapon;
         mesh.visible = showPike;
         mesh.userData["d2sHiddenByWeapon"] = !showPike;
         if (showPike) {
@@ -8451,6 +8550,161 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         mesh.userData["d2sWeaponSide"] = -1;
       }
     });
+    const item = this.equipment.weapon;
+    const equippedName = this.equippedWeaponName.toLowerCase();
+    const stockPikeIsUsed = classId === "amazon" && !item;
+    const stockStaffIsUsed = classId === "sorceress" && /staff/.test(equippedName) && this.playerWeaponMeshes.length > 0;
+    if (!item || stockPikeIsUsed || stockStaffIsUsed) return;
+
+    const hand = model.getObjectByName("R_weapon_attach")
+      ?? model.getObjectByName("R_Wrist")
+      ?? model.getObjectByName("R_hand_bind_jnt")
+      ?? model.getObjectByName("R_Wrist_JNT")
+      ?? model.getObjectByName("R_ForeArm")
+      ?? model.getObjectByName("R_lwr_arm_bind_jnt");
+    if (!hand) return;
+    const type = getEquipmentType(item);
+    const weapon = new THREE.Group();
+    weapon.name = `equipped_weapon_${type}`;
+    const gripMaterial = new THREE.MeshStandardMaterial({ color: 0x684529, roughness: 0.86 });
+    const metalMaterial = new THREE.MeshStandardMaterial({ color: 0xb6becb, metalness: 0.58, roughness: 0.38 });
+    const accentMaterial = new THREE.MeshStandardMaterial({ color: type === "orb" ? 0x68baff : 0xd9a84f, metalness: 0.24, roughness: 0.42, emissive: type === "orb" ? 0x103969 : 0x000000 });
+    const addPart = (geometry: THREE.BufferGeometry, material: THREE.Material, y: number, x = 0, z = 0, roll = 0): void => {
+      const part = new THREE.Mesh(geometry, material);
+      part.position.set(x, y, z);
+      part.rotation.z = roll;
+      part.castShadow = true;
+      weapon.add(part);
+    };
+    const addGrip = (length: number): void => {
+      addPart(new THREE.CylinderGeometry(0.0002, 0.00027, length, 6), gripMaterial, 0);
+      addPart(new THREE.SphereGeometry(0.00036, 6, 5), accentMaterial, -length * 0.49);
+    };
+    const addBlade = (length: number, width: number): void => {
+      addPart(new THREE.BoxGeometry(width, length * 0.78, 0.00018), metalMaterial, length * 0.39 + 0.0014);
+      addPart(new THREE.ConeGeometry(width * 0.52, length * 0.22, 4), metalMaterial, length * 0.89 + 0.0014);
+    };
+    if (/pike|polearm|spear|javelin|staff/.test(equippedName)) {
+      const staff = /staff/.test(equippedName);
+      const shaftLength = staff ? 0.014 : 0.011;
+      addGrip(shaftLength);
+      if (staff) addPart(new THREE.SphereGeometry(0.0007, 7, 6), accentMaterial, shaftLength * 0.49);
+      else addBlade(0.0035, 0.0012);
+    } else if (/hammer|mace|maul|club|flail/.test(equippedName)) {
+      addGrip(0.007);
+      if (/hammer/.test(equippedName)) addPart(new THREE.BoxGeometry(0.0027, 0.0015, 0.0015), metalMaterial, 0.004);
+      else addPart(new THREE.SphereGeometry(0.00115, 7, 6), metalMaterial, 0.004);
+    } else if (/axe/.test(equippedName)) {
+      addGrip(0.007);
+      addPart(new THREE.BoxGeometry(0.0022, 0.0031, 0.00065), metalMaterial, 0.0033, 0.00055);
+    } else if (type === "claw") {
+      addGrip(0.003);
+      for (const offset of [-0.00055, 0, 0.00055]) addPart(new THREE.BoxGeometry(0.00022, 0.003, 0.0002), metalMaterial, 0.003, offset, 0, offset * 320);
+    } else if (type === "wand" || type === "orb" || /wand|orb/.test(equippedName)) {
+      addGrip(type === "orb" ? 0.004 : 0.0055);
+      addPart(new THREE.SphereGeometry(type === "orb" ? 0.001 : 0.00055, 8, 6), accentMaterial, type === "orb" ? 0.003 : 0.003);
+    } else {
+      addGrip(0.0055);
+      addBlade(0.006, /sword|blade/.test(equippedName) ? 0.00115 : 0.0008);
+    }
+    hand.add(weapon);
+    this.equippedWeaponVisual = weapon;
+  }
+
+  private getClassArmorTexture(modelClass: string, tier: "light" | "medium" | "heavy"): string | undefined {
+    const textures: Record<string, Record<"light" | "medium" | "heavy", string | undefined>> = {
+      amazon: { light: "amazon_armorlit_alb.png", medium: "amazon_armormed_alb.png", heavy: "amazon_armorhvy_alb.png" },
+      assassin: { light: "assassin_armorlit_alb.png", medium: "assassin_armormed_alb.png", heavy: "assassin_armorhvy_alb.png" },
+      barbarian: { light: "armors_alb.png", medium: "barb_armormed_alb.png", heavy: "barb_armorheavy_alb.png" },
+      druid: { light: "armors_alb.png", medium: "druid_armormed_alb.png", heavy: "druid_armorhvy_alb.png" },
+      necromancer: { light: "necro_armor_alb.png", medium: "necro_armormed_alb.png", heavy: "necro_armorhvy_alb.png" },
+      paladin: { light: "paladin_armorlit_alb.png", medium: "paladin_armormed_alb.png", heavy: "paladin_armorhvy_alb.png" },
+      sorceress: { light: "sorceress_lightarmor_albedo.png", medium: "sorc_armormed_alb.png", heavy: "sorceress_heavyarmor_alb.png" },
+    };
+    return textures[modelClass]?.[tier];
+  }
+
+  private configureClassArmor(model: THREE.Group, classId: string): void {
+    for (const [mesh, originalMaterial] of this.equippedArmorMaterials) {
+      const currentMaterials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      const originalMaterials = Array.isArray(originalMaterial) ? originalMaterial : [originalMaterial];
+      for (const material of currentMaterials) {
+        if (originalMaterials.includes(material)) continue;
+        const textures = material as THREE.Material & { map?: THREE.Texture };
+        textures.map?.dispose();
+        material.dispose();
+      }
+      mesh.material = originalMaterial;
+    }
+    this.equippedArmorMaterials.clear();
+
+    const item = this.equipment.body;
+    const tier = this.equippedArmorTier(item);
+    const armorTint = item
+      ? /leather|hide|padded/i.test(`${item.baseName ?? ""} ${item.name}`) ? 0x98704f
+        : /chain|mail|scale|ring/i.test(`${item.baseName ?? ""} ${item.name}`) ? 0xb8c1cb
+          : /plate|splint|gothic|ancient/i.test(`${item.baseName ?? ""} ${item.name}`) ? 0xd4c28f
+            : item.rarity === "rare" ? 0xf0bf62 : item.rarity === "magic" ? 0x8fb4ed : 0xc7aa7b
+      : undefined;
+
+    model.traverse((object) => {
+      const mesh = object as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      const name = mesh.name.toLowerCase();
+      if (classId === "amazon" && /(?:full|half)helmet|valkyrie_vfx/.test(name)) {
+        mesh.visible = false;
+        return;
+      }
+      const meshTier = /hvy|heavy/.test(name) ? "heavy"
+        : /med|medium/.test(name) ? "medium"
+          : /lit|light/.test(name) ? "light"
+            : undefined;
+      if (!meshTier) return;
+      mesh.visible = meshTier === tier;
+      if (!mesh.visible || armorTint === undefined || !/armor|torso|shoulder|skirt|tabard|pants|leg|arm|plate|buckle|strap/.test(name)) return;
+
+      const originalMaterial = mesh.material;
+      const atlas = this.getClassArmorTexture(classId, tier);
+      const atlasPath = atlas ? `${MODEL_BASE}/${classId}/textures/${atlas}` : undefined;
+      const equippedAtlas = atlasPath ? this.loadedArmorAtlases.get(atlasPath) : undefined;
+      const clonedMaterials = (Array.isArray(originalMaterial) ? originalMaterial : [originalMaterial]).map((material) => {
+        const clone = material.clone();
+        if (equippedAtlas) {
+          const sourceMap = (material as THREE.MeshStandardMaterial).map;
+          const replacement = equippedAtlas.clone();
+          replacement.flipY = false;
+          replacement.colorSpace = THREE.SRGBColorSpace;
+          if (sourceMap) {
+            replacement.channel = sourceMap.channel;
+            replacement.mapping = sourceMap.mapping;
+            replacement.wrapS = sourceMap.wrapS;
+            replacement.wrapT = sourceMap.wrapT;
+            replacement.offset.copy(sourceMap.offset);
+            replacement.repeat.copy(sourceMap.repeat);
+            replacement.center.copy(sourceMap.center);
+            replacement.rotation = sourceMap.rotation;
+          }
+          replacement.needsUpdate = true;
+          (clone as THREE.MeshStandardMaterial).map = replacement;
+        }
+        if ("color" in clone && (clone as THREE.Material & { color?: THREE.Color }).color) {
+          (clone as THREE.Material & { color: THREE.Color }).color.setHex(armorTint);
+        }
+        return clone;
+      });
+      this.equippedArmorMaterials.set(mesh, originalMaterial);
+      mesh.material = Array.isArray(originalMaterial) ? clonedMaterials : clonedMaterials[0];
+    });
+  }
+
+  private equippedArmorTier(item: D2InventoryItem | null): "light" | "medium" | "heavy" {
+    if (!item) return "medium";
+    const name = `${item.baseName ?? ""} ${item.name}`.toLowerCase();
+    if (/leather|hide|padded|quilted|studded|hard leather/.test(name)) return "light";
+    if (/plate|splint|gothic|ancient|field plate|full plate/.test(name)) return "heavy";
+    if (/chain|mail|scale|ring|hauberk/.test(name)) return "medium";
+    const defense = item.stats?.armor ?? 0;
+    return defense >= 25 ? "heavy" : defense <= 12 ? "light" : "medium";
   }
 
   private getPlayerRigBones(model: THREE.Group): PlayerRigBones {
@@ -8553,7 +8807,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     // These class rigs ship in bind pose without clips. Keep procedural motion deliberately
     // small and animate only the actual left/right leg chains; broad bone matching can swing
     // duplicate armor/helper joints and creates the appearance of extra legs.
-    this.attackAnimationTime += seconds;
+    this.attackAnimationTime += seconds * this.playerAttackSpeedMultiplier;
     const attackProfile = ATTACK_ANIMATION_PROFILES[this.attackAnimationStyle];
     const attackProgress = Math.max(0, Math.min(1, this.attackAnimationTime / attackProfile.duration));
     const attackActive = this.attackAnimationTime < attackProfile.duration;
@@ -8679,12 +8933,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     model.scale.setScalar(targetHeight / size.y);
     model.position.set(-center.x * model.scale.x, -bounds.min.y * model.scale.y, -center.z * model.scale.z);
-  }
-
-  private isInactiveAmazonArmorVariant(meshName: string): boolean {
-    const name = meshName.toLowerCase();
-    return /(?:^|[_-])(?:hvy|heavy|lit|light)(?:[_-]|shape|$)/.test(name)
-      || /(?:full|half)helmet|valkyrie_vfx/.test(name);
   }
 
   private getTextureForMesh(meshName: string, modelClass: string, definition: (typeof CLASS_MODEL)[string]): string | null {
@@ -9160,11 +9408,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   private summonAttack(summon: Enemy, target: Enemy): void {
     summon.summonAttackCooldown = summon.summonType === "golem" ? 0.9 : summon.summonSkill === "Skeletal Mage" || summon.summonSkill === "Raven" ? 1.25 : summon.summonSkill === "Poison Creeper" ? 1.05 : 0.72;
+    const duration = summon.summonType === "golem" || summon.summonSkill === "Werewolf" ? 0.38 : 0.3;
+    summon.attackAnimationTime = duration;
     this.summonAttackEffects.push({
       summon,
       target,
       time: 0,
-      duration: summon.summonType === "golem" || summon.summonSkill === "Werewolf" ? 0.38 : 0.3,
+      duration,
       damage: summon.dmg,
     });
   }
@@ -9602,7 +9852,7 @@ function sanitizeInventoryItem(value: unknown): D2InventoryItem | null {
 
   const stats: D2ItemStats = {};
   if (isRecord(value["stats"])) {
-    const statKeys: Array<keyof D2ItemStats> = ["damageMin", "damageMax", "armor", "plusDamage", "plusStrength", "plusVitality", "requiresStrength"];
+    const statKeys: Array<keyof D2ItemStats> = ["damageMin", "damageMax", "armor", "plusDamage", "plusStrength", "plusVitality", "attackSpeedPercent", "requiresStrength"];
     for (const key of statKeys) {
       const stat = value["stats"][key];
       if (typeof stat === "number" && Number.isFinite(stat)) {
@@ -9819,7 +10069,7 @@ function enemySpriteRow(species: EnemySpecies, dx: number, dy: number): number {
 }
 
 const BASIC_ATTACK_NAMES = ["Guided Arrow", "Throwing Knife", "Axe Throw", "Spirit Claw", "Bone Bolt", "Holy Bolt", "Fire Bolt", "Jab", "Attack"];
-type AttackAnimationStyle = "amazonJab" | "assassinSlash" | "assassinKick" | "barbarianCleave" | "druidClaw" | "necromancerCast" | "paladinStrike" | "sorceressCast" | "spin" | "cast";
+type AttackAnimationStyle = "amazonJab" | "assassinSlash" | "assassinKick" | "barbarianCleave" | "druidClaw" | "necromancerCast" | "paladinStrike" | "sorceressCast" | "spin" | "cast" | "maceSmash" | "staffStrike";
 interface AttackAnimationProfile {
   duration: number;
   leadArm: number;
@@ -9848,9 +10098,19 @@ const ATTACK_ANIMATION_PROFILES: Record<AttackAnimationStyle, AttackAnimationPro
   sorceressCast: { duration: 0.58, leadArm: 1.02, offArm: 0.52, armSweep: 0.35, shoulderRoll: 0.32, elbowBend: 0.72, offElbowBend: 0.46, weaponPitch: -0.35, weaponRoll: 0.22, lean: 0.03, torsoTwist: 0.08, bodyLift: 0.035, spin: false, trail: "#ffb35c", trailArc: 0.9 },
   spin: { duration: 0.68, leadArm: 1.35, offArm: 1.2, armSweep: 1.2, shoulderRoll: 0.5, elbowBend: 0.72, offElbowBend: 0.72, weaponPitch: -0.6, weaponRoll: 1.1, lean: 0, torsoTwist: 0.1, bodyLift: 0.02, spin: true, trail: "#ffce76", trailArc: Math.PI * 2 },
   cast: { duration: 0.48, leadArm: 0.82, offArm: 0.35, armSweep: 0.25, shoulderRoll: 0.18, elbowBend: 0.55, offElbowBend: 0.24, weaponPitch: -0.25, weaponRoll: 0.12, lean: 0.03, torsoTwist: 0.08, bodyLift: 0.02, spin: false, trail: "#e6ddff", trailArc: 1.2 },
-
+  maceSmash: { duration: 0.62, leadArm: 1.58, offArm: 0.48, armSweep: -0.34, shoulderRoll: -0.42, elbowBend: 1.06, offElbowBend: 0.22, weaponPitch: -0.92, weaponRoll: -0.2, lean: 0.28, torsoTwist: 0.22, bodyLift: 0.01, spin: false, trail: "#e5c58b", trailArc: 1.25 },
+  staffStrike: { duration: 0.52, leadArm: 1.08, offArm: 0.72, armSweep: 0.96, shoulderRoll: 0.42, elbowBend: 0.58, offElbowBend: 0.42, weaponPitch: -0.72, weaponRoll: 0.62, lean: 0.1, torsoTwist: 0.38, bodyLift: 0.02, spin: false, trail: "#d6c0ff", trailArc: 2.1 },
 };
 function attackMotionCurve(progress: number, style?: AttackAnimationStyle): number {
+  if (style === "maceSmash") {
+    if (progress < 0.34) return -Math.sin(progress / 0.34 * Math.PI / 2) * 0.9;
+    if (progress < 0.55) {
+      const strike = (progress - 0.34) / 0.21;
+      return -0.9 + 1.9 * (strike * strike * (3 - 2 * strike));
+    }
+    const recovery = Math.min(1, (progress - 0.55) / 0.45);
+    return Math.cos(recovery * Math.PI / 2) * 0.65;
+  }
   if (style === "assassinKick") {
     if (progress < 0.28) {
       const windup = progress / 0.28;
@@ -10122,6 +10382,7 @@ interface D2ItemStats {
   plusDamage?: number;
   plusStrength?: number;
   plusVitality?: number;
+  attackSpeedPercent?: number;
   requiresStrength?: number;
 }
 
