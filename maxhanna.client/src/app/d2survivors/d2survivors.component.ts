@@ -16,6 +16,7 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { Subscription } from "rxjs";
 import { D2LeaderboardEntry, D2LobbyMessage, D2RecordCharacterRequest, D2SurvivorsService } from "../../services/d2survivors.service";
 import { User } from "../../services/datacontracts/user/user";
+import { UserEventService } from "../../services/user-event.service";
 import { AppComponent } from "../app.component";
 import { ChildComponent } from "../child.component";
 import { D2_CLASS_SKILL_TREES, D2SkillDefinition, D2SkillVisual, getAvailableClassSkills, getClassSkills, getD2SkillVisual } from "./d2survivors-skill-tree.data";
@@ -143,6 +144,14 @@ const SKILL_ICON_IMAGES: Record<string, string> = {
   Jab: "assets/d2survivors/skills/jab-spear.png",
 };
 const HOMING_SKILLS = new Set(["Guided Arrow", "Bone Spirit"]);
+const AMAZON_BOW_SKILLS = new Set([
+  "Magic Arrow", "Fire Arrow", "Cold Arrow", "Multiple Shot", "Exploding Arrow",
+  "Ice Arrow", "Guided Arrow", "Immolation Arrow", "Strafe", "Freezing Arrow",
+]);
+const AMAZON_JAVELIN_SKILLS = new Set([
+  "Jab", "Power Strike", "Poison Javelin", "Impale", "Lightning Bolt",
+  "Charged Strike", "Plague Javelin", "Fend", "Lightning Strike", "Lightning Fury",
+]);
 const MISSILE_SPRITE_ORIENTATIONS: Record<string, number> = {
   // Direction 0 in this D2 Fire Ball DCC points 45° above screen-right.
   "d2-fireball": Math.PI / 4,
@@ -356,7 +365,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   inventoryOpen = false;
   skillTreeOpen = false;
   hoveredSkillTooltip: { name: string; description: string; reason: string; rank: number; currentStats: string[]; nextStats: string[]; nextRankLabel: string; x: number; y: number } | null = null;
+  private skillTooltipHideTimeout?: number;
   private readonly d2SurvivorsService = inject(D2SurvivorsService);
+  private readonly userEventService = inject(UserEventService);
   @Input() inputtedParentRef?: AppComponent;
   override parentRef?: AppComponent;
   @ViewChild("lobbyChatLog") private lobbyChatLogRef?: ElementRef<HTMLDivElement>;
@@ -388,6 +399,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private equippedWeaponVisual?: THREE.Group;
   private equippedOffhandWeaponVisual?: THREE.Group;
   private equippedShieldVisual?: THREE.Group;
+  // Each class rig gives its hand/weapon bones a different rest orientation.
+  // Cache the bind-pose hand rotation per model so generated weapons can point
+  // blade-up in character space no matter which bone a rig exposes.
+  private weaponHandRestQuaternions = new Map<string, THREE.Quaternion>();
+  private weaponHandRestModel?: THREE.Group;
+  private shoulderPadRestModel?: THREE.Group;
   private equippedArmorMaterials = new Map<THREE.Mesh, THREE.Material | THREE.Material[]>();
   private loadedArmorAtlases = new Map<string, THREE.Texture>();
   private readonly meleeTrailEffects: MeleeTrailEffect[] = [];
@@ -421,6 +438,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private currentChunkLocalX = 0;
   private currentChunkLocalY = 0;
   private readonly worldZoom = 2.1;
+  private readonly thrownWeaponRange = 380;
   // Fixed first-chunk doorway placed a short walk from the starting position.
   private readonly act1InteriorDoor = { x: 410, y: 240, radius: 12 };
   private readonly playerWorldScale = 1.16;
@@ -1094,6 +1112,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   readonly gheedsShopItems: Array<{ name: string; cost: number; desc: string; item: D2InventoryItem }> = [
     { name: "Stalwart Cap", cost: 180, desc: "A sturdy helm that adds armor.", item: { id: "gheeds-stalwart-cap", name: "Stalwart Leather Cap", baseName: "Leather Cap", rarity: "magic", slot: "armor", equipmentType: "helmet", desc: "Gheed's trustworthy cap, reinforced with old leather.", stats: { armor: 20, requiresStrength: 10 }, affixes: ["+20 Defense"] } },
     { name: "War Pike", cost: 260, desc: "A heavy reach weapon with a powerful opening strike.", item: { id: "gheeds-war-pike", name: "Savage War Pike", baseName: "War Pike", rarity: "magic", slot: "weapon", desc: "A long, heavy spear with excellent reach.", stats: { damageMin: 14, damageMax: 24, plusDamage: 5 }, affixes: ["14–24 Damage", "+5 Maximum Damage"] } },
+    { name: "Short Bow", cost: 240, desc: "A reliable bow for Amazon bow skills.", item: { id: "gheeds-short-bow", name: "Keen Short Bow", baseName: "Short Bow", rarity: "magic", slot: "weapon", desc: "A light bow for loosing arrows at range.", stats: { damageMin: 8, damageMax: 16, plusDamage: 3 }, affixes: ["8–16 Damage", "+3 Maximum Damage"] } },
+    { name: "Javelin", cost: 240, desc: "A balanced javelin for Amazon javelin skills.", item: { id: "gheeds-javelin", name: "Balanced Javelin", baseName: "Javelin", rarity: "magic", slot: "weapon", desc: "A balanced throwing spear for javelin skills.", stats: { damageMin: 7, damageMax: 15, plusDamage: 3 }, affixes: ["7–15 Damage", "+3 Maximum Damage"] } },
     { name: "Demonhide Sash", cost: 220, desc: "An exceptional belt with three potion rows.", item: { id: "gheeds-demonhide-sash", name: "Demonhide Sash", rarity: "normal", slot: "belt", beltQuality: "exceptional", desc: "An exceptional belt with room for three rows of potions.", stats: { armor: 8 } } },
     { name: "Soulstone Ring", cost: 320, desc: "An equippable ring with a powerful damage bonus.", item: { id: "gheeds-soulstone-ring", name: "Soulstone Ring", rarity: "rare", slot: "charm", equipmentType: "ring", desc: "A dangerous fragment set in iron, humming with trapped power.", stats: { plusDamage: 8 }, affixes: ["+8 Maximum Damage"] } },
   ];
@@ -3213,10 +3233,40 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       { name: "Sharkskin Belt", slot: "belt", beltQuality: "exceptional", stats: { armor: 5 }, desc: "An exceptional belt with room for three rows of potions." },
       { name: "Vampirefang Belt", slot: "belt", beltQuality: "elite", stats: { armor: 8 }, desc: "An elite belt with room for four rows of potions." },
       { name: "Short Sword", slot: "weapon", stats: { damageMin: 3, damageMax: 7 }, desc: "A balanced blade suited to quick strikes." },
+      { name: "Long Sword", slot: "weapon", stats: { damageMin: 4, damageMax: 9 }, desc: "A longer blade with a measured cutting edge." },
+      { name: "Broad Sword", slot: "weapon", stats: { damageMin: 5, damageMax: 10 }, desc: "A wide blade that cleaves through armor." },
+      { name: "Two-Handed Sword", slot: "weapon", stats: { damageMin: 6, damageMax: 13 }, desc: "A heavy sword swung with both hands." },
+      { name: "Claymore", slot: "weapon", stats: { damageMin: 7, damageMax: 15 }, desc: "A massive two-handed blade for brutal strikes." },
+      { name: "War Sword", slot: "weapon", stats: { damageMin: 5, damageMax: 12 }, desc: "A sturdy sword built for prolonged battle." },
       { name: "Hand Axe", slot: "weapon", stats: { damageMin: 3, damageMax: 8 }, desc: "A compact axe made for close combat." },
+      { name: "Axe", slot: "weapon", stats: { damageMin: 4, damageMax: 9 }, desc: "A reliable one-handed axe." },
+      { name: "Double Axe", slot: "weapon", stats: { damageMin: 5, damageMax: 11 }, desc: "A twin-bladed axe that bites from either side." },
+      { name: "Military Pick", slot: "weapon", stats: { damageMin: 5, damageMax: 12 }, desc: "A pointed war pick that pierces armor." },
+      { name: "Large Axe", slot: "weapon", stats: { damageMin: 6, damageMax: 13 }, desc: "A broad two-handed axe with heavy reach." },
+      { name: "Great Axe", slot: "weapon", stats: { damageMin: 8, damageMax: 16 }, desc: "A towering axe meant for devastating cleaves." },
       { name: "Mace", slot: "weapon", stats: { damageMin: 4, damageMax: 9 }, desc: "A solid blunt weapon that crushes armor." },
+      { name: "Morning Star", slot: "weapon", stats: { damageMin: 5, damageMax: 10 }, desc: "A spiked mace that punishes heavy armor." },
+      { name: "Flail", slot: "weapon", stats: { damageMin: 5, damageMax: 11 }, desc: "A chained mace that swings around shields." },
       { name: "War Hammer", slot: "weapon", stats: { damageMin: 5, damageMax: 11 }, desc: "A heavy hammer that delivers crushing blows." },
+      { name: "Maul", slot: "weapon", stats: { damageMin: 6, damageMax: 14 }, desc: "A huge two-handed hammer for shattering blows." },
+      { name: "Throwing Knife", slot: "weapon", stats: { damageMin: 2, damageMax: 5 }, desc: "A balanced knife made to be thrown." },
+      { name: "Throwing Axe", slot: "weapon", stats: { damageMin: 3, damageMax: 7 }, desc: "A compact axe balanced for throwing." },
+      { name: "Balanced Knife", slot: "weapon", stats: { damageMin: 4, damageMax: 8 }, desc: "A weighted throwing knife that flies true." },
+      { name: "Balanced Axe", slot: "weapon", stats: { damageMin: 5, damageMax: 9 }, desc: "A throwing axe tuned for a clean spin." },
+      { name: "Glaive", slot: "weapon", stats: { damageMin: 6, damageMax: 11 }, desc: "A broad throwing blade with wicked edges." },
       { name: "War Pike", slot: "weapon", stats: { damageMin: 5, damageMax: 12 }, desc: "A long, heavy spear with excellent reach." },
+      { name: "Short Bow", slot: "weapon", stats: { damageMin: 3, damageMax: 8 }, desc: "A light bow for loosing arrows at range." },
+      { name: "Long Bow", slot: "weapon", stats: { damageMin: 5, damageMax: 11 }, desc: "A tall bow with a stronger draw and longer reach." },
+      { name: "Composite Bow", slot: "weapon", stats: { damageMin: 5, damageMax: 11 }, desc: "A layered bow that stores more power in a shorter frame." },
+      { name: "Crossbow", slot: "weapon", stats: { damageMin: 6, damageMax: 13 }, desc: "A mechanical bow that fires heavy bolts." },
+      { name: "Heavy Crossbow", slot: "weapon", stats: { damageMin: 7, damageMax: 15 }, desc: "A reinforced crossbow with punishing bolt impacts." },
+      { name: "Javelin", slot: "weapon", stats: { damageMin: 4, damageMax: 9 }, desc: "A balanced throwing spear for javelin skills." },
+      { name: "War Javelin", slot: "weapon", stats: { damageMin: 6, damageMax: 13 }, desc: "A heavy javelin built to punch through armor." },
+      { name: "Pilum", slot: "weapon", stats: { damageMin: 5, damageMax: 11 }, desc: "A weighted javelin designed to pierce shields." },
+      { name: "Harpoon", slot: "weapon", stats: { damageMin: 6, damageMax: 12 }, desc: "A barbed javelin that tears deep on impact." },
+      { name: "Barbarian Battle Axe", slot: "weapon", restrictedClass: "barbarian", stats: { damageMin: 7, damageMax: 15 }, desc: "A Barbarian-only battle axe with a brutal edge." },
+      { name: "Barbarian Great Sword", slot: "weapon", restrictedClass: "barbarian", stats: { damageMin: 8, damageMax: 17 }, desc: "A Barbarian-only great sword built for sweeping strikes." },
+      { name: "Barbarian Throwing Axe", slot: "weapon", restrictedClass: "barbarian", stats: { damageMin: 5, damageMax: 11 }, desc: "A Barbarian-only throwing axe balanced for dual combat." },
       ...["Wand", "Yew Wand", "Bone Wand", "Grim Wand"].map((name) => ({
         name, slot: "weapon" as const, equipmentType: "wand" as const,
         stats: { damageMin: 2, damageMax: 5 }, desc: "A wand for spellcasting; any class can wield it.",
@@ -3655,7 +3705,28 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     return this.equipment.weapon?.baseName ?? this.equipment.weapon?.name ?? "bare hands";
   }
 
+  private weaponRequirementForSkill(skill: string): "bow" | "javelin" | null {
+    if (this.selectedClass !== "amazon") return null;
+    if (AMAZON_BOW_SKILLS.has(skill)) return "bow";
+    if (AMAZON_JAVELIN_SKILLS.has(skill)) return "javelin";
+    return null;
+  }
+
+  private hasRequiredWeaponForSkill(skill: string): boolean {
+    const requirement = this.weaponRequirementForSkill(skill);
+    if (!requirement) return true;
+    const weaponName = this.equippedWeaponName.toLowerCase();
+    return requirement === "bow" ? /bow|crossbow/.test(weaponName) : /javelin/.test(weaponName);
+  }
+
+  getSkillRequirementLabel(skill: string): string {
+    const requirement = this.weaponRequirementForSkill(skill);
+    if (!requirement || this.hasRequiredWeaponForSkill(skill)) return "";
+    return `Requires a ${requirement} equipped`;
+  }
+
   showSkillTooltip(event: MouseEvent, skill: D2SkillDefinition & { state: "learned" | "available" | "locked"; reason: string }): void {
+    this.cancelSkillTooltipHide();
     const rank = this.getSkillLevel(skill.name);
     const canRankUp = skill.state !== "locked" && rank < 20 && skill.level <= this.playerLevel;
     const nextRank = canRankUp ? Math.max(1, rank + 1) : rank;
@@ -3688,7 +3759,26 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   hideSkillTooltip(): void {
+    this.cancelSkillTooltipHide();
     this.hoveredSkillTooltip = null;
+  }
+
+  onSkillTooltipEnter(): void {
+    this.cancelSkillTooltipHide();
+  }
+
+  onSkillTooltipLeave(): void {
+    this.cancelSkillTooltipHide();
+    this.skillTooltipHideTimeout = window.setTimeout(() => {
+      this.skillTooltipHideTimeout = undefined;
+      this.hoveredSkillTooltip = null;
+    }, 150);
+  }
+
+  private cancelSkillTooltipHide(): void {
+    if (this.skillTooltipHideTimeout === undefined) return;
+    window.clearTimeout(this.skillTooltipHideTimeout);
+    this.skillTooltipHideTimeout = undefined;
   }
 
   private closeSkillTree(): void {
@@ -3817,10 +3907,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private weaponMasteryForName(name: string): { weaponLabel: string; pattern: RegExp } | undefined {
     if (name === "Axe Mastery") return { weaponLabel: "axe", pattern: /(?:^| )(?:hand )?axe(?:$| )/ };
     if (name === "Sword Mastery") return { weaponLabel: "sword", pattern: /sword/ };
-    if (name === "Mace Mastery") return { weaponLabel: "mace, club, hammer, scepter, or wand", pattern: /mace|club|hammer|scepter|wand/ };
+    if (name === "Mace Mastery") return { weaponLabel: "mace, club, hammer, scepter, or wand", pattern: /mace|club|hammer|scepter|wand|flail|morning star|maul/ };
     if (name === "Polearm Mastery") return { weaponLabel: "polearm or pike", pattern: /polearm|pike/ };
     if (name === "Spear Mastery") return { weaponLabel: "spear or javelin", pattern: /spear|javelin/ };
-    if (name === "Throwing Mastery") return { weaponLabel: "throwing weapon", pattern: /throwing/ };
+    if (name === "Throwing Mastery") return { weaponLabel: "throwing weapon", pattern: /throwing|balanced|glaive/ };
     return undefined;
   }
 
@@ -3943,9 +4033,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const weaponDamage = (item: D2InventoryItem | null): number => {
       if (!item) return 0;
       const weaponName = `${item.baseName ?? ""} ${item.name}`.toLowerCase();
-      const permitted = this.selectedClass === "amazon"
-        ? weaponName.includes("pike") || weaponName.includes("spear") || weaponName.includes("javelin")
-        : this.selectedClass === "sorceress" ? weaponName.includes("staff") : true;
+      const isThrownWeapon = /throwing.*axe|balanced axe|javelin|pilum|harpoon|throwing.*knife|balanced knife|glaive/.test(weaponName);
+      const permitted = isThrownWeapon
+        || (this.selectedClass === "amazon"
+          ? /pike|polearm|spear|javelin|bow|crossbow/.test(weaponName)
+          : this.selectedClass === "sorceress" ? weaponName.includes("staff") : true);
       return permitted ? Math.floor(((item.stats?.damageMin ?? 0) + (item.stats?.damageMax ?? 0)) / 2) : 0;
     };
     const offhandWeapon = this.selectedClass === "barbarian" && this.equipment.shield?.slot === "weapon"
@@ -4002,7 +4094,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       if (!weapon) return 0;
       const name = `${weapon.baseName ?? ""} ${weapon.name}`.toLowerCase();
       const permitted = this.selectedClass === "amazon"
-        ? name.includes("pike") || name.includes("spear") || name.includes("javelin")
+        ? /pike|polearm|spear|javelin|bow|crossbow/.test(name)
         : this.selectedClass === "sorceress" ? name.includes("staff") : true;
       return permitted ? Math.floor(((weapon.stats?.damageMin ?? 0) + (weapon.stats?.damageMax ?? 0)) / 2) : 0;
     };
@@ -4063,6 +4155,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   activateOwnedSkill(skill: string): void {
     if (!this.ownedSkills.includes(skill)) return;
+    if (!this.hasRequiredWeaponForSkill(skill)) return;
     if (this.isDruidFormSkill(skill)) {
       this.druidForm = skill === "Werewolf" ? "werewolf" : "werebear";
       this.druidFormRemaining = DRUID_FORM_DURATION_SECONDS;
@@ -4616,11 +4709,16 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (this.leaderboardRefreshTimer !== undefined) window.clearInterval(this.leaderboardRefreshTimer);
     if (this.lobbyRefreshTimer !== undefined) window.clearInterval(this.lobbyRefreshTimer);
     if (this.recordRetryTimer !== undefined) window.clearTimeout(this.recordRetryTimer);
+    this.cancelItemPreviewHide();
+    this.cancelSkillTooltipHide();
     void this.d2SurvivorsService.disconnectLobby();    this.runActive = false;
     this.arenaResizeObserver?.disconnect();
     this.arenaResizeObserver = undefined;
     this.playerWeaponMeshes = [];
     this.playerWeaponBaseQuaternions = [];
+    this.weaponHandRestQuaternions.clear();
+    this.weaponHandRestModel = undefined;
+    this.shoulderPadRestModel = undefined;
     if (this.rafId) {
       cancelAnimationFrame(this.rafId);
       this.rafId = 0;
@@ -4651,7 +4749,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private triggerAttackAnimation(style?: AttackAnimationStyle): void {
     const classDefault = style ?? CLASS_ATTACK_ANIMATION[this.selectedClass] ?? "amazonJab";
     const isExplicitSkillAnimation = style !== undefined
-      && (style === "spin" || style === "assassinKick" || style === "cast" || style === "necromancerCast" || style === "sorceressCast");
+      && (style === "spin" || style === "assassinKick" || style === "cast" || style === "necromancerCast" || style === "sorceressCast" || style === "weaponThrow");
     const attackStyle = isExplicitSkillAnimation ? classDefault : this.attackStyleForEquippedWeapon(classDefault);
     this.attackAnimationStyle = attackStyle;
     this.attackAnimationTime = 0;
@@ -4678,6 +4776,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private attackStyleForEquippedWeapon(classDefault: AttackAnimationStyle): AttackAnimationStyle {
     const item = this.equipment.weapon;
     if (!item) return classDefault;
+    if (this.thrownWeaponKind) return "weaponThrow";
     const name = `${item.baseName ?? ""} ${item.name}`.toLowerCase();
     const type = getEquipmentType(item);
     if (type === "claw") return "assassinSlash";
@@ -4687,8 +4786,44 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (/staff/.test(name)) return "staffStrike";
     if (/pike|polearm|spear|javelin/.test(name)) return "amazonJab";
     if (/hammer|mace|maul|club|flail/.test(name)) return "maceSmash";
-    if (/axe|sword|blade|dagger/.test(name)) return /axe/.test(name) ? "barbarianCleave" : "assassinSlash";
+    if (/axe|sword|blade|dagger|knife|glaive/.test(name)) return /axe/.test(name) ? "barbarianCleave" : "assassinSlash";
     return classDefault;
+  }
+
+  private get thrownWeaponKind(): ThrownWeaponKind | null {
+    if (this.druidForm) return null;
+    const item = this.equipment.weapon;
+    if (!item) return null;
+    const name = `${item.baseName ?? ""} ${item.name}`.toLowerCase();
+    if (/javelin|pilum|harpoon/.test(name)) return "javelin";
+    if (/throwing.*axe|balanced axe/.test(name)) return "axe";
+    if (/throwing.*knife|balanced knife/.test(name)) return "knife";
+    if (/glaive/.test(name)) return "glaive";
+    return null;
+  }
+
+  private throwWeaponAt(target: Enemy, damage: number, thrownWeapon: ThrownWeaponKind, color: string): void {
+    const distance = Math.hypot(target.x - this.playerX, target.y - this.playerY) || 1;
+    const speed = thrownWeapon === "javelin" ? 650 : 560;
+    this.attackProjectiles.push({
+      x: this.playerX,
+      y: this.playerY - 8,
+      startX: this.playerX,
+      startY: this.playerY - 8,
+      targetX: target.x,
+      targetY: target.y,
+      target,
+      targetId: this.attackSequence++,
+      homing: true,
+      speed,
+      damage,
+      life: distance / 420 + 1.2,
+      radius: thrownWeapon === "javelin" ? 5 : 6,
+      color,
+      kind: "blade",
+      thrownWeapon,
+      age: 0,
+    });
   }
 
   private basicAttackForClass(classId: string): { name: string; kind: AttackProjectile["kind"]; color: string; damage: number; cooldown: number } {
@@ -4805,6 +4940,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       }
     }
     for (const skill of activeSkills) {
+      if (!this.hasRequiredWeaponForSkill(skill)) {
+        delete this.skillCastCooldowns[skill];
+        continue;
+      }
       if (this.isDruidFormSkill(skill)) continue;
       if (this.isPersistentSummonSkill(skill)) {
         if (this.isGolemSkill(skill)) {
@@ -4925,6 +5064,17 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const distance = Math.hypot(target.x - this.playerX, target.y - this.playerY);
     this.playerFacingX = (target.x - this.playerX) / Math.max(1, distance);
     this.playerFacingY = (target.y - this.playerY) / Math.max(1, distance);
+    const thrownWeapon = this.thrownWeaponKind;
+    if (thrownWeapon) {
+      if (distance > this.thrownWeaponRange) {
+        this.attackCooldown = Math.min(0.12, this.basicAttackCooldown);
+        return;
+      }
+      this.throwWeaponAt(target, damage, thrownWeapon, attack.color);
+      this.triggerAttackAnimation();
+      this.attackCooldown = Math.max(this.playerAttackLockRemaining, this.paladinAuraAttackCooldown());
+      return;
+    }
     if (distance <= target.r + 28) {
       if (this.druidForm) this.druidFormAttackTime = this.druidForm === "werebear" ? 0.56 : 0.38;
       target.hp -= damage;
@@ -4991,6 +5141,21 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const attackLevel = this.skillLevels[this.basicAttackName] ?? 1;
     const baseDamage = this.basicAttackDamage + (attackLevel - 1) * 2 + this.weaponMasteryDamageBonus + this.equippedWeaponDamage;
     const damage = this.applyPaladinAuraDamage(baseDamage);
+    const thrownWeapon = this.thrownWeaponKind;
+    if (thrownWeapon) {
+      const target = targets[0];
+      const distance = Math.hypot(target.x - this.playerX, target.y - this.playerY);
+      this.playerFacingX = (target.x - this.playerX) / Math.max(1, distance);
+      this.playerFacingY = (target.y - this.playerY) / Math.max(1, distance);
+      if (distance <= this.thrownWeaponRange) {
+        this.throwWeaponAt(target, damage, thrownWeapon, attack.color);
+        this.triggerAttackAnimation();
+        this.attackCooldown = Math.max(this.playerAttackLockRemaining, this.paladinAuraAttackCooldown());
+      } else {
+        this.attackCooldown = Math.min(0.12, this.basicAttackCooldown);
+      }
+      return;
+    }
     let landedMeleeAttack = false;
     for (const target of targets) {
       const distance = Math.hypot(target.x - this.playerX, target.y - this.playerY);
@@ -5558,6 +5723,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       return;
     }
     const start = this.projectArenaPoint(projectile.startX, projectile.startY);
+    if (projectile.thrownWeapon) {
+      this.drawThrownWeapon(ctx, projectile, start, point);
+      return;
+    }
     const missileId = projectile.missileId ?? ATTACK_KIND_MISSILE_OVERLAYS[projectile.kind];
     if (projectile.teethFan !== undefined) {
       this.drawBoneTooth(ctx, point, start, projectile);
@@ -5641,6 +5810,83 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     ctx.restore();
   }
 
+  private drawThrownWeapon(
+    ctx: CanvasRenderingContext2D,
+    projectile: AttackProjectile,
+    start: { x: number; y: number },
+    point: { x: number; y: number },
+  ): void {
+    const kind = projectile.thrownWeapon;
+    if (!kind) return;
+    const direction = Math.atan2(point.y - start.y, point.x - start.x);
+    const scale = this.worldZoom;
+    const metal = "#c8d3df";
+    const wood = "#8a5a32";
+    ctx.save();
+    ctx.translate(point.x, point.y - 8);
+    ctx.rotate(direction);
+    ctx.lineCap = "round";
+    ctx.shadowColor = projectile.color;
+    ctx.shadowBlur = 8;
+    if (kind === "axe") {
+      ctx.rotate(projectile.age * 17);
+      ctx.strokeStyle = wood;
+      ctx.lineWidth = Math.max(1.4, 1.8 * scale);
+      ctx.beginPath();
+      ctx.moveTo(-6 * scale, 0);
+      ctx.lineTo(5 * scale, 0);
+      ctx.stroke();
+      ctx.fillStyle = metal;
+      ctx.beginPath();
+      ctx.moveTo(2 * scale, -4.5 * scale);
+      ctx.lineTo(7 * scale, -1.2 * scale);
+      ctx.lineTo(7 * scale, 1.2 * scale);
+      ctx.lineTo(2 * scale, 4.5 * scale);
+      ctx.closePath();
+      ctx.fill();
+    } else if (kind === "javelin") {
+      ctx.strokeStyle = wood;
+      ctx.lineWidth = Math.max(1.4, 1.6 * scale);
+      ctx.beginPath();
+      ctx.moveTo(-8 * scale, 0);
+      ctx.lineTo(6 * scale, 0);
+      ctx.stroke();
+      ctx.fillStyle = metal;
+      ctx.beginPath();
+      ctx.moveTo(8 * scale, 0);
+      ctx.lineTo(4.5 * scale, -2.2 * scale);
+      ctx.lineTo(4.5 * scale, 2.2 * scale);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = projectile.color;
+      ctx.lineWidth = Math.max(1, 1.2 * scale);
+      for (const angle of [-0.5, 0.5]) {
+        ctx.beginPath();
+        ctx.moveTo(-8 * scale, 0);
+        ctx.lineTo(-5.5 * scale, Math.sin(angle) * 2.6 * scale);
+        ctx.stroke();
+      }
+    } else {
+      // Throwing knives and glaives tumble end-over-end in flight.
+      ctx.rotate(projectile.age * (kind === "glaive" ? 11 : 19));
+      ctx.fillStyle = metal;
+      ctx.beginPath();
+      ctx.moveTo(-5 * scale, 0);
+      ctx.quadraticCurveTo(0, -2.4 * scale, 6 * scale, -0.6 * scale);
+      ctx.lineTo(6 * scale, 0.6 * scale);
+      ctx.quadraticCurveTo(0, 2.4 * scale, -5 * scale, 0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = wood;
+      ctx.lineWidth = Math.max(1, 1.2 * scale);
+      ctx.beginPath();
+      ctx.moveTo(-6 * scale, 0);
+      ctx.lineTo(-3 * scale, 0);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
   private drawBoneTooth(
     ctx: CanvasRenderingContext2D,
     point: { x: number; y: number },
@@ -5687,6 +5933,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     ctx.closePath();
     ctx.fill();
     ctx.restore();
+  }
+
+  private trackUserEvent(eventType: string, eventText: string): void {
+    const userId = Number((this.inputtedParentRef ?? this.parentRef)?.user?.id ?? 0);
+    if (!userId) return;
+    void this.userEventService.insertUserEvent(userId, eventType, eventText, undefined, "D2Survivors");
   }
 
   startRun(): void {
@@ -5793,6 +6045,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.modelLoadError = true;
     }
     this.runActive = true;
+    this.trackUserEvent("d2survivors_start", `Started a run as the ${this.selectedClassName}`);
     this.restoreSummonsFromOwnedSkills();
     this.persistRunProgress(true);
     this.loop(this.lastTime);
@@ -7264,6 +7517,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private selectedItemPreviewLeft = false;
   private selectedItemPreviewBelow = false;
   private selectedItemPreviewAbove = false;
+  private itemPreviewHideTimeout?: number;
 
   get itemPreviewItem(): D2InventoryItem | null {
     return this.hoveredItem ?? this.selectedItem;
@@ -7483,6 +7737,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   onShopItemHover(item: D2InventoryItem, event: MouseEvent): void {
     if (event instanceof PointerEvent && event.pointerType === "touch") return;
+    this.cancelItemPreviewHide();
     this.hoveredItem = item;
     this.hoveredSlotIndex = null;
     this.hoveredEquipmentSlot = null;
@@ -7491,6 +7746,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   onInventoryItemHover(slotIndex: number, item: D2InventoryItem | null, event: MouseEvent): void {
     if (!item || (event instanceof PointerEvent && event.pointerType === "touch")) return;
+    this.cancelItemPreviewHide();
     this.hoveredItem = item;
     this.hoveredSlotIndex = slotIndex;
     this.hoveredEquipmentSlot = null;
@@ -7500,6 +7756,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   onEquipmentItemHover(slot: PaperdollSlot, event: MouseEvent): void {
     const item = this.equipment[slot];
     if (!item) return;
+    this.cancelItemPreviewHide();
     this.hoveredItem = item;
     this.hoveredSlotIndex = null;
     this.hoveredEquipmentSlot = slot;
@@ -7510,7 +7767,35 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (this.hoveredItem) this.moveItemPreviewTo(event.clientX, event.clientY);
   }
 
+  onItemPreviewEnter(): void {
+    this.cancelItemPreviewHide();
+  }
+
   onItemPreviewLeave(): void {
+    this.cancelItemPreviewHide();
+    this.itemPreviewHideTimeout = window.setTimeout(() => {
+      this.itemPreviewHideTimeout = undefined;
+      this.hideItemPreview();
+    }, 120);
+  }
+
+  closeItemPreview(): void {
+    this.cancelItemPreviewHide();
+    this.hoveredItem = null;
+    this.hoveredSlotIndex = null;
+    this.hoveredEquipmentSlot = null;
+    this.selectedItem = null;
+    this.selectedSlotIndex = null;
+    this.selectedEquipmentSlot = null;
+  }
+
+  private cancelItemPreviewHide(): void {
+    if (this.itemPreviewHideTimeout === undefined) return;
+    window.clearTimeout(this.itemPreviewHideTimeout);
+    this.itemPreviewHideTimeout = undefined;
+  }
+
+  private hideItemPreview(): void {
     this.hoveredItem = null;
     this.hoveredSlotIndex = null;
     this.hoveredEquipmentSlot = null;
@@ -7976,6 +8261,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (!victory) {
       this.deathRecovery = false;
       this.deathCount += 1;
+      this.trackUserEvent(
+        "d2survivors_death",
+        `Died as the ${this.selectedClassName} in Act ${this.currentAct} after ${Math.floor(this.runTime)} seconds`,
+      );
       this.potionDrops = [];
       this.goldDrops = [];
       this.playerHp = 0;
@@ -8358,6 +8647,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         model.rotation.y = 0;
         this.playerRigBones = this.getPlayerRigBones(model);
         this.selectedClass = modelClass;
+        this.attachBarbarianShoulderPads(model, modelClass);
         this.configureClassMeleeWeapon(model, modelClass);
         this.playerAnimationTime = 0;
         this.playerMotionBlend = 0;
@@ -8519,6 +8809,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   private configureClassMeleeWeapon(model: THREE.Group, classId: string): void {
     this.configureClassArmor(model, classId);
+    this.captureWeaponHandRestPose(model);
     this.playerWeaponMeshes = [];
     this.playerWeaponBaseQuaternions = [];
     for (const visual of [this.equippedWeaponVisual, this.equippedOffhandWeaponVisual, this.equippedShieldVisual]) {
@@ -8659,6 +8950,70 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.equippedShieldVisual = shield;
   }
 
+  /**
+   * The Barbarian's pauldrons are skinned to helper pivots left at the scene
+   * root (heavy/medium) or parented to the clavicle (light). This rig's attack
+   * animation drives the upper-arm bones, so those pads otherwise stay frozen
+   * in space and appear to hover while the arms swing. Re-home each pad bone
+   * under the matching upper arm while preserving its bind-pose world transform,
+   * so the pads follow the arm without shifting at rest.
+   */
+  private attachBarbarianShoulderPads(model: THREE.Group, classId: string): void {
+    if (classId !== "barbarian" || this.shoulderPadRestModel === model) return;
+    this.shoulderPadRestModel = model;
+    model.updateMatrixWorld(true);
+    const anchors: Array<[string, string]> = [
+      ["R_hvy_pad_pivot", "R_UpperArm"],
+      ["R_med_pad_pivot", "R_UpperArm"],
+      ["L_hvy_pad_pivot", "L_UpperArm"],
+      ["R_shoulder_pad", "R_UpperArm"],
+      ["L_shoulder_pad", "L_UpperArm"],
+      ["L_med_shoulder_pad", "L_UpperArm"],
+    ];
+    for (const [padName, armName] of anchors) {
+      const pad = model.getObjectByName(padName);
+      const arm = model.getObjectByName(armName);
+      if (!pad || !arm || pad === arm || pad.parent === arm) continue;
+      arm.attach(pad);
+    }
+  }
+
+  private captureWeaponHandRestPose(model: THREE.Group): void {
+    if (this.weaponHandRestModel === model) return;
+    this.weaponHandRestModel = model;
+    this.weaponHandRestQuaternions.clear();
+    model.updateWorldMatrix(true, true);
+    const modelInverse = model.getWorldQuaternion(new THREE.Quaternion()).invert();
+    const handNames = [
+      "R_weapon_attach", "R_Wrist", "R_hand_bind_jnt", "R_Wrist_JNT", "R_ForeArm", "R_lwr_arm_bind_jnt",
+      "L_weapon_attach", "L_Wrist", "L_hand_bind_jnt", "L_Wrist_JNT", "L_ForeArm", "L_lwr_arm_bind_jnt",
+      "two_hand_weapon_attach",
+    ];
+    for (const name of handNames) {
+      const bone = model.getObjectByName(name);
+      if (!bone) continue;
+      const boneWorld = bone.getWorldQuaternion(new THREE.Quaternion());
+      this.weaponHandRestQuaternions.set(bone.uuid, modelInverse.clone().multiply(boneWorld));
+    }
+  }
+
+  /**
+   * Point the generated weapon along the character's rest-pose up axis instead
+   * of the attach bone's local +Y, which differs per class rig. The weapon then
+   * inherits arm animation naturally because it stays parented to the hand.
+   */
+  private orientWeaponInHand(weapon: THREE.Group, hand: THREE.Object3D, handName: "weapon" | "offhand"): void {
+    const rest = this.weaponHandRestQuaternions.get(hand.uuid);
+    if (!rest) {
+      if (handName === "offhand") weapon.rotation.z = Math.PI;
+      return;
+    }
+    // Lean the tip away from the torso so the blade clears the body. The local
+    // +Z (flat of the blade) keeps facing the character's forward axis.
+    const lean = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), handName === "offhand" ? -0.24 : 0.24);
+    weapon.quaternion.copy(rest).invert().multiply(lean);
+  }
+
   private createEquippedWeaponVisual(item: D2InventoryItem, hand: THREE.Object3D, handName: "weapon" | "offhand"): THREE.Group {
     const type = getEquipmentType(item);
     const equippedName = `${item.baseName ?? ""} ${item.name}`.toLowerCase();
@@ -8682,7 +9037,25 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       addPart(new THREE.BoxGeometry(width, length * 0.78, 0.00018), metalMaterial, length * 0.39 + 0.0014);
       addPart(new THREE.ConeGeometry(width * 0.52, length * 0.22, 4), metalMaterial, length * 0.89 + 0.0014);
     };
-    if (/pike|polearm|spear|javelin|staff/.test(equippedName)) {
+    if (/bow|crossbow/.test(equippedName)) {
+      if (/crossbow/.test(equippedName)) {
+        addGrip(0.0045);
+        addPart(new THREE.BoxGeometry(0.0062, 0.0007, 0.0007), gripMaterial, 0.0022);
+        addPart(new THREE.BoxGeometry(0.0006, 0.0006, 0.0034), metalMaterial, 0.0022);
+        addPart(new THREE.BoxGeometry(0.0007, 0.0032, 0.0007), gripMaterial, 0.0022);
+      } else {
+        const radius = 0.0042;
+        const limb = new THREE.Mesh(new THREE.TorusGeometry(radius, 0.00028, 6, 20, Math.PI), gripMaterial);
+        limb.rotation.z = -Math.PI / 2;
+        limb.position.x = -radius;
+        limb.castShadow = true;
+        weapon.add(limb);
+        const string = new THREE.Mesh(new THREE.BoxGeometry(0.00018, radius * 2, 0.00018), new THREE.MeshBasicMaterial({ color: 0xd8d2c4 }));
+        string.position.set(-radius, 0, 0);
+        weapon.add(string);
+        addPart(new THREE.CylinderGeometry(0.00034, 0.00034, 0.0026, 6), accentMaterial, 0);
+      }
+    } else if (/pike|polearm|spear|javelin|staff/.test(equippedName)) {
       const staff = /staff/.test(equippedName);
       const shaftLength = staff ? 0.014 : 0.011;
       addGrip(shaftLength);
@@ -8706,8 +9079,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       addBlade(0.006, /sword|blade/.test(equippedName) ? 0.00115 : 0.0008);
     }
     weapon.scale.setScalar(1.55);
-    if (handName === "offhand") weapon.rotation.z = Math.PI;
     hand.add(weapon);
+    this.orientWeaponInHand(weapon, hand, handName);
     return weapon;
   }
 
@@ -8915,6 +9288,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const attackMotion = attackActive ? attackMotionCurve(attackProgress, this.attackAnimationStyle) : 0;
     const attackFollowThrough = attackActive ? Math.sin(Math.PI * attackProgress) : 0;
     const isAssassinKick = this.attackAnimationStyle === "assassinKick";
+    // Let the axe/javelin leave the hand at the release point of a throw, then
+    // restore it once the animation ends so the equipped weapon is not lost.
+    if (this.equippedWeaponVisual) {
+      this.equippedWeaponVisual.visible = !(this.attackAnimationStyle === "weaponThrow" && attackActive && attackProgress > 0.5);
+    }
     for (const leg of this.playerRigBones.legs ?? []) {
       const locomotionSwing = Math.sin(phase + (leg.side < 0 ? Math.PI : 0)) * hipAmplitude;
       const kick = isAssassinKick && leg.side === this.attackAnimationSide ? attackMotion * 1.15 : 0;
@@ -10184,7 +10562,8 @@ function enemySpriteRow(species: EnemySpecies, dx: number, dy: number): number {
 }
 
 const BASIC_ATTACK_NAMES = ["Guided Arrow", "Throwing Knife", "Axe Throw", "Spirit Claw", "Bone Bolt", "Holy Bolt", "Fire Bolt", "Jab", "Attack"];
-type AttackAnimationStyle = "amazonJab" | "assassinSlash" | "assassinKick" | "barbarianCleave" | "druidClaw" | "necromancerCast" | "paladinStrike" | "sorceressCast" | "spin" | "cast" | "maceSmash" | "staffStrike";
+type ThrownWeaponKind = "axe" | "javelin" | "knife" | "glaive";
+type AttackAnimationStyle = "amazonJab" | "assassinSlash" | "assassinKick" | "barbarianCleave" | "druidClaw" | "necromancerCast" | "paladinStrike" | "sorceressCast" | "spin" | "cast" | "maceSmash" | "staffStrike" | "weaponThrow";
 interface AttackAnimationProfile {
   duration: number;
   leadArm: number;
@@ -10215,6 +10594,7 @@ const ATTACK_ANIMATION_PROFILES: Record<AttackAnimationStyle, AttackAnimationPro
   cast: { duration: 0.48, leadArm: 0.82, offArm: 0.35, armSweep: 0.25, shoulderRoll: 0.18, elbowBend: 0.55, offElbowBend: 0.24, weaponPitch: -0.25, weaponRoll: 0.12, lean: 0.03, torsoTwist: 0.08, bodyLift: 0.02, spin: false, trail: "#e6ddff", trailArc: 1.2 },
   maceSmash: { duration: 0.62, leadArm: 1.58, offArm: 0.48, armSweep: -0.34, shoulderRoll: -0.42, elbowBend: 1.06, offElbowBend: 0.22, weaponPitch: -0.92, weaponRoll: -0.2, lean: 0.28, torsoTwist: 0.22, bodyLift: 0.01, spin: false, trail: "#e5c58b", trailArc: 1.25 },
   staffStrike: { duration: 0.52, leadArm: 1.08, offArm: 0.72, armSweep: 0.96, shoulderRoll: 0.42, elbowBend: 0.58, offElbowBend: 0.42, weaponPitch: -0.72, weaponRoll: 0.62, lean: 0.1, torsoTwist: 0.38, bodyLift: 0.02, spin: false, trail: "#d6c0ff", trailArc: 2.1 },
+  weaponThrow: { duration: 0.5, leadArm: 1.62, offArm: 0.38, armSweep: -0.58, shoulderRoll: 0.24, elbowBend: 0.72, offElbowBend: 0.14, weaponPitch: -0.5, weaponRoll: 0.12, lean: 0.18, torsoTwist: 0.36, bodyLift: 0.022, spin: false },
 };
 function attackMotionCurve(progress: number, style?: AttackAnimationStyle): number {
   if (style === "maceSmash") {
@@ -10237,6 +10617,18 @@ function attackMotionCurve(progress: number, style?: AttackAnimationStyle): numb
     }
     const recovery = Math.min(1, (progress - 0.58) / 0.42);
     return Math.cos(recovery * Math.PI / 2);
+  }
+  if (style === "weaponThrow") {
+    if (progress < 0.34) {
+      const windup = progress / 0.34;
+      return -0.55 * Math.sin(windup * Math.PI / 2);
+    }
+    if (progress < 0.58) {
+      const release = (progress - 0.34) / 0.24;
+      return -0.55 + 1.75 * (release * release * (3 - 2 * release));
+    }
+    const recovery = Math.min(1, (progress - 0.58) / 0.42);
+    return Math.cos(recovery * Math.PI / 2) * 0.9;
   }
   if (style === "barbarianCleave") {
     if (progress < 0.3) {
@@ -10386,6 +10778,7 @@ interface AttackProjectile {
   radius: number;
   color: string;
   kind: "arrow" | "fire" | "lightning" | "blade" | "bone" | "holy" | "claw" | "melee";
+  thrownWeapon?: ThrownWeaponKind;
 }
 
 interface RigAnimationBone {

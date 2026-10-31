@@ -183,6 +183,16 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
         description: "Space-Evolves play",
         component: "Space: Evolves",
       },
+      d2survivors_start: {
+        icon: navIcon("D2Survivors", "🗡️"),
+        description: "D2 Survivors run started",
+        component: "D2Survivors",
+      },
+      d2survivors_death: {
+        icon: navIcon("D2Survivors", "💀"),
+        description: "D2 Survivors death",
+        component: "D2Survivors",
+      },
       digcraft_play: {
         icon: navIcon("DigCraft", "⛏️"),
         description: "DigCraft play",
@@ -341,8 +351,11 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
       this.parentRef?.createComponent('Space: Evolves');
       return;
     }
-    if (e.referenceId == null) return;
     const eData = this.getEvent(e.eventType);
+    if (e.referenceId == null) {
+      if (eData.component) this.parentRef?.createComponent(eData.component);
+      return;
+    }
 
     if (e.eventType.includes('posted')) {
       this.parentRef?.createComponent('Social', { 'storyId': e.referenceId });

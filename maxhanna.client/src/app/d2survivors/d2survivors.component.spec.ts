@@ -170,6 +170,20 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(component.equippedWeaponDamage).toBe(14);
   });
 
+  it("requires an equipped bow for Amazon bow skills and a javelin for javelin skills", () => {
+    component.selectedClass = "amazon";
+    expect((component as any).hasRequiredWeaponForSkill("Fire Arrow")).toBeFalse();
+    expect((component as any).hasRequiredWeaponForSkill("Poison Javelin")).toBeFalse();
+
+    component.equipment.weapon = { name: "Short Bow", baseName: "Short Bow", slot: "weapon" } as any;
+    expect((component as any).hasRequiredWeaponForSkill("Fire Arrow")).toBeTrue();
+    expect((component as any).hasRequiredWeaponForSkill("Poison Javelin")).toBeFalse();
+
+    component.equipment.weapon = { name: "Javelin", baseName: "Javelin", slot: "weapon" } as any;
+    expect((component as any).hasRequiredWeaponForSkill("Poison Javelin")).toBeTrue();
+    expect((component as any).hasRequiredWeaponForSkill("Fire Arrow")).toBeFalse();
+  });
+
   it("maps inventory items to art matching their equipment instead of defaulting legacy gear to body armor", () => {
     const imageFor = (name: string, slot: "weapon" | "armor" | "charm" | "belt", equipmentType?: string) =>
       component.inventoryItemImage({ name, slot, equipmentType } as any);
@@ -337,5 +351,124 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(item.stats.attackSpeedPercent).toBeGreaterThanOrEqual(5);
     expect(item.stats.attackSpeedPercent).toBeLessThanOrEqual(12);
     expect(item.affixes.some((affix: string) => affix.includes("Attack Speed"))).toBeTrue();
+  });
+
+  it("closes both hovered and selected item tooltips", () => {
+    component.hoveredItem = { name: "Short Sword" } as any;
+    component.selectedItem = { name: "Short Sword" } as any;
+    component.selectedSlotIndex = 0;
+
+    component.closeItemPreview();
+
+    expect(component.hoveredItem).toBeNull();
+    expect(component.selectedItem).toBeNull();
+    expect(component.selectedSlotIndex).toBeNull();
+    expect(component.itemPreviewItem).toBeNull();
+  });
+
+  it("keeps a hover preview open while the pointer moves onto it", () => {
+    jasmine.clock().install();
+    try {
+      component.hoveredItem = { name: "Short Sword" } as any;
+
+      component.onItemPreviewLeave();
+      component.onItemPreviewEnter();
+      jasmine.clock().tick(200);
+
+      expect(component.hoveredItem).not.toBeNull();
+
+      component.onItemPreviewLeave();
+      jasmine.clock().tick(200);
+
+      expect(component.hoveredItem).toBeNull();
+    } finally {
+      component.onItemPreviewEnter();
+      jasmine.clock().uninstall();
+    }
+  });
+
+  it("closes the skill tooltip and keeps it open while the pointer moves onto it", () => {
+    jasmine.clock().install();
+    try {
+      component.hoveredSkillTooltip = { name: "Might" } as any;
+
+      component.onSkillTooltipLeave();
+      component.onSkillTooltipEnter();
+      jasmine.clock().tick(250);
+
+      expect(component.hoveredSkillTooltip).not.toBeNull();
+
+      component.hideSkillTooltip();
+
+      expect(component.hoveredSkillTooltip).toBeNull();
+    } finally {
+      component.hideSkillTooltip();
+      jasmine.clock().uninstall();
+    }
+  });
+
+  it("throws an axe projectile for any class equipped with a throwing axe", () => {
+    component.selectedClass = "sorceress";
+    component.runActive = true;
+    (component as any).attackCooldown = 0;
+    component.pendingLevelUps = 0;
+    component.playerX = 100;
+    component.playerY = 100;
+    component.enemies = [{ x: 300, y: 100, r: 10, hp: 100 } as any];
+    component.equipment.weapon = { name: "Throwing Axe", baseName: "Throwing Axe", slot: "weapon" } as any;
+
+    component.attackNearestEnemy();
+
+    expect(component.enemies[0].hp).toBe(100);
+    expect(component.attackProjectiles.length).toBe(1);
+    expect(component.attackProjectiles[0].thrownWeapon).toBe("axe");
+    expect((component as any).attackAnimationStyle).toBe("weaponThrow");
+  });
+
+  it("uses the throwing animation and a javelin projectile for javelin weapons", () => {
+    component.equipment.weapon = { name: "War Javelin", baseName: "War Javelin", slot: "weapon" } as any;
+
+    expect((component as any).thrownWeaponKind).toBe("javelin");
+    expect((component as any).attackStyleForEquippedWeapon("sorceressCast")).toBe("weaponThrow");
+  });
+
+  it("auto-throws a throwing weapon from range without applying melee damage", () => {
+    component.runActive = true;
+    (component as any).attackCooldown = 0;
+    component.pendingLevelUps = 0;
+    component.playerX = 100;
+    component.playerY = 100;
+    const target = { x: 250, y: 100, r: 10, hp: 100 } as any;
+    component.enemies = [target];
+    component.equipment.weapon = { name: "Balanced Axe", baseName: "Balanced Axe", slot: "weapon" } as any;
+
+    (component as any).updateBasicAttack();
+
+    expect(target.hp).toBe(100);
+    expect(component.attackProjectiles.length).toBe(1);
+    expect(component.attackProjectiles[0].thrownWeapon).toBe("axe");
+  });
+
+  it("points generated weapons up regardless of the rig's hand-bone orientation", () => {
+    const model = new THREE.Group();
+    const hand = new THREE.Object3D();
+    hand.name = "R_weapon_attach";
+    // A rig whose weapon bone points sideways must still hold the blade upright.
+    hand.rotation.z = Math.PI / 2;
+    model.add(hand);
+    model.updateMatrixWorld(true);
+    (component as any).captureWeaponHandRestPose(model);
+
+    const weapon = (component as any).createEquippedWeaponVisual(
+      { id: "test-sword", name: "War Sword", baseName: "War Sword", slot: "weapon" } as any,
+      hand,
+      "weapon",
+    ) as THREE.Group;
+    model.updateMatrixWorld(true);
+
+    const worldUp = new THREE.Vector3(0, 1, 0).applyQuaternion(weapon.getWorldQuaternion(new THREE.Quaternion()));
+    const modelUp = new THREE.Vector3(0, 1, 0).applyQuaternion(model.getWorldQuaternion(new THREE.Quaternion()));
+    expect(weapon.parent).toBe(hand);
+    expect(worldUp.dot(modelUp)).toBeGreaterThan(0.9);
   });
 });

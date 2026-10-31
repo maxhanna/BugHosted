@@ -165,8 +165,11 @@
             [class.preview-below]="itemPreviewBelow"
             [class.preview-above]="itemPreviewAbove"
             [style.left.px]="itemPreviewX"
-            [style.top.px]="itemPreviewY">
+            [style.top.px]="itemPreviewY"
+            (mouseenter)="onItemPreviewEnter()"
+            (mouseleave)="onItemPreviewLeave()">
             <div class="d2s-item-window-inner">
+              <button type="button" class="d2s-item-window-close" (click)="closeItemPreview()" aria-label="Close item tooltip" title="Close">×</button>
               <p class="d2s-item-window-kicker">{{ shopPreviewItem.rarity }} {{ shopPreviewItem.slot }}</p>
               <h3 class="d2s-item-window-title">{{ shopPreviewItem.name }}</h3>
               <p class="d2s-item-window-base" *ngIf="shopPreviewItem.baseName && shopPreviewItem.baseName !== shopPreviewItem.name">Base item: {{ shopPreviewItem.baseName }}</p>
@@ -293,7 +296,7 @@
               <ng-template #basicAttackMissile><img *ngIf="basicAttackIcon === ''; else basicAttackFallback" class="d2s-skill-overlay" [src]="missileOverlayPath(basicAttackMissileOverlay)" alt="" /></ng-template>
               <ng-template #basicAttackFallback><span class="d2s-skill-icon">{{ basicAttackIcon }}</span></ng-template>
             </div>
-            <div class="d2s-skill-slot" *ngFor="let skill of equippedSkills" [attr.title]="skill + ' · automatic cast every ' + getSkillCastLabel(skill)" [attr.aria-label]="skill + ', casts automatically every ' + getSkillCastLabel(skill)">
+            <div class="d2s-skill-slot" *ngFor="let skill of equippedSkills" [attr.title]="skill + ' · automatic cast every ' + getSkillCastLabel(skill) + (getSkillRequirementLabel(skill) ? ' · ' + getSkillRequirementLabel(skill) : '')" [attr.aria-label]="skill + ', casts automatically every ' + getSkillCastLabel(skill) + (getSkillRequirementLabel(skill) ? '. ' + getSkillRequirementLabel(skill) : '')">
               <img *ngIf="hasSkillIconImage(skill); else skillMissile" class="d2s-skill-art" [src]="skillIconPath(skill)" alt="" />
               <ng-template #skillMissile><img *ngIf="skillIcon(skill) === ''; else skillIconFallback" class="d2s-skill-overlay" [src]="missileOverlayPath(getSkillMissileOverlay(skill))" alt="" /></ng-template><ng-template #skillIconFallback><span class="d2s-skill-icon">{{ skillIcon(skill) }}</span></ng-template>
               <span class="d2s-skill-cooldown" [style.transform]="'scaleY(' + (1 - skillCastProgress(skill)) + ') '" aria-hidden="true"></span>
@@ -334,14 +337,15 @@
           <section class="d2s-skill-tree-tab" *ngFor="let section of skillTreeSections">
             <h3>{{ section.name }}</h3>
             <div class="d2s-skill-tree-grid">
-              <article class="d2s-tree-skill" *ngFor="let skill of section.skills" [class]="'d2s-tree-skill ' + skill.state" [attr.aria-label]="skill.name + ', ' + skill.state + ', unlock level ' + skill.level + '. ' + skill.reason" (mouseenter)="showSkillTooltip($event, skill)" (mousemove)="showSkillTooltip($event, skill)" (mouseleave)="hideSkillTooltip()">
+              <article class="d2s-tree-skill" *ngFor="let skill of section.skills" [class]="'d2s-tree-skill ' + skill.state" [attr.aria-label]="skill.name + ', ' + skill.state + ', unlock level ' + skill.level + '. ' + skill.reason" (mouseenter)="showSkillTooltip($event, skill)" (mousemove)="showSkillTooltip($event, skill)" (mouseleave)="onSkillTooltipLeave()">
                 <span class="d2s-tree-level">{{ skill.level }}</span><strong>{{ skill.name }}</strong><small *ngIf="getSkillLevel(skill.name)">Rank {{ getSkillLevel(skill.name) }}/20</small><small>{{ getSkillTreeReason(skill) }}</small>
               </article>
             </div>
           </section>
         </div>
       </section>
-      <aside class="d2s-skill-tooltip" *ngIf="hoveredSkillTooltip as tooltip" [style.left.px]="tooltip.x" [style.top.px]="tooltip.y" role="tooltip">
+      <aside class="d2s-skill-tooltip" *ngIf="hoveredSkillTooltip as tooltip" [style.left.px]="tooltip.x" [style.top.px]="tooltip.y" role="tooltip" (mouseenter)="onSkillTooltipEnter()" (mouseleave)="onSkillTooltipLeave()">
+        <button type="button" class="d2s-skill-tooltip-close" (click)="hideSkillTooltip()" aria-label="Close skill tooltip" title="Close">×</button>
         <strong>{{ tooltip.name }}<span *ngIf="tooltip.rank"> · Rank {{ tooltip.rank }}/20</span></strong>
         <p>{{ tooltip.description }}</p>
         <div class="d2s-skill-tooltip-stats">
@@ -486,10 +490,12 @@
       [class.preview-below]="itemPreviewBelow"
       [class.preview-above]="itemPreviewAbove"
       [style.left.px]="itemPreviewX"
-      [style.top.px]="itemPreviewY">
+      [style.top.px]="itemPreviewY"
+      (mouseenter)="onItemPreviewEnter()"
+      (mouseleave)="onItemPreviewLeave()">
       <div class="d2s-item-window-inner">
         <ng-container *ngIf="itemPreviewItem as previewItem">
-          <button type="button" class="d2s-item-window-close" *ngIf="selectedItem" (click)="selectInventoryItem(selectedSlotIndex ?? -1, null)">×</button>
+          <button type="button" class="d2s-item-window-close" (click)="closeItemPreview()" aria-label="Close item tooltip" title="Close">×</button>
           <p class="d2s-item-window-kicker">{{ previewItem.rarity }} {{ previewItem.slot }}</p>
           <h3 class="d2s-item-window-title">{{ previewItem.name }}</h3>
           <p class="d2s-item-window-base" *ngIf="previewItem.baseName && previewItem.baseName !== previewItem.name">Base item: {{ previewItem.baseName }}</p>
