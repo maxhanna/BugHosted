@@ -40,6 +40,11 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   saveConfirmType: 'saveAndExit' | 'saveAndReset' | 'save' | undefined;
   saveConfirmMessage?: string;
   saveConfirmCallback?: () => void;
+  /** 0–100 while the exit prompt is saving; null when no save is running there. */
+  saveProgressPct: number | null = null;
+  saveProgressLabel = '';
+  /** 0–100 while a ROM download / save upload reports bytes; null when unknown. */
+  progressPct: number | null = null;
   isShowingLoginPanel = false;
   isMenuPanelOpen = false;
   isFullScreen = false;
@@ -108,6 +113,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   private _warnedLowQuota = false;
   private _saveInProgress: boolean = false;
   private _inFlightSavePromise?: Promise<boolean>;
+  /** Set while the exit prompt owns the save, so the upload does not navigate first. */
+  private _deferExitNavigation = false;
   private _exiting = false;
   private exitSaving = false;
   private stopEmuSaving = false;
@@ -435,6 +442,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }
 
     this.startLoading();
+    this.progressPct = null; // no stale bar from the previous load
     this.gameLoadDate = new Date();
     this.isSearchVisible = false;
     this.status = "Loading Rom - " + this.fileService.getFileWithoutExtension(fileName);
@@ -1477,6 +1485,16 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
           u8,
           (loaded, total) => {
             this.displayRomUploadOrDownloadProgress(total, loaded, true);
+            // Only drive the exit-prompt bar while that prompt is the one saving.
+            if (this.saveProgressPct !== null) {
+              // Cap at 99 there: 100 is reserved for "the server has it".
+              this.saveProgressPct = total > 0
+                ? Math.min(99, Math.round((loaded / total) * 100))
+                : this.saveProgressPct;
+              this.saveProgressLabel = total > 0
+                ? `uploading ${(loaded / 1048576).toFixed(1)} / ${(total / 1048576).toFixed(1)} MB`
+                : 'uploading…';
+            }
             this.cdr.detectChanges();
           }
         );
@@ -1508,7 +1526,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         this._saveInProgress = false;
         this._inFlightSavePromise = undefined;
 
-        if (this.stopEmuSaving || this.isExitingAndReturningToEmulator) {
+        if (this._deferExitNavigation) {
+          // The exit prompt is showing this save's progress and navigates once it
+          // has finished (see handleSaveConfirm).
+        } else if (this.stopEmuSaving || this.isExitingAndReturningToEmulator) {
           this.fullReloadToEmulator();
         } else if (this.exitSaving) {
           this.navigateHome();
@@ -3450,6 +3471,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   
   private displayRomUploadOrDownloadProgress(total: number, loaded: number, saving?: boolean, fileName?: string): void {
     const pct = total > 0 ? Math.min(100, Math.round((loaded / total) * 100)) : undefined;
+    // Drives the bar under the status text in the loading overlay.
+    this.progressPct = pct ?? null;
     const loadedMb = (loaded / 1024 / 1024);
     const totalMb = total > 0 ? (total / 1024 / 1024) : undefined;
     const msg = saving ? 'Uploading Save' : 'Downloading ROM ' + (fileName ? `${fileName}` : '');
@@ -3551,6 +3574,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this.saveConfirmType = type;
     this.saveConfirmMessage = message;
     this.saveConfirmCallback = callback;
+    this.saveProgressPct = null;
+    this.saveProgressLabel = '';
     setTimeout(() => {
       this.isSaveConfirmPanelOpen = true;
       this.parentRef?.showOverlay();
@@ -3559,28 +3584,73 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   async handleSaveConfirm(result: 'save' | 'dontSave' | 'cancel') {
-    this.isSaveConfirmPanelOpen = false;
-    this.saveConfirmType = undefined;
-    this.saveConfirmMessage = undefined;
-    this.parentRef?.closeOverlay();
+    // A save is already running in this panel: ignore clicks so it cannot be
+    // started twice or torn down halfway through.
+    if (this.saveProgressPct !== null) return;
+
     if (result === 'cancel') {
+      this.closeSaveConfirmPanel();
       this.setTmpStatus('Action cancelled.');
       return;
     }
-    else if (result === 'save') {
-      await this.callEjsSave();
+    if (result === 'dontSave') {
+      this.closeSaveConfirmPanel();
+      this.runSaveConfirmCallback();
+      return;
     }
-    if (this.saveConfirmCallback && typeof this.saveConfirmCallback === 'function') {
+
+    // Save, then leave. The panel stays up for the whole save so the player can
+    // see the bar: PSP/PS1 states are tens of megabytes and the upload plus the
+    // server-side write can take a while.
+    this.saveProgressPct = 0;
+    this.saveProgressLabel = 'capturing state…';
+    this.cdr.detectChanges();
+
+    this._deferExitNavigation = true;
+    let ok = false;
+    try {
+      ok = await this.callEjsSave();
+    } catch (e) {
+      console.error('[EMU] Exit save failed', e);
+    } finally {
+      this._deferExitNavigation = false;
+    }
+
+    if (ok) {
+      this.saveProgressPct = 100;
+      this.saveProgressLabel = 'saved';
+      this.cdr.detectChanges();
+      await new Promise(r => setTimeout(r, 400)); // let the 100% register
+      this.closeSaveConfirmPanel();
+      this.runSaveConfirmCallback();
+      return;
+    }
+
+    // Failed: stay in the game and let them retry or choose Don't Save.
+    this.saveProgressPct = null;
+    this.saveProgressLabel = '';
+    this.saveConfirmMessage = "The save did not complete. Try again, or choose Don't Save to leave anyway.";
+    this.cdr.detectChanges();
+  }
+
+  private closeSaveConfirmPanel(): void {
+    this.isSaveConfirmPanelOpen = false;
+    this.saveConfirmType = undefined;
+    this.saveConfirmMessage = undefined;
+    this.saveProgressPct = null;
+    this.saveProgressLabel = '';
+    this.parentRef?.closeOverlay();
+  }
+
+  private runSaveConfirmCallback(): void {
+    const callback = this.saveConfirmCallback;
+    this.saveConfirmCallback = undefined;
+    if (typeof callback === 'function') {
       try {
-        this.saveConfirmCallback();
+        callback();
       } catch (e) {
         console.error('Error in save confirm callback:', e);
-      } finally {
-        this.saveConfirmCallback = undefined;
       }
-    } else {
-      this.saveConfirmCallback = undefined;
-      console.error('Save confirm callback is not a function or is undefined');
     }
   }
   

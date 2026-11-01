@@ -13,12 +13,99 @@ namespace maxhanna.Server.Controllers
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly string _baseTarget = "E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Roms/";
     private readonly string[] saveExts = [".sav", ".srm", ".eep", ".sra", ".fla"];
+    /// <summary>
+    /// Root folder for emulator save states — hardcoded next to the ROM folder,
+    /// same style as <see cref="_baseTarget"/>. States are plain files here, never
+    /// database blobs: a 40 MB PSP state is a single sequential write instead of a
+    /// LONGBLOB upsert.
+    /// assets/Uploads is served statically by Express, so prod-server.js returns
+    /// 404 for this folder; states are only readable through
+    /// /Rom/GetEmulatorJSSaveState, and only for the caller's own user folder.
+    /// Layout: {root}/{userId}/{rom-stem}[__{core}].state
+    /// </summary>
+    private readonly string _saveStateRoot = "E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/RomSaveFiles/";
 
     public RomController(Log log, IConfiguration config, IServiceScopeFactory scopeFactory)
     {
       _log = log;
       _config = config;
       _scopeFactory = scopeFactory;
+      try
+      {
+        Directory.CreateDirectory(_saveStateRoot);
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db($"Could not create save-state root {_saveStateRoot}: {ex.Message}", null, "ROM", true);
+      }
+    }
+
+    /// <summary>
+    /// User id from the authenticated session token, when the request carries one.
+    /// Used to make sure saves land in (and are read from) the caller's own folder.
+    /// </summary>
+    private int? AuthenticatedUserId()
+    {
+      var claim = User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+      return int.TryParse(claim, out var id) && id > 0 ? id : null;
+    }
+
+    /// <summary>Filesystem-safe file name segment for a ROM or core name.</summary>
+    private static string SafeFileStem(string value)
+    {
+      if (string.IsNullOrWhiteSpace(value)) return "rom";
+      var invalid = Path.GetInvalidFileNameChars();
+      var chars = value
+        .Select(c => Array.IndexOf(invalid, c) >= 0 || c == '/' || c == '\\' || c == '*' || c == '?' || c == ':' ? '_' : c)
+        .ToArray();
+      var cleaned = new string(chars).Trim().TrimEnd('.');
+      if (cleaned.Length == 0) cleaned = "rom";
+      return cleaned.Length <= 120 ? cleaned : cleaned[..120];
+    }
+
+    /// <summary>
+    /// Path for a user's save state of a ROM:
+    ///   {root}/{userId}/{rom-stem}[__{core}].state
+    /// The per-user folder is what keeps players from loading each other's
+    /// states. With <paramref name="createDirectory"/> false nothing is
+    /// created: the exact core match is returned when it exists, otherwise any
+    /// saved core for that ROM (newest first).
+    /// </summary>
+    private string? ResolveSaveStatePath(int userId, string romName, string? core, bool createDirectory)
+    {
+      var dir = Path.Combine(_saveStateRoot, userId.ToString());
+      var stem = SafeFileStem(romName);
+      var coreStem = string.IsNullOrWhiteSpace(core) ? null : SafeFileStem(core!);
+
+      if (createDirectory)
+      {
+        Directory.CreateDirectory(dir);
+        return coreStem == null
+          ? Path.Combine(dir, $"{stem}.state")
+          : Path.Combine(dir, $"{stem}__{coreStem}.state");
+      }
+
+      if (!Directory.Exists(dir)) return null;
+
+      if (coreStem != null)
+      {
+        var exact = Path.Combine(dir, $"{stem}__{coreStem}.state");
+        if (System.IO.File.Exists(exact)) return exact;
+      }
+
+      var plain = Path.Combine(dir, $"{stem}.state");
+      if (System.IO.File.Exists(plain)) return plain;
+
+      try
+      {
+        return Directory.EnumerateFiles(dir, $"{stem}__*.state")
+          .OrderByDescending(System.IO.File.GetLastWriteTimeUtc)
+          .FirstOrDefault();
+      }
+      catch
+      {
+        return null;
+      }
     }
 
     [HttpPost("/Rom/IncrementResetVote", Name = "Rom_IncrementResetVote")]
@@ -398,25 +485,35 @@ namespace maxhanna.Server.Controllers
         if (string.IsNullOrWhiteSpace(romName))
           return BadRequest("Missing 'romName'.");
 
-        byte[] bytes;
-        using (var ms = new MemoryStream())
+        // Save states are written straight to the user's folder on disk — no
+        // blob insert, so the request only costs the bytes we actually write.
+        if (AuthenticatedUserId() is int sessionUser && sessionUser != userId)
+          userId = sessionUser;
+
+        var fileSize = (int)file.Length;
+        var path = ResolveSaveStatePath(userId, romName, core, createDirectory: true)!;
+        var tmp = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
         {
-          await file.CopyToAsync(ms, CancellationToken.None);
-          bytes = ms.ToArray();
+          await using (var fs = new FileStream(tmp, FileMode.Create, FileAccess.Write, FileShare.None, 81920, FileOptions.Asynchronous))
+          {
+            await file.CopyToAsync(fs, CancellationToken.None);
+          }
+          System.IO.File.Move(tmp, path, overwrite: true);
+        }
+        catch
+        {
+          try { System.IO.File.Delete(tmp); } catch { }
+          throw;
         }
 
-        // Capture all state here while the request is still alive, then let the client go.
-        var romNameCopy = romName;
-        var coreCopy = core;
-        var userIdCopy = userId;
-        var bytesCopy = bytes;
-        var fileSize = bytes.Length;
-
-        // Return OK immediately so the client doesn't wait for the DB write.
-        _ = Task.Run(() => SaveStateBgAsync(userIdCopy, romNameCopy, coreCopy, bytesCopy, fileSize));
+        // Play-time bookkeeping is the only DB work left; keep it off the request.
+        var playRom = romName;
+        _ = Task.Run(() => RecordSavePlayTimeBg(userId, playRom));
 
         swAll.Stop();
-        return Ok(new { ok = true, userId, romName, fileSize, ms = swAll.ElapsedMilliseconds, queued = true });
+        _ = _log.Db($"EJS save OK (file): user={userId} rom={romName} size={fileSize} ms={swAll.ElapsedMilliseconds} file={Path.GetFileName(path)}", userId, "ROM", true);
+        return Ok(new { ok = true, userId, romName, fileSize, ms = swAll.ElapsedMilliseconds, stored = Path.GetFileName(path) });
       }
       catch (OperationCanceledException)
       {
@@ -431,47 +528,17 @@ namespace maxhanna.Server.Controllers
     }
 
     /// <summary>
-    /// Background task: performs the DB save after we already returned OK to the client.
+    /// Play-time bookkeeping after a save. Runs off the request path; failures
+    /// are ignored because they never affect the stored state.
     /// </summary>
-    private async Task SaveStateBgAsync(int userId, string romName, string core, byte[] data, int fileSize)
+    private async Task RecordSavePlayTimeBg(int userId, string romName)
     {
-      var sw = System.Diagnostics.Stopwatch.StartNew();
       try
       {
-        // Use a scoped scope so we get fresh DI services for the background work.
-        using var scope = _scopeFactory.CreateScope();
-        var provider = scope.ServiceProvider;
-        var log = provider.GetRequiredService<Log>();
-        var config = provider.GetRequiredService<IConfiguration>();
-
-        await using var conn = new MySqlConnection(config.GetValue<string>("ConnectionStrings:maxhanna"));
+        await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
         await conn.OpenAsync(CancellationToken.None);
 
-        const string sql = @"
-          INSERT INTO emulatorjs_save_states
-            (user_id, rom_name, state_data, file_size, last_updated, core)
-          VALUES
-            (@UserId, @RomName, @StateData, @FileSize, CURRENT_TIMESTAMP, @Core)
-          ON DUPLICATE KEY UPDATE
-            core         = VALUES(core),
-            state_data   = VALUES(state_data),
-            file_size    = VALUES(file_size),
-            last_updated = CURRENT_TIMESTAMP;";
-
-        using var cmd = new MySqlCommand(sql, conn) { CommandTimeout = 180 };
-        cmd.Parameters.Add("@UserId", MySqlDbType.Int32).Value = userId;
-        cmd.Parameters.Add("@RomName", MySqlDbType.VarChar).Value = romName;
-        cmd.Parameters.Add("@StateData", MySqlDbType.LongBlob).Value = data;
-        cmd.Parameters.Add("@FileSize", MySqlDbType.Int32).Value = fileSize;
-        cmd.Parameters.Add("@Core", MySqlDbType.VarChar).Value = string.IsNullOrWhiteSpace(core) ? (object)DBNull.Value : core;
-
-        await cmd.PrepareAsync(CancellationToken.None);
-        await cmd.ExecuteNonQueryAsync(CancellationToken.None);
-
-        // Record play-time
-        try
-        {
-          const string ptSql = @"UPDATE maxhanna.emulation_play_time 
+        const string ptSql = @"UPDATE maxhanna.emulation_play_time 
             SET duration_seconds = COALESCE(duration_seconds, 0) 
                   + IF(start_time IS NULL AND save_time IS NULL, 0, 
                        TIMESTAMPDIFF(SECOND, 
@@ -481,22 +548,149 @@ namespace maxhanna.Server.Controllers
                     ),
                 save_time = UTC_TIMESTAMP()
             WHERE user_id = @ptUser AND rom_file_name = @ptRom LIMIT 1;";
-          using var ptCmd = new MySqlCommand(ptSql, conn);
-          ptCmd.Parameters.AddWithValue("@ptUser", userId);
-          ptCmd.Parameters.AddWithValue("@ptRom", romName);
-          await ptCmd.ExecuteNonQueryAsync(CancellationToken.None);
-        }
-        catch
-        {
-          // Play-time recording is non-critical; ignore failures.
-        }
-
-        sw.Stop();
-        _ = log.Db($"EJS save OK (bg): user={userId} rom={romName} size={fileSize} ms={sw.ElapsedMilliseconds}", userId, "ROM", true);
+        using var ptCmd = new MySqlCommand(ptSql, conn) { CommandTimeout = 30 };
+        ptCmd.Parameters.AddWithValue("@ptUser", userId);
+        ptCmd.Parameters.AddWithValue("@ptRom", romName);
+        await ptCmd.ExecuteNonQueryAsync(CancellationToken.None);
       }
       catch (Exception ex)
       {
-        _ = _log.Db($"SaveStateBgAsync error for user={userId} rom={romName}: {ex.Message}", userId, "ROM", true);
+        // Play-time recording is non-critical; ignore failures.
+        _ = _log.Db($"RecordSavePlayTimeBg error for user={userId} rom={romName}: {ex.Message}", userId, "ROM", true);
+      }
+    }
+
+    // ---------------------------------------------------------------
+    // POST /Rom/MigrateSaveStates   (one-time: DB blobs -> per-user files)
+    //   Header X-Migration-Key (or ?key=) must match
+    //   EmulatorSaveStates:MigrationKey; with no key configured the endpoint
+    //   refuses to run.
+    //   ?batch=25      rows handled per call, so a single request stays short
+    //   ?purge=true    (default) delete each row once its file is on disk — this
+    //                  is what makes repeated calls make progress
+    //   ?dryRun=true   write the files but keep every row, for a small first check
+    //   A file already on disk is never overwritten: it is complete (writes are
+    //   atomic) and is now the source of truth, so its row is just purged.
+    // ---------------------------------------------------------------
+    [HttpPost("/Rom/MigrateSaveStates")]
+    public async Task<IActionResult> MigrateSaveStates([FromQuery] int batch = 25, [FromQuery] bool purge = true, [FromQuery] bool dryRun = false, CancellationToken ct = default)
+    {
+      var expectedKey = _config.GetValue<string>("EmulatorSaveStates:MigrationKey");
+      if (string.IsNullOrWhiteSpace(expectedKey))
+        return StatusCode(503, "Set EmulatorSaveStates:MigrationKey in configuration first.");
+
+      var suppliedKey = Request.Headers["X-Migration-Key"].ToString();
+      if (string.IsNullOrWhiteSpace(suppliedKey))
+        suppliedKey = Request.Query["key"].ToString();
+      if (!string.Equals(suppliedKey, expectedKey, StringComparison.Ordinal))
+        return Unauthorized("Bad or missing migration key.");
+
+      batch = Math.Clamp(batch, 1, 500);
+      var migrated = 0;
+      var skipped = 0;
+      var failed = 0;
+      long bytesWritten = 0;
+      var written = new List<(int UserId, string RomName, string? Core)>();
+
+      try
+      {
+        await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+        await conn.OpenAsync(ct);
+
+        await using (var cmd = new MySqlCommand(@"
+          SELECT user_id, rom_name, core, state_data
+          FROM maxhanna.emulatorjs_save_states
+          ORDER BY user_id, rom_name
+          LIMIT @Batch;", conn) { CommandTimeout = 300 })
+        {
+          cmd.Parameters.AddWithValue("@Batch", batch);
+
+          await using var reader = await cmd.ExecuteReaderAsync(ct);
+          while (await reader.ReadAsync(ct))
+          {
+            var rowUser = reader.GetInt32(0);
+            var rowRom = reader.IsDBNull(1) ? string.Empty : reader.GetString(1);
+            var rowCore = reader.IsDBNull(2) ? null : reader.GetString(2);
+            if (string.IsNullOrWhiteSpace(rowRom))
+            {
+              failed++;
+              continue;
+            }
+
+            try
+            {
+              var data = reader.IsDBNull(3) ? Array.Empty<byte>() : (byte[])reader[3];
+              if (data.Length == 0)
+              {
+                skipped++;
+                continue;
+              }
+
+              var path = ResolveSaveStatePath(rowUser, rowRom, rowCore, createDirectory: true)!;
+              // Never overwrite an existing file: it is complete (writes are atomic)
+              // and it is the source of truth from now on. Its row is still purged.
+              if (System.IO.File.Exists(path))
+              {
+                skipped++;
+                written.Add((rowUser, rowRom, rowCore));
+                continue;
+              }
+
+              Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+              var tmp = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+              await System.IO.File.WriteAllBytesAsync(tmp, data, ct);
+              System.IO.File.Move(tmp, path, overwrite: true);
+
+              migrated++;
+              bytesWritten += data.Length;
+              written.Add((rowUser, rowRom, rowCore));
+            }
+            catch (Exception ex)
+            {
+              failed++;
+              _ = _log.Db($"MigrateSaveStates row failed (user={rowUser} rom={rowRom}): {ex.Message}", rowUser, "ROM", true);
+            }
+          }
+        }
+
+        var purged = 0;
+        if (purge && !dryRun && written.Count > 0)
+        {
+          foreach (var row in written)
+          {
+            await using var del = new MySqlCommand(@"DELETE FROM maxhanna.emulatorjs_save_states
+              WHERE user_id = @U AND rom_name = @R AND core <=> @C LIMIT 1;", conn) { CommandTimeout = 60 };
+            del.Parameters.AddWithValue("@U", row.UserId);
+            del.Parameters.AddWithValue("@R", row.RomName);
+            del.Parameters.AddWithValue("@C", (object?)row.Core ?? DBNull.Value);
+            purged += await del.ExecuteNonQueryAsync(ct);
+          }
+        }
+
+        await using var countCmd = new MySqlCommand("SELECT COUNT(*) FROM maxhanna.emulatorjs_save_states;", conn);
+        var remaining = Convert.ToInt32(await countCmd.ExecuteScalarAsync(ct));
+
+        _ = _log.Db($"MigrateSaveStates: migrated={migrated} skipped={skipped} failed={failed} purged={purged} remaining={remaining} bytes={bytesWritten} root={_saveStateRoot}", null, "ROM", true);
+        return Ok(new
+        {
+          ok = failed == 0,
+          root = _saveStateRoot,
+          dryRun,
+          migrated,
+          skipped,
+          failed,
+          purged,
+          remaining,
+          bytesWritten,
+          note = remaining > 0
+            ? "Call the same URL again until remaining is 0."
+            : "Migration complete — the table is empty and can be dropped."
+        });
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("MigrateSaveStates error: " + ex.Message, null, "ROM", true);
+        return StatusCode(500, "Migration failed: " + ex.Message);
       }
     }
 
@@ -508,41 +702,14 @@ namespace maxhanna.Server.Controllers
         if (string.IsNullOrWhiteSpace(req.RomName) || req.UserId <= 0)
           return BadRequest("Missing romName or invalid userId");
 
-        await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-        await conn.OpenAsync(ct);
+        // Only the caller's own folder is ever searched.
+        var owner = AuthenticatedUserId() ?? req.UserId;
+        var path = ResolveSaveStatePath(owner, req.RomName, req.Core, createDirectory: false);
+        if (path == null || !System.IO.File.Exists(path))
+          return NotFound();
 
-        // Try exact core match if provided. If not found, fall back to core IS NULL.
-        string sql = $"SELECT state_data FROM emulatorjs_save_states WHERE user_id=@UserId AND rom_name=@RomName {(!string.IsNullOrWhiteSpace(req.Core) ? " AND core=@Core" : "")} ;";
-        await using var cmd = new MySqlCommand(sql, conn) { CommandTimeout = 120 };
-        cmd.Parameters.Add("@UserId", MySqlDbType.Int32).Value = req.UserId;
-        cmd.Parameters.Add("@RomName", MySqlDbType.VarChar).Value = req.RomName;
-        if (!string.IsNullOrWhiteSpace(req.Core))
-          cmd.Parameters.Add("@Core", MySqlDbType.VarChar).Value = req.Core;
-
-        var result = await cmd.ExecuteScalarAsync(ct);
-        if (result != null && result != DBNull.Value)
-        {
-          var bytes = (byte[])result;
-          return File(bytes, "application/octet-stream", "savestate.state");
-        }
-
-        // If a core was specified but no matching row found, try a NULL-core fallback.
-        if (!string.IsNullOrWhiteSpace(req.Core))
-        {
-          const string fallbackSql = "SELECT state_data FROM emulatorjs_save_states WHERE user_id=@UserId AND rom_name=@RomName AND core IS NULL;";
-          await using var fallbackCmd = new MySqlCommand(fallbackSql, conn) { CommandTimeout = 120 };
-          fallbackCmd.Parameters.Add("@UserId", MySqlDbType.Int32).Value = req.UserId;
-          fallbackCmd.Parameters.Add("@RomName", MySqlDbType.VarChar).Value = req.RomName;
-
-          var fallbackResult = await fallbackCmd.ExecuteScalarAsync(ct);
-          if (fallbackResult != null && fallbackResult != DBNull.Value)
-          {
-            var bytes = (byte[])fallbackResult;
-            return File(bytes, "application/octet-stream", "savestate.state");
-          }
-        }
-
-        return NotFound();
+        var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, FileOptions.Asynchronous | FileOptions.SequentialScan);
+        return File(stream, "application/octet-stream");
       }
       catch (Exception ex)
       {
@@ -806,26 +973,13 @@ namespace maxhanna.Server.Controllers
         if (count == 0)
           return NotFound("No share request found");
 
-        // Fetch the sharer's save state
-        string sql = "SELECT state_data FROM emulatorjs_save_states WHERE user_id=@UserId AND rom_name=@RomName";
-        if (!string.IsNullOrWhiteSpace(req.Core))
-          sql += " AND core=@Core";
-        sql += ";";
+        // Serve the sharer's own file from their folder.
+        var sharerPath = ResolveSaveStatePath(req.SharerUserId, req.RomName, req.Core, createDirectory: false);
+        if (sharerPath == null || !System.IO.File.Exists(sharerPath))
+          return NotFound("Sharer has no save state for this ROM");
 
-        await using var cmd = new MySqlCommand(sql, conn) { CommandTimeout = 120 };
-        cmd.Parameters.Add("@UserId", MySqlDbType.Int32).Value = req.SharerUserId;
-        cmd.Parameters.Add("@RomName", MySqlDbType.VarChar).Value = req.RomName;
-        if (!string.IsNullOrWhiteSpace(req.Core))
-          cmd.Parameters.Add("@Core", MySqlDbType.VarChar).Value = req.Core;
-
-        var result = await cmd.ExecuteScalarAsync(ct);
-        if (result != null && result != DBNull.Value)
-        {
-          var bytes = (byte[])result;
-          return File(bytes, "application/octet-stream", "savestate.state");
-        }
-
-        return NotFound("Sharer has no save state for this ROM");
+        var sharerStream = new FileStream(sharerPath, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, FileOptions.Asynchronous | FileOptions.SequentialScan);
+        return File(sharerStream, "application/octet-stream");
       }
       catch (Exception ex)
       {

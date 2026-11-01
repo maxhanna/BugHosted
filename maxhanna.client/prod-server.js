@@ -158,6 +158,12 @@ if (externalAssetsRoot && fs.existsSync(externalAssetsRoot)) {
 
 // Serve Uploads folder separately to avoid SPA fallback
 const uploadsRoot = path.join(__dirname, 'src', 'assets', 'Uploads'); // <-- adjust to your real path
+
+// Emulator save states live in Uploads/RomSaveFiles, but they are per-user and
+// must only be read through /rom/getemulatorjssavestate — never as static files.
+// Registered before the static mount so it also covers the dist/ copy.
+app.use('/assets/Uploads/RomSaveFiles', (req, res) => res.status(404).send('Not found'));
+
 if (fs.existsSync(uploadsRoot)) {
   app.use('/assets/Uploads', express.static(uploadsRoot, {
     fallthrough: false,             // if not found, return 404; don't fall to SPA

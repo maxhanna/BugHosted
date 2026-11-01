@@ -11,6 +11,13 @@
   <!-- Status Display -->
   <div *ngIf="!romName && isLoading">
     <span class="loadingContainerStatus">{{ status }}</span>
+    <!-- Visual counterpart to the "Downloading ROM … (76%)" text -->
+    <div *ngIf="progressPct !== null" style="margin:8px auto 0; width:min(420px, 70vw);">
+      <div role="progressbar" [attr.aria-valuenow]="progressPct" aria-valuemin="0" aria-valuemax="100"
+           style="height:10px; border-radius:5px; background:rgba(255,255,255,0.15); overflow:hidden;">
+        <div [style.width.%]="progressPct" style="height:100%; background:#4af; transition:width 0.15s linear;"></div>
+      </div>
+    </div>
   </div>
 
   <div class="gamesContainer" 
@@ -325,19 +332,35 @@
 
 <!-- Save Progress Confirmation Panel -->
 <div class="popupPanel menuPanel" *ngIf="isSaveConfirmPanelOpen">
-  <div class="popupPanelTitle">Save Progress?</div>
+  <div class="popupPanelTitle">{{ saveProgressPct !== null ? 'Saving…' : 'Save Progress?' }}</div>
   <div class="saveStateMessageDiv">
     <p>{{ saveConfirmMessage || 'Do you want to save your progress before continuing?' }}</p>
+
+    <!-- Live save feedback: large states (PSP/PS1) take long enough that the
+         player needs to see it progressing, and the page must not navigate
+         away until it finishes. -->
+    <div *ngIf="saveProgressPct !== null" style="margin:10px 0 6px;">
+      <div role="progressbar" [attr.aria-valuenow]="saveProgressPct" aria-valuemin="0" aria-valuemax="100"
+           style="height:10px; border-radius:5px; background:rgba(255,255,255,0.15); overflow:hidden;">
+        <div [style.width.%]="saveProgressPct"
+             style="height:100%; background:#4af; transition:width 0.15s linear;"></div>
+      </div>
+      <div style="margin-top:6px; font-size:12px; color:#ccc;">{{ saveProgressPct }}% — {{ saveProgressLabel }}</div>
+    </div>
+
     <div class="saveStateButtons emuMenuButtonGrid">
-      <button (click)="handleSaveConfirm('save')" class="enhancedButton squareButton" title="Save">
-        💾<div class="emuMenuButtonLabel inlineButton">Save</div>
+      <button (click)="handleSaveConfirm('save')" class="enhancedButton squareButton" title="Save"
+              [disabled]="saveProgressPct !== null">
+        💾<div class="emuMenuButtonLabel inlineButton">{{ saveProgressPct !== null ? 'Saving…' : 'Save' }}</div>
       </button>
       <button (click)="handleSaveConfirm('dontSave')" 
         class="enhancedButton squareButton"
-        *ngIf="saveConfirmType === 'saveAndExit' || saveConfirmType === 'saveAndReset'" title="Don't Save">
+        *ngIf="saveConfirmType === 'saveAndExit' || saveConfirmType === 'saveAndReset'" title="Don't Save"
+        [disabled]="saveProgressPct !== null">
         🚫<div class="emuMenuButtonLabel inlineButton">Don't Save</div>
       </button>
-      <button (click)="handleSaveConfirm('cancel')" class="closeButton enhancedButton squareButton" id="closeOverlay" title="Cancel">
+      <button (click)="handleSaveConfirm('cancel')" class="closeButton enhancedButton squareButton" id="closeOverlay" title="Cancel"
+              [disabled]="saveProgressPct !== null">
         ❌<div class="emuMenuButtonLabel inlineButton">Cancel</div>
       </button>
     </div>
