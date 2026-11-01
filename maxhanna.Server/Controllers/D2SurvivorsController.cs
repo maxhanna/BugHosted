@@ -176,6 +176,47 @@ namespace maxhanna.Server.Controllers
       }
     }
 
+    public sealed class D2STouchRequest
+    {
+      public int UserId { get; set; }
+    }
+
+    /// <summary>
+    /// Activity heartbeat. The game keeps its run in localStorage, so nothing
+    /// else ever writes to d2survivors_save — and /User/ActiveGamers reports a
+    /// player only while that row's updated_at is under 5 minutes old. This
+    /// stamps the timestamp and nothing else, so a live run shows up in
+    /// Currently Playing without touching a stored save.
+    /// </summary>
+    [HttpPost("/D2Survivors/Touch", Name = "D2Survivors_Touch")]
+    public async Task<IActionResult> Touch([FromBody] D2STouchRequest req, [FromHeader(Name = "Encrypted-UserId")] string? encryptedUserIdHeader = null)
+    {
+      if (req == null || req.UserId <= 0) return BadRequest("userId required.");
+      try
+      {
+        if (!await _log.ValidateUserLoggedIn(req.UserId, encryptedUserIdHeader ?? "")) return Unauthorized();
+
+        await using var conn = new MySqlConnection(_connectionString);
+        await conn.OpenAsync();
+        // Column list mirrors Save() so the first insert satisfies every
+        // constraint; ON DUPLICATE KEY only refreshes updated_at, leaving real
+        // gold, potions, inventory, gear and run snapshot untouched.
+        const string sql = @"INSERT INTO maxhanna.d2survivors_save
+            (user_id, gold, potions, inventory, equipped, run_snapshot, updated_at)
+            VALUES (@UserId, 0, 0, '', '', NULL, UTC_TIMESTAMP())
+            ON DUPLICATE KEY UPDATE updated_at = UTC_TIMESTAMP();";
+        await using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@UserId", req.UserId);
+        await cmd.ExecuteNonQueryAsync();
+        return Ok(new { ok = true });
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("D2Survivors Touch failed: " + ex.Message, req.UserId, "D2SURVIVORS", true);
+        return StatusCode(500, "Internal server error.");
+      }
+    }
+
     [HttpPost("/D2Survivors/RecordRun", Name = "D2Survivors_RecordRun")]
     public async Task<IActionResult> RecordRun([FromBody] D2SRecordRunRequest req, [FromHeader(Name = "Encrypted-UserId")] string? encryptedUserIdHeader = null)
     {

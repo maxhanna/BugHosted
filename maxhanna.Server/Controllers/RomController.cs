@@ -12,18 +12,8 @@ namespace maxhanna.Server.Controllers
     private readonly IConfiguration _config;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly string _baseTarget = "E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Roms/";
-    private readonly string[] saveExts = [".sav", ".srm", ".eep", ".sra", ".fla"];
-    /// <summary>
-    /// Root folder for emulator save states — hardcoded next to the ROM folder,
-    /// same style as <see cref="_baseTarget"/>. States are plain files here, never
-    /// database blobs: a 40 MB PSP state is a single sequential write instead of a
-    /// LONGBLOB upsert.
-    /// assets/Uploads is served statically by Express, so prod-server.js returns
-    /// 404 for this folder; states are only readable through
-    /// /Rom/GetEmulatorJSSaveState, and only for the caller's own user folder.
-    /// Layout: {root}/{userId}/{rom-stem}[__{core}].state
-    /// </summary>
     private readonly string _saveStateRoot = "E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/RomSaveFiles/";
+    private readonly string[] saveExts = [".sav", ".srm", ".eep", ".sra", ".fla"];
 
     public RomController(Log log, IConfiguration config, IServiceScopeFactory scopeFactory)
     {

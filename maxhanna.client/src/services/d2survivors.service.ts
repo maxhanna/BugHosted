@@ -133,6 +133,11 @@ export class D2SurvivorsService implements OnDestroy {
     return this.post<unknown>('/d2survivors/save', request, sessionToken, keepalive);
   }
 
+  /** Activity heartbeat so a live run shows in Currently Playing. */
+  touchActivity(userId: number, sessionToken: string) {
+    return this.post<{ ok: boolean }>('/d2survivors/touch', { userId }, sessionToken);
+  }
+
   recordRun(request: D2RecordRunRequest, sessionToken: string) {
     return this.post<{ score: number }>('/d2survivors/recordrun', request, sessionToken);
   }

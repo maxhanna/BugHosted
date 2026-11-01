@@ -219,7 +219,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this.clearAutosave();
     if (!this.romName || !this.parentRef?.user?.id) {
       if (this.stopEmuSaving || this.isExitingAndReturningToEmulator) {
-        this.fullReloadToEmulator();
+        return this.fullReloadToEmulator();
       } else {
         return this.navigateHome();
       }
@@ -229,7 +229,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     const now = Date.now();
     if (!this._saveInProgress && now - this._lastSaveTime < 10000) {
       if (this.stopEmuSaving || this.isExitingAndReturningToEmulator) {
-        this.fullReloadToEmulator();
+        return this.fullReloadToEmulator();
       } else {
         return this.navigateHome();
       }
@@ -239,17 +239,20 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     // server yet, so leaving without asking would silently drop the session.
     if (!this.manualSaveOnly && this._lastRomLoadTime && (now - this._lastRomLoadTime < 20000)) {
       if (this.stopEmuSaving || this.isExitingAndReturningToEmulator) {
-        this.fullReloadToEmulator();
+        return this.fullReloadToEmulator();
       } else {
         return this.navigateHome();
       }
     }
 
+    // Wrapped in arrows on purpose: these are prototype methods, and a bare
+    // reference invoked later as `callback()` loses `this`, so
+    // fullReloadToEmulator threw on this.getEmuUrl() and Stop did nothing.
     let callback: () => void;
     if (this.stopEmuSaving || this.isExitingAndReturningToEmulator) {
-      callback = this.fullReloadToEmulator;
+      callback = () => this.fullReloadToEmulator();
     } else {
-      callback = this.navigateHome;
+      callback = () => this.navigateHome();
     }
     const saveMessage = this.manualSaveOnly
       ? 'This game only saves when you ask. Save your state before closing?'
@@ -670,6 +673,12 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
                 this.scanAndTagVpadControls();
 
                 await this.applySaveStateIfAvailable(saveStateBlob);
+                // Pin the host size only once the core is actually running.
+                // Restoring a state used to delay this by seconds by accident;
+                // on a clean boot (no state) it ran while PPSSPP was still
+                // initialising and took the core down with it. Both paths wait
+                // on the same signal now.
+                await this.waitForEmulatorReady(30000);
                 this.lockGameHostHeight();
               });
             });
@@ -1705,6 +1714,14 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         w.SharedWorker.prototype = OrigSharedWorker.prototype;
         w.__ejsPatchedSharedWorker = true;
       }
+    }
+  }
+
+  /** Resolves once EJS reports ready, or when the timeout elapses. */
+  private async waitForEmulatorReady(maxMs = 30000): Promise<void> {
+    const start = Date.now();
+    while (!this._destroyed && !this._ejsReady && Date.now() - start < maxMs) {
+      await new Promise(r => setTimeout(r, 100));
     }
   }
 

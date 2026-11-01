@@ -1133,6 +1133,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   hasSavedRun = false;
   saveStatus = "";
   private lastRunSaveAt = 0;
+  private activityPingTimer?: number;
   private deathRecovery = false;
   private deathCount = 0;
   private readonly classStartingStats: Record<string, { title: string; specialty: string; life: number; mana: number; stamina: number; attributes: [number, number, number, number] }> = {
@@ -1892,6 +1893,31 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.runActive = false;
   }
 
+  /**
+   * Heartbeat for the "Currently Playing" list. /User/ActiveGamers reports a
+   * d2survivors player only while d2survivors_save.updated_at is under 5 minutes
+   * old, and this game keeps runs in localStorage, so without this nothing ever
+   * refreshes that row during play.
+   */
+  private startActivityPing(): void {
+    if (this.activityPingTimer !== undefined) return;
+    void this.pingActivity();
+    this.activityPingTimer = window.setInterval(() => void this.pingActivity(), 60_000);
+  }
+
+  private stopActivityPing(): void {
+    if (this.activityPingTimer !== undefined) {
+      window.clearInterval(this.activityPingTimer);
+      this.activityPingTimer = undefined;
+    }
+  }
+
+  private async pingActivity(): Promise<void> {
+    const session = await this.getLobbySession();
+    if (!session) return;
+    await this.d2SurvivorsService.touchActivity(session.userId, session.token);
+  }
+
   private persistRunProgress(force = false): void {
     if (typeof window === "undefined") {
       return;
@@ -1973,6 +1999,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   saveRunNow(): void {
+    this.stopActivityPing();
     if (this.campaignVictory) {
       this.finishCampaign();
       return;
@@ -1991,6 +2018,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   returnToMenu(): void {
+    this.stopActivityPing();
     this.persistRunProgress(true);
     this.activeTab = "menu";
     this.menuPanel = "main";
@@ -4824,6 +4852,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.leaderboardSubscription?.unsubscribe();
     if (this.leaderboardRefreshTimer !== undefined) window.clearInterval(this.leaderboardRefreshTimer);
     if (this.lobbyRefreshTimer !== undefined) window.clearInterval(this.lobbyRefreshTimer);
+    this.stopActivityPing();
     if (this.recordRetryTimer !== undefined) window.clearTimeout(this.recordRetryTimer);
     this.cancelItemPreviewHide();
     this.cancelSkillTooltipHide();
@@ -6261,6 +6290,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     this.runActive = true;
     this.trackUserEvent("d2survivors_start", `Started a run as the ${this.selectedClassName}`);
+    this.startActivityPing();
     this.restoreSummonsFromOwnedSkills();
     this.persistRunProgress(true);
     this.loop(this.lastTime);
