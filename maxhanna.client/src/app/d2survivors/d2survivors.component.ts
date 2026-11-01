@@ -22,6 +22,11 @@ import { ChildComponent } from "../child.component";
 import { D2_CLASS_SKILL_TREES, D2SkillDefinition, D2SkillVisual, getAvailableClassSkills, getClassSkills, getD2SkillVisual } from "./d2survivors-skill-tree.data";
 
 const MODEL_BASE = "assets/d2survivors/models";
+// Sorceress arm bones point along local X, making local Y the shoulder/elbow hinge.
+const SORCERESS_ARM_REST_ANGLE = -0.72;
+const NECROMANCER_ARM_REST_ANGLE = -0.64;
+const SORCERESS_ARM_HINGE_AXIS = new THREE.Vector3(0, 1, 0);
+const PALADIN_ARM_SWING_AXIS = new THREE.Vector3(0, 1, 0);
 const RUN_SAVE_KEY = "d2survivors.run.v1";
 const RUN_SAVE_VERSION = 1;
 const RUN_SAVE_INTERVAL_MS = 2500;
@@ -465,7 +470,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private menuHeroLastFrameAt = 0;
   private menuHeroElapsed = 0;
   private menuHeroPoseBases = new Map<THREE.Bone, THREE.Quaternion>();
-  private menuHeroPoseBones: Array<{ bone: THREE.Bone; baseQuaternion: THREE.Quaternion; phase: number; side: -1 | 1 }> = [];
+  private menuHeroPoseBones: PreviewPoseBone[] = [];
   menuHeroZoom = 1.55;
   private menuHeroRotation = 0;
   private menuHeroDragPointer?: number;
@@ -2528,7 +2533,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         const sway = this.reducedMotion ? 0 : Math.sin(time * 1.15 + pose.phase) * 0.006;
         const rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), pose.side * sway * fadeIn);
         const base = this.menuHeroPoseBases.get(pose.bone) ?? pose.baseQuaternion;
-        pose.bone.quaternion.copy(base).multiply(rotation);
+        const restAngle = this.selectedClass === "sorceress" ? SORCERESS_ARM_REST_ANGLE
+          : this.selectedClass === "necromancer" ? NECROMANCER_ARM_REST_ANGLE
+          : 0;
+        const restPose = pose.role === "arm"
+          ? new THREE.Quaternion().setFromAxisAngle(SORCERESS_ARM_HINGE_AXIS, restAngle)
+          : new THREE.Quaternion();
+        pose.bone.quaternion.copy(base).multiply(restPose).multiply(rotation);
       }
     }
     this.resizeMenuHeroPreview();
@@ -2790,25 +2801,49 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       for (const pose of this.previewPoseBones) {
         const sway = Math.sin(time * 1.05 + pose.phase) * 0.006 * fadeIn * locomotion;
         const isLead = pose.side === this.previewAttackSide;
+        const isPaladin = classPose === "paladin";
+        const paladinStrikeScale = isPaladin ? 0.35 : 1;
         let rotation: THREE.Quaternion;
         switch (pose.role) {
         case "arm": {
-          const restArmPitch = classPose === "amazon" || classPose === "sorceress" || classPose === "necromancer" ? -0.11 : -0.16;
+          const restArmPitch = classPose === "sorceress" ? SORCERESS_ARM_REST_ANGLE
+            : classPose === "necromancer" ? NECROMANCER_ARM_REST_ANGLE
+            : classPose === "amazon" ? -0.11 : -0.16;
           const barbarian = classPose === "barbarian";
-          const attackPitch = attackMotion * (isLead ? attackProfile.leadArm : attackProfile.offArm) * (barbarian ? 0.78 : 0.72);
-          const attackSweep = attackFollowThrough * (isLead ? attackProfile.armSweep : -attackProfile.armSweep * 0.4);
-          rotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(
-            restArmPitch + sway * 0.45 + attackPitch,
-            attackSweep * (barbarian ? 0.78 : 1),
-            pose.side * sway + attackMotion * attackProfile.shoulderRoll * (isLead ? -0.7 : 0.5) * (barbarian ? 0.8 : 1),
-            "XYZ",
-          ));
+          const attackAmplitude = isLead ? attackProfile.leadArm : attackProfile.offArm;
+          const attackPitch = attackMotion * (isPaladin ? Math.min(attackAmplitude, isLead ? 1.22 : 0.14) : attackAmplitude) * (barbarian ? 0.78 : 0.72);
+          const attackSweep = attackFollowThrough * (isLead ? attackProfile.armSweep : -attackProfile.armSweep * 0.4) * paladinStrikeScale;
+          const shoulderRoll = pose.side * sway + attackMotion * attackProfile.shoulderRoll * (isLead ? -0.7 : 0.5) * (barbarian ? 0.8 : 1) * paladinStrikeScale;
+          rotation = classPose === "sorceress" || classPose === "necromancer"
+            ? new THREE.Quaternion().setFromEuler(new THREE.Euler(
+              shoulderRoll,
+              restArmPitch + sway * 0.45 + attackPitch,
+              attackSweep,
+              "XYZ",
+            ))
+            : classPose === "paladin"
+              ? new THREE.Quaternion().setFromEuler(new THREE.Euler(
+                shoulderRoll,
+                -pose.side * (restArmPitch + sway * 0.45 + attackPitch),
+                attackSweep,
+                "XYZ",
+              ))
+            : new THREE.Quaternion().setFromEuler(new THREE.Euler(
+              restArmPitch + sway * 0.45 + attackPitch,
+              attackSweep * (barbarian ? 0.78 : 1),
+              shoulderRoll,
+              "XYZ",
+            ));
           break;
         }
         case "forearm": {
           const barbarian = classPose === "barbarian";
-          const bend = Math.max(0, attackMotion) * (isLead ? attackProfile.elbowBend : attackProfile.offElbowBend) * (barbarian ? 0.72 : 0.65);
-          rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), bend + Math.max(0, sway) * 0.15);
+          const elbowBend = isLead ? attackProfile.elbowBend : attackProfile.offElbowBend;
+          const bend = Math.max(0, attackMotion) * (isPaladin ? Math.min(elbowBend, isLead ? 0.42 : 0.12) : elbowBend) * (barbarian ? 0.72 : 0.65);
+          const hingeAxis = classPose === "sorceress" || classPose === "necromancer"
+            ? SORCERESS_ARM_HINGE_AXIS
+            : classPose === "paladin" ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(1, 0, 0);
+          rotation = new THREE.Quaternion().setFromAxisAngle(hingeAxis, bend + Math.max(0, sway) * 0.15);
           break;
         }
         case "leg": {
@@ -2828,9 +2863,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         case "spine":
           const barbarian = classPose === "barbarian";
           const attackDrive = barbarian ? Math.max(0, attackMotion) : attackMotion;
+          const paladinLungeScale = classPose === "paladin" ? 0 : 1;
           rotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(
-            -0.012 + sway * 0.25 - attackDrive * attackProfile.lean * (barbarian ? 1.25 : 0.55),
-            attackDrive * attackProfile.torsoTwist * (barbarian ? 0.72 : 0.6),
+            -0.012 + sway * 0.25 - attackDrive * attackProfile.lean * (barbarian ? 1.25 : 0.55) * paladinLungeScale,
+            attackDrive * attackProfile.torsoTwist * (barbarian ? 0.72 : 0.6) * paladinLungeScale,
             sway * 0.2,
             "XYZ",
           ));
@@ -9225,7 +9261,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const upperArm = /(?:^|[_-])(?:l|left|r|right)[_-]?(?:upr|upper)[_-]?arm(?:[_-].*)?/.test(name)
         || /^(?:l|r)_(?:upperarm|clavicle)$/.test(name)
         || (this.selectedClass === "assassin" && /^shoulder_[lr]_jnt$/.test(name));
-      const forearm = /(?:^|[_-])(?:l|left|r|right)[_-]?(?:forearm|fore[_-]?arm|lower[_-]?arm)(?:[_-].*)?/.test(name)
+      const forearm = /(?:^|[_-])(?:l|left|r|right)[_-]?(?:forearm|fore[_-]?arm|lower[_-]?arm|lwr[_-]?arm)(?:[_-].*)?/.test(name)
         || /(?:^|[_-])(?:l|left|r|right)[_-]?(?:elbow)(?:[_-].*)?/.test(name)
         || (this.selectedClass === "assassin" && /^elbow_[lr]_jnt$/.test(name));
       if (side && (shoulder || upperArm) && !/twist|pad|plate|helper/.test(name)) {
@@ -9246,12 +9282,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     bones.arms = choosePrimaryPerSide(bones.arms, (entry) => {
       const name = entry.bone.name.toLowerCase();
       if (this.selectedClass === "barbarian") return /upper.?arm|upr_arm/.test(name) ? 3 : /shoulder|clavicle/.test(name) ? 1 : 2;
+      if (this.selectedClass === "paladin") return /upper.?arm|upr_arm/.test(name) ? 3 : /shoulder|clavicle/.test(name) ? 1 : 2;
       return /shoulder|clavicle/.test(name) ? 3 : /upper.?arm|upr_arm/.test(name) ? 2 : 1;
     });
     bones.forearms = choosePrimaryPerSide(bones.forearms, (entry) => {
       const name = entry.bone.name.toLowerCase();
       if (/^(?:l|r)_?fore_?arm(?:_jnt)?$/.test(name) || /^elbow_[lr]_jnt$/.test(name)) return 3;
-      return /forearm|fore_arm|elbow/.test(name) ? 2 : 1;
+      return /forearm|fore_arm|lwr_arm|elbow/.test(name) ? 2 : 1;
     });
     return bones;
   }
@@ -9322,20 +9359,34 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     for (const arm of this.playerRigBones.arms ?? []) {
       const lead = arm.side === this.attackAnimationSide;
-      const armAmplitude = lead ? attackProfile.leadArm : attackProfile.offArm;
+      const isPaladin = this.selectedClass === "paladin";
+      const attackAmplitude = lead ? attackProfile.leadArm : attackProfile.offArm;
+      const armAmplitude = isPaladin ? Math.min(attackAmplitude, lead ? 1.22 : 0.14) : attackAmplitude;
       const locomotionSwing = (arm.side < 0 ? oppositeStride : stride) * moving * (isSorceress ? 0.035 : isBarbarian ? 0.2 : 0.08);
       const pitch = locomotionSwing + attackMotion * armAmplitude;
-      const sweep = attackFollowThrough * (lead ? attackProfile.armSweep : -attackProfile.armSweep * 0.55);
-      const roll = attackMotion * attackProfile.shoulderRoll * (lead ? -1 : 1);
-      const shoulderMotion = new THREE.Quaternion().setFromEuler(new THREE.Euler(pitch, sweep, roll, "XYZ"));
+      const sweep = attackFollowThrough * (lead ? attackProfile.armSweep : -attackProfile.armSweep * 0.55) * (isPaladin ? 0.35 : 1);
+      const roll = attackMotion * attackProfile.shoulderRoll * (lead ? -1 : 1) * (isPaladin ? 0.35 : 1);
+      const shoulderRestAngle = isSorceress ? SORCERESS_ARM_REST_ANGLE
+        : this.selectedClass === "necromancer" ? NECROMANCER_ARM_REST_ANGLE
+        : 0;
+      const shoulderMotion = this.selectedClass === "paladin"
+        ? new THREE.Quaternion().setFromAxisAngle(PALADIN_ARM_SWING_AXIS, -arm.side * pitch)
+          .multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(roll, 0, sweep, "XYZ")))
+        : isSorceress || this.selectedClass === "necromancer"
+        ? new THREE.Quaternion().setFromEuler(new THREE.Euler(roll, shoulderRestAngle + pitch, sweep, "XYZ"))
+        : new THREE.Quaternion().setFromEuler(new THREE.Euler(pitch, sweep, roll, "XYZ"));
       arm.bone.quaternion.copy(arm.baseQuaternion).multiply(shoulderMotion);
     }
     for (const forearm of this.playerRigBones.forearms ?? []) {
       const lead = forearm.side === this.attackAnimationSide;
       const locomotionBend = Math.max(0, Math.sin(phase + (forearm.side < 0 ? Math.PI : 0))) * moving * (isSorceress ? 0.025 : isBarbarian ? 0.12 : 0.06);
       const attackDrive = Math.max(0, attackMotion);
-      const bend = locomotionBend + attackDrive * (lead ? attackProfile.elbowBend : attackProfile.offElbowBend);
-      const flex = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), bend);
+      const elbowBend = lead ? attackProfile.elbowBend : attackProfile.offElbowBend;
+      const bend = locomotionBend + attackDrive * (this.selectedClass === "paladin" ? Math.min(elbowBend, lead ? 0.42 : 0.12) : elbowBend);
+      const hingeAxis = isSorceress || this.selectedClass === "necromancer"
+        ? SORCERESS_ARM_HINGE_AXIS
+        : this.selectedClass === "paladin" ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(1, 0, 0);
+      const flex = new THREE.Quaternion().setFromAxisAngle(hingeAxis, bend);
       forearm.bone.quaternion.copy(forearm.baseQuaternion).multiply(flex);
     }
     for (let index = 0; index < this.playerWeaponMeshes.length; index += 1) {
@@ -9354,11 +9405,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     if (this.playerRigBones.spine) {
       const base = this.playerRigBones.spineBaseQuaternion ?? this.playerRigBones.spine.quaternion;
+      const paladinLungeScale = this.selectedClass === "paladin" ? 0 : 1;
       const lean = new THREE.Quaternion().setFromEuler(new THREE.Euler(
         -(isSorceress ? 0.008 : isBarbarian ? 0.035 : 0.018) * moving
           + Math.sin(phase * 2) * moving * (isSorceress ? 0.003 : isBarbarian ? 0.012 : 0.006)
-          - attackMotion * attackProfile.lean * (isBarbarian ? 1.25 : 1),
-        attackMotion * attackProfile.torsoTwist,
+          - attackMotion * attackProfile.lean * (isBarbarian ? 1.25 : 1) * paladinLungeScale,
+        attackMotion * attackProfile.torsoTwist * paladinLungeScale,
         Math.sin(phase) * moving * (isSorceress ? 0.003 : isBarbarian ? 0.012 : 0.006),
         "XYZ",
       ));
@@ -9372,7 +9424,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     // Keep footfalls subtle so the model stays grounded instead of hovering between steps.
     const barbarianCrouch = isBarbarian && attackActive ? Math.max(0, -attackMotion) * 0.16 : 0;
     const barbarianDrive = Math.max(0, attackMotion);
-    this.characterModel.position.y = Math.abs(Math.sin(phase * 2)) * moving * (isSorceress ? 0.035 : isBarbarian ? 0.14 : 0.08) - barbarianCrouch + barbarianDrive * attackProfile.bodyLift;
+    const attackLift = this.selectedClass === "paladin" ? 0 : barbarianDrive * attackProfile.bodyLift;
+    this.characterModel.position.y = Math.abs(Math.sin(phase * 2)) * moving * (isSorceress ? 0.035 : isBarbarian ? 0.14 : 0.08) - barbarianCrouch + attackLift;
   }
 
   private getPreviewPoseBones(model: THREE.Group): PreviewPoseBone[] {
@@ -10587,9 +10640,9 @@ const ATTACK_ANIMATION_PROFILES: Record<AttackAnimationStyle, AttackAnimationPro
   assassinKick: { duration: 0.52, leadArm: 0.48, offArm: 0.32, armSweep: -0.16, shoulderRoll: 0.12, elbowBend: 0.24, offElbowBend: 0.2, weaponPitch: 0, weaponRoll: 0, lean: 0.18, torsoTwist: 0.08, bodyLift: 0.025, spin: false, trail: "#ffe2a0", trailArc: 0.82 },
   barbarianCleave: { duration: 0.58, leadArm: 1.28, offArm: 0.42, armSweep: -1.18, shoulderRoll: 0.34, elbowBend: 0.78, offElbowBend: 0.22, weaponPitch: -1.05, weaponRoll: -0.44, lean: 0.34, torsoTwist: 0.42, bodyLift: 0.018, spin: false, trail: "#ffc06a", trailArc: 2.1 },
   druidClaw: { duration: 0.44, leadArm: 1.08, offArm: 0.72, armSweep: 0.42, shoulderRoll: 0.12, elbowBend: 0.48, offElbowBend: 0.28, weaponPitch: -0.45, weaponRoll: 0.3, lean: 0.06, torsoTwist: 0.2, bodyLift: 0.02, spin: false, trail: "#9dffb1", trailArc: 1.8 },
-  necromancerCast: { duration: 0.56, leadArm: 0.9, offArm: 0.48, armSweep: 0.2, shoulderRoll: 0.26, elbowBend: 0.75, offElbowBend: 0.5, weaponPitch: -0.28, weaponRoll: 0.16, lean: 0.04, torsoTwist: 0.12, bodyLift: 0.025, spin: false, trail: "#c6e5ff", trailArc: 0.95 },
-  paladinStrike: { duration: 0.46, leadArm: 1.38, offArm: 0.26, armSweep: -0.2, shoulderRoll: 0.1, elbowBend: 0.28, offElbowBend: 0.1, weaponPitch: -0.8, weaponRoll: -0.18, lean: 0.12, torsoTwist: 0.16, bodyLift: 0.02, spin: false, trail: "#fff0a8", trailArc: 1.7 },
-  sorceressCast: { duration: 0.58, leadArm: 1.02, offArm: 0.52, armSweep: 0.35, shoulderRoll: 0.32, elbowBend: 0.72, offElbowBend: 0.46, weaponPitch: -0.35, weaponRoll: 0.22, lean: 0.03, torsoTwist: 0.08, bodyLift: 0.035, spin: false, trail: "#ffb35c", trailArc: 0.9 },
+  necromancerCast: { duration: 0.62, leadArm: 1.18, offArm: 0.82, armSweep: 0.48, shoulderRoll: 0.34, elbowBend: 0.82, offElbowBend: 0.62, weaponPitch: -0.28, weaponRoll: 0.16, lean: 0.11, torsoTwist: 0.18, bodyLift: 0.025, spin: false, trail: "#c6e5ff", trailArc: 0.95 },
+  paladinStrike: { duration: 0.42, leadArm: 1.3, offArm: 0.08, armSweep: 0.12, shoulderRoll: 0.08, elbowBend: 0.18, offElbowBend: 0.04, weaponPitch: -0.25, weaponRoll: -0.08, lean: 0.025, torsoTwist: 0.04, bodyLift: 0, spin: false, trail: "#fff0a8", trailArc: 1.1 },
+  sorceressCast: { duration: 0.58, leadArm: 1.22, offArm: 0.82, armSweep: 0.35, shoulderRoll: 0.32, elbowBend: 0.72, offElbowBend: 0.46, weaponPitch: -0.35, weaponRoll: 0.22, lean: 0.03, torsoTwist: 0.08, bodyLift: 0.035, spin: false, trail: "#ffb35c", trailArc: 0.9 },
   spin: { duration: 0.68, leadArm: 1.35, offArm: 1.2, armSweep: 1.2, shoulderRoll: 0.5, elbowBend: 0.72, offElbowBend: 0.72, weaponPitch: -0.6, weaponRoll: 1.1, lean: 0, torsoTwist: 0.1, bodyLift: 0.02, spin: true, trail: "#ffce76", trailArc: Math.PI * 2 },
   cast: { duration: 0.48, leadArm: 0.82, offArm: 0.35, armSweep: 0.25, shoulderRoll: 0.18, elbowBend: 0.55, offElbowBend: 0.24, weaponPitch: -0.25, weaponRoll: 0.12, lean: 0.03, torsoTwist: 0.08, bodyLift: 0.02, spin: false, trail: "#e6ddff", trailArc: 1.2 },
   maceSmash: { duration: 0.62, leadArm: 1.58, offArm: 0.48, armSweep: -0.34, shoulderRoll: -0.42, elbowBend: 1.06, offElbowBend: 0.22, weaponPitch: -0.92, weaponRoll: -0.2, lean: 0.28, torsoTwist: 0.22, bodyLift: 0.01, spin: false, trail: "#e5c58b", trailArc: 1.25 },
@@ -10597,6 +10650,23 @@ const ATTACK_ANIMATION_PROFILES: Record<AttackAnimationStyle, AttackAnimationPro
   weaponThrow: { duration: 0.5, leadArm: 1.62, offArm: 0.38, armSweep: -0.58, shoulderRoll: 0.24, elbowBend: 0.72, offElbowBend: 0.14, weaponPitch: -0.5, weaponRoll: 0.12, lean: 0.18, torsoTwist: 0.36, bodyLift: 0.022, spin: false },
 };
 function attackMotionCurve(progress: number, style?: AttackAnimationStyle): number {
+  if (style === "paladinStrike") {
+    if (progress < 0.28) return -Math.sin(progress / 0.28 * Math.PI / 2) * 0.24;
+    if (progress < 0.5) {
+      const strike = (progress - 0.28) / 0.22;
+      return -0.24 + 1.24 * (strike * strike * (3 - 2 * strike));
+    }
+    return Math.cos((progress - 0.5) / 0.5 * Math.PI / 2);
+  }
+  if (style === "necromancerCast") {
+    if (progress < 0.3) return -Math.sin(progress / 0.3 * Math.PI / 2) * 0.48;
+    if (progress < 0.53) {
+      const release = (progress - 0.3) / 0.23;
+      return -0.48 + 1.48 * (release * release * (3 - 2 * release));
+    }
+    const recovery = Math.min(1, (progress - 0.53) / 0.47);
+    return Math.cos(recovery * Math.PI / 2);
+  }
   if (style === "maceSmash") {
     if (progress < 0.34) return -Math.sin(progress / 0.34 * Math.PI / 2) * 0.9;
     if (progress < 0.55) {

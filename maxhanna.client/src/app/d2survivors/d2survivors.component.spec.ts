@@ -81,6 +81,141 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect((component as any).attackAnimationStyle).toBe("necromancerCast");
   });
 
+  it("drives the Paladin's actual arms forward for a compact strike instead of leaning into the target", () => {
+    component.selectedClass = "paladin";
+    const rig = new THREE.Group();
+    const spine = new THREE.Bone();
+    spine.name = "spine_01_bind_jnt";
+    const rightShoulder = new THREE.Bone();
+    rightShoulder.name = "R_shoulder_bind_jnt";
+    const leftShoulder = new THREE.Bone();
+    leftShoulder.name = "L_shoulder_bind_jnt";
+    spine.add(rightShoulder, leftShoulder);
+    const rightArm = new THREE.Bone();
+    rightArm.name = "R_upr_arm_bind_jnt";
+    const rightArmTwist = new THREE.Bone();
+    rightArmTwist.name = "R_upr_arm_twist_01_bind_jnt";
+    const rightForearm = new THREE.Bone();
+    rightForearm.name = "R_lwr_arm_bind_jnt";
+    rightArm.add(rightArmTwist);
+    rightArmTwist.add(rightForearm);
+    const leftArm = new THREE.Bone();
+    leftArm.name = "L_upr_arm_bind_jnt";
+    const leftArmTwist = new THREE.Bone();
+    leftArmTwist.name = "L_upr_arm_twist_01_bind_jnt";
+    const leftForearm = new THREE.Bone();
+    leftForearm.name = "L_lwr_arm_bind_jnt";
+    leftArm.add(leftArmTwist);
+    leftArmTwist.add(leftForearm);
+    rig.add(spine, rightArm, leftArm);
+
+    const characterModel = new THREE.Group();
+    characterModel.add(rig);
+    (component as any).characterModel = characterModel;
+    (component as any).playerRigBones = (component as any).getPlayerRigBones(rig);
+    expect((component as any).playerRigBones.arms.map((entry: any) => entry.bone.name)).toEqual([
+      "R_upr_arm_bind_jnt",
+      "L_upr_arm_bind_jnt",
+    ]);
+    expect((component as any).playerRigBones.forearms.map((entry: any) => entry.bone.name)).toEqual([
+      "R_lwr_arm_bind_jnt",
+      "L_lwr_arm_bind_jnt",
+    ]);
+
+    (component as any).animatePlayerModel(16);
+    const idleLeftArm = leftArm.quaternion.clone();
+    const idleRightArm = rightArm.quaternion.clone();
+    (component as any).triggerAttackAnimation("paladinStrike");
+    (component as any).animatePlayerModel(210);
+
+    expect(leftArm.quaternion.angleTo(idleLeftArm)).toBeGreaterThan(0.8);
+    expect(leftForearm.quaternion.angleTo(new THREE.Quaternion())).toBeGreaterThan(0.1);
+    expect(spine.quaternion.angleTo(new THREE.Quaternion())).toBeLessThan(0.1);
+    expect(characterModel.position.y).toBe(0);
+
+    (component as any).triggerAttackAnimation("maceSmash");
+    (component as any).animatePlayerModel(320);
+    expect(rightArm.quaternion.angleTo(idleRightArm)).toBeGreaterThan(0.8);
+    expect(spine.quaternion.angleTo(new THREE.Quaternion())).toBeLessThan(0.1);
+    expect(characterModel.position.y).toBe(0);
+  });
+
+  it("lowers the Sorceress arms at rest and bends them at the rig's shoulder and elbow hinges when casting", () => {
+    component.selectedClass = "sorceress";
+    const rig = new THREE.Group();
+    const rightArm = new THREE.Bone();
+    rightArm.name = "R_UpperArm";
+    const rightForearm = new THREE.Bone();
+    rightForearm.name = "R_ForeArm";
+    rightArm.add(rightForearm);
+    const leftArm = new THREE.Bone();
+    leftArm.name = "L_UpperArm";
+    const leftForearm = new THREE.Bone();
+    leftForearm.name = "L_ForeArm";
+    leftArm.add(leftForearm);
+    rig.add(rightArm, leftArm);
+
+    const characterModel = new THREE.Group();
+    characterModel.add(rig);
+    (component as any).characterModel = characterModel;
+    (component as any).playerRigBones = (component as any).getPlayerRigBones(rig);
+    expect((component as any).playerRigBones.arms).toHaveSize(2);
+    expect((component as any).playerRigBones.forearms).toHaveSize(2);
+
+    (component as any).animatePlayerModel(16);
+    const rightArmIdlePose = rightArm.quaternion.clone();
+    expect(rightArmIdlePose.y).toBeLessThan(-0.3);
+    expect(leftArm.quaternion.y).toBeLessThan(-0.3);
+
+    (component as any).triggerAttackAnimation("sorceressCast");
+    (component as any).animatePlayerModel(270);
+    expect(rightArm.quaternion.angleTo(rightArmIdlePose)).toBeGreaterThan(0.5);
+    expect(Math.abs(rightForearm.quaternion.y)).toBeGreaterThan(0.1);
+    expect(leftArm.quaternion.angleTo(new THREE.Quaternion())).toBeGreaterThan(0.5);
+  });
+
+  it("lowers the Necromancer arms and animates the actual clavicle and elbow hinges during a cast", () => {
+    component.selectedClass = "necromancer";
+    const rig = new THREE.Group();
+    const rightClavicle = new THREE.Bone();
+    rightClavicle.name = "R_Clavicle";
+    const rightArm = new THREE.Bone();
+    rightArm.name = "R_UpperArm";
+    const rightForearm = new THREE.Bone();
+    rightForearm.name = "R_ForeArm";
+    rightClavicle.add(rightArm);
+    rightArm.add(rightForearm);
+    const leftClavicle = new THREE.Bone();
+    leftClavicle.name = "L_Clavicle";
+    const leftArm = new THREE.Bone();
+    leftArm.name = "L_UpperArm";
+    const leftForearm = new THREE.Bone();
+    leftForearm.name = "L_ForeArm";
+    leftClavicle.add(leftArm);
+    leftArm.add(leftForearm);
+    rig.add(rightClavicle, leftClavicle);
+
+    const characterModel = new THREE.Group();
+    characterModel.add(rig);
+    (component as any).characterModel = characterModel;
+    (component as any).playerRigBones = (component as any).getPlayerRigBones(rig);
+    expect((component as any).playerRigBones.arms.map((entry: any) => entry.bone.name)).toEqual(["R_Clavicle", "L_Clavicle"]);
+    expect((component as any).playerRigBones.forearms).toHaveSize(2);
+
+    (component as any).animatePlayerModel(16);
+    const rightIdlePose = rightClavicle.quaternion.clone();
+    const leftIdlePose = leftClavicle.quaternion.clone();
+    expect(rightIdlePose.angleTo(new THREE.Quaternion())).toBeGreaterThan(0.5);
+    expect(leftIdlePose.angleTo(new THREE.Quaternion())).toBeGreaterThan(0.5);
+
+    (component as any).triggerAttackAnimation("necromancerCast");
+    (component as any).animatePlayerModel(270);
+    expect(rightClavicle.quaternion.angleTo(rightIdlePose)).toBeGreaterThan(0.1);
+    expect(leftClavicle.quaternion.angleTo(leftIdlePose)).toBeGreaterThan(0.1);
+    expect(rightForearm.quaternion.angleTo(new THREE.Quaternion())).toBeGreaterThan(0.1);
+    expect((component as any).attackAnimationTime).toBeCloseTo(0.27, 4);
+  });
+
   it("updates the character weapon visual on equip and unequip", () => {
     const model = new THREE.Group();
     const hand = new THREE.Bone();
