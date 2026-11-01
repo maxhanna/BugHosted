@@ -2988,6 +2988,12 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   private readonly ejsCdnBase = 'https://cdn.emulatorjs.org/nightly/data/';
   /** Runtime + cores served by our own server; see scripts/sync-emulatorjs.mjs. */
   private readonly ejsLocalBase = '/assets/emulatorjs/data/';
+  /** Our core ids that differ from the core name EmulatorJS names its files after. */
+  private readonly coreFileAliases: Record<string, string> = {
+    psp: 'ppsspp',
+    kronos_saturn: 'kronos',
+    beetle_saturn: 'mednafen_saturn',
+  };
   private _ejsDataBase = '/assets/emulatorjs/data/';
 
   /** Where EmulatorJS is loading from for this boot (server copy, or the CDN fallback). */
@@ -3037,7 +3043,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
   /** Mirrors EmulatorJS's core file naming: <core>[-thread][-legacy]-wasm.data. */
   private async findLocalCoreFile(core: Core): Promise<string | null> {
-    const name = String(core).toLowerCase() === 'psp' ? 'ppsspp' : String(core).toLowerCase();
+    const id = String(core).toLowerCase();
+    const name = this.coreFileAliases[id] ?? id;
     const variants = [
       `${name}-thread-wasm.data`,
       `${name}-wasm.data`,

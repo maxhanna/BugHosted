@@ -38,5 +38,30 @@
     "size": 167,
     "etag": "W/\"2417934517\"",
     "lastModified": "Sat, 25 Jul 2026 17:22:39 GMT"
+  },
+  "cores/yabause-legacy-wasm.data": {
+    "size": 808848,
+    "etag": null,
+    "lastModified": "Sat, 31 Oct 2026 18:24:04 GMT"
+  },
+  "cores/yabause-thread-legacy-wasm.data": {
+    "size": 826414,
+    "etag": null,
+    "lastModified": "Sat, 31 Oct 2026 18:24:05 GMT"
+  },
+  "cores/yabause-thread-wasm.data": {
+    "size": 827041,
+    "etag": null,
+    "lastModified": "Sat, 31 Oct 2026 18:23:27 GMT"
+  },
+  "cores/yabause-wasm.data": {
+    "size": 810166,
+    "etag": null,
+    "lastModified": "Sat, 31 Oct 2026 18:23:28 GMT"
+  },
+  "cores/reports/yabause.json": {
+    "size": 121,
+    "etag": "W/\"3757644767\"",
+    "lastModified": "Sat, 25 Jul 2026 16:58:12 GMT"
   }
 }
