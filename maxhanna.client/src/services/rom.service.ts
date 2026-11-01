@@ -465,6 +465,18 @@ export class RomService {
       return null;
     }
   }
+
+  /**
+   * One-shot trigger for the legacy save-state migration (MySQL blobs ->
+   * per-user files on disk). Only the owner's session may start it; the server
+   * runs it in the background and ignores repeated calls, so this is fired
+   * best-effort and nothing depends on the response.
+   */
+  async migrateSaveStatesOnce(): Promise<void> {
+    try {
+      await fetch('/rom/migratesavestates', { method: 'POST' });
+    } catch { /* best-effort */ }
+  }
 }
 
 export interface PendingShare {

@@ -71,7 +71,7 @@ namespace maxhanna.Server.Controllers
     /// created: the exact core match is returned when it exists, otherwise any
     /// saved core for that ROM (newest first).
     /// </summary>
-    private string? ResolveSaveStatePath(int userId, string romName, string? core, bool createDirectory)
+    private string? ResolveSaveStatePath(int userId, string romName, string? core, bool createDirectory, bool allowOtherCoreFallback = true)
     {
       var dir = Path.Combine(_saveStateRoot, userId.ToString());
       var stem = SafeFileStem(romName);
@@ -95,6 +95,12 @@ namespace maxhanna.Server.Controllers
 
       var plain = Path.Combine(dir, $"{stem}.state");
       if (System.IO.File.Exists(plain)) return plain;
+
+      // A state saved by a different core is only usable when the caller did
+      // not say which core it is about to run. States are raw emulator
+      // snapshots, never portable between cores: feeding a foreign one to a
+      // core traps it (the game boots and then freezes on the first input).
+      if (!allowOtherCoreFallback) return null;
 
       try
       {
@@ -561,34 +567,139 @@ namespace maxhanna.Server.Controllers
     }
 
     // ---------------------------------------------------------------
-    // POST /Rom/MigrateSaveStates   (one-time: DB blobs -> per-user files)
-    //   Header X-Migration-Key (or ?key=) must match
-    //   EmulatorSaveStates:MigrationKey; with no key configured the endpoint
-    //   refuses to run.
-    //   ?batch=25      rows handled per call, so a single request stays short
-    //   ?purge=true    (default) delete each row once its file is on disk — this
-    //                  is what makes repeated calls make progress
-    //   ?dryRun=true   write the files but keep every row, for a small first check
+    // POST /Rom/MigrateSaveStates   (temporary: DB blobs -> per-user files)
+    //   Two ways in:
+    //     - user 1, signed in: starts the whole migration in the background
+    //       once per server process and returns immediately. This is the
+    //       automatic path the emulator triggers; delete the endpoint once the
+    //       log says "AutoMigrateSaveStates: DONE".
+    //     - X-Migration-Key (or ?key=) matching EmulatorSaveStates:MigrationKey
+    //       runs a single ?batch= (default 25) for manual step-by-step runs.
+    //   ?purge=true    (default) delete each row once its file is on disk
+    //   ?dryRun=true   write the files but keep every row, for a first check
     //   A file already on disk is never overwritten: it is complete (writes are
     //   atomic) and is now the source of truth, so its row is just purged.
     // ---------------------------------------------------------------
     [HttpPost("/Rom/MigrateSaveStates")]
     public async Task<IActionResult> MigrateSaveStates([FromQuery] int batch = 25, [FromQuery] bool purge = true, [FromQuery] bool dryRun = false, CancellationToken ct = default)
     {
-      var expectedKey = _config.GetValue<string>("EmulatorSaveStates:MigrationKey");
-      if (string.IsNullOrWhiteSpace(expectedKey))
-        return StatusCode(503, "Set EmulatorSaveStates:MigrationKey in configuration first.");
+      // The owner's session is enough: no configuration, no key to paste.
+      var ownerRequest = AuthenticatedUserId() == 1;
 
+      var expectedKey = _config.GetValue<string>("EmulatorSaveStates:MigrationKey");
       var suppliedKey = Request.Headers["X-Migration-Key"].ToString();
       if (string.IsNullOrWhiteSpace(suppliedKey))
         suppliedKey = Request.Query["key"].ToString();
-      if (!string.Equals(suppliedKey, expectedKey, StringComparison.Ordinal))
+      var keyOk = !string.IsNullOrWhiteSpace(expectedKey)
+        && string.Equals(suppliedKey, expectedKey, StringComparison.Ordinal);
+
+      if (!keyOk && !ownerRequest)
         return Unauthorized("Bad or missing migration key.");
 
+      if (!keyOk)
+      {
+        // Owner path: drain everything in the background and answer at once, so
+        // the emulator page never waits on gigabytes of file writes.
+        StartAutoSaveStateMigrationOnce();
+        return Ok(new
+        {
+          ok = true,
+          started = true,
+          root = _saveStateRoot,
+          note = "Migration running in the background; watch the server log for AutoMigrateSaveStates lines."
+        });
+      }
+
       batch = Math.Clamp(batch, 1, 500);
+      var result = await MigrateSaveStateBatchAsync(batch, purge, dryRun, ct);
+      if (result.Error != null)
+        return StatusCode(500, "Migration failed: " + result.Error);
+
+      return Ok(new
+      {
+        ok = result.Failed == 0,
+        root = _saveStateRoot,
+        dryRun,
+        migrated = result.Migrated,
+        skipped = result.Skipped,
+        failed = result.Failed,
+        purged = result.Purged,
+        remaining = result.Remaining,
+        bytesWritten = result.BytesWritten,
+        note = result.Remaining > 0
+          ? "Call the same URL again until remaining is 0."
+          : "Migration complete — the table is empty and can be dropped."
+      });
+    }
+
+    private static int _autoSaveStateMigrationStarted;
+
+    /// <summary>
+    /// Runs the DB-blob -> per-user-file migration once per server process, in
+    /// the background and in small batches, until the table is empty. Started by
+    /// user 1 opening the emulator, so no key has to be pasted anywhere.
+    /// </summary>
+    private void StartAutoSaveStateMigrationOnce()
+    {
+      if (Interlocked.Exchange(ref _autoSaveStateMigrationStarted, 1) != 0) return;
+
+      _ = Task.Run(async () =>
+      {
+        int migrated = 0, purged = 0, skipped = 0, failed = 0;
+        try
+        {
+          for (var round = 1; round <= 400; round++)
+          {
+            var r = await MigrateSaveStateBatchAsync(25, purge: true, dryRun: false, CancellationToken.None);
+            if (r.Error != null)
+            {
+              _ = _log.Db($"AutoMigrateSaveStates: stopping — {r.Error}", null, "ROM", true);
+              return;
+            }
+
+            migrated += r.Migrated;
+            purged += r.Purged;
+            skipped += r.Skipped;
+            failed += r.Failed;
+            _ = _log.Db($"AutoMigrateSaveStates: round={round} migrated={r.Migrated} skipped={r.Skipped} failed={r.Failed} purged={r.Purged} remaining={r.Remaining}", null, "ROM", true);
+
+            if (r.Remaining <= 0)
+            {
+              _ = _log.Db($"AutoMigrateSaveStates: DONE migrated={migrated} purged={purged} skipped={skipped} failed={failed} root={_saveStateRoot} — emulatorjs_save_states can be dropped.", null, "ROM", true);
+              return;
+            }
+
+            // Nothing written or purged in this round: stop instead of spinning
+            // on the same rows forever (they need a human look).
+            if (r.Migrated == 0 && r.Purged == 0)
+            {
+              _ = _log.Db($"AutoMigrateSaveStates: no progress in round={round} (remaining={r.Remaining}); stopping.", null, "ROM", true);
+              return;
+            }
+          }
+
+          _ = _log.Db("AutoMigrateSaveStates: stopped after the round limit; call the endpoint again to continue.", null, "ROM", true);
+        }
+        catch (Exception ex)
+        {
+          _ = _log.Db("AutoMigrateSaveStates failed: " + ex.Message, null, "ROM", true);
+        }
+      });
+    }
+
+    private sealed record SaveStateMigrationBatch(int Migrated, int Skipped, int Failed, int Purged, int Remaining, long BytesWritten, string? Error = null);
+
+    /// <summary>
+    /// One migration batch: legacy `emulatorjs_save_states` rows -> per-user
+    /// {userId}/{rom}[__{core}].state files, purging each row once its file is
+    /// safely on disk. Shared by the endpoint and the automatic one-shot drain.
+    /// </summary>
+    private async Task<SaveStateMigrationBatch> MigrateSaveStateBatchAsync(int batch, bool purge, bool dryRun, CancellationToken ct)
+    {
       var migrated = 0;
       var skipped = 0;
       var failed = 0;
+      var purged = 0;
       long bytesWritten = 0;
       var written = new List<(int UserId, string RomName, string? Core)>();
 
@@ -653,7 +764,6 @@ namespace maxhanna.Server.Controllers
           }
         }
 
-        var purged = 0;
         if (purge && !dryRun && written.Count > 0)
         {
           foreach (var row in written)
@@ -670,27 +780,12 @@ namespace maxhanna.Server.Controllers
         await using var countCmd = new MySqlCommand("SELECT COUNT(*) FROM maxhanna.emulatorjs_save_states;", conn);
         var remaining = Convert.ToInt32(await countCmd.ExecuteScalarAsync(ct));
 
-        _ = _log.Db($"MigrateSaveStates: migrated={migrated} skipped={skipped} failed={failed} purged={purged} remaining={remaining} bytes={bytesWritten} root={_saveStateRoot}", null, "ROM", true);
-        return Ok(new
-        {
-          ok = failed == 0,
-          root = _saveStateRoot,
-          dryRun,
-          migrated,
-          skipped,
-          failed,
-          purged,
-          remaining,
-          bytesWritten,
-          note = remaining > 0
-            ? "Call the same URL again until remaining is 0."
-            : "Migration complete — the table is empty and can be dropped."
-        });
+        return new SaveStateMigrationBatch(migrated, skipped, failed, purged, remaining, bytesWritten);
       }
       catch (Exception ex)
       {
         _ = _log.Db("MigrateSaveStates error: " + ex.Message, null, "ROM", true);
-        return StatusCode(500, "Migration failed: " + ex.Message);
+        return new SaveStateMigrationBatch(migrated, skipped, failed, purged, -1, bytesWritten, ex.Message);
       }
     }
 
@@ -704,9 +799,17 @@ namespace maxhanna.Server.Controllers
 
         // Only the caller's own folder is ever searched.
         var owner = AuthenticatedUserId() ?? req.UserId;
-        var path = ResolveSaveStatePath(owner, req.RomName, req.Core, createDirectory: false);
+        // When the client names the core it is about to run, only that core's
+        // state is returned. Restoring a state from another core, or from an
+        // older build of the same core, freezes the emulator.
+        var path = ResolveSaveStatePath(owner, req.RomName, req.Core, createDirectory: false,
+          allowOtherCoreFallback: string.IsNullOrWhiteSpace(req.Core));
         if (path == null || !System.IO.File.Exists(path))
           return NotFound();
+
+        // Logged so a bad restore can be traced to the exact file on disk.
+        var info = new FileInfo(path);
+        _ = _log.Db($"EJS state restore: user={owner} core={(string.IsNullOrWhiteSpace(req.Core) ? "-" : req.Core)} file={info.Name} size={info.Length}", owner, "ROM", false);
 
         var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, FileOptions.Asynchronous | FileOptions.SequentialScan);
         return File(stream, "application/octet-stream");

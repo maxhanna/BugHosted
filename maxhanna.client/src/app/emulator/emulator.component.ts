@@ -176,6 +176,13 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this.status = 'Ready - Select a ROM';
     this.cdr.detectChanges();
 
+    // One-time housekeeping: the owner's visit drains the legacy MySQL
+    // save-state blobs into per-user .state files on disk. Fire-and-forget —
+    // the server runs it in the background and ignores repeat calls.
+    if (this.parentRef?.user?.id === 1) {
+      this.romService.migrateSaveStatesOnce();
+    }
+
     // Check for pending share requests before loading any ROM
     if (this.parentRef?.user?.id) {
       const shares = await this.romService.getPendingShares(this.parentRef.user.id);
@@ -485,6 +492,12 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         }
       );
 
+    // Resolve the core that will actually run before the save state is
+    // requested. A state written by a different core (or by an older build of
+    // the same core) cannot be restored and traps the emulator, so the request
+    // is qualified with this core and the server will not substitute another.
+    const bootCore = this.detectCoreEnhanced(fileName, effectiveForcedCore);
+
     let saveStatePromise: Promise<Blob | null> = Promise.resolve(null);
     if (this.selectedPendingShare && userId) {
       const share = this.selectedPendingShare;
@@ -502,7 +515,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         return blob;
       });
     } else if (!this.skipSaveFileRequested && !this.loadWithoutSave) {
-      saveStatePromise = this.loadSaveStateFromDB(fileName);
+      saveStatePromise = this.loadSaveStateFromDB(fileName, bootCore);
     }
 
     const [romBlobOrArray, saveStateBlob] = await Promise.all([romPromise, saveStatePromise]);
@@ -541,7 +554,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this.romName = fileName;
 
     // 5) Configure EmulatorJS globals BEFORE adding loader.js
-    const core = this.detectCoreEnhanced(fileName, effectiveForcedCore);
+    const core = bootCore;
     if (!effectiveForcedCore && core && fileId) {
       await this.romService.setSystemOverride(fileId, core);
     }
@@ -1174,7 +1187,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }
   }
 
-  private async loadSaveStateFromDB(romFileName: string): Promise<Blob | null> {
+  private async loadSaveStateFromDB(romFileName: string, coreOverride?: Core): Promise<Blob | null> {
     // Offline convenience: prefer the save kept on this device (when one
     // exists); the server copy remains the backup.
     try {
@@ -1186,7 +1199,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       return null;
     }
     try {
-      const response = await this.romService.getEmulatorJSSaveState(romFileName, this.parentRef.user.id, this.selectedSystemCore ?? undefined);
+      const response = await this.romService.getEmulatorJSSaveState(romFileName, this.parentRef.user.id, coreOverride ?? this.selectedSystemCore ?? undefined);
       if (response instanceof Blob && response.size > 0) {
         // Keep a local copy of the server save so next time it loads from
         // the device (and survives going offline). Best-effort.
@@ -2106,6 +2119,9 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     try {
       const u8 = new Uint8Array(await saveStateBlob.arrayBuffer());
       const core = (window as any).EJS_core || '';
+      // Printed before the core ever sees the bytes: if the next report is "the
+      // game froze after the logo", this line says which state did it.
+      console.log(`[EMU] Restoring save state: ${u8.length} bytes for core "${core}"`);
 
       const isHeavy = this.heavyCores.has(core);
       if (!this._ejsReady) {
