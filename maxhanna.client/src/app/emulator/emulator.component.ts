@@ -1006,7 +1006,12 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     const isDPADCentric = (system && (['nes', 'snes', 'gb', 'gbc', 'gba', 'genesis', 'saturn', 'sega_cd', '3do', 'nds'] as string[]).includes(system))
       || core === 'yabause' || core === 'beetle_saturn' || core === 'kronos_saturn';
     const isN64Selected = (system && ['n64'].includes(system));
-    const isLeftAndRightJoystickInverted = isN64Selected;
+    // PSP has a single analog nub, which PPSSPP reads from the core's LEFT stick,
+    // while our on-screen joystick zone is wired to the RIGHT stick bindings
+    // (control indices 16-19). Invert the two for PSP so the on-screen left
+    // joystick drives the nub and the right stick drives what used to be left.
+    const isPSPSelected = system === 'psp' || core === 'psp' || (core as string) === 'ppsspp';
+    const isLeftAndRightJoystickInverted = isN64Selected || isPSPSelected;
     const rightStickValues = {
       "UP":
         isDPADCentric
@@ -1034,29 +1039,32 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
             : 'RIGHT_STICK_X:+1'
     };
 
+    // Keyed on the N64 flag only: on PSP the arrow keys must stay on the nub too,
+    // otherwise the inversion above would leave the keyboard driving a right
+    // stick the console does not have.
     const leftStickValues = {
       "UP":
         isDPADCentric
           ? 'DPAD_UP'
-          : isLeftAndRightJoystickInverted
+          : isN64Selected
             ? 'RIGHT_STICK_Y:-1'
             : 'LEFT_STICK_Y:-1',
       "DOWN":
         isDPADCentric
           ? 'DPAD_DOWN'
-          : isLeftAndRightJoystickInverted
+          : isN64Selected
             ? 'RIGHT_STICK_Y:+1'
             : 'LEFT_STICK_Y:+1',
       "LEFT":
         isDPADCentric
           ? 'DPAD_LEFT'
-          : isLeftAndRightJoystickInverted
+          : isN64Selected
             ? 'RIGHT_STICK_X:-1'
             : 'LEFT_STICK_X:-1',
       "RIGHT":
         isDPADCentric
           ? 'DPAD_RIGHT'
-          : isLeftAndRightJoystickInverted
+          : isN64Selected
             ? 'RIGHT_STICK_X:+1'
             : 'LEFT_STICK_X:+1'
     };
