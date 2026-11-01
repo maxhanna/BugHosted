@@ -2,16 +2,10 @@ const folderPath = (path) => {
     const filename = path.split("/").pop();
     return path.substring(0, path.length - filename.length);
 };
-function isAbsoluteUrl(path) {
-    return /^[a-zA-Z][\w.+-]*:\/\//i.test(path);
-}
 
 let scriptPath = (typeof window.EJS_pathtodata === "string") ? window.EJS_pathtodata : folderPath((new URL(document.currentScript.src)).pathname);
 if (!scriptPath.endsWith("/")) {
     scriptPath += "/";
-}
-if (!scriptPath.startsWith("/") && !isAbsoluteUrl(scriptPath)) {
-    scriptPath = "../" + scriptPath;
 }
 
 const debug = window.EJS_DEBUG_XX === true;
@@ -21,13 +15,15 @@ if (debug) {
 }
 
 function resolvePath(path) {
+    let resolved;
     if ("undefined" != typeof EJS_paths && typeof EJS_paths[path] === "string") {
-        return EJS_paths[path];
+        resolved = EJS_paths[path];
     } else if (path.endsWith("emulator.min.js") || path.endsWith("css")) {
-        return scriptPath + path;
+        resolved = scriptPath + path;
     } else {
-        return scriptPath + "src/" + path;
+        resolved = scriptPath + "src/" + path;
     }
+    return new URL(resolved, document.baseURI).href;
 }
 
 async function loadScript(file) {
@@ -200,7 +196,9 @@ const config = {
     fixedSaveInterval: window.EJS_fixedSaveInterval,
     disableAutoUnload: window.EJS_disableAutoUnload,
     disableBatchBootup: window.EJS_disableBatchBootup,
-    askBeforeExit: window.EJS_askBeforeExit
+    askBeforeExit: window.EJS_askBeforeExit,
+    retroarchOpts: window.EJS_retroarchOpts,
+    coreOpts: window.EJS_coreOpts
 };
 
 async function prepareLanguage() {
@@ -241,7 +239,7 @@ async function prepareLanguage() {
     }
 
     window.EJS_emulator = new EmulatorJS(EJS_player, config);
-    window.EJS_adBlocked = (url, del) => window.EJS_emulator.adBlocked(url, del);
+    window.EJS_adBlocked = (url, del) => window.EJS_emulator.frontend.adBlocked(url, del);
 
     const handlers = [
         ["ready", window.EJS_ready],

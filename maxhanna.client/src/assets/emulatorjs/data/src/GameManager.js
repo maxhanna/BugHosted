@@ -11,6 +11,7 @@ class EJS_GameManager {
             simulateInput: this.Module.cwrap("simulate_input", "null", ["number", "number", "number"]),
             toggleMainLoop: this.Module.cwrap("toggleMainLoop", "null", ["number"]),
             getCoreOptions: this.Module.cwrap("get_core_options", "string", []),
+            getCoreOptionsJSON: this.Module.cwrap("get_core_options_json", "string", []),
             setVariable: this.Module.cwrap("ejs_set_variable", "null", ["string", "string"]),
             setCheat: this.Module.cwrap("set_cheat", "null", ["number", "number", "string"]),
             resetCheat: this.Module.cwrap("reset_cheat", "null", []),
@@ -143,12 +144,27 @@ class EJS_GameManager {
             this.FS.mkdir(path);
         } catch(e) {}
     }
+    getSampleRate() {
+        let detectedSampleRate = 44100;
+        try {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (AudioCtx) {
+                const ac = new AudioCtx();
+                if (ac.sampleRate) {
+                    detectedSampleRate = ac.sampleRate;
+                }
+                ac.close();
+            }
+        } catch(e) {}
+        return detectedSampleRate;
+    }
     getRetroArchCfg() {
         let cfg = "autosave_interval = 60\n" +
             "screenshot_directory = \"/\"\n" +
             "block_sram_overwrite = false\n" +
             "video_gpu_screenshot = false\n" +
             "audio_latency = 64\n" +
+            "audio_out_rate = " + this.getSampleRate() + "\n" +
             "video_top_portrait_viewport = true\n" +
             "video_vsync = true\n" +
             "video_smooth = false\n" +
@@ -159,15 +175,16 @@ class EJS_GameManager {
             "savefile_directory = \"/data/saves\"\n";
 
         if (this.EJS.retroarchOpts && Array.isArray(this.EJS.retroarchOpts)) {
-            this.EJS.retroarchOpts.forEach(option => {
+            this.EJS.retroarchOpts.forEach((option) => {
                 let selected = this.EJS.preGetSetting(option.name);
-                console.log(selected);
-                if (!selected) {
-                    selected = option.default;
+                if (selected === undefined || selected === null) {
+                    selected = option.value !== undefined ? option.value : option.default;
                 }
-                const value = option.isString === false ? selected : '"' + selected + '"';
-                cfg += option.name + " = " + value + "\n"
-            })
+                if (selected !== undefined && selected !== null) {
+                    const value = option.isString === false ? selected : '"' + selected + '"';
+                    cfg += option.name + " = " + value + "\n";
+                }
+            });
         }
         return cfg;
     }
@@ -266,28 +283,28 @@ IF EXIST AUTORUN.BAT CALL AUTORUN.BAT
         }
         if ([24, 25, 26, 27, 28, 29].includes(index)) {
             if (index === 24 && value === 1) {
-                const slot = this.EJS.settings["save-state-slot"] ? this.EJS.settings["save-state-slot"] : "1";
+                const slot = this.EJS.frontend.settings["save-state-slot"] ? this.EJS.frontend.settings["save-state-slot"] : "1";
                 if (this.quickSave(slot)) {
-                    this.EJS.displayMessage(this.EJS.localization("SAVED STATE TO SLOT") + " " + slot);
+                    this.EJS.frontend.displayMessage("SAVED STATE TO SLOT", undefined, " " + slot, "success");
                 } else {
-                    this.EJS.displayMessage(this.EJS.localization("FAILED TO SAVE STATE"));
+                    this.EJS.frontend.displayMessage("FAILED TO SAVE STATE", undefined, undefined, "error");
                 }
             }
             if (index === 25 && value === 1) {
-                const slot = this.EJS.settings["save-state-slot"] ? this.EJS.settings["save-state-slot"] : "1";
+                const slot = this.EJS.frontend.settings["save-state-slot"] ? this.EJS.frontend.settings["save-state-slot"] : "1";
                 this.quickLoad(slot);
-                this.EJS.displayMessage(this.EJS.localization("LOADED STATE FROM SLOT") + " " + slot);
+                this.EJS.frontend.displayMessage("LOADED STATE FROM SLOT", undefined, " " + slot, "success");
             }
             if (index === 26 && value === 1) {
                 let newSlot;
                 try {
-                    newSlot = parseFloat(this.EJS.settings["save-state-slot"] ? this.EJS.settings["save-state-slot"] : "1") + 1;
+                    newSlot = parseFloat(this.EJS.frontend.settings["save-state-slot"] ? this.EJS.frontend.settings["save-state-slot"] : "1") + 1;
                 } catch(e) {
                     newSlot = 1;
                 }
                 if (newSlot > 9) newSlot = 1;
-                this.EJS.displayMessage(this.EJS.localization("SET SAVE STATE SLOT TO") + " " + newSlot);
-                this.EJS.changeSettingOption("save-state-slot", newSlot.toString());
+                this.EJS.frontend.displayMessage("SET SAVE STATE SLOT TO", undefined, " " + newSlot);
+                this.EJS.frontend.changeSettingOption("save-state-slot", newSlot.toString());
             }
             if (index === 27) {
                 this.functions.toggleFastForward(this.EJS.isFastForward ? !value : value);
@@ -358,10 +375,12 @@ IF EXIST AUTORUN.BAT CALL AUTORUN.BAT
     loadPpssppAssets() {
         return new Promise(async (resolve, reject) => {
             try {
-                const cacheItem = await this.EJS.downloader.downloadFile("data/cores/ppsspp-assets.zip", this.EJS.downloadType.core.name, "GET", {}, null, null, null, 30000, "arraybuffer", false, this.EJS.downloadType.core.dontCache);
+                const res = await this.EJS.downloadFile("cores/ppsspp-assets.zip", this.EJS.downloadType.core.name, null, false, { responseType: "arraybuffer", method: "GET" }, true, this.EJS.downloadType.core.dontCache);
+                if (res === -1) {
+                    throw new Error("Failed to download PPSSPP assets");
+                }
+                const cacheItem = res.data;
 
-                console.log(cacheItem);
-                
                 this.mkdir("/PPSSPP");
 
                 for (let i = 0; i < cacheItem.files.length; i++) {
@@ -382,8 +401,8 @@ IF EXIST AUTORUN.BAT CALL AUTORUN.BAT
                 }
                 resolve();
             } catch (error) {
-                this.EJS.textElem.innerText = this.EJS.localization("Network Error");
-                this.EJS.textElem.style.color = "red";
+                this.EJS.frontend.setLoadingText("Network Error");
+                this.EJS.frontend.textElem.style.color = "red";
                 reject(error);
             }
         })
@@ -396,6 +415,19 @@ IF EXIST AUTORUN.BAT CALL AUTORUN.BAT
     }
     getCoreOptions() {
         return this.functions.getCoreOptions();
+    }
+    // Core options with the data the libretro core options v2 interface provides:
+    // human readable descriptions, value labels, info text and visibility.
+    // Returns null on cores built before get_core_options_json was exported.
+    getCoreOptionsJSON() {
+        if (!this.Module["_get_core_options_json"]) return null;
+        try {
+            const data = JSON.parse(this.functions.getCoreOptionsJSON());
+            return (data && Array.isArray(data.options) && data.options.length) ? data : null;
+        } catch(e) {
+            if (this.EJS.debug) console.warn("Failed to read core options:", e);
+            return null;
+        }
     }
     setVariable(option, value) {
         this.functions.setVariable(option, value);
