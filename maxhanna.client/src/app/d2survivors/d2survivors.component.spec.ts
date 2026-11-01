@@ -319,6 +319,80 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect((component as any).hasRequiredWeaponForSkill("Fire Arrow")).toBeFalse();
   });
 
+  it("requires an equipped shield to use Smite", () => {
+    component.selectedClass = "paladin";
+    expect((component as any).hasRequiredWeaponForSkill("Smite")).toBeFalse();
+
+    component.equipment.weapon = { name: "Short Sword", baseName: "Short Sword", slot: "weapon" } as any;
+    expect((component as any).hasRequiredWeaponForSkill("Smite")).toBeFalse();
+    expect(component.getSkillRequirementLabel("Smite")).toBe("Requires a shield equipped");
+
+    component.equipment.shield = { name: "Buckler", baseName: "Buckler", slot: "armor", equipmentType: "shield" } as any;
+    expect((component as any).hasRequiredWeaponForSkill("Smite")).toBeTrue();
+    expect(component.getSkillRequirementLabel("Smite")).toBe("");
+
+    component.equipment.shield = { name: "Targe", baseName: "Targe", slot: "armor", equipmentType: "paladinShield" } as any;
+    expect((component as any).hasRequiredWeaponForSkill("Smite")).toBeTrue();
+
+    // A Barbarian's off-hand weapon is not a shield.
+    component.equipment.shield = { name: "Hand Axe", baseName: "Hand Axe", slot: "weapon" } as any;
+    expect((component as any).hasRequiredWeaponForSkill("Smite")).toBeFalse();
+  });
+
+  it("knocks back and stuns enemies hit by Smite", () => {
+    component.selectedClass = "paladin";
+    component.playerX = 250;
+    component.playerY = 250;
+    (component as any).playerFacingX = 1;
+    (component as any).playerFacingY = 0;
+    component.ownedSkills = ["Smite"];
+    component.skillLevels = { Smite: 1 };
+    component.equipment.shield = { name: "Buckler", baseName: "Buckler", slot: "armor", equipmentType: "shield" } as any;
+    const front = { kind: "normal", species: "fallen", spriteFrame: 0, x: 310, y: 250, hp: 100, maxHp: 100, speed: 100, r: 14, dmg: 2 } as any;
+    const behind = { kind: "normal", species: "fallen", spriteFrame: 0, x: 190, y: 250, hp: 100, maxHp: 100, speed: 100, r: 14, dmg: 2 } as any;
+    component.enemies = [front, behind];
+    component.floatingTexts = [];
+
+    component.activateOwnedSkill("Smite");
+
+    expect(front.x).toBeGreaterThan(310);
+    expect(front.stunRemaining).toBeGreaterThan(0);
+    expect(behind.x).toBe(190);
+    expect(behind.stunRemaining).toBeUndefined();
+    (component as any).flushPendingDamage();
+    expect(front.hp).toBeLessThan(100);
+  });
+
+  it("holds stunned enemies in place until the stun expires", () => {
+    component.playerX = 250;
+    component.playerY = 250;
+    const enemy = {
+      kind: "normal",
+      species: "fallen",
+      spriteFrame: 0,
+      x: 400,
+      y: 250,
+      hp: 100,
+      maxHp: 100,
+      speed: 100,
+      r: 14,
+      dmg: 2,
+      cd: 0,
+    } as any;
+    component.enemies = [enemy];
+    (component as any).applyEnemyStun(enemy, 1);
+
+    component.updateEnemies(300);
+    expect(enemy.x).toBe(400);
+    expect(enemy.stunRemaining).toBeGreaterThan(0);
+
+    component.updateEnemies(1000);
+    expect(enemy.x).toBe(400);
+
+    component.updateEnemies(200);
+    expect(enemy.x).toBeLessThan(400);
+  });
+
   it("maps inventory items to art matching their equipment instead of defaulting legacy gear to body armor", () => {
     const imageFor = (name: string, slot: "weapon" | "armor" | "charm" | "belt", equipmentType?: string) =>
       component.inventoryItemImage({ name, slot, equipmentType } as any);
@@ -605,5 +679,73 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     const modelUp = new THREE.Vector3(0, 1, 0).applyQuaternion(model.getWorldQuaternion(new THREE.Quaternion()));
     expect(weapon.parent).toBe(hand);
     expect(worldUp.dot(modelUp)).toBeGreaterThan(0.9);
+  });
+
+  it("replays the hero preview attack on a click but not after a drag", () => {
+    component.previewModel = new THREE.Group();
+    (component as any).previewModelClass = "barbarian";
+    (component as any).previewAttackTime = Number.POSITIVE_INFINITY;
+    const pointerDown = {
+      button: 0,
+      pointerId: 1,
+      clientX: 40,
+      clientY: 40,
+      currentTarget: { setPointerCapture: () => undefined },
+    } as any;
+
+    component.onClassPreviewPointerDown(pointerDown);
+    component.onClassPreviewPointerUp({ pointerId: 1, type: "pointerup", clientX: 40, clientY: 40 } as any);
+    expect((component as any).previewAttackTime).toBe(0);
+    expect((component as any).previewAttackStyle).toBe("barbarianCleave");
+
+    (component as any).previewAttackTime = Number.POSITIVE_INFINITY;
+    component.onClassPreviewPointerDown(pointerDown);
+    component.onClassPreviewPointerMove({ pointerId: 1, clientX: 90, clientY: 40 } as any);
+    component.onClassPreviewPointerUp({ pointerId: 1, type: "pointerup", clientX: 90, clientY: 40 } as any);
+    expect((component as any).previewAttackTime).toBe(Number.POSITIVE_INFINITY);
+  });
+
+  it("resolves nearby enemies through the spatial grid and coalesces batched damage", () => {
+    const first = { x: 130, y: 128, r: 10, hp: 100 } as any;
+    const second = { x: 136, y: 128, r: 10, hp: 100 } as any;
+    const far = { x: 2000, y: 2000, r: 10, hp: 100 } as any;
+    component.enemies = [first, second, far];
+    component.floatingTexts = [];
+    (component as any).rebuildEnemyGrid();
+
+    const nearby = (component as any).collectEnemiesNear(128, 128, 40);
+    expect(nearby).toContain(first);
+    expect(nearby).toContain(second);
+    expect(nearby).not.toContain(far);
+
+    (component as any).queueEnemyDamage(first, 5, "#ffffff");
+    (component as any).queueEnemyDamage(first, 7, "#ffffff");
+    (component as any).flushPendingDamage();
+    expect(first.hp).toBe(88);
+    expect(second.hp).toBe(100);
+    expect(component.floatingTexts.filter((text) => text.text === "-12").length).toBe(1);
+  });
+
+  it("re-homes Barbarian pauldron bones onto the upper arms without moving them at rest", () => {
+    const model = new THREE.Group();
+    const arm = new THREE.Bone();
+    arm.name = "R_UpperArm";
+    arm.position.set(1, 0, 0);
+    const pad = new THREE.Bone();
+    pad.name = "R_hvy_pad_pivot";
+    pad.position.set(1, 0.5, 0);
+    model.add(arm, pad);
+    model.updateMatrixWorld(true);
+    const restPosition = pad.getWorldPosition(new THREE.Vector3());
+
+    (component as any).attachBarbarianShoulderPads(model, "barbarian");
+    model.updateMatrixWorld(true);
+
+    expect(pad.parent).toBe(arm);
+    expect(pad.getWorldPosition(new THREE.Vector3()).distanceTo(restPosition)).toBeCloseTo(0, 5);
+
+    arm.rotation.z = Math.PI / 2;
+    model.updateMatrixWorld(true);
+    expect(pad.getWorldPosition(new THREE.Vector3()).distanceTo(restPosition)).toBeGreaterThan(0.1);
   });
 });

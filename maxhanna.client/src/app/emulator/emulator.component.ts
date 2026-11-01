@@ -56,6 +56,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   faqItems = FAQ_ITEMS;
   isSearchVisible = false;
   autosave = true;
+  manualSaveOnly = false; // PSP/PS1: never autosave in the background; save on request/exit
   autosaveIntervalTime: number = 180000; // 3 minutes 
   showControls = true;     // show/hide on-screen controls
   useJoystick = false;     // D-pad (false) vs analog "zone" (true)
@@ -226,7 +227,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         return this.navigateHome();
       }
     }
-    if (this._lastRomLoadTime && (now - this._lastRomLoadTime < 20000)) {
+    // A fresh boot has little to save, so the prompt is skipped to avoid nagging.
+    // Manual-save-only cores are the exception: nothing has been written to the
+    // server yet, so leaving without asking would silently drop the session.
+    if (!this.manualSaveOnly && this._lastRomLoadTime && (now - this._lastRomLoadTime < 20000)) {
       if (this.stopEmuSaving || this.isExitingAndReturningToEmulator) {
         this.fullReloadToEmulator();
       } else {
@@ -240,7 +244,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     } else {
       callback = this.navigateHome;
     }
-    this.openSaveConfirm('saveAndExit', 'Save state before closing?', callback);
+    const saveMessage = this.manualSaveOnly
+      ? 'This game only saves when you ask. Save your state before closing?'
+      : 'Save state before closing?';
+    this.openSaveConfirm('saveAndExit', saveMessage, callback);
   }
 
   private navigateHome() {
@@ -541,6 +548,12 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     const romDisplayName = this.fileService.getFileWithoutExtension(fileName); // e.g., "Ultimate MK3 (USA)"
     this.applyGamepadControlSettings(romDisplayName, core, this.system);
 
+    this.manualSaveOnly = this.isManualSaveOnlyCore(core) || this.system === 'psp' || this.system === 'ps1';
+    if (this.manualSaveOnly) {
+      // See isManualSaveOnlyCore(): no periodic background saves for these cores.
+      this.autosave = false;
+      this.clearAutosave();
+    }
     if (this.heavyCores.has(core)) {
       this.autosaveIntervalTime = 10 * 60 * 1000; // 10 minutes
       //console.log(`[EMU] Detected core "${core}", setting autosave interval to 10 minutes to reduce upload frequency for large save files.`);
@@ -1499,8 +1512,22 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }, 4000);
   }
 
+  /**
+   * PSP and PlayStation save states run to tens of megabytes, so uploading them
+   * on a timer makes the DB write the bottleneck for minutes at a time. For
+   * these cores the state is only written when the player asks for it: from the
+   * menu's Save button, or by accepting the prompt shown when leaving the game.
+   */
+  private isManualSaveOnlyCore(core: string): boolean {
+    const c = (core || '').toLowerCase();
+    return c === 'psp' || c.includes('ppsspp')
+      || c === 'mednafen_psx' || c === 'mednafen_psx_hw'
+      || c === 'pcsx_rearmed' || c === 'duckstation';
+  }
+
   setupAutosave() {
     try { this.clearAutosave(); } catch { }
+    if (this.manualSaveOnly) return; // PSP/PS1: save on request or on exit only
     if (!this.autosave || !this.romName || !this.parentRef?.user?.id) return;
 
     const core = (window as any).EJS_core || '';

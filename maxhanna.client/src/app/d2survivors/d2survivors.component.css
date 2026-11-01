@@ -1877,7 +1877,7 @@
 @media (max-width: 620px) {
   .d2s-touch-menu { display: grid; }
 
-  .d2s-inv-panel { inset: 50% auto auto 50%; width: calc(100vw - 12px); height: calc(100vh - 12px); padding: 18px 14px; transform: translate(-50%, -50%); }
+  .d2s-inv-panel { inset: 50% auto auto 50%; width: calc(100vw - 12px); height: 100vh; height: 100dvh; padding: 18px 14px; transform: translate(-50%, -50%); }
   .d2s-inventory-overlay-header { margin: 0 0 12px; padding: 0 0 10px; }
   .d2s-inventory-overlay-header h2 { font-size: 20px; }
   .d2s-inventory-toggle { padding: 6px 9px; }
@@ -1972,8 +1972,9 @@
   position: fixed;
   z-index: 30;
   inset: 50% auto auto 50%;
-  width: min(1040px, calc(100vw - 40px));
-  height: min(690px, calc(100vh - 40px));
+  width: min(1040px, calc(100vw - 24px));
+  height: 100vh;
+  height: 100dvh;
   margin: 0;
   padding: 24px 30px 22px;
   overflow: auto;
@@ -2472,7 +2473,8 @@
   .d2s-inv-panel {
     inset: 50% auto auto 50%;
     width: calc(100vw - 12px);
-    height: calc(100vh - 12px);
+    height: 100vh;
+    height: 100dvh;
     padding: 14px 9px;
     transform: translate(-50%, -50%);
   }

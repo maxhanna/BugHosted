@@ -110,12 +110,12 @@
             <button type="button" class="d2s-menu-button d2s-begin-button" *ngIf="canResumeRunFromCharacterSelect" (click)="resumeRun()"><span>Resume Saved Journey</span><small>{{ savedRunSummary }} · Continue the saved character where they left off</small></button>
           </div>
           <div class="d2s-class-preview" [class.loading]="!previewModel && !previewLoadError">
-            <canvas #classPreviewCanvas class="d2s-class-preview-canvas" [class.dragging]="previewDragging" [attr.aria-label]="selectedClassName + ' 3D hero preview. Drag to rotate; use the zoom buttons or mouse wheel to change zoom.'" (pointerdown)="onClassPreviewPointerDown($event)" (pointermove)="onClassPreviewPointerMove($event)" (pointerup)="onClassPreviewPointerUp($event)" (pointercancel)="onClassPreviewPointerUp($event)" (wheel)="onClassPreviewWheel($event)" role="img"></canvas>
+            <canvas #classPreviewCanvas class="d2s-class-preview-canvas" [class.dragging]="previewDragging" [attr.aria-label]="selectedClassName + ' 3D hero preview. Drag to rotate, click to replay the attack, or use the zoom buttons and mouse wheel to change zoom.'" (pointerdown)="onClassPreviewPointerDown($event)" (pointermove)="onClassPreviewPointerMove($event)" (pointerup)="onClassPreviewPointerUp($event)" (pointercancel)="onClassPreviewPointerUp($event)" (wheel)="onClassPreviewWheel($event)" role="img"></canvas>
             <div class="d2s-preview-controls" role="group" aria-label="Character view controls">
               <button type="button" (click)="zoomClassPreview(1)" aria-label="Zoom in on character" title="Zoom in">+</button>
               <button type="button" (click)="zoomClassPreview(-1)" aria-label="Zoom out from character" title="Zoom out">−</button>
             </div>
-            <div class="d2s-preview-hint" aria-hidden="true">DRAG TO ROTATE · SCROLL TO ZOOM</div>
+            <div class="d2s-preview-hint" aria-hidden="true">DRAG TO ROTATE · CLICK TO ATTACK · SCROLL TO ZOOM</div>
             <div class="d2s-preview-loading" *ngIf="!previewModel && !previewLoadError"><span></span>Summoning hero…</div>
             <div class="d2s-preview-error" *ngIf="previewLoadError">Hero preview unavailable</div>
             <div class="d2s-preview-plaque"><span class="d2s-class-gem large" [attr.data-initial]="selectedClassName.charAt(0)"></span><div><small>CHOSEN HERO</small><strong>{{ selectedClassName }}</strong><span>{{ selectedClassStats.title }}</span></div></div>

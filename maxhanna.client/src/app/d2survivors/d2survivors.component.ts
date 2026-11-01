@@ -393,6 +393,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private playerFacingX = 1;
   private playerFacingY = 0;
   private isPlayerMoving = false;
+  private clickMoveTarget: Enemy | null = null;
   private attackAnimationTime = Number.POSITIVE_INFINITY;
   private attackAnimationSide: -1 | 1 = -1;
   private attackAnimationStyle: AttackAnimationStyle = "amazonJab";
@@ -499,6 +500,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private previewRotation = 0.18;
   private previewDragPointer?: number;
   private previewLastPointerX = 0;
+  private previewPointerStartX = 0;
+  private previewPointerStartY = 0;
+  private previewPointerMoved = false;
   previewDragging = false;
   private readonly reducedMotion = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   ambientAudioEnabled = false;
@@ -1712,6 +1716,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.attackCooldown = 0;
     this.playerAttackLockRemaining = 0;
     this.attackProjectiles = [];
+    this.pendingDamage.clear();
+    this.pendingDamageTimer = 0;
     this.closeSkillTree();
     this.arenaW = numberValue(saved.arenaW, 500, 100, 5000);
     this.arenaH = numberValue(saved.arenaH, 500, 100, 5000);
@@ -1754,6 +1760,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.spawnAcc = numberValue(saved.spawnAcc, 0, 0, 1);
     this.chestTimer = numberValue(saved.chestTimer, 0, -3600, 3600);
     this.nextChestInterval = numberValue(saved.nextChestInterval, 8, 1, 3600);
+    this.clickMoveTarget = null;
     this.enemies = Array.isArray(saved.enemies)
       ? saved.enemies.slice(0, 220).filter(isRecord).map((enemy) => {
           const kind: EnemyKind = enemy["kind"] === "boss" || enemy["kind"] === "champion" ? enemy["kind"] : "normal";
@@ -2645,12 +2652,18 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (event.button !== 0) return;
     this.previewDragPointer = event.pointerId;
     this.previewLastPointerX = event.clientX;
+    this.previewPointerStartX = event.clientX;
+    this.previewPointerStartY = event.clientY;
+    this.previewPointerMoved = false;
     this.previewDragging = true;
     (event.currentTarget as HTMLCanvasElement).setPointerCapture(event.pointerId);
   }
 
   onClassPreviewPointerMove(event: PointerEvent): void {
     if (!this.previewDragging || this.previewDragPointer !== event.pointerId) return;
+    if (Math.hypot(event.clientX - this.previewPointerStartX, event.clientY - this.previewPointerStartY) > 4) {
+      this.previewPointerMoved = true;
+    }
     this.previewRotation += (event.clientX - this.previewLastPointerX) * 0.012;
     this.previewLastPointerX = event.clientX;
     if (this.previewModel) this.previewModel.rotation.y = this.previewRotation;
@@ -2660,6 +2673,20 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (this.previewDragPointer !== event.pointerId) return;
     this.previewDragPointer = undefined;
     this.previewDragging = false;
+    // A click (rather than a drag) replays the class attack animation.
+    if (event.type === "pointerup" && !this.previewPointerMoved) {
+      this.replayClassPreviewAttack();
+    }
+    this.previewPointerMoved = false;
+  }
+
+  private replayClassPreviewAttack(): void {
+    if (!this.previewModel) return;
+    const classId = this.previewModelClass ?? this.selectedClass;
+    this.previewAttackStyle = CLASS_ATTACK_ANIMATION[classId] ?? "amazonJab";
+    this.previewAttackSide = this.previewAttackSide === -1 ? 1 : -1;
+    this.previewAttackTime = 0;
+    this.previewAttackPending = false;
   }
 
   private updateClassPreviewZoom(): void {
@@ -2920,6 +2947,16 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   hoveredEnemy: Enemy | null = null;
   openChestCount = 0;
   floatingTexts: FloatingText[] = [];
+  // Hit resolution is expensive when the arena is packed. A coarse spatial grid
+  // narrows every area/segment check to nearby enemies, and damage from the
+  // crowded paths (area bursts, auras, summons, orbiting traps) is coalesced into
+  // a short batch so the same enemy is not re-scanned and re-texted for every source.
+  private readonly enemyGridCellSize = 128;
+  private enemyGridCells = new Map<number, Enemy[]>();
+  private enemyQueryScratch: Enemy[] = [];
+  private pendingDamage = new Map<Enemy, { damage: number; color: string }>();
+  private pendingDamageTimer = 0;
+  private readonly damageBatchInterval = 0.5;
   runTime = 0;
   lastTime = 0;
   rafId = 0;
@@ -3418,6 +3455,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         this.playerFacingX = (enemy.x - this.playerX) / distance;
         this.playerFacingY = (enemy.y - this.playerY) / distance;
       }
+      // Clicking a monster makes the hero walk into weapon range and fight it;
+      // clicking empty ground cancels the pursuit.
+      this.clickMoveTarget = enemy ?? null;
     }
     if (event.pointerType !== "touch" || this.activeTab !== "run" || !this.runActive || this.escapeMenuOpen || this.inventoryOpen || this.skillTreeOpen || this.pendingLevelUps > 0 || (this.actTransitionReady && !this.actPortalOpen) || this.campaignVictory) return;
     const target = event.target;
@@ -3741,16 +3781,26 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     return this.equipment.weapon?.baseName ?? this.equipment.weapon?.name ?? "bare hands";
   }
 
-  private weaponRequirementForSkill(skill: string): "bow" | "javelin" | null {
+  private weaponRequirementForSkill(skill: string): "bow" | "javelin" | "shield" | null {
+    if (skill === "Smite") return "shield";
     if (this.selectedClass !== "amazon") return null;
     if (AMAZON_BOW_SKILLS.has(skill)) return "bow";
     if (AMAZON_JAVELIN_SKILLS.has(skill)) return "javelin";
     return null;
   }
 
+  private hasEquippedShield(): boolean {
+    const shield = this.equipment.shield;
+    // Barbarians can fill the off-hand slot with a second weapon, which is not a shield.
+    if (!shield || shield.slot === "weapon") return false;
+    const type = getEquipmentType(shield);
+    return type === "shield" || type === "paladinShield";
+  }
+
   private hasRequiredWeaponForSkill(skill: string): boolean {
     const requirement = this.weaponRequirementForSkill(skill);
     if (!requirement) return true;
+    if (requirement === "shield") return this.hasEquippedShield();
     const weaponName = this.equippedWeaponName.toLowerCase();
     return requirement === "bow" ? /bow|crossbow/.test(weaponName) : /javelin/.test(weaponName);
   }
@@ -3932,12 +3982,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   getSkillTreeReason(skill: D2SkillDefinition & { state: "learned" | "available" | "locked"; reason: string }): string {
+    const requirement = this.getSkillRequirementLabel(skill.name);
+    const requirementSuffix = requirement ? ` · ${requirement}` : "";
     const mastery = this.weaponMasteryForName(skill.name);
-    if (!mastery) return skill.reason;
+    if (!mastery) return `${skill.reason}${requirementSuffix}`;
     const weapon = this.equippedWeaponName.toLowerCase();
     const matches = weapon !== "bare hands" && mastery.pattern.test(weapon);
     const condition = matches ? `Active with ${this.equippedWeaponName}.` : `Inactive — equip a ${mastery.weaponLabel} to use this mastery.`;
-    return `${skill.reason} · ${condition}`;
+    return `${skill.reason}${requirementSuffix} · ${condition}`;
   }
 
   private weaponMasteryForName(name: string): { weaponLabel: string; pattern: RegExp } | undefined {
@@ -4286,12 +4338,41 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.playerFacingY = (nearest.y - this.playerY) / Math.max(1, distance);
     if (isAssassinKickSkill && distance > nearest.r + 28) return;
 
+    if (skill === "Smite" && this.selectedClass === "paladin") {
+      // Shield bash: slam everything in a short forward arc, shove it away, and
+      // leave it dazed long enough for a follow-up swing.
+      const smiteRange = 112;
+      const knockbackDistance = 64;
+      const stunSeconds = 1.4 + Math.max(0, multiplier - 1) * 0.12;
+      let connected = false;
+      this.rebuildEnemyGrid();
+      for (const enemy of this.collectEnemiesNear(this.playerX, this.playerY, smiteRange + 96)) {
+        if (enemy.hp <= 0 || enemy.summonType) continue;
+        const enemyDx = enemy.x - this.playerX;
+        const enemyDy = enemy.y - this.playerY;
+        const enemyDistance = Math.hypot(enemyDx, enemyDy) || 1;
+        if (enemyDistance > smiteRange + enemy.r) continue;
+        const forward = (enemyDx / enemyDistance) * this.playerFacingX + (enemyDy / enemyDistance) * this.playerFacingY;
+        if (forward < 0.1) continue;
+        const pushX = enemy.x + (enemyDx / enemyDistance) * knockbackDistance;
+        const pushY = enemy.y + (enemyDy / enemyDistance) * knockbackDistance;
+        enemy.x = Math.max(enemy.r, Math.min(this.arenaW - enemy.r, pushX));
+        enemy.y = Math.max(enemy.r, Math.min(this.arenaH - enemy.r, pushY));
+        this.applyEnemyStun(enemy, stunSeconds);
+        this.queueEnemyDamage(enemy, damage, "#fff0a8");
+        this.floatingTexts.push({ x: enemy.x, y: enemy.y - enemy.r - 6, text: "STUN", color: "#ffe27a", life: 0.7 });
+        connected = true;
+      }
+      this.addSkillVisualEffect(skill, nearest);
+      if (connected) this.triggerAttackAnimation("paladinStrike");
+      return;
+    }
+
     if (skill === "Whirlwind" && this.selectedClass === "barbarian") {
       const targets = this.enemies.filter((enemy) => enemy.hp > 0 && Math.hypot(enemy.x - this.playerX, enemy.y - this.playerY) <= 115);
       if (!targets.length) return;
       for (const target of targets) {
-        target.hp -= damage * 1.6;
-        this.floatingTexts.push({ x: target.x, y: target.y - target.r, text: `-${Math.floor(damage * 1.6)}`, color: attack.color, life: 0.8 });
+        this.queueEnemyDamage(target, damage * 1.6, attack.color);
       }
       this.triggerAttackAnimation("spin");
       return;
@@ -4361,8 +4442,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           const impactDistance = Math.hypot(enemy.x - nearest.x, enemy.y - nearest.y);
           if (impactDistance > impactRadius + enemy.r) continue;
           const tailDamage = enemy === nearest ? damage : damage * 0.75;
-          enemy.hp -= tailDamage;
-          this.floatingTexts.push({ x: enemy.x, y: enemy.y - enemy.r, text: `-${Math.floor(tailDamage)}`, color: attack.color, life: 0.8 });
+          this.queueEnemyDamage(enemy, tailDamage, attack.color);
         }
       } else {
         this.addSkillVisualEffect(skill, nearest);
@@ -5088,10 +5168,15 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   private updateBasicAttack(): void {
     if (!this.runActive || this.pendingLevelUps > 0 || this.attackCooldown > 0) return;
-    const target = this.enemies
+    const nearest = this.enemies
       .filter((enemy) => enemy.hp > 0)
       .sort((a, b) => Math.hypot(a.x - this.playerX, a.y - this.playerY) - Math.hypot(b.x - this.playerX, b.y - this.playerY))[0];
-    if (!target) return;
+    if (!nearest) return;
+    const clicked = this.clickMoveTarget;
+    const clickedDistance = clicked ? Math.hypot(clicked.x - this.playerX, clicked.y - this.playerY) : Number.POSITIVE_INFINITY;
+    const clickedInRange = !!clicked && clicked.hp > 0 && !clicked.summonType
+      && clickedDistance <= (this.thrownWeaponKind ? this.thrownWeaponRange : clicked.r + 28);
+    const target = clickedInRange && clicked ? clicked : nearest;
 
     const attack = this.basicAttackForClass(this.selectedClass);
     const attackLevel = this.skillLevels[this.basicAttackName] ?? 1;
@@ -5211,6 +5296,89 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     else this.attackCooldown = Math.min(0.12, this.basicAttackCooldown);
   }
 
+  private rebuildEnemyGrid(): void {
+    for (const cell of this.enemyGridCells.values()) cell.length = 0;
+    const size = this.enemyGridCellSize;
+    for (const enemy of this.enemies) {
+      if (enemy.hp <= 0) continue;
+      const cellX = Math.floor(enemy.x / size);
+      const cellY = Math.floor(enemy.y / size);
+      const key = (((cellX + 512) & 1023) << 10) | ((cellY + 512) & 1023);
+      const cell = this.enemyGridCells.get(key);
+      if (cell) cell.push(enemy);
+      else this.enemyGridCells.set(key, [enemy]);
+    }
+  }
+
+  /**
+   * Returns living enemies within `radius` of a point using the cached grid.
+   * The returned array is reused between calls, so consume it immediately.
+   */
+  private collectEnemiesNear(x: number, y: number, radius: number): Enemy[] {
+    const out = this.enemyQueryScratch;
+    out.length = 0;
+    const size = this.enemyGridCellSize;
+    const minCellX = Math.floor((x - radius) / size);
+    const maxCellX = Math.floor((x + radius) / size);
+    const minCellY = Math.floor((y - radius) / size);
+    const maxCellY = Math.floor((y + radius) / size);
+    for (let cellX = minCellX; cellX <= maxCellX; cellX += 1) {
+      const keyX = ((cellX + 512) & 1023) << 10;
+      for (let cellY = minCellY; cellY <= maxCellY; cellY += 1) {
+        const cell = this.enemyGridCells.get(keyX | ((cellY + 512) & 1023));
+        if (!cell) continue;
+        for (const enemy of cell) {
+          if (enemy.hp > 0) out.push(enemy);
+        }
+      }
+    }
+    return out;
+  }
+
+  /**
+   * Queues area/tick damage so every hit that lands during the batch window is
+   * applied in one pass. Multiple hits on the same enemy collapse into a single
+   * total and a single floating number, which keeps packed fights from spamming
+   * per-frame damage text and repeated hp writes. Single-target hits still apply
+   * immediately so melee and projectile feedback stays crisp.
+   */
+  private queueEnemyDamage(enemy: Enemy, damage: number, color: string): void {
+    if (!(damage > 0) || enemy.hp <= 0) return;
+    const pending = this.pendingDamage.get(enemy);
+    if (pending) pending.damage += damage;
+    else {
+      this.pendingDamage.set(enemy, { damage, color });
+      // Large bursts should not wait for the next batch window; resolving them
+      // as soon as the threshold is reached keeps packed fights responsive.
+      if (this.pendingDamage.size >= 32) this.flushPendingDamage();
+    }
+  }
+
+  private flushPendingDamage(): void {
+    if (this.pendingDamage.size === 0) return;
+    for (const [enemy, hit] of this.pendingDamage) {
+      if (enemy.hp <= 0) continue;
+      enemy.hp -= hit.damage;
+      if (this.floatingTexts.length < 64) {
+        this.floatingTexts.push({
+          x: enemy.x,
+          y: enemy.y - enemy.r - 8,
+          text: `-${Math.floor(hit.damage)}`,
+          color: hit.color,
+          life: 0.65,
+        });
+      }
+    }
+    this.pendingDamage.clear();
+  }
+
+  private updatePendingDamage(dt: number): void {
+    this.pendingDamageTimer -= dt / 1000;
+    if (this.pendingDamageTimer > 0) return;
+    this.pendingDamageTimer = this.damageBatchInterval;
+    this.flushPendingDamage();
+  }
+
   private updateAttackProjectiles(dt: number): void {
     const seconds = dt / 1000;
     const existingProjectileCount = this.attackProjectiles.length;
@@ -5237,11 +5405,17 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           continue;
         }
         if (projectile.shotCooldown > 0) continue;
-        const target = this.enemies
-          .filter((enemy) => enemy.hp > 0 && !enemy.summonType && Math.hypot(enemy.x - projectile.x, enemy.y - projectile.y) <= 340)
-          .sort((a, b) => Math.hypot(a.x - projectile.x, a.y - projectile.y) - Math.hypot(b.x - projectile.x, b.y - projectile.y))[0];
+        let target: Enemy | undefined;
+        let targetDistance = Number.POSITIVE_INFINITY;
+        for (const enemy of this.collectEnemiesNear(projectile.x, projectile.y, 340 + 96)) {
+          if (enemy.summonType) continue;
+          const candidateDistance = Math.hypot(enemy.x - projectile.x, enemy.y - projectile.y);
+          if (candidateDistance > 340 || candidateDistance >= targetDistance) continue;
+          target = enemy;
+          targetDistance = candidateDistance;
+        }
         if (!target) continue;
-        const distance = Math.hypot(target.x - projectile.x, target.y - projectile.y) || 1;
+        const distance = targetDistance || 1;
         this.attackProjectiles.push({
           x: projectile.x, y: projectile.y, startX: projectile.x, startY: projectile.y,
           targetX: target.x, targetY: target.y, target, homing: false,
@@ -5265,23 +5439,21 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           if (projectile.impactTrap) {
             const insideEnemies = projectile.impactInsideEnemies ?? (projectile.impactInsideEnemies = []);
             const currentlyInside: Enemy[] = [];
-            for (const enemy of this.enemies) {
-              if (enemy.hp <= 0 || Math.hypot(enemy.x - projectile.impactPoint.x, enemy.y - projectile.impactPoint.y) > projectile.impactRadius + enemy.r) continue;
+            for (const enemy of this.collectEnemiesNear(projectile.impactPoint.x, projectile.impactPoint.y, projectile.impactRadius + 96)) {
+              if (Math.hypot(enemy.x - projectile.impactPoint.x, enemy.y - projectile.impactPoint.y) > projectile.impactRadius + enemy.r) continue;
               currentlyInside.push(enemy);
               if (insideEnemies.includes(enemy)) continue;
-              enemy.hp -= projectile.damage;
-              this.floatingTexts.push({ x: enemy.x, y: enemy.y - enemy.r - 8, text: `-${Math.floor(projectile.damage)}`, color: projectile.color, life: 0.65 });
+              this.queueEnemyDamage(enemy, projectile.damage, projectile.color);
             }
             projectile.impactInsideEnemies = currentlyInside;
           } else {
             const hitEnemies = projectile.impactHitEnemies ?? (projectile.impactHitEnemies = []);
-            for (const enemy of this.enemies) {
-              if (enemy.hp <= 0 || hitEnemies.includes(enemy) || (projectile.corpseExplosion && enemy.summonType)) continue;
+            for (const enemy of this.collectEnemiesNear(projectile.impactPoint.x, projectile.impactPoint.y, projectile.impactRadius + 96)) {
+              if (hitEnemies.includes(enemy) || (projectile.corpseExplosion && enemy.summonType)) continue;
               if (Math.hypot(enemy.x - projectile.impactPoint.x, enemy.y - projectile.impactPoint.y) > projectile.impactRadius + enemy.r) continue;
               const hitDamage = projectile.corpseExplosion ? projectile.corpseExplosionDamage ?? 1 : projectile.damage;
-              enemy.hp -= hitDamage;
+              this.queueEnemyDamage(enemy, hitDamage, projectile.color);
               hitEnemies.push(enemy);
-              this.floatingTexts.push({ x: enemy.x, y: enemy.y - enemy.r - 8, text: `-${Math.floor(hitDamage)}`, color: projectile.color, life: 0.65 });
             }
           }
         }
@@ -5299,19 +5471,19 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         const segmentX = nextX - projectile.x;
         const segmentY = nextY - projectile.y;
         const segmentLengthSquared = segmentX * segmentX + segmentY * segmentY;
-        const hit = this.enemies
-          .filter((enemy) => enemy.hp > 0)
-          .map((enemy) => {
-            const relativeX = enemy.x - projectile.x;
-            const relativeY = enemy.y - projectile.y;
-            const along = segmentLengthSquared > 0
-              ? Math.max(0, Math.min(1, (relativeX * segmentX + relativeY * segmentY) / segmentLengthSquared))
-              : 0;
-            const miss = Math.hypot(relativeX - along * segmentX, relativeY - along * segmentY);
-            return { enemy, along, miss };
-          })
-          .filter(({ enemy, miss }) => miss <= enemy.r + 7)
-          .sort((a, b) => a.along - b.along)[0]?.enemy;
+        let hit: Enemy | undefined;
+        let hitAlong = Number.POSITIVE_INFINITY;
+        for (const enemy of this.collectEnemiesNear(projectile.x, projectile.y, step + 96)) {
+          const relativeX = enemy.x - projectile.x;
+          const relativeY = enemy.y - projectile.y;
+          const along = segmentLengthSquared > 0
+            ? Math.max(0, Math.min(1, (relativeX * segmentX + relativeY * segmentY) / segmentLengthSquared))
+            : 0;
+          const miss = Math.hypot(relativeX - along * segmentX, relativeY - along * segmentY);
+          if (miss > enemy.r + 7 || along >= hitAlong) continue;
+          hit = enemy;
+          hitAlong = along;
+        }
         if (hit) {
           hit.hp -= projectile.damage;
           projectile.life = 0;
@@ -5326,7 +5498,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       }
       const target = projectile.target;
       const targetIsPlayer = projectile.targetPlayer === true;
-      const targetIsAlive = targetIsPlayer || (!!target && this.enemies.includes(target) && target.hp > 0);
+      const targetIsAlive = targetIsPlayer || (!!target && target.hp > 0);
       if (projectile.homing && targetIsAlive) {
         if (targetIsPlayer) {
           projectile.targetX = this.playerX;
@@ -5377,7 +5549,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
             : { x: projectile.targetX, y: projectile.targetY };
         }
         projectile.impactAge = 0;
-        if (targetIsPlayer || projectile.impactRadius === undefined) {
+        if (targetIsPlayer) {
           this.floatingTexts.push({ x: collisionX ?? projectile.targetX, y: (collisionY ?? projectile.targetY) - 12, text: `-${projectile.damage}`, color: projectile.color, life: 0.65 });
         }
       } else if (distance <= step) {
@@ -5392,7 +5564,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         projectile.y = nextY;
       }
     }
-    this.attackProjectiles = this.attackProjectiles.filter((projectile) => projectile.life > 0);
+    let liveProjectiles = 0;
+    for (let index = 0; index < this.attackProjectiles.length; index += 1) {
+      const projectile = this.attackProjectiles[index];
+      if (projectile.life > 0) this.attackProjectiles[liveProjectiles++] = projectile;
+    }
+    this.attackProjectiles.length = liveProjectiles;
   }
 
   private drawMeleeTrail(ctx: CanvasRenderingContext2D, effect: MeleeTrailEffect): void {
@@ -6028,6 +6205,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.playerAttackLockRemaining = 0;
     this.attackSequence = 0;
     this.attackProjectiles = [];
+    this.pendingDamage.clear();
+    this.pendingDamageTimer = 0;
     this.closeSkillTree();
     this.attackAnimationTime = Number.POSITIVE_INFINITY;
     this.attackAnimationStyle = CLASS_ATTACK_ANIMATION[this.selectedClass] ?? "amazonJab";
@@ -6151,6 +6330,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.movePlayer(dt);
     this.updateAct1InteriorState();
 
+    this.rebuildEnemyGrid();
     this.updateAttackProjectiles(dt);
     if (this.pendingLevelUps > 0 && this.upgradeChoices.length === 0) this.prepareUpgradeChoices();
     if (this.pendingLevelUps > 0) this.attackProjectiles = this.attackProjectiles.filter((projectile) => projectile.wakeOfFireTrap || projectile.boneWall);
@@ -6166,6 +6346,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.updateGoldDrops(dt);
     this.updateFloatingTexts(dt);
     this.updateSkillVisualEffects(dt);
+    this.updatePendingDamage(dt);
     if (!this.actTransitionReady) this.spawnEnemies(dt);
     this.spawnChests(dt);
     this.persistRunProgress();
@@ -6192,14 +6373,37 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (this.keysDown.has("s") || this.keysDown.has("arrowdown")) screenY += move;
     if (this.keysDown.has("a") || this.keysDown.has("arrowleft")) screenX -= move;
     if (this.keysDown.has("d") || this.keysDown.has("arrowright")) screenX += move;
+    const keyboardMoving = screenX !== 0 || screenY !== 0;
+    if (keyboardMoving) this.clickMoveTarget = null;
     const diagonalLength = Math.hypot(screenX, screenY);
     if (diagonalLength > move && move > 0) {
       screenX *= move / diagonalLength;
       screenY *= move / diagonalLength;
     }
-    const projectionScale = 0.7071;
-    const dx = (screenX + 2 * screenY) / (2 * projectionScale);
-    const dy = (2 * screenY - screenX) / (2 * projectionScale);
+    let dx = 0;
+    let dy = 0;
+    const clickedTarget = this.clickMoveTarget;
+    if (clickedTarget && (clickedTarget.hp <= 0 || clickedTarget.summonType)) {
+      this.clickMoveTarget = null;
+    } else if (!keyboardMoving && clickedTarget) {
+      // Walk in world space toward the clicked monster and stop just inside
+      // basic-attack range (or throwing range for thrown weapons).
+      const targetDx = clickedTarget.x - this.playerX;
+      const targetDy = clickedTarget.y - this.playerY;
+      const targetDistance = Math.hypot(targetDx, targetDy) || 1;
+      const stopDistance = this.thrownWeaponKind ? this.thrownWeaponRange - 8 : clickedTarget.r + 24;
+      const step = Math.max(0, Math.min(move, targetDistance - stopDistance));
+      dx = targetDx / targetDistance * step;
+      dy = targetDy / targetDistance * step;
+      if (step <= 0) {
+        this.playerFacingX = targetDx / targetDistance;
+        this.playerFacingY = targetDy / targetDistance;
+      }
+    } else {
+      const projectionScale = 0.7071;
+      dx = (screenX + 2 * screenY) / (2 * projectionScale);
+      dy = (2 * screenY - screenX) / (2 * projectionScale);
+    }
     const chunkWidth = this.chunkTileColumns * CAMPAIGN_TILE_WORLD_SIZE;
     const chunkHeight = this.chunkTileRows * CAMPAIGN_TILE_WORLD_SIZE;
     // Camera and floor tile coordinates both use gameplay-world units.
@@ -6450,12 +6654,20 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     return { x: this.playerX + Math.cos(angle) * radius, y: this.playerY + Math.sin(angle) * radius };
   }
 
+  private applyEnemyStun(enemy: Enemy, seconds: number): void {
+    if (!(seconds > 0) || enemy.hp <= 0) return;
+    enemy.stunRemaining = Math.max(enemy.stunRemaining ?? 0, seconds);
+    enemy.animationState = "idle";
+    enemy.attackAnimationTime = 0;
+  }
+
   updateEnemies(dt: number): void {
     const elapsedSeconds = dt / 1000;
     this.druidFormAnimationTime += elapsedSeconds;
     this.druidFormAttackTime = Math.max(0, this.druidFormAttackTime - elapsedSeconds);
-    const livingEnemies = this.enemies.filter((enemy) => !enemy.summonType && enemy.hp > 0);
+    this.rebuildEnemyGrid();
     const summons = this.enemies.filter((enemy) => !!enemy.summonType && enemy.hp > 0);
+    const combatSummons = summons.filter((summon) => summon.summonType === "skeleton" || summon.summonType === "druid");
     for (let index = 0; index < summons.length; index += 1) {
       const summon = summons[index];
       summon.animationState = "idle";
@@ -6467,12 +6679,19 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const summonDistanceToHero = Math.hypot(summon.x - this.playerX, summon.y - this.playerY);
       const targetRange = raisedSkeleton ? 200 : 360;
       const canEngageTarget = !raisedSkeleton || summonDistanceToHero <= 220;
-      const target = livingEnemies
-        .filter((enemy) => canEngageTarget
-          && enemy.hp > 0
-          && Math.hypot(enemy.x - this.playerX, enemy.y - this.playerY) < targetRange
-          && (!raisedSkeleton || Math.hypot(enemy.x - summon.x, enemy.y - summon.y) < 190))
-        .sort((a, b) => Math.hypot(a.x - summon.x, a.y - summon.y) - Math.hypot(b.x - summon.x, b.y - summon.y))[0];
+      let target: Enemy | undefined;
+      let targetDistance = Number.POSITIVE_INFINITY;
+      if (canEngageTarget) {
+        for (const enemy of this.collectEnemiesNear(this.playerX, this.playerY, targetRange + 96)) {
+          if (enemy.summonType) continue;
+          if (Math.hypot(enemy.x - this.playerX, enemy.y - this.playerY) >= targetRange) continue;
+          if (raisedSkeleton && Math.hypot(enemy.x - summon.x, enemy.y - summon.y) >= 190) continue;
+          const candidateDistance = Math.hypot(enemy.x - summon.x, enemy.y - summon.y);
+          if (candidateDistance >= targetDistance) continue;
+          target = enemy;
+          targetDistance = candidateDistance;
+        }
+      }
       let targetX: number;
       let targetY: number;
       if (target) {
@@ -6509,13 +6728,22 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
 
     for (const enemy of this.enemies) {
-      if (enemy.summonType) continue;
+      if (enemy.summonType || enemy.hp <= 0) continue;
       if (enemy.curseRemaining !== undefined) {
         enemy.curseRemaining = Math.max(0, enemy.curseRemaining - elapsedSeconds);
         if (enemy.curseRemaining === 0) {
           enemy.curseName = undefined;
           enemy.curseRemaining = undefined;
         }
+      }
+      if (enemy.stunRemaining !== undefined && enemy.stunRemaining > 0) {
+        // Stunned monsters cannot move, aim, or attack; they shake off the stun
+        // once the timer runs out.
+        enemy.stunRemaining = Math.max(0, enemy.stunRemaining - elapsedSeconds);
+        enemy.animationState = "idle";
+        enemy.attackAnimationTime = 0;
+        enemy.cd = Math.max(0, (enemy.cd ?? 0) - elapsedSeconds);
+        continue;
       }
       if (enemy.curseName === "Dim Vision") {
         enemy.animationState = "idle";
@@ -6542,13 +6770,16 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         }
         continue;
       }
-      const nearestSummon = summons
-        .filter((summon) => summon.hp > 0 && (summon.summonType === "skeleton" || summon.summonType === "druid"))
-        .sort((a, b) => Math.hypot(a.x - enemy.x, a.y - enemy.y) - Math.hypot(b.x - enemy.x, b.y - enemy.y))[0];
+      let nearestSummon: Enemy | undefined;
+      let summonDistance = Number.POSITIVE_INFINITY;
+      for (const summon of combatSummons) {
+        if (summon.hp <= 0) continue;
+        const candidateDistance = Math.hypot(summon.x - enemy.x, summon.y - enemy.y);
+        if (candidateDistance >= summonDistance) continue;
+        nearestSummon = summon;
+        summonDistance = candidateDistance;
+      }
       const playerDistance = Math.hypot(this.playerX - enemy.x, this.playerY - enemy.y);
-      const summonDistance = nearestSummon
-        ? Math.hypot(nearestSummon.x - enemy.x, nearestSummon.y - enemy.y)
-        : Number.POSITIVE_INFINITY;
       const targetSummon = enemy.species !== "andariel" && nearestSummon && summonDistance < playerDistance ? nearestSummon : undefined;
       const targetX = targetSummon?.x ?? this.playerX;
       const targetY = targetSummon?.y ?? this.playerY;
@@ -6681,13 +6912,18 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         } else {
           this.playerHp -= this.applyIncomingDamage(enemy.dmg);
           const thornsRank = this.activePaladinAuraRank(["Thorns"]);
-          if (thornsRank > 0) enemy.hp -= enemy.dmg * thornsRank * 0.5;
+          if (thornsRank > 0) this.queueEnemyDamage(enemy, enemy.dmg * thornsRank * 0.5, "#ffd083");
         }
         enemy.cd = enemy.kind === "boss" ? 1.1 : enemy.kind === "champion" ? 0.9 : 0.8;
       }
     }
-    const vileMothers = this.enemies.filter((enemy) => !enemy.summonType && enemy.species === "vileMother" && enemy.hp > 0);
-    let vileChildCount = this.enemies.filter((enemy) => !enemy.summonType && enemy.species === "vileChild" && enemy.hp > 0).length;
+    const vileMothers: Enemy[] = [];
+    let vileChildCount = 0;
+    for (const enemy of this.enemies) {
+      if (enemy.summonType || enemy.hp <= 0) continue;
+      if (enemy.species === "vileMother") vileMothers.push(enemy);
+      else if (enemy.species === "vileChild") vileChildCount += 1;
+    }
     const vileChildCapacity = vileMothers.length * 10;
     for (const mother of vileMothers) {
       mother.hatchCooldown = Math.max(0, (mother.hatchCooldown ?? 6) - elapsedSeconds);
@@ -6705,20 +6941,24 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.floatingTexts.push({ x: mother.x, y: mother.y - mother.r - 8, text: "HATCH!", color: "#d9c3a1", life: 0.9 });
     }
 
-    const defeatedEnemies = this.enemies.filter((enemy) => !enemy.summonType && enemy.hp <= 0);
-    for (const enemy of defeatedEnemies) {
+    let defeatedCount = 0;
+    let defeatedCampaignBoss = false;
+    for (const enemy of this.enemies) {
+      if (enemy.summonType || enemy.hp > 0) continue;
+      defeatedCount += 1;
       this.grantExperience(enemy.kind === "boss" ? 8 : enemy.kind === "champion" ? 3 : 1);
       this.maybeDropGold(enemy);
       if (enemy.kind === "champion" || enemy.kind === "boss") {
         this.chests.push({ x: enemy.x, y: enemy.y, bob: 0, open: false, life: 30 });
       }
+      if (enemy.campaignBoss) defeatedCampaignBoss = true;
     }
     const redemptionRank = this.activePaladinAuraRank(["Redemption"]);
-    if (redemptionRank > 0 && defeatedEnemies.length > 0) {
-      this.playerHp = Math.min(this.playerMaxHp, this.playerHp + redemptionRank * 2 * defeatedEnemies.length);
+    if (redemptionRank > 0 && defeatedCount > 0) {
+      this.playerHp = Math.min(this.playerMaxHp, this.playerHp + redemptionRank * 2 * defeatedCount);
     }
-    this.runKillCount += defeatedEnemies.length;
-    if (defeatedEnemies.some((enemy) => enemy.campaignBoss)) {
+    this.runKillCount += defeatedCount;
+    if (defeatedCampaignBoss) {
       this.actTransitionReady = true;
       this.floatingTexts.push({ x: this.playerX, y: this.playerY - 48, text: `ACT ${this.currentAct} BOSS DEFEATED`, color: "#ffd27a", life: 3 });
       this.persistRunProgress(true);
@@ -6726,7 +6966,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (this.playerHp <= 0 && !this.consumeRejuvenationPotion()) {
       this.endRun(false);
     }
-    this.enemies = this.enemies.filter((enemy) => enemy.hp > 0 && this.playerHp > 0);
+    const keepEnemies = this.playerHp > 0;
+    let liveEnemies = 0;
+    for (const enemy of this.enemies) {
+      if (keepEnemies && enemy.hp > 0) this.enemies[liveEnemies++] = enemy;
+    }
+    this.enemies.length = liveEnemies;
   }
 
   updateChests(dt: number): void {
@@ -7057,6 +7302,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   private updateSkillVisualEffects(dt: number): void {
     const seconds = dt / 1000;
+    // Enemies moved during updateEnemies; refresh the grid before area ticks.
+    this.rebuildEnemyGrid();
     if (this.isBoneArmorActive()) {
       this.boneArmorRemaining = Math.max(0, this.boneArmorRemaining - seconds);
       if (this.boneArmorRemaining === 0) {
@@ -7082,11 +7329,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         effect.tickRemaining = (effect.tickRemaining ?? 0) - seconds;
         while (effect.tickRemaining <= 0 && effect.time < effect.duration) {
           const radius = 58;
-          for (const enemy of this.enemies) {
-            if (enemy.hp <= 0 || enemy.summonType || Math.hypot(enemy.x - this.playerX, enemy.y - this.playerY) > radius + enemy.r) continue;
-            const damage = effect.damagePerTick ?? 1;
-            enemy.hp -= damage;
-            this.floatingTexts.push({ x: enemy.x, y: enemy.y - enemy.r - 8, text: `-${Math.floor(damage)}`, color: effect.color, life: 0.65 });
+          for (const enemy of this.collectEnemiesNear(this.playerX, this.playerY, radius + 96)) {
+            if (enemy.summonType || Math.hypot(enemy.x - this.playerX, enemy.y - this.playerY) > radius + enemy.r) continue;
+            this.queueEnemyDamage(enemy, effect.damagePerTick ?? 1, effect.color);
           }
           effect.tickRemaining += effect.tickInterval ?? 0.45;
         }
@@ -7181,16 +7426,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (baseDamage === undefined) return;
     const damage = baseDamage * rank * (1 + (rank - 1) * 0.15);
 
-    for (const enemy of this.enemies) {
-      if (enemy.hp <= 0 || enemy.summonType || Math.hypot(enemy.x - this.playerX, enemy.y - this.playerY) > radius) continue;
-      enemy.hp -= damage;
-      this.floatingTexts.push({
-        x: enemy.x,
-        y: enemy.y - enemy.r - 8,
-        text: `-${Math.floor(damage)}`,
-        color: this.skillVisualColorForName(skill, "aura"),
-        life: 0.55,
-      });
+    for (const enemy of this.collectEnemiesNear(this.playerX, this.playerY, radius + 96)) {
+      if (enemy.summonType || Math.hypot(enemy.x - this.playerX, enemy.y - this.playerY) > radius) continue;
+      this.queueEnemyDamage(enemy, damage, this.skillVisualColorForName(skill, "aura"));
     }
   }
 
@@ -7530,11 +7768,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   updateFloatingTexts(dt: number): void {
+    let liveTexts = 0;
     for (const floatingText of this.floatingTexts) {
       floatingText.y -= 0.25 * (dt / 1000) * 60;
       floatingText.life -= dt / 1000;
+      if (floatingText.life > 0) this.floatingTexts[liveTexts++] = floatingText;
     }
-    this.floatingTexts = this.floatingTexts.filter((floatingText) => floatingText.life > 0);
+    this.floatingTexts.length = liveTexts;
   }
 
   selectedItem: D2InventoryItem | null = null;
@@ -8067,7 +8307,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         }
       }
     }
-    this.enemies = this.enemies.slice(0, 220);
+    if (this.enemies.length > 220) this.enemies.length = 220;
   }
 
   openActPortal(): void {
@@ -8108,6 +8348,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.actPortalOpen = false;
     this.enemies = [];
     this.attackProjectiles = [];
+    this.pendingDamage.clear();
+    this.pendingDamageTimer = 0;
     this.chests = [];
     this.potionDrops = [];
     this.goldDrops = [];
@@ -8504,7 +8746,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       ...this.potionDrops.map((entity) => ({ depth: this.projectArenaPoint(entity.x, entity.y).y, draw: () => this.drawPotionDrop(ctx, entity) })),
       ...this.goldDrops.map((entity) => ({ depth: this.projectArenaPoint(entity.x, entity.y).y, draw: () => this.drawGoldDrop(ctx, entity) })),
     ].sort((a, b) => a.depth - b.depth);
-    drawOrder.sort((a, b) => a.depth - b.depth);
     for (const entity of drawOrder) entity.draw();
     if (this.actPortalOpen) this.drawActPortal(ctx);
     if (this.druidForm) this.drawDruidForm(ctx);
@@ -9641,6 +9882,26 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
 
     this.drawHpBar(ctx, e, color, size, ground);
+    if ((e.stunRemaining ?? 0) > 0) this.drawEnemyStun(ctx, ground, size);
+  }
+
+  private drawEnemyStun(ctx: CanvasRenderingContext2D, ground: { x: number; y: number }, size: number): void {
+    const radius = Math.max(8, size * 0.2);
+    const topY = ground.y - size * 0.95;
+    const spin = this.runTime * 3.2;
+    ctx.save();
+    ctx.fillStyle = "#ffe27a";
+    ctx.shadowColor = "#ffcf4d";
+    ctx.shadowBlur = Math.max(4, size * 0.06);
+    for (let star = 0; star < 3; star += 1) {
+      const angle = spin + star * (Math.PI * 2 / 3);
+      const x = ground.x + Math.cos(angle) * radius;
+      const y = topY + Math.sin(angle) * radius * 0.34;
+      ctx.beginPath();
+      ctx.arc(x, y, Math.max(1.2, size * 0.035), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
   }
 
   getEnemyDisplayName(enemy: Enemy): string {
@@ -9955,14 +10216,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     for (const effect of this.summonAttackEffects) {
       effect.time += dt / 1000;
       if (effect.time < effect.duration || effect.target.hp <= 0) continue;
-      effect.target.hp -= effect.damage;
-      this.floatingTexts.push({
-        x: effect.target.x,
-        y: effect.target.y - effect.target.r - 8,
-        text: `-${effect.damage}`,
-        color: effect.summon.summonSkill === "Raven" ? "#a99bda" : effect.summon.summonType === "golem" ? "#d9aa68" : effect.summon.summonSkill === "Werewolf" ? "#c9a273" : "#d1e2e8",
-        life: 0.65,
-      });
+      const color = effect.summon.summonSkill === "Raven" ? "#a99bda" : effect.summon.summonType === "golem" ? "#d9aa68" : effect.summon.summonSkill === "Werewolf" ? "#c9a273" : "#d1e2e8";
+      this.queueEnemyDamage(effect.target, effect.damage, color);
       effect.time = effect.duration + 1;
     }
     for (let index = this.summonAttackEffects.length - 1; index >= 0; index -= 1) {
@@ -10897,6 +11152,7 @@ interface Enemy {
   hatchCooldown?: number;
   curseName?: NecromancerCurseName;
   curseRemaining?: number;
+  stunRemaining?: number;
 }
 
 interface Chest {

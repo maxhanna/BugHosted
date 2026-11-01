@@ -94,7 +94,7 @@
   <!-- Menu Buttons: only show when FAQ or Gamepad Details are not open -->
   <div *ngIf="shouldShowMenuContent()" class="emuMenuButtonContainer">
     <div class="emuMenuButtonGrid">
-      <button (click)="autosave = !autosave; autosave ? setupAutosave() : clearAutosave();" class="emuMenuButton squareButton" title="Autosave">
+      <button *ngIf="!manualSaveOnly" (click)="autosave = !autosave; autosave ? setupAutosave() : clearAutosave();" class="emuMenuButton squareButton" title="Autosave">
         {{autosave ? '💾' : '🚫'}}<div class="emuMenuButtonLabel">Autosave</div>
         <span class="checkbox-indicator" [class.checked]="autosave" aria-hidden="true"></span>
       </button>
