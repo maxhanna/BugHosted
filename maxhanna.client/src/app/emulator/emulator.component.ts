@@ -176,13 +176,6 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this.status = 'Ready - Select a ROM';
     this.cdr.detectChanges();
 
-    // One-time housekeeping: the owner's visit drains the legacy MySQL
-    // save-state blobs into per-user .state files on disk. Fire-and-forget —
-    // the server runs it in the background and ignores repeat calls.
-    if (this.parentRef?.user?.id === 1) {
-      this.romService.migrateSaveStatesOnce();
-    }
-
     // Check for pending share requests before loading any ROM
     if (this.parentRef?.user?.id) {
       const shares = await this.romService.getPendingShares(this.parentRef.user.id);

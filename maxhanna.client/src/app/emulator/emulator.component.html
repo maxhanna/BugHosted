@@ -11,10 +11,13 @@
   <!-- Status Display -->
   <div *ngIf="!romName && isLoading">
     <span class="loadingContainerStatus">{{ status }}</span>
-    <!-- Visual counterpart to the "Downloading ROM … (76%)" text -->
-    <div *ngIf="progressPct !== null" style="margin:8px auto 0; width:min(420px, 70vw);">
+    <!-- Visual counterpart to the "Downloading ROM … (76%)" text. The grey plate
+         is deliberate: this overlay sits on top of a background image, and a bare
+         translucent track disappears against it. -->
+    <div *ngIf="progressPct !== null"
+         style="margin:10px auto 0; width:min(420px, 70vw); box-sizing:border-box; background:rgba(55,55,55,0.92); padding:7px 8px; border-radius:9px; border:1px solid rgba(0,0,0,0.45);">
       <div role="progressbar" [attr.aria-valuenow]="progressPct" aria-valuemin="0" aria-valuemax="100"
-           style="height:10px; border-radius:5px; background:rgba(255,255,255,0.15); overflow:hidden;">
+           style="height:10px; border-radius:5px; background:rgba(255,255,255,0.22); overflow:hidden;">
         <div [style.width.%]="progressPct" style="height:100%; background:#4af; transition:width 0.15s linear;"></div>
       </div>
     </div>
