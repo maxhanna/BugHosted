@@ -938,9 +938,9 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (systemIcon) {
       w.EJS_backgroundImage = systemIcon;
     }
-    if (core === "psp" || core == "ppsspp") {
-      this.applyPSPCoreSettings(w); // force our perf defaults over any saved prefs
-    }
+    // if (core === "psp" || core == "ppsspp") {
+    //   this.applyPSPCoreSettings(w); // force our perf defaults over any saved prefs
+    // }
     if (core === 'mupen64plus_next' || core === 'parallel_n64' || system === 'n64') {
       this.applyN64CoreSettings(w);
     }

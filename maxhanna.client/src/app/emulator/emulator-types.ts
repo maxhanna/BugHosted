@@ -269,23 +269,26 @@ export const GENESIS_FORCE_THREE = new Set<string>([
   "ms-pac-man"
 ]);
 
+// Speed-oriented PPSSPP overrides. Values/valid ranges follow the libretro
+// PPSSPP core options (see libretro/docs ppsspp.md); anything that only trades
+// stutter or image quality for fake smoothness is left at the core default.
 export const PSP_DEFAULT_OPTIONS: Record<string, string> = {
   'rewindEnabled': 'disabled',
   'vsync': 'disabled',
   'ppsspp_cpu_core': 'JIT',
   'ppsspp_fast_memory': 'enabled',
-  'ppsspp_locked_cpu_speed': '999MHz',
+  'ppsspp_locked_cpu_speed': 'off', // never force a clock: costs CPU, not saves it
   'ppsspp_internal_resolution': '480x272',
   'ppsspp_software_rendering': 'disabled',
   'ppsspp_lazy_texture_caching': 'enabled',
   'ppsspp_gpu_hardware_transform': 'enabled',
-  'ppsspp_frameskip': '1',
-  'ppsspp_auto_frameskip': 'enabled',
+  'ppsspp_frameskip': '0', // no fixed frameskip: it halves the visible frame rate
+  'ppsspp_auto_frameskip': 'disabled', // auto-frameskip causes the stuttering
   'ppsspp_spline_quality': '0',
   'ppsspp_texture_anisotropic_filtering': 'disabled',
   'ppsspp_skip_gpu_readbacks': 'enabled',
-  'ppsspp_texture_scaling_type': 'hybrid_bicubic',
-  'ppsspp_texture_filtering': 'linear',
+  'ppsspp_texture_scaling_level': '0', // 0 = CPU texture upscaling off (biggest win)
+  'ppsspp_texture_filtering': 'auto',
 };
 
 declare global {
