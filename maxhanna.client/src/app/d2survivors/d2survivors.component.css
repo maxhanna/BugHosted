@@ -4,6 +4,48 @@
   padding: 1rem;
 }
 
+/* Discreet asset warm-up indicator: pinned to the bottom edge, under the UI. */
+.d2s-asset-indicator {
+  position: fixed;
+  left: 50%;
+  bottom: 6px;
+  transform: translateX(-50%);
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(320px, calc(100vw - 24px));
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(214, 176, 106, 0.22);
+  background: rgba(8, 9, 12, 0.62);
+  color: #9d8f74;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+.d2s-asset-indicator-label { white-space: nowrap; }
+
+.d2s-asset-indicator-track {
+  position: relative;
+  width: 64px;
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.d2s-asset-indicator-track i {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  background: linear-gradient(90deg, #b8452c, #e0b463);
+  transition: transform 120ms linear;
+}
+
 .d2s-in-menu {
   width: 100%;
   max-width: none;

@@ -33,10 +33,10 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.playerY = 250;
     const target = { x: 260, y: 250, r: 12, hp: 100 } as any;
     component.enemies = [target];
-    component.keysDown.add("d");
 
     component.attackNearestEnemy();
     expect((component as any).playerAttackLockRemaining).toBeGreaterThan(0);
+    component.keysDown.add("d");
     component.movePlayer(100);
 
     expect(component.playerX).toBe(250);
@@ -45,6 +45,26 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     (component as any).playerAttackLockRemaining = 0;
     component.movePlayer(100);
     expect(target.x).toBeLessThan(260);
+  });
+
+  it("refuses attacks while the player is running and resumes once they stop", () => {
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    const target = { x: 260, y: 250, r: 12, hp: 100 } as any;
+    component.enemies = [target];
+    component.keysDown.add("d");
+
+    component.attackNearestEnemy();
+    expect((component as any).playerAttackLockRemaining).toBe(0);
+    expect(target.hp).toBe(100);
+
+    (component as any).updateBasicAttack();
+    expect(target.hp).toBe(100);
+
+    component.keysDown.delete("d");
+    component.attackNearestEnemy();
+    expect(target.hp).toBeLessThan(100);
   });
 
   it("applies equipped attack speed to attack animation duration and cooldown", () => {

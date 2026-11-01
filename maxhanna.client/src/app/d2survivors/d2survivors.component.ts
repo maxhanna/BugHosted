@@ -4491,12 +4491,67 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.loadSummonSprites();
     this.loadMissileOverlays();
     this.loadCampaignMaps();
+    this.preloadGameAssets();
     const arenaWrap = this.arenaRef?.nativeElement.parentElement;
     if (arenaWrap && typeof ResizeObserver !== "undefined") {
       this.arenaResizeObserver = new ResizeObserver(() => this.resizeRunCanvases());
       this.arenaResizeObserver.observe(arenaWrap);
     }
     if (this.activeTab === "menu" && this.menuPanel !== "characters") this.startMenuHeroPreview();
+  }
+
+  /** Progress of the background asset warm-up shown by the bottom indicator. */
+  assetsTotal = 0;
+  assetsLoaded = 0;
+  assetsReady = false;
+
+  get assetsLoadingProgress(): number {
+    return this.assetsTotal === 0 ? 0 : this.assetsLoaded / this.assetsTotal;
+  }
+
+  /**
+   * Download the art a run needs (character models and textures, act maps and
+   * floor tiles, enemy sprites) while the player is still on the menu. The
+   * responses land in the HTTP cache, so entering a run no longer starts on a
+   * cold fetch, and the indicator can report how much is still in flight.
+   */
+  private preloadGameAssets(): void {
+    const urls = new Set<string>();
+    for (const [classId, definition] of Object.entries(CLASS_MODEL)) {
+      for (const url of [definition.model, definition.body, definition.head, definition.hair, definition.armor, definition.weapon]) {
+        if (url) urls.add(url);
+      }
+      for (const tier of ["light", "medium", "heavy"] as const) {
+        const armorFile = this.getClassArmorTexture(classId, tier);
+        if (armorFile) urls.add(`${MODEL_BASE}/${classId}/textures/${armorFile}`);
+      }
+    }
+    for (const act of CAMPAIGN_ACTS) {
+      urls.add(act.map);
+      urls.add(act.floorTiles);
+    }
+    for (const sprite of Object.values(ENEMY_SPRITE_PATHS)) urls.add(sprite);
+
+    this.assetsLoaded = 0;
+    this.assetsTotal = urls.size;
+    if (this.assetsTotal === 0) {
+      this.assetsReady = true;
+      return;
+    }
+    void Promise.allSettled([...urls].map(async (url) => {
+      try {
+        const response = await fetch(url, { cache: "force-cache" });
+        // Read the body so the entry is complete in the cache; the pixels are
+        // not needed here — the renderer loads them again from cache.
+        await response.arrayBuffer();
+      } catch {
+        // A missing file must not hold the indicator hostage.
+      } finally {
+        this.assetsLoaded += 1;
+      }
+    })).then(() => {
+      this.assetsReady = true;
+    });
   }
 
   private resizeRunCanvases(): void {
@@ -5195,8 +5250,20 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
   }
 
+  /**
+   * Moving suppresses attacks: the player deals damage only once they have
+   * stopped running. Checked against both the displacement computed this frame
+   * and the held movement keys, so a keypress that lands before the next
+   * movePlayer() tick cannot squeeze an attack in while the player is fleeing.
+   */
+  private get playerRunning(): boolean {
+    if (this.isPlayerMoving) return true;
+    const moveKeys = ["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"];
+    return moveKeys.some((key) => this.keysDown.has(key));
+  }
+
   private updateBasicAttack(): void {
-    if (!this.runActive || this.pendingLevelUps > 0 || this.attackCooldown > 0) return;
+    if (!this.runActive || this.pendingLevelUps > 0 || this.attackCooldown > 0 || this.playerRunning) return;
     const nearest = this.enemies
       .filter((enemy) => enemy.hp > 0)
       .sort((a, b) => Math.hypot(a.x - this.playerX, a.y - this.playerY) - Math.hypot(b.x - this.playerX, b.y - this.playerY))[0];
@@ -5282,6 +5349,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   attackNearestEnemy(): void {
     if (!this.runActive || this.pendingLevelUps > 0 || this.attackCooldown > 0 || this.enemies.length === 0) return;
+    if (this.playerRunning) return;
     const targets = this.enemies
       .filter((enemy) => enemy.hp > 0)
       .sort((a, b) => Math.hypot(a.x - this.playerX, a.y - this.playerY) - Math.hypot(b.x - this.playerX, b.y - this.playerY))

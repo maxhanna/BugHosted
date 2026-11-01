@@ -512,4 +512,9 @@
     </div>
 
   </section>
+
+  <div class="d2s-asset-indicator" *ngIf="!assetsReady && activeTab !== 'run'" role="status" aria-live="polite">
+    <span class="d2s-asset-indicator-label">Preparing assets {{ assetsLoaded }} / {{ assetsTotal }}</span>
+    <span class="d2s-asset-indicator-track" aria-hidden="true"><i [style.transform]="'scaleX(' + assetsLoadingProgress + ')'"></i></span>
+  </div>
 </div>
