@@ -541,7 +541,9 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     console.log(`%c[EMU] Detected core "${core}" for file "${fileName}" (ext: "${this.fileService.getFileExtension(fileName)}") forcedCore=${effectiveForcedCore ?? 'none'}`, 'color:#4af');
     const renderClamp = this.getRenderClampForCore(core);
     (window as any).EJS_renderClamp = renderClamp;
-    window.EJS_core = core;
+    // The CDN build only knows the standard system name for the PSP core.
+    const ejsCoreName = (this.getEjsDataBase().startsWith('http') && (core as string) === 'ppsspp') ? 'psp' : core;
+    window.EJS_core = ejsCoreName;
     window.EJS_controlScheme = this.ejsControlSchemeForCore(core);
     this.system = this.systemFromCore(core);
 
@@ -637,7 +639,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (!window.__ejsLoaderInjected) {
       await new Promise<void>((resolve, reject) => {
         const s = document.createElement('script');
-        s.src = '/assets/emulatorjs/data/loader.js';
+        s.src = this.getEjsDataBase() + 'loader.js';
         s.async = false;
         s.defer = false;
         s.setAttribute('data-ejs-loader', '1');
@@ -945,7 +947,13 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     w.EJS_fullscreenOnLoaded = false;   // start in-window, let user choose fullscreen
     w.EJS_fullscreen = false;           // start in-window, let user choose fullscreen (legacy option)
     const canUseThreads = this.canUseThreads(core, system);
-    w.EJS_threads = canUseThreads;               // allow cores to use threads if they want (e.g. for async save state capture); you can disable if you have issues with certain browsers/devices
+    w.EJS_threads = canUseThreads;
+    if (system === 'psp' || core === 'psp' || (core as string) === 'ppsspp') {
+      // PPSSPP requires threads, which require SharedArrayBuffer, which requires
+      // cross-origin isolation. If this logs false, the core cannot run threaded
+      // and will either refuse to boot or fall back to a crawl.
+      console.log(`%c[EMU] PSP boot: crossOriginIsolated=${(window as any).crossOriginIsolated} SharedArrayBuffer=${typeof (window as any).SharedArrayBuffer} dataBase=${this.getEjsDataBase()}`, 'color:#4af');
+    }               // allow cores to use threads if they want (e.g. for async save state capture); you can disable if you have issues with certain browsers/devices
     w.EJS_color = componentBackgroundColor;        // Sets the main color theme for the emulator
     w.EJS_backgroundColor = componentBackgroundColor; // Sets the background color for the emulator    
     if (systemIcon) {
@@ -1089,7 +1097,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       bios: '/assets/emulatorjs/data/cores/',
       system: '/assets/emulatorjs/data/cores/',
     };
-    w.EJS_pathtodata = '/assets/emulatorjs/data/';
+    w.EJS_pathtodata = this.getEjsDataBase();
 
     w.EJS_afterStart = () => {
       try {
@@ -2963,6 +2971,24 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }
 
     return items;
+  }
+
+  /**
+   * Where EmulatorJS loads its runtime and cores from.
+   *
+   * Default is the copy bundled with the app. `?ejsCdn=1` points the whole
+   * payload (loader + runtime + cores) at the same stable release the
+   * emulatorjs.org demo uses, so a performance difference can be attributed to
+   * this app or to the bundled build instead of being guessed at.
+   */
+  private getEjsDataBase(): string {
+    try {
+      const flag = new URLSearchParams(window.location.search).get('ejsCdn');
+      if (flag === '1' || flag === 'true') {
+        return 'https://cdn.emulatorjs.org/stable/data/';
+      }
+    } catch { }
+    return '/assets/emulatorjs/data/';
   }
 
   /** Return a soft clamp for render buffer size based on core. */
