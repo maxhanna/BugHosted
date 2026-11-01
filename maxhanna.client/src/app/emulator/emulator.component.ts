@@ -539,11 +539,12 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }
     (this as any).currentCore = core;
     console.log(`%c[EMU] Detected core "${core}" for file "${fileName}" (ext: "${this.fileService.getFileExtension(fileName)}") forcedCore=${effectiveForcedCore ?? 'none'}`, 'color:#4af');
+    await this.resolveEjsDataBase(core);
     const renderClamp = this.getRenderClampForCore(core);
     (window as any).EJS_renderClamp = renderClamp;
-    // The CDN build only knows the standard system name for the PSP core.
-    const ejsCoreName = (this.getEjsDataBase().startsWith('http') && (core as string) === 'ppsspp') ? 'psp' : core;
-    window.EJS_core = ejsCoreName;
+    // EmulatorJS wants the system name ("psp"); the core ("ppsspp") is chosen
+    // from that system's core list.
+    window.EJS_core = (String(core).toLowerCase() === 'ppsspp' ? 'psp' : core) as typeof core;
     window.EJS_controlScheme = this.ejsControlSchemeForCore(core);
     this.system = this.systemFromCore(core);
 
@@ -638,32 +639,42 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     // 8) Inject loader.js (it will initialize EmulatorJS)
     if (!window.__ejsLoaderInjected) {
       await new Promise<void>((resolve, reject) => {
-        const s = document.createElement('script');
-        s.src = this.getEjsDataBase() + 'loader.js';
-        s.async = false;
-        s.defer = false;
-        s.setAttribute('data-ejs-loader', '1');
-        s.onload = () => {
-          try { (window as any).__ejsLoaderInjected = true; } catch { }
-          requestAnimationFrame(() => {
-            this.setGameScreenHeight();
-            requestAnimationFrame(async () => {
-              await this.waitForEmulatorAndFocus();
-              await this.probeForSaveApi();
-              this.tryBindSaveFromUI();
-              this.scanAndTagVpadControls();
+        const inject = (src: string, isRetry: boolean) => {
+          const s = document.createElement('script');
+          s.src = src;
+          s.async = false;
+          s.defer = false;
+          s.setAttribute('data-ejs-loader', '1');
+          s.onload = () => {
+            try { (window as any).__ejsLoaderInjected = true; } catch { }
+            requestAnimationFrame(() => {
+              this.setGameScreenHeight();
+              requestAnimationFrame(async () => {
+                await this.waitForEmulatorAndFocus();
+                await this.probeForSaveApi();
+                this.tryBindSaveFromUI();
+                this.scanAndTagVpadControls();
 
-              await this.applySaveStateIfAvailable(saveStateBlob);
-              this.lockGameHostHeight();
+                await this.applySaveStateIfAvailable(saveStateBlob);
+                this.lockGameHostHeight();
+              });
             });
-          });
-          resolve();
+            resolve();
+          };
+          s.onerror = (ev) => {
+            console.error(`Failed to load ${src}`, ev);
+            if (!isRetry) {
+              // The server copy is missing or incomplete — run from the CDN instead.
+              this._ejsDataBase = this.ejsCdnBase;
+              console.warn('[EMU] Local EmulatorJS runtime failed to load; retrying from the nightly CDN');
+              inject(this.ejsCdnBase + 'loader.js', true);
+              return;
+            }
+            reject(new Error('Failed to load EmulatorJS loader.js'));
+          };
+          document.body.appendChild(s);
         };
-        s.onerror = (ev) => {
-          console.error('Failed to load /assets/emulatorjs/data/loader.js', ev);
-          reject(new Error('Failed to load EmulatorJS loader.js'));
-        };
-        document.body.appendChild(s);
+        inject(this.getEjsDataBase() + 'loader.js', false);
       });
     } else {
       this.stopLoading();
@@ -2973,22 +2984,70 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     return items;
   }
 
-  /**
-   * Where EmulatorJS loads its runtime and cores from.
-   *
-   * Default is the copy bundled with the app. `?ejsCdn=1` points the whole
-   * payload (loader + runtime + cores) at the same stable release the
-   * emulatorjs.org demo uses, so a performance difference can be attributed to
-   * this app or to the bundled build instead of being guessed at.
-   */
+  /** Nightly build published by EmulatorJS (what emulatorjs.org itself runs). */
+  private readonly ejsCdnBase = 'https://cdn.emulatorjs.org/nightly/data/';
+  /** Runtime + cores served by our own server; see scripts/sync-emulatorjs.mjs. */
+  private readonly ejsLocalBase = '/assets/emulatorjs/data/';
+  private _ejsDataBase = '/assets/emulatorjs/data/';
+
+  /** Where EmulatorJS is loading from for this boot (server copy, or the CDN fallback). */
   private getEjsDataBase(): string {
+    return this._ejsDataBase;
+  }
+
+  /**
+   * Decide whether this boot uses the server-hosted EmulatorJS build or the CDN.
+   *
+   * Server-first: the local copy is used when both the runtime and the wasm data
+   * file for this core are present. Otherwise (a deploy without `cores/`, a core
+   * we never synced) the whole payload comes from the nightly CDN, because a
+   * local runtime whose cores 404 cannot recover on its own — EmulatorJS's own
+   * failsafe builds a version-based URL (`.../<version>/data/cores/...`) that
+   * does not exist for a `-pre` nightly build.
+   */
+  private async resolveEjsDataBase(core: Core): Promise<void> {
     try {
       const flag = new URLSearchParams(window.location.search).get('ejsCdn');
       if (flag === '1' || flag === 'true') {
-        return 'https://cdn.emulatorjs.org/stable/data/';
+        this._ejsDataBase = this.ejsCdnBase;
+        console.log(`%c[EMU] EmulatorJS: forced CDN (${this.ejsCdnBase})`, 'color:#fa4');
+        return;
       }
     } catch { }
-    return '/assets/emulatorjs/data/';
+
+    const runtime = await this.assetExists(this.ejsLocalBase + 'emulator.min.js');
+    const coreFile = runtime ? await this.findLocalCoreFile(core) : null;
+    if (runtime && coreFile) {
+      this._ejsDataBase = this.ejsLocalBase;
+      console.log(`%c[EMU] EmulatorJS: server-hosted runtime + core (${coreFile})`, 'color:#4f4');
+      return;
+    }
+    this._ejsDataBase = this.ejsCdnBase;
+    console.warn(`[EMU] EmulatorJS: falling back to the CDN (local runtime present: ${runtime}, local core: ${coreFile ?? 'missing'})`);
+  }
+
+  private async assetExists(url: string): Promise<boolean> {
+    try {
+      const res = await fetch(url, { method: 'HEAD', cache: 'no-store' });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  /** Mirrors EmulatorJS's core file naming: <core>[-thread][-legacy]-wasm.data. */
+  private async findLocalCoreFile(core: Core): Promise<string | null> {
+    const name = String(core).toLowerCase() === 'psp' ? 'ppsspp' : String(core).toLowerCase();
+    const variants = [
+      `${name}-thread-wasm.data`,
+      `${name}-wasm.data`,
+      `${name}-thread-legacy-wasm.data`,
+      `${name}-legacy-wasm.data`,
+    ];
+    for (const variant of variants) {
+      if (await this.assetExists(`${this.ejsLocalBase}cores/${variant}`)) return variant;
+    }
+    return null;
   }
 
   /** Return a soft clamp for render buffer size based on core. */

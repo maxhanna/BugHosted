@@ -1,0 +1,42 @@
+{
+  "loader.js": {
+    "size": 8841,
+    "etag": "W/\"3886183317\"",
+    "lastModified": "Thu, 15 Oct 2026 04:49:32 GMT"
+  },
+  "emulator.min.js": {
+    "size": 492883,
+    "etag": "W/\"3476719045\"",
+    "lastModified": "Wed, 21 Oct 2026 15:55:42 GMT"
+  },
+  "emulator.min.css": {
+    "size": 29064,
+    "etag": "W/\"754945075\"",
+    "lastModified": "Wed, 21 Oct 2026 15:55:42 GMT"
+  },
+  "emulator.css": {
+    "size": 38334,
+    "etag": "W/\"931363230\"",
+    "lastModified": "Wed, 21 Oct 2026 15:44:01 GMT"
+  },
+  "version.json": {
+    "size": 126,
+    "etag": "W/\"3700827403\"",
+    "lastModified": "Wed, 21 Oct 2026 15:44:02 GMT"
+  },
+  "cores/ppsspp-assets.zip": {
+    "size": 10873836,
+    "etag": "\"3261979514\"",
+    "lastModified": "Sat, 14 Jun 2025 23:37:46 GMT"
+  },
+  "cores/ppsspp-thread-wasm.data": {
+    "size": 4547413,
+    "etag": null,
+    "lastModified": "Sun, 01 Nov 2026 15:27:20 GMT"
+  },
+  "cores/reports/ppsspp.json": {
+    "size": 167,
+    "etag": "W/\"2417934517\"",
+    "lastModified": "Sat, 25 Jul 2026 17:22:39 GMT"
+  }
+}

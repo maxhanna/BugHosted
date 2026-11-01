@@ -196,9 +196,7 @@ const config = {
     fixedSaveInterval: window.EJS_fixedSaveInterval,
     disableAutoUnload: window.EJS_disableAutoUnload,
     disableBatchBootup: window.EJS_disableBatchBootup,
-    askBeforeExit: window.EJS_askBeforeExit,
-    retroarchOpts: window.EJS_retroarchOpts,
-    coreOpts: window.EJS_coreOpts
+    askBeforeExit: window.EJS_askBeforeExit
 };
 
 async function prepareLanguage() {
