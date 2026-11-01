@@ -154,6 +154,36 @@ export class LocalRomService {
     }
   }
 
+  /**
+   * Write a blob into the folder and verify the bytes actually landed.
+   *
+   * `createWritable()` truncates as soon as writing starts, so a write that
+   * dies half way (quota, killed tab, revoked permission) leaves a file that
+   * still exists with a non-zero size. Such a file must never be left behind:
+   * getRomBlob() would happily boot a truncated ROM from it. On any failure
+   * the partial file is removed and the caller falls back to the full copy.
+   */
+  private async writeFolderFile(handle: FileSystemDirectoryHandle, name: string, blob: Blob): Promise<boolean> {
+    let fh: FileSystemFileHandle | null = null;
+    try {
+      fh = await handle.getFileHandle(name, { create: true });
+      const writable = await fh.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      const written = await fh.getFile();
+      if (written.size !== blob.size) {
+        console.warn(`[LocalRom] Incomplete folder write for ${name}: ${written.size}/${blob.size} bytes — discarding it`);
+        try { await handle.removeEntry(name); } catch { /* ignore */ }
+        return false;
+      }
+      return true;
+    } catch (e) {
+      console.warn(`[LocalRom] Folder write failed for ${name}`, e);
+      try { await handle.removeEntry(name); } catch { /* ignore */ }
+      return false;
+    }
+  }
+
   // ---------------- Folder permission ----------------
   // File System Access grants are origin-bound and don't survive closing the
   // last tab by default. Since Chrome 122, calling requestPermission() on a
@@ -322,10 +352,7 @@ export class LocalRomService {
     try {
       const entry = await this.idbGet('saves', romName);
       if (!entry?.blob) return false;
-      const fh = await handle.getFileHandle(this.saveStateFileName(romName), { create: true });
-      const writable = await fh.createWritable();
-      await writable.write(entry.blob);
-      await writable.close();
+      if (!await this.writeFolderFile(handle, this.saveStateFileName(romName), entry.blob)) return false;
       await this.idbDelete('saves', romName);
       return true;
     } catch (e) {
@@ -336,24 +363,45 @@ export class LocalRomService {
 
   // ---------------- ROM storage ----------------
 
-  /** Returns a local copy of the ROM, or null if none exists. */
+  /**
+   * Returns a local copy of the ROM, or null if none exists.
+   *
+   * A folder file is only preferred when it is at least as large as a browser
+   * copy of the same ROM. A truncated file used to win purely by existing,
+   * which boots a partial ISO: the splash screen plays and then the core
+   * freezes once the emulated drive reads past the truncation point.
+   */
   async getRomBlob(romName: string): Promise<Blob | null> {
     const handle = await this.getFolderHandle();
+    let folderFile: File | null = null;
     if (handle) {
       try {
         const fh = await handle.getFileHandle(this.sanitizeName(romName));
         const file = await fh.getFile();
-        if (file.size > 0) return file;
+        if (file.size > 0) folderFile = file;
       } catch {
         /* not in the folder */
       }
     }
+
+    let browserBlob: Blob | null = null;
     try {
       const entry = await this.idbGet('roms', romName);
-      return entry?.blob ?? null;
+      browserBlob = entry?.blob ?? null;
     } catch {
-      return null;
+      browserBlob = null;
     }
+
+    if (!folderFile) return browserBlob;
+
+    if (browserBlob && folderFile.size < browserBlob.size) {
+      console.warn(
+        `[LocalRom] Folder copy of ${romName} is truncated (${folderFile.size}/${browserBlob.size} bytes) — using the browser copy instead`
+      );
+      return browserBlob;
+    }
+
+    return folderFile;
   }
 
   /**
@@ -364,18 +412,12 @@ export class LocalRomService {
   async saveRom(romName: string, blob: Blob): Promise<'folder' | 'browser' | null> {
     const handle = await this.getFolderHandle();
     if (handle) {
-      try {
-        const fh = await handle.getFileHandle(this.sanitizeName(romName), { create: true });
-        const writable = await fh.createWritable();
-        await writable.write(blob);
-        await writable.close();
+      if (await this.writeFolderFile(handle, this.sanitizeName(romName), blob)) {
         return 'folder';
-      } catch (e) {
-        console.warn('[LocalRom] Folder write failed, falling back to browser storage', e);
-        // Mark so this copy is promoted to a real file once folder access is
-        // restored (e.g. after reconnecting the folder).
-        await this.markPendingFolderWrite('roms', romName);
       }
+      // Mark so this copy is promoted to a real file once folder access is
+      // restored (e.g. after reconnecting the folder).
+      await this.markPendingFolderWrite('roms', romName);
     }
     try {
       await this.idbSet('roms', { name: romName, blob, size: blob.size, savedAt: Date.now() });
@@ -405,10 +447,7 @@ export class LocalRomService {
     try {
       const entry = await this.idbGet('roms', romName);
       if (!entry?.blob) return false;
-      const fh = await handle.getFileHandle(this.sanitizeName(romName), { create: true });
-      const writable = await fh.createWritable();
-      await writable.write(entry.blob);
-      await writable.close();
+      if (!await this.writeFolderFile(handle, this.sanitizeName(romName), entry.blob)) return false;
       await this.idbDelete('roms', romName);
       return true;
     } catch (e) {
@@ -491,18 +530,12 @@ export class LocalRomService {
   async saveSaveState(romName: string, blob: Blob): Promise<'folder' | 'browser' | null> {
     const handle = await this.getFolderHandle();
     if (handle) {
-      try {
-        const fh = await handle.getFileHandle(this.saveStateFileName(romName), { create: true });
-        const writable = await fh.createWritable();
-        await writable.write(blob);
-        await writable.close();
+      if (await this.writeFolderFile(handle, this.saveStateFileName(romName), blob)) {
         return 'folder';
-      } catch (e) {
-        console.warn('[LocalRom] Folder save-state write failed, falling back to browser storage', e);
-        // Mark so this save is promoted to a real .state file once folder
-        // access is restored.
-        await this.markPendingFolderWrite('saves', romName);
       }
+      // Mark so this save is promoted to a real .state file once folder
+      // access is restored.
+      await this.markPendingFolderWrite('saves', romName);
     }
     try {
       await this.idbSet('saves', { name: romName, blob, savedAt: Date.now() });
@@ -524,7 +557,9 @@ export class LocalRomService {
       try {
         const fh = await handle.getFileHandle(this.saveStateFileName(romName));
         const file = await fh.getFile();
-        if (file.size > 0) return file;
+        // Anything under 1 KB cannot be a real emulator state; treat it as a
+        // leftover of a failed write instead of restoring garbage.
+        if (file.size > 1024) return file;
       } catch {
         /* not saved as a .state file */
       }
