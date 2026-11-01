@@ -763,6 +763,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     if (!f.romMetadata) return;
     try {
       const md: any = f.romMetadata;
+      md.coverUrl = this.toSameOriginAssetUrl(md.coverUrl);
       md.screenshots = this.safeJsonArray(md.screenshotsJson);
       md.artworks = this.safeJsonArray(md.artworksJson);
       md.videos = this.safeJsonArray(md.videosJson);
@@ -847,7 +848,26 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     try { this.changeDetectorRef.detectChanges(); } catch { }
   }
 
-  private preloadRomHoverImage(url: string): Promise<string> {
+  /**
+   * Artwork was cached and stored as an absolute `https://bughosted.com/...` URL
+   * before the enrichment service switched to relative paths. The site is served
+   * from `www.bughosted.com`, so fetching one of those absolute URLs is
+   * cross-origin and the browser rejects it (the static file has no
+   * Access-Control-Allow-Origin header). Keeping only the path makes the very
+   * same request same-origin, for existing database rows as well as new ones.
+   */
+  private toSameOriginAssetUrl(value: string): string {
+    if (!value || !/^https?:\/\/(?:[^/]+\.)?bughosted\.com(?=[/?#]|$)/i.test(value)) return value;
+    try {
+      const parsed = new URL(value);
+      return parsed.pathname + parsed.search + parsed.hash;
+    } catch {
+      return value;
+    }
+  }
+
+  private preloadRomHoverImage(inputUrl: string): Promise<string> {
+    const url = this.toSameOriginAssetUrl(inputUrl);
     const cached = FileSearchComponent.romHoverImageCache.get(url);
     if (cached) return cached;
 
@@ -2947,10 +2967,13 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   public safeJsonArray(value: any): string[] {
     try {
       if (!value) return [];
-      if (Array.isArray(value)) return value.filter(x => typeof x === 'string');
+      if (Array.isArray(value))
+        return value.filter(x => typeof x === 'string').map(v => this.toSameOriginAssetUrl(v));
       if (typeof value === 'string') {
         const parsed = JSON.parse(value);
-        return Array.isArray(parsed) ? parsed.filter(x => typeof x === 'string') : [];
+        return Array.isArray(parsed)
+          ? parsed.filter(x => typeof x === 'string').map(v => this.toSameOriginAssetUrl(v))
+          : [];
       }
       return [];
     } catch {

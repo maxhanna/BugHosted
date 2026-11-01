@@ -14,7 +14,11 @@ namespace maxhanna.Server.Services
     private readonly string _romFolder = "E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Roms/";
     private readonly HttpClient _httpClient;
     private readonly string _gameArtworkFolder;
-    private const string GameArtworkUrlRoot = "https://bughosted.com/assets/Uploads/GameArtwork/";
+    // Relative on purpose: the artwork is served from the same host as the site,
+    // and the site runs on www.bughosted.com. An absolute https://bughosted.com/
+    // URL makes every client request cross-origin, which the browser blocks (the
+    // static file carries no Access-Control-Allow-Origin header).
+    private const string GameArtworkUrlRoot = "/assets/Uploads/GameArtwork/";
     private readonly IConfiguration _config;
     private readonly Log _log;
     private static readonly SemaphoreSlim _runLock = new SemaphoreSlim(1, 1);

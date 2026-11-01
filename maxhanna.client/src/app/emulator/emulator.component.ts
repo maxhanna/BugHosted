@@ -97,6 +97,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   private gamepadRouter = new UiGamepadRouter();
   private _lastCanvasBufW = 0;
   private _lastCanvasBufH = 0;
+  private _pspCanvasFitLogged = false;
   private autosaveInterval: any;
   private romObjectUrl?: string;
   private emulatorInstance?: any;
@@ -3139,6 +3140,14 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       const isPsp = core.includes('psp') || core.includes('ppsspp');
 
       if (isPsp) {
+        // PPSSPP owns a live WebGL drawing buffer. Assigning canvas.width/
+        // canvas.height here reallocates that buffer underneath the core:
+        // Emscripten/PPSSPP keep presenting into their previous framebuffer
+        // size, so the picture freezes on whatever frame was on screen when it
+        // happened — typically the splash logo — with nothing logged. Loading a
+        // save state afterwards rebuilds PPSSPP's framebuffers, which is why
+        // the freeze only showed up on a boot with no state to restore. Fit the
+        // canvas with CSS only and leave the buffer to the core.
         const PSP_ASPECT = 480 / 272;
         const rect = gameEl.getBoundingClientRect();
         if (rect.width <= 0 || rect.height <= 0) return;
@@ -3150,31 +3159,16 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
           fitW = rect.height * PSP_ASPECT;
         }
 
-        const clamp = this.getRenderClampForCore(core);
-        const dpr = Math.min(window.devicePixelRatio || 1, clamp.maxDPR);
-        const targetW = Math.min(Math.round(fitW * dpr), clamp.maxW);
-        const targetH = Math.min(Math.round(fitH * dpr), clamp.maxH);
-
-        if (targetW === this._lastCanvasBufW && targetH === this._lastCanvasBufH) {
-          return;
+        if (!this._pspCanvasFitLogged) {
+          this._pspCanvasFitLogged = true;
+          console.log('[EMU] PSP: canvas drawing buffer left to the core (CSS fit only)');
         }
 
-        this._lastCanvasBufW = targetW;
-        this._lastCanvasBufH = targetH;
-
-        // ✅ APPLY (you were missing this)
-        if (canvas.width !== targetW || canvas.height !== targetH) {
-          canvas.width = targetW;
-          canvas.height = targetH;
-
-          const gl =
-            canvas.getContext('webgl2') ||
-            canvas.getContext('webgl') ||
-            canvas.getContext('experimental-webgl');
-
-          (gl as any)?.viewport?.(0, 0, targetW, targetH);
-        }
-
+        canvas.style.width = `${Math.round(fitW)}px`;
+        canvas.style.height = `${Math.round(fitH)}px`;
+        canvas.style.maxWidth = '100%';
+        canvas.style.maxHeight = '100%';
+        canvas.style.imageRendering = 'pixelated';
         return;
       }
 
