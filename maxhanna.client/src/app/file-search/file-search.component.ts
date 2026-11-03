@@ -1907,7 +1907,15 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
   }
   shouldShowEditButton(optionsFile: any): boolean {
-    if (!optionsFile?.user?.id || !this.currentUser?.id || this.currentDirectory === 'Users/') {
+    if (this.currentUser?.id === 1) {
+      return true;
+    }
+    
+    if (
+      !optionsFile?.user?.id ||
+      !this.currentUser?.id ||
+      this.currentDirectory === "Users/"
+    ) {
       return false;
     }
 
