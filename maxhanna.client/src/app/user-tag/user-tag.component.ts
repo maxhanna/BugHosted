@@ -81,7 +81,7 @@ export class UserTagComponent extends ChildComponent implements OnInit, OnDestro
       return this.user.username;
     }
     else if (this.user?.id) {
-      return 'Deleted-User';
+      return "Deleted-User-" + this.user?.id;
     }
     else return "Anonymous";
   }
