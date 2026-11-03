@@ -16,9 +16,12 @@
       <span class="avatarBug noAvatar {{(displayMiniTag || displayTinyPicture) ? 'miniAvatarBug' : ''}}">🪲</span>
     </div>
   </div>
-  <span [class]="(displayOnlyName ? '' : 'usernameSpan ') + ' username' + (containUsername ? ' miniUsernameSpan' : '')"
+  <span 
+    class='username' 
+    [class.usernameSpan]="!displayOnlyName" 
+    [class.miniUsernameSpan]="containUsername"
     *ngIf="!displayOnlyAvatar && !hideName"
-    [title]="displayMiniTag ? '' : displayEmptyAvatar && (!user || user.id == 0) ? 'Anonymous' : user?.username">
-    {{displayEmptyAvatar && (!user || user.id == 0 || !user.username) ? 'Anonymous' : user?.username}}
+    [title]="getUserDisplayName()">
+    {{getUserDisplayName()}}
   </span>
 </div>

@@ -779,7 +779,7 @@
         Updated By:
       </div>
       <div class="optionsStatsDescription">
-        <app-user-tag [userId]="optionsFile?.lastUpdatedBy?.id" [inputtedParentRef]="parentRef ?? inputtedParentRef"
+        <app-user-tag [userId]="optionsFile?.lastUpdatedBy?.id ?? 0" [inputtedParentRef]="parentRef ?? inputtedParentRef"
           [displayMiniTag]="true" [displayHoverPicture]="true" [openToUserUrl]="true"></app-user-tag>
       </div>
     </div>
