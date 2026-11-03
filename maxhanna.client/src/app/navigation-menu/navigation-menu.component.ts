@@ -48,6 +48,6 @@ export class NavigationMenuComponent {
 
   getItemTitle(title?: string): string{
     if (!title) return '';
-    return this._parent?.componentTitles[title] ?? title ?? '';
+    return this._parent?.leftMenuComponentTitles[title] ?? this._parent?.componentTitles[title] ?? title ?? "";
   }
 }
