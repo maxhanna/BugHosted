@@ -452,7 +452,7 @@
       <div *ngIf="optionsFile?.romMetadata?.firstReleaseDateUnix as d" class="romMetaLine">
         <strong>Release:</strong> {{ unixSecondsToDate(d) | date:'y/MM/d' }}
       </div>
-      <span class="xSmallFont" *ngIf="optionsFile?.user?.id === currentUser.id">
+      <span class="xSmallFont" *ngIf="optionsFile?.user?.id === currentUser.id || currentUser.id === 1">
         <button title="Request metadata reset" [disabled]="isLoading" (click)="incrementResetVoteForOptionsFile()"
           style="margin-left:8px">
           ↻ Reset MetaData
@@ -783,8 +783,8 @@
           [displayMiniTag]="true" [displayHoverPicture]="true" [openToUserUrl]="true"></app-user-tag>
       </div>
     </div>
-    <div class="optionsStatsDiv" *ngIf="shouldShowRomMetadata() 
-        && optionsFile?.user?.id === currentUser.id
+    <div class="optionsStatsDiv" *ngIf="shouldShowRomMetadata()
+        && (optionsFile?.user?.id === currentUser.id || currentUser.id === 1)
         && !optionsFile?.romMetadata?.igdbName 
         && !optionsFile?.isFolder">
       <div class="optionsStatsHeader">Reset ROM Metadata?</div>
