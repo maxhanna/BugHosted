@@ -30,6 +30,15 @@ const PALADIN_ARM_SWING_AXIS = new THREE.Vector3(0, 1, 0);
 const RUN_SAVE_KEY = "d2survivors.run.v1";
 const RUN_SAVE_VERSION = 1;
 const RUN_SAVE_INTERVAL_MS = 2500;
+// The account copy in MySQL is the real save; the device only caches it. Uploads
+// are rate-limited so a live run does not hammer the server.
+const SAVE_UPLOAD_INTERVAL_MS = 10_000;
+const SAVE_HYDRATE_RETRY_MS = 20_000;
+// A belt health potion restores 100 life in total, paid out over five seconds
+// instead of in one lump so it keeps protecting the hero through a fight.
+const HEALTH_POTION_HEAL = 100;
+const HEALTH_POTION_HEAL_SECONDS = 5;
+const HEALTH_POTION_HEAL_RATE = HEALTH_POTION_HEAL / HEALTH_POTION_HEAL_SECONDS;
 const ACT_BOSS_TIME_SECONDS = 135;
 const ACT5_BAAL_WAVE_END_SECONDS = 180;
 const DRUID_FORM_DURATION_SECONDS = 15;
@@ -1134,6 +1143,18 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   saveStatus = "";
   private lastRunSaveAt = 0;
   private activityPingTimer?: number;
+  /** "unknown" until the account copy has been read. Uploads stay blocked until
+   *  then so a stale device cache can never overwrite the account save. */
+  private serverSaveState: "unknown" | "ready" | "offline" = "unknown";
+  private hydratingSave = false;
+  private pendingSavePayload: string | null = null;
+  private saveUploadInFlight = false;
+  private saveFlushTimer?: number;
+  private saveHydrateRetryTimer?: number;
+  private lastServerSaveAt = 0;
+  private accountSaveWarning = false;
+  /** Lets readSavedProgress() apply a payload supplied by the server. */
+  private saveCacheOverride: string | null = null;
   private deathRecovery = false;
   private deathCount = 0;
   private readonly classStartingStats: Record<string, { title: string; specialty: string; life: number; mana: number; stamina: number; attributes: [number, number, number, number] }> = {
@@ -1544,12 +1565,40 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     return this.savedRun?.selectedClass ?? this.selectedClass;
   }
 
+  /** Payload cached on this device — a fast first paint and an offline
+   *  fallback only; the account copy in MySQL is the save that follows the user. */
+  private readLocalSavePayload(): string | null {
+    if (typeof window === "undefined") {
+      return null;
+    }
+    try {
+      const raw = this.saveCacheOverride ?? window.localStorage.getItem(RUN_SAVE_KEY);
+      if (!raw) {
+        return null;
+      }
+      const save = JSON.parse(raw) as Partial<D2SurvivorsSave>;
+      return save.version === RUN_SAVE_VERSION ? raw : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Applies a payload as though it were the cached device copy. */
+  private applySavePayload(raw: string): void {
+    this.saveCacheOverride = raw;
+    try {
+      this.readSavedProgress();
+    } finally {
+      this.saveCacheOverride = null;
+    }
+  }
+
   private get savedRun(): D2SavedRun | null {
     if (typeof window === "undefined") {
       return null;
     }
     try {
-      const raw = window.localStorage.getItem(RUN_SAVE_KEY);
+      const raw = this.saveCacheOverride ?? window.localStorage.getItem(RUN_SAVE_KEY);
       if (!raw) {
         return null;
       }
@@ -1567,7 +1616,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       return;
     }
     try {
-      const raw = window.localStorage.getItem(RUN_SAVE_KEY);
+      const raw = this.saveCacheOverride ?? window.localStorage.getItem(RUN_SAVE_KEY);
       if (!raw) {
         return;
       }
@@ -1896,7 +1945,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   /**
    * Heartbeat for the "Currently Playing" list. /User/ActiveGamers reports a
    * d2survivors player only while d2survivors_save.updated_at is under 5 minutes
-   * old, and this game keeps runs in localStorage, so without this nothing ever
+   * old, so without this nothing ever
    * refreshes that row during play.
    */
   private startActivityPing(): void {
@@ -1989,13 +2038,141 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         characterProfiles: this.characterProfiles,
         run,
       } satisfies D2SurvivorsSave);
+      // Device copy is a cache; queue the account save as the real one.
       window.localStorage.setItem(RUN_SAVE_KEY, serialized);
       this.hasSavedRun = run !== null;
       this.lastRunSaveAt = now;
+      this.queueServerSave(serialized);
     } catch (error) {
       console.warn("Could not save D2 Survivors progress", error);
-      this.saveStatus = "Unable to save progress in this browser.";
+      this.saveStatus = "Unable to save progress.";
     }
+  }
+
+  /** Coalesces uploads to at most one per SAVE_UPLOAD_INTERVAL_MS; the newest
+   *  payload always wins. */
+  private queueServerSave(serialized: string): void {
+    if (this.serverSaveState !== "ready") {
+      return;
+    }
+    this.pendingSavePayload = serialized;
+    if (this.saveFlushTimer !== undefined) {
+      return;
+    }
+    const wait = Math.max(0, SAVE_UPLOAD_INTERVAL_MS - (performance.now() - this.lastServerSaveAt));
+    this.saveFlushTimer = window.setTimeout(() => {
+      this.saveFlushTimer = undefined;
+      void this.flushServerSave();
+    }, wait);
+  }
+
+  /** Sends the newest payload to the account. Only one request is in flight; a
+   *  payload queued meanwhile goes out right after. */
+  private async flushServerSave(keepalive = false): Promise<void> {
+    if (this.serverSaveState !== "ready" || this.saveUploadInFlight) {
+      return;
+    }
+    const payload = this.pendingSavePayload;
+    if (!payload) {
+      return;
+    }
+    this.pendingSavePayload = null;
+    this.saveUploadInFlight = true;
+    this.lastServerSaveAt = performance.now();
+    try {
+      const session = await this.getLobbySession();
+      if (!session) {
+        this.pendingSavePayload ??= payload;
+        return;
+      }
+      const result = await this.d2SurvivorsService.saveProgress(session.userId, payload, session.token, keepalive);
+      if (result.ok) {
+        if (this.accountSaveWarning) {
+          this.accountSaveWarning = false;
+          this.saveStatus = "";
+        }
+        return;
+      }
+      this.pendingSavePayload ??= payload;
+      this.markAccountSaveFailed();
+    } finally {
+      this.saveUploadInFlight = false;
+    }
+  }
+
+  private markAccountSaveFailed(): void {
+    if (!this.accountSaveWarning) {
+      this.accountSaveWarning = true;
+      this.saveStatus = "Account save failed — progress is kept on this device.";
+    }
+    if (this.saveFlushTimer !== undefined) {
+      return;
+    }
+    this.saveFlushTimer = window.setTimeout(() => {
+      this.saveFlushTimer = undefined;
+      void this.flushServerSave();
+    }, SAVE_UPLOAD_INTERVAL_MS);
+  }
+
+  /** Reads the account copy once. No upload is allowed before this resolves, so
+   *  a fresh device can never push a blank character over a real save. */
+  private async hydrateServerSave(): Promise<void> {
+    if (this.hydratingSave || this.serverSaveState === "ready") {
+      return;
+    }
+    this.hydratingSave = true;
+    try {
+      const session = await this.getLobbySession();
+      if (!session) {
+        // Guest, or the session is still settling: play off the device cache and
+        // retry so signing in later in the visit still picks the save up.
+        this.serverSaveState = "offline";
+        this.scheduleHydrateRetry();
+        return;
+      }
+      const result = await this.d2SurvivorsService.getProgress(session.userId, session.token);
+      if (!result.ok) {
+        this.setAccountSaveWarning(true, "Account save unavailable — progress is kept on this device.");
+        this.serverSaveState = "offline";
+        this.scheduleHydrateRetry();
+        return;
+      }
+      const remote = result.data?.exists ? result.data.payload ?? null : null;
+      if (remote && this.runActive) {
+        // A run started before the account copy arrived. Leave both copies alone
+        // rather than overwriting the account with a device-only state.
+        this.serverSaveState = "offline";
+        return;
+      }
+      if (remote) {
+        this.applySavePayload(remote);
+      }
+      this.serverSaveState = "ready";
+      this.setAccountSaveWarning(false);
+      if (!remote && this.readLocalSavePayload()) {
+        // First sign-in on a device that already held characters: upload them.
+        this.persistRunProgress(true);
+      }
+    } finally {
+      this.hydratingSave = false;
+    }
+  }
+
+  private setAccountSaveWarning(failed: boolean, message = ""): void {
+    this.accountSaveWarning = failed;
+    this.saveStatus = failed ? message : "";
+  }
+
+  private scheduleHydrateRetry(): void {
+    if (this.saveHydrateRetryTimer !== undefined) {
+      return;
+    }
+    this.saveHydrateRetryTimer = window.setTimeout(() => {
+      this.saveHydrateRetryTimer = undefined;
+      if (this.serverSaveState !== "ready") {
+        void this.hydrateServerSave();
+      }
+    }, SAVE_HYDRATE_RETRY_MS);
   }
 
   saveRunNow(): void {
@@ -2012,6 +2189,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       cancelAnimationFrame(this.rafId);
       this.rafId = 0;
     }
+    void this.flushServerSave();
     this.saveStatus = "Journey saved. You can resume from the title screen.";
     this.activeTab = "menu";
     this.menuPanel = "main";
@@ -2938,6 +3116,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   private modelLoadRequest = 0;
   beltSlots: Array<{ kind: "health" | "rejuvenation" | null }> = Array.from({ length: 16 }, () => ({ kind: null }));
+  /** Life still owed by drunk health potions; paid out by tickHealthPotionHeal. */
+  private potionHealRemaining = 0;
   get beltRows(): number {
     return this.equippedBelt?.beltQuality === "exceptional" ? 3
       : this.equippedBelt?.beltQuality === "elite" ? 4
@@ -3634,7 +3814,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       return;
     }
     if (slot.kind === "health" && this.playerHp < this.playerMaxHp) {
-      this.playerHp = Math.min(this.playerMaxHp, this.playerHp + 8);
+      this.beginHealthPotionHeal();
       slot.kind = null;
       this.combatOrbsTime = 2.5;
     } else if (slot.kind === "rejuvenation") {
@@ -3649,6 +3829,27 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   selectBottle(slotIndex: number): void {
     this.activeBottleSlot = slotIndex;
     this.arenaRef?.nativeElement.focus();
+  }
+
+  /** Queues a health potion's 100 life. Repeated potions stack their remaining
+   *  life, which then trickles in at HEALTH_POTION_HEAL_RATE. */
+  private beginHealthPotionHeal(): void {
+    this.potionHealRemaining += HEALTH_POTION_HEAL;
+    this.persistRunProgress(true);
+  }
+
+  private tickHealthPotionHeal(dt: number): void {
+    if (this.potionHealRemaining <= 0) {
+      return;
+    }
+    if (this.playerHp >= this.playerMaxHp) {
+      // Nothing missing to heal: the rest of the potion is not carried over.
+      this.potionHealRemaining = 0;
+      return;
+    }
+    const healed = Math.min(HEALTH_POTION_HEAL_RATE * dt / 1000, this.potionHealRemaining, this.playerMaxHp - this.playerHp);
+    this.playerHp = Math.min(this.playerMaxHp, this.playerHp + healed);
+    this.potionHealRemaining = Math.max(0, this.potionHealRemaining - HEALTH_POTION_HEAL_RATE * dt / 1000);
   }
 
   get healthOrbFill(): number {
@@ -3754,6 +3955,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.activeTab = "menu";
     this.rebuildInventoryGrid();
     this.readSavedProgress();
+    // The account copy is authoritative; uploads stay blocked until it lands.
+    void this.hydrateServerSave();
     this.lobbyMessageSubscription = this.d2SurvivorsService.lobbyMessage$.subscribe((message) => this.addLobbyMessage(message));
     this.leaderboardSubscription = this.d2SurvivorsService.leaderboardUpdated$.subscribe(() => void this.refreshLeaderboard());
     await this.loadLobby();
@@ -4481,6 +4684,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
   }
 
+  @HostListener("window:beforeunload")
+  saveProgressOnUnload(): void {
+    this.persistRunProgress(true);
+    // keepalive so the account save still lands as the page goes away
+    void this.flushServerSave(true);
+  }
+
   @HostListener("window:pagehide")
   saveProgressBeforeLeaving(): void {
     this.persistRunProgress(true);
@@ -4911,6 +5121,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (this.recordRetryTimer !== undefined) window.clearTimeout(this.recordRetryTimer);
     this.cancelItemPreviewHide();
     this.cancelSkillTooltipHide();
+    if (this.saveFlushTimer !== undefined) window.clearTimeout(this.saveFlushTimer);
+    if (this.saveHydrateRetryTimer !== undefined) window.clearTimeout(this.saveHydrateRetryTimer);
+    void this.flushServerSave(true);
     void this.d2SurvivorsService.disconnectLobby();    this.runActive = false;
     this.arenaResizeObserver?.disconnect();
     this.arenaResizeObserver = undefined;
@@ -6420,6 +6633,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   update(dt: number): void {
     this.runTime += dt / 1000;
+    this.tickHealthPotionHeal(dt);
     this.actTime += dt / 1000;
     this.combatOrbsTime = Math.max(0, this.combatOrbsTime - dt / 1000);
     this.attackCooldown = Math.max(0, this.attackCooldown - dt / 1000);

@@ -1449,12 +1449,18 @@ namespace maxhanna.Server.Controllers
 			{
 				await conn.OpenAsync();
 
-				string checkSql = "SELECT COUNT(*) FROM maxhanna.chat_rooms WHERE chat_id = @ChatId AND is_public = 1;";
+				// Public rooms can be extended by anyone who can already see them;
+				// private chats only by a member, who is choosing to share the
+				// conversation they took part in with someone new.
+				string checkSql = @"SELECT
+						(SELECT COUNT(*) FROM maxhanna.chat_rooms WHERE chat_id = @ChatId AND is_public = 1) +
+						(SELECT COUNT(*) FROM maxhanna.messages WHERE chat_id = @ChatId AND FIND_IN_SET(@UserId, receiver) > 0);";
 				using (var checkCmd = new MySqlCommand(checkSql, conn))
 				{
 					checkCmd.Parameters.AddWithValue("@ChatId", request.ChatId);
+					checkCmd.Parameters.AddWithValue("@UserId", request.UserId);
 					if (Convert.ToInt32(await checkCmd.ExecuteScalarAsync()) == 0)
-						return NotFound("Chat is not public.");
+						return NotFound("Chat is not public and you are not a member.");
 				}
 
 				int added = 0;

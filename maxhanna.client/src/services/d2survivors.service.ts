@@ -74,6 +74,11 @@ export interface D2ApiResult<T> {
   data: T | null;
 }
 
+export interface D2ProgressData {
+  exists: boolean;
+  payload?: string | null;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -123,6 +128,16 @@ export class D2SurvivorsService implements OnDestroy {
       console.error(`D2 Survivors request failed: ${url}`, error);
       return { ok: false, data: null };
     }
+  }
+
+  /** Whole-character progress for the signed-in account (gold, gear, stash,
+   *  per-class profiles and any run in flight). */
+  getProgress(userId: number, sessionToken: string) {
+    return this.post<D2ProgressData>('/d2survivors/getprogress', { userId }, sessionToken);
+  }
+
+  saveProgress(userId: number, payload: string, sessionToken: string, keepalive = false) {
+    return this.post<unknown>('/d2survivors/saveprogress', { userId, payload }, sessionToken, keepalive);
   }
 
   getSave(userId: number, sessionToken: string) {

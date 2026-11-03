@@ -1070,11 +1070,36 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       parent.closeOverlay();
     }
   }
-  addChatMember(users?: User[]) {
-    if (!users) return;
+  async addChatMember(users?: User[]) {
+    if (!users || users.length === 0) return;
     if (users.some(user => this.currentChatUsers?.some(z => z.id === user.id))) {
       alert("Duplicate users found. Aborting.");
       return;
+    }
+    const parent = this.parentRef ?? this.inputtedParentRef;
+    // Adding someone to a group that already has messages is a privacy decision:
+    // either they join *this* chat and can read everything already said in it, or
+    // they get a fresh chat whose history starts from the moment they joined.
+    const chatId = this.currentChatId;
+    if (chatId && this.chatHistory.length > 0) {
+      const names = users.map(u => u.username).filter(n => !!n).join(', ');
+      const shareHistory = confirm(
+        `Add ${names} to this group chat?\n\n` +
+        `OK: share this chat's message history with them.\n` +
+        `Cancel: start a new group chat without the older messages.`);
+      if (shareHistory) {
+        const userIds = users.map(u => u.id).filter((id): id is number => !!id);
+        const ok = await this.chatService.addChatMembers(chatId, parent?.user?.id ?? 0, userIds);
+        if (ok) {
+          const members = await this.chatService.getChatUsersByChatId(chatId);
+          if (members && members.length > 0) {
+            this.getChatUsers(members);
+          }
+          parent?.showNotification(`${names} added with this chat's history.`);
+          return;
+        }
+        parent?.showNotification('Could not share the history - starting a new group chat instead.');
+      }
     }
     this.selectedUsers = this.selectedUsers.concat(users);
     this.selectedUsers = this.filterUniqueUsers(this.selectedUsers);

@@ -1,0 +1,1121 @@
+/* Boot screen shown while a ROM downloads and the core starts. The scene is a
+   console with the game's own medium (disc, cartridge, floppy or coin) sliding
+   into it; every animation is CSS so the ROM download keeps the main thread. */
+
+:host {
+  display: block;
+}
+
+.boot {
+  width: min(460px, 86vw);
+  box-sizing: border-box;
+  padding: 16px 16px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(122, 146, 180, 0.28);
+  background: radial-gradient(125% 115% at 50% -15%, rgba(38, 46, 58, 0.97), rgba(6, 8, 12, 0.98));
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.72), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  color: #e7eef8;
+  font-size: clamp(9px, 2.6vw, 13px);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6em;
+}
+
+/* ---------------------------------------------------------------- the scene */
+
+.stage {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 5 / 3;
+  overflow: hidden;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background:
+    radial-gradient(72% 52% at 50% 106%, rgba(74, 142, 224, 0.22), transparent 72%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(0, 0, 0, 0.42));
+  box-shadow: inset 0 0 46px rgba(0, 0, 0, 0.68);
+}
+
+.stage-glow {
+  position: absolute;
+  left: 50%;
+  bottom: 1.5%;
+  width: 66%;
+  height: 9%;
+  transform: translateX(-50%);
+  background: radial-gradient(closest-side, rgba(120, 180, 255, 0.28), transparent);
+}
+
+/* ----------------------------------------------------------- the game medium */
+
+.asset {
+  position: absolute;
+  z-index: 1;
+  will-change: transform;
+}
+
+.asset--disc {
+  width: 24%;
+  aspect-ratio: 1;
+  left: 45%;
+  top: 40%;
+  animation: insertFromRight 2.8s cubic-bezier(0.4, 0, 0.4, 1) both;
+}
+
+.asset--cart {
+  width: 19%;
+  aspect-ratio: 0.82;
+  left: 40.5%;
+  top: 40%;
+  animation: insertFromTop 2.4s cubic-bezier(0.5, 0.05, 0.5, 1) both;
+}
+
+.asset--floppy {
+  width: 20%;
+  aspect-ratio: 1;
+  left: 34%;
+  top: 44%;
+  animation: insertFromLeft 2.6s cubic-bezier(0.4, 0, 0.4, 1) both;
+}
+
+.asset--coin {
+  width: 9%;
+  aspect-ratio: 1;
+  left: 56%;
+  top: 20%;
+  animation: insertFromTopFast 1.7s cubic-bezier(0.5, 0, 0.7, 1) both;
+}
+
+/* Disc -------------------------------------------------------------------- */
+
+.disc {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: conic-gradient(from 205deg, #98a1b1, #eef2f8, #7b8598, #dfe6f2, #8c95a6, #f3f6fb, #98a1b1);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.34);
+}
+
+.disc-face {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0) 0 49%, rgba(255, 255, 255, 0.26) 50%, rgba(255, 255, 255, 0) 57%),
+    radial-gradient(circle at 32% 26%, rgba(255, 255, 255, 0.4), transparent 42%);
+  mix-blend-mode: screen;
+}
+
+.disc-label {
+  position: absolute;
+  inset: 17%;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 17% 10%;
+  box-sizing: border-box;
+  text-align: center;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+}
+
+.disc-brand {
+  font-size: 0.5em;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(8, 10, 14, 0.72);
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.disc-title {
+  font-size: 0.78em;
+  font-weight: 800;
+  line-height: 1.12;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #fff;
+  background: rgba(8, 10, 14, 0.62);
+  border-radius: 0.5em;
+  padding: 0.34em 0.5em;
+  max-width: 100%;
+  box-sizing: border-box;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Cover art replaces the printed name on whichever label the medium has. */
+.disc-label.has-art,
+.cart-label.has-art,
+.floppy-label.has-art {
+  padding: 0;
+  overflow: hidden;
+}
+
+.label-art {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.disc-label.has-art .label-art {
+  border-radius: 50%;
+}
+
+/* Keeps the printed edge ring visible over the artwork. */
+.disc-label.has-art::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.35), inset 0 0 8px rgba(0, 0, 0, 0.35);
+}
+
+.disc-hole {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 6%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: #06080b;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.55);
+}
+
+/* Cartridge --------------------------------------------------------------- */
+
+.cartridge {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 11% 11% 7% 7%;
+  border: 1px solid rgba(0, 0, 0, 0.55);
+  background: linear-gradient(180deg, #4b5058, #20242a);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), inset 0 -8px 16px rgba(0, 0, 0, 0.5),
+    0 10px 20px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+}
+
+.cart-ribs {
+  position: absolute;
+  left: 9%;
+  right: 9%;
+  top: 4%;
+  height: 8%;
+  border-radius: 2px;
+  background: repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.2) 0 1px, transparent 1px 5px);
+}
+
+.cart-label {
+  position: absolute;
+  left: 9%;
+  right: 9%;
+  top: 16%;
+  bottom: 13%;
+  border-radius: 3px;
+  border: 1px solid;
+  box-sizing: border-box;
+  padding: 7% 8%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3em;
+  text-align: center;
+  background: linear-gradient(180deg, #f2eee1, #ddd6c4);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+}
+
+.cart-brand {
+  font-size: 0.46em;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.cart-title {
+  font-size: 0.62em;
+  font-weight: 800;
+  line-height: 1.1;
+  text-transform: uppercase;
+  color: #1b1e24;
+  max-width: 100%;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.cart-pins {
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  bottom: 3%;
+  height: 5%;
+  border-radius: 1px;
+  background: repeating-linear-gradient(90deg, #b8942f 0 2px, #5d4b18 2px 4px);
+  opacity: 0.75;
+}
+
+/* Floppy ------------------------------------------------------------------ */
+
+.floppy {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.6);
+  background: linear-gradient(180deg, #37435f, #1b2438);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 10px 20px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+}
+
+.floppy-shutter {
+  position: absolute;
+  left: 22%;
+  right: 22%;
+  top: 0;
+  height: 30%;
+  border-radius: 0 0 3px 3px;
+  background: linear-gradient(180deg, #d7dade, #9fa5ad);
+  box-shadow: inset 0 -1px 2px rgba(0, 0, 0, 0.4);
+}
+
+.floppy-label {
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  top: 40%;
+  bottom: 10%;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #f4f1e6, #ded9c8);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.2em;
+  padding: 4% 6%;
+  box-sizing: border-box;
+  text-align: center;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.55);
+}
+
+.floppy-title {
+  font-size: 0.55em;
+  font-weight: 800;
+  line-height: 1.1;
+  text-transform: uppercase;
+  color: #1b1e24;
+  max-width: 100%;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.floppy-brand {
+  font-size: 0.42em;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #5c5646;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Coin -------------------------------------------------------------------- */
+
+.coin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  font-size: 0.6em;
+  color: #6b4a06;
+  animation: spinCoin 1.5s linear infinite;
+  background: radial-gradient(circle at 34% 30%, #ffe9a8, #d9a52c 58%, #a97a12);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.5), 0 6px 14px rgba(0, 0, 0, 0.5);
+}
+
+/* ----------------------------------------------------------------- hardware */
+
+.device {
+  position: absolute;
+  z-index: 2;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 0 -14px 26px rgba(0, 0, 0, 0.5),
+    0 18px 26px rgba(0, 0, 0, 0.55);
+}
+
+.device--console {
+  left: 14%;
+  right: 14%;
+  top: 32%;
+  height: 56%;
+}
+
+/* Disc machines sit left of centre so the disc has somewhere to wait, fully
+   visible, before it is pushed into the slot. */
+.stage--disc .device--console {
+  left: 6%;
+  right: 30%;
+}
+
+.device--handheld {
+  left: 33%;
+  right: 33%;
+  top: 24%;
+  height: 66%;
+  border-radius: 14px;
+}
+
+/* Landscape handhelds: PSP, GBA, Game Gear, Lynx. Screen in the middle, one
+   control cluster either side, exactly like the real shell. */
+.device--handheld.is-wide {
+  left: 16%;
+  right: 16%;
+  top: 34%;
+  height: 46%;
+  border-radius: 12px;
+}
+
+.is-wide .handheld-screen {
+  left: 29%;
+  right: 29%;
+  top: 12%;
+  height: 46%;
+}
+
+.is-wide .handheld-dpad {
+  left: 8%;
+  top: 38%;
+  bottom: auto;
+  width: 13%;
+}
+
+.is-wide .handheld-buttons {
+  right: 9%;
+  top: 34%;
+  bottom: auto;
+  width: 9%;
+}
+
+.is-wide .handheld-speaker {
+  display: none;
+}
+
+.is-wide .led {
+  right: 4%;
+  bottom: 14%;
+}
+
+.is-wide .badge,
+.is-wide .brand {
+  bottom: 4%;
+}
+
+/* The UMD parks right of a landscape shell, so it is fully visible first. */
+.stage--wide .asset--disc {
+  left: 50%;
+}
+
+/* Atari's badge sits above the wood, not on it. */
+.device--console.has-wood .badge,
+.device--console.has-wood .brand {
+  bottom: 36%;
+}
+
+/* Handhelds sit closer to the entry side so a cartridge is clearly visible on
+   its way down, and a UMD rests against the right edge before it goes in. */
+.stagebody--handheld .asset--disc {
+  left: 41%;
+}
+
+.device--desk {
+  left: 24%;
+  right: 8%;
+  top: 36%;
+  height: 50%;
+  border-radius: 6px;
+}
+
+.device--cabinet {
+  left: 33%;
+  right: 33%;
+  top: 10%;
+  height: 82%;
+  border-radius: 8px 8px 4px 4px;
+}
+
+.device-trim {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 3px;
+  opacity: 0.8;
+}
+
+/* Slots the medium disappears into. They pulse while the machine "reads". */
+.slot {
+  position: absolute;
+  background: #04060a;
+  box-shadow: inset 0 0 6px #000, 0 1px 0 rgba(255, 255, 255, 0.09);
+  animation: slotRead 2.4s ease-in-out 1.9s infinite;
+}
+
+.slot--disc {
+  right: 0;
+  top: 46%;
+  width: 12px;
+  height: 8%;
+  border-radius: 3px 0 0 3px;
+}
+
+.slot--cart {
+  left: 50%;
+  top: 0;
+  width: 34%;
+  height: 7px;
+  margin-left: -17%;
+  border-radius: 0 0 3px 3px;
+}
+
+.slot--floppy {
+  left: 0;
+  top: 43%;
+  width: 10px;
+  height: 13%;
+  border-radius: 0 3px 3px 0;
+}
+
+.slot--coin {
+  right: 15%;
+  top: 0;
+  width: 9%;
+  height: 8%;
+  border-radius: 0 0 3px 3px;
+}
+
+.brand {
+  position: absolute;
+  left: 6%;
+  bottom: 13%;
+  font-size: 0.68em;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  opacity: 0.72;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 70%;
+}
+
+/* Manufacturer badge: the brand mark plus the wordmark printed on the shell,
+   sitting where it does on the real machine. */
+.badge {
+  position: absolute;
+  left: 5%;
+  bottom: 9%;
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  max-width: 52%;
+}
+
+.mark {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  border-radius: 3px;
+  font-size: 5.5px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  overflow: hidden;
+}
+
+.mark--ps {
+  border-radius: 50%;
+  background: #1d2a45;
+  color: #cfe1ff;
+  font-size: 7px;
+  font-style: italic;
+  letter-spacing: -0.04em;
+}
+
+.mark--sega {
+  background: #0b57a4;
+  color: #fff;
+}
+
+.mark--nintendo {
+  border-radius: 2px;
+  background: #e60012;
+  color: #fff;
+  font-size: 11px;
+}
+
+.mark--xbox {
+  border-radius: 50%;
+  background: #107c10;
+  color: #fff;
+  font-size: 9px;
+}
+
+.mark--atari {
+  background: #d9a13a;
+  color: #1a1712;
+  font-size: 4.6px;
+  letter-spacing: 0;
+}
+
+.mark--commodore {
+  background: linear-gradient(
+    180deg,
+    #c0392b 0 22%,
+    #d35400 22% 40%,
+    #f1c40f 40% 60%,
+    #27ae60 60% 78%,
+    #2c3e94 78%
+  );
+}
+
+.wordmark {
+  font-size: 0.72em;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0.9;
+}
+
+/* Each brand has its own lettering temperament. */
+.badge--ps .wordmark {
+  font-style: italic;
+}
+
+.badge--sega .wordmark {
+  font-size: 0.66em;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.badge--nintendo .wordmark {
+  letter-spacing: 0.03em;
+}
+
+.badge--atari .wordmark {
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.badge--xbox .wordmark {
+  letter-spacing: 0.01em;
+}
+
+/* ------------------------------------------------------- physical features */
+
+/* Top-loading disc lid (PS1, Saturn, Dreamcast…). */
+.lid--disc {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  top: 10%;
+  width: 34%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 2px solid rgba(0, 0, 0, 0.22);
+  background: radial-gradient(circle at 50% 42%, rgba(255, 255, 255, 0.14), rgba(0, 0, 0, 0.16));
+  box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.22);
+}
+
+/* Inner ring so the lid reads as a hinged door, not a hole. */
+.lid--disc::after {
+  content: '';
+  position: absolute;
+  inset: 13%;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+/* Cartridge flap along the top edge. */
+.lid--cart {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  top: 3%;
+  width: 46%;
+  height: 13%;
+  border-radius: 0 0 5px 5px;
+  background: rgba(0, 0, 0, 0.2);
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* Controller ports along the front edge. */
+.ports {
+  position: absolute;
+  right: 8%;
+  bottom: 8%;
+  width: 32%;
+  height: 9%;
+  display: flex;
+  gap: 6%;
+}
+
+.ports i {
+  flex: 1 1 0;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.4);
+  box-shadow: inset 0 0 3px rgba(0, 0, 0, 0.6);
+}
+
+.front-buttons {
+  position: absolute;
+  right: 8%;
+  top: 12%;
+  display: flex;
+  gap: 5px;
+}
+
+.front-buttons i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.34);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+/* Corner ribbon, e.g. the Mega Drive's "16-BIT". */
+.tagline {
+  position: absolute;
+  left: 5%;
+  top: 10%;
+  padding: 0.12em 0.35em;
+  border-radius: 2px;
+  font-size: 0.5em;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #12141a;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+/* Atari's wood-grain front. */
+.wood {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 30%;
+  background: repeating-linear-gradient(90deg, #6b4a2a 0 5px, #7d5732 5px 9px, #5b3f24 9px 14px);
+  border-top: 1px solid rgba(0, 0, 0, 0.35);
+}
+
+/* The keyboard slab owns the lower left of a home computer, so the badge moves
+   to the free corner instead of printing across the keys. */
+.device--desk .badge,
+.device--desk .brand {
+  left: auto;
+  right: 6%;
+  bottom: 9%;
+  max-width: 52%;
+  justify-content: flex-end;
+  text-align: right;
+}
+
+.vents {
+  position: absolute;
+  left: 8%;
+  top: 16%;
+  width: 30%;
+  height: 16%;
+  opacity: 0.45;
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.55) 0 2px,
+    rgba(255, 255, 255, 0.06) 2px 7px
+  );
+  border-radius: 2px;
+}
+
+.device--handheld .badge,
+.device--handheld .brand {
+  left: 0;
+  right: 0;
+  bottom: 3%;
+  max-width: 92%;
+  justify-content: center;
+  text-align: center;
+}
+
+.device--handheld .badge .mark {
+  width: 13px;
+  height: 13px;
+}
+
+.device--handheld .badge .wordmark {
+  font-size: 0.58em;
+}
+
+/* Speaker grille under the screen. */
+.handheld-speaker {
+  position: absolute;
+  right: 16%;
+  bottom: 11%;
+  width: 16%;
+  height: 5%;
+  border-radius: 2px;
+  opacity: 0.4;
+  background: repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.5) 0 1px, transparent 1px 4px);
+}
+
+.led {
+  position: absolute;
+  right: 6%;
+  bottom: 14%;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  opacity: 0.18;
+  animation: powerOn 0.45s ease 2.7s both, powerPulse 2.6s ease-in-out 3.1s infinite;
+}
+
+/* Handheld face */
+.handheld-screen {
+  position: absolute;
+  left: 14%;
+  right: 14%;
+  top: 6%;
+  height: 32%;
+  border-radius: 4px;
+  background: radial-gradient(circle at 50% 40%, #2a3d52, #0a1017 78%);
+  box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+.handheld-dpad {
+  position: absolute;
+  left: 16%;
+  bottom: 20%;
+  width: 20%;
+  aspect-ratio: 1;
+}
+
+.handheld-dpad::before,
+.handheld-dpad::after {
+  content: '';
+  position: absolute;
+  background: rgba(0, 0, 0, 0.44);
+  border-radius: 1px;
+}
+
+.handheld-dpad::before {
+  left: 34%;
+  right: 34%;
+  top: 0;
+  bottom: 0;
+}
+
+.handheld-dpad::after {
+  top: 34%;
+  bottom: 34%;
+  left: 0;
+  right: 0;
+}
+
+.handheld-buttons {
+  position: absolute;
+  right: 16%;
+  bottom: 24%;
+  width: 15%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 2px solid;
+  opacity: 0.85;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35) inset;
+}
+
+/* Home computer face */
+.desk-screen {
+  position: absolute;
+  left: 6%;
+  top: 8%;
+  width: 36%;
+  height: 34%;
+  border-radius: 3px;
+  background: radial-gradient(circle at 50% 40%, #2b3547, #0a1017 80%);
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+.desk-keys {
+  position: absolute;
+  left: 6%;
+  bottom: 9%;
+  width: 46%;
+  height: 24%;
+  border-radius: 3px;
+  opacity: 0.28;
+  background-image: repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.5) 0 1px, transparent 1px 7px),
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.5) 0 1px, transparent 1px 7px);
+}
+
+/* Arcade cabinet face */
+.marquee {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 15%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.55em;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  color: #0a0c11;
+  text-transform: uppercase;
+}
+
+.cab-screen {
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  top: 20%;
+  height: 40%;
+  border-radius: 4px;
+  background: radial-gradient(circle at 50% 38%, #16324a, #05080d 80%);
+  box-shadow: inset 0 0 16px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+.cab-panel {
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  bottom: 12%;
+  height: 15%;
+  border: 1px solid;
+  border-radius: 4px;
+  opacity: 0.65;
+}
+
+/* --------------------------------------------------------------- captions */
+
+.boot-caption {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.3em;
+  margin-top: 0.15em;
+  font-size: 0.94em;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: #e3edfa;
+  text-align: center;
+}
+
+.caption-dots i {
+  font-style: normal;
+  opacity: 0.25;
+  animation: dotFade 1.2s ease-in-out infinite;
+}
+
+.caption-dots i:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.caption-dots i:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+.boot-bar {
+  height: 8px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.14);
+  overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+.boot-bar-fill {
+  height: 100%;
+  border-radius: 5px;
+  background: linear-gradient(90deg, #2f7fd6, #66c8ff);
+  box-shadow: 0 0 10px rgba(80, 180, 255, 0.7);
+  transition: width 0.15s linear;
+}
+
+.boot-status {
+  font-size: 0.72em;
+  line-height: 1.35;
+  color: #a9b8cc;
+  text-align: center;
+  word-break: break-word;
+}
+
+/* -------------------------------------------------------------- animations */
+
+/* Present, hold, then push. The hold is what lets the label be read before the
+   medium is swallowed by the slot. */
+@keyframes insertFromRight {
+  0% {
+    transform: translateX(215%);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  56% {
+    transform: translateX(108%);
+  }
+  76% {
+    transform: translateX(108%);
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes insertFromLeft {
+  0% {
+    transform: translateX(-330%);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  56% {
+    transform: translateX(-150%);
+  }
+  76% {
+    transform: translateX(-150%);
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* The last stretch runs behind the hardware, so the percentage stops below are
+   what makes the cartridge look like it drops into the slot rather than
+   vanishing halfway down. */
+@keyframes insertFromTop {
+  0% {
+    transform: translateY(-250%);
+  }
+  52% {
+    transform: translateY(-70%);
+  }
+  72% {
+    transform: translateY(-70%);
+  }
+  88% {
+    transform: translateY(-12%);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes insertFromTopFast {
+  0% {
+    transform: translateY(-330%);
+  }
+  45% {
+    transform: translateY(-165%);
+  }
+  75% {
+    transform: translateY(-54%);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes spinCoin {
+  0% {
+    transform: rotateY(0deg);
+  }
+  100% {
+    transform: rotateY(360deg);
+  }
+}
+
+@keyframes powerOn {
+  0% {
+    opacity: 0.18;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes powerPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@keyframes slotRead {
+  0%,
+  100% {
+    box-shadow: inset 0 0 6px #000, 0 1px 0 rgba(255, 255, 255, 0.09);
+  }
+  50% {
+    box-shadow: inset 0 0 6px #000, 0 0 8px rgba(120, 190, 255, 0.65);
+  }
+}
+
+@keyframes dotFade {
+  0%,
+  100% {
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Reduced motion drops the endless ambience (spinning disc, pulsing slot and
+   LED, blinking dots) but keeps the one-shot insert: the disc going into the
+   machine is the information this screen exists to convey. The LED is simply
+   left lit. */
+@media (prefers-reduced-motion: reduce) {
+  .coin,
+  .slot,
+  .caption-dots i,
+  .led {
+    animation: none !important;
+  }
+
+  .led {
+    opacity: 1;
+  }
+}

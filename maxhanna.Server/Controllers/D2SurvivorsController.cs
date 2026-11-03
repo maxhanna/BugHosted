@@ -5,6 +5,12 @@ using MySqlConnector;
 
 namespace maxhanna.Server.Controllers
 {
+  public class D2SProgressRequest
+  {
+    public int UserId { get; set; }
+    public string? Payload { get; set; }
+  }
+
   public class D2SGetSaveRequest
   {
     public int UserId { get; set; }
@@ -33,6 +39,9 @@ namespace maxhanna.Server.Controllers
   public class D2SurvivorsController : ControllerBase
   {
     private const int MaxSaveBytes = 262144;
+    private const int MaxProgressBytes = 4_000_000;
+    private static volatile bool _progressTableReady;
+    private static readonly System.Threading.SemaphoreSlim ProgressTableLock = new(1, 1);
     private const int MaxLobbyMessageLength = 500;
 
     private readonly Log _log;
@@ -182,7 +191,7 @@ namespace maxhanna.Server.Controllers
     }
 
     /// <summary>
-    /// Activity heartbeat. The game keeps its run in localStorage, so nothing
+    /// Activity heartbeat. Progress rows live in d2survivors_progress, so nothing
     /// else ever writes to d2survivors_save — and /User/ActiveGamers reports a
     /// player only while that row's updated_at is under 5 minutes old. This
     /// stamps the timestamp and nothing else, so a live run shows up in
@@ -333,6 +342,92 @@ namespace maxhanna.Server.Controllers
       catch (Exception ex)
       {
         _ = _log.Db("D2Survivors LobbyMessage failed: " + ex.Message, req.UserId, "D2SURVIVORS", true);
+        return StatusCode(500, "Internal server error.");
+      }
+    }
+
+    /// <summary>
+    /// Opens a connection, creating the progress table on first use so a deploy
+    /// needs no manual SQL migration.
+    /// </summary>
+    private async Task<MySqlConnection> OpenWithProgressTableAsync()
+    {
+      var conn = new MySqlConnection(_connectionString);
+      await conn.OpenAsync();
+      if (_progressTableReady) return conn;
+      await ProgressTableLock.WaitAsync();
+      try
+      {
+        if (_progressTableReady) return conn;
+        const string ddl = @"CREATE TABLE IF NOT EXISTS maxhanna.d2survivors_progress (
+            user_id INT NOT NULL PRIMARY KEY,
+            payload LONGTEXT NOT NULL,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
+        await using var cmd = new MySqlCommand(ddl, conn);
+        await cmd.ExecuteNonQueryAsync();
+        _progressTableReady = true;
+      }
+      finally
+      {
+        ProgressTableLock.Release();
+      }
+      return conn;
+    }
+
+    /// <summary>
+    /// The account's character save: one payload row per user, written by the
+    /// game while a run is live and read back on sign-in.
+    /// </summary>
+    [HttpPost("/D2Survivors/GetProgress", Name = "D2Survivors_GetProgress")]
+    public async Task<IActionResult> GetProgress([FromBody] D2SProgressRequest req, [FromHeader(Name = "Encrypted-UserId")] string? encryptedUserIdHeader = null)
+    {
+      if (req == null || req.UserId <= 0) return BadRequest("userId required.");
+      try
+      {
+        if (!await _log.ValidateUserLoggedIn(req.UserId, encryptedUserIdHeader ?? "")) return Unauthorized();
+
+        await using var conn = await OpenWithProgressTableAsync();
+        const string sql = "SELECT payload FROM maxhanna.d2survivors_progress WHERE user_id = @UserId LIMIT 1;";
+        await using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@UserId", req.UserId);
+        await using var rdr = await cmd.ExecuteReaderAsync();
+        if (!await rdr.ReadAsync()) return Ok(new { exists = false, payload = (string?)null });
+        return Ok(new { exists = true, payload = rdr.GetString("payload") });
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("D2Survivors GetProgress failed: " + ex.Message, req.UserId, "D2SURVIVORS", true);
+        return StatusCode(500, "Internal server error.");
+      }
+    }
+
+    [HttpPost("/D2Survivors/SaveProgress", Name = "D2Survivors_SaveProgress")]
+    public async Task<IActionResult> SaveProgress([FromBody] D2SProgressRequest req, [FromHeader(Name = "Encrypted-UserId")] string? encryptedUserIdHeader = null)
+    {
+      if (req == null || req.UserId <= 0) return BadRequest("userId required.");
+      string payload = req.Payload ?? "";
+      if (payload.Length == 0) return BadRequest("payload required.");
+      if (payload.Length > MaxProgressBytes) return BadRequest("Save data too large.");
+      if (!IsValidJson(payload)) return BadRequest("Invalid save data.");
+
+      try
+      {
+        if (!await _log.ValidateUserLoggedIn(req.UserId, encryptedUserIdHeader ?? "")) return Unauthorized();
+
+        await using var conn = await OpenWithProgressTableAsync();
+        const string sql = @"INSERT INTO maxhanna.d2survivors_progress (user_id, payload, updated_at)
+            VALUES (@UserId, @Payload, UTC_TIMESTAMP())
+            ON DUPLICATE KEY UPDATE payload = VALUES(payload), updated_at = VALUES(updated_at);";
+        await using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@UserId", req.UserId);
+        cmd.Parameters.AddWithValue("@Payload", payload);
+        await cmd.ExecuteNonQueryAsync();
+        return Ok(new { ok = true });
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("D2Survivors SaveProgress failed: " + ex.Message, req.UserId, "D2SURVIVORS", true);
         return StatusCode(500, "Internal server error.");
       }
     }

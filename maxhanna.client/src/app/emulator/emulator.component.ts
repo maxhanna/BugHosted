@@ -17,13 +17,14 @@ import {
   GamepadInfoStore
 } from './emulator-types';
 import { User } from '../../services/datacontracts/user/user';
+import { EmulatorBootAnimationComponent } from './emulator-boot-animation.component';
 
 @Component({
   selector: 'app-emulator',
   templateUrl: './emulator.component.html',
   styleUrls: ['./emulator.component.css'],
   standalone: true,
-  imports: [AppModule, CommonModule, FormsModule]
+  imports: [AppModule, CommonModule, FormsModule, EmulatorBootAnimationComponent]
 })
 export class EmulatorComponent extends ChildComponent implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild(FileSearchComponent) fileSearchComponent?: FileSearchComponent;
@@ -49,6 +50,12 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   isMenuPanelOpen = false;
   isFullScreen = false;
   romName?: string;
+  /** System whose hardware the boot animation shows (known before the ROM lands). */
+  bootSystem?: System;
+  /** ROM name printed on the disc/cart label while it boots. */
+  bootGameName = '';
+  /** Cover art printed on that label when the ROM's FileEntry has one. */
+  bootCoverUrl: string | null = null;
   selectedROMFile?: FileEntry;
   showGamepadDetails = false; 
   system?: System;
@@ -445,6 +452,27 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       return;
     }
 
+    // Resolve the core before the first paint so the boot animation opens on the
+    // right hardware instead of swapping the disc for a cartridge a frame later.
+    const bootCore = this.detectCoreEnhanced(fileName, effectiveForcedCore);
+    this.bootSystem = this.systemFromCore(bootCore);
+    this.bootGameName = this.fileService.getFileWithoutExtension(fileName);
+    this.bootCoverUrl = this.coverForFile(this.selectedROMFile);
+    // Preset/URL loads arrive without a FileEntry, so fetch the cover in the
+    // background and let it land on the label if it beats the disc into the slot.
+    if (!this.bootCoverUrl && fileId != null) {
+      const forFile = fileName;
+      void this.fileService.getFileEntryById(fileId, this.parentRef?.user?.id, undefined, true)
+        .then(async (entry) => {
+          const cover = this.coverForFile(entry);
+          if (!cover || !this.isLoading) return;
+          if (this.bootGameName !== this.fileService.getFileWithoutExtension(forFile)) return;
+          this.bootCoverUrl = cover;
+          this.cdr.detectChanges();
+        })
+        .catch(() => { /* no cover: the label keeps the title */ });
+    }
+
     this.startLoading();
     this.progressPct = null; // no stale bar from the previous load
     this.gameLoadDate = new Date();
@@ -489,11 +517,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         }
       );
 
-    // Resolve the core that will actually run before the save state is
-    // requested. A state written by a different core (or by an older build of
-    // the same core) cannot be restored and traps the emulator, so the request
-    // is qualified with this core and the server will not substitute another.
-    const bootCore = this.detectCoreEnhanced(fileName, effectiveForcedCore);
+    // bootCore was resolved above: a save state written by a different core (or
+    // by an older build of the same core) cannot be restored and traps the
+    // emulator, so the request is qualified with this core and the server will
+    // not substitute another.
 
     let saveStatePromise: Promise<Blob | null> = Promise.resolve(null);
     if (this.selectedPendingShare && userId) {
@@ -1811,6 +1838,29 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       return this.fileService.getFileWithoutExtension(this.romName);
     }
     return 'Emulator';
+  }
+
+  /** Cover art for the boot label: inline thumbs first, then the raw IGDB cover. */
+  private coverForFile(file?: FileEntry | null): string | null {
+    const raw = file?.romInlineThumbs?.[0] ?? file?.romMetadata?.coverUrl;
+    return raw ? this.toSameOriginAssetUrl(raw) : null;
+  }
+
+  /** Older rows stored absolute bughosted.com URLs, which the browser treats as
+   *  cross-origin; the path alone reaches the same file same-origin. */
+  private toSameOriginAssetUrl(value: string): string {
+    if (!/^https?:\/\/(?:[^/]+\.)?bughosted\.com(?=[/?#]|$)/i.test(value)) return value;
+    try {
+      const parsed = new URL(value);
+      return parsed.pathname + parsed.search + parsed.hash;
+    } catch {
+      return value;
+    }
+  }
+
+  /** The ROM is on the device once romName is set; after that we are booting. */
+  get bootPhase(): 'load' | 'boot' {
+    return this.romName ? 'boot' : 'load';
   }
 
 

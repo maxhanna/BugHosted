@@ -8,19 +8,13 @@
     [showSearch]="false" [inputtedParentRef]="parentRef" (menuClicked)="showMenuPanel()" (closeClicked)="safeExit()">
   </app-title-bar>
 
-  <!-- Status Display -->
-  <div *ngIf="!romName && isLoading">
-    <span class="loadingContainerStatus">{{ status }}</span>
-    <!-- Visual counterpart to the "Downloading ROM … (76%)" text. The grey plate
-         is deliberate: this overlay sits on top of a background image, and a bare
-         translucent track disappears against it. -->
-    <div *ngIf="progressPct !== null"
-         style="margin:10px auto 0; width:min(420px, 70vw); box-sizing:border-box; background:rgba(55,55,55,0.92); padding:7px 8px; border-radius:9px; border:1px solid rgba(0,0,0,0.45);">
-      <div role="progressbar" [attr.aria-valuenow]="progressPct" aria-valuemin="0" aria-valuemax="100"
-           style="height:10px; border-radius:5px; background:rgba(255,255,255,0.22); overflow:hidden;">
-        <div [style.width.%]="progressPct" style="height:100%; background:#4af; transition:width 0.15s linear;"></div>
-      </div>
-    </div>
+  <!-- Boot screen: the game's own disc/cartridge goes into the system while the
+       ROM downloads and the core starts up. It covers the EmulatorJS container
+       too, so the machine stays on screen through the whole boot. -->
+  <div class="emuBootOverlay" *ngIf="isLoading">
+    <app-emulator-boot-animation [system]="bootSystem" [gameName]="bootGameName" [coverUrl]="bootCoverUrl"
+      [status]="status" [progressPct]="progressPct" [phase]="bootPhase">
+    </app-emulator-boot-animation>
   </div>
 
   <div class="gamesContainer" 
