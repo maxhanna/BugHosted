@@ -1148,8 +1148,12 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         this.isEditing = this.isEditing.filter(x => x != fileId);
         return alert("no changes detected");
       }
-      parent.innerText = text.trim();
+      // Do not clobber the row with parent.innerText here: the row is rendered
+      // by app-file-entry, so wiping fileIdDiv's children would destroy the
+      // name span, icons and action buttons. editFile updates the model, which
+      // re-renders the name in place.
       await this.editFile(fileId, text.trim());
+      this.isEditing = this.isEditing.filter(x => x != fileId);
     }
   }
 

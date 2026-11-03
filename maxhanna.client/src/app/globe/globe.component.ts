@@ -1160,6 +1160,15 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.showPingSavePrompt = true;
   }
 
+  /** Reverse-geocoded place for the point being pinned — the same "Selected
+   *  location" data the data panel shows on its TomTom tab. */
+  get pendingPingLocation(): { label: string; lat: number; lon: number } | null {
+    const loc = this.tomTomLocation;
+    if (!loc) return null;
+    const sameSpot = Math.abs(loc.lat - this.pendingPingLat) < 1e-6 && Math.abs(loc.lon - this.pendingPingLon) < 1e-6;
+    return sameSpot ? loc : null;
+  }
+
   cancelPingSave(): void {
     this.showPingSavePrompt = false;
     this.pendingPingLabel = '';
@@ -1776,13 +1785,14 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     return new Error(`${fallback} (HTTP ${response.status}).`);
   }
 
-  private async lookupTomTomLocation(lat: number, lon: number): Promise<void> {
+  /** Resolves the place name for a point and stores it in `tomTomLocation`.
+   *  `openPanel` is false when the caller renders that data elsewhere (the
+   *  drop-a-ping prompt) instead of opening the data panel. */
+  private async lookupTomTomLocation(lat: number, lon: number, openPanel = true): Promise<void> {
     const key = `${lat.toFixed(3)}:${lon.toFixed(3)}`;
     if (this.tomTomReverseCache.has(key)) {
       this.tomTomLocation = { label: this.tomTomReverseCache.get(key)!, lat, lon };
-      this.activeDataTab = 'general';
-      this.generalTab = 'tomtom';
-      this.showDataPanel = true;
+      this.revealTomTomLocation(openPanel);
       return;
     }
     if (Date.now() - this.tomTomReverseLookupAt < 1000) return;
@@ -1790,9 +1800,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.tomTomLocation = { label: 'Resolving address…', lat, lon };
     this.tomTomError = '';
     const requestStamp = ++this.tomTomReverseRequestStamp;
-    this.activeDataTab = 'general';
-    this.generalTab = 'tomtom';
-    this.showDataPanel = true;
+    this.revealTomTomLocation(openPanel);
     try {
       const response = await fetch(`/tomtom/reverse-geocode?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}`);
       if (!response.ok) throw await this.tomTomResponseError(response, 'Reverse geocoding is unavailable.');
@@ -1803,15 +1811,21 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       this.tomTomReverseCache.set(key, label);
       while (this.tomTomReverseCache.size > 100) this.tomTomReverseCache.delete(this.tomTomReverseCache.keys().next().value!);
       this.ngZone.run(() => this.tomTomLocation = { label, lat, lon });
-      this.activeDataTab = 'general';
-      this.generalTab = 'tomtom';
-      this.showDataPanel = true;
+      this.revealTomTomLocation(openPanel);
     } catch (error) {
       if (requestStamp === this.tomTomReverseRequestStamp) {
         const message = error instanceof Error ? error.message : 'Reverse geocoding is unavailable.';
         this.ngZone.run(() => this.tomTomError = message);
       }
     }
+  }
+
+  /** Switches the data panel to General → TomTom, unless suppressed. */
+  private revealTomTomLocation(openPanel: boolean): void {
+    if (!openPanel) return;
+    this.activeDataTab = 'general';
+    this.generalTab = 'tomtom';
+    this.showDataPanel = true;
   }
 
   private async loadTomTomFlowSegment(lat: number, lon: number): Promise<void> {
@@ -3420,8 +3434,10 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       const rect = canvas.getBoundingClientRect();
       const loc = this.screenToLatLon(e.clientX - rect.left, e.clientY - rect.top);
       if (loc) {
-        void this.lookupTomTomLocation(loc.lat, loc.lon);
+        // The place data for this point is shown inside the ping prompt, so the
+        // TomTom data panel is only opened when no prompt could be shown.
         void this.promptPingSave(loc.lat, loc.lon);
+        void this.lookupTomTomLocation(loc.lat, loc.lon, !this.showPingSavePrompt);
       }
       return;
     }
@@ -3562,8 +3578,10 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       const rect = canvas.getBoundingClientRect();
       const loc = this.screenToLatLon(e.clientX - rect.left, e.clientY - rect.top);
       if (loc) {
-        void this.lookupTomTomLocation(loc.lat, loc.lon);
+        // The place data for this point is shown inside the ping prompt, so the
+        // TomTom data panel is only opened when no prompt could be shown.
         void this.promptPingSave(loc.lat, loc.lon);
+        void this.lookupTomTomLocation(loc.lat, loc.lon, !this.showPingSavePrompt);
       }
       return;
     }

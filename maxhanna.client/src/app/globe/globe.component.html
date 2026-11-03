@@ -582,6 +582,10 @@
     <button class="close-btn" (click)="cancelPingSave()">×</button>
     <div class="data-content">
       <p class="ping-save-coords">{{ pendingPingLat.toFixed(4) }}°, {{ pendingPingLon.toFixed(4) }}°</p>
+      <div class="ping-save-place" *ngIf="pendingPingLocation as place">
+        <div class="ping-save-place-label">{{ place.label }}</div>
+        <div class="ping-save-place-source">{{ tomTomAttribution }}</div>
+      </div>
       <div class="form-group">
         <label>Label (optional):</label>
         <input type="text" [(ngModel)]="pendingPingLabel" maxlength="120"

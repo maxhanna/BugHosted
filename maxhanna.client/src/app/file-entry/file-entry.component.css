@@ -51,6 +51,16 @@
   line-height: 30px;
 }
 
+/* Inline rename field driven by the host's "Edit File Name" action. It sits
+   first inside fileIdDiv so the host's getElementsByTagName("input")[0] lookup
+   returns it rather than the mass-delete checkbox. */
+.file-entry-shell .file-entry-rename-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0 5px 0 0;
+  font: inherit;
+}
+
 .file-entry-shell .fileExtras {
   display: inline-flex;
   justify-content: flex-end;

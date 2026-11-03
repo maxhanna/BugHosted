@@ -10,12 +10,22 @@
   <div *ngIf="isHydrated && displayAsTable" class="draggableDiv" draggable="true"
     (dragstart)="c.onDragStart($event, file.fileName ?? '')">
     <div class="fileNameDiv" [class.folder]="file.isFolder" [id]="'fileIdDiv' + file.id"
+      [attr.data-content]="file.givenFileName ?? file.fileName ?? ''"
       (dragover)="c.onDragOver($event)" (drop)="c.onDrop(file.fileName ?? '')"
       (mouseenter)="c.handleFileHoverEnter($event, file)" (mouseleave)="c.handleFileHoverLeave($event)">
       <span class="fileNameWrapperSpan">
+        <!-- Inline rename field. Editing state and the save handler live on the
+             host (file-search), which reaches this input through the
+             fileIdDiv/editFileNameInput ids — keep both. -->
+        <input type="text" class="file-entry-rename-input"
+          [placeholder]="file.givenFileName ?? (file.fileName ? file.fileName.split('.')[0] : 'New file name')"
+          [style.display]="c.isEditing.includes(file.id) ? 'inline-block' : 'none'"
+          (keyup)="c.editFileKeyUp($event, file.id)" (click)="$event.stopPropagation()"
+          [id]="'editFileNameInput' + file.id" />
         <input *ngIf="c.massDeleteMode" type="checkbox" [checked]="c.selectedForDelete.has(file.id)"
           (click)="c.toggleSelectForDelete(file, $event)" />
-        <span class="fileFolderNameSpan" [class.folder]="file.isFolder"
+        <span *ngIf="!c.isEditing || !c.isEditing.includes(file.id)" class="fileFolderNameSpan"
+          [class.folder]="file.isFolder"
           (click)="!c.disabled && c.selectFile(file)" [id]="'fileIdName' + file.id">
           <span *ngIf="c.isBookView && c.userIsLoggedIn()" class="bookViewLibraryInlineActions">
             <button class="bookLibraryBtn" (click)="c.toggleLibrary(file, $event)">
