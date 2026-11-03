@@ -77,7 +77,13 @@ export class UserTagComponent extends ChildComponent implements OnInit, OnDestro
   }
 
   getUserDisplayName(): string {
-    return this.user?.username ?? "Anonymous";
+    if (this.user?.username) {
+      return this.user.username;
+    }
+    else if (this.user?.id) {
+      return 'Deleted-User';
+    }
+    else return "Anonymous";
   }
 
   onUserTagHover(event: MouseEvent) {
