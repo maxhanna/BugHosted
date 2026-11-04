@@ -48,6 +48,33 @@ const CAMPAIGN_TILE_WORLD_SIZE = 60;
 // The source atlas tiles are 160x80 pixels; render at 2x their former screen
 // footprint using nearest-neighbour sampling to retain crisp pixel-art edges.
 const CAMPAIGN_TILE_RENDER_SCALE = 2;
+// Screen-space slack around the canvas that still gets drawn. Sprites stand
+// above their ground point and bosses are large, so keep a generous margin.
+const DRAW_CULL_MARGIN = 320;
+// Above these counts the per-projectile flourishes (ghost cels, glow pass) are
+// dropped so a screen full of missiles stays smooth instead of doubling work.
+const MISSILE_TRAIL_CEL_LIMIT = 140;
+const MISSILE_GLOW_LIMIT = 90;
+// Tinted monster frames are cached; this keeps the cache from growing without
+// bound when a long run shows every species and direction.
+const TINTED_ENEMY_FRAME_LIMIT = 1200;
+// Floor tile variants and their hash are per-tile decisions on every frame, so
+// the tables and the hash live at module scope instead of being rebuilt 625
+// times per frame.
+const TILE_VARIANT_NONE = [0];
+const TILE_VARIANTS_BY_ACT: Record<number, number[]> = {
+  1: [1, 1, 1, 5, 7, 10, 12, 13, 14],
+  2: [0, 0, 0, 9, 12],
+  3: [0, 0, 0, 0, 2, 2, 7, 7, 9, 10, 13],
+  4: [1, 1, 3, 5, 6, 8, 10, 13, 15],
+  5: [0],
+};
+function tileVariantHash(x: number, y: number, salt: number, actId: number): number {
+  let value = Math.imul(x ^ (actId * 0x45d9f3b), 0x27d4eb2d) ^ Math.imul(y ^ salt, 0x165667b1);
+  value = Math.imul(value ^ (value >>> 15), 0x85ebca6b);
+  value = Math.imul(value ^ (value >>> 13), 0xc2b2ae35);
+  return (value ^ (value >>> 16)) >>> 0;
+}
 const MISSILE_OVERLAY_BASE = "assets/d2survivors/missiles";
 const MISSILE_FRAME_DURATIONS_MS: Record<string, number> = {
   "5": 85, "6": 85, "8": 85, "30": 85, "101": 85,
@@ -1500,22 +1527,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   private connectedTileVariant(actId: number, worldTileX: number, worldTileY: number, tileCount: number): number {
     if (tileCount <= 1) return 0;
-    const hash = (x: number, y: number, salt: number): number => {
-      let value = Math.imul(x ^ (actId * 0x45d9f3b), 0x27d4eb2d) ^ Math.imul(y ^ salt, 0x165667b1);
-      value = Math.imul(value ^ (value >>> 15), 0x85ebca6b);
-      value = Math.imul(value ^ (value >>> 13), 0xc2b2ae35);
-      return (value ^ (value >>> 16)) >>> 0;
-    };
-    const variantsByAct: Record<number, number[]> = {
-      1: [1, 1, 1, 5, 7, 10, 12, 13, 14],
-      2: [0, 0, 0, 9, 12],
-      3: [0, 0, 0, 0, 2, 2, 7, 7, 9, 10, 13],
-      4: [1, 1, 3, 5, 6, 8, 10, 13, 15],
-      5: [0],
-    };
-    const candidates = variantsByAct[actId] ?? [0];
-    const transition = hash(Math.floor(worldTileX / 4), Math.floor(worldTileY / 4), 101) % candidates.length;
-    const choose = hash(worldTileX, worldTileY, 211) % candidates.length;
+    const candidates = TILE_VARIANTS_BY_ACT[actId] ?? TILE_VARIANT_NONE;
+    const transition = tileVariantHash(Math.floor(worldTileX / 4), Math.floor(worldTileY / 4), 101, actId) % candidates.length;
+    const choose = tileVariantHash(worldTileX, worldTileY, 211, actId) % candidates.length;
     return candidates[(choose + transition) % candidates.length] ?? candidates[0];
   }
 
@@ -3165,6 +3179,22 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private pendingDamage = new Map<Enemy, { damage: number; color: string }>();
   private pendingDamageTimer = 0;
   private readonly damageBatchInterval = 0.5;
+  // Monster sprites are tinted with a canvas colour filter. Running that filter
+  // for every monster on every frame costs more than the rest of the draw pass,
+  // so each species/direction/frame is tinted once into a small canvas and reused.
+  private readonly tintedEnemyFrames = new Map<string, HTMLCanvasElement>();
+  private tintedEnemyFramePixels = 0;
+  private readonly tintedEnemyFramePixelBudget = 6000000;
+  // Cached canvas metrics for projectArenaPoint: reading clientWidth while the
+  // DOM is dirty forces a layout flush, so it is sampled once per frame instead.
+  private projectionDpr = 1;
+  private projectionCenterX = 400;
+  private projectionCenterY = 250;
+  private projectionWidth = 0;
+  // Per-step caches for queries that used to rebuild lists on every call.
+  private simulationStep = 0;
+  private boneWallQueryStep = -1;
+  private readonly boneWallScratch: AttackProjectile[] = [];
   runTime = 0;
   lastTime = 0;
   rafId = 0;
@@ -6015,6 +6045,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       wallMaxHealth: 120 + rank * 35,
       shotCooldown: 0,
     });
+    this.boneWallQueryStep = -1;
     this.draw();
   }
 
@@ -6022,12 +6053,26 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     return Math.max(1, this.skillLevels["Bone Wall"] ?? 1);
   }
 
+  /**
+   * Bone walls, gathered once per simulation step. Every monster and projectile
+   * asks whether a wall blocks its move, so rebuilding this list per query meant
+   * hundreds of filtered copies of the whole projectile array each frame.
+   */
   private activeBoneWalls(): AttackProjectile[] {
-    return this.attackProjectiles.filter((projectile) => projectile.boneWall && projectile.life > 0 && (projectile.wallHealth ?? 0) > 0);
+    if (this.boneWallQueryStep === this.simulationStep) return this.boneWallScratch;
+    this.boneWallQueryStep = this.simulationStep;
+    const walls = this.boneWallScratch;
+    walls.length = 0;
+    for (const projectile of this.attackProjectiles) {
+      if (projectile.boneWall && projectile.life > 0 && (projectile.wallHealth ?? 0) > 0) walls.push(projectile);
+    }
+    return walls;
   }
 
   private boneWallBlockingMove(startX: number, startY: number, endX: number, endY: number, radius: number): AttackProjectile | undefined {
     for (const wall of this.activeBoneWalls()) {
+      // A wall can be destroyed part-way through the same step.
+      if ((wall.wallHealth ?? 0) <= 0 || !(wall.life > 0)) continue;
       if (this.boneWallBlocksMove(wall, startX, startY, endX, endY, radius)) return wall;
     }
     return undefined;
@@ -6059,6 +6104,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private damageBoneWall(wall: AttackProjectile, damage: number, x = wall.x, y = wall.y): void {
     if (!Number.isFinite(wall.wallHealth) || damage <= 0) return;
     wall.wallHealth = Math.max(0, (wall.wallHealth ?? 0) - damage);
+    this.boneWallQueryStep = -1;
     this.floatingTexts.push({ x, y: y - 20, text: `-${Math.floor(damage)}`, color: "#ded5bd", life: 0.55 });
     if (wall.wallHealth <= 0) {
       wall.life = 0;
@@ -6241,6 +6287,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const impactDuration = projectile.impactDuration ?? 0.42;
     const renderLife = projectile.impactAge === undefined ? projectile.life : Math.max(0, impactDuration - projectile.impactAge);
     const point = this.projectArenaPoint(renderPoint.x, renderPoint.y);
+    if (!this.isArenaPointOnScreen(point, DRAW_CULL_MARGIN)) return;
     if (projectile.corpseExplosion && projectile.impactAge !== undefined) {
       this.drawCorpseExplosion(ctx, projectile, point);
       return;
@@ -6285,7 +6332,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       ctx.rotate(direction);
       // Faint previous DCC cels leave a short afterimage so the cast reads as a
       // moving, animated missile rather than a single icon sliding across the map.
-      if (overlays?.length) {
+      if (overlays?.length && this.attackProjectiles.length <= MISSILE_TRAIL_CEL_LIMIT) {
         for (const trail of [1, 2]) {
           const trailAge = Math.max(0, renderAge - trail * 0.085);
           const trailFrameIndex = Math.floor(trailAge * 1000 / frameDuration) % overlays.length;
@@ -6303,8 +6350,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       // Charged Bolt fans several overlapping bolts; additive blending turns their
       // transparent cyan edges into a bright opaque-looking square at the origin.
       ctx.globalCompositeOperation = "source-over";
-      ctx.shadowColor = projectile.color;
-      ctx.shadowBlur = 2;
+      if (this.attackProjectiles.length <= MISSILE_GLOW_LIMIT) {
+        ctx.shadowColor = projectile.color;
+        ctx.shadowBlur = 2;
+      }
       if (FIRE_ARROW_EFFECT_IDS.has(missileId)) {
         // The original FireArrow DCC animates the flame/arrowhead only; pair it
         // with a small shaft so the projectile reads as an arrow in motion.
@@ -6632,6 +6681,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   update(dt: number): void {
+    this.simulationStep += 1;
     this.runTime += dt / 1000;
     this.tickHealthPotionHeal(dt);
     this.actTime += dt / 1000;
@@ -8911,20 +8961,36 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     void this.refreshLeaderboard();
   }
 
+  private refreshArenaProjection(canvas: HTMLCanvasElement): void {
+    const width = canvas.width || 800;
+    const height = canvas.height || 500;
+    this.projectionWidth = canvas.width || 0;
+    this.projectionCenterX = width / 2;
+    this.projectionCenterY = height / 2;
+    // clientWidth is the only layout-dependent read here; sample it once per frame.
+    this.projectionDpr = canvas.clientWidth ? width / canvas.clientWidth : 1;
+  }
+
   private projectArenaPoint(x: number, y: number): { x: number; y: number } {
+    const canvas = this.arenaRef?.nativeElement;
+    if (canvas && canvas.width !== this.projectionWidth) this.refreshArenaProjection(canvas);
     const worldCenterX = this.arenaW / 2;
     const worldCenterY = this.arenaH / 2;
-    const canvas = this.arenaRef?.nativeElement;
-    const screenCenterX = (canvas?.width ?? 800) / 2;
-    const screenCenterY = (canvas?.height ?? 500) / 2;
-    const dpr = canvas?.clientWidth ? canvas.width / canvas.clientWidth : 1;
     const dx = (x - worldCenterX) * this.worldZoom;
     const dy = (y - worldCenterY) * this.worldZoom;
     // 2:1 diamond projection, calibrated to the orthographic 3D character camera.
     return {
-      x: screenCenterX + (dx - dy) * 0.7071 * dpr,
-      y: screenCenterY + (dx + dy) * 0.35355 * dpr,
+      x: this.projectionCenterX + (dx - dy) * 0.7071 * this.projectionDpr,
+      y: this.projectionCenterY + (dx + dy) * 0.35355 * this.projectionDpr,
     };
+  }
+
+  /** True when a projected point is close enough to the canvas to be worth drawing. */
+  private isArenaPointOnScreen(point: { x: number; y: number }, margin: number): boolean {
+    return point.x > -margin
+      && point.y > -margin
+      && point.x < this.projectionCenterX * 2 + margin
+      && point.y < this.projectionCenterY * 2 + margin;
   }
 
   draw(): void {
@@ -8936,6 +9002,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (!ctx) {
       return;
     }
+    this.refreshArenaProjection(canvas);
     ctx.fillStyle = "#08090d";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.imageSmoothingEnabled = false;
@@ -8973,7 +9040,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         // gaps between tiles and makes the floor scroll faster than pickups.
         const relativeX = column * tileWorldSize + tileWorldSize / 2 - this.currentChunkLocalX;
         const relativeY = row * tileWorldSize + tileWorldSize / 2 - this.currentChunkLocalY;
-        const point = this.projectArenaPoint(this.arenaW / 2 + relativeX, this.arenaH / 2 + relativeY);
+        // Inlined projection: this loop runs for every visible tile each frame, and
+        // a fresh point object per tile was most of its garbage.
+        const tileDx = relativeX * this.worldZoom;
+        const tileDy = relativeY * this.worldZoom;
+        const pointX = this.projectionCenterX + (tileDx - tileDy) * 0.7071 * this.projectionDpr;
+        const pointY = this.projectionCenterY + (tileDx + tileDy) * 0.35355 * this.projectionDpr;
         const variant = this.connectedTileVariant(act.act, worldTileX, worldTileY, tiles.length);
         const image = tiles[variant] ?? baseTile;
         if (image) {
@@ -8981,16 +9053,16 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           const halfH = tileHeight / 2;
           // Extend the draw by one backing-store pixel to cover rasterization
           // seams; the source alpha keeps outside-of-diamond pixels transparent.
-          ctx.drawImage(image, point.x - halfW - 1, point.y - halfH - 1, tileWidth + 2, tileHeight + 2);
+          ctx.drawImage(image, pointX - halfW - 1, pointY - halfH - 1, tileWidth + 2, tileHeight + 2);
         } else {
           const halfW = tileScreenSize * 0.7071;
           const halfH = tileScreenSize * 0.35355;
           ctx.fillStyle = (worldTileX + worldTileY) % 2 === 0 ? "#17191f" : "#12141a";
           ctx.beginPath();
-          ctx.moveTo(point.x, point.y - halfH);
-          ctx.lineTo(point.x + halfW, point.y);
-          ctx.lineTo(point.x, point.y + halfH);
-          ctx.lineTo(point.x - halfW, point.y);
+          ctx.moveTo(pointX, pointY - halfH);
+          ctx.lineTo(pointX + halfW, pointY);
+          ctx.lineTo(pointX, pointY + halfH);
+          ctx.lineTo(pointX - halfW, pointY);
           ctx.closePath();
           ctx.fill();
         }
@@ -9049,15 +9121,51 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       ctx.restore();
     }
 
-    const drawOrder = [
-      ...this.attackProjectiles.filter((projectile) => projectile.boneWall).map((wall) => ({ depth: this.projectArenaPoint(wall.x, wall.y).y - 1, draw: () => this.drawBoneWall(ctx, wall) })),
-      ...this.attackProjectiles.filter((projectile) => projectile.wakeOfFireTrap).map((trap) => ({ depth: this.projectArenaPoint(trap.x, trap.y).y - 1, draw: () => this.drawWakeOfFireTrap(ctx, trap) })),
-      ...this.attackProjectiles.filter((projectile) => projectile.impactTrap && projectile.impactPoint).map((projectile) => ({ depth: this.projectArenaPoint(projectile.impactPoint!.x, projectile.impactPoint!.y).y - 1, draw: () => this.drawLightningWeb(ctx, projectile) })),
-      ...this.enemies.map((entity) => ({ depth: this.projectArenaPoint(entity.x, entity.y).y, draw: () => this.drawEnemy(ctx, entity) })),
-      ...this.chests.filter((chest) => !chest.open).map((entity) => ({ depth: this.projectArenaPoint(entity.x, entity.y).y, draw: () => this.drawChest(ctx, entity) })),
-      ...this.potionDrops.map((entity) => ({ depth: this.projectArenaPoint(entity.x, entity.y).y, draw: () => this.drawPotionDrop(ctx, entity) })),
-      ...this.goldDrops.map((entity) => ({ depth: this.projectArenaPoint(entity.x, entity.y).y, draw: () => this.drawGoldDrop(ctx, entity) })),
-    ].sort((a, b) => a.depth - b.depth);
+    // One projected pass per collection instead of a filter+map burst per group,
+    // and anything whose ground point is far outside the canvas is skipped: a
+    // packed act can hold 220 monsters, and drawing the ones behind the camera
+    // costs as much as the visible ones.
+    const drawOrder: Array<{ depth: number; draw: () => void }> = [];
+    for (const projectile of this.attackProjectiles) {
+      if (projectile.boneWall) {
+        const point = this.projectArenaPoint(projectile.x, projectile.y);
+        if (this.isArenaPointOnScreen(point, DRAW_CULL_MARGIN)) {
+          drawOrder.push({ depth: point.y - 1, draw: () => this.drawBoneWall(ctx, projectile) });
+        }
+      } else if (projectile.wakeOfFireTrap) {
+        const point = this.projectArenaPoint(projectile.x, projectile.y);
+        if (this.isArenaPointOnScreen(point, DRAW_CULL_MARGIN)) {
+          drawOrder.push({ depth: point.y - 1, draw: () => this.drawWakeOfFireTrap(ctx, projectile) });
+        }
+      } else if (projectile.impactTrap && projectile.impactPoint) {
+        const point = this.projectArenaPoint(projectile.impactPoint.x, projectile.impactPoint.y);
+        if (this.isArenaPointOnScreen(point, DRAW_CULL_MARGIN)) {
+          drawOrder.push({ depth: point.y - 1, draw: () => this.drawLightningWeb(ctx, projectile) });
+        }
+      }
+    }
+    for (const entity of this.enemies) {
+      const point = this.projectArenaPoint(entity.x, entity.y);
+      if (!this.isArenaPointOnScreen(point, DRAW_CULL_MARGIN)) continue;
+      drawOrder.push({ depth: point.y, draw: () => this.drawEnemy(ctx, entity) });
+    }
+    for (const entity of this.chests) {
+      if (entity.open) continue;
+      const point = this.projectArenaPoint(entity.x, entity.y);
+      if (!this.isArenaPointOnScreen(point, DRAW_CULL_MARGIN)) continue;
+      drawOrder.push({ depth: point.y, draw: () => this.drawChest(ctx, entity) });
+    }
+    for (const entity of this.potionDrops) {
+      const point = this.projectArenaPoint(entity.x, entity.y);
+      if (!this.isArenaPointOnScreen(point, DRAW_CULL_MARGIN)) continue;
+      drawOrder.push({ depth: point.y, draw: () => this.drawPotionDrop(ctx, entity) });
+    }
+    for (const entity of this.goldDrops) {
+      const point = this.projectArenaPoint(entity.x, entity.y);
+      if (!this.isArenaPointOnScreen(point, DRAW_CULL_MARGIN)) continue;
+      drawOrder.push({ depth: point.y, draw: () => this.drawGoldDrop(ctx, entity) });
+    }
+    drawOrder.sort((a, b) => a.depth - b.depth);
     for (const entity of drawOrder) entity.draw();
     if (this.actPortalOpen) this.drawActPortal(ctx);
     if (this.druidForm) this.drawDruidForm(ctx);
@@ -10091,6 +10199,34 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.characterRenderer.render(this.characterScene, this.characterCamera);
   }
 
+  private tintedEnemyFrame(
+    species: EnemySpecies,
+    direction: number,
+    frameIndex: number,
+    frame: HTMLCanvasElement,
+    tint: string,
+  ): HTMLCanvasElement {
+    const key = `${species}|${direction}|${frameIndex}|${tint}`;
+    const cached = this.tintedEnemyFrames.get(key);
+    if (cached) return cached;
+    const pixels = frame.width * frame.height;
+    if (this.tintedEnemyFrames.size >= TINTED_ENEMY_FRAME_LIMIT
+      || this.tintedEnemyFramePixels + pixels > this.tintedEnemyFramePixelBudget) {
+      this.tintedEnemyFrames.clear();
+      this.tintedEnemyFramePixels = 0;
+    }
+    const painted = document.createElement("canvas");
+    painted.width = frame.width;
+    painted.height = frame.height;
+    const paintCtx = painted.getContext("2d");
+    if (!paintCtx) return frame;
+    paintCtx.filter = tint;
+    paintCtx.drawImage(frame, 0, 0);
+    this.tintedEnemyFrames.set(key, painted);
+    this.tintedEnemyFramePixels += pixels;
+    return painted;
+  }
+
   drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy): void {
     const ground = this.projectArenaPoint(e.x, e.y);
     if (this.druidForm && !e.summonType && e.x === this.playerX && e.y === this.playerY) return;
@@ -10146,9 +10282,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         // brighten them consistently so monsters read as creatures, not blue ghosts.
         ctx.imageSmoothingEnabled = e.species === "andariel";
         if (e.species === "andariel") ctx.imageSmoothingQuality = "high";
-        ctx.filter = e.species === "andariel"
+        const tint = e.species === "andariel"
           ? "brightness(1.55) contrast(1.2) sepia(0.32) saturate(1.1)"
           : "brightness(1.28) contrast(1.18) sepia(0.72) saturate(0.9)";
+        // The tint is baked into a cached copy of the frame. Re-running the
+        // canvas colour filter for every monster every frame was the single most
+        // expensive part of drawing a packed arena.
+        const frameToDraw = this.tintedEnemyFrame(e.species, direction, frameIndex, frame, tint);
         if (e.species === "andariel") {
           ctx.shadowColor = "rgba(255, 126, 54, 0.95)";
           ctx.shadowBlur = Math.max(10, size * 0.16);
@@ -10162,9 +10302,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         if (e.species === "skeleton" && directionX > 0) {
           ctx.translate(ground.x, 0);
           ctx.scale(-1, 1);
-          ctx.drawImage(frame, -drawWidth / 2, drawYWithAttack, drawWidth, drawHeight);
+          ctx.drawImage(frameToDraw, -drawWidth / 2, drawYWithAttack, drawWidth, drawHeight);
         } else {
-          ctx.drawImage(frame, drawX, drawYWithAttack, drawWidth, drawHeight);
+          ctx.drawImage(frameToDraw, drawX, drawYWithAttack, drawWidth, drawHeight);
         }
         ctx.restore();
         spriteDrawn = true;
