@@ -19,7 +19,7 @@ import { User } from "../../services/datacontracts/user/user";
 import { UserEventService } from "../../services/user-event.service";
 import { AppComponent } from "../app.component";
 import { ChildComponent } from "../child.component";
-import { D2_CLASS_SKILL_TREES, D2SkillDefinition, D2SkillVisual, getAvailableClassSkills, getClassSkills, getD2SkillVisual } from "./d2survivors-skill-tree.data";
+import { D2_CLASS_SKILL_TREES, D2SkillDefinition, D2SkillVisual, getAvailableClassSkills, getClassSkills, getD2SkillVisual, isPassiveSkill } from "./d2survivors-skill-tree.data";
 
 const MODEL_BASE = "assets/d2survivors/models";
 // Sorceress arm bones point along local X, making local Y the shoulder/elbow hinge.
@@ -197,6 +197,9 @@ const SKILL_MISSILE_OVERLAYS: Record<string, string> = {
   "Holy Shock": "d2-bluestar", "Concentration": "d2-holybolt",
 };
 const SKILL_VISUAL_MISSILES: Record<D2SkillVisual, string> = {
+  // Passives never fire a missile; the empty id keeps the record exhaustive and
+  // is filtered out of the missile preloader below.
+  passive: "",
   summon: "d2-bloodcomet",
   aura: "d2-holybolt",
   trap: "d2-bluestar",
@@ -4361,6 +4364,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       movement: "Improves movement or performs a rapid maneuver.",
       projectile: "Launches a projectile at enemies.",
       strike: "Delivers a close-range attack.",
+      passive: "Always active passive skill: no cast, no animation.",
     };
     this.hoveredSkillTooltip = {
       name: skill.name,
@@ -4483,6 +4487,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       return [`Blast radius: ${this.corpseExplosionRadiusForRank(rank)} units`, "Blast damage: 35% of the struck target's maximum life to nearby enemies", "Each rank increases the blast radius only"];
     }
 
+    if (visual === "passive") {
+      const description = this.getSkillDescription(name);
+      return [description ?? "Always active; it is never cast, so it has no animation."];
+    }
+
     if (visual !== "aura") {
       const baseDamage = this.basicAttackDamage * (name === this.basicAttackName ? 1 : 1.5) + (rank - 1) * 3;
       stats.push(`${Math.floor(baseDamage)} base damage per hit before skill-specific modifiers`);
@@ -4557,6 +4566,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   skillCastProgress(skill: string): number {
+    // Passives are always on, so their slot never shows a cooldown shade.
+    if (isPassiveSkill(skill)) return 1;
     if (this.isDruidFormSkill(skill)) {
       const form = skill === "Werewolf" ? "werewolf" : "werebear";
       return this.druidForm === form
@@ -4576,7 +4587,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     return Number.isFinite(cooldown) ? Math.max(0, Math.min(1, cooldown / interval)) : 0;
   }
 
+  /** Slot tooltip text: passives are always on, so they have no cast cadence. */
+  getSkillCastDescriptor(skill: string): string {
+    return isPassiveSkill(skill) ? "always active, never cast" : `automatic cast every ${this.getSkillCastLabel(skill)}`;
+  }
+
   getSkillCastLabel(skill: string): string {
+    if (isPassiveSkill(skill)) return "always active";
     if (this.isDruidFormSkill(skill)) {
       const form = skill === "Werewolf" ? "werewolf" : "werebear";
       return this.druidForm === form
@@ -4639,6 +4656,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       movement: 3.8,
       projectile: 3.2,
       strike: 2.7,
+      passive: 0,
     };
     const unlockDelay = Math.max(0, (definition?.level ?? 1) - 1) * 0.035;
     const rankBonus = skill === "Corpse Explosion" ? 1 : Math.max(0.65, 1 - Math.max(0, rank - 1) * 0.025);
@@ -4770,13 +4788,15 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       "Faster Attacks": "»", Vitality: "♥", "Arcane Focus": "◉", "Weapon Mastery": "⚔",
     };
     const visualIcons: Record<D2SkillVisual, string> = {
-      summon: "♟", aura: "✧", trap: "⌘", wave: "〰", burst: "✹", movement: "➤", projectile: "➶", strike: "⚔",
+      summon: "♟", aura: "✧", trap: "⌘", wave: "〰", burst: "✹", movement: "➤", projectile: "➶", strike: "⚔", passive: "❖",
     };
     return icons[skill] ?? visualIcons[getD2SkillVisual(skill)];
   }
 
   activateOwnedSkill(skill: string): void {
     if (!this.ownedSkills.includes(skill)) return;
+    // Passives are constant: clicking one does nothing and plays no animation.
+    if (isPassiveSkill(skill)) return;
     if (!this.hasRequiredWeaponForSkill(skill)) return;
     if (this.isDruidFormSkill(skill)) {
       this.druidForm = skill === "Werewolf" ? "werewolf" : "werebear";
@@ -5111,7 +5131,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       ...Object.values(BASIC_ATTACK_MISSILE_OVERLAYS),
       ...Object.values(ATTACK_KIND_MISSILE_OVERLAYS),
     ]);
-    for (const id of missileIds) {
+    for (const id of [...missileIds].filter((missileId) => missileId)) {
       const images: MissileOverlayFrame[] = [];
       this.missileOverlayImages.set(id, images);
       const frameCount = MISSILE_FRAME_COUNTS[id] ?? 1;
@@ -5218,6 +5238,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   private missileOverlayId(skill: string): string | undefined {
+    // Always-on passives have no cast animation, so they must not fall through
+    // to the missile tables that used to give them an orb icon and effect.
+    if (isPassiveSkill(skill)) return undefined;
     return SKILL_MISSILE_OVERLAYS[skill]
       ?? SKILL_VISUAL_MISSILES[getD2SkillVisual(skill)]
       ?? BASIC_ATTACK_MISSILE_OVERLAYS[skill];
@@ -5657,6 +5680,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       }
     }
     for (const skill of activeSkills) {
+      if (isPassiveSkill(skill)) {
+        // Always-on passives never cast, so they hold no cooldown and spawn no effect.
+        delete this.skillCastCooldowns[skill];
+        continue;
+      }
       if (!this.hasRequiredWeaponForSkill(skill)) {
         delete this.skillCastCooldowns[skill];
         continue;
@@ -5840,7 +5868,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.skillLevels[skillName] = Math.min(20, (this.skillLevels[skillName] ?? 0) + 1);
       if (!this.ownedSkills.includes(skillName)) {
         this.ownedSkills.push(skillName);
-        this.skillCastCooldowns[skillName] = this.getSkillCastInterval(skillName);
+        // A passive never casts, so it must not start out with a cast timer.
+        if (isPassiveSkill(skillName)) delete this.skillCastCooldowns[skillName];
+        else this.skillCastCooldowns[skillName] = this.getSkillCastInterval(skillName);
       }
       if (skillName === "Raise Skeleton") this.syncRaisedSkeletons();
       this.pendingLevelUps -= 1;
@@ -7797,6 +7827,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   private addSkillVisualEffect(skillName: string, target?: Enemy): void {
+    // Passives have no cast animation at all.
+    if (isPassiveSkill(skillName)) return;
     const definition = getClassSkills(this.selectedClass).find((entry) => entry.name === skillName);
     const kind = definition?.visual ?? getD2SkillVisual(skillName);
     const targetDistance = target ? Math.hypot(target.x - this.playerX, target.y - this.playerY) || 1 : 1;

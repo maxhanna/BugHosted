@@ -1,4 +1,44 @@
-export type D2SkillVisual = "summon" | "aura" | "trap" | "wave" | "burst" | "movement" | "projectile" | "strike";
+export type D2SkillVisual = "summon" | "aura" | "trap" | "wave" | "burst" | "movement" | "projectile" | "strike" | "passive";
+
+/**
+ * Diablo II's passive skills: always on, constant effect, nothing to cast.
+ * They are never activated, never play a projectile/effect animation and use a
+ * plain glyph as their icon instead of a missile frame.
+ */
+const PASSIVE_SKILLS = new Set([
+  "avoid",
+  "axe mastery",
+  "blade mastery",
+  "claw mastery",
+  "cold mastery",
+  "critical strike",
+  "demonic mastery",
+  "dodge",
+  "evade",
+  "fire mastery",
+  "golem mastery",
+  "increased speed",
+  "increased stamina",
+  "iron skin",
+  "lightning mastery",
+  "lycanthropy",
+  "mace mastery",
+  "natural resistance",
+  "penetrate",
+  "pierce",
+  "polearm mastery",
+  "skeleton mastery",
+  "spear mastery",
+  "summon resist",
+  "sword mastery",
+  "throwing mastery",
+  "warmth",
+  "weapon block",
+]);
+
+export function isPassiveSkill(name: string): boolean {
+  return PASSIVE_SKILLS.has(name.trim().toLowerCase());
+}
 
 export interface D2SkillDefinition {
   name: string;
@@ -19,6 +59,7 @@ export interface D2ClassSkillTree {
 
 export function getD2SkillVisual(name: string): D2SkillVisual {
   const lower = name.toLowerCase();
+  if (isPassiveSkill(lower)) return "passive";
   if (/summon|valkyrie|shadow (?:warrior|master)|decoy|hydra|raven|golem|skeleton|creeper|vine|sage|grizzly|spirit wolf|dire wolf|revive/.test(lower)) return "summon";
   if (/sentry|trap|wake of|blade sentinel|blade shield|shock web/.test(lower)) return "trap";
   if (/burst of speed|increased speed|leap|charge|teleport|flight|frenzy|whirlwind|faster attacks/.test(lower)) return "movement";
