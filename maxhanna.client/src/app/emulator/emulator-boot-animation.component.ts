@@ -8,12 +8,40 @@ export type BootMedia = 'disc' | 'cartridge' | 'floppy' | 'coin';
 /** Silhouette of the hardware that medium is inserted into. */
 export type BootBody = 'console' | 'handheld' | 'desk' | 'cabinet';
 
+/**
+ * The actual outline of the machine, not just its family: a PS2 is a low slab
+ * with a tray, a PS1 is a round-lidded top-loader, a GameCube is a cube with a
+ * handle, the Atari is a wedge with wood across the front. Drives the geometry
+ * in the stylesheet so the machines stop looking like identical boxes.
+ */
+export type BootShape =
+  // Consoles.
+  | 'slab'      // front-loading tray: PS2/PS3/PS4, Xbox, 3DO, Jaguar
+  | 'slim'      // thin slot-loader: Wii
+  | 'topload'   // hinged round lid: PS1, Saturn, Dreamcast
+  | 'flap'      // cartridge mouth on the top face: Genesis, Master System, NES
+  | 'curve'     // rounded front lip: SNES, Xbox 360
+  | 'hump'      // raised cartridge hump: Nintendo 64
+  | 'cube'      // square shell with a carry handle: GameCube
+  | 'wedge'     // slanted wood-front console: Atari 2600
+  | 'tower'     // upright slab: PS5, Xbox Series X
+  // Handhelds.
+  | 'brick'     // tall portrait shell: Game Boy, Virtual Boy
+  | 'clamshell' // two screens and a hinge: DS
+  | 'wide'      // landscape shell: PSP, GBA, Game Gear, Lynx
+  // Home computers and arcade.
+  | 'breadbin'  // wedge keyboard: Commodore 8-bits, Amiga
+  | 'desk'      // monitor with a drive bay: PC
+  | 'cabinet';
+
 /** Brand mark printed on the badge next to the wordmark. */
 export type BootMark = 'ps' | 'sega' | 'nintendo' | 'xbox' | 'atari' | 'commodore';
 
 export interface BootVisual {
   media: BootMedia;
   body: BootBody;
+  /** Outline of the shell; see BootShape. */
+  shape: BootShape;
   /** Name printed on the hardware itself. */
   hardware: string;
   /** Body paint, used as a CSS background. */
@@ -48,7 +76,7 @@ const visual = (
   accent: string,
   ink?: string,
   chrome: Partial<BootVisual> = {}
-): BootVisual => ({ media, body, hardware, shell, accent, ink, ...chrome });
+): BootVisual => ({ media, body, hardware, shell, accent, ink, shape: chrome.shape ?? 'slab', ...chrome });
 
 const DEFAULT_VISUAL = visual(
   'disc', 'console', 'SYSTEM',
@@ -63,110 +91,111 @@ const DEFAULT_VISUAL = visual(
 const BOOT_VISUALS: Partial<Record<System, BootVisual>> = {
   // Sony — light grey top-loader through to the black slabs.
   ps1: visual('disc', 'console', 'PlayStation', 'linear-gradient(180deg,#c8c9cc,#9a9ba0)', '#3f4a63', '#22252b',
-    { mark: 'ps', wordmark: 'PlayStation', lid: 'disc', ports: 2, buttons: 3 }),
+    { mark: 'ps', wordmark: 'PlayStation', shape: 'topload', lid: 'disc', ports: 2, buttons: 3 }),
   ps2: visual('disc', 'console', 'PlayStation 2', 'linear-gradient(180deg,#33373e,#111316)', '#2f6fd0', undefined,
-    { mark: 'ps', wordmark: 'PlayStation 2', lid: 'disc', ports: 2, buttons: 2 }),
+    { mark: 'ps', wordmark: 'PlayStation 2', shape: 'slab', lid: 'disc', ports: 2, buttons: 2 }),
   ps3: visual('disc', 'console', 'PlayStation 3', 'linear-gradient(180deg,#44494f,#15181c)', '#7fb2ff', undefined,
-    { mark: 'ps', wordmark: 'PlayStation 3', lid: 'disc', buttons: 2 }),
+    { mark: 'ps', wordmark: 'PlayStation 3', shape: 'slab', lid: 'disc', buttons: 2 }),
   ps4: visual('disc', 'console', 'PlayStation 4', 'linear-gradient(180deg,#24272c,#0a0c0f)', '#4a8fe0', undefined,
-    { mark: 'ps', wordmark: 'PlayStation 4', lid: 'disc', buttons: 1 }),
+    { mark: 'ps', wordmark: 'PlayStation 4', shape: 'slab', lid: 'disc', buttons: 1 }),
   ps5: visual('disc', 'console', 'PlayStation 5', 'linear-gradient(180deg,#f2f3f5,#c7cad1)', '#2f6fd0', '#1d2026',
-    { mark: 'ps', wordmark: 'PlayStation 5', lid: 'disc', buttons: 1 }),
+    { mark: 'ps', wordmark: 'PlayStation 5', shape: 'tower', lid: 'disc', buttons: 1 }),
   psp: visual('disc', 'handheld', 'PSP', 'linear-gradient(180deg,#2b2f37,#0d0f13)', '#4aa8ff', undefined,
-    { mark: 'ps', wordmark: 'PSP', wide: true }),
+    { mark: 'ps', wordmark: 'PSP', shape: 'wide', wide: true }),
 
   // Sega.
   saturn: visual('disc', 'console', 'SEGA SATURN', 'linear-gradient(180deg,#4b4b45,#1f1f1b)', '#e0b64a', undefined,
-    { mark: 'sega', wordmark: 'SEGA SATURN', lid: 'disc', ports: 2, buttons: 2 }),
+    { mark: 'sega', wordmark: 'SEGA SATURN', shape: 'topload', lid: 'disc', ports: 2, buttons: 2 }),
   sega_cd: visual('disc', 'console', 'SEGA CD', 'linear-gradient(180deg,#2b2d33,#121316)', '#e04a4a', undefined,
-    { mark: 'sega', wordmark: 'SEGA CD', lid: 'disc', buttons: 2 }),
+    { mark: 'sega', wordmark: 'SEGA CD', shape: 'slab', lid: 'disc', buttons: 2 }),
   dreamcast: visual('disc', 'console', 'Dreamcast', 'linear-gradient(180deg,#f3f1ec,#d2cfc7)', '#e8683c', '#2b2b2b',
-    { mark: 'sega', wordmark: 'Dreamcast', lid: 'disc', ports: 4, buttons: 2 }),
+    { mark: 'sega', wordmark: 'Dreamcast', shape: 'topload', lid: 'disc', ports: 4, buttons: 2 }),
   genesis: visual('cartridge', 'console', 'MEGA DRIVE', 'linear-gradient(180deg,#2a2c31,#101113)', '#d63b3b', undefined,
-    { mark: 'sega', wordmark: 'GENESIS', tagline: '16-BIT', lid: 'cartridge', ports: 2, buttons: 2 }),
+    { mark: 'sega', wordmark: 'GENESIS', shape: 'flap', tagline: '16-BIT', lid: 'cartridge', ports: 2, buttons: 2 }),
   sega_master_system: visual('cartridge', 'console', 'MASTER SYSTEM', 'linear-gradient(180deg,#23252a,#0d0e11)', '#d63b3b', undefined,
-    { mark: 'sega', wordmark: 'MASTER SYSTEM', lid: 'cartridge', ports: 2, buttons: 2 }),
+    { mark: 'sega', wordmark: 'MASTER SYSTEM', shape: 'flap', lid: 'cartridge', ports: 2, buttons: 2 }),
   gamegear: visual('cartridge', 'handheld', 'GAME GEAR', 'linear-gradient(180deg,#2f343d,#101318)', '#3aa0e0', undefined,
-    { mark: 'sega', wordmark: 'GAME GEAR', wide: true }),
+    { mark: 'sega', wordmark: 'GAME GEAR', shape: 'wide', wide: true }),
 
   // Nintendo.
   nes: visual('cartridge', 'console', 'NINTENDO', 'linear-gradient(180deg,#d7d7d3,#a7a7a2)', '#c0392b', '#2a2a2a',
-    { mark: 'nintendo', wordmark: 'Nintendo', lid: 'cartridge', ports: 2, buttons: 3 }),
+    { mark: 'nintendo', wordmark: 'Nintendo', shape: 'flap', lid: 'cartridge', ports: 2, buttons: 3 }),
   snes: visual('cartridge', 'console', 'SUPER NINTENDO', 'linear-gradient(180deg,#dadad5,#aeaeaa)', '#7d4fc0', '#2a2a2a',
-    { mark: 'nintendo', wordmark: 'Super Nintendo', lid: 'cartridge', ports: 2, buttons: 3 }),
+    { mark: 'nintendo', wordmark: 'Super Nintendo', shape: 'curve', lid: 'cartridge', ports: 2, buttons: 3 }),
   n64: visual('cartridge', 'console', 'NINTENDO 64', 'linear-gradient(180deg,#41454c,#1a1c20)', '#f0b429', undefined,
-    { mark: 'nintendo', wordmark: 'Nintendo 64', lid: 'cartridge', ports: 4, buttons: 2 }),
+    { mark: 'nintendo', wordmark: 'Nintendo 64', shape: 'hump', lid: 'cartridge', ports: 4, buttons: 2 }),
   gamecube: visual('disc', 'console', 'NINTENDO GAMECUBE', 'linear-gradient(180deg,#5b45a6,#2f2257)', '#c0a8ff', undefined,
-    { mark: 'nintendo', wordmark: 'GAMECUBE', lid: 'disc', ports: 4, buttons: 1 }),
+    { mark: 'nintendo', wordmark: 'GAMECUBE', shape: 'cube', lid: 'disc', ports: 4, buttons: 1 }),
   wii: visual('disc', 'console', 'Wii', 'linear-gradient(180deg,#f4f3f0,#d3d2cd)', '#4aa8ff', '#232323',
-    { mark: 'nintendo', wordmark: 'Wii', lid: 'disc', buttons: 2 }),
+    { mark: 'nintendo', wordmark: 'Wii', shape: 'slim', lid: 'disc', buttons: 2 }),
   wiiu: visual('disc', 'console', 'Wii U', 'linear-gradient(180deg,#26292e,#0e1014)', '#4aa8ff', undefined,
-    { mark: 'nintendo', wordmark: 'Wii U', lid: 'disc', buttons: 2 }),
+    { mark: 'nintendo', wordmark: 'Wii U', shape: 'slab', lid: 'disc', buttons: 2 }),
   gb: visual('cartridge', 'handheld', 'GAME BOY', 'linear-gradient(180deg,#d4cebe,#a7a18e)', '#8d3b53', '#2a2731',
-    { mark: 'nintendo', wordmark: 'GAME BOY' }),
+    { mark: 'nintendo', wordmark: 'GAME BOY', shape: 'brick' }),
   gbc: visual('cartridge', 'handheld', 'GAME BOY COLOR', 'linear-gradient(180deg,#6e5da3,#382c62)', '#f0d24a', undefined,
-    { mark: 'nintendo', wordmark: 'GAME BOY COLOR' }),
+    { mark: 'nintendo', wordmark: 'GAME BOY COLOR', shape: 'brick' }),
   gba: visual('cartridge', 'handheld', 'GAME BOY ADVANCE', 'linear-gradient(180deg,#4d4393,#211d4e)', '#9a8bff', undefined,
-    { mark: 'nintendo', wordmark: 'GAME BOY ADVANCE', wide: true }),
+    { mark: 'nintendo', wordmark: 'GAME BOY ADVANCE', shape: 'wide', wide: true }),
   nds: visual('cartridge', 'handheld', 'NINTENDO DS', 'linear-gradient(180deg,#dcdfe3,#a6abb2)', '#3a6fd0', '#22252a',
-    { mark: 'nintendo', wordmark: 'Nintendo DS' }),
+    { mark: 'nintendo', wordmark: 'Nintendo DS', shape: 'clamshell' }),
   ndsi: visual('cartridge', 'handheld', 'NINTENDO DSi', 'linear-gradient(180deg,#2d3036,#101215)', '#3a6fd0', undefined,
-    { mark: 'nintendo', wordmark: 'Nintendo DSi' }),
+    { mark: 'nintendo', wordmark: 'Nintendo DSi', shape: 'clamshell' }),
   virtual_boy: visual('cartridge', 'handheld', 'VIRTUAL BOY', 'linear-gradient(180deg,#363636,#111111)', '#d42b2b', undefined,
-    { mark: 'nintendo', wordmark: 'Virtual Boy' }),
+    { mark: 'nintendo', wordmark: 'Virtual Boy', shape: 'brick' }),
 
   // Atari — the wood-grain front is the giveaway.
   atari_2600: visual('cartridge', 'console', 'ATARI 2600', 'linear-gradient(180deg,#c9c6bd,#9c9990)', '#c98b2e', '#241f1a',
-    { mark: 'atari', wordmark: '2600', wood: true, lid: 'cartridge', ports: 2, buttons: 2 }),
+    { mark: 'atari', wordmark: '2600', shape: 'wedge', wood: true, lid: 'cartridge', ports: 2, buttons: 2 }),
   atari_5200: visual('cartridge', 'console', 'ATARI 5200', 'linear-gradient(180deg,#33312c,#151412)', '#c98b2e', undefined,
-    { mark: 'atari', wordmark: '5200', lid: 'cartridge', ports: 4, buttons: 2 }),
+    { mark: 'atari', wordmark: '5200', shape: 'slab', lid: 'cartridge', ports: 4, buttons: 2 }),
   atari_7800: visual('cartridge', 'console', 'ATARI 7800', 'linear-gradient(180deg,#2f2d29,#111110)', '#c98b2e', undefined,
-    { mark: 'atari', wordmark: '7800', lid: 'cartridge', ports: 2, buttons: 2 }),
+    { mark: 'atari', wordmark: '7800', shape: 'flap', lid: 'cartridge', ports: 2, buttons: 2 }),
   atari_jaguar: visual('cartridge', 'console', 'JAGUAR', 'linear-gradient(180deg,#23252b,#0c0d10)', '#e04a4a', undefined,
-    { mark: 'atari', wordmark: 'Jaguar', lid: 'cartridge', ports: 2, buttons: 2 }),
+    { mark: 'atari', wordmark: 'Jaguar', shape: 'flap', lid: 'cartridge', ports: 2, buttons: 2 }),
   atari_lynx: visual('cartridge', 'handheld', 'LYNX', 'linear-gradient(180deg,#c0bbab,#8b8678)', '#d94a3a', '#2a2731',
-    { mark: 'atari', wordmark: 'Lynx', wide: true }),
+    { mark: 'atari', wordmark: 'Lynx', shape: 'wide', wide: true }),
   atari: visual('cartridge', 'console', 'ATARI', 'linear-gradient(180deg,#37342e,#151312)', '#c98b2e', undefined,
-    { mark: 'atari', wordmark: 'VCS', wood: true, lid: 'cartridge', ports: 2 }),
+    { mark: 'atari', wordmark: 'VCS', shape: 'wedge', wood: true, lid: 'cartridge', ports: 2 }),
 
   // Everything else.
   wonderswan: visual('cartridge', 'handheld', 'WONDERSWAN', 'linear-gradient(180deg,#ccc6b4,#9a9483)', '#3a4a8a', '#2a2731',
-    { wordmark: 'WONDERSWAN', wide: true }),
+    { wordmark: 'WONDERSWAN', shape: 'wide', wide: true }),
   wonderswan_color: visual('cartridge', 'handheld', 'WONDERSWAN COLOR', 'linear-gradient(180deg,#3e4c8e,#1b224e)', '#7fc4ff', undefined,
-    { wordmark: 'WONDERSWAN' }),
+    { wordmark: 'WONDERSWAN', shape: 'wide' }),
   coleco: visual('cartridge', 'console', 'COLECOVISION', 'linear-gradient(180deg,#2d2f33,#0e1013)', '#4aa8ff', undefined,
-    { wordmark: 'COLECOVISION', lid: 'cartridge', ports: 2, buttons: 2 }),
+    { wordmark: 'COLECOVISION', shape: 'flap', lid: 'cartridge', ports: 2, buttons: 2 }),
   colecovision: visual('cartridge', 'console', 'COLECOVISION', 'linear-gradient(180deg,#2d2f33,#0e1013)', '#4aa8ff', undefined,
-    { wordmark: 'COLECOVISION', lid: 'cartridge', ports: 2, buttons: 2 }),
+    { wordmark: 'COLECOVISION', shape: 'flap', lid: 'cartridge', ports: 2, buttons: 2 }),
   '3do': visual('disc', 'console', '3DO', 'linear-gradient(180deg,#2c2e33,#0f1114)', '#d8b25a', undefined,
-    { wordmark: '3DO', lid: 'disc', ports: 2, buttons: 2 }),
+    { wordmark: '3DO', shape: 'slab', lid: 'disc', ports: 2, buttons: 2 }),
   xbox: visual('disc', 'console', 'XBOX', 'linear-gradient(180deg,#242c24,#0a0f0a)', '#7cd94a', undefined,
-    { mark: 'xbox', wordmark: 'Xbox', lid: 'disc', ports: 4, buttons: 2 }),
+    { mark: 'xbox', wordmark: 'Xbox', shape: 'slab', lid: 'disc', ports: 4, buttons: 2 }),
   xbox_360: visual('disc', 'console', 'XBOX 360', 'linear-gradient(180deg,#eaeae5,#c0c0bb)', '#5aa832', '#222',
-    { mark: 'xbox', wordmark: 'Xbox 360', lid: 'disc', ports: 2, buttons: 2 }),
+    { mark: 'xbox', wordmark: 'Xbox 360', shape: 'curve', lid: 'disc', ports: 2, buttons: 2 }),
   xbox_one: visual('disc', 'console', 'XBOX ONE', 'linear-gradient(180deg,#1c1f23,#08090b)', '#7cd94a', undefined,
-    { mark: 'xbox', wordmark: 'Xbox One', lid: 'disc', buttons: 1 }),
+    { mark: 'xbox', wordmark: 'Xbox One', shape: 'slab', lid: 'disc', buttons: 1 }),
   xbox_series_x: visual('disc', 'console', 'XBOX SERIES X', 'linear-gradient(180deg,#1a1d21,#07080a)', '#7cd94a', undefined,
-    { mark: 'xbox', wordmark: 'Xbox Series X', lid: 'disc', buttons: 1 }),
+    { mark: 'xbox', wordmark: 'Xbox Series X', shape: 'tower', lid: 'disc', buttons: 1 }),
 
   // 8/16-bit home computers took floppies.
   c64: visual('floppy', 'desk', 'COMMODORE 64', 'linear-gradient(180deg,#dcd3b3,#b6ad8f)', '#8a5a3a', '#453f31',
-    { mark: 'commodore', wordmark: 'commodore 64' }),
+    { mark: 'commodore', wordmark: 'commodore 64', shape: 'breadbin' }),
   c128: visual('floppy', 'desk', 'COMMODORE 128', 'linear-gradient(180deg,#d8cfaf,#b0a78a)', '#8a5a3a', '#453f31',
-    { mark: 'commodore', wordmark: 'commodore 128' }),
+    { mark: 'commodore', wordmark: 'commodore 128', shape: 'breadbin' }),
   amiga: visual('floppy', 'desk', 'AMIGA', 'linear-gradient(180deg,#dcdacf,#b1aea4)', '#c0562f', '#2f2c26',
-    { mark: 'commodore', wordmark: 'Amiga' }),
+    { mark: 'commodore', wordmark: 'Amiga', shape: 'breadbin' }),
   pet: visual('floppy', 'desk', 'PET', 'linear-gradient(180deg,#d2caae,#a7a086)', '#6b5a3a', '#453f31',
-    { wordmark: 'PET' }),
+    { wordmark: 'PET', shape: 'breadbin' }),
   plus4: visual('floppy', 'desk', 'PLUS/4', 'linear-gradient(180deg,#d4ccb0,#a8a187)', '#6b5a3a', '#453f31',
-    { mark: 'commodore', wordmark: 'plus/4' }),
+    { mark: 'commodore', wordmark: 'plus/4', shape: 'breadbin' }),
   vic20: visual('floppy', 'desk', 'VIC-20', 'linear-gradient(180deg,#d6cdb2,#aca58a)', '#6b5a3a', '#453f31',
-    { mark: 'commodore', wordmark: 'VIC-20' }),
+    { mark: 'commodore', wordmark: 'VIC-20', shape: 'breadbin' }),
   dos: visual('floppy', 'desk', 'PC', 'linear-gradient(180deg,#d2ccbd,#a7a18e)', '#4a8fe0', '#37322a',
-    { wordmark: 'PC' }),
+    { wordmark: 'PC', shape: 'desk' }),
   dosbox: visual('floppy', 'desk', 'PC', 'linear-gradient(180deg,#d2ccbd,#a7a18e)', '#4a8fe0', '#37322a',
-    { wordmark: 'PC' }),
-  arcade: visual('coin', 'cabinet', 'ARCADE', 'linear-gradient(180deg,#1e232d,#0a0c11)', '#ffc542'),
+    { wordmark: 'PC', shape: 'desk' }),
+  arcade: visual('coin', 'cabinet', 'ARCADE', 'linear-gradient(180deg,#1e232d,#0a0c11)', '#ffc542', undefined,
+    { shape: 'cabinet' }),
 };
 
 const MARK_TEXT: Record<BootMark, string> = {

@@ -3,7 +3,10 @@
   <!-- The scene: the game medium slides in behind the hardware and disappears
        into the slot. Everything is pure CSS so it costs nothing while the ROM
        is still downloading. -->
-  <div class="stage" [ngClass]="['stage--' + visual.media, 'stagebody--' + visual.body, visual.wide ? 'stage--wide' : '']">
+  <div class="stage"
+    [ngClass]="['stage--' + visual.media, 'stagebody--' + visual.body, 'shape--' + visual.shape, visual.wide ? 'stage--wide' : '']">
+    <img *ngIf="coverSrc" class="stage-art" [src]="coverSrc" alt="" aria-hidden="true" (error)="onCoverError()" />
+    <span class="stage-veil"></span>
     <span class="stage-glow"></span>
 
     <!-- Medium (behind the machine, so it is "swallowed" by the slot) -->
@@ -62,9 +65,14 @@
     </ng-template>
 
     <!-- Hardware -->
-    <div class="device device--console" *ngIf="visual.body === 'console'" [class.has-wood]="!!visual.wood"
+    <div class="device device--console" *ngIf="visual.body === 'console'"
+      [ngClass]="'shape--' + visual.shape" [class.has-wood]="!!visual.wood"
       [style.background]="visual.shell" [style.color]="visual.ink || '#e6ecf5'">
       <span class="wood" *ngIf="visual.wood"></span>
+      <span class="seam"></span>
+      <span class="tray"></span>
+      <span class="bump"></span>
+      <span class="handle"></span>
       <span class="device-trim" [style.background]="visual.accent"></span>
       <span class="lid lid--disc" *ngIf="visual.lid === 'disc'"></span>
       <span class="lid lid--cart" *ngIf="visual.lid === 'cartridge'"></span>
@@ -76,35 +84,46 @@
       <span class="slot slot--disc" *ngIf="visual.media === 'disc'"></span>
       <span class="slot slot--cart" *ngIf="visual.media === 'cartridge'"></span>
       <span class="led" [style.background]="visual.accent" [style.boxShadow]="'0 0 10px ' + visual.accent"></span>
+      <span class="sheen"></span>
     </div>
 
-    <div class="device device--handheld" *ngIf="visual.body === 'handheld'" [class.is-wide]="!!visual.wide"
+    <div class="device device--handheld" *ngIf="visual.body === 'handheld'"
+      [ngClass]="'shape--' + visual.shape"
       [style.background]="visual.shell" [style.color]="visual.ink || '#e6ecf5'">
       <span class="handheld-screen"></span>
+      <span class="handheld-screen handheld-screen--lower"></span>
+      <span class="hinge"></span>
       <span class="handheld-dpad"></span>
       <span class="handheld-buttons" [style.borderColor]="visual.accent"></span>
       <span class="handheld-speaker"></span>
       <span class="slot slot--cart" *ngIf="visual.media === 'cartridge'"></span>
       <ng-container *ngTemplateOutlet="badge"></ng-container>
       <span class="led" [style.background]="visual.accent" [style.boxShadow]="'0 0 10px ' + visual.accent"></span>
+      <span class="sheen"></span>
     </div>
 
-    <div class="device device--desk" *ngIf="visual.body === 'desk'"
+    <div class="device device--desk" *ngIf="visual.body === 'desk'" [ngClass]="'shape--' + visual.shape"
       [style.background]="visual.shell" [style.color]="visual.ink || '#e6ecf5'">
       <span class="desk-screen"></span>
-      <span class="desk-keys" [style.background]="visual.accent"></span>
+      <span class="drive"></span>
+      <span class="desk-keys" [style.backgroundColor]="visual.accent"></span>
       <span class="slot slot--floppy" *ngIf="visual.media === 'floppy'"></span>
       <ng-container *ngTemplateOutlet="badge"></ng-container>
       <span class="led" [style.background]="visual.accent" [style.boxShadow]="'0 0 10px ' + visual.accent"></span>
+      <span class="sheen"></span>
     </div>
 
-    <div class="device device--cabinet" *ngIf="visual.body === 'cabinet'"
+    <div class="device device--cabinet" *ngIf="visual.body === 'cabinet'" [ngClass]="'shape--' + visual.shape"
       [style.background]="visual.shell" [style.color]="visual.ink || '#e6ecf5'">
       <span class="marquee" [style.background]="visual.accent">{{ visual.hardware }}</span>
       <span class="cab-screen"></span>
       <span class="cab-panel" [style.borderColor]="visual.accent"></span>
+      <span class="cab-stick"></span>
+      <span class="cab-buttons"><i></i><i></i><i></i></span>
+      <span class="coin-door"><i></i><i></i></span>
       <span class="slot slot--coin" *ngIf="visual.media === 'coin'"></span>
       <span class="led" [style.background]="visual.accent" [style.boxShadow]="'0 0 10px ' + visual.accent"></span>
+      <span class="sheen"></span>
     </div>
   </div>
 

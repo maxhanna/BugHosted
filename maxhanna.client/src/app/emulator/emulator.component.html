@@ -11,7 +11,10 @@
   <!-- Boot screen: the game's own disc/cartridge goes into the system while the
        ROM downloads and the core starts up. It covers the EmulatorJS container
        too, so the machine stays on screen through the whole boot. -->
-  <div class="emuBootOverlay" *ngIf="isLoading">
+  <div class="emuBootOverlay" *ngIf="isLoading" [class.has-art]="!!bootCoverUrl">
+    <!-- The same cover art, blown up and blurred, fills the screen behind the
+         boot card so the wait is the game's artwork instead of a black panel. -->
+    <img *ngIf="bootCoverUrl" class="emuBootArt" [src]="bootCoverUrl" alt="" aria-hidden="true" />
     <app-emulator-boot-animation [system]="bootSystem" [gameName]="bootGameName" [coverUrl]="bootCoverUrl"
       [status]="status" [progressPct]="progressPct" [phase]="bootPhase">
     </app-emulator-boot-animation>
