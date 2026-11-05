@@ -22,6 +22,8 @@ namespace maxhanna.Server.Services
     private readonly IConfiguration _config;
     private readonly Log _log;
     private static readonly SemaphoreSlim _runLock = new SemaphoreSlim(1, 1);
+    // 0 = the enrichment table has not been created/verified in this process yet.
+    private static int _schemaReady;
 
     public RomEnrichmentService(IConfiguration config, Log log)
     {
@@ -61,6 +63,8 @@ namespace maxhanna.Server.Services
       }
     }
 
+    
+
     // =====================================================================
     //  The full enrichment method (moved verbatim from SystemBackgroundService)
     // =====================================================================
@@ -70,6 +74,8 @@ namespace maxhanna.Server.Services
       const int batchSize = 25;
       const int perRequestDelayMs = 300;
       _ = _log.Db("Starting IGDB enrichment pass...", null, "IGDB", outputToConsole: true);
+
+ 
       // ---- local helpers ----
 
       static string StripDiacritics(string text)
@@ -442,10 +448,13 @@ namespace maxhanna.Server.Services
       static string Esc(string s) => (s ?? "").Replace("\"", "\\\"");
       static string IgdbImageUrl(string imageId, string size) => $"https://images.igdb.com/igdb/image/upload/{size}/{imageId}.jpg";
 
-      async Task<string> CacheArtworkAsync(string externalUrl, int gameId, string kind, string imageId, int userId)
+      // Artwork is named after OUR file_uploads row, never the IGDB game id, so a
+      // ROM's pictures can be found straight from its own id: rom-{fileId}-{kind}-{imageId}.jpg.
+      // That keeps everything except the initial fetch independent of IGDB.
+      async Task<string> CacheArtworkAsync(string externalUrl, int romFileId, string kind, string imageId, int userId)
       {
         var safeImageId = System.Text.RegularExpressions.Regex.Replace(imageId, "[^A-Za-z0-9_-]", "_");
-        var fileName = $"game-{gameId}-{kind}-{safeImageId}.jpg";
+        var fileName = $"rom-{romFileId}-{kind}-{safeImageId}.jpg";
         var physicalPath = Path.Combine(_gameArtworkFolder, fileName);
         var publicUrl = GameArtworkUrlRoot + Uri.EscapeDataString(fileName);
         Directory.CreateDirectory(_gameArtworkFolder);
@@ -730,8 +739,9 @@ LIMIT @lim;";
 
       // --- Phase 2: rows that already have enrichment but need a redo ---
       //   a) reset_votes > 0  (user requested re-enrichment)
-      //   b) status = 'ERROR' (previous attempt failed)
-      //   c) fetched_at older than 30 days (stale refresh)
+      //   b) status = 'ERROR' (previous attempt failed, so nothing was cached)
+      // Cached metadata is never refreshed just because it is old: IGDB is only
+      // contacted for a new ROM or an explicit reset.
       // Delete the old enrichment row so the upsert creates a fresh one.
       const string pickRedoSql = @"
     SELECT r.file_id, fu.user_id, fu.file_name, fu.given_file_name
@@ -740,7 +750,6 @@ JOIN maxhanna.file_uploads fu ON fu.id = r.file_id
 WHERE (
     r.reset_votes > 0
     OR r.status = 'ERROR'
-    OR r.fetched_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 30 DAY)
   )
 ORDER BY
   r.reset_votes DESC,
@@ -947,7 +956,7 @@ LIMIT @lim;";
           string? coverUrl = null;
           var coverId = best.SelectToken("cover.image_id")?.ToString();
           if (!string.IsNullOrWhiteSpace(coverId))
-            coverUrl = await CacheArtworkAsync(IgdbImageUrl(coverId!, "t_cover_big"), igdbId, "cover", coverId!, userId);
+            coverUrl = await CacheArtworkAsync(IgdbImageUrl(coverId!, "t_cover_big"), fileId, "cover", coverId!, userId);
 
           Newtonsoft.Json.Linq.JArray? screenshots = null;
           var ss = best.SelectTokens("screenshots[*].image_id")
@@ -959,7 +968,7 @@ LIMIT @lim;";
           {
             screenshots = new Newtonsoft.Json.Linq.JArray();
             foreach (var imageId in ss)
-              screenshots.Add(await CacheArtworkAsync(IgdbImageUrl(imageId, "t_1080p"), igdbId, "screenshot", imageId, userId));
+              screenshots.Add(await CacheArtworkAsync(IgdbImageUrl(imageId, "t_1080p"), fileId, "screenshot", imageId, userId));
           }
 
           Newtonsoft.Json.Linq.JArray? artworks = null;
@@ -972,7 +981,7 @@ LIMIT @lim;";
           {
             artworks = new Newtonsoft.Json.Linq.JArray();
             foreach (var imageId in aw)
-              artworks.Add(await CacheArtworkAsync(IgdbImageUrl(imageId, "t_1080p"), igdbId, "artwork", imageId, userId));
+              artworks.Add(await CacheArtworkAsync(IgdbImageUrl(imageId, "t_1080p"), fileId, "artwork", imageId, userId));
           }
 
           Newtonsoft.Json.Linq.JArray? videos = null;

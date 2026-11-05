@@ -4,6 +4,9 @@ import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 
 export interface TileCacheResponse {
+  /** Static URL of the cached tile JPEG (server-side file cache). */
+  url?: string;
+  /** Legacy inline payload; empty now that tiles are stored as files. */
   imageData?: string;
   z?: number;
   x?: number;
@@ -33,7 +36,7 @@ export class TileCacheService {
 
   // ---- in-memory image cache ----------------------------------------------
   // Stores decoded HTMLImageElement objects, keyed by "z/x/y".
-  // This is separate from the server-side DB cache: once decoded here we
+  // This is separate from the server-side file cache: once decoded here we
   // never re-fetch from the network for the lifetime of the page.
   private readonly MAX_CACHE = 2048;
   private imageCache = new Map<string, HTMLImageElement>();
@@ -57,17 +60,9 @@ export class TileCacheService {
   // anyway), but their callbacks are ignored if their generation is stale.
   private currentGeneration = 0;
 
-  // ---- save queue ---------------------------------------------------------
-  // (unchanged from original — batch-saves decoded tiles to the server DB)
-  private saveQueue: Array<{ z: number; x: number; y: number; imageData: string }> = [];
-  private readonly SAVE_BATCH_SIZE = 10;
-  private readonly SAVE_INTERVAL_MS = 5000;
   private destroy$ = new Subject<void>();
 
-  constructor(private http: HttpClient) {
-    // Periodic save flush
-    setInterval(() => this.flushSaveQueue(), this.SAVE_INTERVAL_MS);
-  }
+  constructor(private http: HttpClient) { }
 
   // -------------------------------------------------------------------------
   // Public API
@@ -186,8 +181,11 @@ export class TileCacheService {
               return;
             }
 
-            if (resp.imageData) {
-              this.decodeImage(resp.imageData, key, pending.callbacks);
+            // The server hands back a plain file URL, so the browser loads and
+            // caches the JPEG itself instead of us decoding base64 JSON.
+            const src = resp.url ?? resp.imageData;
+            if (src) {
+              this.decodeImage(src, key, pending.callbacks);
             } else {
               pending.callbacks.forEach(cb => cb(null));
             }
@@ -213,7 +211,7 @@ export class TileCacheService {
   }
 
   private decodeImage(
-    dataUrl: string,
+    src: string,
     key: string,
     callbacks: Array<(img: HTMLImageElement | null) => void>
   ): void {
@@ -233,9 +231,18 @@ export class TileCacheService {
       callbacks.forEach(cb => cb(img));
     };
     img.onerror = () => {
+      // The tile usually arrives as a static file URL. If that file can't be
+      // loaded (host doesn't expose the uploads folder, file removed between
+      // lookup and load), ask the API for the bytes once instead of leaving a hole.
+      const [z, x, y] = key.split('/');
+      if (!src.startsWith(this.API_URL)) {
+        img.onerror = () => callbacks.forEach(cb => cb(null));
+        img.src = `${this.API_URL}?z=${z}&x=${x}&y=${y}`;
+        return;
+      }
       callbacks.forEach(cb => cb(null));
     };
-    img.src = dataUrl;
+    img.src = src;
   }
 
   private touchCacheKey(key: string): void {
@@ -245,25 +252,7 @@ export class TileCacheService {
     this.cacheOrder.push(key);
   }
 
-  // -------------------------------------------------------------------------
-  // Save queue (unchanged logic, just tidied)
-  // -------------------------------------------------------------------------
-
-  saveTile(z: number, x: number, y: number, imageData: string): void {
-    this.saveQueue.push({ z, x, y, imageData });
-    if (this.saveQueue.length >= this.SAVE_BATCH_SIZE) this.flushSaveQueue();
-  }
-
-  private flushSaveQueue(): void {
-    if (this.saveQueue.length === 0) return;
-    const batch = this.saveQueue.splice(0, this.SAVE_BATCH_SIZE);
-    this.http.post(`${this.API_URL}/batch`, { tiles: batch })
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({ error: () => { } });
-  }
-
   ngOnDestroy(): void {
-    this.flushSaveQueue();
     this.destroy$.next();
     this.destroy$.complete();
   }

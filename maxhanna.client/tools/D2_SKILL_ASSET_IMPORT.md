@@ -24,3 +24,39 @@ The local extraction is `~/Desktop/d2/Work`. It is MPQ-flattened: thousands of D
 | Fire Arrow | `FireArrow` | `File00005601.xxx` | 32 directions x 8 frames | `d2-fire-arrow` | Best-match candidate: table layout plus arrow-like rendered cels; not uniquely proven by header. DCC animates a small flame/arrowhead, so the runtime adds a small shaft to complete the projectile. |
 
 The extraction has thousands of DCCs but no named missile directory; only a small set of unrelated test DCCs are named. Exact name/header searching found no separately named Molten Boulder, Tornado, Firebolt, Fireball, or other missile DCC sources under `Work`. Arctic Blast's first animation now uses the best matching decoded candidate noted above; its opaque filename remains an inference, not an original named-file match, and the second animation variant still needs locating. Some existing runtime missile sheets were already imported from supplied DCCs, but do not assume they all map to the exact `CelFile` in `Missiles.txt`. Continue to search and verify, and document unresolved skills rather than substituting unrelated art or reporting full original-asset coverage.
+
+## Elemental missiles: the D1 import mistake
+
+`Data/Global/Missiles` in the local game data is a *mod* overlay, not the base
+D2 missile folder. Its `Missiles.txt` fragment adds the D1 entries as ids 684+
+and its DCCs are `D1FireBolt`, `D1FireBall`, `D1Lightning`, `D1Inferno` and
+`D1MagmaBallTravel` — converted Diablo 1 sprites. Importing from that folder is
+what made the fire and lightning skills look like Diablo 1 missiles, because
+`SKILL_MISSILE_OVERLAYS` sends most classes' projectile skills to those five
+ids.
+
+The base D2 missile art in `d2data`/`d2exp` is only reachable as opaque
+`File########.xxx` DCCs, and the extraction keeps no name index: the block order
+is not the archive's directory order either (checked by aligning the
+`Missiles.txt` CelFile layouts against the extracted sequence), so a DCC cannot
+be tied back to a named `CelFile`. Do not claim a name match for unnamed DCCs.
+
+What *is* addressable D2 art is `Desktop/d2/missile_overlays`, the numbered
+missile/effect animation folders that the runtime's numeric missile ids already
+come from. `tools/import_d2_missile_overlays.py` writes those into semantic
+runtime ids:
+
+| Runtime ID | Source folder | Frames | Replaced |
+|---|---|---|---|
+| `d2-firebolt` | `missile_overlays/31` | 10 | `D1FireBolt` |
+| `d2-fireball` | `missile_overlays/84` | 16 | `D1FireBall` |
+| `d2-inferno` | `missile_overlays/74` | 10 | `D1Inferno` |
+| `d2-magmaball` | `missile_overlays/47` | 20 | `D1MagmaBallTravel` |
+| `d2-lightning` | `missile_overlays/43` | 6 | `D1Lightning` |
+
+The remaining `d2-*` ids (`d2-acidbolt`, `d2-bloodcomet`, `d2-bloodstar`,
+`d2-icebolt`, `d2-poisonbolt`, `d2-shadowbolt`, `d2-holybolt`, `d2-bluestar`,
+`d2-fire-arrow`, `d2-arctic-blast`) already use D2 art and were left alone.
+Keep the source BMP matte as alpha (the importer converts luminance to alpha and
+recentres frames) so the additive glow of these cels stays soft; keying them
+like opaque sprites leaves a dark halo.

@@ -63,7 +63,7 @@
 
   <div class="fileListDiv">
     <div *ngFor="let file of uploadFileList; let i = index" class="fileUploadItem">
-      <div class="fileUploadLineDiv">
+      <div class="fileUploadLineDiv" [class.hasBytes]="!!uploadBytes[file.name]">
         <span class="fileName" [class]="getFileNameClass(file)"
           [style.marginLeft.px]="!uploadProgress[file.name] ? 15 : 0">
           {{file.name}}
@@ -75,6 +75,7 @@
           {{uploadErrors[file.name] ? '❌' : (uploadProgress[file.name] === 100 ? '✅' : (uploadProgress[file.name] || 0)
           + '%')}}
         </span>
+        <span *ngIf="progressBytes(file) as bytes" class="progressBytes">{{ bytes }}</span>
         <span *ngIf="uploadErrors[file.name]" class="errorBadge" [title]="uploadErrors[file.name]">
           FAILED
         </span>

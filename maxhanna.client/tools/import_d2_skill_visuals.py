@@ -15,16 +15,15 @@ DEFAULT_D2_ROOT = Path.home() / "Desktop" / "d2" / "Work"
 DECODER_ROOT = Path(tempfile.gettempdir()) / "d2-dcc-decoder"
 DEFAULT_CONVERTER = DEFAULT_D2_ROOT / "maxhanna.client" / "dcc-converter-bin" / "dcc-convert.exe"
 # Import the first projectile direction; the runtime turns the sprite toward its target.
+# The elemental D1 imports that used to live here (D1FireBolt, D1FireBall,
+# D1Lightning, D1Inferno, D1MagmaBallTravel) are Diablo 1 art shipped by a mod
+# overlay. They are replaced by tools/import_d2_missile_overlays.py, which uses
+# the original D2 missile animations; do not re-add them.
 SKILL_ANIMATIONS = {
-    "d2-firebolt": "D1FireBolt",
     "d2-fire-arrow": "FireArrow",
     "d2-arctic-blast": "ArcticBlastIce",
-    "d2-fireball": "D1FireBall",
     "d2-acidbolt": "AcidBolt",
     "d2-bloodcomet": "BloodComet",
-    "d2-lightning": "D1Lightning",
-    "d2-inferno": "D1Inferno",
-    "d2-magmaball": "D1MagmaBallTravel",
     "d2-icebolt": "SuccubusMissileIceTravel",
     "d2-poisonbolt": "SuccubusMissileGreenTravel",
     "d2-bloodstar": "SuccubusMissileRedTravel",
@@ -44,15 +43,10 @@ EXTRACTED_SOURCE_FILES = {
 # Missiles.txt provides the projectile's D2 light color; apply it to grayscale
 # pixels while leaving already-colored pixels and alpha untouched.
 MISSILE_TINTS = {
-    "d2-firebolt": (255, 178, 64),
     "d2-fire-arrow": (255, 178, 64),
     "d2-arctic-blast": (170, 225, 255),
-    "d2-fireball": (255, 178, 64),
     "d2-acidbolt": (85, 235, 75),
     "d2-bloodcomet": (255, 35, 35),
-    "d2-lightning": (125, 205, 255),
-    "d2-inferno": (255, 112, 36),
-    "d2-magmaball": (255, 112, 36),
     "d2-icebolt": (105, 210, 255),
     "d2-poisonbolt": (85, 235, 75),
     "d2-bloodstar": (230, 65, 95),

@@ -345,36 +345,7 @@ namespace maxhanna.Server.Controllers
         return StatusCode(500, "Internal server error.");
       }
     }
-
-    /// <summary>
-    /// Opens a connection, creating the progress table on first use so a deploy
-    /// needs no manual SQL migration.
-    /// </summary>
-    private async Task<MySqlConnection> OpenWithProgressTableAsync()
-    {
-      var conn = new MySqlConnection(_connectionString);
-      await conn.OpenAsync();
-      if (_progressTableReady) return conn;
-      await ProgressTableLock.WaitAsync();
-      try
-      {
-        if (_progressTableReady) return conn;
-        const string ddl = @"CREATE TABLE IF NOT EXISTS maxhanna.d2survivors_progress (
-            user_id INT NOT NULL PRIMARY KEY,
-            payload LONGTEXT NOT NULL,
-            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
-        await using var cmd = new MySqlCommand(ddl, conn);
-        await cmd.ExecuteNonQueryAsync();
-        _progressTableReady = true;
-      }
-      finally
-      {
-        ProgressTableLock.Release();
-      }
-      return conn;
-    }
-
+ 
     /// <summary>
     /// The account's character save: one payload row per user, written by the
     /// game while a run is live and read back on sign-in.
@@ -386,8 +357,8 @@ namespace maxhanna.Server.Controllers
       try
       {
         if (!await _log.ValidateUserLoggedIn(req.UserId, encryptedUserIdHeader ?? "")) return Unauthorized();
+        await using var conn = new MySqlConnection(_connectionString);
 
-        await using var conn = await OpenWithProgressTableAsync();
         const string sql = "SELECT payload FROM maxhanna.d2survivors_progress WHERE user_id = @UserId LIMIT 1;";
         await using var cmd = new MySqlCommand(sql, conn);
         cmd.Parameters.AddWithValue("@UserId", req.UserId);
@@ -415,7 +386,7 @@ namespace maxhanna.Server.Controllers
       {
         if (!await _log.ValidateUserLoggedIn(req.UserId, encryptedUserIdHeader ?? "")) return Unauthorized();
 
-        await using var conn = await OpenWithProgressTableAsync();
+        await using var conn = new MySqlConnection(_connectionString);
         const string sql = @"INSERT INTO maxhanna.d2survivors_progress (user_id, payload, updated_at)
             VALUES (@UserId, @Payload, UTC_TIMESTAMP())
             ON DUPLICATE KEY UPDATE payload = VALUES(payload), updated_at = VALUES(updated_at);";

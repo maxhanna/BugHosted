@@ -54,6 +54,8 @@ export class FileUploadComponent implements AfterViewInit {
   duplicatesFound: { [key: string]: boolean } = {};
   maxFileAttachments: number = this.maxSelectedFiles;
   uploadProgress: { [key: string]: number } = {};
+  /** Bytes sent so far and the full size being sent, per file name. */
+  uploadBytes: { [key: string]: { loaded: number; total: number } } = {};
   uploadErrors: { [key: string]: string } = {};
   isUploading: boolean = false;
   nonDupUploadedCount = 0;
@@ -229,6 +231,7 @@ export class FileUploadComponent implements AfterViewInit {
 
   cancelFileUpload() {
     this.uploadProgress = {};
+    this.uploadBytes = {};
     this.uploadErrors = {};
     this.isUploading = false;
     this.uploadFileList = [];
@@ -458,10 +461,15 @@ export class FileUploadComponent implements AfterViewInit {
         uploadReq.subscribe({
           next: (event) => {
             if (event.type === HttpEventType.UploadProgress) {
-              if (event.total) {
+              const total = event.total || file.size;
+              if (total) {
                 this.uploadProgress[file.name] = Math.round(
-                  100 * (event.loaded / event.total),
+                  100 * (Math.min(event.loaded, total) / total),
                 );
+                this.uploadBytes[file.name] = {
+                  loaded: event.loaded,
+                  total,
+                };
               }
             } else if (event.type === HttpEventType.Response) {
               responseReceived = true;
@@ -581,6 +589,7 @@ export class FileUploadComponent implements AfterViewInit {
       }
 
       this.uploadProgress = {};
+      this.uploadBytes = {};
       this.uploadErrors = {};
       this.isUploading = false;
       this.uploadFileList = [];
@@ -627,6 +636,30 @@ export class FileUploadComponent implements AfterViewInit {
     return (this.totalProgress = Math.round(
       this.totalProgress / activeFiles.length,
     ));
+  }
+  /**
+   * "(12.3/44.5 MB)" — bytes still to send, then the size being sent, printed
+   * beside the percentage while a file uploads. Empty before the first progress
+   * event, and once the file is finished or failed.
+   */
+  progressBytes(file: File): string {
+    const sent = this.uploadBytes[file.name];
+    const percent = this.uploadProgress[file.name] || 0;
+    if (!sent || !sent.total || percent >= 100 || this.uploadErrors[file.name]) {
+      return "";
+    }
+    const units = ["B", "KB", "MB", "GB", "TB"];
+    const unit = Math.min(
+      Math.floor(Math.log(Math.max(sent.total, 1)) / Math.log(1024)),
+      units.length - 1,
+    );
+    const scale = Math.pow(1024, unit);
+    const show = (bytes: number) =>
+      unit >= 2
+        ? (bytes / scale).toFixed(1)
+        : String(Math.round(bytes / scale));
+    const remaining = Math.max(sent.total - sent.loaded, 0);
+    return `(${show(remaining)}/${show(sent.total)} ${units[unit]})`;
   }
   onTopicAdded(topics: Topic[]) {
     this.fileUploadTopics = topics;

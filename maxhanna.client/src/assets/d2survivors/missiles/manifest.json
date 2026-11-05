@@ -1,1148 +1,1143 @@
 {
   "1": {
-    "frames": 10,
     "encodedFrames": 10,
-    "width": 250,
-    "height": 272,
     "frameDirectory": "1",
-    "frameDurationMs": 85
-  },
-  "2": {
-    "frames": 15,
-    "encodedFrames": 15,
-    "width": 576,
-    "height": 282
-  },
-  "3": {
-    "frames": 6,
-    "encodedFrames": 6,
-    "width": 139,
-    "height": 122
-  },
-  "4": {
+    "frameDurationMs": 85,
     "frames": 10,
-    "encodedFrames": 10,
-    "width": 114,
-    "height": 115
-  },
-  "5": {
-    "frames": 64,
-    "encodedFrames": 64,
-    "width": 110,
-    "height": 110,
-    "frameDirectory": "5",
-    "frameDurationMs": 85
-  },
-  "6": {
-    "frames": 8,
-    "encodedFrames": 8,
-    "width": 92,
-    "height": 114,
-    "frameDirectory": "6",
-    "frameDurationMs": 85
-  },
-  "7": {
-    "frames": 10,
-    "encodedFrames": 10,
-    "width": 134,
-    "height": 156
-  },
-  "8": {
-    "frames": 10,
-    "encodedFrames": 10,
-    "width": 359,
-    "height": 227,
-    "frameDirectory": "8",
-    "frameDurationMs": 85
-  },
-  "9": {
-    "frames": 10,
-    "encodedFrames": 10,
-    "width": 172,
-    "height": 197
+    "height": 272,
+    "width": 250
   },
   "10": {
-    "frames": 20,
     "encodedFrames": 20,
-    "width": 320,
-    "height": 258
-  },
-  "11": {
-    "frames": 23,
-    "encodedFrames": 23,
-    "width": 563,
-    "height": 348,
-    "frameDirectory": "11",
-    "frameDurationMs": 85
-  },
-  "12": {
-    "frames": 10,
-    "encodedFrames": 10,
-    "width": 362,
-    "height": 161
-  },
-  "13": {
-    "frames": 18,
-    "encodedFrames": 18,
-    "width": 362,
-    "height": 243
-  },
-  "14": {
     "frames": 20,
-    "encodedFrames": 20,
-    "width": 170,
-    "height": 329
-  },
-  "15": {
-    "frames": 20,
-    "encodedFrames": 20,
-    "width": 454,
-    "height": 347
-  },
-  "16": {
-    "frames": 15,
-    "encodedFrames": 15,
-    "width": 406,
-    "height": 300
-  },
-  "17": {
-    "frames": 20,
-    "encodedFrames": 19,
-    "width": 235,
-    "height": 370
-  },
-  "18": {
-    "frames": 10,
-    "encodedFrames": 10,
-    "width": 447,
-    "height": 384
-  },
-  "19": {
-    "frames": 10,
-    "encodedFrames": 10,
-    "width": 528,
-    "height": 432
-  },
-  "20": {
-    "frames": 10,
-    "encodedFrames": 10,
-    "width": 384,
-    "height": 238
-  },
-  "21": {
-    "frames": 10,
-    "encodedFrames": 10,
-    "width": 98,
-    "height": 106
-  },
-  "22": {
-    "frames": 10,
-    "encodedFrames": 10,
-    "width": 566,
-    "height": 181
-  },
-  "23": {
-    "frames": 10,
-    "encodedFrames": 10,
-    "width": 635,
-    "height": 389
-  },
-  "24": {
-    "frames": 8,
-    "encodedFrames": 8,
-    "width": 66,
-    "height": 87
-  },
-  "25": {
-    "frames": 30,
-    "encodedFrames": 30,
-    "width": 282,
-    "height": 807
-  },
-  "26": {
-    "frames": 20,
-    "encodedFrames": 20,
-    "width": 302,
-    "height": 195
-  },
-  "27": {
-    "frames": 30,
-    "encodedFrames": 30,
-    "width": 277,
-    "height": 944
-  },
-  "28": {
-    "frames": 10,
-    "encodedFrames": 10,
-    "width": 133,
-    "height": 175
-  },
-  "29": {
-    "frames": 10,
-    "encodedFrames": 10,
-    "width": 81,
-    "height": 82
-  },
-  "30": {
-    "frames": 96,
-    "encodedFrames": 96,
-    "width": 128,
-    "height": 125,
-    "frameDirectory": "30",
-    "frameDurationMs": 85
-  },
-  "31": {
-    "frames": 10,
-    "encodedFrames": 8,
-    "width": 176,
-    "height": 173
-  },
-  "32": {
-    "frames": 10,
-    "encodedFrames": 10,
-    "width": 84,
-    "height": 142
-  },
-  "33": {
-    "frames": 20,
-    "encodedFrames": 20,
-    "width": 128,
-    "height": 165
-  },
-  "34": {
-    "frames": 10,
-    "encodedFrames": 10,
-    "width": 110,
-    "height": 99
-  },
-  "35": {
-    "frames": 106,
-    "encodedFrames": 106,
-    "width": 109,
-    "height": 110
-  },
-  "36": {
-    "frames": 10,
-    "encodedFrames": 10,
-    "width": 123,
-    "height": 119
-  },
-  "37": {
-    "frames": 10,
-    "encodedFrames": 10,
-    "width": 92,
-    "height": 132
-  },
-  "38": {
-    "frames": 20,
-    "encodedFrames": 20,
-    "width": 92,
-    "height": 122
-  },
-  "39": {
-    "frames": 10,
-    "encodedFrames": 10,
-    "width": 77,
-    "height": 70
-  },
-  "40": {
-    "frames": 10,
-    "encodedFrames": 10,
-    "width": 108,
-    "height": 114
-  },
-  "41": {
-    "frames": 16,
-    "encodedFrames": 16,
-    "width": 121,
-    "height": 122
-  },
-  "42": {
-    "frames": 6,
-    "encodedFrames": 6,
-    "width": 130,
-    "height": 131
-  },
-  "43": {
-    "frames": 6,
-    "encodedFrames": 6,
-    "width": 159,
-    "height": 472
-  },
-  "44": {
-    "frames": 96,
-    "encodedFrames": 96,
-    "width": 561,
-    "height": 411,
-    "frameDirectory": "44",
-    "frameDurationMs": 85
-  },
-  "45": {
-    "frames": 10,
-    "encodedFrames": 10,
-    "width": 160,
-    "height": 151
-  },
-  "46": {
-    "frames": 20,
-    "encodedFrames": 20,
-    "width": 322,
-    "height": 273
-  },
-  "47": {
-    "frames": 20,
-    "encodedFrames": 20,
-    "width": 280,
-    "height": 285
-  },
-  "48": {
-    "frames": 10,
-    "encodedFrames": 10,
-    "width": 172,
-    "height": 180
-  },
-  "49": {
-    "frames": 10,
-    "encodedFrames": 10,
-    "width": 80,
-    "height": 115
-  },
-  "50": {
-    "frames": 20,
-    "encodedFrames": 20,
-    "width": 218,
-    "height": 292
-  },
-  "51": {
-    "frames": 10,
-    "encodedFrames": 10,
-    "width": 73,
-    "height": 97
-  },
-  "52": {
-    "frames": 10,
-    "encodedFrames": 10,
-    "width": 78,
-    "height": 114,
-    "frameDirectory": "52",
-    "frameDurationMs": 85
-  },
-  "53": {
-    "frames": 20,
-    "encodedFrames": 19,
-    "width": 99,
-    "height": 219
-  },
-  "54": {
-    "frames": 10,
-    "encodedFrames": 10,
-    "width": 86,
-    "height": 81
-  },
-  "55": {
-    "frames": 6,
-    "encodedFrames": 6,
-    "width": 71,
-    "height": 177
-  },
-  "56": {
-    "frames": 10,
-    "encodedFrames": 10,
-    "width": 242,
-    "height": 208
-  },
-  "57": {
-    "frames": 19,
-    "encodedFrames": 19,
-    "width": 246,
-    "height": 223
-  },
-  "58": {
-    "frames": 10,
-    "encodedFrames": 10,
-    "width": 264,
-    "height": 180
-  },
-  "59": {
-    "frames": 20,
-    "encodedFrames": 20,
-    "width": 177,
-    "height": 175
-  },
-  "60": {
-    "frames": 48,
-    "encodedFrames": 48,
-    "width": 38,
-    "height": 53,
-    "frameDirectory": "60",
-    "frameDurationMs": 85
-  },
-  "61": {
-    "frames": 40,
-    "encodedFrames": 40,
-    "width": 99,
-    "height": 123,
-    "frameDirectory": "61",
-    "frameDurationMs": 85
-  },
-  "62": {
-    "frames": 20,
-    "encodedFrames": 20,
-    "width": 263,
-    "height": 212
-  },
-  "63": {
-    "frames": 10,
-    "encodedFrames": 10,
-    "width": 176,
-    "height": 153
-  },
-  "64": {
-    "frames": 16,
-    "encodedFrames": 16,
-    "width": 206,
-    "height": 183
-  },
-  "65": {
-    "frames": 20,
-    "encodedFrames": 20,
-    "width": 81,
-    "height": 66
-  },
-  "66": {
-    "frames": 10,
-    "encodedFrames": 10,
-    "width": 81,
-    "height": 67
-  },
-  "67": {
-    "frames": 6,
-    "encodedFrames": 6,
-    "width": 153,
-    "height": 128
-  },
-  "68": {
-    "frames": 8,
-    "encodedFrames": 8,
-    "width": 59,
-    "height": 137
-  },
-  "69": {
-    "frames": 20,
-    "encodedFrames": 20,
-    "width": 79,
-    "height": 137
-  },
-  "70": {
-    "frames": 15,
-    "encodedFrames": 15,
-    "width": 118,
-    "height": 120
-  },
-  "71": {
-    "frames": 10,
-    "encodedFrames": 10,
-    "width": 111,
-    "height": 117
-  },
-  "72": {
-    "frames": 8,
-    "encodedFrames": 8,
-    "width": 166,
-    "height": 84
-  },
-  "73": {
-    "frames": 10,
-    "encodedFrames": 10,
-    "width": 52,
-    "height": 152
-  },
-  "74": {
-    "frames": 10,
-    "encodedFrames": 10,
-    "width": 139,
-    "height": 189
-  },
-  "75": {
-    "frames": 96,
-    "encodedFrames": 96,
-    "width": 102,
-    "height": 84,
-    "frameDirectory": "75",
-    "frameDurationMs": 85
-  },
-  "76": {
-    "frames": 20,
-    "encodedFrames": 20,
-    "width": 153,
-    "height": 130
-  },
-  "77": {
-    "frames": 96,
-    "encodedFrames": 96,
-    "width": 130,
-    "height": 67
-  },
-  "78": {
-    "frames": 19,
-    "encodedFrames": 19,
-    "width": 152,
-    "height": 116
-  },
-  "79": {
-    "frames": 48,
-    "encodedFrames": 45,
-    "width": 674,
-    "height": 446
-  },
-  "80": {
-    "frames": 30,
-    "encodedFrames": 30,
-    "width": 243,
-    "height": 223
-  },
-  "81": {
-    "frames": 10,
-    "encodedFrames": 10,
-    "width": 109,
-    "height": 138
-  },
-  "82": {
-    "frames": 20,
-    "encodedFrames": 20,
-    "width": 234,
-    "height": 145
-  },
-  "83": {
-    "frames": 10,
-    "encodedFrames": 10,
-    "width": 72,
-    "height": 90
-  },
-  "84": {
-    "frames": 16,
-    "encodedFrames": 16,
-    "width": 250,
-    "height": 192
-  },
-  "85": {
-    "frames": 20,
-    "encodedFrames": 19,
-    "width": 66,
-    "height": 75
-  },
-  "86": {
-    "frames": 9,
-    "encodedFrames": 9,
-    "width": 102,
-    "height": 119
-  },
-  "87": {
-    "frames": 20,
-    "encodedFrames": 20,
-    "width": 147,
-    "height": 188
-  },
-  "88": {
-    "frames": 10,
-    "encodedFrames": 10,
-    "width": 205,
-    "height": 156
-  },
-  "89": {
-    "frames": 10,
-    "encodedFrames": 10,
-    "width": 207,
-    "height": 137
-  },
-  "90": {
-    "frames": 20,
-    "encodedFrames": 20,
-    "width": 357,
-    "height": 197
-  },
-  "91": {
-    "frames": 20,
-    "encodedFrames": 20,
-    "width": 369,
-    "height": 218
-  },
-  "92": {
-    "frames": 19,
-    "encodedFrames": 19,
-    "width": 243,
-    "height": 182
-  },
-  "93": {
-    "frames": 10,
-    "encodedFrames": 10,
-    "width": 445,
-    "height": 353
-  },
-  "94": {
-    "frames": 9,
-    "encodedFrames": 9,
-    "width": 256,
-    "height": 155
-  },
-  "95": {
-    "frames": 10,
-    "encodedFrames": 10,
-    "width": 102,
-    "height": 151
-  },
-  "96": {
-    "frames": 10,
-    "encodedFrames": 10,
-    "width": 102,
-    "height": 150
-  },
-  "97": {
-    "frames": 16,
-    "encodedFrames": 16,
-    "width": 223,
-    "height": 205
-  },
-  "98": {
-    "frames": 10,
-    "encodedFrames": 10,
-    "width": 223,
-    "height": 204
-  },
-  "99": {
-    "frames": 28,
-    "encodedFrames": 28,
-    "width": 184,
-    "height": 207
+    "height": 258,
+    "width": 320
   },
   "100": {
-    "frames": 40,
     "encodedFrames": 40,
-    "width": 246,
-    "height": 207
+    "frames": 40,
+    "height": 207,
+    "width": 246
   },
   "101": {
-    "frames": 61,
     "encodedFrames": 61,
-    "width": 428,
-    "height": 230,
     "frameDirectory": "101",
-    "frameDurationMs": 85
+    "frameDurationMs": 85,
+    "frames": 61,
+    "height": 230,
+    "width": 428
   },
   "102": {
-    "frames": 10,
     "encodedFrames": 10,
-    "width": 104,
-    "height": 100
+    "frames": 10,
+    "height": 100,
+    "width": 104
   },
   "103": {
-    "frames": 38,
     "encodedFrames": 38,
-    "width": 256,
-    "height": 232
+    "frames": 38,
+    "height": 232,
+    "width": 256
   },
   "104": {
-    "frames": 10,
     "encodedFrames": 10,
-    "width": 174,
-    "height": 101
+    "frames": 10,
+    "height": 101,
+    "width": 174
   },
   "105": {
-    "frames": 64,
     "encodedFrames": 64,
-    "width": 278,
-    "height": 229
+    "frames": 64,
+    "height": 229,
+    "width": 278
   },
   "106": {
-    "frames": 27,
     "encodedFrames": 26,
-    "width": 857,
-    "height": 589
+    "frames": 27,
+    "height": 589,
+    "width": 857
   },
   "107": {
-    "frames": 10,
     "encodedFrames": 10,
-    "width": 250,
-    "height": 231
+    "frames": 10,
+    "height": 231,
+    "width": 250
   },
   "108": {
-    "frames": 16,
     "encodedFrames": 16,
-    "width": 59,
-    "height": 52
+    "frames": 16,
+    "height": 52,
+    "width": 59
   },
   "109": {
-    "frames": 16,
     "encodedFrames": 16,
-    "width": 102,
-    "height": 52
+    "frames": 16,
+    "height": 52,
+    "width": 102
+  },
+  "11": {
+    "encodedFrames": 23,
+    "frameDirectory": "11",
+    "frameDurationMs": 85,
+    "frames": 23,
+    "height": 348,
+    "width": 563
   },
   "110": {
-    "frames": 48,
     "encodedFrames": 48,
-    "width": 221,
-    "height": 156
+    "frames": 48,
+    "height": 156,
+    "width": 221
   },
   "111": {
-    "frames": 20,
     "encodedFrames": 20,
-    "width": 172,
-    "height": 187
+    "frames": 20,
+    "height": 187,
+    "width": 172
   },
   "112": {
-    "frames": 30,
     "encodedFrames": 30,
-    "width": 111,
-    "height": 140
+    "frames": 30,
+    "height": 140,
+    "width": 111
   },
   "113": {
-    "frames": 27,
     "encodedFrames": 27,
-    "width": 160,
-    "height": 187
+    "frames": 27,
+    "height": 187,
+    "width": 160
   },
   "114": {
-    "frames": 10,
     "encodedFrames": 10,
-    "width": 110,
-    "height": 116
+    "frames": 10,
+    "height": 116,
+    "width": 110
   },
   "115": {
-    "frames": 10,
     "encodedFrames": 10,
-    "width": 149,
-    "height": 697
+    "frames": 10,
+    "height": 697,
+    "width": 149
   },
   "116": {
-    "frames": 26,
     "encodedFrames": 26,
-    "width": 109,
-    "height": 128
+    "frames": 26,
+    "height": 128,
+    "width": 109
   },
   "117": {
-    "frames": 10,
     "encodedFrames": 10,
-    "width": 110,
-    "height": 116
+    "frames": 10,
+    "height": 116,
+    "width": 110
   },
   "118": {
-    "frames": 20,
     "encodedFrames": 20,
-    "width": 219,
-    "height": 695
+    "frames": 20,
+    "height": 695,
+    "width": 219
   },
   "119": {
-    "frames": 10,
     "encodedFrames": 10,
-    "width": 110,
-    "height": 120
+    "frames": 10,
+    "height": 120,
+    "width": 110
+  },
+  "12": {
+    "encodedFrames": 10,
+    "frames": 10,
+    "height": 161,
+    "width": 362
   },
   "120": {
-    "frames": 28,
     "encodedFrames": 28,
-    "width": 158,
-    "height": 188
+    "frames": 28,
+    "height": 188,
+    "width": 158
   },
   "121": {
-    "frames": 8,
     "encodedFrames": 8,
-    "width": 158,
-    "height": 240
+    "frames": 8,
+    "height": 240,
+    "width": 158
   },
   "122": {
-    "frames": 18,
     "encodedFrames": 17,
-    "width": 292,
-    "height": 461
+    "frames": 18,
+    "height": 461,
+    "width": 292
   },
   "123": {
-    "frames": 96,
     "encodedFrames": 96,
-    "width": 178,
-    "height": 117
+    "frames": 96,
+    "height": 117,
+    "width": 178
   },
   "124": {
-    "frames": 10,
     "encodedFrames": 10,
-    "width": 152,
-    "height": 142
+    "frames": 10,
+    "height": 142,
+    "width": 152
   },
   "125": {
-    "frames": 10,
     "encodedFrames": 10,
-    "width": 155,
-    "height": 143
+    "frames": 10,
+    "height": 143,
+    "width": 155
   },
   "126": {
-    "frames": 10,
     "encodedFrames": 10,
-    "width": 86,
-    "height": 126
+    "frames": 10,
+    "height": 126,
+    "width": 86
   },
   "127": {
-    "frames": 10,
     "encodedFrames": 10,
-    "width": 77,
-    "height": 86
+    "frames": 10,
+    "height": 86,
+    "width": 77
   },
   "128": {
-    "frames": 15,
     "encodedFrames": 15,
-    "width": 82,
-    "height": 125
+    "frames": 15,
+    "height": 125,
+    "width": 82
   },
   "129": {
-    "frames": 14,
     "encodedFrames": 14,
-    "width": 116,
-    "height": 252
+    "frames": 14,
+    "height": 252,
+    "width": 116
+  },
+  "13": {
+    "encodedFrames": 18,
+    "frames": 18,
+    "height": 243,
+    "width": 362
   },
   "130": {
-    "frames": 80,
     "encodedFrames": 80,
-    "width": 97,
-    "height": 53
+    "frames": 80,
+    "height": 53,
+    "width": 97
   },
   "131": {
-    "frames": 10,
     "encodedFrames": 10,
-    "width": 121,
-    "height": 68
+    "frames": 10,
+    "height": 68,
+    "width": 121
   },
   "132": {
-    "frames": 8,
     "encodedFrames": 8,
-    "width": 403,
-    "height": 194
+    "frames": 8,
+    "height": 194,
+    "width": 403
   },
   "133": {
-    "frames": 20,
     "encodedFrames": 15,
-    "width": 501,
-    "height": 278
+    "frames": 20,
+    "height": 278,
+    "width": 501
   },
   "134": {
-    "frames": 14,
     "encodedFrames": 14,
-    "width": 639,
-    "height": 641
+    "frames": 14,
+    "height": 641,
+    "width": 639
   },
   "135": {
-    "frames": 10,
     "encodedFrames": 10,
-    "width": 121,
-    "height": 68
+    "frames": 10,
+    "height": 68,
+    "width": 121
   },
   "136": {
-    "frames": 20,
     "encodedFrames": 20,
-    "width": 246,
-    "height": 223
+    "frames": 20,
+    "height": 223,
+    "width": 246
   },
   "137": {
-    "frames": 20,
     "encodedFrames": 19,
-    "width": 59,
-    "height": 78
+    "frames": 20,
+    "height": 78,
+    "width": 59
   },
   "138": {
-    "frames": 10,
     "encodedFrames": 10,
-    "width": 168,
-    "height": 115
+    "frames": 10,
+    "height": 115,
+    "width": 168
   },
   "139": {
-    "frames": 20,
     "encodedFrames": 20,
-    "width": 264,
-    "height": 349
+    "frames": 20,
+    "height": 349,
+    "width": 264
+  },
+  "14": {
+    "encodedFrames": 20,
+    "frames": 20,
+    "height": 329,
+    "width": 170
   },
   "140": {
-    "frames": 1848,
     "encodedFrames": 1160,
-    "width": 192,
-    "height": 133
+    "frames": 1848,
+    "height": 133,
+    "width": 192
   },
   "141": {
-    "frames": 100,
     "encodedFrames": 100,
-    "width": 246,
-    "height": 345
+    "frames": 100,
+    "height": 345,
+    "width": 246
   },
   "142": {
-    "frames": 20,
     "encodedFrames": 20,
-    "width": 182,
-    "height": 138
+    "frames": 20,
+    "height": 138,
+    "width": 182
   },
   "143": {
-    "frames": 20,
     "encodedFrames": 20,
-    "width": 121,
-    "height": 207
+    "frames": 20,
+    "height": 207,
+    "width": 121
   },
   "144": {
-    "frames": 30,
     "encodedFrames": 30,
-    "width": 320,
-    "height": 90
+    "frames": 30,
+    "height": 90,
+    "width": 320
   },
   "145": {
-    "frames": 10,
     "encodedFrames": 10,
-    "width": 103,
-    "height": 30
+    "frames": 10,
+    "height": 30,
+    "width": 103
   },
   "146": {
-    "frames": 10,
     "encodedFrames": 10,
-    "width": 171,
-    "height": 179
+    "frames": 10,
+    "height": 179,
+    "width": 171
   },
   "147": {
-    "frames": 96,
     "encodedFrames": 96,
-    "width": 222,
-    "height": 221
+    "frames": 96,
+    "height": 221,
+    "width": 222
   },
   "148": {
-    "frames": 35,
     "encodedFrames": 35,
-    "width": 132,
-    "height": 154
+    "frames": 35,
+    "height": 154,
+    "width": 132
   },
   "149": {
-    "frames": 96,
     "encodedFrames": 96,
-    "width": 165,
-    "height": 165,
     "frameDirectory": "149",
-    "frameDurationMs": 85
+    "frameDurationMs": 85,
+    "frames": 96,
+    "height": 165,
+    "width": 165
+  },
+  "15": {
+    "encodedFrames": 20,
+    "frames": 20,
+    "height": 347,
+    "width": 454
   },
   "150": {
-    "frames": 272,
     "encodedFrames": 272,
-    "width": 332,
-    "height": 313
+    "frames": 272,
+    "height": 313,
+    "width": 332
   },
-  "firebolt": {
-    "frames": 15,
+  "16": {
     "encodedFrames": 15,
-    "width": 37,
-    "height": 34,
-    "frameDurationMs": 85,
-    "source": "DCC/default-grayscale-palette",
-    "dccName": "D1FireBolt",
-    "direction": 0,
-    "frameDirectory": "firebolt"
+    "frames": 15,
+    "height": 300,
+    "width": 406
   },
-  "fireball": {
-    "frames": 15,
+  "17": {
+    "encodedFrames": 19,
+    "frames": 20,
+    "height": 370,
+    "width": 235
+  },
+  "18": {
+    "encodedFrames": 10,
+    "frames": 10,
+    "height": 384,
+    "width": 447
+  },
+  "19": {
+    "encodedFrames": 10,
+    "frames": 10,
+    "height": 432,
+    "width": 528
+  },
+  "2": {
     "encodedFrames": 15,
-    "width": 45,
-    "height": 40,
+    "frames": 15,
+    "height": 282,
+    "width": 576
+  },
+  "20": {
+    "encodedFrames": 10,
+    "frames": 10,
+    "height": 238,
+    "width": 384
+  },
+  "21": {
+    "encodedFrames": 10,
+    "frames": 10,
+    "height": 106,
+    "width": 98
+  },
+  "22": {
+    "encodedFrames": 10,
+    "frames": 10,
+    "height": 181,
+    "width": 566
+  },
+  "23": {
+    "encodedFrames": 10,
+    "frames": 10,
+    "height": 389,
+    "width": 635
+  },
+  "24": {
+    "encodedFrames": 8,
+    "frames": 8,
+    "height": 87,
+    "width": 66
+  },
+  "25": {
+    "encodedFrames": 30,
+    "frames": 30,
+    "height": 807,
+    "width": 282
+  },
+  "26": {
+    "encodedFrames": 20,
+    "frames": 20,
+    "height": 195,
+    "width": 302
+  },
+  "27": {
+    "encodedFrames": 30,
+    "frames": 30,
+    "height": 944,
+    "width": 277
+  },
+  "28": {
+    "encodedFrames": 10,
+    "frames": 10,
+    "height": 175,
+    "width": 133
+  },
+  "29": {
+    "encodedFrames": 10,
+    "frames": 10,
+    "height": 82,
+    "width": 81
+  },
+  "3": {
+    "encodedFrames": 6,
+    "frames": 6,
+    "height": 122,
+    "width": 139
+  },
+  "30": {
+    "encodedFrames": 96,
+    "frameDirectory": "30",
     "frameDurationMs": 85,
-    "source": "DCC/default-grayscale-palette",
-    "dccName": "D1FireBall",
-    "direction": 0,
-    "frameDirectory": "fireball"
+    "frames": 96,
+    "height": 125,
+    "width": 128
+  },
+  "31": {
+    "encodedFrames": 8,
+    "frames": 10,
+    "height": 173,
+    "width": 176
+  },
+  "32": {
+    "encodedFrames": 10,
+    "frames": 10,
+    "height": 142,
+    "width": 84
+  },
+  "33": {
+    "encodedFrames": 20,
+    "frames": 20,
+    "height": 165,
+    "width": 128
+  },
+  "34": {
+    "encodedFrames": 10,
+    "frames": 10,
+    "height": 99,
+    "width": 110
+  },
+  "35": {
+    "encodedFrames": 106,
+    "frames": 106,
+    "height": 110,
+    "width": 109
+  },
+  "36": {
+    "encodedFrames": 10,
+    "frames": 10,
+    "height": 119,
+    "width": 123
+  },
+  "37": {
+    "encodedFrames": 10,
+    "frames": 10,
+    "height": 132,
+    "width": 92
+  },
+  "38": {
+    "encodedFrames": 20,
+    "frames": 20,
+    "height": 122,
+    "width": 92
+  },
+  "39": {
+    "encodedFrames": 10,
+    "frames": 10,
+    "height": 70,
+    "width": 77
+  },
+  "4": {
+    "encodedFrames": 10,
+    "frames": 10,
+    "height": 115,
+    "width": 114
+  },
+  "40": {
+    "encodedFrames": 10,
+    "frames": 10,
+    "height": 114,
+    "width": 108
+  },
+  "41": {
+    "encodedFrames": 16,
+    "frames": 16,
+    "height": 122,
+    "width": 121
+  },
+  "42": {
+    "encodedFrames": 6,
+    "frames": 6,
+    "height": 131,
+    "width": 130
+  },
+  "43": {
+    "encodedFrames": 6,
+    "frames": 6,
+    "height": 472,
+    "width": 159
+  },
+  "44": {
+    "encodedFrames": 96,
+    "frameDirectory": "44",
+    "frameDurationMs": 85,
+    "frames": 96,
+    "height": 411,
+    "width": 561
+  },
+  "45": {
+    "encodedFrames": 10,
+    "frames": 10,
+    "height": 151,
+    "width": 160
+  },
+  "46": {
+    "encodedFrames": 20,
+    "frames": 20,
+    "height": 273,
+    "width": 322
+  },
+  "47": {
+    "encodedFrames": 20,
+    "frames": 20,
+    "height": 285,
+    "width": 280
+  },
+  "48": {
+    "encodedFrames": 10,
+    "frames": 10,
+    "height": 180,
+    "width": 172
+  },
+  "49": {
+    "encodedFrames": 10,
+    "frames": 10,
+    "height": 115,
+    "width": 80
+  },
+  "5": {
+    "encodedFrames": 64,
+    "frameDirectory": "5",
+    "frameDurationMs": 85,
+    "frames": 64,
+    "height": 110,
+    "width": 110
+  },
+  "50": {
+    "encodedFrames": 20,
+    "frames": 20,
+    "height": 292,
+    "width": 218
+  },
+  "51": {
+    "encodedFrames": 10,
+    "frames": 10,
+    "height": 97,
+    "width": 73
+  },
+  "52": {
+    "encodedFrames": 10,
+    "frameDirectory": "52",
+    "frameDurationMs": 85,
+    "frames": 10,
+    "height": 114,
+    "width": 78
+  },
+  "53": {
+    "encodedFrames": 19,
+    "frames": 20,
+    "height": 219,
+    "width": 99
+  },
+  "54": {
+    "encodedFrames": 10,
+    "frames": 10,
+    "height": 81,
+    "width": 86
+  },
+  "55": {
+    "encodedFrames": 6,
+    "frames": 6,
+    "height": 177,
+    "width": 71
+  },
+  "56": {
+    "encodedFrames": 10,
+    "frames": 10,
+    "height": 208,
+    "width": 242
+  },
+  "57": {
+    "encodedFrames": 19,
+    "frames": 19,
+    "height": 223,
+    "width": 246
+  },
+  "58": {
+    "encodedFrames": 10,
+    "frames": 10,
+    "height": 180,
+    "width": 264
+  },
+  "59": {
+    "encodedFrames": 20,
+    "frames": 20,
+    "height": 175,
+    "width": 177
+  },
+  "6": {
+    "encodedFrames": 8,
+    "frameDirectory": "6",
+    "frameDurationMs": 85,
+    "frames": 8,
+    "height": 114,
+    "width": 92
+  },
+  "60": {
+    "encodedFrames": 48,
+    "frameDirectory": "60",
+    "frameDurationMs": 85,
+    "frames": 48,
+    "height": 53,
+    "width": 38
+  },
+  "61": {
+    "encodedFrames": 40,
+    "frameDirectory": "61",
+    "frameDurationMs": 85,
+    "frames": 40,
+    "height": 123,
+    "width": 99
+  },
+  "62": {
+    "encodedFrames": 20,
+    "frames": 20,
+    "height": 212,
+    "width": 263
+  },
+  "63": {
+    "encodedFrames": 10,
+    "frames": 10,
+    "height": 153,
+    "width": 176
+  },
+  "64": {
+    "encodedFrames": 16,
+    "frames": 16,
+    "height": 183,
+    "width": 206
+  },
+  "65": {
+    "encodedFrames": 20,
+    "frames": 20,
+    "height": 66,
+    "width": 81
+  },
+  "66": {
+    "encodedFrames": 10,
+    "frames": 10,
+    "height": 67,
+    "width": 81
+  },
+  "67": {
+    "encodedFrames": 6,
+    "frames": 6,
+    "height": 128,
+    "width": 153
+  },
+  "68": {
+    "encodedFrames": 8,
+    "frames": 8,
+    "height": 137,
+    "width": 59
+  },
+  "69": {
+    "encodedFrames": 20,
+    "frames": 20,
+    "height": 137,
+    "width": 79
+  },
+  "7": {
+    "encodedFrames": 10,
+    "frames": 10,
+    "height": 156,
+    "width": 134
+  },
+  "70": {
+    "encodedFrames": 15,
+    "frames": 15,
+    "height": 120,
+    "width": 118
+  },
+  "71": {
+    "encodedFrames": 10,
+    "frames": 10,
+    "height": 117,
+    "width": 111
+  },
+  "72": {
+    "encodedFrames": 8,
+    "frames": 8,
+    "height": 84,
+    "width": 166
+  },
+  "73": {
+    "encodedFrames": 10,
+    "frames": 10,
+    "height": 152,
+    "width": 52
+  },
+  "74": {
+    "encodedFrames": 10,
+    "frames": 10,
+    "height": 189,
+    "width": 139
+  },
+  "75": {
+    "encodedFrames": 96,
+    "frameDirectory": "75",
+    "frameDurationMs": 85,
+    "frames": 96,
+    "height": 84,
+    "width": 102
+  },
+  "76": {
+    "encodedFrames": 20,
+    "frames": 20,
+    "height": 130,
+    "width": 153
+  },
+  "77": {
+    "encodedFrames": 96,
+    "frames": 96,
+    "height": 67,
+    "width": 130
+  },
+  "78": {
+    "encodedFrames": 19,
+    "frames": 19,
+    "height": 116,
+    "width": 152
+  },
+  "79": {
+    "encodedFrames": 45,
+    "frames": 48,
+    "height": 446,
+    "width": 674
+  },
+  "8": {
+    "encodedFrames": 10,
+    "frameDirectory": "8",
+    "frameDurationMs": 85,
+    "frames": 10,
+    "height": 227,
+    "width": 359
+  },
+  "80": {
+    "encodedFrames": 30,
+    "frames": 30,
+    "height": 223,
+    "width": 243
+  },
+  "81": {
+    "encodedFrames": 10,
+    "frames": 10,
+    "height": 138,
+    "width": 109
+  },
+  "82": {
+    "encodedFrames": 20,
+    "frames": 20,
+    "height": 145,
+    "width": 234
+  },
+  "83": {
+    "encodedFrames": 10,
+    "frames": 10,
+    "height": 90,
+    "width": 72
+  },
+  "84": {
+    "encodedFrames": 16,
+    "frames": 16,
+    "height": 192,
+    "width": 250
+  },
+  "85": {
+    "encodedFrames": 19,
+    "frames": 20,
+    "height": 75,
+    "width": 66
+  },
+  "86": {
+    "encodedFrames": 9,
+    "frames": 9,
+    "height": 119,
+    "width": 102
+  },
+  "87": {
+    "encodedFrames": 20,
+    "frames": 20,
+    "height": 188,
+    "width": 147
+  },
+  "88": {
+    "encodedFrames": 10,
+    "frames": 10,
+    "height": 156,
+    "width": 205
+  },
+  "89": {
+    "encodedFrames": 10,
+    "frames": 10,
+    "height": 137,
+    "width": 207
+  },
+  "9": {
+    "encodedFrames": 10,
+    "frames": 10,
+    "height": 197,
+    "width": 172
+  },
+  "90": {
+    "encodedFrames": 20,
+    "frames": 20,
+    "height": 197,
+    "width": 357
+  },
+  "91": {
+    "encodedFrames": 20,
+    "frames": 20,
+    "height": 218,
+    "width": 369
+  },
+  "92": {
+    "encodedFrames": 19,
+    "frames": 19,
+    "height": 182,
+    "width": 243
+  },
+  "93": {
+    "encodedFrames": 10,
+    "frames": 10,
+    "height": 353,
+    "width": 445
+  },
+  "94": {
+    "encodedFrames": 9,
+    "frames": 9,
+    "height": 155,
+    "width": 256
+  },
+  "95": {
+    "encodedFrames": 10,
+    "frames": 10,
+    "height": 151,
+    "width": 102
+  },
+  "96": {
+    "encodedFrames": 10,
+    "frames": 10,
+    "height": 150,
+    "width": 102
+  },
+  "97": {
+    "encodedFrames": 16,
+    "frames": 16,
+    "height": 205,
+    "width": 223
+  },
+  "98": {
+    "encodedFrames": 10,
+    "frames": 10,
+    "height": 204,
+    "width": 223
+  },
+  "99": {
+    "encodedFrames": 28,
+    "frames": 28,
+    "height": 207,
+    "width": 184
   },
   "acidbolt": {
-    "frames": 8,
-    "encodedFrames": 8,
-    "width": 32,
-    "height": 18,
-    "frameDurationMs": 85,
-    "source": "DCC/default-grayscale-palette",
     "dccName": "AcidBolt",
     "direction": 0,
-    "frameDirectory": "acidbolt"
+    "encodedFrames": 8,
+    "frameDirectory": "acidbolt",
+    "frameDurationMs": 85,
+    "frames": 8,
+    "height": 18,
+    "source": "DCC/default-grayscale-palette",
+    "width": 32
   },
   "bloodcomet": {
-    "frames": 15,
-    "encodedFrames": 15,
-    "width": 85,
-    "height": 77,
-    "frameDurationMs": 85,
-    "source": "DCC/default-grayscale-palette",
     "dccName": "BloodComet",
     "direction": 0,
-    "frameDirectory": "bloodcomet"
-  },
-  "lightning": {
-    "frames": 8,
-    "encodedFrames": 8,
-    "width": 84,
-    "height": 63,
+    "encodedFrames": 15,
+    "frameDirectory": "bloodcomet",
     "frameDurationMs": 85,
+    "frames": 15,
+    "height": 77,
     "source": "DCC/default-grayscale-palette",
-    "dccName": "D1Lightning",
-    "direction": 0,
-    "frameDirectory": "lightning"
-  },
-  "d2-firebolt": {
-    "frames": 15,
-    "encodedFrames": 15,
-    "width": 45,
-    "height": 42,
-    "frameDirectory": "d2-firebolt",
-    "frameDurationMs": 85,
-    "source": "user-supplied DCC",
-    "dccName": "D1FireBolt",
-    "direction": 0
-  },
-  "d2-fireball": {
-    "frames": 15,
-    "encodedFrames": 15,
-    "width": 53,
-    "height": 48,
-    "frameDirectory": "d2-fireball",
-    "frameDurationMs": 85,
-    "source": "user-supplied DCC",
-    "dccName": "D1FireBall",
-    "direction": 0
+    "width": 85
   },
   "d2-acidbolt": {
-    "frames": 8,
+    "dccName": "AcidBolt",
+    "direction": 0,
     "encodedFrames": 8,
-    "width": 40,
-    "height": 26,
     "frameDirectory": "d2-acidbolt",
     "frameDurationMs": 85,
-    "source": "user-supplied DCC",
-    "dccName": "AcidBolt",
-    "direction": 0
-  },
-  "d2-bloodcomet": {
-    "frames": 15,
-    "encodedFrames": 15,
-    "width": 93,
-    "height": 85,
-    "frameDirectory": "d2-bloodcomet",
-    "frameDurationMs": 85,
-    "source": "user-supplied DCC",
-    "dccName": "BloodComet",
-    "direction": 0
-  },
-  "d2-lightning": {
     "frames": 8,
-    "encodedFrames": 8,
-    "width": 92,
-    "height": 71,
-    "frameDirectory": "d2-lightning",
-    "frameDurationMs": 85,
+    "height": 26,
     "source": "user-supplied DCC",
-    "dccName": "D1Lightning",
-    "direction": 0
-  },
-  "d2-inferno": {
-    "frames": 20,
-    "encodedFrames": 20,
-    "width": 97,
-    "height": 69,
-    "frameDirectory": "d2-inferno",
-    "frameDurationMs": 85,
-    "source": "user-supplied DCC",
-    "dccName": "D1Inferno",
-    "direction": 0
-  },
-  "d2-magmaball": {
-    "frames": 16,
-    "encodedFrames": 16,
-    "width": 26,
-    "height": 20,
-    "frameDirectory": "d2-magmaball",
-    "frameDurationMs": 85,
-    "source": "user-supplied DCC",
-    "dccName": "D1MagmaBallTravel",
-    "direction": 0
-  },
-  "d2-icebolt": {
-    "frames": 16,
-    "encodedFrames": 16,
-    "width": 103,
-    "height": 73,
-    "frameDirectory": "d2-icebolt",
-    "frameDurationMs": 85,
-    "source": "user-supplied DCC",
-    "dccName": "SuccubusMissileIceTravel",
-    "direction": 0
-  },
-  "d2-poisonbolt": {
-    "frames": 16,
-    "encodedFrames": 16,
-    "width": 103,
-    "height": 73,
-    "frameDirectory": "d2-poisonbolt",
-    "frameDurationMs": 85,
-    "source": "user-supplied DCC",
-    "dccName": "SuccubusMissileGreenTravel",
-    "direction": 0
-  },
-  "d2-bloodstar": {
-    "frames": 16,
-    "encodedFrames": 16,
-    "width": 103,
-    "height": 73,
-    "frameDirectory": "d2-bloodstar",
-    "frameDurationMs": 85,
-    "source": "user-supplied DCC",
-    "dccName": "SuccubusMissileRedTravel",
-    "direction": 0
-  },
-  "d2-shadowbolt": {
-    "frames": 16,
-    "encodedFrames": 16,
-    "width": 103,
-    "height": 73,
-    "frameDirectory": "d2-shadowbolt",
-    "frameDurationMs": 85,
-    "source": "user-supplied DCC",
-    "dccName": "SuccubusMissilePurpleTravel",
-    "direction": 0
-  },
-  "d2-holybolt": {
-    "frames": 16,
-    "encodedFrames": 16,
-    "width": 95,
-    "height": 73,
-    "frameDirectory": "d2-holybolt",
-    "frameDurationMs": 85,
-    "source": "user-supplied DCC",
-    "dccName": "SuccubusMissileWhiteTravel",
-    "direction": 0
-  },
-  "d2-bluestar": {
-    "frames": 16,
-    "encodedFrames": 16,
-    "width": 95,
-    "height": 73,
-    "frameDirectory": "d2-bluestar",
-    "frameDurationMs": 85,
-    "source": "user-supplied DCC",
-    "dccName": "SuccubusMissileBlueTravel",
-    "direction": 0
-  },
-  "d2-fire-arrow": {
-    "frames": 8,
-    "encodedFrames": 8,
-    "width": 11,
-    "height": 10,
-    "frameDirectory": "d2-fire-arrow",
-    "frameDurationMs": 85,
-    "source": "user-supplied DCC",
-    "dccName": "FireArrow",
-    "direction": 0
+    "width": 40
   },
   "d2-arctic-blast": {
-    "frames": 16,
+    "dccName": "ArcticBlastIce",
+    "direction": 0,
     "encodedFrames": 16,
-    "width": 78,
-    "height": 88,
     "frameDirectory": "d2-arctic-blast",
     "frameDurationMs": 85,
+    "frames": 16,
+    "height": 88,
     "source": "user-supplied DCC",
-    "dccName": "ArcticBlastIce",
-    "direction": 0
+    "width": 78
+  },
+  "d2-bloodcomet": {
+    "dccName": "BloodComet",
+    "direction": 0,
+    "encodedFrames": 15,
+    "frameDirectory": "d2-bloodcomet",
+    "frameDurationMs": 85,
+    "frames": 15,
+    "height": 85,
+    "source": "user-supplied DCC",
+    "width": 93
+  },
+  "d2-bloodstar": {
+    "dccName": "SuccubusMissileRedTravel",
+    "direction": 0,
+    "encodedFrames": 16,
+    "frameDirectory": "d2-bloodstar",
+    "frameDurationMs": 85,
+    "frames": 16,
+    "height": 73,
+    "source": "user-supplied DCC",
+    "width": 103
+  },
+  "d2-bluestar": {
+    "dccName": "SuccubusMissileBlueTravel",
+    "direction": 0,
+    "encodedFrames": 16,
+    "frameDirectory": "d2-bluestar",
+    "frameDurationMs": 85,
+    "frames": 16,
+    "height": 73,
+    "source": "user-supplied DCC",
+    "width": 95
+  },
+  "d2-fire-arrow": {
+    "dccName": "FireArrow",
+    "direction": 0,
+    "encodedFrames": 8,
+    "frameDirectory": "d2-fire-arrow",
+    "frameDurationMs": 85,
+    "frames": 8,
+    "height": 10,
+    "source": "user-supplied DCC",
+    "width": 11
+  },
+  "d2-fireball": {
+    "encodedFrames": 16,
+    "frameDirectory": "d2-fireball",
+    "frameDurationMs": null,
+    "frames": 16,
+    "height": 196,
+    "source": "d2 missile_overlays",
+    "sourceFolder": "84",
+    "width": 254
+  },
+  "d2-firebolt": {
+    "encodedFrames": 10,
+    "frameDirectory": "d2-firebolt",
+    "frameDurationMs": null,
+    "frames": 10,
+    "height": 177,
+    "source": "d2 missile_overlays",
+    "sourceFolder": "31",
+    "width": 180
+  },
+  "d2-holybolt": {
+    "dccName": "SuccubusMissileWhiteTravel",
+    "direction": 0,
+    "encodedFrames": 16,
+    "frameDirectory": "d2-holybolt",
+    "frameDurationMs": 85,
+    "frames": 16,
+    "height": 73,
+    "source": "user-supplied DCC",
+    "width": 95
+  },
+  "d2-icebolt": {
+    "dccName": "SuccubusMissileIceTravel",
+    "direction": 0,
+    "encodedFrames": 16,
+    "frameDirectory": "d2-icebolt",
+    "frameDurationMs": 85,
+    "frames": 16,
+    "height": 73,
+    "source": "user-supplied DCC",
+    "width": 103
+  },
+  "d2-inferno": {
+    "encodedFrames": 10,
+    "frameDirectory": "d2-inferno",
+    "frameDurationMs": null,
+    "frames": 10,
+    "height": 193,
+    "source": "d2 missile_overlays",
+    "sourceFolder": "74",
+    "width": 143
+  },
+  "d2-lightning": {
+    "encodedFrames": 6,
+    "frameDirectory": "d2-lightning",
+    "frameDurationMs": null,
+    "frames": 6,
+    "height": 476,
+    "source": "d2 missile_overlays",
+    "sourceFolder": "43",
+    "width": 163
+  },
+  "d2-magmaball": {
+    "encodedFrames": 20,
+    "frameDirectory": "d2-magmaball",
+    "frameDurationMs": null,
+    "frames": 20,
+    "height": 289,
+    "source": "d2 missile_overlays",
+    "sourceFolder": "47",
+    "width": 284
+  },
+  "d2-poisonbolt": {
+    "dccName": "SuccubusMissileGreenTravel",
+    "direction": 0,
+    "encodedFrames": 16,
+    "frameDirectory": "d2-poisonbolt",
+    "frameDurationMs": 85,
+    "frames": 16,
+    "height": 73,
+    "source": "user-supplied DCC",
+    "width": 103
+  },
+  "d2-shadowbolt": {
+    "dccName": "SuccubusMissilePurpleTravel",
+    "direction": 0,
+    "encodedFrames": 16,
+    "frameDirectory": "d2-shadowbolt",
+    "frameDurationMs": 85,
+    "frames": 16,
+    "height": 73,
+    "source": "user-supplied DCC",
+    "width": 103
+  },
+  "fireball": {
+    "dccName": "D1FireBall",
+    "direction": 0,
+    "encodedFrames": 15,
+    "frameDirectory": "fireball",
+    "frameDurationMs": 85,
+    "frames": 15,
+    "height": 40,
+    "source": "DCC/default-grayscale-palette",
+    "width": 45
+  },
+  "firebolt": {
+    "dccName": "D1FireBolt",
+    "direction": 0,
+    "encodedFrames": 15,
+    "frameDirectory": "firebolt",
+    "frameDurationMs": 85,
+    "frames": 15,
+    "height": 34,
+    "source": "DCC/default-grayscale-palette",
+    "width": 37
+  },
+  "lightning": {
+    "dccName": "D1Lightning",
+    "direction": 0,
+    "encodedFrames": 8,
+    "frameDirectory": "lightning",
+    "frameDurationMs": 85,
+    "frames": 8,
+    "height": 63,
+    "source": "DCC/default-grayscale-palette",
+    "width": 84
   }
 }

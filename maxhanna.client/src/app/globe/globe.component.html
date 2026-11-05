@@ -444,7 +444,10 @@
     <p class="story-popup-meta" *ngIf="selectedStory.city || selectedStory.country">Location: {{
       formatLocationLabel(selectedStory.city, selectedStory.country) }}</p>
     <p class="story-popup-date" *ngIf="selectedStory.date">{{ selectedStory.date | date:'mediumDate' }}</p>
-    <button type="button" class="story-popup-open-btn" (click)="openStoryInSocial()">View in Social</button>
+    <a *ngIf="selectedStoryUrl as storyUrl" class="story-popup-open-btn" [href]="storyUrl" target="_blank"
+      rel="noopener noreferrer" [title]="storyUrl">Open story in Social ↗</a>
+    <button type="button" *ngIf="!selectedStoryUrl" class="story-popup-open-btn" (click)="openStoryInSocial()">View
+      in Social</button>
     <button class="closeButton" (click)="closeStoryPopup()"></button>
   </div>
 

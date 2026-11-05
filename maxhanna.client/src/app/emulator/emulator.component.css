@@ -61,18 +61,16 @@
   background: rgba(4, 7, 12, 0.34);
 }
 
-/* Oversized so the blurred edges fall outside the viewport. Negative z-index
-   keeps it above the overlay's own background but under the boot card. */
+/* The artwork fills the screen at its natural sharpness. Negative z-index keeps
+   it above the overlay's own background but under the boot card. */
 .emuBootArt {
   position: absolute;
-  inset: -10%;
-  width: 120%;
-  height: 120%;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   object-fit: cover;
   object-position: center;
   z-index: -1;
-  filter: blur(16px) saturate(1.14) brightness(0.74);
-  opacity: 0.95;
 }
 
 @keyframes emuBootFade {

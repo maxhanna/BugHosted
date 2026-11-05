@@ -127,8 +127,8 @@
     </div>
   </div>
 
-  <div class="boot-caption">
-    <span class="caption-text">{{ caption }}</span>
+  <div class="boot-caption" *ngIf="caption as text">
+    <span class="caption-text">{{ text }}</span>
     <span class="caption-dots"><i>.</i><i>.</i><i>.</i></span>
   </div>
 

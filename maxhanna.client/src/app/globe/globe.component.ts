@@ -344,7 +344,6 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly TILE_SIZE = 256;
   private readonly MAX_DETAIL_RADIUS = 5;
   private readonly MAX_ATLAS_TILES = 16;
-  private readonly SATELLITE_ZOOM_MIN = 12;
   private readonly SATELLITE_ZOOM_MAX = 19;
 
   private texCanvas!: HTMLCanvasElement;
@@ -853,12 +852,23 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.selectedStory = null;
   }
 
+  /**
+   * Permalink for the story popped open from a globe pin. Stories posted on a
+   * profile live under /User/{profileUserId}/{storyId}; everything else is on
+   * the main social board. Returns null when the story has no id yet, so the
+   * template can fall back to the generic Social link.
+   */
+  get selectedStoryUrl(): string | null {
+    const id = this.selectedStory?.id;
+    if (!id) return null;
+    const profileUserId = this.selectedStory?.profileUserId;
+    return profileUserId
+      ? `${window.location.origin}/User/${profileUserId}/${id}`
+      : `${window.location.origin}/Social/${id}`;
+  }
+
   openStoryInSocial(): void {
-    if (this.selectedStory?.id) {
-      window.open(`${window.location.origin}/Social/${this.selectedStory.id}`, '_blank');
-    } else {
-      window.open(`${window.location.origin}/Social`, '_blank');
-    }
+    window.open(this.selectedStoryUrl ?? `${window.location.origin}/Social`, '_blank');
   }
 
   closeClusterPopup(): void {
@@ -2378,8 +2388,11 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.lastBuiltLon = centerLon;
     this.lastBuiltLat = centerLat;
 
-    // Drop queued (unsent) requests from the previous view.
-    this.tileCacheService.cancelPending();
+    // Only a zoom change makes queued tiles useless. A pan keeps its neighbours
+    // useful, and dropping the queue on every pan frame meant nothing finished
+    // loading while the pointer was still moving — the atlas only filled in
+    // after the drag ended. Late arrivals are still discarded by the key check.
+    if (zoomChanged) this.tileCacheService.cancelPending();
 
     const needed = this.getVisibleTiles(tileZoom, centerLon, centerLat);
     if (needed.length === 0) return;
@@ -3652,36 +3665,19 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     const h = this.globeCanvasRef.nativeElement.clientHeight || 600;
     const fov = 35 * Math.PI / 180;
     const f = 1.0 / Math.tan(fov / 2);
-    const speed = 1.0 / ((h / 2) * f / this.camDist) * this.getDragSensitivityScale();
+    // The camera orbits a unit sphere, so the thing under the pointer sits
+    // (camDist - 1) from the lens, not camDist. Dividing by the centre distance
+    // left the rotation growing as you zoomed in: past the slider's halfway mark
+    // the terrain swept by dozens of times faster than the cursor. Scaling by
+    // the altitude instead keeps the ground pinned to the pointer at any zoom.
+    const altitude = Math.max(0.00005, this.camDist - 1);
+    const speed = altitude / ((h / 2) * f);
     const ax = dy * speed, ay = dx * speed;
     const cx = Math.cos(ax), sx = Math.sin(ax);
     const cy = Math.cos(ay), sy = Math.sin(ay);
     const Rx = new Float32Array([1, 0, 0, 0, cx, -sx, 0, sx, cx]);
     const Ry = new Float32Array([cy, 0, sy, 0, 1, 0, -sy, 0, cy]);
     this.rot = this.mul3(this.mul3(Ry, Rx), this.rot) as Float32Array<ArrayBuffer>;
-  }
-
-  // Drag pan sensitivity. From the start of the satellite zoom range the
-  // globe turns more slowly so the pointer can stay on target; in the deepest
-  // 2–3 zoom tiers (tile zooms 17–19, where detail tiles are also densest) the
-  // movement eases down to about 1/10 of the base rate so fine adjustments
-  // don't overshoot — previously it dropped to ~1/20 and felt frozen.
-  private getDragSensitivityScale(): number {
-    const tileZoom = this.camDistToTileZoom();
-    if (tileZoom < this.SATELLITE_ZOOM_MIN) return 1;
-
-    const zoomT = Math.min(
-      1,
-      (tileZoom - this.SATELLITE_ZOOM_MIN) / (this.SATELLITE_ZOOM_MAX - this.SATELLITE_ZOOM_MIN)
-    );
-    // Deep-zoom easing: smooth 1 -> 0.1 across the satellite range, weighted
-    // toward the deepest tiers (17–19) so the 2–3 last tiers feel ~10x slower.
-    const deepT = Math.min(1, Math.max(0, (tileZoom - 16) / 3));
-    const closeScale = 1 - 0.9 * (0.35 * zoomT + 0.65 * deepT);
-    // From ~60% zoom (satellite tiles onward) the globe is too twitchy, so halve
-    // the drag sensitivity across the range. The 0.1 floor is kept so the
-    // deepest tiers still move — dropping them to 1/20 previously felt frozen.
-    return Math.max(0.1, closeScale * 0.5);
   }
 
   private checkPinHover(e: MouseEvent): void {
@@ -3982,4 +3978,12 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   @HostListener('document:mouseup')
   onDocMouseUp(): void { this.isDragging = false; }
+
+  /** Esc dismisses the drop-a-pin prompt, same as its × / Cancel buttons. */
+  @HostListener('document:keydown.escape', ['$event'])
+  onEscapeKey(event: Event): void {
+    if (!this.showPingSavePrompt) return;
+    event.preventDefault();
+    this.cancelPingSave();
+  }
 }

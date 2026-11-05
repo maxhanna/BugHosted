@@ -254,16 +254,9 @@ export class EmulatorBootAnimationComponent {
     this.coverFailed = true;
   }
 
+  /** Only the boot phase is captioned; the loading phase shows the progress bar alone. */
   get caption(): string {
-    if (this.phase === 'boot') {
-      return `Starting ${this.visual.hardware}`;
-    }
-    switch (this.visual.media) {
-      case 'cartridge': return 'Inserting the cartridge';
-      case 'floppy': return 'Inserting the disk';
-      case 'coin': return 'Inserting a coin';
-      default: return 'Inserting the disc';
-    }
+    return this.phase === 'boot' ? `Starting ${this.visual.hardware}` : '';
   }
 
   /** ROM file name as it would be printed on the label: no tags, no extension. */

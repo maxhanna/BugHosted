@@ -263,6 +263,7 @@
         <strong>{{ getEnemyDisplayName(enemy) }}</strong>
         <span class="d2s-enemy-hover-health"><i [style.transform]="'scaleX(' + (enemy.hp / enemy.maxHp) + ')'" [style.background]="enemy.kind === 'boss' ? '#d53226' : '#a81717'"></i></span>
       </div>
+      <div class="d2s-ground-pickup-label" *ngIf="hoveredGroundPickup as pickup" [style.left.px]="pickup.x" [style.top.px]="pickup.y" aria-hidden="true">{{ pickup.text }}</div>
       <div class="d2s-model-hint" *ngIf="modelLoadError">3D character model could not load.</div>
       <div class="d2s-classic-hud" aria-label="Life and mana orbs, potion belt, skill icons and experience">
         <div class="d2s-orb d2s-health-orb" [style.--orb-fill]="healthOrbFill">
@@ -312,7 +313,7 @@
       <div class="d2s-act-banner" aria-label="Campaign act">
         <span>ACT {{ currentAct }} / 5</span>
         <strong>{{ currentActDetails.region }}</strong>
-        <small>{{ currentActDetails.levelLabel }}</small>
+        <small>{{ currentArea.name }} · Area level {{ currentArea.level }}</small>
         <small class="d2s-campaign-area-name">{{ currentActDetails.name }}</small>
         <span class="d2s-act-progress" role="progressbar" [attr.aria-valuenow]="actProgress" aria-valuemin="0" aria-valuemax="100" aria-label="Time until the act boss arrives"><i [style.width.%]="actProgress"></i></span>
         <small>{{ actBossSpawned ? 'Boss battle' : 'Area boss in ' + (actSecondsRemaining | number:'1.0-0') + 's' }}</small>
