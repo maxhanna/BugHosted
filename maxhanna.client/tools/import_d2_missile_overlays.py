@@ -86,6 +86,16 @@ def load_frames(directory: Path) -> list[Image.Image]:
     return centred
 
 
+def import_numbered(folder: str, source_root: Path) -> dict:
+    """Import a numbered overlay folder under its own id (the runtime reads it directly)."""
+    return import_one(folder, folder, source_root)
+
+
+# The renderer draws a missile at roughly 28 CSS px (times device pixel ratio), so
+# keeping the source's 400-900px effect cels wastes megabytes in the asset bundle.
+MAX_FRAME_SIZE = 160
+
+
 def import_one(name: str, folder: str, source_root: Path) -> dict:
     source = source_root / folder
     images = load_frames(source)
@@ -94,12 +104,20 @@ def import_one(name: str, folder: str, source_root: Path) -> dict:
     for stale in output.glob("*.webp"):
         stale.unlink()
     for index, image in enumerate(images):
+        largest = max(image.size)
+        if largest > MAX_FRAME_SIZE:
+            scale = MAX_FRAME_SIZE / largest
+            image = image.resize(
+                (max(1, round(image.width * scale)), max(1, round(image.height * scale))),
+                Image.LANCZOS,
+            )
         image.save(output / f"{index:04d}.webp", "WEBP", lossless=True, method=6)
+    stored = Image.open(output / "0000.webp")
     return {
         "frames": len(images),
         "encodedFrames": len(images),
-        "width": images[0].width,
-        "height": images[0].height,
+        "width": stored.width,
+        "height": stored.height,
         "frameDirectory": name,
         "frameDurationMs": None,
         "source": "d2 missile_overlays",
@@ -111,6 +129,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--source", type=Path, default=DEFAULT_SOURCE, help="missile_overlays root")
     parser.add_argument("--only", action="append", default=[], help="limit to these runtime ids")
+    parser.add_argument(
+        "--ids",
+        default="",
+        help="comma separated numbered overlay folders to import under their own id"
+        " (e.g. 31,84,43); the component reads these ids directly",
+    )
     args = parser.parse_args()
 
     if not args.source.is_dir():
@@ -126,6 +150,15 @@ def main() -> None:
         entry = import_one(name, folder, args.source)
         manifest[name] = entry
         print(f"{name:16s} <- {folder:>4s}  {entry['frames']:>2d} frames  {entry['width']}x{entry['height']}")
+
+    for folder in (part.strip() for part in args.ids.split(",")):
+        if not folder:
+            continue
+        if not (args.source / folder).is_dir():
+            raise SystemExit(f"Missing numbered overlay folder: {args.source / folder}")
+        entry = import_numbered(folder, args.source)
+        manifest[folder] = entry
+        print(f"{folder:16s} <- {folder:>4s}  {entry['frames']:>2d} frames  {entry['width']}x{entry['height']}")
 
     manifest_path = ASSET_ROOT / "manifest.json"
     existing = {}

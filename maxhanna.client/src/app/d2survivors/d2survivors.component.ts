@@ -21,17 +21,19 @@ import { AppComponent } from "../app.component";
 import { ChildComponent } from "../child.component";
 import { D2_CLASS_SKILL_TREES, D2SkillDefinition, D2SkillVisual, getAvailableClassSkills, getClassSkills, getD2SkillVisual, isPassiveSkill } from "./d2survivors-skill-tree.data";
 
+// All rig solving, walk cycles and per-weapon strike clips live in one module so
+// the arena hero, the class preview and the menu hero animate identically.
+import {
+  ATTACK_CLIP_INFO,
+  attackStrikeIntensity,
+  type AttackAnimationStyle,
+  type CharacterRig,
+  buildCharacterRig,
+  gaitForClass,
+  poseCharacterRig,
+} from "./character-animation";
+
 const MODEL_BASE = "assets/d2survivors/models";
-// Sorceress arm bones point along local X, making local Y the shoulder/elbow hinge.
-const SORCERESS_ARM_REST_ANGLE = -0.72;
-const NECROMANCER_ARM_REST_ANGLE = -0.64;
-// The Necromancer leg, knee and foot bones point down their own local X, so rotating
-// about X only twists the limb. Their forward/back hinge is local Z, which also
-// happens to be the lateral axis of the spine (whose X is vertical).
-const NECROMANCER_LIMB_HINGE_AXIS = new THREE.Vector3(0, 0, 1);
-const NECROMANCER_WALK_HUNCH = 0.11;
-const SORCERESS_ARM_HINGE_AXIS = new THREE.Vector3(0, 1, 0);
-const PALADIN_ARM_SWING_AXIS = new THREE.Vector3(0, 1, 0);
 const RUN_SAVE_KEY = "d2survivors.run.v1";
 const RUN_SAVE_VERSION = 1;
 const RUN_SAVE_INTERVAL_MS = 2500;
@@ -103,115 +105,402 @@ function tileVariantHash(x: number, y: number, salt: number, actId: number): num
   return (value ^ (value >>> 16)) >>> 0;
 }
 const MISSILE_OVERLAY_BASE = "assets/d2survivors/missiles";
-const MISSILE_FRAME_DURATIONS_MS: Record<string, number> = {
-  "5": 85, "6": 85, "8": 85, "30": 85, "101": 85,
-  firebolt: 85, "d2-fire-arrow": 85, "d2-arctic-blast": 85, fireball: 85, acidbolt: 85, bloodcomet: 85, lightning: 85,
-  // These five come from tools/import_d2_missile_overlays.py; their loops are
-  // tuned so a single cast shows a full flame/bolt cycle instead of a still.
-  "d2-firebolt": 70, "d2-fireball": 55, "d2-acidbolt": 85, "d2-bloodcomet": 85,
-  "d2-lightning": 90, "d2-inferno": 70, "d2-magmaball": 45, "d2-icebolt": 85,
-  "d2-poisonbolt": 85, "d2-bloodstar": 85, "d2-shadowbolt": 85,
-  "d2-holybolt": 85, "d2-bluestar": 85,
-  inferno: 85, magmaball: 85, icebolt: 85, poisonbolt: 85,
-  bloodstar: 85, shadowbolt: 85, holybolt: 85, bluestar: 85,
+// Projectile damage kind per missile art id. Kept separate from the art so
+// swapping a sprite can never change what a spell actually does.
+const MISSILE_ELEMENTS: Record<string, AttackProjectile["kind"]> = {
+  "5": "arrow",
+  "18": "fire",
+  "24": "lightning",
+  "31": "fire",
+  "35": "fire",
+  "41": "fire",
+  "42": "holy",
+  "43": "lightning",
+  "47": "fire",
+  "48": "fire",
+  "51": "lightning",
+  "52": "lightning",
+  "55": "fire",
+  "58": "lightning",
+  "59": "bone",
+  "61": "holy",
+  "65": "bone",
+  "68": "blade",
+  "72": "holy",
+  "74": "fire",
+  "76": "fire",
+  "84": "fire",
+  "85": "lightning",
+  "88": "bone",
+  "90": "fire",
+  "91": "lightning",
+  "93": "lightning",
+  "96": "blade",
+  "97": "blade",
+  "100": "bone",
+  "106": "lightning",
+  "108": "bone",
+  "110": "blade",
+  "113": "lightning",
+  "116": "holy",
+  "127": "bone",
+  "131": "arrow",
+  "133": "bone",
+  "134": "lightning",
+  "135": "bone",
+  "136": "bone",
+  "137": "lightning",
+  "139": "bone",
+  "146": "bone",
+  "147": "bone",
+  "149": "bone",
+  "d2-inferno": "fire",
+  "d2-acidbolt": "bone",
+  "d2-fireball": "fire",
+  "d2-fire-arrow": "arrow",
+  "d2-arctic-blast": "lightning",
 };
+// One loop is roughly 0.8s; effects with more cels play faster.
+const MISSILE_FRAME_DURATIONS_MS: Record<string, number> = {
+  "5": 35,
+  "18": 80,
+  "24": 100,
+  "31": 80,
+  "35": 35,
+  "41": 50,
+  "42": 110,
+  "43": 110,
+  "47": 40,
+  "48": 80,
+  "51": 80,
+  "52": 80,
+  "55": 110,
+  "58": 80,
+  "59": 40,
+  "61": 35,
+  "65": 40,
+  "68": 100,
+  "72": 100,
+  "74": 80,
+  "76": 40,
+  "84": 50,
+  "85": 40,
+  "88": 80,
+  "90": 40,
+  "91": 40,
+  "93": 80,
+  "96": 80,
+  "97": 50,
+  "100": 35,
+  "106": 35,
+  "108": 50,
+  "110": 35,
+  "113": 35,
+  "116": 35,
+  "127": 80,
+  "131": 80,
+  "133": 40,
+  "134": 57,
+  "135": 80,
+  "136": 40,
+  "137": 40,
+  "139": 40,
+  "146": 80,
+  "147": 35,
+  "149": 35,
+  "d2-inferno": 85,
+  "d2-acidbolt": 85,
+  "d2-fireball": 85,
+  "d2-fire-arrow": 85,
+  "d2-arctic-blast": 85,
+};
+// Frame counts come from manifest.json (tools/import_d2_missile_overlays.py).
 const MISSILE_FRAME_COUNTS: Record<string, number> = {
-  "5": 64, "6": 8, "8": 10, "30": 96, "101": 61,
-  firebolt: 15, "d2-fire-arrow": 8, "d2-arctic-blast": 16, fireball: 15, acidbolt: 8, bloodcomet: 15, lightning: 8,
-  "d2-firebolt": 10, "d2-fireball": 16, "d2-acidbolt": 8, "d2-bloodcomet": 15,
-  "d2-lightning": 6, "d2-inferno": 10, "d2-magmaball": 20, "d2-icebolt": 16,
-  "d2-poisonbolt": 16, "d2-bloodstar": 16, "d2-shadowbolt": 16,
-  "d2-holybolt": 16, "d2-bluestar": 16,
-  inferno: 10, magmaball: 10, icebolt: 10, poisonbolt: 10,
-  bloodstar: 10, shadowbolt: 10, holybolt: 10, bluestar: 10,
+  "5": 64,
+  "18": 10,
+  "24": 8,
+  "31": 10,
+  "35": 106,
+  "41": 16,
+  "42": 6,
+  "43": 6,
+  "47": 20,
+  "48": 10,
+  "51": 10,
+  "52": 10,
+  "55": 6,
+  "58": 10,
+  "59": 20,
+  "61": 40,
+  "65": 20,
+  "68": 8,
+  "72": 8,
+  "74": 10,
+  "76": 20,
+  "84": 16,
+  "85": 20,
+  "88": 10,
+  "90": 20,
+  "91": 20,
+  "93": 10,
+  "96": 10,
+  "97": 16,
+  "100": 40,
+  "106": 27,
+  "108": 16,
+  "110": 48,
+  "113": 27,
+  "116": 26,
+  "127": 10,
+  "131": 10,
+  "133": 20,
+  "134": 14,
+  "135": 10,
+  "136": 20,
+  "137": 20,
+  "139": 20,
+  "146": 10,
+  "147": 96,
+  "149": 96,
+  "d2-inferno": 10,
+  "d2-acidbolt": 8,
+  "d2-fireball": 16,
+  "d2-fire-arrow": 8,
+  "d2-arctic-blast": 16,
 };
 const SKILL_MISSILE_OVERLAYS: Record<string, string> = {
-  // Prefer a recognizable animation for skills with a close supplied match.
-  "Guided Arrow": "5", "Magic Arrow": "5", "Multiple Shot": "5", Multishot: "5", Strafe: "5",
-  "Fire Arrow": "d2-fire-arrow", "Fire Bolt": "d2-firebolt", "Fire Blast": "d2-firebolt",
-  "Exploding Arrow": "d2-fireball", "Fire Ball": "d2-fireball", Inferno: "d2-inferno",
-  Blaze: "d2-inferno", "Fire Wall": "d2-inferno", "Wake of Fire": "d2-inferno",
-  "Wake of Inferno": "d2-inferno", "Ice Arrow": "d2-icebolt", "Cold Arrow": "d2-icebolt",
-  "Ice Bolt": "d2-icebolt", "Ice Blast": "d2-icebolt", "Freezing Arrow": "d2-icebolt",
-  "Glacial Spike": "d2-icebolt", "Frozen Orb": "d2-icebolt", Blizzard: "d2-icebolt",
-  Lightning: "d2-lightning", "Chain Lightning": "d2-lightning", "Thunder Storm": "d2-lightning",
-  "Charged Bolt": "d2-lightning", "Charged Bolt Sentry": "d2-bluestar",
-  "Lightning Bolt": "d2-bluestar", "Lightning Fury": "d2-bluestar",
-
-  "Poison Javelin": "d2-acidbolt", "Plague Javelin": "d2-acidbolt", "Poison Nova": "d2-poisonbolt",
-  "Bone Spirit": "d2-bloodstar", "Bone Spear": "d2-bloodstar", Teeth: "d2-shadowbolt",
-  "Psychic Hammer": "d2-shadowbolt", "Holy Bolt": "d2-holybolt", "Fist of the Heavens": "d2-holybolt",
-  "Fire Mastery": "d2-fireball", Warmth: "d2-firebolt", Enchant: "d2-fireball",
-  "Cold Mastery": "d2-icebolt", "Lightning Mastery": "d2-lightning", "Energy Shield": "d2-bluestar",
-  "Static Field": "d2-bluestar", "Charged Strike": "d2-bluestar", Teleport: "d2-bluestar",
-  "Blessed Hammer": "d2-holybolt", "Holy Shield": "d2-holybolt", Conversion: "d2-holybolt",
-  "Frost Nova": "d2-icebolt", "Frozen Armor": "d2-icebolt", "Shiver Armor": "d2-icebolt",
-  "Chilling Armor": "d2-icebolt", "Cloak of Shadows": "d2-shadowbolt", "Mind Blast": "d2-shadowbolt",
-  "Amplify Damage": "d2-shadowbolt", "Dim Vision": "d2-shadowbolt", Weaken: "d2-shadowbolt",
-  "Iron Maiden": "d2-shadowbolt", Terror: "d2-shadowbolt", Confuse: "d2-shadowbolt",
-  "Life Tap": "d2-bloodstar", Attract: "d2-shadowbolt", Decrepify: "d2-shadowbolt",
-  "Poison Dagger": "d2-poisonbolt", "Poison Explosion": "d2-poisonbolt", "Corpse Explosion": "d2-bloodcomet",
-  "Bone Armor": "d2-bloodstar",  "Bone Wall": "d2-bloodstar", "Bone Prison": "d2-bloodstar",
-
-  "Raise Skeleton": "d2-bloodstar", "Skeletal Mage": "d2-bloodstar", "Clay Golem": "d2-bloodcomet",
-  "Shock Web": "d2-bluestar", "Blade Sentinel": "101",
-  "Death Sentry": "d2-bluestar", "Lightning Sentry": "d2-lightning",
-  "Blade Fury": "101", "Blade Shield": "101", "Phoenix Strike": "d2-bloodcomet",
-  "Claws of Thunder": "d2-bluestar", "Blades of Ice": "d2-icebolt", "Fists of Fire": "d2-fireball",
-  "Dragon Tail": "d2-fireball",
-  Bash: "30", "Double Swing": "30", "Double Throw": "30", "Leap Attack": "30", Concentrate: "30",
-  Frenzy: "30", Berserk: "d2-bloodstar", Sacrifice: "30", Smite: "d2-holybolt", Zeal: "30",
-  Charge: "d2-holybolt", Vengeance: "d2-bloodcomet", Fissure: "d2-magmaball", Hydra: "d2-fireball",
-  Nova: "d2-bluestar", "Arctic Blast": "d2-arctic-blast", Twister: "d2-bloodcomet", "Werewolf": "d2-bloodstar",
-  "Werebear": "d2-bloodcomet", Maul: "30", "Feral Rage": "d2-bloodstar", Rabies: "d2-poisonbolt",
-  "Shock Wave": "d2-bloodcomet", Fury: "101", Raven: "5", "Summon Spirit Wolf": "d2-bloodcomet",
-  "Summon Dire Wolf": "d2-bloodcomet", "Summon Grizzly": "d2-bloodcomet", Valkyrie: "d2-holybolt",
-  Decoy: "d2-shadowbolt", "Shadow Warrior": "d2-shadowbolt", "Shadow Master": "d2-shadowbolt",
-  "Blood Golem": "d2-bloodcomet", "Iron Golem": "d2-bloodcomet", "Fire Golem": "d2-fireball",
-  "Poison Creeper": "d2-poisonbolt", "Carrion Vine": "d2-poisonbolt", "Solar Creeper": "d2-poisonbolt",
-  "Firestorm": "d2-magmaball", "Molten Boulder": "d2-magmaball", Volcano: "d2-magmaball",
-  Meteor: "d2-bloodcomet", Armageddon: "d2-bloodcomet", Tornado: "d2-bloodcomet",
-  Hurricane: "d2-icebolt", Whirlwind: "101",
-  Jab: "30", Fend: "30",
-  // Keep every class-tree skill tied to a real, animated D2 missile asset;
-  // passives and buffs use their matching elemental/curse/holy effect as feedback.
-  "Avoid": "d2-bluestar", "Axe Mastery": "30", "Battle Command": "d2-bloodcomet", "Battle Cry": "d2-bloodcomet",
-  "Battle Orders": "d2-holybolt", "Blessed Aim": "d2-holybolt", "Burst of Speed": "d2-bluestar", "Claw Mastery": "101",
-  "Cleansing": "d2-holybolt", "Cobra Strike": "d2-bloodstar", "Conviction": "d2-shadowbolt",
-  "Critical Strike": "d2-bloodstar", "Cyclone Armor": "d2-icebolt", "Defiance": "d2-holybolt", "Dodge": "d2-bluestar",
-  "Dragon Flight": "d2-bluestar", "Dragon Talon": "101", "Evade": "d2-bluestar", "Fade": "d2-shadowbolt",
-  "Fanaticism": "d2-holybolt", "Find Item": "d2-bloodcomet", "Find Potion": "d2-bloodcomet", "Fire Claws": "d2-fireball",
-  "Golem Mastery": "d2-bloodcomet", "Grim Ward": "d2-shadowbolt", "Heart of Wolverine": "d2-bloodcomet", "Howl": "d2-shadowbolt",
-  "Hunger": "d2-bloodstar", "Immolation Arrow": "d2-inferno", "Impale": "30", "Increased Speed": "d2-bluestar",
-  "Increased Stamina": "d2-bluestar", "Inner Sight": "d2-shadowbolt", "Iron Skin": "d2-holybolt", "Leap": "d2-bluestar",
-  "Lightning Strike": "d2-bluestar", "Lower Resist": "d2-shadowbolt", "Lycanthropy": "d2-bloodstar", "Mace Mastery": "30",
-  "Meditation": "d2-holybolt", "Might": "d2-holybolt", "Natural Resistance": "d2-holybolt", "Oak Sage": "d2-bloodcomet",
-  "Penetrate": "d2-bluestar", "Pierce": "d2-bluestar", "Polearm Mastery": "30", "Prayer": "d2-holybolt",
-  "Power Strike": "d2-bluestar", "Redemption": "d2-holybolt", "Resist Cold": "d2-icebolt", "Resist Fire": "d2-firebolt",
-  "Resist Lightning": "d2-bluestar", "Revive": "d2-bloodcomet", "Salvation": "d2-holybolt", "Sanctuary": "d2-holybolt",
-  "Shout": "d2-bloodcomet", "Skeleton Mastery": "d2-bloodstar", "Slow Missiles": "d2-shadowbolt", "Spear Mastery": "30",
-  "Spirit of Barbs": "d2-bloodcomet", "Stun": "30", "Summon Resist": "d2-holybolt", "Sword Mastery": "30",
-  "Taunt": "d2-shadowbolt", "Telekinesis": "d2-bluestar", "Thorns": "d2-holybolt", "Throwing Mastery": "30",
-  "Tiger Strike": "101", "Venom": "d2-poisonbolt", "Vigor": "d2-bluestar", "War Cry": "d2-bloodcomet",
-  "Weapon Block": "101", "Dragon Claw": "101", "Holy Fire": "d2-firebolt", "Holy Freeze": "d2-icebolt",
-  "Holy Shock": "d2-bluestar", "Concentration": "d2-holybolt",
+  "Guided Arrow": "131",
+  "Magic Arrow": "5",
+  "Multiple Shot": "131",
+  "Fire Arrow": "d2-fire-arrow",
+  "Fire Bolt": "31",
+  "Fire Blast": "47",
+  "Exploding Arrow": "47",
+  "Fire Ball": "84",
+  "Fire Wall": "55",
+  "Wake of Fire": "74",
+  "Wake of Inferno": "74",
+  "Ice Arrow": "91",
+  "Cold Arrow": "91",
+  "Ice Bolt": "91",
+  "Ice Blast": "91",
+  "Freezing Arrow": "91",
+  "Glacial Spike": "93",
+  "Frozen Orb": "137",
+  "Chain Lightning": "43",
+  "Thunder Storm": "43",
+  "Charged Bolt": "52",
+  "Charged Bolt Sentry": "52",
+  "Lightning Bolt": "43",
+  "Lightning Fury": "43",
+  "Poison Javelin": "65",
+  "Plague Javelin": "65",
+  "Poison Nova": "139",
+  "Bone Spirit": "136",
+  "Bone Spear": "135",
+  "Psychic Hammer": "113",
+  "Holy Bolt": "116",
+  "Fist of the Heavens": "47",
+  "Fire Mastery": "",
+  "Cold Mastery": "",
+  "Lightning Mastery": "",
+  "Energy Shield": "113",
+  "Static Field": "52",
+  "Charged Strike": "43",
+  "Blessed Hammer": "110",
+  "Holy Shield": "42",
+  "Frost Nova": "51",
+  "Frozen Armor": "24",
+  "Shiver Armor": "24",
+  "Chilling Armor": "24",
+  "Cloak of Shadows": "127",
+  "Mind Blast": "113",
+  "Amplify Damage": "127",
+  "Dim Vision": "127",
+  "Iron Maiden": "127",
+  "Life Tap": "88",
+  "Poison Dagger": "147",
+  "Poison Explosion": "146",
+  "Corpse Explosion": "108",
+  "Bone Armor": "100",
+  "Bone Wall": "100",
+  "Bone Prison": "100",
+  "Raise Skeleton": "85",
+  "Skeletal Mage": "85",
+  "Clay Golem": "85",
+  "Shock Web": "52",
+  "Blade Sentinel": "110",
+  "Death Sentry": "134",
+  "Lightning Sentry": "134",
+  "Blade Fury": "110",
+  "Blade Shield": "110",
+  "Phoenix Strike": "149",
+  "Claws of Thunder": "134",
+  "Blades of Ice": "93",
+  "Fists of Fire": "48",
+  "Dragon Tail": "48",
+  "Double Swing": "96",
+  "Double Throw": "131",
+  "Leap Attack": "97",
+  "Arctic Blast": "d2-arctic-blast",
+  "Werewolf": "68",
+  "Werebear": "68",
+  "Feral Rage": "68",
+  "Shock Wave": "68",
+  "Summon Spirit Wolf": "85",
+  "Summon Dire Wolf": "85",
+  "Summon Grizzly": "85",
+  "Shadow Warrior": "85",
+  "Shadow Master": "85",
+  "Blood Golem": "85",
+  "Iron Golem": "85",
+  "Fire Golem": "85",
+  "Poison Creeper": "59",
+  "Carrion Vine": "59",
+  "Solar Creeper": "59",
+  "Firestorm": "90",
+  "Molten Boulder": "90",
+  "Avoid": "",
+  "Axe Mastery": "",
+  "Battle Command": "97",
+  "Battle Cry": "97",
+  "Battle Orders": "97",
+  "Blessed Aim": "72",
+  "Burst of Speed": "127",
+  "Claw Mastery": "",
+  "Cleansing": "72",
+  "Cobra Strike": "146",
+  "Conviction": "72",
+  "Critical Strike": "",
+  "Cyclone Armor": "58",
+  "Defiance": "72",
+  "Dodge": "",
+  "Dragon Flight": "85",
+  "Dragon Talon": "110",
+  "Evade": "",
+  "Fade": "127",
+  "Fanaticism": "72",
+  "Find Item": "97",
+  "Find Potion": "97",
+  "Fire Claws": "48",
+  "Golem Mastery": "",
+  "Grim Ward": "127",
+  "Heart of Wolverine": "85",
+  "Howl": "97",
+  "Hunger": "96",
+  "Immolation Arrow": "74",
+  "Impale": "110",
+  "Increased Speed": "",
+  "Increased Stamina": "",
+  "Inner Sight": "72",
+  "Iron Skin": "",
+  "Leap": "97",
+  "Lightning Strike": "43",
+  "Lower Resist": "127",
+  "Lycanthropy": "",
+  "Mace Mastery": "",
+  "Meditation": "72",
+  "Might": "72",
+  "Natural Resistance": "",
+  "Oak Sage": "85",
+  "Penetrate": "",
+  "Pierce": "",
+  "Polearm Mastery": "",
+  "Prayer": "72",
+  "Power Strike": "48",
+  "Redemption": "72",
+  "Resist Cold": "72",
+  "Resist Fire": "72",
+  "Resist Lightning": "72",
+  "Revive": "85",
+  "Salvation": "72",
+  "Sanctuary": "72",
+  "Shout": "97",
+  "Skeleton Mastery": "",
+  "Slow Missiles": "72",
+  "Spear Mastery": "",
+  "Spirit of Barbs": "85",
+  "Stun": "96",
+  "Summon Resist": "",
+  "Sword Mastery": "",
+  "Taunt": "97",
+  "Telekinesis": "61",
+  "Thorns": "72",
+  "Throwing Mastery": "",
+  "Tiger Strike": "110",
+  "Venom": "147",
+  "Vigor": "72",
+  "War Cry": "97",
+  "Weapon Block": "",
+  "Dragon Claw": "110",
+  "Holy Fire": "72",
+  "Holy Freeze": "72",
+  "Holy Shock": "72",
+  "Concentration": "72",
+  "Armageddon": "41",
+  "Attract": "127",
+  "Bash": "96",
+  "Berserk": "96",
+  "Blaze": "18",
+  "Blizzard": "106",
+  "Charge": "96",
+  "Concentrate": "96",
+  "Confuse": "127",
+  "Conversion": "96",
+  "Decoy": "85",
+  "Decrepify": "127",
+  "Enchant": "48",
+  "Fend": "110",
+  "Fissure": "90",
+  "Frenzy": "96",
+  "Fury": "96",
+  "Hurricane": "85",
+  "Hydra": "35",
+  "Inferno": "74",
+  "Jab": "110",
+  "Lightning": "43",
+  "Maul": "96",
+  "Meteor": "76",
+  "Nova": "52",
+  "Rabies": "149",
+  "Raven": "85",
+  "Sacrifice": "96",
+  "Smite": "96",
+  "Strafe": "131",
+  "Teeth": "133",
+  "Teleport": "61",
+  "Terror": "127",
+  "Tornado": "85",
+  "Twister": "85",
+  "Valkyrie": "85",
+  "Vengeance": "96",
+  "Volcano": "90",
+  "Warmth": "",
+  "Weaken": "127",
+  "Whirlwind": "96",
+  "Zeal": "96",
 };
+// Fallback art per skill visual class.
 const SKILL_VISUAL_MISSILES: Record<D2SkillVisual, string> = {
-  // Passives never fire a missile; the empty id keeps the record exhaustive and
-  // is filtered out of the missile preloader below.
-  passive: "",
-  summon: "d2-bloodcomet",
-  aura: "d2-holybolt",
-  trap: "d2-bluestar",
-  wave: "d2-shadowbolt",
-  burst: "d2-bloodcomet",
-  movement: "d2-bluestar",
-  projectile: "d2-firebolt",
-  strike: "101",
+  "passive": "",
+  "summon": "85",
+  "aura": "72",
+  "trap": "134",
+  "wave": "97",
+  "burst": "84",
+  "movement": "85",
+  "projectile": "31",
+  "strike": "96",
 };
+// Art for the class basic attack.
 const BASIC_ATTACK_MISSILE_OVERLAYS: Record<string, string> = {
-  "Guided Arrow": "5", "Throwing Knife": "30", "Axe Throw": "30", "Spirit Claw": "101",
-  "Bone Bolt": "8", "Holy Bolt": "d2-holybolt", "Fire Bolt": "d2-firebolt",
+  "Guided Arrow": "131",
+  "Throwing Knife": "110",
+  "Axe Throw": "110",
+  "Spirit Claw": "110",
+  "Bone Bolt": "135",
+  "Holy Bolt": "116",
+  "Fire Bolt": "31",
 };
 const SKILL_ICON_IMAGES: Record<string, string> = {
   Jab: "assets/d2survivors/skills/jab-spear.png",
@@ -226,20 +515,23 @@ const AMAZON_JAVELIN_SKILLS = new Set([
   "Charged Strike", "Plague Javelin", "Fend", "Lightning Strike", "Lightning Fury",
 ]);
 const MISSILE_SPRITE_ORIENTATIONS: Record<string, number> = {
-  // The D2 bolt and flame-column cels are authored pointing up the screen.
-  "d2-lightning": Math.PI / 2,
+  // Bolt and flame-column cels are authored pointing up the screen.
+  "43": Math.PI / 2,
+  "55": Math.PI / 2,
+  "74": Math.PI / 2,
   "d2-inferno": Math.PI / 2,
 };
 const FIRE_ARROW_EFFECT_IDS = new Set(["d2-fire-arrow"]);
+// Art used when only a damage kind is known.
 const ATTACK_KIND_MISSILE_OVERLAYS: Record<AttackProjectile["kind"], string> = {
-  arrow: "5",
-  fire: "d2-fireball",
-  lightning: "d2-bluestar",
-  blade: "101",
-  bone: "d2-bloodstar",
-  holy: "d2-holybolt",
-  claw: "101",
-  melee: "30",
+  "arrow": "131",
+  "fire": "84",
+  "lightning": "43",
+  "blade": "110",
+  "bone": "135",
+  "holy": "116",
+  "claw": "110",
+  "melee": "96",
 };
 interface CampaignArea {
   /** Area name as it appears in Diablo II's own area tables. */
@@ -280,39 +572,39 @@ const A5_TILES = "assets/d2survivors/maps/tiles/act5-floor-tiles.png";
 const CAMPAIGN_ACTS: CampaignAct[] = [
   { act: 1, name: "The Monastery Gate", region: "Rogue Encampment", levelLabel: "Blood Moor", map: "assets/d2survivors/maps/act1-barracks.png", mapAlpha: true, floorTiles: A1_TILES, baseFloorVariant: 1, enemies: ["fallen", "goatman", "skeleton"], boss: "andariel", areas: [
     { name: "Blood Moor", level: 1, floorTiles: A1_TILES, baseFloorVariant: 1 },
-    { name: "Tamoe Highland", level: 8, floorTiles: "assets/d2survivors/maps/tiles/a1-tamoe-highland-floor-tiles.png", baseFloorVariant: 0 },
-    { name: "The Catacombs", level: 11, floorTiles: "assets/d2survivors/maps/tiles/a1-catacombs-floor-tiles.png", baseFloorVariant: 0 },
+    { name: "Tamoe Highland", level: 8, floorTiles: A1_TILES, baseFloorVariant: 1 },
+    { name: "The Catacombs", level: 11, floorTiles: A1_TILES, baseFloorVariant: 1 },
   ] },
   { act: 2, name: "The Buried Caves", region: "Lut Gholein", levelLabel: "Rocky Waste", map: "assets/d2survivors/maps/act2-caves.png", mapAlpha: true, floorTiles: A2_TILES, baseFloorVariant: 0, enemies: ["sandRaider", "sandMaggot", "sandMaggotYoung", "scarab", "leaper", "blunderbore", "salamander", "skeleton", "spikeFiend"], boss: "duriel", areas: [
-    { name: "Sewers", level: 13, floorTiles: "assets/d2survivors/maps/tiles/a2-sewers-floor-tiles.png", baseFloorVariant: 0 },
+    { name: "Sewers", level: 13, floorTiles: A2_TILES, baseFloorVariant: 0 },
     { name: "Rocky Waste", level: 14, floorTiles: A2_TILES, baseFloorVariant: 0 },
-    { name: "Tal Rasha's Tomb", level: 17, floorTiles: "assets/d2survivors/maps/tiles/a2-tal-rashas-tomb-floor-tiles.png", baseFloorVariant: 0 },
+    { name: "Tal Rasha's Tomb", level: 17, floorTiles: A2_TILES, baseFloorVariant: 0 },
   ] },
   { act: 3, name: "The Flayer Jungle", region: "Kurast Docks", levelLabel: "Spider Forest", map: "assets/d2survivors/maps/act3-jungle.png", mapAlpha: true, floorTiles: A3_TILES, baseFloorVariant: 5, enemies: ["fetish", "boneFetish", "fetishShaman", "council", "blunderbore", "spiderDemon"], boss: "mephisto", areas: [
     { name: "Spider Forest", level: 21, floorTiles: A3_TILES, baseFloorVariant: 5 },
-    { name: "Flayer Jungle", level: 22, floorTiles: "assets/d2survivors/maps/tiles/a3-flayer-jungle-floor-tiles.png", baseFloorVariant: 0 },
-    { name: "Durance of Hate", level: 25, floorTiles: "assets/d2survivors/maps/tiles/a3-durance-of-hate-floor-tiles.png", baseFloorVariant: 0 },
+    { name: "Flayer Jungle", level: 22, floorTiles: A3_TILES, baseFloorVariant: 5 },
+    { name: "Durance of Hate", level: 25, floorTiles: A3_TILES, baseFloorVariant: 5 },
   ] },
   { act: 4, name: "The Chaos Sanctuary", region: "Pandemonium Fortress", levelLabel: "Outer Steppes", map: "assets/d2survivors/maps/act4-catacombs.png", mapAlpha: true, floorTiles: A4_TILES, baseFloorVariant: 1, enemies: ["balrog", "vileChild", "vileMother", "painWorm", "regurgitator"], boss: "diablo", areas: [
     { name: "Outer Steppes", level: 26, floorTiles: A4_TILES, baseFloorVariant: 1 },
-    { name: "City of the Damned", level: 27, floorTiles: "assets/d2survivors/maps/tiles/a4-city-of-the-damned-floor-tiles.png", baseFloorVariant: 0 },
-    { name: "Chaos Sanctuary", level: 28, floorTiles: "assets/d2survivors/maps/tiles/a4-chaos-sanctuary-floor-tiles.png", baseFloorVariant: 0 },
+    { name: "City of the Damned", level: 27, floorTiles: A4_TILES, baseFloorVariant: 1 },
+    { name: "Chaos Sanctuary", level: 28, floorTiles: A4_TILES, baseFloorVariant: 1 },
   ] },
   { act: 5, name: "The Worldstone Keep", region: "Harrogath", levelLabel: "Worldstone Keep", map: "assets/d2survivors/maps/act5-worldstone.png", mapAlpha: true, floorTiles: A5_TILES, baseFloorVariant: 0, enemies: ["baalsMinion", "minotaur", "siegeBeast", "painWorm", "spiderDemon", "spikeFiend"], boss: "baal", areas: [
     { name: "Bloody Foothills", level: 24, floorTiles: A5_TILES, baseFloorVariant: 0 },
-    { name: "Crystalline Passage", level: 29, floorTiles: "assets/d2survivors/maps/tiles/a5-crystalline-passage-floor-tiles.png", baseFloorVariant: 0 },
-    { name: "Throne of Destruction", level: 43, floorTiles: "assets/d2survivors/maps/tiles/a5-throne-of-destruction-floor-tiles.png", baseFloorVariant: 0 },
+    { name: "Crystalline Passage", level: 29, floorTiles: A5_TILES, baseFloorVariant: 0 },
+    { name: "Throne of Destruction", level: 43, floorTiles: A5_TILES, baseFloorVariant: 0 }
   ] },
   // Pandemonium event: three level-83 areas with souped-up act bosses. Killing
   // all three clears the campaign, so these only open once Baal has fallen.
-  { act: 6, name: "Forgotten Sands", region: "The Pandemonium Event", levelLabel: "Forgotten Sands", map: "assets/d2survivors/maps/act2-caves.png", mapAlpha: true, floorTiles: "assets/d2survivors/maps/tiles/a6-forgotten-sands-floor-tiles.png", baseFloorVariant: 0, enemies: ["sandRaider", "sandMaggot", "scarab", "leaper", "spikeFiend"], boss: "duriel", uber: true, areas: [
-    { name: "Forgotten Sands", level: 83, floorTiles: "assets/d2survivors/maps/tiles/a6-forgotten-sands-floor-tiles.png", baseFloorVariant: 0 },
+  { act: 6, name: "Forgotten Sands", region: "The Pandemonium Event", levelLabel: "Forgotten Sands", map: "assets/d2survivors/maps/act2-caves.png", mapAlpha: true, floorTiles: A2_TILES, baseFloorVariant: 0, enemies: ["sandRaider", "sandMaggot", "scarab", "leaper", "spikeFiend"], boss: "duriel", uber: true, areas: [
+    { name: "Forgotten Sands", level: 83, floorTiles: A2_TILES, baseFloorVariant: 0 },
   ] },
-  { act: 7, name: "Matron's Den", region: "The Pandemonium Event", levelLabel: "Matron's Den", map: "assets/d2survivors/maps/act1-barracks.png", mapAlpha: true, floorTiles: "assets/d2survivors/maps/tiles/a7-matrons-den-floor-tiles.png", baseFloorVariant: 0, enemies: ["fallen", "goatman", "skeleton", "fetish", "boneFetish"], boss: "andariel", uber: true, areas: [
-    { name: "Matron's Den", level: 83, floorTiles: "assets/d2survivors/maps/tiles/a7-matrons-den-floor-tiles.png", baseFloorVariant: 0 },
+  { act: 7, name: "Matron's Den", region: "The Pandemonium Event", levelLabel: "Matron's Den", map: "assets/d2survivors/maps/act1-barracks.png", mapAlpha: true, floorTiles: A1_TILES, baseFloorVariant: 1, enemies: ["fallen", "goatman", "skeleton", "fetish", "boneFetish"], boss: "andariel", uber: true, areas: [
+    { name: "Matron's Den", level: 83, floorTiles: A1_TILES, baseFloorVariant: 0 },
   ] },
-  { act: 8, name: "Uber Tristram", region: "The Pandemonium Event", levelLabel: "Tristram", map: "assets/d2survivors/maps/act1-barracks.png", mapAlpha: true, floorTiles: "assets/d2survivors/maps/tiles/a8-uber-tristram-floor-tiles.png", baseFloorVariant: 0, enemies: ["fallen", "goatman", "skeleton", "council", "spikeFiend"], boss: "diablo", bosses: ["diablo", "mephisto", "baal"], uber: true, areas: [
-    { name: "Tristram", level: 83, floorTiles: "assets/d2survivors/maps/tiles/a8-uber-tristram-floor-tiles.png", baseFloorVariant: 0 },
+  { act: 8, name: "Uber Tristram", region: "The Pandemonium Event", levelLabel: "Tristram", map: "assets/d2survivors/maps/act1-barracks.png", mapAlpha: true, floorTiles: A1_TILES, baseFloorVariant: 1, enemies: ["fallen", "goatman", "skeleton", "council", "spikeFiend"], boss: "diablo", bosses: ["diablo", "mephisto", "baal"], uber: true, areas: [
+    { name: "Tristram", level: 83, floorTiles: A1_TILES, baseFloorVariant: 0 },
   ] },
 ];
 
@@ -430,6 +722,77 @@ const ENEMY_SPECIES_BY_KIND: Record<EnemyKind, EnemySpecies[]> = {
   normal: ["fallen", "goatman", "skeleton", "sandRaider", "sandMaggot", "scarab", "spiderDemon", "spikeFiend", "leaper", "blunderbore", "fetish", "boneFetish", "fetishShaman", "council", "balrog", "vileChild", "vileMother", "bloodLord", "minotaur", "painWorm", "regurgitator", "salamander", "siegeBeast", "deathMauler", "wendigo"],
   champion: ["goatman", "skeleton", "scarab", "spiderDemon", "spikeFiend", "leaper", "blunderbore", "boneFetish", "fetishShaman", "council", "balrog", "vileMother", "bloodLord", "minotaur", "siegeBeast", "deathMauler", "wendigo"],
   boss: ["andariel", "duriel", "mephisto", "diablo", "baalsMinion", "baal"],
+};
+
+/**
+ * Skill -> monster art for every summon in the game. The MPQ extracts name no
+ * DCCs for the druid wolves, the sages or the assassin's shadows, so each summon
+ * is drawn with the closest monster sheet that does exist by name.
+ */
+const SUMMON_SPECIES: Record<string, EnemySpecies> = {
+  "Raise Skeleton": "skeleton",
+  "Skeletal Mage": "skeleton",
+  Revive: "goatman",
+  "Clay Golem": "minotaur",
+  "Blood Golem": "deathMauler",
+  "Iron Golem": "siegeBeast",
+  "Fire Golem": "salamander",
+  // Raven and the vines are drawn from their own sheets; the species is a
+  // harmless placeholder so hit tests and bar logic stay uniform.
+  Raven: "boneFetish",
+  "Poison Creeper": "sandMaggot",
+  "Carrion Vine": "painWorm",
+  "Solar Creeper": "sandMaggotYoung",
+  "Oak Sage": "council",
+  "Heart of Wolverine": "blunderbore",
+  "Spirit of Barbs": "boneFetish",
+  "Summon Spirit Wolf": "wendigo",
+  "Summon Dire Wolf": "wendigo",
+  "Summon Grizzly": "wendigo",
+  Valkyrie: "sandRaider",
+  Decoy: "sandRaider",
+  "Shadow Warrior": "nihlathak",
+  "Shadow Master": "nihlathak",
+};
+
+/** Summons that already have a purpose-built Diablo II sheet in models/druid. */
+const SUMMON_SHEET_SKILLS = new Set<string>([
+  "Raven", "Poison Creeper", "Carrion Vine", "Solar Creeper",
+]);
+
+/** Warm/brighten the imported monster palette, matching the enemy renderer. */
+const SUMMON_TINT = "brightness(1.24) contrast(1.14) sepia(0.6) saturate(0.95)";
+
+/** Health, damage, speed and body radius per summon, before masteries. */
+const SUMMON_STATS: Record<string, { health: number; damage: number; speed: number; r: number }> = {
+  "Raise Skeleton": { health: 125, damage: 15, speed: 155, r: 12 },
+  "Skeletal Mage": { health: 95, damage: 13, speed: 150, r: 12 },
+  Revive: { health: 160, damage: 18, speed: 150, r: 13 },
+  "Clay Golem": { health: 260, damage: 17, speed: 135, r: 19 },
+  "Blood Golem": { health: 320, damage: 17, speed: 135, r: 19 },
+  "Iron Golem": { health: 280, damage: 17, speed: 135, r: 19 },
+  "Fire Golem": { health: 220, damage: 17, speed: 135, r: 19 },
+  Raven: { health: 65, damage: 12, speed: 210, r: 9 },
+  "Poison Creeper": { health: 150, damage: 19, speed: 95, r: 15 },
+  "Carrion Vine": { health: 180, damage: 18, speed: 90, r: 15 },
+  "Solar Creeper": { health: 170, damage: 15, speed: 95, r: 15 },
+  "Oak Sage": { health: 90, damage: 6, speed: 130, r: 12 },
+  "Heart of Wolverine": { health: 110, damage: 8, speed: 130, r: 12 },
+  "Spirit of Barbs": { health: 110, damage: 8, speed: 130, r: 12 },
+  "Summon Spirit Wolf": { health: 140, damage: 13, speed: 195, r: 13 },
+  "Summon Dire Wolf": { health: 220, damage: 22, speed: 185, r: 16 },
+  "Summon Grizzly": { health: 420, damage: 34, speed: 165, r: 20 },
+  Valkyrie: { health: 320, damage: 26, speed: 170, r: 17 },
+  Decoy: { health: 260, damage: 8, speed: 125, r: 16 },
+  "Shadow Warrior": { health: 200, damage: 20, speed: 175, r: 15 },
+  "Shadow Master": { health: 280, damage: 26, speed: 175, r: 16 },
+};
+
+/** How many of each summon may be alive at once. */
+const SUMMON_LIMITS: Record<string, number> = {
+  Raven: 5,
+  "Summon Spirit Wolf": 5,
+  "Summon Dire Wolf": 3,
 };
 
 function sanitizeEnemySpecies(value: unknown, kind: EnemyKind): EnemySpecies {
@@ -559,7 +922,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private characterScene?: THREE.Scene;
   private characterCamera?: THREE.OrthographicCamera;
   private characterModel?: THREE.Group;
-  private playerRigBones: PlayerRigBones = {};
+  private characterRig?: CharacterRig;
+  private playerWalkPhase = 0;
+  private readonly playerPoseOffset = new THREE.Vector3();
   private playerAnimationTime = 0;
   private playerAnimationDelta = 16;
   private playerMotionBlend = 0;
@@ -647,8 +1012,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private menuHeroModelRequest = 0;
   private menuHeroLastFrameAt = 0;
   private menuHeroElapsed = 0;
-  private menuHeroPoseBases = new Map<THREE.Bone, THREE.Quaternion>();
-  private menuHeroPoseBones: PreviewPoseBone[] = [];
+  private menuHeroRig?: CharacterRig;
   menuHeroZoom = 1.55;
   private menuHeroRotation = 0;
   private menuHeroDragPointer?: number;
@@ -663,7 +1027,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private previewModelRequest = 0;
   private previewLastFrameAt = 0;
   private previewElapsed = 0;
-  private previewPoseBones: PreviewPoseBone[] = [];
+  private previewRig?: CharacterRig;
   private previewAttackTime = Number.POSITIVE_INFINITY;
   private previewAttackSide: -1 | 1 = -1;
   private previewAttackStyle: AttackAnimationStyle = "amazonJab";
@@ -2839,8 +3203,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.menuHeroFrameId = 0;
     }
     this.menuHeroModelRequest++;
-    this.menuHeroPoseBones = [];
-    this.menuHeroPoseBases.clear();
+    this.menuHeroRig = undefined;
     this.menuHeroElapsed = 0;
     this.disposeMenuHeroModel();
     this.menuHeroLoadError = false;
@@ -2942,8 +3305,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         if (isStale()) { disposeModel(); return; }
         this.normalizeCharacterModel(model, 88);
         model.rotation.y = this.menuHeroRotation;
-        this.menuHeroPoseBones = this.getPreviewPoseBones(model);
-        this.menuHeroPoseBases = new Map(this.menuHeroPoseBones.map((pose) => [pose.bone, pose.baseQuaternion.clone()]));
+        this.menuHeroRig = buildCharacterRig(model, modelClass);
         this.menuHeroModel = model;
         this.menuHeroScene?.add(model);
       } catch (error: unknown) {
@@ -2968,18 +3330,16 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const time = this.menuHeroElapsed;
       this.menuHeroModel.rotation.y = this.menuHeroRotation + (this.reducedMotion ? 0 : Math.sin(time * 0.45) * 0.035);
       this.menuHeroModel.position.y = this.reducedMotion ? 0 : Math.sin(time * 1.6) * 0.8;
-      const fadeIn = this.reducedMotion ? 1 : Math.min(1, time / 0.8);
-      for (const pose of this.menuHeroPoseBones) {
-        const sway = this.reducedMotion ? 0 : Math.sin(time * 1.15 + pose.phase) * 0.006;
-        const rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), pose.side * sway * fadeIn);
-        const base = this.menuHeroPoseBases.get(pose.bone) ?? pose.baseQuaternion;
-        const restAngle = this.selectedClass === "sorceress" ? SORCERESS_ARM_REST_ANGLE
-          : this.selectedClass === "necromancer" ? NECROMANCER_ARM_REST_ANGLE
-          : 0;
-        const restPose = pose.role === "arm"
-          ? new THREE.Quaternion().setFromAxisAngle(SORCERESS_ARM_HINGE_AXIS, restAngle)
-          : new THREE.Quaternion();
-        pose.bone.quaternion.copy(base).multiply(restPose).multiply(rotation);
+      if (this.menuHeroRig) {
+        poseCharacterRig(this.menuHeroRig, {
+          time,
+          walkPhase: 0,
+          walk: 0,
+          attackTime: Number.POSITIVE_INFINITY,
+          attackSide: -1,
+          gait: gaitForClass(this.selectedClass),
+          motionScale: this.reducedMotion ? 0 : 1,
+        });
       }
     }
     this.resizeMenuHeroPreview();
@@ -3031,9 +3391,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.previewFrameId = 0;
     }
     this.previewModelRequest++;
-    this.previewPoseBones = [];
-    this.menuHeroPoseBones = [];
-    this.menuHeroPoseBases.clear();
+    this.previewRig = undefined;
+    this.menuHeroRig = undefined;
     this.previewAmazonPike = undefined;
     this.previewAmazonPikeBase = undefined;
     this.previewWeapons = [];
@@ -3180,7 +3539,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           return;
         }
         this.normalizeCharacterModel(model, 88, modelClass === "amazon");
-        this.previewPoseBones = this.getPreviewPoseBones(model);
+        this.previewRig = buildCharacterRig(model, modelClass);
         this.previewAmazonPike = modelClass === "amazon"
           ? model.getObjectByName("pikeShape_0") ?? undefined
           : undefined;
@@ -3230,14 +3589,21 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.previewElapsed += dt;
       const time = this.previewElapsed;
       const idleMotion = this.reducedMotion ? 0 : 1;
-      const attackProfile = ATTACK_ANIMATION_PROFILES[this.previewAttackStyle];
-      const attackActive = this.previewAttackTime < attackProfile.duration;
-      const attackProgress = attackActive ? Math.max(0, Math.min(1, this.previewAttackTime / attackProfile.duration)) : 1;
-      const attackMotion = attackActive ? attackMotionCurve(attackProgress, this.previewAttackStyle) * (this.reducedMotion ? 0.45 : 1) : 0;
-      const attackFollowThrough = attackActive ? Math.sin(Math.PI * attackProgress) * (this.reducedMotion ? 0.45 : 1) : 0;
+      const gait = gaitForClass(this.previewModelClass ?? this.selectedClass);
+      const pose = poseCharacterRig(this.previewRig!, {
+        time,
+        walkPhase: 0,
+        walk: 0,
+        attackStyle: this.previewAttackStyle,
+        attackTime: this.previewAttackTime,
+        attackSide: this.previewAttackSide,
+        gait,
+        motionScale: this.reducedMotion ? 0.45 : 1,
+      });
       this.previewAttackTime += dt;
-      const turn = attackActive && attackProfile.spin ? attackProgress * Math.PI * 2 : 0;
-      this.previewModel.rotation.y = this.previewRotation + (this.previewDragging ? 0 : Math.sin(time * 0.25) * 0.012 * idleMotion) + turn;
+      this.previewModel.rotation.y = this.previewRotation
+        + (this.previewDragging ? 0 : Math.sin(time * 0.25) * 0.012 * idleMotion)
+        + pose.rootSpin;
       this.previewModel.rotation.z = 0;
       this.previewModel.position.y = Math.sin(time * 1.1) * 0.16 * idleMotion;
       for (const weapon of this.previewWeapons) {
@@ -3245,95 +3611,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         const gripSettle = isPike && !this.previewDragging ? Math.sin(time * 0.9) * 0.012 * idleMotion : 0;
         const settle = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), gripSettle);
         const attack = new THREE.Quaternion().setFromEuler(new THREE.Euler(
-          attackMotion * attackProfile.weaponPitch,
-          0,
-          attackMotion * attackProfile.weaponRoll * (this.previewAttackSide < 0 ? -1 : 1),
+          pose.weaponPitch * Math.PI / 180,
+          pose.weaponYaw * Math.PI / 180,
+          pose.weaponRoll * Math.PI / 180 * (this.previewAttackSide < 0 ? -1 : 1),
           "XYZ",
         ));
         weapon.object.quaternion.copy(weapon.baseQuaternion).multiply(settle).multiply(attack);
-      }
-      // The supplied class rigs have no clips, so give the selection preview a grounded,
-      // slightly asymmetrical idle instead of leaving the hero in its rigid bind pose.
-      // Reduced-motion users keep the settled pose but skip its breathing and turntable sway.
-      const fadeIn = this.reducedMotion ? 1 : Math.min(1, time / 0.45);
-      const classPose = this.selectedClass;
-      const locomotion = this.reducedMotion ? 0 : 1;
-      for (const pose of this.previewPoseBones) {
-        const sway = Math.sin(time * 1.05 + pose.phase) * 0.006 * fadeIn * locomotion;
-        const isLead = pose.side === this.previewAttackSide;
-        const isPaladin = classPose === "paladin";
-        const paladinStrikeScale = isPaladin ? 0.35 : 1;
-        let rotation: THREE.Quaternion;
-        switch (pose.role) {
-        case "arm": {
-          const restArmPitch = classPose === "sorceress" ? SORCERESS_ARM_REST_ANGLE
-            : classPose === "necromancer" ? NECROMANCER_ARM_REST_ANGLE
-            : classPose === "amazon" ? -0.11 : -0.16;
-          const barbarian = classPose === "barbarian";
-          const attackAmplitude = isLead ? attackProfile.leadArm : attackProfile.offArm;
-          const attackPitch = attackMotion * (isPaladin ? Math.min(attackAmplitude, isLead ? 1.22 : 0.14) : attackAmplitude) * (barbarian ? 0.78 : 0.72);
-          const attackSweep = attackFollowThrough * (isLead ? attackProfile.armSweep : -attackProfile.armSweep * 0.4) * paladinStrikeScale;
-          const shoulderRoll = pose.side * sway + attackMotion * attackProfile.shoulderRoll * (isLead ? -0.7 : 0.5) * (barbarian ? 0.8 : 1) * paladinStrikeScale;
-          rotation = classPose === "sorceress" || classPose === "necromancer"
-            ? new THREE.Quaternion().setFromEuler(new THREE.Euler(
-              shoulderRoll,
-              restArmPitch + sway * 0.45 + attackPitch,
-              attackSweep,
-              "XYZ",
-            ))
-            : classPose === "paladin"
-              ? new THREE.Quaternion().setFromEuler(new THREE.Euler(
-                shoulderRoll,
-                -pose.side * (restArmPitch + sway * 0.45 + attackPitch),
-                attackSweep,
-                "XYZ",
-              ))
-            : new THREE.Quaternion().setFromEuler(new THREE.Euler(
-              restArmPitch + sway * 0.45 + attackPitch,
-              attackSweep * (barbarian ? 0.78 : 1),
-              shoulderRoll,
-              "XYZ",
-            ));
-          break;
-        }
-        case "forearm": {
-          const barbarian = classPose === "barbarian";
-          const elbowBend = isLead ? attackProfile.elbowBend : attackProfile.offElbowBend;
-          const bend = Math.max(0, attackMotion) * (isPaladin ? Math.min(elbowBend, isLead ? 0.42 : 0.12) : elbowBend) * (barbarian ? 0.72 : 0.65);
-          const hingeAxis = classPose === "sorceress" || classPose === "necromancer"
-            ? SORCERESS_ARM_HINGE_AXIS
-            : classPose === "paladin" ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(1, 0, 0);
-          rotation = new THREE.Quaternion().setFromAxisAngle(hingeAxis, bend + Math.max(0, sway) * 0.15);
-          break;
-        }
-        case "leg": {
-          const poseSideSwing = classPose === "assassin" ? -0.05 : classPose === "barbarian" ? -0.025 : -0.035;
-          rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), poseSideSwing * pose.side + sway);
-          break;
-        }
-        case "knee":
-          rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), 0.025 + Math.max(0, sway));
-          break;
-        case "foot":
-          rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -sway * 0.45);
-          break;
-        case "pelvis":
-          rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), sway * 0.25);
-          break;
-        case "spine":
-          const barbarian = classPose === "barbarian";
-          const attackDrive = barbarian ? Math.max(0, attackMotion) : attackMotion;
-          const paladinLungeScale = classPose === "paladin" ? 0 : 1;
-          rotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(
-            -0.012 + sway * 0.25 - attackDrive * attackProfile.lean * (barbarian ? 1.25 : 0.55) * paladinLungeScale,
-            attackDrive * attackProfile.torsoTwist * (barbarian ? 0.72 : 0.6) * paladinLungeScale,
-            sway * 0.2,
-            "XYZ",
-          ));
-          break;
-        }
-        const settled = new THREE.Quaternion().slerpQuaternions(new THREE.Quaternion(), rotation, fadeIn);
-        pose.bone.quaternion.copy(pose.baseQuaternion).multiply(settled);
       }
     }
     this.resizeClassPreview();
@@ -3622,8 +3905,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.inventoryStatus = "Belt unequipped.";
   }
 
-  get shopItemsForSale(): Array<{ item: D2InventoryItem; source: string; inventoryIndex?: number; equipmentSlot?: PaperdollSlot }> {
-    const items: Array<{ item: D2InventoryItem; source: string; inventoryIndex?: number; equipmentSlot?: PaperdollSlot }> = [];
+  get shopItemsForSale(): Array<{ item: D2InventoryItem; source: string; inventoryIndex?: number }> {
+    const items: Array<{ item: D2InventoryItem; source: string; inventoryIndex?: number }> = [];
     const representedIds = new Set<string>();
     this.inventory.forEach((item, inventoryIndex) => {
       if (item) {
@@ -3631,12 +3914,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         representedIds.add(item.id);
       }
     });
+    // Gear the hero is wearing is never for sale, so it is not offered here.
+    if (this.equippedBelt) representedIds.add(this.equippedBelt.id);
     for (const slot of PAPERDOLL_SLOTS) {
       const item = this.equipment[slot];
-      if (item) {
-        items.push({ item, source: slot === "ringLeft" || slot === "ringRight" ? "Ring" : slot, equipmentSlot: slot });
-        representedIds.add(item.id);
-      }
+      if (item) representedIds.add(item.id);
     }
     for (const item of this.sanctuaryStash) {
       if (!representedIds.has(item.id)) items.push({ item, source: "Stash" });
@@ -3724,26 +4006,23 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.persistRunProgress(true);
   }
 
-  sellShopItem(entry: { item: D2InventoryItem; source: string; inventoryIndex?: number; equipmentSlot?: PaperdollSlot }): void {
+  sellShopItem(entry: { item: D2InventoryItem; source: string; inventoryIndex?: number }): void {
     const { item } = entry;
-    if (entry.source !== "Stash" && !this.characterProfiles[this.selectedClass] && !this.hasSavedRun) {
-      this.shopMessage = "Start a journey before selling this gear.";
+    // Worn gear is not sellable: it never appears in the list, and a stale row
+    // cannot take it off the hero either.
+    const isEquipped = this.equippedBelt?.id === item.id
+      || PAPERDOLL_SLOTS.some((slot) => this.equipment[slot]?.id === item.id);
+    if (isEquipped) {
+      this.shopMessage = `${item.name} is equipped — unequip it before selling.`;
       return;
     }
-    if (entry.source === "Stash" && !this.sanctuaryStash.some((owned) => owned.id === item.id)) return;
-    if (entry.inventoryIndex !== undefined && this.inventory[entry.inventoryIndex]?.id !== item.id) return;
-    if (entry.equipmentSlot && this.equipment[entry.equipmentSlot]?.id !== item.id) return;
-    if (entry.equipmentSlot === "belt" && this.beltSlots.some((potion) => potion.kind !== null)) {
-      this.shopMessage = "Use or move all belt potions before selling this belt.";
+    if (entry.source === "Stash") {
+      if (!this.sanctuaryStash.some((owned) => owned.id === item.id)) return;
+    } else if (entry.inventoryIndex === undefined || this.inventory[entry.inventoryIndex]?.id !== item.id) {
       return;
     }
     this.sanctuaryStash = this.sanctuaryStash.filter((owned) => owned.id !== item.id);
     if (entry.inventoryIndex !== undefined) this.inventory[entry.inventoryIndex] = null;
-    if (entry.equipmentSlot) {
-      this.equipment[entry.equipmentSlot] = null;
-      if (this.characterModel) this.configureClassMeleeWeapon(this.characterModel, this.selectedClass);
-      this.normalizeBeltSlots();
-    }
     const value = this.getItemSellValue(item);
     this.sanctuaryGold = Math.min(1_000_000_000, this.sanctuaryGold + value);
     this.playerGold = Math.min(1_000_000_000, this.playerGold + value);
@@ -4820,8 +5099,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const skillVisual = getClassSkills(this.selectedClass).find((entry) => entry.name === skill)?.visual ?? getD2SkillVisual(skill);
     if (skill === "Find Potion") return;
     if (NECROMANCER_CURSE_SKILLS.has(skill as NecromancerCurseName) && this.selectedClass === "necromancer") {
+      // Curses have no cast time in D2: the effect lands immediately and the hero
+      // keeps walking, so no attack animation and no movement lock are started.
       this.castNecromancerCurse(skill);
-      this.triggerAttackAnimation("necromancerCast");
       return;
     }
     if (skill === "Frozen Armor") {
@@ -4948,33 +5228,51 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       "Immolation Arrow", "Phoenix Strike", "Claws of Thunder", "Blades of Ice", "Zakarum's Hand", "Corpse Explosion",
     ]);
     if (rangedSpell || (missileId && rangedSkills.has(skill)) || skillVisual === "projectile") {
-      const kind: AttackProjectile["kind"] = visualMissile === "d2-bluestar" || visualMissile === "d2-lightning" || isChargedBolt ? "lightning"
-        : visualMissile === "d2-holybolt" ? "holy" : visualMissile === "d2-bloodstar" || visualMissile === "d2-shadowbolt" ? "bone" : "fire";
+      const kind: AttackProjectile["kind"] = MISSILE_ELEMENTS[visualMissile]
+        ?? (isChargedBolt ? "lightning" : this.basicAttackForClass(this.selectedClass).kind);
       const multishotArrows = skill === "Multiple Shot" || skill === "Multishot"
         ? Math.min(21, 2 + Math.max(0, (this.skillLevels[skill] ?? 1) - 1))
         : undefined;
-      const boltCount = multishotArrows ?? (skill === "Teeth" ? 4 + multiplier : isChargedBolt ? 5 : skill === "Lightning Fury" ? 6 : skill === "Blizzard" ? 3 : 1);
+      // One extra bolt per Charged Bolt rank, starting at five.
+      const boltCount = multishotArrows ?? (skill === "Teeth" ? 4 + multiplier : isChargedBolt ? 4 + multiplier : skill === "Lightning Fury" ? 6 : skill === "Blizzard" ? 3 : 1);
       const color = kind === "lightning" ? "#a9dcff" : kind === "holy" ? "#fff0a8" : kind === "bone" ? "#ddd5c5" : "#ff9c50";
       const perpendicularX = -this.playerFacingY;
       const perpendicularY = this.playerFacingX;
+      // Charged Bolt is a fan of bolts, not a homing shot. Aiming it at the
+      // nearest monster stopped the whole volley on the first body it met, so
+      // the bolts are sent past the target and across the rest of the view.
+      const boltRange = Math.hypot(this.arenaW, this.arenaH);
+      // Keep the fan's width fixed and let extra bolts thicken it, so a high-rank
+      // volley does not turn into a shotgun blast across half the screen.
+      const fanStep = isChargedBolt ? 0.48 / Math.max(1, boltCount - 1) : 0;
       for (let index = 0; index < boltCount; index += 1) {
         const spread = (index - (boltCount - 1) / 2) * (skill === "Teeth" ? 0.14 : 13);
         const rayX = skill === "Teeth" ? this.playerFacingX + perpendicularX * spread : 0;
         const rayY = skill === "Teeth" ? this.playerFacingY + perpendicularY * spread : 0;
         const rayLength = Math.hypot(rayX, rayY) || 1;
         const teethRange = Math.max(distance + 80, 240);
+        const fanAngle = isChargedBolt ? (index - (boltCount - 1) / 2) * fanStep : 0;
+        const fanCos = Math.cos(fanAngle);
+        const fanSin = Math.sin(fanAngle);
+        const boltX = isChargedBolt ? this.playerFacingX * fanCos - this.playerFacingY * fanSin : 0;
+        const boltY = isChargedBolt ? this.playerFacingX * fanSin + this.playerFacingY * fanCos : 0;
         this.attackProjectiles.push({
           x: this.playerX, y: this.playerY - 8, startX: this.playerX, startY: this.playerY - 8,
-          targetX: skill === "Teeth" ? this.playerX + rayX / rayLength * teethRange : multishotArrows !== undefined ? this.playerX + this.playerFacingX * distance + perpendicularX * spread : nearest.x + spread,
-          targetY: skill === "Teeth" ? this.playerY + rayY / rayLength * teethRange : multishotArrows !== undefined ? this.playerY + this.playerFacingY * distance + perpendicularY * spread : nearest.y,
-          target: skill === "Teeth" || skill === "Shock Web" || multishotArrows !== undefined || (skill === "Fire Blast" && this.selectedClass === "assassin") ? undefined : nearest, targetId: this.attackSequence++,
+          targetX: isChargedBolt ? this.playerX + boltX * boltRange : skill === "Teeth" ? this.playerX + rayX / rayLength * teethRange : multishotArrows !== undefined ? this.playerX + this.playerFacingX * distance + perpendicularX * spread : nearest.x + spread,
+          targetY: isChargedBolt ? this.playerY + boltY * boltRange : skill === "Teeth" ? this.playerY + rayY / rayLength * teethRange : multishotArrows !== undefined ? this.playerY + this.playerFacingY * distance + perpendicularY * spread : nearest.y,
+          pierce: isChargedBolt || undefined,
+          target: isChargedBolt || skill === "Teeth" || skill === "Shock Web" || multishotArrows !== undefined || (skill === "Fire Blast" && this.selectedClass === "assassin") ? undefined : nearest, targetId: this.attackSequence++,
           corpseExplosion: skill === "Corpse Explosion" && this.selectedClass === "necromancer",
           corpseExplosionDamage: skill === "Corpse Explosion" && this.selectedClass === "necromancer" ? nearest.maxHp * 0.35 : undefined,
           homing: multishotArrows === undefined && HOMING_SKILLS.has(skill),
           teethFan: skill === "Teeth" ? spread : undefined,
           teethDirectionX: skill === "Teeth" ? this.playerFacingX : undefined,
           teethDirectionY: skill === "Teeth" ? this.playerFacingY : undefined,
-          speed: skill === "Teeth" ? 700 : 420, damage: damage * (skill === "Teeth" ? 0.55 : 1), life: skill === "Shock Web" ? Math.max(4, distance / 420 + 4) : Math.max(3, distance / 420 + 1),
+          speed: isChargedBolt ? 900 : skill === "Teeth" ? 700 : 420,
+          damage: damage * (skill === "Teeth" ? 0.55 : 1),
+          life: isChargedBolt ? boltRange * this.worldZoom / 900 + 1
+            : skill === "Shock Web" ? Math.max(4, distance / 420 + 4)
+              : Math.max(3, distance / 420 + 1),
           radius: 5, color: multishotArrows !== undefined ? "#d7c5aa" : color, kind: multishotArrows !== undefined ? "arrow" : kind, missileId: multishotArrows !== undefined ? "5" : visualMissile, age: 0,
           impactRadius: skill === "Shock Web" ? 56 : skill === "Fire Blast" ? 40 : skill === "Corpse Explosion" ? this.corpseExplosionRadiusForRank(multiplier) : undefined,
           impactDuration: skill === "Shock Web" ? 3 : skill === "Fire Blast" ? 1 : skill === "Corpse Explosion" ? 0.6 : undefined,
@@ -5131,6 +5429,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       ...Object.values(BASIC_ATTACK_MISSILE_OVERLAYS),
       ...Object.values(ATTACK_KIND_MISSILE_OVERLAYS),
     ]);
+    // Every skill in the game now has its own Diablo II effect, which is around
+    // 900 cels. First cels load immediately so a cast is never blank; the rest
+    // stream in during idle time instead of flooding the page on startup.
+    const deferred: Array<() => void> = [];
     for (const id of [...missileIds].filter((missileId) => missileId)) {
       const images: MissileOverlayFrame[] = [];
       this.missileOverlayImages.set(id, images);
@@ -5149,12 +5451,30 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         image.onerror = () => {
           if (frameIndex === 0) console.warn(`Could not load missile animation ${id}: ${MISSILE_OVERLAY_BASE}/${id}.webp`);
         };
-        image.src = frameCount === 1
+        const source = frameCount === 1
           ? `${MISSILE_OVERLAY_BASE}/${id}.webp`
           : `${MISSILE_OVERLAY_BASE}/${id}/${String(frameIndex).padStart(4, "0")}.webp`;
+        if (frameIndex === 0) image.src = source;
+        else deferred.push(() => {
+          image.src = source;
+        });
         images.push(image);
       }
     }
+    this.pumpDeferredMissileFrames(deferred);
+  }
+
+  private pumpDeferredMissileFrames(queue: Array<() => void>): void {
+    const idle = (callback: () => void): void => {
+      const idleHost = window as Window & { requestIdleCallback?: (handler: () => void) => number };
+      if (typeof idleHost.requestIdleCallback === "function") idleHost.requestIdleCallback(callback);
+      else window.setTimeout(callback, 16);
+    };
+    const step = (): void => {
+      for (let count = 0; count < 12 && queue.length > 0; count += 1) queue.shift()?.();
+      if (queue.length > 0) idle(step);
+    };
+    idle(step);
   }
 
   private prepareMissileOverlayFrame(source: HTMLImageElement): MissileOverlayFrame {
@@ -5493,22 +5813,22 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const attackStyle = isExplicitSkillAnimation ? classDefault : this.attackStyleForEquippedWeapon(classDefault);
     this.attackAnimationStyle = attackStyle;
     this.attackAnimationTime = 0;
-    this.playerAttackLockRemaining = ATTACK_ANIMATION_PROFILES[attackStyle].duration / this.playerAttackSpeedMultiplier;
+    this.playerAttackLockRemaining = ATTACK_CLIP_INFO[attackStyle].duration / this.playerAttackSpeedMultiplier;
     this.attackAnimationSide = this.equippedWeaponVisual || this.playerWeaponMeshes.length > 0
       ? -1
       : this.attackAnimationSide === -1 ? 1 : -1;
     this.attackAnimationFacing.set(this.playerFacingX, this.playerFacingY).normalize();
     this.attackAnimationTurn = 0;
-    const profile = ATTACK_ANIMATION_PROFILES[attackStyle];
-    if (profile.trail) {
+    const clip = ATTACK_CLIP_INFO[attackStyle];
+    if (clip.trail) {
       this.meleeTrailEffects.push({
         style: attackStyle,
         facingX: this.attackAnimationFacing.x,
         facingY: this.attackAnimationFacing.y,
         side: this.attackAnimationSide,
         time: 0,
-        duration: profile.duration,
-        color: profile.trail,
+        duration: clip.duration,
+        color: clip.trail,
       });
     }
   }
@@ -5519,14 +5839,23 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (this.thrownWeaponKind) return "weaponThrow";
     const name = `${item.baseName ?? ""} ${item.name}`.toLowerCase();
     const type = getEquipmentType(item);
-    if (type === "claw") return "assassinSlash";
+    // Every weapon family gets its own strike: wind-up, release point, off-hand
+    // work and torso rotation differ between a bow, an axe and a dagger.
+    if (type === "claw") return "clawFlurry";
     if (type === "wand" || type === "orb" || /wand|orb/.test(name)) {
       return this.selectedClass === "sorceress" ? "sorceressCast" : "necromancerCast";
     }
-    if (/staff/.test(name)) return "staffStrike";
-    if (/pike|polearm|spear|javelin/.test(name)) return "amazonJab";
-    if (/hammer|mace|maul|club|flail/.test(name)) return "maceSmash";
-    if (/axe|sword|blade|dagger|knife|glaive/.test(name)) return /axe/.test(name) ? "barbarianCleave" : "assassinSlash";
+    if (/crossbow|arbalest|ballista/.test(name)) return "crossbowShot";
+    if (/\bbow\b|bow\b/.test(name)) return "bowShot";
+    if (/staff|stave|quarterstaff/.test(name)) return "staffStrike";
+    if (/pike|polearm|spear|lance|trident|brandistock|war scythe/.test(name)) return "amazonJab";
+    if (/dagger|knife|dirk|stiletto|kris/.test(name)) return "daggerStab";
+    if (/hammer|mace|maul|club|flail|scepter|sceptre|mallet/.test(name)) return "maceSmash";
+    if (/axe|cleaver|halberd|poleaxe/.test(name)) return this.selectedClass === "barbarian" ? "barbarianCleave" : "axeChop";
+    if (/sword|blade|scimitar|sabre|saber|falchion|glaive|crystal sword/.test(name)) {
+      return this.selectedClass === "assassin" ? "assassinSlash" : "swordSlash";
+    }
+    if (/claw|katar|hatchet hands|cestus/.test(name)) return "clawFlurry";
     return classDefault;
   }
 
@@ -6151,6 +6480,48 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         }
         continue;
       }
+      if (projectile.pierce) {
+        // Bolts fly their whole line and shock every monster they cross once,
+        // instead of spending themselves on the first collision.
+        const deltaX = projectile.targetX - projectile.x;
+        const deltaY = projectile.targetY - projectile.y;
+        const distance = Math.hypot(deltaX, deltaY);
+        const step = projectile.speed * seconds / this.worldZoom;
+        const travel = Math.min(step, distance);
+        const nextX = projectile.x + (distance > 0 ? deltaX / distance * travel : 0);
+        const nextY = projectile.y + (distance > 0 ? deltaY / distance * travel : 0);
+        const segmentX = nextX - projectile.x;
+        const segmentY = nextY - projectile.y;
+        const segmentLengthSquared = segmentX * segmentX + segmentY * segmentY;
+        const alreadyHit = projectile.pathHitEnemies ?? (projectile.pathHitEnemies = []);
+        const crossed: Enemy[] = [];
+        // collectEnemiesNear hands back a shared scratch array, so gather first
+        // and damage afterwards rather than re-entering the query mid-loop.
+        for (const enemy of this.collectEnemiesNear(projectile.x, projectile.y, step + 96)) {
+          if (enemy.hp <= 0 || enemy.summonType || alreadyHit.includes(enemy)) continue;
+          const relativeX = enemy.x - projectile.x;
+          const relativeY = enemy.y - projectile.y;
+          const along = segmentLengthSquared > 0
+            ? Math.max(0, Math.min(1, (relativeX * segmentX + relativeY * segmentY) / segmentLengthSquared))
+            : 0;
+          const miss = Math.hypot(relativeX - along * segmentX, relativeY - along * segmentY);
+          if (miss > enemy.r + projectile.radius + 6) continue;
+          crossed.push(enemy);
+        }
+        for (const enemy of crossed) {
+          alreadyHit.push(enemy);
+          this.queueEnemyDamage(enemy, projectile.damage, projectile.color);
+        }
+        if (distance <= step) {
+          projectile.x = projectile.targetX;
+          projectile.y = projectile.targetY;
+          projectile.life = 0;
+        } else {
+          projectile.x = nextX;
+          projectile.y = nextY;
+        }
+        continue;
+      }
       const target = projectile.target;
       const targetIsPlayer = projectile.targetPlayer === true;
       const targetIsAlive = targetIsPlayer || (!!target && target.hp > 0);
@@ -6229,14 +6600,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   private drawMeleeTrail(ctx: CanvasRenderingContext2D, effect: MeleeTrailEffect): void {
     const progress = Math.max(0, Math.min(1, effect.time / effect.duration));
-    const strike = attackMotionCurve(progress, effect.style);
+    const strike = attackStrikeIntensity(progress);
     const fade = Math.sin(Math.PI * progress);
     if (fade <= 0.01) return;
     const center = this.projectArenaPoint(this.playerX, this.playerY);
     const facing = this.projectArenaPoint(this.playerX + effect.facingX, this.playerY + effect.facingY);
     const angle = Math.atan2(facing.y - center.y, facing.x - center.x);
-    const profile = ATTACK_ANIMATION_PROFILES[effect.style];
-    const arc = profile.trailArc ?? 1.6;
+    const arc = ATTACK_CLIP_INFO[effect.style].trailArc ?? 1.6;
     const sweep = strike * (effect.style === "barbarianCleave" ? 0.52 : 0.24) * effect.side;
     const startAngle = effect.style === "spin" ? 0 : angle - arc / 2 + sweep;
     const endAngle = effect.style === "spin" ? Math.PI * 2 : angle + arc / 2 + sweep;
@@ -7223,15 +7593,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   private isPersistentSummonSkill(skill: string): boolean {
-    return this.selectedClass === "necromancer"
-      ? /^(Raise Skeleton|Skeletal Mage|Clay Golem|Blood Golem|Iron Golem|Fire Golem|Revive)$/.test(skill)
-      : this.selectedClass === "druid" && /^(Raven|Poison Creeper)$/.test(skill);
+    return Object.prototype.hasOwnProperty.call(SUMMON_SPECIES, skill);
   }
 
   private summonLimitForSkill(skill: string): number {
-    return this.selectedClass === "necromancer" && skill === "Raise Skeleton"
-      ? Math.max(1, this.skillLevels[skill] ?? 1)
-      : 1;
+    if (this.selectedClass === "necromancer" && skill === "Raise Skeleton") {
+      return Math.max(1, this.skillLevels[skill] ?? 1);
+    }
+    return SUMMON_LIMITS[skill] ?? 1;
   }
 
   private activeSummonCount(skill: string): number {
@@ -7307,15 +7676,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (this.activeSummonCount(skill) >= this.summonLimitForSkill(skill)) return;
     const rank = this.skillLevels[skill] ?? 1;
     const isDruid = this.selectedClass === "druid";
-    const isRaven = skill === "Raven";
-    const isPoisonCreeper = skill === "Poison Creeper";
-    const playerMastery = this.skillLevels["Skeleton Mastery"] ?? 0;
+    const playerMastery = this.selectedClass === "necromancer" ? this.skillLevels["Skeleton Mastery"] ?? 0 : 0;
     const golemMastery = this.skillLevels["Golem Mastery"] ?? 0;
-    const isGolem = /Golem$/.test(skill);
-    const isMage = skill === "Skeletal Mage";
-    const baseHealth = isRaven ? 65 : isPoisonCreeper ? 150 : skill === "Fire Golem" ? 220 : skill === "Iron Golem" ? 280 : skill === "Blood Golem" ? 320 : isGolem ? 260 : isMage ? 95 : 125;
-    const health = Math.round(baseHealth * (1 + (rank - 1) * 0.18 + (isGolem ? golemMastery * 0.25 : isDruid ? 0 : playerMastery * 0.2)) * (skill === "Raise Skeleton" ? 0.5 : 1));
-    const damage = Math.round((isRaven ? 12 : isPoisonCreeper ? 19 : isGolem ? 17 : isMage ? 13 : 15) * (1 + (rank - 1) * 0.12 + (isGolem ? golemMastery * 0.1 : isDruid ? 0 : playerMastery * 0.2)));
+    const isGolem = this.isGolemSkill(skill);
+    const base = SUMMON_STATS[skill] ?? { health: 125, damage: 15, speed: 155, r: 12 };
+    const health = Math.round(base.health * (1 + (rank - 1) * 0.18 + (isGolem ? golemMastery * 0.25 : isDruid ? 0 : playerMastery * 0.2)) * (skill === "Raise Skeleton" ? 0.5 : 1));
+    const damage = Math.round(base.damage * (1 + (rank - 1) * 0.12 + (isGolem ? golemMastery * 0.1 : isDruid ? 0 : playerMastery * 0.2)));
     const slot = this.nextSummonSlot();
     const position = this.summonFollowPosition(slot);
     if (skill === "Raise Skeleton") {
@@ -7325,7 +7691,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     const companion: Enemy = {
       kind: "normal",
-      species: isRaven ? "scarab" : isPoisonCreeper ? "sandMaggot" : isGolem ? "minotaur" : "skeleton",
+      species: SUMMON_SPECIES[skill] ?? "skeleton",
       campaignBoss: false,
       spriteFrame: 0,
       summonType: isDruid ? "druid" : isGolem ? "golem" : "skeleton",
@@ -7336,8 +7702,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       y: position.y,
       hp: health,
       maxHp: health,
-      speed: isRaven ? 205 : isPoisonCreeper ? 95 : isGolem ? 135 : 155,
-      r: isRaven ? 9 : isPoisonCreeper ? 15 : isGolem ? 19 : 12,
+      speed: base.speed,
+      r: base.r,
       dmg: damage,
     };
     this.enemies.push(companion);
@@ -7356,8 +7722,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   private summonFollowPosition(slot: number): { x: number; y: number } {
+    // A druid can field five ravens, five spirit wolves and three dire wolves at
+    // once, so the pack spreads over a few rings instead of stacking on one.
     const angle = slot * Math.PI * 0.72 + Math.PI * 0.25;
-    const radius = 66 + (slot % 2) * 22;
+    const ring = Math.floor(slot / 6);
+    const radius = 66 + ring * 30 + (slot % 2) * 14;
     return { x: this.playerX + Math.cos(angle) * radius, y: this.playerY + Math.sin(angle) * radius };
   }
 
@@ -7862,7 +8231,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   private drawBladeSentinel(ctx: CanvasRenderingContext2D, effect: SkillVisualEffect, center: { x: number; y: number }): void {
-    const frames = this.missileOverlayImages.get("101") ?? [];
+    const frames = this.missileOverlayImages.get("110") ?? [];
     const frameIndex = Math.floor(performance.now() / 85) % Math.max(1, frames.length);
     const readyFrame = frames[frameIndex];
     const frame = this.isMissileFrameReady(readyFrame) ? readyFrame : frames.find((candidate) => this.isMissileFrameReady(candidate));
@@ -9476,7 +9845,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         const tileDy = relativeY * this.worldZoom;
         const pointX = this.projectionCenterX + (tileDx - tileDy) * 0.7071 * this.projectionDpr;
         const pointY = this.projectionCenterY + (tileDx + tileDy) * 0.35355 * this.projectionDpr;
-        const variant = this.connectedTileVariant(act.act * 97 + this.currentAreaIndex, worldTileX, worldTileY, tiles.length);
+        const variant = this.connectedTileVariant(act.act, worldTileX, worldTileY, tiles.length);
         const image = tiles[variant] ?? baseTile;
         if (image) {
           const halfW = tileWidth / 2;
@@ -9772,12 +10141,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         }
         this.normalizeCharacterModel(model, 72);
         model.rotation.y = 0;
-        this.playerRigBones = this.getPlayerRigBones(model);
+        this.characterRig = buildCharacterRig(model, modelClass);
         this.selectedClass = modelClass;
         this.attachBarbarianShoulderPads(model, modelClass);
         this.configureClassMeleeWeapon(model, modelClass);
         this.playerAnimationTime = 0;
         this.playerMotionBlend = 0;
+        this.playerWalkPhase = 0;
         this.playerMoveX = 0;
         this.playerMoveY = 0;
         this.playerFacingX = 1;
@@ -10307,248 +10677,54 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     return defense >= 25 ? "heavy" : defense <= 12 ? "light" : "medium";
   }
 
-  private getPlayerRigBones(model: THREE.Group): PlayerRigBones {
-    const bones: PlayerRigBones = { legs: [], knees: [], feet: [], arms: [], forearms: [] };
-    model.traverse((object) => {
-      if (!(object instanceof THREE.Bone)) return;
-      const name = object.name.toLowerCase();
-      const side = this.rigBoneSide(name);
-      if ((/(?:^|[_-])(?:pelvis|hips?)(?:[_-]|$)/.test(name)
-        || (this.selectedClass === "assassin" && /^root_main_00_m_jnt$/.test(name))) && !bones.pelvis) {
-        bones.pelvis = object;
-        bones.pelvisBaseQuaternion = object.quaternion.clone();
-      }
-      if ((/(?:^|[_-])spine[_-]?(?:01|1)(?:[_-]|$)/.test(name)
-        || (this.selectedClass === "assassin" && /^spine_01_m_jnt$/.test(name))) && !bones.spine) {
-        bones.spine = object;
-        bones.spineBaseQuaternion = object.quaternion.clone();
-      }
-      const legRoot = /^(?:l|r|left|right)[_-](?:leg[_-]?01|upper[_-]?leg|thigh)(?:[_-].*)?$/.test(name)
-        || /^(?:hip|upper[_-]?leg|thigh)[_-](?:l|r|left|right)(?:[_-].*)?$/.test(name)
-        || /^(?:hip[_-]?(?:l|r|left|right)|(?:l|r|left|right)[_-]hip)(?:[_-].*)?$/.test(name)
-        || (this.selectedClass === "assassin" && /^hip_[lr]_jnt$/.test(name))
-        || (this.selectedClass === "sorceress" && /^(?:l|r)[_-]thigh$/.test(name));
-      const lowerLeg = /^(?:l|r|left|right)[_-](?:leg[_-]?02|lower[_-]?leg|calf|shin|knee)(?:[_-].*)?$/.test(name)
-        || /^(?:knee|calf|shin)[_-](?:l|r|left|right)(?:[_-].*)?$/.test(name)
-        || (this.selectedClass === "assassin" && /^knee_[lr]_jnt$/.test(name))
-        || (this.selectedClass === "sorceress" && /^(?:l|r)[_-]calf$/.test(name));
-      const foot = /^(?:l|r|left|right)[_-](?:foot|ankle)(?:[_-].*)?$/.test(name)
-        || (this.selectedClass === "assassin" && /^ankle_[lr]_jnt$/.test(name))
-        || (this.selectedClass === "sorceress" && /^(?:l|r)[_-]foot$/.test(name))
-        || /^(?:foot|ankle)[_-](?:l|r|left|right)(?:[_-].*)?$/.test(name);
-      const isTwistOrHelperLeg = /twist|helper|pad|armor|cord/.test(name);
-      const hasExplicitLegSide = /^(?:l|r|left|right)[_-]/.test(name)
-        || /[_-](?:l|r|left|right)(?:[_-]|$)/.test(name)
-        || (this.selectedClass === "assassin" && /_(?:l|r)_jnt$/.test(name));
-      if (side && legRoot && hasExplicitLegSide && !isTwistOrHelperLeg) {
-        bones.legs?.push({ bone: object, baseQuaternion: object.quaternion.clone(), side });
-      } else if (side && lowerLeg && hasExplicitLegSide && !isTwistOrHelperLeg) {
-        bones.knees?.push({ bone: object, baseQuaternion: object.quaternion.clone(), side });
-      } else if (side && foot && hasExplicitLegSide && !isTwistOrHelperLeg) {
-        bones.feet?.push({ bone: object, baseQuaternion: object.quaternion.clone(), side });
-      }
-      const shoulder = /(?:^|[_-])(?:l|left|r|right)[_-]?shoulder(?:[_-].*)?/.test(name)
-        || /(?:^|[_-])shoulder[_-]?(?:l|r)(?:[_-].*)?/.test(name);
-      const upperArm = /(?:^|[_-])(?:l|left|r|right)[_-]?(?:upr|upper)[_-]?arm(?:[_-].*)?/.test(name)
-        || /^(?:l|r)_(?:upperarm|clavicle)$/.test(name)
-        || (this.selectedClass === "assassin" && /^shoulder_[lr]_jnt$/.test(name));
-      const forearm = /(?:^|[_-])(?:l|left|r|right)[_-]?(?:forearm|fore[_-]?arm|lower[_-]?arm|lwr[_-]?arm)(?:[_-].*)?/.test(name)
-        || /(?:^|[_-])(?:l|left|r|right)[_-]?(?:elbow)(?:[_-].*)?/.test(name)
-        || (this.selectedClass === "assassin" && /^elbow_[lr]_jnt$/.test(name));
-      if (side && (shoulder || upperArm) && !/twist|pad|plate|helper/.test(name)) {
-        bones.arms?.push({ bone: object, baseQuaternion: object.quaternion.clone(), side });
-      }
-      if (side && forearm && !/twist|helper|pad|plate|armor|cord/.test(name)) {
-        bones.forearms?.push({ bone: object, baseQuaternion: object.quaternion.clone(), side });
-      }
-    });
-    // Pick one real pivot per side. Child segments and helper joints in several GLBs
-    // were previously animated together, which made the preview limbs appear doubled.
-    const choosePrimaryPerSide = (entries: RigAnimationBone[] | undefined, score: (entry: RigAnimationBone) => number): RigAnimationBone[] =>
-      (entries ?? []).filter((entry, index, all) => {
-        const peers = all.filter((candidate) => candidate.side === entry.side);
-        const bestScore = Math.max(...peers.map(score));
-        return score(entry) === bestScore && peers.find((candidate) => score(candidate) === bestScore) === entry;
-      });
-    bones.arms = choosePrimaryPerSide(bones.arms, (entry) => {
-      const name = entry.bone.name.toLowerCase();
-      if (this.selectedClass === "barbarian") return /upper.?arm|upr_arm/.test(name) ? 3 : /shoulder|clavicle/.test(name) ? 1 : 2;
-      if (this.selectedClass === "paladin") return /upper.?arm|upr_arm/.test(name) ? 3 : /shoulder|clavicle/.test(name) ? 1 : 2;
-      return /shoulder|clavicle/.test(name) ? 3 : /upper.?arm|upr_arm/.test(name) ? 2 : 1;
-    });
-    bones.forearms = choosePrimaryPerSide(bones.forearms, (entry) => {
-      const name = entry.bone.name.toLowerCase();
-      if (/^(?:l|r)_?fore_?arm(?:_jnt)?$/.test(name) || /^elbow_[lr]_jnt$/.test(name)) return 3;
-      return /forearm|fore_arm|lwr_arm|elbow/.test(name) ? 2 : 1;
-    });
-    return bones;
-  }
-
-  private rigBoneSide(name: string): -1 | 1 | undefined {
-    if (/^(?:r|right)[_-]/.test(name) || /[_-](?:r|right)(?:[_-]|$)/.test(name)
-      || /(?:^|_)r_jnt$/.test(name)) return -1;
-    if (/^(?:l|left)[_-]/.test(name) || /[_-](?:l|left)(?:[_-]|$)/.test(name)
-      || /(?:^|_)l_jnt$/.test(name)) return 1;
-    return undefined;
-  }
-
   private animatePlayerModel(dt: number): void {
-    if (!this.characterModel) return;
+    if (!this.characterModel || !this.characterRig) return;
     const seconds = Math.max(0, dt / 1000);
     this.playerAnimationTime += seconds;
     const targetBlend = this.isPlayerMoving ? 1 : 0;
     this.playerMotionBlend += (targetBlend - this.playerMotionBlend) * (1 - Math.exp(-seconds * 8));
-    const moving = this.playerMotionBlend;
-    const isSorceress = this.selectedClass === "sorceress";
-    const isBarbarian = this.selectedClass === "barbarian";
-    const isNecromancer = this.selectedClass === "necromancer";
-    // The Necromancer shambles: a slower cadence than the other classes but a wider
-    // stride, so the walk reads as heavy rather than as a twitch.
-    const phase = this.playerAnimationTime * (2.1 + moving * (isSorceress ? 4.6 : isBarbarian ? 5.2 : isNecromancer ? 5.2 : 6.4));
-    const stride = Math.sin(phase);
-    const oppositeStride = -stride;
-    const hipAmplitude = moving * (isSorceress ? 0.095 : isBarbarian ? 0.34 : isNecromancer ? 0.26 : 0.16);
-    const legHingeAxis = isNecromancer ? NECROMANCER_LIMB_HINGE_AXIS : new THREE.Vector3(1, 0, 0);
-
-    // These class rigs ship in bind pose without clips. Keep procedural motion deliberately
-    // small and animate only the actual left/right leg chains; broad bone matching can swing
-    // duplicate armor/helper joints and creates the appearance of extra legs.
+    const gait = gaitForClass(this.selectedClass);
+    // The stride keeps ticking at a reduced rate while standing so the hero is
+    // never frozen mid-step when the player stops.
+    this.playerWalkPhase += seconds * gait.walkCadence * Math.max(0.16, this.playerMotionBlend);
     this.attackAnimationTime += seconds * this.playerAttackSpeedMultiplier;
-    const attackProfile = ATTACK_ANIMATION_PROFILES[this.attackAnimationStyle];
-    const attackProgress = Math.max(0, Math.min(1, this.attackAnimationTime / attackProfile.duration));
-    const attackActive = this.attackAnimationTime < attackProfile.duration;
-    const attackMotion = attackActive ? attackMotionCurve(attackProgress, this.attackAnimationStyle) : 0;
-    const attackFollowThrough = attackActive ? Math.sin(Math.PI * attackProgress) : 0;
-    const isAssassinKick = this.attackAnimationStyle === "assassinKick";
-    // Let the axe/javelin leave the hand at the release point of a throw, then
-    // restore it once the animation ends so the equipped weapon is not lost.
-    if (this.equippedWeaponVisual) {
-      this.equippedWeaponVisual.visible = !(this.attackAnimationStyle === "weaponThrow" && attackActive && attackProgress > 0.5);
-    }
-    for (const leg of this.playerRigBones.legs ?? []) {
-      const locomotionSwing = Math.sin(phase + (leg.side < 0 ? Math.PI : 0)) * hipAmplitude;
-      const kick = isAssassinKick && leg.side === this.attackAnimationSide ? attackMotion * 1.15 : 0;
-      const support = isAssassinKick && leg.side !== this.attackAnimationSide ? Math.max(0, attackMotion) * 0.12 : 0;
-      const swing = new THREE.Quaternion().setFromAxisAngle(legHingeAxis, locomotionSwing + kick + support);
-      leg.bone.quaternion.copy(leg.baseQuaternion).multiply(swing);
-    }
-    for (const knee of this.playerRigBones.knees ?? []) {
-      const legPhase = phase + (knee.side < 0 ? Math.PI : 0);
-      // The bend peaks while the leg travels forward, so the knee never hyperextends.
-      const kneeAmplitude = isSorceress ? 0.13 : isBarbarian ? 0.48 : isNecromancer ? 0.42 : 0.22;
-      const kneePhaseOffset = Math.PI * (isBarbarian ? 0.18 : isNecromancer ? 0.5 : 0.35);
-      const locomotionBend = moving * kneeAmplitude * Math.max(0, Math.sin(legPhase + kneePhaseOffset));
-      const kickBend = isAssassinKick && knee.side === this.attackAnimationSide ? Math.max(0, attackMotion) * 1.05 : 0;
-      const supportBend = isAssassinKick && knee.side !== this.attackAnimationSide ? Math.max(0, attackMotion) * 0.16 : 0;
-      const flex = new THREE.Quaternion().setFromAxisAngle(legHingeAxis, locomotionBend + kickBend + supportBend);
-      knee.bone.quaternion.copy(knee.baseQuaternion).multiply(flex);
-    }
-    for (const foot of this.playerRigBones.feet ?? []) {
-      const legPhase = phase + (foot.side < 0 ? Math.PI : 0);
-      // Toe-off on the trailing leg, heel strike on the leading one.
-      const locomotionRoll = -Math.sin(legPhase) * moving * (isSorceress ? 0.035 : isBarbarian ? 0.11 : isNecromancer ? 0.12 : 0.06);
-      const kickPoint = isAssassinKick && foot.side === this.attackAnimationSide ? -Math.max(0, attackMotion) * 0.48 : 0;
-      const roll = new THREE.Quaternion().setFromAxisAngle(legHingeAxis, locomotionRoll + kickPoint);
-      foot.bone.quaternion.copy(foot.baseQuaternion).multiply(roll);
-    }
-    this.attackAnimationTurn = attackActive && attackProfile.spin ? attackProgress * Math.PI * 2 : 0;
-    for (const effect of this.meleeTrailEffects) effect.time += seconds;
-    for (let index = this.meleeTrailEffects.length - 1; index >= 0; index -= 1) {
-      if (this.meleeTrailEffects[index].time >= this.meleeTrailEffects[index].duration) this.meleeTrailEffects.splice(index, 1);
-    }
-    for (const arm of this.playerRigBones.arms ?? []) {
-      const lead = arm.side === this.attackAnimationSide;
-      const isPaladin = this.selectedClass === "paladin";
-      const attackAmplitude = lead ? attackProfile.leadArm : attackProfile.offArm;
-      const armAmplitude = isPaladin ? Math.min(attackAmplitude, lead ? 1.22 : 0.14) : attackAmplitude;
-      const locomotionSwing = (arm.side < 0 ? oppositeStride : stride) * moving * (isSorceress ? 0.035 : isBarbarian ? 0.2 : 0.08);
-      const pitch = locomotionSwing + attackMotion * armAmplitude;
-      const sweep = attackFollowThrough * (lead ? attackProfile.armSweep : -attackProfile.armSweep * 0.55) * (isPaladin ? 0.35 : 1);
-      const roll = attackMotion * attackProfile.shoulderRoll * (lead ? -1 : 1) * (isPaladin ? 0.35 : 1);
-      const shoulderRestAngle = isSorceress ? SORCERESS_ARM_REST_ANGLE
-        : this.selectedClass === "necromancer" ? NECROMANCER_ARM_REST_ANGLE
-        : 0;
-      const shoulderMotion = this.selectedClass === "paladin"
-        ? new THREE.Quaternion().setFromAxisAngle(PALADIN_ARM_SWING_AXIS, -arm.side * pitch)
-          .multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(roll, 0, sweep, "XYZ")))
-        : isSorceress || this.selectedClass === "necromancer"
-        ? new THREE.Quaternion().setFromEuler(new THREE.Euler(roll, shoulderRestAngle + pitch, sweep, "XYZ"))
-        : new THREE.Quaternion().setFromEuler(new THREE.Euler(pitch, sweep, roll, "XYZ"));
-      arm.bone.quaternion.copy(arm.baseQuaternion).multiply(shoulderMotion);
-    }
-    for (const forearm of this.playerRigBones.forearms ?? []) {
-      const lead = forearm.side === this.attackAnimationSide;
-      const locomotionBend = Math.max(0, Math.sin(phase + (forearm.side < 0 ? Math.PI : 0))) * moving * (isSorceress ? 0.025 : isBarbarian ? 0.12 : 0.06);
-      const attackDrive = Math.max(0, attackMotion);
-      const elbowBend = lead ? attackProfile.elbowBend : attackProfile.offElbowBend;
-      const bend = locomotionBend + attackDrive * (this.selectedClass === "paladin" ? Math.min(elbowBend, lead ? 0.42 : 0.12) : elbowBend);
-      const hingeAxis = isSorceress || this.selectedClass === "necromancer"
-        ? SORCERESS_ARM_HINGE_AXIS
-        : this.selectedClass === "paladin" ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(1, 0, 0);
-      const flex = new THREE.Quaternion().setFromAxisAngle(hingeAxis, bend);
-      forearm.bone.quaternion.copy(forearm.baseQuaternion).multiply(flex);
-    }
+    const pose = poseCharacterRig(this.characterRig, {
+      time: this.playerAnimationTime,
+      walkPhase: this.playerWalkPhase,
+      walk: this.playerMotionBlend,
+      attackStyle: this.attackAnimationStyle,
+      attackTime: this.attackAnimationTime,
+      attackSide: this.attackAnimationSide,
+      gait,
+      motionScale: this.reducedMotion ? 0.5 : 1,
+    });
+    const weaponTurn = new THREE.Quaternion().setFromEuler(new THREE.Euler(
+      pose.weaponPitch * Math.PI / 180,
+      pose.weaponYaw * Math.PI / 180,
+      pose.weaponRoll * Math.PI / 180,
+      "XYZ",
+    ));
     for (let index = 0; index < this.playerWeaponMeshes.length; index += 1) {
       const side = this.playerWeaponMeshes[index].userData["d2sWeaponSide"] as number;
-      // The Barbarian weapons are parented to the animated hand; applying a second
-      // local swing rotates them around the mesh origin and makes the grip look broken.
-      const weaponDrive = isBarbarian ? 0 : attackMotion;
-      const turn = new THREE.Quaternion().setFromEuler(new THREE.Euler(weaponDrive * attackProfile.weaponPitch, 0, weaponDrive * attackProfile.weaponRoll * (side < 0 ? -1 : 1), "XYZ"));
-      this.playerWeaponMeshes[index].quaternion.copy(this.playerWeaponBaseQuaternions[index]).multiply(turn);
-    }
-    if (this.playerRigBones.pelvis) {
-
-      const base = this.playerRigBones.pelvisBaseQuaternion ?? this.playerRigBones.pelvis.quaternion;
-      const sway = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.sin(phase) * moving * (isSorceress ? 0.014 : isBarbarian ? 0.045 : 0.025));
-      this.playerRigBones.pelvis.quaternion.copy(base).multiply(sway);
-    }
-    if (this.playerRigBones.spine) {
-      const base = this.playerRigBones.spineBaseQuaternion ?? this.playerRigBones.spine.quaternion;
-      const paladinLungeScale = this.selectedClass === "paladin" ? 0 : 1;
-      const lean = new THREE.Quaternion().setFromEuler(new THREE.Euler(
-        -(isSorceress ? 0.008 : isBarbarian ? 0.035 : 0.018) * moving
-          + Math.sin(phase * 2) * moving * (isSorceress ? 0.003 : isBarbarian ? 0.012 : 0.006)
-          - attackMotion * attackProfile.lean * (isBarbarian ? 1.25 : 1) * paladinLungeScale,
-        attackMotion * attackProfile.torsoTwist * paladinLungeScale,
-        Math.sin(phase) * moving * (isSorceress ? 0.003 : isBarbarian ? 0.012 : 0.006),
+      const mirrored = new THREE.Quaternion().setFromEuler(new THREE.Euler(
+        pose.weaponPitch * Math.PI / 180,
+        pose.weaponYaw * Math.PI / 180,
+        pose.weaponRoll * Math.PI / 180 * (side < 0 ? -1 : 1),
         "XYZ",
       ));
-      if (isNecromancer) {
-        // His spine X is vertical, so the shared Euler above only twists it. A roll
-        // about the lateral axis gives the hunched, stooped walk he should have.
-        lean.multiply(new THREE.Quaternion().setFromAxisAngle(
-          NECROMANCER_LIMB_HINGE_AXIS,
-          moving * (NECROMANCER_WALK_HUNCH + Math.sin(phase * 2) * 0.012),
-        ));
-      }
-      this.playerRigBones.spine.quaternion.copy(base).multiply(lean);
+      this.playerWeaponMeshes[index].quaternion.copy(this.playerWeaponBaseQuaternions[index]).multiply(mirrored);
     }
+    void weaponTurn;
+    this.attackAnimationTurn = pose.rootSpin;
     const yawTarget = this.isPlayerMoving ? Math.atan2(this.playerMoveX, this.playerMoveY) : Math.atan2(this.playerFacingX, this.playerFacingY);
     const yawDelta = Math.atan2(Math.sin(yawTarget - this.characterModel.rotation.y), Math.cos(yawTarget - this.characterModel.rotation.y));
     this.characterModel.rotation.y += yawDelta * (1 - Math.exp(-seconds * 10));
     const modelRoot = this.characterModel.children[0];
     if (modelRoot) modelRoot.rotation.y = this.attackAnimationTurn;
-    // Keep footfalls subtle so the model stays grounded instead of hovering between steps.
-    const barbarianCrouch = isBarbarian && attackActive ? Math.max(0, -attackMotion) * 0.16 : 0;
-    const barbarianDrive = Math.max(0, attackMotion);
-    const attackLift = this.selectedClass === "paladin" ? 0 : barbarianDrive * attackProfile.bodyLift;
-    this.characterModel.position.y = Math.abs(Math.sin(phase * 2)) * moving * (isSorceress ? 0.035 : isBarbarian ? 0.14 : isNecromancer ? 0.05 : 0.08) - barbarianCrouch + attackLift;
-  }
-
-  private getPreviewPoseBones(model: THREE.Group): PreviewPoseBone[] {
-    const rig = this.getPlayerRigBones(model);
-    const poses: PreviewPoseBone[] = [];
-    const add = (entry: RigAnimationBone | undefined, role: PreviewPoseBone["role"]): void => {
-      if (entry) poses.push({ ...entry, role, phase: poses.length * 0.75 });
-    };
-    for (const arm of rig.arms ?? []) add(arm, "arm");
-    for (const forearm of rig.forearms ?? []) add(forearm, "forearm");
-    for (const leg of rig.legs ?? []) add(leg, "leg");
-    for (const knee of rig.knees ?? []) add(knee, "knee");
-    for (const foot of rig.feet ?? []) add(foot, "foot");
-    if (rig.pelvis) add({ bone: rig.pelvis, baseQuaternion: rig.pelvis.quaternion.clone(), side: 1 }, "pelvis");
-    if (rig.spine) add({ bone: rig.spine, baseQuaternion: rig.spine.quaternion.clone(), side: 1 }, "spine");
-    return poses;
+    // Body offsets are authored in model space; rotate them into the arena so a
+    // lunge travels the way the hero is facing.
+    this.playerPoseOffset.set(pose.bodyX, pose.bodyY, pose.bodyZ)
+      .applyAxisAngle(new THREE.Vector3(0, 1, 0), this.characterModel.rotation.y);
   }
 
   private normalizeCharacterModel(model: THREE.Group, targetHeight: number, excludeAmazonWeaponFromBounds = false): void {
@@ -10637,8 +10813,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     if (this.characterModel) {
       this.animatePlayerModel(this.playerAnimationDelta);
-      this.characterModel.position.x = (this.playerX - this.arenaW / 2) / this.worldZoom;
-      this.characterModel.position.z = (this.playerY - this.arenaH / 2) / this.worldZoom;
+      this.characterModel.position.x = (this.playerX - this.arenaW / 2) / this.worldZoom + this.playerPoseOffset.x;
+      this.characterModel.position.z = (this.playerY - this.arenaH / 2) / this.worldZoom + this.playerPoseOffset.z;
+      this.characterModel.position.y = this.playerPoseOffset.y;
       this.characterModel.scale.setScalar(this.playerWorldScale);
       this.characterModel.visible = !this.druidForm;
     }
@@ -10692,19 +10869,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const directionX = e.species === "andariel" ? -(e.facingX ?? dx) : e.facingX ?? dx;
       const directionY = e.facingY ?? dy;
       const directionRow = enemySpriteRow(e.species, directionX, directionY);
-      const direction = e.species === "goatman"
-        ? directionRow + (e.animationState === "attack" ? 8 : 0)
-        : e.species === "fetish" || e.species === "boneFetish" || (e.species === "fetishShaman" && sprite.animated)
-          ? (e.animationState === "attack" ? 16 : e.animationState === "move" ? 8 : 0) + directionRow
-          : e.species === "council" || e.species === "mephisto"
-            ? (e.animationState === "attack" ? 16 : e.animationState === "move" ? 8 : 0) + directionRow
-            : e.species === "diablo" && sprite.rows === 24
-              ? (e.animationState === "attack" ? 16 : e.animationState === "move" ? 8 : 0) + directionRow
-              : e.species === "baalsMinion" || e.species === "baal"
-                ? (e.animationState === "attack" ? 16 : e.animationState === "move" ? 8 : 0) + directionRow
-                : e.species === "scarab" || e.species === "sandMaggot" || e.species === "sandMaggotQueen" || e.species === "spiderDemon" || e.species === "sandMaggotYoung" || e.species === "sandRaider" || e.species === "leaper" || e.species === "spikeFiend" || e.species === "blunderbore" || e.species === "minotaur" || e.species === "nihlathak" || e.species === "painWorm" || e.species === "regurgitator" || e.species === "salamander" || e.species === "siegeBeast"
-                  ? (e.animationState === "attack" ? 8 : 0) + directionRow
-                  : directionRow % sprite.rows;
+      const direction = enemySpriteDirectionRow(e.species, e.animationState, sprite.rows, directionRow);
       const frameIndex = enemySpriteFrame(e, sprite.columns, this.runTime);
       const frame = sprite.frames[direction]?.[frameIndex];
       if (frame && frame.width > 0 && frame.height > 0) {
@@ -10831,7 +10996,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       fallen: "Fallen", goatman: "Goatman", skeleton: "Skeleton", sandRaider: "Sand Raider",
       sandMaggot: "Sand Maggot", sandMaggotQueen: "Sand Maggot Queen", sandMaggotYoung: "Sand Maggot Young", scarab: "Sand Scarab", spiderDemon: "Spider Demon", spikeFiend: "Spike Fiend", leaper: "Leaper", blunderbore: "Blunderbore", fetish: "Fetish", boneFetish: "Bone Fetish", fetishShaman: "Fetish Shaman",
       council: "Council Member", balrog: "Balrog", vileChild: "Vile Child", vileMother: "Vile Mother",
-      bloodLord: "Blood Lord", minotaur: "Minotaur", deathMauler: "Death Mauler", wendigo: "Wendigo", nihlathak: "Nihlathak", painWorm: "Pain Worm", regurgitator: "Regurgitator", salamander: "Salamander", siegeBeast: "Siege Beast", andariel: "Andariel", duriel: "Duriel", mephisto: "Mephisto", diablo: "Diablo",
+      bloodLord: "Blood Lord", minotaur: "Minotaur", deathMauler: "Death Mauler", wendigo: "Wendigo",
+      nihlathak: "Nihlathak", painWorm: "Pain Worm", regurgitator: "Regurgitator", salamander: "Salamander", siegeBeast: "Siege Beast", andariel: "Andariel", duriel: "Duriel", mephisto: "Mephisto", diablo: "Diablo",
       baalsMinion: "Minion of Destruction", baal: "Baal",
     };
     const baseName = speciesNames[enemy.species];
@@ -10842,59 +11008,66 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   private drawSummon(ctx: CanvasRenderingContext2D, summon: Enemy, ground: { x: number; y: number }): void {
-    if (summon.summonType === "druid") {
+    // The raven and the three corpse vines have dedicated Diablo II summon
+    // sheets. Everything else is drawn from the monster atlas for its species,
+    // so a summon is never a procedural stand-in.
+    if (SUMMON_SHEET_SKILLS.has(summon.summonSkill ?? "")) {
       this.drawDruidSummon(ctx, summon, ground);
       return;
     }
-    const isGolem = summon.summonType === "golem";
-    const sheet = this.animatedSkeletonFrames[0];
-    const frameWidth = 70;
-    const frameHeight = 86;
-    const columns = 16;
+    const sprite = this.enemySprites[summon.species];
     const dx = this.playerX - summon.x;
     const dy = this.playerY - summon.y;
-    const isMoving = summon.animationState === "move";
-    const strideFrame = isMoving ? Math.floor(this.runTime * 10) % columns : 3;
-    const height = (isGolem ? 84 : 90) * this.worldZoom;
-    const width = height * frameWidth / frameHeight;
-    const mirror = !isGolem && dx < 0;
+    const directionRow = enemySpriteRow(summon.species, summon.facingX ?? dx, summon.facingY ?? dy);
+    const direction = sprite
+      ? enemySpriteDirectionRow(summon.species, summon.animationState, sprite.rows, directionRow)
+      : 0;
+    const attackProgress = 1 - Math.max(0, Math.min(1, (summon.attackAnimationTime ?? 0) / 0.4));
+    const frameIndex = sprite
+      ? summon.animationState === "attack"
+        ? Math.min(sprite.columns - 1, Math.floor(attackProgress * sprite.columns))
+        : summon.animationState === "move"
+          ? Math.floor(this.runTime * 9 + summon.x * 0.06) % Math.max(2, Math.ceil(sprite.columns * 0.75))
+          : Math.min(sprite.columns - 1, Math.floor(sprite.columns * 0.12))
+      : 0;
+    const frame = sprite?.frames[direction]?.[frameIndex];
+    const size = summon.r * 4.6 * this.worldZoom * enemySpeciesScale(summon.species);
+    const height = size * (summon.summonSkill === "Summon Grizzly" ? 1.35 : summon.summonSkill === "Summon Dire Wolf" ? 1.15 : 1);
+    const aspect = frame && frame.height > 0 ? frame.width / frame.height : 0.8;
+    const width = height * Math.max(0.6, Math.min(1.8, aspect));
+    const attackPulse = summon.animationState === "attack" ? Math.sin((1 - (summon.attackAnimationTime ?? 0) / 0.4) * Math.PI) : 0;
+
     ctx.save();
-    if (isGolem) {
-      ctx.fillStyle = "#050505";
-      ctx.globalAlpha = 0.55;
-      ctx.beginPath();
-      ctx.ellipse(ground.x, ground.y + 2, width * 0.34, height * 0.07, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.globalAlpha = 1;
-    }
-    if (isGolem) {
-      this.drawClayGolem(ctx, summon, ground, width, height, isMoving);
-    } else if (sheet) {
-      ctx.imageSmoothingEnabled = false;
+    ctx.fillStyle = "#050505";
+    ctx.globalAlpha = 0.5;
+    ctx.beginPath();
+    ctx.ellipse(ground.x, ground.y + 2, width * 0.34, height * 0.08, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    if (frame) {
       ctx.save();
+      ctx.imageSmoothingEnabled = false;
+      if (summon.summonSkill === "Fire Golem") {
+        ctx.shadowColor = "rgba(255, 104, 34, 0.85)";
+        ctx.shadowBlur = 12 * this.worldZoom;
+      }
       if (summon.summonSkill === "Skeletal Mage") {
-        ctx.filter = "brightness(3.2) contrast(1.25) saturate(1.5)";
         ctx.shadowColor = "rgba(145, 210, 255, 0.95)";
         ctx.shadowBlur = 14 * this.worldZoom;
       }
-      if (mirror) {
-        ctx.translate(ground.x, 0);
-        ctx.scale(-1, 1);
-      }
+      const frameToDraw = this.tintedEnemyFrame(summon.species, direction, frameIndex, frame, SUMMON_TINT);
       ctx.drawImage(
-        sheet,
-        strideFrame * frameWidth,
-        0,
-        frameWidth,
-        frameHeight,
-        (mirror ? -ground.x : ground.x) - width / 2,
-        ground.y - height * 0.82,
+        frameToDraw,
+        ground.x - width / 2,
+        ground.y - height * 0.82 - attackPulse * size * 0.1,
         width,
         height,
       );
       ctx.restore();
     } else {
       const glow = "#c7d6df";
+      ctx.save();
       ctx.fillStyle = glow;
       ctx.strokeStyle = "#e2edf2";
       ctx.lineWidth = 3;
@@ -10904,25 +11077,17 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       ctx.ellipse(ground.x, ground.y - height * 0.48, width * 0.26, height * 0.42, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
+      ctx.restore();
     }
-    if (isGolem && summon.summonSkill === "Fire Golem") {
-      ctx.globalCompositeOperation = "lighter";
-      ctx.globalAlpha = 0.3;
-      ctx.fillStyle = "#ff6c16";
-      ctx.beginPath();
-      ctx.ellipse(ground.x, ground.y - height * 0.42, width * 0.28, height * 0.38, 0, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.restore();
 
     const hpRatio = Math.max(0, summon.hp / summon.maxHp);
     const barWidth = Math.max(30, width * 0.65);
     const barY = ground.y - height * 0.88 - 7;
     ctx.fillStyle = "#171311";
     ctx.fillRect(ground.x - barWidth / 2, barY, barWidth, 4);
-    ctx.fillStyle = isGolem ? summon.summonSkill === "Fire Golem" ? "#ff8136" : "#83bdb4" : "#b9d8e7";
+    ctx.fillStyle = this.summonBarColor(summon);
     ctx.fillRect(ground.x - barWidth / 2, barY, barWidth * hpRatio, 4);
-    ctx.fillStyle = isGolem ? "#f4bf76" : "#ded3bf";
+    ctx.fillStyle = "#ded3bf";
     ctx.font = "bold 9px Georgia, serif";
     ctx.textAlign = "center";
     ctx.shadowColor = "#08090b";
@@ -10931,130 +11096,41 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     ctx.shadowBlur = 0;
   }
 
-  private drawClayGolem(
-    ctx: CanvasRenderingContext2D,
-    summon: Enemy,
-    ground: { x: number; y: number },
-    width: number,
-    height: number,
-    isMoving: boolean,
-  ): void {
-    const fire = summon.summonSkill === "Fire Golem";
-    const blood = summon.summonSkill === "Blood Golem";
-    const iron = summon.summonSkill === "Iron Golem";
-    const stone = fire ? "#6e3424" : blood ? "#63352f" : iron ? "#59636a" : "#80634a";
-    const highlight = fire ? "#ee7837" : blood ? "#b35e4b" : iron ? "#9aa5a7" : "#bea27c";
-    const shadow = fire ? "#341c1c" : blood ? "#321d24" : iron ? "#292f36" : "#42352d";
-    const bob = isMoving ? Math.sin(this.runTime * 10) * height * 0.025 : Math.sin(this.runTime * 2.5) * height * 0.012;
-    const cx = ground.x;
-    const foot = ground.y + bob;
-    const limbWidth = width * 0.19;
-    const torsoWidth = width * 0.58;
-    ctx.save();
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    ctx.shadowColor = fire ? "#ff5829" : "#080706";
-    ctx.shadowBlur = fire ? 12 * this.worldZoom : 5 * this.worldZoom;
-    ctx.fillStyle = shadow;
-    ctx.beginPath();
-    ctx.ellipse(cx, foot + 2, width * 0.4, height * 0.075, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.shadowBlur = 0;
-
-    // Broad, irregular stone limbs and torso give the summon a golem silhouette.
-    ctx.strokeStyle = shadow;
-    ctx.lineWidth = limbWidth * 0.46;
-    ctx.beginPath();
-    ctx.moveTo(cx - torsoWidth * 0.33, foot - height * 0.48 + bob);
-    ctx.lineTo(cx - torsoWidth * 0.53, foot - height * 0.27 + bob);
-    ctx.lineTo(cx - torsoWidth * 0.58, foot - height * 0.08 + bob);
-    ctx.moveTo(cx + torsoWidth * 0.33, foot - height * 0.48 + bob);
-    ctx.lineTo(cx + torsoWidth * 0.53, foot - height * 0.28 + bob);
-    ctx.lineTo(cx + torsoWidth * 0.58, foot - height * 0.1 + bob);
-    ctx.moveTo(cx - torsoWidth * 0.18, foot - height * 0.15 + bob);
-    ctx.lineTo(cx - torsoWidth * 0.23, foot - height * 0.02 + bob);
-    ctx.moveTo(cx + torsoWidth * 0.18, foot - height * 0.15 + bob);
-    ctx.lineTo(cx + torsoWidth * 0.23, foot - height * 0.02 + bob);
-    ctx.stroke();
-    ctx.strokeStyle = highlight;
-    ctx.lineWidth = limbWidth * 0.25;
-    ctx.beginPath();
-    ctx.moveTo(cx - torsoWidth * 0.33, foot - height * 0.48 + bob);
-    ctx.lineTo(cx - torsoWidth * 0.53, foot - height * 0.27 + bob);
-    ctx.moveTo(cx + torsoWidth * 0.33, foot - height * 0.48 + bob);
-    ctx.lineTo(cx + torsoWidth * 0.53, foot - height * 0.28 + bob);
-    ctx.moveTo(cx - torsoWidth * 0.18, foot - height * 0.15 + bob);
-    ctx.lineTo(cx - torsoWidth * 0.23, foot - height * 0.02 + bob);
-    ctx.moveTo(cx + torsoWidth * 0.18, foot - height * 0.15 + bob);
-    ctx.lineTo(cx + torsoWidth * 0.23, foot - height * 0.02 + bob);
-    ctx.stroke();
-
-    ctx.fillStyle = stone;
-    ctx.strokeStyle = shadow;
-    ctx.lineWidth = Math.max(1.5, 2.2 * this.worldZoom);
-    ctx.beginPath();
-    ctx.moveTo(cx - torsoWidth * 0.25, foot - height * 0.62 + bob);
-    ctx.lineTo(cx - torsoWidth * 0.38, foot - height * 0.49 + bob);
-    ctx.lineTo(cx - torsoWidth * 0.34, foot - height * 0.22 + bob);
-    ctx.lineTo(cx - torsoWidth * 0.23, foot - height * 0.16 + bob);
-    ctx.lineTo(cx + torsoWidth * 0.23, foot - height * 0.16 + bob);
-    ctx.lineTo(cx + torsoWidth * 0.34, foot - height * 0.25 + bob);
-    ctx.lineTo(cx + torsoWidth * 0.39, foot - height * 0.48 + bob);
-    ctx.lineTo(cx + torsoWidth * 0.25, foot - height * 0.62 + bob);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-    ctx.fillStyle = highlight;
-    ctx.beginPath();
-    ctx.moveTo(cx - torsoWidth * 0.27, foot - height * 0.57 + bob);
-    ctx.lineTo(cx - torsoWidth * 0.1, foot - height * 0.59 + bob);
-    ctx.lineTo(cx - torsoWidth * 0.15, foot - height * 0.27 + bob);
-    ctx.lineTo(cx - torsoWidth * 0.29, foot - height * 0.25 + bob);
-    ctx.closePath();
-    ctx.fill();
-
-    ctx.fillStyle = stone;
-    ctx.beginPath();
-    ctx.moveTo(cx - width * 0.2, foot - height * 0.61 + bob);
-    ctx.lineTo(cx - width * 0.17, foot - height * 0.78 + bob);
-    ctx.lineTo(cx - width * 0.08, foot - height * 0.87 + bob);
-    ctx.lineTo(cx + width * 0.12, foot - height * 0.87 + bob);
-    ctx.lineTo(cx + width * 0.21, foot - height * 0.76 + bob);
-    ctx.lineTo(cx + width * 0.2, foot - height * 0.61 + bob);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-    ctx.fillStyle = highlight;
-    ctx.beginPath();
-    ctx.moveTo(cx - width * 0.13, foot - height * 0.82 + bob);
-    ctx.lineTo(cx - width * 0.04, foot - height * 0.85 + bob);
-    ctx.lineTo(cx - width * 0.08, foot - height * 0.68 + bob);
-    ctx.lineTo(cx - width * 0.16, foot - height * 0.67 + bob);
-    ctx.closePath();
-    ctx.fill();
-
-    ctx.fillStyle = fire ? "#fff0a0" : blood ? "#e47a62" : iron ? "#c5e8ee" : "#d9c68e";
-    ctx.shadowColor = fire ? "#ff481e" : blood ? "#d33546" : iron ? "#71c8e8" : "#b4d8a2";
-    ctx.shadowBlur = 7 * this.worldZoom;
-    for (const eyeX of [-1, 1]) {
-      ctx.beginPath();
-      ctx.ellipse(cx + eyeX * width * 0.074, foot - height * 0.75 + bob, width * 0.027, height * 0.018, 0, 0, Math.PI * 2);
-      ctx.fill();
+  private summonBarColor(summon: Enemy): string {
+    switch (summon.summonSkill) {
+      case "Fire Golem": return "#ff8136";
+      case "Iron Golem": return "#a8b6bb";
+      case "Blood Golem": return "#c2635a";
+      case "Clay Golem": return "#c0a074";
+      case "Oak Sage":
+      case "Carrion Vine": return "#7fc25a";
+      case "Heart of Wolverine": return "#e0554a";
+      case "Spirit of Barbs": return "#e8a444";
+      case "Shadow Warrior":
+      case "Shadow Master": return "#9a8fd0";
+      case "Valkyrie": return "#c9d6e2";
+      default: return "#b9d8e7";
     }
-    ctx.shadowBlur = 0;
-    ctx.restore();
   }
 
   private drawDruidSummon(ctx: CanvasRenderingContext2D, summon: Enemy, ground: { x: number; y: number }): void {
-    const isRaven = summon.summonSkill === "Raven";
-    const isCreeper = summon.summonSkill === "Poison Creeper";
+    const skill = summon.summonSkill ?? "Raven";
+    const isRaven = skill === "Raven";
     const animationName: DruidAnimationName = isRaven ? "raven" : "poison-creeper";
     const animation = this.druidAnimations[animationName];
     const height = (isRaven ? 36 : 50) * this.worldZoom;
     const width = height * (isRaven ? 1.25 : 1.45);
-    const frame = animation ? druidAnimationFrame(summon, animation, this.runTime, this.playerMoveX, this.playerMoveY, isCreeper) : undefined;
+    const frame = animation ? druidAnimationFrame(summon, animation, this.runTime, this.playerMoveX, this.playerMoveY, !isRaven) : undefined;
+    // Diablo II recolours one creeper model for the three corpse vines.
+    const tint = isRaven
+      ? ""
+      : skill === "Carrion Vine"
+        ? "sepia(0.45) saturate(1.1) brightness(1.05)"
+        : skill === "Solar Creeper"
+          ? "sepia(0.3) hue-rotate(-16deg) saturate(1.6) brightness(1.12)"
+          : "";
     ctx.save();
-    if (!isCreeper) {
+    if (!isRaven) {
       ctx.fillStyle = "#050505";
       ctx.globalAlpha = 0.56;
       ctx.beginPath();
@@ -11064,6 +11140,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     if (frame) {
       ctx.imageSmoothingEnabled = false;
+      if (tint) ctx.filter = tint;
       ctx.drawImage(frame, ground.x - width / 2, ground.y - height * 0.86, width, height);
     }
     ctx.restore();
@@ -11073,14 +11150,15 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const barY = ground.y - height * 0.88 - 7;
     ctx.fillStyle = "#171311";
     ctx.fillRect(ground.x - barWidth / 2, barY, barWidth, 4);
-    ctx.fillStyle = isRaven ? "#9e8ed0" : "#8cc34b";
+    ctx.fillStyle = this.summonBarColor(summon);
     ctx.fillRect(ground.x - barWidth / 2, barY, barWidth * hpRatio, 4);
     ctx.fillStyle = isRaven ? "#ddd3ff" : "#c4e29c";
     ctx.font = "bold 9px Georgia, serif";
     ctx.textAlign = "center";
     ctx.shadowColor = "#08090b";
     ctx.shadowBlur = 3;
-    ctx.fillText(isRaven ? "Raven" : "Poison Creeper", ground.x, barY - 3);
+    ctx.fillText(skill, ground.x, barY - 3);
+    ctx.shadowBlur = 0;
   }
 
   private druidFormAnimationName(): DruidAnimationName | undefined {
@@ -11994,6 +12072,35 @@ function enemySpriteFrame(enemy: Enemy, columns: number, runTime: number): numbe
   return Math.min(columns - 1, Math.floor(columns * 0.12));
 }
 
+/**
+ * The imported atlases stack a few blocks of eight directions on top of each
+ * other (idle, walk, attack). Species differ in how many blocks they hold and in
+ * their order, so every draw path that renders a monster cel asks this helper for
+ * the row instead of open coding the table again.
+ */
+function enemySpriteDirectionRow(
+  species: EnemySpecies,
+  state: Enemy["animationState"] | undefined,
+  rows: number,
+  directionRow: number,
+): number {
+  const block = (blockSize: number): number =>
+    (state === "attack" ? blockSize * 2 : state === "move" ? blockSize : 0) + directionRow;
+  if (species === "goatman") return directionRow + (state === "attack" ? 8 : 0);
+  if (species === "fetish" || species === "boneFetish") return block(8);
+  if (species === "council" || species === "mephisto") return block(8);
+  if (species === "diablo" && rows === 24) return block(8);
+  if (species === "baalsMinion" || species === "baal") return block(8);
+  if (ENEMY_WALK_ROW_SPECIES.has(species)) return block(4);
+  return directionRow % rows;
+}
+
+const ENEMY_WALK_ROW_SPECIES = new Set<EnemySpecies>([
+  "scarab", "sandMaggot", "sandMaggotQueen", "spiderDemon", "sandMaggotYoung", "sandRaider",
+  "leaper", "spikeFiend", "blunderbore", "minotaur", "nihlathak", "painWorm", "regurgitator",
+  "salamander", "siegeBeast",
+]);
+
 function enemySpriteRow(species: EnemySpecies, dx: number, dy: number): number {
   const layoutRows = ENEMY_SPRITE_LAYOUTS[species].rows;
   const directions = species === "scarab" || species === "sandMaggot" || species === "sandMaggotQueen" || species === "spiderDemon" || species === "sandMaggotYoung" || species === "sandRaider" || species === "leaper" || species === "spikeFiend" || species === "blunderbore" || species === "minotaur" || species === "nihlathak" || species === "painWorm" || species === "regurgitator" || species === "salamander" || species === "siegeBeast"
@@ -12010,110 +12117,6 @@ function enemySpriteRow(species: EnemySpecies, dx: number, dy: number): number {
 
 const BASIC_ATTACK_NAMES = ["Guided Arrow", "Throwing Knife", "Axe Throw", "Spirit Claw", "Bone Bolt", "Holy Bolt", "Fire Bolt", "Jab", "Attack"];
 type ThrownWeaponKind = "axe" | "javelin" | "knife" | "glaive";
-type AttackAnimationStyle = "amazonJab" | "assassinSlash" | "assassinKick" | "barbarianCleave" | "druidClaw" | "necromancerCast" | "paladinStrike" | "sorceressCast" | "spin" | "cast" | "maceSmash" | "staffStrike" | "weaponThrow";
-interface AttackAnimationProfile {
-  duration: number;
-  leadArm: number;
-  offArm: number;
-  armSweep: number;
-  shoulderRoll: number;
-  elbowBend: number;
-  offElbowBend: number;
-  weaponPitch: number;
-  weaponRoll: number;
-  lean: number;
-  torsoTwist: number;
-  bodyLift: number;
-  spin: boolean;
-  trail?: string;
-  trailArc?: number;
-}
-const ATTACK_ANIMATION_PROFILES: Record<AttackAnimationStyle, AttackAnimationProfile> = {
-  amazonJab: { duration: 0.34, leadArm: 1.35, offArm: 0.12, armSweep: 0.08, shoulderRoll: 0.08, elbowBend: 0.16, offElbowBend: 0.08, weaponPitch: -0.9, weaponRoll: -0.08, lean: 0.1, torsoTwist: 0.03, bodyLift: 0.015, spin: false, trail: "#f6d28b", trailArc: 0.52 },
-  assassinSlash: { duration: 0.38, leadArm: 1.12, offArm: 0.2, armSweep: 0.62, shoulderRoll: 0.22, elbowBend: 0.82, offElbowBend: 0.12, weaponPitch: -0.6, weaponRoll: 0.5, lean: 0.05, torsoTwist: 0.22, bodyLift: 0.015, spin: false, trail: "#a8cfff", trailArc: 2.35 },
-  assassinKick: { duration: 0.52, leadArm: 0.48, offArm: 0.32, armSweep: -0.16, shoulderRoll: 0.12, elbowBend: 0.24, offElbowBend: 0.2, weaponPitch: 0, weaponRoll: 0, lean: 0.18, torsoTwist: 0.08, bodyLift: 0.025, spin: false, trail: "#ffe2a0", trailArc: 0.82 },
-  barbarianCleave: { duration: 0.58, leadArm: 1.28, offArm: 0.42, armSweep: -1.18, shoulderRoll: 0.34, elbowBend: 0.78, offElbowBend: 0.22, weaponPitch: -1.05, weaponRoll: -0.44, lean: 0.34, torsoTwist: 0.42, bodyLift: 0.018, spin: false, trail: "#ffc06a", trailArc: 2.1 },
-  druidClaw: { duration: 0.44, leadArm: 1.08, offArm: 0.72, armSweep: 0.42, shoulderRoll: 0.12, elbowBend: 0.48, offElbowBend: 0.28, weaponPitch: -0.45, weaponRoll: 0.3, lean: 0.06, torsoTwist: 0.2, bodyLift: 0.02, spin: false, trail: "#9dffb1", trailArc: 1.8 },
-  necromancerCast: { duration: 0.62, leadArm: 1.18, offArm: 0.82, armSweep: 0.48, shoulderRoll: 0.34, elbowBend: 0.82, offElbowBend: 0.62, weaponPitch: -0.28, weaponRoll: 0.16, lean: 0.11, torsoTwist: 0.18, bodyLift: 0.025, spin: false, trail: "#c6e5ff", trailArc: 0.95 },
-  paladinStrike: { duration: 0.42, leadArm: 1.3, offArm: 0.08, armSweep: 0.12, shoulderRoll: 0.08, elbowBend: 0.18, offElbowBend: 0.04, weaponPitch: -0.25, weaponRoll: -0.08, lean: 0.025, torsoTwist: 0.04, bodyLift: 0, spin: false, trail: "#fff0a8", trailArc: 1.1 },
-  sorceressCast: { duration: 0.58, leadArm: 1.22, offArm: 0.82, armSweep: 0.35, shoulderRoll: 0.32, elbowBend: 0.72, offElbowBend: 0.46, weaponPitch: -0.35, weaponRoll: 0.22, lean: 0.03, torsoTwist: 0.08, bodyLift: 0.035, spin: false, trail: "#ffb35c", trailArc: 0.9 },
-  spin: { duration: 0.68, leadArm: 1.35, offArm: 1.2, armSweep: 1.2, shoulderRoll: 0.5, elbowBend: 0.72, offElbowBend: 0.72, weaponPitch: -0.6, weaponRoll: 1.1, lean: 0, torsoTwist: 0.1, bodyLift: 0.02, spin: true, trail: "#ffce76", trailArc: Math.PI * 2 },
-  cast: { duration: 0.48, leadArm: 0.82, offArm: 0.35, armSweep: 0.25, shoulderRoll: 0.18, elbowBend: 0.55, offElbowBend: 0.24, weaponPitch: -0.25, weaponRoll: 0.12, lean: 0.03, torsoTwist: 0.08, bodyLift: 0.02, spin: false, trail: "#e6ddff", trailArc: 1.2 },
-  maceSmash: { duration: 0.62, leadArm: 1.58, offArm: 0.48, armSweep: -0.34, shoulderRoll: -0.42, elbowBend: 1.06, offElbowBend: 0.22, weaponPitch: -0.92, weaponRoll: -0.2, lean: 0.28, torsoTwist: 0.22, bodyLift: 0.01, spin: false, trail: "#e5c58b", trailArc: 1.25 },
-  staffStrike: { duration: 0.52, leadArm: 1.08, offArm: 0.72, armSweep: 0.96, shoulderRoll: 0.42, elbowBend: 0.58, offElbowBend: 0.42, weaponPitch: -0.72, weaponRoll: 0.62, lean: 0.1, torsoTwist: 0.38, bodyLift: 0.02, spin: false, trail: "#d6c0ff", trailArc: 2.1 },
-  weaponThrow: { duration: 0.5, leadArm: 1.62, offArm: 0.38, armSweep: -0.58, shoulderRoll: 0.24, elbowBend: 0.72, offElbowBend: 0.14, weaponPitch: -0.5, weaponRoll: 0.12, lean: 0.18, torsoTwist: 0.36, bodyLift: 0.022, spin: false },
-};
-function attackMotionCurve(progress: number, style?: AttackAnimationStyle): number {
-  if (style === "paladinStrike") {
-    if (progress < 0.28) return -Math.sin(progress / 0.28 * Math.PI / 2) * 0.24;
-    if (progress < 0.5) {
-      const strike = (progress - 0.28) / 0.22;
-      return -0.24 + 1.24 * (strike * strike * (3 - 2 * strike));
-    }
-    return Math.cos((progress - 0.5) / 0.5 * Math.PI / 2);
-  }
-  if (style === "necromancerCast") {
-    if (progress < 0.3) return -Math.sin(progress / 0.3 * Math.PI / 2) * 0.48;
-    if (progress < 0.53) {
-      const release = (progress - 0.3) / 0.23;
-      return -0.48 + 1.48 * (release * release * (3 - 2 * release));
-    }
-    const recovery = Math.min(1, (progress - 0.53) / 0.47);
-    return Math.cos(recovery * Math.PI / 2);
-  }
-  if (style === "maceSmash") {
-    if (progress < 0.34) return -Math.sin(progress / 0.34 * Math.PI / 2) * 0.9;
-    if (progress < 0.55) {
-      const strike = (progress - 0.34) / 0.21;
-      return -0.9 + 1.9 * (strike * strike * (3 - 2 * strike));
-    }
-    const recovery = Math.min(1, (progress - 0.55) / 0.45);
-    return Math.cos(recovery * Math.PI / 2) * 0.65;
-  }
-  if (style === "assassinKick") {
-    if (progress < 0.28) {
-      const windup = progress / 0.28;
-      return -Math.sin(windup * Math.PI / 2) * 0.35;
-    }
-    if (progress < 0.58) {
-      const strike = (progress - 0.28) / 0.3;
-      return -0.35 + 1.55 * (strike * strike * (3 - 2 * strike));
-    }
-    const recovery = Math.min(1, (progress - 0.58) / 0.42);
-    return Math.cos(recovery * Math.PI / 2);
-  }
-  if (style === "weaponThrow") {
-    if (progress < 0.34) {
-      const windup = progress / 0.34;
-      return -0.55 * Math.sin(windup * Math.PI / 2);
-    }
-    if (progress < 0.58) {
-      const release = (progress - 0.34) / 0.24;
-      return -0.55 + 1.75 * (release * release * (3 - 2 * release));
-    }
-    const recovery = Math.min(1, (progress - 0.58) / 0.42);
-    return Math.cos(recovery * Math.PI / 2) * 0.9;
-  }
-  if (style === "barbarianCleave") {
-    if (progress < 0.3) {
-      const windup = progress / 0.3;
-      return -Math.sin(windup * Math.PI / 2);
-    }
-    if (progress < 0.56) {
-      const strike = (progress - 0.3) / 0.26;
-      const easedStrike = strike * strike * (3 - 2 * strike);
-      return -Math.cos(easedStrike * Math.PI);
-    }
-    const recovery = Math.min(1, (progress - 0.56) / 0.44);
-    return Math.cos(recovery * Math.PI / 2) * (1 - recovery * 0.18);
-  }
-  if (progress < 0.22) return -0.35 * Math.sin(progress / 0.22 * Math.PI / 2);
-  if (progress < 0.48) {
-    const strike = (progress - 0.22) / 0.26;
-    return -0.35 + 1.35 * (strike * strike * (3 - 2 * strike));
-  }
-  return Math.cos(Math.PI / 2 * (progress - 0.48) / 0.52);
-}
 const CLASS_ATTACK_ANIMATION: Record<string, AttackAnimationStyle> = {
   amazon: "amazonJab", assassin: "assassinSlash", barbarian: "barbarianCleave",
   druid: "druidClaw", necromancer: "necromancerCast", paladin: "paladinStrike", sorceress: "sorceressCast",
@@ -12215,6 +12218,9 @@ interface AttackProjectile {
   teethFan?: number;
   teethDirectionX?: number;
   teethDirectionY?: number;
+  /** Flies its full line, damaging each enemy it crosses once. */
+  pierce?: boolean;
+  pathHitEnemies?: Enemy[];
   targetPlayer?: boolean;
   speed: number;
   damage: number;
@@ -12243,29 +12249,6 @@ interface AttackProjectile {
   color: string;
   kind: "arrow" | "fire" | "lightning" | "blade" | "bone" | "holy" | "claw" | "melee";
   thrownWeapon?: ThrownWeaponKind;
-}
-
-interface RigAnimationBone {
-  bone: THREE.Bone;
-  baseQuaternion: THREE.Quaternion;
-  side: -1 | 1;
-}
-
-interface PreviewPoseBone extends RigAnimationBone {
-  phase: number;
-  role: "arm" | "forearm" | "leg" | "knee" | "foot" | "pelvis" | "spine";
-}
-
-interface PlayerRigBones {
-  pelvis?: THREE.Bone;
-  pelvisBaseQuaternion?: THREE.Quaternion;
-  spine?: THREE.Bone;
-  spineBaseQuaternion?: THREE.Quaternion;
-  legs?: RigAnimationBone[];
-  knees?: RigAnimationBone[];
-  feet?: RigAnimationBone[];
-  arms?: RigAnimationBone[];
-  forearms?: RigAnimationBone[];
 }
 
 interface Enemy {

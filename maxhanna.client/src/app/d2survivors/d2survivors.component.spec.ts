@@ -3,6 +3,7 @@ import { Subject } from "rxjs";
 import * as THREE from "three";
 import { D2SurvivorsService } from "../../services/d2survivors.service";
 import { D2SurvivorsComponent } from "./d2survivors.component";
+import { ATTACK_CLIP_INFO, buildCharacterRig } from "./character-animation";
 
 describe("D2SurvivorsComponent combat and equipment", () => {
   let fixture: ComponentFixture<D2SurvivorsComponent>;
@@ -80,7 +81,11 @@ describe("D2SurvivorsComponent combat and equipment", () => {
 
     expect(component.playerAttackSpeedMultiplier).toBe(1.5);
     (component as any).triggerAttackAnimation("amazonJab");
-    expect((component as any).playerAttackLockRemaining).toBeCloseTo(0.38 / 1.5, 4);
+    // A blade now plays its own clip, so the lock follows whichever clip the weapon picked.
+    expect((component as any).playerAttackLockRemaining).toBeCloseTo(
+      ATTACK_CLIP_INFO[(component as any).attackAnimationStyle as keyof typeof ATTACK_CLIP_INFO].duration / 1.5,
+      4,
+    );
     expect((component as any).paladinAuraAttackCooldown()).toBeCloseTo(0.72 / 1.5, 4);
     expect(component.getItemStatText(component.equipment.weapon)).toContain("+50% Attack Speed");
   });
@@ -101,138 +106,111 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect((component as any).attackAnimationStyle).toBe("necromancerCast");
   });
 
-  it("drives the Paladin's actual arms forward for a compact strike instead of leaning into the target", () => {
-    component.selectedClass = "paladin";
-    const rig = new THREE.Group();
-    const spine = new THREE.Bone();
-    spine.name = "spine_01_bind_jnt";
-    const rightShoulder = new THREE.Bone();
-    rightShoulder.name = "R_shoulder_bind_jnt";
-    const leftShoulder = new THREE.Bone();
-    leftShoulder.name = "L_shoulder_bind_jnt";
-    spine.add(rightShoulder, leftShoulder);
-    const rightArm = new THREE.Bone();
-    rightArm.name = "R_upr_arm_bind_jnt";
-    const rightArmTwist = new THREE.Bone();
-    rightArmTwist.name = "R_upr_arm_twist_01_bind_jnt";
-    const rightForearm = new THREE.Bone();
-    rightForearm.name = "R_lwr_arm_bind_jnt";
-    rightArm.add(rightArmTwist);
-    rightArmTwist.add(rightForearm);
-    const leftArm = new THREE.Bone();
-    leftArm.name = "L_upr_arm_bind_jnt";
-    const leftArmTwist = new THREE.Bone();
-    leftArmTwist.name = "L_upr_arm_twist_01_bind_jnt";
-    const leftForearm = new THREE.Bone();
-    leftForearm.name = "L_lwr_arm_bind_jnt";
-    leftArm.add(leftArmTwist);
-    leftArmTwist.add(leftForearm);
-    rig.add(spine, rightArm, leftArm);
+  /**
+   * A minimal biped with real joint offsets. The class GLBs flatten their
+   * skeleton onto RootNode, so the animation module solves joint positions from
+   * bind transforms; a set of bones stacked at the origin cannot exercise it.
+   */
+  const buildBiped = (): { model: THREE.Group; bones: Record<string, THREE.Bone> } => {
+    const model = new THREE.Group();
+    const bones: Record<string, THREE.Bone> = {};
+    const add = (name: string, x: number, y: number, z: number): THREE.Bone => {
+      const bone = new THREE.Bone();
+      bone.name = name;
+      bone.position.set(x, y, z);
+      bones[name] = bone;
+      model.add(bone);
+      return bone;
+    };
+    add("pelvis_bind_jnt", 0, 0.95, 0);
+    add("spine_01_bind_jnt", 0, 1.08, 0);
+    add("spine_02_bind_jnt", 0, 1.24, 0);
+    add("neck_bind_jnt", 0, 1.38, 0);
+    add("head_bind_jnt", 0, 1.44, 0);
+    for (const [prefix, side] of [["R", -1], ["L", 1]] as const) {
+      add(`${prefix}_shoulder_bind_jnt`, side * 0.1, 1.34, 0);
+      add(`${prefix}_upr_arm_bind_jnt`, side * 0.12, 1.33, 0);
+      add(`${prefix}_lwr_arm_bind_jnt`, side * 0.42, 1.33, 0);
+      add(`${prefix}_hand_bind_jnt`, side * 0.66, 1.33, 0);
+      add(`${prefix}_leg_01_bind_jnt`, side * 0.09, 0.92, 0);
+      add(`${prefix}_leg_02_bind_jnt`, side * 0.09, 0.52, 0);
+      add(`${prefix}_leg_04_bind_jnt`, side * 0.09, 0.1, 0);
+    }
+    return { model, bones };
+  };
+  const boneDirection = (from: THREE.Bone, to: THREE.Bone): THREE.Vector3 =>
+    to.getWorldPosition(new THREE.Vector3()).sub(from.getWorldPosition(new THREE.Vector3())).normalize();
 
-    const characterModel = new THREE.Group();
-    characterModel.add(rig);
-    (component as any).characterModel = characterModel;
-    (component as any).playerRigBones = (component as any).getPlayerRigBones(rig);
-    expect((component as any).playerRigBones.arms.map((entry: any) => entry.bone.name)).toEqual([
-      "R_upr_arm_bind_jnt",
-      "L_upr_arm_bind_jnt",
-    ]);
-    expect((component as any).playerRigBones.forearms.map((entry: any) => entry.bone.name)).toEqual([
-      "R_lwr_arm_bind_jnt",
-      "L_lwr_arm_bind_jnt",
-    ]);
+  it("drives the Paladin's arms forward through a full strike instead of only leaning", () => {
+    component.selectedClass = "paladin";
+    const { model, bones } = buildBiped();
+    const anchor = new THREE.Group();
+    anchor.add(model);
+    (component as any).characterModel = anchor;
+    (component as any).characterRig = buildCharacterRig(model, "paladin");
+    expect((component as any).characterRig.arms).toHaveSize(2);
+    expect((component as any).characterRig.forearms).toHaveSize(2);
 
     (component as any).animatePlayerModel(16);
-    const idleLeftArm = leftArm.quaternion.clone();
-    const idleRightArm = rightArm.quaternion.clone();
+    const restRight = boneDirection(bones["R_upr_arm_bind_jnt"], bones["R_lwr_arm_bind_jnt"]);
+    const restLeft = boneDirection(bones["L_upr_arm_bind_jnt"], bones["L_lwr_arm_bind_jnt"]);
+    // The bind pose is a T-pose: both arms must hang by the time the first frame is posed.
+    expect(restRight.y).toBeLessThan(-0.6);
+    expect(restLeft.y).toBeLessThan(-0.6);
+
     (component as any).triggerAttackAnimation("paladinStrike");
     (component as any).animatePlayerModel(210);
-
-    expect(leftArm.quaternion.angleTo(idleLeftArm)).toBeGreaterThan(0.8);
-    expect(leftForearm.quaternion.angleTo(new THREE.Quaternion())).toBeGreaterThan(0.1);
-    expect(spine.quaternion.angleTo(new THREE.Quaternion())).toBeLessThan(0.1);
-    expect(characterModel.position.y).toBe(0);
+    const strikeLeft = boneDirection(bones["L_upr_arm_bind_jnt"], bones["L_lwr_arm_bind_jnt"]);
+    const strikeRight = boneDirection(bones["R_upr_arm_bind_jnt"], bones["R_lwr_arm_bind_jnt"]);
+    expect(strikeLeft.angleTo(restLeft)).toBeGreaterThan(0.5);
+    // The off arm braces too, so it is not a single rigid shoulder.
+    expect(strikeRight.angleTo(restRight)).toBeGreaterThan(0.05);
 
     (component as any).triggerAttackAnimation("maceSmash");
     (component as any).animatePlayerModel(320);
-    expect(rightArm.quaternion.angleTo(idleRightArm)).toBeGreaterThan(0.8);
-    expect(spine.quaternion.angleTo(new THREE.Quaternion())).toBeLessThan(0.1);
-    expect(characterModel.position.y).toBe(0);
+    const smashRight = boneDirection(bones["R_upr_arm_bind_jnt"], bones["R_lwr_arm_bind_jnt"]);
+    expect(smashRight.angleTo(restRight)).toBeGreaterThan(0.5);
   });
 
-  it("lowers the Sorceress arms at rest and bends them at the rig's shoulder and elbow hinges when casting", () => {
+  it("lowers the Sorceress arms at rest and swings them through her cast", () => {
     component.selectedClass = "sorceress";
-    const rig = new THREE.Group();
-    const rightArm = new THREE.Bone();
-    rightArm.name = "R_UpperArm";
-    const rightForearm = new THREE.Bone();
-    rightForearm.name = "R_ForeArm";
-    rightArm.add(rightForearm);
-    const leftArm = new THREE.Bone();
-    leftArm.name = "L_UpperArm";
-    const leftForearm = new THREE.Bone();
-    leftForearm.name = "L_ForeArm";
-    leftArm.add(leftForearm);
-    rig.add(rightArm, leftArm);
-
-    const characterModel = new THREE.Group();
-    characterModel.add(rig);
-    (component as any).characterModel = characterModel;
-    (component as any).playerRigBones = (component as any).getPlayerRigBones(rig);
-    expect((component as any).playerRigBones.arms).toHaveSize(2);
-    expect((component as any).playerRigBones.forearms).toHaveSize(2);
+    const { model, bones } = buildBiped();
+    const anchor = new THREE.Group();
+    anchor.add(model);
+    (component as any).characterModel = anchor;
+    (component as any).characterRig = buildCharacterRig(model, "sorceress");
 
     (component as any).animatePlayerModel(16);
-    const rightArmIdlePose = rightArm.quaternion.clone();
-    expect(rightArmIdlePose.y).toBeLessThan(-0.3);
-    expect(leftArm.quaternion.y).toBeLessThan(-0.3);
+    const restRight = boneDirection(bones["R_upr_arm_bind_jnt"], bones["R_lwr_arm_bind_jnt"]);
+    const restLeft = boneDirection(bones["L_upr_arm_bind_jnt"], bones["L_lwr_arm_bind_jnt"]);
+    expect(restRight.y).toBeLessThan(-0.6);
+    expect(restLeft.y).toBeLessThan(-0.6);
 
     (component as any).triggerAttackAnimation("sorceressCast");
     (component as any).animatePlayerModel(270);
-    expect(rightArm.quaternion.angleTo(rightArmIdlePose)).toBeGreaterThan(0.5);
-    expect(Math.abs(rightForearm.quaternion.y)).toBeGreaterThan(0.1);
-    expect(leftArm.quaternion.angleTo(new THREE.Quaternion())).toBeGreaterThan(0.5);
+    const castRight = boneDirection(bones["R_upr_arm_bind_jnt"], bones["R_lwr_arm_bind_jnt"]);
+    const castForearm = boneDirection(bones["R_lwr_arm_bind_jnt"], bones["R_hand_bind_jnt"]);
+    expect(castRight.angleTo(restRight)).toBeGreaterThan(0.4);
+    // The elbow folds as the cast pushes forward.
+    expect(castForearm.angleTo(new THREE.Vector3(0, -1, 0))).toBeGreaterThan(0.2);
+    expect(boneDirection(bones["L_upr_arm_bind_jnt"], bones["L_lwr_arm_bind_jnt"]).angleTo(restLeft)).toBeGreaterThan(0.15);
   });
 
-  it("lowers the Necromancer arms and animates the actual clavicle and elbow hinges during a cast", () => {
+  it("lowers the Necromancer arms and swings both through a curse cast", () => {
     component.selectedClass = "necromancer";
-    const rig = new THREE.Group();
-    const rightClavicle = new THREE.Bone();
-    rightClavicle.name = "R_Clavicle";
-    const rightArm = new THREE.Bone();
-    rightArm.name = "R_UpperArm";
-    const rightForearm = new THREE.Bone();
-    rightForearm.name = "R_ForeArm";
-    rightClavicle.add(rightArm);
-    rightArm.add(rightForearm);
-    const leftClavicle = new THREE.Bone();
-    leftClavicle.name = "L_Clavicle";
-    const leftArm = new THREE.Bone();
-    leftArm.name = "L_UpperArm";
-    const leftForearm = new THREE.Bone();
-    leftForearm.name = "L_ForeArm";
-    leftClavicle.add(leftArm);
-    leftArm.add(leftForearm);
-    rig.add(rightClavicle, leftClavicle);
-
-    const characterModel = new THREE.Group();
-    characterModel.add(rig);
-    (component as any).characterModel = characterModel;
-    (component as any).playerRigBones = (component as any).getPlayerRigBones(rig);
-    expect((component as any).playerRigBones.arms.map((entry: any) => entry.bone.name)).toEqual(["R_Clavicle", "L_Clavicle"]);
-    expect((component as any).playerRigBones.forearms).toHaveSize(2);
+    const { model, bones } = buildBiped();
+    const anchor = new THREE.Group();
+    anchor.add(model);
+    (component as any).characterModel = anchor;
+    (component as any).characterRig = buildCharacterRig(model, "necromancer");
 
     (component as any).animatePlayerModel(16);
-    const rightIdlePose = rightClavicle.quaternion.clone();
-    const leftIdlePose = leftClavicle.quaternion.clone();
-    expect(rightIdlePose.angleTo(new THREE.Quaternion())).toBeGreaterThan(0.5);
-    expect(leftIdlePose.angleTo(new THREE.Quaternion())).toBeGreaterThan(0.5);
+    const restRight = boneDirection(bones["R_upr_arm_bind_jnt"], bones["R_lwr_arm_bind_jnt"]);
+    expect(restRight.y).toBeLessThan(-0.5);
 
     (component as any).triggerAttackAnimation("necromancerCast");
     (component as any).animatePlayerModel(270);
-    expect(rightClavicle.quaternion.angleTo(rightIdlePose)).toBeGreaterThan(0.1);
-    expect(leftClavicle.quaternion.angleTo(leftIdlePose)).toBeGreaterThan(0.1);
-    expect(rightForearm.quaternion.angleTo(new THREE.Quaternion())).toBeGreaterThan(0.1);
+    expect(boneDirection(bones["R_upr_arm_bind_jnt"], bones["R_lwr_arm_bind_jnt"]).angleTo(restRight)).toBeGreaterThan(0.15);
     expect((component as any).attackAnimationTime).toBeCloseTo(0.27, 4);
   });
 
@@ -383,6 +361,102 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(front.hp).toBeLessThan(100);
   });
 
+  it("sends the Charged Bolt fan past its target and across the whole view", () => {
+    component.selectedClass = "sorceress";
+    component.playerX = 100;
+    component.playerY = 250;
+    (component as any).playerFacingX = 1;
+    (component as any).playerFacingY = 0;
+    component.ownedSkills = ["Charged Bolt"];
+    component.skillLevels = { "Charged Bolt": 1 };
+    const target = { kind: "normal", species: "fallen", spriteFrame: 0, x: 103, y: 242, hp: 100, maxHp: 100, speed: 100, r: 14, dmg: 2 } as any;
+    component.enemies = [target];
+    (component as any).rebuildEnemyGrid();
+    component.attackProjectiles = [];
+
+    component.activateOwnedSkill("Charged Bolt");
+
+    const bolts = component.attackProjectiles;
+    expect(bolts).toHaveSize(5);
+    for (const bolt of bolts) {
+      // Nothing is targeted, so no bolt can end its flight on the nearest monster,
+      // and every bolt is aimed a full view away from the caster.
+      expect(bolt.target).toBeUndefined();
+      expect(bolt.pierce).toBeTrue();
+      const reach = Math.hypot(bolt.targetX - component.playerX, bolt.targetY - (component.playerY - 8));
+      expect(reach).toBeGreaterThan(600);
+    }
+
+    const bolt = bolts[0];
+    const hpBefore = target.hp;
+    (component as any).updateAttackProjectiles(16);
+    (component as any).flushPendingDamage();
+    // It shocks what it crosses and keeps travelling instead of dying there.
+    expect(target.hp).toBeLessThan(hpBefore);
+    expect(bolt.life).toBeGreaterThan(0);
+    expect(bolt.x).toBeGreaterThan(100);
+  });
+
+  it("sells pack gear to Gheed and never offers the gear the hero is wearing", () => {
+    component.selectedClass = "sorceress";
+    component.sanctuaryGold = 0;
+    component.playerGold = 0;
+    (component as any).characterProfiles = {};
+    component.hasSavedRun = false;
+    component.inventory = Array.from({ length: component.inventoryColumns * component.inventoryRows }, () => null);
+    const packItem = { id: "pack-sword", name: "Short Sword", baseName: "Short Sword", rarity: "normal", slot: "weapon", desc: "A blade." } as any;
+    component.inventory[0] = packItem;
+    const wornHelm = { id: "worn-helm", name: "Worn Helm", baseName: "Cap", rarity: "magic", slot: "armor", equipmentType: "helmet", desc: "A cap." } as any;
+    component.equipment.helmet = wornHelm;
+
+    const entries = component.shopItemsForSale;
+    expect(entries.some((entry) => entry.item.id === wornHelm.id)).toBeFalse();
+    const entry = entries.find((row) => row.item.id === packItem.id);
+    expect(entry).toBeDefined();
+
+    const value = component.getItemSellValue(packItem);
+    // No character profile and no saved run: selling must still work.
+    component.sellShopItem(entry!);
+
+    expect(component.inventory[0]).toBeNull();
+    expect(component.sanctuaryGold).toBe(value);
+    expect(component.shopMessage).toContain("sold to Gheed");
+    expect(component.shopItemsForSale.some((row) => row.item.id === packItem.id)).toBeFalse();
+    expect(component.equipment.helmet).toBe(wornHelm);
+  });
+
+  it("refuses to sell a piece of gear the hero has equipped", () => {
+    component.selectedClass = "sorceress";
+    component.sanctuaryGold = 0;
+    const wornHelm = { id: "worn-helm", name: "Worn Helm", baseName: "Cap", rarity: "magic", slot: "armor", equipmentType: "helmet", desc: "A cap." } as any;
+    component.equipment.helmet = wornHelm;
+    component.inventory = Array.from({ length: component.inventoryColumns * component.inventoryRows }, () => null);
+
+    component.sellShopItem({ item: wornHelm, source: "Pack", inventoryIndex: 0 });
+
+    expect(component.sanctuaryGold).toBe(0);
+    expect(component.shopMessage).toContain("equipped");
+    expect(component.equipment.helmet).toBe(wornHelm);
+  });
+
+  it("adds one more bolt for each Charged Bolt rank", () => {
+    component.selectedClass = "sorceress";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.ownedSkills = ["Charged Bolt"];
+    component.enemies = [
+      { kind: "normal", species: "fallen", spriteFrame: 0, x: 400, y: 250, hp: 100, maxHp: 100, speed: 100, r: 14, dmg: 2 } as any,
+    ];
+
+    for (const rank of [1, 3, 8, 20]) {
+      component.skillLevels = { "Charged Bolt": rank };
+      (component as any).skillCastCooldowns = {};
+      component.attackProjectiles = [];
+      component.activateOwnedSkill("Charged Bolt");
+      expect(component.attackProjectiles.length).toBe(4 + rank);
+    }
+  });
+
   it("holds stunned enemies in place until the stun expires", () => {
     component.playerX = 250;
     component.playerY = 250;
@@ -480,34 +554,29 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.selectedClass = "paladin";
     component.equipment.weapon = { name: "Short Sword", baseName: "Short Sword", slot: "weapon" } as any;
 
-    const model = new THREE.Group();
-    const upperArm = new THREE.Bone();
-    upperArm.name = "R_UpperArm";
-    const forearm = new THREE.Bone();
-    forearm.name = "R_ForeArm";
+    const anchor = new THREE.Group();
+    const { model, bones } = buildBiped();
+    anchor.add(model);
     const wrist = new THREE.Bone();
     wrist.name = "R_Wrist";
+    wrist.position.set(-0.5, 1.33, 0);
     const hand = new THREE.Bone();
     hand.name = "R_weapon_attach";
-    model.add(upperArm);
-    upperArm.add(forearm);
-    forearm.add(wrist);
-    wrist.add(hand);
+    hand.position.set(-0.66, 1.33, 0);
+    model.add(wrist, hand);
 
     (component as any).configureClassMeleeWeapon(model, "paladin");
     const weapon = hand.children.find((child) => child.name === "equipped_weapon_weapon");
     expect(weapon).toBeDefined();
     expect(weapon?.children.some((child) => (child as THREE.Mesh).isMesh)).toBeTrue();
 
-    const anchor = new THREE.Group();
-    anchor.add(model);
     (component as any).characterModel = anchor;
-    (component as any).playerRigBones = (component as any).getPlayerRigBones(model);
-    const upperArmBase = upperArm.quaternion.clone();
+    (component as any).characterRig = buildCharacterRig(model, "paladin");
+    const upperArmBase = bones["R_upr_arm_bind_jnt"].quaternion.clone();
     (component as any).triggerAttackAnimation();
     (component as any).animatePlayerModel(150);
 
-    expect(upperArm.quaternion.angleTo(upperArmBase)).toBeGreaterThan(0.1);
+    expect(bones["R_upr_arm_bind_jnt"].quaternion.angleTo(upperArmBase)).toBeGreaterThan(0.1);
     expect(weapon?.parent).toBe(hand);
     expect((component as any).attackAnimationSide).toBe(-1);
 
@@ -515,33 +584,32 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect((component as any).attackAnimationSide).toBe(-1);
   });
 
-  it("animates Barbarian arm attacks at the upper-arm joints without rotating the clavicles", () => {
+  it("swings the Barbarian at the upper arm while keeping the shoulder pad on the shoulder", () => {
     component.selectedClass = "barbarian";
-    const model = new THREE.Group();
-    const clavicle = new THREE.Bone();
-    clavicle.name = "R_Clavicle";
-    const upperArm = new THREE.Bone();
-    upperArm.name = "R_UpperArm";
-    const forearm = new THREE.Bone();
-    forearm.name = "R_ForeArm";
-    model.add(clavicle);
-    clavicle.add(upperArm);
-    upperArm.add(forearm);
-
     const anchor = new THREE.Group();
+    const { model, bones } = buildBiped();
     anchor.add(model);
     (component as any).characterModel = anchor;
-    (component as any).playerRigBones = (component as any).getPlayerRigBones(model);
-    expect((component as any).playerRigBones.arms.map((entry: any) => entry.bone)).toContain(upperArm);
-    expect((component as any).playerRigBones.arms.map((entry: any) => entry.bone)).not.toContain(clavicle);
+    (component as any).characterRig = buildCharacterRig(model, "barbarian");
+    expect((component as any).characterRig.arms.map((entry: any) => entry.bone.name)).toContain("R_upr_arm_bind_jnt");
 
-    const clavicleBase = clavicle.quaternion.clone();
-    const upperArmBase = upperArm.quaternion.clone();
+    const clavicle = bones["R_shoulder_bind_jnt"];
+    const shoulder = clavicle.getWorldPosition(new THREE.Vector3());
+    (component as any).animatePlayerModel(16);
+    const restArm = bones["R_lwr_arm_bind_jnt"].getWorldPosition(new THREE.Vector3())
+      .sub(bones["R_upr_arm_bind_jnt"].getWorldPosition(new THREE.Vector3()));
     (component as any).triggerAttackAnimation();
     (component as any).animatePlayerModel(150);
 
-    expect(clavicle.quaternion.angleTo(clavicleBase)).toBeCloseTo(0);
-    expect(upperArm.quaternion.angleTo(upperArmBase)).toBeGreaterThan(0.1);
+    const armNow = bones["R_lwr_arm_bind_jnt"].getWorldPosition(new THREE.Vector3())
+      .sub(bones["R_upr_arm_bind_jnt"].getWorldPosition(new THREE.Vector3()));
+    expect(armNow.angleTo(restArm)).toBeGreaterThan(0.1);
+    // The pad stays pinned to the shoulder as the arm swings: it tracks the joint,
+    // it does not slide down the arm or drift off the torso.
+    const shoulderOffset = (component as any).characterRig as { unitScale: number };
+    expect(clavicle.getWorldPosition(new THREE.Vector3())
+      .distanceTo(bones["R_upr_arm_bind_jnt"].getWorldPosition(new THREE.Vector3())))
+      .toBeLessThan(0.05 * Math.max(1, shoulderOffset.unitScale));
   });
 
   it("keeps an enemy stationary during its attack and resumes pursuit afterward", () => {

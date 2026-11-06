@@ -1,951 +1,463 @@
 {
-  "1": {
-    "encodedFrames": 10,
-    "frameDirectory": "1",
-    "frameDurationMs": 85,
-    "frames": 10,
-    "height": 272,
-    "width": 250
-  },
-  "10": {
-    "encodedFrames": 20,
-    "frames": 20,
-    "height": 258,
-    "width": 320
-  },
   "100": {
     "encodedFrames": 40,
+    "frameDirectory": "100",
+    "frameDurationMs": null,
     "frames": 40,
-    "height": 207,
-    "width": 246
-  },
-  "101": {
-    "encodedFrames": 61,
-    "frameDirectory": "101",
-    "frameDurationMs": 85,
-    "frames": 61,
-    "height": 230,
-    "width": 428
-  },
-  "102": {
-    "encodedFrames": 10,
-    "frames": 10,
-    "height": 100,
-    "width": 104
-  },
-  "103": {
-    "encodedFrames": 38,
-    "frames": 38,
-    "height": 232,
-    "width": 256
-  },
-  "104": {
-    "encodedFrames": 10,
-    "frames": 10,
-    "height": 101,
-    "width": 174
-  },
-  "105": {
-    "encodedFrames": 64,
-    "frames": 64,
-    "height": 229,
-    "width": 278
+    "height": 135,
+    "source": "d2 missile_overlays",
+    "sourceFolder": "100",
+    "width": 160
   },
   "106": {
-    "encodedFrames": 26,
+    "encodedFrames": 27,
+    "frameDirectory": "106",
+    "frameDurationMs": null,
     "frames": 27,
-    "height": 589,
-    "width": 857
-  },
-  "107": {
-    "encodedFrames": 10,
-    "frames": 10,
-    "height": 231,
-    "width": 250
+    "height": 122,
+    "source": "d2 missile_overlays",
+    "sourceFolder": "106",
+    "width": 160
   },
   "108": {
     "encodedFrames": 16,
+    "frameDirectory": "108",
+    "frameDurationMs": null,
     "frames": 16,
-    "height": 52,
-    "width": 59
-  },
-  "109": {
-    "encodedFrames": 16,
-    "frames": 16,
-    "height": 52,
-    "width": 102
-  },
-  "11": {
-    "encodedFrames": 23,
-    "frameDirectory": "11",
-    "frameDurationMs": 85,
-    "frames": 23,
-    "height": 348,
-    "width": 563
+    "height": 56,
+    "source": "d2 missile_overlays",
+    "sourceFolder": "108",
+    "width": 63
   },
   "110": {
     "encodedFrames": 48,
+    "frameDirectory": "110",
+    "frameDurationMs": null,
     "frames": 48,
-    "height": 156,
-    "width": 221
-  },
-  "111": {
-    "encodedFrames": 20,
-    "frames": 20,
-    "height": 187,
-    "width": 172
-  },
-  "112": {
-    "encodedFrames": 30,
-    "frames": 30,
-    "height": 140,
-    "width": 111
+    "height": 117,
+    "source": "d2 missile_overlays",
+    "sourceFolder": "110",
+    "width": 160
   },
   "113": {
     "encodedFrames": 27,
+    "frameDirectory": "113",
+    "frameDurationMs": null,
     "frames": 27,
-    "height": 187,
-    "width": 160
-  },
-  "114": {
-    "encodedFrames": 10,
-    "frames": 10,
-    "height": 116,
-    "width": 110
-  },
-  "115": {
-    "encodedFrames": 10,
-    "frames": 10,
-    "height": 697,
-    "width": 149
+    "height": 160,
+    "source": "d2 missile_overlays",
+    "sourceFolder": "113",
+    "width": 140
   },
   "116": {
     "encodedFrames": 26,
+    "frameDirectory": "116",
+    "frameDurationMs": null,
     "frames": 26,
-    "height": 128,
-    "width": 109
-  },
-  "117": {
-    "encodedFrames": 10,
-    "frames": 10,
-    "height": 116,
-    "width": 110
-  },
-  "118": {
-    "encodedFrames": 20,
-    "frames": 20,
-    "height": 695,
-    "width": 219
-  },
-  "119": {
-    "encodedFrames": 10,
-    "frames": 10,
-    "height": 120,
-    "width": 110
-  },
-  "12": {
-    "encodedFrames": 10,
-    "frames": 10,
-    "height": 161,
-    "width": 362
-  },
-  "120": {
-    "encodedFrames": 28,
-    "frames": 28,
-    "height": 188,
-    "width": 158
-  },
-  "121": {
-    "encodedFrames": 8,
-    "frames": 8,
-    "height": 240,
-    "width": 158
-  },
-  "122": {
-    "encodedFrames": 17,
-    "frames": 18,
-    "height": 461,
-    "width": 292
-  },
-  "123": {
-    "encodedFrames": 96,
-    "frames": 96,
-    "height": 117,
-    "width": 178
-  },
-  "124": {
-    "encodedFrames": 10,
-    "frames": 10,
-    "height": 142,
-    "width": 152
-  },
-  "125": {
-    "encodedFrames": 10,
-    "frames": 10,
-    "height": 143,
-    "width": 155
-  },
-  "126": {
-    "encodedFrames": 10,
-    "frames": 10,
-    "height": 126,
-    "width": 86
+    "height": 132,
+    "source": "d2 missile_overlays",
+    "sourceFolder": "116",
+    "width": 113
   },
   "127": {
     "encodedFrames": 10,
+    "frameDirectory": "127",
+    "frameDurationMs": null,
     "frames": 10,
-    "height": 86,
-    "width": 77
-  },
-  "128": {
-    "encodedFrames": 15,
-    "frames": 15,
-    "height": 125,
-    "width": 82
-  },
-  "129": {
-    "encodedFrames": 14,
-    "frames": 14,
-    "height": 252,
-    "width": 116
-  },
-  "13": {
-    "encodedFrames": 18,
-    "frames": 18,
-    "height": 243,
-    "width": 362
-  },
-  "130": {
-    "encodedFrames": 80,
-    "frames": 80,
-    "height": 53,
-    "width": 97
+    "height": 88,
+    "source": "d2 missile_overlays",
+    "sourceFolder": "127",
+    "width": 80
   },
   "131": {
     "encodedFrames": 10,
+    "frameDirectory": "131",
+    "frameDurationMs": null,
     "frames": 10,
-    "height": 68,
-    "width": 121
-  },
-  "132": {
-    "encodedFrames": 8,
-    "frames": 8,
-    "height": 194,
-    "width": 403
+    "height": 64,
+    "source": "d2 missile_overlays",
+    "sourceFolder": "131",
+    "width": 119
   },
   "133": {
-    "encodedFrames": 15,
+    "encodedFrames": 20,
+    "frameDirectory": "133",
+    "frameDurationMs": null,
     "frames": 20,
-    "height": 278,
-    "width": 501
+    "height": 89,
+    "source": "d2 missile_overlays",
+    "sourceFolder": "133",
+    "width": 160
   },
   "134": {
     "encodedFrames": 14,
+    "frameDirectory": "134",
+    "frameDurationMs": null,
     "frames": 14,
-    "height": 641,
-    "width": 639
+    "height": 160,
+    "source": "d2 missile_overlays",
+    "sourceFolder": "134",
+    "width": 156
   },
   "135": {
     "encodedFrames": 10,
+    "frameDirectory": "135",
+    "frameDurationMs": null,
     "frames": 10,
-    "height": 68,
-    "width": 121
+    "height": 64,
+    "source": "d2 missile_overlays",
+    "sourceFolder": "135",
+    "width": 119
   },
   "136": {
     "encodedFrames": 20,
+    "frameDirectory": "136",
+    "frameDurationMs": null,
     "frames": 20,
-    "height": 223,
-    "width": 246
+    "height": 143,
+    "source": "d2 missile_overlays",
+    "sourceFolder": "136",
+    "width": 160
   },
   "137": {
-    "encodedFrames": 19,
+    "encodedFrames": 20,
+    "frameDirectory": "137",
+    "frameDurationMs": null,
     "frames": 20,
-    "height": 78,
-    "width": 59
-  },
-  "138": {
-    "encodedFrames": 10,
-    "frames": 10,
-    "height": 115,
-    "width": 168
+    "height": 82,
+    "source": "d2 missile_overlays",
+    "sourceFolder": "137",
+    "width": 63
   },
   "139": {
     "encodedFrames": 20,
+    "frameDirectory": "139",
+    "frameDurationMs": null,
     "frames": 20,
-    "height": 349,
-    "width": 264
-  },
-  "14": {
-    "encodedFrames": 20,
-    "frames": 20,
-    "height": 329,
-    "width": 170
-  },
-  "140": {
-    "encodedFrames": 1160,
-    "frames": 1848,
-    "height": 133,
-    "width": 192
-  },
-  "141": {
-    "encodedFrames": 100,
-    "frames": 100,
-    "height": 345,
-    "width": 246
-  },
-  "142": {
-    "encodedFrames": 20,
-    "frames": 20,
-    "height": 138,
-    "width": 182
-  },
-  "143": {
-    "encodedFrames": 20,
-    "frames": 20,
-    "height": 207,
+    "height": 160,
+    "source": "d2 missile_overlays",
+    "sourceFolder": "139",
     "width": 121
-  },
-  "144": {
-    "encodedFrames": 30,
-    "frames": 30,
-    "height": 90,
-    "width": 320
-  },
-  "145": {
-    "encodedFrames": 10,
-    "frames": 10,
-    "height": 30,
-    "width": 103
   },
   "146": {
     "encodedFrames": 10,
+    "frameDirectory": "146",
+    "frameDurationMs": null,
     "frames": 10,
-    "height": 179,
-    "width": 171
+    "height": 160,
+    "source": "d2 missile_overlays",
+    "sourceFolder": "146",
+    "width": 153
   },
   "147": {
     "encodedFrames": 96,
+    "frameDirectory": "147",
+    "frameDurationMs": null,
     "frames": 96,
-    "height": 221,
-    "width": 222
-  },
-  "148": {
-    "encodedFrames": 35,
-    "frames": 35,
-    "height": 154,
-    "width": 132
+    "height": 159,
+    "source": "d2 missile_overlays",
+    "sourceFolder": "147",
+    "width": 160
   },
   "149": {
     "encodedFrames": 96,
     "frameDirectory": "149",
-    "frameDurationMs": 85,
+    "frameDurationMs": null,
     "frames": 96,
-    "height": 165,
-    "width": 165
-  },
-  "15": {
-    "encodedFrames": 20,
-    "frames": 20,
-    "height": 347,
-    "width": 454
-  },
-  "150": {
-    "encodedFrames": 272,
-    "frames": 272,
-    "height": 313,
-    "width": 332
-  },
-  "16": {
-    "encodedFrames": 15,
-    "frames": 15,
-    "height": 300,
-    "width": 406
-  },
-  "17": {
-    "encodedFrames": 19,
-    "frames": 20,
-    "height": 370,
-    "width": 235
+    "height": 160,
+    "source": "d2 missile_overlays",
+    "sourceFolder": "149",
+    "width": 160
   },
   "18": {
     "encodedFrames": 10,
+    "frameDirectory": "18",
+    "frameDurationMs": null,
     "frames": 10,
-    "height": 384,
-    "width": 447
-  },
-  "19": {
-    "encodedFrames": 10,
-    "frames": 10,
-    "height": 432,
-    "width": 528
-  },
-  "2": {
-    "encodedFrames": 15,
-    "frames": 15,
-    "height": 282,
-    "width": 576
-  },
-  "20": {
-    "encodedFrames": 10,
-    "frames": 10,
-    "height": 238,
-    "width": 384
-  },
-  "21": {
-    "encodedFrames": 10,
-    "frames": 10,
-    "height": 106,
-    "width": 98
-  },
-  "22": {
-    "encodedFrames": 10,
-    "frames": 10,
-    "height": 181,
-    "width": 566
-  },
-  "23": {
-    "encodedFrames": 10,
-    "frames": 10,
-    "height": 389,
-    "width": 635
+    "height": 138,
+    "source": "d2 missile_overlays",
+    "sourceFolder": "18",
+    "width": 160
   },
   "24": {
     "encodedFrames": 8,
+    "frameDirectory": "24",
+    "frameDurationMs": null,
     "frames": 8,
-    "height": 87,
-    "width": 66
-  },
-  "25": {
-    "encodedFrames": 30,
-    "frames": 30,
-    "height": 807,
-    "width": 282
-  },
-  "26": {
-    "encodedFrames": 20,
-    "frames": 20,
-    "height": 195,
-    "width": 302
-  },
-  "27": {
-    "encodedFrames": 30,
-    "frames": 30,
-    "height": 944,
-    "width": 277
-  },
-  "28": {
-    "encodedFrames": 10,
-    "frames": 10,
-    "height": 175,
-    "width": 133
-  },
-  "29": {
-    "encodedFrames": 10,
-    "frames": 10,
-    "height": 82,
-    "width": 81
-  },
-  "3": {
-    "encodedFrames": 6,
-    "frames": 6,
-    "height": 122,
-    "width": 139
-  },
-  "30": {
-    "encodedFrames": 96,
-    "frameDirectory": "30",
-    "frameDurationMs": 85,
-    "frames": 96,
-    "height": 125,
-    "width": 128
+    "height": 91,
+    "source": "d2 missile_overlays",
+    "sourceFolder": "24",
+    "width": 70
   },
   "31": {
-    "encodedFrames": 8,
-    "frames": 10,
-    "height": 173,
-    "width": 176
-  },
-  "32": {
     "encodedFrames": 10,
+    "frameDirectory": "31",
+    "frameDurationMs": null,
     "frames": 10,
-    "height": 142,
-    "width": 84
-  },
-  "33": {
-    "encodedFrames": 20,
-    "frames": 20,
-    "height": 165,
-    "width": 128
-  },
-  "34": {
-    "encodedFrames": 10,
-    "frames": 10,
-    "height": 99,
-    "width": 110
+    "height": 157,
+    "source": "d2 missile_overlays",
+    "sourceFolder": "31",
+    "width": 160
   },
   "35": {
     "encodedFrames": 106,
+    "frameDirectory": "35",
+    "frameDurationMs": null,
     "frames": 106,
-    "height": 110,
-    "width": 109
-  },
-  "36": {
-    "encodedFrames": 10,
-    "frames": 10,
-    "height": 119,
-    "width": 123
-  },
-  "37": {
-    "encodedFrames": 10,
-    "frames": 10,
-    "height": 132,
-    "width": 92
-  },
-  "38": {
-    "encodedFrames": 20,
-    "frames": 20,
-    "height": 122,
-    "width": 92
-  },
-  "39": {
-    "encodedFrames": 10,
-    "frames": 10,
-    "height": 70,
-    "width": 77
-  },
-  "4": {
-    "encodedFrames": 10,
-    "frames": 10,
-    "height": 115,
-    "width": 114
-  },
-  "40": {
-    "encodedFrames": 10,
-    "frames": 10,
     "height": 114,
-    "width": 108
+    "source": "d2 missile_overlays",
+    "sourceFolder": "35",
+    "width": 113
   },
   "41": {
     "encodedFrames": 16,
+    "frameDirectory": "41",
+    "frameDurationMs": null,
     "frames": 16,
-    "height": 122,
-    "width": 121
+    "height": 126,
+    "source": "d2 missile_overlays",
+    "sourceFolder": "41",
+    "width": 125
   },
   "42": {
     "encodedFrames": 6,
+    "frameDirectory": "42",
+    "frameDurationMs": null,
     "frames": 6,
-    "height": 131,
-    "width": 130
+    "height": 135,
+    "source": "d2 missile_overlays",
+    "sourceFolder": "42",
+    "width": 134
   },
   "43": {
     "encodedFrames": 6,
+    "frameDirectory": "43",
+    "frameDurationMs": null,
     "frames": 6,
-    "height": 472,
-    "width": 159
-  },
-  "44": {
-    "encodedFrames": 96,
-    "frameDirectory": "44",
-    "frameDurationMs": 85,
-    "frames": 96,
-    "height": 411,
-    "width": 561
-  },
-  "45": {
-    "encodedFrames": 10,
-    "frames": 10,
-    "height": 151,
-    "width": 160
-  },
-  "46": {
-    "encodedFrames": 20,
-    "frames": 20,
-    "height": 273,
-    "width": 322
+    "height": 160,
+    "source": "d2 missile_overlays",
+    "sourceFolder": "43",
+    "width": 55
   },
   "47": {
     "encodedFrames": 20,
+    "frameDirectory": "47",
+    "frameDurationMs": null,
     "frames": 20,
-    "height": 285,
-    "width": 280
+    "height": 160,
+    "source": "d2 missile_overlays",
+    "sourceFolder": "47",
+    "width": 157
   },
   "48": {
     "encodedFrames": 10,
+    "frameDirectory": "48",
+    "frameDurationMs": null,
     "frames": 10,
-    "height": 180,
-    "width": 172
-  },
-  "49": {
-    "encodedFrames": 10,
-    "frames": 10,
-    "height": 115,
-    "width": 80
+    "height": 160,
+    "source": "d2 missile_overlays",
+    "sourceFolder": "48",
+    "width": 153
   },
   "5": {
     "encodedFrames": 64,
     "frameDirectory": "5",
-    "frameDurationMs": 85,
+    "frameDurationMs": null,
     "frames": 64,
-    "height": 110,
-    "width": 110
-  },
-  "50": {
-    "encodedFrames": 20,
-    "frames": 20,
-    "height": 292,
-    "width": 218
+    "height": 114,
+    "source": "d2 missile_overlays",
+    "sourceFolder": "5",
+    "width": 114
   },
   "51": {
     "encodedFrames": 10,
+    "frameDirectory": "51",
+    "frameDurationMs": null,
     "frames": 10,
-    "height": 97,
-    "width": 73
+    "height": 101,
+    "source": "d2 missile_overlays",
+    "sourceFolder": "51",
+    "width": 77
   },
   "52": {
     "encodedFrames": 10,
     "frameDirectory": "52",
-    "frameDurationMs": 85,
+    "frameDurationMs": null,
     "frames": 10,
-    "height": 114,
-    "width": 78
-  },
-  "53": {
-    "encodedFrames": 19,
-    "frames": 20,
-    "height": 219,
-    "width": 99
-  },
-  "54": {
-    "encodedFrames": 10,
-    "frames": 10,
-    "height": 81,
-    "width": 86
+    "height": 118,
+    "source": "d2 missile_overlays",
+    "sourceFolder": "52",
+    "width": 82
   },
   "55": {
     "encodedFrames": 6,
+    "frameDirectory": "55",
+    "frameDurationMs": null,
     "frames": 6,
-    "height": 177,
-    "width": 71
-  },
-  "56": {
-    "encodedFrames": 10,
-    "frames": 10,
-    "height": 208,
-    "width": 242
-  },
-  "57": {
-    "encodedFrames": 19,
-    "frames": 19,
-    "height": 223,
-    "width": 246
+    "height": 160,
+    "source": "d2 missile_overlays",
+    "sourceFolder": "55",
+    "width": 66
   },
   "58": {
     "encodedFrames": 10,
+    "frameDirectory": "58",
+    "frameDurationMs": null,
     "frames": 10,
-    "height": 180,
-    "width": 264
+    "height": 110,
+    "source": "d2 missile_overlays",
+    "sourceFolder": "58",
+    "width": 160
   },
   "59": {
     "encodedFrames": 20,
+    "frameDirectory": "59",
+    "frameDurationMs": null,
     "frames": 20,
-    "height": 175,
-    "width": 177
-  },
-  "6": {
-    "encodedFrames": 8,
-    "frameDirectory": "6",
-    "frameDurationMs": 85,
-    "frames": 8,
-    "height": 114,
-    "width": 92
-  },
-  "60": {
-    "encodedFrames": 48,
-    "frameDirectory": "60",
-    "frameDurationMs": 85,
-    "frames": 48,
-    "height": 53,
-    "width": 38
+    "height": 158,
+    "source": "d2 missile_overlays",
+    "sourceFolder": "59",
+    "width": 160
   },
   "61": {
     "encodedFrames": 40,
     "frameDirectory": "61",
-    "frameDurationMs": 85,
+    "frameDurationMs": null,
     "frames": 40,
-    "height": 123,
-    "width": 99
-  },
-  "62": {
-    "encodedFrames": 20,
-    "frames": 20,
-    "height": 212,
-    "width": 263
-  },
-  "63": {
-    "encodedFrames": 10,
-    "frames": 10,
-    "height": 153,
-    "width": 176
-  },
-  "64": {
-    "encodedFrames": 16,
-    "frames": 16,
-    "height": 183,
-    "width": 206
+    "height": 127,
+    "source": "d2 missile_overlays",
+    "sourceFolder": "61",
+    "width": 103
   },
   "65": {
     "encodedFrames": 20,
+    "frameDirectory": "65",
+    "frameDurationMs": null,
     "frames": 20,
-    "height": 66,
-    "width": 81
-  },
-  "66": {
-    "encodedFrames": 10,
-    "frames": 10,
-    "height": 67,
-    "width": 81
-  },
-  "67": {
-    "encodedFrames": 6,
-    "frames": 6,
-    "height": 128,
-    "width": 153
+    "height": 70,
+    "source": "d2 missile_overlays",
+    "sourceFolder": "65",
+    "width": 85
   },
   "68": {
     "encodedFrames": 8,
+    "frameDirectory": "68",
+    "frameDurationMs": null,
     "frames": 8,
-    "height": 137,
-    "width": 59
-  },
-  "69": {
-    "encodedFrames": 20,
-    "frames": 20,
-    "height": 137,
-    "width": 79
-  },
-  "7": {
-    "encodedFrames": 10,
-    "frames": 10,
-    "height": 156,
-    "width": 134
-  },
-  "70": {
-    "encodedFrames": 15,
-    "frames": 15,
-    "height": 120,
-    "width": 118
-  },
-  "71": {
-    "encodedFrames": 10,
-    "frames": 10,
-    "height": 117,
-    "width": 111
+    "height": 141,
+    "source": "d2 missile_overlays",
+    "sourceFolder": "68",
+    "width": 63
   },
   "72": {
     "encodedFrames": 8,
+    "frameDirectory": "72",
+    "frameDurationMs": null,
     "frames": 8,
-    "height": 84,
-    "width": 166
-  },
-  "73": {
-    "encodedFrames": 10,
-    "frames": 10,
-    "height": 152,
-    "width": 52
+    "height": 73,
+    "source": "d2 missile_overlays",
+    "sourceFolder": "72",
+    "width": 160
   },
   "74": {
     "encodedFrames": 10,
+    "frameDirectory": "74",
+    "frameDurationMs": null,
     "frames": 10,
-    "height": 189,
-    "width": 139
-  },
-  "75": {
-    "encodedFrames": 96,
-    "frameDirectory": "75",
-    "frameDurationMs": 85,
-    "frames": 96,
-    "height": 84,
-    "width": 102
+    "height": 160,
+    "source": "d2 missile_overlays",
+    "sourceFolder": "74",
+    "width": 119
   },
   "76": {
     "encodedFrames": 20,
+    "frameDirectory": "76",
+    "frameDurationMs": null,
     "frames": 20,
-    "height": 130,
-    "width": 153
-  },
-  "77": {
-    "encodedFrames": 96,
-    "frames": 96,
-    "height": 67,
-    "width": 130
-  },
-  "78": {
-    "encodedFrames": 19,
-    "frames": 19,
-    "height": 116,
-    "width": 152
-  },
-  "79": {
-    "encodedFrames": 45,
-    "frames": 48,
-    "height": 446,
-    "width": 674
-  },
-  "8": {
-    "encodedFrames": 10,
-    "frameDirectory": "8",
-    "frameDurationMs": 85,
-    "frames": 10,
-    "height": 227,
-    "width": 359
-  },
-  "80": {
-    "encodedFrames": 30,
-    "frames": 30,
-    "height": 223,
-    "width": 243
-  },
-  "81": {
-    "encodedFrames": 10,
-    "frames": 10,
-    "height": 138,
-    "width": 109
-  },
-  "82": {
-    "encodedFrames": 20,
-    "frames": 20,
-    "height": 145,
-    "width": 234
-  },
-  "83": {
-    "encodedFrames": 10,
-    "frames": 10,
-    "height": 90,
-    "width": 72
+    "height": 134,
+    "source": "d2 missile_overlays",
+    "sourceFolder": "76",
+    "width": 157
   },
   "84": {
     "encodedFrames": 16,
+    "frameDirectory": "84",
+    "frameDurationMs": null,
     "frames": 16,
-    "height": 192,
-    "width": 250
+    "height": 123,
+    "source": "d2 missile_overlays",
+    "sourceFolder": "84",
+    "width": 160
   },
   "85": {
-    "encodedFrames": 19,
-    "frames": 20,
-    "height": 75,
-    "width": 66
-  },
-  "86": {
-    "encodedFrames": 9,
-    "frames": 9,
-    "height": 119,
-    "width": 102
-  },
-  "87": {
     "encodedFrames": 20,
+    "frameDirectory": "85",
+    "frameDurationMs": null,
     "frames": 20,
-    "height": 188,
-    "width": 147
+    "height": 79,
+    "source": "d2 missile_overlays",
+    "sourceFolder": "85",
+    "width": 70
   },
   "88": {
     "encodedFrames": 10,
+    "frameDirectory": "88",
+    "frameDurationMs": null,
     "frames": 10,
-    "height": 156,
-    "width": 205
-  },
-  "89": {
-    "encodedFrames": 10,
-    "frames": 10,
-    "height": 137,
-    "width": 207
-  },
-  "9": {
-    "encodedFrames": 10,
-    "frames": 10,
-    "height": 197,
-    "width": 172
+    "height": 122,
+    "source": "d2 missile_overlays",
+    "sourceFolder": "88",
+    "width": 160
   },
   "90": {
     "encodedFrames": 20,
+    "frameDirectory": "90",
+    "frameDurationMs": null,
     "frames": 20,
-    "height": 197,
-    "width": 357
+    "height": 89,
+    "source": "d2 missile_overlays",
+    "sourceFolder": "90",
+    "width": 160
   },
   "91": {
     "encodedFrames": 20,
+    "frameDirectory": "91",
+    "frameDurationMs": null,
     "frames": 20,
-    "height": 218,
-    "width": 369
-  },
-  "92": {
-    "encodedFrames": 19,
-    "frames": 19,
-    "height": 182,
-    "width": 243
+    "height": 96,
+    "source": "d2 missile_overlays",
+    "sourceFolder": "91",
+    "width": 160
   },
   "93": {
     "encodedFrames": 10,
+    "frameDirectory": "93",
+    "frameDurationMs": null,
     "frames": 10,
-    "height": 353,
-    "width": 445
-  },
-  "94": {
-    "encodedFrames": 9,
-    "frames": 9,
-    "height": 155,
-    "width": 256
-  },
-  "95": {
-    "encodedFrames": 10,
-    "frames": 10,
-    "height": 151,
-    "width": 102
+    "height": 125,
+    "source": "d2 missile_overlays",
+    "sourceFolder": "93",
+    "width": 160
   },
   "96": {
     "encodedFrames": 10,
+    "frameDirectory": "96",
+    "frameDurationMs": null,
     "frames": 10,
-    "height": 150,
-    "width": 102
+    "height": 154,
+    "source": "d2 missile_overlays",
+    "sourceFolder": "96",
+    "width": 106
   },
   "97": {
     "encodedFrames": 16,
+    "frameDirectory": "97",
+    "frameDurationMs": null,
     "frames": 16,
-    "height": 205,
-    "width": 223
-  },
-  "98": {
-    "encodedFrames": 10,
-    "frames": 10,
-    "height": 204,
-    "width": 223
-  },
-  "99": {
-    "encodedFrames": 28,
-    "frames": 28,
-    "height": 207,
-    "width": 184
-  },
-  "acidbolt": {
-    "dccName": "AcidBolt",
-    "direction": 0,
-    "encodedFrames": 8,
-    "frameDirectory": "acidbolt",
-    "frameDurationMs": 85,
-    "frames": 8,
-    "height": 18,
-    "source": "DCC/default-grayscale-palette",
-    "width": 32
-  },
-  "bloodcomet": {
-    "dccName": "BloodComet",
-    "direction": 0,
-    "encodedFrames": 15,
-    "frameDirectory": "bloodcomet",
-    "frameDurationMs": 85,
-    "frames": 15,
-    "height": 77,
-    "source": "DCC/default-grayscale-palette",
-    "width": 85
+    "height": 146,
+    "source": "d2 missile_overlays",
+    "sourceFolder": "97",
+    "width": 160
   },
   "d2-acidbolt": {
     "dccName": "AcidBolt",
@@ -969,39 +481,6 @@
     "source": "user-supplied DCC",
     "width": 78
   },
-  "d2-bloodcomet": {
-    "dccName": "BloodComet",
-    "direction": 0,
-    "encodedFrames": 15,
-    "frameDirectory": "d2-bloodcomet",
-    "frameDurationMs": 85,
-    "frames": 15,
-    "height": 85,
-    "source": "user-supplied DCC",
-    "width": 93
-  },
-  "d2-bloodstar": {
-    "dccName": "SuccubusMissileRedTravel",
-    "direction": 0,
-    "encodedFrames": 16,
-    "frameDirectory": "d2-bloodstar",
-    "frameDurationMs": 85,
-    "frames": 16,
-    "height": 73,
-    "source": "user-supplied DCC",
-    "width": 103
-  },
-  "d2-bluestar": {
-    "dccName": "SuccubusMissileBlueTravel",
-    "direction": 0,
-    "encodedFrames": 16,
-    "frameDirectory": "d2-bluestar",
-    "frameDurationMs": 85,
-    "frames": 16,
-    "height": 73,
-    "source": "user-supplied DCC",
-    "width": 95
-  },
   "d2-fire-arrow": {
     "dccName": "FireArrow",
     "direction": 0,
@@ -1018,126 +497,19 @@
     "frameDirectory": "d2-fireball",
     "frameDurationMs": null,
     "frames": 16,
-    "height": 196,
+    "height": 123,
     "source": "d2 missile_overlays",
     "sourceFolder": "84",
-    "width": 254
-  },
-  "d2-firebolt": {
-    "encodedFrames": 10,
-    "frameDirectory": "d2-firebolt",
-    "frameDurationMs": null,
-    "frames": 10,
-    "height": 177,
-    "source": "d2 missile_overlays",
-    "sourceFolder": "31",
-    "width": 180
-  },
-  "d2-holybolt": {
-    "dccName": "SuccubusMissileWhiteTravel",
-    "direction": 0,
-    "encodedFrames": 16,
-    "frameDirectory": "d2-holybolt",
-    "frameDurationMs": 85,
-    "frames": 16,
-    "height": 73,
-    "source": "user-supplied DCC",
-    "width": 95
-  },
-  "d2-icebolt": {
-    "dccName": "SuccubusMissileIceTravel",
-    "direction": 0,
-    "encodedFrames": 16,
-    "frameDirectory": "d2-icebolt",
-    "frameDurationMs": 85,
-    "frames": 16,
-    "height": 73,
-    "source": "user-supplied DCC",
-    "width": 103
+    "width": 160
   },
   "d2-inferno": {
     "encodedFrames": 10,
     "frameDirectory": "d2-inferno",
     "frameDurationMs": null,
     "frames": 10,
-    "height": 193,
+    "height": 160,
     "source": "d2 missile_overlays",
     "sourceFolder": "74",
-    "width": 143
-  },
-  "d2-lightning": {
-    "encodedFrames": 6,
-    "frameDirectory": "d2-lightning",
-    "frameDurationMs": null,
-    "frames": 6,
-    "height": 476,
-    "source": "d2 missile_overlays",
-    "sourceFolder": "43",
-    "width": 163
-  },
-  "d2-magmaball": {
-    "encodedFrames": 20,
-    "frameDirectory": "d2-magmaball",
-    "frameDurationMs": null,
-    "frames": 20,
-    "height": 289,
-    "source": "d2 missile_overlays",
-    "sourceFolder": "47",
-    "width": 284
-  },
-  "d2-poisonbolt": {
-    "dccName": "SuccubusMissileGreenTravel",
-    "direction": 0,
-    "encodedFrames": 16,
-    "frameDirectory": "d2-poisonbolt",
-    "frameDurationMs": 85,
-    "frames": 16,
-    "height": 73,
-    "source": "user-supplied DCC",
-    "width": 103
-  },
-  "d2-shadowbolt": {
-    "dccName": "SuccubusMissilePurpleTravel",
-    "direction": 0,
-    "encodedFrames": 16,
-    "frameDirectory": "d2-shadowbolt",
-    "frameDurationMs": 85,
-    "frames": 16,
-    "height": 73,
-    "source": "user-supplied DCC",
-    "width": 103
-  },
-  "fireball": {
-    "dccName": "D1FireBall",
-    "direction": 0,
-    "encodedFrames": 15,
-    "frameDirectory": "fireball",
-    "frameDurationMs": 85,
-    "frames": 15,
-    "height": 40,
-    "source": "DCC/default-grayscale-palette",
-    "width": 45
-  },
-  "firebolt": {
-    "dccName": "D1FireBolt",
-    "direction": 0,
-    "encodedFrames": 15,
-    "frameDirectory": "firebolt",
-    "frameDurationMs": 85,
-    "frames": 15,
-    "height": 34,
-    "source": "DCC/default-grayscale-palette",
-    "width": 37
-  },
-  "lightning": {
-    "dccName": "D1Lightning",
-    "direction": 0,
-    "encodedFrames": 8,
-    "frameDirectory": "lightning",
-    "frameDurationMs": 85,
-    "frames": 8,
-    "height": 63,
-    "source": "DCC/default-grayscale-palette",
-    "width": 84
+    "width": 119
   }
 }

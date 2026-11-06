@@ -43,20 +43,53 @@ be tied back to a named `CelFile`. Do not claim a name match for unnamed DCCs.
 
 What *is* addressable D2 art is `Desktop/d2/missile_overlays`, the numbered
 missile/effect animation folders that the runtime's numeric missile ids already
-come from. `tools/import_d2_missile_overlays.py` writes those into semantic
-runtime ids:
+come from. `tools/import_d2_missile_overlays.py --ids <a,b,c>` imports one folder
+per id under `src/assets/d2survivors/missiles/<id>/` and records it in
+`manifest.json`. Frames are downscaled to 160px on the long edge because the
+renderer draws a missile at roughly 28 CSS px; the source cels are up to 900px
+wide and cost megabytes each. Keep the source BMP matte as alpha (the importer
+converts luminance to alpha and recentres frames) so the additive glow of these
+cels stays soft; keying them like opaque sprites leaves a dark halo.
 
-| Runtime ID | Source folder | Frames | Replaced |
-|---|---|---|---|
-| `d2-firebolt` | `missile_overlays/31` | 10 | `D1FireBolt` |
-| `d2-fireball` | `missile_overlays/84` | 16 | `D1FireBall` |
-| `d2-inferno` | `missile_overlays/74` | 10 | `D1Inferno` |
-| `d2-magmaball` | `missile_overlays/47` | 20 | `D1MagmaBallTravel` |
-| `d2-lightning` | `missile_overlays/43` | 6 | `D1Lightning` |
+## Which overlay is which
 
-The remaining `d2-*` ids (`d2-acidbolt`, `d2-bloodcomet`, `d2-bloodstar`,
-`d2-icebolt`, `d2-poisonbolt`, `d2-shadowbolt`, `d2-holybolt`, `d2-bluestar`,
-`d2-fire-arrow`, `d2-arctic-blast`) already use D2 art and were left alone.
-Keep the source BMP matte as alpha (the importer converts luminance to alpha and
-recentres frames) so the additive glow of these cels stays soft; keying them
-like opaque sprites leaves a dark halo.
+The overlay folders are not named, so the mapping was made by rendering the whole
+catalogue and reading what each animation shows. The current assignment:
+
+| Element | Overlay ids | Used for |
+|---|---|---|
+| Arrow | `d2-fire-arrow`, `5`, `131` | Fire Arrow (dedicated sheet), Magic Arrow (`5`, blue bolt), Multiple/Guided Shot and Strafe (`131`, white comet) |
+| Fire | `18` `31` `35` `41` `47` `48` `55` `74` `76` `84` `90` | Fire Bolt/Fire Ball/Inferno/Wake skills/Fire Wall/Blaze/Meteor/Hydra/Firestorm/Fissure/Volcano/Molten Boulder/Armageddon |
+| Cold | `24` `51` `58` `85` `91` `93` `106` `137`, `d2-arctic-blast` | Ice/Cold/Freezing Arrow and Ice Bolt (`91`), Glacial Spike and Blades of Ice (`93`), Frozen Orb (`137`), Blizzard (`106`), Frost Nova (`51`), armours (`24`, `58`), Hurricane/Tornado/Twister (`85`), Arctic Blast (dedicated sheet) |
+| Lightning | `43` `52` `113` `134`, `61` | Lightning/Chain Lightning/Thunder Storm/Lightning Fury (`43`), Charged Bolt/Nova/Static Field/Charged Bolt Sentry (`52`), Lightning and Death Sentry/Claws of Thunder (`134`), Energy Shield (`113`), Teleport/Telekinesis (`61`) |
+| Poison and bone | `59` `65` `82` `88` `100` `108` `133` `135` `136` `139` `146` `147` `149` | Poison Javelin (`65`), Poison Nova (`139`), Poison Dagger/Venom (`147`), Cobra Strike/Poison Explosion (`146`), Phoenix Strike/Rabies (`149`), creeper cast (`59`), Bone Spear (`135`), Bone Spirit (`136`), Teeth (`133`), Bone Armor/Wall/Prison (`100`), Corpse Explosion (`108`), Life Tap (`88`) |
+| Holy | `42` `72` `99` `110` `116` | Holy Bolt (`116`), Blessed Hammer (`110`), Holy Shield (`42`), auras (`72`) |
+| Blade and melee | `68` `96` `97` `110` | Blade Sentinel/Fury/Shield and the claw skills (`110`), melee strikes (`96`), warcries and leaps (`97`), wereforms (`68`) |
+| Curses | `88` `127` | Necromancer curses (`127`), Life Tap (`88`) |
+
+`MISSILE_ELEMENTS` in `d2survivors.component.ts` records the damage kind of each
+art id so art and gameplay stay independent. `MISSILE_FRAME_COUNTS` and
+`MISSILE_FRAME_DURATIONS_MS` are generated from `manifest.json`; regenerate them
+after importing (or pruning) ids, and keep every id that any table references.
+
+## Summon art
+
+The summons no longer use procedural silhouettes. `SUMMON_SPECIES` maps each
+summon skill to a monster sheet, and `drawSummon` renders that species with the
+same direction/frame logic as enemies:
+
+| Summon | Art |
+|---|---|
+| Raven, Poison Creeper, Carrion Vine, Solar Creeper | `models/druid/animations/raven.png` and `poison-creeper.png` (the three vines are one model recoloured, as in D2) |
+| Raise Skeleton, Skeletal Mage, Revive | `skeleton` sheet, revived monsters use the `goatman` sheet |
+| Clay/Blood/Iron/Fire Golem | `minotaur`, `deathMauler`, `siegeBeast`, `salamander` sheets |
+| Spirit/Dire Wolf, Grizzly | `wendigo` sheet, scaled up per summon |
+| Oak Sage, Heart of Wolverine, Spirit of Barbs | `council`, `blunderbore`, `boneFetish` sheets |
+| Valkyrie, Decoy | `sandRaider` sheet |
+| Shadow Warrior, Shadow Master | `nihlathak` sheet |
+
+Known limitation: no wolf, bear, sage, vine, golem or shadow DCC survives the
+extraction with a name (see above), and `enemies/willowisp.png`, `wraith.png` and
+`vulture-demon.png` are broken rips of an unrelated glyph atlas, so the closest
+intact monster sheet stands in for each minion. Replacing them needs named summon
+DCCs imported through `tools/import_d2_skill_visuals.py`.
