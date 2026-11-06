@@ -133,7 +133,7 @@
                   (mouseenter)="onShopItemHover(offer.item, $event)"
                   (mousemove)="onItemPreviewMove($event)"
                   (mouseleave)="onItemPreviewLeave()">
-                  <span class="d2s-shop-offer-icon" aria-hidden="true">{{ equipmentItemIcon(offer.item) }}</span>
+                  <span class="d2s-shop-offer-icon" aria-hidden="true"><img class="d2s-shop-offer-art" [src]="inventoryItemImage(offer.item)" alt="" /></span>
                   <div><strong>{{ offer.name }}</strong><small>{{ offer.desc }}</small><span>{{ getItemStatText(offer.item).join(' · ') }}</span></div>
                   <button type="button" [disabled]="sanctuaryGold < offer.cost" (click)="buyGheedsItem(offer)">✦ {{ offer.cost }}</button>
                 </article>
@@ -151,7 +151,7 @@
                   (mouseenter)="onShopItemHover(entry.item, $event)"
                   (mousemove)="onItemPreviewMove($event)"
                   (mouseleave)="onItemPreviewLeave()">
-                  <span class="d2s-shop-offer-icon" aria-hidden="true">{{ equipmentItemIcon(entry.item) }}</span>
+                  <span class="d2s-shop-offer-icon" aria-hidden="true"><img class="d2s-shop-offer-art" [src]="inventoryItemImage(entry.item)" alt="" /></span>
                   <div><strong>{{ entry.item.name }}</strong><small>{{ entry.source }} · {{ entry.item.rarity }}</small><span>{{ getItemStatText(entry.item).join(' · ') }}</span></div>
                   <button type="button" *ngIf="entry.source === 'Stash'" (click)="takeItemFromSanctuaryStash(entry.item)">Collect</button>
                   <button type="button" (click)="sellShopItem(entry)">Sell · ✦ {{ getItemSellValue(entry.item) }}</button>
@@ -269,7 +269,7 @@
         <div class="d2s-orb d2s-health-orb" [style.--orb-fill]="healthOrbFill">
           <div class="d2s-orb-liquid" [style.height.%]="healthOrbFill * 100"></div>
           <div class="d2s-orb-gloss"></div>
-          <div class="d2s-orb-text"><strong>Life</strong><span>{{ playerHp | number:'1.0-0' }} / {{ playerMaxHp }}</span></div>
+          <div class="d2s-orb-text"><strong>Life</strong><span>{{ playerHp | number:'1.0-0' }} / {{ effectivePlayerMaxHp }}</span></div>
         </div>
         <div class="d2s-hud-center">
           <div class="d2s-belt-frame" aria-label="Potion belt">
@@ -283,7 +283,7 @@
               [class.rejuvenation-potion]="slot.kind === 'rejuvenation'"
               [attr.aria-label]="slot.kind ? slot.kind + ' potion, belt slot ' + (i + 1) : 'Empty belt slot ' + (i + 1)"
               (click)="selectBottle(i); drinkBeltPotion(i)"
-              [title]="slot.kind ? 'Use ' + slot.kind + ' potion (' + ((i % 4) + 1) + ')' : 'Empty belt slot'">
+              [title]="slot.kind ? 'Use ' + slot.kind + ' potion (' + beltKeyForSlot(i) + ')' : 'Empty belt slot'">
               <span *ngIf="slot.kind" class="d2s-potion-bottle" [class.red-potion]="slot.kind === 'health'" [class.rejuvenation-bottle]="slot.kind === 'rejuvenation'"></span>
             </button>
           </div>
@@ -293,7 +293,7 @@
           </div>
           <div class="d2s-skill-bar" aria-label="Automatically casting skills">
             <div class="d2s-skill-slot basic-skill" [attr.title]="basicAttackName + ' · automatic attack'" [attr.aria-label]="basicAttackName + ', automatic attack'">
-              <img *ngIf="basicAttackName === 'Jab'; else basicAttackMissile" class="d2s-skill-art" [src]="skillIconPath(basicAttackName)" alt="" />
+              <img *ngIf="hasSkillIconImage(basicAttackName); else basicAttackMissile" class="d2s-skill-art" [src]="skillIconPath(basicAttackName)" alt="" />
               <ng-template #basicAttackMissile><img *ngIf="basicAttackIcon === ''; else basicAttackFallback" class="d2s-skill-overlay" [src]="missileOverlayPath(basicAttackMissileOverlay)" alt="" /></ng-template>
               <ng-template #basicAttackFallback><span class="d2s-skill-icon">{{ basicAttackIcon }}</span></ng-template>
             </div>
@@ -307,7 +307,7 @@
         <div class="d2s-orb d2s-mana-orb" [style.--orb-fill]="manaOrbFill">
           <div class="d2s-orb-liquid" [style.height.%]="manaOrbFill * 100"></div>
           <div class="d2s-orb-gloss"></div>
-          <div class="d2s-orb-text"><strong>Mana</strong><span>{{ playerMana | number:'1.0-0' }} / {{ playerMaxMana }}</span></div>
+          <div class="d2s-orb-text"><strong>Mana</strong><span>{{ playerMana | number:'1.0-0' }} / {{ effectivePlayerMaxMana }}</span></div>
         </div>
       </div>
       <div class="d2s-act-banner" aria-label="Campaign act">
@@ -334,20 +334,29 @@
           <button type="button" class="d2s-skill-tree-close" (click)="toggleSkillTree()" aria-label="Close skill tree">Close <kbd>T</kbd></button>
         </header>
         <div class="d2s-skill-tree-legend"><span class="learned">Learned</span><span class="available">Eligible on level up</span><span class="locked">Locked</span></div>
-        <div class="d2s-skill-tree-sections">
-          <section class="d2s-skill-tree-tab" *ngFor="let section of skillTreeSections">
-            <h3>{{ section.name }}</h3>
-            <div class="d2s-skill-tree-grid">
-              <article class="d2s-tree-skill" *ngFor="let skill of section.skills" [class]="'d2s-tree-skill ' + skill.state" [attr.aria-label]="skill.name + ', ' + skill.state + ', unlock level ' + skill.level + '. ' + skill.reason" (mouseenter)="showSkillTooltip($event, skill)" (mousemove)="showSkillTooltip($event, skill)" (mouseleave)="onSkillTooltipLeave()">
-                <span class="d2s-tree-level">{{ skill.level }}</span><strong>{{ skill.name }}</strong><small *ngIf="getSkillLevel(skill.name)">Rank {{ getSkillLevel(skill.name) }}/20</small><small>{{ getSkillTreeReason(skill) }}</small>
-              </article>
+        <div class="d2s-skill-tree-sections" *ngIf="activeSkillTreeSection as activeSection">
+          <div class="d2s-skill-tree-tabs" role="tablist" aria-label="Skill trees">
+            <button type="button" role="tab" *ngFor="let section of skillTreeSections" class="d2s-skill-tree-tab-button" [class.active]="section.name === activeSection.name" [attr.aria-selected]="section.name === activeSection.name" (click)="selectSkillTreeTab(section.name)">{{ section.name }}</button>
+          </div>
+          <section class="d2s-skill-tree-tab" role="tabpanel" [attr.aria-label]="activeSection.name">
+            <div class="d2s-skill-tree-panel">
+              <div class="d2s-skill-tree-tab-art" *ngIf="skillTreeSectionArt(activeSection.name) as sectionArt" [style.background-image]="'url(' + sectionArt + ')'" aria-hidden="true"></div>
+              <div class="d2s-skill-tree-sockets">
+                <article class="d2s-tree-skill" *ngFor="let skill of activeSection.skills" [class]="'d2s-tree-skill ' + skill.state" [style.left.%]="skill.socket.x" [style.top.%]="skill.socket.y" [attr.aria-label]="skill.name + ', ' + skill.state + ', unlock level ' + skill.level + '. ' + skill.reason" (mouseenter)="showSkillTooltip($event, skill, activeSection.name)" (mousemove)="showSkillTooltip($event, skill, activeSection.name)" (mouseleave)="onSkillTooltipLeave()">
+                  <img *ngIf="hasSkillIconImage(skill.name)" class="d2s-tree-skill-art" [src]="skillIconPath(skill.name)" alt="" />
+                  <span class="d2s-tree-level">{{ skill.level }}</span><strong>{{ skill.name }}</strong><small *ngIf="getSkillLevel(skill.name)">Rank {{ getSkillLevel(skill.name) }}/20</small><small>{{ getSkillTreeReason(skill) }}</small>
+                </article>
+              </div>
             </div>
           </section>
         </div>
       </section>
-      <aside class="d2s-skill-tooltip" *ngIf="hoveredSkillTooltip as tooltip" [style.left.px]="tooltip.x" [style.top.px]="tooltip.y" role="tooltip" (mouseenter)="onSkillTooltipEnter()" (mouseleave)="onSkillTooltipLeave()">
+      <aside class="d2s-skill-tooltip" *ngIf="hoveredSkillTooltip as tooltip" [style.left.px]="tooltip.x" [style.top.px]="tooltip.y" [style.backgroundImage]="tooltip.art ? 'linear-gradient(145deg, #211a14d9, #09090af2 78%), url(' + tooltip.art + ')' : null" role="tooltip" (mouseenter)="onSkillTooltipEnter()" (mouseleave)="onSkillTooltipLeave()">
         <button type="button" class="d2s-skill-tooltip-close" (click)="hideSkillTooltip()" aria-label="Close skill tooltip" title="Close">×</button>
-        <strong>{{ tooltip.name }}<span *ngIf="tooltip.rank"> · Rank {{ tooltip.rank }}/20</span></strong>
+        <div class="d2s-skill-tooltip-heading">
+          <img *ngIf="tooltip.icon" [src]="tooltip.icon" alt="" />
+          <strong>{{ tooltip.name }}<span *ngIf="tooltip.rank"> · Rank {{ tooltip.rank }}/20</span></strong>
+        </div>
         <p>{{ tooltip.description }}</p>
         <div class="d2s-skill-tooltip-stats">
           <section><b>Current stats</b><ul><li *ngFor="let stat of tooltip.currentStats">{{ stat }}</li></ul></section>
@@ -408,9 +417,16 @@
             <div><span>Stamina</span><b>{{ selectedClassStats.stamina }}</b></div>
           </div>
           <div class="d2s-stats-block d2s-resource-stats">
-            <div><span>Life</span><b>{{ playerHp | number:'1.0-0' }} / {{ playerMaxHp }}</b></div>
-            <div><span>Mana</span><b>{{ playerMana | number:'1.0-0' }} / {{ playerMaxMana }}</b></div>
+            <div><span>Life</span><b>{{ playerHp | number:'1.0-0' }} / {{ effectivePlayerMaxHp }}</b></div>
+            <div><span>Mana</span><b>{{ playerMana | number:'1.0-0' }} / {{ effectivePlayerMaxMana }}</b></div>
             <div *ngIf="equippedLifeBonus"><span>Life Bonus</span><b>+{{ equippedLifeBonus }}</b></div>
+          </div>
+          <div class="d2s-set-summary" *ngIf="equippedSetSummaries.length">
+            <h4>Set Bonuses</h4>
+            <div class="d2s-set-summary-entry" *ngFor="let setSummary of equippedSetSummaries">
+              <p><strong>{{ setSummary.name }}</strong><span>{{ setSummary.count }} / {{ setSummary.total }}</span></p>
+              <p *ngFor="let line of setSummary.lines">{{ line }}</p>
+            </div>
           </div>
         </section>
         <div class="d2s-inventory-right">
@@ -425,6 +441,8 @@
               [class]="'d2s-equipment-slot position-' + slot.position"
               [class.equipped]="!!getEquipmentItem(slot.slot)"
               [class.rare]="getEquipmentItem(slot.slot)?.rarity === 'rare'"
+              [class.unique]="getEquipmentItem(slot.slot)?.rarity === 'unique'"
+              [class.set]="getEquipmentItem(slot.slot)?.rarity === 'set'"
               [class.magic]="getEquipmentItem(slot.slot)?.rarity === 'magic'"
               [attr.data-equipment-slot]="slot.slot"
               [attr.aria-label]="equipmentSlotLabel(slot.slot) + (getEquipmentItem(slot.slot) ? ': ' + getEquipmentItem(slot.slot)?.name : ', empty')"
@@ -463,6 +481,8 @@
           (dragend)="onInventoryDragEnd()"
           [class.filled]="slot.item"
           [class.rare]="slot.item?.rarity === 'rare'"
+          [class.unique]="slot.item?.rarity === 'unique'"
+          [class.set]="slot.item?.rarity === 'set'"
           [class.magic]="slot.item?.rarity === 'magic'"
           [class.normal]="slot.item?.rarity === 'normal'"
           [class.empty]="!slot.item"
@@ -507,6 +527,12 @@
           <button type="button" class="d2s-equip-belt" *ngIf="selectedItem === previewItem && selectedEquipmentSlot" (click)="unequipItem(selectedEquipmentSlot)">Unequip</button>
           <div class="d2s-item-window-stats">
             <p *ngFor="let line of itemStatText(previewItem)">{{ line }}</p>
+          </div>
+          <div class="d2s-item-set" *ngIf="previewItem.setName">
+            <p class="d2s-item-set-title">{{ previewItem.setName }} <span>{{ getEquippedSetCount(previewItem.setName) }} / {{ getSetSize(previewItem.setName) }}</span></p>
+            <p *ngFor="let bonus of setBonusLines(previewItem)" class="d2s-item-set-line" [class.active]="bonus.active" [class.complete]="bonus.complete">
+              <span>{{ bonus.label }}</span> {{ bonus.text }}
+            </p>
           </div>
         </ng-container>
       </div>

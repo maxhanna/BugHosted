@@ -3,6 +3,9 @@ import { Subject } from "rxjs";
 import * as THREE from "three";
 import { D2SurvivorsService } from "../../services/d2survivors.service";
 import { D2SurvivorsComponent } from "./d2survivors.component";
+import { D2_SET_ITEMS, D2_UNIQUE_ITEMS } from "./d2-item-assets.generated";
+import { D2_SKILL_ICON_PATHS } from "./d2-skill-icons.generated";
+import { D2_CLASS_SKILL_TREES } from "./d2survivors-skill-tree.data";
 import { ATTACK_CLIP_INFO, buildCharacterRig } from "./character-animation";
 
 describe("D2SurvivorsComponent combat and equipment", () => {
@@ -487,20 +490,176 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(enemy.x).toBeLessThan(400);
   });
 
-  it("maps inventory items to art matching their equipment instead of defaulting legacy gear to body armor", () => {
+  it("draws the original base-item art and falls back to equipment art for names this game added", () => {
     const imageFor = (name: string, slot: "weapon" | "armor" | "charm" | "belt", equipmentType?: string) =>
       component.inventoryItemImage({ name, slot, equipmentType } as any);
 
-    expect(imageFor("Short Sword", "weapon")).toBe("assets/d2survivors/items/weapon.png");
-    expect(imageFor("Bone Wand", "weapon")).toBe("assets/d2survivors/items/wand.png");
-    expect(imageFor("Leather Cap", "armor")).toBe("assets/d2survivors/items/helmet.png");
-    expect(imageFor("Chain Hauberk", "armor")).toBe("assets/d2survivors/items/body.png");
-    expect(imageFor("Buckler", "armor")).toBe("assets/d2survivors/items/shield.png");
-    expect(imageFor("Leather Gloves", "armor")).toBe("assets/d2survivors/items/gloves.png");
-    expect(imageFor("Heavy Boots", "armor")).toBe("assets/d2survivors/items/boots.png");
-    expect(imageFor("Gold Amulet", "charm")).toBe("assets/d2survivors/items/amulet.png");
-    expect(imageFor("Ring of the Artisan", "charm")).toBe("assets/d2survivors/items/ring.png");
-    expect(imageFor("Vampirefang Belt", "belt")).toBe("assets/d2survivors/items/belt.png");
+    expect(imageFor("Short Sword", "weapon")).toBe("assets/d2survivors/items/d2/invssd.png");
+    expect(imageFor("Bone Wand", "weapon")).toBe("assets/d2survivors/items/d2/invbwn.png");
+    expect(imageFor("Leather Cap", "armor")).toBe("assets/d2survivors/items/d2/invcap.png");
+    expect(imageFor("Chain Hauberk", "armor")).toBe("assets/d2survivors/items/d2/invchn.png");
+    expect(imageFor("Barbarian Battle Axe", "weapon")).toBe("assets/d2survivors/items/d2/invbtx.png");
+    expect(imageFor("Buckler", "armor")).toBe("assets/d2survivors/items/d2/invbuc.png");
+    expect(imageFor("Leather Gloves", "armor")).toBe("assets/d2survivors/items/d2/invlgl.png");
+    expect(imageFor("Heavy Boots", "armor")).toBe("assets/d2survivors/items/d2/invvbt.png");
+    expect(imageFor("Gold Amulet", "charm")).toBe("assets/d2survivors/items/d2/invamu.png");
+    expect(imageFor("Ring of the Artisan", "charm")).toBe("assets/d2survivors/items/d2/invrin1.png");
+    expect(imageFor("Vampirefang Belt", "belt")).toBe("assets/d2survivors/items/d2/invvbl.png");
+    expect(imageFor("Stalwart Cap", "armor", "helmet")).toBe("assets/d2survivors/items/helmet.png");
+  });
+
+  it("shows the imported unique and set cels for those rarities", () => {
+    const imageFor = (name: string, baseName: string, rarity: "unique" | "set", slot = "weapon", equipmentType?: string) =>
+      component.inventoryItemImage({ name, baseName, rarity, slot, equipmentType } as any);
+
+    expect(imageFor("The Gnasher", "Hand Axe", "unique")).toBe("assets/d2survivors/items/d2/invhaxu.png");
+    expect(imageFor("Rixots Keen", "Short Sword", "unique")).toBe("assets/d2survivors/items/unique/rixots-keen.png");
+    expect(imageFor("Hsarus' Iron Fist", "Buckler", "set", "armor", "shield")).toBe("assets/d2survivors/items/set/hsarus-iron-fist.png");
+  });
+
+  it("uses the original flippy artwork for loot lying on the ground", () => {
+    const groundFor = (name: string, slot: "weapon" | "armor" | "charm") =>
+      component.groundItemImage({ name, slot } as any);
+
+    expect(groundFor("Short Sword", "weapon")).toBe("assets/d2survivors/items/ground/flpssd.png");
+    expect(groundFor("Chain Hauberk", "armor")).toBe("assets/d2survivors/items/ground/flpchn.png");
+    expect(groundFor("Barbarian Battle Axe", "weapon")).toBe("assets/d2survivors/items/ground/flpbtx.png");
+    expect(groundFor("Stalwart Cap", "armor")).toBe("assets/d2survivors/items/helmet.png");
+  });
+
+  it("uses the named inventory cel as the tint source for unique and set floor loot", () => {
+    const sourceFor = (item: any) => (component as any).itemDropTintSource(item);
+
+    expect(sourceFor({
+      name: "The Gnasher", baseName: "Hand Axe", rarity: "unique", slot: "weapon", equipmentType: "weapon",
+    })).toEqual({
+      groundPath: "assets/d2survivors/items/ground/flphax.png",
+      artPath: "assets/d2survivors/items/d2/invhaxu.png",
+    });
+    expect(sourceFor({
+      name: "Hsarus' Iron Fist", baseName: "Buckler", rarity: "set", slot: "armor", equipmentType: "shield",
+    })).toEqual({
+      groundPath: "assets/d2survivors/items/ground/flpbuc.png",
+      artPath: "assets/d2survivors/items/set/hsarus-iron-fist.png",
+    });
+    expect(sourceFor({
+      name: "Short Sword", baseName: "Short Sword", rarity: "normal", slot: "weapon", equipmentType: "weapon",
+    })).toBeNull();
+  });
+
+  it("duotones a flippy cel with its inventory art's dominant colour and keeps its alpha", () => {
+    const inventoryPixels = new Uint8ClampedArray([
+      100, 28, 24, 255,
+      132, 38, 32, 255,
+      9, 8, 7, 255,
+      255, 255, 255, 255,
+      0, 0, 0, 0,
+    ]);
+    const color = (component as any).dominantColorFromPixels(inventoryPixels);
+    expect(color[0]).toBeGreaterThan(color[1]);
+    expect(color[0]).toBeGreaterThan(color[2]);
+
+    const floorPixels = new Uint8ClampedArray([
+      0, 0, 0, 255,
+      80, 80, 80, 255,
+      230, 230, 230, 255,
+      0, 0, 0, 0,
+    ]);
+    (component as any).tintGroundCelPixels(floorPixels, color);
+
+    expect(floorPixels[3]).toBe(255);
+    expect(floorPixels[7]).toBe(255);
+    expect(floorPixels[11]).toBe(255);
+    expect(floorPixels[15]).toBe(0);
+    expect(floorPixels[0]).toBeLessThan(floorPixels[4]);
+    expect(floorPixels[4]).toBeLessThan(floorPixels[8]);
+    expect(floorPixels[1]).toBeLessThan(floorPixels[0]);
+  });
+
+  it("draws the original Diablo chest, gold, and potion cels", () => {
+    const sources: Array<string | null> = [];
+    const ctx = {
+      save: () => undefined,
+      restore: () => undefined,
+      imageSmoothingEnabled: true,
+      globalAlpha: 1,
+      drawImage: (image: HTMLImageElement) => sources.push(image.getAttribute("src")),
+    } as unknown as CanvasRenderingContext2D;
+    spyOn(component as any, "projectArenaPoint").and.returnValue({ x: 100, y: 100 });
+
+    (component as any).drawChest(ctx, { x: 0, y: 0, bob: 0, open: false, life: 30 });
+    (component as any).drawChest(ctx, { x: 0, y: 0, bob: 0, open: true, life: 1.2 });
+    (component as any).drawGoldDrop(ctx, { x: 0, y: 0, amount: 12, bob: 0, life: 18, pickupDelay: 0 });
+    (component as any).drawPotionDrop(ctx, { x: 0, y: 0, kind: "health", life: 18, pickupDelay: 0 });
+    (component as any).drawPotionDrop(ctx, { x: 0, y: 0, kind: "rejuvenation", life: 18, pickupDelay: 0 });
+
+    expect(sources).toEqual([
+      "assets/d2survivors/loot/chest-closed.png",
+      "assets/d2survivors/loot/chest-open.png",
+      "assets/d2survivors/loot/gold.png",
+      "assets/d2survivors/loot/health-potion.png",
+      "assets/d2survivors/loot/rejuvenation-potion.png",
+    ]);
+  });
+
+  it("defaults the Amazon preview to her light red-and-gold armor instead of the grey medium set", () => {
+    component.equipment.body = null;
+    const model = new THREE.Group();
+    const light = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial());
+    const medium = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial());
+    const heavy = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial());
+    light.name = "torso_armor_litShape_0";
+    medium.name = "torso_armor_medShape_0";
+    heavy.name = "torso_armor_hvyShape_0";
+    model.add(light, medium, heavy);
+
+    (component as any).configureClassArmor(model, "amazon", true);
+
+    expect(light.visible).toBeTrue();
+    expect(medium.visible).toBeFalse();
+    expect(heavy.visible).toBeFalse();
+  });
+
+  it("spills several rolled chest items on the ground and picks them up one at a time", () => {
+    component.inventory = Array.from({ length: component.inventoryColumns * component.inventoryRows }, () => null);
+    component.itemDrops = [];
+    spyOn(Math, "random").and.returnValue(0.5);
+    component.openChest({ x: 200, y: 200, bob: 0, open: false, life: 30 } as any);
+
+    const rolledCount = component.itemDrops.length;
+    const rarities: string[] = ["normal", "magic", "rare", "set", "unique"];
+    expect(rolledCount).toBeGreaterThanOrEqual(2);
+    expect(rolledCount).toBeLessThanOrEqual(4);
+    expect(component.itemDrops.every((drop) => rarities.includes(drop.item.rarity))).toBeTrue();
+    expect(component.inventory.filter(Boolean).length).toBe(0);
+
+    component.playerX = 20;
+    component.playerY = 20;
+    component.updateItemDrops(2000);
+    expect(component.itemDrops.length).toBe(rolledCount);
+    expect(component.inventory.filter(Boolean).length).toBe(0);
+
+    const drop = component.itemDrops[0];
+    component.playerX = drop.x;
+    component.playerY = drop.y;
+    component.updateItemDrops(1000);
+    expect(component.itemDrops.length).toBe(rolledCount - 1);
+    expect(component.inventory.filter(Boolean).length).toBe(1);
+  });
+
+  it("rolls a rarity for every item released by a chest", () => {
+    component.itemDrops = [];
+    const rolled = [
+      { id: "chest-normal", name: "Sash", rarity: "normal", slot: "belt", desc: "A sash." },
+      { id: "chest-magic", name: "Keen Sash", rarity: "magic", slot: "belt", desc: "A sash." },
+      { id: "chest-rare", name: "Stalwart Sash of the Fox", rarity: "rare", slot: "belt", desc: "A sash." },
+    ] as any[];
+    spyOn(component as any, "randomItem").and.callFake(() => rolled.shift()!);
+    spyOn(Math, "random").and.returnValue(0.5);
+
+    component.openChest({ x: 200, y: 200, bob: 0, open: false, life: 30 } as any);
+
+    expect(component.itemDrops.map((drop) => drop.item.rarity)).toEqual(["normal", "magic", "rare"]);
   });
 
   it("maps light, medium, and heavy armor names to matching rig tiers", () => {
@@ -641,7 +800,8 @@ describe("D2SurvivorsComponent combat and equipment", () => {
   });
 
   it("can roll attack speed as a randomized item affix", () => {
-    spyOn(Math, "random").and.returnValues(0, 0, 0.5, 0.5, 0, 0.5);
+    // 0.2 is in the magic range; 0.001 now drops a real unique at level 1.
+    spyOn(Math, "random").and.returnValues(0, 0.2, 0.4, 0.5, 0.5);
 
     const item = (component as any).randomItem();
 
@@ -835,5 +995,96 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     arm.rotation.z = Math.PI / 2;
     model.updateMatrixWorld(true);
     expect(pad.getWorldPosition(new THREE.Vector3()).distanceTo(restPosition)).toBeGreaterThan(0.1);
+  });
+
+  it("imports the complete real unique and set catalogues", () => {
+    expect(D2_UNIQUE_ITEMS.length).toBe(424);
+    expect(D2_SET_ITEMS.length).toBe(140);
+    const gnasher = D2_UNIQUE_ITEMS.find((item) => item.name === "The Gnasher");
+    expect(gnasher?.baseName).toBe("Hand Axe");
+    expect(gnasher?.stats.enhancedDamagePercent).toBe(70);
+    expect(gnasher?.stats.crushingBlowPercent).toBe(20);
+  });
+
+  it("aggregates Hsarus' partial and full set bonuses from equipped pieces", () => {
+    const setItem = (name: string): any => {
+      const generated = D2_SET_ITEMS.find((item) => item.name === name)!;
+      return {
+        id: name, name: generated.name, baseName: generated.baseName, rarity: "set",
+        slot: generated.slot, equipmentType: generated.equipmentType, width: generated.width,
+        height: generated.height, requiredLevel: generated.requiredLevel, setName: generated.setName,
+        desc: generated.desc, stats: { ...generated.stats }, affixes: [...generated.affixes],
+      };
+    };
+    component.equipment.shield = setItem("Hsarus' Iron Fist");
+    component.equipment.boots = setItem("Hsarus' Iron Heel");
+    expect(component.getEquippedSetCount("Hsarus' Defense")).toBe(2);
+    expect(component.equippedThorns).toBe(5);
+    expect(component.activeSetBonuses.some((bonus) => bonus.lines.includes("Attacker Takes Damage of 5"))).toBeTrue();
+    const twoPieceLines = component.setBonusLines(component.equipment.shield!);
+    expect(twoPieceLines.find((line) => line.text === "Cannot Be Frozen")?.active).toBeFalse();
+    component.equipment.belt = setItem("Hsarus' Iron Stay");
+    expect(component.getEquippedSetCount("Hsarus' Defense")).toBe(3);
+    const fullLines = component.setBonusLines(component.equipment.belt!);
+    expect(fullLines.find((line) => line.text === "Cannot Be Frozen")?.active).toBeTrue();
+    expect(fullLines.find((line) => line.text === "Lightning Resist +25%")?.active).toBeTrue();
+    expect(component.equippedResistancePercent).toBe(25);
+    expect(component.equippedArmor).toBeGreaterThanOrEqual(53);
+  });
+
+  it("blocks equipping a named item above the hero's level", () => {
+    const gnasher = D2_UNIQUE_ITEMS.find((item) => item.name === "The Gnasher")!;
+    component.playerLevel = 1;
+    component.inventory[0] = (component as any).createNamedItem(gnasher, "unique");
+    component.equipSelectedItem(0);
+    expect(component.equipment.weapon).toBeNull();
+    expect(component.inventoryStatus).toContain("requires level 5");
+  });
+
+  it("drops only named items whose required level fits the hero", () => {
+    component.playerLevel = 1;
+    spyOn(Math, "random").and.returnValue(0.001);
+    const item = (component as any).randomItem();
+    expect(item.rarity).toBe("unique");
+    expect(item.requiredLevel).toBeLessThanOrEqual(9);
+    expect(D2_UNIQUE_ITEMS.some((entry) => entry.name === item.name)).toBeTrue();
+  });
+
+  it("imports a real D2R icon for every class skill and uses it in the tooltip", () => {
+    const skills = Object.values(D2_CLASS_SKILL_TREES)
+      .flatMap((tree) => tree.sections.flatMap((section) => section.skills));
+    expect(skills.length).toBe(210);
+    expect(Object.keys(D2_SKILL_ICON_PATHS).length).toBe(210);
+    for (const skill of skills) {
+      expect(D2_SKILL_ICON_PATHS[skill.name]).toMatch(/^assets\/d2survivors\/skills\/[a-z]+\/[a-z0-9-]+\.webp$/);
+    }
+
+    component.selectedClass = "amazon";
+    component.playerLevel = 30;
+    const magicArrow = D2_CLASS_SKILL_TREES["amazon"].sections[0].skills[0];
+    component.showSkillTooltip(
+      { clientX: 10, clientY: 10 } as MouseEvent,
+      { ...magicArrow, state: "available" as const, reason: "" },
+      "Bow and Crossbow",
+    );
+    expect(component.hoveredSkillTooltip?.icon).toBe(D2_SKILL_ICON_PATHS["Magic Arrow"]);
+  });
+
+  it("switches the panel between the three class skill trees", () => {
+    component.selectedClass = "amazon";
+    expect(component.skillTreeSections.map((section) => section.name)).toEqual([
+      "Bow and Crossbow",
+      "Passive and Magic",
+      "Javelin and Spear",
+    ]);
+    expect(component.activeSkillTreeSection?.name).toBe("Bow and Crossbow");
+
+    component.selectSkillTreeTab("Javelin and Spear");
+    expect(component.activeSkillTreeSection?.name).toBe("Javelin and Spear");
+    expect(component.activeSkillTreeSection?.skills[0].name).toBe("Jab");
+
+    component.selectSkillTreeTab("Passive and Magic");
+    expect(component.activeSkillTreeSection?.name).toBe("Passive and Magic");
+    expect(component.activeSkillTreeSection?.skills[0].name).toBe("Inner Sight");
   });
 });

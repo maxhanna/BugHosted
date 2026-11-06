@@ -81,8 +81,9 @@ same direction/frame logic as enemies:
 | Summon | Art |
 |---|---|
 | Raven, Poison Creeper, Carrion Vine, Solar Creeper | `models/druid/animations/raven.png` and `poison-creeper.png` (the three vines are one model recoloured, as in D2) |
-| Raise Skeleton, Skeletal Mage, Revive | `skeleton` sheet, revived monsters use the `goatman` sheet |
-| Clay/Blood/Iron/Fire Golem | `minotaur`, `deathMauler`, `siegeBeast`, `salamander` sheets |
+| Raise Skeleton, Skeletal Mage | `enemies/animated/skeleton-warrior.png`, built from the original Diablo II skeleton rip in `review/z-Skelet.jpg`; the mage is the same bones lit blue. (The game's `skeleton` sheet is a 16-frame skeleton *archer* strip, so it is not used for summons.) |
+| Revive | the replicated monster's own sheet, i.e. `goatman` |
+| Clay/Blood/Iron/Fire Golem | `enemies/animated/golem.png`: the hulking weaponless Diablo II golem body from the LoD monster group `d2exp/File00007956`..`965`, recoloured per golem |
 | Spirit/Dire Wolf, Grizzly | `wendigo` sheet, scaled up per summon |
 | Oak Sage, Heart of Wolverine, Spirit of Barbs | `council`, `blunderbore`, `boneFetish` sheets |
 | Valkyrie, Decoy | `sandRaider` sheet |
@@ -93,3 +94,10 @@ extraction with a name (see above), and `enemies/willowisp.png`, `wraith.png` an
 `vulture-demon.png` are broken rips of an unrelated glyph atlas, so the closest
 intact monster sheet stands in for each minion. Replacing them needs named summon
 DCCs imported through `tools/import_d2_skill_visuals.py`.
+
+The skeleton and the golems are the exceptions. Their atlases come from unnamed
+Diablo II art that was identified visually: the skeleton rip in
+`review/z-Skelet.jpg` (8 directions, 16 walk and 10 attack frames) and the LoD
+monster group `d2exp/File00007956`..`File00007965` (8 directions, decoded with the
+DCC converter). Rebuild both with
+`python tools/import_d2_summon_animations.py`.

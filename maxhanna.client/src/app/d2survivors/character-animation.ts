@@ -196,6 +196,8 @@ export interface CharacterRig {
   chest?: RigJoint;
   neck?: RigJoint;
   head?: RigJoint;
+  /** Shoulder bones (clavicles). They are posed so pads and straps follow. */
+  clavicles: RigJoint[];
   arms: RigJoint[];
   forearms: RigJoint[];
   hands: RigJoint[];
@@ -818,7 +820,15 @@ export function buildCharacterRig(model: THREE.Group, classId: string): Characte
   const poseRoot = reparentToPoseRoot(model, records);
   const found = collectJoints(records, classId);
 
-  const arms = pickOnePerSide(found.arms, armScore(classId));
+  // Clavicles are solved separately: the pads, straps and sleeve caps in these
+  // rips hang off them, so leaving them at the bind pose keeps the shoulder
+  // armour spread out sideways while the arm itself hangs.
+  const clavicles = pickOnePerSide(
+    found.arms.filter((candidate) => /clavicle/.test(candidate.name)),
+    () => 1,
+  );
+  const armOnly = found.arms.filter((candidate) => !clavicles.includes(candidate));
+  const arms = pickOnePerSide(armOnly.length ? armOnly : found.arms, armScore(classId));
   const forearms = pickOnePerSide(found.forearms, (candidate) => {
     if (/^elbow_[lr]_jnt$/.test(candidate.name)) return 6;
     if (/forearm|fore_arm|lwr_arm/.test(candidate.name)) return 5;
@@ -834,6 +844,10 @@ export function buildCharacterRig(model: THREE.Group, classId: string): Characte
   const knees = pickOnePerSide(found.knees, (candidate) => (/leg_02|calf|shin|knee/.test(candidate.name) ? 5 : 3));
   const feet = pickOnePerSide(found.feet, (candidate) => (/leg_04|foot|ankle/.test(candidate.name) ? 5 : 3));
 
+  for (const clavicle of clavicles) {
+    const armBone = arms.find((entry) => entry.side === clavicle.side);
+    clavicle.restDir = armBone ? directionBetween(clavicle.bindPos, armBone.bindPos) : new THREE.Vector3(0, -1, 0);
+  }
   // Limb directions from the joint that follows, in bind pose.
   for (const armBone of arms) {
     const forearm = forearms.find((entry) => entry.side === armBone.side);
@@ -866,7 +880,8 @@ export function buildCharacterRig(model: THREE.Group, classId: string): Characte
   chest && chest !== found.spine && (chest.parent = found.spine ?? pelvis);
   found.neck && (found.neck.parent = chest);
   found.head && (found.head.parent = found.neck ?? chest);
-  for (const armBone of arms) armBone.parent = chest ?? pelvis;
+  for (const clavicle of clavicles) clavicle.parent = chest ?? pelvis;
+  for (const armBone of arms) armBone.parent = clavicles.find((entry) => entry.side === armBone.side) ?? chest ?? pelvis;
   for (const forearm of forearms) forearm.parent = arms.find((entry) => entry.side === forearm.side) ?? chest;
   for (const hand of hands) hand.parent = forearms.find((entry) => entry.side === hand.side) ?? chest;
   for (const thigh of thighs) thigh.parent = pelvis;
@@ -877,7 +892,7 @@ export function buildCharacterRig(model: THREE.Group, classId: string): Characte
   const seen = new Set<THREE.Bone>();
   for (const joint of [
     pelvis, found.spine, chest, found.neck, found.head,
-    ...arms, ...forearms, ...hands, ...thighs, ...knees, ...feet,
+    ...clavicles, ...arms, ...forearms, ...hands, ...thighs, ...knees, ...feet,
   ]) {
     if (!joint || seen.has(joint.bone)) continue;
     seen.add(joint.bone);
@@ -922,6 +937,7 @@ export function buildCharacterRig(model: THREE.Group, classId: string): Characte
     chest,
     neck: found.neck,
     head: found.head,
+    clavicles,
     arms,
     forearms,
     hands,
@@ -966,6 +982,12 @@ export function poseCharacterRig(rig: CharacterRig, state: CharacterPoseState): 
   const walk = Math.max(0, Math.min(1, state.walk)) * motion;
   const phase = state.walkPhase;
   const breathe = Math.sin(state.time * 1.7) * (1 - walk);
+  // Standing still is not a frozen pose: the idle weight shift runs on the
+  // class's own slow cadence, so a resting hero breathes, drifts and settles
+  // instead of holding the walk pose with every sway term multiplied by zero.
+  const idle = (1 - walk) * motion;
+  const idlePhase = state.time * gait.idleCadence;
+  const idleSway = Math.sin(idlePhase) * idle;
   const stance = stanceForClass(rig.classId);
 
   const attackActive = !!state.attackStyle && state.attackTime < ATTACK_CLIP_INFO[state.attackStyle].duration;
@@ -1000,22 +1022,24 @@ export function poseCharacterRig(rig: CharacterRig, state: CharacterPoseState): 
     new THREE.Euler(pitchDeg * DEG, yawDeg * DEG, rollDeg * DEG, "YXZ");
 
   // ---- torso -------------------------------------------------------------
-  const pelvisRoll = gait.pelvisRoll * Math.sin(phase) * walk;
+  const pelvisRoll = gait.pelvisRoll * Math.sin(phase) * walk + idleSway * 2.1;
   const pelvisYaw = gait.pelvisYaw * Math.sin(phase) * walk + (sampled ? sampled.body.pelvisYaw : 0);
   const pelvisPitch = gait.hunch + (sampled ? sampled.body.pelvisPitch : 0);
   setWorldRotation(rig.pelvis, eulerOf(pelvisPitch, pelvisYaw, pelvisRoll));
   setWorldRotation(rig.spine, eulerOf(
     -(gait.lean * walk) - gait.hunch * 0.45 + Math.sin(phase * 2) * 0.35 * walk + (sampled ? sampled.body.spinePitch : 0),
     -gait.pelvisYaw * 0.35 * Math.sin(phase) * walk + (sampled ? sampled.body.spineYaw : 0),
-    gait.sway * Math.sin(phase) * walk + (sampled ? sampled.body.spineRoll : 0),
+    gait.sway * Math.sin(phase) * walk + idleSway * 3 + (sampled ? sampled.body.spineRoll : 0),
   ));
   setWorldRotation(rig.chest, eulerOf(
-    breathe * 0.8 + (sampled ? sampled.body.chestPitch : 0),
+    breathe * 0.8 - idleSway * 1.1 + (sampled ? sampled.body.chestPitch : 0),
     gait.chestTwist * 0.55 * Math.sin(phase) * walk + (sampled ? sampled.body.chestYaw : 0),
-    gait.sway * 0.45 * Math.sin(phase) * walk + (sampled ? sampled.body.chestRoll : 0),
+    gait.sway * 0.45 * Math.sin(phase) * walk + idleSway * 2.4 + (sampled ? sampled.body.chestRoll : 0),
   ));
-  const headYaw = -gait.headYaw * Math.sin(phase) * walk - gait.chestTwist * 0.4 * Math.sin(phase) * walk + breathe * 0.4;
-  const headPitch = -gait.headBob * Math.sin(phase * 2) * walk + (sampled ? sampled.body.headPitch : 0);
+  const headYaw = -gait.headYaw * Math.sin(phase) * walk - gait.chestTwist * 0.4 * Math.sin(phase) * walk + breathe * 0.4
+    + Math.sin(idlePhase * 0.45) * 3.2 * idle;
+  const headPitch = -gait.headBob * Math.sin(phase * 2) * walk + (sampled ? sampled.body.headPitch : 0)
+    + Math.sin(idlePhase * 0.7 + 0.5) * 1.5 * idle;
   setWorldRotation(rig.neck, eulerOf(headPitch * 0.45, headYaw * 0.45, 0));
   setWorldRotation(rig.head, eulerOf(headPitch, headYaw, 0));
 
@@ -1024,16 +1048,20 @@ export function poseCharacterRig(rig: CharacterRig, state: CharacterPoseState): 
   let weaponRoll = sampled ? sampled.body.weaponRoll : 0;
   let weaponYaw = sampled ? sampled.body.weaponYaw : 0;
   const lateralAxis = new THREE.Vector3(1, 0, 0);
+  const forearmDirs = new Map<-1 | 1, THREE.Vector3>();
+  const armDirs = new Map<-1 | 1, THREE.Vector3>();
   for (const armBone of rig.arms) {
     const lead = armBone.side === state.attackSide;
     const sidePhase = phase + (armBone.side < 0 ? Math.PI : 0);
-    const walkSwing = Math.sin(-sidePhase) * gait.armSwing * walk;
+    // The idle drift joins the walk swing so hanging arms sway with the weight
+    // shift rather than staying pinned to the stance.
+    const walkSwing = Math.sin(-sidePhase) * gait.armSwing * walk + idleSway * Math.min(2.6, gait.armSwing * 0.3);
     // The stance arm swings along the sagittal plane, so the shoulder travels
     // forward and back instead of the elbow merely rising.
     const stanceDir = armTarget(armBone.side, stance.out, stance.elevation);
     const swing = new THREE.Quaternion().setFromAxisAngle(lateralAxis, -walkSwing * DEG);
     let dir = stanceDir.applyQuaternion(swing);
-    let elbow = stance.elbow + gait.elbow * walk;
+    let elbow = stance.elbow + gait.elbow * walk + idle * 2.4 * Math.sin(idlePhase * 0.8 + 0.4);
     let roll = 0;
     if (sampled && strike > 0) {
       const armPose = lead ? sampled.lead : sampled.off;
@@ -1042,9 +1070,34 @@ export function poseCharacterRig(rig: CharacterRig, state: CharacterPoseState): 
       elbow = lerp(elbow, armPose.elbow, strike);
       roll = lerp(0, armPose.roll ?? 0, strike);
     }
+    armDirs.set(armBone.side, dir);
     setWorldDirection(armBone, dir, roll * DEG);
     const forearm = rig.forearms.find((entry) => entry.side === armBone.side);
-    if (forearm) setWorldDirection(forearm, flex(dir, Math.max(0, elbow)));
+    if (forearm) {
+      const forearmDir = flex(dir, Math.max(0, elbow));
+      forearmDirs.set(armBone.side, forearmDir);
+      setWorldDirection(forearm, forearmDir);
+    }
+  }
+
+  // ---- shoulders ---------------------------------------------------------
+  // The bind pose is a T-pose, so pads and straps are modelled on horizontal
+  // shoulders. Slope each clavicle toward the hanging arm so the shoulder
+  // armour rides down with it instead of staying spread out sideways.
+  for (const clavicle of rig.clavicles) {
+    const armDir = armDirs.get(clavicle.side);
+    if (!armDir) continue;
+    setWorldDirection(clavicle, clavicle.restDir.clone().lerp(armDir, 0.3).normalize());
+  }
+
+  // ---- wrists ------------------------------------------------------------
+  // These rips are skinned in a T-pose, so a wrist that simply rides its forearm
+  // keeps the palm facing the floor and the hand sticking out. Bend the wrist in
+  // slightly and roll it toward the body so the hands hang like actual hands.
+  for (const hand of rig.hands) {
+    const forearmDir = forearmDirs.get(hand.side);
+    if (!forearmDir) continue;
+    setWorldDirection(hand, flex(forearmDir, 15), hand.side * 14);
   }
 
   // ---- legs --------------------------------------------------------------
@@ -1090,7 +1143,7 @@ export function poseCharacterRig(rig: CharacterRig, state: CharacterPoseState): 
     (sampled ? sampled.body.lunge * strike : 0)
     + Math.sin(phase * 2) * (gait.drive / 100) * walk * 0.25
   );
-  const bodyX = height * Math.sin(phase) * walk * 0.012 * motion;
+  const bodyX = height * (Math.sin(phase) * walk * 0.012 * motion + idleSway * 0.009);
 
   const solveJoint = (joint: RigJoint | undefined): void => {
     if (!joint) return;

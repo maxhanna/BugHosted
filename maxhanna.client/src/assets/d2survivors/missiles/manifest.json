@@ -470,6 +470,36 @@
     "source": "user-supplied DCC",
     "width": 40
   },
+  "d2-ancientdeathmissile": {
+    "dccName": "ancientdeathmissile",
+    "encodedFrames": 16,
+    "frameDirectory": "d2-ancientdeathmissile",
+    "frameDurationMs": 60,
+    "frames": 16,
+    "height": 54,
+    "source": "d2r extract missile dcc",
+    "width": 55
+  },
+  "d2-andarielflamedeath": {
+    "dccName": "andarielflamedeath",
+    "encodedFrames": 15,
+    "frameDirectory": "d2-andarielflamedeath",
+    "frameDurationMs": 60,
+    "frames": 15,
+    "height": 122,
+    "source": "d2r extract missile dcc",
+    "width": 38
+  },
+  "d2-andarielspell": {
+    "dccName": "andarielspell",
+    "encodedFrames": 24,
+    "frameDirectory": "d2-andarielspell",
+    "frameDurationMs": 60,
+    "frames": 24,
+    "height": 65,
+    "source": "d2r extract missile dcc",
+    "width": 65
+  },
   "d2-arctic-blast": {
     "dccName": "ArcticBlastIce",
     "direction": 0,
@@ -480,6 +510,1186 @@
     "height": 88,
     "source": "user-supplied DCC",
     "width": 78
+  },
+  "d2-arcticblastice": {
+    "dccName": "arcticblastice",
+    "encodedFrames": 16,
+    "frameDirectory": "d2-arcticblastice",
+    "frameDurationMs": 60,
+    "frames": 16,
+    "height": 86,
+    "source": "d2r extract missile dcc",
+    "width": 78
+  },
+  "d2-arcticblastice_2": {
+    "dccName": "arcticblastice_2",
+    "encodedFrames": 16,
+    "frameDirectory": "d2-arcticblastice_2",
+    "frameDurationMs": 60,
+    "frames": 16,
+    "height": 82,
+    "source": "d2r extract missile dcc",
+    "width": 79
+  },
+  "d2-armageddon_fire": {
+    "dccName": "armageddon_fire",
+    "encodedFrames": 16,
+    "frameDirectory": "d2-armageddon_fire",
+    "frameDurationMs": 60,
+    "frames": 16,
+    "height": 137,
+    "source": "d2r extract missile dcc",
+    "width": 74
+  },
+  "d2-armageddon_rock": {
+    "dccName": "armageddon_rock",
+    "encodedFrames": 16,
+    "frameDirectory": "d2-armageddon_rock",
+    "frameDurationMs": 60,
+    "frames": 16,
+    "height": 30,
+    "source": "d2r extract missile dcc",
+    "width": 30
+  },
+  "d2-arrow": {
+    "dccName": "arrow",
+    "encodedFrames": 1,
+    "frameDirectory": "d2-arrow",
+    "frameDurationMs": 60,
+    "frames": 1,
+    "height": 13,
+    "source": "d2r extract missile dcc",
+    "width": 31
+  },
+  "d2-arrowbreaking": {
+    "dccName": "arrowbreaking",
+    "encodedFrames": 6,
+    "frameDirectory": "d2-arrowbreaking",
+    "frameDurationMs": 60,
+    "frames": 6,
+    "height": 35,
+    "source": "d2r extract missile dcc",
+    "width": 38
+  },
+  "d2-arrowinground": {
+    "dccName": "arrowinground",
+    "encodedFrames": 1,
+    "frameDirectory": "d2-arrowinground",
+    "frameDurationMs": 60,
+    "frames": 1,
+    "height": 15,
+    "source": "d2r extract missile dcc",
+    "width": 14
+  },
+  "d2-baaldeathghostie01": {
+    "dccName": "baaldeathghostie01",
+    "encodedFrames": 8,
+    "frameDirectory": "d2-baaldeathghostie01",
+    "frameDurationMs": 60,
+    "frames": 8,
+    "height": 74,
+    "source": "d2r extract missile dcc",
+    "width": 92
+  },
+  "d2-baaldeathghostie02": {
+    "dccName": "baaldeathghostie02",
+    "encodedFrames": 8,
+    "frameDirectory": "d2-baaldeathghostie02",
+    "frameDurationMs": 60,
+    "frames": 8,
+    "height": 61,
+    "source": "d2r extract missile dcc",
+    "width": 93
+  },
+  "d2-baaldeathhead01": {
+    "dccName": "baaldeathhead01",
+    "encodedFrames": 42,
+    "frameDirectory": "d2-baaldeathhead01",
+    "frameDurationMs": 60,
+    "frames": 42,
+    "height": 160,
+    "source": "d2r extract missile dcc",
+    "width": 88
+  },
+  "d2-baaldeathhead02": {
+    "dccName": "baaldeathhead02",
+    "encodedFrames": 42,
+    "frameDirectory": "d2-baaldeathhead02",
+    "frameDurationMs": 60,
+    "frames": 42,
+    "height": 160,
+    "source": "d2r extract missile dcc",
+    "width": 117
+  },
+  "d2-baaldeathhead03": {
+    "dccName": "baaldeathhead03",
+    "encodedFrames": 42,
+    "frameDirectory": "d2-baaldeathhead03",
+    "frameDurationMs": 60,
+    "frames": 42,
+    "height": 160,
+    "source": "d2r extract missile dcc",
+    "width": 119
+  },
+  "d2-baaldeathmushroom": {
+    "dccName": "baaldeathmushroom",
+    "encodedFrames": 101,
+    "frameDirectory": "d2-baaldeathmushroom",
+    "frameDurationMs": 60,
+    "frames": 101,
+    "height": 157,
+    "source": "d2r extract missile dcc",
+    "width": 160
+  },
+  "d2-baaldeathswirl": {
+    "dccName": "baaldeathswirl",
+    "encodedFrames": 36,
+    "frameDirectory": "d2-baaldeathswirl",
+    "frameDurationMs": 60,
+    "frames": 36,
+    "height": 160,
+    "source": "d2r extract missile dcc",
+    "width": 139
+  },
+  "d2-baalmissile": {
+    "dccName": "baalmissile",
+    "encodedFrames": 15,
+    "frameDirectory": "d2-baalmissile",
+    "frameDurationMs": 60,
+    "frames": 15,
+    "height": 129,
+    "source": "d2r extract missile dcc",
+    "width": 160
+  },
+  "d2-baalnova": {
+    "dccName": "baalnova",
+    "encodedFrames": 14,
+    "frameDirectory": "d2-baalnova",
+    "frameDurationMs": 60,
+    "frames": 14,
+    "height": 115,
+    "source": "d2r extract missile dcc",
+    "width": 154
+  },
+  "d2-baalspirit": {
+    "dccName": "baalspirit",
+    "encodedFrames": 200,
+    "frameDirectory": "d2-baalspirit",
+    "frameDurationMs": 60,
+    "frames": 200,
+    "height": 160,
+    "source": "d2r extract missile dcc",
+    "width": 139
+  },
+  "d2-baalspiritappear": {
+    "dccName": "baalspiritappear",
+    "encodedFrames": 200,
+    "frameDirectory": "d2-baalspiritappear",
+    "frameDurationMs": 60,
+    "frames": 200,
+    "height": 160,
+    "source": "d2r extract missile dcc",
+    "width": 148
+  },
+  "d2-baalsummonmissile": {
+    "dccName": "baalsummonmissile",
+    "encodedFrames": 8,
+    "frameDirectory": "d2-baalsummonmissile",
+    "frameDurationMs": 60,
+    "frames": 8,
+    "height": 53,
+    "source": "d2r extract missile dcc",
+    "width": 80
+  },
+  "d2-baalsummonmissile2": {
+    "dccName": "baalsummonmissile2",
+    "encodedFrames": 8,
+    "frameDirectory": "d2-baalsummonmissile2",
+    "frameDurationMs": 60,
+    "frames": 8,
+    "height": 137,
+    "source": "d2r extract missile dcc",
+    "width": 137
+  },
+  "d2-baalsummonoverlay": {
+    "dccName": "baalsummonoverlay",
+    "encodedFrames": 20,
+    "frameDirectory": "d2-baalsummonoverlay",
+    "frameDurationMs": 60,
+    "frames": 20,
+    "height": 92,
+    "source": "d2r extract missile dcc",
+    "width": 160
+  },
+  "d2-baalsummonsmall": {
+    "dccName": "baalsummonsmall",
+    "encodedFrames": 11,
+    "frameDirectory": "d2-baalsummonsmall",
+    "frameDurationMs": 60,
+    "frames": 11,
+    "height": 160,
+    "source": "d2r extract missile dcc",
+    "width": 158
+  },
+  "d2-baalteleport": {
+    "dccName": "baalteleport",
+    "encodedFrames": 20,
+    "frameDirectory": "d2-baalteleport",
+    "frameDurationMs": 60,
+    "frames": 20,
+    "height": 128,
+    "source": "d2r extract missile dcc",
+    "width": 160
+  },
+  "d2-bayellshockwave01": {
+    "dccName": "bayellshockwave01",
+    "encodedFrames": 15,
+    "frameDirectory": "d2-bayellshockwave01",
+    "frameDurationMs": 60,
+    "frames": 15,
+    "height": 34,
+    "source": "d2r extract missile dcc",
+    "width": 57
+  },
+  "d2-bayellshockwave02": {
+    "dccName": "bayellshockwave02",
+    "encodedFrames": 16,
+    "frameDirectory": "d2-bayellshockwave02",
+    "frameDurationMs": 60,
+    "frames": 16,
+    "height": 37,
+    "source": "d2r extract missile dcc",
+    "width": 68
+  },
+  "d2-bceilingchunkbreak": {
+    "dccName": "bceilingchunkbreak",
+    "encodedFrames": 12,
+    "frameDirectory": "d2-bceilingchunkbreak",
+    "frameDurationMs": 60,
+    "frames": 12,
+    "height": 67,
+    "source": "d2r extract missile dcc",
+    "width": 96
+  },
+  "d2-bceilingchunkfall1": {
+    "dccName": "bceilingchunkfall1",
+    "encodedFrames": 1,
+    "frameDirectory": "d2-bceilingchunkfall1",
+    "frameDurationMs": 60,
+    "frames": 1,
+    "height": 25,
+    "source": "d2r extract missile dcc",
+    "width": 29
+  },
+  "d2-bceilingchunkfall2": {
+    "dccName": "bceilingchunkfall2",
+    "encodedFrames": 1,
+    "frameDirectory": "d2-bceilingchunkfall2",
+    "frameDurationMs": 60,
+    "frames": 1,
+    "height": 24,
+    "source": "d2r extract missile dcc",
+    "width": 27
+  },
+  "d2-bceilingchunkfall3": {
+    "dccName": "bceilingchunkfall3",
+    "encodedFrames": 1,
+    "frameDirectory": "d2-bceilingchunkfall3",
+    "frameDurationMs": 60,
+    "frames": 1,
+    "height": 29,
+    "source": "d2r extract missile dcc",
+    "width": 26
+  },
+  "d2-beachball": {
+    "dccName": "beachball",
+    "encodedFrames": 16,
+    "frameDirectory": "d2-beachball",
+    "frameDurationMs": 60,
+    "frames": 16,
+    "height": 28,
+    "source": "d2r extract missile dcc",
+    "width": 29
+  },
+  "d2-beachballexplode": {
+    "dccName": "beachballexplode",
+    "encodedFrames": 16,
+    "frameDirectory": "d2-beachballexplode",
+    "frameDurationMs": 60,
+    "frames": 16,
+    "height": 93,
+    "source": "d2r extract missile dcc",
+    "width": 160
+  },
+  "d2-bighead": {
+    "dccName": "bighead",
+    "encodedFrames": 21,
+    "frameDirectory": "d2-bighead",
+    "frameDurationMs": 60,
+    "frames": 21,
+    "height": 44,
+    "source": "d2r extract missile dcc",
+    "width": 71
+  },
+  "d2-bigheadlightningexplosion": {
+    "dccName": "bigheadlightningexplosion",
+    "encodedFrames": 7,
+    "frameDirectory": "d2-bigheadlightningexplosion",
+    "frameDurationMs": 60,
+    "frames": 7,
+    "height": 52,
+    "source": "d2r extract missile dcc",
+    "width": 52
+  },
+  "d2-bigheadlightningmissile": {
+    "dccName": "bigheadlightningmissile",
+    "encodedFrames": 16,
+    "frameDirectory": "d2-bigheadlightningmissile",
+    "frameDurationMs": 60,
+    "frames": 16,
+    "height": 22,
+    "source": "d2r extract missile dcc",
+    "width": 22
+  },
+  "d2-binddemonchannel": {
+    "dccName": "binddemonchannel",
+    "encodedFrames": 8,
+    "frameDirectory": "d2-binddemonchannel",
+    "frameDurationMs": 60,
+    "frames": 8,
+    "height": 79,
+    "source": "d2r extract missile dcc",
+    "width": 112
+  },
+  "d2-blade_shield_missile": {
+    "dccName": "blade_shield_missile",
+    "encodedFrames": 5,
+    "frameDirectory": "d2-blade_shield_missile",
+    "frameDurationMs": 60,
+    "frames": 5,
+    "height": 11,
+    "source": "d2r extract missile dcc",
+    "width": 20
+  },
+  "d2-bladefury": {
+    "dccName": "bladefury",
+    "encodedFrames": 7,
+    "frameDirectory": "d2-bladefury",
+    "frameDurationMs": 60,
+    "frames": 7,
+    "height": 6,
+    "source": "d2r extract missile dcc",
+    "width": 13
+  },
+  "d2-bladefury_a": {
+    "dccName": "bladefury_a",
+    "encodedFrames": 7,
+    "frameDirectory": "d2-bladefury_a",
+    "frameDurationMs": 60,
+    "frames": 7,
+    "height": 10,
+    "source": "d2r extract missile dcc",
+    "width": 20
+  },
+  "d2-bladefury_a_big": {
+    "dccName": "bladefury_a_big",
+    "encodedFrames": 7,
+    "frameDirectory": "d2-bladefury_a_big",
+    "frameDurationMs": 60,
+    "frames": 7,
+    "height": 15,
+    "source": "d2r extract missile dcc",
+    "width": 32
+  },
+  "d2-bladefury_b": {
+    "dccName": "bladefury_b",
+    "encodedFrames": 7,
+    "frameDirectory": "d2-bladefury_b",
+    "frameDurationMs": 60,
+    "frames": 7,
+    "height": 9,
+    "source": "d2r extract missile dcc",
+    "width": 20
+  },
+  "d2-bladefury_b_big": {
+    "dccName": "bladefury_b_big",
+    "encodedFrames": 7,
+    "frameDirectory": "d2-bladefury_b_big",
+    "frameDurationMs": 60,
+    "frames": 7,
+    "height": 14,
+    "source": "d2r extract missile dcc",
+    "width": 30
+  },
+  "d2-bladefury_c": {
+    "dccName": "bladefury_c",
+    "encodedFrames": 7,
+    "frameDirectory": "d2-bladefury_c",
+    "frameDurationMs": 60,
+    "frames": 7,
+    "height": 11,
+    "source": "d2r extract missile dcc",
+    "width": 24
+  },
+  "d2-bladefury_c_big": {
+    "dccName": "bladefury_c_big",
+    "encodedFrames": 7,
+    "frameDirectory": "d2-bladefury_c_big",
+    "frameDurationMs": 60,
+    "frames": 7,
+    "height": 17,
+    "source": "d2r extract missile dcc",
+    "width": 40
+  },
+  "d2-blessedhammer": {
+    "dccName": "blessedhammer",
+    "encodedFrames": 6,
+    "frameDirectory": "d2-blessedhammer",
+    "frameDurationMs": 60,
+    "frames": 6,
+    "height": 38,
+    "source": "d2r extract missile dcc",
+    "width": 27
+  },
+  "d2-blizzard": {
+    "dccName": "blizzard",
+    "encodedFrames": 8,
+    "frameDirectory": "d2-blizzard",
+    "frameDurationMs": 60,
+    "frames": 8,
+    "height": 153,
+    "source": "d2r extract missile dcc",
+    "width": 97
+  },
+  "d2-bloodlarge01": {
+    "dccName": "bloodlarge01",
+    "encodedFrames": 9,
+    "frameDirectory": "d2-bloodlarge01",
+    "frameDurationMs": 60,
+    "frames": 9,
+    "height": 59,
+    "source": "d2r extract missile dcc",
+    "width": 57
+  },
+  "d2-bloodlarge02": {
+    "dccName": "bloodlarge02",
+    "encodedFrames": 9,
+    "frameDirectory": "d2-bloodlarge02",
+    "frameDurationMs": 60,
+    "frames": 9,
+    "height": 62,
+    "source": "d2r extract missile dcc",
+    "width": 56
+  },
+  "d2-bloodsmall01": {
+    "dccName": "bloodsmall01",
+    "encodedFrames": 9,
+    "frameDirectory": "d2-bloodsmall01",
+    "frameDurationMs": 60,
+    "frames": 9,
+    "height": 54,
+    "source": "d2r extract missile dcc",
+    "width": 32
+  },
+  "d2-bloodsmall02": {
+    "dccName": "bloodsmall02",
+    "encodedFrames": 9,
+    "frameDirectory": "d2-bloodsmall02",
+    "frameDurationMs": 60,
+    "frames": 9,
+    "height": 59,
+    "source": "d2r extract missile dcc",
+    "width": 35
+  },
+  "d2-blowdart": {
+    "dccName": "blowdart",
+    "encodedFrames": 8,
+    "frameDirectory": "d2-blowdart",
+    "frameDurationMs": 60,
+    "frames": 8,
+    "height": 5,
+    "source": "d2r extract missile dcc",
+    "width": 9
+  },
+  "d2-bluenovab": {
+    "dccName": "bluenovab",
+    "encodedFrames": 8,
+    "frameDirectory": "d2-bluenovab",
+    "frameDurationMs": 60,
+    "frames": 8,
+    "height": 83,
+    "source": "d2r extract missile dcc",
+    "width": 102
+  },
+  "d2-boltbreaking": {
+    "dccName": "boltbreaking",
+    "encodedFrames": 6,
+    "frameDirectory": "d2-boltbreaking",
+    "frameDurationMs": 60,
+    "frames": 6,
+    "height": 25,
+    "source": "d2r extract missile dcc",
+    "width": 23
+  },
+  "d2-boltinground": {
+    "dccName": "boltinground",
+    "encodedFrames": 1,
+    "frameDirectory": "d2-boltinground",
+    "frameDurationMs": 60,
+    "frames": 1,
+    "height": 8,
+    "source": "d2r extract missile dcc",
+    "width": 8
+  },
+  "d2-bonecast": {
+    "dccName": "bonecast",
+    "encodedFrames": 16,
+    "frameDirectory": "d2-bonecast",
+    "frameDurationMs": 60,
+    "frames": 16,
+    "height": 109,
+    "source": "d2r extract missile dcc",
+    "width": 119
+  },
+  "d2-bonepieces": {
+    "dccName": "bonepieces",
+    "encodedFrames": 16,
+    "frameDirectory": "d2-bonepieces",
+    "frameDurationMs": 60,
+    "frames": 16,
+    "height": 80,
+    "source": "d2r extract missile dcc",
+    "width": 99
+  },
+  "d2-boneshield": {
+    "dccName": "boneshield",
+    "encodedFrames": 24,
+    "frameDirectory": "d2-boneshield",
+    "frameDurationMs": 60,
+    "frames": 24,
+    "height": 63,
+    "source": "d2r extract missile dcc",
+    "width": 102
+  },
+  "d2-boneshieldexplode": {
+    "dccName": "boneshieldexplode",
+    "encodedFrames": 11,
+    "frameDirectory": "d2-boneshieldexplode",
+    "frameDurationMs": 60,
+    "frames": 11,
+    "height": 120,
+    "source": "d2r extract missile dcc",
+    "width": 160
+  },
+  "d2-bonespear": {
+    "dccName": "bonespear",
+    "encodedFrames": 6,
+    "frameDirectory": "d2-bonespear",
+    "frameDurationMs": 60,
+    "frames": 6,
+    "height": 57,
+    "source": "d2r extract missile dcc",
+    "width": 57
+  },
+  "d2-bonespeartrail": {
+    "dccName": "bonespeartrail",
+    "encodedFrames": 9,
+    "frameDirectory": "d2-bonespeartrail",
+    "frameDurationMs": 60,
+    "frames": 9,
+    "height": 68,
+    "source": "d2r extract missile dcc",
+    "width": 54
+  },
+  "d2-bonespirit": {
+    "dccName": "bonespirit",
+    "encodedFrames": 8,
+    "frameDirectory": "d2-bonespirit",
+    "frameDurationMs": 60,
+    "frames": 8,
+    "height": 122,
+    "source": "d2r extract missile dcc",
+    "width": 123
+  },
+  "d2-bonespiritexplode": {
+    "dccName": "bonespiritexplode",
+    "encodedFrames": 13,
+    "frameDirectory": "d2-bonespiritexplode",
+    "frameDurationMs": 60,
+    "frames": 13,
+    "height": 113,
+    "source": "d2r extract missile dcc",
+    "width": 128
+  },
+  "d2-brsmokedt": {
+    "dccName": "brsmokedt",
+    "encodedFrames": 20,
+    "frameDirectory": "d2-brsmokedt",
+    "frameDurationMs": 60,
+    "frames": 20,
+    "height": 107,
+    "source": "d2r extract missile dcc",
+    "width": 156
+  },
+  "d2-brsmokenu": {
+    "dccName": "brsmokenu",
+    "encodedFrames": 20,
+    "frameDirectory": "d2-brsmokenu",
+    "frameDurationMs": 60,
+    "frames": 20,
+    "height": 110,
+    "source": "d2r extract missile dcc",
+    "width": 160
+  },
+  "d2-brsmokes1": {
+    "dccName": "brsmokes1",
+    "encodedFrames": 20,
+    "frameDirectory": "d2-brsmokes1",
+    "frameDurationMs": 60,
+    "frames": 20,
+    "height": 108,
+    "source": "d2r extract missile dcc",
+    "width": 160
+  },
+  "d2-brspiritdt": {
+    "dccName": "brspiritdt",
+    "encodedFrames": 20,
+    "frameDirectory": "d2-brspiritdt",
+    "frameDurationMs": 60,
+    "frames": 20,
+    "height": 155,
+    "source": "d2r extract missile dcc",
+    "width": 125
+  },
+  "d2-brspiritnu": {
+    "dccName": "brspiritnu",
+    "encodedFrames": 20,
+    "frameDirectory": "d2-brspiritnu",
+    "frameDurationMs": 60,
+    "frames": 20,
+    "height": 131,
+    "source": "d2r extract missile dcc",
+    "width": 114
+  },
+  "d2-brspirits1": {
+    "dccName": "brspirits1",
+    "encodedFrames": 20,
+    "frameDirectory": "d2-brspirits1",
+    "frameDurationMs": 60,
+    "frames": 20,
+    "height": 121,
+    "source": "d2r extract missile dcc",
+    "width": 117
+  },
+  "d2-caltrops": {
+    "dccName": "caltrops",
+    "encodedFrames": 8,
+    "frameDirectory": "d2-caltrops",
+    "frameDurationMs": 60,
+    "frames": 8,
+    "height": 10,
+    "source": "d2r extract missile dcc",
+    "width": 11
+  },
+  "d2-catapultpoisonbomb": {
+    "dccName": "catapultpoisonbomb",
+    "encodedFrames": 10,
+    "frameDirectory": "d2-catapultpoisonbomb",
+    "frameDurationMs": 60,
+    "frames": 10,
+    "height": 95,
+    "source": "d2r extract missile dcc",
+    "width": 95
+  },
+  "d2-cebaal": {
+    "dccName": "cebaal",
+    "encodedFrames": 16,
+    "frameDirectory": "d2-cebaal",
+    "frameDurationMs": 60,
+    "frames": 16,
+    "height": 130,
+    "source": "d2r extract missile dcc",
+    "width": 158
+  },
+  "d2-cebaalfade": {
+    "dccName": "cebaalfade",
+    "encodedFrames": 11,
+    "frameDirectory": "d2-cebaalfade",
+    "frameDurationMs": 60,
+    "frames": 11,
+    "height": 79,
+    "source": "d2r extract missile dcc",
+    "width": 158
+  },
+  "d2-ceilingchunkfall01": {
+    "dccName": "ceilingchunkfall01",
+    "encodedFrames": 1,
+    "frameDirectory": "d2-ceilingchunkfall01",
+    "frameDurationMs": 60,
+    "frames": 1,
+    "height": 32,
+    "source": "d2r extract missile dcc",
+    "width": 33
+  },
+  "d2-ceilingchunkfall02": {
+    "dccName": "ceilingchunkfall02",
+    "encodedFrames": 1,
+    "frameDirectory": "d2-ceilingchunkfall02",
+    "frameDurationMs": 60,
+    "frames": 1,
+    "height": 25,
+    "source": "d2r extract missile dcc",
+    "width": 36
+  },
+  "d2-ceilingchunkfall03": {
+    "dccName": "ceilingchunkfall03",
+    "encodedFrames": 1,
+    "frameDirectory": "d2-ceilingchunkfall03",
+    "frameDurationMs": 60,
+    "frames": 1,
+    "height": 27,
+    "source": "d2r extract missile dcc",
+    "width": 28
+  },
+  "d2-ceilingchunkremain01": {
+    "dccName": "ceilingchunkremain01",
+    "encodedFrames": 11,
+    "frameDirectory": "d2-ceilingchunkremain01",
+    "frameDurationMs": 60,
+    "frames": 11,
+    "height": 50,
+    "source": "d2r extract missile dcc",
+    "width": 102
+  },
+  "d2-ceilingchunkremain02": {
+    "dccName": "ceilingchunkremain02",
+    "encodedFrames": 11,
+    "frameDirectory": "d2-ceilingchunkremain02",
+    "frameDurationMs": 60,
+    "frames": 11,
+    "height": 54,
+    "source": "d2r extract missile dcc",
+    "width": 101
+  },
+  "d2-ceilingchunkremain03": {
+    "dccName": "ceilingchunkremain03",
+    "encodedFrames": 11,
+    "frameDirectory": "d2-ceilingchunkremain03",
+    "frameDurationMs": 60,
+    "frames": 11,
+    "height": 49,
+    "source": "d2r extract missile dcc",
+    "width": 90
+  },
+  "d2-ceilingchunkvanish01": {
+    "dccName": "ceilingchunkvanish01",
+    "encodedFrames": 11,
+    "frameDirectory": "d2-ceilingchunkvanish01",
+    "frameDurationMs": 60,
+    "frames": 11,
+    "height": 51,
+    "source": "d2r extract missile dcc",
+    "width": 93
+  },
+  "d2-ceilingchunkvanish02": {
+    "dccName": "ceilingchunkvanish02",
+    "encodedFrames": 11,
+    "frameDirectory": "d2-ceilingchunkvanish02",
+    "frameDurationMs": 60,
+    "frames": 11,
+    "height": 79,
+    "source": "d2r extract missile dcc",
+    "width": 136
+  },
+  "d2-chargedbolt": {
+    "dccName": "chargedbolt",
+    "encodedFrames": 10,
+    "frameDirectory": "d2-chargedbolt",
+    "frameDurationMs": 60,
+    "frames": 10,
+    "height": 58,
+    "source": "d2r extract missile dcc",
+    "width": 58
+  },
+  "d2-chillblood": {
+    "dccName": "chillblood",
+    "encodedFrames": 16,
+    "frameDirectory": "d2-chillblood",
+    "frameDurationMs": 60,
+    "frames": 16,
+    "height": 22,
+    "source": "d2r extract missile dcc",
+    "width": 23
+  },
+  "d2-chillblood02": {
+    "dccName": "chillblood02",
+    "encodedFrames": 16,
+    "frameDirectory": "d2-chillblood02",
+    "frameDurationMs": 60,
+    "frames": 16,
+    "height": 20,
+    "source": "d2r extract missile dcc",
+    "width": 22
+  },
+  "d2-chillbloodpuff": {
+    "dccName": "chillbloodpuff",
+    "encodedFrames": 26,
+    "frameDirectory": "d2-chillbloodpuff",
+    "frameDurationMs": 60,
+    "frames": 26,
+    "height": 72,
+    "source": "d2r extract missile dcc",
+    "width": 69
+  },
+  "d2-coldsmokepuff": {
+    "dccName": "coldsmokepuff",
+    "encodedFrames": 26,
+    "frameDirectory": "d2-coldsmokepuff",
+    "frameDurationMs": 60,
+    "frames": 26,
+    "height": 79,
+    "source": "d2r extract missile dcc",
+    "width": 99
+  },
+  "d2-corpseexplodeguts": {
+    "dccName": "corpseexplodeguts",
+    "encodedFrames": 13,
+    "frameDirectory": "d2-corpseexplodeguts",
+    "frameDurationMs": 60,
+    "frames": 13,
+    "height": 99,
+    "source": "d2r extract missile dcc",
+    "width": 160
+  },
+  "d2-corpseexplodegutspoison": {
+    "dccName": "corpseexplodegutspoison",
+    "encodedFrames": 13,
+    "frameDirectory": "d2-corpseexplodegutspoison",
+    "frameDurationMs": 60,
+    "frames": 13,
+    "height": 99,
+    "source": "d2r extract missile dcc",
+    "width": 160
+  },
+  "d2-cursearea": {
+    "dccName": "cursearea",
+    "encodedFrames": 20,
+    "frameDirectory": "d2-cursearea",
+    "frameDurationMs": 60,
+    "frames": 20,
+    "height": 27,
+    "source": "d2r extract missile dcc",
+    "width": 21
+  },
+  "d2-cursecast": {
+    "dccName": "cursecast",
+    "encodedFrames": 25,
+    "frameDirectory": "d2-cursecast",
+    "frameDurationMs": 60,
+    "frames": 25,
+    "height": 100,
+    "source": "d2r extract missile dcc",
+    "width": 96
+  },
+  "d2-curseeffectred": {
+    "dccName": "curseeffectred",
+    "encodedFrames": 20,
+    "frameDirectory": "d2-curseeffectred",
+    "frameDurationMs": 60,
+    "frames": 20,
+    "height": 103,
+    "source": "d2r extract missile dcc",
+    "width": 44
+  },
+  "d2-cursehit": {
+    "dccName": "cursehit",
+    "encodedFrames": 10,
+    "frameDirectory": "d2-cursehit",
+    "frameDurationMs": 60,
+    "frames": 10,
+    "height": 70,
+    "source": "d2r extract missile dcc",
+    "width": 67
+  },
+  "d2-cursemissle": {
+    "dccName": "cursemissle",
+    "encodedFrames": 8,
+    "frameDirectory": "d2-cursemissle",
+    "frameDurationMs": 60,
+    "frames": 8,
+    "height": 73,
+    "source": "d2r extract missile dcc",
+    "width": 72
+  },
+  "d2-deathmaulerfadeout": {
+    "dccName": "deathmaulerfadeout",
+    "encodedFrames": 31,
+    "frameDirectory": "d2-deathmaulerfadeout",
+    "frameDurationMs": 60,
+    "frames": 31,
+    "height": 41,
+    "source": "d2r extract missile dcc",
+    "width": 68
+  },
+  "d2-deathmaulerfingers": {
+    "dccName": "deathmaulerfingers",
+    "encodedFrames": 8,
+    "frameDirectory": "d2-deathmaulerfingers",
+    "frameDurationMs": 60,
+    "frames": 8,
+    "height": 100,
+    "source": "d2r extract missile dcc",
+    "width": 57
+  },
+  "d2-deathmaulermissile": {
+    "dccName": "deathmaulermissile",
+    "encodedFrames": 31,
+    "frameDirectory": "d2-deathmaulermissile",
+    "frameDurationMs": 60,
+    "frames": 31,
+    "height": 41,
+    "source": "d2r extract missile dcc",
+    "width": 68
+  },
+  "d2-deathmissile": {
+    "dccName": "deathmissile",
+    "encodedFrames": 10,
+    "frameDirectory": "d2-deathmissile",
+    "frameDurationMs": 60,
+    "frames": 10,
+    "height": 60,
+    "source": "d2r extract missile dcc",
+    "width": 19
+  },
+  "d2-deathsentrymissile": {
+    "dccName": "deathsentrymissile",
+    "encodedFrames": 16,
+    "frameDirectory": "d2-deathsentrymissile",
+    "frameDurationMs": 60,
+    "frames": 16,
+    "height": 15,
+    "source": "d2r extract missile dcc",
+    "width": 16
+  },
+  "d2-dethsentry02": {
+    "dccName": "dethsentry02",
+    "encodedFrames": 12,
+    "frameDirectory": "d2-dethsentry02",
+    "frameDurationMs": 60,
+    "frames": 12,
+    "height": 91,
+    "source": "d2r extract missile dcc",
+    "width": 115
+  },
+  "d2-diablolightning": {
+    "dccName": "diablolightning",
+    "encodedFrames": 15,
+    "frameDirectory": "d2-diablolightning",
+    "frameDurationMs": 60,
+    "frames": 15,
+    "height": 124,
+    "source": "d2r extract missile dcc",
+    "width": 160
+  },
+  "d2-dopplezonexplode": {
+    "dccName": "dopplezonexplode",
+    "encodedFrames": 25,
+    "frameDirectory": "d2-dopplezonexplode",
+    "frameDurationMs": 60,
+    "frames": 25,
+    "height": 152,
+    "source": "d2r extract missile dcc",
+    "width": 144
+  },
+  "d2-dustcloud01": {
+    "dccName": "dustcloud01",
+    "encodedFrames": 8,
+    "frameDirectory": "d2-dustcloud01",
+    "frameDurationMs": 60,
+    "frames": 8,
+    "height": 88,
+    "source": "d2r extract missile dcc",
+    "width": 126
+  },
+  "d2-elecnova": {
+    "dccName": "elecnova",
+    "encodedFrames": 16,
+    "frameDirectory": "d2-elecnova",
+    "frameDurationMs": 60,
+    "frames": 16,
+    "height": 49,
+    "source": "d2r extract missile dcc",
+    "width": 74
+  },
+  "d2-elecnovaa": {
+    "dccName": "elecnovaa",
+    "encodedFrames": 16,
+    "frameDirectory": "d2-elecnovaa",
+    "frameDurationMs": 60,
+    "frames": 16,
+    "height": 38,
+    "source": "d2r extract missile dcc",
+    "width": 67
+  },
+  "d2-elecnovab": {
+    "dccName": "elecnovab",
+    "encodedFrames": 16,
+    "frameDirectory": "d2-elecnovab",
+    "frameDurationMs": 60,
+    "frames": 16,
+    "height": 80,
+    "source": "d2r extract missile dcc",
+    "width": 94
+  },
+  "d2-electricnova": {
+    "dccName": "electricnova",
+    "encodedFrames": 13,
+    "frameDirectory": "d2-electricnova",
+    "frameDurationMs": 60,
+    "frames": 13,
+    "height": 40,
+    "source": "d2r extract missile dcc",
+    "width": 65
+  },
+  "d2-eruption2_crack": {
+    "dccName": "eruption2_crack",
+    "encodedFrames": 41,
+    "frameDirectory": "d2-eruption2_crack",
+    "frameDurationMs": 60,
+    "frames": 41,
+    "height": 38,
+    "source": "d2r extract missile dcc",
+    "width": 73
+  },
+  "d2-eruption2_smoke": {
+    "dccName": "eruption2_smoke",
+    "encodedFrames": 41,
+    "frameDirectory": "d2-eruption2_smoke",
+    "frameDurationMs": 60,
+    "frames": 41,
+    "height": 47,
+    "source": "d2r extract missile dcc",
+    "width": 60
+  },
+  "d2-eruption_crack": {
+    "dccName": "eruption_crack",
+    "encodedFrames": 41,
+    "frameDirectory": "d2-eruption_crack",
+    "frameDurationMs": 60,
+    "frames": 41,
+    "height": 36,
+    "source": "d2r extract missile dcc",
+    "width": 77
+  },
+  "d2-eruption_smoke": {
+    "dccName": "eruption_smoke",
+    "encodedFrames": 41,
+    "frameDirectory": "d2-eruption_smoke",
+    "frameDurationMs": 60,
+    "frames": 41,
+    "height": 127,
+    "source": "d2r extract missile dcc",
+    "width": 72
+  },
+  "d2-eruptioncrack": {
+    "dccName": "eruptioncrack",
+    "encodedFrames": 41,
+    "frameDirectory": "d2-eruptioncrack",
+    "frameDurationMs": 60,
+    "frames": 41,
+    "height": 35,
+    "source": "d2r extract missile dcc",
+    "width": 58
+  },
+  "d2-eruptionsmoke": {
+    "dccName": "eruptionsmoke",
+    "encodedFrames": 41,
+    "frameDirectory": "d2-eruptionsmoke",
+    "frameDurationMs": 60,
+    "frames": 41,
+    "height": 97,
+    "source": "d2r extract missile dcc",
+    "width": 54
+  },
+  "d2-exparrowexplode": {
+    "dccName": "exparrowexplode",
+    "encodedFrames": 16,
+    "frameDirectory": "d2-exparrowexplode",
+    "frameDurationMs": 60,
+    "frames": 16,
+    "height": 134,
+    "source": "d2r extract missile dcc",
+    "width": 160
+  },
+  "d2-explodingarrowdebris01": {
+    "dccName": "explodingarrowdebris01",
+    "encodedFrames": 12,
+    "frameDirectory": "d2-explodingarrowdebris01",
+    "frameDurationMs": 60,
+    "frames": 12,
+    "height": 72,
+    "source": "d2r extract missile dcc",
+    "width": 160
+  },
+  "d2-explodingarrowdebris02": {
+    "dccName": "explodingarrowdebris02",
+    "encodedFrames": 12,
+    "frameDirectory": "d2-explodingarrowdebris02",
+    "frameDurationMs": 60,
+    "frames": 12,
+    "height": 63,
+    "source": "d2r extract missile dcc",
+    "width": 160
+  },
+  "d2-explodingarrowdebris03": {
+    "dccName": "explodingarrowdebris03",
+    "encodedFrames": 12,
+    "frameDirectory": "d2-explodingarrowdebris03",
+    "frameDurationMs": 60,
+    "frames": 12,
+    "height": 68,
+    "source": "d2r extract missile dcc",
+    "width": 160
+  },
+  "d2-explosionspark": {
+    "dccName": "explosionspark",
+    "encodedFrames": 16,
+    "frameDirectory": "d2-explosionspark",
+    "frameDurationMs": 60,
+    "frames": 16,
+    "height": 20,
+    "source": "d2r extract missile dcc",
+    "width": 20
+  },
+  "d2-explosionsparksmall": {
+    "dccName": "explosionsparksmall",
+    "encodedFrames": 16,
+    "frameDirectory": "d2-explosionsparksmall",
+    "frameDurationMs": 60,
+    "frames": 16,
+    "height": 15,
+    "source": "d2r extract missile dcc",
+    "width": 14
+  },
+  "d2-familiarfade": {
+    "dccName": "familiarfade",
+    "encodedFrames": 13,
+    "frameDirectory": "d2-familiarfade",
+    "frameDurationMs": 60,
+    "frames": 13,
+    "height": 121,
+    "source": "d2r extract missile dcc",
+    "width": 117
+  },
+  "d2-fingermagespider": {
+    "dccName": "fingermagespider",
+    "encodedFrames": 5,
+    "frameDirectory": "d2-fingermagespider",
+    "frameDurationMs": 60,
+    "frames": 5,
+    "height": 52,
+    "source": "d2r extract missile dcc",
+    "width": 59
   },
   "d2-fire-arrow": {
     "dccName": "FireArrow",
@@ -492,15 +1702,945 @@
     "source": "user-supplied DCC",
     "width": 11
   },
+  "d2-firearrow": {
+    "dccName": "firearrow",
+    "encodedFrames": 8,
+    "frameDirectory": "d2-firearrow",
+    "frameDurationMs": 60,
+    "frames": 8,
+    "height": 18,
+    "source": "d2r extract missile dcc",
+    "width": 32
+  },
+  "d2-firearrowexplode": {
+    "dccName": "firearrowexplode",
+    "encodedFrames": 12,
+    "frameDirectory": "d2-firearrowexplode",
+    "frameDurationMs": 60,
+    "frames": 12,
+    "height": 55,
+    "source": "d2r extract missile dcc",
+    "width": 59
+  },
+  "d2-firearrowexplode2": {
+    "dccName": "firearrowexplode2",
+    "encodedFrames": 12,
+    "frameDirectory": "d2-firearrowexplode2",
+    "frameDurationMs": 60,
+    "frames": 12,
+    "height": 70,
+    "source": "d2r extract missile dcc",
+    "width": 78
+  },
+  "d2-firearrowexplode3": {
+    "dccName": "firearrowexplode3",
+    "encodedFrames": 12,
+    "frameDirectory": "d2-firearrowexplode3",
+    "frameDurationMs": 60,
+    "frames": 12,
+    "height": 70,
+    "source": "d2r extract missile dcc",
+    "width": 76
+  },
   "d2-fireball": {
-    "encodedFrames": 16,
+    "dccName": "fireball",
+    "encodedFrames": 5,
     "frameDirectory": "d2-fireball",
-    "frameDurationMs": null,
-    "frames": 16,
-    "height": 123,
-    "source": "d2 missile_overlays",
-    "sourceFolder": "84",
+    "frameDurationMs": 60,
+    "frames": 5,
+    "height": 48,
+    "source": "d2r extract missile dcc",
+    "width": 75
+  },
+  "d2-firebolt": {
+    "dccName": "firebolt",
+    "encodedFrames": 5,
+    "frameDirectory": "d2-firebolt",
+    "frameDurationMs": 60,
+    "frames": 5,
+    "height": 39,
+    "source": "d2r extract missile dcc",
+    "width": 55
+  },
+  "d2-fireexplodeejecta": {
+    "dccName": "fireexplodeejecta",
+    "encodedFrames": 15,
+    "frameDirectory": "d2-fireexplodeejecta",
+    "frameDurationMs": 60,
+    "frames": 15,
+    "height": 110,
+    "source": "d2r extract missile dcc",
     "width": 160
+  },
+  "d2-firenova": {
+    "dccName": "firenova",
+    "encodedFrames": 11,
+    "frameDirectory": "d2-firenova",
+    "frameDurationMs": 60,
+    "frames": 11,
+    "height": 55,
+    "source": "d2r extract missile dcc",
+    "width": 73
+  },
+  "d2-firesmoke": {
+    "dccName": "firesmoke",
+    "encodedFrames": 26,
+    "frameDirectory": "d2-firesmoke",
+    "frameDurationMs": 60,
+    "frames": 26,
+    "height": 58,
+    "source": "d2r extract missile dcc",
+    "width": 60
+  },
+  "d2-firespikeexplode": {
+    "dccName": "firespikeexplode",
+    "encodedFrames": 14,
+    "frameDirectory": "d2-firespikeexplode",
+    "frameDurationMs": 60,
+    "frames": 14,
+    "height": 49,
+    "source": "d2r extract missile dcc",
+    "width": 79
+  },
+  "d2-firespikes": {
+    "dccName": "firespikes",
+    "encodedFrames": 8,
+    "frameDirectory": "d2-firespikes",
+    "frameDurationMs": 60,
+    "frames": 8,
+    "height": 9,
+    "source": "d2r extract missile dcc",
+    "width": 9
+  },
+  "d2-firespikesground": {
+    "dccName": "firespikesground",
+    "encodedFrames": 8,
+    "frameDirectory": "d2-firespikesground",
+    "frameDurationMs": 60,
+    "frames": 8,
+    "height": 7,
+    "source": "d2r extract missile dcc",
+    "width": 8
+  },
+  "d2-firestormemitter": {
+    "dccName": "firestormemitter",
+    "encodedFrames": 16,
+    "frameDirectory": "d2-firestormemitter",
+    "frameDurationMs": 60,
+    "frames": 16,
+    "height": 83,
+    "source": "d2r extract missile dcc",
+    "width": 96
+  },
+  "d2-firetraumaground": {
+    "dccName": "firetraumaground",
+    "encodedFrames": 1,
+    "frameDirectory": "d2-firetraumaground",
+    "frameDurationMs": 60,
+    "frames": 1,
+    "height": 10,
+    "source": "d2r extract missile dcc",
+    "width": 11
+  },
+  "d2-firetraumamissile": {
+    "dccName": "firetraumamissile",
+    "encodedFrames": 20,
+    "frameDirectory": "d2-firetraumamissile",
+    "frameDurationMs": 60,
+    "frames": 20,
+    "height": 10,
+    "source": "d2r extract missile dcc",
+    "width": 12
+  },
+  "d2-firetraumaxplosion": {
+    "dccName": "firetraumaxplosion",
+    "encodedFrames": 20,
+    "frameDirectory": "d2-firetraumaxplosion",
+    "frameDurationMs": 60,
+    "frames": 20,
+    "height": 112,
+    "source": "d2r extract missile dcc",
+    "width": 87
+  },
+  "d2-flamethrower": {
+    "dccName": "flamethrower",
+    "encodedFrames": 15,
+    "frameDirectory": "d2-flamethrower",
+    "frameDurationMs": 60,
+    "frames": 15,
+    "height": 77,
+    "source": "d2r extract missile dcc",
+    "width": 76
+  },
+  "d2-flamethrower2": {
+    "dccName": "flamethrower2",
+    "encodedFrames": 15,
+    "frameDirectory": "d2-flamethrower2",
+    "frameDurationMs": 60,
+    "frames": 15,
+    "height": 84,
+    "source": "d2r extract missile dcc",
+    "width": 76
+  },
+  "d2-foaorbiter": {
+    "dccName": "foaorbiter",
+    "encodedFrames": 9,
+    "frameDirectory": "d2-foaorbiter",
+    "frameDurationMs": 60,
+    "frames": 9,
+    "height": 34,
+    "source": "d2r extract missile dcc",
+    "width": 34
+  },
+  "d2-footsteps": {
+    "dccName": "footsteps",
+    "encodedFrames": 2,
+    "frameDirectory": "d2-footsteps",
+    "frameDurationMs": 60,
+    "frames": 2,
+    "height": 11,
+    "source": "d2r extract missile dcc",
+    "width": 21
+  },
+  "d2-footsteps01": {
+    "dccName": "footsteps01",
+    "encodedFrames": 2,
+    "frameDirectory": "d2-footsteps01",
+    "frameDurationMs": 60,
+    "frames": 2,
+    "height": 9,
+    "source": "d2r extract missile dcc",
+    "width": 18
+  },
+  "d2-fowcenter": {
+    "dccName": "fowcenter",
+    "encodedFrames": 7,
+    "frameDirectory": "d2-fowcenter",
+    "frameDurationMs": 60,
+    "frames": 7,
+    "height": 53,
+    "source": "d2r extract missile dcc",
+    "width": 160
+  },
+  "d2-fowmissile": {
+    "dccName": "fowmissile",
+    "encodedFrames": 10,
+    "frameDirectory": "d2-fowmissile",
+    "frameDurationMs": 60,
+    "frames": 10,
+    "height": 59,
+    "source": "d2r extract missile dcc",
+    "width": 110
+  },
+  "d2-freezeexplodecenter": {
+    "dccName": "freezeexplodecenter",
+    "encodedFrames": 15,
+    "frameDirectory": "d2-freezeexplodecenter",
+    "frameDurationMs": 60,
+    "frames": 15,
+    "height": 107,
+    "source": "d2r extract missile dcc",
+    "width": 143
+  },
+  "d2-freezeexplodeejecta": {
+    "dccName": "freezeexplodeejecta",
+    "encodedFrames": 15,
+    "frameDirectory": "d2-freezeexplodeejecta",
+    "frameDurationMs": 60,
+    "frames": 15,
+    "height": 108,
+    "source": "d2r extract missile dcc",
+    "width": 151
+  },
+  "d2-frogdempoisonexplode": {
+    "dccName": "frogdempoisonexplode",
+    "encodedFrames": 11,
+    "frameDirectory": "d2-frogdempoisonexplode",
+    "frameDurationMs": 60,
+    "frames": 11,
+    "height": 102,
+    "source": "d2r extract missile dcc",
+    "width": 160
+  },
+  "d2-frogpoisonmissile": {
+    "dccName": "frogpoisonmissile",
+    "encodedFrames": 7,
+    "frameDirectory": "d2-frogpoisonmissile",
+    "frameDurationMs": 60,
+    "frames": 7,
+    "height": 39,
+    "source": "d2r extract missile dcc",
+    "width": 67
+  },
+  "d2-frogpoisonsplat": {
+    "dccName": "frogpoisonsplat",
+    "encodedFrames": 11,
+    "frameDirectory": "d2-frogpoisonsplat",
+    "frameDurationMs": 60,
+    "frames": 11,
+    "height": 102,
+    "source": "d2r extract missile dcc",
+    "width": 160
+  },
+  "d2-frostnova": {
+    "dccName": "frostnova",
+    "encodedFrames": 4,
+    "frameDirectory": "d2-frostnova",
+    "frameDurationMs": 60,
+    "frames": 4,
+    "height": 89,
+    "source": "d2r extract missile dcc",
+    "width": 88
+  },
+  "d2-frostnova2": {
+    "dccName": "frostnova2",
+    "encodedFrames": 16,
+    "frameDirectory": "d2-frostnova2",
+    "frameDurationMs": 60,
+    "frames": 16,
+    "height": 45,
+    "source": "d2r extract missile dcc",
+    "width": 80
+  },
+  "d2-fsexplode": {
+    "dccName": "fsexplode",
+    "encodedFrames": 15,
+    "frameDirectory": "d2-fsexplode",
+    "frameDurationMs": 60,
+    "frames": 15,
+    "height": 104,
+    "source": "d2r extract missile dcc",
+    "width": 102
+  },
+  "d2-glacialspike": {
+    "dccName": "glacialspike",
+    "encodedFrames": 6,
+    "frameDirectory": "d2-glacialspike",
+    "frameDurationMs": 60,
+    "frames": 6,
+    "height": 61,
+    "source": "d2r extract missile dcc",
+    "width": 100
+  },
+  "d2-glaive": {
+    "dccName": "glaive",
+    "encodedFrames": 1,
+    "frameDirectory": "d2-glaive",
+    "frameDurationMs": 60,
+    "frames": 1,
+    "height": 24,
+    "source": "d2r extract missile dcc",
+    "width": 65
+  },
+  "d2-glaivebreaking": {
+    "dccName": "glaivebreaking",
+    "encodedFrames": 6,
+    "frameDirectory": "d2-glaivebreaking",
+    "frameDurationMs": 60,
+    "frames": 6,
+    "height": 38,
+    "source": "d2r extract missile dcc",
+    "width": 70
+  },
+  "d2-glaiveinground": {
+    "dccName": "glaiveinground",
+    "encodedFrames": 1,
+    "frameDirectory": "d2-glaiveinground",
+    "frameDurationMs": 60,
+    "frames": 1,
+    "height": 23,
+    "source": "d2r extract missile dcc",
+    "width": 37
+  },
+  "d2-gleam": {
+    "dccName": "gleam",
+    "encodedFrames": 8,
+    "frameDirectory": "d2-gleam",
+    "frameDurationMs": 60,
+    "frames": 8,
+    "height": 16,
+    "source": "d2r extract missile dcc",
+    "width": 19
+  },
+  "d2-goohit": {
+    "dccName": "goohit",
+    "encodedFrames": 15,
+    "frameDirectory": "d2-goohit",
+    "frameDurationMs": 60,
+    "frames": 15,
+    "height": 90,
+    "source": "d2r extract missile dcc",
+    "width": 90
+  },
+  "d2-greatermummybreath": {
+    "dccName": "greatermummybreath",
+    "encodedFrames": 24,
+    "frameDirectory": "d2-greatermummybreath",
+    "frameDurationMs": 60,
+    "frames": 24,
+    "height": 160,
+    "source": "d2r extract missile dcc",
+    "width": 145
+  },
+  "d2-grimwardlarge": {
+    "dccName": "grimwardlarge",
+    "encodedFrames": 1,
+    "frameDirectory": "d2-grimwardlarge",
+    "frameDurationMs": 60,
+    "frames": 1,
+    "height": 73,
+    "source": "d2r extract missile dcc",
+    "width": 79
+  },
+  "d2-grimwardlargestart": {
+    "dccName": "grimwardlargestart",
+    "encodedFrames": 8,
+    "frameDirectory": "d2-grimwardlargestart",
+    "frameDurationMs": 60,
+    "frames": 8,
+    "height": 68,
+    "source": "d2r extract missile dcc",
+    "width": 84
+  },
+  "d2-grimwardlargestop": {
+    "dccName": "grimwardlargestop",
+    "encodedFrames": 9,
+    "frameDirectory": "d2-grimwardlargestop",
+    "frameDurationMs": 60,
+    "frames": 9,
+    "height": 83,
+    "source": "d2r extract missile dcc",
+    "width": 87
+  },
+  "d2-grimwardmedium": {
+    "dccName": "grimwardmedium",
+    "encodedFrames": 1,
+    "frameDirectory": "d2-grimwardmedium",
+    "frameDurationMs": 60,
+    "frames": 1,
+    "height": 54,
+    "source": "d2r extract missile dcc",
+    "width": 48
+  },
+  "d2-grimwardmediumstart": {
+    "dccName": "grimwardmediumstart",
+    "encodedFrames": 8,
+    "frameDirectory": "d2-grimwardmediumstart",
+    "frameDurationMs": 60,
+    "frames": 8,
+    "height": 54,
+    "source": "d2r extract missile dcc",
+    "width": 75
+  },
+  "d2-grimwardmediumstop": {
+    "dccName": "grimwardmediumstop",
+    "encodedFrames": 9,
+    "frameDirectory": "d2-grimwardmediumstop",
+    "frameDurationMs": 60,
+    "frames": 9,
+    "height": 62,
+    "source": "d2r extract missile dcc",
+    "width": 67
+  },
+  "d2-grimwardsmall": {
+    "dccName": "grimwardsmall",
+    "encodedFrames": 1,
+    "frameDirectory": "d2-grimwardsmall",
+    "frameDurationMs": 60,
+    "frames": 1,
+    "height": 48,
+    "source": "d2r extract missile dcc",
+    "width": 42
+  },
+  "d2-grimwardsmallstart": {
+    "dccName": "grimwardsmallstart",
+    "encodedFrames": 5,
+    "frameDirectory": "d2-grimwardsmallstart",
+    "frameDurationMs": 60,
+    "frames": 5,
+    "height": 39,
+    "source": "d2r extract missile dcc",
+    "width": 44
+  },
+  "d2-grimwardsmallstop": {
+    "dccName": "grimwardsmallstop",
+    "encodedFrames": 9,
+    "frameDirectory": "d2-grimwardsmallstop",
+    "frameDurationMs": 60,
+    "frames": 9,
+    "height": 55,
+    "source": "d2r extract missile dcc",
+    "width": 65
+  },
+  "d2-groundfirebig": {
+    "dccName": "groundfirebig",
+    "encodedFrames": 37,
+    "frameDirectory": "d2-groundfirebig",
+    "frameDurationMs": 60,
+    "frames": 37,
+    "height": 160,
+    "source": "d2r extract missile dcc",
+    "width": 63
+  },
+  "d2-groundfiremedium": {
+    "dccName": "groundfiremedium",
+    "encodedFrames": 37,
+    "frameDirectory": "d2-groundfiremedium",
+    "frameDurationMs": 60,
+    "frames": 37,
+    "height": 136,
+    "source": "d2r extract missile dcc",
+    "width": 66
+  },
+  "d2-groundfiresmall": {
+    "dccName": "groundfiresmall",
+    "encodedFrames": 37,
+    "frameDirectory": "d2-groundfiresmall",
+    "frameDurationMs": 60,
+    "frames": 37,
+    "height": 89,
+    "source": "d2r extract missile dcc",
+    "width": 66
+  },
+  "d2-handofgod": {
+    "dccName": "handofgod",
+    "encodedFrames": 21,
+    "frameDirectory": "d2-handofgod",
+    "frameDurationMs": 60,
+    "frames": 21,
+    "height": 160,
+    "source": "d2r extract missile dcc",
+    "width": 39
+  },
+  "d2-hardenarmor": {
+    "dccName": "hardenarmor",
+    "encodedFrames": 24,
+    "frameDirectory": "d2-hardenarmor",
+    "frameDurationMs": 60,
+    "frames": 24,
+    "height": 47,
+    "source": "d2r extract missile dcc",
+    "width": 30
+  },
+  "d2-highpriestlightning": {
+    "dccName": "highpriestlightning",
+    "encodedFrames": 9,
+    "frameDirectory": "d2-highpriestlightning",
+    "frameDurationMs": 60,
+    "frames": 9,
+    "height": 160,
+    "source": "d2r extract missile dcc",
+    "width": 144
+  },
+  "d2-holyboltmissile": {
+    "dccName": "holyboltmissile",
+    "encodedFrames": 16,
+    "frameDirectory": "d2-holyboltmissile",
+    "frameDurationMs": 60,
+    "frames": 16,
+    "height": 45,
+    "source": "d2r extract missile dcc",
+    "width": 79
+  },
+  "d2-horadriclightbeamstreaks": {
+    "dccName": "horadriclightbeamstreaks",
+    "encodedFrames": 1,
+    "frameDirectory": "d2-horadriclightbeamstreaks",
+    "frameDurationMs": 60,
+    "frames": 1,
+    "height": 93,
+    "source": "d2r extract missile dcc",
+    "width": 43
+  },
+  "d2-horadricstaff": {
+    "dccName": "horadricstaff",
+    "encodedFrames": 8,
+    "frameDirectory": "d2-horadricstaff",
+    "frameDurationMs": 60,
+    "frames": 8,
+    "height": 96,
+    "source": "d2r extract missile dcc",
+    "width": 48
+  },
+  "d2-horadricstaffnoglow": {
+    "dccName": "horadricstaffnoglow",
+    "encodedFrames": 8,
+    "frameDirectory": "d2-horadricstaffnoglow",
+    "frameDurationMs": 60,
+    "frames": 8,
+    "height": 70,
+    "source": "d2r extract missile dcc",
+    "width": 24
+  },
+  "d2-hurricane_cart": {
+    "dccName": "hurricane_cart",
+    "encodedFrames": 20,
+    "frameDirectory": "d2-hurricane_cart",
+    "frameDurationMs": 60,
+    "frames": 20,
+    "height": 24,
+    "source": "d2r extract missile dcc",
+    "width": 28
+  },
+  "d2-hurricane_rocks": {
+    "dccName": "hurricane_rocks",
+    "encodedFrames": 20,
+    "frameDirectory": "d2-hurricane_rocks",
+    "frameDurationMs": 60,
+    "frames": 20,
+    "height": 12,
+    "source": "d2r extract missile dcc",
+    "width": 10
+  },
+  "d2-hurricane_sack": {
+    "dccName": "hurricane_sack",
+    "encodedFrames": 20,
+    "frameDirectory": "d2-hurricane_sack",
+    "frameDurationMs": 60,
+    "frames": 20,
+    "height": 18,
+    "source": "d2r extract missile dcc",
+    "width": 17
+  },
+  "d2-hurricane_swoosh": {
+    "dccName": "hurricane_swoosh",
+    "encodedFrames": 11,
+    "frameDirectory": "d2-hurricane_swoosh",
+    "frameDurationMs": 60,
+    "frames": 11,
+    "height": 45,
+    "source": "d2r extract missile dcc",
+    "width": 60
+  },
+  "d2-hurricane_tree": {
+    "dccName": "hurricane_tree",
+    "encodedFrames": 20,
+    "frameDirectory": "d2-hurricane_tree",
+    "frameDurationMs": 60,
+    "frames": 20,
+    "height": 19,
+    "source": "d2r extract missile dcc",
+    "width": 16
+  },
+  "d2-hurricane_vase": {
+    "dccName": "hurricane_vase",
+    "encodedFrames": 20,
+    "frameDirectory": "d2-hurricane_vase",
+    "frameDurationMs": 60,
+    "frames": 20,
+    "height": 23,
+    "source": "d2r extract missile dcc",
+    "width": 18
+  },
+  "d2-ice_smoke": {
+    "dccName": "ice_smoke",
+    "encodedFrames": 41,
+    "frameDirectory": "d2-ice_smoke",
+    "frameDurationMs": 60,
+    "frames": 41,
+    "height": 53,
+    "source": "d2r extract missile dcc",
+    "width": 33
+  },
+  "d2-icearrow": {
+    "dccName": "icearrow",
+    "encodedFrames": 8,
+    "frameDirectory": "d2-icearrow",
+    "frameDurationMs": 60,
+    "frames": 8,
+    "height": 25,
+    "source": "d2r extract missile dcc",
+    "width": 45
+  },
+  "d2-icearrowexplode": {
+    "dccName": "icearrowexplode",
+    "encodedFrames": 16,
+    "frameDirectory": "d2-icearrowexplode",
+    "frameDurationMs": 60,
+    "frames": 16,
+    "height": 110,
+    "source": "d2r extract missile dcc",
+    "width": 83
+  },
+  "d2-iceblast": {
+    "dccName": "iceblast",
+    "encodedFrames": 5,
+    "frameDirectory": "d2-iceblast",
+    "frameDurationMs": 60,
+    "frames": 5,
+    "height": 54,
+    "source": "d2r extract missile dcc",
+    "width": 74
+  },
+  "d2-icebolt": {
+    "dccName": "icebolt",
+    "encodedFrames": 6,
+    "frameDirectory": "d2-icebolt",
+    "frameDurationMs": 60,
+    "frames": 6,
+    "height": 27,
+    "source": "d2r extract missile dcc",
+    "width": 51
+  },
+  "d2-icebreaklarge": {
+    "dccName": "icebreaklarge",
+    "encodedFrames": 15,
+    "frameDirectory": "d2-icebreaklarge",
+    "frameDurationMs": 60,
+    "frames": 15,
+    "height": 88,
+    "source": "d2r extract missile dcc",
+    "width": 139
+  },
+  "d2-icebreaklargemelt": {
+    "dccName": "icebreaklargemelt",
+    "encodedFrames": 12,
+    "frameDirectory": "d2-icebreaklargemelt",
+    "frameDurationMs": 60,
+    "frames": 12,
+    "height": 76,
+    "source": "d2r extract missile dcc",
+    "width": 153
+  },
+  "d2-icebreaksmall": {
+    "dccName": "icebreaksmall",
+    "encodedFrames": 15,
+    "frameDirectory": "d2-icebreaksmall",
+    "frameDurationMs": 60,
+    "frames": 15,
+    "height": 76,
+    "source": "d2r extract missile dcc",
+    "width": 92
+  },
+  "d2-icebreaksmallmelt": {
+    "dccName": "icebreaksmallmelt",
+    "encodedFrames": 12,
+    "frameDirectory": "d2-icebreaksmallmelt",
+    "frameDurationMs": 60,
+    "frames": 12,
+    "height": 62,
+    "source": "d2r extract missile dcc",
+    "width": 111
+  },
+  "d2-icebreaksmoke": {
+    "dccName": "icebreaksmoke",
+    "encodedFrames": 15,
+    "frameDirectory": "d2-icebreaksmoke",
+    "frameDurationMs": 60,
+    "frames": 15,
+    "height": 146,
+    "source": "d2r extract missile dcc",
+    "width": 160
+  },
+  "d2-icecaveeruption": {
+    "dccName": "icecaveeruption",
+    "encodedFrames": 41,
+    "frameDirectory": "d2-icecaveeruption",
+    "frameDurationMs": 60,
+    "frames": 41,
+    "height": 20,
+    "source": "d2r extract missile dcc",
+    "width": 33
+  },
+  "d2-icecavequest_magic": {
+    "dccName": "icecavequest_magic",
+    "encodedFrames": 31,
+    "frameDirectory": "d2-icecavequest_magic",
+    "frameDurationMs": 60,
+    "frames": 31,
+    "height": 160,
+    "source": "d2r extract missile dcc",
+    "width": 127
+  },
+  "d2-icecavequest_steam": {
+    "dccName": "icecavequest_steam",
+    "encodedFrames": 31,
+    "frameDirectory": "d2-icecavequest_steam",
+    "frameDurationMs": 60,
+    "frames": 31,
+    "height": 160,
+    "source": "d2r extract missile dcc",
+    "width": 145
+  },
+  "d2-iceglint": {
+    "dccName": "iceglint",
+    "encodedFrames": 6,
+    "frameDirectory": "d2-iceglint",
+    "frameDurationMs": 60,
+    "frames": 6,
+    "height": 14,
+    "source": "d2r extract missile dcc",
+    "width": 13
+  },
+  "d2-icehitbig": {
+    "dccName": "icehitbig",
+    "encodedFrames": 16,
+    "frameDirectory": "d2-icehitbig",
+    "frameDurationMs": 60,
+    "frames": 16,
+    "height": 140,
+    "source": "d2r extract missile dcc",
+    "width": 130
+  },
+  "d2-iceimpact": {
+    "dccName": "iceimpact",
+    "encodedFrames": 11,
+    "frameDirectory": "d2-iceimpact",
+    "frameDurationMs": 60,
+    "frames": 11,
+    "height": 52,
+    "source": "d2r extract missile dcc",
+    "width": 68
+  },
+  "d2-iceorb": {
+    "dccName": "iceorb",
+    "encodedFrames": 16,
+    "frameDirectory": "d2-iceorb",
+    "frameDurationMs": 60,
+    "frames": 16,
+    "height": 53,
+    "source": "d2r extract missile dcc",
+    "width": 54
+  },
+  "d2-iceorbexplode": {
+    "dccName": "iceorbexplode",
+    "encodedFrames": 18,
+    "frameDirectory": "d2-iceorbexplode",
+    "frameDurationMs": 60,
+    "frames": 18,
+    "height": 133,
+    "source": "d2r extract missile dcc",
+    "width": 160
+  },
+  "d2-icestorm": {
+    "dccName": "icestorm",
+    "encodedFrames": 6,
+    "frameDirectory": "d2-icestorm",
+    "frameDurationMs": 60,
+    "frames": 6,
+    "height": 85,
+    "source": "d2r extract missile dcc",
+    "width": 50
+  },
+  "d2-icestormfallvar01": {
+    "dccName": "icestormfallvar01",
+    "encodedFrames": 6,
+    "frameDirectory": "d2-icestormfallvar01",
+    "frameDurationMs": 60,
+    "frames": 6,
+    "height": 160,
+    "source": "d2r extract missile dcc",
+    "width": 45
+  },
+  "d2-icestormfallvar02": {
+    "dccName": "icestormfallvar02",
+    "encodedFrames": 6,
+    "frameDirectory": "d2-icestormfallvar02",
+    "frameDurationMs": 60,
+    "frames": 6,
+    "height": 160,
+    "source": "d2r extract missile dcc",
+    "width": 39
+  },
+  "d2-icestormfallvar03": {
+    "dccName": "icestormfallvar03",
+    "encodedFrames": 6,
+    "frameDirectory": "d2-icestormfallvar03",
+    "frameDurationMs": 60,
+    "frames": 6,
+    "height": 160,
+    "source": "d2r extract missile dcc",
+    "width": 48
+  },
+  "d2-icestormfallvar04": {
+    "dccName": "icestormfallvar04",
+    "encodedFrames": 6,
+    "frameDirectory": "d2-icestormfallvar04",
+    "frameDurationMs": 60,
+    "frames": 6,
+    "height": 160,
+    "source": "d2r extract missile dcc",
+    "width": 44
+  },
+  "d2-icestormimpactvar01": {
+    "dccName": "icestormimpactvar01",
+    "encodedFrames": 6,
+    "frameDirectory": "d2-icestormimpactvar01",
+    "frameDurationMs": 60,
+    "frames": 6,
+    "height": 72,
+    "source": "d2r extract missile dcc",
+    "width": 113
+  },
+  "d2-icestormimpactvar02": {
+    "dccName": "icestormimpactvar02",
+    "encodedFrames": 6,
+    "frameDirectory": "d2-icestormimpactvar02",
+    "frameDurationMs": 60,
+    "frames": 6,
+    "height": 70,
+    "source": "d2r extract missile dcc",
+    "width": 117
+  },
+  "d2-icestormimpactvar03": {
+    "dccName": "icestormimpactvar03",
+    "encodedFrames": 6,
+    "frameDirectory": "d2-icestormimpactvar03",
+    "frameDurationMs": 60,
+    "frames": 6,
+    "height": 71,
+    "source": "d2r extract missile dcc",
+    "width": 117
+  },
+  "d2-icicle": {
+    "dccName": "icicle",
+    "encodedFrames": 10,
+    "frameDirectory": "d2-icicle",
+    "frameDurationMs": 60,
+    "frames": 10,
+    "height": 83,
+    "source": "d2r extract missile dcc",
+    "width": 25
+  },
+  "d2-impfireball": {
+    "dccName": "impfireball",
+    "encodedFrames": 20,
+    "frameDirectory": "d2-impfireball",
+    "frameDurationMs": 60,
+    "frames": 20,
+    "height": 35,
+    "source": "d2r extract missile dcc",
+    "width": 36
+  },
+  "d2-impmissile01": {
+    "dccName": "impmissile01",
+    "encodedFrames": 10,
+    "frameDirectory": "d2-impmissile01",
+    "frameDurationMs": 60,
+    "frames": 10,
+    "height": 85,
+    "source": "d2r extract missile dcc",
+    "width": 85
+  },
+  "d2-impmissile2": {
+    "dccName": "impmissile2",
+    "encodedFrames": 8,
+    "frameDirectory": "d2-impmissile2",
+    "frameDurationMs": 60,
+    "frames": 8,
+    "height": 59,
+    "source": "d2r extract missile dcc",
+    "width": 97
+  },
+  "d2-impteleport": {
+    "dccName": "impteleport",
+    "encodedFrames": 13,
+    "frameDirectory": "d2-impteleport",
+    "frameDurationMs": 60,
+    "frames": 13,
+    "height": 114,
+    "source": "d2r extract missile dcc",
+    "width": 150
   },
   "d2-inferno": {
     "encodedFrames": 10,
@@ -511,5 +2651,1755 @@
     "source": "d2 missile_overlays",
     "sourceFolder": "74",
     "width": 119
+  },
+  "d2-izualdeathclouds": {
+    "dccName": "izualdeathclouds",
+    "encodedFrames": 16,
+    "frameDirectory": "d2-izualdeathclouds",
+    "frameDurationMs": 60,
+    "frames": 16,
+    "height": 57,
+    "source": "d2r extract missile dcc",
+    "width": 111
+  },
+  "d2-izualdeathparticles": {
+    "dccName": "izualdeathparticles",
+    "encodedFrames": 26,
+    "frameDirectory": "d2-izualdeathparticles",
+    "frameDurationMs": 60,
+    "frames": 26,
+    "height": 80,
+    "source": "d2r extract missile dcc",
+    "width": 113
+  },
+  "d2-javelin": {
+    "dccName": "javelin",
+    "encodedFrames": 1,
+    "frameDirectory": "d2-javelin",
+    "frameDurationMs": 60,
+    "frames": 1,
+    "height": 24,
+    "source": "d2r extract missile dcc",
+    "width": 59
+  },
+  "d2-javelinbreaking": {
+    "dccName": "javelinbreaking",
+    "encodedFrames": 6,
+    "frameDirectory": "d2-javelinbreaking",
+    "frameDurationMs": 60,
+    "frames": 6,
+    "height": 37,
+    "source": "d2r extract missile dcc",
+    "width": 63
+  },
+  "d2-javelininground": {
+    "dccName": "javelininground",
+    "encodedFrames": 1,
+    "frameDirectory": "d2-javelininground",
+    "frameDurationMs": 60,
+    "frames": 1,
+    "height": 20,
+    "source": "d2r extract missile dcc",
+    "width": 28
+  },
+  "d2-lightbeams": {
+    "dccName": "lightbeams",
+    "encodedFrames": 21,
+    "frameDirectory": "d2-lightbeams",
+    "frameDurationMs": 60,
+    "frames": 21,
+    "height": 160,
+    "source": "d2r extract missile dcc",
+    "width": 88
+  },
+  "d2-lightningbolt": {
+    "dccName": "lightningbolt",
+    "encodedFrames": 8,
+    "frameDirectory": "d2-lightningbolt",
+    "frameDurationMs": 60,
+    "frames": 8,
+    "height": 98,
+    "source": "d2r extract missile dcc",
+    "width": 43
+  },
+  "d2-lightningboltbig": {
+    "dccName": "lightningboltbig",
+    "encodedFrames": 8,
+    "frameDirectory": "d2-lightningboltbig",
+    "frameDurationMs": 60,
+    "frames": 8,
+    "height": 113,
+    "source": "d2r extract missile dcc",
+    "width": 36
+  },
+  "d2-lightninggenerator": {
+    "dccName": "lightninggenerator",
+    "encodedFrames": 13,
+    "frameDirectory": "d2-lightninggenerator",
+    "frameDurationMs": 60,
+    "frames": 13,
+    "height": 120,
+    "source": "d2r extract missile dcc",
+    "width": 73
+  },
+  "d2-lightningjavelin": {
+    "dccName": "lightningjavelin",
+    "encodedFrames": 5,
+    "frameDirectory": "d2-lightningjavelin",
+    "frameDurationMs": 60,
+    "frames": 5,
+    "height": 63,
+    "source": "d2r extract missile dcc",
+    "width": 100
+  },
+  "d2-lightningpiece": {
+    "dccName": "lightningpiece",
+    "encodedFrames": 5,
+    "frameDirectory": "d2-lightningpiece",
+    "frameDurationMs": 60,
+    "frames": 5,
+    "height": 26,
+    "source": "d2r extract missile dcc",
+    "width": 32
+  },
+  "d2-lightningpieceslope": {
+    "dccName": "lightningpieceslope",
+    "encodedFrames": 5,
+    "frameDirectory": "d2-lightningpieceslope",
+    "frameDurationMs": 60,
+    "frames": 5,
+    "height": 27,
+    "source": "d2r extract missile dcc",
+    "width": 39
+  },
+  "d2-lightningpiecevert": {
+    "dccName": "lightningpiecevert",
+    "encodedFrames": 5,
+    "frameDirectory": "d2-lightningpiecevert",
+    "frameDurationMs": 60,
+    "frames": 5,
+    "height": 35,
+    "source": "d2r extract missile dcc",
+    "width": 21
+  },
+  "d2-lightningstrike": {
+    "dccName": "lightningstrike",
+    "encodedFrames": 8,
+    "frameDirectory": "d2-lightningstrike",
+    "frameDurationMs": 60,
+    "frames": 8,
+    "height": 79,
+    "source": "d2r extract missile dcc",
+    "width": 112
+  },
+  "d2-lowblood1": {
+    "dccName": "lowblood1",
+    "encodedFrames": 9,
+    "frameDirectory": "d2-lowblood1",
+    "frameDurationMs": 60,
+    "frames": 9,
+    "height": 57,
+    "source": "d2r extract missile dcc",
+    "width": 47
+  },
+  "d2-lurecloud": {
+    "dccName": "lurecloud",
+    "encodedFrames": 26,
+    "frameDirectory": "d2-lurecloud",
+    "frameDurationMs": 60,
+    "frames": 26,
+    "height": 71,
+    "source": "d2r extract missile dcc",
+    "width": 84
+  },
+  "d2-lureprojectile": {
+    "dccName": "lureprojectile",
+    "encodedFrames": 8,
+    "frameDirectory": "d2-lureprojectile",
+    "frameDurationMs": 60,
+    "frames": 8,
+    "height": 9,
+    "source": "d2r extract missile dcc",
+    "width": 9
+  },
+  "d2-mephistomissile": {
+    "dccName": "mephistomissile",
+    "encodedFrames": 10,
+    "frameDirectory": "d2-mephistomissile",
+    "frameDurationMs": 60,
+    "frames": 10,
+    "height": 79,
+    "source": "d2r extract missile dcc",
+    "width": 78
+  },
+  "d2-mephistomissileexplosion": {
+    "dccName": "mephistomissileexplosion",
+    "encodedFrames": 12,
+    "frameDirectory": "d2-mephistomissileexplosion",
+    "frameDurationMs": 60,
+    "frames": 12,
+    "height": 77,
+    "source": "d2r extract missile dcc",
+    "width": 86
+  },
+  "d2-meteor": {
+    "dccName": "meteor",
+    "encodedFrames": 12,
+    "frameDirectory": "d2-meteor",
+    "frameDurationMs": 60,
+    "frames": 12,
+    "height": 22,
+    "source": "d2r extract missile dcc",
+    "width": 22
+  },
+  "d2-meteorlavaburst": {
+    "dccName": "meteorlavaburst",
+    "encodedFrames": 11,
+    "frameDirectory": "d2-meteorlavaburst",
+    "frameDurationMs": 60,
+    "frames": 11,
+    "height": 49,
+    "source": "d2r extract missile dcc",
+    "width": 69
+  },
+  "d2-meteorlavaburst2": {
+    "dccName": "meteorlavaburst2",
+    "encodedFrames": 11,
+    "frameDirectory": "d2-meteorlavaburst2",
+    "frameDurationMs": 60,
+    "frames": 11,
+    "height": 84,
+    "source": "d2r extract missile dcc",
+    "width": 28
+  },
+  "d2-meteorlavadown": {
+    "dccName": "meteorlavadown",
+    "encodedFrames": 9,
+    "frameDirectory": "d2-meteorlavadown",
+    "frameDurationMs": 60,
+    "frames": 9,
+    "height": 160,
+    "source": "d2r extract missile dcc",
+    "width": 47
+  },
+  "d2-meteorlavarock": {
+    "dccName": "meteorlavarock",
+    "encodedFrames": 9,
+    "frameDirectory": "d2-meteorlavarock",
+    "frameDurationMs": 60,
+    "frames": 9,
+    "height": 10,
+    "source": "d2r extract missile dcc",
+    "width": 10
+  },
+  "d2-meteorlavaup": {
+    "dccName": "meteorlavaup",
+    "encodedFrames": 9,
+    "frameDirectory": "d2-meteorlavaup",
+    "frameDurationMs": 60,
+    "frames": 9,
+    "height": 121,
+    "source": "d2r extract missile dcc",
+    "width": 44
+  },
+  "d2-meteortail": {
+    "dccName": "meteortail",
+    "encodedFrames": 12,
+    "frameDirectory": "d2-meteortail",
+    "frameDurationMs": 60,
+    "frames": 12,
+    "height": 125,
+    "source": "d2r extract missile dcc",
+    "width": 77
+  },
+  "d2-meteortargetindicator": {
+    "dccName": "meteortargetindicator",
+    "encodedFrames": 17,
+    "frameDirectory": "d2-meteortargetindicator",
+    "frameDurationMs": 60,
+    "frames": 17,
+    "height": 74,
+    "source": "d2r extract missile dcc",
+    "width": 112
+  },
+  "d2-mindblast": {
+    "dccName": "mindblast",
+    "encodedFrames": 16,
+    "frameDirectory": "d2-mindblast",
+    "frameDurationMs": 60,
+    "frames": 16,
+    "height": 27,
+    "source": "d2r extract missile dcc",
+    "width": 52
+  },
+  "d2-missileaxe": {
+    "dccName": "missileaxe",
+    "encodedFrames": 8,
+    "frameDirectory": "d2-missileaxe",
+    "frameDurationMs": 60,
+    "frames": 8,
+    "height": 37,
+    "source": "d2r extract missile dcc",
+    "width": 27
+  },
+  "d2-missilebroadsword": {
+    "dccName": "missilebroadsword",
+    "encodedFrames": 1,
+    "frameDirectory": "d2-missilebroadsword",
+    "frameDurationMs": 60,
+    "frames": 1,
+    "height": 15,
+    "source": "d2r extract missile dcc",
+    "width": 32
+  },
+  "d2-missileclub": {
+    "dccName": "missileclub",
+    "encodedFrames": 8,
+    "frameDirectory": "d2-missileclub",
+    "frameDurationMs": 60,
+    "frames": 8,
+    "height": 27,
+    "source": "d2r extract missile dcc",
+    "width": 21
+  },
+  "d2-missiledagger": {
+    "dccName": "missiledagger",
+    "encodedFrames": 1,
+    "frameDirectory": "d2-missiledagger",
+    "frameDurationMs": 60,
+    "frames": 1,
+    "height": 9,
+    "source": "d2r extract missile dcc",
+    "width": 17
+  },
+  "d2-missilefalchion": {
+    "dccName": "missilefalchion",
+    "encodedFrames": 1,
+    "frameDirectory": "d2-missilefalchion",
+    "frameDurationMs": 60,
+    "frames": 1,
+    "height": 13,
+    "source": "d2r extract missile dcc",
+    "width": 30
+  },
+  "d2-missileflail": {
+    "dccName": "missileflail",
+    "encodedFrames": 8,
+    "frameDirectory": "d2-missileflail",
+    "frameDurationMs": 60,
+    "frames": 8,
+    "height": 45,
+    "source": "d2r extract missile dcc",
+    "width": 38
+  },
+  "d2-missileflamesword": {
+    "dccName": "missileflamesword",
+    "encodedFrames": 8,
+    "frameDirectory": "d2-missileflamesword",
+    "frameDurationMs": 60,
+    "frames": 8,
+    "height": 22,
+    "source": "d2r extract missile dcc",
+    "width": 38
+  },
+  "d2-missileglaive": {
+    "dccName": "missileglaive",
+    "encodedFrames": 1,
+    "frameDirectory": "d2-missileglaive",
+    "frameDurationMs": 60,
+    "frames": 1,
+    "height": 25,
+    "source": "d2r extract missile dcc",
+    "width": 65
+  },
+  "d2-missilehandaxe": {
+    "dccName": "missilehandaxe",
+    "encodedFrames": 8,
+    "frameDirectory": "d2-missilehandaxe",
+    "frameDurationMs": 60,
+    "frames": 8,
+    "height": 24,
+    "source": "d2r extract missile dcc",
+    "width": 19
+  },
+  "d2-missilejavelin": {
+    "dccName": "missilejavelin",
+    "encodedFrames": 1,
+    "frameDirectory": "d2-missilejavelin",
+    "frameDurationMs": 60,
+    "frames": 1,
+    "height": 24,
+    "source": "d2r extract missile dcc",
+    "width": 59
+  },
+  "d2-missilelongsword": {
+    "dccName": "missilelongsword",
+    "encodedFrames": 1,
+    "frameDirectory": "d2-missilelongsword",
+    "frameDurationMs": 60,
+    "frames": 1,
+    "height": 17,
+    "source": "d2r extract missile dcc",
+    "width": 38
+  },
+  "d2-missilemace": {
+    "dccName": "missilemace",
+    "encodedFrames": 8,
+    "frameDirectory": "d2-missilemace",
+    "frameDurationMs": 60,
+    "frames": 8,
+    "height": 31,
+    "source": "d2r extract missile dcc",
+    "width": 23
+  },
+  "d2-missilescimitar": {
+    "dccName": "missilescimitar",
+    "encodedFrames": 8,
+    "frameDirectory": "d2-missilescimitar",
+    "frameDurationMs": 60,
+    "frames": 8,
+    "height": 33,
+    "source": "d2r extract missile dcc",
+    "width": 25
+  },
+  "d2-missileshortsword": {
+    "dccName": "missileshortsword",
+    "encodedFrames": 1,
+    "frameDirectory": "d2-missileshortsword",
+    "frameDurationMs": 60,
+    "frames": 1,
+    "height": 34,
+    "source": "d2r extract missile dcc",
+    "width": 139
+  },
+  "d2-missilewand": {
+    "dccName": "missilewand",
+    "encodedFrames": 8,
+    "frameDirectory": "d2-missilewand",
+    "frameDurationMs": 60,
+    "frames": 8,
+    "height": 101,
+    "source": "d2r extract missile dcc",
+    "width": 101
+  },
+  "d2-missilewarhammer": {
+    "dccName": "missilewarhammer",
+    "encodedFrames": 8,
+    "frameDirectory": "d2-missilewarhammer",
+    "frameDurationMs": 60,
+    "frames": 8,
+    "height": 160,
+    "source": "d2r extract missile dcc",
+    "width": 160
+  },
+  "d2-mist": {
+    "dccName": "mist",
+    "encodedFrames": 14,
+    "frameDirectory": "d2-mist",
+    "frameDurationMs": 60,
+    "frames": 14,
+    "height": 92,
+    "source": "d2r extract missile dcc",
+    "width": 98
+  },
+  "d2-mist_fade": {
+    "dccName": "mist_fade",
+    "encodedFrames": 14,
+    "frameDirectory": "d2-mist_fade",
+    "frameDurationMs": 60,
+    "frames": 14,
+    "height": 93,
+    "source": "d2r extract missile dcc",
+    "width": 98
+  },
+  "d2-mist_fade_orb": {
+    "dccName": "mist_fade_orb",
+    "encodedFrames": 14,
+    "frameDirectory": "d2-mist_fade_orb",
+    "frameDurationMs": 60,
+    "frames": 14,
+    "height": 94,
+    "source": "d2r extract missile dcc",
+    "width": 100
+  },
+  "d2-mist_fade_orb_loop": {
+    "dccName": "mist_fade_orb_loop",
+    "encodedFrames": 14,
+    "frameDirectory": "d2-mist_fade_orb_loop",
+    "frameDurationMs": 60,
+    "frames": 14,
+    "height": 93,
+    "source": "d2r extract missile dcc",
+    "width": 100
+  },
+  "d2-moltenboulderemerge": {
+    "dccName": "moltenboulderemerge",
+    "encodedFrames": 6,
+    "frameDirectory": "d2-moltenboulderemerge",
+    "frameDurationMs": 60,
+    "frames": 6,
+    "height": 76,
+    "source": "d2r extract missile dcc",
+    "width": 55
+  },
+  "d2-moltenboulderexplode04": {
+    "dccName": "moltenboulderexplode04",
+    "encodedFrames": 13,
+    "frameDirectory": "d2-moltenboulderexplode04",
+    "frameDurationMs": 60,
+    "frames": 13,
+    "height": 138,
+    "source": "d2r extract missile dcc",
+    "width": 160
+  },
+  "d2-moltenboulderroll": {
+    "dccName": "moltenboulderroll",
+    "encodedFrames": 10,
+    "frameDirectory": "d2-moltenboulderroll",
+    "frameDurationMs": 60,
+    "frames": 10,
+    "height": 50,
+    "source": "d2r extract missile dcc",
+    "width": 52
+  },
+  "d2-moltenfragmentd": {
+    "dccName": "moltenfragmentd",
+    "encodedFrames": 16,
+    "frameDirectory": "d2-moltenfragmentd",
+    "frameDurationMs": 60,
+    "frames": 16,
+    "height": 21,
+    "source": "d2r extract missile dcc",
+    "width": 21
+  },
+  "d2-mslgpl": {
+    "dccName": "mslgpl",
+    "encodedFrames": 8,
+    "frameDirectory": "d2-mslgpl",
+    "frameDurationMs": 60,
+    "frames": 8,
+    "height": 12,
+    "source": "d2r extract missile dcc",
+    "width": 12
+  },
+  "d2-mslgpm": {
+    "dccName": "mslgpm",
+    "encodedFrames": 8,
+    "frameDirectory": "d2-mslgpm",
+    "frameDurationMs": 60,
+    "frames": 8,
+    "height": 13,
+    "source": "d2r extract missile dcc",
+    "width": 13
+  },
+  "d2-mslgps": {
+    "dccName": "mslgps",
+    "encodedFrames": 8,
+    "frameDirectory": "d2-mslgps",
+    "frameDurationMs": 60,
+    "frames": 8,
+    "height": 11,
+    "source": "d2r extract missile dcc",
+    "width": 10
+  },
+  "d2-mslopl": {
+    "dccName": "mslopl",
+    "encodedFrames": 8,
+    "frameDirectory": "d2-mslopl",
+    "frameDurationMs": 60,
+    "frames": 8,
+    "height": 12,
+    "source": "d2r extract missile dcc",
+    "width": 12
+  },
+  "d2-mslopm": {
+    "dccName": "mslopm",
+    "encodedFrames": 8,
+    "frameDirectory": "d2-mslopm",
+    "frameDurationMs": 60,
+    "frames": 8,
+    "height": 13,
+    "source": "d2r extract missile dcc",
+    "width": 13
+  },
+  "d2-mslops": {
+    "dccName": "mslops",
+    "encodedFrames": 8,
+    "frameDirectory": "d2-mslops",
+    "frameDurationMs": 60,
+    "frames": 8,
+    "height": 11,
+    "source": "d2r extract missile dcc",
+    "width": 10
+  },
+  "d2-nehlithakglow": {
+    "dccName": "nehlithakglow",
+    "encodedFrames": 16,
+    "frameDirectory": "d2-nehlithakglow",
+    "frameDurationMs": 60,
+    "frames": 16,
+    "height": 158,
+    "source": "d2r extract missile dcc",
+    "width": 129
+  },
+  "d2-nehlthak_hole": {
+    "dccName": "nehlthak_hole",
+    "encodedFrames": 41,
+    "frameDirectory": "d2-nehlthak_hole",
+    "frameDurationMs": 60,
+    "frames": 41,
+    "height": 37,
+    "source": "d2r extract missile dcc",
+    "width": 72
+  },
+  "d2-nehlthak_hole_light": {
+    "dccName": "nehlthak_hole_light",
+    "encodedFrames": 41,
+    "frameDirectory": "d2-nehlthak_hole_light",
+    "frameDurationMs": 60,
+    "frames": 41,
+    "height": 136,
+    "source": "d2r extract missile dcc",
+    "width": 160
+  },
+  "d2-nehlthak_swoosh": {
+    "dccName": "nehlthak_swoosh",
+    "encodedFrames": 11,
+    "frameDirectory": "d2-nehlthak_swoosh",
+    "frameDurationMs": 60,
+    "frames": 11,
+    "height": 22,
+    "source": "d2r extract missile dcc",
+    "width": 20
+  },
+  "d2-nihlathak a": {
+    "dccName": "nihlathak a",
+    "encodedFrames": 16,
+    "frameDirectory": "d2-nihlathak a",
+    "frameDurationMs": 60,
+    "frames": 16,
+    "height": 160,
+    "source": "d2r extract missile dcc",
+    "width": 129
+  },
+  "d2-nihlathak b": {
+    "dccName": "nihlathak b",
+    "encodedFrames": 8,
+    "frameDirectory": "d2-nihlathak b",
+    "frameDurationMs": 60,
+    "frames": 8,
+    "height": 80,
+    "source": "d2r extract missile dcc",
+    "width": 68
+  },
+  "d2-nihlathak c": {
+    "dccName": "nihlathak c",
+    "encodedFrames": 17,
+    "frameDirectory": "d2-nihlathak c",
+    "frameDurationMs": 60,
+    "frames": 17,
+    "height": 160,
+    "source": "d2r extract missile dcc",
+    "width": 60
+  },
+  "d2-nihlathak death": {
+    "dccName": "nihlathak death",
+    "encodedFrames": 24,
+    "frameDirectory": "d2-nihlathak death",
+    "frameDurationMs": 60,
+    "frames": 24,
+    "height": 160,
+    "source": "d2r extract missile dcc",
+    "width": 158
+  },
+  "d2-nilathak c": {
+    "dccName": "nilathak c",
+    "encodedFrames": 17,
+    "frameDirectory": "d2-nilathak c",
+    "frameDurationMs": 60,
+    "frames": 17,
+    "height": 160,
+    "source": "d2r extract missile dcc",
+    "width": 60
+  },
+  "d2-novablue": {
+    "dccName": "novablue",
+    "encodedFrames": 12,
+    "frameDirectory": "d2-novablue",
+    "frameDurationMs": 60,
+    "frames": 12,
+    "height": 74,
+    "source": "d2r extract missile dcc",
+    "width": 108
+  },
+  "d2-overseer_missile": {
+    "dccName": "overseer_missile",
+    "encodedFrames": 8,
+    "frameDirectory": "d2-overseer_missile",
+    "frameDurationMs": 60,
+    "frames": 8,
+    "height": 90,
+    "source": "d2r extract missile dcc",
+    "width": 89
+  },
+  "d2-pdteleportmissile": {
+    "dccName": "pdteleportmissile",
+    "encodedFrames": 10,
+    "frameDirectory": "d2-pdteleportmissile",
+    "frameDurationMs": 60,
+    "frames": 10,
+    "height": 92,
+    "source": "d2r extract missile dcc",
+    "width": 135
+  },
+  "d2-pilum": {
+    "dccName": "pilum",
+    "encodedFrames": 1,
+    "frameDirectory": "d2-pilum",
+    "frameDurationMs": 60,
+    "frames": 1,
+    "height": 29,
+    "source": "d2r extract missile dcc",
+    "width": 77
+  },
+  "d2-pilumbreaking": {
+    "dccName": "pilumbreaking",
+    "encodedFrames": 6,
+    "frameDirectory": "d2-pilumbreaking",
+    "frameDurationMs": 60,
+    "frames": 6,
+    "height": 55,
+    "source": "d2r extract missile dcc",
+    "width": 81
+  },
+  "d2-piluminground": {
+    "dccName": "piluminground",
+    "encodedFrames": 1,
+    "frameDirectory": "d2-piluminground",
+    "frameDurationMs": 60,
+    "frames": 1,
+    "height": 28,
+    "source": "d2r extract missile dcc",
+    "width": 36
+  },
+  "d2-pod_attack_1": {
+    "dccName": "pod_attack_1",
+    "encodedFrames": 51,
+    "frameDirectory": "d2-pod_attack_1",
+    "frameDurationMs": 60,
+    "frames": 51,
+    "height": 154,
+    "source": "d2r extract missile dcc",
+    "width": 85
+  },
+  "d2-pod_death_1": {
+    "dccName": "pod_death_1",
+    "encodedFrames": 21,
+    "frameDirectory": "d2-pod_death_1",
+    "frameDurationMs": 60,
+    "frames": 21,
+    "height": 115,
+    "source": "d2r extract missile dcc",
+    "width": 87
+  },
+  "d2-pod_jump_fadeout": {
+    "dccName": "pod_jump_fadeout",
+    "encodedFrames": 11,
+    "frameDirectory": "d2-pod_jump_fadeout",
+    "frameDurationMs": 60,
+    "frames": 11,
+    "height": 32,
+    "source": "d2r extract missile dcc",
+    "width": 66
+  },
+  "d2-pod_neutral_1": {
+    "dccName": "pod_neutral_1",
+    "encodedFrames": 31,
+    "frameDirectory": "d2-pod_neutral_1",
+    "frameDurationMs": 60,
+    "frames": 31,
+    "height": 25,
+    "source": "d2r extract missile dcc",
+    "width": 57
+  },
+  "d2-pod_neutral_fadeout": {
+    "dccName": "pod_neutral_fadeout",
+    "encodedFrames": 11,
+    "frameDirectory": "d2-pod_neutral_fadeout",
+    "frameDurationMs": 60,
+    "frames": 11,
+    "height": 25,
+    "source": "d2r extract missile dcc",
+    "width": 57
+  },
+  "d2-pod_walk_1": {
+    "dccName": "pod_walk_1",
+    "encodedFrames": 31,
+    "frameDirectory": "d2-pod_walk_1",
+    "frameDurationMs": 60,
+    "frames": 31,
+    "height": 44,
+    "source": "d2r extract missile dcc",
+    "width": 66
+  },
+  "d2-pod_walk_2": {
+    "dccName": "pod_walk_2",
+    "encodedFrames": 31,
+    "frameDirectory": "d2-pod_walk_2",
+    "frameDurationMs": 60,
+    "frames": 31,
+    "height": 41,
+    "source": "d2r extract missile dcc",
+    "width": 68
+  },
+  "d2-poisongas": {
+    "dccName": "poisongas",
+    "encodedFrames": 36,
+    "frameDirectory": "d2-poisongas",
+    "frameDurationMs": 60,
+    "frames": 36,
+    "height": 72,
+    "source": "d2r extract missile dcc",
+    "width": 158
+  },
+  "d2-poisoninferno": {
+    "dccName": "poisoninferno",
+    "encodedFrames": 26,
+    "frameDirectory": "d2-poisoninferno",
+    "frameDurationMs": 60,
+    "frames": 26,
+    "height": 98,
+    "source": "d2r extract missile dcc",
+    "width": 128
+  },
+  "d2-poisonleft": {
+    "dccName": "poisonleft",
+    "encodedFrames": 12,
+    "frameDirectory": "d2-poisonleft",
+    "frameDurationMs": 60,
+    "frames": 12,
+    "height": 15,
+    "source": "d2r extract missile dcc",
+    "width": 16
+  },
+  "d2-poisonnova": {
+    "dccName": "poisonnova",
+    "encodedFrames": 30,
+    "frameDirectory": "d2-poisonnova",
+    "frameDurationMs": 60,
+    "frames": 30,
+    "height": 55,
+    "source": "d2r extract missile dcc",
+    "width": 104
+  },
+  "d2-poisonright": {
+    "dccName": "poisonright",
+    "encodedFrames": 12,
+    "frameDirectory": "d2-poisonright",
+    "frameDurationMs": 60,
+    "frames": 12,
+    "height": 15,
+    "source": "d2r extract missile dcc",
+    "width": 16
+  },
+  "d2-poisonsmokepuff": {
+    "dccName": "poisonsmokepuff",
+    "encodedFrames": 26,
+    "frameDirectory": "d2-poisonsmokepuff",
+    "frameDurationMs": 60,
+    "frames": 26,
+    "height": 71,
+    "source": "d2r extract missile dcc",
+    "width": 84
+  },
+  "d2-poisonsparks": {
+    "dccName": "poisonsparks",
+    "encodedFrames": 31,
+    "frameDirectory": "d2-poisonsparks",
+    "frameDurationMs": 60,
+    "frames": 31,
+    "height": 34,
+    "source": "d2r extract missile dcc",
+    "width": 45
+  },
+  "d2-potionexplode": {
+    "dccName": "potionexplode",
+    "encodedFrames": 29,
+    "frameDirectory": "d2-potionexplode",
+    "frameDurationMs": 60,
+    "frames": 29,
+    "height": 117,
+    "source": "d2r extract missile dcc",
+    "width": 91
+  },
+  "d2-potionexplodedebris01": {
+    "dccName": "potionexplodedebris01",
+    "encodedFrames": 29,
+    "frameDirectory": "d2-potionexplodedebris01",
+    "frameDurationMs": 60,
+    "frames": 29,
+    "height": 83,
+    "source": "d2r extract missile dcc",
+    "width": 160
+  },
+  "d2-potionexplodedebris02": {
+    "dccName": "potionexplodedebris02",
+    "encodedFrames": 29,
+    "frameDirectory": "d2-potionexplodedebris02",
+    "frameDurationMs": 60,
+    "frames": 29,
+    "height": 83,
+    "source": "d2r extract missile dcc",
+    "width": 160
+  },
+  "d2-potionexplodedebris03": {
+    "dccName": "potionexplodedebris03",
+    "encodedFrames": 29,
+    "frameDirectory": "d2-potionexplodedebris03",
+    "frameDurationMs": 60,
+    "frames": 29,
+    "height": 80,
+    "source": "d2r extract missile dcc",
+    "width": 160
+  },
+  "d2-projectionmissile": {
+    "dccName": "projectionmissile",
+    "encodedFrames": 5,
+    "frameDirectory": "d2-projectionmissile",
+    "frameDurationMs": 60,
+    "frames": 5,
+    "height": 48,
+    "source": "d2r extract missile dcc",
+    "width": 53
+  },
+  "d2-queendeathguts": {
+    "dccName": "queendeathguts",
+    "encodedFrames": 11,
+    "frameDirectory": "d2-queendeathguts",
+    "frameDurationMs": 60,
+    "frames": 11,
+    "height": 37,
+    "source": "d2r extract missile dcc",
+    "width": 36
+  },
+  "d2-queendeathpuddle": {
+    "dccName": "queendeathpuddle",
+    "encodedFrames": 5,
+    "frameDirectory": "d2-queendeathpuddle",
+    "frameDurationMs": 60,
+    "frames": 5,
+    "height": 30,
+    "source": "d2r extract missile dcc",
+    "width": 73
+  },
+  "d2-queendeathpuddle2": {
+    "dccName": "queendeathpuddle2",
+    "encodedFrames": 5,
+    "frameDirectory": "d2-queendeathpuddle2",
+    "frameDurationMs": 60,
+    "frames": 5,
+    "height": 29,
+    "source": "d2r extract missile dcc",
+    "width": 56
+  },
+  "d2-redemptionghost": {
+    "dccName": "redemptionghost",
+    "encodedFrames": 16,
+    "frameDirectory": "d2-redemptionghost",
+    "frameDurationMs": 60,
+    "frames": 16,
+    "height": 141,
+    "source": "d2r extract missile dcc",
+    "width": 64
+  },
+  "d2-revive": {
+    "dccName": "revive",
+    "encodedFrames": 25,
+    "frameDirectory": "d2-revive",
+    "frameDurationMs": 60,
+    "frames": 25,
+    "height": 160,
+    "source": "d2r extract missile dcc",
+    "width": 142
+  },
+  "d2-rock_large": {
+    "dccName": "rock_large",
+    "encodedFrames": 5,
+    "frameDirectory": "d2-rock_large",
+    "frameDurationMs": 60,
+    "frames": 5,
+    "height": 53,
+    "source": "d2r extract missile dcc",
+    "width": 58
+  },
+  "d2-rock_lava_explosion": {
+    "dccName": "rock_lava_explosion",
+    "encodedFrames": 18,
+    "frameDirectory": "d2-rock_lava_explosion",
+    "frameDurationMs": 60,
+    "frames": 18,
+    "height": 106,
+    "source": "d2r extract missile dcc",
+    "width": 109
+  },
+  "d2-rock_lava_pool": {
+    "dccName": "rock_lava_pool",
+    "encodedFrames": 18,
+    "frameDirectory": "d2-rock_lava_pool",
+    "frameDurationMs": 60,
+    "frames": 18,
+    "height": 39,
+    "source": "d2r extract missile dcc",
+    "width": 80
+  },
+  "d2-rock_lava_small": {
+    "dccName": "rock_lava_small",
+    "encodedFrames": 15,
+    "frameDirectory": "d2-rock_lava_small",
+    "frameDurationMs": 60,
+    "frames": 15,
+    "height": 13,
+    "source": "d2r extract missile dcc",
+    "width": 14
+  },
+  "d2-rock_small": {
+    "dccName": "rock_small",
+    "encodedFrames": 5,
+    "frameDirectory": "d2-rock_small",
+    "frameDurationMs": 60,
+    "frames": 5,
+    "height": 32,
+    "source": "d2r extract missile dcc",
+    "width": 32
+  },
+  "d2-safearrow": {
+    "dccName": "safearrow",
+    "encodedFrames": 8,
+    "frameDirectory": "d2-safearrow",
+    "frameDurationMs": 60,
+    "frames": 8,
+    "height": 24,
+    "source": "d2r extract missile dcc",
+    "width": 41
+  },
+  "d2-sanctuary": {
+    "dccName": "sanctuary",
+    "encodedFrames": 40,
+    "frameDirectory": "d2-sanctuary",
+    "frameDurationMs": 60,
+    "frames": 40,
+    "height": 73,
+    "source": "d2r extract missile dcc",
+    "width": 70
+  },
+  "d2-sanctuarymissiles": {
+    "dccName": "sanctuarymissiles",
+    "encodedFrames": 5,
+    "frameDirectory": "d2-sanctuarymissiles",
+    "frameDurationMs": 60,
+    "frames": 5,
+    "height": 48,
+    "source": "d2r extract missile dcc",
+    "width": 44
+  },
+  "d2-sandmaggotdirtpile": {
+    "dccName": "sandmaggotdirtpile",
+    "encodedFrames": 1,
+    "frameDirectory": "d2-sandmaggotdirtpile",
+    "frameDurationMs": 60,
+    "frames": 1,
+    "height": 59,
+    "source": "d2r extract missile dcc",
+    "width": 129
+  },
+  "d2-sandmaggotgoospit": {
+    "dccName": "sandmaggotgoospit",
+    "encodedFrames": 24,
+    "frameDirectory": "d2-sandmaggotgoospit",
+    "frameDurationMs": 60,
+    "frames": 24,
+    "height": 56,
+    "source": "d2r extract missile dcc",
+    "width": 45
+  },
+  "d2-sandmaggotgoosplat": {
+    "dccName": "sandmaggotgoosplat",
+    "encodedFrames": 11,
+    "frameDirectory": "d2-sandmaggotgoosplat",
+    "frameDurationMs": 60,
+    "frames": 11,
+    "height": 36,
+    "source": "d2r extract missile dcc",
+    "width": 72
+  },
+  "d2-sandmaggotsandpile": {
+    "dccName": "sandmaggotsandpile",
+    "encodedFrames": 1,
+    "frameDirectory": "d2-sandmaggotsandpile",
+    "frameDurationMs": 60,
+    "frames": 1,
+    "height": 67,
+    "source": "d2r extract missile dcc",
+    "width": 148
+  },
+  "d2-shamanfireball": {
+    "dccName": "shamanfireball",
+    "encodedFrames": 3,
+    "frameDirectory": "d2-shamanfireball",
+    "frameDurationMs": 60,
+    "frames": 3,
+    "height": 38,
+    "source": "d2r extract missile dcc",
+    "width": 51
+  },
+  "d2-shamanfireballexplodefinal": {
+    "dccName": "shamanfireballexplodefinal",
+    "encodedFrames": 12,
+    "frameDirectory": "d2-shamanfireballexplodefinal",
+    "frameDurationMs": 60,
+    "frames": 12,
+    "height": 128,
+    "source": "d2r extract missile dcc",
+    "width": 69
+  },
+  "d2-shamanfireballfinal": {
+    "dccName": "shamanfireballfinal",
+    "encodedFrames": 3,
+    "frameDirectory": "d2-shamanfireballfinal",
+    "frameDurationMs": 60,
+    "frames": 3,
+    "height": 38,
+    "source": "d2r extract missile dcc",
+    "width": 51
+  },
+  "d2-shamanhealmissile01": {
+    "dccName": "shamanhealmissile01",
+    "encodedFrames": 7,
+    "frameDirectory": "d2-shamanhealmissile01",
+    "frameDurationMs": 60,
+    "frames": 7,
+    "height": 34,
+    "source": "d2r extract missile dcc",
+    "width": 34
+  },
+  "d2-shockfield": {
+    "dccName": "shockfield",
+    "encodedFrames": 10,
+    "frameDirectory": "d2-shockfield",
+    "frameDurationMs": 60,
+    "frames": 10,
+    "height": 60,
+    "source": "d2r extract missile dcc",
+    "width": 102
+  },
+  "d2-shockwave": {
+    "dccName": "shockwave",
+    "encodedFrames": 7,
+    "frameDirectory": "d2-shockwave",
+    "frameDurationMs": 60,
+    "frames": 7,
+    "height": 48,
+    "source": "d2r extract missile dcc",
+    "width": 76
+  },
+  "d2-siegrock": {
+    "dccName": "siegrock",
+    "encodedFrames": 11,
+    "frameDirectory": "d2-siegrock",
+    "frameDurationMs": 60,
+    "frames": 11,
+    "height": 74,
+    "source": "d2r extract missile dcc",
+    "width": 76
+  },
+  "d2-skeleton_pieces_a": {
+    "dccName": "skeleton_pieces_a",
+    "encodedFrames": 16,
+    "frameDirectory": "d2-skeleton_pieces_a",
+    "frameDurationMs": 60,
+    "frames": 16,
+    "height": 23,
+    "source": "d2r extract missile dcc",
+    "width": 24
+  },
+  "d2-skeleton_pieces_b": {
+    "dccName": "skeleton_pieces_b",
+    "encodedFrames": 16,
+    "frameDirectory": "d2-skeleton_pieces_b",
+    "frameDurationMs": 60,
+    "frames": 16,
+    "height": 20,
+    "source": "d2r extract missile dcc",
+    "width": 20
+  },
+  "d2-skeleton_pieces_c": {
+    "dccName": "skeleton_pieces_c",
+    "encodedFrames": 16,
+    "frameDirectory": "d2-skeleton_pieces_c",
+    "frameDurationMs": 60,
+    "frames": 16,
+    "height": 30,
+    "source": "d2r extract missile dcc",
+    "width": 40
+  },
+  "d2-skeleton_pieces_d": {
+    "dccName": "skeleton_pieces_d",
+    "encodedFrames": 16,
+    "frameDirectory": "d2-skeleton_pieces_d",
+    "frameDurationMs": 60,
+    "frames": 16,
+    "height": 20,
+    "source": "d2r extract missile dcc",
+    "width": 20
+  },
+  "d2-skullfire": {
+    "dccName": "skullfire",
+    "encodedFrames": 12,
+    "frameDirectory": "d2-skullfire",
+    "frameDurationMs": 60,
+    "frames": 12,
+    "height": 53,
+    "source": "d2r extract missile dcc",
+    "width": 81
+  },
+  "d2-skullice": {
+    "dccName": "skullice",
+    "encodedFrames": 12,
+    "frameDirectory": "d2-skullice",
+    "frameDurationMs": 60,
+    "frames": 12,
+    "height": 46,
+    "source": "d2r extract missile dcc",
+    "width": 72
+  },
+  "d2-skullleft": {
+    "dccName": "skullleft",
+    "encodedFrames": 12,
+    "frameDirectory": "d2-skullleft",
+    "frameDurationMs": 60,
+    "frames": 12,
+    "height": 13,
+    "source": "d2r extract missile dcc",
+    "width": 11
+  },
+  "d2-skullpoison": {
+    "dccName": "skullpoison",
+    "encodedFrames": 12,
+    "frameDirectory": "d2-skullpoison",
+    "frameDurationMs": 60,
+    "frames": 12,
+    "height": 50,
+    "source": "d2r extract missile dcc",
+    "width": 73
+  },
+  "d2-skullright": {
+    "dccName": "skullright",
+    "encodedFrames": 12,
+    "frameDirectory": "d2-skullright",
+    "frameDurationMs": 60,
+    "frames": 12,
+    "height": 13,
+    "source": "d2r extract missile dcc",
+    "width": 12
+  },
+  "d2-skullunholy": {
+    "dccName": "skullunholy",
+    "encodedFrames": 12,
+    "frameDirectory": "d2-skullunholy",
+    "frameDurationMs": 60,
+    "frames": 12,
+    "height": 53,
+    "source": "d2r extract missile dcc",
+    "width": 80
+  },
+  "d2-slug missile explode": {
+    "dccName": "slug missile explode",
+    "encodedFrames": 12,
+    "frameDirectory": "d2-slug missile explode",
+    "frameDurationMs": 60,
+    "frames": 12,
+    "height": 95,
+    "source": "d2r extract missile dcc",
+    "width": 131
+  },
+  "d2-slugmissile": {
+    "dccName": "slugmissile",
+    "encodedFrames": 12,
+    "frameDirectory": "d2-slugmissile",
+    "frameDurationMs": 60,
+    "frames": 12,
+    "height": 38,
+    "source": "d2r extract missile dcc",
+    "width": 63
+  },
+  "d2-smithholebirth": {
+    "dccName": "smithholebirth",
+    "encodedFrames": 21,
+    "frameDirectory": "d2-smithholebirth",
+    "frameDurationMs": 60,
+    "frames": 21,
+    "height": 118,
+    "source": "d2r extract missile dcc",
+    "width": 128
+  },
+  "d2-smithholedead": {
+    "dccName": "smithholedead",
+    "encodedFrames": 1,
+    "frameDirectory": "d2-smithholedead",
+    "frameDurationMs": 60,
+    "frames": 1,
+    "height": 35,
+    "source": "d2r extract missile dcc",
+    "width": 64
+  },
+  "d2-smithholedeath": {
+    "dccName": "smithholedeath",
+    "encodedFrames": 21,
+    "frameDirectory": "d2-smithholedeath",
+    "frameDurationMs": 60,
+    "frames": 21,
+    "height": 75,
+    "source": "d2r extract missile dcc",
+    "width": 124
+  },
+  "d2-smithholeneutral": {
+    "dccName": "smithholeneutral",
+    "encodedFrames": 21,
+    "frameDirectory": "d2-smithholeneutral",
+    "frameDurationMs": 60,
+    "frames": 21,
+    "height": 143,
+    "source": "d2r extract missile dcc",
+    "width": 131
+  },
+  "d2-soulforgenova": {
+    "dccName": "soulforgenova",
+    "encodedFrames": 17,
+    "frameDirectory": "d2-soulforgenova",
+    "frameDurationMs": 60,
+    "frames": 17,
+    "height": 53,
+    "source": "d2r extract missile dcc",
+    "width": 93
+  },
+  "d2-soulforgerisingsoul": {
+    "dccName": "soulforgerisingsoul",
+    "encodedFrames": 33,
+    "frameDirectory": "d2-soulforgerisingsoul",
+    "frameDurationMs": 60,
+    "frames": 33,
+    "height": 85,
+    "source": "d2r extract missile dcc",
+    "width": 41
+  },
+  "d2-soulforgeshard": {
+    "dccName": "soulforgeshard",
+    "encodedFrames": 47,
+    "frameDirectory": "d2-soulforgeshard",
+    "frameDurationMs": 60,
+    "frames": 47,
+    "height": 34,
+    "source": "d2r extract missile dcc",
+    "width": 60
+  },
+  "d2-spider_goo_disappear": {
+    "dccName": "spider_goo_disappear",
+    "encodedFrames": 9,
+    "frameDirectory": "d2-spider_goo_disappear",
+    "frameDurationMs": 60,
+    "frames": 9,
+    "height": 31,
+    "source": "d2r extract missile dcc",
+    "width": 63
+  },
+  "d2-spider_goo_missile": {
+    "dccName": "spider_goo_missile",
+    "encodedFrames": 17,
+    "frameDirectory": "d2-spider_goo_missile",
+    "frameDurationMs": 60,
+    "frames": 17,
+    "height": 66,
+    "source": "d2r extract missile dcc",
+    "width": 66
+  },
+  "d2-spider_goo_neutral": {
+    "dccName": "spider_goo_neutral",
+    "encodedFrames": 5,
+    "frameDirectory": "d2-spider_goo_neutral",
+    "frameDurationMs": 60,
+    "frames": 5,
+    "height": 31,
+    "source": "d2r extract missile dcc",
+    "width": 63
+  },
+  "d2-spikefiendmamamissle": {
+    "dccName": "spikefiendmamamissle",
+    "encodedFrames": 2,
+    "frameDirectory": "d2-spikefiendmamamissle",
+    "frameDurationMs": 60,
+    "frames": 2,
+    "height": 19,
+    "source": "d2r extract missile dcc",
+    "width": 45
+  },
+  "d2-spikefiendmissle": {
+    "dccName": "spikefiendmissle",
+    "encodedFrames": 2,
+    "frameDirectory": "d2-spikefiendmissle",
+    "frameDurationMs": 60,
+    "frames": 2,
+    "height": 6,
+    "source": "d2r extract missile dcc",
+    "width": 11
+  },
+  "d2-spikeleft": {
+    "dccName": "spikeleft",
+    "encodedFrames": 12,
+    "frameDirectory": "d2-spikeleft",
+    "frameDurationMs": 60,
+    "frames": 12,
+    "height": 29,
+    "source": "d2r extract missile dcc",
+    "width": 30
+  },
+  "d2-spikeright": {
+    "dccName": "spikeright",
+    "encodedFrames": 12,
+    "frameDirectory": "d2-spikeright",
+    "frameDurationMs": 60,
+    "frames": 12,
+    "height": 29,
+    "source": "d2r extract missile dcc",
+    "width": 30
+  },
+  "d2-steamthick_a": {
+    "dccName": "steamthick_a",
+    "encodedFrames": 15,
+    "frameDirectory": "d2-steamthick_a",
+    "frameDurationMs": 60,
+    "frames": 15,
+    "height": 59,
+    "source": "d2r extract missile dcc",
+    "width": 61
+  },
+  "d2-steamthick_b": {
+    "dccName": "steamthick_b",
+    "encodedFrames": 15,
+    "frameDirectory": "d2-steamthick_b",
+    "frameDurationMs": 60,
+    "frames": 15,
+    "height": 160,
+    "source": "d2r extract missile dcc",
+    "width": 51
+  },
+  "d2-teethexplode": {
+    "dccName": "teethexplode",
+    "encodedFrames": 13,
+    "frameDirectory": "d2-teethexplode",
+    "frameDurationMs": 60,
+    "frames": 13,
+    "height": 106,
+    "source": "d2r extract missile dcc",
+    "width": 105
+  },
+  "d2-teethmissile": {
+    "dccName": "teethmissile",
+    "encodedFrames": 30,
+    "frameDirectory": "d2-teethmissile",
+    "frameDurationMs": 60,
+    "frames": 30,
+    "height": 38,
+    "source": "d2r extract missile dcc",
+    "width": 63
+  },
+  "d2-teleport": {
+    "dccName": "teleport",
+    "encodedFrames": 18,
+    "frameDirectory": "d2-teleport",
+    "frameDurationMs": 60,
+    "frames": 18,
+    "height": 154,
+    "source": "d2r extract missile dcc",
+    "width": 136
+  },
+  "d2-throwingaxebreaking": {
+    "dccName": "throwingaxebreaking",
+    "encodedFrames": 6,
+    "frameDirectory": "d2-throwingaxebreaking",
+    "frameDurationMs": 60,
+    "frames": 6,
+    "height": 29,
+    "source": "d2r extract missile dcc",
+    "width": 31
+  },
+  "d2-throwingaxeinground": {
+    "dccName": "throwingaxeinground",
+    "encodedFrames": 1,
+    "frameDirectory": "d2-throwingaxeinground",
+    "frameDurationMs": 60,
+    "frames": 1,
+    "height": 14,
+    "source": "d2r extract missile dcc",
+    "width": 17
+  },
+  "d2-throwingknifebreaking": {
+    "dccName": "throwingknifebreaking",
+    "encodedFrames": 6,
+    "frameDirectory": "d2-throwingknifebreaking",
+    "frameDurationMs": 60,
+    "frames": 6,
+    "height": 31,
+    "source": "d2r extract missile dcc",
+    "width": 30
+  },
+  "d2-throwingknifeinground": {
+    "dccName": "throwingknifeinground",
+    "encodedFrames": 1,
+    "frameDirectory": "d2-throwingknifeinground",
+    "frameDurationMs": 60,
+    "frames": 1,
+    "height": 12,
+    "source": "d2r extract missile dcc",
+    "width": 7
+  },
+  "d2-throwingstarmissile": {
+    "dccName": "throwingstarmissile",
+    "encodedFrames": 7,
+    "frameDirectory": "d2-throwingstarmissile",
+    "frameDurationMs": 60,
+    "frames": 7,
+    "height": 18,
+    "source": "d2r extract missile dcc",
+    "width": 33
+  },
+  "d2-tornado": {
+    "dccName": "tornado",
+    "encodedFrames": 41,
+    "frameDirectory": "d2-tornado",
+    "frameDurationMs": 60,
+    "frames": 41,
+    "height": 130,
+    "source": "d2r extract missile dcc",
+    "width": 112
+  },
+  "d2-towerdebris": {
+    "dccName": "towerdebris",
+    "encodedFrames": 1,
+    "frameDirectory": "d2-towerdebris",
+    "frameDurationMs": 60,
+    "frames": 1,
+    "height": 127,
+    "source": "d2r extract missile dcc",
+    "width": 160
+  },
+  "d2-twister": {
+    "dccName": "twister",
+    "encodedFrames": 41,
+    "frameDirectory": "d2-twister",
+    "frameDurationMs": 60,
+    "frames": 41,
+    "height": 97,
+    "source": "d2r extract missile dcc",
+    "width": 88
+  },
+  "d2-twister_death": {
+    "dccName": "twister_death",
+    "encodedFrames": 11,
+    "frameDirectory": "d2-twister_death",
+    "frameDurationMs": 60,
+    "frames": 11,
+    "height": 152,
+    "source": "d2r extract missile dcc",
+    "width": 160
+  },
+  "d2-unholybolt": {
+    "dccName": "unholybolt",
+    "encodedFrames": 16,
+    "frameDirectory": "d2-unholybolt",
+    "frameDurationMs": 60,
+    "frames": 16,
+    "height": 45,
+    "source": "d2r extract missile dcc",
+    "width": 79
+  },
+  "d2-vampiremissile": {
+    "dccName": "vampiremissile",
+    "encodedFrames": 19,
+    "frameDirectory": "d2-vampiremissile",
+    "frameDurationMs": 60,
+    "frames": 19,
+    "height": 42,
+    "source": "d2r extract missile dcc",
+    "width": 45
+  },
+  "d2-vines": {
+    "dccName": "vines",
+    "encodedFrames": 12,
+    "frameDirectory": "d2-vines",
+    "frameDurationMs": 60,
+    "frames": 12,
+    "height": 55,
+    "source": "d2r extract missile dcc",
+    "width": 71
+  },
+  "d2-vines_death": {
+    "dccName": "vines_death",
+    "encodedFrames": 12,
+    "frameDirectory": "d2-vines_death",
+    "frameDurationMs": 60,
+    "frames": 12,
+    "height": 54,
+    "source": "d2r extract missile dcc",
+    "width": 70
+  },
+  "d2-volcano rock medium": {
+    "dccName": "volcano rock medium",
+    "encodedFrames": 15,
+    "frameDirectory": "d2-volcano rock medium",
+    "frameDurationMs": 60,
+    "frames": 15,
+    "height": 24,
+    "source": "d2r extract missile dcc",
+    "width": 25
+  },
+  "d2-volcano_base": {
+    "dccName": "volcano_base",
+    "encodedFrames": 30,
+    "frameDirectory": "d2-volcano_base",
+    "frameDurationMs": 60,
+    "frames": 30,
+    "height": 70,
+    "source": "d2r extract missile dcc",
+    "width": 122
+  },
+  "d2-volcano_fire": {
+    "dccName": "volcano_fire",
+    "encodedFrames": 30,
+    "frameDirectory": "d2-volcano_fire",
+    "frameDurationMs": 60,
+    "frames": 30,
+    "height": 119,
+    "source": "d2r extract missile dcc",
+    "width": 118
+  },
+  "d2-volcano_rock": {
+    "dccName": "volcano_rock",
+    "encodedFrames": 15,
+    "frameDirectory": "d2-volcano_rock",
+    "frameDurationMs": 60,
+    "frames": 15,
+    "height": 32,
+    "source": "d2r extract missile dcc",
+    "width": 34
+  },
+  "d2-wallfire_low_tiny": {
+    "dccName": "wallfire_low_tiny",
+    "encodedFrames": 25,
+    "frameDirectory": "d2-wallfire_low_tiny",
+    "frameDurationMs": 60,
+    "frames": 25,
+    "height": 100,
+    "source": "d2r extract missile dcc",
+    "width": 32
+  },
+  "d2-warcryshockwave": {
+    "dccName": "warcryshockwave",
+    "encodedFrames": 16,
+    "frameDirectory": "d2-warcryshockwave",
+    "frameDurationMs": 60,
+    "frames": 16,
+    "height": 37,
+    "source": "d2r extract missile dcc",
+    "width": 68
+  },
+  "d2-wsspirit": {
+    "dccName": "wsspirit",
+    "encodedFrames": 7,
+    "frameDirectory": "d2-wsspirit",
+    "frameDurationMs": 60,
+    "frames": 7,
+    "height": 115,
+    "source": "d2r extract missile dcc",
+    "width": 114
+  },
+  "d2-wstonechips1": {
+    "dccName": "wstonechips1",
+    "encodedFrames": 25,
+    "frameDirectory": "d2-wstonechips1",
+    "frameDurationMs": 60,
+    "frames": 25,
+    "height": 143,
+    "source": "d2r extract missile dcc",
+    "width": 130
+  },
+  "d2-wstonechips2": {
+    "dccName": "wstonechips2",
+    "encodedFrames": 33,
+    "frameDirectory": "d2-wstonechips2",
+    "frameDurationMs": 60,
+    "frames": 33,
+    "height": 118,
+    "source": "d2r extract missile dcc",
+    "width": 109
+  },
+  "d2-wstonechips3": {
+    "dccName": "wstonechips3",
+    "encodedFrames": 25,
+    "frameDirectory": "d2-wstonechips3",
+    "frameDurationMs": 60,
+    "frames": 25,
+    "height": 54,
+    "source": "d2r extract missile dcc",
+    "width": 38
+  },
+  "d2-wstonechips4": {
+    "dccName": "wstonechips4",
+    "encodedFrames": 17,
+    "frameDirectory": "d2-wstonechips4",
+    "frameDurationMs": 60,
+    "frames": 17,
+    "height": 71,
+    "source": "d2r extract missile dcc",
+    "width": 56
+  },
+  "d2-xbowbolt": {
+    "dccName": "xbowbolt",
+    "encodedFrames": 1,
+    "frameDirectory": "d2-xbowbolt",
+    "frameDurationMs": 60,
+    "frames": 1,
+    "height": 7,
+    "source": "d2r extract missile dcc",
+    "width": 14
+  },
+  "d2-yellowballglow2": {
+    "dccName": "yellowballglow2",
+    "encodedFrames": 10,
+    "frameDirectory": "d2-yellowballglow2",
+    "frameDurationMs": 60,
+    "frames": 10,
+    "height": 39,
+    "source": "d2r extract missile dcc",
+    "width": 39
+  },
+  "d2-yellowballglowintro": {
+    "dccName": "yellowballglowintro",
+    "encodedFrames": 12,
+    "frameDirectory": "d2-yellowballglowintro",
+    "frameDurationMs": 60,
+    "frames": 12,
+    "height": 160,
+    "source": "d2r extract missile dcc",
+    "width": 160
+  },
+  "d2-zombie hole": {
+    "dccName": "zombie hole",
+    "encodedFrames": 1,
+    "frameDirectory": "d2-zombie hole",
+    "frameDurationMs": 60,
+    "frames": 1,
+    "height": 23,
+    "source": "d2r extract missile dcc",
+    "width": 48
   }
 }

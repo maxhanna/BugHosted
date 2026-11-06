@@ -358,6 +358,7 @@ namespace maxhanna.Server.Controllers
       {
         if (!await _log.ValidateUserLoggedIn(req.UserId, encryptedUserIdHeader ?? "")) return Unauthorized();
         await using var conn = new MySqlConnection(_connectionString);
+        await conn.OpenAsync();
 
         const string sql = "SELECT payload FROM maxhanna.d2survivors_progress WHERE user_id = @UserId LIMIT 1;";
         await using var cmd = new MySqlCommand(sql, conn);
@@ -387,6 +388,7 @@ namespace maxhanna.Server.Controllers
         if (!await _log.ValidateUserLoggedIn(req.UserId, encryptedUserIdHeader ?? "")) return Unauthorized();
 
         await using var conn = new MySqlConnection(_connectionString);
+        await conn.OpenAsync();
         const string sql = @"INSERT INTO maxhanna.d2survivors_progress (user_id, payload, updated_at)
             VALUES (@UserId, @Payload, UTC_TIMESTAMP())
             ON DUPLICATE KEY UPDATE payload = VALUES(payload), updated_at = VALUES(updated_at);";

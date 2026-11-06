@@ -586,6 +586,7 @@
 .d2s-shop-sell-list .d2s-shop-offer { grid-template-columns: 30px minmax(0, 1fr) auto auto; }
 .d2s-shop-offer { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 54px; padding: 6px; border: 1px solid #32291f; background: linear-gradient(90deg, #171515, #100f11); }
 .d2s-shop-offer-icon { display: grid; width: 28px; height: 34px; place-items: center; color: #d4b874; border: 1px solid #5d4b31; background: radial-gradient(ellipse, #40301d, #100d0c); font-size: 17px; }
+.d2s-shop-offer-art { display: block; width: 26px; height: 32px; object-fit: contain; image-rendering: pixelated; filter: drop-shadow(0 1px 2px #000); }
 .d2s-shop-offer > div { display: grid; min-width: 0; gap: 2px; }
 .d2s-shop-offer strong { overflow: hidden; color: #e5d09d; text-overflow: ellipsis; white-space: nowrap; font: 12px Georgia, serif; }
 .d2s-shop-offer small { overflow: hidden; color: #988970; text-overflow: ellipsis; white-space: nowrap; font: 9px Georgia, serif; }
@@ -1516,20 +1517,30 @@
 .d2s-skill-tree-legend .learned { color: #d5ba72; }
 .d2s-skill-tree-legend .available { color: #9ed08c; }
 .d2s-skill-tree-legend .locked { color: #786f62; }
-.d2s-skill-tree-sections { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; gap: 12px; }
-.d2s-skill-tree-tab { min-width: 0; padding: 9px; border: 1px solid #56452d; background: linear-gradient(150deg, #161310, #0c0c0d); }
-.d2s-skill-tree-tab h3 { margin: 0 0 8px; color: #d9bd82; text-align: center; font: 14px Georgia, serif; }
-.d2s-skill-tree-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; }
-.d2s-tree-skill { position: relative; display: grid; min-height: 50px; align-content: center; gap: 2px; padding: 5px 6px 5px 26px; border: 1px solid #4a3c2b; background: #171514; }
-.d2s-tree-skill strong { color: #c5b48e; font: 10px/1.2 Georgia, serif; }
-.d2s-tree-skill small { color: #837862; font: 8px/1.25 Georgia, serif; }
-.d2s-tree-skill.learned { border-color: #9b773b; background: linear-gradient(120deg, #302719, #191512); }
+.d2s-skill-tree-sections { display: flex; width: 100%; max-width: 446px; margin: 0 auto; flex-direction: column; }
+.d2s-skill-tree-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; padding: 0 8px; box-sizing: border-box; }
+.d2s-skill-tree-tab-button { min-width: 0; padding: 8px 6px; overflow: hidden; border: 1px solid #4d3d28; border-bottom-color: #806843; background: linear-gradient(180deg, #1c1712, #0d0c0b); color: #9d8965; font: 11px/1.15 Georgia, serif; text-overflow: ellipsis; text-shadow: 0 1px 2px #000; white-space: nowrap; cursor: pointer; transition: color .12s, border-color .12s, background .12s; }
+.d2s-skill-tree-tab-button:hover, .d2s-skill-tree-tab-button:focus-visible { border-color: #8a6e43; color: #e3c793; outline: none; }
+.d2s-skill-tree-tab-button.active { border-color: #9b7b48; background: linear-gradient(180deg, #322619, #17120e); color: #f0d6a0; box-shadow: inset 0 0 0 1px #0a0908, 0 0 12px #000a; }
+.d2s-skill-tree-tab { position: relative; min-width: 0; overflow: hidden; padding: 8px; border: 1px solid #56452d; background: linear-gradient(150deg, #161310, #0c0c0d); box-shadow: inset 0 0 46px #000b; }
+.d2s-skill-tree-panel { position: relative; width: 100%; max-width: 430px; margin: 0 auto; aspect-ratio: 343 / 428; overflow: hidden; background: #0c0c0d; }
+.d2s-skill-tree-tab-art { position: absolute; inset: 0; background-size: 100% 100%; background-position: center; background-repeat: no-repeat; opacity: 1; filter: saturate(.85) brightness(.92); pointer-events: none; }
+.d2s-skill-tree-sockets { position: absolute; inset: 0; z-index: 1; }
+.d2s-tree-skill { position: absolute; z-index: 2; display: grid; width: 29%; height: 14.2%; align-content: center; gap: 1px; padding: 3px 4px 3px 52px; transform: translate(-50%, -50%); border: 1px solid #4a3c2b; background: rgba(12, 10, 9, .9); box-sizing: border-box; overflow: hidden; }
+.d2s-tree-skill-art { position: absolute; top: 50%; left: 4px; width: 44px; height: 42px; transform: translateY(-50%); border: 1px solid #5a4327; box-shadow: 0 1px 4px #000b; object-fit: cover; }
+.d2s-tree-skill.learned .d2s-tree-skill-art { border-color: #9b773b; filter: brightness(1.12); box-shadow: 0 0 8px #d6a44d4d, 0 1px 4px #000b; }
+.d2s-tree-skill.available .d2s-tree-skill-art { border-color: #60824f; filter: saturate(1.08) brightness(1.05); }
+.d2s-tree-skill.locked .d2s-tree-skill-art { filter: grayscale(.55) brightness(.65); }
+.d2s-tree-skill strong { color: #c5b48e; font: 9px/1.15 Georgia, serif; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.d2s-tree-skill small { color: #837862; font: 7.5px/1.2 Georgia, serif; }
+.d2s-tree-skill small:last-child { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.d2s-tree-skill.learned { border-color: #9b773b; background: linear-gradient(120deg, #302719e6, #191512e6); }
 .d2s-tree-skill.learned strong,.d2s-tree-skill.learned small { color: #ead59c; }
-.d2s-tree-skill.available { border-color: #60824f; background: linear-gradient(120deg, #1c291b, #151612); }
+.d2s-tree-skill.available { border-color: #60824f; background: linear-gradient(120deg, #1c291be6, #151612e6); }
 .d2s-tree-skill.available strong { color: #d0efb8; }
 .d2s-tree-skill.available small { color: #a4c48d; }
-.d2s-tree-skill.locked { opacity: .76; }
-.d2s-tree-level { position: absolute; top: 5px; left: 5px; display: grid; width: 15px; height: 15px; place-items: center; border: 1px solid #6a5839; color: #dfc385; font: 8px ui-monospace, monospace; }
+.d2s-tree-skill.locked { opacity: .82; }
+.d2s-tree-level { position: absolute; top: 4px; left: 4px; display: grid; width: 13px; height: 13px; place-items: center; border: 1px solid #6a5839; color: #dfc385; font: 7px ui-monospace, monospace; }
 .d2s-tree-skill { cursor: help; }
 .d2s-skill-tooltip {
   position: fixed;
@@ -1539,6 +1550,9 @@
   color: #d8c49b;
   border: 1px solid #8b7045;
   background: linear-gradient(145deg, #211a14f5, #09090af7 78%);
+  background-size: cover, cover;
+  background-position: center, center;
+  background-repeat: no-repeat;
   box-shadow: inset 0 0 0 2px #080809, 0 5px 18px #000c;
   pointer-events: auto;
   box-sizing: border-box;
@@ -1566,6 +1580,9 @@
   background: #2a2016;
   color: #f0dcb0;
 }
+.d2s-skill-tooltip-heading { display: flex; align-items: center; gap: 9px; margin: 0 20px 5px 0; }
+.d2s-skill-tooltip-heading img { flex: 0 0 42px; width: 42px; height: 42px; border: 1px solid #6b5535; box-shadow: 0 1px 5px #000b; object-fit: cover; }
+.d2s-skill-tooltip-heading strong { margin-bottom: 0; padding-right: 0; }
 .d2s-skill-tooltip strong { display: block; margin-bottom: 5px; padding-right: 20px; color: #f0d6a0; font: 15px Georgia, serif; }
 .d2s-skill-tooltip strong span { color: #d3b36f; font-size: 11px; }
 .d2s-skill-tooltip p { margin: 0 0 8px; color: #d0c3a7; font: 12px/1.4 Georgia, serif; }
@@ -1575,7 +1592,7 @@
 .d2s-skill-tooltip-stats ul { display: grid; gap: 3px; margin: 4px 0 0; padding-left: 15px; color: #c8b994; font: 10px/1.35 Georgia, serif; }
 .d2s-skill-tooltip-stats small { display: block; margin-top: 4px; }
 .d2s-skill-tooltip small { color: #a99773; font: 10px/1.35 Georgia, serif; }
-@media (max-width: 720px) { .d2s-skill-tree-sections { grid-template-columns: 1fr; } .d2s-skill-tree-tab { padding: 8px; } .d2s-tree-skill { min-height: 43px; } }
+@media (max-width: 720px) { .d2s-skill-tree-sections { max-width: 100%; } .d2s-skill-tree-tabs { gap: 3px; padding: 0 5px; } .d2s-skill-tree-tab-button { padding: 8px 4px; font-size: 10px; } .d2s-skill-tree-tab { padding: 5px; } }
 
 .d2s-upgrade-modal {
   position: absolute;
@@ -1849,6 +1866,9 @@
 
 .d2s-belt-grid {
   display: grid;
+  /* Potions fill bottom up, so the collapsed one-row window shows the bottom
+     row: the bottles the player drinks from are always in view. */
+  align-content: end;
   grid-template-columns: repeat(4, minmax(44px, 1fr));
   grid-template-rows: repeat(var(--d2s-belt-rows, 1), 34px);
   grid-auto-flow: column;
@@ -2284,6 +2304,8 @@
 .d2s-equipment-slot.equipped { border-color: #c1a36a; color: #ead6a6; background-color: #17130f; }
 .d2s-equipment-slot.magic { border-color: #397eb0; }
 .d2s-equipment-slot.rare { border-color: #b99046; }
+.d2s-equipment-slot.unique { border-color: #c9a54c; }
+.d2s-equipment-slot.set { border-color: #3f9c5c; }
 .d2s-equipment-icon { color: #b5a273; font: 24px Georgia, serif; text-shadow: 0 2px 4px #000, 0 0 8px #c48c4a66; }
 .d2s-equipment-art {
   display: block;
@@ -2356,6 +2378,8 @@
 
 .d2s-inv-slot.magic { border-color: #4e94c3; background: radial-gradient(ellipse at 50% 35%, #1b3243, #0a1119 72%); }
 .d2s-inv-slot.rare { border-color: #c19a4d; background: radial-gradient(ellipse at 50% 35%, #423419, #171208 72%); }
+.d2s-inv-slot.unique { border-color: #c9a54c; background: radial-gradient(ellipse at 50% 35%, #453613, #171208 72%); }
+.d2s-inv-slot.set { border-color: #3f9c5c; background: radial-gradient(ellipse at 50% 35%, #163a24, #08130c 72%); }
 .d2s-inv-slot.normal { border-color: #7f704b; }
 
 .d2s-inv-art {
@@ -2382,6 +2406,8 @@
 }
 .d2s-inv-slot.magic .d2s-inv-name { color: #80b8e2; }
 .d2s-inv-slot.rare .d2s-inv-name { color: #e8c86a; }
+.d2s-inv-slot.unique .d2s-inv-name { color: #f0cf70; }
+.d2s-inv-slot.set .d2s-inv-name { color: #6fe08a; }
 .d2s-inv-slot[style*="span 2"] .d2s-inv-art { max-height: calc(100% - 15px); }
 .d2s-inv-slot[style*="span 3"] .d2s-inv-art { max-height: calc(100% - 18px); }
 .d2s-inv-slot[style*="span 4"] .d2s-inv-art { max-height: calc(100% - 21px); }
@@ -2520,6 +2546,77 @@
 
 .d2s-item-window-stats p {
   margin: 0.12rem 0;
+}
+
+.d2s-item-set {
+  margin: 0 0.75rem 0.75rem;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid #3f5c3c;
+  background: rgba(18, 35, 20, 0.72);
+  font: 0.72rem/1.45 ui-monospace, monospace;
+}
+
+.d2s-item-set-title {
+  margin: 0 0 0.3rem;
+  color: #86d896;
+  font-weight: 700;
+}
+
+.d2s-item-set-title span {
+  color: #b7c4a7;
+  font-weight: 400;
+}
+
+.d2s-item-set-line {
+  margin: 0.12rem 0;
+  color: #7f8d76;
+}
+
+.d2s-item-set-line span {
+  display: inline-block;
+  min-width: 4.6rem;
+  color: #5f7058;
+}
+
+.d2s-item-set-line.active { color: #8fe0a0; }
+.d2s-item-set-line.active span { color: #66b677; }
+.d2s-item-set-line.complete { color: #e8cf7e; }
+.d2s-item-set-line.complete span { color: #c7a94f; }
+
+.d2s-set-summary {
+  margin-top: 0.65rem;
+  padding: 0.5rem 0.55rem;
+  border: 1px solid #3f5c3c;
+  background: rgba(18, 35, 20, 0.6);
+  font-size: 0.72rem;
+}
+
+.d2s-set-summary h4 {
+  margin: 0 0 0.35rem;
+  color: #86d896;
+  font: 700 0.76rem/1 Georgia, serif;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.d2s-set-summary-entry {
+  margin-top: 0.4rem;
+}
+
+.d2s-set-summary-entry p {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin: 0.1rem 0;
+  color: #8fe0a0;
+}
+
+.d2s-set-summary-entry p:first-child {
+  color: #e8cf7e;
+}
+
+.d2s-set-summary-entry p span {
+  color: #b7c4a7;
 }
 
 .d2s-inventory-status {

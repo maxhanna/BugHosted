@@ -1,0 +1,2997 @@
+{
+  "categories": {
+    "amulet": {
+      "dc6": "invamu",
+      "height": 27,
+      "width": 25
+    },
+    "barbarian-helm": {
+      "dc6": "invbhm",
+      "height": 39,
+      "width": 54
+    },
+    "belt": {
+      "dc6": "invvbl",
+      "height": 24,
+      "width": 55
+    },
+    "body": {
+      "dc6": "invlea",
+      "height": 64,
+      "width": 56
+    },
+    "boots": {
+      "dc6": "invvbt",
+      "height": 54,
+      "width": 45
+    },
+    "charm": {
+      "dc6": "invchm",
+      "height": 28,
+      "width": 22
+    },
+    "claw": {
+      "dc6": "invclw",
+      "height": 71,
+      "width": 26
+    },
+    "druid-pelt": {
+      "dc6": "invdr1",
+      "height": 49,
+      "width": 48
+    },
+    "gloves": {
+      "dc6": "invlgl",
+      "height": 50,
+      "width": 55
+    },
+    "helmet": {
+      "dc6": "invcap",
+      "height": 54,
+      "width": 32
+    },
+    "orb": {
+      "dc6": "invob1",
+      "height": 51,
+      "width": 23
+    },
+    "paladin-shield": {
+      "dc6": "invpa1",
+      "height": 51,
+      "width": 49
+    },
+    "ring": {
+      "dc6": "invrin1",
+      "height": 28,
+      "width": 23
+    },
+    "shield": {
+      "dc6": "invbuc",
+      "height": 51,
+      "width": 44
+    },
+    "wand": {
+      "dc6": "invbwn",
+      "height": 51,
+      "width": 25
+    },
+    "weapon": {
+      "dc6": "invssd",
+      "height": 68,
+      "width": 16
+    }
+  },
+  "cels": {
+    "inv1x1": {
+      "height": 26,
+      "width": 21
+    },
+    "inv1x2": {
+      "height": 45,
+      "width": 19
+    },
+    "inv2ax": {
+      "height": 76,
+      "width": 34
+    },
+    "inv2hs": {
+      "height": 106,
+      "width": 21
+    },
+    "inv2hsu": {
+      "height": 103,
+      "width": 26
+    },
+    "inv2sd": {
+      "height": 76,
+      "width": 42
+    },
+    "inv2x2": {
+      "height": 50,
+      "width": 39
+    },
+    "inv2x3": {
+      "height": 79,
+      "width": 49
+    },
+    "inv7mas": {
+      "height": 74,
+      "width": 28
+    },
+    "inv8lbu": {
+      "height": 104,
+      "width": 51
+    },
+    "inv8lxu": {
+      "height": 79,
+      "width": 47
+    },
+    "inv8mxu": {
+      "height": 82,
+      "width": 50
+    },
+    "inv8s8u": {
+      "height": 74,
+      "width": 48
+    },
+    "inv8wsu": {
+      "height": 109,
+      "width": 42
+    },
+    "inv9blu": {
+      "height": 78,
+      "width": 21
+    },
+    "inv9bru": {
+      "height": 109,
+      "width": 50
+    },
+    "inv9btu": {
+      "height": 76,
+      "width": 37
+    },
+    "inv9cru": {
+      "height": 82,
+      "width": 38
+    },
+    "inv9fbu": {
+      "height": 107,
+      "width": 39
+    },
+    "inv9giu": {
+      "height": 83,
+      "width": 46
+    },
+    "inv9gmu": {
+      "height": 83,
+      "width": 46
+    },
+    "inv9gwu": {
+      "height": 54,
+      "width": 20
+    },
+    "inv9lsu": {
+      "height": 81,
+      "width": 39
+    },
+    "inv9s8u": {
+      "height": 101,
+      "width": 52
+    },
+    "inv9sbu": {
+      "height": 83,
+      "width": 20
+    },
+    "invaar": {
+      "height": 78,
+      "width": 52
+    },
+    "invaaru": {
+      "height": 84,
+      "width": 53
+    },
+    "invam1": {
+      "height": 81,
+      "width": 47
+    },
+    "invam2": {
+      "height": 92,
+      "width": 52
+    },
+    "invam3": {
+      "height": 111,
+      "width": 28
+    },
+    "invam4": {
+      "height": 104,
+      "width": 46
+    },
+    "invam5": {
+      "height": 73,
+      "width": 27
+    },
+    "invamu": {
+      "height": 27,
+      "width": 25
+    },
+    "invamu1": {
+      "height": 28,
+      "width": 25
+    },
+    "invamu2": {
+      "height": 27,
+      "width": 28
+    },
+    "invamu3": {
+      "height": 28,
+      "width": 28
+    },
+    "invaxe": {
+      "height": 83,
+      "width": 46
+    },
+    "invaxeu": {
+      "height": 82,
+      "width": 48
+    },
+    "invaxf": {
+      "height": 42,
+      "width": 27
+    },
+    "invaxfu": {
+      "height": 53,
+      "width": 27
+    },
+    "invba1": {
+      "height": 52,
+      "width": 55
+    },
+    "invba2": {
+      "height": 53,
+      "width": 45
+    },
+    "invba3": {
+      "height": 56,
+      "width": 29
+    },
+    "invba4": {
+      "height": 54,
+      "width": 40
+    },
+    "invba5": {
+      "height": 56,
+      "width": 39
+    },
+    "invbal": {
+      "height": 82,
+      "width": 54
+    },
+    "invbar": {
+      "height": 105,
+      "width": 44
+    },
+    "invbas": {
+      "height": 111,
+      "width": 26
+    },
+    "invbbb": {
+      "height": 50,
+      "width": 53
+    },
+    "invbbk": {
+      "height": 55,
+      "width": 28
+    },
+    "invbet": {
+      "height": 26,
+      "width": 26
+    },
+    "invbhm": {
+      "height": 39,
+      "width": 54
+    },
+    "invbhmu": {
+      "height": 54,
+      "width": 46
+    },
+    "invbkf": {
+      "height": 56,
+      "width": 23
+    },
+    "invbla": {
+      "height": 54,
+      "width": 14
+    },
+    "invbld": {
+      "height": 75,
+      "width": 21
+    },
+    "invblt": {
+      "height": 26,
+      "width": 55
+    },
+    "invbok": {
+      "height": 55,
+      "width": 28
+    },
+    "invbonr1": {
+      "height": 19,
+      "width": 27
+    },
+    "invbonr2": {
+      "height": 19,
+      "width": 26
+    },
+    "invbonr3": {
+      "height": 23,
+      "width": 27
+    },
+    "invbonr4": {
+      "height": 23,
+      "width": 28
+    },
+    "invbot": {
+      "height": 52,
+      "width": 39
+    },
+    "invbox": {
+      "height": 48,
+      "width": 53
+    },
+    "invbpl": {
+      "height": 27,
+      "width": 25
+    },
+    "invbps": {
+      "height": 23,
+      "width": 17
+    },
+    "invbrn": {
+      "height": 109,
+      "width": 49
+    },
+    "invbrnz": {
+      "height": 22,
+      "width": 27
+    },
+    "invbrs": {
+      "height": 51,
+      "width": 38
+    },
+    "invbrx": {
+      "height": 74,
+      "width": 49
+    },
+    "invbsc": {
+      "height": 28,
+      "width": 22
+    },
+    "invbsd": {
+      "height": 79,
+      "width": 42
+    },
+    "invbsdu": {
+      "height": 78,
+      "width": 41
+    },
+    "invbsh": {
+      "height": 84,
+      "width": 48
+    },
+    "invbshu": {
+      "height": 83,
+      "width": 56
+    },
+    "invbst": {
+      "height": 108,
+      "width": 24
+    },
+    "invbsw": {
+      "height": 111,
+      "width": 23
+    },
+    "invbswu": {
+      "height": 111,
+      "width": 20
+    },
+    "invbtx": {
+      "height": 82,
+      "width": 39
+    },
+    "invbtxu": {
+      "height": 84,
+      "width": 48
+    },
+    "invbuc": {
+      "height": 51,
+      "width": 44
+    },
+    "invbucu": {
+      "height": 55,
+      "width": 47
+    },
+    "invbwn": {
+      "height": 51,
+      "width": 25
+    },
+    "invbwnu": {
+      "height": 56,
+      "width": 22
+    },
+    "invcap": {
+      "height": 54,
+      "width": 32
+    },
+    "invcapu": {
+      "height": 50,
+      "width": 51
+    },
+    "invcbw": {
+      "height": 82,
+      "width": 45
+    },
+    "invcbwu": {
+      "height": 82,
+      "width": 49
+    },
+    "invceh": {
+      "height": 26,
+      "width": 26
+    },
+    "invch1": {
+      "height": 20,
+      "width": 26
+    },
+    "invch2": {
+      "height": 49,
+      "width": 25
+    },
+    "invch3": {
+      "height": 82,
+      "width": 26
+    },
+    "invch4": {
+      "height": 25,
+      "width": 27
+    },
+    "invch5": {
+      "height": 53,
+      "width": 22
+    },
+    "invch6": {
+      "height": 80,
+      "width": 27
+    },
+    "invch7": {
+      "height": 25,
+      "width": 26
+    },
+    "invch8": {
+      "height": 53,
+      "width": 25
+    },
+    "invch9": {
+      "height": 80,
+      "width": 26
+    },
+    "invchm": {
+      "height": 28,
+      "width": 22
+    },
+    "invchn": {
+      "height": 73,
+      "width": 52
+    },
+    "invci0": {
+      "height": 34,
+      "width": 56
+    },
+    "invci1": {
+      "height": 36,
+      "width": 56
+    },
+    "invci2": {
+      "height": 42,
+      "width": 56
+    },
+    "invci3": {
+      "height": 38,
+      "width": 51
+    },
+    "invclb": {
+      "height": 77,
+      "width": 23
+    },
+    "invclbu": {
+      "height": 81,
+      "width": 25
+    },
+    "invclm": {
+      "height": 107,
+      "width": 25
+    },
+    "invclw": {
+      "height": 71,
+      "width": 26
+    },
+    "invcndl": {
+      "height": 21,
+      "width": 19
+    },
+    "invcqv": {
+      "height": 66,
+      "width": 22
+    },
+    "invcrn": {
+      "height": 53,
+      "width": 34
+    },
+    "invcrs": {
+      "height": 83,
+      "width": 45
+    },
+    "invcrsu": {
+      "height": 83,
+      "width": 44
+    },
+    "invcst": {
+      "height": 102,
+      "width": 23
+    },
+    "invcstu": {
+      "height": 111,
+      "width": 25
+    },
+    "invd33": {
+      "height": 56,
+      "width": 22
+    },
+    "invdgr": {
+      "height": 53,
+      "width": 25
+    },
+    "invdir": {
+      "height": 51,
+      "width": 24
+    },
+    "invdr1": {
+      "height": 49,
+      "width": 48
+    },
+    "invdr2": {
+      "height": 50,
+      "width": 36
+    },
+    "invdr3": {
+      "height": 51,
+      "width": 52
+    },
+    "invdr4": {
+      "height": 52,
+      "width": 37
+    },
+    "invdr5": {
+      "height": 49,
+      "width": 48
+    },
+    "invdss": {
+      "height": 27,
+      "width": 19
+    },
+    "invear": {
+      "height": 26,
+      "width": 16
+    },
+    "inveye": {
+      "height": 28,
+      "width": 24
+    },
+    "invfang": {
+      "height": 21,
+      "width": 12
+    },
+    "invfary1": {
+      "height": 23,
+      "width": 26
+    },
+    "invfary2": {
+      "height": 23,
+      "width": 26
+    },
+    "invfary3": {
+      "height": 23,
+      "width": 28
+    },
+    "invfary4": {
+      "height": 25,
+      "width": 28
+    },
+    "invfed": {
+      "height": 26,
+      "width": 26
+    },
+    "invfhl": {
+      "height": 55,
+      "width": 35
+    },
+    "invfhlu": {
+      "height": 52,
+      "width": 35
+    },
+    "invfhp": {
+      "height": 28,
+      "width": 22
+    },
+    "invfla": {
+      "height": 80,
+      "width": 48
+    },
+    "invflag": {
+      "height": 26,
+      "width": 24
+    },
+    "invflb": {
+      "height": 109,
+      "width": 40
+    },
+    "invflc": {
+      "height": 78,
+      "width": 19
+    },
+    "invflcu": {
+      "height": 84,
+      "width": 27
+    },
+    "invfld": {
+      "height": 80,
+      "width": 56
+    },
+    "invflp": {
+      "height": 3,
+      "width": 24
+    },
+    "invfmp": {
+      "height": 28,
+      "width": 22
+    },
+    "invfsd": {
+      "height": 111,
+      "width": 26
+    },
+    "invful": {
+      "height": 82,
+      "width": 48
+    },
+    "invfulu": {
+      "height": 82,
+      "width": 52
+    },
+    "invg33": {
+      "height": 55,
+      "width": 22
+    },
+    "invgax": {
+      "height": 106,
+      "width": 55
+    },
+    "invgaxu": {
+      "height": 100,
+      "width": 51
+    },
+    "invgbi": {
+      "height": 56,
+      "width": 27
+    },
+    "invghm": {
+      "height": 55,
+      "width": 31
+    },
+    "invgis": {
+      "height": 110,
+      "width": 26
+    },
+    "invgisu": {
+      "height": 109,
+      "width": 26
+    },
+    "invgix": {
+      "height": 80,
+      "width": 48
+    },
+    "invgl3": {
+      "height": 80,
+      "width": 26
+    },
+    "invgla": {
+      "height": 80,
+      "width": 16
+    },
+    "invgld": {
+      "height": 19,
+      "width": 23
+    },
+    "invgldh": {
+      "height": 26,
+      "width": 26
+    },
+    "invgldm": {
+      "height": 22,
+      "width": 25
+    },
+    "invglv": {
+      "height": 110,
+      "width": 20
+    },
+    "invgma": {
+      "height": 83,
+      "width": 46
+    },
+    "invgmb": {
+      "height": 23,
+      "width": 23
+    },
+    "invgmg": {
+      "height": 23,
+      "width": 23
+    },
+    "invgmr": {
+      "height": 23,
+      "width": 23
+    },
+    "invgmv": {
+      "height": 23,
+      "width": 23
+    },
+    "invgmw": {
+      "height": 23,
+      "width": 23
+    },
+    "invgmy": {
+      "height": 23,
+      "width": 23
+    },
+    "invgpl": {
+      "height": 27,
+      "width": 20
+    },
+    "invgpm": {
+      "height": 23,
+      "width": 13
+    },
+    "invgps": {
+      "height": 19,
+      "width": 17
+    },
+    "invgrx": {
+      "height": 82,
+      "width": 27
+    },
+    "invgsb": {
+      "height": 18,
+      "width": 19
+    },
+    "invgsba": {
+      "height": 11,
+      "width": 12
+    },
+    "invgsbb": {
+      "height": 15,
+      "width": 13
+    },
+    "invgsbc": {
+      "height": 15,
+      "width": 13
+    },
+    "invgsbd": {
+      "height": 18,
+      "width": 18
+    },
+    "invgsbe": {
+      "height": 22,
+      "width": 19
+    },
+    "invgsc": {
+      "height": 81,
+      "width": 23
+    },
+    "invgsd": {
+      "height": 108,
+      "width": 39
+    },
+    "invgsdu": {
+      "height": 107,
+      "width": 50
+    },
+    "invgsg": {
+      "height": 18,
+      "width": 19
+    },
+    "invgsga": {
+      "height": 11,
+      "width": 14
+    },
+    "invgsgb": {
+      "height": 14,
+      "width": 15
+    },
+    "invgsgc": {
+      "height": 15,
+      "width": 13
+    },
+    "invgsgd": {
+      "height": 20,
+      "width": 19
+    },
+    "invgsge": {
+      "height": 20,
+      "width": 16
+    },
+    "invgsr": {
+      "height": 18,
+      "width": 19
+    },
+    "invgsra": {
+      "height": 11,
+      "width": 14
+    },
+    "invgsrb": {
+      "height": 14,
+      "width": 15
+    },
+    "invgsrc": {
+      "height": 15,
+      "width": 13
+    },
+    "invgsrd": {
+      "height": 20,
+      "width": 19
+    },
+    "invgsre": {
+      "height": 20,
+      "width": 16
+    },
+    "invgsv": {
+      "height": 18,
+      "width": 19
+    },
+    "invgsva": {
+      "height": 11,
+      "width": 12
+    },
+    "invgsvb": {
+      "height": 15,
+      "width": 13
+    },
+    "invgsvc": {
+      "height": 15,
+      "width": 13
+    },
+    "invgsvd": {
+      "height": 18,
+      "width": 18
+    },
+    "invgsve": {
+      "height": 22,
+      "width": 19
+    },
+    "invgsw": {
+      "height": 18,
+      "width": 19
+    },
+    "invgswa": {
+      "height": 11,
+      "width": 14
+    },
+    "invgswb": {
+      "height": 14,
+      "width": 15
+    },
+    "invgswc": {
+      "height": 17,
+      "width": 18
+    },
+    "invgswd": {
+      "height": 20,
+      "width": 19
+    },
+    "invgswe": {
+      "height": 20,
+      "width": 16
+    },
+    "invgsy": {
+      "height": 18,
+      "width": 19
+    },
+    "invgsya": {
+      "height": 11,
+      "width": 12
+    },
+    "invgsyb": {
+      "height": 15,
+      "width": 13
+    },
+    "invgsyc": {
+      "height": 15,
+      "width": 13
+    },
+    "invgsyd": {
+      "height": 18,
+      "width": 18
+    },
+    "invgsye": {
+      "height": 22,
+      "width": 19
+    },
+    "invgth": {
+      "height": 83,
+      "width": 47
+    },
+    "invgts": {
+      "height": 107,
+      "width": 40
+    },
+    "invgtsu": {
+      "height": 111,
+      "width": 45
+    },
+    "invgwn": {
+      "height": 55,
+      "width": 27
+    },
+    "invhal": {
+      "height": 104,
+      "width": 45
+    },
+    "invhax": {
+      "height": 61,
+      "width": 26
+    },
+    "invhaxu": {
+      "height": 62,
+      "width": 25
+    },
+    "invhbl": {
+      "height": 28,
+      "width": 46
+    },
+    "invhbt": {
+      "height": 55,
+      "width": 48
+    },
+    "invhbw": {
+      "height": 74,
+      "width": 48
+    },
+    "invhfh": {
+      "height": 83,
+      "width": 48
+    },
+    "invhgl": {
+      "height": 54,
+      "width": 51
+    },
+    "invhla": {
+      "height": 57,
+      "width": 56
+    },
+    "invhlm": {
+      "height": 52,
+      "width": 40
+    },
+    "invhlmu": {
+      "height": 56,
+      "width": 40
+    },
+    "invhmr": {
+      "height": 43,
+      "width": 26
+    },
+    "invhorn": {
+      "height": 25,
+      "width": 22
+    },
+    "invhp1": {
+      "height": 23,
+      "width": 14
+    },
+    "invhp2": {
+      "height": 23,
+      "width": 17
+    },
+    "invhp3": {
+      "height": 25,
+      "width": 17
+    },
+    "invhp4": {
+      "height": 26,
+      "width": 17
+    },
+    "invhp5": {
+      "height": 26,
+      "width": 19
+    },
+    "invhpf": {
+      "height": 26,
+      "width": 19
+    },
+    "invhpo": {
+      "height": 23,
+      "width": 15
+    },
+    "invhrb": {
+      "height": 24,
+      "width": 26
+    },
+    "invhrt": {
+      "height": 26,
+      "width": 21
+    },
+    "invhscr": {
+      "height": 56,
+      "width": 54
+    },
+    "invhst": {
+      "height": 111,
+      "width": 26
+    },
+    "invhxb": {
+      "height": 109,
+      "width": 52
+    },
+    "invhxbu": {
+      "height": 109,
+      "width": 47
+    },
+    "invja3": {
+      "height": 83,
+      "width": 18
+    },
+    "invjav": {
+      "height": 83,
+      "width": 24
+    },
+    "invjaw": {
+      "height": 25,
+      "width": 27
+    },
+    "invjbi": {
+      "height": 49,
+      "width": 27
+    },
+    "invjw1": {
+      "height": 28,
+      "width": 28
+    },
+    "invjw2": {
+      "height": 28,
+      "width": 28
+    },
+    "invjw3": {
+      "height": 28,
+      "width": 28
+    },
+    "invjw4": {
+      "height": 28,
+      "width": 28
+    },
+    "invjw5": {
+      "height": 28,
+      "width": 28
+    },
+    "invjw6": {
+      "height": 28,
+      "width": 28
+    },
+    "invkey": {
+      "height": 24,
+      "width": 25
+    },
+    "invkit": {
+      "height": 70,
+      "width": 51
+    },
+    "invkitu": {
+      "height": 83,
+      "width": 52
+    },
+    "invkrs": {
+      "height": 66,
+      "width": 21
+    },
+    "invkrsu": {
+      "height": 84,
+      "width": 25
+    },
+    "invktr": {
+      "height": 77,
+      "width": 21
+    },
+    "invlax": {
+      "height": 83,
+      "width": 49
+    },
+    "invlbb": {
+      "height": 102,
+      "width": 48
+    },
+    "invlbl": {
+      "height": 28,
+      "width": 56
+    },
+    "invlbt": {
+      "height": 51,
+      "width": 54
+    },
+    "invlbw": {
+      "height": 109,
+      "width": 51
+    },
+    "invlea": {
+      "height": 64,
+      "width": 56
+    },
+    "invleg": {
+      "height": 65,
+      "width": 27
+    },
+    "invlgl": {
+      "height": 50,
+      "width": 55
+    },
+    "invlrg": {
+      "height": 65,
+      "width": 55
+    },
+    "invlrgu": {
+      "height": 62,
+      "width": 52
+    },
+    "invlsd": {
+      "height": 80,
+      "width": 40
+    },
+    "invlsdu": {
+      "height": 80,
+      "width": 51
+    },
+    "invlst": {
+      "height": 100,
+      "width": 19
+    },
+    "invltp": {
+      "height": 74,
+      "width": 55
+    },
+    "invlwb": {
+      "height": 109,
+      "width": 49
+    },
+    "invlxb": {
+      "height": 79,
+      "width": 55
+    },
+    "invlxbu": {
+      "height": 84,
+      "width": 48
+    },
+    "invmac": {
+      "height": 79,
+      "width": 20
+    },
+    "invmau": {
+      "height": 110,
+      "width": 42
+    },
+    "invmauu": {
+      "height": 100,
+      "width": 42
+    },
+    "invmbl": {
+      "height": 26,
+      "width": 55
+    },
+    "invmbt": {
+      "height": 56,
+      "width": 47
+    },
+    "invmgl": {
+      "height": 52,
+      "width": 53
+    },
+    "invmp1": {
+      "height": 23,
+      "width": 14
+    },
+    "invmp2": {
+      "height": 23,
+      "width": 17
+    },
+    "invmp3": {
+      "height": 25,
+      "width": 17
+    },
+    "invmp4": {
+      "height": 26,
+      "width": 17
+    },
+    "invmp5": {
+      "height": 26,
+      "width": 19
+    },
+    "invmpf": {
+      "height": 26,
+      "width": 19
+    },
+    "invmph": {
+      "height": 55,
+      "width": 26
+    },
+    "invmpi": {
+      "height": 83,
+      "width": 48
+    },
+    "invmpiu": {
+      "height": 83,
+      "width": 51
+    },
+    "invmpo": {
+      "height": 23,
+      "width": 15
+    },
+    "invmsf": {
+      "height": 83,
+      "width": 26
+    },
+    "invmsk": {
+      "height": 47,
+      "width": 56
+    },
+    "invmss": {
+      "height": 27,
+      "width": 19
+    },
+    "invmst": {
+      "height": 82,
+      "width": 27
+    },
+    "invmstu": {
+      "height": 84,
+      "width": 27
+    },
+    "invmxb": {
+      "height": 80,
+      "width": 53
+    },
+    "invmxbu": {
+      "height": 82,
+      "width": 50
+    },
+    "invne1": {
+      "height": 55,
+      "width": 46
+    },
+    "invne2": {
+      "height": 55,
+      "width": 51
+    },
+    "invne3": {
+      "height": 55,
+      "width": 50
+    },
+    "invne4": {
+      "height": 54,
+      "width": 40
+    },
+    "invne5": {
+      "height": 56,
+      "width": 51
+    },
+    "invnpl": {
+      "height": 26,
+      "width": 19
+    },
+    "invnps": {
+      "height": 23,
+      "width": 11
+    },
+    "invob1": {
+      "height": 51,
+      "width": 23
+    },
+    "invob2": {
+      "height": 54,
+      "width": 21
+    },
+    "invob3": {
+      "height": 51,
+      "width": 22
+    },
+    "invob4": {
+      "height": 56,
+      "width": 23
+    },
+    "invob5": {
+      "height": 75,
+      "width": 28
+    },
+    "invopl": {
+      "height": 27,
+      "width": 20
+    },
+    "invopm": {
+      "height": 23,
+      "width": 13
+    },
+    "invops": {
+      "height": 19,
+      "width": 17
+    },
+    "invpa1": {
+      "height": 51,
+      "width": 49
+    },
+    "invpa2": {
+      "height": 51,
+      "width": 49
+    },
+    "invpa3": {
+      "height": 112,
+      "width": 47
+    },
+    "invpa4": {
+      "height": 112,
+      "width": 47
+    },
+    "invpa5": {
+      "height": 54,
+      "width": 50
+    },
+    "invpax": {
+      "height": 111,
+      "width": 51
+    },
+    "invpbs": {
+      "height": 23,
+      "width": 15
+    },
+    "invpik": {
+      "height": 110,
+      "width": 50
+    },
+    "invpil": {
+      "height": 82,
+      "width": 14
+    },
+    "invplt": {
+      "height": 59,
+      "width": 56
+    },
+    "invpob": {
+      "height": 28,
+      "width": 22
+    },
+    "invpog": {
+      "height": 28,
+      "width": 22
+    },
+    "invpoo": {
+      "height": 28,
+      "width": 22
+    },
+    "invpor": {
+      "height": 28,
+      "width": 22
+    },
+    "invpot": {
+      "height": 28,
+      "width": 23
+    },
+    "invpotb": {
+      "height": 28,
+      "width": 23
+    },
+    "invpotr": {
+      "height": 28,
+      "width": 23
+    },
+    "invpov": {
+      "height": 28,
+      "width": 22
+    },
+    "invpoy": {
+      "height": 28,
+      "width": 22
+    },
+    "invqf1": {
+      "height": 78,
+      "width": 55
+    },
+    "invqf2": {
+      "height": 76,
+      "width": 55
+    },
+    "invqlt": {
+      "height": 75,
+      "width": 55
+    },
+    "invquil": {
+      "height": 26,
+      "width": 22
+    },
+    "invqvr": {
+      "height": 78,
+      "width": 23
+    },
+    "invramn": {
+      "height": 26,
+      "width": 27
+    },
+    "invrber": {
+      "height": 27,
+      "width": 25
+    },
+    "invrbk": {
+      "height": 51,
+      "width": 28
+    },
+    "invrcham": {
+      "height": 26,
+      "width": 27
+    },
+    "invrdol": {
+      "height": 26,
+      "width": 27
+    },
+    "invrel": {
+      "height": 27,
+      "width": 25
+    },
+    "invreld": {
+      "height": 27,
+      "width": 25
+    },
+    "invreth": {
+      "height": 26,
+      "width": 27
+    },
+    "invrfal": {
+      "height": 26,
+      "width": 27
+    },
+    "invrgul": {
+      "height": 26,
+      "width": 27
+    },
+    "invrhel": {
+      "height": 26,
+      "width": 27
+    },
+    "invrin": {
+      "height": 25,
+      "width": 27
+    },
+    "invrin1": {
+      "height": 28,
+      "width": 23
+    },
+    "invrin2": {
+      "height": 27,
+      "width": 23
+    },
+    "invrin3": {
+      "height": 28,
+      "width": 24
+    },
+    "invrin4": {
+      "height": 28,
+      "width": 23
+    },
+    "invrin5": {
+      "height": 25,
+      "width": 28
+    },
+    "invrio": {
+      "height": 26,
+      "width": 27
+    },
+    "invrist": {
+      "height": 26,
+      "width": 27
+    },
+    "invrith": {
+      "height": 26,
+      "width": 27
+    },
+    "invrjo": {
+      "height": 26,
+      "width": 27
+    },
+    "invrko": {
+      "height": 26,
+      "width": 27
+    },
+    "invrlem": {
+      "height": 26,
+      "width": 27
+    },
+    "invrlo": {
+      "height": 26,
+      "width": 27
+    },
+    "invrlum": {
+      "height": 26,
+      "width": 27
+    },
+    "invrmal": {
+      "height": 26,
+      "width": 27
+    },
+    "invrnef": {
+      "height": 26,
+      "width": 27
+    },
+    "invrng": {
+      "height": 62,
+      "width": 52
+    },
+    "invrohm": {
+      "height": 26,
+      "width": 27
+    },
+    "invrort": {
+      "height": 26,
+      "width": 27
+    },
+    "invrpl": {
+      "height": 27,
+      "width": 25
+    },
+    "invrps": {
+      "height": 23,
+      "width": 17
+    },
+    "invrpul": {
+      "height": 26,
+      "width": 27
+    },
+    "invrral": {
+      "height": 26,
+      "width": 27
+    },
+    "invrsc": {
+      "height": 28,
+      "width": 22
+    },
+    "invrshae": {
+      "height": 26,
+      "width": 27
+    },
+    "invrsol": {
+      "height": 26,
+      "width": 27
+    },
+    "invrsur": {
+      "height": 26,
+      "width": 27
+    },
+    "invrtal": {
+      "height": 26,
+      "width": 27
+    },
+    "invrthul": {
+      "height": 26,
+      "width": 27
+    },
+    "invrtir": {
+      "height": 26,
+      "width": 27
+    },
+    "invrum": {
+      "height": 26,
+      "width": 27
+    },
+    "invrun": {
+      "height": 11,
+      "width": 12
+    },
+    "invrvex": {
+      "height": 26,
+      "width": 27
+    },
+    "invrxb": {
+      "height": 77,
+      "width": 49
+    },
+    "invrxbu": {
+      "height": 82,
+      "width": 52
+    },
+    "invrzod": {
+      "height": 26,
+      "width": 27
+    },
+    "invsbb": {
+      "height": 84,
+      "width": 52
+    },
+    "invsbbu": {
+      "height": 83,
+      "width": 46
+    },
+    "invsbk": {
+      "height": 50,
+      "width": 52
+    },
+    "invsbr": {
+      "height": 80,
+      "width": 25
+    },
+    "invsbru": {
+      "height": 84,
+      "width": 22
+    },
+    "invsbw": {
+      "height": 75,
+      "width": 49
+    },
+    "invscb": {
+      "height": 54,
+      "width": 56
+    },
+    "invscl": {
+      "height": 49,
+      "width": 52
+    },
+    "invscm": {
+      "height": 81,
+      "width": 19
+    },
+    "invscmu": {
+      "height": 81,
+      "width": 25
+    },
+    "invscp": {
+      "height": 79,
+      "width": 23
+    },
+    "invscr": {
+      "height": 28,
+      "width": 22
+    },
+    "invscy": {
+      "height": 110,
+      "width": 52
+    },
+    "invscyu": {
+      "height": 102,
+      "width": 53
+    },
+    "invskc": {
+      "height": 28,
+      "width": 19
+    },
+    "invskf": {
+      "height": 28,
+      "width": 19
+    },
+    "invskl": {
+      "height": 27,
+      "width": 19
+    },
+    "invskp": {
+      "height": 36,
+      "width": 39
+    },
+    "invskr": {
+      "height": 69,
+      "width": 23
+    },
+    "invskru": {
+      "height": 71,
+      "width": 23
+    },
+    "invsku": {
+      "height": 28,
+      "width": 19
+    },
+    "invskz": {
+      "height": 27,
+      "width": 19
+    },
+    "invslb": {
+      "height": 110,
+      "width": 36
+    },
+    "invsml": {
+      "height": 53,
+      "width": 45
+    },
+    "invsmlu": {
+      "height": 55,
+      "width": 47
+    },
+    "invsol": {
+      "height": 28,
+      "width": 28
+    },
+    "invspc": {
+      "height": 82,
+      "width": 27
+    },
+    "invspcu": {
+      "height": 79,
+      "width": 28
+    },
+    "invspk": {
+      "height": 77,
+      "width": 56
+    },
+    "invspku": {
+      "height": 81,
+      "width": 55
+    },
+    "invspl": {
+      "height": 69,
+      "width": 46
+    },
+    "invsple": {
+      "height": 26,
+      "width": 20
+    },
+    "invspr": {
+      "height": 109,
+      "width": 47
+    },
+    "invspt": {
+      "height": 109,
+      "width": 48
+    },
+    "invssd": {
+      "height": 68,
+      "width": 16
+    },
+    "invssp": {
+      "height": 81,
+      "width": 16
+    },
+    "invsst": {
+      "height": 83,
+      "width": 16
+    },
+    "invstu": {
+      "height": 66,
+      "width": 41
+    },
+    "invswb": {
+      "height": 81,
+      "width": 52
+    },
+    "invswbu": {
+      "height": 82,
+      "width": 50
+    },
+    "invta3": {
+      "height": 56,
+      "width": 28
+    },
+    "invtail": {
+      "height": 26,
+      "width": 21
+    },
+    "invtax": {
+      "height": 56,
+      "width": 28
+    },
+    "invtbl": {
+      "height": 27,
+      "width": 50
+    },
+    "invtbt": {
+      "height": 56,
+      "width": 47
+    },
+    "invtes": {
+      "height": 26,
+      "width": 26
+    },
+    "invtgl": {
+      "height": 55,
+      "width": 55
+    },
+    "invtk3": {
+      "height": 56,
+      "width": 28
+    },
+    "invtkn": {
+      "height": 56,
+      "width": 27
+    },
+    "invtoa": {
+      "height": 26,
+      "width": 23
+    },
+    "invtow": {
+      "height": 82,
+      "width": 41
+    },
+    "invtowu": {
+      "height": 84,
+      "width": 39
+    },
+    "invtrch": {
+      "height": 55,
+      "width": 17
+    },
+    "invtri": {
+      "height": 108,
+      "width": 45
+    },
+    "invtriu": {
+      "height": 110,
+      "width": 47
+    },
+    "invtsp": {
+      "height": 110,
+      "width": 22
+    },
+    "invuhms": {
+      "height": 50,
+      "width": 39
+    },
+    "invutss": {
+      "height": 103,
+      "width": 49
+    },
+    "invvbl": {
+      "height": 24,
+      "width": 55
+    },
+    "invvbt": {
+      "height": 54,
+      "width": 45
+    },
+    "invvgl": {
+      "height": 50,
+      "width": 55
+    },
+    "invvip": {
+      "height": 28,
+      "width": 28
+    },
+    "invvou": {
+      "height": 110,
+      "width": 48
+    },
+    "invvpl": {
+      "height": 27,
+      "width": 25
+    },
+    "invvps": {
+      "height": 23,
+      "width": 17
+    },
+    "invwax": {
+      "height": 78,
+      "width": 43
+    },
+    "invwhm": {
+      "height": 82,
+      "width": 42
+    },
+    "invwnd": {
+      "height": 56,
+      "width": 24
+    },
+    "invwndu": {
+      "height": 52,
+      "width": 23
+    },
+    "invwpl": {
+      "height": 26,
+      "width": 19
+    },
+    "invwps": {
+      "height": 24,
+      "width": 6
+    },
+    "invwsc": {
+      "height": 110,
+      "width": 53
+    },
+    "invwsd": {
+      "height": 79,
+      "width": 23
+    },
+    "invwsp": {
+      "height": 84,
+      "width": 55
+    },
+    "invwst": {
+      "height": 110,
+      "width": 48
+    },
+    "invxaru": {
+      "height": 83,
+      "width": 56
+    },
+    "invxkpu": {
+      "height": 46,
+      "width": 33
+    },
+    "invxmlu": {
+      "height": 46,
+      "width": 45
+    },
+    "invxpku": {
+      "height": 79,
+      "width": 53
+    },
+    "invxrgu": {
+      "height": 57,
+      "width": 55
+    },
+    "invxrnu": {
+      "height": 50,
+      "width": 33
+    },
+    "invxrss": {
+      "height": 77,
+      "width": 50
+    },
+    "invxshu": {
+      "height": 74,
+      "width": 53
+    },
+    "invxtuu": {
+      "height": 69,
+      "width": 44
+    },
+    "invxyz": {
+      "height": 26,
+      "width": 20
+    },
+    "invypl": {
+      "height": 26,
+      "width": 19
+    },
+    "invyps": {
+      "height": 24,
+      "width": 6
+    },
+    "invywn": {
+      "height": 54,
+      "width": 25
+    }
+  },
+  "ground": {
+    "flp2ax": {
+      "height": 12,
+      "width": 22
+    },
+    "flp2hs": {
+      "height": 20,
+      "width": 37
+    },
+    "flpaar": {
+      "height": 23,
+      "width": 29
+    },
+    "flpam1": {
+      "height": 13,
+      "width": 12
+    },
+    "flpam2": {
+      "height": 15,
+      "width": 19
+    },
+    "flpam3": {
+      "height": 30,
+      "width": 12
+    },
+    "flpam5": {
+      "height": 21,
+      "width": 9
+    },
+    "flpamu": {
+      "height": 10,
+      "width": 28
+    },
+    "flpaxe": {
+      "height": 18,
+      "width": 24
+    },
+    "flpaxf": {
+      "height": 6,
+      "width": 11
+    },
+    "flpba1": {
+      "height": 14,
+      "width": 15
+    },
+    "flpba3": {
+      "height": 19,
+      "width": 11
+    },
+    "flpba5": {
+      "height": 32,
+      "width": 17
+    },
+    "flpbal": {
+      "height": 14,
+      "width": 22
+    },
+    "flpbar": {
+      "height": 20,
+      "width": 48
+    },
+    "flpbbb": {
+      "height": 14,
+      "width": 19
+    },
+    "flpbbk": {
+      "height": 11,
+      "width": 17
+    },
+    "flpbhm": {
+      "height": 15,
+      "width": 16
+    },
+    "flpbkf": {
+      "height": 5,
+      "width": 15
+    },
+    "flpbld": {
+      "height": 12,
+      "width": 12
+    },
+    "flpblt": {
+      "height": 12,
+      "width": 16
+    },
+    "flpblu": {
+      "height": 15,
+      "width": 8
+    },
+    "flpbok": {
+      "height": 11,
+      "width": 17
+    },
+    "flpbonr1": {
+      "height": 9,
+      "width": 23
+    },
+    "flpbonr2": {
+      "height": 15,
+      "width": 27
+    },
+    "flpbonr3": {
+      "height": 21,
+      "width": 32
+    },
+    "flpbonr4": {
+      "height": 23,
+      "width": 46
+    },
+    "flpbot": {
+      "height": 11,
+      "width": 26
+    },
+    "flpbox": {
+      "height": 8,
+      "width": 8
+    },
+    "flpbpl": {
+      "height": 16,
+      "width": 12
+    },
+    "flpbps": {
+      "height": 14,
+      "width": 8
+    },
+    "flpbrn": {
+      "height": 42,
+      "width": 43
+    },
+    "flpbrnz": {
+      "height": 7,
+      "width": 11
+    },
+    "flpbrs": {
+      "height": 20,
+      "width": 25
+    },
+    "flpbrx": {
+      "height": 17,
+      "width": 15
+    },
+    "flpbsc": {
+      "height": 14,
+      "width": 16
+    },
+    "flpbsd": {
+      "height": 16,
+      "width": 31
+    },
+    "flpbsh": {
+      "height": 26,
+      "width": 30
+    },
+    "flpbst": {
+      "height": 14,
+      "width": 69
+    },
+    "flpbsw": {
+      "height": 25,
+      "width": 26
+    },
+    "flpbtx": {
+      "height": 21,
+      "width": 38
+    },
+    "flpbuc": {
+      "height": 9,
+      "width": 18
+    },
+    "flpbwn": {
+      "height": 11,
+      "width": 21
+    },
+    "flpcap": {
+      "height": 8,
+      "width": 11
+    },
+    "flpcbw": {
+      "height": 13,
+      "width": 21
+    },
+    "flpchm": {
+      "height": 6,
+      "width": 5
+    },
+    "flpchm1": {
+      "height": 5,
+      "width": 13
+    },
+    "flpchm2": {
+      "height": 6,
+      "width": 13
+    },
+    "flpchm3": {
+      "height": 6,
+      "width": 21
+    },
+    "flpchn": {
+      "height": 20,
+      "width": 35
+    },
+    "flpci0": {
+      "height": 7,
+      "width": 9
+    },
+    "flpci1": {
+      "height": 6,
+      "width": 9
+    },
+    "flpci2": {
+      "height": 6,
+      "width": 8
+    },
+    "flpci3": {
+      "height": 6,
+      "width": 8
+    },
+    "flpclb": {
+      "height": 12,
+      "width": 33
+    },
+    "flpclm": {
+      "height": 28,
+      "width": 24
+    },
+    "flpclw": {
+      "height": 11,
+      "width": 14
+    },
+    "flpcndl": {
+      "height": 14,
+      "width": 13
+    },
+    "flpcqv": {
+      "height": 10,
+      "width": 21
+    },
+    "flpcrn": {
+      "height": 13,
+      "width": 17
+    },
+    "flpcrs": {
+      "height": 15,
+      "width": 28
+    },
+    "flpcst": {
+      "height": 30,
+      "width": 20
+    },
+    "flpd33": {
+      "height": 10,
+      "width": 13
+    },
+    "flpdgr": {
+      "height": 11,
+      "width": 7
+    },
+    "flpdir": {
+      "height": 4,
+      "width": 18
+    },
+    "flpdr1": {
+      "height": 13,
+      "width": 12
+    },
+    "flpdr3": {
+      "height": 20,
+      "width": 21
+    },
+    "flpdr4": {
+      "height": 21,
+      "width": 14
+    },
+    "flpear": {
+      "height": 4,
+      "width": 6
+    },
+    "flpegx": {
+      "height": 19,
+      "width": 48
+    },
+    "flpeye": {
+      "height": 4,
+      "width": 7
+    },
+    "flpfang": {
+      "height": 5,
+      "width": 8
+    },
+    "flpfary1": {
+      "height": 9,
+      "width": 23
+    },
+    "flpfary2": {
+      "height": 15,
+      "width": 27
+    },
+    "flpfary3": {
+      "height": 20,
+      "width": 32
+    },
+    "flpfary4": {
+      "height": 23,
+      "width": 46
+    },
+    "flpfhl": {
+      "height": 9,
+      "width": 17
+    },
+    "flpfla": {
+      "height": 11,
+      "width": 37
+    },
+    "flpflag": {
+      "height": 29,
+      "width": 60
+    },
+    "flpflb": {
+      "height": 18,
+      "width": 54
+    },
+    "flpflc": {
+      "height": 5,
+      "width": 38
+    },
+    "flpfld": {
+      "height": 23,
+      "width": 31
+    },
+    "flpful": {
+      "height": 30,
+      "width": 35
+    },
+    "flpg33": {
+      "height": 10,
+      "width": 13
+    },
+    "flpgax": {
+      "height": 17,
+      "width": 45
+    },
+    "flpgbi": {
+      "height": 25,
+      "width": 13
+    },
+    "flpghm": {
+      "height": 12,
+      "width": 25
+    },
+    "flpgis": {
+      "height": 16,
+      "width": 51
+    },
+    "flpgix": {
+      "height": 19,
+      "width": 48
+    },
+    "flpgl1": {
+      "height": 9,
+      "width": 24
+    },
+    "flpgl2": {
+      "height": 13,
+      "width": 26
+    },
+    "flpgl3": {
+      "height": 21,
+      "width": 32
+    },
+    "flpgl4": {
+      "height": 25,
+      "width": 47
+    },
+    "flpgld": {
+      "height": 7,
+      "width": 24
+    },
+    "flpglv": {
+      "height": 39,
+      "width": 13
+    },
+    "flpgma": {
+      "height": 22,
+      "width": 22
+    },
+    "flpgmb": {
+      "height": 7,
+      "width": 9
+    },
+    "flpgmg": {
+      "height": 7,
+      "width": 9
+    },
+    "flpgmr": {
+      "height": 7,
+      "width": 9
+    },
+    "flpgmv": {
+      "height": 7,
+      "width": 9
+    },
+    "flpgmw": {
+      "height": 7,
+      "width": 9
+    },
+    "flpgmy": {
+      "height": 7,
+      "width": 9
+    },
+    "flpgpl": {
+      "height": 16,
+      "width": 12
+    },
+    "flpgpm": {
+      "height": 14,
+      "width": 8
+    },
+    "flpgps": {
+      "height": 14,
+      "width": 8
+    },
+    "flpgsb": {
+      "height": 5,
+      "width": 5
+    },
+    "flpgsc": {
+      "height": 19,
+      "width": 11
+    },
+    "flpgsd": {
+      "height": 20,
+      "width": 47
+    },
+    "flpgsg": {
+      "height": 5,
+      "width": 5
+    },
+    "flpgsr": {
+      "height": 5,
+      "width": 5
+    },
+    "flpgsv": {
+      "height": 5,
+      "width": 5
+    },
+    "flpgsw": {
+      "height": 5,
+      "width": 5
+    },
+    "flpgsy": {
+      "height": 5,
+      "width": 5
+    },
+    "flpgth": {
+      "height": 19,
+      "width": 45
+    },
+    "flpgts": {
+      "height": 24,
+      "width": 36
+    },
+    "flpgwn": {
+      "height": 15,
+      "width": 18
+    },
+    "flphal": {
+      "height": 17,
+      "width": 84
+    },
+    "flphax": {
+      "height": 13,
+      "width": 9
+    },
+    "flphaxu": {
+      "height": 10,
+      "width": 22
+    },
+    "flphbl": {
+      "height": 9,
+      "width": 12
+    },
+    "flphbt": {
+      "height": 17,
+      "width": 19
+    },
+    "flphbw": {
+      "height": 9,
+      "width": 29
+    },
+    "flphfh": {
+      "height": 20,
+      "width": 19
+    },
+    "flphgl": {
+      "height": 12,
+      "width": 14
+    },
+    "flphla": {
+      "height": 19,
+      "width": 24
+    },
+    "flphlm": {
+      "height": 11,
+      "width": 16
+    },
+    "flphmr": {
+      "height": 9,
+      "width": 13
+    },
+    "flphorn": {
+      "height": 10,
+      "width": 13
+    },
+    "flphrb": {
+      "height": 12,
+      "width": 7
+    },
+    "flphrt": {
+      "height": 6,
+      "width": 5
+    },
+    "flphscr": {
+      "height": 10,
+      "width": 30
+    },
+    "flphst": {
+      "height": 31,
+      "width": 53
+    },
+    "flphxb": {
+      "height": 15,
+      "width": 23
+    },
+    "flphxbu": {
+      "height": 10,
+      "width": 13
+    },
+    "flpjav": {
+      "height": 26,
+      "width": 59
+    },
+    "flpjaw": {
+      "height": 9,
+      "width": 11
+    },
+    "flpjbi": {
+      "height": 15,
+      "width": 12
+    },
+    "flpkey": {
+      "height": 5,
+      "width": 6
+    },
+    "flpkit": {
+      "height": 16,
+      "width": 32
+    },
+    "flpkrs": {
+      "height": 15,
+      "width": 29
+    },
+    "flpktr": {
+      "height": 9,
+      "width": 11
+    },
+    "flplax": {
+      "height": 20,
+      "width": 16
+    },
+    "flplbb": {
+      "height": 8,
+      "width": 61
+    },
+    "flplbl": {
+      "height": 12,
+      "width": 20
+    },
+    "flplbt": {
+      "height": 13,
+      "width": 22
+    },
+    "flplbw": {
+      "height": 10,
+      "width": 57
+    },
+    "flplea": {
+      "height": 16,
+      "width": 25
+    },
+    "flpleg": {
+      "height": 14,
+      "width": 13
+    },
+    "flplgl": {
+      "height": 8,
+      "width": 17
+    },
+    "flplrg": {
+      "height": 12,
+      "width": 23
+    },
+    "flplsd": {
+      "height": 10,
+      "width": 45
+    },
+    "flplst": {
+      "height": 40,
+      "width": 24
+    },
+    "flpltp": {
+      "height": 21,
+      "width": 30
+    },
+    "flplwb": {
+      "height": 28,
+      "width": 27
+    },
+    "flplxb": {
+      "height": 14,
+      "width": 24
+    },
+    "flplxbu": {
+      "height": 11,
+      "width": 15
+    },
+    "flpmac": {
+      "height": 19,
+      "width": 10
+    },
+    "flpmau": {
+      "height": 26,
+      "width": 14
+    },
+    "flpmbl": {
+      "height": 9,
+      "width": 12
+    },
+    "flpmbt": {
+      "height": 20,
+      "width": 21
+    },
+    "flpmgl": {
+      "height": 9,
+      "width": 23
+    },
+    "flpmph": {
+      "height": 7,
+      "width": 5
+    },
+    "flpmpi": {
+      "height": 18,
+      "width": 20
+    },
+    "flpmsf": {
+      "height": 33,
+      "width": 12
+    },
+    "flpmsk": {
+      "height": 10,
+      "width": 20
+    },
+    "flpmss": {
+      "height": 4,
+      "width": 9
+    },
+    "flpmst": {
+      "height": 9,
+      "width": 25
+    },
+    "flpmxb": {
+      "height": 15,
+      "width": 21
+    },
+    "flpmxbu": {
+      "height": 9,
+      "width": 11
+    },
+    "flpne1": {
+      "height": 13,
+      "width": 21
+    },
+    "flpne2": {
+      "height": 11,
+      "width": 13
+    },
+    "flpne3": {
+      "height": 15,
+      "width": 15
+    },
+    "flpnpl": {
+      "height": 10,
+      "width": 7
+    },
+    "flpnps": {
+      "height": 9,
+      "width": 5
+    },
+    "flpob1": {
+      "height": 10,
+      "width": 16
+    },
+    "flpob3": {
+      "height": 12,
+      "width": 19
+    },
+    "flpob4": {
+      "height": 11,
+      "width": 17
+    },
+    "flpob5": {
+      "height": 12,
+      "width": 30
+    },
+    "flpopl": {
+      "height": 16,
+      "width": 12
+    },
+    "flpopm": {
+      "height": 14,
+      "width": 8
+    },
+    "flpops": {
+      "height": 14,
+      "width": 8
+    },
+    "flppa1": {
+      "height": 9,
+      "width": 17
+    },
+    "flppa3": {
+      "height": 15,
+      "width": 17
+    },
+    "flppa5": {
+      "height": 10,
+      "width": 19
+    },
+    "flppax": {
+      "height": 34,
+      "width": 57
+    },
+    "flppik": {
+      "height": 55,
+      "width": 35
+    },
+    "flppil": {
+      "height": 30,
+      "width": 53
+    },
+    "flpplt": {
+      "height": 19,
+      "width": 31
+    },
+    "flppot": {
+      "height": 12,
+      "width": 7
+    },
+    "flpqlt": {
+      "height": 20,
+      "width": 37
+    },
+    "flpquil": {
+      "height": 11,
+      "width": 5
+    },
+    "flpqvr": {
+      "height": 16,
+      "width": 20
+    },
+    "flprbk": {
+      "height": 12,
+      "width": 15
+    },
+    "flpred": {
+      "height": 15,
+      "width": 8
+    },
+    "flprin": {
+      "height": 4,
+      "width": 5
+    },
+    "flprng": {
+      "height": 17,
+      "width": 35
+    },
+    "flprpl": {
+      "height": 16,
+      "width": 12
+    },
+    "flprps": {
+      "height": 14,
+      "width": 8
+    },
+    "flprsc": {
+      "height": 14,
+      "width": 17
+    },
+    "flprun": {
+      "height": 4,
+      "width": 4
+    },
+    "flprxb": {
+      "height": 25,
+      "width": 42
+    },
+    "flprxbu": {
+      "height": 12,
+      "width": 17
+    },
+    "flpsbb": {
+      "height": 8,
+      "width": 45
+    },
+    "flpsbr": {
+      "height": 14,
+      "width": 25
+    },
+    "flpsbw": {
+      "height": 9,
+      "width": 41
+    },
+    "flpscl": {
+      "height": 15,
+      "width": 28
+    },
+    "flpscm": {
+      "height": 11,
+      "width": 31
+    },
+    "flpscmu": {
+      "height": 7,
+      "width": 38
+    },
+    "flpscp": {
+      "height": 18,
+      "width": 11
+    },
+    "flpscr": {
+      "height": 5,
+      "width": 24
+    },
+    "flpscy": {
+      "height": 33,
+      "width": 59
+    },
+    "flpskl": {
+      "height": 11,
+      "width": 6
+    },
+    "flpskp": {
+      "height": 11,
+      "width": 11
+    },
+    "flpskr": {
+      "height": 12,
+      "width": 15
+    },
+    "flpsml": {
+      "height": 15,
+      "width": 20
+    },
+    "flpsol": {
+      "height": 79,
+      "width": 34
+    },
+    "flpspc": {
+      "height": 17,
+      "width": 13
+    },
+    "flpspk": {
+      "height": 22,
+      "width": 29
+    },
+    "flpspl": {
+      "height": 14,
+      "width": 25
+    },
+    "flpsple": {
+      "height": 7,
+      "width": 10
+    },
+    "flpspr": {
+      "height": 39,
+      "width": 33
+    },
+    "flpspt": {
+      "height": 28,
+      "width": 39
+    },
+    "flpssd": {
+      "height": 9,
+      "width": 27
+    },
+    "flpssp": {
+      "height": 26,
+      "width": 22
+    },
+    "flpsst": {
+      "height": 29,
+      "width": 6
+    },
+    "flpstu": {
+      "height": 15,
+      "width": 24
+    },
+    "flpswb": {
+      "height": 19,
+      "width": 21
+    },
+    "flptax": {
+      "height": 13,
+      "width": 23
+    },
+    "flptbl": {
+      "height": 12,
+      "width": 15
+    },
+    "flptbt": {
+      "height": 21,
+      "width": 22
+    },
+    "flptgl": {
+      "height": 12,
+      "width": 21
+    },
+    "flptkn": {
+      "height": 8,
+      "width": 11
+    },
+    "flptow": {
+      "height": 21,
+      "width": 29
+    },
+    "flptrch": {
+      "height": 12,
+      "width": 12
+    },
+    "flptri": {
+      "height": 30,
+      "width": 40
+    },
+    "flptsp": {
+      "height": 30,
+      "width": 43
+    },
+    "flptwr": {
+      "height": 21,
+      "width": 29
+    },
+    "flpvbl": {
+      "height": 9,
+      "width": 12
+    },
+    "flpvbt": {
+      "height": 14,
+      "width": 16
+    },
+    "flpvgl": {
+      "height": 10,
+      "width": 16
+    },
+    "flpvip": {
+      "height": 12,
+      "width": 15
+    },
+    "flpvou": {
+      "height": 12,
+      "width": 76
+    },
+    "flpvpl": {
+      "height": 16,
+      "width": 12
+    },
+    "flpvps": {
+      "height": 14,
+      "width": 8
+    },
+    "flpwax": {
+      "height": 15,
+      "width": 27
+    },
+    "flpwhm": {
+      "height": 16,
+      "width": 18
+    },
+    "flpwnd": {
+      "height": 7,
+      "width": 22
+    },
+    "flpwpl": {
+      "height": 10,
+      "width": 7
+    },
+    "flpwps": {
+      "height": 9,
+      "width": 5
+    },
+    "flpwsc": {
+      "height": 33,
+      "width": 41
+    },
+    "flpwsd": {
+      "height": 11,
+      "width": 35
+    },
+    "flpwsp": {
+      "height": 21,
+      "width": 24
+    },
+    "flpwst": {
+      "height": 20,
+      "width": 69
+    },
+    "flpypl": {
+      "height": 16,
+      "width": 12
+    },
+    "flpyps": {
+      "height": 14,
+      "width": 8
+    },
+    "flpywn": {
+      "height": 13,
+      "width": 17
+    }
+  },
+  "named": {
+    "set": 140,
+    "sets": 35,
+    "unique": 424
+  }
+}
