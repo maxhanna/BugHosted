@@ -45,7 +45,8 @@ export type AttackAnimationStyle =
   | "bowShot"
   | "crossbowShot"
   | "clawFlurry"
-  | "unarmedStrike";
+  | "unarmedStrike"
+  | "chestKick";
 
 const DEG = Math.PI / 180;
 const FORWARD = new THREE.Vector3(0, 0, 1);
@@ -133,6 +134,7 @@ export const ATTACK_CLIP_INFO: Record<AttackAnimationStyle, AttackClipInfo> = {
   crossbowShot: { duration: 0.48, trail: "#cfd9e8", trailArc: 0.5 },
   clawFlurry: { duration: 0.42, trail: "#a8cfff", trailArc: 1.6 },
   unarmedStrike: { duration: 0.32, trail: "#f0e2c8", trailArc: 0.9 },
+  chestKick: { duration: 0.7 },
 };
 
 /** Rest stance targets per class: where the arms hang when nothing is happening. */
@@ -426,6 +428,14 @@ const ATTACK_CLIPS: Record<AttackAnimationStyle, ClipKey[]> = {
     key(0.52, arm(-6, -24, 46), arm(22, -36, 58), { chestYaw: 8, chestPitch: -4, crouch: 0.01, lunge: 0.02, frontLeg: 30, backLeg: -6, frontKnee: 24 }),
     key(0.8, arm(12, -42, 50), arm(12, -52, 46), { chestYaw: 2 }),
     key(1, arm(18, -46, 52), arm(14, -56, 44), {}),
+  ],
+  chestKick: [
+    key(0, arm(16, -46, 54), arm(12, -52, 48), { chestYaw: -2 }),
+    key(0.18, arm(30, -20, 68), arm(8, -48, 54), { chestYaw: -12, chestPitch: 8, crouch: -0.02, frontLeg: -12, backLeg: 6, frontKnee: 12, backKnee: 10 }),
+    key(0.42, arm(-18, -12, 28), arm(26, -22, 60), { chestYaw: 16, chestPitch: -12, crouch: 0.04, lunge: 0.08, frontLeg: 72, backLeg: -10, frontKnee: 22, backKnee: 14, headPitch: -6 }),
+    key(0.6, arm(-8, -28, 40), arm(20, -32, 54), { chestYaw: 10, chestPitch: -4, crouch: 0.01, lunge: 0.03, frontLeg: 34, backLeg: -6, frontKnee: 20 }),
+    key(0.82, arm(10, -44, 50), arm(12, -48, 50), { chestYaw: 2 }),
+    key(1, arm(16, -46, 54), arm(12, -52, 48), {}),
   ],
   druidClaw: [
     key(0, arm(22, -44, 62), arm(20, -44, 62), { chestYaw: -4 }),

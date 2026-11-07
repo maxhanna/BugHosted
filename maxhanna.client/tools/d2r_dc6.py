@@ -77,6 +77,7 @@ def parse(data: bytes) -> dict:
         if offset + FRAME_HEADER_SIZE > len(data):
             raise ValueError(f"frame offset {offset} outside the file")
         width, height = struct.unpack_from("<II", data, offset + 4)
+        offset_x, offset_y = struct.unpack_from("<ii", data, offset + 12)
         length = struct.unpack_from("<I", data, offset + 28)[0]
         if width == 0 or height == 0 or width > 1024 or height > 1024:
             raise ValueError(f"implausible frame {width}x{height} at {offset}")
@@ -86,6 +87,8 @@ def parse(data: bytes) -> dict:
         frames.append({
             "width": width,
             "height": height,
+            "offsetX": offset_x,
+            "offsetY": offset_y,
             "indices": decode_scanlines(data[start:start + length], width, height),
         })
     return {"directions": directions, "frames_per_dir": frames_per_dir, "frames": frames}

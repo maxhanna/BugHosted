@@ -336,7 +336,7 @@
         <div class="d2s-skill-tree-legend"><span class="learned">Learned</span><span class="available">Eligible on level up</span><span class="locked">Locked</span></div>
         <div class="d2s-skill-tree-sections" *ngIf="activeSkillTreeSection as activeSection">
           <div class="d2s-skill-tree-tabs" role="tablist" aria-label="Skill trees">
-            <button type="button" role="tab" *ngFor="let section of skillTreeSections" class="d2s-skill-tree-tab-button" [class.active]="section.name === activeSection.name" [attr.aria-selected]="section.name === activeSection.name" (click)="selectSkillTreeTab(section.name)">{{ section.name }}</button>
+            <button type="button" role="tab" *ngFor="let section of skillTreeSections; trackBy: trackBySectionName" class="d2s-skill-tree-tab-button" [class.active]="section.name === activeSection.name" [attr.aria-selected]="section.name === activeSection.name" (click)="selectSkillTreeTab(section.name)">{{ section.name }}</button>
           </div>
           <section class="d2s-skill-tree-tab" role="tabpanel" [attr.aria-label]="activeSection.name">
             <div class="d2s-skill-tree-panel">

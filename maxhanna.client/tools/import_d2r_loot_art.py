@@ -1,14 +1,16 @@
 """Import the original Diablo II chest and loose loot artwork.
 
 The arena chest uses the classic Act I outdoor chest object (`q1`,
-ChestOutdoor1): its neutral DCC is the closed chest and the last frame of its
-opening DCC is the open chest. Gold and the two belt potions use the resting
-frame of their original flippy cels. Object art is painted with the unit
-palette, while the item cels use the Act I palette.
+ChestOutdoor1): its four-frame opening DCC supplies the closed chest, both
+intermediate lid poses and the fully open chest.Gold and the two belt potions use the resting frame of their original flippy
+cels. Object art is painted with the unit palette, while the item cels use the
+Act I palette. Those extracted palettes store BGR triples, so they are swapped
+back to RGB before the PNGs are written.
 
 Outputs:
 
-* `assets/d2survivors/loot/chest-closed.png` and `chest-open.png`;
+* `assets/d2survivors/loot/chest-closed.png`, `chest-opening-1.png`,
+  `chest-opening-2.png` and `chest-open.png`;
 * `assets/d2survivors/loot/gold.png`;
 * `assets/d2survivors/loot/health-potion.png`;
 * `assets/d2survivors/loot/rejuvenation-potion.png`;
@@ -32,8 +34,8 @@ ASSET_ROOT = PROJECT_ROOT / "src" / "assets" / "d2survivors" / "loot"
 GENERATED_MAP = PROJECT_ROOT / "src" / "app" / "d2survivors" / "d2-loot-assets.generated.ts"
 DEFAULT_SOURCE = Path.home() / "Desktop" / "d2" / "d2r extract" / "data"
 
-CHEST_CLOSED = ("global", "objects", "q1", "tr", "q1trlitnuhth.dcc")
-CHEST_OPEN = ("global", "objects", "q1", "tr", "q1trlitophth.dcc")
+CHEST_OPENING = ("global", "objects", "q1", "tr", "q1trlitophth.dcc")
+CHEST_FRAME_KEYS = ("chestClosed", "chestOpening1", "chestOpening2", "chestOpen")
 ITEM_CELS = {
     "gold": "flpgld",
     "healthPotion": "flprps",
@@ -41,6 +43,8 @@ ITEM_CELS = {
 }
 ASSET_NAMES = {
     "chestClosed": "chest-closed",
+    "chestOpening1": "chest-opening-1",
+    "chestOpening2": "chest-opening-2",
     "chestOpen": "chest-open",
     "gold": "gold",
     "healthPotion": "health-potion",
@@ -53,18 +57,20 @@ def crop_visible(image: Image.Image) -> Image.Image:
     return image.crop(box) if box else image
 
 
-def render_dcc_frame(source: Path, parts: tuple[str, ...], frame_index: int,
-                     palette: list[tuple[int, int, int]]) -> Image.Image:
+def render_dcc_frames(source: Path, parts: tuple[str, ...],
+                      palette: list[tuple[int, int, int]]) -> list[Image.Image]:
     animation = dcc.parse((source.joinpath(*parts)).read_bytes())
     direction = animation["dirs"][0]
-    frame = direction["frames"][frame_index]
-    image = dcc.frame_image(
-        direction["bitmaps"][frame_index],
-        frame["width"],
-        frame["height"],
-        palette,
-    )
-    return crop_visible(image)
+    images = []
+    for index, frame in enumerate(direction["frames"]):
+        image = dcc.frame_image(
+            direction["bitmaps"][index],
+            frame["width"],
+            frame["height"],
+            palette,
+        )
+        images.append(crop_visible(image))
+    return images
 
 
 def render_ground_cel(source: Path, stem: str,
@@ -75,15 +81,22 @@ def render_ground_cel(source: Path, stem: str,
     return crop_visible(dc6.frame_image(frame, palette))
 
 
+def load_rgb_palette(path: Path) -> list[tuple[int, int, int]]:
+    """Read a D2 palette, whose on-disk triples are BGR, as RGB for PNG output."""
+    return [(blue, green, red) for red, green, blue in dcc.load_palette(path)]
+
+
 def main() -> int:
     source = Path(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_SOURCE
-    unit_palette = dcc.load_palette(source / "global" / "palette" / "units" / "pal.dat")
-    act_palette = dcc.load_palette(source / "global" / "palette" / "act1" / "pal.dat")
+    unit_palette = load_rgb_palette(source / "global" / "palette" / "units" / "pal.dat")
+    act_palette = load_rgb_palette(source / "global" / "palette" / "act1" / "pal.dat")
 
-    images = {
-        "chestClosed": render_dcc_frame(source, CHEST_CLOSED, 0, unit_palette),
-        "chestOpen": render_dcc_frame(source, CHEST_OPEN, -1, unit_palette),
-    }
+    chest_frames = render_dcc_frames(source, CHEST_OPENING, unit_palette)
+    if len(chest_frames) != len(CHEST_FRAME_KEYS):
+        raise RuntimeError(
+            f"Expected {len(CHEST_FRAME_KEYS)} chest opening frames, found {len(chest_frames)}."
+        )
+    images = dict(zip(CHEST_FRAME_KEYS, chest_frames))
     for key, stem in ITEM_CELS.items():
         images[key] = render_ground_cel(source, stem, act_palette)
 

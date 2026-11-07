@@ -71,6 +71,63 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(target.hp).toBeLessThan(100);
   });
 
+  it("keeps player attacks aimed at monsters instead of friendly summons", () => {
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.pendingLevelUps = 0;
+    (component as any).attackCooldown = 0;
+    const summon = {
+      kind: "normal",
+      species: "wolf",
+      campaignBoss: false,
+      spriteFrame: 0,
+      summonType: "druid",
+      summonSkill: "Summon Spirit Wolf",
+      x: 252,
+      y: 250,
+      hp: 100,
+      maxHp: 100,
+      speed: 0,
+      r: 12,
+      dmg: 0,
+    } as any;
+    const monster = {
+      kind: "normal",
+      species: "fallen",
+      campaignBoss: false,
+      spriteFrame: 0,
+      x: 265,
+      y: 250,
+      hp: 100,
+      maxHp: 100,
+      speed: 0,
+      r: 12,
+      dmg: 0,
+    } as any;
+    component.enemies = [summon, monster];
+
+    component.attackNearestEnemy();
+
+    expect(summon.hp).toBe(100);
+    expect(monster.hp).toBeLessThan(100);
+
+    summon.hp = 100;
+    monster.hp = 100;
+    (component as any).attackCooldown = 0;
+    (component as any).updateBasicAttack();
+
+    expect(summon.hp).toBe(100);
+    expect(monster.hp).toBeLessThan(100);
+
+    summon.hp = 100;
+    component.enemies = [summon];
+    (component as any).attackCooldown = 0;
+    component.attackNearestEnemy();
+
+    expect(summon.hp).toBe(100);
+  });
+
   it("applies equipped attack speed to attack animation duration and cooldown", () => {
     component.basicAttackCooldown = 0.72;
     component.equipment.weapon = {
@@ -253,12 +310,44 @@ describe("D2SurvivorsComponent combat and equipment", () => {
 
     const shield = shieldAttach.children.find((child) => child.name === "equipped_shield_shield");
     expect(shield).toBeDefined();
-    expect(shield?.children.length).toBeGreaterThanOrEqual(3);
-    expect((shield?.children[0] as THREE.Mesh).geometry).toBeInstanceOf(THREE.ExtrudeGeometry);
+    // The shield is built from the original item cel once its art finishes
+    // loading; without a cached texture the group starts empty.
+    expect(shield?.children.length).toBe(0);
 
     component.equipment.shield = null;
     (component as any).configureClassMeleeWeapon(model, "paladin");
     expect(shieldAttach.children.some((child) => child.name.startsWith("equipped_shield_"))).toBeFalse();
+  });
+
+  it("mounts the original item art on held weapons and shields", () => {
+    const weaponItem = { name: "Short Sword", baseName: "Short Sword", slot: "weapon" } as any;
+    const shieldItem = { name: "Buckler", baseName: "Buckler", slot: "armor" } as any;
+    component.equipment.weapon = weaponItem;
+    component.equipment.shield = shieldItem;
+
+    const weaponArt = new THREE.Texture();
+    weaponArt.image = { width: 23, height: 111 };
+    const shieldArt = new THREE.Texture();
+    shieldArt.image = { width: 44, height: 51 };
+    (component as any).equippedItemArtTextures.set(component.inventoryItemImage(weaponItem), weaponArt);
+    (component as any).equippedItemArtTextures.set(component.inventoryItemImage(shieldItem), shieldArt);
+
+    const model = new THREE.Group();
+    const hand = new THREE.Bone();
+    hand.name = "R_weapon_attach";
+    const shieldAttach = new THREE.Bone();
+    shieldAttach.name = "shield_attach";
+    model.add(hand, shieldAttach);
+
+    (component as any).configureClassMeleeWeapon(model, "paladin");
+
+    const weapon = hand.children.find((child) => child.name === "equipped_weapon_weapon");
+    expect(weapon?.children.length).toBe(2);
+    expect(weapon?.children.every((child) => (child as THREE.Mesh).geometry instanceof THREE.PlaneGeometry)).toBeTrue();
+
+    const shield = shieldAttach.children.find((child) => child.name === "equipped_shield_shield");
+    expect(shield?.children.length).toBe(3);
+    expect(shield?.children.every((child) => (child as THREE.Mesh).geometry instanceof THREE.PlaneGeometry)).toBeTrue();
   });
 
   it("lets Barbarians equip an off-hand weapon or shield, and renders a second weapon on the left hand", () => {
@@ -297,6 +386,16 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.equipSelectedItem(2, "shield");
     expect((component.equipment as any).shield?.id).toBe("shield");
     expect(component.inventoryStatus).toContain("cannot be equipped");
+  });
+
+  it("shows a shield icon for the empty shield slot on every class", () => {
+    const classes = ["amazon", "assassin", "barbarian", "druid", "necromancer", "paladin", "sorceress"] as const;
+
+    for (const classId of classes) {
+      component.selectedClass = classId as typeof component.selectedClass;
+      const expected = classId === "paladin" ? "paladin-shield.png" : "shield.png";
+      expect(component.equipmentSlotImage("shield")).toContain(expected);
+    }
   });
 
   it("includes Barbarian off-hand weapon damage and mastery in the equipped attack damage", () => {
@@ -527,6 +626,23 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(groundFor("Stalwart Cap", "armor")).toBe("assets/d2survivors/items/helmet.png");
   });
 
+  it("plays every flippy frame once and holds the final resting frame", () => {
+    const animation = component.groundItemAnimation({
+      name: "Short Sword", baseName: "Short Sword", slot: "weapon",
+    } as any);
+
+    expect(animation?.path).toBe("assets/d2survivors/items/ground-anim/flpssd.png");
+    expect(animation?.frames).toBe(17);
+    expect(animation?.width).toBeGreaterThan(0);
+    expect(animation?.height).toBeGreaterThan(0);
+
+    const frameAt = (elapsed: number, frames: number) => (component as any).itemDropFrame(elapsed, frames);
+    expect(frameAt(0, 17)).toBe(0);
+    expect(frameAt(0.5, 17)).toBeGreaterThan(0);
+    expect(frameAt(0.5, 17)).toBeLessThan(16);
+    expect(frameAt(10, 17)).toBe(16);
+  });
+
   it("uses the named inventory cel as the tint source for unique and set floor loot", () => {
     const sourceFor = (item: any) => (component as any).itemDropTintSource(item);
 
@@ -576,30 +692,76 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(floorPixels[1]).toBeLessThan(floorPixels[0]);
   });
 
-  it("draws the original Diablo chest, gold, and potion cels", () => {
+  it("animates the chest through all four original Diablo opening frames", () => {
     const sources: Array<string | null> = [];
+    let shadowCount = 0;
+    const gradient = { addColorStop: () => undefined } as unknown as CanvasGradient;
     const ctx = {
       save: () => undefined,
       restore: () => undefined,
       imageSmoothingEnabled: true,
       globalAlpha: 1,
+      translate: () => undefined,
+      scale: () => undefined,
+      createRadialGradient: () => {
+        shadowCount += 1;
+        return gradient;
+      },
+      beginPath: () => undefined,
+      arc: () => undefined,
+      fill: () => undefined,
       drawImage: (image: HTMLImageElement) => sources.push(image.getAttribute("src")),
     } as unknown as CanvasRenderingContext2D;
     spyOn(component as any, "projectArenaPoint").and.returnValue({ x: 100, y: 100 });
 
     (component as any).drawChest(ctx, { x: 0, y: 0, bob: 0, open: false, life: 30 });
-    (component as any).drawChest(ctx, { x: 0, y: 0, bob: 0, open: true, life: 1.2 });
+    (component as any).drawChest(ctx, { x: 0, y: 0, bob: 0, open: true, life: 1.12 });
+    (component as any).drawChest(ctx, { x: 0, y: 0, bob: 0, open: true, life: 1.04 });
+    (component as any).drawChest(ctx, { x: 0, y: 0, bob: 0, open: true, life: 0.96 });
     (component as any).drawGoldDrop(ctx, { x: 0, y: 0, amount: 12, bob: 0, life: 18, pickupDelay: 0 });
     (component as any).drawPotionDrop(ctx, { x: 0, y: 0, kind: "health", life: 18, pickupDelay: 0 });
     (component as any).drawPotionDrop(ctx, { x: 0, y: 0, kind: "rejuvenation", life: 18, pickupDelay: 0 });
 
     expect(sources).toEqual([
       "assets/d2survivors/loot/chest-closed.png",
+      "assets/d2survivors/loot/chest-opening-1.png",
+      "assets/d2survivors/loot/chest-opening-2.png",
       "assets/d2survivors/loot/chest-open.png",
       "assets/d2survivors/loot/gold.png",
       "assets/d2survivors/loot/health-potion.png",
       "assets/d2survivors/loot/rejuvenation-potion.png",
     ]);
+    expect(shadowCount).toBe(7);
+  });
+
+  it("draws a soft shadow beneath loose item drops", () => {
+    const ctx = {
+      save: () => undefined,
+      restore: () => undefined,
+      imageSmoothingEnabled: true,
+      beginPath: () => undefined,
+      arc: () => undefined,
+      fill: () => undefined,
+      drawImage: () => undefined,
+    } as unknown as CanvasRenderingContext2D;
+    spyOn(component as any, "projectArenaPoint").and.returnValue({ x: 40, y: 50 });
+    spyOn(component as any, "groundItemAnimation").and.returnValue(null);
+    spyOn(component as any, "itemDropImage").and.returnValue({ complete: false, naturalWidth: 0 } as HTMLImageElement);
+    spyOn(component as any, "groundItemImage").and.returnValue("assets/d2survivors/items/ground/flpssd.png");
+    spyOn(component as any, "tintedItemDropArtFor").and.returnValue(null);
+    const shadow = spyOn(component as any, "drawGroundShadow");
+
+    (component as any).drawItemDrop(ctx, {
+      x: 0,
+      y: 0,
+      bob: 0,
+      life: 10,
+      pickupDelay: 0,
+      notifiedFull: false,
+      item: { name: "Short Sword", baseName: "Short Sword", slot: "weapon" },
+    });
+
+    expect(shadow).toHaveBeenCalled();
   });
 
   it("defaults the Amazon preview to her light red-and-gold armor instead of the grey medium set", () => {
@@ -618,6 +780,91 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(light.visible).toBeTrue();
     expect(medium.visible).toBeFalse();
     expect(heavy.visible).toBeFalse();
+  });
+
+  it("shows the selected character's saved armor, weapon, and shield in the class preview", () => {
+    component.selectedClass = "paladin";
+    component.equipment.body = {
+      id: "preview-body", name: "Plate Mail", baseName: "Plate Mail", rarity: "rare", slot: "armor",
+      desc: "Heavy plate.", stats: { armor: 40 },
+    } as any;
+    component.equipment.weapon = {
+      id: "preview-weapon", name: "Short Sword", baseName: "Short Sword", rarity: "magic", slot: "weapon",
+      desc: "A sword.",
+    } as any;
+    component.equipment.shield = {
+      id: "preview-shield", name: "Buckler", baseName: "Buckler", rarity: "normal", slot: "armor",
+      equipmentType: "shield", desc: "A buckler.",
+    } as any;
+
+    const model = new THREE.Group();
+    const light = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial());
+    const medium = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial());
+    const heavy = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial());
+    light.name = "torso_armor_litShape_0";
+    medium.name = "torso_armor_medShape_0";
+    heavy.name = "torso_armor_hvyShape_0";
+    const hand = new THREE.Group();
+    hand.name = "R_weapon_attach";
+    const shieldAnchor = new THREE.Group();
+    shieldAnchor.name = "shield_attach";
+    model.add(light, medium, heavy, hand, shieldAnchor);
+
+    const gameplayWeapon = new THREE.Group();
+    (component as any).playerWeaponMeshes = [gameplayWeapon];
+    (component as any).configureClassMeleeWeapon(model, "paladin", true);
+
+    expect(light.visible).toBeFalse();
+    expect(medium.visible).toBeFalse();
+    expect(heavy.visible).toBeTrue();
+    expect((component as any).previewEquippedWeaponVisual?.parent).toBe(hand);
+    expect((component as any).previewEquippedShieldVisual?.parent).toBe(shieldAnchor);
+    expect((component as any).playerWeaponMeshes).toEqual([gameplayWeapon]);
+  });
+
+  it("hides light variants named lt or containing med inside another word", () => {
+    const assassin = new THREE.Group();
+    const assassinLight = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial());
+    const assassinMedium = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial());
+    assassinLight.name = "rshoulder_ltShape_0";
+    assassinMedium.name = "rshoulder_medShape_0";
+    assassin.add(assassinLight, assassinMedium);
+
+    (component as any).configureClassArmor(assassin, "assassin", true);
+
+    expect(assassinLight.visible).toBeFalse();
+    expect(assassinMedium.visible).toBeTrue();
+
+    const sorceress = new THREE.Group();
+    const sorceressLight = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial());
+    const sorceressMedium = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial());
+    sorceressLight.name = "legs_lit_chains_medals_mergedShape_0";
+    sorceressMedium.name = "legs_medShape_0";
+    sorceress.add(sorceressLight, sorceressMedium);
+
+    (component as any).configureClassArmor(sorceress, "sorceress", true);
+
+    expect(sorceressLight.visible).toBeFalse();
+    expect(sorceressMedium.visible).toBeTrue();
+  });
+
+  it("winds up a kick before the chest pops open", () => {
+    component.playerX = 250;
+    component.playerY = 250;
+    component.chests = [{ x: 270, y: 250, bob: 0, open: false, life: 30 }];
+    const trigger = spyOn(component as any, "triggerAttackAnimation");
+    const open = spyOn(component as any, "openChest");
+
+    component.updateChests(16);
+
+    expect(trigger).toHaveBeenCalledWith("chestKick");
+    expect((component as any).playerFacingX).toBe(1);
+    expect(component.chests[0].open).toBeFalse();
+    expect(open).not.toHaveBeenCalled();
+
+    component.updateChests(400);
+
+    expect(open).toHaveBeenCalled();
   });
 
   it("spills several rolled chest items on the ground and picks them up one at a time", () => {
@@ -645,6 +892,27 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.updateItemDrops(1000);
     expect(component.itemDrops.length).toBe(rolledCount - 1);
     expect(component.inventory.filter(Boolean).length).toBe(1);
+  });
+
+  it("translates dropped items with the moving world so they stay at their drop location", () => {
+    component.enemies = [];
+    component.chests = [];
+    component.potionDrops = [];
+    component.goldDrops = [];
+    component.itemDrops = [{
+      x: 100,
+      y: 200,
+      item: { id: "dropped-sword", name: "Short Sword", baseName: "Short Sword", slot: "weapon" } as any,
+      bob: 0,
+      life: 30,
+      pickupDelay: 0,
+      notifiedFull: false,
+    }];
+
+    (component as any).translateWorldEntities(-12, 7);
+
+    expect(component.itemDrops[0].x).toBe(88);
+    expect(component.itemDrops[0].y).toBe(207);
   });
 
   it("rolls a rarity for every item released by a chest", () => {
@@ -713,6 +981,10 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.selectedClass = "paladin";
     component.equipment.weapon = { name: "Short Sword", baseName: "Short Sword", slot: "weapon" } as any;
 
+    const swordArt = new THREE.Texture();
+    swordArt.image = { width: 23, height: 111 };
+    (component as any).equippedItemArtTextures.set(component.inventoryItemImage(component.equipment.weapon!), swordArt);
+
     const anchor = new THREE.Group();
     const { model, bones } = buildBiped();
     anchor.add(model);
@@ -769,6 +1041,49 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(clavicle.getWorldPosition(new THREE.Vector3())
       .distanceTo(bones["R_upr_arm_bind_jnt"].getWorldPosition(new THREE.Vector3())))
       .toBeLessThan(0.05 * Math.max(1, shoulderOffset.unitScale));
+  });
+
+  it("keeps Act 1 skeletons in melee instead of firing arrows", () => {
+    component.currentAct = 1;
+    component.currentAreaIndex = 0;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.playerHp = 100;
+    component.playerMaxHp = 100;
+    component.attackProjectiles = [];
+    const skeleton = {
+      kind: "normal",
+      species: "skeleton",
+      campaignBoss: false,
+      spriteFrame: 0,
+      animationState: "move",
+      attackAnimationTime: 0,
+      facingX: -1,
+      facingY: 0,
+      x: 430,
+      y: 250,
+      hp: 100,
+      maxHp: 100,
+      speed: 100,
+      r: 14,
+      dmg: 5,
+      cd: 0,
+    } as any;
+    component.enemies = [skeleton];
+
+    component.updateEnemies(16);
+
+    expect(component.attackProjectiles.length).toBe(0);
+    expect(skeleton.x).toBeLessThan(430);
+    expect(skeleton.animationState).toBe("move");
+
+    skeleton.x = 270;
+    skeleton.cd = 0;
+    component.updateEnemies(16);
+
+    expect(component.attackProjectiles.length).toBe(0);
+    expect(skeleton.animationState).toBe("attack");
+    expect(component.playerHp).toBeLessThan(100);
   });
 
   it("keeps an enemy stationary during its attack and resumes pursuit afterward", () => {
@@ -976,25 +1291,42 @@ describe("D2SurvivorsComponent combat and equipment", () => {
 
   it("re-homes Barbarian pauldron bones onto the upper arms without moving them at rest", () => {
     const model = new THREE.Group();
-    const arm = new THREE.Bone();
-    arm.name = "R_UpperArm";
-    arm.position.set(1, 0, 0);
-    const pad = new THREE.Bone();
-    pad.name = "R_hvy_pad_pivot";
-    pad.position.set(1, 0.5, 0);
-    model.add(arm, pad);
+    const rightArm = new THREE.Bone();
+    rightArm.name = "R_UpperArm";
+    rightArm.position.set(1, 0, 0);
+    const leftArm = new THREE.Bone();
+    leftArm.name = "L_UpperArm";
+    leftArm.position.set(-1, 0, 0);
+    const heavyPad = new THREE.Bone();
+    heavyPad.name = "R_hvy_pad_pivot";
+    heavyPad.position.set(1, 0.5, 0);
+    const mediumPad = new THREE.Bone();
+    mediumPad.name = "R_med_pad_pivot";
+    mediumPad.position.set(0.8, 0.4, 0);
+    const leftMediumPad = new THREE.Bone();
+    leftMediumPad.name = "L_med_pad_pivot";
+    leftMediumPad.position.set(-0.8, 0.4, 0);
+    model.add(rightArm, leftArm, heavyPad, mediumPad, leftMediumPad);
     model.updateMatrixWorld(true);
-    const restPosition = pad.getWorldPosition(new THREE.Vector3());
+    const pads = [heavyPad, mediumPad, leftMediumPad];
+    const restPositions = pads.map((pad) => pad.getWorldPosition(new THREE.Vector3()));
 
     (component as any).attachBarbarianShoulderPads(model, "barbarian");
     model.updateMatrixWorld(true);
 
-    expect(pad.parent).toBe(arm);
-    expect(pad.getWorldPosition(new THREE.Vector3()).distanceTo(restPosition)).toBeCloseTo(0, 5);
+    expect(heavyPad.parent).toBe(rightArm);
+    expect(mediumPad.parent).toBe(rightArm);
+    expect(leftMediumPad.parent).toBe(leftArm);
+    pads.forEach((pad, index) => {
+      expect(pad.getWorldPosition(new THREE.Vector3()).distanceTo(restPositions[index])).toBeCloseTo(0, 5);
+    });
 
-    arm.rotation.z = Math.PI / 2;
+    rightArm.rotation.z = Math.PI / 2;
+    leftArm.rotation.z = -Math.PI / 2;
     model.updateMatrixWorld(true);
-    expect(pad.getWorldPosition(new THREE.Vector3()).distanceTo(restPosition)).toBeGreaterThan(0.1);
+    pads.forEach((pad, index) => {
+      expect(pad.getWorldPosition(new THREE.Vector3()).distanceTo(restPositions[index])).toBeGreaterThan(0.1);
+    });
   });
 
   it("imports the complete real unique and set catalogues", () => {
@@ -1086,5 +1418,157 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.selectSkillTreeTab("Passive and Magic");
     expect(component.activeSkillTreeSection?.name).toBe("Passive and Magic");
     expect(component.activeSkillTreeSection?.skills[0].name).toBe("Inner Sight");
+  });
+
+  it("tracks skill tree tabs by name so redraws reuse their buttons", () => {
+    expect(component.trackBySectionName(0, { name: "Combat Skills" })).toBe("Combat Skills");
+    expect(component.trackBySectionName(1, { name: "Combat Masteries" })).toBe("Combat Masteries");
+  });
+
+  it("uses distinct Diablo II colours and scaling for druid summons instead of the old sepia wash", () => {
+    const tintFor = (skill: string) => (component as any).summonSpriteTint(skill);
+    const lookFor = (skill: string) => (component as any).druidSummonLook(skill);
+    const skills = [
+      "Raven", "Summon Spirit Wolf", "Summon Dire Wolf", "Summon Grizzly",
+      "Oak Sage", "Heart of Wolverine", "Spirit of Barbs",
+      "Poison Creeper", "Carrion Vine", "Solar Creeper",
+    ];
+
+    expect(skills.every((skill) => tintFor(skill).length > 0)).toBeTrue();
+    expect(tintFor("Summon Spirit Wolf")).not.toContain("sepia");
+    expect(new Set(["Oak Sage", "Heart of Wolverine", "Spirit of Barbs"].map(tintFor)).size).toBe(3);
+    expect(new Set(["Poison Creeper", "Carrion Vine", "Solar Creeper"].map(tintFor)).size).toBe(3);
+    expect(lookFor("Raven").floating).toBeTrue();
+    expect(lookFor("Oak Sage").floating).toBeTrue();
+    expect(lookFor("Summon Spirit Wolf").sizeScale).toBeLessThan(1);
+  });
+
+  it("keeps raven and wolf summons cast-only with one per skill rank", () => {
+    component.selectedClass = "druid";
+    component.enemies = [];
+    const skills = ["Raven", "Summon Spirit Wolf", "Summon Dire Wolf"];
+    component.ownedSkills = skills.slice();
+    for (const skill of skills) component.skillLevels[skill] = 2;
+
+    (component as any).restoreSummonsFromOwnedSkills();
+    expect(component.enemies.filter((enemy) => enemy.summonType === "druid")).toHaveSize(0);
+
+    for (const skill of skills) {
+      component.enemies = [];
+      const cast = () => (component as any).castSummonedServant(skill);
+      const alive = () => component.enemies.filter((enemy) => enemy.summonSkill === skill && enemy.hp > 0).length;
+      cast();
+      expect(alive()).toBe(1);
+      cast();
+      expect(alive()).toBe(2);
+      cast();
+      expect(alive()).toBe(2);
+    }
+  });
+
+  it("makes Oak Sage a non-attacking life aura for the druid and active summons", () => {
+    component.selectedClass = "druid";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.playerMaxHp = 400;
+    component.playerHp = 300;
+    component.skillLevels = { "Oak Sage": 1 };
+    component.ownedSkills = ["Oak Sage"];
+    component.enemies = [];
+
+    const basePlayerMaxHp = component.effectivePlayerMaxHp;
+    (component as any).summonCompanion("Oak Sage");
+    (component as any).summonCompanion("Summon Spirit Wolf");
+
+    const oak = component.enemies.find((enemy) => enemy.summonSkill === "Oak Sage")!;
+    const wolf = component.enemies.find((enemy) => enemy.summonSkill === "Summon Spirit Wolf")!;
+    expect(oak).toBeDefined();
+    expect(wolf).toBeDefined();
+    expect(component.effectivePlayerMaxHp).toBe(Math.round(basePlayerMaxHp * 1.3));
+    expect((component as any).effectiveSummonMaxHp(wolf)).toBe(Math.round(wolf.maxHp * 1.3));
+    expect(wolf.hp).toBe((component as any).effectiveSummonMaxHp(wolf));
+    expect((component as any).getSummonRankStats("Oak Sage", 1)[0]).toContain("+30%");
+    expect(component.getSkillDescription("Oak Sage")).toContain("cannot attack");
+
+    component.enemies.push({
+      kind: "normal",
+      species: "fallen",
+      spriteFrame: 0,
+      x: oak.x + 8,
+      y: oak.y,
+      hp: 100,
+      maxHp: 100,
+      speed: 0,
+      r: 14,
+      dmg: 0,
+      cd: 999,
+    } as any);
+    component.updateEnemies(16);
+
+    expect(oak.attackAnimationTime ?? 0).toBe(0);
+    expect(oak.animationState).not.toBe("attack");
+    expect((component as any).summonAttackEffects).toHaveSize(0);
+
+    component.playerHp = component.effectivePlayerMaxHp;
+    oak.hp = 0;
+    component.updateEnemies(16);
+
+    expect(component.effectivePlayerMaxHp).toBe(basePlayerMaxHp);
+    expect(component.playerHp).toBe(basePlayerMaxHp);
+    expect((component as any).effectiveSummonMaxHp(wolf)).toBe(wolf.maxHp);
+    expect(wolf.hp).toBe(wolf.maxHp);
+  });
+
+  it("shows the Cyclone Armor aura only for a druid who owns the skill", () => {
+    component.selectedClass = "druid";
+    component.ownedSkills = ["Cyclone Armor"];
+    component.skillLevels = { "Cyclone Armor": 1 };
+    expect((component as any).isCycloneArmorActive()).toBeTrue();
+
+    component.skillLevels = { "Cyclone Armor": 0 };
+    expect((component as any).isCycloneArmorActive()).toBeFalse();
+
+    component.skillLevels = { "Cyclone Armor": 1 };
+    component.selectedClass = "sorceress";
+    expect((component as any).isCycloneArmorActive()).toBeFalse();
+
+    component.selectedClass = "druid";
+    component.ownedSkills = [];
+    expect((component as any).isCycloneArmorActive()).toBeFalse();
+  });
+
+  it("draws the back and front Cyclone Armor bands from the imported DCC sheet", () => {
+    component.selectedClass = "druid";
+    component.ownedSkills = ["Cyclone Armor"];
+    component.skillLevels = { "Cyclone Armor": 1 };
+    (component as any).cycloneArmorAuraImage = { complete: true, naturalWidth: 1056 };
+
+    const rows: number[] = [];
+    const ctx = {
+      save() {},
+      restore() {},
+      drawImage: (_image: unknown, _sx: number, sy: number) => { rows.push(sy); },
+    } as any;
+
+    (component as any).drawCycloneArmorAura(ctx, "back");
+    expect(rows).toEqual([0, 192, 384]);
+
+    rows.length = 0;
+    (component as any).drawCycloneArmorAura(ctx, "front");
+    expect(rows).toEqual([96, 288, 480]);
+  });
+
+  it("opens the skill tree only once when T is pressed from the arena", () => {
+    component.activeTab = "run";
+    component.runActive = true;
+    component.skillTreeOpen = false;
+    const event = new KeyboardEvent("keydown", { key: "t" });
+
+    // The arena handler must leave global shortcuts to the window listener.
+    component.onKeyDown(event);
+    expect(component.skillTreeOpen).toBeFalse();
+
+    component.onGlobalAttackKey(event);
+    expect(component.skillTreeOpen).toBeTrue();
   });
 });

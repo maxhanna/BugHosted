@@ -3,6 +3,8 @@
 
 export const D2_LOOT_ART = {
   chestClosed: "assets/d2survivors/loot/chest-closed.png",
+  chestOpening1: "assets/d2survivors/loot/chest-opening-1.png",
+  chestOpening2: "assets/d2survivors/loot/chest-opening-2.png",
   chestOpen: "assets/d2survivors/loot/chest-open.png",
   gold: "assets/d2survivors/loot/gold.png",
   healthPotion: "assets/d2survivors/loot/health-potion.png",
@@ -11,6 +13,8 @@ export const D2_LOOT_ART = {
 
 export const D2_LOOT_ART_SIZE = {
   chestClosed: { width: 47, height: 36 },
+  chestOpening1: { width: 47, height: 38 },
+  chestOpening2: { width: 47, height: 39 },
   chestOpen: { width: 47, height: 41 },
   gold: { width: 24, height: 7 },
   healthPotion: { width: 8, height: 14 },

@@ -1965,1026 +1965,2306 @@
   },
   "ground": {
     "flp2ax": {
+      "anchorX": 13,
+      "anchorY": 151,
+      "frameHeight": 161,
+      "frameWidth": 29,
+      "frames": 17,
       "height": 12,
       "width": 22
     },
     "flp2hs": {
+      "anchorX": 28,
+      "anchorY": 155,
+      "frameHeight": 163,
+      "frameWidth": 53,
+      "frames": 17,
       "height": 20,
       "width": 37
     },
     "flpaar": {
+      "anchorX": 22,
+      "anchorY": 163,
+      "frameHeight": 163,
+      "frameWidth": 40,
+      "frames": 17,
       "height": 23,
       "width": 29
     },
     "flpam1": {
+      "anchorX": 10,
+      "anchorY": 159,
+      "frameHeight": 159,
+      "frameWidth": 26,
+      "frames": 17,
       "height": 13,
       "width": 12
     },
     "flpam2": {
+      "anchorX": 16,
+      "anchorY": 156,
+      "frameHeight": 156,
+      "frameWidth": 35,
+      "frames": 17,
       "height": 15,
       "width": 19
     },
     "flpam3": {
+      "anchorX": 30,
+      "anchorY": 188,
+      "frameHeight": 188,
+      "frameWidth": 64,
+      "frames": 17,
       "height": 30,
       "width": 12
     },
     "flpam5": {
+      "anchorX": 20,
+      "anchorY": 174,
+      "frameHeight": 174,
+      "frameWidth": 43,
+      "frames": 17,
       "height": 21,
       "width": 9
     },
     "flpamu": {
+      "anchorX": 14,
+      "anchorY": 153,
+      "frameHeight": 170,
+      "frameWidth": 35,
+      "frames": 17,
       "height": 10,
       "width": 28
     },
     "flpaxe": {
+      "anchorX": 16,
+      "anchorY": 162,
+      "frameHeight": 171,
+      "frameWidth": 39,
+      "frames": 17,
       "height": 18,
       "width": 24
     },
     "flpaxf": {
+      "anchorX": 14,
+      "anchorY": 156,
+      "frameHeight": 162,
+      "frameWidth": 24,
+      "frames": 17,
       "height": 6,
       "width": 11
     },
     "flpba1": {
+      "anchorX": 12,
+      "anchorY": 154,
+      "frameHeight": 154,
+      "frameWidth": 25,
+      "frames": 17,
       "height": 14,
       "width": 15
     },
     "flpba3": {
+      "anchorX": 14,
+      "anchorY": 161,
+      "frameHeight": 161,
+      "frameWidth": 30,
+      "frames": 17,
       "height": 19,
       "width": 11
     },
     "flpba5": {
+      "anchorX": 36,
+      "anchorY": 176,
+      "frameHeight": 176,
+      "frameWidth": 64,
+      "frames": 17,
       "height": 32,
       "width": 17
     },
     "flpbal": {
+      "anchorX": 22,
+      "anchorY": 155,
+      "frameHeight": 161,
+      "frameWidth": 34,
+      "frames": 17,
       "height": 14,
       "width": 22
     },
     "flpbar": {
+      "anchorX": 34,
+      "anchorY": 156,
+      "frameHeight": 183,
+      "frameWidth": 68,
+      "frames": 17,
       "height": 20,
       "width": 48
     },
     "flpbbb": {
+      "anchorX": 10,
+      "anchorY": 158,
+      "frameHeight": 158,
+      "frameWidth": 22,
+      "frames": 17,
       "height": 14,
       "width": 19
     },
     "flpbbk": {
+      "anchorX": 8,
+      "anchorY": 153,
+      "frameHeight": 153,
+      "frameWidth": 18,
+      "frames": 17,
       "height": 11,
       "width": 17
     },
     "flpbhm": {
+      "anchorX": 12,
+      "anchorY": 156,
+      "frameHeight": 156,
+      "frameWidth": 27,
+      "frames": 17,
       "height": 15,
       "width": 16
     },
     "flpbkf": {
+      "anchorX": 10,
+      "anchorY": 144,
+      "frameHeight": 159,
+      "frameWidth": 24,
+      "frames": 17,
       "height": 5,
       "width": 15
     },
     "flpbld": {
+      "anchorX": 13,
+      "anchorY": 156,
+      "frameHeight": 170,
+      "frameWidth": 25,
+      "frames": 17,
       "height": 12,
       "width": 12
     },
     "flpblt": {
+      "anchorX": 15,
+      "anchorY": 156,
+      "frameHeight": 156,
+      "frameWidth": 26,
+      "frames": 17,
       "height": 12,
       "width": 16
     },
     "flpblu": {
+      "anchorX": 6,
+      "anchorY": 158,
+      "frameHeight": 158,
+      "frameWidth": 20,
+      "frames": 17,
       "height": 15,
       "width": 8
     },
     "flpbok": {
+      "anchorX": 8,
+      "anchorY": 153,
+      "frameHeight": 153,
+      "frameWidth": 18,
+      "frames": 17,
       "height": 11,
       "width": 17
     },
     "flpbonr1": {
+      "anchorX": 14,
+      "anchorY": 123,
+      "frameHeight": 149,
+      "frameWidth": 25,
+      "frames": 17,
       "height": 9,
       "width": 23
     },
     "flpbonr2": {
+      "anchorX": 14,
+      "anchorY": 129,
+      "frameHeight": 164,
+      "frameWidth": 27,
+      "frames": 17,
       "height": 15,
       "width": 27
     },
     "flpbonr3": {
+      "anchorX": 16,
+      "anchorY": 126,
+      "frameHeight": 161,
+      "frameWidth": 32,
+      "frames": 17,
       "height": 21,
       "width": 32
     },
     "flpbonr4": {
+      "anchorX": 23,
+      "anchorY": 95,
+      "frameHeight": 123,
+      "frameWidth": 47,
+      "frames": 17,
       "height": 23,
       "width": 46
     },
     "flpbot": {
+      "anchorX": 13,
+      "anchorY": 167,
+      "frameHeight": 181,
+      "frameWidth": 28,
+      "frames": 17,
       "height": 11,
       "width": 26
     },
     "flpbox": {
+      "anchorX": 7,
+      "anchorY": 153,
+      "frameHeight": 153,
+      "frameWidth": 14,
+      "frames": 17,
       "height": 8,
       "width": 8
     },
     "flpbpl": {
+      "anchorX": 6,
+      "anchorY": 159,
+      "frameHeight": 159,
+      "frameWidth": 20,
+      "frames": 17,
       "height": 16,
       "width": 12
     },
     "flpbps": {
+      "anchorX": 5,
+      "anchorY": 158,
+      "frameHeight": 158,
+      "frameWidth": 18,
+      "frames": 17,
       "height": 14,
       "width": 8
     },
     "flpbrn": {
+      "anchorX": 44,
+      "anchorY": 194,
+      "frameHeight": 219,
+      "frameWidth": 91,
+      "frames": 17,
       "height": 42,
       "width": 43
     },
     "flpbrnz": {
+      "anchorX": 8,
+      "anchorY": 151,
+      "frameHeight": 155,
+      "frameWidth": 26,
+      "frames": 18,
       "height": 7,
       "width": 11
     },
     "flpbrs": {
+      "anchorX": 20,
+      "anchorY": 169,
+      "frameHeight": 169,
+      "frameWidth": 35,
+      "frames": 17,
       "height": 20,
       "width": 25
     },
     "flpbrx": {
+      "anchorX": 16,
+      "anchorY": 166,
+      "frameHeight": 166,
+      "frameWidth": 34,
+      "frames": 17,
       "height": 17,
       "width": 15
     },
     "flpbsc": {
+      "anchorX": 11,
+      "anchorY": 158,
+      "frameHeight": 161,
+      "frameWidth": 24,
+      "frames": 17,
       "height": 14,
       "width": 16
     },
     "flpbsd": {
+      "anchorX": 26,
+      "anchorY": 150,
+      "frameHeight": 151,
+      "frameWidth": 47,
+      "frames": 17,
       "height": 16,
       "width": 31
     },
     "flpbsh": {
+      "anchorX": 18,
+      "anchorY": 162,
+      "frameHeight": 171,
+      "frameWidth": 44,
+      "frames": 17,
       "height": 26,
       "width": 30
     },
     "flpbst": {
+      "anchorX": 42,
+      "anchorY": 146,
+      "frameHeight": 188,
+      "frameWidth": 81,
+      "frames": 17,
       "height": 14,
       "width": 69
     },
     "flpbsw": {
+      "anchorX": 29,
+      "anchorY": 163,
+      "frameHeight": 168,
+      "frameWidth": 53,
+      "frames": 17,
       "height": 25,
       "width": 26
     },
     "flpbtx": {
+      "anchorX": 25,
+      "anchorY": 164,
+      "frameHeight": 180,
+      "frameWidth": 49,
+      "frames": 17,
       "height": 21,
       "width": 38
     },
     "flpbuc": {
+      "anchorX": 10,
+      "anchorY": 151,
+      "frameHeight": 151,
+      "frameWidth": 20,
+      "frames": 17,
       "height": 9,
       "width": 18
     },
     "flpbwn": {
+      "anchorX": 14,
+      "anchorY": 154,
+      "frameHeight": 158,
+      "frameWidth": 29,
+      "frames": 17,
       "height": 11,
       "width": 21
     },
     "flpcap": {
+      "anchorX": 12,
+      "anchorY": 149,
+      "frameHeight": 149,
+      "frameWidth": 21,
+      "frames": 17,
       "height": 8,
       "width": 11
     },
     "flpcbw": {
+      "anchorX": 16,
+      "anchorY": 154,
+      "frameHeight": 172,
+      "frameWidth": 35,
+      "frames": 17,
       "height": 13,
       "width": 21
     },
     "flpchm": {
+      "anchorX": 12,
+      "anchorY": 149,
+      "frameHeight": 149,
+      "frameWidth": 17,
+      "frames": 17,
       "height": 6,
       "width": 5
     },
     "flpchm1": {
+      "anchorX": 10,
+      "anchorY": 149,
+      "frameHeight": 149,
+      "frameWidth": 17,
+      "frames": 17,
       "height": 5,
       "width": 13
     },
     "flpchm2": {
+      "anchorX": 10,
+      "anchorY": 145,
+      "frameHeight": 145,
+      "frameWidth": 22,
+      "frames": 17,
       "height": 6,
       "width": 13
     },
     "flpchm3": {
+      "anchorX": 14,
+      "anchorY": 145,
+      "frameHeight": 145,
+      "frameWidth": 24,
+      "frames": 17,
       "height": 6,
       "width": 21
     },
     "flpchn": {
+      "anchorX": 26,
+      "anchorY": 160,
+      "frameHeight": 175,
+      "frameWidth": 52,
+      "frames": 17,
       "height": 20,
       "width": 35
     },
     "flpci0": {
+      "anchorX": 4,
+      "anchorY": 150,
+      "frameHeight": 150,
+      "frameWidth": 11,
+      "frames": 17,
       "height": 7,
       "width": 9
     },
     "flpci1": {
+      "anchorX": 4,
+      "anchorY": 148,
+      "frameHeight": 148,
+      "frameWidth": 11,
+      "frames": 17,
       "height": 6,
       "width": 9
     },
     "flpci2": {
+      "anchorX": 5,
+      "anchorY": 150,
+      "frameHeight": 150,
+      "frameWidth": 10,
+      "frames": 17,
       "height": 6,
       "width": 8
     },
     "flpci3": {
+      "anchorX": 5,
+      "anchorY": 149,
+      "frameHeight": 149,
+      "frameWidth": 11,
+      "frames": 17,
       "height": 6,
       "width": 8
     },
     "flpclb": {
+      "anchorX": 18,
+      "anchorY": 145,
+      "frameHeight": 155,
+      "frameWidth": 38,
+      "frames": 17,
       "height": 12,
       "width": 33
     },
     "flpclm": {
+      "anchorX": 34,
+      "anchorY": 175,
+      "frameHeight": 176,
+      "frameWidth": 55,
+      "frames": 17,
       "height": 28,
       "width": 24
     },
     "flpclw": {
+      "anchorX": 13,
+      "anchorY": 153,
+      "frameHeight": 160,
+      "frameWidth": 25,
+      "frames": 17,
       "height": 11,
       "width": 14
     },
     "flpcndl": {
+      "anchorX": 10,
+      "anchorY": 165,
+      "frameHeight": 165,
+      "frameWidth": 21,
+      "frames": 17,
       "height": 14,
       "width": 13
     },
     "flpcqv": {
+      "anchorX": 12,
+      "anchorY": 153,
+      "frameHeight": 159,
+      "frameWidth": 23,
+      "frames": 17,
       "height": 10,
       "width": 21
     },
     "flpcrn": {
+      "anchorX": 14,
+      "anchorY": 156,
+      "frameHeight": 159,
+      "frameWidth": 24,
+      "frames": 17,
       "height": 13,
       "width": 17
     },
     "flpcrs": {
+      "anchorX": 16,
+      "anchorY": 166,
+      "frameHeight": 166,
+      "frameWidth": 32,
+      "frames": 17,
       "height": 15,
       "width": 28
     },
     "flpcst": {
+      "anchorX": 30,
+      "anchorY": 183,
+      "frameHeight": 209,
+      "frameWidth": 60,
+      "frames": 17,
       "height": 30,
       "width": 20
     },
     "flpd33": {
+      "anchorX": 14,
+      "anchorY": 153,
+      "frameHeight": 165,
+      "frameWidth": 25,
+      "frames": 17,
       "height": 10,
       "width": 13
     },
     "flpdgr": {
+      "anchorX": 10,
+      "anchorY": 156,
+      "frameHeight": 159,
+      "frameWidth": 19,
+      "frames": 17,
       "height": 11,
       "width": 7
     },
     "flpdir": {
+      "anchorX": 12,
+      "anchorY": 144,
+      "frameHeight": 144,
+      "frameWidth": 21,
+      "frames": 17,
       "height": 4,
       "width": 18
     },
     "flpdr1": {
+      "anchorX": 11,
+      "anchorY": 152,
+      "frameHeight": 152,
+      "frameWidth": 23,
+      "frames": 18,
       "height": 13,
       "width": 12
     },
     "flpdr3": {
+      "anchorX": 24,
+      "anchorY": 162,
+      "frameHeight": 162,
+      "frameWidth": 45,
+      "frames": 17,
       "height": 20,
       "width": 21
     },
     "flpdr4": {
+      "anchorX": 16,
+      "anchorY": 162,
+      "frameHeight": 162,
+      "frameWidth": 33,
+      "frames": 17,
       "height": 21,
       "width": 14
     },
     "flpear": {
+      "anchorX": 4,
+      "anchorY": 148,
+      "frameHeight": 148,
+      "frameWidth": 11,
+      "frames": 17,
       "height": 4,
       "width": 6
     },
     "flpegx": {
+      "anchorX": 25,
+      "anchorY": 163,
+      "frameHeight": 191,
+      "frameWidth": 60,
+      "frames": 17,
       "height": 19,
       "width": 48
     },
     "flpeye": {
+      "anchorX": 12,
+      "anchorY": 146,
+      "frameHeight": 150,
+      "frameWidth": 15,
+      "frames": 17,
       "height": 4,
       "width": 7
     },
     "flpfang": {
+      "anchorX": 11,
+      "anchorY": 144,
+      "frameHeight": 144,
+      "frameWidth": 19,
+      "frames": 17,
       "height": 5,
       "width": 8
     },
     "flpfary1": {
+      "anchorX": 14,
+      "anchorY": 124,
+      "frameHeight": 150,
+      "frameWidth": 25,
+      "frames": 17,
       "height": 9,
       "width": 23
     },
     "flpfary2": {
+      "anchorX": 14,
+      "anchorY": 129,
+      "frameHeight": 164,
+      "frameWidth": 27,
+      "frames": 17,
       "height": 15,
       "width": 27
     },
     "flpfary3": {
+      "anchorX": 16,
+      "anchorY": 124,
+      "frameHeight": 161,
+      "frameWidth": 32,
+      "frames": 17,
       "height": 20,
       "width": 32
     },
     "flpfary4": {
+      "anchorX": 23,
+      "anchorY": 95,
+      "frameHeight": 123,
+      "frameWidth": 47,
+      "frames": 17,
       "height": 23,
       "width": 46
     },
     "flpfhl": {
+      "anchorX": 8,
+      "anchorY": 150,
+      "frameHeight": 156,
+      "frameWidth": 28,
+      "frames": 17,
       "height": 9,
       "width": 17
     },
     "flpfla": {
+      "anchorX": 24,
+      "anchorY": 151,
+      "frameHeight": 176,
+      "frameWidth": 45,
+      "frames": 17,
       "height": 11,
       "width": 37
     },
     "flpflag": {
+      "anchorX": 37,
+      "anchorY": 164,
+      "frameHeight": 167,
+      "frameWidth": 77,
+      "frames": 17,
       "height": 29,
       "width": 60
     },
     "flpflb": {
+      "anchorX": 27,
+      "anchorY": 159,
+      "frameHeight": 181,
+      "frameWidth": 59,
+      "frames": 17,
       "height": 18,
       "width": 54
     },
     "flpflc": {
+      "anchorX": 20,
+      "anchorY": 136,
+      "frameHeight": 160,
+      "frameWidth": 39,
+      "frames": 17,
       "height": 5,
       "width": 38
     },
     "flpfld": {
+      "anchorX": 18,
+      "anchorY": 168,
+      "frameHeight": 178,
+      "frameWidth": 37,
+      "frames": 17,
       "height": 23,
       "width": 31
     },
     "flpful": {
+      "anchorX": 22,
+      "anchorY": 179,
+      "frameHeight": 185,
+      "frameWidth": 44,
+      "frames": 17,
       "height": 30,
       "width": 35
     },
     "flpg33": {
+      "anchorX": 14,
+      "anchorY": 153,
+      "frameHeight": 165,
+      "frameWidth": 25,
+      "frames": 17,
       "height": 10,
       "width": 13
     },
     "flpgax": {
+      "anchorX": 28,
+      "anchorY": 148,
+      "frameHeight": 175,
+      "frameWidth": 55,
+      "frames": 17,
       "height": 17,
       "width": 45
     },
     "flpgbi": {
+      "anchorX": 14,
+      "anchorY": 165,
+      "frameHeight": 165,
+      "frameWidth": 38,
+      "frames": 17,
       "height": 25,
       "width": 13
     },
     "flpghm": {
+      "anchorX": 20,
+      "anchorY": 146,
+      "frameHeight": 153,
+      "frameWidth": 40,
+      "frames": 17,
       "height": 12,
       "width": 25
     },
     "flpgis": {
+      "anchorX": 32,
+      "anchorY": 150,
+      "frameHeight": 172,
+      "frameWidth": 63,
+      "frames": 17,
       "height": 16,
       "width": 51
     },
     "flpgix": {
+      "anchorX": 25,
+      "anchorY": 163,
+      "frameHeight": 191,
+      "frameWidth": 60,
+      "frames": 17,
       "height": 19,
       "width": 48
     },
     "flpgl1": {
+      "anchorX": 12,
+      "anchorY": 122,
+      "frameHeight": 143,
+      "frameWidth": 24,
+      "frames": 17,
       "height": 9,
       "width": 24
     },
     "flpgl2": {
+      "anchorX": 14,
+      "anchorY": 127,
+      "frameHeight": 165,
+      "frameWidth": 27,
+      "frames": 17,
       "height": 13,
       "width": 26
     },
     "flpgl3": {
+      "anchorX": 16,
+      "anchorY": 127,
+      "frameHeight": 163,
+      "frameWidth": 32,
+      "frames": 17,
       "height": 21,
       "width": 32
     },
     "flpgl4": {
+      "anchorX": 24,
+      "anchorY": 100,
+      "frameHeight": 124,
+      "frameWidth": 47,
+      "frames": 17,
       "height": 25,
       "width": 47
     },
     "flpgld": {
+      "anchorX": 12,
+      "anchorY": 118,
+      "frameHeight": 143,
+      "frameWidth": 24,
+      "frames": 17,
       "height": 7,
       "width": 24
     },
     "flpglv": {
+      "anchorX": 30,
+      "anchorY": 193,
+      "frameHeight": 205,
+      "frameWidth": 56,
+      "frames": 17,
       "height": 39,
       "width": 13
     },
     "flpgma": {
+      "anchorX": 16,
+      "anchorY": 171,
+      "frameHeight": 182,
+      "frameWidth": 34,
+      "frames": 17,
       "height": 22,
       "width": 22
     },
     "flpgmb": {
+      "anchorX": 10,
+      "anchorY": 158,
+      "frameHeight": 158,
+      "frameWidth": 25,
+      "frames": 17,
       "height": 7,
       "width": 9
     },
     "flpgmg": {
+      "anchorX": 10,
+      "anchorY": 158,
+      "frameHeight": 158,
+      "frameWidth": 25,
+      "frames": 17,
       "height": 7,
       "width": 9
     },
     "flpgmr": {
+      "anchorX": 10,
+      "anchorY": 158,
+      "frameHeight": 158,
+      "frameWidth": 25,
+      "frames": 17,
       "height": 7,
       "width": 9
     },
     "flpgmv": {
+      "anchorX": 10,
+      "anchorY": 158,
+      "frameHeight": 158,
+      "frameWidth": 25,
+      "frames": 17,
       "height": 7,
       "width": 9
     },
     "flpgmw": {
+      "anchorX": 10,
+      "anchorY": 158,
+      "frameHeight": 158,
+      "frameWidth": 25,
+      "frames": 17,
       "height": 7,
       "width": 9
     },
     "flpgmy": {
+      "anchorX": 10,
+      "anchorY": 158,
+      "frameHeight": 158,
+      "frameWidth": 25,
+      "frames": 17,
       "height": 7,
       "width": 9
     },
     "flpgpl": {
+      "anchorX": 6,
+      "anchorY": 159,
+      "frameHeight": 159,
+      "frameWidth": 20,
+      "frames": 17,
       "height": 16,
       "width": 12
     },
     "flpgpm": {
+      "anchorX": 5,
+      "anchorY": 158,
+      "frameHeight": 158,
+      "frameWidth": 18,
+      "frames": 17,
       "height": 14,
       "width": 8
     },
     "flpgps": {
+      "anchorX": 5,
+      "anchorY": 158,
+      "frameHeight": 158,
+      "frameWidth": 18,
+      "frames": 17,
       "height": 14,
       "width": 8
     },
     "flpgsb": {
+      "anchorX": 8,
+      "anchorY": 157,
+      "frameHeight": 157,
+      "frameWidth": 21,
+      "frames": 17,
       "height": 5,
       "width": 5
     },
     "flpgsc": {
+      "anchorX": 12,
+      "anchorY": 167,
+      "frameHeight": 176,
+      "frameWidth": 26,
+      "frames": 17,
       "height": 19,
       "width": 11
     },
     "flpgsd": {
+      "anchorX": 32,
+      "anchorY": 156,
+      "frameHeight": 180,
+      "frameWidth": 65,
+      "frames": 17,
       "height": 20,
       "width": 47
     },
     "flpgsg": {
+      "anchorX": 8,
+      "anchorY": 157,
+      "frameHeight": 157,
+      "frameWidth": 21,
+      "frames": 17,
       "height": 5,
       "width": 5
     },
     "flpgsr": {
+      "anchorX": 8,
+      "anchorY": 157,
+      "frameHeight": 157,
+      "frameWidth": 21,
+      "frames": 17,
       "height": 5,
       "width": 5
     },
     "flpgsv": {
+      "anchorX": 8,
+      "anchorY": 157,
+      "frameHeight": 157,
+      "frameWidth": 21,
+      "frames": 17,
       "height": 5,
       "width": 5
     },
     "flpgsw": {
+      "anchorX": 8,
+      "anchorY": 157,
+      "frameHeight": 157,
+      "frameWidth": 21,
+      "frames": 17,
       "height": 5,
       "width": 5
     },
     "flpgsy": {
+      "anchorX": 8,
+      "anchorY": 157,
+      "frameHeight": 157,
+      "frameWidth": 21,
+      "frames": 17,
       "height": 5,
       "width": 5
     },
     "flpgth": {
+      "anchorX": 22,
+      "anchorY": 150,
+      "frameHeight": 174,
+      "frameWidth": 48,
+      "frames": 17,
       "height": 19,
       "width": 45
     },
     "flpgts": {
+      "anchorX": 21,
+      "anchorY": 167,
+      "frameHeight": 170,
+      "frameWidth": 54,
+      "frames": 17,
       "height": 24,
       "width": 36
     },
     "flpgwn": {
+      "anchorX": 16,
+      "anchorY": 153,
+      "frameHeight": 162,
+      "frameWidth": 29,
+      "frames": 17,
       "height": 15,
       "width": 18
     },
     "flphal": {
+      "anchorX": 47,
+      "anchorY": 149,
+      "frameHeight": 210,
+      "frameWidth": 95,
+      "frames": 17,
       "height": 17,
       "width": 84
     },
     "flphax": {
+      "anchorX": 8,
+      "anchorY": 156,
+      "frameHeight": 164,
+      "frameWidth": 21,
+      "frames": 17,
       "height": 13,
       "width": 9
     },
     "flphaxu": {
+      "anchorX": 13,
+      "anchorY": 151,
+      "frameHeight": 160,
+      "frameWidth": 28,
+      "frames": 17,
       "height": 10,
       "width": 22
     },
     "flphbl": {
+      "anchorX": 7,
+      "anchorY": 153,
+      "frameHeight": 154,
+      "frameWidth": 15,
+      "frames": 17,
       "height": 9,
       "width": 12
     },
     "flphbt": {
+      "anchorX": 12,
+      "anchorY": 158,
+      "frameHeight": 238,
+      "frameWidth": 30,
+      "frames": 17,
       "height": 17,
       "width": 19
     },
     "flphbw": {
+      "anchorX": 18,
+      "anchorY": 148,
+      "frameHeight": 154,
+      "frameWidth": 32,
+      "frames": 17,
       "height": 9,
       "width": 29
     },
     "flphfh": {
+      "anchorX": 16,
+      "anchorY": 162,
+      "frameHeight": 174,
+      "frameWidth": 33,
+      "frames": 17,
       "height": 20,
       "width": 19
     },
     "flphgl": {
+      "anchorX": 9,
+      "anchorY": 153,
+      "frameHeight": 181,
+      "frameWidth": 19,
+      "frames": 17,
       "height": 12,
       "width": 14
     },
     "flphla": {
+      "anchorX": 22,
+      "anchorY": 157,
+      "frameHeight": 173,
+      "frameWidth": 38,
+      "frames": 17,
       "height": 19,
       "width": 24
     },
     "flphlm": {
+      "anchorX": 9,
+      "anchorY": 153,
+      "frameHeight": 154,
+      "frameWidth": 20,
+      "frames": 17,
       "height": 11,
       "width": 16
     },
     "flphmr": {
+      "anchorX": 8,
+      "anchorY": 152,
+      "frameHeight": 152,
+      "frameWidth": 17,
+      "frames": 17,
       "height": 9,
       "width": 13
     },
     "flphorn": {
+      "anchorX": 10,
+      "anchorY": 155,
+      "frameHeight": 155,
+      "frameWidth": 22,
+      "frames": 17,
       "height": 10,
       "width": 13
     },
     "flphrb": {
+      "anchorX": 8,
+      "anchorY": 162,
+      "frameHeight": 162,
+      "frameWidth": 15,
+      "frames": 18,
       "height": 12,
       "width": 7
     },
     "flphrt": {
+      "anchorX": 12,
+      "anchorY": 149,
+      "frameHeight": 149,
+      "frameWidth": 17,
+      "frames": 17,
       "height": 6,
       "width": 5
     },
     "flphscr": {
+      "anchorX": 16,
+      "anchorY": 149,
+      "frameHeight": 162,
+      "frameWidth": 33,
+      "frames": 17,
       "height": 10,
       "width": 30
     },
     "flphst": {
+      "anchorX": 36,
+      "anchorY": 172,
+      "frameHeight": 210,
+      "frameWidth": 77,
+      "frames": 18,
       "height": 31,
       "width": 53
     },
     "flphxb": {
+      "anchorX": 18,
+      "anchorY": 158,
+      "frameHeight": 161,
+      "frameWidth": 32,
+      "frames": 17,
       "height": 15,
       "width": 23
     },
     "flphxbu": {
+      "anchorX": 16,
+      "anchorY": 157,
+      "frameHeight": 157,
+      "frameWidth": 24,
+      "frames": 17,
       "height": 10,
       "width": 13
     },
     "flpjav": {
+      "anchorX": 40,
+      "anchorY": 163,
+      "frameHeight": 203,
+      "frameWidth": 83,
+      "frames": 17,
       "height": 26,
       "width": 59
     },
     "flpjaw": {
+      "anchorX": 8,
+      "anchorY": 154,
+      "frameHeight": 156,
+      "frameWidth": 16,
+      "frames": 17,
       "height": 9,
       "width": 11
     },
     "flpjbi": {
+      "anchorX": 14,
+      "anchorY": 158,
+      "frameHeight": 162,
+      "frameWidth": 23,
+      "frames": 17,
       "height": 15,
       "width": 12
     },
     "flpkey": {
+      "anchorX": 3,
+      "anchorY": 151,
+      "frameHeight": 151,
+      "frameWidth": 10,
+      "frames": 17,
       "height": 5,
       "width": 6
     },
     "flpkit": {
+      "anchorX": 16,
+      "anchorY": 152,
+      "frameHeight": 164,
+      "frameWidth": 37,
+      "frames": 17,
       "height": 16,
       "width": 32
     },
     "flpkrs": {
+      "anchorX": 18,
+      "anchorY": 159,
+      "frameHeight": 162,
+      "frameWidth": 39,
+      "frames": 17,
       "height": 15,
       "width": 29
     },
     "flpktr": {
+      "anchorX": 12,
+      "anchorY": 151,
+      "frameHeight": 159,
+      "frameWidth": 21,
+      "frames": 17,
       "height": 9,
       "width": 11
     },
     "flplax": {
+      "anchorX": 16,
+      "anchorY": 164,
+      "frameHeight": 177,
+      "frameWidth": 36,
+      "frames": 17,
       "height": 20,
       "width": 16
     },
     "flplbb": {
+      "anchorX": 34,
+      "anchorY": 138,
+      "frameHeight": 180,
+      "frameWidth": 65,
+      "frames": 17,
       "height": 8,
       "width": 61
     },
     "flplbl": {
+      "anchorX": 12,
+      "anchorY": 153,
+      "frameHeight": 170,
+      "frameWidth": 26,
+      "frames": 17,
       "height": 12,
       "width": 20
     },
     "flplbt": {
+      "anchorX": 13,
+      "anchorY": 156,
+      "frameHeight": 233,
+      "frameWidth": 30,
+      "frames": 17,
       "height": 13,
       "width": 22
     },
     "flplbw": {
+      "anchorX": 36,
+      "anchorY": 143,
+      "frameHeight": 176,
+      "frameWidth": 65,
+      "frames": 17,
       "height": 10,
       "width": 57
     },
     "flplea": {
+      "anchorX": 18,
+      "anchorY": 157,
+      "frameHeight": 165,
+      "frameWidth": 37,
+      "frames": 17,
       "height": 16,
       "width": 25
     },
     "flpleg": {
+      "anchorX": 8,
+      "anchorY": 157,
+      "frameHeight": 158,
+      "frameWidth": 20,
+      "frames": 17,
       "height": 14,
       "width": 13
     },
     "flplgl": {
+      "anchorX": 10,
+      "anchorY": 150,
+      "frameHeight": 180,
+      "frameWidth": 22,
+      "frames": 17,
       "height": 8,
       "width": 17
     },
     "flplrg": {
+      "anchorX": 12,
+      "anchorY": 153,
+      "frameHeight": 158,
+      "frameWidth": 28,
+      "frames": 17,
       "height": 12,
       "width": 23
     },
     "flplsd": {
+      "anchorX": 26,
+      "anchorY": 142,
+      "frameHeight": 178,
+      "frameWidth": 53,
+      "frames": 17,
       "height": 10,
       "width": 45
     },
     "flplst": {
+      "anchorX": 32,
+      "anchorY": 189,
+      "frameHeight": 217,
+      "frameWidth": 73,
+      "frames": 17,
       "height": 40,
       "width": 24
     },
     "flpltp": {
+      "anchorX": 18,
+      "anchorY": 157,
+      "frameHeight": 173,
+      "frameWidth": 44,
+      "frames": 17,
       "height": 21,
       "width": 30
     },
     "flplwb": {
+      "anchorX": 36,
+      "anchorY": 182,
+      "frameHeight": 197,
+      "frameWidth": 58,
+      "frames": 17,
       "height": 28,
       "width": 27
     },
     "flplxb": {
+      "anchorX": 15,
+      "anchorY": 153,
+      "frameHeight": 153,
+      "frameWidth": 30,
+      "frames": 17,
       "height": 14,
       "width": 24
     },
     "flplxbu": {
+      "anchorX": 12,
+      "anchorY": 155,
+      "frameHeight": 155,
+      "frameWidth": 21,
+      "frames": 17,
       "height": 11,
       "width": 15
     },
     "flpmac": {
+      "anchorX": 24,
+      "anchorY": 171,
+      "frameHeight": 179,
+      "frameWidth": 37,
+      "frames": 17,
       "height": 19,
       "width": 10
     },
     "flpmau": {
+      "anchorX": 18,
+      "anchorY": 177,
+      "frameHeight": 185,
+      "frameWidth": 40,
+      "frames": 17,
       "height": 26,
       "width": 14
     },
     "flpmbl": {
+      "anchorX": 7,
+      "anchorY": 153,
+      "frameHeight": 155,
+      "frameWidth": 15,
+      "frames": 17,
       "height": 9,
       "width": 12
     },
     "flpmbt": {
+      "anchorX": 14,
+      "anchorY": 155,
+      "frameHeight": 241,
+      "frameWidth": 37,
+      "frames": 17,
       "height": 20,
       "width": 21
     },
     "flpmgl": {
+      "anchorX": 12,
+      "anchorY": 157,
+      "frameHeight": 166,
+      "frameWidth": 26,
+      "frames": 17,
       "height": 9,
       "width": 23
     },
     "flpmph": {
+      "anchorX": 6,
+      "anchorY": 154,
+      "frameHeight": 157,
+      "frameWidth": 12,
+      "frames": 17,
       "height": 7,
       "width": 5
     },
     "flpmpi": {
+      "anchorX": 14,
+      "anchorY": 159,
+      "frameHeight": 169,
+      "frameWidth": 33,
+      "frames": 17,
       "height": 18,
       "width": 20
     },
     "flpmsf": {
+      "anchorX": 28,
+      "anchorY": 178,
+      "frameHeight": 189,
+      "frameWidth": 58,
+      "frames": 17,
       "height": 33,
       "width": 12
     },
     "flpmsk": {
+      "anchorX": 12,
+      "anchorY": 148,
+      "frameHeight": 155,
+      "frameWidth": 29,
+      "frames": 17,
       "height": 10,
       "width": 20
     },
     "flpmss": {
+      "anchorX": 4,
+      "anchorY": 148,
+      "frameHeight": 148,
+      "frameWidth": 10,
+      "frames": 17,
       "height": 4,
       "width": 9
     },
     "flpmst": {
+      "anchorX": 16,
+      "anchorY": 143,
+      "frameHeight": 155,
+      "frameWidth": 31,
+      "frames": 17,
       "height": 9,
       "width": 25
     },
     "flpmxb": {
+      "anchorX": 12,
+      "anchorY": 156,
+      "frameHeight": 168,
+      "frameWidth": 31,
+      "frames": 17,
       "height": 15,
       "width": 21
     },
     "flpmxbu": {
+      "anchorX": 12,
+      "anchorY": 155,
+      "frameHeight": 155,
+      "frameWidth": 19,
+      "frames": 17,
       "height": 9,
       "width": 11
     },
     "flpne1": {
+      "anchorX": 16,
+      "anchorY": 162,
+      "frameHeight": 162,
+      "frameWidth": 30,
+      "frames": 18,
       "height": 13,
       "width": 21
     },
     "flpne2": {
+      "anchorX": 8,
+      "anchorY": 159,
+      "frameHeight": 159,
+      "frameWidth": 18,
+      "frames": 18,
       "height": 11,
       "width": 13
     },
     "flpne3": {
+      "anchorX": 18,
+      "anchorY": 159,
+      "frameHeight": 159,
+      "frameWidth": 34,
+      "frames": 18,
       "height": 15,
       "width": 15
     },
     "flpnpl": {
+      "anchorX": 10,
+      "anchorY": 157,
+      "frameHeight": 157,
+      "frameWidth": 18,
+      "frames": 17,
       "height": 10,
       "width": 7
     },
     "flpnps": {
+      "anchorX": 6,
+      "anchorY": 155,
+      "frameHeight": 155,
+      "frameWidth": 14,
+      "frames": 17,
       "height": 9,
       "width": 5
     },
     "flpob1": {
+      "anchorX": 8,
+      "anchorY": 152,
+      "frameHeight": 152,
+      "frameWidth": 23,
+      "frames": 17,
       "height": 10,
       "width": 16
     },
     "flpob3": {
+      "anchorX": 10,
+      "anchorY": 153,
+      "frameHeight": 154,
+      "frameWidth": 31,
+      "frames": 17,
       "height": 12,
       "width": 19
     },
     "flpob4": {
+      "anchorX": 8,
+      "anchorY": 152,
+      "frameHeight": 153,
+      "frameWidth": 29,
+      "frames": 17,
       "height": 11,
       "width": 17
     },
     "flpob5": {
+      "anchorX": 22,
+      "anchorY": 153,
+      "frameHeight": 153,
+      "frameWidth": 37,
+      "frames": 18,
       "height": 12,
       "width": 30
     },
     "flpopl": {
+      "anchorX": 6,
+      "anchorY": 159,
+      "frameHeight": 159,
+      "frameWidth": 20,
+      "frames": 17,
       "height": 16,
       "width": 12
     },
     "flpopm": {
+      "anchorX": 5,
+      "anchorY": 158,
+      "frameHeight": 158,
+      "frameWidth": 18,
+      "frames": 17,
       "height": 14,
       "width": 8
     },
     "flpops": {
+      "anchorX": 5,
+      "anchorY": 158,
+      "frameHeight": 158,
+      "frameWidth": 18,
+      "frames": 17,
       "height": 14,
       "width": 8
     },
     "flppa1": {
+      "anchorX": 10,
+      "anchorY": 150,
+      "frameHeight": 150,
+      "frameWidth": 20,
+      "frames": 17,
       "height": 9,
       "width": 17
     },
     "flppa3": {
+      "anchorX": 18,
+      "anchorY": 159,
+      "frameHeight": 159,
+      "frameWidth": 32,
+      "frames": 17,
       "height": 15,
       "width": 17
     },
     "flppa5": {
+      "anchorX": 10,
+      "anchorY": 150,
+      "frameHeight": 151,
+      "frameWidth": 22,
+      "frames": 17,
       "height": 10,
       "width": 19
     },
     "flppax": {
+      "anchorX": 42,
+      "anchorY": 185,
+      "frameHeight": 207,
+      "frameWidth": 85,
+      "frames": 17,
       "height": 34,
       "width": 57
     },
     "flppik": {
+      "anchorX": 52,
+      "anchorY": 208,
+      "frameHeight": 254,
+      "frameWidth": 103,
+      "frames": 17,
       "height": 55,
       "width": 35
     },
     "flppil": {
+      "anchorX": 40,
+      "anchorY": 183,
+      "frameHeight": 191,
+      "frameWidth": 77,
+      "frames": 17,
       "height": 30,
       "width": 53
     },
     "flpplt": {
+      "anchorX": 18,
+      "anchorY": 163,
+      "frameHeight": 163,
+      "frameWidth": 40,
+      "frames": 17,
       "height": 19,
       "width": 31
     },
     "flppot": {
+      "anchorX": 8,
+      "anchorY": 158,
+      "frameHeight": 158,
+      "frameWidth": 17,
+      "frames": 17,
       "height": 12,
       "width": 7
     },
     "flpqlt": {
+      "anchorX": 24,
+      "anchorY": 163,
+      "frameHeight": 163,
+      "frameWidth": 42,
+      "frames": 17,
       "height": 20,
       "width": 37
     },
     "flpquil": {
+      "anchorX": 16,
+      "anchorY": 166,
+      "frameHeight": 166,
+      "frameWidth": 23,
+      "frames": 17,
       "height": 11,
       "width": 5
     },
     "flpqvr": {
+      "anchorX": 16,
+      "anchorY": 158,
+      "frameHeight": 158,
+      "frameWidth": 32,
+      "frames": 17,
       "height": 16,
       "width": 20
     },
     "flprbk": {
+      "anchorX": 10,
+      "anchorY": 156,
+      "frameHeight": 157,
+      "frameWidth": 20,
+      "frames": 17,
       "height": 12,
       "width": 15
     },
     "flpred": {
+      "anchorX": 6,
+      "anchorY": 158,
+      "frameHeight": 158,
+      "frameWidth": 20,
+      "frames": 17,
       "height": 15,
       "width": 8
     },
     "flprin": {
+      "anchorX": 4,
+      "anchorY": 146,
+      "frameHeight": 146,
+      "frameWidth": 8,
+      "frames": 17,
       "height": 4,
       "width": 5
     },
     "flprng": {
+      "anchorX": 20,
+      "anchorY": 154,
+      "frameHeight": 166,
+      "frameWidth": 42,
+      "frames": 17,
       "height": 17,
       "width": 35
     },
     "flprpl": {
+      "anchorX": 6,
+      "anchorY": 159,
+      "frameHeight": 159,
+      "frameWidth": 20,
+      "frames": 17,
       "height": 16,
       "width": 12
     },
     "flprps": {
+      "anchorX": 5,
+      "anchorY": 158,
+      "frameHeight": 158,
+      "frameWidth": 18,
+      "frames": 17,
       "height": 14,
       "width": 8
     },
     "flprsc": {
+      "anchorX": 12,
+      "anchorY": 158,
+      "frameHeight": 166,
+      "frameWidth": 26,
+      "frames": 17,
       "height": 14,
       "width": 17
     },
     "flprun": {
+      "anchorX": 5,
+      "anchorY": 150,
+      "frameHeight": 150,
+      "frameWidth": 10,
+      "frames": 17,
       "height": 4,
       "width": 4
     },
     "flprxb": {
+      "anchorX": 27,
+      "anchorY": 173,
+      "frameHeight": 173,
+      "frameWidth": 52,
+      "frames": 17,
       "height": 25,
       "width": 42
     },
     "flprxbu": {
+      "anchorX": 16,
+      "anchorY": 158,
+      "frameHeight": 158,
+      "frameWidth": 24,
+      "frames": 17,
       "height": 12,
       "width": 17
     },
     "flpsbb": {
+      "anchorX": 24,
+      "anchorY": 149,
+      "frameHeight": 155,
+      "frameWidth": 50,
+      "frames": 17,
       "height": 8,
       "width": 45
     },
     "flpsbr": {
+      "anchorX": 14,
+      "anchorY": 161,
+      "frameHeight": 182,
+      "frameWidth": 40,
+      "frames": 17,
       "height": 14,
       "width": 25
     },
     "flpsbw": {
+      "anchorX": 22,
+      "anchorY": 142,
+      "frameHeight": 156,
+      "frameWidth": 46,
+      "frames": 17,
       "height": 9,
       "width": 41
     },
     "flpscl": {
+      "anchorX": 21,
+      "anchorY": 157,
+      "frameHeight": 164,
+      "frameWidth": 39,
+      "frames": 17,
       "height": 15,
       "width": 28
     },
     "flpscm": {
+      "anchorX": 16,
+      "anchorY": 142,
+      "frameHeight": 143,
+      "frameWidth": 52,
+      "frames": 17,
       "height": 11,
       "width": 31
     },
     "flpscmu": {
+      "anchorX": 21,
+      "anchorY": 146,
+      "frameHeight": 156,
+      "frameWidth": 44,
+      "frames": 17,
       "height": 7,
       "width": 38
     },
     "flpscp": {
+      "anchorX": 12,
+      "anchorY": 163,
+      "frameHeight": 167,
+      "frameWidth": 24,
+      "frames": 17,
       "height": 18,
       "width": 11
     },
     "flpscr": {
+      "anchorX": 13,
+      "anchorY": 141,
+      "frameHeight": 152,
+      "frameWidth": 27,
+      "frames": 17,
       "height": 5,
       "width": 24
     },
     "flpscy": {
+      "anchorX": 46,
+      "anchorY": 179,
+      "frameHeight": 220,
+      "frameWidth": 85,
+      "frames": 17,
       "height": 33,
       "width": 59
     },
     "flpskl": {
+      "anchorX": 10,
+      "anchorY": 165,
+      "frameHeight": 165,
+      "frameWidth": 18,
+      "frames": 17,
       "height": 11,
       "width": 6
     },
     "flpskp": {
+      "anchorX": 10,
+      "anchorY": 155,
+      "frameHeight": 156,
+      "frameWidth": 20,
+      "frames": 17,
       "height": 11,
       "width": 11
     },
     "flpskr": {
+      "anchorX": 12,
+      "anchorY": 153,
+      "frameHeight": 161,
+      "frameWidth": 23,
+      "frames": 17,
       "height": 12,
       "width": 15
     },
     "flpsml": {
+      "anchorX": 11,
+      "anchorY": 159,
+      "frameHeight": 159,
+      "frameWidth": 24,
+      "frames": 17,
       "height": 15,
       "width": 20
     },
     "flpsol": {
+      "anchorX": 19,
+      "anchorY": 226,
+      "frameHeight": 228,
+      "frameWidth": 38,
+      "frames": 17,
       "height": 79,
       "width": 34
     },
     "flpspc": {
+      "anchorX": 12,
+      "anchorY": 154,
+      "frameHeight": 163,
+      "frameWidth": 27,
+      "frames": 17,
       "height": 17,
       "width": 13
     },
     "flpspk": {
+      "anchorX": 20,
+      "anchorY": 163,
+      "frameHeight": 163,
+      "frameWidth": 39,
+      "frames": 17,
       "height": 22,
       "width": 29
     },
     "flpspl": {
+      "anchorX": 16,
+      "anchorY": 156,
+      "frameHeight": 165,
+      "frameWidth": 29,
+      "frames": 17,
       "height": 14,
       "width": 25
     },
     "flpsple": {
+      "anchorX": 14,
+      "anchorY": 149,
+      "frameHeight": 155,
+      "frameWidth": 21,
+      "frames": 17,
       "height": 7,
       "width": 10
     },
     "flpspr": {
+      "anchorX": 40,
+      "anchorY": 192,
+      "frameHeight": 212,
+      "frameWidth": 82,
+      "frames": 17,
       "height": 39,
       "width": 33
     },
     "flpspt": {
+      "anchorX": 34,
+      "anchorY": 169,
+      "frameHeight": 203,
+      "frameWidth": 68,
+      "frames": 17,
       "height": 28,
       "width": 39
     },
     "flpssd": {
+      "anchorX": 28,
+      "anchorY": 148,
+      "frameHeight": 149,
+      "frameWidth": 41,
+      "frames": 17,
       "height": 9,
       "width": 27
     },
     "flpssp": {
+      "anchorX": 25,
+      "anchorY": 175,
+      "frameHeight": 198,
+      "frameWidth": 53,
+      "frames": 17,
       "height": 26,
       "width": 22
     },
     "flpsst": {
+      "anchorX": 17,
+      "anchorY": 181,
+      "frameHeight": 197,
+      "frameWidth": 41,
+      "frames": 17,
       "height": 29,
       "width": 6
     },
     "flpstu": {
+      "anchorX": 15,
+      "anchorY": 160,
+      "frameHeight": 168,
+      "frameWidth": 31,
+      "frames": 17,
       "height": 15,
       "width": 24
     },
     "flpswb": {
+      "anchorX": 22,
+      "anchorY": 168,
+      "frameHeight": 187,
+      "frameWidth": 40,
+      "frames": 17,
       "height": 19,
       "width": 21
     },
     "flptax": {
+      "anchorX": 14,
+      "anchorY": 155,
+      "frameHeight": 172,
+      "frameWidth": 35,
+      "frames": 17,
       "height": 13,
       "width": 23
     },
     "flptbl": {
+      "anchorX": 8,
+      "anchorY": 154,
+      "frameHeight": 156,
+      "frameWidth": 18,
+      "frames": 17,
       "height": 12,
       "width": 15
     },
     "flptbt": {
+      "anchorX": 13,
+      "anchorY": 156,
+      "frameHeight": 242,
+      "frameWidth": 32,
+      "frames": 17,
       "height": 21,
       "width": 22
     },
     "flptgl": {
+      "anchorX": 14,
+      "anchorY": 149,
+      "frameHeight": 178,
+      "frameWidth": 30,
+      "frames": 17,
       "height": 12,
       "width": 21
     },
     "flptkn": {
+      "anchorX": 12,
+      "anchorY": 238,
+      "frameHeight": 250,
+      "frameWidth": 20,
+      "frames": 17,
       "height": 8,
       "width": 11
     },
     "flptow": {
+      "anchorX": 22,
+      "anchorY": 162,
+      "frameHeight": 174,
+      "frameWidth": 42,
+      "frames": 17,
       "height": 21,
       "width": 29
     },
     "flptrch": {
+      "anchorX": 16,
+      "anchorY": 160,
+      "frameHeight": 175,
+      "frameWidth": 47,
+      "frames": 17,
       "height": 12,
       "width": 12
     },
     "flptri": {
+      "anchorX": 34,
+      "anchorY": 176,
+      "frameHeight": 198,
+      "frameWidth": 72,
+      "frames": 17,
       "height": 30,
       "width": 40
     },
     "flptsp": {
+      "anchorX": 38,
+      "anchorY": 183,
+      "frameHeight": 203,
+      "frameWidth": 72,
+      "frames": 17,
       "height": 30,
       "width": 43
     },
     "flptwr": {
+      "anchorX": 22,
+      "anchorY": 162,
+      "frameHeight": 174,
+      "frameWidth": 42,
+      "frames": 17,
       "height": 21,
       "width": 29
     },
     "flpvbl": {
+      "anchorX": 7,
+      "anchorY": 151,
+      "frameHeight": 154,
+      "frameWidth": 16,
+      "frames": 17,
       "height": 9,
       "width": 12
     },
     "flpvbt": {
+      "anchorX": 25,
+      "anchorY": 153,
+      "frameHeight": 248,
+      "frameWidth": 41,
+      "frames": 17,
       "height": 14,
       "width": 16
     },
     "flpvgl": {
+      "anchorX": 10,
+      "anchorY": 155,
+      "frameHeight": 182,
+      "frameWidth": 21,
+      "frames": 17,
       "height": 10,
       "width": 16
     },
     "flpvip": {
+      "anchorX": 12,
+      "anchorY": 154,
+      "frameHeight": 162,
+      "frameWidth": 22,
+      "frames": 18,
       "height": 12,
       "width": 15
     },
     "flpvou": {
+      "anchorX": 45,
+      "anchorY": 141,
+      "frameHeight": 203,
+      "frameWidth": 86,
+      "frames": 17,
       "height": 12,
       "width": 76
     },
     "flpvpl": {
+      "anchorX": 6,
+      "anchorY": 159,
+      "frameHeight": 159,
+      "frameWidth": 20,
+      "frames": 17,
       "height": 16,
       "width": 12
     },
     "flpvps": {
+      "anchorX": 5,
+      "anchorY": 158,
+      "frameHeight": 158,
+      "frameWidth": 18,
+      "frames": 17,
       "height": 14,
       "width": 8
     },
     "flpwax": {
+      "anchorX": 18,
+      "anchorY": 158,
+      "frameHeight": 171,
+      "frameWidth": 37,
+      "frames": 17,
       "height": 15,
       "width": 27
     },
     "flpwhm": {
+      "anchorX": 14,
+      "anchorY": 158,
+      "frameHeight": 165,
+      "frameWidth": 29,
+      "frames": 17,
       "height": 16,
       "width": 18
     },
     "flpwnd": {
+      "anchorX": 12,
+      "anchorY": 148,
+      "frameHeight": 153,
+      "frameWidth": 26,
+      "frames": 17,
       "height": 7,
       "width": 22
     },
     "flpwpl": {
+      "anchorX": 8,
+      "anchorY": 156,
+      "frameHeight": 156,
+      "frameWidth": 16,
+      "frames": 17,
       "height": 10,
       "width": 7
     },
     "flpwps": {
+      "anchorX": 8,
+      "anchorY": 156,
+      "frameHeight": 156,
+      "frameWidth": 14,
+      "frames": 17,
       "height": 9,
       "width": 5
     },
     "flpwsc": {
+      "anchorX": 28,
+      "anchorY": 186,
+      "frameHeight": 200,
+      "frameWidth": 61,
+      "frames": 17,
       "height": 33,
       "width": 41
     },
     "flpwsd": {
+      "anchorX": 18,
+      "anchorY": 145,
+      "frameHeight": 155,
+      "frameWidth": 43,
+      "frames": 17,
       "height": 11,
       "width": 35
     },
     "flpwsp": {
+      "anchorX": 17,
+      "anchorY": 168,
+      "frameHeight": 175,
+      "frameWidth": 33,
+      "frames": 17,
       "height": 21,
       "width": 24
     },
     "flpwst": {
+      "anchorX": 42,
+      "anchorY": 149,
+      "frameHeight": 196,
+      "frameWidth": 82,
+      "frames": 17,
       "height": 20,
       "width": 69
     },
     "flpypl": {
+      "anchorX": 6,
+      "anchorY": 159,
+      "frameHeight": 159,
+      "frameWidth": 20,
+      "frames": 17,
       "height": 16,
       "width": 12
     },
     "flpyps": {
+      "anchorX": 5,
+      "anchorY": 158,
+      "frameHeight": 158,
+      "frameWidth": 18,
+      "frames": 17,
       "height": 14,
       "width": 8
     },
     "flpywn": {
+      "anchorX": 14,
+      "anchorY": 154,
+      "frameHeight": 166,
+      "frameWidth": 28,
+      "frames": 17,
       "height": 13,
       "width": 17
     }

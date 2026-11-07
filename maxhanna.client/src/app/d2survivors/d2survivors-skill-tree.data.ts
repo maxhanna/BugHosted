@@ -97,7 +97,7 @@ export const D2_CLASS_SKILL_TREES: Record<string, D2ClassSkillTree> = {
   ] },
   barbarian: { classId: "barbarian", sections: [
     { name: "Combat Skills", skills: [
-      skill("Bash", 1), skill("Double Swing", 6, ["Bash"]), skill("Leap", 6), skill("Double Throw", 12, ["Bash", "Double Swing"]), skill("Stun", 12, ["Bash"]), skill("Leap Attack", 18, ["Leap"]), skill("Concentrate", 18, ["Bash", "Stun"]), skill("Frenzy", 24, ["Bash", "Double Swing", "Double Throw"]), skill("Whirlwind", 30, ["Bash", "Leap", "Stun", "Concentrate", "Leap Attack"]), skill("Berserk", 30, ["Bash", "Stun", "Concentrate"]),
+      skill("Bash", 1), skill("Leap", 6), skill("Double Swing", 6, ["Bash"]), skill("Double Throw", 12, ["Bash", "Double Swing"]), skill("Stun", 12, ["Bash"]), skill("Leap Attack", 18, ["Leap"]), skill("Concentrate", 18, ["Bash", "Stun"]), skill("Frenzy", 24, ["Bash", "Double Swing", "Double Throw"]), skill("Whirlwind", 30, ["Bash", "Leap", "Stun", "Concentrate", "Leap Attack"]), skill("Berserk", 30, ["Bash", "Stun", "Concentrate"]),
     ] },
     { name: "Combat Masteries", skills: [
       skill("Sword Mastery", 1), skill("Axe Mastery", 1), skill("Mace Mastery", 1), skill("Polearm Mastery", 6), skill("Throwing Mastery", 6), skill("Spear Mastery", 6), skill("Increased Stamina", 12), skill("Iron Skin", 18), skill("Increased Speed", 24, ["Increased Stamina"]), skill("Natural Resistance", 30, ["Iron Skin"]),

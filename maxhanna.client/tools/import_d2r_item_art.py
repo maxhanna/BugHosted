@@ -9,6 +9,8 @@ Outputs:
 * `assets/d2survivors/items/d2/<file>.png` - every inventory cel;
 * `assets/d2survivors/items/<type>.png` - the sixteen equipment-category icons;
 * `assets/d2survivors/items/ground/<file>.png` - every flippy resting frame;
+* `assets/d2survivors/items/ground-anim/<file>.png` - each flippy's offset-aligned
+  animation strip, one shared-size cell per frame;
 * `assets/d2survivors/items/unique/<item>.png` and `items/set/<item>.png` -
   unique/set inventory cels (dedicated art when present, otherwise the base cel
   recoloured with the item's D2 transform colour);
@@ -35,6 +37,7 @@ from PIL import Image
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 ASSET_ROOT = PROJECT_ROOT / "src" / "assets" / "d2survivors" / "items"
 GROUND_ROOT = ASSET_ROOT / "ground"
+GROUND_ANIM_ROOT = ASSET_ROOT / "ground-anim"
 UNIQUE_ROOT = ASSET_ROOT / "unique"
 SET_ROOT = ASSET_ROOT / "set"
 GENERATED_MAP = PROJECT_ROOT / "src" / "app" / "d2survivors" / "d2-item-assets.generated.ts"
@@ -183,6 +186,64 @@ def import_ground(source: Path, palette: list[tuple[int, int, int]]) -> dict:
         image.save(output / f"{name}.png", "PNG", optimize=True)
         imported[name] = {"width": image.width, "height": image.height}
     print(f"imported {len(imported)}/{len(imported) + failures} ground cels")
+    return imported
+
+
+def render_ground_animation(path: Path, palette: list[tuple[int, int, int]]) -> tuple[Image.Image, dict]:
+    """Pack a flippy's first direction into one offset-aligned animation strip.
+
+    The DCC frames carry large signed offsets: the item starts above the floor,
+    arcs through its flip, and lands on the last frame. Every frame is placed in
+    a shared cell using those offsets so the strip keeps that motion instead of
+    wobbling around a cropped centre. The anchor is the last frame's visible
+    bottom centre, which is exactly where the existing resting PNG is drawn.
+    """
+    animation = dc6.parse(path.read_bytes())
+    frames = animation["frames"][:animation["frames_per_dir"]]
+    if not frames:
+        raise ValueError("flippy has no frames")
+    images = [dc6.frame_image(frame, palette) for frame in frames]
+    last_box = images[-1].getbbox()
+    if last_box is None:
+        raise ValueError("flippy has an empty resting frame")
+    min_x = min(frame["offsetX"] for frame in frames)
+    max_x = max(frame["offsetX"] + image.width for frame, image in zip(frames, images))
+    min_y = min(frame["offsetY"] for frame in frames)
+    max_y = max(frame["offsetY"] + image.height for frame, image in zip(frames, images))
+    cell_width = max_x - min_x
+    cell_height = max_y - min_y
+    if cell_width <= 0 or cell_height <= 0:
+        raise ValueError("flippy has no visible extent")
+    strip = Image.new("RGBA", (cell_width * len(frames), cell_height), (0, 0, 0, 0))
+    for index, (frame, image) in enumerate(zip(frames, images)):
+        strip.alpha_composite(image, (index * cell_width + frame["offsetX"] - min_x, frame["offsetY"] - min_y))
+    last = frames[-1]
+    anchor_x = round(last["offsetX"] + (last_box[0] + last_box[2]) / 2 - min_x)
+    anchor_y = last["offsetY"] + last_box[3] - min_y
+    return strip, {
+        "frames": len(frames),
+        "frameWidth": cell_width,
+        "frameHeight": cell_height,
+        "anchorX": anchor_x,
+        "anchorY": anchor_y,
+    }
+
+
+def import_ground_animations(source: Path, palette: list[tuple[int, int, int]]) -> dict:
+    output = GROUND_ANIM_ROOT
+    output.mkdir(parents=True, exist_ok=True)
+    imported = {}
+    failures = 0
+    for path in sorted((source / "global" / "items").glob("flp*.dc6")):
+        name = path.stem.lower()
+        try:
+            strip, info = render_ground_animation(path, palette)
+            strip.save(output / f"{name}.png", "PNG", optimize=True)
+            imported[name] = info
+        except Exception as error:  # noqa: BLE001 - report and keep importing
+            failures += 1
+            print(f"skip {name} animation: {error}")
+    print(f"imported {len(imported)}/{len(imported) + failures} ground animations")
     return imported
 
 
@@ -829,7 +890,34 @@ def collect_ground_names(source: Path, cels: dict[str, dict]) -> dict[str, str]:
     return names
 
 
-def write_generated_map(names: dict[str, str], ground_names: dict[str, str], named: dict) -> None:
+def ground_animation_lines(ground_names: dict[str, str], ground: dict[str, dict]) -> list[str]:
+    lines = [
+        "// Base item name (D2, lower case) -> offset-aligned flippy animation strip.",
+        "export interface D2GroundItemAnimation {",
+        "  path: string;",
+        "  frames: number;",
+        "  width: number;",
+        "  height: number;",
+        "  anchorX: number;",
+        "  anchorY: number;",
+        "}",
+        "",
+        "export const D2_GROUND_ITEM_ANIMATIONS: Readonly<Record<string, D2GroundItemAnimation>> = {",
+    ]
+    for name, flippy in sorted(ground_names.items()):
+        info = ground.get(flippy)
+        if not info or not info.get("frames"):
+            continue
+        lines.append(
+            f"  {json.dumps(name)}: {{ path: \"assets/d2survivors/items/ground-anim/{flippy}.png\", "
+            f"frames: {info['frames']}, width: {info['frameWidth']}, height: {info['frameHeight']}, "
+            f"anchorX: {info['anchorX']}, anchorY: {info['anchorY']} }},"
+        )
+    lines.extend(["};", ""])
+    return lines
+
+
+def write_generated_map(names: dict[str, str], ground_names: dict[str, str], ground: dict[str, dict], named: dict) -> None:
     lines = [
         "// Generated by tools/import_d2r_item_art.py - do not edit by hand.",
         "// Base item name (D2, lower case) -> cel imported from the D2R extract.",
@@ -899,6 +987,7 @@ def write_generated_map(names: dict[str, str], ground_names: dict[str, str], nam
     for name, flippy in sorted(ground_names.items()):
         lines.append(f"  {json.dumps(name)}: \"assets/d2survivors/items/ground/{flippy}.png\",")
     lines.extend(["};", ""])
+    lines.extend(ground_animation_lines(ground_names, ground))
     for key, constant, comment in (
         ("unique", "D2_UNIQUE_ITEMS", "Every real Diablo II unique item with its base stats and modifiers."),
         ("set", "D2_SET_ITEMS", "Every real Diablo II set item with its base stats, modifiers and partial-set bonuses."),
@@ -935,6 +1024,9 @@ def main(argv: list[str]) -> int:
     picks = import_categories(args.source, palette)
     imported = import_all(args.source, palette)
     ground = import_ground(args.source, palette)
+    animations = import_ground_animations(args.source, palette)
+    for name, info in animations.items():
+        ground.setdefault(name, {}).update(info)
     names = collect_item_names(args.source, imported)
     aliases = {name: cel for name, cel in ALIASES.items() if cel in imported}
     names.update(aliases)
@@ -944,7 +1036,7 @@ def main(argv: list[str]) -> int:
     ground_names.update(ground_aliases)
     print(f"mapped {len(ground_aliases)} game base names to their closest ground cel")
     named = import_named_items(args.source, palette, collect_base_items(args.source), imported)
-    write_generated_map(names, ground_names, named)
+    write_generated_map(names, ground_names, ground, named)
     manifest_path = ASSET_ROOT / "manifest.json"
     manifest_path.write_text(json.dumps({
         "categories": picks,
