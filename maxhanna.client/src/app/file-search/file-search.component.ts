@@ -3157,12 +3157,16 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
 
   openSystemOverridePanel(): void {
-    if (!this.optionsFile || !this.optionsFile.fileName) return;
+    const file = this.optionsFile;
+    if (!file?.fileName) return;
     const candidates: CoreDescriptor[] = this.fileService.buildCoreRegistry();
-    const ext = this.fileService.getFileExtension(this.optionsFile.fileName).toLowerCase();
+    const ext = this.fileService.getFileExtension(file.fileName).toLowerCase();
     this.systemCandidates = this.fileService.sortCandidatesByExt(ext, candidates);
-    this.selectedSystemCore = null;
-    this.systemSelectFile = this.optionsFile;
+    const savedCore = file.romMetadata?.actualSystem;
+    this.selectedSystemCore = savedCore && this.systemCandidates.some((option) => option.core === savedCore)
+      ? savedCore
+      : this.systemCandidates.find((option) => option.core)?.core ?? null;
+    this.systemSelectFile = file;
     this.closeOptionsPanel();
     setTimeout(() => {
       this.isSystemSelectPanelOpen = true;
@@ -3176,13 +3180,23 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
 
   async confirmSystemSelection(): Promise<void> {
-    if (!this.systemSelectFile || !this.selectedSystemCore) return;
+    if (!this.systemSelectFile) return;
+    const systemCore = this.selectedSystemCore ?? this.systemCandidates.find((option) => option.core)?.core ?? null;
+    if (!systemCore) {
+      this.notifyUser('No system is available for this file.');
+      return;
+    }
+    this.selectedSystemCore = systemCore;
     this.isSettingSystemOverride = true;
     this.changeDetectorRef.detectChanges();
     try {
-      await this.romService.setSystemOverride(this.systemSelectFile.id, this.selectedSystemCore);
+      const result = await this.romService.setSystemOverride(this.systemSelectFile.id, systemCore);
+      if (!result?.ok) {
+        this.notifyUser('Failed to set system override.');
+        return;
+      }
       if (this.systemSelectFile.romMetadata) {
-        (this.systemSelectFile.romMetadata as any).actualSystem = this.selectedSystemCore;
+        (this.systemSelectFile.romMetadata as any).actualSystem = systemCore;
       }
       this.notifyUser('System override set.');
       this.isSystemSelectPanelOpen = false;

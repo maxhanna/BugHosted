@@ -5,6 +5,7 @@ import { D2SurvivorsService } from "../../services/d2survivors.service";
 import { D2SurvivorsComponent } from "./d2survivors.component";
 import { D2_SET_ITEMS, D2_UNIQUE_ITEMS } from "./d2-item-assets.generated";
 import { D2_SKILL_ICON_PATHS } from "./d2-skill-icons.generated";
+import { PALADIN_AURA_ART } from "./d2-paladin-auras.generated";
 import { D2_CLASS_SKILL_TREES } from "./d2survivors-skill-tree.data";
 import { ATTACK_CLIP_INFO, buildCharacterRig } from "./character-animation";
 
@@ -1556,6 +1557,26 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     rows.length = 0;
     (component as any).drawCycloneArmorAura(ctx, "front");
     expect(rows).toEqual([96, 288, 480]);
+  });
+
+  it("uses original overlay art for every paladin aura", () => {
+    const skills = [
+      "Might", "Holy Fire", "Holy Freeze", "Holy Shock", "Concentration", "Fanaticism", "Conviction", "Thorns",
+      "Blessed Aim", "Vigor", "Defiance", "Prayer", "Resist Fire", "Resist Cold", "Resist Lightning", "Salvation",
+      "Cleansing", "Meditation", "Redemption", "Sanctuary",
+    ];
+
+    expect(Object.keys(PALADIN_AURA_ART).sort()).toEqual([...skills].sort());
+    for (const skill of skills) {
+      const art = PALADIN_AURA_ART[skill];
+      expect(art.path).toContain("assets/d2survivors/auras/paladin/");
+      expect(art.columns).toBeGreaterThan(0);
+      expect(art.rows).toBeGreaterThan(0);
+      expect(art.backRow !== null || art.frontRow !== null).toBeTrue();
+    }
+    expect(PALADIN_AURA_ART["Vigor"].path).toContain("vigor.png");
+    expect(PALADIN_AURA_ART["Resist Fire"].frontRow).toBe(0);
+    expect(PALADIN_AURA_ART["Resist Cold"].backRow).toBe(0);
   });
 
   it("opens the skill tree only once when T is pressed from the arena", () => {

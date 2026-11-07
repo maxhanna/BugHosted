@@ -349,6 +349,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     const multipleChoices = (this.systemCandidates.length > 2);
 
     if (multipleChoices && !this.selectedSystemCore) {
+      this.selectedSystemCore = this.systemCandidates.find((candidate) => candidate.core)?.core ?? null;
       this._pendingFileToLoad = { fileName: file.fileName, fileId: file.id, directory: file.directory };
       this.isSystemSelectPanelOpen = true;
       this.parentRef?.showOverlay();
@@ -366,6 +367,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }
 
     if (!this.selectedSystemCore && this.fileService.getAmbiguousRomExtensions().includes(ext)) {
+      this.selectedSystemCore = this.systemCandidates.find((candidate) => candidate.core)?.core ?? null;
       this._pendingFileToLoad = { fileName: file.fileName, fileId: file.id, directory: file.directory };
       this.isSystemSelectPanelOpen = true;
       this.parentRef?.showOverlay();
@@ -3616,7 +3618,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   // Confirm selection from system-chooser popup and proceed to load
-  confirmSystemSelection() {
+  async confirmSystemSelection() {
     if (!this._pendingFileToLoad) return;
     const pending = this._pendingFileToLoad;
 
@@ -3628,20 +3630,24 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (forced) {
       const ext = this.fileService.getFileExtension(pending.fileName);
       this.savePreferredCore(ext, forced);
-      // Persist the system override to the database so it's used for icons and future loads
+      // Await the write: loading a core can navigate the page, which would
+      // cancel a fire-and-forget request before it reaches the database.
       if (pending.fileId) {
-        this.romService.setSystemOverride(pending.fileId, forced).catch(() => { /* best-effort */ });
+        try {
+          await this.romService.setSystemOverride(pending.fileId, forced);
+        } catch (e) {
+          console.error('Failed to persist system override', e);
+        }
       }
     }
-    // Kick off loading — ignore returned promise here, UI updates handled by caller
-    void this.loadRomThroughService(pending.fileName, pending.fileId, forced).then(() => {
+    try {
+      await this.loadRomThroughService(pending.fileName, pending.fileId, forced);
       this.status = 'Running';
-      this.cdr.detectChanges();
-    }).catch(e => {
+    } catch (e) {
       this.status = 'Error loading emulator';
       console.error(e);
-      this.cdr.detectChanges();
-    });
+    }
+    this.cdr.detectChanges();
   }
 
   openSaveConfirm(type: typeof this.saveConfirmType, message?: string, callback?: any) {
