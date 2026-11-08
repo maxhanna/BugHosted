@@ -22,11 +22,67 @@ import { FileEntry } from './datacontracts/file/file-entry';
 import { StoryResponse } from './datacontracts/social/story-response';
 import { User } from './datacontracts/user/user';
 import { Topic } from './datacontracts/topics/topic';
- 
+
+export interface SocialSidebarUserStats {
+  userId: number;
+  username?: string;
+  created?: string;
+  accountAgeDays: number;
+  postCount: number;
+  commentCount: number;
+  reactionsReceived: number;
+  karma: number;
+  level: number;
+  levelTitle: string;
+  nextLevelTitle?: string | null;
+  nextLevelPosts?: number | null;
+  postsToNextLevel: number;
+  levelProgress: number;
+}
+
+export interface SocialSidebarThread {
+  id: number;
+  authorId: number;
+  username?: string;
+  /** Decrypted by the component after this service returns it. */
+  excerpt?: string;
+  date?: string;
+  commentCount: number;
+  reactionCount: number;
+  engagement: number;
+}
+
+export interface SocialSidebarResponse {
+  userStats?: SocialSidebarUserStats | null;
+  popularThreads: SocialSidebarThread[];
+}
+
 @Injectable({
   providedIn: 'root'
 })
 export class SocialService {
+  async getSidebar(userId: number, topicId?: number, chatId?: number, sessionToken = ''): Promise<SocialSidebarResponse | null> {
+    const params = new URLSearchParams();
+    if (userId) params.set('userId', userId.toString());
+    if (topicId) params.set('topicId', topicId.toString());
+    if (chatId) params.set('chatId', chatId.toString());
+
+    try {
+      const res = await fetch('/social/sidebar' + (params.size > 0 ? '?' + params.toString() : ''), {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(sessionToken ? { 'Encrypted-UserId': sessionToken } : {}),
+        },
+      });
+      if (!res.ok) throw new Error('Failed to fetch social sidebar');
+      return await res.json() as SocialSidebarResponse;
+    } catch (error) {
+      console.error('Error fetching social sidebar:', error);
+      return null;
+    }
+  }
+
   async getStories(userId?: number, search?: string, topics?: string, profileUserId?: number, storyId?: number, page: number = 1, pageSize: number = 10, showHiddenStories = false, showPostsFromFilter: string = 'all', details: boolean = true, chatId?: number) {
     let params = new URLSearchParams();
     if (search)

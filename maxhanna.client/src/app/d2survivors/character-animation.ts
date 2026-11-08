@@ -229,6 +229,8 @@ export interface CharacterPoseState {
   attackTime: number;
   attackSide: -1 | 1;
   gait: ClassGait;
+  /** True when the hero has no visible weapon and should use a relaxed idle stance. */
+  weaponless?: boolean;
   /** Scales all secondary motion, for reduced-motion users. */
   motionScale?: number;
 }
@@ -555,6 +557,18 @@ function armTarget(side: -1 | 1, az: number, el: number): THREE.Vector3 {
   const a = az * DEG;
   const e = el * DEG;
   return new THREE.Vector3(Math.sin(a) * Math.cos(e) * side, Math.sin(e), Math.cos(a) * Math.cos(e)).normalize();
+}
+
+/**
+ * Empty hands hang close to the body instead of being carried forward as if
+ * gripping a weapon. Keep a little outward clearance so the arms clear the
+ * torso, then add just enough forward drift to avoid a rigid mannequin pose.
+ */
+function relaxedArmTarget(side: -1 | 1, stance: StanceConfig): THREE.Vector3 {
+  const azimuth = Math.max(42, Math.min(58, stance.out + 22));
+  const target = armTarget(side, azimuth, -80);
+  target.z += 2 * DEG;
+  return target.normalize();
 }
 
 function legTarget(forwardDegrees: number, outwardDegrees = 2): THREE.Vector3 {
@@ -1013,6 +1027,7 @@ export function poseCharacterRig(rig: CharacterRig, state: CharacterPoseState): 
   const idlePhase = state.time * gait.idleCadence;
   const idleSway = Math.sin(idlePhase) * idle;
   const stance = stanceForClass(rig.classId);
+  const weaponless = state.weaponless === true;
 
   const attackActive = !!state.attackStyle && state.attackTime < ATTACK_CLIP_INFO[state.attackStyle].duration;
   const clip = state.attackStyle ? ATTACK_CLIPS[state.attackStyle] : undefined;
@@ -1044,6 +1059,17 @@ export function poseCharacterRig(rig: CharacterRig, state: CharacterPoseState): 
     const align = new THREE.Quaternion().setFromUnitVectors(joint.restDir, direction);
     if (twist) align.premultiply(new THREE.Quaternion().setFromAxisAngle(direction, twist));
     const rotation = align.multiply(joint.restQuat.clone());
+    orientations.set(joint, rotation);
+    deltas.set(joint, rotation.clone().multiply(joint.bindQuat.clone().invert()));
+  };
+
+  // Equipped forearms keep the authored grip basis so weapons stay aligned.
+  // Empty hands instead need the bind offset itself aimed along the relaxed
+  // forearm, otherwise the wrist keeps the T-pose sideways offset.
+  const setWorldDirectionFromBind = (joint: RigJoint | undefined, bindDirection: THREE.Vector3, direction: THREE.Vector3): void => {
+    if (!joint) return;
+    const align = new THREE.Quaternion().setFromUnitVectors(bindDirection, direction);
+    const rotation = align.multiply(joint.bindQuat.clone());
     orientations.set(joint, rotation);
     deltas.set(joint, rotation.clone().multiply(joint.bindQuat.clone().invert()));
   };
@@ -1088,10 +1114,14 @@ export function poseCharacterRig(rig: CharacterRig, state: CharacterPoseState): 
     const walkSwing = Math.sin(-sidePhase) * gait.armSwing * walk + idleSway * Math.min(2.6, gait.armSwing * 0.3);
     // The stance arm swings along the sagittal plane, so the shoulder travels
     // forward and back instead of the elbow merely rising.
-    const stanceDir = armTarget(armBone.side, stance.out, stance.elevation);
+    const stanceDir = weaponless
+      ? relaxedArmTarget(armBone.side, stance)
+      : armTarget(armBone.side, stance.out, stance.elevation);
     const swing = new THREE.Quaternion().setFromAxisAngle(lateralAxis, -walkSwing * DEG);
     let dir = stanceDir.applyQuaternion(swing);
-    let elbow = stance.elbow + gait.elbow * walk + idle * 2.4 * Math.sin(idlePhase * 0.8 + 0.4);
+    let elbow = weaponless
+      ? Math.max(5, (stance.elbow + gait.elbow * walk) * 0.42) + idle * 1.1 * Math.sin(idlePhase * 0.8 + 0.4)
+      : stance.elbow + gait.elbow * walk + idle * 2.4 * Math.sin(idlePhase * 0.8 + 0.4);
     let roll = 0;
     if (sampled && strike > 0) {
       const armPose = lead ? sampled.lead : sampled.off;
@@ -1106,7 +1136,13 @@ export function poseCharacterRig(rig: CharacterRig, state: CharacterPoseState): 
     if (forearm) {
       const forearmDir = flex(dir, Math.max(0, elbow));
       forearmDirs.set(armBone.side, forearmDir);
-      setWorldDirection(forearm, forearmDir);
+      if (weaponless) {
+        const hand = rig.hands.find((entry) => entry.side === forearm.side);
+        const bindDir = hand ? directionBetween(forearm.bindPos, hand.bindPos) : forearm.restDir;
+        setWorldDirectionFromBind(forearm, bindDir, forearmDir);
+      } else {
+        setWorldDirection(forearm, forearmDir);
+      }
     }
   }
 
@@ -1127,7 +1163,7 @@ export function poseCharacterRig(rig: CharacterRig, state: CharacterPoseState): 
   for (const hand of rig.hands) {
     const forearmDir = forearmDirs.get(hand.side);
     if (!forearmDir) continue;
-    setWorldDirection(hand, flex(forearmDir, 15), hand.side * 14);
+    setWorldDirection(hand, flex(forearmDir, weaponless ? 4 : 15), hand.side * (weaponless ? 6 : 14));
   }
 
   // ---- legs --------------------------------------------------------------

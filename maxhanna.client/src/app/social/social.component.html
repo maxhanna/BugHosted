@@ -12,6 +12,8 @@
   </app-title-bar>
 
   <div [class]="user ? 'embeddedSocialComponentsContent' : 'socialComponentContents'">
+    <div class="socialLayout" [class.socialLayoutNoSidebar]="!!user">
+      <div class="socialMainColumn">
     <!-- Group Social Header (public chat board) -->
     <div class="groupSocialHeader" *ngIf="chatId">
       <div class="groupSocialTitle">{{ chatRoomIcon || '🌐' }} {{ chatRoomName || ('Group #' + chatId) }}</div>
@@ -330,6 +332,116 @@
     </app-social-post>
     <div class="mainTableDiv emptyPage" *ngIf="!storyResponse && isLoading">
       <app-loading-spinner [fontSize]="'small'" [label]="'Loading...'" [icon]="'💬'"></app-loading-spinner>
+    </div>
+      </div>
+
+      <aside class="socialSidebar" *ngIf="!user" aria-label="Social sidebar">
+        <div class="socialSidebarCard socialSidebarProfileCard">
+          <ng-container *ngIf="parentRef?.user; else sidebarSignedOut">
+            <div class="socialSidebarProfileRow">
+              <div class="socialSidebarLevel" [title]="'Level ' + (socialSidebar?.userStats?.level || 1)">
+                <span class="socialSidebarLevelNumber">{{ socialSidebar?.userStats?.level || 1 }}</span>
+                <span class="socialSidebarLevelCaption">LVL</span>
+              </div>
+              <div class="socialSidebarProfileText">
+                <div class="socialSidebarName">{{ parentRef?.user?.username }}</div>
+                <div class="socialSidebarLevelTitle">{{ socialSidebar?.userStats?.levelTitle || 'Loading…' }}</div>
+              </div>
+            </div>
+
+            <ng-container *ngIf="socialSidebar?.userStats as stats">
+              <div class="socialSidebarProgressLabel">
+                <span *ngIf="stats.nextLevelTitle">{{ stats.postsToNextLevel }} post{{ stats.postsToNextLevel === 1 ? ''
+                  : 's' }} to {{ stats.nextLevelTitle }}</span>
+                <span *ngIf="!stats.nextLevelTitle">Max level reached</span>
+                <span>{{ stats.postCount }} posts</span>
+              </div>
+              <div class="socialSidebarProgress" [title]="stats.levelProgress + '% to the next level'">
+                <div class="socialSidebarProgressFill" [style.width.%]="stats.levelProgress"></div>
+              </div>
+
+              <div class="socialSidebarStatGrid">
+                <div class="socialSidebarStat"
+                  title="Karma: 5 per post + 2 per comment + 1 per reaction received">
+                  <strong>{{ stats.karma }}</strong>
+                  <span>Karma</span>
+                </div>
+                <div class="socialSidebarStat" title="Posts you have created">
+                  <strong>{{ stats.postCount }}</strong>
+                  <span>Posts</span>
+                </div>
+                <div class="socialSidebarStat" title="Comments you have written on posts">
+                  <strong>{{ stats.commentCount }}</strong>
+                  <span>Comments</span>
+                </div>
+                <div class="socialSidebarStat" title="Days since your account was created">
+                  <strong>{{ stats.accountAgeDays }}</strong>
+                  <span>Days old</span>
+                </div>
+              </div>
+
+              <div class="socialSidebarMemberSince">Member for <strong>{{ stats.accountAgeDays }}</strong> days
+                <span *ngIf="stats.created">· joined {{ stats.created | date:'mediumDate' }}</span>
+              </div>
+            </ng-container>
+
+            <div class="socialSidebarMuted" *ngIf="socialSidebarLoading && !socialSidebar?.userStats">Loading
+              your stats…</div>
+            <div class="socialSidebarMuted" *ngIf="!socialSidebarLoading && !socialSidebar?.userStats">Stats
+              unavailable right now.</div>
+          </ng-container>
+          <ng-template #sidebarSignedOut>
+            <div class="socialSidebarName">Your stats</div>
+            <div class="socialSidebarMuted">Sign in to track karma, levels, and your account age.</div>
+          </ng-template>
+          <div class="socialSidebarFootnote">Karma grows with posts, comments, and reactions received.</div>
+        </div>
+
+        <div class="socialSidebarCard">
+          <div class="socialSidebarCardHead">
+            <span class="socialSidebarCardTitle">🔥 Popular threads</span>
+            <span class="socialSidebarCardContext">{{ currentModeratorTopic?.topicText || (chatId ? (chatRoomName ||
+              'this board') : 'all topics') }}</span>
+          </div>
+          <div class="socialSidebarMuted" *ngIf="socialSidebarLoading">Loading…</div>
+          <div class="socialSidebarMuted" *ngIf="!socialSidebarLoading && socialSidebarUnavailable">Couldn’t load the
+            sidebar.</div>
+          <ng-container *ngIf="!socialSidebarLoading && !socialSidebarUnavailable">
+            <ng-container *ngIf="socialSidebar?.popularThreads as threads">
+              <button type="button" class="socialSidebarThread" *ngFor="let thread of threads; let i = index"
+                (click)="openPopularThread(thread)" [title]="'Open post #' + thread.id">
+                <span class="socialSidebarThreadRank">{{ i + 1 }}</span>
+                <span class="socialSidebarThreadContent">
+                  <span class="socialSidebarThreadTitle">{{ popularThreadTitle(thread) }}</span>
+                  <span class="socialSidebarThreadMeta">u/{{ thread.username || 'unknown' }} · 💬 {{ thread.commentCount }}
+                    · ⚡ {{ thread.reactionCount }}</span>
+                </span>
+              </button>
+            </ng-container>
+            <div class="socialSidebarMuted" *ngIf="socialSidebar && !socialSidebar.popularThreads?.length">No popular
+              threads yet.</div>
+          </ng-container>
+        </div>
+
+        <div class="socialSidebarCard">
+          <div class="socialSidebarCardHead">
+            <span class="socialSidebarCardTitle">🛡️ Moderators</span>
+            <span class="socialSidebarCardContext">{{ currentModeratorTopic?.topicText || (chatId ? 'this board' :
+              'general') }}</span>
+          </div>
+          <div class="socialSidebarMuted" *ngIf="!parentRef?.user">Sign in to see the moderator list.</div>
+          <ng-container *ngIf="parentRef?.user">
+            <div class="socialSidebarMuted" *ngIf="topicModeratorsLoading">Loading…</div>
+            <div class="socialSidebarMuted" *ngIf="!topicModeratorsLoading && topicModerators.length === 0">No
+              moderators for this topic yet.</div>
+            <div class="socialSidebarMod" *ngFor="let mod of topicModerators">
+              <app-user-tag [userId]="mod.userId" [inputtedParentRef]="parentRef ?? parent" [displayMiniTag]="true"
+                [displayHoverPicture]="true"></app-user-tag>
+              <span [class]="'modRoleBadge ' + modBadgeClass(mod)">{{ getModRoleBadgeLabel(mod) }}</span>
+            </div>
+          </ng-container>
+        </div>
+      </aside>
     </div>
   </div>
 </div>

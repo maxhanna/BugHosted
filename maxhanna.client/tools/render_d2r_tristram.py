@@ -8,9 +8,9 @@ palette and renders a cropped region of the town for use as the Act 8 backdrop.
 It also writes a 4x4 fallback atlas from the same map's most common floors.
 
 The renderer follows the layer order used by the game's editor: lower walls,
-floors, shadows, upper walls/objects, and roofs.  It intentionally skips the
-DS1 object list (NPCs, chests and interactive objects), because those are
-separate sprites rather than map tiles.
+floors, shadows, upper walls/objects, and roofs.  It also composites the
+DS1 object list's solid props (the gibbet, corpses and other landmarks) from
+their original DCC art; the central fountain is part of the town tile set.
 
 Usage:
     python tools/render_d2r_tristram.py
@@ -20,6 +20,8 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import csv
+import re
 import struct
 import sys
 from dataclasses import dataclass
@@ -27,12 +29,18 @@ from pathlib import Path
 
 from PIL import Image
 
+import d2r_dcc
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 ASSET_ROOT = PROJECT_ROOT / "src" / "assets" / "d2survivors" / "maps"
 TILE_ROOT = ASSET_ROOT / "tiles"
 DEFAULT_SOURCE = Path.home() / "Desktop" / "d2" / "d2r extract" / "data"
 
 DS1_RELATIVE = Path("global/tiles/act1/tristram/tri_town4.ds1")
+OBJECT_PRESET_RELATIVE = Path("global/excel/objpreset.txt")
+OBJECT_TYPE_RELATIVE = Path("global/excel/objtype.txt")
+OBJECT_ART_RELATIVE = Path("global/objects")
+OBJECT_PALETTE_RELATIVE = Path("global/palette/units/pal.dat")
 TILE_WIDTH = 160
 TILE_HEIGHT = 80
 WALL_Y_OFFSET = 96
@@ -81,11 +89,31 @@ class Layer:
 
 
 @dataclass
+class SceneObject:
+    kind: int
+    object_id: int
+    x: int
+    y: int
+    flags: int
+
+
+@dataclass
+class ObjectSprite:
+    column: float
+    row: float
+    x: int
+    y: int
+    image: Image.Image
+
+
+@dataclass
 class Scene:
     width: int
     height: int
     layers: list[Layer]
     tilesets: list[str]
+    act: int = 0
+    objects: tuple[SceneObject, ...] = ()
 
 
 def load_palette(path: Path) -> list[tuple[int, int, int, int]]:
@@ -94,6 +122,17 @@ def load_palette(path: Path) -> list[tuple[int, int, int, int]]:
     if len(data) != 768:
         raise ValueError(f"{path} is not a 256-colour pal.dat")
     return [(data[index + 2], data[index + 1], data[index], 255) for index in range(0, 768, 3)]
+
+
+def load_object_palette(source: Path, fallback: list[tuple[int, int, int, int]]) -> list[tuple[int, int, int]]:
+    """Objects and missiles use the BGR ``units`` palette, not an act palette."""
+    path = source / OBJECT_PALETTE_RELATIVE
+    if path.is_file():
+        try:
+            return [color[:3] for color in load_palette(path)]
+        except ValueError:
+            pass
+    return [color[:3] for color in fallback]
 
 
 def read_dt1(path: Path) -> list[Tile]:
@@ -148,8 +187,7 @@ def read_scene(path: Path) -> Scene:
     version = read_int()
     width = read_int() + 1
     height = read_int() + 1
-    if version >= 8:
-        read_int()
+    act = read_int() if version >= 8 else 0
     tag_type = read_int() if version >= 10 else 0
     tilesets: list[str] = []
     if version >= 3:
@@ -180,10 +218,19 @@ def read_scene(path: Path) -> Scene:
     else:
         raise ValueError("Only version 4+ DS1 presets are supported")
 
+    objects: list[SceneObject] = []
     if version >= 2:
         object_count = struct.unpack_from("<i", data, cursor)[0]
         cursor += 4
-        cursor += object_count * (20 if version >= 6 else 16)
+        for _ in range(object_count):
+            if version >= 6:
+                kind, object_id, x, y, flags = struct.unpack_from("<iiiii", data, cursor)
+                cursor += 20
+            else:
+                kind, object_id, x, y = struct.unpack_from("<iiii", data, cursor)
+                cursor += 16
+                flags = 0
+            objects.append(SceneObject(kind, object_id, x, y, flags))
     if version >= 12 and tag_type in (1, 2):
         if version >= 18:
             cursor += 4
@@ -200,7 +247,119 @@ def read_scene(path: Path) -> Scene:
 
     if cursor != len(data):
         raise ValueError(f"DS1 parse ended at {cursor}, expected {len(data)}")
-    return Scene(width, height, layers, tilesets)
+    return Scene(width, height, layers, tilesets, act, tuple(objects))
+
+
+def read_tsv(path: Path) -> list[dict[str, str]]:
+    with path.open(newline="", encoding="latin-1") as handle:
+        return [dict(row) for row in csv.DictReader(handle, delimiter="\t")]
+
+
+def normalize_object_name(value: str) -> str:
+    return re.sub(r"[^a-z0-9]", "", value.lower())
+
+
+# A few DS1 preset names are not spelled the same way as their ObjType row.
+OBJECT_TYPE_ALIASES = {
+    "roguestakedcorpse1": "roguestaked1",
+    "roguestakedcorpse2": "roguestaked2",
+    "burnedbody1act1": "burningbody",
+    "burningbody2act1": "burningbody2",
+    "explodingcow": "cowa",
+    "wirt": "wirtscorpse",
+}
+
+# These are animated ambient effects rather than solid props.  There are 74 of
+# them in tri_town4 and they wash out the static arena backdrop.
+AMBIENT_EFFECT_CLASSES = {"firesmall", "firemedium", "firelarge"}
+
+
+def load_object_mappings(source: Path) -> tuple[dict[tuple[int, int], str], dict[str, str]]:
+    """Read D2R's per-act object presets and its ObjType token table."""
+    preset_path = source / OBJECT_PRESET_RELATIVE
+    type_path = source / OBJECT_TYPE_RELATIVE
+    if not preset_path.is_file() or not type_path.is_file():
+        raise SystemExit(f"Missing D2R object tables under {source}")
+
+    presets: dict[tuple[int, int], str] = {}
+    for row in read_tsv(preset_path):
+        act = (row.get("Act") or "").strip()
+        index = (row.get("Index") or "").strip()
+        name = (row.get("ObjectClass") or "").strip()
+        if act.isdigit() and index.isdigit() and name:
+            presets[(int(act), int(index))] = normalize_object_name(name)
+
+    tokens: dict[str, str] = {}
+    for row in read_tsv(type_path):
+        name = (row.get("Name") or "").strip()
+        token = (row.get("Token") or "").strip()
+        if name and token:
+            tokens.setdefault(normalize_object_name(name), token)
+    return presets, tokens
+
+
+def load_object_frame(source: Path, token: str) -> tuple[dict, bytearray] | None:
+    """Pick the most readable idle frame of an object's classic DCC."""
+    folder = source / OBJECT_ART_RELATIVE / token.lower() / "tr"
+    files = sorted(folder.glob("*.dcc")) if folder.is_dir() else []
+    if not files:
+        return None
+    path = next((candidate for candidate in files if "nuhth" in candidate.name.lower()), files[0])
+    try:
+        animation = d2r_dcc.parse(path.read_bytes())
+    except Exception:
+        return None
+    if not animation["dirs"]:
+        return None
+    direction = animation["dirs"][0]
+    best: tuple[int, dict, bytearray] | None = None
+    for frame, bitmap in zip(direction["frames"], direction["bitmaps"]):
+        visible = sum(1 for value in bitmap if value)
+        if visible and (best is None or visible > best[0]):
+            best = (visible, frame, bitmap)
+    if best is None:
+        return None
+    return best[1], best[2]
+
+
+def object_screen_position(scene: Scene, obj: SceneObject) -> tuple[int, int]:
+    """Convert a DS1 object's sub-tile position to the rendered map origin."""
+    origin_x = scene.height * TILE_WIDTH // 2
+    origin_y = 512
+    return (origin_x + (obj.x - obj.y) * (TILE_WIDTH // 10),
+            origin_y + (obj.x + obj.y) * (TILE_HEIGHT // 10))
+
+
+def build_object_sprites(scene: Scene, source: Path,
+                         palette: list[tuple[int, int, int]]) -> list[ObjectSprite]:
+    """Render the DS1 object list's resolvable classic props over the map."""
+    presets, tokens = load_object_mappings(source)
+    act = min(max(scene.act, 0), 4) + 1
+    art: dict[str, tuple[dict, Image.Image] | None] = {}
+    sprites: list[ObjectSprite] = []
+    for obj in scene.objects:
+        if obj.kind != 2 or obj.object_id >= 150:
+            continue
+        class_name = presets.get((act, obj.object_id))
+        if not class_name or class_name in AMBIENT_EFFECT_CLASSES:
+            continue
+        token = tokens.get(OBJECT_TYPE_ALIASES.get(class_name, class_name))
+        if not token:
+            continue
+        key = token.lower()
+        if key not in art:
+            loaded = load_object_frame(source, token)
+            art[key] = None if loaded is None else (
+                loaded[0], d2r_dcc.frame_image(loaded[1], loaded[0]["width"], loaded[0]["height"], palette))
+        rendered = art[key]
+        if rendered is None:
+            continue
+        frame, image = rendered
+        anchor_x, anchor_y = object_screen_position(scene, obj)
+        sprites.append(ObjectSprite(obj.x / 5.0, obj.y / 5.0,
+                                    anchor_x + frame["xmin"], anchor_y + frame["ymin"], image))
+    sprites.sort(key=lambda sprite: (sprite.row + sprite.column, sprite.column))
+    return sprites
 
 
 def decode_block(data: bytes, block: Block, palette: list[tuple[int, int, int, int]]) -> Image.Image:
@@ -261,7 +420,8 @@ def cell_key(cell: int, orientation: int) -> tuple[int, int, int]:
 
 
 def render_scene(scene: Scene, catalogue: dict[tuple[int, int, int], Tile],
-                 palette: list[tuple[int, int, int, int]]) -> Image.Image:
+                 palette: list[tuple[int, int, int, int]],
+                 object_sprites: list[ObjectSprite] | None = None) -> Image.Image:
     # Tile (0, 0) sits at (height * 80, WALL_MARGIN).  The extra rows/columns
     # keep negative-x diamonds and tall walls inside the canvas.
     origin_x = scene.height * TILE_WIDTH // 2
@@ -315,7 +475,9 @@ def render_scene(scene: Scene, catalogue: dict[tuple[int, int, int], Tile],
         if layer.kind == "shadow":
             draw_layer(layer)
 
-    walls: list[tuple[int, int, int, int, Tile, int, int]] = []
+    # Painter's order: back rows first, then left to right.  Props share the
+    # wall pass so one behind a building is hidden by its walls.
+    stack: list[tuple[float, float, int, Tile | ObjectSprite, int, int]] = []
     for layer_index, layer in enumerate(scene.layers):
         if layer.kind != "wall":
             continue
@@ -329,14 +491,18 @@ def render_scene(scene: Scene, catalogue: dict[tuple[int, int, int], Tile],
             if not tile or not tile.blocks:
                 continue
             x, y = tile_origins[index]
-            # Painter's order: back rows first, then left to right.  The layer
-            # index breaks ties so a later overlay is drawn over its base tile.
             row = index // scene.width
             column = index % scene.width
-            walls.append((row + column, column, layer_index, index, tile, x, y))
-    walls.sort(key=lambda entry: entry[:3])
-    for _, _, _, _, tile, x, y in walls:
-        draw_tile(image, tile, x, y, palette)
+            stack.append((float(row + column), float(column), layer_index, tile, x, y))
+    for sprite in object_sprites or ():
+        stack.append((sprite.row + sprite.column, sprite.column, 1000,
+                      sprite, sprite.x, sprite.y))
+    stack.sort(key=lambda entry: entry[:3])
+    for _, _, _, item, x, y in stack:
+        if isinstance(item, Tile):
+            draw_tile(image, item, x, y, palette)
+        else:
+            image.alpha_composite(item.image, (x, y))
 
     for layer in scene.layers:
         if layer.kind != "wall":
@@ -430,7 +596,10 @@ def main(argv: list[str]) -> int:
     scene = read_scene(args.source / DS1_RELATIVE)
     catalogue = build_catalogue(scene, args.source)
     palette = load_palette(args.source / "global" / "palette" / "act1" / "pal.dat")
-    rendered = render_scene(scene, catalogue, palette)
+    object_palette = load_object_palette(args.source, palette)
+    object_sprites = build_object_sprites(scene, args.source, object_palette)
+    rendered = render_scene(scene, catalogue, palette, object_sprites)
+    print(f"object sprites {len(object_sprites)}")
     if args.preview:
         args.preview.parent.mkdir(parents=True, exist_ok=True)
         rendered.save(args.preview, optimize=True)

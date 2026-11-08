@@ -22,8 +22,12 @@ import { ChildComponent } from "../child.component";
 import { D2_CLASS_SKILL_TREES, D2SkillDefinition, D2SkillVisual, getAvailableClassSkills, getClassSkills, getD2SkillVisual, isPassiveSkill } from "./d2survivors-skill-tree.data";
 import { PALADIN_AURA_ART } from "./d2-paladin-auras.generated";
 import { ARMOR_AURA_ART } from "./d2-armor-auras.generated";
+import { BONE_ARMOR_ART } from "./d2-bone-armor.generated";
+import { BONE_WALL_ART } from "./d2-bone-wall.generated";
 import { FROST_NOVA_ART } from "./d2-frost-nova.generated";
 import { INFERNO_ART } from "./d2-inferno.generated";
+import { POISON_CLOUD_ART } from "./d2-poison-cloud.generated";
+import { getHelmetVisualForItem } from "./d2-helmet-visuals.generated";
 import { ASSASSIN_AURA_ART } from "./d2-assassin-auras.generated";
 import { DRUID_SPIRIT_AURA_ART } from "./d2-druid-auras.generated";
 import { D2_COMBAT_EFFECT_ART } from "./d2-combat-effects.generated";
@@ -59,18 +63,18 @@ import {
   poseCharacterRig,
 } from "./character-animation";
 
-// Wands and orbs can carry a class staffmod: one specific skill, a whole skill
-// tree, or the class's entire skill list. Keeping the tree map next to the
-// class data means a renamed or added skill cannot silently lose its bonus.
-type StaffmodClassId = "necromancer" | "sorceress";
+// Wands, orbs and druid pelts can carry a class staffmod: one specific skill, a
+// whole skill tree, or the class's entire skill list. Keeping the tree map next
+// to the class data means a renamed or added skill cannot silently lose its bonus.
+type StaffmodClassId = "necromancer" | "sorceress" | "druid";
 interface ClassStaffmodConfig {
   classId: StaffmodClassId;
   classLabel: string;
   treeByName: Map<string, string>;
   treeNames: string[];
-  skillLevelsKey: "necromancerSkillLevels" | "sorceressSkillLevels";
-  treeSkillLevelsKey: "necromancerTreeSkillLevels" | "sorceressTreeSkillLevels";
-  classSkillLevelKey: "necromancerClassSkillLevel" | "sorceressClassSkillLevel";
+  skillLevelsKey: "necromancerSkillLevels" | "sorceressSkillLevels" | "druidSkillLevels";
+  treeSkillLevelsKey: "necromancerTreeSkillLevels" | "sorceressTreeSkillLevels" | "druidTreeSkillLevels";
+  classSkillLevelKey: "necromancerClassSkillLevel" | "sorceressClassSkillLevel" | "druidClassSkillLevel";
 }
 function staffmodTreeByName(classId: StaffmodClassId): Map<string, string> {
   return new Map(
@@ -104,6 +108,15 @@ const STAFFMOD_CONFIGS: Record<StaffmodClassId, ClassStaffmodConfig> = {
     treeSkillLevelsKey: "sorceressTreeSkillLevels",
     classSkillLevelKey: "sorceressClassSkillLevel",
   },
+  druid: {
+    classId: "druid",
+    classLabel: "Druid",
+    treeByName: staffmodTreeByName("druid"),
+    treeNames: staffmodTreeNames("druid"),
+    skillLevelsKey: "druidSkillLevels",
+    treeSkillLevelsKey: "druidTreeSkillLevels",
+    classSkillLevelKey: "druidClassSkillLevel",
+  },
 };
 
 const MODEL_BASE = "assets/d2survivors/models";
@@ -125,6 +138,10 @@ const ACT5_BAAL_WAVE_END_SECONDS = 180;
 // gets a much harder stat block than the campaign fight and the Tristram primes.
 const MATRONS_DEN_ANDARIEL_HEALTH_MULTIPLIER = 3;
 const MATRONS_DEN_ANDARIEL_DAMAGE_MULTIPLIER = 2;
+// Uber Tristram is the run's last stand, so every monster in it carries extra
+// health and damage on top of the level-83 Uber scaling.
+const UBER_TRISTRAM_HEALTH_MULTIPLIER = 3;
+const UBER_TRISTRAM_DAMAGE_MULTIPLIER = 2;
 interface MiniBossSchedule {
   species: EnemySpecies;
   /** Act-clock second the super unique arrives, ahead of the act boss. */
@@ -202,6 +219,24 @@ const INFERNO_TICK_INTERVAL = 0.1;
 const INFERNO_RANGE = 300;
 const INFERNO_HALF_ANGLE = Math.PI / 12;
 const INFERNO_COLOR = "#ff9c50";
+// Assassin wake traps sit on the floor and only fire while monsters are in
+// range. Five may stand at once, and every trap type counts toward that cap.
+const TRAP_LIMIT = 5;
+const WAKE_OF_FIRE_FIREBALLS = 5;
+const WAKE_OF_FIRE_FAN_STEP = 0.1;
+const WAKE_OF_FIRE_RANGE = 340;
+const WAKE_OF_FIRE_PROJECTILE_SPEED = 320;
+// Wake of Inferno pours a two-second cone per shot. The cone is anchored to the
+// sentry, not the hero, and burns everything standing inside it.
+const WAKE_OF_INFERNO_DURATION = 2;
+const WAKE_OF_INFERNO_TICK_INTERVAL = 0.1;
+const WAKE_OF_INFERNO_RANGE = 300;
+const WAKE_OF_INFERNO_HALF_ANGLE = Math.PI / 9;
+const WAKE_OF_INFERNO_FLAME_DAMAGE = 35;
+const WAKE_OF_INFERNO_FLAME_DAMAGE_PER_RANK = 8;
+// Authentic D2 art used by the planted traps: the sentry spikes on the floor
+// and the ground-fire cels the wake skills leave behind.
+const TRAP_OVERLAY_IDS = ["d2-firespikesground", "d2-groundfiresmall"] as const;
 // Blaze is a timed movement buff: every step drops an independent patch of
 // ground fire, and each patch keeps burning for five seconds after it lands.
 const BLAZE_BASE_DURATION = 5;
@@ -213,6 +248,19 @@ const BLAZE_FIRE_RADIUS = 30;
 const BLAZE_FIRE_TICK_INTERVAL = 0.5;
 const BLAZE_FIRE_PATCH_LIMIT = 96;
 const BLAZE_FIRE_COLOR = "#ff7a28";
+// Poison Explosion is a melee strike that leaves a cloud of gas where it lands.
+// Everything standing in the cloud keeps taking poison damage, and each rank
+// widens the cloud and strengthens its ticks.
+const POISON_CLOUD_BASE_RADIUS = 58;
+const POISON_CLOUD_RADIUS_PER_RANK = 6;
+const POISON_CLOUD_DURATION = 3.6;
+const POISON_CLOUD_TICK_INTERVAL = 0.45;
+const POISON_CLOUD_LIMIT = 16;
+const POISON_CLOUD_COLOR = "#9bdb56";
+// Each tick is a fraction of the melee hit, so the cloud grows with both the
+// strike's damage and the skill's rank.
+const POISON_CLOUD_DAMAGE_FRACTION = 0.18;
+const POISON_CLOUD_DAMAGE_FRACTION_PER_RANK = 0.025;
 // Fire Wall is a persistent ground hazard: a line of flame in front of the
 // sorceress that damages monsters walking through, touching, or standing in it.
 const FIRE_WALL_DURATION = 4;
@@ -244,6 +292,12 @@ const LEAP_BASE_STUN_SECONDS = 1.2;
 const LEAP_STUN_SECONDS_PER_RANK = 0.06;
 const LEAP_FRONT_DOT = 0.15;
 const LEAP_ARC_HEIGHT = 58;
+// Howl is crowd control rather than damage: every monster in the radius drops
+// what it is doing and runs from the barbarian. The fear lasts longer per rank.
+const HOWL_RADIUS = 205;
+const HOWL_BASE_FEAR_SECONDS = 2.4;
+const HOWL_FEAR_SECONDS_PER_RANK = 0.2;
+const HOWL_MAX_FEAR_SECONDS = 6;
 // Telekinesis is a utility cast: it extends ground pickup reach and briefly
 // stuns the nearest enemy. The stun is a setup tool, not a second control build.
 const TELEKINESIS_STUN_SECONDS = 1.2;
@@ -286,9 +340,9 @@ const LOOT_ART_CACHE_VERSION = 2;
 const PORTAL_ART_CACHE_VERSION = 1;
 // 15-frame D2 portal loop at roughly 11 fps.
 const PORTAL_FRAME_SECONDS = 0.09;
-// D2R HD art is 109x159; this keeps the doorway about 107 CSS pixels tall at
+// D2R HD art is 109x159; this keeps the doorway about 214 CSS pixels tall at
 // the arena's fixed 2.1 world zoom.
-const PORTAL_ART_WORLD_SCALE = 0.32;
+const PORTAL_ART_WORLD_SCALE = 0.64;
 // Above these counts the per-projectile flourishes (ghost cels, glow pass) are
 // dropped so a screen full of missiles stays smooth instead of doubling work.
 const MISSILE_TRAIL_CEL_LIMIT = 140;
@@ -819,6 +873,18 @@ const CLAY_BOULDER_PALETTE: readonly (readonly [number, number, number, number])
   [0.86, 196, 143, 101],
   [1.00, 222, 180, 138],
 ];
+// Molten Boulder rolls a fixed line and shoves monsters rather than tracking a
+// single target. The front corridor is bulldozed for the whole roll, flank
+// touches are knocked aside once, and the rock bursts where the roll ends.
+const BOULDER_COUNT = 2;
+const BOULDER_RADIUS = 24;
+const BOULDER_SPEED = 300;
+const BOULDER_MIN_RANGE = 380;
+const BOULDER_MAX_RANGE = 760;
+const BOULDER_LINE_SPREAD = 0.07;
+const BOULDER_SIDE_KNOCKBACK = 56;
+const BOULDER_EXPLOSION_RADIUS = 88;
+const BOULDER_EXPLOSION_DURATION = 0.55;
 const MISSILE_SPRITE_ORIENTATIONS: Record<string, number> = {
   // Bolt and flame-column cels are authored pointing up the screen.
   "43": Math.PI / 2,
@@ -938,10 +1004,14 @@ const ENEMY_SPRITE_PATHS: Record<EnemySpecies, string> = {
   // enemy species uses the eight-direction skeleton atlas rather than the old
   // single-direction archer strip.
   skeleton: "assets/d2survivors/enemies/animated/skeleton-warrior.png",
-  // Necromancer summons share that melee skeleton atlas and the hulking golem
-  // body. The skeleton is rebuilt from the D2R SK COF composite by
-  // tools/import_d2r_enemy_atlases.py; the golem keeps its existing summon atlas.
+  // Raise Skeleton uses the melee SK composite built by
+  // tools/import_d2r_enemy_atlases.py. Skeletal Mages have their own four
+  // elemental atlases because their s4/s5 spell layers carry the palette.
   skeletonWarrior: "assets/d2survivors/enemies/animated/skeleton-warrior.png",
+  skeletalMageCold: "assets/d2survivors/enemies/animated/skeletal-mage-cold.png",
+  skeletalMageFire: "assets/d2survivors/enemies/animated/skeletal-mage-fire.png",
+  skeletalMageLightning: "assets/d2survivors/enemies/animated/skeletal-mage-lightning.png",
+  skeletalMagePoison: "assets/d2survivors/enemies/animated/skeletal-mage-poison.png",
   golem: "assets/d2survivors/enemies/animated/golem.png",
   sandRaider: "assets/d2survivors/enemies/animated/raider.png",
   sandMaggot: "assets/d2survivors/enemies/animated/maggot.png",
@@ -981,9 +1051,9 @@ const ENEMY_SPRITE_PATHS: Record<EnemySpecies, string> = {
   // Versioned: rebuilt with the palette channels in their real order, which
   // restores Andariel's red hair and gold skin instead of the old blue sheet.
   andariel: "assets/d2survivors/enemies/animated/andariel.png?v=2",
-  // Versioned: the clean six-frame, eight-direction sheet replaces the recent
-  // 25-column import, which had blank columns and blue fragmentary frames.
-  duriel: "assets/d2survivors/enemies/animated/duriel.png?v=2",
+  // Versioned: rebuilt from Duriel's layered DU walk/attack COFs. The old
+  // six-frame sheet was a different creature, not the Act II boss.
+  duriel: "assets/d2survivors/enemies/animated/duriel.png?v=3",
   mephisto: "assets/d2survivors/enemies/animated/mephisto.png",
   diablo: "assets/d2survivors/enemies/animated/diablo.png",
   baalsMinion: "assets/d2survivors/enemies/animated/baals-minion.png?v=2",
@@ -1004,7 +1074,10 @@ const ENEMY_SPRITE_LAYOUTS: Record<EnemySpecies, { columns: number; rows: number
   fallen: { columns: 13, rows: 1, animated: true }, goatman: { columns: 14, rows: 16, animated: true },
   // 8 walk rows above 8 attack rows for the skeleton and golem atlases.
   skeleton: { columns: 16, rows: 16, animated: true },
-  skeletonWarrior: { columns: 16, rows: 16, animated: true }, golem: { columns: 16, rows: 16, animated: true },
+  skeletonWarrior: { columns: 16, rows: 16, animated: true },
+  skeletalMageCold: { columns: 16, rows: 16, animated: true }, skeletalMageFire: { columns: 16, rows: 16, animated: true },
+  skeletalMageLightning: { columns: 16, rows: 16, animated: true }, skeletalMagePoison: { columns: 16, rows: 16, animated: true },
+  golem: { columns: 16, rows: 16, animated: true },
   // 8 walk rows above 8 attack rows.
   sandRaider: { columns: 21, rows: 16, animated: true },
   sandMaggot: { columns: 18, rows: 16, animated: true },
@@ -1034,7 +1107,7 @@ const ENEMY_SPRITE_LAYOUTS: Record<EnemySpecies, { columns: number; rows: number
   // 8 walk rows above 8 attack rows: 16 and 14 frames per direction.
   salamander: { columns: 16, rows: 16, animated: true }, siegeBeast: { columns: 18, rows: 16, animated: true },
   deathMauler: { columns: 12, rows: 8, animated: true }, wendigo: { columns: 12, rows: 8, animated: true },
-  andariel: { columns: 12, rows: 8, animated: true }, duriel: { columns: 6, rows: 8, animated: true },
+  andariel: { columns: 12, rows: 8, animated: true }, duriel: { columns: 16, rows: 16, animated: true },
   mephisto: { columns: 18, rows: 24, animated: true },
   diablo: { columns: 14, rows: 8, animated: true },
   // 8 idle rows, 8 walk rows, 8 attack rows; 12 frames per direction.
@@ -1074,7 +1147,10 @@ const CYCLONE_ARMOR_AURA = {
 };
 const ENEMY_SPRITE_CELLS: Record<EnemySpecies, { width: number; height: number }> = {
   fallen: { width: 91, height: 75 }, goatman: { width: 170, height: 180 }, skeleton: { width: 123, height: 105 },
-  skeletonWarrior: { width: 123, height: 105 }, golem: { width: 91, height: 102 },
+  skeletonWarrior: { width: 123, height: 105 },
+  skeletalMageCold: { width: 158, height: 109 }, skeletalMageFire: { width: 158, height: 109 },
+  skeletalMageLightning: { width: 158, height: 109 }, skeletalMagePoison: { width: 158, height: 109 },
+  golem: { width: 91, height: 102 },
   sandRaider: { width: 114, height: 180 }, sandMaggot: { width: 172, height: 180 }, scarab: { width: 224, height: 180 }, leaper: { width: 120, height: 120 },
   sandMaggotQueen: { width: 172, height: 180 },
   spiderDemon: { width: 160, height: 128 },
@@ -1086,7 +1162,7 @@ const ENEMY_SPRITE_CELLS: Record<EnemySpecies, { width: number; height: number }
   bloodLord: { width: 64, height: 64 }, minotaur: { width: 128, height: 128 }, deathMauler: { width: 112, height: 100 },
   blunderbore: { width: 85, height: 117 }, nihlathak: { width: 128, height: 128 },
   painWorm: { width: 120, height: 120 }, regurgitator: { width: 128, height: 128 }, salamander: { width: 128, height: 128 }, siegeBeast: { width: 144, height: 144 },
-  wendigo: { width: 161, height: 100 }, andariel: { width: 240, height: 260 }, duriel: { width: 118, height: 182 },
+  wendigo: { width: 161, height: 100 }, andariel: { width: 240, height: 260 }, duriel: { width: 256, height: 240 },
   mephisto: { width: 307, height: 309 }, diablo: { width: 192, height: 182 }, baalsMinion: { width: 115, height: 100 },
   baal: { width: 230, height: 220 },
   wolf: { width: 96, height: 80 }, grizzly: { width: 128, height: 104 },
@@ -1110,7 +1186,7 @@ const ENEMY_SPECIES_BY_KIND: Record<EnemyKind, EnemySpecies[]> = {
  */
 const SUMMON_SPECIES: Record<string, EnemySpecies> = {
   "Raise Skeleton": "skeletonWarrior",
-  "Skeletal Mage": "skeletonWarrior",
+  "Skeletal Mage": "skeletalMageCold",
   Revive: "goatman",
   "Clay Golem": "golem",
   "Blood Golem": "bloodGolem",
@@ -1239,7 +1315,30 @@ const SUMMON_STATS: Record<string, { health: number; damage: number; speed: numb
   "Shadow Master": { health: 280, damage: 26, speed: 175, r: 16 },
 };
 
-type SummonDamageType = "physical" | "poison" | "fire";
+type SkeletalMageElement = "cold" | "fire" | "lightning" | "poison";
+const SKELETAL_MAGE_ELEMENTS: SkeletalMageElement[] = ["cold", "fire", "lightning", "poison"];
+
+interface SkeletalMageLook {
+  species: EnemySpecies;
+  label: string;
+  tint: string;
+  color: string;
+  glow: string;
+}
+
+/**
+ * The four imported mage composites use the same skeleton body but different
+ * s4/s5 spell layers. Keep their label, tint and damage colour together so the
+ * summon, its health bar and its projectile always agree on the element.
+ */
+const SKELETAL_MAGE_LOOKS: Record<SkeletalMageElement, SkeletalMageLook> = {
+  cold: { species: "skeletalMageCold", label: "Cold Mage", tint: "brightness(1.08) contrast(1.06)", color: "#8fd8ff", glow: "rgba(125, 205, 255, 0.9)" },
+  fire: { species: "skeletalMageFire", label: "Fire Mage", tint: "brightness(1.08) contrast(1.06)", color: "#ff8a32", glow: "rgba(255, 104, 34, 0.85)" },
+  lightning: { species: "skeletalMageLightning", label: "Lightning Mage", tint: "brightness(1.12) contrast(1.08)", color: "#fff27a", glow: "rgba(255, 238, 128, 0.9)" },
+  poison: { species: "skeletalMagePoison", label: "Poison Mage", tint: "brightness(1.06) contrast(1.05)", color: "#9bdb56", glow: "rgba(130, 220, 72, 0.85)" },
+};
+
+type SummonDamageType = "physical" | "poison" | "fire" | "cold" | "lightning";
 
 /** Vines that sting with an element instead of plain physical damage. */
 const SUMMON_DAMAGE_TYPES: Partial<Record<string, SummonDamageType>> = {
@@ -1428,6 +1527,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private readonly meleeTrailEffects: MeleeTrailEffect[] = [];
   private readonly leapDustEffects: LeapDustEffect[] = [];
   private readonly summonAttackEffects: SummonAttackEffect[] = [];
+  private skeletalMageElementIndex = 0;
   private readonly creeperTrailMarks: CreeperTrailMark[] = [];
   private readonly skillVisualEffects: SkillVisualEffect[] = [];
   private readonly activePaladinAuras: Record<string, { remaining: number; tick: number }> = {};
@@ -1438,6 +1538,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private blazeDropRemaining = 0;
   private blazeDamagePerTick = 0;
   private readonly blazeFirePatches: BlazeFirePatch[] = [];
+  private readonly poisonClouds: PoisonCloud[] = [];
   private loadedModelClass = "";
   private readonly enemySprites: Partial<Record<EnemySpecies, EnemySprite>> = {};
   private readonly animatedSkeletonSprite = new Image();
@@ -1452,6 +1553,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private frostNovaSheetRequested = false;
   private readonly infernoSheet = new Image();
   private infernoSheetRequested = false;
+  private readonly poisonCloudSheet = new Image();
+  private poisonCloudSheetRequested = false;
+  private readonly boneArmorSheet = new Image();
+  private boneArmorSheetRequested = false;
+  private readonly boneWallSheet = new Image();
+  private boneWallSheetRequested = false;
   private readonly druidAnimations: Partial<Record<DruidAnimationName, DruidAnimation>> = {};
   private animatedSkeletonFrames: HTMLCanvasElement[] = [];
   private druidForm: DruidForm | null = null;
@@ -1494,6 +1601,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   campaignVictory = false;
   actBossSpawned = false;
   miniBossSpawned = false;
+  private uberTristramStatsScaled = false;
   modelLoadError = false;
   @ViewChild("classPreviewCanvas") private classPreviewCanvasRef?: ElementRef<HTMLCanvasElement>;
   @ViewChild("menuHeroCanvas") private menuHeroCanvasRef?: ElementRef<HTMLCanvasElement>;
@@ -1731,7 +1839,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       name: "Fire Golem",
       desc: "a golem of fire, 600 life, 30 damage, with a Holy Fire aura that burns everything near it",
     },
-    { name: "Bone Armor", desc: "bones orbit the Necromancer for a limited time, absorbing damage up to their remaining strength; rank increases duration and absorption, with a 12-second recast delay" },
+    { name: "Bone Armor", desc: "a shield of bones wraps the Necromancer for a limited time, absorbing damage up to its remaining strength; rank increases duration and absorption, with a 12-second recast delay" },
     { name: "Bone Wall", desc: "Raises bone barricades that block advancing enemies and absorb incoming attacks; each rank adds one simultaneous wall and increases their health and length" },
     { name: "Lower Resist", desc: "+10% poison damage" },
     {
@@ -1748,11 +1856,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     },
     {
       name: "Wake of Fire",
-      desc: "a trap sends out 5 waves of fire, 30 damage to all they pass",
+      desc: "a trap fans 5 fireballs at nearby monsters, 30 damage each; 5 traps may stand at once",
     },
     {
       name: "Wake of Inferno",
-      desc: "a trap breathes fire at monsters 10 times, 5 flames of 35 damage",
+      desc: "a trap pours a 2-second cone of fire, burning every monster caught in it with 5 flames of 35 damage",
     },
     {
       name: "Lightning Sentry",
@@ -1940,7 +2048,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     },
     {
       name: "Molten Boulder",
-      desc: "2 molten boulders roll through all in their path, 95 damage, knockback, leaving fire",
+      desc: "2 molten boulders roll through the pack, shoving monsters aside and bursting for 95 damage where they stop",
     },
     {
       name: "Volcano",
@@ -2269,6 +2377,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   get actSecondsRemaining(): number {
     const bossArrivalTime = this.currentAct === 5 ? ACT5_BAAL_WAVE_END_SECONDS : ACT_BOSS_TIME_SECONDS;
     return Math.max(0, bossArrivalTime - this.actTime);
+  }
+
+  /** Act V's wave clock stops at zero while Baal waits on the last minions. */
+  get actMinionClearPrompt(): string {
+    return this.currentAct === 5 && !this.actBossSpawned && this.actSecondsRemaining <= 0
+      ? "Clear the remaining minions"
+      : "";
   }
 
   private loadCampaignMaps(): void {
@@ -2997,6 +3112,20 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           };
         })
       : [];
+    // Saves written before Uber Tristram's monsters were buffed stored them at
+    // the old stats, so scale those once; the save marker keeps later loads
+    // from stacking the multiplier again.
+    if (this.currentActDetails.uber && this.currentAct === 8) {
+      if (saved.uberTristramStatsScaled !== true) {
+        for (const enemy of this.enemies) {
+          if (enemy.summonType) continue;
+          enemy.maxHp = Math.round(enemy.maxHp * UBER_TRISTRAM_HEALTH_MULTIPLIER);
+          enemy.hp = Math.round(enemy.hp * UBER_TRISTRAM_HEALTH_MULTIPLIER);
+          enemy.dmg *= UBER_TRISTRAM_DAMAGE_MULTIPLIER;
+        }
+      }
+      this.uberTristramStatsScaled = true;
+    }
     const actMiniBoss = MINI_BOSSES[this.currentAct];
     // Older saves only recorded Act V's super unique, so keep reading that flag.
     this.miniBossSpawned = saved.miniBossSpawned === true || saved.nihlathakSpawned === true
@@ -3176,6 +3305,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         actTime: this.actTime,
         actBossSpawned: this.actBossSpawned,
         miniBossSpawned: this.miniBossSpawned,
+        uberTristramStatsScaled: this.uberTristramStatsScaled,
         currentAreaIndex: this.currentAreaIndex,
         campaignBossKills: this.campaignBossKills,
         actTransitionReady: this.actTransitionReady,
@@ -3919,6 +4049,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         model.rotation.y = this.menuHeroRotation;
         this.menuHeroRig = buildCharacterRig(model, modelClass);
         this.attachBarbarianShoulderPads(model, modelClass, this.menuHeroRig);
+        this.configureEquippedHelmet(model, modelClass);
         this.menuHeroModel = model;
         this.menuHeroScene?.add(model);
       } catch (error: unknown) {
@@ -3951,6 +4082,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           attackTime: Number.POSITIVE_INFINITY,
           attackSide: -1,
           gait: gaitForClass(this.selectedClass),
+          weaponless: !this.modelHasVisibleWeapon(this.menuHeroModel),
           motionScale: this.reducedMotion ? 0 : 1,
         });
       }
@@ -4108,6 +4240,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   @HostListener("window:resize")
   private resizeClassPreview(): void {
+    if (this.itemPreviewItem) this.scheduleItemPreviewLayout();
     const canvas = this.classPreviewCanvasRef?.nativeElement;
     if (!canvas || !this.previewRenderer || !this.previewCamera) {
       return;
@@ -4161,6 +4294,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         this.normalizeCharacterModel(model, 88, modelClass === "amazon");
         this.previewRig = buildCharacterRig(model, modelClass);
         this.attachBarbarianShoulderPads(model, modelClass, this.previewRig);
+        this.configureEquippedHelmet(model, modelClass);
         this.previewAmazonPike = modelClass === "amazon"
           ? model.getObjectByName("pikeShape_0") ?? undefined
           : undefined;
@@ -4219,6 +4353,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         attackTime: this.previewAttackTime,
         attackSide: this.previewAttackSide,
         gait,
+        weaponless: !this.modelHasVisibleWeapon(this.previewModel),
         motionScale: this.reducedMotion ? 0.45 : 1,
       });
       this.previewAttackTime += dt;
@@ -4817,7 +4952,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       { name: "Pilum", slot: "weapon", stats: { damageMin: 5, damageMax: 11 }, desc: "A weighted javelin designed to pierce shields." },
       { name: "Harpoon", slot: "weapon", stats: { damageMin: 6, damageMax: 12 }, desc: "A barbed javelin that tears deep on impact." },
       { name: "Barbarian Battle Axe", slot: "weapon", restrictedClass: "barbarian", stats: { damageMin: 7, damageMax: 15 }, desc: "A Barbarian-only battle axe with a brutal edge." },
-      { name: "Barbarian Great Sword", slot: "weapon", restrictedClass: "barbarian", stats: { damageMin: 8, damageMax: 17 }, desc: "A Barbarian-only great sword built for sweeping strikes." },
+      { name: "Great Sword", slot: "weapon", stats: { damageMin: 8, damageMax: 17 }, desc: "A massive great sword that any class can wield." },
       ...["Wand", "Yew Wand", "Bone Wand", "Grim Wand"].map((name) => ({
         name, slot: "weapon" as const, equipmentType: "wand" as const,
         stats: { damageMin: 2, damageMax: 5 }, desc: "A wand for spellcasting; any class can wield it.",
@@ -4928,7 +5063,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     // Staffmods are magic/rare class-weapon affixes. Their rank cap follows the
     // current area level, so +3 only appears in the late-game areas.
     const staffmodConfig = base.equipmentType === "wand" ? STAFFMOD_CONFIGS.necromancer
-      : base.equipmentType === "orb" ? STAFFMOD_CONFIGS.sorceress : undefined;
+      : base.equipmentType === "orb" ? STAFFMOD_CONFIGS.sorceress
+        : base.equipmentType === "druidPelt" ? STAFFMOD_CONFIGS.druid : undefined;
     if (staffmodConfig && (rarity === "magic" || rarity === "rare")) {
       const staffmod = this.rollClassSkillAffix(staffmodConfig, itemLevel);
       if (staffmod) {
@@ -4966,6 +5102,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     return this.rollClassSkillAffix(STAFFMOD_CONFIGS.sorceress, itemLevel);
   }
 
+  private rollDruidPeltSkillAffix(itemLevel: number): { stats: D2ItemStats; affix: string } {
+    return this.rollClassSkillAffix(STAFFMOD_CONFIGS.druid, itemLevel);
+  }
+
   private rollClassSkillAffix(config: ClassStaffmodConfig, itemLevel: number): { stats: D2ItemStats; affix: string } {
     const level = Math.max(1, Math.floor(Number.isFinite(itemLevel) ? itemLevel : 1));
     const maxRank = level >= 43 ? 3 : level >= 24 ? 2 : 1;
@@ -4976,7 +5116,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const rank = 1 + Math.floor(Math.random() * maxRank);
       const stats: D2ItemStats = config.classId === "necromancer"
         ? { necromancerSkillLevels: { [skill.name]: rank } }
-        : { sorceressSkillLevels: { [skill.name]: rank } };
+        : config.classId === "sorceress"
+          ? { sorceressSkillLevels: { [skill.name]: rank } }
+          : { druidSkillLevels: { [skill.name]: rank } };
       return { stats, affix: `+${rank} to ${skill.name}` };
     }
     if (roll < 0.85) {
@@ -4984,13 +5126,17 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const rank = 1 + Math.floor(Math.random() * maxRank);
       const stats: D2ItemStats = config.classId === "necromancer"
         ? { necromancerTreeSkillLevels: { [tree]: rank } }
-        : { sorceressTreeSkillLevels: { [tree]: rank } };
+        : config.classId === "sorceress"
+          ? { sorceressTreeSkillLevels: { [tree]: rank } }
+          : { druidTreeSkillLevels: { [tree]: rank } };
       return { stats, affix: `+${rank} to ${staffmodTreeLabel(tree)}` };
     }
     const rank = 1 + Math.floor(Math.random() * Math.min(2, maxRank));
     const stats: D2ItemStats = config.classId === "necromancer"
       ? { necromancerClassSkillLevel: rank }
-      : { sorceressClassSkillLevel: rank };
+      : config.classId === "sorceress"
+        ? { sorceressClassSkillLevel: rank }
+        : { druidClassSkillLevel: rank };
     return { stats, affix: `+${rank} to ${config.classLabel} Skill Levels` };
   }
 
@@ -5338,7 +5484,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         this.closeSkillTree();
       } else if (this.inventoryOpen) {
         this.inventoryOpen = false;
-        this.escapeMenuOpen = true;
       } else {
         this.escapeMenuOpen = !this.escapeMenuOpen;
       }
@@ -5609,7 +5754,16 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       return [
         `Leap range: ${this.leapRangeForRank(rank)} units`,
         `Landing stun: ${this.leapStunSecondsForRank(rank).toFixed(1)}s in a ${this.leapStunRadiusForRank(rank)}-unit radius`,
+        "Invulnerable while airborne",
         "Targets an enemy ahead when one is in range; otherwise the cast is cancelled.",
+      ];
+    }
+
+    if (this.selectedClass === "barbarian" && name === "Howl") {
+      return [
+        `Fear duration: ${this.howlFearSecondsForRank(rank).toFixed(1)}s`,
+        `Fears every enemy within ${HOWL_RADIUS} units`,
+        "Feared enemies flee from the barbarian and cannot attack.",
       ];
     }
 
@@ -5674,6 +5828,17 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
     if (name === "Corpse Explosion" && this.selectedClass === "necromancer") {
       return [`Blast radius: ${this.corpseExplosionRadiusForRank(rank)} units`, "Blast damage: 35% of the struck target's maximum life to nearby enemies", "Each rank increases the blast radius only"];
+    }
+
+    if (name === "Poison Explosion" && this.selectedClass === "necromancer") {
+      const radius = this.poisonCloudRadiusForRank(rank);
+      const hitDamage = this.basicAttackDamage * 1.5 + (rank - 1) * 3;
+      const tickDamage = hitDamage * this.poisonCloudDamageFractionForRank(rank);
+      return [
+        `Melee strike: the hit leaves a ${radius}-unit poison cloud`,
+        `Cloud poison damage: ${tickDamage.toFixed(1)} per tick for ${POISON_CLOUD_DURATION.toFixed(1)}s`,
+        `Each rank adds ${POISON_CLOUD_RADIUS_PER_RANK} cloud radius and stronger poison`,
+      ];
     }
 
     if (name === "Static Field" && this.selectedClass === "sorceress") {
@@ -5744,10 +5909,16 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const health = Math.round(baseHealth * (1 + (rank - 1) * 0.18 + masteryBonus));
     const damage = Math.round(baseDamage * (1 + (rank - 1) * 0.12 + masteryDamageBonus));
     const damageType = this.summonDamageType(name);
-    const damageLabel = damageType === "poison" ? "Poison damage" : damageType === "fire" ? "Fire damage" : "Summon damage";
+    const damageLabel = isMage ? "Elemental damage" : damageType === "poison" ? "Poison damage" : damageType === "fire" ? "Fire damage" : "Summon damage";
     const stats = [`Summon life: ${health}`, `${damageLabel}: ${damage} per attack`];
-    if (name === "Raise Skeleton") stats.unshift(`Skeletons summoned: ${Math.max(1, rank)}`);
-    if (name === "Skeletal Mage") stats.unshift(`Mages summoned: ${Math.max(1, rank)}`);
+    if (name === "Raise Skeleton") {
+      stats.unshift(`Skeletons summoned: ${Math.max(1, rank)}`);
+      stats.push("Melee attacker");
+    }
+    if (isMage) {
+      stats.unshift(`Mages summoned: ${Math.max(1, rank)}`);
+      stats.push("Ranged attacks: Cold, Fire, Lightning, or Poison");
+    }
     if (isRaven) stats.unshift(`Ravens summonable: ${Math.max(1, rank)} (cast to summon)`);
     if (isSpiritWolf) stats.unshift(`Spirit wolves summonable: ${Math.max(1, rank)} (cast to summon)`);
     if (isDireWolf) stats.unshift(`Dire wolves summonable: ${Math.max(1, rank)} (cast to summon)`);
@@ -5999,7 +6170,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
    *  stay at rank 0: a +3 Bone Spear wand never grants the skill itself. */
   private equipmentSkillBonus(skill: string): number {
     const config = this.selectedClass === "necromancer" ? STAFFMOD_CONFIGS.necromancer
-      : this.selectedClass === "sorceress" ? STAFFMOD_CONFIGS.sorceress : undefined;
+      : this.selectedClass === "sorceress" ? STAFFMOD_CONFIGS.sorceress
+        : this.selectedClass === "druid" ? STAFFMOD_CONFIGS.druid : undefined;
     if (!config || !this.equipment) return 0;
     const tree = config.treeByName.get(skill);
     if (!tree) return 0;
@@ -6320,6 +6492,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     const skillVisual = getClassSkills(this.selectedClass).find((entry) => entry.name === skill)?.visual ?? getD2SkillVisual(skill);
     if (skill === "Find Potion") return;
+    if (skill === "Howl" && this.selectedClass === "barbarian") {
+      this.castHowl();
+      return;
+    }
     if (skill === "Leap" && this.selectedClass === "barbarian") {
       this.startLeap();
       return;
@@ -6372,8 +6548,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       return;
     }
     if (skill === "Wake of Fire" && this.selectedClass === "assassin") {
-      this.plantWakeOfFireTrap();
-      this.triggerAttackAnimation("cast");
+      if (this.plantWakeOfFireTrap()) this.triggerAttackAnimation("cast");
+      return;
+    }
+    if (skill === "Wake of Inferno" && this.selectedClass === "assassin") {
+      if (this.plantWakeOfInfernoTrap()) this.triggerAttackAnimation("cast");
       return;
     }
     const castAnimation: AttackAnimationStyle = this.selectedClass === "sorceress" ? "sorceressCast" : this.selectedClass === "necromancer" ? "necromancerCast" : "cast";
@@ -6504,6 +6683,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.triggerAttackAnimation(castAnimation);
       return;
     }
+    if (skill === "Molten Boulder" && this.selectedClass === "druid") {
+      this.castMoltenBoulder(damage, nearest);
+      this.triggerAttackAnimation(castAnimation);
+      return;
+    }
 
     const rangedSpell = (skill === "Fire Bolt" && this.selectedClass === "sorceress")
       || (skill === "Teeth" && this.selectedClass === "necromancer")
@@ -6587,6 +6771,18 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
     if (distance <= nearest.r + 28) {
       if (COLD_DAMAGE_SKILLS.has(skill)) this.applyEnemyChill(nearest);
+      if (skill === "Poison Explosion" && this.selectedClass === "necromancer") {
+        // A melee strike, not a thrown corpse: the blow lands on the target and
+        // the gas bursts from the impact point as a lingering ground cloud.
+        this.addSkillVisualEffect(skill, nearest);
+        if (!this.isEnemyImmuneTo(nearest, "poison")) {
+          nearest.hp -= damage;
+          this.floatingTexts.push({ x: nearest.x, y: nearest.y - nearest.r, text: this.floatingDamageText(damage), color: attack.color, life: 0.8 });
+        }
+        this.spawnPoisonCloud(nearest.x, nearest.y, multiplier, damage);
+        this.triggerAttackAnimation(castAnimation);
+        return;
+      }
       if (skill === "Dragon Tail" && this.selectedClass === "assassin") {
         const impactRadius = 82;
         this.addDragonTailImpactEffect(nearest.x, nearest.y);
@@ -6678,6 +6874,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     for (const sprite of Object.values(ENEMY_SPRITE_PATHS)) urls.add(sprite);
     for (const key of Object.keys(D2_LOOT_ART) as Array<keyof typeof D2_LOOT_ART>) urls.add(this.lootArtUrl(key));
     urls.add(this.portalArtUrl());
+    urls.add(POISON_CLOUD_ART.path);
+    urls.add(BONE_ARMOR_ART.path);
+    urls.add(BONE_WALL_ART.path);
     urls.add(ASSASSIN_AURA_ART["Blade Sentinel"].path);
     urls.add(D2_COMBAT_EFFECT_ART.stun.path);
     urls.add(D2_COMBAT_EFFECT_ART.leapLand.path);
@@ -6773,6 +6972,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const missileIds = new Set([
       // Enemy-only missiles have no player skill entry, so they are listed here.
       ...ENEMY_MISSILE_OVERLAY_IDS,
+      ...TRAP_OVERLAY_IDS,
       ...Object.values(D2_SPELL_MISSILE_OVERLAYS),
       ...Object.values(SKILL_MISSILE_OVERLAYS),
       ...Object.values(SKILL_VISUAL_MISSILES),
@@ -7259,6 +7459,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (this.lobbyRefreshTimer !== undefined) window.clearInterval(this.lobbyRefreshTimer);
     this.stopActivityPing();
     if (this.recordRetryTimer !== undefined) window.clearTimeout(this.recordRetryTimer);
+    if (this.itemPreviewLayoutTimer !== undefined) {
+      window.clearTimeout(this.itemPreviewLayoutTimer);
+      this.itemPreviewLayoutTimer = undefined;
+    }
     this.cancelItemPreviewHide();
     this.cancelSkillTooltipHide();
     if (this.saveFlushTimer !== undefined) window.clearTimeout(this.saveFlushTimer);
@@ -7294,6 +7498,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     skillEffectsContext?.clearRect(0, 0, this.skillEffectsCanvasRef?.nativeElement.width ?? 0, this.skillEffectsCanvasRef?.nativeElement.height ?? 0);
     this.skillVisualEffects.length = 0;
     this.blazeFirePatches.length = 0;
+    this.poisonClouds.length = 0;
     this.leapDustEffects.length = 0;
     this.playerLeapRemaining = 0;
     this.playerLeapLift = 0;
@@ -7601,18 +7806,15 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         this.skillCastCooldowns[skill] = Number.POSITIVE_INFINITY;
         continue;
       }
-      if (skill === "Wake of Fire" && this.selectedClass === "assassin") {
-        const activeTrap = this.attackProjectiles.some((projectile) => projectile.wakeOfFireTrap && projectile.life > 0 && (projectile.ammoRemaining ?? 0) > 0);
-        if (activeTrap) {
-          this.skillCastCooldowns[skill] = Number.POSITIVE_INFINITY;
-          continue;
-        }
+      if ((skill === "Wake of Fire" || skill === "Wake of Inferno") && this.selectedClass === "assassin") {
+        // Keep planting until five traps stand; each trap then fires on its own.
+        if (this.activeTrapCount() >= TRAP_LIMIT) continue;
         const previousCooldown = this.skillCastCooldowns[skill] ?? 0;
         const trapCooldown = Math.max(0, (Number.isFinite(previousCooldown) ? previousCooldown : 0) - seconds);
         this.skillCastCooldowns[skill] = trapCooldown;
         if (trapCooldown > 0) continue;
         this.activateOwnedSkill(skill);
-        this.skillCastCooldowns[skill] = Number.POSITIVE_INFINITY;
+        this.skillCastCooldowns[skill] = this.getSkillCastInterval(skill);
         continue;
       }
       if (skill === "Blade Sentinel" && this.selectedClass === "assassin") {
@@ -7663,6 +7865,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       if (cooldown > 0) continue;
       // Non-Paladin buffs still activate once; Paladin auras use timed cycles above.
       if (visual !== "aura" && !livingEnemies.some((enemy) => enemy.hp > 0)) continue;
+      // Howl is only useful when something is already close enough to hear it.
+      if (skill === "Howl" && !this.enemies.some((enemy) =>
+        !enemy.summonType && enemy.hp > 0
+        && Math.hypot(enemy.x - this.playerX, enemy.y - this.playerY) <= HOWL_RADIUS + enemy.r
+      )) {
+        delete this.skillCastCooldowns[skill];
+        continue;
+      }
       // Leap cannot be cast without a target inside its short range. Drop the
       // cooldown instead of starting one so the spell is simply cancelled.
       if (skill === "Leap" && !this.findLeapTarget()) {
@@ -7936,6 +8146,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         if (projectile.wallHealth !== undefined && projectile.wallHealth <= 0) projectile.life = 0;
         continue;
       }
+      if (projectile.boulder) {
+        this.updateMoltenBoulder(projectile, seconds);
+        continue;
+      }
       // Impact-radius projectiles still need the area-damage pass below; only
       // single-target impact effects fade here immediately.
       if (projectile.impactPoint && !projectile.impactTrap && !projectile.corpseExplosion && projectile.impactRadius === undefined) {
@@ -7944,39 +8158,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         if (projectile.impactAge >= projectile.impactDuration) projectile.life = 0;
         continue;
       }
-      if (projectile.wakeOfFireTrap) {
-        projectile.age += seconds;
-        projectile.life = 3600;
-        projectile.shotCooldown = Math.max(0, (projectile.shotCooldown ?? 0) - seconds);
-        if ((projectile.ammoRemaining ?? 0) <= 0) {
-          projectile.life = 0;
-          if (this.ownedSkills.includes("Wake of Fire")) this.skillCastCooldowns["Wake of Fire"] = this.getSkillCastInterval("Wake of Fire");
-          continue;
-        }
-        if (projectile.shotCooldown > 0) continue;
-        let target: Enemy | undefined;
-        let targetDistance = Number.POSITIVE_INFINITY;
-        for (const enemy of this.collectEnemiesNear(projectile.x, projectile.y, 340 + 96)) {
-          if (enemy.summonType) continue;
-          const candidateDistance = Math.hypot(enemy.x - projectile.x, enemy.y - projectile.y);
-          if (candidateDistance > 340 || candidateDistance >= targetDistance) continue;
-          target = enemy;
-          targetDistance = candidateDistance;
-        }
-        if (!target) continue;
-        const distance = targetDistance || 1;
-        this.attackProjectiles.push({
-          x: projectile.x, y: projectile.y, startX: projectile.x, startY: projectile.y,
-          targetX: target.x, targetY: target.y, target, homing: false,
-          speed: 360, damage: projectile.trapDamage ?? 30,
-          life: Math.max(1, distance / 360 + 0.8), age: 0,
-          radius: 7, color: "#ff8a32", kind: "fire", missileId: "d2-inferno",
-        });
-        projectile.ammoRemaining = (projectile.ammoRemaining ?? 1) - 1;
-        projectile.shotCooldown = 0.62;
-        if (projectile.ammoRemaining <= 0 && this.ownedSkills.includes("Wake of Fire")) {
-          this.skillCastCooldowns["Wake of Fire"] = this.getSkillCastInterval("Wake of Fire");
-        }
+      if (projectile.wakeOfFireTrap || projectile.wakeOfInfernoTrap) {
+        this.updateTrap(projectile, seconds);
         continue;
       }
       projectile.life -= seconds;
@@ -8105,6 +8288,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           projectile.x = nextX;
           projectile.y = nextY;
         }
+        continue;
+      }
+      if (projectile.targetPlayer && this.playerLeapRemaining > 0) {
+        // A leaping barbarian is airborne: enemy missiles pass harmlessly by.
+        projectile.life = 0;
         continue;
       }
       const target = projectile.target;
@@ -8269,7 +8457,20 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     ctx.restore();
   }
 
-  private plantWakeOfFireTrap(): void {
+  private activeTrapCount(): number {
+    return this.attackProjectiles.filter((projectile) => projectile.life > 0
+      && (projectile.wakeOfFireTrap || projectile.wakeOfInfernoTrap || projectile.impactTrap)).length;
+  }
+
+  /** Five traps may stand at once; every trap type counts toward the limit. */
+  private canPlantTrap(): boolean {
+    if (this.activeTrapCount() < TRAP_LIMIT) return true;
+    this.floatingTexts.push({ x: this.playerX, y: this.playerY - 34, text: `TRAP LIMIT ${TRAP_LIMIT}`, color: "#ffb36b", life: 1.1 });
+    return false;
+  }
+
+  private plantWakeOfFireTrap(): boolean {
+    if (!this.canPlantTrap()) return false;
     const rank = Math.max(1, this.skillLevels["Wake of Fire"] ?? 1);
     this.attackProjectiles.push({
       x: this.playerX, y: this.playerY, startX: this.playerX, startY: this.playerY,
@@ -8282,6 +8483,127 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       shotCooldown: 0.2,
     });
     this.draw();
+    return true;
+  }
+
+  private plantWakeOfInfernoTrap(): boolean {
+    if (!this.canPlantTrap()) return false;
+    const rank = Math.max(1, this.skillLevels["Wake of Inferno"] ?? 1);
+    this.attackProjectiles.push({
+      x: this.playerX, y: this.playerY, startX: this.playerX, startY: this.playerY,
+      targetX: this.playerX, targetY: this.playerY,
+      speed: 0, damage: 0, life: 3600, age: 0,
+      radius: 16, color: INFERNO_COLOR, kind: "fire",
+      wakeOfInfernoTrap: true,
+      ammoRemaining: 10,
+      trapDamage: WAKE_OF_INFERNO_FLAME_DAMAGE + (rank - 1) * WAKE_OF_INFERNO_FLAME_DAMAGE_PER_RANK,
+      shotCooldown: 0.3,
+    });
+    this.draw();
+    return true;
+  }
+
+  /** A planted trap only spends ammunition while a monster is in range. */
+  private updateTrap(trap: AttackProjectile, seconds: number): void {
+    trap.age += seconds;
+    trap.life = 3600;
+    trap.shotCooldown = Math.max(0, (trap.shotCooldown ?? 0) - seconds);
+    if ((trap.ammoRemaining ?? 0) <= 0) {
+      trap.life = 0;
+      this.resetTrapCooldown(trap);
+      return;
+    }
+    if ((trap.shotCooldown ?? 0) > 0) return;
+    const range = trap.wakeOfInfernoTrap ? WAKE_OF_INFERNO_RANGE : WAKE_OF_FIRE_RANGE;
+    const target = this.nearestEnemyInTrapRange(trap, range);
+    if (!target) return;
+    if (trap.wakeOfInfernoTrap) {
+      this.fireWakeOfInfernoCone(trap, target);
+      trap.ammoRemaining = (trap.ammoRemaining ?? 1) - 1;
+      trap.shotCooldown = WAKE_OF_INFERNO_DURATION + 0.25;
+    } else {
+      this.fireWakeOfFireVolley(trap, target);
+      trap.ammoRemaining = (trap.ammoRemaining ?? 1) - 1;
+      trap.shotCooldown = 0.62;
+    }
+    if ((trap.ammoRemaining ?? 0) <= 0) {
+      trap.life = 0;
+      this.resetTrapCooldown(trap);
+    }
+  }
+
+  private resetTrapCooldown(trap: AttackProjectile): void {
+    const skill = trap.wakeOfInfernoTrap ? "Wake of Inferno" : "Wake of Fire";
+    if (this.ownedSkills.includes(skill)) this.skillCastCooldowns[skill] = this.getSkillCastInterval(skill);
+  }
+
+  private nearestEnemyInTrapRange(trap: AttackProjectile, range: number): Enemy | undefined {
+    let target: Enemy | undefined;
+    let targetDistance = Number.POSITIVE_INFINITY;
+    for (const enemy of this.collectEnemiesNear(trap.x, trap.y, range + 96)) {
+      if (enemy.hp <= 0 || enemy.summonType) continue;
+      const distance = Math.hypot(enemy.x - trap.x, enemy.y - trap.y);
+      if (distance > range || distance >= targetDistance) continue;
+      target = enemy;
+      targetDistance = distance;
+    }
+    return target;
+  }
+
+  /** Five fireballs in a Charged-Bolt-style fan that passes through bodies. */
+  private fireWakeOfFireVolley(trap: AttackProjectile, target: Enemy): void {
+    const baseAngle = Math.atan2(target.y - trap.y, target.x - trap.x);
+    const range = WAKE_OF_FIRE_RANGE + 60;
+    for (let index = 0; index < WAKE_OF_FIRE_FIREBALLS; index += 1) {
+      const angle = baseAngle + (index - (WAKE_OF_FIRE_FIREBALLS - 1) / 2) * WAKE_OF_FIRE_FAN_STEP;
+      const directionX = Math.cos(angle);
+      const directionY = Math.sin(angle);
+      this.attackProjectiles.push({
+        x: trap.x, y: trap.y, startX: trap.x, startY: trap.y,
+        targetX: trap.x + directionX * range, targetY: trap.y + directionY * range,
+        pathHit: true,
+        speed: WAKE_OF_FIRE_PROJECTILE_SPEED,
+        damage: trap.trapDamage ?? 30,
+        life: range / WAKE_OF_FIRE_PROJECTILE_SPEED + 0.5, age: 0,
+        radius: 7, color: "#ff8a32", kind: "fire", missileId: "d2-fireball",
+        damageType: "fire",
+      });
+    }
+  }
+
+  /** The sentry's cone stays at the trap and burns everything standing in it. */
+  private fireWakeOfInfernoCone(trap: AttackProjectile, target: Enemy): void {
+    const direction = Math.atan2(target.y - trap.y, target.x - trap.x);
+    const facingX = Math.cos(direction);
+    const facingY = Math.sin(direction);
+    const totalDamage = (trap.trapDamage ?? WAKE_OF_INFERNO_FLAME_DAMAGE) * 5;
+    const ticks = Math.max(1, Math.round(WAKE_OF_INFERNO_DURATION / WAKE_OF_INFERNO_TICK_INTERVAL));
+    this.skillVisualEffects.push({
+      name: "Wake of Inferno",
+      kind: "projectile",
+      inferno: true,
+      stationary: true,
+      x: trap.x,
+      y: trap.y,
+      targetX: trap.x + facingX * WAKE_OF_INFERNO_RANGE,
+      targetY: trap.y + facingY * WAKE_OF_INFERNO_RANGE,
+      facingX,
+      facingY,
+      time: 0,
+      duration: WAKE_OF_INFERNO_DURATION,
+      color: INFERNO_COLOR,
+      seed: hashString("Wake of Inferno") % 628,
+      tickRemaining: 0,
+      tickInterval: WAKE_OF_INFERNO_TICK_INTERVAL,
+      damagePerTick: totalDamage / ticks,
+      coneRange: WAKE_OF_INFERNO_RANGE,
+      coneHalfAngle: WAKE_OF_INFERNO_HALF_ANGLE,
+    });
+    if (this.skillVisualEffects.length > 24) this.skillVisualEffects.splice(0, this.skillVisualEffects.length - 24);
+    this.drawSkillVisualEffects();
+    if (this.activeTab === "run" && !this.rafId) {
+      this.rafId = requestAnimationFrame((time) => this.loop(time));
+    }
   }
 
   private plantFireWall(): void {
@@ -8465,46 +8787,49 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const left = this.projectArenaPoint(wall.x - tangentX * halfLength, wall.y - tangentY * halfLength);
     const right = this.projectArenaPoint(wall.x + tangentX * halfLength, wall.y + tangentY * halfLength);
     const progress = Math.max(0, (wall.wallHealth ?? 0) / (wall.wallMaxHealth ?? 1));
+    const dpr = this.projectionDpr || 1;
+    const scale = this.worldZoom * dpr;
+    const art = BONE_WALL_ART;
+    const spriteHeight = 48 * scale;
+    const image = this.ensureBoneWallSheet();
+    const lineLength = Math.hypot(right.x - left.x, right.y - left.y);
     ctx.save();
     ctx.lineCap = "round";
-    ctx.strokeStyle = "#382f28";
-    ctx.lineWidth = 13;
+    ctx.strokeStyle = "rgba(26, 21, 17, 0.48)";
+    ctx.lineWidth = 9 * dpr;
     ctx.beginPath();
     ctx.moveTo(left.x, left.y);
     ctx.lineTo(right.x, right.y);
     ctx.stroke();
-    ctx.strokeStyle = "#b9ad91";
-    ctx.lineWidth = 8;
-    ctx.beginPath();
-    ctx.moveTo(left.x, left.y - 2);
-    ctx.lineTo(right.x, right.y - 2);
-    ctx.stroke();
-    ctx.strokeStyle = "#eee4c9";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(left.x, left.y - 5);
-    ctx.lineTo(right.x, right.y - 5);
-    ctx.stroke();
-    const pillarCount = 9;
-    for (let index = 0; index < pillarCount; index += 1) {
-      const t = index / (pillarCount - 1);
-      const x = left.x + (right.x - left.x) * t;
-      const y = left.y + (right.y - left.y) * t;
-      const height = 16 + Math.sin(t * Math.PI * 4) * 4;
-      ctx.strokeStyle = index % 2 ? "#8e8269" : "#d0c5a7";
-      ctx.lineWidth = 4;
+    if (image.complete && image.naturalWidth > 0) {
+      const spriteWidth = spriteHeight * art.cellWidth / art.cellHeight;
+      const spacing = Math.max(12 * scale, spriteWidth * 0.55);
+      const tileCount = Math.max(3, Math.min(12, Math.ceil(lineLength / spacing)));
+      const tangentAngle = Math.atan2(right.y - left.y, right.x - left.x);
+      const facing = ((Math.round(tangentAngle / (Math.PI / 2)) % art.directions) + art.directions) % art.directions;
+      ctx.imageSmoothingEnabled = true;
+      for (let index = 0; index < tileCount; index += 1) {
+        const t = (index + 0.5) / tileCount;
+        const baseX = left.x + (right.x - left.x) * t;
+        const baseY = left.y + (right.y - left.y) * t;
+        ctx.drawImage(
+          image,
+          facing * art.cellWidth, 0, art.cellWidth, art.cellHeight,
+          baseX - spriteWidth / 2, baseY - spriteHeight + 1 * scale, spriteWidth, spriteHeight,
+        );
+      }
+    } else {
+      // Keep the barrier visible if the optional art asset cannot load.
+      ctx.strokeStyle = "#b9ad91";
+      ctx.lineWidth = 6 * dpr;
       ctx.beginPath();
-      ctx.moveTo(x, y + 1);
-      ctx.lineTo(x + (index % 2 ? 2 : -2), y - height);
+      ctx.moveTo(left.x, left.y - 2 * dpr);
+      ctx.lineTo(right.x, right.y - 2 * dpr);
       ctx.stroke();
-      ctx.fillStyle = "#e2d8bd";
-      ctx.beginPath();
-      ctx.arc(x + (index % 2 ? 2 : -2), y - height, 2.5, 0, Math.PI * 2);
-      ctx.fill();
     }
     const barLeft = Math.min(left.x, right.x);
     const barWidth = Math.abs(right.x - left.x);
-    const barY = Math.min(left.y, right.y) - 30;
+    const barY = Math.min(left.y, right.y) - spriteHeight - 8 * scale;
     ctx.fillStyle = "#171311";
     ctx.fillRect(barLeft, barY, barWidth, 3);
     ctx.fillStyle = progress > 0.35 ? "#d8c89f" : "#9c4d40";
@@ -8577,46 +8902,45 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     ctx.restore();
   }
 
-  private drawWakeOfFireTrap(ctx: CanvasRenderingContext2D, trap: AttackProjectile): void {
+  private drawTrap(ctx: CanvasRenderingContext2D, trap: AttackProjectile): void {
     const point = this.projectArenaPoint(trap.x, trap.y);
     const dpr = this.arenaRef?.nativeElement.clientWidth
       ? this.arenaRef.nativeElement.width / this.arenaRef.nativeElement.clientWidth
       : 1;
     const scale = this.worldZoom * dpr;
-    const pulse = 0.78 + Math.sin(performance.now() * 0.009 + trap.age * 2) * 0.12;
-    ctx.save();
-    ctx.translate(point.x, point.y);
-    ctx.globalCompositeOperation = "lighter";
-    ctx.globalAlpha = 0.82;
-    ctx.strokeStyle = "#ff792e";
-    ctx.shadowColor = "#ff4a16";
-    ctx.shadowBlur = 14 * scale;
-    ctx.lineWidth = 2 * scale;
-    ctx.beginPath();
-    ctx.ellipse(0, 0, 23 * scale * pulse, 10 * scale * pulse, 0, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.globalCompositeOperation = "source-over";
-    ctx.fillStyle = "#26150f";
-    ctx.strokeStyle = "#b55b2b";
-    ctx.lineWidth = 1.5 * scale;
-    ctx.beginPath();
-    ctx.moveTo(-12 * scale, 1 * scale);
-    ctx.lineTo(-8 * scale, -8 * scale);
-    ctx.lineTo(8 * scale, -8 * scale);
-    ctx.lineTo(12 * scale, 1 * scale);
-    ctx.lineTo(8 * scale, 7 * scale);
-    ctx.lineTo(-8 * scale, 7 * scale);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-    for (let shot = 0; shot < (trap.ammoRemaining ?? 0); shot += 1) {
-      const angle = shot * Math.PI * 2 / Math.max(1, trap.ammoRemaining ?? 1) + trap.age * 0.7;
-      ctx.fillStyle = "#ffb348";
-      ctx.beginPath();
-      ctx.arc(Math.cos(angle) * 7 * scale, -9 * scale + Math.sin(angle) * 3 * scale, 2 * scale, 0, Math.PI * 2);
-      ctx.fill();
+    const groundFireFrames = this.missileOverlayImages.get("d2-groundfiresmall");
+    if (groundFireFrames?.length) {
+      const fireFrame = this.trapFrame(groundFireFrames, "d2-groundfiresmall", trap.age);
+      if (fireFrame) {
+        const naturalWidth = fireFrame instanceof HTMLImageElement ? fireFrame.naturalWidth : fireFrame.width;
+        const naturalHeight = fireFrame instanceof HTMLImageElement ? fireFrame.naturalHeight : fireFrame.height;
+        const height = 28 * scale;
+        const width = height * naturalWidth / Math.max(1, naturalHeight);
+        ctx.save();
+        ctx.globalAlpha = 0.9;
+        ctx.globalCompositeOperation = "lighter";
+        ctx.drawImage(fireFrame, point.x - width / 2, point.y - height + 4 * scale, width, height);
+        ctx.restore();
+      }
     }
+    const trapFrames = this.missileOverlayImages.get("d2-firespikesground");
+    if (!trapFrames?.length) return;
+    const frame = this.trapFrame(trapFrames, "d2-firespikesground", trap.age);
+    if (!frame) return;
+    const naturalWidth = frame instanceof HTMLImageElement ? frame.naturalWidth : frame.width;
+    const naturalHeight = frame instanceof HTMLImageElement ? frame.naturalHeight : frame.height;
+    const height = 18 * scale;
+    const width = height * naturalWidth / Math.max(1, naturalHeight);
+    ctx.save();
+    ctx.drawImage(frame, point.x - width / 2, point.y - height + 2 * scale, width, height);
     ctx.restore();
+  }
+
+  private trapFrame(frames: MissileOverlayFrame[], missileId: string, age: number): MissileOverlayFrame | undefined {
+    const frameDuration = this.missileFrameDuration(missileId);
+    const frame = frames[Math.floor(age * 1000 / frameDuration) % frames.length];
+    if (this.isMissileFrameReady(frame)) return frame;
+    return frames.find((candidate) => this.isMissileFrameReady(candidate));
   }
 
   private drawLightningWeb(ctx: CanvasRenderingContext2D, projectile: AttackProjectile): void {
@@ -8739,6 +9063,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const point = this.projectArenaPoint(renderPoint.x, renderPoint.y);
     if (!this.isArenaPointOnScreen(point, DRAW_CULL_MARGIN)) return;
     if (projectile.corpseExplosion && projectile.impactAge !== undefined) {
+      this.drawCorpseExplosion(ctx, projectile, point);
+      return;
+    }
+    if (projectile.moltenExplosion && projectile.impactAge !== undefined) {
       this.drawCorpseExplosion(ctx, projectile, point);
       return;
     }
@@ -9061,6 +9389,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.blazeDropRemaining = 0;
     this.blazeDamagePerTick = 0;
     this.blazeFirePatches.length = 0;
+    this.poisonClouds.length = 0;
     this.skillLevels = { [this.basicAttackName]: 1 };
     this.enemies = [];
     this.creeperTrailMarks.length = 0;
@@ -9563,6 +9892,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const damage = Math.round(base.damage * (1 + (rank - 1) * 0.12 + (isGolem ? golemMastery * 0.1 : isDruid ? 0 : playerMastery * 0.2)));
     const slot = this.nextSummonSlot();
     const position = this.summonFollowPosition(slot);
+    const mageElement = skill === "Skeletal Mage" ? this.nextSkeletalMageElement() : undefined;
+    const species = mageElement ? SKELETAL_MAGE_LOOKS[mageElement].species : SUMMON_SPECIES[skill] ?? "skeleton";
     if (skill === "Raise Skeleton") {
       const angle = slot * Math.PI * 0.7 + Math.PI * 0.25;
       position.x = this.playerX + Math.cos(angle) * (58 + (slot % 2) * 18);
@@ -9570,11 +9901,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     const companion: Enemy = {
       kind: "normal",
-      species: SUMMON_SPECIES[skill] ?? "skeleton",
+      species,
       campaignBoss: false,
       spriteFrame: 0,
       summonType: isDruid ? "druid" : isGolem ? "golem" : "skeleton",
       summonSkill: skill,
+      summonElement: mageElement,
       summonAttackCooldown: 0.45 + Math.random() * 0.25,
       summonSlot: slot,
       x: position.x,
@@ -9590,6 +9922,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     // Oak Sage's bonus when it was already active at summon time.
     companion.hp = this.effectiveSummonMaxHp(companion);
     this.floatingTexts.push({ x: position.x, y: position.y - 18, text: skill.toUpperCase(), color: "#d7c5aa", life: 1.2 });
+  }
+
+  /** Cycle rather than roll: four casts of the skill show all four D2 mages. */
+  private nextSkeletalMageElement(): SkeletalMageElement {
+    const element = SKELETAL_MAGE_ELEMENTS[this.skeletalMageElementIndex % SKELETAL_MAGE_ELEMENTS.length];
+    this.skeletalMageElementIndex = (this.skeletalMageElementIndex + 1) % SKELETAL_MAGE_ELEMENTS.length;
+    return element;
   }
 
   private nextSummonSlot(): number {
@@ -9730,6 +10069,62 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (this.leapDustEffects.length > 6) this.leapDustEffects.splice(0, this.leapDustEffects.length - 6);
   }
 
+  private howlFearSecondsForRank(rank: number): number {
+    return Math.min(HOWL_MAX_FEAR_SECONDS, HOWL_BASE_FEAR_SECONDS + Math.max(0, rank - 1) * HOWL_FEAR_SECONDS_PER_RANK);
+  }
+
+  /** A point-blank warcry: every nearby monster flees instead of taking damage. */
+  private castHowl(): void {
+    const rank = Math.max(1, this.skillLevels["Howl"] ?? 1);
+    const fearSeconds = this.howlFearSecondsForRank(rank);
+    let terrified = 0;
+    this.rebuildEnemyGrid();
+    for (const enemy of this.collectEnemiesNear(this.playerX, this.playerY, HOWL_RADIUS + 96)) {
+      if (enemy.hp <= 0 || enemy.summonType) continue;
+      if (Math.hypot(enemy.x - this.playerX, enemy.y - this.playerY) > HOWL_RADIUS + enemy.r) continue;
+      enemy.fearRemaining = Math.max(enemy.fearRemaining ?? 0, fearSeconds);
+      enemy.animationState = "move";
+      enemy.attackAnimationTime = 0;
+      terrified += 1;
+    }
+    this.addSkillVisualEffect("Howl");
+    this.triggerAttackAnimation("cast");
+    this.floatingTexts.push({
+      x: this.playerX,
+      y: this.playerY - 42,
+      text: terrified > 0 ? `HOWL · ${terrified} TERRIFIED` : "HOWL",
+      color: "#c9a8ff",
+      life: 0.9,
+    });
+  }
+
+  /** Feared monsters run directly away from the barbarian and cannot attack. */
+  private fleeEnemyFromPlayer(enemy: Enemy, seconds: number): void {
+    const awayX = enemy.x - this.playerX;
+    const awayY = enemy.y - this.playerY;
+    const awayDistance = Math.hypot(awayX, awayY);
+    let dirX: number;
+    let dirY: number;
+    if (awayDistance < 1) {
+      const angle = Math.random() * Math.PI * 2;
+      dirX = Math.cos(angle);
+      dirY = Math.sin(angle);
+    } else {
+      dirX = awayX / awayDistance;
+      dirY = awayY / awayDistance;
+    }
+    enemy.facingX = dirX;
+    enemy.facingY = dirY;
+    enemy.animationState = "move";
+    enemy.attackAnimationTime = 0;
+    enemy.cd = Math.max(0, (enemy.cd ?? 0) - seconds);
+    const speed = this.enemyMoveSpeed(enemy) * seconds / this.worldZoom;
+    const nextX = enemy.x + dirX * speed;
+    const nextY = enemy.y + dirY * speed;
+    enemy.x = Math.max(enemy.r, Math.min(this.arenaW - enemy.r, nextX));
+    enemy.y = Math.max(enemy.r, Math.min(this.arenaH - enemy.r, nextY));
+  }
+
   private applyEnemyStun(enemy: Enemy, seconds: number): void {
     if (!(seconds > 0) || enemy.hp <= 0) return;
     enemy.stunRemaining = Math.max(enemy.stunRemaining ?? 0, seconds);
@@ -9762,7 +10157,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const maxHp = this.effectiveSummonMaxHp(summon);
       if (summon.hp > maxHp) summon.hp = maxHp;
     }
-    const combatSummons = summons.filter((summon) => summon.summonType === "skeleton" || summon.summonType === "druid");
+    // Golems are front-line servants just like skeletons and druid pets: a
+    // monster attacks whichever servant is closer than the Necromancer.
+    const combatSummons = summons.filter((summon) =>
+      summon.summonType === "skeleton" || summon.summonType === "golem" || summon.summonType === "druid");
     for (let index = 0; index < summons.length; index += 1) {
       const summon = summons[index];
       summon.animationState = "idle";
@@ -9796,10 +10194,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         targetX = target.x;
         targetY = target.y;
         const distance = Math.hypot(target.x - summon.x, target.y - summon.y) || 1;
-        // A raised skeleton is an archer: it plants itself at bow range and
-        // shoots from there instead of walking into the enemy's face.
+        // Raised skeletons close to melee; skeletal mages and ravens hold
+        // their distance and attack from range.
         const attackRange = summon.summonType === "golem" ? 38
-          : summon.summonSkill === "Raise Skeleton" ? 168
+          : summon.summonSkill === "Raise Skeleton" ? 34
           : summon.summonSkill === "Skeletal Mage" || summon.summonSkill === "Raven" ? 150
           : 34;
         summon.facingX = (target.x - summon.x) / distance;
@@ -9854,6 +10252,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           enemy.curseRemaining = undefined;
         }
       }
+      if (enemy.fearRemaining !== undefined) {
+        enemy.fearRemaining = Math.max(0, enemy.fearRemaining - elapsedSeconds);
+        if (enemy.fearRemaining === 0) enemy.fearRemaining = undefined;
+      }
       if (enemy.stunRemaining !== undefined && enemy.stunRemaining > 0) {
         // Stunned monsters cannot move, aim, or attack; they shake off the stun
         // once the timer runs out.
@@ -9861,6 +10263,18 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         enemy.animationState = "idle";
         enemy.attackAnimationTime = 0;
         enemy.cd = Math.max(0, (enemy.cd ?? 0) - elapsedSeconds);
+        continue;
+      }
+      if (this.playerLeapRemaining > 0) {
+        // The barbarian is airborne and cannot be reached or targeted. Keep
+        // monsters planted until he lands into their midst.
+        enemy.animationState = "idle";
+        enemy.attackAnimationTime = 0;
+        enemy.cd = Math.max(0, (enemy.cd ?? 0) - elapsedSeconds);
+        continue;
+      }
+      if ((enemy.fearRemaining ?? 0) > 0) {
+        this.fleeEnemyFromPlayer(enemy, elapsedSeconds);
         continue;
       }
       if (enemy.curseName === "Dim Vision") {
@@ -10285,6 +10699,114 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
   }
 
+  /**
+   * Molten Boulder rolls two boulders down a fixed line instead of homing on a
+   * single monster. Each one shoves whatever it catches out of the way and
+   * bursts when its roll ends.
+   */
+  private castMoltenBoulder(damage: number, target: Enemy): void {
+    const deltaX = target.x - this.playerX;
+    const deltaY = target.y - this.playerY;
+    const distance = Math.hypot(deltaX, deltaY);
+    const baseAngle = distance > 0.001
+      ? Math.atan2(deltaY, deltaX)
+      : Math.atan2(this.playerFacingY, this.playerFacingX);
+    // Roll a little past the pack so a boulder caught on the nearest monster
+    // still carries through the rest of the line before it stops.
+    const range = Math.max(BOULDER_MIN_RANGE, Math.min(BOULDER_MAX_RANGE, distance + 140));
+    for (let index = 0; index < BOULDER_COUNT; index += 1) {
+      const angle = baseAngle + (index - (BOULDER_COUNT - 1) / 2) * BOULDER_LINE_SPREAD;
+      const directionX = Math.cos(angle);
+      const directionY = Math.sin(angle);
+      this.attackProjectiles.push({
+        x: this.playerX,
+        y: this.playerY - 8,
+        startX: this.playerX,
+        startY: this.playerY - 8,
+        targetX: this.playerX + directionX * range,
+        targetY: this.playerY + directionY * range,
+        speed: BOULDER_SPEED,
+        damage,
+        life: range * this.worldZoom / BOULDER_SPEED + 1,
+        radius: BOULDER_RADIUS,
+        color: "#ff9c50",
+        kind: "fire",
+        missileId: BOULDER_MISSILE_ID,
+        age: 0,
+        boulder: true,
+      });
+    }
+  }
+
+  /**
+   * Advance a rolling Molten Boulder. Monsters caught in the front corridor are
+   * pinned to its leading face and bulldozed along every frame; monsters clipped
+   * on the flank are thrown clear once. The roll ends in a fiery blast.
+   */
+  private updateMoltenBoulder(projectile: AttackProjectile, seconds: number): void {
+    projectile.age += seconds;
+    projectile.life -= seconds;
+    const deltaX = projectile.targetX - projectile.x;
+    const deltaY = projectile.targetY - projectile.y;
+    const remaining = Math.hypot(deltaX, deltaY);
+    const step = projectile.speed * seconds / this.worldZoom;
+    if (remaining <= step || projectile.life <= 0) {
+      this.explodeMoltenBoulder(projectile);
+      return;
+    }
+    const directionX = deltaX / remaining;
+    const directionY = deltaY / remaining;
+    const nextX = projectile.x + directionX * step;
+    const nextY = projectile.y + directionY * step;
+    const clampedX = Math.max(projectile.radius, Math.min(this.arenaW - projectile.radius, nextX));
+    const clampedY = Math.max(projectile.radius, Math.min(this.arenaH - projectile.radius, nextY));
+    projectile.x = clampedX;
+    projectile.y = clampedY;
+    if (clampedX !== nextX || clampedY !== nextY) {
+      this.explodeMoltenBoulder(projectile);
+      return;
+    }
+    const sideHits = projectile.boulderSideHits ?? (projectile.boulderSideHits = []);
+    for (const enemy of this.enemies) {
+      if (enemy.hp <= 0 || enemy.summonType) continue;
+      const offsetX = enemy.x - projectile.x;
+      const offsetY = enemy.y - projectile.y;
+      const forward = offsetX * directionX + offsetY * directionY;
+      // Monsters already behind the rock are done being shoved by this pass.
+      if (forward < -enemy.r * 0.5) continue;
+      const lateral = offsetX * -directionY + offsetY * directionX;
+      const frontReach = projectile.radius + enemy.r;
+      if (forward >= 0 && forward <= frontReach + step + 2 && Math.abs(lateral) <= frontReach * 0.85) {
+        // Pin the monster to the leading face; it keeps moving with the rock
+        // instead of being knocked back to where the boulder left it.
+        const pinnedForward = Math.max(forward, frontReach + 2);
+        enemy.x = Math.max(enemy.r, Math.min(this.arenaW - enemy.r, projectile.x + directionX * pinnedForward + -directionY * lateral));
+        enemy.y = Math.max(enemy.r, Math.min(this.arenaH - enemy.r, projectile.y + directionY * pinnedForward + directionX * lateral));
+        continue;
+      }
+      if (sideHits.includes(enemy)) continue;
+      const offsetDistance = Math.hypot(offsetX, offsetY) || 1;
+      if (offsetDistance > frontReach + 6) continue;
+      // A flank touch throws the monster once, radially away from the rock.
+      enemy.x = Math.max(enemy.r, Math.min(this.arenaW - enemy.r, enemy.x + offsetX / offsetDistance * BOULDER_SIDE_KNOCKBACK));
+      enemy.y = Math.max(enemy.r, Math.min(this.arenaH - enemy.r, enemy.y + offsetY / offsetDistance * BOULDER_SIDE_KNOCKBACK));
+      sideHits.push(enemy);
+    }
+  }
+
+  /** Stop a Molten Boulder and leave a fiery blast where it ran out of line. */
+  private explodeMoltenBoulder(projectile: AttackProjectile): void {
+    projectile.boulder = false;
+    projectile.moltenExplosion = true;
+    projectile.impactPoint = { x: projectile.x, y: projectile.y };
+    projectile.impactAge = 0;
+    projectile.impactDuration = BOULDER_EXPLOSION_DURATION;
+    projectile.impactRadius = BOULDER_EXPLOSION_RADIUS;
+    projectile.impactHitEnemies = [];
+    projectile.life = BOULDER_EXPLOSION_DURATION;
+    projectile.age = 0;
+  }
+
   private damageArcticBlastCone(effect: SkillVisualEffect): void {
     const range = effect.coneRange ?? ARCTIC_BLAST_RANGE;
     const minimumForward = Math.cos(effect.coneHalfAngle ?? ARCTIC_BLAST_HALF_ANGLE);
@@ -10446,12 +10968,106 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     ctx.restore();
   }
 
+  private poisonCloudRadiusForRank(rank: number): number {
+    return POISON_CLOUD_BASE_RADIUS + Math.max(0, rank - 1) * POISON_CLOUD_RADIUS_PER_RANK;
+  }
+
+  private poisonCloudDamageFractionForRank(rank: number): number {
+    return POISON_CLOUD_DAMAGE_FRACTION + Math.max(0, rank - 1) * POISON_CLOUD_DAMAGE_FRACTION_PER_RANK;
+  }
+
+  /** The gas Poison Explosion leaves at the point its melee strike lands. */
+  private spawnPoisonCloud(x: number, y: number, rank: number, hitDamage: number): void {
+    this.poisonClouds.push({
+      x,
+      y,
+      radius: this.poisonCloudRadiusForRank(rank),
+      life: POISON_CLOUD_DURATION,
+      maxLife: POISON_CLOUD_DURATION,
+      tickRemaining: 0,
+      tickInterval: POISON_CLOUD_TICK_INTERVAL,
+      damagePerTick: Math.max(1, hitDamage * this.poisonCloudDamageFractionForRank(rank)),
+    });
+    if (this.poisonClouds.length > POISON_CLOUD_LIMIT) {
+      this.poisonClouds.splice(0, this.poisonClouds.length - POISON_CLOUD_LIMIT);
+    }
+    this.ensurePoisonCloudSheet();
+  }
+
+  /** Age each cloud, keep it over its patch of ground, and poison everything
+   *  standing inside it. */
+  private updatePoisonClouds(seconds: number): void {
+    for (let index = this.poisonClouds.length - 1; index >= 0; index -= 1) {
+      const cloud = this.poisonClouds[index];
+      cloud.x -= this.playerMoveX;
+      cloud.y -= this.playerMoveY;
+      cloud.life -= seconds;
+      if (cloud.life <= 0) {
+        this.poisonClouds.splice(index, 1);
+        continue;
+      }
+      cloud.tickRemaining -= seconds;
+      if (cloud.tickRemaining > 0) continue;
+      cloud.tickRemaining += cloud.tickInterval;
+      for (const enemy of this.collectEnemiesNear(cloud.x, cloud.y, cloud.radius + 96)) {
+        if (enemy.hp <= 0 || enemy.summonType) continue;
+        if (Math.hypot(enemy.x - cloud.x, enemy.y - cloud.y) > cloud.radius + enemy.r) continue;
+        this.queueEnemyDamage(enemy, cloud.damagePerTick, POISON_CLOUD_COLOR, "poison");
+      }
+    }
+  }
+
+  /** The original D2R gas animation, drawn under the monsters so they stand in it. */
+  private drawPoisonClouds(ctx: CanvasRenderingContext2D): void {
+    if (!this.poisonClouds.length) return;
+    const image = this.ensurePoisonCloudSheet();
+    if (!image.complete || image.naturalWidth === 0) return;
+    const art = POISON_CLOUD_ART;
+    for (const cloud of this.poisonClouds) {
+      const point = this.projectArenaPoint(cloud.x, cloud.y);
+      if (!this.isArenaPointOnScreen(point, DRAW_CULL_MARGIN)) continue;
+      const age = cloud.maxLife - cloud.life;
+      const fade = Math.min(1, age * 8, cloud.life / 0.7);
+      if (fade <= 0.01) continue;
+      const frame = Math.min(art.frames - 1, Math.floor(age * art.frameRate));
+      // A world circle projects to twice as much screen width as height.
+      const width = Math.max(2, cloud.radius * 2 * this.worldZoom * this.projectionDpr);
+      const height = width * art.frameHeight / art.frameWidth;
+      ctx.save();
+      ctx.globalAlpha = fade * 0.92;
+      // The small cel is scaled up, so it needs smoothing; floor tiles keep nearest.
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(
+        image,
+        frame * art.frameWidth, 0, art.frameWidth, art.frameHeight,
+        point.x - width / 2, point.y - height / 2,
+        width, height,
+      );
+      ctx.restore();
+    }
+  }
+
+  private ensurePoisonCloudSheet(): HTMLImageElement {
+    if (!this.poisonCloudSheetRequested) {
+      this.poisonCloudSheetRequested = true;
+      this.poisonCloudSheet.decoding = "async";
+      this.poisonCloudSheet.onload = () => {
+        if (this.activeTab === "run") this.draw();
+      };
+      this.poisonCloudSheet.onerror = () => console.warn("Could not load the Poison Explosion art.");
+      this.poisonCloudSheet.src = POISON_CLOUD_ART.path;
+    }
+    return this.poisonCloudSheet;
+  }
+
   /** Stop channeled cones immediately when the caster leaves their stance. */
   private cancelChannelingSpells(): void {
     let canceled = false;
     for (let index = this.skillVisualEffects.length - 1; index >= 0; index -= 1) {
       const effect = this.skillVisualEffects[index];
-      if (!effect.arcticBlast && !effect.inferno) continue;
+      // A trap's cone is not the hero's channel, so walking away must not
+      // extinguish it.
+      if ((!effect.arcticBlast && !effect.inferno) || effect.stationary) continue;
       this.skillVisualEffects.splice(index, 1);
       canceled = true;
     }
@@ -10459,7 +11075,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   private isInfernoChanneling(): boolean {
-    return this.skillVisualEffects.some((effect) => effect.inferno && effect.time < effect.duration);
+    return this.skillVisualEffects.some((effect) => effect.inferno && !effect.stationary && effect.time < effect.duration);
   }
 
   private damageInfernoCone(effect: SkillVisualEffect): void {
@@ -11191,6 +11807,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.rebuildEnemyGrid();
     this.updateBlazeFirePatches(seconds);
     this.updateBlaze(seconds);
+    this.updatePoisonClouds(seconds);
     if (this.isBoneArmorActive()) {
       this.boneArmorRemaining = Math.max(0, this.boneArmorRemaining - seconds);
       if (this.boneArmorRemaining === 0) {
@@ -11202,8 +11819,15 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       effect.time += seconds;
       if (effect.teleport || effect.impact) continue;
       if (effect.arcticBlast || effect.inferno) {
-        effect.x = this.playerX;
-        effect.y = this.playerY;
+        // A trap's cone stays where the sentry is planted; a caster's cone
+        // follows the hero's stance.
+        if (effect.stationary) {
+          effect.x -= this.playerMoveX;
+          effect.y -= this.playerMoveY;
+        } else {
+          effect.x = this.playerX;
+          effect.y = this.playerY;
+        }
         const range = effect.coneRange ?? (effect.inferno ? INFERNO_RANGE : ARCTIC_BLAST_RANGE);
         effect.targetX = effect.x + effect.facingX * range;
         effect.targetY = effect.y + effect.facingY * range;
@@ -11280,7 +11904,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.drawLeapDustEffects(ctx);
     if (this.runActive && this.selectedClass === "paladin") this.drawActivePaladinAuras(ctx, "front");
     if (this.runActive) this.drawArmorAura(ctx);
-    if (this.runActive && this.isBoneArmorActive()) this.drawBoneArmorEffect(ctx);
+    if (this.runActive && this.isBoneArmorActive()) this.drawBoneArmorAura(ctx, "front");
     if (this.runActive && this.isCycloneArmorActive()) this.drawCycloneArmorAura(ctx, "front");
   }
 
@@ -11291,6 +11915,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   private applyIncomingDamage(damage: number, attacker?: Enemy): number {
+    if (this.playerLeapRemaining > 0) return 0;
     const armorReduction = this.equippedArmor / (this.equippedArmor + 100);
     const frozenArmorReduction = this.isFrozenArmorActive()
       ? Math.min(0.5, (this.skillLevels["Frozen Armor"] ?? 0) * 0.1)
@@ -11593,48 +12218,61 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.drawSkillVisualEffects();
   }
 
-  private drawBoneArmorEffect(ctx: CanvasRenderingContext2D): void {
-    const player = this.projectArenaPoint(this.playerX, this.playerY);
-    const pulse = performance.now() * 0.0018;
-    const rank = Math.max(1, this.skillLevels["Bone Armor"] ?? 1);
-    const boneCount = Math.min(12, 4 + Math.ceil(rank / 2));
-    const radiusX = 30;
-    const radiusY = 15;
-    const armorAlpha = Math.max(0.25, Math.min(1, this.boneArmorAbsorptionRemaining / this.boneArmorAbsorptionForRank(rank)));
+  /**
+   * The original D2R Bone Armor overlay is split into a back and a front layer,
+   * exactly like a paladin aura: the arena draws the back row beneath monsters
+   * and the effects canvas draws the front row over the hero.
+   */
+  private drawBoneArmorAura(ctx: CanvasRenderingContext2D, half: "back" | "front"): void {
+    const art = BONE_ARMOR_ART;
+    const image = this.ensureBoneArmorSheet();
+    if (!image.complete || image.naturalWidth === 0) return;
+    const ground = this.projectArenaPoint(this.playerX, this.playerY);
+    const scale = art.scale * this.worldZoom;
+    const row = half === "back" ? art.backRow : art.frontRow;
+    const frame = Math.floor(this.runTime * art.frameRate) % art.columns;
     ctx.save();
-    ctx.translate(player.x, player.y - 10);
-    ctx.globalCompositeOperation = "source-over";
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    ctx.shadowColor = "#dfd6bd";
-    ctx.shadowBlur = 7;
-    for (let bone = 0; bone < boneCount; bone += 1) {
-      const angle = pulse * 0.72 + bone * Math.PI * 2 / boneCount;
-      const x = Math.cos(angle) * radiusX;
-      const y = Math.sin(angle) * radiusY - Math.sin(angle * 2 + pulse) * 3;
-      const length = 12 + (bone % 3) * 2;
-      ctx.save();
-      ctx.translate(x, y);
-      ctx.rotate(angle + Math.PI / 2 + Math.sin(pulse + bone) * 0.18);
-      ctx.strokeStyle = bone % 2 ? "#bdb39d" : "#eee7d5";
-      ctx.lineWidth = 3;
-      ctx.globalAlpha = armorAlpha * (0.88 + Math.sin(pulse * 1.4 + bone) * 0.1);
-      ctx.beginPath();
-      ctx.moveTo(-length * 0.42, 0);
-      ctx.lineTo(length * 0.42, 0);
-      ctx.stroke();
-      ctx.fillStyle = bone % 2 ? "#d5cbb3" : "#fff8e5";
-      for (const end of [-1, 1]) {
-        ctx.beginPath();
-        ctx.arc(end * length * 0.43, 0, 2.6, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(end * length * 0.43, 2.2, 1.6, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      ctx.restore();
-    }
+    ctx.globalCompositeOperation = "lighter";
+    ctx.imageSmoothingEnabled = true;
+    ctx.globalAlpha = half === "back" ? 0.62 : 0.85;
+    ctx.drawImage(
+      image,
+      frame * art.cell, row * art.cell, art.cell, art.cell,
+      ground.x - art.originX * scale,
+      ground.y - art.originY * scale,
+      art.cell * scale,
+      art.cell * scale,
+    );
     ctx.restore();
+  }
+
+  private ensureBoneArmorSheet(): HTMLImageElement {
+    if (!this.boneArmorSheetRequested) {
+      this.boneArmorSheetRequested = true;
+      this.boneArmorSheet.decoding = "async";
+      this.boneArmorSheet.onload = () => {
+        if (this.activeTab === "run") {
+          this.draw();
+          this.drawSkillVisualEffects();
+        }
+      };
+      this.boneArmorSheet.onerror = () => console.warn("Could not load the Bone Armor aura asset.");
+      this.boneArmorSheet.src = BONE_ARMOR_ART.path;
+    }
+    return this.boneArmorSheet;
+  }
+
+  private ensureBoneWallSheet(): HTMLImageElement {
+    if (!this.boneWallSheetRequested) {
+      this.boneWallSheetRequested = true;
+      this.boneWallSheet.decoding = "async";
+      this.boneWallSheet.onload = () => {
+        if (this.activeTab === "run") this.draw();
+      };
+      this.boneWallSheet.onerror = () => console.warn("Could not load the Bone Wall asset.");
+      this.boneWallSheet.src = BONE_WALL_ART.path;
+    }
+    return this.boneWallSheet;
   }
 
   private drawArmorAura(ctx: CanvasRenderingContext2D): void {
@@ -11991,12 +12629,19 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   itemPreviewLeft = false;
   itemPreviewBelow = false;
   itemPreviewAbove = false;
+  private itemPreviewAnchorX = 0;
+  private itemPreviewAnchorY = 0;
+  private itemPreviewLayoutTimer?: number;
   private selectedItemPreviewX = 0;
   private selectedItemPreviewY = 0;
+  private selectedItemPreviewAnchorX = 0;
+  private selectedItemPreviewAnchorY = 0;
   private selectedItemPreviewLeft = false;
   private selectedItemPreviewBelow = false;
   private selectedItemPreviewAbove = false;
   private itemPreviewHideTimeout?: number;
+  @ViewChild("inventoryItemWindow") private inventoryItemWindow?: ElementRef<HTMLElement>;
+  @ViewChild("shopItemWindow") private shopItemWindow?: ElementRef<HTMLElement>;
 
   get itemPreviewItem(): D2InventoryItem | null {
     return this.hoveredItem ?? this.selectedItem;
@@ -12056,7 +12701,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   /**
-   * Tooltip lines. Bows block the off hand, so their tooltip says so even when
+   * Tooltip lines. Two-handed weapons block the off hand, so their tooltip says
    * the item has no explicit stats; the compact shop rows keep the raw stats.
    */
   itemStatText(item: D2InventoryItem | null): string[] {
@@ -12177,7 +12822,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     this.equipment[slot] = drag.item;
     this.clampPlayerVitals();
-    if ((slot === "weapon" || slot === "body" || slot === "shield") && this.characterModel) this.configureClassMeleeWeapon(this.characterModel, this.selectedClass);
+    if ((slot === "weapon" || slot === "body" || slot === "shield" || slot === "helmet") && this.characterModel) {
+      this.configureClassMeleeWeapon(this.characterModel, this.selectedClass);
+      this.configureEquippedHelmet(this.characterModel, this.selectedClass);
+    }
     this.normalizeBeltSlots();
     this.rebuildInventoryGrid();
     this.selectedEquipmentSlot = slot;
@@ -12220,7 +12868,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     this.equipment[slot] = null;
     this.clampPlayerVitals();
-    if ((slot === "weapon" || slot === "body" || slot === "shield") && this.characterModel) this.configureClassMeleeWeapon(this.characterModel, this.selectedClass);
+    if ((slot === "weapon" || slot === "body" || slot === "shield" || slot === "helmet") && this.characterModel) {
+      this.configureClassMeleeWeapon(this.characterModel, this.selectedClass);
+      this.configureEquippedHelmet(this.characterModel, this.selectedClass);
+    }
     this.normalizeBeltSlots();
     this.rebuildInventoryGrid();
     this.selectedItem = item;
@@ -12342,27 +12993,98 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.hoveredSlotIndex = null;
     this.hoveredEquipmentSlot = null;
     if (this.selectedItem) {
+      this.itemPreviewAnchorX = this.selectedItemPreviewAnchorX;
+      this.itemPreviewAnchorY = this.selectedItemPreviewAnchorY;
       this.itemPreviewX = this.selectedItemPreviewX;
       this.itemPreviewY = this.selectedItemPreviewY;
       this.itemPreviewLeft = this.selectedItemPreviewLeft;
       this.itemPreviewBelow = this.selectedItemPreviewBelow;
       this.itemPreviewAbove = this.selectedItemPreviewAbove;
+      this.scheduleItemPreviewLayout();
     }
   }
 
   private moveItemPreviewTo(x: number, y: number, pin = false): void {
-    this.itemPreviewX = Math.max(12, Math.min(x, window.innerWidth - 12));
-    this.itemPreviewY = Math.max(12, Math.min(y, window.innerHeight - 12));
-    this.itemPreviewLeft = x > window.innerWidth - 360;
-    this.itemPreviewBelow = y < window.innerHeight * 0.52;
-    this.itemPreviewAbove = !this.itemPreviewBelow;
+    this.itemPreviewAnchorX = Math.max(12, Math.min(x, window.innerWidth - 12));
+    this.itemPreviewAnchorY = Math.max(12, Math.min(y, window.innerHeight - 12));
+    this.positionItemPreviewAt(this.itemPreviewAnchorX, this.itemPreviewAnchorY);
+    this.scheduleItemPreviewLayout();
     if (pin) {
-      this.selectedItemPreviewX = x;
-      this.selectedItemPreviewY = y;
+      this.selectedItemPreviewX = this.itemPreviewX;
+      this.selectedItemPreviewY = this.itemPreviewY;
+      this.selectedItemPreviewAnchorX = this.itemPreviewAnchorX;
+      this.selectedItemPreviewAnchorY = this.itemPreviewAnchorY;
       this.selectedItemPreviewLeft = this.itemPreviewLeft;
       this.selectedItemPreviewBelow = this.itemPreviewBelow;
       this.selectedItemPreviewAbove = this.itemPreviewAbove;
     }
+  }
+
+  /**
+   * A fixed tooltip placed from a cursor point must fit the measured panel, not
+   * an assumed height. A long rare item can otherwise start above the viewport
+   * even though the pointer is fully visible. Keeping the anchor next to the
+   * pointer also keeps the tooltip from jumping to the wrong side of the mouse.
+   */
+  private positionItemPreviewAt(anchorX: number, anchorY: number): void {
+    const viewportWidth = Math.max(1, window.innerWidth);
+    const viewportHeight = Math.max(1, window.innerHeight);
+    const margin = 12;
+    const gap = 14;
+    const element = this.inventoryItemWindow?.nativeElement ?? this.shopItemWindow?.nativeElement;
+    const rect = element?.getBoundingClientRect();
+    const maxWidth = Math.max(1, viewportWidth - margin * 2);
+    const maxHeight = Math.max(1, viewportHeight - margin * 2);
+    const width = Math.min(rect?.width || 340, maxWidth);
+    const height = Math.min(rect?.height || Math.min(viewportHeight * 0.7, 520), maxHeight);
+    const x = Math.max(margin, Math.min(anchorX, viewportWidth - margin));
+    const y = Math.max(margin, Math.min(anchorY, viewportHeight - margin));
+
+    const roomRight = x + gap + width <= viewportWidth - margin;
+    const roomLeft = x - gap - width >= margin;
+    let left: number;
+    if (roomRight) {
+      left = x + gap;
+      this.itemPreviewLeft = false;
+    } else if (roomLeft) {
+      left = x - gap - width;
+      this.itemPreviewLeft = true;
+    } else {
+      left = Math.max(margin, Math.min(x - width / 2, viewportWidth - margin - width));
+      this.itemPreviewLeft = x > viewportWidth / 2;
+    }
+
+    const roomBelow = y + gap + height <= viewportHeight - margin;
+    const roomAbove = y - gap - height >= margin;
+    let top: number;
+    if (roomBelow) {
+      top = y + gap;
+      this.itemPreviewBelow = true;
+      this.itemPreviewAbove = false;
+    } else if (roomAbove) {
+      top = y - gap - height;
+      this.itemPreviewBelow = false;
+      this.itemPreviewAbove = true;
+    } else {
+      top = Math.max(margin, Math.min(y - height / 2, viewportHeight - margin - height));
+      this.itemPreviewBelow = y < viewportHeight / 2;
+      this.itemPreviewAbove = !this.itemPreviewBelow;
+    }
+
+    // The final clamp is a safety net for panels wider or taller than the
+    // viewport itself. Flooring also keeps sub-pixel widths inside the margin.
+    this.itemPreviewX = Math.floor(Math.max(margin, Math.min(left, viewportWidth - margin - width)));
+    this.itemPreviewY = Math.floor(Math.max(margin, Math.min(top, viewportHeight - margin - height)));
+  }
+
+  private scheduleItemPreviewLayout(): void {
+    if (this.itemPreviewLayoutTimer !== undefined) window.clearTimeout(this.itemPreviewLayoutTimer);
+    // A timeout (rather than rAF) runs after Angular has inserted the tooltip
+    // into the DOM, so the first placement can measure the new item's height.
+    this.itemPreviewLayoutTimer = window.setTimeout(() => {
+      this.itemPreviewLayoutTimer = undefined;
+      this.positionItemPreviewAt(this.itemPreviewAnchorX, this.itemPreviewAnchorY);
+    }, 0);
   }
 
   onInventoryContextMenu(slotIndex: number, event: MouseEvent): void {
@@ -12430,7 +13152,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const value = this.getItemSellValue(item);
     this.equipment[slot] = null;
     this.clampPlayerVitals();
-    if ((slot === "weapon" || slot === "body" || slot === "shield") && this.characterModel) this.configureClassMeleeWeapon(this.characterModel, this.selectedClass);
+    if ((slot === "weapon" || slot === "body" || slot === "shield" || slot === "helmet") && this.characterModel) {
+      this.configureClassMeleeWeapon(this.characterModel, this.selectedClass);
+      this.configureEquippedHelmet(this.characterModel, this.selectedClass);
+    }
     this.normalizeBeltSlots();
     this.playerGold = Math.min(1_000_000_000, this.playerGold + value);
     this.sanctuaryGold = this.playerGold;
@@ -12500,7 +13225,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.selectedSlotIndex = item ? slotIndex : null;
     this.selectedEquipmentSlot = null;
     if (item && !event && this.hoveredItem?.id === item.id) {
-      this.moveItemPreviewTo(this.itemPreviewX, this.itemPreviewY, true);
+      this.moveItemPreviewTo(this.itemPreviewAnchorX, this.itemPreviewAnchorY, true);
     }
     if (!item) {
       this.onItemPreviewLeave();
@@ -12533,7 +13258,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.inventory[index] = item;
     this.equipment[slot] = null;
     this.clampPlayerVitals();
-    if ((slot === "weapon" || slot === "body" || slot === "shield") && this.characterModel) this.configureClassMeleeWeapon(this.characterModel, this.selectedClass);
+    if ((slot === "weapon" || slot === "body" || slot === "shield" || slot === "helmet") && this.characterModel) {
+      this.configureClassMeleeWeapon(this.characterModel, this.selectedClass);
+      this.configureEquippedHelmet(this.characterModel, this.selectedClass);
+    }
     this.normalizeBeltSlots();
     this.rebuildInventoryGrid();
     this.selectedEquipmentSlot = null;
@@ -12644,6 +13372,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.blazeDropRemaining = 0;
     this.blazeDamagePerTick = 0;
     this.blazeFirePatches.length = 0;
+    this.poisonClouds.length = 0;
     this.attackProjectiles = [];
     this.pendingDamage.clear();
     this.pendingDamageTimer = 0;
@@ -12707,8 +13436,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       };
     };
     const spawnPosition = randomFloorPosition();
-    const normalHealth = Math.round(18 * actDifficulty);
     const uber = this.currentActDetails.uber === true;
+    const uberTristram = uber && this.currentAct === 8;
+    if (uberTristram) this.uberTristramStatsScaled = true;
+    const tristramHealth = uberTristram ? UBER_TRISTRAM_HEALTH_MULTIPLIER : 1;
+    const tristramDamage = uberTristram ? UBER_TRISTRAM_DAMAGE_MULTIPLIER : 1;
+    const normalHealth = Math.round(18 * actDifficulty * tristramHealth);
     const immunities = uber ? UBER_ENEMY_IMMUNITIES[species] : undefined;
     const base: Enemy = {
       kind: "normal",
@@ -12726,7 +13459,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       maxHp: normalHealth,
       speed: 80 + Math.random() * 40,
       r: 14,
-      dmg: 2,
+      dmg: 2 * tristramDamage,
       cd: 0.8,
       hatchCooldown: species === "vileMother" ? 6 + Math.random() * 6 : undefined,
     };
@@ -12734,7 +13467,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       // Pandemonium bosses are the same monsters at level-83 strength. Andariel
       // is the exception: Matron's Den is her arena, so she anchors it alone.
       const matronsDenAndariel = uber && this.currentAct === 7 && species === "andariel";
-      const bossHealth = Math.round(140 * actDifficulty * (uber ? 4 : 1)
+      const bossHealth = Math.round(140 * actDifficulty * (uber ? 4 : 1) * tristramHealth
         * (matronsDenAndariel ? MATRONS_DEN_ANDARIEL_HEALTH_MULTIPLIER : 1));
       return {
         ...base,
@@ -12742,21 +13475,21 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         maxHp: bossHealth,
         speed: 70,
         r: 26 + (uber ? 6 : 0),
-        dmg: Math.ceil(6 * actDifficulty * (uber ? 2.2 : 1)
+        dmg: Math.ceil(6 * actDifficulty * (uber ? 2.2 : 1) * tristramDamage
           * (matronsDenAndariel ? MATRONS_DEN_ANDARIEL_DAMAGE_MULTIPLIER : 1)),
         cd: 1.1,
         kind: "boss",
       };
     }
     if (kind === "champion") {
-      const championHealth = Math.round(50 * actDifficulty);
+      const championHealth = Math.round(50 * actDifficulty * tristramHealth);
       return {
         ...base,
         hp: championHealth,
         maxHp: championHealth,
         speed: 110,
         r: 18,
-        dmg: 4,
+        dmg: 4 * tristramDamage,
         cd: 0.9,
         kind: "champion",
       };
@@ -12768,7 +13501,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   makeMiniBoss(schedule: MiniBossSchedule): Enemy {
     const actDifficulty = 1 + Math.max(0, this.currentArea.level - 1) * 0.04;
     const enemy = this.makeEnemy("boss", false, schedule.species);
-    const health = Math.round(schedule.health * actDifficulty);
+    const uberTristram = this.currentActDetails.uber === true && this.currentAct === 8;
+    const health = Math.round(schedule.health * actDifficulty
+      * (uberTristram ? UBER_TRISTRAM_HEALTH_MULTIPLIER : 1));
     return {
       ...enemy,
       miniBoss: true,
@@ -12776,7 +13511,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       maxHp: health,
       speed: schedule.speed,
       r: schedule.radius,
-      dmg: Math.ceil(schedule.damage * actDifficulty),
+      dmg: Math.ceil(schedule.damage * actDifficulty
+        * (uberTristram ? UBER_TRISTRAM_DAMAGE_MULTIPLIER : 1)),
       cd: 1.1,
     };
   }
@@ -13167,7 +13903,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
     if (this.runActive && this.isCycloneArmorActive()) this.drawCycloneArmorAura(ctx, "back");
     if (this.runActive && this.selectedClass === "paladin") this.drawActivePaladinAuras(ctx, "back");
+    if (this.runActive && this.isBoneArmorActive()) this.drawBoneArmorAura(ctx, "back");
     this.drawCreeperTrails(ctx);
+    this.drawPoisonClouds(ctx);
 
     // One projected pass per collection instead of a filter+map burst per group,
     // and anything whose ground point is far outside the canvas is skipped: a
@@ -13185,10 +13923,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         if (this.isArenaPointOnScreen(point, DRAW_CULL_MARGIN)) {
           drawOrder.push({ depth: point.y - 1, draw: () => this.drawBoneWall(ctx, projectile) });
         }
-      } else if (projectile.wakeOfFireTrap) {
+      } else if (projectile.wakeOfFireTrap || projectile.wakeOfInfernoTrap) {
         const point = this.projectArenaPoint(projectile.x, projectile.y);
         if (this.isArenaPointOnScreen(point, DRAW_CULL_MARGIN)) {
-          drawOrder.push({ depth: point.y - 1, draw: () => this.drawWakeOfFireTrap(ctx, projectile) });
+          drawOrder.push({ depth: point.y - 1, draw: () => this.drawTrap(ctx, projectile) });
         }
       } else if (projectile.impactTrap && projectile.impactPoint) {
         const point = this.projectArenaPoint(projectile.impactPoint.x, projectile.impactPoint.y);
@@ -13390,6 +14128,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         this.characterRig = buildCharacterRig(model, modelClass);
         this.selectedClass = modelClass;
         this.attachBarbarianShoulderPads(model, modelClass, this.characterRig);
+        this.configureEquippedHelmet(model, modelClass);
         this.configureClassMeleeWeapon(model, modelClass);
         this.playerAnimationTime = 0;
         this.playerMotionBlend = 0;
@@ -13682,6 +14421,150 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   /**
+   * Attach the equipped helmet's original D2R mesh to the head bone. The meshes
+   * are authored Y-up with +Z forward, like the class rigs, so the only
+   * calibration is a head-local uniform scale and a small lift. Hair layers are
+   * switched to the variant the piece was authored against.
+   */
+  private configureEquippedHelmet(model: THREE.Group, classId: string): void {
+    const visual = this.equipment.helmet ? getHelmetVisualForItem(this.equipment.helmet) : null;
+    this.setHelmetHairState(model, visual?.hair ?? "none");
+
+    const token = ((model.userData["d2sHelmetToken"] as number | undefined) ?? 0) + 1;
+    model.userData["d2sHelmetToken"] = token;
+    const previous = model.getObjectByName("d2s_equipped_helmet");
+    const current = model.userData["d2sHelmetVisual"] as string | undefined;
+    if (previous && visual && current === visual.id) return;
+    if (previous) {
+      previous.removeFromParent();
+      this.disposeHelmetObject(previous);
+    }
+    if (!visual) {
+      model.userData["d2sHelmetVisual"] = undefined;
+      return;
+    }
+    model.userData["d2sHelmetVisual"] = visual.id;
+
+    // D2R's per-class cap scales center on these small head-size corrections.
+    const classScale: Record<string, number> = {
+      amazon: 0.93, sorceress: 0.95, necromancer: 1.03, paladin: 1,
+      barbarian: 1.05, druid: 1, assassin: 0.92,
+    };
+    void Promise.all([
+      new GLTFLoader().loadAsync(visual.model),
+      new THREE.TextureLoader().loadAsync(visual.texture).catch(() => null),
+    ]).then(([gltf, texture]) => {
+      if (model.userData["d2sHelmetToken"] !== token) {
+        this.disposeHelmetObject(gltf.scene);
+        texture?.dispose();
+        return;
+      }
+      const head = model.getObjectByName("head_bind_jnt")
+        ?? model.getObjectByName("head")
+        ?? model.getObjectByName("Head")
+        ?? model.getObjectByName("neck");
+      if (!head) {
+        this.disposeHelmetObject(gltf.scene);
+        texture?.dispose();
+        model.userData["d2sHelmetVisual"] = undefined;
+        this.setHelmetHairState(model, "none");
+        return;
+      }
+      if (texture) {
+        texture.flipY = false;
+        texture.colorSpace = THREE.SRGBColorSpace;
+      }
+      const material = new THREE.MeshStandardMaterial({
+        map: texture ?? undefined,
+        color: texture ? 0xffffff : 0xb9a88a,
+        metalness: visual.metalness,
+        roughness: visual.roughness,
+        side: THREE.DoubleSide,
+      });
+      const defaultMaterials = new Set<THREE.Material>();
+      gltf.scene.traverse((object) => {
+        const mesh = object as THREE.Mesh;
+        if (!mesh.isMesh) return;
+        (Array.isArray(mesh.material) ? mesh.material : [mesh.material]).forEach((entry) => defaultMaterials.add(entry));
+      });
+      defaultMaterials.forEach((entry) => entry.dispose());
+
+      const helmetScene = this.staticizeHelmet(gltf.scene, material);
+      const bounds = new THREE.Box3().setFromObject(helmetScene);
+      const center = bounds.getCenter(new THREE.Vector3());
+      helmetScene.position.sub(center);
+
+      // 3182 is the paladin head bone's world scale at the 72-unit live size.
+      // Normalizing to it makes the same meshes fit every class's head size.
+      const modelHeight = new THREE.Box3().setFromObject(model).getSize(new THREE.Vector3()).y;
+      const headScale = head.getWorldScale(new THREE.Vector3()).x;
+      const referenceHeadScale = 3182 * (modelHeight / 72);
+      const headFit = modelHeight > 0 && headScale > 0 ? referenceHeadScale / headScale : 1;
+      const group = new THREE.Group();
+      group.name = "d2s_equipped_helmet";
+      group.add(helmetScene);
+      group.scale.setScalar(visual.scale * headFit * (classScale[classId] ?? 1));
+      group.position.set(0, visual.lift, 0);
+      const [rotationX, rotationY, rotationZ] = visual.rotation ?? [0, 0, 0];
+      group.rotation.set(rotationX, rotationY, rotationZ);
+      head.add(group);
+    }).catch((error: unknown) => {
+      if (model.userData["d2sHelmetToken"] !== token) return;
+      model.userData["d2sHelmetVisual"] = undefined;
+      this.setHelmetHairState(model, "none");
+      console.warn(`Could not load the ${visual.id} D2R helmet mesh`, error);
+    });
+  }
+
+  /**
+   * Flatten a helmet GLB to its mesh parts. Some rips carry their own display
+   * skeleton, whose root transform is not the head-attachment transform; using
+   * each mesh's bind-pose geometry avoids inheriting that offset.
+   */
+  private staticizeHelmet(source: THREE.Group, material: THREE.Material): THREE.Group {
+    const output = new THREE.Group();
+    source.updateMatrixWorld(true);
+    const inverse = new THREE.Matrix4().copy(source.matrixWorld).invert();
+    source.traverse((object) => {
+      const mesh = object as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      const local = new THREE.Matrix4().multiplyMatrices(inverse, mesh.matrixWorld);
+      const staticMesh = new THREE.Mesh(mesh.geometry, material);
+      staticMesh.name = mesh.name;
+      local.decompose(staticMesh.position, staticMesh.quaternion, staticMesh.scale);
+      staticMesh.frustumCulled = false;
+      output.add(staticMesh);
+    });
+    return output;
+  }
+
+  /**
+   * These rips ship every hair layer at once. Show only the layer authored for
+   * the current headgear: bare-headed, under a half helm, or under a full helm.
+   */
+  private setHelmetHairState(model: THREE.Group, state: "none" | "half" | "full"): void {
+    model.traverse((object) => {
+      const mesh = object as THREE.Mesh;
+      if (!mesh.isMesh || !/hair/i.test(mesh.name)) return;
+      const variant = /full.?helm/i.test(mesh.name) ? "full" : /half.?helm/i.test(mesh.name) ? "half" : "none";
+      mesh.visible = variant === state;
+    });
+  }
+
+  private disposeHelmetObject(object: THREE.Object3D): void {
+    object.traverse((child) => {
+      const mesh = child as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      mesh.geometry?.dispose();
+      const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      materials.forEach((material) => {
+        if ("map" in material && material.map instanceof THREE.Texture) material.map.dispose();
+        material.dispose();
+      });
+    });
+  }
+
+  /**
    * The Barbarian's pauldrons are skinned to helper pivots left at the scene
    * root (heavy/medium) or parented to the clavicle (light). This rig's attack
    * animation drives the upper-arm bones, so those pads otherwise stay frozen
@@ -13969,6 +14852,33 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     return defense >= 25 ? "heavy" : defense <= 12 ? "light" : "medium";
   }
 
+  /** True when there is no equipped or class-supplied weapon in the hero's hands. */
+  private get playerIsWeaponless(): boolean {
+    if (this.equipment.weapon || this.equipment.shield?.slot === "weapon") return false;
+    return !this.modelHasVisibleWeapon(this.characterModel);
+  }
+
+  /** Detect visible weapon geometry so bare-hand poses do not run while a weapon
+   *  is actually attached to a preview or the playable model. */
+  private modelHasVisibleWeapon(model?: THREE.Object3D): boolean {
+    if (!model) return false;
+    let found = false;
+    model.traverse((object) => {
+      if (found || !object.visible) return;
+      const name = object.name.toLowerCase();
+      if (/equipped_(weapon|offhand)/.test(name)) {
+        found = true;
+        return;
+      }
+      if (!(object as THREE.Mesh).isMesh) return;
+      if (/pike|polearm|spear|staff|bow|crossbow|javelin|sword|axe|mace|hammer|blade|wand|orb|claw|dagger|weapon/.test(name)
+        && !/shield|armor|weapon_attach/.test(name)) {
+        found = true;
+      }
+    });
+    return found;
+  }
+
   private animatePlayerModel(dt: number): void {
     if (!this.characterModel || !this.characterRig) return;
     const seconds = Math.max(0, dt / 1000);
@@ -13990,6 +14900,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       attackTime: this.attackAnimationTime,
       attackSide: this.attackAnimationSide,
       gait,
+      weaponless: this.playerIsWeaponless,
       motionScale: this.reducedMotion ? 0.5 : 1,
     });
     const weaponTurn = new THREE.Quaternion().setFromEuler(new THREE.Euler(
@@ -14176,7 +15087,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
     let spriteDrawn = false;
     if (sprite && sprite.frames.length > 0) {
-      const directionX = e.species === "andariel" ? -(e.facingX ?? dx) : e.facingX ?? dx;
+      const directionX = e.facingX ?? dx;
       const directionY = e.facingY ?? dy;
       // Fallen only have one horizontal-facing row, and that art faces left.
       // Mirror it when the monster turns right so its feet follow its movement.
@@ -14186,7 +15097,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const frameIndex = enemySpriteFrame(e, sprite.columns, this.runTime);
       const frame = sprite.frames[direction]?.[frameIndex];
       if (frame && frame.width > 0 && frame.height > 0) {
-        const attackPulse = e.animationState === "attack" ? Math.sin((1 - (e.attackAnimationTime ?? 0) / 0.55) * Math.PI) : 0;
+        const attackDuration = e.kind === "boss" ? 0.55 : 0.38;
+        const attackProgress = Math.max(0, Math.min(1, 1 - (e.attackAnimationTime ?? attackDuration) / attackDuration));
+        const attackPulse = e.animationState === "attack" ? Math.sin(attackProgress * Math.PI) : 0;
         const drawHeight = size * (e.kind === "boss" ? 1.35 : 1) * (1 + attackPulse * 0.08);
         const aspectRatio = frame.width / frame.height;
         const drawWidth = drawHeight * Math.max(0.9, Math.min(1.7, aspectRatio));
@@ -14217,7 +15130,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         // it takes a gentler tint that keeps the bleached bone from going brown.
         const tint = e.species === "andariel"
           ? "brightness(1.04) contrast(1.06) saturate(1.05)"
-          : e.species === "boneFetish"
+          : e.species === "duriel"
+            ? "brightness(1.08) contrast(1.08) saturate(1.06)"
+            : e.species === "boneFetish"
             ? "brightness(1.14) contrast(1.1) sepia(0.3) saturate(0.6)"
             : e.species === "sandMaggotQueen"
               ? "brightness(1.16) contrast(1.16) sepia(0.4) saturate(1.3) hue-rotate(-8deg)"
@@ -14366,7 +15281,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   getEnemyDisplayName(enemy: Enemy): string {
     const speciesNames: Record<EnemySpecies, string> = {
       fallen: "Fallen", goatman: "Goatman", skeleton: "Skeleton", sandRaider: "Sand Raider",
-      skeletonWarrior: "Skeleton Warrior", golem: "Golem",
+      skeletonWarrior: "Skeleton Warrior", skeletalMageCold: "Skeletal Mage (Cold)", skeletalMageFire: "Skeletal Mage (Fire)",
+      skeletalMageLightning: "Skeletal Mage (Lightning)", skeletalMagePoison: "Skeletal Mage (Poison)", golem: "Golem",
       sandMaggot: "Sand Maggot", sandMaggotQueen: "Sand Maggot Queen", sandMaggotYoung: "Sand Maggot Young", scarab: "Sand Scarab", spiderDemon: "Spider Demon", spikeFiend: "Spike Fiend", leaper: "Leaper", blunderbore: "Blunderbore", fetish: "Fetish", boneFetish: "Bone Fetish", fetishShaman: "Fetish Shaman",
       council: "Council Member", balrog: "Balrog", vileChild: "Vile Child", vileMother: "Vile Mother",
       bloodLord: "Blood Lord", minotaur: "Minotaur", deathMauler: "Death Mauler", wendigo: "Wendigo",
@@ -14407,7 +15323,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     // columns. The raised skeleton has the same eight-frame walk band; other
     // summon families keep their previous frame behavior.
     const frameIndex = sprite
-      ? look || summon.species === "skeletonWarrior" || summon.species === "goatman"
+      ? look || summon.species === "skeletonWarrior" || summon.species === "goatman" || summon.summonSkill === "Skeletal Mage"
         ? enemySpriteFrame(summon, sprite.columns, this.runTime)
         : summon.animationState === "attack"
           ? Math.min(sprite.columns - 1, Math.floor(attackProgress * sprite.columns))
@@ -14443,14 +15359,15 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         ctx.shadowBlur = 12 * this.worldZoom;
       }
       if (summon.summonSkill === "Skeletal Mage") {
-        ctx.shadowColor = "rgba(145, 210, 255, 0.95)";
+        const mageLook = summon.summonElement ? SKELETAL_MAGE_LOOKS[summon.summonElement] : undefined;
+        ctx.shadowColor = mageLook?.glow ?? "rgba(145, 210, 255, 0.95)";
         ctx.shadowBlur = 14 * this.worldZoom;
       }
       if (spirit && look) {
         ctx.shadowColor = `rgba(${look.glow[0]}, ${look.glow[1]}, ${look.glow[2]}, 0.8)`;
         ctx.shadowBlur = 12 * this.worldZoom;
       }
-      const frameToDraw = this.tintedEnemyFrame(summon.species, direction, frameIndex, frame, this.summonSpriteTint(skill));
+      const frameToDraw = this.tintedEnemyFrame(summon.species, direction, frameIndex, frame, this.summonSpriteTint(skill, summon.summonElement));
       ctx.drawImage(
         frameToDraw,
         ground.x - width / 2,
@@ -14486,7 +15403,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     ctx.textAlign = "center";
     ctx.shadowColor = "#08090b";
     ctx.shadowBlur = 3;
-    ctx.fillText(summon.summonSkill ?? "Summon", ground.x, barY - 3);
+    ctx.fillText(this.summonLabel(summon), ground.x, barY - 3);
     ctx.shadowBlur = 0;
   }
 
@@ -14559,12 +15476,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
    * skeleton's bones lit by its spell. Druid summons use the dedicated palettes
    * above instead of the old warm wash applied to borrowed monster sheets.
    */
-  private summonSpriteTint(skill: string): string {
+  private summonSpriteTint(skill: string, element?: SkeletalMageElement): string {
     const druidLook = this.druidSummonLook(skill);
     if (druidLook) return druidLook.tint;
     switch (skill) {
       case "Raise Skeleton": return "brightness(1.14) contrast(1.08)";
-      case "Skeletal Mage": return "hue-rotate(168deg) saturate(1.45) brightness(1.18)";
+      case "Skeletal Mage": return element ? SKELETAL_MAGE_LOOKS[element].tint : "brightness(1.08) contrast(1.06)";
       case "Clay Golem": return "sepia(0.55) saturate(1.5) brightness(1.04)";
       case "Blood Golem": return "sepia(0.85) hue-rotate(-26deg) saturate(2.6) brightness(0.9)";
       case "Iron Golem": return "grayscale(0.55) brightness(1.2) contrast(1.14)";
@@ -14575,6 +15492,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   private summonBarColor(summon: Enemy): string {
     switch (summon.summonSkill) {
+      case "Skeletal Mage": return summon.summonElement ? SKELETAL_MAGE_LOOKS[summon.summonElement].color : "#b9d8e7";
       case "Fire Golem": return "#ff8136";
       case "Iron Golem": return "#a8b6bb";
       case "Blood Golem": return "#c2635a";
@@ -14588,6 +15506,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       case "Valkyrie": return "#c9d6e2";
       default: return "#b9d8e7";
     }
+  }
+
+  private summonLabel(summon: Enemy): string {
+    if (summon.summonSkill === "Skeletal Mage" && summon.summonElement) return SKELETAL_MAGE_LOOKS[summon.summonElement].label;
+    return summon.summonSkill ?? "Summon";
   }
 
   private drawDruidSummon(ctx: CanvasRenderingContext2D, summon: Enemy, ground: { x: number; y: number }): void {
@@ -14766,13 +15689,17 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     ctx.restore();
   }
 
-  private summonDamageType(skill: string | undefined): SummonDamageType {
+  private summonDamageType(skill: string | undefined, element?: SkeletalMageElement): SummonDamageType {
+    if (skill === "Skeletal Mage") return element ?? "cold";
     return skill ? SUMMON_DAMAGE_TYPES[skill] ?? "physical" : "physical";
   }
 
   private summonDamageColor(summon: Enemy, type: SummonDamageType): string {
+    if (summon.summonSkill === "Skeletal Mage" && summon.summonElement) return SKELETAL_MAGE_LOOKS[summon.summonElement].color;
     if (type === "poison") return "#9bdb56";
     if (type === "fire") return "#ff8a32";
+    if (type === "cold") return "#8fd8ff";
+    if (type === "lightning") return "#fff27a";
     if (summon.summonSkill === "Raven") return "#a99bda";
     if (summon.summonType === "golem") return summon.summonSkill === "Fire Golem" ? "#ff7135" : "#d9aa68";
     if (summon.summonSkill === "Werewolf") return "#c9a273";
@@ -14784,11 +15711,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     summon.summonAttackCooldown = summon.summonType === "golem" ? 0.9
       : summon.summonSkill === "Skeletal Mage" || summon.summonSkill === "Raven" ? 1.25
       : summon.summonSkill === "Poison Creeper" ? 1.05
-      : summon.summonSkill === "Raise Skeleton" ? 1.15
+      : summon.summonSkill === "Raise Skeleton" ? 0.72
       : 0.72;
-    // The skeleton's bow draw needs long enough to read as a shot.
+    // Raised skeletons close to melee; mages and ravens cast at range.
     const duration = summon.summonType === "golem" || summon.summonSkill === "Werewolf" ? 0.38
-      : summon.summonSkill === "Raise Skeleton" ? 0.42
+      : summon.summonSkill === "Raise Skeleton" ? 0.32
       : 0.3;
     summon.attackAnimationTime = duration;
     this.summonAttackEffects.push({
@@ -14797,7 +15724,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       time: 0,
       duration,
       damage: summon.dmg,
-      damageType: this.summonDamageType(summon.summonSkill),
+      damageType: this.summonDamageType(summon.summonSkill, summon.summonElement),
     });
   }
 
@@ -14820,7 +15747,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const target = this.projectArenaPoint(effect.target.x, effect.target.y);
     const isRanged = effect.summon.summonSkill === "Skeletal Mage" || effect.summon.summonSkill === "Raven";
     const isRaven = effect.summon.summonSkill === "Raven";
-    const isArcher = effect.summon.summonSkill === "Raise Skeleton";
     const color = this.summonDamageColor(effect.summon, effect.damageType);
     ctx.save();
     ctx.globalAlpha = 1 - progress;
@@ -14829,37 +15755,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     ctx.fillStyle = color;
     ctx.shadowColor = color;
     ctx.shadowBlur = 14;
-    if (isArcher) {
-      // A raised skeleton looses a plain arrow: a shaft with a head and
-      // fletching travelling in a straight line, with no spell glow.
-      const x = source.x + (target.x - source.x) * progress;
-      const y = source.y + (target.y - source.y) * progress - 12;
-      const angle = Math.atan2(target.y - source.y, target.x - source.x);
-      const cos = Math.cos(angle);
-      const sin = Math.sin(angle);
-      ctx.shadowBlur = 0;
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = "#e6d8bb";
-      ctx.beginPath();
-      ctx.moveTo(x - cos * 11, y - sin * 11);
-      ctx.lineTo(x + cos * 6, y + sin * 6);
-      ctx.stroke();
-      ctx.fillStyle = "#e6d8bb";
-      ctx.beginPath();
-      ctx.moveTo(x + cos * 12, y + sin * 12);
-      ctx.lineTo(x + cos * 5 - sin * 4, y + sin * 5 + cos * 4);
-      ctx.lineTo(x + cos * 5 + sin * 4, y + sin * 5 - cos * 4);
-      ctx.closePath();
-      ctx.fill();
-      ctx.strokeStyle = "#8d8674";
-      ctx.beginPath();
-      ctx.moveTo(x - cos * 9 - sin * 4, y - sin * 9 + cos * 4);
-      ctx.lineTo(x - cos * 14, y - sin * 14);
-      ctx.lineTo(x - cos * 9 + sin * 4, y - sin * 9 - cos * 4);
-      ctx.stroke();
-      ctx.restore();
-      return;
-    }
     if (isRanged) {
       const x = source.x + (target.x - source.x) * progress;
       const y = source.y + (target.y - source.y) * progress - 12;
@@ -15287,6 +16182,8 @@ interface D2SavedRun {
   actTime?: number;
   actBossSpawned?: boolean;
   miniBossSpawned?: boolean;
+  /** True once this run's Uber Tristram monsters carry its health/damage buff. */
+  uberTristramStatsScaled?: boolean;
   currentAreaIndex?: number;
   campaignBossKills?: number;
   /** Legacy field: before mini bosses were generalised only Nihlathak was tracked. */
@@ -15381,7 +16278,7 @@ function sanitizeInventoryItem(value: unknown): D2InventoryItem | null {
       "allResistPercent", "fireResistPercent", "coldResistPercent",
       "lightningResistPercent", "poisonResistPercent", "replenishLife", "thorns",
       "extraExperiencePercent", "requiresStrength", "requiresDexterity",
-      "necromancerClassSkillLevel", "sorceressClassSkillLevel",
+      "necromancerClassSkillLevel", "sorceressClassSkillLevel", "druidClassSkillLevel",
     ] as const;
     for (const key of statKeys) {
       const stat = rawStats[key];
@@ -15431,6 +16328,27 @@ function sanitizeInventoryItem(value: unknown): D2InventoryItem | null {
     if (stats.sorceressClassSkillLevel != null) {
       stats.sorceressClassSkillLevel = Math.max(1, Math.min(2, Math.floor(stats.sorceressClassSkillLevel)));
     }
+    const druidSkillLevels = rawStats["druidSkillLevels"];
+    if (isRecord(druidSkillLevels)) {
+      const sanitized: Record<string, number> = {};
+      for (const [name, rank] of Object.entries(druidSkillLevels)) {
+        if (!STAFFMOD_CONFIGS.druid.treeByName.has(name) || typeof rank !== "number" || !Number.isFinite(rank)) continue;
+        sanitized[name] = Math.max(1, Math.min(3, Math.floor(rank)));
+      }
+      if (Object.keys(sanitized).length) stats.druidSkillLevels = sanitized;
+    }
+    const druidTreeLevels = rawStats["druidTreeSkillLevels"];
+    if (isRecord(druidTreeLevels)) {
+      const sanitized: Record<string, number> = {};
+      for (const [tree, rank] of Object.entries(druidTreeLevels)) {
+        if (!STAFFMOD_CONFIGS.druid.treeNames.includes(tree) || typeof rank !== "number" || !Number.isFinite(rank)) continue;
+        sanitized[tree] = Math.max(1, Math.min(3, Math.floor(rank)));
+      }
+      if (Object.keys(sanitized).length) stats.druidTreeSkillLevels = sanitized;
+    }
+    if (stats.druidClassSkillLevel != null) {
+      stats.druidClassSkillLevel = Math.max(1, Math.min(2, Math.floor(stats.druidClassSkillLevel)));
+    }
   }
   const affixes = Array.isArray(value["affixes"])
     ? value["affixes"].filter((affix): affix is string => typeof affix === "string").slice(0, 40)
@@ -15448,6 +16366,14 @@ function sanitizeInventoryItem(value: unknown): D2InventoryItem | null {
     name = name.replace(/barbarian throwing axe/gi, "Throwing Axe");
     baseName = "Throwing Axe";
   }
+  // The Great Sword was likewise class-locked to Barbarians. Migrate old copies
+  // to the unrestricted base so every character can wield one.
+  const legacyBarbarianGreatSword = baseName?.toLowerCase() === "barbarian great sword"
+    || name.toLowerCase().includes("barbarian great sword");
+  if (legacyBarbarianGreatSword) {
+    name = name.replace(/barbarian great sword/gi, "Great Sword");
+    baseName = "Great Sword";
+  }
   if (`${name} ${baseName ?? ""}`.toLowerCase().includes("quill of the fates")) return null;
   const generated = value["rarity"] === "set" ? D2_SET_ITEM_BY_NAME[name]
     : value["rarity"] === "unique" ? D2_UNIQUE_ITEM_BY_NAME[name] : undefined;
@@ -15462,7 +16388,7 @@ function sanitizeInventoryItem(value: unknown): D2InventoryItem | null {
     rarity: value["rarity"],
     slot: value["slot"],
     ...(equipmentTypes.includes(value["equipmentType"] as EquipmentType) ? { equipmentType: value["equipmentType"] as EquipmentType } : {}),
-    ...(!legacyBarbarianThrowingAxe && isClassId(value["restrictedClass"]) ? { restrictedClass: value["restrictedClass"] } : {}),
+    ...(!legacyBarbarianThrowingAxe && !legacyBarbarianGreatSword && isClassId(value["restrictedClass"]) ? { restrictedClass: value["restrictedClass"] } : {}),
     ...(typeof value["width"] === "number" && Number.isInteger(value["width"]) ? { width: Math.max(1, Math.min(2, value["width"])) } : {}),
     ...(typeof value["height"] === "number" && Number.isInteger(value["height"]) ? { height: Math.max(1, Math.min(4, value["height"])) } : {}),
     ...(value["beltQuality"] === "normal" || value["beltQuality"] === "exceptional" || value["beltQuality"] === "elite"
@@ -15472,7 +16398,9 @@ function sanitizeInventoryItem(value: unknown): D2InventoryItem | null {
     ...(setName ? { setName } : {}),
     desc: legacyBarbarianThrowingAxe
       ? "A throwing axe balanced for dual combat."
-      : value["desc"].slice(0, 500),
+      : legacyBarbarianGreatSword
+        ? "A massive great sword that any class can wield."
+        : value["desc"].slice(0, 500),
     ...(Object.keys(stats).length ? { stats } : {}),
     ...(affixes?.length ? { affixes } : {}),
   };
@@ -15647,8 +16575,13 @@ function isStaffWeapon(item: D2InventoryItem): boolean {
   return /\bstaff\b|quarterstaff|shillelagh|stalagmite|walking stick/.test(name);
 }
 
+/** Great axes are swung with both hands, so they lock the off hand. */
+function isGreatAxeWeapon(item: D2InventoryItem): boolean {
+  return item.slot === "weapon" && /\bgreat axes?\b/.test(`${item.baseName ?? ""} ${item.name}`.toLowerCase());
+}
+
 function isTwoHandedWeapon(item: D2InventoryItem): boolean {
-  return isBowWeapon(item) || isStaffWeapon(item);
+  return isBowWeapon(item) || isStaffWeapon(item) || isGreatAxeWeapon(item);
 }
 
 function isCompatibleWithEquipment(item: D2InventoryItem, slot: PaperdollSlot, classId = ""): boolean {
@@ -15709,7 +16642,7 @@ function druidAnimationFrame(
         : Math.min(animation.columns - 1, Math.floor(animation.columns * 0.12));
   return animation.frames[direction]?.[frameIndex];
 }
-type EnemySpecies = "fallen" | "goatman" | "skeleton" | "sandRaider" | "sandMaggot" | "sandMaggotQueen" | "sandMaggotYoung" | "scarab" | "spiderDemon" | "spikeFiend" | "leaper" | "blunderbore" | "fetish" | "boneFetish" | "fetishShaman" | "council" | "balrog" | "vileChild" | "vileMother" | "bloodLord" | "minotaur" | "nihlathak" | "painWorm" | "regurgitator" | "salamander" | "siegeBeast" | "deathMauler" | "wendigo" | "andariel" | "duriel" | "mephisto" | "diablo" | "baalsMinion" | "baal" | "wolf" | "grizzly" | "bloodGolem" | "fireGolem" | "ironGolem" | "oakSage" | "heartOfWolverine" | "spiritOfBarbs" | "skeletonWarrior" | "golem";
+type EnemySpecies = "fallen" | "goatman" | "skeleton" | "sandRaider" | "sandMaggot" | "sandMaggotQueen" | "sandMaggotYoung" | "scarab" | "spiderDemon" | "spikeFiend" | "leaper" | "blunderbore" | "fetish" | "boneFetish" | "fetishShaman" | "council" | "balrog" | "vileChild" | "vileMother" | "bloodLord" | "minotaur" | "nihlathak" | "painWorm" | "regurgitator" | "salamander" | "siegeBeast" | "deathMauler" | "wendigo" | "andariel" | "duriel" | "mephisto" | "diablo" | "baalsMinion" | "baal" | "wolf" | "grizzly" | "bloodGolem" | "fireGolem" | "ironGolem" | "oakSage" | "heartOfWolverine" | "spiritOfBarbs" | "skeletonWarrior" | "skeletalMageCold" | "skeletalMageFire" | "skeletalMageLightning" | "skeletalMagePoison" | "golem";
 
 type EnemyDamageType = "physical" | "fire" | "cold" | "lightning" | "poison" | "magic";
 
@@ -15738,6 +16671,10 @@ function enemySpeciesScale(species: EnemySpecies): number {
     // at the old humanoid height.
     case "skeleton": return 1.25;
     case "skeletonWarrior": return 1.25;
+    case "skeletalMageCold":
+    case "skeletalMageFire":
+    case "skeletalMageLightning":
+    case "skeletalMagePoison": return 1.35;
     case "duriel": return 2;
     case "baal": return 1.4;
     // The scarab is a low, wide crawler; its sheet needs a larger factor than the
@@ -15800,7 +16737,9 @@ function enemySpeciesScale(species: EnemySpecies): number {
 const ENEMY_ROW_BLOCK_FRAMES: Partial<Record<EnemySpecies, [number, number]>> = {
   // D2R's normal SK walk cycle is eight frames; its melee attack is sixteen.
   skeleton: [8, 16], skeletonWarrior: [8, 16],
+  skeletalMageCold: [8, 16], skeletalMageFire: [8, 16], skeletalMageLightning: [8, 16], skeletalMagePoison: [8, 16],
   balrog: [8, 16], bloodLord: [8, 16], spiderDemon: [12, 11], spikeFiend: [9, 16], fetishShaman: [14, 17],
+  duriel: [16, 10],
   wolf: [8, 13], grizzly: [12, 13], bloodGolem: [8, 16], fireGolem: [8, 17], ironGolem: [8, 16],
 };
 
@@ -15937,11 +16876,16 @@ function enemySpriteFrame(enemy: Enemy, columns: number, runTime: number): numbe
     return 0;
   }
   if (enemy.species === "blunderbore") {
-    // Rows 0-7 are the eight-step walk, rows 8-15 the club swing.
+    // Rows 0-7 are the eight-step walk, rows 8-15 the club swing. The imported
+    // A1 sequence spends its last seven frames in a deep post-swing crouch and
+    // its final cel is empty, which made the brute collapse to two-thirds height
+    // and blink out at the end of every attack. Play the wind-up and strike up
+    // to frame 8, then let the standing idle pose take over.
     if (state === "attack") {
       const duration = enemy.kind === "boss" ? 0.55 : 0.38;
       const progress = 1 - Math.max(0, Math.min(1, (enemy.attackAnimationTime ?? duration) / duration));
-      return Math.min(15, Math.floor(progress * 16));
+      const attackFrames = 9;
+      return Math.min(attackFrames - 1, Math.floor(progress * attackFrames));
     }
     if (state === "move") return Math.floor(runTime * 10 + phaseOffset) % 8;
     return 0;
@@ -15967,7 +16911,7 @@ function enemySpriteFrame(enemy: Enemy, columns: number, runTime: number): numbe
     }
     return Math.floor(runTime * 4 + phaseOffset) % 12;  }
   if (enemy.species === "baalsMinion" || enemy.species === "baal") {
-    const frameCounts = enemy.species === "baal" ? { idle: 6, move: 7, attack: 14 } : { idle: 12, move: 12, attack: 12 };
+    const frameCounts = enemy.species === "baal" ? { idle: 12, move: 12, attack: 14 } : { idle: 12, move: 12, attack: 12 };
     if (state === "attack") {
       const duration = enemy.kind === "boss" ? 0.55 : 0.38;
       const progress = 1 - Math.max(0, Math.min(1, (enemy.attackAnimationTime ?? duration) / duration));
@@ -15983,18 +16927,6 @@ function enemySpriteFrame(enemy: Enemy, columns: number, runTime: number): numbe
     }
     if (state === "move") return Math.floor(runTime * 9 + phaseOffset) % 6;
     return Math.floor(runTime * 4 + phaseOffset) % 16;
-  }
-  if (enemy.species === "duriel") {
-    // The clean six-frame sheet has no separate attack block, so use every
-    // frame for both locomotion and the boss swing instead of the generic
-    // fractional sampling that skipped half of the animation.
-    if (state === "attack") {
-      const duration = enemy.kind === "boss" ? 0.55 : 0.38;
-      const progress = 1 - Math.max(0, Math.min(1, (enemy.attackAnimationTime ?? duration) / duration));
-      return Math.min(columns - 1, Math.floor(progress * columns));
-    }
-    if (state === "move") return Math.floor(runTime * 9 + phaseOffset) % columns;
-    return 0;
   }
   if (enemy.species === "goatman") {
     if (state === "attack") {
@@ -16050,36 +16982,49 @@ function enemySpriteDirectionRow(
   // attack rows) read their blocks straight from the sheet, so walking shows the
   // walk band and attacking shows the attack band in the same direction.
   if (ENEMY_EIGHT_ROW_BLOCK_SPECIES.has(species)) return directionRow + (state === "attack" ? 8 : 0);
-  if (ENEMY_WALK_ROW_SPECIES.has(species)) return block(4);
   return directionRow % rows;
 }
 
-const ENEMY_WALK_ROW_SPECIES = new Set<EnemySpecies>([
-  "scarab", "sandMaggot", "sandMaggotQueen", "sandMaggotYoung", "sandRaider",
-  "blunderbore", "minotaur", "nihlathak", "painWorm", "regurgitator",
-  "salamander", "siegeBeast",
-]);
-
+// Sixteen-row atlases hold eight walk rows above eight attack rows. The old
+// four-row band offset made the second half of every walk cycle come from the
+// attack block, so all of these species turned the wrong way while moving.
 const ENEMY_EIGHT_ROW_BLOCK_SPECIES = new Set<EnemySpecies>([
-  "skeleton", "skeletonWarrior", "balrog", "bloodLord", "spiderDemon", "spikeFiend", "fetishShaman",
+  "skeleton", "skeletonWarrior", "skeletalMageCold", "skeletalMageFire", "skeletalMageLightning", "skeletalMagePoison",
+  "balrog", "bloodLord", "spiderDemon", "spikeFiend", "fetishShaman",
   "vileChild", "vileMother", "wolf", "grizzly", "bloodGolem", "fireGolem", "ironGolem",
   // The leaper atlas is eight hop rows above eight lunge rows; the old shared
   // walk-band offset added four rows and turned every hop 180 degrees around.
   "leaper",
+  // These atlases are also eight walk rows above eight attack rows, not the
+  // four-direction bands the old walk-row list assumed.
+  "scarab", "sandMaggot", "sandMaggotQueen", "sandMaggotYoung", "sandRaider",
+  "blunderbore", "minotaur", "nihlathak", "painWorm", "regurgitator",
+  "salamander", "siegeBeast",
+  "duriel",
 ]);
 
 // Imported DCC direction rows run SW, NW, NE, SE, S, W, N, E, while the
 // generic sheet mapping below emits W, NW, N, NE, E, SE, S, SW.
 const DCC_EIGHT_DIRECTION_ROWS = [5, 1, 6, 2, 7, 3, 4, 0] as const;
-const DCC_EIGHT_DIRECTION_SPECIES = new Set<EnemySpecies>(["skeleton", "skeletonWarrior", "regurgitator", "siegeBeast", "minotaur", "baalsMinion", "leaper"]);
+// Every sheet below was imported with its source DCC rows intact (verified by
+// matching each walk row against the source directions), so all of them need
+// the remap. This includes Baal/Diablo/Andariel and the summon atlases; leaving
+// them out made south-facing movement display the north row.
+const DCC_EIGHT_DIRECTION_SPECIES = new Set<EnemySpecies>([
+  "skeleton", "skeletonWarrior", "skeletalMageCold", "skeletalMageFire", "skeletalMageLightning", "skeletalMagePoison",
+  "goatman", "regurgitator", "siegeBeast", "minotaur", "baalsMinion", "leaper",
+  "scarab", "sandRaider", "sandMaggot", "sandMaggotQueen", "sandMaggotYoung", "spiderDemon", "spikeFiend", "blunderbore",
+  "fetish", "boneFetish", "fetishShaman", "council", "balrog", "vileChild", "vileMother", "bloodLord", "nihlathak",
+  "salamander", "deathMauler", "wendigo", "andariel", "duriel", "diablo", "baal",
+  "wolf", "grizzly", "bloodGolem", "fireGolem", "ironGolem",
+]);
 
 function enemySpriteRow(species: EnemySpecies, dx: number, dy: number): number {
   const layoutRows = ENEMY_SPRITE_LAYOUTS[species].rows;
-  const directions = species === "skeleton" || species === "skeletonWarrior" || species === "scarab" || species === "sandMaggot" || species === "sandMaggotQueen" || species === "spiderDemon" || species === "sandMaggotYoung" || species === "sandRaider" || species === "leaper" || species === "spikeFiend" || species === "blunderbore" || species === "minotaur" || species === "nihlathak" || species === "painWorm" || species === "regurgitator" || species === "salamander" || species === "siegeBeast" || species === "balrog" || species === "bloodLord" || species === "fetishShaman" || species === "wolf" || species === "grizzly" || species === "bloodGolem" || species === "fireGolem" || species === "ironGolem" || species === "vileChild" || species === "vileMother"
+  const directions = species === "goatman" || species === "skeleton" || species === "skeletonWarrior" || species === "skeletalMageCold" || species === "skeletalMageFire" || species === "skeletalMageLightning" || species === "skeletalMagePoison" || species === "scarab" || species === "sandMaggot" || species === "sandMaggotQueen" || species === "spiderDemon" || species === "sandMaggotYoung" || species === "sandRaider" || species === "leaper" || species === "spikeFiend" || species === "blunderbore" || species === "minotaur" || species === "nihlathak" || species === "painWorm" || species === "regurgitator" || species === "salamander" || species === "siegeBeast" || species === "balrog" || species === "bloodLord" || species === "fetishShaman" || species === "wolf" || species === "grizzly" || species === "bloodGolem" || species === "fireGolem" || species === "ironGolem" || species === "vileChild" || species === "vileMother" || species === "duriel"
     ? layoutRows / 2
-    : species === "fetish" || species === "boneFetish" || (species === "diablo" && layoutRows === 24) || species === "baalsMinion" || species === "baal" ? layoutRows / 3 : layoutRows;
+    : species === "fetish" || species === "boneFetish" || species === "council" || (species === "diablo" && layoutRows === 24) || species === "baalsMinion" || species === "baal" ? layoutRows / 3 : layoutRows;
   if (directions === 4) return dy > 0 ? 0 : dy < 0 ? 2 : dx < 0 ? 1 : 3;
-  if (species === "goatman") return druidDirection(dx, dy);
   if (directions === 8) {
     const angle = Math.atan2(dy, dx);
     const row = (Math.round((angle + Math.PI) / (Math.PI / 4)) + 8) % 8;
@@ -16105,9 +17050,10 @@ const CLASS_SKILL_DESCRIPTIONS: Record<string, string> = {
   "Teleport": "Passive: when the Sorceress is hit, she has a chance to teleport to a random visible location away from the attacker. Chance rises with rank.",
   "Whirlwind": "Level 30 Barbarian spins through nearby enemies, striking repeatedly.",
   "Find Potion": "Passive: potion drops are more likely. Each rank adds 10 percentage points to the chest potion chance and 2 points to the monster potion chance, and improves rejuvenation potion drops.",
-  Leap: "Leap toward the next enemy in front of the barbarian. If no enemy is inside the short leap range, the spell is cancelled. On landing, every enemy in a small radius is stunned.",
+  Leap: "Leap toward the next enemy in front of the barbarian. If no enemy is inside the short leap range, the spell is cancelled. The barbarian is invulnerable while airborne; on landing, every enemy in a small radius is stunned.",
+  Howl: `A terrifying warcry that deals no damage. Every enemy within ${HOWL_RADIUS} units flees away from the barbarian for ${HOWL_BASE_FEAR_SECONDS} seconds, plus ${HOWL_FEAR_SECONDS_PER_RANK} seconds per additional rank, and cannot attack while afraid.`,
   Jab: "A rapid melee thrust with a spear or pike.", Bash: "A forceful melee strike that staggers an enemy.", Smite: "Shield bash that knocks enemies back.", Sacrifice: "A powerful melee attack that costs a little life.",
-  "Raise Skeleton": "Raise a fallen monster as a skeleton warrior.",  "Bone Spear": "A piercing spear of bone strikes enemies in a line.", "Corpse Explosion": "Fire a ranged bone missile at the nearest enemy. On impact it explodes, dealing 35% of the target's maximum life to all enemies caught in the blast. More skill ranks increase blast radius only.",
+  "Raise Skeleton": "Raise a fallen monster as a melee skeleton warrior.", "Skeletal Mage": "Raise a skeletal mage that hurls cold, fire, lightning, or poison bolts from a distance. Each cast cycles through the elements.",  "Bone Spear": "A piercing spear of bone strikes enemies in a line.", "Corpse Explosion": "Fire a ranged bone missile at the nearest enemy. On impact it explodes, dealing 35% of the target's maximum life to all enemies caught in the blast. More skill ranks increase blast radius only.",
   "Fire Ball": "Hurl an explosive ball of flame.", "Charged Bolt": "Release a spray of lightning bolts.",  "Frost Nova": "A ring of frost bursts outward and chills nearby enemies.",
   "Static Field": "A point-blank lightning burst that removes 25% of current life from every nearby enemy. More ranks increase the blast radius.",
   "Psychic Hammer": "Fire a mental blast that stuns every enemy caught in a small area. More ranks widen the blast and lengthen the stun.",
@@ -16251,6 +17197,13 @@ interface AttackProjectile {
   corpseExplosion?: boolean;
   corpseExplosionDamage?: number;
   wakeOfFireTrap?: boolean;
+  wakeOfInfernoTrap?: boolean;
+  /** A Molten Boulder rolls a fixed line and bulldozes monsters instead of tracking one. */
+  boulder?: boolean;
+  /** Monsters already shoved clear of this boulder; flank hits only push once. */
+  boulderSideHits?: Enemy[];
+  /** Draws the boulder's fiery death blast instead of its rock sprite. */
+  moltenExplosion?: boolean;
   boneWall?: boolean;
   fireWallInsideEnemies?: Enemy[];
   wallNormalX?: number;
@@ -16289,6 +17242,17 @@ interface BlazeFirePatch {
   damagePerTick: number;
 }
 
+interface PoisonCloud {
+  x: number;
+  y: number;
+  radius: number;
+  life: number;
+  maxLife: number;
+  tickRemaining: number;
+  tickInterval: number;
+  damagePerTick: number;
+}
+
 interface Enemy {
   kind: EnemyKind;
   species: EnemySpecies;
@@ -16297,6 +17261,8 @@ interface Enemy {
   miniBoss?: boolean;
   summonType?: "skeleton" | "golem" | "druid";
   summonSkill?: string;
+  /** The elemental palette and damage of a raised Skeletal Mage. */
+  summonElement?: SkeletalMageElement;
   summonAttackCooldown?: number;
   /** Seconds until this vine marks the floor again while it burrows. */
   summonTrailCooldown?: number;
@@ -16319,6 +17285,8 @@ interface Enemy {
   curseName?: NecromancerCurseName;
   curseRemaining?: number;
   stunRemaining?: number;
+  /** Seconds of Howl-induced fear remaining; the monster flees from the hero. */
+  fearRemaining?: number;
   /** Seconds of the short lightning hit flash from Static Field. */
   staticFieldRemaining?: number;
   /** Seconds of cold slow remaining; while set the sprite is tinted blue. */
@@ -16445,6 +17413,9 @@ interface D2ItemStats {
   sorceressClassSkillLevel?: number;
   sorceressTreeSkillLevels?: Record<string, number>;
   sorceressSkillLevels?: Record<string, number>;
+  druidClassSkillLevel?: number;
+  druidTreeSkillLevels?: Record<string, number>;
+  druidSkillLevels?: Record<string, number>;
 }
 
 interface InventoryGridCell {

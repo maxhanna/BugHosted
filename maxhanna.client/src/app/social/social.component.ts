@@ -2,7 +2,7 @@ import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, Input, OnDestr
 import { Compactness, ShowPostsFrom } from '../../services/datacontracts/user/show-posts-from';
 import { ChildComponent } from '../child.component';
 import { Story } from '../../services/datacontracts/social/story';
-import { SocialService, StoryAccessDenied, isStoryAccessDenied } from '../../services/social.service';
+import { SocialService, SocialSidebarResponse, SocialSidebarThread, StoryAccessDenied, isStoryAccessDenied } from '../../services/social.service';
 import { TopicService } from '../../services/topic.service';
 import { AppComponent } from '../app.component';
 import { Topic } from '../../services/datacontracts/topics/topic';
@@ -59,6 +59,10 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   private storyUpdateInterval: any;
   city: string | undefined;
   country: string | undefined;
+  socialSidebar?: SocialSidebarResponse;
+  socialSidebarLoading = false;
+  socialSidebarUnavailable = false;
+  private socialSidebarRequestId = 0;
 
   @ViewChild('story') story!: ElementRef<HTMLInputElement>;
   @ViewChild('pageSelect') pageSelect!: ElementRef<HTMLSelectElement>;
@@ -167,6 +171,10 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
 
     if (this.chatId) {
       await this.loadGroupInfo();
+    }
+
+    if (!this.user) {
+      void this.loadSocialSidebar();
     }
 
     this.parentRef?.getLocation().then(res => {
@@ -637,6 +645,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       return;
     }
     this.searchStories();
+    void this.loadSocialSidebar();
   }
 
   async searchStories(searchTopics?: Array<Topic>, debounced?: boolean) {
@@ -761,6 +770,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       // every topic selection.
       if (this.isMenuPanelOpen) this.loadTopicModerators();
       this.searchStories(topics);
+      void this.loadSocialSidebar();
       this.scrollToStory();
       this.closeMenuPanel();
       this.closePostOptionsPanel();
@@ -770,6 +780,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     this.attachedTopics = this.attachedTopics.filter(x => x.id != topic.id);
     if (this.isMenuPanelOpen) this.loadTopicModerators();
     this.searchStories(this.attachedTopics);
+    void this.loadSocialSidebar();
     this.scrollToStory();
   }
   topicClicked(topics?: Topic[]) {
@@ -782,15 +793,18 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     if (!this.storyResponse?.stories) return;
     this.storyResponse.stories = this.storyResponse.stories.filter(x => x.id != story.id);
     this.refreshDOM();
+    void this.loadSocialSidebar();
   }
   onPostTopicClicked(topics: Topic[]) {
     this.topicClicked(topics);
   }
   onPostTopicIgnored() {
     this.getStories();
+    void this.loadSocialSidebar();
   }
   onPostHidden() {
     this.getStories();
+    void this.loadSocialSidebar();
   }
   topTopicClicked(topicName: string, topicId: number) {
     this.attachedTopics.push(new Topic(topicId, topicName));
@@ -823,6 +837,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       this.attachedTopics = resolved;
       if (this.isMenuPanelOpen) this.loadTopicModerators();
       await this.searchStories(resolved);
+      void this.loadSocialSidebar();
     } else {
       await this.getStories();
     }
@@ -1043,6 +1058,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     const showHidden = this.filter.hidden == "yes";
 
     this.getStories(undefined, undefined, undefined, undefined, undefined, showHidden);
+    void this.loadSocialSidebar();
   }
   async updateNSFW(event: Event) {
     const parent = this.parent ?? this.parentRef;
@@ -1098,6 +1114,68 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   }
   contentPosted(event: { results: any, originalContent: string }) {
     this.getStories();
+    void this.loadSocialSidebar();
+  }
+
+  /** Loads the right-hand Social sidebar: personal activity stats and the
+   *  most-engaged public threads in the active topic (or all topics). The
+   *  sidebar is intentionally skipped while this component is embedded in a
+   *  user's profile (the `user` input). */
+  async loadSocialSidebar() {
+    if (this.user) return;
+
+    const requestId = ++this.socialSidebarRequestId;
+    const userId = this.parentRef?.user?.id ?? 0;
+    const topicId = this.currentModeratorTopic?.id;
+    this.socialSidebarLoading = true;
+    this.socialSidebarUnavailable = false;
+
+    try {
+      const sessionToken = userId > 0 ? await this.parentRef?.getSessionToken() ?? '' : '';
+      const res = await this.socialService.getSidebar(userId, topicId, this.chatId, sessionToken);
+      if (requestId !== this.socialSidebarRequestId) return;
+      if (!res) {
+        this.socialSidebar = undefined;
+        this.socialSidebarUnavailable = true;
+        return;
+      }
+      res.popularThreads = (res.popularThreads ?? []).map(thread => ({
+        ...thread,
+        excerpt: this.encryptionService.decryptContent(
+          thread.excerpt ?? '', String(thread.authorId ?? 0))
+      }));
+      this.socialSidebar = res;
+      this.cd.detectChanges();
+    } catch (error) {
+      console.warn('Unable to load the social sidebar', error);
+      if (requestId === this.socialSidebarRequestId) {
+        this.socialSidebar = undefined;
+        this.socialSidebarUnavailable = true;
+      }
+    } finally {
+      if (requestId === this.socialSidebarRequestId) {
+        this.socialSidebarLoading = false;
+      }
+    }
+
+    if (userId > 0) {
+      void this.loadTopicModerators();
+    }
+  }
+
+  popularThreadTitle(thread: SocialSidebarThread): string {
+    const text = (thread?.excerpt ?? '').replace(/\s+/g, ' ').trim();
+    if (!text) return `Post #${thread?.id ?? ''}`;
+    return text.length > 105 ? `${text.slice(0, 105)}…` : text;
+  }
+
+  async openPopularThread(thread: SocialSidebarThread) {
+    if (!thread?.id) return;
+    this.storyId = thread.id;
+    this.startLoading();
+    await this.loadDeepLinkedStory(thread.id);
+    this.stopLoading();
+    this.scrollToStory(thread.id);
   }
 
   private changeComponentMainHeight() {

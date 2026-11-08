@@ -1131,3 +1131,298 @@ button.postOptionButtons,
   from { opacity: 0; }
   to { opacity: 1; }
 }
+
+/* ── Social right-hand sidebar ─────────────────────────────────────────── */
+.socialLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 14px;
+  align-items: start;
+  box-sizing: border-box;
+}
+
+.socialLayoutNoSidebar {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.socialMainColumn {
+  min-width: 0;
+}
+
+.socialSidebar {
+  position: sticky;
+  top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding-top: 8px;
+}
+
+.socialSidebarCard {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 12px;
+  border: 1px solid var(--main-border-color, rgba(128, 128, 128, 0.28));
+  border-radius: 10px;
+  background: var(--component-background-color, var(--main-background-color));
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  box-sizing: border-box;
+}
+
+.socialSidebarProfileCard {
+  gap: 10px;
+}
+
+.socialSidebarProfileRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.socialSidebarLevel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 52px;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  border: 1px solid var(--main-link-color, #6ab0ff);
+  background: linear-gradient(145deg, var(--main-highlight-color, rgba(106, 176, 255, 0.2)), transparent);
+  box-sizing: border-box;
+}
+
+.socialSidebarLevelNumber {
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--main-font-color);
+}
+
+.socialSidebarLevelCaption {
+  margin-top: 2px;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--third-font-color, #8a8f98);
+}
+
+.socialSidebarProfileText {
+  min-width: 0;
+}
+
+.socialSidebarName {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.socialSidebarLevelTitle {
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--main-link-color, #6ab0ff);
+}
+
+.socialSidebarProgressLabel {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 10px;
+  color: var(--third-font-color, #8a8f98);
+}
+
+.socialSidebarProgress {
+  width: 100%;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--main-highlight-color, rgba(128, 128, 128, 0.18));
+}
+
+.socialSidebarProgressFill {
+  height: 100%;
+  min-width: 0;
+  border-radius: inherit;
+  background: var(--main-link-color, #6ab0ff);
+  transition: width 0.25s ease;
+}
+
+.socialSidebarStatGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.socialSidebarStat {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 7px 8px;
+  border-radius: 7px;
+  background: var(--main-highlight-color-quarter-opacity, rgba(128, 128, 128, 0.1));
+}
+
+.socialSidebarStat strong {
+  font-size: 18px;
+  line-height: 1.1;
+}
+
+.socialSidebarStat span {
+  font-size: 10px;
+  color: var(--third-font-color, #8a8f98);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.socialSidebarMemberSince,
+.socialSidebarFootnote {
+  font-size: 10px;
+  line-height: 1.35;
+  color: var(--third-font-color, #8a8f98);
+}
+
+.socialSidebarFootnote {
+  padding-top: 2px;
+  border-top: 1px solid var(--main-border-color, rgba(128, 128, 128, 0.18));
+}
+
+.socialSidebarCardHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.socialSidebarCardTitle {
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.socialSidebarCardContext {
+  overflow: hidden;
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--third-font-color, #8a8f98);
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.socialSidebarMuted {
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--third-font-color, #8a8f98);
+}
+
+.socialSidebarThread {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  padding: 7px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.socialSidebarThread:hover,
+.socialSidebarThread:focus-visible {
+  border-color: var(--main-border-color, rgba(128, 128, 128, 0.28));
+  background: var(--main-highlight-color-quarter-opacity, rgba(128, 128, 128, 0.1));
+  outline: none;
+}
+
+.socialSidebarThreadRank {
+  display: flex;
+  flex: 0 0 20px;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--main-highlight-color, rgba(128, 128, 128, 0.18));
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.socialSidebarThreadContent {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 2px;
+}
+
+.socialSidebarThreadTitle {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.socialSidebarThreadMeta {
+  overflow: hidden;
+  font-size: 9px;
+  color: var(--third-font-color, #8a8f98);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.socialSidebarMod {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-width: 0;
+  padding: 3px 0;
+}
+
+.socialSidebarMod app-user-tag {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.socialSidebarMod .modRoleBadge {
+  flex: 0 0 auto;
+  font-size: 9px;
+  padding: 2px 6px;
+}
+
+@media only screen and (max-width: 1000px) {
+  .socialLayout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .socialSidebar {
+    position: static;
+    order: 2;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding-top: 0;
+  }
+
+  .socialSidebarProfileCard {
+    grid-column: 1 / -1;
+  }
+}
+
+@media only screen and (max-width: 667px) {
+  .socialSidebar {
+    display: flex;
+  }
+}

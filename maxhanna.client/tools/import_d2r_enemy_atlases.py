@@ -20,6 +20,7 @@ and every frame-index constant stay valid:
 
 Usage:
     python tools/import_d2r_enemy_atlases.py [--only blunderbore golem] [--list]
+    python tools/import_d2r_enemy_atlases.py --mage
 """
 
 from __future__ import annotations
@@ -66,7 +67,7 @@ SPECIES: dict[str, tuple[str, str, int, int]] = {
     "deathMauler": ("M5", "death-mauler.png", 12, 8),
     "wendigo": ("YE", "wendigo.png", 12, 8),
     "andariel": ("AN", "andariel.png", 12, 8),
-    "duriel": ("DU", "duriel.png", 25, 8),
+    "duriel": ("DU", "duriel.png", 16, 16),
     "mephisto": ("MP", "mephisto.png", 18, 24),
     "diablo": ("DI", "diablo.png", 14, 8),
     "baalsMinion": ("43", "baals-minion.png", 16, 24),
@@ -195,7 +196,8 @@ def parse_cof(path: Path) -> dict:
     }
 
 
-def find_layer_dcc(monster_dir: Path, code: str, layer: str, mode: str, wclass: str) -> Path | None:
+def find_layer_dcc(monster_dir: Path, code: str, layer: str, mode: str, wclass: str,
+                   element: str | None = None) -> Path | None:
     """Find the DCC for one COF component, preferring its lit variant."""
     layer_dir = monster_dir / layer
     if not layer_dir.is_dir():
@@ -207,12 +209,17 @@ def find_layer_dcc(monster_dir: Path, code: str, layer: str, mode: str, wclass: 
         name = path.name.lower()
         if not name.startswith(prefix) or mode not in name or not name.endswith(suffix):
             continue
+        # s4/s5 hold the skeletal mage's four palette variants. The base
+        # skeleton layers are shared by every element, so only those two layers
+        # should be filtered by the cold/fire/lightning/poison code.
+        if element and layer in {"s4", "s5"} and not name.startswith(prefix + element):
+            continue
         candidates.append((0 if "lit" in name else 1, name, path))
     return sorted(candidates)[0][2] if candidates else None
 
 
 def load_cof_animation(monster_dir: Path, code: str, mode: str,
-                       cof_name: str | None = None) -> dict | None:
+                       cof_name: str | None = None, element: str | None = None) -> dict | None:
     """Load every DCC layer and the frame metadata for one COF animation."""
     cof_path = monster_dir / "cof" / (cof_name or f"{code.lower()}{mode}hth.cof")
     if not cof_path.is_file():
@@ -225,7 +232,7 @@ def load_cof_animation(monster_dir: Path, code: str, mode: str,
     for component, wclass in cof["layers"]:
         if not 0 <= component < len(COMPOSIT_ROWS):
             return None
-        path = find_layer_dcc(monster_dir, code, COMPOSIT_ROWS[component], mode, wclass)
+        path = find_layer_dcc(monster_dir, code, COMPOSIT_ROWS[component], mode, wclass, element)
         if path is None:
             return None
         try:
@@ -283,7 +290,7 @@ CURRENT_PALETTE: list[tuple[int, int, int]] = []
 # way and is tuned around it, so only Andariel is rebuilt with the channels
 # corrected: the swap turned her warm red-and-gold palette into the blue sheet
 # the arena used to draw.
-BGR_FIXED_SPECIES = {"andariel"}
+BGR_FIXED_SPECIES = {"andariel", "duriel"}
 
 
 def fit_into(canvas: Image.Image, width: int, height: int) -> Image.Image:
@@ -564,6 +571,181 @@ def build_diablo(source: Path) -> str:
         CURRENT_PALETTE = previous
 
 
+BAAL_COLUMNS = 14
+BAAL_CELL_WIDTH = 184
+BAAL_CELL_HEIGHT = 179
+BAAL_BORDER = 2
+BAAL_FRAME_COUNTS = {"nu": 12, "wl": 12, "a1": 14}
+BAAL_BLOCKS = (("nu", 0), ("wl", 8), ("a1", 16))
+
+
+def build_baal(source: Path) -> str:
+    """Rebuild Baal from his layered idle, walk and attack COFs.
+
+    The old sheet was decoded from ``42TR...dcc`` alone. In the composite
+    system that file is only the torso, so the arena drew a floating blue body
+    with detached limbs and no bone crown. His COFs list six layers - torso,
+    head, legs, both arms and an overlay - so flatten them in the recorded
+    back-to-front order with one shared scale and one DCC-space origin per
+    facing to keep the walk planted and jitter-free.
+    """
+    monster_dir = source / "global" / "monsters" / "42"
+    global CURRENT_PALETTE
+    previous = CURRENT_PALETTE
+    CURRENT_PALETTE = load_units_palette(source / "global" / "palette" / "units" / "pal.dat")
+    try:
+        animations = {}
+        for mode in ("nu", "wl", "a1"):
+            animation = load_cof_animation(monster_dir, "42", mode)
+            if animation is None:
+                raise ValueError(f"Baal {mode} COF is incomplete")
+            if animation["directions"] < 8:
+                raise ValueError(f"Baal {mode} COF has {animation['directions']} directions")
+            animations[mode] = animation
+
+        # Frame boxes are in DCC space; union each facing across idle, walk and
+        # attack so the three blocks share one origin.
+        direction_boxes = []
+        for direction in range(8):
+            boxes = []
+            for mode, count in BAAL_FRAME_COUNTS.items():
+                animation = animations[mode]
+                for frame in range(min(count, animation["frames"])):
+                    _, box = composite_frame(animation, direction, frame, with_box=True)
+                    boxes.append((box[0], box[1], box[0] + box[2], box[1] + box[3]))
+            direction_boxes.append((
+                min(box[0] for box in boxes), min(box[1] for box in boxes),
+                max(box[2] for box in boxes), max(box[3] for box in boxes),
+            ))
+        # One shared scale keeps every facing the same size; the widest view and
+        # the tallest view decide how much of the cell the sprite can use.
+        widest = max(box[2] - box[0] for box in direction_boxes)
+        tallest = max(box[3] - box[1] for box in direction_boxes)
+        scale = min(
+            (BAAL_CELL_WIDTH - BAAL_BORDER * 2) / widest,
+            (BAAL_CELL_HEIGHT - BAAL_BORDER * 2) / tallest,
+        )
+
+        sheet = Image.new("RGBA", (BAAL_COLUMNS * BAAL_CELL_WIDTH, 24 * BAAL_CELL_HEIGHT),
+                          (0, 0, 0, 0))
+        for mode, row_start in BAAL_BLOCKS:
+            animation = animations[mode]
+            frame_count = min(BAAL_FRAME_COUNTS[mode], animation["frames"], BAAL_COLUMNS)
+            for direction, (xmin, ymin, xmax, ymax) in enumerate(direction_boxes):
+                row = row_start + direction
+                # Centre each facing horizontally and stand it on the cell's
+                # baseline so the walk cycle keeps its feet planted.
+                offset_x = (BAAL_CELL_WIDTH - (xmax - xmin) * scale) / 2 - xmin * scale
+                offset_y = (BAAL_CELL_HEIGHT - BAAL_BORDER) - ymax * scale
+                for column in range(frame_count):
+                    image, box = composite_frame(animation, direction, column, with_box=True)
+                    width = max(1, round(image.width * scale))
+                    height = max(1, round(image.height * scale))
+                    left = column * BAAL_CELL_WIDTH + round(box[0] * scale + offset_x)
+                    top = row * BAAL_CELL_HEIGHT + round(box[1] * scale + offset_y)
+                    if (left < column * BAAL_CELL_WIDTH or top < row * BAAL_CELL_HEIGHT
+                            or left + width > (column + 1) * BAAL_CELL_WIDTH
+                            or top + height > (row + 1) * BAAL_CELL_HEIGHT):
+                        raise ValueError(f"Baal {mode} frame {column} does not fit its cell")
+                    sheet.alpha_composite(image.resize((width, height), Image.LANCZOS), (left, top))
+
+        destination = ASSET_ROOT / "baal.png"
+        sheet.save(destination, optimize=True)
+        return (f"{'baal':16s} 42  baal.png                {sheet.width}x{sheet.height} "
+                f"cell {BAAL_CELL_WIDTH}x{BAAL_CELL_HEIGHT} "
+                f"idle {BAAL_FRAME_COUNTS['nu']}f walk {BAAL_FRAME_COUNTS['wl']}f "
+                f"attack {BAAL_FRAME_COUNTS['a1']}f "
+                f"cof {len(animations['wl']['cof']['layers'])} layers")
+    finally:
+        CURRENT_PALETTE = previous
+
+
+DURIEL_COLUMNS = 16
+DURIEL_CELL_WIDTH = 256
+DURIEL_CELL_HEIGHT = 240
+DURIEL_BORDER = 4
+DURIEL_FRAME_COUNTS = {"wl": 16, "a1": 10}
+DURIEL_BLOCKS = (("wl", 0), ("a1", 8))
+
+
+def build_duriel(source: Path) -> str:
+    """Rebuild Duriel from his layered walk and attack COFs.
+
+    The old six-frame sheet was not Duriel at all. His DU COFs keep the
+    four-layer creature - torso, both scythe arms and the pale abdomen - so
+    flatten every frame in the recorded back-to-front order. The walk has
+    sixteen frames and the attack ten, giving the arena the real eight-direction
+    boss animation instead of a generic six-frame strip.
+    """
+    monster_dir = source / "global" / "monsters" / "DU"
+    global CURRENT_PALETTE
+    previous = CURRENT_PALETTE
+    CURRENT_PALETTE = load_units_palette(source / "global" / "palette" / "units" / "pal.dat")
+    try:
+        animations = {}
+        for mode in ("wl", "a1"):
+            animation = load_cof_animation(monster_dir, "DU", mode)
+            if animation is None:
+                raise ValueError(f"Duriel {mode} COF is incomplete")
+            if animation["directions"] < 8:
+                raise ValueError(f"Duriel {mode} COF has {animation['directions']} directions")
+            animations[mode] = animation
+
+        # Frame boxes are in DCC space; union each facing across walk and attack
+        # so both blocks share one origin and the boss does not jump on a swing.
+        direction_boxes = []
+        for direction in range(8):
+            boxes = []
+            for mode, count in DURIEL_FRAME_COUNTS.items():
+                animation = animations[mode]
+                for frame in range(min(count, animation["frames"])):
+                    _, box = composite_frame(animation, direction, frame, with_box=True)
+                    boxes.append((box[0], box[1], box[0] + box[2], box[1] + box[3]))
+            direction_boxes.append((
+                min(box[0] for box in boxes), min(box[1] for box in boxes),
+                max(box[2] for box in boxes), max(box[3] for box in boxes),
+            ))
+
+        widest = max(box[2] - box[0] for box in direction_boxes)
+        tallest = max(box[3] - box[1] for box in direction_boxes)
+        scale = min(
+            (DURIEL_CELL_WIDTH - DURIEL_BORDER * 2) / widest,
+            (DURIEL_CELL_HEIGHT - DURIEL_BORDER * 2) / tallest,
+        )
+
+        sheet = Image.new("RGBA", (DURIEL_COLUMNS * DURIEL_CELL_WIDTH,
+                                   16 * DURIEL_CELL_HEIGHT), (0, 0, 0, 0))
+        for mode, row_start in DURIEL_BLOCKS:
+            animation = animations[mode]
+            frame_count = min(DURIEL_FRAME_COUNTS[mode], animation["frames"], DURIEL_COLUMNS)
+            for direction, (xmin, ymin, xmax, ymax) in enumerate(direction_boxes):
+                row = row_start + direction
+                # Centre each facing horizontally and stand it on the cell's
+                # baseline so the walk cycle keeps its feet planted.
+                offset_x = (DURIEL_CELL_WIDTH - (xmax - xmin) * scale) / 2 - xmin * scale
+                offset_y = (DURIEL_CELL_HEIGHT - DURIEL_BORDER) - ymax * scale
+                for column in range(frame_count):
+                    image, box = composite_frame(animation, direction, column, with_box=True)
+                    width = max(1, round(image.width * scale))
+                    height = max(1, round(image.height * scale))
+                    left = column * DURIEL_CELL_WIDTH + round(box[0] * scale + offset_x)
+                    top = row * DURIEL_CELL_HEIGHT + round(box[1] * scale + offset_y)
+                    if (left < column * DURIEL_CELL_WIDTH or top < row * DURIEL_CELL_HEIGHT
+                            or left + width > (column + 1) * DURIEL_CELL_WIDTH
+                            or top + height > (row + 1) * DURIEL_CELL_HEIGHT):
+                        raise ValueError(f"Duriel {mode} frame {column} does not fit its cell")
+                    sheet.alpha_composite(image.resize((width, height), Image.LANCZOS), (left, top))
+
+        destination = ASSET_ROOT / "duriel.png"
+        sheet.save(destination, optimize=True)
+        return (f"{'duriel':16s} DU  duriel.png               {sheet.width}x{sheet.height} "
+                f"cell {DURIEL_CELL_WIDTH}x{DURIEL_CELL_HEIGHT} "
+                f"walk {DURIEL_FRAME_COUNTS['wl']}f attack {DURIEL_FRAME_COUNTS['a1']}f "
+                f"cof {len(animations['wl']['cof']['layers'])} layers")
+    finally:
+        CURRENT_PALETTE = previous
+
+
 SKELETON_WALK_COF = "skwl1hs.cof"
 SKELETON_ATTACK_COF = "ska11hs.cof"
 SKELETON_SCALE = 1
@@ -631,6 +813,81 @@ def build_skeleton_warrior(source: Path) -> str:
         CURRENT_PALETTE = previous
 
 
+SKELETAL_MAGE_COLUMNS = 16
+SKELETAL_MAGE_SCALE = 1
+SKELETAL_MAGE_BORDER = 4
+SKELETAL_MAGE_ELEMENTS = {
+    "cold": ("cld", "skeletal-mage-cold.png"),
+    "fire": ("fir", "skeletal-mage-fire.png"),
+    "lightning": ("lht", "skeletal-mage-lightning.png"),
+    "poison": ("pos", "skeletal-mage-poison.png"),
+}
+
+
+def build_skeletal_mages(source: Path) -> list[str]:
+    """Build the four elemental skeletal mage atlases from the SK COF composite.
+
+    The mage shares the skeleton body with the warrior, but its s4/s5 layers are
+    the colored spell energy that makes it read as a caster. Those layers exist
+    in four palette variants, so build one complete walk/attack atlas per
+    element instead of recoloring a single sheet at runtime.
+    """
+    monster_dir = source / "global" / "monsters" / "SK"
+    global CURRENT_PALETTE
+    previous = CURRENT_PALETTE
+    CURRENT_PALETTE = load_units_palette(source / "global" / "palette" / "units" / "pal.dat")
+    try:
+        records: dict[str, list[tuple[int, int, int, Image.Image, tuple[int, int, int, int]]]] = {}
+        boxes: list[tuple[int, int, int, int]] = []
+        frame_counts: dict[str, tuple[int, int]] = {}
+        for element, (code, _) in SKELETAL_MAGE_ELEMENTS.items():
+            walk = load_cof_animation(monster_dir, "SK", "wl", "skwlhth.cof", code)
+            attack = load_cof_animation(monster_dir, "SK", "a1", "ska1hth.cof", code)
+            if walk is None or attack is None:
+                raise ValueError(f"SK {element} walk/attack COF is incomplete")
+            element_records = []
+            counts = []
+            for block, animation in enumerate((walk, attack)):
+                frames = min(SKELETAL_MAGE_COLUMNS, animation["frames"])
+                counts.append(frames)
+                for direction_index in range(8):
+                    for frame_index in range(frames):
+                        image, box = composite_frame(animation, direction_index, frame_index, with_box=True)
+                        element_records.append((block, direction_index, frame_index, image, box))
+                        boxes.append((box[0], box[1], box[0] + box[2], box[1] + box[3]))
+            records[element] = element_records
+            frame_counts[element] = (counts[0], counts[1])
+
+        xmin = min(box[0] for box in boxes)
+        ymin = min(box[1] for box in boxes)
+        xmax = max(box[2] for box in boxes)
+        ymax = max(box[3] for box in boxes)
+        cell_width = (xmax - xmin) * SKELETAL_MAGE_SCALE + SKELETAL_MAGE_BORDER * 2
+        cell_height = (ymax - ymin) * SKELETAL_MAGE_SCALE + SKELETAL_MAGE_BORDER * 2
+        messages = []
+        for element, (_, out_name) in SKELETAL_MAGE_ELEMENTS.items():
+            sheet = Image.new("RGBA", (SKELETAL_MAGE_COLUMNS * cell_width, 16 * cell_height), (0, 0, 0, 0))
+            for block, direction_index, frame_index, image, box in records[element]:
+                if SKELETAL_MAGE_SCALE != 1:
+                    image = image.resize((image.width * SKELETAL_MAGE_SCALE,
+                                          image.height * SKELETAL_MAGE_SCALE), Image.NEAREST)
+                left = (box[0] - xmin) * SKELETAL_MAGE_SCALE + SKELETAL_MAGE_BORDER
+                top = (box[1] - ymin) * SKELETAL_MAGE_SCALE + SKELETAL_MAGE_BORDER
+                if left < 0 or top < 0 or left + image.width > cell_width or top + image.height > cell_height:
+                    raise ValueError(f"skeletal mage {element} frame outside {cell_width}x{cell_height} cell")
+                sheet.alpha_composite(image, (frame_index * cell_width + left,
+                                              (block * 8 + direction_index) * cell_height + top))
+            destination = ASSET_ROOT / out_name
+            sheet.save(destination, optimize=True)
+            messages.append(
+                f"skeletalMage{element.capitalize():8s} SK  {out_name:28s} {sheet.width}x{sheet.height} "
+                f"cell {cell_width}x{cell_height} walk {frame_counts[element][0]}f attack {frame_counts[element][1]}f"
+            )
+        return messages
+    finally:
+        CURRENT_PALETTE = previous
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, default=DEFAULT_SOURCE)
@@ -638,6 +895,8 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--new", action="store_true",
                         help="build the fresh sixteen-row atlases instead of rebuilding")
     parser.add_argument("--list", action="store_true")
+    parser.add_argument("--mage", action="store_true",
+                        help="build the four elemental skeletal mage atlases")
     args = parser.parse_args(argv)
 
     if args.list:
@@ -645,6 +904,15 @@ def main(argv: list[str]) -> int:
             print(species, SPECIES[species][0])
         for species in sorted(NEW_SPECIES):
             print(species, NEW_SPECIES[species][0], "new atlas")
+        for element, (_, out_name) in SKELETAL_MAGE_ELEMENTS.items():
+            print(f"skeletalMage{element.capitalize()}", "SK", out_name, "mage atlas")
+        return 0
+
+    if args.mage:
+        messages = build_skeletal_mages(args.source)
+        for message in messages:
+            print(message)
+        print(f"built {len(messages)}/4 skeletal mage atlases")
         return 0
 
     global CURRENT_PALETTE
@@ -671,6 +939,10 @@ def main(argv: list[str]) -> int:
             message = build_skeleton_warrior(args.source)
         elif species == "diablo":
             message = build_diablo(args.source)
+        elif species == "baal":
+            message = build_baal(args.source)
+        elif species == "duriel":
+            message = build_duriel(args.source)
         elif species in COF_SPECIES:
             message = build_composite_rebuild(args.source, species)
         else:

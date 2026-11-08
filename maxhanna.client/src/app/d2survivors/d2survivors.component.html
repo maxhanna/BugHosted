@@ -167,7 +167,7 @@
               <ng-template #shopEmpty><div class="d2s-shop-empty">{{ selectedClassName }}'s pack is empty. Gear found on a journey will appear here.</div></ng-template>
             </section>
           </div>
-          <div class="d2s-item-window is-hover-preview d2s-shop-item-window" *ngIf="hoveredItem as shopPreviewItem"
+          <div #shopItemWindow class="d2s-item-window is-hover-preview d2s-shop-item-window" *ngIf="hoveredItem as shopPreviewItem"
             [class.preview-left]="itemPreviewLeft"
             [class.preview-below]="itemPreviewBelow"
             [class.preview-above]="itemPreviewAbove"
@@ -325,7 +325,7 @@
         <small>{{ currentArea.name }} · Area level {{ currentArea.level }}</small>
         <small class="d2s-campaign-area-name">{{ currentActDetails.name }}</small>
         <span class="d2s-act-progress" role="progressbar" [attr.aria-valuenow]="actProgress" aria-valuemin="0" aria-valuemax="100" aria-label="Time until the act boss arrives"><i [style.width.%]="actProgress"></i></span>
-        <small>{{ actBossSpawned ? 'Boss battle' : 'Area boss in ' + (actSecondsRemaining | number:'1.0-0') + 's' }}</small>
+        <small>{{ actBossSpawned ? 'Boss battle' : (actMinionClearPrompt || ('Area boss in ' + (actSecondsRemaining | number:'1.0-0') + 's')) }}</small>
       </div>
       <div class="d2s-act-transition" *ngIf="actTransitionReady && !actPortalOpen" role="dialog" aria-modal="true" aria-labelledby="d2s-act-transition-title">
         <section><p>ACT {{ currentAct }} CLEARED</p><h2 id="d2s-act-transition-title">{{ currentActDetails.name }}</h2><p>The way forward is open. Your wounds partially mend.</p><button type="button" class="d2s-menu-button primary" (click)="openActPortal()"><span>Open the red portal</span></button></section>
@@ -520,7 +520,7 @@
       <p class="d2s-inventory-status" role="status" *ngIf="inventoryStatus">{{ inventoryStatus }}</p>
       <p class="d2s-hint">Drag gear to equip · right-click a weapon or armor to equip or swap · Ctrl-click or use the item preview to sell · right-click equipped gear to unequip</p>
     </section>
-    <div class="d2s-item-window" *ngIf="inventoryOpen && itemPreviewItem"
+    <div #inventoryItemWindow class="d2s-item-window" *ngIf="inventoryOpen && itemPreviewItem"
       [class.is-hover-preview]="!!hoveredItem"
       [class.preview-left]="itemPreviewLeft"
       [class.preview-below]="itemPreviewBelow"

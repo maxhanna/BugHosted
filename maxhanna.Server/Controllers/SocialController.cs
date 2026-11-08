@@ -52,6 +52,216 @@ namespace maxhanna.Server.Controllers
       }
     }
 
+    // Sidebar data for the Social board: the viewer's activity stats plus the
+    // most-engaged public threads in the active topic (or across the general
+    // board when no topic is selected). Karma is derived from existing activity
+    // so it needs no extra table or write-path bookkeeping.
+    private static readonly (int Posts, string Title)[] SocialLevels = new[]
+    {
+      (0, "Lurker"),
+      (1, "Newcomer"),
+      (5, "Regular"),
+      (15, "Contributor"),
+      (30, "Storyteller"),
+      (60, "Local Legend"),
+      (120, "Luminary"),
+      (250, "Icon"),
+      (500, "Mythic"),
+      (1000, "Legend")
+    };
+
+    [HttpGet("/Social/Sidebar", Name = "Social_Sidebar")]
+    public async Task<IActionResult> GetSidebar(
+      [FromQuery] int userId = 0,
+      [FromQuery] int topicId = 0,
+      [FromQuery] int? chatId = null,
+      [FromHeader(Name = "Encrypted-UserId")] string? encryptedUserIdHeader = null)
+    {
+      try
+      {
+        // The personal half of the payload and the viewer-specific hidden-post
+        // filter must only use a verified caller id. The public popular/mods
+        // data still works when the caller is anonymous or the session expired.
+        if (userId > 0 && !await _log.ValidateUserLoggedIn(userId, encryptedUserIdHeader ?? string.Empty))
+        {
+          userId = 0;
+        }
+
+        var response = new SocialSidebarResponse();
+        var connStr = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+        using var conn = new MySqlConnection(connStr);
+        await conn.OpenAsync();
+
+        if (userId > 0)
+        {
+          const string statsSql = @"
+            SELECT u.id, u.username, u.created,
+              (SELECT COUNT(*) FROM maxhanna.stories s WHERE s.user_id = u.id) AS post_count,
+              (SELECT COUNT(*) FROM maxhanna.comments c WHERE c.user_id = u.id AND c.story_id IS NOT NULL) AS comment_count,
+              (SELECT COUNT(*) FROM maxhanna.reactions r
+                JOIN maxhanna.stories s ON s.id = r.story_id
+                WHERE s.user_id = u.id AND r.user_id <> u.id) AS story_reactions,
+              (SELECT COUNT(*) FROM maxhanna.reactions r
+                JOIN maxhanna.comments c ON c.id = r.comment_id
+                WHERE c.user_id = u.id AND r.user_id <> u.id) AS comment_reactions
+            FROM maxhanna.users u
+            WHERE u.id = @userId
+            LIMIT 1;";
+
+          using var statsCmd = new MySqlCommand(statsSql, conn);
+          statsCmd.Parameters.AddWithValue("@userId", userId);
+          using var statsReader = await statsCmd.ExecuteReaderAsync();
+          if (await statsReader.ReadAsync())
+          {
+            var created = statsReader.IsDBNull(statsReader.GetOrdinal("created"))
+              ? (DateTime?)null
+              : statsReader.GetDateTime("created");
+            var stats = new SocialSidebarUserStats
+            {
+              UserId = statsReader.GetInt32("id"),
+              Username = statsReader.IsDBNull(statsReader.GetOrdinal("username"))
+                ? null
+                : statsReader.GetString("username"),
+              Created = created,
+              AccountAgeDays = created.HasValue
+                ? Math.Max(0, (DateTime.UtcNow.Date - created.Value.Date).Days)
+                : 0,
+              PostCount = statsReader.GetInt32("post_count"),
+              CommentCount = statsReader.GetInt32("comment_count"),
+              ReactionsReceived = statsReader.GetInt32("story_reactions") + statsReader.GetInt32("comment_reactions")
+            };
+            stats.Karma = stats.PostCount * 5 + stats.CommentCount * 2 + stats.ReactionsReceived;
+            ApplySocialLevel(stats);
+            response.UserStats = stats;
+          }
+        }
+
+        var where = new StringBuilder(@"
+          WHERE s.visibility = 'public'
+            AND NOT EXISTS (
+              SELECT 1 FROM maxhanna.hidden_stories hs
+              WHERE hs.story_id = s.id AND hs.user_id = @viewerId
+            )
+            AND NOT EXISTS (
+              SELECT 1 FROM maxhanna.story_topics st
+              JOIN maxhanna.topics t ON t.id = st.topic_id
+              WHERE st.story_id = s.id AND t.topic = 'NSFW'
+            )");
+        if (chatId.HasValue && chatId.Value > 0)
+        {
+          where.Append(" AND s.chat_id = @chatId ");
+        }
+        else
+        {
+          // General Social popularity should never expose a group-board thread.
+          where.Append(" AND s.chat_id IS NULL ");
+        }
+        if (topicId > 0)
+        {
+          where.Append(@" AND EXISTS (
+            SELECT 1 FROM maxhanna.story_topics st
+            WHERE st.story_id = s.id AND st.topic_id = @topicId
+          ) ");
+        }
+
+        string popularSql = $@"
+          SELECT s.id, s.user_id, s.story_text, s.date, u.username,
+            COALESCE(rc.reaction_count, 0) AS reaction_count,
+            COALESCE(cc.comment_count, 0) AS comment_count,
+            (COALESCE(rc.reaction_count, 0) * 2 + COALESCE(cc.comment_count, 0)) AS engagement
+          FROM maxhanna.stories s
+          JOIN maxhanna.users u ON u.id = s.user_id
+          LEFT JOIN (
+            SELECT story_id, COUNT(*) AS reaction_count
+            FROM maxhanna.reactions
+            WHERE story_id IS NOT NULL
+            GROUP BY story_id
+          ) rc ON rc.story_id = s.id
+          LEFT JOIN (
+            SELECT story_id, COUNT(*) AS comment_count
+            FROM maxhanna.comments
+            WHERE story_id IS NOT NULL
+            GROUP BY story_id
+          ) cc ON cc.story_id = s.id
+          {where}
+          ORDER BY engagement DESC, s.date DESC
+          LIMIT 5;";
+
+        using var popularCmd = new MySqlCommand(popularSql, conn);
+        popularCmd.Parameters.AddWithValue("@viewerId", userId);
+        if (chatId.HasValue && chatId.Value > 0)
+        {
+          popularCmd.Parameters.AddWithValue("@chatId", chatId.Value);
+        }
+        if (topicId > 0)
+        {
+          popularCmd.Parameters.AddWithValue("@topicId", topicId);
+        }
+        using var popularReader = await popularCmd.ExecuteReaderAsync();
+        while (await popularReader.ReadAsync())
+        {
+          int authorId = popularReader.GetInt32("user_id");
+          string excerpt = popularReader.IsDBNull(popularReader.GetOrdinal("story_text"))
+            ? string.Empty
+            : popularReader.GetString("story_text");
+          excerpt = string.Join(" ", excerpt.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)).Trim();
+          if (excerpt.Length > 150) excerpt = excerpt[..150] + "…";
+          if (string.IsNullOrWhiteSpace(excerpt)) excerpt = $"Post #{popularReader.GetInt32("id")}";
+
+          response.PopularThreads.Add(new SocialSidebarThread
+          {
+            Id = popularReader.GetInt32("id"),
+            AuthorId = authorId,
+            Username = popularReader.IsDBNull(popularReader.GetOrdinal("username"))
+              ? null
+              : popularReader.GetString("username"),
+            Excerpt = _log.EncryptContent(excerpt, authorId.ToString()),
+            Date = popularReader.GetDateTime("date"),
+            CommentCount = popularReader.GetInt32("comment_count"),
+            ReactionCount = popularReader.GetInt32("reaction_count"),
+            Engagement = popularReader.GetInt32("engagement")
+          });
+        }
+
+        return Ok(response);
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("An error occurred while fetching the social sidebar: " + ex.Message, userId, "SOCIAL", true);
+        return StatusCode(500, "An error occurred while fetching the social sidebar.");
+      }
+    }
+
+    private static void ApplySocialLevel(SocialSidebarUserStats stats)
+    {
+      int levelIndex = 0;
+      for (int i = 0; i < SocialLevels.Length; i++)
+      {
+        if (stats.PostCount >= SocialLevels[i].Posts) levelIndex = i;
+      }
+
+      stats.Level = levelIndex + 1;
+      stats.LevelTitle = SocialLevels[levelIndex].Title;
+      if (levelIndex + 1 < SocialLevels.Length)
+      {
+        int floor = SocialLevels[levelIndex].Posts;
+        int ceiling = SocialLevels[levelIndex + 1].Posts;
+        stats.NextLevelTitle = SocialLevels[levelIndex + 1].Title;
+        stats.NextLevelPosts = ceiling;
+        stats.PostsToNextLevel = Math.Max(0, ceiling - stats.PostCount);
+        stats.LevelProgress = ceiling > floor
+          ? Math.Clamp((int)Math.Round((stats.PostCount - floor) * 100.0 / (ceiling - floor)), 0, 100)
+          : 100;
+      }
+      else
+      {
+        stats.NextLevelTitle = null;
+        stats.NextLevelPosts = null;
+        stats.PostsToNextLevel = 0;
+        stats.LevelProgress = 100;
+      }
+    }
+
     [HttpPost(Name = "GetStories")]
     public async Task<IActionResult> GetStories(
       [FromBody] GetStoryRequest request,
