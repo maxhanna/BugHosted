@@ -40,6 +40,9 @@ SOURCE_CELL = 160
 SOURCE_ORIGIN = (80, 100)
 OUTPUT_CELL = 128
 DRAW_SCALE = SOURCE_CELL / OUTPUT_CELL
+# Bump when the generated sheets change so browsers that cached the old art
+# fetch the corrected files.
+ASSET_VERSION = 2
 
 # skill, output slug, overlay animation rate (frames/sec), layers.
 # A layer is (DCC stem, "back" | "front"), in draw order.
@@ -140,7 +143,10 @@ def write_metadata(records: list[dict]) -> None:
 
 
 def build(source: Path) -> None:
-    palette = dcc.load_palette(source / "global" / "palette" / "units" / "pal.dat")
+    # `pal.dat` stores its triples as BGR; reading them as RGB swapped red and
+    # blue, which drew Prayer's blue aura red and Might's golden aura cold blue.
+    palette = [(red, green, blue) for blue, green, red in
+               dcc.load_palette(source / "global" / "palette" / "units" / "pal.dat")]
     records = []
     for skill, slug, frame_rate, layers in AURAS:
         sheet, columns = build_sheet(source, palette, layers, slug)
@@ -148,7 +154,7 @@ def build(source: Path) -> None:
         front_row = next((index for index, (_stem, half) in enumerate(layers) if half == "front"), None)
         records.append({
             "skill": skill,
-            "path": f"assets/d2survivors/auras/paladin/{slug}.png",
+            "path": f"assets/d2survivors/auras/paladin/{slug}.png?v={ASSET_VERSION}",
             "columns": columns,
             "rows": len(layers),
             "frameRate": frame_rate,

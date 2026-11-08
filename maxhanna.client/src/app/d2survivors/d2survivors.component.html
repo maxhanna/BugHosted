@@ -15,7 +15,14 @@
     <div class="d2s-menu-embers" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
     <div class="d2s-menu-frame">
       <header class="d2s-menu-title">
-        <button type="button" class="d2s-audio-toggle" [attr.aria-label]="ambientAudioEnabled ? 'Mute title-screen ambience' : 'Enable title-screen ambience'" [attr.aria-pressed]="ambientAudioEnabled" [title]="ambientAudioEnabled ? 'Mute ambience' : 'Enable ambience'" (click)="toggleAmbientAudio()"><span aria-hidden="true">{{ ambientAudioEnabled ? '♫' : '♪' }}</span><span class="d2s-audio-toggle-text">{{ ambientAudioEnabled ? 'Sound on' : 'Sound off' }}</span></button>
+        <div class="d2s-audio-control">
+          <button type="button" class="d2s-audio-toggle" [attr.aria-label]="ambientAudioEnabled ? 'Mute title-screen ambience' : 'Enable title-screen ambience'" [attr.aria-pressed]="ambientAudioEnabled" [title]="ambientAudioEnabled ? 'Mute ambience' : 'Enable ambience'" (click)="toggleAmbientAudio()"><span aria-hidden="true">{{ ambientAudioEnabled ? '♫' : '♪' }}</span><span class="d2s-audio-toggle-text">{{ ambientAudioEnabled ? 'Sound on' : 'Sound off' }}</span></button>
+          <label class="d2s-audio-volume">
+            <span class="d2s-audio-volume-label">Ambience</span>
+            <input type="range" min="0" max="100" step="1" [value]="ambientVolumePercent" (input)="setAmbientVolume($event)" aria-label="Ambience music volume" />
+            <span class="d2s-audio-volume-value">{{ ambientVolumePercent }}%</span>
+          </label>
+        </div>
         <span class="d2s-audio-status" aria-live="polite">{{ ambientAudioStatus }}</span>
         <div class="d2s-menu-kicker"><span></span> THE GATES OF SANCTUARY <span></span></div>
         <div class="d2s-logo-mark" aria-hidden="true"><i></i><b></b></div>
@@ -234,11 +241,6 @@
     <ul class="d2s-list">
       <li *ngFor="let area of mapAreas" class="d2s-item">{{ area }}</li>
     </ul>
-
-    <h2>Item properties</h2>
-    <ul class="d2s-list">
-      <li *ngFor="let prop of itemProperties" class="d2s-item">{{ prop }}</li>
-    </ul>
   </section>
 
   <section class="d2s-run" [hidden]="activeTab !== 'run'">
@@ -249,7 +251,13 @@
           <h2 id="d2s-upgrade-title">Choose an upgrade</h2>
           <p>Your next level waits until you select one.</p>
           <button type="button" *ngFor="let choice of upgradeChoices; let index = index" class="d2s-upgrade-choice" (click)="chooseLevelUpgrade(choice)">
-            <kbd>{{ index + 1 }}</kbd><strong>{{ choice.name }}</strong><span>{{ choice.description }}</span>
+            <kbd>{{ index + 1 }}</kbd><strong>{{ choice.name }}</strong>
+            <span *ngIf="choice.nextStats?.length" class="d2s-upgrade-effects">
+              <b>Rank {{ choice.currentRank }} → {{ choice.nextRank }}</b>
+              <small>Current: {{ choice.currentStats?.join(' · ') }}</small>
+              <small>Upgrade: {{ choice.nextStats?.join(' · ') }}</small>
+            </span>
+            <span *ngIf="!choice.nextStats?.length">{{ choice.description }}</span>
           </button>
         </section>
       </div>
@@ -262,6 +270,7 @@
       <div class="d2s-enemy-hover-card" *ngIf="hoveredEnemy as enemy" aria-live="polite">
         <strong>{{ getEnemyDisplayName(enemy) }}</strong>
         <span class="d2s-enemy-hover-health"><i [style.transform]="'scaleX(' + (enemy.hp / enemy.maxHp) + ')'" [style.background]="enemy.kind === 'boss' ? '#d53226' : '#a81717'"></i></span>
+        <span class="d2s-enemy-hover-immunities" *ngIf="enemy.immunities?.length">Immune: {{ getEnemyImmunityLabel(enemy) }}</span>
       </div>
       <div class="d2s-ground-pickup-label" *ngIf="hoveredGroundPickup as pickup" [style.left.px]="pickup.x" [style.top.px]="pickup.y" aria-hidden="true">{{ pickup.text }}</div>
       <div class="d2s-model-hint" *ngIf="modelLoadError">3D character model could not load.</div>
@@ -273,7 +282,7 @@
         </div>
         <div class="d2s-hud-center">
           <div class="d2s-belt-frame" aria-label="Potion belt">
-            <div class="d2s-belt-grid" [attr.data-belt-rows]="beltRows">
+            <div class="d2s-belt-grid" [class.expanded]="beltExpanded" [attr.data-belt-rows]="beltRows">
             <button
               type="button"
               *ngFor="let slot of visibleBeltSlots; let i = index"
@@ -359,6 +368,10 @@
         </div>
         <p>{{ tooltip.description }}</p>
         <div class="d2s-skill-tooltip-stats">
+          <section class="d2s-skill-tooltip-requirements" *ngIf="tooltip.prerequisites.length">
+            <b>Requires</b>
+            <ul><li *ngFor="let prerequisite of tooltip.prerequisites">{{ prerequisite }}</li></ul>
+          </section>
           <section><b>Current stats</b><ul><li *ngFor="let stat of tooltip.currentStats">{{ stat }}</li></ul></section>
           <section><b>Next rank · {{ tooltip.nextRankLabel }}</b><ul *ngIf="tooltip.nextStats.length; else noNextRankStats"><li *ngFor="let stat of tooltip.nextStats">{{ stat }}</li></ul><ng-template #noNextRankStats><small>{{ tooltip.rank >= 20 ? 'This skill is at maximum rank.' : 'Unlock this skill to view its next-rank stats.' }}</small></ng-template></section>
         </div>
@@ -405,20 +418,20 @@
           <p class="d2s-stats-level">Level {{ playerLevel }}</p>
           <div class="d2s-stats-block">
             <h4>Attributes</h4>
-            <div><span>Strength</span><b>{{ selectedClassStats.attributes[0].value + equippedStrengthBonus }}<small *ngIf="equippedStrengthBonus"> (+{{ equippedStrengthBonus }})</small><small class="d2s-stat-preview" *ngIf="getSelectedItemStatDelta('strength') as strengthDelta" [class.negative]="strengthDelta < 0"> {{ formatItemStatDelta(strengthDelta) }} str</small></b></div>
-            <div><span>Dexterity</span><b>{{ selectedClassStats.attributes[1].value }}</b></div>
-            <div><span>Vitality</span><b>{{ selectedClassStats.attributes[2].value }}<small class="d2s-stat-preview" *ngIf="getSelectedItemStatDelta('vitality') as vitalityDelta" [class.negative]="vitalityDelta < 0"> {{ formatItemStatDelta(vitalityDelta) }} vit</small></b></div>
-            <div><span>Energy</span><b>{{ selectedClassStats.attributes[3].value }}</b></div>
+            <div><span>Strength</span><b>{{ selectedClassStats.attributes[0].value + equippedStrengthBonus }}<small *ngIf="equippedStrengthBonus"> (+{{ equippedStrengthBonus }})</small><small class="d2s-stat-preview" *ngIf="getPreviewItemStatDelta('strength') as strengthDelta" [class.negative]="strengthDelta < 0"> {{ formatItemStatDelta(strengthDelta) }} str</small></b></div>
+            <div><span>Dexterity</span><b>{{ selectedClassStats.attributes[1].value + equippedDexterityBonus }}<small *ngIf="equippedDexterityBonus"> (+{{ equippedDexterityBonus }})</small><small class="d2s-stat-preview" *ngIf="getPreviewItemStatDelta('dexterity') as dexterityDelta" [class.negative]="dexterityDelta < 0"> {{ formatItemStatDelta(dexterityDelta) }} dex</small></b></div>
+            <div><span>Vitality</span><b>{{ selectedClassStats.attributes[2].value + equippedVitalityBonus }}<small *ngIf="equippedVitalityBonus"> (+{{ equippedVitalityBonus }})</small><small class="d2s-stat-preview" *ngIf="getPreviewItemStatDelta('vitality') as vitalityDelta" [class.negative]="vitalityDelta < 0"> {{ formatItemStatDelta(vitalityDelta) }} vit</small></b></div>
+            <div><span>Energy</span><b>{{ selectedClassStats.attributes[3].value + equippedEnergyBonus }}<small *ngIf="equippedEnergyBonus"> (+{{ equippedEnergyBonus }})</small><small class="d2s-stat-preview" *ngIf="getPreviewItemStatDelta('energy') as energyDelta" [class.negative]="energyDelta < 0"> {{ formatItemStatDelta(energyDelta) }} en</small></b></div>
           </div>
           <div class="d2s-stats-block d2s-derived-stats">
             <h4>Combat</h4>
-            <div><span>Damage</span><b>{{ inventoryAttackDamage }}<small class="d2s-stat-preview" *ngIf="getSelectedItemStatDelta('damage') as damageDelta" [class.negative]="damageDelta < 0"> {{ formatItemStatDelta(damageDelta) }}</small></b></div>
-            <div><span>Defense</span><b>{{ equippedArmor }}<small class="d2s-stat-preview" *ngIf="getSelectedItemStatDelta('defense') as defenseDelta" [class.negative]="defenseDelta < 0"> {{ formatItemStatDelta(defenseDelta) }}</small></b></div>
+            <div><span>Damage</span><b>{{ inventoryAttackDamage }}<small class="d2s-stat-preview" *ngIf="getPreviewItemStatDelta('damage') as damageDelta" [class.negative]="damageDelta < 0"> {{ formatItemStatDelta(damageDelta) }}</small></b></div>
+            <div><span>Defense</span><b>{{ equippedArmor }}<small class="d2s-stat-preview" *ngIf="getPreviewItemStatDelta('defense') as defenseDelta" [class.negative]="defenseDelta < 0"> {{ formatItemStatDelta(defenseDelta) }}</small></b></div>
             <div><span>Stamina</span><b>{{ selectedClassStats.stamina }}</b></div>
           </div>
           <div class="d2s-stats-block d2s-resource-stats">
-            <div><span>Life</span><b>{{ playerHp | number:'1.0-0' }} / {{ effectivePlayerMaxHp }}</b></div>
-            <div><span>Mana</span><b>{{ playerMana | number:'1.0-0' }} / {{ effectivePlayerMaxMana }}</b></div>
+            <div><span>Life</span><b>{{ playerHp | number:'1.0-0' }} / {{ effectivePlayerMaxHp }}<small class="d2s-stat-preview" *ngIf="getPreviewItemStatDelta('life') as lifeDelta" [class.negative]="lifeDelta < 0"> {{ formatItemStatDelta(lifeDelta) }} max</small></b></div>
+            <div><span>Mana</span><b>{{ playerMana | number:'1.0-0' }} / {{ effectivePlayerMaxMana }}<small class="d2s-stat-preview" *ngIf="getPreviewItemStatDelta('mana') as manaDelta" [class.negative]="manaDelta < 0"> {{ formatItemStatDelta(manaDelta) }} max</small></b></div>
             <div *ngIf="equippedLifeBonus"><span>Life Bonus</span><b>+{{ equippedLifeBonus }}</b></div>
           </div>
           <div class="d2s-set-summary" *ngIf="equippedSetSummaries.length">
@@ -487,8 +500,6 @@
           [class.normal]="slot.item?.rarity === 'normal'"
           [class.empty]="!slot.item"
           [class.selected]="selectedSlotIndex === slot.slotIndex"
-          [class.drag-over]="dragGhostSlotIndex === slot.slotIndex"
-          [class.drag-denied]="dragGhostSlotIndex === slot.slotIndex && dragState && !canDropOnSlot(dragState.slotIndex, slot.slotIndex, dragState.item)"
           [ngStyle]="inventoryGridStyle(slot)"
           (click)="onInventoryItemClick(slot.slotIndex, slot.item ?? null, $event)"
           (mouseenter)="onInventoryItemHover(slot.slotIndex, slot.item ?? null, $event)"
@@ -498,6 +509,10 @@
           <img *ngIf="slot.item as inventoryItem" class="d2s-inv-art" [src]="inventoryItemImage(inventoryItem)" alt="" />
           <span class="d2s-inv-name">{{ slot.item?.name || '' }}</span>
         </div>
+        <div class="d2s-inv-drop-preview" *ngIf="inventoryDropPreview as preview"
+          [class.denied]="!preview.allowed"
+          [ngStyle]="inventoryDropPreviewStyle(preview)"
+          aria-hidden="true"></div>
           </div>
         </section>
         </div>
@@ -523,6 +538,7 @@
           <p class="d2s-item-window-description">{{ previewItem.desc }}</p>
           <p class="d2s-item-window-description" *ngIf="getEquipmentType(previewItem) === 'belt'">{{ previewItem.beltQuality }} belt · {{ getBeltRows(previewItem) }} potion rows</p>
           <button type="button" class="d2s-equip-belt" *ngIf="selectedItem === previewItem && selectedSlotIndex !== null && getEquipmentType(previewItem) !== 'charm'" (click)="equipSelectedItem(selectedSlotIndex)">Equip {{ getEquipmentType(previewItem) }}</button>
+          <p class="d2s-equip-blocked" *ngIf="selectedItem === previewItem && selectedSlotIndex !== null && getEquipmentType(previewItem) !== 'charm' && equipBlockReason(previewItem) as blockedReason">{{ blockedReason }}</p>
           <button type="button" class="d2s-equip-belt" *ngIf="selectedItem === previewItem" (click)="sellSelectedItem()">Sell for {{ getItemSellValue(previewItem) }} gold</button>
           <button type="button" class="d2s-equip-belt" *ngIf="selectedItem === previewItem && selectedEquipmentSlot" (click)="unequipItem(selectedEquipmentSlot)">Unequip</button>
           <div class="d2s-item-window-stats">

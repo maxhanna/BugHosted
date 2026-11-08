@@ -44,6 +44,7 @@ export type AttackAnimationStyle =
   | "daggerStab"
   | "bowShot"
   | "crossbowShot"
+  | "leap"
   | "clawFlurry"
   | "unarmedStrike"
   | "chestKick";
@@ -132,6 +133,9 @@ export const ATTACK_CLIP_INFO: Record<AttackAnimationStyle, AttackClipInfo> = {
   daggerStab: { duration: 0.34, trail: "#cfe8ff", trailArc: 0.7 },
   bowShot: { duration: 0.52, trail: "#d8e6ff", trailArc: 0.4 },
   crossbowShot: { duration: 0.48, trail: "#cfd9e8", trailArc: 0.5 },
+  // Matches the D2R barbarian leap states: wind-up, a long airborne beat and a
+  // planted landing. The actual air height is driven by the arena, not the clip.
+  leap: { duration: 1.02 },
   clawFlurry: { duration: 0.42, trail: "#a8cfff", trailArc: 1.6 },
   unarmedStrike: { duration: 0.32, trail: "#f0e2c8", trailArc: 0.9 },
   chestKick: { duration: 0.7 },
@@ -380,6 +384,16 @@ const ATTACK_CLIPS: Record<AttackAnimationStyle, ClipKey[]> = {
     key(0.56, arm(2, 2, 2), arm(-14, -10, 108), { chestYaw: -12, pelvisYaw: -6, headPitch: -2 }),
     key(0.72, arm(4, -6, 10), arm(4, -26, 62), { chestYaw: 2 }),
     key(1, arm(10, -20, 20), arm(16, -34, 60), {}),
+  ],
+  leap: [
+    key(0, arm(24, -48, 52), arm(20, -50, 64), { chestYaw: -4, pelvisYaw: -2 }),
+    key(0.14, arm(38, -36, 88), arm(34, -38, 94), { chestPitch: 12, spinePitch: 7, crouch: -0.11, frontLeg: 24, backLeg: -20, frontKnee: 46, backKnee: 34, headPitch: 8 }),
+    key(0.24, arm(18, 34, 20), arm(12, 26, 36), { chestPitch: 16, spinePitch: 8, crouch: 0.02, frontLeg: -8, backLeg: 8, frontKnee: 6, backKnee: 4, headPitch: -4 }),
+    key(0.42, arm(42, 22, 30), arm(36, 16, 46), { chestPitch: 4, crouch: -0.03, frontLeg: 48, backLeg: -34, frontKnee: 74, backKnee: 48, headPitch: 4 }),
+    key(0.62, arm(50, 18, 26), arm(44, 12, 40), { chestPitch: -4, crouch: -0.01, frontLeg: 36, backLeg: -28, frontKnee: 58, backKnee: 40 }),
+    key(0.78, arm(30, -28, 42), arm(26, -34, 58), { chestPitch: 12, crouch: -0.08, frontLeg: 26, backLeg: -20, frontKnee: 52, backKnee: 36, headPitch: 10 }),
+    key(0.9, arm(20, -44, 54), arm(18, -46, 68), { chestPitch: 4, crouch: -0.03, frontLeg: 14, backLeg: -10, frontKnee: 28, backKnee: 18 }),
+    key(1, arm(24, -48, 52), arm(20, -50, 64), {}),
   ],
   crossbowShot: [
     key(0, arm(6, -14, 18), arm(10, -20, 46), { chestYaw: -2 }),
@@ -1006,7 +1020,13 @@ export function poseCharacterRig(rig: CharacterRig, state: CharacterPoseState): 
     ? Math.max(0, Math.min(1, state.attackTime / ATTACK_CLIP_INFO[state.attackStyle].duration))
     : 0;
   const sampled = clip && attackActive ? sampleClip(clip, rawProgress) : undefined;
-  const strike = sampled ? Math.sin(Math.PI * Math.min(1, rawProgress * 1.15)) : 0;
+  // The leap is a full-body move, so it holds its pose through the airborne beat
+  // instead of fading the arms and legs out halfway like a weapon swing.
+  const strike = sampled
+    ? state.attackStyle === "leap"
+      ? Math.min(1, Math.sin(Math.PI * rawProgress) * 2.4)
+      : Math.sin(Math.PI * Math.min(1, rawProgress * 1.15))
+    : 0;
 
   const orientations = new Map<RigJoint, THREE.Quaternion>();
   const positions = new Map<RigJoint, THREE.Vector3>();

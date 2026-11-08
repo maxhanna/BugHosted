@@ -7,7 +7,7 @@ classic DC6 sprites painted with `data/global/palette/act1/pal.dat`.
 Outputs:
 
 * `assets/d2survivors/items/d2/<file>.png` - every inventory cel;
-* `assets/d2survivors/items/<type>.png` - the sixteen equipment-category icons;
+* `assets/d2survivors/items/<type>.png` - the seventeen equipment-category icons;
 * `assets/d2survivors/items/ground/<file>.png` - every flippy resting frame;
 * `assets/d2survivors/items/ground-anim/<file>.png` - each flippy's offset-aligned
   animation strip, one shared-size cell per frame;
@@ -55,7 +55,6 @@ ALIASES: dict[str, str] = {
     "crimson small charm": "invchm",
     "azure small charm": "invchm",
     "soulstone shard": "invchm",
-    "quill of the fates": "invchm",
     "barbarian battle axe": "invbtx",
     "barbarian great sword": "invgsd",
     "barbarian throwing axe": "invtax",
@@ -69,7 +68,6 @@ GROUND_ALIASES: dict[str, str] = {
     "crimson small charm": "flpchm",
     "azure small charm": "flpchm",
     "soulstone shard": "flpchm",
-    "quill of the fates": "flpchm",
     "barbarian battle axe": "flpbtx",
     "barbarian great sword": "flpgsd",
     "barbarian throwing axe": "flptax",
@@ -112,6 +110,7 @@ CATEGORIES: dict[str, list[str]] = {
     "body": ["invlea", "invqlt", "invba1"],
     "shield": ["invbuc", "invsml", "invshld"],
     "paladin-shield": ["invpa1", "invpa2", "invpal"],
+    "necromancer-head": ["invne1", "invne2", "invne3", "invne4", "invne5"],
     "gloves": ["invlgl", "invvgl", "invglv"],
     "boots": ["invvbt", "invlbt", "invbot"],
     "belt": ["invvbl", "invlbl", "invblt"],
@@ -369,7 +368,9 @@ def classify_base(base: dict[str, str]) -> tuple[str, str, str | None] | None:
         return "armor", "shield", None
     if item_type == "ashd":
         return "armor", "paladinShield", restricted
-    if item_type in ("head", "grim"):
+    if item_type == "head":
+        return "armor", "necromancerHead", restricted
+    if item_type == "grim":
         return "armor", "shield", restricted
     if item_type == "glov":
         return "armor", "gloves", None

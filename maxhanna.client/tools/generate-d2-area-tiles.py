@@ -50,13 +50,15 @@ AREAS = [
     # Act IV: Outer Steppes reuses the existing atlas.
     ("a4-city-of-the-damned", "Act 4 Tiles - Hell Floor", 0, 3),
     ("a4-chaos-sanctuary", "Act 4 Tiles - Hell Floor", 1, 3),
-    # Act V: Bloody Foothills reuses the existing atlas.
-    ("a5-crystalline-passage", "Act 5 Tiles - Siege Floor", 20, 34),
-    ("a5-throne-of-destruction", "Act 5 Tiles - Siege Floor", 44, 60),
+    # Act V floors are decoded from the D2R expansion DT1 sets by
+    # tools/import_d2r_act5_tiles.py, so this older preview-sheet importer
+    # must not overwrite them.
     # Pandemonium event areas.
     ("a6-forgotten-sands", "Act 2 Tiles - Outdoor Ground", 44, 57),
     ("a7-matrons-den", "Act 1 Tiles - Outdoor Floor", 2, 8),
-    ("a8-uber-tristram", "Act 1 Tiles - Outdoor Floor", 12, 20),
+    # Uber Tristram is rendered from tri_town4.ds1 and the Tristram DT1 set by
+    # tools/render_d2r_tristram.py; this preview-sheet importer must not
+    # overwrite that atlas.
 ]
 
 

@@ -58,7 +58,6 @@ SPECIES: dict[str, tuple[str, str, int, int]] = {
     "fetish": ("FE", "fetish.png", 13, 24),
     "boneFetish": ("FK", "bone-fetish.png", 13, 24),
     "council": ("HP", "council.png", 20, 24),
-    "minotaur": ("TH", "minotaur.png", 16, 16),
     "nihlathak": ("XU", "nihlathak.png", 14, 16),
     "painWorm": ("46", "pain-worm.png", 9, 16),
     "regurgitator": ("45", "regurgitator.png", 16, 16),
@@ -86,7 +85,22 @@ NEW_SPECIES: dict[str, tuple[str, str, int, int, int]] = {
     "spiderDemon": ("SP", "spider-demon.png", 12, 160, 128),
     "spikeFiend": ("SI", "spike-fiend.png", 16, 96, 80),
     "fetishShaman": ("FS", "fetish-shaman.png", 17, 112, 96),
+    # The Act V minotaur is the Blood Lord composite (L3), including its axes.
+    # TH is a Thorned Hulk and was producing a completely different creature.
+    "minotaur": ("L3", "minotaur.png", 16, 128, 128),
+    # Act 4 flesh beasts: the flat 49x50 and 42x48 rips lost their animation,
+    # while VC and VM both have eight-direction walk and attack DCCs.
+    "vileChild": ("VC", "vile-child.png", 10, 120, 80),
+    "vileMother": ("VM", "vile-mother.png", 17, 152, 112),
 }
+
+# `composit.txt` row order: component 0 is HD, 1 TR, 2 LG, 3 RA, 4 LA,
+# 5 RH, 6 LH, 7 SH, and 8..15 are S1..S8. A COF lists which of these layers
+# form one animation and the per-frame back-to-front draw order.
+COMPOSIT_ROWS = ("hd", "tr", "lg", "ra", "la", "rh", "lh", "sh",
+                 "s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8")
+# Species built from layered COFs instead of the flat `tr` body DCC.
+COF_SPECIES = {"vileChild", "vileMother", "minotaur", "baalsMinion"}
 
 # Variant folders in preference order: the plain "tr" animation is the one the
 # game shows for ordinary monsters; the HD folders only hold some monsters.
@@ -127,7 +141,149 @@ def frame_crop(animation: dict, direction_index: int, frame_index: int) -> Image
     return canvas
 
 
+def fade_pain_worm_matte(image: Image.Image) -> Image.Image:
+    """Replace the Pain Worm's baked black silhouette with soft alpha.
+
+    Its DCC paints an opaque black, body-shaped backdrop enclosed by transparent
+    pixels, so the renderer's border clean-up never reaches it. Deriving alpha
+    from luminance removes that silhouette while keeping the blue body and glow.
+    """
+    result = image.copy()
+    pixels = result.load()
+    for y in range(result.height):
+        for x in range(result.width):
+            red, green, blue, alpha = pixels[x, y]
+            if alpha == 0:
+                continue
+            high = max(red, green, blue)
+            fade = max(0.0, min(1.0, (high - 20) / 75))
+            fade = fade * fade * (3 - 2 * fade)
+            out_alpha = min(255, round(alpha * fade * 1.15))
+            if out_alpha == 0:
+                pixels[x, y] = (0, 0, 0, 0)
+            else:
+                pixels[x, y] = (
+                    min(255, round(red * 1.15 + 12)),
+                    min(255, round(green * 1.15 + 12)),
+                    min(255, round(blue * 1.15 + 12)),
+                    out_alpha,
+                )
+    return result
+
+
+def parse_cof(path: Path) -> dict:
+    """Read a COF's layer records, frame count and per-frame draw order."""
+    data = path.read_bytes()
+    if len(data) < 28:
+        raise ValueError(f"{path.name} is too short for a COF")
+    layers, frames, directions = data[0], data[1], data[2]
+    if not layers or not frames or not directions:
+        raise ValueError(f"{path.name} has no layers, frames or directions")
+    records = []
+    for index in range(layers):
+        start = 28 + index * 9
+        records.append((data[start], data[start + 5:start + 8].decode("ascii", "replace")))
+    order_length = directions * frames * layers
+    if len(data) < 28 + 9 * layers + frames + order_length:
+        raise ValueError(f"{path.name} is truncated")
+    order_start = len(data) - order_length
+    return {
+        "layers": records,
+        "frames": frames,
+        "directions": directions,
+        "order": list(data[order_start:]),
+    }
+
+
+def find_layer_dcc(monster_dir: Path, code: str, layer: str, mode: str, wclass: str) -> Path | None:
+    """Find the DCC for one COF component, preferring its lit variant."""
+    layer_dir = monster_dir / layer
+    if not layer_dir.is_dir():
+        return None
+    prefix = f"{code.lower()}{layer.lower()}"
+    suffix = f"{wclass.lower()}.dcc"
+    candidates: list[tuple[int, str, Path]] = []
+    for path in layer_dir.glob("*.dcc"):
+        name = path.name.lower()
+        if not name.startswith(prefix) or mode not in name or not name.endswith(suffix):
+            continue
+        candidates.append((0 if "lit" in name else 1, name, path))
+    return sorted(candidates)[0][2] if candidates else None
+
+
+def load_cof_animation(monster_dir: Path, code: str, mode: str,
+                       cof_name: str | None = None) -> dict | None:
+    """Load every DCC layer and the frame metadata for one COF animation."""
+    cof_path = monster_dir / "cof" / (cof_name or f"{code.lower()}{mode}hth.cof")
+    if not cof_path.is_file():
+        return None
+    try:
+        cof = parse_cof(cof_path)
+    except ValueError:
+        return None
+    layers = {}
+    for component, wclass in cof["layers"]:
+        if not 0 <= component < len(COMPOSIT_ROWS):
+            return None
+        path = find_layer_dcc(monster_dir, code, COMPOSIT_ROWS[component], mode, wclass)
+        if path is None:
+            return None
+        try:
+            layers[component] = dcc.parse(path.read_bytes())
+        except dcc.DCCError:
+            return None
+    if not layers:
+        return None
+    frames = min([cof["frames"]] + [animation["frames_per_dir"] for animation in layers.values()])
+    directions = min([cof["directions"]] + [animation["directions"] for animation in layers.values()])
+    return {"cof": cof, "layers": layers, "frames": frames, "directions": directions}
+
+
+def composite_frame(animation: dict, direction_index: int, frame_index: int,
+                    with_box: bool = False):
+    """Flatten one COF frame's layers in its recorded back-to-front order."""
+    cof = animation["cof"]
+    layers = animation["layers"]
+    frame_index = min(frame_index, animation["frames"] - 1)
+    layer_count = len(cof["layers"])
+    order_start = (direction_index * cof["frames"] + frame_index) * layer_count
+    order = cof["order"][order_start:order_start + layer_count]
+    boxes = []
+    for component in order:
+        layer = layers.get(component)
+        if layer is not None and direction_index < layer["directions"]:
+            boxes.append(layer["dirs"][direction_index]["box"])
+    if not boxes:
+        empty = Image.new("RGBA", (1, 1), (0, 0, 0, 0))
+        return (empty, (0, 0, 1, 1)) if with_box else empty
+    xmin = min(box[0] for box in boxes)
+    ymin = min(box[1] for box in boxes)
+    xmax = max(box[0] + box[2] for box in boxes)
+    ymax = max(box[1] + box[3] for box in boxes)
+    canvas = Image.new("RGBA", (xmax - xmin, ymax - ymin), (0, 0, 0, 0))
+    for component in order:
+        layer = layers.get(component)
+        if layer is None or direction_index >= layer["directions"]:
+            continue
+        box = layer["dirs"][direction_index]["box"]
+        cel = frame_crop(layer, direction_index, min(frame_index, layer["frames_per_dir"] - 1))
+        canvas.alpha_composite(cel, (box[0] - xmin, box[1] - ymin))
+    return (canvas, (xmin, ymin, xmax - xmin, ymax - ymin)) if with_box else canvas
+
+
+def load_units_palette(path: Path) -> list[tuple[int, int, int]]:
+    """Read the D2 units palette as RGB; the file stores BGR triples."""
+    return [(red, green, blue) for blue, green, red in dcc.load_palette(path)]
+
+
 CURRENT_PALETTE: list[tuple[int, int, int]] = []
+
+# `units/pal.dat` stores its triples as BGR, but the historical importer read
+# them straight into (red, green, blue). Every other sheet was generated that
+# way and is tuned around it, so only Andariel is rebuilt with the channels
+# corrected: the swap turned her warm red-and-gold palette into the blue sheet
+# the arena used to draw.
+BGR_FIXED_SPECIES = {"andariel"}
 
 
 def fit_into(canvas: Image.Image, width: int, height: int) -> Image.Image:
@@ -168,6 +324,8 @@ def build_species(source: Path, species: str) -> str:
 
     def paste(image: Image.Image, column: int, row: int) -> None:
         scaled = fit_into(image, cell_width, cell_height)
+        if species == "painWorm":
+            scaled = fade_pain_worm_matte(scaled)
         left = column * cell_width + (cell_width - scaled.width) // 2
         top = row * cell_height + (cell_height - scaled.height) // 2
         sheet.alpha_composite(scaled, (left, top))
@@ -236,6 +394,243 @@ def build_new_species(source: Path, species: str) -> str:
             f"cell {cell_width}x{cell_height} walk {walk_frames}f attack {attack_frames}f")
 
 
+def build_composite_species(source: Path, species: str) -> str:
+    """Build a sixteen-row atlas from a monster's layered COF animation."""
+    code, out_name, columns, cell_width, cell_height = NEW_SPECIES[species]
+    monster_dir = source / "global" / "monsters" / code
+    walk = load_cof_animation(monster_dir, code, "wl")
+    if walk is None:
+        return f"skip {species}: no layered walk for {code}"
+    attack = load_cof_animation(monster_dir, code, "a1")
+    sheet = Image.new("RGBA", (columns * cell_width, 16 * cell_height), (0, 0, 0, 0))
+
+    def paste(image: Image.Image, column: int, row: int) -> None:
+        scaled = fit_into(image, cell_width, cell_height)
+        left = column * cell_width + (cell_width - scaled.width) // 2
+        top = row * cell_height + (cell_height - scaled.height) // 2
+        sheet.alpha_composite(scaled, (left, top))
+
+    directions = min(8, walk["directions"])
+    walk_frames = min(walk["frames"], columns)
+    for direction in range(directions):
+        for frame in range(walk_frames):
+            paste(composite_frame(walk, direction, frame), frame, direction)
+    attack_frames = 0
+    if attack is not None:
+        attack_frames = min(attack["frames"], columns)
+        for direction in range(min(directions, attack["directions"])):
+            for frame in range(attack_frames):
+                paste(composite_frame(attack, direction, frame), frame, 8 + direction)
+
+    destination = ASSET_ROOT / out_name
+    sheet.save(destination)
+    return (f"{species:16s} {code:3s} {out_name:24s} {sheet.width}x{sheet.height} "
+            f"cell {cell_width}x{cell_height} walk {walk_frames}f attack {attack_frames}f "
+            f"cof {len(walk['cof']['layers'])}/{len(attack['cof']['layers']) if attack else 0} layers")
+
+
+def build_composite_rebuild(source: Path, species: str) -> str:
+    """Rebuild an existing multi-block sheet from its layered COF animations."""
+    code, out_name, columns, rows = SPECIES[species]
+    destination = ASSET_ROOT / out_name
+    if not destination.is_file():
+        return f"skip {species}: missing existing {out_name}"
+    existing = Image.open(destination).convert("RGBA")
+    cell_width = existing.width // columns
+    cell_height = existing.height // rows
+
+    monster_dir = source / "global" / "monsters" / code
+    idle = load_cof_animation(monster_dir, code, "nu")
+    walk = load_cof_animation(monster_dir, code, "wl")
+    attack = load_cof_animation(monster_dir, code, "a1")
+    if walk is None:
+        return f"skip {species}: no layered walk for {code}"
+
+    sheet = Image.new("RGBA", existing.size, (0, 0, 0, 0))
+    blocks = max(1, rows // 8)
+    walk_block = 1 if blocks >= 3 else 0
+    attack_block = walk_block + 1 if blocks >= 2 else 0
+
+    def paste(image: Image.Image, column: int, row: int) -> None:
+        scaled = fit_into(image, cell_width, cell_height)
+        left = column * cell_width + (cell_width - scaled.width) // 2
+        top = row * cell_height + (cell_height - scaled.height) // 2
+        sheet.alpha_composite(scaled, (left, top))
+
+    idle_frames = 0
+    if blocks >= 3:
+        idle_source = idle or walk
+        idle_frames = min(idle_source["frames"], columns)
+        for direction in range(min(8, idle_source["directions"])):
+            for frame in range(idle_frames):
+                paste(composite_frame(idle_source, direction, frame), frame, direction)
+
+    walk_frames = min(walk["frames"], columns)
+    for direction in range(min(8, walk["directions"])):
+        for frame in range(walk_frames):
+            paste(composite_frame(walk, direction, frame), frame, walk_block * 8 + direction)
+
+    attack_frames = 0
+    if attack is not None and rows >= 16:
+        attack_frames = min(attack["frames"], columns)
+        for direction in range(min(8, attack["directions"])):
+            for frame in range(attack_frames):
+                paste(composite_frame(attack, direction, frame), frame, attack_block * 8 + direction)
+
+    sheet.save(destination)
+    check = Image.open(destination).size
+    assert check == existing.size, f"{out_name} changed size {existing.size} -> {check}"
+    return (f"{species:16s} {code:3s} {out_name:24s} {check[0]}x{check[1]} cell {cell_width}x{cell_height} "
+            f"idle {idle_frames}f walk {walk_frames}f attack {attack_frames}f "
+            f"cof {len(walk['cof']['layers'])}/{len(attack['cof']['layers']) if attack else 0} layers")
+
+
+DIABLO_COLUMNS = 14
+DIABLO_CELL_WIDTH = 192
+DIABLO_CELL_HEIGHT = 182
+DIABLO_BORDER = 2
+
+
+def build_diablo(source: Path) -> str:
+    """Rebuild Diablo from the full layered walk COF.
+
+    The old sheet was cut from the ``TR`` DCC alone. In Diablo II's composite
+    system that file is only the torso, which is why the arena drew a horned
+    torso with no arms, legs or tail. The D2R extraction keeps those parts as
+    the ``ra``, ``la`` and ``lg`` layers the walk COF lists, so every frame is
+    flattened in the COF's recorded back-to-front order instead.
+
+    One shared DCC-space origin keeps the walk from jittering, and the cell is
+    the 192x182 size the runtime declares for Diablo.
+    """
+    monster_dir = source / "global" / "monsters" / "DI"
+    global CURRENT_PALETTE
+    previous = CURRENT_PALETTE
+    CURRENT_PALETTE = load_units_palette(source / "global" / "palette" / "units" / "pal.dat")
+    try:
+        walk = load_cof_animation(monster_dir, "DI", "wl", "diwlhth.cof")
+        if walk is None:
+            raise ValueError("DI walk COF is incomplete")
+        if walk["directions"] < 8:
+            raise ValueError(f"DI walk COF has {walk['directions']} directions")
+
+        frame_count = walk["frames"]
+        # Frame boxes are in DCC space; every direction has its own view extents,
+        # so union the frames per direction instead of across all eight views.
+        direction_boxes = []
+        for direction in range(8):
+            boxes = []
+            for frame in range(frame_count):
+                _, box = composite_frame(walk, direction, frame, with_box=True)
+                boxes.append((box[0], box[1], box[0] + box[2], box[1] + box[3]))
+            direction_boxes.append((
+                min(box[0] for box in boxes), min(box[1] for box in boxes),
+                max(box[2] for box in boxes), max(box[3] for box in boxes),
+            ))
+        # One shared scale keeps every facing the same size; the widest view and
+        # the tallest view decide how much of the cell the sprite can use.
+        widest = max(box[2] - box[0] for box in direction_boxes)
+        tallest = max(box[3] - box[1] for box in direction_boxes)
+        scale = min(
+            (DIABLO_CELL_WIDTH - DIABLO_BORDER * 2) / widest,
+            (DIABLO_CELL_HEIGHT - DIABLO_BORDER * 2) / tallest,
+        )
+
+        sheet = Image.new("RGBA", (DIABLO_COLUMNS * DIABLO_CELL_WIDTH, 8 * DIABLO_CELL_HEIGHT),
+                          (0, 0, 0, 0))
+        for direction, (xmin, ymin, xmax, ymax) in enumerate(direction_boxes):
+            # Centre each facing horizontally and stand it on the cell's baseline
+            # so the walk cycle keeps its feet planted.
+            offset_x = (DIABLO_CELL_WIDTH - (xmax - xmin) * scale) / 2 - xmin * scale
+            offset_y = (DIABLO_CELL_HEIGHT - DIABLO_BORDER) - ymax * scale
+            for column in range(DIABLO_COLUMNS):
+                image, box = composite_frame(walk, direction, column % frame_count, with_box=True)
+                width = max(1, round(image.width * scale))
+                height = max(1, round(image.height * scale))
+                left = column * DIABLO_CELL_WIDTH + round(box[0] * scale + offset_x)
+                top = direction * DIABLO_CELL_HEIGHT + round(box[1] * scale + offset_y)
+                if (left < column * DIABLO_CELL_WIDTH or top < direction * DIABLO_CELL_HEIGHT
+                        or left + width > (column + 1) * DIABLO_CELL_WIDTH
+                        or top + height > (direction + 1) * DIABLO_CELL_HEIGHT):
+                    raise ValueError("Diablo frame does not fit its cell")
+                sheet.alpha_composite(image.resize((width, height), Image.LANCZOS), (left, top))
+
+        destination = ASSET_ROOT / "diablo.png"
+        sheet.save(destination, optimize=True)
+        return (f"{'diablo':16s} DI  diablo.png               {sheet.width}x{sheet.height} "
+                f"cell {DIABLO_CELL_WIDTH}x{DIABLO_CELL_HEIGHT} walk {frame_count}f "
+                f"cof {len(walk['cof']['layers'])} layers")
+    finally:
+        CURRENT_PALETTE = previous
+
+
+SKELETON_WALK_COF = "skwl1hs.cof"
+SKELETON_ATTACK_COF = "ska11hs.cof"
+SKELETON_SCALE = 1
+SKELETON_BORDER = 4
+
+
+def build_skeleton_warrior(source: Path) -> str:
+    """Rebuild the melee skeleton from D2R's full SK COF composite.
+
+    `skeleton-warrior.png` serves both the Act I skeleton enemy and the
+    necromancer's Raise Skeleton summon. The old sheet came from a magenta-matte
+    JPEG rip with only eight walk frames in a sixteen-column atlas. Using only
+    the `tr` DCC is not enough either: that is the torso layer, so the runtime
+    drew a headless, limbless blob. Load the walk and 1hs attack COFs, composite
+    all ten layers (head, torso, legs, arms, weapon and buckler), and use one
+    fixed scale and one shared DCC-space origin for both animations.
+    """
+    monster_dir = source / "global" / "monsters" / "SK"
+    global CURRENT_PALETTE
+    previous = CURRENT_PALETTE
+    CURRENT_PALETTE = load_units_palette(source / "global" / "palette" / "units" / "pal.dat")
+    try:
+        walk = load_cof_animation(monster_dir, "SK", "wl", SKELETON_WALK_COF)
+        attack = load_cof_animation(monster_dir, "SK", "a1", SKELETON_ATTACK_COF)
+        if walk is None or attack is None:
+            raise ValueError("SK walk/attack COF is incomplete")
+        if walk["directions"] < 8 or attack["directions"] < 8:
+            raise ValueError("SK walk/attack does not have eight directions")
+
+        records = []
+        boxes = []
+        frame_counts = []
+        for block, animation in enumerate((walk, attack)):
+            frames = min(16, animation["frames"])
+            frame_counts.append(frames)
+            for direction_index in range(8):
+                for frame_index in range(frames):
+                    image, box = composite_frame(animation, direction_index, frame_index, with_box=True)
+                    records.append((block, direction_index, frame_index, image, box))
+                    boxes.append((box[0], box[1], box[0] + box[2], box[1] + box[3]))
+
+        xmin = min(box[0] for box in boxes)
+        ymin = min(box[1] for box in boxes)
+        xmax = max(box[2] for box in boxes)
+        ymax = max(box[3] for box in boxes)
+        cell_width = (xmax - xmin) * SKELETON_SCALE + SKELETON_BORDER * 2
+        cell_height = (ymax - ymin) * SKELETON_SCALE + SKELETON_BORDER * 2
+        sheet = Image.new("RGBA", (16 * cell_width, 16 * cell_height), (0, 0, 0, 0))
+        for block, direction_index, frame_index, image, box in records:
+            if SKELETON_SCALE != 1:
+                image = image.resize((image.width * SKELETON_SCALE, image.height * SKELETON_SCALE),
+                                     Image.NEAREST)
+            left = (box[0] - xmin) * SKELETON_SCALE + SKELETON_BORDER
+            top = (box[1] - ymin) * SKELETON_SCALE + SKELETON_BORDER
+            if left < 0 or top < 0 or left + image.width > cell_width or top + image.height > cell_height:
+                raise ValueError(f"skeleton frame outside {cell_width}x{cell_height} cell")
+            sheet.alpha_composite(image, (frame_index * cell_width + left,
+                                          (block * 8 + direction_index) * cell_height + top))
+        destination = ASSET_ROOT / "skeleton-warrior.png"
+        sheet.save(destination)
+        return (f"skeletonWarrior  SK  skeleton-warrior.png  {sheet.width}x{sheet.height} "
+                f"cell {cell_width}x{cell_height} walk {frame_counts[0]}f attack {frame_counts[1]}f "
+                f"cof 10/10 layers")
+    finally:
+        CURRENT_PALETTE = previous
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, default=DEFAULT_SOURCE)
@@ -253,12 +648,15 @@ def main(argv: list[str]) -> int:
         return 0
 
     global CURRENT_PALETTE
-    CURRENT_PALETTE = dcc.load_palette(args.source / "global" / "palette" / "units" / "pal.dat")
+    palette_path = args.source / "global" / "palette" / "units" / "pal.dat"
+    legacy_palette = dcc.load_palette(palette_path)
+    CURRENT_PALETTE = legacy_palette
     if args.new:
         wanted = sorted(NEW_SPECIES) if not args.only else [name for name in args.only if name in NEW_SPECIES]
         failures = 0
         for species in wanted:
-            message = build_new_species(args.source, species)
+            message = (build_composite_species(args.source, species)
+                       if species in COF_SPECIES else build_new_species(args.source, species))
             print(message)
             if message.startswith("skip"):
                 failures += 1
@@ -266,8 +664,17 @@ def main(argv: list[str]) -> int:
         return 1 if failures else 0
     wanted = sorted(SPECIES) if not args.only else [name for name in args.only if name in SPECIES]
     failures = 0
+    units_palette = load_units_palette(palette_path)
     for species in wanted:
-        message = build_species(args.source, species)
+        CURRENT_PALETTE = units_palette if species in BGR_FIXED_SPECIES else legacy_palette
+        if species == "skeletonWarrior":
+            message = build_skeleton_warrior(args.source)
+        elif species == "diablo":
+            message = build_diablo(args.source)
+        elif species in COF_SPECIES:
+            message = build_composite_rebuild(args.source, species)
+        else:
+            message = build_species(args.source, species)
         print(message)
         if message.startswith("skip"):
             failures += 1
