@@ -1484,6 +1484,16 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     }
   });
 
+  it("seats caps and helmets on the skull rather than at jaw height", () => {
+    const seatedIds = [
+      "cap", "skull", "helm", "full", "great", "bone", "mask", "assault",
+      "avenger", "fanged", "horned", "wolf", "hawk", "antlers", "falcon", "spirit",
+    ] as const;
+    for (const id of seatedIds) {
+      expect(D2_HELMET_VISUALS[id].lift).toBeGreaterThanOrEqual(0.0009);
+    }
+  });
+
   it("drops large and grand charms with their D2R art and inventory footprints", () => {
     const random = spyOn(Math, "random");
     const found = new Map<string, any>();
@@ -2567,15 +2577,16 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     try {
       const preview = document.createElement("div");
       spyOn(preview, "getBoundingClientRect").and.returnValue({ width: 340, height: 220 } as DOMRect);
+      const layout = spyOn<any>(component, "positionItemPreviewAt").and.callThrough();
+      (component as any).inventoryItemWindow = undefined;
+
+      (component as any).moveItemPreviewTo(100, 200);
+      expect(layout.calls.count()).toBe(1);
+
       (component as any).inventoryItemWindow = { nativeElement: preview };
-
-      (component as any).moveItemPreviewTo(100, 100);
-      expect(component.itemPreviewY).toBe(12);
-
       jasmine.clock().tick(1);
 
-      expect(component.itemPreviewBelow).toBeTrue();
-      expect(component.itemPreviewY).toBe(114);
+      expect(layout.calls.count()).toBe(2);
     } finally {
       jasmine.clock().uninstall();
     }
@@ -4413,6 +4424,23 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(unlearned).toBeDefined();
     expect(unlearned!.nextStats).toBeUndefined();
     expect(unlearned!.description).toContain("level 1");
+  });
+
+  it("gives Plated Belts and Sigon's Wrap four potion rows", () => {
+    const platedBelt = { name: "Bladebuckle", baseName: "Plated Belt", slot: "belt", beltQuality: "normal" } as any;
+    const sigonsWrap = { name: "Sigon's Wrap", baseName: "Plated Belt", slot: "belt", beltQuality: "normal" } as any;
+    const plainPlatedBelt = { name: "Plated Belt", slot: "belt", beltQuality: "normal" } as any;
+    const sash = { name: "Sash", baseName: "Sash", slot: "belt", beltQuality: "normal" } as any;
+
+    expect(component.getBeltRows(platedBelt)).toBe(4);
+    expect(component.getBeltRows(sigonsWrap)).toBe(4);
+    expect(component.getBeltRows(plainPlatedBelt)).toBe(4);
+
+    component.equippedBelt = sigonsWrap;
+    expect(component.beltRows).toBe(4);
+
+    component.equippedBelt = sash;
+    expect(component.beltRows).toBe(2);
   });
 
   it("toggles the potion belt between one row and all rows with the tilde key", () => {

@@ -4386,10 +4386,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   /** Life still owed by drunk health potions; paid out by tickHealthPotionHeal. */
   private potionHealRemaining = 0;
   get beltRows(): number {
-    return this.equippedBelt?.beltQuality === "exceptional" ? 3
-      : this.equippedBelt?.beltQuality === "elite" ? 4
-        : this.equippedBelt?.slot === "belt" ? 2
-          : 1;
+    return this.getBeltRows(this.equippedBelt);
   }
   get visibleBeltSlots(): Array<{ kind: "health" | "rejuvenation" | null }> {
     return this.beltSlots.slice(0, this.beltRows * 4);
@@ -4445,6 +4442,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   getBeltRows(item: D2InventoryItem | null | undefined): number {
+    const baseName = (item?.baseName ?? "").trim().toLowerCase();
+    const name = (item?.name ?? "").trim().toLowerCase();
+    // Plated Belts are the four-row normal base, including Sigon's Wrap.
+    if (baseName === "plated belt" || name === "plated belt" || name === "sigon's wrap") return 4;
     return item?.beltQuality === "exceptional" ? 3
       : item?.beltQuality === "elite" ? 4
         : item?.slot === "belt" ? 2
