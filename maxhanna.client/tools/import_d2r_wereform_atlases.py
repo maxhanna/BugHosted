@@ -64,14 +64,16 @@ def build(source: Path, form: str) -> str:
         )
 
     for direction in range(directions):
-        # Walk. Repeat the short walk loop to fill the 13-column row so the
-        # existing movement selector never lands on an empty cel.
+        # Walk. These cels have a dark torso over true transparency, so do not
+        # run the summon atlas's black-matte flood fill or it eats the body.
+        # Repeat the short walk loop to fill the 13-column row so the existing
+        # movement selector never lands on an empty cel.
         for column in range(COLUMNS):
-            paste(atlas.frame_crop(walk, direction, column % walk_frames), column, direction)
+            paste(atlas.frame_crop(walk, direction, column % walk_frames, clear_matte=False), column, direction)
 
         # Attack. Hold the final cel when the source is shorter than the row.
         for column in range(COLUMNS):
-            paste(atlas.frame_crop(attack, direction, min(column, attack_frames - 1)), column, 8 + direction)
+            paste(atlas.frame_crop(attack, direction, min(column, attack_frames - 1), clear_matte=False), column, 8 + direction)
 
     destination = ASSET_ROOT / out_name
     sheet.save(destination)

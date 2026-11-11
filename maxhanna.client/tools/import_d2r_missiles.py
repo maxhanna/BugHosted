@@ -51,7 +51,7 @@ DEFAULT_FRAME_MS = 60
 SKIP_STEMS = {"null"}
 
 # Which palette the missile cels use. `units` is the shared creature/missile
-# palette; the per-act palettes only tint the same indices.
+# palette; Blizzard stores it BGR, so swap the channels for Pillow.
 PALETTE_PATH = ("global", "palette", "units", "pal.dat")
 
 PALETTE: list[tuple[int, int, int]] = []
@@ -75,9 +75,15 @@ def find_sources(source: Path) -> list[Path]:
 def prepare_frames(images: list[Image.Image]) -> list[Image.Image]:
     """Crop an animation to shared bounds, centre it and scale it down."""
     bounds = [image.getchannel("A").getbbox() for image in images]
-    visible = [box for box in bounds if box]
-    if not visible:
+    # DCC timing can end with a fully transparent cel. Trim it so the stream
+    # does not blink to nothing on its final tick.
+    last_visible = max((index for index, box in enumerate(bounds) if box), default=-1)
+    if last_visible < 0:
         raise RuntimeError("animation has no visible pixels")
+    if last_visible + 1 < len(images):
+        images = images[:last_visible + 1]
+        bounds = bounds[:last_visible + 1]
+    visible = [box for box in bounds if box]
     left = max(0, min(box[0] for box in visible) - 2)
     top = max(0, min(box[1] for box in visible) - 2)
     right = min(images[0].width, max(box[2] for box in visible) + 2)
@@ -181,7 +187,7 @@ def main(argv: list[str]) -> int:
             return 1
 
     global PALETTE
-    PALETTE = dcc.load_palette(args.source.joinpath(*PALETTE_PATH))
+    PALETTE = [(red, green, blue) for blue, green, red in dcc.load_palette(args.source.joinpath(*PALETTE_PATH))]
 
     manifest_path = ASSET_ROOT / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.exists() else {}

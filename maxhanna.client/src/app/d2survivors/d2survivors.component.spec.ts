@@ -39,6 +39,20 @@ describe("D2SurvivorsComponent combat and equipment", () => {
 
   afterEach(() => fixture.destroy());
 
+  it("uses the imported arrow-flight art for every Amazon bow skill", () => {
+    const expected: Record<string, string> = {
+      "Magic Arrow": "d2-arrow", "Multiple Shot": "d2-arrow",
+      "Guided Arrow": "d2-arrow", "Strafe": "d2-arrow",
+      "Fire Arrow": "d2-firearrow", "Exploding Arrow": "d2-firearrow",
+      "Immolation Arrow": "d2-firearrow",
+      "Cold Arrow": "d2-icearrow", "Ice Arrow": "d2-icearrow",
+      "Freezing Arrow": "d2-icearrow",
+    };
+    for (const [skill, art] of Object.entries(expected)) {
+      expect((component as any).missileOverlayId(skill)).toBe(art);
+    }
+  });
+
   it("holds the player in place for a melee attack, then lets movement resume", () => {
     component.runActive = true;
     component.playerX = 250;
@@ -101,6 +115,40 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     (component as any).updateAutomaticSkillCasts(16);
 
     expect(component.attackProjectiles.length).toBeGreaterThan(0);
+  });
+
+  it("sends Tornado and Twister in a straight path through enemies to the screen edge", () => {
+    component.selectedClass = "druid";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.ownedSkills = ["Tornado", "Twister"];
+    component.skillLevels = { Tornado: 1, Twister: 1 };
+    const near = { kind: "normal", species: "fallen", spriteFrame: 0, x: 300, y: 250, hp: 100, maxHp: 100, speed: 0, r: 14, dmg: 0 } as any;
+    const far = { kind: "normal", species: "fallen", spriteFrame: 0, x: 410, y: 250, hp: 100, maxHp: 100, speed: 0, r: 14, dmg: 0 } as any;
+    component.enemies = [near, far];
+
+    for (const skill of ["Tornado", "Twister"]) {
+      near.hp = 100;
+      far.hp = 100;
+      component.attackProjectiles = [];
+      (component as any).rebuildEnemyGrid();
+      component.activateOwnedSkill(skill);
+      const projectile = component.attackProjectiles[0];
+
+      expect(projectile).toBeDefined();
+      expect(projectile.pathHit).toBe(true);
+      expect(projectile.target).toBeUndefined();
+      expect(projectile.homing).toBe(false);
+      expect(Math.hypot(projectile.targetX - projectile.startX, projectile.targetY - projectile.startY)).toBeGreaterThan(
+        Math.hypot(far.x - projectile.startX, far.y - projectile.startY),
+      );
+
+      for (let frame = 0; frame < 300; frame += 1) (component as any).updateAttackProjectiles(16);
+      (component as any).flushPendingDamage();
+
+      expect(near.hp).toBeLessThan(100);
+      expect(far.hp).toBeLessThan(100);
+    }
   });
 
   it("keeps player attacks aimed at monsters instead of friendly summons", () => {
@@ -573,6 +621,34 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(component.inventoryStatus).toContain("two-handed");
   });
 
+  it("treats every pike as two-handed and locks the off hand", () => {
+    component.selectedClass = "barbarian";
+    component.playerLevel = 30;
+    const pike = { id: "war-pike", name: "War Pike", baseName: "War Pike", rarity: "normal", slot: "weapon", equipmentType: "weapon", requiredLevel: 1, stats: { damageMin: 5, damageMax: 12 }, desc: "A long polearm." } as any;
+    const shield = { id: "pike-test-shield", name: "Buckler", baseName: "Buckler", rarity: "normal", slot: "armor", equipmentType: "shield", requiredLevel: 1, desc: "A shield." } as any;
+
+    for (const name of ["Pike", "War Pike", "Maiden Pike", "Ceremonial Pike", "Matriarchal Pike", "Stygian Pike"]) {
+      const item = { ...pike, id: name.toLowerCase().replace(/\s+/g, "-"), name, baseName: name };
+      expect(component.itemStatText(item)).toContain("Two-Handed — occupies both hands");
+    }
+
+    component.inventory = Array.from({ length: 40 }, () => null);
+    component.equipment = { weapon: pike, helmet: null, shield: null, ringLeft: null, amulet: null, ringRight: null, gloves: null, body: null, boots: null, belt: null };
+    component.inventory[0] = shield;
+    component.equipSelectedItem(0);
+    expect(component.equipment.shield).toBeNull();
+    expect(component.inventory[0]?.id).toBe("pike-test-shield");
+    expect(component.inventoryStatus).toContain("two-handed");
+
+    component.equipment = { weapon: null, helmet: null, shield, ringLeft: null, amulet: null, ringRight: null, gloves: null, body: null, boots: null, belt: null };
+    component.inventory[0] = pike;
+    component.equipSelectedItem(0);
+    expect(component.equipment.weapon).toBeNull();
+    expect(component.equipment.shield?.id).toBe("pike-test-shield");
+    expect(component.inventory[0]?.id).toBe("war-pike");
+    expect(component.inventoryStatus).toContain("two-handed");
+  });
+
   it("treats staves as two-handed while keeping sorceress orbs one-handed", () => {
     component.selectedClass = "sorceress";
     component.playerLevel = 30;
@@ -787,6 +863,32 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(behind.stunRemaining).toBeUndefined();
     (component as any).flushPendingDamage();
     expect(front.hp).toBeLessThan(100);
+  });
+
+  it("does not shove or stun act bosses hit by Smite", () => {
+    component.selectedClass = "paladin";
+    component.playerX = 250;
+    component.playerY = 250;
+    (component as any).playerFacingX = 1;
+    (component as any).playerFacingY = 0;
+    component.ownedSkills = ["Smite"];
+    component.skillLevels = { Smite: 1 };
+    component.equipment.shield = { name: "Buckler", baseName: "Buckler", slot: "armor", equipmentType: "shield" } as any;
+    const boss = {
+      kind: "boss", species: "andariel", campaignBoss: true, spriteFrame: 0,
+      x: 310, y: 250, hp: 1000, maxHp: 1000, speed: 90, r: 34, dmg: 20, cd: 0,
+    } as any;
+    component.enemies = [boss];
+    component.floatingTexts = [];
+
+    component.activateOwnedSkill("Smite");
+
+    expect(boss.x).toBe(310);
+    expect(boss.y).toBe(250);
+    expect(boss.stunRemaining).toBeUndefined();
+    expect(component.floatingTexts.some((entry) => entry.text === "STUN")).toBeFalse();
+    (component as any).flushPendingDamage();
+    expect(boss.hp).toBeLessThan(1000);
   });
 
   it("stuns every enemy caught in Psychic Hammer's rank-scaled blast", () => {
@@ -1253,6 +1355,30 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect((component as any).skillVisualEffects.some((entry: any) => entry.arcticBlast)).toBeTrue();
   });
 
+  it("blocks other spells until Arctic Blast finishes channeling", () => {
+    component.selectedClass = "druid";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.ownedSkills = ["Arctic Blast", "Molten Boulder"];
+    component.skillLevels = { "Arctic Blast": 1, "Molten Boulder": 1 };
+    component.enemies = [{
+      kind: "normal", species: "fallen", spriteFrame: 0,
+      x: 250, y: 150, hp: 10000, maxHp: 10000, speed: 0, r: 14, dmg: 2, cd: 0,
+    } as any];
+    component.attackProjectiles = [];
+
+    component.activateOwnedSkill("Arctic Blast");
+    component.activateOwnedSkill("Molten Boulder");
+
+    expect((component as any).skillVisualEffects.some((entry: any) => entry.arcticBlast)).toBeTrue();
+    expect(component.attackProjectiles.length).toBe(0);
+
+    (component as any).updateSkillVisualEffects(1100);
+    component.activateOwnedSkill("Molten Boulder");
+
+    expect(component.attackProjectiles.length).toBeGreaterThan(0);
+  });
+
   it("extends Arctic Blast duration and damage with rank", () => {
     component.selectedClass = "druid";
     component.playerX = 250;
@@ -1407,6 +1533,33 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(enemy.x).toBeLessThan(400);
   });
 
+  it("does not let Molten Boulder bulldoze act bosses", () => {
+    (component as any).arenaW = 1000;
+    (component as any).arenaH = 1000;
+    const boss = {
+      kind: "boss", species: "andariel", campaignBoss: true, spriteFrame: 0,
+      x: 350, y: 250, hp: 1000, maxHp: 1000, speed: 90, r: 34, dmg: 20, cd: 0,
+    } as any;
+    const monster = {
+      kind: "normal", species: "fallen", campaignBoss: false, spriteFrame: 0,
+      x: 350, y: 250, hp: 100, maxHp: 100, speed: 80, r: 14, dmg: 2, cd: 0,
+    } as any;
+    component.enemies = [boss, monster];
+    const projectile = {
+      x: 300, y: 250, targetX: 600, targetY: 250,
+      speed: 300, radius: 24, life: 10, age: 0, boulder: true,
+    } as any;
+
+    (component as any).updateMoltenBoulder(projectile, 0.1);
+
+    expect(boss.x).toBe(350);
+    expect(boss.y).toBe(250);
+    expect(monster.x).toBeGreaterThan(350);
+
+    (component as any).applyEnemyStun(boss, 1);
+    expect(boss.stunRemaining).toBeUndefined();
+  });
+
   it("fires Andariel's own poison blast missile instead of the shared acid bolt", () => {
     component.playerX = 250;
     component.playerY = 250;
@@ -1525,6 +1678,14 @@ describe("D2SurvivorsComponent combat and equipment", () => {
       expect(namedWand).toBeDefined();
       expect((component as any).itemSize((component as any).createNamedItem(namedWand, catalog === D2_UNIQUE_ITEMS ? "unique" : "set"))).toEqual({ width: 1, height: 2 });
     }
+  });
+
+  it("uses a one-column, two-row inventory footprint for Smoked Spheres", () => {
+    const sphere = {
+      id: "smoked-sphere", name: "Smoked Sphere", baseName: "Smoked Sphere", rarity: "normal",
+      slot: "weapon", equipmentType: "orb", width: 1, height: 3, desc: "A smoked sphere.", stats: {},
+    } as any;
+    expect((component as any).itemSize(sphere)).toEqual({ width: 1, height: 2 });
   });
 
   it("uses a one-column, two-row inventory footprint for throwing knives", () => {
@@ -1773,7 +1934,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     (component as any).drawActPortal(ctx);
 
     const draw = draws[0]!;
-    expect(draw.source ?? "").toContain("assets/d2survivors/objects/red-portal.png?v=1");
+    expect(draw.source ?? "").toContain("assets/d2survivors/objects/red-portal.png?v=2");
     expect(draw.sw).toBe(109);
     expect(draw.dw).toBeGreaterThan(0);
     expect(draw.dh).toBeGreaterThan(draw.dw);
@@ -3209,6 +3370,40 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(wolf.hp).toBe(wolf.maxHp);
   });
 
+  it("keeps all druid support spirits out of combat and steers them away from enemies", () => {
+    component.selectedClass = "druid";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.enemies = [];
+    component.skillLevels = { "Oak Sage": 1, "Heart of Wolverine": 1, "Spirit of Barbs": 1 };
+
+    for (const skill of ["Oak Sage", "Heart of Wolverine", "Spirit of Barbs"]) {
+      component.enemies = [];
+      (component as any).summonCompanion(skill);
+      const spirit = component.enemies.find((enemy) => enemy.summonSkill === skill)!;
+      const enemy = {
+        kind: "normal", species: "fallen", spriteFrame: 0,
+        x: spirit.x + 40, y: spirit.y, hp: 100, maxHp: 100, speed: 0, r: 14, dmg: 0, cd: 999,
+      } as any;
+      component.enemies.push(enemy);
+      const effects = (component as any).summonAttackEffects as unknown[];
+      effects.length = 0;
+      const distanceBefore = Math.hypot(spirit.x - enemy.x, spirit.y - enemy.y);
+
+      component.updateEnemies(16);
+
+      expect(spirit.animationState).toBe("move");
+      expect(spirit.attackAnimationTime ?? 0).toBe(0);
+      expect(effects).toHaveSize(0);
+      expect(Math.hypot(spirit.x - enemy.x, spirit.y - enemy.y)).toBeGreaterThan(distanceBefore);
+      expect(enemy.hp).toBe(100);
+
+      (component as any).summonAttack(spirit, enemy);
+      expect(effects).toHaveSize(0);
+      expect(enemy.hp).toBe(100);
+    }
+  });
+
   it("lets monsters attack the closest golem instead of the necromancer", () => {
     component.selectedClass = "necromancer";
     component.playerX = 100;
@@ -3913,6 +4108,40 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(patches).not.toContain(firstPatch);
   });
 
+  it("casts Firestorm as one wandering ground-fire trail per rank", () => {
+    component.selectedClass = "druid";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    (component as any).playerFacingX = 1;
+    (component as any).playerFacingY = 0;
+    component.ownedSkills = ["Firestorm"];
+    component.skillLevels = { Firestorm: 3 };
+    component.enemies = [{
+      kind: "normal", species: "fallen", spriteFrame: 0, x: 520, y: 250,
+      hp: 100, maxHp: 100, speed: 0, r: 14, dmg: 2,
+    }] as any;
+    component.attackProjectiles = [];
+    (component as any).blazeFirePatches.length = 0;
+    (component as any).firestormTrails.length = 0;
+    (component as any).playerAttackLockRemaining = 0;
+
+    component.activateOwnedSkill("Firestorm");
+
+    expect(component.attackProjectiles.length).toBe(0);
+    expect((component as any).firestormTrails.length).toBe(3);
+    expect((component as any).blazeFirePatches.length).toBe(1);
+
+    (component as any).updateSkillVisualEffects(1000);
+    const patches = (component as any).blazeFirePatches;
+    expect((component as any).firestormTrails.length).toBe(0);
+    expect(patches.length).toBeGreaterThan(4);
+    const farthest = Math.max(...patches.map((patch: any) => Math.hypot(patch.x - 250, patch.y - 250)));
+    expect(farthest).toBeGreaterThan(120);
+    expect(farthest).toBeLessThan(240);
+    expect(patches.some((patch: any) => Math.abs(patch.y - 250) > 5)).toBeTrue();
+  });
+
   it("casts Poison Explosion as a melee strike that leaves a poison cloud", () => {
     component.selectedClass = "necromancer";
     component.runActive = true;
@@ -4338,7 +4567,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
       drawImage,
     } as any;
 
-    (component as any).drawDruidSpiritAura(ctx, { summonSkill: "Oak Sage" } as any, { x: 200, y: 300 });
+    (component as any).drawDruidSpiritAura(ctx, "Oak Sage", { x: 200, y: 300 });
 
     const oak = DRUID_SPIRIT_AURA_ART["Oak Sage"];
     expect(drawImage).toHaveBeenCalledWith(
@@ -4347,6 +4576,44 @@ describe("D2SurvivorsComponent combat and equipment", () => {
       200 - oak.originX, 300 - oak.originY,
       oak.cellWidth, oak.cellHeight,
     );
+  });
+
+  it("draws Oak Sage's feet aura under the druid and every living summon", () => {
+    component.selectedClass = "druid";
+    component.runTime = 0;
+    (component as any).worldZoom = 1;
+    component.playerX = 100;
+    component.playerY = 200;
+    component.skillLevels = { "Oak Sage": 1 };
+    component.ownedSkills = ["Oak Sage"];
+    component.enemies = [];
+    (component as any).summonCompanion("Oak Sage");
+    (component as any).summonCompanion("Summon Spirit Wolf");
+    const oak = component.enemies.find((enemy) => enemy.summonSkill === "Oak Sage")!;
+    const wolf = component.enemies.find((enemy) => enemy.summonSkill === "Summon Spirit Wolf")!;
+    component.enemies.push({ ...wolf, hp: 0, x: 900, y: 900 } as any);
+    spyOn(component as any, "projectArenaPoint").and.callFake((x: number, y: number) => ({ x, y }));
+    spyOn(component as any, "isArenaPointOnScreen").and.returnValue(true);
+    (component as any).druidSpiritAuraImages.set("Oak Sage", {
+      complete: true, naturalWidth: 128, naturalHeight: 80,
+    });
+    const drawImage = jasmine.createSpy("drawImage");
+    const ctx = { save() {}, restore() {}, drawImage } as any;
+
+    (component as any).drawOakSageBeneficiaryAuras(ctx);
+
+    const art = DRUID_SPIRIT_AURA_ART["Oak Sage"];
+    const drawXs = drawImage.calls.allArgs().map((args) => args[5]);
+    expect(drawImage).toHaveBeenCalledTimes(3);
+    expect(drawXs).toContain(component.playerX - art.originX);
+    expect(drawXs).toContain(oak.x - art.originX);
+    expect(drawXs).toContain(wolf.x - art.originX);
+    expect(drawXs).not.toContain(900 - art.originX);
+
+    oak.hp = 0;
+    drawImage.calls.reset();
+    (component as any).drawOakSageBeneficiaryAuras(ctx);
+    expect(drawImage).not.toHaveBeenCalled();
   });
 
   it("applies the ambience slider volume to the synthesized music bus", () => {
@@ -4443,6 +4710,34 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(component.beltRows).toBe(2);
   });
 
+  it("drops potions that no longer fit when equipping a smaller belt", () => {
+    const platedBelt = { id: "large-belt", name: "Bladebuckle", baseName: "Plated Belt", slot: "belt", beltQuality: "normal" } as any;
+    const sash = { id: "small-belt", name: "Sash", baseName: "Sash", slot: "belt", beltQuality: "normal" } as any;
+    component.equipment.belt = platedBelt;
+    component.beltSlots = Array.from({ length: 16 }, () => ({ kind: null as "health" | "rejuvenation" | null }));
+    // Column 0, from top to bottom: two rejuvs above two health potions.
+    component.beltSlots[0] = { kind: "rejuvenation" };
+    component.beltSlots[1] = { kind: "rejuvenation" };
+    component.beltSlots[2] = { kind: "health" };
+    component.beltSlots[3] = { kind: "health" };
+    component.inventory = Array.from({ length: component.inventoryColumns * component.inventoryRows }, () => null);
+    component.inventory[0] = sash;
+    component.potionDrops = [];
+    component.playerX = 250;
+    component.playerY = 250;
+
+    component.equipBeltFromInventory(0);
+
+    expect(component.equippedBelt).toBe(sash);
+    expect(component.beltRows).toBe(2);
+    expect(component.beltSlots.slice(0, 2).map((slot) => slot.kind)).toEqual(["health", "health"]);
+    expect(component.beltSlots.slice(2).every((slot) => slot.kind === null)).toBeTrue();
+    expect(component.potionDrops.map((drop) => drop.kind)).toEqual(["rejuvenation", "rejuvenation"]);
+    expect(component.potionDrops.every((drop) => drop.pickupDelay > 0)).toBeTrue();
+    expect(component.inventory[0]).toBe(platedBelt);
+    expect(component.inventoryStatus).toContain("2 potions fell to the ground.");
+  });
+
   it("toggles the potion belt between one row and all rows with the tilde key", () => {
     component.activeTab = "run";
     component.runActive = true;
@@ -4467,6 +4762,49 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.currentAct = 1;
     const campaignFallen = (component as any).makeEnemy("normal", false, "fallen");
     expect(campaignFallen.immunities).toBeUndefined();
+  });
+
+  it("draws Mephisto at double size without smoothing his sprite", () => {
+    component.currentAct = 3;
+    component.playerX = 250;
+    component.playerY = 250;
+    const mephisto = (component as any).makeEnemy("boss", true, "mephisto");
+    mephisto.x = 260;
+    mephisto.y = 250;
+    mephisto.animationState = "idle";
+
+    const frame = document.createElement("canvas");
+    frame.width = 307;
+    frame.height = 309;
+    (component as any).enemySprites.mephisto = {
+      frames: Array.from({ length: 24 }, () => [frame]),
+      columns: 1,
+      rows: 24,
+      animated: true,
+    };
+    spyOn(component as any, "projectArenaPoint").and.returnValue({ x: 400, y: 300 });
+    const canvas = document.createElement("canvas");
+    canvas.width = 800;
+    canvas.height = 600;
+    const ctx = canvas.getContext("2d")!;
+    const calls: unknown[][] = [];
+    let spriteSmoothing: boolean | undefined;
+    const originalDrawImage = ctx.drawImage.bind(ctx);
+    (ctx as any).drawImage = (...args: unknown[]) => {
+      calls.push(args);
+      if (args.length === 5 && Number(args[3]) > 500 && Number(args[4]) > 500) {
+        spriteSmoothing = ctx.imageSmoothingEnabled;
+      }
+      (originalDrawImage as any)(...args);
+    };
+
+    (component as any).drawEnemy(ctx, mephisto);
+
+    const spriteCall = calls.find((args) => args.length === 5 && Number(args[3]) > 500 && Number(args[4]) > 500);
+    const expectedHeight = mephisto.r * 4.2 * (component as any).worldZoom * 2 * 1.35;
+    expect(spriteCall).toBeDefined();
+    expect(Number(spriteCall![4])).toBeCloseTo(expectedHeight, 4);
+    expect(spriteSmoothing).toBeFalse();
   });
 
   it("ignores matching elemental damage while still taking other elements", () => {

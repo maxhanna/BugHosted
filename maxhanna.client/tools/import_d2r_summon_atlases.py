@@ -100,7 +100,8 @@ def key_matte(image: Image.Image) -> Image.Image:
     return image
 
 
-def frame_crop(animation: dict, direction_index: int, frame_index: int) -> Image.Image:
+def frame_crop(animation: dict, direction_index: int, frame_index: int,
+               *, clear_matte: bool = True) -> Image.Image:
     direction = animation["dirs"][direction_index]
     xmin, ymin, _, _ = direction["box"]
     frame = direction["frames"][frame_index]
@@ -113,7 +114,7 @@ def frame_crop(animation: dict, direction_index: int, frame_index: int) -> Image
     mask.paste(255, (frame["xmin"] - xmin, frame["ymin"] - ymin,
                      frame["xmin"] - xmin + frame["width"], frame["ymin"] - ymin + frame["height"]))
     canvas.putalpha(Image.composite(canvas.getchannel("A"), Image.new("L", canvas.size, 0), mask))
-    return key_matte(canvas)
+    return key_matte(canvas) if clear_matte else canvas
 
 
 def fit_into(canvas: Image.Image, width: int, height: int) -> Image.Image:

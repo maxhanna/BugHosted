@@ -513,20 +513,20 @@
   },
   "d2-arcticblastice": {
     "dccName": "arcticblastice",
-    "encodedFrames": 16,
+    "encodedFrames": 15,
     "frameDirectory": "d2-arcticblastice",
     "frameDurationMs": 60,
-    "frames": 16,
+    "frames": 15,
     "height": 86,
     "source": "d2r extract missile dcc",
     "width": 78
   },
   "d2-arcticblastice_2": {
     "dccName": "arcticblastice_2",
-    "encodedFrames": 16,
+    "encodedFrames": 15,
     "frameDirectory": "d2-arcticblastice_2",
     "frameDurationMs": 60,
-    "frames": 16,
+    "frames": 15,
     "height": 82,
     "source": "d2r extract missile dcc",
     "width": 79

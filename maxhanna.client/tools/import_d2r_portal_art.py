@@ -9,6 +9,8 @@ object in the game instead of being approximated with canvas shapes.
 The units palette is stored as BGR triples in the extraction, so it is swapped
 back to RGB before the hue is moved to red. Hue is reset while saturation and
 value are preserved, which keeps the white-hot core and the shaded flame edges.
+The HD frame also carries an opaque black matte that D2 renders transparent, so
+that connected edge is keyed out without erasing the portal's enclosed shadows.
 
 Outputs:
 
@@ -24,6 +26,7 @@ from __future__ import annotations
 
 import colorsys
 import sys
+from collections import deque
 from pathlib import Path
 
 import d2r_dcc as dcc
@@ -35,6 +38,10 @@ GENERATED_MAP = PROJECT_ROOT / "src" / "app" / "d2survivors" / "d2-portal-assets
 DEFAULT_SOURCE = Path.home() / "Desktop" / "d2" / "d2r extract" / "data"
 
 PORTAL_ANIMATION = ("global", "objects", "tp", "hd", "tphdlitonhth.dcc")
+# The HD render bakes an opaque black matte around the portal. D2 treats that
+# matte as transparent; key the near-black pixels connected to the transparent
+# edge while preserving any enclosed dark shading inside the portal.
+BLACK_KEY_THRESHOLD = 64
 
 
 def load_palette(path: Path) -> list[tuple[int, int, int]]:
@@ -52,6 +59,38 @@ def redden(palette: list[tuple[int, int, int]]) -> list[tuple[int, int, int]]:
     return recoloured
 
 
+def key_out_outer_black(image: Image.Image, threshold: int = BLACK_KEY_THRESHOLD) -> Image.Image:
+    """Remove the opaque black matte connected to the frame's transparency."""
+    pixels = image.load()
+    width, height = image.size
+    outside = bytearray(width * height)
+    queue: deque[tuple[int, int]] = deque()
+    for y in range(height):
+        for x in range(width):
+            if pixels[x, y][3] != 0:
+                continue
+            outside[y * width + x] = 1
+            queue.append((x, y))
+
+    while queue:
+        x, y = queue.popleft()
+        for next_x, next_y in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
+            if not (0 <= next_x < width and 0 <= next_y < height):
+                continue
+            index = next_y * width + next_x
+            if outside[index]:
+                continue
+            red, green, blue, alpha = pixels[next_x, next_y]
+            if alpha == 0 or max(red, green, blue) > threshold:
+                outside[index] = 1
+                continue
+            pixels[next_x, next_y] = (red, green, blue, 0)
+            outside[index] = 1
+            queue.append((next_x, next_y))
+
+    return image
+
+
 def build_sheet(source: Path) -> tuple[Image.Image, dict[str, int]]:
     animation = dcc.parse(source.joinpath(*PORTAL_ANIMATION).read_bytes())
     direction = animation["dirs"][0]
@@ -61,7 +100,7 @@ def build_sheet(source: Path) -> tuple[Image.Image, dict[str, int]]:
     frames = len(direction["frames"])
     sheet = Image.new("RGBA", (cell_width * frames, cell_height), (0, 0, 0, 0))
     for index, (frame, bitmap) in enumerate(zip(direction["frames"], direction["bitmaps"])):
-        image = dcc.frame_image(bitmap, frame["width"], frame["height"], palette)
+        image = key_out_outer_black(dcc.frame_image(bitmap, frame["width"], frame["height"], palette))
         sheet.alpha_composite(image, (index * cell_width + frame["xmin"] - box_x,
                                       frame["ymin"] - box_y))
 
