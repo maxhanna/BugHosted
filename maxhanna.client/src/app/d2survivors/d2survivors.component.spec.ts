@@ -1011,6 +1011,308 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect((component as any).getSkillRankStats("Charge", "movement", 1)).toContain("Shield bash: 52-unit frontal area");
   });
 
+  it("lands one rapid Zeal strike per rank and stops at that count", () => {
+    component.selectedClass = "paladin";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.ownedSkills = ["Zeal"];
+    component.skillLevels = { Zeal: 5 };
+    const target = { kind: "normal", species: "fallen", spriteFrame: 0, x: 270, y: 250, hp: 1000, maxHp: 1000, speed: 100, r: 14, dmg: 2 } as any;
+    component.enemies = [target];
+    component.floatingTexts = [];
+
+    component.activateOwnedSkill("Zeal");
+
+    // The first blow lands as the cast starts; four more follow on the flurry beat.
+    expect(target.hp).toBeLessThan(1000);
+    expect((component as any).zealStrikeRemaining).toBe(4);
+    expect(component.floatingTexts.length).toBe(1);
+    for (let beat = 0; beat < 4; beat += 1) (component as any).updateZealStrikes(160);
+    expect(component.floatingTexts.length).toBe(5);
+    expect(target.hp).toBeLessThan(1000);
+    expect((component as any).zealStrikeRemaining).toBe(0);
+
+    // Another update after the fifth blow must not add a sixth hit.
+    (component as any).updateZealStrikes(160);
+    expect(component.floatingTexts.length).toBe(5);
+
+    component.skillLevels = { Zeal: 1 };
+    component.floatingTexts = [];
+    component.activateOwnedSkill("Zeal");
+    for (let beat = 0; beat < 4; beat += 1) (component as any).updateZealStrikes(160);
+    expect(component.floatingTexts.length).toBe(1);
+    expect((component as any).getSkillRankStats("Zeal", "strike", 5)).toContain("5 rapid melee strikes per cast");
+  });
+
+  it("leeches life and mana from basic melee attacks", () => {
+    component.selectedClass = "barbarian";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.playerHp = 500;
+    component.playerMaxHp = 1000;
+    component.playerMana = 100;
+    component.playerMaxMana = 1000;
+    component.basicAttackDamage = 100;
+    (component as any).attackCooldown = 0;
+    component.equipment.weapon = {
+      id: "test-sword", name: "Short Sword", baseName: "Short Sword",
+      slot: "weapon", equipmentType: "weapon",
+    } as any;
+    const target = { x: 260, y: 250, r: 12, hp: 1000 } as any;
+    component.enemies = [target];
+    spyOnProperty(component, "equippedLifeStealPercent", "get").and.returnValue(10);
+    spyOnProperty(component, "equippedManaStealPercent", "get").and.returnValue(5);
+
+    component.attackNearestEnemy();
+
+    const damage = 1000 - target.hp;
+    expect(damage).toBeGreaterThan(0);
+    expect(component.playerHp).toBeCloseTo(500 + damage * 0.1, 5);
+    expect(component.playerMana).toBeCloseTo(100 + damage * 0.05, 5);
+  });
+
+  it("leeches life and mana from melee skills", () => {
+    component.selectedClass = "paladin";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    (component as any).playerFacingX = 1;
+    (component as any).playerFacingY = 0;
+    component.playerHp = 500;
+    component.playerMaxHp = 1000;
+    component.playerMana = 100;
+    component.playerMaxMana = 1000;
+    component.ownedSkills = ["Smite"];
+    component.skillLevels = { Smite: 1 };
+    component.equipment.shield = { name: "Buckler", baseName: "Buckler", slot: "armor", equipmentType: "shield" } as any;
+    const target = {
+      kind: "normal", species: "fallen", spriteFrame: 0, x: 310, y: 250,
+      hp: 1000, maxHp: 1000, speed: 0, r: 14, dmg: 0,
+    } as any;
+    component.enemies = [target];
+    spyOnProperty(component, "equippedLifeStealPercent", "get").and.returnValue(10);
+    spyOnProperty(component, "equippedManaStealPercent", "get").and.returnValue(5);
+
+    component.activateOwnedSkill("Smite");
+    (component as any).flushPendingDamage();
+
+    const damage = 1000 - target.hp;
+    expect(damage).toBeGreaterThan(0);
+    expect(component.playerHp).toBeCloseTo(500 + damage * 0.1, 5);
+    expect(component.playerMana).toBeCloseTo(100 + damage * 0.05, 5);
+  });
+
+  it("does not leech life or mana from ranged spells", () => {
+    component.selectedClass = "paladin";
+    component.runActive = true;
+    component.playerX = 100;
+    component.playerY = 250;
+    component.playerHp = 500;
+    component.playerMaxHp = 1000;
+    component.playerMana = 100;
+    component.playerMaxMana = 1000;
+    component.ownedSkills = ["Fist of the Heavens"];
+    component.skillLevels = { "Fist of the Heavens": 1 };
+    const target = {
+      kind: "normal", species: "fallen", spriteFrame: 0, x: 250, y: 250,
+      hp: 1000, maxHp: 1000, speed: 0, r: 14, dmg: 0,
+    } as any;
+    component.enemies = [target];
+    component.attackProjectiles = [];
+    (component as any).rebuildEnemyGrid();
+    spyOnProperty(component, "equippedLifeStealPercent", "get").and.returnValue(10);
+    spyOnProperty(component, "equippedManaStealPercent", "get").and.returnValue(5);
+
+    component.activateOwnedSkill("Fist of the Heavens");
+    (component as any).flushPendingDamage();
+
+    expect(target.hp).toBeLessThan(1000);
+    expect(component.playerHp).toBe(500);
+    expect(component.playerMana).toBe(100);
+  });
+
+  it("makes Nihlathak teleport out of melee pressure instead of swinging back", () => {
+    component.runActive = true;
+    component.selectedClass = "amazon";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.playerHp = 1000;
+    component.playerMaxHp = 1000;
+    const nihlathak = {
+      kind: "boss", species: "nihlathak", miniBoss: true, spriteFrame: 0,
+      x: 350, y: 250, hp: 10000, maxHp: 10000, speed: 74, r: 20, dmg: 40, cd: 0,
+    } as any;
+    component.enemies = [nihlathak];
+
+    component.updateEnemies(16);
+
+    expect(component.playerHp).toBe(1000);
+    expect(nihlathak.x).not.toBe(350);
+    expect(Math.hypot(nihlathak.x - component.playerX, nihlathak.y - component.playerY)).toBeGreaterThan(150);
+    expect((component as any).skillVisualEffects.filter((effect: any) => effect.name === "Teleport")).toHaveSize(2);
+  });
+
+  it("detonates a corpse for 10-20% of the dead monster's full life", () => {
+    component.runActive = true;
+    component.selectedClass = "amazon";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.playerHp = 1000;
+    component.playerMaxHp = 1000;
+    (component as any).applyIncomingDamage = (damage: number) => damage;
+    const nihlathak = {
+      kind: "boss", species: "nihlathak", miniBoss: true, spriteFrame: 0,
+      x: 470, y: 250, hp: 10000, maxHp: 10000, speed: 74, r: 20, dmg: 40, cd: 0,
+      nihlathakSpellCycle: 0,
+    } as any;
+    component.enemies = [nihlathak];
+    (component as any).nihlathakCorpses = [{ x: 270, y: 250, maxHp: 500, life: 10, seed: 0.25 }];
+
+    component.updateEnemies(16);
+
+    const damage = 1000 - component.playerHp;
+    expect(damage).toBeGreaterThanOrEqual(50);
+    expect(damage).toBeLessThanOrEqual(100);
+    expect((component as any).nihlathakCorpses).toHaveSize(0);
+    expect(component.floatingTexts.some((entry) => entry.text === "CORPSE EXPLOSION")).toBeTrue();
+  });
+
+  it("casts an enemy-owned Arctic Blast that chills the hero but never hits monsters", () => {
+    component.runActive = true;
+    component.selectedClass = "amazon";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.playerHp = 1000;
+    component.playerMaxHp = 1000;
+    const nihlathak = {
+      kind: "boss", species: "nihlathak", miniBoss: true, spriteFrame: 0,
+      x: 545, y: 250, hp: 10000, maxHp: 10000, speed: 74, r: 20, dmg: 40, cd: 0,
+      nihlathakSpellCycle: 2,
+    } as any;
+    const dummy = {
+      kind: "normal", species: "fallen", spriteFrame: 0,
+      x: 350, y: 250, hp: 100, maxHp: 100, speed: 80, r: 14, dmg: 2, cd: 0,
+    } as any;
+    component.enemies = [nihlathak, dummy];
+
+    component.updateEnemies(16);
+
+    expect(component.playerHp).toBeLessThan(1000);
+    expect((component as any).playerChilledRemaining).toBeGreaterThan(0);
+    const blast = (component as any).skillVisualEffects.find((effect: any) => effect.name === "Arctic Blast");
+    expect(blast).toBeDefined();
+    expect(blast.enemyCast).toBeTrue();
+    const dummyHp = dummy.hp;
+    (component as any).updateSkillVisualEffects(100);
+    expect(dummy.hp).toBe(dummyHp);
+  });
+
+  it("summons Ice Spawn, frenzies them for double damage, and grants no kill credit", () => {
+    component.runActive = true;
+    component.selectedClass = "amazon";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.playerHp = 1000;
+    component.playerMaxHp = 1000;
+    const nihlathak = {
+      kind: "boss", species: "nihlathak", miniBoss: true, spriteFrame: 0,
+      x: 470, y: 250, hp: 10000, maxHp: 10000, speed: 74, r: 20, dmg: 40, cd: 0,
+      nihlathakSpellCycle: 1,
+    } as any;
+    component.enemies = [nihlathak];
+
+    component.updateEnemies(16);
+
+    const minions = component.enemies.filter((enemy: any) => enemy.nihlathakMinion) as any[];
+    expect(minions).toHaveSize(2);
+    expect(minions.every((minion) => minion.customName === "Ice Spawn")).toBeTrue();
+    expect(component.playerHp).toBe(1000);
+
+    const minion = minions[0];
+    minion.x = 270;
+    minion.y = 250;
+    minion.hp = 100;
+    minion.maxHp = 100;
+    minion.dmg = 5;
+    minion.cd = 0;
+    nihlathak.cd = 0;
+    nihlathak.attackAnimationTime = 0;
+    nihlathak.nihlathakSpellCycle = 3;
+    (component as any).applyIncomingDamage = (damage: number) => damage;
+    const hpBeforeFrenzy = component.playerHp;
+
+    component.updateEnemies(16);
+
+    expect(minion.frenzyRemaining).toBeGreaterThan(0);
+    expect(hpBeforeFrenzy - component.playerHp).toBe(10);
+
+    (component as any).runKillCount = 0;
+    nihlathak.cd = 99;
+    for (const summoned of minions) summoned.hp = 0;
+    component.updateEnemies(16);
+    expect((component as any).runKillCount).toBe(0);
+    expect(component.enemies.some((enemy: any) => enemy.nihlathakMinion)).toBeFalse();
+  });
+
+  it("applies Horror and forces the hero to run away from Nihlathak", () => {
+    component.runActive = true;
+    component.selectedClass = "amazon";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.playerHp = 1000;
+    component.playerMaxHp = 1000;
+    const nihlathak = {
+      kind: "boss", species: "nihlathak", miniBoss: true, spriteFrame: 0,
+      x: 470, y: 250, hp: 10000, maxHp: 10000, speed: 74, r: 20, dmg: 40, cd: 0,
+      nihlathakSpellCycle: 4,
+    } as any;
+    component.enemies = [nihlathak];
+
+    component.updateEnemies(16);
+
+    expect(component.playerHp).toBe(1000);
+    expect((component as any).playerHorrorRemaining).toBeGreaterThan(0);
+    component.keysDown.add("d");
+    component.movePlayer(100);
+    expect((component as any).playerMoveX).toBeLessThan(0);
+    expect(component.playerX).toBe(250);
+    component.keysDown.delete("d");
+  });
+
+  it("splits Vengeance into four damage types so single immunities do not stop it", () => {
+    component.selectedClass = "paladin";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.ownedSkills = ["Vengeance"];
+    component.skillLevels = { Vengeance: 1 };
+    const target = { kind: "normal", species: "fallen", spriteFrame: 0, x: 270, y: 250, hp: 1000, maxHp: 1000, speed: 100, r: 14, dmg: 2 } as any;
+    component.enemies = [target];
+    component.floatingTexts = [];
+
+    component.activateOwnedSkill("Vengeance");
+    const fullDamage = 1000 - target.hp;
+    expect(fullDamage).toBeGreaterThan(0);
+
+    // One immunity removes only that element's quarter of the strike.
+    target.hp = 1000;
+    target.immunities = ["fire"];
+    component.floatingTexts = [];
+    component.activateOwnedSkill("Vengeance");
+    expect(1000 - target.hp).toBeCloseTo(fullDamage * 0.75, 5);
+
+    target.hp = 1000;
+    target.immunities = ["fire", "cold", "lightning", "magic"];
+    component.floatingTexts = [];
+    component.activateOwnedSkill("Vengeance");
+    expect(target.hp).toBe(1000);
+    expect(component.floatingTexts.length).toBe(0);
+    expect((component as any).getSkillRankStats("Vengeance", "strike", 1))
+      .toContain("Damage split evenly across fire, cold, lightning and magic");
+  });
+
   it("spawns an animated Blessed Hammer that spirals out and strikes what it passes", () => {
     component.selectedClass = "paladin";
     component.playerX = 250;
@@ -1045,6 +1347,151 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     (component as any).flushPendingDamage();
 
     expect(target.hp).toBeLessThan(100);
+  });
+
+  it("calls down a lightning strike and scatters four independent Holy Bolts", () => {
+    component.selectedClass = "paladin";
+    component.playerX = 100;
+    component.playerY = 250;
+    component.ownedSkills = ["Fist of the Heavens"];
+    component.skillLevels = { "Fist of the Heavens": 1 };
+    const primary = { kind: "normal", species: "fallen", spriteFrame: 0, x: 250, y: 250, hp: 1000, maxHp: 1000, speed: 100, r: 14, dmg: 2 } as any;
+    component.enemies = [primary];
+    component.attackProjectiles = [];
+    (component as any).skillVisualEffects = [];
+    component.floatingTexts = [];
+    (component as any).rebuildEnemyGrid();
+
+    component.activateOwnedSkill("Fist of the Heavens");
+
+    const bolts = component.attackProjectiles.filter((projectile) => projectile.fistOfTheHeavensBolt);
+    expect(bolts.length).toBe(4);
+    expect(new Set(bolts).size).toBe(4);
+    for (const bolt of bolts) {
+      expect(bolt.missileId).toBe("d2-holyboltmissile");
+      expect(bolt.kind).toBe("holy");
+      expect(bolt.damageType).toBe("magic");
+      expect(bolt.sourceOnlyArt).toBeTrue();
+      expect(bolt.fistOfTheHeavensIgnore).toBe(primary);
+    }
+    expect((component as any).missileOverlayId("Fist of the Heavens")).toBe("d2-lightningbolt");
+    expect((component as any).missileFrameCount("d2-handofgod")).toBe(21);
+    expect((component as any).missileFrameCount("d2-lightningbolt")).toBe(8);
+    expect((component as any).missileFrameCount("d2-holyboltmissile")).toBe(16);
+    expect((component as any).missileFrameCount("d2-teethexplode")).toBe(13);
+    expect((component as any).skillVisualEffects.some((effect: any) => effect.fistOfTheHeavensCast && effect.missileId === "d2-handofgod")).toBeTrue();
+    expect((component as any).skillVisualEffects.some((effect: any) => effect.fistOfTheHeavensStrike && effect.missileId === "d2-lightningbolt")).toBeTrue();
+
+    (component as any).flushPendingDamage();
+    expect(primary.hp).toBeLessThan(1000);
+
+    const east = { ...primary, species: "skeleton", x: 400, y: 250, hp: 1000, maxHp: 1000 } as any;
+    const south = { ...primary, species: "skeletonWarrior", x: 250, y: 350, hp: 1000, maxHp: 1000 } as any;
+    const west = { ...primary, species: "skeletalMageCold", x: 150, y: 250, hp: 1000, maxHp: 1000 } as any;
+    const north = { ...primary, species: "balrog", x: 250, y: 150, hp: 1000, maxHp: 1000 } as any;
+    const nonHoly = { ...primary, species: "sandRaider", x: 300, y: 250, hp: 1000, maxHp: 1000 } as any;
+    component.enemies = [primary, east, south, west, north, nonHoly];
+    (component as any).rebuildEnemyGrid();
+
+    for (let frame = 0; frame < 80; frame += 1) (component as any).updateAttackProjectiles(16);
+    (component as any).flushPendingDamage();
+
+    expect(east.hp).toBeLessThan(1000);
+    expect(south.hp).toBeLessThan(1000);
+    expect(west.hp).toBeLessThan(1000);
+    expect(north.hp).toBeLessThan(1000);
+    expect(nonHoly.hp).toBe(1000);
+    expect((component as any).skillVisualEffects.some((effect: any) => effect.fistOfTheHeavensBoltImpact)).toBeTrue();
+  });
+
+  it("only lets Fist of the Heavens Holy Bolts hurt Undead and Demons, with no ally healing", () => {
+    component.selectedClass = "paladin";
+    component.playerX = 100;
+    component.playerY = 250;
+    component.playerHp = 500;
+    component.playerMaxHp = 1000;
+    component.ownedSkills = ["Fist of the Heavens"];
+    component.skillLevels = { "Fist of the Heavens": 1 };
+    const primary = { kind: "normal", species: "fallen", spriteFrame: 0, x: 250, y: 250, hp: 1000, maxHp: 1000, speed: 100, r: 14, dmg: 2 } as any;
+    component.enemies = [primary];
+    component.attackProjectiles = [];
+    (component as any).rebuildEnemyGrid();
+
+    component.activateOwnedSkill("Fist of the Heavens");
+    const ally = { ...primary, species: "skeleton", summonType: "skeleton", x: 250, y: 350, hp: 10, maxHp: 100 } as any;
+    const mortal = { ...primary, species: "sandRaider", x: 300, y: 250 } as any;
+    const undead = { ...primary, species: "skeleton", x: 400, y: 250, hp: 1000, maxHp: 1000 } as any;
+    const demon = { ...primary, species: "balrog", x: 250, y: 150, hp: 1000, maxHp: 1000 } as any;
+    component.enemies = [primary, mortal, undead, demon, ally];
+    (component as any).rebuildEnemyGrid();
+    const playerHp = component.playerHp;
+    const allyHp = ally.hp;
+
+    for (let frame = 0; frame < 80; frame += 1) (component as any).updateAttackProjectiles(16);
+    (component as any).flushPendingDamage();
+
+    expect(mortal.hp).toBe(1000);
+    expect(undead.hp).toBeLessThan(1000);
+    expect(demon.hp).toBeLessThan(1000);
+    expect(component.playerHp).toBe(playerHp);
+    expect(ally.hp).toBe(allyHp);
+    expect((component as any).getSkillRankStats("Fist of the Heavens", "projectile", 1))
+      .toContain("Fist-created Holy Bolts never heal allies.");
+  });
+
+  it("always lands Fist of the Heavens lightning through a Bone Wall", () => {
+    component.selectedClass = "paladin";
+    component.playerX = 100;
+    component.playerY = 250;
+    component.ownedSkills = ["Fist of the Heavens"];
+    component.skillLevels = { "Fist of the Heavens": 1 };
+    const target = { kind: "normal", species: "fallen", spriteFrame: 0, x: 500, y: 250, hp: 1000, maxHp: 1000, speed: 100, r: 14, dmg: 2 } as any;
+    const wall = {
+      x: 300, y: 250, startX: 300, startY: 250, targetX: 300, targetY: 250,
+      speed: 0, damage: 0, life: Number.POSITIVE_INFINITY, age: 0, radius: 10,
+      color: "#d9d0b5", kind: "bone", boneWall: true,
+      wallNormalX: 1, wallNormalY: 0, wallHalfLength: 200, wallHealth: 1000, wallMaxHealth: 1000,
+    } as any;
+    component.enemies = [target];
+    component.attackProjectiles = [wall];
+    component.floatingTexts = [];
+    (component as any).rebuildEnemyGrid();
+
+    component.activateOwnedSkill("Fist of the Heavens");
+    expect(component.attackProjectiles.filter((projectile) => projectile.fistOfTheHeavensBolt).length).toBe(4);
+    (component as any).flushPendingDamage();
+
+    expect(target.hp).toBeLessThan(1000);
+    expect(wall.wallHealth).toBe(1000);
+  });
+
+  it("keeps an active Blessed Hammer orbiting the paladin as the world moves", () => {
+    component.selectedClass = "paladin";
+    component.playerX = 250;
+    component.playerY = 250;
+    (component as any).playerFacingX = 1;
+    (component as any).playerFacingY = 0;
+    component.ownedSkills = ["Blessed Hammer"];
+    component.skillLevels = { "Blessed Hammer": 1 };
+    component.attackProjectiles = [];
+
+    component.activateOwnedSkill("Blessed Hammer");
+    const hammer = component.attackProjectiles[0];
+    const centerY = component.playerY - 10;
+    const initialOffsetX = hammer.x - component.playerX;
+    const initialOffsetY = hammer.y - centerY;
+
+    // Normal movement translates the world beneath a stationary arena-space
+    // player. The hammer must keep its orbit around the player, not its cast point.
+    (component as any).shiftWorldBy(64, -32);
+    (component as any).updateAttackProjectiles(16);
+
+    const angle = hammer.blessedHammerAngle ?? 0;
+    const radius = hammer.blessedHammerRadius ?? 0;
+    expect(hammer.x).toBeCloseTo(component.playerX + Math.cos(angle) * radius, 5);
+    expect(hammer.y).toBeCloseTo(centerY + Math.sin(angle) * radius, 5);
+    expect(hammer.x - component.playerX).not.toBeCloseTo(initialOffsetX - 64, 1);
+    expect(hammer.y - centerY).not.toBeCloseTo(initialOffsetY + 32, 1);
   });
 
   it("keeps the barbarian invulnerable while airborne and stuns all nearby enemies on landing", () => {
@@ -1696,7 +2143,28 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(diablo.attackAnimationTime).toBeGreaterThan(0);
   });
 
-  it("lets Diablo channel Thunder Inferno along a fixed, dodgeable beam", () => {
+  it("uses ordinary claw swipes between Diablo's Cold Touches", () => {
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.playerHp = 1000;
+    component.playerMaxHp = 1000;
+    (component as any).playerChilledRemaining = 0;
+    const diablo = {
+      kind: "boss", species: "diablo", campaignBoss: true, spriteFrame: 0,
+      x: 300, y: 250, hp: 10000, maxHp: 10000, speed: 90, r: 34, dmg: 40, cd: 0,
+      diabloMeleeCycle: 1,
+    } as any;
+    component.enemies = [diablo];
+
+    component.updateEnemies(16);
+
+    expect(component.playerHp).toBeLessThan(1000);
+    expect((component as any).playerChilledRemaining).toBe(0);
+    expect(diablo.diabloMeleeCycle).toBe(2);
+  });
+
+  it("lets Diablo sweep Red Lightning after the hero", () => {
     component.runActive = true;
     component.selectedClass = "amazon";
     component.playerX = 250;
@@ -1721,7 +2189,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     (component as any).updateDiabloThunderEffects(0.2);
     expect(component.playerHp).toBeLessThan(hpBeforeTick);
 
-    // The beam keeps the direction chosen at cast time: stepping aside dodges it.
+    // The beam turns at a limited rate, so a sharp sidestep can break the track.
     component.playerY = 420;
     const dodgedHp = component.playerHp;
     (component as any).updateDiabloThunderEffects(0.2);
@@ -1757,6 +2225,94 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.movePlayer(100);
     expect(diablo.x).toBeLessThan(prisonX);
     component.keysDown.delete("d");
+  });
+
+  it("opens with Firestorm at range instead of walking into claw reach", () => {
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.playerHp = 1000;
+    component.playerMaxHp = 1000;
+    const diablo = {
+      kind: "boss", species: "diablo", campaignBoss: true, spriteFrame: 0,
+      x: 650, y: 250, hp: 10000, maxHp: 10000, speed: 90, r: 34, dmg: 40, cd: 0,
+      diabloSpellCycle: 2,
+    } as any;
+    component.enemies = [diablo];
+
+    component.updateEnemies(16);
+
+    const firestorms = (component as any).diabloFirestormEffects as any[];
+    expect(firestorms).toHaveSize(1);
+    expect(component.playerHp).toBe(1000);
+    expect(diablo.attackAnimationTime).toBeGreaterThan(0);
+    for (let step = 0; step < 17; step += 1) (component as any).updateDiabloSpellEffects(0.1);
+    expect(component.playerHp).toBeLessThan(1000);
+  });
+
+  it("expands Diablo's Fire Nova out from his body", () => {
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.playerHp = 1000;
+    component.playerMaxHp = 1000;
+    const diablo = {
+      kind: "boss", species: "diablo", campaignBoss: true, spriteFrame: 0,
+      x: 450, y: 250, hp: 10000, maxHp: 10000, speed: 90, r: 34, dmg: 40, cd: 0,
+      diabloSpellCycle: 4,
+    } as any;
+    component.enemies = [diablo];
+
+    component.updateEnemies(16);
+
+    expect((component as any).diabloFireNovaEffects).toHaveSize(1);
+    for (let step = 0; step < 6; step += 1) (component as any).updateDiabloSpellEffects(0.1);
+    expect(component.playerHp).toBeLessThan(1000);
+  });
+
+  it("plants Diablo's Fire Wall under the player", () => {
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.playerHp = 1000;
+    component.playerMaxHp = 1000;
+    const diablo = {
+      kind: "boss", species: "diablo", campaignBoss: true, spriteFrame: 0,
+      x: 450, y: 250, hp: 10000, maxHp: 10000, speed: 90, r: 34, dmg: 40, cd: 0,
+      diabloSpellCycle: 3,
+    } as any;
+    component.enemies = [diablo];
+
+    component.updateEnemies(16);
+
+    const walls = (component as any).diabloFireWallEffects as any[];
+    expect(walls).toHaveSize(1);
+    expect(walls[0].x).toBe(component.playerX);
+    expect(walls[0].y).toBe(component.playerY);
+    (component as any).updateDiabloSpellEffects(0.2);
+    expect(component.playerHp).toBeLessThan(1000);
+  });
+
+  it("charges toward a distant hero without dealing damage", () => {
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.playerHp = 1000;
+    component.playerMaxHp = 1000;
+    const diablo = {
+      kind: "boss", species: "diablo", campaignBoss: true, spriteFrame: 0,
+      x: 850, y: 250, hp: 10000, maxHp: 10000, speed: 90, r: 34, dmg: 40, cd: 0,
+    } as any;
+    component.enemies = [diablo];
+
+    component.updateEnemies(16);
+    const chargeStartX = diablo.x;
+    expect(diablo.diabloChargeRemaining).toBeGreaterThan(0);
+    expect(component.playerHp).toBe(1000);
+
+    component.updateEnemies(500);
+    expect(chargeStartX - diablo.x).toBeGreaterThan(40);
+    expect(component.playerHp).toBe(1000);
   });
 
   it("slows the chilled player's movement", () => {
@@ -1802,6 +2358,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
 
     (component as any).updateBaalEffects(0.45);
     expect(component.playerHp).toBeLessThan(1000);
+    expect((component as any).playerAttackLockRemaining).toBeGreaterThan(0);
 
     // The eruption stays where it was telegraphed; moving clear avoids the rest.
     const hpAfterFirstStrike = component.playerHp;
@@ -1848,7 +2405,216 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(component.playerHp).toBe(dodgedHp);
   });
 
-  it("throws Mephisto's original lightning ball at the player", () => {
+  it("unleashes Baal's Hoarfrost as a multi-hit V that chills and knocks the hero back", () => {
+    component.runActive = true;
+    component.selectedClass = "amazon";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.playerHp = 1000;
+    component.playerMaxHp = 1000;
+    const baal = {
+      kind: "boss", species: "baal", campaignBoss: true, spriteFrame: 0,
+      x: 480, y: 250, hp: 10000, maxHp: 10000, speed: 90, r: 34, dmg: 40, cd: 0,
+      baalSpellCycle: 2,
+    } as any;
+    component.enemies = [baal];
+
+    component.updateEnemies(16);
+
+    const effects = (component as any).baalHoarfrostEffects as any[];
+    expect(effects).toHaveSize(1);
+    expect(effects[0].waveHits).toHaveSize(4);
+    (component as any).updateBaalEffects(0.8);
+    expect(component.playerHp).toBeLessThan(1000);
+    expect((component as any).playerChilledRemaining).toBeGreaterThan(0);
+    expect(effects[0].waveHits.filter(Boolean).length).toBeGreaterThan(1);
+  });
+
+  it("sweeps the chamber with Baal's Incineration Nova fireball ring", () => {
+    component.runActive = true;
+    component.selectedClass = "amazon";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.playerHp = 1000;
+    component.playerMaxHp = 1000;
+    const baal = {
+      kind: "boss", species: "baal", campaignBoss: true, spriteFrame: 0,
+      x: 480, y: 250, hp: 10000, maxHp: 10000, speed: 90, r: 34, dmg: 40, cd: 0,
+      baalSpellCycle: 3,
+    } as any;
+    component.enemies = [baal];
+
+    component.updateEnemies(16);
+
+    const effects = (component as any).baalNovaEffects as any[];
+    expect(effects).toHaveSize(1);
+    expect(effects[0].maxRadius).toBeGreaterThan(600);
+    (component as any).updateBaalEffects(0.22);
+    expect(component.playerHp).toBeLessThan(1000);
+    const hpAfterRing = component.playerHp;
+    (component as any).updateBaalEffects(0.35);
+    expect(component.playerHp).toBe(hpAfterRing);
+  });
+
+  it("drains half of the hero's current mana with Baal's Mana Rift", () => {
+    component.runActive = true;
+    component.selectedClass = "sorceress";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.playerHp = 1000;
+    component.playerMaxHp = 1000;
+    component.playerMana = 40;
+    const baal = {
+      kind: "boss", species: "baal", campaignBoss: true, spriteFrame: 0,
+      x: 480, y: 250, hp: 10000, maxHp: 10000, speed: 90, r: 34, dmg: 40, cd: 0,
+      baalSpellCycle: 4,
+    } as any;
+    component.enemies = [baal];
+
+    component.updateEnemies(16);
+
+    const effects = (component as any).baalManaRiftEffects as any[];
+    expect(effects).toHaveSize(1);
+    expect(effects[0].targetX).toBeCloseTo(component.playerX, 5);
+    expect(component.playerMana).toBe(20);
+    expect(component.playerHp).toBe(1000);
+  });
+
+  it("summons a Vile Effigy that shares Baal's health percentage and takes extra damage", () => {
+    component.runActive = true;
+    component.selectedClass = "amazon";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.playerHp = 1000;
+    component.playerMaxHp = 1000;
+    const baal = {
+      kind: "boss", species: "baal", campaignBoss: true, spriteFrame: 0,
+      x: 480, y: 250, hp: 10000, maxHp: 10000, speed: 90, r: 34, dmg: 40, cd: 0,
+      baalSpellCycle: 5,
+    } as any;
+    component.enemies = [baal];
+
+    component.updateEnemies(16);
+
+    const clone = component.enemies.find((enemy: any) => enemy.baalClone) as any;
+    expect(clone).toBeDefined();
+    expect(clone.baalOriginal).toBe(baal);
+    expect(clone.hp / clone.maxHp).toBeCloseTo(baal.hp / baal.maxHp, 5);
+    (component as any).queueEnemyDamage(clone, 100, "#fff0a8");
+    (component as any).flushPendingDamage();
+    expect(baal.hp).toBe(9850);
+    expect(clone.hp / clone.maxHp).toBeCloseTo(baal.hp / baal.maxHp, 5);
+  });
+
+  it("applies Blood Mana only when maximum mana meets maximum life and charges health per spell", () => {
+    component.runActive = true;
+    component.selectedClass = "sorceress";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.playerHp = 1000;
+    component.playerMaxHp = 1000;
+    component.playerMaxMana = 1000;
+    const baal = {
+      kind: "boss", species: "baal", campaignBoss: true, spriteFrame: 0,
+      x: 480, y: 250, hp: 10000, maxHp: 10000, speed: 90, r: 34, dmg: 40, cd: 0,
+      baalSpellCycle: 6,
+    } as any;
+    component.enemies = [baal];
+
+    component.updateEnemies(16);
+    expect((component as any).playerBloodManaRemaining).toBeGreaterThan(0);
+    (component as any).payBloodManaCost();
+    expect(component.playerHp).toBe(980);
+
+    (component as any).playerBloodManaRemaining = 0;
+    component.playerHp = 1000;
+    (component as any).payBloodManaCost();
+    expect(component.playerHp).toBe(1000);
+  });
+
+  it("lowers defense with Baal's Defense Curse", () => {
+    component.runActive = true;
+    component.selectedClass = "amazon";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.playerHp = 1000;
+    component.playerMaxHp = 1000;
+    (component as any).equipmentStatTotal = (key: string) => key === "armor" ? 200 : 0;
+    const baal = {
+      kind: "boss", species: "baal", campaignBoss: true, spriteFrame: 0,
+      x: 480, y: 250, hp: 10000, maxHp: 10000, speed: 90, r: 34, dmg: 40, cd: 0,
+      baalSpellCycle: 7,
+    } as any;
+    component.enemies = [baal];
+    expect(component.equippedArmor).toBe(200);
+
+    component.updateEnemies(16);
+
+    expect((component as any).playerDefenseCurseRemaining).toBeGreaterThan(0);
+    expect(component.equippedArmor).toBe(70);
+  });
+
+  it("slows movement and increases damage taken with Decrepify", () => {
+    component.runActive = true;
+    component.selectedClass = "amazon";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.playerHp = 1000;
+    component.playerMaxHp = 1000;
+    (component as any).playerBonePrisonRemaining = 0;
+    (component as any).playerAttackLockRemaining = 0;
+    const baal = {
+      kind: "boss", species: "baal", campaignBoss: true, spriteFrame: 0,
+      x: 480, y: 250, hp: 10000, maxHp: 10000, speed: 90, r: 34, dmg: 40, cd: 0,
+      baalSpellCycle: 8,
+    } as any;
+    component.enemies = [baal];
+    component.keysDown.add("d");
+    component.movePlayer(100);
+    const normalStep = (component as any).playerMoveX;
+
+    component.updateEnemies(16);
+    expect((component as any).playerDecrepifyRemaining).toBeGreaterThan(0);
+    component.movePlayer(100);
+    const cursedStep = (component as any).playerMoveX;
+    expect(cursedStep).toBeCloseTo(normalStep * 0.55, 5);
+    const before = component.playerHp;
+    component.playerHp -= (component as any).applyIncomingDamage(100, baal);
+    expect(before - component.playerHp).toBeGreaterThan(0);
+    component.keysDown.delete("d");
+  });
+
+  it("teleports Baal away from the hero and alternates a heavy Destructive Strike in melee", () => {
+    component.runActive = true;
+    component.selectedClass = "amazon";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.playerHp = 1000;
+    component.playerMaxHp = 1000;
+    const baal = {
+      kind: "boss", species: "baal", campaignBoss: true, spriteFrame: 0,
+      x: 480, y: 250, hp: 10000, maxHp: 10000, speed: 90, r: 34, dmg: 40, cd: 0,
+      baalSpellCycle: 9,
+    } as any;
+    component.enemies = [baal];
+
+    component.updateEnemies(16);
+
+    expect(baal.x).not.toBe(480);
+    expect(Math.hypot(baal.x - component.playerX, baal.y - component.playerY)).toBeGreaterThan(200);
+    expect((component as any).baalCastEffects.filter((effect: any) => effect.kind === "teleport")).toHaveSize(2);
+
+    baal.x = component.playerX + 50;
+    baal.y = component.playerY;
+    baal.cd = 0;
+    baal.attackAnimationTime = 0;
+    baal.baalSpellCycle = 0;
+    component.playerHp = 1000;
+    component.updateEnemies(16);
+    expect(component.playerHp).toBeLessThan(1000);
+  });
+
+  it("hurls Mephisto's Lightning at the player", () => {
     component.runActive = true;
     component.selectedClass = "amazon";
     component.playerX = 250;
@@ -1864,17 +2630,118 @@ describe("D2SurvivorsComponent combat and equipment", () => {
 
     component.updateEnemies(16);
 
-    const ball = component.attackProjectiles[0];
-    expect(ball).toBeDefined();
-    expect(ball.missileId).toBe("d2-mephistomissile");
-    expect(ball.kind).toBe("lightning");
-    expect(ball.targetPlayer).toBeTrue();
+    const bolt = component.attackProjectiles[0];
+    expect(bolt).toBeDefined();
+    expect(bolt.missileId).toBe("d2-lightningbolt");
+    expect(bolt.kind).toBe("lightning");
+    expect(bolt.damageType).toBe("lightning");
+    expect(bolt.targetPlayer).toBeTrue();
     const hpBeforeHit = component.playerHp;
 
     (component as any).updateAttackProjectiles(2000);
 
     expect(component.playerHp).toBeLessThan(hpBeforeHit);
     expect(mephisto.attackAnimationTime).toBeGreaterThan(0);
+  });
+
+  it("freezes the hero with Mephisto's close-range chilling strike", () => {
+    component.runActive = true;
+    component.selectedClass = "amazon";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.playerHp = 1000;
+    component.playerMaxHp = 1000;
+    const mephisto = {
+      kind: "boss", species: "mephisto", campaignBoss: true, spriteFrame: 0,
+      x: 290, y: 250, hp: 10000, maxHp: 10000, speed: 90, r: 34, dmg: 40, cd: 0,
+    } as any;
+    component.enemies = [mephisto];
+
+    component.updateEnemies(16);
+
+    expect(component.playerHp).toBeLessThan(1000);
+    expect((component as any).playerFrozenRemaining).toBeGreaterThan(0);
+    expect((component as any).playerChilledRemaining).toBeGreaterThan(0);
+    expect(mephisto.attackAnimationTime).toBeGreaterThan(0);
+
+    component.keysDown.add("d");
+    const frozenX = component.playerX;
+    component.movePlayer(100);
+    expect(component.playerX).toBe(frozenX);
+
+    const frozenTargetHp = mephisto.hp;
+    (component as any).attackCooldown = 0;
+    component.attackNearestEnemy();
+    expect(mephisto.hp).toBe(frozenTargetHp);
+  });
+
+  it("cycles Mephisto through every ranged and special spell", () => {
+    component.runActive = true;
+    component.selectedClass = "amazon";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.playerHp = 1000;
+    component.playerMaxHp = 1000;
+    const mephisto = {
+      kind: "boss", species: "mephisto", campaignBoss: true, spriteFrame: 0,
+      x: 450, y: 250, hp: 10000, maxHp: 10000, speed: 90, r: 34, dmg: 40, cd: 0,
+    } as any;
+    component.enemies = [mephisto];
+
+    mephisto.mephistoSpellCycle = 1;
+    component.updateEnemies(16);
+    expect(component.attackProjectiles).toHaveSize(5);
+    expect(component.attackProjectiles.every((shot) => shot.missileId === "d2-chargedbolt")).toBeTrue();
+    expect(component.attackProjectiles.every((shot) => shot.damageType === "lightning")).toBeTrue();
+
+    mephisto.cd = 0;
+    mephisto.attackAnimationTime = 0;
+    mephisto.mephistoSpellCycle = 2;
+    component.updateEnemies(16);
+    const blizzards = (component as any).mephistoBlizzards as any[];
+    expect(blizzards).toHaveSize(1);
+    const hpBeforeBlizzard = component.playerHp;
+    (component as any).updateMephistoBlizzards(0.3);
+    expect(component.playerHp).toBeLessThan(hpBeforeBlizzard);
+    expect((component as any).playerChilledRemaining).toBeGreaterThan(0);
+
+    mephisto.cd = 0;
+    mephisto.attackAnimationTime = 0;
+    mephisto.mephistoSpellCycle = 3;
+    component.attackProjectiles = [];
+    component.updateEnemies(16);
+    const skull = component.attackProjectiles[0];
+    expect(skull.missileId).toBe("d2-mephistomissile");
+    expect(skull.cold).toBeTrue();
+    expect(skull.damageType).toBe("cold");
+    const hpBeforeSkull = component.playerHp;
+    (component as any).updateAttackProjectiles(2000);
+    expect(component.playerHp).toBeLessThan(hpBeforeSkull);
+    expect((component as any).playerChilledRemaining).toBeGreaterThan(0);
+
+    mephisto.cd = 0;
+    mephisto.attackAnimationTime = 0;
+    mephisto.mephistoSpellCycle = 4;
+    const hpBeforeFrostNova = component.playerHp;
+    component.updateEnemies(16);
+    expect(component.playerHp).toBeLessThan(hpBeforeFrostNova);
+    expect(((component as any).skillVisualEffects as any[]).some((effect) => effect.frostNova)).toBeTrue();
+
+    mephisto.cd = 0;
+    mephisto.attackAnimationTime = 0;
+    mephisto.mephistoSpellCycle = 5;
+    (component as any).poisonClouds = [];
+    component.updateEnemies(16);
+    const poisonNova = ((component as any).poisonClouds as any[])[0];
+    expect(poisonNova.targetPlayer).toBeTrue();
+    expect(poisonNova.growPerSecond).toBeGreaterThan(0);
+
+    // It crawls outward instead of matching the Necromancer's instant ring.
+    const startRadius = poisonNova.radius;
+    component.playerX = 470;
+    (component as any).updatePoisonClouds(1);
+    expect(poisonNova.radius).toBeGreaterThan(startRadius);
+    expect((component as any).playerPoisonRemaining).toBeGreaterThan(0);
   });
 
   it("uses each enemy shooter's original Diablo II missile art", () => {
@@ -2001,6 +2868,14 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect((component as any).itemSize(sphere)).toEqual({ width: 1, height: 2 });
   });
 
+  it("uses a one-column, two-row inventory footprint for Sacred Globes", () => {
+    const globe = {
+      id: "sacred-globe", name: "Sacred Globe", baseName: "Sacred Globe", rarity: "normal",
+      slot: "weapon", equipmentType: "orb", width: 1, height: 3, desc: "A sacred globe.", stats: {},
+    } as any;
+    expect((component as any).itemSize(globe)).toEqual({ width: 1, height: 2 });
+  });
+
   it("uses a one-column, two-row inventory footprint for throwing knives", () => {
     for (const name of ["Throwing Knife", "Balanced Knife"]) {
       const knife = {
@@ -2061,6 +2936,99 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(component.inventoryDropPreview?.allowed).toBeFalse();
     expect(component.inventoryDropPreview?.width).toBe(2);
     expect(component.inventoryDropPreview?.height).toBe(3);
+  });
+
+  it("long-presses a touch inventory item and drags it to another slot", () => {
+    jasmine.clock().install();
+    try {
+      component.inventoryOpen = true;
+      component.inventory = Array.from({ length: 40 }, () => null);
+      component.inventory[0] = {
+        id: "mobile-ring", name: "Ring of the Artisan", baseName: "Ring of the Artisan",
+        rarity: "normal", slot: "charm", equipmentType: "ring", desc: "A ring.", stats: {},
+      } as any;
+      (component as any).rebuildInventoryGrid();
+      spyOn(component as any, "persistRunProgress");
+
+      const source = document.createElement("div");
+      const target = document.createElement("div");
+      target.dataset["inventorySlot"] = "5";
+      spyOn(document, "elementFromPoint").and.returnValue(target);
+      const touchEvent = (x: number, y: number, pointerType = "touch") => ({
+        pointerType, pointerId: 7, clientX: x, clientY: y, currentTarget: source,
+        preventDefault: jasmine.createSpy("preventDefault"),
+      }) as unknown as PointerEvent;
+
+      component.onInventoryPointerDown(0, touchEvent(10, 10));
+      jasmine.clock().tick(430);
+      expect(component.mobileInventoryDrag?.sourceIndex).toBe(0);
+      expect(component.selectedSlotIndex).toBe(0);
+
+      component.onInventoryPointerMove(touchEvent(40, 30));
+      expect(component.dragGhostSlotIndex).toBe(5);
+      expect(component.inventoryDropPreview?.allowed).toBeTrue();
+
+      component.onInventoryPointerUp(touchEvent(40, 30));
+      expect(component.inventory[0]).toBeNull();
+      expect(component.inventory[5]?.id).toBe("mobile-ring");
+      expect(component.mobileInventoryDrag).toBeNull();
+      expect(component.selectedSlotIndex).toBe(5);
+    } finally {
+      jasmine.clock().uninstall();
+    }
+  });
+
+  it("only starts the press-and-drag gesture for touch pointers", () => {
+    jasmine.clock().install();
+    try {
+      component.inventoryOpen = true;
+      component.inventory = Array.from({ length: 40 }, () => null);
+      component.inventory[0] = {
+        id: "mouse-ring", name: "Ring of the Artisan", baseName: "Ring of the Artisan",
+        rarity: "normal", slot: "charm", equipmentType: "ring", desc: "A ring.", stats: {},
+      } as any;
+      (component as any).rebuildInventoryGrid();
+      const source = document.createElement("div");
+      const event = {
+        pointerType: "mouse", pointerId: 3, clientX: 10, clientY: 10, currentTarget: source,
+        preventDefault: jasmine.createSpy("preventDefault"),
+      } as unknown as PointerEvent;
+
+      component.onInventoryPointerDown(0, event);
+      jasmine.clock().tick(500);
+
+      expect((component as any).mobileInventoryPress).toBeUndefined();
+      expect(component.mobileInventoryDrag).toBeNull();
+    } finally {
+      jasmine.clock().uninstall();
+    }
+  });
+
+  it("cancels the touch hold when the finger moves before the long press completes", () => {
+    jasmine.clock().install();
+    try {
+      component.inventoryOpen = true;
+      component.inventory = Array.from({ length: 40 }, () => null);
+      component.inventory[0] = {
+        id: "moving-ring", name: "Ring of the Artisan", baseName: "Ring of the Artisan",
+        rarity: "normal", slot: "charm", equipmentType: "ring", desc: "A ring.", stats: {},
+      } as any;
+      (component as any).rebuildInventoryGrid();
+      const source = document.createElement("div");
+      const touchEvent = (x: number, y: number) => ({
+        pointerType: "touch", pointerId: 9, clientX: x, clientY: y, currentTarget: source,
+        preventDefault: jasmine.createSpy("preventDefault"),
+      }) as unknown as PointerEvent;
+
+      component.onInventoryPointerDown(0, touchEvent(10, 10));
+      component.onInventoryPointerMove(touchEvent(28, 10));
+      jasmine.clock().tick(500);
+
+      expect((component as any).mobileInventoryPress).toBeUndefined();
+      expect(component.mobileInventoryDrag).toBeNull();
+    } finally {
+      jasmine.clock().uninstall();
+    }
   });
 
   it("shows the imported unique and set cels for those rarities", () => {
@@ -2764,6 +3732,81 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     enemy.attackAnimationTime = 0.2;
     (component as any).drawEnemy(ctx, enemy);
     expect(tinted.calls.mostRecent().args[1]).toBe(12);
+  });
+
+  it("keeps the Fetish and Council animation loops on populated cels", () => {
+    const frame = { width: 91, height: 101 } as HTMLCanvasElement;
+    const spriteFor = (columns: number) => ({
+      frames: Array.from({ length: 24 }, () => Array.from({ length: columns }, () => frame)),
+      columns,
+      rows: 24,
+      animated: true,
+    });
+    const sprites = (component as any).enemySprites;
+    sprites.fetish = spriteFor(13);
+    sprites.boneFetish = spriteFor(13);
+    sprites.council = spriteFor(20);
+
+    spyOn(component as any, "projectArenaPoint").and.returnValue({ x: 100, y: 120 });
+    spyOn(component as any, "drawGroundShadow");
+    spyOn(component as any, "drawHpBar");
+    const tinted = spyOn(component as any, "tintedEnemyFrame").and.returnValue(frame);
+    const ctx = {
+      save: () => undefined,
+      restore: () => undefined,
+      drawImage: () => undefined,
+    } as unknown as CanvasRenderingContext2D;
+    const enemy = {
+      kind: "normal",
+      species: "fetish",
+      campaignBoss: false,
+      spriteFrame: 0,
+      animationState: "move",
+      attackAnimationTime: 0,
+      facingX: 0,
+      facingY: 1,
+      x: 100,
+      y: 250,
+      hp: 100,
+      maxHp: 100,
+      r: 14,
+      dmg: 2,
+    } as any;
+    const frameIndex = (): number => tinted.calls.mostRecent().args[2] as number;
+
+    const checkSpecies = (species: string, walkFrames: number, idleFrames: number, attackFrames: number): void => {
+      enemy.species = species;
+      enemy.animationState = "move";
+      const walkSamples: number[] = [];
+      for (let sample = 0; sample < 24; sample += 1) {
+        (component as any).runTime = sample * 0.13;
+        (component as any).drawEnemy(ctx, enemy);
+        walkSamples.push(frameIndex());
+      }
+      expect(Math.max(...walkSamples)).toBeLessThan(walkFrames);
+
+      enemy.animationState = "idle";
+      const idleSamples: number[] = [];
+      for (let sample = 0; sample < 24; sample += 1) {
+        (component as any).runTime = sample * 0.21;
+        (component as any).drawEnemy(ctx, enemy);
+        idleSamples.push(frameIndex());
+      }
+      expect(Math.max(...idleSamples)).toBeLessThan(idleFrames);
+
+      enemy.animationState = "attack";
+      const attackSamples: number[] = [];
+      for (const attackAnimationTime of [0.38, 0.3, 0.2, 0.1, 0]) {
+        enemy.attackAnimationTime = attackAnimationTime;
+        (component as any).drawEnemy(ctx, enemy);
+        attackSamples.push(frameIndex());
+      }
+      expect(Math.max(...attackSamples)).toBeLessThan(attackFrames);
+    };
+
+    checkSpecies("fetish", 6, 12, 12);
+    checkSpecies("boneFetish", 6, 12, 12);
+    checkSpecies("council", 11, 7, 10);
   });
 
   it("keeps the Blunderbore's attack on its wind-up and strike instead of the collapsed recovery cels", () => {
@@ -3634,6 +4677,259 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(component.equippedVitalityBonus).toBe(0);
   });
 
+  it("applies charm and item Strength to melee attacks", () => {
+    component.selectedClass = "barbarian";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.basicAttackDamage = 100;
+    component.skillLevels = {};
+    component.ownedSkills = [];
+    component.equipment.weapon = null;
+    component.equipment.shield = null;
+    component.inventory = Array.from({ length: component.inventoryColumns * component.inventoryRows }, () => null);
+    component.inventory[0] = {
+      id: "strength-charm", name: "Strength Small Charm", baseName: "Small Charm", rarity: "magic",
+      slot: "charm", equipmentType: "charm", desc: "A charm that lends its bearer strength.",
+      stats: { plusStrength: 25 },
+    } as any;
+    const target = { x: 260, y: 250, r: 12, hp: 1000 } as any;
+    component.enemies = [target];
+
+    expect(component.inventoryAttackDamage).toBe(125);
+    component.attackNearestEnemy();
+    expect(target.hp).toBe(875);
+
+    target.hp = 1000;
+    (component as any).attackCooldown = 0;
+    (component as any).updateBasicAttack();
+    expect(target.hp).toBe(875);
+
+    component.inventory[0] = null;
+    expect(component.inventoryAttackDamage).toBe(100);
+    target.hp = 1000;
+    (component as any).attackCooldown = 0;
+    component.attackNearestEnemy();
+    expect(target.hp).toBe(900);
+  });
+
+  it("does not apply Strength to bow damage", () => {
+    component.selectedClass = "amazon";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.basicAttackDamage = 100;
+    component.skillLevels = {};
+    component.ownedSkills = [];
+    component.equipment.weapon = { name: "Short Bow", baseName: "Short Bow", slot: "weapon" } as any;
+    component.equipment.shield = null;
+    component.inventory = Array.from({ length: component.inventoryColumns * component.inventoryRows }, () => null);
+    component.inventory[0] = {
+      id: "strength-charm", name: "Strength Small Charm", baseName: "Small Charm", rarity: "magic",
+      slot: "charm", equipmentType: "charm", desc: "A charm that lends its bearer strength.",
+      stats: { plusStrength: 25 },
+    } as any;
+    const target = { x: 300, y: 250, r: 12, hp: 1000 } as any;
+    component.enemies = [target];
+    component.attackProjectiles = [];
+
+    expect(component.inventoryAttackDamage).toBe(100);
+    (component as any).updateBasicAttack();
+
+    expect(component.attackProjectiles).toHaveSize(1);
+    expect(component.attackProjectiles[0].damage).toBe(100);
+  });
+
+  it("applies Strength to melee skill damage", () => {
+    component.selectedClass = "paladin";
+    component.playerX = 250;
+    component.playerY = 250;
+    (component as any).playerFacingX = 1;
+    (component as any).playerFacingY = 0;
+    component.basicAttackDamage = 100;
+    component.ownedSkills = ["Smite"];
+    component.skillLevels = { Smite: 1 };
+    component.equipment.weapon = null;
+    component.equipment.shield = { name: "Buckler", baseName: "Buckler", slot: "armor", equipmentType: "shield" } as any;
+    component.inventory = Array.from({ length: component.inventoryColumns * component.inventoryRows }, () => null);
+    component.inventory[0] = {
+      id: "strength-charm", name: "Strength Small Charm", baseName: "Small Charm", rarity: "magic",
+      slot: "charm", equipmentType: "charm", desc: "A charm that lends its bearer strength.",
+      stats: { plusStrength: 25 },
+    } as any;
+    const target = {
+      kind: "normal", species: "fallen", spriteFrame: 0, x: 310, y: 250,
+      hp: 1000, maxHp: 1000, speed: 100, r: 14, dmg: 2,
+    } as any;
+    component.enemies = [target];
+    component.floatingTexts = [];
+
+    component.activateOwnedSkill("Smite");
+    (component as any).flushPendingDamage();
+
+    expect(target.hp).toBeCloseTo(812.5, 5);
+  });
+
+  it("applies item Energy to projectile spell damage", () => {
+    component.selectedClass = "sorceress";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.basicAttackDamage = 100;
+    component.ownedSkills = ["Fire Bolt"];
+    component.skillLevels = { "Fire Bolt": 1 };
+    component.equipment.weapon = null;
+    component.equipment.shield = null;
+    component.equipment.helmet = {
+      id: "energy-helm", name: "Helm of Focus", baseName: "Helm", rarity: "magic",
+      slot: "armor", equipmentType: "helmet", desc: "A helm that focuses spell power.",
+      stats: { plusEnergy: 25 },
+    } as any;
+    component.enemies = [{ x: 300, y: 250, r: 14, hp: 1000 } as any];
+    component.attackProjectiles = [];
+
+    expect(component.equippedEnergyBonus).toBe(25);
+    expect((component as any).getSkillRankStats("Fire Bolt", "projectile", 1))
+      .toContain("187 base damage per hit before skill-specific modifiers");
+    component.activateOwnedSkill("Fire Bolt");
+
+    expect(component.attackProjectiles).toHaveSize(1);
+    expect(component.attackProjectiles[0].damage).toBe(187.5);
+  });
+
+  it("applies item Energy to area spell damage", () => {
+    component.selectedClass = "sorceress";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.basicAttackDamage = 100;
+    component.ownedSkills = ["Frost Nova"];
+    component.skillLevels = { "Frost Nova": 1 };
+    component.equipment.weapon = null;
+    component.equipment.shield = null;
+    component.equipment.helmet = {
+      id: "energy-helm", name: "Helm of Focus", baseName: "Helm", rarity: "magic",
+      slot: "armor", equipmentType: "helmet", desc: "A helm that focuses spell power.",
+      stats: { plusEnergy: 25 },
+    } as any;
+    const target = {
+      kind: "normal", species: "fallen", spriteFrame: 0, x: 300, y: 250,
+      hp: 1000, maxHp: 1000, speed: 100, r: 14, dmg: 2,
+    } as any;
+    component.enemies = [target];
+    component.floatingTexts = [];
+    component.attackProjectiles = [];
+    (component as any).rebuildEnemyGrid();
+
+    component.activateOwnedSkill("Frost Nova");
+    (component as any).flushPendingDamage();
+
+    expect(target.hp).toBeCloseTo(843.75, 5);
+  });
+
+  it("applies item Energy to ground spell damage", () => {
+    component.selectedClass = "sorceress";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.basicAttackDamage = 100;
+    component.ownedSkills = ["Fire Wall"];
+    component.skillLevels = { "Fire Wall": 1 };
+    component.equipment.weapon = null;
+    component.equipment.shield = null;
+    component.equipment.helmet = {
+      id: "energy-helm", name: "Helm of Focus", baseName: "Helm", rarity: "magic",
+      slot: "armor", equipmentType: "helmet", desc: "A helm that focuses spell power.",
+      stats: { plusEnergy: 25 },
+    } as any;
+    component.enemies = [];
+    component.attackProjectiles = [];
+
+    component.activateOwnedSkill("Fire Wall");
+
+    expect(component.attackProjectiles).toHaveSize(1);
+    expect(component.attackProjectiles[0].damage).toBe(37.5);
+  });
+
+  it("applies item Energy once to elemental trap damage", () => {
+    component.selectedClass = "assassin";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.basicAttackDamage = 100;
+    component.ownedSkills = ["Wake of Inferno"];
+    component.skillLevels = { "Wake of Inferno": 1 };
+    component.equipment.weapon = null;
+    component.equipment.shield = null;
+    component.equipment.helmet = {
+      id: "energy-helm", name: "Helm of Focus", baseName: "Helm", rarity: "magic",
+      slot: "armor", equipmentType: "helmet", desc: "A helm that focuses spell power.",
+      stats: { plusEnergy: 25 },
+    } as any;
+    const target = {
+      kind: "normal", species: "fallen", spriteFrame: 0, x: 300, y: 250,
+      hp: 1000, maxHp: 1000, speed: 100, r: 14, dmg: 2,
+    } as any;
+    component.enemies = [target];
+    component.attackProjectiles = [];
+    component.floatingTexts = [];
+    (component as any).skillVisualEffects = [];
+    (component as any).rebuildEnemyGrid();
+
+    component.activateOwnedSkill("Wake of Inferno");
+    const trap = component.attackProjectiles[0];
+    expect(trap.trapDamage).toBe(43.75);
+
+    trap.shotCooldown = 0;
+    (component as any).updateAttackProjectiles(16);
+    const cone = (component as any).skillVisualEffects.find((effect: any) => effect.inferno && effect.stationary);
+    expect(cone).toBeDefined();
+    expect(cone.damagePerTick).toBeCloseTo(10.9375, 5);
+  });
+
+  it("does not apply item Energy to melee attacks", () => {
+    component.selectedClass = "barbarian";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.basicAttackDamage = 100;
+    component.skillLevels = {};
+    component.ownedSkills = [];
+    component.equipment.weapon = null;
+    component.equipment.shield = null;
+    component.equipment.helmet = {
+      id: "energy-helm", name: "Helm of Focus", baseName: "Helm", rarity: "magic",
+      slot: "armor", equipmentType: "helmet", desc: "A helm that focuses spell power.",
+      stats: { plusEnergy: 25 },
+    } as any;
+    const target = { x: 260, y: 250, r: 12, hp: 1000 } as any;
+    component.enemies = [target];
+
+    expect(component.inventoryAttackDamage).toBe(100);
+    component.attackNearestEnemy();
+
+    expect(target.hp).toBe(900);
+  });
+
+  it("does not apply item Energy to bow skills", () => {
+    component.selectedClass = "amazon";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.basicAttackDamage = 100;
+    component.ownedSkills = ["Multiple Shot"];
+    component.skillLevels = { "Multiple Shot": 1 };
+    component.equipment.weapon = { name: "Short Bow", baseName: "Short Bow", slot: "weapon" } as any;
+    component.equipment.shield = null;
+    component.equipment.helmet = {
+      id: "energy-helm", name: "Helm of Focus", baseName: "Helm", rarity: "magic",
+      slot: "armor", equipmentType: "helmet", desc: "A helm that focuses spell power.",
+      stats: { plusEnergy: 25 },
+    } as any;
+    component.enemies = [{ x: 300, y: 250, r: 14, hp: 1000 } as any];
+    component.attackProjectiles = [];
+
+    component.activateOwnedSkill("Multiple Shot");
+
+    expect(component.attackProjectiles.length).toBeGreaterThan(0);
+    expect(component.attackProjectiles.every((projectile) => projectile.damage === 150)).toBeTrue();
+  });
+
   it("drops only named items whose required level fits the hero", () => {
     component.playerLevel = 5;
     spyOn(Math, "random").and.returnValue(0.001);
@@ -3987,6 +5283,123 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(marks.length).toBe(0);
   });
 
+  it("gives Sand Maggots a poison goo spit and a melee bite", () => {
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.playerHp = 200;
+    component.playerMaxHp = 200;
+    component.attackProjectiles = [];
+    component.maggotEggs = [];
+    const farMaggot = {
+      kind: "normal", species: "sandMaggot", spriteFrame: 0, x: 430, y: 250,
+      hp: 100, maxHp: 100, speed: 0, r: 14, dmg: 6, cd: 0,
+      burrowCooldown: 99, eggCooldown: 99, animationState: "idle", facingX: -1, facingY: 0,
+    } as any;
+    component.enemies = [farMaggot];
+
+    component.updateEnemies(16);
+
+    expect(farMaggot.spriteBlock).toBe(2);
+    expect(farMaggot.animationState).toBe("attack");
+    expect(component.attackProjectiles).toHaveSize(1);
+    expect(component.attackProjectiles[0].missileId).toBe("d2-sandmaggotgoospit");
+    expect(component.attackProjectiles[0].damageType).toBe("poison");
+    expect(component.attackProjectiles[0].poison).toBeTrue();
+
+    // The projectile itself applies the poison when it reaches the hero.
+    component.attackProjectiles = [{
+      targetPlayer: true, source: farMaggot, poison: true,
+      x: 250, y: 250, startX: 250, startY: 250, targetX: 250, targetY: 250,
+      speed: 100, damage: 3, life: 1, age: 0, radius: 6, color: "#9bdb56", kind: "fire",
+    } as any];
+    (component as any).updateAttackProjectiles(16);
+    expect(component.playerPoisonRemaining).toBeGreaterThan(0);
+
+    const nearMaggot = {
+      kind: "normal", species: "sandMaggot", spriteFrame: 0, x: 260, y: 250,
+      hp: 100, maxHp: 100, speed: 0, r: 14, dmg: 6, cd: 0,
+      burrowCooldown: 99, eggCooldown: 99, animationState: "idle", facingX: -1, facingY: 0,
+    } as any;
+    component.enemies = [nearMaggot];
+    component.attackProjectiles = [];
+    const hpBeforeBite = component.playerHp;
+
+    component.updateEnemies(16);
+
+    expect(nearMaggot.spriteBlock).toBe(1);
+    expect(component.attackProjectiles).toHaveSize(0);
+    expect(component.playerHp).toBeLessThan(hpBeforeBite);
+  });
+
+  it("turns the life orb green for the full Sand Maggot poison duration", () => {
+    component.playerHp = 200;
+    component.playerMaxHp = 200;
+    component.runActive = true;
+    (component as any).applyPlayerPoison({ dmg: 6 } as any);
+
+    expect(component.playerPoisonRemaining).toBe(6);
+    expect(component.isPlayerPoisoned).toBeTrue();
+
+    (component as any).tickPlayerPoison(1000);
+    expect(component.playerHp).toBeLessThan(200);
+    expect(component.isPlayerPoisoned).toBeTrue();
+
+    (component as any).tickPlayerPoison(5100);
+    expect(component.playerPoisonRemaining).toBe(0);
+    expect(component.isPlayerPoisoned).toBeFalse();
+  });
+
+  it("burrows wounded Sand Maggots and surfaces closer to the hero", () => {
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    const maggot = {
+      kind: "normal", species: "sandMaggot", spriteFrame: 0, x: 470, y: 250,
+      hp: 20, maxHp: 100, speed: 80, r: 14, dmg: 6, cd: 2,
+      burrowCooldown: 0, eggCooldown: 99, animationState: "move", facingX: -1, facingY: 0,
+    } as any;
+    component.enemies = [maggot];
+    const distanceBefore = Math.hypot(maggot.x - component.playerX, maggot.y - component.playerY);
+
+    component.updateEnemies(16);
+    expect(maggot.burrowRemaining).toBeGreaterThan(0);
+    expect(maggot.spriteBlock).toBe(3);
+
+    component.updateEnemies(900);
+    const distanceAfter = Math.hypot(maggot.x - component.playerX, maggot.y - component.playerY);
+    expect(distanceAfter).toBeLessThan(distanceBefore);
+
+    component.updateEnemies(900);
+    expect(maggot.burrowRemaining).toBe(0);
+    expect(maggot.spriteBlock).toBe(0);
+  });
+
+  it("lays eggs that hatch into Sand Maggot Young", () => {
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.enemies = [];
+    component.maggotEggs = [];
+    component.attackProjectiles = [];
+    const maggot = {
+      kind: "normal", species: "sandMaggot", spriteFrame: 0, x: 430, y: 250,
+      hp: 100, maxHp: 100, speed: 0, r: 14, dmg: 6, cd: 0,
+      burrowCooldown: 99, eggCooldown: 0, animationState: "idle", facingX: -1, facingY: 0,
+    } as any;
+    component.enemies = [maggot];
+
+    component.updateEnemies(16);
+
+    expect(maggot.spriteBlock).toBe(2);
+    expect(component.maggotEggs).toHaveSize(1);
+    expect(component.attackProjectiles).toHaveSize(0);
+
+    (component as any).updateMaggotEggs(10);
+    expect(component.maggotEggs).toHaveSize(0);
+    expect(component.enemies.some((enemy) => enemy.species === "sandMaggotYoung")).toBeTrue();
+  });
+
   it("shows the Cyclone Armor aura only while the timed shield is active", () => {
     component.selectedClass = "druid";
     component.ownedSkills = ["Cyclone Armor"];
@@ -4039,6 +5452,87 @@ describe("D2SurvivorsComponent combat and equipment", () => {
 
     (component as any).updateAutomaticSkillCasts((recastDelay + 0.05) * 1000);
     expect((component as any).cycloneArmorRemaining).toBe(durationFor(1));
+  });
+
+  it("runs Holy Shield as a timed base-Defense buff instead of an attack", () => {
+    component.selectedClass = "paladin";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.ownedSkills = ["Holy Shield"];
+    component.skillLevels = { "Holy Shield": 1 };
+    component.equipment = { ...component.equipment, shield: {
+      id: "test-shield", name: "Buckler", baseName: "Buckler", slot: "armor",
+      equipmentType: "shield", stats: { armor: 20 },
+    } as any };
+    component.enemies = [{ kind: "normal", species: "fallen", spriteFrame: 0, x: 270, y: 250, hp: 100, maxHp: 100, speed: 0, r: 14, dmg: 2 } as any];
+    component.attackProjectiles = [];
+    (component as any).holyShieldRemaining = 0;
+    (component as any).skillCastCooldowns = {};
+
+    expect((component as any).weaponRequirementForSkill("Holy Shield")).toBe("shield");
+    expect((component as any).getSkillRankStats("Holy Shield", "strike", 1)).toContain("+20 base Defense while active");
+    expect((component as any).getSkillRankStats("Holy Shield", "strike", 1)).toContain("Active for 12.0s when cast");
+
+    const baseArmor = component.equippedArmor;
+    const baseDamage = (component as any).applyIncomingDamage(100);
+    component.activateOwnedSkill("Holy Shield");
+
+    expect((component as any).holyShieldRemaining).toBe(12);
+    expect(component.attackProjectiles).toHaveSize(0);
+    expect(component.enemies[0].hp).toBe(100);
+    expect(component.equippedArmor).toBe(baseArmor + 20);
+    expect((component as any).applyIncomingDamage(100)).toBeLessThan(baseDamage);
+
+    (component as any).updateSkillVisualEffects(12_100);
+    expect((component as any).holyShieldRemaining).toBe(0);
+    expect(component.equippedArmor).toBe(baseArmor);
+    expect(component.skillCastCooldowns["Holy Shield"]).toBe(8);
+
+    (component as any).updateAutomaticSkillCasts(8_100);
+    expect((component as any).holyShieldRemaining).toBe(12);
+  });
+
+  it("mounts the original D2R Holy Shield design over the paladin's shield while active", () => {
+    component.selectedClass = "paladin";
+    component.ownedSkills = ["Holy Shield"];
+    component.skillLevels = { "Holy Shield": 1 };
+    const shieldItem = {
+      id: "holy-shield-test", name: "Buckler", baseName: "Buckler", slot: "armor",
+      equipmentType: "shield", stats: { armor: 20 },
+    } as any;
+    component.equipment = { ...component.equipment, shield: shieldItem };
+
+    const shieldArt = new THREE.Texture();
+    shieldArt.image = { width: 100, height: 120 };
+    const holyArt = new THREE.Texture();
+    holyArt.image = { width: 320, height: 320 };
+    (component as any).equippedItemArtTextures.set(component.inventoryItemImage(shieldItem), shieldArt);
+    (component as any).equippedItemArtTextures.set("assets/d2survivors/auras/paladin/holy-shield.png", holyArt);
+
+    const model = new THREE.Group();
+    const shieldAttach = new THREE.Bone();
+    shieldAttach.name = "shield_attach";
+    model.add(shieldAttach);
+    (component as any).configureClassMeleeWeapon(model, "paladin");
+
+    const shield = shieldAttach.children.find((child) => child.name === "equipped_shield_shield") as THREE.Group;
+    const overlay = shield?.getObjectByName("holy_shield_overlay") as THREE.Group;
+    expect(overlay).toBeDefined();
+    expect(overlay.visible).toBeFalse();
+    expect(overlay.children).toHaveSize(2);
+    for (const face of overlay.children as THREE.Mesh[]) {
+      expect(face.geometry).toBeInstanceOf(THREE.PlaneGeometry);
+      expect((face.material as THREE.MeshBasicMaterial).map).toBe(holyArt);
+    }
+
+    (component as any).holyShieldRemaining = 5;
+    (component as any).syncHolyShieldVisual();
+    expect(overlay.visible).toBeTrue();
+
+    (component as any).holyShieldRemaining = 0;
+    (component as any).syncHolyShieldVisual();
+    expect(overlay.visible).toBeFalse();
   });
 
   it("draws the back and front Cyclone Armor bands from the imported DCC sheet", () => {
@@ -4126,6 +5620,51 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(PALADIN_AURA_ART["Vigor"].path).toContain("vigor.png");
     expect(PALADIN_AURA_ART["Resist Fire"].frontRow).toBe(0);
     expect(PALADIN_AURA_ART["Resist Cold"].backRow).toBe(0);
+  });
+
+  it("scales Vigor's duration and movement speed with its rank", () => {
+    component.selectedClass = "paladin";
+    component.runActive = true;
+    (component as any).worldZoom = 1;
+    component.skillLevels = { Vigor: 1 };
+    (component as any).activePaladinAuras["Vigor"] = { remaining: 100, tick: 0 };
+    component.keysDown.add("d");
+
+    component.movePlayer(1000);
+    const rankOneStep = (component as any).playerMoveX as number;
+    const rankOneDuration = (component as any).paladinAuraDuration("Vigor") as number;
+
+    component.skillLevels["Vigor"] = 6;
+    (component as any).playerMoveX = 0;
+    (component as any).playerMoveY = 0;
+    component.movePlayer(1000);
+    const rankSixStep = (component as any).playerMoveX as number;
+    const rankSixDuration = (component as any).paladinAuraDuration("Vigor") as number;
+
+    expect(rankOneDuration).toBe(10);
+    expect(rankSixDuration).toBe(20);
+    expect(rankSixStep / rankOneStep).toBeCloseTo(1.24 / 1.04, 5);
+
+    const stats = (component as any).getSkillRankStats("Vigor", "aura", 6) as string[];
+    expect(stats).toContain("Active duration: 20.00s");
+    expect(stats).toContain("While active: +24% movement speed");
+  });
+
+  it("extends a running Vigor aura when a skill point raises its rank", () => {
+    component.selectedClass = "paladin";
+    component.playerLevel = 30;
+    component.ownedSkills = ["Prayer", "Cleansing", "Defiance", "Vigor"];
+    component.skillLevels = { Vigor: 1 };
+    component.pendingLevelUps = 1;
+    component.upgradeChoices = [{ id: "class-skill:Vigor", name: "Vigor", kind: "class-skill" } as any];
+    (component as any).activePaladinAuras["Vigor"] = { remaining: 5, tick: 0 };
+    spyOnProperty(component, "availableClassSkills", "get").and.returnValue([{ name: "Vigor" } as any]);
+    spyOn(component as any, "persistRunProgress");
+
+    component.chooseLevelUpgrade(component.upgradeChoices[0]);
+
+    expect(component.skillLevels["Vigor"]).toBe(2);
+    expect((component as any).activePaladinAuras["Vigor"].remaining).toBeCloseTo(7, 5);
   });
 
   it("preloads and decodes every paladin aura during the menu warm-up", () => {
@@ -5270,6 +6809,45 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(spriteSmoothing).toBeFalse();
   });
 
+  it("plays Mephisto's real walk band in the correct facing while he moves", () => {
+    component.currentAct = 3;
+    component.playerX = 250;
+    component.playerY = 250;
+    const mephisto = (component as any).makeEnemy("boss", true, "mephisto");
+    mephisto.x = 260;
+    mephisto.y = 250;
+    mephisto.facingX = 1;
+    mephisto.facingY = 0;
+    mephisto.animationState = "move";
+
+    const frame = document.createElement("canvas");
+    frame.width = 307;
+    frame.height = 309;
+    (component as any).enemySprites.mephisto = {
+      frames: Array.from({ length: 24 }, () => Array.from({ length: 18 }, () => frame)),
+      columns: 18,
+      rows: 24,
+      animated: true,
+    };
+    const tinted = spyOn(component as any, "tintedEnemyFrame").and.callFake(
+      (_species: string, _direction: number, _frameIndex: number, source: HTMLCanvasElement) => source,
+    );
+    spyOn(component as any, "projectArenaPoint").and.returnValue({ x: 400, y: 300 });
+    const canvas = document.createElement("canvas");
+    canvas.width = 800;
+    canvas.height = 600;
+
+    (component as any).drawEnemy(canvas.getContext("2d")!, mephisto);
+
+    // East-facing movement uses the DCC-ordered row 7 inside the walk block
+    // (row 8), and the loop must stay within MP's thirteen-frame walk clip
+    // instead of wandering into the repeated filler columns.
+    const [species, direction, frameIndex] = tinted.calls.mostRecent().args;
+    expect(species).toBe("mephisto");
+    expect(direction).toBe(15);
+    expect(frameIndex).toBeLessThan(13);
+  });
+
   it("ignores matching elemental damage while still taking other elements", () => {
     component.floatingTexts = [];
     const enemy = {
@@ -5381,6 +6959,58 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     const campaignFallen = (component as any).makeEnemy("normal", false, "fallen");
     component.hoveredEnemy = campaignFallen;
     expect(component.getEnemyImmunityLabel(campaignFallen)).toBe("");
+  });
+
+  it("paints a floating enemy health bar only while that enemy is focused", () => {
+    const enemy = {
+      kind: "normal", species: "fallen", x: 250, y: 250,
+      hp: 50, maxHp: 100, r: 14, dmg: 2, speed: 80, cd: 0,
+    } as any;
+    const fillRect = jasmine.createSpy("fillRect");
+    const ctx = { fillRect } as unknown as CanvasRenderingContext2D;
+
+    component.hoveredEnemy = null;
+    component.drawHpBar(ctx, enemy, "#8a94a6", 60, { x: 100, y: 120 });
+    expect(fillRect).not.toHaveBeenCalled();
+
+    component.hoveredEnemy = enemy;
+    component.drawHpBar(ctx, enemy, "#8a94a6", 60, { x: 100, y: 120 });
+    expect(fillRect).toHaveBeenCalledTimes(2);
+  });
+
+  it("shows the enemy under a finger while a touch press is held", () => {
+    component.activeTab = "run";
+    component.runActive = true;
+    component.playerX = 100;
+    component.playerY = 100;
+    const canvas = document.createElement("canvas");
+    canvas.width = 500;
+    canvas.height = 500;
+    spyOn(canvas, "getBoundingClientRect").and.returnValue({
+      left: 0, top: 0, right: 500, bottom: 500, width: 500, height: 500, x: 0, y: 0,
+      toJSON: () => ({}),
+    } as DOMRect);
+    (component as any).arenaRef = { nativeElement: canvas };
+    spyOn(component as any, "projectArenaPoint").and.returnValue({ x: 250, y: 250 });
+    const enemy = {
+      kind: "normal", species: "fallen", x: 250, y: 250,
+      hp: 50, maxHp: 100, r: 14, dmg: 2, speed: 80, cd: 0,
+      facingX: 0, facingY: 1, animationState: "idle", spriteFrame: 0,
+    } as any;
+    component.enemies = [enemy];
+    const event = {
+      pointerType: "touch", pointerId: 7, button: 0,
+      clientX: 250, clientY: 250, target: canvas,
+      preventDefault: jasmine.createSpy("preventDefault"),
+    } as unknown as PointerEvent;
+
+    component.onArenaPointerDown(event);
+
+    expect(component.hoveredEnemy).toBe(enemy);
+    expect((component as any).joystickPointerId).toBe(7);
+
+    component.onArenaPointerEnd(event);
+    expect(component.hoveredEnemy).toBeNull();
   });
 
   it("casts Molten Boulder as two straight rolling boulders", () => {

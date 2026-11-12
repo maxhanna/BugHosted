@@ -50,6 +50,11 @@ DEFAULT_FRAME_MS = 60
 # be imported harmlessly, but `null.dcc` is genuinely empty.
 SKIP_STEMS = {"null"}
 
+# A few Baal-era skill effects live in `global/overlays` rather than the missile
+# tree. Keep this whitelist explicit so the tool never sweeps in unrelated
+# UI/status overlays.
+OVERLAY_STEMS = {"cursedecrepifyeffect"}
+
 # Which palette the missile cels use. `units` is the shared creature/missile
 # palette; Blizzard stores it BGR, so swap the channels for Pillow.
 PALETTE_PATH = ("global", "palette", "units", "pal.dat")
@@ -68,6 +73,11 @@ def find_sources(source: Path) -> list[Path]:
         # `expansion/` and `extra/` hold the later acts; prefer them when a base
         # file shares the name, then keep the first path seen otherwise.
         if stem not in found or path.parent.name in ("expansion", "extra"):
+            found[stem] = path
+    overlay_root = source / "global" / "overlays"
+    for path in sorted(overlay_root.rglob("*.dcc")):
+        stem = path.stem.lower()
+        if stem in OVERLAY_STEMS:
             found[stem] = path
     return [found[stem] for stem in sorted(found)]
 

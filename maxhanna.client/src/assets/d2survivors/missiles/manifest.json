@@ -733,10 +733,10 @@
   },
   "d2-baalteleport": {
     "dccName": "baalteleport",
-    "encodedFrames": 20,
+    "encodedFrames": 19,
     "frameDirectory": "d2-baalteleport",
     "frameDurationMs": 60,
-    "frames": 20,
+    "frames": 19,
     "height": 128,
     "source": "d2r extract missile dcc",
     "width": 160
@@ -1390,6 +1390,16 @@
     "height": 100,
     "source": "d2r extract missile dcc",
     "width": 96
+  },
+  "d2-cursedecrepifyeffect": {
+    "dccName": "cursedecrepifyeffect",
+    "encodedFrames": 24,
+    "frameDirectory": "d2-cursedecrepifyeffect",
+    "frameDurationMs": 60,
+    "frames": 24,
+    "height": 65,
+    "source": "d2r extract missile dcc",
+    "width": 84
   },
   "d2-curseeffectred": {
     "dccName": "curseeffectred",

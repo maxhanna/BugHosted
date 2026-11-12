@@ -31,6 +31,7 @@ from pathlib import Path
 
 from PIL import Image
 
+import d2r_dc6 as dc6
 import d2r_dcc as dcc
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -48,7 +49,7 @@ SPECIES: dict[str, tuple[str, str, int, int]] = {
     "skeletonWarrior": ("SK", "skeleton-warrior.png", 16, 16),
     "golem": ("G1", "golem.png", 16, 16),
     "sandRaider": ("SR", "raider.png", 21, 16),
-    "sandMaggot": ("SM", "maggot.png", 18, 16),
+    "sandMaggot": ("SM", "maggot.png", 18, 32),
     "sandMaggotYoung": ("SB", "sand-maggot-young.png", 18, 16),
     "sandMaggotQueen": ("MQ", "maggot-queen.png", 18, 16),
     "scarab": ("SC", "scarab.png", 16, 16),
@@ -101,7 +102,22 @@ NEW_SPECIES: dict[str, tuple[str, str, int, int, int]] = {
 COMPOSIT_ROWS = ("hd", "tr", "lg", "ra", "la", "rh", "lh", "sh",
                  "s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8")
 # Species built from layered COFs instead of the flat `tr` body DCC.
-COF_SPECIES = {"vileChild", "vileMother", "minotaur", "baalsMinion"}
+COF_SPECIES = {
+    "vileChild", "vileMother", "minotaur", "baalsMinion",
+    # Fetish and Bone Fetish keep their weapon in the `rh` layer, and the
+    # Council's idle/walk/attack clips have different lengths. Flattening the
+    # COFs keeps every part and its original timing.
+    "fetish", "boneFetish", "council",
+}
+
+# Some monster families use numbered COF names (`fknu1hs.cof`) or label the
+# hand-to-hand clips `hth` while still recording a 1hs weapon layer. Name the
+# exact COF used by each rebuilt animation so those files are not guessed.
+COF_NAMES: dict[str, dict[str, str]] = {
+    "fetish": {"nu": "fenuhth.cof", "wl": "fewlhth.cof", "a1": "fea1hth.cof"},
+    "boneFetish": {"nu": "fknu1hs.cof", "wl": "fkwl1hs.cof", "a1": "fka11hs.cof"},
+    "council": {"nu": "hpnuhth.cof", "wl": "hpwlhth.cof", "a1": "hpa1hth.cof"},
+}
 
 # Variant folders in preference order: the plain "tr" animation is the one the
 # game shows for ordinary monsters; the HD folders only hold some monsters.
@@ -287,10 +303,11 @@ CURRENT_PALETTE: list[tuple[int, int, int]] = []
 
 # `units/pal.dat` stores its triples as BGR, but the historical importer read
 # them straight into (red, green, blue). Every other sheet was generated that
-# way and is tuned around it, so only Andariel is rebuilt with the channels
-# corrected: the swap turned her warm red-and-gold palette into the blue sheet
-# the arena used to draw.
-BGR_FIXED_SPECIES = {"andariel", "duriel"}
+# way and is tuned around it, so only the species below are rebuilt with the
+# channels corrected. The swap turned Andariel's warm red-and-gold palette into
+# blue; it did the same to the Fetish's brown skin, the Bone Fetish's leather
+# straps and the Council's red robes.
+BGR_FIXED_SPECIES = {"andariel", "duriel", "fetish", "boneFetish", "council", "mephisto"}
 
 
 def fit_into(canvas: Image.Image, width: int, height: int) -> Image.Image:
@@ -340,8 +357,11 @@ def build_species(source: Path, species: str) -> str:
     walk_frames = min(walk["frames_per_dir"], columns)
     for direction in range(directions):
         row = walk_block * 8 + direction
-        for frame in range(walk_frames):
-            paste(frame_crop(walk, direction, frame), frame, row)
+        for frame in range(columns):
+            # Every column is filled. The Siege Beast's OX walk clip has only
+            # eight real cels while the atlas reserves eighteen; leaving the
+            # rest transparent made the monster vanish for most of its walk.
+            paste(frame_crop(walk, direction, frame % walk_frames), frame, row)
         if blocks >= 3:
             # Idle block: the renderer reads rows 0-7 while standing still, so a
             # three-block sheet needs the neutral pose there as well.
@@ -351,8 +371,10 @@ def build_species(source: Path, species: str) -> str:
         attack_frames = min(attack["frames_per_dir"], columns)
         for direction in range(min(directions, attack["directions"])):
             row = attack_block * 8 + direction
-            for frame in range(attack_frames):
-                paste(frame_crop(attack, direction, frame), frame, row)
+            for frame in range(columns):
+                # Same guard for short attack clips: OX has nine strike cels,
+                # so the unused atlas columns repeat the real animation.
+                paste(frame_crop(attack, direction, frame % attack_frames), frame, row)
 
     expected = (existing.width, existing.height)
     sheet.save(destination)
@@ -437,7 +459,17 @@ def build_composite_species(source: Path, species: str) -> str:
 
 
 def build_composite_rebuild(source: Path, species: str) -> str:
-    """Rebuild an existing multi-block sheet from its layered COF animations."""
+    """Rebuild an existing multi-block sheet from its layered COF animations.
+
+    The idle, walk and attack clips share one scale and one DCC-space origin per
+    facing.  Without that shared origin each frame is centred independently and
+    the creature visibly jitters as its weapon or limbs change the frame box.
+
+    Every atlas column is filled.  A short clip repeats from its first cel once
+    its real frames are exhausted, so a loop over the atlas width can never land
+    on a transparent cel and make the monster disappear; the runtime separately
+    loops only the real frame count.
+    """
     code, out_name, columns, rows = SPECIES[species]
     destination = ASSET_ROOT / out_name
     if not destination.is_file():
@@ -447,49 +479,268 @@ def build_composite_rebuild(source: Path, species: str) -> str:
     cell_height = existing.height // rows
 
     monster_dir = source / "global" / "monsters" / code
-    idle = load_cof_animation(monster_dir, code, "nu")
-    walk = load_cof_animation(monster_dir, code, "wl")
-    attack = load_cof_animation(monster_dir, code, "a1")
+    cof_names = COF_NAMES.get(species, {})
+    idle = load_cof_animation(monster_dir, code, "nu", cof_names.get("nu"))
+    walk = load_cof_animation(monster_dir, code, "wl", cof_names.get("wl"))
+    attack = load_cof_animation(monster_dir, code, "a1", cof_names.get("a1"))
     if walk is None:
         return f"skip {species}: no layered walk for {code}"
+    idle_source = idle or walk
 
-    sheet = Image.new("RGBA", existing.size, (0, 0, 0, 0))
     blocks = max(1, rows // 8)
     walk_block = 1 if blocks >= 3 else 0
     attack_block = walk_block + 1 if blocks >= 2 else 0
-
-    def paste(image: Image.Image, column: int, row: int) -> None:
-        scaled = fit_into(image, cell_width, cell_height)
-        left = column * cell_width + (cell_width - scaled.width) // 2
-        top = row * cell_height + (cell_height - scaled.height) // 2
-        sheet.alpha_composite(scaled, (left, top))
-
-    idle_frames = 0
-    if blocks >= 3:
-        idle_source = idle or walk
-        idle_frames = min(idle_source["frames"], columns)
-        for direction in range(min(8, idle_source["directions"])):
-            for frame in range(idle_frames):
-                paste(composite_frame(idle_source, direction, frame), frame, direction)
-
-    walk_frames = min(walk["frames"], columns)
-    for direction in range(min(8, walk["directions"])):
-        for frame in range(walk_frames):
-            paste(composite_frame(walk, direction, frame), frame, walk_block * 8 + direction)
-
-    attack_frames = 0
+    clips = [("idle", idle_source, 0 if blocks >= 3 else None)]
+    clips.append(("walk", walk, walk_block * 8))
     if attack is not None and rows >= 16:
-        attack_frames = min(attack["frames"], columns)
-        for direction in range(min(8, attack["directions"])):
-            for frame in range(attack_frames):
-                paste(composite_frame(attack, direction, frame), frame, attack_block * 8 + direction)
+        clips.append(("attack", attack, attack_block * 8))
 
-    sheet.save(destination)
+    # Union every clip's frame boxes per facing. The idle, walk and attack
+    # blocks then share the same origin, so switching state cannot make the
+    # sprite hop or slide inside its cel.
+    directions = min(8, *(animation["directions"] for _, animation, _ in clips))
+    if directions < 8:
+        return f"skip {species}: {code} has only {directions} directions"
+    direction_boxes = []
+    for direction in range(directions):
+        boxes = []
+        for _, animation, _ in clips:
+            for frame in range(min(animation["frames"], columns)):
+                _, box = composite_frame(animation, direction, frame, with_box=True)
+                boxes.append((box[0], box[1], box[0] + box[2], box[1] + box[3]))
+        direction_boxes.append((
+            min(box[0] for box in boxes), min(box[1] for box in boxes),
+            max(box[2] for box in boxes), max(box[3] for box in boxes),
+        ))
+
+    border = 2
+    widest = max(box[2] - box[0] for box in direction_boxes)
+    tallest = max(box[3] - box[1] for box in direction_boxes)
+    scale = min(
+        (cell_width - border * 2) / widest,
+        (cell_height - border * 2) / tallest,
+    )
+    if scale <= 0:
+        return f"skip {species}: {code} frames do not fit {cell_width}x{cell_height}"
+
+    sheet = Image.new("RGBA", existing.size, (0, 0, 0, 0))
+    for clip_name, animation, row_start in clips:
+        if row_start is None:
+            continue
+        frame_count = min(animation["frames"], columns)
+        for direction in range(min(directions, animation["directions"])):
+            xmin, ymin, xmax, ymax = direction_boxes[direction]
+            offset_x = (cell_width - (xmax - xmin) * scale) / 2 - xmin * scale
+            offset_y = (cell_height - border) - ymax * scale
+            for column in range(columns):
+                # Columns outside the real clip repeat from the beginning. This
+                # keeps every cel of the sheet occupied, which is what stopped
+                # the old Fetish/Council sheets blinking out mid-walk.
+                frame = column % frame_count
+                image, box = composite_frame(animation, direction, frame, with_box=True)
+                width = max(1, round(image.width * scale))
+                height = max(1, round(image.height * scale))
+                image = image.resize(
+                    (width, height),
+                    Image.LANCZOS if scale < 1 else Image.NEAREST,
+                )
+                left = column * cell_width + round(box[0] * scale + offset_x)
+                top = (row_start + direction) * cell_height + round(box[1] * scale + offset_y)
+                if (left < column * cell_width or top < (row_start + direction) * cell_height
+                        or left + width > (column + 1) * cell_width
+                        or top + height > (row_start + direction + 1) * cell_height):
+                    raise ValueError(f"{species} {clip_name} frame {column} does not fit its cell")
+                sheet.alpha_composite(image, (left, top))
+
+    sheet.save(destination, optimize=True)
     check = Image.open(destination).size
     assert check == existing.size, f"{out_name} changed size {existing.size} -> {check}"
+    layer_counts = [len(animation["cof"]["layers"]) for _, animation, _ in clips]
     return (f"{species:16s} {code:3s} {out_name:24s} {check[0]}x{check[1]} cell {cell_width}x{cell_height} "
-            f"idle {idle_frames}f walk {walk_frames}f attack {attack_frames}f "
-            f"cof {len(walk['cof']['layers'])}/{len(attack['cof']['layers']) if attack else 0} layers")
+            f"idle {min(idle_source['frames'], columns)}f walk {min(walk['frames'], columns)}f "
+            f"attack {min(attack['frames'], columns) if attack else 0}f "
+            f"cof {'/'.join(str(count) for count in layer_counts)} layers")
+
+
+MEPHISTO_COLUMNS = 18
+MEPHISTO_CELL_WIDTH = 307
+MEPHISTO_CELL_HEIGHT = 309
+MEPHISTO_BORDER = 2
+MEPHISTO_BLOCKS = (("nu", 0), ("wl", 8), ("a1", 16))
+
+
+def find_layer_dc6(monster_dir: Path, code: str, layer: str, mode: str,
+                   wclass: str) -> Path | None:
+    """Find the DC6 for one COF component, preferring its lit variant.
+
+    Mephisto is one of the classic monsters whose composite layers were never
+    converted to DCC in the D2R extraction: `MP/tr`, `MP/ra` and `MP/la` hold
+    DC6 clips instead. The COF still records the same layer order as a DCC
+    monster, so the only difference is the decoder used for each layer.
+    """
+    layer_dir = monster_dir / layer
+    if not layer_dir.is_dir():
+        return None
+    prefix = f"{code.lower()}{layer.lower()}"
+    suffix = f"{wclass.lower()}.dc6"
+    candidates: list[tuple[int, str, Path]] = []
+    for path in layer_dir.glob("*.dc6"):
+        name = path.name.lower()
+        if not name.startswith(prefix) or mode not in name or not name.endswith(suffix):
+            continue
+        candidates.append((0 if "lit" in name else 1, name, path))
+    return sorted(candidates)[0][2] if candidates else None
+
+
+def load_cof_dc6_animation(monster_dir: Path, code: str, mode: str) -> dict | None:
+    """Load one Mephisto COF whose layers are classic DC6 cels."""
+    cof_path = monster_dir / "cof" / f"{code.lower()}{mode}hth.cof"
+    if not cof_path.is_file():
+        return None
+    try:
+        cof = parse_cof(cof_path)
+    except ValueError:
+        return None
+    layers = {}
+    for component, wclass in cof["layers"]:
+        if not 0 <= component < len(COMPOSIT_ROWS):
+            return None
+        path = find_layer_dc6(monster_dir, code, COMPOSIT_ROWS[component], mode, wclass)
+        if path is None:
+            return None
+        try:
+            layers[component] = dc6.parse(path.read_bytes())
+        except ValueError:
+            return None
+    if not layers:
+        return None
+    frames = min([cof["frames"]] + [layer["frames_per_dir"] for layer in layers.values()])
+    directions = min([cof["directions"]] + [layer["directions"] for layer in layers.values()])
+    return {"cof": cof, "layers": layers, "frames": frames, "directions": directions}
+
+
+def composite_dc6_frame(animation: dict, direction_index: int, frame_index: int,
+                        with_box: bool = False):
+    """Flatten one DC6 COF frame in its recorded back-to-front order.
+
+    DC6 stores a cel's top-left as `offsetX/offsetY`, so unlike the DCC path the
+    layer boxes can be unioned directly. Index 0 is transparent.
+    """
+    cof = animation["cof"]
+    layers = animation["layers"]
+    frame_index = min(frame_index, animation["frames"] - 1)
+    layer_count = len(cof["layers"])
+    order_start = (direction_index * cof["frames"] + frame_index) * layer_count
+    order = cof["order"][order_start:order_start + layer_count]
+    boxes = []
+    for component in order:
+        layer = layers.get(component)
+        if layer is not None and direction_index < layer["directions"]:
+            frame = layer["frames"][direction_index * layer["frames_per_dir"] + frame_index]
+            boxes.append((frame["offsetX"], frame["offsetY"],
+                          frame["offsetX"] + frame["width"],
+                          frame["offsetY"] + frame["height"]))
+    if not boxes:
+        empty = Image.new("RGBA", (1, 1), (0, 0, 0, 0))
+        return (empty, (0, 0, 1, 1)) if with_box else empty
+    xmin = min(box[0] for box in boxes)
+    ymin = min(box[1] for box in boxes)
+    xmax = max(box[2] for box in boxes)
+    ymax = max(box[3] for box in boxes)
+    canvas = Image.new("RGBA", (xmax - xmin, ymax - ymin), (0, 0, 0, 0))
+    for component in order:
+        layer = layers.get(component)
+        if layer is None or direction_index >= layer["directions"]:
+            continue
+        frame = layer["frames"][direction_index * layer["frames_per_dir"] + frame_index]
+        image = dc6.frame_image(frame, CURRENT_PALETTE)
+        canvas.alpha_composite(image, (frame["offsetX"] - xmin, frame["offsetY"] - ymin))
+    return (canvas, (xmin, ymin, xmax - xmin, ymax - ymin)) if with_box else canvas
+
+
+def build_mephisto(source: Path) -> str:
+    """Rebuild Mephisto from the MP idle, walk and attack DC6 composites.
+
+    The old sheet repeated one neutral pose in all thirteen walk columns, so the
+    boss slid across the arena without a step cycle. MP keeps three layers
+    (torso, right arm, left arm) as lit DC6 cels, not DCCs, so flatten every COF
+    frame in its recorded order and keep the existing 18x24 geometry.
+    """
+    monster_dir = source / "global" / "monsters" / "MP"
+    global CURRENT_PALETTE
+    previous = CURRENT_PALETTE
+    CURRENT_PALETTE = load_units_palette(source / "global" / "palette" / "units" / "pal.dat")
+    try:
+        animations = {}
+        for mode in ("nu", "wl", "a1"):
+            animation = load_cof_dc6_animation(monster_dir, "MP", mode)
+            if animation is None:
+                raise ValueError(f"Mephisto {mode} DC6 COF is incomplete")
+            if animation["directions"] < 8:
+                raise ValueError(f"Mephisto {mode} COF has {animation['directions']} directions")
+            animations[mode] = animation
+
+        # Union every clip per facing. The idle, walk and attack blocks then
+        # share one DC6-space origin, so the arms cannot make the body jump from
+        # frame to frame. Keep the native 1:1 scale: the source cels already fit
+        # the 307x309 runtime cell and enlarging them would change his presence.
+        direction_boxes = []
+        for direction in range(8):
+            boxes = []
+            for animation in animations.values():
+                for frame in range(animation["frames"]):
+                    _, box = composite_dc6_frame(animation, direction, frame, with_box=True)
+                    boxes.append((box[0], box[1], box[0] + box[2], box[1] + box[3]))
+            direction_boxes.append((
+                min(box[0] for box in boxes), min(box[1] for box in boxes),
+                max(box[2] for box in boxes), max(box[3] for box in boxes),
+            ))
+
+        widest = max(box[2] - box[0] for box in direction_boxes)
+        tallest = max(box[3] - box[1] for box in direction_boxes)
+        scale = min(
+            1.0,
+            (MEPHISTO_CELL_WIDTH - MEPHISTO_BORDER * 2) / widest,
+            (MEPHISTO_CELL_HEIGHT - MEPHISTO_BORDER * 2) / tallest,
+        )
+
+        sheet = Image.new("RGBA", (MEPHISTO_COLUMNS * MEPHISTO_CELL_WIDTH,
+                                   24 * MEPHISTO_CELL_HEIGHT), (0, 0, 0, 0))
+        for mode, row_start in MEPHISTO_BLOCKS:
+            animation = animations[mode]
+            frame_count = min(animation["frames"], MEPHISTO_COLUMNS)
+            for direction, (xmin, ymin, xmax, ymax) in enumerate(direction_boxes):
+                row = row_start + direction
+                # Centre each facing horizontally and keep the original top
+                # margin. The old sheet anchored its art at y=3, and the runtime
+                # draws the cell as a whole, so preserving that anchor keeps his
+                # feet at the same screen height.
+                offset_x = (MEPHISTO_CELL_WIDTH - (xmax - xmin) * scale) / 2 - xmin * scale
+                offset_y = MEPHISTO_BORDER - ymin * scale
+                for column in range(MEPHISTO_COLUMNS):
+                    image, box = composite_dc6_frame(animation, direction, column % frame_count,
+                                                     with_box=True)
+                    width = max(1, round(image.width * scale))
+                    height = max(1, round(image.height * scale))
+                    left = column * MEPHISTO_CELL_WIDTH + round(box[0] * scale + offset_x)
+                    top = row * MEPHISTO_CELL_HEIGHT + round(box[1] * scale + offset_y)
+                    if (left < column * MEPHISTO_CELL_WIDTH or top < row * MEPHISTO_CELL_HEIGHT
+                            or left + width > (column + 1) * MEPHISTO_CELL_WIDTH
+                            or top + height > (row + 1) * MEPHISTO_CELL_HEIGHT):
+                        raise ValueError(f"Mephisto {mode} frame {column} does not fit its cell")
+                    resample = Image.LANCZOS if scale < 1 else Image.NEAREST
+                    sheet.alpha_composite(image.resize((width, height), resample), (left, top))
+
+        destination = ASSET_ROOT / "mephisto.png"
+        sheet.save(destination, optimize=True)
+        return (f"{'mephisto':16s} MP  mephisto.png             {sheet.width}x{sheet.height} "
+                f"cell {MEPHISTO_CELL_WIDTH}x{MEPHISTO_CELL_HEIGHT} "
+                f"idle {min(animations['nu']['frames'], MEPHISTO_COLUMNS)}f "
+                f"walk {min(animations['wl']['frames'], MEPHISTO_COLUMNS)}f "
+                f"attack {min(animations['a1']['frames'], MEPHISTO_COLUMNS)}f "
+                f"cof {len(animations['wl']['cof']['layers'])} dc6 layers")
+    finally:
+        CURRENT_PALETTE = previous
 
 
 DIABLO_COLUMNS = 14
@@ -746,6 +997,102 @@ def build_duriel(source: Path) -> str:
         CURRENT_PALETTE = previous
 
 
+SAND_MAGGOT_COLUMNS = 18
+SAND_MAGGOT_CELL = 120
+SAND_MAGGOT_BLOCKS = (("wl", 8, 0), ("a1", 18, 8), ("a2", 10, 16), ("s1", 12, 24))
+
+
+def build_sand_maggot(source: Path) -> str:
+    """Rebuild the Sand Maggot with its bite, poison spit and burrow bands.
+
+    The old sheet held only the walk and ``a1`` bite, so the arena had no
+    original art for either the goo spit or the ``s1`` burrow.  Diablo II keeps
+    those as separate COF/DCC animations; stack all four sequences into one
+    thirty-two-row atlas so the runtime can select a block without swapping
+    images.  ``s1`` is a layered COF (body plus the dirt spray), so it is
+    flattened the same way as the boss composites above.
+    """
+    monster_dir = source / "global" / "monsters" / "sm"
+    global CURRENT_PALETTE
+    previous = CURRENT_PALETTE
+    CURRENT_PALETTE = dcc.load_palette(source / "global" / "palette" / "units" / "pal.dat")
+    try:
+        animations = {
+            "wl": dcc.parse((monster_dir / "tr" / "smtrlitwlhth.dcc").read_bytes()),
+            "a1": dcc.parse((monster_dir / "tr" / "smtrlita1hth.dcc").read_bytes()),
+            "a2": dcc.parse((monster_dir / "tr" / "smtrlita2hth.dcc").read_bytes()),
+            "s1": load_cof_animation(monster_dir, "SM", "s1"),
+        }
+        if animations["s1"] is None:
+            raise ValueError("SM burrow COF is incomplete")
+
+        sheet = Image.new(
+            "RGBA",
+            (SAND_MAGGOT_COLUMNS * SAND_MAGGOT_CELL, 32 * SAND_MAGGOT_CELL),
+            (0, 0, 0, 0),
+        )
+
+        def paste(image: Image.Image, column: int, row: int) -> None:
+            scaled = fit_into(image, SAND_MAGGOT_CELL, SAND_MAGGOT_CELL)
+            left = column * SAND_MAGGOT_CELL + (SAND_MAGGOT_CELL - scaled.width) // 2
+            top = row * SAND_MAGGOT_CELL + (SAND_MAGGOT_CELL - scaled.height) // 2
+            sheet.alpha_composite(scaled, (left, top))
+
+        frame_counts = {}
+        for mode, frame_count, row_start in SAND_MAGGOT_BLOCKS:
+            animation = animations[mode]
+            directions = min(8, animation["directions"])
+            frames = min(frame_count, animation["frames"] if mode == "s1" else animation["frames_per_dir"])
+            frame_counts[mode] = frames
+            for direction in range(directions):
+                for frame in range(frames):
+                    cel = (composite_frame(animation, direction, frame)
+                           if mode == "s1" else frame_crop(animation, direction, frame))
+                    paste(cel, frame, row_start + direction)
+
+        destination = ASSET_ROOT / "maggot.png"
+        sheet.save(destination, optimize=True)
+        return (f"{'sandMaggot':16s} SM  maggot.png              {sheet.width}x{sheet.height} "
+                f"cell {SAND_MAGGOT_CELL}x{SAND_MAGGOT_CELL} "
+                f"walk {frame_counts['wl']}f bite {frame_counts['a1']}f "
+                f"spit {frame_counts['a2']}f burrow {frame_counts['s1']}f")
+    finally:
+        CURRENT_PALETTE = previous
+
+
+def build_maggot_egg(source: Path) -> str:
+    """Build the Sand Maggot Egg atlas from the original ``eg`` composite.
+
+    ``egnuhth`` is the egg's neutral ten-frame pulse, flattened from the torso
+    and the glowing membrane layer.  Eight direction rows are kept even though
+    the egg is symmetric, matching every other enemy sheet in the arena.
+    """
+    egg_dir = source / "global" / "monsters" / "eg"
+    global CURRENT_PALETTE
+    previous = CURRENT_PALETTE
+    CURRENT_PALETTE = dcc.load_palette(source / "global" / "palette" / "units" / "pal.dat")
+    try:
+        animation = load_cof_animation(egg_dir, "eg", "nu", "egnuhth.cof")
+        if animation is None:
+            raise ValueError("EG neutral COF is incomplete")
+        columns = 12
+        cell = 120
+        frames = min(10, animation["frames"], columns)
+        sheet = Image.new("RGBA", (columns * cell, 8 * cell), (0, 0, 0, 0))
+        for direction in range(min(8, animation["directions"])):
+            for frame in range(frames):
+                image = composite_frame(animation, direction, frame)
+                scaled = fit_into(image, cell, cell)
+                left = frame * cell + (cell - scaled.width) // 2
+                top = direction * cell + (cell - scaled.height) // 2
+                sheet.alpha_composite(scaled, (left, top))
+        destination = ASSET_ROOT / "maggot-egg.png"
+        sheet.save(destination, optimize=True)
+        return (f"{'maggotEgg':16s} EG  maggot-egg.png          {sheet.width}x{sheet.height} "
+                f"cell {cell}x{cell} neutral {frames}f")
+    finally:
+        CURRENT_PALETTE = previous
+
 SKELETON_WALK_COF = "skwl1hs.cof"
 SKELETON_ATTACK_COF = "ska11hs.cof"
 SKELETON_SCALE = 1
@@ -897,6 +1244,8 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--list", action="store_true")
     parser.add_argument("--mage", action="store_true",
                         help="build the four elemental skeletal mage atlases")
+    parser.add_argument("--maggot", action="store_true",
+                        help="build the Sand Maggot walk/bite/spit/burrow atlas and egg atlas")
     args = parser.parse_args(argv)
 
     if args.list:
@@ -913,6 +1262,13 @@ def main(argv: list[str]) -> int:
         for message in messages:
             print(message)
         print(f"built {len(messages)}/4 skeletal mage atlases")
+        return 0
+
+    if args.maggot:
+        messages = [build_sand_maggot(args.source), build_maggot_egg(args.source)]
+        for message in messages:
+            print(message)
+        print(f"built {len(messages)}/2 sand maggot atlases")
         return 0
 
     global CURRENT_PALETTE
@@ -935,7 +1291,9 @@ def main(argv: list[str]) -> int:
     units_palette = load_units_palette(palette_path)
     for species in wanted:
         CURRENT_PALETTE = units_palette if species in BGR_FIXED_SPECIES else legacy_palette
-        if species == "skeletonWarrior":
+        if species == "sandMaggot":
+            message = build_sand_maggot(args.source)
+        elif species == "skeletonWarrior":
             message = build_skeleton_warrior(args.source)
         elif species == "diablo":
             message = build_diablo(args.source)
@@ -943,6 +1301,8 @@ def main(argv: list[str]) -> int:
             message = build_baal(args.source)
         elif species == "duriel":
             message = build_duriel(args.source)
+        elif species == "mephisto":
+            message = build_mephisto(args.source)
         elif species in COF_SPECIES:
             message = build_composite_rebuild(args.source, species)
         else:

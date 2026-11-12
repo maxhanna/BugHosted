@@ -134,21 +134,46 @@ const HEALTH_POTION_HEAL_SECONDS = 5;
 const HEALTH_POTION_HEAL_RATE = HEALTH_POTION_HEAL / HEALTH_POTION_HEAL_SECONDS;
 const ACT_BOSS_TIME_SECONDS = 135;
 const ACT5_BAAL_WAVE_END_SECONDS = 180;
-// Diablo's three signature attacks. Thunder Inferno is a fixed-direction beam
-// with repeated damage ticks; Ice Punch is a close-range cold blow; Bone Prison
-// roots the hero in place for a short window.
-const DIABLO_THUNDER_RANGE = 340;
+// Diablo's Act IV spellbook. Every one of these is a ranged attack he can use
+// while the hero is outside claw reach; Cold Touch is reserved for melee.
+const DIABLO_CAST_RANGE = 520;
+const DIABLO_CHARGE_RANGE = 560;
+const DIABLO_CHARGE_DURATION = 1.15;
+const DIABLO_CHARGE_SPEED_MULTIPLIER = 2.8;
+const DIABLO_CHARGE_COOLDOWN = 7;
+const DIABLO_SPELL_COOLDOWN = 2.8;
+const DIABLO_PRISON_COOLDOWN = 4.6;
+const DIABLO_PUNCH_COOLDOWN = 1.8;
+const DIABLO_CLAW_COOLDOWN = 1.1;
+const DIABLO_CLAW_DAMAGE_MULTIPLIER = 1;
+// Red Lightning is a continuous beam that slowly turns to follow the hero, so
+// standing still under it is lethal but circling around it can break the track.
 const DIABLO_THUNDER_DURATION = 1.15;
 const DIABLO_THUNDER_TICK_INTERVAL = 0.16;
 const DIABLO_THUNDER_HALF_WIDTH = 24;
 const DIABLO_THUNDER_DAMAGE_MULTIPLIER = 0.22;
-const DIABLO_BONE_PRISON_RANGE = 420;
+const DIABLO_THUNDER_SWEEP_RATE = 0.9;
 const DIABLO_BONE_PRISON_SECONDS = 3.2;
 const DIABLO_PLAYER_CHILL_SECONDS = 2.5;
 const DIABLO_ICE_PUNCH_DAMAGE_MULTIPLIER = 1.4;
-const DIABLO_SPELL_COOLDOWN = 3.4;
-const DIABLO_PRISON_COOLDOWN = 4.6;
-const DIABLO_PUNCH_COOLDOWN = 1.8;
+// Firestorm is intentionally wider and longer-lived than the druid version:
+// three successive flame fronts sweep out from Diablo's feet.
+const DIABLO_FIRESTORM_RANGE = 520;
+const DIABLO_FIRESTORM_DURATION = 1.7;
+const DIABLO_FIRESTORM_HALF_ANGLE = Math.PI * 0.24;
+const DIABLO_FIRESTORM_WAVE_COUNT = 3;
+const DIABLO_FIRESTORM_DAMAGE_MULTIPLIER = 0.45;
+const DIABLO_FIRENOVA_RADIUS = 315;
+const DIABLO_FIRENOVA_THICKNESS = 34;
+const DIABLO_FIRENOVA_DURATION = 1.15;
+const DIABLO_FIRENOVA_DAMAGE_MULTIPLIER = 0.8;
+const DIABLO_FIREWALL_HALF_LENGTH = 165;
+const DIABLO_FIREWALL_HALF_WIDTH = 22;
+const DIABLO_FIREWALL_DURATION = 4;
+const DIABLO_FIREWALL_TICK_INTERVAL = 0.5;
+const DIABLO_FIREWALL_DAMAGE_MULTIPLIER = 0.16;
+const DIABLO_SPELL_CYCLE = ["Thunder", "Bone Prison", "Firestorm", "Fire Wall", "Fire Nova"] as const;
+type DiabloRangedSpell = typeof DIABLO_SPELL_CYCLE[number];
 const PLAYER_CHILL_SPEED_MULTIPLIER = 0.5;
 // Baal's signature attacks. Festering tentacles erupt around the hero after a
 // ground warning, while the energy wave is a broad wall that travels forward
@@ -166,10 +191,97 @@ const BAAL_WAVE_HALF_WIDTH = 55;
 const BAAL_WAVE_DAMAGE_MULTIPLIER = 0.9;
 const BAAL_WAVE_COOLDOWN = 2.9;
 const BAAL_WAVE_DURATION = 1.8;
-// Mephisto keeps his distance and hurls the original D2 lightning orb.
+// Baal's full Act V spellbook. Hoarfrost is a fan of cold waves, Incineration
+// Nova is a room-wide expanding fireball ring, and Mana Rift is his gold beam.
+const BAAL_HOARFROST_RANGE = 620;
+const BAAL_HOARFROST_SPEED = 360;
+const BAAL_HOARFROST_DURATION = 2.3;
+const BAAL_HOARFROST_HALF_WIDTH = 100;
+const BAAL_HOARFROST_SPREAD = 0.36;
+const BAAL_HOARFROST_WAVES = 4;
+const BAAL_HOARFROST_WAVE_INTERVAL = 0.18;
+const BAAL_HOARFROST_DAMAGE_MULTIPLIER = 0.32;
+const BAAL_HOARFROST_CHILL_SECONDS = 2.4;
+const BAAL_HOARFROST_KNOCKBACK = 46;
+const BAAL_HOARFROST_COOLDOWN = 3.5;
+const BAAL_NOVA_DURATION = 1.55;
+const BAAL_NOVA_DAMAGE_MULTIPLIER = 0.9;
+const BAAL_NOVA_THICKNESS = 54;
+const BAAL_NOVA_COOLDOWN = 3.8;
+const BAAL_MANA_RIFT_DURATION = 0.9;
+const BAAL_MANA_RIFT_COOLDOWN = 4.2;
+const BAAL_EFFIGY_COOLDOWN = 10;
+const BAAL_EFFIGY_DAMAGE_MULTIPLIER = 1.5;
+const BAAL_CURSE_RANGE = 620;
+const BAAL_CURSE_DURATION = 9;
+const BAAL_BLOOD_MANA_DURATION = 12;
+const BAAL_CURSE_COOLDOWN = 4.6;
+const BAAL_TELEPORT_COOLDOWN = 3.2;
+const BAAL_DESTRUCTIVE_STRIKE_COOLDOWN = 2.2;
+const BAAL_DESTRUCTIVE_STRIKE_MULTIPLIER = 2.1;
+const BAAL_DESTRUCTIVE_STRIKE_ELEMENTAL_BONUS = 0.45;
+const BAAL_DESTRUCTIVE_STRIKE_ELEMENTAL_AREA_LEVEL = 40;
+const BAAL_DEFENSE_CURSE_ARMOR_MULTIPLIER = 0.35;
+const BAAL_DECREPIFY_SPEED_MULTIPLIER = 0.55;
+const BAAL_DECREPIFY_ATTACK_SPEED_MULTIPLIER = 0.65;
+const BAAL_DECREPIFY_DAMAGE_TAKEN_MULTIPLIER = 1.2;
+const BAAL_DECREPIFY_DAMAGE_DEALT_MULTIPLIER = 0.75;
+const BAAL_BLOOD_MANA_HEALTH_COST_FRACTION = 0.02;
+// Mephisto keeps his distance and rotates through his D2 spellbook. The white
+// "MephistoMissile" orb is his cold Skull Missile; Lightning is a separate bolt.
 const MEPHISTO_LIGHTNING_RANGE = 360;
-const MEPHISTO_LIGHTNING_SPEED = 250;
+const MEPHISTO_LIGHTNING_SPEED = 560;
 const MEPHISTO_LIGHTNING_COOLDOWN = 2.3;
+const MEPHISTO_SKULL_MISSILE_SPEED = 220;
+const MEPHISTO_MELEE_REACH = 26;
+const MEPHISTO_MELEE_DAMAGE_MULTIPLIER = 1.15;
+const MEPHISTO_FREEZE_SECONDS = 0.85;
+const MEPHISTO_CHILL_SECONDS = 2.4;
+const MEPHISTO_SKULL_COLD_SECONDS = 2.2;
+const MEPHISTO_FROST_NOVA_RADIUS = 210;
+const MEPHISTO_BLIZZARD_RADIUS = 110;
+const MEPHISTO_BLIZZARD_DURATION = 2.4;
+const MEPHISTO_BLIZZARD_COOLDOWN = 3.2;
+const MEPHISTO_POISON_NOVA_RADIUS = 230;
+const MEPHISTO_POISON_NOVA_GROWTH = 38;
+const MEPHISTO_POISON_NOVA_DURATION = 5.6;
+const MEPHISTO_SPELL_CYCLE = [
+  "lightning",
+  "chargedBolt",
+  "blizzard",
+  "skullMissile",
+  "frostNova",
+  "poisonNova",
+] as const;
+type MephistoSpell = typeof MEPHISTO_SPELL_CYCLE[number];
+// Nihlathak is a caster super unique: he has no basic melee attack. His spell
+// rotation is Corpse Explosion, Summon Minion, Arctic Blast, Minion Frenzy,
+// Horror and Teleport. Corpse Explosion is the signature threat, drawing its
+// damage from the full health of a monster that died nearby.
+const NIHLATHAK_ENGAGE_RANGE = 300;
+const NIHLATHAK_ARCTIC_RANGE = 300;
+const NIHLATHAK_ARCTIC_HALF_ANGLE = Math.PI * 0.14;
+const NIHLATHAK_ARCTIC_DAMAGE_MULTIPLIER = 1.2;
+const NIHLATHAK_ARCTIC_CHILL_SECONDS = 3;
+const NIHLATHAK_ARCTIC_FREEZE_SECONDS = 0.8;
+const NIHLATHAK_ARCTIC_FREEZE_CHANCE = 0.3;
+const NIHLATHAK_CORPSE_BLAST_RADIUS = 105;
+const NIHLATHAK_CORPSE_LIFE_SECONDS = 10;
+const NIHLATHAK_CORPSE_LIMIT = 12;
+const NIHLATHAK_CORPSE_DAMAGE_MIN_FRACTION = 0.10;
+const NIHLATHAK_CORPSE_DAMAGE_MAX_FRACTION = 0.20;
+const NIHLATHAK_MINION_LIMIT = 6;
+const NIHLATHAK_MINION_LIFE_FRACTION = 0.18;
+const NIHLATHAK_MINION_DAMAGE_FRACTION = 0.45;
+const NIHLATHAK_FRENZY_DURATION = 8;
+const NIHLATHAK_FRENZY_DAMAGE_MULTIPLIER = 2;
+const NIHLATHAK_FRENZY_ATTACK_SPEED_MULTIPLIER = 1.8;
+const NIHLATHAK_HORROR_RANGE = 260;
+const NIHLATHAK_HORROR_SECONDS = 2.6;
+const NIHLATHAK_TELEPORT_PRESSURE_RANGE = 115;
+const NIHLATHAK_TELEPORT_COOLDOWN = 4.2;
+const NIHLATHAK_TELEPORT_MIN_DISTANCE = 190;
+const NIHLATHAK_TELEPORT_MAX_DISTANCE = 285;
 // Matron's Den is Andariel's dedicated Pandemonium arena, so her Uber version
 // gets a much harder stat block than the campaign fight and the Tristram primes.
 const MATRONS_DEN_ANDARIEL_HEALTH_MULTIPLIER = 3;
@@ -203,6 +315,14 @@ const DRUID_FORM_COOLDOWN_SECONDS = 30;
 const DRUID_WEREFORM_WALK_FRAMES = 8;
 const BONE_ARMOR_RECAST_SECONDS = 12;
 const CYCLONE_ARMOR_RECAST_SECONDS = 10;
+// Holy Shield is a timed defensive buff: it raises the paladin's base Defense
+// while active and gives the equipped shield the original D2R holy design.
+const HOLY_SHIELD_RECAST_SECONDS = 8;
+const HOLY_SHIELD_BASE_DURATION_SECONDS = 10;
+const HOLY_SHIELD_DURATION_PER_RANK_SECONDS = 2;
+const HOLY_SHIELD_BASE_DEFENSE = 10;
+const HOLY_SHIELD_DEFENSE_PER_RANK = 10;
+const HOLY_SHIELD_ART_PATH = "assets/d2survivors/auras/paladin/holy-shield.png";
 // Arctic Blast is a short channel: a cone of rapid damage ticks rather than a
 // single missile. Each rank adds a little duration, total damage and reach.
 const ARCTIC_BLAST_BASE_DURATION = 1;
@@ -249,6 +369,29 @@ const POISON_DAMAGE_SKILLS = new Set([
 const MAGIC_DAMAGE_SKILLS = new Set([
   "Teeth", "Bone Spear", "Bone Spirit", "Psychic Hammer", "Mind Blast", "Sanctuary", "Holy Bolt",
 ]);
+// Strength from gear and charms is a melee stat: it scales weapon strikes and
+// martial skills, never bows, thrown weapons, or ranged spells.
+const MELEE_DAMAGE_SKILLS = new Set([
+  "Sacrifice", "Smite", "Zeal", "Charge", "Vengeance", "Conversion",
+  "Bash", "Double Swing", "Stun", "Leap Attack", "Concentrate", "Frenzy", "Whirlwind", "Berserk",
+  "Jab", "Power Strike", "Impale", "Fend", "Charged Strike", "Lightning Strike",
+  "Tiger Strike", "Dragon Talon", "Dragon Claw", "Cobra Strike", "Dragon Tail", "Dragon Flight",
+  "Fists of Fire", "Claws of Thunder", "Blades of Ice", "Phoenix Strike",
+  "Maul", "Feral Rage", "Fire Claws", "Rabies", "Shock Wave", "Hunger", "Fury",
+  "Poison Dagger", "Poison Explosion",
+]);
+// Energy from gear and charms powers cast spells. Weapon attacks, martial
+// skills, summons, curses, and percentage-health effects are not spells.
+const SPELL_DAMAGE_SKILLS = new Set([
+  "Fire Blast", "Shock Web", "Charged Bolt Sentry", "Wake of Fire", "Lightning Sentry", "Wake of Inferno", "Death Sentry",
+  "Psychic Hammer", "Mind Blast",
+  "Firestorm", "Molten Boulder", "Arctic Blast", "Fissure", "Twister", "Volcano", "Tornado", "Hurricane", "Armageddon",
+  "Teeth", "Bone Spear", "Bone Spirit", "Poison Nova",
+  "Holy Bolt", "Blessed Hammer", "Fist of the Heavens",
+  "Ice Bolt", "Frost Nova", "Ice Blast", "Glacial Spike", "Blizzard", "Frozen Orb",
+  "Fire Bolt", "Inferno", "Blaze", "Fire Ball", "Fire Wall", "Meteor",
+  "Charged Bolt", "Nova", "Lightning", "Chain Lightning", "Thunder Storm",
+]);
 // Inferno is a channeled cone of fire: it roots the sorceress and pours a
 // continuous stream down a long, narrow cone.
 const INFERNO_BASE_DURATION = 1;
@@ -258,6 +401,9 @@ const INFERNO_TICK_INTERVAL = 0.1;
 const INFERNO_RANGE = 300;
 const INFERNO_HALF_ANGLE = Math.PI / 12;
 const INFERNO_COLOR = "#ff9c50";
+// Zeal lands one blow per rank. The beat is short enough to read as a flurry
+// while still letting each weapon strike animate before the next one starts.
+const ZEAL_STRIKE_INTERVAL_SECONDS = 0.14;
 // Assassin wake traps sit on the floor and only fire while monsters are in
 // range. Five may stand at once, and every trap type counts toward that cap.
 const TRAP_LIMIT = 5;
@@ -310,6 +456,20 @@ const POISON_CLOUD_COLOR = "#9bdb56";
 // strike's damage and the skill's rank.
 const POISON_CLOUD_DAMAGE_FRACTION = 0.18;
 const POISON_CLOUD_DAMAGE_FRACTION_PER_RANK = 0.025;
+// Sand Maggots fight with two original D2 attacks: an `a1` bite up close and an
+// `a2` poison goo spit at range. The spit leaves a damage-over-time poison on
+// the hero, who can burrow away when cornered and lay `eg` eggs that hatch.
+const SAND_MAGGOT_POISON_DURATION = 6;
+const SAND_MAGGOT_POISON_TICK_INTERVAL = 1;
+const SAND_MAGGOT_POISON_DAMAGE_FRACTION = 0.55;
+const SAND_MAGGOT_POISON_COLOR = "#9bdb56";
+const SAND_MAGGOT_RANGED_RANGE = 300;
+const SAND_MAGGOT_BURROW_TRIGGER_LIFE = 0.6;
+const SAND_MAGGOT_BURROW_DURATION = 1.6;
+const SAND_MAGGOT_BURROW_COOLDOWN = 12;
+const SAND_MAGGOT_EGG_COOLDOWN = 15;
+const SAND_MAGGOT_EGG_HATCH_SECONDS = 5;
+const SAND_MAGGOT_EGG_LIMIT = 12;
 // Fire Wall is a persistent ground hazard: a line of flame in front of the
 // sorceress that damages monsters walking through, touching, or standing in it.
 const FIRE_WALL_DURATION = 4;
@@ -363,6 +523,27 @@ const BLESSED_HAMMER_OUTWARD_SPEED = 36;
 const BLESSED_HAMMER_ANGULAR_SPEED = 5.4;
 const BLESSED_HAMMER_BODY_OFFSET = 10;
 const BLESSED_HAMMER_LIFETIME = 3.2;
+// Fist of the Heavens: one unavoidable lightning strike, then four Holy Bolts
+// that radiate from the impact and resolve independently.
+const FIST_OF_THE_HEAVENS_BOLT_COUNT = 4;
+const FIST_OF_THE_HEAVENS_BOLT_SPEED = 360;
+const FIST_OF_THE_HEAVENS_BOLT_RANGE = 260;
+const FIST_OF_THE_HEAVENS_LIGHTNING_MULTIPLIER = 1.35;
+const FIST_OF_THE_HEAVENS_BOLT_MULTIPLIER = 0.6;
+// The D2R extract names these missiles HolyBoltMissile and LightningBolt; the
+// hand is the skill's srvoverlay and teethexplode is the bolt's hit submissile.
+const FIST_OF_THE_HEAVENS_MISSILE_IDS = [
+  "d2-handofgod", "d2-lightningbolt", "d2-holyboltmissile", "d2-teethexplode",
+] as const;
+// Holy Bolt's extra damage in Diablo II applies to the undead and to demons.
+// Animals, insects and constructs remain valid targets for the initial strike
+// but are passed through by the four secondary bolts.
+const FIST_OF_THE_HEAVENS_HOLY_SPECIES = new Set<EnemySpecies>([
+  "skeleton", "skeletonWarrior", "skeletalMageCold", "skeletalMageFire", "skeletalMageLightning", "skeletalMagePoison", "nihlathak",
+  "fallen", "goatman", "fetish", "boneFetish", "fetishShaman", "council", "balrog", "vileChild", "vileMother",
+  "bloodLord", "minotaur", "painWorm", "regurgitator", "salamander", "siegeBeast", "spiderDemon", "blunderbore",
+  "deathMauler", "wendigo", "andariel", "duriel", "mephisto", "diablo", "baalsMinion", "baal",
+]);
 // Howl is crowd control rather than damage: every monster in the radius drops
 // what it is doing and runs from the barbarian. The fear lasts longer per rank.
 const HOWL_RADIUS = 205;
@@ -395,6 +576,10 @@ const DRAW_CULL_MARGIN = 320;
 // Every stock flippy is 17 or 18 frames. Play the whole toss once inside the
 // pickup-delay window, then hold its final resting frame.
 const GROUND_ITEM_TUMBLE_SECONDS = 0.75;
+// Touch inventories have no HTML5 drag events, so a held finger picks an item
+// up and a short move tolerance lets a normal tap/scroll gesture cancel it.
+const MOBILE_INVENTORY_LONG_PRESS_MS = 420;
+const MOBILE_INVENTORY_LONG_PRESS_TOLERANCE = 10;
 // The Diablo II chest opening DCC has four frames: closed, two lid-raised
 // poses and fully open. Play all four, then hold the open cel while it fades.
 const CHEST_OPEN_LIFE_SECONDS = 1.2;
@@ -451,7 +636,10 @@ const MISSILE_OVERLAY_BASE = "assets/d2survivors/missiles";
 // monster-fired ones here so their first attack never falls back to a dot.
 const ENEMY_MISSILE_OVERLAY_IDS = [
   "d2-andarielspell",
-  "d2-baalmissile", "d2-baalnova", "d2-bayellshockwave01", "d2-bayellshockwave02",
+  "d2-baalmissile", "d2-baalnova", "d2-baalsummonmissile", "d2-baalsummonmissile2", "d2-baalsummonoverlay",
+  "d2-baalteleport", "d2-bayellshockwave01", "d2-bayellshockwave02", "d2-bluenovab",
+  "d2-cursearea", "d2-cursecast", "d2-cursedecrepifyeffect", "d2-curseeffectred",
+  "d2-cursemissle", "d2-novablue",
   "d2-bigheadlightningmissile", "d2-blowdart", "d2-catapultpoisonbomb",
   "d2-deathmaulermissile", "d2-diablolightning", "d2-frogpoisonmissile",
   "d2-highpriestlightning", "d2-impfireball", "d2-mephistomissile",
@@ -887,7 +1075,9 @@ const D2_SPELL_MISSILE_OVERLAYS: Record<string, string> = {
   "Bone Spirit": "d2-bonespirit", "Bone Spear": "d2-bonespear", Teeth: "d2-bonespear",
   "Bone Armor": "d2-boneshield", "Bone Wall": "d2-boneshield", "Bone Prison": "d2-boneshield",
   "Holy Bolt": "d2-holyboltmissile", "Blessed Hammer": "d2-blessedhammer",
-  "Fist of the Heavens": "d2-holyboltmissile",
+  // Fist's initial missile is the LightningBolt cel; its four secondary bolts
+  // are spawned explicitly with HolyBoltMissile art.
+  "Fist of the Heavens": "d2-lightningbolt",
   "Frost Nova": "d2-frostnova", "Energy Shield": "d2-hardenarmor",
   Sanctuary: "d2-sanctuary", "Psychic Hammer": "d2-mindblast", "Mind Blast": "d2-mindblast",
   "Grim Ward": "d2-grimwardsmall", Fissure: "d2-eruptionsmoke",
@@ -1128,11 +1318,13 @@ const ENEMY_SPRITE_PATHS: Record<EnemySpecies, string> = {
   skeletalMagePoison: "assets/d2survivors/enemies/animated/skeletal-mage-poison.png",
   golem: "assets/d2survivors/enemies/animated/golem.png",
   sandRaider: "assets/d2survivors/enemies/animated/raider.png",
-  sandMaggot: "assets/d2survivors/enemies/animated/maggot.png",
+  sandMaggot: "assets/d2survivors/enemies/animated/maggot.png?v=2",
   sandMaggotYoung: "assets/d2survivors/enemies/animated/sand-maggot-young.png",
   // The supplied Queen page is a single-direction strip, so the Queen reuses the
   // eight-direction maggot atlas at her own colour and size.
-  sandMaggotQueen: "assets/d2survivors/enemies/animated/maggot.png",
+  sandMaggotQueen: "assets/d2survivors/enemies/animated/maggot.png?v=2",
+  // The original `eg` neutral COF composite: torso plus glowing membrane.
+  maggotEgg: "assets/d2survivors/enemies/animated/maggot-egg.png",
   // Spider Demon and Spike Fiend are their own eight-direction atlases, built by
   // tools/import_d2r_enemy_atlases.py --new from the `SP` and `SI` animation
   // data; the hundred-pixel sheets in enemies/ are only thumbnails.
@@ -1159,7 +1351,9 @@ const ENEMY_SPRITE_PATHS: Record<EnemySpecies, string> = {
   painWorm: "assets/d2survivors/enemies/animated/pain-worm.png?v=2",
   regurgitator: "assets/d2survivors/enemies/animated/regurgitator.png",
   salamander: "assets/d2survivors/enemies/animated/salamander.png",
-  siegeBeast: "assets/d2survivors/enemies/animated/siege-beast.png",
+  // Versioned because the old OX sheet had only eight walk cels filled across
+  // an eighteen-column atlas; the browser would otherwise keep the broken copy.
+  siegeBeast: "assets/d2survivors/enemies/animated/siege-beast.png?v=2",
   deathMauler: "assets/d2survivors/enemies/animated/death-mauler.png",
   wendigo: "assets/d2survivors/enemies/animated/wendigo.png",
   // Versioned: rebuilt with the palette channels in their real order, which
@@ -1168,8 +1362,10 @@ const ENEMY_SPRITE_PATHS: Record<EnemySpecies, string> = {
   // Versioned: rebuilt from Duriel's layered DU walk/attack COFs. The old
   // six-frame sheet was a different creature, not the Act II boss.
   duriel: "assets/d2survivors/enemies/animated/duriel.png?v=3",
-  mephisto: "assets/d2survivors/enemies/animated/mephisto.png",
-  diablo: "assets/d2survivors/enemies/animated/diablo.png",
+  // Versioned: rebuilt from MP's layered DC6 idle/walk/attack COFs. The old
+  // sheet held one neutral pose in every walk column, so he slid without stepping.
+  mephisto: "assets/d2survivors/enemies/animated/mephisto.png?v=2",
+  diablo: "assets/d2survivors/enemies/animated/diablo.png?v=2",
   baalsMinion: "assets/d2survivors/enemies/animated/baals-minion.png?v=2",
   baal: "assets/d2survivors/enemies/animated/baal.png",
   // Summon and pet atlases from tools/import_d2r_summon_atlases.py, built from the
@@ -1194,9 +1390,11 @@ const ENEMY_SPRITE_LAYOUTS: Record<EnemySpecies, { columns: number; rows: number
   golem: { columns: 16, rows: 16, animated: true },
   // 8 walk rows above 8 attack rows.
   sandRaider: { columns: 21, rows: 16, animated: true },
-  sandMaggot: { columns: 18, rows: 16, animated: true },
+  // Four animation blocks: walk, bite, poison spit/egg-lay, burrow.
+  sandMaggot: { columns: 18, rows: 32, animated: true },
   sandMaggotYoung: { columns: 18, rows: 16, animated: true },
-  sandMaggotQueen: { columns: 18, rows: 16, animated: true },
+  sandMaggotQueen: { columns: 18, rows: 32, animated: true },
+  maggotEgg: { columns: 12, rows: 8, animated: true },
   spiderDemon: { columns: 12, rows: 16, animated: true },
   spikeFiend: { columns: 16, rows: 16, animated: true },
   // 8 walk rows above 8 attack rows: 14 and 16 frames per direction.
@@ -1222,6 +1420,7 @@ const ENEMY_SPRITE_LAYOUTS: Record<EnemySpecies, { columns: number; rows: number
   salamander: { columns: 16, rows: 16, animated: true }, siegeBeast: { columns: 18, rows: 16, animated: true },
   deathMauler: { columns: 12, rows: 8, animated: true }, wendigo: { columns: 12, rows: 8, animated: true },
   andariel: { columns: 12, rows: 8, animated: true }, duriel: { columns: 16, rows: 16, animated: true },
+  // 8 idle rows, 8 walk rows and 8 attack rows: 13, 13 and 18 frames each.
   mephisto: { columns: 18, rows: 24, animated: true },
   diablo: { columns: 14, rows: 8, animated: true },
   // 8 idle rows, 8 walk rows, 8 attack rows; 12 frames per direction.
@@ -1241,6 +1440,11 @@ const PALADIN_AURA_SKILLS = new Set([
   "Blessed Aim", "Vigor", "Defiance", "Prayer", "Resist Fire", "Resist Cold", "Resist Lightning", "Salvation",
   "Cleansing", "Meditation", "Redemption", "Sanctuary",
 ]);
+// Vigor is the paladin's movement aura, so its rank has to visibly raise both
+// its uptime and the speed it grants. Other auras keep their shared duration.
+const VIGOR_BASE_DURATION_SECONDS = 8;
+const VIGOR_DURATION_PER_RANK_SECONDS = 2;
+const VIGOR_MOVEMENT_SPEED_PER_RANK = 0.04;
 
 /**
  * Cyclone Armor's six overlay layers, imported by
@@ -1267,11 +1471,12 @@ const ENEMY_SPRITE_CELLS: Record<EnemySpecies, { width: number; height: number }
   golem: { width: 91, height: 102 },
   sandRaider: { width: 114, height: 180 }, sandMaggot: { width: 172, height: 180 }, scarab: { width: 224, height: 180 }, leaper: { width: 120, height: 120 },
   sandMaggotQueen: { width: 172, height: 180 },
+  maggotEgg: { width: 96, height: 96 },
   spiderDemon: { width: 160, height: 128 },
   spikeFiend: { width: 96, height: 80 },
   sandMaggotYoung: { width: 128, height: 128 },
-  fetish: { width: 181, height: 180 }, boneFetish: { width: 91, height: 101 },
-  fetishShaman: { width: 112, height: 96 }, council: { width: 190, height: 180 },
+  fetish: { width: 91, height: 101 }, boneFetish: { width: 91, height: 101 },
+  fetishShaman: { width: 112, height: 96 }, council: { width: 107, height: 108 },
   balrog: { width: 224, height: 152 }, vileChild: { width: 120, height: 80 }, vileMother: { width: 152, height: 112 },
   bloodLord: { width: 64, height: 64 }, minotaur: { width: 128, height: 128 }, deathMauler: { width: 112, height: 100 },
   blunderbore: { width: 85, height: 117 }, nihlathak: { width: 128, height: 128 },
@@ -1607,12 +1812,31 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private playerMoveX = 0;
   private playerMoveY = 0;
   private playerChilledRemaining = 0;
+  private playerFrozenRemaining = 0;
+  /** Horror makes the hero flee from Nihlathak until the curse expires. */
+  private playerHorrorRemaining = 0;
   private playerBonePrisonRemaining = 0;
   private playerBonePrisonX = 0;
   private playerBonePrisonY = 0;
+  // Baal's three curse states. Blood Mana only takes hold when the hero's
+  // maximum mana is at least their maximum life, using the exact D2 rule.
+  private playerBloodManaRemaining = 0;
+  private playerDefenseCurseRemaining = 0;
+  private playerDecrepifyRemaining = 0;
   private diabloThunderEffects: DiabloThunderEffect[] = [];
+  private diabloFirestormEffects: DiabloFirestormEffect[] = [];
+  private diabloFireNovaEffects: DiabloFireNovaEffect[] = [];
+  private readonly diabloFireWallEffects: DiabloFireWallEffect[] = [];
   private baalTentacleEffects: BaalTentacleEffect[] = [];
   private baalWaveEffects: BaalWaveEffect[] = [];
+  private baalHoarfrostEffects: BaalHoarfrostEffect[] = [];
+  private baalNovaEffects: BaalNovaEffect[] = [];
+  private baalManaRiftEffects: BaalManaRiftEffect[] = [];
+  private baalCurseEffects: BaalCurseEffect[] = [];
+  private baalCastEffects: BaalCastEffect[] = [];
+  private mephistoBlizzards: MephistoBlizzardEffect[] = [];
+  /** Monster corpses left on the floor for Nihlathak's Corpse Explosion. */
+  private nihlathakCorpses: NihlathakCorpse[] = [];
   private playerFacingX = 1;
   private playerFacingY = 0;
   private isPlayerMoving = false;
@@ -1644,6 +1868,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private equippedWeaponVisual?: THREE.Group;
   private equippedOffhandWeaponVisual?: THREE.Group;
   private equippedShieldVisual?: THREE.Group;
+  private holyShieldVisual?: THREE.Group;
   private previewEquippedWeaponVisual?: THREE.Group;
   private previewEquippedOffhandWeaponVisual?: THREE.Group;
   private previewEquippedShieldVisual?: THREE.Group;
@@ -1666,6 +1891,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private boneArmorRemaining = 0;
   private boneArmorAbsorptionRemaining = 0;
   private cycloneArmorRemaining = 0;
+  private holyShieldRemaining = 0;
   private blazeRemaining = 0;
   private blazeDropRemaining = 0;
   private blazeDamagePerTick = 0;
@@ -2157,7 +2383,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       name: "Blessed Aim",
       desc: "aura: +10% chance of a critical strike with zeal, smite, charge and sacrifice",
     },
-    { name: "Vigor", desc: "aura: +4% movement speed" },
+    { name: "Vigor", desc: "aura: +4% movement speed per rank; each rank also extends its active duration" },
     { name: "Defiance", desc: "aura: take 6% less damage" },
     { name: "Prayer", desc: "aura: heal 4 life a second" },
     { name: "Resist Fire", desc: "aura: +10% fire resistance" },
@@ -2372,6 +2598,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private attackCooldown = 0;
   private playerAttackLockRemaining = 0;
   private attackSequence = 0;
+  private zealStrikeTarget?: Enemy;
+  private zealStrikeRemaining = 0;
+  private zealStrikeTimer = 0;
+  private zealStrikeDamage = 0;
+  private zealStrikeColor = "#fff0a8";
   readonly skillCastCooldowns: Record<string, number> = {};
 
   xpToNextLevel = 5;
@@ -2389,6 +2620,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   playerY = 250;
   playerHp = 20;
   playerMaxHp = 20;
+  /** Seconds of Sand Maggot poison still in the hero's blood. */
+  playerPoisonRemaining = 0;
+  private playerPoisonTickRemaining = 0;
+  private playerPoisonDamagePerTick = 0;
   private equipmentRegenTimer = 0;
   playerMana = 20;
   playerMaxMana = 20;
@@ -3161,14 +3396,30 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.playerLeapLift = 0;
     this.resetChargeState();
     this.playerChilledRemaining = 0;
+    this.playerFrozenRemaining = 0;
+    this.playerHorrorRemaining = 0;
+    this.nihlathakCorpses.length = 0;
     this.playerBonePrisonRemaining = 0;
+    this.playerBloodManaRemaining = 0;
+    this.playerDefenseCurseRemaining = 0;
+    this.playerDecrepifyRemaining = 0;
     this.diabloThunderEffects.length = 0;
+    this.diabloFirestormEffects.length = 0;
+    this.diabloFireNovaEffects.length = 0;
+    this.diabloFireWallEffects.length = 0;
     this.baalTentacleEffects.length = 0;
     this.baalWaveEffects.length = 0;
+    this.baalHoarfrostEffects.length = 0;
+    this.baalNovaEffects.length = 0;
+    this.baalManaRiftEffects.length = 0;
+    this.baalCurseEffects.length = 0;
+    this.baalCastEffects.length = 0;
+    this.mephistoBlizzards.length = 0;
     this.leapDustEffects.length = 0;
     this.attackProjectiles = [];
     this.pendingDamage.clear();
     this.pendingDamageTimer = 0;
+    this.clearZealSequence();
     this.closeSkillTree();
     this.arenaW = numberValue(saved.arenaW, 500, 100, 5000);
     this.arenaH = numberValue(saved.arenaH, 500, 100, 5000);
@@ -4645,6 +4896,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   weaponImg: HTMLImageElement | null = null;
   textureLoadError = false;
   enemies: Enemy[] = [];
+  /** Incubating Sand Maggot eggs; they hatch into young after a short delay. */
+  maggotEggs: MaggotEgg[] = [];
   chests: Chest[] = [];
   potionDrops: PotionDrop[] = [];
   goldDrops: GoldDrop[] = [];
@@ -4670,7 +4923,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private readonly enemyGridCellSize = 128;
   private enemyGridCells = new Map<number, Enemy[]>();
   private enemyQueryScratch: Enemy[] = [];
-  private pendingDamage = new Map<Enemy, { damage: number; color: string }>();
+  private pendingDamage = new Map<Enemy, { damage: number; color: string; meleeDamage: number }>();
   private pendingDamageTimer = 0;
   private readonly damageBatchInterval = 0.5;
   // Monster sprites are tinted with a canvas colour filter. Running that filter
@@ -4876,8 +5129,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     // Throwing knives are one column wide and two rows tall in D2's inventory;
     // this also covers magic, rare, unique and set versions through their base.
     if (/throwing.*knife|balanced knife/.test(name)) return { width: 1, height: 2 };
-    // Smoked Spheres use the compact one-column, two-row orb footprint.
-    if (/\bsmoked sphere\b/.test(name)) return { width: 1, height: 2 };
+    // Smoked Spheres and Sacred Globes use the compact one-column, two-row
+    // orb footprint instead of the taller default orb size.
+    if (/\b(?:smoked sphere|sacred globe)\b/.test(name)) return { width: 1, height: 2 };
     if (item.width && item.height) return { width: item.width, height: item.height };
     switch (type) {
       case "body": return { width: 2, height: 3 };
@@ -5364,6 +5618,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const target = event.target;
     if (!(target instanceof Element) || target.closest("button, a, input, textarea, select, [role='button'], [role='dialog'], .d2s-classic-hud, .d2s-act-banner, .d2s-experience-progress")) return;
     if (this.joystickPointerId !== null) return;
+    // A touch has no hover state, so the enemy under the finger is shown for
+    // as long as the press lasts.
+    this.updateHoveredEnemy(event);
     const rect = this.arenaRef?.nativeElement.getBoundingClientRect();
     if (!rect) return;
     this.joystickPointerId = event.pointerId;
@@ -5490,6 +5747,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   onArenaPointerEnd(event: PointerEvent): void {
     if (event.pointerId !== this.joystickPointerId) return;
+    this.hoveredEnemy = null;
     this.joystickPointerId = null;
     this.virtualJoystickVisible = false;
     this.joystickKnobX = 0;
@@ -5613,6 +5871,68 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.potionHealRemaining = Math.max(0, this.potionHealRemaining - HEALTH_POTION_HEAL_RATE * dt / 1000);
   }
 
+  get isPlayerPoisoned(): boolean {
+    return this.playerPoisonRemaining > 0;
+  }
+
+  private clearPlayerPoison(): void {
+    this.playerPoisonRemaining = 0;
+    this.playerPoisonTickRemaining = 0;
+    this.playerPoisonDamagePerTick = 0;
+  }
+
+  /**
+   * Sand Maggot goo is poison, not an instant hit: the impact hurts once and
+   * then the venom keeps ticking. A stronger or fresher spit refreshes the
+   * duration and keeps the highest per-tick damage.
+   */
+  private applyPlayerPoison(
+    source?: Enemy,
+    duration = SAND_MAGGOT_POISON_DURATION,
+    damageFraction = SAND_MAGGOT_POISON_DAMAGE_FRACTION,
+  ): void {
+    const wasPoisoned = this.playerPoisonRemaining > 0;
+    const perTick = Math.max(1, Math.round((source?.dmg ?? 2) * damageFraction));
+    this.playerPoisonDamagePerTick = Math.max(this.playerPoisonDamagePerTick, perTick);
+    this.playerPoisonRemaining = Math.max(this.playerPoisonRemaining, duration);
+    if (this.playerPoisonTickRemaining <= 0) {
+      this.playerPoisonTickRemaining = SAND_MAGGOT_POISON_TICK_INTERVAL;
+    }
+    if (!wasPoisoned) {
+      this.floatingTexts.push({
+        x: this.playerX,
+        y: this.playerY - 34,
+        text: "POISONED",
+        color: SAND_MAGGOT_POISON_COLOR,
+        life: 1.1,
+      });
+    }
+  }
+
+  private tickPlayerPoison(dt: number): void {
+    if (this.playerPoisonRemaining <= 0) return;
+    const seconds = dt / 1000;
+    this.playerPoisonRemaining = Math.max(0, this.playerPoisonRemaining - seconds);
+    if (this.playerPoisonRemaining <= 0) {
+      this.clearPlayerPoison();
+      return;
+    }
+    this.playerPoisonTickRemaining -= seconds;
+    while (this.playerPoisonTickRemaining <= 0 && this.playerPoisonRemaining > 0) {
+      this.playerPoisonTickRemaining += SAND_MAGGOT_POISON_TICK_INTERVAL;
+      const dealt = this.applyIncomingDamage(this.playerPoisonDamagePerTick);
+      if (dealt <= 0) continue;
+      this.playerHp -= dealt;
+      this.floatingTexts.push({
+        x: this.playerX,
+        y: this.playerY - 30,
+        text: `-${Math.max(1, Math.round(dealt))}`,
+        color: SAND_MAGGOT_POISON_COLOR,
+        life: 0.7,
+      });
+    }
+  }
+
   get healthOrbFill(): number {
     return Math.max(0, Math.min(1, this.playerHp / this.effectivePlayerMaxHp));
   }
@@ -5730,6 +6050,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   toggleInventory(): void {
+    this.cancelMobileInventoryInteraction();
     this.inventoryOpen = !this.inventoryOpen;
     if (this.inventoryOpen) {
       this.escapeMenuOpen = false;
@@ -5797,7 +6118,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   private weaponRequirementForSkill(skill: string): "bow" | "javelin" | "shield" | null {
-    if (skill === "Smite" || skill === "Charge") return "shield";
+    if (skill === "Smite" || skill === "Charge" || skill === "Holy Shield") return "shield";
     if (this.selectedClass !== "amazon") return null;
     if (AMAZON_BOW_SKILLS.has(skill)) return "bow";
     if (AMAZON_JAVELIN_SKILLS.has(skill)) return "javelin";
@@ -5909,11 +6230,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       if (defenseAuras.has(name)) stats.push(`While active: ${Math.min(65, rank * 2.5).toFixed(1)}% less incoming damage`);
       if (name === "Fanaticism") stats.push(`While active: ${Math.min(45, rank * 2.5).toFixed(1)}% lower attack cooldown`);
       if (name === "Prayer") stats.push(`${rank} life restored per aura tick`);
+      if (name === "Vigor") stats.push(`While active: +${Math.round(rank * VIGOR_MOVEMENT_SPEED_PER_RANK * 100)}% movement speed`);
       if (auraDamage[name] !== undefined) {
         const tickDamage = auraDamage[name] * rank * (1 + (rank - 1) * 0.15);
         stats.push(`${Math.floor(tickDamage)} aura damage per tick`);
       }
-      stats.unshift(`Active duration: ${this.paladinAuraDurationForRank(rank).toFixed(2)}s`);
+      stats.unshift(`Active duration: ${this.paladinAuraDurationForSkillRank(name, rank).toFixed(2)}s`);
       return stats.length > 1 ? stats : [...stats, "No additional rank-scaled gameplay effect is currently applied."];
     }
 
@@ -5937,7 +6259,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
 
     if (this.selectedClass === "paladin" && name === "Charge") {
-      const chargeDamage = this.basicAttackDamage * CHARGE_DAMAGE_MULTIPLIER + (rank - 1) * 3;
+      const chargeDamage = this.applyStrengthToMeleeDamage(this.basicAttackDamage * CHARGE_DAMAGE_MULTIPLIER + (rank - 1) * 3);
       return [
         `Charge damage: ${Math.floor(chargeDamage)} before aura bonuses`,
         `Shield bash: ${this.chargeImpactRadiusForRank(rank)}-unit frontal area`,
@@ -5947,11 +6269,21 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
 
     if (this.selectedClass === "paladin" && name === "Blessed Hammer") {
-      const hammerDamage = this.basicAttackDamage * 1.5 + (rank - 1) * 3;
+      const hammerDamage = this.applyEnergyToSpellDamage(this.basicAttackDamage * 1.5 + (rank - 1) * 3);
       return [
         `Hammer damage: ${Math.floor(hammerDamage)} before aura bonuses`,
         `Spirals from ${BLESSED_HAMMER_START_RADIUS} to ${BLESSED_HAMMER_MAX_RADIUS} units from the paladin`,
         "Each enemy is struck once per hammer pass.",
+      ];
+    }
+
+    if (this.selectedClass === "paladin" && name === "Fist of the Heavens") {
+      const baseDamage = this.applyEnergyToSpellDamage(this.basicAttackDamage * 1.5 + (rank - 1) * 3);
+      return [
+        `Lightning damage: ${Math.floor(baseDamage * FIST_OF_THE_HEAVENS_LIGHTNING_MULTIPLIER)} before aura bonuses`,
+        `Four Holy Bolts: ${Math.floor(baseDamage * FIST_OF_THE_HEAVENS_BOLT_MULTIPLIER)} magic damage each to Undead and Demons`,
+        "The initial lightning always hits and passes through obstacles.",
+        "Fist-created Holy Bolts never heal allies.",
       ];
     }
 
@@ -5993,6 +6325,20 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       return [`${reduction}% less incoming damage while active`, status, `${CYCLONE_ARMOR_RECAST_SECONDS}s recast delay after expiration`];
     }
 
+    if (this.selectedClass === "paladin" && name === "Holy Shield") {
+      const duration = this.holyShieldDurationForRank(rank);
+      const defense = this.holyShieldDefenseBonusForRank(rank);
+      const status = this.isHolyShieldActive()
+        ? `Active: ${this.holyShieldRemaining.toFixed(1)}s left`
+        : `Active for ${duration.toFixed(1)}s when cast`;
+      return [
+        `+${defense} base Defense while active`,
+        status,
+        `${HOLY_SHIELD_RECAST_SECONDS}s recast delay after expiration`,
+        "The equipped shield takes on the original Holy Shield design.",
+      ];
+    }
+
     if (this.selectedClass === "druid" && (name === "Werewolf" || name === "Werebear")) {
       const form = name === "Werewolf" ? "Werewolf" : "Werebear";
       return [`Transformation: ${form} for ${DRUID_FORM_DURATION_SECONDS} seconds`, `${DRUID_FORM_COOLDOWN_SECONDS}-second cooldown after leaving form; automatically shifts back when ready.`];
@@ -6028,13 +6374,24 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
     if (name === "Poison Explosion" && this.selectedClass === "necromancer") {
       const radius = this.poisonCloudRadiusForRank(rank);
-      const hitDamage = this.basicAttackDamage * 1.5 + (rank - 1) * 3;
+      const hitDamage = this.applyStrengthToMeleeDamage(this.basicAttackDamage * 1.5 + (rank - 1) * 3);
       const tickDamage = hitDamage * this.poisonCloudDamageFractionForRank(rank);
       return [
         `Melee strike: the hit leaves a ${radius}-unit poison cloud`,
         `Cloud poison damage: ${tickDamage.toFixed(1)} per tick for ${POISON_CLOUD_DURATION.toFixed(1)}s`,
         `Each rank adds ${POISON_CLOUD_RADIUS_PER_RANK} cloud radius and stronger poison`,
       ];
+    }
+
+    if (name === "Vengeance" && this.selectedClass === "paladin") {
+      stats.push("Damage split evenly across fire, cold, lightning and magic");
+      stats.push("Each element is checked separately against immunities");
+    }
+
+    if (name === "Zeal" && this.selectedClass === "paladin") {
+      const strikes = Math.max(1, Math.floor(rank));
+      stats.push(`${strikes} rapid melee ${strikes === 1 ? "strike" : "strikes"} per cast`);
+      stats.push("Each blow can continue on the same target or move to another monster in melee reach");
     }
 
     if (name === "Static Field" && this.selectedClass === "sorceress") {
@@ -6068,7 +6425,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
 
     if (visual !== "aura") {
-      const baseDamage = this.basicAttackDamage * (name === this.basicAttackName ? 1 : 1.5) + (rank - 1) * 3;
+      const rawDamage = this.basicAttackDamage * (name === this.basicAttackName ? 1 : 1.5) + (rank - 1) * 3;
+      const baseDamage = this.isMeleeDamageSkill(name)
+        ? this.applyStrengthToMeleeDamage(rawDamage)
+        : this.isSpellDamageSkill(name) ? this.applyEnergyToSpellDamage(rawDamage) : rawDamage;
       stats.push(`${Math.floor(baseDamage)} base damage per hit before skill-specific modifiers`);
       const interval = this.getSkillCastIntervalForRank(name, rank);
       if (interval > 0) stats.push(`${interval.toFixed(2)}s automatic cast interval`);
@@ -6183,6 +6543,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const duration = this.cycloneArmorDurationForRank(this.skillLevels[skill] ?? 1);
       return Math.max(0, Math.min(1, 1 - this.cycloneArmorRemaining / duration));
     }
+    if (skill === "Holy Shield" && this.holyShieldRemaining > 0) {
+      const duration = this.holyShieldDurationForRank(this.skillLevels[skill] ?? 1);
+      return Math.max(0, Math.min(1, 1 - this.holyShieldRemaining / duration));
+    }
     const interval = this.getSkillCastInterval(skill);
     const cooldown = this.skillCastCooldowns[skill] ?? 0;
     if (skill === "Blade Sentinel" && this.selectedClass === "assassin") {
@@ -6197,6 +6561,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   /** Slot tooltip text: passives are always on, so they have no cast cadence. */
   getSkillCastDescriptor(skill: string): string {
     if (isPassiveSkill(skill)) return "always active, never cast";
+    if (skill === "Holy Shield" && this.selectedClass === "paladin") return "automatically recast after the shield expires";
     if (skill === "Cyclone Armor" && this.selectedClass === "druid") return "automatically recast after the shield expires";
     return `automatic cast every ${this.getSkillCastLabel(skill)}`;
   }
@@ -6214,6 +6579,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const cooldown = this.skillCastCooldowns[skill] ?? 0;
       return Number.isFinite(cooldown) && cooldown > 0 ? `${cooldown.toFixed(1)}s` : `${this.getSkillCastInterval(skill).toFixed(1)}s`;
     }
+    if (skill === "Holy Shield" && this.selectedClass === "paladin") {
+      if (this.holyShieldRemaining > 0) return `${this.holyShieldRemaining.toFixed(1)}s`;
+      const cooldown = this.skillCastCooldowns[skill] ?? 0;
+      return Number.isFinite(cooldown) && cooldown > 0 ? `${cooldown.toFixed(1)}s` : `${this.getSkillCastInterval(skill).toFixed(1)}s`;
+    }
     const activeAura = this.activePaladinAuras[skill];
     if (skill === "Blade Sentinel" && this.selectedClass === "assassin") {
       const activeBladeSentinel = this.skillVisualEffects.find((effect) => effect.name === skill && effect.orbiting);
@@ -6223,11 +6593,31 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   private paladinAuraDuration(skill: string): number {
-    return this.paladinAuraDurationForRank(Math.max(1, this.skillLevels[skill] ?? 1));
+    return this.paladinAuraDurationForSkillRank(skill, Math.max(1, this.skillLevels[skill] ?? 1));
   }
 
   private paladinAuraDurationForRank(rank: number): number {
     return 7 + rank * 1.25;
+  }
+
+  private paladinAuraDurationForSkillRank(skill: string, rank: number): number {
+    if (rank <= 0) return 0;
+    if (skill === "Vigor") return VIGOR_BASE_DURATION_SECONDS + rank * VIGOR_DURATION_PER_RANK_SECONDS;
+    return this.paladinAuraDurationForRank(rank);
+  }
+
+  private extendActiveVigorAuraOnRankUp(previousRank: number, nextRank: number): void {
+    const activeAura = this.activePaladinAuras["Vigor"];
+    if (!activeAura || nextRank <= previousRank) return;
+    const previousDuration = this.paladinAuraDurationForSkillRank("Vigor", previousRank);
+    const nextDuration = this.paladinAuraDurationForSkillRank("Vigor", nextRank);
+    // Add only the duration gained by the new rank, capped at the new maximum,
+    // so a nearly expired aura benefits without becoming an unintended full recast.
+    activeAura.remaining = Math.min(nextDuration, activeAura.remaining + Math.max(0, nextDuration - previousDuration));
+  }
+
+  private vigorMovementSpeedMultiplier(rank: number): number {
+    return rank > 0 ? 1 + rank * VIGOR_MOVEMENT_SPEED_PER_RANK : 1;
   }
 
   private boneArmorDurationForRank(rank: number): number {
@@ -6244,6 +6634,40 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   private cycloneArmorDamageReductionForRank(rank: number): number {
     return Math.min(50, 5 + (Math.max(1, rank) - 1) * 2);
+  }
+
+  private holyShieldDurationForRank(rank: number): number {
+    return HOLY_SHIELD_BASE_DURATION_SECONDS + Math.max(1, rank) * HOLY_SHIELD_DURATION_PER_RANK_SECONDS;
+  }
+
+  private holyShieldDefenseBonusForRank(rank: number): number {
+    return HOLY_SHIELD_BASE_DEFENSE + Math.max(1, rank) * HOLY_SHIELD_DEFENSE_PER_RANK;
+  }
+
+  /** Strength from gear and charms: each point adds 1% melee damage. */
+  private applyStrengthToMeleeDamage(damage: number): number {
+    return damage * (1 + Math.min(500, Math.max(0, this.equippedStrengthBonus)) / 100);
+  }
+
+  /** Energy from gear and charms: each point adds 1% spell damage. */
+  private applyEnergyToSpellDamage(damage: number): number {
+    return damage * (1 + Math.min(500, Math.max(0, this.equippedEnergyBonus)) / 100);
+  }
+
+  private isMeleeDamageSkill(skill: string): boolean {
+    return MELEE_DAMAGE_SKILLS.has(skill);
+  }
+
+  private isSpellDamageSkill(skill: string): boolean {
+    return SPELL_DAMAGE_SKILLS.has(skill);
+  }
+
+  private isHolyShieldActive(): boolean {
+    return this.selectedClass === "paladin"
+      && this.ownedSkills.includes("Holy Shield")
+      && (this.skillLevels["Holy Shield"] ?? 0) > 0
+      && this.holyShieldRemaining > 0
+      && this.hasEquippedShield();
   }
 
   private isBoneArmorActive(): boolean {
@@ -6268,6 +6692,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private getSkillCastIntervalForRank(skill: string, rank: number): number {
     if (skill === "Bone Armor") return BONE_ARMOR_RECAST_SECONDS;
     if (skill === "Cyclone Armor") return CYCLONE_ARMOR_RECAST_SECONDS;
+    if (skill === "Holy Shield") return HOLY_SHIELD_RECAST_SECONDS;
     const definition = getClassSkills(this.selectedClass).find((entry) => entry.name === skill);
     const visual = definition?.visual ?? getD2SkillVisual(skill);
     const baseIntervals: Record<D2SkillVisual, number> = {
@@ -6440,7 +6865,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   get equippedArmor(): number {
     const flat = this.equipmentStatTotal("armor") + this.equipmentStatTotal("armorPerLevel") * this.playerLevel;
     const percent = Math.min(500, this.equipmentStatTotal("armorPercent"));
-    return Math.max(0, Math.round(flat * (1 + percent / 100)));
+    const holyShield = this.isHolyShieldActive()
+      ? this.holyShieldDefenseBonusForRank(this.skillLevels["Holy Shield"] ?? 1)
+      : 0;
+    const curseMultiplier = this.playerDefenseCurseRemaining > 0 ? BAAL_DEFENSE_CURSE_ARMOR_MULTIPLIER : 1;
+    return Math.max(0, Math.round(flat * (1 + percent / 100) * curseMultiplier) + holyShield);
   }
 
   get playerAttackSpeedMultiplier(): number {
@@ -6625,8 +7054,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   get inventoryAttackDamage(): number {
-    return Math.floor(this.basicAttackDamage + Math.max(0, (this.skillLevels[this.basicAttackName] ?? 1) - 1) * 2
-      + this.weaponMasteryDamageBonus + this.equippedWeaponDamage);
+    const rawDamage = this.basicAttackDamage + Math.max(0, (this.skillLevels[this.basicAttackName] ?? 1) - 1) * 2
+      + this.weaponMasteryDamageBonus + this.equippedWeaponDamage;
+    const melee = !this.bowWeaponEquipped && !this.thrownWeaponKind;
+    const damage = melee ? this.applyStrengthToMeleeDamage(rawDamage) : rawDamage;
+    return Math.floor(damage * this.decrepifyDamageDealtMultiplier);
   }
 
   get basicAttackIcon(): string {
@@ -6667,15 +7099,20 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   activateOwnedSkill(skill: string): void {
     if (!this.ownedSkills.includes(skill)) return;
+    // A frozen hero is fully encased in ice, not merely slowed.
+    if (this.playerFrozenRemaining > 0) return;
     // Passives are constant: clicking one does nothing and plays no animation.
     if (isPassiveSkill(skill)) return;
+    if (!this.hasRequiredWeaponForSkill(skill)) return;
     // Arctic Blast owns the druid's stance for its full channel. Other spells
     // must wait instead of interrupting or stacking on top of the cone.
     if (this.isArcticBlastChanneling()) return;
     // Every spell waits for a planted stance. The automatic caster applies the
     // same gate before it starts timers; direct calls must honor it too.
     if (this.playerRunning) return;
-    if (!this.hasRequiredWeaponForSkill(skill)) return;
+    // Blood Mana is paid when the spell actually starts. Its D2 condition is
+    // exact: maximum mana must meet or exceed maximum life.
+    this.payBloodManaCost();
     if (this.isDruidFormSkill(skill)) {
       this.druidForm = skill === "Werewolf" ? "werewolf" : "werebear";
       this.druidFormRemaining = DRUID_FORM_DURATION_SECONDS;
@@ -6718,6 +7155,18 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (skill === "Frozen Armor") {
       // This is a persistent defensive buff, not an attack or a retaliatory spell.
       this.addSkillVisualEffect(skill);
+      return;
+    }
+    if (skill === "Holy Shield" && this.selectedClass === "paladin") {
+      // Holy Shield only raises base Defense while its timer is running. It is
+      // not a strike: do not fall through to the melee/missile cast path.
+      const rank = Math.max(1, this.skillLevels[skill] ?? 1);
+      const cooldown = this.skillCastCooldowns[skill] ?? 0;
+      if (this.holyShieldRemaining > 0 || (Number.isFinite(cooldown) && cooldown > 0)) return;
+      this.holyShieldRemaining = this.holyShieldDurationForRank(rank);
+      this.skillCastCooldowns[skill] = Number.POSITIVE_INFINITY;
+      this.syncHolyShieldVisual();
+      this.triggerAttackAnimation("cast");
       return;
     }
     if (skill === "Bone Armor" && this.selectedClass === "necromancer") {
@@ -6780,7 +7229,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const isAssassinKickSkill = this.selectedClass === "assassin" && (skill === "Dragon Talon" || skill === "Dragon Flight" || skill === "Dragon Tail");
     if (skill === "Lightning" && this.selectedClass === "sorceress") {
       const rank = Math.max(1, this.skillLevels[skill] ?? 1);
-      const railDamage = this.applyPaladinAuraDamage(this.basicAttackDamage * 1.5 + (rank - 1) * 3);
+      const railDamage = this.applyPaladinAuraDamage(this.applyEnergyToSpellDamage(this.basicAttackDamage * 1.5 + (rank - 1) * 3));
       const railTarget = this.enemies
         .filter((enemy) => enemy.hp > 0 && !enemy.summonType)
         .sort((a, b) => Math.hypot(a.x - this.playerX, a.y - this.playerY) - Math.hypot(b.x - this.playerX, b.y - this.playerY))[0];
@@ -6790,7 +7239,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     if (skill === "Frost Nova" && this.selectedClass === "sorceress") {
       const rank = Math.max(1, this.skillLevels[skill] ?? 1);
-      const novaDamage = this.applyPaladinAuraDamage(this.basicAttackDamage * 1.25 + (rank - 1) * 3);
+      const novaDamage = this.applyPaladinAuraDamage(this.applyEnergyToSpellDamage(this.basicAttackDamage * 1.25 + (rank - 1) * 3));
       this.castFrostNova(rank, novaDamage);
       this.triggerAttackAnimation(castAnimation);
       return;
@@ -6804,7 +7253,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (skill === "Inferno" && this.selectedClass === "sorceress") {
       if (this.isInfernoChanneling()) return;
       const rank = Math.max(1, this.skillLevels[skill] ?? 1);
-      const infernoDamage = this.applyPaladinAuraDamage(this.basicAttackDamage * 1.5 + (rank - 1) * 3);
+      const infernoDamage = this.applyPaladinAuraDamage(this.applyEnergyToSpellDamage(this.basicAttackDamage * 1.5 + (rank - 1) * 3));
       this.castInferno(rank, infernoDamage);
       this.triggerAttackAnimation(castAnimation);
       return;
@@ -6818,8 +7267,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         // The stream channels in the direction the druid is facing even when
         // nothing is nearby, just like the original skill.
         const rank = Math.max(1, this.skillLevels[skill] ?? 1);
-        const castDamage = this.applyPaladinAuraDamage(this.basicAttackDamage * 1.5 + (rank - 1) * 3);
+        const castDamage = this.applyPaladinAuraDamage(this.applyEnergyToSpellDamage(this.basicAttackDamage * 1.5 + (rank - 1) * 3));
         this.castArcticBlast(rank, castDamage);
+        this.triggerAttackAnimation(castAnimation);
+        return;
+      }
+      if (skill === "Fist of the Heavens" && this.selectedClass === "paladin") {
+        this.addFistOfTheHeavensCastVisual();
         this.triggerAttackAnimation(castAnimation);
         return;
       }
@@ -6844,7 +7298,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const attack = this.basicAttackForClass(this.selectedClass);
     const multiplier = Math.max(1, this.skillLevels[skill] ?? 1);
     const baseDamage = this.basicAttackDamage * (skill === this.basicAttackName ? 1 : 1.5) + (multiplier - 1) * 3;
-    const damage = this.applyPaladinAuraDamage(baseDamage);
+    const adjustedBaseDamage = this.isMeleeDamageSkill(skill)
+      ? this.applyStrengthToMeleeDamage(baseDamage)
+      : this.isSpellDamageSkill(skill) ? this.applyEnergyToSpellDamage(baseDamage) : baseDamage;
+    // Decrepify weakens physical weapon attacks; elemental spells keep their
+    // full damage. `isSpellDamageSkill` is the existing split used for Energy.
+    const damage = this.applyPaladinAuraDamage(adjustedBaseDamage)
+      * (this.isSpellDamageSkill(skill) ? 1 : this.decrepifyDamageDealtMultiplier);
     const distance = Math.hypot(nearest.x - this.playerX, nearest.y - this.playerY);
     this.playerFacingX = (nearest.x - this.playerX) / Math.max(1, distance);
     this.playerFacingY = (nearest.y - this.playerY) / Math.max(1, distance);
@@ -6853,9 +7313,23 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.triggerAttackAnimation(castAnimation);
       return;
     }
+    if (skill === "Fist of the Heavens" && this.selectedClass === "paladin") {
+      // The lightning lands immediately. It does not need a projectile, a
+      // collision roll or a line-of-sight check, so it always reaches the
+      // selected monster; only the four Holy Bolts travel.
+      this.castFistOfTheHeavens(nearest, damage);
+      this.triggerAttackAnimation(castAnimation);
+      return;
+    }
     const telekinesisStun = skill === "Telekinesis" && this.selectedClass === "sorceress";
     if (telekinesisStun) this.applyEnemyStun(nearest, TELEKINESIS_STUN_SECONDS);
     if (isAssassinKickSkill && distance > nearest.r + 28) return;
+
+    if (skill === "Zeal" && this.selectedClass === "paladin") {
+      if (distance > nearest.r + 28) return;
+      this.startZealSequence(nearest, damage, multiplier, attack.color);
+      return;
+    }
 
     if (skill === "Smite" && this.selectedClass === "paladin") {
       // Shield bash: slam everything in a short forward arc, shove it away, and
@@ -6883,7 +7357,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           this.applyEnemyStun(enemy, stunSeconds);
           this.floatingTexts.push({ x: enemy.x, y: enemy.y - enemy.r - 6, text: "STUN", color: "#ffe27a", life: 0.7 });
         }
-        this.queueEnemyDamage(enemy, damage, "#fff0a8");
+        this.queueEnemyDamage(enemy, damage, "#fff0a8", "physical", true);
         connected = true;
       }
       this.addSkillVisualEffect(skill, nearest);
@@ -6895,7 +7369,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const targets = this.enemies.filter((enemy) => enemy.hp > 0 && !enemy.summonType && Math.hypot(enemy.x - this.playerX, enemy.y - this.playerY) <= 115);
       if (!targets.length) return;
       for (const target of targets) {
-        this.queueEnemyDamage(target, damage * 1.6, attack.color);
+        this.queueEnemyDamage(target, damage * 1.6, attack.color, "physical", true);
       }
       this.triggerAttackAnimation("spin");
       return;
@@ -7002,14 +7476,19 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         // the gas bursts from the impact point as a lingering ground cloud.
         this.addSkillVisualEffect(skill, nearest);
         if (!this.isEnemyImmuneTo(nearest, "poison")) {
-          nearest.hp -= damage;
+          this.dealMeleeDamage(nearest, damage);
           this.floatingTexts.push({ x: nearest.x, y: nearest.y - nearest.r, text: this.floatingDamageText(damage), color: attack.color, life: 0.8 });
         }
         this.spawnPoisonCloud(nearest.x, nearest.y, multiplier, damage);
         this.triggerAttackAnimation(castAnimation);
         return;
       }
-      if (skill === "Dragon Tail" && this.selectedClass === "assassin") {
+      if (skill === "Vengeance" && this.selectedClass === "paladin") {
+        // Vengeance is not one physical blow: its damage is divided between the
+        // four non-physical elements, and each quarter is resisted separately.
+        this.addSkillVisualEffect(skill, nearest);
+        this.applyVengeanceDamage(nearest, damage, attack.color);
+      } else if (skill === "Dragon Tail" && this.selectedClass === "assassin") {
         const impactRadius = 82;
         this.addDragonTailImpactEffect(nearest.x, nearest.y);
         for (const enemy of this.enemies) {
@@ -7017,12 +7496,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           const impactDistance = Math.hypot(enemy.x - nearest.x, enemy.y - nearest.y);
           if (impactDistance > impactRadius + enemy.r) continue;
           const tailDamage = enemy === nearest ? damage : damage * 0.75;
-          this.queueEnemyDamage(enemy, tailDamage, attack.color, this.damageTypeForSkill(skill));
+          this.queueEnemyDamage(enemy, tailDamage, attack.color, this.damageTypeForSkill(skill), true);
         }
       } else {
         this.addSkillVisualEffect(skill, nearest);
         if (!this.isEnemyImmuneTo(nearest, this.damageTypeForSkill(skill))) {
-          nearest.hp -= damage;
+          if (this.isMeleeDamageSkill(skill)) this.dealMeleeDamage(nearest, damage);
+          else nearest.hp -= damage;
           this.floatingTexts.push({ x: nearest.x, y: nearest.y - nearest.r, text: this.floatingDamageText(damage), color: attack.color, life: 0.8 });
         }
       }
@@ -7200,6 +7680,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       ...ENEMY_MISSILE_OVERLAY_IDS,
       ...TRAP_OVERLAY_IDS,
       ...ARCTIC_BLAST_MISSILE_IDS,
+      ...FIST_OF_THE_HEAVENS_MISSILE_IDS,
       ...Object.values(D2_SPELL_MISSILE_OVERLAYS),
       ...Object.values(SKILL_MISSILE_OVERLAYS),
       ...Object.values(SKILL_VISUAL_MISSILES),
@@ -7685,6 +8166,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   ngOnDestroy(): void {
+    this.cancelMobileInventoryInteraction();
+    if (this.suppressInventoryTapTimer !== undefined) window.clearTimeout(this.suppressInventoryTapTimer);
     this.persistRunProgress(true);
     this.lobbyMessageSubscription?.unsubscribe();
     this.leaderboardSubscription?.unsubscribe();
@@ -7738,10 +8221,25 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.playerLeapLift = 0;
     this.resetChargeState();
     this.playerChilledRemaining = 0;
+    this.playerFrozenRemaining = 0;
+    this.playerHorrorRemaining = 0;
+    this.nihlathakCorpses.length = 0;
     this.playerBonePrisonRemaining = 0;
+    this.playerBloodManaRemaining = 0;
+    this.playerDefenseCurseRemaining = 0;
+    this.playerDecrepifyRemaining = 0;
     this.diabloThunderEffects.length = 0;
+    this.diabloFirestormEffects.length = 0;
+    this.diabloFireNovaEffects.length = 0;
+    this.diabloFireWallEffects.length = 0;
     this.baalTentacleEffects.length = 0;
     this.baalWaveEffects.length = 0;
+    this.baalHoarfrostEffects.length = 0;
+    this.baalNovaEffects.length = 0;
+    this.baalManaRiftEffects.length = 0;
+    this.baalCurseEffects.length = 0;
+    this.baalCastEffects.length = 0;
+    this.mephistoBlizzards.length = 0;
     for (const skill of Object.keys(this.activePaladinAuras)) delete this.activePaladinAuras[skill];
     this.stopClassPreview();
     this.stopMenuHeroPreview();
@@ -7775,6 +8273,78 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         color: clip.trail,
       });
     }
+  }
+
+  /**
+   * One Zeal cast is a short flurry: one blow for every rank. Each blow keeps
+   * the current target while it lives and is still in reach; if that monster
+   * dies, the next blow steps to another monster already in melee reach.
+   */
+  private startZealSequence(target: Enemy, damage: number, strikes: number, color: string): void {
+    this.zealStrikeTarget = target;
+    this.zealStrikeDamage = damage;
+    this.zealStrikeColor = color;
+    this.zealStrikeRemaining = Math.max(1, Math.floor(strikes));
+    this.zealStrikeTimer = 0;
+    this.addSkillVisualEffect("Zeal", target);
+    this.performZealStrike();
+  }
+
+  private updateZealStrikes(dt: number): void {
+    if (this.zealStrikeRemaining <= 0) return;
+    this.zealStrikeTimer -= dt / 1000;
+    if (this.zealStrikeTimer <= 0) this.performZealStrike();
+  }
+
+  private performZealStrike(): void {
+    if (this.zealStrikeRemaining <= 0) return;
+    const target = this.nextZealTarget();
+    if (!target) {
+      this.clearZealSequence();
+      return;
+    }
+    this.zealStrikeTarget = target;
+    const distance = Math.hypot(target.x - this.playerX, target.y - this.playerY) || 1;
+    this.playerFacingX = (target.x - this.playerX) / distance;
+    this.playerFacingY = (target.y - this.playerY) / distance;
+    if (!this.isEnemyImmuneTo(target, "physical")) {
+      this.dealMeleeDamage(target, this.zealStrikeDamage);
+      this.floatingTexts.push({
+        x: target.x,
+        y: target.y - target.r - 8,
+        text: this.floatingDamageText(this.zealStrikeDamage),
+        color: this.zealStrikeColor,
+        life: 0.65,
+      });
+    }
+    this.triggerAttackAnimation("paladinStrike");
+    this.zealStrikeRemaining -= 1;
+    this.zealStrikeTimer = ZEAL_STRIKE_INTERVAL_SECONDS;
+    if (this.zealStrikeRemaining <= 0) this.clearZealSequence();
+  }
+
+  private nextZealTarget(): Enemy | undefined {
+    const inMeleeReach = (enemy: Enemy): boolean =>
+      enemy.hp > 0 && !enemy.summonType
+      && Math.hypot(enemy.x - this.playerX, enemy.y - this.playerY) <= enemy.r + 28;
+    if (this.zealStrikeTarget && inMeleeReach(this.zealStrikeTarget)) return this.zealStrikeTarget;
+    let nearest: Enemy | undefined;
+    let nearestDistance = Number.POSITIVE_INFINITY;
+    for (const enemy of this.enemies) {
+      if (!inMeleeReach(enemy)) continue;
+      const distance = Math.hypot(enemy.x - this.playerX, enemy.y - this.playerY);
+      if (distance < nearestDistance) {
+        nearest = enemy;
+        nearestDistance = distance;
+      }
+    }
+    return nearest;
+  }
+
+  private clearZealSequence(): void {
+    this.zealStrikeTarget = undefined;
+    this.zealStrikeRemaining = 0;
+    this.zealStrikeTimer = 0;
   }
 
   private attackStyleForEquippedWeapon(classDefault: AttackAnimationStyle): AttackAnimationStyle {
@@ -8087,6 +8657,19 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         this.skillCastCooldowns[skill] = Number.POSITIVE_INFINITY;
         continue;
       }
+      if (skill === "Holy Shield" && this.selectedClass === "paladin") {
+        if (this.holyShieldRemaining > 0) {
+          this.skillCastCooldowns[skill] = Number.POSITIVE_INFINITY;
+          continue;
+        }
+        const storedCooldown = this.skillCastCooldowns[skill] ?? 0;
+        const cooldown = Math.max(0, (Number.isFinite(storedCooldown) ? storedCooldown : 0) - seconds);
+        this.skillCastCooldowns[skill] = cooldown;
+        if (cooldown > 0) continue;
+        this.activateOwnedSkill(skill);
+        this.skillCastCooldowns[skill] = Number.POSITIVE_INFINITY;
+        continue;
+      }
       if (skill === "Bone Wall" && this.selectedClass === "necromancer") {
         if (this.activeBoneWalls().length >= this.boneWallLimit()) {
           this.skillCastCooldowns[skill] = Number.POSITIVE_INFINITY;
@@ -8219,7 +8802,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const attack = this.basicAttackForClass(this.selectedClass);
     const attackLevel = this.skillLevels[this.basicAttackName] ?? 1;
     const baseDamage = this.basicAttackDamage + (attackLevel - 1) * 2 + this.weaponMasteryDamageBonus + this.equippedWeaponDamage;
-    const damage = this.applyPaladinAuraDamage(baseDamage);
+    const physicalMultiplier = this.decrepifyDamageDealtMultiplier;
+    const damage = this.applyPaladinAuraDamage(baseDamage) * physicalMultiplier;
+    const meleeDamage = this.applyPaladinAuraDamage(this.applyStrengthToMeleeDamage(baseDamage)) * physicalMultiplier;
     const distance = Math.hypot(target.x - this.playerX, target.y - this.playerY);
     this.playerFacingX = (target.x - this.playerX) / Math.max(1, distance);
     this.playerFacingY = (target.y - this.playerY) / Math.max(1, distance);
@@ -8231,9 +8816,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       if (thrownWeapon === "javelin" && distance <= target.r + 28) {
         // A javelin is still a spear up close: jab with it instead of throwing
         // from point-blank range.
-        target.hp -= damage;
+        this.dealMeleeDamage(target, meleeDamage);
         this.triggerAttackAnimation("amazonJab");
-        this.floatingTexts.push({ x: target.x, y: target.y - target.r - 8, text: this.floatingDamageText(damage), color: attack.color, life: 0.65 });
+        this.floatingTexts.push({ x: target.x, y: target.y - target.r - 8, text: this.floatingDamageText(meleeDamage), color: attack.color, life: 0.65 });
         this.attackCooldown = Math.max(this.playerAttackLockRemaining, this.paladinAuraAttackCooldown());
         return;
       }
@@ -8254,9 +8839,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     if (distance <= target.r + 28) {
       if (this.druidForm) this.druidFormAttackTime = this.druidForm === "werebear" ? 0.56 : 0.38;
-      target.hp -= damage;
+      this.dealMeleeDamage(target, meleeDamage);
       this.triggerAttackAnimation();
-      this.floatingTexts.push({ x: target.x, y: target.y - target.r - 8, text: this.floatingDamageText(damage), color: attack.color, life: 0.65 });
+      this.floatingTexts.push({ x: target.x, y: target.y - target.r - 8, text: this.floatingDamageText(meleeDamage), color: attack.color, life: 0.65 });
       this.attackCooldown = Math.max(this.playerAttackLockRemaining, this.paladinAuraAttackCooldown());
     } else {
       // Move into weapon range before applying damage: a melee basic attack never becomes a missile.
@@ -8269,7 +8854,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (choice.id.startsWith("class-skill:")) {
       const skillName = choice.id.slice("class-skill:".length);
       if (!this.availableClassSkills.some((entry) => entry.name === skillName)) return;
+      const previousRank = this.skillLevels[skillName] ?? 0;
       this.skillLevels[skillName] = Math.min(20, (this.baseSkillLevels[skillName] ?? 0) + 1);
+      const nextRank = this.skillLevels[skillName] ?? previousRank;
+      if (skillName === "Vigor") this.extendActiveVigorAuraOnRankUp(previousRank, nextRank);
       if (!this.ownedSkills.includes(skillName)) {
         this.ownedSkills.push(skillName);
         // A passive never casts, so it must not start out with a cast timer.
@@ -8311,6 +8899,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   attackNearestEnemy(): void {
     if (!this.runActive || this.pendingLevelUps > 0 || this.attackCooldown > 0 || this.enemies.length === 0) return;
+    if (this.playerFrozenRemaining > 0) return;
     if (this.playerRunning) return;
     const targets = this.enemies
       .filter((enemy) => enemy.hp > 0 && !enemy.summonType)
@@ -8320,7 +8909,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const attack = this.basicAttackForClass(this.selectedClass);
     const attackLevel = this.skillLevels[this.basicAttackName] ?? 1;
     const baseDamage = this.basicAttackDamage + (attackLevel - 1) * 2 + this.weaponMasteryDamageBonus + this.equippedWeaponDamage;
-    const damage = this.applyPaladinAuraDamage(baseDamage);
+    const physicalMultiplier = this.decrepifyDamageDealtMultiplier;
+    const damage = this.applyPaladinAuraDamage(baseDamage) * physicalMultiplier;
+    const meleeDamage = this.applyPaladinAuraDamage(this.applyStrengthToMeleeDamage(baseDamage)) * physicalMultiplier;
     const thrownWeapon = this.thrownWeaponKind;
     if (thrownWeapon) {
       const target = targets[0];
@@ -8330,9 +8921,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       if (distance > this.thrownWeaponRange) {
         this.attackCooldown = Math.min(0.12, this.basicAttackCooldown);
       } else if (thrownWeapon === "javelin" && distance <= target.r + 28) {
-        target.hp -= damage;
+        this.dealMeleeDamage(target, meleeDamage);
         this.triggerAttackAnimation("amazonJab");
-        this.floatingTexts.push({ x: target.x, y: target.y - target.r - 8, text: this.floatingDamageText(damage), color: attack.color, life: 0.65 });
+        this.floatingTexts.push({ x: target.x, y: target.y - target.r - 8, text: this.floatingDamageText(meleeDamage), color: attack.color, life: 0.65 });
         this.attackCooldown = Math.max(this.playerAttackLockRemaining, this.paladinAuraAttackCooldown());
       } else {
         this.throwWeaponAt(target, damage, thrownWeapon, attack.color);
@@ -8361,9 +8952,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.playerFacingX = (target.x - this.playerX) / Math.max(1, distance);
       this.playerFacingY = (target.y - this.playerY) / Math.max(1, distance);
       if (distance <= target.r + 28) {
-        target.hp -= damage;
+        this.dealMeleeDamage(target, meleeDamage);
         landedMeleeAttack = true;
-        this.floatingTexts.push({ x: target.x, y: target.y - target.r - 8, text: this.floatingDamageText(damage), color: attack.color, life: 0.65 });
+        this.floatingTexts.push({ x: target.x, y: target.y - target.r - 8, text: this.floatingDamageText(meleeDamage), color: attack.color, life: 0.65 });
       }
     }
     if (landedMeleeAttack) {
@@ -8417,21 +9008,43 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
    * Queues area/tick damage so every hit that lands during the batch window is
    * applied in one pass. Multiple hits on the same enemy collapse into a single
    * total and a single floating number, which keeps packed fights from spamming
-   * per-frame damage text and repeated hp writes. Single-target hits still apply
-   * immediately so melee and projectile feedback stays crisp.
+   * per-frame damage text and repeated hp writes. Damage from a melee source is
+   * marked so leech is resolved only against that part of the batch.
    */
   /** Whole-number combat text; round up so fractional hits never display as zero. */
   private floatingDamageText(damage: number): string {
     return `-${Math.ceil(damage)}`;
   }
 
-  private queueEnemyDamage(enemy: Enemy, damage: number, color: string, damageType: EnemyDamageType = "physical"): void {
+  private applyMeleeLeech(damage: number): void {
+    if (!(damage > 0) || !this.runActive) return;
+    const lifeSteal = damage * this.equippedLifeStealPercent / 100;
+    const manaSteal = damage * this.equippedManaStealPercent / 100;
+    if (lifeSteal > 0) this.playerHp = Math.min(this.effectivePlayerMaxHp, this.playerHp + lifeSteal);
+    if (manaSteal > 0) this.playerMana = Math.min(this.effectivePlayerMaxMana, this.playerMana + manaSteal);
+  }
+
+  /** Applies a contact hit and its melee-only life and mana leech. */
+  private dealMeleeDamage(enemy: Enemy, damage: number): void {
+    enemy.hp -= damage;
+    this.applyMeleeLeech(damage);
+  }
+
+  private queueEnemyDamage(
+    enemy: Enemy,
+    damage: number,
+    color: string,
+    damageType: EnemyDamageType = "physical",
+    meleeLeech = false,
+  ): void {
     if (!(damage > 0) || enemy.hp <= 0) return;
     if (this.isEnemyImmuneTo(enemy, damageType)) return;
     const pending = this.pendingDamage.get(enemy);
-    if (pending) pending.damage += damage;
-    else {
-      this.pendingDamage.set(enemy, { damage, color });
+    if (pending) {
+      pending.damage += damage;
+      if (meleeLeech) pending.meleeDamage += damage;
+    } else {
+      this.pendingDamage.set(enemy, { damage, color, meleeDamage: meleeLeech ? damage : 0 });
       // Large bursts should not wait for the next batch window; resolving them
       // as soon as the threshold is reached keeps packed fights responsive.
       if (this.pendingDamage.size >= 32) this.flushPendingDamage();
@@ -8442,18 +9055,27 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (this.pendingDamage.size === 0) return;
     for (const [enemy, hit] of this.pendingDamage) {
       if (enemy.hp <= 0) continue;
+      const meleeShare = hit.damage > 0 ? Math.min(1, hit.meleeDamage / hit.damage) : 0;
       let damage = hit.damage;
       if (this.equippedDeadlyStrikePercent > 0 && Math.random() * 100 < Math.min(100, this.equippedDeadlyStrikePercent)) damage *= 2;
       if (this.equippedCrushingBlowPercent > 0 && Math.random() * 100 < Math.min(100, this.equippedCrushingBlowPercent)) {
         damage += Math.max(1, enemy.hp * 0.125);
       }
-      enemy.hp -= damage;
-      if (damage > 0 && this.runActive) {
-        const lifeSteal = damage * this.equippedLifeStealPercent / 100;
-        const manaSteal = damage * this.equippedManaStealPercent / 100;
-        if (lifeSteal > 0) this.playerHp = Math.min(this.effectivePlayerMaxHp, this.playerHp + lifeSteal);
-        if (manaSteal > 0) this.playerMana = Math.min(this.effectivePlayerMaxMana, this.playerMana + manaSteal);
+      if (enemy.baalClone && enemy.baalOriginal) {
+        const original = enemy.baalOriginal;
+        if (original.hp <= 0) {
+          enemy.hp = 0;
+          continue;
+        }
+        // The effigy takes extra damage and passes that amplified hit to the
+        // real Baal; its own bar remains a mirror of his health percentage.
+        damage *= BAAL_EFFIGY_DAMAGE_MULTIPLIER;
+        original.hp = Math.max(0, original.hp - damage);
+        enemy.hp = Math.max(0, original.hp / original.maxHp * enemy.maxHp);
+      } else {
+        enemy.hp -= damage;
       }
+      if (damage > 0) this.applyMeleeLeech(damage * meleeShare);
       if (this.floatingTexts.length < 64) {
         this.floatingTexts.push({
           x: enemy.x,
@@ -8510,6 +9132,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       }
       if (projectile.blessedHammer) {
         this.updateBlessedHammer(projectile, seconds);
+        continue;
+      }
+      if (projectile.fistOfTheHeavensBolt) {
+        this.updateFistOfTheHeavensBolt(projectile, seconds);
         continue;
       }
       // Impact-radius projectiles still need the area-damage pass below; only
@@ -8699,6 +9325,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       if (targetIsAlive && missDistance <= targetRadius + projectile.radius) {
         if (targetIsPlayer) {
           this.playerHp -= this.applyIncomingDamage(projectile.damage, projectile.source);
+          if (projectile.poison) this.applyPlayerPoison(projectile.source);
+          if (projectile.cold && this.playerLeapRemaining <= 0) {
+            this.playerChilledRemaining = Math.max(this.playerChilledRemaining, MEPHISTO_SKULL_COLD_SECONDS);
+          }
           projectile.impactPoint = { x: this.playerX, y: this.playerY };
         } else if (target) {
           if (projectile.cold) this.applyEnemyChill(target);
@@ -8841,7 +9471,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       radius: 16, color: "#ff8a32", kind: "fire",
       wakeOfFireTrap: true,
       ammoRemaining: 4 + rank,
-      trapDamage: 30 + (rank - 1) * 8,
+      trapDamage: this.applyEnergyToSpellDamage(30 + (rank - 1) * 8),
       shotCooldown: 0.2,
     });
     this.draw();
@@ -8858,7 +9488,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       radius: 16, color: INFERNO_COLOR, kind: "fire",
       wakeOfInfernoTrap: true,
       ammoRemaining: 10,
-      trapDamage: WAKE_OF_INFERNO_FLAME_DAMAGE + (rank - 1) * WAKE_OF_INFERNO_FLAME_DAMAGE_PER_RANK,
+      trapDamage: this.applyEnergyToSpellDamage(WAKE_OF_INFERNO_FLAME_DAMAGE + (rank - 1) * WAKE_OF_INFERNO_FLAME_DAMAGE_PER_RANK),
       shotCooldown: 0.3,
     });
     this.draw();
@@ -8983,7 +9613,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const wallDistance = target ? Math.max(34, Math.min(86, targetDistance * 0.5)) : 78;
     const wallX = this.playerX + normalX * wallDistance;
     const wallY = this.playerY + normalY * wallDistance;
-    const tickDamage = Math.max(1, this.applyPaladinAuraDamage(this.basicAttackDamage * 0.3 + rankSteps * 0.75));
+    const tickDamage = Math.max(1, this.applyPaladinAuraDamage(this.applyEnergyToSpellDamage(this.basicAttackDamage * 0.3 + rankSteps * 0.75)));
     this.attackProjectiles.push({
       x: wallX, y: wallY, startX: wallX, startY: wallY,
       targetX: wallX, targetY: wallY,
@@ -9417,7 +10047,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   private drawAttackProjectile(ctx: CanvasRenderingContext2D, projectile: AttackProjectile): void {
     if (projectile.wakeOfFireTrap || projectile.boneWall || projectile.kind === "melee" || (projectile.impactTrap && projectile.impactAge !== undefined)) return;
-    const renderPoint = projectile.impactPoint ?? { x: projectile.x, y: projectile.y };
+    // Resolve the hammer's orbit from the live player position at draw time.
+    // World shifts and movement can happen after the simulation update but
+    // before this frame is painted; using the stored cast-point coordinates
+    // would leave the hammer behind for that frame.
+    const renderPoint = projectile.blessedHammer
+      ? this.blessedHammerOrbitPoint(projectile)
+      : projectile.impactPoint ?? { x: projectile.x, y: projectile.y };
     const renderAge = projectile.age;
     const impactDuration = projectile.impactDuration ?? 0.42;
     const renderLife = projectile.impactAge === undefined ? projectile.life : Math.max(0, impactDuration - projectile.impactAge);
@@ -9645,15 +10281,33 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.playerLeapLift = 0;
     this.resetChargeState();
     this.playerChilledRemaining = 0;
+    this.playerFrozenRemaining = 0;
+    this.playerHorrorRemaining = 0;
+    this.nihlathakCorpses.length = 0;
     this.playerBonePrisonRemaining = 0;
+    this.playerBloodManaRemaining = 0;
+    this.playerDefenseCurseRemaining = 0;
+    this.playerDecrepifyRemaining = 0;
+    this.clearPlayerPoison();
+    this.maggotEggs.length = 0;
     this.diabloThunderEffects.length = 0;
+    this.diabloFirestormEffects.length = 0;
+    this.diabloFireNovaEffects.length = 0;
+    this.diabloFireWallEffects.length = 0;
     this.baalTentacleEffects.length = 0;
     this.baalWaveEffects.length = 0;
+    this.baalHoarfrostEffects.length = 0;
+    this.baalNovaEffects.length = 0;
+    this.baalManaRiftEffects.length = 0;
+    this.baalCurseEffects.length = 0;
+    this.baalCastEffects.length = 0;
+    this.mephistoBlizzards.length = 0;
     this.leapDustEffects.length = 0;
     this.attackSequence = 0;
     this.attackProjectiles = [];
     this.pendingDamage.clear();
     this.pendingDamageTimer = 0;
+    this.clearZealSequence();
     this.closeSkillTree();
     this.attackAnimationTime = Number.POSITIVE_INFINITY;
     this.attackAnimationStyle = CLASS_ATTACK_ANIMATION[this.selectedClass] ?? "amazonJab";
@@ -9671,6 +10325,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.boneArmorRemaining = 0;
     this.boneArmorAbsorptionRemaining = 0;
     this.cycloneArmorRemaining = 0;
+    this.holyShieldRemaining = 0;
+    this.syncHolyShieldVisual();
     this.blazeRemaining = 0;
     this.blazeDropRemaining = 0;
     this.blazeDamagePerTick = 0;
@@ -9700,8 +10356,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.rebuildInventoryGrid();
     this.selectedItem = null;
     this.selectedSlotIndex = null;
-    this.dragState = null;
-    this.dragGhostSlotIndex = null;
+    this.cancelMobileInventoryInteraction();
     this.inventoryStatus = "";
     this.selectedEquipmentSlot = null;
     this.runTime = 0;
@@ -9781,14 +10436,21 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.simulationStep += 1;
     this.runTime += dt / 1000;
     this.tickHealthPotionHeal(dt);
+    this.tickPlayerPoison(dt);
     this.updateEquipmentRegeneration(dt);
     this.actTime += dt / 1000;
     this.updateCampaignArea();
     this.combatOrbsTime = Math.max(0, this.combatOrbsTime - dt / 1000);
-    this.attackCooldown = Math.max(0, this.attackCooldown - dt / 1000);
+    const attackRate = this.playerDecrepifyRemaining > 0 ? BAAL_DECREPIFY_ATTACK_SPEED_MULTIPLIER : 1;
+    this.attackCooldown = Math.max(0, this.attackCooldown - dt / 1000 * attackRate);
     this.playerAttackLockRemaining = Math.max(0, this.playerAttackLockRemaining - dt / 1000);
     this.playerChilledRemaining = Math.max(0, this.playerChilledRemaining - dt / 1000);
+    this.playerFrozenRemaining = Math.max(0, this.playerFrozenRemaining - dt / 1000);
+    this.playerHorrorRemaining = Math.max(0, this.playerHorrorRemaining - dt / 1000);
     this.playerBonePrisonRemaining = Math.max(0, this.playerBonePrisonRemaining - dt / 1000);
+    this.playerBloodManaRemaining = Math.max(0, this.playerBloodManaRemaining - dt / 1000);
+    this.playerDefenseCurseRemaining = Math.max(0, this.playerDefenseCurseRemaining - dt / 1000);
+    this.playerDecrepifyRemaining = Math.max(0, this.playerDecrepifyRemaining - dt / 1000);
 
     this.movePlayer(dt);
     this.updatePlayerCharge(dt);
@@ -9802,11 +10464,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     else {
       this.updateBasicAttack();
       this.updateAutomaticSkillCasts(dt);
+      this.updateZealStrikes(dt);
     }
 
     this.updateSummonAttacks(dt);
     this.updateEnemies(dt);
     this.updateDiabloThunderEffects(dt / 1000);
+    this.updateDiabloSpellEffects(dt / 1000);
     this.updateBaalEffects(dt / 1000);
     this.updateChests(dt);
     this.updatePotionDrops(dt);
@@ -9837,6 +10501,15 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.isPlayerMoving = false;
       return;
     }
+    if (this.playerFrozenRemaining > 0) {
+      // Mephisto's chilling strike encases the hero in ice, briefly pinning
+      // them in place until the frost shatters.
+      this.playerMoveX = 0;
+      this.playerMoveY = 0;
+      this.isPlayerMoving = false;
+      this.clickMoveTarget = null;
+      return;
+    }
     if (this.playerBonePrisonRemaining > 0) {
       // Diablo's Bone Prison pins the hero until the bones crumble.
       this.playerMoveX = 0;
@@ -9847,8 +10520,36 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const vigorRank = this.activePaladinAuraRank(["Vigor"]);
     const gearSpeed = 1 + Math.min(100, this.equippedMovementSpeedPercent) / 100;
     const chillSpeed = this.playerChilledRemaining > 0 ? PLAYER_CHILL_SPEED_MULTIPLIER : 1;
-    const speed = 220 * (vigorRank > 0 ? 1 + vigorRank * 0.035 : 1) * gearSpeed * chillSpeed / this.worldZoom;
+    const curseSpeed = this.playerDecrepifyRemaining > 0 ? BAAL_DECREPIFY_SPEED_MULTIPLIER : 1;
+    const speed = 220 * this.vigorMovementSpeedMultiplier(vigorRank) * gearSpeed * chillSpeed * curseSpeed / this.worldZoom;
 
+    // Horror overrides the hero's input: the curse drags them directly away
+    // from Nihlathak instead of letting them steer back into the fight.
+    if (this.playerHorrorRemaining > 0 && this.playerLeapRemaining <= 0) {
+      const caster = this.enemies.find((enemy) => enemy.species === "nihlathak" && enemy.hp > 0);
+      if (!caster) {
+        this.playerHorrorRemaining = 0;
+      } else {
+        this.cancelChannelingSpells();
+        this.clickMoveTarget = null;
+        const fleeX = this.playerX - caster.x;
+        const fleeY = this.playerY - caster.y;
+        const fleeDistance = Math.hypot(fleeX, fleeY) || 1;
+        const fleeAngle = Math.atan2(fleeY, fleeX) + Math.sin(this.runTime * 9) * 0.28;
+        const fearStep = speed * (dt / 1000);
+        const fearedMoveX = Math.cos(fleeAngle) * fearStep;
+        const fearedMoveY = Math.sin(fleeAngle) * fearStep;
+        this.shiftWorldBy(fearedMoveX, fearedMoveY);
+        this.playerX = this.arenaW / 2;
+        this.playerY = this.arenaH / 2;
+        this.playerMoveX = fearedMoveX;
+        this.playerMoveY = fearedMoveY;
+        this.isPlayerMoving = true;
+        this.playerFacingX = Math.cos(fleeAngle);
+        this.playerFacingY = Math.sin(fleeAngle);
+        return;
+      }
+    }
 
     const move = speed * (dt / 1000);
     // Translate screen-relative input into the square world plane used by gameplay.
@@ -10050,6 +10751,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       drop.x += offsetX;
       drop.y += offsetY;
     }
+    for (const corpse of this.nihlathakCorpses) {
+      corpse.x += offsetX;
+      corpse.y += offsetY;
+    }
     for (const projectile of this.attackProjectiles) {
       if (projectile.wakeOfFireTrap || projectile.boneWall) {
         projectile.x += offsetX;
@@ -10083,6 +10788,18 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       effect.x += offsetX;
       effect.y += offsetY;
     }
+    for (const effect of this.diabloFirestormEffects) {
+      effect.x += offsetX;
+      effect.y += offsetY;
+    }
+    for (const effect of this.diabloFireNovaEffects) {
+      effect.x += offsetX;
+      effect.y += offsetY;
+    }
+    for (const effect of this.diabloFireWallEffects) {
+      effect.x += offsetX;
+      effect.y += offsetY;
+    }
     for (const effect of this.baalTentacleEffects) {
       for (const tentacle of effect.tentacles) {
         tentacle.x += offsetX;
@@ -10090,6 +10807,30 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       }
     }
     for (const effect of this.baalWaveEffects) {
+      effect.x += offsetX;
+      effect.y += offsetY;
+    }
+    for (const effect of this.baalHoarfrostEffects) {
+      effect.x += offsetX;
+      effect.y += offsetY;
+    }
+    for (const effect of this.baalNovaEffects) {
+      effect.x += offsetX;
+      effect.y += offsetY;
+    }
+    for (const effect of this.baalManaRiftEffects) {
+      effect.x += offsetX;
+      effect.y += offsetY;
+      effect.targetX += offsetX;
+      effect.targetY += offsetY;
+    }
+    for (const effect of this.baalCurseEffects) {
+      effect.x += offsetX;
+      effect.y += offsetY;
+      effect.sourceX += offsetX;
+      effect.sourceY += offsetY;
+    }
+    for (const effect of this.baalCastEffects) {
       effect.x += offsetX;
       effect.y += offsetY;
     }
@@ -10378,7 +11119,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.playerChargeDistanceApplied = 0;
     this.playerChargeDuration = Math.max(CHARGE_MIN_DURATION, this.playerChargeDistance / CHARGE_SPEED);
     this.playerChargeRemaining = this.playerChargeDuration;
-    this.playerChargeDamage = this.applyPaladinAuraDamage(this.basicAttackDamage * CHARGE_DAMAGE_MULTIPLIER + (rank - 1) * 3);
+    this.playerChargeDamage = this.applyPaladinAuraDamage(this.applyStrengthToMeleeDamage(this.basicAttackDamage * CHARGE_DAMAGE_MULTIPLIER + (rank - 1) * 3));
     this.playerChargeStunSeconds = this.chargeStunSecondsForRank(rank);
     this.playerChargeImpactRadius = this.chargeImpactRadiusForRank(rank);
     this.clickMoveTarget = null;
@@ -10434,7 +11175,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         this.applyEnemyStun(enemy, this.playerChargeStunSeconds);
         this.floatingTexts.push({ x: enemy.x, y: enemy.y - enemy.r - 6, text: "STUN", color: "#ffe27a", life: 0.7 });
       }
-      this.queueEnemyDamage(enemy, this.playerChargeDamage, "#fff0a8");
+      this.queueEnemyDamage(enemy, this.playerChargeDamage, "#fff0a8", "physical", true);
     }
     this.addLeapDust(this.playerX, this.playerY, 1.1);
     this.triggerAttackAnimation("paladinStrike");
@@ -10561,6 +11302,156 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     });
   }
 
+  /**
+   * Sand Maggots dive under the sand when wounded or when the hero is already
+   * in biting range. The `s1` COF supplies both the body and the dirt plume;
+   * halfway through the clip the maggot is moved to a spot nearer the hero.
+   */
+  private tryStartMaggotBurrow(enemy: Enemy, playerDistance: number): boolean {
+    if ((enemy.burrowCooldown ?? 0) > 0 || (enemy.burrowRemaining ?? 0) > 0) return false;
+    const wounded = enemy.hp <= enemy.maxHp * SAND_MAGGOT_BURROW_TRIGGER_LIFE;
+    if (!wounded && playerDistance > 92) return false;
+    const angle = Math.random() * Math.PI * 2;
+    // Surface nearer than the maggot started, but never on top of the hero.
+    // Scaling from the current distance keeps the emergence "closer" whether
+    // it was fleeing across the arena or already in biting range.
+    const distance = Math.max(enemy.r * 0.6, Math.min(170, playerDistance * 0.55));
+    enemy.burrowRemaining = SAND_MAGGOT_BURROW_DURATION;
+    enemy.burrowCooldown = SAND_MAGGOT_BURROW_COOLDOWN;
+    enemy.burrowTargetX = Math.max(enemy.r, Math.min(this.arenaW - enemy.r,
+      this.playerX + Math.cos(angle) * distance));
+    enemy.burrowTargetY = Math.max(enemy.r, Math.min(this.arenaH - enemy.r,
+      this.playerY + Math.sin(angle) * distance));
+    enemy.spriteBlock = 3;
+    enemy.animationState = "attack";
+    enemy.attackDuration = SAND_MAGGOT_BURROW_DURATION;
+    enemy.attackAnimationTime = SAND_MAGGOT_BURROW_DURATION;
+    enemy.cd = Math.max(enemy.cd ?? 0, 0.8);
+    this.floatingTexts.push({
+      x: enemy.x,
+      y: enemy.y - enemy.r - 8,
+      text: "BURROW",
+      color: "#d8c49b",
+      life: 0.9,
+    });
+    return true;
+  }
+
+  private updateMaggotBurrow(enemy: Enemy, seconds: number): void {
+    const before = enemy.burrowRemaining ?? 0;
+    const remaining = Math.max(0, before - seconds);
+    enemy.burrowRemaining = remaining;
+    enemy.animationState = "attack";
+    enemy.attackDuration = SAND_MAGGOT_BURROW_DURATION;
+    enemy.attackAnimationTime = remaining;
+    const midpoint = SAND_MAGGOT_BURROW_DURATION * 0.55;
+    if (before > midpoint && remaining <= midpoint) {
+      enemy.x = enemy.burrowTargetX ?? enemy.x;
+      enemy.y = enemy.burrowTargetY ?? enemy.y;
+      const dx = this.playerX - enemy.x;
+      const dy = this.playerY - enemy.y;
+      const distance = Math.hypot(dx, dy) || 1;
+      enemy.facingX = dx / distance;
+      enemy.facingY = dy / distance;
+    }
+    if (remaining <= 0) {
+      enemy.spriteBlock = 0;
+      enemy.animationState = "idle";
+      enemy.attackAnimationTime = 0;
+      enemy.burrowTargetX = undefined;
+      enemy.burrowTargetY = undefined;
+    }
+  }
+
+  private biteWithSandMaggot(enemy: Enemy, targetSummon?: Enemy): void {
+    enemy.spriteBlock = 1;
+    enemy.animationState = "attack";
+    const duration = enemy.kind === "boss" ? 0.55 : 0.42;
+    enemy.attackDuration = duration;
+    enemy.attackAnimationTime = duration;
+    if (targetSummon) {
+      targetSummon.hp -= enemy.dmg;
+      this.floatingTexts.push({
+        x: targetSummon.x,
+        y: targetSummon.y - targetSummon.r - 8,
+        text: `-${Math.floor(enemy.dmg)}`,
+        color: "#ff9b82",
+        life: 0.65,
+      });
+    } else {
+      this.playerHp -= this.applyIncomingDamage(enemy.dmg, enemy);
+      const thornsRank = this.activePaladinAuraRank(["Thorns"]);
+      if (thornsRank > 0) this.queueEnemyDamage(enemy, enemy.dmg * thornsRank * 0.5, "#ffd083");
+    }
+    enemy.cd = enemy.kind === "boss" ? 1.15 : 0.95;
+  }
+
+  private spitSandMaggotGoo(enemy: Enemy, targetX: number, targetY: number, targetSummon?: Enemy): void {
+    enemy.spriteBlock = 2;
+    enemy.animationState = "attack";
+    const duration = enemy.kind === "boss" ? 0.85 : 0.72;
+    enemy.attackDuration = duration;
+    enemy.attackAnimationTime = duration;
+    const distance = Math.hypot(targetX - enemy.x, targetY - enemy.y) || 1;
+    const speed = 230;
+    this.attackProjectiles.push({
+      x: enemy.x, y: enemy.y, startX: enemy.x, startY: enemy.y,
+      targetX, targetY,
+      target: targetSummon, source: enemy,
+      targetPlayer: !targetSummon,
+      speed, damage: Math.max(1, enemy.dmg * 0.5),
+      life: Math.max(1, distance * this.worldZoom / speed + 0.8), age: 0,
+      radius: 9, color: SAND_MAGGOT_POISON_COLOR, kind: "fire",
+      missileId: "d2-sandmaggotgoospit",
+      sourceOnlyArt: true,
+      damageType: "poison",
+      poison: true,
+    });
+    enemy.cd = enemy.kind === "boss" ? 1.8 : 2.2;
+  }
+
+  private laySandMaggotEgg(enemy: Enemy): void {
+    enemy.spriteBlock = 2;
+    enemy.animationState = "attack";
+    const duration = 1.0;
+    enemy.attackDuration = duration;
+    enemy.attackAnimationTime = duration;
+    const awayAngle = Math.atan2(enemy.y - this.playerY, enemy.x - this.playerX)
+      + (Math.random() - 0.5) * 0.7;
+    const distance = enemy.r + 20;
+    const x = Math.max(8, Math.min(this.arenaW - 8, enemy.x + Math.cos(awayAngle) * distance));
+    const y = Math.max(8, Math.min(this.arenaH - 8, enemy.y + Math.sin(awayAngle) * distance));
+    this.maggotEggs.push({
+      x,
+      y,
+      age: 0,
+      hatchRemaining: SAND_MAGGOT_EGG_HATCH_SECONDS + Math.random() * 1.5,
+    });
+    enemy.cd = 2.2;
+    enemy.eggCooldown = SAND_MAGGOT_EGG_COOLDOWN + Math.random() * 5;
+    this.floatingTexts.push({ x: enemy.x, y: enemy.y - enemy.r - 8, text: "EGG LAID", color: "#d9c3a1", life: 0.9 });
+  }
+
+  private updateMaggotEggs(seconds: number): void {
+    for (let index = this.maggotEggs.length - 1; index >= 0; index -= 1) {
+      const egg = this.maggotEggs[index];
+      egg.age += seconds;
+      egg.hatchRemaining -= seconds;
+      if (egg.hatchRemaining > 0) continue;
+      this.maggotEggs.splice(index, 1);
+      if (this.enemies.length >= 220) continue;
+      const young = this.makeEnemy("normal", false, "sandMaggotYoung");
+      const angle = Math.random() * Math.PI * 2;
+      young.x = Math.max(young.r, Math.min(this.arenaW - young.r, egg.x + Math.cos(angle) * 16));
+      young.y = Math.max(young.r, Math.min(this.arenaH - young.r, egg.y + Math.sin(angle) * 16));
+      young.animationState = "idle";
+      young.attackAnimationTime = 0;
+      young.cd = 0.6;
+      this.enemies.push(young);
+      this.floatingTexts.push({ x: egg.x, y: egg.y - 18, text: "HATCH!", color: "#d9c3a1", life: 1 });
+    }
+  }
+
   /** Feared monsters run directly away from the barbarian and cannot attack. */
   private fleeEnemyFromPlayer(enemy: Enemy, seconds: number): void {
     const awayX = enemy.x - this.playerX;
@@ -10606,11 +11497,16 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     return enemy.speed * ((enemy.coldRemaining ?? 0) > 0 ? COLD_SLOW_SPEED_MULTIPLIER : 1);
   }
 
+  private beginDiabloCast(enemy: Enemy, duration: number, cooldown: number): void {
+    enemy.animationState = "attack";
+    enemy.attackAnimationTime = duration;
+    enemy.cd = cooldown;
+    enemy.diabloChargeRemaining = 0;
+  }
+
   private diabloIcePunch(enemy: Enemy): void {
     const damage = enemy.dmg * DIABLO_ICE_PUNCH_DAMAGE_MULTIPLIER;
-    enemy.animationState = "attack";
-    enemy.attackAnimationTime = 0.55;
-    enemy.cd = DIABLO_PUNCH_COOLDOWN;
+    this.beginDiabloCast(enemy, 0.55, DIABLO_PUNCH_COOLDOWN);
     this.playerHp -= this.applyIncomingDamage(damage, enemy);
     if (this.playerLeapRemaining <= 0) this.playerChilledRemaining = DIABLO_PLAYER_CHILL_SECONDS;
     this.floatingTexts.push({
@@ -10622,15 +11518,26 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     });
   }
 
+  private diabloClawSwipe(enemy: Enemy): void {
+    const damage = enemy.dmg * DIABLO_CLAW_DAMAGE_MULTIPLIER;
+    this.beginDiabloCast(enemy, 0.42, DIABLO_CLAW_COOLDOWN);
+    this.playerHp -= this.applyIncomingDamage(damage, enemy);
+    this.floatingTexts.push({
+      x: this.playerX,
+      y: this.playerY - 34,
+      text: `-${Math.floor(damage)}`,
+      color: "#ff9b82",
+      life: 0.65,
+    });
+  }
+
   private castDiabloThunder(enemy: Enemy): void {
     const rawX = this.playerX - enemy.x;
     const rawY = this.playerY - enemy.y;
     const distance = Math.hypot(rawX, rawY) || 1;
     const dirX = rawX / distance;
     const dirY = rawY / distance;
-    enemy.animationState = "attack";
-    enemy.attackAnimationTime = DIABLO_THUNDER_DURATION;
-    enemy.cd = DIABLO_SPELL_COOLDOWN;
+    this.beginDiabloCast(enemy, DIABLO_THUNDER_DURATION, DIABLO_SPELL_COOLDOWN);
     enemy.diabloChannelRemaining = DIABLO_THUNDER_DURATION;
     this.diabloThunderEffects.push({
       source: enemy,
@@ -10638,7 +11545,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       y: enemy.y,
       dirX,
       dirY,
-      length: Math.max(180, Math.min(DIABLO_BONE_PRISON_RANGE, distance + 80)),
+      length: Math.max(220, Math.min(DIABLO_CAST_RANGE + 40, distance + 100)),
       time: 0,
       duration: DIABLO_THUNDER_DURATION,
       tickRemaining: 0,
@@ -10649,16 +11556,111 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.floatingTexts.push({
       x: enemy.x,
       y: enemy.y - enemy.r - 12,
-      text: "THUNDER INFERNO",
-      color: "#ff8a63",
+      text: "RED LIGHTNING",
+      color: "#ff6b63",
       life: 1.1,
     });
   }
 
+  private castDiabloFirestorm(enemy: Enemy): void {
+    const angle = Math.atan2(this.playerY - enemy.y, this.playerX - enemy.x);
+    this.beginDiabloCast(enemy, 0.68, DIABLO_SPELL_COOLDOWN);
+    this.diabloFirestormEffects.push({
+      source: enemy,
+      x: enemy.x,
+      y: enemy.y,
+      angle,
+      time: 0,
+      duration: DIABLO_FIRESTORM_DURATION,
+      range: DIABLO_FIRESTORM_RANGE,
+      halfAngle: DIABLO_FIRESTORM_HALF_ANGLE,
+      waveHits: Array.from({ length: DIABLO_FIRESTORM_WAVE_COUNT }, () => false),
+      damage: Math.max(1, enemy.dmg * DIABLO_FIRESTORM_DAMAGE_MULTIPLIER),
+      seed: Math.random() * 1000,
+    });
+    this.floatingTexts.push({
+      x: enemy.x,
+      y: enemy.y - enemy.r - 12,
+      text: "FIRESTORM",
+      color: "#ff9b45",
+      life: 1.1,
+    });
+  }
+
+  private castDiabloFireNova(enemy: Enemy): void {
+    this.beginDiabloCast(enemy, 0.58, DIABLO_SPELL_COOLDOWN);
+    this.diabloFireNovaEffects.push({
+      source: enemy,
+      x: enemy.x,
+      y: enemy.y,
+      time: 0,
+      duration: DIABLO_FIRENOVA_DURATION,
+      maxRadius: DIABLO_FIRENOVA_RADIUS,
+      damage: Math.max(1, enemy.dmg * DIABLO_FIRENOVA_DAMAGE_MULTIPLIER),
+      hit: false,
+      seed: Math.random() * 1000,
+    });
+    this.floatingTexts.push({
+      x: enemy.x,
+      y: enemy.y - enemy.r - 12,
+      text: "FIRE NOVA",
+      color: "#ffb04d",
+      life: 1.1,
+    });
+  }
+
+  private castDiabloFireWall(enemy: Enemy): void {
+    const dx = this.playerX - enemy.x;
+    const dy = this.playerY - enemy.y;
+    const distance = Math.hypot(dx, dy) || 1;
+    this.beginDiabloCast(enemy, 0.62, DIABLO_SPELL_COOLDOWN);
+    this.diabloFireWallEffects.push({
+      source: enemy,
+      x: this.playerX,
+      y: this.playerY,
+      normalX: dx / distance,
+      normalY: dy / distance,
+      halfLength: DIABLO_FIREWALL_HALF_LENGTH,
+      halfWidth: DIABLO_FIREWALL_HALF_WIDTH,
+      time: 0,
+      duration: DIABLO_FIREWALL_DURATION,
+      tickRemaining: 0.15,
+      tickInterval: DIABLO_FIREWALL_TICK_INTERVAL,
+      damage: Math.max(1, enemy.dmg * DIABLO_FIREWALL_DAMAGE_MULTIPLIER),
+      seed: Math.random() * 1000,
+    });
+    this.floatingTexts.push({
+      x: this.playerX,
+      y: this.playerY - 40,
+      text: "FIRE WALL",
+      color: "#ff9b45",
+      life: 1.1,
+    });
+  }
+
+  /** Pick the next spell that makes sense at this distance. Red Lightning is
+   *  always available, while Fire Nova is skipped when the hero is beyond the
+   *  ring and Bone Prison is skipped while the current cage is still standing. */
+  private castDiabloRangedSpell(enemy: Enemy, distance: number): void {
+    const cycle = enemy.diabloSpellCycle ?? 0;
+    for (let offset = 0; offset < DIABLO_SPELL_CYCLE.length; offset += 1) {
+      const spell: DiabloRangedSpell = DIABLO_SPELL_CYCLE[(cycle + offset) % DIABLO_SPELL_CYCLE.length];
+      if (spell === "Fire Nova" && distance > DIABLO_FIRENOVA_RADIUS) continue;
+      if (spell === "Bone Prison" && this.playerBonePrisonRemaining > 0) continue;
+      enemy.diabloSpellCycle = cycle + offset + 1;
+      if (spell === "Firestorm") this.castDiabloFirestorm(enemy);
+      else if (spell === "Fire Nova") this.castDiabloFireNova(enemy);
+      else if (spell === "Fire Wall") this.castDiabloFireWall(enemy);
+      else if (spell === "Bone Prison") this.castDiabloBonePrison(enemy);
+      else this.castDiabloThunder(enemy);
+      return;
+    }
+    this.castDiabloThunder(enemy);
+    enemy.diabloSpellCycle = cycle + 1;
+  }
+
   private castDiabloBonePrison(enemy: Enemy): void {
-    enemy.animationState = "attack";
-    enemy.attackAnimationTime = 0.48;
-    enemy.cd = DIABLO_PRISON_COOLDOWN;
+    this.beginDiabloCast(enemy, 0.48, DIABLO_PRISON_COOLDOWN);
     this.cancelChannelingSpells();
     this.playerBonePrisonRemaining = DIABLO_BONE_PRISON_SECONDS;
     this.playerBonePrisonX = this.playerX;
@@ -10688,6 +11690,15 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         continue;
       }
       source.diabloChannelRemaining = Math.max(0, effect.duration - effect.time);
+      // Red Lightning is a hose, not a fixed laser: Diablo turns it toward the
+      // hero at a limited rate, so running a tight circle can outpace the sweep.
+      const currentAngle = Math.atan2(effect.dirY, effect.dirX);
+      const targetAngle = Math.atan2(this.playerY - effect.y, this.playerX - effect.x);
+      const angleDelta = Math.atan2(Math.sin(targetAngle - currentAngle), Math.cos(targetAngle - currentAngle));
+      const maxTurn = DIABLO_THUNDER_SWEEP_RATE * seconds;
+      const turnedAngle = currentAngle + Math.max(-maxTurn, Math.min(maxTurn, angleDelta));
+      effect.dirX = Math.cos(turnedAngle);
+      effect.dirY = Math.sin(turnedAngle);
       while (effect.tickRemaining <= 0 && effect.time < effect.duration) {
         const dx = this.playerX - effect.x;
         const dy = this.playerY - effect.y;
@@ -10702,6 +11713,101 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         source.diabloChannelRemaining = 0;
         this.diabloThunderEffects.splice(index, 1);
       }
+    }
+  }
+
+  private updateDiabloSpellEffects(seconds: number): void {
+    this.updateDiabloFirestorms(seconds);
+    this.updateDiabloFireNovas(seconds);
+    this.updateDiabloFireWalls(seconds);
+  }
+
+  private updateDiabloFirestorms(seconds: number): void {
+    for (let index = this.diabloFirestormEffects.length - 1; index >= 0; index -= 1) {
+      const effect = this.diabloFirestormEffects[index];
+      effect.time += seconds;
+      if (!effect.source || effect.source.hp <= 0) {
+        this.diabloFirestormEffects.splice(index, 1);
+        continue;
+      }
+      const dx = this.playerX - effect.x;
+      const dy = this.playerY - effect.y;
+      const playerDistance = Math.hypot(dx, dy);
+      const playerAngle = Math.atan2(dy, dx);
+      const angleOffset = Math.abs(Math.atan2(
+        Math.sin(playerAngle - effect.angle),
+        Math.cos(playerAngle - effect.angle),
+      ));
+      const waveSpan = effect.duration - 0.32;
+      for (let wave = 0; wave < effect.waveHits.length; wave += 1) {
+        if (effect.waveHits[wave]) continue;
+        const progress = Math.max(0, Math.min(1, (effect.time - wave * 0.14) / waveSpan));
+        if (progress <= 0 || progress >= 1) continue;
+        const front = effect.range * progress;
+        if (front < playerDistance || front - playerDistance > 100) continue;
+        if (angleOffset > effect.halfAngle) continue;
+        effect.waveHits[wave] = true;
+        if (this.playerLeapRemaining > 0) continue;
+        this.playerHp -= this.applyIncomingDamage(effect.damage, effect.source);
+      }
+      if (effect.time >= effect.duration) this.diabloFirestormEffects.splice(index, 1);
+    }
+  }
+
+  private updateDiabloFireNovas(seconds: number): void {
+    for (let index = this.diabloFireNovaEffects.length - 1; index >= 0; index -= 1) {
+      const effect = this.diabloFireNovaEffects[index];
+      effect.time += seconds;
+      if (!effect.source || effect.source.hp <= 0) {
+        this.diabloFireNovaEffects.splice(index, 1);
+        continue;
+      }
+      if (!effect.hit) {
+        const progress = Math.max(0, Math.min(1, effect.time / effect.duration));
+        const radius = effect.maxRadius * (1 - (1 - progress) * (1 - progress));
+        const playerDistance = Math.hypot(this.playerX - effect.x, this.playerY - effect.y);
+        if (Math.abs(playerDistance - radius) <= DIABLO_FIRENOVA_THICKNESS) {
+          effect.hit = true;
+          if (this.playerLeapRemaining <= 0) {
+            this.playerHp -= this.applyIncomingDamage(effect.damage, effect.source);
+          }
+        }
+      }
+      if (effect.time >= effect.duration) this.diabloFireNovaEffects.splice(index, 1);
+    }
+  }
+
+  private updateDiabloFireWalls(seconds: number): void {
+    for (let index = this.diabloFireWallEffects.length - 1; index >= 0; index -= 1) {
+      const wall = this.diabloFireWallEffects[index];
+      wall.time += seconds;
+      wall.tickRemaining -= seconds;
+      if (!wall.source || wall.source.hp <= 0) {
+        this.diabloFireWallEffects.splice(index, 1);
+        continue;
+      }
+      const tangentX = -wall.normalY;
+      const tangentY = wall.normalX;
+      const startX = wall.x - tangentX * wall.halfLength;
+      const startY = wall.y - tangentY * wall.halfLength;
+      const segmentX = tangentX * wall.halfLength * 2;
+      const segmentY = tangentY * wall.halfLength * 2;
+      const segmentLengthSquared = segmentX * segmentX + segmentY * segmentY;
+      const along = Math.max(0, Math.min(1,
+        ((this.playerX - startX) * segmentX + (this.playerY - startY) * segmentY) / segmentLengthSquared));
+      const closestX = startX + segmentX * along;
+      const closestY = startY + segmentY * along;
+      const inside = Math.hypot(this.playerX - closestX, this.playerY - closestY) <= wall.halfWidth + 12;
+      if (inside && this.playerLeapRemaining <= 0) {
+        while (wall.tickRemaining <= 0 && wall.time < wall.duration) {
+          this.playerHp -= this.applyIncomingDamage(wall.damage, wall.source);
+          wall.tickRemaining += wall.tickInterval;
+        }
+      } else if (wall.tickRemaining <= 0) {
+        // Do not queue a burst of ticks when the hero steps back into the flames.
+        wall.tickRemaining += wall.tickInterval;
+      }
+      if (wall.time >= wall.duration) this.diabloFireWallEffects.splice(index, 1);
     }
   }
 
@@ -10773,7 +11879,621 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     });
   }
 
-  private castMephistoLightningBall(enemy: Enemy, targetX: number, targetY: number, target: Enemy | undefined): void {
+  /** A V of cold waves that sweeps the room, hitting several times and shoving
+   *  the hero away from Baal instead of stopping at the first contact. */
+  private castBaalHoarfrost(enemy: Enemy): void {
+    const dx = this.playerX - enemy.x;
+    const dy = this.playerY - enemy.y;
+    const distance = Math.hypot(dx, dy) || 1;
+    enemy.animationState = "attack";
+    enemy.attackAnimationTime = 0.92;
+    enemy.cd = BAAL_HOARFROST_COOLDOWN;
+    this.baalHoarfrostEffects.push({
+      source: enemy,
+      x: enemy.x,
+      y: enemy.y,
+      angle: Math.atan2(dy, dx),
+      time: 0,
+      duration: BAAL_HOARFROST_DURATION,
+      speed: BAAL_HOARFROST_SPEED,
+      maxDistance: Math.max(BAAL_HOARFROST_RANGE, distance + 90),
+      halfWidth: BAAL_HOARFROST_HALF_WIDTH,
+      spread: BAAL_HOARFROST_SPREAD,
+      damage: enemy.dmg * BAAL_HOARFROST_DAMAGE_MULTIPLIER,
+      waveHits: Array.from({ length: BAAL_HOARFROST_WAVES }, () => false),
+      seed: Math.random() * Math.PI * 2,
+    });
+    this.floatingTexts.push({
+      x: enemy.x,
+      y: enemy.y - enemy.r - 12,
+      text: "HOARFROST",
+      color: "#9fdcff",
+      life: 1.1,
+    });
+  }
+
+  /** The room-wide fireball ring from Baal Nova. */
+  private castBaalIncinerationNova(enemy: Enemy): void {
+    const maxRadius = Math.max(680, Math.min(980, Math.max(this.arenaW, this.arenaH) * 0.54));
+    enemy.animationState = "attack";
+    enemy.attackAnimationTime = 0.78;
+    enemy.cd = BAAL_NOVA_COOLDOWN;
+    this.baalNovaEffects.push({
+      source: enemy,
+      x: enemy.x,
+      y: enemy.y,
+      time: 0,
+      duration: BAAL_NOVA_DURATION,
+      maxRadius,
+      damage: enemy.dmg * BAAL_NOVA_DAMAGE_MULTIPLIER,
+      hit: false,
+      seed: Math.random() * Math.PI * 2,
+    });
+    this.floatingTexts.push({
+      x: enemy.x,
+      y: enemy.y - enemy.r - 12,
+      text: "INCINERATION NOVA",
+      color: "#ffb347",
+      life: 1.2,
+    });
+  }
+
+  /** The gold flamethrower beam. It drains half of the hero's current mana the
+   *  instant it lands, even in this survival mode where spells do not spend it. */
+  private castBaalManaRift(enemy: Enemy): void {
+    const distance = Math.hypot(this.playerX - enemy.x, this.playerY - enemy.y) || 1;
+    enemy.animationState = "attack";
+    enemy.attackAnimationTime = 0.64;
+    enemy.cd = BAAL_MANA_RIFT_COOLDOWN;
+    this.baalManaRiftEffects.push({
+      source: enemy,
+      x: enemy.x,
+      y: enemy.y,
+      targetX: this.playerX,
+      targetY: this.playerY,
+      length: Math.max(140, distance),
+      time: 0,
+      duration: BAAL_MANA_RIFT_DURATION,
+      seed: Math.random() * Math.PI * 2,
+    });
+    const drained = Math.floor(this.playerMana * 0.5);
+    this.playerMana = Math.max(0, this.playerMana - drained);
+    this.floatingTexts.push({
+      x: this.playerX,
+      y: this.playerY - 42,
+      text: drained > 0 ? `MANA RIFT -${drained} MANA` : "MANA RIFT",
+      color: "#ffe27a",
+      life: 1.1,
+    });
+  }
+
+  /** A full-stat duplicate linked to Baal's health percentage. Damage dealt to
+   *  the effigy is amplified and transferred straight to the original. */
+  private castBaalVileEffigy(enemy: Enemy): void {
+    // The effigy is a duplicate, not a summoner: it cannot make another copy.
+    if (enemy.baalClone) {
+      this.castBaalIncinerationNova(enemy);
+      return;
+    }
+    const existing = this.enemies.find((candidate) =>
+      candidate.hp > 0 && candidate.baalClone && candidate.baalOriginal === enemy);
+    if (existing) {
+      this.castBaalIncinerationNova(enemy);
+      return;
+    }
+    const awayAngle = Math.atan2(enemy.y - this.playerY, enemy.x - this.playerX);
+    const spawnAngle = awayAngle + (Math.random() < 0.5 ? -0.75 : 0.75);
+    const spawnDistance = 300;
+    const spawnX = Math.max(enemy.r, Math.min(this.arenaW - enemy.r, this.playerX + Math.cos(spawnAngle) * spawnDistance));
+    const spawnY = Math.max(enemy.r, Math.min(this.arenaH - enemy.r, this.playerY + Math.sin(spawnAngle) * spawnDistance));
+    const clone: Enemy = {
+      ...enemy,
+      x: spawnX,
+      y: spawnY,
+      hp: enemy.hp,
+      maxHp: enemy.maxHp,
+      cd: 1.2,
+      animationState: "idle",
+      attackAnimationTime: 0,
+      campaignBoss: false,
+      baalClone: true,
+      baalOriginal: enemy,
+      baalSpellCycle: (enemy.baalSpellCycle ?? 0) + 2,
+      baalStrikeCycle: 0,
+    };
+    this.enemies.push(clone);
+    enemy.animationState = "attack";
+    enemy.attackAnimationTime = 0.82;
+    enemy.cd = BAAL_EFFIGY_COOLDOWN;
+    this.baalCastEffects.push({
+      source: enemy,
+      kind: "effigy",
+      x: spawnX,
+      y: spawnY,
+      time: 0,
+      duration: 0.95,
+      seed: Math.random() * Math.PI * 2,
+    });
+    this.floatingTexts.push({
+      x: enemy.x,
+      y: enemy.y - enemy.r - 12,
+      text: "VILE EFFIGY",
+      color: "#d6a4ff",
+      life: 1.3,
+    });
+  }
+
+  private castBaalCurse(enemy: Enemy, type: BaalCurseType): void {
+    const distance = Math.hypot(this.playerX - enemy.x, this.playerY - enemy.y) || 1;
+    enemy.animationState = "attack";
+    enemy.attackAnimationTime = 0.58;
+    enemy.cd = BAAL_CURSE_COOLDOWN;
+    const name = type === "bloodMana" ? "BLOOD MANA" : type === "defense" ? "DEFENSE CURSE" : "DECREPIFY";
+    const color = type === "decrepify" ? "#b7e36a" : "#ff7777";
+    let applied = distance <= BAAL_CURSE_RANGE;
+    if (applied && type === "bloodMana") {
+      applied = this.effectivePlayerMaxMana >= this.effectivePlayerMaxHp;
+      if (applied) this.playerBloodManaRemaining = Math.max(this.playerBloodManaRemaining, BAAL_BLOOD_MANA_DURATION);
+    } else if (applied && type === "defense") {
+      this.playerDefenseCurseRemaining = Math.max(this.playerDefenseCurseRemaining, BAAL_CURSE_DURATION);
+    } else if (applied) {
+      this.playerDecrepifyRemaining = Math.max(this.playerDecrepifyRemaining, BAAL_CURSE_DURATION);
+    }
+    this.baalCurseEffects.push({
+      source: enemy,
+      type,
+      x: this.playerX,
+      y: this.playerY,
+      sourceX: enemy.x,
+      sourceY: enemy.y,
+      time: 0,
+      duration: 0.9,
+      seed: Math.random() * Math.PI * 2,
+    });
+    this.floatingTexts.push({
+      x: enemy.x,
+      y: enemy.y - enemy.r - 12,
+      text: applied ? name : `${name} RESISTED`,
+      color: applied ? color : "#b9a8a8",
+      life: 1.2,
+    });
+    if (applied) {
+      this.floatingTexts.push({
+        x: this.playerX,
+        y: this.playerY - 54,
+        text: name,
+        color,
+        life: 1.15,
+      });
+    }
+  }
+
+  /** Repositions away from a melee attacker; the old and new positions both get
+   *  the original BaalTeleport vortex. */
+  private castBaalTeleport(enemy: Enemy): void {
+    const oldX = enemy.x;
+    const oldY = enemy.y;
+    const awayAngle = Math.atan2(enemy.y - this.playerY, enemy.x - this.playerX)
+      + (Math.random() - 0.5) * 1.5;
+    const distance = Math.hypot(enemy.x - this.playerX, enemy.y - this.playerY);
+    const retreat = Math.max(280, Math.min(520, distance + 180));
+    enemy.x = Math.max(enemy.r, Math.min(this.arenaW - enemy.r, this.playerX + Math.cos(awayAngle) * retreat));
+    enemy.y = Math.max(enemy.r, Math.min(this.arenaH - enemy.r, this.playerY + Math.sin(awayAngle) * retreat));
+    enemy.animationState = "attack";
+    enemy.attackAnimationTime = 0.6;
+    enemy.cd = BAAL_TELEPORT_COOLDOWN;
+    for (const point of [{ x: oldX, y: oldY }, { x: enemy.x, y: enemy.y }]) {
+      this.baalCastEffects.push({
+        source: enemy,
+        kind: "teleport",
+        x: point.x,
+        y: point.y,
+        time: 0,
+        duration: 0.72,
+        seed: Math.random() * Math.PI * 2,
+      });
+    }
+    this.floatingTexts.push({ x: enemy.x, y: enemy.y - enemy.r - 14, text: "TELEPORT", color: "#e7c7ff", life: 1.1 });
+  }
+
+  /**
+   * Nihlathak never enters the generic melee branch. He keeps his distance and
+   * rotates through Corpse Explosion, Summon Minion, Arctic Blast, Minion
+   * Frenzy, Horror and Teleport. A melee attacker who closes the gap forces an
+   * immediate escape teleport before the next spell in the rotation.
+   */
+  private updateNihlathakCombat(enemy: Enemy, distance: number, seconds: number): void {
+    enemy.nihlathakTeleportCooldown = Math.max(0, (enemy.nihlathakTeleportCooldown ?? 0) - seconds);
+    if ((enemy.cd ?? 0) > 0 || (enemy.attackAnimationTime ?? 0) > 0) return;
+    if (distance <= NIHLATHAK_TELEPORT_PRESSURE_RANGE
+      && (enemy.nihlathakTeleportCooldown ?? 0) <= 0) {
+      this.castNihlathakTeleport(enemy);
+      return;
+    }
+    if (distance > NIHLATHAK_ENGAGE_RANGE) return;
+    const cycle = enemy.nihlathakSpellCycle ?? 0;
+    enemy.nihlathakSpellCycle = cycle + 1;
+    switch (cycle % 6) {
+      case 0:
+        if (!this.castNihlathakCorpseExplosion(enemy)) this.castNihlathakArcticBlast(enemy);
+        return;
+      case 1:
+        if (!this.summonNihlathakMinions(enemy)) this.castNihlathakArcticBlast(enemy);
+        return;
+      case 2:
+        this.castNihlathakArcticBlast(enemy);
+        return;
+      case 3:
+        if (!this.castNihlathakFrenzy(enemy)) this.castNihlathakArcticBlast(enemy);
+        return;
+      case 4:
+        this.castNihlathakHorror(enemy, distance);
+        return;
+      default:
+        this.castNihlathakTeleport(enemy);
+    }
+  }
+
+  /** Detonate a corpse the hero is standing beside, for 10-20% of its full life. */
+  private castNihlathakCorpseExplosion(enemy: Enemy): boolean {
+    const corpse = this.nearestNihlathakCorpse(this.playerX, this.playerY, NIHLATHAK_CORPSE_BLAST_RADIUS);
+    if (!corpse) return false;
+    const corpseIndex = this.nihlathakCorpses.indexOf(corpse);
+    if (corpseIndex >= 0) this.nihlathakCorpses.splice(corpseIndex, 1);
+    enemy.animationState = "attack";
+    enemy.attackAnimationTime = 0.62;
+    enemy.cd = 2.3;
+    const fraction = NIHLATHAK_CORPSE_DAMAGE_MIN_FRACTION
+      + Math.random() * (NIHLATHAK_CORPSE_DAMAGE_MAX_FRACTION - NIHLATHAK_CORPSE_DAMAGE_MIN_FRACTION);
+    // D2 splits the blast 50/50 between fire and physical. This game has one
+    // global resistance pool, so both halves are summed before mitigation.
+    const fireDamage = corpse.maxHp * fraction * 0.5;
+    const physicalDamage = corpse.maxHp * fraction * 0.5;
+    const damage = this.applyIncomingDamage(fireDamage + physicalDamage, enemy);
+    if (damage > 0) {
+      this.playerHp -= damage;
+      this.floatingTexts.push({
+        x: this.playerX,
+        y: this.playerY - 36,
+        text: `-${Math.ceil(damage)}`,
+        color: "#ff9a5a",
+        life: 0.9,
+      });
+    }
+    this.skillVisualEffects.push({
+      name: "Corpse Explosion",
+      kind: "burst",
+      x: corpse.x,
+      y: corpse.y,
+      targetX: corpse.x,
+      targetY: corpse.y,
+      facingX: 0,
+      facingY: 1,
+      time: 0,
+      duration: 0.6,
+      color: "#ff9a5d",
+      seed: Math.random(),
+      fieldRadius: NIHLATHAK_CORPSE_BLAST_RADIUS,
+      stationary: true,
+    });
+    this.floatingTexts.push({
+      x: enemy.x,
+      y: enemy.y - enemy.r - 14,
+      text: "CORPSE EXPLOSION",
+      color: "#ff9a5d",
+      life: 1.1,
+    });
+    return true;
+  }
+
+  /** A cold cone that damages, chills and occasionally freezes the hero. */
+  private castNihlathakArcticBlast(enemy: Enemy): void {
+    enemy.animationState = "attack";
+    enemy.attackAnimationTime = 0.72;
+    enemy.cd = 1.9;
+    const facingX = enemy.facingX ?? 0;
+    const facingY = enemy.facingY ?? 1;
+    const dx = this.playerX - enemy.x;
+    const dy = this.playerY - enemy.y;
+    const reach = Math.hypot(dx, dy);
+    const forward = dx * facingX + dy * facingY;
+    const insideCone = reach <= NIHLATHAK_ARCTIC_RANGE + 12
+      && forward > 0
+      && forward / (reach || 1) >= Math.cos(NIHLATHAK_ARCTIC_HALF_ANGLE);
+    if (insideCone && this.playerLeapRemaining <= 0) {
+      this.playerHp -= this.applyIncomingDamage(enemy.dmg * NIHLATHAK_ARCTIC_DAMAGE_MULTIPLIER, enemy);
+      this.playerChilledRemaining = Math.max(this.playerChilledRemaining, NIHLATHAK_ARCTIC_CHILL_SECONDS);
+      if (Math.random() < NIHLATHAK_ARCTIC_FREEZE_CHANCE) {
+        this.playerFrozenRemaining = Math.max(this.playerFrozenRemaining, NIHLATHAK_ARCTIC_FREEZE_SECONDS);
+        this.floatingTexts.push({
+          x: this.playerX,
+          y: this.playerY - 34,
+          text: "FROZEN",
+          color: "#d8f6ff",
+          life: 1.1,
+        });
+      } else {
+        this.floatingTexts.push({
+          x: this.playerX,
+          y: this.playerY - 34,
+          text: "CHILLED",
+          color: "#bfeaff",
+          life: 1.1,
+        });
+      }
+    }
+    this.skillVisualEffects.push({
+      name: "Arctic Blast",
+      kind: "projectile",
+      arcticBlast: true,
+      enemyCast: true,
+      stationary: true,
+      x: enemy.x,
+      y: enemy.y,
+      targetX: enemy.x + facingX * NIHLATHAK_ARCTIC_RANGE,
+      targetY: enemy.y + facingY * NIHLATHAK_ARCTIC_RANGE,
+      facingX,
+      facingY,
+      time: 0,
+      duration: 0.8,
+      color: "#9fe5ff",
+      seed: Math.random() * Math.PI * 2,
+      coneRange: NIHLATHAK_ARCTIC_RANGE,
+      coneHalfAngle: NIHLATHAK_ARCTIC_HALF_ANGLE,
+    });
+    this.floatingTexts.push({
+      x: enemy.x,
+      y: enemy.y - enemy.r - 14,
+      text: "ARCTIC BLAST",
+      color: "#9fe5ff",
+      life: 1.1,
+    });
+  }
+
+  /** Raise up to two Ice Spawn, keeping the pack below its cap. */
+  private summonNihlathakMinions(enemy: Enemy): boolean {
+    const livingMinions = this.enemies.filter((candidate) => candidate.nihlathakMinion && candidate.hp > 0).length;
+    if (livingMinions >= NIHLATHAK_MINION_LIMIT || this.enemies.length >= 220) return false;
+    enemy.animationState = "attack";
+    enemy.attackAnimationTime = 0.66;
+    enemy.cd = 2.4;
+    const summonCount = Math.min(2, NIHLATHAK_MINION_LIMIT - livingMinions, 220 - this.enemies.length);
+    for (let index = 0; index < summonCount; index += 1) {
+      const angle = (Math.random() * Math.PI * 2) + index * Math.PI;
+      const minion = this.makeEnemy("normal", false, "skeleton");
+      minion.r = 13;
+      minion.x = Math.max(minion.r, Math.min(this.arenaW - minion.r, enemy.x + Math.cos(angle) * (enemy.r + minion.r + 8)));
+      minion.y = Math.max(minion.r, Math.min(this.arenaH - minion.r, enemy.y + Math.sin(angle) * (enemy.r + minion.r + 8)));
+      minion.speed = 132;
+      minion.maxHp = Math.max(18, Math.round(enemy.maxHp * NIHLATHAK_MINION_LIFE_FRACTION));
+      minion.hp = minion.maxHp;
+      minion.dmg = Math.max(2, Math.round(enemy.dmg * NIHLATHAK_MINION_DAMAGE_FRACTION));
+      minion.cd = 0.45;
+      minion.animationState = "idle";
+      minion.nihlathakMinion = true;
+      minion.customName = "Ice Spawn";
+      this.enemies.push(minion);
+    }
+    this.skillVisualEffects.push({
+      name: "Summon Minions",
+      kind: "burst",
+      x: enemy.x,
+      y: enemy.y,
+      targetX: enemy.x,
+      targetY: enemy.y,
+      facingX: enemy.facingX ?? 0,
+      facingY: enemy.facingY ?? 1,
+      time: 0,
+      duration: 0.55,
+      color: "#b7d9ef",
+      seed: Math.random(),
+      stationary: true,
+    });
+    this.floatingTexts.push({
+      x: enemy.x,
+      y: enemy.y - enemy.r - 14,
+      text: "SUMMON MINIONS",
+      color: "#b7d9ef",
+      life: 1.1,
+    });
+    return true;
+  }
+
+  /** Drive every living Ice Spawn into a damage and attack-speed frenzy. */
+  private castNihlathakFrenzy(enemy: Enemy): boolean {
+    const minions = this.enemies.filter((candidate) => candidate.nihlathakMinion && candidate.hp > 0);
+    if (!minions.length) return false;
+    enemy.animationState = "attack";
+    enemy.attackAnimationTime = 0.6;
+    enemy.cd = 2.1;
+    for (const minion of minions) {
+      minion.frenzyRemaining = Math.max(minion.frenzyRemaining ?? 0, NIHLATHAK_FRENZY_DURATION);
+    }
+    this.skillVisualEffects.push({
+      name: "Minion Frenzy",
+      kind: "burst",
+      x: enemy.x,
+      y: enemy.y,
+      targetX: enemy.x,
+      targetY: enemy.y,
+      facingX: enemy.facingX ?? 0,
+      facingY: enemy.facingY ?? 1,
+      time: 0,
+      duration: 0.6,
+      color: "#ff9a5d",
+      seed: Math.random(),
+      stationary: true,
+    });
+    this.floatingTexts.push({
+      x: enemy.x,
+      y: enemy.y - enemy.r - 14,
+      text: "MINION FRENZY",
+      color: "#ff9a5d",
+      life: 1.1,
+    });
+    return true;
+  }
+
+  /** Horror flips the hero's movement away from Nihlathak for a few seconds. */
+  private castNihlathakHorror(enemy: Enemy, distance: number): void {
+    enemy.animationState = "attack";
+    enemy.attackAnimationTime = 0.6;
+    enemy.cd = 2.7;
+    const applied = distance <= NIHLATHAK_HORROR_RANGE && this.playerLeapRemaining <= 0;
+    if (applied) {
+      this.playerHorrorRemaining = Math.max(this.playerHorrorRemaining, NIHLATHAK_HORROR_SECONDS);
+    }
+    this.skillVisualEffects.push({
+      name: "Horror",
+      kind: "wave",
+      curseField: true,
+      stationary: true,
+      x: this.playerX,
+      y: this.playerY,
+      targetX: this.playerX,
+      targetY: this.playerY,
+      facingX: this.playerFacingX,
+      facingY: this.playerFacingY,
+      time: 0,
+      duration: 0.9,
+      fieldRadius: 140,
+      color: "#b98bff",
+      seed: Math.random() * Math.PI * 2,
+    });
+    this.floatingTexts.push({
+      x: enemy.x,
+      y: enemy.y - enemy.r - 14,
+      text: applied ? "HORROR" : "HORROR RESISTED",
+      color: applied ? "#c9a2ff" : "#b9a8a8",
+      life: 1.2,
+    });
+    if (applied) {
+      this.floatingTexts.push({
+        x: this.playerX,
+        y: this.playerY - 54,
+        text: "HORROR",
+        color: "#c9a2ff",
+        life: 1.2,
+      });
+    }
+  }
+
+  /** Blink a short distance away from the hero, or out of melee pressure. */
+  private castNihlathakTeleport(enemy: Enemy): void {
+    const oldX = enemy.x;
+    const oldY = enemy.y;
+    const awayAngle = Math.atan2(enemy.y - this.playerY, enemy.x - this.playerX)
+      + (Math.random() - 0.5) * 1.2;
+    const retreat = NIHLATHAK_TELEPORT_MIN_DISTANCE
+      + Math.random() * (NIHLATHAK_TELEPORT_MAX_DISTANCE - NIHLATHAK_TELEPORT_MIN_DISTANCE);
+    const edge = 24;
+    enemy.x = Math.max(edge, Math.min(this.arenaW - edge, this.playerX + Math.cos(awayAngle) * retreat));
+    enemy.y = Math.max(edge, Math.min(this.arenaH - edge, this.playerY + Math.sin(awayAngle) * retreat));
+    enemy.animationState = "attack";
+    enemy.attackAnimationTime = 0.55;
+    enemy.cd = 1.4;
+    enemy.nihlathakTeleportCooldown = NIHLATHAK_TELEPORT_COOLDOWN;
+    for (const point of [{ x: oldX, y: oldY }, { x: enemy.x, y: enemy.y }]) {
+      this.skillVisualEffects.push({
+        name: "Teleport",
+        kind: "burst",
+        x: point.x,
+        y: point.y,
+        targetX: point.x,
+        targetY: point.y,
+        facingX: 1,
+        facingY: 0,
+        time: 0,
+        duration: 0.55,
+        color: "#b98bff",
+        seed: Math.random() * Math.PI * 2,
+        stationary: true,
+      });
+    }
+    this.floatingTexts.push({
+      x: enemy.x,
+      y: enemy.y - enemy.r - 14,
+      text: "TELEPORT",
+      color: "#c9a2ff",
+      life: 1.1,
+    });
+  }
+
+  private updateNihlathakCorpses(seconds: number): void {
+    if (!this.enemies.some((enemy) => enemy.species === "nihlathak" && enemy.hp > 0)) {
+      this.nihlathakCorpses.length = 0;
+      return;
+    }
+    for (let index = this.nihlathakCorpses.length - 1; index >= 0; index -= 1) {
+      const corpse = this.nihlathakCorpses[index];
+      corpse.life -= seconds;
+      if (corpse.life <= 0) this.nihlathakCorpses.splice(index, 1);
+    }
+  }
+
+  private recordNihlathakCorpse(enemy: Enemy): void {
+    this.nihlathakCorpses.push({
+      x: enemy.x,
+      y: enemy.y,
+      maxHp: Math.max(1, enemy.maxHp),
+      life: NIHLATHAK_CORPSE_LIFE_SECONDS,
+      seed: Math.random(),
+    });
+    if (this.nihlathakCorpses.length > NIHLATHAK_CORPSE_LIMIT) {
+      this.nihlathakCorpses.splice(0, this.nihlathakCorpses.length - NIHLATHAK_CORPSE_LIMIT);
+    }
+  }
+
+  private nearestNihlathakCorpse(x: number, y: number, range: number): NihlathakCorpse | undefined {
+    let nearest: NihlathakCorpse | undefined;
+    let nearestDistance = range;
+    for (const corpse of this.nihlathakCorpses) {
+      const distance = Math.hypot(corpse.x - x, corpse.y - y);
+      if (distance > nearestDistance) continue;
+      nearest = corpse;
+      nearestDistance = distance;
+    }
+    return nearest;
+  }
+
+  /** Heavy claw slam. From area level 40 onward it alternates fire and cold
+   *  bonus damage, matching the Nightmare/Hell upgrade in D2. */
+  private castBaalDestructiveStrike(enemy: Enemy): void {
+    const dx = this.playerX - enemy.x;
+    const dy = this.playerY - enemy.y;
+    const distance = Math.hypot(dx, dy) || 1;
+    const strikeCycle = enemy.baalStrikeCycle ?? 0;
+    enemy.baalStrikeCycle = strikeCycle + 1;
+    const cold = strikeCycle % 2 === 1;
+    const elemental = this.currentArea.level >= BAAL_DESTRUCTIVE_STRIKE_ELEMENTAL_AREA_LEVEL
+      ? BAAL_DESTRUCTIVE_STRIKE_ELEMENTAL_BONUS : 0;
+    const damage = enemy.dmg * (BAAL_DESTRUCTIVE_STRIKE_MULTIPLIER + elemental);
+    enemy.animationState = "attack";
+    enemy.attackAnimationTime = 0.68;
+    enemy.cd = BAAL_DESTRUCTIVE_STRIKE_COOLDOWN;
+    if (distance <= enemy.r + 38 && this.playerLeapRemaining <= 0) {
+      this.playerHp -= this.applyIncomingDamage(damage, enemy);
+      if (cold) this.playerChilledRemaining = Math.max(this.playerChilledRemaining, 1.6);
+      this.floatingTexts.push({
+        x: this.playerX,
+        y: this.playerY - 44,
+        text: elemental > 0 ? (cold ? "DESTRUCTIVE STRIKE · COLD" : "DESTRUCTIVE STRIKE · FIRE") : "DESTRUCTIVE STRIKE",
+        color: cold ? "#bcefff" : "#ffb066",
+        life: 1.1,
+      });
+    }
+    this.baalCastEffects.push({
+      source: enemy,
+      kind: "strike",
+      x: this.playerX,
+      y: this.playerY,
+      time: 0,
+      duration: 0.5,
+      seed: Math.random() * Math.PI * 2,
+    });
+  }
+
+  private castMephistoLightning(enemy: Enemy, targetX: number, targetY: number, target: Enemy | undefined): void {
     const distance = Math.hypot(targetX - enemy.x, targetY - enemy.y) || 1;
     enemy.animationState = "attack";
     enemy.attackAnimationTime = 0.55;
@@ -10789,20 +12509,252 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       source: enemy,
       targetPlayer: !target,
       speed: MEPHISTO_LIGHTNING_SPEED,
-      damage: enemy.dmg,
-      // Projectile travel is divided by the isometric zoom, so budget enough
-      // lifetime for the orb to cross the full cast distance at that scale.
-      life: Math.max(1, distance * this.worldZoom / MEPHISTO_LIGHTNING_SPEED + 0.8),
+      damage: enemy.dmg * 0.85,
+      life: Math.max(0.5, distance * this.worldZoom / MEPHISTO_LIGHTNING_SPEED + 0.55),
       age: 0,
-      radius: 10,
-      color: "#8fe0ff",
+      radius: 8,
+      color: "#dff6ff",
       kind: "lightning",
-      // Mephisto's own D2 orb, not a generic lightning bolt.
+      damageType: "lightning",
+      missileId: "d2-lightningbolt",
+    });
+  }
+
+  private castMephistoChargedBolt(enemy: Enemy, targetX: number, targetY: number, target: Enemy | undefined): void {
+    const distance = Math.hypot(targetX - enemy.x, targetY - enemy.y) || 1;
+    const aimAngle = Math.atan2(targetY - enemy.y, targetX - enemy.x);
+    const projectileRange = Math.max(distance + 40, 190);
+    enemy.animationState = "attack";
+    enemy.attackAnimationTime = 0.5;
+    enemy.cd = 2.15;
+    for (const spread of [-0.3, -0.15, 0, 0.15, 0.3]) {
+      const angle = aimAngle + spread;
+      this.attackProjectiles.push({
+        x: enemy.x,
+        y: enemy.y,
+        startX: enemy.x,
+        startY: enemy.y,
+        targetX: enemy.x + Math.cos(angle) * projectileRange,
+        targetY: enemy.y + Math.sin(angle) * projectileRange,
+        target,
+        source: enemy,
+        targetPlayer: !target,
+        speed: 320,
+        damage: enemy.dmg * 0.42,
+        life: Math.max(1, projectileRange * this.worldZoom / 320 + 0.7),
+        age: 0,
+        radius: 7,
+        color: "#b7ecff",
+        kind: "lightning",
+        damageType: "lightning",
+        missileId: "d2-chargedbolt",
+      });
+    }
+  }
+
+  private castMephistoSkullMissile(enemy: Enemy, targetX: number, targetY: number, target: Enemy | undefined): void {
+    const distance = Math.hypot(targetX - enemy.x, targetY - enemy.y) || 1;
+    enemy.animationState = "attack";
+    enemy.attackAnimationTime = 0.62;
+    enemy.cd = 2.35;
+    this.attackProjectiles.push({
+      x: enemy.x,
+      y: enemy.y,
+      startX: enemy.x,
+      startY: enemy.y,
+      targetX,
+      targetY,
+      target,
+      source: enemy,
+      targetPlayer: !target,
+      speed: MEPHISTO_SKULL_MISSILE_SPEED,
+      damage: enemy.dmg * 0.85,
+      life: Math.max(2.2, distance * this.worldZoom / MEPHISTO_SKULL_MISSILE_SPEED + 1.4),
+      age: 0,
+      radius: 11,
+      color: "#e8fbff",
+      kind: "bone",
+      damageType: "cold",
+      cold: true,
+      homing: true,
+      // D2's MephistoMissile is the compact white "skull" orb, not Lightning.
       missileId: "d2-mephistomissile",
     });
   }
 
+  private castMephistoBlizzard(enemy: Enemy, targetX: number, targetY: number): void {
+    enemy.animationState = "attack";
+    enemy.attackAnimationTime = 0.8;
+    enemy.cd = MEPHISTO_BLIZZARD_COOLDOWN;
+    this.mephistoBlizzards.push({
+      source: enemy,
+      x: targetX,
+      y: targetY,
+      time: 0,
+      duration: MEPHISTO_BLIZZARD_DURATION,
+      radius: MEPHISTO_BLIZZARD_RADIUS,
+      tickRemaining: 0.25,
+      tickInterval: 0.32,
+      damagePerTick: enemy.dmg * 0.2,
+      seed: Math.random() * Math.PI * 2,
+    });
+    this.floatingTexts.push({
+      x: targetX,
+      y: targetY - 24,
+      text: "BLIZZARD",
+      color: "#bfeaff",
+      life: 1.0,
+    });
+  }
+
+  private castMephistoFrostNova(enemy: Enemy): void {
+    enemy.animationState = "attack";
+    enemy.attackAnimationTime = 0.62;
+    enemy.cd = 2.9;
+    if (this.playerLeapRemaining <= 0
+      && Math.hypot(this.playerX - enemy.x, this.playerY - enemy.y) <= MEPHISTO_FROST_NOVA_RADIUS) {
+      this.playerHp -= this.applyIncomingDamage(enemy.dmg * 0.6, enemy);
+      this.playerChilledRemaining = Math.max(this.playerChilledRemaining, MEPHISTO_CHILL_SECONDS);
+    }
+    this.skillVisualEffects.push({
+      name: "Frost Nova",
+      kind: "burst",
+      x: enemy.x,
+      y: enemy.y,
+      targetX: enemy.x,
+      targetY: enemy.y,
+      facingX: enemy.facingX ?? 0,
+      facingY: enemy.facingY ?? 1,
+      seed: Math.random(),
+      color: "#9fe5ff",
+      time: 0,
+      duration: FROST_NOVA_ART.frames / FROST_NOVA_ART.frameRate,
+      fieldRadius: MEPHISTO_FROST_NOVA_RADIUS,
+      frostNova: true,
+      stationary: true,
+    });
+    this.floatingTexts.push({
+      x: enemy.x,
+      y: enemy.y - enemy.r - 12,
+      text: "FROST NOVA",
+      color: "#bfeaff",
+      life: 1.0,
+    });
+  }
+
+  private castMephistoPoisonNova(enemy: Enemy): void {
+    enemy.animationState = "attack";
+    enemy.attackAnimationTime = 0.72;
+    enemy.cd = 3.1;
+    this.poisonClouds.push({
+      x: enemy.x,
+      y: enemy.y,
+      radius: 14,
+      maxRadius: MEPHISTO_POISON_NOVA_RADIUS,
+      growPerSecond: MEPHISTO_POISON_NOVA_GROWTH,
+      life: MEPHISTO_POISON_NOVA_DURATION,
+      maxLife: MEPHISTO_POISON_NOVA_DURATION,
+      tickRemaining: 0.15,
+      tickInterval: 0.55,
+      damagePerTick: enemy.dmg * 0.12,
+      source: enemy,
+      targetPlayer: true,
+      poisonSeconds: 3.2,
+      poisonFraction: 0.18,
+    });
+    this.floatingTexts.push({
+      x: enemy.x,
+      y: enemy.y - enemy.r - 12,
+      text: "POISON NOVA",
+      color: "#a7e06a",
+      life: 1.1,
+    });
+  }
+
+  private castMephistoSpell(
+    enemy: Enemy,
+    spell: MephistoSpell,
+    targetX: number,
+    targetY: number,
+    target: Enemy | undefined,
+  ): void {
+    switch (spell) {
+      case "chargedBolt":
+        this.castMephistoChargedBolt(enemy, targetX, targetY, target);
+        return;
+      case "blizzard":
+        this.castMephistoBlizzard(enemy, targetX, targetY);
+        return;
+      case "skullMissile":
+        this.castMephistoSkullMissile(enemy, targetX, targetY, target);
+        return;
+      case "frostNova":
+        this.castMephistoFrostNova(enemy);
+        return;
+      case "poisonNova":
+        this.castMephistoPoisonNova(enemy);
+        return;
+      case "lightning":
+      default:
+        this.castMephistoLightning(enemy, targetX, targetY, target);
+    }
+  }
+
+  private mephistoChillingStrike(enemy: Enemy, target: Enemy | undefined): void {
+    const damage = enemy.dmg * MEPHISTO_MELEE_DAMAGE_MULTIPLIER;
+    enemy.animationState = "attack";
+    enemy.attackAnimationTime = 0.6;
+    enemy.cd = 1.5;
+    if (target) {
+      target.hp -= damage;
+      this.applyEnemyChill(target);
+      this.floatingTexts.push({
+        x: target.x,
+        y: target.y - target.r - 8,
+        text: "CHILLED",
+        color: "#bfeaff",
+        life: 0.9,
+      });
+      return;
+    }
+    this.playerHp -= this.applyIncomingDamage(damage, enemy);
+    if (this.playerLeapRemaining > 0) return;
+    this.playerFrozenRemaining = Math.max(this.playerFrozenRemaining, MEPHISTO_FREEZE_SECONDS);
+    this.playerChilledRemaining = Math.max(this.playerChilledRemaining, MEPHISTO_CHILL_SECONDS);
+    this.floatingTexts.push({
+      x: this.playerX,
+      y: this.playerY - 34,
+      text: "FROZEN",
+      color: "#d8f6ff",
+      life: 1.1,
+    });
+  }
+
+  private updateMephistoBlizzards(seconds: number): void {
+    for (let index = this.mephistoBlizzards.length - 1; index >= 0; index -= 1) {
+      const effect = this.mephistoBlizzards[index];
+      if (effect.source.hp <= 0) {
+        this.mephistoBlizzards.splice(index, 1);
+        continue;
+      }
+      effect.time += seconds;
+      if (effect.time >= effect.duration) {
+        this.mephistoBlizzards.splice(index, 1);
+        continue;
+      }
+      effect.tickRemaining -= seconds;
+      while (effect.tickRemaining <= 0 && effect.time < effect.duration) {
+        effect.tickRemaining += effect.tickInterval;
+        if (this.playerLeapRemaining > 0) continue;
+        if (Math.hypot(this.playerX - effect.x, this.playerY - effect.y) > effect.radius) continue;
+        this.playerHp -= this.applyIncomingDamage(effect.damagePerTick, effect.source);
+        this.playerChilledRemaining = Math.max(this.playerChilledRemaining, 1.2);
+      }
+    }
+  }
+
   private updateBaalEffects(seconds: number): void {
+    this.updateBaalEffigyLinks();
     for (let index = this.baalTentacleEffects.length - 1; index >= 0; index -= 1) {
       const effect = this.baalTentacleEffects[index];
       if (effect.source.hp <= 0) {
@@ -10819,6 +12771,18 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           effect.source.dmg * BAAL_TENTACLE_DAMAGE_MULTIPLIER,
           effect.source,
         );
+        // A limb cracking across the hero briefly locks their stance. Several
+        // tentacles in sequence can chain the lock, as in the original fight.
+        this.playerAttackLockRemaining = Math.max(this.playerAttackLockRemaining, 0.32);
+        if (this.floatingTexts.length < 64) {
+          this.floatingTexts.push({
+            x: this.playerX,
+            y: this.playerY - 40,
+            text: "STUNNED",
+            color: "#c8f0c8",
+            life: 0.55,
+          });
+        }
       }
       if (effect.time >= effect.duration) this.baalTentacleEffects.splice(index, 1);
     }
@@ -10848,6 +12812,107 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       }
       if (effect.time >= effect.duration) this.baalWaveEffects.splice(index, 1);
     }
+
+    for (let index = this.baalHoarfrostEffects.length - 1; index >= 0; index -= 1) {
+      const effect = this.baalHoarfrostEffects[index];
+      if (effect.source.hp <= 0) {
+        this.baalHoarfrostEffects.splice(index, 1);
+        continue;
+      }
+      effect.time += seconds;
+      for (let wave = 0; wave < effect.waveHits.length; wave += 1) {
+        if (effect.waveHits[wave]) continue;
+        const waveAge = effect.time - wave * BAAL_HOARFROST_WAVE_INTERVAL;
+        if (waveAge <= 0) continue;
+        const traveled = Math.min(effect.maxDistance, waveAge * effect.speed);
+        if (traveled <= 0) continue;
+        const dx = this.playerX - effect.x;
+        const dy = this.playerY - effect.y;
+        let hit = false;
+        for (const armAngle of [effect.angle - effect.spread, effect.angle + effect.spread]) {
+          const armX = Math.cos(armAngle);
+          const armY = Math.sin(armAngle);
+          const along = dx * armX + dy * armY;
+          const offAxis = Math.abs(dx * armY - dy * armX);
+          if (along < Math.max(0, traveled - effect.halfWidth)) continue;
+          if (along > traveled + effect.halfWidth) continue;
+          if (offAxis > effect.halfWidth + 10) continue;
+          hit = true;
+          break;
+        }
+        if (!hit) continue;
+        effect.waveHits[wave] = true;
+        if (this.playerLeapRemaining > 0) continue;
+        this.playerHp -= this.applyIncomingDamage(effect.damage, effect.source);
+        this.playerChilledRemaining = Math.max(this.playerChilledRemaining, BAAL_HOARFROST_CHILL_SECONDS);
+        const distance = Math.hypot(dx, dy) || 1;
+        this.shiftWorldBy(
+          dx / distance * BAAL_HOARFROST_KNOCKBACK,
+          dy / distance * BAAL_HOARFROST_KNOCKBACK,
+        );
+      }
+      if (effect.time >= effect.duration) this.baalHoarfrostEffects.splice(index, 1);
+    }
+
+    for (let index = this.baalNovaEffects.length - 1; index >= 0; index -= 1) {
+      const effect = this.baalNovaEffects[index];
+      if (effect.source.hp <= 0) {
+        this.baalNovaEffects.splice(index, 1);
+        continue;
+      }
+      effect.time += seconds;
+      if (!effect.hit) {
+        const progress = Math.max(0, Math.min(1, effect.time / effect.duration));
+        const radius = effect.maxRadius * (1 - (1 - progress) * (1 - progress));
+        const playerDistance = Math.hypot(this.playerX - effect.x, this.playerY - effect.y);
+        if (Math.abs(playerDistance - radius) <= BAAL_NOVA_THICKNESS + 12) {
+          effect.hit = true;
+          if (this.playerLeapRemaining <= 0) {
+            this.playerHp -= this.applyIncomingDamage(effect.damage, effect.source);
+          }
+        }
+      }
+      if (effect.time >= effect.duration) this.baalNovaEffects.splice(index, 1);
+    }
+
+    for (let index = this.baalManaRiftEffects.length - 1; index >= 0; index -= 1) {
+      const effect = this.baalManaRiftEffects[index];
+      effect.time += seconds;
+      if (effect.source.hp <= 0 || effect.time >= effect.duration) this.baalManaRiftEffects.splice(index, 1);
+    }
+
+    for (let index = this.baalCurseEffects.length - 1; index >= 0; index -= 1) {
+      const effect = this.baalCurseEffects[index];
+      effect.time += seconds;
+      if (effect.source.hp <= 0 || effect.time >= effect.duration) this.baalCurseEffects.splice(index, 1);
+    }
+
+    for (let index = this.baalCastEffects.length - 1; index >= 0; index -= 1) {
+      const effect = this.baalCastEffects[index];
+      effect.time += seconds;
+      if (effect.time >= effect.duration) this.baalCastEffects.splice(index, 1);
+    }
+  }
+
+  /** Clone HP is a mirror of the original's percentage. Damage is transferred
+   *  in `flushPendingDamage`, so the effigy acts as a second, vulnerable hitbox. */
+  private updateBaalEffigyLinks(): void {
+    for (const enemy of this.enemies) {
+      if (!enemy.baalClone) continue;
+      const original = enemy.baalOriginal;
+      if (!original || original.hp <= 0) {
+        enemy.hp = 0;
+        continue;
+      }
+      const expectedHp = original.hp / original.maxHp * enemy.maxHp;
+      if (enemy.hp < expectedHp) {
+        // Some skills apply direct hp damage instead of going through the
+        // pending-damage queue. Pick that up here so no hit on the effigy is lost.
+        const lostFraction = (expectedHp - enemy.hp) / enemy.maxHp;
+        original.hp = Math.max(0, original.hp - original.maxHp * lostFraction * BAAL_EFFIGY_DAMAGE_MULTIPLIER);
+      }
+      enemy.hp = Math.max(0, Math.min(enemy.maxHp, original.hp / original.maxHp * enemy.maxHp));
+    }
   }
 
   updateEnemies(dt: number): void {
@@ -10855,6 +12920,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     // current life, so clamp it before any enemy damage is applied this frame.
     this.playerHp = Math.min(this.playerHp, this.effectivePlayerMaxHp);
     const elapsedSeconds = dt / 1000;
+    this.updateNihlathakCorpses(elapsedSeconds);
     this.druidFormAnimationTime += elapsedSeconds;
     this.druidFormAttackTime = Math.max(0, this.druidFormAttackTime - elapsedSeconds);
     this.rebuildEnemyGrid();
@@ -10947,6 +13013,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
     for (const enemy of this.enemies) {
       if (enemy.summonType || enemy.hp <= 0) continue;
+      if (enemy.burrowCooldown !== undefined) enemy.burrowCooldown = Math.max(0, enemy.burrowCooldown - elapsedSeconds);
+      if (enemy.eggCooldown !== undefined) enemy.eggCooldown = Math.max(0, enemy.eggCooldown - elapsedSeconds);
+      if ((enemy.burrowRemaining ?? 0) > 0) {
+        this.updateMaggotBurrow(enemy, elapsedSeconds);
+        continue;
+      }
       if (enemy.staticFieldRemaining !== undefined) {
         enemy.staticFieldRemaining = Math.max(0, enemy.staticFieldRemaining - elapsedSeconds);
         if (enemy.staticFieldRemaining === 0) enemy.staticFieldRemaining = undefined;
@@ -10965,6 +13037,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       if (enemy.fearRemaining !== undefined) {
         enemy.fearRemaining = Math.max(0, enemy.fearRemaining - elapsedSeconds);
         if (enemy.fearRemaining === 0) enemy.fearRemaining = undefined;
+      }
+      if (enemy.frenzyRemaining !== undefined) {
+        enemy.frenzyRemaining = Math.max(0, enemy.frenzyRemaining - elapsedSeconds);
+        if (enemy.frenzyRemaining === 0) enemy.frenzyRemaining = undefined;
       }
       if (enemy.stunRemaining !== undefined && enemy.stunRemaining > 0) {
         // Stunned monsters cannot move, aim, or attack; they shake off the stun
@@ -11060,7 +13136,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       }
       const playerDistance = Math.hypot(this.playerX - enemy.x, this.playerY - enemy.y);
       // Diablo and Baal are duels: their abilities always target the hero, never a pet.
-      let targetSummon = enemy.species !== "andariel" && enemy.species !== "diablo" && enemy.species !== "baal" && nearestSummon && summonDistance < playerDistance ? nearestSummon : undefined;
+      let targetSummon = enemy.species !== "andariel" && enemy.species !== "diablo" && enemy.species !== "baal" && enemy.species !== "nihlathak" && nearestSummon && summonDistance < playerDistance ? nearestSummon : undefined;
       if (enemy.curseName === "Confuse") {
         // Confused monsters lose track of the hero and turn on each other: the
         // nearest other monster replaces the player as the target, so the chase,
@@ -11083,17 +13159,30 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const distance = Math.hypot(dx, dy) || 1;
       enemy.facingX = dx / distance;
       enemy.facingY = dy / distance;
-      const speed = this.enemyMoveSpeed(enemy) * (dt / 1000) / this.worldZoom;
+      const isDiablo = enemy.species === "diablo";
+      if (isDiablo) {
+        enemy.diabloChargeRemaining = Math.max(0, (enemy.diabloChargeRemaining ?? 0) - elapsedSeconds);
+        enemy.diabloChargeCooldown = Math.max(0, (enemy.diabloChargeCooldown ?? 0) - elapsedSeconds);
+      }
+      const diabloChargeActive = isDiablo && (enemy.diabloChargeRemaining ?? 0) > 0;
+      const speed = this.enemyMoveSpeed(enemy) * (dt / 1000) / this.worldZoom
+        * (diabloChargeActive ? DIABLO_CHARGE_SPEED_MULTIPLIER : 1);
       const isFetishShaman = enemy.species === "fetishShaman";
       const isSpikeFiend = enemy.species === "spikeFiend";
+      const isSandMaggot = enemy.species === "sandMaggot" || enemy.species === "sandMaggotQueen";
       const isAndariel = enemy.species === "andariel";
-      const isDiablo = enemy.species === "diablo";
       const isBaal = enemy.species === "baal";
       const isMephisto = enemy.species === "mephisto";
+      const isNihlathak = enemy.species === "nihlathak";
       const andarielMeleeRange = enemy.r + 18 + 8;
+      const mephistoMeleeRange = enemy.r + MEPHISTO_MELEE_REACH;
       const diabloMeleeRange = enemy.r + 18 + 8;
       const baalMeleeRange = enemy.r + 18 + 10;
       const diabloChanneling = (enemy.diabloChannelRemaining ?? 0) > 0;
+      const maggotMeleeRange = enemy.r + (targetSummon?.r ?? 18) + 6;
+      // A wounded maggot, or one with the hero already in its face, dives under
+      // the sand and comes up closer instead of trading blows it cannot win.
+      if (isSandMaggot && this.tryStartMaggotBurrow(enemy, playerDistance)) continue;
       const attackRange = isAndariel
         ? distance <= andarielMeleeRange ? andarielMeleeRange : 260
         : isDiablo
@@ -11102,11 +13191,16 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
             ? baalMeleeRange
             : isMephisto
               ? MEPHISTO_LIGHTNING_RANGE
-              : isFetishShaman
+              : isNihlathak
+                ? NIHLATHAK_ENGAGE_RANGE
+                : isFetishShaman
             ? 115 + (targetSummon?.r ?? 18)
             : isSpikeFiend
               // Spike fiends hold their distance and volley quills down range.
               ? 265 + (targetSummon?.r ?? 18)
+              : isSandMaggot
+                // Adults bite at arm's reach and spit poison goo down range.
+                ? distance <= maggotMeleeRange ? maggotMeleeRange : SAND_MAGGOT_RANGED_RANGE
               : enemy.r + (targetSummon?.r ?? 18);
       const wasInAttackRange = distance <= attackRange;
       enemy.animationState = wasInAttackRange ? "idle" : "move";
@@ -11135,41 +13229,93 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         enemy.y = nextEnemyY;
       }
       const distanceAfterMoving = Math.hypot(targetX - enemy.x, targetY - enemy.y);
+      if (isNihlathak) {
+        // The caster's entire kit lives here; control never reaches the generic
+        // chase-and-swing branch, so Nihlathak cannot make a basic melee attack.
+        this.updateNihlathakCombat(enemy, distanceAfterMoving, elapsedSeconds);
+        continue;
+      }
       if (isDiablo) {
         if (diabloChanneling) {
-          // Thunder Inferno is a committed channel: Diablo stands still and the
-          // beam keeps its original direction, so the hero can sidestep it.
+          // Red Lightning is a committed channel: Diablo stands still while the
+          // beam sweeps toward the hero instead of clawing during the cast.
           enemy.animationState = "attack";
           continue;
         }
         if ((enemy.cd ?? 0) <= 0 && (enemy.attackAnimationTime ?? 0) <= 0) {
           if (distanceAfterMoving <= diabloMeleeRange) {
-            this.diabloIcePunch(enemy);
-          } else if (distanceAfterMoving <= DIABLO_BONE_PRISON_RANGE) {
-            const cycle = enemy.diabloSpellCycle ?? 0;
-            const castPrison = distanceAfterMoving > DIABLO_THUNDER_RANGE
-              || (cycle % 2 === 1 && this.playerBonePrisonRemaining <= 0);
-            if (castPrison) this.castDiabloBonePrison(enemy);
-            else this.castDiabloThunder(enemy);
-            enemy.diabloSpellCycle = cycle + 1;
+            const meleeCycle = enemy.diabloMeleeCycle ?? 0;
+            enemy.diabloMeleeCycle = meleeCycle + 1;
+            // Cold Touch lands first, then the ordinary claw swipes fill the
+            // gap until the next freezing blow comes around.
+            if (meleeCycle % 3 === 0) this.diabloIcePunch(enemy);
+            else this.diabloClawSwipe(enemy);
+          } else if (distanceAfterMoving <= DIABLO_CAST_RANGE) {
+            // Outside claw reach the spellbook always comes first. The cycle
+            // still rotates so every ranged attack appears in a real fight.
+            this.castDiabloRangedSpell(enemy, distanceAfterMoving);
           }
+        }
+        if (distanceAfterMoving > DIABLO_CHARGE_RANGE) {
+          if ((enemy.diabloChargeCooldown ?? 0) <= 0) {
+            enemy.diabloChargeRemaining = DIABLO_CHARGE_DURATION;
+            enemy.diabloChargeCooldown = DIABLO_CHARGE_COOLDOWN;
+            this.floatingTexts.push({
+              x: enemy.x,
+              y: enemy.y - enemy.r - 18,
+              text: "CHARGE",
+              color: "#ff7650",
+              life: 0.9,
+            });
+          }
+        } else {
+          enemy.diabloChargeRemaining = 0;
         }
         continue;
       }
       if (isBaal) {
         if ((enemy.cd ?? 0) <= 0 && (enemy.attackAnimationTime ?? 0) <= 0 && distanceAfterMoving <= BAAL_SPELL_RANGE) {
           const cycle = enemy.baalSpellCycle ?? 0;
-          const castWave = distanceAfterMoving > BAAL_TENTACLE_RANGE && cycle % 2 === 1;
-          if (castWave) this.castBaalWave(enemy);
-          else this.castBaalTentacles(enemy);
           enemy.baalSpellCycle = cycle + 1;
+          if (distanceAfterMoving <= baalMeleeRange + 16) {
+            // In melee he alternates the heavy claw with a retreat teleport.
+            if (cycle % 5 === 4) this.castBaalTeleport(enemy);
+            else this.castBaalDestructiveStrike(enemy);
+          } else {
+            switch (cycle % 10) {
+              case 0: this.castBaalTentacles(enemy); break;
+              case 1: this.castBaalWave(enemy); break;
+              case 2: this.castBaalHoarfrost(enemy); break;
+              case 3: this.castBaalIncinerationNova(enemy); break;
+              case 4: this.castBaalManaRift(enemy); break;
+              case 5: this.castBaalVileEffigy(enemy); break;
+              case 6: this.castBaalCurse(enemy, "bloodMana"); break;
+              case 7: this.castBaalCurse(enemy, "defense"); break;
+              case 8: this.castBaalCurse(enemy, "decrepify"); break;
+              default: this.castBaalTeleport(enemy); break;
+            }
+          }
         }
         continue;
       }
       if (isMephisto) {
         if ((enemy.cd ?? 0) <= 0 && (enemy.attackAnimationTime ?? 0) <= 0
           && distanceAfterMoving <= MEPHISTO_LIGHTNING_RANGE) {
-          this.castMephistoLightningBall(enemy, targetX, targetY, targetSummon);
+          if (distanceAfterMoving <= mephistoMeleeRange) {
+            // Up close the Lord of Hatred drops the spellbook and lands a
+            // freezing claw that briefly locks the hero in place.
+            this.mephistoChillingStrike(enemy, targetSummon);
+          } else {
+            const cycle = enemy.mephistoSpellCycle ?? 0;
+            this.castMephistoSpell(
+              enemy,
+              MEPHISTO_SPELL_CYCLE[cycle % MEPHISTO_SPELL_CYCLE.length],
+              targetX,
+              targetY,
+              targetSummon,
+            );
+            enemy.mephistoSpellCycle = cycle + 1;
+          }
         }
         continue;
       }
@@ -11250,26 +13396,42 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         }
         continue;
       }
+      if (isSandMaggot) {
+        if (distanceAfterMoving <= maggotMeleeRange && (enemy.cd ?? 0) <= 0) {
+          this.biteWithSandMaggot(enemy, targetSummon);
+        } else if (distanceAfterMoving <= SAND_MAGGOT_RANGED_RANGE && (enemy.cd ?? 0) <= 0) {
+          if ((enemy.eggCooldown ?? 0) <= 0 && this.maggotEggs.length < SAND_MAGGOT_EGG_LIMIT) {
+            this.laySandMaggotEgg(enemy);
+          } else {
+            this.spitSandMaggotGoo(enemy, targetX, targetY, targetSummon);
+          }
+        }
+        continue;
+      }
       if (distanceAfterMoving < attackRange && (enemy.cd === undefined || enemy.cd <= 0)) {
+        const frenzied = (enemy.frenzyRemaining ?? 0) > 0;
+        const contactDamage = enemy.dmg * (frenzied ? NIHLATHAK_FRENZY_DAMAGE_MULTIPLIER : 1);
         enemy.animationState = "attack";
         enemy.attackAnimationTime = enemy.kind === "boss" ? 0.55 : 0.38;
         if (targetSummon) {
-          targetSummon.hp -= enemy.dmg;
+          targetSummon.hp -= contactDamage;
           this.floatingTexts.push({
             x: targetSummon.x,
             y: targetSummon.y - targetSummon.r - 8,
-            text: `-${Math.floor(enemy.dmg)}`,
+            text: `-${Math.floor(contactDamage)}`,
             color: "#ff9b82",
             life: 0.65,
           });
         } else {
-          this.playerHp -= this.applyIncomingDamage(enemy.dmg, enemy);
+          this.playerHp -= this.applyIncomingDamage(contactDamage, enemy);
           const thornsRank = this.activePaladinAuraRank(["Thorns"]);
-          if (thornsRank > 0) this.queueEnemyDamage(enemy, enemy.dmg * thornsRank * 0.5, "#ffd083");
+          if (thornsRank > 0) this.queueEnemyDamage(enemy, contactDamage * thornsRank * 0.5, "#ffd083");
         }
-        enemy.cd = enemy.kind === "boss" ? 1.1 : enemy.kind === "champion" ? 0.9 : 0.8;
+        const baseAttackCooldown = enemy.kind === "boss" ? 1.1 : enemy.kind === "champion" ? 0.9 : 0.8;
+        enemy.cd = baseAttackCooldown / (frenzied ? NIHLATHAK_FRENZY_ATTACK_SPEED_MULTIPLIER : 1);
       }
     }
+    this.updateMaggotEggs(elapsedSeconds);
     const vileMothers: Enemy[] = [];
     let vileChildCount = 0;
     for (const enemy of this.enemies) {
@@ -11294,10 +13456,19 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.floatingTexts.push({ x: mother.x, y: mother.y - mother.r - 8, text: "HATCH!", color: "#d9c3a1", life: 0.9 });
     }
 
+    // Resolve any direct damage dealt to the effigy before dead enemies are
+    // removed, so the linked original always receives the hit.
+    this.updateBaalEffigyLinks();
     let defeatedCount = 0;
     let defeatedCampaignBoss = false;
+    const nihlathakAlive = this.enemies.some((enemy) => enemy.species === "nihlathak" && enemy.hp > 0);
     for (const enemy of this.enemies) {
       if (enemy.summonType || enemy.hp > 0) continue;
+      // The effigy is an extension of Baal, not a separate kill or loot pinata.
+      if (enemy.baalClone) continue;
+      if (nihlathakAlive && enemy.species !== "nihlathak") this.recordNihlathakCorpse(enemy);
+      // Ice Spawn are extensions of Nihlathak's spell, not kills or loot.
+      if (enemy.nihlathakMinion) continue;
       defeatedCount += 1;
       if (enemy.species === "boneFetish") this.explodeBoneFetish(enemy);
       this.grantExperience(enemy.kind === "boss" ? 8 : enemy.kind === "champion" ? 3 : 1);
@@ -11623,7 +13794,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const rankSteps = Math.max(0, rank - 1);
     this.blazeRemaining = BLAZE_BASE_DURATION + rankSteps * BLAZE_DURATION_PER_RANK;
     this.blazeDropRemaining = BLAZE_TRAIL_INTERVAL;
-    const damage = this.applyPaladinAuraDamage(this.basicAttackDamage * 0.32 + rankSteps * 0.9);
+    const damage = this.applyPaladinAuraDamage(this.applyEnergyToSpellDamage(this.basicAttackDamage * 0.32 + rankSteps * 0.9));
     this.blazeDamagePerTick = Math.max(1, damage);
     this.addBlazeFirePatch();
   }
@@ -11650,7 +13821,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   private castFirestorm(rank: number): void {
     const rankSteps = Math.max(0, rank - 1);
-    const damagePerTick = Math.max(1, this.applyPaladinAuraDamage(this.basicAttackDamage * 0.18 + rankSteps * 0.15));
+    const damagePerTick = Math.max(1, this.applyPaladinAuraDamage(this.applyEnergyToSpellDamage(this.basicAttackDamage * 0.18 + rankSteps * 0.15)));
     const facingAngle = Math.atan2(this.playerFacingY, this.playerFacingX);
     const spread = Math.min(0.55, (Math.PI * 0.9) / Math.max(1, rank - 1));
     for (let index = 0; index < rank; index += 1) {
@@ -11834,9 +14005,26 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         this.poisonClouds.splice(index, 1);
         continue;
       }
+      if (cloud.growPerSecond) {
+        // Mephisto's Poison Nova crawls outward instead of snapping to its
+        // final radius, so the player can read the edge and walk out of it.
+        cloud.radius = Math.min(cloud.maxRadius ?? cloud.radius, cloud.radius + cloud.growPerSecond * seconds);
+      }
       cloud.tickRemaining -= seconds;
       if (cloud.tickRemaining > 0) continue;
       cloud.tickRemaining += cloud.tickInterval;
+      if (cloud.targetPlayer) {
+        if (this.playerLeapRemaining <= 0
+          && Math.hypot(this.playerX - cloud.x, this.playerY - cloud.y) <= cloud.radius + 18) {
+          this.playerHp -= this.applyIncomingDamage(cloud.damagePerTick, cloud.source);
+          this.applyPlayerPoison(
+            cloud.source,
+            cloud.poisonSeconds ?? SAND_MAGGOT_POISON_DURATION,
+            cloud.poisonFraction ?? SAND_MAGGOT_POISON_DAMAGE_FRACTION,
+          );
+        }
+        continue;
+      }
       for (const enemy of this.collectEnemiesNear(cloud.x, cloud.y, cloud.radius + 96)) {
         if (enemy.hp <= 0 || enemy.summonType) continue;
         if (Math.hypot(enemy.x - cloud.x, enemy.y - cloud.y) > cloud.radius + enemy.r) continue;
@@ -11871,6 +14059,47 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         point.x - width / 2, point.y - height / 2,
         width, height,
       );
+      ctx.restore();
+    }
+  }
+
+  /** Dim bone piles mark the corpses Nihlathak can detonate. */
+  private drawNihlathakCorpses(ctx: CanvasRenderingContext2D): void {
+    if (!this.nihlathakCorpses.length) return;
+    const scale = this.worldZoom * this.projectionDpr;
+    for (const corpse of this.nihlathakCorpses) {
+      const point = this.projectArenaPoint(corpse.x, corpse.y);
+      if (!this.isArenaPointOnScreen(point, DRAW_CULL_MARGIN)) continue;
+      const fade = Math.min(1, (NIHLATHAK_CORPSE_LIFE_SECONDS - corpse.life) * 5, corpse.life / 1.2);
+      if (fade <= 0.01) continue;
+      const radiusX = 32 * scale;
+      const radiusY = radiusX * 0.45;
+      ctx.save();
+      ctx.translate(point.x, point.y);
+      ctx.globalAlpha = fade * 0.55;
+      ctx.fillStyle = "rgba(43, 16, 14, 0.9)";
+      ctx.beginPath();
+      ctx.ellipse(0, 0, radiusX, radiusY, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = fade * 0.8;
+      ctx.strokeStyle = "#b9a789";
+      ctx.lineWidth = Math.max(1, 2 * this.projectionDpr);
+      ctx.lineCap = "round";
+      for (let bone = 0; bone < 4; bone += 1) {
+        const angle = corpse.seed * Math.PI * 2 + bone * Math.PI / 2;
+        const inner = radiusX * 0.18;
+        const outer = radiusX * (0.55 + (bone % 2) * 0.18);
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(angle) * inner, Math.sin(angle) * inner * 0.45);
+        ctx.lineTo(Math.cos(angle) * outer, Math.sin(angle) * outer * 0.45);
+        ctx.stroke();
+      }
+      const ember = 0.4 + Math.sin(this.runTime * 6 + corpse.seed * 8) * 0.2;
+      ctx.globalAlpha = fade * ember;
+      ctx.fillStyle = "#ff6b43";
+      ctx.beginPath();
+      ctx.arc(0, -2 * scale, Math.max(1.5, 2.2 * this.projectionDpr), 0, Math.PI * 2);
+      ctx.fill();
       ctx.restore();
     }
   }
@@ -11993,10 +14222,188 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
   }
 
+  /**
+   * Fist of the Heavens: the lightning is applied immediately to the selected
+   * monster, then four Holy Bolts leave the impact in independent directions.
+   * The bolts carry their own magic damage and deliberately do not reuse the
+   * Holy Bolt skill's ally-healing path.
+   */
+  private castFistOfTheHeavens(target: Enemy, damage: number): void {
+    this.addFistOfTheHeavensCastVisual();
+    this.addFistOfTheHeavensStrikeVisual(target);
+    this.queueEnemyDamage(target, damage * FIST_OF_THE_HEAVENS_LIGHTNING_MULTIPLIER, "#d8f3ff", "lightning");
+
+    const baseAngle = Math.atan2(target.y - this.playerY, target.x - this.playerX);
+    const boltDamage = damage * FIST_OF_THE_HEAVENS_BOLT_MULTIPLIER;
+    for (let index = 0; index < FIST_OF_THE_HEAVENS_BOLT_COUNT; index += 1) {
+      const angle = baseAngle + index * Math.PI / 2;
+      const directionX = Math.cos(angle);
+      const directionY = Math.sin(angle);
+      // Start just outside the target so the four bolts read as radiating from
+      // the lightning crater rather than stacking on the primary monster.
+      const startX = target.x + directionX * 16;
+      const startY = target.y + directionY * 16;
+      this.attackProjectiles.push({
+        x: startX, y: startY, startX, startY,
+        targetX: target.x + directionX * FIST_OF_THE_HEAVENS_BOLT_RANGE,
+        targetY: target.y + directionY * FIST_OF_THE_HEAVENS_BOLT_RANGE,
+        speed: FIST_OF_THE_HEAVENS_BOLT_SPEED,
+        damage: boltDamage,
+        life: FIST_OF_THE_HEAVENS_BOLT_RANGE / FIST_OF_THE_HEAVENS_BOLT_SPEED + 0.4,
+        radius: 8,
+        color: "#fff0a8",
+        kind: "holy",
+        missileId: "d2-holyboltmissile",
+        damageType: "magic",
+        sourceOnlyArt: true,
+        fistOfTheHeavensBolt: true,
+        fistOfTheHeavensIgnore: target,
+        targetId: this.attackSequence++,
+        age: 0,
+      });
+    }
+  }
+
+  /** Original handofgod overlay played on the paladin as the sky bolt falls. */
+  private addFistOfTheHeavensCastVisual(): void {
+    this.skillVisualEffects.push({
+      name: "Fist of the Heavens",
+      kind: "burst",
+      x: this.playerX,
+      y: this.playerY,
+      targetX: this.playerX + this.playerFacingX * 110,
+      targetY: this.playerY + this.playerFacingY * 110,
+      facingX: this.playerFacingX,
+      facingY: this.playerFacingY,
+      time: 0,
+      duration: 0.9,
+      color: "#ffe6a0",
+      seed: hashString("Fist of the Heavens") % 628,
+      missileId: "d2-handofgod",
+      fistOfTheHeavensCast: true,
+    });
+    this.trimSkillVisualEffects();
+    this.drawSkillVisualEffects();
+    if (this.activeTab === "run" && !this.rafId) {
+      this.rafId = requestAnimationFrame((time) => this.loop(time));
+    }
+  }
+
+  /** The LightningBolt cel descends from above the target's impact point. */
+  private addFistOfTheHeavensStrikeVisual(target: Enemy): void {
+    const distance = Math.hypot(target.x - this.playerX, target.y - this.playerY) || 1;
+    this.skillVisualEffects.push({
+      name: "Fist of the Heavens",
+      kind: "burst",
+      x: target.x,
+      y: target.y,
+      targetX: target.x,
+      targetY: target.y,
+      facingX: (target.x - this.playerX) / distance,
+      facingY: (target.y - this.playerY) / distance,
+      stationary: true,
+      time: 0,
+      duration: 0.62,
+      color: "#d8f3ff",
+      seed: hashString("Fist of the Heavens strike") % 628,
+      missileId: "d2-lightningbolt",
+      fistOfTheHeavensStrike: true,
+    });
+    this.trimSkillVisualEffects();
+    this.drawSkillVisualEffects();
+  }
+
+  /** The Holy Bolt's CltHitSubMissile1, teethexplode, at its hit point. */
+  private addFistOfTheHeavensBoltImpact(x: number, y: number): void {
+    this.skillVisualEffects.push({
+      name: "Fist of the Heavens",
+      kind: "burst",
+      x,
+      y,
+      targetX: x,
+      targetY: y,
+      facingX: 0,
+      facingY: 0,
+      stationary: true,
+      time: 0,
+      duration: 0.62,
+      color: "#fff0a8",
+      seed: hashString("Fist of the Heavens bolt") % 628,
+      missileId: "d2-teethexplode",
+      fistOfTheHeavensBoltImpact: true,
+    });
+    this.trimSkillVisualEffects();
+    this.drawSkillVisualEffects();
+  }
+
+  private trimSkillVisualEffects(): void {
+    if (this.skillVisualEffects.length > 24) {
+      this.skillVisualEffects.splice(0, this.skillVisualEffects.length - 24);
+    }
+  }
+
+  /** The secondary bolts only damage the undead and demonic targets Holy Bolt favors. */
+  private isFistOfTheHeavensHolyTarget(enemy: Enemy): boolean {
+    return FIST_OF_THE_HEAVENS_HOLY_SPECIES.has(enemy.species);
+  }
+
+  /** Independent flight and one-hit collision for a Fist-created Holy Bolt. */
+  private updateFistOfTheHeavensBolt(projectile: AttackProjectile, seconds: number): void {
+    projectile.life -= seconds;
+    projectile.age += seconds;
+    if (projectile.life <= 0) return;
+
+    const deltaX = projectile.targetX - projectile.x;
+    const deltaY = projectile.targetY - projectile.y;
+    const distance = Math.hypot(deltaX, deltaY);
+    if (distance <= 0.001) {
+      projectile.life = 0;
+      return;
+    }
+    const step = projectile.speed * seconds / this.worldZoom;
+    const travel = Math.min(step, distance);
+    const nextX = projectile.x + deltaX / distance * travel;
+    const nextY = projectile.y + deltaY / distance * travel;
+    const segmentX = nextX - projectile.x;
+    const segmentY = nextY - projectile.y;
+    const segmentLengthSquared = segmentX * segmentX + segmentY * segmentY;
+    let hit: Enemy | undefined;
+    let hitAlong = Number.POSITIVE_INFINITY;
+
+    // collectEnemiesNear returns a shared scratch array, so only remember the
+    // nearest eligible target here and deal damage after the query loop.
+    for (const enemy of this.collectEnemiesNear(projectile.x, projectile.y, step + 96)) {
+      if (enemy === projectile.fistOfTheHeavensIgnore || enemy.hp <= 0 || enemy.summonType) continue;
+      if (!this.isFistOfTheHeavensHolyTarget(enemy)) continue;
+      const relativeX = enemy.x - projectile.x;
+      const relativeY = enemy.y - projectile.y;
+      const along = segmentLengthSquared > 0
+        ? Math.max(0, Math.min(1, (relativeX * segmentX + relativeY * segmentY) / segmentLengthSquared))
+        : 0;
+      const miss = Math.hypot(relativeX - along * segmentX, relativeY - along * segmentY);
+      if (miss > enemy.r + projectile.radius || along >= hitAlong) continue;
+      hit = enemy;
+      hitAlong = along;
+    }
+
+    if (hit) {
+      this.queueEnemyDamage(hit, projectile.damage, projectile.color, "magic");
+      this.addFistOfTheHeavensBoltImpact(hit.x, hit.y);
+      projectile.life = 0;
+      return;
+    }
+    if (distance <= step) {
+      projectile.life = 0;
+      return;
+    }
+    projectile.x = nextX;
+    projectile.y = nextY;
+  }
+
   /** Blessed Hammer is a physical spiral, not a targeted bolt. */
   private castBlessedHammer(): void {
     const rank = Math.max(1, this.skillLevels["Blessed Hammer"] ?? 1);
-    const damage = this.applyPaladinAuraDamage(this.basicAttackDamage * 1.5 + (rank - 1) * 3);
+    const damage = this.applyPaladinAuraDamage(this.applyEnergyToSpellDamage(this.basicAttackDamage * 1.5 + (rank - 1) * 3));
     const angle = Math.atan2(this.playerFacingY, this.playerFacingX) - Math.PI / 2;
     const radius = BLESSED_HAMMER_START_RADIUS;
     const x = this.playerX + Math.cos(angle) * radius;
@@ -12012,6 +14419,16 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     });
   }
 
+  /** The live orbit point, centered on the paladin rather than the cast spot. */
+  private blessedHammerOrbitPoint(projectile: AttackProjectile): { x: number; y: number } {
+    const angle = projectile.blessedHammerAngle ?? 0;
+    const radius = projectile.blessedHammerRadius ?? BLESSED_HAMMER_START_RADIUS;
+    return {
+      x: this.playerX + Math.cos(angle) * radius,
+      y: this.playerY - BLESSED_HAMMER_BODY_OFFSET + Math.sin(angle) * radius,
+    };
+  }
+
   private updateBlessedHammer(projectile: AttackProjectile, seconds: number): void {
     projectile.age += seconds;
     projectile.life -= seconds;
@@ -12024,8 +14441,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     );
     projectile.blessedHammerAngle = angle;
     projectile.blessedHammerRadius = radius;
-    projectile.x = this.playerX + Math.cos(angle) * radius;
-    projectile.y = this.playerY - BLESSED_HAMMER_BODY_OFFSET + Math.sin(angle) * radius;
+    const orbit = this.blessedHammerOrbitPoint(projectile);
+    projectile.x = orbit.x;
+    projectile.y = orbit.y;
     projectile.targetX = projectile.x;
     projectile.targetY = projectile.y;
 
@@ -12672,11 +15090,19 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.updateBlaze(seconds);
     this.updateFirestormTrails(seconds);
     this.updatePoisonClouds(seconds);
+    this.updateMephistoBlizzards(seconds);
     if (this.isBoneArmorActive()) {
       this.boneArmorRemaining = Math.max(0, this.boneArmorRemaining - seconds);
       if (this.boneArmorRemaining === 0) {
         this.boneArmorAbsorptionRemaining = 0;
         this.skillCastCooldowns["Bone Armor"] = this.getSkillCastInterval("Bone Armor");
+      }
+    }
+    if (this.selectedClass === "paladin" && this.holyShieldRemaining > 0) {
+      this.holyShieldRemaining = Math.max(0, this.holyShieldRemaining - seconds);
+      if (this.holyShieldRemaining === 0) {
+        this.skillCastCooldowns["Holy Shield"] = this.getSkillCastInterval("Holy Shield");
+        this.syncHolyShieldVisual();
       }
     }
     for (const effect of this.skillVisualEffects) {
@@ -12697,8 +15123,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         effect.targetY = effect.y + effect.facingY * range;
         effect.tickRemaining = (effect.tickRemaining ?? 0) - seconds;
         while (effect.tickRemaining <= 0 && effect.time < effect.duration) {
-          if (effect.inferno) this.damageInfernoCone(effect);
-          else this.damageArcticBlastCone(effect);
+          if (!effect.enemyCast) {
+            if (effect.inferno) this.damageInfernoCone(effect);
+            else this.damageArcticBlastCone(effect);
+          }
           effect.tickRemaining += effect.tickInterval ?? (effect.inferno ? INFERNO_TICK_INTERVAL : ARCTIC_BLAST_TICK_INTERVAL);
         }
         continue;
@@ -12772,11 +15200,243 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (this.runActive && this.isCycloneArmorActive()) this.drawCycloneArmorAura(ctx, "front");
     this.drawDiabloEffects(ctx);
     this.drawBaalEffects(ctx);
+    this.drawMephistoEffects(ctx);
+  }
+
+  private drawMephistoEffects(ctx: CanvasRenderingContext2D): void {
+    if (!this.runActive || !this.mephistoBlizzards.length) return;
+    const scale = this.projectionDpr || 1;
+    const overlay = this.missileOverlayImages.get("d2-blizzard") ?? [];
+    for (const effect of this.mephistoBlizzards) {
+      const center = this.projectArenaPoint(effect.x, effect.y);
+      if (!this.isArenaPointOnScreen(center, DRAW_CULL_MARGIN)) continue;
+      const fade = Math.max(0, Math.min(1, effect.time * 7, (effect.duration - effect.time) * 5));
+      if (fade <= 0.01) continue;
+      const radius = effect.radius * this.worldZoom * scale;
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      // The frost sigil telegraphs the exact patch of ground the shards cover.
+      ctx.globalAlpha = fade * 0.14;
+      ctx.fillStyle = "#5ab8ef";
+      ctx.beginPath();
+      ctx.ellipse(center.x, center.y, radius, radius * 0.46, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = fade * 0.62;
+      ctx.strokeStyle = "#b8ecff";
+      ctx.lineWidth = 2.5 * scale;
+      ctx.shadowColor = "#74d5ff";
+      ctx.shadowBlur = 10 * scale;
+      ctx.stroke();
+      for (let index = 0; index < 9; index += 1) {
+        const angle = effect.seed + index * 2.399;
+        const localX = Math.sin(angle) * radius * 0.74;
+        const localY = Math.cos(angle) * radius * 0.32;
+        const fall = (effect.time * 1.65 + index * 0.137) % 1;
+        const shardX = center.x + localX;
+        const shardY = center.y - 170 * scale + (170 * scale + localY) * fall;
+        ctx.globalAlpha = fade * (0.48 + (1 - fall) * 0.4);
+        if (overlay.length) {
+          const image = overlay[Math.min(overlay.length - 1, Math.floor(fall * overlay.length))];
+          if (!image) continue;
+          const size = 58 * scale;
+          ctx.drawImage(image, shardX - size / 2, shardY - size / 2, size, size);
+        } else {
+          ctx.strokeStyle = index % 2 === 0 ? "#e0f8ff" : "#86d7ff";
+          ctx.lineWidth = 2 * scale;
+          ctx.beginPath();
+          ctx.moveTo(shardX, shardY - 9 * scale);
+          ctx.lineTo(shardX + 3 * scale, shardY + 4 * scale);
+          ctx.lineTo(shardX - 2 * scale, shardY + 4 * scale);
+          ctx.closePath();
+          ctx.stroke();
+        }
+      }
+      ctx.restore();
+    }
+  }
+
+  private drawDiabloFireEffects(ctx: CanvasRenderingContext2D, scale: number): void {
+    const groundScale = scale * this.worldZoom;
+    for (const effect of this.diabloFirestormEffects) {
+      const waveSpan = effect.duration - 0.32;
+      for (let wave = 0; wave < effect.waveHits.length; wave += 1) {
+        const progress = Math.max(0, Math.min(1, (effect.time - wave * 0.14) / waveSpan));
+        if (progress <= 0 || progress >= 1) continue;
+        const radius = effect.range * progress;
+        const alpha = Math.sin(progress * Math.PI) * 0.95;
+        const arcPoints: Array<{ x: number; y: number }> = [];
+        for (let step = 0; step <= 22; step += 1) {
+          const angle = effect.angle - effect.halfAngle + (effect.halfAngle * 2 * step) / 22;
+          arcPoints.push(this.projectArenaPoint(
+            effect.x + Math.cos(angle) * radius,
+            effect.y + Math.sin(angle) * radius,
+          ));
+        }
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.lineJoin = "round";
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(arcPoints[0].x, arcPoints[0].y);
+        for (const point of arcPoints.slice(1)) ctx.lineTo(point.x, point.y);
+        ctx.strokeStyle = "rgba(52, 14, 4, 0.8)";
+        ctx.lineWidth = 24 * groundScale;
+        ctx.stroke();
+        ctx.globalCompositeOperation = "lighter";
+        ctx.shadowColor = "#ff3c12";
+        ctx.shadowBlur = 20 * scale;
+        ctx.strokeStyle = "rgba(255, 78, 18, 0.75)";
+        ctx.lineWidth = 14 * groundScale;
+        ctx.stroke();
+        ctx.strokeStyle = "#ffd073";
+        ctx.lineWidth = 3.5 * groundScale;
+        ctx.stroke();
+        // Flame tongues ride the front instead of drawing a flat neon arc.
+        for (let flame = 0; flame < 13; flame += 1) {
+          const t = (flame + 0.5) / 13;
+          const angle = effect.angle - effect.halfAngle + effect.halfAngle * 2 * t;
+          const point = this.projectArenaPoint(
+            effect.x + Math.cos(angle) * radius,
+            effect.y + Math.sin(angle) * radius,
+          );
+          const height = (13 + 8 * Math.abs(Math.sin(effect.seed + effect.time * 9 + flame * 1.7))) * groundScale;
+          ctx.fillStyle = flame % 2 === 0 ? "rgba(255, 150, 48, 0.9)" : "rgba(255, 224, 132, 0.82)";
+          ctx.beginPath();
+          ctx.moveTo(point.x - 6 * groundScale, point.y + 2 * groundScale);
+          ctx.quadraticCurveTo(point.x - 2 * groundScale, point.y - height * 0.65, point.x, point.y - height);
+          ctx.quadraticCurveTo(point.x + 4 * groundScale, point.y - height * 0.4, point.x + 7 * groundScale, point.y + 2 * groundScale);
+          ctx.closePath();
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+    }
+
+    for (const effect of this.diabloFireNovaEffects) {
+      const progress = Math.max(0, Math.min(1, effect.time / effect.duration));
+      if (progress <= 0 || progress >= 1) continue;
+      const radius = effect.maxRadius * (1 - (1 - progress) * (1 - progress));
+      const center = this.projectArenaPoint(effect.x, effect.y);
+      const edge = this.projectArenaPoint(effect.x + radius, effect.y);
+      const rx = Math.max(4, Math.abs(edge.x - center.x));
+      const ry = rx * 0.52;
+      const alpha = Math.sin(progress * Math.PI) * 0.95;
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.globalCompositeOperation = "lighter";
+      ctx.shadowColor = "#ff3b12";
+      ctx.shadowBlur = 22 * scale;
+      ctx.strokeStyle = "rgba(255, 76, 20, 0.72)";
+      ctx.lineWidth = 20 * groundScale;
+      ctx.beginPath();
+      ctx.ellipse(center.x, center.y, rx, ry, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.strokeStyle = "#ffd173";
+      ctx.lineWidth = 4 * groundScale;
+      ctx.beginPath();
+      ctx.ellipse(center.x, center.y, rx, ry, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      for (let flame = 0; flame < 24; flame += 1) {
+        const angle = (flame / 24) * Math.PI * 2 + effect.seed;
+        const point = this.projectArenaPoint(
+          effect.x + Math.cos(angle) * radius,
+          effect.y + Math.sin(angle) * radius,
+        );
+        const height = (9 + 7 * Math.abs(Math.sin(effect.time * 12 + flame * 2.1))) * groundScale;
+        ctx.fillStyle = flame % 3 === 0 ? "#ffe39a" : "#ff7a24";
+        ctx.beginPath();
+        ctx.moveTo(point.x - 4 * groundScale, point.y + 1);
+        ctx.lineTo(point.x, point.y - height);
+        ctx.lineTo(point.x + 4 * groundScale, point.y + 1);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    for (const wall of this.diabloFireWallEffects) {
+      const fade = Math.min(1, wall.time / 0.18, Math.max(0, wall.duration - wall.time) / 0.65);
+      if (fade <= 0.01) continue;
+      const tangentX = -wall.normalY;
+      const tangentY = wall.normalX;
+      const left = this.projectArenaPoint(
+        wall.x - tangentX * wall.halfLength,
+        wall.y - tangentY * wall.halfLength,
+      );
+      const right = this.projectArenaPoint(
+        wall.x + tangentX * wall.halfLength,
+        wall.y + tangentY * wall.halfLength,
+      );
+      ctx.save();
+      ctx.globalAlpha = fade * 0.9;
+      ctx.lineCap = "round";
+      ctx.strokeStyle = "rgba(42, 12, 4, 0.72)";
+      ctx.lineWidth = 13 * groundScale;
+      ctx.beginPath();
+      ctx.moveTo(left.x, left.y);
+      ctx.lineTo(right.x, right.y);
+      ctx.stroke();
+      ctx.strokeStyle = "rgba(255, 95, 26, 0.4)";
+      ctx.lineWidth = 7 * groundScale;
+      ctx.beginPath();
+      ctx.moveTo(left.x, left.y - 1);
+      ctx.lineTo(right.x, right.y - 1);
+      ctx.stroke();
+      ctx.restore();
+
+      const frames = this.missileOverlayImages.get(FIRE_WALL_MISSILE_ID) ?? [];
+      const fallbackFrame = frames.find((frame) => this.isMissileFrameReady(frame));
+      ctx.save();
+      ctx.globalAlpha = fade;
+      ctx.shadowColor = "#ff5a1f";
+      ctx.shadowBlur = 7 * scale;
+      if (fallbackFrame) {
+        ctx.filter = FIRE_WALL_MISSILE_FILTER;
+        const sourceWidth = fallbackFrame instanceof HTMLImageElement ? fallbackFrame.naturalWidth : fallbackFrame.width;
+        const sourceHeight = fallbackFrame instanceof HTMLImageElement ? fallbackFrame.naturalHeight : fallbackFrame.height;
+        const spriteHeight = 48 * groundScale;
+        const spriteWidth = spriteHeight * sourceWidth / Math.max(1, sourceHeight);
+        const spacing = Math.max(6, spriteWidth * 0.55);
+        const lineLength = Math.hypot(right.x - left.x, right.y - left.y);
+        const columnCount = Math.max(3, Math.min(32, Math.ceil(lineLength / spacing)));
+        const frameDuration = this.missileFrameDuration(FIRE_WALL_MISSILE_ID);
+        const animationFrame = Math.floor(wall.time * 1000 / frameDuration);
+        for (let column = 0; column < columnCount; column += 1) {
+          const t = (column + 0.5) / columnCount;
+          const baseX = left.x + (right.x - left.x) * t;
+          const baseY = left.y + (right.y - left.y) * t;
+          const flicker = 0.82 + 0.18 * Math.sin(wall.time * 11 + column * 1.9);
+          const height = spriteHeight * flicker;
+          const width = height * sourceWidth / Math.max(1, sourceHeight);
+          let frame = frames[(animationFrame + column * 3) % frames.length];
+          if (!this.isMissileFrameReady(frame)) frame = fallbackFrame;
+          const jitter = Math.sin(wall.time * 7 + column * 2.3) * 1.2 * scale;
+          ctx.drawImage(frame, baseX - width / 2 + jitter, baseY - height + 2 * scale, width, height);
+        }
+      } else {
+        ctx.globalCompositeOperation = "lighter";
+        for (let column = 0; column < 12; column += 1) {
+          const t = (column + 0.5) / 12;
+          const baseX = left.x + (right.x - left.x) * t;
+          const baseY = left.y + (right.y - left.y) * t;
+          const height = (22 + 10 * Math.abs(Math.sin(wall.time * 10 + column * 1.4))) * groundScale;
+          ctx.fillStyle = column % 2 === 0 ? "#ff7a24" : "#ffd173";
+          ctx.beginPath();
+          ctx.moveTo(baseX - 6 * groundScale, baseY + 2 * groundScale);
+          ctx.lineTo(baseX, baseY - height);
+          ctx.lineTo(baseX + 6 * groundScale, baseY + 2 * groundScale);
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
+      ctx.restore();
+    }
   }
 
   private drawDiabloEffects(ctx: CanvasRenderingContext2D): void {
     if (!this.runActive) return;
     const scale = this.projectionDpr || 1;
+    this.drawDiabloFireEffects(ctx, scale);
     for (const effect of this.diabloThunderEffects) {
       const start = this.projectArenaPoint(effect.x, effect.y - 24);
       const end = this.projectArenaPoint(
@@ -12905,6 +15565,36 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         ctx.lineTo(shardX - 3 * scale, shardY + 2 * scale);
         ctx.closePath();
         ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    if (this.playerFrozenRemaining > 0) {
+      const center = this.projectArenaPoint(this.playerX, this.playerY);
+      const iceScale = this.worldZoom * scale;
+      const fade = Math.min(1, this.playerFrozenRemaining * 4);
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.globalAlpha = 0.24 * fade;
+      ctx.fillStyle = "#9fe4ff";
+      ctx.fillRect(center.x - 15 * iceScale, center.y - 42 * iceScale, 30 * iceScale, 42 * iceScale);
+      ctx.globalAlpha = 0.86 * fade;
+      ctx.strokeStyle = "#d9f7ff";
+      ctx.fillStyle = "#bfefff";
+      ctx.lineWidth = 1.8 * iceScale;
+      ctx.shadowColor = "#65cfff";
+      ctx.shadowBlur = 11 * iceScale;
+      for (let index = 0; index < 6; index += 1) {
+        const angle = index * Math.PI / 3 + 0.25;
+        const shardX = center.x + Math.cos(angle) * 17 * iceScale;
+        const shardY = center.y - 18 * iceScale + Math.sin(angle) * 24 * iceScale;
+        ctx.beginPath();
+        ctx.moveTo(shardX, shardY - 12 * iceScale);
+        ctx.lineTo(shardX + 4 * iceScale, shardY + 5 * iceScale);
+        ctx.lineTo(shardX - 4 * iceScale, shardY + 5 * iceScale);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
       }
       ctx.restore();
     }
@@ -13058,6 +15748,263 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       }
       ctx.restore();
     }
+
+    this.drawBaalHoarfrostArt(ctx, scale, worldScale);
+    this.drawBaalNovaArt(ctx, scale, worldScale);
+    this.drawBaalManaRiftArt(ctx, scale, worldScale);
+    this.drawBaalCurseArt(ctx, scale);
+    this.drawBaalCastArt(ctx, worldScale);
+    this.drawBaalCurseAuras(ctx, scale, worldScale);
+  }
+
+  /** Draw one imported D2R missile/overlay cel, preserving its aspect ratio. */
+  private drawBaalArtFrame(
+    ctx: CanvasRenderingContext2D,
+    id: string,
+    age: number,
+    x: number,
+    y: number,
+    size: number,
+    rotation = 0,
+    alpha = 1,
+  ): void {
+    if (alpha <= 0.01 || size <= 0) return;
+    const frames = this.missileOverlayImages.get(id) ?? [];
+    if (!frames.length) return;
+    const frameDuration = Math.max(1, this.missileFrameDuration(id));
+    let frame: MissileOverlayFrame | undefined = frames[Math.floor(Math.max(0, age) * 1000 / frameDuration) % frames.length];
+    if (!this.isMissileFrameReady(frame)) frame = frames.find((candidate) => this.isMissileFrameReady(candidate));
+    if (!this.isMissileFrameReady(frame)) return;
+    const naturalWidth = frame instanceof HTMLImageElement ? frame.naturalWidth : frame.width;
+    const naturalHeight = frame instanceof HTMLImageElement ? frame.naturalHeight : frame.height;
+    if (!naturalWidth || !naturalHeight) return;
+    const drawScale = size / Math.max(naturalWidth, naturalHeight);
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rotation);
+    ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+    ctx.globalCompositeOperation = "lighter";
+    ctx.drawImage(
+      frame,
+      -naturalWidth * drawScale / 2,
+      -naturalHeight * drawScale / 2,
+      naturalWidth * drawScale,
+      naturalHeight * drawScale,
+    );
+    ctx.restore();
+  }
+
+  private drawBaalHoarfrostArt(ctx: CanvasRenderingContext2D, scale: number, worldScale: number): void {
+    for (const effect of this.baalHoarfrostEffects) {
+      const fade = Math.max(0, Math.min(1, effect.time * 8, (effect.duration - effect.time) * 3));
+      if (fade <= 0.01) continue;
+      const origin = this.projectArenaPoint(effect.x, effect.y);
+      if (!this.isArenaPointOnScreen(origin, DRAW_CULL_MARGIN * 3)) continue;
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.strokeStyle = "rgba(148, 222, 255, 0.33)";
+      ctx.lineWidth = 2.5 * scale;
+      for (const armAngle of [effect.angle - effect.spread, effect.angle + effect.spread]) {
+        const armX = Math.cos(armAngle);
+        const armY = Math.sin(armAngle);
+        const end = this.projectArenaPoint(
+          effect.x + armX * effect.maxDistance,
+          effect.y + armY * effect.maxDistance,
+        );
+        ctx.globalAlpha = fade * 0.35;
+        ctx.beginPath();
+        ctx.moveTo(origin.x, origin.y);
+        ctx.lineTo(end.x, end.y - 10 * scale);
+        ctx.stroke();
+      }
+      ctx.restore();
+      for (let wave = 0; wave < effect.waveHits.length; wave += 1) {
+        const waveAge = effect.time - wave * BAAL_HOARFROST_WAVE_INTERVAL;
+        if (waveAge <= 0) continue;
+        const traveled = Math.min(effect.maxDistance, waveAge * effect.speed);
+        if (traveled <= 0) continue;
+        for (const armAngle of [effect.angle - effect.spread, effect.angle + effect.spread]) {
+          const armX = Math.cos(armAngle);
+          const armY = Math.sin(armAngle);
+          for (let shard = 0; shard < 5; shard += 1) {
+            const distance = Math.max(0, traveled - shard * 22);
+            const point = this.projectArenaPoint(
+              effect.x + armX * distance,
+              effect.y + armY * distance,
+            );
+            const size = (34 - shard * 4) * worldScale;
+            const art = shard % 2 === 0 ? "d2-bluenovab" : "d2-novablue";
+            this.drawBaalArtFrame(
+              ctx,
+              art,
+              effect.time + shard * 0.025,
+              point.x,
+              point.y - 12 * scale,
+              size,
+              armAngle + Math.PI / 2,
+              fade * (0.82 - shard * 0.12),
+            );
+          }
+        }
+      }
+    }
+  }
+
+  private drawBaalNovaArt(ctx: CanvasRenderingContext2D, scale: number, worldScale: number): void {
+    for (const effect of this.baalNovaEffects) {
+      const progress = Math.max(0, Math.min(1, effect.time / effect.duration));
+      const radius = effect.maxRadius * (1 - (1 - progress) * (1 - progress));
+      const center = this.projectArenaPoint(effect.x, effect.y);
+      if (!this.isArenaPointOnScreen(center, DRAW_CULL_MARGIN * 4)) continue;
+      const fade = Math.min(1, progress * 5, (1 - progress) * 4);
+      this.drawBaalArtFrame(
+        ctx,
+        "d2-baalnova",
+        effect.time,
+        center.x,
+        center.y - 24 * scale,
+        140 * worldScale,
+        0,
+        fade * 0.48,
+      );
+      const count = 24;
+      for (let index = 0; index < count; index += 1) {
+        const angle = effect.seed + index / count * Math.PI * 2;
+        const point = this.projectArenaPoint(
+          effect.x + Math.cos(angle) * radius,
+          effect.y + Math.sin(angle) * radius,
+        );
+        this.drawBaalArtFrame(
+          ctx,
+          index % 2 === 0 ? "d2-baalsummonmissile" : "d2-baalsummonmissile2",
+          effect.time + index * 0.013,
+          point.x,
+          point.y - 20 * scale,
+          32 * worldScale,
+          angle + Math.PI / 2,
+          fade * 0.86,
+        );
+      }
+    }
+  }
+
+  private drawBaalManaRiftArt(ctx: CanvasRenderingContext2D, scale: number, worldScale: number): void {
+    for (const effect of this.baalManaRiftEffects) {
+      const fade = Math.max(0, Math.min(1, effect.time * 9, (effect.duration - effect.time) * 5));
+      if (fade <= 0.01) continue;
+      const origin = this.projectArenaPoint(effect.x, effect.y);
+      const target = this.projectArenaPoint(effect.targetX, effect.targetY);
+      if (!this.isArenaPointOnScreen(origin, DRAW_CULL_MARGIN * 3)
+        && !this.isArenaPointOnScreen(target, DRAW_CULL_MARGIN * 3)) continue;
+      const angle = Math.atan2(target.y - origin.y, target.x - origin.x);
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.lineCap = "round";
+      ctx.strokeStyle = "rgba(255, 213, 92, 0.55)";
+      ctx.lineWidth = 12 * scale;
+      ctx.shadowColor = "#ffd35a";
+      ctx.shadowBlur = 18 * scale;
+      ctx.beginPath();
+      ctx.moveTo(origin.x, origin.y - 18 * scale);
+      ctx.lineTo(target.x, target.y - 18 * scale);
+      ctx.stroke();
+      ctx.restore();
+      for (let index = 0; index < 8; index += 1) {
+        const t = (index + 0.5) / 8;
+        const x = origin.x + (target.x - origin.x) * t;
+        const y = origin.y + (target.y - origin.y) * t - 18 * scale;
+        const wobble = Math.sin(effect.seed + index * 1.7 + effect.time * 26) * 8 * scale;
+        this.drawBaalArtFrame(
+          ctx,
+          "d2-baalmissile",
+          effect.time + index * 0.035,
+          x + Math.cos(angle + Math.PI / 2) * wobble,
+          y + Math.sin(angle + Math.PI / 2) * wobble,
+          (42 + (index % 3) * 8) * worldScale,
+          angle,
+          fade * (0.72 + (index % 2) * 0.16),
+        );
+      }
+    }
+  }
+
+  private drawBaalCurseArt(ctx: CanvasRenderingContext2D, scale: number): void {
+    for (const effect of this.baalCurseEffects) {
+      const progress = Math.max(0, Math.min(1, effect.time / effect.duration));
+      const fade = Math.min(1, progress * 7, (1 - progress) * 4);
+      if (fade <= 0.01) continue;
+      const source = this.projectArenaPoint(effect.sourceX, effect.sourceY);
+      const target = this.projectArenaPoint(effect.x, effect.y);
+      this.drawBaalArtFrame(
+        ctx,
+        "d2-cursecast",
+        effect.time,
+        source.x,
+        source.y - 42 * scale,
+        94 * scale,
+        0,
+        fade * 0.9,
+      );
+      if (progress < 0.62) {
+        const flight = progress / 0.62;
+        const x = source.x + (target.x - source.x) * flight;
+        const y = source.y + (target.y - source.y) * flight - 42 * scale;
+        const angle = Math.atan2(target.y - source.y, target.x - source.x);
+        this.drawBaalArtFrame(
+          ctx,
+          "d2-cursemissle",
+          effect.time,
+          x,
+          y,
+          (58 + Math.sin(flight * Math.PI) * 18) * scale,
+          angle,
+          fade,
+        );
+      } else {
+        this.drawBaalArtFrame(
+          ctx,
+          "d2-cursearea",
+          effect.time,
+          target.x,
+          target.y - 16 * scale,
+          78 * scale,
+          0,
+          fade * 0.85,
+        );
+      }
+    }
+  }
+
+  private drawBaalCastArt(ctx: CanvasRenderingContext2D, worldScale: number): void {
+    for (const effect of this.baalCastEffects) {
+      const progress = Math.max(0, Math.min(1, effect.time / effect.duration));
+      const fade = Math.min(1, progress * 8, (1 - progress) * 4);
+      if (fade <= 0.01) continue;
+      const point = this.projectArenaPoint(effect.x, effect.y);
+      if (!this.isArenaPointOnScreen(point, DRAW_CULL_MARGIN * 2)) continue;
+      if (effect.kind === "effigy") {
+        this.drawBaalArtFrame(ctx, "d2-baalsummonoverlay", effect.time, point.x, point.y - 34 * worldScale / this.worldZoom, 160 * worldScale, 0, fade * 0.92);
+        this.drawBaalArtFrame(ctx, "d2-baalsummonmissile", effect.time, point.x, point.y - 26 * worldScale / this.worldZoom, 80 * worldScale, effect.seed, fade * 0.8);
+      } else if (effect.kind === "teleport") {
+        this.drawBaalArtFrame(ctx, "d2-baalteleport", effect.time, point.x, point.y - 34 * worldScale / this.worldZoom, 150 * worldScale, 0, fade * 0.94);
+        this.drawBaalArtFrame(ctx, "d2-baalsummonoverlay", effect.time + 0.06, point.x, point.y - 18 * worldScale / this.worldZoom, 90 * worldScale, 0, fade * 0.42);
+      } else {
+        this.drawBaalArtFrame(ctx, "d2-baalnova", effect.time, point.x, point.y - 36 * worldScale / this.worldZoom, 120 * worldScale, effect.seed, fade * 0.8);
+        this.drawBaalArtFrame(ctx, "d2-baalsummonmissile", effect.time + 0.04, point.x, point.y - 24 * worldScale / this.worldZoom, 60 * worldScale, effect.seed, fade * 0.68);
+      }
+    }
+  }
+
+  private drawBaalCurseAuras(ctx: CanvasRenderingContext2D, scale: number, worldScale: number): void {
+    const cursed = this.playerBloodManaRemaining > 0
+      || this.playerDefenseCurseRemaining > 0
+      || this.playerDecrepifyRemaining > 0;
+    if (!cursed) return;
+    const ground = this.projectArenaPoint(this.playerX, this.playerY);
+    const overlayId = this.playerDecrepifyRemaining > 0 ? "d2-cursedecrepifyeffect" : "d2-curseeffectred";
+    const pulse = 0.48 + Math.sin(this.runTime * 7) * 0.12;
+    this.drawBaalArtFrame(ctx, "d2-cursearea", this.runTime, ground.x, ground.y, 50 * worldScale, 0, pulse);
+    this.drawBaalArtFrame(ctx, overlayId, this.runTime, ground.x, ground.y - 38 * scale, 60 * worldScale, 0, pulse + 0.18);
   }
 
   private activePaladinAuraRank(skills: readonly string[]): number {
@@ -13066,8 +16013,29 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.activePaladinAuras[skill] ? Math.max(rank, this.skillLevels[skill] ?? 1) : rank, 0);
   }
 
+  private get decrepifyDamageDealtMultiplier(): number {
+    return this.playerDecrepifyRemaining > 0 ? BAAL_DECREPIFY_DAMAGE_DEALT_MULTIPLIER : 1;
+  }
+
+  private payBloodManaCost(): void {
+    if (this.playerBloodManaRemaining <= 0) return;
+    if (this.effectivePlayerMaxMana < this.effectivePlayerMaxHp) return;
+    const cost = Math.max(1, Math.ceil(this.effectivePlayerMaxHp * BAAL_BLOOD_MANA_HEALTH_COST_FRACTION));
+    this.playerHp -= cost;
+    if (this.floatingTexts.length < 64) {
+      this.floatingTexts.push({
+        x: this.playerX,
+        y: this.playerY - 42,
+        text: `BLOOD MANA -${cost}`,
+        color: "#ff6b6b",
+        life: 0.8,
+      });
+    }
+  }
+
   private applyIncomingDamage(damage: number, attacker?: Enemy): number {
     if (this.playerLeapRemaining > 0) return 0;
+    const curseVulnerability = this.playerDecrepifyRemaining > 0 ? BAAL_DECREPIFY_DAMAGE_TAKEN_MULTIPLIER : 1;
     const armorReduction = this.equippedArmor / (this.equippedArmor + 100);
     const frozenArmorReduction = this.isFrozenArmorActive()
       ? Math.min(0.5, (this.skillLevels["Frozen Armor"] ?? 0) * 0.1)
@@ -13078,7 +16046,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const resistanceReduction = Math.min(75, this.equippedResistancePercent) / 100;
     const flatReduction = Math.max(0, this.equippedDamageReductionFlat);
     const percentReduction = Math.min(50, this.equippedDamageReductionPercent) / 100;
-    const mitigated = damage * (1 - armorReduction) * (1 - frozenArmorReduction)
+    const mitigated = damage * curseVulnerability * (1 - armorReduction) * (1 - frozenArmorReduction)
       * (1 - cycloneArmorReduction) * (1 - resistanceReduction) * (1 - percentReduction) - flatReduction;
     const reducedDamage = this.applyPaladinAuraDefense(Math.max(0, mitigated));
     if (attacker && this.equippedThorns > 0) this.queueEnemyDamage(attacker, this.equippedThorns, "#ffd083");
@@ -13572,9 +16540,111 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     ctx.restore();
   }
 
+  /** Draw one original Fist missile cel, preserving its authored aspect ratio. */
+  private drawFistOfTheHeavensArt(
+    ctx: CanvasRenderingContext2D,
+    id: string,
+    age: number,
+    screenX: number,
+    screenBottomY: number,
+    height: number,
+    alpha: number,
+    playbackRate = 1,
+  ): void {
+    if (alpha <= 0.01 || height <= 0) return;
+    const frames = this.missileOverlayImages.get(id);
+    if (!frames?.length) return;
+    const frameDuration = Math.max(1, this.missileFrameDuration(id));
+    const frameIndex = Math.min(
+      frames.length - 1,
+      Math.max(0, Math.floor(age * playbackRate * 1000 / frameDuration)),
+    );
+    let frame: MissileOverlayFrame | undefined = frames[frameIndex];
+    if (!this.isMissileFrameReady(frame)) frame = frames.find((candidate) => this.isMissileFrameReady(candidate));
+    if (!this.isMissileFrameReady(frame)) return;
+    const naturalWidth = frame instanceof HTMLImageElement ? frame.naturalWidth : frame.width;
+    const naturalHeight = frame instanceof HTMLImageElement ? frame.naturalHeight : frame.height;
+    const width = height * naturalWidth / Math.max(1, naturalHeight);
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, alpha);
+    ctx.drawImage(frame, screenX - width / 2, screenBottomY - height, width, height);
+    ctx.restore();
+  }
+
+  private drawFistOfTheHeavensCast(ctx: CanvasRenderingContext2D, effect: SkillVisualEffect): void {
+    const point = this.projectArenaPoint(effect.x, effect.y);
+    if (!this.isArenaPointOnScreen(point, DRAW_CULL_MARGIN)) return;
+    const scale = this.worldZoom * (this.projectionDpr || 1);
+    const fade = Math.min(1, effect.time * 14, Math.max(0, (effect.duration - effect.time) * 10));
+    if (fade <= 0.01) return;
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.shadowColor = "#ffd76a";
+    ctx.shadowBlur = 12 * scale;
+    this.drawFistOfTheHeavensArt(
+      ctx, "d2-handofgod", effect.time, point.x, point.y + 4 * scale, 118 * scale, fade * 0.95, 1.55,
+    );
+    ctx.restore();
+  }
+
+  private drawFistOfTheHeavensStrike(ctx: CanvasRenderingContext2D, effect: SkillVisualEffect): void {
+    const point = this.projectArenaPoint(effect.x, effect.y);
+    if (!this.isArenaPointOnScreen(point, DRAW_CULL_MARGIN)) return;
+    const scale = this.worldZoom * (this.projectionDpr || 1);
+    const fade = Math.min(1, effect.time * 20, Math.max(0, (effect.duration - effect.time) * 10));
+    if (fade <= 0.01) return;
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    // A bright impact crater anchors the vertical bolt to the target.
+    ctx.globalAlpha = fade * 0.45;
+    ctx.strokeStyle = "#cfe9ff";
+    ctx.lineWidth = 2.4 * scale;
+    ctx.beginPath();
+    ctx.ellipse(point.x, point.y, 34 * scale, 14 * scale, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.shadowColor = "#d8f3ff";
+    ctx.shadowBlur = 16 * scale;
+    this.drawFistOfTheHeavensArt(
+      ctx, "d2-lightningbolt", effect.time, point.x, point.y + 3 * scale, 245 * scale, fade, 1,
+    );
+    // A second, shorter cel gives the strike the familiar forked silhouette.
+    this.drawFistOfTheHeavensArt(
+      ctx, "d2-lightningbolt", effect.time + 0.04, point.x + 5 * scale, point.y + 3 * scale, 205 * scale, fade * 0.45, 1.1,
+    );
+    ctx.restore();
+  }
+
+  private drawFistOfTheHeavensBoltImpact(ctx: CanvasRenderingContext2D, effect: SkillVisualEffect): void {
+    const point = this.projectArenaPoint(effect.x, effect.y);
+    if (!this.isArenaPointOnScreen(point, DRAW_CULL_MARGIN)) return;
+    const scale = this.worldZoom * (this.projectionDpr || 1);
+    const fade = Math.min(1, effect.time * 22, Math.max(0, (effect.duration - effect.time) * 12));
+    if (fade <= 0.01) return;
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.shadowColor = "#ffe6a0";
+    ctx.shadowBlur = 10 * scale;
+    this.drawFistOfTheHeavensArt(
+      ctx, "d2-teethexplode", effect.time, point.x, point.y + 5 * scale, 52 * scale, fade, 1.5,
+    );
+    ctx.restore();
+  }
+
   private drawSkillVisualEffect(ctx: CanvasRenderingContext2D, effect: SkillVisualEffect): void {
     const canvas = this.skillEffectsCanvasRef?.nativeElement;
     if (!canvas) return;
+    if (effect.fistOfTheHeavensCast) {
+      this.drawFistOfTheHeavensCast(ctx, effect);
+      return;
+    }
+    if (effect.fistOfTheHeavensStrike) {
+      this.drawFistOfTheHeavensStrike(ctx, effect);
+      return;
+    }
+    if (effect.fistOfTheHeavensBoltImpact) {
+      this.drawFistOfTheHeavensBoltImpact(ctx, effect);
+      return;
+    }
     if (effect.lightningRail) {
       this.drawLightningRail(ctx, effect);
       return;
@@ -13801,6 +16871,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
   dragState: DragState | null = null;
   dragGhostSlotIndex: number | null = null;
+  /** Touch-only drag state; desktop keeps using HTML5 drag/drop. */
+  mobileInventoryDrag: { pointerId: number; sourceIndex: number; item: D2InventoryItem } | null = null;
+  mobilePressSlotIndex: number | null = null;
+  private mobileInventoryPress?: MobileInventoryPress;
+  private lastInventoryTouchAt = Number.NEGATIVE_INFINITY;
+  private suppressInventoryTap = false;
+  private suppressInventoryTapTimer?: number;
 
   get inventoryDropPreview(): InventoryDropPreview | null {
     if (!this.dragState || this.dragGhostSlotIndex === null) return null;
@@ -13907,6 +16984,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   startDrag(slotIndex: number, event: DragEvent): void {
+    // Some mobile browsers attempt a native HTML5 drag after a long press. The
+    // pointer gesture owns that interaction, so keep the two drag systems apart.
+    if (this.mobileInventoryPress || this.mobileInventoryDrag) {
+      event.preventDefault();
+      return;
+    }
     const anchor = this.getItemAnchorAt(slotIndex);
     const item = anchor >= 0 ? this.inventory[anchor] : null;
     if (!item) {
@@ -13927,6 +17010,182 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (!item) { event.preventDefault(); return; }
     this.dragState = { source: "equipment", slotIndex: -1, equipmentSlot: slot, item };
     if (event.dataTransfer) { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", item.id); }
+  }
+
+  /** Long-press an inventory item on a touch screen to pick it up for dragging. */
+  onInventoryPointerDown(slotIndex: number, event: PointerEvent): void {
+    if (event.pointerType !== "touch" || !this.inventoryOpen) return;
+    this.lastInventoryTouchAt = performance.now();
+    if (this.mobileInventoryPress || this.mobileInventoryDrag) return;
+    const anchor = this.getItemAnchorAt(slotIndex);
+    const item = anchor >= 0 ? this.inventory[anchor] : null;
+    const target = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
+    if (!item || !target) return;
+    try {
+      target.setPointerCapture(event.pointerId);
+    } catch {
+      // Pointer capture is best-effort; the handler still works when unsupported.
+    }
+    const press: MobileInventoryPress = {
+      pointerId: event.pointerId,
+      sourceIndex: anchor,
+      item,
+      startX: event.clientX,
+      startY: event.clientY,
+      timer: 0,
+    };
+    press.timer = window.setTimeout(() => this.beginMobileInventoryDrag(press), MOBILE_INVENTORY_LONG_PRESS_MS);
+    this.mobileInventoryPress = press;
+    this.mobilePressSlotIndex = anchor;
+  }
+
+  onInventoryPointerMove(event: PointerEvent): void {
+    const press = this.mobileInventoryPress;
+    if (event.pointerType !== "touch" && !press && !this.mobileInventoryDrag) return;
+    if (press && press.pointerId === event.pointerId) {
+      if (Math.hypot(event.clientX - press.startX, event.clientY - press.startY) > MOBILE_INVENTORY_LONG_PRESS_TOLERANCE) {
+        this.clearMobileInventoryPress();
+      }
+      return;
+    }
+    const drag = this.mobileInventoryDrag;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    event.preventDefault();
+    const target = this.inventorySlotAtPoint(event.clientX, event.clientY);
+    const targetAnchor = target >= 0 ? this.getItemAnchorAt(target) : -1;
+    this.dragGhostSlotIndex = targetAnchor === drag.sourceIndex ? null : target;
+  }
+
+  onInventoryPointerUp(event: PointerEvent): void {
+    const press = this.mobileInventoryPress;
+    if (event.pointerType !== "touch" && !press && !this.mobileInventoryDrag) return;
+    this.lastInventoryTouchAt = performance.now();
+    if (press && press.pointerId === event.pointerId) {
+      this.clearMobileInventoryPress();
+      return;
+    }
+    const drag = this.mobileInventoryDrag;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    event.preventDefault();
+    const target = this.inventorySlotAtPoint(event.clientX, event.clientY);
+    const targetAnchor = target >= 0 ? this.getItemAnchorAt(target) : -1;
+    const sourceIndex = drag.sourceIndex;
+    const item = drag.item;
+    this.mobileInventoryDrag = null;
+    this.mobilePressSlotIndex = null;
+    this.scheduleInventoryTapSuppressionReset();
+    this.selectedSlotIndex = targetAnchor >= 0 ? targetAnchor : sourceIndex;
+    this.selectedItem = item;
+    this.selectedEquipmentSlot = null;
+
+    if (target < 0) {
+      this.clearDragState();
+      this.inventoryStatus = "Drop an item inside the inventory grid.";
+      this.moveItemPreviewTo(event.clientX, event.clientY, true);
+      return;
+    }
+    if (targetAnchor === sourceIndex) {
+      this.clearDragState();
+      this.inventoryStatus = "";
+      this.moveItemPreviewTo(event.clientX, event.clientY, true);
+      return;
+    }
+    if (!this.internalCanDrop(sourceIndex, target, item)) {
+      this.clearDragState();
+      this.inventoryStatus = "That item cannot be placed there.";
+      this.moveItemPreviewTo(event.clientX, event.clientY, true);
+      return;
+    }
+    this.moveInventoryItemToSlot(sourceIndex, target, item);
+    this.selectedItem = null;
+    this.clearDragState();
+  }
+
+  onInventoryPointerCancel(event: PointerEvent): void {
+    const activePointerId = this.mobileInventoryDrag?.pointerId ?? this.mobileInventoryPress?.pointerId;
+    if (activePointerId === undefined || event.pointerId !== activePointerId) return;
+    this.lastInventoryTouchAt = performance.now();
+    const wasDragging = !!this.mobileInventoryDrag;
+    this.clearMobileInventoryPress();
+    this.mobileInventoryDrag = null;
+    this.mobilePressSlotIndex = null;
+    this.clearDragState();
+    if (!wasDragging) return;
+    this.scheduleInventoryTapSuppressionReset();
+    this.inventoryStatus = "";
+    const selected = this.selectedSlotIndex;
+    this.selectedItem = selected !== null ? this.inventory[selected] ?? null : null;
+  }
+
+  private beginMobileInventoryDrag(press: MobileInventoryPress): void {
+    if (this.mobileInventoryPress !== press || !this.inventoryOpen) return;
+    const item = this.inventory[press.sourceIndex];
+    if (!item || item.id !== press.item.id) {
+      this.clearMobileInventoryPress();
+      return;
+    }
+    this.mobileInventoryPress = undefined;
+    this.mobilePressSlotIndex = null;
+    this.mobileInventoryDrag = { pointerId: press.pointerId, sourceIndex: press.sourceIndex, item };
+    this.dragState = { source: "inventory", slotIndex: press.sourceIndex, item };
+    this.dragGhostSlotIndex = null;
+    this.selectedSlotIndex = press.sourceIndex;
+    this.selectedItem = null;
+    this.selectedEquipmentSlot = null;
+    this.hoveredItem = null;
+    this.hoveredSlotIndex = null;
+    this.inventoryStatus = "";
+    this.suppressInventoryTap = true;
+    if (this.suppressInventoryTapTimer !== undefined) {
+      window.clearTimeout(this.suppressInventoryTapTimer);
+      this.suppressInventoryTapTimer = undefined;
+    }
+    try {
+      navigator.vibrate?.(12);
+    } catch {
+      // Haptics are optional and unsupported on many browsers.
+    }
+  }
+
+  private clearMobileInventoryPress(): void {
+    const press = this.mobileInventoryPress;
+    if (press) window.clearTimeout(press.timer);
+    this.mobileInventoryPress = undefined;
+    this.mobilePressSlotIndex = null;
+  }
+
+  private scheduleInventoryTapSuppressionReset(): void {
+    if (this.suppressInventoryTapTimer !== undefined) window.clearTimeout(this.suppressInventoryTapTimer);
+    this.suppressInventoryTapTimer = window.setTimeout(() => {
+      this.suppressInventoryTapTimer = undefined;
+      this.suppressInventoryTap = false;
+    }, 350);
+  }
+
+  private inventorySlotAtPoint(clientX: number, clientY: number): number {
+    return this.getInventorySlotIndexFromElement(document.elementFromPoint(clientX, clientY));
+  }
+
+  private moveInventoryItemToSlot(sourceIndex: number, targetIndex: number, item: D2InventoryItem): void {
+    const targetAnchor = this.getItemAnchorAt(targetIndex);
+    const targetItem = targetAnchor >= 0 ? this.inventory[targetAnchor] : null;
+    this.inventory[sourceIndex] = null;
+    if (targetItem && targetAnchor >= 0) this.inventory[targetAnchor] = null;
+    this.inventory[targetIndex] = item;
+    if (targetItem && targetAnchor >= 0) this.inventory[sourceIndex] = targetItem;
+    this.rebuildInventoryGrid();
+    this.selectedItem = item;
+    this.selectedSlotIndex = targetIndex;
+    this.inventoryStatus = "";
+    this.persistRunProgress(true);
+  }
+
+  private cancelMobileInventoryInteraction(): void {
+    this.clearMobileInventoryPress();
+    this.mobileInventoryDrag = null;
+    this.mobilePressSlotIndex = null;
+    this.clearDragState();
+    if (this.suppressInventoryTap) this.scheduleInventoryTapSuppressionReset();
   }
 
   onEquipmentDrop(slot: PaperdollSlot, event: DragEvent): void {
@@ -14075,6 +17334,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   onInventoryItemClick(slotIndex: number, item: D2InventoryItem | null, event: MouseEvent): void {
+    if (this.suppressInventoryTap) {
+      event.preventDefault();
+      return;
+    }
     if (event.ctrlKey && item) {
       event.preventDefault();
       this.sellInventoryItem(slotIndex);
@@ -14244,6 +17507,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   onInventoryContextMenu(slotIndex: number, event: MouseEvent): void {
     event.preventDefault();
+    // A touch long-press is our drag gesture, not a request to equip the item.
+    if (this.mobileInventoryPress || this.mobileInventoryDrag || performance.now() - this.lastInventoryTouchAt < 700) return;
     const anchor = this.getItemAnchorAt(slotIndex);
     const item = anchor >= 0 ? this.inventory[anchor] : null;
     if (!item) return;
@@ -14352,17 +17617,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.dropEquipmentToInventory(drag.equipmentSlot, slotIndex, event);
       return;
     }
-    const targetAnchor = this.getItemAnchorAt(slotIndex);
-    const targetItem = targetAnchor >= 0 ? this.inventory[targetAnchor] : null;
-    this.inventory[drag.slotIndex] = null;
-    if (targetItem && targetAnchor >= 0) this.inventory[targetAnchor] = null;
-    this.inventory[slotIndex] = drag.item;
-    if (targetItem && targetAnchor >= 0) this.inventory[drag.slotIndex] = targetItem;
-    this.rebuildInventoryGrid();
-    this.selectedItem = drag.item;
-    this.selectedSlotIndex = slotIndex;
-    this.inventoryStatus = "";
-    this.persistRunProgress(true);
+    this.moveInventoryItemToSlot(drag.slotIndex, slotIndex, drag.item);
     this.clearDragState();
   }
 
@@ -14522,6 +17777,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.actTransitionReady = false;
     this.actPortalOpen = false;
     this.enemies = [];
+    this.maggotEggs.length = 0;
+    this.clearPlayerPoison();
     this.creeperTrailMarks.length = 0;
     this.blazeRemaining = 0;
     this.blazeDropRemaining = 0;
@@ -14618,6 +17875,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       dmg: 2 * tristramDamage,
       cd: 0.8,
       hatchCooldown: species === "vileMother" ? 6 + Math.random() * 6 : undefined,
+      // Sand Maggots enter the arena able to burrow and lay eggs, but not on
+      // the first frame: these short random delays keep a pack from diving in
+      // unison and give the hero a moment to read the new behaviour.
+      burrowCooldown: species === "sandMaggot" || species === "sandMaggotQueen" ? 4 + Math.random() * 5 : undefined,
+      eggCooldown: species === "sandMaggot" || species === "sandMaggotQueen" ? 8 + Math.random() * 6 : undefined,
     };
     if (kind === "boss") {
       // Pandemonium bosses are the same monsters at level-83 strength. Andariel
@@ -15062,6 +18324,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (this.runActive && this.isBoneArmorActive()) this.drawBoneArmorAura(ctx, "back");
     this.drawCreeperTrails(ctx);
     this.drawPoisonClouds(ctx);
+    this.drawNihlathakCorpses(ctx);
     if (this.runActive && this.activeOakSageSummon()) this.drawOakSageBeneficiaryAuras(ctx);
 
     // One projected pass per collection instead of a filter+map burst per group,
@@ -15096,6 +18359,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const point = this.projectArenaPoint(entity.x, entity.y);
       if (!this.isArenaPointOnScreen(point, DRAW_CULL_MARGIN)) continue;
       drawOrder.push({ depth: point.y, draw: () => this.drawEnemy(ctx, entity) });
+    }
+    for (const egg of this.maggotEggs) {
+      const point = this.projectArenaPoint(egg.x, egg.y);
+      if (!this.isArenaPointOnScreen(point, DRAW_CULL_MARGIN)) continue;
+      drawOrder.push({ depth: point.y, draw: () => this.drawMaggotEgg(ctx, egg) });
     }
     for (const entity of this.chests) {
       const point = this.projectArenaPoint(entity.x, entity.y);
@@ -15473,6 +18741,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.equippedWeaponVisual = undefined;
       this.equippedOffhandWeaponVisual = undefined;
       this.equippedShieldVisual = undefined;
+      this.holyShieldVisual = undefined;
     }
     let stockWeaponCount = 0;
     const nameContainsClassMeleeWeapon = (name: string): boolean => {
@@ -15572,9 +18841,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     shield.name = `equipped_shield_${getEquipmentType(shieldItem)}`;
     shield.scale.setScalar(1.15);
     shieldAnchor.add(shield);
-    this.attachHeldItemArt(shield, shieldItem, "shield");
+    // Assign before the art request so a cached shield cel can build the Holy
+    // Shield overlay in the same call.
     if (preview) this.previewEquippedShieldVisual = shield;
     else this.equippedShieldVisual = shield;
+    this.attachHeldItemArt(shield, shieldItem, "shield");
   }
 
   /**
@@ -15905,12 +19176,57 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       addPlate(0, 0, 1.04, 0x1b1611);
       addPlate(0, 0.00016, 1, 0xffffff);
       addPlate(Math.PI, -0.00016, 1, 0xffffff);
+      if (visual === this.equippedShieldVisual && this.selectedClass === "paladin") {
+        this.addHolyShieldOverlay(visual, width, height, centerY);
+      }
       return;
     }
 
     // A single double-sided cel keeps one weapon silhouette. Crossing two cels
     // for visibility looked like the character was holding a second weapon.
     addPlate(0, 0, 1, 0xffffff);
+  }
+
+  /**
+   * Mount the original D2R Holy Shield effect art over the equipped shield.
+   * The effect texture is a mask (black albedo, design in alpha), so the shield
+   * front and back get a golden, unlit plane that follows the hand bone.
+   */
+  private addHolyShieldOverlay(visual: THREE.Group, width: number, height: number, centerY: number): void {
+    this.requestEquippedItemArt(HOLY_SHIELD_ART_PATH, (texture) => {
+      if (!visual.parent) return;
+      visual.getObjectByName("holy_shield_overlay")?.removeFromParent();
+
+      const overlay = new THREE.Group();
+      overlay.name = "holy_shield_overlay";
+      overlay.renderOrder = 2;
+      const addFace = (rotationY: number, depth: number): void => {
+        const material = new THREE.MeshBasicMaterial({
+          map: texture,
+          color: 0xffdf9f,
+          transparent: true,
+          opacity: 0.9,
+          alphaTest: 0.02,
+          side: THREE.DoubleSide,
+          depthWrite: false,
+          toneMapped: false,
+        });
+        const face = new THREE.Mesh(new THREE.PlaneGeometry(width * 1.02, height * 1.02), material);
+        face.position.set(0, centerY, depth);
+        face.rotation.y = rotationY;
+        face.renderOrder = 2;
+        overlay.add(face);
+      };
+      addFace(0, 0.00042);
+      addFace(Math.PI, -0.00042);
+      visual.add(overlay);
+      this.holyShieldVisual = overlay;
+      this.syncHolyShieldVisual();
+    });
+  }
+
+  private syncHolyShieldVisual(): void {
+    if (this.holyShieldVisual) this.holyShieldVisual.visible = this.isHolyShieldActive();
   }
 
   private getClassArmorTexture(modelClass: string, tier: "light" | "medium" | "heavy"): string | undefined {
@@ -16200,7 +19516,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   private enemySpriteTint(e: Enemy, baseTint: string): string {
-    return (e.coldRemaining ?? 0) > 0 ? ENEMY_COLD_TINT : baseTint;
+    if ((e.coldRemaining ?? 0) > 0) return ENEMY_COLD_TINT;
+    if ((e.frenzyRemaining ?? 0) > 0) return "brightness(1.22) contrast(1.22) sepia(0.48) saturate(2.2) hue-rotate(-24deg)";
+    return baseTint;
   }
 
   private tintedEnemyFrame(
@@ -16239,7 +19557,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       return;
     }
     const sprite = this.enemySprites[e.species];
-    const color = e.kind === "boss" ? "#ffb347" : e.kind === "champion" ? "#ffd27a" : "#8a94a6";
+    // Champions use a cold blue sigil so their ground ring cannot be mistaken
+    // for a boss's gold ring.
+    const color = e.kind === "boss" ? "#ffb347" : e.kind === "champion" ? "#7f9dff" : "#8a94a6";
     const speciesScale = enemySpeciesScale(e.species);
     const size = e.r * (e.kind === "boss" ? 4.2 : e.kind === "champion" ? 4.4 : 4.8) * this.worldZoom * speciesScale;
     // Ground every monster with the same soft radial contact shadow used by the
@@ -16265,13 +19585,16 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       // Mirror it when the monster turns right so its feet follow its movement.
       const flipSprite = e.species === "fallen" && directionX > 0;
       const directionRow = enemySpriteRow(e.species, directionX, directionY);
-      const direction = enemySpriteDirectionRow(e.species, e.animationState, sprite.rows, directionRow);
+      const direction = enemySpriteDirectionRow(e.species, e.animationState, sprite.rows, directionRow, e.spriteBlock);
       const frameIndex = enemySpriteFrame(e, sprite.columns, this.runTime);
       const frame = sprite.frames[direction]?.[frameIndex];
       if (frame && frame.width > 0 && frame.height > 0) {
-        const attackDuration = e.kind === "boss" ? 0.55 : 0.38;
+        const attackDuration = e.attackDuration ?? (e.kind === "boss" ? 0.55 : 0.38);
         const attackProgress = Math.max(0, Math.min(1, 1 - (e.attackAnimationTime ?? attackDuration) / attackDuration));
-        const attackPulse = e.animationState === "attack" ? Math.sin(attackProgress * Math.PI) : 0;
+        // The burrow clip already lifts and lowers the body; a generic attack
+        // bob on top of it would make the maggot hop out of its own dirt plume.
+        const attackPulse = e.animationState === "attack" && e.spriteBlock !== 3
+          ? Math.sin(attackProgress * Math.PI) : 0;
         const drawHeight = size * (e.kind === "boss" ? 1.35 : 1) * (1 + attackPulse * 0.08);
         const aspectRatio = frame.width / frame.height;
         const drawWidth = drawHeight * Math.max(0.9, Math.min(1.7, aspectRatio));
@@ -16293,8 +19616,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           ctx.translate(ground.x, 0);
           ctx.scale(-1, 1);
         }
-        // The imported DCCs use an approximate, cool-tinted palette. Warm and
-        // brighten them consistently so monsters read as creatures, not blue ghosts.
+        // Most historical DCC sheets used the units palette with its channels
+        // reversed, so the default warm tint rescues their cool/blue cast.
+        // Andariel, Duriel, the Fetishes and the Council now use the corrected
+        // palette and get a light readability tint instead of a sepia wash.
         // Mephisto is deliberately excluded: his 2x cells must stay pixel-sharp.
         const smoothEnemySprite = e.species === "andariel" || e.species === "duriel";
         ctx.imageSmoothingEnabled = smoothEnemySprite;
@@ -16306,7 +19631,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           : e.species === "duriel"
             ? "brightness(1.08) contrast(1.08) saturate(1.06)"
             : e.species === "boneFetish"
-            ? "brightness(1.14) contrast(1.1) sepia(0.3) saturate(0.6)"
+            ? "brightness(1.06) contrast(1.1) saturate(0.9)"
+            : e.species === "fetish"
+            ? "brightness(1.08) contrast(1.08) saturate(1.05)"
+            : e.species === "council"
+            ? "brightness(1.08) contrast(1.1) saturate(1.06)"
             : e.species === "sandMaggotQueen"
               ? "brightness(1.16) contrast(1.16) sepia(0.4) saturate(1.3) hue-rotate(-8deg)"
               : e.species === "sandMaggotYoung"
@@ -16321,9 +19650,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
               ? "brightness(1.02) contrast(1.12) saturate(1.05)"
               : e.species === "nihlathak"
                 ? "brightness(1.18) contrast(1.26) saturate(0.5) hue-rotate(200deg)"
-                : e.species === "skeleton"
-                  ? "brightness(1.12) contrast(1.18) saturate(0.8)"
-                  : "brightness(1.28) contrast(1.18) sepia(0.72) saturate(0.9)";
+                : e.nihlathakMinion
+                  ? "brightness(1.18) contrast(1.2) saturate(1.3) hue-rotate(155deg)"
+                  : e.species === "skeleton"
+                    ? "brightness(1.12) contrast(1.18) saturate(0.8)"
+                    : "brightness(1.28) contrast(1.18) sepia(0.72) saturate(0.9)";
         // The tint is baked into a cached copy of the frame. Re-running the
         // canvas colour filter for every monster every frame was the single most
         // expensive part of drawing a packed arena.
@@ -16367,6 +19698,21 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.drawHpBar(ctx, e, color, size, ground);
     if ((e.stunRemaining ?? 0) > 0) this.drawEnemyStun(ctx, ground, size);
     if ((e.staticFieldRemaining ?? 0) > 0) this.drawEnemyStaticField(ctx, e, ground, size);
+  }
+
+  /** The incubating egg is drawn straight from the original `eg` neutral COF. */
+  private drawMaggotEgg(ctx: CanvasRenderingContext2D, egg: MaggotEgg): void {
+    const ground = this.projectArenaPoint(egg.x, egg.y);
+    const sprite = this.enemySprites.maggotEgg;
+    const frameIndex = Math.floor((egg.age * 7 + egg.x * 0.01) % 10);
+    const frame = sprite?.frames[0]?.[frameIndex];
+    const size = 96 * this.worldZoom;
+    this.drawGroundShadow(ctx, ground.x, ground.y + this.worldZoom, size * 0.3, size * 0.1, 0.28);
+    if (!frame) return;
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(frame, ground.x - size / 2, ground.y - size * 0.82, size, size);
+    ctx.restore();
   }
 
   /** Short, flickering lightning arcs over a monster struck by Static Field. */
@@ -16429,6 +19775,32 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     return enemy.immunities?.includes(damageType) === true;
   }
 
+  /**
+   * Vengeance splits one strike evenly across fire, cold, lightning and magic.
+   * An immunity removes only its own quarter; the other three still land, so a
+   * single elemental immunity cannot make the whole attack harmless.
+   */
+  private applyVengeanceDamage(enemy: Enemy, totalDamage: number, color: string): void {
+    if (!(totalDamage > 0) || enemy.hp <= 0) return;
+    const damageTypes: EnemyDamageType[] = ["fire", "cold", "lightning", "magic"];
+    const damagePerType = totalDamage / damageTypes.length;
+    let appliedDamage = 0;
+    for (const damageType of damageTypes) {
+      if (this.isEnemyImmuneTo(enemy, damageType)) continue;
+      enemy.hp -= damagePerType;
+      appliedDamage += damagePerType;
+    }
+    if (appliedDamage <= 0) return;
+    this.applyMeleeLeech(appliedDamage);
+    this.floatingTexts.push({
+      x: enemy.x,
+      y: enemy.y - enemy.r - 8,
+      text: this.floatingDamageText(appliedDamage),
+      color,
+      life: 0.8,
+    });
+  }
+
   getEnemyImmunityLabel(enemy: Enemy): string {
     return (enemy.immunities ?? []).map((type) => ENEMY_DAMAGE_TYPE_LABELS[type]).join(" · ");
   }
@@ -16456,7 +19828,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       fallen: "Fallen", goatman: "Goatman", skeleton: "Skeleton", sandRaider: "Sand Raider",
       skeletonWarrior: "Skeleton Warrior", skeletalMageCold: "Skeletal Mage (Cold)", skeletalMageFire: "Skeletal Mage (Fire)",
       skeletalMageLightning: "Skeletal Mage (Lightning)", skeletalMagePoison: "Skeletal Mage (Poison)", golem: "Golem",
-      sandMaggot: "Sand Maggot", sandMaggotQueen: "Sand Maggot Queen", sandMaggotYoung: "Sand Maggot Young", scarab: "Sand Scarab", spiderDemon: "Spider Demon", spikeFiend: "Spike Fiend", leaper: "Leaper", blunderbore: "Blunderbore", fetish: "Fetish", boneFetish: "Bone Fetish", fetishShaman: "Fetish Shaman",
+      sandMaggot: "Sand Maggot", sandMaggotQueen: "Sand Maggot Queen", sandMaggotYoung: "Sand Maggot Young", maggotEgg: "Sand Maggot Egg", scarab: "Sand Scarab", spiderDemon: "Spider Demon", spikeFiend: "Spike Fiend", leaper: "Leaper", blunderbore: "Blunderbore", fetish: "Fetish", boneFetish: "Bone Fetish", fetishShaman: "Fetish Shaman",
       council: "Council Member", balrog: "Balrog", vileChild: "Vile Child", vileMother: "Vile Mother",
       bloodLord: "Blood Lord", minotaur: "Minotaur", deathMauler: "Death Mauler", wendigo: "Wendigo",
       nihlathak: "Nihlathak", painWorm: "Pain Worm", regurgitator: "Regurgitator", salamander: "Salamander", siegeBeast: "Siege Beast", andariel: "Andariel", duriel: "Duriel", mephisto: "Mephisto", diablo: "Diablo",
@@ -16465,7 +19837,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       ironGolem: "Iron Golem", oakSage: "Oak Sage", heartOfWolverine: "Heart of Wolverine",
       spiritOfBarbs: "Spirit of Barbs",
     };
-    const baseName = speciesNames[enemy.species];
+    const baseName = enemy.customName ?? speciesNames[enemy.species];
     if (enemy.kind === "champion") return `Champion ${baseName}`;
     if (enemy.miniBoss) return baseName;
     if (enemy.kind === "boss" && !enemy.campaignBoss && !["andariel", "duriel", "mephisto", "diablo", "baal"].includes(enemy.species)) return `Unique ${baseName}`;
@@ -16993,10 +20365,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const h = e.kind === "boss" ? 5 : 4;
     const pct = Math.max(0, e.hp / e.maxHp);
     const barY = ground.y - spriteSize * 0.78 - 8;
-    ctx.fillStyle = "#1a1c22";
-    ctx.fillRect(ground.x - w / 2, barY, w, h);
-    ctx.fillStyle = color;
-    ctx.fillRect(ground.x - w / 2, barY, w * pct, h);
+    // Floating health bars are inspection UI: reveal one only for the enemy
+    // currently under the mouse or held under a finger.
+    if (this.hoveredEnemy === e) {
+      ctx.fillStyle = "#1a1c22";
+      ctx.fillRect(ground.x - w / 2, barY, w, h);
+      ctx.fillStyle = color;
+      ctx.fillRect(ground.x - w / 2, barY, w * pct, h);
+    }
     if (e.curseName && (e.curseRemaining ?? 0) > 0) this.drawCurseStatusIcon(ctx, e.curseName, ground, barY);
   }
 
@@ -17841,7 +21217,7 @@ function druidAnimationFrame(
         : Math.min(animation.columns - 1, Math.floor(animation.columns * 0.12));
   return animation.frames[direction]?.[frameIndex];
 }
-type EnemySpecies = "fallen" | "goatman" | "skeleton" | "sandRaider" | "sandMaggot" | "sandMaggotQueen" | "sandMaggotYoung" | "scarab" | "spiderDemon" | "spikeFiend" | "leaper" | "blunderbore" | "fetish" | "boneFetish" | "fetishShaman" | "council" | "balrog" | "vileChild" | "vileMother" | "bloodLord" | "minotaur" | "nihlathak" | "painWorm" | "regurgitator" | "salamander" | "siegeBeast" | "deathMauler" | "wendigo" | "andariel" | "duriel" | "mephisto" | "diablo" | "baalsMinion" | "baal" | "wolf" | "grizzly" | "bloodGolem" | "fireGolem" | "ironGolem" | "oakSage" | "heartOfWolverine" | "spiritOfBarbs" | "skeletonWarrior" | "skeletalMageCold" | "skeletalMageFire" | "skeletalMageLightning" | "skeletalMagePoison" | "golem";
+type EnemySpecies = "fallen" | "goatman" | "skeleton" | "sandRaider" | "sandMaggot" | "sandMaggotQueen" | "sandMaggotYoung" | "maggotEgg" | "scarab" | "spiderDemon" | "spikeFiend" | "leaper" | "blunderbore" | "fetish" | "boneFetish" | "fetishShaman" | "council" | "balrog" | "vileChild" | "vileMother" | "bloodLord" | "minotaur" | "nihlathak" | "painWorm" | "regurgitator" | "salamander" | "siegeBeast" | "deathMauler" | "wendigo" | "andariel" | "duriel" | "mephisto" | "diablo" | "baalsMinion" | "baal" | "wolf" | "grizzly" | "bloodGolem" | "fireGolem" | "ironGolem" | "oakSage" | "heartOfWolverine" | "spiritOfBarbs" | "skeletonWarrior" | "skeletalMageCold" | "skeletalMageFire" | "skeletalMageLightning" | "skeletalMagePoison" | "golem";
 
 type EnemyDamageType = "physical" | "fire" | "cold" | "lightning" | "poison" | "magic";
 
@@ -17879,11 +21255,16 @@ function enemySpeciesScale(species: EnemySpecies): number {
     case "skeletalMageLightning":
     case "skeletalMagePoison": return 1.35;
     case "duriel": return 2;
+    // The Lord of Terror's 192px cell is the original DI walk COF from the D2R
+    // extraction, but the default 1x factor made him shorter than the hero.
+    // At 2.4x he stands above Mephisto and reads as Act IV's final boss.
+    case "diablo": return 2.4;
     case "baal": return 1.4;
     // The scarab is a low, wide crawler; its sheet needs a larger factor than the
     // man-sized monsters to read as a full beetle, kept to half that bulk.
     case "scarab": return 1.25;
     case "sandMaggot": return 2.3;
+    case "maggotEgg": return 1.35;
     // The young atlas leaves a wide margin around the larva, so it takes a
     // larger factor than the adult to stand about two thirds of its width.
     case "sandMaggotYoung": return 2.15;
@@ -17932,6 +21313,10 @@ function enemySpeciesScale(species: EnemySpecies): number {
     // A Siege Beast is the Worldstone Keep's horned brute: its cel is mostly
     // lunge room, so it needs a large factor to tower over the smaller minions.
     case "siegeBeast": return 2.9;
+    // Baal's minions were the only Act V brute left on the default 1x factor.
+    // monstats2 gives them a 112 px body against the Siege Beast's 128 px; this
+    // factor keeps that ratio on screen instead of rendering them at human size.
+    case "baalsMinion": return 2.8;
     default: return 1;
   }
 }
@@ -17942,6 +21327,10 @@ const ENEMY_ROW_BLOCK_FRAMES: Partial<Record<EnemySpecies, [number, number]>> = 
   skeleton: [8, 16], skeletonWarrior: [8, 16],
   skeletalMageCold: [8, 16], skeletalMageFire: [8, 16], skeletalMageLightning: [8, 16], skeletalMagePoison: [8, 16],
   balrog: [8, 16], bloodLord: [8, 16], spiderDemon: [12, 11], spikeFiend: [9, 16], fetishShaman: [14, 17],
+  // OX's original DCCs hold eight walk cels and nine strike cels per
+  // direction. The old runtime looped eighteen and twelve, sampling the empty
+  // columns the importer left behind and making the beast blink out.
+  siegeBeast: [8, 9],
   duriel: [16, 10],
   wolf: [8, 13], grizzly: [12, 13], bloodGolem: [8, 16], fireGolem: [8, 17], ironGolem: [8, 16],
 };
@@ -17955,6 +21344,18 @@ function enemySpriteFrame(enemy: Enemy, columns: number, runTime: number): numbe
   if (columns <= 1) return 0;
   const state = enemy.animationState ?? "idle";
   const phaseOffset = Math.abs(Math.floor(enemy.x * 0.09 + enemy.y * 0.05)) % columns;
+  if (enemy.species === "sandMaggot" || enemy.species === "sandMaggotQueen") {
+    // Four stacked clips in maggot.png: walk (8), bite (18), poison spit/egg
+    // lay (10), burrow (12). A missing block means idle or the bite band.
+    const block = enemy.spriteBlock ?? (state === "attack" ? 1 : 0);
+    const blockFrames = [8, 18, 10, 12][block] ?? 8;
+    if (block === 0) {
+      return state === "move" ? Math.floor(runTime * 12 + phaseOffset) % 8 : 0;
+    }
+    const duration = enemy.attackDuration ?? (block === 1 ? 0.38 : 0.8);
+    const progress = 1 - Math.max(0, Math.min(1, (enemy.attackAnimationTime ?? duration) / duration));
+    return Math.min(blockFrames - 1, Math.floor(progress * blockFrames));
+  }
   // Fresh sixteen-row atlases loop each band over its own length: rows 0-7 hold
   // the walk cycle, rows 8-15 the attack, and both were imported at the frame
   // counts below.
@@ -17984,18 +21385,17 @@ function enemySpriteFrame(enemy: Enemy, columns: number, runTime: number): numbe
     // Standing still: hold the neutral pose the walk band starts from.
     return 0;
   }
-  if (enemy.species === "sandMaggot" || enemy.species === "sandMaggotQueen" || enemy.species === "sandRaider") {
+  if (enemy.species === "sandRaider") {
     // Rows 0-7 walk/scuttle, rows 8-15 the strike. Both bands were imported at
     // their own frame counts, so each band loops over its own length.
-    const maggot = enemy.species !== "sandRaider";
-    const walkFrames = maggot ? 8 : 21;
-    const attackFrames = maggot ? 18 : 15;
+    const walkFrames = 21;
+    const attackFrames = 15;
     if (state === "attack") {
       const duration = enemy.kind === "boss" ? 0.55 : 0.38;
       const progress = 1 - Math.max(0, Math.min(1, (enemy.attackAnimationTime ?? duration) / duration));
       return Math.min(attackFrames - 1, Math.floor(progress * attackFrames));
     }
-    if (state === "move") return Math.floor(runTime * (maggot ? 12 : 24) + phaseOffset) % walkFrames;
+    if (state === "move") return Math.floor(runTime * 24 + phaseOffset) % walkFrames;
     return 0;
   }
   if (enemy.species === "sandMaggotYoung") {
@@ -18016,16 +21416,6 @@ function enemySpriteFrame(enemy: Enemy, columns: number, runTime: number): numbe
       return Math.min(13, Math.floor(progress * 14));
     }
     if (state === "move") return Math.floor(runTime * 8 + phaseOffset) % 16;
-    return 0;
-  }
-  if (enemy.species === "siegeBeast") {
-    // Rows 0-7 are the eighteen-frame walk, rows 8-15 the twelve-frame strike.
-    if (state === "attack") {
-      const duration = enemy.kind === "boss" ? 0.55 : 0.38;
-      const progress = 1 - Math.max(0, Math.min(1, (enemy.attackAnimationTime ?? duration) / duration));
-      return Math.min(11, Math.floor(progress * 12));
-    }
-    if (state === "move") return Math.floor(runTime * 9 + phaseOffset) % 18;
     return 0;
   }
   if (enemy.species === "regurgitator") {
@@ -18093,26 +21483,41 @@ function enemySpriteFrame(enemy: Enemy, columns: number, runTime: number): numbe
     if (state === "move") return Math.floor(runTime * 10 + phaseOffset) % 8;
     return 0;
   }
-  if (enemy.species === "council") {
-    if (state === "move") return Math.floor(runTime * 9 + phaseOffset) % 20;
+  if (enemy.species === "mephisto") {
+    // MP's DC6 COFs hold thirteen idle frames, thirteen walk frames and
+    // eighteen attack frames. The old sheet repeated one neutral pose in the
+    // walk band, which made the boss glide across the arena without stepping.
+    if (state === "move") return Math.floor(runTime * 9 + phaseOffset) % 13;
     if (state === "attack") {
       const duration = enemy.kind === "boss" ? 0.55 : 0.38;
       const progress = 1 - Math.max(0, Math.min(1, (enemy.attackAnimationTime ?? duration) / duration));
-      return Math.min(19, Math.floor(progress * 20));
+      return Math.min(17, Math.floor(progress * 18));
     }
-    return Math.floor(runTime * 3 + phaseOffset) % 12;
+    return Math.floor(runTime * 4 + phaseOffset) % 13;
+  }
+  if (enemy.species === "council") {
+    // HP's COFs hold seven idle frames, eleven walk frames and ten attack
+    // frames. The sheet repeats those clips across the rest of its twenty
+    // columns, so these counts must stay inside the real clip.
+    if (state === "move") return Math.floor(runTime * 9 + phaseOffset) % 11;
+    if (state === "attack") {
+      const duration = enemy.kind === "boss" ? 0.55 : 0.38;
+      const progress = 1 - Math.max(0, Math.min(1, (enemy.attackAnimationTime ?? duration) / duration));
+      return Math.min(9, Math.floor(progress * 10));
+    }
+    return Math.floor(runTime * 4 + phaseOffset) % 7;
   }
   if (enemy.species === "fetish" || enemy.species === "boneFetish") {
-    if (state === "move") {
-      const walkFrames = 12;
-      return Math.floor(runTime * 9 + enemy.x * 0.07 + enemy.y * 0.05) % walkFrames;
-    }
+    // FE/FK neutral has twelve frames, walk six and attack twelve. The old
+    // twelve-column walk loop spent half the cycle on empty cels, which is why
+    // both fetishes vanished while moving.
+    if (state === "move") return Math.floor(runTime * 9 + phaseOffset) % 6;
     if (state === "attack") {
       const duration = enemy.kind === "boss" ? 0.55 : 0.38;
       const progress = 1 - Math.max(0, Math.min(1, (enemy.attackAnimationTime ?? duration) / duration));
-      return Math.min(columns - 1, Math.floor(progress * columns));
+      return Math.min(11, Math.floor(progress * 12));
     }
-    return Math.floor(runTime * 4 + phaseOffset) % 12;  }
+    return Math.floor(runTime * 5 + phaseOffset) % 12;  }
   if (enemy.species === "baalsMinion" || enemy.species === "baal") {
     const frameCounts = enemy.species === "baal" ? { idle: 12, move: 12, attack: 14 } : { idle: 12, move: 12, attack: 12 };
     if (state === "attack") {
@@ -18173,7 +21578,9 @@ function enemySpriteDirectionRow(
   state: Enemy["animationState"] | undefined,
   rows: number,
   directionRow: number,
+  spriteBlock?: number,
 ): number {
+  if (spriteBlock !== undefined && rows >= 32) return (spriteBlock * 8 + directionRow) % rows;
   const block = (blockSize: number): number =>
     (state === "attack" ? blockSize * 2 : state === "move" ? blockSize : 0) + directionRow;
   if (species === "goatman") return directionRow + (state === "attack" ? 8 : 0);
@@ -18218,7 +21625,7 @@ const DCC_EIGHT_DIRECTION_SPECIES = new Set<EnemySpecies>([
   "goatman", "regurgitator", "siegeBeast", "minotaur", "baalsMinion", "leaper",
   "scarab", "sandRaider", "sandMaggot", "sandMaggotQueen", "sandMaggotYoung", "spiderDemon", "spikeFiend", "blunderbore",
   "fetish", "boneFetish", "fetishShaman", "council", "balrog", "vileChild", "vileMother", "bloodLord", "nihlathak",
-  "salamander", "deathMauler", "wendigo", "andariel", "duriel", "diablo", "baal",
+  "salamander", "deathMauler", "wendigo", "andariel", "duriel", "diablo", "baal", "mephisto",
   "wolf", "grizzly", "bloodGolem", "fireGolem", "ironGolem",
 ]);
 
@@ -18226,7 +21633,7 @@ function enemySpriteRow(species: EnemySpecies, dx: number, dy: number): number {
   const layoutRows = ENEMY_SPRITE_LAYOUTS[species].rows;
   const directions = species === "goatman" || species === "skeleton" || species === "skeletonWarrior" || species === "skeletalMageCold" || species === "skeletalMageFire" || species === "skeletalMageLightning" || species === "skeletalMagePoison" || species === "scarab" || species === "sandMaggot" || species === "sandMaggotQueen" || species === "spiderDemon" || species === "sandMaggotYoung" || species === "sandRaider" || species === "leaper" || species === "spikeFiend" || species === "blunderbore" || species === "minotaur" || species === "nihlathak" || species === "painWorm" || species === "regurgitator" || species === "salamander" || species === "siegeBeast" || species === "balrog" || species === "bloodLord" || species === "fetishShaman" || species === "wolf" || species === "grizzly" || species === "bloodGolem" || species === "fireGolem" || species === "ironGolem" || species === "vileChild" || species === "vileMother" || species === "duriel"
     ? layoutRows / 2
-    : species === "fetish" || species === "boneFetish" || species === "council" || (species === "diablo" && layoutRows === 24) || species === "baalsMinion" || species === "baal" ? layoutRows / 3 : layoutRows;
+    : species === "fetish" || species === "boneFetish" || species === "council" || species === "mephisto" || (species === "diablo" && layoutRows === 24) || species === "baalsMinion" || species === "baal" ? layoutRows / 3 : layoutRows;
   if (directions === 4) return dy > 0 ? 0 : dy < 0 ? 2 : dx < 0 ? 1 : 3;
   if (directions === 8) {
     const angle = Math.atan2(dy, dx);
@@ -18255,7 +21662,7 @@ const CLASS_SKILL_DESCRIPTIONS: Record<string, string> = {
   "Find Potion": "Passive: potion drops are more likely. Each rank adds 10 percentage points to the chest potion chance and 2 points to the monster potion chance, and improves rejuvenation potion drops.",
   Leap: "Leap toward the next enemy in front of the barbarian. If no enemy is inside the short leap range, the spell is cancelled. The barbarian is invulnerable while airborne; on landing, every enemy in a small radius is stunned.",
   Howl: `A terrifying warcry that deals no damage. Every enemy within ${HOWL_RADIUS} units flees away from the barbarian for ${HOWL_BASE_FEAR_SECONDS} seconds, plus ${HOWL_FEAR_SECONDS_PER_RANK} seconds per additional rank, and cannot attack while afraid.`,
-  Jab: "A rapid melee thrust with a spear or pike.", Bash: "A forceful melee strike that staggers an enemy.", Smite: "Shield bash that knocks enemies back.", Charge: "Run at an enemy with the shield and slam the small area in front on arrival, dealing damage and stunning enemies caught in the bash. Requires a shield.", "Blessed Hammer": "Summon a spinning hammer that spirals outward around the paladin, damaging each enemy it passes once.", Sacrifice: "A powerful melee attack that costs a little life.",
+  Jab: "A rapid melee thrust with a spear or pike.", Bash: "A forceful melee strike that staggers an enemy.", Smite: "Shield bash that knocks enemies back.", Charge: "Run at an enemy with the shield and slam the small area in front on arrival, dealing damage and stunning enemies caught in the bash. Requires a shield.", "Blessed Hammer": "Summon a spinning hammer that spirals outward around the paladin, damaging each enemy it passes once.", "Fist of the Heavens": "Call down a lightning bolt on the nearest enemy for heavy Lightning damage, then release four Holy Bolts that spread outward and damage only Undead and Demons. The strike always hits and ignores obstacles; the bolts never heal allies.", Sacrifice: "A powerful melee attack that costs a little life.", Zeal: "A rapid flurry of one melee strike per rank, all in quick succession.", Vengeance: "A melee strike split evenly across fire, cold, lightning and magic damage.",
   "Raise Skeleton": "Raise a fallen monster as a melee skeleton warrior.", "Skeletal Mage": "Raise a skeletal mage that hurls cold, fire, lightning, or poison bolts from a distance. Each cast cycles through the elements.",  "Bone Spear": "A piercing spear of bone strikes enemies in a line.", "Corpse Explosion": "Fire a ranged bone missile at the nearest enemy. On impact it explodes, dealing 35% of the target's maximum life to all enemies caught in the blast. More skill ranks increase blast radius only.",
   "Fire Ball": "Hurl an explosive ball of flame.", "Charged Bolt": "Release a spray of lightning bolts.",  "Frost Nova": "A ring of frost bursts outward and chills nearby enemies.",
   "Static Field": "A point-blank lightning burst that removes 25% of current life from every nearby enemy. More ranks increase the blast radius.",
@@ -18299,10 +21706,17 @@ const NECROMANCER_CURSE_SKILLS = new Set<NecromancerCurseName>([
 
 interface SkillVisualEffect {
   name: string;
+  /** Original missile cel used by a dedicated skill effect, when present. */
+  missileId?: string;
+  fistOfTheHeavensCast?: boolean;
+  fistOfTheHeavensStrike?: boolean;
+  fistOfTheHeavensBoltImpact?: boolean;
   targetEnemy?: boolean;
   curseField?: boolean;
   fieldRadius?: number;
   arcticBlast?: boolean;
+  /** An enemy-owned cone (Nihlathak's Arctic Blast); it never uses player damage. */
+  enemyCast?: boolean;
   frostNova?: boolean;
   staticField?: boolean;
   lightningRail?: boolean;
@@ -18345,6 +21759,48 @@ interface DiabloThunderEffect {
   seed: number;
 }
 
+interface DiabloFirestormEffect {
+  source: Enemy;
+  x: number;
+  y: number;
+  angle: number;
+  time: number;
+  duration: number;
+  range: number;
+  halfAngle: number;
+  waveHits: boolean[];
+  damage: number;
+  seed: number;
+}
+
+interface DiabloFireNovaEffect {
+  source: Enemy;
+  x: number;
+  y: number;
+  time: number;
+  duration: number;
+  maxRadius: number;
+  damage: number;
+  hit: boolean;
+  seed: number;
+}
+
+interface DiabloFireWallEffect {
+  source: Enemy;
+  x: number;
+  y: number;
+  normalX: number;
+  normalY: number;
+  halfLength: number;
+  halfWidth: number;
+  time: number;
+  duration: number;
+  tickRemaining: number;
+  tickInterval: number;
+  damage: number;
+  seed: number;
+}
+
 interface BaalTentacleStrike {
   x: number;
   y: number;
@@ -18373,6 +21829,70 @@ interface BaalWaveEffect {
   halfWidth: number;
   damage: number;
   hit: boolean;
+  seed: number;
+}
+
+interface BaalHoarfrostEffect {
+  source: Enemy;
+  x: number;
+  y: number;
+  angle: number;
+  time: number;
+  duration: number;
+  speed: number;
+  maxDistance: number;
+  halfWidth: number;
+  spread: number;
+  damage: number;
+  waveHits: boolean[];
+  seed: number;
+}
+
+interface BaalNovaEffect {
+  source: Enemy;
+  x: number;
+  y: number;
+  time: number;
+  duration: number;
+  maxRadius: number;
+  damage: number;
+  hit: boolean;
+  seed: number;
+}
+
+interface BaalManaRiftEffect {
+  source: Enemy;
+  x: number;
+  y: number;
+  targetX: number;
+  targetY: number;
+  length: number;
+  time: number;
+  duration: number;
+  seed: number;
+}
+
+type BaalCurseType = "bloodMana" | "defense" | "decrepify";
+
+interface BaalCurseEffect {
+  source: Enemy;
+  type: BaalCurseType;
+  x: number;
+  y: number;
+  sourceX: number;
+  sourceY: number;
+  time: number;
+  duration: number;
+  seed: number;
+}
+
+interface BaalCastEffect {
+  source: Enemy;
+  kind: "effigy" | "teleport" | "strike";
+  x: number;
+  y: number;
+  time: number;
+  duration: number;
   seed: number;
 }
 
@@ -18426,6 +21946,8 @@ interface AttackProjectile {
   /** Spends the projectile on the first enemy it crosses. */
   stopOnFirstHit?: boolean;
   cold?: boolean;
+  /** Leaves Sand Maggot poison on the hero when this projectile lands. */
+  poison?: boolean;
   /** Element carried by the hit; absent shots infer it from `kind`. */
   damageType?: EnemyDamageType;
   pathHitEnemies?: Enemy[];
@@ -18447,6 +21969,10 @@ interface AttackProjectile {
   corpseExplosionDamage?: number;
   wakeOfFireTrap?: boolean;
   wakeOfInfernoTrap?: boolean;
+  /** One of the four independently resolved Holy Bolts from Fist of the Heavens. */
+  fistOfTheHeavensBolt?: boolean;
+  /** The impact target is skipped by the secondary bolts, which spread outward. */
+  fistOfTheHeavensIgnore?: Enemy;
   /** A Blessed Hammer orbiting the paladin instead of flying at a target. */
   blessedHammer?: boolean;
   blessedHammerAngle?: number;
@@ -18517,17 +22043,58 @@ interface PoisonCloud {
   tickRemaining: number;
   tickInterval: number;
   damagePerTick: number;
+  source?: Enemy;
+  targetPlayer?: boolean;
+  growPerSecond?: number;
+  maxRadius?: number;
+  poisonSeconds?: number;
+  poisonFraction?: number;
+}
+
+interface MephistoBlizzardEffect {
+  source: Enemy;
+  x: number;
+  y: number;
+  time: number;
+  duration: number;
+  radius: number;
+  tickRemaining: number;
+  tickInterval: number;
+  damagePerTick: number;
+  seed: number;
 }
 
 interface Enemy {
   kind: EnemyKind;
   species: EnemySpecies;
-  /** Diablo's active Thunder Inferno channel. */
+  /** Diablo's active Red Lightning channel. */
   diabloChannelRemaining?: number;
-  /** Alternates Diablo's ranged attacks between thunder and Bone Prison. */
+  /** Rotates Diablo through Red Lightning, Bone Prison and his fire spells. */
   diabloSpellCycle?: number;
-  /** Alternates Baal's tentacle eruption and energy wave. */
+  /** Alternates Cold Touch with ordinary claw swipes in melee. */
+  diabloMeleeCycle?: number;
+  /** No-damage four-limbed dash used to close distance. */
+  diabloChargeRemaining?: number;
+  diabloChargeCooldown?: number;
+  /** Rotates Baal through his full Act V spellbook. */
   baalSpellCycle?: number;
+  /** Alternates Destructive Strike's fire and cold variants. */
+  baalStrikeCycle?: number;
+  /** Vile Effigy: a linked duplicate, not an independent boss. */
+  baalClone?: boolean;
+  baalOriginal?: Enemy;
+  /** Rotates Mephisto through his cold and lightning spellbook. */
+  mephistoSpellCycle?: number;
+  /** Rotates Nihlathak through Corpse Explosion, summons, frost, frenzy, Horror and Teleport. */
+  nihlathakSpellCycle?: number;
+  /** Prevents Nihlathak from blinking more than once every few seconds. */
+  nihlathakTeleportCooldown?: number;
+  /** One of Nihlathak's summoned Ice Spawn; not a normal kill or loot source. */
+  nihlathakMinion?: boolean;
+  /** Nihlathak's frenzy: doubled damage and 80% faster attacks. */
+  frenzyRemaining?: number;
+  /** Named summons such as Ice Spawn show this instead of their species label. */
+  customName?: string;
   campaignBoss?: boolean;
   /** A named super unique such as Act V's Nihlathak, not the act boss. */
   miniBoss?: boolean;
@@ -18543,6 +22110,10 @@ interface Enemy {
   spriteFrame: number;
   animationState?: "idle" | "move" | "attack";
   attackAnimationTime?: number;
+  /** Per-attack duration, so long spit/burrow clips play at the right speed. */
+  attackDuration?: number;
+  /** Animation block in a stacked atlas (Sand Maggot: bite, spit, burrow). */
+  spriteBlock?: number;
   facingX?: number;
   facingY?: number;
   x: number;
@@ -18554,6 +22125,12 @@ interface Enemy {
   dmg: number;
   cd?: number;
   hatchCooldown?: number;
+  /** Sand Maggot burrow and egg-laying timers. */
+  burrowRemaining?: number;
+  burrowCooldown?: number;
+  burrowTargetX?: number;
+  burrowTargetY?: number;
+  eggCooldown?: number;
   curseName?: NecromancerCurseName;
   curseRemaining?: number;
   stunRemaining?: number;
@@ -18565,6 +22142,22 @@ interface Enemy {
   coldRemaining?: number;
   /** Pandemonium monsters ignore these damage types entirely. */
   immunities?: EnemyDamageType[];
+}
+
+interface NihlathakCorpse {
+  x: number;
+  y: number;
+  /** Full life of the monster that died here; Corpse Explosion draws from it. */
+  maxHp: number;
+  life: number;
+  seed: number;
+}
+
+interface MaggotEgg {
+  x: number;
+  y: number;
+  age: number;
+  hatchRemaining: number;
 }
 
 interface Chest {
@@ -18710,4 +22303,13 @@ interface DragState {
   slotIndex: number;
   equipmentSlot?: PaperdollSlot;
   item: D2InventoryItem;
+}
+
+interface MobileInventoryPress {
+  pointerId: number;
+  sourceIndex: number;
+  item: D2InventoryItem;
+  startX: number;
+  startY: number;
+  timer: number;
 }

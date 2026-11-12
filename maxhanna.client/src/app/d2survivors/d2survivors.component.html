@@ -275,7 +275,7 @@
       <div class="d2s-ground-pickup-label" *ngIf="hoveredGroundPickup as pickup" [style.left.px]="pickup.x" [style.top.px]="pickup.y" aria-hidden="true">{{ pickup.text }}</div>
       <div class="d2s-model-hint" *ngIf="modelLoadError">3D character model could not load.</div>
       <div class="d2s-classic-hud" aria-label="Life and mana orbs, potion belt, skill icons and experience">
-        <div class="d2s-orb d2s-health-orb" [style.--orb-fill]="healthOrbFill">
+        <div class="d2s-orb d2s-health-orb" [class.poisoned]="playerPoisonRemaining > 0" [style.--orb-fill]="healthOrbFill">
           <div class="d2s-orb-liquid" [style.height.%]="healthOrbFill * 100"></div>
           <div class="d2s-orb-gloss"></div>
           <div class="d2s-orb-text"><strong>Life</strong><span>{{ playerHp | number:'1.0-0' }} / {{ effectivePlayerMaxHp }}</span></div>
@@ -500,7 +500,14 @@
           [class.normal]="slot.item?.rarity === 'normal'"
           [class.empty]="!slot.item"
           [class.selected]="selectedSlotIndex === slot.slotIndex"
+          [class.mobile-press]="mobilePressSlotIndex === slot.slotIndex"
+          [class.mobile-drag-source]="mobileInventoryDrag?.sourceIndex === slot.slotIndex"
           [ngStyle]="inventoryGridStyle(slot)"
+          (pointerdown)="onInventoryPointerDown(slot.slotIndex, $event)"
+          (pointermove)="onInventoryPointerMove($event)"
+          (pointerup)="onInventoryPointerUp($event)"
+          (pointercancel)="onInventoryPointerCancel($event)"
+          (lostpointercapture)="onInventoryPointerCancel($event)"
           (click)="onInventoryItemClick(slot.slotIndex, slot.item ?? null, $event)"
           (mouseenter)="onInventoryItemHover(slot.slotIndex, slot.item ?? null, $event)"
           (mousemove)="onItemPreviewMove($event)"
@@ -518,7 +525,7 @@
         </div>
       </div>
       <p class="d2s-inventory-status" role="status" *ngIf="inventoryStatus">{{ inventoryStatus }}</p>
-      <p class="d2s-hint">Drag gear to equip · right-click a weapon or armor to equip or swap · Ctrl-click or use the item preview to sell · right-click equipped gear to unequip</p>
+      <p class="d2s-hint">Drag gear to equip · touch: long-press an item, then drag to move it · right-click a weapon or armor to equip or swap · Ctrl-click or use the item preview to sell · right-click equipped gear to unequip</p>
     </section>
     <div #inventoryItemWindow class="d2s-item-window" *ngIf="inventoryOpen && itemPreviewItem"
       [class.is-hover-preview]="!!hoveredItem"

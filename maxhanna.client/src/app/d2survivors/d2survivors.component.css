@@ -1897,6 +1897,29 @@
   box-shadow: inset 0 7px 8px #ff99914a, inset 0 -8px 12px #160206a8;
 }
 
+/* Sand Maggot venom stains the whole life orb green until the last tick. */
+.d2s-health-orb.poisoned {
+  box-shadow: 0 0 0 3px #211a11, 0 0 0 7px #51432b, inset 0 0 20px #0b1a05,
+    0 0 18px #86d33f66, 0 4px 16px #000e;
+}
+
+.d2s-health-orb.poisoned .d2s-orb-liquid {
+  background: radial-gradient(ellipse at 35% 18%, #d8ff8a 0%, transparent 48%),
+    linear-gradient(180deg, #8fdb45 0%, #4f9e22 54%, #174607 100%);
+  box-shadow: inset 0 7px 8px #e8ffbe66, inset 0 -8px 12px #081d04b8;
+  animation: d2s-poison-orb-pulse 1.15s ease-in-out infinite;
+}
+
+.d2s-health-orb.poisoned .d2s-orb-gloss {
+  background: radial-gradient(ellipse at 32% 20%, #f2ffcb4f, transparent 42%),
+    linear-gradient(135deg, #d9ff9a24, transparent 42%, #0b240366);
+}
+
+@keyframes d2s-poison-orb-pulse {
+  0%, 100% { filter: brightness(0.92); }
+  50% { filter: brightness(1.16); }
+}
+
 .d2s-mana-orb .d2s-orb-liquid {
   background: radial-gradient(ellipse at 35% 18%, #83edff 0%, transparent 48%), linear-gradient(180deg, #17a5ed 0%, #1165c7 54%, #0b205f 100%);
   box-shadow: inset 0 7px 8px #b3edff59, inset 0 -8px 12px #02091aa8;
@@ -2502,6 +2525,26 @@
 .d2s-inv-slot.selected {
   border-color: #ffd27a !important;
   background: #1a1408 !important;
+}
+
+.d2s-inv-slot.mobile-press {
+  border-color: #d9b46a !important;
+  background: #241b0d !important;
+  box-shadow: inset 0 0 0 1px #f0d28a66, inset 0 0 14px #c59a4555;
+}
+
+.d2s-inv-slot.mobile-drag-source {
+  opacity: 0.42;
+  filter: saturate(0.7) brightness(0.75);
+}
+
+@media (any-pointer: coarse) {
+  /* A held item must own the gesture so the browser does not pan or show its
+     native callout before the long-press timer starts our drag. */
+  .d2s-inv-slot.filled {
+    touch-action: none;
+    -webkit-touch-callout: none;
+  }
 }
 
 .d2s-inv-drop-preview {
