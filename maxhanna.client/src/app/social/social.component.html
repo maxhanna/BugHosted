@@ -12,7 +12,7 @@
   </app-title-bar>
 
   <div [class]="user ? 'embeddedSocialComponentsContent' : 'socialComponentContents'">
-    <div class="socialLayout" [class.socialLayoutNoSidebar]="!!user">
+    <div class="socialLayout" [class.socialLayoutNoSidebar]="!!user || !showRightSideBar">
       <div class="socialMainColumn">
     <!-- Group Social Header (public chat board) -->
     <div class="groupSocialHeader" *ngIf="chatId">
@@ -335,7 +335,7 @@
     </div>
       </div>
 
-      <aside class="socialSidebar" *ngIf="!user" aria-label="Social sidebar">
+      <aside class="socialSidebar" *ngIf="!user && showRightSideBar" aria-label="Social sidebar">
         <div class="socialSidebarCard socialSidebarProfileCard">
           <ng-container *ngIf="parentRef?.user; else sidebarSignedOut">
             <div class="socialSidebarProfileRow">

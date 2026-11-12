@@ -257,8 +257,7 @@
       </div>
       <div style="margin-top:20px;">
         <app-profile-widgets [parentRef]="parentRef"></app-profile-widgets>
-      </div>
-      <app-new-users [inputtedParentRef]="parentRef"></app-new-users>
+      </div> 
     </div>
 
     <!-- SOCIAL -->
@@ -268,7 +267,7 @@
         <app-menu-item [type]="'Social'" [parentRef]="parentRef" [label]="'Latest Post:'"></app-menu-item>
       </div>
       <app-social #socialComponent [showOnlyPost]="true" [user]="user" [storyId]="storyId ?? this.latestSocialStoryId"
-        [commentId]="commentId" [parent]="parentRef" [showTopicSelector]="false" [canScroll]="false"></app-social>
+        [commentId]="commentId" [parent]="parentRef" [showTopicSelector]="false" [canScroll]="false" [showRightSideBar]="false"></app-social>
     </div>
 
     <div *ngIf="user && user.id == parentRef?.user?.id && parentRef?.user?.username?.includes('Guest')"  class="xxSmallFont">

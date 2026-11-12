@@ -85,7 +85,8 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   @Input() canScroll?: boolean = true;
   @Input() parent?: AppComponent;
   @Input() chatId?: number;
-  @Input() chatRoomName?: string;
+  @Input() chatRoomName?: string; 
+  @Input() showRightSideBar: boolean = true;
 
   groupChatUsers: User[] = [];
   isGroupMembersPanelOpen = false;
@@ -173,7 +174,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       await this.loadGroupInfo();
     }
 
-    if (!this.user) {
+    if (!this.user && this.showRightSideBar) {
       void this.loadSocialSidebar();
     }
 
@@ -1122,7 +1123,14 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
    *  sidebar is intentionally skipped while this component is embedded in a
    *  user's profile (the `user` input). */
   async loadSocialSidebar() {
-    if (this.user) return;
+    if (this.user || !this.showRightSideBar) {
+      // Invalidate any in-flight request when the sidebar is disabled. This
+      // avoids fetching level, karma, thread and moderator data at all.
+      this.socialSidebarRequestId += 1;
+      this.socialSidebarLoading = false;
+      this.socialSidebarUnavailable = false;
+      return;
+    }
 
     const requestId = ++this.socialSidebarRequestId;
     const userId = this.parentRef?.user?.id ?? 0;

@@ -1147,12 +1147,14 @@
   --radius: 12px;
 }
 
-/* Two screens and a hinge: Nintendo DS. */
+/* Two screens and a hinge: Nintendo DS. The open shell is nearly square, so it
+   needs to be wider than the single-screen handhelds; the controls then sit
+   beside the lower screen the way they do on the real hardware. */
 .device--handheld.shape--clamshell {
-  --w: 36%;
-  --top: 9%;
+  --w: 42%;
+  --top: 8%;
   --h: 82%;
-  --radius: 8px;
+  --radius: 10px;
 }
 
 .handheld-screen {
@@ -1209,30 +1211,41 @@
 .shape--wide .badge,
 .shape--wide .brand { bottom: 4%; }
 
-.shape--clamshell .hinge { display: block; }
+.shape--clamshell .hinge {
+  display: block;
+  top: 40%;
+  height: 3%;
+}
 
+/* Both DS screens are the same 4:3 panel, centred with a bezel either side. */
 .shape--clamshell .handheld-screen {
+  left: 26%;
+  right: 26%;
   top: 6%;
-  height: 28%;
+  height: 31%;
+  border-radius: 3px;
 }
 
 .shape--clamshell .handheld-screen--lower {
   display: block;
-  top: 50%;
-  height: 24%;
+  top: 51%;
+  height: 31%;
 }
 
+/* D-pad and face buttons flank the lower screen, clear of the glass. */
 .shape--clamshell .handheld-dpad {
-  left: 16%;
-  bottom: 19%;
-  width: 20%;
+  left: 2%;
+  top: 59%;
+  bottom: auto;
+  width: 18%;
 }
 
 .shape--clamshell .handheld-buttons {
-  right: 14%;
-  bottom: 20%;
-  width: 24%;
-  height: 10%;
+  right: 2%;
+  top: 59%;
+  bottom: auto;
+  width: 18%;
+  height: 11%;
 }
 
 .shape--clamshell .handheld-speaker { display: none; }

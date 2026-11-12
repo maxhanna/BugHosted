@@ -39,14 +39,17 @@ describe("D2SurvivorsComponent combat and equipment", () => {
 
   afterEach(() => fixture.destroy());
 
-  it("uses the imported arrow-flight art for every Amazon bow skill", () => {
+  it("uses the original missile art from missiles.txt for every Amazon ranged skill", () => {
     const expected: Record<string, string> = {
-      "Magic Arrow": "d2-arrow", "Multiple Shot": "d2-arrow",
-      "Guided Arrow": "d2-arrow", "Strafe": "d2-arrow",
+      "Magic Arrow": "d2-safearrow", "Multiple Shot": "d2-arrow",
+      "Guided Arrow": "d2-safearrow", "Strafe": "d2-arrow",
       "Fire Arrow": "d2-firearrow", "Exploding Arrow": "d2-firearrow",
       "Immolation Arrow": "d2-firearrow",
       "Cold Arrow": "d2-icearrow", "Ice Arrow": "d2-icearrow",
       "Freezing Arrow": "d2-icearrow",
+      "Poison Javelin": "d2-javelin", "Plague Javelin": "d2-javelin",
+      "Lightning Bolt": "d2-lightningjavelin", "Lightning Fury": "d2-lightningjavelin",
+      "Charged Strike": "d2-chargedbolt", "Lightning Strike": "d2-lightningstrike",
     };
     for (const [skill, art] of Object.entries(expected)) {
       expect((component as any).missileOverlayId(skill)).toBe(art);
@@ -821,24 +824,31 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect((component as any).hasRequiredWeaponForSkill("Fire Arrow")).toBeFalse();
   });
 
-  it("requires an equipped shield to use Smite", () => {
+  it("requires an equipped shield to use Smite or Charge", () => {
     component.selectedClass = "paladin";
     expect((component as any).hasRequiredWeaponForSkill("Smite")).toBeFalse();
+    expect((component as any).hasRequiredWeaponForSkill("Charge")).toBeFalse();
 
     component.equipment.weapon = { name: "Short Sword", baseName: "Short Sword", slot: "weapon" } as any;
     expect((component as any).hasRequiredWeaponForSkill("Smite")).toBeFalse();
+    expect((component as any).hasRequiredWeaponForSkill("Charge")).toBeFalse();
     expect(component.getSkillRequirementLabel("Smite")).toBe("Requires a shield equipped");
+    expect(component.getSkillRequirementLabel("Charge")).toBe("Requires a shield equipped");
 
     component.equipment.shield = { name: "Buckler", baseName: "Buckler", slot: "armor", equipmentType: "shield" } as any;
     expect((component as any).hasRequiredWeaponForSkill("Smite")).toBeTrue();
+    expect((component as any).hasRequiredWeaponForSkill("Charge")).toBeTrue();
     expect(component.getSkillRequirementLabel("Smite")).toBe("");
+    expect(component.getSkillRequirementLabel("Charge")).toBe("");
 
     component.equipment.shield = { name: "Targe", baseName: "Targe", slot: "armor", equipmentType: "paladinShield" } as any;
     expect((component as any).hasRequiredWeaponForSkill("Smite")).toBeTrue();
+    expect((component as any).hasRequiredWeaponForSkill("Charge")).toBeTrue();
 
     // A Barbarian's off-hand weapon is not a shield.
     component.equipment.shield = { name: "Hand Axe", baseName: "Hand Axe", slot: "weapon" } as any;
     expect((component as any).hasRequiredWeaponForSkill("Smite")).toBeFalse();
+    expect((component as any).hasRequiredWeaponForSkill("Charge")).toBeFalse();
   });
 
   it("knocks back and stuns enemies hit by Smite", () => {
@@ -958,6 +968,83 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(outside.stunRemaining).toBeUndefined();
     expect((component as any).playerLeapLift).toBe(0);
     expect((component as any).leapDustEffects.length).toBeGreaterThan(0);
+  });
+
+  it("charges into the target and shield-bashes only the area in front", () => {
+    component.selectedClass = "paladin";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.ownedSkills = ["Charge"];
+    component.skillLevels = { Charge: 1 };
+    component.equipment.shield = { name: "Buckler", baseName: "Buckler", slot: "armor", equipmentType: "shield" } as any;
+    const target = { kind: "normal", species: "fallen", spriteFrame: 0, x: 430, y: 250, hp: 100, maxHp: 100, speed: 100, r: 14, dmg: 2 } as any;
+    const besideTarget = { ...target, x: 440 };
+    const passed = { ...target, x: 300 };
+    const behind = { ...target, x: 230 };
+    component.enemies = [target, besideTarget, passed, behind];
+    // Clicking picks the distant target even though another monster is closer;
+    // the charge then runs past that closer monster and bashes only ahead.
+    (component as any).clickMoveTarget = target;
+    component.floatingTexts = [];
+    (component as any).leapDustEffects.length = 0;
+
+    component.activateOwnedSkill("Charge");
+
+    expect((component as any).playerChargeRemaining).toBeGreaterThan(0);
+    expect(target.stunRemaining).toBeUndefined();
+    for (let frame = 0; frame < 40; frame += 1) (component as any).updatePlayerCharge(16);
+
+    expect((component as any).playerChargeRemaining).toBe(0);
+    expect((component as any).isPlayerMoving).toBeFalse();
+    expect((component as any).attackAnimationStyle).toBe("paladinStrike");
+    expect(target.x).toBeCloseTo(282, 1);
+    expect(target.stunRemaining).toBeGreaterThan(0);
+    expect(besideTarget.stunRemaining).toBeGreaterThan(0);
+    expect(passed.stunRemaining).toBeUndefined();
+    expect(behind.stunRemaining).toBeUndefined();
+    expect((component as any).leapDustEffects.length).toBeGreaterThan(0);
+    (component as any).flushPendingDamage();
+    expect(target.hp).toBeLessThan(100);
+    expect(besideTarget.hp).toBeLessThan(100);
+    expect(passed.hp).toBe(100);
+    expect(component.floatingTexts.filter((entry) => entry.text === "STUN").length).toBe(2);
+    expect((component as any).getSkillRankStats("Charge", "movement", 1)).toContain("Shield bash: 52-unit frontal area");
+  });
+
+  it("spawns an animated Blessed Hammer that spirals out and strikes what it passes", () => {
+    component.selectedClass = "paladin";
+    component.playerX = 250;
+    component.playerY = 250;
+    (component as any).playerFacingX = 1;
+    (component as any).playerFacingY = 0;
+    component.ownedSkills = ["Blessed Hammer"];
+    component.skillLevels = { "Blessed Hammer": 1 };
+    component.enemies = [];
+    component.attackProjectiles = [];
+
+    component.activateOwnedSkill("Blessed Hammer");
+
+    const hammer = component.attackProjectiles[0];
+    expect(hammer.missileId).toBe("d2-blessedhammer");
+    expect(hammer.blessedHammer).toBeTrue();
+    expect((component as any).missileFrameCount("d2-blessedhammer")).toBe(6);
+    expect(hammer.x).toBeCloseTo(250, 1);
+    const centerY = component.playerY - 10;
+    const startRadius = Math.hypot(hammer.x - component.playerX, hammer.y - centerY);
+
+    for (let frame = 0; frame < 30; frame += 1) (component as any).updateAttackProjectiles(16);
+
+    expect(hammer.age).toBeCloseTo(0.48, 2);
+    const spiralRadius = Math.hypot(hammer.x - component.playerX, hammer.y - centerY);
+    expect(spiralRadius).toBeGreaterThan(startRadius + 10);
+
+    const target = { kind: "normal", species: "fallen", spriteFrame: 0, x: hammer.x, y: hammer.y, hp: 100, maxHp: 100, speed: 100, r: 14, dmg: 2 } as any;
+    component.enemies = [target];
+    (component as any).rebuildEnemyGrid();
+    (component as any).updateAttackProjectiles(16);
+    (component as any).flushPendingDamage();
+
+    expect(target.hp).toBeLessThan(100);
   });
 
   it("keeps the barbarian invulnerable while airborne and stuns all nearby enemies on landing", () => {
@@ -1584,6 +1671,232 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(component.attackProjectiles.length).toBe(5);
     for (const blast of component.attackProjectiles) {
       expect(blast.missileId).toBe("d2-andarielspell");
+    }
+  });
+
+  it("gives Diablo an Ice Punch that damages and chills the player", () => {
+    component.runActive = true;
+    component.selectedClass = "amazon";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.playerHp = 1000;
+    component.playerMaxHp = 1000;
+    (component as any).playerChilledRemaining = 0;
+    const diablo = {
+      kind: "boss", species: "diablo", campaignBoss: true, spriteFrame: 0,
+      x: 300, y: 250, hp: 10000, maxHp: 10000, speed: 90, r: 34, dmg: 40, cd: 0,
+    } as any;
+    component.enemies = [diablo];
+
+    component.updateEnemies(16);
+
+    expect(component.playerHp).toBeLessThan(1000);
+    expect((component as any).playerChilledRemaining).toBeGreaterThan(0);
+    expect((component as any).diabloThunderEffects).toHaveSize(0);
+    expect(diablo.attackAnimationTime).toBeGreaterThan(0);
+  });
+
+  it("lets Diablo channel Thunder Inferno along a fixed, dodgeable beam", () => {
+    component.runActive = true;
+    component.selectedClass = "amazon";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.playerHp = 1000;
+    component.playerMaxHp = 1000;
+    (component as any).playerBonePrisonRemaining = 0;
+    const diablo = {
+      kind: "boss", species: "diablo", campaignBoss: true, spriteFrame: 0,
+      x: 430, y: 250, hp: 10000, maxHp: 10000, speed: 90, r: 34, dmg: 40, cd: 0,
+      diabloSpellCycle: 0,
+    } as any;
+    component.enemies = [diablo];
+
+    component.updateEnemies(16);
+
+    const effects = (component as any).diabloThunderEffects as any[];
+    expect(effects).toHaveSize(1);
+    expect(effects[0].dirX).toBeLessThan(0);
+    expect(diablo.diabloChannelRemaining).toBeGreaterThan(0);
+    const hpBeforeTick = component.playerHp;
+    (component as any).updateDiabloThunderEffects(0.2);
+    expect(component.playerHp).toBeLessThan(hpBeforeTick);
+
+    // The beam keeps the direction chosen at cast time: stepping aside dodges it.
+    component.playerY = 420;
+    const dodgedHp = component.playerHp;
+    (component as any).updateDiabloThunderEffects(0.2);
+    expect(component.playerHp).toBe(dodgedHp);
+    expect(diablo.diabloChannelRemaining).toBeGreaterThan(0);
+  });
+
+  it("roots the player with Diablo's Bone Prison", () => {
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.playerHp = 1000;
+    component.playerMaxHp = 1000;
+    (component as any).playerBonePrisonRemaining = 0;
+    const diablo = {
+      kind: "boss", species: "diablo", campaignBoss: true, spriteFrame: 0,
+      x: 430, y: 250, hp: 10000, maxHp: 10000, speed: 90, r: 34, dmg: 40, cd: 0,
+      diabloSpellCycle: 1,
+    } as any;
+    component.enemies = [diablo];
+
+    component.updateEnemies(16);
+
+    expect((component as any).playerBonePrisonRemaining).toBeGreaterThan(0);
+    expect((component as any).diabloThunderEffects).toHaveSize(0);
+    const prisonX = diablo.x;
+    component.keysDown.add("d");
+    component.movePlayer(100);
+    expect(diablo.x).toBe(prisonX);
+    expect((component as any).playerMoveX).toBe(0);
+
+    (component as any).playerBonePrisonRemaining = 0;
+    component.movePlayer(100);
+    expect(diablo.x).toBeLessThan(prisonX);
+    component.keysDown.delete("d");
+  });
+
+  it("slows the chilled player's movement", () => {
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    (component as any).playerBonePrisonRemaining = 0;
+    (component as any).playerAttackLockRemaining = 0;
+    (component as any).playerChilledRemaining = 2;
+    component.keysDown.add("d");
+
+    component.movePlayer(100);
+    const chilledStep = (component as any).playerMoveX;
+    (component as any).playerChilledRemaining = 0;
+    component.movePlayer(100);
+    const normalStep = (component as any).playerMoveX;
+
+    expect(chilledStep).toBeGreaterThan(0);
+    expect(chilledStep).toBeCloseTo(normalStep * 0.5, 5);
+    component.keysDown.delete("d");
+  });
+
+  it("erupts Baal's tentacles around the player after a ground warning", () => {
+    component.runActive = true;
+    component.selectedClass = "amazon";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.playerHp = 1000;
+    component.playerMaxHp = 1000;
+    const baal = {
+      kind: "boss", species: "baal", campaignBoss: true, spriteFrame: 0,
+      x: 430, y: 250, hp: 10000, maxHp: 10000, speed: 90, r: 34, dmg: 40, cd: 0,
+      baalSpellCycle: 0,
+    } as any;
+    component.enemies = [baal];
+
+    component.updateEnemies(16);
+
+    const effects = (component as any).baalTentacleEffects as any[];
+    expect(effects).toHaveSize(1);
+    expect(effects[0].tentacles).toHaveSize(3);
+    expect(component.playerHp).toBe(1000);
+
+    (component as any).updateBaalEffects(0.45);
+    expect(component.playerHp).toBeLessThan(1000);
+
+    // The eruption stays where it was telegraphed; moving clear avoids the rest.
+    const hpAfterFirstStrike = component.playerHp;
+    component.playerY = 420;
+    (component as any).updateBaalEffects(0.4);
+    expect(component.playerHp).toBe(hpAfterFirstStrike);
+    expect(baal.attackAnimationTime).toBeGreaterThan(0);
+  });
+
+  it("sends Baal's energy wave forward and lets the player dodge it", () => {
+    component.runActive = true;
+    component.selectedClass = "amazon";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.playerHp = 1000;
+    component.playerMaxHp = 1000;
+    const baal = {
+      kind: "boss", species: "baal", campaignBoss: true, spriteFrame: 0,
+      x: 480, y: 250, hp: 10000, maxHp: 10000, speed: 90, r: 34, dmg: 40, cd: 0,
+      baalSpellCycle: 1,
+    } as any;
+    component.enemies = [baal];
+
+    component.updateEnemies(16);
+
+    const effects = (component as any).baalWaveEffects as any[];
+    expect(effects).toHaveSize(1);
+    expect(effects[0].dirX).toBeLessThan(0);
+    expect(component.playerHp).toBe(1000);
+
+    (component as any).updateBaalEffects(0.3);
+    expect(component.playerHp).toBe(1000);
+    (component as any).updateBaalEffects(0.45);
+    expect(component.playerHp).toBeLessThan(1000);
+    const hpAfterWave = component.playerHp;
+    (component as any).updateBaalEffects(0.4);
+    expect(component.playerHp).toBe(hpAfterWave);
+
+    // A fresh wave keeps its cast direction; stepping wide avoids it entirely.
+    (component as any).castBaalWave(baal);
+    component.playerY = 430;
+    const dodgedHp = component.playerHp;
+    (component as any).updateBaalEffects(0.6);
+    expect(component.playerHp).toBe(dodgedHp);
+  });
+
+  it("throws Mephisto's original lightning ball at the player", () => {
+    component.runActive = true;
+    component.selectedClass = "amazon";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.playerHp = 1000;
+    component.playerMaxHp = 1000;
+    const mephisto = {
+      kind: "boss", species: "mephisto", campaignBoss: true, spriteFrame: 0,
+      x: 470, y: 250, hp: 10000, maxHp: 10000, speed: 90, r: 34, dmg: 40, cd: 0,
+    } as any;
+    component.enemies = [mephisto];
+    component.attackProjectiles = [];
+
+    component.updateEnemies(16);
+
+    const ball = component.attackProjectiles[0];
+    expect(ball).toBeDefined();
+    expect(ball.missileId).toBe("d2-mephistomissile");
+    expect(ball.kind).toBe("lightning");
+    expect(ball.targetPlayer).toBeTrue();
+    const hpBeforeHit = component.playerHp;
+
+    (component as any).updateAttackProjectiles(2000);
+
+    expect(component.playerHp).toBeLessThan(hpBeforeHit);
+    expect(mephisto.attackAnimationTime).toBeGreaterThan(0);
+  });
+
+  it("uses each enemy shooter's original Diablo II missile art", () => {
+    component.playerX = 250;
+    component.playerY = 250;
+    const cases = [
+      { species: "fetishShaman", x: 340, missileId: "d2-shamanfireball", sourceOnlyArt: undefined },
+      { species: "spikeFiend", x: 430, missileId: "d2-spikefiendmissle", sourceOnlyArt: true },
+    ];
+
+    for (const { species, x, missileId, sourceOnlyArt } of cases) {
+      const enemy = {
+        kind: "normal", species, spriteFrame: 0, x, y: 250,
+        hp: 100, maxHp: 100, speed: 80, r: 14, dmg: 2, cd: 0,
+      } as any;
+      component.enemies = [enemy];
+      component.attackProjectiles = [];
+
+      component.updateEnemies(16);
+
+      expect(component.attackProjectiles[0]?.missileId).toBe(missileId);
+      expect(component.attackProjectiles[0]?.sourceOnlyArt).toBe(sourceOnlyArt);
     }
   });
 
@@ -2908,6 +3221,132 @@ describe("D2SurvivorsComponent combat and equipment", () => {
 
     expect((component as any).thrownWeaponKind).toBe("javelin");
     expect((component as any).attackStyleForEquippedWeapon("sorceressCast")).toBe("weaponThrow");
+  });
+
+  it("auto-fires an arrow from a bow while planted instead of walking into melee", () => {
+    component.selectedClass = "amazon";
+    component.runActive = true;
+    (component as any).attackCooldown = 0;
+    component.pendingLevelUps = 0;
+    component.playerX = 100;
+    component.playerY = 100;
+    const target = { x: 300, y: 100, r: 10, hp: 100 } as any;
+    component.enemies = [target];
+    component.attackProjectiles = [];
+    component.equipment.weapon = { name: "Short Bow", baseName: "Short Bow", slot: "weapon" } as any;
+
+    (component as any).updateBasicAttack();
+
+    expect(target.hp).toBe(100);
+    expect(component.attackProjectiles.length).toBe(1);
+    expect(component.attackProjectiles[0].kind).toBe("arrow");
+    expect(component.attackProjectiles[0].missileId).toBe("d2-arrow");
+    expect((component as any).attackAnimationStyle).toBe("bowShot");
+
+    for (let frame = 0; frame < 90 && target.hp === 100; frame += 1) {
+      (component as any).updateAttackProjectiles(16);
+    }
+    expect(target.hp).toBeLessThan(100);
+  });
+
+  it("auto-throws a javelin at range without applying melee damage", () => {
+    component.selectedClass = "amazon";
+    component.runActive = true;
+    (component as any).attackCooldown = 0;
+    component.pendingLevelUps = 0;
+    component.playerX = 100;
+    component.playerY = 100;
+    const target = { x: 300, y: 100, r: 10, hp: 100 } as any;
+    component.enemies = [target];
+    component.attackProjectiles = [];
+    component.equipment.weapon = { name: "War Javelin", baseName: "War Javelin", slot: "weapon" } as any;
+
+    (component as any).updateBasicAttack();
+
+    expect(target.hp).toBe(100);
+    expect(component.attackProjectiles.length).toBe(1);
+    expect(component.attackProjectiles[0].thrownWeapon).toBe("javelin");
+    expect(component.attackProjectiles[0].missileId).toBe("d2-javelin");
+    expect(component.attackProjectiles[0].sourceOnlyArt).toBe(true);
+    expect((component as any).attackAnimationStyle).toBe("weaponThrow");
+  });
+
+  it("fires the original crossbow bolt art when a crossbow is equipped", () => {
+    component.selectedClass = "amazon";
+    component.runActive = true;
+    (component as any).attackCooldown = 0;
+    component.pendingLevelUps = 0;
+    component.playerX = 100;
+    component.playerY = 100;
+    const target = { x: 300, y: 100, r: 10, hp: 100 } as any;
+    component.enemies = [target];
+    component.attackProjectiles = [];
+    component.equipment.weapon = { name: "Heavy Crossbow", baseName: "Heavy Crossbow", slot: "weapon" } as any;
+
+    (component as any).updateBasicAttack();
+
+    expect(component.attackProjectiles.length).toBe(1);
+    expect(component.attackProjectiles[0].missileId).toBe("d2-xbowbolt");
+    expect(component.attackProjectiles[0].sourceOnlyArt).toBe(true);
+    expect((component as any).missileOverlayId("Multiple Shot")).toBe("d2-xbowbolt");
+    expect((component as any).missileOverlayId("Strafe")).toBe("d2-xbowbolt");
+  });
+
+  it("jabs with a javelin when the target is already in melee range", () => {
+    component.selectedClass = "amazon";
+    component.runActive = true;
+    (component as any).attackCooldown = 0;
+    component.pendingLevelUps = 0;
+    component.playerX = 100;
+    component.playerY = 100;
+    const target = { x: 116, y: 100, r: 10, hp: 100 } as any;
+    component.enemies = [target];
+    component.attackProjectiles = [];
+    component.equipment.weapon = { name: "War Javelin", baseName: "War Javelin", slot: "weapon" } as any;
+
+    (component as any).updateBasicAttack();
+
+    expect(component.attackProjectiles.length).toBe(0);
+    expect(target.hp).toBeLessThan(100);
+    expect((component as any).attackAnimationStyle).toBe("amazonJab");
+  });
+
+  it("keeps javelin attacks hybrid: repeated melee up close, then ranged once nothing is in reach", () => {
+    component.selectedClass = "amazon";
+    component.runActive = true;
+    (component as any).attackCooldown = 0;
+    component.pendingLevelUps = 0;
+    component.playerX = 100;
+    component.playerY = 100;
+    const melee = { x: 116, y: 100, r: 10, hp: 100 } as any;
+    const distant = { x: 300, y: 100, r: 10, hp: 100 } as any;
+    component.enemies = [distant, melee];
+    component.attackProjectiles = [];
+    component.equipment.weapon = { name: "War Javelin", baseName: "War Javelin", slot: "weapon" } as any;
+    (component as any).clickMoveTarget = distant;
+
+    (component as any).updateBasicAttack();
+
+    expect(melee.hp).toBeLessThan(100);
+    expect(distant.hp).toBe(100);
+    expect(component.attackProjectiles.length).toBe(0);
+    expect((component as any).attackAnimationStyle).toBe("amazonJab");
+
+    const hpAfterFirstJab = melee.hp;
+    (component as any).attackCooldown = 0;
+    (component as any).updateBasicAttack();
+
+    expect(melee.hp).toBeLessThan(hpAfterFirstJab);
+    expect(distant.hp).toBe(100);
+    expect(component.attackProjectiles.length).toBe(0);
+
+    melee.hp = 0;
+    (component as any).attackCooldown = 0;
+    (component as any).updateBasicAttack();
+
+    expect(component.attackProjectiles.length).toBe(1);
+    expect(component.attackProjectiles[0].target).toBe(distant);
+    expect(component.attackProjectiles[0].thrownWeapon).toBe("javelin");
   });
 
   it("auto-throws a throwing weapon from range without applying melee damage", () => {
@@ -4638,6 +5077,30 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(level).toBeCloseTo(0.042, 6);
     expect(when).toBe(12);
     expect(timeConstant).toBe(0.05);
+  });
+
+  it("keeps the ambience setting when moving from the main menu to the lobby and hero select", async () => {
+    const stopAmbientAudio = spyOn(component as any, "stopAmbientAudio");
+    spyOn(component as any, "stopMenuHeroPreview");
+    spyOn(component as any, "startClassPreview");
+    spyOn(component as any, "loadLobby").and.resolveTo();
+    component.ambientAudioEnabled = true;
+    component.ambientAudioStatus = "Ambient sound on";
+    component.activeTab = "menu";
+    component.menuPanel = "main";
+
+    await component.openLobby();
+
+    expect(component.menuPanel).toBe("lobby");
+    expect(component.ambientAudioEnabled).toBeTrue();
+    expect(component.ambientAudioStatus).toBe("Ambient sound on");
+
+    component.openCharacterSelect();
+
+    expect(component.menuPanel).toBe("characters");
+    expect(component.ambientAudioEnabled).toBeTrue();
+    expect(component.ambientAudioStatus).toBe("Ambient sound on");
+    expect(stopAmbientAudio).not.toHaveBeenCalled();
   });
 
   it("opens the skill tree only once when T is pressed from the arena", () => {

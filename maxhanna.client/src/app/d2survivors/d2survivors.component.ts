@@ -134,6 +134,42 @@ const HEALTH_POTION_HEAL_SECONDS = 5;
 const HEALTH_POTION_HEAL_RATE = HEALTH_POTION_HEAL / HEALTH_POTION_HEAL_SECONDS;
 const ACT_BOSS_TIME_SECONDS = 135;
 const ACT5_BAAL_WAVE_END_SECONDS = 180;
+// Diablo's three signature attacks. Thunder Inferno is a fixed-direction beam
+// with repeated damage ticks; Ice Punch is a close-range cold blow; Bone Prison
+// roots the hero in place for a short window.
+const DIABLO_THUNDER_RANGE = 340;
+const DIABLO_THUNDER_DURATION = 1.15;
+const DIABLO_THUNDER_TICK_INTERVAL = 0.16;
+const DIABLO_THUNDER_HALF_WIDTH = 24;
+const DIABLO_THUNDER_DAMAGE_MULTIPLIER = 0.22;
+const DIABLO_BONE_PRISON_RANGE = 420;
+const DIABLO_BONE_PRISON_SECONDS = 3.2;
+const DIABLO_PLAYER_CHILL_SECONDS = 2.5;
+const DIABLO_ICE_PUNCH_DAMAGE_MULTIPLIER = 1.4;
+const DIABLO_SPELL_COOLDOWN = 3.4;
+const DIABLO_PRISON_COOLDOWN = 4.6;
+const DIABLO_PUNCH_COOLDOWN = 1.8;
+const PLAYER_CHILL_SPEED_MULTIPLIER = 0.5;
+// Baal's signature attacks. Festering tentacles erupt around the hero after a
+// ground warning, while the energy wave is a broad wall that travels forward
+// in a fixed direction and can be side-stepped.
+const BAAL_SPELL_RANGE = 430;
+const BAAL_TENTACLE_RANGE = 220;
+const BAAL_TENTACLE_RADIUS = 36;
+const BAAL_TENTACLE_SPREAD = 54;
+const BAAL_TENTACLE_DAMAGE_MULTIPLIER = 0.45;
+const BAAL_TENTACLE_COOLDOWN = 2.5;
+const BAAL_TENTACLE_DURATION = 1.9;
+const BAAL_WAVE_RANGE = 460;
+const BAAL_WAVE_SPEED = 285;
+const BAAL_WAVE_HALF_WIDTH = 55;
+const BAAL_WAVE_DAMAGE_MULTIPLIER = 0.9;
+const BAAL_WAVE_COOLDOWN = 2.9;
+const BAAL_WAVE_DURATION = 1.8;
+// Mephisto keeps his distance and hurls the original D2 lightning orb.
+const MEPHISTO_LIGHTNING_RANGE = 360;
+const MEPHISTO_LIGHTNING_SPEED = 250;
+const MEPHISTO_LIGHTNING_COOLDOWN = 2.3;
 // Matron's Den is Andariel's dedicated Pandemonium arena, so her Uber version
 // gets a much harder stat block than the campaign fight and the Tristram primes.
 const MATRONS_DEN_ANDARIEL_HEALTH_MULTIPLIER = 3;
@@ -307,6 +343,26 @@ const LEAP_BASE_STUN_SECONDS = 1.2;
 const LEAP_STUN_SECONDS_PER_RANK = 0.06;
 const LEAP_FRONT_DOT = 0.15;
 const LEAP_ARC_HEIGHT = 58;
+// Charge is a shield-first gap closer: the paladin runs at the target and
+// shield-bashes a small arc on arrival instead of attacking from range.
+const CHARGE_SPEED = 760;
+const CHARGE_MIN_DURATION = 0.12;
+const CHARGE_STOP_PADDING = 18;
+const CHARGE_BASE_IMPACT_RADIUS = 52;
+const CHARGE_IMPACT_RADIUS_PER_RANK = 1;
+const CHARGE_BASE_STUN_SECONDS = 1.2;
+const CHARGE_STUN_SECONDS_PER_RANK = 0.08;
+const CHARGE_MAX_STUN_SECONDS = 2.2;
+const CHARGE_FRONT_DOT = 0.2;
+const CHARGE_DAMAGE_MULTIPLIER = 1.65;
+// Blessed Hammer is a short-lived spiral: it starts beside the paladin and
+// drifts outward while its six cels spin, rather than flying at a target.
+const BLESSED_HAMMER_START_RADIUS = 20;
+const BLESSED_HAMMER_MAX_RADIUS = 92;
+const BLESSED_HAMMER_OUTWARD_SPEED = 36;
+const BLESSED_HAMMER_ANGULAR_SPEED = 5.4;
+const BLESSED_HAMMER_BODY_OFFSET = 10;
+const BLESSED_HAMMER_LIFETIME = 3.2;
 // Howl is crowd control rather than damage: every monster in the radius drops
 // what it is doing and runs from the barbarian. The fear lasts longer per rank.
 const HOWL_RADIUS = 205;
@@ -391,7 +447,18 @@ function tileVariantHash(x: number, y: number, salt: number, actId: number): num
 }
 const MISSILE_OVERLAY_BASE = "assets/d2survivors/missiles";
 // Missile art fired only by monsters, not referenced from any skill table.
-const ENEMY_MISSILE_OVERLAY_IDS = ["d2-andarielspell"];
+// The DCC importer already exports every named source strip; preload the
+// monster-fired ones here so their first attack never falls back to a dot.
+const ENEMY_MISSILE_OVERLAY_IDS = [
+  "d2-andarielspell",
+  "d2-baalmissile", "d2-baalnova", "d2-bayellshockwave01", "d2-bayellshockwave02",
+  "d2-bigheadlightningmissile", "d2-blowdart", "d2-catapultpoisonbomb",
+  "d2-deathmaulermissile", "d2-diablolightning", "d2-frogpoisonmissile",
+  "d2-highpriestlightning", "d2-impfireball", "d2-mephistomissile",
+  "d2-sandmaggotgoospit", "d2-shamanfireball", "d2-siegrock",
+  "d2-spider_goo_missile", "d2-spikefiendmamamissle", "d2-spikefiendmissle",
+  "d2-slugmissile", "d2-unholybolt", "d2-vampiremissile",
+];
 // The imported fsexplode palette is blue even though Fire Blast is a fire trap.
 // Shift the hue at draw time so the explosion reads orange without replacing
 // the generated D2 art.
@@ -797,7 +864,7 @@ const SKILL_MISSILE_OVERLAYS: Record<string, string> = {
 // from the named `global/missiles` DCCs. This wins over the numeric legacy table
 // above: the ids point at the spell's own D2 projectile instead of a stand-in.
 const D2_SPELL_MISSILE_OVERLAYS: Record<string, string> = {
-  "Magic Arrow": "d2-arrow", "Multiple Shot": "d2-arrow", "Guided Arrow": "d2-arrow", "Strafe": "d2-arrow",
+  "Magic Arrow": "d2-safearrow", "Multiple Shot": "d2-arrow", "Guided Arrow": "d2-safearrow", "Strafe": "d2-arrow",
   "Fire Arrow": "d2-firearrow", "Immolation Arrow": "d2-firearrow", "Fire Bolt": "d2-firebolt", "Fire Blast": "d2-fsexplode",
   "Exploding Arrow": "d2-firearrow", "Fire Ball": "d2-fireball",
   "Fire Wall": FIRE_WALL_MISSILE_ID, "Blaze": "d2-groundfiresmall", "Wake of Fire": "d2-groundfiresmall",
@@ -808,13 +875,13 @@ const D2_SPELL_MISSILE_OVERLAYS: Record<string, string> = {
   "Frozen Armor": "d2-hardenarmor", "Shiver Armor": "d2-hardenarmor", "Chilling Armor": "d2-hardenarmor",
   "Arctic Blast": "d2-arcticblastice", Firestorm: "d2-firestormemitter",
   "Molten Boulder": "d2-rock_large", Meteor: "d2-meteor",
-  Lightning: "d2-lightningbolt", "Lightning Bolt": "d2-lightningbolt", "Chain Lightning": "d2-lightningbolt",
+  Lightning: "d2-lightningbolt", "Lightning Bolt": "d2-lightningjavelin", "Chain Lightning": "d2-lightningbolt",
   "Charged Bolt": "d2-chargedbolt", "Charged Bolt Sentry": "d2-chargedbolt", "Shock Web": "d2-chargedbolt",
   "Lightning Sentry": "d2-lightningbolt", "Death Sentry": "d2-lightningbolt",
   "Lightning Fury": "d2-lightningjavelin", "Lightning Strike": "d2-lightningstrike",
-  "Charged Strike": "d2-lightningstrike", "Phoenix Strike": "d2-lightningstrike",
+  "Charged Strike": "d2-chargedbolt", "Phoenix Strike": "d2-lightningstrike",
   "Thunder Storm": "d2-lightningstrike", "Static Field": "d2-elecnovaa",
-  "Poison Javelin": "d2-poisonleft", "Plague Javelin": "d2-poisonleft", "Poison Dagger": "d2-poisonleft",
+  "Poison Javelin": "d2-javelin", "Plague Javelin": "d2-javelin", "Poison Dagger": "d2-poisonleft",
   "Poison Nova": "d2-poisonnova", "Poison Explosion": "d2-corpseexplodegutspoison",
   "Corpse Explosion": "d2-corpseexplodeguts",
   "Bone Spirit": "d2-bonespirit", "Bone Spear": "d2-bonespear", Teeth: "d2-bonespear",
@@ -871,9 +938,23 @@ const UPRIGHT_MISSILES = new Set(["d2-twister"]);
 const BOULDER_MISSILE_ID = "d2-rock_large";
 const MISSILE_SPRITE_SIZES: Record<string, { width: number; height: number }> = {
   "d2-twister": { width: 44, height: 82 },
+  // Keep the Amazon missiles at their authored proportions instead of letting
+  // the generic 28px cap make an arrow, a javelin and a lightning bolt all
+  // read as the same small dash.
+  "d2-arrow": { width: 30, height: 13 },
+  "d2-xbowbolt": { width: 26, height: 13 },
+  "d2-javelin": { width: 46, height: 19 },
+  "d2-pilum": { width: 50, height: 19 },
+  "d2-safearrow": { width: 36, height: 21 },
+  "d2-firearrow": { width: 32, height: 18 },
+  "d2-icearrow": { width: 36, height: 20 },
+  "d2-lightningjavelin": { width: 48, height: 30 },
+  "d2-lightningstrike": { width: 44, height: 31 },
   // The 58x58 charged-bolt cels were capped at 28px by the generic missile
   // path, so the spray read as thin sparks; draw them at double size.
   "d2-chargedbolt": { width: 56, height: 56 },
+  // The 27x38 hammer cels were capped at 28px and nearly vanished in a crowd.
+  "d2-blessedhammer": { width: 32, height: 45 },
   // The imported rock_large cels are 58x53 and were capped at 28px by the
   // generic missile path, so the druid's boulders read as pebbles.
   "d2-rock_large": { width: 64, height: 59 },
@@ -900,7 +981,26 @@ const BOULDER_LINE_SPREAD = 0.07;
 const BOULDER_SIDE_KNOCKBACK = 56;
 const BOULDER_EXPLOSION_RADIUS = 88;
 const BOULDER_EXPLOSION_DURATION = 0.55;
+// D2 missile cels are drawn toward isometric north-east, roughly 22.5 degrees
+// above screen-right. Without this correction an arrow flies visibly sideways.
+const ISOMETRIC_MISSILE_ROTATION = Math.PI / 8;
 const MISSILE_SPRITE_ORIENTATIONS: Record<string, number> = {
+  "d2-arrow": ISOMETRIC_MISSILE_ROTATION,
+  "d2-xbowbolt": ISOMETRIC_MISSILE_ROTATION,
+  "d2-javelin": ISOMETRIC_MISSILE_ROTATION,
+  "d2-pilum": ISOMETRIC_MISSILE_ROTATION,
+  "d2-safearrow": ISOMETRIC_MISSILE_ROTATION,
+  "d2-firearrow": ISOMETRIC_MISSILE_ROTATION,
+  "d2-icearrow": ISOMETRIC_MISSILE_ROTATION,
+  "d2-lightningjavelin": ISOMETRIC_MISSILE_ROTATION,
+  "d2-lightningstrike": ISOMETRIC_MISSILE_ROTATION,
+  "d2-spikefiendmissle": ISOMETRIC_MISSILE_ROTATION,
+  "d2-spikefiendmamamissle": ISOMETRIC_MISSILE_ROTATION,
+  "d2-glaive": ISOMETRIC_MISSILE_ROTATION,
+  "d2-missileglaive": ISOMETRIC_MISSILE_ROTATION,
+  "d2-missilehandaxe": ISOMETRIC_MISSILE_ROTATION,
+  "d2-missileaxe": ISOMETRIC_MISSILE_ROTATION,
+  "d2-missiledagger": ISOMETRIC_MISSILE_ROTATION,
   // Bolt and flame-column cels are authored pointing up the screen.
   "43": Math.PI / 2,
   "55": Math.PI / 2,
@@ -917,7 +1017,6 @@ const MISSILE_SPRITE_ORIENTATIONS: Record<string, number> = {
   "d2-arcticblastice": Math.PI / 2,
   "d2-eruptionsmoke": Math.PI / 2,
 };
-const FIRE_ARROW_EFFECT_IDS = new Set(["d2-fire-arrow", "d2-firearrow"]);
 // Art used when only a damage kind is known.
 const ATTACK_KIND_MISSILE_OVERLAYS: Record<AttackProjectile["kind"], string> = {
   "arrow": "131",
@@ -1507,6 +1606,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private playerMotionBlend = 0;
   private playerMoveX = 0;
   private playerMoveY = 0;
+  private playerChilledRemaining = 0;
+  private playerBonePrisonRemaining = 0;
+  private playerBonePrisonX = 0;
+  private playerBonePrisonY = 0;
+  private diabloThunderEffects: DiabloThunderEffect[] = [];
+  private baalTentacleEffects: BaalTentacleEffect[] = [];
+  private baalWaveEffects: BaalWaveEffect[] = [];
   private playerFacingX = 1;
   private playerFacingY = 0;
   private isPlayerMoving = false;
@@ -1517,6 +1623,15 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private playerLeapDirectionX = 1;
   private playerLeapDirectionY = 0;
   private playerLeapLift = 0;
+  private playerChargeRemaining = 0;
+  private playerChargeDuration = 0;
+  private playerChargeDistance = 0;
+  private playerChargeDistanceApplied = 0;
+  private playerChargeDirectionX = 1;
+  private playerChargeDirectionY = 0;
+  private playerChargeDamage = 0;
+  private playerChargeStunSeconds = 0;
+  private playerChargeImpactRadius = 0;
   private clickMoveTarget: Enemy | null = null;
   private attackAnimationTime = Number.POSITIVE_INFINITY;
   private attackAnimationSide: -1 | 1 = -1;
@@ -1605,6 +1720,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private currentChunkLocalY = 0;
   private readonly worldZoom = 2.1;
   private readonly thrownWeaponRange = 380;
+  private readonly bowWeaponRange = 520;
   // Fixed first-chunk doorway placed a short walk from the starting position.
   private readonly act1InteriorDoor = { x: 410, y: 240, radius: 12 };
   private readonly playerWorldScale = 1.16;
@@ -3043,6 +3159,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.playerAttackLockRemaining = 0;
     this.playerLeapRemaining = 0;
     this.playerLeapLift = 0;
+    this.resetChargeState();
+    this.playerChilledRemaining = 0;
+    this.playerBonePrisonRemaining = 0;
+    this.diabloThunderEffects.length = 0;
+    this.baalTentacleEffects.length = 0;
+    this.baalWaveEffects.length = 0;
     this.leapDustEffects.length = 0;
     this.attackProjectiles = [];
     this.pendingDamage.clear();
@@ -3721,8 +3843,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   async openLobby(): Promise<void> {
     this.stopMenuHeroPreview();
-    this.stopAmbientAudio();
-    this.ambientAudioStatus = "Ambience muted";
+    // The ambience toggle belongs to the menu as a whole. Moving between menu
+    // panels must not disable it; only leaving the menu or starting a run does.
     this.menuPanel = "lobby";
     await this.loadLobby();
     if (this.lobbyRunId && !this.runActive && this.playerHp <= 0) void this.recordCompletedCharacter(false);
@@ -3873,8 +3995,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   openCharacterSelect(): void {
-    this.stopAmbientAudio();
-    this.ambientAudioStatus = "Ambience muted";
     this.menuPanel = "characters";
     this.stopMenuHeroPreview();
     this.startClassPreview();
@@ -5677,7 +5797,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   private weaponRequirementForSkill(skill: string): "bow" | "javelin" | "shield" | null {
-    if (skill === "Smite") return "shield";
+    if (skill === "Smite" || skill === "Charge") return "shield";
     if (this.selectedClass !== "amazon") return null;
     if (AMAZON_BOW_SKILLS.has(skill)) return "bow";
     if (AMAZON_JAVELIN_SKILLS.has(skill)) return "javelin";
@@ -5813,6 +5933,25 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         `Landing stun: ${this.leapStunSecondsForRank(rank).toFixed(1)}s in a ${this.leapStunRadiusForRank(rank)}-unit radius`,
         "Invulnerable while airborne",
         "Targets an enemy ahead when one is in range; otherwise the cast is cancelled.",
+      ];
+    }
+
+    if (this.selectedClass === "paladin" && name === "Charge") {
+      const chargeDamage = this.basicAttackDamage * CHARGE_DAMAGE_MULTIPLIER + (rank - 1) * 3;
+      return [
+        `Charge damage: ${Math.floor(chargeDamage)} before aura bonuses`,
+        `Shield bash: ${this.chargeImpactRadiusForRank(rank)}-unit frontal area`,
+        `Stun duration: ${this.chargeStunSecondsForRank(rank).toFixed(1)}s`,
+        "Runs to the target; act bosses take damage but cannot be stunned.",
+      ];
+    }
+
+    if (this.selectedClass === "paladin" && name === "Blessed Hammer") {
+      const hammerDamage = this.basicAttackDamage * 1.5 + (rank - 1) * 3;
+      return [
+        `Hammer damage: ${Math.floor(hammerDamage)} before aura bonuses`,
+        `Spirals from ${BLESSED_HAMMER_START_RADIUS} to ${BLESSED_HAMMER_MAX_RADIUS} units from the paladin`,
+        "Each enemy is struck once per hammer pass.",
       ];
     }
 
@@ -6566,6 +6705,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.startLeap();
       return;
     }
+    if (skill === "Charge" && this.selectedClass === "paladin") {
+      this.startCharge();
+      return;
+    }
     if (NECROMANCER_CURSE_SKILLS.has(skill as NecromancerCurseName) && this.selectedClass === "necromancer") {
       // Curses have no cast time in D2: the effect lands immediately and the hero
       // keeps walking, so no attack animation and no movement lock are started.
@@ -6626,6 +6769,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       // Blaze is a movement buff rather than a rooted cast: keep the full
       // duration available for walking by not applying the cast lock.
       this.castBlaze(Math.max(1, this.skillLevels[skill] ?? 1));
+      return;
+    }
+    if (skill === "Blessed Hammer" && this.selectedClass === "paladin") {
+      this.castBlessedHammer();
+      this.triggerAttackAnimation(castAnimation);
       return;
     }
     const visualMissile = this.missileOverlayId(skill) ?? ATTACK_KIND_MISSILE_OVERLAYS[this.basicAttackForClass(this.selectedClass).kind];
@@ -6831,7 +6979,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
             : isWindSkill ? windRange * this.worldZoom / 420 + 1
               : skill === "Shock Web" ? Math.max(4, distance / 420 + 4)
                 : Math.max(3, distance / 420 + 1),
-          radius: 5, color: multishotArrows !== undefined ? "#d7c5aa" : color, kind: multishotArrows !== undefined ? "arrow" : kind, missileId: visualMissile, age: 0,
+          radius: 5, color: multishotArrows !== undefined ? "#d7c5aa" : color, kind: multishotArrows !== undefined ? "arrow" : kind, missileId: visualMissile, sourceOnlyArt: this.selectedClass === "amazon" || undefined, age: 0,
           impactRadius: skill === "Shock Web" ? 56 : skill === "Fire Blast" ? 40 : skill === "Corpse Explosion" ? this.corpseExplosionRadiusForRank(multiplier) : isPsychicHammer ? this.psychicHammerRadiusForRank(multiplier) : undefined,
           impactDuration: skill === "Shock Web" ? 3 : skill === "Fire Blast" ? 1 : skill === "Corpse Explosion" ? 0.6 : isPsychicHammer ? 0.38 : undefined,
           impactHitEnemies: skill === "Fire Blast" || skill === "Corpse Explosion" || isPsychicHammer ? [] : undefined,
@@ -7214,6 +7362,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     // Always-on passives have no cast animation, so they must not fall through
     // to the missile tables that used to give them an orb icon and effect.
     if (isPassiveSkill(skill)) return undefined;
+    // D2's crossbow variants of the multi-shot skills use XBowBolt instead of
+    // the bow Arrow cel.
+    if (this.selectedClass === "amazon" && this.crossbowWeaponEquipped
+      && (skill === "Multiple Shot" || skill === "Multishot" || skill === "Strafe")) {
+      return "d2-xbowbolt";
+    }
     return D2_SPELL_MISSILE_OVERLAYS[skill]
       ?? SKILL_MISSILE_OVERLAYS[skill]
       ?? SKILL_VISUAL_MISSILES[getD2SkillVisual(skill)]
@@ -7582,6 +7736,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.leapDustEffects.length = 0;
     this.playerLeapRemaining = 0;
     this.playerLeapLift = 0;
+    this.resetChargeState();
+    this.playerChilledRemaining = 0;
+    this.playerBonePrisonRemaining = 0;
+    this.diabloThunderEffects.length = 0;
+    this.baalTentacleEffects.length = 0;
+    this.baalWaveEffects.length = 0;
     for (const skill of Object.keys(this.activePaladinAuras)) delete this.activePaladinAuras[skill];
     this.stopClassPreview();
     this.stopMenuHeroPreview();
@@ -7593,7 +7753,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private triggerAttackAnimation(style?: AttackAnimationStyle): void {
     const classDefault = style ?? CLASS_ATTACK_ANIMATION[this.selectedClass] ?? "amazonJab";
     const isExplicitSkillAnimation = style !== undefined
-      && (style === "chestKick" || style === "spin" || style === "assassinKick" || style === "leap" || style === "cast" || style === "necromancerCast" || style === "sorceressCast" || style === "weaponThrow");
+      && (style === "chestKick" || style === "spin" || style === "assassinKick" || style === "leap" || style === "cast" || style === "necromancerCast" || style === "sorceressCast" || style === "weaponThrow" || style === "amazonJab");
     const attackStyle = isExplicitSkillAnimation ? classDefault : this.attackStyleForEquippedWeapon(classDefault);
     this.attackAnimationStyle = attackStyle;
     this.attackAnimationTime = 0;
@@ -7655,9 +7815,33 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     return null;
   }
 
+  private get bowWeaponEquipped(): boolean {
+    const item = this.equipment.weapon;
+    return !!item && isBowWeapon(item);
+  }
+
+  private get crossbowWeaponEquipped(): boolean {
+    const item = this.equipment.weapon;
+    if (!item) return false;
+    return /crossbow|arbalest|ballista/i.test(`${item.baseName ?? ""} ${item.name}`);
+  }
+
+  /** Range at which the equipped weapon can make a ranged basic attack; 0 for melee. */
+  private get rangedBasicAttackRange(): number {
+    if (this.bowWeaponEquipped) return this.bowWeaponRange;
+    if (this.thrownWeaponKind) return this.thrownWeaponRange;
+    return 0;
+  }
+
   private throwWeaponAt(target: Enemy, damage: number, thrownWeapon: ThrownWeaponKind, color: string): void {
     const distance = Math.hypot(target.x - this.playerX, target.y - this.playerY) || 1;
     const speed = thrownWeapon === "javelin" ? 650 : 560;
+    const weaponName = `${this.equipment.weapon?.baseName ?? ""} ${this.equipment.weapon?.name ?? ""}`.toLowerCase();
+    const missileId = thrownWeapon === "javelin"
+      ? (/pilum|harpoon/.test(weaponName) ? "d2-pilum" : "d2-javelin")
+      : thrownWeapon === "axe" ? "d2-missilehandaxe"
+        : thrownWeapon === "knife" ? "d2-missiledagger"
+          : "d2-glaive";
     this.attackProjectiles.push({
       x: this.playerX,
       y: this.playerY - 8,
@@ -7674,7 +7858,35 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       radius: thrownWeapon === "javelin" ? 5 : 6,
       color,
       kind: "blade",
+      missileId,
+      sourceOnlyArt: true,
       thrownWeapon,
+      age: 0,
+    });
+  }
+
+  private fireBowAt(target: Enemy, damage: number): void {
+    const distance = Math.hypot(target.x - this.playerX, target.y - this.playerY) || 1;
+    const speed = 650;
+    this.attackProjectiles.push({
+      x: this.playerX,
+      y: this.playerY - 8,
+      startX: this.playerX,
+      startY: this.playerY - 8,
+      targetX: target.x,
+      targetY: target.y,
+      target,
+      targetId: this.attackSequence++,
+      homing: true,
+      speed,
+      damage,
+      life: Math.max(1.2, distance / 420 + 0.8),
+      radius: 4,
+      color: "#d8e6ff",
+      kind: "arrow",
+      missileId: this.crossbowWeaponEquipped ? "d2-xbowbolt" : "d2-arrow",
+      sourceOnlyArt: true,
+      damageType: "physical",
       age: 0,
     });
   }
@@ -7780,7 +7992,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   private updateAutomaticSkillCasts(dt: number): void {
     const seconds = dt / 1000;
-    if (this.playerRunning || this.playerLeapRemaining > 0) {
+    if (this.playerRunning || this.playerLeapRemaining > 0 || this.playerChargeRemaining > 0) {
       // The hero only casts from a planted stance. Cooldowns keep ticking, but
       // no skill starts until movement and the leap arc are finished.
       if (this.playerRunning) this.cancelChannelingSpells();
@@ -7979,22 +8191,30 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
    * movePlayer() tick cannot squeeze an action in while the player is fleeing.
    */
   private get playerRunning(): boolean {
-    if (this.isPlayerMoving) return true;
+    if (this.isPlayerMoving || this.playerChargeRemaining > 0) return true;
     const moveKeys = ["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"];
     return moveKeys.some((key) => this.keysDown.has(key));
   }
 
   private updateBasicAttack(): void {
-    if (!this.runActive || this.pendingLevelUps > 0 || this.attackCooldown > 0 || this.playerRunning || this.playerLeapRemaining > 0) return;
+    if (!this.runActive || this.pendingLevelUps > 0 || this.attackCooldown > 0 || this.playerRunning || this.playerLeapRemaining > 0 || this.playerChargeRemaining > 0) return;
     const nearest = this.enemies
       .filter((enemy) => enemy.hp > 0 && !enemy.summonType)
       .sort((a, b) => Math.hypot(a.x - this.playerX, a.y - this.playerY) - Math.hypot(b.x - this.playerX, b.y - this.playerY))[0];
     if (!nearest) return;
     const clicked = this.clickMoveTarget;
     const clickedDistance = clicked ? Math.hypot(clicked.x - this.playerX, clicked.y - this.playerY) : Number.POSITIVE_INFINITY;
+    const rangedRange = this.rangedBasicAttackRange;
     const clickedInRange = !!clicked && clicked.hp > 0 && !clicked.summonType
-      && clickedDistance <= (this.thrownWeaponKind ? this.thrownWeaponRange : clicked.r + 28);
-    const target = clickedInRange && clicked ? clicked : nearest;
+      && clickedDistance <= (rangedRange > 0 ? rangedRange : clicked.r + 28);
+    const thrownWeapon = this.thrownWeaponKind;
+    // A javelin is a melee weapon as well as a thrown one. If anything is
+    // already in thrust range, hit it instead of throwing at a clicked target.
+    // Otherwise the clicked enemy wins, and with no click the nearest enemy is
+    // used. Bows skip this branch and keep firing at the selected target.
+    const nearestDistance = Math.hypot(nearest.x - this.playerX, nearest.y - this.playerY);
+    const meleeTarget = thrownWeapon === "javelin" && nearestDistance <= nearest.r + 28 ? nearest : undefined;
+    const target = meleeTarget ?? (clickedInRange && clicked ? clicked : nearest);
 
     const attack = this.basicAttackForClass(this.selectedClass);
     const attackLevel = this.skillLevels[this.basicAttackName] ?? 1;
@@ -8003,13 +8223,31 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const distance = Math.hypot(target.x - this.playerX, target.y - this.playerY);
     this.playerFacingX = (target.x - this.playerX) / Math.max(1, distance);
     this.playerFacingY = (target.y - this.playerY) / Math.max(1, distance);
-    const thrownWeapon = this.thrownWeaponKind;
     if (thrownWeapon) {
       if (distance > this.thrownWeaponRange) {
         this.attackCooldown = Math.min(0.12, this.basicAttackCooldown);
         return;
       }
+      if (thrownWeapon === "javelin" && distance <= target.r + 28) {
+        // A javelin is still a spear up close: jab with it instead of throwing
+        // from point-blank range.
+        target.hp -= damage;
+        this.triggerAttackAnimation("amazonJab");
+        this.floatingTexts.push({ x: target.x, y: target.y - target.r - 8, text: this.floatingDamageText(damage), color: attack.color, life: 0.65 });
+        this.attackCooldown = Math.max(this.playerAttackLockRemaining, this.paladinAuraAttackCooldown());
+        return;
+      }
       this.throwWeaponAt(target, damage, thrownWeapon, attack.color);
+      this.triggerAttackAnimation();
+      this.attackCooldown = Math.max(this.playerAttackLockRemaining, this.paladinAuraAttackCooldown());
+      return;
+    }
+    if (this.bowWeaponEquipped) {
+      if (distance > this.bowWeaponRange) {
+        this.attackCooldown = Math.min(0.12, this.basicAttackCooldown);
+        return;
+      }
+      this.fireBowAt(target, damage);
       this.triggerAttackAnimation();
       this.attackCooldown = Math.max(this.playerAttackLockRemaining, this.paladinAuraAttackCooldown());
       return;
@@ -8089,8 +8327,27 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const distance = Math.hypot(target.x - this.playerX, target.y - this.playerY);
       this.playerFacingX = (target.x - this.playerX) / Math.max(1, distance);
       this.playerFacingY = (target.y - this.playerY) / Math.max(1, distance);
-      if (distance <= this.thrownWeaponRange) {
+      if (distance > this.thrownWeaponRange) {
+        this.attackCooldown = Math.min(0.12, this.basicAttackCooldown);
+      } else if (thrownWeapon === "javelin" && distance <= target.r + 28) {
+        target.hp -= damage;
+        this.triggerAttackAnimation("amazonJab");
+        this.floatingTexts.push({ x: target.x, y: target.y - target.r - 8, text: this.floatingDamageText(damage), color: attack.color, life: 0.65 });
+        this.attackCooldown = Math.max(this.playerAttackLockRemaining, this.paladinAuraAttackCooldown());
+      } else {
         this.throwWeaponAt(target, damage, thrownWeapon, attack.color);
+        this.triggerAttackAnimation();
+        this.attackCooldown = Math.max(this.playerAttackLockRemaining, this.paladinAuraAttackCooldown());
+      }
+      return;
+    }
+    if (this.bowWeaponEquipped) {
+      const target = targets[0];
+      const distance = Math.hypot(target.x - this.playerX, target.y - this.playerY);
+      this.playerFacingX = (target.x - this.playerX) / Math.max(1, distance);
+      this.playerFacingY = (target.y - this.playerY) / Math.max(1, distance);
+      if (distance <= this.bowWeaponRange) {
+        this.fireBowAt(target, damage);
         this.triggerAttackAnimation();
         this.attackCooldown = Math.max(this.playerAttackLockRemaining, this.paladinAuraAttackCooldown());
       } else {
@@ -8249,6 +8506,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       }
       if (projectile.boulder) {
         this.updateMoltenBoulder(projectile, seconds);
+        continue;
+      }
+      if (projectile.blessedHammer) {
+        this.updateBlessedHammer(projectile, seconds);
         continue;
       }
       // Impact-radius projectiles still need the area-damage pass below; only
@@ -9176,11 +9437,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       return;
     }
     const start = this.projectArenaPoint(projectile.startX, projectile.startY);
-    if (projectile.thrownWeapon) {
-      this.drawThrownWeapon(ctx, projectile, start, point);
-      return;
-    }
     const missileId = projectile.missileId ?? ATTACK_KIND_MISSILE_OVERLAYS[projectile.kind];
+    const sourceOnlyArt = projectile.sourceOnlyArt === true;
     if (projectile.teethFan !== undefined) {
       this.drawBoneTooth(ctx, point, start, projectile);
       return;
@@ -9195,15 +9453,15 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (this.isMissileFrameReady(overlay)) {
       const upright = UPRIGHT_MISSILES.has(missileId);
       const isBoulder = missileId === BOULDER_MISSILE_ID;
-      const direction = upright
+      // The hammer cels already show its rotation; a travel-vector rotation here
+      // would spin the sprite a second time.
+      const direction = upright || projectile.blessedHammer
         ? 0
         : Math.atan2(point.y - start.y, point.x - start.x)
           + (MISSILE_SPRITE_ORIENTATIONS[missileId] ?? 0);
       const imageWidthNatural = overlay instanceof HTMLImageElement ? overlay.naturalWidth : overlay.width;
       const imageHeightNatural = overlay instanceof HTMLImageElement ? overlay.naturalHeight : overlay.height;
-      const maxFrameSize = FIRE_ARROW_EFFECT_IDS.has(missileId)
-        ? 18
-        : ["fireball", "bloodcomet"].includes(missileId) ? 36 : 28;
+      const maxFrameSize = ["fireball", "bloodcomet"].includes(missileId) ? 36 : 28;
       const dpr = this.arenaRef?.nativeElement.clientWidth
         ? this.arenaRef.nativeElement.width / this.arenaRef.nativeElement.clientWidth
         : 1;
@@ -9229,7 +9487,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       // Faint previous DCC cels leave a short afterimage so the cast reads as a
       // moving, animated missile rather than a single icon sliding across the map.
       // A boulder should roll as one heavy object, not leave ghost rocks behind it.
-      if (!upright && !isBoulder && overlays?.length && this.attackProjectiles.length <= MISSILE_TRAIL_CEL_LIMIT) {
+      // Amazon missiles are drawn from their source cels only, with no ghosts.
+      if (!sourceOnlyArt && !upright && !isBoulder && !projectile.blessedHammer && overlays?.length && this.attackProjectiles.length <= MISSILE_TRAIL_CEL_LIMIT) {
         for (const trail of [1, 2]) {
           const trailAge = Math.max(0, renderAge - trail * 0.085);
           const trailFrameIndex = Math.floor(trailAge * 1000 / frameDuration) % overlays.length;
@@ -9247,20 +9506,17 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       // Charged Bolt fans several overlapping bolts; additive blending turns their
       // transparent cyan edges into a bright opaque-looking square at the origin.
       ctx.globalCompositeOperation = "source-over";
-      if (this.attackProjectiles.length <= MISSILE_GLOW_LIMIT) {
+      if (!sourceOnlyArt && this.attackProjectiles.length <= MISSILE_GLOW_LIMIT) {
         ctx.shadowColor = projectile.color;
         ctx.shadowBlur = 2;
-      }
-      if (FIRE_ARROW_EFFECT_IDS.has(missileId)) {
-        // The original FireArrow DCC animates the flame/arrowhead only; pair it
-        // with a small shaft so the projectile reads as an arrow in motion.
-        ctx.fillStyle = "#a66a24";
-        ctx.fillRect(-imageWidth * 0.78, -imageHeight * 0.035, imageWidth * 0.62, Math.max(1, imageHeight * 0.07));
       }
       ctx.drawImage(overlay, -imageWidth / 2, spriteY, imageWidth, imageHeight);
       ctx.restore();
       return;
     }
+    // Never replace missing source art with a drawn streak or dot for these
+    // attacks; a blank frame is preferable to fake missile art.
+    if (sourceOnlyArt) return;
     ctx.save();
     ctx.strokeStyle = projectile.color;
     ctx.fillStyle = projectile.color;
@@ -9275,83 +9531,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       ctx.beginPath(); ctx.moveTo(point.x - 5, point.y - 12); ctx.lineTo(point.x + 5, point.y - 4); ctx.stroke();
     } else {
       ctx.beginPath(); ctx.arc(point.x, point.y - 8, projectile.radius, 0, Math.PI * 2); ctx.fill();
-    }
-    ctx.restore();
-  }
-
-  private drawThrownWeapon(
-    ctx: CanvasRenderingContext2D,
-    projectile: AttackProjectile,
-    start: { x: number; y: number },
-    point: { x: number; y: number },
-  ): void {
-    const kind = projectile.thrownWeapon;
-    if (!kind) return;
-    const direction = Math.atan2(point.y - start.y, point.x - start.x);
-    const scale = this.worldZoom;
-    const metal = "#c8d3df";
-    const wood = "#8a5a32";
-    ctx.save();
-    ctx.translate(point.x, point.y - 8);
-    ctx.rotate(direction);
-    ctx.lineCap = "round";
-    ctx.shadowColor = projectile.color;
-    ctx.shadowBlur = 8;
-    if (kind === "axe") {
-      ctx.rotate(projectile.age * 17);
-      ctx.strokeStyle = wood;
-      ctx.lineWidth = Math.max(1.4, 1.8 * scale);
-      ctx.beginPath();
-      ctx.moveTo(-6 * scale, 0);
-      ctx.lineTo(5 * scale, 0);
-      ctx.stroke();
-      ctx.fillStyle = metal;
-      ctx.beginPath();
-      ctx.moveTo(2 * scale, -4.5 * scale);
-      ctx.lineTo(7 * scale, -1.2 * scale);
-      ctx.lineTo(7 * scale, 1.2 * scale);
-      ctx.lineTo(2 * scale, 4.5 * scale);
-      ctx.closePath();
-      ctx.fill();
-    } else if (kind === "javelin") {
-      ctx.strokeStyle = wood;
-      ctx.lineWidth = Math.max(1.4, 1.6 * scale);
-      ctx.beginPath();
-      ctx.moveTo(-8 * scale, 0);
-      ctx.lineTo(6 * scale, 0);
-      ctx.stroke();
-      ctx.fillStyle = metal;
-      ctx.beginPath();
-      ctx.moveTo(8 * scale, 0);
-      ctx.lineTo(4.5 * scale, -2.2 * scale);
-      ctx.lineTo(4.5 * scale, 2.2 * scale);
-      ctx.closePath();
-      ctx.fill();
-      ctx.strokeStyle = projectile.color;
-      ctx.lineWidth = Math.max(1, 1.2 * scale);
-      for (const angle of [-0.5, 0.5]) {
-        ctx.beginPath();
-        ctx.moveTo(-8 * scale, 0);
-        ctx.lineTo(-5.5 * scale, Math.sin(angle) * 2.6 * scale);
-        ctx.stroke();
-      }
-    } else {
-      // Throwing knives and glaives tumble end-over-end in flight.
-      ctx.rotate(projectile.age * (kind === "glaive" ? 11 : 19));
-      ctx.fillStyle = metal;
-      ctx.beginPath();
-      ctx.moveTo(-5 * scale, 0);
-      ctx.quadraticCurveTo(0, -2.4 * scale, 6 * scale, -0.6 * scale);
-      ctx.lineTo(6 * scale, 0.6 * scale);
-      ctx.quadraticCurveTo(0, 2.4 * scale, -5 * scale, 0);
-      ctx.closePath();
-      ctx.fill();
-      ctx.strokeStyle = wood;
-      ctx.lineWidth = Math.max(1, 1.2 * scale);
-      ctx.beginPath();
-      ctx.moveTo(-6 * scale, 0);
-      ctx.lineTo(-3 * scale, 0);
-      ctx.stroke();
     }
     ctx.restore();
   }
@@ -9464,6 +9643,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.playerAttackLockRemaining = 0;
     this.playerLeapRemaining = 0;
     this.playerLeapLift = 0;
+    this.resetChargeState();
+    this.playerChilledRemaining = 0;
+    this.playerBonePrisonRemaining = 0;
+    this.diabloThunderEffects.length = 0;
+    this.baalTentacleEffects.length = 0;
+    this.baalWaveEffects.length = 0;
     this.leapDustEffects.length = 0;
     this.attackSequence = 0;
     this.attackProjectiles = [];
@@ -9602,8 +9787,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.combatOrbsTime = Math.max(0, this.combatOrbsTime - dt / 1000);
     this.attackCooldown = Math.max(0, this.attackCooldown - dt / 1000);
     this.playerAttackLockRemaining = Math.max(0, this.playerAttackLockRemaining - dt / 1000);
+    this.playerChilledRemaining = Math.max(0, this.playerChilledRemaining - dt / 1000);
+    this.playerBonePrisonRemaining = Math.max(0, this.playerBonePrisonRemaining - dt / 1000);
 
     this.movePlayer(dt);
+    this.updatePlayerCharge(dt);
     this.updatePlayerLeap(dt);
     this.updateAct1InteriorState();
 
@@ -9618,6 +9806,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
     this.updateSummonAttacks(dt);
     this.updateEnemies(dt);
+    this.updateDiabloThunderEffects(dt / 1000);
+    this.updateBaalEffects(dt / 1000);
     this.updateChests(dt);
     this.updatePotionDrops(dt);
     this.updateGoldDrops(dt);
@@ -9631,6 +9821,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   movePlayer(dt: number): void {
+    if (this.playerChargeRemaining > 0) {
+      // Charge owns world movement until its shield bash lands.
+      this.playerMoveX = 0;
+      this.playerMoveY = 0;
+      this.isPlayerMoving = true;
+      return;
+    }
     // Channels are a planted stance. A movement command breaks the channel
     // immediately so the player can walk out of the cast.
     if (this.playerRunning || this.clickMoveTarget) this.cancelChannelingSpells();
@@ -9640,9 +9837,17 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.isPlayerMoving = false;
       return;
     }
+    if (this.playerBonePrisonRemaining > 0) {
+      // Diablo's Bone Prison pins the hero until the bones crumble.
+      this.playerMoveX = 0;
+      this.playerMoveY = 0;
+      this.isPlayerMoving = false;
+      return;
+    }
     const vigorRank = this.activePaladinAuraRank(["Vigor"]);
     const gearSpeed = 1 + Math.min(100, this.equippedMovementSpeedPercent) / 100;
-    const speed = 220 * (vigorRank > 0 ? 1 + vigorRank * 0.035 : 1) * gearSpeed / this.worldZoom;
+    const chillSpeed = this.playerChilledRemaining > 0 ? PLAYER_CHILL_SPEED_MULTIPLIER : 1;
+    const speed = 220 * (vigorRank > 0 ? 1 + vigorRank * 0.035 : 1) * gearSpeed * chillSpeed / this.worldZoom;
 
 
     const move = speed * (dt / 1000);
@@ -9673,7 +9878,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const targetDx = clickedTarget.x - this.playerX;
       const targetDy = clickedTarget.y - this.playerY;
       const targetDistance = Math.hypot(targetDx, targetDy) || 1;
-      const stopDistance = this.thrownWeaponKind ? this.thrownWeaponRange - 8 : clickedTarget.r + 24;
+      const rangedRange = this.rangedBasicAttackRange;
+      const stopDistance = rangedRange > 0 ? rangedRange - 8 : clickedTarget.r + 24;
       const step = Math.max(0, Math.min(move, targetDistance - stopDistance));
       dx = targetDx / targetDistance * step;
       dy = targetDy / targetDistance * step;
@@ -9872,6 +10078,24 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     for (const dust of this.leapDustEffects) {
       dust.x += offsetX;
       dust.y += offsetY;
+    }
+    for (const effect of this.diabloThunderEffects) {
+      effect.x += offsetX;
+      effect.y += offsetY;
+    }
+    for (const effect of this.baalTentacleEffects) {
+      for (const tentacle of effect.tentacles) {
+        tentacle.x += offsetX;
+        tentacle.y += offsetY;
+      }
+    }
+    for (const effect of this.baalWaveEffects) {
+      effect.x += offsetX;
+      effect.y += offsetY;
+    }
+    if (this.playerBonePrisonRemaining > 0) {
+      this.playerBonePrisonX += offsetX;
+      this.playerBonePrisonY += offsetY;
     }
   }
 
@@ -10129,6 +10353,112 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     return frontTarget ?? rearTarget;
   }
 
+  /** Run at the target with the shield up, then bash the arc ahead. */
+  private startCharge(): void {
+    if (this.playerChargeRemaining > 0 || this.playerLeapRemaining > 0 || this.playerBonePrisonRemaining > 0) return;
+    const clicked = this.clickMoveTarget;
+    const target = clicked && clicked.hp > 0 && !clicked.summonType
+      ? clicked
+      : this.enemies
+        .filter((enemy) => enemy.hp > 0 && !enemy.summonType)
+        .sort((a, b) => Math.hypot(a.x - this.playerX, a.y - this.playerY) - Math.hypot(b.x - this.playerX, b.y - this.playerY))[0];
+    if (!target) return;
+    this.cancelChannelingSpells();
+    const dx = target.x - this.playerX;
+    const dy = target.y - this.playerY;
+    const distance = Math.hypot(dx, dy);
+    const directionX = distance > 0.001 ? dx / distance : this.playerFacingX;
+    const directionY = distance > 0.001 ? dy / distance : this.playerFacingY;
+    const rank = Math.max(1, this.skillLevels["Charge"] ?? 1);
+    this.playerFacingX = directionX;
+    this.playerFacingY = directionY;
+    this.playerChargeDirectionX = directionX;
+    this.playerChargeDirectionY = directionY;
+    this.playerChargeDistance = Math.max(0, distance - target.r - CHARGE_STOP_PADDING);
+    this.playerChargeDistanceApplied = 0;
+    this.playerChargeDuration = Math.max(CHARGE_MIN_DURATION, this.playerChargeDistance / CHARGE_SPEED);
+    this.playerChargeRemaining = this.playerChargeDuration;
+    this.playerChargeDamage = this.applyPaladinAuraDamage(this.basicAttackDamage * CHARGE_DAMAGE_MULTIPLIER + (rank - 1) * 3);
+    this.playerChargeStunSeconds = this.chargeStunSecondsForRank(rank);
+    this.playerChargeImpactRadius = this.chargeImpactRadiusForRank(rank);
+    this.clickMoveTarget = null;
+    this.playerAttackLockRemaining = 0;
+    this.attackAnimationTime = Number.POSITIVE_INFINITY;
+    this.isPlayerMoving = true;
+    this.playerMoveX = directionX;
+    this.playerMoveY = directionY;
+    this.addLeapDust(this.playerX, this.playerY, 0.7);
+    this.skillCastCooldowns["Charge"] = this.getSkillCastInterval("Charge");
+  }
+
+  /** Advance the charge at a fixed run speed, then resolve the shield bash. */
+  private updatePlayerCharge(dt: number): void {
+    if (!(this.playerChargeRemaining > 0)) return;
+    const seconds = Math.max(0, dt / 1000);
+    this.playerChargeRemaining = Math.max(0, this.playerChargeRemaining - seconds);
+    const remainingDistance = Math.max(0, this.playerChargeDistance - this.playerChargeDistanceApplied);
+    const step = Math.min(remainingDistance, CHARGE_SPEED * seconds);
+    if (step > 0) {
+      this.shiftWorldBy(this.playerChargeDirectionX * step, this.playerChargeDirectionY * step);
+      this.playerChargeDistanceApplied += step;
+      this.playerMoveX = this.playerChargeDirectionX * step;
+      this.playerMoveY = this.playerChargeDirectionY * step;
+      this.isPlayerMoving = true;
+    }
+    if (this.playerChargeRemaining > 0 && this.playerChargeDistanceApplied < this.playerChargeDistance) return;
+    const leftover = this.playerChargeDistance - this.playerChargeDistanceApplied;
+    if (leftover > 0.001) {
+      this.shiftWorldBy(this.playerChargeDirectionX * leftover, this.playerChargeDirectionY * leftover);
+      this.playerChargeDistanceApplied = this.playerChargeDistance;
+    }
+    this.playerChargeRemaining = 0;
+    this.playerMoveX = 0;
+    this.playerMoveY = 0;
+    this.isPlayerMoving = false;
+    this.resolveChargeImpact();
+  }
+
+  /** Shield bash: damage plus a short stun in a small arc in front. */
+  private resolveChargeImpact(): void {
+    const radius = this.playerChargeImpactRadius;
+    this.rebuildEnemyGrid();
+    for (const enemy of this.collectEnemiesNear(this.playerX, this.playerY, radius + 96)) {
+      if (enemy.hp <= 0 || enemy.summonType) continue;
+      const dx = enemy.x - this.playerX;
+      const dy = enemy.y - this.playerY;
+      const distance = Math.hypot(dx, dy) || 1;
+      if (distance > radius + enemy.r) continue;
+      const forward = (dx / distance) * this.playerChargeDirectionX + (dy / distance) * this.playerChargeDirectionY;
+      if (forward < CHARGE_FRONT_DOT) continue;
+      if (!enemy.campaignBoss) {
+        this.applyEnemyStun(enemy, this.playerChargeStunSeconds);
+        this.floatingTexts.push({ x: enemy.x, y: enemy.y - enemy.r - 6, text: "STUN", color: "#ffe27a", life: 0.7 });
+      }
+      this.queueEnemyDamage(enemy, this.playerChargeDamage, "#fff0a8");
+    }
+    this.addLeapDust(this.playerX, this.playerY, 1.1);
+    this.triggerAttackAnimation("paladinStrike");
+    this.attackCooldown = Math.max(this.attackCooldown, this.playerAttackLockRemaining);
+  }
+
+  private chargeImpactRadiusForRank(rank: number): number {
+    return CHARGE_BASE_IMPACT_RADIUS + Math.max(0, rank - 1) * CHARGE_IMPACT_RADIUS_PER_RANK;
+  }
+
+  private chargeStunSecondsForRank(rank: number): number {
+    return Math.min(CHARGE_MAX_STUN_SECONDS, CHARGE_BASE_STUN_SECONDS + Math.max(0, rank - 1) * CHARGE_STUN_SECONDS_PER_RANK);
+  }
+
+  private resetChargeState(): void {
+    this.playerChargeRemaining = 0;
+    this.playerChargeDuration = 0;
+    this.playerChargeDistance = 0;
+    this.playerChargeDistanceApplied = 0;
+    this.playerChargeDamage = 0;
+    this.playerChargeStunSeconds = 0;
+    this.playerChargeImpactRadius = 0;
+  }
+
   private startLeap(): void {
     if (this.playerLeapRemaining > 0) return;
     const target = this.findLeapTarget();
@@ -10274,6 +10604,250 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   private enemyMoveSpeed(enemy: Enemy): number {
     return enemy.speed * ((enemy.coldRemaining ?? 0) > 0 ? COLD_SLOW_SPEED_MULTIPLIER : 1);
+  }
+
+  private diabloIcePunch(enemy: Enemy): void {
+    const damage = enemy.dmg * DIABLO_ICE_PUNCH_DAMAGE_MULTIPLIER;
+    enemy.animationState = "attack";
+    enemy.attackAnimationTime = 0.55;
+    enemy.cd = DIABLO_PUNCH_COOLDOWN;
+    this.playerHp -= this.applyIncomingDamage(damage, enemy);
+    if (this.playerLeapRemaining <= 0) this.playerChilledRemaining = DIABLO_PLAYER_CHILL_SECONDS;
+    this.floatingTexts.push({
+      x: this.playerX,
+      y: this.playerY - 34,
+      text: "ICE PUNCH",
+      color: "#9bdcff",
+      life: 0.9,
+    });
+  }
+
+  private castDiabloThunder(enemy: Enemy): void {
+    const rawX = this.playerX - enemy.x;
+    const rawY = this.playerY - enemy.y;
+    const distance = Math.hypot(rawX, rawY) || 1;
+    const dirX = rawX / distance;
+    const dirY = rawY / distance;
+    enemy.animationState = "attack";
+    enemy.attackAnimationTime = DIABLO_THUNDER_DURATION;
+    enemy.cd = DIABLO_SPELL_COOLDOWN;
+    enemy.diabloChannelRemaining = DIABLO_THUNDER_DURATION;
+    this.diabloThunderEffects.push({
+      source: enemy,
+      x: enemy.x,
+      y: enemy.y,
+      dirX,
+      dirY,
+      length: Math.max(180, Math.min(DIABLO_BONE_PRISON_RANGE, distance + 80)),
+      time: 0,
+      duration: DIABLO_THUNDER_DURATION,
+      tickRemaining: 0,
+      tickInterval: DIABLO_THUNDER_TICK_INTERVAL,
+      damage: Math.max(1, enemy.dmg * DIABLO_THUNDER_DAMAGE_MULTIPLIER),
+      seed: Math.random() * 1000,
+    });
+    this.floatingTexts.push({
+      x: enemy.x,
+      y: enemy.y - enemy.r - 12,
+      text: "THUNDER INFERNO",
+      color: "#ff8a63",
+      life: 1.1,
+    });
+  }
+
+  private castDiabloBonePrison(enemy: Enemy): void {
+    enemy.animationState = "attack";
+    enemy.attackAnimationTime = 0.48;
+    enemy.cd = DIABLO_PRISON_COOLDOWN;
+    this.cancelChannelingSpells();
+    this.playerBonePrisonRemaining = DIABLO_BONE_PRISON_SECONDS;
+    this.playerBonePrisonX = this.playerX;
+    this.playerBonePrisonY = this.playerY;
+    this.clickMoveTarget = null;
+    this.playerMoveX = 0;
+    this.playerMoveY = 0;
+    this.isPlayerMoving = false;
+    this.floatingTexts.push({
+      x: this.playerX,
+      y: this.playerY - 42,
+      text: "BONE PRISON",
+      color: "#e1d3b4",
+      life: 1.1,
+    });
+  }
+
+  private updateDiabloThunderEffects(seconds: number): void {
+    for (let index = this.diabloThunderEffects.length - 1; index >= 0; index -= 1) {
+      const effect = this.diabloThunderEffects[index];
+      effect.time += seconds;
+      effect.tickRemaining -= seconds;
+      const source = effect.source;
+      if (!source || source.hp <= 0) {
+        if (source) source.diabloChannelRemaining = 0;
+        this.diabloThunderEffects.splice(index, 1);
+        continue;
+      }
+      source.diabloChannelRemaining = Math.max(0, effect.duration - effect.time);
+      while (effect.tickRemaining <= 0 && effect.time < effect.duration) {
+        const dx = this.playerX - effect.x;
+        const dy = this.playerY - effect.y;
+        const along = dx * effect.dirX + dy * effect.dirY;
+        const offAxis = Math.abs(dx * effect.dirY - dy * effect.dirX);
+        if (along >= 0 && along <= effect.length && offAxis <= DIABLO_THUNDER_HALF_WIDTH && this.playerLeapRemaining <= 0) {
+          this.playerHp -= this.applyIncomingDamage(effect.damage, source);
+        }
+        effect.tickRemaining += effect.tickInterval;
+      }
+      if (effect.time >= effect.duration) {
+        source.diabloChannelRemaining = 0;
+        this.diabloThunderEffects.splice(index, 1);
+      }
+    }
+  }
+
+  private castBaalTentacles(enemy: Enemy): void {
+    const dx = this.playerX - enemy.x;
+    const dy = this.playerY - enemy.y;
+    const distance = Math.hypot(dx, dy) || 1;
+    const perpX = -dy / distance;
+    const perpY = dx / distance;
+    const offsets = [
+      { offset: -BAAL_TENTACLE_SPREAD, delay: 0.62 },
+      { offset: 0, delay: 0.42 },
+      { offset: BAAL_TENTACLE_SPREAD, delay: 0.62 },
+    ];
+    const edge = 28;
+    const tentacles: BaalTentacleStrike[] = offsets.map(({ offset, delay }) => ({
+      x: Math.max(edge, Math.min(this.arenaW - edge, this.playerX + perpX * offset)),
+      y: Math.max(edge, Math.min(this.arenaH - edge, this.playerY + perpY * offset)),
+      delay,
+      struck: false,
+      seed: Math.random() * Math.PI * 2,
+    }));
+    enemy.animationState = "attack";
+    enemy.attackAnimationTime = 0.9;
+    enemy.cd = BAAL_TENTACLE_COOLDOWN;
+    this.baalTentacleEffects.push({
+      source: enemy,
+      time: 0,
+      duration: BAAL_TENTACLE_DURATION,
+      tentacles,
+    });
+    this.floatingTexts.push({
+      x: enemy.x,
+      y: enemy.y - enemy.r - 12,
+      text: "FESTERING APPENDAGES",
+      color: "#9ad7a8",
+      life: 1.1,
+    });
+  }
+
+  private castBaalWave(enemy: Enemy): void {
+    const rawX = this.playerX - enemy.x;
+    const rawY = this.playerY - enemy.y;
+    const distance = Math.hypot(rawX, rawY) || 1;
+    enemy.animationState = "attack";
+    enemy.attackAnimationTime = 0.72;
+    enemy.cd = BAAL_WAVE_COOLDOWN;
+    this.baalWaveEffects.push({
+      source: enemy,
+      x: enemy.x,
+      y: enemy.y,
+      dirX: rawX / distance,
+      dirY: rawY / distance,
+      time: 0,
+      duration: BAAL_WAVE_DURATION,
+      speed: BAAL_WAVE_SPEED,
+      maxDistance: Math.max(BAAL_WAVE_RANGE, distance + 60),
+      halfWidth: BAAL_WAVE_HALF_WIDTH,
+      damage: enemy.dmg * BAAL_WAVE_DAMAGE_MULTIPLIER,
+      hit: false,
+      seed: Math.random() * Math.PI * 2,
+    });
+    this.floatingTexts.push({
+      x: enemy.x,
+      y: enemy.y - enemy.r - 12,
+      text: "WAVE OF ENERGY",
+      color: "#8fe8ff",
+      life: 1.1,
+    });
+  }
+
+  private castMephistoLightningBall(enemy: Enemy, targetX: number, targetY: number, target: Enemy | undefined): void {
+    const distance = Math.hypot(targetX - enemy.x, targetY - enemy.y) || 1;
+    enemy.animationState = "attack";
+    enemy.attackAnimationTime = 0.55;
+    enemy.cd = MEPHISTO_LIGHTNING_COOLDOWN;
+    this.attackProjectiles.push({
+      x: enemy.x,
+      y: enemy.y,
+      startX: enemy.x,
+      startY: enemy.y,
+      targetX,
+      targetY,
+      target,
+      source: enemy,
+      targetPlayer: !target,
+      speed: MEPHISTO_LIGHTNING_SPEED,
+      damage: enemy.dmg,
+      // Projectile travel is divided by the isometric zoom, so budget enough
+      // lifetime for the orb to cross the full cast distance at that scale.
+      life: Math.max(1, distance * this.worldZoom / MEPHISTO_LIGHTNING_SPEED + 0.8),
+      age: 0,
+      radius: 10,
+      color: "#8fe0ff",
+      kind: "lightning",
+      // Mephisto's own D2 orb, not a generic lightning bolt.
+      missileId: "d2-mephistomissile",
+    });
+  }
+
+  private updateBaalEffects(seconds: number): void {
+    for (let index = this.baalTentacleEffects.length - 1; index >= 0; index -= 1) {
+      const effect = this.baalTentacleEffects[index];
+      if (effect.source.hp <= 0) {
+        this.baalTentacleEffects.splice(index, 1);
+        continue;
+      }
+      effect.time += seconds;
+      for (const tentacle of effect.tentacles) {
+        if (tentacle.struck || effect.time < tentacle.delay) continue;
+        tentacle.struck = true;
+        if (this.playerLeapRemaining > 0) continue;
+        if (Math.hypot(this.playerX - tentacle.x, this.playerY - tentacle.y) > BAAL_TENTACLE_RADIUS) continue;
+        this.playerHp -= this.applyIncomingDamage(
+          effect.source.dmg * BAAL_TENTACLE_DAMAGE_MULTIPLIER,
+          effect.source,
+        );
+      }
+      if (effect.time >= effect.duration) this.baalTentacleEffects.splice(index, 1);
+    }
+
+    for (let index = this.baalWaveEffects.length - 1; index >= 0; index -= 1) {
+      const effect = this.baalWaveEffects[index];
+      if (effect.source.hp <= 0) {
+        this.baalWaveEffects.splice(index, 1);
+        continue;
+      }
+      const previousTravel = Math.min(effect.maxDistance, effect.time * effect.speed);
+      effect.time += seconds;
+      const traveled = Math.min(effect.maxDistance, effect.time * effect.speed);
+      if (!effect.hit && this.playerLeapRemaining <= 0) {
+        const dx = this.playerX - effect.x;
+        const dy = this.playerY - effect.y;
+        const along = dx * effect.dirX + dy * effect.dirY;
+        const offAxis = Math.abs(dx * effect.dirY - dy * effect.dirX);
+        if (
+          along >= previousTravel - effect.halfWidth
+          && along <= traveled + effect.halfWidth
+          && offAxis <= effect.halfWidth
+        ) {
+          effect.hit = true;
+          this.playerHp -= this.applyIncomingDamage(effect.damage, effect.source);
+        }
+      }
+      if (effect.time >= effect.duration) this.baalWaveEffects.splice(index, 1);
+    }
   }
 
   updateEnemies(dt: number): void {
@@ -10485,7 +11059,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         summonDistance = candidateDistance;
       }
       const playerDistance = Math.hypot(this.playerX - enemy.x, this.playerY - enemy.y);
-      let targetSummon = enemy.species !== "andariel" && nearestSummon && summonDistance < playerDistance ? nearestSummon : undefined;
+      // Diablo and Baal are duels: their abilities always target the hero, never a pet.
+      let targetSummon = enemy.species !== "andariel" && enemy.species !== "diablo" && enemy.species !== "baal" && nearestSummon && summonDistance < playerDistance ? nearestSummon : undefined;
       if (enemy.curseName === "Confuse") {
         // Confused monsters lose track of the hero and turn on each other: the
         // nearest other monster replaces the player as the target, so the chase,
@@ -10512,10 +11087,22 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const isFetishShaman = enemy.species === "fetishShaman";
       const isSpikeFiend = enemy.species === "spikeFiend";
       const isAndariel = enemy.species === "andariel";
+      const isDiablo = enemy.species === "diablo";
+      const isBaal = enemy.species === "baal";
+      const isMephisto = enemy.species === "mephisto";
       const andarielMeleeRange = enemy.r + 18 + 8;
+      const diabloMeleeRange = enemy.r + 18 + 8;
+      const baalMeleeRange = enemy.r + 18 + 10;
+      const diabloChanneling = (enemy.diabloChannelRemaining ?? 0) > 0;
       const attackRange = isAndariel
         ? distance <= andarielMeleeRange ? andarielMeleeRange : 260
-        : isFetishShaman
+        : isDiablo
+          ? diabloChanneling ? Number.POSITIVE_INFINITY : diabloMeleeRange
+          : isBaal
+            ? baalMeleeRange
+            : isMephisto
+              ? MEPHISTO_LIGHTNING_RANGE
+              : isFetishShaman
             ? 115 + (targetSummon?.r ?? 18)
             : isSpikeFiend
               // Spike fiends hold their distance and volley quills down range.
@@ -10548,6 +11135,44 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         enemy.y = nextEnemyY;
       }
       const distanceAfterMoving = Math.hypot(targetX - enemy.x, targetY - enemy.y);
+      if (isDiablo) {
+        if (diabloChanneling) {
+          // Thunder Inferno is a committed channel: Diablo stands still and the
+          // beam keeps its original direction, so the hero can sidestep it.
+          enemy.animationState = "attack";
+          continue;
+        }
+        if ((enemy.cd ?? 0) <= 0 && (enemy.attackAnimationTime ?? 0) <= 0) {
+          if (distanceAfterMoving <= diabloMeleeRange) {
+            this.diabloIcePunch(enemy);
+          } else if (distanceAfterMoving <= DIABLO_BONE_PRISON_RANGE) {
+            const cycle = enemy.diabloSpellCycle ?? 0;
+            const castPrison = distanceAfterMoving > DIABLO_THUNDER_RANGE
+              || (cycle % 2 === 1 && this.playerBonePrisonRemaining <= 0);
+            if (castPrison) this.castDiabloBonePrison(enemy);
+            else this.castDiabloThunder(enemy);
+            enemy.diabloSpellCycle = cycle + 1;
+          }
+        }
+        continue;
+      }
+      if (isBaal) {
+        if ((enemy.cd ?? 0) <= 0 && (enemy.attackAnimationTime ?? 0) <= 0 && distanceAfterMoving <= BAAL_SPELL_RANGE) {
+          const cycle = enemy.baalSpellCycle ?? 0;
+          const castWave = distanceAfterMoving > BAAL_TENTACLE_RANGE && cycle % 2 === 1;
+          if (castWave) this.castBaalWave(enemy);
+          else this.castBaalTentacles(enemy);
+          enemy.baalSpellCycle = cycle + 1;
+        }
+        continue;
+      }
+      if (isMephisto) {
+        if ((enemy.cd ?? 0) <= 0 && (enemy.attackAnimationTime ?? 0) <= 0
+          && distanceAfterMoving <= MEPHISTO_LIGHTNING_RANGE) {
+          this.castMephistoLightningBall(enemy, targetX, targetY, targetSummon);
+        }
+        continue;
+      }
       if (isAndariel) {
         if (distanceAfterMoving <= attackRange && (enemy.cd === undefined || enemy.cd <= 0)) {
           enemy.animationState = "attack";
@@ -10598,7 +11223,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
             targetPlayer: !targetSummon,
             speed: 235, damage: enemy.dmg,
             life: Math.max(1, distanceAfterMoving / 235 + 0.8), age: 0,
-            radius: 7, color: "#ff7433", kind: "fire", missileId: "d2-fireball",
+            radius: 7, color: "#ff7433", kind: "fire", missileId: "d2-shamanfireball",
           });
           enemy.cd = enemy.kind === "boss" ? 1.2 : enemy.kind === "champion" ? 1.35 : 1.55;
         }
@@ -10616,7 +11241,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
             targetPlayer: !targetSummon,
             speed: 340, damage: enemy.dmg,
             life: Math.max(1, distanceAfterMoving / 340 + 0.8), age: 0,
-            radius: 4, color: "#d8e2b4", kind: "arrow", missileId: "5",
+            radius: 4, color: "#d8e2b4", kind: "arrow", missileId: "d2-spikefiendmissle",
+            // Draw the quill cel itself: no spell glow, ghost trail or glowing
+            // fallback that makes the spine read like a fireball.
+            sourceOnlyArt: true,
           });
           enemy.cd = enemy.kind === "boss" ? 1.15 : enemy.kind === "champion" ? 1.25 : 1.45;
         }
@@ -11365,6 +11993,63 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
   }
 
+  /** Blessed Hammer is a physical spiral, not a targeted bolt. */
+  private castBlessedHammer(): void {
+    const rank = Math.max(1, this.skillLevels["Blessed Hammer"] ?? 1);
+    const damage = this.applyPaladinAuraDamage(this.basicAttackDamage * 1.5 + (rank - 1) * 3);
+    const angle = Math.atan2(this.playerFacingY, this.playerFacingX) - Math.PI / 2;
+    const radius = BLESSED_HAMMER_START_RADIUS;
+    const x = this.playerX + Math.cos(angle) * radius;
+    const y = this.playerY - BLESSED_HAMMER_BODY_OFFSET + Math.sin(angle) * radius;
+    this.attackProjectiles.push({
+      x, y, startX: x, startY: y, targetX: x, targetY: y,
+      speed: 0, damage, life: BLESSED_HAMMER_LIFETIME, age: 0,
+      radius: 10, color: "#ffe7a3", kind: "holy", missileId: "d2-blessedhammer",
+      blessedHammer: true,
+      blessedHammerAngle: angle,
+      blessedHammerRadius: radius,
+      blessedHammerHitEnemies: [],
+    });
+  }
+
+  private updateBlessedHammer(projectile: AttackProjectile, seconds: number): void {
+    projectile.age += seconds;
+    projectile.life -= seconds;
+    const previousX = projectile.x;
+    const previousY = projectile.y;
+    const angle = (projectile.blessedHammerAngle ?? 0) + BLESSED_HAMMER_ANGULAR_SPEED * seconds;
+    const radius = Math.min(
+      BLESSED_HAMMER_MAX_RADIUS,
+      (projectile.blessedHammerRadius ?? BLESSED_HAMMER_START_RADIUS) + BLESSED_HAMMER_OUTWARD_SPEED * seconds,
+    );
+    projectile.blessedHammerAngle = angle;
+    projectile.blessedHammerRadius = radius;
+    projectile.x = this.playerX + Math.cos(angle) * radius;
+    projectile.y = this.playerY - BLESSED_HAMMER_BODY_OFFSET + Math.sin(angle) * radius;
+    projectile.targetX = projectile.x;
+    projectile.targetY = projectile.y;
+
+    const hitEnemies = projectile.blessedHammerHitEnemies ?? (projectile.blessedHammerHitEnemies = []);
+    const segmentX = projectile.x - previousX;
+    const segmentY = projectile.y - previousY;
+    const segmentLengthSquared = segmentX * segmentX + segmentY * segmentY;
+    for (const enemy of this.collectEnemiesNear(projectile.x, projectile.y, projectile.radius + 120)) {
+      if (enemy.hp <= 0 || enemy.summonType || hitEnemies.includes(enemy)) continue;
+      const relativeX = enemy.x - previousX;
+      const relativeY = enemy.y - previousY;
+      const along = segmentLengthSquared > 0
+        ? Math.max(0, Math.min(1, (relativeX * segmentX + relativeY * segmentY) / segmentLengthSquared))
+        : 0;
+      const closestX = previousX + segmentX * along;
+      const closestY = previousY + segmentY * along;
+      if (Math.hypot(enemy.x - closestX, enemy.y - closestY) > enemy.r + projectile.radius) continue;
+      hitEnemies.push(enemy);
+      this.queueEnemyDamage(enemy, projectile.damage, projectile.color, this.damageTypeForProjectile(projectile));
+    }
+
+    if (projectile.life <= 0 || radius >= BLESSED_HAMMER_MAX_RADIUS) projectile.life = 0;
+  }
+
   /** Frost Nova erupts around the caster, damaging every monster inside the ring. */
   private castFrostNova(rank: number, damage: number): void {
     const radius = FROST_NOVA_RADIUS + Math.max(0, rank - 1) * FROST_NOVA_RADIUS_PER_RANK;
@@ -12085,6 +12770,294 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (this.runActive) this.drawArmorAura(ctx);
     if (this.runActive && this.isBoneArmorActive()) this.drawBoneArmorAura(ctx, "front");
     if (this.runActive && this.isCycloneArmorActive()) this.drawCycloneArmorAura(ctx, "front");
+    this.drawDiabloEffects(ctx);
+    this.drawBaalEffects(ctx);
+  }
+
+  private drawDiabloEffects(ctx: CanvasRenderingContext2D): void {
+    if (!this.runActive) return;
+    const scale = this.projectionDpr || 1;
+    for (const effect of this.diabloThunderEffects) {
+      const start = this.projectArenaPoint(effect.x, effect.y - 24);
+      const end = this.projectArenaPoint(
+        effect.x + effect.dirX * effect.length,
+        effect.y + effect.dirY * effect.length - 8,
+      );
+      const dx = end.x - start.x;
+      const dy = end.y - start.y;
+      const screenLength = Math.hypot(dx, dy) || 1;
+      const nx = -dy / screenLength;
+      const ny = dx / screenLength;
+      const fade = Math.max(0, Math.min(1, effect.time * 12, (effect.duration - effect.time) * 12));
+      if (fade <= 0) continue;
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.lineCap = "round";
+      ctx.shadowColor = "#ff3217";
+      ctx.shadowBlur = 22 * scale;
+      // Three offset arcs make a hot white core inside a wide crimson discharge.
+      for (let layer = 0; layer < 3; layer += 1) {
+        ctx.beginPath();
+        ctx.moveTo(start.x, start.y);
+        const segments = 12;
+        for (let step = 1; step <= segments; step += 1) {
+          const t = step / segments;
+          const crackle = Math.sin(effect.seed + effect.time * 68 + step * 2.35 + layer * 1.91);
+          const offset = crackle * (2 + t * 12) * (1 - layer * 0.2);
+          ctx.lineTo(start.x + dx * t + nx * offset, start.y + dy * t + ny * offset);
+        }
+        ctx.globalAlpha = fade * (layer === 0 ? 0.95 : 0.38);
+        ctx.strokeStyle = layer === 0 ? "#fff4c4" : "#ff4a22";
+        ctx.lineWidth = (layer === 0 ? 2.5 : 7 - layer) * scale;
+        ctx.stroke();
+      }
+      // Sparks spit sideways from the beam and fade with the channel.
+      ctx.shadowBlur = 8 * scale;
+      for (let spark = 0; spark < 9; spark += 1) {
+        const t = ((spark * 0.137 + effect.time * 0.62) % 1);
+        const side = spark % 2 === 0 ? 1 : -1;
+        const flare = (8 + (spark % 4) * 5) * scale;
+        const x = start.x + dx * t + nx * flare * side;
+        const y = start.y + dy * t + ny * flare * side;
+        ctx.globalAlpha = fade * (0.25 + (spark % 3) * 0.18);
+        ctx.fillStyle = spark % 2 === 0 ? "#ffb15c" : "#ff3a1c";
+        ctx.beginPath();
+        ctx.arc(x, y, (1.2 + (spark % 3) * 0.7) * scale, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    if (this.playerBonePrisonRemaining > 0) {
+      const center = this.projectArenaPoint(this.playerBonePrisonX, this.playerBonePrisonY);
+      const edge = this.projectArenaPoint(this.playerBonePrisonX + 30, this.playerBonePrisonY);
+      const radius = Math.max(18, Math.hypot(edge.x - center.x, edge.y - center.y));
+      const fade = Math.min(1, this.playerBonePrisonRemaining / 0.45);
+      const height = Math.max(58 * scale, radius * 1.25);
+      ctx.save();
+      ctx.globalAlpha = fade;
+      ctx.lineCap = "round";
+      // A cracked bone ring on the floor.
+      ctx.strokeStyle = "rgba(206, 191, 157, 0.55)";
+      ctx.lineWidth = 3 * scale;
+      ctx.beginPath();
+      ctx.ellipse(center.x, center.y, radius, radius * 0.52, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.strokeStyle = "rgba(54, 43, 33, 0.85)";
+      ctx.lineWidth = 5 * scale;
+      for (let index = 0; index < 9; index += 1) {
+        const angle = index * (Math.PI * 2 / 9) + 0.18;
+        const base = this.projectArenaPoint(
+          this.playerBonePrisonX + Math.cos(angle) * 30,
+          this.playerBonePrisonY + Math.sin(angle) * 30,
+        );
+        const depth = Math.sin(angle);
+        const topX = base.x + Math.cos(angle) * 3 * scale;
+        const topY = base.y - height * (0.78 + (index % 3) * 0.11) + depth * 3 * scale;
+        ctx.beginPath();
+        ctx.moveTo(base.x, base.y);
+        ctx.quadraticCurveTo(
+          base.x + Math.cos(angle) * 8 * scale,
+          base.y - height * 0.55,
+          topX,
+          topY,
+        );
+        ctx.stroke();
+        // Knuckle and crown highlights make the ribs read as old bone.
+        ctx.strokeStyle = "rgba(228, 216, 187, 0.8)";
+        ctx.lineWidth = 1.5 * scale;
+        ctx.beginPath();
+        ctx.moveTo(base.x - 3 * scale, base.y - height * 0.5);
+        ctx.lineTo(base.x + 4 * scale, base.y - height * 0.52);
+        ctx.stroke();
+        ctx.fillStyle = "#d8c9a7";
+        ctx.beginPath();
+        ctx.arc(topX, topY, 2.8 * scale, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(54, 43, 33, 0.85)";
+        ctx.lineWidth = 5 * scale;
+      }
+      ctx.restore();
+    }
+
+    if (this.playerChilledRemaining > 0) {
+      const center = this.projectArenaPoint(this.playerX, this.playerY);
+      const radius = 30 * this.worldZoom * scale;
+      const pulse = 0.5 + Math.sin(this.runTime * 9) * 0.15;
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.globalAlpha = Math.min(0.7, this.playerChilledRemaining) * pulse;
+      ctx.strokeStyle = "#8fd6ff";
+      ctx.lineWidth = 3 * scale;
+      ctx.shadowColor = "#5fc8ff";
+      ctx.shadowBlur = 12 * scale;
+      ctx.beginPath();
+      ctx.ellipse(center.x, center.y, radius, radius * 0.4, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      for (let index = 0; index < 8; index += 1) {
+        const angle = index * (Math.PI * 2 / 8) + this.runTime * 0.6;
+        const shardX = center.x + Math.cos(angle) * radius * 0.78;
+        const shardY = center.y + Math.sin(angle) * radius * 0.3;
+        ctx.fillStyle = index % 2 === 0 ? "#d8f4ff" : "#79c8f5";
+        ctx.beginPath();
+        ctx.moveTo(shardX, shardY - 7 * scale);
+        ctx.lineTo(shardX + 3 * scale, shardY + 2 * scale);
+        ctx.lineTo(shardX - 3 * scale, shardY + 2 * scale);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+  }
+
+  private drawBaalEffects(ctx: CanvasRenderingContext2D): void {
+    if (!this.runActive) return;
+    const scale = this.projectionDpr || 1;
+    const worldScale = this.worldZoom * scale;
+
+    for (const effect of this.baalTentacleEffects) {
+      for (const tentacle of effect.tentacles) {
+        const ground = this.projectArenaPoint(tentacle.x, tentacle.y);
+        const edge = this.projectArenaPoint(tentacle.x + BAAL_TENTACLE_RADIUS, tentacle.y);
+        const radius = Math.max(10, Math.hypot(edge.x - ground.x, edge.y - ground.y));
+        if (effect.time < tentacle.delay) {
+          // Dark cracks warn exactly where each tentacle will break through.
+          const windup = effect.time / tentacle.delay;
+          const pulse = 0.55 + Math.sin(this.runTime * 20 + tentacle.seed) * 0.25;
+          ctx.save();
+          ctx.globalAlpha = 0.2 + windup * 0.55;
+          ctx.strokeStyle = "#77d59d";
+          ctx.lineWidth = 2.5 * scale;
+          ctx.setLineDash([5 * scale, 4 * scale]);
+          ctx.beginPath();
+          ctx.ellipse(ground.x, ground.y, radius, radius * 0.52, 0, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.globalAlpha = windup * pulse;
+          ctx.fillStyle = "#2e6f4b";
+          ctx.beginPath();
+          ctx.ellipse(ground.x, ground.y, radius * 0.62, radius * 0.3, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+          continue;
+        }
+
+        const erupt = effect.time - tentacle.delay;
+        const rise = Math.min(1, erupt / 0.16);
+        const retract = Math.max(0, Math.min(1, (erupt - 0.72) / 0.7));
+        const heightFactor = rise * (1 - retract);
+        if (heightFactor <= 0.01) continue;
+        const height = 72 * worldScale * heightFactor;
+        const alpha = Math.min(1, (effect.duration - effect.time) / 0.35);
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.lineCap = "round";
+        // A wet, dark wound on the ground beneath the erupting limbs.
+        ctx.fillStyle = "rgba(18, 48, 32, 0.82)";
+        ctx.beginPath();
+        ctx.ellipse(ground.x, ground.y, radius * 0.92, radius * 0.46, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowColor = "#63e6a0";
+        ctx.shadowBlur = 14 * scale;
+        for (let tendril = 0; tendril < 3; tendril += 1) {
+          const angle = tentacle.seed + tendril * 2.1;
+          const baseX = ground.x + Math.cos(angle) * radius * 0.32;
+          const baseY = ground.y + Math.sin(angle) * radius * 0.16;
+          const topX = baseX + Math.cos(angle) * radius * 0.34
+            + Math.sin(tentacle.seed * 2 + this.runTime * 4 + tendril) * radius * 0.18;
+          const topY = baseY - height * (0.8 + (tendril % 2) * 0.2);
+          const controlX = baseX + Math.cos(angle) * radius * 0.7;
+          const controlY = baseY - height * 0.42;
+          ctx.beginPath();
+          ctx.moveTo(baseX, baseY);
+          ctx.quadraticCurveTo(controlX, controlY, topX, topY);
+          ctx.strokeStyle = "#153b2a";
+          ctx.lineWidth = 10 * scale;
+          ctx.stroke();
+          ctx.strokeStyle = "#4d956b";
+          ctx.lineWidth = 5 * scale;
+          ctx.stroke();
+          ctx.strokeStyle = "#a8e6b4";
+          ctx.lineWidth = 1.7 * scale;
+          ctx.stroke();
+          // Hooked tip and a few pale sucker rings.
+          ctx.beginPath();
+          ctx.moveTo(topX, topY);
+          ctx.quadraticCurveTo(
+            topX + Math.cos(angle) * radius * 0.22,
+            topY - height * 0.08,
+            topX + Math.cos(angle) * radius * 0.32,
+            topY + height * 0.04,
+          );
+          ctx.strokeStyle = "#c6f0cb";
+          ctx.lineWidth = 2.5 * scale;
+          ctx.stroke();
+          ctx.fillStyle = "rgba(29, 68, 45, 0.9)";
+          for (let sucker = 1; sucker <= 3; sucker += 1) {
+            const t = sucker / 4;
+            const x = baseX + (topX - baseX) * t;
+            const y = baseY + (topY - baseY) * t + Math.sin(t * Math.PI) * height * 0.08;
+            ctx.beginPath();
+            ctx.arc(x, y, 2.2 * scale, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+        ctx.restore();
+      }
+    }
+
+    for (const effect of this.baalWaveEffects) {
+      const traveled = Math.min(effect.maxDistance, effect.time * effect.speed);
+      if (traveled <= 0) continue;
+      const perpX = -effect.dirY;
+      const perpY = effect.dirX;
+      const fade = Math.max(0, Math.min(1, effect.time * 7, (effect.duration - effect.time) * 6));
+      if (fade <= 0) continue;
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.lineCap = "round";
+      ctx.shadowColor = "#55d9ff";
+      ctx.shadowBlur = 20 * scale;
+      for (let band = 0; band < 3; band += 1) {
+        const back = Math.max(0, traveled - band * 15);
+        const left = this.projectArenaPoint(
+          effect.x + effect.dirX * back + perpX * BAAL_WAVE_HALF_WIDTH,
+          effect.y + effect.dirY * back + perpY * BAAL_WAVE_HALF_WIDTH,
+        );
+        const right = this.projectArenaPoint(
+          effect.x + effect.dirX * back - perpX * BAAL_WAVE_HALF_WIDTH,
+          effect.y + effect.dirY * back - perpY * BAAL_WAVE_HALF_WIDTH,
+        );
+        const middle = this.projectArenaPoint(
+          effect.x + effect.dirX * (back + 24),
+          effect.y + effect.dirY * (back + 24),
+        );
+        ctx.globalAlpha = fade * (0.92 - band * 0.24);
+        ctx.strokeStyle = band === 0 ? "#e2fdff" : "#54c9ff";
+        ctx.lineWidth = (band === 0 ? 5 : 12 - band * 3) * scale;
+        ctx.beginPath();
+        ctx.moveTo(left.x, left.y);
+        ctx.quadraticCurveTo(middle.x, middle.y, right.x, right.y);
+        ctx.stroke();
+      }
+      // Cold sparks peel off the crest of the wave.
+      for (let spark = 0; spark < 9; spark += 1) {
+        const lateral = (spark / 8 * 2 - 1) * BAAL_WAVE_HALF_WIDTH;
+        const point = this.projectArenaPoint(
+          effect.x + effect.dirX * (traveled - 3) + perpX * lateral,
+          effect.y + effect.dirY * (traveled - 3) + perpY * lateral,
+        );
+        const lift = (8 + (spark % 4) * 7) * worldScale;
+        ctx.globalAlpha = fade * (0.35 + (spark % 3) * 0.2);
+        ctx.strokeStyle = spark % 2 === 0 ? "#d3fbff" : "#7fe6ff";
+        ctx.lineWidth = 1.5 * scale;
+        ctx.beginPath();
+        ctx.moveTo(point.x, point.y);
+        ctx.lineTo(point.x + Math.sin(effect.seed + spark) * 5 * scale, point.y - lift);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
   }
 
   private activePaladinAuraRank(skills: readonly string[]): number {
@@ -12166,6 +13139,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.playerY = this.arenaH / 2;
     this.clickMoveTarget = null;
     this.playerAttackLockRemaining = 0;
+    this.playerBonePrisonRemaining = 0;
     this.playerMoveX = 0;
     this.playerMoveY = 0;
     this.isPlayerMoving = false;
@@ -17281,7 +18255,7 @@ const CLASS_SKILL_DESCRIPTIONS: Record<string, string> = {
   "Find Potion": "Passive: potion drops are more likely. Each rank adds 10 percentage points to the chest potion chance and 2 points to the monster potion chance, and improves rejuvenation potion drops.",
   Leap: "Leap toward the next enemy in front of the barbarian. If no enemy is inside the short leap range, the spell is cancelled. The barbarian is invulnerable while airborne; on landing, every enemy in a small radius is stunned.",
   Howl: `A terrifying warcry that deals no damage. Every enemy within ${HOWL_RADIUS} units flees away from the barbarian for ${HOWL_BASE_FEAR_SECONDS} seconds, plus ${HOWL_FEAR_SECONDS_PER_RANK} seconds per additional rank, and cannot attack while afraid.`,
-  Jab: "A rapid melee thrust with a spear or pike.", Bash: "A forceful melee strike that staggers an enemy.", Smite: "Shield bash that knocks enemies back.", Sacrifice: "A powerful melee attack that costs a little life.",
+  Jab: "A rapid melee thrust with a spear or pike.", Bash: "A forceful melee strike that staggers an enemy.", Smite: "Shield bash that knocks enemies back.", Charge: "Run at an enemy with the shield and slam the small area in front on arrival, dealing damage and stunning enemies caught in the bash. Requires a shield.", "Blessed Hammer": "Summon a spinning hammer that spirals outward around the paladin, damaging each enemy it passes once.", Sacrifice: "A powerful melee attack that costs a little life.",
   "Raise Skeleton": "Raise a fallen monster as a melee skeleton warrior.", "Skeletal Mage": "Raise a skeletal mage that hurls cold, fire, lightning, or poison bolts from a distance. Each cast cycles through the elements.",  "Bone Spear": "A piercing spear of bone strikes enemies in a line.", "Corpse Explosion": "Fire a ranged bone missile at the nearest enemy. On impact it explodes, dealing 35% of the target's maximum life to all enemies caught in the blast. More skill ranks increase blast radius only.",
   "Fire Ball": "Hurl an explosive ball of flame.", "Charged Bolt": "Release a spray of lightning bolts.",  "Frost Nova": "A ring of frost bursts outward and chills nearby enemies.",
   "Static Field": "A point-blank lightning burst that removes 25% of current life from every nearby enemy. More ranks increase the blast radius.",
@@ -17356,6 +18330,52 @@ interface SkillVisualEffect {
   damagePerTick?: number;
 }
 
+interface DiabloThunderEffect {
+  source: Enemy;
+  x: number;
+  y: number;
+  dirX: number;
+  dirY: number;
+  length: number;
+  time: number;
+  duration: number;
+  tickRemaining: number;
+  tickInterval: number;
+  damage: number;
+  seed: number;
+}
+
+interface BaalTentacleStrike {
+  x: number;
+  y: number;
+  delay: number;
+  struck: boolean;
+  seed: number;
+}
+
+interface BaalTentacleEffect {
+  source: Enemy;
+  time: number;
+  duration: number;
+  tentacles: BaalTentacleStrike[];
+}
+
+interface BaalWaveEffect {
+  source: Enemy;
+  x: number;
+  y: number;
+  dirX: number;
+  dirY: number;
+  time: number;
+  duration: number;
+  speed: number;
+  maxDistance: number;
+  halfWidth: number;
+  damage: number;
+  hit: boolean;
+  seed: number;
+}
+
 interface LeapDustEffect {
   x: number;
   y: number;
@@ -17427,6 +18447,11 @@ interface AttackProjectile {
   corpseExplosionDamage?: number;
   wakeOfFireTrap?: boolean;
   wakeOfInfernoTrap?: boolean;
+  /** A Blessed Hammer orbiting the paladin instead of flying at a target. */
+  blessedHammer?: boolean;
+  blessedHammerAngle?: number;
+  blessedHammerRadius?: number;
+  blessedHammerHitEnemies?: Enemy[];
   /** A Molten Boulder rolls a fixed line and bulldozes monsters instead of tracking one. */
   boulder?: boolean;
   /** Monsters already shoved clear of this boulder; flank hits only push once. */
@@ -17446,6 +18471,8 @@ interface AttackProjectile {
   radius: number;
   color: string;
   kind: "arrow" | "fire" | "lightning" | "blade" | "bone" | "holy" | "claw" | "melee";
+  /** Draw only the imported DCC cel; no procedural trail, glow or fallback shape. */
+  sourceOnlyArt?: boolean;
   thrownWeapon?: ThrownWeaponKind;
 }
 
@@ -17495,6 +18522,12 @@ interface PoisonCloud {
 interface Enemy {
   kind: EnemyKind;
   species: EnemySpecies;
+  /** Diablo's active Thunder Inferno channel. */
+  diabloChannelRemaining?: number;
+  /** Alternates Diablo's ranged attacks between thunder and Bone Prison. */
+  diabloSpellCycle?: number;
+  /** Alternates Baal's tentacle eruption and energy wave. */
+  baalSpellCycle?: number;
   campaignBoss?: boolean;
   /** A named super unique such as Act V's Nihlathak, not the act boss. */
   miniBoss?: boolean;
