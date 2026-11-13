@@ -5138,6 +5138,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     // their base.
     if (/throwing.*knife|balanced knife/.test(name)) return { width: 1, height: 2 };
     if (/throwing.*axe|balanced axe/.test(name)) return { width: 1, height: 2 };
+    // Great Swords use the same tall two-handed footprint as the large bows.
+    if (/\bgreat sword\b/i.test(name)) return { width: 2, height: 4 };
     // Smoked Spheres and Sacred Globes use the compact one-column, two-row
     // orb footprint instead of the taller default orb size.
     if (/\b(?:smoked sphere|sacred globe)\b/.test(name)) return { width: 1, height: 2 };
@@ -21047,6 +21049,10 @@ function sanitizeInventoryItem(value: unknown): D2InventoryItem | null {
     name = name.replace(/barbarian great sword/gi, "Great Sword");
     baseName = "Great Sword";
   }
+  // Great Swords are no longer class-restricted. Older saves may still carry
+  // the Barbarian flag even when their display name was already migrated.
+  const unrestrictedGreatSword = baseName?.toLowerCase() === "great sword"
+    || /\bgreat sword\b/i.test(name);
   if (`${name} ${baseName ?? ""}`.toLowerCase().includes("quill of the fates")) return null;
   const generated = value["rarity"] === "set" ? D2_SET_ITEM_BY_NAME[name]
     : value["rarity"] === "unique" ? D2_UNIQUE_ITEM_BY_NAME[name] : undefined;
@@ -21061,7 +21067,7 @@ function sanitizeInventoryItem(value: unknown): D2InventoryItem | null {
     rarity: value["rarity"],
     slot: value["slot"],
     ...(equipmentTypes.includes(value["equipmentType"] as EquipmentType) ? { equipmentType: value["equipmentType"] as EquipmentType } : {}),
-    ...(!legacyBarbarianThrowingAxe && !legacyBarbarianGreatSword && isClassId(value["restrictedClass"]) ? { restrictedClass: value["restrictedClass"] } : {}),
+    ...(!legacyBarbarianThrowingAxe && !unrestrictedGreatSword && isClassId(value["restrictedClass"]) ? { restrictedClass: value["restrictedClass"] } : {}),
     ...(typeof value["width"] === "number" && Number.isInteger(value["width"]) ? { width: Math.max(1, Math.min(2, value["width"])) } : {}),
     ...(typeof value["height"] === "number" && Number.isInteger(value["height"]) ? { height: Math.max(1, Math.min(4, value["height"])) } : {}),
     ...(value["beltQuality"] === "normal" || value["beltQuality"] === "exceptional" || value["beltQuality"] === "elite"

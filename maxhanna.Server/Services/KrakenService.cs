@@ -1243,7 +1243,7 @@ public class KrakenService
 
     return true;
   }
-  private async Task<Dictionary<string, decimal>?> GetBalanceFromDatabase(int userId, string coin, string strategy)
+  private async Task<Dictionary<string, decimal>?> GetBalanceFromDatabase(int userId, string coin, string strategy, bool useStrategyBalance = true)
   {
     //_ = _log.Db($"({coin}:{userId}:{strategy}) Getting balance from database for {coin} (strategy: {strategy}).", userId, "TRADE", viewDebugLogs);
 
@@ -1353,7 +1353,10 @@ public class KrakenService
         }
       }
 
-      balanceDictionary[krakenCoin] = await ComputeStrategyCoinBalance(userId, strategy, coin, conn);
+      if (useStrategyBalance)
+      {
+        balanceDictionary[krakenCoin] = await ComputeStrategyCoinBalance(userId, strategy, coin, conn);
+      }
 
       // If the input coin isn't in the supported list, add it with zero balance to mimic Kraken
       if (!balanceDictionary.ContainsKey(krakenCoin))
@@ -1422,11 +1425,11 @@ public class KrakenService
     }
     return 0;
   }
-  public async Task<Dictionary<string, decimal>?> GetBalance(int userId, string coin, string strategy, UserKrakenApiKey keys)
+  public async Task<Dictionary<string, decimal>?> GetBalance(int userId, string coin, string strategy, UserKrakenApiKey keys, bool useStrategyBalance = true)
   {
     try
     {
-      Dictionary<string, decimal>? dbBalance = await GetBalanceFromDatabase(userId, coin, strategy);
+      Dictionary<string, decimal>? dbBalance = await GetBalanceFromDatabase(userId, coin, strategy, useStrategyBalance);
       if (dbBalance != null)
       {
       //  _ = _log.Db($"({coin}:{userId}:{strategy}) Returned cached balance from database.", userId, "TRADE", viewDebugLogs);
@@ -1456,7 +1459,7 @@ public class KrakenService
       _ = CreateWalletEntriesFromFetchedDictionary(balanceDictionary, userId);
       string krakenCoin = GetKrakenCoinName(coin);
 
-      if (krakenCoin != "USDC" && !string.IsNullOrEmpty(strategy))
+      if (useStrategyBalance && krakenCoin != "USDC" && !string.IsNullOrEmpty(strategy))
       {
         try
         {
@@ -5065,7 +5068,10 @@ ON DUPLICATE KEY UPDATE
       decimal? coinPriceCAD = await IsSystemUpToDate(userId, coin, coinPriceUSDC.Value);
       if (coinPriceCAD == null) return false;
 
-      var balances = await GetBalance(userId, coin, strategy, keys);
+      // TTL expiry is about the physical coins in the exchange wallet, not the
+      // strategy ledger. The ledger can be stale or over-matched, making a funded
+      // wallet look empty and force-closing valid expired lots.
+      var balances = await GetBalance(userId, coin, strategy, keys, useStrategyBalance: false);
       if (balances == null) return false;
 
       decimal coinBalance = GetCoinBalanceFromDictionaryAndKey(balances, coin);

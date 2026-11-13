@@ -2911,6 +2911,16 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect((component as any).itemSize(affixedAxe)).toEqual({ width: 1, height: 2 });
   });
 
+  it("uses a 2x4 inventory footprint for Great Swords", () => {
+    for (const name of ["Great Sword", "Cruel Great Sword of Swiftness"]) {
+      const sword = {
+        id: name.toLowerCase().replace(/\s+/g, "-"), name, baseName: "Great Sword", rarity: "normal",
+        slot: "weapon", equipmentType: "weapon", desc: "A great sword.", stats: {},
+      } as any;
+      expect((component as any).itemSize(sword)).toEqual({ width: 2, height: 4 });
+    }
+  });
+
   it("uses a 2x4 inventory footprint for Heraldic and Aerin shields", () => {
     for (const baseName of ["Heraldic Shield", "Aerin Shield"]) {
       const shield = {
@@ -4247,6 +4257,29 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(weapon?.desc).toBe("A throwing axe balanced for dual combat.");
     expect(weapon?.stats.damageMin).toBe(5);
     expect(weapon?.stats.damageMax).toBe(11);
+  });
+
+  it("clears the old Barbarian restriction from a saved Great Sword", () => {
+    const stale = {
+      id: "stale-restricted-great-sword",
+      name: "Cruel Great Sword of Swiftness",
+      baseName: "Great Sword",
+      rarity: "rare",
+      slot: "weapon",
+      restrictedClass: "barbarian",
+      desc: "A great sword.",
+      stats: { damageMin: 8, damageMax: 17 },
+    };
+    (component as any).restoreRunState({
+      selectedClass: "sorceress",
+      playerLevel: 99,
+      equipment: { weapon: stale },
+      inventory: [],
+      beltSlots: [],
+    });
+    const weapon = component.equipment.weapon as any;
+    expect(weapon?.baseName).toBe("Great Sword");
+    expect(weapon?.restrictedClass).toBeUndefined();
   });
 
   it("migrates a saved Barbarian Great Sword to the unrestricted generic base", () => {
