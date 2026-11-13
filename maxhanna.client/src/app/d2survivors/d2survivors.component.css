@@ -1747,11 +1747,13 @@
 }
 
 .d2s-hud-center {
+  --d2s-hud-center-gap: 8px;
+  position: relative;
   display: grid;
   min-width: 0;
   justify-items: center;
   align-content: end;
-  gap: 8px;
+  gap: var(--d2s-hud-center-gap);
   padding-bottom: 2px;
 }
 
@@ -1955,11 +1957,15 @@
 }
 
 .d2s-belt-frame {
+  position: absolute;
+  z-index: 2;
+  bottom: calc(100% + var(--d2s-hud-center-gap));
+  left: 50%;
   min-width: 0;
   width: min(100%, 420px);
-  justify-self: center;
   margin-bottom: 0;
   padding: 7px 10px 5px;
+  transform: translateX(-50%);
   background: linear-gradient(180deg, #3b3328 0%, #211c17 17%, #0d0d0e 63%, #16120d 100%);
   border: 6px ridge #786745;
   box-shadow: 0 4px 14px #000e, inset 0 0 0 2px #0a0a0b, inset 0 0 0 4px #403522;
@@ -2075,7 +2081,7 @@
     padding: 0 3px 34px;
   }
 
-  .d2s-hud-center { gap: 5px; }
+  .d2s-hud-center { --d2s-hud-center-gap: 5px; gap: 5px; }
   .d2s-skill-bar { gap: 2px; }
   .d2s-skill-slot { width: clamp(28px, 8vw, 40px); height: clamp(28px, 8vw, 40px); border-width: 2px; }
   .d2s-skill-icon { font-size: 21px; }

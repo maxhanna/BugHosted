@@ -7,6 +7,7 @@ import { D2_ITEM_ART, D2_SET_ITEMS, D2_UNIQUE_ITEMS } from "./d2-item-assets.gen
 import { D2_HELMET_VISUALS, getHelmetVisualForItem } from "./d2-helmet-visuals.generated";
 import { D2_SKILL_ICON_PATHS } from "./d2-skill-icons.generated";
 import { PALADIN_AURA_ART } from "./d2-paladin-auras.generated";
+import { D2_PALADIN_AURA_HIT_ART } from "./d2-paladin-aura-hits.generated";
 import { ARMOR_AURA_ART } from "./d2-armor-auras.generated";
 import { BONE_ARMOR_ART } from "./d2-bone-armor.generated";
 import { FROST_NOVA_ART } from "./d2-frost-nova.generated";
@@ -2893,6 +2894,23 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect((component as any).itemSize(affixedKnife)).toEqual({ width: 1, height: 2 });
   });
 
+  it("uses a one-column, two-row inventory footprint for throwing axes", () => {
+    for (const name of ["Throwing Axe", "Balanced Axe"]) {
+      const axe = {
+        id: name.toLowerCase(), name, baseName: name, rarity: "normal",
+        slot: "weapon", desc: "A throwing axe.", stats: {},
+      } as any;
+      expect((component as any).itemSize(axe)).toEqual({ width: 1, height: 2 });
+    }
+
+    const affixedAxe = {
+      id: "affixed-throwing-axe", name: "Savage Throwing Axe of Haste",
+      baseName: "Throwing Axe", rarity: "rare", slot: "weapon",
+      desc: "A throwing axe.", stats: {},
+    } as any;
+    expect((component as any).itemSize(affixedAxe)).toEqual({ width: 1, height: 2 });
+  });
+
   it("uses a 2x4 inventory footprint for Heraldic and Aerin shields", () => {
     for (const baseName of ["Heraldic Shield", "Aerin Shield"]) {
       const shield = {
@@ -4677,6 +4695,43 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(component.equippedVitalityBonus).toBe(0);
   });
 
+  it("rolls elemental damage prefixes on charms", () => {
+    const rolls: number[] = [];
+    spyOn(Math, "random").and.callFake(() => rolls.shift() ?? 0);
+    const elements = [
+      { selection: 0.6, stat: "fireDamage", label: "Fire Damage", prefix: "Ember" },
+      { selection: 0.7, stat: "coldDamage", label: "Cold Damage", prefix: "Frost" },
+      { selection: 0.8, stat: "lightningDamage", label: "Lightning Damage", prefix: "Static" },
+      { selection: 0.9, stat: "poisonDamage", label: "Poison Damage", prefix: "Blight" },
+    ];
+
+    for (const element of elements) {
+      rolls.splice(0, rolls.length, 0.999, 0.2, 0.1, element.selection, 0.5);
+      const charm = (component as any).randomItem();
+
+      expect(charm.baseName).toBe("Grand Charm");
+      expect(charm.rarity).toBe("magic");
+      expect(charm.stats[element.stat]).toBeGreaterThan(0);
+      expect(charm.affixes.join(" ")).toContain(`${element.label} (${element.prefix})`);
+    }
+  });
+
+  it("applies elemental damage from charms held in the pack", () => {
+    component.inventory = Array.from({ length: component.inventoryColumns * component.inventoryRows }, () => null);
+    component.inventory[0] = {
+      id: "elemental-charm", name: "Ember Grand Charm of Frost", baseName: "Grand Charm", rarity: "rare",
+      slot: "charm", equipmentType: "charm", desc: "A charm crackling with elemental power.",
+      stats: { fireDamage: 3, coldDamage: 2, lightningDamage: 5, poisonDamage: 1 },
+      affixes: ["+3 Fire Damage (Ember)", "+2 Cold Damage (Frost)", "+5 Lightning Damage (Static)", "+1 Poison Damage (Blight)"],
+    } as any;
+
+    expect(component.equippedWeaponDamage).toBe(11);
+    expect(component.getItemStatText(component.inventory[0])).toContain("+5 Lightning Damage (Static)");
+
+    component.inventory[0] = null;
+    expect(component.equippedWeaponDamage).toBe(0);
+  });
+
   it("applies charm and item Strength to melee attacks", () => {
     component.selectedClass = "barbarian";
     component.runActive = true;
@@ -5620,6 +5675,80 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(PALADIN_AURA_ART["Vigor"].path).toContain("vigor.png");
     expect(PALADIN_AURA_ART["Resist Fire"].frontRow).toBe(0);
     expect(PALADIN_AURA_ART["Resist Cold"].backRow).toBe(0);
+  });
+
+  it("uses original overlay art for damaging paladin aura ticks", () => {
+    expect(Object.keys(D2_PALADIN_AURA_HIT_ART).sort()).toEqual(["holyFire", "holyFreeze", "holyShock"]);
+    for (const art of Object.values(D2_PALADIN_AURA_HIT_ART)) {
+      expect(art.path).toContain("assets/d2survivors/effects/");
+      expect(art.columns).toBeGreaterThan(0);
+      expect(art.frameRate).toBeGreaterThan(0);
+      expect(art.cellWidth).toBeGreaterThan(0);
+      expect(art.cellHeight).toBeGreaterThan(0);
+    }
+  });
+
+  it("gives enemies the matching elemental overlay when a damaging aura ticks", () => {
+    component.selectedClass = "paladin";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.skillLevels = { "Holy Fire": 1, "Holy Freeze": 1, "Holy Shock": 1 };
+    const enemy = {
+      kind: "normal", species: "fallen", spriteFrame: 0, x: 260, y: 250,
+      hp: 1000, maxHp: 1000, speed: 100, r: 14, dmg: 2,
+    } as any;
+    component.enemies = [enemy];
+    (component as any).rebuildEnemyGrid();
+
+    const auras = [
+      { skill: "Holy Fire", key: "holyFire" },
+      { skill: "Holy Freeze", key: "holyFreeze" },
+      { skill: "Holy Shock", key: "holyShock" },
+    ] as const;
+    for (const aura of auras) {
+      (component as any).applyPaladinAuraTick(aura.skill);
+      expect(enemy.paladinAuraHit).toBe(aura.key);
+      expect(enemy.paladinAuraHitRemaining).toBeCloseTo(
+        D2_PALADIN_AURA_HIT_ART[aura.key].columns / D2_PALADIN_AURA_HIT_ART[aura.key].frameRate,
+        5,
+      );
+      enemy.paladinAuraHit = undefined;
+      enemy.paladinAuraHitRemaining = undefined;
+    }
+
+    enemy.immunities = ["lightning"];
+    (component as any).applyPaladinAuraTick("Holy Shock");
+    expect(enemy.paladinAuraHit).toBeUndefined();
+    expect(enemy.paladinAuraHitRemaining).toBeUndefined();
+  });
+
+  it("applies Might only to melee attacks and melee skills, not spells", () => {
+    component.selectedClass = "paladin";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.basicAttackDamage = 100;
+    component.skillLevels = { Might: 5, "Blessed Hammer": 1 };
+    component.ownedSkills = ["Might", "Blessed Hammer"];
+    (component as any).activePaladinAuras["Might"] = { remaining: 100, tick: 0 };
+
+    expect((component as any).applyPaladinAuraDamage(100, true)).toBe(140);
+    expect((component as any).applyPaladinAuraDamage(100)).toBe(100);
+    expect((component as any).getSkillRankStats("Might", "aura", 5))
+      .toContain("While active: +40% melee damage");
+
+    const enemy = {
+      kind: "normal", species: "fallen", spriteFrame: 0, x: 260, y: 250,
+      hp: 1000, maxHp: 1000, speed: 100, r: 14, dmg: 2,
+    } as any;
+    component.enemies = [enemy];
+    (component as any).attackCooldown = 0;
+    component.attackNearestEnemy();
+    expect(enemy.hp).toBe(860);
+
+    component.attackProjectiles.length = 0;
+    component.activateOwnedSkill("Blessed Hammer");
+    expect(component.attackProjectiles[0].damage).toBe(150);
   });
 
   it("scales Vigor's duration and movement speed with its rank", () => {
