@@ -22,7 +22,8 @@
   </div>
 
   <div class="userProfileContents">
-    <div class="profileHeader">
+    <aside class="profileSidebar" *ngIf="!loginOnly && (parentRef?.user || user)">
+      <div class="profileHeader">
       <div class="profileHeaderContents">
         <div
           *ngIf="!loginOnly && (user && parentRef && user.displayPictureFile) && (user?.displayPictureFile ?? this.parentRef?.user?.displayPictureFile)">
@@ -202,8 +203,10 @@
         </div>
       </div>
 
-    </div>
+      </div>
+    </aside>
 
+    <div class="profileMainColumn">
     <!--LOGIN AREA-->
     <div *ngIf="(user && parentRef && parentRef.user && user.id == parentRef.user.id) || !user && !parentRef?.user">
       <div>
@@ -312,6 +315,7 @@
       Note: 
       <span class="italics">Guest accounts will be deleted after 10 days.</span>
     </div> 
+    </div>
   </div>
 </div>
 
