@@ -61,9 +61,10 @@ export interface SocialSidebarResponse {
   providedIn: 'root'
 })
 export class SocialService {
-  async getSidebar(userId: number, topicId?: number, chatId?: number, sessionToken = ''): Promise<SocialSidebarResponse | null> {
+  async getSidebar(userId: number, topicId?: number, chatId?: number, sessionToken = '', profileUserId = 0): Promise<SocialSidebarResponse | null> {
     const params = new URLSearchParams();
     if (userId) params.set('userId', userId.toString());
+    if (profileUserId) params.set('profileUserId', profileUserId.toString());
     if (topicId) params.set('topicId', topicId.toString());
     if (chatId) params.set('chatId', chatId.toString());
 
@@ -81,6 +82,15 @@ export class SocialService {
       console.error('Error fetching social sidebar:', error);
       return null;
     }
+  }
+
+  /** Public profile counters used by the user panel (level, karma, posts,
+   *  comments and account age). These are the same totals the Social sidebar
+   *  shows for the signed-in viewer. */
+  async getUserStats(profileUserId: number): Promise<SocialSidebarUserStats | null> {
+    if (!profileUserId) return null;
+    const res = await this.getSidebar(0, undefined, undefined, '', profileUserId);
+    return res?.userStats ?? null;
   }
 
   async getStories(userId?: number, search?: string, topics?: string, profileUserId?: number, storyId?: number, page: number = 1, pageSize: number = 10, showHiddenStories = false, showPostsFromFilter: string = 'all', details: boolean = true, chatId?: number) {

@@ -82,6 +82,44 @@
               </span>
             </div>
           </div>
+          <div class="seperatedUserHeader blackFontColor linkHighlights"
+            *ngIf="userSocialStats || userSocialStatsLoading">
+            <div class="smallFont" title="Social Level">Level: </div>
+            <div class="profileSocialLevel">
+              <span class="profileSocialLevelBadge" [title]="'Level ' + (userSocialStats?.level ?? '—')">{{ userSocialStats?.level ?? '—' }}</span>
+              <span class="profileSocialLevelTitle">{{ userSocialStats?.levelTitle || (userSocialStatsLoading ? 'Loading…' : 'Unranked') }}</span>
+            </div>
+          </div>
+          <div class="profileSocialStats" *ngIf="userSocialStats || userSocialStatsLoading">
+            <div class="profileSocialStat" title="Karma: 5 per post + 2 per comment + 1 per reaction received">
+              <strong>{{ userSocialStats?.karma ?? '—' }}</strong>
+              <span>Karma</span>
+            </div>
+            <div class="profileSocialStat" title="Posts this user has created">
+              <strong>{{ userSocialStats?.postCount ?? '—' }}</strong>
+              <span>Posts</span>
+            </div>
+            <div class="profileSocialStat" title="Comments this user has written on posts">
+              <strong>{{ userSocialStats?.commentCount ?? '—' }}</strong>
+              <span>Comments</span>
+            </div>
+            <div class="profileSocialStat" title="Days since this account was created">
+              <strong>{{ userSocialStats?.accountAgeDays ?? '—' }}</strong>
+              <span>Days old</span>
+            </div>
+          </div>
+          <div class="profileSocialLevelProgress" *ngIf="userSocialStats as stats">
+            <div class="profileSocialLevelProgressLabel">
+              <span *ngIf="stats.nextLevelTitle">{{ stats.postsToNextLevel }} post{{ stats.postsToNextLevel === 1 ? '' : 's' }} to {{ stats.nextLevelTitle }}</span>
+              <span *ngIf="!stats.nextLevelTitle">Max level reached</span>
+              <span>{{ stats.levelProgress }}%</span>
+            </div>
+            <div class="profileSocialLevelProgressTrack"
+              [title]="stats.levelProgress + '% to the next level'">
+              <div class="profileSocialLevelProgressFill" [style.width.%]="stats.levelProgress"></div>
+            </div>
+          </div>
+
           <!-- Relationship row: show friend/following status under Last Seen -->
           <div class="seperatedUserHeader blackFontColor linkHighlights"
             *ngIf="user && parentRef?.user?.id != null && user.id != parentRef?.user?.id">

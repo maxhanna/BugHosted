@@ -101,6 +101,7 @@
             <tr>
                 <th [class]="onMobile() ? 'xxSmallFont' : 'smallFont'">ID</th>
                 <th [class]="onMobile() ? 'xxSmallFont' : 'smallFont'">Pair</th>
+                <th *ngIf="selectedStrategy === 'ALL'" [class]="onMobile() ? 'xxSmallFont' : 'smallFont'">Strategy</th>
                 <th [class]="onMobile() ? 'xxSmallFont' : 'smallFont'">Value ({{ selectedCoin === 'ALL' ? 'coin' : selectedCoin }}|$)</th>
                 <th [class]="onMobile() ? 'xxSmallFont' : 'smallFont'">{{ selectedCoin === 'ALL' ? 'Coin' : selectedCoin }} Price</th>
                 <th [class]="onMobile() ? 'xxSmallFont' : 'smallFont'">Fees</th>
@@ -127,6 +128,9 @@
                             {{ trade.to_currency }}
                         </span>
                     </span>
+                </td>
+                <td *ngIf="selectedStrategy === 'ALL'" [class]="onMobile() ? 'xxSmallFont' : 'smallFont'">
+                    {{ trade.strategy || '—' }}
                 </td>
                 <td class="smallFont" style="display:flex; justify-content: space-evenly; flex-wrap: wrap;">
                     <span style="margin-left:3px">

@@ -480,9 +480,6 @@ const FIRE_WALL_RADIUS = 12;
 const FIRE_WALL_TICK_INTERVAL = 0.5;
 const FIRE_WALL_COLOR = "#ff8a32";
 const FIRE_WALL_MISSILE_ID = "d2-wallfire_low_tiny";
-// The imported wallfire DCC uses the blue fire palette; rotate it to D2's
-// familiar orange without replacing the generated strip.
-const FIRE_WALL_MISSILE_FILTER = "hue-rotate(180deg) saturate(1.5) brightness(1.12)";
 const ARCTIC_BLAST_RANGE = 210;
 const ARCTIC_BLAST_HALF_ANGLE = Math.PI / 8;
 const ARCTIC_BLAST_COLOR = "#8bdcff";
@@ -638,13 +635,14 @@ const MISSILE_OVERLAY_BASE = "assets/d2survivors/missiles";
 const ENEMY_MISSILE_OVERLAY_IDS = [
   "d2-andarielspell",
   "d2-baalmissile", "d2-baalnova", "d2-baalsummonmissile", "d2-baalsummonmissile2", "d2-baalsummonoverlay",
-  "d2-baalteleport", "d2-bayellshockwave01", "d2-bayellshockwave02", "d2-bluenovab",
+  "d2-baalteleport", "d2-bluenovab",
+  "d2-boneshield", "d2-groundfiremedium",
   "d2-cursearea", "d2-cursecast", "d2-cursedecrepifyeffect", "d2-curseeffectred",
   "d2-cursemissle", "d2-novablue",
   "d2-bigheadlightningmissile", "d2-blowdart", "d2-catapultpoisonbomb",
-  "d2-deathmaulermissile", "d2-diablolightning", "d2-frogpoisonmissile",
+  "d2-deathmaulermissile", "d2-diablolightning", "d2-firenova", "d2-frogpoisonmissile",
   "d2-highpriestlightning", "d2-impfireball", "d2-mephistomissile",
-  "d2-sandmaggotgoospit", "d2-shamanfireball", "d2-siegrock",
+  "d2-sandmaggotgoospit", "d2-shamanfireball", "d2-shockwave", "d2-siegrock",
   "d2-spider_goo_missile", "d2-spikefiendmamamissle", "d2-spikefiendmissle",
   "d2-slugmissile", "d2-unholybolt", "d2-vampiremissile",
 ];
@@ -2898,15 +2896,43 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     // tileWidth / 4 apart.  The extra dpr factor keeps the world scale stable
     // on high-density canvases, unlike the legacy overlap-tile draw path.
     const scale = tileWidth * this.projectionDpr / (TRISTRAM_BACKDROP_TILE_WIDTH * 2);
+    const chunkWidth = this.chunkTileColumns * CAMPAIGN_TILE_WORLD_SIZE;
+    const chunkHeight = this.chunkTileRows * CAMPAIGN_TILE_WORLD_SIZE;
+    // The player's position is tracked as a chunk coordinate plus a local offset,
+    // and the local offset wraps at every chunk edge.  Anchor the town to the
+    // absolute world coordinate instead, otherwise the backdrop snaps a full
+    // chunk sideways while the fixed-camera hero appears to teleport.
+    const worldX = this.currentChunkCoordX * chunkWidth + this.currentChunkLocalX;
+    const worldY = this.currentChunkCoordY * chunkHeight + this.currentChunkLocalY;
     const anchor = this.projectArenaPoint(
-      this.arenaW / 2 + this.chunkTileColumns * CAMPAIGN_TILE_WORLD_SIZE / 2 - this.currentChunkLocalX,
-      this.arenaH / 2 + this.chunkTileRows * CAMPAIGN_TILE_WORLD_SIZE / 2 - this.currentChunkLocalY,
+      this.arenaW / 2 + chunkWidth / 2 - worldX,
+      this.arenaH / 2 + chunkHeight / 2 - worldY,
     );
     const width = image.naturalWidth * scale;
     const height = image.naturalHeight * scale;
+    const left = anchor.x - width / 2;
+    const top = anchor.y - height / 2;
     ctx.save();
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(image, anchor.x - width / 2, anchor.y - height / 2, width, height);
+    const canvas = ctx.canvas as HTMLCanvasElement | undefined;
+    if (!canvas?.width || !canvas.height) {
+      ctx.drawImage(image, left, top, width, height);
+      ctx.restore();
+      return;
+    }
+    // The town no longer recentres itself every chunk, so repeat the rendered
+    // map around the anchored copy when the hero walks past its edge.  This is
+    // screen-space tiling: it keeps the ground covered without reintroducing the
+    // chunk-boundary jump that the absolute world anchor just removed.
+    const firstColumn = Math.floor((0 - left) / width);
+    const lastColumn = Math.ceil((canvas.width - left) / width) - 1;
+    const firstRow = Math.floor((0 - top) / height);
+    const lastRow = Math.ceil((canvas.height - top) / height) - 1;
+    for (let row = firstRow; row <= lastRow; row += 1) {
+      for (let column = firstColumn; column <= lastColumn; column += 1) {
+        ctx.drawImage(image, left + column * width, top + row * height, width, height);
+      }
+    }
     ctx.restore();
   }
 
@@ -5133,11 +5159,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     // Named wands are stored with generic weapon metadata, so identify them by
     // their base as well; all wands use a compact two-row inventory footprint.
     if (type === "wand" || /wand/i.test(name)) return { width: 1, height: 2 };
-    // Throwing knives and axes are one column wide and two rows tall in D2's
-    // inventory; this also covers magic, rare, unique and set versions through
-    // their base.
+    // Throwing knives and throwing axes are one column wide and two rows tall
+    // in D2's inventory; this also covers magic, rare, unique and set versions
+    // through their base.
     if (/throwing.*knife|balanced knife/.test(name)) return { width: 1, height: 2 };
-    if (/throwing.*axe|balanced axe/.test(name)) return { width: 1, height: 2 };
+    if (/throwing.*axe/.test(name)) return { width: 1, height: 2 };
+    // The Balanced Axe is the broader double-bit axe base, stored two columns
+    // wide and three rows tall.
+    if (/balanced axe/.test(name)) return { width: 2, height: 3 };
     // Great Swords use the same tall two-handed footprint as the large bows.
     if (/\bgreat sword\b/i.test(name)) return { width: 2, height: 4 };
     // Smoked Spheres and Sacred Globes use the compact one-column, two-row
@@ -9921,7 +9950,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
     ctx.save();
     ctx.globalAlpha = fade;
-    ctx.filter = FIRE_WALL_MISSILE_FILTER;
     if (this.attackProjectiles.length <= MISSILE_GLOW_LIMIT) {
       ctx.shadowColor = "#ff5a1f";
       ctx.shadowBlur = 6 * dpr;
@@ -12565,6 +12593,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       kind: "lightning",
       damageType: "lightning",
       missileId: "d2-lightningbolt",
+      sourceOnlyArt: true,
     });
   }
 
@@ -12596,6 +12625,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         kind: "lightning",
         damageType: "lightning",
         missileId: "d2-chargedbolt",
+        sourceOnlyArt: true,
       });
     }
   }
@@ -12627,6 +12657,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       homing: true,
       // D2's MephistoMissile is the compact white "skull" orb, not Lightning.
       missileId: "d2-mephistomissile",
+      sourceOnlyArt: true,
     });
   }
 
@@ -15261,109 +15292,62 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private drawMephistoEffects(ctx: CanvasRenderingContext2D): void {
     if (!this.runActive || !this.mephistoBlizzards.length) return;
     const scale = this.projectionDpr || 1;
-    const overlay = this.missileOverlayImages.get("d2-blizzard") ?? [];
     for (const effect of this.mephistoBlizzards) {
       const center = this.projectArenaPoint(effect.x, effect.y);
       if (!this.isArenaPointOnScreen(center, DRAW_CULL_MARGIN)) continue;
       const fade = Math.max(0, Math.min(1, effect.time * 7, (effect.duration - effect.time) * 5));
       if (fade <= 0.01) continue;
       const radius = effect.radius * this.worldZoom * scale;
-      ctx.save();
-      ctx.globalCompositeOperation = "lighter";
-      // The frost sigil telegraphs the exact patch of ground the shards cover.
-      ctx.globalAlpha = fade * 0.14;
-      ctx.fillStyle = "#5ab8ef";
-      ctx.beginPath();
-      ctx.ellipse(center.x, center.y, radius, radius * 0.46, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.globalAlpha = fade * 0.62;
-      ctx.strokeStyle = "#b8ecff";
-      ctx.lineWidth = 2.5 * scale;
-      ctx.shadowColor = "#74d5ff";
-      ctx.shadowBlur = 10 * scale;
-      ctx.stroke();
-      for (let index = 0; index < 9; index += 1) {
-        const angle = effect.seed + index * 2.399;
-        const localX = Math.sin(angle) * radius * 0.74;
-        const localY = Math.cos(angle) * radius * 0.32;
-        const fall = (effect.time * 1.65 + index * 0.137) % 1;
-        const shardX = center.x + localX;
-        const shardY = center.y - 170 * scale + (170 * scale + localY) * fall;
-        ctx.globalAlpha = fade * (0.48 + (1 - fall) * 0.4);
-        if (overlay.length) {
-          const image = overlay[Math.min(overlay.length - 1, Math.floor(fall * overlay.length))];
-          if (!image) continue;
-          const size = 58 * scale;
-          ctx.drawImage(image, shardX - size / 2, shardY - size / 2, size, size);
-        } else {
-          ctx.strokeStyle = index % 2 === 0 ? "#e0f8ff" : "#86d7ff";
-          ctx.lineWidth = 2 * scale;
-          ctx.beginPath();
-          ctx.moveTo(shardX, shardY - 9 * scale);
-          ctx.lineTo(shardX + 3 * scale, shardY + 4 * scale);
-          ctx.lineTo(shardX - 2 * scale, shardY + 4 * scale);
-          ctx.closePath();
-          ctx.stroke();
-        }
+      const size = Math.max(96 * scale, Math.min(200 * scale, radius * 2.2));
+      // Blizzard is a falling curtain of original D2 ice cels; three overlapping
+      // columns cover the damage patch without drawing a procedural rune circle.
+      for (let column = -1; column <= 1; column += 1) {
+        this.drawImportedMissileFrame(
+          ctx,
+          "d2-blizzard",
+          effect.time + column * 0.021,
+          center.x + column * radius * 0.55,
+          center.y + 6 * scale,
+          size,
+          0,
+          fade * (column === 0 ? 0.74 : 0.5),
+          "bottom",
+        );
       }
-      ctx.restore();
     }
   }
 
   private drawDiabloFireEffects(ctx: CanvasRenderingContext2D, scale: number): void {
     const groundScale = scale * this.worldZoom;
     for (const effect of this.diabloFirestormEffects) {
+      const center = this.projectArenaPoint(effect.x, effect.y);
+      if (!this.isArenaPointOnScreen(center, DRAW_CULL_MARGIN * 3)) continue;
       const waveSpan = effect.duration - 0.32;
       for (let wave = 0; wave < effect.waveHits.length; wave += 1) {
         const progress = Math.max(0, Math.min(1, (effect.time - wave * 0.14) / waveSpan));
         if (progress <= 0 || progress >= 1) continue;
         const radius = effect.range * progress;
-        const alpha = Math.sin(progress * Math.PI) * 0.95;
-        const arcPoints: Array<{ x: number; y: number }> = [];
-        for (let step = 0; step <= 22; step += 1) {
-          const angle = effect.angle - effect.halfAngle + (effect.halfAngle * 2 * step) / 22;
-          arcPoints.push(this.projectArenaPoint(
-            effect.x + Math.cos(angle) * radius,
-            effect.y + Math.sin(angle) * radius,
-          ));
-        }
-        ctx.save();
-        ctx.globalAlpha = alpha;
-        ctx.lineJoin = "round";
-        ctx.lineCap = "round";
-        ctx.beginPath();
-        ctx.moveTo(arcPoints[0].x, arcPoints[0].y);
-        for (const point of arcPoints.slice(1)) ctx.lineTo(point.x, point.y);
-        ctx.strokeStyle = "rgba(52, 14, 4, 0.8)";
-        ctx.lineWidth = 24 * groundScale;
-        ctx.stroke();
-        ctx.globalCompositeOperation = "lighter";
-        ctx.shadowColor = "#ff3c12";
-        ctx.shadowBlur = 20 * scale;
-        ctx.strokeStyle = "rgba(255, 78, 18, 0.75)";
-        ctx.lineWidth = 14 * groundScale;
-        ctx.stroke();
-        ctx.strokeStyle = "#ffd073";
-        ctx.lineWidth = 3.5 * groundScale;
-        ctx.stroke();
-        // Flame tongues ride the front instead of drawing a flat neon arc.
-        for (let flame = 0; flame < 13; flame += 1) {
-          const t = (flame + 0.5) / 13;
+        const alpha = Math.sin(progress * Math.PI) * 0.72;
+        for (let step = 0; step < 10; step += 1) {
+          const t = (step + 0.5) / 10;
           const angle = effect.angle - effect.halfAngle + effect.halfAngle * 2 * t;
           const point = this.projectArenaPoint(
             effect.x + Math.cos(angle) * radius,
             effect.y + Math.sin(angle) * radius,
           );
-          const height = (13 + 8 * Math.abs(Math.sin(effect.seed + effect.time * 9 + flame * 1.7))) * groundScale;
-          ctx.fillStyle = flame % 2 === 0 ? "rgba(255, 150, 48, 0.9)" : "rgba(255, 224, 132, 0.82)";
-          ctx.beginPath();
-          ctx.moveTo(point.x - 6 * groundScale, point.y + 2 * groundScale);
-          ctx.quadraticCurveTo(point.x - 2 * groundScale, point.y - height * 0.65, point.x, point.y - height);
-          ctx.quadraticCurveTo(point.x + 4 * groundScale, point.y - height * 0.4, point.x + 7 * groundScale, point.y + 2 * groundScale);
-          ctx.closePath();
-          ctx.fill();
+          const size = (86 + 8 * Math.sin(effect.seed + effect.time * 8 + step * 1.6)) * groundScale;
+          this.drawImportedMissileFrame(
+            ctx,
+            "d2-groundfiremedium",
+            effect.time + step * 0.04 + wave * 0.08,
+            point.x,
+            point.y - 4 * groundScale,
+            size,
+            0,
+            alpha,
+            "bottom",
+          );
         }
-        ctx.restore();
       }
     }
 
@@ -15372,41 +15356,38 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       if (progress <= 0 || progress >= 1) continue;
       const radius = effect.maxRadius * (1 - (1 - progress) * (1 - progress));
       const center = this.projectArenaPoint(effect.x, effect.y);
-      const edge = this.projectArenaPoint(effect.x + radius, effect.y);
-      const rx = Math.max(4, Math.abs(edge.x - center.x));
-      const ry = rx * 0.52;
-      const alpha = Math.sin(progress * Math.PI) * 0.95;
-      ctx.save();
-      ctx.globalAlpha = alpha;
-      ctx.globalCompositeOperation = "lighter";
-      ctx.shadowColor = "#ff3b12";
-      ctx.shadowBlur = 22 * scale;
-      ctx.strokeStyle = "rgba(255, 76, 20, 0.72)";
-      ctx.lineWidth = 20 * groundScale;
-      ctx.beginPath();
-      ctx.ellipse(center.x, center.y, rx, ry, 0, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.strokeStyle = "#ffd173";
-      ctx.lineWidth = 4 * groundScale;
-      ctx.beginPath();
-      ctx.ellipse(center.x, center.y, rx, ry, 0, 0, Math.PI * 2);
-      ctx.stroke();
-      for (let flame = 0; flame < 24; flame += 1) {
-        const angle = (flame / 24) * Math.PI * 2 + effect.seed;
+      if (!this.isArenaPointOnScreen(center, DRAW_CULL_MARGIN * 3)) continue;
+      const alpha = Math.sin(progress * Math.PI) * 0.8;
+      const count = 24;
+      for (let flame = 0; flame < count; flame += 1) {
+        const angle = effect.seed + flame / count * Math.PI * 2;
         const point = this.projectArenaPoint(
           effect.x + Math.cos(angle) * radius,
           effect.y + Math.sin(angle) * radius,
         );
-        const height = (9 + 7 * Math.abs(Math.sin(effect.time * 12 + flame * 2.1))) * groundScale;
-        ctx.fillStyle = flame % 3 === 0 ? "#ffe39a" : "#ff7a24";
-        ctx.beginPath();
-        ctx.moveTo(point.x - 4 * groundScale, point.y + 1);
-        ctx.lineTo(point.x, point.y - height);
-        ctx.lineTo(point.x + 4 * groundScale, point.y + 1);
-        ctx.closePath();
-        ctx.fill();
+        const size = (70 + 6 * Math.sin(effect.time * 12 + flame * 2.1)) * groundScale;
+        this.drawImportedMissileFrame(
+          ctx,
+          "d2-groundfiremedium",
+          effect.time + flame * 0.025,
+          point.x,
+          point.y - 4 * groundScale,
+          size,
+          0,
+          alpha,
+          "bottom",
+        );
       }
-      ctx.restore();
+      this.drawImportedMissileFrame(
+        ctx,
+        "d2-firenova",
+        effect.time,
+        center.x,
+        center.y - 14 * groundScale,
+        108 * groundScale,
+        effect.seed,
+        alpha * 0.34,
+      );
     }
 
     for (const wall of this.diabloFireWallEffects) {
@@ -15422,67 +15403,34 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         wall.x + tangentX * wall.halfLength,
         wall.y + tangentY * wall.halfLength,
       );
-      ctx.save();
-      ctx.globalAlpha = fade * 0.9;
-      ctx.lineCap = "round";
-      ctx.strokeStyle = "rgba(42, 12, 4, 0.72)";
-      ctx.lineWidth = 13 * groundScale;
-      ctx.beginPath();
-      ctx.moveTo(left.x, left.y);
-      ctx.lineTo(right.x, right.y);
-      ctx.stroke();
-      ctx.strokeStyle = "rgba(255, 95, 26, 0.4)";
-      ctx.lineWidth = 7 * groundScale;
-      ctx.beginPath();
-      ctx.moveTo(left.x, left.y - 1);
-      ctx.lineTo(right.x, right.y - 1);
-      ctx.stroke();
-      ctx.restore();
-
       const frames = this.missileOverlayImages.get(FIRE_WALL_MISSILE_ID) ?? [];
       const fallbackFrame = frames.find((frame) => this.isMissileFrameReady(frame));
+      // No vector underlay and no colour filter: the re-imported DCC strip is
+      // already the orange Fire Wall art.
+      if (!fallbackFrame) continue;
+      const sourceWidth = fallbackFrame instanceof HTMLImageElement ? fallbackFrame.naturalWidth : fallbackFrame.width;
+      const sourceHeight = fallbackFrame instanceof HTMLImageElement ? fallbackFrame.naturalHeight : fallbackFrame.height;
+      if (!sourceWidth || !sourceHeight) continue;
+      const spriteHeight = 48 * groundScale;
+      const spriteWidth = spriteHeight * sourceWidth / sourceHeight;
+      const spacing = Math.max(6, spriteWidth * 0.55);
+      const lineLength = Math.hypot(right.x - left.x, right.y - left.y);
+      const columnCount = Math.max(3, Math.min(32, Math.ceil(lineLength / spacing)));
+      const frameDuration = this.missileFrameDuration(FIRE_WALL_MISSILE_ID);
+      const animationFrame = Math.floor(wall.time * 1000 / frameDuration);
       ctx.save();
       ctx.globalAlpha = fade;
-      ctx.shadowColor = "#ff5a1f";
-      ctx.shadowBlur = 7 * scale;
-      if (fallbackFrame) {
-        ctx.filter = FIRE_WALL_MISSILE_FILTER;
-        const sourceWidth = fallbackFrame instanceof HTMLImageElement ? fallbackFrame.naturalWidth : fallbackFrame.width;
-        const sourceHeight = fallbackFrame instanceof HTMLImageElement ? fallbackFrame.naturalHeight : fallbackFrame.height;
-        const spriteHeight = 48 * groundScale;
-        const spriteWidth = spriteHeight * sourceWidth / Math.max(1, sourceHeight);
-        const spacing = Math.max(6, spriteWidth * 0.55);
-        const lineLength = Math.hypot(right.x - left.x, right.y - left.y);
-        const columnCount = Math.max(3, Math.min(32, Math.ceil(lineLength / spacing)));
-        const frameDuration = this.missileFrameDuration(FIRE_WALL_MISSILE_ID);
-        const animationFrame = Math.floor(wall.time * 1000 / frameDuration);
-        for (let column = 0; column < columnCount; column += 1) {
-          const t = (column + 0.5) / columnCount;
-          const baseX = left.x + (right.x - left.x) * t;
-          const baseY = left.y + (right.y - left.y) * t;
-          const flicker = 0.82 + 0.18 * Math.sin(wall.time * 11 + column * 1.9);
-          const height = spriteHeight * flicker;
-          const width = height * sourceWidth / Math.max(1, sourceHeight);
-          let frame = frames[(animationFrame + column * 3) % frames.length];
-          if (!this.isMissileFrameReady(frame)) frame = fallbackFrame;
-          const jitter = Math.sin(wall.time * 7 + column * 2.3) * 1.2 * scale;
-          ctx.drawImage(frame, baseX - width / 2 + jitter, baseY - height + 2 * scale, width, height);
-        }
-      } else {
-        ctx.globalCompositeOperation = "lighter";
-        for (let column = 0; column < 12; column += 1) {
-          const t = (column + 0.5) / 12;
-          const baseX = left.x + (right.x - left.x) * t;
-          const baseY = left.y + (right.y - left.y) * t;
-          const height = (22 + 10 * Math.abs(Math.sin(wall.time * 10 + column * 1.4))) * groundScale;
-          ctx.fillStyle = column % 2 === 0 ? "#ff7a24" : "#ffd173";
-          ctx.beginPath();
-          ctx.moveTo(baseX - 6 * groundScale, baseY + 2 * groundScale);
-          ctx.lineTo(baseX, baseY - height);
-          ctx.lineTo(baseX + 6 * groundScale, baseY + 2 * groundScale);
-          ctx.closePath();
-          ctx.fill();
-        }
+      for (let column = 0; column < columnCount; column += 1) {
+        const t = (column + 0.5) / columnCount;
+        const baseX = left.x + (right.x - left.x) * t;
+        const baseY = left.y + (right.y - left.y) * t;
+        const flicker = 0.82 + 0.18 * Math.sin(wall.time * 11 + column * 1.9);
+        const height = spriteHeight * flicker;
+        const width = height * sourceWidth / sourceHeight;
+        let frame = frames[(animationFrame + column * 3) % frames.length];
+        if (!this.isMissileFrameReady(frame)) frame = fallbackFrame;
+        const jitter = Math.sin(wall.time * 7 + column * 2.3) * 1.2 * scale;
+        ctx.drawImage(frame, baseX - width / 2 + jitter, baseY - height + 2 * scale, width, height);
       }
       ctx.restore();
     }
@@ -15491,56 +15439,41 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private drawDiabloEffects(ctx: CanvasRenderingContext2D): void {
     if (!this.runActive) return;
     const scale = this.projectionDpr || 1;
+    const worldScale = this.worldZoom * scale;
     this.drawDiabloFireEffects(ctx, scale);
+
     for (const effect of this.diabloThunderEffects) {
       const start = this.projectArenaPoint(effect.x, effect.y - 24);
       const end = this.projectArenaPoint(
         effect.x + effect.dirX * effect.length,
         effect.y + effect.dirY * effect.length - 8,
       );
+      if (!this.isArenaPointOnScreen(start, DRAW_CULL_MARGIN * 2)
+        && !this.isArenaPointOnScreen(end, DRAW_CULL_MARGIN * 2)) continue;
       const dx = end.x - start.x;
       const dy = end.y - start.y;
-      const screenLength = Math.hypot(dx, dy) || 1;
-      const nx = -dy / screenLength;
-      const ny = dx / screenLength;
+      const screenLength = Math.hypot(dx, dy);
+      if (screenLength < 1) continue;
       const fade = Math.max(0, Math.min(1, effect.time * 12, (effect.duration - effect.time) * 12));
       if (fade <= 0) continue;
-      ctx.save();
-      ctx.globalCompositeOperation = "lighter";
-      ctx.lineCap = "round";
-      ctx.shadowColor = "#ff3217";
-      ctx.shadowBlur = 22 * scale;
-      // Three offset arcs make a hot white core inside a wide crimson discharge.
-      for (let layer = 0; layer < 3; layer += 1) {
-        ctx.beginPath();
-        ctx.moveTo(start.x, start.y);
-        const segments = 12;
-        for (let step = 1; step <= segments; step += 1) {
-          const t = step / segments;
-          const crackle = Math.sin(effect.seed + effect.time * 68 + step * 2.35 + layer * 1.91);
-          const offset = crackle * (2 + t * 12) * (1 - layer * 0.2);
-          ctx.lineTo(start.x + dx * t + nx * offset, start.y + dy * t + ny * offset);
-        }
-        ctx.globalAlpha = fade * (layer === 0 ? 0.95 : 0.38);
-        ctx.strokeStyle = layer === 0 ? "#fff4c4" : "#ff4a22";
-        ctx.lineWidth = (layer === 0 ? 2.5 : 7 - layer) * scale;
-        ctx.stroke();
+      const angle = Math.atan2(dy, dx);
+      const segments = Math.max(2, Math.ceil(screenLength / (260 * scale)));
+      const size = Math.max(110 * scale, Math.min(480 * scale, screenLength / segments * 1.8));
+      // Tile the original red lightning DCC along the beam instead of tracing
+      // three stroked lightning paths with a large canvas shadow every frame.
+      for (let segment = 0; segment < segments; segment += 1) {
+        const t = (segment + 0.5) / segments;
+        this.drawImportedMissileFrame(
+          ctx,
+          "d2-diablolightning",
+          effect.time + segment * 0.04,
+          start.x + dx * t,
+          start.y + dy * t,
+          size,
+          angle,
+          fade * 0.92,
+        );
       }
-      // Sparks spit sideways from the beam and fade with the channel.
-      ctx.shadowBlur = 8 * scale;
-      for (let spark = 0; spark < 9; spark += 1) {
-        const t = ((spark * 0.137 + effect.time * 0.62) % 1);
-        const side = spark % 2 === 0 ? 1 : -1;
-        const flare = (8 + (spark % 4) * 5) * scale;
-        const x = start.x + dx * t + nx * flare * side;
-        const y = start.y + dy * t + ny * flare * side;
-        ctx.globalAlpha = fade * (0.25 + (spark % 3) * 0.18);
-        ctx.fillStyle = spark % 2 === 0 ? "#ffb15c" : "#ff3a1c";
-        ctx.beginPath();
-        ctx.arc(x, y, (1.2 + (spark % 3) * 0.7) * scale, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      ctx.restore();
     }
 
     if (this.playerBonePrisonRemaining > 0) {
@@ -15548,110 +15481,65 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const edge = this.projectArenaPoint(this.playerBonePrisonX + 30, this.playerBonePrisonY);
       const radius = Math.max(18, Math.hypot(edge.x - center.x, edge.y - center.y));
       const fade = Math.min(1, this.playerBonePrisonRemaining / 0.45);
-      const height = Math.max(58 * scale, radius * 1.25);
-      ctx.save();
-      ctx.globalAlpha = fade;
-      ctx.lineCap = "round";
-      // A cracked bone ring on the floor.
-      ctx.strokeStyle = "rgba(206, 191, 157, 0.55)";
-      ctx.lineWidth = 3 * scale;
-      ctx.beginPath();
-      ctx.ellipse(center.x, center.y, radius, radius * 0.52, 0, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.strokeStyle = "rgba(54, 43, 33, 0.85)";
-      ctx.lineWidth = 5 * scale;
-      for (let index = 0; index < 9; index += 1) {
-        const angle = index * (Math.PI * 2 / 9) + 0.18;
-        const base = this.projectArenaPoint(
+      // Original skeletal cels ring the trapped player; there is no missile
+      // sprite for the prison model itself, so no vector cage is drawn.
+      for (let index = 0; index < 10; index += 1) {
+        const angle = index * (Math.PI * 2 / 10) + this.runTime * 0.35;
+        const point = this.projectArenaPoint(
           this.playerBonePrisonX + Math.cos(angle) * 30,
           this.playerBonePrisonY + Math.sin(angle) * 30,
         );
-        const depth = Math.sin(angle);
-        const topX = base.x + Math.cos(angle) * 3 * scale;
-        const topY = base.y - height * (0.78 + (index % 3) * 0.11) + depth * 3 * scale;
-        ctx.beginPath();
-        ctx.moveTo(base.x, base.y);
-        ctx.quadraticCurveTo(
-          base.x + Math.cos(angle) * 8 * scale,
-          base.y - height * 0.55,
-          topX,
-          topY,
+        this.drawImportedMissileFrame(
+          ctx,
+          "d2-boneshield",
+          this.runTime + index * 0.04,
+          point.x,
+          point.y - 12 * worldScale,
+          Math.max(84 * scale, radius * 2.8),
+          angle,
+          fade * 0.82,
         );
-        ctx.stroke();
-        // Knuckle and crown highlights make the ribs read as old bone.
-        ctx.strokeStyle = "rgba(228, 216, 187, 0.8)";
-        ctx.lineWidth = 1.5 * scale;
-        ctx.beginPath();
-        ctx.moveTo(base.x - 3 * scale, base.y - height * 0.5);
-        ctx.lineTo(base.x + 4 * scale, base.y - height * 0.52);
-        ctx.stroke();
-        ctx.fillStyle = "#d8c9a7";
-        ctx.beginPath();
-        ctx.arc(topX, topY, 2.8 * scale, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = "rgba(54, 43, 33, 0.85)";
-        ctx.lineWidth = 5 * scale;
       }
-      ctx.restore();
     }
 
     if (this.playerChilledRemaining > 0) {
       const center = this.projectArenaPoint(this.playerX, this.playerY);
-      const radius = 30 * this.worldZoom * scale;
       const pulse = 0.5 + Math.sin(this.runTime * 9) * 0.15;
-      ctx.save();
-      ctx.globalCompositeOperation = "lighter";
-      ctx.globalAlpha = Math.min(0.7, this.playerChilledRemaining) * pulse;
-      ctx.strokeStyle = "#8fd6ff";
-      ctx.lineWidth = 3 * scale;
-      ctx.shadowColor = "#5fc8ff";
-      ctx.shadowBlur = 12 * scale;
-      ctx.beginPath();
-      ctx.ellipse(center.x, center.y, radius, radius * 0.4, 0, 0, Math.PI * 2);
-      ctx.stroke();
-      for (let index = 0; index < 8; index += 1) {
-        const angle = index * (Math.PI * 2 / 8) + this.runTime * 0.6;
-        const shardX = center.x + Math.cos(angle) * radius * 0.78;
-        const shardY = center.y + Math.sin(angle) * radius * 0.3;
-        ctx.fillStyle = index % 2 === 0 ? "#d8f4ff" : "#79c8f5";
-        ctx.beginPath();
-        ctx.moveTo(shardX, shardY - 7 * scale);
-        ctx.lineTo(shardX + 3 * scale, shardY + 2 * scale);
-        ctx.lineTo(shardX - 3 * scale, shardY + 2 * scale);
-        ctx.closePath();
-        ctx.fill();
-      }
-      ctx.restore();
+      this.drawImportedMissileFrame(
+        ctx,
+        "d2-frostnova",
+        this.runTime,
+        center.x,
+        center.y - 4 * scale,
+        92 * worldScale,
+        0,
+        Math.min(0.7, this.playerChilledRemaining) * pulse * 0.55,
+      );
     }
 
     if (this.playerFrozenRemaining > 0) {
       const center = this.projectArenaPoint(this.playerX, this.playerY);
-      const iceScale = this.worldZoom * scale;
       const fade = Math.min(1, this.playerFrozenRemaining * 4);
-      ctx.save();
-      ctx.globalCompositeOperation = "lighter";
-      ctx.globalAlpha = 0.24 * fade;
-      ctx.fillStyle = "#9fe4ff";
-      ctx.fillRect(center.x - 15 * iceScale, center.y - 42 * iceScale, 30 * iceScale, 42 * iceScale);
-      ctx.globalAlpha = 0.86 * fade;
-      ctx.strokeStyle = "#d9f7ff";
-      ctx.fillStyle = "#bfefff";
-      ctx.lineWidth = 1.8 * iceScale;
-      ctx.shadowColor = "#65cfff";
-      ctx.shadowBlur = 11 * iceScale;
-      for (let index = 0; index < 6; index += 1) {
-        const angle = index * Math.PI / 3 + 0.25;
-        const shardX = center.x + Math.cos(angle) * 17 * iceScale;
-        const shardY = center.y - 18 * iceScale + Math.sin(angle) * 24 * iceScale;
-        ctx.beginPath();
-        ctx.moveTo(shardX, shardY - 12 * iceScale);
-        ctx.lineTo(shardX + 4 * iceScale, shardY + 5 * iceScale);
-        ctx.lineTo(shardX - 4 * iceScale, shardY + 5 * iceScale);
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-      }
-      ctx.restore();
+      this.drawImportedMissileFrame(
+        ctx,
+        "d2-frostnova",
+        this.runTime,
+        center.x,
+        center.y - 18 * worldScale,
+        96 * worldScale,
+        0,
+        fade * 0.72,
+      );
+      this.drawImportedMissileFrame(
+        ctx,
+        "d2-frostnova",
+        this.runTime + 0.05,
+        center.x,
+        center.y - 44 * worldScale,
+        58 * worldScale,
+        0,
+        fade * 0.42,
+      );
     }
   }
 
@@ -15663,27 +15551,21 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     for (const effect of this.baalTentacleEffects) {
       for (const tentacle of effect.tentacles) {
         const ground = this.projectArenaPoint(tentacle.x, tentacle.y);
+        if (!this.isArenaPointOnScreen(ground, DRAW_CULL_MARGIN * 3)) continue;
         const edge = this.projectArenaPoint(tentacle.x + BAAL_TENTACLE_RADIUS, tentacle.y);
         const radius = Math.max(10, Math.hypot(edge.x - ground.x, edge.y - ground.y));
         if (effect.time < tentacle.delay) {
-          // Dark cracks warn exactly where each tentacle will break through.
-          const windup = effect.time / tentacle.delay;
-          const pulse = 0.55 + Math.sin(this.runTime * 20 + tentacle.seed) * 0.25;
-          ctx.save();
-          ctx.globalAlpha = 0.2 + windup * 0.55;
-          ctx.strokeStyle = "#77d59d";
-          ctx.lineWidth = 2.5 * scale;
-          ctx.setLineDash([5 * scale, 4 * scale]);
-          ctx.beginPath();
-          ctx.ellipse(ground.x, ground.y, radius, radius * 0.52, 0, 0, Math.PI * 2);
-          ctx.stroke();
-          ctx.setLineDash([]);
-          ctx.globalAlpha = windup * pulse;
-          ctx.fillStyle = "#2e6f4b";
-          ctx.beginPath();
-          ctx.ellipse(ground.x, ground.y, radius * 0.62, radius * 0.3, 0, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.restore();
+          const windup = effect.time / Math.max(0.001, tentacle.delay);
+          this.drawImportedMissileFrame(
+            ctx,
+            "d2-baalsummonoverlay",
+            this.runTime + tentacle.seed,
+            ground.x,
+            ground.y - 2 * scale,
+            Math.max(34 * scale, radius * 4.2),
+            0,
+            0.22 + windup * 0.5,
+          );
           continue;
         }
 
@@ -15694,60 +15576,37 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         if (heightFactor <= 0.01) continue;
         const height = 72 * worldScale * heightFactor;
         const alpha = Math.min(1, (effect.duration - effect.time) / 0.35);
-        ctx.save();
-        ctx.globalAlpha = alpha;
-        ctx.lineCap = "round";
-        // A wet, dark wound on the ground beneath the erupting limbs.
-        ctx.fillStyle = "rgba(18, 48, 32, 0.82)";
-        ctx.beginPath();
-        ctx.ellipse(ground.x, ground.y, radius * 0.92, radius * 0.46, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.shadowColor = "#63e6a0";
-        ctx.shadowBlur = 14 * scale;
-        for (let tendril = 0; tendril < 3; tendril += 1) {
-          const angle = tentacle.seed + tendril * 2.1;
-          const baseX = ground.x + Math.cos(angle) * radius * 0.32;
-          const baseY = ground.y + Math.sin(angle) * radius * 0.16;
-          const topX = baseX + Math.cos(angle) * radius * 0.34
-            + Math.sin(tentacle.seed * 2 + this.runTime * 4 + tendril) * radius * 0.18;
-          const topY = baseY - height * (0.8 + (tendril % 2) * 0.2);
-          const controlX = baseX + Math.cos(angle) * radius * 0.7;
-          const controlY = baseY - height * 0.42;
-          ctx.beginPath();
-          ctx.moveTo(baseX, baseY);
-          ctx.quadraticCurveTo(controlX, controlY, topX, topY);
-          ctx.strokeStyle = "#153b2a";
-          ctx.lineWidth = 10 * scale;
-          ctx.stroke();
-          ctx.strokeStyle = "#4d956b";
-          ctx.lineWidth = 5 * scale;
-          ctx.stroke();
-          ctx.strokeStyle = "#a8e6b4";
-          ctx.lineWidth = 1.7 * scale;
-          ctx.stroke();
-          // Hooked tip and a few pale sucker rings.
-          ctx.beginPath();
-          ctx.moveTo(topX, topY);
-          ctx.quadraticCurveTo(
-            topX + Math.cos(angle) * radius * 0.22,
-            topY - height * 0.08,
-            topX + Math.cos(angle) * radius * 0.32,
-            topY + height * 0.04,
-          );
-          ctx.strokeStyle = "#c6f0cb";
-          ctx.lineWidth = 2.5 * scale;
-          ctx.stroke();
-          ctx.fillStyle = "rgba(29, 68, 45, 0.9)";
-          for (let sucker = 1; sucker <= 3; sucker += 1) {
-            const t = sucker / 4;
-            const x = baseX + (topX - baseX) * t;
-            const y = baseY + (topY - baseY) * t + Math.sin(t * Math.PI) * height * 0.08;
-            ctx.beginPath();
-            ctx.arc(x, y, 2.2 * scale, 0, Math.PI * 2);
-            ctx.fill();
-          }
-        }
-        ctx.restore();
+        const size = Math.max(54 * scale, radius * 4.4) * (0.55 + heightFactor * 0.45);
+        this.drawImportedMissileFrame(
+          ctx,
+          "d2-baalsummonoverlay",
+          effect.time,
+          ground.x,
+          ground.y - 3 * scale,
+          size * 1.15,
+          0,
+          alpha * 0.55,
+        );
+        this.drawImportedMissileFrame(
+          ctx,
+          "d2-baalsummonmissile2",
+          erupt,
+          ground.x,
+          ground.y - height * 0.35,
+          size,
+          tentacle.seed,
+          alpha * 0.9,
+        );
+        this.drawImportedMissileFrame(
+          ctx,
+          "d2-baalsummonmissile",
+          erupt + 0.04,
+          ground.x,
+          ground.y - height * 0.8,
+          size * 0.52,
+          tentacle.seed + 0.4,
+          alpha * 0.85,
+        );
       }
     }
 
@@ -15758,50 +15617,34 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const perpY = effect.dirX;
       const fade = Math.max(0, Math.min(1, effect.time * 7, (effect.duration - effect.time) * 6));
       if (fade <= 0) continue;
-      ctx.save();
-      ctx.globalCompositeOperation = "lighter";
-      ctx.lineCap = "round";
-      ctx.shadowColor = "#55d9ff";
-      ctx.shadowBlur = 20 * scale;
-      for (let band = 0; band < 3; band += 1) {
-        const back = Math.max(0, traveled - band * 15);
-        const left = this.projectArenaPoint(
-          effect.x + effect.dirX * back + perpX * BAAL_WAVE_HALF_WIDTH,
-          effect.y + effect.dirY * back + perpY * BAAL_WAVE_HALF_WIDTH,
-        );
-        const right = this.projectArenaPoint(
-          effect.x + effect.dirX * back - perpX * BAAL_WAVE_HALF_WIDTH,
-          effect.y + effect.dirY * back - perpY * BAAL_WAVE_HALF_WIDTH,
-        );
-        const middle = this.projectArenaPoint(
-          effect.x + effect.dirX * (back + 24),
-          effect.y + effect.dirY * (back + 24),
-        );
-        ctx.globalAlpha = fade * (0.92 - band * 0.24);
-        ctx.strokeStyle = band === 0 ? "#e2fdff" : "#54c9ff";
-        ctx.lineWidth = (band === 0 ? 5 : 12 - band * 3) * scale;
-        ctx.beginPath();
-        ctx.moveTo(left.x, left.y);
-        ctx.quadraticCurveTo(middle.x, middle.y, right.x, right.y);
-        ctx.stroke();
+      const center = this.projectArenaPoint(
+        effect.x + effect.dirX * traveled,
+        effect.y + effect.dirY * traveled,
+      );
+      if (!this.isArenaPointOnScreen(center, DRAW_CULL_MARGIN * 4)) continue;
+      const angle = Math.atan2(effect.dirY, effect.dirX);
+      // The imported shockwave cels replace the old neon arc and its sparks.
+      for (let band = 0; band < 2; band += 1) {
+        const back = Math.max(0, traveled - band * 18);
+        for (let shard = 0; shard < 9; shard += 1) {
+          const lateral = ((shard + 0.5) / 9 * 2 - 1) * BAAL_WAVE_HALF_WIDTH;
+          const point = this.projectArenaPoint(
+            effect.x + effect.dirX * back + perpX * lateral,
+            effect.y + effect.dirY * back + perpY * lateral,
+          );
+          const size = (96 + 8 * Math.sin(effect.seed + shard * 1.9 + effect.time * 14)) * worldScale;
+          this.drawImportedMissileFrame(
+            ctx,
+            "d2-shockwave",
+            effect.time + shard * 0.02 + band * 0.03,
+            point.x,
+            point.y - band * 10 * scale,
+            size,
+            angle + Math.PI / 2,
+            fade * (0.82 - band * 0.2),
+          );
+        }
       }
-      // Cold sparks peel off the crest of the wave.
-      for (let spark = 0; spark < 9; spark += 1) {
-        const lateral = (spark / 8 * 2 - 1) * BAAL_WAVE_HALF_WIDTH;
-        const point = this.projectArenaPoint(
-          effect.x + effect.dirX * (traveled - 3) + perpX * lateral,
-          effect.y + effect.dirY * (traveled - 3) + perpY * lateral,
-        );
-        const lift = (8 + (spark % 4) * 7) * worldScale;
-        ctx.globalAlpha = fade * (0.35 + (spark % 3) * 0.2);
-        ctx.strokeStyle = spark % 2 === 0 ? "#d3fbff" : "#7fe6ff";
-        ctx.lineWidth = 1.5 * scale;
-        ctx.beginPath();
-        ctx.moveTo(point.x, point.y);
-        ctx.lineTo(point.x + Math.sin(effect.seed + spark) * 5 * scale, point.y - lift);
-        ctx.stroke();
-      }
-      ctx.restore();
     }
 
     this.drawBaalHoarfrostArt(ctx, scale, worldScale);
@@ -15812,8 +15655,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.drawBaalCurseAuras(ctx, scale, worldScale);
   }
 
-  /** Draw one imported D2R missile/overlay cel, preserving its aspect ratio. */
-  private drawBaalArtFrame(
+  /** Draw one imported D2R missile/overlay cel, preserving its aspect ratio. Shared by all three Pandemonium bosses. */
+  private drawImportedMissileFrame(
     ctx: CanvasRenderingContext2D,
     id: string,
     age: number,
@@ -15822,6 +15665,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     size: number,
     rotation = 0,
     alpha = 1,
+    anchor: "center" | "bottom" = "center",
   ): void {
     if (alpha <= 0.01 || size <= 0) return;
     const frames = this.missileOverlayImages.get(id) ?? [];
@@ -15834,8 +15678,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const naturalHeight = frame instanceof HTMLImageElement ? frame.naturalHeight : frame.height;
     if (!naturalWidth || !naturalHeight) return;
     const drawScale = size / Math.max(naturalWidth, naturalHeight);
+    const drawHeight = naturalHeight * drawScale;
     ctx.save();
-    ctx.translate(x, y);
+    // Tall flames and ice columns use their ground contact as the anchor; their
+    // authored art grows upward from the bottom edge.
+    ctx.translate(x, y - (anchor === "bottom" ? drawHeight / 2 : 0));
     ctx.rotate(rotation);
     ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
     ctx.globalCompositeOperation = "lighter";
@@ -15855,24 +15702,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       if (fade <= 0.01) continue;
       const origin = this.projectArenaPoint(effect.x, effect.y);
       if (!this.isArenaPointOnScreen(origin, DRAW_CULL_MARGIN * 3)) continue;
-      ctx.save();
-      ctx.globalCompositeOperation = "lighter";
-      ctx.strokeStyle = "rgba(148, 222, 255, 0.33)";
-      ctx.lineWidth = 2.5 * scale;
-      for (const armAngle of [effect.angle - effect.spread, effect.angle + effect.spread]) {
-        const armX = Math.cos(armAngle);
-        const armY = Math.sin(armAngle);
-        const end = this.projectArenaPoint(
-          effect.x + armX * effect.maxDistance,
-          effect.y + armY * effect.maxDistance,
-        );
-        ctx.globalAlpha = fade * 0.35;
-        ctx.beginPath();
-        ctx.moveTo(origin.x, origin.y);
-        ctx.lineTo(end.x, end.y - 10 * scale);
-        ctx.stroke();
-      }
-      ctx.restore();
       for (let wave = 0; wave < effect.waveHits.length; wave += 1) {
         const waveAge = effect.time - wave * BAAL_HOARFROST_WAVE_INTERVAL;
         if (waveAge <= 0) continue;
@@ -15889,7 +15718,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
             );
             const size = (34 - shard * 4) * worldScale;
             const art = shard % 2 === 0 ? "d2-bluenovab" : "d2-novablue";
-            this.drawBaalArtFrame(
+            this.drawImportedMissileFrame(
               ctx,
               art,
               effect.time + shard * 0.025,
@@ -15912,7 +15741,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const center = this.projectArenaPoint(effect.x, effect.y);
       if (!this.isArenaPointOnScreen(center, DRAW_CULL_MARGIN * 4)) continue;
       const fade = Math.min(1, progress * 5, (1 - progress) * 4);
-      this.drawBaalArtFrame(
+      this.drawImportedMissileFrame(
         ctx,
         "d2-baalnova",
         effect.time,
@@ -15929,7 +15758,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           effect.x + Math.cos(angle) * radius,
           effect.y + Math.sin(angle) * radius,
         );
-        this.drawBaalArtFrame(
+        this.drawImportedMissileFrame(
           ctx,
           index % 2 === 0 ? "d2-baalsummonmissile" : "d2-baalsummonmissile2",
           effect.time + index * 0.013,
@@ -15952,24 +15781,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       if (!this.isArenaPointOnScreen(origin, DRAW_CULL_MARGIN * 3)
         && !this.isArenaPointOnScreen(target, DRAW_CULL_MARGIN * 3)) continue;
       const angle = Math.atan2(target.y - origin.y, target.x - origin.x);
-      ctx.save();
-      ctx.globalCompositeOperation = "lighter";
-      ctx.lineCap = "round";
-      ctx.strokeStyle = "rgba(255, 213, 92, 0.55)";
-      ctx.lineWidth = 12 * scale;
-      ctx.shadowColor = "#ffd35a";
-      ctx.shadowBlur = 18 * scale;
-      ctx.beginPath();
-      ctx.moveTo(origin.x, origin.y - 18 * scale);
-      ctx.lineTo(target.x, target.y - 18 * scale);
-      ctx.stroke();
-      ctx.restore();
       for (let index = 0; index < 8; index += 1) {
         const t = (index + 0.5) / 8;
         const x = origin.x + (target.x - origin.x) * t;
         const y = origin.y + (target.y - origin.y) * t - 18 * scale;
         const wobble = Math.sin(effect.seed + index * 1.7 + effect.time * 26) * 8 * scale;
-        this.drawBaalArtFrame(
+        this.drawImportedMissileFrame(
           ctx,
           "d2-baalmissile",
           effect.time + index * 0.035,
@@ -15990,7 +15807,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       if (fade <= 0.01) continue;
       const source = this.projectArenaPoint(effect.sourceX, effect.sourceY);
       const target = this.projectArenaPoint(effect.x, effect.y);
-      this.drawBaalArtFrame(
+      this.drawImportedMissileFrame(
         ctx,
         "d2-cursecast",
         effect.time,
@@ -16005,7 +15822,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         const x = source.x + (target.x - source.x) * flight;
         const y = source.y + (target.y - source.y) * flight - 42 * scale;
         const angle = Math.atan2(target.y - source.y, target.x - source.x);
-        this.drawBaalArtFrame(
+        this.drawImportedMissileFrame(
           ctx,
           "d2-cursemissle",
           effect.time,
@@ -16016,7 +15833,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           fade,
         );
       } else {
-        this.drawBaalArtFrame(
+        this.drawImportedMissileFrame(
           ctx,
           "d2-cursearea",
           effect.time,
@@ -16038,14 +15855,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const point = this.projectArenaPoint(effect.x, effect.y);
       if (!this.isArenaPointOnScreen(point, DRAW_CULL_MARGIN * 2)) continue;
       if (effect.kind === "effigy") {
-        this.drawBaalArtFrame(ctx, "d2-baalsummonoverlay", effect.time, point.x, point.y - 34 * worldScale / this.worldZoom, 160 * worldScale, 0, fade * 0.92);
-        this.drawBaalArtFrame(ctx, "d2-baalsummonmissile", effect.time, point.x, point.y - 26 * worldScale / this.worldZoom, 80 * worldScale, effect.seed, fade * 0.8);
+        this.drawImportedMissileFrame(ctx, "d2-baalsummonoverlay", effect.time, point.x, point.y - 34 * worldScale / this.worldZoom, 160 * worldScale, 0, fade * 0.92);
+        this.drawImportedMissileFrame(ctx, "d2-baalsummonmissile", effect.time, point.x, point.y - 26 * worldScale / this.worldZoom, 80 * worldScale, effect.seed, fade * 0.8);
       } else if (effect.kind === "teleport") {
-        this.drawBaalArtFrame(ctx, "d2-baalteleport", effect.time, point.x, point.y - 34 * worldScale / this.worldZoom, 150 * worldScale, 0, fade * 0.94);
-        this.drawBaalArtFrame(ctx, "d2-baalsummonoverlay", effect.time + 0.06, point.x, point.y - 18 * worldScale / this.worldZoom, 90 * worldScale, 0, fade * 0.42);
+        this.drawImportedMissileFrame(ctx, "d2-baalteleport", effect.time, point.x, point.y - 34 * worldScale / this.worldZoom, 150 * worldScale, 0, fade * 0.94);
+        this.drawImportedMissileFrame(ctx, "d2-baalsummonoverlay", effect.time + 0.06, point.x, point.y - 18 * worldScale / this.worldZoom, 90 * worldScale, 0, fade * 0.42);
       } else {
-        this.drawBaalArtFrame(ctx, "d2-baalnova", effect.time, point.x, point.y - 36 * worldScale / this.worldZoom, 120 * worldScale, effect.seed, fade * 0.8);
-        this.drawBaalArtFrame(ctx, "d2-baalsummonmissile", effect.time + 0.04, point.x, point.y - 24 * worldScale / this.worldZoom, 60 * worldScale, effect.seed, fade * 0.68);
+        this.drawImportedMissileFrame(ctx, "d2-baalnova", effect.time, point.x, point.y - 36 * worldScale / this.worldZoom, 120 * worldScale, effect.seed, fade * 0.8);
+        this.drawImportedMissileFrame(ctx, "d2-baalsummonmissile", effect.time + 0.04, point.x, point.y - 24 * worldScale / this.worldZoom, 60 * worldScale, effect.seed, fade * 0.68);
       }
     }
   }
@@ -16058,8 +15875,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const ground = this.projectArenaPoint(this.playerX, this.playerY);
     const overlayId = this.playerDecrepifyRemaining > 0 ? "d2-cursedecrepifyeffect" : "d2-curseeffectred";
     const pulse = 0.48 + Math.sin(this.runTime * 7) * 0.12;
-    this.drawBaalArtFrame(ctx, "d2-cursearea", this.runTime, ground.x, ground.y, 50 * worldScale, 0, pulse);
-    this.drawBaalArtFrame(ctx, overlayId, this.runTime, ground.x, ground.y - 38 * scale, 60 * worldScale, 0, pulse + 0.18);
+    this.drawImportedMissileFrame(ctx, "d2-cursearea", this.runTime, ground.x, ground.y, 50 * worldScale, 0, pulse);
+    this.drawImportedMissileFrame(ctx, overlayId, this.runTime, ground.x, ground.y - 38 * scale, 60 * worldScale, 0, pulse + 0.18);
   }
 
   private activePaladinAuraRank(skills: readonly string[]): number {
@@ -21359,6 +21176,10 @@ function enemySpeciesScale(species: EnemySpecies): number {
     // at the old humanoid height.
     case "skeleton": return 1.25;
     case "skeletonWarrior": return 1.25;
+    // The Advocate's 107x108 cel is mostly padding: the body is only about
+    // 44x59 px. At the default 1x the Council rendered shorter than a Fallen,
+    // so lift the padded cel to roughly the Goatman's humanoid height.
+    case "council": return 1.8;
     case "skeletalMageCold":
     case "skeletalMageFire":
     case "skeletalMageLightning":

@@ -22,7 +22,7 @@ import { NexusService } from '../../services/nexus.service';
 import { NexusBase } from '../../services/datacontracts/nexus/nexus-base';
 import { MetaService } from '../../services/meta.service';
 import { NotificationService } from '../../services/notification.service';
-import { SocialService } from '../../services/social.service';
+import { SocialService, SocialSidebarUserStats } from '../../services/social.service';
 import { CommentService } from '../../services/comment.service';
 import { FileService } from '../../services/file.service';
 import { EnderService } from '../../services/ender.service';
@@ -177,6 +177,8 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
   userComments: FileComment[] = [];
   userCommentsLoading = false;
   userCommentsOpen = false;
+  userSocialStats?: SocialSidebarUserStats;
+  userSocialStatsLoading = false;
   latestMeme?: FileEntry = undefined;
   changedTheme = false;
   private originalBackgroundColor: string | null = null;
@@ -243,6 +245,9 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
 
       await this.getLoggedInUser();
       if (this.user) {
+        if (!this.loginOnly) {
+          void this.loadUserSocialStats();
+        }
         await this.loadFriendData();
         this.loadContactsData();
         this.loadLocation(this.user);
@@ -469,6 +474,23 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
         this.userLoginStreakLongest = streakRes.longestStreak ?? 0;
       }
     });
+  }
+
+  private async loadUserSocialStats() {
+    const userId = this.user?.id;
+    if (!userId) return;
+
+    this.userSocialStatsLoading = true;
+    try {
+      const stats = await this.socialService.getUserStats(userId);
+      // The profile input could change while the request is in flight.
+      if (this.user?.id === userId) {
+        this.userSocialStats = stats ?? undefined;
+      }
+    } finally {
+      this.userSocialStatsLoading = false;
+      this.cdr.detectChanges();
+    }
   }
 
   // Return true if the provided birthday (Date or parsable string) falls on today's month/day

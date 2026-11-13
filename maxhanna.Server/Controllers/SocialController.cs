@@ -73,6 +73,7 @@ namespace maxhanna.Server.Controllers
     [HttpGet("/Social/Sidebar", Name = "Social_Sidebar")]
     public async Task<IActionResult> GetSidebar(
       [FromQuery] int userId = 0,
+      [FromQuery] int profileUserId = 0,
       [FromQuery] int topicId = 0,
       [FromQuery] int? chatId = null,
       [FromHeader(Name = "Encrypted-UserId")] string? encryptedUserIdHeader = null)
@@ -87,12 +88,18 @@ namespace maxhanna.Server.Controllers
           userId = 0;
         }
 
+        // `userId` remains the authenticated viewer used for hidden-post filtering.
+        // `profileUserId` asks for another user's public activity totals; those
+        // counts are already public on their profile and do not need the viewer's
+        // session to match the target. When absent, keep the old self-stats path.
+        var statsUserId = profileUserId > 0 ? profileUserId : userId;
+
         var response = new SocialSidebarResponse();
         var connStr = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
         using var conn = new MySqlConnection(connStr);
         await conn.OpenAsync();
 
-        if (userId > 0)
+        if (statsUserId > 0)
         {
           const string statsSql = @"
             SELECT u.id, u.username, u.created,
@@ -109,7 +116,7 @@ namespace maxhanna.Server.Controllers
             LIMIT 1;";
 
           using var statsCmd = new MySqlCommand(statsSql, conn);
-          statsCmd.Parameters.AddWithValue("@userId", userId);
+          statsCmd.Parameters.AddWithValue("@userId", statsUserId);
           using var statsReader = await statsCmd.ExecuteReaderAsync();
           if (await statsReader.ReadAsync())
           {

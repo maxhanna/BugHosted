@@ -2038,6 +2038,32 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(y).toBeLessThan(0);
   });
 
+  it("keeps the Tristram backdrop anchored when movement crosses a chunk seam", () => {
+    const drawImage = jasmine.createSpy("drawImage");
+    const ctx = { save: () => undefined, restore: () => undefined, drawImage } as any;
+    const image = { naturalWidth: 3840, naturalHeight: 2304 } as HTMLImageElement;
+    const chunkWidth = (component as any).chunkTileColumns * 60;
+    const chunkHeight = (component as any).chunkTileRows * 60;
+    (component as any).projectionDpr = 1;
+
+    (component as any).currentChunkCoordX = 0;
+    (component as any).currentChunkCoordY = 0;
+    (component as any).currentChunkLocalX = chunkWidth - 0.01;
+    (component as any).currentChunkLocalY = chunkHeight - 0.01;
+    (component as any).drawTristramBackdrop(ctx, image, 356);
+    const beforeSeam = drawImage.calls.mostRecent().args;
+
+    (component as any).currentChunkCoordX = 1;
+    (component as any).currentChunkCoordY = 1;
+    (component as any).currentChunkLocalX = 0.01;
+    (component as any).currentChunkLocalY = 0.01;
+    (component as any).drawTristramBackdrop(ctx, image, 356);
+    const afterSeam = drawImage.calls.mostRecent().args;
+
+    expect(afterSeam[1]).toBeCloseTo(beforeSeam[1], 0);
+    expect(afterSeam[2]).toBeCloseTo(beforeSeam[2], 0);
+  });
+
   it("holds stunned enemies in place until the stun expires", () => {
     component.playerX = 250;
     component.playerY = 250;
@@ -2292,6 +2318,53 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(walls[0].y).toBe(component.playerY);
     (component as any).updateDiabloSpellEffects(0.2);
     expect(component.playerHp).toBeLessThan(1000);
+  });
+
+  it("renders every Pandemonium boss effect from imported missile cels", () => {
+    (component as any).runActive = true;
+    (component as any).projectionDpr = 1;
+    (component as any).worldZoom = 1;
+    (component as any).projectionCenterX = 1000;
+    (component as any).projectionCenterY = 1000;
+    spyOn(component as any, "projectArenaPoint").and.callFake((x: number, y: number) => ({ x, y }));
+    const draw = spyOn(component as any, "drawImportedMissileFrame");
+    const drawsId = (id: string): boolean => draw.calls.allArgs().some((args) => args[1] === id);
+
+    (component as any).diabloThunderEffects = [
+      { x: 100, y: 100, dirX: 1, dirY: 0, length: 300, time: 0.1, duration: 1, seed: 1 },
+    ];
+    (component as any).playerBonePrisonRemaining = 1;
+    (component as any).drawDiabloEffects({} as any);
+    expect(drawsId("d2-diablolightning")).toBeTrue();
+    expect(drawsId("d2-boneshield")).toBeTrue();
+
+    draw.calls.reset();
+    (component as any).diabloThunderEffects = [];
+    (component as any).playerBonePrisonRemaining = 0;
+    (component as any).diabloFireNovaEffects = [
+      { x: 100, y: 100, time: 0.5, duration: 2, maxRadius: 80, seed: 0 },
+    ];
+    (component as any).drawDiabloFireEffects({} as any, 1);
+    expect(drawsId("d2-groundfiremedium")).toBeTrue();
+    expect(drawsId("d2-firenova")).toBeTrue();
+
+    draw.calls.reset();
+    (component as any).mephistoBlizzards = [
+      { x: 100, y: 100, radius: 50, time: 0.5, duration: 2, seed: 0 },
+    ];
+    (component as any).drawMephistoEffects({} as any);
+    expect(drawsId("d2-blizzard")).toBeTrue();
+
+    draw.calls.reset();
+    (component as any).baalWaveEffects = [
+      { x: 100, y: 100, dirX: 1, dirY: 0, speed: 100, maxDistance: 200, time: 0.5, duration: 2, seed: 0 },
+    ];
+    (component as any).baalTentacleEffects = [
+      { time: 0.4, duration: 2, tentacles: [{ x: 120, y: 120, delay: 0.2, seed: 0 }] },
+    ];
+    (component as any).drawBaalEffects({} as any);
+    expect(drawsId("d2-shockwave")).toBeTrue();
+    expect(drawsId("d2-baalsummonmissile2")).toBeTrue();
   });
 
   it("charges toward a distant hero without dealing damage", () => {
@@ -2828,6 +2901,12 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     }
   });
 
+  it("uses the close-cropped hair layer under low caps", () => {
+    for (const id of ["cap", "skull"] as const) {
+      expect(D2_HELMET_VISUALS[id].hair).toBe("full");
+    }
+  });
+
   it("drops large and grand charms with their D2R art and inventory footprints", () => {
     const random = spyOn(Math, "random");
     const found = new Map<string, any>();
@@ -2894,21 +2973,27 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect((component as any).itemSize(affixedKnife)).toEqual({ width: 1, height: 2 });
   });
 
-  it("uses a one-column, two-row inventory footprint for throwing axes", () => {
-    for (const name of ["Throwing Axe", "Balanced Axe"]) {
-      const axe = {
-        id: name.toLowerCase(), name, baseName: name, rarity: "normal",
-        slot: "weapon", desc: "A throwing axe.", stats: {},
-      } as any;
-      expect((component as any).itemSize(axe)).toEqual({ width: 1, height: 2 });
-    }
+  it("uses the correct inventory footprints for throwing and balanced axes", () => {
+    const throwingAxe = {
+      id: "throwing-axe", name: "Throwing Axe", baseName: "Throwing Axe", rarity: "normal",
+      slot: "weapon", desc: "A throwing axe.", stats: {},
+    } as any;
+    expect((component as any).itemSize(throwingAxe)).toEqual({ width: 1, height: 2 });
 
-    const affixedAxe = {
+    const affixedThrowingAxe = {
       id: "affixed-throwing-axe", name: "Savage Throwing Axe of Haste",
       baseName: "Throwing Axe", rarity: "rare", slot: "weapon",
       desc: "A throwing axe.", stats: {},
     } as any;
-    expect((component as any).itemSize(affixedAxe)).toEqual({ width: 1, height: 2 });
+    expect((component as any).itemSize(affixedThrowingAxe)).toEqual({ width: 1, height: 2 });
+
+    for (const name of ["Balanced Axe", "Savage Balanced Axe of Haste"]) {
+      const axe = {
+        id: name.toLowerCase().replace(/\s+/g, "-"), name, baseName: "Balanced Axe", rarity: "normal",
+        slot: "weapon", desc: "A throwing axe tuned for a clean spin.", stats: {},
+      } as any;
+      expect((component as any).itemSize(axe)).toEqual({ width: 2, height: 3 });
+    }
   });
 
   it("uses a 2x4 inventory footprint for Great Swords", () => {
@@ -3760,6 +3845,51 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     enemy.attackAnimationTime = 0.2;
     (component as any).drawEnemy(ctx, enemy);
     expect(tinted.calls.mostRecent().args[1]).toBe(12);
+  });
+
+  it("draws Council Members at humanoid size despite their padded atlas cels", () => {
+    const frame = { width: 107, height: 108 } as HTMLCanvasElement;
+    (component as any).enemySprites.council = {
+      frames: Array.from({ length: 24 }, () => Array.from({ length: 20 }, () => frame)),
+      columns: 20,
+      rows: 24,
+      animated: true,
+    };
+    spyOn(component as any, "projectArenaPoint").and.returnValue({ x: 100, y: 120 });
+    spyOn(component as any, "drawGroundShadow");
+    spyOn(component as any, "drawHpBar");
+    spyOn(component as any, "tintedEnemyFrame").and.returnValue(frame);
+    const drawImage = jasmine.createSpy("drawImage");
+    const ctx = {
+      save: () => undefined,
+      restore: () => undefined,
+      drawImage,
+    } as unknown as CanvasRenderingContext2D;
+    (component as any).worldZoom = 1;
+    const enemy = {
+      kind: "normal",
+      species: "council",
+      campaignBoss: false,
+      spriteFrame: 0,
+      animationState: "move",
+      attackAnimationTime: 0,
+      facingX: 0,
+      facingY: 1,
+      x: 100,
+      y: 250,
+      hp: 100,
+      maxHp: 100,
+      r: 14,
+      dmg: 2,
+    } as any;
+
+    (component as any).drawEnemy(ctx, enemy);
+
+    const spriteCall = drawImage.calls.all().find((call) => call.args[0] === frame);
+    expect(spriteCall).toBeDefined();
+    if (!spriteCall) throw new Error("Council sprite was not drawn");
+    // The body fills 59/108 of the cell; the old 1x draw gave it only ~37 px.
+    expect(spriteCall.args[4] * 59 / 108).toBeGreaterThan(60);
   });
 
   it("keeps the Fetish and Council animation loops on populated cels", () => {
@@ -6447,7 +6577,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(component.attackProjectiles).not.toContain(wall);
   });
 
-  it("draws Fire Wall using the imported wallfire animation frames", () => {
+  it("draws Fire Wall using the imported wallfire animation frames without a hue filter", () => {
     const frames = Array.from({ length: 25 }, () => ({ width: 32, height: 100 }));
     (component as any).missileOverlayImages.set("d2-wallfire_low_tiny", frames);
     (component as any).worldZoom = 1;
@@ -6468,7 +6598,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
 
     expect(drawImage).toHaveBeenCalled();
     expect(frames).toContain(drawImage.calls.mostRecent().args[0]);
-    expect(ctx.filter).toContain("hue-rotate(180deg)");
+    expect(ctx.filter).toBe("");
   });
 
   it("draws Inferno as a stream of imported flame frames", () => {

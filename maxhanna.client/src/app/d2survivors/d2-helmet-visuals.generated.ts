@@ -65,9 +65,11 @@ function helmet(
 }
 
 export const D2_HELMET_VISUALS: Record<D2HelmetVisualId, D2HelmetVisual> = {
-  cap: helmet("cap", "half", 0.0009, 0.02, 0.88),
+  // Low caps need the close-cropped full-helm hair layer. The half-helm layer
+  // is longer than the cap shell and clips through it, especially on the paladin.
+  cap: helmet("cap", "full", 0.0009, 0.02, 0.88),
   jawbone: helmet("jawbone", "half", 0.001, 0.02, 0.86, [0, -Math.PI / 2, Math.PI]),
-  skull: helmet("skull", "half", 0.0009, 0.05, 0.8),
+  skull: helmet("skull", "full", 0.0009, 0.05, 0.8),
   helm: helmet("helm", "half", 0.0009, 0.55, 0.48),
   full: helmet("full", "full", 0.0009, 0.6, 0.46),
   great: helmet("great", "full", 0.0009, 0.6, 0.44),

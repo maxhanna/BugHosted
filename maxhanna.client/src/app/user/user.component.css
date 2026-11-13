@@ -286,6 +286,96 @@
   border-bottom: 1px dotted var(--main-font-color);
 }
 
+.profileSocialLevel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.profileSocialLevelBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  min-width: 24px;
+  padding: 1px 6px;
+  border: 1px solid var(--main-link-color, #6ab0ff);
+  border-radius: 7px;
+  background: var(--main-highlight-color-quarter-opacity, rgba(128, 128, 128, 0.12));
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.5;
+  box-sizing: border-box;
+}
+
+.profileSocialLevelTitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--main-link-color, #6ab0ff);
+}
+
+.profileSocialStats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  width: 100%;
+  padding: 5px 0;
+  box-sizing: border-box;
+}
+
+.profileSocialStat {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 5px 7px;
+  border-radius: 6px;
+  background: var(--main-highlight-color-quarter-opacity, rgba(128, 128, 128, 0.1));
+}
+
+.profileSocialStat strong {
+  font-size: 15px;
+  line-height: 1.1;
+}
+
+.profileSocialStat span {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--third-font-color, #8a8f98);
+}
+
+.profileSocialLevelProgress {
+  width: 100%;
+  padding-bottom: 6px;
+  border-bottom: 1px dotted var(--main-font-color);
+}
+
+.profileSocialLevelProgressLabel {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 10px;
+  color: var(--third-font-color, #8a8f98);
+}
+
+.profileSocialLevelProgressTrack {
+  width: 100%;
+  height: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--main-highlight-color-quarter-opacity, rgba(128, 128, 128, 0.18));
+}
+
+.profileSocialLevelProgressFill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--main-link-color, #6ab0ff);
+  transition: width 0.25s ease;
+}
+
 .profileControlsSelector option:first-child {
   text-align: center;
 }
