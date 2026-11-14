@@ -2045,6 +2045,124 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(component.currentAreaIndex).toBe(3);
   });
 
+  it("lays the authored area art over the floor for every campaign act", () => {
+    for (let actId = 2; actId <= 7; actId += 1) {
+      component.currentAct = actId;
+      expect(component.currentActDetails.backdrop).withContext(`Act ${actId} backdrop`).toBeTruthy();
+      expect(component.currentActDetails.backdrop).withContext(`Act ${actId} backdrop path`).toContain("assets/d2survivors/maps/");
+    }
+
+    // Act I uses its courtyard as the level; Act VIII keeps the Tristram
+    // backdrop and wall-sorting pass.
+    component.currentAct = 1;
+    expect(component.currentActDetails.backdrop).toContain("act1-barracks.png");
+  });
+
+  it("scales an area backdrop over the arena and anchors it to the chunk centre", () => {
+    const drawImage = jasmine.createSpy("drawImage");
+    const ctx = { save: () => undefined, restore: () => undefined, drawImage } as any;
+    const image = { naturalWidth: 1400, naturalHeight: 700 } as HTMLImageElement;
+    component.currentAct = 3;
+    component.arenaW = 720;
+    component.arenaH = 480;
+    (component as any).arenaRef = {
+      nativeElement: { width: 1260, height: 1616, clientWidth: 630, clientHeight: 808 },
+    };
+    (component as any).projectionWidth = 1260;
+    (component as any).projectionDpr = 1;
+    (component as any).projectionCenterX = 630;
+    (component as any).projectionCenterY = 808;
+    (component as any).currentChunkCoordX = 0;
+    (component as any).currentChunkCoordY = 0;
+    (component as any).currentChunkLocalX = 360;
+    (component as any).currentChunkLocalY = 240;
+
+    (component as any).drawCampaignAreaBackdrop(ctx, image, 356);
+
+    expect(drawImage).toHaveBeenCalled();
+    const [, x, y, width, height] = (drawImage.calls.mostRecent() as any).args;
+    const expectedScale = Math.min(4.2, Math.max(356 / 320, 1260 * 1.75 / 1400, 1616 * 0.9 / 700));
+    expect(width).toBeCloseTo(1400 * expectedScale, 5);
+    expect(height).toBeCloseTo(700 * expectedScale, 5);
+    expect(x + width / 2).toBeCloseTo(630, 5);
+    expect(y + height / 2).toBeCloseTo(808, 5);
+  });
+
+  it("anchors the Act I courtyard doorway to the world door used by the interior", () => {
+    const drawImage = jasmine.createSpy("drawImage");
+    const ctx = { save: () => undefined, restore: () => undefined, drawImage } as any;
+    const image = { naturalWidth: 520, naturalHeight: 300 } as HTMLImageElement;
+    component.currentAct = 1;
+    component.arenaW = 720;
+    component.arenaH = 480;
+    (component as any).arenaRef = {
+      nativeElement: { width: 1260, height: 1616, clientWidth: 630, clientHeight: 808 },
+    };
+    (component as any).projectionWidth = 1260;
+    (component as any).projectionDpr = 1;
+    (component as any).projectionCenterX = 630;
+    (component as any).projectionCenterY = 808;
+    (component as any).currentChunkCoordX = 0;
+    (component as any).currentChunkCoordY = 0;
+    (component as any).currentChunkLocalX = 360;
+    (component as any).currentChunkLocalY = 240;
+
+    (component as any).drawCampaignAreaBackdrop(ctx, image, 356);
+
+    const [, x, y, width] = (drawImage.calls.mostRecent() as any).args;
+    const scale = width / 520;
+    const door = (component as any).act1InteriorDoor;
+    const doorOffsetX = door.x - 360;
+    const doorOffsetY = door.y - 240;
+    const expectedX = 630 + (doorOffsetX * 2.1 - doorOffsetY * 2.1) * 0.7071;
+    const expectedY = 808 + (doorOffsetX * 2.1 + doorOffsetY * 2.1) * 0.35355;
+    expect(scale).toBeCloseTo(4.2, 5);
+    expect(x + 260 * scale).toBeCloseTo(expectedX, 4);
+    expect(y + 252 * scale).toBeCloseTo(expectedY, 4);
+  });
+
+  it("keeps each area's authored base tile alone and uses only matching contrast accents", () => {
+    const tiles: HTMLCanvasElement[] = [];
+    for (let index = 0; index < 16; index += 1) {
+      const canvas = document.createElement("canvas");
+      canvas.width = 160;
+      canvas.height = 80;
+      const context = canvas.getContext("2d")!;
+      context.fillStyle = "#3a4a22";
+      context.fillRect(0, 0, 160, 80);
+      if (index === 1) {
+        // Same terrain family, much higher internal contrast: a landmark cell.
+        context.fillStyle = "#ddd8b0";
+        context.fillRect(0, 30, 160, 10);
+      }
+      tiles.push(canvas);
+    }
+    const area = { name: "Test Moor", level: 1, floorTiles: "test-terrain", baseFloorVariant: 0 };
+
+    const terrain = (component as any).campaignTerrainForArea(area, tiles);
+
+    expect(terrain.base).toEqual([0]);
+    expect(terrain.accents).toContain(1);
+    expect(terrain.accents).not.toContain(0);
+  });
+
+  it("clamps the campaign area index when the start-frame clock is invalid", () => {
+    component.currentAct = 1;
+    component.actBossSpawned = false;
+    component.actTransitionReady = false;
+    component.campaignVictory = false;
+    component.currentAreaIndex = 0;
+
+    component.actTime = Number.NaN;
+    expect(() => (component as any).updateCampaignArea()).not.toThrow();
+    expect(component.currentAreaIndex).toBe(0);
+    expect(component.actTime).toBe(0);
+
+    component.actTime = -1;
+    expect(() => (component as any).updateCampaignArea()).not.toThrow();
+    expect(component.currentAreaIndex).toBe(0);
+  });
+
   it("builds Uber Tristram from the original town preset and Tristram floor tiles", () => {
     component.currentAct = 8;
     const act = component.currentActDetails;
@@ -3075,6 +3193,31 @@ describe("D2SurvivorsComponent combat and equipment", () => {
         slot: "weapon", equipmentType: "weapon", desc: "A great sword.", stats: {},
       } as any;
       expect((component as any).itemSize(sword)).toEqual({ width: 2, height: 4 });
+    }
+  });
+
+  it("uses a 1x4 inventory footprint for Claymores", () => {
+    for (const name of ["Claymore", "Cruel Claymore of Swiftness"]) {
+      const sword = {
+        id: name.toLowerCase().replace(/\s+/g, "-"), name, baseName: "Claymore", rarity: "normal",
+        slot: "weapon", equipmentType: "weapon", desc: "A claymore.", stats: {},
+      } as any;
+      expect((component as any).itemSize(sword)).toEqual({ width: 1, height: 4 });
+    }
+    const unique = {
+      id: "the-grim-reaper", name: "The Grim Reaper", baseName: "Claymore", rarity: "unique",
+      slot: "weapon", equipmentType: "weapon", width: 2, height: 4, desc: "A unique claymore.", stats: {},
+    } as any;
+    expect((component as any).itemSize(unique)).toEqual({ width: 1, height: 4 });
+  });
+
+  it("uses a 2x3 inventory footprint for Military Picks", () => {
+    for (const name of ["Military Pick", "Cruel Military Pick of Swiftness"]) {
+      const pick = {
+        id: name.toLowerCase().replace(/\s+/g, "-"), name, baseName: "Military Pick", rarity: "normal",
+        slot: "weapon", equipmentType: "weapon", desc: "A military pick.", stats: {},
+      } as any;
+      expect((component as any).itemSize(pick)).toEqual({ width: 2, height: 3 });
     }
   });
 

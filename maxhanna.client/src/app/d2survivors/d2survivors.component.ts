@@ -1200,8 +1200,16 @@ interface CampaignArea {
   level: number;
   /** 4x4 atlas of 160x80 floor tiles for this area. */
   floorTiles: string;
-  /** Atlas cell used as the only ground tile in this zone. */
+  /** Atlas cell whose terrain family anchors this zone's ground palette. */
   baseFloorVariant: number;
+}
+
+/** Ground cells that belong to one area's terrain family. */
+interface CampaignTerrainPool {
+  /** Low-detail cells used for most of the ground. */
+  base: number[];
+  /** Contrasting cells (rocks, roots, plants) used as sparse landmarks. */
+  accents: number[];
 }
 
 interface CampaignAct {
@@ -1211,7 +1219,7 @@ interface CampaignAct {
   levelLabel: string;
   map: string;
   mapAlpha: boolean;
-  /** Optional full-area scene drawn instead of the repeating floor atlas. */
+  /** Authored area scene laid over the floor atlas (Tristram replaces it). */
   backdrop?: string;
   floorTiles: string;
   baseFloorVariant: number;
@@ -1232,9 +1240,10 @@ const A4_TILES = "assets/d2survivors/maps/tiles/act4-floor-tiles.png";
 // Act V floors are decoded per area from the D2R expansion DT1 sets by
 // tools/import_d2r_act5_tiles.py; the act-level fallback is the Throne stone.
 const A5_TILES = "assets/d2survivors/maps/tiles/a5-throne-of-destruction-floor-tiles.png";
-// Named-zone floors. Each act keeps a general atlas as its load fallback, but
-// a zone only ever repeats the single base cell above so its ground is made of
-// one continuous D2 floor set instead of a procedural mix of floor and props.
+// Named-zone floors. Each act keeps a general atlas as its load fallback.  A
+// zone's base variant chooses its terrain family; the renderer keeps that
+// family's low-contrast ground cells together and uses only a few matching
+// high-contrast cells as sparse landmarks.
 const A1_TAMOE_TILES = "assets/d2survivors/maps/tiles/a1-tamoe-highland-floor-tiles.png";
 const A1_CATACOMBS_TILES = "assets/d2survivors/maps/tiles/a1-catacombs-floor-tiles.png";
 const A2_SEWERS_TILES = "assets/d2survivors/maps/tiles/a2-sewers-floor-tiles.png";
@@ -1279,26 +1288,26 @@ interface TristramWallDraw extends TristramWallInstance {
 }
 
 const CAMPAIGN_ACTS: CampaignAct[] = [
-  { act: 1, name: "The Monastery Gate", region: "Rogue Encampment", levelLabel: "Blood Moor", map: "assets/d2survivors/maps/act1-barracks.png", mapAlpha: true, floorTiles: A1_TILES, baseFloorVariant: 1, enemies: ["fallen", "goatman", "skeleton"], boss: "andariel", areas: [
-    { name: "Blood Moor", level: 1, floorTiles: A1_TILES, baseFloorVariant: 1 },
-    { name: "Cold Plains", level: 2, floorTiles: A1_TILES, baseFloorVariant: 7 },
-    { name: "Stony Field", level: 4, floorTiles: A1_TILES, baseFloorVariant: 12 },
-    { name: "Dark Wood", level: 5, floorTiles: A1_TAMOE_TILES, baseFloorVariant: 12 },
+  { act: 1, name: "The Monastery Gate", region: "Rogue Encampment", levelLabel: "Blood Moor", map: "assets/d2survivors/maps/act1-barracks.png", mapAlpha: true, backdrop: "assets/d2survivors/maps/act1-barracks.png", floorTiles: A1_TAMOE_TILES, baseFloorVariant: 6, enemies: ["fallen", "goatman", "skeleton"], boss: "andariel", areas: [
+    { name: "Blood Moor", level: 1, floorTiles: A1_TAMOE_TILES, baseFloorVariant: 6 },
+    { name: "Cold Plains", level: 2, floorTiles: A1_TAMOE_TILES, baseFloorVariant: 6 },
+    { name: "Stony Field", level: 4, floorTiles: A1_TAMOE_TILES, baseFloorVariant: 6 },
+    { name: "Dark Wood", level: 5, floorTiles: A1_TAMOE_TILES, baseFloorVariant: 6 },
     { name: "Tamoe Highland", level: 7, floorTiles: A1_TAMOE_TILES, baseFloorVariant: 6 },
-    { name: "Catacombs", level: 11, floorTiles: A1_CATACOMBS_TILES, baseFloorVariant: 5 },
+    { name: "Catacombs", level: 11, floorTiles: A1_CATACOMBS_TILES, baseFloorVariant: 11 },
   ] },
-  { act: 2, name: "The Buried Caves", region: "Lut Gholein", levelLabel: "Rocky Waste", map: "assets/d2survivors/maps/act2-caves.png", mapAlpha: true, floorTiles: A2_TILES, baseFloorVariant: 10, enemies: ["sandRaider", "sandMaggot", "sandMaggotYoung", "scarab", "leaper", "blunderbore", "salamander", "skeleton", "spikeFiend"], boss: "duriel", areas: [
+  { act: 2, name: "The Buried Caves", region: "Lut Gholein", levelLabel: "Rocky Waste", map: "assets/d2survivors/maps/act2-caves.png", mapAlpha: true, backdrop: "assets/d2survivors/maps/act2-caves.png", floorTiles: A2_TILES, baseFloorVariant: 2, enemies: ["sandRaider", "sandMaggot", "sandMaggotYoung", "scarab", "leaper", "blunderbore", "salamander", "skeleton", "spikeFiend"], boss: "duriel", areas: [
     { name: "Sewers", level: 13, floorTiles: A2_SEWERS_TILES, baseFloorVariant: 7 },
-    { name: "Rocky Waste", level: 13, floorTiles: A2_TILES, baseFloorVariant: 9 },
-    { name: "Dry Hills", level: 14, floorTiles: A2_TILES, baseFloorVariant: 12 },
-    { name: "Far Oasis", level: 14, floorTiles: A2_TILES, baseFloorVariant: 13 },
-    { name: "Lost City", level: 15, floorTiles: A2_TILES, baseFloorVariant: 10 },
+    { name: "Rocky Waste", level: 13, floorTiles: A2_TILES, baseFloorVariant: 2 },
+    { name: "Dry Hills", level: 14, floorTiles: A2_TILES, baseFloorVariant: 2 },
+    { name: "Far Oasis", level: 14, floorTiles: A2_TILES, baseFloorVariant: 2 },
+    { name: "Lost City", level: 15, floorTiles: A2_TILES, baseFloorVariant: 2 },
     { name: "Valley of Snakes", level: 16, floorTiles: A2_TAL_RASHAS_TILES, baseFloorVariant: 8 },
     { name: "Claw Viper Temple", level: 16, floorTiles: A2_TAL_RASHAS_TILES, baseFloorVariant: 4 },
     { name: "Arcane Sanctuary", level: 17, floorTiles: A2_TAL_RASHAS_TILES, baseFloorVariant: 6 },
     { name: "Tal Rasha's Tomb", level: 17, floorTiles: A2_TAL_RASHAS_TILES, baseFloorVariant: 0 },
   ] },
-  { act: 3, name: "The Flayer Jungle", region: "Kurast Docks", levelLabel: "Spider Forest", map: "assets/d2survivors/maps/act3-jungle.png", mapAlpha: true, floorTiles: A3_TILES, baseFloorVariant: 5, enemies: ["fetish", "boneFetish", "fetishShaman", "council", "blunderbore", "spiderDemon"], boss: "mephisto", areas: [
+  { act: 3, name: "The Flayer Jungle", region: "Kurast Docks", levelLabel: "Spider Forest", map: "assets/d2survivors/maps/act3-jungle.png", mapAlpha: true, backdrop: "assets/d2survivors/maps/act3-jungle.png", floorTiles: A3_TILES, baseFloorVariant: 5, enemies: ["fetish", "boneFetish", "fetishShaman", "council", "blunderbore", "spiderDemon"], boss: "mephisto", areas: [
     { name: "Spider Forest", level: 21, floorTiles: A3_TILES, baseFloorVariant: 5 },
     { name: "Great Marsh", level: 22, floorTiles: A3_TILES, baseFloorVariant: 2 },
     { name: "Flayer Jungle", level: 22, floorTiles: A3_FLAYER_TILES, baseFloorVariant: 8 },
@@ -1309,14 +1318,14 @@ const CAMPAIGN_ACTS: CampaignAct[] = [
     { name: "Travincal", level: 25, floorTiles: A3_DURANCE_TILES, baseFloorVariant: 15 },
     { name: "Durance of Hate", level: 25, floorTiles: A3_DURANCE_TILES, baseFloorVariant: 0 },
   ] },
-  { act: 4, name: "The Chaos Sanctuary", region: "Pandemonium Fortress", levelLabel: "Outer Steppes", map: "assets/d2survivors/maps/act4-catacombs.png", mapAlpha: true, floorTiles: A4_TILES, baseFloorVariant: 1, enemies: ["balrog", "vileChild", "vileMother", "painWorm", "regurgitator"], boss: "diablo", areas: [
-    { name: "Outer Steppes", level: 26, floorTiles: A4_TILES, baseFloorVariant: 1 },
-    { name: "Plains of Despair", level: 27, floorTiles: A4_TILES, baseFloorVariant: 3 },
+  { act: 4, name: "The Chaos Sanctuary", region: "Pandemonium Fortress", levelLabel: "Outer Steppes", map: "assets/d2survivors/maps/act4-catacombs.png", mapAlpha: true, backdrop: "assets/d2survivors/maps/act4-catacombs.png", floorTiles: A4_TILES, baseFloorVariant: 8, enemies: ["balrog", "vileChild", "vileMother", "painWorm", "regurgitator"], boss: "diablo", areas: [
+    { name: "Outer Steppes", level: 26, floorTiles: A4_TILES, baseFloorVariant: 8 },
+    { name: "Plains of Despair", level: 27, floorTiles: A4_TILES, baseFloorVariant: 8 },
     { name: "City of the Damned", level: 27, floorTiles: A4_CITY_TILES, baseFloorVariant: 13 },
-    { name: "River of Flame", level: 28, floorTiles: A4_TILES, baseFloorVariant: 6 },
+    { name: "River of Flame", level: 28, floorTiles: A4_TILES, baseFloorVariant: 8 },
     { name: "Chaos Sanctuary", level: 28, floorTiles: A4_CHAOS_TILES, baseFloorVariant: 9 },
   ] },
-  { act: 5, name: "The Worldstone Keep", region: "Harrogath", levelLabel: "Worldstone Keep", map: "assets/d2survivors/maps/act5-worldstone.png", mapAlpha: true, floorTiles: A5_TILES, baseFloorVariant: 1, enemies: ["baalsMinion", "minotaur", "siegeBeast", "painWorm", "spiderDemon", "spikeFiend"], boss: "baal", areas: [
+  { act: 5, name: "The Worldstone Keep", region: "Harrogath", levelLabel: "Worldstone Keep", map: "assets/d2survivors/maps/act5-worldstone.png", mapAlpha: true, backdrop: "assets/d2survivors/maps/act5-worldstone.png", floorTiles: A5_TILES, baseFloorVariant: 1, enemies: ["baalsMinion", "minotaur", "siegeBeast", "painWorm", "spiderDemon", "spikeFiend"], boss: "baal", areas: [
     { name: "Bloody Foothills", level: 24, floorTiles: A5_BLOODY_TILES, baseFloorVariant: 2 },
     { name: "Frigid Highlands", level: 25, floorTiles: A5_BLOODY_TILES, baseFloorVariant: 4 },
     { name: "Arreat Plateau", level: 26, floorTiles: A5_BLOODY_TILES, baseFloorVariant: 7 },
@@ -1333,10 +1342,10 @@ const CAMPAIGN_ACTS: CampaignAct[] = [
   ] },
   // Pandemonium event: three level-83 areas with souped-up act bosses. Killing
   // all three clears the campaign, so these only open once Baal has fallen.
-  { act: 6, name: "Forgotten Sands", region: "The Pandemonium Event", levelLabel: "Forgotten Sands", map: "assets/d2survivors/maps/act2-caves.png", mapAlpha: true, floorTiles: A2_TAL_RASHAS_TILES, baseFloorVariant: 1, enemies: ["sandRaider", "sandMaggot", "scarab", "leaper", "spikeFiend"], boss: "duriel", uber: true, areas: [
+  { act: 6, name: "Forgotten Sands", region: "The Pandemonium Event", levelLabel: "Forgotten Sands", map: "assets/d2survivors/maps/act2-caves.png", mapAlpha: true, backdrop: "assets/d2survivors/maps/act2-caves.png", floorTiles: A2_TAL_RASHAS_TILES, baseFloorVariant: 1, enemies: ["sandRaider", "sandMaggot", "scarab", "leaper", "spikeFiend"], boss: "duriel", uber: true, areas: [
     { name: "Forgotten Sands", level: 83, floorTiles: A2_TAL_RASHAS_TILES, baseFloorVariant: 1 },
   ] },
-  { act: 7, name: "Matron's Den", region: "The Pandemonium Event", levelLabel: "Matron's Den", map: "assets/d2survivors/maps/act1-barracks.png", mapAlpha: true, floorTiles: A1_TILES, baseFloorVariant: 1, enemies: ["fallen", "goatman", "skeleton", "fetish", "boneFetish"], boss: "andariel", uber: true, areas: [
+  { act: 7, name: "Matron's Den", region: "The Pandemonium Event", levelLabel: "Matron's Den", map: "assets/d2survivors/maps/act1-barracks.png", mapAlpha: true, backdrop: "assets/d2survivors/maps/act1-barracks.png", floorTiles: A1_TILES, baseFloorVariant: 1, enemies: ["fallen", "goatman", "skeleton", "fetish", "boneFetish"], boss: "andariel", uber: true, areas: [
     { name: "Matron's Den", level: 83, floorTiles: A1_TILES, baseFloorVariant: 1 },
   ] },
   { act: 8, name: "Uber Tristram", region: "The Pandemonium Event", levelLabel: "Tristram", map: "assets/d2survivors/maps/a8-tristram-backdrop.png", mapAlpha: true, backdrop: "assets/d2survivors/maps/a8-tristram-backdrop.png", floorTiles: A8_TILES, baseFloorVariant: 0, enemies: ["fallen", "goatman", "skeleton", "council", "spikeFiend"], boss: "diablo", bosses: ["diablo", "mephisto", "baal"], uber: true, areas: [
@@ -1989,6 +1998,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private portalArtImageElement?: HTMLImageElement;
   private campaignTileBitmaps: Partial<Record<number, HTMLCanvasElement[]>> = {};
   private readonly campaignAreaTileBitmaps = new Map<string, HTMLCanvasElement[]>();
+  private readonly campaignTerrainPools = new Map<string, CampaignTerrainPool>();
+  private readonly flippedCampaignTiles = new WeakMap<HTMLCanvasElement, HTMLCanvasElement>();
   private act1InteriorImage?: HTMLImageElement;
   private act1InteriorOpen = false;
   private currentChunkCoordX = 0;
@@ -2774,11 +2785,19 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private updateCampaignArea(): void {
     const areas = this.currentActDetails.areas;
     if (!areas?.length || this.actBossSpawned || this.actTransitionReady || this.campaignVictory) return;
+    if (!Number.isFinite(this.actTime)) this.actTime = 0;
     const bossArrivalTime = this.currentAct === 5 ? ACT5_BAAL_WAVE_END_SECONDS : ACT_BOSS_TIME_SECONDS;
-    const target = Math.min(areas.length - 1, Math.floor(this.actTime / (bossArrivalTime / areas.length)));
+    // A first requestAnimationFrame timestamp can precede performance.now(),
+    // producing a negative delta for one frame.  Clamp the target instead of
+    // indexing areas[-1] and throwing on its name.
+    const target = Math.max(0, Math.min(
+      areas.length - 1,
+      Math.floor(this.actTime / (bossArrivalTime / areas.length)),
+    ));
     if (target === this.currentAreaIndex) return;
     this.currentAreaIndex = target;
     const area = areas[target];
+    if (!area) return;
     this.floatingTexts.push({
       x: this.playerX,
       y: this.playerY - 48,
@@ -2910,6 +2929,191 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   /** Bitmaps for an area's atlas, falling back to the act atlas while loading. */
   private areaTileBitmaps(area: CampaignArea): HTMLCanvasElement[] {
     return this.campaignAreaTileBitmaps.get(area.floorTiles) ?? this.campaignTileBitmaps[this.currentAct] ?? [];
+  }
+
+  /**
+   * Splits one atlas into a terrain family rather than treating all sixteen
+   * cells as interchangeable.  Cells close to the authored base colour with
+   * little internal contrast form the ground; matching high-contrast cells
+   * become rare landmarks instead of covering the whole zone.
+   */
+  private campaignTerrainForArea(area: CampaignArea, tiles: HTMLCanvasElement[]): CampaignTerrainPool | undefined {
+    if (!tiles.length) return undefined;
+    // A named zone may still be showing the act's fallback atlas while its own
+    // image decodes.  Include the atlas source in the key so that fallback
+    // statistics are never reused as the zone's final terrain family.
+    const usingAreaAtlas = tiles !== this.campaignTileBitmaps[this.currentAct];
+    const key = `${area.floorTiles}:${area.baseFloorVariant}:${usingAreaAtlas ? "area" : "act"}`;
+    const cached = this.campaignTerrainPools.get(key);
+    if (cached) return cached;
+    const stats: Array<{
+      index: number; red: number; green: number; blue: number;
+      variance: number; coverage: number; distance: number;
+    }> = [];
+    for (let index = 0; index < tiles.length; index += 1) {
+      const tile = tiles[index];
+      const context = tile.getContext("2d", { willReadFrequently: true });
+      if (!context) continue;
+      const data = context.getImageData(0, 0, tile.width, tile.height).data;
+      let sumLuma = 0;
+      let sumLumaSquared = 0;
+      let sumRed = 0;
+      let sumGreen = 0;
+      let sumBlue = 0;
+      let visible = 0;
+      for (let offset = 0; offset < data.length; offset += 4) {
+        if (data[offset + 3] < 24) continue;
+        const luma = data[offset] * 0.299 + data[offset + 1] * 0.587 + data[offset + 2] * 0.114;
+        sumLuma += luma;
+        sumLumaSquared += luma * luma;
+        sumRed += data[offset];
+        sumGreen += data[offset + 1];
+        sumBlue += data[offset + 2];
+        visible += 1;
+      }
+      if (!visible) continue;
+      const total = tile.width * tile.height;
+      const mean = sumLuma / visible;
+      stats.push({
+        index,
+        red: sumRed / visible,
+        green: sumGreen / visible,
+        blue: sumBlue / visible,
+        variance: Math.max(0, sumLumaSquared / visible - mean * mean),
+        coverage: visible / total,
+        distance: 0,
+      });
+    }
+    if (!stats.length) return undefined;
+    const baseIndex = Math.max(0, Math.min(tiles.length - 1, area.baseFloorVariant));
+    const base = stats.find((entry) => entry.index === baseIndex) ?? stats[0];
+    for (const entry of stats) {
+      entry.distance = Math.abs(entry.red - base.red)
+        + Math.abs(entry.green - base.green)
+        + Math.abs(entry.blue - base.blue);
+    }
+    // Keep the authored base cell alone.  Selecting "similar" cells by colour
+    // or variance still picks up bones, branches and rocks, which the large
+    // overlapping floor draw turns into a visible repeating grid.
+    const basePool = [base.index];
+    const accents = stats
+      .filter((entry) => entry.coverage >= 0.12
+        && entry.distance <= 92
+        && entry.variance >= Math.max(base.variance * 1.65 + 18, 60))
+      .sort((a, b) => a.distance - b.distance)
+      .slice(0, 4)
+      .map((entry) => entry.index);
+    const pool: CampaignTerrainPool = { base: basePool, accents };
+    this.campaignTerrainPools.set(key, pool);
+    return pool;
+  }
+
+  private campaignHash(x: number, y: number, seed: number): number {
+    let value = Math.imul(x | 0, 374761393)
+      ^ Math.imul(y | 0, 668265263)
+      ^ Math.imul(seed | 0, 1442695041);
+    value = Math.imul(value ^ (value >>> 13), 1274126177);
+    value ^= value >>> 16;
+    return (value >>> 0) / 4294967295;
+  }
+
+  private campaignFlippedTile(image: HTMLCanvasElement): HTMLCanvasElement {
+    const cached = this.flippedCampaignTiles.get(image);
+    if (cached) return cached;
+    const flipped = document.createElement("canvas");
+    flipped.width = image.width;
+    flipped.height = image.height;
+    const context = flipped.getContext("2d");
+    if (context) {
+      context.translate(flipped.width, 0);
+      context.scale(-1, 1);
+      context.drawImage(image, 0, 0);
+    }
+    this.flippedCampaignTiles.set(image, flipped);
+    return flipped;
+  }
+
+  private campaignGroundTile(
+    tiles: HTMLCanvasElement[],
+    terrain: CampaignTerrainPool | undefined,
+    fallback: HTMLCanvasElement | undefined,
+    worldTileX: number,
+    worldTileY: number,
+    area: CampaignArea,
+  ): HTMLCanvasElement | undefined {
+    if (!tiles.length) return fallback;
+    const seed = this.currentAct * 4099 + area.level * 131 + area.baseFloorVariant * 17;
+    const baseIndex = terrain?.base[0] ?? Math.max(0, Math.min(15, area.baseFloorVariant));
+    let image = tiles[baseIndex] ?? fallback;
+    const accents = terrain?.accents;
+    if (accents?.length) {
+      // A single rare landmark avoids turning the atlas's decorative cells
+      // into a field of evenly spaced copies.
+      const landmark = this.campaignHash(worldTileX, worldTileY, seed + 211);
+      if (landmark > 0.994) {
+        const choice = this.campaignHash(worldTileX, worldTileY, seed + 223);
+        image = tiles[accents[Math.floor(choice * accents.length) % accents.length]] ?? image;
+      }
+    }
+    if (image && this.campaignHash(worldTileX, worldTileY, seed + 307) > 0.5) {
+      image = this.campaignFlippedTile(image);
+    }
+    return image;
+  }
+
+  /**
+   * Keeps an authored area scene at the tile projection scale while covering
+   * enough of the viewport to read as a level rather than a small map icon.
+   */
+  private campaignAreaBackdropGeometry(tileWidth: number, imageWidth: number, imageHeight: number): {
+    scale: number; width: number; height: number; left: number; top: number;
+  } {
+    const baseScale = tileWidth * this.projectionDpr / (TRISTRAM_BACKDROP_TILE_WIDTH * 2);
+    const canvas = this.arenaRef?.nativeElement;
+    let scale = baseScale;
+    if (canvas?.width && canvas.height && imageWidth > 0 && imageHeight > 0) {
+      const coverWidth = canvas.width * 1.75 / imageWidth;
+      const coverHeight = canvas.height * 0.9 / imageHeight;
+      // Large maps keep their native D2 pixel scale; small presets are enlarged
+      // to fill the arena, with a ceiling that avoids turning them into mush.
+      scale = Math.max(baseScale, Math.min(4.2, Math.max(coverWidth, coverHeight)));
+    }
+    const chunkWidth = this.chunkTileColumns * CAMPAIGN_TILE_WORLD_SIZE;
+    const chunkHeight = this.chunkTileRows * CAMPAIGN_TILE_WORLD_SIZE;
+    const worldX = this.currentChunkCoordX * chunkWidth + this.currentChunkLocalX;
+    const worldY = this.currentChunkCoordY * chunkHeight + this.currentChunkLocalY;
+    // Act I's map is the monastery courtyard itself: anchor its bottom-centre
+    // doorway to the same world point the interior transition uses.  Other
+    // acts place their map chunk at the centre of the current chunk.
+    const doorAnchored = this.currentAct === 1;
+    const anchor = doorAnchored
+      ? this.projectArenaPoint(
+        this.arenaW / 2 + this.act1InteriorDoor.x - worldX,
+        this.arenaH / 2 + this.act1InteriorDoor.y - worldY,
+      )
+      : this.projectArenaPoint(
+        this.arenaW / 2 + chunkWidth / 2 - worldX,
+        this.arenaH / 2 + chunkHeight / 2 - worldY,
+      );
+    const width = imageWidth * scale;
+    const height = imageHeight * scale;
+    const sourceAnchorX = imageWidth / 2;
+    const sourceAnchorY = doorAnchored ? imageHeight * 0.84 : imageHeight / 2;
+    return {
+      scale,
+      width,
+      height,
+      left: anchor.x - sourceAnchorX * scale,
+      top: anchor.y - sourceAnchorY * scale,
+    };
+  }
+
+  private drawCampaignAreaBackdrop(ctx: CanvasRenderingContext2D, image: HTMLImageElement, tileWidth: number): void {
+    const geometry = this.campaignAreaBackdropGeometry(tileWidth, image.naturalWidth, image.naturalHeight);
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(image, geometry.left, geometry.top, geometry.width, geometry.height);
+    ctx.restore();
   }
 
   private createKeyedFloorTileOverlay(source: HTMLImageElement): HTMLCanvasElement {
@@ -3294,6 +3498,38 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           overlayPixels[offset] = brighten(red);
           overlayPixels[offset + 1] = brighten(green);
           overlayPixels[offset + 2] = brighten(blue);
+        }
+      }
+      // Atlas cells contain a transparent horizontal seam inside the diamond.
+      // At the oversized tile draw it becomes a repeating dark chevron across
+      // the ground, so fill only those interior holes from the nearest opaque
+      // row above or below.  Outside-of-diamond transparency is left intact.
+      const halfWidth = width / 2;
+      const halfHeight = height / 2;
+      for (let y = 0; y < height; y += 1) {
+        for (let x = 0; x < width; x += 1) {
+          const offset = (y * width + x) * 4;
+          if (overlayPixels[offset + 3] > 0) continue;
+          if (Math.abs(x + 0.5 - halfWidth) / halfWidth
+            + Math.abs(y + 0.5 - halfHeight) / halfHeight > 1.02) continue;
+          let sourceOffset = -1;
+          for (let distance = 1; distance < height; distance += 1) {
+            const above = y - distance;
+            const below = y + distance;
+            if (above >= 0 && overlayPixels[(above * width + x) * 4 + 3] > 0) {
+              sourceOffset = (above * width + x) * 4;
+              break;
+            }
+            if (below < height && overlayPixels[(below * width + x) * 4 + 3] > 0) {
+              sourceOffset = (below * width + x) * 4;
+              break;
+            }
+          }
+          if (sourceOffset < 0) continue;
+          overlayPixels[offset] = overlayPixels[sourceOffset];
+          overlayPixels[offset + 1] = overlayPixels[sourceOffset + 1];
+          overlayPixels[offset + 2] = overlayPixels[sourceOffset + 2];
+          overlayPixels[offset + 3] = 255;
         }
       }
       tileContext.putImageData(pixels, 0, 0);
@@ -5299,6 +5535,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (/balanced axe/.test(name)) return { width: 2, height: 3 };
     // Great Swords use the same tall two-handed footprint as the large bows.
     if (/\bgreat sword\b/i.test(name)) return { width: 2, height: 4 };
+    // Claymores are one column wide and four rows tall in D2's inventory.
+    if (/\bclaymore\b/i.test(name)) return { width: 1, height: 4 };
+    // Military Picks occupy two columns and three rows.
+    if (/\bmilitary pick\b/i.test(name)) return { width: 2, height: 3 };
     // Smoked Spheres and Sacred Globes use the compact one-column, two-row
     // orb footprint instead of the taller default orb size.
     if (/\b(?:smoked sphere|sacred globe)\b/.test(name)) return { width: 1, height: 2 };
@@ -10601,8 +10841,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   loop(now: number): void {
-    const dt = Math.min(50, now - this.lastTime);
-    this.lastTime = now;
+    const currentTime = Number.isFinite(now) ? now : performance.now();
+    const dt = Math.max(0, Math.min(50, currentTime - this.lastTime));
+    this.lastTime = currentTime;
     if (!this.runActive) {
       if (this.campaignVictory) this.draw();
       if (this.skillVisualEffects.length && this.activeTab !== "run") {
@@ -10654,7 +10895,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.tickHealthPotionHeal(dt);
     this.tickPlayerPoison(dt);
     this.updateEquipmentRegeneration(dt);
-    this.actTime += dt / 1000;
+    if (!Number.isFinite(this.actTime)) this.actTime = 0;
+    this.actTime = Math.max(0, this.actTime + dt / 1000);
     this.updateCampaignArea();
     this.combatOrbsTime = Math.max(0, this.combatOrbsTime - dt / 1000);
     const attackRate = this.playerDecrepifyRemaining > 0 ? BAAL_DECREPIFY_ATTACK_SPEED_MULTIPLIER : 1;
@@ -18237,6 +18479,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const tileHeight = tileScreenSize / Math.SQRT2;
     const area = this.currentArea;
     const tiles = this.areaTileBitmaps(area);
+    const terrain = this.campaignTerrainForArea(area, tiles);
     const baseTile = tiles[Math.max(0, Math.min(15, area.baseFloorVariant))];
     // The tiles render larger than their gameplay spacing. Expand visible tile
     // coverage by the same factor so edge cells never leave gaps while zooming.
@@ -18250,6 +18493,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const tristramBackdrop = act.act === 8 ? this.campaignBackdropImages[act.act] : undefined;
     const hasTristramBackdrop = !!tristramBackdrop?.complete && tristramBackdrop.naturalWidth > 0;
     if (hasTristramBackdrop) this.drawTristramBackdrop(ctx, tristramBackdrop!, tileWidth);
+    // Acts II-VII use their area art as a large authored landmark over the
+    // ground texture.  Tristram replaces the floor instead, so it keeps its own
+    // wall-sorted backdrop pass above.
+    const areaBackdrop = act.act !== 8 ? this.campaignBackdropImages[act.act] : undefined;
+    const hasAreaBackdrop = !!areaBackdrop?.complete && areaBackdrop.naturalWidth > 0;
     ctx.save();
     // Nearest-neighbour sampling keeps the enlarged atlas tiles crisp, not blurry.
     ctx.imageSmoothingEnabled = false;
@@ -18271,16 +18519,24 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         const tileDy = relativeY * this.worldZoom;
         const pointX = this.projectionCenterX + (tileDx - tileDy) * 0.7071 * this.projectionDpr;
         const pointY = this.projectionCenterY + (tileDx + tileDy) * 0.35355 * this.projectionDpr;
-        // Every cell in a zone repeats its curated base cell. There is no
-        // per-tile roll, so a zone's floor can never splice in a different
-        // terrain set or a prop tile that does not belong to that zone.
-        const image = baseTile;
+        // Stay inside this zone's terrain family: the authored base cell makes
+        // up the ground and matching high-contrast cells appear only as very
+        // sparse landmarks.  Mirroring breaks up an otherwise identical atlas
+        // cell without introducing a foreign floor set.
+        const image = this.campaignGroundTile(tiles, terrain, baseTile, worldTileX, worldTileY, area);
         if (image) {
           const halfW = tileWidth / 2;
           const halfH = tileHeight / 2;
-          // Extend the draw by one backing-store pixel to cover rasterization
-          // seams; the source alpha keeps outside-of-diamond pixels transparent.
-          ctx.drawImage(image, pointX - halfW - 1, pointY - halfH - 1, tileWidth + 2, tileHeight + 2);
+          // The atlas cells carry a dark one-pixel diamond outline, which turns
+          // into a visible grid when the oversized tiles overlap.  Inset the
+          // source slightly and stretch it back to tile size, then extend the
+          // destination by one backing pixel to cover rasterization seams.
+          const inset = image.width > 8 && image.height > 8 ? 2 : 0;
+          ctx.drawImage(
+            image,
+            inset, inset, image.width - inset * 2, image.height - inset * 2,
+            pointX - halfW - 1, pointY - halfH - 1, tileWidth + 2, tileHeight + 2,
+          );
         } else {
           const halfW = tileScreenSize * 0.7071;
           const halfH = tileScreenSize * 0.35355;
@@ -18296,9 +18552,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       }
     }
     ctx.restore();
+    if (hasAreaBackdrop) this.drawCampaignAreaBackdrop(ctx, areaBackdrop!, tileWidth);
     if (act.act === 1) {
       if (this.act1InteriorOpen) this.drawAct1Interior(ctx, canvas);
-      else this.drawAct1BuildingAndDoor(ctx);
+      else if (!hasAreaBackdrop) this.drawAct1BuildingAndDoor(ctx);
     }
     if (!this.areaTileBitmaps(this.currentArea).length) {
       const tile = CAMPAIGN_TILE_WORLD_SIZE;

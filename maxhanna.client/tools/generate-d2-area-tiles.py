@@ -82,6 +82,18 @@ def is_label_cell(cell: Image.Image) -> bool:
     return False
 
 
+def keyed(cell: Image.Image) -> Image.Image:
+    """Turn the preview sheet's magenta/cyan matte into transparent pixels."""
+    rgba = cell.convert("RGBA")
+    pixels = rgba.load()
+    for y in range(rgba.height):
+        for x in range(rgba.width):
+            red, green, blue, _ = pixels[x, y]
+            if (red > 240 and green < 20 and blue > 240) or (red < 20 and green > 240 and blue > 240):
+                pixels[x, y] = (0, 0, 0, 0)
+    return rgba
+
+
 def cell_score(cell: Image.Image) -> float:
     """Fraction of the cell covered by opaque, non-background pixels."""
     rgba = cell.convert("RGBA")
@@ -122,7 +134,7 @@ def build_atlas(sheet_path: str, seed: str, first_row: int, last_row: int) -> Im
         for column in range(columns):
             box = (column * TILE_WIDTH, row * TILE_HEIGHT,
                    column * TILE_WIDTH + TILE_WIDTH, row * TILE_HEIGHT + TILE_HEIGHT)
-            cell = sheet.crop(box)
+            cell = keyed(sheet.crop(box))
             if is_label_cell(cell):
                 continue
             coverage = cell_score(cell)

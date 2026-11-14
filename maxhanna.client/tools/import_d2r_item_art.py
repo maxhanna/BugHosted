@@ -132,6 +132,11 @@ CLASS_RESTRICTED_TYPES = {
 }
 
 
+def load_act_palette(path: Path) -> list[tuple[int, int, int]]:
+    """Read an Act palette as RGB; pal.dat stores BGR triples."""
+    return [(red, green, blue) for blue, green, red in dc6.load_palette(path)]
+
+
 def find(source: Path, stem: str) -> Path | None:
     path = source / "global" / "items" / f"{stem.lower()}.dc6"
     return path if path.is_file() else None
@@ -1019,7 +1024,7 @@ def main(argv: list[str]) -> int:
             print(category, "->", ", ".join(candidates))
         return 0
 
-    palette = dc6.load_palette(args.source.joinpath(*PALETTE_PATH))
+    palette = load_act_palette(args.source.joinpath(*PALETTE_PATH))
     global SKILL_NAMES
     SKILL_NAMES = load_skill_names(args.source)
     picks = import_categories(args.source, palette)
