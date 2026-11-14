@@ -266,6 +266,7 @@
       <button type="button" class="d2s-touch-menu" (click)="showEscapeMenu()" aria-label="Open game menu" title="Game menu (Esc)">☰</button>
       <button type="button" class="d2s-skill-tree-button" (click)="toggleSkillTree()" aria-label="Open skill tree" title="Skill tree (T)">T</button>
       <canvas #characterCanvas class="d2s-character-canvas" width="500" height="500" aria-hidden="true"></canvas>
+      <canvas #characterOccluderCanvas class="d2s-character-occluder-canvas" width="500" height="500" aria-hidden="true"></canvas>
       <canvas #skillEffectsCanvas class="d2s-skill-effects-canvas" width="500" height="500" aria-hidden="true"></canvas>
       <div class="d2s-enemy-hover-card" *ngIf="hoveredEnemy as enemy" aria-live="polite">
         <strong>{{ getEnemyDisplayName(enemy) }}</strong>

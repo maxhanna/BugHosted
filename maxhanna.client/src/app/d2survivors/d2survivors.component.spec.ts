@@ -2078,6 +2078,38 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(y).toBeLessThan(0);
   });
 
+  it("places Tristram wall sprites at the backdrop scale for depth sorting", () => {
+    component.currentAct = 8;
+    component.arenaW = 500;
+    component.arenaH = 500;
+    (component as any).arenaRef = {
+      nativeElement: { width: 800, height: 600, clientWidth: 800, clientHeight: 600 },
+    };
+    (component as any).campaignBackdropImages[8] = {
+      complete: true,
+      naturalWidth: 3840,
+      naturalHeight: 2304,
+    };
+    (component as any).tristramWallAtlas = { complete: true, naturalWidth: 1024 };
+    (component as any).tristramWallLayout = {
+      atlasWidth: 1024,
+      atlasHeight: 2208,
+      backdropWidth: 3840,
+      backdropHeight: 2304,
+      instances: [{ x: 1900, y: 900, w: 128, h: 160, sx: 0, sy: 0, order: 0 }],
+    };
+
+    const draws = (component as any).tristramWallDraws(356);
+
+    expect(draws.length).toBeGreaterThan(0);
+    expect(draws[0].dw).toBeCloseTo(128 * 356 / 320, 5);
+    expect(draws[0].dh).toBeCloseTo(160 * 356 / 320, 5);
+    expect(draws[0].depth).toBeCloseTo(draws[0].dy + draws[0].dh, 5);
+
+    component.currentAct = 7;
+    expect((component as any).tristramWallDraws(356)).toEqual([]);
+  });
+
   it("keeps the Tristram backdrop anchored when movement crosses a chunk seam", () => {
     const drawImage = jasmine.createSpy("drawImage");
     const ctx = { save: () => undefined, restore: () => undefined, drawImage } as any;

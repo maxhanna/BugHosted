@@ -22,7 +22,7 @@
 			</span>
 			<span class="nav-text">{{ getItemTitle(item.title) }}</span>
 			<span class="nav-badge" *ngIf="item.content && item.content.trim()">
-				{{ (item.content || '') | countShorten:item.title }}
+				{{ (item.content || '') | countShorten:item.title }}{{ item.title === 'Weather' ? '°' : '' }}
 			</span>
 			</div>
 		</div>

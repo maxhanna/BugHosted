@@ -48,7 +48,7 @@
           <ng-container *ngIf="item.title === 'Social' || item.title === 'Crawler'; else regularContent">
             {{ (item.content! || '') | countShorten:item.title }}
           </ng-container>
-          <ng-template #regularContent>{{ item.content! || '' }}</ng-template>
+          <ng-template #regularContent>{{ item.content! || '' }}{{ item.title === 'Weather' ? '°' : '' }}</ng-template>
         </span>
       </span>
 

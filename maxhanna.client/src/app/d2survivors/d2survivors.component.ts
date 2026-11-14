@@ -1248,7 +1248,35 @@ const A5_CRYSTALLINE_TILES = "assets/d2survivors/maps/tiles/a5-crystalline-passa
 // Act 8 is a render of the original tri_town4.ds1 preset using the D2R
 // classic DT1 tiles.  The atlas is the fallback while the backdrop decodes.
 const A8_TILES = "assets/d2survivors/maps/tiles/a8-uber-tristram-floor-tiles.png";
+const A8_WALL_ATLAS = "assets/d2survivors/maps/a8-tristram-walls.png";
+const A8_WALL_LAYOUT = "assets/d2survivors/maps/a8-tristram-walls.json";
 const TRISTRAM_BACKDROP_TILE_WIDTH = 160;
+
+interface TristramWallInstance {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  sx: number;
+  sy: number;
+  order: number;
+}
+
+interface TristramWallLayout {
+  atlasWidth: number;
+  atlasHeight: number;
+  backdropWidth: number;
+  backdropHeight: number;
+  instances: TristramWallInstance[];
+}
+
+interface TristramWallDraw extends TristramWallInstance {
+  dx: number;
+  dy: number;
+  dw: number;
+  dh: number;
+  depth: number;
+}
 
 const CAMPAIGN_ACTS: CampaignAct[] = [
   { act: 1, name: "The Monastery Gate", region: "Rogue Encampment", levelLabel: "Blood Moor", map: "assets/d2survivors/maps/act1-barracks.png", mapAlpha: true, floorTiles: A1_TILES, baseFloorVariant: 1, enemies: ["fallen", "goatman", "skeleton"], boss: "andariel", areas: [
@@ -1817,6 +1845,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   @ViewChild("lobbyChatLog") private lobbyChatLogRef?: ElementRef<HTMLDivElement>;
   @ViewChild("arena") arenaRef?: ElementRef<HTMLCanvasElement>;
   @ViewChild("characterCanvas") characterCanvasRef?: ElementRef<HTMLCanvasElement>;
+  @ViewChild("characterOccluderCanvas") private characterOccluderCanvasRef?: ElementRef<HTMLCanvasElement>;
   @ViewChild("skillEffectsCanvas") private skillEffectsCanvasRef?: ElementRef<HTMLCanvasElement>;
 
   private characterRenderer?: THREE.WebGLRenderer;
@@ -1951,6 +1980,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private sentryFrames: HTMLCanvasElement[][] = [];
   private readonly campaignMapImages: Partial<Record<number, HTMLImageElement>> = {};
   private readonly campaignBackdropImages: Partial<Record<number, HTMLImageElement>> = {};
+  private tristramWallAtlas?: HTMLImageElement;
+  private tristramWallLayout?: TristramWallLayout;
   private readonly campaignFloorTileImages: Partial<Record<number, HTMLImageElement>> = {};
   private readonly campaignFloorTileOverlayCanvases: Partial<Record<number, HTMLCanvasElement>> = {};
   private readonly campaignBackgroundCanvases: Partial<Record<number, HTMLCanvasElement>> = {};
@@ -2776,6 +2807,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   private loadCampaignMaps(): void {
+    this.loadTristramWallAssets();
     const interior = new Image();
     interior.onload = () => {
       this.act1InteriorImage = interior;
@@ -2830,6 +2862,38 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         backdropImage.src = backdropPath;
       }
     }
+  }
+
+  /**
+   * The Tristram backdrop has the town's tall walls baked into it.  Those wall
+   * tiles are also loaded as separate sprites so they can be sorted over actors
+   * and used as a cut-out mask for the WebGL hero.
+   */
+  private loadTristramWallAssets(): void {
+    const atlas = new Image();
+    atlas.onload = () => {
+      this.tristramWallAtlas = atlas;
+      this.refreshTristramDepthPass();
+    };
+    atlas.onerror = () => console.warn(`Could not load Tristram wall atlas: ${A8_WALL_ATLAS}`);
+    atlas.src = A8_WALL_ATLAS;
+    fetch(A8_WALL_LAYOUT)
+      .then((response) => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json() as Promise<TristramWallLayout>;
+      })
+      .then((layout) => {
+        if (!Array.isArray(layout?.instances)) throw new Error("missing wall instances");
+        this.tristramWallLayout = layout;
+        this.refreshTristramDepthPass();
+      })
+      .catch((error) => console.warn(`Could not load Tristram wall placements: ${error}`));
+  }
+
+  private refreshTristramDepthPass(): void {
+    if (this.activeTab !== "run" || this.currentAct !== 8) return;
+    this.draw();
+    this.renderCharacter();
   }
 
   /** Loads one area's floor atlas; the runner draws it once it is decoded. */
@@ -2905,7 +2969,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
    * tiles to the current centre spacing keeps roads and buildings aligned with
    * entity movement while the map scrolls under the fixed camera.
    */
-  private drawTristramBackdrop(ctx: CanvasRenderingContext2D, image: HTMLImageElement, tileWidth: number): void {
+  private tristramBackdropGeometry(tileWidth: number, imageWidth: number, imageHeight: number): {
+    scale: number;
+    width: number;
+    height: number;
+    left: number;
+    top: number;
+  } {
     // Adjacent map tiles are 80 source pixels apart; gameplay tile centres are
     // tileWidth / 4 apart.  The extra dpr factor keeps the world scale stable
     // on high-density canvases, unlike the legacy overlap-tile draw path.
@@ -2922,10 +2992,23 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.arenaW / 2 + chunkWidth / 2 - worldX,
       this.arenaH / 2 + chunkHeight / 2 - worldY,
     );
-    const width = image.naturalWidth * scale;
-    const height = image.naturalHeight * scale;
-    const left = anchor.x - width / 2;
-    const top = anchor.y - height / 2;
+    const width = imageWidth * scale;
+    const height = imageHeight * scale;
+    return {
+      scale,
+      width,
+      height,
+      left: anchor.x - width / 2,
+      top: anchor.y - height / 2,
+    };
+  }
+
+  private drawTristramBackdrop(ctx: CanvasRenderingContext2D, image: HTMLImageElement, tileWidth: number): void {
+    const { width, height, left, top } = this.tristramBackdropGeometry(
+      tileWidth,
+      image.naturalWidth,
+      image.naturalHeight,
+    );
     ctx.save();
     ctx.imageSmoothingEnabled = false;
     const canvas = ctx.canvas as HTMLCanvasElement | undefined;
@@ -2948,6 +3031,99 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       }
     }
     ctx.restore();
+  }
+
+  /** Screen-space wall sprites for every visible repeat of the town backdrop. */
+  private tristramWallDraws(tileWidth: number): TristramWallDraw[] {
+    if (this.currentAct !== 8) return [];
+    const atlas = this.tristramWallAtlas;
+    const layout = this.tristramWallLayout;
+    const backdrop = this.campaignBackdropImages[8];
+    const canvas = this.arenaRef?.nativeElement;
+    if (!atlas?.complete || !atlas.naturalWidth || !layout || !backdrop?.complete
+      || !backdrop.naturalWidth || !canvas?.width || !canvas.height) {
+      return [];
+    }
+    const geometry = this.tristramBackdropGeometry(
+      tileWidth,
+      layout.backdropWidth,
+      layout.backdropHeight,
+    );
+    const { left, top, width, height, scale } = geometry;
+    const firstColumn = Math.floor((0 - left) / width);
+    const lastColumn = Math.ceil((canvas.width - left) / width) - 1;
+    const firstRow = Math.floor((0 - top) / height);
+    const lastRow = Math.ceil((canvas.height - top) / height) - 1;
+    const margin = 96 * this.projectionDpr;
+    const draws: TristramWallDraw[] = [];
+
+    for (let row = firstRow; row <= lastRow; row += 1) {
+      for (let column = firstColumn; column <= lastColumn; column += 1) {
+        const copyLeft = left + column * width;
+        const copyTop = top + row * height;
+        for (const instance of layout.instances) {
+          const dx = copyLeft + instance.x * scale;
+          const dy = copyTop + instance.y * scale;
+          const dw = instance.w * scale;
+          const dh = instance.h * scale;
+          if (dx + dw < -margin || dy + dh < -margin
+            || dx > canvas.width + margin || dy > canvas.height + margin) {
+            continue;
+          }
+          draws.push({ ...instance, dx, dy, dw, dh, depth: dy + dh });
+        }
+      }
+    }
+    return draws;
+  }
+
+  private drawTristramWallSlice(ctx: CanvasRenderingContext2D, wall: TristramWallDraw): void {
+    const atlas = this.tristramWallAtlas;
+    if (!atlas?.complete || !atlas.naturalWidth) return;
+    ctx.drawImage(atlas, wall.sx, wall.sy, wall.w, wall.h, wall.dx, wall.dy, wall.dw, wall.dh);
+  }
+
+  /**
+   * The hero is a WebGL canvas stacked above the 2D arena, so its own wall
+   * pass cannot hide it.  Copy that canvas through a wall alpha mask and show
+   * the masked copy: pixels covered by a wall in front of the hero are erased,
+   * revealing the wall already painted in the arena underneath.
+   */
+  private renderTristramDepthLayer(): void {
+    const arena = this.arenaRef?.nativeElement;
+    const character = this.characterCanvasRef?.nativeElement;
+    const occluder = this.characterOccluderCanvasRef?.nativeElement;
+    if (!arena || !character || !occluder) return;
+    const hasWallPass = this.activeTab === "run"
+      && this.currentAct === 8
+      && !!this.tristramWallAtlas?.complete
+      && !!this.tristramWallLayout;
+    if (!hasWallPass) {
+      character.style.visibility = "";
+      occluder.style.visibility = "hidden";
+      return;
+    }
+
+    character.style.visibility = "hidden";
+    occluder.style.visibility = "visible";
+    if (occluder.width !== arena.width || occluder.height !== arena.height) {
+      occluder.width = arena.width;
+      occluder.height = arena.height;
+    }
+    const ctx = occluder.getContext("2d");
+    if (!ctx) return;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, occluder.width, occluder.height);
+    ctx.drawImage(character, 0, 0, character.width, character.height, 0, 0, occluder.width, occluder.height);
+    ctx.globalCompositeOperation = "destination-out";
+    ctx.imageSmoothingEnabled = false;
+    const tileScreenSize = CAMPAIGN_TILE_WORLD_SIZE * this.worldZoom * CAMPAIGN_TILE_RENDER_SCALE;
+    const tileWidth = tileScreenSize * Math.SQRT2;
+    const playerDepth = this.projectArenaPoint(this.playerX, this.playerY).y;
+    for (const wall of this.tristramWallDraws(tileWidth)) {
+      if (wall.depth > playerDepth) this.drawTristramWallSlice(ctx, wall);
+    }
+    ctx.globalCompositeOperation = "source-over";
   }
 
   private drawAct1BuildingAndDoor(ctx: CanvasRenderingContext2D): void {
@@ -7590,6 +7766,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       urls.add(act.map);
       urls.add(act.floorTiles);
       if (act.backdrop) urls.add(act.backdrop);
+      if (act.act === 8) {
+        urls.add(A8_WALL_ATLAS);
+        urls.add(A8_WALL_LAYOUT);
+      }
       for (const area of act.areas ?? []) urls.add(area.floorTiles);
     }
     for (const sprite of Object.values(ENEMY_SPRITE_PATHS)) urls.add(sprite);
@@ -7657,6 +7837,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private resizeRunCanvases(): void {
     const arena = this.arenaRef?.nativeElement;
     const character = this.characterCanvasRef?.nativeElement;
+    const characterOccluder = this.characterOccluderCanvasRef?.nativeElement;
     const skillEffects = this.skillEffectsCanvasRef?.nativeElement;
     if (!arena || !character) return;
     const rect = arena.getBoundingClientRect();
@@ -7670,6 +7851,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       character.width = width;
       character.height = height;
       this.characterRenderer?.setSize(rect.width, rect.height, false);
+    }
+    if (characterOccluder && (characterOccluder.width !== width || characterOccluder.height !== height)) {
+      characterOccluder.width = width;
+      characterOccluder.height = height;
+      characterOccluder.getContext("2d", { alpha: true });
     }
     if (skillEffects && (skillEffects.width !== width || skillEffects.height !== height)) {
       skillEffects.width = width;
@@ -18174,7 +18360,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     // and anything whose ground point is far outside the canvas is skipped: a
     // packed act can hold 220 monsters, and drawing the ones behind the camera
     // costs as much as the visible ones.
-    const drawOrder: Array<{ depth: number; draw: () => void }> = [];
+    const drawOrder: Array<{ depth: number; order?: number; draw: () => void }> = [];
+    for (const wall of this.tristramWallDraws(tileWidth)) {
+      drawOrder.push({
+        depth: wall.depth,
+        order: wall.order,
+        draw: () => this.drawTristramWallSlice(ctx, wall),
+      });
+    }
     for (const projectile of this.attackProjectiles) {
       if (projectile.fireWall) {
         const point = this.projectArenaPoint(projectile.x, projectile.y);
@@ -18228,7 +18421,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       if (!this.isArenaPointOnScreen(point, DRAW_CULL_MARGIN)) continue;
       drawOrder.push({ depth: point.y, draw: () => this.drawItemDrop(ctx, entity) });
     }
-    drawOrder.sort((a, b) => a.depth - b.depth);
+    drawOrder.sort((a, b) => a.depth - b.depth || (a.order ?? 0) - (b.order ?? 0));
     for (const entity of drawOrder) entity.draw();
     if (this.actPortalOpen) this.drawActPortal(ctx);
     if (this.druidForm) this.drawDruidForm(ctx);
@@ -19356,6 +19549,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.characterModel.visible = !this.druidForm;
     }
     this.characterRenderer.render(this.characterScene, this.characterCamera);
+    this.renderTristramDepthLayer();
   }
 
   private enemySpriteTint(e: Enemy, baseTint: string): string {

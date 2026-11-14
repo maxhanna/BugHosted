@@ -5,7 +5,9 @@ which is why Uber Tristram did not read as Tristram.  The D2R extraction ships
 the real ``tri_town4.ds1`` preset and the DT1 sets it names, including
 ``act1/tristram/town.dt1``.  This tool decodes those classic tiles with the Act I
 palette and renders a cropped region of the town for use as the Act 8 backdrop.
-It also writes a 4x4 fallback atlas from the same map's most common floors.
+It also writes a 4x4 fallback atlas from the same map's most common floors and
+a packed upper-wall atlas plus backdrop-relative placements so the runtime can
+depth-sort the town walls over actors.
 
 The renderer follows the layer order used by the game's editor: lower walls,
 floors, shadows, upper walls/objects, and roofs.  It also composites the
@@ -21,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import json
 import re
 import struct
 import sys
@@ -584,6 +587,113 @@ def build_floor_atlas(scene: Scene, catalogue: dict[tuple[int, int, int], Tile],
     return atlas
 
 
+def brighten_layer(image: Image.Image) -> Image.Image:
+    """Apply the backdrop gamma while keeping the tile's transparency."""
+    alpha = image.getchannel("A")
+    rgb = image.convert("RGB").point(lambda value: round(255 * (value / 255) ** BACKDROP_GAMMA))
+    rgb.putalpha(alpha)
+    return rgb
+
+
+def wall_tile_bbox(tile: Tile) -> tuple[int, int, int, int]:
+    y_add = 0 if tile.orientation in (0, 15) else WALL_Y_OFFSET
+    x0 = min(block.x for block in tile.blocks)
+    y0 = min(block.y for block in tile.blocks) + y_add
+    x1 = max(block.x + 32 for block in tile.blocks)
+    y1 = max(block.y + (32 if block.format == 0x1001 else 15) for block in tile.blocks) + y_add
+    return x0, y0, x1, y1
+
+
+def render_wall_sprite(tile: Tile, palette: list[tuple[int, int, int, int]]) -> tuple[Image.Image, tuple[int, int, int, int]]:
+    """Render one wall tile on its own so the runtime can depth-sort it."""
+    x0, y0, x1, y1 = wall_tile_bbox(tile)
+    image = Image.new("RGBA", (x1 - x0, y1 - y0), (0, 0, 0, 0))
+    y_add = 0 if tile.orientation in (0, 15) else WALL_Y_OFFSET
+    for block in tile.blocks:
+        image.alpha_composite(decode_block(tile.data, block, palette),
+                              (block.x - x0, block.y + y_add - y0))
+    return brighten_layer(image), (x0, y0, x1 - x0, y1 - y0)
+
+
+def build_wall_assets(scene: Scene, catalogue: dict[tuple[int, int, int], Tile],
+                      palette: list[tuple[int, int, int, int]]) -> tuple[Image.Image, dict]:
+    """Build a packed atlas and backdrop-relative placements for upper walls."""
+    origin_x = scene.height * TILE_WIDTH // 2
+    origin_y = 512
+    crop_left = origin_x + (CROP_COLUMN - (CROP_ROW + CROP_ROWS - 1)) * TILE_WIDTH // 2
+    crop_top = origin_y + (CROP_COLUMN + CROP_ROW) * TILE_HEIGHT // 2 - CROP_TOP_MARGIN
+
+    entries: list[tuple[int, int, int, tuple[int, int, int], Tile, int, int]] = []
+    for layer_index, layer in enumerate(scene.layers):
+        if layer.kind != "wall":
+            continue
+        for index, cell in enumerate(layer.cells):
+            if cell & 0x80000000 or cell & 0xFF == 0:
+                continue
+            column, row = index % scene.width, index // scene.width
+            if not (CROP_COLUMN <= column < CROP_COLUMN + CROP_COLUMNS
+                    and CROP_ROW <= row < CROP_ROW + CROP_ROWS):
+                continue
+            orientation = layer.orientations[index] & 0xFF
+            if orientation >= 16:
+                continue
+            key = cell_key(cell, orientation)
+            tile = catalogue.get(key)
+            if not tile or not tile.blocks:
+                continue
+            entries.append((row + column, column, layer_index, key, tile, column, row))
+    entries.sort(key=lambda entry: entry[:3])
+
+    sprites: dict[tuple[int, int, int], Image.Image] = {}
+    bboxes: dict[tuple[int, int, int], tuple[int, int, int, int]] = {}
+    for _, _, _, key, tile, _, _ in entries:
+        if key in sprites:
+            continue
+        sprite, bbox = render_wall_sprite(tile, palette)
+        sprites[key] = sprite
+        bboxes[key] = bbox
+
+    atlas_width = 1024
+    placements: dict[tuple[int, int, int], tuple[int, int]] = {}
+    cursor_x = cursor_y = row_height = 0
+    for key, sprite in sorted(sprites.items(), key=lambda item: (-item[1].height, -item[1].width, item[0])):
+        if cursor_x + sprite.width > atlas_width:
+            cursor_x = 0
+            cursor_y += row_height
+            row_height = 0
+        placements[key] = (cursor_x, cursor_y)
+        cursor_x += sprite.width
+        row_height = max(row_height, sprite.height)
+    atlas = Image.new("RGBA", (atlas_width, cursor_y + row_height), (0, 0, 0, 0))
+    for key, sprite in sprites.items():
+        atlas.alpha_composite(sprite, placements[key])
+
+    instances = []
+    for order, (_, _, _, key, _, column, row) in enumerate(entries):
+        x0, y0, width, height = bboxes[key]
+        atlas_x, atlas_y = placements[key]
+        tile_x = origin_x + (column - row) * TILE_WIDTH // 2
+        tile_y = origin_y + (column + row) * TILE_HEIGHT // 2
+        instances.append({
+            "x": tile_x - crop_left + x0,
+            "y": tile_y - crop_top + y0,
+            "w": width,
+            "h": height,
+            "sx": atlas_x,
+            "sy": atlas_y,
+            "order": order,
+        })
+
+    layout = {
+        "atlasWidth": atlas.width,
+        "atlasHeight": atlas.height,
+        "backdropWidth": (CROP_COLUMNS + CROP_ROWS) * TILE_WIDTH // 2,
+        "backdropHeight": (CROP_COLUMNS + CROP_ROWS) * TILE_HEIGHT // 2 + CROP_TOP_MARGIN,
+        "instances": instances,
+    }
+    return atlas, layout
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, default=DEFAULT_SOURCE)
@@ -610,8 +720,13 @@ def main(argv: list[str]) -> int:
     backdrop.save(ASSET_ROOT / "a8-tristram-backdrop.png", optimize=True)
     atlas = build_floor_atlas(scene, catalogue, palette)
     atlas.save(TILE_ROOT / "a8-uber-tristram-floor-tiles.png", optimize=True)
+    wall_atlas, wall_layout = build_wall_assets(scene, catalogue, palette)
+    wall_atlas.save(ASSET_ROOT / "a8-tristram-walls.png", optimize=True)
+    with (ASSET_ROOT / "a8-tristram-walls.json").open("w", encoding="utf-8") as handle:
+        json.dump(wall_layout, handle, separators=(",", ":"))
     print(f"backdrop {backdrop.width}x{backdrop.height} -> {ASSET_ROOT / 'a8-tristram-backdrop.png'}")
     print(f"atlas {atlas.width}x{atlas.height} -> {TILE_ROOT / 'a8-uber-tristram-floor-tiles.png'}")
+    print(f"wall atlas {wall_atlas.width}x{wall_atlas.height}, {len(wall_layout['instances'])} instances -> {ASSET_ROOT / 'a8-tristram-walls.png'}")
     return 0
 
 
