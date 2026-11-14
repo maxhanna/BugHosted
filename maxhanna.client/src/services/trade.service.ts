@@ -113,7 +113,10 @@ export class TradeService {
   }  
   async getLatestTradeHistory(userId: number, encryptedUserId: string) {
     return this.post(`/trade/getlatesttradehistory`, userId, 'json', encryptedUserId);
-  } 
+  }
+  async getRecentTrades(userId: number, encryptedUserId: string, limit = 10) {
+    return this.post(`/trade/getrecenttrades`, { UserId: userId, Limit: limit }, 'json', encryptedUserId);
+  }
   async updateApiKey(userId: number, apiKey: string, privateKey: string, encryptedUserId: string) {
     return this.post(`/trade/updateapikey`, { UserId: userId, ApiKey: apiKey, PrivateKey: privateKey }, 'text', encryptedUserId);
   } 

@@ -145,6 +145,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   indicatorCache = new Map<string, IndicatorData>(); 
   private singleLineLogInterval: any;
   lastTradebotTrade: any;
+  lastTradebotTrades: any[] = [];
   periodTypes = [
     { key: 'days', label: 'Daily Performance', periodKey: 'daily' },
     { key: 'weeks', label: 'Weekly Performance', periodKey: 'weekly' },
@@ -248,7 +249,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
         this.btcUSDRate = this.btcToCadPrice / this.cadToUsdRate;
         this.selectedCoinUSDRate = this.selectedCoinToCadPrice / this.cadToUsdRate;
         setTimeout(() => {
-          this.getLastTradebotTradeDisplay().then(() => this.getLastTradePercentage());
+          this.getRecentTradebotTrades().then(() => this.getLastTradePercentage());
         }, 50);
       });
       this.coinValueService.getGlobalMetrics().then(res => {
@@ -1933,26 +1934,28 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     }
   }
 
-  async getLastTradebotTradeDisplay() { 
+  async getRecentTradebotTrades() {
     const session = await this.parentRef?.getSessionToken() ?? "";
-    const res = await this.tradeService.getLatestTradeHistory(this.parentRef?.user?.id ?? 1, session);
-    this.latestTradebotBalance = res;
-    const value = res.value;
-    const price = parseFloat(res.coin_price_usdc);
-    const buyOrSell = res.to_currency == "USDC" ? "Sell" : "Buy";
-    const timestamp = this.getUtcTimeSince(res.timestamp);
-    const vp = parseFloat(value) * price;
-    this.lastTradebotTrade = {
-      'timestamp': timestamp,
-      'buyOrSell': buyOrSell,
-      'value': value,
-      'fromCoin': res.from_currency,
-      'toCoin': res.to_currency,
-      'valuePrice': this.formatToCanadianCurrency(vp),
-      'tradePrice': this.formatToCanadianCurrency(price),
-      'strategy': res.strategy
-    };
-     
+    const res = await this.tradeService.getRecentTrades(this.parentRef?.user?.id ?? 1, session, 10);
+    const trades = Array.isArray(res) ? res : [];
+    this.lastTradebotTrades = trades.map((trade) => {
+      const value = parseFloat(trade.value) || 0;
+      const price = parseFloat(trade.coin_price_usdc) || 0;
+      return {
+        id: trade.id,
+        rawTimestamp: trade.timestamp,
+        timestamp: this.getUtcTimeSince(trade.timestamp),
+        buyOrSell: trade.to_currency == "USDC" ? "Sell" : "Buy",
+        value: trade.value,
+        fromCoin: trade.from_currency,
+        toCoin: trade.to_currency,
+        valuePrice: this.formatToCanadianCurrency(value * price),
+        tradePrice: this.formatToCanadianCurrency(price),
+        strategy: trade.strategy && trade.strategy !== "null" ? trade.strategy : ""
+      };
+    });
+    this.latestTradebotBalance = trades[0];
+    this.lastTradebotTrade = this.lastTradebotTrades[0];
   }
   async enterPosition() {
     if (this.isEnteringPosition || this.isExitingPosition) return;

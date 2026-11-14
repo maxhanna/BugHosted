@@ -399,37 +399,42 @@
             </div>
           </div>
           <div> 
-            <div *ngIf="lastTradebotTrade && lastTradebotTrade['value']">
-              <span class="sectionName">Last:&nbsp;</span>
-              <span>
-                <span *ngIf="lastTradebotTrade" class="smallFont">
-                  <span [class]="onMobile() ? 'xxSmallFont' : ''" [title]="lastTradebotTrade['timestamp']">[{{
-                    lastTradebotTrade['timestamp'] }}]</span>
-                  <span [class]="lastTradebotTrade['buyOrSell'] === 'Sell' ? 'negative' : 'positive'">
-                    {{ lastTradebotTrade['buyOrSell'] === 'Buy' ?
-                    'Buy ' + lastTradebotTrade['value'] + ' ' + lastTradebotTrade['toCoin'] :
-                    'Sold ' + lastTradebotTrade['value'] + ' ' + lastTradebotTrade['fromCoin'] }}
-                  </span>|
-                  <span [class]="lastTradebotTrade['buyOrSell'] === 'Buy' ? 'negative' : 'positive'">
-                    {{ lastTradebotTrade['buyOrSell'] === 'Buy' ?
-                    'Cost: ' + lastTradebotTrade['valuePrice'] + ' ' + lastTradebotTrade['fromCoin'] :
-                    'Received: ' + lastTradebotTrade['valuePrice'] + ' ' + lastTradebotTrade['toCoin'] }}
+            <div class="recentTradesPanel" *ngIf="lastTradebotTrades.length > 0; else noRecentTrades">
+              <div class="recentTradesHeader">
+                <span class="sectionName">Recent Trades</span>
+                <span class="xxSmallFont thirdFontColor">Last {{ lastTradebotTrades.length }}</span>
+              </div>
+              <ol class="recentTradesList">
+                <li *ngFor="let trade of lastTradebotTrades; let first = first" class="recentTradeRow"
+                  [title]="trade.rawTimestamp">
+                  <span class="tradeSide" [class.buySide]="trade.buyOrSell === 'Buy'"
+                    [class.sellSide]="trade.buyOrSell === 'Sell'">
+                    {{ trade.buyOrSell }}
                   </span>
-                  <span class="smallFont thirdFontColor">
-                    &#64; {{ lastTradebotTrade['tradePrice'] }}/{{ lastTradebotTrade['buyOrSell'] === 'Buy' ?
-                    lastTradebotTrade['toCoin'] : lastTradebotTrade['fromCoin'] }}
-                    ({{ lastTradebotTrade['strategy'] }})
+                  <span class="tradeDetails">
+                    <span class="tradePrimary">
+                      <strong>{{ trade.value }} {{ trade.buyOrSell === 'Buy' ? trade.toCoin : trade.fromCoin }}</strong>
+                      <span class="thirdFontColor">for {{ trade.valuePrice }} {{ trade.buyOrSell === 'Buy' ?
+                        trade.fromCoin : trade.toCoin }}</span>
+                    </span>
+                    <span class="tradeSecondary">
+                      <span>&#64; {{ trade.tradePrice }}/{{ trade.buyOrSell === 'Buy' ? trade.toCoin : trade.fromCoin }}</span>
+                      <span *ngIf="trade.strategy">{{ trade.strategy }}</span>
+                      <span>{{ trade.timestamp }}</span>
+                      <span *ngIf="first && lastTradePercentage !== null"
+                        [title]="lastTradePercentage >= 0 ? 'Price has increased by ' + lastTradePercentage.toFixed(2) + '% since last trade.' : 'Price has decreased by ' + lastTradePercentage.toFixed(2) + '% since last trade.'"
+                        [class.positive-percent]="lastTradePercentage >= 0"
+                        [class.negative-percent]="lastTradePercentage < 0">
+                        {{ lastTradePercentage.toFixed(2) }}%
+                      </span>
+                    </span>
                   </span>
-                  <span *ngIf="lastTradePercentage !== null"
-                    [title]="lastTradePercentage >= 0 ? 'Price has increased by ' + lastTradePercentage.toFixed(2) + '% since last trade.' : 'Price has decreased by ' + lastTradePercentage.toFixed(2) + '% since last trade.'"
-                    class="cursorPointer xxSmallFont" [class.positive-percent]="lastTradePercentage >= 0"
-                    [class.negative-percent]="lastTradePercentage < 0">
-                    ({{ lastTradePercentage.toFixed(2) }}%)
-                  </span>
-                </span>
-                <span *ngIf="!lastTradebotTrade" class="smallFont">No trades.</span>
-              </span>
+                </li>
+              </ol>
             </div>
+            <ng-template #noRecentTrades>
+              <p class="smallFont">No trades yet.</p>
+            </ng-template>
 
             <div *ngIf="lastLogEntry"
               [ngClass]="{'logScreen': !showingTradeLogs, 'bold': true}">

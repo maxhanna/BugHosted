@@ -52,6 +52,22 @@ public class TradeController : ControllerBase
 			return StatusCode(500, "Error fetching trade history.");
 		}
 	}
+	[HttpPost("/Trade/GetRecentTrades", Name = "GetRecentTrades")]
+	public async Task<IActionResult> GetRecentTrades([FromBody] GetRecentTradesRequest req, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserId)
+	{
+		try
+		{
+			if (req.UserId != 1 && !await _log.ValidateUserLoggedIn(req.UserId, encryptedUserId)) return StatusCode(500, "Access Denied.");
+			var trades = await _krakenService.GetRecentTrades(req.UserId, req.Limit);
+			return Ok(trades);
+		}
+		catch (Exception ex)
+		{
+			_ = _log.Db("Error fetching recent trades. " + ex.Message, req.UserId, "TRADE", true);
+			return StatusCode(500, "Error fetching recent trades.");
+		}
+	}
+
 	[HttpPost("/Trade/GetPageForTradeId", Name = "GetPageForTradeId")]
 	public async Task<IActionResult> GetPageForTradeId([FromBody] GetPageForTradeIdRequest request,
 			[FromHeader(Name = "Encrypted-UserId")] string encryptedUserId)

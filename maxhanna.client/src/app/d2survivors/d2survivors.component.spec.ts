@@ -1988,21 +1988,61 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(component.actMinionClearPrompt).toBe("");
   });
 
-  it("gives every Act V area its own floor tile atlas", () => {
+  it("walks every Act V zone through its terrain floor atlas", () => {
     component.currentAct = 5;
     const areas = component.currentActDetails.areas;
 
-    expect(areas.length).toBe(3);
+    expect(areas.length).toBe(13);
     expect(areas.map((area) => area.name)).toEqual([
       "Bloody Foothills",
+      "Frigid Highlands",
+      "Arreat Plateau",
       "Crystalline Passage",
+      "Frozen River",
+      "Nihlathak's Temple",
+      "Halls of Vaught",
+      "Glacial Trail",
+      "Frozen Tundra",
+      "Ancients' Way",
+      "Arreat Summit",
+      "Worldstone Keep",
       "Throne of Destruction",
     ]);
     expect(new Set(areas.map((area) => area.floorTiles)).size).toBe(3);
     expect(areas[0].floorTiles).toContain("a5-bloody-foothills");
-    expect(areas[1].floorTiles).toContain("a5-crystalline-passage");
-    expect(areas[2].floorTiles).toContain("a5-throne-of-destruction");
-    expect(areas.every((area) => area.baseFloorVariant === 0)).toBeTrue();
+    expect(areas[3].floorTiles).toContain("a5-crystalline-passage");
+    expect(areas[12].floorTiles).toContain("a5-throne-of-destruction");
+    expect(areas.every((area) => area.baseFloorVariant >= 0 && area.baseFloorVariant < 16)).toBeTrue();
+  });
+
+  it("keeps every lore zone in the campaign acts in order", () => {
+    const campaignZones = [1, 2, 3, 4, 5].flatMap((actId) => {
+      component.currentAct = actId;
+      return component.currentActDetails.areas
+        .map((area) => area.name)
+        .filter((name) => name !== "Sewers");
+    });
+
+    expect(campaignZones).toEqual(component.mapAreas);
+  });
+
+  it("advances zones on the act clock and freezes them once the boss arrives", () => {
+    spyOn(component as any, "persistRunProgress");
+    component.currentAct = 1;
+    component.actTime = 0;
+    component.playerLevel = 99;
+
+    (component as any).updateCampaignArea();
+    expect(component.currentAreaIndex).toBe(0);
+
+    component.actTime = 70;
+    (component as any).updateCampaignArea();
+    expect(component.currentAreaIndex).toBe(3);
+
+    component.actBossSpawned = true;
+    component.actTime = 130;
+    (component as any).updateCampaignArea();
+    expect(component.currentAreaIndex).toBe(3);
   });
 
   it("builds Uber Tristram from the original town preset and Tristram floor tiles", () => {

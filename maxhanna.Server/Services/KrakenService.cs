@@ -3238,6 +3238,61 @@ LIMIT @PageSize OFFSET @Offset;";
     }
   }
 
+  public async Task<List<TradeRecord>> GetRecentTrades(int userId, int limit)
+  {
+    if (userId <= 0) return new List<TradeRecord>();
+    limit = Math.Clamp(limit, 1, 50);
+
+    var sql = @"
+                SELECT id, user_id, from_currency, to_currency, strategy, value, timestamp,
+                       coin_price_cad, coin_price_usdc, trade_value_cad, trade_value_usdc, fees,
+                       matching_trade_id, is_reserved
+                FROM maxhanna.trade_history
+                WHERE user_id = @UserId
+                ORDER BY id DESC
+                LIMIT @Limit;";
+
+    try
+    {
+      using var conn = new MySqlConnection(_config?.GetValue<string>("ConnectionStrings:maxhanna"));
+      await conn.OpenAsync();
+
+      using var cmd = new MySqlCommand(sql, conn);
+      cmd.Parameters.AddWithValue("@UserId", userId);
+      cmd.Parameters.AddWithValue("@Limit", limit);
+
+      var trades = new List<TradeRecord>();
+      using var reader = await cmd.ExecuteReaderAsync();
+      while (await reader.ReadAsync())
+      {
+        trades.Add(new TradeRecord
+        {
+          id = reader.IsDBNull(reader.GetOrdinal("id")) ? 0 : reader.GetInt32(reader.GetOrdinal("id")),
+          user_id = reader.IsDBNull(reader.GetOrdinal("user_id")) ? 0 : reader.GetInt32(reader.GetOrdinal("user_id")),
+          from_currency = reader.IsDBNull(reader.GetOrdinal("from_currency")) ? "null" : reader.GetString(reader.GetOrdinal("from_currency")),
+          to_currency = reader.IsDBNull(reader.GetOrdinal("to_currency")) ? "null" : reader.GetString(reader.GetOrdinal("to_currency")),
+          strategy = reader.IsDBNull(reader.GetOrdinal("strategy")) ? "null" : reader.GetString(reader.GetOrdinal("strategy")),
+          value = reader.IsDBNull(reader.GetOrdinal("value")) ? 0 : reader.GetFloat(reader.GetOrdinal("value")),
+          timestamp = reader.IsDBNull(reader.GetOrdinal("timestamp")) ? DateTime.Now : reader.GetDateTime(reader.GetOrdinal("timestamp")),
+          coin_price_cad = reader.IsDBNull(reader.GetOrdinal("coin_price_cad")) ? 0 : reader.GetFloat(reader.GetOrdinal("coin_price_cad")),
+          coin_price_usdc = reader.IsDBNull(reader.GetOrdinal("coin_price_usdc")) ? 0 : reader.GetFloat(reader.GetOrdinal("coin_price_usdc")),
+          trade_value_cad = reader.IsDBNull(reader.GetOrdinal("trade_value_cad")) ? 0 : reader.GetFloat(reader.GetOrdinal("trade_value_cad")),
+          trade_value_usdc = reader.IsDBNull(reader.GetOrdinal("trade_value_usdc")) ? 0 : reader.GetFloat(reader.GetOrdinal("trade_value_usdc")),
+          fees = reader.IsDBNull(reader.GetOrdinal("fees")) ? 0 : reader.GetFloat(reader.GetOrdinal("fees")),
+          matching_trade_id = reader.IsDBNull(reader.GetOrdinal("matching_trade_id")) ? null : reader.GetInt32(reader.GetOrdinal("matching_trade_id")),
+          is_reserved = !reader.IsDBNull(reader.GetOrdinal("is_reserved")) && reader.GetBoolean(reader.GetOrdinal("is_reserved"))
+        });
+      }
+
+      return trades;
+    }
+    catch (Exception ex)
+    {
+      _ = _log.Db("⚠️Error fetching recent trades: " + ex.Message, null, "TRADE", viewErrorDebugLogs);
+      return new List<TradeRecord>();
+    }
+  }
+
   public async Task<TradeRecord?> GetLatestTradeHistory(int userId)
   {
     var checkSql = @"SELECT * FROM maxhanna.trade_history WHERE user_id = @UserId ORDER BY id DESC LIMIT 1;";
