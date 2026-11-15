@@ -521,6 +521,7 @@ def format_property(code: str, par: str, low: int, high: int, value: int) -> str
         "mag%": f"{value}% Better Chance of Getting Magic Items",
         "gold%": f"{value}% Extra Gold from Monsters",
         "light": f"+{value} to Light Radius",
+        "light-thorns": f"+{value} to Light Radius",
         "regen": f"Replenish Life +{value}",
         "regen-mana": f"Regenerate Mana {value}%",
         "regen-stam": f"Heal Stamina Plus {value}%",
@@ -702,6 +703,8 @@ def apply_property(prop: str, par: str, minimum: str, maximum: str, stats: dict[
         add("goldFindPercent", value)
     elif code == "regen":
         add("replenishLife", value)
+    elif code in ("light", "light-thorns"):
+        add("lightRadius", value)
     elif code == "thorns":
         add("thorns", value)
     elif code == "addxp":
@@ -940,7 +943,7 @@ def write_generated_map(names: dict[str, str], ground_names: dict[str, str], gro
         "crushingBlowPercent", "deadlyStrikePercent", "openWoundsPercent",
         "magicFindPercent", "goldFindPercent", "damageReductionFlat", "damageReductionPercent",
         "allResistPercent", "fireResistPercent", "coldResistPercent",
-        "lightningResistPercent", "poisonResistPercent", "replenishLife", "thorns",
+        "lightningResistPercent", "poisonResistPercent", "replenishLife", "thorns", "lightRadius",
         "extraExperiencePercent", "requiresStrength", "requiresDexterity",
     ):
         lines.append(f"  {key}?: number;")

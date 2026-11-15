@@ -572,6 +572,9 @@ const CAMPAIGN_TILE_RENDER_SCALE = 1;
 // Screen-space slack around the canvas that still gets drawn. Sprites stand
 // above their ground point and bosses are large, so keep a generous margin.
 const DRAW_CULL_MARGIN = 320;
+const BASE_LIGHT_RADIUS = 160;
+const LIGHT_RADIUS_PER_POINT = 5;
+const MAX_LIGHT_RADIUS = 560;
 // Every stock flippy is 17 or 18 frames. Play the whole toss once inside the
 // pickup-delay window, then hold its final resting frame.
 const GROUND_ITEM_TUMBLE_SECONDS = 0.75;
@@ -1213,6 +1216,8 @@ interface CampaignArea {
   floorTiles: string;
   /** Atlas cell whose terrain family anchors this zone's ground palette. */
   baseFloorVariant: number;
+  /** Underground zones are unlit except for the player's light radius. */
+  dark?: boolean;
 }
 
 type CampaignTerrainStyle = "trail" | "cavern" | "road" | "tomb";
@@ -1346,18 +1351,18 @@ const CAMPAIGN_ACTS: CampaignAct[] = [
     { name: "Stony Field", level: 4, floorTiles: A1_TAMOE_TILES, baseFloorVariant: 6 },
     { name: "Dark Wood", level: 5, floorTiles: A1_TAMOE_TILES, baseFloorVariant: 6 },
     { name: "Tamoe Highland", level: 7, floorTiles: A1_TAMOE_TILES, baseFloorVariant: 6 },
-    { name: "Catacombs", level: 11, floorTiles: A1_CATACOMBS_TILES, baseFloorVariant: 11 },
+    { name: "Catacombs", level: 11, floorTiles: A1_CATACOMBS_TILES, baseFloorVariant: 11, dark: true },
   ] },
   { act: 2, name: "The Buried Caves", region: "Lut Gholein", levelLabel: "Rocky Waste", map: "assets/d2survivors/maps/act2-caves.png", mapAlpha: true, backdrop: "assets/d2survivors/maps/act2-caves.png", floorTiles: A2_TILES, baseFloorVariant: 2, enemies: ["sandRaider", "sandMaggot", "sandMaggotYoung", "scarab", "leaper", "blunderbore", "salamander", "skeleton", "spikeFiend"], boss: "duriel", areas: [
-    { name: "Sewers", level: 13, floorTiles: A2_SEWERS_TILES, baseFloorVariant: 7 },
+    { name: "Sewers", level: 13, floorTiles: A2_SEWERS_TILES, baseFloorVariant: 7, dark: true },
     { name: "Rocky Waste", level: 13, floorTiles: A2_TILES, baseFloorVariant: 2 },
     { name: "Dry Hills", level: 14, floorTiles: A2_TILES, baseFloorVariant: 2 },
     { name: "Far Oasis", level: 14, floorTiles: A2_TILES, baseFloorVariant: 2 },
     { name: "Lost City", level: 15, floorTiles: A2_TILES, baseFloorVariant: 2 },
     { name: "Valley of Snakes", level: 16, floorTiles: A2_TAL_RASHAS_TILES, baseFloorVariant: 8 },
-    { name: "Claw Viper Temple", level: 16, floorTiles: A2_TAL_RASHAS_TILES, baseFloorVariant: 4 },
-    { name: "Arcane Sanctuary", level: 17, floorTiles: A2_TAL_RASHAS_TILES, baseFloorVariant: 6 },
-    { name: "Tal Rasha's Tomb", level: 17, floorTiles: A2_TAL_RASHAS_TILES, baseFloorVariant: 0 },
+    { name: "Claw Viper Temple", level: 16, floorTiles: A2_TAL_RASHAS_TILES, baseFloorVariant: 4, dark: true },
+    { name: "Arcane Sanctuary", level: 17, floorTiles: A2_TAL_RASHAS_TILES, baseFloorVariant: 6, dark: true },
+    { name: "Tal Rasha's Tomb", level: 17, floorTiles: A2_TAL_RASHAS_TILES, baseFloorVariant: 0, dark: true },
   ] },
   { act: 3, name: "The Flayer Jungle", region: "Kurast Docks", levelLabel: "Spider Forest", map: "assets/d2survivors/maps/act3-jungle.png", mapAlpha: true, backdrop: "assets/d2survivors/maps/act3-jungle.png", floorTiles: A3_TILES, baseFloorVariant: 5, enemies: ["fetish", "boneFetish", "fetishShaman", "council", "blunderbore", "spiderDemon"], boss: "mephisto", areas: [
     { name: "Spider Forest", level: 21, floorTiles: A3_TILES, baseFloorVariant: 5 },
@@ -1368,37 +1373,37 @@ const CAMPAIGN_ACTS: CampaignAct[] = [
     { name: "Upper Kurast", level: 24, floorTiles: A3_DURANCE_TILES, baseFloorVariant: 5 },
     { name: "Kurast Causeway", level: 24, floorTiles: A3_DURANCE_TILES, baseFloorVariant: 9 },
     { name: "Travincal", level: 25, floorTiles: A3_DURANCE_TILES, baseFloorVariant: 15 },
-    { name: "Durance of Hate", level: 25, floorTiles: A3_DURANCE_TILES, baseFloorVariant: 0 },
+    { name: "Durance of Hate", level: 25, floorTiles: A3_DURANCE_TILES, baseFloorVariant: 0, dark: true },
   ] },
   { act: 4, name: "The Chaos Sanctuary", region: "Pandemonium Fortress", levelLabel: "Outer Steppes", map: "assets/d2survivors/maps/act4-catacombs.png", mapAlpha: true, backdrop: "assets/d2survivors/maps/act4-catacombs.png", floorTiles: A4_TILES, baseFloorVariant: 8, enemies: ["balrog", "vileChild", "vileMother", "painWorm", "regurgitator"], boss: "diablo", areas: [
     { name: "Outer Steppes", level: 26, floorTiles: A4_TILES, baseFloorVariant: 8 },
     { name: "Plains of Despair", level: 27, floorTiles: A4_TILES, baseFloorVariant: 8 },
     { name: "City of the Damned", level: 27, floorTiles: A4_CITY_TILES, baseFloorVariant: 13 },
     { name: "River of Flame", level: 28, floorTiles: A4_TILES, baseFloorVariant: 8 },
-    { name: "Chaos Sanctuary", level: 28, floorTiles: A4_CHAOS_TILES, baseFloorVariant: 9 },
+    { name: "Chaos Sanctuary", level: 28, floorTiles: A4_CHAOS_TILES, baseFloorVariant: 9, dark: true },
   ] },
   { act: 5, name: "The Worldstone Keep", region: "Harrogath", levelLabel: "Worldstone Keep", map: "assets/d2survivors/maps/act5-worldstone.png", mapAlpha: true, backdrop: "assets/d2survivors/maps/act5-worldstone.png", floorTiles: A5_TILES, baseFloorVariant: 1, enemies: ["baalsMinion", "minotaur", "siegeBeast", "painWorm", "spiderDemon", "spikeFiend"], boss: "baal", areas: [
     { name: "Bloody Foothills", level: 24, floorTiles: A5_BLOODY_TILES, baseFloorVariant: 2 },
     { name: "Frigid Highlands", level: 25, floorTiles: A5_BLOODY_TILES, baseFloorVariant: 4 },
     { name: "Arreat Plateau", level: 26, floorTiles: A5_BLOODY_TILES, baseFloorVariant: 7 },
-    { name: "Crystalline Passage", level: 29, floorTiles: A5_CRYSTALLINE_TILES, baseFloorVariant: 1 },
-    { name: "Frozen River", level: 29, floorTiles: A5_CRYSTALLINE_TILES, baseFloorVariant: 7 },
-    { name: "Nihlathak's Temple", level: 30, floorTiles: A5_TILES, baseFloorVariant: 9 },
-    { name: "Halls of Vaught", level: 30, floorTiles: A5_TILES, baseFloorVariant: 5 },
-    { name: "Glacial Trail", level: 31, floorTiles: A5_CRYSTALLINE_TILES, baseFloorVariant: 9 },
+    { name: "Crystalline Passage", level: 29, floorTiles: A5_CRYSTALLINE_TILES, baseFloorVariant: 1, dark: true },
+    { name: "Frozen River", level: 29, floorTiles: A5_CRYSTALLINE_TILES, baseFloorVariant: 7, dark: true },
+    { name: "Nihlathak's Temple", level: 30, floorTiles: A5_TILES, baseFloorVariant: 9, dark: true },
+    { name: "Halls of Vaught", level: 30, floorTiles: A5_TILES, baseFloorVariant: 5, dark: true },
+    { name: "Glacial Trail", level: 31, floorTiles: A5_CRYSTALLINE_TILES, baseFloorVariant: 9, dark: true },
     { name: "Frozen Tundra", level: 31, floorTiles: A5_BLOODY_TILES, baseFloorVariant: 1 },
-    { name: "Ancients' Way", level: 32, floorTiles: A5_CRYSTALLINE_TILES, baseFloorVariant: 14 },
+    { name: "Ancients' Way", level: 32, floorTiles: A5_CRYSTALLINE_TILES, baseFloorVariant: 14, dark: true },
     { name: "Arreat Summit", level: 33, floorTiles: A5_BLOODY_TILES, baseFloorVariant: 12 },
-    { name: "Worldstone Keep", level: 38, floorTiles: A5_TILES, baseFloorVariant: 1 },
-    { name: "Throne of Destruction", level: 43, floorTiles: A5_TILES, baseFloorVariant: 13 },
+    { name: "Worldstone Keep", level: 38, floorTiles: A5_TILES, baseFloorVariant: 1, dark: true },
+    { name: "Throne of Destruction", level: 43, floorTiles: A5_TILES, baseFloorVariant: 13, dark: true },
   ] },
   // Pandemonium event: three level-83 areas with souped-up act bosses. Killing
   // all three clears the campaign, so these only open once Baal has fallen.
   { act: 6, name: "Forgotten Sands", region: "The Pandemonium Event", levelLabel: "Forgotten Sands", map: "assets/d2survivors/maps/act2-caves.png", mapAlpha: true, backdrop: "assets/d2survivors/maps/act2-caves.png", floorTiles: A6_FORGOTTEN_TILES, baseFloorVariant: 2, enemies: ["sandRaider", "sandMaggot", "scarab", "leaper", "spikeFiend"], boss: "duriel", uber: true, areas: [
-    { name: "Forgotten Sands", level: 83, floorTiles: A6_FORGOTTEN_TILES, baseFloorVariant: 2 },
+    { name: "Forgotten Sands", level: 83, floorTiles: A6_FORGOTTEN_TILES, baseFloorVariant: 2, dark: true },
   ] },
   { act: 7, name: "Matron's Den", region: "The Pandemonium Event", levelLabel: "Matron's Den", map: "assets/d2survivors/maps/act1-barracks.png", mapAlpha: true, backdrop: "assets/d2survivors/maps/act1-barracks.png", floorTiles: A7_MATRONS_TILES, baseFloorVariant: 1, enemies: ["fallen", "goatman", "skeleton", "fetish", "boneFetish"], boss: "andariel", uber: true, areas: [
-    { name: "Matron's Den", level: 83, floorTiles: A7_MATRONS_TILES, baseFloorVariant: 1 },
+    { name: "Matron's Den", level: 83, floorTiles: A7_MATRONS_TILES, baseFloorVariant: 1, dark: true },
   ] },
   { act: 8, name: "Uber Tristram", region: "The Pandemonium Event", levelLabel: "Tristram", map: "assets/d2survivors/maps/a8-tristram-backdrop.png", mapAlpha: true, backdrop: "assets/d2survivors/maps/a8-tristram-backdrop.png", floorTiles: A8_TILES, baseFloorVariant: 0, enemies: ["fallen", "goatman", "skeleton", "council", "spikeFiend"], boss: "diablo", bosses: ["diablo", "mephisto", "baal"], uber: true, areas: [
     { name: "Tristram", level: 83, floorTiles: A8_TILES, baseFloorVariant: 0 },
@@ -7552,6 +7557,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   get equippedThorns(): number {
     return this.equipmentStatTotal("thorns");
+  }
+
+  get equippedLightRadius(): number {
+    return this.equipmentStatTotal("lightRadius");
   }
 
   get equippedReplenishLife(): number {
@@ -18311,6 +18320,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     for (const projectile of this.attackProjectiles) this.drawAttackProjectile(ctx, projectile);
     for (const effect of this.meleeTrailEffects) this.drawMeleeTrail(ctx, effect);
     for (const effect of this.summonAttackEffects) this.drawSummonAttackEffect(ctx, effect);
+    this.drawAreaDarkness(ctx, canvas);
     for (const floatingText of this.floatingTexts) {
       const point = this.projectArenaPoint(floatingText.x, floatingText.y);
       ctx.fillStyle = floatingText.color;
@@ -18329,6 +18339,23 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
     // The player is rendered as a lit FBX model on the transparent WebGL overlay.
 
+  }
+
+  /** Underground areas are unlit; Light Radius widens the hole around the player. */
+  private drawAreaDarkness(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement): void {
+    if (!this.runActive || !this.currentArea.dark) return;
+    const point = this.projectArenaPoint(this.playerX, this.playerY);
+    const radius = Math.min(MAX_LIGHT_RADIUS, BASE_LIGHT_RADIUS + this.equippedLightRadius * LIGHT_RADIUS_PER_POINT)
+      * this.worldZoom * this.projectionDpr;
+    const darkness = ctx.createRadialGradient(point.x, point.y, radius * 0.2, point.x, point.y, radius);
+    darkness.addColorStop(0, "rgba(0, 0, 0, 0)");
+    darkness.addColorStop(0.5, "rgba(3, 5, 9, 0.12)");
+    darkness.addColorStop(0.78, "rgba(3, 5, 9, 0.58)");
+    darkness.addColorStop(1, "rgba(2, 4, 8, 0.84)");
+    ctx.save();
+    ctx.fillStyle = darkness;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.restore();
   }
 
   private portalArtUrl(): string {
@@ -20691,7 +20718,7 @@ function sanitizeInventoryItem(value: unknown): D2InventoryItem | null {
       "crushingBlowPercent", "deadlyStrikePercent", "openWoundsPercent",
       "magicFindPercent", "goldFindPercent", "damageReductionFlat", "damageReductionPercent",
       "allResistPercent", "fireResistPercent", "coldResistPercent",
-      "lightningResistPercent", "poisonResistPercent", "replenishLife", "thorns",
+      "lightningResistPercent", "poisonResistPercent", "replenishLife", "thorns", "lightRadius",
       "extraExperiencePercent", "requiresStrength", "requiresDexterity",
       "necromancerClassSkillLevel", "sorceressClassSkillLevel", "druidClassSkillLevel",
     ] as const;
@@ -22129,6 +22156,7 @@ interface D2ItemStats {
   poisonResistPercent?: number;
   replenishLife?: number;
   thorns?: number;
+  lightRadius?: number;
   extraExperiencePercent?: number;
   requiresStrength?: number;
   requiresDexterity?: number;

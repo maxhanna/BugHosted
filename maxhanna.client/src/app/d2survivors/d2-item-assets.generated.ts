@@ -42,6 +42,7 @@ export interface D2GeneratedItemStats {
   poisonResistPercent?: number;
   replenishLife?: number;
   thorns?: number;
+  lightRadius?: number;
   extraExperiencePercent?: number;
   requiresStrength?: number;
   requiresDexterity?: number;
@@ -2469,6 +2470,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "requiresStrength": 106,
     "fasterCastPercent": 25,
     "armorPercent": 200,
+    "lightRadius": 10,
     "fireResistPercent": 30
   },
   "affixes": [
@@ -2593,6 +2595,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "elementalDamageMin": 102,
     "elementalDamageMax": 102,
     "poisonResistPercent": 75,
+    "lightRadius": 3,
     "thorns": 5
   },
   "affixes": [
@@ -2689,7 +2692,8 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "plusStrength": 10,
     "plusDexterity": 10,
     "plusVitality": 10,
-    "plusEnergy": 10
+    "plusEnergy": 10,
+    "lightRadius": 3
   },
   "affixes": [
     "Adds 250-500 Magic Damage",
@@ -2861,6 +2865,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "stats": {
     "armor": 328,
     "requiresStrength": 140,
+    "lightRadius": -2,
     "armorPercent": 200
   },
   "affixes": [
@@ -2922,6 +2927,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "damageMax": 29,
     "requiresStrength": 25,
     "plusLife": 50,
+    "lightRadius": -2,
     "fasterCastPercent": 30,
     "fireResistPercent": 37
   },
@@ -2950,11 +2956,12 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "stats": {
     "armor": 70,
     "requiresStrength": 55,
+    "lightRadius": 25,
     "lightningResistPercent": 15,
     "armorPercent": 220
   },
   "affixes": [
-    "+25 Light Thorns",
+    "+25 to Light Radius",
     "Slows Target by 20%",
     "Prevents Monster Heal",
     "Absorbs 20 Ltng Damage",
@@ -2977,6 +2984,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "damageMin": 1,
     "damageMax": 2,
     "requiresStrength": 71,
+    "lightRadius": -2,
     "lifeStealPercent": 8,
     "plusDamagePerLevel": 10,
     "enhancedDamagePercent": 140
@@ -3212,6 +3220,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "allResistPercent": 15,
     "enhancedDamagePercent": 80,
     "plusLife": 15,
+    "lightRadius": 4,
     "openWoundsPercent": 33,
     "attackSpeedPercent": 15,
     "lifeStealPercent": 15
@@ -3391,6 +3400,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "requiresStrength": 36,
     "enhancedDamagePercent": 120,
     "openWoundsPercent": 25,
+    "lightRadius": 2,
     "attackSpeedPercent": 10,
     "lifeStealPercent": 5
   },
@@ -3489,7 +3499,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "baseName": "Succubus Skull",
   "rarity": "unique",
   "slot": "armor",
-  "equipmentType": "shield",
+  "equipmentType": "necromancerHead",
   "width": 2,
   "height": 2,
   "desc": "A unique Succubus Skull from Diablo II.",
@@ -3667,6 +3677,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "requiresDexterity": 39,
     "plusDamageMin": 14,
     "plusMana": 25,
+    "lightRadius": 4,
     "manaStealPercent": 13,
     "enhancedDamagePercent": 80,
     "elementalDamageMin": 15,
@@ -3896,6 +3907,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "requiresStrength": 25,
     "goldFindPercent": 200,
     "magicFindPercent": 40,
+    "lightRadius": 2,
     "armorPercent": 30
   },
   "affixes": [
@@ -3924,13 +3936,14 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "requiresStrength": 25,
     "allResistPercent": 40,
     "fasterCastPercent": 20,
+    "lightRadius": 20,
     "lifePercent": 25
   },
   "affixes": [
     "+3 to Sorceress Skill Levels",
     "All Resistances +40%",
     "+20% Faster Cast Rate",
-    "+20 Light Thorns",
+    "+20 to Light Radius",
     "+25% to Maximum Life",
     "+1 to Fire Mastery",
     "+1 to Lightning Mastery",
@@ -3987,6 +4000,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "elementalDamageMin": 1,
     "elementalDamageMax": 240,
     "armor": 30,
+    "lightRadius": 17,
     "enhancedDamagePercent": 200
   },
   "affixes": [
@@ -3996,7 +4010,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "+2 to Light Radius",
     "+10% to Maximum Lightning Resist",
     "+200% Enhanced Damage",
-    "+15 Light Thorns",
+    "+15 to Light Radius",
     "+2 to Skill Tab 10",
     "+2 to Skill Tab 11"
   ],
@@ -4015,10 +4029,11 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "stats": {
     "armor": 26,
     "requiresStrength": 26,
+    "lightRadius": 7,
     "lightningResistPercent": 15
   },
   "affixes": [
-    "+7 Light Thorns",
+    "+7 to Light Radius",
     "1% Chance to Cast Dim Vision when Struck",
     "Lightning Resist +15%",
     "+100 Defense vs. Missile",
@@ -4397,6 +4412,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "requiredLevel": 50,
   "stats": {
     "manaStealPercent": 15,
+    "lightRadius": -2,
     "plusMana": 45,
     "lifeStealPercent": 6
   },
@@ -4514,6 +4530,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "damageMax": 10,
     "requiresStrength": 27,
     "plusStrength": 15,
+    "lightRadius": 2,
     "fireResistPercent": 50,
     "enhancedDamagePercent": 60,
     "crushingBlowPercent": 33
@@ -4640,7 +4657,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "baseName": "Bloodlord Skull",
   "rarity": "unique",
   "slot": "armor",
-  "equipmentType": "shield",
+  "equipmentType": "necromancerHead",
   "width": 2,
   "height": 2,
   "desc": "A unique Bloodlord Skull from Diablo II.",
@@ -4676,6 +4693,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "stats": {
     "armor": 46,
     "requiresStrength": 36,
+    "lightRadius": 3,
     "allResistPercent": 10,
     "armorPercent": 100
   },
@@ -4702,6 +4720,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "stats": {
     "armor": 80,
     "requiresStrength": 82,
+    "lightRadius": -4,
     "armorPerLevel": 16,
     "manaStealPercent": 5,
     "fireResistPercent": 40
@@ -5261,6 +5280,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "stats": {
     "armor": 44,
     "requiresStrength": 41,
+    "lightRadius": -2,
     "allResistPercent": 15,
     "damageReductionFlat": 7,
     "plusDamage": 8,
@@ -5568,7 +5588,8 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "damageMax": 2,
     "requiresStrength": 35,
     "enhancedDamagePercent": 90,
-    "coldResistPercent": 50
+    "coldResistPercent": 50,
+    "lightRadius": 2
   },
   "affixes": [
     "+90% Enhanced Damage",
@@ -5914,7 +5935,8 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "enhancedDamagePercent": 240,
     "elementalDamageMin": 108,
     "elementalDamageMax": 108,
-    "manaStealPercent": 15
+    "manaStealPercent": 15,
+    "lightRadius": 2
   },
   "affixes": [
     "+240% Enhanced Damage",
@@ -6052,6 +6074,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "damageMin": 9,
     "damageMax": 17,
     "requiresStrength": 33,
+    "lightRadius": 3,
     "plusMana": 30,
     "armor": 20,
     "attackSpeedPercent": 20,
@@ -6081,6 +6104,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "requiredLevel": 36,
   "stats": {
     "requiresStrength": 58,
+    "lightRadius": -3,
     "manaPercent": 15,
     "manaStealPercent": 5,
     "armorPercent": 150,
@@ -6112,6 +6136,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "requiresStrength": 50,
     "crushingBlowPercent": 25,
     "damageReductionFlat": 1,
+    "lightRadius": -1,
     "armorPercent": 60
   },
   "affixes": [
@@ -6170,6 +6195,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "armorPercent": 150,
     "allResistPercent": 35,
     "thorns": 10,
+    "lightRadius": 2,
     "goldFindPercent": 100
   },
   "affixes": [
@@ -6194,6 +6220,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "stats": {
     "requiresStrength": 45,
     "magicFindPercent": 30,
+    "lightRadius": 2,
     "armor": 25,
     "attackSpeedPercent": 10,
     "armorPercent": 60,
@@ -6490,6 +6517,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "stats": {
     "armor": 263,
     "requiresStrength": 118,
+    "lightRadius": 4,
     "armorPercent": 200
   },
   "affixes": [
@@ -6688,6 +6716,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "requiresStrength": 103,
     "enhancedDamagePercent": 160,
     "armor": 50,
+    "lightRadius": 4,
     "plusDamageMin": 20,
     "plusDamage": 45
   },
@@ -6868,6 +6897,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "requiresDexterity": 65,
     "enhancedDamagePercent": 300,
     "attackSpeedPercent": 20,
+    "lightRadius": 3,
     "crushingBlowPercent": 33
   },
   "affixes": [
@@ -7016,7 +7046,8 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "plusDexterity": 20,
     "plusVitality": 20,
     "plusEnergy": 20,
-    "allResistPercent": 20
+    "allResistPercent": 20,
+    "lightRadius": 8
   },
   "affixes": [
     "+7 to Random Class Skill Levels",
@@ -7224,7 +7255,8 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "lightningResistPercent": 35,
     "elementalDamageMin": 1,
     "elementalDamageMax": 30,
-    "attackSpeedPercent": 20
+    "attackSpeedPercent": 20,
+    "lightRadius": 15
   },
   "affixes": [
     "Lightning Resist +35%",
@@ -7232,7 +7264,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "+20% Increased Attack Speed",
     "+1 to All Skills",
     "+3 Deadly Per Lvl",
-    "+15 Light Thorns"
+    "+15 to Light Radius"
   ],
   "art": "assets/d2survivors/items/unique/highlord-s-wrath.png"
 },
@@ -7241,7 +7273,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "baseName": "Heirophant Trophy",
   "rarity": "unique",
   "slot": "armor",
-  "equipmentType": "shield",
+  "equipmentType": "necromancerHead",
   "width": 2,
   "height": 2,
   "desc": "A unique Heirophant Trophy from Diablo II.",
@@ -7450,6 +7482,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "armor": 92,
     "requiresStrength": 51,
     "coldResistPercent": 30,
+    "lightRadius": 4,
     "armorPercent": 80
   },
   "affixes": [
@@ -7509,6 +7542,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "elementalDamageMax": 33,
     "movementSpeedPercent": 20,
     "fireResistPercent": 30,
+    "lightRadius": 2,
     "armorPercent": 150,
     "goldFindPercent": 70
   },
@@ -7661,6 +7695,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "lifeStealPercent": 6,
     "elementalDamageMin": 5,
     "elementalDamageMax": 9,
+    "lightRadius": 3,
     "plusEnergy": 10
   },
   "affixes": [
@@ -8228,7 +8263,8 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "requiredLevel": 7,
   "stats": {
     "plusMana": 15,
-    "allResistPercent": 5
+    "allResistPercent": 5,
+    "lightRadius": 1
   },
   "affixes": [
     "+15 to Mana",
@@ -8278,6 +8314,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "stats": {
     "armor": 100,
     "requiresStrength": 58,
+    "lightRadius": 1,
     "fasterCastPercent": 20,
     "armorPercent": 130,
     "plusEnergy": 10,
@@ -8309,6 +8346,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "damageMax": 35,
     "requiresStrength": 25,
     "requiresDexterity": 136,
+    "lightRadius": 7,
     "attackSpeedPercent": 20,
     "elementalDamageMin": 61,
     "elementalDamageMax": 320,
@@ -8778,6 +8816,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "elementalDamageMin": 55,
     "elementalDamageMax": 115,
     "enhancedDamagePercent": 150,
+    "lightRadius": 2,
     "plusDamageMin": 10,
     "plusDamage": 15
   },
@@ -8931,7 +8970,8 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "stats": {
     "elementalDamageMin": 3,
     "elementalDamageMax": 6,
-    "fireResistPercent": 50
+    "fireResistPercent": 50,
+    "lightRadius": 3
   },
   "affixes": [
     "Adds 3-6 Fire Damage",
@@ -8987,7 +9027,8 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "requiresStrength": 50,
     "plusStrength": 15,
     "lifeStealPercent": 7,
-    "attackSpeedPercent": 10
+    "attackSpeedPercent": 10,
+    "lightRadius": -3
   },
   "affixes": [
     "+15 to Strength",
@@ -9250,6 +9291,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "requiresDexterity": 15,
     "enhancedDamagePercent": 100,
     "plusLife": 10,
+    "lightRadius": 2,
     "manaStealPercent": 3,
     "attackSpeedPercent": 25
   },
@@ -10120,6 +10162,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "damageMin": 2,
     "damageMax": 7,
     "plusDamageMin": 5,
+    "lightRadius": 2,
     "crushingBlowPercent": 25,
     "armor": 25,
     "enhancedDamagePercent": 100
@@ -10345,6 +10388,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "attackSpeedPercent": 20,
     "plusDamagePerLevel": 16,
     "enhancedDamagePercent": 130,
+    "lightRadius": 1,
     "elementalDamageMin": 50,
     "elementalDamageMax": 200
   },
@@ -10372,7 +10416,9 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "height": 1,
   "desc": "A unique Amulet from Diablo II.",
   "requiredLevel": 65,
-  "stats": {},
+  "stats": {
+    "lightRadius": 2
+  },
   "affixes": [
     "+2 to All Skills",
     "+2 to Skill Tab 11",
@@ -10400,6 +10446,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "elementalDamageMin": 40,
     "elementalDamageMax": 40,
     "poisonResistPercent": 50,
+    "lightRadius": -1,
     "plusMana": 10,
     "enhancedDamagePercent": 40,
     "manaStealPercent": 100
@@ -10459,6 +10506,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "requiresDexterity": 27,
     "manaStealPercent": 9,
     "coldResistPercent": 20,
+    "lightRadius": -2,
     "elementalDamageMin": 10,
     "elementalDamageMax": 30,
     "enhancedDamagePercent": 100,
@@ -10904,12 +10952,13 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "armorPercent": 85,
     "elementalDamageMin": 1,
     "elementalDamageMax": 20,
+    "lightRadius": 14,
     "lightningResistPercent": 30
   },
   "affixes": [
     "+85% Enhanced Defense",
     "Adds 1-20 Lightning Damage",
-    "+14 Light Thorns",
+    "+14 to Light Radius",
     "Lightning Resist +30%"
   ],
   "art": "assets/d2survivors/items/unique/sparking-mail.png"
@@ -11020,6 +11069,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "damageMax": 2,
     "requiresStrength": 110,
     "requiresDexterity": 88,
+    "lightRadius": 3,
     "replenishLife": 20,
     "plusDamageMin": 20,
     "plusDamage": 40,
@@ -11078,6 +11128,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "stats": {
     "armor": 165,
     "requiresStrength": 74,
+    "lightRadius": 4,
     "lifePerLevel": 10,
     "elementalDamageMin": 20,
     "elementalDamageMax": 65,
@@ -11218,6 +11269,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "armor": 37,
     "requiresStrength": 47,
     "damageReductionFlat": 3,
+    "lightRadius": 3,
     "armorPercent": 100,
     "allResistPercent": 15
   },
@@ -11504,7 +11556,8 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "lightningResistPercent": 25,
     "elementalDamageMin": 1,
     "elementalDamageMax": 6,
-    "armorPercent": 60
+    "armorPercent": 60,
+    "lightRadius": 3
   },
   "affixes": [
     "Magic Damage Reduced by 1",
@@ -11513,7 +11566,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "Adds 1-6 Lightning Damage",
     "+60% Enhanced Defense",
     "30% Increased Chance of Blocking",
-    "+3 Light Thorns",
+    "+3 to Light Radius",
     "+15 Durability"
   ],
   "art": "assets/d2survivors/items/d2/invlrgu.png"
@@ -11537,6 +11590,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "attackSpeedPercent": 30,
     "elementalDamageMin": 1,
     "elementalDamageMax": 473,
+    "lightRadius": 30,
     "crushingBlowPercent": 33
   },
   "affixes": [
@@ -11545,7 +11599,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "10% Chance to Cast Level 15 Static Field on Striking",
     "18% Chance to Cast Level 20 Tornado on Striking",
     "Adds 1-473 Lightning Damage",
-    "+30 Light Thorns",
+    "+30 to Light Radius",
     "33% Chance of Crushing Blow",
     "Absorbs 9 Ltng Damage"
   ],
@@ -11569,7 +11623,8 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "elementalDamageMax": 200,
     "plusDamageMin": 35,
     "plusDamage": 75,
-    "enhancedDamagePercent": 100
+    "enhancedDamagePercent": 100,
+    "lightRadius": 15
   },
   "affixes": [
     "10% Chance to Cast Level 5 Chain Lightning on Striking",
@@ -11578,7 +11633,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "Adds 35-75 Damage",
     "+100% Enhanced Damage",
     "+50 Durability",
-    "+15 Light Thorns",
+    "+15 to Light Radius",
     "5% Chance to Cast Level 15 Charged Bolt when Struck"
   ],
   "art": "assets/d2survivors/items/d2/inv9btu.png"
@@ -11600,7 +11655,8 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "damageReductionPercent": 35,
     "plusStrength": 30,
     "lightningResistPercent": 25,
-    "coldResistPercent": 60
+    "coldResistPercent": 60,
+    "lightRadius": 10
   },
   "affixes": [
     "+30 Defense per Level",
@@ -11611,7 +11667,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "Lightning Resist +25%",
     "25% Increased Chance of Blocking",
     "Cold Resist +60%",
-    "+10 Light Thorns"
+    "+10 to Light Radius"
   ],
   "art": "assets/d2survivors/items/d2/invkitu.png"
 },
@@ -11632,11 +11688,12 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "requiresDexterity": 97,
     "elementalDamageMin": 1,
     "elementalDamageMax": 120,
+    "lightRadius": 20,
     "enhancedDamagePercent": 150
   },
   "affixes": [
     "Adds 1-120 Lightning Damage",
-    "+20 Light Thorns",
+    "+20 to Light Radius",
     "3% Chance to Cast Level 25 Charged Bolt when Struck",
     "+150% Enhanced Damage",
     "+8 Res Ltng Per Lvl"
@@ -11663,7 +11720,8 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "plusStrength": 10,
     "attackSpeedPercent": 30,
     "elementalDamageMin": 1,
-    "elementalDamageMax": 237
+    "elementalDamageMax": 237,
+    "lightRadius": 27
   },
   "affixes": [
     "Lightning Resist +50%",
@@ -11674,7 +11732,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "+30% Increased Attack Speed",
     "Indestructible",
     "Adds 1-237 Lightning Damage",
-    "+27 Light Thorns"
+    "+27 to Light Radius"
   ],
   "art": "assets/d2survivors/items/unique/stormspire.png"
 },
@@ -12184,6 +12242,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "damageMax": 2,
     "requiresDexterity": 20,
     "plusDamageMin": 10,
+    "lightRadius": 2,
     "elementalDamageMin": 3,
     "elementalDamageMax": 6
   },
@@ -12207,6 +12266,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "desc": "A unique Amulet from Diablo II.",
   "requiredLevel": 15,
   "stats": {
+    "lightRadius": 5,
     "lifeStealPercent": 7,
     "elementalDamageMin": 2,
     "elementalDamageMax": 5
@@ -12812,6 +12872,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "requiresStrength": 50,
     "requiresDexterity": 65,
     "enhancedDamagePercent": 300,
+    "lightRadius": 3,
     "plusDamage": 120
   },
   "affixes": [
@@ -12838,6 +12899,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "desc": "A unique Amulet from Diablo II.",
   "requiredLevel": 65,
   "stats": {
+    "lightRadius": 4,
     "elementalDamageMin": 24,
     "elementalDamageMax": 48,
     "replenishLife": 10
@@ -12978,6 +13040,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "elementalDamageMin": 23,
     "elementalDamageMax": 54,
     "plusLife": 30,
+    "lightRadius": 3,
     "fireResistPercent": 15,
     "enhancedDamagePercent": 100
   },
@@ -13231,6 +13294,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "requiresStrength": 165,
     "requiresDexterity": 103,
     "attackSpeedPercent": 60,
+    "lightRadius": 4,
     "enhancedDamagePercent": 280,
     "magicFindPercent": 80,
     "allResistPercent": 50
@@ -13378,6 +13442,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "requiresStrength": 22,
     "plusDexterity": 10,
     "plusLife": 20,
+    "lightRadius": -2,
     "armorPercent": 50
   },
   "affixes": [
@@ -13547,7 +13612,8 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "allResistPercent": 50,
     "armorPercent": 60,
     "plusStrength": 15,
-    "plusVitality": 15
+    "plusVitality": 15,
+    "lightRadius": -4
   },
   "affixes": [
     "All Resistances +50%",
@@ -13605,6 +13671,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "armor": 66,
     "requiresStrength": 30,
     "poisonResistPercent": 90,
+    "lightRadius": 2,
     "armorPercent": 100
   },
   "affixes": [
@@ -13658,6 +13725,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "armor": 226,
     "requiresStrength": 100,
     "manaStealPercent": 5,
+    "lightRadius": 2,
     "armorPercent": 120
   },
   "affixes": [
@@ -13712,14 +13780,15 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "stats": {
     "armor": 45,
     "requiresStrength": 38,
-    "armorPercent": 150
+    "armorPercent": 150,
+    "lightRadius": 10
   },
   "affixes": [
     "+1 to Sorceress Skill Levels",
     "+30% Faster Block Rate",
     "30% Increased Chance of Blocking",
     "+150% Enhanced Defense",
-    "+10 Light Thorns"
+    "+10 to Light Radius"
   ],
   "art": "assets/d2survivors/items/d2/invbucu.png"
 },
@@ -14170,6 +14239,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "requiresStrength": 75,
     "requiresDexterity": 47,
     "openWoundsPercent": 50,
+    "lightRadius": -3,
     "enhancedDamagePercent": 40
   },
   "affixes": [
@@ -14459,6 +14529,7 @@ export const D2_SET_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "stats": {
     "armor": 164,
     "requiresStrength": 56,
+    "lightRadius": 5,
     "coldResistPercent": 50
   },
   "affixes": [
@@ -14582,7 +14653,9 @@ export const D2_SET_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "height": 1,
   "desc": "Part of Angelical Raiment.",
   "requiredLevel": 12,
-  "stats": {},
+  "stats": {
+    "lightRadius": 3
+  },
   "affixes": [
     "+3 to Light Radius",
     "20% Damage Taken Goes to Mana"
@@ -14639,6 +14712,7 @@ export const D2_SET_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "stats": {
     "armor": 98,
     "requiresStrength": 41,
+    "lightRadius": 2,
     "damageReductionFlat": 3
   },
   "affixes": [
@@ -15162,10 +15236,12 @@ export const D2_SET_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "height": 1,
   "desc": "Part of Cathan's Traps.",
   "requiredLevel": 11,
-  "stats": {},
+  "stats": {
+    "lightRadius": 5
+  },
   "affixes": [
     "+10% Faster Hit Recovery",
-    "+5 Light Thorns"
+    "+5 to Light Radius"
   ],
   "art": "assets/d2survivors/items/set/cathan-s-sigil.png",
   "setName": "Cathan's Traps",
@@ -16372,6 +16448,7 @@ export const D2_SET_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "armor": 167,
     "requiresStrength": 65,
     "goldFindPercent": 37,
+    "lightRadius": 4,
     "magicFindPercent": 40
   },
   "affixes": [
@@ -16677,11 +16754,12 @@ export const D2_SET_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "requiredLevel": 8,
   "stats": {
     "armor": 72,
-    "requiresStrength": 60
+    "requiresStrength": 60,
+    "lightRadius": 4
   },
   "affixes": [
     "+40 Defense",
-    "+4 Light Thorns"
+    "+4 to Light Radius"
   ],
   "art": "assets/d2survivors/items/set/isenhart-s-parry.png",
   "setName": "Isenhart's Armory",
@@ -16837,7 +16915,8 @@ export const D2_SET_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "requiresStrength": 20,
     "armor": 50,
     "movementSpeedPercent": 20,
-    "manaStealPercent": 5
+    "manaStealPercent": 5,
+    "lightRadius": 5
   },
   "affixes": [
     "+50 Defense",
@@ -16903,7 +16982,8 @@ export const D2_SET_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "requiresStrength": 20,
     "armorPercent": 50,
     "fireResistPercent": 15,
-    "attackSpeedPercent": 20
+    "attackSpeedPercent": 20,
+    "lightRadius": 3
   },
   "affixes": [
     "+50% Enhanced Defense",
@@ -17123,7 +17203,8 @@ export const D2_SET_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "damageMin": 10,
     "damageMax": 17,
     "requiresStrength": 55,
-    "enhancedDamagePercent": 50
+    "enhancedDamagePercent": 50,
+    "lightRadius": 2
   },
   "affixes": [
     "+1 to Paladin Skill Levels",
@@ -17147,6 +17228,7 @@ export const D2_SET_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "armor": 100,
     "elementalDamageMin": 25,
     "elementalDamageMax": 35,
+    "lightRadius": 5,
     "plusStrength": 15
   },
   "affixes": [
@@ -18134,7 +18216,7 @@ export const D2_SET_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "baseName": "Cantor Trophy",
   "rarity": "set",
   "slot": "armor",
-  "equipmentType": "shield",
+  "equipmentType": "necromancerHead",
   "width": 2,
   "height": 2,
   "desc": "Part of Trang-Oul's Avatar.",
@@ -18436,7 +18518,8 @@ export const D2_SET_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "stats": {
     "armor": 51,
     "requiresStrength": 53,
-    "armorPercent": 175
+    "armorPercent": 175,
+    "lightRadius": 5
   },
   "affixes": [
     "+175% Enhanced Defense",
@@ -19586,6 +19669,7 @@ export const D2_SET_DEFINITIONS: Readonly<Record<string, D2SetDefinition>> =
       "pieces": 4,
       "stats": {
         "allResistPercent": 50,
+        "lightRadius": 5,
         "damageReductionPercent": 24
       },
       "lines": [
