@@ -2189,6 +2189,18 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(again).toBe(repeat);
   });
 
+  it("does not add synthetic cast rings or labels for armor and auras", () => {
+    (component as any).skillVisualEffects.length = 0;
+    component.selectedClass = "sorceress";
+
+    (component as any).addSkillVisualEffect("Frozen Armor");
+    expect((component as any).skillVisualEffects.length).toBe(0);
+
+    component.selectedClass = "paladin";
+    (component as any).addSkillVisualEffect("Might");
+    expect((component as any).skillVisualEffects.length).toBe(0);
+  });
+
   it("clamps the campaign area index when the start-frame clock is invalid", () => {
     component.currentAct = 1;
     component.actBossSpawned = false;
