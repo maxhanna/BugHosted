@@ -693,13 +693,14 @@ const MISSILE_ELEMENTS: Record<string, AttackProjectile["kind"]> = {
   "d2-firearrowexplode2": "fire", "d2-fsexplode": "fire", "d2-firestormemitter": "fire",
   "d2-flamethrower": "fire", "d2-flamethrower2": "fire",
   "d2-groundfirebig": "fire", "d2-groundfiresmall": "fire", "d2-firespikes": "fire",
-  "d2-meteor": "fire", "d2-rock_large": "fire",
+  "d2-meteor": "fire", "d2-meteortail": "fire", "d2-rock_large": "fire",
+  "d2-firearrowexplode": "fire",
   "d2-lightningbolt": "lightning", "d2-lightningstrike": "lightning",
   "d2-lightningjavelin": "lightning", "d2-chargedbolt": "lightning",
   "d2-elecnovaa": "lightning",
   "d2-twister": "lightning",
   "d2-bonespirit": "bone", "d2-bonespear": "bone", "d2-boneshield": "bone",
-  "d2-poisonleft": "bone", "d2-poisonnova": "bone",
+  "d2-poisonleft": "bone", "d2-poisonnova": "bone", "d2-poisongas": "bone",
   "d2-corpseexplodeguts": "bone", "d2-corpseexplodegutspoison": "bone",
   "d2-holyboltmissile": "holy", "d2-blessedhammer": "holy",
 };
@@ -1041,7 +1042,7 @@ const D2_SPELL_MISSILE_OVERLAYS: Record<string, string> = {
   "Frozen Orb": "d2-iceorb", Blizzard: "d2-blizzard",
   "Frozen Armor": "d2-hardenarmor", "Shiver Armor": "d2-hardenarmor", "Chilling Armor": "d2-hardenarmor",
   "Arctic Blast": "d2-arcticblastice", Firestorm: "d2-firestormemitter",
-  "Molten Boulder": "d2-rock_large", Meteor: "d2-meteor",
+  "Molten Boulder": "d2-rock_large", Meteor: "d2-meteortail",
   Lightning: "d2-lightningbolt", "Lightning Bolt": "d2-lightningjavelin", "Chain Lightning": "d2-lightningbolt",
   "Charged Bolt": "d2-chargedbolt", "Charged Bolt Sentry": "d2-chargedbolt", "Shock Web": "d2-chargedbolt",
   "Lightning Sentry": "d2-lightningbolt", "Death Sentry": "d2-lightningbolt",
@@ -1049,7 +1050,7 @@ const D2_SPELL_MISSILE_OVERLAYS: Record<string, string> = {
   "Charged Strike": "d2-chargedbolt", "Phoenix Strike": "d2-lightningstrike",
   "Thunder Storm": "d2-lightningstrike", "Static Field": "d2-elecnovaa",
   "Poison Javelin": "d2-javelin", "Plague Javelin": "d2-javelin", "Poison Dagger": "d2-poisonleft",
-  "Poison Nova": "d2-poisonnova", "Poison Explosion": "d2-corpseexplodegutspoison",
+  "Poison Nova": "d2-poisongas", "Poison Explosion": "d2-corpseexplodegutspoison",
   "Corpse Explosion": "d2-corpseexplodeguts",
   "Bone Spirit": "d2-bonespirit", "Bone Spear": "d2-bonespear", Teeth: "d2-teethmissile",
   "Bone Armor": "d2-boneshield", "Bone Wall": "d2-boneshield", "Bone Prison": "d2-boneshield",
@@ -1068,7 +1069,7 @@ const D2_SPELL_MISSILE_OVERLAYS: Record<string, string> = {
   Attract: "d2-cursecast", Decrepify: "d2-cursecast", "Lower Resist": "d2-cursecast",
   "Weaken": "d2-cursecast",
   "Blade Fury": "d2-bladefury", "Blade Shield": "d2-blade_shield_missile",
-  "Blades of Ice": "d2-glacialspike", "Fists of Fire": "d2-firespikes", "Fire Claws": "d2-firespikes",
+  "Blades of Ice": "d2-glacialspike", "Fists of Fire": "d2-firearrowexplode", "Fire Claws": "d2-firearrowexplode",
 };
 // Fallback art per skill visual class.
 const SKILL_VISUAL_MISSILES: Record<D2SkillVisual, string> = {
@@ -1127,10 +1128,9 @@ const MISSILE_SPRITE_SIZES: Record<string, { width: number; height: number }> = 
   // The imported rock_large cels are 58x53 and were capped at 28px by the
   // generic missile path, so the druid's boulders read as pebbles.
   "d2-rock_large": { width: 64, height: 59 },
-  // Fire Bolt uses the original Fireball DCC at a smaller size because the
-  // extracted firebolt.dcc renders as a blue comet; Fire Ball keeps a visibly
-  // larger fireball so the two spells remain distinct.
-  "d2-firebolt": { width: 22, height: 14 },
+  // Fire Bolt uses its own narrower bolt cel; Fire Ball keeps the larger,
+  // rounder fireball so the two Sorceress spells remain distinct.
+  "d2-firebolt": { width: 18, height: 13 },
   "d2-fireball": { width: 34, height: 22 },
 };
 // rock_large is a cool blue-grey D2 cel. Remap its luminance to muted earth
@@ -1190,6 +1190,8 @@ const MISSILE_SPRITE_ORIENTATIONS: Record<string, number> = {
   "d2-blizzard": Math.PI / 2,
   "d2-arcticblastice": Math.PI / 2,
   "d2-eruptionsmoke": Math.PI / 2,
+  // The meteor cel's rock leads at the bottom, so its forward axis points down.
+  "d2-meteortail": -Math.PI / 2,
 };
 // Art used when only a damage kind is known.
 const ATTACK_KIND_MISSILE_OVERLAYS: Record<AttackProjectile["kind"], string> = {
@@ -1798,6 +1800,9 @@ interface EnemySprite {
 interface DruidAnimation {
   frames: HTMLCanvasElement[][];
   columns: number;
+  /** Number of leading columns that belong to the walk.
+   *  The final columns hold the attack pose when it shares the sheet. */
+  walkColumns?: number;
   rows: number;
   frameDurationMs: number;
 }
@@ -2905,7 +2910,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       tileImage.onload = () => {
         this.campaignFloorTileImages[act.act] = tileImage;
         this.campaignFloorTileOverlayCanvases[act.act] = this.createKeyedFloorTileOverlay(tileImage);
-        this.campaignTileBitmaps[act.act] = this.extractCampaignTileBitmaps(act.act, tileImage, act.baseFloorVariant);
+        this.campaignTileBitmaps[act.act] = this.extractCampaignTileBitmaps(
+          act.act, tileImage, act.baseFloorVariant, act.floorTiles === A1_TAMOE_TILES,
+        );
         redrawWhenReady();
       };
       tileImage.onerror = () => console.warn(`Could not load Act ${act.act} floor tiles: ${act.floorTiles}`);
@@ -2969,7 +2976,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private loadAreaTileAtlas(actId: number, area: CampaignArea): void {
     const image = new Image();
     image.onload = () => {
-      this.campaignAreaTileBitmaps.set(area.floorTiles, this.extractCampaignTileBitmaps(actId, image, area.baseFloorVariant));
+      this.campaignAreaTileBitmaps.set(area.floorTiles, this.extractCampaignTileBitmaps(
+        actId, image, area.baseFloorVariant, area.floorTiles === A1_TAMOE_TILES,
+      ));
       if (this.activeTab === "run") this.draw();
     };
     image.onerror = () => console.warn(`Could not load area floor tiles: ${area.floorTiles}`);
@@ -3075,6 +3084,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (!terrain) return tiles[Math.max(0, Math.min(15, area.baseFloorVariant))] ?? fallback;
     const seed = this.campaignAreaSeed(area);
     const style = terrain.style;
+    // The first zone is the readable baseline: a continuous grass field and
+    // one clean dirt road.  Its atlas also contains trees, rock piles, pits,
+    // and root tangles; mixing those into the per-cell pools turns the floor
+    // into visual noise, so keep them out of the base terrain entirely.
+    const firstZone = area.floorTiles === A1_TAMOE_TILES;
     const phase = (seed % 997) / 997 * Math.PI * 2;
     const mainTrail = Math.abs(worldTileY - (
       Math.sin(worldTileX * 0.11 + phase) * 2.6
@@ -3093,7 +3107,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           Math.sin(worldTileY * 0.06 + phase * 2.1) * 3 + 9
         ));
       }
-    } else if (style === "trail") {
+    } else if (style === "trail" && !firstZone) {
       if (this.campaignValueNoise(worldTileX, worldTileY, seed + 51, 9) > 0.5) {
         branchTrail = Math.abs(worldTileX - (
           Math.sin(worldTileY * 0.09 + phase * 2.1) * 4.5
@@ -3102,14 +3116,31 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       }
     }
     const trailWidth = style === "road" ? 2.8 : style === "tomb" ? 2 : style === "cavern" ? 1.9 : 2.2;
-    const edgeWobble = (this.campaignValueNoise(worldTileX, worldTileY, seed + 97, 2.5) - 0.5) * 2;
+    const edgeWobble = (this.campaignValueNoise(worldTileX, worldTileY, seed + 97, 2.5) - 0.5)
+      * (firstZone ? 0.7 : 2);
     const trailDistance = Math.min(mainTrail, branchTrail) + edgeWobble;
     const broad = this.campaignValueNoise(worldTileX, worldTileY, seed + 71, 7);
     let isPath = trailDistance < trailWidth;
     if (!isPath && style === "cavern") isPath = broad > 0.76 && trailDistance < trailWidth + 3.5;
     else if (!isPath && style === "tomb") isPath = broad > 0.79 && trailDistance < trailWidth + 3;
-    else if (!isPath && style === "trail") isPath = broad > 0.78 && trailDistance < trailWidth + 3;
+    else if (!isPath && style === "trail" && !firstZone) isPath = broad > 0.78 && trailDistance < trailWidth + 3;
     else if (!isPath && style === "road") isPath = broad > 0.82;
+    if (firstZone) {
+      // 6 and 12 are the two plain grass cells; 10 is the clean dirt road and
+      // 14 its dirt shoulder.  Large, low-frequency grass patches keep the
+      // field continuous while still avoiding a single repeated stamp.
+      const grassVariation = this.campaignValueNoise(worldTileX, worldTileY, seed + 167, 7);
+      const firstIndex = isPath
+        ? 10
+        : trailDistance < trailWidth + 1.2
+          ? 14
+          : grassVariation > 0.68 ? 12 : 6;
+      const firstImage = tiles[firstIndex] ?? tiles[6] ?? fallback;
+      if (!firstImage) return undefined;
+      return this.campaignHash(worldTileX, worldTileY, seed + 307) > 0.5
+        ? this.campaignFlippedTile(firstImage)
+        : firstImage;
+    }
     let pool: number[];
     let noiseSeed: number;
     let noiseScale: number;
@@ -3375,40 +3406,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
    * revealing the wall already painted in the arena underneath.
    */
   private renderTristramDepthLayer(): void {
-    const arena = this.arenaRef?.nativeElement;
-    const character = this.characterCanvasRef?.nativeElement;
+    // The hero is blitted into the arena depth pass now, so the old player
+    // occluder would only duplicate the model above the sorted scene.
     const occluder = this.characterOccluderCanvasRef?.nativeElement;
-    if (!arena || !character || !occluder) return;
-    const hasWallPass = this.activeTab === "run"
-      && this.currentAct === 8
-      && !!this.tristramWallAtlas?.complete
-      && !!this.tristramWallLayout;
-    if (!hasWallPass) {
-      character.style.visibility = "";
-      occluder.style.visibility = "hidden";
-      return;
-    }
-
-    character.style.visibility = "hidden";
-    occluder.style.visibility = "visible";
-    if (occluder.width !== arena.width || occluder.height !== arena.height) {
-      occluder.width = arena.width;
-      occluder.height = arena.height;
-    }
-    const ctx = occluder.getContext("2d");
-    if (!ctx) return;
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, occluder.width, occluder.height);
-    ctx.drawImage(character, 0, 0, character.width, character.height, 0, 0, occluder.width, occluder.height);
-    ctx.globalCompositeOperation = "destination-out";
-    ctx.imageSmoothingEnabled = false;
-    const tileScreenSize = CAMPAIGN_TILE_WORLD_SIZE * this.worldZoom * CAMPAIGN_TILE_RENDER_SCALE;
-    const tileWidth = tileScreenSize * Math.SQRT2;
-    const playerDepth = this.projectArenaPoint(this.playerX, this.playerY).y;
-    for (const wall of this.tristramWallDraws(tileWidth)) {
-      if (wall.depth > playerDepth) this.drawTristramWallSlice(ctx, wall);
-    }
-    ctx.globalCompositeOperation = "source-over";
+    if (occluder) occluder.style.visibility = "hidden";
   }
 
   private drawAct1BuildingAndDoor(ctx: CanvasRenderingContext2D): void {
@@ -3484,7 +3485,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     // The live runner paints the active zone's floor every frame. Keep this
     // legacy-sized backing canvas ready only as a safe interim fallback.
     ctx.imageSmoothingEnabled = false;
-    const tiles = this.campaignTileBitmaps[act.act] ?? this.extractCampaignTileBitmaps(act.act, floorTiles, act.baseFloorVariant);
+    const tiles = this.campaignTileBitmaps[act.act] ?? this.extractCampaignTileBitmaps(
+      act.act, floorTiles, act.baseFloorVariant, act.floorTiles === A1_TAMOE_TILES,
+    );
     this.campaignTileBitmaps[act.act] = tiles;
     const baseTile = tiles[Math.max(0, Math.min(15, act.baseFloorVariant))];
     if (baseTile) {
@@ -3500,7 +3503,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.campaignBackgroundCanvases[act.act] = background;
   }
 
-  private extractCampaignTileBitmaps(actId: number, floorTiles: HTMLImageElement, baseVariant: number): HTMLCanvasElement[] {
+  private extractCampaignTileBitmaps(
+    actId: number,
+    floorTiles: HTMLImageElement,
+    baseVariant: number,
+    trimEdges = false,
+  ): HTMLCanvasElement[] {
     const atlasColumns = 4;
     const tileWidth = Math.floor(floorTiles.naturalWidth / atlasColumns);
     const tileHeight = Math.floor(floorTiles.naturalHeight / atlasColumns);
@@ -3638,6 +3646,36 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         }
       }
       tileContext.putImageData(pixels, 0, 0);
+      if (trimEdges) {
+        // The first-zone atlas cells include a dark elevation lip along their
+        // diamond borders.  Repeating that lip reads as a scalloped grid, so
+        // stretch the clean centre of the cell across the whole diamond.
+        const trimX = Math.round(width * 0.2);
+        const trimY = Math.round(height * 0.2);
+        const trimmed = document.createElement("canvas");
+        trimmed.width = width;
+        trimmed.height = height;
+        const trimmedContext = trimmed.getContext("2d", { willReadFrequently: true });
+        if (trimmedContext) {
+          trimmedContext.imageSmoothingEnabled = false;
+          trimmedContext.drawImage(
+            tile, trimX, trimY, width - trimX * 2, height - trimY * 2,
+            0, 0, width, height,
+          );
+          const trimmedImage = trimmedContext.getImageData(0, 0, width, height);
+          const trimmedPixels = trimmedImage.data;
+          for (let y = 0; y < height; y += 1) {
+            for (let x = 0; x < width; x += 1) {
+              const diamond = Math.abs(x + 0.5 - width / 2) / (width / 2)
+                + Math.abs(y + 0.5 - height / 2) / (height / 2);
+              if (diamond > 0.995) trimmedPixels[(y * width + x) * 4 + 3] = 0;
+            }
+          }
+          trimmedContext.putImageData(trimmedImage, 0, 0);
+          result.push(trimmed);
+          continue;
+        }
+      }
       result.push(tile);
     }
     return result;
@@ -8438,7 +8476,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       image.src = url;
     };
     // Wereforms have eight walk rows followed by eight attack rows. Raven and
-    // creeper sheets keep the original eight-row walk layout.
+    // creeper sheets keep eight direction rows; the raven's last four columns
+    // are its attack while the first eight are its walk.
     const druidAnimationSources: Record<DruidAnimationName, { url: string; columns: number; rows?: number }> = {
       werewolf: { url: "assets/d2survivors/models/druid/animations/werewolf.png", columns: 13, rows: 16 },
       werebear: { url: "assets/d2survivors/models/druid/animations/werebear.png", columns: 13, rows: 16 },
@@ -8478,7 +8517,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
             frames[direction].push(cel);
           }
         }
-        this.druidAnimations[name] = { frames, columns: source.columns, rows, frameDurationMs: 85 };
+        this.druidAnimations[name] = {
+          frames,
+          columns: source.columns,
+          walkColumns: name === "raven" ? 8 : undefined,
+          rows,
+          frameDurationMs: 85,
+        };
         if (this.activeTab === "run") {
           this.draw();
           this.renderCharacter();
@@ -18033,6 +18078,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const tileWidth = tileScreenSize * Math.SQRT2;
     const tileHeight = tileScreenSize / Math.SQRT2;
     const area = this.currentArea;
+    // A neutral grass underlay hides any sub-pixel seam between the first
+    // zone's diamonds; elsewhere the dark map background is intentional.
+    if (area.floorTiles === A1_TAMOE_TILES) {
+      ctx.fillStyle = "#2f3822";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
     const tiles = this.areaTileBitmaps(area);
     const terrain = this.campaignTerrainForArea(area, tiles);
     const baseTile = tiles[Math.max(0, Math.min(15, area.baseFloorVariant))];
@@ -18201,6 +18252,26 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           drawOrder.push({ depth: point.y - 1, draw: () => this.drawLightningWeb(ctx, projectile) });
         }
       }
+    }
+    // The 3D hero lives on its own transparent canvas.  Blit it here, at the
+    // same projected ground depth as every enemy, so monsters below the hero
+    // draw in front and monsters above draw behind.
+    const characterCanvas = this.characterCanvasRef?.nativeElement;
+    if (this.runActive && characterCanvas) {
+      const playerPoint = this.projectArenaPoint(this.playerX, this.playerY);
+      drawOrder.push({
+        depth: playerPoint.y,
+        order: 0.5,
+        draw: () => {
+          ctx.save();
+          ctx.imageSmoothingEnabled = true;
+          ctx.drawImage(
+            characterCanvas, 0, 0, characterCanvas.width, characterCanvas.height,
+            0, 0, canvas.width, canvas.height,
+          );
+          ctx.restore();
+        },
+      });
     }
     for (const entity of this.enemies) {
       const point = this.projectArenaPoint(entity.x, entity.y);
@@ -20989,7 +21060,7 @@ function druidAnimationFrame(
   const frameIndex = summon.animationState === "attack"
     ? druidAttackFrame(animation.columns, summon.attackAnimationTime ?? attackDuration, attackDuration)
     : summon.animationState === "move"
-      ? Math.floor(runTime * frameRate) % Math.max(2, Math.ceil(animation.columns * 0.7))
+      ? Math.floor(runTime * frameRate) % Math.max(2, Math.ceil((animation.walkColumns ?? animation.columns) * 0.7))
       : animateIdle
         ? Math.floor(runTime * frameRate) % animation.columns
         : Math.min(animation.columns - 1, Math.floor(animation.columns * 0.12));

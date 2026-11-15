@@ -33,6 +33,11 @@ WEREFORMS: dict[str, tuple[str, str]] = {
 
 COLUMNS = 13
 
+# Runtime rows are left, up-left, up, up-right, right, down-right, down and
+# down-left.  D2 DCC directions start at south-west and use the original
+# monster ring order, so the two do not line up without this table.
+DIRECTION_ROWS = (5, 1, 6, 2, 7, 3, 4, 0)
+
 
 def build(source: Path, form: str) -> str:
     code, out_name = WEREFORMS[form]
@@ -49,6 +54,12 @@ def build(source: Path, form: str) -> str:
     attack_frames = min(attack["frames_per_dir"], COLUMNS)
     if not directions or not walk_frames or not attack_frames:
         return f"skip {form}: {code} has an empty animation"
+
+    # The player wereform walk is authored as a 16-direction ring while the
+    # runtime uses eight screen-facing rows.  Both the 16-direction walk and
+    # the werewolf's eight-direction attack use the original D2 ring order.
+    def source_direction(animation: dict, row: int) -> int:
+        return DIRECTION_ROWS[row] if animation["directions"] >= 8 else 0
 
     cell_width, cell_height = 128, 112
     sheet = Image.new("RGBA", (COLUMNS * cell_width, 16 * cell_height), (0, 0, 0, 0))
@@ -68,12 +79,14 @@ def build(source: Path, form: str) -> str:
         # run the summon atlas's black-matte flood fill or it eats the body.
         # Repeat the short walk loop to fill the 13-column row so the existing
         # movement selector never lands on an empty cel.
+        walk_direction = source_direction(walk, direction)
         for column in range(COLUMNS):
-            paste(atlas.frame_crop(walk, direction, column % walk_frames, clear_matte=False), column, direction)
+            paste(atlas.frame_crop(walk, walk_direction, column % walk_frames, clear_matte=False), column, direction)
 
         # Attack. Hold the final cel when the source is shorter than the row.
+        attack_direction = source_direction(attack, direction)
         for column in range(COLUMNS):
-            paste(atlas.frame_crop(attack, direction, min(column, attack_frames - 1), clear_matte=False), column, 8 + direction)
+            paste(atlas.frame_crop(attack, attack_direction, min(column, attack_frames - 1), clear_matte=False), column, 8 + direction)
 
     destination = ASSET_ROOT / out_name
     sheet.save(destination)
@@ -89,7 +102,11 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--only", nargs="*", default=None)
     args = parser.parse_args(argv)
 
-    atlas.PALETTE = dcc.load_palette(args.source / "global" / "palette" / "units" / "pal.dat")
+    # D2 palettes store BGR triples; dcc.frame_image expects RGB.
+    atlas.PALETTE = [
+        (red, green, blue)
+        for blue, green, red in dcc.load_palette(args.source / "global" / "palette" / "units" / "pal.dat")
+    ]
     wanted = sorted(WEREFORMS) if not args.only else [name for name in args.only if name in WEREFORMS]
     failures = 0
     for form in wanted:

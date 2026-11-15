@@ -1491,6 +1491,9 @@
   height: 100%;
   pointer-events: none;
   z-index: 4;
+  /* The hero is copied into the arena's depth-sorted pass instead of being
+     composited above every enemy by the DOM. */
+  opacity: 0;
 }
 
 .d2s-character-occluder-canvas {

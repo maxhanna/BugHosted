@@ -57,7 +57,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     }
   });
 
-  it("draws Fire Bolt with the original Fireball cels at a small size", () => {
+  it("draws Fire Bolt with its own smaller bolt cels", () => {
     expect((component as any).missileOverlayId("Fire Bolt")).toBe("d2-firebolt");
     expect((component as any).missileOverlayId("Fire Ball")).toBe("d2-fireball");
   });
@@ -67,6 +67,13 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect((component as any).missileOverlayId("Blaze")).toBe("d2-groundfiresmall");
     expect((component as any).missileOverlayId("Corpse Explosion")).toBe("d2-corpseexplodeguts");
     expect((component as any).missileOverlayId("Psychic Hammer")).toBe("d2-mindblast");
+  });
+
+  it("uses the matching missile cel for Meteor, Poison Nova, and claw skills", () => {
+    expect((component as any).missileOverlayId("Meteor")).toBe("d2-meteortail");
+    expect((component as any).missileOverlayId("Poison Nova")).toBe("d2-poisongas");
+    expect((component as any).missileOverlayId("Fists of Fire")).toBe("d2-firearrowexplode");
+    expect((component as any).missileOverlayId("Fire Claws")).toBe("d2-firearrowexplode");
   });
 
   it("holds the player in place for a melee attack, then lets movement resume", () => {

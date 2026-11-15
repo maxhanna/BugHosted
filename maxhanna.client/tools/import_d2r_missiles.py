@@ -50,10 +50,9 @@ DEFAULT_FRAME_MS = 60
 # be imported harmlessly, but `null.dcc` is genuinely empty.
 SKIP_STEMS = {"null"}
 
-# The extracted `firebolt.dcc` renders as a blue comet instead of the orange
-# bolt the Sorceress casts. Fire Bolt therefore uses the original Fireball
-# DCC (the small fireball D2 ships) and the runtime draws it at a smaller size.
-SOURCE_OVERRIDES = {"firebolt": "fireball"}
+# Runtime art id -> alternate source stem. Kept for cases where an extracted
+# DCC is unusable; Fire Bolt now uses its own original `firebolt.dcc`.
+SOURCE_OVERRIDES: dict[str, str] = {}
 
 # A few Baal-era skill effects live in `global/overlays` rather than the missile
 # tree. Keep this whitelist explicit so the tool never sweeps in unrelated
