@@ -565,9 +565,10 @@ const BONE_FETISH_DEATH_BLAST_MAX_LIFE_FRACTION = 0.2;
 // Charged Bolt is a slow, heavy fan of orbs rather than a fast dart volley.
 const CHARGED_BOLT_PROJECTILE_SPEED = 360;
 const CAMPAIGN_TILE_WORLD_SIZE = 60;
-// The source atlas tiles are 160x80 pixels; render at 2x their former screen
-// footprint using nearest-neighbour sampling to retain crisp pixel-art edges.
-const CAMPAIGN_TILE_RENDER_SCALE = 2;
+// The source atlas tiles are 160x80 pixels.  An isometric diamond covers two
+// tile spacings; drawing it larger buries each cell under its neighbours and
+// turns the terrain into repeating bands.
+const CAMPAIGN_TILE_RENDER_SCALE = 1;
 // Screen-space slack around the canvas that still gets drawn. Sprites stand
 // above their ground point and bosses are large, so keep a generous margin.
 const DRAW_CULL_MARGIN = 320;
