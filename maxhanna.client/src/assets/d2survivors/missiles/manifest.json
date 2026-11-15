@@ -1763,14 +1763,14 @@
     "width": 75
   },
   "d2-firebolt": {
-    "dccName": "firebolt",
+    "dccName": "fireball",
     "encodedFrames": 5,
     "frameDirectory": "d2-firebolt",
     "frameDurationMs": 60,
     "frames": 5,
-    "height": 39,
+    "height": 48,
     "source": "d2r extract missile dcc",
-    "width": 55
+    "width": 75
   },
   "d2-fireexplodeejecta": {
     "dccName": "fireexplodeejecta",
@@ -2611,6 +2611,16 @@
     "height": 83,
     "source": "d2r extract missile dcc",
     "width": 25
+  },
+  "d2-impacting01": {
+    "dccName": "impacting01",
+    "encodedFrames": 4,
+    "frameDirectory": "d2-impacting01",
+    "frameDurationMs": 60,
+    "frames": 4,
+    "height": 101,
+    "source": "d2r extract missile dcc",
+    "width": 90
   },
   "d2-impfireball": {
     "dccName": "impfireball",

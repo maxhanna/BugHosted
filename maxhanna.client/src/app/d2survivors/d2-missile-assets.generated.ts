@@ -213,6 +213,7 @@ export const D2_MISSILE_FRAME_COUNTS: Record<string, number> = {
   "d2-icestormimpactvar02": 6,
   "d2-icestormimpactvar03": 6,
   "d2-icicle": 10,
+  "d2-impacting01": 4,
   "d2-impfireball": 20,
   "d2-impmissile01": 10,
   "d2-impmissile2": 8,

@@ -57,6 +57,18 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     }
   });
 
+  it("draws Fire Bolt with the original Fireball cels at a small size", () => {
+    expect((component as any).missileOverlayId("Fire Bolt")).toBe("d2-firebolt");
+    expect((component as any).missileOverlayId("Fire Ball")).toBe("d2-fireball");
+  });
+
+  it("uses original D2R cels for the remaining player-skill effects", () => {
+    expect((component as any).missileOverlayId("Teeth")).toBe("d2-teethmissile");
+    expect((component as any).missileOverlayId("Blaze")).toBe("d2-groundfiresmall");
+    expect((component as any).missileOverlayId("Corpse Explosion")).toBe("d2-corpseexplodeguts");
+    expect((component as any).missileOverlayId("Psychic Hammer")).toBe("d2-mindblast");
+  });
+
   it("holds the player in place for a melee attack, then lets movement resume", () => {
     component.runActive = true;
     component.playerX = 250;

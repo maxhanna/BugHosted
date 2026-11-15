@@ -50,10 +50,15 @@ DEFAULT_FRAME_MS = 60
 # be imported harmlessly, but `null.dcc` is genuinely empty.
 SKIP_STEMS = {"null"}
 
+# The extracted `firebolt.dcc` renders as a blue comet instead of the orange
+# bolt the Sorceress casts. Fire Bolt therefore uses the original Fireball
+# DCC (the small fireball D2 ships) and the runtime draws it at a smaller size.
+SOURCE_OVERRIDES = {"firebolt": "fireball"}
+
 # A few Baal-era skill effects live in `global/overlays` rather than the missile
 # tree. Keep this whitelist explicit so the tool never sweeps in unrelated
 # UI/status overlays.
-OVERLAY_STEMS = {"cursedecrepifyeffect"}
+OVERLAY_STEMS = {"cursedecrepifyeffect", "impacting01"}
 
 # Which palette the missile cels use. `units` is the shared creature/missile
 # palette; Blizzard stores it BGR, so swap the channels for Pillow.
@@ -117,7 +122,7 @@ def prepare_frames(images: list[Image.Image]) -> list[Image.Image]:
     return centred
 
 
-def import_missile(path: Path) -> dict:
+def import_missile(path: Path, runtime_stem: str) -> dict:
     animation = dcc.parse(path.read_bytes())
     if not animation["dirs"] or not animation["frames_per_dir"]:
         raise RuntimeError("animation has no frames")
@@ -139,7 +144,7 @@ def import_missile(path: Path) -> dict:
         frames.append(canvas)
 
     prepared = prepare_frames(frames)
-    name = f"d2-{path.stem.lower()}"
+    name = f"d2-{runtime_stem}"
     output = ASSET_ROOT / name
     output.mkdir(parents=True, exist_ok=True)
     for stale in output.glob("*.webp"):
@@ -185,13 +190,20 @@ def main(argv: list[str]) -> int:
     args = parser.parse_args(argv)
 
     sources = find_sources(args.source)
+    sources_by_stem = {path.stem.lower(): path for path in sources}
+    # Each entry is (runtime id stem, source DCC), so an override can reuse the
+    # original Fireball cels without also replacing the Fireball runtime asset.
+    entries = [
+        (path.stem.lower(), sources_by_stem.get(SOURCE_OVERRIDES.get(path.stem.lower(), ""), path))
+        for path in sources
+    ]
     if args.list:
-        print("\n".join(path.stem for path in sources))
+        print("\n".join(stem for stem, _ in entries))
         return 0
     if args.only:
         wanted = {name.lower() for name in args.only}
-        sources = [path for path in sources if path.stem.lower() in wanted]
-        missing = wanted - {path.stem.lower() for path in sources}
+        entries = [(stem, path) for stem, path in entries if stem in wanted]
+        missing = wanted - {stem for stem, _ in entries}
         if missing:
             print(f"unknown missiles: {', '.join(sorted(missing))}", file=sys.stderr)
             return 1
@@ -202,9 +214,9 @@ def main(argv: list[str]) -> int:
     manifest_path = ASSET_ROOT / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.exists() else {}
     failures = 0
-    for path in sources:
+    for runtime_stem, path in entries:
         try:
-            entry = import_missile(path)
+            entry = import_missile(path, runtime_stem)
         except Exception as error:  # noqa: BLE001 - report and keep importing
             failures += 1
             print(f"skip {path.stem}: {error}")
@@ -214,7 +226,7 @@ def main(argv: list[str]) -> int:
 
     manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     write_generated_ts(manifest)
-    print(f"imported {len(sources) - failures}/{len(sources)} missiles")
+    print(f"imported {len(entries) - failures}/{len(entries)} missiles")
     print(f"manifest: {manifest_path}")
     print(f"frame counts: {GENERATED_TS}")
     return 1 if failures else 0

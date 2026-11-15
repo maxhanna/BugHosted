@@ -623,6 +623,9 @@ const ENEMY_MISSILE_OVERLAY_IDS = [
   "d2-spider_goo_missile", "d2-spikefiendmamamissle", "d2-spikefiendmissle",
   "d2-slugmissile", "d2-unholybolt", "d2-vampiremissile",
 ];
+// Player hit/impact overlays that are not referenced by a skill's missile
+// entry but must still preload with the rest of the imported cels.
+const PLAYER_IMPACT_MISSILE_IDS = ["d2-impacting01", "d2-moltenboulderexplode04", "d2-electricnova"];
 // The imported fsexplode palette is blue even though Fire Blast is a fire trap.
 // Shift the hue at draw time so the explosion reads orange without replacing
 // the generated D2 art.
@@ -817,7 +820,7 @@ const SKILL_MISSILE_OVERLAYS: Record<string, string> = {
   "Magic Arrow": "5",
   "Multiple Shot": "131",
   "Fire Arrow": "d2-fire-arrow",
-  "Fire Bolt": "31",
+  "Fire Bolt": "d2-firebolt",
   "Fire Blast": "47",
   "Exploding Arrow": "47",
   "Fire Ball": "84",
@@ -1048,7 +1051,7 @@ const D2_SPELL_MISSILE_OVERLAYS: Record<string, string> = {
   "Poison Javelin": "d2-javelin", "Plague Javelin": "d2-javelin", "Poison Dagger": "d2-poisonleft",
   "Poison Nova": "d2-poisonnova", "Poison Explosion": "d2-corpseexplodegutspoison",
   "Corpse Explosion": "d2-corpseexplodeguts",
-  "Bone Spirit": "d2-bonespirit", "Bone Spear": "d2-bonespear", Teeth: "d2-bonespear",
+  "Bone Spirit": "d2-bonespirit", "Bone Spear": "d2-bonespear", Teeth: "d2-teethmissile",
   "Bone Armor": "d2-boneshield", "Bone Wall": "d2-boneshield", "Bone Prison": "d2-boneshield",
   "Holy Bolt": "d2-holyboltmissile", "Blessed Hammer": "d2-blessedhammer",
   // Fist's initial missile is the LightningBolt cel; its four secondary bolts
@@ -1087,7 +1090,7 @@ const BASIC_ATTACK_MISSILE_OVERLAYS: Record<string, string> = {
   "Spirit Claw": "110",
   "Bone Bolt": "135",
   "Holy Bolt": "116",
-  "Fire Bolt": "31",
+  "Fire Bolt": "d2-firebolt",
 };
 const HOMING_SKILLS = new Set(["Guided Arrow", "Bone Spirit"]);
 const AMAZON_BOW_SKILLS = new Set([
@@ -1124,6 +1127,11 @@ const MISSILE_SPRITE_SIZES: Record<string, { width: number; height: number }> = 
   // The imported rock_large cels are 58x53 and were capped at 28px by the
   // generic missile path, so the druid's boulders read as pebbles.
   "d2-rock_large": { width: 64, height: 59 },
+  // Fire Bolt uses the original Fireball DCC at a smaller size because the
+  // extracted firebolt.dcc renders as a blue comet; Fire Ball keeps a visibly
+  // larger fireball so the two spells remain distinct.
+  "d2-firebolt": { width: 22, height: 14 },
+  "d2-fireball": { width: 34, height: 22 },
 };
 // rock_large is a cool blue-grey D2 cel. Remap its luminance to muted earth
 // tones once when the five frames load instead of filtering every boulder draw.
@@ -8220,6 +8228,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       ...TRAP_OVERLAY_IDS,
       ...ARCTIC_BLAST_MISSILE_IDS,
       ...FIST_OF_THE_HEAVENS_MISSILE_IDS,
+      ...PLAYER_IMPACT_MISSILE_IDS,
       ...Object.values(D2_SPELL_MISSILE_OVERLAYS),
       ...Object.values(SKILL_MISSILE_OVERLAYS),
       ...Object.values(SKILL_VISUAL_MISSILES),
@@ -9920,87 +9929,26 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   private drawMeleeTrail(ctx: CanvasRenderingContext2D, effect: MeleeTrailEffect): void {
     const progress = Math.max(0, Math.min(1, effect.time / effect.duration));
-    const strike = attackStrikeIntensity(progress);
     const fade = Math.sin(Math.PI * progress);
     if (fade <= 0.01) return;
     const center = this.projectArenaPoint(this.playerX, this.playerY);
     const facing = this.projectArenaPoint(this.playerX + effect.facingX, this.playerY + effect.facingY);
     const angle = Math.atan2(facing.y - center.y, facing.x - center.x);
-    const arc = ATTACK_CLIP_INFO[effect.style].trailArc ?? 1.6;
-    const sweep = strike * (effect.style === "barbarianCleave" ? 0.52 : 0.24) * effect.side;
-    const startAngle = effect.style === "spin" ? 0 : angle - arc / 2 + sweep;
-    const endAngle = effect.style === "spin" ? Math.PI * 2 : angle + arc / 2 + sweep;
-    const radius = effect.style === "barbarianCleave" ? 31 + Math.max(0, strike) * 16 : 31 + Math.max(0, strike) * 10;
-    ctx.save();
-    if (effect.style === "assassinKick") {
-      const strikePhase = Math.max(0, Math.min(1, (progress - 0.28) / 0.3));
-      const reach = 18 + strikePhase * 32;
-      const lift = 8 + strikePhase * 10;
-      const startX = center.x + Math.cos(angle) * 9;
-      const startY = center.y - 8 + Math.sin(angle) * 5;
-      const endX = center.x + Math.cos(angle) * reach;
-      const endY = center.y - lift + Math.sin(angle) * reach * 0.45;
-      ctx.globalAlpha = Math.min(0.9, fade * 0.95);
-      ctx.lineCap = "round";
-      ctx.shadowColor = effect.color;
-      ctx.shadowBlur = 12;
-      ctx.strokeStyle = effect.color;
-      ctx.lineWidth = 5 + strikePhase * 2;
-      ctx.beginPath();
-      ctx.moveTo(startX, startY);
-      ctx.lineTo(endX, endY);
-      ctx.stroke();
-      ctx.globalAlpha *= 0.8;
-      ctx.strokeStyle = "#fff4d2";
-      ctx.lineWidth = 1.8;
-      ctx.beginPath();
-      ctx.moveTo(startX, startY - 2);
-      ctx.lineTo(endX, endY - 2);
-      ctx.stroke();
-      if (progress >= 0.48 && progress <= 0.7) {
-        ctx.globalAlpha = fade;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(endX, endY, 6 + strikePhase * 6, -0.9, 0.9);
-        ctx.stroke();
-      }
-      ctx.restore();
-      return;
-    }
-    ctx.globalAlpha = Math.min(0.88, fade * 0.9);
-    ctx.lineCap = "round";
-    ctx.shadowColor = effect.color;
-    ctx.shadowBlur = 13;
-    ctx.strokeStyle = effect.color;
-    if (effect.style === "barbarianCleave") {
-      const cleaveProgress = Math.max(0, Math.min(1, (progress - 0.3) / 0.26));
-      const visibleArc = arc * Math.max(0.12, cleaveProgress);
-      const arcCenter = angle + sweep - effect.side * arc * (1 - cleaveProgress) * 0.5;
-      ctx.lineWidth = 7 + cleaveProgress * 2;
-      ctx.beginPath();
-      ctx.arc(center.x, center.y - 12, radius, arcCenter - visibleArc / 2, arcCenter + visibleArc / 2);
-      ctx.stroke();
-      ctx.globalAlpha *= 0.7;
-      ctx.shadowBlur = 0;
-      ctx.strokeStyle = "#fff4d2";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(center.x, center.y - 12, radius, arcCenter - visibleArc / 2, arcCenter + visibleArc / 2);
-      ctx.stroke();
-    } else {
-      ctx.lineWidth = effect.style === "spin" ? 3.5 : 3;
-      ctx.beginPath();
-      ctx.arc(center.x, center.y - 12, radius, startAngle, endAngle);
-      ctx.stroke();
-      ctx.globalAlpha *= 0.6;
-      ctx.shadowBlur = 0;
-      ctx.strokeStyle = "#fff4d2";
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.arc(center.x, center.y - 12, radius - 3, startAngle + 0.12, endAngle - 0.12);
-      ctx.stroke();
-    }
-    ctx.restore();
+    const dpr = this.projectionDpr || 1;
+    // Impacting01 is the original D2 melee-hit overlay. Place it at the weapon's
+    // reach instead of drawing a synthetic sweep arc around the hero.
+    const reach = (effect.style === "assassinKick" ? 30 : effect.style === "barbarianCleave" ? 34 : 24) * dpr;
+    const size = (effect.style === "barbarianCleave" ? 66 : effect.style === "spin" ? 58 : 46) * dpr;
+    this.drawImportedMissileFrame(
+      ctx,
+      "d2-impacting01",
+      effect.time,
+      center.x + Math.cos(angle) * reach,
+      center.y - 12 * dpr + Math.sin(angle) * reach * 0.45,
+      size,
+      angle,
+      fade * 0.9,
+    );
   }
 
   private activeTrapCount(): number {
@@ -10340,13 +10288,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const image = this.ensureBoneWallSheet();
     const lineLength = Math.hypot(right.x - left.x, right.y - left.y);
     ctx.save();
-    ctx.lineCap = "round";
-    ctx.strokeStyle = "rgba(26, 21, 17, 0.48)";
-    ctx.lineWidth = 9 * dpr;
-    ctx.beginPath();
-    ctx.moveTo(left.x, left.y);
-    ctx.lineTo(right.x, right.y);
-    ctx.stroke();
     if (image.complete && image.naturalWidth > 0) {
       const spriteWidth = spriteHeight * art.cellWidth / art.cellHeight;
       const spacing = Math.max(12 * scale, spriteWidth * 0.55);
@@ -10364,14 +10305,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           baseX - spriteWidth / 2, baseY - spriteHeight + 1 * scale, spriteWidth, spriteHeight,
         );
       }
-    } else {
-      // Keep the barrier visible if the optional art asset cannot load.
-      ctx.strokeStyle = "#b9ad91";
-      ctx.lineWidth = 6 * dpr;
-      ctx.beginPath();
-      ctx.moveTo(left.x, left.y - 2 * dpr);
-      ctx.lineTo(right.x, right.y - 2 * dpr);
-      ctx.stroke();
     }
     const barLeft = Math.min(left.x, right.x);
     const barWidth = Math.abs(right.x - left.x);
@@ -10407,23 +10340,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const columnCount = Math.max(3, Math.min(32, Math.ceil(lineLength / spacing)));
     const frameDuration = this.missileFrameDuration(wall.missileId ?? FIRE_WALL_MISSILE_ID);
     const animationFrame = Math.floor(wall.age * 1000 / frameDuration);
-
-    ctx.save();
-    ctx.globalAlpha = fade * 0.9;
-    ctx.lineCap = "round";
-    ctx.strokeStyle = "rgba(42, 12, 4, 0.72)";
-    ctx.lineWidth = 13 * dpr;
-    ctx.beginPath();
-    ctx.moveTo(left.x, left.y);
-    ctx.lineTo(right.x, right.y);
-    ctx.stroke();
-    ctx.strokeStyle = "rgba(255, 95, 26, 0.36)";
-    ctx.lineWidth = 7 * dpr;
-    ctx.beginPath();
-    ctx.moveTo(left.x, left.y - 1);
-    ctx.lineTo(right.x, right.y - 1);
-    ctx.stroke();
-    ctx.restore();
 
     ctx.save();
     ctx.globalAlpha = fade;
@@ -10491,111 +10407,35 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private drawLightningWeb(ctx: CanvasRenderingContext2D, projectile: AttackProjectile): void {
     if (!projectile.impactPoint || projectile.impactAge === undefined || projectile.impactRadius === undefined) return;
     const point = this.projectArenaPoint(projectile.impactPoint.x, projectile.impactPoint.y);
-    const canvas = this.arenaRef?.nativeElement;
-    const dpr = canvas?.clientWidth ? canvas.width / canvas.clientWidth : 1;
     const fadeStart = Math.max(0, (projectile.impactDuration ?? 3) - 0.45);
     const fade = projectile.impactAge > fadeStart
       ? Math.max(0, ((projectile.impactDuration ?? 3) - projectile.impactAge) / 0.45)
       : 1;
-    const pulse = 0.82 + Math.sin(projectile.impactAge * 18) * 0.12;
-    const radiusX = projectile.impactRadius * this.worldZoom * 0.7071 * dpr;
-    const radiusY = projectile.impactRadius * this.worldZoom * 0.35355 * dpr;
-    ctx.save();
-    ctx.translate(point.x, point.y - 2);
-    ctx.globalAlpha = fade * pulse;
-    ctx.globalCompositeOperation = "lighter";
-    ctx.strokeStyle = "#82dfff";
-    ctx.shadowColor = "#34aaff";
-    ctx.shadowBlur = 10 * dpr;
-    ctx.lineWidth = 1.7 * dpr;
-    ctx.beginPath();
-    ctx.ellipse(0, 0, radiusX, radiusY, 0, 0, Math.PI * 2);
-    ctx.stroke();
-    for (let spoke = 0; spoke < 8; spoke += 1) {
-      const angle = spoke * Math.PI / 4 + projectile.impactAge * 0.16;
-      const endX = Math.cos(angle) * radiusX;
-      const endY = Math.sin(angle) * radiusY;
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.lineTo(endX, endY);
-      ctx.stroke();
-      const nextAngle = angle + Math.PI / 4;
-      ctx.beginPath();
-      ctx.ellipse(0, 0, radiusX * 0.58, radiusY * 0.58, 0, angle, nextAngle);
-      ctx.stroke();
-    }
-    ctx.restore();
+    const scale = this.worldZoom * (this.projectionDpr || 1);
+    const size = Math.max(40, projectile.impactRadius * 2.4) * scale;
+    // Shock Web's original electric-nova cel replaces the drawn ring and spokes.
+    this.drawImportedMissileFrame(ctx, "d2-electricnova", projectile.impactAge, point.x, point.y - 2 * scale, size, 0, fade * 0.9);
   }
 
   private drawCorpseExplosion(ctx: CanvasRenderingContext2D, projectile: AttackProjectile, point: { x: number; y: number }): void {
     if (projectile.impactAge === undefined || projectile.impactRadius === undefined) return;
-    const canvas = this.arenaRef?.nativeElement;
-    const dpr = canvas?.clientWidth ? canvas.width / canvas.clientWidth : 1;
     const duration = projectile.impactDuration ?? 0.6;
     const progress = Math.max(0, Math.min(1, projectile.impactAge / duration));
-    const radiusX = projectile.impactRadius * this.worldZoom * 0.7071 * dpr * (0.45 + progress * 0.55);
-    const radiusY = projectile.impactRadius * this.worldZoom * 0.35355 * dpr * (0.45 + progress * 0.55);
     const fade = 1 - progress;
-    ctx.save();
-    ctx.globalCompositeOperation = "lighter";
-    ctx.globalAlpha = fade * 0.72;
-    ctx.shadowColor = "#ff4c24";
-    ctx.shadowBlur = 18 * dpr;
-    const blast = ctx.createRadialGradient(point.x, point.y - 5, 2, point.x, point.y - 5, Math.max(radiusX, radiusY));
-    blast.addColorStop(0, "rgba(255, 243, 198, 0.95)");
-    blast.addColorStop(0.18, "rgba(255, 122, 45, 0.8)");
-    blast.addColorStop(0.58, "rgba(197, 50, 28, 0.38)");
-    blast.addColorStop(1, "rgba(80, 18, 18, 0)");
-    ctx.fillStyle = blast;
-    ctx.beginPath();
-    ctx.ellipse(point.x, point.y - 5, radiusX, radiusY, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.globalAlpha = fade * 0.9;
-    ctx.strokeStyle = "#ffb45c";
-    ctx.lineWidth = Math.max(1, 2.5 * dpr * fade);
-    ctx.beginPath();
-    ctx.ellipse(point.x, point.y - 5, radiusX, radiusY, 0, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.restore();
+    const scale = this.worldZoom * (this.projectionDpr || 1);
+    const art = projectile.moltenExplosion ? "d2-moltenboulderexplode04" : "d2-corpseexplodeguts";
+    const size = Math.max(44, projectile.impactRadius * 2.2) * scale;
+    this.drawImportedMissileFrame(ctx, art, projectile.impactAge, point.x, point.y - 4 * scale, size, 0, fade * 0.9);
   }
 
   private drawPsychicHammerImpact(ctx: CanvasRenderingContext2D, projectile: AttackProjectile, point: { x: number; y: number }): void {
     if (projectile.impactAge === undefined || projectile.impactRadius === undefined) return;
-    const canvas = this.arenaRef?.nativeElement;
-    const dpr = canvas?.clientWidth ? canvas.width / canvas.clientWidth : 1;
     const duration = projectile.impactDuration ?? 0.38;
     const progress = Math.max(0, Math.min(1, projectile.impactAge / duration));
     const fade = 1 - progress;
-    const scale = this.worldZoom * dpr;
-    const radiusX = projectile.impactRadius * scale * 0.7071;
-    const radiusY = projectile.impactRadius * scale * 0.35355;
-    const pulse = 0.9 + Math.sin(progress * Math.PI) * 0.1;
-    ctx.save();
-    ctx.translate(point.x, point.y - 4);
-    ctx.globalCompositeOperation = "lighter";
-    ctx.globalAlpha = fade * 0.38;
-    const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, Math.max(radiusX, radiusY));
-    glow.addColorStop(0, "rgba(218, 207, 255, 0.9)");
-    glow.addColorStop(0.55, "rgba(139, 112, 255, 0.48)");
-    glow.addColorStop(1, "rgba(78, 48, 180, 0)");
-    ctx.fillStyle = glow;
-    ctx.beginPath();
-    ctx.ellipse(0, 0, radiusX, radiusY, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.globalAlpha = fade * 0.95;
-    ctx.strokeStyle = "#c4b5ff";
-    ctx.shadowColor = "#7a5bff";
-    ctx.shadowBlur = 14 * dpr;
-    ctx.lineWidth = Math.max(1, 2.4 * dpr * pulse);
-    ctx.beginPath();
-    ctx.ellipse(0, 0, radiusX * pulse, radiusY * pulse, 0, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.globalAlpha = fade * 0.65;
-    ctx.lineWidth = Math.max(1, 1.2 * dpr);
-    ctx.beginPath();
-    ctx.ellipse(0, 0, radiusX * 0.62, radiusY * 0.62, 0, progress * 2, progress * 2 + Math.PI * 1.35);
-    ctx.stroke();
-    ctx.restore();
+    const scale = this.worldZoom * (this.projectionDpr || 1);
+    const size = Math.max(34, projectile.impactRadius * 1.8) * scale;
+    this.drawImportedMissileFrame(ctx, "d2-mindblast", projectile.impactAge, point.x, point.y - 6 * scale, size, 0, fade * 0.9);
   }
 
   private drawAttackProjectile(ctx: CanvasRenderingContext2D, projectile: AttackProjectile): void {
@@ -10703,25 +10543,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       ctx.restore();
       return;
     }
-    // Never replace missing source art with a drawn streak or dot for these
-    // attacks; a blank frame is preferable to fake missile art.
-    if (sourceOnlyArt) return;
-    ctx.save();
-    ctx.strokeStyle = projectile.color;
-    ctx.fillStyle = projectile.color;
-    ctx.shadowColor = projectile.color;
-    ctx.shadowBlur = 12;
-    ctx.lineWidth = projectile.kind === "lightning" ? 3 : 2;
-    ctx.beginPath();
-    ctx.moveTo(start.x, start.y - 8);
-    ctx.lineTo(point.x, point.y - 8);
-    ctx.stroke();
-    if (projectile.kind === "lightning") {
-      ctx.beginPath(); ctx.moveTo(point.x - 5, point.y - 12); ctx.lineTo(point.x + 5, point.y - 4); ctx.stroke();
-    } else {
-      ctx.beginPath(); ctx.arc(point.x, point.y - 8, projectile.radius, 0, Math.PI * 2); ctx.fill();
-    }
-    ctx.restore();
+    // A missing cel stays blank. Drawing a synthetic streak or dot here made
+    // unloaded skills look like placeholder effects instead of D2 art.
   }
 
   private drawBoneTooth(
@@ -10738,38 +10561,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const x = point.x - directionY * fan * this.worldZoom * 0.7071;
     const y = point.y + directionX * fan * this.worldZoom * 0.35355;
     const angle = Math.atan2(y - start.y, x - start.x);
-    const length = (24 + Math.min(9, Math.abs(projectile.teethFan ?? 0) * 0.32)) * this.worldZoom;
-    const width = 7 * this.worldZoom;
-
-    ctx.save();
-    ctx.translate(x, y - 8);
-    ctx.rotate(angle);
-    ctx.globalCompositeOperation = "source-over";
-    ctx.shadowColor = "#d7c8a8";
-    ctx.shadowBlur = 5;
-    ctx.fillStyle = "#d8ccb1";
-    ctx.strokeStyle = "#665943";
-    ctx.lineWidth = 1.2;
-    ctx.beginPath();
-    ctx.moveTo(length * 0.72, 0);
-    ctx.lineTo(length * 0.05, -width * 0.5);
-    ctx.lineTo(-length * 0.18, -width * 0.22);
-    ctx.lineTo(-length * 0.62, 0);
-    ctx.lineTo(-length * 0.18, width * 0.22);
-    ctx.lineTo(length * 0.05, width * 0.5);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-    ctx.shadowBlur = 0;
-    ctx.fillStyle = "#f5ecd7";
-    ctx.beginPath();
-    ctx.moveTo(length * 0.62, 0);
-    ctx.lineTo(-length * 0.12, -width * 0.14);
-    ctx.lineTo(-length * 0.48, 0);
-    ctx.lineTo(-length * 0.12, width * 0.14);
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
+    const size = (24 + Math.min(9, Math.abs(projectile.teethFan ?? 0) * 0.32))
+      * this.worldZoom * (this.projectionDpr || 1);
+    // Teeth's own DCC is a small flying tooth; no polygon is generated here.
+    this.drawImportedMissileFrame(ctx, "d2-teethmissile", projectile.age, x, y - 8, size, angle, 0.95);
   }
 
   private trackUserEvent(eventType: string, eventText: string): void {
@@ -14495,41 +14290,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private drawBlazeFirePatch(ctx: CanvasRenderingContext2D, patch: BlazeFirePatch): void {
     const point = this.projectArenaPoint(patch.x, patch.y);
     if (!this.isArenaPointOnScreen(point, DRAW_CULL_MARGIN)) return;
-    const scale = this.worldZoom;
     const age = patch.maxLife - patch.life;
     const fade = Math.min(1, age * 9, patch.life / 0.8);
     if (fade <= 0.01) return;
-    const radius = Math.max(2, patch.radius * scale);
-    const flicker = 0.86 + Math.sin(age * 16 + patch.seed * 3) * 0.08;
-    ctx.save();
-    ctx.translate(point.x, point.y + scale * 1.5);
-    ctx.globalAlpha = fade;
-    ctx.fillStyle = "rgba(46, 13, 5, 0.58)";
-    ctx.beginPath();
-    ctx.ellipse(0, 0, radius * 1.05, radius * 0.38, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "rgba(255, 74, 18, 0.28)";
-    ctx.beginPath();
-    ctx.ellipse(0, -radius * 0.05, radius * 0.86 * flicker, radius * 0.3, 0, 0, Math.PI * 2);
-    ctx.fill();
-    for (let flame = 0; flame < 6; flame += 1) {
-      const phase = age * (7.5 + flame * 0.3) + patch.seed + flame * 1.9;
-      const x = Math.sin(phase * 0.7) * radius * 0.55 + (flame - 2.5) * radius * 0.13;
-      const height = radius * (0.42 + (0.5 + 0.5 * Math.sin(phase * 1.4)) * 0.55);
-      ctx.fillStyle = flame % 2 ? "rgba(255, 166, 42, 0.92)" : "rgba(255, 92, 24, 0.86)";
-      ctx.beginPath();
-      ctx.moveTo(x - radius * 0.14, 0);
-      ctx.quadraticCurveTo(x - radius * 0.2, -height * 0.5, x + Math.sin(phase) * radius * 0.12, -height);
-      ctx.quadraticCurveTo(x + radius * 0.2, -height * 0.5, x + radius * 0.14, 0);
-      ctx.closePath();
-      ctx.fill();
-    }
-    ctx.globalAlpha = fade * 0.75;
-    ctx.fillStyle = "#ffd473";
-    ctx.beginPath();
-    ctx.ellipse(0, -radius * 0.05, radius * 0.22, radius * 0.12, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
+    const scale = this.worldZoom * (this.projectionDpr || 1);
+    const size = Math.max(30, patch.radius * 2.4) * scale;
+    // Blaze's own ground-fire DCC, anchored at the patch rather than a painted
+    // flame silhouette.
+    this.drawImportedMissileFrame(ctx, "d2-groundfiresmall", age, point.x, point.y + 1.5 * scale, size, 0, fade, "bottom");
   }
 
   private poisonCloudRadiusForRank(rank: number): number {
@@ -15428,104 +15196,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       art.cell * scale,
       art.cell * scale,
     );
-    ctx.restore();
-  }
-
-  private drawDragonTailImpact(
-    ctx: CanvasRenderingContext2D,
-    center: { x: number; y: number },
-    progress: number,
-    fade: number,
-  ): void {
-    const radius = 10 + progress * 58;
-    const pulse = 1 - progress;
-    ctx.save();
-    ctx.globalCompositeOperation = "lighter";
-    ctx.translate(center.x, center.y - 8);
-    ctx.lineCap = "round";
-    ctx.shadowColor = "#ff8a24";
-    ctx.shadowBlur = 12 * pulse;
-    ctx.strokeStyle = `rgba(255, 174, 70, ${fade * 0.9})`;
-    ctx.lineWidth = 4 * pulse + 1;
-    ctx.beginPath();
-    ctx.ellipse(0, 0, radius, radius * 0.48, 0, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.strokeStyle = `rgba(255, 239, 185, ${fade * 0.85})`;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.ellipse(0, 0, radius * 0.58, radius * 0.28, 0, 0, Math.PI * 2);
-    ctx.stroke();
-    for (let shard = 0; shard < 8; shard += 1) {
-      const angle = shard * Math.PI / 4 + 0.18;
-      const inner = radius * 0.4;
-      const outer = radius * (0.8 + 0.16 * Math.sin(shard * 2.1));
-      ctx.globalAlpha = fade * (0.75 - (shard % 3) * 0.12);
-      ctx.strokeStyle = shard % 2 ? "#ff9b35" : "#fff0b8";
-      ctx.lineWidth = shard % 2 ? 3 : 2;
-      ctx.beginPath();
-      ctx.moveTo(Math.cos(angle) * inner, Math.sin(angle) * inner * 0.48);
-      ctx.lineTo(Math.cos(angle) * outer, Math.sin(angle) * outer * 0.48);
-      ctx.stroke();
-    }
-    ctx.restore();
-  }
-
-  private drawDragonTalonTeleport(
-    ctx: CanvasRenderingContext2D,
-    origin: { x: number; y: number },
-    target: { x: number; y: number },
-    progress: number,
-    fade: number,
-  ): void {
-    const dx = target.x - origin.x;
-    const dy = target.y - origin.y;
-    const angle = Math.atan2(dy, dx);
-    const pulse = 0.65 + Math.sin(progress * Math.PI * 6) * 0.2;
-    const radius = 8 + Math.sin(progress * Math.PI) * 14;
-
-    ctx.save();
-    ctx.globalCompositeOperation = "lighter";
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    ctx.shadowColor = "#ffb83f";
-    ctx.shadowBlur = 16;
-    ctx.strokeStyle = `rgba(255, 221, 142, ${fade * 0.85})`;
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(origin.x, origin.y - 8);
-    ctx.quadraticCurveTo((origin.x + target.x) / 2, (origin.y + target.y) / 2 - 22, target.x, target.y - 8);
-    ctx.stroke();
-
-    for (const [point, direction] of [[origin, -1], [target, 1]] as const) {
-      const arrival = direction > 0;
-      const localProgress = arrival ? progress : 1 - progress;
-      ctx.save();
-      ctx.translate(point.x, point.y - 8);
-      ctx.rotate(angle);
-      ctx.globalAlpha = fade * (arrival ? pulse : Math.max(0.15, localProgress));
-      ctx.strokeStyle = arrival ? "#fff2c3" : "#ff9c32";
-      ctx.lineWidth = arrival ? 2.5 : 2;
-      ctx.beginPath();
-      ctx.ellipse(0, 0, radius * (arrival ? 1 : 0.82), radius * 0.42, 0, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(-radius * 1.5, 0);
-      ctx.lineTo(radius * 1.5, 0);
-      ctx.stroke();
-      ctx.restore();
-    }
-
-    for (let spark = 0; spark < 5; spark += 1) {
-      const along = Math.max(0, Math.min(1, progress + (spark - 2) * 0.055));
-      const wave = Math.sin(progress * Math.PI * 8 + spark * 1.7) * 5;
-      const x = origin.x + dx * along - Math.sin(angle) * wave;
-      const y = origin.y + dy * along + Math.cos(angle) * wave - 8;
-      ctx.globalAlpha = fade * (1 - Math.abs(spark - 2) * 0.14);
-      ctx.fillStyle = spark % 2 ? "#ffb83f" : "#fff4cc";
-      ctx.beginPath();
-      ctx.arc(x, y, spark === 2 ? 3 : 1.8, 0, Math.PI * 2);
-      ctx.fill();
-    }
     ctx.restore();
   }
 
@@ -16840,13 +16510,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (fade <= 0.01) return;
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
-    // A bright impact crater anchors the vertical bolt to the target.
-    ctx.globalAlpha = fade * 0.45;
-    ctx.strokeStyle = "#cfe9ff";
-    ctx.lineWidth = 2.4 * scale;
-    ctx.beginPath();
-    ctx.ellipse(point.x, point.y, 34 * scale, 14 * scale, 0, 0, Math.PI * 2);
-    ctx.stroke();
+    // The imported LightningBolt cel is the entire strike; no drawn crater.
     ctx.shadowColor = "#d8f3ff";
     ctx.shadowBlur = 16 * scale;
     this.drawFistOfTheHeavensArt(
@@ -18499,7 +18163,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (this.runActive && this.isCycloneArmorActive()) this.drawCycloneArmorAura(ctx, "back");
     if (this.runActive && this.selectedClass === "paladin") this.drawActivePaladinAuras(ctx, "back");
     if (this.runActive && this.isBoneArmorActive()) this.drawBoneArmorAura(ctx, "back");
-    this.drawCreeperTrails(ctx);
     this.drawPoisonClouds(ctx);
     this.drawNihlathakCorpses(ctx);
     if (this.runActive && this.activeOakSageSummon()) this.drawOakSageBeneficiaryAuras(ctx);
@@ -20110,8 +19773,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (DRUID_SPIRIT_AURA_ART[skill]) {
       // Oak Sage's overlay is drawn for the whole party in the ground pre-pass.
       if (skill !== "Oak Sage") this.drawDruidSpiritAura(ctx, skill, ground);
-    } else {
-      this.drawSummonAura(ctx, ground.x, ground.y - height * 0.46 + bob, width * 0.55, height * 0.52, look, summon.x + summon.y);
     }
 
     if (frame) {
@@ -20141,19 +19802,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         height,
       );
       ctx.restore();
-    } else {
-      const glow = "#c7d6df";
-      ctx.save();
-      ctx.fillStyle = glow;
-      ctx.strokeStyle = "#e2edf2";
-      ctx.lineWidth = 3;
-      ctx.shadowColor = glow;
-      ctx.shadowBlur = 12;
-      ctx.beginPath();
-      ctx.ellipse(ground.x, ground.y - height * 0.48, width * 0.26, height * 0.42, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-      ctx.restore();
     }
 
     const hpRatio = Math.max(0, summon.hp / this.effectiveSummonMaxHp(summon));
@@ -20174,37 +19822,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   private druidSummonLook(skill: string): DruidSummonLook | undefined {
     return DRUID_SUMMON_LOOKS[skill];
-  }
-
-  /**
-   * A soft Diablo II soul glow behind a druid summon. Drawing it in `lighter`
-   * mode keeps the light around the sprite instead of washing out the ground.
-   */
-  private drawSummonAura(
-    ctx: CanvasRenderingContext2D,
-    x: number,
-    y: number,
-    radiusX: number,
-    radiusY: number,
-    look: DruidSummonLook | undefined,
-    phase: number,
-  ): void {
-    if (!look || look.glowAlpha <= 0) return;
-    const [red, green, blue] = look.glow;
-    const radius = Math.max(radiusX, radiusY);
-    if (radius <= 0) return;
-    const pulse = 0.84 + Math.sin(this.runTime * 3.2 + phase * 0.02) * 0.16;
-    const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
-    gradient.addColorStop(0, `rgba(${red}, ${green}, ${blue}, ${look.glowAlpha * pulse})`);
-    gradient.addColorStop(0.55, `rgba(${red}, ${green}, ${blue}, ${look.glowAlpha * pulse * 0.42})`);
-    gradient.addColorStop(1, `rgba(${red}, ${green}, ${blue}, 0)`);
-    ctx.save();
-    ctx.globalCompositeOperation = "lighter";
-    ctx.fillStyle = gradient;
-    ctx.beginPath();
-    ctx.ellipse(x, y, radiusX, radiusY, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
   }
 
   /**
@@ -20331,7 +19948,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       : 0;
     const shadowWidth = Math.max(5, width * (isRaven ? 0.26 : 0.34) * (look?.shadowScale ?? 1));
     this.drawGroundShadow(ctx, ground.x, ground.y + 2, shadowWidth, shadowWidth * (isRaven ? 0.3 : 0.32), isRaven ? 0.24 : 0.28);
-    this.drawSummonAura(ctx, ground.x, ground.y - height * 0.48 + bob, width * 0.58, height * 0.56, look, summon.x + summon.y);
     if (frame) {
       ctx.save();
       ctx.imageSmoothingEnabled = false;
@@ -20351,17 +19967,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       );
       ctx.restore();
     }
-    if (isCreeper) {
-      // A thin rim of churned soil where the buried body meets the floor.
-      ctx.save();
-      ctx.globalAlpha = 0.22 + burrowWave * 0.2;
-      ctx.fillStyle = skill === "Solar Creeper" ? "#7d5a24" : skill === "Carrion Vine" ? "#665d36" : "#4e612f";
-      ctx.beginPath();
-      ctx.ellipse(ground.x + idleSwirl * 0.55, ground.y + this.worldZoom, width * 0.26, height * 0.032, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-    }
-
     const hpRatio = Math.max(0, summon.hp / this.effectiveSummonMaxHp(summon));
     const barWidth = Math.max(30, width * 0.65);
     const barY = ground.y - height * 0.88 - 7;
@@ -20405,31 +20010,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (this.creeperTrailMarks.length > CREEPER_TRAIL_LIMIT) {
       this.creeperTrailMarks.splice(0, this.creeperTrailMarks.length - CREEPER_TRAIL_LIMIT);
     }
-  }
-
-  /** Procedural soil smears, with no cached canvases or bitmaps to retain. */
-  private drawCreeperTrails(ctx: CanvasRenderingContext2D): void {
-    if (!this.creeperTrailMarks.length) return;
-    const scale = this.worldZoom;
-    ctx.save();
-    for (const mark of this.creeperTrailMarks) {
-      const point = this.projectArenaPoint(mark.x, mark.y);
-      if (!this.isArenaPointOnScreen(point, DRAW_CULL_MARGIN)) continue;
-      const fade = Math.max(0, Math.min(1, mark.life / mark.maxLife));
-      const radius = Math.max(2, mark.radius * scale);
-      ctx.globalAlpha = fade * 0.3;
-      ctx.fillStyle = mark.color;
-      ctx.beginPath();
-      ctx.ellipse(point.x, point.y + scale, radius, radius * 0.38, mark.angle, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.globalAlpha = fade * 0.38;
-      ctx.strokeStyle = mark.color;
-      ctx.lineWidth = Math.max(1, 1.2);
-      ctx.beginPath();
-      ctx.ellipse(point.x, point.y + scale, radius * 0.6, radius * 0.2, mark.angle + 0.8, 0.3, Math.PI * 1.55);
-      ctx.stroke();
-    }
-    ctx.restore();
   }
 
   private druidFormAnimationName(): DruidAnimationName | undefined {
@@ -20532,51 +20112,25 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const target = this.projectArenaPoint(effect.target.x, effect.target.y);
     const isRanged = effect.summon.summonSkill === "Skeletal Mage" || effect.summon.summonSkill === "Raven";
     const isRaven = effect.summon.summonSkill === "Raven";
-    const color = this.summonDamageColor(effect.summon, effect.damageType);
-    ctx.save();
-    ctx.globalAlpha = 1 - progress;
-    ctx.lineCap = "round";
-    ctx.strokeStyle = color;
-    ctx.fillStyle = color;
-    ctx.shadowColor = color;
-    ctx.shadowBlur = 14;
-    if (isRanged) {
-      const x = source.x + (target.x - source.x) * progress;
-      const y = source.y + (target.y - source.y) * progress - 12;
-      if (isRaven) {
-        const wing = Math.sin(progress * Math.PI * 3) * 5;
-        ctx.beginPath();
-        ctx.moveTo(x - 8, y);
-        ctx.quadraticCurveTo(x - 3, y - 8 - wing, x + 2, y);
-        ctx.quadraticCurveTo(x + 7, y - 7 + wing, x + 10, y - 1);
-        ctx.quadraticCurveTo(x + 2, y + 5, x - 8, y);
-        ctx.fill();
-      } else {
-        ctx.beginPath();
-        ctx.arc(x, y, 5 + 3 * Math.sin(progress * Math.PI), 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = "#fff3dc";
-        ctx.beginPath();
-        ctx.moveTo(x - 8, y);
-        ctx.lineTo(x + 8, y);
-        ctx.stroke();
-      }
-    } else {
-      const x = source.x + (target.x - source.x) * progress;
-      const y = source.y + (target.y - source.y) * progress - 10;
-      ctx.lineWidth = 5;
-      ctx.beginPath();
-      ctx.moveTo(x - 9, y + 8);
-      ctx.lineTo(x + 9, y - 8);
-      ctx.stroke();
-      ctx.strokeStyle = "#fff3dc";
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(x - 8, y + 7);
-      ctx.lineTo(x + 8, y - 7);
-      ctx.stroke();
-    }
-    ctx.restore();
+    const angle = Math.atan2(target.y - source.y, target.x - source.x);
+    const art = isRaven || !isRanged
+      ? "d2-impacting01"
+      : effect.damageType === "fire" ? "d2-firebolt"
+        : effect.damageType === "cold" ? "d2-icebolt"
+          : effect.damageType === "lightning" ? "d2-chargedbolt"
+            : effect.damageType === "poison" ? "d2-poisonnova"
+              : "d2-bonespirit";
+    const scale = this.worldZoom * (this.projectionDpr || 1);
+    this.drawImportedMissileFrame(
+      ctx,
+      art,
+      effect.time,
+      source.x + (target.x - source.x) * progress,
+      source.y + (target.y - source.y) * progress - 12,
+      (isRanged ? 28 : 38) * scale,
+      angle,
+      1 - progress,
+    );
   }
 
   drawHpBar(ctx: CanvasRenderingContext2D, e: Enemy, color: string, spriteSize = e.r * 2, ground = this.projectArenaPoint(e.x, e.y)): void {
