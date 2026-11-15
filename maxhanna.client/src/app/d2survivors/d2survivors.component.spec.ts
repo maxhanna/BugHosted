@@ -2121,29 +2121,72 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(y + 252 * scale).toBeCloseTo(expectedY, 4);
   });
 
-  it("keeps each area's authored base tile alone and uses only matching contrast accents", () => {
+  it("composes each zone from authored ground, trail, edge and prop cells", () => {
     const tiles: HTMLCanvasElement[] = [];
     for (let index = 0; index < 16; index += 1) {
       const canvas = document.createElement("canvas");
       canvas.width = 160;
       canvas.height = 80;
       const context = canvas.getContext("2d")!;
-      context.fillStyle = "#3a4a22";
+      context.fillStyle = `rgb(${index * 12}, ${40 + index * 8}, 32)`;
       context.fillRect(0, 0, 160, 80);
-      if (index === 1) {
-        // Same terrain family, much higher internal contrast: a landmark cell.
-        context.fillStyle = "#ddd8b0";
-        context.fillRect(0, 30, 160, 10);
-      }
       tiles.push(canvas);
     }
-    const area = { name: "Test Moor", level: 1, floorTiles: "test-terrain", baseFloorVariant: 0 };
+    const area = {
+      name: "Blood Moor",
+      level: 1,
+      floorTiles: "assets/d2survivors/maps/tiles/a1-tamoe-highland-floor-tiles.png",
+      baseFloorVariant: 6,
+    };
 
     const terrain = (component as any).campaignTerrainForArea(area, tiles);
 
-    expect(terrain.base).toEqual([0]);
-    expect(terrain.accents).toContain(1);
-    expect(terrain.accents).not.toContain(0);
+    expect(terrain.style).toBe("trail");
+    expect(terrain.ground).toEqual([6, 12, 3, 7, 9]);
+    expect(terrain.path).toEqual([11, 14, 0]);
+    expect(terrain.edge).toEqual([10, 4]);
+    expect(terrain.accents).toContain(5);
+    expect(terrain.base).toBe(6);
+  });
+
+  it("lays a coherent trail with more than one material instead of one repeated cell", () => {
+    const tiles: HTMLCanvasElement[] = [];
+    for (let index = 0; index < 16; index += 1) {
+      const canvas = document.createElement("canvas");
+      canvas.width = 160;
+      canvas.height = 80;
+      canvas.getContext("2d")!.fillRect(0, 0, 160, 80);
+      tiles.push(canvas);
+    }
+    const area = {
+      name: "Blood Moor",
+      level: 1,
+      floorTiles: "assets/d2survivors/maps/tiles/a1-tamoe-highland-floor-tiles.png",
+      baseFloorVariant: 6,
+    };
+    const terrain = (component as any).campaignTerrainForArea(area, tiles);
+    const flipped = (image: HTMLCanvasElement): HTMLCanvasElement =>
+      (component as any).campaignFlippedTile(image);
+    const cellIndex = (image: HTMLCanvasElement): number =>
+      tiles.findIndex((tile) => tile === image || flipped(tile) === image);
+    const used = new Set<number>();
+    let pathCells = 0;
+    for (let x = 0; x < 48; x += 1) {
+      for (let y = 0; y < 48; y += 1) {
+        const image = (component as any).campaignGroundTile(tiles, terrain, tiles[6], x, y, area) as HTMLCanvasElement;
+        const index = cellIndex(image);
+        used.add(index);
+        if (terrain.path.includes(index)) pathCells += 1;
+      }
+    }
+
+    expect(used.size).toBeGreaterThan(2);
+    expect(used).toContain(6);
+    expect(pathCells).toBeGreaterThan(100);
+    expect(pathCells).toBeLessThan(48 * 48 * 0.8);
+    const repeat = (component as any).campaignGroundTile(tiles, terrain, tiles[6], 12, 30, area);
+    const again = (component as any).campaignGroundTile(tiles, terrain, tiles[6], 12, 30, area);
+    expect(again).toBe(repeat);
   });
 
   it("clamps the campaign area index when the start-frame clock is invalid", () => {

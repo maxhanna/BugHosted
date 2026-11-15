@@ -1204,12 +1204,25 @@ interface CampaignArea {
   baseFloorVariant: number;
 }
 
-/** Ground cells that belong to one area's terrain family. */
-interface CampaignTerrainPool {
+type CampaignTerrainStyle = "trail" | "cavern" | "road" | "tomb";
+
+/** Authored material groups for one floor atlas. */
+interface CampaignTerrainProfile {
   /** Low-detail cells used for most of the ground. */
-  base: number[];
-  /** Contrasting cells (rocks, roots, plants) used as sparse landmarks. */
+  ground: number[];
+  /** Flatter, contrasting cells used for trails and clearings. */
+  path: number[];
+  /** Intermediate cells along the edge of a trail. */
+  edge: number[];
+  /** Rocks, roots, graves and plants placed in clusters off the walking line. */
   accents: number[];
+  /** How the trail network is laid out for this kind of zone. */
+  style: CampaignTerrainStyle;
+}
+
+interface CampaignTerrainPool extends CampaignTerrainProfile {
+  /** The atlas cell requested by the area, kept as a load fallback. */
+  base: number;
 }
 
 interface CampaignAct {
@@ -1254,9 +1267,37 @@ const A4_CITY_TILES = "assets/d2survivors/maps/tiles/a4-city-of-the-damned-floor
 const A4_CHAOS_TILES = "assets/d2survivors/maps/tiles/a4-chaos-sanctuary-floor-tiles.png";
 const A5_BLOODY_TILES = "assets/d2survivors/maps/tiles/a5-bloody-foothills-floor-tiles.png";
 const A5_CRYSTALLINE_TILES = "assets/d2survivors/maps/tiles/a5-crystalline-passage-floor-tiles.png";
+const A6_FORGOTTEN_TILES = "assets/d2survivors/maps/tiles/a6-forgotten-sands-floor-tiles.png";
+const A7_MATRONS_TILES = "assets/d2survivors/maps/tiles/a7-matrons-den-floor-tiles.png";
 // Act 8 is a render of the original tri_town4.ds1 preset using the D2R
 // classic DT1 tiles.  The atlas is the fallback while the backdrop decodes.
 const A8_TILES = "assets/d2survivors/maps/tiles/a8-uber-tristram-floor-tiles.png";
+/**
+ * Material groups per floor atlas, read from the authored 4x4 sheets.  Keeping
+ * dirt, grass, stone and snow apart lets the renderer build a zone instead of
+ * scattering every cell in the atlas over the ground as if they were all the
+ * same material.
+ */
+const CAMPAIGN_TERRAIN_PROFILES: Record<string, CampaignTerrainProfile> = {
+  [A1_TAMOE_TILES]: { ground: [6, 12, 3, 7, 9], path: [11, 14, 0], edge: [10, 4], accents: [1, 2, 4, 5, 13, 15], style: "trail" },
+  [A1_CATACOMBS_TILES]: { ground: [8, 7, 14, 5], path: [10, 12, 14], edge: [13, 9, 15], accents: [11, 4, 2, 3], style: "cavern" },
+  [A2_SEWERS_TILES]: { ground: [7, 8, 5, 0, 1], path: [10, 5, 8], edge: [9, 6, 2], accents: [11, 3, 15, 4], style: "cavern" },
+  [A2_TAL_RASHAS_TILES]: { ground: [0, 2, 4, 6, 10, 14], path: [1, 15, 7], edge: [10, 11, 12], accents: [3, 9, 13, 8, 11], style: "tomb" },
+  [A2_TILES]: { ground: [2, 9, 10, 12], path: [0, 1, 4], edge: [5, 6, 14], accents: [3, 7, 8, 11, 13, 15], style: "trail" },
+  [A3_TILES]: { ground: [5, 2, 8], path: [1, 6, 10, 14], edge: [0, 4, 9, 11], accents: [3, 7, 12, 13, 15], style: "cavern" },
+  [A3_FLAYER_TILES]: { ground: [8, 5, 2, 10, 14], path: [1, 6, 12], edge: [0, 9, 11], accents: [3, 4, 7, 13, 15], style: "trail" },
+  [A3_DURANCE_TILES]: { ground: [0, 4, 6, 8, 12], path: [1, 10, 14], edge: [5, 7, 11], accents: [2, 3, 9, 13, 15], style: "road" },
+  [A4_TILES]: { ground: [8, 0, 4, 5, 9], path: [6, 10, 12], edge: [1, 3], accents: [2, 7, 11, 13, 14, 15], style: "trail" },
+  [A4_CITY_TILES]: { ground: [13, 1, 2, 4, 10, 15], path: [6, 8, 12], edge: [0, 3, 9], accents: [5, 7, 11, 14], style: "road" },
+  [A4_CHAOS_TILES]: { ground: [9, 1, 3, 4, 6, 8, 12], path: [5, 7, 13], edge: [0, 3], accents: [2, 10, 11, 14, 15], style: "cavern" },
+  [A5_BLOODY_TILES]: { ground: [2, 4, 6, 11, 12, 14], path: [5, 13, 9], edge: [1, 7, 3], accents: [0, 8, 10, 15], style: "trail" },
+  [A5_CRYSTALLINE_TILES]: { ground: [0, 3, 7, 9, 14, 15], path: [11, 13], edge: [2, 4, 6, 10, 12], accents: [1, 5, 8], style: "cavern" },
+  [A5_TILES]: { ground: [13, 5], path: [1, 12, 3], edge: [0, 7, 15], accents: [2, 4, 6, 8, 9, 10, 11, 14], style: "road" },
+  [A6_FORGOTTEN_TILES]: { ground: [2, 4, 8, 11, 12, 15], path: [0, 1, 6], edge: [3, 7, 10, 14], accents: [5, 9, 13], style: "trail" },
+  [A7_MATRONS_TILES]: { ground: [1, 2, 5, 6, 10, 14], path: [4, 8, 12], edge: [0, 9, 11], accents: [3, 7, 13, 15], style: "cavern" },
+  [A8_TILES]: { ground: [0, 2, 5, 7, 9, 13, 15], path: [4, 6, 8, 10, 11, 12], edge: [1, 3], accents: [], style: "road" },
+};
+
 const A8_WALL_ATLAS = "assets/d2survivors/maps/a8-tristram-walls.png";
 const A8_WALL_LAYOUT = "assets/d2survivors/maps/a8-tristram-walls.json";
 const TRISTRAM_BACKDROP_TILE_WIDTH = 160;
@@ -1342,11 +1383,11 @@ const CAMPAIGN_ACTS: CampaignAct[] = [
   ] },
   // Pandemonium event: three level-83 areas with souped-up act bosses. Killing
   // all three clears the campaign, so these only open once Baal has fallen.
-  { act: 6, name: "Forgotten Sands", region: "The Pandemonium Event", levelLabel: "Forgotten Sands", map: "assets/d2survivors/maps/act2-caves.png", mapAlpha: true, backdrop: "assets/d2survivors/maps/act2-caves.png", floorTiles: A2_TAL_RASHAS_TILES, baseFloorVariant: 1, enemies: ["sandRaider", "sandMaggot", "scarab", "leaper", "spikeFiend"], boss: "duriel", uber: true, areas: [
-    { name: "Forgotten Sands", level: 83, floorTiles: A2_TAL_RASHAS_TILES, baseFloorVariant: 1 },
+  { act: 6, name: "Forgotten Sands", region: "The Pandemonium Event", levelLabel: "Forgotten Sands", map: "assets/d2survivors/maps/act2-caves.png", mapAlpha: true, backdrop: "assets/d2survivors/maps/act2-caves.png", floorTiles: A6_FORGOTTEN_TILES, baseFloorVariant: 2, enemies: ["sandRaider", "sandMaggot", "scarab", "leaper", "spikeFiend"], boss: "duriel", uber: true, areas: [
+    { name: "Forgotten Sands", level: 83, floorTiles: A6_FORGOTTEN_TILES, baseFloorVariant: 2 },
   ] },
-  { act: 7, name: "Matron's Den", region: "The Pandemonium Event", levelLabel: "Matron's Den", map: "assets/d2survivors/maps/act1-barracks.png", mapAlpha: true, backdrop: "assets/d2survivors/maps/act1-barracks.png", floorTiles: A1_TILES, baseFloorVariant: 1, enemies: ["fallen", "goatman", "skeleton", "fetish", "boneFetish"], boss: "andariel", uber: true, areas: [
-    { name: "Matron's Den", level: 83, floorTiles: A1_TILES, baseFloorVariant: 1 },
+  { act: 7, name: "Matron's Den", region: "The Pandemonium Event", levelLabel: "Matron's Den", map: "assets/d2survivors/maps/act1-barracks.png", mapAlpha: true, backdrop: "assets/d2survivors/maps/act1-barracks.png", floorTiles: A7_MATRONS_TILES, baseFloorVariant: 1, enemies: ["fallen", "goatman", "skeleton", "fetish", "boneFetish"], boss: "andariel", uber: true, areas: [
+    { name: "Matron's Den", level: 83, floorTiles: A7_MATRONS_TILES, baseFloorVariant: 1 },
   ] },
   { act: 8, name: "Uber Tristram", region: "The Pandemonium Event", levelLabel: "Tristram", map: "assets/d2survivors/maps/a8-tristram-backdrop.png", mapAlpha: true, backdrop: "assets/d2survivors/maps/a8-tristram-backdrop.png", floorTiles: A8_TILES, baseFloorVariant: 0, enemies: ["fallen", "goatman", "skeleton", "council", "spikeFiend"], boss: "diablo", bosses: ["diablo", "mephisto", "baal"], uber: true, areas: [
     { name: "Tristram", level: 83, floorTiles: A8_TILES, baseFloorVariant: 0 },
@@ -2932,78 +2973,20 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   /**
-   * Splits one atlas into a terrain family rather than treating all sixteen
-   * cells as interchangeable.  Cells close to the authored base colour with
-   * little internal contrast form the ground; matching high-contrast cells
-   * become rare landmarks instead of covering the whole zone.
+   * Looks up the authored material groups for an area's atlas.  Profiles are
+   * explicit so that dirt is never used as grass, and rocks or graves are only
+   * placed as landmarks instead of becoming the floor.
    */
   private campaignTerrainForArea(area: CampaignArea, tiles: HTMLCanvasElement[]): CampaignTerrainPool | undefined {
     if (!tiles.length) return undefined;
-    // A named zone may still be showing the act's fallback atlas while its own
-    // image decodes.  Include the atlas source in the key so that fallback
-    // statistics are never reused as the zone's final terrain family.
-    const usingAreaAtlas = tiles !== this.campaignTileBitmaps[this.currentAct];
-    const key = `${area.floorTiles}:${area.baseFloorVariant}:${usingAreaAtlas ? "area" : "act"}`;
+    const key = `${area.floorTiles}:${area.baseFloorVariant}`;
     const cached = this.campaignTerrainPools.get(key);
     if (cached) return cached;
-    const stats: Array<{
-      index: number; red: number; green: number; blue: number;
-      variance: number; coverage: number; distance: number;
-    }> = [];
-    for (let index = 0; index < tiles.length; index += 1) {
-      const tile = tiles[index];
-      const context = tile.getContext("2d", { willReadFrequently: true });
-      if (!context) continue;
-      const data = context.getImageData(0, 0, tile.width, tile.height).data;
-      let sumLuma = 0;
-      let sumLumaSquared = 0;
-      let sumRed = 0;
-      let sumGreen = 0;
-      let sumBlue = 0;
-      let visible = 0;
-      for (let offset = 0; offset < data.length; offset += 4) {
-        if (data[offset + 3] < 24) continue;
-        const luma = data[offset] * 0.299 + data[offset + 1] * 0.587 + data[offset + 2] * 0.114;
-        sumLuma += luma;
-        sumLumaSquared += luma * luma;
-        sumRed += data[offset];
-        sumGreen += data[offset + 1];
-        sumBlue += data[offset + 2];
-        visible += 1;
-      }
-      if (!visible) continue;
-      const total = tile.width * tile.height;
-      const mean = sumLuma / visible;
-      stats.push({
-        index,
-        red: sumRed / visible,
-        green: sumGreen / visible,
-        blue: sumBlue / visible,
-        variance: Math.max(0, sumLumaSquared / visible - mean * mean),
-        coverage: visible / total,
-        distance: 0,
-      });
-    }
-    if (!stats.length) return undefined;
-    const baseIndex = Math.max(0, Math.min(tiles.length - 1, area.baseFloorVariant));
-    const base = stats.find((entry) => entry.index === baseIndex) ?? stats[0];
-    for (const entry of stats) {
-      entry.distance = Math.abs(entry.red - base.red)
-        + Math.abs(entry.green - base.green)
-        + Math.abs(entry.blue - base.blue);
-    }
-    // Keep the authored base cell alone.  Selecting "similar" cells by colour
-    // or variance still picks up bones, branches and rocks, which the large
-    // overlapping floor draw turns into a visible repeating grid.
-    const basePool = [base.index];
-    const accents = stats
-      .filter((entry) => entry.coverage >= 0.12
-        && entry.distance <= 92
-        && entry.variance >= Math.max(base.variance * 1.65 + 18, 60))
-      .sort((a, b) => a.distance - b.distance)
-      .slice(0, 4)
-      .map((entry) => entry.index);
-    const pool: CampaignTerrainPool = { base: basePool, accents };
+    const base = Math.max(0, Math.min(15, area.baseFloorVariant));
+    const authored = CAMPAIGN_TERRAIN_PROFILES[area.floorTiles];
+    const pool: CampaignTerrainPool = authored
+      ? { ...authored, base }
+      : { ground: [base], path: [base], edge: [base], accents: [], style: "trail", base };
     this.campaignTerrainPools.set(key, pool);
     return pool;
   }
@@ -3033,6 +3016,44 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     return flipped;
   }
 
+  /** Stable per-zone seed so each area composes a different landscape. */
+  private campaignAreaSeed(area: CampaignArea): number {
+    let nameSeed = 0;
+    for (let index = 0; index < area.name.length; index += 1) {
+      nameSeed = Math.imul(nameSeed, 31) + area.name.charCodeAt(index);
+    }
+    return Math.imul(this.currentAct, 4099)
+      + Math.imul(area.level, 131)
+      + Math.imul(area.baseFloorVariant, 17)
+      + (nameSeed & 0x7fffffff);
+  }
+
+  /**
+   * Value noise used to make terrain patches and trail edges contiguous rather
+   * than salt-and-pepper.  Coordinates are world tile indices, so the layout is
+   * stable while the camera and chunk scroll over it.
+   */
+  private campaignValueNoise(worldTileX: number, worldTileY: number, seed: number, scale: number): number {
+    const x = worldTileX / scale;
+    const y = worldTileY / scale;
+    const x0 = Math.floor(x);
+    const y0 = Math.floor(y);
+    const tx = x - x0;
+    const ty = y - y0;
+    const smoothX = tx * tx * (3 - 2 * tx);
+    const smoothY = ty * ty * (3 - 2 * ty);
+    const top = this.campaignHash(x0, y0, seed) * (1 - smoothX)
+      + this.campaignHash(x0 + 1, y0, seed) * smoothX;
+    const bottom = this.campaignHash(x0, y0 + 1, seed) * (1 - smoothX)
+      + this.campaignHash(x0 + 1, y0 + 1, seed) * smoothX;
+    return top * (1 - smoothY) + bottom * smoothY;
+  }
+
+  /**
+   * Builds a floor cell from the zone's material groups: a winding trail with
+   * a softer edge, broad clearings, ground variants selected in contiguous
+   * patches, and clustered props kept off the walking surface.
+   */
   private campaignGroundTile(
     tiles: HTMLCanvasElement[],
     terrain: CampaignTerrainPool | undefined,
@@ -3042,19 +3063,70 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     area: CampaignArea,
   ): HTMLCanvasElement | undefined {
     if (!tiles.length) return fallback;
-    const seed = this.currentAct * 4099 + area.level * 131 + area.baseFloorVariant * 17;
-    const baseIndex = terrain?.base[0] ?? Math.max(0, Math.min(15, area.baseFloorVariant));
-    let image = tiles[baseIndex] ?? fallback;
-    const accents = terrain?.accents;
-    if (accents?.length) {
-      // A single rare landmark avoids turning the atlas's decorative cells
-      // into a field of evenly spaced copies.
-      const landmark = this.campaignHash(worldTileX, worldTileY, seed + 211);
-      if (landmark > 0.994) {
-        const choice = this.campaignHash(worldTileX, worldTileY, seed + 223);
-        image = tiles[accents[Math.floor(choice * accents.length) % accents.length]] ?? image;
+    if (!terrain) return tiles[Math.max(0, Math.min(15, area.baseFloorVariant))] ?? fallback;
+    const seed = this.campaignAreaSeed(area);
+    const style = terrain.style;
+    const phase = (seed % 997) / 997 * Math.PI * 2;
+    const mainTrail = Math.abs(worldTileY - (
+      Math.sin(worldTileX * 0.11 + phase) * 2.6
+      + Math.sin(worldTileX * 0.035 + phase * 1.9) * 5.2
+      + Math.sin(worldTileX * 0.008 + phase) * 8
+    ));
+    let branchTrail = Number.POSITIVE_INFINITY;
+    if (style === "road") {
+      branchTrail = Math.abs(worldTileX - (
+        Math.sin(worldTileY * 0.09 + phase * 2.1) * 4.5
+        + Math.sin(worldTileY * 0.03 + phase) * 7 + 9
+      ));
+    } else if (style === "tomb") {
+      if (this.campaignValueNoise(worldTileX, worldTileY, seed + 51, 9) > 0.55) {
+        branchTrail = Math.abs(worldTileX - (
+          Math.sin(worldTileY * 0.06 + phase * 2.1) * 3 + 9
+        ));
+      }
+    } else if (style === "trail") {
+      if (this.campaignValueNoise(worldTileX, worldTileY, seed + 51, 9) > 0.5) {
+        branchTrail = Math.abs(worldTileX - (
+          Math.sin(worldTileY * 0.09 + phase * 2.1) * 4.5
+          + Math.sin(worldTileY * 0.03 + phase) * 7 + 9
+        ));
       }
     }
+    const trailWidth = style === "road" ? 2.8 : style === "tomb" ? 2 : style === "cavern" ? 1.9 : 2.2;
+    const edgeWobble = (this.campaignValueNoise(worldTileX, worldTileY, seed + 97, 2.5) - 0.5) * 2;
+    const trailDistance = Math.min(mainTrail, branchTrail) + edgeWobble;
+    const broad = this.campaignValueNoise(worldTileX, worldTileY, seed + 71, 7);
+    let isPath = trailDistance < trailWidth;
+    if (!isPath && style === "cavern") isPath = broad > 0.76 && trailDistance < trailWidth + 3.5;
+    else if (!isPath && style === "tomb") isPath = broad > 0.79 && trailDistance < trailWidth + 3;
+    else if (!isPath && style === "trail") isPath = broad > 0.78 && trailDistance < trailWidth + 3;
+    else if (!isPath && style === "road") isPath = broad > 0.82;
+    let pool: number[];
+    let noiseSeed: number;
+    let noiseScale: number;
+    if (isPath && terrain.path.length) {
+      pool = terrain.path;
+      noiseSeed = seed + 131;
+      noiseScale = 2.2;
+    } else if (!isPath && trailDistance < trailWidth + 1.7 && terrain.edge.length) {
+      pool = terrain.edge;
+      noiseSeed = seed + 149;
+      noiseScale = 1.8;
+    } else {
+      pool = terrain.ground;
+      noiseSeed = seed + 167;
+      noiseScale = 5;
+    }
+    let index = pool[Math.min(pool.length - 1,
+      Math.floor(this.campaignValueNoise(worldTileX, worldTileY, noiseSeed, noiseScale) * pool.length))];
+    // Few, clustered outcrops read as rock fields and thickets.  Props are kept
+    // off the trail so the walked line stays continuous and readable.
+    if (!isPath && terrain.accents.length && trailDistance > trailWidth + 0.8
+      && this.campaignValueNoise(worldTileX, worldTileY, seed + 211, 2.8) > 0.8) {
+      const choice = this.campaignValueNoise(worldTileX, worldTileY, seed + 223, 4);
+      index = terrain.accents[Math.min(terrain.accents.length - 1, Math.floor(choice * terrain.accents.length))];
+    }
+    let image = tiles[index] ?? tiles[terrain.base] ?? fallback;
     if (image && this.campaignHash(worldTileX, worldTileY, seed + 307) > 0.5) {
       image = this.campaignFlippedTile(image);
     }
@@ -3500,36 +3572,60 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           overlayPixels[offset + 2] = brighten(blue);
         }
       }
-      // Atlas cells contain a transparent horizontal seam inside the diamond.
-      // At the oversized tile draw it becomes a repeating dark chevron across
-      // the ground, so fill only those interior holes from the nearest opaque
-      // row above or below.  Outside-of-diamond transparency is left intact.
+      // Atlas cells are not all aligned to the same diamond: some crops carry
+      // a flat strip of the tile above or an extra lip of a raised edge.  Tiled
+      // at the game's spacing those strips become the visible chevron grid.
+      // Keep only the authored diamond, then fill every transparent hole inside
+      // it from the nearest opaque pixel so no seams show between tiles.
       const halfWidth = width / 2;
       const halfHeight = height / 2;
+      const insideDiamond = (x: number, y: number): boolean =>
+        Math.abs(x + 0.5 - halfWidth) / halfWidth
+        + Math.abs(y + 0.5 - halfHeight) / halfHeight <= 0.94;
+      const fillQueue = new Int32Array(width * height);
+      const fillSeen = new Uint8Array(width * height);
+      let fillHead = 0;
+      let fillTail = 0;
       for (let y = 0; y < height; y += 1) {
         for (let x = 0; x < width; x += 1) {
-          const offset = (y * width + x) * 4;
-          if (overlayPixels[offset + 3] > 0) continue;
-          if (Math.abs(x + 0.5 - halfWidth) / halfWidth
-            + Math.abs(y + 0.5 - halfHeight) / halfHeight > 1.02) continue;
-          let sourceOffset = -1;
-          for (let distance = 1; distance < height; distance += 1) {
-            const above = y - distance;
-            const below = y + distance;
-            if (above >= 0 && overlayPixels[(above * width + x) * 4 + 3] > 0) {
-              sourceOffset = (above * width + x) * 4;
-              break;
-            }
-            if (below < height && overlayPixels[(below * width + x) * 4 + 3] > 0) {
-              sourceOffset = (below * width + x) * 4;
-              break;
-            }
+          const pixelIndex = y * width + x;
+          if (overlayPixels[pixelIndex * 4 + 3] > 0) {
+            fillSeen[pixelIndex] = 1;
+            fillQueue[fillTail++] = pixelIndex;
           }
-          if (sourceOffset < 0) continue;
+        }
+      }
+      while (fillHead < fillTail) {
+        const pixelIndex = fillQueue[fillHead++];
+        const x = pixelIndex % width;
+        const y = Math.floor(pixelIndex / width);
+        const sourceOffset = pixelIndex * 4;
+        const neighbours = [
+          x > 0 ? pixelIndex - 1 : -1,
+          x + 1 < width ? pixelIndex + 1 : -1,
+          y > 0 ? pixelIndex - width : -1,
+          y + 1 < height ? pixelIndex + width : -1,
+        ];
+        for (const neighbour of neighbours) {
+          if (neighbour < 0 || fillSeen[neighbour]) continue;
+          const nx = neighbour % width;
+          const ny = Math.floor(neighbour / width);
+          if (!insideDiamond(nx, ny)) continue;
+          fillSeen[neighbour] = 1;
+          const offset = neighbour * 4;
           overlayPixels[offset] = overlayPixels[sourceOffset];
           overlayPixels[offset + 1] = overlayPixels[sourceOffset + 1];
           overlayPixels[offset + 2] = overlayPixels[sourceOffset + 2];
           overlayPixels[offset + 3] = 255;
+          fillQueue[fillTail++] = neighbour;
+        }
+      }
+      // Drop the surplus lip/band outside the diamond after its colour has been
+      // used to fill the floor.
+      for (let y = 0; y < height; y += 1) {
+        for (let x = 0; x < width; x += 1) {
+          if (insideDiamond(x, y)) continue;
+          overlayPixels[(y * width + x) * 4 + 3] = 0;
         }
       }
       tileContext.putImageData(pixels, 0, 0);
@@ -7583,8 +7679,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       return;
     }
     if (skill === "Frozen Armor") {
-      // This is a persistent defensive buff, not an attack or a retaliatory spell.
-      this.addSkillVisualEffect(skill);
+      // The imported armor overlay is the whole visual; D2 does not print the
+      // spell name or draw a cast ring around the hero.
       return;
     }
     if (skill === "Holy Shield" && this.selectedClass === "paladin") {
@@ -14660,6 +14756,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (isPassiveSkill(skillName)) return;
     const definition = getClassSkills(this.selectedClass).find((entry) => entry.name === skillName);
     const kind = definition?.visual ?? getD2SkillVisual(skillName);
+    // Auras and summons use their imported sprite overlays.  They do not get a
+    // synthetic cast circle or a floating spell label on the hero.
+    if (kind === "aura" || kind === "summon") return;
     const targetDistance = target ? Math.hypot(target.x - this.playerX, target.y - this.playerY) || 1 : 1;
     const effectTarget = target && (kind === "projectile" || kind === "strike") ? target : undefined;
     const facingX = effectTarget ? (effectTarget.x - this.playerX) / targetDistance : this.playerFacingX;
@@ -14677,7 +14776,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       targetEnemy: !!effectTarget && HOMING_SKILLS.has(skillName),
       stationary: !!effectTarget && skillName === "Fire Blast",
       time: 0,
-      duration: kind === "summon" ? 1.8 : kind === "projectile"
+      duration: kind === "projectile"
         ? (effectTarget ? Math.min(0.9, Math.max(0.32, targetDistance / 520)) : 0.9)
         : 1.25,
       color: this.skillVisualColorForName(skillName, kind),
@@ -15076,23 +15175,17 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const canvas = this.skillEffectsCanvasRef?.nativeElement;
     const dpr = canvas?.clientWidth ? canvas.width / canvas.clientWidth : 1;
     const radius = (effect.fieldRadius ?? STATIC_FIELD_BASE_RADIUS) * this.worldZoom;
-    const radiusX = radius * 0.7071 * dpr;
-    const radiusY = radius * 0.35355 * dpr;
-    const expansion = 0.7 + progress * 0.3;
-    ctx.save();
-    ctx.translate(center.x, center.y);
-    ctx.globalCompositeOperation = "lighter";
-    ctx.strokeStyle = effect.color || STATIC_FIELD_COLOR;
-    ctx.shadowColor = effect.color || STATIC_FIELD_COLOR;
-    ctx.shadowBlur = Math.max(8, 14 * dpr);
-    ctx.lineWidth = Math.max(1, 2 * dpr);
-    for (let ring = 0; ring < 2; ring += 1) {
-      ctx.globalAlpha = fade * (0.8 - ring * 0.28);
-      ctx.beginPath();
-      ctx.ellipse(0, 0, radiusX * expansion * (1 - ring * 0.08), radiusY * expansion * (1 - ring * 0.08), 0, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-    ctx.restore();
+    // The imported ElectricNova DCC already contains the expanding arcs.
+    this.drawImportedMissileFrame(
+      ctx,
+      "d2-elecnovaa",
+      effect.time,
+      center.x,
+      center.y - 6 * dpr,
+      radius * 2 * 0.7071 * dpr * (0.7 + progress * 0.3),
+      0,
+      fade * 0.9,
+    );
   }
 
   private drawLightningRail(ctx: CanvasRenderingContext2D, effect: SkillVisualEffect): void {
@@ -15100,82 +15193,29 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (!canvas) return;
     const dpr = canvas.clientWidth ? canvas.width / canvas.clientWidth : 1;
     const origin = this.projectArenaPoint(effect.x, effect.y);
-    const direction = this.projectArenaPoint(effect.x + effect.facingX, effect.y + effect.facingY);
-    const dx = direction.x - origin.x;
-    const dy = direction.y - origin.y;
-    const directionLength = Math.hypot(dx, dy);
-    if (directionLength <= 0.001) return;
-    const unitX = dx / directionLength;
-    const unitY = dy / directionLength;
-    const startX = origin.x;
-    const startY = origin.y - 14 * dpr;
-    // Intersect the projected aim ray with the actual canvas rectangle, so the
-    // bolt reaches the screen edge immediately instead of stopping at a target.
-    const edgeDistanceX = unitX > 0 ? (canvas.width - startX) / unitX
-      : unitX < 0 ? -startX / unitX : Number.POSITIVE_INFINITY;
-    const edgeDistanceY = unitY > 0 ? (canvas.height - startY) / unitY
-      : unitY < 0 ? -startY / unitY : Number.POSITIVE_INFINITY;
-    const reach = Math.max(0, Math.min(edgeDistanceX, edgeDistanceY));
-    if (reach <= 1) return;
+    const target = this.projectArenaPoint(effect.targetX, effect.targetY);
+    const dx = target.x - origin.x;
+    const dy = target.y - origin.y;
+    const length = Math.hypot(dx, dy);
+    if (length <= 1) return;
     const fade = Math.min(1, Math.max(0, (effect.duration - effect.time) / 0.12));
     if (fade <= 0.01) return;
-    const phase = Math.floor(effect.time * 60);
-    const segments = 22;
-
-    ctx.save();
-    ctx.globalCompositeOperation = "lighter";
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    ctx.shadowColor = LIGHTNING_RAIL_COLOR;
-    const layers = [
-      { width: 18, alpha: 0.15, amplitude: 17, color: LIGHTNING_RAIL_COLOR, blur: 26 },
-      { width: 7, alpha: 0.55, amplitude: 13, color: "#8ecfff", blur: 16 },
-      { width: 2.5, alpha: 0.96, amplitude: 9, color: "#f5fbff", blur: 8 },
-    ];
-    for (let layerIndex = 0; layerIndex < layers.length; layerIndex += 1) {
-      const layer = layers[layerIndex];
-      ctx.globalAlpha = fade * layer.alpha;
-      ctx.strokeStyle = layer.color;
-      ctx.lineWidth = layer.width * dpr;
-      ctx.shadowBlur = layer.blur * dpr;
-      ctx.beginPath();
-      for (let segment = 0; segment <= segments; segment += 1) {
-        const progress = segment / segments;
-        const taper = Math.sin(Math.PI * progress);
-        const jitter = Math.sin(effect.seed * 0.17 + phase * 2.3 + segment * 12.9898 + layerIndex * 17.7)
-          * layer.amplitude * dpr * taper;
-        const x = startX + unitX * reach * progress - unitY * jitter;
-        const y = startY + unitY * reach * progress + unitX * jitter;
-        if (segment === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      }
-      ctx.stroke();
+    const angle = Math.atan2(dy, dx);
+    // Stagger the original LightningBolt cels along the aimed line; the DCC
+    // supplies the jagged bolt, so no glow polyline or fork is generated here.
+    for (let index = 0; index < 3; index += 1) {
+      const along = 0.55 + index * 0.22;
+      this.drawImportedMissileFrame(
+        ctx,
+        "d2-lightningbolt",
+        effect.time + index * 0.03,
+        origin.x + dx * along,
+        origin.y + dy * along - 10 * dpr,
+        72 * dpr,
+        angle + Math.PI / 2,
+        fade * (0.9 - index * 0.18),
+      );
     }
-
-    // Two short forks keep the rail reading as lightning rather than a beam.
-    for (let fork = 0; fork < 2; fork += 1) {
-      const startProgress = 0.52 + fork * 0.18;
-      const forkLength = reach * (0.17 + fork * 0.06);
-      const forkX = startX + unitX * reach * startProgress;
-      const forkY = startY + unitY * reach * startProgress;
-      const forkOffset = (fork === 0 ? -1 : 1) * (22 + 9 * Math.sin(phase * 1.7 + fork)) * dpr;
-      ctx.globalAlpha = fade * 0.45;
-      ctx.strokeStyle = "#dff4ff";
-      ctx.lineWidth = 1.7 * dpr;
-      ctx.shadowBlur = 10 * dpr;
-      ctx.beginPath();
-      ctx.moveTo(forkX, forkY);
-      ctx.lineTo(forkX + unitX * forkLength - unitY * forkOffset, forkY + unitY * forkLength + unitX * forkOffset);
-      ctx.stroke();
-    }
-
-    ctx.globalAlpha = fade * 0.8;
-    ctx.fillStyle = "#f5fbff";
-    ctx.shadowBlur = 18 * dpr;
-    ctx.beginPath();
-    ctx.arc(startX, startY, 5 * dpr, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
   }
 
   private drawFrostNovaRing(ctx: CanvasRenderingContext2D, effect: SkillVisualEffect, center: { x: number; y: number }): void {
@@ -15244,37 +15284,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const dpr = canvas?.clientWidth ? canvas.width / canvas.clientWidth : 1;
     const fade = Math.min(1, effect.time * 12, Math.max(0, (effect.duration - effect.time) * 10));
     if (fade <= 0.01) return;
-    const pulse = 0.86 + Math.sin(effect.time * 38 + effect.seed) * 0.1;
     ctx.save();
     ctx.translate(origin.x, origin.y - 10);
     ctx.rotate(angle);
     ctx.globalCompositeOperation = "lighter";
 
-    const cone = ctx.createLinearGradient(0, 0, length, 0);
-    cone.addColorStop(0, "rgba(255, 245, 190, 0.9)");
-    cone.addColorStop(0.22, "rgba(255, 172, 54, 0.5)");
-    cone.addColorStop(0.7, "rgba(255, 92, 24, 0.22)");
-    cone.addColorStop(1, "rgba(120, 28, 0, 0)");
-    ctx.globalAlpha = fade * 0.4 * pulse;
-    ctx.fillStyle = cone;
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.lineTo(length, -halfWidth);
-    ctx.lineTo(length, halfWidth);
-    ctx.closePath();
-    ctx.fill();
-
-    ctx.globalAlpha = fade * (0.75 + 0.15 * pulse);
-    ctx.strokeStyle = "#ffd27a";
-    ctx.shadowColor = "#ff6a1f";
-    ctx.shadowBlur = 18 * dpr;
-    ctx.lineWidth = Math.max(2, (5 + 2 * pulse) * dpr);
-    ctx.lineCap = "round";
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.lineTo(length, 0);
-    ctx.stroke();
-
+    // Only the imported flame cels fill the cone: no gradient wedge, centre
+    // beam or generated embers.
     const image = this.ensureInfernoSheet();
     if (image.complete && image.naturalWidth > 0) {
       const art = INFERNO_ART;
@@ -15297,16 +15313,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       }
     }
 
-    ctx.globalAlpha = fade * 0.8;
-    ctx.fillStyle = "#ffd76a";
-    for (let ember = 0; ember < 8; ember += 1) {
-      const along = Math.max(0.1, Math.min(0.98, (effect.time * 2.8 + ember * 0.11) % 1));
-      const spread = Math.sin(effect.time * 19 + ember * 2.1) * halfWidth * 0.4 * along;
-      const emberSize = (1.2 + (ember % 3) * 0.7) * dpr;
-      ctx.beginPath();
-      ctx.ellipse(along * length, spread, emberSize * 1.5, emberSize * 0.7, 0, 0, Math.PI * 2);
-      ctx.fill();
-    }
     ctx.restore();
   }
 
@@ -16727,48 +16733,21 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const canvas = this.skillEffectsCanvasRef?.nativeElement;
     const dpr = canvas?.clientWidth ? canvas.width / canvas.clientWidth : 1;
     const radius = (effect.fieldRadius ?? 115) * this.worldZoom;
-    const radiusX = radius * 0.7071 * dpr;
-    const radiusY = radius * 0.35355 * dpr;
-    const fade = effect.time > effect.duration - 0.7
-      ? Math.max(0, (effect.duration - effect.time) / 0.7)
-      : Math.min(1, effect.time / 0.35);
-    const pulse = 0.94 + Math.sin(performance.now() * 0.003 + effect.seed) * 0.06;
-
-    ctx.save();
-    ctx.translate(center.x, center.y);
-    ctx.globalAlpha = fade;
-    const field = ctx.createRadialGradient(0, 0, radiusY * 0.12, 0, 0, radiusX);
-    field.addColorStop(0, "rgba(64, 35, 99, 0.08)");
-    field.addColorStop(0.62, "rgba(65, 39, 103, 0.18)");
-    field.addColorStop(1, "rgba(31, 22, 49, 0.04)");
-    ctx.fillStyle = field;
-    ctx.beginPath();
-    ctx.ellipse(0, 0, radiusX, radiusY, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.globalCompositeOperation = "lighter";
-    ctx.lineWidth = Math.max(1, 1.4 * dpr);
-    for (let ring = 0; ring < 3; ring += 1) {
-      const phase = performance.now() * 0.00045 + ring * Math.PI * 2 / 3;
-      ctx.globalAlpha = fade * (0.24 + ring * 0.08);
-      ctx.strokeStyle = ring === 1 ? "#d0a9ff" : "#9c70d5";
-      ctx.shadowColor = effect.color;
-      ctx.shadowBlur = 9 * dpr;
-      ctx.beginPath();
-      ctx.ellipse(0, 0, radiusX * (0.74 + ring * 0.1) * pulse, radiusY * (0.74 + ring * 0.1) * pulse, phase, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-    for (let wisp = 0; wisp < 9; wisp += 1) {
-      const angle = performance.now() * 0.00035 + wisp * Math.PI * 2 / 9 + effect.seed;
-      const x = Math.cos(angle) * radiusX * (0.52 + 0.32 * Math.sin(angle * 2));
-      const y = Math.sin(angle) * radiusY * (0.52 + 0.28 * Math.cos(angle * 3));
-      ctx.globalAlpha = fade * (0.28 + 0.14 * Math.sin(performance.now() * 0.002 + wisp));
-      ctx.fillStyle = wisp % 2 ? "#c9a2ff" : effect.color;
-      ctx.beginPath();
-      ctx.arc(x, y, (2.2 + (wisp % 3)) * dpr, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.restore();
+    const fade = effect.time > effect.duration - 0.4
+      ? Math.max(0, (effect.duration - effect.time) / 0.4)
+      : Math.min(1, effect.time / 0.2);
+    // The imported curse DCC is the whole cast effect; no translucent field or
+    // orbiting wisps are generated underneath it.
+    this.drawImportedMissileFrame(
+      ctx,
+      "d2-cursecast",
+      effect.time,
+      center.x,
+      center.y - 8 * dpr,
+      radius * 2 * 0.7071 * dpr,
+      0,
+      fade * 0.92,
+    );
   }
 
   private drawBoneFetishExplosion(
@@ -16937,14 +16916,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.drawBladeSentinelAura(ctx, effect);
       return;
     }
-    if (effect.teleport) {
-      this.drawDragonTalonTeleport(ctx, origin, target, progress, fade);
-      return;
-    }
-    if (effect.impact) {
-      this.drawDragonTailImpact(ctx, origin, progress, fade);
-      return;
-    }
+    // Talon/Tail movement and impact arcs were hand-drawn vectors.  There is no
+    // authored overlay for them in the D2R extraction, so show nothing rather
+    // than an invented circle around the hero.
+    if (effect.teleport || effect.impact) return;
     if (effect.curseField) {
       this.drawNecromancerCurseField(ctx, effect, this.projectArenaPoint(effect.x, effect.y));
       return;
@@ -16957,142 +16932,57 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.drawArcticBlastStream(ctx, effect);
       return;
     }
+    if (effect.kind === "trap") {
+      // Planted Assassin traps draw the imported sentry turret art.  If it has
+      // not decoded yet, wait instead of drawing a synthetic rune square.
+      const animationFrame = Math.floor(performance.now() / 60);
+      const sentryRow = this.sentryFrames[0];
+      const sentryFrame = sentryRow?.length
+        ? sentryRow[animationFrame % sentryRow.length]
+        : undefined;
+      if (!sentryFrame) return;
+      const sentrySize = (22 + progress * 76) * 3;
+      ctx.save();
+      ctx.globalAlpha = fade;
+      ctx.drawImage(sentryFrame, origin.x - sentrySize / 2, origin.y - sentrySize / 2 - (22 + progress * 76) * 0.35, sentrySize, sentrySize);
+      ctx.restore();
+      return;
+    }
+    // Every other cast is one of the imported missile/aura cels.  There is no
+    // procedural ring, beam, arrow or floating spell name.
+    if (effect.kind !== "projectile" || effect.name === "Teeth") return;
     const angle = Math.atan2(target.y - origin.y, target.x - origin.x);
-    const missileId = effect.kind === "projectile" ? this.missileOverlayId(effect.name) : undefined;
-    const missileArtworkAngle = angle + (MISSILE_SPRITE_ORIENTATIONS[missileId ?? ""] ?? 0);
-    const animationFrame = Math.floor(performance.now() / 60);
-    // Most imported missile art is used as-is; apply a source-angle correction
-    // only for Fire Ball's diagonal DCC art when it follows the target direction.
-    const missileFrames = missileId ? this.missileOverlayImages.get(missileId) : undefined;
+    const missileId = this.missileOverlayId(effect.name);
+    if (!missileId) return;
+    const missileArtworkAngle = angle + (MISSILE_SPRITE_ORIENTATIONS[missileId] ?? 0);
+    const missileFrames = this.missileOverlayImages.get(missileId);
     const frameCount = missileFrames?.length ?? 0;
-    const frameDuration = this.missileFrameDuration(missileId ?? "");
+    if (!frameCount) return;
+    const frameDuration = this.missileFrameDuration(missileId);
     const effectAge = Math.max(0, effect.time - 0.08);
     const frameIndex = frameCount > 1
       ? Math.min(frameCount - 1, Math.floor(effectAge * 1000 / frameDuration))
       : 0;
-    let missileFrame = effect.name === "Teeth" ? undefined : frameCount ? missileFrames?.[frameIndex] : undefined;
-    if (effect.name !== "Teeth" && !this.isMissileFrameReady(missileFrame)) {
+    let missileFrame = missileFrames?.[frameIndex];
+    if (!this.isMissileFrameReady(missileFrame)) {
       missileFrame = missileFrames?.find((frame) => this.isMissileFrameReady(frame));
     }
-    const icon = this.skillIcon(effect.name);
-    const label = effect.name.toUpperCase();
-    const radius = 22 + progress * (effect.kind === "wave" || effect.kind === "burst" ? 76 : 42);
+    if (!this.isMissileFrameReady(missileFrame)) return;
+    const projectileProgress = effect.targetEnemy
+      ? Math.min(1, Math.max(0.08, effect.time / effect.duration))
+      : progress;
+    const x = (target.x - origin.x) * projectileProgress;
+    const y = (target.y - origin.y) * projectileProgress;
+    const maxSize = effect.name === "Meteor" ? 48 : 38;
+    const scale = maxSize / Math.max(missileFrame.width, missileFrame.height);
+    const width = missileFrame.width * scale;
+    const height = missileFrame.height * scale;
     ctx.save();
-    ctx.translate(origin.x, origin.y - 10);
-    // Projectile progress is already measured in projected screen coordinates.
-    // Rotating the whole context here rotated that travel vector a second time,
-    // sending skill missiles off course; rotate only the missile artwork below.
-    if (effect.kind !== "projectile") ctx.rotate(angle);
+    ctx.globalCompositeOperation = "source-over";
+    ctx.translate(x, y);
+    ctx.rotate(missileArtworkAngle);
     ctx.globalAlpha = Math.min(0.95, fade);
-    ctx.strokeStyle = effect.color;
-    ctx.fillStyle = effect.color;
-    ctx.shadowColor = effect.color;
-    ctx.shadowBlur = effect.kind === "aura" ? 16 : 10;
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    if (effect.kind === "projectile" && effect.name === "Teeth") {
-      // Teeth is rendered as individual bone shards on the arena canvas below.
-      // Do not layer the unrelated purple-star missile over the skill effect.
-    } else if (effect.kind === "projectile") {
-      const projectileProgress = effect.targetEnemy
-        ? Math.min(1, Math.max(0.08, effect.time / effect.duration))
-        : progress;
-      const x = (target.x - origin.x) * projectileProgress;
-      const y = (target.y - origin.y) * projectileProgress;
-      if (this.isMissileFrameReady(missileFrame)) {
-        const impact = effect.targetEnemy && effect.time >= effect.duration * 0.82;
-        const maxSize = effect.name === "Meteor" ? 48 : 38;
-        const scale = maxSize / Math.max(missileFrame.width, missileFrame.height);
-        const width = missileFrame.width * scale;
-        const height = missileFrame.height * scale;
-        ctx.save();
-        ctx.globalCompositeOperation = "source-over";
-        ctx.shadowBlur = 0;
-        ctx.translate(x, y);
-        ctx.rotate(missileArtworkAngle);
-        ctx.drawImage(missileFrame, -width / 2, -height / 2, width, height);
-        ctx.restore();
-        if (impact) {
-          ctx.globalAlpha = fade * 0.7;
-          ctx.beginPath(); ctx.arc(x, y, 12 + progress * 16, 0, Math.PI * 2); ctx.stroke();
-        }
-      } else {
-        ctx.beginPath(); ctx.arc(x, y, 7 + 3 * fade, 0, Math.PI * 2); ctx.fill();
-      }
-    } else if (effect.kind === "aura") {
-      for (let ring = 0; ring < 3; ring += 1) {
-        ctx.globalAlpha = fade * (0.7 - ring * 0.16);
-        ctx.lineWidth = ring === 0 ? 3 : 1.5;
-        ctx.beginPath(); ctx.ellipse(0, 0, 27 + ring * 8 + Math.sin(animationFrame * 0.025 + ring) * 3, 12 + ring * 4, 0, 0, Math.PI * 2); ctx.stroke();
-      }
-      for (let spark = 0; spark < 6; spark += 1) {
-        const theta = effect.seed / 100 + spark * Math.PI / 3 + animationFrame * 0.012;
-        ctx.beginPath(); ctx.arc(Math.cos(theta) * (24 + 5 * Math.sin(animationFrame * 0.018)), Math.sin(theta) * 11 - 5, 2.5, 0, Math.PI * 2); ctx.fill();
-      }
-    } else if (effect.kind === "summon") {
-      ctx.globalAlpha = fade * 0.8;
-      ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.ellipse(0, 0, 18 + progress * 19, 8 + progress * 8, 0, 0, Math.PI * 2); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(0, 5); ctx.lineTo(-9, -13 - 18 * progress); ctx.lineTo(0, -8 - 18 * progress); ctx.lineTo(9, -13 - 18 * progress); ctx.closePath(); ctx.stroke();
-      ctx.beginPath(); ctx.arc(0, -18 - 18 * progress, 6, 0, Math.PI * 2); ctx.stroke();
-      for (let spark = 0; spark < 4; spark += 1) {
-        const theta = spark * Math.PI / 2 + animationFrame * 0.02;
-        ctx.beginPath(); ctx.arc(Math.cos(theta) * (18 + progress * 18), Math.sin(theta) * 9 - 5, 2, 0, Math.PI * 2); ctx.fill();
-      }
-    } else if (effect.kind === "trap") {
-      ctx.globalAlpha = fade;
-      // Planted Assassin traps draw the original sentry turret art.
-      const sentryRow = this.sentryFrames[0];
-      const sentryFrame = sentryRow?.length
-        ? sentryRow[Math.floor(animationFrame * 0.1) % sentryRow.length]
-        : undefined;
-      if (sentryFrame) {
-        const sentrySize = radius * 3;
-        ctx.drawImage(sentryFrame, -sentrySize / 2, -sentrySize / 2 - radius * 0.35, sentrySize, sentrySize);
-      } else {
-        ctx.rotate(animationFrame * 0.008);
-        ctx.lineWidth = 2.5;
-        ctx.strokeRect(-radius * 0.55, -radius * 0.55, radius * 1.1, radius * 1.1);
-        ctx.beginPath(); ctx.moveTo(-radius, 0); ctx.lineTo(radius, 0); ctx.moveTo(0, -radius); ctx.lineTo(0, radius); ctx.stroke();
-        ctx.beginPath(); ctx.arc(0, 0, radius * (0.35 + 0.12 * Math.sin(animationFrame * 0.045)), 0, Math.PI * 2); ctx.stroke();
-      }
-    } else if (effect.kind === "wave" || effect.kind === "burst") {
-      const rings = effect.kind === "burst" ? 3 : 2;
-      for (let ring = 0; ring < rings; ring += 1) {
-        ctx.globalAlpha = fade * (1 - ring * 0.24);
-        ctx.lineWidth = effect.kind === "burst" ? 2.5 : 3;
-        ctx.beginPath(); ctx.ellipse(0, 0, radius * (0.45 + ring * 0.22), radius * (0.2 + ring * 0.1), 0, 0, Math.PI * 2); ctx.stroke();
-      }
-      if (effect.kind === "burst") {
-        for (let ray = 0; ray < 8; ray += 1) {
-          const theta = ray * Math.PI / 4 + effect.seed / 100;
-          ctx.beginPath(); ctx.moveTo(Math.cos(theta + animationFrame * 0.01) * radius * 0.35, Math.sin(theta + animationFrame * 0.01) * radius * 0.18); ctx.lineTo(Math.cos(theta) * radius, Math.sin(theta + animationFrame * 0.01) * radius * 0.48); ctx.stroke();
-        }
-      }
-    } else if (effect.kind === "movement") {
-      ctx.lineWidth = 5 * fade;
-      const trailPhase = Math.sin(animationFrame * 0.018);
-      ctx.beginPath(); ctx.arc(-trailPhase * 8, 0, 30 + progress * 18, -Math.PI * 0.72, Math.PI * 0.72); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(28 + progress * 34, -12); ctx.lineTo(28 + progress * 34, 12); ctx.closePath(); ctx.fill();
-    } else {
-      ctx.lineWidth = 5 * fade;
-      ctx.beginPath(); ctx.arc(20, 0, 26 + progress * 12, -1.15 + progress * 1.5, 1.15 + progress * 1.5); ctx.stroke();
-      ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(34 + progress * 24, 0); ctx.stroke();
-    }
-    ctx.restore();
-    ctx.save();
-    ctx.globalAlpha = fade;
-    ctx.textAlign = "center";
-    ctx.font = "bold 12px Georgia, serif";
-    ctx.lineWidth = 2.5;
-    ctx.strokeStyle = "#08090b";
-    ctx.fillStyle = effect.color;
-    ctx.shadowColor = effect.color;
-    ctx.shadowBlur = 5;
-    const title = `${icon ? `${icon} ` : ""}${label}`;
-    ctx.strokeText(title, origin.x, origin.y - 42 - progress * 12);
-    ctx.fillText(title, origin.x, origin.y - 42 - progress * 12);
+    ctx.drawImage(missileFrame, -width / 2, -height / 2, width, height);
     ctx.restore();
   }
 
