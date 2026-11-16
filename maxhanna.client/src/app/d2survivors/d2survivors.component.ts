@@ -243,6 +243,17 @@ const MEPHISTO_FROST_NOVA_RADIUS = 210;
 const MEPHISTO_BLIZZARD_RADIUS = 110;
 const MEPHISTO_BLIZZARD_DURATION = 2.4;
 const MEPHISTO_BLIZZARD_COOLDOWN = 3.2;
+// Player Blizzard is a 24-shard rain over the target pack, using the original
+// ice-storm fall and impact cels.
+const PLAYER_BLIZZARD_RADIUS = 110;
+const PLAYER_BLIZZARD_DURATION = 2.4;
+const PLAYER_BLIZZARD_SHARDS = 24;
+const PLAYER_BLIZZARD_FALL_SECONDS = 0.34;
+const PLAYER_BLIZZARD_IMPACT_SECONDS = 0.42;
+const PLAYER_BLIZZARD_FALL_ART = [
+  "d2-icestormfallvar01", "d2-icestormfallvar02", "d2-icestormfallvar03", "d2-icestormfallvar04",
+];
+const PLAYER_BLIZZARD_IMPACT_ART = ["d2-icestormimpactvar01", "d2-icestormimpactvar02"];
 const MEPHISTO_POISON_NOVA_RADIUS = 230;
 const MEPHISTO_POISON_NOVA_GROWTH = 38;
 const MEPHISTO_POISON_NOVA_DURATION = 5.6;
@@ -345,10 +356,14 @@ const STATIC_FIELD_COLOR = "#b9e6ff";
 const LIGHTNING_RAIL_DURATION = 0.32;
 const LIGHTNING_RAIL_HALF_WIDTH = 18;
 const LIGHTNING_RAIL_COLOR = "#b9e6ff";
-// Cold damage chills instead of freezing solid: a drastic slow that wears off.
+// Ordinary cold damage chills: a drastic slow that wears off. Ice Blast is the
+// exception; it freezes its targets completely for a short window.
 const COLD_SLOW_SECONDS = 1.1;
 const COLD_SLOW_SPEED_MULTIPLIER = 0.25;
+const ICE_BLAST_IMPACT_RADIUS = 48;
+const ICE_BLAST_FREEZE_SECONDS = 1.6;
 const ENEMY_COLD_TINT = "brightness(1.16) contrast(1.06) sepia(0.85) saturate(2.8) hue-rotate(158deg)";
+const ENEMY_FROZEN_TINT = "brightness(1.45) contrast(1.25) saturate(0.5) sepia(1) hue-rotate(168deg)";
 const COLD_DAMAGE_SKILLS = new Set([
   "Ice Bolt", "Ice Blast", "Glacial Spike", "Frozen Orb", "Blizzard", "Frost Nova",
   "Arctic Blast", "Cold Arrow", "Ice Arrow", "Freezing Arrow", "Hurricane", "Blades of Ice",
@@ -471,6 +486,7 @@ const SAND_MAGGOT_BURROW_COOLDOWN = 12;
 const SAND_MAGGOT_EGG_COOLDOWN = 15;
 const SAND_MAGGOT_EGG_HATCH_SECONDS = 5;
 const SAND_MAGGOT_EGG_LIMIT = 12;
+const SAND_MAGGOT_EGG_HEALTH = 8;
 // Fire Wall is a persistent ground hazard: a line of flame in front of the
 // sorceress that damages monsters walking through, touching, or standing in it.
 const FIRE_WALL_DURATION = 4;
@@ -564,6 +580,12 @@ const BONE_FETISH_DEATH_BLAST_RADIUS = 54;
 const BONE_FETISH_DEATH_BLAST_MAX_LIFE_FRACTION = 0.2;
 // Charged Bolt is a slow, heavy fan of orbs rather than a fast dart volley.
 const CHARGED_BOLT_PROJECTILE_SPEED = 360;
+// The bolts weave around their launch line instead of tracing a perfect ray or
+// whirling like a Tornado. The amplitude is roughly 15 world units over a full
+// screen of travel.
+const CHARGED_BOLT_DRIFT_STRENGTH = 0.16;
+const CHARGED_BOLT_DRIFT_FREQUENCY = 5.2;
+const CHARGED_BOLT_OPACITY = 0.56;
 const CAMPAIGN_TILE_WORLD_SIZE = 60;
 // The source atlas tiles are 160x80 pixels.  An isometric diamond covers two
 // tile spacings; drawing it larger buries each cell under its neighbours and
@@ -1265,6 +1287,7 @@ interface CampaignAct {
 const A1_TILES = "assets/d2survivors/maps/tiles/act1-floor-tiles.png";
 const A2_TILES = "assets/d2survivors/maps/tiles/act2-floor-tiles.png";
 const A3_TILES = "assets/d2survivors/maps/tiles/act3-floor-tiles.png";
+const A3_COLLISION_MASK = "assets/d2survivors/maps/act3-jungle-collision.png";
 const A4_TILES = "assets/d2survivors/maps/tiles/act4-floor-tiles.png";
 // Act V floors are decoded per area from the D2R expansion DT1 sets by
 // tools/import_d2r_act5_tiles.py; the act-level fallback is the Throne stone.
@@ -1432,7 +1455,7 @@ const ENEMY_SPRITE_PATHS: Record<EnemySpecies, string> = {
   // The supplied Queen page is a single-direction strip, so the Queen reuses the
   // eight-direction maggot atlas at her own colour and size.
   sandMaggotQueen: "assets/d2survivors/enemies/animated/maggot.png?v=2",
-  // The original `eg` neutral COF composite: torso plus glowing membrane.
+  // The original `se` (Sand Maggot Egg) neutral COF.
   maggotEgg: "assets/d2survivors/enemies/animated/maggot-egg.png",
   // Spider Demon and Spike Fiend are their own eight-direction atlases, built by
   // tools/import_d2r_enemy_atlases.py --new from the `SP` and `SI` animation
@@ -1800,6 +1823,8 @@ interface EnemySprite {
   columns: number;
   rows: number;
   animated: boolean;
+  contentHeight: number;
+  footFraction: number;
 }
 
 interface DruidAnimation {
@@ -1953,6 +1978,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private baalCurseEffects: BaalCurseEffect[] = [];
   private baalCastEffects: BaalCastEffect[] = [];
   private mephistoBlizzards: MephistoBlizzardEffect[] = [];
+  private playerBlizzards: PlayerBlizzardEffect[] = [];
   /** Monster corpses left on the floor for Nihlathak's Corpse Explosion. */
   private nihlathakCorpses: NihlathakCorpse[] = [];
   private playerFacingX = 1;
@@ -2049,6 +2075,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private sentryFrames: HTMLCanvasElement[][] = [];
   private readonly campaignMapImages: Partial<Record<number, HTMLImageElement>> = {};
   private readonly campaignBackdropImages: Partial<Record<number, HTMLImageElement>> = {};
+  private readonly campaignCollisionMasks: Partial<Record<number, {
+    width: number; height: number; blocked: Uint8Array;
+  }>> = {};
   private tristramWallAtlas?: HTMLImageElement;
   private tristramWallLayout?: TristramWallLayout;
   private readonly campaignFloorTileImages: Partial<Record<number, HTMLImageElement>> = {};
@@ -2942,7 +2971,32 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         backdropImage.onerror = () => console.warn(`Could not load Act ${act.act} backdrop: ${backdropPath}`);
         backdropImage.src = backdropPath;
       }
+      if (act.act === 3) this.loadCampaignCollisionMask(act.act, A3_COLLISION_MASK);
     }
+  }
+
+  /** Act III's painted jungle doubles as its collision map: tree cover and
+   *  water are blocked, while the two bridge decks are carved passable. */
+  private loadCampaignCollisionMask(actNumber: number, path: string): void {
+    const image = new Image();
+    image.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = image.naturalWidth;
+      canvas.height = image.naturalHeight;
+      const context = canvas.getContext("2d", { willReadFrequently: true });
+      if (!context) return;
+      context.drawImage(image, 0, 0);
+      const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+      const blocked = new Uint8Array(canvas.width * canvas.height);
+      for (let index = 0; index < blocked.length; index += 1) {
+        blocked[index] = pixels[index * 4] > 127 ? 1 : 0;
+      }
+      this.campaignCollisionMasks[actNumber] = {
+        width: canvas.width, height: canvas.height, blocked,
+      };
+    };
+    image.onerror = () => console.warn(`Could not load Act ${actNumber} collision map: ${path}`);
+    image.src = path;
   }
 
   /**
@@ -3962,6 +4016,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.baalCurseEffects.length = 0;
     this.baalCastEffects.length = 0;
     this.mephistoBlizzards.length = 0;
+    this.playerBlizzards.length = 0;
     this.leapDustEffects.length = 0;
     this.attackProjectiles = [];
     this.pendingDamage.clear();
@@ -5687,9 +5742,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (/\bclaymore\b/i.test(name)) return { width: 1, height: 4 };
     // Military Picks occupy two columns and three rows.
     if (/\bmilitary pick\b/i.test(name)) return { width: 2, height: 3 };
-    // Smoked Spheres and Sacred Globes use the compact one-column, two-row
-    // orb footprint instead of the taller default orb size.
-    if (/\b(?:smoked sphere|sacred globe)\b/.test(name)) return { width: 1, height: 2 };
+    // Eagle Orbs, Smoked Spheres and Sacred Globes use the compact one-column,
+    // two-row orb footprint instead of the taller default orb size.
+    if (/\b(?:eagle orb|smoked sphere|sacred globe)\b/.test(name)) return { width: 1, height: 2 };
     if (item.width && item.height) return { width: item.width, height: item.height };
     switch (type) {
       case "body": return { width: 2, height: 3 };
@@ -6241,10 +6296,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     for (const enemy of this.enemies) {
       if (enemy.hp <= 0 || enemy.summonType) continue;
       const ground = this.projectArenaPoint(enemy.x, enemy.y);
-      const speciesScale = enemySpeciesScale(enemy.species);
-      const spriteSize = enemy.r * (enemy.kind === "boss" ? 4.2 : enemy.kind === "champion" ? 4.4 : 4.8) * this.worldZoom * speciesScale;
-      const spriteHeight = spriteSize * (enemy.kind === "boss" ? 1.35 : 1);
-      const spriteWidth = spriteHeight * 1.45;
+      const sprite = this.enemySprites[enemy.species];
+      const spriteHeight = enemyD2PixelHeight(enemy.species) * ENEMY_SOURCE_PIXEL_SCALE * this.worldZoom;
+      const firstFrame = sprite?.frames[0]?.[0];
+      const spriteWidth = spriteHeight * (firstFrame?.height ? firstFrame.width / firstFrame.height : 1.45);
       const dx = (pointerX - ground.x) / (spriteWidth * 0.55);
       const dy = (pointerY - (ground.y - spriteHeight * 0.39)) / (spriteHeight * 0.58);
       const distance = dx * dx + dy * dy;
@@ -6993,6 +7048,17 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (name === "Psychic Hammer" && this.selectedClass === "assassin") {
       stats.push(`Stun duration: ${this.psychicHammerStunSecondsForRank(rank).toFixed(1)}s`);
       stats.push(`Blast radius: ${this.psychicHammerRadiusForRank(rank)} units`);
+    }
+
+    if (name === "Ice Bolt" && this.selectedClass === "sorceress") {
+      stats.push("Single target: one cold bolt at the nearest monster");
+      stats.push(`Chills the target for ${COLD_SLOW_SECONDS.toFixed(1)}s`);
+    }
+
+    if (name === "Ice Blast" && this.selectedClass === "sorceress") {
+      stats.push(`Blast radius: ${ICE_BLAST_IMPACT_RADIUS} units`);
+      stats.push(`Freezes every monster hit for ${ICE_BLAST_FREEZE_SECONDS.toFixed(1)}s`);
+      stats.push("Frozen monsters cannot move, attack or animate");
     }
 
     if (visual === "passive") {
@@ -7967,6 +8033,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.triggerAttackAnimation(castAnimation);
       return;
     }
+    if (skill === "Blizzard" && this.selectedClass === "sorceress") {
+      this.castPlayerBlizzard(nearest, damage);
+      this.triggerAttackAnimation(castAnimation);
+      return;
+    }
 
     const rangedSpell = (skill === "Fire Bolt" && this.selectedClass === "sorceress")
       || (skill === "Teeth" && this.selectedClass === "necromancer")
@@ -7978,7 +8049,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const isPsychicHammer = skill === "Psychic Hammer" && this.selectedClass === "assassin";
     const rangedSkills = new Set([
       "Fire Bolt", "Fire Blast", "Fire Ball", "Inferno", "Blaze", "Fire Wall", "Wake of Inferno", "Wake of Fire",
-      "Ice Bolt", "Cold Arrow", "Ice Arrow", "Frozen Orb", "Glacial Spike", "Blizzard",
+      "Ice Bolt", "Ice Blast", "Cold Arrow", "Ice Arrow", "Frozen Orb", "Glacial Spike", "Blizzard",
       "Lightning", "Charged Bolt", "Charged Bolt Sentry", "Chain Lightning", "Thunder Storm",
       "Lightning Bolt", "Static Field", "Firestorm", "Fissure", "Poison Nova", "Poison Javelin",
       "Plague Javelin", "Bone Spear", "Bone Spirit", "Teeth", "Holy Bolt", "Fist of the Heavens",
@@ -7995,7 +8066,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       // One extra bolt per Charged Bolt rank, starting at five.
       const boltCount = multishotArrows ?? (skill === "Teeth" ? 4 + multiplier : isChargedBolt ? 4 + multiplier : skill === "Lightning Fury" ? 6 : skill === "Blizzard" ? 3 : 1);
       const color = isPsychicHammer ? "#c4b5ff"
-        : kind === "lightning" ? "#a9dcff" : kind === "holy" ? "#fff0a8" : kind === "bone" ? "#ddd5c5" : "#ff9c50";
+        : kind === "lightning" ? "#a9dcff" : kind === "holy" ? "#fff0a8" : kind === "bone" ? "#ddd5c5"
+          : COLD_DAMAGE_SKILLS.has(skill) ? "#8bdcff" : "#ff9c50";
       const perpendicularX = -this.playerFacingY;
       const perpendicularY = this.playerFacingX;
       // Charged Bolt is a fan of bolts, not a homing shot. Aiming it at the
@@ -8022,7 +8094,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           targetY: isChargedBolt ? this.playerY + boltY * boltRange : isWindSkill ? this.playerY + this.playerFacingY * windRange : skill === "Teeth" ? this.playerY + rayY / rayLength * teethRange : multishotArrows !== undefined ? this.playerY + this.playerFacingY * distance + perpendicularY * spread : nearest.y,
           pathHit: isChargedBolt || isWindSkill || undefined,
           stopOnFirstHit: isChargedBolt || undefined,
-          target: isWindSkill || isChargedBolt || skill === "Teeth" || skill === "Shock Web" || multishotArrows !== undefined || (skill === "Fire Blast" && this.selectedClass === "assassin") ? undefined : nearest, targetId: this.attackSequence++,
+          headingX: isChargedBolt ? boltX : undefined,
+          headingY: isChargedBolt ? boltY : undefined,
+          driftStrength: isChargedBolt ? CHARGED_BOLT_DRIFT_STRENGTH : undefined,
+          driftSeed: isChargedBolt ? this.attackSequence * 0.73 + index * 1.91 : undefined,
+          target: isWindSkill || isChargedBolt || skill === "Teeth" || skill === "Shock Web" || multishotArrows !== undefined || (skill === "Fire Blast" && this.selectedClass === "assassin") || skill === "Ice Blast" ? undefined : nearest, targetId: this.attackSequence++,
           corpseExplosion: skill === "Corpse Explosion" && this.selectedClass === "necromancer",
           corpseExplosionDamage: skill === "Corpse Explosion" && this.selectedClass === "necromancer" ? nearest.maxHp * 0.35 : undefined,
           homing: !isWindSkill && multishotArrows === undefined && HOMING_SKILLS.has(skill),
@@ -8036,10 +8112,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
               : skill === "Shock Web" ? Math.max(4, distance / 420 + 4)
                 : Math.max(3, distance / 420 + 1),
           radius: 5, color: multishotArrows !== undefined ? "#d7c5aa" : color, kind: multishotArrows !== undefined ? "arrow" : kind, missileId: visualMissile, sourceOnlyArt: this.selectedClass === "amazon" || undefined, age: 0,
-          impactRadius: skill === "Shock Web" ? 56 : skill === "Fire Blast" ? 40 : skill === "Corpse Explosion" ? this.corpseExplosionRadiusForRank(multiplier) : isPsychicHammer ? this.psychicHammerRadiusForRank(multiplier) : undefined,
-          impactDuration: skill === "Shock Web" ? 3 : skill === "Fire Blast" ? 1 : skill === "Corpse Explosion" ? 0.6 : isPsychicHammer ? 0.38 : undefined,
-          impactHitEnemies: skill === "Fire Blast" || skill === "Corpse Explosion" || isPsychicHammer ? [] : undefined,
+          impactRadius: skill === "Shock Web" ? 56 : skill === "Fire Blast" ? 40 : skill === "Ice Blast" ? ICE_BLAST_IMPACT_RADIUS : skill === "Corpse Explosion" ? this.corpseExplosionRadiusForRank(multiplier) : isPsychicHammer ? this.psychicHammerRadiusForRank(multiplier) : undefined,
+          impactDuration: skill === "Shock Web" ? 3 : skill === "Fire Blast" ? 1 : skill === "Ice Blast" ? 0.55 : skill === "Corpse Explosion" ? 0.6 : isPsychicHammer ? 0.38 : undefined,
+          impactHitEnemies: skill === "Fire Blast" || skill === "Ice Blast" || skill === "Corpse Explosion" || isPsychicHammer ? [] : undefined,
           impactStunSeconds: isPsychicHammer ? this.psychicHammerStunSecondsForRank(multiplier) : undefined,
+          freezeSeconds: skill === "Ice Blast" ? ICE_BLAST_FREEZE_SECONDS : undefined,
           psychicHammer: isPsychicHammer || undefined,
           impactTrap: skill === "Shock Web",
           impactInsideEnemies: skill === "Shock Web" ? [] : undefined,
@@ -8158,6 +8235,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       urls.add(act.map);
       urls.add(act.floorTiles);
       if (act.backdrop) urls.add(act.backdrop);
+      if (act.act === 3) urls.add(A3_COLLISION_MASK);
       if (act.act === 8) {
         urls.add(A8_WALL_ATLAS);
         urls.add(A8_WALL_LAYOUT);
@@ -8275,6 +8353,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       ...TRAP_OVERLAY_IDS,
       ...ARCTIC_BLAST_MISSILE_IDS,
       ...FIST_OF_THE_HEAVENS_MISSILE_IDS,
+      ...PLAYER_BLIZZARD_FALL_ART,
+      ...PLAYER_BLIZZARD_IMPACT_ART,
       ...PLAYER_IMPACT_MISSILE_IDS,
       ...Object.values(D2_SPELL_MISSILE_OVERLAYS),
       ...Object.values(SKILL_MISSILE_OVERLAYS),
@@ -8755,6 +8835,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           context.drawImage(source, 0, 0, source.naturalWidth, source.naturalHeight, 0, 0, cellSize.width, cellSize.height);
         }
         const frames: HTMLCanvasElement[][] = [];
+        let contentHeight = 0;
+        let footFraction = 0;
         for (let row = 0; row < rows; row += 1) {
           const directionFrames: HTMLCanvasElement[] = [];
           for (let column = 0; column < columns; column += 1) {
@@ -8771,11 +8853,30 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
             frameContext.drawImage(canvas, left, top, frame.width, frame.height, 0, 0, frame.width, frame.height);
             // Preserve the full cell: trimming transparent margins independently
             // per frame changes each frame's origin and makes the sprite jitter/cut.
+            if (row < 8) {
+              const framePixels = frameContext.getImageData(0, 0, frame.width, frame.height).data;
+              let top = frame.height;
+              let bottom = 0;
+              for (let y = 0; y < frame.height; y += 1) {
+                for (let x = 0; x < frame.width; x += 1) {
+                  if (framePixels[(y * frame.width + x) * 4 + 3] <= 8) continue;
+                  if (y < top) top = y;
+                  if (y + 1 > bottom) bottom = y + 1;
+                }
+              }
+              if (bottom > top) {
+                contentHeight = Math.max(contentHeight, bottom - top);
+                footFraction = Math.max(footFraction, bottom / frame.height);
+              }
+            }
             directionFrames.push(frame);
           }
           frames.push(directionFrames);
         }
-        this.enemySprites[species] = { frames, columns, rows, animated: layout.animated };
+        this.enemySprites[species] = {
+          frames, columns, rows, animated: layout.animated,
+          contentHeight: Math.max(1, contentHeight), footFraction: footFraction || 0.78,
+        };
       };
       source.onerror = () => console.warn(`Could not load enemy sprite asset: ${ENEMY_SPRITE_PATHS[species]}`);
       source.src = ENEMY_SPRITE_PATHS[species];
@@ -8857,6 +8958,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.baalCurseEffects.length = 0;
     this.baalCastEffects.length = 0;
     this.mephistoBlizzards.length = 0;
+    this.playerBlizzards.length = 0;
     for (const skill of Object.keys(this.activePaladinAuras)) delete this.activePaladinAuras[skill];
     this.stopClassPreview();
     this.stopMenuHeroPreview();
@@ -9790,7 +9892,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
               if (Math.hypot(enemy.x - projectile.impactPoint.x, enemy.y - projectile.impactPoint.y) > projectile.impactRadius + enemy.r) continue;
               const hitDamage = projectile.corpseExplosion ? projectile.corpseExplosionDamage ?? 1 : projectile.damage;
               this.queueEnemyDamage(enemy, hitDamage, projectile.color, this.damageTypeForProjectile(projectile));
-              if (projectile.cold) this.applyEnemyChill(enemy);
+              if (projectile.freezeSeconds !== undefined) this.applyEnemyFreeze(enemy, projectile.freezeSeconds);
+              else if (projectile.cold) this.applyEnemyChill(enemy);
               if (projectile.impactStunSeconds !== undefined) this.applyEnemyStun(enemy, projectile.impactStunSeconds);
               hitEnemies.push(enemy);
             }
@@ -9847,8 +9950,26 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         const distance = Math.hypot(deltaX, deltaY);
         const step = projectile.speed * seconds / this.worldZoom;
         const travel = Math.min(step, distance);
-        const nextX = projectile.x + (distance > 0 ? deltaX / distance * travel : 0);
-        const nextY = projectile.y + (distance > 0 ? deltaY / distance * travel : 0);
+        let directionX = distance > 0 ? deltaX / distance : 0;
+        let directionY = distance > 0 ? deltaY / distance : 0;
+        if ((projectile.driftStrength ?? 0) > 0) {
+          // Bend the step perpendicular to the launch line. Re-aiming at the
+          // distant target each frame keeps this a weave rather than a spiral.
+          const phase = projectile.age * CHARGED_BOLT_DRIFT_FREQUENCY + (projectile.driftSeed ?? 0);
+          const drift = (Math.sin(phase) * 0.72 + Math.sin(phase * 2.63 + 1.7) * 0.28)
+            * (projectile.driftStrength ?? 0);
+          const perpendicularX = -directionY * drift;
+          const perpendicularY = directionX * drift;
+          directionX += perpendicularX;
+          directionY += perpendicularY;
+          const directionLength = Math.hypot(directionX, directionY) || 1;
+          directionX /= directionLength;
+          directionY /= directionLength;
+          projectile.headingX = directionX;
+          projectile.headingY = directionY;
+        }
+        const nextX = projectile.x + directionX * travel;
+        const nextY = projectile.y + directionY * travel;
         const segmentX = nextX - projectile.x;
         const segmentY = nextY - projectile.y;
         const segmentLengthSquared = segmentX * segmentX + segmentY * segmentY;
@@ -9874,7 +9995,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           );
           if (firstHit) {
             this.queueEnemyDamage(firstHit.enemy, projectile.damage, projectile.color, this.damageTypeForProjectile(projectile));
-            if (projectile.cold) this.applyEnemyChill(firstHit.enemy);
+            if (projectile.freezeSeconds !== undefined) this.applyEnemyFreeze(firstHit.enemy, projectile.freezeSeconds);
+            else if (projectile.cold) this.applyEnemyChill(firstHit.enemy);
             projectile.life = 0;
             continue;
           }
@@ -9882,7 +10004,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           for (const { enemy } of crossed) {
             alreadyHit.push(enemy);
             this.queueEnemyDamage(enemy, projectile.damage, projectile.color, this.damageTypeForProjectile(projectile));
-            if (projectile.cold) this.applyEnemyChill(enemy);
+            if (projectile.freezeSeconds !== undefined) this.applyEnemyFreeze(enemy, projectile.freezeSeconds);
+            else if (projectile.cold) this.applyEnemyChill(enemy);
           }
         }
         if (distance <= step) {
@@ -9948,7 +10071,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           }
           projectile.impactPoint = { x: this.playerX, y: this.playerY };
         } else if (target) {
-          if (projectile.cold) this.applyEnemyChill(target);
+          if (projectile.freezeSeconds !== undefined) this.applyEnemyFreeze(target, projectile.freezeSeconds);
+          else if (projectile.cold) this.applyEnemyChill(target);
           if (projectile.impactRadius === undefined && !this.isEnemyImmuneTo(target, this.damageTypeForProjectile(projectile))) {
             target.hp -= projectile.damage;
             this.floatingTexts.push({ x: target.x, y: target.y - target.r - 8, text: this.floatingDamageText(projectile.damage), color: projectile.color, life: 0.65 });
@@ -10540,7 +10664,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       // would spin the sprite a second time.
       const direction = upright || projectile.blessedHammer
         ? 0
-        : Math.atan2(point.y - start.y, point.x - start.x)
+        : (projectile.headingX !== undefined && projectile.headingY !== undefined
+          ? Math.atan2(projectile.headingY, projectile.headingX)
+          : Math.atan2(point.y - start.y, point.x - start.x))
           + (MISSILE_SPRITE_ORIENTATIONS[missileId] ?? 0);
       const imageWidthNatural = overlay instanceof HTMLImageElement ? overlay.naturalWidth : overlay.width;
       const imageHeightNatural = overlay instanceof HTMLImageElement ? overlay.naturalHeight : overlay.height;
@@ -10584,7 +10710,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           ctx.drawImage(trailFrame, -imageWidth / 2 - traveledPixels * back, -imageHeight / 2, imageWidth, imageHeight);
         }
       }
-      ctx.globalAlpha = projectile.impactAge !== undefined ? Math.min(1, renderLife / impactDuration) : 1;
+      // Charged Bolt's overlapping orbs read as one bright mass at full alpha.
+      // Keep the individual bolts translucent so the fan stays legible.
+      const spriteAlpha = missileId === "d2-chargedbolt" ? CHARGED_BOLT_OPACITY : 1;
+      ctx.globalAlpha = (projectile.impactAge !== undefined ? Math.min(1, renderLife / impactDuration) : 1) * spriteAlpha;
       // Preserve the sprite's authored alpha instead of additively saturating it.
       // Charged Bolt fans several overlapping bolts; additive blending turns their
       // transparent cyan edges into a bright opaque-looking square at the origin.
@@ -10704,6 +10833,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.baalCurseEffects.length = 0;
     this.baalCastEffects.length = 0;
     this.mephistoBlizzards.length = 0;
+    this.playerBlizzards.length = 0;
     this.leapDustEffects.length = 0;
     this.attackSequence = 0;
     this.attackProjectiles = [];
@@ -10888,6 +11018,34 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.persistRunProgress();
   }
 
+  /** True when a walk step would enter Act III's trees or water. */
+  private campaignTerrainBlocks(dx: number, dy: number): boolean {
+    if (this.currentAct !== 3) return false;
+    const mask = this.campaignCollisionMasks[3];
+    if (!mask) return false;
+    const tileWidth = CAMPAIGN_TILE_WORLD_SIZE * this.worldZoom * CAMPAIGN_TILE_RENDER_SCALE * Math.SQRT2;
+    const geometry = this.campaignAreaBackdropGeometry(tileWidth, mask.width, mask.height);
+    if (!Number.isFinite(geometry.scale) || geometry.scale <= 0) return false;
+    const clearance = Math.max(4, Math.min(15, 9 * this.worldZoom / geometry.scale));
+    const current = this.projectArenaPoint(this.playerX, this.playerY);
+    const candidate = this.projectArenaPoint(this.playerX + dx, this.playerY + dy);
+    const blockedAt = (screenX: number, screenY: number): boolean => {
+      const imageX = Math.round((screenX - geometry.left) / geometry.scale);
+      const imageY = Math.round((screenY - geometry.top) / geometry.scale);
+      if (imageX < 0 || imageY < 0 || imageX >= mask.width || imageY >= mask.height) return false;
+      return mask.blocked[imageY * mask.width + imageX] === 1;
+    };
+    let candidateBlocked = false;
+    for (const [offsetX, offsetY] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1], [0.707, 0.707], [-0.707, 0.707], [0.707, -0.707], [-0.707, -0.707]]) {
+      if (blockedAt(candidate.x + offsetX * clearance, candidate.y + offsetY * clearance)) {
+        candidateBlocked = true;
+        break;
+      }
+    }
+    // Never trap a hero who was placed on a blocked pixel; let them walk out.
+    return candidateBlocked && !blockedAt(current.x, current.y);
+  }
+
   movePlayer(dt: number): void {
     if (this.playerChargeRemaining > 0) {
       // Charge owns world movement until its shield bash lands.
@@ -10997,12 +11155,17 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       dx = (screenX + 2 * screenY) / (2 * projectionScale);
       dy = (2 * screenY - screenX) / (2 * projectionScale);
     }
-    this.shiftWorldBy(dx, dy);
+    // Move each world axis separately so the hero slides along tree lines and
+    // riverbanks instead of sticking when only one component is blocked.
+    const movedX = dx && !this.campaignTerrainBlocks(dx, 0) ? dx : 0;
+    if (movedX) this.shiftWorldBy(movedX, 0);
+    const movedY = dy && !this.campaignTerrainBlocks(0, dy) ? dy : 0;
+    if (movedY) this.shiftWorldBy(0, movedY);
     this.playerX = this.arenaW / 2;
     this.playerY = this.arenaH / 2;
-    this.playerMoveX = dx;
-    this.playerMoveY = dy;
-    this.isPlayerMoving = Math.hypot(dx, dy) > 0.01;
+    this.playerMoveX = movedX;
+    this.playerMoveY = movedY;
+    this.isPlayerMoving = Math.hypot(movedX, movedY) > 0.01;
     if (this.isPlayerMoving) {
       this.playerFacingX = this.playerMoveX / Math.hypot(this.playerMoveX, this.playerMoveY);
       this.playerFacingY = this.playerMoveY / Math.hypot(this.playerMoveX, this.playerMoveY);
@@ -11825,11 +11988,26 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const distance = enemy.r + 20;
     const x = Math.max(8, Math.min(this.arenaW - 8, enemy.x + Math.cos(awayAngle) * distance));
     const y = Math.max(8, Math.min(this.arenaH - 8, enemy.y + Math.sin(awayAngle) * distance));
+    // The egg is incubated visually, but a stationary enemy stands in for it in
+    // the enemy array so melee, projectiles, auras and area skills can all hit it.
+    const proxy = this.makeEnemy("normal", false, "maggotEgg");
+    proxy.x = x;
+    proxy.y = y;
+    proxy.hp = SAND_MAGGOT_EGG_HEALTH;
+    proxy.maxHp = SAND_MAGGOT_EGG_HEALTH;
+    proxy.speed = 0;
+    proxy.r = 12;
+    proxy.dmg = 0;
+    proxy.cd = 999;
+    proxy.animationState = "idle";
+    proxy.eggProxy = true;
+    this.enemies.push(proxy);
     this.maggotEggs.push({
       x,
       y,
       age: 0,
       hatchRemaining: SAND_MAGGOT_EGG_HATCH_SECONDS + Math.random() * 1.5,
+      proxy,
     });
     enemy.cd = 2.2;
     enemy.eggCooldown = SAND_MAGGOT_EGG_COOLDOWN + Math.random() * 5;
@@ -11839,10 +12017,21 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private updateMaggotEggs(seconds: number): void {
     for (let index = this.maggotEggs.length - 1; index >= 0; index -= 1) {
       const egg = this.maggotEggs[index];
+      if (egg.proxy.hp <= 0) {
+        // Destroyed before hatching: remove its targetable stand-in and leave no
+        // corpse, experience or loot behind.
+        this.maggotEggs.splice(index, 1);
+        const proxyIndex = this.enemies.indexOf(egg.proxy);
+        if (proxyIndex >= 0) this.enemies.splice(proxyIndex, 1);
+        this.floatingTexts.push({ x: egg.x, y: egg.y - 18, text: "EGG DESTROYED", color: "#d9c3a1", life: 1 });
+        continue;
+      }
       egg.age += seconds;
       egg.hatchRemaining -= seconds;
       if (egg.hatchRemaining > 0) continue;
       this.maggotEggs.splice(index, 1);
+      const proxyIndex = this.enemies.indexOf(egg.proxy);
+      if (proxyIndex >= 0) this.enemies.splice(proxyIndex, 1);
       if (this.enemies.length >= 220) continue;
       const young = this.makeEnemy("normal", false, "sandMaggotYoung");
       const angle = Math.random() * Math.PI * 2;
@@ -11897,7 +12086,18 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     enemy.coldRemaining = Math.max(enemy.coldRemaining ?? 0, seconds);
   }
 
+  /** Ice Blast encases a monster completely: no movement, attack, or animation. */
+  private applyEnemyFreeze(enemy: Enemy, seconds = ICE_BLAST_FREEZE_SECONDS): void {
+    if (!(seconds > 0) || enemy.hp <= 0 || enemy.campaignBoss === true) return;
+    if (this.isEnemyImmuneTo(enemy, "cold")) return;
+    enemy.freezeRemaining = Math.max(enemy.freezeRemaining ?? 0, seconds);
+    enemy.coldRemaining = undefined;
+    enemy.animationState = "idle";
+    enemy.attackAnimationTime = 0;
+  }
+
   private enemyMoveSpeed(enemy: Enemy): number {
+    if ((enemy.freezeRemaining ?? 0) > 0) return 0;
     return enemy.speed * ((enemy.coldRemaining ?? 0) > 0 ? COLD_SLOW_SPEED_MULTIPLIER : 1);
   }
 
@@ -13420,6 +13620,16 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
     for (const enemy of this.enemies) {
       if (enemy.summonType || enemy.hp <= 0) continue;
+      // Hatching eggs are stationary targets handled by updateMaggotEggs.
+      if (enemy.eggProxy) continue;
+      if ((enemy.freezeRemaining ?? 0) > 0) {
+        // Frozen solid: pause every timer, animation and action until thawed.
+        enemy.freezeRemaining = Math.max(0, (enemy.freezeRemaining ?? 0) - elapsedSeconds);
+        if (enemy.freezeRemaining === 0) enemy.freezeRemaining = undefined;
+        enemy.animationState = "idle";
+        enemy.attackAnimationTime = 0;
+        continue;
+      }
       if (enemy.burrowCooldown !== undefined) enemy.burrowCooldown = Math.max(0, enemy.burrowCooldown - elapsedSeconds);
       if (enemy.eggCooldown !== undefined) enemy.eggCooldown = Math.max(0, enemy.eggCooldown - elapsedSeconds);
       if ((enemy.burrowRemaining ?? 0) > 0) {
@@ -13878,6 +14088,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const nihlathakAlive = this.enemies.some((enemy) => enemy.species === "nihlathak" && enemy.hp > 0);
     for (const enemy of this.enemies) {
       if (enemy.summonType || enemy.hp > 0) continue;
+      // An egg's proxy is destroyed by the egg update, not counted as a kill.
+      if (enemy.eggProxy) continue;
       // The effigy is an extension of Baal, not a separate kill or loot pinata.
       if (enemy.baalClone) continue;
       if (nihlathakAlive && enemy.species !== "nihlathak") this.recordNihlathakCorpse(enemy);
@@ -14013,6 +14225,53 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.drawSkillVisualEffects();
     if (this.activeTab === "run" && !this.rafId) {
       this.rafId = requestAnimationFrame((time) => this.loop(time));
+    }
+  }
+
+  /** Player Blizzard: 24 original ice-storm shards fall across the target pack. */
+  private castPlayerBlizzard(nearest: Enemy, damage: number): void {
+    const seed = Math.random() * Math.PI * 2;
+    const shards: PlayerBlizzardShard[] = [];
+    for (let index = 0; index < PLAYER_BLIZZARD_SHARDS; index += 1) {
+      const angle = seed + index * 2.399963229728653;
+      const distance = PLAYER_BLIZZARD_RADIUS * Math.sqrt((index + 0.5) / PLAYER_BLIZZARD_SHARDS);
+      shards.push({
+        x: nearest.x + Math.cos(angle) * distance,
+        y: nearest.y + Math.sin(angle) * distance,
+        delay: 0.18 + index * ((PLAYER_BLIZZARD_DURATION - PLAYER_BLIZZARD_IMPACT_SECONDS - 0.2) / (PLAYER_BLIZZARD_SHARDS - 1)),
+        fallArt: PLAYER_BLIZZARD_FALL_ART[index % PLAYER_BLIZZARD_FALL_ART.length],
+        impactArt: PLAYER_BLIZZARD_IMPACT_ART[index % PLAYER_BLIZZARD_IMPACT_ART.length],
+        hit: false,
+      });
+    }
+    this.playerBlizzards.push({
+      x: nearest.x,
+      y: nearest.y,
+      time: 0,
+      duration: PLAYER_BLIZZARD_DURATION,
+      radius: PLAYER_BLIZZARD_RADIUS,
+      damagePerShard: damage,
+      seed,
+      shards,
+    });
+    this.floatingTexts.push({ x: nearest.x, y: nearest.y - 26, text: "BLIZZARD", color: "#bfeaff", life: 0.9 });
+  }
+
+  private updatePlayerBlizzards(seconds: number): void {
+    for (let index = this.playerBlizzards.length - 1; index >= 0; index -= 1) {
+      const effect = this.playerBlizzards[index];
+      effect.time += seconds;
+      for (const shard of effect.shards) {
+        if (shard.hit || effect.time < shard.delay) continue;
+        shard.hit = true;
+        for (const enemy of this.collectEnemiesNear(effect.x, effect.y, effect.radius + 96)) {
+          if (enemy.hp <= 0 || enemy.summonType) continue;
+          if (Math.hypot(enemy.x - effect.x, enemy.y - effect.y) > effect.radius + enemy.r) continue;
+          this.queueEnemyDamage(enemy, effect.damagePerShard, "#bfefff", "cold");
+          this.applyEnemyChill(enemy);
+        }
+      }
+      if (effect.time >= effect.duration) this.playerBlizzards.splice(index, 1);
     }
   }
 
@@ -15049,20 +15308,47 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const canvas = this.skillEffectsCanvasRef?.nativeElement;
     const dpr = canvas?.clientWidth ? canvas.width / canvas.clientWidth : 1;
     const radius = effect.fieldRadius ?? FROST_NOVA_RADIUS;
-    const scale = (radius * 2 * 0.7071 * dpr) / art.frameWidth * this.worldZoom;
+    const progress = Math.max(0, Math.min(1, effect.time / effect.duration));
+    const ringRadius = radius * (0.16 + progress * 0.84);
     const fade = Math.min(1, effect.time / 0.04, Math.max(0, (effect.duration - effect.time) / 0.18));
     if (fade <= 0) return;
+    const edgeX = this.projectArenaPoint(effect.x + ringRadius, effect.y);
+    const edgeY = this.projectArenaPoint(effect.x, effect.y + ringRadius);
+    const screenRadiusX = Math.abs(edgeX.x - center.x);
+    const screenRadiusY = Math.abs(edgeY.y - center.y);
+    if (screenRadiusX < 1 || screenRadiusY < 1) return;
     ctx.save();
-    ctx.globalCompositeOperation = "lighter";
-    ctx.globalAlpha = fade * 0.95;
-    ctx.drawImage(
-      image,
-      frame * art.frameWidth, 0, art.frameWidth, art.frameHeight,
-      center.x - art.originX * scale,
-      center.y - art.originY * scale,
-      art.frameWidth * scale,
-      art.frameHeight * scale,
-    );
+    ctx.globalCompositeOperation = "screen";
+    ctx.imageSmoothingEnabled = true;
+    // Keep every cel inside one clean annulus. Free-floating stamps left ragged
+    // inner and outer edges wherever their dark borders met.
+    ctx.beginPath();
+    ctx.ellipse(center.x, center.y, screenRadiusX, screenRadiusY, 0, 0, Math.PI * 2);
+    ctx.ellipse(center.x, center.y, screenRadiusX * 0.56, screenRadiusY * 0.56, 0, 0, Math.PI * 2, true);
+    ctx.clip();
+    // The original frost cel is a single cold burst. Overlap many small copies
+    // through the band so it reads as one continuous circular blast.
+    const rows: ReadonlyArray<readonly [number, number, number]> = [[0.6, 48, 0.11], [0.73, 56, 0.1], [0.86, 64, 0.09], [0.99, 72, 0.08]];
+    // One shared size makes every row bleed across the full band, so the rows
+    // read as texture instead of separate concentric bracelets.
+    const puffSize = Math.max(16 * dpr, screenRadiusY * 0.72);
+    for (const [band, count, alpha] of rows) {
+      for (let index = 0; index < count; index += 1) {
+        const angle = index / count * Math.PI * 2 + effect.seed * 0.01 + band * 1.7;
+        const pointX = center.x + Math.cos(angle) * screenRadiusX * band;
+        const pointY = center.y + Math.sin(angle) * screenRadiusY * band;
+        ctx.save();
+        ctx.translate(pointX, pointY - 4 * dpr);
+        ctx.rotate(angle + Math.PI / 2);
+        ctx.globalAlpha = fade * alpha;
+        ctx.drawImage(
+          image,
+          frame * art.frameWidth, 0, art.frameWidth, art.frameHeight,
+          -puffSize / 2, -puffSize / 2, puffSize, puffSize,
+        );
+        ctx.restore();
+      }
+    }
     ctx.restore();
   }
 
@@ -15103,7 +15389,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const length = Math.hypot(dx, dy);
     if (length <= 1) return;
     const angle = Math.atan2(dy, dx);
-    const halfWidth = Math.tan(effect.coneHalfAngle ?? INFERNO_HALF_ANGLE) * length;
     const dpr = canvas?.clientWidth ? canvas.width / canvas.clientWidth : 1;
     const fade = Math.min(1, effect.time * 12, Math.max(0, (effect.duration - effect.time) * 10));
     if (fade <= 0.01) return;
@@ -15112,25 +15397,28 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     ctx.rotate(angle);
     ctx.globalCompositeOperation = "lighter";
 
-    // Only the imported flame cels fill the cone: no gradient wedge, centre
-    // beam or generated embers.
+    // Only the imported Inferno cels fill the cone: no gradient wedge, noise,
+    // rotation or generated embers. Both original flame strips are laid along
+    // the beam in age order, overlapping into one continuous stream.
     const image = this.ensureInfernoSheet();
     if (image.complete && image.naturalWidth > 0) {
       const art = INFERNO_ART;
       const baseFrame = Math.floor(effect.time * art.frameRate);
-      for (let index = 0; index < 10; index += 1) {
-        const along = (index / 10 + effect.time * 2.4) % 1;
-        const lateral = Math.sin(effect.time * 21 + index * 2.4) * halfWidth * 0.2 * along;
-        const size = (18 + along * 30) * dpr * (0.9 + 0.1 * Math.sin(effect.time * 27 + index));
-        const frame = (baseFrame + index) % art.frames;
-        ctx.globalAlpha = fade * (1 - along * 0.65) * (0.7 + 0.3 * Math.sin(effect.time * 33 + index));
+      const segments = 18;
+      for (let index = 0; index < segments; index += 1) {
+        const along = (index + 0.5) / segments;
+        // The nearest cels are young; later cels have burned farther down the
+        // stream. Alternating the two strips keeps the flame body varied.
+        const ageFrame = (baseFrame + Math.min(10, Math.floor(along * 14))) % 15;
+        const frame = (index % 2 === 0 ? 0 : 15) + ageFrame;
+        const size = (20 + along * 64) * dpr;
+        ctx.globalAlpha = fade * (1 - along * 0.5);
         ctx.save();
-        ctx.translate(along * length, lateral);
-        ctx.rotate(Math.sin(effect.time * 13 + index) * 0.25);
+        ctx.translate(along * length, 0);
         ctx.drawImage(
           image,
           frame * art.frameWidth, 0, art.frameWidth, art.frameHeight,
-          -size / 2, -size / 2 - 4 * dpr, size, size,
+          -size / 2, -size * 0.55, size, size,
         );
         ctx.restore();
       }
@@ -15290,6 +15578,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.updateFirestormTrails(seconds);
     this.updatePoisonClouds(seconds);
     this.updateMephistoBlizzards(seconds);
+    this.updatePlayerBlizzards(seconds);
     if (this.isBoneArmorActive()) {
       this.boneArmorRemaining = Math.max(0, this.boneArmorRemaining - seconds);
       if (this.boneArmorRemaining === 0) {
@@ -15400,6 +15689,53 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.drawDiabloEffects(ctx);
     this.drawBaalEffects(ctx);
     this.drawMephistoEffects(ctx);
+    this.drawPlayerBlizzards(ctx);
+  }
+
+  private drawPlayerBlizzards(ctx: CanvasRenderingContext2D): void {
+    if (!this.runActive || !this.playerBlizzards.length) return;
+    const scale = this.projectionDpr || 1;
+    for (const effect of this.playerBlizzards) {
+      const center = this.projectArenaPoint(effect.x, effect.y);
+      if (!this.isArenaPointOnScreen(center, DRAW_CULL_MARGIN * 2)) continue;
+      const fade = Math.max(0, Math.min(1, effect.time * 7, (effect.duration - effect.time) * 5));
+      if (fade <= 0.01) continue;
+      const radius = effect.radius * this.worldZoom * scale;
+      for (const shard of effect.shards) {
+        const point = this.projectArenaPoint(shard.x, shard.y);
+        const fallStart = shard.delay - PLAYER_BLIZZARD_FALL_SECONDS;
+        if (effect.time >= fallStart && effect.time < shard.delay) {
+          const progress = Math.max(0, Math.min(1, (effect.time - fallStart) / PLAYER_BLIZZARD_FALL_SECONDS));
+          const shardSize = Math.max(42 * scale, radius * 0.44);
+          this.drawImportedMissileFrame(
+            ctx,
+            shard.fallArt,
+            effect.time - fallStart,
+            point.x,
+            point.y - (1 - progress) * radius * 0.9,
+            shardSize,
+            0,
+            fade * 0.72,
+            "bottom",
+          );
+        }
+        const impactAge = effect.time - shard.delay;
+        if (impactAge >= 0 && impactAge < PLAYER_BLIZZARD_IMPACT_SECONDS) {
+          const impactSize = Math.max(38 * scale, radius * 0.38);
+          this.drawImportedMissileFrame(
+            ctx,
+            shard.impactArt,
+            impactAge,
+            point.x,
+            point.y,
+            impactSize,
+            0,
+            fade * 0.62 * (1 - impactAge / PLAYER_BLIZZARD_IMPACT_SECONDS),
+            "bottom",
+          );
+        }
+      }
+    }
   }
 
   private drawMephistoEffects(ctx: CanvasRenderingContext2D): void {
@@ -18283,6 +18619,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       });
     }
     for (const entity of this.enemies) {
+      if (entity.eggProxy) continue;
       const point = this.projectArenaPoint(entity.x, entity.y);
       if (!this.isArenaPointOnScreen(point, DRAW_CULL_MARGIN)) continue;
       drawOrder.push({ depth: point.y, draw: () => this.drawEnemy(ctx, entity) });
@@ -19462,6 +19799,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   private enemySpriteTint(e: Enemy, baseTint: string): string {
+    if ((e.freezeRemaining ?? 0) > 0) return ENEMY_FROZEN_TINT;
     if ((e.coldRemaining ?? 0) > 0) return ENEMY_COLD_TINT;
     if ((e.frenzyRemaining ?? 0) > 0) return "brightness(1.22) contrast(1.22) sepia(0.48) saturate(2.2) hue-rotate(-24deg)";
     return baseTint;
@@ -19506,8 +19844,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     // Champions use a cold blue sigil so their ground ring cannot be mistaken
     // for a boss's gold ring.
     const color = e.kind === "boss" ? "#ffb347" : e.kind === "champion" ? "#7f9dff" : "#8a94a6";
-    const speciesScale = enemySpeciesScale(e.species);
-    const size = e.r * (e.kind === "boss" ? 4.2 : e.kind === "champion" ? 4.4 : 4.8) * this.worldZoom * speciesScale;
+    const size = enemyD2PixelHeight(e.species) * ENEMY_SOURCE_PIXEL_SCALE * this.worldZoom;
     // Ground every monster with the same soft radial contact shadow used by the
     // loot, chests and summons. The boss sprite is taller than its base size, so
     // widen that shadow rather than letting a huge body float on a small blot.
@@ -19541,11 +19878,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         // bob on top of it would make the maggot hop out of its own dirt plume.
         const attackPulse = e.animationState === "attack" && e.spriteBlock !== 3
           ? Math.sin(attackProgress * Math.PI) : 0;
-        const drawHeight = size * (e.kind === "boss" ? 1.35 : 1) * (1 + attackPulse * 0.08);
-        const aspectRatio = frame.width / frame.height;
-        const drawWidth = drawHeight * Math.max(0.9, Math.min(1.7, aspectRatio));
+        const spriteScale = size / Math.max(1, sprite.contentHeight || frame.height);
+        const drawHeight = frame.height * spriteScale;
+        const drawWidth = frame.width * spriteScale;
         const drawX = ground.x - drawWidth / 2;
-        const drawY = ground.y - drawHeight * 0.78;
+        const drawY = ground.y - drawHeight * (sprite.footFraction || 0.78);
 
         if (e.kind !== "normal") {
           ctx.save();
@@ -19612,7 +19949,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           ctx.shadowColor = "rgba(255, 112, 64, 0.8)";
           ctx.shadowBlur = Math.max(5, size * 0.12);
         }
-        const drawYWithAttack = drawY - attackPulse * size * 0.12;
+        const drawYWithAttack = drawY - attackPulse * size * 0.06;
         ctx.drawImage(frameToDraw, flipSprite ? -drawWidth / 2 : drawX, drawYWithAttack, drawWidth, drawHeight);
         ctx.restore();
         spriteDrawn = true;
@@ -19680,7 +20017,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     ctx.restore();
   }
 
-  /** The incubating egg is drawn straight from the original `eg` neutral COF. */
+  /** The incubating egg is drawn straight from the original `se` neutral COF. */
   private drawMaggotEgg(ctx: CanvasRenderingContext2D, egg: MaggotEgg): void {
     const ground = this.projectArenaPoint(egg.x, egg.y);
     const sprite = this.enemySprites.maggotEgg;
@@ -19857,10 +20194,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
             : Math.min(sprite.columns - 1, Math.floor(sprite.columns * 0.12))
       : 0;
     const frame = sprite?.frames[direction]?.[frameIndex];
-    const size = summon.r * 4.6 * this.worldZoom * enemySpeciesScale(summon.species);
-    const height = size * (summon.summonSkill === "Summon Grizzly" ? 1.35 : summon.summonSkill === "Summon Dire Wolf" ? 1.15 : 1) * (look?.sizeScale ?? 1);
-    const aspect = frame && frame.height > 0 ? frame.width / frame.height : 0.8;
-    const width = height * Math.max(0.6, Math.min(1.8, aspect));
+    const bodyHeight = enemyD2PixelHeight(summon.species) * ENEMY_SOURCE_PIXEL_SCALE * this.worldZoom;
+    const spriteScale = sprite ? bodyHeight / Math.max(1, sprite.contentHeight || frame?.height || 1) : 0;
+    const height = (frame && sprite ? frame.height * spriteScale : bodyHeight) * (look?.sizeScale ?? 1);
+    const width = (frame && sprite ? frame.width * spriteScale : height * 0.8) * (look?.sizeScale ?? 1);
     const attackPulse = summon.animationState === "attack" ? Math.sin((1 - (summon.attackAnimationTime ?? 0) / 0.4) * Math.PI) : 0;
     const bob = look?.floating
       ? Math.sin(this.runTime * 2.6 + summon.x * 0.02 + summon.y * 0.013) * 2.4 * this.worldZoom
@@ -19895,7 +20232,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       ctx.drawImage(
         frameToDraw,
         ground.x - width / 2,
-        ground.y - height * 0.82 - attackPulse * size * 0.1 + bob,
+        ground.y - height * (sprite?.footFraction || 0.82) - attackPulse * bodyHeight * 0.06 + bob,
         width,
         height,
       );
@@ -21111,94 +21448,27 @@ const UBER_ENEMY_IMMUNITIES: Partial<Record<EnemySpecies, EnemyDamageType[]>> = 
 };
 
 /**
- * Sprite cells frame the whole animation range, so a creature only fills part of
- * its cel; these factors keep each one at the size it is drawn at on screen. Shared
- * with the hover hit test so the card appears over the whole body.
+ * One screen scale for every monster sprite. No species gets its own height
+ * multiplier any more: each imported cel is drawn at this single scale, so the
+ * source artwork's own relative sizes survive intact.
  */
-function enemySpeciesScale(species: EnemySpecies): number {
-  switch (species) {
-    case "andariel": return 1.8;
-    // Mephisto's 307px cells are rendered at double size to match his D2
-    // presence. Keep this nearest-neighbor in drawEnemy so the pixel art stays
-    // crisp instead of being blurred by canvas smoothing.
-    case "mephisto": return 2;
-    // The full SK COF cell leaves room for the shield swing; keep the body
-    // at the old humanoid height.
-    case "skeleton": return 1.25;
-    case "skeletonWarrior": return 1.25;
-    // The Advocate's 107x108 cel is mostly padding: the body is only about
-    // 44x59 px. At the default 1x the Council rendered shorter than a Fallen,
-    // so lift the padded cel to roughly the Goatman's humanoid height.
-    case "council": return 1.8;
-    case "skeletalMageCold":
-    case "skeletalMageFire":
-    case "skeletalMageLightning":
-    case "skeletalMagePoison": return 1.35;
-    case "duriel": return 2;
-    // The Lord of Terror's 192px cell is the original DI walk COF from the D2R
-    // extraction, but the default 1x factor made him shorter than the hero.
-    // At 2.4x he stands above Mephisto and reads as Act IV's final boss.
-    case "diablo": return 2.4;
-    case "baal": return 1.4;
-    // The scarab is a low, wide crawler; its sheet needs a larger factor than the
-    // man-sized monsters to read as a full beetle, kept to half that bulk.
-    case "scarab": return 1.25;
-    case "sandMaggot": return 2.3;
-    case "maggotEgg": return 1.35;
-    // The young atlas leaves a wide margin around the larva, so it takes a
-    // larger factor than the adult to stand about two thirds of its width.
-    case "sandMaggotYoung": return 2.15;
-    // The Queen is a boss-sized maggot: r 22 and the boss height factor land her
-    // about half again as tall as a worker, well short of Duriel's scale.
-    case "sandMaggotQueen": return 1.55;
-    // The spider demon's own sheet is a wide, low arachnid, so it needs a large
-    // factor to read as a full spider; it is drawn at half the size it once was.
-    case "spiderDemon": return 1.3;
-    // A quill-covered crawler, drawn at half the size it once was.
-    case "spikeFiend": return 0.725;
-    // The fenris sheet is a lean wolf; the bear is bulkier but not tall.
-    case "wolf": return 1.5;
-    case "grizzly": return 1.45;
-    // Golem cels are wide, so a modest factor keeps them brute-sized.
-    case "bloodGolem": return 1.15;
-    case "fireGolem": return 1.15;
-    case "ironGolem": return 1.15;
-    // The spirit totems sit inside a large cel.
-    case "oakSage": return 1.25;
-    case "heartOfWolverine": return 1.25;
-    case "spiritOfBarbs": return 1.25;
-    case "sandRaider": return 1.55;
-    // The leaper is a sprinting insectoid, smaller than the desert raiders.
-    case "leaper": return 1.4;
-    // A Blunderbore is an ogre-sized Act III brute. Its 117px cel is mostly
-    // empty air around an 86px body, so it needs a much larger factor than the
-    // man-sized monsters to tower over the desert raiders and minotaurs.
-    case "blunderbore": return 2.6;
-    // The minotaur is an armoured axe-brute of the same size class.
-    case "minotaur": return 1.45;
-    // Nihlathak's imported cel was over-scaled; a third smaller keeps him a
-    // super unique without towering over the pack.
-    case "nihlathak": return 0.97;
-    // A pain worm is a squat, wide crawler; it should read shorter than a maggot.
-    case "painWorm": return 1.7;
-    // A Regurgitator is a hulking Act IV demon, not a man-sized monster.
-    case "regurgitator": return 1.8;
-    // Balrogs are Act IV brutes and should tower over the Vile population. The
-    // imported cel leaves most of its width empty, so the old factor drew them
-    // roughly one third of their intended size.
-    case "balrog": return 3;
-    // The sheet leaves a lot of cel around the long tail, so the lizard needs a
-    // bigger factor to reach the same screen size as the other desert monsters.
-    case "salamander": return 2.6;
-    // A Siege Beast is the Worldstone Keep's horned brute: its cel is mostly
-    // lunge room, so it needs a large factor to tower over the smaller minions.
-    case "siegeBeast": return 2.9;
-    // Baal's minions were the only Act V brute left on the default 1x factor.
-    // monstats2 gives them a 112 px body against the Siege Beast's 128 px; this
-    // factor keeps that ratio on screen instead of rendering them at human size.
-    case "baalsMinion": return 2.8;
-    default: return 1;
-  }
+const ENEMY_SOURCE_PIXEL_SCALE = 0.8;
+/** Original unit pixel heights; every species shares the same screen scale. */
+const ENEMY_D2_PIX_HEIGHTS: Partial<Record<EnemySpecies, number>> = {
+  fallen: 64, goatman: 96, skeleton: 80, skeletonWarrior: 80,
+  skeletalMageCold: 80, skeletalMageFire: 80, skeletalMageLightning: 80, skeletalMagePoison: 80,
+  golem: 96, sandRaider: 96, sandMaggot: 48, sandMaggotYoung: 32, sandMaggotQueen: 48, maggotEgg: 32,
+  scarab: 80, spiderDemon: 96, spikeFiend: 48, leaper: 96, blunderbore: 112,
+  fetish: 48, boneFetish: 48, fetishShaman: 64, council: 96, balrog: 96,
+  vileChild: 48, vileMother: 96, bloodLord: 64, minotaur: 64, nihlathak: 80,
+  painWorm: 48, regurgitator: 112, salamander: 80, siegeBeast: 128, deathMauler: 64, wendigo: 104,
+  andariel: 96, duriel: 112, mephisto: 112, diablo: 112, baalsMinion: 112, baal: 112,
+  wolf: 88, grizzly: 104, bloodGolem: 96, fireGolem: 96, ironGolem: 96,
+  oakSage: 88, heartOfWolverine: 88, spiritOfBarbs: 88,
+};
+
+function enemyD2PixelHeight(species: EnemySpecies): number {
+  return ENEMY_D2_PIX_HEIGHTS[species] ?? 96;
 }
 
 /** Fresh sixteen-row atlases: [walk frames per direction, attack frames per direction]. */
@@ -21222,6 +21492,7 @@ const ENEMY_WALK_ONLY_FRAMES: Partial<Record<EnemySpecies, number>> = {
 
 function enemySpriteFrame(enemy: Enemy, columns: number, runTime: number): number {
   if (columns <= 1) return 0;
+  if ((enemy.freezeRemaining ?? 0) > 0) return 0;
   const state = enemy.animationState ?? "idle";
   const phaseOffset = Math.abs(Math.floor(enemy.x * 0.09 + enemy.y * 0.05)) % columns;
   if (enemy.species === "sandMaggot" || enemy.species === "sandMaggotQueen") {
@@ -21299,13 +21570,13 @@ function enemySpriteFrame(enemy: Enemy, columns: number, runTime: number): numbe
     return 0;
   }
   if (enemy.species === "regurgitator") {
-    // Rows 0-7 are the twelve-frame sway, rows 8-15 the sixteen-frame lunge.
+    // Rows 0-7 are the ten-frame sway, rows 8-15 the ten-frame lunge.
     if (state === "attack") {
       const duration = enemy.kind === "boss" ? 0.55 : 0.38;
       const progress = 1 - Math.max(0, Math.min(1, (enemy.attackAnimationTime ?? duration) / duration));
-      return Math.min(15, Math.floor(progress * 16));
+      return Math.min(9, Math.floor(progress * 10));
     }
-    if (state === "move") return Math.floor(runTime * 8 + phaseOffset) % 12;
+    if (state === "move") return Math.floor(runTime * 8 + phaseOffset) % 10;
     return 0;
   }
   if (enemy.species === "painWorm") {
@@ -21535,7 +21806,10 @@ const CLASS_SKILL_DESCRIPTIONS: Record<string, string> = {
   "Oak Sage": `A spirit that cannot attack. While active, it increases the maximum life of the druid and all active summons by ${OAK_SAGE_LIFE_BONUS_BASE_PERCENT}%, plus ${OAK_SAGE_LIFE_BONUS_PER_RANK_PERCENT}% per additional rank.`,
   "Raven": "Each rank adds one raven; cast the skill to summon it.",
   "Blaze": "Leaves a trail of fire as the Sorceress moves or stands. Each patch burns enemies that touch it and lasts for 5 seconds.",
-  "Fire Bolt": "Level 1 Sorceress fire projectile.", Teeth: "Level 1 Necromancer bone shards fan out through enemies.",
+  "Fire Bolt": "Level 1 Sorceress fire projectile.",
+  "Ice Bolt": "Fires a single cold bolt at the nearest monster, damaging and chilling it.",
+  "Ice Blast": `Fires a cold blast that damages every monster in a ${ICE_BLAST_IMPACT_RADIUS}-unit area and freezes them solid for ${ICE_BLAST_FREEZE_SECONDS} seconds. Frozen monsters cannot move, attack or animate.`,
+  Teeth: "Level 1 Necromancer bone shards fan out through enemies.",
   "Frozen Armor": "Passive frost shield: automatically activates when learned and stays active during the run. Reduces incoming damage by 10% per rank, up to 50%; it does not retaliate against attackers.",
   "Teleport": "Passive: when the Sorceress is hit, she has a chance to teleport to a random visible location away from the attacker. Chance rises with rank.",
   "Whirlwind": "Level 30 Barbarian spins through nearby enemies, striking repeatedly.",
@@ -21825,6 +22099,12 @@ interface AttackProjectile {
   pathHit?: boolean;
   /** Spends the projectile on the first enemy it crosses. */
   stopOnFirstHit?: boolean;
+  /** Last travelled direction, used to orient a weaving projectile. */
+  headingX?: number;
+  headingY?: number;
+  /** Charged Bolt's lateral weave amplitude and per-bolt phase offset. */
+  driftStrength?: number;
+  driftSeed?: number;
   cold?: boolean;
   /** Leaves Sand Maggot poison on the hero when this projectile lands. */
   poison?: boolean;
@@ -21842,6 +22122,8 @@ interface AttackProjectile {
   impactDuration?: number;
   impactHitEnemies?: Enemy[];
   impactStunSeconds?: number;
+  /** Ice Blast's full-freeze duration applied to every enemy in its blast. */
+  freezeSeconds?: number;
   psychicHammer?: boolean;
   impactTrap?: boolean;
   impactInsideEnemies?: Enemy[];
@@ -21931,6 +22213,26 @@ interface PoisonCloud {
   poisonFraction?: number;
 }
 
+interface PlayerBlizzardShard {
+  x: number;
+  y: number;
+  delay: number;
+  fallArt: string;
+  impactArt: string;
+  hit: boolean;
+}
+
+interface PlayerBlizzardEffect {
+  x: number;
+  y: number;
+  time: number;
+  duration: number;
+  radius: number;
+  damagePerShard: number;
+  seed: number;
+  shards: PlayerBlizzardShard[];
+}
+
 interface MephistoBlizzardEffect {
   source: Enemy;
   x: number;
@@ -21980,6 +22282,8 @@ interface Enemy {
   miniBoss?: boolean;
   summonType?: "skeleton" | "golem" | "druid";
   summonSkill?: string;
+  /** Targetable stand-in for a Sand Maggot egg; it never acts or yields loot. */
+  eggProxy?: boolean;
   /** The elemental palette and damage of a raised Skeletal Mage. */
   summonElement?: SkeletalMageElement;
   summonAttackCooldown?: number;
@@ -22023,6 +22327,8 @@ interface Enemy {
   paladinAuraHitRemaining?: number;
   /** Seconds of cold slow remaining; while set the sprite is tinted blue. */
   coldRemaining?: number;
+  /** Seconds of Ice Blast's full freeze; the monster cannot act or animate. */
+  freezeRemaining?: number;
   /** Pandemonium monsters ignore these damage types entirely. */
   immunities?: EnemyDamageType[];
 }
@@ -22041,6 +22347,8 @@ interface MaggotEgg {
   y: number;
   age: number;
   hatchRemaining: number;
+  /** Enemy-array stand-in so every player attack can target the egg. */
+  proxy: Enemy;
 }
 
 interface Chest {

@@ -10,8 +10,8 @@ export interface InfernoArt {
 
 export const INFERNO_ART: InfernoArt = {
   path: "assets/d2survivors/effects/inferno.png",
-  frames: 15,
-  frameWidth: 76,
-  frameHeight: 77,
+  frames: 30,
+  frameWidth: 78,
+  frameHeight: 84,
   frameRate: 16,
 };

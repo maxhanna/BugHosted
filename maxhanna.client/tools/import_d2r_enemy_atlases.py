@@ -408,14 +408,17 @@ def build_new_species(source: Path, species: str) -> str:
     directions = min(8, walk["directions"])
     walk_frames = min(walk["frames_per_dir"], columns)
     for direction in range(directions):
-        for frame in range(walk_frames):
-            paste(frame_crop(walk, direction, frame), frame, direction)
+        for frame in range(columns):
+            # Every atlas column must hold art. The old loop stopped at the real
+            # frame count, leaving the remaining columns transparent; the runtime
+            # advanced into them and the monster vanished mid-walk.
+            paste(frame_crop(walk, direction, frame % walk_frames), frame, direction)
     attack_frames = 0
     if attack is not None:
         attack_frames = min(attack["frames_per_dir"], columns)
         for direction in range(min(directions, attack["directions"])):
-            for frame in range(attack_frames):
-                paste(frame_crop(attack, direction, frame), frame, 8 + direction)
+            for frame in range(columns):
+                paste(frame_crop(attack, direction, frame % attack_frames), frame, 8 + direction)
 
     destination = ASSET_ROOT / out_name
     sheet.save(destination)
@@ -442,14 +445,14 @@ def build_composite_species(source: Path, species: str) -> str:
     directions = min(8, walk["directions"])
     walk_frames = min(walk["frames"], columns)
     for direction in range(directions):
-        for frame in range(walk_frames):
-            paste(composite_frame(walk, direction, frame), frame, direction)
+        for frame in range(columns):
+            paste(composite_frame(walk, direction, frame % walk_frames), frame, direction)
     attack_frames = 0
     if attack is not None:
         attack_frames = min(attack["frames"], columns)
         for direction in range(min(directions, attack["directions"])):
-            for frame in range(attack_frames):
-                paste(composite_frame(attack, direction, frame), frame, 8 + direction)
+            for frame in range(columns):
+                paste(composite_frame(attack, direction, frame % attack_frames), frame, 8 + direction)
 
     destination = ASSET_ROOT / out_name
     sheet.save(destination)
@@ -1061,20 +1064,21 @@ def build_sand_maggot(source: Path) -> str:
 
 
 def build_maggot_egg(source: Path) -> str:
-    """Build the Sand Maggot Egg atlas from the original ``eg`` composite.
+    """Build the Sand Maggot Egg atlas from the original ``se`` composite.
 
-    ``egnuhth`` is the egg's neutral ten-frame pulse, flattened from the torso
-    and the glowing membrane layer.  Eight direction rows are kept even though
-    the egg is symmetric, matching every other enemy sheet in the arena.
+    ``senuhth`` is the egg's neutral pulse.  The earlier importer used token
+    ``eg``, which is the Eagle monster, so the egg marker rendered as a swarm
+    of flies.  Eight direction rows are kept even though the egg is symmetric,
+    matching every other enemy sheet in the arena.
     """
-    egg_dir = source / "global" / "monsters" / "eg"
+    egg_dir = source / "global" / "monsters" / "se"
     global CURRENT_PALETTE
     previous = CURRENT_PALETTE
-    CURRENT_PALETTE = dcc.load_palette(source / "global" / "palette" / "units" / "pal.dat")
+    CURRENT_PALETTE = load_units_palette(source / "global" / "palette" / "units" / "pal.dat")
     try:
-        animation = load_cof_animation(egg_dir, "eg", "nu", "egnuhth.cof")
+        animation = load_cof_animation(egg_dir, "se", "nu", "senuhth.cof")
         if animation is None:
-            raise ValueError("EG neutral COF is incomplete")
+            raise ValueError("SE neutral COF is incomplete")
         columns = 12
         cell = 120
         frames = min(10, animation["frames"], columns)
@@ -1088,7 +1092,7 @@ def build_maggot_egg(source: Path) -> str:
                 sheet.alpha_composite(scaled, (left, top))
         destination = ASSET_ROOT / "maggot-egg.png"
         sheet.save(destination, optimize=True)
-        return (f"{'maggotEgg':16s} EG  maggot-egg.png          {sheet.width}x{sheet.height} "
+        return (f"{'maggotEgg':16s} SE  maggot-egg.png          {sheet.width}x{sheet.height} "
                 f"cell {cell}x{cell} neutral {frames}f")
     finally:
         CURRENT_PALETTE = previous

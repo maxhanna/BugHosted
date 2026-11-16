@@ -1,10 +1,10 @@
 """Bake the sorceress Inferno flame stream into a single spritesheet.
 
-`global/missiles/flamethrower.dcc` is the 15-frame, one-direction flame used by
-Inferno (`infernoflame1` has `AnimLen` 15 in missiles.txt). The generic missile
-importer reused the shared `units/pal.dat` as raw RGB, which swaps red and blue
-and leaves fire art blue. This importer converts the palette from BGR first so
-the stream reads as fire.
+Inferno uses both original client missiles in `missiles.txt`: `infernoflame1`
+points at `flamethrower.dcc` and `infernoflame2` at `flamethrower2.dcc`. Each is
+a 15-frame, one-direction flame. The generic missile importer reused the shared
+`units/pal.dat` as raw RGB, which swaps red and blue and leaves fire art blue.
+This importer converts the palette from BGR first so the stream reads as fire.
 
 Every frame is composited onto the shared DCC direction box and laid out as one
 horizontal strip. The runtime pipes these puffs along the Inferno cone.
@@ -29,32 +29,46 @@ OUTPUT = PROJECT_ROOT / "src" / "assets" / "d2survivors" / "effects" / "inferno.
 METADATA = PROJECT_ROOT / "src" / "app" / "d2survivors" / "d2-inferno.generated.ts"
 DEFAULT_SOURCE = Path.home() / "Desktop" / "d2" / "d2r extract" / "data"
 
-SOURCE_DCC = ("global", "missiles", "flamethrower.dcc")
+SOURCE_DCCS = (
+    ("global", "missiles", "flamethrower.dcc"),
+    ("global", "missiles", "flamethrower2.dcc"),
+)
 PALETTE_PATH = ("global", "palette", "units", "pal.dat")
 FRAME_RATE = 16
 
 
 def build_sheet(source: Path) -> tuple[Image.Image, int, int, int]:
-    path = source.joinpath(*SOURCE_DCC)
-    animation = dcc.parse(path.read_bytes())
-    if not animation["dirs"]:
-        raise RuntimeError(f"{path} has no directions")
-    direction = animation["dirs"][0]
-    xmin, ymin, width, height = direction["box"]
-    frames = direction["frames"]
-    if not frames:
-        raise RuntimeError(f"{path} has no frames")
+    animations = []
+    for relative in SOURCE_DCCS:
+        path = source.joinpath(*relative)
+        animation = dcc.parse(path.read_bytes())
+        if not animation["dirs"] or not animation["dirs"][0]["frames"]:
+            raise RuntimeError(f"{path} has no frames")
+        animations.append(animation)
 
+    # Both strips share one cell so the runtime can index them as one row. The
+    # union of their direction boxes keeps every puff on the same origin.
+    boxes = [animation["dirs"][0]["box"] for animation in animations]
+    xmin = min(box[0] for box in boxes)
+    ymin = min(box[1] for box in boxes)
+    xmax = max(box[0] + box[2] for box in boxes)
+    ymax = max(box[1] + box[3] for box in boxes)
+    width, height = xmax - xmin, ymax - ymin
+    frame_total = sum(len(animation["dirs"][0]["frames"]) for animation in animations)
     palette = [(red, green, blue) for blue, green, red in dcc.load_palette(source.joinpath(*PALETTE_PATH))]
-    sheet = Image.new("RGBA", (width * len(frames), height), (0, 0, 0, 0))
-    for index, frame in enumerate(frames):
-        canvas = Image.new("RGBA", (width, height), (0, 0, 0, 0))
-        canvas.alpha_composite(
-            dcc.frame_image(direction["bitmaps"][index], frame["width"], frame["height"], palette),
-            (frame["xmin"] - xmin, frame["ymin"] - ymin),
-        )
-        sheet.alpha_composite(canvas, (index * width, 0))
-    return sheet, len(frames), width, height
+    sheet = Image.new("RGBA", (width * frame_total, height), (0, 0, 0, 0))
+    index = 0
+    for animation in animations:
+        direction = animation["dirs"][0]
+        for frame, bitmap in zip(direction["frames"], direction["bitmaps"]):
+            canvas = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+            canvas.alpha_composite(
+                dcc.frame_image(bitmap, frame["width"], frame["height"], palette),
+                (frame["xmin"] - xmin, frame["ymin"] - ymin),
+            )
+            sheet.alpha_composite(canvas, (index * width, 0))
+            index += 1
+    return sheet, frame_total, width, height
 
 
 def write_metadata(frames: int, width: int, height: int) -> None:

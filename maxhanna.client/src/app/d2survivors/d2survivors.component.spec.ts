@@ -1795,6 +1795,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
       expect(bolt.target).toBeUndefined();
       expect(bolt.pathHit).toBeTrue();
       expect(bolt.stopOnFirstHit).toBeTrue();
+      expect(bolt.driftStrength).toBe(0.16);
       const reach = Math.hypot(bolt.targetX - component.playerX, bolt.targetY - (component.playerY - 8));
       expect(reach).toBeGreaterThan(600);
     }
@@ -1817,6 +1818,36 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(firstBolt.life).toBe(0);
     expect(otherBolts.every((bolt) => bolt.life > 0)).toBeTrue();
     expect(otherBolts.every((bolt) => bolt.x > 100)).toBeTrue();
+  });
+
+  it("weaves each Charged Bolt around its launch line rather than flying dead straight", () => {
+    component.selectedClass = "sorceress";
+    (component as any).worldZoom = 1;
+    component.playerX = 100;
+    component.playerY = 250;
+    (component as any).playerFacingX = 1;
+    (component as any).playerFacingY = 0;
+    component.ownedSkills = ["Charged Bolt"];
+    component.skillLevels = { "Charged Bolt": 1 };
+    component.enemies = [{ kind: "normal", species: "fallen", spriteFrame: 0, x: 600, y: 250, hp: 100, maxHp: 100, speed: 0, r: 14, dmg: 2 } as any];
+    component.attackProjectiles = [];
+    (component as any).rebuildEnemyGrid();
+
+    component.activateOwnedSkill("Charged Bolt");
+
+    component.enemies = [];
+    (component as any).rebuildEnemyGrid();
+    const bolt = component.attackProjectiles[2];
+    const startX = bolt.x;
+    const startY = bolt.y;
+    const lineX = bolt.targetX - startX;
+    const lineY = bolt.targetY - startY;
+    const lineLength = Math.hypot(lineX, lineY);
+    for (let frame = 0; frame < 40; frame += 1) (component as any).updateAttackProjectiles(16);
+
+    const perpendicular = Math.abs(lineX * (bolt.y - startY) - lineY * (bolt.x - startX)) / lineLength;
+    expect(perpendicular).toBeGreaterThan(1.5);
+    expect(Math.hypot(bolt.headingX ?? 0, bolt.headingY ?? 0)).toBeCloseTo(1);
   });
 
   it("sells pack gear to Gheed and never offers the gear the hero is wearing", () => {
@@ -3212,6 +3243,14 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect((component as any).itemSize(sphere)).toEqual({ width: 1, height: 2 });
   });
 
+  it("uses a one-column, two-row inventory footprint for Eagle Orbs", () => {
+    const eagle = {
+      id: "eagle-orb", name: "Eagle Orb", baseName: "Eagle Orb", rarity: "normal",
+      slot: "weapon", equipmentType: "orb", width: 1, height: 3, desc: "An eagle orb.", stats: {},
+    } as any;
+    expect((component as any).itemSize(eagle)).toEqual({ width: 1, height: 2 });
+  });
+
   it("uses a one-column, two-row inventory footprint for Sacred Globes", () => {
     const globe = {
       id: "sacred-globe", name: "Sacred Globe", baseName: "Sacred Globe", rarity: "normal",
@@ -4143,6 +4182,8 @@ describe("D2SurvivorsComponent combat and equipment", () => {
       columns: 20,
       rows: 24,
       animated: true,
+      contentHeight: 67,
+      footFraction: 0.98,
     };
     spyOn(component as any, "projectArenaPoint").and.returnValue({ x: 100, y: 120 });
     spyOn(component as any, "drawGroundShadow");
@@ -4177,8 +4218,9 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     const spriteCall = drawImage.calls.all().find((call) => call.args[0] === frame);
     expect(spriteCall).toBeDefined();
     if (!spriteCall) throw new Error("Council sprite was not drawn");
-    // The body fills 59/108 of the cell; the old 1x draw gave it only ~37 px.
-    expect(spriteCall.args[4] * 59 / 108).toBeGreaterThan(60);
+    // The body fills 59/108 of the cell; at the shared source scale it draws
+    // about 47px before world zoom instead of the old padded-cel ~37px.
+    expect(spriteCall.args[4] * 59 / 108).toBeGreaterThan(45);
   });
 
   it("keeps the Fetish and Council animation loops on populated cels", () => {
@@ -5901,10 +5943,40 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(maggot.spriteBlock).toBe(2);
     expect(component.maggotEggs).toHaveSize(1);
     expect(component.attackProjectiles).toHaveSize(0);
+    const proxy = component.maggotEggs[0].proxy;
+    expect(proxy.eggProxy).toBeTrue();
+    expect(component.enemies).toContain(proxy);
 
     (component as any).updateMaggotEggs(10);
     expect(component.maggotEggs).toHaveSize(0);
+    expect(component.enemies).not.toContain(proxy);
     expect(component.enemies.some((enemy) => enemy.species === "sandMaggotYoung")).toBeTrue();
+  });
+
+  it("lets the hero destroy a Sand Maggot egg before it hatches", () => {
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.enemies = [];
+    component.maggotEggs = [];
+    const maggot = {
+      kind: "normal", species: "sandMaggot", spriteFrame: 0, x: 430, y: 250,
+      hp: 100, maxHp: 100, speed: 0, r: 14, dmg: 6, cd: 0,
+      burrowCooldown: 99, eggCooldown: 0, animationState: "idle", facingX: -1, facingY: 0,
+    } as any;
+
+    (component as any).laySandMaggotEgg(maggot);
+    const egg = component.maggotEggs[0];
+    expect(egg.proxy.hp).toBe(8);
+
+    (component as any).queueEnemyDamage(egg.proxy, 8, "#ffffff");
+    (component as any).flushPendingDamage();
+    expect(egg.proxy.hp).toBeLessThanOrEqual(0);
+
+    (component as any).updateMaggotEggs(0.1);
+    expect(component.maggotEggs).toHaveSize(0);
+    expect(component.enemies).not.toContain(egg.proxy);
+    expect(component.enemies.some((enemy) => enemy.species === "sandMaggotYoung")).toBeFalse();
   });
 
   it("shows the Cyclone Armor aura only while the timed shield is active", () => {
@@ -6515,7 +6587,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect((component as any).enemySpriteTint(enemy, "base")).toBe("base");
   });
 
-  it("flags ice projectiles as cold damage", () => {
+  it("fires Ice Bolt as a single-target cold projectile", () => {
     component.selectedClass = "sorceress";
     component.playerX = 250;
     component.playerY = 250;
@@ -6527,7 +6599,120 @@ describe("D2SurvivorsComponent combat and equipment", () => {
 
     component.activateOwnedSkill("Ice Bolt");
 
-    expect(component.attackProjectiles[0]?.cold).toBeTrue();
+    const bolt = component.attackProjectiles[0];
+    expect(bolt.cold).toBeTrue();
+    expect(bolt.impactRadius).toBeUndefined();
+    expect(bolt.color).toBe("#8bdcff");
+  });
+
+  it("deals Ice Blast damage in an area and freezes every monster caught", () => {
+    component.selectedClass = "sorceress";
+    (component as any).worldZoom = 1;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.ownedSkills = ["Ice Blast"];
+    component.skillLevels = { "Ice Blast": 1 };
+    const primary = { kind: "normal", species: "fallen", spriteFrame: 0, x: 400, y: 250, hp: 100, maxHp: 100, speed: 100, r: 14, dmg: 2 } as any;
+    const nearby = { ...primary, x: 426 };
+    const outside = { ...primary, x: 520 };
+    component.enemies = [primary, nearby, outside];
+    component.attackProjectiles = [];
+    (component as any).rebuildEnemyGrid();
+
+    component.activateOwnedSkill("Ice Blast");
+
+    const blast = component.attackProjectiles[0];
+    expect(blast.missileId).toBe("d2-iceblast");
+    expect(blast.target).toBeUndefined();
+    expect(blast.impactRadius).toBe(48);
+    expect(blast.freezeSeconds).toBe(1.6);
+    expect(blast.color).toBe("#8bdcff");
+    for (let frame = 0; frame < 40; frame += 1) (component as any).updateAttackProjectiles(16);
+    (component as any).flushPendingDamage();
+
+    expect(primary.hp).toBeLessThan(100);
+    expect(nearby.hp).toBeLessThan(100);
+    expect(outside.hp).toBe(100);
+    expect(primary.freezeRemaining).toBeCloseTo(1.6);
+    expect(nearby.freezeRemaining).toBeCloseTo(1.6);
+    expect(outside.freezeRemaining).toBeUndefined();
+
+    primary.animationState = "attack";
+    primary.attackAnimationTime = 0.3;
+    const frozenX = primary.x;
+    component.updateEnemies(16);
+    expect(primary.x).toBe(frozenX);
+    expect(primary.animationState).toBe("idle");
+    expect(primary.attackAnimationTime).toBe(0);
+    expect((component as any).enemyMoveSpeed(primary)).toBe(0);
+  });
+
+  it("casts Blizzard as a falling storm over the target pack", () => {
+    component.selectedClass = "sorceress";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.ownedSkills = ["Blizzard"];
+    component.skillLevels = { Blizzard: 1 };
+    const target = { kind: "normal", species: "fallen", spriteFrame: 0, x: 400, y: 250, hp: 100, maxHp: 100, speed: 100, r: 14, dmg: 2 } as any;
+    component.enemies = [target];
+    component.attackProjectiles = [];
+    (component as any).rebuildEnemyGrid();
+
+    component.activateOwnedSkill("Blizzard");
+
+    const storms = (component as any).playerBlizzards as any[];
+    expect(component.attackProjectiles).toHaveSize(0);
+    expect(storms).toHaveSize(1);
+    expect(storms[0].x).toBe(400);
+    expect(storms[0].shards).toHaveSize(24);
+    expect(storms[0].duration).toBe(2.4);
+  });
+
+  it("damages and chills every monster inside the Blizzard storm", () => {
+    component.selectedClass = "sorceress";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.ownedSkills = ["Blizzard"];
+    component.skillLevels = { Blizzard: 1 };
+    const primary = { kind: "normal", species: "fallen", spriteFrame: 0, x: 400, y: 250, hp: 100, maxHp: 100, speed: 100, r: 14, dmg: 2 } as any;
+    const nearby = { ...primary, x: 450 };
+    const outside = { ...primary, x: 600 };
+    component.enemies = [primary, nearby, outside];
+    component.attackProjectiles = [];
+    (component as any).rebuildEnemyGrid();
+
+    component.activateOwnedSkill("Blizzard");
+    (component as any).rebuildEnemyGrid();
+    (component as any).updatePlayerBlizzards(2);
+    (component as any).flushPendingDamage();
+
+    expect(primary.hp).toBeLessThan(100);
+    expect(nearby.hp).toBeLessThan(100);
+    expect(outside.hp).toBe(100);
+    expect(primary.coldRemaining).toBeGreaterThan(0);
+    expect(nearby.coldRemaining).toBeGreaterThan(0);
+    expect(outside.coldRemaining).toBeUndefined();
+  });
+
+  it("draws Blizzard with the original falling-shard and impact cels", () => {
+    component.runActive = true;
+    (component as any).projectionDpr = 1;
+    spyOn(component as any, "projectArenaPoint").and.callFake((x: number, y: number) => ({ x, y }));
+    spyOn(component as any, "isArenaPointOnScreen").and.returnValue(true);
+    const draw = spyOn(component as any, "drawImportedMissileFrame");
+    (component as any).playerBlizzards = [{
+      x: 250, y: 250, time: 0.35, duration: 2.4, radius: 110, damagePerShard: 10, seed: 0,
+      shards: [
+        { x: 250, y: 250, delay: 0.55, fallArt: "d2-icestormfallvar01", impactArt: "d2-icestormimpactvar01", hit: false },
+        { x: 260, y: 250, delay: 0.25, fallArt: "d2-icestormfallvar02", impactArt: "d2-icestormimpactvar02", hit: true },
+      ],
+    }];
+
+    (component as any).drawPlayerBlizzards({} as any);
+
+    const arts = draw.calls.allArgs().map((args) => args[1]);
+    expect(arts).toContain("d2-icestormfallvar01");
+    expect(arts).toContain("d2-icestormimpactvar02");
   });
 
   it("channels Inferno in a long fire cone and cancels it when the caster moves", () => {
@@ -7049,12 +7234,12 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(drawn.some((frame) => fireFrames.includes(frame))).toBeTrue();
   });
 
-  it("uses the imported 15-frame Inferno sheet", () => {
-    expect(INFERNO_ART.frames).toBe(15);
+  it("uses both imported 15-frame Inferno strips", () => {
+    expect(INFERNO_ART.frames).toBe(30);
     expect(INFERNO_ART.path).toBe("assets/d2survivors/effects/inferno.png");
   });
 
-  it("draws the Frost Nova sheet's expanding frame anchored on the caster", () => {
+  it("draws Frost Nova as original ice cels around an expanding ring", () => {
     const art = FROST_NOVA_ART;
     const sheet = {
       complete: true,
@@ -7064,19 +7249,43 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     spyOn(component as any, "ensureFrostNovaSheet").and.returnValue(sheet);
     (component as any).worldZoom = 1;
     const drawImage = jasmine.createSpy("drawImage");
-    const ctx = { save: () => undefined, restore: () => undefined, drawImage } as any;
-    const effect = { frostNova: true, time: 0.5, duration: art.frames / art.frameRate, fieldRadius: 132 } as any;
+    const translate = jasmine.createSpy("translate");
+    const ctx = {
+      save: () => undefined, restore: () => undefined, translate, rotate: () => undefined,
+      beginPath: () => undefined, ellipse: () => undefined, clip: () => undefined,
+      drawImage,
+    } as any;
+    spyOn(component as any, "projectArenaPoint").and.callFake((x: number, y: number) => ({ x, y }));
+    const effect = { frostNova: true, x: 300, y: 300, time: 0.5, duration: art.frames / art.frameRate, fieldRadius: 132, seed: 0 } as any;
 
     (component as any).drawFrostNovaRing(ctx, effect, { x: 300, y: 300 });
 
     const frame = Math.min(art.frames - 1, Math.floor(0.5 * art.frameRate));
-    const scale = (132 * 2 * 0.7071) / art.frameWidth;
-    expect(drawImage).toHaveBeenCalledWith(
-      sheet,
-      frame * art.frameWidth, 0, art.frameWidth, art.frameHeight,
-      300 - art.originX * scale, 300 - art.originY * scale,
-      art.frameWidth * scale, art.frameHeight * scale,
-    );
+    const calls = drawImage.calls.allArgs() as any[][];
+    expect(calls.length).toBeGreaterThanOrEqual(28);
+    expect(calls.every((call) => call[0] === sheet
+      && call[1] === frame * art.frameWidth && call[2] === 0
+      && call[3] === art.frameWidth && call[4] === art.frameHeight)).toBeTrue();
+    expect(new Set(translate.calls.allArgs().map((call) => call[0].toFixed(1))).size).toBeGreaterThan(8);
+  });
+
+  it("blocks Act III trees and water while leaving bridge decks walkable", () => {
+    const mask = { width: 100, height: 100, blocked: new Uint8Array(100 * 100) };
+    mask.blocked[50 * 100 + 55] = 1;
+    mask.blocked[50 * 100 + 50] = 1;
+    (component as any).campaignCollisionMasks[3] = mask;
+    (component as any).currentAct = 3;
+    component.playerX = 50;
+    component.playerY = 50;
+    spyOn(component as any, "campaignAreaBackdropGeometry").and.returnValue({ scale: 1, left: 0, top: 0 } as any);
+    spyOn(component as any, "projectArenaPoint").and.callFake((x: number, y: number) => ({ x, y }));
+
+    // The hero is already overlapped by scenery here, so movement stays free to escape.
+    expect((component as any).campaignTerrainBlocks(5, 0)).toBeFalse();
+
+    mask.blocked[50 * 100 + 50] = 0;
+    expect((component as any).campaignTerrainBlocks(5, 0)).toBeTrue();
+    expect((component as any).campaignTerrainBlocks(0, 5)).toBeFalse();
   });
 
   it("uses the original D2 feet overlays for Oak Sage and Heart of Wolverine", () => {
@@ -7347,7 +7556,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(campaignFallen.immunities).toBeUndefined();
   });
 
-  it("draws Mephisto at double size without smoothing his sprite", () => {
+  it("draws Mephisto at the shared source scale without smoothing his sprite", () => {
     component.currentAct = 3;
     component.playerX = 250;
     component.playerY = 250;
@@ -7364,6 +7573,8 @@ describe("D2SurvivorsComponent combat and equipment", () => {
       columns: 1,
       rows: 24,
       animated: true,
+      contentHeight: 254,
+      footFraction: 0.845,
     };
     spyOn(component as any, "projectArenaPoint").and.returnValue({ x: 400, y: 300 });
     const canvas = document.createElement("canvas");
@@ -7375,7 +7586,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     const originalDrawImage = ctx.drawImage.bind(ctx);
     (ctx as any).drawImage = (...args: unknown[]) => {
       calls.push(args);
-      if (args.length === 5 && Number(args[3]) > 500 && Number(args[4]) > 500) {
+      if (args.length === 5 && Number(args[3]) > 100 && Number(args[4]) > 100) {
         spriteSmoothing = ctx.imageSmoothingEnabled;
       }
       (originalDrawImage as any)(...args);
@@ -7383,8 +7594,8 @@ describe("D2SurvivorsComponent combat and equipment", () => {
 
     (component as any).drawEnemy(ctx, mephisto);
 
-    const spriteCall = calls.find((args) => args.length === 5 && Number(args[3]) > 500 && Number(args[4]) > 500);
-    const expectedHeight = mephisto.r * 4.2 * (component as any).worldZoom * 2 * 1.35;
+    const spriteCall = calls.find((args) => args.length === 5 && Number(args[3]) > 100 && Number(args[4]) > 100);
+    const expectedHeight = 309 * (112 * 0.8 * (component as any).worldZoom) / 254;
     expect(spriteCall).toBeDefined();
     expect(Number(spriteCall![4])).toBeCloseTo(expectedHeight, 4);
     expect(spriteSmoothing).toBeFalse();
