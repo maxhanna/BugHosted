@@ -1203,6 +1203,17 @@
   animation: d2s-cursor-press .5s steps(16, jump-none) forwards;
 }
 
+.d2s-d2-cursor[data-mode="shop"] > span {
+  background-image: url('../../assets/d2survivors/ui/cursor-shop.webp');
+  background-size: 128px 128px;
+  animation: none;
+}
+
+.d2s-d2-cursor[data-mode="rotate"] > span {
+  background-image: url('../../assets/d2survivors/ui/cursor-rotate.webp');
+  animation: d2s-cursor-idle 1.05s steps(16, jump-none) infinite;
+}
+
 @keyframes d2s-cursor-idle {
   from { background-position: 0 0; }
   to { background-position: -2070px 0; }

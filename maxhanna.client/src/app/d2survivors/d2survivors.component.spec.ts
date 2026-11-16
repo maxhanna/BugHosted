@@ -6757,7 +6757,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(arts).toContain("d2-icestormimpactvar02");
   });
 
-  it("channels Inferno in a long fire cone and cancels it when the caster moves", () => {
+  it("channels Inferno in a short wide cone and cancels it when the caster moves", () => {
     component.selectedClass = "sorceress";
     component.playerX = 250;
     component.playerY = 250;
@@ -6765,11 +6765,15 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     (component as any).playerFacingY = 0;
     component.ownedSkills = ["Inferno"];
     component.skillLevels = { Inferno: 1 };
-    const base = { kind: "normal", species: "fallen", spriteFrame: 0, x: 500, y: 250, hp: 1000, maxHp: 1000, speed: 100, r: 14, dmg: 2 } as any;
+    const base = { kind: "normal", species: "fallen", spriteFrame: 0, x: 350, y: 250, hp: 1000, maxHp: 1000, speed: 100, r: 14, dmg: 2 } as any;
     const inside = { ...base };
+    // At 32 degrees off-centre this was outside the old 15-degree beam but is
+    // inside the new close, wide breath.
+    const wide = { ...base, x: 330, y: 300 };
+    const far = { ...base, x: 430, y: 250 };
     const behind = { ...base, x: 30 };
-    const offCone = { ...base, x: 500, y: 340 };
-    component.enemies = [inside, behind, offCone];
+    const offCone = { ...base, x: 280, y: 370 };
+    component.enemies = [inside, wide, far, behind, offCone];
     component.attackProjectiles = [];
     (component as any).rebuildEnemyGrid();
 
@@ -6779,12 +6783,15 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     const effect = (component as any).skillVisualEffects.find((entry: any) => entry.inferno);
     expect(effect).toBeTruthy();
     expect(effect.duration).toBeCloseTo(1);
-    expect(effect.coneRange).toBe(300);
+    expect(effect.coneRange).toBe(128);
+    expect(effect.coneHalfAngle).toBeCloseTo(Math.PI / 5);
 
     (component as any).updateSkillVisualEffects(0.6);
     (component as any).flushPendingDamage();
 
     expect(inside.hp).toBeLessThan(1000);
+    expect(wide.hp).toBeLessThan(1000);
+    expect(far.hp).toBe(1000);
     expect(behind.hp).toBe(1000);
     expect(offCone.hp).toBe(1000);
 
@@ -7386,6 +7393,31 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     // The interior replaces the courtyard, so its walls no longer collide.
     (component as any).act1InteriorOpen = true;
     expect((component as any).campaignTerrainBlocks(5, 0)).toBeFalse();
+  });
+
+  it("uses the buysell cursor over Gheed's shop and the rotate cursor while dragging a preview", () => {
+    const componentAny = component as any;
+    componentAny.d2CursorEnabled = true;
+    const cursor: any = { style: {}, dataset: {}, classList: { add: () => undefined, remove: () => undefined } };
+    componentAny.d2CursorRef = { nativeElement: cursor };
+    const target = (inShop: boolean) => ({
+      closest: (selector: string) => selector === ".d2s" || (inShop && selector === ".d2s-gheeds-shop") ? {} : null,
+    });
+    const move = (inShop: boolean): void => componentAny.trackD2Cursor({
+      pointerType: "mouse", clientX: 100, clientY: 100, target: target(inShop),
+    });
+
+    move(true);
+    expect(cursor.dataset.mode).toBe("shop");
+    expect(cursor.style.transform).toContain("scale(0.55)");
+
+    componentAny.previewDragging = true;
+    move(true);
+    expect(cursor.dataset.mode).toBe("rotate");
+
+    componentAny.previewDragging = false;
+    move(false);
+    expect(cursor.dataset.mode).toBe("default");
   });
 
   it("depth-sorts Act I courtyard wall strips and suppresses them indoors", () => {

@@ -14,5 +14,21 @@
     "hotspotX": 126,
     "hotspotY": 19,
     "source": "hd/global/ui/cursor/ppress.sprite"
+  },
+  "cursor-rotate": {
+    "frameWidth": 138,
+    "frames": 16,
+    "height": 128,
+    "hotspotX": 14,
+    "hotspotY": 18,
+    "source": "hd/global/ui/cursor/orotate.sprite"
+  },
+  "cursor-shop": {
+    "frameWidth": 128,
+    "frames": 1,
+    "height": 128,
+    "hotspotX": 8,
+    "hotspotY": 8,
+    "source": "hd/global/ui/cursor/buysell.sprite"
   }
 }

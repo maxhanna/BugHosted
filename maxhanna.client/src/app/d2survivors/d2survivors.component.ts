@@ -424,8 +424,10 @@ const INFERNO_BASE_DURATION = 1;
 const INFERNO_DURATION_PER_RANK = 0.1;
 const INFERNO_DAMAGE_PER_RANK = 0.08;
 const INFERNO_TICK_INTERVAL = 0.1;
-const INFERNO_RANGE = 300;
-const INFERNO_HALF_ANGLE = Math.PI / 12;
+// A short, broad breath: about four character widths ahead of the sorceress.
+// The old 300-unit, 30-degree cone reached the screen edge and read as a beam.
+const INFERNO_RANGE = 128;
+const INFERNO_HALF_ANGLE = Math.PI / 5;
 const INFERNO_COLOR = "#ff9c50";
 // Zeal lands one blow per rank. The beat is short enough to read as a flurry
 // while still letting each weapon strike animate before the next one starts.
@@ -2146,7 +2148,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   readonly d2CursorEnabled = typeof window !== "undefined"
     && window.matchMedia("(pointer: fine)").matches;
   private readonly d2CursorScale = 0.55;
-  private readonly d2CursorHotspot = { x: 126, y: 19 };
+  private readonly d2CursorHotspots = {
+    default: { x: 126, y: 19 },
+    shop: { x: 8, y: 8 },
+    rotate: { x: 14, y: 18 },
+  } as const;
   private menuHeroRenderer?: THREE.WebGLRenderer;
   private menuHeroScene?: THREE.Scene;
   private menuHeroCamera?: THREE.PerspectiveCamera;
@@ -6935,20 +6941,27 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       cursor.style.opacity = "0";
       return;
     }
-    const x = event.clientX - this.d2CursorHotspot.x * this.d2CursorScale;
-    const y = event.clientY - this.d2CursorHotspot.y * this.d2CursorScale;
+    const mode = this.previewDragging || this.menuHeroDragging
+      ? "rotate"
+      : target.closest(".d2s-gheeds-shop") ? "shop" : "default";
+    if (cursor.dataset["mode"] !== mode) cursor.dataset["mode"] = mode;
+    const hotspot = this.d2CursorHotspots[mode];
+    const x = event.clientX - hotspot.x * this.d2CursorScale;
+    const y = event.clientY - hotspot.y * this.d2CursorScale;
     cursor.style.opacity = "1";
     cursor.style.transform = `translate3d(${x}px, ${y}px, 0) scale(${this.d2CursorScale})`;
   }
 
-  @HostListener("document:pointerdown")
-  pressD2Cursor(): void {
+  @HostListener("document:pointerdown", ["$event"])
+  pressD2Cursor(event: PointerEvent): void {
+    this.trackD2Cursor(event);
     this.d2CursorRef?.nativeElement.classList.add("pressed");
   }
 
-  @HostListener("document:pointerup")
-  releaseD2Cursor(): void {
+  @HostListener("document:pointerup", ["$event"])
+  releaseD2Cursor(event: PointerEvent): void {
     this.d2CursorRef?.nativeElement.classList.remove("pressed");
+    this.trackD2Cursor(event);
   }
 
   @HostListener("window:blur")

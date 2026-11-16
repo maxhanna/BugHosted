@@ -32,8 +32,12 @@ SOURCE = (
 )
 
 CURSORS = {
-    "cursor-idle": "ohand",
-    "cursor-press": "ppress",
+    "cursor-idle": ("ohand", None),
+    "cursor-press": ("ppress", None),
+    # buysell is a ten-icon sheet, not an animation; frame 0 is the buy/sell
+    # arrow used over Gheed's stock.
+    "cursor-shop": ("buysell", 0),
+    "cursor-rotate": ("orotate", None),
 }
 # The gauntlet points up-right; the fingertip is the click point.
 HOTSPOT = (126, 19)
@@ -60,9 +64,11 @@ def decode_sprite(path: Path) -> tuple[list[Image.Image], int, int]:
 def main() -> int:
     OUTPUT.mkdir(parents=True, exist_ok=True)
     manifest = {}
-    for output_name, source_name in CURSORS.items():
+    for output_name, (source_name, frame_index) in CURSORS.items():
         source_path = SOURCE / f"{source_name}.sprite"
         frames, frame_width, height = decode_sprite(source_path)
+        if frame_index is not None:
+            frames = [frames[frame_index]]
         strip = Image.new("RGBA", (frame_width * len(frames), height), (0, 0, 0, 0))
         for index, frame in enumerate(frames):
             strip.alpha_composite(frame, (index * frame_width, 0))
@@ -76,6 +82,14 @@ def main() -> int:
             "hotspotX": HOTSPOT[0],
             "hotspotY": HOTSPOT[1],
         }
+        if output_name == "cursor-shop":
+            # The buy/sell arrow points at its upper-left corner.
+            manifest[output_name]["hotspotX"] = 8
+            manifest[output_name]["hotspotY"] = 8
+        elif output_name == "cursor-rotate":
+            # The rotation hand points left instead of up-right.
+            manifest[output_name]["hotspotX"] = 14
+            manifest[output_name]["hotspotY"] = 18
         print(f"{output_name}: {len(frames)} frames {frame_width}x{height} -> {target}")
     (OUTPUT / "cursor.json").write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8",
