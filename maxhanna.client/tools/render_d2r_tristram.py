@@ -424,7 +424,8 @@ def cell_key(cell: int, orientation: int) -> tuple[int, int, int]:
 
 def render_scene(scene: Scene, catalogue: dict[tuple[int, int, int], Tile],
                  palette: list[tuple[int, int, int, int]],
-                 object_sprites: list[ObjectSprite] | None = None) -> Image.Image:
+                 object_sprites: list[ObjectSprite] | None = None,
+                 include_upper_walls: bool = True) -> Image.Image:
     # Tile (0, 0) sits at (height * 80, WALL_MARGIN).  The extra rows/columns
     # keep negative-x diamonds and tall walls inside the canvas.
     origin_x = scene.height * TILE_WIDTH // 2
@@ -477,6 +478,9 @@ def render_scene(scene: Scene, catalogue: dict[tuple[int, int, int], Tile],
     for layer in scene.layers:
         if layer.kind == "shadow":
             draw_layer(layer)
+
+    if not include_upper_walls:
+        return image
 
     # Painter's order: back rows first, then left to right.  Props share the
     # wall pass so one behind a building is hidden by its walls.

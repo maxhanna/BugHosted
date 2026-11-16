@@ -1,4 +1,4 @@
-<div class="d2s" [class.d2s-in-menu]="activeTab === 'menu'" [class.d2s-in-character-select]="activeTab === 'menu' && menuPanel === 'characters'" [class.d2s-in-run]="activeTab === 'run'">
+<div class="d2s" [class.d2s-in-menu]="activeTab === 'menu'" [class.d2s-in-character-select]="activeTab === 'menu' && menuPanel === 'characters'" [class.d2s-in-run]="activeTab === 'run'" [class.d2s-custom-cursor]="d2CursorEnabled" (pointerleave)="hideD2Cursor()">
   <div class="d2s-tabs" *ngIf="activeTab !== 'menu'">
     <button type="button" class="d2s-tab" (click)="returnToMenu()">Main Menu</button>
     <button type="button" class="d2s-tab" [class.active]="activeTab === 'lore'" (click)="openLore()">
@@ -289,11 +289,17 @@
               *ngFor="let slot of visibleBeltSlots; let i = index"
               class="d2s-belt-slot"
               [class.selected]="activeBottleSlot === i"
+              [class.held]="heldBeltPotionSlot === i"
               [class.health-potion]="slot.kind === 'health'"
               [class.rejuvenation-potion]="slot.kind === 'rejuvenation'"
-              [attr.aria-label]="slot.kind ? slot.kind + ' potion, belt slot ' + (i + 1) : 'Empty belt slot ' + (i + 1)"
-              (click)="selectBottle(i); drinkBeltPotion(i)"
-              [title]="slot.kind ? 'Use ' + slot.kind + ' potion (' + beltKeyForSlot(i) + ')' : 'Empty belt slot'">
+              [attr.aria-label]="slot.kind ? slot.kind + ' potion, belt slot ' + (i + 1) + (heldBeltPotionSlot === i ? ', picked up' : '') : 'Empty belt slot ' + (i + 1)"
+              (click)="onBeltSlotClick(i)"
+              (contextmenu)="onBeltSlotContextMenu(i, $event)"
+              (pointerdown)="onBeltSlotPointerDown(i, $event)"
+              (pointermove)="onBeltSlotPointerMove($event)"
+              (pointerup)="onBeltSlotPointerUp($event)"
+              (pointercancel)="onBeltSlotPointerCancel($event)"
+              [title]="slot.kind ? 'Click to pick up, click another slot to move, click again to throw. Right-click to drink (' + beltKeyForSlot(i) + ').' : 'Empty belt slot'">
               <span *ngIf="slot.kind" class="d2s-potion-bottle" [class.red-potion]="slot.kind === 'health'" [class.rejuvenation-bottle]="slot.kind === 'rejuvenation'"></span>
             </button>
           </div>
@@ -563,6 +569,8 @@
     </div>
 
   </section>
+
+  <div #d2Cursor class="d2s-d2-cursor" aria-hidden="true"><span></span></div>
 
   <div class="d2s-asset-indicator" *ngIf="!assetsReady && activeTab !== 'run'" role="status" aria-live="polite">
     <span class="d2s-asset-indicator-label">Preparing assets {{ assetsLoaded }} / {{ assetsTotal }}</span>

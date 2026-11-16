@@ -4175,6 +4175,25 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(tinted.calls.mostRecent().args[1]).toBe(12);
   });
 
+  it("keeps a leaping Sand Leaper in melee reach instead of carrying it through the hero", () => {
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.playerHp = 1000;
+    const leaper = {
+      kind: "normal", species: "leaper", spriteFrame: 0, x: 350, y: 250,
+      hp: 100, maxHp: 100, speed: 400, r: 14, dmg: 2, cd: 0,
+      animationState: "move", facingX: -1, facingY: 0,
+    } as any;
+    component.enemies = [leaper];
+    (component as any).rebuildEnemyGrid();
+
+    component.updateEnemies(1000);
+
+    expect(leaper.x).toBeGreaterThan(component.playerX + 40);
+    expect(leaper.animationState).toBe("attack");
+  });
+
   it("draws Council Members at humanoid size despite their padded atlas cels", () => {
     const frame = { width: 107, height: 108 } as HTMLCanvasElement;
     (component as any).enemySprites.council = {
@@ -5953,6 +5972,29 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(component.enemies.some((enemy) => enemy.species === "sandMaggotYoung")).toBeTrue();
   });
 
+  it("has Sand Maggot Young spit the original animated acid missile at range", () => {
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.playerHp = 1000;
+    component.enemies = [];
+    component.attackProjectiles = [];
+    const young = {
+      kind: "normal", species: "sandMaggotYoung", spriteFrame: 0, x: 450, y: 250,
+      hp: 30, maxHp: 30, speed: 60, r: 10, dmg: 4, cd: 0,
+      animationState: "idle", facingX: -1, facingY: 0,
+    } as any;
+    component.enemies = [young];
+    (component as any).rebuildEnemyGrid();
+
+    component.updateEnemies(16);
+
+    expect(component.attackProjectiles).toHaveSize(1);
+    expect(component.attackProjectiles[0].missileId).toBe("d2-sandmaggotgoospit");
+    expect(component.attackProjectiles[0].damageType).toBe("poison");
+    expect(component.attackProjectiles[0].poison).toBeTrue();
+  });
+
   it("lets the hero destroy a Sand Maggot egg before it hatches", () => {
     component.runActive = true;
     component.playerX = 250;
@@ -6980,12 +7022,12 @@ describe("D2SurvivorsComponent combat and equipment", () => {
 
     component.activateOwnedSkill("Fire Wall");
 
-    expect(component.getSkillMissileOverlay("Fire Wall")).toBe("d2-wallfire_low_tiny");
+    expect(component.getSkillMissileOverlay("Fire Wall")).toBe("d2-groundfirebig");
     expect(component.attackProjectiles.length).toBe(1);
     const wall = component.attackProjectiles[0] as any;
     expect(wall.fireWall).toBeTrue();
     expect(wall.life).toBe(4);
-    expect(wall.missileId).toBe("d2-wallfire_low_tiny");
+    expect(wall.missileId).toBe("d2-groundfirebig");
     expect(wall.wallHalfLength).toBeGreaterThan(0);
     expect(wall.wallNormalX).toBeCloseTo(1);
     expect(wall.wallNormalY).toBeCloseTo(0);
@@ -7051,9 +7093,9 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(component.attackProjectiles).not.toContain(wall);
   });
 
-  it("draws Fire Wall using the imported wallfire animation frames without a hue filter", () => {
-    const frames = Array.from({ length: 25 }, () => ({ width: 32, height: 100 }));
-    (component as any).missileOverlayImages.set("d2-wallfire_low_tiny", frames);
+  it("draws the original 37-frame groundFireBig strip and advances its animation", () => {
+    const frames = Array.from({ length: 37 }, () => ({ width: 63, height: 160 }));
+    (component as any).missileOverlayImages.set("d2-groundfirebig", frames);
     (component as any).worldZoom = 1;
     (component as any).projectionDpr = 1;
     spyOn(component as any, "projectArenaPoint").and.callFake((x: number, y: number) => ({ x, y }));
@@ -7065,7 +7107,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     } as any;
     const wall = {
       x: 250, y: 250, age: 1, life: 3, wallNormalX: 1, wallNormalY: 0,
-      wallHalfLength: 84, missileId: "d2-wallfire_low_tiny",
+      wallHalfLength: 84, missileId: "d2-groundfirebig",
     } as any;
 
     (component as any).drawFireWall(ctx, wall);
@@ -7073,6 +7115,11 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(drawImage).toHaveBeenCalled();
     expect(frames).toContain(drawImage.calls.mostRecent().args[0]);
     expect(ctx.filter).toBe("");
+
+    const firstAgeFrame = drawImage.calls.argsFor(0)[0];
+    wall.age = 1.6;
+    (component as any).drawFireWall(ctx, wall);
+    expect(drawImage.calls.mostRecent().args[0]).not.toBe(firstAgeFrame);
   });
 
   it("draws Inferno as a stream of imported flame frames", () => {
@@ -7239,7 +7286,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(INFERNO_ART.path).toBe("assets/d2survivors/effects/inferno.png");
   });
 
-  it("draws Frost Nova as original ice cels around an expanding ring", () => {
+  it("draws Frost Nova as one frame from its original 14-frame sheet", () => {
     const art = FROST_NOVA_ART;
     const sheet = {
       complete: true,
@@ -7249,10 +7296,8 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     spyOn(component as any, "ensureFrostNovaSheet").and.returnValue(sheet);
     (component as any).worldZoom = 1;
     const drawImage = jasmine.createSpy("drawImage");
-    const translate = jasmine.createSpy("translate");
     const ctx = {
-      save: () => undefined, restore: () => undefined, translate, rotate: () => undefined,
-      beginPath: () => undefined, ellipse: () => undefined, clip: () => undefined,
+      save: () => undefined, restore: () => undefined,
       drawImage,
     } as any;
     spyOn(component as any, "projectArenaPoint").and.callFake((x: number, y: number) => ({ x, y }));
@@ -7262,11 +7307,47 @@ describe("D2SurvivorsComponent combat and equipment", () => {
 
     const frame = Math.min(art.frames - 1, Math.floor(0.5 * art.frameRate));
     const calls = drawImage.calls.allArgs() as any[][];
-    expect(calls.length).toBeGreaterThanOrEqual(28);
+    expect(calls.length).toBe(1);
     expect(calls.every((call) => call[0] === sheet
       && call[1] === frame * art.frameWidth && call[2] === 0
       && call[3] === art.frameWidth && call[4] === art.frameHeight)).toBeTrue();
-    expect(new Set(translate.calls.allArgs().map((call) => call[0].toFixed(1))).size).toBeGreaterThan(8);
+  });
+
+  it("casts Nova as the original ElectricNova ring and damages nearby enemies", () => {
+    component.selectedClass = "sorceress";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.ownedSkills = ["Nova"];
+    component.skillLevels = { Nova: 1 };
+    const base = { kind: "normal", species: "fallen", spriteFrame: 0, x: 300, y: 250, hp: 100, maxHp: 100, speed: 100, r: 14, dmg: 2 } as any;
+    const inside = { ...base };
+    const outside = { ...base, x: 450 };
+    component.enemies = [inside, outside];
+    component.attackProjectiles = [];
+    (component as any).rebuildEnemyGrid();
+    const hits: any[] = [];
+    spyOn(component as any, "queueEnemyDamage").and.callFake((enemy: any) => hits.push(enemy));
+
+    component.activateOwnedSkill("Nova");
+
+    expect(hits).toContain(inside);
+    expect(hits).not.toContain(outside);
+    expect(component.attackProjectiles).toHaveSize(0);
+    const effect = (component as any).skillVisualEffects.find((entry: any) => entry.lightningNova);
+    expect(effect).toBeTruthy();
+    expect(effect.fieldRadius).toBe(132);
+    expect(effect.duration).toBeCloseTo(13 * 0.06, 5);
+  });
+
+  it("draws Nova with the imported ElectricNova spritesheet", () => {
+    const drawMissile = spyOn(component as any, "drawImportedMissileFrame");
+    spyOn(component as any, "projectArenaPoint").and.callFake((x: number, y: number) => ({ x, y }));
+    const effect = { lightningNova: true, x: 300, y: 300, time: 0.3, duration: 0.78, fieldRadius: 132 } as any;
+
+    (component as any).drawLightningNovaRing({} as any, effect, { x: 300, y: 300 });
+
+    expect(drawMissile).toHaveBeenCalled();
+    expect(drawMissile.calls.mostRecent().args[1]).toBe("d2-electricnova");
   });
 
   it("blocks Act III trees and water while leaving bridge decks walkable", () => {
@@ -7286,6 +7367,50 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     mask.blocked[50 * 100 + 50] = 0;
     expect((component as any).campaignTerrainBlocks(5, 0)).toBeTrue();
     expect((component as any).campaignTerrainBlocks(0, 5)).toBeFalse();
+  });
+
+  it("blocks Act I monastery walls but leaves the courtyard gate passable", () => {
+    const mask = { width: 100, height: 100, blocked: new Uint8Array(100 * 100) };
+    mask.blocked[50 * 100 + 55] = 1;
+    (component as any).campaignCollisionMasks[1] = mask;
+    (component as any).currentAct = 1;
+    (component as any).act1InteriorOpen = false;
+    component.playerX = 50;
+    component.playerY = 50;
+    spyOn(component as any, "campaignAreaBackdropGeometry").and.returnValue({ scale: 1, left: 0, top: 0 } as any);
+    spyOn(component as any, "projectArenaPoint").and.callFake((x: number, y: number) => ({ x, y }));
+
+    expect((component as any).campaignTerrainBlocks(5, 0)).toBeTrue();
+    expect((component as any).campaignTerrainBlocks(0, 5)).toBeFalse();
+
+    // The interior replaces the courtyard, so its walls no longer collide.
+    (component as any).act1InteriorOpen = true;
+    expect((component as any).campaignTerrainBlocks(5, 0)).toBeFalse();
+  });
+
+  it("depth-sorts Act I courtyard wall strips and suppresses them indoors", () => {
+    const componentWall = component as any;
+    componentWall.currentAct = 1;
+    componentWall.act1InteriorOpen = false;
+    componentWall.act1WallAtlas = { complete: true, naturalWidth: 512 };
+    componentWall.act1WallLayout = {
+      atlasWidth: 512, atlasHeight: 600, backdropWidth: 520, backdropHeight: 300,
+      instances: [{ x: 10, y: 20, w: 32, h: 100, sx: 0, sy: 0, order: 4, depth: 120 }],
+    };
+    componentWall.campaignBackdropImages[1] = { complete: true, naturalWidth: 520, naturalHeight: 300 };
+    componentWall.arenaRef = { nativeElement: { width: 800, height: 600 } };
+    spyOn(componentWall, "campaignAreaBackdropGeometry").and.returnValue({
+      left: 100, top: 40, width: 520, height: 300, scale: 1,
+    });
+
+    const draws = componentWall.act1WallDraws(80);
+    expect(draws).toHaveSize(1);
+    expect(draws[0].dx).toBe(110);
+    expect(draws[0].dy).toBe(60);
+    expect(draws[0].depth).toBe(160);
+
+    componentWall.act1InteriorOpen = true;
+    expect(componentWall.act1WallDraws(80)).toEqual([]);
   });
 
   it("uses the original D2 feet overlays for Oak Sage and Heart of Wolverine", () => {
@@ -7540,6 +7665,77 @@ describe("D2SurvivorsComponent combat and equipment", () => {
 
     component.onGlobalAttackKey(new KeyboardEvent("keydown", { key: "`", code: "Backquote" }));
     expect(component.beltExpanded).toBeFalse();
+  });
+
+  it("picks up, moves, and throws belt potions without drinking them", () => {
+    component.beltSlots = Array.from({ length: 16 }, () => ({ kind: null as "health" | "rejuvenation" | null }));
+    component.beltSlots[4] = { kind: "health" };
+    component.potionDrops = [];
+
+    component.onBeltSlotClick(4);
+    expect(component.heldBeltPotionSlot).toBe(4);
+    expect(component.beltSlots[4].kind).toBe("health");
+
+    component.onBeltSlotClick(5);
+    expect(component.heldBeltPotionSlot).toBeNull();
+    expect(component.beltSlots[4].kind).toBeNull();
+    expect(component.beltSlots[5].kind).toBe("health");
+
+    component.onBeltSlotClick(5);
+    component.onBeltSlotClick(5);
+    expect(component.beltSlots[5].kind).toBeNull();
+    expect(component.potionDrops.map((drop) => drop.kind)).toEqual(["health"]);
+  });
+
+  it("throws a held belt potion onto the clicked arena floor", () => {
+    component.beltSlots = Array.from({ length: 16 }, () => ({ kind: null as "health" | "rejuvenation" | null }));
+    component.beltSlots[0] = { kind: "rejuvenation" };
+    component.potionDrops = [];
+    component.heldBeltPotionSlot = 0;
+    const canvas = {
+      width: 500, height: 500,
+      getBoundingClientRect: () => ({ left: 0, top: 0, width: 500, height: 500 }),
+    } as any;
+    (component as any).arenaRef = { nativeElement: canvas };
+    (component as any).projectionCenterX = 250;
+    (component as any).projectionCenterY = 250;
+    (component as any).projectionDpr = 1;
+    (component as any).worldZoom = 2.1;
+
+    component.onArenaPointerDown({
+      button: 0, pointerType: "mouse", target: canvas, clientX: 300, clientY: 250,
+      preventDefault: () => undefined,
+    } as any);
+
+    expect(component.beltSlots[0].kind).toBeNull();
+    expect(component.potionDrops).toHaveSize(1);
+    expect(component.potionDrops[0].kind).toBe("rejuvenation");
+  });
+
+  it("consumes belt potions with right-click", () => {
+    component.beltSlots = Array.from({ length: 16 }, () => ({ kind: null as "health" | "rejuvenation" | null }));
+    component.beltSlots[2] = { kind: "health" };
+    component.playerHp = 10;
+    const event = { preventDefault: () => undefined, stopPropagation: () => undefined } as any;
+
+    component.onBeltSlotContextMenu(2, event);
+
+    expect(component.beltSlots[2].kind).toBeNull();
+  });
+
+  it("picks up a belt potion on a touch long-press", () => {
+    jasmine.clock().install();
+    try {
+      component.beltSlots = Array.from({ length: 16 }, () => ({ kind: null as "health" | "rejuvenation" | null }));
+      component.beltSlots[1] = { kind: "health" };
+      component.onBeltSlotPointerDown(1, {
+        pointerType: "touch", pointerId: 7, clientX: 0, clientY: 0, currentTarget: null,
+      } as any);
+      jasmine.clock().tick(500);
+      expect(component.heldBeltPotionSlot).toBe(1);
+    } finally {
+      jasmine.clock().uninstall();
+    }
   });
 
   it("gives Pandemonium enemies and bosses elemental immunities", () => {

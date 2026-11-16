@@ -1,0 +1,18 @@
+{
+  "cursor-idle": {
+    "frameWidth": 138,
+    "frames": 16,
+    "height": 128,
+    "hotspotX": 126,
+    "hotspotY": 19,
+    "source": "hd/global/ui/cursor/ohand.sprite"
+  },
+  "cursor-press": {
+    "frameWidth": 138,
+    "frames": 16,
+    "height": 128,
+    "hotspotX": 126,
+    "hotspotY": 19,
+    "source": "hd/global/ui/cursor/ppress.sprite"
+  }
+}

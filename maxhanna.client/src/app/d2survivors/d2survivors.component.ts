@@ -343,6 +343,16 @@ const ARCTIC_BLAST_DAMAGE_PER_RANK = 0.06;
 const ARCTIC_BLAST_TICK_INTERVAL = 0.12;
 const FROST_NOVA_RADIUS = 132;
 const FROST_NOVA_RADIUS_PER_RANK = 2;
+// Nova uses the original `ElectricNova` missile: 13 frames at 16 AnimSpeed.
+const NOVA_RADIUS = 132;
+const NOVA_RADIUS_PER_RANK = 2;
+const NOVA_DURATION_SECONDS = 13 * 0.06;
+const NOVA_COLOR = "#b9e6ff";
+// Sand Leapers fight with a leaping melee lunge. The authored cels carry most of
+// the forward travel, so the body stops short of the target and the pounce
+// closes the gap instead of passing through the hero.
+const LEAPER_MELEE_REACH = 24;
+const LEAPER_ATTACK_ANIMATION_SECONDS = 0.9;
 // Static Field is a point-blank lightning pulse. It does not use a projectile:
 // every nearby enemy loses a fixed fraction of its current life, and extra
 // ranks widen the burst instead of increasing its damage.
@@ -487,6 +497,8 @@ const SAND_MAGGOT_EGG_COOLDOWN = 15;
 const SAND_MAGGOT_EGG_HATCH_SECONDS = 5;
 const SAND_MAGGOT_EGG_LIMIT = 12;
 const SAND_MAGGOT_EGG_HEALTH = 8;
+// Sand Maggot Young spit the original animated SandMaggotGooSpit acid at range.
+const SAND_MAGGOT_YOUNG_RANGED_RANGE = 260;
 // Fire Wall is a persistent ground hazard: a line of flame in front of the
 // sorceress that damages monsters walking through, touching, or standing in it.
 const FIRE_WALL_DURATION = 4;
@@ -495,7 +507,9 @@ const FIRE_WALL_HALF_LENGTH_PER_RANK = 6;
 const FIRE_WALL_RADIUS = 12;
 const FIRE_WALL_TICK_INTERVAL = 0.5;
 const FIRE_WALL_COLOR = "#ff8a32";
-const FIRE_WALL_MISSILE_ID = "d2-wallfire_low_tiny";
+// The original Fire Wall missile: `firewall` in missiles.txt uses the 37-frame
+// `groundFireBig` strip at 60 ms per cel, not the small wall-fire overlay.
+const FIRE_WALL_MISSILE_ID = "d2-groundfirebig";
 const ARCTIC_BLAST_RANGE = 210;
 const ARCTIC_BLAST_HALF_ANGLE = Math.PI / 8;
 const ARCTIC_BLAST_COLOR = "#8bdcff";
@@ -1157,6 +1171,8 @@ const MISSILE_SPRITE_SIZES: Record<string, { width: number; height: number }> = 
   // rounder fireball so the two Sorceress spells remain distinct.
   "d2-firebolt": { width: 18, height: 13 },
   "d2-fireball": { width: 34, height: 22 },
+  // The 45x56 Sand Maggot acid cels were capped to 28px and read as a speck.
+  "d2-sandmaggotgoospit": { width: 44, height: 54 },
 };
 // rock_large is a cool blue-grey D2 cel. Remap its luminance to muted earth
 // tones once when the five frames load instead of filtering every boulder draw.
@@ -1217,6 +1233,9 @@ const MISSILE_SPRITE_ORIENTATIONS: Record<string, number> = {
   "d2-eruptionsmoke": Math.PI / 2,
   // The meteor cel's rock leads at the bottom, so its forward axis points down.
   "d2-meteortail": -Math.PI / 2,
+  // SandMaggotGooSpit's base cel is authored diagonally up-right; rotate it
+  // onto the travel axis before following the projectile heading.
+  "d2-sandmaggotgoospit": Math.PI / 4,
 };
 // Art used when only a damage kind is known.
 const ATTACK_KIND_MISSILE_OVERLAYS: Record<AttackProjectile["kind"], string> = {
@@ -1340,6 +1359,9 @@ const CAMPAIGN_TERRAIN_PROFILES: Record<string, CampaignTerrainProfile> = {
 const A8_WALL_ATLAS = "assets/d2survivors/maps/a8-tristram-walls.png";
 const A8_WALL_LAYOUT = "assets/d2survivors/maps/a8-tristram-walls.json";
 const TRISTRAM_BACKDROP_TILE_WIDTH = 160;
+const A1_WALL_ATLAS = "assets/d2survivors/maps/act1-monastery-walls.png";
+const A1_WALL_LAYOUT = "assets/d2survivors/maps/act1-monastery-walls.json";
+const A1_WALL_COLLISION = "assets/d2survivors/maps/act1-monastery-walls-collision.png";
 
 interface TristramWallInstance {
   x: number;
@@ -1349,6 +1371,7 @@ interface TristramWallInstance {
   sx: number;
   sy: number;
   order: number;
+  depth?: number;
 }
 
 interface TristramWallLayout {
@@ -2080,6 +2103,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }>> = {};
   private tristramWallAtlas?: HTMLImageElement;
   private tristramWallLayout?: TristramWallLayout;
+  private act1WallAtlas?: HTMLImageElement;
+  private act1WallLayout?: TristramWallLayout;
   private readonly campaignFloorTileImages: Partial<Record<number, HTMLImageElement>> = {};
   private readonly campaignFloorTileOverlayCanvases: Partial<Record<number, HTMLCanvasElement>> = {};
   private readonly campaignBackgroundCanvases: Partial<Record<number, HTMLCanvasElement>> = {};
@@ -2116,6 +2141,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   modelLoadError = false;
   @ViewChild("classPreviewCanvas") private classPreviewCanvasRef?: ElementRef<HTMLCanvasElement>;
   @ViewChild("menuHeroCanvas") private menuHeroCanvasRef?: ElementRef<HTMLCanvasElement>;
+  @ViewChild("d2Cursor") private d2CursorRef?: ElementRef<HTMLDivElement>;
+  /** HD gauntlet cursor assets replaced the OS pointer on precise devices. */
+  readonly d2CursorEnabled = typeof window !== "undefined"
+    && window.matchMedia("(pointer: fine)").matches;
+  private readonly d2CursorScale = 0.55;
+  private readonly d2CursorHotspot = { x: 126, y: 19 };
   private menuHeroRenderer?: THREE.WebGLRenderer;
   private menuHeroScene?: THREE.Scene;
   private menuHeroCamera?: THREE.PerspectiveCamera;
@@ -2916,6 +2947,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   private loadCampaignMaps(): void {
     this.loadTristramWallAssets();
+    this.loadAct1WallAssets();
     const interior = new Image();
     interior.onload = () => {
       this.act1InteriorImage = interior;
@@ -3023,6 +3055,33 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         this.refreshTristramDepthPass();
       })
       .catch((error) => console.warn(`Could not load Tristram wall placements: ${error}`));
+  }
+
+  /**
+   * Act I's courtyard is painted as one flat backdrop.  Its walls are also
+   * loaded as depth-sorted strips plus a wall-footprint mask so the hero can
+   * walk behind them and cannot pass through their bases.
+   */
+  private loadAct1WallAssets(): void {
+    const atlas = new Image();
+    atlas.onload = () => {
+      this.act1WallAtlas = atlas;
+      if (this.activeTab === "run" && this.currentAct === 1) this.draw();
+    };
+    atlas.onerror = () => console.warn(`Could not load Act I wall atlas: ${A1_WALL_ATLAS}`);
+    atlas.src = A1_WALL_ATLAS;
+    fetch(A1_WALL_LAYOUT)
+      .then((response) => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json() as Promise<TristramWallLayout>;
+      })
+      .then((layout) => {
+        if (!Array.isArray(layout?.instances)) throw new Error("missing wall instances");
+        this.act1WallLayout = layout;
+        if (this.activeTab === "run" && this.currentAct === 1) this.draw();
+      })
+      .catch((error) => console.warn(`Could not load Act I wall placements: ${error}`));
+    this.loadCampaignCollisionMask(1, A1_WALL_COLLISION);
   }
 
   private refreshTristramDepthPass(): void {
@@ -3454,6 +3513,50 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   private drawTristramWallSlice(ctx: CanvasRenderingContext2D, wall: TristramWallDraw): void {
     const atlas = this.tristramWallAtlas;
+    if (!atlas?.complete || !atlas.naturalWidth) return;
+    ctx.drawImage(atlas, wall.sx, wall.sy, wall.w, wall.h, wall.dx, wall.dy, wall.dw, wall.dh);
+  }
+
+  /** Depth-sorted wall strips for Act I's monastery courtyard. */
+  private act1WallDraws(tileWidth: number): TristramWallDraw[] {
+    if (this.currentAct !== 1 || this.act1InteriorOpen) return [];
+    const atlas = this.act1WallAtlas;
+    const layout = this.act1WallLayout;
+    const backdrop = this.campaignBackdropImages[1];
+    const canvas = this.arenaRef?.nativeElement;
+    if (!atlas?.complete || !atlas.naturalWidth || !layout || !backdrop?.complete
+      || !backdrop.naturalWidth || !canvas?.width || !canvas.height) {
+      return [];
+    }
+    const geometry = this.campaignAreaBackdropGeometry(
+      tileWidth, layout.backdropWidth, layout.backdropHeight,
+    );
+    const { left, top, scale } = geometry;
+    const margin = 96 * this.projectionDpr;
+    const draws: TristramWallDraw[] = [];
+    for (const instance of layout.instances) {
+      const dx = left + instance.x * scale;
+      const dy = top + instance.y * scale;
+      const dw = instance.w * scale;
+      const dh = instance.h * scale;
+      if (dx + dw < -margin || dy + dh < -margin
+        || dx > canvas.width + margin || dy > canvas.height + margin) {
+        continue;
+      }
+      draws.push({
+        ...instance,
+        dx,
+        dy,
+        dw,
+        dh,
+        depth: top + (instance.depth ?? instance.y + instance.h) * scale,
+      });
+    }
+    return draws;
+  }
+
+  private drawAct1WallSlice(ctx: CanvasRenderingContext2D, wall: TristramWallDraw): void {
+    const atlas = this.act1WallAtlas;
     if (!atlas?.complete || !atlas.naturalWidth) return;
     ctx.drawImage(atlas, wall.sx, wall.sy, wall.w, wall.h, wall.dx, wall.dy, wall.dw, wall.dh);
   }
@@ -5374,6 +5477,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private modelLoadRequest = 0;
   beltSlots: Array<{ kind: "health" | "rejuvenation" | null }> = Array.from({ length: 16 }, () => ({ kind: null }));
   beltExpanded = false;
+  /** Belt slot currently picked up for moving or throwing. */
+  heldBeltPotionSlot: number | null = null;
+  private mobileBeltPress?: MobileBeltPress;
+  private suppressNextBeltClick = false;
   /** Life still owed by drunk health potions; paid out by tickHealthPotionHeal. */
   private potionHealRemaining = 0;
   get beltRows(): number {
@@ -6228,6 +6335,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   onArenaPointerDown(event: PointerEvent): void {
+    // While a belt potion is held, the next arena press throws it there instead
+    // of starting movement, a click-to-move, or the touch joystick.
+    if (this.heldBeltPotionSlot !== null && event.button === 0 && event.target === this.arenaRef?.nativeElement) {
+      this.throwHeldBeltPotionAt(event);
+      event.preventDefault();
+      return;
+    }
     if (this.activeTab === "run" && this.runActive && event.pointerType === "mouse" && event.button === 0
       && event.target === this.arenaRef?.nativeElement && !this.escapeMenuOpen && !this.inventoryOpen
       && !this.skillTreeOpen && this.pendingLevelUps === 0 && !(this.actTransitionReady && !this.actPortalOpen)
@@ -6480,6 +6594,138 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.arenaRef?.nativeElement.focus();
   }
 
+  /** Left-click picks a potion up; a second click moves it or throws it. */
+  onBeltSlotClick(slotIndex: number): void {
+    if (this.suppressNextBeltClick) {
+      this.suppressNextBeltClick = false;
+      return;
+    }
+    if (this.pendingLevelUps > 0) return;
+    this.selectBottle(slotIndex);
+    if (this.heldBeltPotionSlot === null) {
+      if (this.beltSlots[slotIndex]?.kind) this.heldBeltPotionSlot = slotIndex;
+      return;
+    }
+    if (this.heldBeltPotionSlot === slotIndex) {
+      this.throwBeltPotion(slotIndex);
+      return;
+    }
+    this.moveBeltPotion(this.heldBeltPotionSlot, slotIndex);
+  }
+
+  /** Right-click consumes the potion immediately. */
+  onBeltSlotContextMenu(slotIndex: number, event: MouseEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.heldBeltPotionSlot = null;
+    this.selectBottle(slotIndex);
+    this.drinkBeltPotion(slotIndex);
+  }
+
+  /** Touch long-press picks a potion up; a normal tap still clicks it. */
+  onBeltSlotPointerDown(slotIndex: number, event: PointerEvent): void {
+    if (event.pointerType !== "touch" || !this.beltSlots[slotIndex]?.kind) return;
+    this.suppressNextBeltClick = false;
+    this.clearMobileBeltPress();
+    const target = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
+    try {
+      target?.setPointerCapture(event.pointerId);
+    } catch {
+      // Pointer capture is best-effort.
+    }
+    const press: MobileBeltPress = {
+      pointerId: event.pointerId,
+      slotIndex,
+      startX: event.clientX,
+      startY: event.clientY,
+      timer: 0,
+    };
+    press.timer = window.setTimeout(() => {
+      if (this.mobileBeltPress !== press) return;
+      this.mobileBeltPress = undefined;
+      this.heldBeltPotionSlot = slotIndex;
+      this.activeBottleSlot = slotIndex;
+      this.suppressNextBeltClick = true;
+    }, MOBILE_INVENTORY_LONG_PRESS_MS);
+    this.mobileBeltPress = press;
+  }
+
+  onBeltSlotPointerMove(event: PointerEvent): void {
+    const press = this.mobileBeltPress;
+    if (!press || press.pointerId !== event.pointerId) return;
+    if (Math.hypot(event.clientX - press.startX, event.clientY - press.startY) > MOBILE_INVENTORY_LONG_PRESS_TOLERANCE) {
+      this.clearMobileBeltPress();
+    }
+  }
+
+  onBeltSlotPointerUp(event: PointerEvent): void {
+    const press = this.mobileBeltPress;
+    if (!press || press.pointerId !== event.pointerId) return;
+    this.clearMobileBeltPress();
+  }
+
+  onBeltSlotPointerCancel(event: PointerEvent): void {
+    const press = this.mobileBeltPress;
+    if (!press || press.pointerId !== event.pointerId) return;
+    this.clearMobileBeltPress();
+  }
+
+  private clearMobileBeltPress(): void {
+    const press = this.mobileBeltPress;
+    if (!press) return;
+    window.clearTimeout(press.timer);
+    this.mobileBeltPress = undefined;
+  }
+
+  private moveBeltPotion(sourceIndex: number, targetIndex: number): void {
+    if (sourceIndex < 0 || sourceIndex >= this.beltSlots.length
+      || targetIndex < 0 || targetIndex >= this.beltSlots.length) return;
+    const sourceKind = this.beltSlots[sourceIndex]?.kind ?? null;
+    if (!sourceKind) return;
+    const targetKind = this.beltSlots[targetIndex]?.kind ?? null;
+    this.beltSlots[targetIndex] = { kind: sourceKind };
+    this.beltSlots[sourceIndex] = { kind: targetKind };
+    this.heldBeltPotionSlot = null;
+    this.activeBottleSlot = targetIndex;
+    this.persistRunProgress(true);
+  }
+
+  private throwBeltPotion(slotIndex: number, x?: number, y?: number): void {
+    const kind = this.beltSlots[slotIndex]?.kind;
+    if (!kind) return;
+    this.beltSlots[slotIndex] = { kind: null };
+    this.heldBeltPotionSlot = null;
+    this.addPotionDrop(
+      x ?? this.playerX + this.playerFacingX * 36,
+      y ?? this.playerY + this.playerFacingY * 36,
+      kind,
+      0.8,
+    );
+    this.floatingTexts.push({ x: this.playerX, y: this.playerY - 28, text: "POTION THROWN", color: "#d9c3a1", life: 0.9 });
+    this.persistRunProgress(true);
+  }
+
+  /** A held belt potion is thrown wherever the arena is clicked. */
+  private throwHeldBeltPotionAt(event: PointerEvent): void {
+    const slotIndex = this.heldBeltPotionSlot;
+    const canvas = this.arenaRef?.nativeElement;
+    if (slotIndex === null || !canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) {
+      this.throwBeltPotion(slotIndex);
+      return;
+    }
+    const screenX = (event.clientX - rect.left) * canvas.width / rect.width;
+    const screenY = (event.clientY - rect.top) * canvas.height / rect.height;
+    const projectedX = (screenX - this.projectionCenterX) / this.projectionDpr;
+    const projectedY = (screenY - this.projectionCenterY) / this.projectionDpr;
+    const diagonalX = projectedX / 0.7071;
+    const diagonalY = projectedY / 0.35355;
+    const worldX = this.arenaW / 2 + (diagonalX + diagonalY) / 2 / this.worldZoom;
+    const worldY = this.arenaH / 2 + (diagonalY - diagonalX) / 2 / this.worldZoom;
+    this.throwBeltPotion(slotIndex, worldX, worldY);
+  }
+
   /** Queues a health potion's 100 life. Repeated potions stack their remaining
    *  life, which then trickles in at HEALTH_POTION_HEAL_RATE. */
   private beginHealthPotionHeal(): void {
@@ -6677,6 +6923,38 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     await this.loadLobby();
     this.leaderboardRefreshTimer = window.setInterval(() => void this.refreshLeaderboard(), 15000);
     this.lobbyRefreshTimer = window.setInterval(() => void this.refreshLobbyHistory(), 5000);
+  }
+
+  @HostListener("document:pointermove", ["$event"])
+  trackD2Cursor(event: PointerEvent): void {
+    if (!this.d2CursorEnabled || event.pointerType === "touch") return;
+    const cursor = this.d2CursorRef?.nativeElement;
+    if (!cursor) return;
+    const target = event.target as Element | null;
+    if (!target?.closest?.(".d2s")) {
+      cursor.style.opacity = "0";
+      return;
+    }
+    const x = event.clientX - this.d2CursorHotspot.x * this.d2CursorScale;
+    const y = event.clientY - this.d2CursorHotspot.y * this.d2CursorScale;
+    cursor.style.opacity = "1";
+    cursor.style.transform = `translate3d(${x}px, ${y}px, 0) scale(${this.d2CursorScale})`;
+  }
+
+  @HostListener("document:pointerdown")
+  pressD2Cursor(): void {
+    this.d2CursorRef?.nativeElement.classList.add("pressed");
+  }
+
+  @HostListener("document:pointerup")
+  releaseD2Cursor(): void {
+    this.d2CursorRef?.nativeElement.classList.remove("pressed");
+  }
+
+  @HostListener("window:blur")
+  hideD2Cursor(): void {
+    this.d2CursorRef?.nativeElement.classList.remove("pressed");
+    if (this.d2CursorRef?.nativeElement) this.d2CursorRef.nativeElement.style.opacity = "0";
   }
 
   toggleInventory(): void {
@@ -7892,6 +8170,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.triggerAttackAnimation(castAnimation);
       return;
     }
+    if (skill === "Nova" && this.selectedClass === "sorceress") {
+      const rank = Math.max(1, this.skillLevels[skill] ?? 1);
+      const novaDamage = this.applyPaladinAuraDamage(this.applyEnergyToSpellDamage(this.basicAttackDamage * 1.25 + (rank - 1) * 3));
+      this.castLightningNova(rank, novaDamage);
+      this.triggerAttackAnimation(castAnimation);
+      return;
+    }
     if (skill === "Static Field" && this.selectedClass === "sorceress") {
       const rank = Math.max(1, this.skillLevels[skill] ?? 1);
       this.castStaticField(rank);
@@ -8236,6 +8521,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       urls.add(act.floorTiles);
       if (act.backdrop) urls.add(act.backdrop);
       if (act.act === 3) urls.add(A3_COLLISION_MASK);
+      if (act.act === 1) {
+        urls.add(A1_WALL_ATLAS);
+        urls.add(A1_WALL_LAYOUT);
+        urls.add(A1_WALL_COLLISION);
+      }
       if (act.act === 8) {
         urls.add(A8_WALL_ATLAS);
         urls.add(A8_WALL_LAYOUT);
@@ -10511,7 +10801,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const sourceWidth = fallbackFrame instanceof HTMLImageElement ? fallbackFrame.naturalWidth : fallbackFrame.width;
     const sourceHeight = fallbackFrame instanceof HTMLImageElement ? fallbackFrame.naturalHeight : fallbackFrame.height;
     if (!sourceWidth || !sourceHeight) return;
-    const spriteHeight = 44 * scale;
+    const spriteHeight = 80 * scale;
     const spriteWidth = spriteHeight * sourceWidth / sourceHeight;
     const spacing = Math.max(6, spriteWidth * 0.55);
     const lineLength = Math.hypot(right.x - left.x, right.y - left.y);
@@ -10529,10 +10819,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const t = (column + 0.5) / columnCount;
       const baseX = left.x + (right.x - left.x) * t;
       const baseY = left.y + (right.y - left.y) * t;
-      const flicker = 0.82 + 0.18 * Math.sin(wall.age * 11 + column * 1.9);
+      const flicker = 0.94 + 0.06 * Math.sin(wall.age * 11 + column * 1.9);
       const height = spriteHeight * flicker;
       const width = height * sourceWidth / sourceHeight;
-      const frameIndex = (animationFrame + column * 3) % frames.length;
+      // Neighbouring cels start a few frames apart, as if the original
+      // firewall missiles were planted one after another along the line.
+      const columnDelay = Math.floor((column / columnCount) * 4);
+      const frameIndex = (animationFrame + columnDelay) % frames.length;
       let frame = frames[frameIndex];
       if (!this.isMissileFrameReady(frame)) frame = fallbackFrame;
       const jitter = Math.sin(wall.age * 7 + column * 2.3) * 1.2 * dpr;
@@ -10821,6 +11114,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.playerDecrepifyRemaining = 0;
     this.clearPlayerPoison();
     this.maggotEggs.length = 0;
+    this.heldBeltPotionSlot = null;
+    this.clearMobileBeltPress();
     this.diabloThunderEffects.length = 0;
     this.diabloFirestormEffects.length = 0;
     this.diabloFireNovaEffects.length = 0;
@@ -11018,15 +11313,20 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.persistRunProgress();
   }
 
-  /** True when a walk step would enter Act III's trees or water. */
+  /** True when a walk step would enter terrain walls, trees, or water. */
   private campaignTerrainBlocks(dx: number, dy: number): boolean {
-    if (this.currentAct !== 3) return false;
-    const mask = this.campaignCollisionMasks[3];
+    if (this.currentAct === 1 && this.act1InteriorOpen) return false;
+    if (this.currentAct !== 1 && this.currentAct !== 3) return false;
+    const mask = this.campaignCollisionMasks[this.currentAct];
     if (!mask) return false;
     const tileWidth = CAMPAIGN_TILE_WORLD_SIZE * this.worldZoom * CAMPAIGN_TILE_RENDER_SCALE * Math.SQRT2;
     const geometry = this.campaignAreaBackdropGeometry(tileWidth, mask.width, mask.height);
     if (!Number.isFinite(geometry.scale) || geometry.scale <= 0) return false;
-    const clearance = Math.max(4, Math.min(15, 9 * this.worldZoom / geometry.scale));
+    // Act I's wall mask is authored at 520x300 and scaled up heavily; a
+    // proportional clearance would be wider than the courtyard gate.
+    const clearance = this.currentAct === 1
+      ? Math.max(4, Math.min(10, 6 * this.worldZoom / geometry.scale))
+      : Math.max(4, Math.min(15, 9 * this.worldZoom / geometry.scale));
     const current = this.projectArenaPoint(this.playerX, this.playerY);
     const candidate = this.projectArenaPoint(this.playerX + dx, this.playerY + dy);
     const blockedAt = (screenX: number, screenY: number): boolean => {
@@ -13794,6 +14094,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const isFetishShaman = enemy.species === "fetishShaman";
       const isSpikeFiend = enemy.species === "spikeFiend";
       const isSandMaggot = enemy.species === "sandMaggot" || enemy.species === "sandMaggotQueen";
+      const isSandMaggotYoung = enemy.species === "sandMaggotYoung";
       const isAndariel = enemy.species === "andariel";
       const isBaal = enemy.species === "baal";
       const isMephisto = enemy.species === "mephisto";
@@ -13804,6 +14105,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const baalMeleeRange = enemy.r + 18 + 10;
       const diabloChanneling = (enemy.diabloChannelRemaining ?? 0) > 0;
       const maggotMeleeRange = enemy.r + (targetSummon?.r ?? 18) + 6;
+      const maggotYoungMeleeRange = enemy.r + (targetSummon?.r ?? 18) + 6;
       // A wounded maggot, or one with the hero already in its face, dives under
       // the sand and comes up closer instead of trading blows it cannot win.
       if (isSandMaggot && this.tryStartMaggotBurrow(enemy, playerDistance)) continue;
@@ -13825,6 +14127,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
               : isSandMaggot
                 // Adults bite at arm's reach and spit poison goo down range.
                 ? distance <= maggotMeleeRange ? maggotMeleeRange : SAND_MAGGOT_RANGED_RANGE
+              : isSandMaggotYoung
+                // The young bite up close and spit acid at range.
+                ? distance <= maggotYoungMeleeRange ? maggotYoungMeleeRange : SAND_MAGGOT_YOUNG_RANGED_RANGE
+              : enemy.species === "leaper"
+                // The lunge art supplies the last stretch of the attack.
+                ? enemy.r + (targetSummon?.r ?? 18) + LEAPER_MELEE_REACH
               : enemy.r + (targetSummon?.r ?? 18);
       const wasInAttackRange = distance <= attackRange;
       enemy.animationState = wasInAttackRange ? "idle" : "move";
@@ -14032,11 +14340,21 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         }
         continue;
       }
+      if (isSandMaggotYoung) {
+        if (distanceAfterMoving <= maggotYoungMeleeRange && (enemy.cd ?? 0) <= 0) {
+          this.biteWithSandMaggot(enemy, targetSummon);
+        } else if (distanceAfterMoving <= SAND_MAGGOT_YOUNG_RANGED_RANGE && (enemy.cd ?? 0) <= 0) {
+          this.spitSandMaggotGoo(enemy, targetX, targetY, targetSummon);
+        }
+        continue;
+      }
       if (distanceAfterMoving < attackRange && (enemy.cd === undefined || enemy.cd <= 0)) {
         const frenzied = (enemy.frenzyRemaining ?? 0) > 0;
         const contactDamage = enemy.dmg * (frenzied ? NIHLATHAK_FRENZY_DAMAGE_MULTIPLIER : 1);
         enemy.animationState = "attack";
-        enemy.attackAnimationTime = enemy.kind === "boss" ? 0.55 : 0.38;
+        enemy.attackAnimationTime = enemy.species === "leaper"
+          ? LEAPER_ATTACK_ANIMATION_SECONDS
+          : enemy.kind === "boss" ? 0.55 : 0.38;
         if (targetSummon) {
           targetSummon.hp -= contactDamage;
           this.floatingTexts.push({
@@ -15197,6 +15515,39 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
   }
 
+  /** Lightning Nova is the sorceress's ring of lightning around the caster. */
+  private castLightningNova(rank: number, damage: number): void {
+    const radius = NOVA_RADIUS + Math.max(0, rank - 1) * NOVA_RADIUS_PER_RANK;
+    const color = this.skillVisualColorForName("Nova", "burst") ?? NOVA_COLOR;
+    for (const enemy of this.collectEnemiesNear(this.playerX, this.playerY, radius + 96)) {
+      if (enemy.hp <= 0 || enemy.summonType) continue;
+      if (Math.hypot(enemy.x - this.playerX, enemy.y - this.playerY) > radius + enemy.r) continue;
+      this.queueEnemyDamage(enemy, damage, color, "lightning");
+    }
+    this.skillVisualEffects.push({
+      name: "Nova",
+      kind: "burst",
+      lightningNova: true,
+      stationary: true,
+      x: this.playerX,
+      y: this.playerY,
+      targetX: this.playerX,
+      targetY: this.playerY,
+      facingX: this.playerFacingX,
+      facingY: this.playerFacingY,
+      time: 0,
+      duration: NOVA_DURATION_SECONDS,
+      fieldRadius: radius,
+      color,
+      seed: hashString("Nova") % 628,
+    });
+    if (this.skillVisualEffects.length > 24) this.skillVisualEffects.splice(0, this.skillVisualEffects.length - 24);
+    this.drawSkillVisualEffects();
+    if (this.activeTab === "run" && !this.rafId) {
+      this.rafId = requestAnimationFrame((time) => this.loop(time));
+    }
+  }
+
   private staticFieldRadiusForRank(rank: number): number {
     return STATIC_FIELD_BASE_RADIUS + Math.max(0, rank - 1) * STATIC_FIELD_RADIUS_PER_RANK;
   }
@@ -15305,51 +15656,57 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (!image.complete || image.naturalWidth === 0) return;
     const art = FROST_NOVA_ART;
     const frame = Math.min(art.frames - 1, Math.floor(effect.time * art.frameRate));
-    const canvas = this.skillEffectsCanvasRef?.nativeElement;
-    const dpr = canvas?.clientWidth ? canvas.width / canvas.clientWidth : 1;
     const radius = effect.fieldRadius ?? FROST_NOVA_RADIUS;
-    const progress = Math.max(0, Math.min(1, effect.time / effect.duration));
-    const ringRadius = radius * (0.16 + progress * 0.84);
     const fade = Math.min(1, effect.time / 0.04, Math.max(0, (effect.duration - effect.time) / 0.18));
     if (fade <= 0) return;
-    const edgeX = this.projectArenaPoint(effect.x + ringRadius, effect.y);
-    const edgeY = this.projectArenaPoint(effect.x, effect.y + ringRadius);
+    const edgeX = this.projectArenaPoint(effect.x + radius, effect.y);
+    const edgeY = this.projectArenaPoint(effect.x, effect.y + radius);
     const screenRadiusX = Math.abs(edgeX.x - center.x);
     const screenRadiusY = Math.abs(edgeY.y - center.y);
     if (screenRadiusX < 1 || screenRadiusY < 1) return;
+    // The last cel spans 58 of the 80-pixel cell, so half that width is the
+    // authored ring radius. Scaling against it keeps the sprite's aspect ratio
+    // while making the final radius match the damage radius.
+    const scale = screenRadiusX / 29;
+    const width = art.frameWidth * scale;
+    const height = art.frameHeight * scale;
+    const x = center.x - art.originX * scale;
+    const y = center.y - art.originY * scale;
     ctx.save();
-    ctx.globalCompositeOperation = "screen";
+    ctx.globalCompositeOperation = "lighter";
     ctx.imageSmoothingEnabled = true;
-    // Keep every cel inside one clean annulus. Free-floating stamps left ragged
-    // inner and outer edges wherever their dark borders met.
-    ctx.beginPath();
-    ctx.ellipse(center.x, center.y, screenRadiusX, screenRadiusY, 0, 0, Math.PI * 2);
-    ctx.ellipse(center.x, center.y, screenRadiusX * 0.56, screenRadiusY * 0.56, 0, 0, Math.PI * 2, true);
-    ctx.clip();
-    // The original frost cel is a single cold burst. Overlap many small copies
-    // through the band so it reads as one continuous circular blast.
-    const rows: ReadonlyArray<readonly [number, number, number]> = [[0.6, 48, 0.11], [0.73, 56, 0.1], [0.86, 64, 0.09], [0.99, 72, 0.08]];
-    // One shared size makes every row bleed across the full band, so the rows
-    // read as texture instead of separate concentric bracelets.
-    const puffSize = Math.max(16 * dpr, screenRadiusY * 0.72);
-    for (const [band, count, alpha] of rows) {
-      for (let index = 0; index < count; index += 1) {
-        const angle = index / count * Math.PI * 2 + effect.seed * 0.01 + band * 1.7;
-        const pointX = center.x + Math.cos(angle) * screenRadiusX * band;
-        const pointY = center.y + Math.sin(angle) * screenRadiusY * band;
-        ctx.save();
-        ctx.translate(pointX, pointY - 4 * dpr);
-        ctx.rotate(angle + Math.PI / 2);
-        ctx.globalAlpha = fade * alpha;
-        ctx.drawImage(
-          image,
-          frame * art.frameWidth, 0, art.frameWidth, art.frameHeight,
-          -puffSize / 2, -puffSize / 2, puffSize, puffSize,
-        );
-        ctx.restore();
-      }
-    }
+    ctx.globalAlpha = fade;
+    ctx.drawImage(
+      image,
+      frame * art.frameWidth, 0, art.frameWidth, art.frameHeight,
+      x, y, width, height,
+    );
     ctx.restore();
+  }
+
+  /** Original 13-frame ElectricNova strip, drawn once around the caster. */
+  private drawLightningNovaRing(ctx: CanvasRenderingContext2D, effect: SkillVisualEffect, center: { x: number; y: number }): void {
+    const canvas = this.skillEffectsCanvasRef?.nativeElement;
+    const dpr = canvas?.clientWidth ? canvas.width / canvas.clientWidth : 1;
+    const radius = effect.fieldRadius ?? NOVA_RADIUS;
+    const fade = Math.min(1, effect.time / 0.035, Math.max(0, (effect.duration - effect.time) / 0.16));
+    if (fade <= 0.01) return;
+    const edgeX = this.projectArenaPoint(effect.x + radius, effect.y);
+    const screenRadiusX = Math.abs(edgeX.x - center.x);
+    if (screenRadiusX < 1) return;
+    // The last ElectricNova cel uses 52 of its 65-pixel width; size the full
+    // cell so that authored ring lands on the spell's damage radius.
+    const size = screenRadiusX * 2 / (52 / 65);
+    this.drawImportedMissileFrame(
+      ctx,
+      "d2-electricnova",
+      effect.time,
+      center.x,
+      center.y - 4 * dpr,
+      size,
+      0,
+      fade,
+    );
   }
 
   private async preloadFrostNovaSheet(): Promise<void> {
@@ -16959,6 +17316,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.drawFrostNovaRing(ctx, effect, origin);
       return;
     }
+    if (effect.lightningNova) {
+      this.drawLightningNovaRing(ctx, effect, origin);
+      return;
+    }
     if (effect.staticField) {
       this.drawStaticFieldBurst(ctx, effect, origin, progress, fade);
       return;
@@ -17992,6 +18353,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.actPortalOpen = false;
     this.enemies = [];
     this.maggotEggs.length = 0;
+    this.heldBeltPotionSlot = null;
+    this.clearMobileBeltPress();
     this.clearPlayerPoison();
     this.creeperTrailMarks.length = 0;
     this.blazeRemaining = 0;
@@ -18573,6 +18936,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         depth: wall.depth,
         order: wall.order,
         draw: () => this.drawTristramWallSlice(ctx, wall),
+      });
+    }
+    for (const wall of this.act1WallDraws(tileWidth)) {
+      drawOrder.push({
+        depth: wall.depth,
+        order: wall.order,
+        draw: () => this.drawAct1WallSlice(ctx, wall),
       });
     }
     for (const projectile of this.attackProjectiles) {
@@ -21612,7 +21982,7 @@ function enemySpriteFrame(enemy: Enemy, columns: number, runTime: number): numbe
   if (enemy.species === "leaper") {
     // Rows 0-7 are the nine-frame hop, rows 8-15 the twenty-frame lunge.
     if (state === "attack") {
-      const duration = enemy.kind === "boss" ? 0.55 : 0.38;
+      const duration = LEAPER_ATTACK_ANIMATION_SECONDS;
       const progress = 1 - Math.max(0, Math.min(1, (enemy.attackAnimationTime ?? duration) / duration));
       return Math.min(19, Math.floor(progress * 20));
     }
@@ -21872,6 +22242,7 @@ interface SkillVisualEffect {
   /** An enemy-owned cone (Nihlathak's Arctic Blast); it never uses player damage. */
   enemyCast?: boolean;
   frostNova?: boolean;
+  lightningNova?: boolean;
   staticField?: boolean;
   lightningRail?: boolean;
   inferno?: boolean;
@@ -22505,6 +22876,14 @@ interface MobileInventoryPress {
   pointerId: number;
   sourceIndex: number;
   item: D2InventoryItem;
+  startX: number;
+  startY: number;
+  timer: number;
+}
+
+interface MobileBeltPress {
+  pointerId: number;
+  slotIndex: number;
   startX: number;
   startY: number;
   timer: number;
