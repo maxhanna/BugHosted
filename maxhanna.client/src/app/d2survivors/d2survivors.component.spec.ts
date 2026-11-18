@@ -1410,13 +1410,26 @@ describe("D2SurvivorsComponent combat and equipment", () => {
       expect(bolt.sourceOnlyArt).toBeTrue();
       expect(bolt.fistOfTheHeavensIgnore).toBe(primary);
     }
-    expect((component as any).missileOverlayId("Fist of the Heavens")).toBe("d2-lightningbolt");
+    // missiles.txt: fistoftheheavensbolt gains 15% magic damage per Holy Bolt rank.
+    const unsynergisedBoltDamage = bolts[0].damage;
+    component.skillLevels["Holy Bolt"] = 11;
+    component.activateOwnedSkill("Fist of the Heavens");
+    const synergyBolts = component.attackProjectiles.filter((projectile) => projectile.fistOfTheHeavensBolt);
+    expect(synergyBolts.length).toBe(8);
+    expect(synergyBolts[7].damage).toBeCloseTo(unsynergisedBoltDamage * (1 + 11 * 0.15), 5);
+    component.skillLevels["Holy Bolt"] = 0;
+    // Keep the original volley for the rest of the test.
+    component.attackProjectiles = [...bolts];
+
+    expect((component as any).missileOverlayId("Fist of the Heavens")).toBe("d2-handofgod");
     expect((component as any).missileFrameCount("d2-handofgod")).toBe(21);
     expect((component as any).missileFrameCount("d2-lightningbolt")).toBe(8);
     expect((component as any).missileFrameCount("d2-holyboltmissile")).toBe(16);
     expect((component as any).missileFrameCount("d2-teethexplode")).toBe(13);
-    expect((component as any).skillVisualEffects.some((effect: any) => effect.fistOfTheHeavensCast && effect.missileId === "d2-handofgod")).toBeTrue();
-    expect((component as any).skillVisualEffects.some((effect: any) => effect.fistOfTheHeavensStrike && effect.missileId === "d2-lightningbolt")).toBeTrue();
+    // The strike is the skill's single handofgod srvoverlay on the target; D2 has
+    // no second bolt over the caster, so no cast effect is queued.
+    expect((component as any).skillVisualEffects.some((effect: any) => effect.fistOfTheHeavensCast)).toBeFalse();
+    expect((component as any).skillVisualEffects.some((effect: any) => effect.fistOfTheHeavensStrike && effect.missileId === "d2-handofgod" && effect.x === primary.x && effect.y === primary.y)).toBeTrue();
 
     (component as any).flushPendingDamage();
     expect(primary.hp).toBeLessThan(1000);
@@ -6449,9 +6462,11 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     for (const aura of auras) {
       (component as any).applyPaladinAuraTick(aura.skill);
       expect(enemy.paladinAuraHit).toBe(aura.key);
-      expect(enemy.paladinAuraHitRemaining).toBeCloseTo(
+      expect(enemy.paladinAuraHitRemaining).toBeCloseTo((component as any).paladinAuraHitDuration(aura.key), 5);
+      // The Holy Freeze ring is played faster than its authored aura rate so it
+      // clears off the monster as quickly as the other aura hits.
+      expect((component as any).paladinAuraHitDuration(aura.key)).toBeLessThanOrEqual(
         D2_PALADIN_AURA_HIT_ART[aura.key].columns / D2_PALADIN_AURA_HIT_ART[aura.key].frameRate,
-        5,
       );
       enemy.paladinAuraHit = undefined;
       enemy.paladinAuraHitRemaining = undefined;

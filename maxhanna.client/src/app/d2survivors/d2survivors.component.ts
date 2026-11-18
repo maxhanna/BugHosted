@@ -556,16 +556,22 @@ const BLESSED_HAMMER_ANGULAR_SPEED = 5.4;
 const BLESSED_HAMMER_BODY_OFFSET = 10;
 const BLESSED_HAMMER_LIFETIME = 3.2;
 // Fist of the Heavens: one unavoidable lightning strike, then four Holy Bolts
-// that radiate from the impact and resolve independently.
+// that radiate from the impact and resolve independently. Diablo II resolves
+// the strike through the `handofgod` srvoverlay on the struck monster; there is
+// no second bolt over the paladin.
 const FIST_OF_THE_HEAVENS_BOLT_COUNT = 4;
 const FIST_OF_THE_HEAVENS_BOLT_SPEED = 360;
 const FIST_OF_THE_HEAVENS_BOLT_RANGE = 260;
 const FIST_OF_THE_HEAVENS_LIGHTNING_MULTIPLIER = 1.35;
 const FIST_OF_THE_HEAVENS_BOLT_MULTIPLIER = 0.6;
-// The D2R extract names these missiles HolyBoltMissile and LightningBolt; the
+// missiles.txt gives fistoftheheavensbolt `EDmgSymPerCalc = skill('Holy Bolt'.blvl)
+// * 15`, so every Holy Bolt rank adds 15% to the bolts Fist of the Heavens
+// releases; the bolts stay independent casts that never heal.
+const FIST_OF_THE_HEAVENS_HOLY_BOLT_SYNERGY = 0.15;
+// The D2R extract names these missiles HolyBoltMissile and hand of god; the
 // hand is the skill's srvoverlay and teethexplode is the bolt's hit submissile.
 const FIST_OF_THE_HEAVENS_MISSILE_IDS = [
-  "d2-handofgod", "d2-lightningbolt", "d2-holyboltmissile", "d2-teethexplode",
+  "d2-handofgod", "d2-holyboltmissile", "d2-teethexplode",
 ] as const;
 // Holy Bolt's extra damage in Diablo II applies to the undead and to demons.
 // Animals, insects and constructs remain valid targets for the initial strike
@@ -1111,7 +1117,7 @@ const D2_SPELL_MISSILE_OVERLAYS: Record<string, string> = {
   "Holy Bolt": "d2-holyboltmissile", "Blessed Hammer": "d2-blessedhammer",
   // Fist's initial missile is the LightningBolt cel; its four secondary bolts
   // are spawned explicitly with HolyBoltMissile art.
-  "Fist of the Heavens": "d2-lightningbolt",
+  "Fist of the Heavens": "d2-handofgod",
   "Frost Nova": "d2-frostnova", "Energy Shield": "d2-hardenarmor",
   Sanctuary: "d2-sanctuary", "Psychic Hammer": "d2-mindblast", "Mind Blast": "d2-mindblast",
   "Grim Ward": "d2-grimwardsmall", Fissure: "d2-eruptionsmoke",
@@ -1631,6 +1637,13 @@ const PALADIN_AURA_HIT_BY_SKILL: Record<string, keyof typeof D2_PALADIN_AURA_HIT
   "Holy Fire": "holyFire",
   "Holy Freeze": "holyFreeze",
   "Holy Shock": "holyShock",
+};
+// Holy Freeze's overlay cel (`holyfreeze.dcc`, overlay.txt AnimRate 8) is the
+// paladin aura's wide frost ring, not a compact hit flash, so at monster scale
+// it covered more ground and lingered longer than the other two aura hits.
+// Play it at the Holy Fire hit's pace and draw it a little smaller.
+const PALADIN_AURA_HIT_DISPLAY: Partial<Record<keyof typeof D2_PALADIN_AURA_HIT_ART, { frameRate?: number; scale?: number }>> = {
+  holyFreeze: { frameRate: 24, scale: 0.75 },
 };
 // Vigor is the paladin's movement aura, so its rank has to visibly raise both
 // its uptime and the speed it grants. Other auras keep their shared duration.
@@ -7350,6 +7363,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       return [
         `Lightning damage: ${Math.floor(baseDamage * FIST_OF_THE_HEAVENS_LIGHTNING_MULTIPLIER)} before aura bonuses`,
         `Four Holy Bolts: ${Math.floor(baseDamage * FIST_OF_THE_HEAVENS_BOLT_MULTIPLIER)} magic damage each to Undead and Demons`,
+        `Holy Bolt synergy: +${Math.round(Math.max(0, this.skillLevels["Holy Bolt"] ?? 0) * FIST_OF_THE_HEAVENS_HOLY_BOLT_SYNERGY * 100)}% bolt damage from Holy Bolt ranks`,
         "The initial lightning always hits and passes through obstacles.",
         "Fist-created Holy Bolts never heal allies.",
       ];
@@ -8379,7 +8393,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         return;
       }
       if (skill === "Fist of the Heavens" && this.selectedClass === "paladin") {
-        this.addFistOfTheHeavensCastVisual();
+        // The original skill requires a target, so an empty arena only plays the
+        // cast animation instead of inventing a bolt.
         this.triggerAttackAnimation(castAnimation);
         return;
       }
@@ -15458,12 +15473,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
    * Holy Bolt skill's ally-healing path.
    */
   private castFistOfTheHeavens(target: Enemy, damage: number): void {
-    this.addFistOfTheHeavensCastVisual();
     this.addFistOfTheHeavensStrikeVisual(target);
     this.queueEnemyDamage(target, damage * FIST_OF_THE_HEAVENS_LIGHTNING_MULTIPLIER, "#d8f3ff", "lightning");
 
     const baseAngle = Math.atan2(target.y - this.playerY, target.x - this.playerX);
-    const boltDamage = damage * FIST_OF_THE_HEAVENS_BOLT_MULTIPLIER;
+    const holyBoltRank = Math.max(0, this.skillLevels["Holy Bolt"] ?? 0);
+    const boltDamage = damage * FIST_OF_THE_HEAVENS_BOLT_MULTIPLIER
+      * (1 + holyBoltRank * FIST_OF_THE_HEAVENS_HOLY_BOLT_SYNERGY);
     for (let index = 0; index < FIST_OF_THE_HEAVENS_BOLT_COUNT; index += 1) {
       const angle = baseAngle + index * Math.PI / 2;
       const directionX = Math.cos(angle);
@@ -15493,34 +15509,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
   }
 
-  /** Original handofgod overlay played on the paladin as the sky bolt falls. */
-  private addFistOfTheHeavensCastVisual(): void {
-    this.skillVisualEffects.push({
-      name: "Fist of the Heavens",
-      kind: "burst",
-      x: this.playerX,
-      y: this.playerY,
-      targetX: this.playerX + this.playerFacingX * 110,
-      targetY: this.playerY + this.playerFacingY * 110,
-      facingX: this.playerFacingX,
-      facingY: this.playerFacingY,
-      time: 0,
-      duration: 0.9,
-      color: "#ffe6a0",
-      seed: hashString("Fist of the Heavens") % 628,
-      missileId: "d2-handofgod",
-      fistOfTheHeavensCast: true,
-    });
-    this.trimSkillVisualEffects();
-    this.drawSkillVisualEffects();
-    if (this.activeTab === "run" && !this.rafId) {
-      this.rafId = requestAnimationFrame((time) => this.loop(time));
-    }
-  }
-
-  /** The LightningBolt cel descends from above the target's impact point. */
+  /**
+   * The skill's srvoverlay is `handofgod`, a single bolt landing on the struck
+   * monster. Diablo II shows that one overlay, so nothing is drawn on the
+   * paladin and no second fork doubles the strike.
+   */
   private addFistOfTheHeavensStrikeVisual(target: Enemy): void {
-    const distance = Math.hypot(target.x - this.playerX, target.y - this.playerY) || 1;
     this.skillVisualEffects.push({
       name: "Fist of the Heavens",
       kind: "burst",
@@ -15528,14 +15522,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       y: target.y,
       targetX: target.x,
       targetY: target.y,
-      facingX: (target.x - this.playerX) / distance,
-      facingY: (target.y - this.playerY) / distance,
+      facingX: 0,
+      facingY: 0,
       stationary: true,
       time: 0,
-      duration: 0.62,
-      color: "#d8f3ff",
+      duration: 0.7,
+      color: "#ffe6a0",
       seed: hashString("Fist of the Heavens strike") % 628,
-      missileId: "d2-lightningbolt",
+      missileId: "d2-handofgod",
       fistOfTheHeavensStrike: true,
     });
     this.trimSkillVisualEffects();
@@ -17119,7 +17113,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.queueEnemyDamage(enemy, damage, this.skillVisualColorForName(skill, "aura"), damageType);
       if (hitArt) {
         enemy.paladinAuraHit = hitArt;
-        enemy.paladinAuraHitRemaining = D2_PALADIN_AURA_HIT_ART[hitArt].columns / D2_PALADIN_AURA_HIT_ART[hitArt].frameRate;
+        enemy.paladinAuraHitRemaining = this.paladinAuraHitDuration(hitArt);
       }
     }
   }
@@ -17496,41 +17490,17 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     ctx.restore();
   }
 
-  private drawFistOfTheHeavensCast(ctx: CanvasRenderingContext2D, effect: SkillVisualEffect): void {
-    const point = this.projectArenaPoint(effect.x, effect.y);
-    if (!this.isArenaPointOnScreen(point, DRAW_CULL_MARGIN)) return;
-    const scale = this.worldZoom * (this.projectionDpr || 1);
-    const fade = Math.min(1, effect.time * 14, Math.max(0, (effect.duration - effect.time) * 10));
-    if (fade <= 0.01) return;
-    ctx.save();
-    ctx.globalCompositeOperation = "lighter";
-    ctx.shadowColor = "#ffd76a";
-    ctx.shadowBlur = 12 * scale;
-    this.drawFistOfTheHeavensArt(
-      ctx, "d2-handofgod", effect.time, point.x, point.y + 4 * scale, 118 * scale, fade * 0.95, 1.55,
-    );
-    ctx.restore();
-  }
-
   private drawFistOfTheHeavensStrike(ctx: CanvasRenderingContext2D, effect: SkillVisualEffect): void {
     const point = this.projectArenaPoint(effect.x, effect.y);
     if (!this.isArenaPointOnScreen(point, DRAW_CULL_MARGIN)) return;
     const scale = this.worldZoom * (this.projectionDpr || 1);
-    const fade = Math.min(1, effect.time * 20, Math.max(0, (effect.duration - effect.time) * 10));
+    const fade = Math.min(1, effect.time * 24, Math.max(0, (effect.duration - effect.time) * 12));
     if (fade <= 0.01) return;
-    ctx.save();
-    ctx.globalCompositeOperation = "lighter";
-    // The imported LightningBolt cel is the entire strike; no drawn crater.
-    ctx.shadowColor = "#d8f3ff";
-    ctx.shadowBlur = 16 * scale;
+    // One plain draw of the original overlay cel, about a monster tall. Diablo II
+    // adds no glow bloom, no fork copy and no crater, so none are drawn here.
     this.drawFistOfTheHeavensArt(
-      ctx, "d2-lightningbolt", effect.time, point.x, point.y + 3 * scale, 245 * scale, fade, 1,
+      ctx, "d2-handofgod", effect.time, point.x, point.y + 10 * scale, 98 * scale, fade, 1.8,
     );
-    // A second, shorter cel gives the strike the familiar forked silhouette.
-    this.drawFistOfTheHeavensArt(
-      ctx, "d2-lightningbolt", effect.time + 0.04, point.x + 5 * scale, point.y + 3 * scale, 205 * scale, fade * 0.45, 1.1,
-    );
-    ctx.restore();
   }
 
   private drawFistOfTheHeavensBoltImpact(ctx: CanvasRenderingContext2D, effect: SkillVisualEffect): void {
@@ -17539,23 +17509,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const scale = this.worldZoom * (this.projectionDpr || 1);
     const fade = Math.min(1, effect.time * 22, Math.max(0, (effect.duration - effect.time) * 12));
     if (fade <= 0.01) return;
-    ctx.save();
-    ctx.globalCompositeOperation = "lighter";
-    ctx.shadowColor = "#ffe6a0";
-    ctx.shadowBlur = 10 * scale;
     this.drawFistOfTheHeavensArt(
-      ctx, "d2-teethexplode", effect.time, point.x, point.y + 5 * scale, 52 * scale, fade, 1.5,
+      ctx, "d2-teethexplode", effect.time, point.x, point.y + 5 * scale, 46 * scale, fade, 1.5,
     );
-    ctx.restore();
   }
 
   private drawSkillVisualEffect(ctx: CanvasRenderingContext2D, effect: SkillVisualEffect): void {
     const canvas = this.skillEffectsCanvasRef?.nativeElement;
     if (!canvas) return;
-    if (effect.fistOfTheHeavensCast) {
-      this.drawFistOfTheHeavensCast(ctx, effect);
-      return;
-    }
     if (effect.fistOfTheHeavensStrike) {
       this.drawFistOfTheHeavensStrike(ctx, effect);
       return;
@@ -20663,6 +20624,16 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if ((e.staticFieldRemaining ?? 0) > 0) this.drawEnemyStaticField(ctx, e, ground, size);
   }
 
+  /** Playback rate for a damaging aura's hit overlay. */
+  private paladinAuraHitFrameRate(key: keyof typeof D2_PALADIN_AURA_HIT_ART): number {
+    return PALADIN_AURA_HIT_DISPLAY[key]?.frameRate ?? D2_PALADIN_AURA_HIT_ART[key].frameRate;
+  }
+
+  /** How long a damaging aura's hit overlay stays on the monster. */
+  private paladinAuraHitDuration(key: keyof typeof D2_PALADIN_AURA_HIT_ART): number {
+    return D2_PALADIN_AURA_HIT_ART[key].columns / this.paladinAuraHitFrameRate(key);
+  }
+
   /** Stamps the original elemental overlay onto a monster hit by an aura tick. */
   private drawEnemyPaladinAuraHit(
     ctx: CanvasRenderingContext2D,
@@ -20674,10 +20645,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const art = D2_PALADIN_AURA_HIT_ART[enemy.paladinAuraHit];
     const image = this.paladinAuraHitImages.get(enemy.paladinAuraHit);
     if (!image?.complete || image.naturalWidth === 0) return;
-    const duration = art.columns / art.frameRate;
+    const frameRate = this.paladinAuraHitFrameRate(enemy.paladinAuraHit);
+    const duration = this.paladinAuraHitDuration(enemy.paladinAuraHit);
     const elapsed = Math.max(0, duration - (enemy.paladinAuraHitRemaining ?? 0));
-    const frame = Math.min(art.columns - 1, Math.floor(elapsed * art.frameRate));
-    const scale = this.worldZoom * Math.max(0.72, Math.min(1.45, size / 170));
+    const frame = Math.min(art.columns - 1, Math.floor(elapsed * frameRate));
+    const scale = this.worldZoom * Math.max(0.72, Math.min(1.45, size / 170))
+      * (PALADIN_AURA_HIT_DISPLAY[enemy.paladinAuraHit]?.scale ?? 1);
     ctx.save();
     ctx.imageSmoothingEnabled = true;
     ctx.globalCompositeOperation = "lighter";
@@ -22520,7 +22493,7 @@ const CLASS_SKILL_DESCRIPTIONS: Record<string, string> = {
   "Find Potion": "Passive: potion drops are more likely. Each rank adds 10 percentage points to the chest potion chance and 2 points to the monster potion chance, and improves rejuvenation potion drops.",
   Leap: "Leap toward the next enemy in front of the barbarian. If no enemy is inside the short leap range, the spell is cancelled. The barbarian is invulnerable while airborne; on landing, every enemy in a small radius is stunned.",
   Howl: `A terrifying warcry that deals no damage. Every enemy within ${HOWL_RADIUS} units flees away from the barbarian for ${HOWL_BASE_FEAR_SECONDS} seconds, plus ${HOWL_FEAR_SECONDS_PER_RANK} seconds per additional rank, and cannot attack while afraid.`,
-  Jab: "A rapid melee thrust with a spear or pike.", Bash: "A forceful melee strike that staggers an enemy.", Smite: "Shield bash that knocks enemies back.", Charge: "Run at an enemy with the shield and slam the small area in front on arrival, dealing damage and stunning enemies caught in the bash. Requires a shield.", "Blessed Hammer": "Summon a spinning hammer that spirals outward around the paladin, damaging each enemy it passes once.", "Fist of the Heavens": "Call down a lightning bolt on the nearest enemy for heavy Lightning damage, then release four Holy Bolts that spread outward and damage only Undead and Demons. The strike always hits and ignores obstacles; the bolts never heal allies.", Sacrifice: "A powerful melee attack that costs a little life.", Zeal: "A rapid flurry of one melee strike per rank, all in quick succession.", Vengeance: "A melee strike split evenly across fire, cold, lightning and magic damage.",
+  Jab: "A rapid melee thrust with a spear or pike.", Bash: "A forceful melee strike that staggers an enemy.", Smite: "Shield bash that knocks enemies back.", Charge: "Run at an enemy with the shield and slam the small area in front on arrival, dealing damage and stunning enemies caught in the bash. Requires a shield.", "Blessed Hammer": "Summon a spinning hammer that spirals outward around the paladin, damaging each enemy it passes once.",   "Fist of the Heavens": "Call down a lightning bolt on the nearest enemy for heavy Lightning damage, then release four Holy Bolts that spread outward and damage only Undead and Demons. Holy Bolt ranks raise the bolts' damage, the strike always hits and ignores obstacles, and the bolts never heal allies.", Sacrifice: "A powerful melee attack that costs a little life.", Zeal: "A rapid flurry of one melee strike per rank, all in quick succession.", Vengeance: "A melee strike split evenly across fire, cold, lightning and magic damage.",
   "Raise Skeleton": "Raise a fallen monster as a melee skeleton warrior.", "Skeletal Mage": "Raise a skeletal mage that hurls cold, fire, lightning, or poison bolts from a distance. Each cast cycles through the elements.",  "Bone Spear": "A piercing spear of bone strikes enemies in a line.", "Corpse Explosion": "Fire a ranged bone missile at the nearest enemy. On impact it explodes, dealing 35% of the target's maximum life to all enemies caught in the blast. More skill ranks increase blast radius only.",
   "Fire Ball": "Hurl an explosive ball of flame.", "Charged Bolt": "Release a spray of lightning bolts.",  "Frost Nova": "A ring of frost bursts outward and chills nearby enemies.",
   "Static Field": "A point-blank lightning burst that removes 25% of current life from every nearby enemy. More ranks increase the blast radius.",
@@ -22567,7 +22540,6 @@ interface SkillVisualEffect {
   /** Original missile cel used by a dedicated skill effect, when present. */
   missileId?: string;
   poisonExplosion?: boolean;
-  fistOfTheHeavensCast?: boolean;
   fistOfTheHeavensStrike?: boolean;
   fistOfTheHeavensBoltImpact?: boolean;
   targetEnemy?: boolean;
