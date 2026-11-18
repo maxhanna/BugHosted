@@ -404,7 +404,7 @@ const MELEE_DAMAGE_SKILLS = new Set([
   "Tiger Strike", "Dragon Talon", "Dragon Claw", "Cobra Strike", "Dragon Tail", "Dragon Flight",
   "Fists of Fire", "Claws of Thunder", "Blades of Ice", "Phoenix Strike",
   "Maul", "Feral Rage", "Fire Claws", "Rabies", "Shock Wave", "Hunger", "Fury",
-  "Poison Dagger", "Poison Explosion",
+  "Poison Dagger",
 ]);
 // Energy from gear and charms powers cast spells. Weapon attacks, martial
 // skills, summons, curses, and percentage-health effects are not spells.
@@ -412,7 +412,7 @@ const SPELL_DAMAGE_SKILLS = new Set([
   "Fire Blast", "Shock Web", "Charged Bolt Sentry", "Wake of Fire", "Lightning Sentry", "Wake of Inferno", "Death Sentry",
   "Psychic Hammer", "Mind Blast",
   "Firestorm", "Molten Boulder", "Arctic Blast", "Fissure", "Twister", "Volcano", "Tornado", "Hurricane", "Armageddon",
-  "Teeth", "Bone Spear", "Bone Spirit", "Poison Nova",
+  "Teeth", "Bone Spear", "Bone Spirit", "Poison Nova", "Poison Explosion",
   "Holy Bolt", "Blessed Hammer", "Fist of the Heavens",
   "Ice Bolt", "Frost Nova", "Ice Blast", "Glacial Spike", "Blizzard", "Frozen Orb",
   "Fire Bolt", "Inferno", "Blaze", "Fire Ball", "Fire Wall", "Meteor",
@@ -471,9 +471,9 @@ const FIRESTORM_TRAIL_DROP_INTERVAL = 0.1;
 const FIRESTORM_FIRE_LIFETIME = 2.4;
 const FIRESTORM_FIRE_RADIUS = 26;
 const FIRESTORM_FIRE_TICK_INTERVAL = 0.5;
-// Poison Explosion is a melee strike that leaves a cloud of gas where it lands.
-// Everything standing in the cloud keeps taking poison damage, and each rank
-// widens the cloud and strengthens its ticks.
+// Poison Explosion is a ranged cast: a well of poison appears where the target
+// stands. Everything caught in the well keeps taking poison damage, and each
+// rank widens it and strengthens its ticks.
 const POISON_CLOUD_BASE_RADIUS = 58;
 const POISON_CLOUD_RADIUS_PER_RANK = 6;
 const POISON_CLOUD_DURATION = 3.6;
@@ -492,6 +492,8 @@ const SAND_MAGGOT_POISON_TICK_INTERVAL = 1;
 const SAND_MAGGOT_POISON_DAMAGE_FRACTION = 0.55;
 const SAND_MAGGOT_POISON_COLOR = "#9bdb56";
 const SAND_MAGGOT_RANGED_RANGE = 300;
+// Adults keep advancing to bite range, pausing to drop eggs while they come.
+const SAND_MAGGOT_EGG_LAY_RANGE = 340;
 const SAND_MAGGOT_BURROW_TRIGGER_LIFE = 0.6;
 const SAND_MAGGOT_BURROW_DURATION = 1.6;
 const SAND_MAGGOT_BURROW_COOLDOWN = 12;
@@ -643,6 +645,16 @@ const PORTAL_ART_WORLD_SCALE = 0.64;
 // dropped so a screen full of missiles stays smooth instead of doubling work.
 const MISSILE_TRAIL_CEL_LIMIT = 140;
 const MISSILE_GLOW_LIMIT = 90;
+// `bonespear` names `bonespeartrail` as its client sub-missile in missiles.txt.
+// The trail has no velocity: the client drops one at the spear's position every
+// few ticks and it expands and fades through its own cels. Reproduce that here
+// so the spear leaves the original bone-shard puffs instead of ghost cels of
+// the spear itself.
+const BONE_SPEAR_TRAIL_MISSILE_ID = "d2-bonespeartrail";
+const BONE_SPEAR_TRAIL_INTERVAL = 0.07;
+// Eight exported cels (the trimmed ninth is empty) at the authored 60 ms tick.
+const BONE_SPEAR_TRAIL_LIFE = 0.48;
+const BONE_SPEAR_TRAIL_BEHIND = 14;
 // Tinted monster frames are cached; this keeps the cache from growing without
 // bound when a long run shows every species and direction.
 const TINTED_ENEMY_FRAME_LIMIT = 1200;
@@ -661,7 +673,7 @@ const ENEMY_MISSILE_OVERLAY_IDS = [
   "d2-deathmaulermissile", "d2-diablolightning", "d2-firenova", "d2-frogpoisonmissile",
   "d2-highpriestlightning", "d2-impfireball", "d2-mephistomissile",
   "d2-sandmaggotgoospit", "d2-shamanfireball", "d2-shockwave", "d2-siegrock",
-  "d2-spider_goo_missile", "d2-spikefiendmamamissle", "d2-spikefiendmissle",
+  "d2-spider_goo_missile", "d2-spikefiendmissle",
   "d2-slugmissile", "d2-unholybolt", "d2-vampiremissile",
 ];
 // Player hit/impact overlays that are not referenced by a skill's missile
@@ -742,7 +754,7 @@ const MISSILE_ELEMENTS: Record<string, AttackProjectile["kind"]> = {
   "d2-twister": "lightning",
   "d2-bonespirit": "bone", "d2-bonespear": "bone", "d2-boneshield": "bone",
   "d2-poisonleft": "bone", "d2-poisonnova": "bone", "d2-poisongas": "bone",
-  "d2-corpseexplodeguts": "bone", "d2-corpseexplodegutspoison": "bone",
+  "d2-corpseexplodeguts": "bone", "d2-corpseexplodegutspoison": "bone", "d2-poisonsparks": "bone",
   "d2-holyboltmissile": "holy", "d2-blessedhammer": "holy",
 };
 // One loop is roughly 0.8s; effects with more cels play faster.
@@ -798,6 +810,7 @@ const MISSILE_FRAME_DURATIONS_MS: Record<string, number> = {
   "d2-fireball": 85,
   "d2-fire-arrow": 85,
   "d2-arctic-blast": 85,
+  "d2-poisonsparks": 40,
 };
 // Frame counts come from manifest.json (tools/import_d2_missile_overlays.py).
 const MISSILE_FRAME_COUNT_OVERRIDES: Record<string, number> = {
@@ -1091,7 +1104,7 @@ const D2_SPELL_MISSILE_OVERLAYS: Record<string, string> = {
   "Charged Strike": "d2-chargedbolt", "Phoenix Strike": "d2-lightningstrike",
   "Thunder Storm": "d2-lightningstrike", "Static Field": "d2-elecnovaa",
   "Poison Javelin": "d2-javelin", "Plague Javelin": "d2-javelin", "Poison Dagger": "d2-poisonleft",
-  "Poison Nova": "d2-poisongas", "Poison Explosion": "d2-corpseexplodegutspoison",
+  "Poison Nova": "d2-poisongas", "Poison Explosion": "d2-poisonsparks",
   "Corpse Explosion": "d2-corpseexplodeguts",
   "Bone Spirit": "d2-bonespirit", "Bone Spear": "d2-bonespear", Teeth: "d2-teethmissile",
   "Bone Armor": "d2-boneshield", "Bone Wall": "d2-boneshield", "Bone Prison": "d2-boneshield",
@@ -1175,6 +1188,14 @@ const MISSILE_SPRITE_SIZES: Record<string, { width: number; height: number }> = 
   "d2-fireball": { width: 34, height: 22 },
   // The 45x56 Sand Maggot acid cels were capped to 28px and read as a speck.
   "d2-sandmaggotgoospit": { width: 44, height: 54 },
+  // Bone Spear is a long projectile; the generic 28px cap made its imported
+  // 68x57 cel read as a short white dash. Its trail cels grow from a small puff
+  // to a 54x68 cloud, so give them a size that sits behind the spear.
+  "d2-bonespear": { width: 52, height: 44 },
+  "d2-bonespeartrail": { width: 38, height: 48 },
+  // Spike Fiend spines are long quills; the generic 28px cap squeezed the
+  // imported 45x19 cel until the spine read as a small speck.
+  "d2-spikefiendmissle": { width: 44, height: 19 },
 };
 // rock_large is a cool blue-grey D2 cel. Remap its luminance to muted earth
 // tones once when the five frames load instead of filtering every boulder draw.
@@ -1212,7 +1233,6 @@ const MISSILE_SPRITE_ORIENTATIONS: Record<string, number> = {
   "d2-lightningjavelin": ISOMETRIC_MISSILE_ROTATION,
   "d2-lightningstrike": ISOMETRIC_MISSILE_ROTATION,
   "d2-spikefiendmissle": ISOMETRIC_MISSILE_ROTATION,
-  "d2-spikefiendmamamissle": ISOMETRIC_MISSILE_ROTATION,
   "d2-glaive": ISOMETRIC_MISSILE_ROTATION,
   "d2-missileglaive": ISOMETRIC_MISSILE_ROTATION,
   "d2-missilehandaxe": ISOMETRIC_MISSILE_ROTATION,
@@ -1235,9 +1255,10 @@ const MISSILE_SPRITE_ORIENTATIONS: Record<string, number> = {
   "d2-eruptionsmoke": Math.PI / 2,
   // The meteor cel's rock leads at the bottom, so its forward axis points down.
   "d2-meteortail": -Math.PI / 2,
-  // SandMaggotGooSpit's base cel is authored diagonally up-right; rotate it
-  // onto the travel axis before following the projectile heading.
-  "d2-sandmaggotgoospit": Math.PI / 4,
+  // SandMaggotGooSpit's main glob leads down-left while its spray trails
+  // up-right. Turn the authored diagonal around so the glob leads the flight;
+  // aligning the up-right spray with travel made the missile look reversed.
+  "d2-sandmaggotgoospit": Math.PI * 5 / 4,
 };
 // Art used when only a damage kind is known.
 const ATTACK_KIND_MISSILE_OVERLAYS: Record<AttackProjectile["kind"], string> = {
@@ -1364,6 +1385,9 @@ const TRISTRAM_BACKDROP_TILE_WIDTH = 160;
 const A1_WALL_ATLAS = "assets/d2survivors/maps/act1-monastery-walls.png";
 const A1_WALL_LAYOUT = "assets/d2survivors/maps/act1-monastery-walls.json";
 const A1_WALL_COLLISION = "assets/d2survivors/maps/act1-monastery-walls-collision.png";
+const A4_WALL_ATLAS = "assets/d2survivors/maps/act4-catacombs-walls.png";
+const A4_WALL_LAYOUT = "assets/d2survivors/maps/act4-catacombs-walls.json";
+const A4_WALL_COLLISION = "assets/d2survivors/maps/act4-catacombs-walls-collision.png";
 
 interface TristramWallInstance {
   x: number;
@@ -1529,7 +1553,9 @@ const ENEMY_SPRITE_PATHS: Record<EnemySpecies, string> = {
   // WF fenris, B7 druid bear, G2-G4 golem and XW/X3/X4 spirit DCCs.
   wolf: "assets/d2survivors/enemies/animated/wolf.png",
   grizzly: "assets/d2survivors/enemies/animated/grizzly.png",
-  bloodGolem: "assets/d2survivors/enemies/animated/blood-golem.png",
+  // Versioned: rebuilt with the real red palette and without the matte pass
+  // that was punching transparent holes through its dark body.
+  bloodGolem: "assets/d2survivors/enemies/animated/blood-golem.png?v=2",
   fireGolem: "assets/d2survivors/enemies/animated/fire-golem.png",
   ironGolem: "assets/d2survivors/enemies/animated/iron-golem.png",
   oakSage: "assets/d2survivors/enemies/animated/oak-sage.png",
@@ -1631,9 +1657,10 @@ const ENEMY_SPRITE_CELLS: Record<EnemySpecies, { width: number; height: number }
   skeletalMageCold: { width: 158, height: 109 }, skeletalMageFire: { width: 158, height: 109 },
   skeletalMageLightning: { width: 158, height: 109 }, skeletalMagePoison: { width: 158, height: 109 },
   golem: { width: 91, height: 102 },
-  sandRaider: { width: 114, height: 180 }, sandMaggot: { width: 172, height: 180 }, scarab: { width: 224, height: 180 }, leaper: { width: 120, height: 120 },
-  sandMaggotQueen: { width: 172, height: 180 },
-  maggotEgg: { width: 96, height: 96 },
+  sandRaider: { width: 114, height: 180 }, sandMaggot: { width: 120, height: 120 }, scarab: { width: 224, height: 180 }, leaper: { width: 120, height: 120 },
+  sandMaggotQueen: { width: 120, height: 120 },
+  // The rebuilt egg atlas is 12x8 frames at the same 120px cell as the maggot.
+  maggotEgg: { width: 120, height: 120 },
   spiderDemon: { width: 160, height: 128 },
   spikeFiend: { width: 96, height: 80 },
   sandMaggotYoung: { width: 128, height: 128 },
@@ -1704,6 +1731,13 @@ const SUMMON_SHEET_SKILLS = new Set<string>([
 const SPRITE_OUTLINE_CLEANUP: Partial<Record<EnemySpecies, number>> = {
   oakSage: 80,
   heartOfWolverine: 80,
+  // The four SK mage composites carry an opaque near-black matte around their
+  // hand glows. It is enclosed by the glow rather than touching the frame
+  // margin, so the normal outline pass leaves it as dark rings.
+  skeletalMageCold: 16,
+  skeletalMageFire: 16,
+  skeletalMageLightning: 16,
+  skeletalMagePoison: 16,
 };
 
 /**
@@ -2107,6 +2141,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private tristramWallLayout?: TristramWallLayout;
   private act1WallAtlas?: HTMLImageElement;
   private act1WallLayout?: TristramWallLayout;
+  private act4WallAtlas?: HTMLImageElement;
+  private act4WallLayout?: TristramWallLayout;
   private readonly campaignFloorTileImages: Partial<Record<number, HTMLImageElement>> = {};
   private readonly campaignFloorTileOverlayCanvases: Partial<Record<number, HTMLCanvasElement>> = {};
   private readonly campaignBackgroundCanvases: Partial<Record<number, HTMLCanvasElement>> = {};
@@ -2149,8 +2185,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     && window.matchMedia("(pointer: fine)").matches;
   private readonly d2CursorScale = 0.55;
   private readonly d2CursorHotspots = {
-    default: { x: 126, y: 19 },
-    shop: { x: 8, y: 8 },
+    // The gauntlet's index fingertip sits near the top-left of its 138x128
+    // frame. Anchoring it anywhere else makes the visible cursor drift away
+    // from the real pointer and throws off clicks.
+    default: { x: 6, y: 10 },
+    shop: { x: 10, y: 10 },
     rotate: { x: 14, y: 18 },
   } as const;
   private menuHeroRenderer?: THREE.WebGLRenderer;
@@ -2830,6 +2869,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     { name: "Soulstone Ring", cost: 320, desc: "An equippable ring with a powerful damage bonus.", item: { id: "gheeds-soulstone-ring", name: "Soulstone Ring", rarity: "rare", slot: "charm", equipmentType: "ring", desc: "A dangerous fragment set in iron, humming with trapped power.", stats: { plusDamage: 8 }, affixes: ["+8 Maximum Damage"] } },
   ];
   ownedSkills: string[] = [];
+  /** Most recently cast skills, oldest first. Drives the HUD skill bar. */
+  private recentSkillNames: string[] = [];
   /** Base ranks bought with skill points. Equipment bonuses are applied by the
    *  skillLevels accessor below, so they can never leak into a save or a level-up. */
   private readonly baseSkillLevels: Record<string, number> = {};
@@ -2954,6 +2995,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private loadCampaignMaps(): void {
     this.loadTristramWallAssets();
     this.loadAct1WallAssets();
+    this.loadAct4WallAssets();
     const interior = new Image();
     interior.onload = () => {
       this.act1InteriorImage = interior;
@@ -3088,6 +3130,33 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       })
       .catch((error) => console.warn(`Could not load Act I wall placements: ${error}`));
     this.loadCampaignCollisionMask(1, A1_WALL_COLLISION);
+  }
+
+  /**
+   * Act IV's catacombs are painted as one backdrop.  Its wall faces are also
+   * loaded as depth-sorted strips plus a wall-footprint mask so the hero can
+   * walk behind them and cannot pass through their bases.
+   */
+  private loadAct4WallAssets(): void {
+    const atlas = new Image();
+    atlas.onload = () => {
+      this.act4WallAtlas = atlas;
+      if (this.activeTab === "run" && this.currentAct === 4) this.draw();
+    };
+    atlas.onerror = () => console.warn(`Could not load Act IV wall atlas: ${A4_WALL_ATLAS}`);
+    atlas.src = A4_WALL_ATLAS;
+    fetch(A4_WALL_LAYOUT)
+      .then((response) => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json() as Promise<TristramWallLayout>;
+      })
+      .then((layout) => {
+        if (!Array.isArray(layout?.instances)) throw new Error("missing wall instances");
+        this.act4WallLayout = layout;
+        if (this.activeTab === "run" && this.currentAct === 4) this.draw();
+      })
+      .catch((error) => console.warn(`Could not load Act IV wall placements: ${error}`));
+    this.loadCampaignCollisionMask(4, A4_WALL_COLLISION);
   }
 
   private refreshTristramDepthPass(): void {
@@ -3563,6 +3632,50 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   private drawAct1WallSlice(ctx: CanvasRenderingContext2D, wall: TristramWallDraw): void {
     const atlas = this.act1WallAtlas;
+    if (!atlas?.complete || !atlas.naturalWidth) return;
+    ctx.drawImage(atlas, wall.sx, wall.sy, wall.w, wall.h, wall.dx, wall.dy, wall.dw, wall.dh);
+  }
+
+  /** Depth-sorted wall strips for Act IV's catacombs. */
+  private act4WallDraws(tileWidth: number): TristramWallDraw[] {
+    if (this.currentAct !== 4) return [];
+    const atlas = this.act4WallAtlas;
+    const layout = this.act4WallLayout;
+    const backdrop = this.campaignBackdropImages[4];
+    const canvas = this.arenaRef?.nativeElement;
+    if (!atlas?.complete || !atlas.naturalWidth || !layout || !backdrop?.complete
+      || !backdrop.naturalWidth || !canvas?.width || !canvas.height) {
+      return [];
+    }
+    const geometry = this.campaignAreaBackdropGeometry(
+      tileWidth, layout.backdropWidth, layout.backdropHeight,
+    );
+    const { left, top, scale } = geometry;
+    const margin = 96 * this.projectionDpr;
+    const draws: TristramWallDraw[] = [];
+    for (const instance of layout.instances) {
+      const dx = left + instance.x * scale;
+      const dy = top + instance.y * scale;
+      const dw = instance.w * scale;
+      const dh = instance.h * scale;
+      if (dx + dw < -margin || dy + dh < -margin
+        || dx > canvas.width + margin || dy > canvas.height + margin) {
+        continue;
+      }
+      draws.push({
+        ...instance,
+        dx,
+        dy,
+        dw,
+        dh,
+        depth: top + (instance.depth ?? instance.y + instance.h) * scale,
+      });
+    }
+    return draws;
+  }
+
+  private drawAct4WallSlice(ctx: CanvasRenderingContext2D, wall: TristramWallDraw): void {
+    const atlas = this.act4WallAtlas;
     if (!atlas?.complete || !atlas.naturalWidth) return;
     ctx.drawImage(atlas, wall.sx, wall.sy, wall.w, wall.h, wall.dx, wall.dy, wall.dw, wall.dh);
   }
@@ -7296,12 +7409,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
     if (name === "Poison Explosion" && this.selectedClass === "necromancer") {
       const radius = this.poisonCloudRadiusForRank(rank);
-      const hitDamage = this.applyStrengthToMeleeDamage(this.basicAttackDamage * 1.5 + (rank - 1) * 3);
+      const hitDamage = this.applyEnergyToSpellDamage(this.basicAttackDamage * 1.5 + (rank - 1) * 3);
       const tickDamage = hitDamage * this.poisonCloudDamageFractionForRank(rank);
       return [
-        `Melee strike: the hit leaves a ${radius}-unit poison cloud`,
-        `Cloud poison damage: ${tickDamage.toFixed(1)} per tick for ${POISON_CLOUD_DURATION.toFixed(1)}s`,
-        `Each rank adds ${POISON_CLOUD_RADIUS_PER_RANK} cloud radius and stronger poison`,
+        `Ranged cast: a ${radius}-unit poison well opens at the target's location`,
+        `Well poison damage: ${tickDamage.toFixed(1)} per tick to everything inside for ${POISON_CLOUD_DURATION.toFixed(1)}s`,
+        `Each rank adds ${POISON_CLOUD_RADIUS_PER_RANK} well radius and stronger poison`,
       ];
     }
 
@@ -7458,7 +7571,20 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   get equippedSkills(): string[] {
-    return this.ownedSkills.filter((name) => name !== this.basicAttackName && getClassSkills(this.selectedClass).some((skill) => skill.name === name)).slice(0, 4);
+    const classSkills = getClassSkills(this.selectedClass);
+    return this.recentSkillNames
+      .filter((name) => name !== this.basicAttackName
+        && this.ownedSkills.includes(name)
+        && classSkills.some((skill) => skill.name === name))
+      .slice(-4);
+  }
+
+  /** Put a cast skill at the front of the four HUD slots without duplicating it. */
+  private recordRecentSkill(skill: string): void {
+    if (skill === this.basicAttackName) return;
+    this.recentSkillNames = this.recentSkillNames.filter((name) => name !== skill);
+    this.recentSkillNames.push(skill);
+    if (this.recentSkillNames.length > 4) this.recentSkillNames.splice(0, this.recentSkillNames.length - 4);
   }
 
   skillCastProgress(skill: string): number {
@@ -8049,6 +8175,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     // Every spell waits for a planted stance. The automatic caster applies the
     // same gate before it starts timers; direct calls must honor it too.
     if (this.playerRunning) return;
+    this.recordRecentSkill(skill);
     // Blood Mana is paid when the spell actually starts. Its D2 condition is
     // exact: maximum mana must meet or exceed maximum life.
     this.payBloodManaCost();
@@ -8267,6 +8394,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.triggerAttackAnimation(castAnimation);
       return;
     }
+    if (skill === "Poison Explosion" && this.selectedClass === "necromancer") {
+      // Targeted ranged cast: the well opens on the monster's ground position
+      // instead of requiring the necromancer to walk into melee reach.
+      this.addPoisonExplosionBurst(nearest);
+      this.spawnPoisonCloud(nearest.x, nearest.y, multiplier, damage);
+      this.triggerAttackAnimation(castAnimation);
+      return;
+    }
     const telekinesisStun = skill === "Telekinesis" && this.selectedClass === "sorceress";
     if (telekinesisStun) this.applyEnemyStun(nearest, TELEKINESIS_STUN_SECONDS);
     if (isAssassinKickSkill && distance > nearest.r + 28) return;
@@ -8361,8 +8496,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const multishotArrows = skill === "Multiple Shot" || skill === "Multishot"
         ? Math.min(21, 2 + Math.max(0, (this.skillLevels[skill] ?? 1) - 1))
         : undefined;
-      // One extra bolt per Charged Bolt rank, starting at five.
-      const boltCount = multishotArrows ?? (skill === "Teeth" ? 4 + multiplier : isChargedBolt ? 4 + multiplier : skill === "Lightning Fury" ? 6 : skill === "Blizzard" ? 3 : 1);
+      // Teeth opens with two teeth and adds one for every rank, matching D2's
+      // 2/3/4... progression. Charged Bolt keeps its five-bolt opening volley.
+      const boltCount = multishotArrows ?? (skill === "Teeth" ? 1 + multiplier : isChargedBolt ? 4 + multiplier : skill === "Lightning Fury" ? 6 : skill === "Blizzard" ? 3 : 1);
       const color = isPsychicHammer ? "#c4b5ff"
         : kind === "lightning" ? "#a9dcff" : kind === "holy" ? "#fff0a8" : kind === "bone" ? "#ddd5c5"
           : COLD_DAMAGE_SKILLS.has(skill) ? "#8bdcff" : "#ff9c50";
@@ -8409,7 +8545,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
             : isWindSkill ? windRange * this.worldZoom / 420 + 1
               : skill === "Shock Web" ? Math.max(4, distance / 420 + 4)
                 : Math.max(3, distance / 420 + 1),
-          radius: 5, color: multishotArrows !== undefined ? "#d7c5aa" : color, kind: multishotArrows !== undefined ? "arrow" : kind, missileId: visualMissile, sourceOnlyArt: this.selectedClass === "amazon" || undefined, age: 0,
+          radius: 5, color: multishotArrows !== undefined ? "#d7c5aa" : color, kind: multishotArrows !== undefined ? "arrow" : kind, missileId: visualMissile,
+          // Bone Spear's own DCC is the whole projectile; ghost cels of the spear
+          // smeared a second, pale spear behind it. Its real trail is the separate
+          // `bonespeartrail` sub-missile spawned in spawnBoneSpearTrailPuff().
+          sourceOnlyArt: this.selectedClass === "amazon" || skill === "Bone Spear" || undefined, age: 0,
           impactRadius: skill === "Shock Web" ? 56 : skill === "Fire Blast" ? 40 : skill === "Ice Blast" ? ICE_BLAST_IMPACT_RADIUS : skill === "Corpse Explosion" ? this.corpseExplosionRadiusForRank(multiplier) : isPsychicHammer ? this.psychicHammerRadiusForRank(multiplier) : undefined,
           impactDuration: skill === "Shock Web" ? 3 : skill === "Fire Blast" ? 1 : skill === "Ice Blast" ? 0.55 : skill === "Corpse Explosion" ? 0.6 : isPsychicHammer ? 0.38 : undefined,
           impactHitEnemies: skill === "Fire Blast" || skill === "Ice Blast" || skill === "Corpse Explosion" || isPsychicHammer ? [] : undefined,
@@ -8428,18 +8568,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
     if (distance <= nearest.r + 28) {
       if (COLD_DAMAGE_SKILLS.has(skill)) this.applyEnemyChill(nearest);
-      if (skill === "Poison Explosion" && this.selectedClass === "necromancer") {
-        // A melee strike, not a thrown corpse: the blow lands on the target and
-        // the gas bursts from the impact point as a lingering ground cloud.
-        this.addSkillVisualEffect(skill, nearest);
-        if (!this.isEnemyImmuneTo(nearest, "poison")) {
-          this.dealMeleeDamage(nearest, damage);
-          this.floatingTexts.push({ x: nearest.x, y: nearest.y - nearest.r, text: this.floatingDamageText(damage), color: attack.color, life: 0.8 });
-        }
-        this.spawnPoisonCloud(nearest.x, nearest.y, multiplier, damage);
-        this.triggerAttackAnimation(castAnimation);
-        return;
-      }
       if (skill === "Vengeance" && this.selectedClass === "paladin") {
         // Vengeance is not one physical blow: its damage is divided between the
         // four non-physical elements, and each quarter is resisted separately.
@@ -8659,6 +8787,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       ...PLAYER_BLIZZARD_FALL_ART,
       ...PLAYER_BLIZZARD_IMPACT_ART,
       ...PLAYER_IMPACT_MISSILE_IDS,
+      // Bone Spear's client sub-missile is not a skill entry on its own.
+      BONE_SPEAR_TRAIL_MISSILE_ID,
       ...Object.values(D2_SPELL_MISSILE_OVERLAYS),
       ...Object.values(SKILL_MISSILE_OVERLAYS),
       ...Object.values(SKILL_VISUAL_MISSILES),
@@ -10139,6 +10269,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const existingProjectileCount = this.attackProjectiles.length;
     for (let projectileIndex = 0; projectileIndex < existingProjectileCount; projectileIndex += 1) {
       const projectile = this.attackProjectiles[projectileIndex];
+      if (projectile.missileId === "d2-bonespear") this.spawnBoneSpearTrailPuff(projectile, seconds);
+      if (projectile.cosmeticTrail) {
+        // A trail puff has no velocity of its own: it plays out its eight cels
+        // where it was dropped, then expires.
+        projectile.life -= seconds;
+        projectile.age += seconds;
+        continue;
+      }
       if (projectile.fireWall) {
         this.updateFireWall(projectile, seconds);
         continue;
@@ -10406,6 +10544,33 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       if (projectile.life > 0) this.attackProjectiles[liveProjectiles++] = projectile;
     }
     this.attackProjectiles.length = liveProjectiles;
+  }
+
+  /** Drops one original `bonespeartrail` puff in the spear's wake. */
+  private spawnBoneSpearTrailPuff(spear: AttackProjectile, seconds: number): void {
+    // The spear lingers on its impact for a moment; a puff per tick there would
+    // pile the whole trail onto one pixel.
+    if (spear.impactAge !== undefined) return;
+    spear.trailCooldown = (spear.trailCooldown ?? 0) - seconds;
+    if (spear.trailCooldown > 0) return;
+    spear.trailCooldown = BONE_SPEAR_TRAIL_INTERVAL;
+    const headingX = spear.targetX - spear.startX;
+    const headingY = spear.targetY - spear.startY;
+    const headingLength = Math.hypot(headingX, headingY) || 1;
+    const directionX = headingX / headingLength;
+    const directionY = headingY / headingLength;
+    this.attackProjectiles.push({
+      x: spear.x - directionX * BONE_SPEAR_TRAIL_BEHIND,
+      y: spear.y - directionY * BONE_SPEAR_TRAIL_BEHIND,
+      startX: spear.x, startY: spear.y,
+      targetX: spear.x, targetY: spear.y,
+      speed: 0, damage: 0, life: BONE_SPEAR_TRAIL_LIFE, age: 0,
+      radius: 0, color: "#cfd8ff", kind: "bone",
+      missileId: BONE_SPEAR_TRAIL_MISSILE_ID,
+      headingX: directionX, headingY: directionY,
+      sourceOnlyArt: true,
+      cosmeticTrail: true,
+    });
   }
 
   private drawMeleeTrail(ctx: CanvasRenderingContext2D, effect: MeleeTrailEffect): void {
@@ -10709,6 +10874,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       if (projectile.boneWall && projectile.life > 0 && (projectile.wallHealth ?? 0) > 0) walls.push(projectile);
     }
     return walls;
+  }
+
+  /** The hero is a solid body too: bone walls stop the player, not just monsters. */
+  private boneWallBlocksPlayer(dx: number, dy: number): boolean {
+    if (!dx && !dy) return false;
+    return !!this.boneWallBlockingMove(
+      this.playerX, this.playerY, this.playerX + dx, this.playerY + dy, 12,
+    );
   }
 
   private boneWallBlockingMove(startX: number, startY: number, endX: number, endY: number, radius: number): AttackProjectile | undefined {
@@ -11050,10 +11223,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const x = point.x - directionY * fan * this.worldZoom * 0.7071;
     const y = point.y + directionX * fan * this.worldZoom * 0.35355;
     const angle = Math.atan2(y - start.y, x - start.x);
-    const size = (24 + Math.min(9, Math.abs(projectile.teethFan ?? 0) * 0.32))
+    const size = (36 + Math.min(8, Math.abs(projectile.teethFan ?? 0) * 0.32))
       * this.worldZoom * (this.projectionDpr || 1);
     // Teeth's own DCC is a small flying tooth; no polygon is generated here.
-    this.drawImportedMissileFrame(ctx, "d2-teethmissile", projectile.age, x, y - 8, size, angle, 0.95);
+    // Draw it normally rather than additively: its dark contour is what keeps
+    // the pale tooth readable over bright Act II sand and Act III jungle.
+    this.drawImportedMissileFrame(ctx, "d2-teethmissile", projectile.age, x, y - 8, size, angle, 1, "center", "source-over");
   }
 
   private trackUserEvent(eventType: string, eventText: string): void {
@@ -11155,6 +11330,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.upgradeChoices = [];
     this.levelUpNotice = "";
     this.ownedSkills = [this.basicAttackName];
+    this.recentSkillNames = [];
     this.druidForm = null;
     this.druidFormRemaining = 0;
     this.druidFormCooldown = 0;
@@ -11329,7 +11505,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   /** True when a walk step would enter terrain walls, trees, or water. */
   private campaignTerrainBlocks(dx: number, dy: number): boolean {
     if (this.currentAct === 1 && this.act1InteriorOpen) return false;
-    if (this.currentAct !== 1 && this.currentAct !== 3) return false;
+    if (this.currentAct !== 1 && this.currentAct !== 3 && this.currentAct !== 4) return false;
     const mask = this.campaignCollisionMasks[this.currentAct];
     if (!mask) return false;
     const tileWidth = CAMPAIGN_TILE_WORLD_SIZE * this.worldZoom * CAMPAIGN_TILE_RENDER_SCALE * Math.SQRT2;
@@ -11348,15 +11524,23 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       if (imageX < 0 || imageY < 0 || imageX >= mask.width || imageY >= mask.height) return false;
       return mask.blocked[imageY * mask.width + imageX] === 1;
     };
-    let candidateBlocked = false;
-    for (const [offsetX, offsetY] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1], [0.707, 0.707], [-0.707, 0.707], [0.707, -0.707], [-0.707, -0.707]]) {
-      if (blockedAt(candidate.x + offsetX * clearance, candidate.y + offsetY * clearance)) {
-        candidateBlocked = true;
-        break;
+    const samples: ReadonlyArray<readonly [number, number]> = [
+      [0, 0], [1, 0], [-1, 0], [0, 1], [0, -1],
+      [0.707, 0.707], [-0.707, 0.707], [0.707, -0.707], [-0.707, -0.707],
+    ];
+    const blockedSamples = (screenX: number, screenY: number): number => {
+      let count = 0;
+      for (const [offsetX, offsetY] of samples) {
+        if (blockedAt(screenX + offsetX * clearance, screenY + offsetY * clearance)) count += 1;
       }
-    }
-    // Never trap a hero who was placed on a blocked pixel; let them walk out.
-    return candidateBlocked && !blockedAt(current.x, current.y);
+      return count;
+    };
+    const candidateBlocked = blockedSamples(candidate.x, candidate.y);
+    if (candidateBlocked === 0) return false;
+    // Never trap a hero who starts inside scenery, but only allow steps that
+    // move toward clearer ground. Letting any step through while overlapped
+    // also lets the hero tunnel straight through a wall.
+    return candidateBlocked >= blockedSamples(current.x, current.y);
   }
 
   movePlayer(dt: number): void {
@@ -11470,9 +11654,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     // Move each world axis separately so the hero slides along tree lines and
     // riverbanks instead of sticking when only one component is blocked.
-    const movedX = dx && !this.campaignTerrainBlocks(dx, 0) ? dx : 0;
+    const movedX = dx && !this.campaignTerrainBlocks(dx, 0) && !this.boneWallBlocksPlayer(dx, 0) ? dx : 0;
     if (movedX) this.shiftWorldBy(movedX, 0);
-    const movedY = dy && !this.campaignTerrainBlocks(0, dy) ? dy : 0;
+    const movedY = dy && !this.campaignTerrainBlocks(0, dy) && !this.boneWallBlocksPlayer(0, dy) ? dy : 0;
     if (movedY) this.shiftWorldBy(0, movedY);
     this.playerX = this.arenaW / 2;
     this.playerY = this.arenaH / 2;
@@ -11519,6 +11703,35 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     while (this.currentChunkLocalY >= chunkHeight) { this.currentChunkLocalY -= chunkHeight; this.currentChunkCoordY += 1; }
     this.translateWorldEntities(-moveX, -moveY);
     this.addAssassinTeleportEffect(this.playerX - moveX, this.playerY - moveY, skillName);
+  }
+
+  /**
+   * Poison Explosion's impact uses the original `poisonexplosioncloud` cel,
+   * `PoisonSparks`. It plays once at the target's location; the lingering
+   * poison well is drawn separately underneath.
+   */
+  private addPoisonExplosionBurst(target: Enemy): void {
+    this.skillVisualEffects.push({
+      name: "Poison Explosion",
+      kind: "burst",
+      poisonExplosion: true,
+      x: target.x,
+      y: target.y,
+      targetX: target.x,
+      targetY: target.y,
+      facingX: this.playerFacingX,
+      facingY: this.playerFacingY,
+      time: 0,
+      duration: 1.15,
+      color: POISON_CLOUD_COLOR,
+      seed: hashString("Poison Explosion") % 628,
+      missileId: "d2-poisonsparks",
+    });
+    this.trimSkillVisualEffects();
+    this.drawSkillVisualEffects();
+    if (this.activeTab === "run" && !this.rafId) {
+      this.rafId = requestAnimationFrame((time) => this.loop(time));
+    }
   }
 
   private addDragonTailImpactEffect(x: number, y: number): void {
@@ -14138,8 +14351,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
               // Spike fiends hold their distance and volley quills down range.
               ? 265 + (targetSummon?.r ?? 18)
               : isSandMaggot
-                // Adults bite at arm's reach and spit poison goo down range.
-                ? distance <= maggotMeleeRange ? maggotMeleeRange : SAND_MAGGOT_RANGED_RANGE
+                // Adults keep closing to bite; they spit or drop eggs on the way.
+                ? maggotMeleeRange
               : isSandMaggotYoung
                 // The young bite up close and spit acid at range.
                 ? distance <= maggotYoungMeleeRange ? maggotYoungMeleeRange : SAND_MAGGOT_YOUNG_RANGED_RANGE
@@ -14344,12 +14557,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       if (isSandMaggot) {
         if (distanceAfterMoving <= maggotMeleeRange && (enemy.cd ?? 0) <= 0) {
           this.biteWithSandMaggot(enemy, targetSummon);
+        } else if (distanceAfterMoving <= SAND_MAGGOT_EGG_LAY_RANGE && (enemy.cd ?? 0) <= 0
+          && (enemy.eggCooldown ?? 0) <= 0 && this.maggotEggs.length < SAND_MAGGOT_EGG_LIMIT) {
+          // Drop an egg while still advancing rather than parking at spit range.
+          this.laySandMaggotEgg(enemy);
         } else if (distanceAfterMoving <= SAND_MAGGOT_RANGED_RANGE && (enemy.cd ?? 0) <= 0) {
-          if ((enemy.eggCooldown ?? 0) <= 0 && this.maggotEggs.length < SAND_MAGGOT_EGG_LIMIT) {
-            this.laySandMaggotEgg(enemy);
-          } else {
-            this.spitSandMaggotGoo(enemy, targetX, targetY, targetSummon);
-          }
+          this.spitSandMaggotGoo(enemy, targetX, targetY, targetSummon);
         }
         continue;
       }
@@ -14952,7 +15165,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     return POISON_CLOUD_DAMAGE_FRACTION + Math.max(0, rank - 1) * POISON_CLOUD_DAMAGE_FRACTION_PER_RANK;
   }
 
-  /** The gas Poison Explosion leaves at the point its melee strike lands. */
+  /** The poison well Poison Explosion opens under its targeted enemy. */
   private spawnPoisonCloud(x: number, y: number, rank: number, hitDamage: number): void {
     this.poisonClouds.push({
       x,
@@ -16485,6 +16698,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     rotation = 0,
     alpha = 1,
     anchor: "center" | "bottom" = "center",
+    composite: GlobalCompositeOperation = "lighter",
   ): void {
     if (alpha <= 0.01 || size <= 0) return;
     const frames = this.missileOverlayImages.get(id) ?? [];
@@ -16504,7 +16718,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     ctx.translate(x, y - (anchor === "bottom" ? drawHeight / 2 : 0));
     ctx.rotate(rotation);
     ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
-    ctx.globalCompositeOperation = "lighter";
+    ctx.globalCompositeOperation = composite;
     ctx.drawImage(
       frame,
       -naturalWidth * drawScale / 2,
@@ -17316,6 +17530,16 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     if (effect.lightningRail) {
       this.drawLightningRail(ctx, effect);
+      return;
+    }
+    if (effect.poisonExplosion) {
+      const point = this.projectArenaPoint(effect.x, effect.y);
+      const fade = Math.min(1, effect.time * 10, (effect.duration - effect.time) * 5);
+      const scale = this.worldZoom * (this.projectionDpr || 1);
+      this.drawImportedMissileFrame(
+        ctx, "d2-poisonsparks", effect.time, point.x, point.y,
+        Math.max(120, 150 * scale), 0, fade, "center", "source-over",
+      );
       return;
     }
     const progress = Math.max(0, Math.min(1, effect.time / effect.duration));
@@ -18958,6 +19182,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         draw: () => this.drawAct1WallSlice(ctx, wall),
       });
     }
+    for (const wall of this.act4WallDraws(tileWidth)) {
+      drawOrder.push({
+        depth: wall.depth,
+        order: wall.order,
+        draw: () => this.drawAct4WallSlice(ctx, wall),
+      });
+    }
     for (const projectile of this.attackProjectiles) {
       if (projectile.fireWall) {
         const point = this.projectArenaPoint(projectile.x, projectile.y);
@@ -19037,7 +19268,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (this.actPortalOpen) this.drawActPortal(ctx);
     if (this.druidForm) this.drawDruidForm(ctx);
 
-    for (const projectile of this.attackProjectiles) this.drawAttackProjectile(ctx, projectile);
+    // Sub-missile puffs belong behind the missile that spawned them, so they go
+    // down before the damaging projectiles instead of on top of them.
+    for (const projectile of this.attackProjectiles) {
+      if (projectile.cosmeticTrail) this.drawAttackProjectile(ctx, projectile);
+    }
+    for (const projectile of this.attackProjectiles) {
+      if (!projectile.cosmeticTrail) this.drawAttackProjectile(ctx, projectile);
+    }
     for (const effect of this.meleeTrailEffects) this.drawMeleeTrail(ctx, effect);
     for (const effect of this.summonAttackEffects) this.drawSummonAttackEffect(ctx, effect);
     this.drawAreaDarkness(ctx, canvas);
@@ -19612,7 +19850,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       group.scale.setScalar(baseScale * fit);
       // The head bone sits at the rear of the skull; move the hat center forward
       // onto the head mesh rather than letting the back of the hat overhang.
-      group.position.set(0, visual.lift, visual.hair === "none" ? 0 : 0.0003);
+      group.position.set(0, this.helmetSeatLift(visual, classId), visual.hair === "none" ? 0 : 0.0003);
       const [rotationX, rotationY, rotationZ] = visual.rotation ?? [0, 0, 0];
       group.rotation.set(rotationX, rotationY, rotationZ);
       head.add(group);
@@ -19622,6 +19860,16 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.setHelmetHairState(model, "none");
       console.warn(`Could not load the ${visual.id} D2R helmet mesh`, error);
     });
+  }
+
+  /**
+   * The Necromancer's head joint sits lower in the skull than the other class
+   * rigs. Low cap shells then cover the face instead of resting on the crown,
+   * so seat those pieces higher without lifting full helms off the head.
+   */
+  private helmetSeatLift(visual: { id: string; lift: number }, classId: string): number {
+    const lowCap = visual.id === "cap" || visual.id === "skull";
+    return visual.lift + (lowCap && classId === "necromancer" ? 0.0016 : 0);
   }
 
   /**
@@ -19836,6 +20084,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     };
 
     if (kind === "shield") {
+      // A shrunken head is one object, not a flat shield face. Giving it the two
+      // mirrored shield plates makes the necromancer appear to hold two heads.
+      if (type === "necromancerHead") {
+        addPlate(0, 0, 1, 0xffffff);
+        return;
+      }
       // A dark plate between two art plates gives the shield thickness and a
       // rim without inventing a shape that would not match the cel.
       addPlate(0, 0, 1.04, 0x1b1611);
@@ -20567,8 +20821,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     // generic counter walked past the eight-frame wolf walk band into empty
     // columns. The raised skeleton has the same eight-frame walk band; other
     // summon families keep their previous frame behavior.
+    // A mage idles on the neutral cel. The walk band's hand-glow cels keep
+    // changing, so sampling them while the servant is parked makes its hands
+    // look animated even though the body is standing still.
+    const skeletalMageIdle = summon.summonSkill === "Skeletal Mage"
+      && summon.animationState !== "move" && summon.animationState !== "attack";
     const frameIndex = sprite
-      ? look || summon.species === "skeletonWarrior" || summon.species === "goatman" || summon.summonSkill === "Skeletal Mage"
+      ? skeletalMageIdle ? 0
+        : look || summon.species === "skeletonWarrior" || summon.species === "goatman" || summon.summonSkill === "Skeletal Mage"
         ? enemySpriteFrame(summon, sprite.columns, this.runTime)
         : summon.animationState === "attack"
           ? Math.min(sprite.columns - 1, Math.floor(attackProgress * sprite.columns))
@@ -20701,8 +20961,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     switch (skill) {
       case "Raise Skeleton": return "brightness(1.14) contrast(1.08)";
       case "Skeletal Mage": return element ? SKELETAL_MAGE_LOOKS[element].tint : "brightness(1.08) contrast(1.06)";
-      case "Clay Golem": return "sepia(0.55) saturate(1.5) brightness(1.04)";
-      case "Blood Golem": return "sepia(0.85) hue-rotate(-26deg) saturate(2.6) brightness(0.9)";
+      // The shared golem atlas is authored blue. A partial sepia leaves that
+      // cast in place, so fully convert it before warming it to clay/tan.
+      case "Clay Golem": return "sepia(1) saturate(1.5) brightness(1.04) contrast(1.04)";
+      // The dedicated D2R sheet is already blood-red; only lift it slightly
+      // instead of recolouring a blue golem into red.
+      case "Blood Golem": return "brightness(1.06) saturate(1.12) contrast(1.05)";
       case "Iron Golem": return "grayscale(0.55) brightness(1.2) contrast(1.14)";
       case "Fire Golem": return "sepia(0.95) hue-rotate(-14deg) saturate(2.8) brightness(1.16)";
       default: return SUMMON_TINT;
@@ -22159,7 +22423,9 @@ const DCC_EIGHT_DIRECTION_SPECIES = new Set<EnemySpecies>([
   "goatman", "regurgitator", "siegeBeast", "minotaur", "baalsMinion", "leaper",
   "scarab", "sandRaider", "sandMaggot", "sandMaggotQueen", "sandMaggotYoung", "spiderDemon", "spikeFiend", "blunderbore",
   "fetish", "boneFetish", "fetishShaman", "council", "balrog", "vileChild", "vileMother", "bloodLord", "nihlathak",
-  "salamander", "deathMauler", "wendigo", "andariel", "duriel", "diablo", "baal", "mephisto",
+  // The Pain Worm page preserves its source DCC rows too; without the remap
+  // moving left played the south-west row and read as walking backwards.
+  "painWorm", "salamander", "deathMauler", "wendigo", "andariel", "duriel", "diablo", "baal", "mephisto",
   "wolf", "grizzly", "bloodGolem", "fireGolem", "ironGolem",
 ]);
 
@@ -22245,6 +22511,7 @@ interface SkillVisualEffect {
   name: string;
   /** Original missile cel used by a dedicated skill effect, when present. */
   missileId?: string;
+  poisonExplosion?: boolean;
   fistOfTheHeavensCast?: boolean;
   fistOfTheHeavensStrike?: boolean;
   fistOfTheHeavensBoltImpact?: boolean;
@@ -22545,6 +22812,10 @@ interface AttackProjectile {
   kind: "arrow" | "fire" | "lightning" | "blade" | "bone" | "holy" | "claw" | "melee";
   /** Draw only the imported DCC cel; no procedural trail, glow or fallback shape. */
   sourceOnlyArt?: boolean;
+  /** A cosmetic puff (Bone Spear's sub-missile) that never moves or deals damage. */
+  cosmeticTrail?: boolean;
+  /** Seconds until the next spawned sub-missile puff. */
+  trailCooldown?: number;
   thrownWeapon?: ThrownWeaponKind;
 }
 

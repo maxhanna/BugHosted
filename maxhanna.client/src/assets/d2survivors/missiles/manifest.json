@@ -1083,20 +1083,22 @@
   },
   "d2-bonespear": {
     "dccName": "bonespear",
+    "direction": 5,
     "encodedFrames": 6,
     "frameDirectory": "d2-bonespear",
     "frameDurationMs": 60,
     "frames": 6,
     "height": 57,
     "source": "d2r extract missile dcc",
-    "width": 57
+    "width": 68
   },
   "d2-bonespeartrail": {
     "dccName": "bonespeartrail",
-    "encodedFrames": 9,
+    "direction": 0,
+    "encodedFrames": 8,
     "frameDirectory": "d2-bonespeartrail",
     "frameDurationMs": 60,
-    "frames": 9,
+    "frames": 8,
     "height": 68,
     "source": "d2r extract missile dcc",
     "width": 54
@@ -3534,6 +3536,7 @@
   },
   "d2-poisonsparks": {
     "dccName": "poisonsparks",
+    "direction": 0,
     "encodedFrames": 31,
     "frameDirectory": "d2-poisonsparks",
     "frameDurationMs": 60,
@@ -4052,25 +4055,16 @@
     "source": "d2r extract missile dcc",
     "width": 63
   },
-  "d2-spikefiendmamamissle": {
+  "d2-spikefiendmissle": {
     "dccName": "spikefiendmamamissle",
+    "direction": 0,
     "encodedFrames": 2,
-    "frameDirectory": "d2-spikefiendmamamissle",
+    "frameDirectory": "d2-spikefiendmissle",
     "frameDurationMs": 60,
     "frames": 2,
     "height": 19,
     "source": "d2r extract missile dcc",
     "width": 45
-  },
-  "d2-spikefiendmissle": {
-    "dccName": "spikefiendmissle",
-    "encodedFrames": 2,
-    "frameDirectory": "d2-spikefiendmissle",
-    "frameDurationMs": 60,
-    "frames": 2,
-    "height": 6,
-    "source": "d2r extract missile dcc",
-    "width": 11
   },
   "d2-spikeleft": {
     "dccName": "spikeleft",
@@ -4124,13 +4118,14 @@
   },
   "d2-teethmissile": {
     "dccName": "teethmissile",
+    "direction": 5,
     "encodedFrames": 30,
     "frameDirectory": "d2-teethmissile",
     "frameDurationMs": 60,
     "frames": 30,
-    "height": 38,
+    "height": 32,
     "source": "d2r extract missile dcc",
-    "width": 63
+    "width": 66
   },
   "d2-teleport": {
     "dccName": "teleport",

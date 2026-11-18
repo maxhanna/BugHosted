@@ -135,6 +135,10 @@ def build(source: Path, species: str) -> str:
 
     directions = min(8, walk["directions"])
     rows = 16 if mode == "walk_attack" else min(4, directions)
+    # Only the stationary druid spirits are painted on an opaque dark disk. The
+    # golem/wolf/bear DCCs already carry real transparency, and keying their dark
+    # body pixels punches holes through the creature.
+    clear_matte = mode == "walk_only"
     sheet = Image.new("RGBA", (columns * cell_width, rows * cell_height), (0, 0, 0, 0))
 
     def paste(image: Image.Image, column: int, row: int) -> None:
@@ -145,14 +149,14 @@ def build(source: Path, species: str) -> str:
     walk_frames = min(walk["frames_per_dir"], columns)
     for direction in range(directions if rows == 16 else rows):
         for frame in range(walk_frames):
-            paste(frame_crop(walk, direction, frame), frame, direction)
+            paste(frame_crop(walk, direction, frame, clear_matte=clear_matte), frame, direction)
 
     attack_frames = 0
     if mode == "walk_attack" and attack is not None:
         attack_frames = min(attack["frames_per_dir"], columns)
         for direction in range(min(directions, attack["directions"])):
             for frame in range(attack_frames):
-                paste(frame_crop(attack, direction, frame), frame, 8 + direction)
+                paste(frame_crop(attack, direction, frame, clear_matte=clear_matte), frame, 8 + direction)
 
     destination = ASSET_ROOT / out_name
     sheet.save(destination)
@@ -198,7 +202,10 @@ def main(argv: list[str]) -> int:
         return 0
 
     global PALETTE
-    PALETTE = dcc.load_palette(args.source / "global" / "palette" / "units" / "pal.dat")
+    # `units/pal.dat` stores BGR triples; leaving them unswapped turns the red
+    # Blood Golem blue and only the runtime filter hides the mistake.
+    PALETTE = [(red, green, blue) for blue, green, red in
+               dcc.load_palette(args.source / "global" / "palette" / "units" / "pal.dat")]
     if args.sentry:
         print(build_sentry(args.source))
         return 0

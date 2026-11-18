@@ -6,8 +6,9 @@
 pointed at its real Diablo II projectile art by name.
 
 The runtime turns a missile toward its target and plays a one-direction strip,
-so only direction 0 is exported: the frames are keyed to transparency, cropped
-to their shared bounds so the sprite does not jitter, padded to one canvas and
+so only one direction is exported (direction 0 unless the animation authors a
+better-aligned side view): the frames are keyed to transparency, cropped to
+their shared bounds so the sprite does not jitter, padded to one canvas and
 scaled down to keep the asset bundle small.
 
 Output layout matches the rest of `assets/d2survivors/missiles`:
@@ -52,7 +53,13 @@ SKIP_STEMS = {"null"}
 
 # Runtime art id -> alternate source stem. Kept for cases where an extracted
 # DCC is unusable; Fire Bolt now uses its own original `firebolt.dcc`.
-SOURCE_OVERRIDES: dict[str, str] = {}
+SOURCE_OVERRIDES: dict[str, str] = {
+    # `spikefiendmissle.dcc` is an 11x6 speck that reads as a grey dash. The
+    # same extraction also ships `extra/spikefiendmamamissle.dcc`, the 45x19
+    # quill the Spike Fiends actually throw in Diablo II, so use that art for
+    # the runtime id every Spike Fiend reference already points at.
+    "spikefiendmissle": "spikefiendmamamissle",
+}
 
 # A few Baal-era skill effects live in `global/overlays` rather than the missile
 # tree. Keep this whitelist explicit so the tool never sweeps in unrelated
@@ -62,6 +69,18 @@ OVERLAY_STEMS = {"cursedecrepifyeffect", "impacting01"}
 # Which palette the missile cels use. `units` is the shared creature/missile
 # palette; Blizzard stores it BGR, so swap the channels for Pillow.
 PALETTE_PATH = ("global", "palette", "units", "pal.dat")
+
+# Missiles whose DCC cels are additive glows painted on a black backdrop rather
+# than cut-out sprites. Saving those black pixels opaque leaves a dark starburst
+# around the effect, so their luminance becomes the alpha channel.
+# Poison Explosion's `poisonexplosioncloud` missile uses the PoisonSparks cel.
+# It is additive glow art painted on black, so key its luminance to alpha.
+ADDITIVE_STEMS = {"bonespear", "bonespeartrail", "poisonsparks"}
+
+# D2 authors a diagonal side view in direction 0. The runtime rotates one cel to
+# the travel vector, so export a horizontal side view instead of inheriting that
+# fixed diagonal tilt.
+SOURCE_DIRECTIONS = {"bonespear": 5, "teethmissile": 5}
 
 PALETTE: list[tuple[int, int, int]] = []
 
@@ -125,16 +144,27 @@ def import_missile(path: Path, runtime_stem: str) -> dict:
     animation = dcc.parse(path.read_bytes())
     if not animation["dirs"] or not animation["frames_per_dir"]:
         raise RuntimeError("animation has no frames")
-    direction = animation["dirs"][0]
+    direction_index = SOURCE_DIRECTIONS.get(path.stem.lower(), 0)
+    if direction_index >= len(animation["dirs"]):
+        raise RuntimeError(f"animation has no direction {direction_index}")
+    direction = animation["dirs"][direction_index]
     xmin, ymin, _, _ = direction["box"]
+    additive = path.stem.lower() in ADDITIVE_STEMS
     frames = []
     for index in range(len(direction["frames"])):
         frame = direction["frames"][index]
         canvas = Image.new("RGBA", (direction["box"][2], direction["box"][3]), (0, 0, 0, 0))
-        canvas.alpha_composite(
-            dcc.frame_image(direction["bitmaps"][index], frame["width"], frame["height"], PALETTE),
-            (frame["xmin"] - xmin, frame["ymin"] - ymin),
-        )
+        cel = dcc.frame_image(direction["bitmaps"][index], frame["width"], frame["height"], PALETTE)
+        if additive:
+            # D2 draws these cels with additive blending. Keep the colour and
+            # make the brightest channel the opacity so the black backdrop
+            # disappears while the glow keeps its soft falloff.
+            for y in range(cel.height):
+                for x in range(cel.width):
+                    red, green, blue, alpha = cel.getpixel((x, y))
+                    if alpha:
+                        cel.putpixel((x, y), (red, green, blue, max(red, green, blue)))
+        canvas.alpha_composite(cel, (frame["xmin"] - xmin, frame["ymin"] - ymin))
         # Keep only this frame's cel, inside the direction canvas so offsets hold.
         mask = Image.new("L", canvas.size, 0)
         mask.paste(255, (frame["xmin"] - xmin, frame["ymin"] - ymin,
@@ -159,6 +189,7 @@ def import_missile(path: Path, runtime_stem: str) -> dict:
         "frameDurationMs": DEFAULT_FRAME_MS,
         "source": "d2r extract missile dcc",
         "dccName": path.stem,
+        "direction": direction_index,
     }
 
 
@@ -196,6 +227,10 @@ def main(argv: list[str]) -> int:
         (path.stem.lower(), sources_by_stem.get(SOURCE_OVERRIDES.get(path.stem.lower(), ""), path))
         for path in sources
     ]
+    # A DCC used as another id's override source is only art for that id; exporting
+    # it under its own name too would duplicate the same cels in the bundle.
+    override_sources = set(SOURCE_OVERRIDES.values())
+    entries = [(stem, path) for stem, path in entries if stem not in override_sources]
     if args.list:
         print("\n".join(stem for stem, _ in entries))
         return 0

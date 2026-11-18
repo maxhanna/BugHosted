@@ -781,6 +781,22 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(component.inventoryStatus).toContain("restricted to necromancers");
   });
 
+  it("mounts a single cel for a Necromancer shrunken head instead of front and back copies", () => {
+    const head = {
+      id: "unraveller-head", name: "Unraveller Head", baseName: "Unraveller Head",
+      slot: "armor", equipmentType: "necromancerHead",
+    } as any;
+    const texture = new THREE.Texture();
+    texture.image = { width: 100, height: 120 };
+    const visual = new THREE.Group();
+
+    (component as any).buildHeldItemArt(visual, head, texture, "shield");
+
+    const heads = visual.children.filter((child) => child instanceof THREE.Mesh);
+    expect(heads).toHaveSize(1);
+    expect((heads[0] as THREE.Mesh).material).toBeInstanceOf(THREE.MeshBasicMaterial);
+  });
+
   it("lets every class equip a great sword", () => {
     const classes = ["amazon", "assassin", "barbarian", "druid", "necromancer", "paladin", "sorceress"] as const;
 
@@ -1457,6 +1473,30 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(ally.hp).toBe(allyHp);
     expect((component as any).getSkillRankStats("Fist of the Heavens", "projectile", 1))
       .toContain("Fist-created Holy Bolts never heal allies.");
+  });
+
+  it("stops the hero from walking through a Bone Wall", () => {
+    component.playerX = 250;
+    component.playerY = 250;
+    const wall = {
+      x: 258, y: 250, startX: 258, startY: 250, targetX: 258, targetY: 250,
+      speed: 0, damage: 0, life: Number.POSITIVE_INFINITY, age: 0, radius: 10,
+      color: "#d9d0b5", kind: "bone", boneWall: true,
+      wallNormalX: 1, wallNormalY: 0, wallHalfLength: 100, wallHealth: 1000, wallMaxHealth: 1000,
+    } as any;
+    component.attackProjectiles = [wall];
+    component.keysDown.add("d");
+
+    component.movePlayer(100);
+
+    expect((component as any).playerMoveX).toBe(0);
+    expect(component.playerX).toBe(250);
+
+    wall.wallHealth = 0;
+    wall.life = 0;
+    component.movePlayer(100);
+    expect((component as any).playerMoveX).toBeGreaterThan(0);
+    component.keysDown.delete("d");
   });
 
   it("always lands Fist of the Heavens lightning through a Bone Wall", () => {
@@ -3136,6 +3176,36 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     }
   });
 
+  it("leaves the original BoneSpearTrail puffs behind the Bone Spear", () => {
+    component.selectedClass = "necromancer";
+    component.playerX = 100;
+    component.playerY = 250;
+    component.ownedSkills = ["Bone Spear"];
+    component.skillLevels = { "Bone Spear": 1 };
+    const target = { kind: "normal", species: "fallen", spriteFrame: 0, x: 260, y: 250, hp: 1000, maxHp: 1000, speed: 0, r: 14, dmg: 2 } as any;
+    component.enemies = [target];
+    component.attackProjectiles = [];
+    (component as any).rebuildEnemyGrid();
+
+    component.activateOwnedSkill("Bone Spear");
+
+    expect(component.attackProjectiles.length).toBeGreaterThan(0);
+    const spear = component.attackProjectiles[0];
+    expect(spear.missileId).toBe("d2-bonespear");
+    // The spear itself is drawn from its own cel; the trail is its own missile.
+    expect(spear.sourceOnlyArt).toBeTrue();
+
+    for (let frame = 0; frame < 10; frame += 1) (component as any).updateAttackProjectiles(16);
+    const puffs = component.attackProjectiles.filter((projectile) => projectile.missileId === "d2-bonespeartrail");
+    expect(puffs.length).toBeGreaterThan(0);
+    for (const puff of puffs) {
+      expect(puff.cosmeticTrail).toBeTrue();
+      expect(puff.speed).toBe(0);
+      expect(puff.damage).toBe(0);
+    }
+    expect(target.hp).toBe(1000);
+  });
+
   it("draws the original base-item art and falls back to equipment art for names this game added", () => {
     const imageFor = (name: string, slot: "weapon" | "armor" | "charm" | "belt", equipmentType?: string) =>
       component.inventoryItemImage({ name, slot, equipmentType } as any);
@@ -3200,6 +3270,16 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     for (const id of ["cap", "skull"] as const) {
       expect(D2_HELMET_VISUALS[id].hair).toBe("full");
     }
+  });
+
+  it("seats low caps higher on the Necromancer's skull without moving full helms", () => {
+    const seat = (id: "cap" | "skull" | "full", classId: string): number =>
+      (component as any).helmetSeatLift(D2_HELMET_VISUALS[id], classId);
+
+    expect(seat("cap", "necromancer")).toBeCloseTo(D2_HELMET_VISUALS.cap.lift + 0.0016);
+    expect(seat("skull", "necromancer")).toBeCloseTo(D2_HELMET_VISUALS.skull.lift + 0.0016);
+    expect(seat("full", "necromancer")).toBeCloseTo(D2_HELMET_VISUALS.full.lift);
+    expect(seat("cap", "paladin")).toBeCloseTo(D2_HELMET_VISUALS.cap.lift);
   });
 
   it("drops large and grand charms with their D2R art and inventory footprints", () => {
@@ -5597,6 +5677,12 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect((component as any).summonBarColor({ summonSkill: "Oak Sage" })).toBe("#e8954a");
   });
 
+  it("fully converts the blue golem atlas to the Clay Golem's tan palette", () => {
+    const tint = (component as any).summonSpriteTint("Clay Golem");
+    expect(tint).toContain("sepia(1)");
+    expect(tint).not.toContain("sepia(0.55)");
+  });
+
   it("keeps raven and wolf summons cast-only with one per skill rank", () => {
     component.selectedClass = "druid";
     component.enemies = [];
@@ -5821,6 +5907,34 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect((component as any).getSummonRankStats("Skeletal Mage", 1).join(" ")).toContain("Ranged attacks");
   });
 
+  it("holds a skeletal mage on its neutral idle cel instead of cycling its hand glow", () => {
+    const frame = { width: 158, height: 109 } as HTMLCanvasElement;
+    (component as any).enemySprites.skeletalMageCold = {
+      frames: Array.from({ length: 16 }, () => Array.from({ length: 16 }, () => frame)),
+      columns: 16, rows: 16, animated: true, contentHeight: 109, footFraction: 0.82,
+    };
+    component.runTime = 10;
+    spyOn(component as any, "tintedEnemyFrame").and.returnValue(frame);
+    spyOn(component as any, "drawGroundShadow");
+    const ctx = {
+      save: () => undefined, restore: () => undefined, drawImage: () => undefined,
+      fillRect: () => undefined, fillText: () => undefined,
+    } as unknown as CanvasRenderingContext2D;
+    const mage = {
+      kind: "normal", species: "skeletalMageCold", spriteFrame: 0, x: 300, y: 250,
+      hp: 95, maxHp: 95, speed: 150, r: 12, dmg: 13, facingX: 1, facingY: 0,
+      summonType: "skeleton", summonSkill: "Skeletal Mage", summonElement: "cold",
+      animationState: "idle",
+    } as any;
+
+    (component as any).drawSummon(ctx, mage, { x: 100, y: 100 });
+    expect((component as any).tintedEnemyFrame.calls.mostRecent().args[2]).toBe(0);
+
+    mage.animationState = "move";
+    (component as any).drawSummon(ctx, mage, { x: 100, y: 100 });
+    expect((component as any).tintedEnemyFrame.calls.mostRecent().args[2]).not.toBe(0);
+  });
+
   it("leaves capped, expiring burrow trails for the corpse vines", () => {
     component.selectedClass = "druid";
     component.runTime = 4;
@@ -5993,6 +6107,29 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(component.attackProjectiles[0].missileId).toBe("d2-sandmaggotgoospit");
     expect(component.attackProjectiles[0].damageType).toBe("poison");
     expect(component.attackProjectiles[0].poison).toBeTrue();
+  });
+
+  it("keeps Sand Maggots advancing and drops eggs on the way in", () => {
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.enemies = [];
+    component.maggotEggs = [];
+    component.attackProjectiles = [];
+    const maggot = {
+      kind: "normal", species: "sandMaggot", spriteFrame: 0, x: 700, y: 250,
+      hp: 100, maxHp: 100, speed: 120, r: 14, dmg: 6, cd: 0,
+      burrowCooldown: 99, eggCooldown: 0, animationState: "idle", facingX: -1, facingY: 0,
+    } as any;
+    component.enemies = [maggot];
+
+    component.updateEnemies(500);
+    expect(maggot.x).toBeLessThan(700);
+    expect(component.maggotEggs).toHaveSize(0);
+
+    // It closes to egg-laying range instead of parking at spit range.
+    for (let step = 0; step < 6; step += 1) component.updateEnemies(500);
+    expect(component.maggotEggs).toHaveSize(1);
   });
 
   it("lets the hero destroy a Sand Maggot egg before it hatches", () => {
@@ -6935,18 +7072,19 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(patches.some((patch: any) => Math.abs(patch.y - 250) > 5)).toBeTrue();
   });
 
-  it("casts Poison Explosion as a melee strike that leaves a poison cloud", () => {
+  it("casts Poison Explosion at range and opens a poison well under the target", () => {
     component.selectedClass = "necromancer";
     component.runActive = true;
     component.playerX = 250;
     component.playerY = 250;
     component.ownedSkills = ["Poison Explosion"];
     component.skillLevels = { "Poison Explosion": 1 };
-    const target = { kind: "normal", species: "fallen", spriteFrame: 0, x: 260, y: 250, hp: 100, maxHp: 100, speed: 0, r: 14, dmg: 2 } as any;
-    const far = { ...target, x: 520 } as any;
+    const target = { kind: "normal", species: "fallen", spriteFrame: 0, x: 450, y: 250, hp: 100, maxHp: 100, speed: 0, r: 14, dmg: 2 } as any;
+    const far = { ...target, x: 650 } as any;
     component.enemies = [target, far];
     component.floatingTexts = [];
     component.attackProjectiles = [];
+    (component as any).skillVisualEffects.length = 0;
     (component as any).poisonClouds.length = 0;
     (component as any).playerAttackLockRemaining = 0;
     (component as any).rebuildEnemyGrid();
@@ -6954,13 +7092,24 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.activateOwnedSkill("Poison Explosion");
 
     expect(component.attackProjectiles.length).toBe(0);
-    expect(target.hp).toBeLessThan(100);
-    expect(far.hp).toBe(100);
+    const burst = (component as any).skillVisualEffects.find((effect: any) => effect.poisonExplosion);
+    expect(burst).toBeTruthy();
+    expect(burst.missileId).toBe("d2-poisonsparks");
+    expect(burst.x).toBeCloseTo(target.x);
+    expect(burst.y).toBeCloseTo(target.y);
     expect((component as any).poisonClouds.length).toBe(1);
     const cloud = (component as any).poisonClouds[0];
     expect(cloud.x).toBeCloseTo(target.x);
     expect(cloud.y).toBeCloseTo(target.y);
     expect(cloud.radius).toBe(58);
+
+    // The well itself poisons everything inside on its first tick; the cast no
+    // longer applies a separate single-target melee hit.
+    expect(target.hp).toBe(100);
+    (component as any).updatePoisonClouds(0.016);
+    (component as any).flushPendingDamage();
+    expect(target.hp).toBeLessThan(100);
+    expect(far.hp).toBe(100);
   });
 
   it("poisons every enemy inside the Poison Explosion cloud", () => {
@@ -6970,16 +7119,16 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.playerY = 250;
     component.ownedSkills = ["Poison Explosion"];
     component.skillLevels = { "Poison Explosion": 1 };
-    const target = { kind: "normal", species: "fallen", spriteFrame: 0, x: 260, y: 250, hp: 1000, maxHp: 1000, speed: 0, r: 14, dmg: 2 } as any;
-    const inside = { ...target, x: 300 } as any;
-    const outside = { ...target, x: 400 } as any;
+    const target = { kind: "normal", species: "fallen", spriteFrame: 0, x: 450, y: 250, hp: 1000, maxHp: 1000, speed: 0, r: 14, dmg: 2 } as any;
+    const inside = { ...target, x: 490 } as any;
+    const outside = { ...target, x: 620 } as any;
     component.enemies = [target, inside, outside];
     component.floatingTexts = [];
     (component as any).poisonClouds.length = 0;
     (component as any).rebuildEnemyGrid();
 
     component.activateOwnedSkill("Poison Explosion");
-    (component as any).updateSkillVisualEffects(16);
+    (component as any).updatePoisonClouds(0.016);
     (component as any).flushPendingDamage();
 
     expect(inside.hp).toBeLessThan(1000);
@@ -6992,7 +7141,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.playerX = 250;
     component.playerY = 250;
     component.ownedSkills = ["Poison Explosion"];
-    const target = { kind: "normal", species: "fallen", spriteFrame: 0, x: 260, y: 250, hp: 1000, maxHp: 1000, speed: 0, r: 14, dmg: 2 } as any;
+    const target = { kind: "normal", species: "fallen", spriteFrame: 0, x: 450, y: 250, hp: 1000, maxHp: 1000, speed: 0, r: 14, dmg: 2 } as any;
     component.enemies = [target];
     component.floatingTexts = [];
     (component as any).poisonClouds.length = 0;
@@ -7012,7 +7161,25 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(high.radius).toBe(112);
     expect(high.damagePerTick).toBeGreaterThan(low.damagePerTick);
     expect((component as any).getSkillRankStats("Poison Explosion", "burst", 10))
-      .toContain("Melee strike: the hit leaves a 112-unit poison cloud");
+      .toContain("Ranged cast: a 112-unit poison well opens at the target's location");
+  });
+
+  it("keeps the melee attack plus the four most recently cast skills in the HUD", () => {
+    component.selectedClass = "necromancer";
+    component.basicAttackName = "Attack";
+    component.ownedSkills = ["Attack", "Bone Armor", "Bone Wall", "Corpse Explosion", "Poison Explosion", "Bone Spear"];
+    (component as any).isPlayerMoving = false;
+    (component as any).playerChargeRemaining = 0;
+    component.keysDown.clear();
+
+    for (const skill of ["Bone Armor", "Bone Wall", "Corpse Explosion", "Poison Explosion", "Bone Spear"]) {
+      (component as any).recordRecentSkill(skill);
+    }
+
+    expect(component.equippedSkills).toEqual(["Bone Wall", "Corpse Explosion", "Poison Explosion", "Bone Spear"]);
+
+    component.activateOwnedSkill("Bone Armor");
+    expect(component.equippedSkills).toEqual(["Corpse Explosion", "Poison Explosion", "Bone Spear", "Bone Armor"]);
   });
 
   it("plants a persistent Fire Wall instead of firing a projectile", () => {
@@ -7368,8 +7535,10 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     spyOn(component as any, "campaignAreaBackdropGeometry").and.returnValue({ scale: 1, left: 0, top: 0 } as any);
     spyOn(component as any, "projectArenaPoint").and.callFake((x: number, y: number) => ({ x, y }));
 
-    // The hero is already overlapped by scenery here, so movement stays free to escape.
-    expect((component as any).campaignTerrainBlocks(5, 0)).toBeFalse();
+    // The hero is already overlapped by scenery here, so movement toward
+    // clearer ground may escape, but stepping onto another blocked pixel may not.
+    expect((component as any).campaignTerrainBlocks(-5, 0)).toBeFalse();
+    expect((component as any).campaignTerrainBlocks(5, 0)).toBeTrue();
 
     mask.blocked[50 * 100 + 50] = 0;
     expect((component as any).campaignTerrainBlocks(5, 0)).toBeTrue();
@@ -7395,6 +7564,20 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect((component as any).campaignTerrainBlocks(5, 0)).toBeFalse();
   });
 
+  it("blocks Act IV catacombs walls while leaving the sanctuary floor walkable", () => {
+    const mask = { width: 100, height: 100, blocked: new Uint8Array(100 * 100) };
+    mask.blocked[50 * 100 + 55] = 1;
+    (component as any).campaignCollisionMasks[4] = mask;
+    (component as any).currentAct = 4;
+    component.playerX = 50;
+    component.playerY = 50;
+    spyOn(component as any, "campaignAreaBackdropGeometry").and.returnValue({ scale: 1, left: 0, top: 0 } as any);
+    spyOn(component as any, "projectArenaPoint").and.callFake((x: number, y: number) => ({ x, y }));
+
+    expect((component as any).campaignTerrainBlocks(5, 0)).toBeTrue();
+    expect((component as any).campaignTerrainBlocks(0, 5)).toBeFalse();
+  });
+
   it("uses the buysell cursor over Gheed's shop and the rotate cursor while dragging a preview", () => {
     const componentAny = component as any;
     componentAny.d2CursorEnabled = true;
@@ -7418,6 +7601,9 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     componentAny.previewDragging = false;
     move(false);
     expect(cursor.dataset.mode).toBe("default");
+    const [, cursorX, cursorY] = /translate3d\(([-\d.]+)px, ([-\d.]+)px/.exec(cursor.style.transform)!;
+    expect(Number(cursorX)).toBeCloseTo(96.7);
+    expect(Number(cursorY)).toBeCloseTo(94.5);
   });
 
   it("depth-sorts Act I courtyard wall strips and suppresses them indoors", () => {
@@ -7443,6 +7629,30 @@ describe("D2SurvivorsComponent combat and equipment", () => {
 
     componentWall.act1InteriorOpen = true;
     expect(componentWall.act1WallDraws(80)).toEqual([]);
+  });
+
+  it("depth-sorts Act IV catacombs wall strips", () => {
+    const componentWall = component as any;
+    componentWall.currentAct = 4;
+    componentWall.act4WallAtlas = { complete: true, naturalWidth: 512 };
+    componentWall.act4WallLayout = {
+      atlasWidth: 512, atlasHeight: 522, backdropWidth: 600, backdropHeight: 300,
+      instances: [{ x: 10, y: 20, w: 32, h: 100, sx: 0, sy: 0, order: 4, depth: 120 }],
+    };
+    componentWall.campaignBackdropImages[4] = { complete: true, naturalWidth: 600, naturalHeight: 300 };
+    componentWall.arenaRef = { nativeElement: { width: 800, height: 600 } };
+    spyOn(componentWall, "campaignAreaBackdropGeometry").and.returnValue({
+      left: 100, top: 40, width: 600, height: 300, scale: 1,
+    });
+
+    const draws = componentWall.act4WallDraws(80);
+    expect(draws).toHaveSize(1);
+    expect(draws[0].dx).toBe(110);
+    expect(draws[0].dy).toBe(60);
+    expect(draws[0].depth).toBe(160);
+
+    componentWall.currentAct = 3;
+    expect(componentWall.act4WallDraws(80)).toEqual([]);
   });
 
   it("uses the original D2 feet overlays for Oak Sage and Heart of Wolverine", () => {

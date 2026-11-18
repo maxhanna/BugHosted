@@ -307,7 +307,7 @@
               <span *ngFor="let key of [1, 2, 3, 4]">{{ key }}</span>
             </div>
           </div>
-          <div class="d2s-skill-bar" aria-label="Automatically casting skills">
+          <div class="d2s-skill-bar" aria-label="Melee attack and recently cast skills">
             <div class="d2s-skill-slot basic-skill" [attr.title]="basicAttackName + ' · automatic attack'" [attr.aria-label]="basicAttackName + ', automatic attack'">
               <img *ngIf="hasSkillIconImage(basicAttackName); else basicAttackMissile" class="d2s-skill-art" [src]="skillIconPath(basicAttackName)" alt="" />
               <ng-template #basicAttackMissile><img *ngIf="basicAttackIcon === ''; else basicAttackFallback" class="d2s-skill-overlay" [src]="missileOverlayPath(basicAttackMissileOverlay)" alt="" /></ng-template>
