@@ -6668,7 +6668,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   onKeyDown(event: KeyboardEvent): void {
-    const key = event.key.toLowerCase();
+    const key = event.key?.toLowerCase();
+    // Some keydown events (IME, synthetic, or unbound virtual keys) carry no `key`.
+    if (!key) return;
     // The window listener owns global shortcuts; avoid processing keys twice.
     if (["1", "2", "3", "4"].includes(key)) return;
     const upgradeModalVisible = this.pendingLevelUps > 0 && !this.escapeMenuOpen && !this.inventoryOpen && !this.skillTreeOpen;
@@ -6961,12 +6963,18 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   onKeyUp(event: KeyboardEvent): void {
-    this.keysDown.delete(event.key.toLowerCase());
+    this.releaseMovementKey(event);
   }
 
   @HostListener("window:keyup", ["$event"])
   onGlobalMovementKeyUp(event: KeyboardEvent): void {
-    this.keysDown.delete(event.key.toLowerCase());
+    this.releaseMovementKey(event);
+  }
+
+  /** Some keyup events (IME, synthetic, or unbound virtual keys) carry no `key`. */
+  private releaseMovementKey(event: KeyboardEvent): void {
+    const key = event.key?.toLowerCase();
+    if (key) this.keysDown.delete(key);
   }
 
   @HostListener("window:blur")
@@ -6981,7 +6989,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   @HostListener("window:keydown", ["$event"])
   onGlobalAttackKey(event: KeyboardEvent): void {
     if (this.activeTab !== "run" || !this.runActive || event.repeat) return;
-    const key = event.key.toLowerCase();
+    const key = event.key?.toLowerCase();
+    if (!key) return;
     const target = event.target as HTMLElement | null;
     const isEditable = !!target && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
 
@@ -8766,6 +8775,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const skillEffects = this.skillEffectsCanvasRef?.nativeElement;
     if (!arena || !character) return;
     const rect = arena.getBoundingClientRect();
+    // While the run tab is hidden its rect is 0x0. Shrinking the backing stores
+    // to that size leaves a zero-width canvas that drawImage rejects.
+    if (!(rect.width > 0) || !(rect.height > 0)) return;
     const width = Math.max(1, Math.round(rect.width * Math.min(window.devicePixelRatio || 1, 2)));
     const height = Math.max(1, Math.round(rect.height * Math.min(window.devicePixelRatio || 1, 2)));
     if (arena.width !== width || arena.height !== height) {
@@ -19240,7 +19252,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     // same projected ground depth as every enemy, so monsters below the hero
     // draw in front and monsters above draw behind.
     const characterCanvas = this.characterCanvasRef?.nativeElement;
-    if (this.runActive && characterCanvas) {
+    if (this.runActive && characterCanvas && characterCanvas.width > 0 && characterCanvas.height > 0) {
       const playerPoint = this.projectArenaPoint(this.playerX, this.playerY);
       drawOrder.push({
         depth: playerPoint.y,
@@ -19392,7 +19404,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       // display resolution is disproportionately expensive on high-DPI screens.
       this.characterRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25));
       const rect = canvas.getBoundingClientRect();
-      this.characterRenderer.setSize(rect.width || canvas.width, rect.height || canvas.height, false);
+      // A hidden menu tab measures 0x0; sizing the canvas to 0 would make the
+      // next startRun blit an empty WebGL canvas and throw in drawImage.
+      this.characterRenderer.setSize(
+        Math.max(1, rect.width || canvas.width),
+        Math.max(1, rect.height || canvas.height),
+        false,
+      );
       this.characterRenderer.setClearColor(0x000000, 0);
       this.characterRenderer.outputColorSpace = THREE.SRGBColorSpace;
       this.characterScene = new THREE.Scene();
