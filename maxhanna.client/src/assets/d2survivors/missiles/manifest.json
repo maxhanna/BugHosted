@@ -1094,14 +1094,14 @@
   },
   "d2-bonespeartrail": {
     "dccName": "bonespeartrail",
-    "direction": 0,
+    "direction": 5,
     "encodedFrames": 8,
     "frameDirectory": "d2-bonespeartrail",
     "frameDurationMs": 60,
     "frames": 8,
-    "height": 68,
+    "height": 64,
     "source": "d2r extract missile dcc",
-    "width": 54
+    "width": 41
   },
   "d2-bonespirit": {
     "dccName": "bonespirit",

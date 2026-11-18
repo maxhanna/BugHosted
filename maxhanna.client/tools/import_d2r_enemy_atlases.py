@@ -262,8 +262,28 @@ def load_cof_animation(monster_dir: Path, code: str, mode: str,
     return {"cof": cof, "layers": layers, "frames": frames, "directions": directions}
 
 
+def key_additive_glow(image: Image.Image) -> Image.Image:
+    """Key an additively drawn DCC glow's black backdrop to alpha.
+
+    The mage's S4/S5 cels are bright spell energy painted on solid black because
+    Diablo II blends them additively over the body. Flattening them as-is leaves
+    opaque black rings around the hands, so luminance becomes the opacity.
+    """
+    result = image.copy()
+    pixels = result.load()
+    for y in range(result.height):
+        for x in range(result.width):
+            red, green, blue, alpha = pixels[x, y]
+            if alpha == 0:
+                continue
+            high = max(red, green, blue)
+            pixels[x, y] = (0, 0, 0, 0) if high == 0 else (red, green, blue, high)
+    return result
+
+
 def composite_frame(animation: dict, direction_index: int, frame_index: int,
-                    with_box: bool = False):
+                    with_box: bool = False,
+                    additive_components: frozenset[int] | None = None):
     """Flatten one COF frame's layers in its recorded back-to-front order."""
     cof = animation["cof"]
     layers = animation["layers"]
@@ -290,6 +310,8 @@ def composite_frame(animation: dict, direction_index: int, frame_index: int,
             continue
         box = layer["dirs"][direction_index]["box"]
         cel = frame_crop(layer, direction_index, min(frame_index, layer["frames_per_dir"] - 1))
+        if additive_components and component in additive_components:
+            cel = key_additive_glow(cel)
         canvas.alpha_composite(cel, (box[0] - xmin, box[1] - ymin))
     return (canvas, (xmin, ymin, xmax - xmin, ymax - ymin)) if with_box else canvas
 
@@ -1173,6 +1195,12 @@ SKELETAL_MAGE_ELEMENTS = {
     "lightning": ("lht", "skeletal-mage-lightning.png"),
     "poison": ("pos", "skeletal-mage-poison.png"),
 }
+# `composit.txt` rows 8..15 are S1..S8; the mage's hand glow lives in S4 and S5.
+# Diablo II draws those layers additively, so their black backdrop is keyed out
+# instead of being flattened into the sheet as opaque black.
+SKELETAL_MAGE_ADDITIVE_COMPONENTS = frozenset({11, 12})
+SKELETAL_MAGE_BLOCKS = ("nu", "wl", "a1")
+SKELETAL_MAGE_COFS = ("sknuhth.cof", "skwlhth.cof", "ska1hth.cof")
 
 
 def build_skeletal_mages(source: Path) -> list[str]:
@@ -1180,7 +1208,7 @@ def build_skeletal_mages(source: Path) -> list[str]:
 
     The mage shares the skeleton body with the warrior, but its s4/s5 layers are
     the colored spell energy that makes it read as a caster. Those layers exist
-    in four palette variants, so build one complete walk/attack atlas per
+    in four palette variants, so build one complete idle/walk/attack atlas per
     element instead of recoloring a single sheet at runtime.
     """
     monster_dir = source / "global" / "monsters" / "SK"
@@ -1190,24 +1218,27 @@ def build_skeletal_mages(source: Path) -> list[str]:
     try:
         records: dict[str, list[tuple[int, int, int, Image.Image, tuple[int, int, int, int]]]] = {}
         boxes: list[tuple[int, int, int, int]] = []
-        frame_counts: dict[str, tuple[int, int]] = {}
+        frame_counts: dict[str, tuple[int, ...]] = {}
         for element, (code, _) in SKELETAL_MAGE_ELEMENTS.items():
-            walk = load_cof_animation(monster_dir, "SK", "wl", "skwlhth.cof", code)
-            attack = load_cof_animation(monster_dir, "SK", "a1", "ska1hth.cof", code)
-            if walk is None or attack is None:
-                raise ValueError(f"SK {element} walk/attack COF is incomplete")
+            clips = [load_cof_animation(monster_dir, "SK", mode, cof, code)
+                     for mode, cof in zip(SKELETAL_MAGE_BLOCKS, SKELETAL_MAGE_COFS)]
+            if any(clip is None for clip in clips):
+                raise ValueError(f"SK {element} idle/walk/attack COF is incomplete")
             element_records = []
             counts = []
-            for block, animation in enumerate((walk, attack)):
+            for block, animation in enumerate(clips):
                 frames = min(SKELETAL_MAGE_COLUMNS, animation["frames"])
                 counts.append(frames)
                 for direction_index in range(8):
                     for frame_index in range(frames):
-                        image, box = composite_frame(animation, direction_index, frame_index, with_box=True)
+                        image, box = composite_frame(
+                            animation, direction_index, frame_index, with_box=True,
+                            additive_components=SKELETAL_MAGE_ADDITIVE_COMPONENTS,
+                        )
                         element_records.append((block, direction_index, frame_index, image, box))
                         boxes.append((box[0], box[1], box[0] + box[2], box[1] + box[3]))
             records[element] = element_records
-            frame_counts[element] = (counts[0], counts[1])
+            frame_counts[element] = tuple(counts)
 
         xmin = min(box[0] for box in boxes)
         ymin = min(box[1] for box in boxes)
@@ -1217,7 +1248,11 @@ def build_skeletal_mages(source: Path) -> list[str]:
         cell_height = (ymax - ymin) * SKELETAL_MAGE_SCALE + SKELETAL_MAGE_BORDER * 2
         messages = []
         for element, (_, out_name) in SKELETAL_MAGE_ELEMENTS.items():
-            sheet = Image.new("RGBA", (SKELETAL_MAGE_COLUMNS * cell_width, 16 * cell_height), (0, 0, 0, 0))
+            sheet = Image.new(
+                "RGBA",
+                (SKELETAL_MAGE_COLUMNS * cell_width, len(SKELETAL_MAGE_BLOCKS) * 8 * cell_height),
+                (0, 0, 0, 0),
+            )
             for block, direction_index, frame_index, image, box in records[element]:
                 if SKELETAL_MAGE_SCALE != 1:
                     image = image.resize((image.width * SKELETAL_MAGE_SCALE,
@@ -1232,7 +1267,8 @@ def build_skeletal_mages(source: Path) -> list[str]:
             sheet.save(destination, optimize=True)
             messages.append(
                 f"skeletalMage{element.capitalize():8s} SK  {out_name:28s} {sheet.width}x{sheet.height} "
-                f"cell {cell_width}x{cell_height} walk {frame_counts[element][0]}f attack {frame_counts[element][1]}f"
+                f"cell {cell_width}x{cell_height} idle {frame_counts[element][0]}f "
+                f"walk {frame_counts[element][1]}f attack {frame_counts[element][2]}f"
             )
         return messages
     finally:

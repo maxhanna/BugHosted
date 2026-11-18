@@ -80,7 +80,9 @@ ADDITIVE_STEMS = {"bonespear", "bonespeartrail", "poisonsparks"}
 # D2 authors a diagonal side view in direction 0. The runtime rotates one cel to
 # the travel vector, so export a horizontal side view instead of inheriting that
 # fixed diagonal tilt.
-SOURCE_DIRECTIONS = {"bonespear": 5, "teethmissile": 5}
+# Bone Spear's sub-missile must use the same view as the spear, otherwise its
+# crescent sits about 65 degrees across the shaft instead of square behind it.
+SOURCE_DIRECTIONS = {"bonespear": 5, "bonespeartrail": 5, "teethmissile": 5}
 
 PALETTE: list[tuple[int, int, int]] = []
 

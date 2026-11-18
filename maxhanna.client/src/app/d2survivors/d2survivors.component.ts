@@ -1190,9 +1190,11 @@ const MISSILE_SPRITE_SIZES: Record<string, { width: number; height: number }> = 
   "d2-sandmaggotgoospit": { width: 44, height: 54 },
   // Bone Spear is a long projectile; the generic 28px cap made its imported
   // 68x57 cel read as a short white dash. Its trail cels grow from a small puff
-  // to a 54x68 cloud, so give them a size that sits behind the spear.
+  // to a 41x64 cloud, so give them a size that sits behind the spear. Both are
+  // exported from the same DCC direction, so the trail's arc stays square to
+  // the shaft instead of cutting across it.
   "d2-bonespear": { width: 52, height: 44 },
-  "d2-bonespeartrail": { width: 38, height: 48 },
+  "d2-bonespeartrail": { width: 31, height: 48 },
   // Spike Fiend spines are long quills; the generic 28px cap squeezed the
   // imported 45x19 cel until the spine read as a small speck.
   "d2-spikefiendmissle": { width: 44, height: 19 },
@@ -1568,8 +1570,10 @@ const ENEMY_SPRITE_LAYOUTS: Record<EnemySpecies, { columns: number; rows: number
   // 8 walk rows above 8 attack rows for the skeleton and golem atlases.
   skeleton: { columns: 16, rows: 16, animated: true },
   skeletonWarrior: { columns: 16, rows: 16, animated: true },
-  skeletalMageCold: { columns: 16, rows: 16, animated: true }, skeletalMageFire: { columns: 16, rows: 16, animated: true },
-  skeletalMageLightning: { columns: 16, rows: 16, animated: true }, skeletalMagePoison: { columns: 16, rows: 16, animated: true },
+  // The mage sheets stack three blocks of eight rows: the neutral idle (its
+  // glowing hands breathe), the walk and the attack.
+  skeletalMageCold: { columns: 16, rows: 24, animated: true }, skeletalMageFire: { columns: 16, rows: 24, animated: true },
+  skeletalMageLightning: { columns: 16, rows: 24, animated: true }, skeletalMagePoison: { columns: 16, rows: 24, animated: true },
   golem: { columns: 16, rows: 16, animated: true },
   // 8 walk rows above 8 attack rows.
   sandRaider: { columns: 21, rows: 16, animated: true },
@@ -1731,13 +1735,6 @@ const SUMMON_SHEET_SKILLS = new Set<string>([
 const SPRITE_OUTLINE_CLEANUP: Partial<Record<EnemySpecies, number>> = {
   oakSage: 80,
   heartOfWolverine: 80,
-  // The four SK mage composites carry an opaque near-black matte around their
-  // hand glows. It is enclosed by the glow rather than touching the frame
-  // margin, so the normal outline pass leaves it as dark rings.
-  skeletalMageCold: 16,
-  skeletalMageFire: 16,
-  skeletalMageLightning: 16,
-  skeletalMagePoison: 16,
 };
 
 /**
@@ -6347,13 +6344,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       applyAffix(suffix);
     }
 
-    // Staffmods are magic/rare class-weapon affixes. Their rank cap follows the
-    // current area level, so +3 only appears in the late-game areas.
-    const staffmodConfig = base.equipmentType === "wand" ? STAFFMOD_CONFIGS.necromancer
-      : base.equipmentType === "orb" ? STAFFMOD_CONFIGS.sorceress
-        : base.equipmentType === "druidPelt" ? STAFFMOD_CONFIGS.druid : undefined;
+    // Staffmods are magic/rare class-item affixes. Weapon staffmod ranks follow
+    // the current area level, so +3 only appears in the late-game areas; a
+    // shrunken head rolls D2's fixed voodoo-head strengths instead.
+    const staffmodConfig = this.staffmodConfigForBase(base.equipmentType);
     if (staffmodConfig && (rarity === "magic" || rarity === "rare")) {
-      const staffmod = this.rollClassSkillAffix(staffmodConfig, itemLevel);
+      const staffmod = base.equipmentType === "necromancerHead"
+        ? this.rollNecromancerHeadSkillAffix(itemLevel)
+        : this.rollClassSkillAffix(staffmodConfig, itemLevel);
       if (staffmod) {
         Object.assign(stats, staffmod.stats);
         affixes.push(staffmod.affix);
@@ -6381,8 +6379,26 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     };
   }
 
+  /** Class staffmod family for a base type; shrunken heads count as wands. */
+  private staffmodConfigForBase(equipmentType?: EquipmentType): ClassStaffmodConfig | undefined {
+    return equipmentType === "wand" || equipmentType === "necromancerHead" ? STAFFMOD_CONFIGS.necromancer
+      : equipmentType === "orb" ? STAFFMOD_CONFIGS.sorceress
+        : equipmentType === "druidPelt" ? STAFFMOD_CONFIGS.druid : undefined;
+  }
+
   private rollWandSkillAffix(itemLevel: number): { stats: D2ItemStats; affix: string } {
     return this.rollClassSkillAffix(STAFFMOD_CONFIGS.necromancer, itemLevel);
+  }
+
+  /**
+   * A Necromancer shrunken head rolls the same three staffmod shapes as a wand,
+   * but at the voodoo-head strengths Diablo II uses: +1-3 to one skill, +1-2 to
+   * one of the three skill trees, or +1-2 to all Necromancer skills.
+   */
+  private rollNecromancerHeadSkillAffix(itemLevel: number): { stats: D2ItemStats; affix: string } {
+    return this.rollClassSkillAffix(STAFFMOD_CONFIGS.necromancer, itemLevel, {
+      skillMax: 3, treeMax: 2, classMax: 2,
+    });
   }
 
   private rollOrbSkillAffix(itemLevel: number): { stats: D2ItemStats; affix: string } {
@@ -6393,14 +6409,22 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     return this.rollClassSkillAffix(STAFFMOD_CONFIGS.druid, itemLevel);
   }
 
-  private rollClassSkillAffix(config: ClassStaffmodConfig, itemLevel: number): { stats: D2ItemStats; affix: string } {
+  private rollClassSkillAffix(
+    config: ClassStaffmodConfig,
+    itemLevel: number,
+    caps: { skillMax?: number; treeMax?: number; classMax?: number } = {},
+  ): { stats: D2ItemStats; affix: string } {
     const level = Math.max(1, Math.floor(Number.isFinite(itemLevel) ? itemLevel : 1));
     const maxRank = level >= 43 ? 3 : level >= 24 ? 2 : 1;
+    // A staffmod never exceeds +3, whatever cap the base type asks for.
+    const skillRank = Math.max(1, Math.min(3, Math.floor(caps.skillMax ?? maxRank)));
+    const treeRank = Math.max(1, Math.min(3, Math.floor(caps.treeMax ?? maxRank)));
+    const classRank = Math.max(1, Math.min(3, Math.floor(caps.classMax ?? Math.min(2, maxRank))));
     const roll = Math.random();
     if (roll < 0.55) {
       const skills = getClassSkills(config.classId).filter((entry) => entry.level <= level);
       const skill = skills[Math.floor(Math.random() * skills.length)]!;
-      const rank = 1 + Math.floor(Math.random() * maxRank);
+      const rank = 1 + Math.floor(Math.random() * skillRank);
       const stats: D2ItemStats = config.classId === "necromancer"
         ? { necromancerSkillLevels: { [skill.name]: rank } }
         : config.classId === "sorceress"
@@ -6410,7 +6434,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     if (roll < 0.85) {
       const tree = config.treeNames[Math.floor(Math.random() * config.treeNames.length)] ?? config.treeNames[0] ?? "";
-      const rank = 1 + Math.floor(Math.random() * maxRank);
+      const rank = 1 + Math.floor(Math.random() * treeRank);
       const stats: D2ItemStats = config.classId === "necromancer"
         ? { necromancerTreeSkillLevels: { [tree]: rank } }
         : config.classId === "sorceress"
@@ -6418,7 +6442,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           : { druidTreeSkillLevels: { [tree]: rank } };
       return { stats, affix: `+${rank} to ${staffmodTreeLabel(tree)}` };
     }
-    const rank = 1 + Math.floor(Math.random() * Math.min(2, maxRank));
+    const rank = 1 + Math.floor(Math.random() * classRank);
     const stats: D2ItemStats = config.classId === "necromancer"
       ? { necromancerClassSkillLevel: rank }
       : config.classId === "sorceress"
@@ -20821,14 +20845,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     // generic counter walked past the eight-frame wolf walk band into empty
     // columns. The raised skeleton has the same eight-frame walk band; other
     // summon families keep their previous frame behavior.
-    // A mage idles on the neutral cel. The walk band's hand-glow cels keep
-    // changing, so sampling them while the servant is parked makes its hands
-    // look animated even though the body is standing still.
-    const skeletalMageIdle = summon.summonSkill === "Skeletal Mage"
-      && summon.animationState !== "move" && summon.animationState !== "attack";
     const frameIndex = sprite
-      ? skeletalMageIdle ? 0
-        : look || summon.species === "skeletonWarrior" || summon.species === "goatman" || summon.summonSkill === "Skeletal Mage"
+      ? look || summon.species === "skeletonWarrior" || summon.species === "goatman" || summon.summonSkill === "Skeletal Mage"
         ? enemySpriteFrame(summon, sprite.columns, this.runTime)
         : summon.animationState === "attack"
           ? Math.min(sprite.columns - 1, Math.floor(attackProgress * sprite.columns))
@@ -22118,11 +22136,16 @@ function enemyD2PixelHeight(species: EnemySpecies): number {
   return ENEMY_D2_PIX_HEIGHTS[species] ?? 96;
 }
 
-/** Fresh sixteen-row atlases: [walk frames per direction, attack frames per direction]. */
-const ENEMY_ROW_BLOCK_FRAMES: Partial<Record<EnemySpecies, [number, number]>> = {
+/**
+ * Fresh block atlases: [walk frames per direction, attack frames per direction],
+ * or [idle, walk, attack] for the mage sheets that carry a neutral clip.
+ */
+const ENEMY_ROW_BLOCK_FRAMES: Partial<Record<EnemySpecies, [number, number] | [number, number, number]>> = {
   // D2R's normal SK walk cycle is eight frames; its melee attack is sixteen.
   skeleton: [8, 16], skeletonWarrior: [8, 16],
-  skeletalMageCold: [8, 16], skeletalMageFire: [8, 16], skeletalMageLightning: [8, 16], skeletalMagePoison: [8, 16],
+  // SK's neutral clip is eight frames; its glowing hands keep moving in idle.
+  skeletalMageCold: [8, 8, 16], skeletalMageFire: [8, 8, 16],
+  skeletalMageLightning: [8, 8, 16], skeletalMagePoison: [8, 8, 16],
   balrog: [8, 16], bloodLord: [8, 16], spiderDemon: [12, 11], spikeFiend: [9, 16], fetishShaman: [14, 17],
   // OX's original DCCs hold eight walk cels and nine strike cels per
   // direction. The old runtime looped eighteen and twelve, sampling the empty
@@ -22154,18 +22177,23 @@ function enemySpriteFrame(enemy: Enemy, columns: number, runTime: number): numbe
     const progress = 1 - Math.max(0, Math.min(1, (enemy.attackAnimationTime ?? duration) / duration));
     return Math.min(blockFrames - 1, Math.floor(progress * blockFrames));
   }
-  // Fresh sixteen-row atlases loop each band over its own length: rows 0-7 hold
-  // the walk cycle, rows 8-15 the attack, and both were imported at the frame
-  // counts below.
+  // Fresh block atlases loop each band over its own length: the walk cycle in
+  // rows 0-7 and the attack in rows 8-15, plus a neutral idle band above them for
+  // the mage sheets, imported at the frame counts below.
   const rowBlockFrames = ENEMY_ROW_BLOCK_FRAMES[enemy.species];
   if (rowBlockFrames) {
-    const [walkFrames, attackFrames] = rowBlockFrames;
+    // A three-entry table carries the neutral clip first; holding frame 0 while
+    // standing still froze the mage's glowing hands.
+    const idleFrames = rowBlockFrames.length === 3 ? rowBlockFrames[0] : 0;
+    const walkFrames = rowBlockFrames.length === 3 ? rowBlockFrames[1] : rowBlockFrames[0];
+    const attackFrames = rowBlockFrames.length === 3 ? rowBlockFrames[2] : rowBlockFrames[1];
     if (state === "attack") {
       const duration = enemy.kind === "boss" ? 0.55 : 0.38;
       const progress = 1 - Math.max(0, Math.min(1, (enemy.attackAnimationTime ?? duration) / duration));
       return Math.min(attackFrames - 1, Math.floor(progress * attackFrames));
     }
     if (state === "move") return Math.floor(runTime * 10 + phaseOffset) % walkFrames;
+    if (idleFrames > 0) return Math.floor(runTime * 7 + phaseOffset) % idleFrames;
     return 0;
   }
   const walkOnlyFrames = ENEMY_WALK_ONLY_FRAMES[enemy.species];
@@ -22382,6 +22410,10 @@ function enemySpriteDirectionRow(
   const block = (blockSize: number): number =>
     (state === "attack" ? blockSize * 2 : state === "move" ? blockSize : 0) + directionRow;
   if (species === "goatman") return directionRow + (state === "attack" ? 8 : 0);
+  // The mage sheets hold idle, walk and attack blocks in that order.
+  if (ENEMY_MAGE_SPECIES.has(species)) {
+    return (state === "attack" ? 16 : state === "move" ? 8 : 0) + directionRow;
+  }
   if (species === "fetish" || species === "boneFetish") return block(8);
   if (species === "council" || species === "mephisto") return block(8);
   if (species === "diablo" && rows === 24) return block(8);
@@ -22396,8 +22428,12 @@ function enemySpriteDirectionRow(
 // Sixteen-row atlases hold eight walk rows above eight attack rows. The old
 // four-row band offset made the second half of every walk cycle come from the
 // attack block, so all of these species turned the wrong way while moving.
+const ENEMY_MAGE_SPECIES = new Set<EnemySpecies>([
+  "skeletalMageCold", "skeletalMageFire", "skeletalMageLightning", "skeletalMagePoison",
+]);
+
 const ENEMY_EIGHT_ROW_BLOCK_SPECIES = new Set<EnemySpecies>([
-  "skeleton", "skeletonWarrior", "skeletalMageCold", "skeletalMageFire", "skeletalMageLightning", "skeletalMagePoison",
+  "skeleton", "skeletonWarrior",
   "balrog", "bloodLord", "spiderDemon", "spikeFiend", "fetishShaman",
   "vileChild", "vileMother", "wolf", "grizzly", "bloodGolem", "fireGolem", "ironGolem",
   // The leaper atlas is eight hop rows above eight lunge rows; the old shared
@@ -22431,7 +22467,8 @@ const DCC_EIGHT_DIRECTION_SPECIES = new Set<EnemySpecies>([
 
 function enemySpriteRow(species: EnemySpecies, dx: number, dy: number): number {
   const layoutRows = ENEMY_SPRITE_LAYOUTS[species].rows;
-  const directions = species === "goatman" || species === "skeleton" || species === "skeletonWarrior" || species === "skeletalMageCold" || species === "skeletalMageFire" || species === "skeletalMageLightning" || species === "skeletalMagePoison" || species === "scarab" || species === "sandMaggot" || species === "sandMaggotQueen" || species === "spiderDemon" || species === "sandMaggotYoung" || species === "sandRaider" || species === "leaper" || species === "spikeFiend" || species === "blunderbore" || species === "minotaur" || species === "nihlathak" || species === "painWorm" || species === "regurgitator" || species === "salamander" || species === "siegeBeast" || species === "balrog" || species === "bloodLord" || species === "fetishShaman" || species === "wolf" || species === "grizzly" || species === "bloodGolem" || species === "fireGolem" || species === "ironGolem" || species === "vileChild" || species === "vileMother" || species === "duriel"
+  const directions = ENEMY_MAGE_SPECIES.has(species) ? layoutRows / 3
+    : species === "goatman" || species === "skeleton" || species === "skeletonWarrior" || species === "scarab" || species === "sandMaggot" || species === "sandMaggotQueen" || species === "spiderDemon" || species === "sandMaggotYoung" || species === "sandRaider" || species === "leaper" || species === "spikeFiend" || species === "blunderbore" || species === "minotaur" || species === "nihlathak" || species === "painWorm" || species === "regurgitator" || species === "salamander" || species === "siegeBeast" || species === "balrog" || species === "bloodLord" || species === "fetishShaman" || species === "wolf" || species === "grizzly" || species === "bloodGolem" || species === "fireGolem" || species === "ironGolem" || species === "vileChild" || species === "vileMother" || species === "duriel"
     ? layoutRows / 2
     : species === "fetish" || species === "boneFetish" || species === "council" || species === "mephisto" || (species === "diablo" && layoutRows === 24) || species === "baalsMinion" || species === "baal" ? layoutRows / 3 : layoutRows;
   if (directions === 4) return dy > 0 ? 0 : dy < 0 ? 2 : dx < 0 ? 1 : 3;

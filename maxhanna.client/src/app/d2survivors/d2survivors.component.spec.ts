@@ -4468,6 +4468,33 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(roll(43, 0.99, 0.99).affix).toBe("+2 to Necromancer Skill Levels");
   });
 
+  it("gives Necromancer shrunken heads the voodoo-head staffmod strengths", () => {
+    const rolls: number[] = [];
+    spyOn(Math, "random").and.callFake(() => rolls.shift() ?? 0);
+    const roll = (...values: number[]) => {
+      rolls.splice(0, rolls.length, ...values);
+      return (component as any).rollNecromancerHeadSkillAffix(1);
+    };
+
+    // +1-3 to one skill, +1-2 to a skill tree, +1-2 to all Necromancer skills,
+    // independent of the area level that caps a wand's staffmod.
+    expect(roll(0.1, 0, 0.99).affix).toBe("+3 to Amplify Damage");
+    expect(roll(0.1, 0, 0.99).stats.necromancerSkillLevels).toEqual({ "Amplify Damage": 3 });
+    expect(roll(0.6, 0, 0.99).affix).toBe("+2 to Curses Skills");
+    expect(roll(0.6, 0, 0.99).stats.necromancerTreeSkillLevels).toEqual({ Curses: 2 });
+    expect(roll(0.99, 0.99).affix).toBe("+2 to Necromancer Skill Levels");
+    expect(roll(0.99, 0.99).stats.necromancerClassSkillLevel).toBe(2);
+  });
+
+  it("rolls class staffmods for wands, orbs, pelts and shrunken heads only", () => {
+    expect((component as any).staffmodConfigForBase("wand").classId).toBe("necromancer");
+    expect((component as any).staffmodConfigForBase("necromancerHead").classId).toBe("necromancer");
+    expect((component as any).staffmodConfigForBase("orb").classId).toBe("sorceress");
+    expect((component as any).staffmodConfigForBase("druidPelt").classId).toBe("druid");
+    expect((component as any).staffmodConfigForBase("shield")).toBeUndefined();
+    expect((component as any).staffmodConfigForBase("barbarianHelm")).toBeUndefined();
+  });
+
   it("applies wand staffmods to effective necromancer skill ranks", () => {
     component.selectedClass = "necromancer";
     component.ownedSkills = ["Teeth", "Raise Skeleton"];
@@ -5907,11 +5934,11 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect((component as any).getSummonRankStats("Skeletal Mage", 1).join(" ")).toContain("Ranged attacks");
   });
 
-  it("holds a skeletal mage on its neutral idle cel instead of cycling its hand glow", () => {
+  it("cycles the skeleton mage's neutral idle clip so its hand glow keeps moving", () => {
     const frame = { width: 158, height: 109 } as HTMLCanvasElement;
     (component as any).enemySprites.skeletalMageCold = {
-      frames: Array.from({ length: 16 }, () => Array.from({ length: 16 }, () => frame)),
-      columns: 16, rows: 16, animated: true, contentHeight: 109, footFraction: 0.82,
+      frames: Array.from({ length: 24 }, () => Array.from({ length: 16 }, () => frame)),
+      columns: 16, rows: 24, animated: true, contentHeight: 109, footFraction: 0.82,
     };
     component.runTime = 10;
     spyOn(component as any, "tintedEnemyFrame").and.returnValue(frame);
@@ -5927,12 +5954,23 @@ describe("D2SurvivorsComponent combat and equipment", () => {
       animationState: "idle",
     } as any;
 
+    // The neutral clip lives in the first eight rows; its frames keep changing
+    // while the servant stands still, which is what animates the hand glow.
     (component as any).drawSummon(ctx, mage, { x: 100, y: 100 });
-    expect((component as any).tintedEnemyFrame.calls.mostRecent().args[2]).toBe(0);
+    const firstIdle = (component as any).tintedEnemyFrame.calls.mostRecent().args;
+    expect(firstIdle[1]).toBeLessThan(8);
+
+    component.runTime = 10.2;
+    (component as any).drawSummon(ctx, mage, { x: 100, y: 100 });
+    const nextIdle = (component as any).tintedEnemyFrame.calls.mostRecent().args;
+    expect(nextIdle[1]).toBeLessThan(8);
+    expect(nextIdle[2]).not.toBe(firstIdle[2]);
 
     mage.animationState = "move";
     (component as any).drawSummon(ctx, mage, { x: 100, y: 100 });
-    expect((component as any).tintedEnemyFrame.calls.mostRecent().args[2]).not.toBe(0);
+    const moving = (component as any).tintedEnemyFrame.calls.mostRecent().args;
+    expect(moving[1]).toBeGreaterThanOrEqual(8);
+    expect(moving[1]).toBeLessThan(16);
   });
 
   it("leaves capped, expiring burrow trails for the corpse vines", () => {
