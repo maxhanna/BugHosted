@@ -271,7 +271,7 @@
       <div class="d2s-enemy-hover-card" *ngIf="hoveredEnemy as enemy" aria-live="polite">
         <strong>{{ getEnemyDisplayName(enemy) }}</strong>
         <span class="d2s-enemy-hover-health"><i [style.transform]="'scaleX(' + (enemy.hp / enemy.maxHp) + ')'" [style.background]="enemy.kind === 'boss' ? '#d53226' : '#a81717'"></i></span>
-        <span class="d2s-enemy-hover-immunities" *ngIf="enemy.immunities?.length">Immune: {{ getEnemyImmunityLabel(enemy) }}</span>
+        <span class="d2s-enemy-hover-immunities" *ngIf="getEnemyImmunityLabel(enemy)">Immune: {{ getEnemyImmunityLabel(enemy) }}</span>
       </div>
       <div class="d2s-ground-pickup-label" *ngIf="hoveredGroundPickup as pickup" [style.left.px]="pickup.x" [style.top.px]="pickup.y" aria-hidden="true">{{ pickup.text }}</div>
       <div class="d2s-model-hint" *ngIf="modelLoadError">3D character model could not load.</div>

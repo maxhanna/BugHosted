@@ -2610,7 +2610,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     },
     {
       name: "Conviction",
-      desc: "aura: monsters around you take 10% more damage from everything",
+      desc: "aura: lowers nearby monsters' fire, cold and lightning resistance and breaks weak immunities",
     },
     {
       name: "Thorns",
@@ -4313,6 +4313,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
             kind,
             species,
             immunities: immunities ? [...immunities] : undefined,
+            resistances: enemyResistancesFromImmunities(immunities),
             campaignBoss,
             miniBoss: enemy["miniBoss"] === true,
             summonType: enemy["summonType"] === "skeleton" || enemy["summonType"] === "golem" || enemy["summonType"] === "druid" ? enemy["summonType"] : undefined,            summonSkill: typeof enemy["summonSkill"] === "string" ? enemy["summonSkill"] : undefined,
@@ -7301,13 +7302,18 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   private getSkillRankStats(name: string, visual: D2SkillVisual, rank: number): string[] {
     const stats: string[] = [];
-    const auraSkills = new Set(["Might", "Concentration", "Fanaticism", "Blessed Aim", "Conviction"]);
+    const auraSkills = new Set(["Might", "Concentration", "Fanaticism", "Blessed Aim"]);
     const defenseAuras = new Set(["Defiance", "Resist Fire", "Resist Cold", "Resist Lightning", "Salvation"]);
     const auraDamage: Record<string, number> = { "Holy Fire": 2, "Holy Freeze": 1, "Holy Shock": 3, Sanctuary: 2 };
 
     if (this.selectedClass === "paladin" && PALADIN_AURA_SKILLS.has(name)) {
       if (name === "Might") stats.push(`While active: +${rank * 8}% melee damage`);
       else if (auraSkills.has(name)) stats.push(`While active: +${rank * 8}% attack damage`);
+      if (name === "Conviction") {
+        const reduction = this.convictionResistanceReduction(rank);
+        stats.push(`While active: -${reduction}% fire, cold and lightning resistance nearby`);
+        stats.push(`Immune monsters lose only ${reduction / 5}% of that; a shaved resistance under 100% breaks the immunity`);
+      }
       if (defenseAuras.has(name)) stats.push(`While active: ${Math.min(65, rank * 2.5).toFixed(1)}% less incoming damage`);
       if (name === "Fanaticism") stats.push(`While active: ${Math.min(45, rank * 2.5).toFixed(1)}% lower attack cooldown`);
       if (name === "Prayer") stats.push(`${rank} life restored per aura tick`);
@@ -8633,10 +8639,15 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         }
       } else {
         this.addSkillVisualEffect(skill, nearest);
-        if (!this.isEnemyImmuneTo(nearest, this.damageTypeForSkill(skill))) {
-          if (this.isMeleeDamageSkill(skill)) this.dealMeleeDamage(nearest, damage);
-          else nearest.hp -= damage;
+        if (this.isMeleeDamageSkill(skill)) {
+          this.dealMeleeDamage(nearest, damage);
           this.floatingTexts.push({ x: nearest.x, y: nearest.y - nearest.r, text: this.floatingDamageText(damage), color: attack.color, life: 0.8 });
+        } else {
+          const dealt = damage * this.enemyResistanceMultiplier(nearest, this.damageTypeForSkill(skill));
+          if (dealt > 0) {
+            nearest.hp -= dealt;
+            this.floatingTexts.push({ x: nearest.x, y: nearest.y - nearest.r, text: this.floatingDamageText(dealt), color: attack.color, life: 0.8 });
+          }
         }
       }
       this.triggerAttackAnimation(isAssassinKickSkill ? "assassinKick" : castAnimation);
@@ -10229,8 +10240,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   /** Applies a contact hit and its melee-only life and mana leech. */
   private dealMeleeDamage(enemy: Enemy, damage: number): void {
-    enemy.hp -= damage;
-    this.applyMeleeLeech(damage);
+    const dealt = damage * this.enemyResistanceMultiplier(enemy, "physical");
+    if (!(dealt > 0)) return;
+    enemy.hp -= dealt;
+    this.applyMeleeLeech(dealt);
   }
 
   private queueEnemyDamage(
@@ -10241,13 +10254,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     meleeLeech = false,
   ): void {
     if (!(damage > 0) || enemy.hp <= 0) return;
-    if (this.isEnemyImmuneTo(enemy, damageType)) return;
+    const dealt = damage * this.enemyResistanceMultiplier(enemy, damageType);
+    if (!(dealt > 0)) return;
     const pending = this.pendingDamage.get(enemy);
     if (pending) {
-      pending.damage += damage;
-      if (meleeLeech) pending.meleeDamage += damage;
+      pending.damage += dealt;
+      if (meleeLeech) pending.meleeDamage += dealt;
     } else {
-      this.pendingDamage.set(enemy, { damage, color, meleeDamage: meleeLeech ? damage : 0 });
+      this.pendingDamage.set(enemy, { damage: dealt, color, meleeDamage: meleeLeech ? dealt : 0 });
       // Large bursts should not wait for the next batch window; resolving them
       // as soon as the threshold is reached keeps packed fights responsive.
       if (this.pendingDamage.size >= 32) this.flushPendingDamage();
@@ -10420,9 +10434,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           hitAlong = along;
         }
         if (hit) {
-          if (!this.isEnemyImmuneTo(hit, this.damageTypeForProjectile(projectile))) {
-            hit.hp -= projectile.damage;
-            this.floatingTexts.push({ x: hit.x, y: hit.y - hit.r - 8, text: this.floatingDamageText(projectile.damage), color: projectile.color, life: 0.65 });
+          const dealt = projectile.damage * this.enemyResistanceMultiplier(hit, this.damageTypeForProjectile(projectile));
+          if (dealt > 0) {
+            hit.hp -= dealt;
+            this.floatingTexts.push({ x: hit.x, y: hit.y - hit.r - 8, text: this.floatingDamageText(dealt), color: projectile.color, life: 0.65 });
           }
           projectile.life = 0;
         } else if (distance <= step) {
@@ -10565,9 +10580,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         } else if (target) {
           if (projectile.freezeSeconds !== undefined) this.applyEnemyFreeze(target, projectile.freezeSeconds);
           else if (projectile.cold) this.applyEnemyChill(target);
-          if (projectile.impactRadius === undefined && !this.isEnemyImmuneTo(target, this.damageTypeForProjectile(projectile))) {
-            target.hp -= projectile.damage;
-            this.floatingTexts.push({ x: target.x, y: target.y - target.r - 8, text: this.floatingDamageText(projectile.damage), color: projectile.color, life: 0.65 });
+          if (projectile.impactRadius === undefined) {
+            const dealt = projectile.damage * this.enemyResistanceMultiplier(target, this.damageTypeForProjectile(projectile));
+            if (dealt > 0) {
+              target.hp -= dealt;
+              this.floatingTexts.push({ x: target.x, y: target.y - target.r - 8, text: this.floatingDamageText(dealt), color: projectile.color, life: 0.65 });
+            }
           }
           projectile.impactPoint = projectile.impactRadius === undefined || projectile.corpseExplosion || projectile.psychicHammer
             ? { x: target.x, y: target.y }
@@ -17075,8 +17093,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     // Might is a melee aura. Keep it out of bow, thrown and spell damage while
     // preserving the existing max-rank multiplier shared by the other auras.
     const rank = this.activePaladinAuraRank(melee
-      ? ["Might", "Concentration", "Fanaticism", "Blessed Aim", "Conviction"]
-      : ["Concentration", "Fanaticism", "Blessed Aim", "Conviction"]);
+      ? ["Might", "Concentration", "Fanaticism", "Blessed Aim"]
+      : ["Concentration", "Fanaticism", "Blessed Aim"]);
     return damage * (rank > 0 ? 1 + rank * 0.08 : 1);
   }
 
@@ -18671,6 +18689,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       kind: "normal",
       species,
       immunities: immunities ? [...immunities] : undefined,
+      resistances: enemyResistancesFromImmunities(immunities),
       campaignBoss,
       spriteFrame: Math.floor(ENEMY_SPRITE_LAYOUTS[species].columns * 0.12),
       animationState: "move",
@@ -20740,14 +20759,56 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     ctx.restore();
   }
 
+  private convictionResistanceReduction(rank: number): number {
+    return Math.min(
+      CONVICTION_MAX_RESIST_REDUCTION,
+      CONVICTION_BASE_RESIST_REDUCTION + Math.max(0, rank - 1) * CONVICTION_RESIST_REDUCTION_PER_RANK,
+    );
+  }
+
+  /**
+   * Base resistance before any lowering effect. Saved monsters that only carry
+   * the older immunity list still read as fully immune to those elements.
+   */
+  private baseEnemyResistance(enemy: Enemy, damageType: EnemyDamageType): number {
+    const listed = enemy.resistances?.[damageType];
+    if (typeof listed === "number") return listed;
+    return enemy.immunities?.includes(damageType) ? UBER_IMMUNE_RESIST : 0;
+  }
+
+  /**
+   * Conviction's resistance penalty for one monster. Diablo II applies only a
+   * fifth of the reduction while the monster is still immune, which is exactly
+   * what lets deep Conviction shave an immunity below 100% and break it.
+   */
+  private convictionResistancePenalty(enemy: Enemy, damageType: EnemyDamageType): number {
+    if (!CONVICTION_DAMAGE_TYPES.includes(damageType)) return 0;
+    const rank = this.activePaladinAuraRank(["Conviction"]);
+    if (rank <= 0) return 0;
+    if (Math.hypot(enemy.x - this.playerX, enemy.y - this.playerY) > 115 + rank * 5) return 0;
+    const reduction = this.convictionResistanceReduction(rank);
+    return this.baseEnemyResistance(enemy, damageType) >= ENEMY_IMMUNE_RESIST ? reduction / 5 : reduction;
+  }
+
+  private effectiveEnemyResistance(enemy: Enemy, damageType: EnemyDamageType): number {
+    return this.baseEnemyResistance(enemy, damageType) - this.convictionResistancePenalty(enemy, damageType);
+  }
+
+  /** Resistance-scaled damage. An immune element multiplies to zero. */
+  private enemyResistanceMultiplier(enemy: Enemy, damageType: EnemyDamageType): number {
+    const resistance = this.effectiveEnemyResistance(enemy, damageType);
+    if (resistance >= ENEMY_IMMUNE_RESIST) return 0;
+    return 1 - Math.max(ENEMY_MIN_RESIST, resistance) / 100;
+  }
+
   private isEnemyImmuneTo(enemy: Enemy, damageType: EnemyDamageType): boolean {
-    return enemy.immunities?.includes(damageType) === true;
+    return this.effectiveEnemyResistance(enemy, damageType) >= ENEMY_IMMUNE_RESIST;
   }
 
   /**
    * Vengeance splits one strike evenly across fire, cold, lightning and magic.
-   * An immunity removes only its own quarter; the other three still land, so a
-   * single elemental immunity cannot make the whole attack harmless.
+   * Each quarter meets its own resistance, so a single elemental immunity can
+   * only nullify its own quarter unless Conviction breaks it first.
    */
   private applyVengeanceDamage(enemy: Enemy, totalDamage: number, color: string): void {
     if (!(totalDamage > 0) || enemy.hp <= 0) return;
@@ -20755,9 +20816,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const damagePerType = totalDamage / damageTypes.length;
     let appliedDamage = 0;
     for (const damageType of damageTypes) {
-      if (this.isEnemyImmuneTo(enemy, damageType)) continue;
-      enemy.hp -= damagePerType;
-      appliedDamage += damagePerType;
+      const dealt = damagePerType * this.enemyResistanceMultiplier(enemy, damageType);
+      if (!(dealt > 0)) continue;
+      enemy.hp -= dealt;
+      appliedDamage += dealt;
     }
     if (appliedDamage <= 0) return;
     this.applyMeleeLeech(appliedDamage);
@@ -20771,7 +20833,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   getEnemyImmunityLabel(enemy: Enemy): string {
-    return (enemy.immunities ?? []).map((type) => ENEMY_DAMAGE_TYPE_LABELS[type]).join(" · ");
+    return (enemy.immunities ?? [])
+      .filter((type) => this.isEnemyImmuneTo(enemy, type))
+      .map((type) => ENEMY_DAMAGE_TYPE_LABELS[type])
+      .join(" · ");
   }
 
   private damageTypeForSkill(skill: string, kind?: AttackProjectile["kind"]): EnemyDamageType {
@@ -22090,6 +22155,9 @@ type EnemySpecies = "fallen" | "goatman" | "skeleton" | "sandRaider" | "sandMagg
 
 type EnemyDamageType = "physical" | "fire" | "cold" | "lightning" | "poison" | "magic";
 
+/** Base damage resistance per element, in percent. 100 or more is an immunity. */
+type EnemyResistances = Partial<Record<EnemyDamageType, number>>;
+
 const ENEMY_DAMAGE_TYPE_LABELS: Record<EnemyDamageType, string> = {
   physical: "Physical", fire: "Fire", cold: "Cold", lightning: "Lightning", poison: "Poison", magic: "Magic",
 };
@@ -22102,6 +22170,30 @@ const UBER_ENEMY_IMMUNITIES: Partial<Record<EnemySpecies, EnemyDamageType[]>> = 
   fallen: ["fire"], goatman: ["cold"], skeleton: ["cold"], fetish: ["lightning"], boneFetish: ["poison"],
   council: ["fire"], andariel: ["poison"], duriel: ["cold"], mephisto: ["lightning"], diablo: ["fire"], baal: ["cold"],
 };
+
+/** Diablo II's immunity threshold: at 100% resistance or more an element does nothing. */
+const ENEMY_IMMUNE_RESIST = 100;
+/** Resistance cannot amplify or reduce damage past these bounds. */
+const ENEMY_MIN_RESIST = -100;
+/**
+ * Signature Pandemonium immunities sit above 100 so they are not cracked by a
+ * token Conviction: only deep investment shaves them under the threshold.
+ */
+const UBER_IMMUNE_RESIST = 120;
+/** Conviction: -30% at rank 1, -5% per rank after, capped at -150%. */
+const CONVICTION_BASE_RESIST_REDUCTION = 30;
+const CONVICTION_RESIST_REDUCTION_PER_RANK = 5;
+const CONVICTION_MAX_RESIST_REDUCTION = 150;
+/** Conviction only pierces these three; poison, magic and physical are untouched. */
+const CONVICTION_DAMAGE_TYPES: readonly EnemyDamageType[] = ["fire", "cold", "lightning"];
+
+/** An immunity list becomes the matching base resistances at the Uber value. */
+function enemyResistancesFromImmunities(immunities?: EnemyDamageType[]): EnemyResistances | undefined {
+  if (!immunities?.length) return undefined;
+  const resistances: EnemyResistances = {};
+  for (const damageType of immunities) resistances[damageType] = UBER_IMMUNE_RESIST;
+  return resistances;
+}
 
 /**
  * One screen scale for every monster sprite. No species gets its own height
@@ -23013,6 +23105,8 @@ interface Enemy {
   freezeRemaining?: number;
   /** Pandemonium monsters ignore these damage types entirely. */
   immunities?: EnemyDamageType[];
+  /** Base resistances before any aura or curse lowers them. */
+  resistances?: EnemyResistances;
 }
 
 interface NihlathakCorpse {

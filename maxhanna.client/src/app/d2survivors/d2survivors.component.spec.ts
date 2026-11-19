@@ -8037,14 +8037,75 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.currentAct = 7;
     const fallen = (component as any).makeEnemy("normal", false, "fallen");
     expect(fallen.immunities).toEqual(["fire"]);
+    // The immunity is a real 120% resistance, not just a boolean tag.
+    expect(fallen.resistances).toEqual({ fire: 120 });
 
     component.currentAct = 8;
     const mephisto = (component as any).makeEnemy("boss", true, "mephisto");
     expect(mephisto.immunities).toEqual(["lightning"]);
+    expect(mephisto.resistances).toEqual({ lightning: 120 });
 
     component.currentAct = 1;
     const campaignFallen = (component as any).makeEnemy("normal", false, "fallen");
     expect(campaignFallen.immunities).toBeUndefined();
+    expect(campaignFallen.resistances).toBeUndefined();
+  });
+
+  it("applies Conviction at full strength to non-immune resistance and leaves poison alone", () => {
+    component.selectedClass = "paladin";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.ownedSkills = ["Conviction"];
+    component.skillLevels = { Conviction: 4 };
+    (component as any).activePaladinAuras["Conviction"] = { remaining: 100, tick: 0 };
+
+    const enemy = {
+      kind: "normal", species: "fallen", spriteFrame: 0, x: 300, y: 250,
+      hp: 100, maxHp: 100, speed: 80, r: 14, dmg: 2,
+      resistances: { cold: 50, poison: 50 },
+    } as any;
+    component.enemies = [enemy];
+
+    // Rank 4 is -45%, so 50% cold drops to 5% and 40 damage lands as 38.
+    expect((component as any).convictionResistancePenalty(enemy, "cold")).toBe(45);
+    expect((component as any).effectiveEnemyResistance(enemy, "cold")).toBe(5);
+    (component as any).queueEnemyDamage(enemy, 40, "#a9dcff", "cold");
+    (component as any).flushPendingDamage();
+    expect(enemy.hp).toBeCloseTo(62, 5);
+
+    // Poison, magic and physical are outside Conviction's schools.
+    expect((component as any).enemyResistanceMultiplier(enemy, "poison")).toBe(0.5);
+    expect((component as any).getSkillRankStats("Conviction", "aura", 4))
+      .toContain("While active: -45% fire, cold and lightning resistance nearby");
+  });
+
+  it("breaks a 120% Pandemonium immunity only once Conviction shaves it under 100%", () => {
+    component.selectedClass = "paladin";
+    component.currentAct = 8;
+    component.playerX = 250;
+    component.playerY = 250;
+    const mephisto = (component as any).makeEnemy("boss", true, "mephisto");
+    mephisto.x = 260;
+    mephisto.y = 250;
+    expect((component as any).isEnemyImmuneTo(mephisto, "lightning")).toBeTrue();
+
+    component.ownedSkills = ["Conviction"];
+    component.skillLevels = { Conviction: 10 };
+    (component as any).activePaladinAuras["Conviction"] = { remaining: 100, tick: 0 };
+    // Only a fifth of -75% reaches an immune monster, leaving 105% and immune.
+    expect((component as any).effectiveEnemyResistance(mephisto, "lightning")).toBeCloseTo(105, 5);
+    expect((component as any).isEnemyImmuneTo(mephisto, "lightning")).toBeTrue();
+    expect(component.getEnemyImmunityLabel(mephisto)).toBe("Lightning");
+
+    component.skillLevels = { Conviction: 20 };
+    expect((component as any).effectiveEnemyResistance(mephisto, "lightning")).toBeCloseTo(95, 5);
+    expect((component as any).isEnemyImmuneTo(mephisto, "lightning")).toBeFalse();
+    expect(component.getEnemyImmunityLabel(mephisto)).toBe("");
+
+    // A broken immunity is not a free hit: 95% resistance still eats 95%.
+    (component as any).queueEnemyDamage(mephisto, 100, "#fff27a", "lightning");
+    (component as any).flushPendingDamage();
+    expect(mephisto.hp).toBeCloseTo(mephisto.maxHp - 5, 5);
   });
 
   it("draws Mephisto at the shared source scale without smoothing his sprite", () => {
