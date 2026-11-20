@@ -2227,28 +2227,6 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "restrictedClass": "paladin"
 },
 {
-  "name": "Amulet of the Viper",
-  "baseName": "Amulet of the Viper",
-  "rarity": "unique",
-  "slot": "charm",
-  "equipmentType": "amulet",
-  "width": 1,
-  "height": 1,
-  "desc": "A unique Amulet of the Viper from Diablo II.",
-  "requiredLevel": 1,
-  "stats": {
-    "plusMana": 10,
-    "poisonResistPercent": 25,
-    "plusLife": 10
-  },
-  "affixes": [
-    "+10 to Mana",
-    "Poison Resist +25%",
-    "+10 to Life"
-  ],
-  "art": "assets/d2survivors/items/d2/invvip.png"
-},
-{
   "name": "Andariel's Visage",
   "baseName": "Demonhead",
   "rarity": "unique",
@@ -2456,7 +2434,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "restrictedClass": "barbarian"
 },
 {
-  "name": "Ars Al'Diablolos",
+  "name": "Ars Al'Diabolos",
   "baseName": "Blasphemous Grimoire",
   "rarity": "unique",
   "slot": "armor",
@@ -2551,6 +2529,42 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "restrictedClass": "necromancer"
 },
 {
+  "name": "Astreon's Iron Ward",
+  "baseName": "Caduceus",
+  "rarity": "unique",
+  "slot": "weapon",
+  "equipmentType": "weapon",
+  "width": 2,
+  "height": 3,
+  "desc": "A unique Caduceus from Diablo II.",
+  "requiredLevel": 60,
+  "stats": {
+    "damageMin": 37,
+    "damageMax": 43,
+    "requiresStrength": 97,
+    "requiresDexterity": 70,
+    "enhancedDamagePercent": 290,
+    "attackSpeedPercent": 10,
+    "elementalDamageMin": 80,
+    "elementalDamageMax": 240,
+    "damageReductionFlat": 7,
+    "plusDamage": 85,
+    "crushingBlowPercent": 33
+  },
+  "affixes": [
+    "+290% Enhanced Damage",
+    "Slows Target by 25%",
+    "200% Bonus to Attack Rating",
+    "+10% Increased Attack Speed",
+    "Adds 80-240 Magic Damage",
+    "Damage Reduced by 7",
+    "+85 Dmg",
+    "+4 to Skill Tab 9",
+    "33% Chance of Crushing Blow"
+  ],
+  "art": "assets/d2survivors/items/unique/astreon-s-iron-ward.png"
+},
+{
   "name": "Athena's Wrath",
   "baseName": "Battle Scythe",
   "rarity": "unique",
@@ -2641,34 +2655,30 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/d2/invgth.png"
 },
 {
-  "name": "Azurewrath",
-  "baseName": "Crystal Sword",
+  "name": "Axe of Fechmar",
+  "baseName": "Large Axe",
   "rarity": "unique",
   "slot": "weapon",
   "equipmentType": "weapon",
   "width": 2,
   "height": 3,
-  "desc": "A unique Crystal Sword from Diablo II.",
-  "requiredLevel": 13,
+  "desc": "A unique Large Axe from Diablo II.",
+  "requiredLevel": 8,
   "stats": {
-    "damageMin": 5,
-    "damageMax": 15,
-    "requiresStrength": 43,
-    "deadlyStrikePercent": 50,
-    "magicFindPercent": 10,
-    "elementalDamageMin": 8,
-    "elementalDamageMax": 16,
-    "enhancedDamagePercent": 100
+    "damageMin": 1,
+    "damageMax": 2,
+    "requiresStrength": 35,
+    "enhancedDamagePercent": 90,
+    "coldResistPercent": 50,
+    "lightRadius": 2
   },
   "affixes": [
-    "50% Deadly Strike",
-    "10% Better Chance of Getting Magic Items",
-    "Adds 3-6 Cold Damage",
-    "+100% Enhanced Damage",
-    "+25 Durability",
-    "Adds 5-10 Magic Damage"
+    "+90% Enhanced Damage",
+    "Freezes Target +3",
+    "Cold Resist +50%",
+    "+2 to Light Radius"
   ],
-  "art": "assets/d2survivors/items/d2/invcrsu.png"
+  "art": "assets/d2survivors/items/unique/axe-of-fechmar.png"
 },
 {
   "name": "Azurewrath",
@@ -2804,6 +2814,67 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "Adds 1-200 Cold Damage"
   ],
   "art": "assets/d2survivors/items/d2/invmstu.png"
+},
+{
+  "name": "Bartuc's Cut-Throat",
+  "baseName": "Greater Talons",
+  "rarity": "unique",
+  "slot": "weapon",
+  "equipmentType": "claw",
+  "width": 1,
+  "height": 3,
+  "desc": "A unique Greater Talons from Diablo II.",
+  "requiredLevel": 42,
+  "stats": {
+    "damageMin": 21,
+    "damageMax": 35,
+    "requiresStrength": 79,
+    "requiresDexterity": 79,
+    "enhancedDamagePercent": 200,
+    "plusStrength": 20,
+    "plusDexterity": 20,
+    "lifeStealPercent": 9,
+    "plusDamageMin": 25,
+    "plusDamage": 50
+  },
+  "affixes": [
+    "+2 to Assassin Skill Levels",
+    "+1 to Skill Tab 20",
+    "+200% Enhanced Damage",
+    "+30% Faster Hit Recovery",
+    "20% Bonus to Attack Rating",
+    "+20 to Strength",
+    "+20 to Dexterity",
+    "9% Life Stolen per Hit",
+    "Adds 25-50 Damage"
+  ],
+  "art": "assets/d2survivors/items/d2/invclw.png",
+  "restrictedClass": "assassin"
+},
+{
+  "name": "Biggin's Bonnet",
+  "baseName": "Cap",
+  "rarity": "unique",
+  "slot": "armor",
+  "equipmentType": "helmet",
+  "width": 2,
+  "height": 2,
+  "desc": "A unique Cap from Diablo II.",
+  "requiredLevel": 3,
+  "stats": {
+    "armor": 18,
+    "plusLife": 15,
+    "enhancedDamagePercent": 30,
+    "plusMana": 15
+  },
+  "affixes": [
+    "+15 to Life",
+    "+30 to Attack Rating",
+    "+30% Enhanced Damage",
+    "+15 to Mana",
+    "+14 Defense"
+  ],
+  "art": "assets/d2survivors/items/d2/invcapu.png"
 },
 {
   "name": "Bing Sz Wang",
@@ -3176,7 +3247,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/unique/blastbark.png"
 },
 {
-  "name": "Blinkbats Form",
+  "name": "Blinkbat's Form",
   "baseName": "Leather Armor",
   "rarity": "unique",
   "slot": "armor",
@@ -3201,7 +3272,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "+40% Faster Hit Recovery",
     "+1 to Mana after Each Kill"
   ],
-  "art": "assets/d2survivors/items/unique/blinkbats-form.png"
+  "art": "assets/d2survivors/items/unique/blinkbat-s-form.png"
 },
 {
   "name": "Blood Crescent",
@@ -3235,6 +3306,33 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "15% Life Stolen per Hit"
   ],
   "art": "assets/d2survivors/items/d2/invscmu.png"
+},
+{
+  "name": "Blood Raven's Charge",
+  "baseName": "Matriarchal Bow",
+  "rarity": "unique",
+  "slot": "weapon",
+  "equipmentType": "weapon",
+  "width": 2,
+  "height": 4,
+  "desc": "A unique Matriarchal Bow from Diablo II.",
+  "requiredLevel": 71,
+  "stats": {
+    "damageMin": 1,
+    "damageMax": 2,
+    "requiresStrength": 87,
+    "requiresDexterity": 187,
+    "enhancedDamagePercent": 230
+  },
+  "affixes": [
+    "+230% Enhanced Damage",
+    "300% Bonus to Attack Rating",
+    "Fires Explosive Arrows or Bolts",
+    "+4 to Skill Tab 0",
+    "Level 30 Revive (5 Charges)"
+  ],
+  "art": "assets/d2survivors/items/d2/invswbu.png",
+  "restrictedClass": "amazon"
 },
 {
   "name": "Bloodfist",
@@ -3356,33 +3454,6 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "Slows Target by 25%"
   ],
   "art": "assets/d2survivors/items/unique/bloodpact-shard.png"
-},
-{
-  "name": "Bloodraven's Charge",
-  "baseName": "Matriarchal Bow",
-  "rarity": "unique",
-  "slot": "weapon",
-  "equipmentType": "weapon",
-  "width": 2,
-  "height": 4,
-  "desc": "A unique Matriarchal Bow from Diablo II.",
-  "requiredLevel": 71,
-  "stats": {
-    "damageMin": 1,
-    "damageMax": 2,
-    "requiresStrength": 87,
-    "requiresDexterity": 187,
-    "enhancedDamagePercent": 230
-  },
-  "affixes": [
-    "+230% Enhanced Damage",
-    "300% Bonus to Attack Rating",
-    "Fires Explosive Arrows or Bolts",
-    "+4 to Skill Tab 0",
-    "Level 30 Revive (5 Charges)"
-  ],
-  "art": "assets/d2survivors/items/d2/invswbu.png",
-  "restrictedClass": "amazon"
 },
 {
   "name": "Bloodrise",
@@ -3633,7 +3704,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/d2/invgaxu.png"
 },
 {
-  "name": "Bonesob",
+  "name": "Bonesnap",
   "baseName": "Maul",
   "rarity": "unique",
   "slot": "weapon",
@@ -3694,7 +3765,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/d2/invgaxu.png"
 },
 {
-  "name": "Bul Katho's Wedding Band",
+  "name": "Bul-Kathos' Wedding Band",
   "baseName": "Ring",
   "rarity": "unique",
   "slot": "charm",
@@ -3713,7 +3784,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "5% Life Stolen per Hit",
     "+50 to Stamina"
   ],
-  "art": "assets/d2survivors/items/unique/bul-katho-s-wedding-band.png"
+  "art": "assets/d2survivors/items/unique/bul-kathos-wedding-band.png"
 },
 {
   "name": "Buriza-Do Kyanon",
@@ -3865,7 +3936,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/d2/invrin.png"
 },
 {
-  "name": "Cerebus",
+  "name": "Cerebus' Bite",
   "baseName": "Blood Spirit",
   "rarity": "unique",
   "slot": "armor",
@@ -3889,7 +3960,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "33% Chance of Open Wounds",
     "+2 to feral rage"
   ],
-  "art": "assets/d2survivors/items/unique/cerebus.png",
+  "art": "assets/d2survivors/items/unique/cerebus-bite.png",
   "restrictedClass": "druid"
 },
 {
@@ -4124,29 +4195,6 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/d2/invscmu.png"
 },
 {
-  "name": "Constricting Ring",
-  "baseName": "Ring",
-  "rarity": "unique",
-  "slot": "charm",
-  "equipmentType": "ring",
-  "width": 1,
-  "height": 1,
-  "desc": "A unique Ring from Diablo II.",
-  "requiredLevel": 95,
-  "stats": {
-    "allResistPercent": 100,
-    "replenishLife": -30,
-    "magicFindPercent": 100
-  },
-  "affixes": [
-    "All Resistances +100%",
-    "Replenish Life +-30",
-    "100% Better Chance of Getting Magic Items",
-    "+15% to Maximum Resistances"
-  ],
-  "art": "assets/d2survivors/items/unique/constricting-ring.png"
-},
-{
   "name": "Corpsemourn",
   "baseName": "Ornate Armor",
   "rarity": "unique",
@@ -4195,149 +4243,6 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "Lightning Resist +-70%"
   ],
   "art": "assets/d2survivors/items/unique/crack-of-the-heavens.png"
-},
-{
-  "name": "Crafted Black Cleft",
-  "baseName": "Crafted Sunder Charm",
-  "rarity": "unique",
-  "slot": "charm",
-  "equipmentType": "charm",
-  "width": 1,
-  "height": 3,
-  "desc": "A unique Crafted Sunder Charm from Diablo II.",
-  "requiredLevel": 75,
-  "stats": {},
-  "affixes": [
-    "-300% to Enemy Magic Resistance",
-    "Magic Resist +-45%",
-    "+1 Mystical Affix1",
-    "+1 Mystical Affix2",
-    "+1 Mystical Affix3",
-    "+1 Mystical Affix4",
-    "+1 Mystical Affix6"
-  ],
-  "art": "assets/d2survivors/items/unique/crafted-black-cleft.png"
-},
-{
-  "name": "Crafted Bone Break",
-  "baseName": "Crafted Sunder Charm",
-  "rarity": "unique",
-  "slot": "charm",
-  "equipmentType": "charm",
-  "width": 1,
-  "height": 3,
-  "desc": "A unique Crafted Sunder Charm from Diablo II.",
-  "requiredLevel": 75,
-  "stats": {
-    "damageReductionPercent": -10
-  },
-  "affixes": [
-    "+300 Pierce Immunity Damage",
-    "Damage Reduced by -10%",
-    "+1 Breaching Affix1",
-    "+1 Breaching Affix2",
-    "+1 Breaching Affix3",
-    "+1 Breaching Affix4",
-    "+1 Breaching Affix6"
-  ],
-  "art": "assets/d2survivors/items/unique/crafted-bone-break.png"
-},
-{
-  "name": "Crafted Cold Rupture",
-  "baseName": "Crafted Sunder Charm",
-  "rarity": "unique",
-  "slot": "charm",
-  "equipmentType": "charm",
-  "width": 1,
-  "height": 3,
-  "desc": "A unique Crafted Sunder Charm from Diablo II.",
-  "requiredLevel": 75,
-  "stats": {
-    "coldResistPercent": -70
-  },
-  "affixes": [
-    "-300% to Enemy Cold Resistance",
-    "Cold Resist +-70%",
-    "+1 Gelid Affix1",
-    "+1 Gelid Affix2",
-    "+1 Gelid Affix3",
-    "+1 Gelid Affix4",
-    "+1 Gelid Affix5",
-    "+1 Gelid Affix6"
-  ],
-  "art": "assets/d2survivors/items/unique/crafted-cold-rupture.png"
-},
-{
-  "name": "Crafted Crack of the Heavens",
-  "baseName": "Crafted Sunder Charm",
-  "rarity": "unique",
-  "slot": "charm",
-  "equipmentType": "charm",
-  "width": 1,
-  "height": 3,
-  "desc": "A unique Crafted Sunder Charm from Diablo II.",
-  "requiredLevel": 75,
-  "stats": {
-    "lightningResistPercent": -70
-  },
-  "affixes": [
-    "-300% to Enemy Lightning Resistance",
-    "Lightning Resist +-70%",
-    "+1 Magnetic Affix1",
-    "+1 Magnetic Affix2",
-    "+1 Magnetic Affix3",
-    "+1 Magnetic Affix4",
-    "+1 Magnetic Affix6"
-  ],
-  "art": "assets/d2survivors/items/unique/crafted-crack-of-the-heavens.png"
-},
-{
-  "name": "Crafted Flame Rift",
-  "baseName": "Crafted Sunder Charm",
-  "rarity": "unique",
-  "slot": "charm",
-  "equipmentType": "charm",
-  "width": 1,
-  "height": 3,
-  "desc": "A unique Crafted Sunder Charm from Diablo II.",
-  "requiredLevel": 75,
-  "stats": {
-    "fireResistPercent": -70
-  },
-  "affixes": [
-    "-300% to Enemy Fire Resistance",
-    "Fire Resist +-70%",
-    "+1 Incendiary Affix1",
-    "+1 Incendiary Affix2",
-    "+1 Incendiary Affix3",
-    "+1 Incendiary Affix4",
-    "+1 Incendiary Affix6"
-  ],
-  "art": "assets/d2survivors/items/unique/crafted-flame-rift.png"
-},
-{
-  "name": "Crafted Rotting Fissure",
-  "baseName": "Crafted Sunder Charm",
-  "rarity": "unique",
-  "slot": "charm",
-  "equipmentType": "charm",
-  "width": 1,
-  "height": 3,
-  "desc": "A unique Crafted Sunder Charm from Diablo II.",
-  "requiredLevel": 75,
-  "stats": {
-    "poisonResistPercent": -70
-  },
-  "affixes": [
-    "+300 Pierce Immunity Poison",
-    "Poison Resist +-70%",
-    "+1 Virulent Affix1",
-    "+1 Virulent Affix2",
-    "+1 Virulent Affix3",
-    "+1 Virulent Affix4",
-    "+1 Virulent Affix6"
-  ],
-  "art": "assets/d2survivors/items/unique/crafted-rotting-fissure.png"
 },
 {
   "name": "Crainte Vomir",
@@ -4546,7 +4451,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/unique/crushflange.png"
 },
 {
-  "name": "Culwens Point",
+  "name": "Culwen's Point",
   "baseName": "War Sword",
   "rarity": "unique",
   "slot": "weapon",
@@ -4571,43 +4476,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "+60 to Attack Rating",
     "+80% Enhanced Damage"
   ],
-  "art": "assets/d2survivors/items/unique/culwens-point.png"
-},
-{
-  "name": "Cutthroat1",
-  "baseName": "Greater Talons",
-  "rarity": "unique",
-  "slot": "weapon",
-  "equipmentType": "claw",
-  "width": 1,
-  "height": 3,
-  "desc": "A unique Greater Talons from Diablo II.",
-  "requiredLevel": 42,
-  "stats": {
-    "damageMin": 21,
-    "damageMax": 35,
-    "requiresStrength": 79,
-    "requiresDexterity": 79,
-    "enhancedDamagePercent": 200,
-    "plusStrength": 20,
-    "plusDexterity": 20,
-    "lifeStealPercent": 9,
-    "plusDamageMin": 25,
-    "plusDamage": 50
-  },
-  "affixes": [
-    "+2 to Assassin Skill Levels",
-    "+1 to Skill Tab 20",
-    "+200% Enhanced Damage",
-    "+30% Faster Hit Recovery",
-    "20% Bonus to Attack Rating",
-    "+20 to Strength",
-    "+20 to Dexterity",
-    "9% Life Stolen per Hit",
-    "Adds 25-50 Damage"
-  ],
-  "art": "assets/d2survivors/items/d2/invclw.png",
-  "restrictedClass": "assassin"
+  "art": "assets/d2survivors/items/unique/culwen-s-point.png"
 },
 {
   "name": "Dark Clan Crusher",
@@ -4636,24 +4505,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/d2/invclbu.png"
 },
 {
-  "name": "Darkfear",
-  "baseName": "Armet",
-  "rarity": "unique",
-  "slot": "armor",
-  "equipmentType": "helmet",
-  "width": 2,
-  "height": 2,
-  "desc": "A unique Armet from Diablo II.",
-  "requiredLevel": 51,
-  "stats": {
-    "armor": 127,
-    "requiresStrength": 109
-  },
-  "affixes": [],
-  "art": "assets/d2survivors/items/d2/invhlmu.png"
-},
-{
-  "name": "Darkforge Spawn",
+  "name": "Darkforce Spawn",
   "baseName": "Bloodlord Skull",
   "rarity": "unique",
   "slot": "armor",
@@ -4677,7 +4529,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "+3 to Skill Tab 7",
     "+3 to Skill Tab 8"
   ],
-  "art": "assets/d2survivors/items/unique/darkforge-spawn.png",
+  "art": "assets/d2survivors/items/unique/darkforce-spawn.png",
   "restrictedClass": "necromancer"
 },
 {
@@ -4737,6 +4589,85 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/d2/invfhlu.png"
 },
 {
+  "name": "Death Cleaver",
+  "baseName": "Berserker Axe",
+  "rarity": "unique",
+  "slot": "weapon",
+  "equipmentType": "weapon",
+  "width": 2,
+  "height": 3,
+  "desc": "A unique Berserker Axe from Diablo II.",
+  "requiredLevel": 70,
+  "stats": {
+    "damageMin": 24,
+    "damageMax": 71,
+    "requiresStrength": 138,
+    "requiresDexterity": 59,
+    "enhancedDamagePercent": 280,
+    "deadlyStrikePercent": 66,
+    "attackSpeedPercent": 40
+  },
+  "affixes": [
+    "+280% Enhanced Damage",
+    "66% Deadly Strike",
+    "-33% Target Defense",
+    "+40% Increased Attack Speed",
+    "+9 to Life after Each Kill"
+  ],
+  "art": "assets/d2survivors/items/d2/invwax.png"
+},
+{
+  "name": "Death's Fathom",
+  "baseName": "Dimensional Shard",
+  "rarity": "unique",
+  "slot": "weapon",
+  "equipmentType": "orb",
+  "width": 1,
+  "height": 3,
+  "desc": "A unique Dimensional Shard from Diablo II.",
+  "requiredLevel": 73,
+  "stats": {
+    "damageMin": 30,
+    "damageMax": 53,
+    "fasterCastPercent": 20,
+    "fireResistPercent": 40,
+    "lightningResistPercent": 40
+  },
+  "affixes": [
+    "+3 to Sorceress Skill Levels",
+    "+30% to Cold Skill Damage",
+    "+20% Faster Cast Rate",
+    "Fire Resist +40%",
+    "Lightning Resist +40%"
+  ],
+  "art": "assets/d2survivors/items/d2/invob5.png",
+  "restrictedClass": "sorceress"
+},
+{
+  "name": "Death's Web",
+  "baseName": "Unearthed Wand",
+  "rarity": "unique",
+  "slot": "weapon",
+  "equipmentType": "wand",
+  "width": 1,
+  "height": 2,
+  "desc": "A unique Unearthed Wand from Diablo II.",
+  "requiredLevel": 66,
+  "stats": {
+    "damageMin": 22,
+    "damageMax": 28,
+    "requiresStrength": 25
+  },
+  "affixes": [
+    "+2 to All Skills",
+    "-50% to Enemy Poison Resistance",
+    "+12 to Life after Each Kill",
+    "+12 to Mana after Each Kill",
+    "+2 to Skill Tab 7"
+  ],
+  "art": "assets/d2survivors/items/unique/death-s-web.png"
+},
+{
   "name": "Deathbit",
   "baseName": "Battle Dart",
   "rarity": "unique",
@@ -4765,58 +4696,6 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "Replenishes Quantity"
   ],
   "art": "assets/d2survivors/items/d2/invtkn.png"
-},
-{
-  "name": "Deathcleaver",
-  "baseName": "Berserker Axe",
-  "rarity": "unique",
-  "slot": "weapon",
-  "equipmentType": "weapon",
-  "width": 2,
-  "height": 3,
-  "desc": "A unique Berserker Axe from Diablo II.",
-  "requiredLevel": 70,
-  "stats": {
-    "damageMin": 24,
-    "damageMax": 71,
-    "requiresStrength": 138,
-    "requiresDexterity": 59,
-    "enhancedDamagePercent": 280,
-    "deadlyStrikePercent": 66,
-    "attackSpeedPercent": 40
-  },
-  "affixes": [
-    "+280% Enhanced Damage",
-    "66% Deadly Strike",
-    "-33% Target Defense",
-    "+40% Increased Attack Speed",
-    "+9 to Life after Each Kill"
-  ],
-  "art": "assets/d2survivors/items/d2/invwax.png"
-},
-{
-  "name": "Deaths's Web",
-  "baseName": "Unearthed Wand",
-  "rarity": "unique",
-  "slot": "weapon",
-  "equipmentType": "wand",
-  "width": 1,
-  "height": 2,
-  "desc": "A unique Unearthed Wand from Diablo II.",
-  "requiredLevel": 66,
-  "stats": {
-    "damageMin": 22,
-    "damageMax": 28,
-    "requiresStrength": 25
-  },
-  "affixes": [
-    "+2 to All Skills",
-    "-50% to Enemy Poison Resistance",
-    "+12 to Life after Each Kill",
-    "+12 to Mana after Each Kill",
-    "+2 to Skill Tab 7"
-  ],
-  "art": "assets/d2survivors/items/unique/deaths-s-web.png"
 },
 {
   "name": "Deathspade",
@@ -4899,6 +4778,37 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "50% Extra Gold from Monsters"
   ],
   "art": "assets/d2survivors/items/d2/invgswe.png"
+},
+{
+  "name": "Demon Limb",
+  "baseName": "Tyrant Club",
+  "rarity": "unique",
+  "slot": "weapon",
+  "equipmentType": "weapon",
+  "width": 1,
+  "height": 3,
+  "desc": "A unique Tyrant Club from Diablo II.",
+  "requiredLevel": 63,
+  "stats": {
+    "damageMin": 32,
+    "damageMax": 58,
+    "requiresStrength": 133,
+    "enhancedDamagePercent": 230,
+    "elementalDamageMin": 222,
+    "elementalDamageMax": 333,
+    "lifeStealPercent": 13,
+    "fireResistPercent": 20
+  },
+  "affixes": [
+    "+230% Enhanced Damage",
+    "Adds 222-333 Fire Damage",
+    "13% Life Stolen per Hit",
+    "Level 20 Enchant (23 Charges)",
+    "Repairs 1 Durability in 1 Seconds",
+    "+123% Damage to Demons",
+    "Fire Resist +20%"
+  ],
+  "art": "assets/d2survivors/items/d2/invspcu.png"
 },
 {
   "name": "Demon Machine",
@@ -4993,38 +4903,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "restrictedClass": "barbarian"
 },
 {
-  "name": "Demonlimb",
-  "baseName": "Tyrant Club",
-  "rarity": "unique",
-  "slot": "weapon",
-  "equipmentType": "weapon",
-  "width": 1,
-  "height": 3,
-  "desc": "A unique Tyrant Club from Diablo II.",
-  "requiredLevel": 63,
-  "stats": {
-    "damageMin": 32,
-    "damageMax": 58,
-    "requiresStrength": 133,
-    "enhancedDamagePercent": 230,
-    "elementalDamageMin": 222,
-    "elementalDamageMax": 333,
-    "lifeStealPercent": 13,
-    "fireResistPercent": 20
-  },
-  "affixes": [
-    "+230% Enhanced Damage",
-    "Adds 222-333 Fire Damage",
-    "13% Life Stolen per Hit",
-    "Level 20 Enchant (23 Charges)",
-    "Repairs 1 Durability in 1 Seconds",
-    "+123% Damage to Demons",
-    "Fire Resist +20%"
-  ],
-  "art": "assets/d2survivors/items/d2/invspcu.png"
-},
-{
-  "name": "Dimoaks Hew",
+  "name": "Dimoak's Hew",
   "baseName": "Bardiche",
   "rarity": "unique",
   "slot": "weapon",
@@ -5048,10 +4927,10 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "+20% Increased Attack Speed",
     "+-8 Defense"
   ],
-  "art": "assets/d2survivors/items/unique/dimoaks-hew.png"
+  "art": "assets/d2survivors/items/unique/dimoak-s-hew.png"
 },
 {
-  "name": "Djinnslayer",
+  "name": "Djinn Slayer",
   "baseName": "Ataghan",
   "rarity": "unique",
   "slot": "weapon",
@@ -5114,7 +4993,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/d2/invbswu.png"
 },
 {
-  "name": "Doomspittle",
+  "name": "Doomslinger",
   "baseName": "Repeating Crossbow",
   "rarity": "unique",
   "slot": "weapon",
@@ -5349,35 +5228,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/unique/eaglehorn.png"
 },
 {
-  "name": "Earthshaker",
-  "baseName": "Battle Hammer",
-  "rarity": "unique",
-  "slot": "weapon",
-  "equipmentType": "weapon",
-  "width": 2,
-  "height": 3,
-  "desc": "A unique Battle Hammer from Diablo II.",
-  "requiredLevel": 43,
-  "stats": {
-    "damageMin": 35,
-    "damageMax": 58,
-    "requiresStrength": 100,
-    "attackSpeedPercent": 30,
-    "enhancedDamagePercent": 180
-  },
-  "affixes": [
-    "7% Chance to Cast Level 5 Eruption on Striking",
-    "Knockback",
-    "+30% Increased Attack Speed",
-    "+180% Enhanced Damage",
-    "1% Chance to Cast Dim Vision when Struck",
-    "+3 to Skill Tab 17",
-    "+50 Durability"
-  ],
-  "art": "assets/d2survivors/items/d2/invwhm.png"
-},
-{
-  "name": "Earthshifter",
+  "name": "Earth Shifter",
   "baseName": "Thunder Maul",
   "rarity": "unique",
   "slot": "weapon",
@@ -5405,6 +5256,34 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "+10% Faster Cast Rate"
   ],
   "art": "assets/d2survivors/items/d2/invgma.png"
+},
+{
+  "name": "Earthshaker",
+  "baseName": "Battle Hammer",
+  "rarity": "unique",
+  "slot": "weapon",
+  "equipmentType": "weapon",
+  "width": 2,
+  "height": 3,
+  "desc": "A unique Battle Hammer from Diablo II.",
+  "requiredLevel": 43,
+  "stats": {
+    "damageMin": 35,
+    "damageMax": 58,
+    "requiresStrength": 100,
+    "attackSpeedPercent": 30,
+    "enhancedDamagePercent": 180
+  },
+  "affixes": [
+    "7% Chance to Cast Level 5 Eruption on Striking",
+    "Knockback",
+    "+30% Increased Attack Speed",
+    "+180% Enhanced Damage",
+    "1% Chance to Cast Dim Vision when Struck",
+    "+3 to Skill Tab 17",
+    "+50 Durability"
+  ],
+  "art": "assets/d2survivors/items/d2/invwhm.png"
 },
 {
   "name": "Endlesshail",
@@ -5463,7 +5342,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/d2/invamu.png"
 },
 {
-  "name": "Eschuta's temper",
+  "name": "Eschuta's Temper",
   "baseName": "Eldritch Orb",
   "rarity": "unique",
   "slot": "weapon",
@@ -5545,59 +5424,6 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "+30% Increased Attack Speed"
   ],
   "art": "assets/d2survivors/items/unique/executioner-s-justice.png"
-},
-{
-  "name": "Fathom",
-  "baseName": "Dimensional Shard",
-  "rarity": "unique",
-  "slot": "weapon",
-  "equipmentType": "orb",
-  "width": 1,
-  "height": 3,
-  "desc": "A unique Dimensional Shard from Diablo II.",
-  "requiredLevel": 73,
-  "stats": {
-    "damageMin": 30,
-    "damageMax": 53,
-    "fasterCastPercent": 20,
-    "fireResistPercent": 40,
-    "lightningResistPercent": 40
-  },
-  "affixes": [
-    "+3 to Sorceress Skill Levels",
-    "+30% to Cold Skill Damage",
-    "+20% Faster Cast Rate",
-    "Fire Resist +40%",
-    "Lightning Resist +40%"
-  ],
-  "art": "assets/d2survivors/items/d2/invob5.png",
-  "restrictedClass": "sorceress"
-},
-{
-  "name": "Fechmars Axe",
-  "baseName": "Large Axe",
-  "rarity": "unique",
-  "slot": "weapon",
-  "equipmentType": "weapon",
-  "width": 2,
-  "height": 3,
-  "desc": "A unique Large Axe from Diablo II.",
-  "requiredLevel": 8,
-  "stats": {
-    "damageMin": 1,
-    "damageMax": 2,
-    "requiresStrength": 35,
-    "enhancedDamagePercent": 90,
-    "coldResistPercent": 50,
-    "lightRadius": 2
-  },
-  "affixes": [
-    "+90% Enhanced Damage",
-    "Freezes Target +3",
-    "Cold Resist +50%",
-    "+2 to Light Radius"
-  ],
-  "art": "assets/d2survivors/items/unique/fechmars-axe.png"
 },
 {
   "name": "Felloak",
@@ -5867,6 +5693,35 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/unique/gargoyle-s-bite.png"
 },
 {
+  "name": "Gerke's Sanctuary",
+  "baseName": "Pavise",
+  "rarity": "unique",
+  "slot": "armor",
+  "equipmentType": "shield",
+  "width": 2,
+  "height": 3,
+  "desc": "A unique Pavise from Diablo II.",
+  "requiredLevel": 44,
+  "stats": {
+    "armor": 73,
+    "requiresStrength": 133,
+    "damageReductionFlat": 16,
+    "replenishLife": 15,
+    "armorPercent": 240,
+    "allResistPercent": 30
+  },
+  "affixes": [
+    "Damage Reduced by 16",
+    "Magic Damage Reduced by 18",
+    "Replenish Life +15",
+    "+240% Enhanced Defense",
+    "+100 Durability",
+    "30% Increased Chance of Blocking",
+    "All Resistances +30%"
+  ],
+  "art": "assets/d2survivors/items/d2/invtowu.png"
+},
+{
   "name": "Gheed's Fortune",
   "baseName": "Grand Charm",
   "rarity": "unique",
@@ -5976,7 +5831,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/d2/invmgl.png"
 },
 {
-  "name": "Giantskull",
+  "name": "Giant Skull",
   "baseName": "Bone Visage",
   "rarity": "unique",
   "slot": "armor",
@@ -6093,7 +5948,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/d2/invflcu.png"
 },
 {
-  "name": "Gloomstrap",
+  "name": "Gloom's Trap",
   "baseName": "Mesh Belt",
   "rarity": "unique",
   "slot": "belt",
@@ -6150,36 +6005,6 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/unique/goblin-toe.png"
 },
 {
-  "name": "Godstrike Arch",
-  "baseName": "Gothic Bow",
-  "rarity": "unique",
-  "slot": "weapon",
-  "equipmentType": "weapon",
-  "width": 2,
-  "height": 4,
-  "desc": "A unique Gothic Bow from Diablo II.",
-  "requiredLevel": 46,
-  "stats": {
-    "damageMin": 1,
-    "damageMax": 2,
-    "requiresStrength": 95,
-    "requiresDexterity": 118,
-    "enhancedDamagePercent": 250,
-    "attackSpeedPercent": 50,
-    "replenishLife": 12
-  },
-  "affixes": [
-    "+250% Enhanced Damage",
-    "150% Bonus to Attack Rating",
-    "+200% Damage to Undead",
-    "+200% Damage to Demons",
-    "7% Chance to Cast Level 5 Fist of the Heavens on Striking",
-    "+50% Increased Attack Speed",
-    "Replenish Life +12"
-  ],
-  "art": "assets/d2survivors/items/unique/godstrike-arch.png"
-},
-{
   "name": "Goldskin",
   "baseName": "Full Plate Mail",
   "rarity": "unique",
@@ -6206,6 +6031,36 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "100% Extra Gold from Monsters"
   ],
   "art": "assets/d2survivors/items/d2/invfulu.png"
+},
+{
+  "name": "Goldstrike Arch",
+  "baseName": "Gothic Bow",
+  "rarity": "unique",
+  "slot": "weapon",
+  "equipmentType": "weapon",
+  "width": 2,
+  "height": 4,
+  "desc": "A unique Gothic Bow from Diablo II.",
+  "requiredLevel": 46,
+  "stats": {
+    "damageMin": 1,
+    "damageMax": 2,
+    "requiresStrength": 95,
+    "requiresDexterity": 118,
+    "enhancedDamagePercent": 250,
+    "attackSpeedPercent": 50,
+    "replenishLife": 12
+  },
+  "affixes": [
+    "+250% Enhanced Damage",
+    "150% Bonus to Attack Rating",
+    "+200% Damage to Undead",
+    "+200% Damage to Demons",
+    "7% Chance to Cast Level 5 Fist of the Heavens on Striking",
+    "+50% Increased Attack Speed",
+    "Replenish Life +12"
+  ],
+  "art": "assets/d2survivors/items/unique/goldstrike-arch.png"
 },
 {
   "name": "Goldwrap",
@@ -6238,37 +6093,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "beltQuality": "normal"
 },
 {
-  "name": "Gorefoot",
-  "baseName": "Heavy Boots",
-  "rarity": "unique",
-  "slot": "armor",
-  "equipmentType": "boots",
-  "width": 2,
-  "height": 2,
-  "desc": "A unique Heavy Boots from Diablo II.",
-  "requiredLevel": 9,
-  "stats": {
-    "armor": 18,
-    "requiresStrength": 18,
-    "openWoundsPercent": 5,
-    "movementSpeedPercent": 20,
-    "manaStealPercent": 2,
-    "thorns": 2,
-    "armorPercent": 30
-  },
-  "affixes": [
-    "5% Chance of Open Wounds",
-    "+20% Faster Run/Walk",
-    "2% Mana Stolen per Hit",
-    "Attacker Takes Damage of 2",
-    "+12 Defense",
-    "+30% Enhanced Defense",
-    "+2 to Leap"
-  ],
-  "art": "assets/d2survivors/items/unique/gorefoot.png"
-},
-{
-  "name": "Gorerider",
+  "name": "Gore Rider",
   "baseName": "War Boots",
   "rarity": "unique",
   "slot": "armor",
@@ -6297,6 +6122,36 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "+20 to Stamina"
   ],
   "art": "assets/d2survivors/items/d2/invhbt.png"
+},
+{
+  "name": "Gorefoot",
+  "baseName": "Heavy Boots",
+  "rarity": "unique",
+  "slot": "armor",
+  "equipmentType": "boots",
+  "width": 2,
+  "height": 2,
+  "desc": "A unique Heavy Boots from Diablo II.",
+  "requiredLevel": 9,
+  "stats": {
+    "armor": 18,
+    "requiresStrength": 18,
+    "openWoundsPercent": 5,
+    "movementSpeedPercent": 20,
+    "manaStealPercent": 2,
+    "thorns": 2,
+    "armorPercent": 30
+  },
+  "affixes": [
+    "5% Chance of Open Wounds",
+    "+20% Faster Run/Walk",
+    "2% Mana Stolen per Hit",
+    "Attacker Takes Damage of 2",
+    "+12 Defense",
+    "+30% Enhanced Defense",
+    "+2 to Leap"
+  ],
+  "art": "assets/d2survivors/items/unique/gorefoot.png"
 },
 {
   "name": "Goreshovel",
@@ -6474,7 +6329,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/unique/grim-s-burning-dead.png"
 },
 {
-  "name": "Griswolds Edge",
+  "name": "Griswold's Edge",
   "baseName": "Broad Sword",
   "rarity": "unique",
   "slot": "weapon",
@@ -6645,7 +6500,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/unique/gull.png"
 },
 {
-  "name": "Gutsiphon",
+  "name": "Gut Siphon",
   "baseName": "Demon Crossbow",
   "rarity": "unique",
   "slot": "weapon",
@@ -6796,7 +6651,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/unique/hawkmail.png"
 },
 {
-  "name": "Headhunter's Glory",
+  "name": "Head Hunter's Glory",
   "baseName": "Troll Nest",
   "rarity": "unique",
   "slot": "armor",
@@ -6938,32 +6793,6 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "+100 Attack Rating Against Undead"
   ],
   "art": "assets/d2survivors/items/unique/heavenly-garb.png"
-},
-{
-  "name": "Hell Forge Hammer",
-  "baseName": "Hellforge Hammer",
-  "rarity": "unique",
-  "slot": "weapon",
-  "equipmentType": "weapon",
-  "width": 2,
-  "height": 3,
-  "desc": "A unique Hellforge Hammer from Diablo II.",
-  "requiredLevel": 1,
-  "stats": {
-    "damageMin": 6,
-    "damageMax": 15,
-    "elementalDamageMin": 5,
-    "elementalDamageMax": 20,
-    "fireResistPercent": 40,
-    "armor": 35
-  },
-  "affixes": [
-    "Adds 5 Fire Damage",
-    "Adds 20 Fire Damage",
-    "Fire Resist +40%",
-    "+35 Defense"
-  ],
-  "art": "assets/d2survivors/items/d2/invhfh.png"
 },
 {
   "name": "Hellcast",
@@ -7179,6 +7008,34 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/d2/invbtxu.png"
 },
 {
+  "name": "Hellwarden's Will",
+  "baseName": "Death Mask",
+  "rarity": "unique",
+  "slot": "armor",
+  "equipmentType": "helmet",
+  "width": 2,
+  "height": 2,
+  "desc": "A unique Death Mask from Diablo II.",
+  "requiredLevel": 50,
+  "stats": {
+    "armor": 70,
+    "requiresStrength": 55,
+    "fasterCastPercent": 20,
+    "attackSpeedPercent": 20,
+    "armorPercent": 215
+  },
+  "affixes": [
+    "+1 to All Skills",
+    "-8% to Enemy Fire Resistance",
+    "-8% to Enemy Magic Resistance",
+    "+20% Faster Cast Rate",
+    "+20% Increased Attack Speed",
+    "+215% Enhanced Defense",
+    "+6 to Mana after Each Kill"
+  ],
+  "art": "assets/d2survivors/items/d2/invmsk.png"
+},
+{
   "name": "Herald of Zakarum",
   "baseName": "Gilded Shield",
   "rarity": "unique",
@@ -7328,35 +7185,6 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/d2/invspt.png"
 },
 {
-  "name": "Horadric Staff",
-  "baseName": "Horadric Staff",
-  "rarity": "unique",
-  "slot": "weapon",
-  "equipmentType": "weapon",
-  "width": 1,
-  "height": 4,
-  "desc": "A unique Horadric Staff from Diablo II.",
-  "requiredLevel": 1,
-  "stats": {
-    "damageMin": 1,
-    "damageMax": 2,
-    "requiresStrength": 30,
-    "plusMana": 10,
-    "poisonResistPercent": 25,
-    "plusLife": 10,
-    "allResistPercent": 10,
-    "attackSpeedPercent": 50
-  },
-  "affixes": [
-    "+10 to Mana",
-    "Poison Resist +25%",
-    "+10 to Life",
-    "All Resistances +10%",
-    "+50% Increased Attack Speed"
-  ],
-  "art": "assets/d2survivors/items/d2/invhst.png"
-},
-{
   "name": "Horizon's Tornado",
   "baseName": "Scourge",
   "rarity": "unique",
@@ -7436,6 +7264,36 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "33% Chance to Cast Howl when Struck"
   ],
   "art": "assets/d2survivors/items/unique/howltusk.png"
+},
+{
+  "name": "Humongous",
+  "baseName": "Giant Axe",
+  "rarity": "unique",
+  "slot": "weapon",
+  "equipmentType": "weapon",
+  "width": 2,
+  "height": 3,
+  "desc": "A unique Giant Axe from Diablo II.",
+  "requiredLevel": 29,
+  "stats": {
+    "damageMin": 1,
+    "damageMax": 2,
+    "requiresStrength": 56,
+    "plusStrength": 30,
+    "plusDamageMin": 8,
+    "plusDamage": 25,
+    "crushingBlowPercent": 33,
+    "enhancedDamagePercent": 120
+  },
+  "affixes": [
+    "+30 to Strength",
+    "+8 to Minimum Damage",
+    "+25 to Maximum Damage",
+    "33% Chance of Crushing Blow",
+    "Requirements -20%",
+    "+120% Enhanced Damage"
+  ],
+  "art": "assets/d2survivors/items/unique/humongous.png"
 },
 {
   "name": "Husoldal Evo",
@@ -7560,34 +7418,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/d2/invlbt.png"
 },
 {
-  "name": "Irices Shard",
-  "baseName": "Blade",
-  "rarity": "unique",
-  "slot": "weapon",
-  "equipmentType": "weapon",
-  "width": 1,
-  "height": 3,
-  "desc": "A unique Blade from Diablo II.",
-  "requiredLevel": 25,
-  "stats": {
-    "damageMin": 4,
-    "damageMax": 15,
-    "requiresStrength": 35,
-    "requiresDexterity": 51,
-    "fasterCastPercent": 50,
-    "plusMana": 50,
-    "allResistPercent": 10
-  },
-  "affixes": [
-    "+50% Faster Cast Rate",
-    "+50 to Mana",
-    "+55 to Attack Rating",
-    "All Resistances +10%"
-  ],
-  "art": "assets/d2survivors/items/unique/irices-shard.png"
-},
-{
-  "name": "Ironpelt",
+  "name": "Iron Pelt",
   "baseName": "Trellised Armor",
   "rarity": "unique",
   "slot": "armor",
@@ -7644,71 +7475,6 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/unique/ironstone.png"
 },
 {
-  "name": "Ironward",
-  "baseName": "Caduceus",
-  "rarity": "unique",
-  "slot": "weapon",
-  "equipmentType": "weapon",
-  "width": 2,
-  "height": 3,
-  "desc": "A unique Caduceus from Diablo II.",
-  "requiredLevel": 60,
-  "stats": {
-    "damageMin": 37,
-    "damageMax": 43,
-    "requiresStrength": 97,
-    "requiresDexterity": 70,
-    "enhancedDamagePercent": 290,
-    "attackSpeedPercent": 10,
-    "elementalDamageMin": 80,
-    "elementalDamageMax": 240,
-    "damageReductionFlat": 7,
-    "plusDamage": 85,
-    "crushingBlowPercent": 33
-  },
-  "affixes": [
-    "+290% Enhanced Damage",
-    "Slows Target by 25%",
-    "200% Bonus to Attack Rating",
-    "+10% Increased Attack Speed",
-    "Adds 80-240 Magic Damage",
-    "Damage Reduced by 7",
-    "+85 Dmg",
-    "+4 to Skill Tab 9",
-    "33% Chance of Crushing Blow"
-  ],
-  "art": "assets/d2survivors/items/unique/ironward.png"
-},
-{
-  "name": "Iros Torch",
-  "baseName": "Wand",
-  "rarity": "unique",
-  "slot": "weapon",
-  "equipmentType": "wand",
-  "width": 1,
-  "height": 2,
-  "desc": "A unique Wand from Diablo II.",
-  "requiredLevel": 5,
-  "stats": {
-    "damageMin": 2,
-    "damageMax": 4,
-    "lifeStealPercent": 6,
-    "elementalDamageMin": 5,
-    "elementalDamageMax": 9,
-    "lightRadius": 3,
-    "plusEnergy": 10
-  },
-  "affixes": [
-    "+1 to Necromancer Skill Levels",
-    "6% Life Stolen per Hit",
-    "Adds 5-9 Fire Damage",
-    "+3 to Light Radius",
-    "+10 to Energy",
-    "Regenerate Mana 5%"
-  ],
-  "art": "assets/d2survivors/items/d2/invwndu.png"
-},
-{
   "name": "Islestrike",
   "baseName": "Twin Axe",
   "rarity": "unique",
@@ -7744,7 +7510,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/d2/inv2ax.png"
 },
 {
-  "name": "Jadetalon",
+  "name": "Jade Talon",
   "baseName": "Wrist Sword",
   "rarity": "unique",
   "slot": "weapon",
@@ -7770,7 +7536,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "+2 to Skill Tab 19",
     "+2 to Skill Tab 20"
   ],
-  "art": "assets/d2survivors/items/unique/jadetalon.png",
+  "art": "assets/d2survivors/items/unique/jade-talon.png",
   "restrictedClass": "assassin"
 },
 {
@@ -7838,63 +7604,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/d2/invtriu.png"
 },
 {
-  "name": "Kerke's Sanctuary",
-  "baseName": "Pavise",
-  "rarity": "unique",
-  "slot": "armor",
-  "equipmentType": "shield",
-  "width": 2,
-  "height": 3,
-  "desc": "A unique Pavise from Diablo II.",
-  "requiredLevel": 44,
-  "stats": {
-    "armor": 73,
-    "requiresStrength": 133,
-    "damageReductionFlat": 16,
-    "replenishLife": 15,
-    "armorPercent": 240,
-    "allResistPercent": 30
-  },
-  "affixes": [
-    "Damage Reduced by 16",
-    "Magic Damage Reduced by 18",
-    "Replenish Life +15",
-    "+240% Enhanced Defense",
-    "+100 Durability",
-    "30% Increased Chance of Blocking",
-    "All Resistances +30%"
-  ],
-  "art": "assets/d2survivors/items/d2/invtowu.png"
-},
-{
-  "name": "KhalimFlail",
-  "baseName": "Khalim's Flail",
-  "rarity": "unique",
-  "slot": "weapon",
-  "equipmentType": "weapon",
-  "width": 2,
-  "height": 3,
-  "desc": "A unique Khalim's Flail from Diablo II.",
-  "requiredLevel": 1,
-  "stats": {
-    "damageMin": 1,
-    "damageMax": 15,
-    "requiresStrength": 41,
-    "requiresDexterity": 35,
-    "elementalDamageMin": 1,
-    "elementalDamageMax": 20,
-    "attackSpeedPercent": 50
-  },
-  "affixes": [
-    "Adds 1 Lightning Damage",
-    "Adds 20 Lightning Damage",
-    "+50% Increased Attack Speed",
-    "+40 to Attack Rating"
-  ],
-  "art": "assets/d2survivors/items/d2/invqf1.png"
-},
-{
-  "name": "Kinemils Awl",
+  "name": "Kinemil's Awl",
   "baseName": "Giant Sword",
   "rarity": "unique",
   "slot": "weapon",
@@ -7974,38 +7684,6 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "+80% Enhanced Damage"
   ],
   "art": "assets/d2survivors/items/unique/knell-striker.png"
-},
-{
-  "name": "Krintizs Skewer",
-  "baseName": "Saber",
-  "rarity": "unique",
-  "slot": "weapon",
-  "equipmentType": "weapon",
-  "width": 1,
-  "height": 3,
-  "desc": "A unique Saber from Diablo II.",
-  "requiredLevel": 10,
-  "stats": {
-    "damageMin": 3,
-    "damageMax": 8,
-    "requiresStrength": 25,
-    "requiresDexterity": 25,
-    "plusStrength": 10,
-    "plusDexterity": 10,
-    "manaStealPercent": 7,
-    "enhancedDamagePercent": 50,
-    "plusDamageMin": 3,
-    "plusDamage": 7
-  },
-  "affixes": [
-    "Ignore Target's Defense",
-    "+10 to Strength",
-    "+10 to Dexterity",
-    "7% Mana Stolen per Hit",
-    "+50% Enhanced Damage",
-    "Adds 3-7 Damage"
-  ],
-  "art": "assets/d2survivors/items/d2/inv9sbu.png"
 },
 {
   "name": "Kuko Shakaku",
@@ -8159,7 +7837,119 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/d2/inv8lxu.png"
 },
 {
-  "name": "Lavagout",
+  "name": "Latent Black Cleft",
+  "baseName": "Grand Charm",
+  "rarity": "unique",
+  "slot": "charm",
+  "equipmentType": "charm",
+  "width": 1,
+  "height": 3,
+  "desc": "A unique Grand Charm from Diablo II.",
+  "requiredLevel": 75,
+  "stats": {},
+  "affixes": [
+    "-300% to Enemy Magic Resistance",
+    "Magic Resist +-45%"
+  ],
+  "art": "assets/d2survivors/items/unique/latent-black-cleft.png"
+},
+{
+  "name": "Latent Bone Break",
+  "baseName": "Grand Charm",
+  "rarity": "unique",
+  "slot": "charm",
+  "equipmentType": "charm",
+  "width": 1,
+  "height": 3,
+  "desc": "A unique Grand Charm from Diablo II.",
+  "requiredLevel": 75,
+  "stats": {
+    "damageReductionPercent": -10
+  },
+  "affixes": [
+    "+300 Pierce Immunity Damage",
+    "Damage Reduced by -10%"
+  ],
+  "art": "assets/d2survivors/items/unique/latent-bone-break.png"
+},
+{
+  "name": "Latent Cold Rupture",
+  "baseName": "Grand Charm",
+  "rarity": "unique",
+  "slot": "charm",
+  "equipmentType": "charm",
+  "width": 1,
+  "height": 3,
+  "desc": "A unique Grand Charm from Diablo II.",
+  "requiredLevel": 75,
+  "stats": {
+    "coldResistPercent": -70
+  },
+  "affixes": [
+    "-300% to Enemy Cold Resistance",
+    "Cold Resist +-70%"
+  ],
+  "art": "assets/d2survivors/items/unique/latent-cold-rupture.png"
+},
+{
+  "name": "Latent Crack of the Heavens",
+  "baseName": "Grand Charm",
+  "rarity": "unique",
+  "slot": "charm",
+  "equipmentType": "charm",
+  "width": 1,
+  "height": 3,
+  "desc": "A unique Grand Charm from Diablo II.",
+  "requiredLevel": 75,
+  "stats": {
+    "lightningResistPercent": -70
+  },
+  "affixes": [
+    "-300% to Enemy Lightning Resistance",
+    "Lightning Resist +-70%"
+  ],
+  "art": "assets/d2survivors/items/unique/latent-crack-of-the-heavens.png"
+},
+{
+  "name": "Latent Flame Rift",
+  "baseName": "Grand Charm",
+  "rarity": "unique",
+  "slot": "charm",
+  "equipmentType": "charm",
+  "width": 1,
+  "height": 3,
+  "desc": "A unique Grand Charm from Diablo II.",
+  "requiredLevel": 75,
+  "stats": {
+    "fireResistPercent": -70
+  },
+  "affixes": [
+    "-300% to Enemy Fire Resistance",
+    "Fire Resist +-70%"
+  ],
+  "art": "assets/d2survivors/items/unique/latent-flame-rift.png"
+},
+{
+  "name": "Latent Rotting Fissure",
+  "baseName": "Grand Charm",
+  "rarity": "unique",
+  "slot": "charm",
+  "equipmentType": "charm",
+  "width": 1,
+  "height": 3,
+  "desc": "A unique Grand Charm from Diablo II.",
+  "requiredLevel": 75,
+  "stats": {
+    "poisonResistPercent": -70
+  },
+  "affixes": [
+    "+300 Pierce Immunity Poison",
+    "Poison Resist +-70%"
+  ],
+  "art": "assets/d2survivors/items/unique/latent-rotting-fissure.png"
+},
+{
+  "name": "Lava Gout",
   "baseName": "Battle Gauntlets",
   "rarity": "unique",
   "slot": "armor",
@@ -8187,38 +7977,6 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "+20 Durability"
   ],
   "art": "assets/d2survivors/items/d2/invtgl.png"
-},
-{
-  "name": "Lazarus Spire",
-  "baseName": "Gnarled Staff",
-  "rarity": "unique",
-  "slot": "weapon",
-  "equipmentType": "weapon",
-  "width": 1,
-  "height": 4,
-  "desc": "A unique Gnarled Staff from Diablo II.",
-  "requiredLevel": 18,
-  "stats": {
-    "damageMin": 1,
-    "damageMax": 2,
-    "lightningResistPercent": 75,
-    "damageReductionFlat": 5,
-    "plusEnergy": 15,
-    "elementalDamageMin": 1,
-    "elementalDamageMax": 28
-  },
-  "affixes": [
-    "Lightning Resist +75%",
-    "Damage Reduced by 5",
-    "+15 to Energy",
-    "+1 to Chain Lightning",
-    "+2 to Lightning",
-    "+3 to Static Field",
-    "Regenerate Mana 43%",
-    "Adds 1-28 Lightning Damage",
-    "+1 to Sorceress Skill Levels"
-  ],
-  "art": "assets/d2survivors/items/d2/invcstu.png"
 },
 {
   "name": "Leadcrow",
@@ -8252,7 +8010,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/d2/invlxbu.png"
 },
 {
-  "name": "Lenyms Cord",
+  "name": "Lenymo",
   "baseName": "Sash",
   "rarity": "unique",
   "slot": "belt",
@@ -8272,7 +8030,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "All Resistances +5%",
     "+1 to Light Radius"
   ],
-  "art": "assets/d2survivors/items/unique/lenyms-cord.png",
+  "art": "assets/d2survivors/items/unique/lenymo.png",
   "beltQuality": "normal"
 },
 {
@@ -8446,7 +8204,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "restrictedClass": "amazon"
 },
 {
-  "name": "Maelstromwrath",
+  "name": "Maelstrom",
   "baseName": "Yew Wand",
   "rarity": "unique",
   "slot": "weapon",
@@ -8475,7 +8233,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "+3 to Amplify Damage",
     "+3 to Iron Maiden"
   ],
-  "art": "assets/d2survivors/items/unique/maelstromwrath.png"
+  "art": "assets/d2survivors/items/unique/maelstrom.png"
 },
 {
   "name": "Magefist",
@@ -8769,37 +8527,6 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/d2/invamu.png"
 },
 {
-  "name": "Mindrend",
-  "baseName": "Military Pick",
-  "rarity": "unique",
-  "slot": "weapon",
-  "equipmentType": "weapon",
-  "width": 2,
-  "height": 3,
-  "desc": "A unique Military Pick from Diablo II.",
-  "requiredLevel": 21,
-  "stats": {
-    "damageMin": 7,
-    "damageMax": 11,
-    "requiresStrength": 49,
-    "requiresDexterity": 33,
-    "elementalDamageMin": 1,
-    "elementalDamageMax": 15,
-    "enhancedDamagePercent": 100,
-    "openWoundsPercent": 15
-  },
-  "affixes": [
-    "2% Chance to Cast Dim Vision when Struck",
-    "Regenerate Mana 20%",
-    "Adds 1 Lightning Damage",
-    "Adds 15 Lightning Damage",
-    "+100 to Attack Rating",
-    "+100% Enhanced Damage",
-    "15% Chance of Open Wounds"
-  ],
-  "art": "assets/d2survivors/items/d2/invmpiu.png"
-},
-{
   "name": "Moonfall",
   "baseName": "Jagged Star",
   "rarity": "unique",
@@ -8832,7 +8559,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/d2/invmstu.png"
 },
 {
-  "name": "Mosers Blessed Circle",
+  "name": "Moser's Blessed Circle",
   "baseName": "Round Shield",
   "rarity": "unique",
   "slot": "armor",
@@ -9122,7 +8849,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/unique/ormus-robes.png"
 },
 {
-  "name": "Peasent Crown",
+  "name": "Peasant Crown",
   "baseName": "War Hat",
   "rarity": "unique",
   "slot": "armor",
@@ -9179,37 +8906,6 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "+12 Durability"
   ],
   "art": "assets/d2survivors/items/d2/invbucu.png"
-},
-{
-  "name": "Piercerib",
-  "baseName": "Composite Bow",
-  "rarity": "unique",
-  "slot": "weapon",
-  "equipmentType": "weapon",
-  "width": 2,
-  "height": 3,
-  "desc": "A unique Composite Bow from Diablo II.",
-  "requiredLevel": 20,
-  "stats": {
-    "damageMin": 1,
-    "damageMax": 2,
-    "requiresStrength": 25,
-    "requiresDexterity": 35,
-    "allResistPercent": 10,
-    "deadlyStrikePercent": 30,
-    "enhancedDamagePercent": 60,
-    "attackSpeedPercent": 50
-  },
-  "affixes": [
-    "All Resistances +10%",
-    "30% Deadly Strike",
-    "+60 to Attack Rating",
-    "+100% Damage to Undead",
-    "+60% Enhanced Damage",
-    "+50% Increased Attack Speed",
-    "+1 Roguesbow Affix1"
-  ],
-  "art": "assets/d2survivors/items/d2/invcbwu.png"
 },
 {
   "name": "Pierre Tombale Couant",
@@ -9307,7 +9003,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/unique/pluckeye.png"
 },
 {
-  "name": "Pompe's Wrath",
+  "name": "Pompeii's Wrath",
   "baseName": "Crowbill",
   "rarity": "unique",
   "slot": "weapon",
@@ -9333,118 +9029,6 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "+170% Enhanced Damage"
   ],
   "art": "assets/d2survivors/items/d2/invmpiu.png"
-},
-{
-  "name": "PreCrafted Black Cleft",
-  "baseName": "Grand Charm",
-  "rarity": "unique",
-  "slot": "charm",
-  "equipmentType": "charm",
-  "width": 1,
-  "height": 3,
-  "desc": "A unique Grand Charm from Diablo II.",
-  "requiredLevel": 75,
-  "stats": {},
-  "affixes": [
-    "-300% to Enemy Magic Resistance",
-    "Magic Resist +-45%"
-  ],
-  "art": "assets/d2survivors/items/unique/precrafted-black-cleft.png"
-},
-{
-  "name": "PreCrafted Bone Break",
-  "baseName": "Grand Charm",
-  "rarity": "unique",
-  "slot": "charm",
-  "equipmentType": "charm",
-  "width": 1,
-  "height": 3,
-  "desc": "A unique Grand Charm from Diablo II.",
-  "requiredLevel": 75,
-  "stats": {
-    "damageReductionPercent": -10
-  },
-  "affixes": [
-    "+300 Pierce Immunity Damage",
-    "Damage Reduced by -10%"
-  ],
-  "art": "assets/d2survivors/items/unique/precrafted-bone-break.png"
-},
-{
-  "name": "PreCrafted Cold Rupture",
-  "baseName": "Grand Charm",
-  "rarity": "unique",
-  "slot": "charm",
-  "equipmentType": "charm",
-  "width": 1,
-  "height": 3,
-  "desc": "A unique Grand Charm from Diablo II.",
-  "requiredLevel": 75,
-  "stats": {
-    "coldResistPercent": -70
-  },
-  "affixes": [
-    "-300% to Enemy Cold Resistance",
-    "Cold Resist +-70%"
-  ],
-  "art": "assets/d2survivors/items/unique/precrafted-cold-rupture.png"
-},
-{
-  "name": "PreCrafted Crack of the Heavens",
-  "baseName": "Grand Charm",
-  "rarity": "unique",
-  "slot": "charm",
-  "equipmentType": "charm",
-  "width": 1,
-  "height": 3,
-  "desc": "A unique Grand Charm from Diablo II.",
-  "requiredLevel": 75,
-  "stats": {
-    "lightningResistPercent": -70
-  },
-  "affixes": [
-    "-300% to Enemy Lightning Resistance",
-    "Lightning Resist +-70%"
-  ],
-  "art": "assets/d2survivors/items/unique/precrafted-crack-of-the-heavens.png"
-},
-{
-  "name": "PreCrafted Flame Rift",
-  "baseName": "Grand Charm",
-  "rarity": "unique",
-  "slot": "charm",
-  "equipmentType": "charm",
-  "width": 1,
-  "height": 3,
-  "desc": "A unique Grand Charm from Diablo II.",
-  "requiredLevel": 75,
-  "stats": {
-    "fireResistPercent": -70
-  },
-  "affixes": [
-    "-300% to Enemy Fire Resistance",
-    "Fire Resist +-70%"
-  ],
-  "art": "assets/d2survivors/items/unique/precrafted-flame-rift.png"
-},
-{
-  "name": "PreCrafted Rotting Fissure",
-  "baseName": "Grand Charm",
-  "rarity": "unique",
-  "slot": "charm",
-  "equipmentType": "charm",
-  "width": 1,
-  "height": 3,
-  "desc": "A unique Grand Charm from Diablo II.",
-  "requiredLevel": 75,
-  "stats": {
-    "poisonResistPercent": -70
-  },
-  "affixes": [
-    "+300 Pierce Immunity Poison",
-    "Poison Resist +-70%"
-  ],
-  "art": "assets/d2survivors/items/unique/precrafted-rotting-fissure.png"
 },
 {
   "name": "Protector's Frost",
@@ -9504,38 +9088,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/d2/invgswe.png"
 },
 {
-  "name": "Pullspite",
-  "baseName": "Short Battle Bow",
-  "rarity": "unique",
-  "slot": "weapon",
-  "equipmentType": "weapon",
-  "width": 2,
-  "height": 3,
-  "desc": "A unique Short Battle Bow from Diablo II.",
-  "requiredLevel": 25,
-  "stats": {
-    "damageMin": 1,
-    "damageMax": 2,
-    "requiresStrength": 30,
-    "requiresDexterity": 40,
-    "elementalDamageMin": 1,
-    "elementalDamageMax": 30,
-    "plusStrength": 8,
-    "lightningResistPercent": 25,
-    "enhancedDamagePercent": 90
-  },
-  "affixes": [
-    "Adds 1-30 Lightning Damage",
-    "+8 to Strength",
-    "+28 to Attack Rating",
-    "25% Piercing Attack",
-    "Lightning Resist +25%",
-    "+90% Enhanced Damage"
-  ],
-  "art": "assets/d2survivors/items/d2/invsbbu.png"
-},
-{
-  "name": "Pus Spiter",
+  "name": "Pus Spitter",
   "baseName": "Siege Crossbow",
   "rarity": "unique",
   "slot": "weapon",
@@ -9567,7 +9120,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/d2/inv8mxu.png"
 },
 {
-  "name": "Que-Hegan's Wisdon",
+  "name": "Que-Hegan's Wisdom",
   "baseName": "Mage Plate",
   "rarity": "unique",
   "slot": "armor",
@@ -9595,7 +9148,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/d2/invltp.png"
 },
 {
-  "name": "Radimant's Sphere",
+  "name": "Radament's Sphere",
   "baseName": "Ancient Shield",
   "rarity": "unique",
   "slot": "armor",
@@ -9625,29 +9178,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/d2/invgtsu.png"
 },
 {
-  "name": "Rainbow Facet",
-  "baseName": "Jewel",
-  "rarity": "unique",
-  "slot": "charm",
-  "equipmentType": "charm",
-  "width": 1,
-  "height": 1,
-  "desc": "A unique Jewel from Diablo II.",
-  "requiredLevel": 49,
-  "stats": {
-    "elementalDamageMin": 1,
-    "elementalDamageMax": 74
-  },
-  "affixes": [
-    "Adds 1-74 Lightning Damage",
-    "-5% to Enemy Lightning Resistance",
-    "+5% to Lightning Skill Damage",
-    "47% Chance to Cast Level 100 Chain Lightning when You Die"
-  ],
-  "art": "assets/d2survivors/items/d2/invgswe.png"
-},
-{
-  "name": "Rainbow Facet",
+  "name": "Rainbow Facet: Cold Death",
   "baseName": "Jewel",
   "rarity": "unique",
   "slot": "charm",
@@ -9669,73 +9200,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/d2/invgswe.png"
 },
 {
-  "name": "Rainbow Facet",
-  "baseName": "Jewel",
-  "rarity": "unique",
-  "slot": "charm",
-  "equipmentType": "charm",
-  "width": 1,
-  "height": 1,
-  "desc": "A unique Jewel from Diablo II.",
-  "requiredLevel": 49,
-  "stats": {
-    "elementalDamageMin": 17,
-    "elementalDamageMax": 45
-  },
-  "affixes": [
-    "Adds 17-45 Fire Damage",
-    "-5% to Enemy Fire Resistance",
-    "+5% to Fire Skill Damage",
-    "31% Chance to Cast Level 100 Meteor when You Die"
-  ],
-  "art": "assets/d2survivors/items/d2/invgswe.png"
-},
-{
-  "name": "Rainbow Facet",
-  "baseName": "Jewel",
-  "rarity": "unique",
-  "slot": "charm",
-  "equipmentType": "charm",
-  "width": 1,
-  "height": 1,
-  "desc": "A unique Jewel from Diablo II.",
-  "requiredLevel": 49,
-  "stats": {
-    "elementalDamageMin": 187,
-    "elementalDamageMax": 187
-  },
-  "affixes": [
-    "Adds 187 Poison Damage over Time",
-    "-5% to Enemy Poison Resistance",
-    "+5% to Poison Skill Damage",
-    "51% Chance to Cast Level 100 Poison Nova when You Die"
-  ],
-  "art": "assets/d2survivors/items/d2/invgswe.png"
-},
-{
-  "name": "Rainbow Facet",
-  "baseName": "Jewel",
-  "rarity": "unique",
-  "slot": "charm",
-  "equipmentType": "charm",
-  "width": 1,
-  "height": 1,
-  "desc": "A unique Jewel from Diablo II.",
-  "requiredLevel": 49,
-  "stats": {
-    "elementalDamageMin": 1,
-    "elementalDamageMax": 74
-  },
-  "affixes": [
-    "Adds 1-74 Lightning Damage",
-    "-5% to Enemy Lightning Resistance",
-    "+5% to Lightning Skill Damage",
-    "41% Chance to Cast Level 100 Nova when You Level Up"
-  ],
-  "art": "assets/d2survivors/items/d2/invgswe.png"
-},
-{
-  "name": "Rainbow Facet",
+  "name": "Rainbow Facet: Cold Level-up",
   "baseName": "Jewel",
   "rarity": "unique",
   "slot": "charm",
@@ -9757,7 +9222,29 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/d2/invgswe.png"
 },
 {
-  "name": "Rainbow Facet",
+  "name": "Rainbow Facet: Fire Death",
+  "baseName": "Jewel",
+  "rarity": "unique",
+  "slot": "charm",
+  "equipmentType": "charm",
+  "width": 1,
+  "height": 1,
+  "desc": "A unique Jewel from Diablo II.",
+  "requiredLevel": 49,
+  "stats": {
+    "elementalDamageMin": 17,
+    "elementalDamageMax": 45
+  },
+  "affixes": [
+    "Adds 17-45 Fire Damage",
+    "-5% to Enemy Fire Resistance",
+    "+5% to Fire Skill Damage",
+    "31% Chance to Cast Level 100 Meteor when You Die"
+  ],
+  "art": "assets/d2survivors/items/d2/invgswe.png"
+},
+{
+  "name": "Rainbow Facet: Fire Level-up",
   "baseName": "Jewel",
   "rarity": "unique",
   "slot": "charm",
@@ -9779,7 +9266,73 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/d2/invgswe.png"
 },
 {
-  "name": "Rainbow Facet",
+  "name": "Rainbow Facet: Lightning Death",
+  "baseName": "Jewel",
+  "rarity": "unique",
+  "slot": "charm",
+  "equipmentType": "charm",
+  "width": 1,
+  "height": 1,
+  "desc": "A unique Jewel from Diablo II.",
+  "requiredLevel": 49,
+  "stats": {
+    "elementalDamageMin": 1,
+    "elementalDamageMax": 74
+  },
+  "affixes": [
+    "Adds 1-74 Lightning Damage",
+    "-5% to Enemy Lightning Resistance",
+    "+5% to Lightning Skill Damage",
+    "47% Chance to Cast Level 100 Chain Lightning when You Die"
+  ],
+  "art": "assets/d2survivors/items/d2/invgswe.png"
+},
+{
+  "name": "Rainbow Facet: Lightning Level-up",
+  "baseName": "Jewel",
+  "rarity": "unique",
+  "slot": "charm",
+  "equipmentType": "charm",
+  "width": 1,
+  "height": 1,
+  "desc": "A unique Jewel from Diablo II.",
+  "requiredLevel": 49,
+  "stats": {
+    "elementalDamageMin": 1,
+    "elementalDamageMax": 74
+  },
+  "affixes": [
+    "Adds 1-74 Lightning Damage",
+    "-5% to Enemy Lightning Resistance",
+    "+5% to Lightning Skill Damage",
+    "41% Chance to Cast Level 100 Nova when You Level Up"
+  ],
+  "art": "assets/d2survivors/items/d2/invgswe.png"
+},
+{
+  "name": "Rainbow Facet: Poison Death",
+  "baseName": "Jewel",
+  "rarity": "unique",
+  "slot": "charm",
+  "equipmentType": "charm",
+  "width": 1,
+  "height": 1,
+  "desc": "A unique Jewel from Diablo II.",
+  "requiredLevel": 49,
+  "stats": {
+    "elementalDamageMin": 187,
+    "elementalDamageMax": 187
+  },
+  "affixes": [
+    "Adds 187 Poison Damage over Time",
+    "-5% to Enemy Poison Resistance",
+    "+5% to Poison Skill Damage",
+    "51% Chance to Cast Level 100 Poison Nova when You Die"
+  ],
+  "art": "assets/d2survivors/items/d2/invgswe.png"
+},
+{
+  "name": "Rainbow Facet: Poison Level-up",
   "baseName": "Jewel",
   "rarity": "unique",
   "slot": "charm",
@@ -9854,6 +9407,34 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/unique/rattlecage.png"
 },
 {
+  "name": "Raven Claw",
+  "baseName": "Long Bow",
+  "rarity": "unique",
+  "slot": "weapon",
+  "equipmentType": "weapon",
+  "width": 2,
+  "height": 4,
+  "desc": "A unique Long Bow from Diablo II.",
+  "requiredLevel": 15,
+  "stats": {
+    "damageMin": 1,
+    "damageMax": 2,
+    "requiresStrength": 22,
+    "requiresDexterity": 19,
+    "plusDexterity": 3,
+    "plusStrength": 3,
+    "enhancedDamagePercent": 70
+  },
+  "affixes": [
+    "50% Bonus to Attack Rating",
+    "+3 to Dexterity",
+    "Fires Explosive Arrows or Bolts",
+    "+3 to Strength",
+    "+70% Enhanced Damage"
+  ],
+  "art": "assets/d2survivors/items/unique/raven-claw.png"
+},
+{
   "name": "Raven Frost",
   "baseName": "Ring",
   "rarity": "unique",
@@ -9908,7 +9489,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "restrictedClass": "druid"
 },
 {
-  "name": "Razoredge",
+  "name": "Razor's Edge",
   "baseName": "Tomahawk",
   "rarity": "unique",
   "slot": "weapon",
@@ -10026,6 +9607,149 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/d2/invtriu.png"
 },
 {
+  "name": "Renewed Black Cleft",
+  "baseName": "Crafted Sunder Charm",
+  "rarity": "unique",
+  "slot": "charm",
+  "equipmentType": "charm",
+  "width": 1,
+  "height": 3,
+  "desc": "A unique Crafted Sunder Charm from Diablo II.",
+  "requiredLevel": 75,
+  "stats": {},
+  "affixes": [
+    "-300% to Enemy Magic Resistance",
+    "Magic Resist +-45%",
+    "+1 Mystical Affix1",
+    "+1 Mystical Affix2",
+    "+1 Mystical Affix3",
+    "+1 Mystical Affix4",
+    "+1 Mystical Affix6"
+  ],
+  "art": "assets/d2survivors/items/unique/renewed-black-cleft.png"
+},
+{
+  "name": "Renewed Bone Break",
+  "baseName": "Crafted Sunder Charm",
+  "rarity": "unique",
+  "slot": "charm",
+  "equipmentType": "charm",
+  "width": 1,
+  "height": 3,
+  "desc": "A unique Crafted Sunder Charm from Diablo II.",
+  "requiredLevel": 75,
+  "stats": {
+    "damageReductionPercent": -10
+  },
+  "affixes": [
+    "+300 Pierce Immunity Damage",
+    "Damage Reduced by -10%",
+    "+1 Breaching Affix1",
+    "+1 Breaching Affix2",
+    "+1 Breaching Affix3",
+    "+1 Breaching Affix4",
+    "+1 Breaching Affix6"
+  ],
+  "art": "assets/d2survivors/items/unique/renewed-bone-break.png"
+},
+{
+  "name": "Renewed Cold Rupture",
+  "baseName": "Crafted Sunder Charm",
+  "rarity": "unique",
+  "slot": "charm",
+  "equipmentType": "charm",
+  "width": 1,
+  "height": 3,
+  "desc": "A unique Crafted Sunder Charm from Diablo II.",
+  "requiredLevel": 75,
+  "stats": {
+    "coldResistPercent": -70
+  },
+  "affixes": [
+    "-300% to Enemy Cold Resistance",
+    "Cold Resist +-70%",
+    "+1 Gelid Affix1",
+    "+1 Gelid Affix2",
+    "+1 Gelid Affix3",
+    "+1 Gelid Affix4",
+    "+1 Gelid Affix5",
+    "+1 Gelid Affix6"
+  ],
+  "art": "assets/d2survivors/items/unique/renewed-cold-rupture.png"
+},
+{
+  "name": "Renewed Crack of the Heavens",
+  "baseName": "Crafted Sunder Charm",
+  "rarity": "unique",
+  "slot": "charm",
+  "equipmentType": "charm",
+  "width": 1,
+  "height": 3,
+  "desc": "A unique Crafted Sunder Charm from Diablo II.",
+  "requiredLevel": 75,
+  "stats": {
+    "lightningResistPercent": -70
+  },
+  "affixes": [
+    "-300% to Enemy Lightning Resistance",
+    "Lightning Resist +-70%",
+    "+1 Magnetic Affix1",
+    "+1 Magnetic Affix2",
+    "+1 Magnetic Affix3",
+    "+1 Magnetic Affix4",
+    "+1 Magnetic Affix6"
+  ],
+  "art": "assets/d2survivors/items/unique/renewed-crack-of-the-heavens.png"
+},
+{
+  "name": "Renewed Flame Rift",
+  "baseName": "Crafted Sunder Charm",
+  "rarity": "unique",
+  "slot": "charm",
+  "equipmentType": "charm",
+  "width": 1,
+  "height": 3,
+  "desc": "A unique Crafted Sunder Charm from Diablo II.",
+  "requiredLevel": 75,
+  "stats": {
+    "fireResistPercent": -70
+  },
+  "affixes": [
+    "-300% to Enemy Fire Resistance",
+    "Fire Resist +-70%",
+    "+1 Incendiary Affix1",
+    "+1 Incendiary Affix2",
+    "+1 Incendiary Affix3",
+    "+1 Incendiary Affix4",
+    "+1 Incendiary Affix6"
+  ],
+  "art": "assets/d2survivors/items/unique/renewed-flame-rift.png"
+},
+{
+  "name": "Renewed Rotting Fissure",
+  "baseName": "Crafted Sunder Charm",
+  "rarity": "unique",
+  "slot": "charm",
+  "equipmentType": "charm",
+  "width": 1,
+  "height": 3,
+  "desc": "A unique Crafted Sunder Charm from Diablo II.",
+  "requiredLevel": 75,
+  "stats": {
+    "poisonResistPercent": -70
+  },
+  "affixes": [
+    "+300 Pierce Immunity Poison",
+    "Poison Resist +-70%",
+    "+1 Virulent Affix1",
+    "+1 Virulent Affix2",
+    "+1 Virulent Affix3",
+    "+1 Virulent Affix4",
+    "+1 Virulent Affix6"
+  ],
+  "art": "assets/d2survivors/items/unique/renewed-rotting-fissure.png"
+},
+{
   "name": "Ribcracker",
   "baseName": "Quarterstaff",
   "rarity": "unique",
@@ -10060,34 +9784,6 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "+100 Durability"
   ],
   "art": "assets/d2survivors/items/unique/ribcracker.png"
-},
-{
-  "name": "Rimeraven",
-  "baseName": "Long Bow",
-  "rarity": "unique",
-  "slot": "weapon",
-  "equipmentType": "weapon",
-  "width": 2,
-  "height": 4,
-  "desc": "A unique Long Bow from Diablo II.",
-  "requiredLevel": 15,
-  "stats": {
-    "damageMin": 1,
-    "damageMax": 2,
-    "requiresStrength": 22,
-    "requiresDexterity": 19,
-    "plusDexterity": 3,
-    "plusStrength": 3,
-    "enhancedDamagePercent": 70
-  },
-  "affixes": [
-    "50% Bonus to Attack Rating",
-    "+3 to Dexterity",
-    "Fires Explosive Arrows or Bolts",
-    "+3 to Strength",
-    "+70% Enhanced Damage"
-  ],
-  "art": "assets/d2survivors/items/unique/rimeraven.png"
 },
 {
   "name": "Riphook",
@@ -10149,7 +9845,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/unique/ripsaw.png"
 },
 {
-  "name": "Rixots Keen",
+  "name": "Rixot's Keen",
   "baseName": "Short Sword",
   "rarity": "unique",
   "slot": "weapon",
@@ -10175,7 +9871,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "+25 Defense",
     "+100% Enhanced Damage"
   ],
-  "art": "assets/d2survivors/items/unique/rixots-keen.png"
+  "art": "assets/d2survivors/items/unique/rixot-s-keen.png"
 },
 {
   "name": "Rockfleece",
@@ -10236,6 +9932,37 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/d2/invxkpu.png"
 },
 {
+  "name": "Rogue's Bow",
+  "baseName": "Composite Bow",
+  "rarity": "unique",
+  "slot": "weapon",
+  "equipmentType": "weapon",
+  "width": 2,
+  "height": 3,
+  "desc": "A unique Composite Bow from Diablo II.",
+  "requiredLevel": 20,
+  "stats": {
+    "damageMin": 1,
+    "damageMax": 2,
+    "requiresStrength": 25,
+    "requiresDexterity": 35,
+    "allResistPercent": 10,
+    "deadlyStrikePercent": 30,
+    "enhancedDamagePercent": 60,
+    "attackSpeedPercent": 50
+  },
+  "affixes": [
+    "All Resistances +10%",
+    "30% Deadly Strike",
+    "+60 to Attack Rating",
+    "+100% Damage to Undead",
+    "+60% Enhanced Damage",
+    "+50% Increased Attack Speed",
+    "+1 Roguesbow Affix1"
+  ],
+  "art": "assets/d2survivors/items/d2/invcbwu.png"
+},
+{
   "name": "Rotting Fissure",
   "baseName": "Grand Charm",
   "rarity": "unique",
@@ -10255,7 +9982,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/unique/rotting-fissure.png"
 },
 {
-  "name": "Runemaster",
+  "name": "Rune Master",
   "baseName": "Ettin Axe",
   "rarity": "unique",
   "slot": "weapon",
@@ -10277,7 +10004,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "+5% to Maximum Cold Resist",
     "Cannot Be Frozen"
   ],
-  "art": "assets/d2survivors/items/unique/runemaster.png"
+  "art": "assets/d2survivors/items/unique/rune-master.png"
 },
 {
   "name": "Rusthandle",
@@ -10463,7 +10190,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/unique/serpent-lord.png"
 },
 {
-  "name": "Shadowdancer",
+  "name": "Shadow Dancer",
   "baseName": "Myrmidon Greaves",
   "rarity": "unique",
   "slot": "armor",
@@ -10487,7 +10214,36 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "+2 to Skill Tab 19",
     "Requirements -20%"
   ],
-  "art": "assets/d2survivors/items/unique/shadowdancer.png"
+  "art": "assets/d2survivors/items/unique/shadow-dancer.png"
+},
+{
+  "name": "Shadow Killer",
+  "baseName": "Battle Cestus",
+  "rarity": "unique",
+  "slot": "weapon",
+  "equipmentType": "claw",
+  "width": 1,
+  "height": 3,
+  "desc": "A unique Battle Cestus from Diablo II.",
+  "requiredLevel": 78,
+  "stats": {
+    "damageMin": 36,
+    "damageMax": 42,
+    "requiresStrength": 110,
+    "requiresDexterity": 110,
+    "enhancedDamagePercent": 220
+  },
+  "affixes": [
+    "+220% Enhanced Damage",
+    "-25% Target Defense",
+    "Freezes Target +2",
+    "+15 to Mana after Each Kill",
+    "8% Chance to Cast Level 33 Frost Nova on Striking",
+    "Ethereal (Cannot Be Repaired)",
+    "Indestructible"
+  ],
+  "art": "assets/d2survivors/items/d2/invaxfu.png",
+  "restrictedClass": "assassin"
 },
 {
   "name": "Shadowfang",
@@ -10523,35 +10279,6 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/d2/inv2hsu.png"
 },
 {
-  "name": "Shadowkiller",
-  "baseName": "Battle Cestus",
-  "rarity": "unique",
-  "slot": "weapon",
-  "equipmentType": "claw",
-  "width": 1,
-  "height": 3,
-  "desc": "A unique Battle Cestus from Diablo II.",
-  "requiredLevel": 78,
-  "stats": {
-    "damageMin": 36,
-    "damageMax": 42,
-    "requiresStrength": 110,
-    "requiresDexterity": 110,
-    "enhancedDamagePercent": 220
-  },
-  "affixes": [
-    "+220% Enhanced Damage",
-    "-25% Target Defense",
-    "Freezes Target +2",
-    "+15 to Mana after Each Kill",
-    "8% Chance to Cast Level 33 Frost Nova on Striking",
-    "Ethereal (Cannot Be Repaired)",
-    "Indestructible"
-  ],
-  "art": "assets/d2survivors/items/d2/invaxfu.png",
-  "restrictedClass": "assassin"
-},
-{
   "name": "Shaftstop",
   "baseName": "Mesh Armor",
   "rarity": "unique",
@@ -10575,6 +10302,31 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "+220% Enhanced Defense"
   ],
   "art": "assets/d2survivors/items/d2/invchn.png"
+},
+{
+  "name": "Silks of the Victor",
+  "baseName": "Ancient Armor",
+  "rarity": "unique",
+  "slot": "armor",
+  "equipmentType": "body",
+  "width": 2,
+  "height": 3,
+  "desc": "A unique Ancient Armor from Diablo II.",
+  "requiredLevel": 28,
+  "stats": {
+    "armor": 226,
+    "requiresStrength": 100,
+    "manaStealPercent": 5,
+    "lightRadius": 2,
+    "armorPercent": 120
+  },
+  "affixes": [
+    "5% Mana Stolen per Hit",
+    "+1 to All Skills",
+    "+2 to Light Radius",
+    "+120% Enhanced Defense"
+  ],
+  "art": "assets/d2survivors/items/d2/invaaru.png"
 },
 {
   "name": "Silkweave",
@@ -10603,7 +10355,39 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/d2/invmbt.png"
 },
 {
-  "name": "Skin of the Flayerd One",
+  "name": "Skewer of Krintiz",
+  "baseName": "Saber",
+  "rarity": "unique",
+  "slot": "weapon",
+  "equipmentType": "weapon",
+  "width": 1,
+  "height": 3,
+  "desc": "A unique Saber from Diablo II.",
+  "requiredLevel": 10,
+  "stats": {
+    "damageMin": 3,
+    "damageMax": 8,
+    "requiresStrength": 25,
+    "requiresDexterity": 25,
+    "plusStrength": 10,
+    "plusDexterity": 10,
+    "manaStealPercent": 7,
+    "enhancedDamagePercent": 50,
+    "plusDamageMin": 3,
+    "plusDamage": 7
+  },
+  "affixes": [
+    "Ignore Target's Defense",
+    "+10 to Strength",
+    "+10 to Dexterity",
+    "7% Mana Stolen per Hit",
+    "+50% Enhanced Damage",
+    "Adds 3-7 Damage"
+  ],
+  "art": "assets/d2survivors/items/d2/inv9sbu.png"
+},
+{
+  "name": "Skin of the Flayed One",
   "baseName": "Demonhide Armor",
   "rarity": "unique",
   "slot": "armor",
@@ -10628,7 +10412,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "+190% Enhanced Defense",
     "Attacker Takes Damage of 15"
   ],
-  "art": "assets/d2survivors/items/unique/skin-of-the-flayerd-one.png"
+  "art": "assets/d2survivors/items/unique/skin-of-the-flayed-one.png"
 },
 {
   "name": "Skin of the Vipermagi",
@@ -10657,7 +10441,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/unique/skin-of-the-vipermagi.png"
 },
 {
-  "name": "Skullcollector",
+  "name": "Skull Collector",
   "baseName": "Rune Staff",
   "rarity": "unique",
   "slot": "weapon",
@@ -10679,6 +10463,37 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "+8 Mag% Per Lvl"
   ],
   "art": "assets/d2survivors/items/d2/inv8wsu.png"
+},
+{
+  "name": "Skull Splitter",
+  "baseName": "Military Pick",
+  "rarity": "unique",
+  "slot": "weapon",
+  "equipmentType": "weapon",
+  "width": 2,
+  "height": 3,
+  "desc": "A unique Military Pick from Diablo II.",
+  "requiredLevel": 21,
+  "stats": {
+    "damageMin": 7,
+    "damageMax": 11,
+    "requiresStrength": 49,
+    "requiresDexterity": 33,
+    "elementalDamageMin": 1,
+    "elementalDamageMax": 15,
+    "enhancedDamagePercent": 100,
+    "openWoundsPercent": 15
+  },
+  "affixes": [
+    "2% Chance to Cast Dim Vision when Struck",
+    "Regenerate Mana 20%",
+    "Adds 1 Lightning Damage",
+    "Adds 15 Lightning Damage",
+    "+100 to Attack Rating",
+    "+100% Enhanced Damage",
+    "15% Chance of Open Wounds"
+  ],
+  "art": "assets/d2survivors/items/d2/invmpiu.png"
 },
 {
   "name": "Skullder's Ire",
@@ -10821,6 +10636,32 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "beltQuality": "exceptional"
 },
 {
+  "name": "Soul Drainer",
+  "baseName": "Vambraces",
+  "rarity": "unique",
+  "slot": "armor",
+  "equipmentType": "gloves",
+  "width": 2,
+  "height": 2,
+  "desc": "A unique Vambraces from Diablo II.",
+  "requiredLevel": 74,
+  "stats": {
+    "armor": 63,
+    "requiresStrength": 106,
+    "armorPercent": 120,
+    "manaStealPercent": 7,
+    "lifeStealPercent": 7
+  },
+  "affixes": [
+    "+120% Enhanced Defense",
+    "7% Mana Stolen per Hit",
+    "7% Life Stolen per Hit",
+    "3% Chance to Cast Level 8 Weaken on Striking",
+    "--50 to Monster Defense per Hit"
+  ],
+  "art": "assets/d2survivors/items/unique/soul-drainer.png"
+},
+{
   "name": "Soul Harvest",
   "baseName": "Scythe",
   "rarity": "unique",
@@ -10850,32 +10691,6 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "+5 to Energy"
   ],
   "art": "assets/d2survivors/items/d2/invscyu.png"
-},
-{
-  "name": "Souldrain",
-  "baseName": "Vambraces",
-  "rarity": "unique",
-  "slot": "armor",
-  "equipmentType": "gloves",
-  "width": 2,
-  "height": 2,
-  "desc": "A unique Vambraces from Diablo II.",
-  "requiredLevel": 74,
-  "stats": {
-    "armor": 63,
-    "requiresStrength": 106,
-    "armorPercent": 120,
-    "manaStealPercent": 7,
-    "lifeStealPercent": 7
-  },
-  "affixes": [
-    "+120% Enhanced Defense",
-    "7% Mana Stolen per Hit",
-    "7% Life Stolen per Hit",
-    "3% Chance to Cast Level 8 Weaken on Striking",
-    "--50 to Monster Defense per Hit"
-  ],
-  "art": "assets/d2survivors/items/unique/souldrain.png"
 },
 {
   "name": "Soulfeast Tine",
@@ -10962,6 +10777,33 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "Lightning Resist +30%"
   ],
   "art": "assets/d2survivors/items/unique/sparking-mail.png"
+},
+{
+  "name": "Spectral Shard",
+  "baseName": "Blade",
+  "rarity": "unique",
+  "slot": "weapon",
+  "equipmentType": "weapon",
+  "width": 1,
+  "height": 3,
+  "desc": "A unique Blade from Diablo II.",
+  "requiredLevel": 25,
+  "stats": {
+    "damageMin": 4,
+    "damageMax": 15,
+    "requiresStrength": 35,
+    "requiresDexterity": 51,
+    "fasterCastPercent": 50,
+    "plusMana": 50,
+    "allResistPercent": 10
+  },
+  "affixes": [
+    "+50% Faster Cast Rate",
+    "+50 to Mana",
+    "+55 to Attack Rating",
+    "All Resistances +10%"
+  ],
+  "art": "assets/d2survivors/items/unique/spectral-shard.png"
 },
 {
   "name": "Spellsteel",
@@ -11090,33 +10932,39 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/unique/spire-of-honor.png"
 },
 {
-  "name": "Spirit Ward",
-  "baseName": "Ward",
+  "name": "Spire of Lazarus",
+  "baseName": "Gnarled Staff",
   "rarity": "unique",
-  "slot": "armor",
-  "equipmentType": "shield",
-  "width": 2,
+  "slot": "weapon",
+  "equipmentType": "weapon",
+  "width": 1,
   "height": 4,
-  "desc": "A unique Ward from Diablo II.",
-  "requiredLevel": 68,
+  "desc": "A unique Gnarled Staff from Diablo II.",
+  "requiredLevel": 18,
   "stats": {
-    "armor": 162,
-    "requiresStrength": 185,
-    "armorPercent": 180,
-    "allResistPercent": 40
+    "damageMin": 1,
+    "damageMax": 2,
+    "lightningResistPercent": 75,
+    "damageReductionFlat": 5,
+    "plusEnergy": 15,
+    "elementalDamageMin": 1,
+    "elementalDamageMax": 28
   },
   "affixes": [
-    "+180% Enhanced Defense",
-    "Absorbs 11 Cold Damage",
-    "All Resistances +40%",
-    "30% Increased Chance of Blocking",
-    "+25% Faster Block Rate",
-    "8% Chance to Cast Level 5 Fade when Struck"
+    "Lightning Resist +75%",
+    "Damage Reduced by 5",
+    "+15 to Energy",
+    "+1 to Chain Lightning",
+    "+2 to Lightning",
+    "+3 to Static Field",
+    "Regenerate Mana 43%",
+    "Adds 1-28 Lightning Damage",
+    "+1 to Sorceress Skill Levels"
   ],
-  "art": "assets/d2survivors/items/d2/invgtsu.png"
+  "art": "assets/d2survivors/items/d2/invcstu.png"
 },
 {
-  "name": "Spiritforge",
+  "name": "Spirit Forge",
   "baseName": "Linked Mail",
   "rarity": "unique",
   "slot": "armor",
@@ -11148,7 +10996,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/d2/invrng.png"
 },
 {
-  "name": "Spiritkeeper",
+  "name": "Spirit Keeper",
   "baseName": "Earth Spirit",
   "rarity": "unique",
   "slot": "armor",
@@ -11176,27 +11024,30 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "restrictedClass": "druid"
 },
 {
-  "name": "Staff of Kings",
-  "baseName": "Staff of Kings",
+  "name": "Spirit Ward",
+  "baseName": "Ward",
   "rarity": "unique",
-  "slot": "weapon",
-  "equipmentType": "weapon",
-  "width": 1,
-  "height": 3,
-  "desc": "A unique Staff of Kings from Diablo II.",
-  "requiredLevel": 1,
+  "slot": "armor",
+  "equipmentType": "shield",
+  "width": 2,
+  "height": 4,
+  "desc": "A unique Ward from Diablo II.",
+  "requiredLevel": 68,
   "stats": {
-    "damageMin": 1,
-    "damageMax": 2,
-    "requiresStrength": 25,
-    "allResistPercent": 10,
-    "attackSpeedPercent": 50
+    "armor": 162,
+    "requiresStrength": 185,
+    "armorPercent": 180,
+    "allResistPercent": 40
   },
   "affixes": [
-    "All Resistances +10%",
-    "+50% Increased Attack Speed"
+    "+180% Enhanced Defense",
+    "Absorbs 11 Cold Damage",
+    "All Resistances +40%",
+    "30% Increased Chance of Blocking",
+    "+25% Faster Block Rate",
+    "8% Chance to Cast Level 5 Fade when Struck"
   ],
-  "art": "assets/d2survivors/items/d2/invmsf.png"
+  "art": "assets/d2survivors/items/d2/invgtsu.png"
 },
 {
   "name": "Stealskull",
@@ -11228,7 +11079,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/d2/invhlmu.png"
 },
 {
-  "name": "Steel Carapice",
+  "name": "Steel Carapace",
   "baseName": "Shadow Plate",
   "rarity": "unique",
   "slot": "armor",
@@ -11253,7 +11104,62 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "Repairs 1 Durability in 1 Seconds",
     "6% Chance to Cast Level 8 Iron Maiden when Struck"
   ],
-  "art": "assets/d2survivors/items/unique/steel-carapice.png"
+  "art": "assets/d2survivors/items/unique/steel-carapace.png"
+},
+{
+  "name": "Steel Pillar",
+  "baseName": "War Pike",
+  "rarity": "unique",
+  "slot": "weapon",
+  "equipmentType": "weapon",
+  "width": 2,
+  "height": 4,
+  "desc": "A unique War Pike from Diablo II.",
+  "requiredLevel": 69,
+  "stats": {
+    "damageMin": 1,
+    "damageMax": 2,
+    "requiresStrength": 165,
+    "requiresDexterity": 106,
+    "enhancedDamagePercent": 260,
+    "attackSpeedPercent": 25,
+    "armorPercent": 80,
+    "crushingBlowPercent": 25
+  },
+  "affixes": [
+    "+260% Enhanced Damage",
+    "+25% Increased Attack Speed",
+    "-20% Target Defense",
+    "+80% Enhanced Defense",
+    "Indestructible",
+    "25% Chance of Crushing Blow"
+  ],
+  "art": "assets/d2survivors/items/d2/invpik.png"
+},
+{
+  "name": "Steel Shade",
+  "baseName": "Armet",
+  "rarity": "unique",
+  "slot": "armor",
+  "equipmentType": "helmet",
+  "width": 2,
+  "height": 2,
+  "desc": "A unique Armet from Diablo II.",
+  "requiredLevel": 62,
+  "stats": {
+    "armor": 127,
+    "requiresStrength": 109,
+    "armorPercent": 130,
+    "manaStealPercent": 8,
+    "replenishLife": 18
+  },
+  "affixes": [
+    "+130% Enhanced Defense",
+    "Absorbs 11 Fire Damage",
+    "8% Mana Stolen per Hit",
+    "Replenish Life +18"
+  ],
+  "art": "assets/d2survivors/items/d2/invhlmu.png"
 },
 {
   "name": "Steelclash",
@@ -11340,36 +11246,6 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/unique/steelgoad.png"
 },
 {
-  "name": "Steelpillar",
-  "baseName": "War Pike",
-  "rarity": "unique",
-  "slot": "weapon",
-  "equipmentType": "weapon",
-  "width": 2,
-  "height": 4,
-  "desc": "A unique War Pike from Diablo II.",
-  "requiredLevel": 69,
-  "stats": {
-    "damageMin": 1,
-    "damageMax": 2,
-    "requiresStrength": 165,
-    "requiresDexterity": 106,
-    "enhancedDamagePercent": 260,
-    "attackSpeedPercent": 25,
-    "armorPercent": 80,
-    "crushingBlowPercent": 25
-  },
-  "affixes": [
-    "+260% Enhanced Damage",
-    "+25% Increased Attack Speed",
-    "-20% Target Defense",
-    "+80% Enhanced Defense",
-    "Indestructible",
-    "25% Chance of Crushing Blow"
-  ],
-  "art": "assets/d2survivors/items/d2/invpik.png"
-},
-{
   "name": "Steelrend",
   "baseName": "Ogre Gauntlets",
   "rarity": "unique",
@@ -11393,31 +11269,6 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "10% Chance of Crushing Blow"
   ],
   "art": "assets/d2survivors/items/d2/invhgl.png"
-},
-{
-  "name": "Steelshade",
-  "baseName": "Armet",
-  "rarity": "unique",
-  "slot": "armor",
-  "equipmentType": "helmet",
-  "width": 2,
-  "height": 2,
-  "desc": "A unique Armet from Diablo II.",
-  "requiredLevel": 62,
-  "stats": {
-    "armor": 127,
-    "requiresStrength": 109,
-    "armorPercent": 130,
-    "manaStealPercent": 8,
-    "replenishLife": 18
-  },
-  "affixes": [
-    "+130% Enhanced Defense",
-    "Absorbs 11 Fire Damage",
-    "8% Mana Stolen per Hit",
-    "Replenish Life +18"
-  ],
-  "art": "assets/d2survivors/items/d2/invhlmu.png"
 },
 {
   "name": "Stone Crusher",
@@ -11737,6 +11588,37 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/unique/stormspire.png"
 },
 {
+  "name": "Stormstrike",
+  "baseName": "Short Battle Bow",
+  "rarity": "unique",
+  "slot": "weapon",
+  "equipmentType": "weapon",
+  "width": 2,
+  "height": 3,
+  "desc": "A unique Short Battle Bow from Diablo II.",
+  "requiredLevel": 25,
+  "stats": {
+    "damageMin": 1,
+    "damageMax": 2,
+    "requiresStrength": 30,
+    "requiresDexterity": 40,
+    "elementalDamageMin": 1,
+    "elementalDamageMax": 30,
+    "plusStrength": 8,
+    "lightningResistPercent": 25,
+    "enhancedDamagePercent": 90
+  },
+  "affixes": [
+    "Adds 1-30 Lightning Damage",
+    "+8 to Strength",
+    "+28 to Attack Rating",
+    "25% Piercing Attack",
+    "Lightning Resist +25%",
+    "+90% Enhanced Damage"
+  ],
+  "art": "assets/d2survivors/items/d2/invsbbu.png"
+},
+{
   "name": "Stoutnail",
   "baseName": "Spiked Club",
   "rarity": "unique",
@@ -11818,35 +11700,6 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "+1 to All Skills"
   ],
   "art": "assets/d2survivors/items/d2/invwnd.png"
-},
-{
-  "name": "SuperKhalimFlail",
-  "baseName": "Khalim's Will",
-  "rarity": "unique",
-  "slot": "weapon",
-  "equipmentType": "weapon",
-  "width": 2,
-  "height": 3,
-  "desc": "A unique Khalim's Will from Diablo II.",
-  "requiredLevel": 1,
-  "stats": {
-    "damageMin": 1,
-    "damageMax": 15,
-    "elementalDamageMin": 1,
-    "elementalDamageMax": 40,
-    "attackSpeedPercent": 50,
-    "manaStealPercent": 6,
-    "lifeStealPercent": 6
-  },
-  "affixes": [
-    "Adds 1 Lightning Damage",
-    "Adds 40 Lightning Damage",
-    "+50% Increased Attack Speed",
-    "+40 to Attack Rating",
-    "6% Mana Stolen per Hit",
-    "6% Life Stolen per Hit"
-  ],
-  "art": "assets/d2survivors/items/d2/invqf2.png"
 },
 {
   "name": "Sureshrill Frost",
@@ -12019,7 +11872,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/d2/invaaru.png"
 },
 {
-  "name": "The Atlantian",
+  "name": "The Atlantean",
   "baseName": "Ancient Sword",
   "rarity": "unique",
   "slot": "weapon",
@@ -12049,7 +11902,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "+2 to Paladin Skill Levels",
     "50% Bonus to Attack Rating"
   ],
-  "art": "assets/d2survivors/items/unique/the-atlantian.png"
+  "art": "assets/d2survivors/items/unique/the-atlantean.png"
 },
 {
   "name": "The Battlebranch",
@@ -12135,7 +11988,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/unique/the-centurion.png"
 },
 {
-  "name": "The Chieftan",
+  "name": "The Chieftain",
   "baseName": "Battle Axe",
   "rarity": "unique",
   "slot": "weapon",
@@ -12369,7 +12222,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/d2/inv9gmu.png"
 },
 {
-  "name": "The Generals Tan Do Li Ga",
+  "name": "The General's Tan Do Li Ga",
   "baseName": "Flail",
   "rarity": "unique",
   "slot": "weapon",
@@ -12399,7 +12252,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "+60% Enhanced Damage",
     "+20% Increased Attack Speed"
   ],
-  "art": "assets/d2survivors/items/unique/the-generals-tan-do-li-ga.png"
+  "art": "assets/d2survivors/items/unique/the-general-s-tan-do-li-ga.png"
 },
 {
   "name": "The Gladiator's Bane",
@@ -12552,36 +12405,6 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/unique/the-hand-of-broc.png"
 },
 {
-  "name": "The Humongous",
-  "baseName": "Giant Axe",
-  "rarity": "unique",
-  "slot": "weapon",
-  "equipmentType": "weapon",
-  "width": 2,
-  "height": 3,
-  "desc": "A unique Giant Axe from Diablo II.",
-  "requiredLevel": 29,
-  "stats": {
-    "damageMin": 1,
-    "damageMax": 2,
-    "requiresStrength": 56,
-    "plusStrength": 30,
-    "plusDamageMin": 8,
-    "plusDamage": 25,
-    "crushingBlowPercent": 33,
-    "enhancedDamagePercent": 120
-  },
-  "affixes": [
-    "+30 to Strength",
-    "+8 to Minimum Damage",
-    "+25 to Maximum Damage",
-    "33% Chance of Crushing Blow",
-    "Requirements -20%",
-    "+120% Enhanced Damage"
-  ],
-  "art": "assets/d2survivors/items/unique/the-humongous.png"
-},
-{
   "name": "The Impaler",
   "baseName": "War Spear",
   "rarity": "unique",
@@ -12730,7 +12553,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/unique/the-meat-scraper.png"
 },
 {
-  "name": "The Minataur",
+  "name": "The Minotaur",
   "baseName": "Ancient Axe",
   "rarity": "unique",
   "slot": "weapon",
@@ -12857,7 +12680,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/d2/invscy.png"
 },
 {
-  "name": "The Reedeemer",
+  "name": "The Redeemer",
   "baseName": "Mighty Scepter",
   "rarity": "unique",
   "slot": "weapon",
@@ -13115,7 +12938,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/d2/invgtsu.png"
 },
 {
-  "name": "Thudergod's Vigor",
+  "name": "Thundergod's Vigor",
   "baseName": "War Belt",
   "rarity": "unique",
   "slot": "belt",
@@ -13344,6 +13167,35 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/unique/toothrow.png"
 },
 {
+  "name": "Torch of Iro",
+  "baseName": "Wand",
+  "rarity": "unique",
+  "slot": "weapon",
+  "equipmentType": "wand",
+  "width": 1,
+  "height": 2,
+  "desc": "A unique Wand from Diablo II.",
+  "requiredLevel": 5,
+  "stats": {
+    "damageMin": 2,
+    "damageMax": 4,
+    "lifeStealPercent": 6,
+    "elementalDamageMin": 5,
+    "elementalDamageMax": 9,
+    "lightRadius": 3,
+    "plusEnergy": 10
+  },
+  "affixes": [
+    "+1 to Necromancer Skill Levels",
+    "6% Life Stolen per Hit",
+    "Adds 5-9 Fire Damage",
+    "+3 to Light Radius",
+    "+10 to Energy",
+    "Regenerate Mana 5%"
+  ],
+  "art": "assets/d2survivors/items/d2/invwndu.png"
+},
+{
   "name": "Treads of Cthon",
   "baseName": "Chain Boots",
   "rarity": "unique",
@@ -13458,7 +13310,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/d2/invsmlu.png"
 },
 {
-  "name": "Umes Lament",
+  "name": "Ume's Lament",
   "baseName": "Grim Wand",
   "rarity": "unique",
   "slot": "weapon",
@@ -13481,7 +13333,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "+3 to Terror",
     "+2 to Decrepify"
   ],
-  "art": "assets/d2survivors/items/unique/umes-lament.png"
+  "art": "assets/d2survivors/items/unique/ume-s-lament.png"
 },
 {
   "name": "Undead Crown",
@@ -13513,35 +13365,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/unique/undead-crown.png"
 },
 {
-  "name": "Unique Warlock Helm",
-  "baseName": "Death Mask",
-  "rarity": "unique",
-  "slot": "armor",
-  "equipmentType": "helmet",
-  "width": 2,
-  "height": 2,
-  "desc": "A unique Death Mask from Diablo II.",
-  "requiredLevel": 50,
-  "stats": {
-    "armor": 70,
-    "requiresStrength": 55,
-    "fasterCastPercent": 20,
-    "attackSpeedPercent": 20,
-    "armorPercent": 215
-  },
-  "affixes": [
-    "+1 to All Skills",
-    "-8% to Enemy Fire Resistance",
-    "-8% to Enemy Magic Resistance",
-    "+20% Faster Cast Rate",
-    "+20% Increased Attack Speed",
-    "+215% Enhanced Defense",
-    "+6 to Mana after Each Kill"
-  ],
-  "art": "assets/d2survivors/items/d2/invmsk.png"
-},
-{
-  "name": "Valkiry Wing",
+  "name": "Valkyrie Wing",
   "baseName": "Winged Helm",
   "rarity": "unique",
   "slot": "armor",
@@ -13566,7 +13390,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/d2/invghm.png"
 },
 {
-  "name": "Vampiregaze",
+  "name": "Vampire Gaze",
   "baseName": "Grim Helm",
   "rarity": "unique",
   "slot": "armor",
@@ -13658,7 +13482,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/d2/invlgl.png"
 },
 {
-  "name": "Venomsward",
+  "name": "Venom Ward",
   "baseName": "Breast Plate",
   "rarity": "unique",
   "slot": "armor",
@@ -13681,10 +13505,10 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "+2 to Light Radius",
     "+100% Enhanced Defense"
   ],
-  "art": "assets/d2survivors/items/unique/venomsward.png"
+  "art": "assets/d2survivors/items/unique/venom-ward.png"
 },
 {
-  "name": "Verdugo's Hearty Cord",
+  "name": "Verdungo's Hearty Cord",
   "baseName": "Mithril Coil",
   "rarity": "unique",
   "slot": "belt",
@@ -13708,33 +13532,8 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "Damage Reduced by 15%",
     "Replenish Life +13"
   ],
-  "art": "assets/d2survivors/items/unique/verdugo-s-hearty-cord.png",
+  "art": "assets/d2survivors/items/unique/verdungo-s-hearty-cord.png",
   "beltQuality": "elite"
-},
-{
-  "name": "Victors Silk",
-  "baseName": "Ancient Armor",
-  "rarity": "unique",
-  "slot": "armor",
-  "equipmentType": "body",
-  "width": 2,
-  "height": 3,
-  "desc": "A unique Ancient Armor from Diablo II.",
-  "requiredLevel": 28,
-  "stats": {
-    "armor": 226,
-    "requiresStrength": 100,
-    "manaStealPercent": 5,
-    "lightRadius": 2,
-    "armorPercent": 120
-  },
-  "affixes": [
-    "5% Mana Stolen per Hit",
-    "+1 to All Skills",
-    "+2 to Light Radius",
-    "+120% Enhanced Defense"
-  ],
-  "art": "assets/d2survivors/items/d2/invaaru.png"
 },
 {
   "name": "Viperfork",
@@ -13821,29 +13620,39 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/d2/invbshu.png"
 },
 {
-  "name": "War Bonnet",
-  "baseName": "Cap",
+  "name": "War Traveler",
+  "baseName": "Battle Boots",
   "rarity": "unique",
   "slot": "armor",
-  "equipmentType": "helmet",
+  "equipmentType": "boots",
   "width": 2,
   "height": 2,
-  "desc": "A unique Cap from Diablo II.",
-  "requiredLevel": 3,
+  "desc": "A unique Battle Boots from Diablo II.",
+  "requiredLevel": 42,
   "stats": {
-    "armor": 18,
-    "plusLife": 15,
-    "enhancedDamagePercent": 30,
-    "plusMana": 15
+    "armor": 43,
+    "requiresStrength": 95,
+    "plusVitality": 10,
+    "plusStrength": 10,
+    "magicFindPercent": 50,
+    "movementSpeedPercent": 25,
+    "armorPercent": 190,
+    "plusDamageMin": 15,
+    "plusDamage": 25,
+    "thorns": 10
   },
   "affixes": [
-    "+15 to Life",
-    "+30 to Attack Rating",
-    "+30% Enhanced Damage",
-    "+15 to Mana",
-    "+14 Defense"
+    "+10 to Vitality",
+    "+10 to Strength",
+    "50% Better Chance of Getting Magic Items",
+    "+30 Durability",
+    "+25% Faster Run/Walk",
+    "+190% Enhanced Defense",
+    "Adds 15-25 Damage",
+    "Attacker Takes Damage of 10",
+    "40% Slower Stamina Drain"
   ],
-  "art": "assets/d2survivors/items/d2/invcapu.png"
+  "art": "assets/d2survivors/items/d2/invtbt.png"
 },
 {
   "name": "Warlord's Trust",
@@ -13929,41 +13738,6 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/d2/invtk3.png"
 },
 {
-  "name": "Wartraveler",
-  "baseName": "Battle Boots",
-  "rarity": "unique",
-  "slot": "armor",
-  "equipmentType": "boots",
-  "width": 2,
-  "height": 2,
-  "desc": "A unique Battle Boots from Diablo II.",
-  "requiredLevel": 42,
-  "stats": {
-    "armor": 43,
-    "requiresStrength": 95,
-    "plusVitality": 10,
-    "plusStrength": 10,
-    "magicFindPercent": 50,
-    "movementSpeedPercent": 25,
-    "armorPercent": 190,
-    "plusDamageMin": 15,
-    "plusDamage": 25,
-    "thorns": 10
-  },
-  "affixes": [
-    "+10 to Vitality",
-    "+10 to Strength",
-    "50% Better Chance of Getting Magic Items",
-    "+30 Durability",
-    "+25% Faster Run/Walk",
-    "+190% Enhanced Defense",
-    "Adds 15-25 Damage",
-    "Attacker Takes Damage of 10",
-    "40% Slower Stamina Drain"
-  ],
-  "art": "assets/d2survivors/items/d2/invtbt.png"
-},
-{
   "name": "Waterwalk",
   "baseName": "Sharkskin Boots",
   "rarity": "unique",
@@ -13992,34 +13766,6 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "Heal Stamina Plus 50%"
   ],
   "art": "assets/d2survivors/items/d2/invvbt.png"
-},
-{
-  "name": "Whichwild String",
-  "baseName": "Short Siege Bow",
-  "rarity": "unique",
-  "slot": "weapon",
-  "equipmentType": "weapon",
-  "width": 2,
-  "height": 3,
-  "desc": "A unique Short Siege Bow from Diablo II.",
-  "requiredLevel": 39,
-  "stats": {
-    "damageMin": 1,
-    "damageMax": 2,
-    "requiresStrength": 65,
-    "requiresDexterity": 80,
-    "allResistPercent": 40,
-    "enhancedDamagePercent": 170
-  },
-  "affixes": [
-    "5% Chance to Cast Level 2 Amplify Damage on Striking",
-    "All Resistances +40%",
-    "+8 Deadly Per Lvl",
-    "+170% Enhanced Damage",
-    "Fires Magic Arrows or Bolts",
-    "Socketed (1)"
-  ],
-  "art": "assets/d2survivors/items/d2/inv8s8u.png"
 },
 {
   "name": "Widowmaker",
@@ -14109,7 +13855,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/d2/invmau.png"
 },
 {
-  "name": "Wisp",
+  "name": "Wisp Projector",
   "baseName": "Ring",
   "rarity": "unique",
   "slot": "charm",
@@ -14129,7 +13875,35 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "Level 13 Heart of Wolverine (5 Charges)",
     "Level 11 Spirit of Barbs (7 Charges)"
   ],
-  "art": "assets/d2survivors/items/unique/wisp.png"
+  "art": "assets/d2survivors/items/unique/wisp-projector.png"
+},
+{
+  "name": "Witchwild String",
+  "baseName": "Short Siege Bow",
+  "rarity": "unique",
+  "slot": "weapon",
+  "equipmentType": "weapon",
+  "width": 2,
+  "height": 3,
+  "desc": "A unique Short Siege Bow from Diablo II.",
+  "requiredLevel": 39,
+  "stats": {
+    "damageMin": 1,
+    "damageMax": 2,
+    "requiresStrength": 65,
+    "requiresDexterity": 80,
+    "allResistPercent": 40,
+    "enhancedDamagePercent": 170
+  },
+  "affixes": [
+    "5% Chance to Cast Level 2 Amplify Damage on Striking",
+    "All Resistances +40%",
+    "+8 Deadly Per Lvl",
+    "+170% Enhanced Damage",
+    "Fires Magic Arrows or Bolts",
+    "Socketed (1)"
+  ],
+  "art": "assets/d2survivors/items/d2/inv8s8u.png"
 },
 {
   "name": "Witherstring",
@@ -14315,7 +14089,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "art": "assets/d2survivors/items/d2/invbhmu.png"
 },
 {
-  "name": "Wraithflight",
+  "name": "Wraith Flight",
   "baseName": "Ghost Glaive",
   "rarity": "unique",
   "slot": "weapon",
@@ -14339,7 +14113,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "+15 to Mana after Each Kill",
     "Ethereal (Cannot Be Repaired)"
   ],
-  "art": "assets/d2survivors/items/unique/wraithflight.png"
+  "art": "assets/d2survivors/items/unique/wraith-flight.png"
 },
 {
   "name": "Wraithstep",

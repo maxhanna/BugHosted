@@ -53,7 +53,8 @@ SPECIES: dict[str, tuple[str, str, int, int]] = {
     "sandMaggotYoung": ("SB", "sand-maggot-young.png", 18, 16),
     "sandMaggotQueen": ("MQ", "maggot-queen.png", 18, 16),
     "scarab": ("SC", "scarab.png", 16, 16),
-    "spiderDemon": ("SP", "spider-demon.png", 18, 16),
+    # spiderDemon is a NEW_SPECIES atlas; its old 18-column entry here would
+    # corrupt the sheet if a plain (non---new) rebuild were run.
     "spikeFiend": ("SI", "spike-fiend.png", 16, 16),
     "leaper": ("SL", "leaper.png", 20, 16),
     "blunderbore": ("PN", "blunderbore.png", 16, 16),
@@ -84,6 +85,9 @@ SPECIES: dict[str, tuple[str, str, int, int]] = {
 NEW_SPECIES: dict[str, tuple[str, str, int, int, int]] = {
     "balrog": ("DM", "balrog.png", 16, 224, 152),
     "bloodLord": ("L3", "blood-lord.png", 16, 64, 64),
+    # SP has twelve walk cels and eleven attack cels per facing. Keep the twelve
+    # columns explicit; the old eighteen-column entry was stale and would slice
+    # the regenerated sheet at the wrong cell width.
     "spiderDemon": ("SP", "spider-demon.png", 12, 160, 128),
     "fetishShaman": ("FS", "fetish-shaman.png", 17, 112, 96),
     # The Act V minotaur is the Blood Lord composite (L3), including its axes.

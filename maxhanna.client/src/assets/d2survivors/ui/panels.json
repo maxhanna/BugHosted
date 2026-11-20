@@ -1,0 +1,15 @@
+{
+  "character-panel": {
+    "height": 1507,
+    "source": "hd/global/ui/panel/character_sheet/character_background.sprite",
+    "width": 1162
+  },
+  "exocet-font": {
+    "source": "hd/ui/fonts/exocetblizzardot-medium.otf"
+  },
+  "inventory-panel": {
+    "height": 1507,
+    "source": "hd/global/ui/panel/inventory/classic_background.sprite",
+    "width": 1162
+  }
+}

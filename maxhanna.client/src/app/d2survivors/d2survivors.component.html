@@ -64,13 +64,42 @@
             <section class="d2s-lobby-ranking" aria-labelledby="d2s-ranking-title">
               <div class="d2s-lobby-section-heading"><div><small>THE IMMORTAL ARCHIVE</small><h2 id="d2s-ranking-title">Greatest heroes of all time</h2></div><span class="d2s-online-indicator"><i></i> REALM ONLINE</span></div>
               <p class="d2s-lobby-error" role="status" *ngIf="lobbyError">{{ lobbyError }}</p>
-              <div class="d2s-ranking-list" *ngIf="lobbyLeaderboard.length; else noRankings">
-                <div class="d2s-ranking-row" *ngFor="let hero of lobbyLeaderboard; let i = index" [class.top-rank]="i < 3">
-                  <span class="d2s-rank-number">{{ (i + 1).toString().padStart(2, '0') }}</span>
-                  <span class="d2s-class-sigil" [attr.data-initial]="hero.classId.charAt(0).toUpperCase()"></span>
-                  <span class="d2s-ranking-identity"><strong>{{ hero.characterName }}</strong><small>{{ hero.username }} · {{ hero.classId | titlecase }}</small></span>
-                  <span class="d2s-ranking-result" [class.hero-fallen]="hero.died"><strong>{{ hero.died ? 'FALLEN' : 'VICTOR' }}</strong><small>Lv {{ hero.level }} · {{ hero.timeSeconds }}s · {{ hero.kills }} kills</small></span>
-                  <strong class="d2s-ranking-score">{{ hero.score | number }}</strong>
+              <div class="d2s-hero-lineup" *ngIf="lobbyHeroes.length; else noRankings">
+                <div class="d2s-hero-lineup-scroll" (mouseleave)="clearLeaderboardHeroHover()">
+                  <div class="d2s-hero-lineup-stage" [style.width.px]="leaderboardStageWidth">
+                    <canvas #leaderboardHeroCanvas class="d2s-hero-lineup-canvas" aria-hidden="true"></canvas>
+                    <button type="button" class="d2s-hero-lineup-slot" *ngFor="let hero of lobbyHeroes; let i = index"
+                      [class.top-rank]="i < 3" [class.is-hovered]="isLeaderboardHeroHovered(hero)"
+                      [style.left.px]="i * leaderboardSlotWidth"
+                      (mouseenter)="onLeaderboardHeroEnter(hero, i)" (focus)="onLeaderboardHeroEnter(hero, i)"
+                      (mouseleave)="onLeaderboardHeroLeave(hero)" (blur)="onLeaderboardHeroLeave(hero)"
+                      [attr.aria-label]="hero.characterName + ', ' + hero.username + ' ' + (hero.classId | titlecase) + ', level ' + hero.level + ', score ' + hero.score">
+                      <span class="d2s-hero-lineup-rank">{{ (i + 1).toString().padStart(2, '0') }}</span>
+                      <span class="d2s-hero-lineup-name">{{ hero.characterName }}</span>
+                      <span class="d2s-hero-lineup-meta">{{ hero.username }} · {{ hero.classId | titlecase }}</span>
+                    </button>
+                  </div>
+                </div>
+                <div class="d2s-hero-run-details" [class.is-empty]="!hoveredLeaderboardHero">
+                  <ng-container *ngIf="hoveredLeaderboardHero as hero; else heroHint">
+                    <div class="d2s-hero-run-identity">
+                      <small>RUN RECORD · #{{ hoveredLeaderboardRank }}</small>
+                      <strong>{{ hero.characterName }}</strong>
+                      <span>{{ hero.username }} · {{ hero.classId | titlecase }}</span>
+                    </div>
+                    <div class="d2s-hero-run-stats">
+                      <span><small>SCORE</small><b>{{ hero.score | number }}</b></span>
+                      <span><small>LEVEL</small><b>{{ hero.level }}</b></span>
+                      <span><small>SURVIVED</small><b>{{ formatLeaderboardTime(hero.timeSeconds) }}</b></span>
+                      <span><small>KILLS</small><b>{{ hero.kills | number }}</b></span>
+                      <span><small>FATE</small><b [class.hero-fallen]="hero.died">{{ hero.died ? 'FALLEN' : 'VICTOR' }}</b></span>
+                    </div>
+                    <time class="d2s-hero-run-date">{{ hero.createdAt | date: 'MMM d, y' }}</time>
+                  </ng-container>
+                  <ng-template #heroHint>
+                    <span class="d2s-hero-run-rune" aria-hidden="true">✦</span>
+                    <p>Hover a hero to read the run carved into the archive.</p>
+                  </ng-template>
                 </div>
               </div>
               <ng-template #noRankings><div class="d2s-lobby-empty"><span aria-hidden="true">✦</span><strong>{{ lobbyLoading ? 'Summoning the archive…' : 'No fallen heroes yet' }}</strong><small>Every completed journey will be remembered here.</small></div></ng-template>
@@ -211,7 +240,21 @@
           <div class="d2s-menu-hero-error" *ngIf="menuHeroLoadError">Hero model unavailable</div>
           <div class="d2s-hero-plaque">
             <span class="d2s-class-gem large" [attr.data-initial]="selectedClassName.charAt(0)"></span>
-            <div><small>YOUR DESTINY</small><strong>{{ selectedClassName }}</strong><span>{{ selectedClassDescription }}</span></div>
+            <div>
+              <small>YOUR DESTINY</small><strong>{{ selectedClassName }}</strong><span>{{ selectedClassDescription }}</span>
+              <div class="d2s-menu-hero-loadout" *ngIf="menuHeroLoadoutGear.length" aria-label="Equipped weapon and armor">
+                <span class="d2s-menu-hero-gear" *ngFor="let gear of menuHeroLoadoutGear"
+                  [class.magic]="gear.item.rarity === 'magic'"
+                  [class.rare]="gear.item.rarity === 'rare'"
+                  [class.unique]="gear.item.rarity === 'unique'"
+                  [class.set]="gear.item.rarity === 'set'"
+                  [attr.title]="gear.label + ': ' + gear.item.name"
+                  [attr.aria-label]="gear.label + ': ' + gear.item.name">
+                  <img [src]="gear.icon" alt="" aria-hidden="true" />
+                  <b>{{ gear.item.name }}</b>
+                </span>
+              </div>
+            </div>
           </div>
           <div class="d2s-menu-version">A DARK FANTASY SURVIVOR</div>
         </aside>
@@ -272,9 +315,11 @@
       <canvas #characterOccluderCanvas class="d2s-character-occluder-canvas" width="500" height="500" aria-hidden="true"></canvas>
       <canvas #skillEffectsCanvas class="d2s-skill-effects-canvas" width="500" height="500" aria-hidden="true"></canvas>
       <div class="d2s-enemy-hover-card" *ngIf="hoveredEnemy as enemy" aria-live="polite">
-        <strong>{{ getEnemyDisplayName(enemy) }}</strong>
+        <strong [class.d2s-enemy-hover-champion]="enemy.kind === 'champion'">{{ getEnemyDisplayName(enemy) }}</strong>
         <span class="d2s-enemy-hover-health"><i [style.transform]="'scaleX(' + (enemy.hp / enemy.maxHp) + ')'" [style.background]="enemy.kind === 'boss' ? '#d53226' : '#a81717'"></i></span>
-        <span class="d2s-enemy-hover-immunities" *ngIf="getEnemyImmunityLabel(enemy)">Immune: {{ getEnemyImmunityLabel(enemy) }}</span>
+        <span class="d2s-enemy-hover-traits" *ngIf="getEnemyTraitLabel(enemy)">{{ getEnemyTraitLabel(enemy) }}</span>
+        <span class="d2s-enemy-hover-stats" *ngIf="getEnemyChampionStatLabel(enemy)">{{ getEnemyChampionStatLabel(enemy) }}</span>
+        <span class="d2s-enemy-hover-immunities" *ngIf="getEnemyResistanceLabel(enemy)">{{ getEnemyResistanceLabel(enemy) }}</span>
       </div>
       <div class="d2s-ground-pickup-label" *ngIf="hoveredGroundPickup as pickup" [style.left.px]="pickup.x" [style.top.px]="pickup.y" aria-hidden="true">{{ pickup.text }}</div>
       <div class="d2s-model-hint" *ngIf="modelLoadError">3D character model could not load.</div>
@@ -429,7 +474,7 @@
         <section class="d2s-character-stats" aria-label="Character stats">
           <h3 class="d2s-inventory-heading">{{ selectedClassName }}</h3>
           <p class="d2s-stats-level">Level {{ playerLevel }}</p>
-          <div class="d2s-stats-block">
+          <div class="d2s-stats-block d2s-attribute-stats">
             <h4>Attributes</h4>
             <div class="d2s-stat-line" (mouseenter)="showStatTooltip($event, 'strength')" (mouseleave)="hideStatTooltip()"><span>Strength</span><b>{{ selectedClassStats.attributes[0].value + equippedStrengthBonus }}<small *ngIf="equippedStrengthBonus"> (+{{ equippedStrengthBonus }})</small><small class="d2s-stat-preview" *ngIf="getPreviewItemStatDelta('strength') as strengthDelta" [class.negative]="strengthDelta < 0"> {{ formatItemStatDelta(strengthDelta) }} str</small></b></div>
             <div class="d2s-stat-line" (mouseenter)="showStatTooltip($event, 'dexterity')" (mouseleave)="hideStatTooltip()"><span>Dexterity</span><b>{{ selectedClassStats.attributes[1].value + equippedDexterityBonus }}<small *ngIf="equippedDexterityBonus"> (+{{ equippedDexterityBonus }})</small><small class="d2s-stat-preview" *ngIf="getPreviewItemStatDelta('dexterity') as dexterityDelta" [class.negative]="dexterityDelta < 0"> {{ formatItemStatDelta(dexterityDelta) }} dex</small></b></div>
@@ -542,6 +587,11 @@
     </section>
     <aside class="d2s-stat-tooltip" *ngIf="visibleStatTooltip as statTooltip" [style.left.px]="statTooltip.x" [style.top.px]="statTooltip.y" role="tooltip">
       <strong>{{ statTooltip.title }}</strong>
+      <ul class="d2s-stat-tooltip-breakdown" *ngIf="statTooltip.lines.length">
+        <li *ngFor="let line of statTooltip.lines" [class.is-total]="line.total">
+          <span>{{ line.label }}</span><b>{{ line.value }}</b>
+        </li>
+      </ul>
       <p>{{ statTooltip.description }}</p>
     </aside>
     <div #inventoryItemWindow class="d2s-item-window" *ngIf="inventoryOpen && itemPreviewItem"

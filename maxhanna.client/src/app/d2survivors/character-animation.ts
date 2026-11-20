@@ -167,6 +167,80 @@ function stanceForClass(classId: string): StanceConfig {
   return STANCE[classId] ?? STANCE["paladin"];
 }
 
+/** Per-class empty-hand idle pose. The arms use the same azimuth/elevation
+ *  space as the strike clips, while the wrist owns the palm roll. These are
+ *  deliberately asymmetric: a class reads from the silhouette, not just gear. */
+interface IdleArmPose {
+  /** Upper-arm azimuth: 0 points forward, 90 points out to the side. */
+  out: number;
+  /** Extra forward drift of the upper arm, degrees. */
+  forward: number;
+  /** Upper-arm elevation above the horizon, degrees. */
+  elevation: number;
+  /** Elbow flexion, degrees. */
+  elbow: number;
+  /** Wrist bend relative to the forearm, degrees. */
+  wristFlex: number;
+  /** Palm roll toward the thigh, degrees. */
+  wristRoll: number;
+}
+
+interface IdlePose {
+  /** Right hand, which normally carries the weapon. */
+  lead: IdleArmPose;
+  /** Left hand, kept free for shields, off-hand weapons and gestures. */
+  off: IdleArmPose;
+  chestYaw: number;
+  chestPitch: number;
+  pelvisYaw: number;
+  headYaw: number;
+  legSpread: number;
+  /** Vertical settle as a fraction of body height (negative drops the body). */
+  crouch: number;
+}
+
+const CLASS_IDLE: Record<string, IdlePose> = {
+  amazon: {
+    lead: { out: 58, forward: 0, elevation: -73, elbow: 16, wristFlex: 8, wristRoll: 66 },
+    off: { out: 54, forward: 6, elevation: -71, elbow: 26, wristFlex: 8, wristRoll: 72 },
+    chestYaw: 4, chestPitch: -1, pelvisYaw: -3, headYaw: -4, legSpread: 4, crouch: -0.003,
+  },
+  assassin: {
+    lead: { out: 54, forward: 6, elevation: -68, elbow: 34, wristFlex: 12, wristRoll: 70 },
+    off: { out: 52, forward: 10, elevation: -65, elbow: 42, wristFlex: 14, wristRoll: 74 },
+    chestYaw: -5, chestPitch: 2, pelvisYaw: 3, headYaw: 3, legSpread: 2.5, crouch: -0.012,
+  },
+  barbarian: {
+    lead: { out: 66, forward: 0, elevation: -64, elbow: 26, wristFlex: 12, wristRoll: 62 },
+    off: { out: 66, forward: 3, elevation: -62, elbow: 32, wristFlex: 14, wristRoll: 68 },
+    chestYaw: 0, chestPitch: -3, pelvisYaw: 0, headYaw: 0, legSpread: 6, crouch: 0,
+  },
+  druid: {
+    lead: { out: 57, forward: 2, elevation: -71, elbow: 24, wristFlex: 6, wristRoll: 64 },
+    off: { out: 55, forward: 9, elevation: -64, elbow: 44, wristFlex: 8, wristRoll: 70 },
+    chestYaw: 4, chestPitch: 0, pelvisYaw: -2, headYaw: 4, legSpread: 3.5, crouch: -0.004,
+  },
+  necromancer: {
+    lead: { out: 44, forward: 13, elevation: -60, elbow: 48, wristFlex: 18, wristRoll: 68 },
+    off: { out: 46, forward: 16, elevation: -58, elbow: 56, wristFlex: 20, wristRoll: 74 },
+    chestYaw: -7, chestPitch: 4, pelvisYaw: 3, headYaw: -5, legSpread: 2, crouch: -0.008,
+  },
+  paladin: {
+    lead: { out: 62, forward: 0, elevation: -73, elbow: 12, wristFlex: 4, wristRoll: 62 },
+    off: { out: 56, forward: 8, elevation: -64, elbow: 36, wristFlex: 6, wristRoll: 68 },
+    chestYaw: 3, chestPitch: -2, pelvisYaw: -2, headYaw: 1, legSpread: 3.5, crouch: 0,
+  },
+  sorceress: {
+    lead: { out: 56, forward: 4, elevation: -70, elbow: 20, wristFlex: 8, wristRoll: 66 },
+    off: { out: 52, forward: 15, elevation: -54, elbow: 58, wristFlex: 16, wristRoll: 74 },
+    chestYaw: -4, chestPitch: -1, pelvisYaw: 2, headYaw: -3, legSpread: 2.5, crouch: -0.002,
+  },
+};
+
+function idleForClass(classId: string): IdlePose {
+  return CLASS_IDLE[classId] ?? CLASS_IDLE["paladin"];
+}
+
 /** A solved joint: its bind transform plus the stance it starts each frame from. */
 export interface RigJoint {
   bone: THREE.Bone;
@@ -183,6 +257,8 @@ export interface RigJoint {
   parent?: RigJoint;
   /** Length of the limb segment this joint starts, in model units. */
   bindLength?: number;
+  /** Hands only: bind direction from the wrist toward the finger roots. */
+  fingerDir?: THREE.Vector3;
 }
 
 /** Bones that are carried rigidly by a solved joint (fingers, pads, hair...). */
@@ -231,6 +307,8 @@ export interface CharacterPoseState {
   gait: ClassGait;
   /** True when the hero has no visible weapon and should use a relaxed idle stance. */
   weaponless?: boolean;
+  /** True when a shield or off-hand weapon occupies the left hand. */
+  offhandHeld?: boolean;
   /** Scales all secondary motion, for reduced-motion users. */
   motionScale?: number;
 }
@@ -560,17 +638,13 @@ function armTarget(side: -1 | 1, az: number, el: number): THREE.Vector3 {
 }
 
 /**
- * Empty hands hang close to the body instead of being carried forward as if
- * gripping a weapon. Keep a little outward clearance so the arms clear the
- * torso, then add just enough forward drift to avoid a rigid mannequin pose.
+ * Empty hands hang clear of the torso, with the class's own shoulder, elbow and
+ * wrist placement. The wrist roll is what keeps the authored T-pose palm from
+ * facing forward with every finger spread at the camera.
  */
-function relaxedArmTarget(side: -1 | 1, stance: StanceConfig): THREE.Vector3 {
-  // Keep the hanging arms clear of the ribs. The old -80° elevation and
-  // narrow azimuth put them almost vertically against the torso, which read
-  // as a locked mannequin pose even while the idle rig was running.
-  const azimuth = Math.max(48, Math.min(66, stance.out + 34));
-  const target = armTarget(side, azimuth, -74);
-  target.z += 2 * DEG;
+function idleArmTarget(side: -1 | 1, pose: IdleArmPose): THREE.Vector3 {
+  const target = armTarget(side, pose.out, pose.elevation);
+  target.z += pose.forward * DEG;
   return target.normalize();
 }
 
@@ -881,6 +955,19 @@ export function buildCharacterRig(model: THREE.Group, classId: string): Characte
     if (/hand/.test(candidate.name)) return 5;
     return 2;
   });
+  // The T-pose hand bone points down its local axis rather than along the
+  // fingers, so aiming the bone at the forearm leaves the fingers splayed
+  // sideways. Record the actual wrist-to-knuckle direction for empty hands.
+  for (const hand of hands) {
+    const fingerRoots = [...records.values()].filter((record) => record.side === hand.side
+      && /_finger_0?1(?:_|$)/.test(record.name));
+    if (!fingerRoots.length) continue;
+    const rootCenter = new THREE.Vector3();
+    for (const root of fingerRoots) rootCenter.add(root.bindPos);
+    rootCenter.divideScalar(fingerRoots.length);
+    const fingerDir = directionBetween(hand.bindPos, rootCenter);
+    hand.fingerDir = fingerDir;
+  }
   const thighs = pickOnePerSide(found.thighs, (candidate) => (/leg_01|thigh|upper_leg/.test(candidate.name) ? 5 : 3));
   const knees = pickOnePerSide(found.knees, (candidate) => (/leg_02|calf|shin|knee/.test(candidate.name) ? 5 : 3));
   const feet = pickOnePerSide(found.feet, (candidate) => (/leg_04|foot|ankle/.test(candidate.name) ? 5 : 3));
@@ -1030,7 +1117,9 @@ export function poseCharacterRig(rig: CharacterRig, state: CharacterPoseState): 
   const idlePhase = state.time * gait.idleCadence;
   const idleSway = Math.sin(idlePhase) * idle;
   const stance = stanceForClass(rig.classId);
+  const idlePose = idleForClass(rig.classId);
   const weaponless = state.weaponless === true;
+  const offhandHeld = state.offhandHeld === true;
 
   const attackActive = !!state.attackStyle && state.attackTime < ATTACK_CLIP_INFO[state.attackStyle].duration;
   const clip = state.attackStyle ? ATTACK_CLIPS[state.attackStyle] : undefined;
@@ -1069,9 +1158,10 @@ export function poseCharacterRig(rig: CharacterRig, state: CharacterPoseState): 
   // Equipped forearms keep the authored grip basis so weapons stay aligned.
   // Empty hands instead need the bind offset itself aimed along the relaxed
   // forearm, otherwise the wrist keeps the T-pose sideways offset.
-  const setWorldDirectionFromBind = (joint: RigJoint | undefined, bindDirection: THREE.Vector3, direction: THREE.Vector3): void => {
+  const setWorldDirectionFromBind = (joint: RigJoint | undefined, bindDirection: THREE.Vector3, direction: THREE.Vector3, twist = 0): void => {
     if (!joint) return;
     const align = new THREE.Quaternion().setFromUnitVectors(bindDirection, direction);
+    if (twist) align.premultiply(new THREE.Quaternion().setFromAxisAngle(direction, twist));
     const rotation = align.multiply(joint.bindQuat.clone());
     orientations.set(joint, rotation);
     deltas.set(joint, rotation.clone().multiply(joint.bindQuat.clone().invert()));
@@ -1082,7 +1172,7 @@ export function poseCharacterRig(rig: CharacterRig, state: CharacterPoseState): 
 
   // ---- torso -------------------------------------------------------------
   const pelvisRoll = gait.pelvisRoll * Math.sin(phase) * walk + idleSway * 2.1;
-  const pelvisYaw = gait.pelvisYaw * Math.sin(phase) * walk + (sampled ? sampled.body.pelvisYaw : 0);
+  const pelvisYaw = gait.pelvisYaw * Math.sin(phase) * walk + idlePose.pelvisYaw * idle + (sampled ? sampled.body.pelvisYaw : 0);
   const pelvisPitch = gait.hunch + (sampled ? sampled.body.pelvisPitch : 0);
   setWorldRotation(rig.pelvis, eulerOf(pelvisPitch, pelvisYaw, pelvisRoll));
   setWorldRotation(rig.spine, eulerOf(
@@ -1091,12 +1181,12 @@ export function poseCharacterRig(rig: CharacterRig, state: CharacterPoseState): 
     gait.sway * Math.sin(phase) * walk + idleSway * 3 + (sampled ? sampled.body.spineRoll : 0),
   ));
   setWorldRotation(rig.chest, eulerOf(
-    breathe * 0.8 - idleSway * 1.1 + (sampled ? sampled.body.chestPitch : 0),
-    gait.chestTwist * 0.55 * Math.sin(phase) * walk + (sampled ? sampled.body.chestYaw : 0),
+    breathe * 0.8 - idleSway * 1.1 + idlePose.chestPitch * idle + (sampled ? sampled.body.chestPitch : 0),
+    gait.chestTwist * 0.55 * Math.sin(phase) * walk + idlePose.chestYaw * idle + (sampled ? sampled.body.chestYaw : 0),
     gait.sway * 0.45 * Math.sin(phase) * walk + idleSway * 2.4 + (sampled ? sampled.body.chestRoll : 0),
   ));
   const headYaw = -gait.headYaw * Math.sin(phase) * walk - gait.chestTwist * 0.4 * Math.sin(phase) * walk + breathe * 0.4
-    + Math.sin(idlePhase * 0.45) * 3.2 * idle;
+    + Math.sin(idlePhase * 0.45) * 3.2 * idle + idlePose.headYaw * idle - idlePose.chestYaw * 0.35 * idle;
   const headPitch = -gait.headBob * Math.sin(phase * 2) * walk + (sampled ? sampled.body.headPitch : 0)
     + Math.sin(idlePhase * 0.7 + 0.5) * 1.5 * idle;
   setWorldRotation(rig.neck, eulerOf(headPitch * 0.45, headYaw * 0.45, 0));
@@ -1126,14 +1216,15 @@ export function poseCharacterRig(rig: CharacterRig, state: CharacterPoseState): 
     // Weapon-carrying classes still need breathing room at rest. Raise and
     // open the upper arms while idling, but leave the walking stance untouched.
     const armedIdleOut = idle * (stance.out < 20 ? 10 : 5);
+    const idleArm = armBone.side < 0 ? idlePose.lead : idlePose.off;
     const stanceDir = weaponless
-      ? relaxedArmTarget(armBone.side, stance)
+      ? idleArmTarget(armBone.side, idleArm)
       : armTarget(armBone.side, stance.out + armedIdleOut, stance.elevation + idle * 5);
     const swing = new THREE.Quaternion().setFromAxisAngle(lateralAxis, -walkSwing * DEG);
     let dir = stanceDir.applyQuaternion(swing);
     dir.applyAxisAngle(new THREE.Vector3(0, 0, armBone.side), idleAbduction * DEG);
     let elbow = weaponless
-      ? Math.max(8, (stance.elbow + gait.elbow * walk) * 0.75) + idleArmWave * 4.5
+      ? idleArm.elbow + gait.elbow * walk * 0.35 + idleArmWave * 4.5
       : stance.elbow + gait.elbow * walk + idleArmWave * 3.8;
     let roll = 0;
     if (sampled && strike > 0) {
@@ -1178,7 +1269,20 @@ export function poseCharacterRig(rig: CharacterRig, state: CharacterPoseState): 
     if (!forearmDir) continue;
     const idleArmPhase = idlePhase + (hand.side < 0 ? Math.PI : 0);
     const idleWrist = Math.sin(idleArmPhase) * idle * 3.5;
-    setWorldDirection(hand, flex(forearmDir, (weaponless ? 4 : 15) + idleWrist), hand.side * (weaponless ? 6 : 14));
+    const idleArm = hand.side < 0 ? idlePose.lead : idlePose.off;
+    // The weapon hand keeps its authored grip. A free left hand gets the class
+    // wrist pose even while the right hand carries a stock weapon.
+    const freeHand = hand.side > 0 ? !offhandHeld : weaponless;
+    const wristFlex = freeHand ? idleArm.wristFlex : 15;
+    const wristRoll = freeHand ? idleArm.wristRoll : 14;
+    const handDir = flex(forearmDir, wristFlex + idleWrist);
+    if (freeHand && hand.fingerDir) {
+      // Align the knuckles, not the wrist bone, so the fingers continue the
+      // forearm and the empty hand hangs naturally instead of sticking out.
+      setWorldDirectionFromBind(hand, hand.fingerDir, handDir, hand.side * wristRoll);
+    } else {
+      setWorldDirection(hand, handDir, hand.side * wristRoll);
+    }
   }
 
   // ---- legs --------------------------------------------------------------
@@ -1189,7 +1293,7 @@ export function poseCharacterRig(rig: CharacterRig, state: CharacterPoseState): 
     const stanceAngle = sampled
       ? (thigh.side === state.attackSide ? sampled.body.frontLeg : sampled.body.backLeg) * strike
       : 0;
-    const dir = legTarget(swing + stanceAngle, 2.5 + stance.out * 0.06);
+    const dir = legTarget(swing + stanceAngle, 2.5 + stance.out * 0.06 + idlePose.legSpread * idle);
     thighDirs.set(thigh.side, dir);
     setWorldDirection(thigh, dir);
   }
@@ -1218,6 +1322,7 @@ export function poseCharacterRig(rig: CharacterRig, state: CharacterPoseState): 
   const bodyY = height * (
     Math.abs(Math.sin(phase)) * (gait.bob / 100) * walk * 0.5
     + breathe * 0.0025
+    + idlePose.crouch * idle
     + (sampled ? sampled.body.crouch * strike : 0)
   );
   const bodyZ = height * (

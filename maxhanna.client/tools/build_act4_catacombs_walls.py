@@ -3,9 +3,10 @@
 The Chaos Sanctuary preset is one flat image, so the hero was drawn over every
 wall and could walk straight through them.  This tool cuts the four wall faces
 into narrow sprites (packed into one atlas) and writes a collision mask from the
-same opaque wall pixels.  The runtime draws each sprite at its own depth and uses
-the mask for movement, so a wall occludes an actor standing behind it and blocks
-the hero at its base.
+floor edge of each wall face.  The runtime draws each sprite at its own depth and
+uses the mask for movement, so a wall occludes an actor standing behind it and
+blocks the hero at its footprint without turning the projected wall face into a
+large invisible obstacle.
 
 Usage:
     python tools/build_act4_catacombs_walls.py
@@ -28,12 +29,24 @@ COLLISION = ASSET_ROOT / "act4-catacombs-walls-collision.png"
 # Screen-space wall faces in the 600x300 backdrop.  Each polygon follows the
 # authored stone face: the far pair rises above the floor, the near pair rises
 # from the bottom vertex.  Overlaps at the corners are intentional; the depth
-# sort resolves them.
+# sort resolves them.  These bands cut the visual sprites; they are deliberately
+# much taller than the collision footprint because a wall's face is vertical.
 WALL_BANDS = (
     [(122, 135), (274, 82), (300, 26), (150, 82)],
     [(300, 26), (450, 82), (478, 135), (326, 82)],
     [(60, 145), (282, 242), (300, 287), (60, 196)],
     [(540, 145), (318, 244), (300, 287), (540, 196)],
+)
+# The floor edge of each wall face, in the same 600x300 backdrop space.  These
+# are the lines where the room's walkable ground meets the wall.  Only these
+# narrow footprints block movement: using the full face polygons made the hero
+# stop on visible floor in front of the arches.  The gap at the bottom centre is
+# the sanctuary entrance and stays walkable.
+WALL_FLOOR_EDGES = (
+    ((122, 135), (274, 82)),
+    ((450, 82), (478, 135)),
+    ((60, 145), (282, 242)),
+    ((540, 145), (318, 244)),
 )
 STRIP_WIDTH = 32
 
@@ -45,14 +58,26 @@ def band_mask(size: tuple[int, int], polygon: list[tuple[int, int]]) -> Image.Im
 
 
 def build_collision(source: Image.Image) -> Image.Image:
-    """Keep the backdrop's opaque stone inside each wall face."""
-    alpha = source.getchannel("A")
+    """Draw only the floor edge of each wall, not its projected face."""
     collision = Image.new("L", source.size, 0)
-    for polygon in WALL_BANDS:
-        collision.paste(alpha, (0, 0), band_mask(source.size, polygon))
-    # Join the art's one-pixel gaps so the hero cannot slip between wall
-    # blocks, without growing the footprint into the open floor.
-    return collision.filter(ImageFilter.MaxFilter(3))
+    draw = ImageDraw.Draw(collision)
+    for start, end in WALL_FLOOR_EDGES:
+        draw.line([start, end], fill=255, width=6)
+        # Seal the wall ends so the body cannot squeeze around a corner post.
+        for x, y in (start, end):
+            draw.ellipse((x - 3, y - 3, x + 3, y + 3), fill=255)
+    # Join the art's one-pixel gaps along the authored edge without growing the
+    # footprint back into the room.
+    collision = collision.filter(ImageFilter.MaxFilter(3))
+    if collision.getpixel((300, 170)) > 127:
+        raise SystemExit("Act IV sanctuary floor is not walkable")
+    if collision.getpixel((198, 108)) <= 127:
+        raise SystemExit("Act IV far wall footprint is open")
+    if collision.getpixel((171, 194)) <= 127:
+        raise SystemExit("Act IV near wall footprint is open")
+    if collision.getpixel((300, 242)) > 127:
+        raise SystemExit("Act IV sanctuary entrance is blocked")
+    return collision
 
 
 def main() -> int:

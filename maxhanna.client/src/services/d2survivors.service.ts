@@ -84,32 +84,98 @@ export interface D2ProgressData {
 })
 export class D2SurvivorsService implements OnDestroy {
   private lobbyHub: signalR.HubConnection | null = null;
+  private lobbyConnectPromise: Promise<boolean> | null = null;
+  private lobbyReconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private lobbyRetryDelayMs = 1000;
+  // Bumped whenever the lobby connection is intentionally dropped so a start()
+  // that was already in flight cannot resurrect it or queue another retry.
+  private lobbyGeneration = 0;
   readonly lobbyMessage$ = new Subject<D2LobbyMessage>();
   readonly leaderboardUpdated$ = new Subject<void>();
 
-  async connectLobby(): Promise<boolean> {
-    if (this.lobbyHub?.state === signalR.HubConnectionState.Connected) return true;
+  connectLobby(): Promise<boolean> {
+    if (this.lobbyHub?.state === signalR.HubConnectionState.Connected) return Promise.resolve(true);
+    // The menu can request the lobby while ngOnInit's first connection is still
+    // negotiating. Reuse that attempt: stopping the hub here would abort its
+    // WebSocket handshake ("closed before receiving a handshake response").
+    if (this.lobbyConnectPromise) return this.lobbyConnectPromise;
+    const attempt = this.startLobbyConnection();
+    this.lobbyConnectPromise = attempt;
+    const clearAttempt = () => {
+      if (this.lobbyConnectPromise === attempt) this.lobbyConnectPromise = null;
+    };
+    void attempt.then(clearAttempt, clearAttempt);
+    return attempt;
+  }
+
+  private async startLobbyConnection(): Promise<boolean> {
+    this.clearLobbyReconnect();
+    const generation = ++this.lobbyGeneration;
+    const previous = this.lobbyHub;
+    this.lobbyHub = null;
+    if (previous) {
+      try { await previous.stop(); } catch { }
+      if (generation !== this.lobbyGeneration) return false;
+    }
+
+    const hub = new signalR.HubConnectionBuilder()
+      .withUrl('/hubs/d2-survivors-lobby')
+      .withAutomaticReconnect([0, 1000, 2000, 5000, 10000])
+      .configureLogging(signalR.LogLevel.Warning)
+      .build();
+    this.lobbyHub = hub;
+    hub.on('OnLobbyMessage', (message: D2LobbyMessage) => this.lobbyMessage$.next(message));
+    hub.on('OnLeaderboardUpdated', () => this.leaderboardUpdated$.next());
+    hub.onclose(() => {
+      // Ignore closes from a hub we replaced or intentionally stopped.
+      if (this.lobbyHub !== hub) return;
+      this.lobbyHub = null;
+      this.scheduleLobbyReconnect();
+    });
+
     try {
-      if (this.lobbyHub) await this.lobbyHub.stop();
-      this.lobbyHub = new signalR.HubConnectionBuilder()
-        .withUrl('/hubs/d2-survivors-lobby')
-        .withAutomaticReconnect([0, 1000, 2000, 5000, 10000])
-        .configureLogging(signalR.LogLevel.Warning)
-        .build();
-      this.lobbyHub.on('OnLobbyMessage', (message: D2LobbyMessage) => this.lobbyMessage$.next(message));
-      this.lobbyHub.on('OnLeaderboardUpdated', () => this.leaderboardUpdated$.next());
-      await this.lobbyHub.start();
+      await hub.start();
+      if (generation !== this.lobbyGeneration) {
+        this.lobbyHub = null;
+        try { await hub.stop(); } catch { }
+        return false;
+      }
+      this.lobbyRetryDelayMs = 1000;
       return true;
     } catch (error) {
       console.error('D2 Survivors lobby connection failed', error);
+      if (this.lobbyHub === hub) {
+        this.lobbyHub = null;
+        this.scheduleLobbyReconnect();
+      }
       return false;
     }
   }
 
+  private scheduleLobbyReconnect(): void {
+    if (this.lobbyReconnectTimer !== null) return;
+    const delay = this.lobbyRetryDelayMs;
+    this.lobbyRetryDelayMs = Math.min(delay * 2, 30000);
+    this.lobbyReconnectTimer = setTimeout(() => {
+      this.lobbyReconnectTimer = null;
+      void this.connectLobby();
+    }, delay);
+  }
+
+  private clearLobbyReconnect(): void {
+    if (this.lobbyReconnectTimer === null) return;
+    clearTimeout(this.lobbyReconnectTimer);
+    this.lobbyReconnectTimer = null;
+  }
+
   async disconnectLobby(): Promise<void> {
-    if (!this.lobbyHub) return;
-    try { await this.lobbyHub.stop(); } catch { }
+    this.lobbyGeneration += 1;
+    this.clearLobbyReconnect();
+    this.lobbyRetryDelayMs = 1000;
+    const hub = this.lobbyHub;
     this.lobbyHub = null;
+    if (!hub) return;
+    try { await hub.stop(); } catch { }
   }
 
   ngOnDestroy(): void {

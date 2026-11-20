@@ -44,6 +44,20 @@ GENERATED_MAP = PROJECT_ROOT / "src" / "app" / "d2survivors" / "d2-item-assets.g
 DEFAULT_SOURCE = Path.home() / "Desktop" / "d2" / "d2r extract" / "data"
 PALETTE_PATH = ("global", "palette", "act1", "pal.dat")
 EXCEL_FILES = ("weapons.txt", "armor.txt", "misc.txt")
+ITEM_NAMES_PATH = ("local", "lng", "strings", "item-names.json")
+
+# Rows that live in uniqueitems.txt for quests, old versions or unused data but
+# are not part of the obtainable unique catalogue.
+UNIQUE_ITEM_IDS_TO_SKIP = {
+    "Amulet of the Viper",
+    "Constricting Ring",
+    "Darkfear",
+    "Hell Forge Hammer",
+    "Horadric Staff",
+    "KhalimFlail",
+    "Staff of Kings",
+    "SuperKhalimFlail",
+}
 
 # Base names this game uses that have no row in the D2 excel tables but are
 # visually one of the classic base items, so they still get real cel art.
@@ -760,8 +774,26 @@ def named_art(source: Path, palette: list[tuple[int, int, int]], rarity: str, na
         return art, 0
 
 
+def load_item_names(source: Path) -> dict[str, str]:
+    path = source.joinpath(*ITEM_NAMES_PATH)
+    if not path.exists():
+        return {}
+    rows = json.loads(path.read_text(encoding="utf-8-sig"))
+    return {row["Key"]: row["enUS"] for row in rows if row.get("Key") and row.get("enUS")}
+
+
+def rainbow_facet_name(lines: list[str]) -> str:
+    text = " ".join(lines).lower()
+    element = next((name for name in ("poison", "cold", "fire", "lightning") if name in text), None)
+    trigger = "Death" if "when you die" in text else "Level-up" if "when you level up" in text else None
+    if element and trigger:
+        return f"Rainbow Facet: {element.title()} {trigger}"
+    return "Rainbow Facet"
+
+
 def import_named_items(source: Path, palette: list[tuple[int, int, int]],
-                       bases: dict[str, dict[str, str]], cels: dict) -> dict:
+                       bases: dict[str, dict[str, str]], cels: dict,
+                       item_names: dict[str, str]) -> dict:
     """Build the complete unique/set item catalogues and their set definitions."""
     catalogues: dict[str, list[dict]] = {"unique": [], "set": []}
     used_slugs: dict[str, set[str]] = {"unique": set(), "set": set()}
@@ -784,21 +816,30 @@ def import_named_items(source: Path, palette: list[tuple[int, int, int]],
             if not base or classification is None:
                 skipped += 1
                 continue
+            if rarity == "unique" and (name in UNIQUE_ITEM_IDS_TO_SKIP or
+                                       (name == "Azurewrath" and base["name"] == "Crystal Sword")):
+                skipped += 1
+                continue
             slot, equipment_type, restricted = classification
             stats = base_stats(base, slot, base["type"])
             lines: list[str] = []
             convert_properties(row, property_count, stats, lines)
+            display_name = name
+            if rarity == "unique":
+                display_name = item_names.get(name, name)
+                if display_name == "Rainbow Facet":
+                    display_name = rainbow_facet_name(lines)
             set_name = cell(row, "set") if rarity == "set" else ""
             partial_stats: dict[str, float] = {}
             partial_lines: list[str] = []
             if rarity == "set":
                 convert_set_properties(row, partial_stats, partial_lines)
             required_level = max(1, min(99, integer(cell(row, "lvl req"), integer(base["levelreq"], 1))))
-            art, was_tinted = named_art(source, palette, rarity, name, base, cell(row, "invtransform").lower(),
+            art, was_tinted = named_art(source, palette, rarity, display_name, base, cell(row, "invtransform").lower(),
                                         cell(row, "invfile").lower(), cels, used_slugs[rarity], root)
             tinted += was_tinted
             item = {
-                "name": name,
+                "name": display_name,
                 "baseName": base["name"],
                 "rarity": rarity,
                 "slot": slot,
@@ -1044,7 +1085,9 @@ def main(argv: list[str]) -> int:
     ground_aliases = {name: cel for name, cel in GROUND_ALIASES.items() if cel in ground}
     ground_names.update(ground_aliases)
     print(f"mapped {len(ground_aliases)} game base names to their closest ground cel")
-    named = import_named_items(args.source, palette, collect_base_items(args.source), imported)
+    item_names = load_item_names(args.source)
+    print(f"loaded {len(item_names)} localized item names")
+    named = import_named_items(args.source, palette, collect_base_items(args.source), imported, item_names)
     write_generated_map(names, ground_names, ground, named)
     manifest_path = ASSET_ROOT / "manifest.json"
     manifest_path.write_text(json.dumps({
