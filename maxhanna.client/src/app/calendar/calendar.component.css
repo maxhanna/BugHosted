@@ -1,4 +1,4 @@
-﻿.componentMain {
+.componentMain {
   width: 100%;
 }
 
@@ -496,3 +496,400 @@ thead {
     font-size: 11px;
   }
 }
+/* Calendar menu: four focused sections instead of one long options panel. */
+.calendarMenuPanel {
+  width: min(780px, calc(100vw - 40px));
+  max-height: 85vh;
+  max-height: 85dvh;
+  padding: 18px;
+  gap: 12px;
+  align-items: stretch;
+  justify-content: flex-start;
+  box-sizing: border-box;
+}
+
+.calendarMenuPanel .popupPanelTitle {
+  align-self: center;
+  margin-bottom: 0;
+}
+
+.calendarMenuTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  width: 100%;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(176, 194, 177, 0.22);
+}
+
+.calendarMenuTab {
+  flex: 1 1 auto;
+  min-height: 38px;
+  padding: 8px 12px;
+  border: 1px solid rgba(176, 194, 177, 0.25);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--main-font-color);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.calendarMenuTab:hover {
+  background: var(--main-highlight-color);
+}
+
+.calendarMenuTab.active {
+  color: var(--secondary-font-color);
+  border-color: var(--main-font-color);
+  background: var(--main-highlight-color);
+  box-shadow: inset 0 -2px 0 var(--main-font-color);
+}
+
+.calendarMenuBody {
+  width: 100%;
+  min-width: 0;
+}
+
+.calendarMenuSection {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+}
+
+.calendarMenuIntro h3 {
+  margin: 0 0 3px;
+  font-size: 16px;
+}
+
+.calendarMenuIntro p,
+.calendarMenuHelp,
+.calendarSearchHelp {
+  margin: 0;
+  color: var(--secondary-font-color);
+  font-size: 12px;
+  line-height: 1.45;
+  opacity: 0.82;
+}
+
+.calendarSearchForm {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+}
+
+.calendarMenuFieldGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+}
+
+.calendarMenuField {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+  color: var(--main-font-color);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.calendarMenuField small {
+  font-weight: 400;
+  opacity: 0.7;
+}
+
+.calendarMenuFieldWide {
+  grid-column: 1 / -1;
+}
+
+.calendarMenuField input,
+.calendarMenuField select,
+.calendarNotificationCardBody input {
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid rgba(176, 194, 177, 0.35);
+  border-radius: 6px;
+  background: var(--main-bg-color);
+  color: var(--main-font-color);
+  font: inherit;
+  font-size: 13px;
+}
+
+.calendarMenuField input:focus,
+.calendarMenuField select:focus,
+.calendarNotificationCardBody input:focus {
+  outline: 2px solid var(--main-font-color);
+  outline-offset: 1px;
+}
+
+.calendarSearchActions,
+.calendarNotificationActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.calendarSearchActions button,
+.calendarNotificationActions button,
+.calendarNotificationCardHeader button,
+.sentNotificationsRefresh {
+  min-height: 36px;
+  padding: 7px 12px;
+  border: 1px solid rgba(176, 194, 177, 0.35);
+  border-radius: 6px;
+  background: var(--main-highlight-color);
+  color: var(--main-font-color);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.calendarSearchActions button:hover,
+.calendarNotificationActions button:hover,
+.calendarNotificationCardHeader button:hover,
+.sentNotificationsRefresh:hover {
+  background: var(--gradient-background);
+  color: var(--secondary-font-color);
+}
+
+.calendarSearchActions button:disabled,
+.calendarNotificationActions button:disabled,
+.sentNotificationsRefresh:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.calendarSearchActions .calendarSearchPrimary {
+  color: var(--secondary-font-color);
+  border-color: var(--main-font-color);
+}
+
+.calendarSearchLoading,
+.calendarSearchEmpty {
+  padding: 14px;
+  border: 1px dashed rgba(176, 194, 177, 0.35);
+  border-radius: 7px;
+  color: var(--secondary-font-color);
+  font-size: 13px;
+  text-align: center;
+}
+
+.calendarSearchResultsWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+
+.calendarSearchSummary {
+  color: var(--secondary-font-color);
+  font-size: 12px;
+}
+
+.calendarSearchResults {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  width: 100%;
+  max-height: min(330px, 40vh);
+  max-height: min(330px, 40dvh);
+  margin: 0;
+  padding: 0 3px 0 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.calendarSearchResult {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 12px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid rgba(176, 194, 177, 0.25);
+  border-radius: 7px;
+  background: var(--main-bg-color);
+  color: var(--main-font-color);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.calendarSearchResult:hover {
+  border-color: var(--main-font-color);
+  background: var(--gradient-background);
+}
+
+.calendarSearchResultTop {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  align-items: baseline;
+  min-width: 0;
+  grid-column: 1;
+}
+
+.calendarSearchResultDate {
+  color: var(--secondary-font-color);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.calendarSearchResultType {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--main-highlight-color);
+  color: var(--main-font-color);
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.calendarSearchResultNote {
+  grid-column: 1;
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--main-font-color);
+  font-size: 13px;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.calendarSearchResultAction {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  color: var(--secondary-font-color);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.calendarNotificationCard {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px;
+  border: 1px solid rgba(176, 194, 177, 0.25);
+  border-radius: 7px;
+  background: var(--main-bg-color);
+}
+
+.calendarNotificationToggle {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  color: var(--main-font-color);
+  cursor: pointer;
+}
+
+.calendarNotificationToggle input {
+  flex: 0 0 auto;
+  width: auto;
+  min-height: 0;
+  margin-top: 3px;
+  accent-color: var(--main-font-color);
+}
+
+.calendarNotificationToggle span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.calendarNotificationToggle small {
+  color: var(--secondary-font-color);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.4;
+  opacity: 0.8;
+}
+
+.calendarNotificationCardHeader {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  color: var(--main-font-color);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.calendarNotificationValue {
+  color: var(--secondary-font-color);
+  font-size: 11px;
+  font-weight: 400;
+  text-align: right;
+}
+
+.calendarNotificationCardBody {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.calendarMenuSection .sentNotificationsSection {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 2px;
+}
+
+.calendarMenuSection .calendarSyncCard {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 0;
+}
+
+@media only screen and (max-width: 700px) {
+  .calendarMenuPanel {
+    width: calc(100vw - 24px);
+    width: calc(100dvw - 24px);
+    max-height: 90vh;
+    max-height: 90dvh;
+    padding: 12px;
+  }
+
+  .calendarMenuTab {
+    flex: 1 1 calc(50% - 6px);
+    white-space: normal;
+  }
+
+  .calendarSearchForm,
+  .calendarMenuFieldGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .calendarMenuFieldWide {
+    grid-column: auto;
+  }
+
+  .calendarSearchResult {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .calendarSearchResultAction {
+    grid-column: 1;
+    grid-row: auto;
+    justify-self: start;
+  }
+
+}
+

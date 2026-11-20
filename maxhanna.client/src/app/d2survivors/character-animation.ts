@@ -565,8 +565,11 @@ function armTarget(side: -1 | 1, az: number, el: number): THREE.Vector3 {
  * torso, then add just enough forward drift to avoid a rigid mannequin pose.
  */
 function relaxedArmTarget(side: -1 | 1, stance: StanceConfig): THREE.Vector3 {
-  const azimuth = Math.max(42, Math.min(58, stance.out + 22));
-  const target = armTarget(side, azimuth, -80);
+  // Keep the hanging arms clear of the ribs. The old -80° elevation and
+  // narrow azimuth put them almost vertically against the torso, which read
+  // as a locked mannequin pose even while the idle rig was running.
+  const azimuth = Math.max(48, Math.min(66, stance.out + 34));
+  const target = armTarget(side, azimuth, -74);
   target.z += 2 * DEG;
   return target.normalize();
 }
@@ -1109,19 +1112,29 @@ export function poseCharacterRig(rig: CharacterRig, state: CharacterPoseState): 
   for (const armBone of rig.arms) {
     const lead = armBone.side === state.attackSide;
     const sidePhase = phase + (armBone.side < 0 ? Math.PI : 0);
-    // The idle drift joins the walk swing so hanging arms sway with the weight
-    // shift rather than staying pinned to the stance.
-    const walkSwing = Math.sin(-sidePhase) * gait.armSwing * walk + idleSway * Math.min(2.6, gait.armSwing * 0.3);
+    // Alternate the two shoulders through the idle cycle. The previous drift
+    // was under three degrees and disappeared against the armour; this swing
+    // is large enough to read at rest without looking like a march.
+    const idleArmPhase = idlePhase + (armBone.side < 0 ? Math.PI : 0);
+    const idleArmWave = Math.sin(idleArmPhase) * idle;
+    const walkSwing = Math.sin(-sidePhase) * gait.armSwing * walk
+      + idleArmWave * Math.min(6.5, gait.armSwing * 0.45);
     // The stance arm swings along the sagittal plane, so the shoulder travels
-    // forward and back instead of the elbow merely rising.
+    // forward and back instead of the elbow merely rising. A second rotation
+    // around the forward axis opens and closes the arm against the ribs.
+    const idleAbduction = idleArmWave * (weaponless ? 5.5 : 4.2);
+    // Weapon-carrying classes still need breathing room at rest. Raise and
+    // open the upper arms while idling, but leave the walking stance untouched.
+    const armedIdleOut = idle * (stance.out < 20 ? 10 : 5);
     const stanceDir = weaponless
       ? relaxedArmTarget(armBone.side, stance)
-      : armTarget(armBone.side, stance.out, stance.elevation);
+      : armTarget(armBone.side, stance.out + armedIdleOut, stance.elevation + idle * 5);
     const swing = new THREE.Quaternion().setFromAxisAngle(lateralAxis, -walkSwing * DEG);
     let dir = stanceDir.applyQuaternion(swing);
+    dir.applyAxisAngle(new THREE.Vector3(0, 0, armBone.side), idleAbduction * DEG);
     let elbow = weaponless
-      ? Math.max(5, (stance.elbow + gait.elbow * walk) * 0.42) + idle * 1.1 * Math.sin(idlePhase * 0.8 + 0.4)
-      : stance.elbow + gait.elbow * walk + idle * 2.4 * Math.sin(idlePhase * 0.8 + 0.4);
+      ? Math.max(8, (stance.elbow + gait.elbow * walk) * 0.75) + idleArmWave * 4.5
+      : stance.elbow + gait.elbow * walk + idleArmWave * 3.8;
     let roll = 0;
     if (sampled && strike > 0) {
       const armPose = lead ? sampled.lead : sampled.off;
@@ -1163,7 +1176,9 @@ export function poseCharacterRig(rig: CharacterRig, state: CharacterPoseState): 
   for (const hand of rig.hands) {
     const forearmDir = forearmDirs.get(hand.side);
     if (!forearmDir) continue;
-    setWorldDirection(hand, flex(forearmDir, weaponless ? 4 : 15), hand.side * (weaponless ? 6 : 14));
+    const idleArmPhase = idlePhase + (hand.side < 0 ? Math.PI : 0);
+    const idleWrist = Math.sin(idleArmPhase) * idle * 3.5;
+    setWorldDirection(hand, flex(forearmDir, (weaponless ? 4 : 15) + idleWrist), hand.side * (weaponless ? 6 : 14));
   }
 
   // ---- legs --------------------------------------------------------------

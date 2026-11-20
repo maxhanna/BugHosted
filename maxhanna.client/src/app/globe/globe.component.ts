@@ -1711,10 +1711,14 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     const minLat = Math.max(-85, centerLat - latitudeSpan);
     const maxLat = Math.min(85, centerLat + latitudeSpan);
     const actualLatitudeSpan = maxLat - minLat;
-    const maxIncidentWidth = actualLatitudeSpan > 0
-      ? 10000 / (111.32 * 111.32 * Math.max(0.15, Math.cos(centerLat * Math.PI / 180)) * actualLatitudeSpan)
+    // boundedLongitudeSpan below is a half-width, but TomTom's 10,000 km²
+    // incident limit applies to the full bounding box. Halving the width
+    // (with a small margin) keeps the request valid instead of sending a box
+    // twice the allowed area, which the server rejects with HTTP 400.
+    const maxIncidentHalfWidth = actualLatitudeSpan > 0
+      ? 4900 / (111.32 * 111.32 * Math.max(0.15, Math.cos(centerLat * Math.PI / 180)) * actualLatitudeSpan)
       : 0;
-    const boundedLongitudeSpan = Math.min(longitudeSpan, maxIncidentWidth);
+    const boundedLongitudeSpan = Math.min(longitudeSpan, maxIncidentHalfWidth);
     const incidentMinLon = Math.max(-180, centerLon - boundedLongitudeSpan);
     const incidentMaxLon = Math.min(180, centerLon + boundedLongitudeSpan);
     const requests: Promise<void>[] = [];

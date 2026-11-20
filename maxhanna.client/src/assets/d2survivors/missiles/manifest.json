@@ -1105,6 +1105,7 @@
   },
   "d2-bonespirit": {
     "dccName": "bonespirit",
+    "direction": 0,
     "encodedFrames": 8,
     "frameDirectory": "d2-bonespirit",
     "frameDurationMs": 60,

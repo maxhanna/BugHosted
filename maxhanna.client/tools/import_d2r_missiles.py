@@ -75,7 +75,9 @@ PALETTE_PATH = ("global", "palette", "units", "pal.dat")
 # around the effect, so their luminance becomes the alpha channel.
 # Poison Explosion's `poisonexplosioncloud` missile uses the PoisonSparks cel.
 # It is additive glow art painted on black, so key its luminance to alpha.
-ADDITIVE_STEMS = {"bonespear", "bonespeartrail", "poisonsparks"}
+# Bone Spirit is the same kind of cel: its glowing skull sits inside a black
+# additive halo that the game never draws as an opaque sprite.
+ADDITIVE_STEMS = {"bonespear", "bonespeartrail", "bonespirit", "poisonsparks"}
 
 # D2 authors a diagonal side view in direction 0. The runtime rotates one cel to
 # the travel vector, so export a horizontal side view instead of inheriting that

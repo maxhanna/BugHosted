@@ -200,10 +200,13 @@
         <aside class="d2s-menu-hero-card">
           <canvas #menuHeroCanvas class="d2s-menu-hero-canvas" [class.dragging]="menuHeroDragging" [attr.aria-label]="selectedClassName + ' 3D character. Drag to rotate; use the zoom buttons or mouse wheel to change zoom.'" (pointerdown)="onMenuHeroPointerDown($event)" (pointermove)="onMenuHeroPointerMove($event)" (pointerup)="onMenuHeroPointerUp($event)" (pointercancel)="onMenuHeroPointerUp($event)" (wheel)="onMenuHeroWheel($event)" role="img"></canvas>
           <div class="d2s-menu-hero-controls" role="group" aria-label="Character view controls">
+            <button type="button" class="d2s-menu-hero-swap" (click)="cycleMenuHeroClass(-1)" [attr.aria-label]="'Swap to previous hero: ' + menuHeroSwapClassName(-1)" [title]="'Swap hero · previous: ' + menuHeroSwapClassName(-1)">‹</button>
+            <button type="button" class="d2s-menu-hero-swap" (click)="cycleMenuHeroClass(1)" [attr.aria-label]="'Swap to next hero: ' + menuHeroSwapClassName(1)" [title]="'Swap hero · next: ' + menuHeroSwapClassName(1)">›</button>
+            <span class="d2s-menu-hero-controls-divider" aria-hidden="true"></span>
             <button type="button" (click)="zoomMenuHero(1)" aria-label="Zoom in on character" title="Zoom in">+</button>
             <button type="button" (click)="zoomMenuHero(-1)" aria-label="Zoom out from character" title="Zoom out">−</button>
           </div>
-          <div class="d2s-menu-hero-hint" aria-hidden="true">DRAG TO ROTATE · SCROLL TO ZOOM</div>
+          <div class="d2s-menu-hero-hint" aria-hidden="true">DRAG TO ROTATE · SCROLL TO ZOOM · ‹ › SWAP HERO</div>
           <div class="d2s-menu-hero-loading" *ngIf="!menuHeroModel && !menuHeroLoadError"><span></span>Summoning hero…</div>
           <div class="d2s-menu-hero-error" *ngIf="menuHeroLoadError">Hero model unavailable</div>
           <div class="d2s-hero-plaque">
@@ -290,6 +293,8 @@
               class="d2s-belt-slot"
               [class.selected]="activeBottleSlot === i"
               [class.held]="heldBeltPotionSlot === i"
+              [class.dragging]="beltDrag?.slotIndex === i && beltDrag?.moved"
+              [attr.data-belt-slot-index]="i"
               [class.health-potion]="slot.kind === 'health'"
               [class.rejuvenation-potion]="slot.kind === 'rejuvenation'"
               [attr.aria-label]="slot.kind ? slot.kind + ' potion, belt slot ' + (i + 1) + (heldBeltPotionSlot === i ? ', picked up' : '') : 'Empty belt slot ' + (i + 1)"
@@ -299,7 +304,8 @@
               (pointermove)="onBeltSlotPointerMove($event)"
               (pointerup)="onBeltSlotPointerUp($event)"
               (pointercancel)="onBeltSlotPointerCancel($event)"
-              [title]="slot.kind ? 'Click to pick up, click another slot to move, click again to throw. Right-click to drink (' + beltKeyForSlot(i) + ').' : 'Empty belt slot'">
+              (lostpointercapture)="onBeltSlotPointerCancel($event)"
+              [title]="slot.kind ? 'Drag to move or drop on the ground; click to pick up, click again to throw. Right-click to drink (' + beltKeyForSlot(i) + ').' : 'Empty belt slot'">
               <span *ngIf="slot.kind" class="d2s-potion-bottle" [class.red-potion]="slot.kind === 'health'" [class.rejuvenation-bottle]="slot.kind === 'rejuvenation'"></span>
             </button>
           </div>
@@ -425,21 +431,21 @@
           <p class="d2s-stats-level">Level {{ playerLevel }}</p>
           <div class="d2s-stats-block">
             <h4>Attributes</h4>
-            <div><span>Strength</span><b>{{ selectedClassStats.attributes[0].value + equippedStrengthBonus }}<small *ngIf="equippedStrengthBonus"> (+{{ equippedStrengthBonus }})</small><small class="d2s-stat-preview" *ngIf="getPreviewItemStatDelta('strength') as strengthDelta" [class.negative]="strengthDelta < 0"> {{ formatItemStatDelta(strengthDelta) }} str</small></b></div>
-            <div><span>Dexterity</span><b>{{ selectedClassStats.attributes[1].value + equippedDexterityBonus }}<small *ngIf="equippedDexterityBonus"> (+{{ equippedDexterityBonus }})</small><small class="d2s-stat-preview" *ngIf="getPreviewItemStatDelta('dexterity') as dexterityDelta" [class.negative]="dexterityDelta < 0"> {{ formatItemStatDelta(dexterityDelta) }} dex</small></b></div>
-            <div><span>Vitality</span><b>{{ selectedClassStats.attributes[2].value + equippedVitalityBonus }}<small *ngIf="equippedVitalityBonus"> (+{{ equippedVitalityBonus }})</small><small class="d2s-stat-preview" *ngIf="getPreviewItemStatDelta('vitality') as vitalityDelta" [class.negative]="vitalityDelta < 0"> {{ formatItemStatDelta(vitalityDelta) }} vit</small></b></div>
-            <div><span>Energy</span><b>{{ selectedClassStats.attributes[3].value + equippedEnergyBonus }}<small *ngIf="equippedEnergyBonus"> (+{{ equippedEnergyBonus }})</small><small class="d2s-stat-preview" *ngIf="getPreviewItemStatDelta('energy') as energyDelta" [class.negative]="energyDelta < 0"> {{ formatItemStatDelta(energyDelta) }} en</small></b></div>
+            <div class="d2s-stat-line" (mouseenter)="showStatTooltip($event, 'strength')" (mouseleave)="hideStatTooltip()"><span>Strength</span><b>{{ selectedClassStats.attributes[0].value + equippedStrengthBonus }}<small *ngIf="equippedStrengthBonus"> (+{{ equippedStrengthBonus }})</small><small class="d2s-stat-preview" *ngIf="getPreviewItemStatDelta('strength') as strengthDelta" [class.negative]="strengthDelta < 0"> {{ formatItemStatDelta(strengthDelta) }} str</small></b></div>
+            <div class="d2s-stat-line" (mouseenter)="showStatTooltip($event, 'dexterity')" (mouseleave)="hideStatTooltip()"><span>Dexterity</span><b>{{ selectedClassStats.attributes[1].value + equippedDexterityBonus }}<small *ngIf="equippedDexterityBonus"> (+{{ equippedDexterityBonus }})</small><small class="d2s-stat-preview" *ngIf="getPreviewItemStatDelta('dexterity') as dexterityDelta" [class.negative]="dexterityDelta < 0"> {{ formatItemStatDelta(dexterityDelta) }} dex</small></b></div>
+            <div class="d2s-stat-line" (mouseenter)="showStatTooltip($event, 'vitality')" (mouseleave)="hideStatTooltip()"><span>Vitality</span><b>{{ selectedClassStats.attributes[2].value + equippedVitalityBonus }}<small *ngIf="equippedVitalityBonus"> (+{{ equippedVitalityBonus }})</small><small class="d2s-stat-preview" *ngIf="getPreviewItemStatDelta('vitality') as vitalityDelta" [class.negative]="vitalityDelta < 0"> {{ formatItemStatDelta(vitalityDelta) }} vit</small></b></div>
+            <div class="d2s-stat-line" (mouseenter)="showStatTooltip($event, 'energy')" (mouseleave)="hideStatTooltip()"><span>Energy</span><b>{{ selectedClassStats.attributes[3].value + equippedEnergyBonus }}<small *ngIf="equippedEnergyBonus"> (+{{ equippedEnergyBonus }})</small><small class="d2s-stat-preview" *ngIf="getPreviewItemStatDelta('energy') as energyDelta" [class.negative]="energyDelta < 0"> {{ formatItemStatDelta(energyDelta) }} en</small></b></div>
           </div>
           <div class="d2s-stats-block d2s-derived-stats">
             <h4>Combat</h4>
-            <div><span>Damage</span><b>{{ inventoryAttackDamage }}<small class="d2s-stat-preview" *ngIf="getPreviewItemStatDelta('damage') as damageDelta" [class.negative]="damageDelta < 0"> {{ formatItemStatDelta(damageDelta) }}</small></b></div>
-            <div><span>Defense</span><b>{{ equippedArmor }}<small class="d2s-stat-preview" *ngIf="getPreviewItemStatDelta('defense') as defenseDelta" [class.negative]="defenseDelta < 0"> {{ formatItemStatDelta(defenseDelta) }}</small></b></div>
-            <div><span>Stamina</span><b>{{ selectedClassStats.stamina }}</b></div>
+            <div class="d2s-stat-line" (mouseenter)="showStatTooltip($event, 'damage')" (mouseleave)="hideStatTooltip()"><span>Damage</span><b>{{ inventoryAttackDamage }}<small class="d2s-stat-preview" *ngIf="getPreviewItemStatDelta('damage') as damageDelta" [class.negative]="damageDelta < 0"> {{ formatItemStatDelta(damageDelta) }}</small></b></div>
+            <div class="d2s-stat-line" (mouseenter)="showStatTooltip($event, 'defense')" (mouseleave)="hideStatTooltip()"><span>Defense</span><b>{{ equippedArmor }}<small class="d2s-stat-preview" *ngIf="getPreviewItemStatDelta('defense') as defenseDelta" [class.negative]="defenseDelta < 0"> {{ formatItemStatDelta(defenseDelta) }}</small></b></div>
+            <div class="d2s-stat-line" (mouseenter)="showStatTooltip($event, 'stamina')" (mouseleave)="hideStatTooltip()"><span>Stamina</span><b>{{ selectedClassStats.stamina }}</b></div>
           </div>
           <div class="d2s-stats-block d2s-resource-stats">
-            <div><span>Life</span><b>{{ playerHp | number:'1.0-0' }} / {{ effectivePlayerMaxHp }}<small class="d2s-stat-preview" *ngIf="getPreviewItemStatDelta('life') as lifeDelta" [class.negative]="lifeDelta < 0"> {{ formatItemStatDelta(lifeDelta) }} max</small></b></div>
-            <div><span>Mana</span><b>{{ playerMana | number:'1.0-0' }} / {{ effectivePlayerMaxMana }}<small class="d2s-stat-preview" *ngIf="getPreviewItemStatDelta('mana') as manaDelta" [class.negative]="manaDelta < 0"> {{ formatItemStatDelta(manaDelta) }} max</small></b></div>
-            <div *ngIf="equippedLifeBonus"><span>Life Bonus</span><b>+{{ equippedLifeBonus }}</b></div>
+            <div class="d2s-stat-line" (mouseenter)="showStatTooltip($event, 'life')" (mouseleave)="hideStatTooltip()"><span>Life</span><b>{{ playerHp | number:'1.0-0' }} / {{ effectivePlayerMaxHp }}<small class="d2s-stat-preview" *ngIf="getPreviewItemStatDelta('life') as lifeDelta" [class.negative]="lifeDelta < 0"> {{ formatItemStatDelta(lifeDelta) }} max</small></b></div>
+            <div class="d2s-stat-line" (mouseenter)="showStatTooltip($event, 'mana')" (mouseleave)="hideStatTooltip()"><span>Mana</span><b>{{ playerMana | number:'1.0-0' }} / {{ effectivePlayerMaxMana }}<small class="d2s-stat-preview" *ngIf="getPreviewItemStatDelta('mana') as manaDelta" [class.negative]="manaDelta < 0"> {{ formatItemStatDelta(manaDelta) }} max</small></b></div>
+            <div class="d2s-stat-line" *ngIf="equippedLifeBonus" (mouseenter)="showStatTooltip($event, 'lifeBonus')" (mouseleave)="hideStatTooltip()"><span>Life Bonus</span><b>+{{ equippedLifeBonus }}</b></div>
           </div>
           <div class="d2s-set-summary" *ngIf="equippedSetSummaries.length">
             <h4>Set Bonuses</h4>
@@ -534,6 +540,10 @@
       <p class="d2s-inventory-status" role="status" *ngIf="inventoryStatus">{{ inventoryStatus }}</p>
       <p class="d2s-hint">Drag gear to equip · touch: long-press an item, then drag to move it · right-click a weapon or armor to equip or swap · Ctrl-click or use the item preview to sell · right-click equipped gear to unequip</p>
     </section>
+    <aside class="d2s-stat-tooltip" *ngIf="visibleStatTooltip as statTooltip" [style.left.px]="statTooltip.x" [style.top.px]="statTooltip.y" role="tooltip">
+      <strong>{{ statTooltip.title }}</strong>
+      <p>{{ statTooltip.description }}</p>
+    </aside>
     <div #inventoryItemWindow class="d2s-item-window" *ngIf="inventoryOpen && itemPreviewItem"
       [class.is-hover-preview]="!!hoveredItem"
       [class.preview-left]="itemPreviewLeft"
@@ -569,6 +579,10 @@
     </div>
 
   </section>
+
+  <div class="d2s-belt-drag-ghost" *ngIf="beltDrag?.moved" [style.left.px]="beltDragGhostX" [style.top.px]="beltDragGhostY" aria-hidden="true">
+    <span class="d2s-potion-bottle" [class.rejuvenation-bottle]="beltDrag?.kind === 'rejuvenation'"></span>
+  </div>
 
   <div #d2Cursor class="d2s-d2-cursor" aria-hidden="true"><span></span></div>
 

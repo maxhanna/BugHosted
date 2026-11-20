@@ -1,4 +1,4 @@
-﻿<div class=componentMain>
+<div class=componentMain>
   <app-title-bar [title]="'Calendar'" (menuClicked)="showMenuPanel()" (closeClicked)="remove_me('CalendarComponent');">
   </app-title-bar>
 
@@ -79,7 +79,7 @@
         [class.popupPanel]="isEditingEntry.includes(cal)" class="calEntry"
         [class.notExpandedCalEntry]="!isEditingEntry.includes(cal)"
         (click)="isEditingEntry.includes(cal) ? '' : editCalendarEntry(cal)">
-        <div>{{cal.date | date:'shortTime'}}</div>
+        <div>{{cal.date | date:"MMM dd, yyyy 'at' hh:mm a"}}</div>
         <div>
           <div *ngIf="!isEditingEntry.includes(cal)" class="calEntryInfo">
             <span class="calEntryTypeChip" title="Event type">{{ eventSymbolMap[cal.type!] || '📌' }} {{ cal.type
@@ -91,12 +91,14 @@
           <div *ngIf="!isEditingEntry.includes(cal)" style="display:flex; gap:6px; margin-top:6px; flex-wrap:wrap;">
           </div>
           <div *ngIf="isEditingEntry.includes(cal)">
-            Time: <input id="calendarEditingTime" type="time" [value]="editTimeValue(cal.date)"
-              (input)="hasEditedCalendarEntry = true" />
-            <span class="calTzHint"
-              [title]="'Stored as UTC — shown in your local timezone (' + tzOffsetLabel(cal.date) + ')'">
-              ({{ tzOffsetLabel(cal.date) }})
-            </span>
+            <div>
+              Time: <input id="calendarEditingTime" type="time" [value]="editTimeValue(cal.date)"
+                (input)="hasEditedCalendarEntry = true" />
+              <span class="calTzHint"
+                [title]="'Stored as UTC — shown in your local timezone (' + tzOffsetLabel(cal.date) + ')'">
+                ({{ tzOffsetLabel(cal.date) }})
+              </span>
+            </div>
             <div>Note:
               <textarea id="calendarEditingNote" rows="4" cols="50" [(ngModel)]="cal.note" name="calEditNote"
                 (ngModelChange)="hasEditedCalendarEntry = true"></textarea>
@@ -114,7 +116,7 @@
             </div>
           </div>
         </div>
-        <div style="width:35px; display:flex; gap: 5px;" class="calendarActionButtons">
+        <div style="display:flex; gap: 5px;" class="calendarActionButtons">
           <button *ngIf="isEditingEntry.includes(cal)" (click)="closeEditPopupCalendar(); $event.preventDefault();"
             id="closeOverlay">💾Update</button>
           <button *ngIf="isEditingEntry.includes(cal)"
@@ -164,126 +166,222 @@
   <div *ngIf="isLoading">Loading...</div>
 </div>
 
-
-<div *ngIf="isMenuPanelOpen" class="popupPanel">
+<div *ngIf="isMenuPanelOpen" class="popupPanel calendarMenuPanel">
   <div class="popupPanelTitle">
     Calendar
   </div>
-  <div class="menuPanelOptionsDiv">
-    <div class="optionsStatsDiv">
-      <div class="optionsStatsHeader">
-        Month :
+
+  <div class="calendarMenuTabs" role="tablist" aria-label="Calendar menu sections">
+    <button type="button" role="tab" *ngFor="let tab of calendarMenuTabs" class="calendarMenuTab"
+      [class.active]="calendarMenuTab === tab.id" [attr.aria-selected]="calendarMenuTab === tab.id"
+      (click)="selectCalendarMenuTab(tab.id)">{{ tab.label }}</button>
+  </div>
+
+  <div class="calendarMenuBody">
+    <section class="calendarMenuSection" *ngIf="calendarMenuTab === 'search'">
+      <div class="calendarMenuIntro">
+        <h3>Find an event</h3>
+        <p>Search every event note, event type and birthday description across all dates. Add a date range only when
+          you want to narrow the results.</p>
       </div>
-      <div class="optionsStatsDescription">
-        <select [value]="selectedMonth" (change)="onMonthChange()" #selectedMonthDropdown>
-          <option *ngFor="let month of monthNames" [selected]="month === selectedMonth" [value]="month">{{ month }}
-          </option>
-        </select>
+
+      <div class="calendarSearchForm">
+        <label class="calendarMenuField calendarMenuFieldWide">
+          <span>Search notes, event types or a name</span>
+          <input type="search" [(ngModel)]="searchQuery" name="calendarSearchQuery"
+            placeholder="e.g. dentist, birthday, payment..." autocomplete="off"
+            (keydown.enter)="searchCalendarEvents()" />
+        </label>
+        <label class="calendarMenuField">
+          <span>Event type</span>
+          <select [(ngModel)]="searchType" name="calendarSearchType">
+            <option value="">All event types</option>
+            <option *ngFor="let eventType of getEventTypes()" [value]="eventType">{{ eventSymbolMap[eventType] || '📌'
+              }} {{ eventType }}</option>
+          </select>
+        </label>
+        <label class="calendarMenuField">
+          <span>From date <small>(optional)</small></span>
+          <input type="date" [(ngModel)]="searchFromDate" name="calendarSearchFrom" />
+        </label>
+        <label class="calendarMenuField">
+          <span>To date <small>(optional)</small></span>
+          <input type="date" [(ngModel)]="searchToDate" name="calendarSearchTo" />
+        </label>
       </div>
-    </div>
-    <div class="optionsStatsDiv">
-      <div class="optionsStatsHeader">
-        Year :
+
+      <div class="calendarSearchActions">
+        <button type="button" class="calendarSearchPrimary" (click)="searchCalendarEvents()"
+          [disabled]="searchLoading">{{ searchLoading ? 'Searching…' : '🔎 Search events' }}</button>
+        <button type="button" (click)="clearCalendarSearch()" [disabled]="searchLoading">Clear</button>
       </div>
-      <div class="optionsStatsDescription">
-        <select [value]="selectedYear" (change)="onYearChange()" #selectedYearDropdown>
-          <option *ngFor="let year of years" [selected]="year === selectedYear" [value]="year">{{ year }}</option>
-        </select>
+      <p class="calendarSearchHelp">Leave both dates blank to search all of your notes and birthdays. Results open the
+        calendar at the matching date.</p>
+
+      <div *ngIf="searchLoading" class="calendarSearchLoading">Searching your calendar…</div>
+
+      <div *ngIf="!searchLoading && searchPerformed" class="calendarSearchResultsWrap">
+        <div class="calendarSearchSummary">
+          <strong>{{ searchResults.length }}</strong> match{{ searchResults.length === 1 ? '' : 'es' }}
+          <span *ngIf="searchQuery.trim()">for “{{ searchQuery.trim() }}”</span>
+        </div>
+        <ul class="calendarSearchResults" *ngIf="searchResults.length > 0">
+          <li *ngFor="let result of searchResults">
+            <button type="button" class="calendarSearchResult" (click)="openCalendarSearchResult(result)"
+              [title]="'Open ' + (result.date | date:'MMMM d, yyyy')">
+              <span class="calendarSearchResultTop">
+                <span class="calendarSearchResultDate">{{ result.date | date:"EEE, MMM d, yyyy · h:mm a"
+                  }}</span>
+                <span class="calendarSearchResultType">{{ eventSymbolMap[result.type!] || '📌' }} {{ result.type ||
+                  'Event' }}</span>
+              </span>
+              <span class="calendarSearchResultNote">{{ result.note || 'No note' }}</span>
+              <span class="calendarSearchResultAction">Open date →</span>
+            </button>
+          </li>
+        </ul>
+        <div *ngIf="searchResults.length === 0" class="calendarSearchEmpty">
+          No matching events. Try another word, choose a different type, or clear the date filters.
+        </div>
       </div>
-    </div>
-    <div class="optionsStatsDiv" *ngIf="parentRef?.user?.id">
-      <div class="optionsStatsHeader">
-        Enable Notifications :
+    </section>
+
+    <section class="calendarMenuSection" *ngIf="calendarMenuTab === 'calendar'">
+      <div class="calendarMenuIntro">
+        <h3>Jump to a month</h3>
+        <p>Change the month and year shown on the calendar behind this menu.</p>
       </div>
-      <div class="optionsStatsDescription">
-        <input type="checkbox" id="calendar_notifications_enabled" [checked]="calendarNotificationsEnabled"
-          (change)="toggleCalendarNotifications()" />
+      <div class="calendarMenuFieldGrid">
+        <label class="calendarMenuField">
+          <span>Month</span>
+          <select [value]="selectedMonth" (change)="onMonthChange()" #selectedMonthDropdown>
+            <option *ngFor="let month of monthNames" [selected]="month === selectedMonth" [value]="month">{{ month
+              }}</option>
+          </select>
+        </label>
+        <label class="calendarMenuField">
+          <span>Year</span>
+          <select [value]="selectedYear" (change)="onYearChange()" #selectedYearDropdown>
+            <option *ngFor="let year of years" [selected]="year === selectedYear" [value]="year">{{ year }}</option>
+          </select>
+        </label>
       </div>
-    </div>
-    <div class="optionsStatsDiv" *ngIf="parentRef?.user?.id">
-      <div class="optionsStatsHeader cursorPointer" (click)="isTimezoneToggled = !isTimezoneToggled"
-        title="Calendar notifications (15 min / 1 hr before an event) are scheduled using your local timezone. Keep this in sync with where you are.">
-        Timezone : <span>{{ timezone || 'Not set' }}</span> <span class="xSmallFont secondaryFontColor">(edit)</span>
+    </section>
+
+    <section class="calendarMenuSection" *ngIf="calendarMenuTab === 'notifications'">
+      <div class="calendarMenuIntro">
+        <h3>Notifications</h3>
+        <p>Choose whether BugHosted should remind you before events, and keep the timezone used for those reminders
+          up to date.</p>
       </div>
-      <div class="optionsStatsDescription" *ngIf="isTimezoneToggled">
-        <input type="text" placeholder="e.g. America/New_York" [(ngModel)]="timezone" name="calTimezone"
-          (keydown.enter)="updateTimezone()" style="width: 100%; box-sizing: border-box;" />
-        <div style="display:flex; gap:8px; margin-top:6px;">
-          <button (click)="detectTimezone()" title="Use your browser's clock to find your timezone">📡 Detect</button>
-          <button (click)="updateTimezone()" title="Save the timezone">💾 Save Timezone</button>
+
+      <div class="calendarNotificationCard" *ngIf="parentRef?.user?.id">
+        <label class="calendarNotificationToggle">
+          <input type="checkbox" id="calendar_notifications_enabled" [checked]="calendarNotificationsEnabled"
+            (change)="toggleCalendarNotifications()" />
+          <span>
+            <strong>Enable calendar notifications</strong>
+            <small>Send reminders before events using the lead time set on each event.</small>
+          </span>
+        </label>
+      </div>
+
+      <div class="calendarNotificationCard" *ngIf="parentRef?.user?.id">
+        <div class="calendarNotificationCardHeader cursorPointer" (click)="isTimezoneToggled = !isTimezoneToggled"
+          title="Calendar notifications (15 min / 1 hr before an event) are scheduled using your local timezone. Keep this in sync with where you are.">
+          <span>Timezone</span>
+          <span class="calendarNotificationValue">{{ timezone || 'Not set' }} <span
+              class="xSmallFont secondaryFontColor">(edit)</span></span>
+        </div>
+        <div class="calendarNotificationCardBody" *ngIf="isTimezoneToggled">
+          <input type="text" placeholder="e.g. America/New_York" [(ngModel)]="timezone" name="calTimezone"
+            (keydown.enter)="updateTimezone()" />
+          <div class="calendarNotificationActions">
+            <button (click)="detectTimezone()" title="Use your browser's clock to find your timezone">📡 Detect</button>
+            <button (click)="updateTimezone()" title="Save the timezone">💾 Save timezone</button>
+          </div>
+          <div class="xSmallFont secondaryFontColor">
+            Calendar notifications are sent using your local timezone, not the server's.
+          </div>
+        </div>
+      </div>
+
+      <p class="calendarMenuHelp" *ngIf="!parentRef?.user?.id">Sign in to enable calendar notifications and see your
+        notification history.</p>
+
+      <div class="sentNotificationsSection" *ngIf="parentRef?.user?.id">
+        <div class="calendarNotificationCardHeader">
+          <span>Notifications sent</span>
+          <button class="sentNotificationsRefresh" (click)="loadSentNotifications()"
+            [disabled]="sentNotificationsLoading" title="Refresh">🔄</button>
         </div>
         <div class="xSmallFont secondaryFontColor">
-          Calendar notifications are sent using your local timezone (e.g. 15 min before, 1 hr before), not the server's.
+          The last event notifications delivered to your device (kept for 24 hours).
+        </div>
+        <div *ngIf="sentNotificationsLoading" class="sentNotificationsEmpty">Loading...</div>
+        <div *ngIf="!sentNotificationsLoading && sentNotifications.length === 0" class="sentNotificationsEmpty">
+          No notifications sent yet. Enable notifications above and set a reminder on an event.
+        </div>
+        <ul class="sentNotificationsList" *ngIf="!sentNotificationsLoading && sentNotifications.length > 0">
+          <li *ngFor="let sent of sentNotifications" class="sentNotificationItem">
+            <span class="sentNotificationText">{{ formatNotificationSent(sent) }}</span>
+          </li>
+        </ul>
+      </div>
+
+      <p class="calendarMenuHelp">Notifications are sent on your device before an event. The lead time (default 60
+        minutes) is set per event under “Notify me ... minutes before”.</p>
+    </section>
+
+    <section class="calendarMenuSection" *ngIf="calendarMenuTab === 'sync'">
+      <div class="calendarMenuIntro">
+        <h3>Sync &amp; export</h3>
+        <p>Keep BugHosted and the calendar app you use every day in sync.</p>
+      </div>
+
+      <div class="calendarSyncCard">
+        <div class="calendarSyncHeader">
+          <span class="calendarSyncIcon" aria-hidden="true">🗓️</span>
+          <div>
+            <div class="calendarSyncTitle">Connect your whole calendar</div>
+            <div class="calendarSyncSubtitle">Export events once, or create a private subscription that refreshes
+              automatically.</div>
+          </div>
+        </div>
+        <div class="calendarSyncDescription">
+          <div class="calendarSyncSteps">
+            <div class="calendarSyncStep"><span>1</span><strong>Choose an app</strong><small>Google Calendar or Apple
+                Calendar</small></div>
+            <div class="calendarSyncStep"><span>2</span><strong>Download your events</strong><small>Get one .ics file
+                for the selected month</small></div>
+            <div class="calendarSyncStep"><span>3</span><strong>Import once</strong><small>Follow the short Google or
+                iPhone instructions below</small></div>
+          </div>
+          <div class="calendarSyncActions">
+            <button class="calendarSyncPrimary" (click)="downloadIcs()">⬇️ Download all events (.ics)</button>
+            <button (click)="openGoogleImportHelp()">📅 How to import into Google</button>
+            <button (click)="openAppleImportHelp()">🍎 How to add on iPhone</button>
+          </div>
+          <div class="calendarSyncNote">Currently exporting {{ calendarEntries.length }} event{{ calendarEntries.length
+            === 1 ? '' : 's' }} from the selected month. Re-export after adding or editing events.</div>
+          <div class="calendarFeedSection" *ngIf="parentRef?.user?.id">
+            <div class="calendarFeedTitle">🔄 Permanent subscription</div>
+            <p class="xSmallFont secondaryFontColor">Create one private link and let Google Calendar or Apple Calendar
+              refresh your latest events automatically.</p>
+            <button (click)="connectCalendarFeed()" [disabled]="calendarFeedLoading">🔄 {{ calendarFeedLoading ?
+              'Creating link...' : 'Create subscription link' }}</button>
+            <div *ngIf="calendarFeedUrl" class="calendarFeedUrlRow">
+              <input [value]="calendarFeedUrl" readonly aria-label="Private calendar subscription link" />
+              <button (click)="copyCalendarFeedUrl()">📋 Copy</button>
+              <button (click)="revokeCalendarFeed()">🛑 Revoke</button>
+            </div>
+            <small class="calendarFeedHelp">Google: Other calendars → From URL. iPhone: Settings → Calendar → Accounts
+              → Add Account → Other → Add Subscribed Calendar.</small>
+          </div>
         </div>
       </div>
-    </div>
-  </div>
-  <div class="optionsStatsDiv calendarSyncCard">
-    <div class="calendarSyncHeader">
-      <span class="calendarSyncIcon" aria-hidden="true">🗓️</span>
-      <div>
-        <div class="calendarSyncTitle">Connect your whole calendar</div>
-        <div class="calendarSyncSubtitle">Keep BugHosted and your everyday calendar in sync.</div>
-      </div>
-    </div>
-    <div class="optionsStatsDescription calendarSyncDescription">
-      <p class="calendarSyncLead">Export <strong>all of your BugHosted events</strong> at once, or create a private
-        subscription that refreshes automatically.</p>
-      <div class="calendarSyncSteps">
-        <div class="calendarSyncStep"><span>1</span><strong>Choose an app</strong><small>Google Calendar or Apple
-            Calendar</small></div>
-        <div class="calendarSyncStep"><span>2</span><strong>Download your events</strong><small>Get one .ics file for
-            the selected month</small></div>
-        <div class="calendarSyncStep"><span>3</span><strong>Import once</strong><small>Follow the short Google or iPhone
-            instructions below</small></div>
-      </div>
-      <div class="calendarSyncActions">
-        <button class="calendarSyncPrimary" (click)="downloadIcs()">⬇️ Download all events (.ics)</button>
-        <button (click)="openGoogleImportHelp()">📅 How to import into Google</button>
-        <button (click)="openAppleImportHelp()">🍎 How to add on iPhone</button>
-      </div>
-      <div class="calendarSyncNote">Currently exporting {{ calendarEntries.length }} event{{ calendarEntries.length ===
-        1 ? '' : 's' }} from the selected month. Re-export after adding or editing events.</div>
-      <div class="calendarFeedSection" *ngIf="parentRef?.user?.id">
-        <div class="calendarFeedTitle">🔄 Permanent subscription</div>
-        <p class="xSmallFont secondaryFontColor">Create one private link and let Google Calendar or Apple Calendar
-          refresh your latest events automatically.</p>
-        <button (click)="connectCalendarFeed()" [disabled]="calendarFeedLoading">🔄 {{ calendarFeedLoading ? 'Creating
-          link...' : 'Create subscription link' }}</button>
-        <div *ngIf="calendarFeedUrl" class="calendarFeedUrlRow">
-          <input [value]="calendarFeedUrl" readonly aria-label="Private calendar subscription link" />
-          <button (click)="copyCalendarFeedUrl()">📋 Copy</button>
-          <button (click)="revokeCalendarFeed()">🛑 Revoke</button>
-        </div>
-        <small class="calendarFeedHelp">Google: Other calendars → From URL. iPhone: Settings → Calendar → Accounts → Add
-          Account → Other → Add Subscribed Calendar.</small>
-      </div>
-    </div>
+    </section>
   </div>
 
-
-  <div class="sentNotificationsSection" *ngIf="parentRef?.user?.id">
-    <div class="optionsStatsHeader">
-      Notifications Sent :
-      <button class="sentNotificationsRefresh" (click)="loadSentNotifications()" [disabled]="sentNotificationsLoading"
-        title="Refresh">🔄</button>
-    </div>
-    <div class="xSmallFont secondaryFontColor">
-      The last event notifications delivered to your device (kept for 24 hours).
-    </div>
-    <div *ngIf="sentNotificationsLoading" class="sentNotificationsEmpty">Loading...</div>
-    <div *ngIf="!sentNotificationsLoading && sentNotifications.length === 0" class="sentNotificationsEmpty">
-      No notifications sent yet. Enable notifications above and set a reminder on an event.
-    </div>
-    <ul class="sentNotificationsList" *ngIf="!sentNotificationsLoading && sentNotifications.length > 0">
-      <li *ngFor="let sent of sentNotifications" class="sentNotificationItem">
-        <span class="sentNotificationText">{{ formatNotificationSent(sent) }}</span>
-      </li>
-    </ul>
-  </div>
-  <div class="xSmallFont secondaryFontColor">
-    Enabling notifications sends your system a notification (on your device) before an event occurs —
-    the lead time (default 60 minutes) is set per event under "Notify me ... minutes before".
-  </div>
   <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button>
 </div>

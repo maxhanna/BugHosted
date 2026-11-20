@@ -54,7 +54,7 @@ SPECIES: dict[str, tuple[str, str, int, int]] = {
     "sandMaggotQueen": ("MQ", "maggot-queen.png", 18, 16),
     "scarab": ("SC", "scarab.png", 16, 16),
     "spiderDemon": ("SP", "spider-demon.png", 18, 16),
-    "spikeFiend": ("SI", "spike-fiend.png", 20, 16),
+    "spikeFiend": ("SI", "spike-fiend.png", 16, 16),
     "leaper": ("SL", "leaper.png", 20, 16),
     "blunderbore": ("PN", "blunderbore.png", 16, 16),
     "fetish": ("FE", "fetish.png", 13, 24),
@@ -85,7 +85,6 @@ NEW_SPECIES: dict[str, tuple[str, str, int, int, int]] = {
     "balrog": ("DM", "balrog.png", 16, 224, 152),
     "bloodLord": ("L3", "blood-lord.png", 16, 64, 64),
     "spiderDemon": ("SP", "spider-demon.png", 12, 160, 128),
-    "spikeFiend": ("SI", "spike-fiend.png", 16, 96, 80),
     "fetishShaman": ("FS", "fetish-shaman.png", 17, 112, 96),
     # The Act V minotaur is the Blood Lord composite (L3), including its axes.
     # TH is a Thorned Hulk and was producing a completely different creature.
@@ -446,6 +445,171 @@ def build_new_species(source: Path, species: str) -> str:
     sheet.save(destination)
     return (f"{species:16s} {code:3s} {out_name:24s} {sheet.width}x{sheet.height} "
             f"cell {cell_width}x{cell_height} walk {walk_frames}f attack {attack_frames}f")
+
+
+SAND_MAGGOT_YOUNG_BORDER = 2
+
+
+def build_sand_maggot_young(source: Path) -> str:
+    """Rebuild the Sand Maggot Young from SB's real crawl and bite DCCs.
+
+    The old sheet had no walk clip and reused the spit animation as a crawl, so
+    the young glided without a locomotion cycle. SB's walk DCC has the real
+    eight-frame crawl. Its cels also need one D2R-space origin per facing: the
+    generic per-frame centring moves the body up and down by several pixels and
+    makes a crawling monster look like it is hovering.
+    """
+    code, out_name, columns, rows = SPECIES["sandMaggotYoung"]
+    destination = ASSET_ROOT / out_name
+    if not destination.is_file():
+        return f"skip sandMaggotYoung: {out_name} is missing"
+    existing = Image.open(destination)
+    cell_width, cell_height = existing.width // columns, existing.height // rows
+
+    monster_dir = source / "global" / "monsters" / code
+    walk_path = find_animation(monster_dir, "wl")
+    attack_path = find_animation(monster_dir, "a1")
+    if walk_path is None:
+        return f"skip sandMaggotYoung: {code} has no walk animation"
+    clips = [("walk", dcc.parse(walk_path.read_bytes()))]
+    if attack_path is not None:
+        clips.append(("attack", dcc.parse(attack_path.read_bytes())))
+
+    directions = min(8, *(animation["directions"] for _, animation in clips))
+    if directions < 8:
+        return f"skip sandMaggotYoung: only {directions} directions"
+
+    def frame_box(animation: dict, direction: int, frame: int) -> tuple[int, int, int, int]:
+        cel = animation["dirs"][direction]["frames"][frame]
+        return (cel["xmin"], cel["ymin"],
+                cel["xmin"] + cel["width"], cel["ymin"] + cel["height"])
+
+    # One union box per facing across walk and bite, so switching state cannot
+    # move the young inside its cel, and every crawl frame shares the same
+    # ground line instead of being centred independently.
+    boxes = []
+    for direction in range(directions):
+        bounds = [frame_box(animation, direction, frame)
+                  for _, animation in clips
+                  for frame in range(animation["frames_per_dir"])]
+        boxes.append((min(box[0] for box in bounds), min(box[1] for box in bounds),
+                      max(box[2] for box in bounds), max(box[3] for box in bounds)))
+    widest = max(box[2] - box[0] for box in boxes)
+    tallest = max(box[3] - box[1] for box in boxes)
+    border = SAND_MAGGOT_YOUNG_BORDER
+    scale = min((cell_width - border * 2) / widest, (cell_height - border * 2) / tallest)
+
+    sheet = Image.new("RGBA", (existing.width, existing.height), (0, 0, 0, 0))
+    frame_counts = []
+    for clip_index, (_, animation) in enumerate(clips):
+        frame_count = min(animation["frames_per_dir"], columns)
+        frame_counts.append(frame_count)
+        for direction in range(min(directions, animation["directions"])):
+            xmin, _, _, ymax = boxes[direction]
+            dir_xmin, dir_ymin, dir_width, dir_height = animation["dirs"][direction]["box"]
+            draw_x = round((cell_width - (boxes[direction][2] - xmin) * scale) / 2
+                           + (dir_xmin - xmin) * scale)
+            draw_y = round((cell_height - border) - (ymax - dir_ymin) * scale)
+            row = clip_index * 8 + direction
+            for column in range(columns):
+                image = frame_crop(animation, direction, column % frame_count)
+                image = image.resize(
+                    (max(1, round(dir_width * scale)), max(1, round(dir_height * scale))),
+                    Image.NEAREST if scale >= 1 else Image.LANCZOS,
+                )
+                if (draw_x < 0 or draw_y < 0
+                        or draw_x + image.width > cell_width
+                        or draw_y + image.height > cell_height):
+                    raise ValueError(f"sandMaggotYoung frame {column} does not fit its cell")
+                sheet.alpha_composite(image, (column * cell_width + draw_x, row * cell_height + draw_y))
+
+    expected = (existing.width, existing.height)
+    sheet.save(destination)
+    check = Image.open(destination).size
+    assert check == expected, f"{out_name} changed size {expected} -> {check}"
+    return (f"{'sandMaggotYoung':16s} {code:3s} {out_name:24s} "
+            f"{check[0]}x{check[1]} cell {cell_width}x{cell_height} "
+            f"walk {walk_path.name} ({frame_counts[0]}f) "
+            f"attack {attack_path.name if attack_path else 'none'} "
+            f"({frame_counts[1] if len(frame_counts) > 1 else 0}f) shared origin")
+
+
+SPIKE_FIEND_CLIPS = (("walk", "sitrlitwlhth.dcc"), ("attack", "sitrlita2hth.dcc"))
+SPIKE_FIEND_COLUMNS = 16
+SPIKE_FIEND_CELL = (96, 80)
+SPIKE_FIEND_BORDER = 2
+
+
+def build_spike_fiend(source: Path) -> str:
+    """Rebuild the Spike Fiend from SI's walk and quill-throw DCCs.
+
+    The old sheet centred every cel in its own cell, so consecutive frames put
+    the beast 10-28 pixels sideways and it visibly vibrated.  Walk and the
+    ranged ``a2`` volley (thirteen cels) now share one union box, one scale and
+    one origin per facing, so the body stays planted while the quills fan out.
+    """
+    monster_dir = source / "global" / "monsters" / "SI" / "tr"
+    clips: list[tuple[str, dict]] = []
+    for label, name in SPIKE_FIEND_CLIPS:
+        path = monster_dir / name
+        if not path.is_file():
+            return f"skip spikeFiend: missing {name}"
+        clips.append((label, dcc.parse(path.read_bytes())))
+    directions = min(8, *(animation["directions"] for _, animation in clips))
+    if directions < 8:
+        return f"skip spikeFiend: only {directions} directions"
+
+    cell_width, cell_height = SPIKE_FIEND_CELL
+    columns = SPIKE_FIEND_COLUMNS
+    border = SPIKE_FIEND_BORDER
+
+    def frame_box(animation: dict, direction: int, frame: int) -> tuple[int, int, int, int]:
+        cel = animation["dirs"][direction]["frames"][frame]
+        return (cel["xmin"], cel["ymin"],
+                cel["xmin"] + cel["width"], cel["ymin"] + cel["height"])
+
+    # One union box per facing covers every walk and attack cel, which is what
+    # keeps the same scale and origin across the state change.
+    boxes = []
+    for direction in range(directions):
+        bounds = [frame_box(animation, direction, frame)
+                  for _, animation in clips
+                  for frame in range(animation["frames_per_dir"])]
+        boxes.append((min(box[0] for box in bounds), min(box[1] for box in bounds),
+                      max(box[2] for box in bounds), max(box[3] for box in bounds)))
+    widest = max(box[2] - box[0] for box in boxes)
+    tallest = max(box[3] - box[1] for box in boxes)
+    scale = min((cell_width - border * 2) / widest, (cell_height - border * 2) / tallest)
+
+    sheet = Image.new("RGBA", (cell_width * columns, cell_height * 16), (0, 0, 0, 0))
+    frame_counts = []
+    for clip_index, (_, animation) in enumerate(clips):
+        frame_count = min(animation["frames_per_dir"], columns)
+        frame_counts.append(frame_count)
+        for direction in range(min(directions, animation["directions"])):
+            xmin, ymin, xmax, ymax = boxes[direction]
+            dir_xmin, dir_ymin = animation["dirs"][direction]["box"][:2]
+            draw_x = round((cell_width - (xmax - xmin) * scale) / 2
+                           + (dir_xmin - xmin) * scale)
+            draw_y = round((cell_height - border) + (dir_ymin - ymax) * scale)
+            row = clip_index * 8 + direction
+            for column in range(columns):
+                image = frame_crop(animation, direction, column % frame_count)
+                width = max(1, round(image.width * scale))
+                height = max(1, round(image.height * scale))
+                image = image.resize(
+                    (width, height),
+                    Image.NEAREST if scale >= 1 else Image.LANCZOS,
+                )
+                if draw_x < 0 or draw_y < 0 or draw_x + width > cell_width or draw_y + height > cell_height:
+                    raise ValueError(f"spikeFiend frame {column} does not fit its cell")
+                sheet.alpha_composite(image, (column * cell_width + draw_x, row * cell_height + draw_y))
+
+    destination = ASSET_ROOT / "spike-fiend.png"
+    sheet.save(destination, optimize=True)
+    return (f"{'spikeFiend':16s} SI  spike-fiend.png          {sheet.width}x{sheet.height} "
+            f"cell {cell_width}x{cell_height} walk {frame_counts[0]}f attack {frame_counts[1]}f "
+            f"scale {scale:.2f}")
 
 
 def build_composite_species(source: Path, species: str) -> str:
@@ -1333,6 +1497,10 @@ def main(argv: list[str]) -> int:
         CURRENT_PALETTE = units_palette if species in BGR_FIXED_SPECIES else legacy_palette
         if species == "sandMaggot":
             message = build_sand_maggot(args.source)
+        elif species == "sandMaggotYoung":
+            message = build_sand_maggot_young(args.source)
+        elif species == "spikeFiend":
+            message = build_spike_fiend(args.source)
         elif species == "skeletonWarrior":
             message = build_skeleton_warrior(args.source)
         elif species == "diablo":

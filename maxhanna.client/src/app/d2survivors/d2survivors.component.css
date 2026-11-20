@@ -857,6 +857,18 @@
   cursor: pointer;
 }
 
+.d2s-menu-hero-controls button.d2s-menu-hero-swap {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.d2s-menu-hero-controls-divider {
+  width: 1px;
+  align-self: stretch;
+  margin: 4px 2px;
+  background: linear-gradient(180deg, transparent, #806843, transparent);
+}
+
 .d2s-menu-hero-controls button:hover,
 .d2s-menu-hero-controls button:focus-visible {
   color: #fff1c9;
@@ -1510,7 +1522,7 @@
   z-index: 9;
   top: 14px;
   right: 14px;
-  display: none;
+  display: grid;
   width: 42px;
   height: 42px;
   place-items: center;
@@ -2090,6 +2102,25 @@
   box-shadow: 0 0 7px #7fc9ffcc, inset 0 0 5px #000;
 }
 
+.d2s-belt-slot.dragging { opacity: .28; }
+
+/* The vial rides the cursor while a belt potion is dragged. */
+.d2s-belt-drag-ghost {
+  position: fixed;
+  /* Above the custom D2 cursor art while the vial is carried. */
+  z-index: 2147483646;
+  display: flex;
+  width: 42px;
+  height: 46px;
+  align-items: center;
+  justify-content: center;
+  transform: translate(-50%, -65%);
+  pointer-events: none;
+  filter: drop-shadow(0 5px 5px #000c);
+}
+
+.d2s-belt-drag-ghost .d2s-potion-bottle { transform: scale(1.25); }
+
 .d2s-potion-bottle {
   position: relative;
   display: block;
@@ -2139,7 +2170,6 @@
 }
 
 @media (max-width: 620px) {
-  .d2s-touch-menu { display: grid; }
 
   .d2s-inv-panel { inset: 50% auto auto 50%; width: calc(100vw - 12px); height: 100vh; height: 100dvh; padding: 18px 14px; transform: translate(-50%, -50%); }
   .d2s-inventory-overlay-header { margin: 0 0 12px; padding: 0 0 10px; }
@@ -2399,7 +2429,45 @@
 .d2s-stats-block small { color: #80c9f4; font-size: 10px; }
 .d2s-stats-block small.d2s-stat-preview { color: #72df78; font-size: 10px; white-space: nowrap; }
 .d2s-stats-block small.d2s-stat-preview.negative { color: #ef7474; }
+.d2s-stats-block > div.d2s-stat-line { cursor: help; }
+.d2s-stat-line > span { text-decoration: underline dotted #6f5a3b; text-underline-offset: 2px; }
 .d2s-resource-stats { border-bottom: 0; }
+
+.d2s-stat-tooltip {
+  position: fixed;
+  z-index: 125;
+  width: min(264px, calc(100vw - 20px));
+  padding: 9px 11px;
+  color: #d8c49b;
+  border: 1px solid #8b7045;
+  background: linear-gradient(145deg, #211a14f7, #09090af7 78%);
+  box-shadow: inset 0 0 0 2px #080809, 0 5px 18px #000c;
+  pointer-events: none;
+  box-sizing: border-box;
+}
+
+.d2s-stat-tooltip strong {
+  display: block;
+  margin-bottom: 4px;
+  color: #f0d6a0;
+  font: 13px Georgia, serif;
+  letter-spacing: .06em;
+}
+
+.d2s-stat-tooltip p {
+  margin: 0;
+  color: #cfc0a1;
+  font: 11px/1.45 Georgia, serif;
+}
+
+@media (max-width: 820px) {
+  .d2s-stat-tooltip {
+    left: 50vw !important;
+    top: auto !important;
+    bottom: 16px;
+    transform: translateX(-50%);
+  }
+}
 
 .d2s-inventory-heading {
   margin: 0 0 12px;

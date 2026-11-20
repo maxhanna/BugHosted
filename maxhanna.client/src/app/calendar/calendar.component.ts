@@ -51,6 +51,20 @@ export class CalendarComponent extends ChildComponent implements OnInit {
   sentNotifications: CalendarNotificationSent[] = [];
   sentNotificationsLoading = false;
   isMenuPanelOpen: boolean = false;
+  calendarMenuTab = "search";
+  readonly calendarMenuTabs = [
+    { id: "search", label: "🔎 Search" },
+    { id: "calendar", label: "📅 Date" },
+    { id: "notifications", label: "🔔 Notifications" },
+    { id: "sync", label: "🔄 Sync & Export" },
+  ];
+  searchQuery = "";
+  searchType = "";
+  searchFromDate = "";
+  searchToDate = "";
+  searchResults: CalendarEntry[] = [];
+  searchLoading = false;
+  searchPerformed = false;
   calendarFeedUrl = '';
   calendarFeedLoading = false;
   selectedEventShareUsers: User[] = [];
@@ -344,8 +358,13 @@ export class CalendarComponent extends ChildComponent implements OnInit {
   private isDaily = (type: string): boolean => {
     return (type.toLowerCase() == "daily");
   }
-  private async setCalendarDates(now: Date) {
+  private async setCalendarDates(now: Date, extraEntries: CalendarEntry[] = []) {
     await this.getCalendarEntries();
+    const missingEntries = extraEntries.filter((extra) =>
+      !this.calendarEntries.some((entry) => entry.id === extra.id));
+    if (missingEntries.length > 0) {
+      this.calendarEntries = [...this.calendarEntries, ...missingEntries];
+    }
     this.calendarDays = [];
     let tmpNow = new Date(now);
 
@@ -598,6 +617,90 @@ export class CalendarComponent extends ChildComponent implements OnInit {
       this.parentRef.closeOverlay();
     }
   }
+
+  selectCalendarMenuTab(tabId: string): void {
+    this.calendarMenuTab = tabId;
+  }
+
+  private searchDateBoundary(value: string, endOfDay: boolean): Date | undefined {
+    if (!value) return undefined;
+    const [year, month, day] = value.split("-").map(Number);
+    if (!year || !month || !day) return undefined;
+    return endOfDay
+      ? new Date(year, month - 1, day, 23, 59, 59, 999)
+      : new Date(year, month - 1, day, 0, 0, 0, 0);
+  }
+
+  async searchCalendarEvents(): Promise<void> {
+    const fromDate = this.searchDateBoundary(this.searchFromDate, false);
+    const toDate = this.searchDateBoundary(this.searchToDate, true);
+    if (fromDate && toDate && fromDate > toDate) {
+      this.parentRef?.showNotification?.('The “from” date must be before the “to” date.');
+      return;
+    }
+
+    this.searchLoading = true;
+    this.searchPerformed = true;
+    try {
+      const results = await this.calendarService.searchCalendarEntries(
+        this.parentRef?.user?.id,
+        this.searchQuery.trim(),
+        this.searchType,
+        fromDate,
+        toDate,
+      );
+      if (results === null) {
+        this.searchResults = [];
+        this.parentRef?.showNotification?.('Could not search calendar events. Please try again.');
+        return;
+      }
+      this.searchResults = (results as CalendarEntry[]).slice().sort((a, b) => {
+        const dateA = a.date ? new Date(a.date).getTime() : 0;
+        const dateB = b.date ? new Date(b.date).getTime() : 0;
+        return dateB - dateA;
+      });
+    } catch (error) {
+      console.error('Error searching calendar entries:', this.formatError(error));
+      this.searchResults = [];
+      this.parentRef?.showNotification?.('Could not search calendar events. Please try again.');
+    } finally {
+      this.searchLoading = false;
+    }
+  }
+
+  clearCalendarSearch(): void {
+    this.searchQuery = '';
+    this.searchType = '';
+    this.searchFromDate = '';
+    this.searchToDate = '';
+    this.searchResults = [];
+    this.searchPerformed = false;
+  }
+
+  /** Open the month and day for a search result without losing the calendar context. */
+  async openCalendarSearchResult(entry: CalendarEntry): Promise<void> {
+    if (!entry.date) return;
+    const targetDate = new Date(entry.date);
+    if (isNaN(targetDate.getTime())) return;
+
+    this.closeMenuPanel();
+    this.startLoading();
+    try {
+      this.selectedDate = undefined;
+      this.now = new Date(targetDate.getFullYear(), targetDate.getMonth(), 1);
+      this.selectedYear = targetDate.getFullYear();
+      this.selectedMonth = this.monthNames[targetDate.getMonth()];
+      this.monthBackFromNow = new Date(targetDate.getFullYear(), targetDate.getMonth() - 1, 1);
+      this.monthForwardFromNow = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 1);
+      await this.setCalendarDates(this.now, [entry]);
+      const calendarDay = this.calendarDays.find((day) =>
+        !!day.date && this.compareDatesWithoutTime(day.date, targetDate));
+      if (calendarDay) this.getCalendarDetails(calendarDay);
+    } finally {
+      this.stopLoading();
+    }
+  }
+
   async onMonthChange() {
     this.selectedMonth = this.selectedMonthDropdown.nativeElement.value;
     const monthIndex = this.selectedMonth ? this.monthNames.indexOf(this.selectedMonth) : new Date().getMonth();

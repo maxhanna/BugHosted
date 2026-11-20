@@ -60,6 +60,27 @@ export class CalendarService {
     }
   }
 
+  async searchCalendarEntries(
+    userId: number = 0,
+    query: string = '',
+    type: string = '',
+    fromDate?: Date,
+    toDate?: Date,
+  ) {
+    try {
+      const response = await fetch('/calendar/search', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId, query, type, fromDate, toDate }),
+      });
+      return await this.handleResponse(response);
+    } catch (error) {
+      return null;
+    }
+  }
+
   async createCalendarFeedToken(userId: number): Promise<{ url: string } | null> {
     try {
       const response = await fetch('/calendar/feed-token', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(userId) });

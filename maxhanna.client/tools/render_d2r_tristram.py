@@ -7,7 +7,8 @@ the real ``tri_town4.ds1`` preset and the DT1 sets it names, including
 palette and renders a cropped region of the town for use as the Act 8 backdrop.
 It also writes a 4x4 fallback atlas from the same map's most common floors and
 a packed upper-wall atlas plus backdrop-relative placements so the runtime can
-depth-sort the town walls over actors.
+depth-sort the town walls over actors, and a wall-footprint collision mask so
+the hero cannot walk through the buildings.
 
 The renderer follows the layer order used by the game's editor: lower walls,
 floors, shadows, upper walls/objects, and roofs.  It also composites the
@@ -30,7 +31,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageDraw
 
 import d2r_dcc
 
@@ -536,15 +537,63 @@ def build_catalogue(scene: Scene, source: Path) -> dict[tuple[int, int, int], Ti
     return catalogue
 
 
-def crop_scene(image: Image.Image, scene: Scene) -> Image.Image:
+def crop_pixel_origin(scene: Scene) -> tuple[int, int]:
+    """Top-left pixel of the exported crop inside the rendered scene."""
     origin_x = scene.height * TILE_WIDTH // 2
     origin_y = 512
+    return (origin_x + (CROP_COLUMN - (CROP_ROW + CROP_ROWS - 1)) * TILE_WIDTH // 2,
+            origin_y + (CROP_COLUMN + CROP_ROW) * TILE_HEIGHT // 2 - CROP_TOP_MARGIN)
+
+
+def crop_scene(image: Image.Image, scene: Scene) -> Image.Image:
     # Bounding box of the chosen tile window, including wall overhang above it.
-    left = origin_x + (CROP_COLUMN - (CROP_ROW + CROP_ROWS - 1)) * TILE_WIDTH // 2
-    top = origin_y + (CROP_COLUMN + CROP_ROW) * TILE_HEIGHT // 2 - CROP_TOP_MARGIN
+    left, top = crop_pixel_origin(scene)
     width = (CROP_COLUMNS + CROP_ROWS) * TILE_WIDTH // 2
     height = (CROP_COLUMNS + CROP_ROWS) * TILE_HEIGHT // 2 + CROP_TOP_MARGIN
     return image.crop((left, top, left + width, top + height))
+
+
+def build_wall_collision_mask(scene: Scene,
+                              catalogue: dict[tuple[int, int, int], Tile]) -> Image.Image:
+    """White iso diamonds over every wall cell, in backdrop pixel space.
+
+    A DS1 wall cell fills its whole tile diamond, so the buildings' footprints
+    (including the cells under their roofs) become solid while the streets the
+    preset leaves empty stay walkable.  This is the same grid the backdrop and
+    the depth-sorted wall sprites use, so the runtime can sample the mask with
+    the backdrop geometry.
+    """
+    left, top = crop_pixel_origin(scene)
+    width = (CROP_COLUMNS + CROP_ROWS) * TILE_WIDTH // 2
+    height = (CROP_COLUMNS + CROP_ROWS) * TILE_HEIGHT // 2 + CROP_TOP_MARGIN
+    mask = Image.new("L", (width, height), 0)
+    draw = ImageDraw.Draw(mask)
+    origin_x = scene.height * TILE_WIDTH // 2
+    origin_y = 512
+    for layer in scene.layers:
+        if layer.kind != "wall" or not layer.orientations:
+            continue
+        for index, cell in enumerate(layer.cells):
+            if cell & 0x80000000 or cell & 0xFF == 0:
+                continue
+            column, row = index % scene.width, index // scene.width
+            if not (CROP_COLUMN <= column < CROP_COLUMN + CROP_COLUMNS
+                    and CROP_ROW <= row < CROP_ROW + CROP_ROWS):
+                continue
+            orientation = layer.orientations[index] & 0xFF
+            if orientation >= 16:
+                continue
+            if catalogue.get(cell_key(cell, orientation)) is None:
+                continue
+            tile_x = origin_x + (column - row) * TILE_WIDTH // 2 - left
+            tile_y = origin_y + (column + row) * TILE_HEIGHT // 2 - top
+            draw.polygon([
+                (tile_x + TILE_WIDTH // 2, tile_y),
+                (tile_x + TILE_WIDTH, tile_y + TILE_HEIGHT // 2),
+                (tile_x + TILE_WIDTH // 2, tile_y + TILE_HEIGHT),
+                (tile_x, tile_y + TILE_HEIGHT // 2),
+            ], fill=255)
+    return mask
 
 
 def prepare_backdrop(image: Image.Image) -> Image.Image:
@@ -728,9 +777,12 @@ def main(argv: list[str]) -> int:
     wall_atlas.save(ASSET_ROOT / "a8-tristram-walls.png", optimize=True)
     with (ASSET_ROOT / "a8-tristram-walls.json").open("w", encoding="utf-8") as handle:
         json.dump(wall_layout, handle, separators=(",", ":"))
+    collision = build_wall_collision_mask(scene, catalogue)
+    collision.save(ASSET_ROOT / "a8-tristram-walls-collision.png", optimize=True)
     print(f"backdrop {backdrop.width}x{backdrop.height} -> {ASSET_ROOT / 'a8-tristram-backdrop.png'}")
     print(f"atlas {atlas.width}x{atlas.height} -> {TILE_ROOT / 'a8-uber-tristram-floor-tiles.png'}")
     print(f"wall atlas {wall_atlas.width}x{wall_atlas.height}, {len(wall_layout['instances'])} instances -> {ASSET_ROOT / 'a8-tristram-walls.png'}")
+    print(f"collision {collision.width}x{collision.height} -> {ASSET_ROOT / 'a8-tristram-walls-collision.png'}")
     return 0
 
 

@@ -1,15 +1,18 @@
 """Build the paladin aura hit-effect sheets from the D2R overlay extraction.
 
-Holy Fire, Holy Freeze and Holy Shock each use an original overlay cel for the
-damage tick they deal to nearby monsters:
+Holy Fire, Holy Freeze and Holy Shock each stamp a compact original overlay on
+every monster damaged by an aura tick. These are the per-monster hit cels, not
+the aura rings around the paladin or the Hand-of-God sky bolt:
 
-* ``global/overlays/auraholyfirehit.dcc``
-* ``global/overlays/holyfreeze.dcc``
-* ``global/overlays/holyshockhit.dcc``
+* ``global/overlays/auraholyfirehit.dcc`` (AuraHolyFireHit)
+* ``global/overlays/iceexplode.dcc`` (IceExplode, the holywindcold overlay)
+* ``global/overlays/shockhitsm.dcc`` (ShockHitSm)
 
-The DCCs are single-direction animations laid out in unit space. The runtime
-keeps the character's feet at the generated sheet's origin, so the same effect
-can be stamped onto any monster hit by the aura tick.
+The matching aura rings are ``aura_holyfire_front/back``, ``holyfreeze`` and
+``holyshockfront/back``; ``holyshockhit.dcc`` holds the large HolyShockHit bolt.
+The hit DCCs are single-direction animations laid out in unit space. The runtime
+keeps the target's feet at the generated sheet's origin, so the same effect can
+be stamped onto any monster hit by the aura tick.
 
 Usage:
     python tools/import_d2r_paladin_aura_hits.py
@@ -32,11 +35,11 @@ OUTPUT_DIR = PROJECT_ROOT / "src" / "assets" / "d2survivors" / "effects"
 METADATA = PROJECT_ROOT / "src" / "app" / "d2survivors" / "d2-paladin-aura-hits.generated.ts"
 DEFAULT_SOURCE = Path.home() / "Desktop" / "d2" / "d2r extract" / "data"
 
-# key, source DCC, output slug, animation rate (frames/sec)
+# key, source DCC, output slug, animation rate (frames/sec) from overlay.txt
 EFFECTS = (
     ("holyFire", "global/overlays/auraholyfirehit.dcc", "holy-fire-hit", 16),
-    ("holyFreeze", "global/overlays/holyfreeze.dcc", "holy-freeze-hit", 16),
-    ("holyShock", "global/overlays/holyshockhit.dcc", "holy-shock-hit", 20),
+    ("holyFreeze", "global/overlays/iceexplode.dcc", "holy-freeze-hit", 16),
+    ("holyShock", "global/overlays/shockhitsm.dcc", "holy-shock-hit", 16),
 )
 
 

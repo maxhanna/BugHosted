@@ -174,6 +174,121 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
+		[HttpPost("/Calendar/Search", Name = "SearchCalendarEntries")]
+		public async Task<IActionResult> Search([FromBody] SearchCalendarEntries req)
+		{
+			try
+			{
+				var query = req.Query?.Trim() ?? string.Empty;
+				var type = req.Type?.Trim() ?? string.Empty;
+				// Auto-generated birthdays are only relevant when the type filter is empty or Birthday.
+				var includeBirthdays = type.Length == 0 || type.Equals("Birthday", StringComparison.OrdinalIgnoreCase);
+
+				var calendarWhere = "Ownership = @Owner";
+				if (query.Length > 0)
+					calendarWhere += " AND (Type LIKE @Query OR Note LIKE @Query)";
+				if (type.Length > 0)
+					calendarWhere += " AND Type = @Type";
+				if (req.FromDate.HasValue)
+					calendarWhere += " AND Date >= @FromDate";
+				if (req.ToDate.HasValue)
+					calendarWhere += " AND Date <= @ToDate";
+
+				var sql = @"SELECT Id, Type, Note, Date, Ownership, Reminder, AutoBirthday FROM (
+						SELECT Id, Type, Note, Date, Ownership, Reminder, 0 AS AutoBirthday
+						FROM (
+							SELECT Id, Type, Note, Date, Ownership, Reminder
+							FROM maxhanna.calendar
+							WHERE " + calendarWhere + @"
+							ORDER BY Date DESC, Id DESC
+							LIMIT 250
+						) AS recentCalendar";
+
+				if (includeBirthdays)
+				{
+					// The owner's birthday is stored with its birth year but recurs yearly, so the
+					// text/date filters compare month-day instead of the raw stored date.
+					var birthdayWhere = "ua.user_id = @Owner AND ua.birthday IS NOT NULL";
+					if (query.Length > 0)
+						birthdayWhere += " AND ('Birthday' LIKE @Query OR COALESCE(ua.description, '') LIKE @Query OR COALESCE(u.username, '') LIKE @Query)";
+					if (req.FromDate.HasValue && req.ToDate.HasValue)
+						birthdayWhere += @" AND (
+								(DATE_FORMAT(@FromDate, '%m-%d') <= DATE_FORMAT(@ToDate, '%m-%d')
+									AND DATE_FORMAT(ua.birthday, '%m-%d') BETWEEN DATE_FORMAT(@FromDate, '%m-%d') AND DATE_FORMAT(@ToDate, '%m-%d'))
+								OR (DATE_FORMAT(@FromDate, '%m-%d') > DATE_FORMAT(@ToDate, '%m-%d')
+									AND (DATE_FORMAT(ua.birthday, '%m-%d') >= DATE_FORMAT(@FromDate, '%m-%d')
+										OR DATE_FORMAT(ua.birthday, '%m-%d') <= DATE_FORMAT(@ToDate, '%m-%d')))
+							)";
+					else if (req.FromDate.HasValue)
+						birthdayWhere += " AND DATE_FORMAT(ua.birthday, '%m-%d') >= DATE_FORMAT(@FromDate, '%m-%d')";
+					else if (req.ToDate.HasValue)
+						birthdayWhere += " AND DATE_FORMAT(ua.birthday, '%m-%d') <= DATE_FORMAT(@ToDate, '%m-%d')";
+
+					sql += @"
+						UNION ALL
+						SELECT ua.user_id AS Id, 'Birthday' AS Type, COALESCE(ua.description, '') AS Note,
+							ua.birthday AS Date, @Owner AS Ownership, NULL AS Reminder, 1 AS AutoBirthday
+						FROM maxhanna.user_about ua
+						LEFT JOIN maxhanna.users u ON u.id = ua.user_id
+						WHERE " + birthdayWhere;
+				}
+
+				sql += @"
+				) AS combined
+				ORDER BY Date DESC, Id DESC";
+
+				var entries = new List<CalendarEntry>();
+				await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+				await conn.OpenAsync();
+				await using var cmd = new MySqlCommand(sql, conn);
+				cmd.Parameters.AddWithValue("@Owner", req.UserId);
+				if (query.Length > 0) cmd.Parameters.AddWithValue("@Query", $"%{query}%");
+				if (type.Length > 0) cmd.Parameters.AddWithValue("@Type", type);
+				if (req.FromDate.HasValue) cmd.Parameters.AddWithValue("@FromDate", req.FromDate.Value);
+				if (req.ToDate.HasValue) cmd.Parameters.AddWithValue("@ToDate", req.ToDate.Value);
+
+				await using var rdr = await cmd.ExecuteReaderAsync();
+				while (await rdr.ReadAsync())
+				{
+					var storedDate = DateTime.SpecifyKind(rdr.GetDateTime(3), DateTimeKind.Utc);
+					var autoBirthday = Convert.ToInt32(rdr.GetValue(6)) == 1;
+					if (autoBirthday)
+					{
+						storedDate = NextBirthdayOccurrence(storedDate);
+					}
+					entries.Add(new CalendarEntry(rdr.GetInt32(0), rdr.GetString(1), rdr.GetString(2), storedDate,
+						rdr.GetString(4), rdr.IsDBNull(5) ? (int?)null : rdr.GetInt32(5)));
+				}
+				return Ok(entries);
+			}
+			catch (MySqlException ex)
+			{
+				_ = _log.Db("Database error while searching calendar entries: " + ex.Message, req.UserId, "CALENDAR");
+				return StatusCode(503, "Database error while searching calendar entries.");
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("An unexpected error occurred while searching calendar entries. " + ex.Message, req.UserId, "CALENDAR");
+				return StatusCode(500, "An unexpected error occurred while searching calendar entries.");
+			}
+		}
+
+		/// <summary>
+		/// Birthdays recur yearly: return the next occurrence as a calendar date (Kind=Unspecified,
+		/// so it serializes without a UTC offset) instead of the stored birth date, which also keeps
+		/// the client's local-time display and date navigation on the correct day.
+		/// </summary>
+		private static DateTime NextBirthdayOccurrence(DateTime birthday)
+		{
+			var today = DateTime.UtcNow.Date;
+			static DateTime Occurrence(int year, DateTime birth) => new DateTime(
+				year, birth.Month, Math.Min(birth.Day, DateTime.DaysInMonth(year, birth.Month)), 0, 0, 0, DateTimeKind.Unspecified);
+
+			var occurrence = Occurrence(today.Year, birthday);
+			if (occurrence < today) occurrence = Occurrence(today.Year + 1, birthday);
+			return occurrence;
+		}
+
 		[HttpPost("/Calendar/Create", Name = "CreateCalendarEntry")]
 		public async Task<IActionResult> Post([FromBody] CreateCalendarEntry req)
 		{

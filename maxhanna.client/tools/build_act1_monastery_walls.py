@@ -17,7 +17,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 ASSET_ROOT = PROJECT_ROOT / "src" / "assets" / "d2survivors" / "maps"
@@ -37,6 +37,11 @@ WALL_BANDS = (
 )
 STRIP_WIDTH = 32
 
+# The gate walkway is keyed out of the backdrop (transparent floor tiles) inside
+# this small screen-space area.  The whole rectangle is *not* walkable: only the
+# transparent tiles within it form the diagonal gate path.
+GATE_CARVE_AREA = (186, 260, 256, 300)
+
 
 def wall_mask(size: tuple[int, int]) -> Image.Image:
     mask = Image.new("L", size, 0)
@@ -53,10 +58,27 @@ def build_collision(source: Image.Image, bands: Image.Image) -> Image.Image:
     collision.paste(alpha, (0, 0), bands)
     # Join the art's one-pixel gaps without sealing the courtyard gate.
     collision = collision.filter(ImageFilter.MaxFilter(5))
-    # The backdrop's bottom vertex is the courtyard gate and the doorway the
-    # interior transition uses.  Keep a real corridor through the wall art's
-    # dark gate pixels instead of treating it as solid stone.
-    ImageDraw.Draw(collision).rectangle((242, 232, 280, 300), fill=0)
+    # MaxFilter grows the surrounding wall over the narrow keyed tiles, so
+    # re-open only the keyed path inside the gate area.  The transparent
+    # walkway tiles are separated by one-pixel paving seams; close those seams
+    # so the corridor stays continuous, while the thick gateposts and wall
+    # faces remain blocked instead of being cut open by a rectangle.
+    gate_area = Image.new("L", source.size, 0)
+    ImageDraw.Draw(gate_area).rectangle(GATE_CARVE_AREA, fill=255)
+    transparent = alpha.point(lambda value: 255 if value == 0 else 0)
+    keyed_path = ImageChops.multiply(gate_area, transparent)
+    keyed_path = keyed_path.filter(ImageFilter.MaxFilter(3)).filter(ImageFilter.MinFilter(3))
+    collision = ImageChops.subtract(collision, keyed_path)
+    # Guard both halves of the gate alignment: the door's anchor pixel must be
+    # walkable, and the old shortcut through the painted wall face must not be.
+    if collision.getpixel((228, 274)) > 127:
+        raise SystemExit("Act I gate anchor is not walkable")
+    if collision.getpixel((260, 252)) <= 127:
+        raise SystemExit("Act I wall face is open")
+    if collision.getpixel((242, 260)) > 127:
+        raise SystemExit("Act I gate walkway is not open")
+    if collision.getpixel((224, 260)) <= 127:
+        raise SystemExit("Act I opaque gatepost is open")
     return collision
 
 

@@ -14,6 +14,6 @@ export interface D2PaladinAuraHitArt {
 
 export const D2_PALADIN_AURA_HIT_ART: Record<"holyFire" | "holyFreeze" | "holyShock", D2PaladinAuraHitArt> = {
   holyFire: { path: "assets/d2survivors/effects/holy-fire-hit.png", columns: 10, frameRate: 16, cellWidth: 84, cellHeight: 59, originX: 42, originY: 58 },
-  holyFreeze: { path: "assets/d2survivors/effects/holy-freeze-hit.png", columns: 15, frameRate: 16, cellWidth: 114, cellHeight: 93, originX: 57, originY: 50 },
-  holyShock: { path: "assets/d2survivors/effects/holy-shock-hit.png", columns: 20, frameRate: 20, cellWidth: 62, cellHeight: 256, originX: 29, originY: 240 },
+  holyFreeze: { path: "assets/d2survivors/effects/holy-freeze-hit.png", columns: 16, frameRate: 16, cellWidth: 83, cellHeight: 110, originX: 43, originY: 90 },
+  holyShock: { path: "assets/d2survivors/effects/holy-shock-hit.png", columns: 20, frameRate: 16, cellWidth: 65, cellHeight: 71, originX: 33, originY: 75 },
 };
