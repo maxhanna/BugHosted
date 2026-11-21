@@ -2588,29 +2588,37 @@
 .d2s-stats-block small.d2s-stat-preview.negative { color: #ef7474; }
 .d2s-stat-line > span { white-space: nowrap; }
 
+/*
+ * These rows are pinned to the painted cells in character-panel.webp
+ * (1162x1507), not evenly spaced: the left has four attribute boxes while the
+ * right has eight stacked slots. Each top is the cell centre minus half a 6%
+ * row, so the label and value sit together inside the cell's dark interior.
+ */
 .d2s-attribute-stats .d2s-stat-line {
   left: 7.2%;
   width: 29.6%;
 }
 
-.d2s-attribute-stats .d2s-stat-line:nth-of-type(1) { top: 25%; }
-.d2s-attribute-stats .d2s-stat-line:nth-of-type(2) { top: 41.1%; }
-.d2s-attribute-stats .d2s-stat-line:nth-of-type(3) { top: 56.2%; }
-.d2s-attribute-stats .d2s-stat-line:nth-of-type(4) { top: 67.9%; }
+.d2s-attribute-stats .d2s-stat-line:nth-of-type(1) { top: 25.75%; height: 4.38%; }
+.d2s-attribute-stats .d2s-stat-line:nth-of-type(2) { top: 42.73%; height: 4.38%; }
+.d2s-attribute-stats .d2s-stat-line:nth-of-type(3) { top: 59.79%; height: 4.38%; }
+.d2s-attribute-stats .d2s-stat-line:nth-of-type(4) { top: 70.47%; height: 4.38%; }
 
 .d2s-derived-stats .d2s-stat-line,
 .d2s-resource-stats .d2s-stat-line {
   left: 44.5%;
   width: 45%;
   padding: 0 2.2%;
+  height: 6%;
 }
 
-.d2s-derived-stats .d2s-stat-line:nth-of-type(1) { top: 20.5%; height: 7.1%; }
-.d2s-derived-stats .d2s-stat-line:nth-of-type(2) { top: 32.5%; height: 6.1%; }
-.d2s-derived-stats .d2s-stat-line:nth-of-type(3) { top: 45.2%; height: 6.3%; }
+.d2s-derived-stats .d2s-stat-line:nth-of-type(1) { top: 21.12%; }
+.d2s-derived-stats .d2s-stat-line:nth-of-type(2) { top: 27.79%; }
+.d2s-derived-stats .d2s-stat-line:nth-of-type(3) { top: 34.99%; }
+.d2s-derived-stats .d2s-stat-line:nth-of-type(4) { top: 41.46%; }
 
-.d2s-resource-stats .d2s-stat-line:nth-of-type(1) { top: 58%; height: 6%; }
-.d2s-resource-stats .d2s-stat-line:nth-of-type(2) { top: 70.6%; height: 6.4%; }
+.d2s-resource-stats .d2s-stat-line:nth-of-type(1) { top: 48.09%; }
+.d2s-resource-stats .d2s-stat-line:nth-of-type(2) { top: 55.29%; }
 .d2s-resistance-grid {
   position: absolute;
   top: 77.1%;

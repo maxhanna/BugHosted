@@ -55,6 +55,7 @@ import {
   type D2SetBonus,
 } from "./d2-item-assets.generated";
 import type { D2ItemStats } from "./d2-item-stats";
+import { getD2BaseItemFootprint, getD2EquipmentTypeFootprint } from "./d2-item-footprints";
 import { eligibleAffixes, itemAffixTypes, rollAffix, type D2Affix, type D2ItemProc, type D2ItemProcTrigger } from "./d2-item-affixes";
 
 // All rig solving, walk cycles and per-weapon strike clips live in one module so
@@ -1557,12 +1558,23 @@ const MONASTERY_GATE_PASSAGE = { x0: 186, y0: 208, x1: 266, y1: 299 };
 // Two painted side walkways meet the courtyard walls at the west and east
 // corners.  The generic wall footprint seals both thresholds, so Matron's Den
 // gets body-width corridors through them; Act I keeps only its gate passage.
+// The west walkway bends as it crosses the wall, so its outside leg and the
+// actual arch are separate overlapping corridors.
 const MATRONS_DEN_WEST_DOOR_PASSAGE = { x0: 32, y0: 168, x1: 66, y1: 206 };
-const MATRONS_DEN_EAST_DOOR_PASSAGE = { x0: 456, y0: 140, x1: 490, y1: 176 };
+const MATRONS_DEN_WEST_ARCH_PASSAGE = { x0: 40, y0: 150, x1: 100, y1: 186 };
+// The east arch needs to reach into the courtyard so the hero's body clears the
+// wall lip when approaching from inside, not only when leaving.
+const MATRONS_DEN_EAST_DOOR_PASSAGE = { x0: 440, y0: 140, x1: 492, y1: 178 };
+// The south gate is a double doorway around a central pier.  Keep both leaves
+// open and leave the painted pier solid instead of cutting one broad hole.
+const MATRONS_DEN_SOUTH_WEST_DOOR_PASSAGE = { x0: 205, y0: 208, x1: 247, y1: 299 };
+const MATRONS_DEN_SOUTH_EAST_DOOR_PASSAGE = { x0: 268, y0: 208, x1: 310, y1: 299 };
 const MATRONS_DEN_DOOR_PASSAGES = [
-  MONASTERY_GATE_PASSAGE,
   MATRONS_DEN_WEST_DOOR_PASSAGE,
+  MATRONS_DEN_WEST_ARCH_PASSAGE,
   MATRONS_DEN_EAST_DOOR_PASSAGE,
+  MATRONS_DEN_SOUTH_WEST_DOOR_PASSAGE,
+  MATRONS_DEN_SOUTH_EAST_DOOR_PASSAGE,
 ];
 // The courtyard preset is only 520x300. Its 4.2x ceiling is expressed in
 // backing-store pixels, so it must follow the display pixel ratio or the den
@@ -1901,6 +1913,17 @@ const RANGED_ENEMY_SPECIES: ReadonlySet<EnemySpecies> = new Set([
   "andariel", "fetishShaman", "spikeFiend", "sandMaggot", "sandMaggotQueen",
   "sandMaggotYoung", "mephisto", "diablo", "baal", "nihlathak",
 ]);
+
+/** Skills that themselves close distance, so a click pursuit may still use them. */
+const CLICK_PURSUIT_MOVEMENT_SKILLS = new Set([
+  "Charge", "Leap", "Teleport", "Dragon Flight", "Whirlwind",
+]);
+
+/** The floor-click route is precise but tolerates the final path cell's centre. */
+const CLICK_GROUND_ARRIVAL_DISTANCE = 3;
+const CLICK_GROUND_REPATH_SECONDS = 0.35;
+const CLICK_GROUND_CELL_SIZE = 8;
+const CLICK_GROUND_MAX_CELLS = 140;
 
 /** Nine probes (centre plus eight neighbours) used by the wall-mask tests. */
 const CAMPAIGN_COLLISION_PROBES: ReadonlyArray<readonly [number, number]> = [
@@ -2346,6 +2369,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private playerChargeImpactRadius = 0;
   private clickMoveTarget: Enemy | null = null;
   private clickLootTarget: { radius: number; source: GoldDrop | PotionDrop | ItemDrop } | null = null;
+  /** A floor click walks only here; it never hands the hero to combat mid-route. */
+  private clickGroundTarget: { x: number; y: number } | null = null;
+  private clickGroundPath: Array<{ x: number; y: number }> = [];
+  private clickGroundStuckTime = 0;
+  private clickGroundRepathAt = 0;
   private attackAnimationTime = Number.POSITIVE_INFINITY;
   private attackAnimationSide: -1 | 1 = -1;
   private attackAnimationStyle: AttackAnimationStyle = "amazonJab";
@@ -4744,8 +4772,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.spawnAcc = numberValue(saved.spawnAcc, 0, 0, 1);
     this.chestTimer = numberValue(saved.chestTimer, 0, -3600, 3600);
     this.nextChestInterval = numberValue(saved.nextChestInterval, 8, 1, 3600);
-    this.clickMoveTarget = null;
-    this.clickLootTarget = null;
+    this.clearClickMoveCommands();
     this.enemies = Array.isArray(saved.enemies)
       ? saved.enemies.slice(0, 220).filter(isRecord).map((enemy) => {
           const kind: EnemyKind = enemy["kind"] === "boss" || enemy["kind"] === "champion" ? enemy["kind"] : "normal";
@@ -6810,8 +6837,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
    */
   private charmInventoryImage(item: D2InventoryItem): string {
     const name = `${item.baseName ?? ""} ${item.name}`.toLowerCase();
-    if ((item.height ?? 0) >= 3 || /grand|sunder/.test(name)) return "assets/d2survivors/items/grand-charm.png";
-    if ((item.height ?? 0) >= 2 || /\blarge\b/.test(name)) return "assets/d2survivors/items/large-charm.png";
+    const { height } = this.itemSize(item);
+    if (height >= 3 || /grand|sunder/.test(name)) return "assets/d2survivors/items/grand-charm.png";
+    if (height >= 2 || /\blarge\b/.test(name)) return "assets/d2survivors/items/large-charm.png";
     return "assets/d2survivors/items/small-charm.png";
   }
 
@@ -6906,88 +6934,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   private itemSize(item: D2InventoryItem): { width: number; height: number } {
-    const type = getEquipmentType(item);
-    const baseName = (item.baseName ?? item.name ?? "").trim().toLowerCase();
-    const name = `${item.baseName ?? ""} ${item.name}`.toLowerCase();
-    // Heraldic and Aerin are the tall Paladin shield bases in D2's inventory.
-    if (TALL_PALADIN_SHIELD_BASES.some((base) => name.includes(base.toLowerCase()))) return { width: 2, height: 4 };
-    // Gothic Shields are the tall heater-style shield base: two columns wide and
-    // four rows tall. Match the base so normal, magic, rare, unique and set
-    // variants all share the footprint.
-    if (/\bgothic shield\b/i.test(name)) return { width: 2, height: 4 };
-    // Kite and Tower Shields use the broader 2x3 shield art instead of the
-    // compact 2x2 default. Match the base so named variants share the size.
-    if (baseName === "kite shield" || baseName === "tower shield") return { width: 2, height: 3 };
-    // The trident family has the same broad head and long haft footprint in
-    // D2's inventory: two columns wide and four rows tall. Fuscina is the
-    // exceptional trident base, so match both names.
-    if (/\b(?:trident|fuscina)\b/i.test(name)) return { width: 2, height: 4 };
-    // Spears are long two-handed weapons: two columns wide and four rows tall.
-    // Match the base so normal, magic, rare and unique variants all share it,
-    // including exceptional bases such as War Spear and Hyperion Spear.
-    if (/\bspear\b/i.test(name)) return { width: 2, height: 4 };
-    // Glaives are long, narrow polearms: one column wide and four rows tall.
-    // Match the base so magic, rare and unique versions share the footprint.
-    if (/\bglaive\b/i.test(name)) return { width: 1, height: 4 };
-    // Battle Staffs use a narrow one-column, four-row inventory footprint in
-    // D2. Match the base exactly so the wider Staff and Long Staff keep theirs.
-    if (baseName === "battle staff") return { width: 1, height: 4 };
-    // Daggers are compact one-column, two-row blades. Match every base in the
-    // narrow dagger family so named and upgraded variants share the footprint.
-    if (NARROW_DAGGER_BASE_NAMES.has(baseName)) return { width: 1, height: 2 };
-    // Named wands are stored with generic weapon metadata, so identify them by
-    // their base as well; all wands use a compact two-row inventory footprint.
-    if (type === "wand" || /wand/i.test(name)) return { width: 1, height: 2 };
-    // Throwing knives and throwing axes are one column wide and two rows tall
-    // in D2's inventory; this also covers magic, rare, unique and set versions
-    // through their base.
-    if (/throwing.*knife|balanced knife/.test(name)) return { width: 1, height: 2 };
-    if (/throwing.*axe/.test(name)) return { width: 1, height: 2 };
-    // Flails, Knouts and Scourges are the chained-mace family: two columns
-    // wide and three rows tall in D2's inventory.
-    if (/\b(?:flail|knout|scourge)\b/i.test(name)) return { width: 2, height: 3 };
-    // Harpoons are long throwing spears: one column wide and four rows tall.
-    // This includes the exceptional Winged Harpoon base.
-    if (/harpoon/i.test(name)) return { width: 1, height: 4 };
-    // The Balanced Axe is the broader double-bit axe base, stored two columns
-    // wide and three rows tall.
-    if (/balanced axe/.test(name)) return { width: 2, height: 3 };
-    // Battle Axes are broad two-handed axes: two columns wide and three rows
-    // tall in D2's inventory.
-    if (/\bbattle axe\b/.test(name)) return { width: 2, height: 3 };
-    // Great Axes are the towering two-handed axe base: two columns wide and
-    // four rows tall, matching their long haft and heavy double-bit head.
-    if (/\bgreat axe\b/i.test(name)) return { width: 2, height: 4 };
-    // The standard Axe base uses the broad 2x3 inventory art in D2. Match the
-    // base exactly so Hand Axe and the larger axe families keep their own sizes.
-    if (baseName === "axe") return { width: 2, height: 3 };
-    // Broad Swords and Short Bows use a broad two-column, three-row footprint.
-    // Match the bases exactly so Long Bows and the taller swords keep theirs.
-    if (baseName === "broad sword" || baseName === "short bow") return { width: 2, height: 3 };
-    // Great Swords use the same tall two-handed footprint as the large bows.
-    if (/\bgreat sword\b/i.test(name)) return { width: 2, height: 4 };
-    // Mauls (normal, exceptional and elite bases alike) are broad two-handed
-    // hammers: two columns wide and four rows tall in D2's inventory.
-    if (/\bmaul\b/i.test(name)) return { width: 2, height: 4 };
-    // Claymores are one column wide and four rows tall in D2's inventory.
-    if (/\bclaymore\b/i.test(name)) return { width: 1, height: 4 };
-    // Military Picks occupy two columns and three rows.
-    if (/\bmilitary pick\b/i.test(name)) return { width: 2, height: 3 };
-    // Spiked Clubs and their exceptional/elite upgrades (Barbed Club and
-    // Truncheon) are narrow one-handed clubs: one column wide and three rows
-    // tall. Match the base so magic, rare and unique variants share it.
-    if (/\b(?:spiked club|barbed club|truncheon)\b/i.test(name)) return { width: 1, height: 3 };
-    // Eagle Orbs, Smoked Spheres, Sacred Globes and Clasped Orbs use the compact
-    // one-column, two-row orb footprint instead of the taller default orb size.
-    if (/\b(?:eagle orb|smoked sphere|sacred globe|clasped orb)\b/.test(name)) return { width: 1, height: 2 };
+    // Every known D2 base has one authoritative footprint. Named variants and
+    // affixed item names therefore inherit the base size even if legacy saved
+    // data or generated art metadata disagrees.
+    const baseSize = getD2BaseItemFootprint(item.baseName) ?? getD2BaseItemFootprint(item.name);
+    if (baseSize) return baseSize;
+    // Custom or legacy items without a known base may carry an explicit size.
     if (item.width && item.height) return { width: item.width, height: item.height };
-    switch (type) {
-      case "body": return { width: 2, height: 3 };
-      case "helmet": case "barbarianHelm": case "druidPelt": case "shield": case "paladinShield": case "necromancerHead": case "gloves": case "boots": return { width: 2, height: 2 };
-      case "belt": return { width: 2, height: 1 };
-      case "weapon": case "claw": case "orb": return /pike|polearm|staff|bow/i.test(item.baseName ?? item.name) ? { width: 2, height: 4 } : { width: 1, height: 3 };
-      default: return { width: 1, height: 1 };
-    }
+    return getD2EquipmentTypeFootprint(getEquipmentType(item));
   }
 
   private canPlaceItemAt(item: D2InventoryItem, index: number, ignoredAnchors: number[] = []): boolean {
@@ -7193,7 +7147,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   private randomItem(itemLevel = this.currentArea?.level ?? this.playerLevel): D2InventoryItem {
-    const bases: Array<Pick<D2InventoryItem, "name" | "slot" | "stats" | "desc"> & { equipmentType?: EquipmentType; beltQuality?: BeltQuality; restrictedClass?: D2ClassId; requiredLevel?: number; width?: number; height?: number }> = [
+    const bases: Array<Pick<D2InventoryItem, "name" | "slot" | "stats" | "desc"> & { equipmentType?: EquipmentType; beltQuality?: BeltQuality; restrictedClass?: D2ClassId; requiredLevel?: number }> = [
       { name: "Sash", slot: "belt", beltQuality: "normal", stats: { armor: 2 }, desc: "A simple sash that holds two rows of potions." },
       { name: "Demonhide Sash", slot: "belt", beltQuality: "exceptional", stats: { armor: 5 }, desc: "An exceptional belt with room for three rows of potions." },
       { name: "Sharkskin Belt", slot: "belt", beltQuality: "exceptional", stats: { armor: 5 }, desc: "An exceptional belt with room for three rows of potions." },
@@ -7230,7 +7184,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       { name: "War Javelin", slot: "weapon", stats: { damageMin: 6, damageMax: 13 }, desc: "A heavy javelin built to punch through armor." },
       { name: "Pilum", slot: "weapon", stats: { damageMin: 5, damageMax: 11 }, desc: "A weighted javelin designed to pierce shields." },
       { name: "Harpoon", slot: "weapon", stats: { damageMin: 6, damageMax: 12 }, desc: "A barbed javelin that tears deep on impact." },
-      { name: "Battle Axe", slot: "weapon", width: 2, height: 3, stats: { damageMin: 7, damageMax: 15 }, desc: "A two-handed battle axe that any class can wield." },
+      { name: "Battle Axe", slot: "weapon", stats: { damageMin: 7, damageMax: 15 }, desc: "A two-handed battle axe that any class can wield." },
       { name: "Great Sword", slot: "weapon", stats: { damageMin: 8, damageMax: 17 }, desc: "A massive great sword that any class can wield." },
       ...["Wand", "Yew Wand", "Bone Wand", "Grim Wand"].map((name) => ({
         name, slot: "weapon" as const, equipmentType: "wand" as const,
@@ -7306,15 +7260,15 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       { name: "Trident", slot: "weapon", stats: { damageMin: 5, damageMax: 13 }, desc: "A three-pronged war spear." },
       { name: "Ring", slot: "charm", equipmentType: "ring", stats: {}, desc: "A plain metal ring waiting for an enchantment." },
       { name: "Amulet", slot: "charm", equipmentType: "amulet", stats: {}, desc: "A plain amulet waiting for an enchantment." },
-      { name: "Jewel", slot: "charm", equipmentType: "jewel", width: 1, height: 1, stats: {}, desc: "A socketable jewel; its magic awakens inside an item." },
+      { name: "Jewel", slot: "charm", equipmentType: "jewel", stats: {}, desc: "A socketable jewel; its magic awakens inside an item." },
       { name: "Small Charm", slot: "charm", equipmentType: "charm", stats: { plusVitality: 2 }, desc: "A palm-sized talisman; its magic works while carried." },
       { name: "Crimson Small Charm", slot: "charm", equipmentType: "charm", stats: { plusVitality: 4 }, desc: "A palm-sized charm warm to the touch." },
       { name: "Azure Small Charm", slot: "charm", equipmentType: "charm", stats: { plusStrength: 2 }, desc: "A blue charm etched with a protective rune." },
       { name: "Gold Amulet", slot: "charm", equipmentType: "amulet", stats: { plusVitality: 3 }, desc: "An old amulet bearing a faint golden glow." },
       { name: "Ring of the Artisan", slot: "charm", equipmentType: "ring", stats: { plusDamage: 2 }, desc: "A finely worked ring made for a master craftsperson." },
       { name: "Soulstone Shard", slot: "charm", equipmentType: "charm", stats: { plusStrength: 1, plusVitality: 2 }, desc: "A dangerous fragment that hums with trapped power." },
-      { name: "Large Charm", slot: "charm", equipmentType: "charm", width: 1, height: 2, stats: { plusStrength: 1, plusVitality: 2 }, desc: "A large talisman; its magic works while carried in the pack." },
-      { name: "Grand Charm", slot: "charm", equipmentType: "charm", width: 1, height: 3, stats: { plusStrength: 2, plusVitality: 4 }, desc: "A grand talisman; its magic works while carried in the pack." },
+      { name: "Large Charm", slot: "charm", equipmentType: "charm", stats: { plusStrength: 1, plusVitality: 2 }, desc: "A large talisman; its magic works while carried in the pack." },
+      { name: "Grand Charm", slot: "charm", equipmentType: "charm", stats: { plusStrength: 2, plusVitality: 4 }, desc: "A grand talisman; its magic works while carried in the pack." },
     ];
     const base = bases[Math.floor(Math.random() * bases.length)];
 
@@ -7343,8 +7297,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       name: base.name,
       slot: base.slot,
       equipmentType: base.equipmentType,
-      width: base.width,
-      height: base.height,
     };
     const eligiblePrefixes = eligibleAffixes(itemForAffixes, itemLevel, "prefix");
     const eligibleSuffixes = eligibleAffixes(itemForAffixes, itemLevel, "suffix");
@@ -7411,8 +7363,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       rarity,
       slot: base.slot,
       ...(base.equipmentType ? { equipmentType: base.equipmentType } : {}),
-      ...(base.width ? { width: base.width } : {}),
-      ...(base.height ? { height: base.height } : {}),
       ...(base.restrictedClass ? { restrictedClass: base.restrictedClass } : {}),
       ...(base.beltQuality ? { beltQuality: base.beltQuality } : {}),
       ...(base.requiredLevel ? { requiredLevel: base.requiredLevel } : {}),
@@ -7538,18 +7488,22 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       if (pickup) {
         // Clicking loot walks the hero to it; the normal ground-pickup radius
         // then collects it as soon as the hero arrives.
-        this.clickMoveTarget = null;
+        this.clearClickMoveCommands();
         this.clickLootTarget = { radius: pickup.radius, source: pickup.source };
       } else {
-        // Clicking a monster makes the hero walk into weapon range and fight it;
-        // clicking empty ground cancels both pursuits.
-        this.clickLootTarget = null;
+        // Clicking a monster makes the hero walk into weapon range and fight it.
+        // Empty ground is a pure movement command handled by the click path,
+        // not a reason to stop and attack whatever happens to be nearby.
+        this.clearClickMoveCommands();
         if (enemy) {
           const distance = Math.hypot(enemy.x - this.playerX, enemy.y - this.playerY) || 1;
           this.playerFacingX = (enemy.x - this.playerX) / distance;
           this.playerFacingY = (enemy.y - this.playerY) / distance;
+          this.clickMoveTarget = enemy;
+        } else {
+          const world = this.arenaWorldPointAt(event.clientX, event.clientY);
+          if (world) this.startClickGroundMove(world.x, world.y);
         }
-        this.clickMoveTarget = enemy ?? null;
       }
     }
     if (event.pointerType !== "touch" || this.activeTab !== "run" || !this.runActive || this.escapeMenuOpen || this.inventoryOpen || this.skillTreeOpen || this.pendingLevelUps > 0 || (this.actTransitionReady && !this.actPortalOpen) || this.campaignVictory) return;
@@ -8756,7 +8710,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         stats.push(`${Math.floor(tickDamage)} aura damage per tick`);
       }
       stats.unshift(`Active duration: ${this.paladinAuraDurationForSkillRank(name, rank).toFixed(2)}s`);
-      return stats.length > 1 ? stats : [...stats, "No additional rank-scaled gameplay effect is currently applied."];
+      // Auras such as Cleansing and Meditation have a fixed effect rather than
+      // a rank-scaled line. Show their actual aura text instead of a generic
+      // "no effect" placeholder.
+      if (stats.length === 1) {
+        stats.push(this.getSkillDescription(name) ?? "No additional rank-scaled gameplay effect is currently applied.");
+      }
+      return stats;
     }
 
     if (this.selectedClass === "barbarian" && /^(Axe|Sword|Mace|Polearm|Spear|Throwing) Mastery$/.test(name)) {
@@ -9000,6 +8960,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const interval = this.getSkillCastIntervalForRank(name, rank);
       if (interval > 0) stats.push(`${interval.toFixed(2)}s automatic cast interval`);
       return stats;
+    }
+
+    if (visual === "aura") {
+      // Some auras (the sorceress armors, Lower Resist) have no bespoke numeric
+      // rank line here. Their real spell text still describes the effect and is
+      // more useful than a generic no-bonus message.
+      const description = this.getSkillDescription(name);
+      if (description) return [description];
     }
 
     return ["No numeric per-rank combat bonus is currently applied to this skill."];
@@ -9807,8 +9775,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     // must wait instead of interrupting or stacking on top of the cone.
     if (this.isArcticBlastChanneling()) return;
     // Every spell waits for a planted stance. The automatic caster applies the
-    // same gate before it starts timers; direct calls must honor it too.
+    // same gate before it starts timers; direct calls must honor it too. A
+    // clicked enemy remains a movement command until the hero reaches it, but
+    // movement skills such as Charge and Leap are the way to close that gap.
     if (this.playerRunning) return;
+    const skillVisual = getClassSkills(this.selectedClass).find((entry) => entry.name === skill)?.visual ?? getD2SkillVisual(skill);
+    if (this.playerChasingClickedTarget && !CLICK_PURSUIT_MOVEMENT_SKILLS.has(skill)) return;
     this.recordRecentSkill(skill);
     // Blood Mana is paid when the spell actually starts. Its D2 condition is
     // exact: maximum mana must meet or exceed maximum life.
@@ -9839,7 +9811,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.triggerAttackAnimation(this.selectedClass === "necromancer" ? "necromancerCast" : "cast");
       return;
     }
-    const skillVisual = getClassSkills(this.selectedClass).find((entry) => entry.name === skill)?.visual ?? getD2SkillVisual(skill);
     if (skill === "Find Potion") return;
     if (skill === "Howl" && this.selectedClass === "barbarian") {
       this.castHowl();
@@ -11446,9 +11417,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   private updateAutomaticSkillCasts(dt: number): void {
     const seconds = dt / 1000;
-    if (this.playerRunning || this.playerLeapRemaining > 0 || this.playerChargeRemaining > 0) {
+    if (this.playerRunning || this.playerChasingClickedTarget
+      || this.playerLeapRemaining > 0 || this.playerChargeRemaining > 0) {
       // The hero only casts from a planted stance. Cooldowns keep ticking, but
-      // no skill starts until movement and the leap arc are finished.
+      // no skill starts until click-to-move pursuit, normal movement and the
+      // leap arc are finished.
       if (this.playerRunning) this.cancelChannelingSpells();
       this.tickSkillCastCooldowns(seconds);
       return;
@@ -11672,9 +11645,343 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
    * movePlayer() tick cannot squeeze an action in while the player is fleeing.
    */
   private get playerRunning(): boolean {
-    if (this.isPlayerMoving || this.playerChargeRemaining > 0) return true;
+    // A floor destination remains a planted-stance command even on a frame
+    // where the route is blocked and no displacement was applied yet.
+    if (this.clickGroundTarget || this.isPlayerMoving || this.playerChargeRemaining > 0) return true;
     const moveKeys = ["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"];
     return moveKeys.some((key) => this.keysDown.has(key));
+  }
+
+  /** The distance at which click-to-move hands the clicked monster to combat. */
+  private clickedTargetStopDistance(target: Enemy): number {
+    const rangedRange = this.rangedBasicAttackRange;
+    return rangedRange > 0 ? rangedRange - 8 : target.r + 24;
+  }
+
+  /**
+   * A click-to-move monster is still being approached. Keep spells planted even
+   * on frames where collision or an attack lock reports no displacement yet;
+   * otherwise an automatic cast can start mid-chase and pin the hero in place.
+   */
+  private get playerChasingClickedTarget(): boolean {
+    const target = this.clickMoveTarget;
+    if (!target || target.hp <= 0 || target.summonType) return false;
+    const distance = Math.hypot(target.x - this.playerX, target.y - this.playerY);
+    return distance > this.clickedTargetStopDistance(target) + 0.5;
+  }
+
+  /** Cancel every click destination, including the walk-only floor route. */
+  private clearClickMoveCommands(): void {
+    this.clickMoveTarget = null;
+    this.clickLootTarget = null;
+    this.clearClickGroundMove();
+  }
+
+  private clearClickGroundMove(): void {
+    this.clickGroundTarget = null;
+    this.clickGroundPath.length = 0;
+    this.clickGroundStuckTime = 0;
+    this.clickGroundRepathAt = 0;
+  }
+
+  /** Floor clicks are walk-only: no target hand-off, attack or spell on arrival. */
+  private startClickGroundMove(worldX: number, worldY: number): void {
+    this.clearClickGroundMove();
+    const distance = Math.hypot(worldX - this.playerX, worldY - this.playerY);
+    if (distance <= CLICK_GROUND_ARRIVAL_DISTANCE) return;
+    const path = this.planClickGroundPath(worldX, worldY);
+    if (!path?.length) return;
+    this.clickGroundTarget = { x: worldX, y: worldY };
+    this.clickGroundPath = path;
+    this.clickGroundStuckTime = 0;
+    this.clickGroundRepathAt = this.runTime + CLICK_GROUND_REPATH_SECONDS;
+    // A click is a move command first; it interrupts a channel or a flurry
+    // instead of letting either keep firing while the hero walks away.
+    this.cancelChannelingSpells();
+    this.clearZealSequence();
+  }
+
+  /** Camera scrolling moves the world under the fixed-camera hero. */
+  private shiftClickGroundMove(dx: number, dy: number): void {
+    if (!dx && !dy) return;
+    if (this.clickGroundTarget) {
+      this.clickGroundTarget.x += dx;
+      this.clickGroundTarget.y += dy;
+    }
+    for (const point of this.clickGroundPath) {
+      point.x += dx;
+      point.y += dy;
+    }
+  }
+
+  /** Next walk-only step toward the first clear waypoint. */
+  private clickGroundStep(move: number): { x: number; y: number } {
+    const target = this.clickGroundTarget;
+    if (!target) return { x: 0, y: 0 };
+    const targetDistance = Math.hypot(target.x - this.playerX, target.y - this.playerY);
+    if (targetDistance <= CLICK_GROUND_ARRIVAL_DISTANCE) {
+      this.clearClickGroundMove();
+      return { x: 0, y: 0 };
+    }
+    while (this.clickGroundPath.length
+      && Math.hypot(this.clickGroundPath[0].x - this.playerX, this.clickGroundPath[0].y - this.playerY) <= 1.5) {
+      this.clickGroundPath.shift();
+    }
+    // The route ends at the nearest reachable point when the click itself is
+    // inside a wall. Arriving there completes the command rather than pacing.
+    if (!this.clickGroundPath.length) {
+      this.clearClickGroundMove();
+      return { x: 0, y: 0 };
+    }
+    const waypoint = this.clickGroundPath[0];
+    const dx = waypoint.x - this.playerX;
+    const dy = waypoint.y - this.playerY;
+    const distance = Math.hypot(dx, dy) || 1;
+    const step = Math.min(move, distance);
+    return { x: dx / distance * step, y: dy / distance * step };
+  }
+
+  /**
+   * Local A* over the act's authored wall mask. The grid only spans the click
+   * plus a detour margin, so a floor click never searches the whole campaign.
+   */
+  private planClickGroundPath(
+    destinationX: number,
+    destinationY: number,
+  ): Array<{ x: number; y: number }> | null {
+    const start = { x: this.playerX, y: this.playerY };
+    const destination = { x: destinationX, y: destinationY };
+    const context = this.campaignCollisionContext();
+    if (!context) return [destination];
+    if (this.clickPathSegmentClear(start, destination, context)) return [destination];
+
+    const margin = 140;
+    const span = Math.max(
+      Math.abs(destination.x - start.x),
+      Math.abs(destination.y - start.y),
+    ) + margin * 2;
+    const cellSize = Math.max(CLICK_GROUND_CELL_SIZE, span / CLICK_GROUND_MAX_CELLS);
+    const minX = Math.floor((Math.min(start.x, destination.x) - margin) / cellSize) * cellSize;
+    const minY = Math.floor((Math.min(start.y, destination.y) - margin) / cellSize) * cellSize;
+    const cols = Math.ceil((Math.abs(destination.x - start.x) + margin * 2) / cellSize) + 1;
+    const rows = Math.ceil((Math.abs(destination.y - start.y) + margin * 2) / cellSize) + 1;
+    if (cols < 2 || rows < 2 || cols * rows > (CLICK_GROUND_MAX_CELLS + 2) ** 2) return null;
+    const cellPoint = (column: number, row: number) => ({
+      x: minX + column * cellSize,
+      y: minY + row * cellSize,
+    });
+    const columnAt = (x: number) => Math.max(0, Math.min(cols - 1, Math.round((x - minX) / cellSize)));
+    const rowAt = (y: number) => Math.max(0, Math.min(rows - 1, Math.round((y - minY) / cellSize)));
+    const cellIndex = (column: number, row: number) => row * cols + column;
+    // 0 = not tested, 1 = walkable, -1 = blocked. Lazy evaluation keeps a
+    // short click from paying for the full detour rectangle.
+    const walkable = new Int8Array(cols * rows);
+    const isWalkable = (column: number, row: number): boolean => {
+      const index = cellIndex(column, row);
+      const cached = walkable[index];
+      if (cached) return cached > 0;
+      const point = cellPoint(column, row);
+      const screen = this.projectArenaPoint(point.x, point.y);
+      const clear = this.campaignBlockedSamples(context, screen.x, screen.y) === 0;
+      walkable[index] = clear ? 1 : -1;
+      return clear;
+    };
+    let startColumn = columnAt(start.x);
+    let startRow = rowAt(start.y);
+    if (!isWalkable(startColumn, startRow)) {
+      // The hero's exact position can sit between a wall and a grid centre; the
+      // nearest walkable cell gives A* a clear starting node without moving the
+      // actual first waypoint away from the hero.
+      const requestedColumn = startColumn;
+      const requestedRow = startRow;
+      let bestDistance = Number.POSITIVE_INFINITY;
+      let foundStart = false;
+      for (let radius = 1; radius <= 4 && !foundStart; radius += 1) {
+        for (let row = requestedRow - radius; row <= requestedRow + radius; row += 1) {
+          for (let column = requestedColumn - radius; column <= requestedColumn + radius; column += 1) {
+            if (column < 0 || row < 0 || column >= cols || row >= rows) continue;
+            if (Math.max(Math.abs(column - requestedColumn), Math.abs(row - requestedRow)) !== radius) continue;
+            if (!isWalkable(column, row)) continue;
+            const point = cellPoint(column, row);
+            const distance = Math.hypot(point.x - start.x, point.y - start.y);
+            if (distance < bestDistance) {
+              bestDistance = distance;
+              startColumn = column;
+              startRow = row;
+              foundStart = true;
+            }
+          }
+        }
+      }
+      if (!foundStart) return null;
+    }
+    let goalColumn = columnAt(destination.x);
+    let goalRow = rowAt(destination.y);
+    if (!isWalkable(goalColumn, goalRow)) {
+      const requestedColumn = goalColumn;
+      const requestedRow = goalRow;
+      let bestDistance = Number.POSITIVE_INFINITY;
+      let found = false;
+      for (let radius = 1; radius <= 14 && !found; radius += 1) {
+        for (let row = requestedRow - radius; row <= requestedRow + radius; row += 1) {
+          for (let column = requestedColumn - radius; column <= requestedColumn + radius; column += 1) {
+            if (column < 0 || row < 0 || column >= cols || row >= rows) continue;
+            if (Math.max(Math.abs(column - requestedColumn), Math.abs(row - requestedRow)) !== radius) continue;
+            if (!isWalkable(column, row)) continue;
+            const point = cellPoint(column, row);
+            const distance = Math.hypot(point.x - destination.x, point.y - destination.y);
+            if (distance < bestDistance) {
+              bestDistance = distance;
+              goalColumn = column;
+              goalRow = row;
+              found = true;
+            }
+          }
+        }
+      }
+      if (!found) return null;
+    }
+
+    const startIndex = cellIndex(startColumn, startRow);
+    const goalIndex = cellIndex(goalColumn, goalRow);
+    if (startIndex === goalIndex) {
+      // The click is across a wall inside one grid cell; finer cells would be
+      // needed, and the real movement probe will stop at the wall anyway.
+      return null;
+    }
+    const total = cols * rows;
+    const gScore = new Float64Array(total);
+    gScore.fill(Number.POSITIVE_INFINITY);
+    const cameFrom = new Int32Array(total);
+    cameFrom.fill(-1);
+    const closed = new Uint8Array(total);
+    gScore[startIndex] = 0;
+    const heuristic = (index: number): number => {
+      const column = index % cols;
+      const row = Math.floor(index / cols);
+      return Math.hypot(column - goalColumn, row - goalRow);
+    };
+    type OpenNode = { index: number; score: number; g: number };
+    const open: OpenNode[] = [];
+    const pushOpen = (node: OpenNode): void => {
+      open.push(node);
+      let child = open.length - 1;
+      while (child > 0) {
+        const parent = (child - 1) >> 1;
+        if (open[parent].score <= open[child].score) break;
+        [open[parent], open[child]] = [open[child], open[parent]];
+        child = parent;
+      }
+    };
+    const popOpen = (): OpenNode | undefined => {
+      if (!open.length) return undefined;
+      const first = open[0];
+      const last = open.pop()!;
+      if (open.length) {
+        open[0] = last;
+        let parent = 0;
+        while (true) {
+          const left = parent * 2 + 1;
+          const right = left + 1;
+          let smallest = parent;
+          if (left < open.length && open[left].score < open[smallest].score) smallest = left;
+          if (right < open.length && open[right].score < open[smallest].score) smallest = right;
+          if (smallest === parent) break;
+          [open[parent], open[smallest]] = [open[smallest], open[parent]];
+          parent = smallest;
+        }
+      }
+      return first;
+    };
+    pushOpen({ index: startIndex, score: heuristic(startIndex), g: 0 });
+    let found = false;
+    const neighbours: ReadonlyArray<readonly [number, number]> = [
+      [1, 0], [-1, 0], [0, 1], [0, -1],
+      [1, 1], [1, -1], [-1, 1], [-1, -1],
+    ];
+    while (open.length) {
+      const node = popOpen()!;
+      if (closed[node.index] || node.g > gScore[node.index]) continue;
+      if (node.index === goalIndex) {
+        found = true;
+        break;
+      }
+      closed[node.index] = 1;
+      const column = node.index % cols;
+      const row = Math.floor(node.index / cols);
+      const fromPoint = cellPoint(column, row);
+      for (const [stepColumn, stepRow] of neighbours) {
+        const nextColumn = column + stepColumn;
+        const nextRow = row + stepRow;
+        if (nextColumn < 0 || nextRow < 0 || nextColumn >= cols || nextRow >= rows) continue;
+        if (!isWalkable(nextColumn, nextRow)) continue;
+        // Do not cut a wall corner diagonally.
+        if (stepColumn && stepRow
+          && (!isWalkable(column + stepColumn, row) || !isWalkable(column, row + stepRow))) continue;
+        const nextIndex = cellIndex(nextColumn, nextRow);
+        if (closed[nextIndex]) continue;
+        const toPoint = cellPoint(nextColumn, nextRow);
+        if (!this.clickPathSegmentClear(fromPoint, toPoint, context)) continue;
+        const stepCost = stepColumn && stepRow ? Math.SQRT2 : 1;
+        const nextG = node.g + stepCost;
+        if (nextG >= gScore[nextIndex]) continue;
+        gScore[nextIndex] = nextG;
+        cameFrom[nextIndex] = node.index;
+        pushOpen({ index: nextIndex, score: nextG + heuristic(nextIndex), g: nextG });
+      }
+    }
+    if (!found) return null;
+
+    const cells: number[] = [];
+    for (let index = goalIndex; index !== startIndex && index >= 0; index = cameFrom[index]) {
+      cells.push(index);
+    }
+    cells.reverse();
+    if (!cells.length) return null;
+    const points = cells.map((index) => cellPoint(index % cols, Math.floor(index / cols)));
+    // Finish on the exact clicked spot when it is walkable; otherwise finish at
+    // the closest reachable cell centre and let the walk stop there.
+    const screenDestination = this.projectArenaPoint(destination.x, destination.y);
+    if (this.campaignBlockedSamples(context, screenDestination.x, screenDestination.y) === 0
+      && this.clickPathSegmentClear(points[points.length - 1], destination, context)) {
+      points.push(destination);
+    }
+    // String-pull the grid route so the hero walks in straight runs instead of
+    // visibly zig-zagging between adjacent cells.
+    const smoothed: Array<{ x: number; y: number }> = [];
+    let anchor = start;
+    let cursor = 0;
+    while (cursor < points.length) {
+      let far = points.length - 1;
+      while (far > cursor && !this.clickPathSegmentClear(anchor, points[far], context)) far -= 1;
+      if (!this.clickPathSegmentClear(anchor, points[cursor], context)) return null;
+      smoothed.push(points[far]);
+      anchor = points[far];
+      cursor = far + 1;
+    }
+    return smoothed.length ? smoothed : null;
+  }
+
+  /** Body-clear line test used by the click router and its straight-run pass. */
+  private clickPathSegmentClear(
+    from: { x: number; y: number },
+    to: { x: number; y: number },
+    context: CampaignCollisionContext,
+  ): boolean {
+    const start = this.projectArenaPoint(from.x, from.y);
+    const end = this.projectArenaPoint(to.x, to.y);
+    const length = Math.hypot(end.x - start.x, end.y - start.y);
+    const sampleStep = Math.max(3, context.clearance * 1.5);
+    const samples = Math.max(1, Math.ceil(length / sampleStep));
+    for (let index = 1; index <= samples; index += 1) {
+      const t = index / samples;
+      if (this.campaignBlockedSamples(
+        context,
+        start.x + (end.x - start.x) * t,
+        start.y + (end.y - start.y) * t,
+      ) > 0) return false;
+    }
+    return !this.campaignLineBlocked(context, from.x, from.y, to.x, to.y);
   }
 
   private updateBasicAttack(): void {
@@ -13160,8 +13467,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.currentChunkCoordY = 0;
     this.currentChunkLocalX = this.chunkTileColumns * CAMPAIGN_TILE_WORLD_SIZE / 2;
     this.currentChunkLocalY = this.chunkTileRows * CAMPAIGN_TILE_WORLD_SIZE / 2;
-    this.clickMoveTarget = null;
-    this.clickLootTarget = null;
+    this.clearClickMoveCommands();
     if (this.currentAct === 1) {
       // Act I opens on the keyed gate walkway, a short walk outside the
       // monastery gate, instead of inside the painted courtyard wall.
@@ -13764,8 +14070,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.playerMoveX = 0;
       this.playerMoveY = 0;
       this.isPlayerMoving = false;
-      this.clickMoveTarget = null;
-      this.clickLootTarget = null;
+      this.clearClickMoveCommands();
       return;
     }
     if (this.playerBonePrisonRemaining > 0) {
@@ -13773,8 +14078,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.playerMoveX = 0;
       this.playerMoveY = 0;
       this.isPlayerMoving = false;
-      this.clickMoveTarget = null;
-      this.clickLootTarget = null;
+      this.clearClickMoveCommands();
       return;
     }
     const vigorRank = this.activePaladinAuraRank(["Vigor"]);
@@ -13791,8 +14095,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         this.playerHorrorRemaining = 0;
       } else {
         this.cancelChannelingSpells();
-        this.clickMoveTarget = null;
-        this.clickLootTarget = null;
+        this.clearClickMoveCommands();
         const fleeX = this.playerX - caster.x;
         const fleeY = this.playerY - caster.y;
         const fleeDistance = Math.hypot(fleeX, fleeY) || 1;
@@ -13823,10 +14126,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (this.keysDown.has("a") || this.keysDown.has("arrowleft")) screenX -= move;
     if (this.keysDown.has("d") || this.keysDown.has("arrowright")) screenX += move;
     const keyboardMoving = screenX !== 0 || screenY !== 0;
-    if (keyboardMoving) {
-      this.clickMoveTarget = null;
-      this.clickLootTarget = null;
-    }
+    if (keyboardMoving) this.clearClickMoveCommands();
     const diagonalLength = Math.hypot(screenX, screenY);
     if (diagonalLength > move && move > 0) {
       screenX *= move / diagonalLength;
@@ -13843,8 +14143,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const targetDx = clickedTarget.x - this.playerX;
       const targetDy = clickedTarget.y - this.playerY;
       const targetDistance = Math.hypot(targetDx, targetDy) || 1;
-      const rangedRange = this.rangedBasicAttackRange;
-      const stopDistance = rangedRange > 0 ? rangedRange - 8 : clickedTarget.r + 24;
+      const stopDistance = this.clickedTargetStopDistance(clickedTarget);
       const step = Math.max(0, Math.min(move, targetDistance - stopDistance));
       dx = targetDx / targetDistance * step;
       dy = targetDy / targetDistance * step;
@@ -13852,6 +14151,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         this.playerFacingX = targetDx / targetDistance;
         this.playerFacingY = targetDy / targetDistance;
       }
+    } else if (!keyboardMoving && this.clickGroundTarget) {
+      // Follow the wall-aware route to the exact floor spot. No monster or
+      // spell target is acquired until this movement command is finished.
+      const step = this.clickGroundStep(move);
+      dx = step.x;
+      dy = step.y;
     } else if (!keyboardMoving && this.clickLootTarget) {
       // Walk to a clicked ground drop and stop just inside its pickup radius.
       // The normal ground-pickup update then collects it automatically.
@@ -13884,6 +14189,23 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.playerMoveX = movedX;
     this.playerMoveY = movedY;
     this.isPlayerMoving = Math.hypot(movedX, movedY) > 0.01;
+    if (this.clickGroundTarget) {
+      if (this.isPlayerMoving) {
+        this.shiftClickGroundMove(-movedX, -movedY);
+        this.clickGroundStuckTime = 0;
+      } else {
+        this.clickGroundStuckTime += dt / 1000;
+        if (this.clickGroundStuckTime >= CLICK_GROUND_REPATH_SECONDS
+          && this.runTime >= this.clickGroundRepathAt) {
+          const target = this.clickGroundTarget;
+          const path = this.planClickGroundPath(target.x, target.y);
+          this.clickGroundStuckTime = 0;
+          this.clickGroundRepathAt = this.runTime + CLICK_GROUND_REPATH_SECONDS;
+          if (path?.length) this.clickGroundPath = path;
+          else this.clearClickGroundMove();
+        }
+      }
+    }
     if (this.isPlayerMoving) {
       this.playerFacingX = this.playerMoveX / Math.hypot(this.playerMoveX, this.playerMoveY);
       this.playerFacingY = this.playerMoveY / Math.hypot(this.playerMoveX, this.playerMoveY);
@@ -14619,8 +14941,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.playerChargeDamage = this.applyPaladinAuraDamage(this.applyStrengthToMeleeDamage(this.basicAttackDamage * CHARGE_DAMAGE_MULTIPLIER + (rank - 1) * 3), true);
     this.playerChargeStunSeconds = this.chargeStunSecondsForRank(rank);
     this.playerChargeImpactRadius = this.chargeImpactRadiusForRank(rank);
-    this.clickMoveTarget = null;
-    this.clickLootTarget = null;
+    this.clearClickMoveCommands();
     this.playerAttackLockRemaining = 0;
     this.attackAnimationTime = Number.POSITIVE_INFINITY;
     this.isPlayerMoving = true;
@@ -14717,8 +15038,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.playerLeapRemaining = this.playerLeapDuration = ATTACK_CLIP_INFO.leap.duration;
     this.playerLeapLift = 0;
     this.assignLeapReactions();
-    this.clickMoveTarget = null;
-    this.clickLootTarget = null;
+    this.clearClickMoveCommands();
     this.isPlayerMoving = false;
     this.playerMoveX = 0;
     this.playerMoveY = 0;
@@ -15322,8 +15642,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.playerBonePrisonRemaining = DIABLO_BONE_PRISON_SECONDS;
     this.playerBonePrisonX = this.playerX;
     this.playerBonePrisonY = this.playerY;
-    this.clickMoveTarget = null;
-    this.clickLootTarget = null;
+    this.clearClickMoveCommands();
     this.playerMoveX = 0;
     this.playerMoveY = 0;
     this.isPlayerMoving = false;
@@ -19828,8 +20147,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.shiftWorldBy(moveX, moveY);
     this.playerX = this.arenaW / 2;
     this.playerY = this.arenaH / 2;
-    this.clickMoveTarget = null;
-    this.clickLootTarget = null;
+    this.clearClickMoveCommands();
     this.playerAttackLockRemaining = 0;
     this.playerBonePrisonRemaining = 0;
     this.playerMoveX = 0;
@@ -21595,8 +21913,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.potionDrops = [];
     this.goldDrops = [];
     this.itemDrops = [];
-    this.clickMoveTarget = null;
-    this.clickLootTarget = null;
+    this.clearClickMoveCommands();
     this.spawnAcc = 0;
     this.playerX = this.arenaW / 2;
     this.playerY = this.arenaH / 2;
@@ -25139,14 +25456,6 @@ const ASSASSIN_CLAW_BASES = ["Katar", "Wrist Blade", "Hatchet Hands", "Cestus", 
 const BARBARIAN_HELM_BASES = ["Jawbone Cap", "Fanged Helm", "Horned Helm", "Assault Helmet", "Avenger Guard"];
 const DRUID_PELT_BASES = ["Wolf Head", "Hawk Helm", "Antlers", "Falcon Mask", "Spirit Mask"];
 const PALADIN_SHIELD_BASES = ["Targe", "Rondache", "Heraldic Shield", "Aerin Shield", "Crown Shield"];
-const TALL_PALADIN_SHIELD_BASES = ["Heraldic Shield", "Aerin Shield"];
-// The dagger bases whose D2 inventory art is one column wide and two rows tall.
-// Blade, Stiletto and Legend Spike use a taller art and are intentionally omitted.
-const NARROW_DAGGER_BASE_NAMES = new Set([
-  "dagger", "poignard", "bone knife",
-  "dirk", "rondel", "mithril point",
-  "kris", "kriss", "cinquedeas", "fanged knife",
-]);
 const SORCERESS_ORB_BASES = ["Eagle Orb", "Sacred Globe", "Smoked Sphere", "Clasped Orb", "Jared's Stone"];
 
 // D2's Voodoo Head family. The exceptional Hierophant is spelled "Heirophant"
@@ -26558,6 +26867,7 @@ interface D2InventoryItem {
   slot: "weapon" | "armor" | "charm" | "belt";
   equipmentType?: EquipmentType;
   restrictedClass?: D2ClassId;
+  /** Explicit fallback for legacy/custom items; known D2 bases resolve in d2-item-footprints.ts. */
   width?: number;
   height?: number;
   beltQuality?: BeltQuality;

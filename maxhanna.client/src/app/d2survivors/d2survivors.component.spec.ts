@@ -4,6 +4,7 @@ import * as THREE from "three";
 import { type D2LeaderboardEntry, D2SurvivorsService } from "../../services/d2survivors.service";
 import { D2SurvivorsComponent } from "./d2survivors.component";
 import { D2_ITEM_ART, D2_SET_ITEMS, D2_UNIQUE_ITEMS } from "./d2-item-assets.generated";
+import { getD2BaseItemFootprint } from "./d2-item-footprints";
 import { D2_HELMET_VISUALS, getHelmetVisualForItem } from "./d2-helmet-visuals.generated";
 import { helmetMountQuaternion, helmetSeatOffset } from "./d2-helmet-mount";
 import { D2_SKILL_ICON_PATHS } from "./d2-skill-icons.generated";
@@ -157,6 +158,35 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.keysDown.delete("d");
     (component as any).updateAutomaticSkillCasts(16);
 
+    expect(component.attackProjectiles.length).toBeGreaterThan(0);
+  });
+
+  it("holds automatic and direct spells until the hero reaches a clicked enemy", () => {
+    component.selectedClass = "sorceress";
+    component.runActive = true;
+    component.playerX = 100;
+    component.playerY = 100;
+    component.ownedSkills = ["Charged Bolt"];
+    component.skillLevels = { "Charged Bolt": 1 };
+    const target = {
+      kind: "normal", species: "fallen", spriteFrame: 0, x: 400, y: 100,
+      hp: 100, maxHp: 100, speed: 0, r: 14, dmg: 2,
+    } as any;
+    component.enemies = [target];
+    component.attackProjectiles = [];
+    (component as any).clickMoveTarget = target;
+    (component as any).skillCastCooldowns = {};
+
+    // A click pursuit is a movement command even before displacement starts.
+    expect((component as any).playerChasingClickedTarget).toBeTrue();
+    (component as any).updateAutomaticSkillCasts(16);
+    component.activateOwnedSkill("Charged Bolt");
+    expect(component.attackProjectiles).toHaveSize(0);
+
+    // Once the hero is at the click stop distance, combat may cast again.
+    target.x = 130;
+    expect((component as any).playerChasingClickedTarget).toBeFalse();
+    (component as any).updateAutomaticSkillCasts(16);
     expect(component.attackProjectiles.length).toBeGreaterThan(0);
   });
 
@@ -2169,6 +2199,105 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(component.inventory.find(Boolean)?.id).toBe("clicked-loot");
   });
 
+  it("routes a floor click around a wall instead of stopping at it", () => {
+    component.playerX = 250;
+    component.playerY = 250;
+    component.arenaW = 500;
+    component.arenaH = 500;
+    component.activeTab = "run";
+    component.runActive = true;
+    spyOn(component as any, "campaignCollisionContext").and.returnValue({ clearance: 8, blocksSight: false } as any);
+    spyOn(component as any, "projectArenaPoint").and.callFake((x: number, y: number) => ({ x, y }));
+    spyOn(component as any, "campaignBlockedSamples").and.callFake((_context: any, x: number, y: number) => (
+      x >= 270 && x <= 300 && y >= 210 && y <= 290 ? 1 : 0
+    ));
+
+    const path = (component as any).planClickGroundPath(350, 250) as Array<{ x: number; y: number }>;
+
+    expect(path).not.toBeNull();
+    expect(path.length).toBeGreaterThan(1);
+    expect(path.some((point) => point.y < 210 || point.y > 290)).toBeTrue();
+    expect(path.every((point) => !(point.x >= 270 && point.x <= 300 && point.y >= 210 && point.y <= 290))).toBeTrue();
+  });
+
+  it("turns an empty floor click into a walk-only destination", () => {
+    component.activeTab = "run";
+    component.runActive = true;
+    component.pendingLevelUps = 0;
+    component.playerX = 250;
+    component.playerY = 250;
+    const arena = { width: 500, height: 500 } as any;
+    (component as any).arenaRef = { nativeElement: arena };
+    spyOn(component as any, "updateHoveredEnemy").and.callFake(() => { component.hoveredEnemy = null; });
+    spyOn(component as any, "updateHoveredGroundPickup").and.callFake(() => { component.hoveredGroundPickup = null; });
+    spyOn(component as any, "arenaWorldPointAt").and.returnValue({ x: 340, y: 250 });
+    spyOn(component as any, "planClickGroundPath").and.returnValue([{ x: 340, y: 250 }]);
+
+    component.onArenaPointerDown({
+      pointerType: "mouse", button: 0, target: arena, clientX: 350, clientY: 250,
+      preventDefault: () => undefined,
+    } as any);
+
+    expect((component as any).clickMoveTarget).toBeNull();
+    expect((component as any).clickLootTarget).toBeNull();
+    expect((component as any).clickGroundTarget).toEqual({ x: 340, y: 250 });
+    expect((component as any).clickGroundPath).toEqual([{ x: 340, y: 250 }]);
+  });
+
+  it("does not attack or cast while walking to a floor destination", () => {
+    component.selectedClass = "sorceress";
+    component.runActive = true;
+    component.pendingLevelUps = 0;
+    component.playerX = 250;
+    component.playerY = 250;
+    (component as any).attackCooldown = 0;
+    component.ownedSkills = ["Charged Bolt"];
+    component.skillLevels = { "Charged Bolt": 1 };
+    (component as any).skillCastCooldowns = {};
+    component.attackProjectiles = [];
+    const target = {
+      kind: "normal", species: "fallen", spriteFrame: 0, x: 260, y: 250,
+      hp: 100, maxHp: 100, speed: 0, r: 14, dmg: 2,
+    } as any;
+    component.enemies = [target];
+    (component as any).clickGroundTarget = { x: 420, y: 250 };
+    (component as any).clickGroundPath = [{ x: 420, y: 250 }];
+
+    expect((component as any).playerRunning).toBeTrue();
+    component.attackNearestEnemy();
+    (component as any).updateBasicAttack();
+    (component as any).updateAutomaticSkillCasts(16);
+    component.activateOwnedSkill("Charged Bolt");
+
+    expect(target.hp).toBe(100);
+    expect(component.attackProjectiles).toHaveSize(0);
+  });
+
+  it("walks all the way to the selected floor point and then releases the move command", () => {
+    component.runActive = true;
+    component.pendingLevelUps = 0;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.arenaW = 500;
+    component.arenaH = 500;
+    (component as any).playerAttackLockRemaining = 0;
+    (component as any).clickGroundTarget = { x: 350, y: 250 };
+    (component as any).clickGroundPath = [{ x: 350, y: 250 }];
+    spyOn(component as any, "campaignTerrainBlocks").and.returnValue(false);
+    spyOn(component as any, "boneWallBlocksPlayer").and.returnValue(false);
+
+    component.movePlayer(100);
+    expect((component as any).clickGroundTarget).not.toBeNull();
+    expect((component as any).clickGroundTarget.x).toBeLessThan(350);
+
+    for (let frame = 0; frame < 20 && (component as any).clickGroundTarget; frame += 1) {
+      component.movePlayer(100);
+    }
+
+    expect((component as any).clickGroundTarget).toBeNull();
+    expect((component as any).clickGroundPath).toHaveSize(0);
+  });
+
   it("passively teleports away when a Sorceress with Teleport is hit", () => {
     component.selectedClass = "sorceress";
     component.runActive = true;
@@ -4046,8 +4175,8 @@ describe("D2SurvivorsComponent combat and equipment", () => {
       }
     }
 
-    expect(found.get("Large Charm")?.height).toBe(2);
-    expect(found.get("Grand Charm")?.height).toBe(3);
+    expect((component as any).itemSize(found.get("Large Charm"))).toEqual({ width: 1, height: 2 });
+    expect((component as any).itemSize(found.get("Grand Charm"))).toEqual({ width: 1, height: 3 });
     expect(component.inventoryItemImage(found.get("Large Charm"))).toBe("assets/d2survivors/items/large-charm.png");
     expect(component.inventoryItemImage(found.get("Grand Charm"))).toBe("assets/d2survivors/items/grand-charm.png");
   });
@@ -4117,11 +4246,23 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect((component as any).itemSize(affixedKnife)).toEqual({ width: 1, height: 2 });
   });
 
-  it("uses a one-column, two-row inventory footprint for daggers", () => {
-    for (const base of [
-      "Dagger", "Poignard", "Bone Knife", "Dirk", "Rondel",
-      "Mithril Point", "Kris", "Cinquedeas", "Fanged Knife",
-    ]) {
+  it("uses D2's narrow and tall dagger footprints", () => {
+    const cases: Record<string, { width: number; height: number }> = {
+      Dagger: { width: 1, height: 2 },
+      Poignard: { width: 1, height: 2 },
+      "Bone Knife": { width: 1, height: 2 },
+      Dirk: { width: 1, height: 2 },
+      Rondel: { width: 1, height: 2 },
+      "Mithril Point": { width: 1, height: 2 },
+      Kris: { width: 1, height: 3 },
+      Kriss: { width: 1, height: 3 },
+      Blade: { width: 1, height: 3 },
+      Cinquedeas: { width: 1, height: 3 },
+      Stilleto: { width: 1, height: 3 },
+      "Fanged Knife": { width: 1, height: 3 },
+      "Legend Spike": { width: 1, height: 3 },
+    };
+    for (const [base, expected] of Object.entries(cases)) {
       for (const variant of [
         { name: base, rarity: "normal" },
         { name: `Cruel ${base} of Quickness`, rarity: "rare" },
@@ -4132,7 +4273,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
           slot: "weapon", equipmentType: "weapon", desc: "A dagger.", stats: {},
         } as any;
         expect((component as any).itemSize(dagger)).withContext(variant.name)
-          .toEqual({ width: 1, height: 2 });
+          .toEqual(expected);
       }
     }
 
@@ -4256,15 +4397,56 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     }
   });
 
-  it("uses a 2x4 inventory footprint for Mauls", () => {
-    for (const base of ["Maul", "Great Maul", "Ogre Maul", "Thunder Maul"]) {
+  it("uses D2's 2x4 and 2x3 maul footprints", () => {
+    const cases: Record<string, { width: number; height: number }> = {
+      Maul: { width: 2, height: 4 },
+      "Ogre Maul": { width: 2, height: 4 },
+      "Great Maul": { width: 2, height: 3 },
+      "Thunder Maul": { width: 2, height: 3 },
+    };
+    for (const [base, expected] of Object.entries(cases)) {
       for (const name of [base, `Cruel ${base} of Swiftness`]) {
         const maul = {
           id: name.toLowerCase().replace(/\s+/g, "-"), name, baseName: base, rarity: "normal",
           slot: "weapon", equipmentType: "weapon", desc: "A maul.", stats: {},
         } as any;
-        expect((component as any).itemSize(maul)).toEqual({ width: 2, height: 4 });
+        expect((component as any).itemSize(maul)).withContext(name).toEqual(expected);
       }
+    }
+  });
+
+  it("keeps every unique and set item on its base's centralized D2 footprint", () => {
+    for (const named of [...D2_UNIQUE_ITEMS, ...D2_SET_ITEMS]) {
+      const expected = { width: named.width, height: named.height };
+      const baseSize = getD2BaseItemFootprint(named.baseName);
+      expect(baseSize).withContext(`${named.name} base ${named.baseName}`).toEqual(expected);
+
+      const item = (component as any).createNamedItem(named, named.rarity);
+      expect((component as any).itemSize(item)).withContext(named.name).toEqual(expected);
+    }
+  });
+
+  it("covers every base used outside the named catalogues", () => {
+    const cases: Array<[string, number, number]> = [
+      ["Throwing Knife", 1, 2], ["Throwing Axe", 1, 2], ["Balanced Knife", 1, 2], ["Balanced Axe", 2, 3],
+      ["Glaive", 1, 4], ["Javelin", 1, 3], ["War Javelin", 1, 3], ["Pilum", 1, 3], ["Harpoon", 1, 4],
+      ["Leather Cap", 2, 2], ["Chain Hauberk", 2, 3], ["Kris", 1, 3], ["Mithril Point", 1, 2], ["Staff", 1, 3],
+      ["Barbarian Battle Axe", 2, 3], ["Barbarian Great Sword", 2, 4], ["Barbarian Throwing Axe", 1, 2],
+      ["Crimson Small Charm", 1, 1], ["Azure Small Charm", 1, 1], ["Gold Amulet", 1, 1],
+      ["Ring of the Artisan", 1, 1], ["Soulstone Shard", 1, 1],
+      ["Katar", 1, 3], ["Wrist Blade", 1, 3], ["Hatchet Hands", 1, 3], ["Cestus", 1, 3], ["Claws", 1, 3],
+      ["Blade Talons", 1, 3], ["Scissors Katar", 1, 3],
+      ["Jawbone Cap", 2, 2], ["Fanged Helm", 2, 2], ["Horned Helm", 2, 2], ["Assault Helmet", 2, 2], ["Avenger Guard", 2, 2],
+      ["Wolf Head", 2, 2], ["Hawk Helm", 2, 2], ["Antlers", 2, 2], ["Falcon Mask", 2, 2], ["Spirit Mask", 2, 2],
+      ["Targe", 2, 2], ["Rondache", 2, 2], ["Heraldic Shield", 2, 4], ["Aerin Shield", 2, 4], ["Crown Shield", 2, 2],
+      ["Eagle Orb", 1, 2], ["Sacred Globe", 1, 2], ["Smoked Sphere", 1, 2], ["Clasped Orb", 1, 2], ["Jared's Stone", 1, 3],
+      ["Preserved Head", 2, 2], ["Zombie Head", 2, 2], ["Unraveller Head", 2, 2], ["Gargoyle Head", 2, 2], ["Demon Head", 2, 2],
+    ];
+
+    for (const [baseName, width, height] of cases) {
+      const expected = { width, height };
+      expect(getD2BaseItemFootprint(baseName)).withContext(baseName).toEqual(expected);
+      expect((component as any).itemSize({ baseName } as any)).withContext(baseName).toEqual(expected);
     }
   });
 
@@ -4394,21 +4576,21 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(component.inventoryGridStyle(cell)).toEqual({ gridColumn: "1 / span 2", gridRow: "1 / span 4" });
   });
 
-  it("uses a 2x4 inventory footprint for the spear family", () => {
-    for (const item of [
-      { name: "Spear", baseName: "Spear", rarity: "normal", width: undefined, height: undefined },
-      { name: "War Spear of Quickness", baseName: "War Spear", rarity: "magic", width: 1, height: 3 },
-      { name: "The Dragon Chang", baseName: "Spear", rarity: "unique", width: 2, height: 4 },
-      { name: "The Impaler", baseName: "War Spear", rarity: "unique", width: 1, height: 3 },
-      { name: "Arioc's Needle", baseName: "Hyperion Spear", rarity: "unique", width: 2, height: 4 },
-      { name: "Stoneraven", baseName: "Matriarchal Spear", rarity: "unique", width: 2, height: 4 },
-      { name: "Demon's Arch", baseName: "Balrog Spear", rarity: "unique", width: 1, height: 3 },
-    ]) {
+  it("uses D2's spear and throwing-spear footprints", () => {
+    for (const [item, expected] of [
+      [{ name: "Spear", baseName: "Spear", rarity: "normal", width: undefined, height: undefined }, { width: 2, height: 4 }],
+      [{ name: "War Spear of Quickness", baseName: "War Spear", rarity: "magic", width: 1, height: 3 }, { width: 2, height: 4 }],
+      [{ name: "The Dragon Chang", baseName: "Spear", rarity: "unique", width: 2, height: 4 }, { width: 2, height: 4 }],
+      [{ name: "The Impaler", baseName: "War Spear", rarity: "unique", width: 1, height: 3 }, { width: 2, height: 4 }],
+      [{ name: "Arioc's Needle", baseName: "Hyperion Spear", rarity: "unique", width: 2, height: 4 }, { width: 2, height: 4 }],
+      [{ name: "Stoneraven", baseName: "Matriarchal Spear", rarity: "unique", width: 2, height: 4 }, { width: 2, height: 4 }],
+      [{ name: "Demon's Arch", baseName: "Balrog Spear", rarity: "unique", width: 1, height: 3 }, { width: 1, height: 3 }],
+    ] as const) {
       const spear = {
         id: item.name.toLowerCase().replace(/\s+/g, "-"), ...item,
         slot: "weapon", equipmentType: "weapon", desc: "A spear.", stats: {},
       } as any;
-      expect((component as any).itemSize(spear)).withContext(item.name).toEqual({ width: 2, height: 4 });
+      expect((component as any).itemSize(spear)).withContext(item.name).toEqual(expected);
     }
 
     component.inventory = Array.from({ length: 40 }, () => null);
@@ -9677,19 +9859,24 @@ describe("D2SurvivorsComponent combat and equipment", () => {
   });
 
   it("opens Matron's Den painted gate through the courtyard wall footprint", () => {
-    const blocked = new Uint8Array(300 * 300);
+    const blocked = new Uint8Array(520 * 300);
     blocked.fill(1);
-    (component as any).campaignCollisionMasks[1] = { width: 300, height: 300, blocked };
+    (component as any).campaignCollisionMasks[1] = { width: 520, height: 300, blocked };
     (component as any).currentAct = 7;
     spyOn(component as any, "campaignAreaBackdropGeometry").and.returnValue({ scale: 1, left: 0, top: 0 } as any);
 
     const context = (component as any).campaignCollisionContext();
 
-    // The keyed gate threshold is walkable, while the wall either side of it
-    // still stops the hero instead of leaving an invisible barrier in the arch.
-    expect((component as any).campaignBlockedAt(context, 235, 250)).toBeFalse();
+    // Both leaves of the keyed gate threshold are walkable, while the painted
+    // central pier and the wall either side still stop the hero.
+    expect((component as any).campaignBlockedAt(context, 225, 250)).toBeFalse();
+    expect((component as any).campaignBlockedAt(context, 289, 250)).toBeFalse();
+    expect((component as any).campaignBlockedAt(context, 258, 250)).toBeTrue();
     expect((component as any).campaignBlockedAt(context, 160, 250)).toBeTrue();
-    expect((component as any).campaignBlockedAt(context, 270, 250)).toBeTrue();
+    expect((component as any).campaignBlockedAt(context, 320, 250)).toBeTrue();
+    // The body fits cleanly through both leaves.
+    expect((component as any).campaignBlockedSamples(context, 225, 250)).toBe(0);
+    expect((component as any).campaignBlockedSamples(context, 289, 250)).toBe(0);
 
     // Act I uses the same painted gate opening.
     (component as any).currentAct = 1;
@@ -9706,13 +9893,14 @@ describe("D2SurvivorsComponent combat and equipment", () => {
 
     const context = (component as any).campaignCollisionContext();
 
-    // The passage must reach above the courtyard-side lip of the painted gate;
-    // otherwise the hero can only leave by hugging the exact centre of the arch.
+    // Both passage mouths must reach above the courtyard-side lip of the
+    // painted gate; otherwise the hero can only leave by hugging an arch centre.
     expect((component as any).campaignBlockedAt(context, 228, 230)).toBeFalse();
     expect((component as any).campaignBlockedAt(context, 228, 208)).toBeFalse();
     expect((component as any).campaignBlockedAt(context, 228, 205)).toBeTrue();
     expect((component as any).campaignBlockedAt(context, 180, 230)).toBeTrue();
-    expect((component as any).campaignBlockedAt(context, 270, 230)).toBeTrue();
+    expect((component as any).campaignBlockedAt(context, 258, 230)).toBeTrue();
+    expect((component as any).campaignBlockedAt(context, 285, 230)).toBeFalse();
   });
 
   it("opens Matron's Den west and east side doors onto the painted walkways", () => {
@@ -9726,12 +9914,15 @@ describe("D2SurvivorsComponent combat and equipment", () => {
 
     // Both side thresholds line up with the walkways painted outside the walls.
     expect((component as any).campaignBlockedAt(context, 50, 190)).toBeFalse();
+    expect((component as any).campaignBlockedAt(context, 80, 170)).toBeFalse();
     expect((component as any).campaignBlockedAt(context, 472, 158)).toBeFalse();
+    expect((component as any).campaignBlockedAt(context, 450, 155)).toBeFalse();
     // The hero's full body fits through either opening, not just its centre.
     expect((component as any).campaignBlockedSamples(context, 50, 190)).toBe(0);
+    expect((component as any).campaignBlockedSamples(context, 80, 170)).toBe(0);
     expect((component as any).campaignBlockedSamples(context, 472, 158)).toBe(0);
     // The rest of the wall band stays solid between the doors and the gate.
-    expect((component as any).campaignBlockedAt(context, 100, 190)).toBeTrue();
+    expect((component as any).campaignBlockedAt(context, 110, 190)).toBeTrue();
     expect((component as any).campaignBlockedAt(context, 420, 158)).toBeTrue();
     expect((component as any).campaignBlockedAt(context, 228, 140)).toBeTrue();
 
@@ -10180,6 +10371,42 @@ describe("D2SurvivorsComponent combat and equipment", () => {
 
     expect(stats).toEqual(["your fire skills burn 10% harder"]);
     expect(stats.join(" ")).not.toContain("No numeric per-rank combat bonus");
+  });
+
+  it("uses actual spell text for aura ranks without a bespoke numeric line", () => {
+    component.selectedClass = "sorceress";
+    for (const name of ["Shiver Armor", "Chilling Armor"]) {
+      const description = component.getSkillDescription(name);
+      const stats = (component as any).getSkillRankStats(name, "aura", 4);
+
+      expect(description).toBeTruthy();
+      expect(stats).toEqual([description!]);
+      expect(stats.join(" ")).not.toContain("No numeric per-rank combat bonus");
+    }
+
+    component.selectedClass = "necromancer";
+    const lowerResist = component.getSkillDescription("Lower Resist");
+    const lowerResistStats = (component as any).getSkillRankStats("Lower Resist", "aura", 4);
+    expect(lowerResist).toBeTruthy();
+    expect(lowerResistStats).toEqual([lowerResist!]);
+
+    // Passives already used their own text; keep that contract covered too.
+    component.selectedClass = "sorceress";
+    const warmth = component.getSkillDescription("Warmth");
+    expect((component as any).getSkillRankStats("Warmth", "passive", 4)).toEqual([warmth!]);
+  });
+
+  it("uses actual spell text for paladin auras whose effects do not scale", () => {
+    component.selectedClass = "paladin";
+    for (const name of ["Cleansing", "Meditation", "Redemption", "Thorns"]) {
+      const description = component.getSkillDescription(name);
+      const stats = (component as any).getSkillRankStats(name, "aura", 4);
+
+      expect(description).toBeTruthy();
+      expect(stats[0]).toContain("Active duration:");
+      expect(stats).toContain(description!);
+      expect(stats.join(" ")).not.toContain("No additional rank-scaled gameplay effect");
+    }
   });
 
   it("gives Plated Belts and Sigon's Wrap four potion rows", () => {
