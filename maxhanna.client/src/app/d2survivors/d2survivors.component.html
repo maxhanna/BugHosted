@@ -1,9 +1,6 @@
 <div class="d2s" [class.d2s-in-menu]="activeTab === 'menu'" [class.d2s-in-character-select]="activeTab === 'menu' && menuPanel === 'characters'" [class.d2s-in-run]="activeTab === 'run'" [class.d2s-custom-cursor]="d2CursorEnabled" (pointerleave)="hideD2Cursor()">
   <div class="d2s-tabs" *ngIf="activeTab !== 'menu'">
     <button type="button" class="d2s-tab" (click)="returnToMenu()">Main Menu</button>
-    <button type="button" class="d2s-tab" [class.active]="activeTab === 'lore'" (click)="openLore()">
-      Lore / classes / skills
-    </button>
     <button type="button" class="d2s-tab" [class.active]="activeTab === 'run'" (click)="resumeRun()">
       Resume Run
     </button>
@@ -47,9 +44,6 @@
           <button type="button" class="d2s-menu-button" (click)="openGheedsShop()">
             <span>Gheed's Shop</span><small>Trade gold for lasting power and gear</small>
           </button>
-          <button type="button" class="d2s-menu-button" (click)="openLore()">
-            <span>Lore &amp; Skills</span><small>Classes, abilities, and the world</small>
-          </button>
           <button type="button" class="d2s-menu-button" (click)="menuPanel = 'credits'">
             <span>Credits</span><small>About this tribute</small>
           </button>
@@ -65,7 +59,8 @@
               <div class="d2s-lobby-section-heading"><div><small>THE IMMORTAL ARCHIVE</small><h2 id="d2s-ranking-title">Greatest heroes of all time</h2></div><span class="d2s-online-indicator"><i></i> REALM ONLINE</span></div>
               <p class="d2s-lobby-error" role="status" *ngIf="lobbyError">{{ lobbyError }}</p>
               <div class="d2s-hero-lineup" *ngIf="lobbyHeroes.length; else noRankings">
-                <div class="d2s-hero-lineup-scroll" (mouseleave)="clearLeaderboardHeroHover()">
+                <div class="d2s-hero-lineup-scroll-wrap">
+                  <div #leaderboardScroll class="d2s-hero-lineup-scroll" (scroll)="onLeaderboardScroll()" (mouseleave)="clearLeaderboardHeroHover()">
                   <div class="d2s-hero-lineup-stage" [style.width.px]="leaderboardStageWidth">
                     <canvas #leaderboardHeroCanvas class="d2s-hero-lineup-canvas" aria-hidden="true"></canvas>
                     <button type="button" class="d2s-hero-lineup-slot" *ngFor="let hero of lobbyHeroes; let i = index"
@@ -78,6 +73,18 @@
                       <span class="d2s-hero-lineup-name">{{ hero.characterName }}</span>
                       <span class="d2s-hero-lineup-meta">{{ hero.username }} · {{ hero.classId | titlecase }}</span>
                     </button>
+                    </div>
+                  </div>
+                  <div class="d2s-hero-lineup-scrollbar" *ngIf="leaderboardScrollRange > 0"
+                    (pointerdown)="startLeaderboardScrollbarDrag($event)"
+                    (pointermove)="moveLeaderboardScrollbarDrag($event)"
+                    (pointerup)="endLeaderboardScrollbarDrag($event)"
+                    (pointercancel)="endLeaderboardScrollbarDrag($event)"
+                    (lostpointercapture)="endLeaderboardScrollbarDrag($event)"
+                    aria-hidden="true">
+                    <span class="d2s-hero-lineup-scrollbar-thumb"
+                      [style.width.%]="leaderboardScrollThumbPercent"
+                      [style.left.%]="leaderboardScrollThumbOffsetPercent"></span>
                   </div>
                 </div>
                 <div class="d2s-hero-run-details" [class.is-empty]="!hoveredLeaderboardHero">
@@ -207,7 +214,12 @@
             <div class="d2s-item-window-inner">
               <button type="button" class="d2s-item-window-close" (click)="closeItemPreview()" aria-label="Close item tooltip" title="Close">×</button>
               <p class="d2s-item-window-kicker">{{ shopPreviewItem.rarity }} {{ shopPreviewItem.slot }}</p>
-              <h3 class="d2s-item-window-title">{{ shopPreviewItem.name }}</h3>
+              <h3 class="d2s-item-window-title"
+                [class.magic]="shopPreviewItem.rarity === 'magic'"
+                [class.rare]="shopPreviewItem.rarity === 'rare'"
+                [class.unique]="shopPreviewItem.rarity === 'unique'"
+                [class.set]="shopPreviewItem.rarity === 'set'"
+                [class.normal]="shopPreviewItem.rarity === 'normal'">{{ shopPreviewItem.name }}</h3>
               <p class="d2s-item-window-base" *ngIf="shopPreviewItem.baseName && shopPreviewItem.baseName !== shopPreviewItem.name">Base item: {{ shopPreviewItem.baseName }}</p>
               <p class="d2s-item-window-description">{{ shopPreviewItem.desc }}</p>
               <p class="d2s-item-window-description" *ngIf="getEquipmentType(shopPreviewItem) === 'belt'">{{ shopPreviewItem.beltQuality }} belt · {{ getBeltRows(shopPreviewItem) }} potion rows</p>
@@ -261,32 +273,6 @@
       </div>
       <footer class="d2s-menu-footer"><span>W A S D &nbsp; TO MOVE</span><span>ENTER SANCTUARY AT YOUR OWN RISK</span><span>© FAN-MADE TRIBUTE</span></footer>
     </div>
-  </section>
-
-  <section class="d2s-block" *ngIf="activeTab === 'lore'">
-    <h1>D2 Survivors</h1>
-    <p class="d2s-sub">Diablo-inspired survivor page. This is a content page, not a full Diablo remake.</p>
-
-    <h2>Character classes</h2>
-    <ul class="d2s-list">
-      <li *ngFor="let cls of classes" class="d2s-row">
-        <span><strong>{{ cls.name }}</strong></span>
-        <span class="d2s-desc">{{ cls.desc }}</span>
-      </li>
-    </ul>
-
-    <h2>Skill and passive descriptions</h2>
-    <ul class="d2s-list">
-      <li *ngFor="let skill of skills" class="d2s-skill">
-        <strong>{{ skill.name }}</strong>
-        <span class="d2s-desc">{{ skill.desc }}</span>
-      </li>
-    </ul>
-
-    <h2>Map / area references</h2>
-    <ul class="d2s-list">
-      <li *ngFor="let area of mapAreas" class="d2s-item">{{ area }}</li>
-    </ul>
   </section>
 
   <section class="d2s-run" [hidden]="activeTab !== 'run'">
@@ -484,8 +470,9 @@
           <div class="d2s-stats-block d2s-derived-stats">
             <h4>Combat</h4>
             <div class="d2s-stat-line" (mouseenter)="showStatTooltip($event, 'damage')" (mouseleave)="hideStatTooltip()"><span>Damage</span><b>{{ inventoryAttackDamage }}<small class="d2s-stat-preview" *ngIf="getPreviewItemStatDelta('damage') as damageDelta" [class.negative]="damageDelta < 0"> {{ formatItemStatDelta(damageDelta) }}</small></b></div>
+            <div class="d2s-stat-line" (mouseenter)="showStatTooltip($event, 'attackRating')" (mouseleave)="hideStatTooltip()"><span>Attack Rating</span><b>{{ inventoryAttackRating }}</b></div>
             <div class="d2s-stat-line" (mouseenter)="showStatTooltip($event, 'defense')" (mouseleave)="hideStatTooltip()"><span>Defense</span><b>{{ equippedArmor }}<small class="d2s-stat-preview" *ngIf="getPreviewItemStatDelta('defense') as defenseDelta" [class.negative]="defenseDelta < 0"> {{ formatItemStatDelta(defenseDelta) }}</small></b></div>
-            <div class="d2s-stat-line" (mouseenter)="showStatTooltip($event, 'stamina')" (mouseleave)="hideStatTooltip()"><span>Stamina</span><b>{{ selectedClassStats.stamina }}</b></div>
+            <div class="d2s-stat-line" (mouseenter)="showStatTooltip($event, 'stamina')" (mouseleave)="hideStatTooltip()"><span>Stamina</span><b>{{ effectiveStamina }}</b></div>
           </div>
           <div class="d2s-stats-block d2s-resource-stats">
             <div class="d2s-stat-line" (mouseenter)="showStatTooltip($event, 'life')" (mouseleave)="hideStatTooltip()"><span>Life</span><b>{{ playerHp | number:'1.0-0' }} / {{ effectivePlayerMaxHp }}<small class="d2s-stat-preview" *ngIf="getPreviewItemStatDelta('life') as lifeDelta" [class.negative]="lifeDelta < 0"> {{ formatItemStatDelta(lifeDelta) }} max</small></b></div>
@@ -607,7 +594,12 @@
         <ng-container *ngIf="itemPreviewItem as previewItem">
           <button type="button" class="d2s-item-window-close" (click)="closeItemPreview()" aria-label="Close item tooltip" title="Close">×</button>
           <p class="d2s-item-window-kicker">{{ previewItem.rarity }} {{ previewItem.slot }}</p>
-          <h3 class="d2s-item-window-title">{{ previewItem.name }}</h3>
+          <h3 class="d2s-item-window-title"
+            [class.magic]="previewItem.rarity === 'magic'"
+            [class.rare]="previewItem.rarity === 'rare'"
+            [class.unique]="previewItem.rarity === 'unique'"
+            [class.set]="previewItem.rarity === 'set'"
+            [class.normal]="previewItem.rarity === 'normal'">{{ previewItem.name }}</h3>
           <p class="d2s-item-window-base" *ngIf="previewItem.baseName && previewItem.baseName !== previewItem.name">Base item: {{ previewItem.baseName }}</p>
           <p class="d2s-item-window-description">{{ previewItem.desc }}</p>
           <p class="d2s-item-window-description" *ngIf="getEquipmentType(previewItem) === 'belt'">{{ previewItem.beltQuality }} belt · {{ getBeltRows(previewItem) }} potion rows</p>

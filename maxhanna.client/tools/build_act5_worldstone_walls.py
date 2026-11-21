@@ -55,19 +55,33 @@ WALL_BANDS = (
     [(430, 195), (470, 195), (500, 215), (510, 245), (485, 265),
      (435, 260), (420, 230)],
 )
+# The central arch is an authored threshold, not a solid wall face.  Keeping the
+# far footprint continuous across it made the gate look open while stopping the
+# hero at an invisible line.  The opening is carved out of the wall strips too,
+# so the hero remains visible while standing in the threshold.
+GATE_OPENING = (278, 86, 322, 145)
 # The floor edge of each wall face, in the same 600x340 backdrop space.  These
 # are the lines where the courtyard's walkable ground meets the stone.  Only
 # these narrow footprints block movement: using the full face polygons would
 # turn the projected wall into a large invisible obstacle over visible floor.
-# The south side stays open as the courtyard entrance.
+# The south side stays open as the courtyard entrance.  The far wall is split by
+# the gate; its back edge stops the hero just inside the arch instead of letting
+# them walk into the painted wall.
 WALL_FLOOR_EDGES = (
-    ((160, 140), (440, 140)),
+    ((160, 140), (278, 140)),
+    ((322, 140), (440, 140)),
+    ((278, 118), (322, 118)),
+    ((278, 118), (278, 140)),
+    ((322, 118), (322, 140)),
     ((216, 140), (196, 230)),
     ((384, 140), (404, 230)),
     ((158, 220), (97, 254)),
     ((442, 220), (503, 254)),
 )
 STRIP_WIDTH = 32
+# Overlap neighbouring strips by one source pixel.  At the game's fractional
+# scale the atlas cuts otherwise leave hairline vertical seams on every wall.
+STRIP_OVERLAP = 1
 
 
 def band_mask(size: tuple[int, int], polygon: list[tuple[int, int]]) -> Image.Image:
@@ -90,8 +104,12 @@ def build_collision(source: Image.Image) -> Image.Image:
     collision = collision.filter(ImageFilter.MaxFilter(3))
     if collision.getpixel((300, 170)) > 127:
         raise SystemExit("Act V courtyard spawn point is not walkable")
-    if collision.getpixel((300, 138)) <= 127:
+    if collision.getpixel((160, 138)) <= 127 or collision.getpixel((440, 138)) <= 127:
         raise SystemExit("Act V far wall footprint is open")
+    if collision.getpixel((300, 120)) <= 127:
+        raise SystemExit("Act V gate back wall is open")
+    if collision.getpixel((300, 134)) > 127:
+        raise SystemExit("Act V gate threshold is blocked")
     if collision.getpixel((210, 170)) <= 127:
         raise SystemExit("Act V left wall footprint is open")
     if collision.getpixel((390, 170)) <= 127:
@@ -112,16 +130,26 @@ def main() -> int:
 
     # One sprite per vertical strip of each wall face.  Strips avoid a single
     # wall spanning the whole room at one depth, which would hide actors
-    # standing well in front of the far end of that wall.
+    # standing well in front of the far end of that wall.  Neighbouring strips
+    # share an edge pixel so fractional scaling cannot open a dark seam between
+    # them.
     sprites: list[tuple[Image.Image, dict]] = []
+    gate_mask = Image.new("L", (width, height), 0)
+    ImageDraw.Draw(gate_mask).rectangle(GATE_OPENING, fill=255)
     for band_index, polygon in enumerate(WALL_BANDS):
         band = band_mask((width, height), polygon)
+        if band_index == 0:
+            # The gate is a threshold, not a painted statue: leave its opening
+            # out of the occluding wall strips.
+            band.paste(0, (0, 0), gate_mask)
         band_left = min(x for x, _ in polygon)
         band_right = max(x for x, _ in polygon)
         x = band_left
         while x < band_right:
             strip_width = min(STRIP_WIDTH, band_right - x)
-            bounds = (x, top, x + strip_width, bottom)
+            crop_left = max(0, x - STRIP_OVERLAP)
+            crop_right = min(width, x + strip_width + STRIP_OVERLAP)
+            bounds = (crop_left, top, crop_right, bottom)
             cut = source.crop(bounds)
             strip_band = band.crop(bounds)
             alpha = Image.new("L", cut.size, 0)
@@ -129,9 +157,9 @@ def main() -> int:
             if alpha.getbbox():
                 sprite = cut.copy()
                 sprite.putalpha(alpha)
-                depth_bbox = alpha.getbbox() or (0, 0, strip_width, bottom - top)
+                depth_bbox = alpha.getbbox() or (0, 0, sprite.width, bottom - top)
                 sprites.append((sprite, {
-                    "x": x,
+                    "x": crop_left,
                     "y": top,
                     "w": sprite.width,
                     "h": sprite.height,

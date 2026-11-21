@@ -687,7 +687,35 @@
 .d2s-online-indicator { flex: 0 0 auto; color: #90a17b; font: 9px ui-monospace, monospace; letter-spacing: .08em; }
 .d2s-online-indicator i { display: inline-block; width: 7px; height: 7px; margin-right: 4px; border-radius: 50%; background: #9ab77d; box-shadow: 0 0 8px #8bbb72; }
 .d2s-hero-lineup { display: flex; flex-direction: column; gap: 8px; min-width: 0; margin-top: 9px; }
-.d2s-hero-lineup-scroll { overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; padding-bottom: 4px; scrollbar-color: #655034 #100e0e; scrollbar-width: thin; }
+.d2s-hero-lineup-scroll-wrap { position: relative; min-width: 0; }
+.d2s-hero-lineup-scroll { overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; scrollbar-width: none; -ms-overflow-style: none; }
+.d2s-hero-lineup-scroll::-webkit-scrollbar { display: none; }
+.d2s-hero-lineup-scrollbar {
+  position: relative;
+  height: 9px;
+  margin-top: 4px;
+  border: 1px solid #2f261d;
+  background: linear-gradient(180deg, #0a0908, #17120d);
+  box-shadow: inset 0 0 4px #000;
+  cursor: none;
+  touch-action: none;
+  user-select: none;
+}
+.d2s-hero-lineup-scrollbar-thumb {
+  position: absolute;
+  top: 1px;
+  bottom: 1px;
+  min-width: 10px;
+  border: 1px solid #80643c;
+  background: linear-gradient(180deg, #76603f, #2a1e13);
+  box-shadow: inset 0 0 3px #000;
+  pointer-events: auto;
+}
+.d2s-hero-lineup-scrollbar:hover .d2s-hero-lineup-scrollbar-thumb,
+.d2s-hero-lineup-scrollbar:active .d2s-hero-lineup-scrollbar-thumb {
+  border-color: #b08a55;
+  background: linear-gradient(180deg, #96794d, #362619);
+}
 .d2s-hero-lineup-stage { position: relative; height: 236px; margin: 0 auto; border: 1px solid #3a2e21; background: radial-gradient(ellipse at 50% 112%, #432a19 0%, #1a1212 48%, #09090b 100%); box-shadow: inset 0 0 26px #0009, 0 5px 14px #0007; }
 .d2s-hero-lineup-stage::before { content: ""; position: absolute; left: 0; right: 0; bottom: 38px; height: 1px; background: linear-gradient(90deg, transparent, #7a5c36, transparent); pointer-events: none; z-index: 1; }
 .d2s-hero-lineup-canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
@@ -2851,14 +2879,16 @@
 
 .d2s-inv {
   position: absolute;
-  top: 58.8%;
+  /* Match the painted 10x4 cells in inventory-panel.webp: the grid runs from
+     y=899 to y=1291 of the 1507px-tall panel art. */
+  top: 59.65%;
   right: 7.8%;
   left: 7.9%;
   display: grid;
   grid-template-columns: repeat(var(--inventory-columns, 10), minmax(0, 1fr));
   grid-template-rows: repeat(var(--inventory-rows, 4), minmax(0, 1fr));
   gap: 0;
-  height: 23.3%;
+  height: 26.01%;
   padding: 0;
   border: 0;
   background: none;
@@ -2907,6 +2937,42 @@
 .d2s-inv-slot.unique,
 .d2s-inv-slot.set,
 .d2s-inv-slot.normal { border: 0; background: transparent; }
+
+/* Keep the rarity readable while hovering, including over selected slots. */
+.d2s-inv-slot.filled.normal:hover,
+.d2s-inv-slot.filled.normal:focus-visible {
+  background: radial-gradient(ellipse at 50% 50%, #d5d0c33d, transparent 74%) !important;
+  box-shadow: inset 0 0 0 1px #d5d0c3aa, inset 0 0 12px #d5d0c322 !important;
+  outline: none;
+}
+
+.d2s-inv-slot.filled.magic:hover,
+.d2s-inv-slot.filled.magic:focus-visible {
+  background: radial-gradient(ellipse at 50% 50%, #3d77e85c, transparent 74%) !important;
+  box-shadow: inset 0 0 0 1px #7fa9ffcc, inset 0 0 14px #3d77e855 !important;
+  outline: none;
+}
+
+.d2s-inv-slot.filled.rare:hover,
+.d2s-inv-slot.filled.rare:focus-visible {
+  background: radial-gradient(ellipse at 50% 50%, #d6b63b5c, transparent 74%) !important;
+  box-shadow: inset 0 0 0 1px #f3dc72cc, inset 0 0 14px #d6b63b55 !important;
+  outline: none;
+}
+
+.d2s-inv-slot.filled.set:hover,
+.d2s-inv-slot.filled.set:focus-visible {
+  background: radial-gradient(ellipse at 50% 50%, #2e9b555c, transparent 74%) !important;
+  box-shadow: inset 0 0 0 1px #72dc91cc, inset 0 0 14px #2e9b5555 !important;
+  outline: none;
+}
+
+.d2s-inv-slot.filled.unique:hover,
+.d2s-inv-slot.filled.unique:focus-visible {
+  background: radial-gradient(ellipse at 50% 50%, #c08b275c, transparent 74%) !important;
+  box-shadow: inset 0 0 0 1px #ffd36acc, inset 0 0 14px #c08b2755 !important;
+  outline: none;
+}
 
 .d2s-inv-art {
   display: block;
@@ -3029,9 +3095,15 @@
 .d2s-item-window-title {
   margin: 0 0.75rem 0.2rem;
   font-size: 1rem;
-  color: #ffd27a;
+  color: #ded8cb;
   text-shadow: 0 1px 4px #000;
 }
+
+.d2s-item-window-title.magic { color: #8fb4ed; }
+.d2s-item-window-title.rare { color: #f0bf62; }
+.d2s-item-window-title.unique { color: #f0c96a; }
+.d2s-item-window-title.set { color: #7edb96; }
+.d2s-item-window-title.normal { color: #ded8cb; }
 
 .d2s-item-window-base {
   margin: 0 0.75rem 0.35rem;

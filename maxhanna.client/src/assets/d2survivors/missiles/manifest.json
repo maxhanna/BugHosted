@@ -1556,6 +1556,7 @@
   },
   "d2-electricnova": {
     "dccName": "electricnova",
+    "direction": 0,
     "encodedFrames": 13,
     "frameDirectory": "d2-electricnova",
     "frameDurationMs": 60,
@@ -2807,6 +2808,7 @@
   },
   "d2-lightningstrike": {
     "dccName": "lightningstrike",
+    "direction": 0,
     "encodedFrames": 8,
     "frameDirectory": "d2-lightningstrike",
     "frameDurationMs": 60,
