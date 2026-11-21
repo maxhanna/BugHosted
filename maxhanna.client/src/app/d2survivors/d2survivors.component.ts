@@ -25,6 +25,7 @@ import { ARMOR_AURA_ART } from "./d2-armor-auras.generated";
 import { BONE_ARMOR_ART } from "./d2-bone-armor.generated";
 import { BONE_WALL_ART } from "./d2-bone-wall.generated";
 import { FROST_NOVA_ART } from "./d2-frost-nova.generated";
+import { NOVA_RING_ART } from "./d2-nova-ring.generated";
 import { THUNDER_STORM_ART } from "./d2-thunderstorm.generated";
 import { HYDRA_ART } from "./d2-hydra.generated";
 import { INFERNO_ART } from "./d2-inferno.generated";
@@ -391,7 +392,8 @@ const ARCTIC_BLAST_DAMAGE_PER_RANK = 0.06;
 const ARCTIC_BLAST_TICK_INTERVAL = 0.12;
 const FROST_NOVA_RADIUS = 132;
 const FROST_NOVA_RADIUS_PER_RANK = 2;
-// Nova uses the original `ElectricNova` missile: 13 frames at 16 AnimSpeed.
+// Nova uses the original `ElectricNova` missiles, baked into an animated
+// ring by tools/import_d2r_nova.py: 64 bolts across 6 phases.
 const NOVA_RADIUS = 132;
 const NOVA_RADIUS_PER_RANK = 2;
 const NOVA_DURATION_SECONDS = 13 * 0.06;
@@ -1474,7 +1476,6 @@ const A5_TILES = "assets/d2survivors/maps/tiles/a5-throne-of-destruction-floor-t
 // zone's base variant chooses its terrain family; the renderer keeps that
 // family's low-contrast ground cells together and uses only a few matching
 // high-contrast cells as sparse landmarks.
-const A1_TAMOE_TILES = "assets/d2survivors/maps/tiles/a1-tamoe-highland-floor-tiles.png";
 const A1_CATACOMBS_TILES = "assets/d2survivors/maps/tiles/a1-catacombs-floor-tiles.png";
 const A2_SEWERS_TILES = "assets/d2survivors/maps/tiles/a2-sewers-floor-tiles.png";
 const A2_TAL_RASHAS_TILES = "assets/d2survivors/maps/tiles/a2-tal-rashas-tomb-floor-tiles.png";
@@ -1503,7 +1504,11 @@ const A8_TILES = "assets/d2survivors/maps/tiles/a8-uber-tristram-floor-tiles.png
  * same material.
  */
 const CAMPAIGN_TERRAIN_PROFILES: Record<string, CampaignTerrainProfile> = {
-  [A1_TAMOE_TILES]: { ground: [6, 12, 3, 7, 9], path: [11, 14, 0], edge: [10, 4], accents: [1, 2, 4, 5, 13, 15], style: "trail" },
+  // Act I outdoor: the original 160x80 Act I floor sheet. Cells 1, 5, 10 and 12
+  // are the clean dirt ground and cart track; 3, 4, 8, 9, 13 and 14 are the
+  // grass-and-boulder patches used sparingly off the trail. The cells with a
+  // black elevation band (0, 2, 6, 11, 15) stay out of the floor pools.
+  [A1_TILES]: { ground: [5, 7, 12], path: [1, 10], edge: [12], accents: [3, 4, 8, 9, 13, 14], style: "trail" },
   [A1_CATACOMBS_TILES]: { ground: [8, 7, 14, 5], path: [10, 12, 14], edge: [13, 9, 15], accents: [11, 4, 2, 3], style: "cavern" },
   [A2_SEWERS_TILES]: { ground: [7, 8, 5, 0, 1], path: [10, 5, 8], edge: [9, 6, 2], accents: [11, 3, 15, 4], style: "cavern" },
   [A2_TAL_RASHAS_TILES]: { ground: [0, 2, 4, 6, 10, 14], path: [1, 15, 7], edge: [10, 11, 12], accents: [3, 9, 13, 8, 11], style: "tomb" },
@@ -1627,12 +1632,12 @@ interface TristramWallDraw extends TristramWallInstance {
 }
 
 const CAMPAIGN_ACTS: CampaignAct[] = [
-  { act: 1, name: "The Monastery Gate", region: "Rogue Encampment", levelLabel: "Blood Moor", map: "assets/d2survivors/maps/act1-barracks.png", mapAlpha: true, backdrop: "assets/d2survivors/maps/act1-barracks.png", floorTiles: A1_TAMOE_TILES, baseFloorVariant: 6, enemies: ["fallen", "goatman", "skeleton"], boss: "andariel", areas: [
-    { name: "Blood Moor", level: 1, floorTiles: A1_TAMOE_TILES, baseFloorVariant: 6 },
-    { name: "Cold Plains", level: 2, floorTiles: A1_TAMOE_TILES, baseFloorVariant: 6 },
-    { name: "Stony Field", level: 4, floorTiles: A1_TAMOE_TILES, baseFloorVariant: 6 },
-    { name: "Dark Wood", level: 5, floorTiles: A1_TAMOE_TILES, baseFloorVariant: 6 },
-    { name: "Tamoe Highland", level: 7, floorTiles: A1_TAMOE_TILES, baseFloorVariant: 6 },
+  { act: 1, name: "The Monastery Gate", region: "Rogue Encampment", levelLabel: "Blood Moor", map: "assets/d2survivors/maps/act1-barracks.png", mapAlpha: true, backdrop: "assets/d2survivors/maps/act1-barracks.png", floorTiles: A1_TILES, baseFloorVariant: 5, enemies: ["fallen", "goatman", "skeleton"], boss: "andariel", areas: [
+    { name: "Blood Moor", level: 1, floorTiles: A1_TILES, baseFloorVariant: 5 },
+    { name: "Cold Plains", level: 2, floorTiles: A1_TILES, baseFloorVariant: 5 },
+    { name: "Stony Field", level: 4, floorTiles: A1_TILES, baseFloorVariant: 5 },
+    { name: "Dark Wood", level: 5, floorTiles: A1_TILES, baseFloorVariant: 5 },
+    { name: "Tamoe Highland", level: 7, floorTiles: A1_TILES, baseFloorVariant: 5 },
     { name: "Catacombs", level: 11, floorTiles: A1_CATACOMBS_TILES, baseFloorVariant: 11, dark: true },
   ] },
   { act: 2, name: "The Buried Caves", region: "Lut Gholein", levelLabel: "Rocky Waste", map: "assets/d2survivors/maps/act2-caves.png", mapAlpha: true, backdrop: "assets/d2survivors/maps/act2-caves.png", floorTiles: A2_TILES, baseFloorVariant: 2, enemies: ["sandRaider", "sandMaggot", "sandMaggotYoung", "scarab", "leaper", "blunderbore", "salamander", "skeleton", "spikeFiend"], boss: "duriel", areas: [
@@ -2434,6 +2439,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private readonly armorAuraImages = new Map<string, HTMLImageElement>();
   private readonly frostNovaSheet = new Image();
   private frostNovaSheetRequested = false;
+  private readonly novaRingSheet = new Image();
+  private novaRingSheetRequested = false;
   private readonly infernoSheet = new Image();
   private infernoSheetRequested = false;
   private readonly poisonCloudSheet = new Image();
@@ -3381,7 +3388,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         this.campaignFloorTileImages[act.act] = tileImage;
         this.campaignFloorTileOverlayCanvases[act.act] = this.createKeyedFloorTileOverlay(tileImage);
         this.campaignTileBitmaps[act.act] = this.extractCampaignTileBitmaps(
-          act.act, tileImage, act.baseFloorVariant, act.floorTiles === A1_TAMOE_TILES,
+          act.act, tileImage, act.baseFloorVariant,
         );
         redrawWhenReady();
       };
@@ -3662,7 +3669,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const image = new Image();
     image.onload = () => {
       this.campaignAreaTileBitmaps.set(area.floorTiles, this.extractCampaignTileBitmaps(
-        actId, image, area.baseFloorVariant, area.floorTiles === A1_TAMOE_TILES,
+        actId, image, area.baseFloorVariant,
       ));
       if (this.activeTab === "run") this.draw();
     };
@@ -3769,11 +3776,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (!terrain) return tiles[Math.max(0, Math.min(15, area.baseFloorVariant))] ?? fallback;
     const seed = this.campaignAreaSeed(area);
     const style = terrain.style;
-    // The first zone is the readable baseline: a continuous grass field and
-    // one clean dirt road.  Its atlas also contains trees, rock piles, pits,
-    // and root tangles; mixing those into the per-cell pools turns the floor
-    // into visual noise, so keep them out of the base terrain entirely.
-    const firstZone = area.floorTiles === A1_TAMOE_TILES;
     const phase = (seed % 997) / 997 * Math.PI * 2;
     const mainTrail = Math.abs(worldTileY - (
       Math.sin(worldTileX * 0.11 + phase) * 2.6
@@ -3792,7 +3794,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           Math.sin(worldTileY * 0.06 + phase * 2.1) * 3 + 9
         ));
       }
-    } else if (style === "trail" && !firstZone) {
+    } else if (style === "trail") {
       if (this.campaignValueNoise(worldTileX, worldTileY, seed + 51, 9) > 0.5) {
         branchTrail = Math.abs(worldTileX - (
           Math.sin(worldTileY * 0.09 + phase * 2.1) * 4.5
@@ -3801,31 +3803,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       }
     }
     const trailWidth = style === "road" ? 2.8 : style === "tomb" ? 2 : style === "cavern" ? 1.9 : 2.2;
-    const edgeWobble = (this.campaignValueNoise(worldTileX, worldTileY, seed + 97, 2.5) - 0.5)
-      * (firstZone ? 0.7 : 2);
+    const edgeWobble = (this.campaignValueNoise(worldTileX, worldTileY, seed + 97, 2.5) - 0.5) * 2;
     const trailDistance = Math.min(mainTrail, branchTrail) + edgeWobble;
     const broad = this.campaignValueNoise(worldTileX, worldTileY, seed + 71, 7);
     let isPath = trailDistance < trailWidth;
     if (!isPath && style === "cavern") isPath = broad > 0.76 && trailDistance < trailWidth + 3.5;
     else if (!isPath && style === "tomb") isPath = broad > 0.79 && trailDistance < trailWidth + 3;
-    else if (!isPath && style === "trail" && !firstZone) isPath = broad > 0.78 && trailDistance < trailWidth + 3;
+    else if (!isPath && style === "trail") isPath = broad > 0.78 && trailDistance < trailWidth + 3;
     else if (!isPath && style === "road") isPath = broad > 0.82;
-    if (firstZone) {
-      // 6 and 12 are the two plain grass cells; 10 is the clean dirt road and
-      // 14 its dirt shoulder.  Large, low-frequency grass patches keep the
-      // field continuous while still avoiding a single repeated stamp.
-      const grassVariation = this.campaignValueNoise(worldTileX, worldTileY, seed + 167, 7);
-      const firstIndex = isPath
-        ? 10
-        : trailDistance < trailWidth + 1.2
-          ? 14
-          : grassVariation > 0.68 ? 12 : 6;
-      const firstImage = tiles[firstIndex] ?? tiles[6] ?? fallback;
-      if (!firstImage) return undefined;
-      return this.campaignHash(worldTileX, worldTileY, seed + 307) > 0.5
-        ? this.campaignFlippedTile(firstImage)
-        : firstImage;
-    }
     let pool: number[];
     let noiseSeed: number;
     let noiseScale: number;
@@ -4246,7 +4231,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     // legacy-sized backing canvas ready only as a safe interim fallback.
     ctx.imageSmoothingEnabled = false;
     const tiles = this.campaignTileBitmaps[act.act] ?? this.extractCampaignTileBitmaps(
-      act.act, floorTiles, act.baseFloorVariant, act.floorTiles === A1_TAMOE_TILES,
+      act.act, floorTiles, act.baseFloorVariant,
     );
     this.campaignTileBitmaps[act.act] = tiles;
     const baseTile = tiles[Math.max(0, Math.min(15, act.baseFloorVariant))];
@@ -4353,12 +4338,15 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       // a flat strip of the tile above or an extra lip of a raised edge.  Tiled
       // at the game's spacing those strips become the visible chevron grid.
       // Keep only the authored diamond, then fill every transparent hole inside
-      // it from the nearest opaque pixel so no seams show between tiles.
+      // it from the nearest opaque pixel so no seams show between tiles.  The
+      // clip has to reach the cell's own diamond: shrinking it leaves a
+      // transparent band along each edge, and because the tiles overlap by two
+      // cells that band shows through as a thin black seam.
       const halfWidth = width / 2;
       const halfHeight = height / 2;
       const insideDiamond = (x: number, y: number): boolean =>
         Math.abs(x + 0.5 - halfWidth) / halfWidth
-        + Math.abs(y + 0.5 - halfHeight) / halfHeight <= 0.94;
+        + Math.abs(y + 0.5 - halfHeight) / halfHeight <= 1;
       const fillQueue = new Int32Array(width * height);
       const fillSeen = new Uint8Array(width * height);
       let fillHead = 0;
@@ -10346,7 +10334,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const armorAuraEntries = Object.entries(ARMOR_AURA_ART);
 
     this.assetsLoaded = 0;
-    this.assetsTotal = urls.size + paladinAuraEntries.length + druidAuraEntries.length + armorAuraEntries.length + 3;
+    this.assetsTotal = urls.size + paladinAuraEntries.length + druidAuraEntries.length + armorAuraEntries.length + 4;
     if (this.assetsTotal === 0) {
       this.assetsReady = true;
       return;
@@ -10364,6 +10352,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         this.assetsLoaded += 1;
       }));
     const frostNovaLoad = this.preloadFrostNovaSheet().finally(() => {
+      this.assetsLoaded += 1;
+    });
+    const novaRingLoad = this.preloadNovaRingSheet().finally(() => {
       this.assetsLoaded += 1;
     });
     const infernoLoad = this.preloadInfernoSheet().finally(() => {
@@ -10390,6 +10381,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       ...druidAuraLoads,
       ...armorAuraLoads,
       frostNovaLoad,
+      novaRingLoad,
       infernoLoad,
       thunderStormLoad,
     ]).then(() => {
@@ -16619,7 +16611,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       seed: Math.random(),
       color: "#9fe5ff",
       time: 0,
-      duration: FROST_NOVA_ART.frames / FROST_NOVA_ART.frameRate,
+      duration: FROST_NOVA_ART.duration,
       fieldRadius: MEPHISTO_FROST_NOVA_RADIUS,
       frostNova: true,
       stationary: true,
@@ -18590,7 +18582,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       facingX: this.playerFacingX,
       facingY: this.playerFacingY,
       time: 0,
-      duration: FROST_NOVA_ART.frames / FROST_NOVA_ART.frameRate,
+      duration: FROST_NOVA_ART.duration,
       fieldRadius: radius,
       color,
       seed: hashString("Frost Nova") % 628,
@@ -18888,50 +18880,26 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private drawFrostNovaRing(ctx: CanvasRenderingContext2D, effect: SkillVisualEffect, center: { x: number; y: number }): void {
     const image = this.ensureFrostNovaSheet();
     if (!image.complete || image.naturalWidth === 0) return;
-    const art = FROST_NOVA_ART;
-    const frame = Math.min(art.frames - 1, Math.floor(effect.time * art.frameRate));
     const radius = effect.fieldRadius ?? FROST_NOVA_RADIUS;
-    const fade = Math.min(1, effect.time / 0.04, Math.max(0, (effect.duration - effect.time) / 0.18));
+    const fade = Math.min(1, effect.time / 0.03, Math.max(0, (effect.duration - effect.time) / 0.2));
     if (fade <= 0) return;
-    const edgeX = this.projectArenaPoint(effect.x + radius, effect.y);
-    const screenRadiusX = Math.abs(edgeX.x - center.x);
-    if (screenRadiusX < 1) return;
-    const progress = Math.max(0, Math.min(1, effect.time / effect.duration));
-    // The D2 skill function fires 64 Frost Nova missiles around the caster.
-    // Each one uses one of the sixteen authored direction cells, so the ring
-    // is those clouds placed around the projected isometric circle, not one
-    // cell rotated repeatedly.  The heavy overlap is what turns the soft blue
-    // cloud art into the solid, jagged ring from the original game.
-    const ringCount = 64;
+    const duration = Math.max(0.001, effect.duration);
+    const progress = Math.max(0, Math.min(1, effect.time / duration));
+    // D2 releases 64 missiles around the caster.  The baked texture already
+    // stamps every one of them into a single continuous frosty-blue ring, so
+    // the runtime only grows that ring out to the skill's field radius.
     const reach = 1 - Math.pow(1 - Math.min(1, progress / 0.55), 2.2);
-    const copyWidth = Math.max(18, Math.PI * 2 * screenRadiusX / ringCount * 8);
-    const scale = copyWidth / art.frameWidth;
-    const copyHeight = art.frameHeight * scale;
-    const offsetX = -art.originX * scale;
-    const offsetY = -art.originY * scale;
+    if (reach <= 0.001) return;
+    const edgeX = this.projectArenaPoint(effect.x + radius * reach, effect.y);
+    const edgeY = this.projectArenaPoint(effect.x, effect.y + radius * reach);
+    const width = Math.abs(edgeX.x - center.x) * 2;
+    const height = Math.abs(edgeY.y - center.y) * 2;
+    if (width < 2 || height < 2) return;
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
     ctx.imageSmoothingEnabled = true;
     ctx.globalAlpha = fade;
-    for (let index = 0; index < ringCount; index += 1) {
-      const angle = index * Math.PI * 2 / ringCount;
-      const point = this.projectArenaPoint(
-        effect.x + Math.cos(angle) * radius * reach,
-        effect.y + Math.sin(angle) * radius * reach,
-      );
-      // DCC direction rows run round the circle from west, matching the
-      // eight-direction mapping used by enemySpriteRow.
-      const direction = ((Math.round((angle + Math.PI) / (Math.PI / 8)) % art.directions)
-        + art.directions) % art.directions;
-      ctx.save();
-      ctx.translate(point.x, point.y);
-      ctx.drawImage(
-        image,
-        direction * art.frameWidth, frame * art.frameHeight, art.frameWidth, art.frameHeight,
-        offsetX, offsetY, copyWidth, copyHeight,
-      );
-      ctx.restore();
-    }
+    ctx.drawImage(image, center.x - width / 2, center.y - height / 2, width, height);
     ctx.restore();
   }
 
@@ -19004,39 +18972,37 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     ctx.restore();
   }
 
-  /** The original 13-frame ElectricNova strip, repeated as a ring of arcs. */
+  /** The baked original ElectricNova ring, animated while it expands. */
   private drawLightningNovaRing(ctx: CanvasRenderingContext2D, effect: SkillVisualEffect, center: { x: number; y: number }): void {
-    const canvas = this.skillEffectsCanvasRef?.nativeElement;
-    const dpr = canvas?.clientWidth ? canvas.width / canvas.clientWidth : 1;
+    const image = this.ensureNovaRingSheet();
+    if (!image.complete || image.naturalWidth === 0) return;
+    const art = NOVA_RING_ART;
     const radius = effect.fieldRadius ?? NOVA_RADIUS;
-    const fade = Math.min(1, effect.time / 0.035, Math.max(0, (effect.duration - effect.time) / 0.16));
+    const fade = Math.min(1, effect.time / 0.03, Math.max(0, (effect.duration - effect.time) / 0.16));
     if (fade <= 0.01) return;
-    const edgeX = this.projectArenaPoint(effect.x + radius, effect.y);
-    const screenRadiusX = Math.abs(edgeX.x - center.x);
-    if (screenRadiusX < 1) return;
-    // ElectricNova is one directional arc. Place copies around the projected
-    // isometric ring, tangent to it, so the original sheet reads as a circle of
-    // electricity instead of one oversized bolt.
-    const arcCount = 24;
-    const arcSize = Math.max(32, Math.PI * 2 * screenRadiusX / arcCount * 1.5);
-    for (let index = 0; index < arcCount; index += 1) {
-      const angle = index * Math.PI * 2 / arcCount;
-      const point = this.projectArenaPoint(
-        effect.x + Math.cos(angle) * radius,
-        effect.y + Math.sin(angle) * radius,
-      );
-      const rotation = Math.atan2(point.y - center.y, point.x - center.x) + Math.PI / 2;
-      this.drawImportedMissileFrame(
-        ctx,
-        "d2-electricnova",
-        effect.time,
-        point.x,
-        point.y - 3 * dpr,
-        arcSize,
-        rotation,
-        fade,
-      );
-    }
+    const duration = Math.max(0.001, effect.duration);
+    const progress = Math.max(0, Math.min(1, effect.time / duration));
+    // D2 fires the 64 bolts radially outward.  The baked strip already holds
+    // every one of them in its outward orientation, so the runtime only grows
+    // the animated ring out to the skill's field radius.
+    const reach = 1 - Math.pow(1 - Math.min(1, progress / 0.55), 2.2);
+    if (reach <= 0.001) return;
+    const edgeX = this.projectArenaPoint(effect.x + radius * reach, effect.y);
+    const edgeY = this.projectArenaPoint(effect.x, effect.y + radius * reach);
+    const width = Math.abs(edgeX.x - center.x) * 2;
+    const height = Math.abs(edgeY.y - center.y) * 2;
+    if (width < 2 || height < 2) return;
+    const frame = Math.floor(effect.time * art.frameRate) % art.frames;
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.imageSmoothingEnabled = true;
+    ctx.globalAlpha = fade;
+    ctx.drawImage(
+      image,
+      frame * art.cell, 0, art.cell, art.cell,
+      center.x - width / 2, center.y - height / 2, width, height,
+    );
+    ctx.restore();
   }
 
   private async preloadFrostNovaSheet(): Promise<void> {
@@ -19045,6 +19011,30 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     } catch {
       // The image's onerror handler reports the failure; never hold the warm-up.
     }
+  }
+
+  private async preloadNovaRingSheet(): Promise<void> {
+    try {
+      await this.ensureNovaRingSheet().decode();
+    } catch {
+      // The image's onerror handler reports the failure; never hold the warm-up.
+    }
+  }
+
+  private ensureNovaRingSheet(): HTMLImageElement {
+    if (!this.novaRingSheetRequested) {
+      this.novaRingSheetRequested = true;
+      this.novaRingSheet.decoding = "async";
+      this.novaRingSheet.onload = () => {
+        if (this.activeTab === "run") {
+          this.draw();
+          this.drawSkillVisualEffects();
+        }
+      };
+      this.novaRingSheet.onerror = () => console.warn("Could not load the Nova ring art.");
+      this.novaRingSheet.src = NOVA_RING_ART.path;
+    }
+    return this.novaRingSheet;
   }
 
   private ensureFrostNovaSheet(): HTMLImageElement {
@@ -22384,10 +22374,17 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     // without changing entity positions, movement speed, or collision sizes.
     const tileWidth = tileScreenSize * Math.SQRT2;
     const tileHeight = tileScreenSize / Math.SQRT2;
-    // A neutral grass underlay hides any sub-pixel seam between the first
-    // zone's diamonds; elsewhere the dark map background is intentional.
-    if (area.floorTiles === A1_TAMOE_TILES) {
-      ctx.fillStyle = "#2f3822";
+    // Tile centres are projected with the device pixel ratio, so the bitmaps
+    // must use it as well.  Without it a high-DPI canvas halves the floor art
+    // while the 3D hero keeps its CSS size, which reads as the ground being
+    // zoomed out under the player.
+    const tileDrawWidth = tileWidth * (this.projectionDpr || 1);
+    const tileDrawHeight = tileHeight * (this.projectionDpr || 1);
+    // The Act I moor is the open-air baseline; its underlay is the colour of
+    // the dirt tiles, so any sub-pixel seam reads as ground instead of a black
+    // line.  Elsewhere the dark map background is intentional.
+    if (area.floorTiles === A1_TILES) {
+      ctx.fillStyle = "#2b2419";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
     const tiles = this.areaTileBitmaps(area);
@@ -22437,8 +22434,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         // cell without introducing a foreign floor set.
         const image = this.campaignGroundTile(tiles, terrain, baseTile, worldTileX, worldTileY, area);
         if (image) {
-          const halfW = tileWidth / 2;
-          const halfH = tileHeight / 2;
+          const halfW = tileDrawWidth / 2;
+          const halfH = tileDrawHeight / 2;
           // The atlas cells carry a dark diamond outline, which turns into a
           // visible grid when the oversized tiles overlap.  160-wide cells
           // need a 2px trim; the tomb's 320-wide cells bake in the same
@@ -22449,11 +22446,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           ctx.drawImage(
             image,
             inset, inset, image.width - inset * 2, image.height - inset * 2,
-            pointX - halfW - 1, pointY - halfH - 1, tileWidth + 2, tileHeight + 2,
+            pointX - halfW - 1, pointY - halfH - 1, tileDrawWidth + 2, tileDrawHeight + 2,
           );
         } else {
-          const halfW = tileScreenSize * 0.7071;
-          const halfH = tileScreenSize * 0.35355;
+          const halfW = tileDrawWidth / 2;
+          const halfH = tileDrawHeight / 2;
           ctx.fillStyle = (worldTileX + worldTileY) % 2 === 0 ? "#17191f" : "#12141a";
           ctx.beginPath();
           ctx.moveTo(pointX, pointY - halfH);

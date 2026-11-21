@@ -13,6 +13,7 @@ import { D2_PALADIN_AURA_HIT_ART } from "./d2-paladin-aura-hits.generated";
 import { ARMOR_AURA_ART } from "./d2-armor-auras.generated";
 import { BONE_ARMOR_ART } from "./d2-bone-armor.generated";
 import { FROST_NOVA_ART } from "./d2-frost-nova.generated";
+import { NOVA_RING_ART } from "./d2-nova-ring.generated";
 import { THUNDER_STORM_ART } from "./d2-thunderstorm.generated";
 import { HYDRA_ART } from "./d2-hydra.generated";
 import { INFERNO_ART } from "./d2-inferno.generated";
@@ -2831,18 +2832,18 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     const area = {
       name: "Blood Moor",
       level: 1,
-      floorTiles: "assets/d2survivors/maps/tiles/a1-tamoe-highland-floor-tiles.png",
-      baseFloorVariant: 6,
+      floorTiles: "assets/d2survivors/maps/tiles/act1-floor-tiles.png",
+      baseFloorVariant: 5,
     };
 
     const terrain = (component as any).campaignTerrainForArea(area, tiles);
 
     expect(terrain.style).toBe("trail");
-    expect(terrain.ground).toEqual([6, 12, 3, 7, 9]);
-    expect(terrain.path).toEqual([11, 14, 0]);
-    expect(terrain.edge).toEqual([10, 4]);
-    expect(terrain.accents).toContain(5);
-    expect(terrain.base).toBe(6);
+    expect(terrain.ground).toEqual([5, 7, 12]);
+    expect(terrain.path).toEqual([1, 10]);
+    expect(terrain.edge).toEqual([12]);
+    expect(terrain.accents).toContain(3);
+    expect(terrain.base).toBe(5);
   });
 
   it("lays a coherent trail with more than one material instead of one repeated cell", () => {
@@ -2857,8 +2858,8 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     const area = {
       name: "Blood Moor",
       level: 1,
-      floorTiles: "assets/d2survivors/maps/tiles/a1-tamoe-highland-floor-tiles.png",
-      baseFloorVariant: 6,
+      floorTiles: "assets/d2survivors/maps/tiles/act1-floor-tiles.png",
+      baseFloorVariant: 5,
     };
     const terrain = (component as any).campaignTerrainForArea(area, tiles);
     const flipped = (image: HTMLCanvasElement): HTMLCanvasElement =>
@@ -2877,7 +2878,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     }
 
     expect(used.size).toBeGreaterThan(2);
-    expect(used).toContain(6);
+    expect(used).toContain(5);
     expect(pathCells).toBeGreaterThan(100);
     expect(pathCells).toBeLessThan(48 * 48 * 0.8);
     const repeat = (component as any).campaignGroundTile(tiles, terrain, tiles[6], 12, 30, area);
@@ -8564,12 +8565,17 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(preload.calls.allArgs().map((args) => args[0]).sort()).toEqual(Object.keys(ARMOR_AURA_ART).sort());
   });
 
-  it("gives Frost Nova its own 16-direction, 14-frame ring sheet", () => {
-    expect(FROST_NOVA_ART.directions).toBe(16);
-    expect(FROST_NOVA_ART.frames).toBe(14);
-    expect(FROST_NOVA_ART.path).toBe("assets/d2survivors/effects/frost-nova.png");
-    expect(FROST_NOVA_ART.originX).toBeLessThan(FROST_NOVA_ART.frameWidth);
-    expect(FROST_NOVA_ART.originY).toBeLessThan(FROST_NOVA_ART.frameHeight);
+  it("uses the baked original Frost Nova ice ring", () => {
+    expect(FROST_NOVA_ART.path).toBe("assets/d2survivors/effects/frost-nova-ring.png");
+    expect(FROST_NOVA_ART.size).toBe(1024);
+    expect(FROST_NOVA_ART.duration).toBeCloseTo(14 / 16, 5);
+  });
+
+  it("uses the baked original Nova electric ring", () => {
+    expect(NOVA_RING_ART.path).toBe("assets/d2survivors/effects/nova-ring.png");
+    expect(NOVA_RING_ART.cell).toBe(512);
+    expect(NOVA_RING_ART.frames).toBe(6);
+    expect(NOVA_RING_ART.frameRate).toBeGreaterThan(0);
   });
 
   it("gives Thunder Storm the original 19-frame looping aura sheet", () => {
@@ -9644,38 +9650,29 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(INFERNO_ART.path).toBe("assets/d2survivors/effects/inferno.png");
   });
 
-  it("draws Frost Nova as D2's 64-missile ring from its 16-direction sheet", () => {
+  it("draws Frost Nova as one expanding ring scaled to the field radius", () => {
     const art = FROST_NOVA_ART;
     const sheet = {
       complete: true,
-      naturalWidth: art.directions * art.frameWidth,
-      naturalHeight: art.frames * art.frameHeight,
+      naturalWidth: art.size,
+      naturalHeight: art.size,
     } as HTMLImageElement;
     spyOn(component as any, "ensureFrostNovaSheet").and.returnValue(sheet);
-    (component as any).worldZoom = 1;
     const drawImage = jasmine.createSpy("drawImage");
-    const ctx = {
-      save: () => undefined, restore: () => undefined,
-      translate: () => undefined, rotate: () => undefined,
-      drawImage,
-    } as any;
+    const ctx = { save: () => undefined, restore: () => undefined, drawImage } as any;
     spyOn(component as any, "projectArenaPoint").and.callFake((x: number, y: number) => ({ x, y }));
-    const effect = { frostNova: true, x: 300, y: 300, time: 0.5, duration: art.frames / art.frameRate, fieldRadius: 132, seed: 0 } as any;
+    const effect = { frostNova: true, x: 300, y: 300, time: 0.5, duration: art.duration, fieldRadius: 132, seed: 0 } as any;
 
     (component as any).drawFrostNovaRing(ctx, effect, { x: 300, y: 300 });
 
-    const frame = Math.min(art.frames - 1, Math.floor(0.5 * art.frameRate));
     const calls = drawImage.calls.allArgs() as any[][];
-    const expectedDirections = Array.from({ length: 64 }, (_, index) => {
-      const angle = index * Math.PI * 2 / 64;
-      return ((Math.round((angle + Math.PI) / (Math.PI / 8)) % art.directions) + art.directions) % art.directions;
-    });
-    expect(calls.length).toBe(64);
-    expect(calls.every((call, index) => call[0] === sheet
-      && call[1] === expectedDirections[index] * art.frameWidth
-      && call[2] === frame * art.frameHeight
-      && call[3] === art.frameWidth && call[4] === art.frameHeight)).toBeTrue();
-    expect(new Set(calls.map((call) => call[1])).size).toBe(art.directions);
+    expect(calls.length).toBe(1);
+    const [image, x, y, width, height] = calls[0];
+    expect(image).toBe(sheet);
+    expect(x).toBeCloseTo(300 - 132, 5);
+    expect(y).toBeCloseTo(300 - 132, 5);
+    expect(width).toBeCloseTo(264, 5);
+    expect(height).toBeCloseTo(264, 5);
   });
 
   it("casts Nova as the original ElectricNova ring and damages nearby enemies", () => {
@@ -9732,17 +9729,35 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(calls.filter((call) => call[4] < 900).length).toBe(2);
   });
 
-  it("draws Nova as a ring of imported ElectricNova arcs", () => {
-    const drawMissile = spyOn(component as any, "drawImportedMissileFrame");
+  it("draws Nova as one animated ring that expands to the field radius", () => {
+    const art = NOVA_RING_ART;
+    const sheet = {
+      complete: true,
+      naturalWidth: art.cell * art.frames,
+      naturalHeight: art.cell,
+    } as HTMLImageElement;
+    spyOn(component as any, "ensureNovaRingSheet").and.returnValue(sheet);
+    const drawImage = jasmine.createSpy("drawImage");
+    const ctx = { save: () => undefined, restore: () => undefined, drawImage } as any;
     spyOn(component as any, "projectArenaPoint").and.callFake((x: number, y: number) => ({ x, y }));
     const effect = { lightningNova: true, x: 300, y: 300, time: 0.3, duration: 0.78, fieldRadius: 132 } as any;
 
-    (component as any).drawLightningNovaRing({} as any, effect, { x: 300, y: 300 });
+    (component as any).drawLightningNovaRing(ctx, effect, { x: 300, y: 300 });
 
-    expect(drawMissile).toHaveBeenCalledTimes(24);
-    expect(drawMissile.calls.allArgs().every((call) => call[1] === "d2-electricnova")).toBeTrue();
-    const rotations = drawMissile.calls.allArgs().map((call) => (call[6] as number).toFixed(4));
-    expect(new Set(rotations).size).toBe(24);
+    const calls = drawImage.calls.allArgs() as any[][];
+    expect(calls.length).toBe(1);
+    const [image, sourceX, sourceY, sourceWidth, sourceHeight, x, y, width, height] = calls[0];
+    const progress = 0.3 / 0.78;
+    const reach = 1 - Math.pow(1 - Math.min(1, progress / 0.55), 2.2);
+    expect(image).toBe(sheet);
+    expect(sourceX).toBe((Math.floor(0.3 * art.frameRate) % art.frames) * art.cell);
+    expect(sourceY).toBe(0);
+    expect(sourceWidth).toBe(art.cell);
+    expect(sourceHeight).toBe(art.cell);
+    expect(x).toBeCloseTo(300 - 132 * reach, 5);
+    expect(y).toBeCloseTo(300 - 132 * reach, 5);
+    expect(width).toBeCloseTo(264 * reach, 5);
+    expect(height).toBeCloseTo(264 * reach, 5);
   });
 
   it("blocks Act III trees and water while leaving bridge decks walkable", () => {
