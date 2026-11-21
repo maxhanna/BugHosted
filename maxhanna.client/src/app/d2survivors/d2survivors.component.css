@@ -2611,13 +2611,46 @@
 
 .d2s-resource-stats .d2s-stat-line:nth-of-type(1) { top: 58%; height: 6%; }
 .d2s-resource-stats .d2s-stat-line:nth-of-type(2) { top: 70.6%; height: 6.4%; }
-.d2s-resource-stats .d2s-stat-line:nth-of-type(3) {
-  top: 78.7%;
+.d2s-resistance-grid {
+  position: absolute;
+  top: 77.1%;
   left: 7.5%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
   width: 85%;
-  height: 3.6%;
-  padding: 0 2%;
+  height: 5.5%;
+  border: 1px solid #4e412b;
+  background: rgba(8, 8, 8, 0.38);
+  color: #bfae8c;
+  font-size: 0.8em;
 }
+
+.d2s-resistance-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  min-width: 0;
+  padding: 0 3%;
+}
+
+.d2s-resistance-line span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.d2s-resistance-line b {
+  flex: none;
+  color: #f3dfa7;
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.d2s-resistance-line:nth-child(even) { border-left: 1px solid #3a2f1e; }
+.d2s-resistance-line:nth-child(n+3) { border-top: 1px solid #3a2f1e; }
 
 .d2s-character-stats .d2s-set-summary {
   position: absolute;
@@ -2894,6 +2927,8 @@
   background: none;
   box-shadow: none;
   pointer-events: auto;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .d2s-inv-slot {
@@ -2983,6 +3018,8 @@
   object-fit: contain;
   image-rendering: pixelated;
   filter: drop-shadow(0 2px 3px #000);
+  /* Keep the slot, not the nested image, as the native drag source. */
+  pointer-events: none;
 }
 
 .d2s-inv-name { display: none; }

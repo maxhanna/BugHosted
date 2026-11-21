@@ -404,7 +404,7 @@
           </section>
         </div>
       </section>
-      <aside class="d2s-skill-tooltip" *ngIf="hoveredSkillTooltip as tooltip" [style.left.px]="tooltip.x" [style.top.px]="tooltip.y" [style.backgroundImage]="tooltip.art ? 'linear-gradient(145deg, #211a14d9, #09090af2 78%), url(' + tooltip.art + ')' : null" role="tooltip" (mouseenter)="onSkillTooltipEnter()" (mouseleave)="onSkillTooltipLeave()">
+      <aside #skillTooltip class="d2s-skill-tooltip" *ngIf="hoveredSkillTooltip as tooltip" [style.left.px]="tooltip.x" [style.top.px]="tooltip.y" [style.backgroundImage]="tooltip.art ? 'linear-gradient(145deg, #211a14d9, #09090af2 78%), url(' + tooltip.art + ')' : null" role="tooltip" (mouseenter)="onSkillTooltipEnter()" (mouseleave)="onSkillTooltipLeave()">
         <button type="button" class="d2s-skill-tooltip-close" (click)="hideSkillTooltip()" aria-label="Close skill tooltip" title="Close">×</button>
         <div class="d2s-skill-tooltip-heading">
           <img *ngIf="tooltip.icon" [src]="tooltip.icon" alt="" />
@@ -477,7 +477,12 @@
           <div class="d2s-stats-block d2s-resource-stats">
             <div class="d2s-stat-line" (mouseenter)="showStatTooltip($event, 'life')" (mouseleave)="hideStatTooltip()"><span>Life</span><b>{{ playerHp | number:'1.0-0' }} / {{ effectivePlayerMaxHp }}<small class="d2s-stat-preview" *ngIf="getPreviewItemStatDelta('life') as lifeDelta" [class.negative]="lifeDelta < 0"> {{ formatItemStatDelta(lifeDelta) }} max</small></b></div>
             <div class="d2s-stat-line" (mouseenter)="showStatTooltip($event, 'mana')" (mouseleave)="hideStatTooltip()"><span>Mana</span><b>{{ playerMana | number:'1.0-0' }} / {{ effectivePlayerMaxMana }}<small class="d2s-stat-preview" *ngIf="getPreviewItemStatDelta('mana') as manaDelta" [class.negative]="manaDelta < 0"> {{ formatItemStatDelta(manaDelta) }} max</small></b></div>
-            <div class="d2s-stat-line" *ngIf="equippedLifeBonus" (mouseenter)="showStatTooltip($event, 'lifeBonus')" (mouseleave)="hideStatTooltip()"><span>Life Bonus</span><b>+{{ equippedLifeBonus }}</b></div>
+            <div class="d2s-resistance-grid" aria-label="Resistances">
+              <div class="d2s-resistance-line"><span>Fire Resistance</span><b>{{ equippedFireResistance }}%</b></div>
+              <div class="d2s-resistance-line"><span>Lightning Resistance</span><b>{{ equippedLightningResistance }}%</b></div>
+              <div class="d2s-resistance-line"><span>Cold Resistance</span><b>{{ equippedColdResistance }}%</b></div>
+              <div class="d2s-resistance-line"><span>Poison Resistance</span><b>{{ equippedPoisonResistance }}%</b></div>
+            </div>
           </div>
           <div class="d2s-set-summary" *ngIf="equippedSetSummaries.length">
             <h4>Set Bonuses</h4>
@@ -524,7 +529,8 @@
             <h3 class="d2s-inventory-heading">Inventory</h3>
             <p class="d2s-inventory-gold" aria-label="Gold carried"><span aria-hidden="true">✦</span> {{ playerGold | number:'1.0-0' }} <small>GOLD</small></p>
           </div>
-          <div class="d2s-inv" role="grid" aria-label="10 by 4 inventory grid" [style.--inventory-columns]="inventoryColumns" [style.--inventory-rows]="inventoryRows">
+          <div class="d2s-inv" role="grid" aria-label="10 by 4 inventory grid" [style.--inventory-columns]="inventoryColumns" [style.--inventory-rows]="inventoryRows"
+            (mousedown)="onInventoryMouseDown($event)" (selectstart)="$event.preventDefault()">
         <div
           class="d2s-inv-slot"
           *ngFor="let slot of inventoryGrid; let i = index"
@@ -558,7 +564,7 @@
           (mousemove)="onItemPreviewMove($event)"
           (mouseleave)="onItemPreviewLeave()"
           (contextmenu)="onInventoryContextMenu(slot.slotIndex, $event)">
-          <img *ngIf="slot.item as inventoryItem" class="d2s-inv-art" [src]="inventoryItemImage(inventoryItem)" alt="" />
+          <img *ngIf="slot.item as inventoryItem" class="d2s-inv-art" [src]="inventoryItemImage(inventoryItem)" alt="" draggable="false" />
           <span class="d2s-inv-name">{{ slot.item?.name || '' }}</span>
         </div>
         <div class="d2s-inv-drop-preview" *ngIf="inventoryDropPreview as preview"

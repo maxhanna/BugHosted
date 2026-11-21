@@ -2,6 +2,7 @@
 
 export interface FrostNovaArt {
   path: string;
+  directions: number;
   frames: number;
   frameWidth: number;
   frameHeight: number;
@@ -12,10 +13,11 @@ export interface FrostNovaArt {
 
 export const FROST_NOVA_ART: FrostNovaArt = {
   path: "assets/d2survivors/effects/frost-nova.png",
+  directions: 16,
   frames: 14,
-  frameWidth: 80,
-  frameHeight: 52,
+  frameWidth: 118,
+  frameHeight: 69,
   frameRate: 16,
-  originX: 28,
-  originY: 34,
+  originX: 59,
+  originY: 36,
 };

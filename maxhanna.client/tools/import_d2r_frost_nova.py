@@ -1,19 +1,24 @@
-"""Bake the sorceress Frost Nova ring into a single spritesheet.
+"""Bake the sorceress Frost Nova missile animation into a single spritesheet.
 
 `global/missiles/frostnova.dcc` is the 14-frame, 16-direction nova the skill
-actually uses (`AnimLen` 14 in missiles.txt). The extraction also ships
-`extra/frostnova.dcc` with only four frames; the missile importer preferred the
-extra folder and that short animation is not the ring the spell draws, so this
-importer reads the base file explicitly.
+uses (`AnimLen` 14 in missiles.txt). The extraction also ships
+`extra/frostnova.dcc` with only four frames; that short animation is not the
+ring the spell draws, so this importer reads the base file explicitly.
+
+Diablo II's Frost Nova skill function releases 64 missiles around the caster.
+Each missile picks one of the sixteen authored directions, so the cloud art is
+not a single ring sprite and it is not meant to be rotated: the engine places
+all sixteen direction cells around the expanding circle. Exporting only
+direction 0 and spinning copies of it is what made the spell look like a chain
+of blobs instead of the continuous jagged ring.
 
 `units/pal.dat` stores BGR triples, so the palette is converted before the
 frames are painted. Reading it as RGB swaps red and blue, which gives the ice
 ring an orange core.
 
-Every frame is composited onto the shared DCC direction box so the expanding
-ring keeps its offsets, then laid out as one horizontal strip. The caster
-stands at (28, 34) inside that 80x52 canvas, which is the anchor the runtime
-uses to centre the nova on the player's feet.
+Every direction has its own frame offsets, so the atlas uses the union of all
+direction boxes. That keeps one shared missile origin for every cell, which is
+what the runtime anchors to each point of the ring.
 
 Usage:
     python tools/import_d2r_frost_nova.py
@@ -40,37 +45,62 @@ PALETTE_PATH = ("global", "palette", "units", "pal.dat")
 FRAME_RATE = 16
 
 
-def build_sheet(source: Path) -> tuple[Image.Image, int, int, int, int]:
+def build_sheet(source: Path) -> tuple[Image.Image, int, int, int, int, int, int]:
     path = source.joinpath(*SOURCE_DCC)
     animation = dcc.parse(path.read_bytes())
-    if not animation["dirs"]:
+    directions = animation["dirs"]
+    if not directions:
         raise RuntimeError(f"{path} has no directions")
-    direction = animation["dirs"][0]
-    xmin, ymin, width, height = direction["box"]
-    frames = direction["frames"]
+    frames = directions[0]["frames"]
     if not frames:
         raise RuntimeError(f"{path} has no frames")
+    frame_count = len(frames)
+    if any(len(direction["frames"]) != frame_count for direction in directions):
+        raise RuntimeError(f"{path} directions do not share one frame count")
+
+    # The authored directions have slightly different boxes.  A shared union
+    # box keeps the missile origin in the same place in every atlas cell.
+    xmin = min(direction["box"][0] for direction in directions)
+    ymin = min(direction["box"][1] for direction in directions)
+    xmax = max(direction["box"][0] + direction["box"][2] for direction in directions)
+    ymax = max(direction["box"][1] + direction["box"][3] for direction in directions)
+    width = xmax - xmin
+    height = ymax - ymin
 
     palette = [(red, green, blue) for blue, green, red in dcc.load_palette(source.joinpath(*PALETTE_PATH))]
-    sheet = Image.new("RGBA", (width * len(frames), height), (0, 0, 0, 0))
-    for index, frame in enumerate(frames):
-        canvas = Image.new("RGBA", (width, height), (0, 0, 0, 0))
-        canvas.alpha_composite(
-            dcc.frame_image(direction["bitmaps"][index], frame["width"], frame["height"], palette),
-            (frame["xmin"] - xmin, frame["ymin"] - ymin),
-        )
-        sheet.alpha_composite(canvas, (index * width, 0))
-    # The DCC box starts at the missile position, so its negation is where the
-    # caster stands inside the canvas.
-    return sheet, len(frames), width, height, (-xmin, -ymin)
+    sheet = Image.new("RGBA", (width * len(directions), height * frame_count), (0, 0, 0, 0))
+    for direction_index, direction in enumerate(directions):
+        for frame_index, frame in enumerate(direction["frames"]):
+            canvas = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+            canvas.alpha_composite(
+                dcc.frame_image(
+                    direction["bitmaps"][frame_index],
+                    frame["width"],
+                    frame["height"],
+                    palette,
+                ),
+                (frame["xmin"] - xmin, frame["ymin"] - ymin),
+            )
+            sheet.alpha_composite(canvas, (direction_index * width, frame_index * height))
+    # The union box starts at the missile position, so its negation is where
+    # the missile stands inside the canvas.
+    return sheet, len(directions), frame_count, width, height, -xmin, -ymin
 
 
-def write_metadata(frames: int, width: int, height: int, origin_x: int, origin_y: int) -> None:
+def write_metadata(
+    directions: int,
+    frames: int,
+    width: int,
+    height: int,
+    origin_x: int,
+    origin_y: int,
+) -> None:
     lines = [
         "/* Generated by tools/import_d2r_frost_nova.py. Do not edit by hand. */",
         "",
         "export interface FrostNovaArt {",
         "  path: string;",
+        "  directions: number;",
         "  frames: number;",
         "  frameWidth: number;",
         "  frameHeight: number;",
@@ -81,6 +111,7 @@ def write_metadata(frames: int, width: int, height: int, origin_x: int, origin_y
         "",
         "export const FROST_NOVA_ART: FrostNovaArt = {",
         f'  path: "assets/d2survivors/effects/frost-nova.png",',
+        f"  directions: {directions},",
         f"  frames: {frames},",
         f"  frameWidth: {width},",
         f"  frameHeight: {height},",
@@ -98,11 +129,14 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--source", type=Path, default=DEFAULT_SOURCE)
     args = parser.parse_args(argv)
 
-    sheet, frames, width, height, (origin_x, origin_y) = build_sheet(args.source)
+    sheet, directions, frames, width, height, origin_x, origin_y = build_sheet(args.source)
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     sheet.save(OUTPUT, "PNG", optimize=True)
-    write_metadata(frames, width, height, origin_x, origin_y)
-    print(f"frost-nova  {frames} frames  {sheet.width}x{sheet.height}  anchor ({origin_x}, {origin_y})")
+    write_metadata(directions, frames, width, height, origin_x, origin_y)
+    print(
+        f"frost-nova  {directions} directions x {frames} frames  "
+        f"{sheet.width}x{sheet.height}  cell {width}x{height}  anchor ({origin_x}, {origin_y})"
+    )
     print(f"wrote {OUTPUT.relative_to(PROJECT_ROOT)}")
     print(f"wrote {METADATA.relative_to(PROJECT_ROOT)}")
     return 0
