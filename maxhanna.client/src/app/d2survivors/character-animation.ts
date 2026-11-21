@@ -51,6 +51,7 @@ export type AttackAnimationStyle =
 
 const DEG = Math.PI / 180;
 const FORWARD = new THREE.Vector3(0, 0, 1);
+const FINGER_HINGE = new THREE.Vector3(1, 0, 0);
 
 export interface ClassGait {
   /** Radians per second added to the stride phase while running. */
@@ -94,7 +95,7 @@ export interface ClassGait {
 }
 
 export const CLASS_GAIT: Record<string, ClassGait> = {
-  amazon: { walkCadence: 7.4, idleCadence: 1.7, stride: 30, knee: 58, footRoll: 20, armSwing: 16, elbow: 13, lean: 5, sway: 3, pelvisRoll: 6.5, pelvisYaw: 10, chestTwist: 8, headBob: 2, headYaw: 3, bob: 0.6, hunch: 0, armOut: 11, armForward: 8, drive: 0.35 },
+  amazon: { walkCadence: 7.4, idleCadence: 1.7, stride: 30, knee: 58, footRoll: 20, armSwing: 16, elbow: 15, lean: 5, sway: 3, pelvisRoll: 6.5, pelvisYaw: 10, chestTwist: 8, headBob: 2, headYaw: 3, bob: 0.6, hunch: 0, armOut: 11, armForward: 8, drive: 0.35 },
   assassin: { walkCadence: 8.2, idleCadence: 1.8, stride: 28, knee: 64, footRoll: 18, armSwing: 17, elbow: 16, lean: 6, sway: 2.6, pelvisRoll: 6, pelvisYaw: 12, chestTwist: 9, headBob: 1.6, headYaw: 3.5, bob: 0.5, hunch: 0, armOut: 10, armForward: 12, drive: 0.4 },
   barbarian: { walkCadence: 6.6, idleCadence: 1.5, stride: 38, knee: 70, footRoll: 24, armSwing: 20, elbow: 20, lean: 8, sway: 4.5, pelvisRoll: 9, pelvisYaw: 14, chestTwist: 11, headBob: 2.6, headYaw: 2.6, bob: 1.1, hunch: 2, armOut: 17, armForward: 6, drive: 0.55 },
   druid: { walkCadence: 7.0, idleCadence: 1.6, stride: 33, knee: 62, footRoll: 20, armSwing: 18, elbow: 15, lean: 5.5, sway: 3.2, pelvisRoll: 7, pelvisYaw: 11, chestTwist: 8, headBob: 2, headYaw: 2.8, bob: 0.8, hunch: 1, armOut: 13, armForward: 10, drive: 0.45 },
@@ -201,9 +202,11 @@ interface IdlePose {
 
 const CLASS_IDLE: Record<string, IdlePose> = {
   amazon: {
-    lead: { out: 58, forward: 0, elevation: -73, elbow: 16, wristFlex: 8, wristRoll: 66 },
-    off: { out: 54, forward: 6, elevation: -71, elbow: 26, wristFlex: 8, wristRoll: 72 },
-    chestYaw: 4, chestPitch: -1, pelvisYaw: -3, headYaw: -4, legSpread: 4, crouch: -0.003,
+    // A planted spear stance: the weapon hand hangs close to the shaft, the free
+    // hand rests by the hip, and the feet sit a little wider than a walk.
+    lead: { out: 58, forward: 0, elevation: -72, elbow: 20, wristFlex: 6, wristRoll: 152 },
+    off: { out: 47, forward: 9, elevation: -64, elbow: 38, wristFlex: 10, wristRoll: 158 },
+    chestYaw: 4, chestPitch: -1, pelvisYaw: -3, headYaw: -4, legSpread: 6.5, crouch: -0.005,
   },
   assassin: {
     lead: { out: 54, forward: 6, elevation: -68, elbow: 34, wristFlex: 12, wristRoll: 70 },
@@ -259,6 +262,28 @@ export interface RigJoint {
   bindLength?: number;
   /** Hands only: bind direction from the wrist toward the finger roots. */
   fingerDir?: THREE.Vector3;
+  /** Hands only: twist between the hand's and the forearm's bind frames, radians.
+   *  Several rigs are bound with the palm turned a quarter turn off the arm. */
+  palmTwist?: number;
+  /** Hands only: the bind pose has the fingers fanned open and needs relaxing. */
+  splayedFingers?: boolean;
+}
+
+/**
+ * A stock weapon that ships inside the class model and is skinned rigidly to a
+ * single hand-attachment bone. Those meshes are authored pointing forward from
+ * the T-pose, so once the arm is brought down to the side they end up carried
+ * like a horizontal lance through the hip. The rig re-aims the mount so the
+ * weapon stands up with the hero instead.
+ */
+export interface StockWeaponMount {
+  bone: THREE.Bone;
+  /** The stock weapon mesh itself. Equipping a real weapon hides it. */
+  mesh: THREE.Object3D;
+  /** Long axis of the weapon in model bind space, pointing at the weapon's head. */
+  axis: THREE.Vector3;
+  /** Direction that axis should point in while posed. */
+  target: THREE.Vector3;
 }
 
 /** Bones that are carried rigidly by a solved joint (fingers, pads, hair...). */
@@ -267,6 +292,8 @@ interface RigSatellite {
   bindPos: THREE.Vector3;
   bindQuat: THREE.Quaternion;
   follow: RigJoint;
+  /** Extra bend about the bone's own hinge, for fanned bind-pose fingers. */
+  curl?: number;
 }
 
 export interface CharacterRig {
@@ -287,6 +314,8 @@ export interface CharacterRig {
   knees: RigJoint[];
   feet: RigJoint[];
   satellites: RigSatellite[];
+  /** Stock weapon held in the hand, if the model ships one. */
+  weaponMount?: StockWeaponMount;
   /** Model-space scale that maps bind units to world units. */
   unitScale: number;
   /** Character height in bind units, used to size body offsets. */
@@ -801,6 +830,95 @@ function directionBetween(from: THREE.Vector3, to: THREE.Vector3): THREE.Vector3
   return direction.normalize();
 }
 
+/**
+ * Twist between the hand's bind frame and the forearm's, around the knuckle
+ * axis. A T-pose wrist usually lines up with its forearm, but several rips are
+ * bound with the hand turned a quarter turn, which leaves the palm facing the
+ * camera once the arm is brought down to the side.
+ */
+function bindPalmTwist(hand: RigJoint, forearm: RigJoint): number {
+  if (!hand.fingerDir) return 0;
+  const axis = hand.fingerDir.clone().normalize();
+  const handUp = new THREE.Vector3(0, 1, 0).applyQuaternion(hand.bindQuat).projectOnPlane(axis);
+  const armUp = new THREE.Vector3(0, 1, 0).applyQuaternion(forearm.bindQuat).projectOnPlane(axis);
+  if (handUp.lengthSq() < 1e-8 || armUp.lengthSq() < 1e-8) return 0;
+  handUp.normalize();
+  armUp.normalize();
+  const cross = new THREE.Vector3().crossVectors(handUp, armUp);
+  const dot = Math.min(1, Math.max(-1, handUp.dot(armUp)));
+  return Math.atan2(cross.dot(axis), dot);
+}
+
+/** Bend for one finger segment at rest, by chain position. */
+const FINGER_CURL: Record<string, number> = {
+  a: 0.32, b: 0.48, c: 0.4,
+  "1": 0.30, "2": 0.46, "3": 0.38, "4": 0.24,
+};
+
+function fingerCurl(joint: RigJoint, name: string): number {
+  if (!joint.splayedFingers) return 0;
+  const fanned = /(?:^|_)(finger|thumb)_[a-d]_([abc])$/.exec(name);
+  const chained = /(?:^|_)(?:finger|thumb)_0?([1-4])_/.exec(name);
+  const segment = fanned ? fanned[2] : chained?.[1];
+  if (!segment) return 0;
+  const amount = FINGER_CURL[segment] ?? 0;
+  const bend = /thumb|tmb/.test(name) ? amount * 0.4 : amount;
+  // The two naming families bind their finger hinges on opposite axes.
+  return fanned ? bend : -bend;
+}
+
+/**
+ * Find the model's own held weapon, if it has one. Only meshes bound almost
+ * entirely to a hand-attachment bone count: armour, hair and limbs share their
+ * weights across the skeleton, while a stock weapon is rigid on its mount.
+ */
+function findStockWeaponMount(model: THREE.Group): StockWeaponMount | undefined {
+  model.updateWorldMatrix(true, true);
+  const modelInverse = model.matrixWorld.clone().invert();
+  const mountNames = new Set(["r_weapon_attach", "l_weapon_attach", "two_hand_weapon_attach"]);
+  let mount: StockWeaponMount | undefined;
+  model.traverse((object) => {
+    if (mount) return;
+    const mesh = object as THREE.SkinnedMesh;
+    if (!mesh.isSkinnedMesh || !mesh.visible || !mesh.skeleton?.bones.length) return;
+    const geometry = mesh.geometry;
+    const skinIndex = geometry.attributes["skinIndex"] as THREE.BufferAttribute | undefined;
+    const skinWeight = geometry.attributes["skinWeight"] as THREE.BufferAttribute | undefined;
+    if (!skinIndex || !skinWeight) return;
+    const totals = new Map<THREE.Bone, number>();
+    let total = 0;
+    for (let i = 0; i < skinIndex.count; i++) {
+      for (let channel = 0; channel < 4; channel++) {
+        const weight = skinWeight.getComponent(i, channel);
+        if (!weight) continue;
+        const bone = mesh.skeleton.bones[skinIndex.getComponent(i, channel)];
+        if (!bone) continue;
+        totals.set(bone, (totals.get(bone) ?? 0) + weight);
+        total += weight;
+      }
+    }
+    if (total <= 0) return;
+    const [bone, weighted] = [...totals.entries()].reduce((best, entry) => (entry[1] > best[1] ? entry : best));
+    if (weighted / total < 0.85 || !mountNames.has(bone.name.toLowerCase())) return;
+    geometry.computeBoundingBox();
+    const box = geometry.boundingBox;
+    if (!box) return;
+    const size = box.getSize(new THREE.Vector3());
+    const axis = new THREE.Vector3();
+    if (size.x >= size.y && size.x >= size.z) axis.set(1, 0, 0);
+    else if (size.y >= size.z) axis.set(0, 1, 0);
+    else axis.set(0, 0, 1);
+    const toModel = new THREE.Matrix4().copy(modelInverse).multiply(mesh.matrixWorld);
+    const rotation = new THREE.Quaternion();
+    toModel.decompose(new THREE.Vector3(), rotation, new THREE.Vector3());
+    axis.applyQuaternion(rotation).normalize();
+    // Weapon meshes are authored pointing forward, so keep the head at that end.
+    if (axis.z < 0) axis.negate();
+    mount = { bone, mesh, axis: axis.clone(), target: new THREE.Vector3(0, 1, 0.22).normalize() };
+  });
+  return mount;
+}
+
 function pickOnePerSide(
   candidates: JointCandidate[],
   score: (candidate: JointCandidate) => number,
@@ -932,6 +1050,7 @@ export function buildCharacterRig(model: THREE.Group, classId: string): Characte
   }
   const bindHeight = Number.isFinite(highest - lowest) && highest > lowest ? highest - lowest : 1;
   recoverDetachedBones(model, records, bindHeight);
+  const weaponMount = findStockWeaponMount(model);
   const poseRoot = reparentToPoseRoot(model, records);
   const found = collectJoints(records, classId);
 
@@ -959,14 +1078,28 @@ export function buildCharacterRig(model: THREE.Group, classId: string): Characte
   // fingers, so aiming the bone at the forearm leaves the fingers splayed
   // sideways. Record the actual wrist-to-knuckle direction for empty hands.
   for (const hand of hands) {
+    // Finger roots are authored as `*_finger_01_*` on Paladin/Amazon/Druid rigs
+    // but as `*_finger_A_A` on Barbarian/Sorceress/Necromancer rigs. Match the
+    // first bone of either chain, otherwise the free hand has no knuckle
+    // direction and gets aimed by an arbitrary wrist axis.
     const fingerRoots = [...records.values()].filter((record) => record.side === hand.side
-      && /_finger_0?1(?:_|$)/.test(record.name));
-    if (!fingerRoots.length) continue;
-    const rootCenter = new THREE.Vector3();
-    for (const root of fingerRoots) rootCenter.add(root.bindPos);
-    rootCenter.divideScalar(fingerRoots.length);
-    const fingerDir = directionBetween(hand.bindPos, rootCenter);
-    hand.fingerDir = fingerDir;
+      && (/(?:^|_)finger_0?1(?:_|$)/.test(record.name) || /(?:^|_)(?:finger_[a-d]|thumb)_a$/.test(record.name)));
+    if (fingerRoots.length) {
+      // The A/B/C rigs ship the fingers fanned wide in their bind pose, so they
+      // need a light curl at rest; the older bind poses already have closed hands.
+      hand.splayedFingers = fingerRoots.some((record) => /(?:^|_)finger_[a-d]_a$/.test(record.name))
+        || (classId === "amazon" && fingerRoots.some((record) => /_finger_0?1(?:_|$)/.test(record.name)));
+      const rootCenter = new THREE.Vector3();
+      for (const root of fingerRoots) rootCenter.add(root.bindPos);
+      rootCenter.divideScalar(fingerRoots.length);
+      // A few rips place the wrist bone right on the knuckles, which leaves no
+      // usable direction; those hands keep the fallback wrist alignment.
+      if (hand.bindPos.distanceTo(rootCenter) >= bindHeight * 0.004) {
+        hand.fingerDir = directionBetween(hand.bindPos, rootCenter);
+      }
+    }
+    const forearm = forearms.find((entry) => entry.side === hand.side);
+    if (forearm) hand.palmTwist = bindPalmTwist(hand, forearm);
   }
   const thighs = pickOnePerSide(found.thighs, (candidate) => (/leg_01|thigh|upper_leg/.test(candidate.name) ? 5 : 3));
   const knees = pickOnePerSide(found.knees, (candidate) => (/leg_02|calf|shin|knee/.test(candidate.name) ? 5 : 3));
@@ -1053,7 +1186,8 @@ export function buildCharacterRig(model: THREE.Group, classId: string): Characte
       }
     }
     if (!best) continue;
-    satellites.push({ bone: record.bone, bindPos: record.bindPos.clone(), bindQuat: record.bindQuat.clone(), follow: best });
+    const curl = fingerCurl(best, record.name);
+    satellites.push({ bone: record.bone, bindPos: record.bindPos.clone(), bindQuat: record.bindQuat.clone(), follow: best, curl: curl || undefined });
   }
 
   const rig: CharacterRig = {
@@ -1073,6 +1207,7 @@ export function buildCharacterRig(model: THREE.Group, classId: string): Characte
     knees,
     feet,
     satellites,
+    weaponMount,
     unitScale: Number.isFinite(modelScale) && modelScale !== 0 ? modelScale : 1,
     bindHeight,
   };
@@ -1264,6 +1399,18 @@ export function poseCharacterRig(rig: CharacterRig, state: CharacterPoseState): 
   // These rips are skinned in a T-pose, so a wrist that simply rides its forearm
   // keeps the palm facing the floor and the hand sticking out. Bend the wrist in
   // slightly and roll it toward the body so the hands hang like actual hands.
+  // A hand wrapped around the model's own stock weapon gets the same treatment:
+  // that weapon is aimed by the rig, so its grip does not depend on the wrist.
+  // Equipping a real weapon swaps the stock mesh out at runtime, so re-check it
+  // every frame instead of trusting the mount recorded when the rig was built.
+  const stockWeaponJoint = rig.weaponMount?.mesh.visible
+    ? rig.satellites.find((satellite) => satellite.bone === rig.weaponMount!.bone)?.follow
+    : undefined;
+  // The stock weapon usually hangs off the forearm, so pick the hand on that side.
+  const stockWeaponHand = stockWeaponJoint
+    ? rig.hands.find((hand) => hand === stockWeaponJoint)
+      ?? rig.hands.find((hand) => hand.side === stockWeaponJoint.side)
+    : undefined;
   for (const hand of rig.hands) {
     const forearmDir = forearmDirs.get(hand.side);
     if (!forearmDir) continue;
@@ -1273,14 +1420,19 @@ export function poseCharacterRig(rig: CharacterRig, state: CharacterPoseState): 
     // The weapon hand keeps its authored grip. A free left hand gets the class
     // wrist pose even while the right hand carries a stock weapon.
     const freeHand = hand.side > 0 ? !offhandHeld : weaponless;
-    const wristFlex = freeHand ? idleArm.wristFlex : 15;
-    const wristRoll = freeHand ? idleArm.wristRoll : 14;
+    const naturalHand = freeHand || stockWeaponHand === hand;
+    const wristFlex = naturalHand ? idleArm.wristFlex : 15;
+    const wristRoll = naturalHand ? idleArm.wristRoll : 14;
     const handDir = flex(forearmDir, wristFlex + idleWrist);
-    if (freeHand && hand.fingerDir) {
+    if (naturalHand && hand.fingerDir) {
       // Align the knuckles, not the wrist bone, so the fingers continue the
       // forearm and the empty hand hangs naturally instead of sticking out.
-      setWorldDirectionFromBind(hand, hand.fingerDir, handDir, hand.side * wristRoll);
+      // Cancel the rig's own bind twist too, so classes bound with the palm a
+      // quarter turn off the arm still keep the palm against the thigh.
+      const roll = hand.side * wristRoll * DEG - (hand.palmTwist ?? 0);
+      setWorldDirectionFromBind(hand, hand.fingerDir, handDir, roll);
     } else {
+      // The weapon hand keeps its authored grip so mounted weapons stay aligned.
       setWorldDirection(hand, handDir, hand.side * wristRoll);
     }
   }
@@ -1379,6 +1531,19 @@ export function poseCharacterRig(rig: CharacterRig, state: CharacterPoseState): 
     const offset = satellite.bindPos.clone().sub(satellite.follow.bindPos).applyQuaternion(delta);
     satellite.bone.position.copy(anchor.clone().add(offset));
     satellite.bone.quaternion.copy(delta.clone().multiply(satellite.bindQuat));
+    if (rig.weaponMount?.mesh.visible && satellite.bone === rig.weaponMount.bone) {
+      // Stand the model's own weapon upright instead of letting it ride the
+      // arm's T-pose angle into a horizontal lance.
+      const axis = rig.weaponMount.axis.clone().applyQuaternion(delta).normalize();
+      satellite.bone.quaternion.premultiply(
+        new THREE.Quaternion().setFromUnitVectors(axis, rig.weaponMount.target),
+      );
+    }
+    if (satellite.curl) {
+      // Flex about the finger's own hinge so the fanned bind pose closes into a
+      // relaxed hand instead of a splayed claw.
+      satellite.bone.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(FINGER_HINGE, satellite.curl));
+    }
     satellite.bone.updateMatrix();
   }
 

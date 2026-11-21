@@ -40,7 +40,6 @@ namespace maxhanna.Server.Controllers
   {
     private const int MaxSaveBytes = 262144;
     private const int MaxProgressBytes = 4_000_000;
-    private static volatile bool _progressTableReady;
     private static readonly System.Threading.SemaphoreSlim ProgressTableLock = new(1, 1);
     private const int MaxLobbyMessageLength = 500;
 

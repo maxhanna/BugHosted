@@ -10853,141 +10853,166 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   private loadEnemySprites(): void {
     this.loadSentrySprite();
+    // Cutting a sheet holds a full-resolution RGBA copy of its atlas, so the
+    // sheets are prepared one at a time instead of fifty in parallel.
+    let prepareQueue: Promise<void> = Promise.resolve();
     for (const species of ENEMY_SPECIES) {
-      const layout = ENEMY_SPRITE_LAYOUTS[species];
-      const cell = ENEMY_SPRITE_CELLS[species];
       const source = new Image();
       source.onload = () => {
-        const columns = layout.columns;
-        const rows = layout.rows;
-        if (layout.animated && (
-          source.naturalWidth < columns
-          || source.naturalHeight < rows
-        )) {
-          console.warn(`Invalid animation sheet layout for ${species}`, source.naturalWidth, source.naturalHeight, layout);
-          return;
-        }
-        // Direction atlases can have non-multiple dimensions: their final column
-        // and row are partial cels. Do not reject or rescale those sheets; use
-        // integer boundaries so every source pixel belongs to exactly one cel.
-        const cellSize = layout.animated
-          ? { width: source.naturalWidth / columns, height: source.naturalHeight / rows }
-          : { width: Math.min(source.naturalWidth, cell.width), height: Math.min(source.naturalHeight, cell.height) };
-        const canvas = document.createElement("canvas");
-        canvas.width = source.naturalWidth;
-        canvas.height = source.naturalHeight;
-        const context = canvas.getContext("2d", { willReadFrequently: true });
-        if (!context) return;
-        context.imageSmoothingEnabled = false;
-        context.clearRect(0, 0, canvas.width, canvas.height);
-        if (layout.animated) {
-          // Keep source pixels at native resolution. Rescaling an uneven atlas to
-          // ceil(cellSize) * columns shifts every cut and makes adjacent frames bleed.
-          context.drawImage(source, 0, 0);
-          const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
-          const rgba = pixels.data;
-          const outlineCleanup = SPRITE_OUTLINE_CLEANUP[species];
-          const outlineThreshold = outlineCleanup ?? 12;
-          for (let row = 0; row < rows; row += 1) {
-            const top = Math.floor(row * source.naturalHeight / rows);
-            const bottom = Math.floor((row + 1) * source.naturalHeight / rows);
-            const frameHeight = bottom - top;
-            for (let column = 0; column < columns; column += 1) {
-              const left = Math.floor(column * source.naturalWidth / columns);
-              const right = Math.floor((column + 1) * source.naturalWidth / columns);
-              const frameWidth = right - left;
-              const visited = new Uint8Array(frameWidth * frameHeight);
-              const queue: number[] = [];
-              const enqueue = (x: number, y: number): void => {
-                const index = y * frameWidth + x;
-                if (visited[index]) return;
-                visited[index] = 1;
-                queue.push(index);
-              };
-              for (let x = 0; x < frameWidth; x += 1) {
-                enqueue(x, 0);
-                enqueue(x, frameHeight - 1);
-              }
-              for (let y = 0; y < frameHeight; y += 1) {
-                enqueue(0, y);
-                enqueue(frameWidth - 1, y);
-              }
-              for (let cursor = 0; cursor < queue.length; cursor += 1) {
-                const index = queue[cursor];
-                const x = index % frameWidth;
-                const y = Math.floor(index / frameWidth);
-                const offset = ((top + y) * canvas.width + left + x) * 4;
-                if (rgba[offset + 3] === 0) {
-                  // Walk through the transparent margin so the fill can reach a
-                  // baked outline instead of stopping at the first empty pixel.
-                  if (outlineCleanup) {
-                    if (x > 0) enqueue(x - 1, y);
-                    if (x + 1 < frameWidth) enqueue(x + 1, y);
-                    if (y > 0) enqueue(x, y - 1);
-                    if (y + 1 < frameHeight) enqueue(x, y + 1);
-                  }
-                  continue;
-                }
-                if (rgba[offset] >= outlineThreshold || rgba[offset + 1] >= outlineThreshold || rgba[offset + 2] >= outlineThreshold) continue;
-                rgba[offset + 3] = 0;
+        prepareQueue = prepareQueue
+          .then(() => this.buildEnemySpriteSheet(species, source))
+          .catch((error: unknown) => {
+            console.warn(`Could not prepare enemy sprite sheet for ${species}`, error);
+          });
+      };
+      source.onerror = () => console.warn(`Could not load enemy sprite asset: ${ENEMY_SPRITE_PATHS[species]}`);
+      source.src = ENEMY_SPRITE_PATHS[species];
+    }
+  }
+
+  /**
+   * Slice one direction atlas into per-frame canvases. Cleaning the baked
+   * outlines touches every pixel of a multi-megabyte sheet, so the work yields
+   * to the browser between cels: running it inside the image onload froze the
+   * page for the whole warm-up and left D2Survivors uninspectable at startup.
+   */
+  private async buildEnemySpriteSheet(species: EnemySpecies, source: HTMLImageElement): Promise<void> {
+    const layout = ENEMY_SPRITE_LAYOUTS[species];
+    const cell = ENEMY_SPRITE_CELLS[species];
+    let sliceStartedAt = performance.now();
+    const yieldToBrowser = async (): Promise<void> => {
+      if (performance.now() - sliceStartedAt < 8) return;
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      sliceStartedAt = performance.now();
+    };
+    const columns = layout.columns;
+    const rows = layout.rows;
+    if (layout.animated && (
+      source.naturalWidth < columns
+      || source.naturalHeight < rows
+    )) {
+      console.warn(`Invalid animation sheet layout for ${species}`, source.naturalWidth, source.naturalHeight, layout);
+      return;
+    }
+    // Direction atlases can have non-multiple dimensions: their final column
+    // and row are partial cels. Do not reject or rescale those sheets; use
+    // integer boundaries so every source pixel belongs to exactly one cel.
+    const cellSize = layout.animated
+      ? { width: source.naturalWidth / columns, height: source.naturalHeight / rows }
+      : { width: Math.min(source.naturalWidth, cell.width), height: Math.min(source.naturalHeight, cell.height) };
+    const canvas = document.createElement("canvas");
+    canvas.width = source.naturalWidth;
+    canvas.height = source.naturalHeight;
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    if (!context) return;
+    context.imageSmoothingEnabled = false;
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    if (layout.animated) {
+      // Keep source pixels at native resolution. Rescaling an uneven atlas to
+      // ceil(cellSize) * columns shifts every cut and makes adjacent frames bleed.
+      context.drawImage(source, 0, 0);
+      const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
+      const rgba = pixels.data;
+      const outlineCleanup = SPRITE_OUTLINE_CLEANUP[species];
+      const outlineThreshold = outlineCleanup ?? 12;
+      for (let row = 0; row < rows; row += 1) {
+        const top = Math.floor(row * source.naturalHeight / rows);
+        const bottom = Math.floor((row + 1) * source.naturalHeight / rows);
+        const frameHeight = bottom - top;
+        for (let column = 0; column < columns; column += 1) {
+          const left = Math.floor(column * source.naturalWidth / columns);
+          const right = Math.floor((column + 1) * source.naturalWidth / columns);
+          const frameWidth = right - left;
+          const visited = new Uint8Array(frameWidth * frameHeight);
+          const queue: number[] = [];
+          const enqueue = (x: number, y: number): void => {
+            const index = y * frameWidth + x;
+            if (visited[index]) return;
+            visited[index] = 1;
+            queue.push(index);
+          };
+          for (let x = 0; x < frameWidth; x += 1) {
+            enqueue(x, 0);
+            enqueue(x, frameHeight - 1);
+          }
+          for (let y = 0; y < frameHeight; y += 1) {
+            enqueue(0, y);
+            enqueue(frameWidth - 1, y);
+          }
+          for (let cursor = 0; cursor < queue.length; cursor += 1) {
+            const index = queue[cursor];
+            const x = index % frameWidth;
+            const y = Math.floor(index / frameWidth);
+            const offset = ((top + y) * canvas.width + left + x) * 4;
+            if (rgba[offset + 3] === 0) {
+              // Walk through the transparent margin so the fill can reach a
+              // baked outline instead of stopping at the first empty pixel.
+              if (outlineCleanup) {
                 if (x > 0) enqueue(x - 1, y);
                 if (x + 1 < frameWidth) enqueue(x + 1, y);
                 if (y > 0) enqueue(x, y - 1);
                 if (y + 1 < frameHeight) enqueue(x, y + 1);
               }
+              continue;
             }
+            if (rgba[offset] >= outlineThreshold || rgba[offset + 1] >= outlineThreshold || rgba[offset + 2] >= outlineThreshold) continue;
+            rgba[offset + 3] = 0;
+            if (x > 0) enqueue(x - 1, y);
+            if (x + 1 < frameWidth) enqueue(x + 1, y);
+            if (y > 0) enqueue(x, y - 1);
+            if (y + 1 < frameHeight) enqueue(x, y + 1);
           }
-          context.putImageData(pixels, 0, 0);
-        } else {
-          context.drawImage(source, 0, 0, source.naturalWidth, source.naturalHeight, 0, 0, cellSize.width, cellSize.height);
+          await yieldToBrowser();
         }
-        const frames: HTMLCanvasElement[][] = [];
-        let contentHeight = 0;
-        let footFraction = 0;
-        for (let row = 0; row < rows; row += 1) {
-          const directionFrames: HTMLCanvasElement[] = [];
-          for (let column = 0; column < columns; column += 1) {
-            const left = layout.animated ? Math.floor(column * source.naturalWidth / columns) : 0;
-            const top = layout.animated ? Math.floor(row * source.naturalHeight / rows) : 0;
-            const right = layout.animated ? Math.floor((column + 1) * source.naturalWidth / columns) : cellSize.width;
-            const bottom = layout.animated ? Math.floor((row + 1) * source.naturalHeight / rows) : cellSize.height;
-            const frame = document.createElement("canvas");
-            frame.width = right - left;
-            frame.height = bottom - top;
-            const frameContext = frame.getContext("2d");
-            if (!frameContext) continue;
-            frameContext.imageSmoothingEnabled = false;
-            frameContext.drawImage(canvas, left, top, frame.width, frame.height, 0, 0, frame.width, frame.height);
-            // Preserve the full cell: trimming transparent margins independently
-            // per frame changes each frame's origin and makes the sprite jitter/cut.
-            if (row < 8) {
-              const framePixels = frameContext.getImageData(0, 0, frame.width, frame.height).data;
-              let top = frame.height;
-              let bottom = 0;
-              for (let y = 0; y < frame.height; y += 1) {
-                for (let x = 0; x < frame.width; x += 1) {
-                  if (framePixels[(y * frame.width + x) * 4 + 3] <= 8) continue;
-                  if (y < top) top = y;
-                  if (y + 1 > bottom) bottom = y + 1;
-                }
-              }
-              if (bottom > top) {
-                contentHeight = Math.max(contentHeight, bottom - top);
-                footFraction = Math.max(footFraction, bottom / frame.height);
-              }
-            }
-            directionFrames.push(frame);
-          }
-          frames.push(directionFrames);
-        }
-        this.enemySprites[species] = {
-          frames, columns, rows, animated: layout.animated,
-          contentHeight: Math.max(1, contentHeight), footFraction: footFraction || 0.78,
-        };
-      };
-      source.onerror = () => console.warn(`Could not load enemy sprite asset: ${ENEMY_SPRITE_PATHS[species]}`);
-      source.src = ENEMY_SPRITE_PATHS[species];
+      }
+      context.putImageData(pixels, 0, 0);
+    } else {
+      context.drawImage(source, 0, 0, source.naturalWidth, source.naturalHeight, 0, 0, cellSize.width, cellSize.height);
     }
+    const frames: HTMLCanvasElement[][] = [];
+    let contentHeight = 0;
+    let footFraction = 0;
+    for (let row = 0; row < rows; row += 1) {
+      const directionFrames: HTMLCanvasElement[] = [];
+      for (let column = 0; column < columns; column += 1) {
+        const left = layout.animated ? Math.floor(column * source.naturalWidth / columns) : 0;
+        const top = layout.animated ? Math.floor(row * source.naturalHeight / rows) : 0;
+        const right = layout.animated ? Math.floor((column + 1) * source.naturalWidth / columns) : cellSize.width;
+        const bottom = layout.animated ? Math.floor((row + 1) * source.naturalHeight / rows) : cellSize.height;
+        const frame = document.createElement("canvas");
+        frame.width = right - left;
+        frame.height = bottom - top;
+        const frameContext = frame.getContext("2d");
+        if (!frameContext) continue;
+        frameContext.imageSmoothingEnabled = false;
+        frameContext.drawImage(canvas, left, top, frame.width, frame.height, 0, 0, frame.width, frame.height);
+        // Preserve the full cell: trimming transparent margins independently
+        // per frame changes each frame's origin and makes the sprite jitter/cut.
+        if (row < 8) {
+          const framePixels = frameContext.getImageData(0, 0, frame.width, frame.height).data;
+          let top = frame.height;
+          let bottom = 0;
+          for (let y = 0; y < frame.height; y += 1) {
+            for (let x = 0; x < frame.width; x += 1) {
+              if (framePixels[(y * frame.width + x) * 4 + 3] <= 8) continue;
+              if (y < top) top = y;
+              if (y + 1 > bottom) bottom = y + 1;
+            }
+          }
+          if (bottom > top) {
+            contentHeight = Math.max(contentHeight, bottom - top);
+            footFraction = Math.max(footFraction, bottom / frame.height);
+          }
+        }
+        directionFrames.push(frame);
+        await yieldToBrowser();
+      }
+      frames.push(directionFrames);
+    }
+    this.enemySprites[species] = {
+      frames, columns, rows, animated: layout.animated,
+      contentHeight: Math.max(1, contentHeight), footFraction: footFraction || 0.78,
+    };
   }
 
   ngOnDestroy(): void {

@@ -22,8 +22,6 @@ namespace maxhanna.Server.Services
     private readonly IConfiguration _config;
     private readonly Log _log;
     private static readonly SemaphoreSlim _runLock = new SemaphoreSlim(1, 1);
-    // 0 = the enrichment table has not been created/verified in this process yet.
-    private static int _schemaReady;
 
     public RomEnrichmentService(IConfiguration config, Log log)
     {
