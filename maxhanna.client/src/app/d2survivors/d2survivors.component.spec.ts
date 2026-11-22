@@ -138,6 +138,90 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(target.hp).toBeLessThan(100);
   });
 
+  it("casts the spell assigned to the basic-attack slot instead of the weapon swing", () => {
+    component.selectedClass = "sorceress";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.basicAttackName = "Attack";
+    component.ownedSkills = ["Attack", "Fire Bolt"];
+    component.skillLevels = { Attack: 1, "Fire Bolt": 1 };
+    component.attackProjectiles = [];
+    component.basicAttackSpell = "Fire Bolt";
+    const target = { kind: "normal", species: "fallen", spriteFrame: 0, x: 420, y: 250, hp: 100, maxHp: 100, speed: 0, r: 14, dmg: 2 } as any;
+    component.enemies = [target];
+
+    (component as any).updateBasicAttack();
+
+    expect(component.attackProjectiles.length).toBeGreaterThan(0);
+    expect((component as any).skillCastCooldowns["Fire Bolt"]).toBeGreaterThan(0);
+    expect(target.hp).toBe(100);
+  });
+
+  it("falls back to the weapon attack while the assigned basic-attack spell is recharging", () => {
+    component.selectedClass = "sorceress";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.basicAttackName = "Attack";
+    component.ownedSkills = ["Attack", "Fire Bolt"];
+    component.skillLevels = { Attack: 1, "Fire Bolt": 1 };
+    component.attackProjectiles = [];
+    component.basicAttackSpell = "Fire Bolt";
+    (component as any).skillCastCooldowns = { "Fire Bolt": 4 };
+    const target = { kind: "normal", species: "fallen", spriteFrame: 0, x: 262, y: 250, hp: 100, maxHp: 100, speed: 0, r: 14, dmg: 2 } as any;
+    component.enemies = [target];
+
+    (component as any).updateBasicAttack();
+
+    expect(component.attackProjectiles.length).toBe(0);
+    expect(target.hp).toBeLessThan(100);
+    expect((component as any).skillCastCooldowns["Fire Bolt"]).toBe(4);
+  });
+
+  it("makes socketed white bases a regular part of the loot stream", () => {
+    const socketedBases: any[] = [];
+    for (let index = 0; index < 80; index += 1) {
+      const item = (component as any).randomItem(30);
+      if (item && item.rarity === "normal" && (item.sockets ?? 0) > 0) socketedBases.push(item);
+    }
+
+    expect(socketedBases.length).toBeGreaterThanOrEqual(2);
+    expect(socketedBases.every((item) => item.slot !== "charm")).toBeTrue();
+  });
+
+  it("stocks socketed white bases at Gheed's shop", () => {
+    const socketedOffers = component.gheedsShopItems.filter((offer) =>
+      offer.item.rarity === "normal" && (offer.item.sockets ?? 0) > 0);
+    expect(socketedOffers.length).toBeGreaterThan(0);
+
+    const offer = socketedOffers[0];
+    expect(component.shopOfferStatText(offer.item)).toContain(`Sockets: 0 / ${offer.item.sockets}`);
+    component.sanctuaryGold = 5000;
+    component.buyGheedsItem(offer);
+
+    const bought = component.inventory.find((item) => !!item && item.baseName === offer.item.baseName && (item.sockets ?? 0) > 0);
+    expect(bought).toBeTruthy();
+    expect(component.sanctuaryGold).toBe(5000 - offer.cost);
+  });
+
+  it("lists owned castable spells and clears the assignment back to the weapon attack", () => {
+    component.selectedClass = "sorceress";
+    component.runActive = true;
+    component.basicAttackName = "Attack";
+    component.ownedSkills = ["Attack", "Fire Bolt", "Warmth"];
+
+    expect(component.basicAttackPickerSpells).toEqual(["Fire Bolt"]);
+
+    component.selectBasicAttackSpell("Fire Bolt");
+    expect(component.basicAttackSpell).toBe("Fire Bolt");
+    expect(component.basicAttackSlotSkill).toBe("Fire Bolt");
+
+    component.selectBasicAttackSpell(null);
+    expect(component.basicAttackSpell).toBeNull();
+    expect(component.basicAttackSlotSkill).toBe("Attack");
+  });
+
   it("suppresses spell launches while moving and resumes after stopping", () => {
     component.selectedClass = "sorceress";
     component.runActive = true;
@@ -571,6 +655,308 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     const shield = shieldAttach.children.find((child) => child.name === "equipped_shield_shield");
     expect(shield?.children.length).toBe(3);
     expect(shield?.children.every((child) => (child as THREE.Mesh).geometry instanceof THREE.PlaneGeometry)).toBeTrue();
+  });
+
+  it("seats the posed shield cel on the off fist instead of mid-forearm", () => {
+    const model = new THREE.Group();
+    const add = (name: string, x: number, y: number, z: number): THREE.Bone => {
+      const bone = new THREE.Bone();
+      bone.name = name;
+      bone.position.set(x, y, z);
+      model.add(bone);
+      return bone;
+    };
+    add("pelvis_bind_jnt", 0, 0.95, 0);
+    add("spine_01_bind_jnt", 0, 1.08, 0);
+    add("spine_02_bind_jnt", 0, 1.24, 0);
+    add("neck_bind_jnt", 0, 1.38, 0);
+    add("head_bind_jnt", 0, 1.44, 0);
+    for (const [prefix, side] of [["R", -1], ["L", 1]] as const) {
+      add(`${prefix}_shoulder_bind_jnt`, side * 0.1, 1.34, 0);
+      add(`${prefix}_upr_arm_bind_jnt`, side * 0.12, 1.33, 0);
+      add(`${prefix}_lwr_arm_bind_jnt`, side * 0.42, 1.33, 0);
+      add(`${prefix}_hand_bind_jnt`, side * 0.66, 1.33, 0);
+      add(`${prefix}_leg_01_bind_jnt`, side * 0.09, 0.92, 0);
+      add(`${prefix}_leg_02_bind_jnt`, side * 0.09, 0.52, 0);
+      add(`${prefix}_leg_04_bind_jnt`, side * 0.09, 0.1, 0);
+    }
+    // Knuckle roots, named the way the A/B/C rips name them, give the off hand
+    // the grip frame the shield pose uses to turn the palm in to the body.
+    for (const [digit, finger] of ["a", "b", "c", "d"].entries()) {
+      add(`L_finger_${finger}_a`, 0.68, 1.33, -0.012 + digit * 0.008);
+    }
+    // Held gear is sized against the model's world height, so give the skeleton
+    // a body box and scale it to a hero 88 scene units tall.
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.42, 1.44, 0.24), new THREE.MeshStandardMaterial());
+    body.position.set(0, 0.82, 0);
+    model.add(body);
+    model.scale.setScalar(88 / 1.44);
+    const anchor = new THREE.Group();
+    anchor.add(model);
+
+    const rig = buildCharacterRig(model, "paladin");
+    const offHand = rig.hands.find((hand) => hand.side === 1)!;
+    const offForearm = rig.forearms.find((forearm) => forearm.side === 1)!;
+    const shield = new THREE.Group();
+    shield.name = "equipped_shield_shield";
+    shield.userData["d2sHeldItem"] = { kind: "shield", celHeight: 51, name: "Buckler" };
+    offHand.bone.add(shield);
+
+    poseCharacterRig(rig, {
+      time: 0,
+      walkPhase: 0,
+      walk: 0,
+      attackTime: 0,
+      attackSide: 1,
+      gait: gaitForClass("paladin"),
+      offhandHeld: true,
+    });
+    anchor.updateMatrixWorld(true);
+
+    expect(rig.worldHeight).toBeCloseTo(88, 0);
+    const fist = offHand.bone.getWorldPosition(new THREE.Vector3());
+    const elbow = offForearm.bone.getWorldPosition(new THREE.Vector3());
+    const cel = shield.getWorldPosition(new THREE.Vector3());
+    const front = new THREE.Vector3(0, 0, 1).applyQuaternion(anchor.getWorldQuaternion(new THREE.Quaternion()));
+    const fromFist = cel.clone().sub(fist);
+    const armDir = fist.clone().sub(elbow).normalize();
+
+    // The face hangs its clearance in front of the fist: 0.034 of body height,
+    // roughly three units on this hero.  The forearm-centre mount this replaces
+    // sat 58% of the way down the arm and only ~1 unit forward, so it fails both
+    // this and the along-the-arm check below.
+    const forward = fromFist.dot(front);
+    expect(forward).toBeGreaterThan(2.6);
+    expect(forward).toBeLessThan(3.6);
+    // Centred on the grip, not slid down the forearm toward the elbow.
+    expect(fromFist.dot(armDir)).toBeGreaterThan(-3.5);
+    expect(cel.distanceTo(fist)).toBeLessThan(4.5);
+    expect(cel.distanceTo(elbow)).toBeGreaterThan(cel.distanceTo(fist) * 2);
+    // Palm-in wrist: the palm turns into the body so the knuckles face the cel.
+    const palmWorld = offHand.palmNormal!.clone()
+      .applyQuaternion(offHand.bone.getWorldQuaternion(new THREE.Quaternion())).normalize();
+    expect(palmWorld.dot(front)).toBeLessThan(-0.6);
+  });
+
+  it("labels gems and jewels by their own type instead of calling every socketable a jewel", () => {
+    const gem = { id: "gem-1", name: "Chipped Ruby", baseName: "Chipped Ruby", rarity: "normal", slot: "charm", equipmentType: "gem", desc: "", stats: {} } as any;
+    const jewel = { id: "jewel-1", name: "Shimmering Jewel", baseName: "Jewel", rarity: "magic", slot: "charm", equipmentType: "jewel", desc: "", stats: {}, affixes: ["All Resistances +5%"] } as any;
+    expect(component.itemTypeLabel(gem)).toBe("Gem");
+    expect(component.itemTypeLabel(jewel)).toBe("Jewel");
+    expect(component.isSocketable(gem)).toBeTrue();
+    expect(component.isSocketable(jewel)).toBeTrue();
+  });
+
+  it("sets gems into open sockets and applies the host's gem row", () => {
+    const host = {
+      id: "host-1", name: "Jeweler's Short Sword", baseName: "Short Sword", rarity: "magic",
+      slot: "weapon", equipmentType: "weapon", sockets: 2, desc: "", stats: { damageMin: 3, damageMax: 7 },
+    } as any;
+    const gem = {
+      id: "gem-1", name: "Chipped Ruby", baseName: "Chipped Ruby", rarity: "normal",
+      slot: "charm", equipmentType: "gem", desc: "", stats: {},
+    } as any;
+    component.inventory[3] = gem;
+    component.inventory[10] = host;
+    // Dropping the gem on the socketed item has to be an allowed target even
+    // though the two items cannot swap places in the grid.
+    (component as any).dragState = { source: "inventory", slotIndex: 3, item: gem };
+    expect(component.canDropOnSlot(3, 10, gem)).toBeTrue();
+    component.onInventoryDrop(10, { preventDefault: () => undefined } as DragEvent);
+    expect(component.socketedCount(host)).toBe(1);
+    // A weapon takes gems.txt's weapon row: a chipped ruby adds 3-4 fire damage.
+    expect(host.stats.elementalDamageMin).toBe(3);
+    expect(host.stats.elementalDamageMax).toBe(4);
+    expect(component.inventory[3]).toBeNull();
+    expect(component.itemStatText(host)).toContain("Chipped Ruby: Adds 3-4 Fire Damage");
+
+    component.inventory[4] = { ...gem, id: "gem-2" };
+    expect(component.socketInventoryItem(4, host)).toBeTrue();
+    component.inventory[5] = { ...gem, id: "gem-3" };
+    expect(component.socketInventoryItem(5, host)).toBeFalse();
+    expect(component.socketedCount(host)).toBe(2);
+    expect(component.inventory[5]?.id).toBe("gem-3");
+    expect(component.inventoryStatus).toContain("no open sockets");
+  });
+
+  it("uses the helm row for armor and refuses gear with no sockets", () => {
+    const armor = { id: "a", name: "Artisan's Quilted Armor", baseName: "Quilted Armor", rarity: "magic", slot: "armor", equipmentType: "body", sockets: 1, desc: "", stats: {} } as any;
+    const gem = { id: "g", name: "Chipped Amethyst", baseName: "Chipped Amethyst", rarity: "normal", slot: "charm", equipmentType: "gem", desc: "", stats: {} } as any;
+    component.inventory[0] = gem;
+    expect(component.socketInventoryItem(0, armor)).toBeTrue();
+    // Body armor takes the helm row: a chipped amethyst grants +3 Strength.
+    expect(armor.stats.plusStrength).toBe(3);
+
+    component.inventory[1] = { ...gem, id: "g2" };
+    const plain = { id: "plain", name: "Short Sword", baseName: "Short Sword", rarity: "normal", slot: "weapon", equipmentType: "weapon", desc: "", stats: {} } as any;
+    expect(component.socketInventoryItem(1, plain)).toBeFalse();
+    expect(component.inventory[1]?.id).toBe("g2");
+    expect(component.inventoryStatus).toContain("has no sockets");
+    expect(component.socketedCount(plain)).toBe(0);
+  });
+
+  it("drops real jewels with the imported cel and rolled jewel affixes", () => {
+    const jewel = (component as any).createJewelItem(30) as any;
+    expect(jewel.equipmentType).toBe("jewel");
+    expect(jewel.slot).toBe("charm");
+    expect(jewel.rarity).toBe("magic");
+    expect(jewel.name).toContain("Jewel");
+    expect(jewel.affixes.length).toBeGreaterThan(0);
+    expect(jewel.desc).toBe(jewel.affixes.join(", "));
+    // Art comes from the extracted D2 item files (misc.txt's jewel row).
+    expect(component.inventoryItemImage(jewel)).toContain("assets/d2survivors/items/d2/inv");
+
+    const host = { id: "h", name: "Mechanic's Helmet", baseName: "Helm", rarity: "magic", slot: "armor", equipmentType: "helmet", sockets: 1, desc: "", stats: {} } as any;
+    component.inventory[0] = jewel;
+    expect(component.socketInventoryItem(0, host)).toBeTrue();
+    for (const [key, value] of Object.entries(jewel.stats as Record<string, number>)) {
+      expect((host.stats as Record<string, number>)[key]).toBe(value);
+    }
+  });
+
+  it("drops gems from the imported gem table, graded by area level", () => {
+    const chipped = (component as any).createGemItem(1) as any;
+    const perfect = (component as any).createGemItem(40) as any;
+    expect(chipped.equipmentType).toBe("gem");
+    expect(chipped.name.startsWith("Chipped ")).toBeTrue();
+    expect(chipped.requiredLevel).toBe(1);
+    expect(perfect.name.startsWith("Perfect ")).toBeTrue();
+    expect(perfect.requiredLevel).toBe(29);
+    expect(component.itemTypeLabel(chipped)).toBe("Gem");
+    expect(component.inventoryItemImage(chipped)).toContain("assets/d2survivors/items/d2/inv");
+    expect(chipped.affixes.length).toBe(3);
+  });
+
+  it("drops runes as their own socketable and labels them as runes", () => {
+    const rune = (component as any).createRuneItem(40) as any;
+    expect(rune.equipmentType).toBe("rune");
+    expect(rune.slot).toBe("charm");
+    expect(rune.requiredLevel).toBeGreaterThan(0);
+    expect(component.itemTypeLabel(rune)).toBe("Rune");
+    expect(component.isSocketable(rune)).toBeTrue();
+    expect(component.getEquipmentType(rune)).toBe("rune");
+    // Low areas cannot hand out a Zod; high ones can reach the top of the list.
+    const low = Array.from({ length: 40 }, () => (component as any).createRuneItem(1) as any);
+    expect(low.every((entry) => entry.requiredLevel <= 13)).toBeTrue();
+  });
+
+  it("spells Insight when Ral Tir Tal Sol fill a white staff in order", () => {
+    const staff = {
+      id: "staff-1", name: "Battle Staff", baseName: "Battle Staff", rarity: "normal",
+      slot: "weapon", sockets: 4, desc: "", stats: { damageMin: 5, damageMax: 12 },
+    } as any;
+    component.inventory[20] = staff;
+    ["Ral", "Tir", "Tal", "Sol"].forEach((name, index) => {
+      component.inventory[index] = {
+        id: `rune-${name}`, name, baseName: name, rarity: "normal", slot: "charm",
+        equipmentType: "rune", desc: "", stats: {},
+      } as any;
+      expect(component.socketInventoryItem(index, staff)).toBeTrue();
+    });
+
+    expect(staff.runeword).toBe("Insight");
+    expect(staff.name).toBe("Insight");
+    // The base name survives so the tooltip still says what it was built in.
+    expect(staff.baseName).toBe("Battle Staff");
+    expect(staff.requiredLevel).toBe(27);
+    expect(staff.stats.fasterCastPercent).toBe(35);
+    expect(staff.stats.magicFindPercent).toBe(23);
+    expect(component.itemTypeLabel(staff)).toBe("Runeword");
+    expect(component.itemStatText(staff).some((line) => line.includes("Meditation Aura"))).toBeTrue();
+    expect(component.inventoryStatus).toContain("completed Insight");
+  });
+
+  it("will not accept the right runes in the wrong order", () => {
+    const staff = {
+      id: "staff-2", name: "Long Staff", baseName: "Long Staff", rarity: "normal",
+      slot: "weapon", sockets: 4, desc: "", stats: {},
+    } as any;
+    component.inventory[20] = staff;
+    // Tir and Ral swapped: partial words never form a runeword.
+    ["Tir", "Ral", "Tal", "Sol"].forEach((name, index) => {
+      component.inventory[index] = {
+        id: `bad-${index}`, name, baseName: name, rarity: "normal", slot: "charm",
+        equipmentType: "rune", desc: "", stats: {},
+      } as any;
+      expect(component.socketInventoryItem(index, staff)).toBeTrue();
+    });
+    expect(staff.runeword).toBeUndefined();
+    expect(staff.name).toBe("Long Staff");
+    expect(staff.stats.fasterCastPercent).toBeUndefined();
+  });
+
+  it("breaks the word when a gem shares the sockets, like a ruby in a shield", () => {
+    const shield = {
+      id: "shield-1", name: "Tower Shield", baseName: "Tower Shield", rarity: "normal",
+      slot: "armor", equipmentType: "shield", sockets: 4, desc: "", stats: { armor: 34 },
+    } as any;
+
+    component.inventory[0] = {
+      id: "ruby-1", name: "Chipped Ruby", baseName: "Chipped Ruby", rarity: "normal",
+      slot: "charm", equipmentType: "gem", desc: "", stats: {},
+    } as any;
+    expect(component.socketInventoryItem(0, shield)).toBeTrue();
+    ["Ral", "Tir", "Tal"].forEach((name, index) => {
+      component.inventory[index + 1] = {
+        id: `gem-mix-${name}`, name, baseName: name, rarity: "normal", slot: "charm",
+        equipmentType: "rune", desc: "", stats: {},
+      } as any;
+      expect(component.socketInventoryItem(index + 1, shield)).toBeTrue();
+    });
+
+    expect(component.socketedCount(shield)).toBe(4);
+    expect(shield.runeword).toBeUndefined();
+    expect(shield.name).toBe("Tower Shield");
+  });
+
+  it("never forms a runeword in a magic base or the wrong kind of base", () => {
+    const magicStaff = {
+      id: "magic-staff", name: "Jeweler's Battle Staff", baseName: "Battle Staff", rarity: "magic",
+      slot: "weapon", sockets: 4, desc: "", stats: {},
+    } as any;
+    const helm = {
+      id: "helm-1", name: "Great Helm", baseName: "Great Helm", rarity: "normal",
+      slot: "armor", equipmentType: "helmet", sockets: 4, desc: "", stats: { armor: 20 },
+    } as any;
+    const runes = ["Ral", "Tir", "Tal", "Sol"];
+
+    runes.forEach((name, index) => {
+      component.inventory[index] = {
+        id: `armoury-${name}`, name, baseName: name, rarity: "normal", slot: "charm",
+        equipmentType: "rune", desc: "", stats: {},
+      } as any;
+      expect(component.socketInventoryItem(index, magicStaff)).toBeTrue();
+    });
+    // Insight needs a white base: a magic staff keeps its own name.
+    expect(magicStaff.runeword).toBeUndefined();
+    expect(magicStaff.name).toBe("Jeweler's Battle Staff");
+
+    runes.forEach((name, index) => {
+      component.inventory[index] = {
+        id: `armoury2-${name}`, name, baseName: name, rarity: "normal", slot: "charm",
+        equipmentType: "rune", desc: "", stats: {},
+      } as any;
+      expect(component.socketInventoryItem(index, helm)).toBeTrue();
+    });
+    // ...and Insight's family is polearms, staves and bows, never a helm.
+    expect(helm.runeword).toBeUndefined();
+    expect(helm.name).toBe("Great Helm");
+  });
+
+  it("leaves a rune base unformed until its last socket is filled", () => {
+    const staff = {
+      id: "staff-3", name: "Staff", baseName: "Staff", rarity: "normal",
+      slot: "weapon", sockets: 4, desc: "", stats: {},
+    } as any;
+    component.inventory[0] = {
+      id: "partial-ral", name: "Ral", baseName: "Ral", rarity: "normal", slot: "charm",
+      equipmentType: "rune", desc: "", stats: {},
+    } as any;
+    expect(component.socketInventoryItem(0, staff)).toBeTrue();
+    expect(staff.runeword).toBeUndefined();
+    // A lone rune grants nothing; the word is the whole payoff.
+    expect(Object.keys(staff.stats as Record<string, number>).length).toBe(0);
+    expect(component.itemStatText(staff).some((line) => line.includes("No bonus alone"))).toBeTrue();
   });
 
   it("lets Barbarians equip an off-hand weapon or shield, and renders a second weapon on the left hand", () => {
@@ -2524,7 +2910,43 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     }
   });
 
-  it("uses LightningStrike and adds one chained monster for each Chain Lightning rank", () => {
+  it("ramps monster health and damage with the area level", () => {
+    const sample = (act: number, areaIndex: number) => {
+      component.currentAct = act;
+      component.currentAreaIndex = areaIndex;
+      const normal = (component as any).makeEnemy("normal", false, "fallen");
+      const champion = (component as any).makeEnemy("champion", false, "fallen", "champion");
+      return {
+        hp: normal.maxHp, dmg: normal.dmg,
+        championHp: champion.maxHp, championDmg: champion.dmg,
+      };
+    };
+
+    // Blood Moor (area level 1) keeps the untouched base block.
+    expect(sample(1, 0)).toEqual({ hp: 18, dmg: 2, championHp: 54, championDmg: 4 });
+    // Catacombs: area level 11. Edge: 2 * 6 = 12 damage, 48 life.
+    expect(sample(1, 5)).toEqual({ hp: 48, dmg: 12, championHp: 144, championDmg: 23 });
+    // Throne of Destruction: area level 43, where the hero's armour and
+    // resistances are the only thing keeping a pack from three-shotting them.
+    const throne = sample(5, 12);
+    expect(throne.hp).toBe(203);
+    expect(throne.dmg).toBe(98);
+    // Pandemonium's level-83 monsters sit far above the campaign's endgame.
+    // Forgotten Sands is a plain level-83 area, unlike Tristram's extra 3x/2x.
+    const pandemonium = sample(6, 0);
+    expect(pandemonium.hp).toBe(527);
+    expect(pandemonium.dmg).toBe(321);
+
+    // Bosses ramp too, but with the square root of the monster curve so their
+    // existing 10x block does not compound into something unkillable.
+    component.currentAct = 5;
+    component.currentAreaIndex = 12;
+    const baal = (component as any).makeEnemy("boss", true, "baal");
+    expect(baal.maxHp).toBe(Math.round(140 * 10 * Math.sqrt((component as any).areaHealthScale())));
+    expect(baal.dmg).toBe(Math.ceil(6 * 10 * Math.sqrt((component as any).areaDamageScale())));
+  });
+
+  it("uses LightningStrike and hits the D2 number of chained monsters", () => {
     component.selectedClass = "sorceress";
     component.playerX = 250;
     component.playerY = 250;
@@ -2535,7 +2957,10 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     }) as any);
     component.enemies = enemies;
 
-    for (const rank of [1, 2, 3]) {
+    // D2's Chain Lightning hits [(25 + slvl) / 5] monsters, one more per five
+    // levels past rank 1, and soft points count towards that level.
+    const expectations: Array<[number, number]> = [[1, 5], [5, 6], [10, 7], [20, 9], [30, 11]];
+    for (const [rank, targets] of expectations) {
       for (const enemy of enemies) enemy.hp = 100;
       component.skillLevels = { "Chain Lightning": rank };
       (component as any).skillCastCooldowns = {};
@@ -2546,14 +2971,34 @@ describe("D2SurvivorsComponent combat and equipment", () => {
       const bolt = component.attackProjectiles[0];
       expect(bolt).toBeDefined();
       expect(bolt.missileId).toBe("d2-lightningstrike");
-      expect(bolt.chainJumpsRemaining).toBe(rank);
+      expect(bolt.chainJumpsRemaining).toBe(targets - 1);
       expect((component as any).missileOverlayId("Chain Lightning")).toBe("d2-lightningstrike");
 
       for (let frame = 0; frame < 300; frame += 1) (component as any).updateAttackProjectiles(16);
       (component as any).flushPendingDamage();
 
-      expect(enemies.filter((enemy) => enemy.hp < 100).length).toBe(rank + 1);
+      // Only four monsters are in reach here, so every one of them is struck.
+      expect(enemies.filter((enemy) => enemy.hp < 100).length).toBe(enemies.length);
     }
+  });
+
+  it("applies the D2 lightning-tree synergies to Chain Lightning and Lightning", () => {
+    component.selectedClass = "sorceress";
+    component.skillLevels = {
+      "Charged Bolt": 10, "Lightning": 10, "Nova": 10, "Chain Lightning": 10,
+    };
+
+    // Chain Lightning receives +4% per rank of Charged Bolt, Lightning and Nova.
+    expect((component as any).lightningSynergyMultiplier("Chain Lightning"))
+      .toBeCloseTo(1 + 0.04 * 30, 6);
+    // Lightning receives +8% per rank of Charged Bolt, Nova and Chain Lightning.
+    expect((component as any).lightningSynergyMultiplier("Lightning"))
+      .toBeCloseTo(1 + 0.08 * 30, 6);
+
+    // Unspent skills add nothing.
+    component.skillLevels = {};
+    expect((component as any).lightningSynergyMultiplier("Chain Lightning")).toBe(1);
+    expect((component as any).lightningSynergyMultiplier("Lightning")).toBe(1);
   });
 
   it("channels Arctic Blast as a one-second cone that hits everything in front", () => {
@@ -2846,7 +3291,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(terrain.base).toBe(5);
   });
 
-  it("lays a coherent trail with more than one material instead of one repeated cell", () => {
+  it("repeats the area's authored floor diamond so the ground reads as one material", () => {
     const tiles: HTMLCanvasElement[] = [];
     for (let index = 0; index < 16; index += 1) {
       const canvas = document.createElement("canvas");
@@ -2862,28 +3307,57 @@ describe("D2SurvivorsComponent combat and equipment", () => {
       baseFloorVariant: 5,
     };
     const terrain = (component as any).campaignTerrainForArea(area, tiles);
-    const flipped = (image: HTMLCanvasElement): HTMLCanvasElement =>
-      (component as any).campaignFlippedTile(image);
-    const cellIndex = (image: HTMLCanvasElement): number =>
-      tiles.findIndex((tile) => tile === image || flipped(tile) === image);
-    const used = new Set<number>();
-    let pathCells = 0;
+    const used = new Set<HTMLCanvasElement>();
     for (let x = 0; x < 48; x += 1) {
       for (let y = 0; y < 48; y += 1) {
         const image = (component as any).campaignGroundTile(tiles, terrain, tiles[6], x, y, area) as HTMLCanvasElement;
-        const index = cellIndex(image);
-        used.add(index);
-        if (terrain.path.includes(index)) pathCells += 1;
+        used.add(image);
       }
     }
 
-    expect(used.size).toBeGreaterThan(2);
-    expect(used).toContain(5);
-    expect(pathCells).toBeGreaterThan(100);
-    expect(pathCells).toBeLessThan(48 * 48 * 0.8);
+    // A mixed mosaic of cart-track, grass and boulder cells read as tiles glued
+    // together, so the floor is one written diamond repeated edge to edge.
+    expect(used.size).toBe(1);
+    expect([...used][0]).toBe(tiles[area.baseFloorVariant]);
     const repeat = (component as any).campaignGroundTile(tiles, terrain, tiles[6], 12, 30, area);
     const again = (component as any).campaignGroundTile(tiles, terrain, tiles[6], 12, 30, area);
     expect(again).toBe(repeat);
+  });
+
+  it("strips a cell's baked elevation lip so neighbouring floor diamonds meet flush", () => {
+    const source = document.createElement("canvas");
+    source.width = 160;
+    source.height = 80;
+    const context = source.getContext("2d")!;
+    context.fillStyle = "rgb(120, 96, 64)";
+    context.fillRect(0, 0, 160, 80);
+    context.strokeStyle = "rgb(0, 0, 0)";
+    context.lineWidth = 8;
+    context.beginPath();
+    context.moveTo(80, 0);
+    context.lineTo(160, 40);
+    context.lineTo(80, 80);
+    context.lineTo(0, 40);
+    context.closePath();
+    context.stroke();
+
+    const cleaned = (component as any).cleanCampaignFloorTile(source) as HTMLCanvasElement;
+    const pixels = cleaned.getContext("2d")!.getImageData(0, 0, 160, 80).data;
+    const pixel = (x: number, y: number): number[] => {
+      const offset = (y * 160 + x) * 4;
+      return [pixels[offset], pixels[offset + 1], pixels[offset + 2], pixels[offset + 3]];
+    };
+
+    // Outside the authored diamond stays clear, so the tiles can abut on edges.
+    expect(pixel(0, 0)[3]).toBe(0);
+    expect(pixel(159, 79)[3]).toBe(0);
+    // The dark lip is dropped: the diamond is filled with the clean material
+    // right up to its border instead of repeating a scalloped shadow.
+    for (const [x, y] of [[80, 4], [8, 40], [152, 40], [80, 75]]) {
+      const [red, , , alpha] = pixel(x, y);
+      expect(alpha).toBe(255);
+      expect(red).toBeGreaterThan(90);
+    }
   });
 
   it("does not add synthetic cast rings or labels for armor and auras", () => {
@@ -6336,8 +6810,22 @@ describe("D2SurvivorsComponent combat and equipment", () => {
 
     expect(component.itemPreviewLeft).toBeFalse();
     expect(component.itemPreviewBelow).toBeTrue();
-    expect(component.itemPreviewX).toBe(44);
+    // 30px gap: enough to clear the gauntlet cursor sprite as well as the tip.
+    expect(component.itemPreviewX).toBe(50);
     expect(component.itemPreviewY).toBe(34);
+  });
+
+  it("never centres the item tooltip on the pointer when neither side has room", () => {
+    const preview = document.createElement("div");
+    spyOn(preview, "getBoundingClientRect").and.returnValue({ width: 340, height: 220 } as DOMRect);
+    (component as any).inventoryItemWindow = { nativeElement: preview };
+    // Jasmine restores the viewport width when the spec ends.
+    spyOnProperty(window, "innerWidth").and.returnValue(400);
+    (component as any).positionItemPreviewAt(380, 120);
+    // The panel flips to the roomier side and is clamped inside the viewport,
+    // so it never covers the spot the mouse is standing on.
+    expect(component.itemPreviewLeft).toBeTrue();
+    expect(component.itemPreviewX + 340).toBeLessThan(380);
   });
 
   it("keeps a hover preview open while the pointer moves onto it", () => {
@@ -7319,6 +7807,9 @@ describe("D2SurvivorsComponent combat and equipment", () => {
 
   it("drops only named items whose required level fits the hero", () => {
     component.playerLevel = 5;
+    // This covers the named-item path; the gem/jewel band that rolls ahead of it
+    // has its own tests, and a stubbed Math.random would otherwise land there.
+    spyOn(component as any, "rollSocketableDrop").and.returnValue(null);
     spyOn(Math, "random").and.returnValue(0.001);
     const item = (component as any).randomItem();
     expect(item.rarity).toBe("unique");
@@ -8698,7 +9189,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     const effect = (component as any).skillVisualEffects.find((entry: any) => entry.frostNova);
     expect(effect).toBeTruthy();
     expect(effect.stationary).toBeTrue();
-    expect(effect.fieldRadius).toBe(132);
+    expect(effect.fieldRadius).toBe(145);
     expect(inside.coldRemaining).toBeGreaterThan(0.9);
     expect(edge.coldRemaining).toBeGreaterThan(0.9);
     expect(outside.coldRemaining).toBeUndefined();
@@ -9703,11 +10194,11 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(component.attackProjectiles).toHaveSize(0);
     const effect = (component as any).skillVisualEffects.find((entry: any) => entry.lightningNova);
     expect(effect).toBeTruthy();
-    expect(effect.fieldRadius).toBe(132);
+    expect(effect.fieldRadius).toBe(145);
     expect(effect.duration).toBeCloseTo(13 * 0.06, 5);
   });
 
-  it("stretches the imported LightningBolt cel across the full screen with forks", () => {
+  it("tiles the imported LightningBolt cel down the full screen with forks", () => {
     const drawImage = jasmine.createSpy("drawImage");
     const ctx = {
       save: () => undefined, restore: () => undefined,
@@ -9730,9 +10221,23 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     (component as any).drawLightningRail(ctx, effect);
 
     const calls = drawImage.calls.allArgs() as any[][];
-    expect(calls.length).toBe(3);
-    expect(Math.max(...calls.map((call) => call[4]))).toBeGreaterThan(900);
-    expect(calls.filter((call) => call[4] < 900).length).toBe(2);
+    const widthOf = (call: any[]) => call[3] as number;
+    const heightOf = (call: any[]) => call[4] as number;
+    // Each stamp keeps the cel's authored 43x98 proportions; the arc covers the
+    // screen by repeating the cel, not by stretching one copy over it.
+    for (const call of calls) {
+      expect(heightOf(call) / widthOf(call)).toBeCloseTo(98 / 43, 5);
+    }
+    const mainWidth = 48;
+    const main = calls.filter((call) => Math.abs(widthOf(call) - mainWidth) < 0.01);
+    const forks = calls.filter((call) => widthOf(call) < mainWidth - 1);
+    const tileLength = mainWidth * (98 / 43);
+    expect(main.length).toBeGreaterThanOrEqual(10);
+    // The tiles start behind the caster and step 80% of their own length, so the
+    // last one still starts inside the canvas and reaches the screen edge.
+    expect((main.length - 1) * tileLength * 0.8).toBeGreaterThan(900);
+    expect((main.length - 1) * tileLength * 0.8).toBeLessThan(1000 + 48);
+    expect(forks.length).toBeGreaterThanOrEqual(2);
   });
 
   it("draws Nova as one animated ring that expands to the field radius", () => {
@@ -10856,40 +11361,47 @@ describe("D2SurvivorsComponent combat and equipment", () => {
   it("keeps Matron's Den Andariel's dedicated 3x health and 2x damage", () => {
     component.currentAct = 7;
     const matronsAndariel = (component as any).makeEnemy("boss", true, "andariel");
-    const level83Difficulty = 1 + (83 - 1) * 0.04;
-    const level83UberBossHealth = Math.round(140 * level83Difficulty * 4);
-    const level83UberBossDamage = Math.ceil(6 * level83Difficulty * 2.2);
+    // Act bosses are an order of magnitude above the old 140 life / 6 damage
+    // block, and ramp with the square root of the monster area scaling.
+    const bossHealthScale = Math.sqrt((component as any).areaHealthScale());
+    const bossDamageScale = Math.sqrt((component as any).areaDamageScale());
+    const level83UberBossHealth = Math.round(140 * 10 * bossHealthScale * 4);
+    const level83UberBossDamage = Math.ceil(6 * 10 * bossDamageScale * 2.2);
 
     expect(matronsAndariel.maxHp / level83UberBossHealth).toBeCloseTo(3, 1);
     expect(matronsAndariel.dmg / level83UberBossDamage).toBeCloseTo(2, 1);
 
     component.currentAct = 1;
     const campaignAndariel = (component as any).makeEnemy("boss", true, "andariel");
-    expect(campaignAndariel.maxHp).toBe(140);
-    expect(campaignAndariel.dmg).toBe(6);
+    expect(campaignAndariel.maxHp).toBe(1400);
+    expect(campaignAndariel.dmg).toBe(60);
   });
 
   it("triples Uber Tristram monster health and doubles its damage", () => {
-    const level83Difficulty = 1 + (83 - 1) * 0.04;
+    component.currentAct = 8;
+    const bossHealthScale = Math.sqrt((component as any).areaHealthScale());
+    const bossDamageScale = Math.sqrt((component as any).areaDamageScale());
     const stats = (act: number, kind: "normal" | "champion" | "boss", species: string, campaignBoss = false, championType?: string) => {
       component.currentAct = act;
       return (component as any).makeEnemy(kind, campaignBoss, species, championType);
     };
 
+    // The Tristram multipliers are applied before the area rounding, so the
+    // ratios land within a point of 3x / 2x rather than exactly on it.
     const pandemoniumNormal = stats(7, "normal", "fallen");
     const tristramNormal = stats(8, "normal", "fallen");
-    expect(tristramNormal.maxHp).toBe(pandemoniumNormal.maxHp * 3);
-    expect(tristramNormal.dmg).toBe(pandemoniumNormal.dmg * 2);
+    expect(tristramNormal.maxHp).toBeCloseTo(pandemoniumNormal.maxHp * 3, -1);
+    expect(tristramNormal.dmg).toBeCloseTo(pandemoniumNormal.dmg * 2, -1);
 
     const pandemoniumChampion = stats(7, "champion", "skeleton", false, "champion");
     const tristramChampion = stats(8, "champion", "skeleton", false, "champion");
-    expect(tristramChampion.maxHp).toBe(pandemoniumChampion.maxHp * 3);
-    expect(tristramChampion.dmg).toBe(pandemoniumChampion.dmg * 2);
+    expect(tristramChampion.maxHp).toBeCloseTo(pandemoniumChampion.maxHp * 3, -1);
+    expect(tristramChampion.dmg).toBeCloseTo(pandemoniumChampion.dmg * 2, -1);
 
     const pandemoniumBoss = stats(7, "boss", "mephisto", true);
     const tristramBoss = stats(8, "boss", "mephisto", true);
-    expect(tristramBoss.maxHp).toBe(Math.round(140 * level83Difficulty * 4 * 3));
-    expect(tristramBoss.dmg).toBe(Math.ceil(6 * level83Difficulty * 2.2 * 2));
+    expect(tristramBoss.maxHp).toBe(Math.round(140 * 10 * bossHealthScale * 4 * 3));
+    expect(tristramBoss.dmg).toBe(Math.ceil(6 * 10 * bossDamageScale * 2.2 * 2));
     expect(tristramBoss.maxHp).toBeCloseTo(pandemoniumBoss.maxHp * 3, -1);
     expect(tristramBoss.dmg).toBeCloseTo(pandemoniumBoss.dmg * 2, -1);
 

@@ -2738,6 +2738,7 @@
   },
   "d2-lightningbolt": {
     "dccName": "lightningbolt",
+    "direction": 0,
     "encodedFrames": 8,
     "frameDirectory": "d2-lightningbolt",
     "frameDurationMs": 60,

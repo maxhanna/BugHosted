@@ -56,6 +56,10 @@ import {
   type D2SetBonus,
 } from "./d2-item-assets.generated";
 import type { D2ItemStats } from "./d2-item-stats";
+import { D2_GEMS, D2_GEM_BY_NAME } from "./d2-gems.generated";
+import { d2Rune, rollRuneForLevel } from "./d2-runes";
+import { findRuneword, runewordBaseKind, runewordSocketCapacity } from "./d2-runewords";
+import type { D2RunewordTableEntry } from "./d2-runeword-table";
 import { getD2BaseItemFootprint, getD2EquipmentTypeFootprint } from "./d2-item-footprints";
 import { eligibleAffixes, itemAffixTypes, rollAffix, type D2Affix, type D2ItemProc, type D2ItemProcTrigger } from "./d2-item-affixes";
 
@@ -351,6 +355,25 @@ const MATRONS_DEN_ANDARIEL_DAMAGE_MULTIPLIER = 2;
 // health and damage on top of the level-83 Uber scaling.
 const UBER_TRISTRAM_HEALTH_MULTIPLIER = 3;
 const UBER_TRISTRAM_DAMAGE_MULTIPLIER = 2;
+// Act bosses are the wall at the end of each act, so their stat block is an
+// order of magnitude above an ordinary monster's (140 life / 6 damage at act 1
+// before this multiplier). Super uniques are not affected: makeMiniBoss
+// overrides the health and damage with its own schedule.
+const ACT_BOSS_HEALTH_MULTIPLIER = 10;
+const ACT_BOSS_DAMAGE_MULTIPLIER = 10;
+// Monster strength follows the area level, not just the act: a Catacombs pack is
+// a different fight from a Blood Moor one. Health ramps gently and damage ramps
+// faster, because the hero's armour and resistances shave 60-80% off incoming
+// hits well before Act III while their damage output climbs far faster than the
+// area level does. Level 1 (Blood Moor) is the untouched base: 18 life, 2 damage.
+const enemyAreaHealthMultiplier = (level: number): number => {
+  const steps = Math.max(0, level - 1);
+  return 1 + steps * 0.14 + steps * steps * 0.0025;
+};
+const enemyAreaDamageMultiplier = (level: number): number => {
+  const steps = Math.max(0, level - 1);
+  return 1 + steps * 0.3 + steps * steps * 0.02;
+};
 interface MiniBossSchedule {
   species: EnemySpecies;
   /** Act-clock second the super unique arrives, ahead of the act boss. */
@@ -390,11 +413,13 @@ const ARCTIC_BLAST_BASE_DURATION = 1;
 const ARCTIC_BLAST_DURATION_PER_RANK = 0.06;
 const ARCTIC_BLAST_DAMAGE_PER_RANK = 0.06;
 const ARCTIC_BLAST_TICK_INTERVAL = 0.12;
-const FROST_NOVA_RADIUS = 132;
+// Both nova rings are drawn edge to edge, so the field radius is also the
+// visible circle: the baked art's outer edge maps onto it exactly.
+const FROST_NOVA_RADIUS = 145;
 const FROST_NOVA_RADIUS_PER_RANK = 2;
 // Nova uses the original `ElectricNova` missiles, baked into an animated
 // ring by tools/import_d2r_nova.py: 64 bolts across 6 phases.
-const NOVA_RADIUS = 132;
+const NOVA_RADIUS = 145;
 const NOVA_RADIUS_PER_RANK = 2;
 const NOVA_DURATION_SECONDS = 13 * 0.06;
 const NOVA_COLOR = "#b9e6ff";
@@ -749,6 +774,12 @@ const LOOT_ART_CACHE_VERSION = 2;
 // The act portal is the original D2R town-portal loop recoloured red. Its
 // sheet is new, but the version keeps a regenerated file from serving stale.
 const PORTAL_ART_CACHE_VERSION = 2;
+// Socketed bases are the only items a runeword can be spelled into, and a gem
+// or jewel is dead weight until it has a socket.  White bases therefore roll
+// sockets often, and a gear drop is forced to be a socketed white base every few
+// drops, so socketing is reachable without farming a "Socketed" magic prefix.
+const SOCKETED_BASE_CHANCE = 0.35;
+const SOCKETED_BASE_DROP_INTERVAL = 4;
 // 15-frame D2 portal loop at roughly 11 fps.
 const PORTAL_FRAME_SECONDS = 0.09;
 // D2R HD art is 109x159; this keeps the doorway about 214 CSS pixels tall at
@@ -1272,9 +1303,15 @@ const BASIC_ATTACK_MISSILE_OVERLAYS: Record<string, string> = {
   "Fire Bolt": "d2-firebolt",
 };
 const HOMING_SKILLS = new Set(["Guided Arrow", "Bone Spirit"]);
-// Chain Lightning starts on two monsters and reaches one additional monster
-// for every skill rank.
-const CHAIN_LIGHTNING_BASE_TARGETS = 2;
+// Diablo II's Chain Lightning hits [(25 + slvl) / 5] monsters: five at rank 1
+// and one more every five levels (9 at rank 20, 11 at rank 30, 12 at rank 35).
+// Soft points count, so the divisor is the effective skill level.
+const CHAIN_LIGHTNING_BASE_TARGETS = 5;
+// Lightning-tree synergies: Chain Lightning takes +4% per rank of Charged Bolt,
+// Lightning and Nova; Lightning takes +8% per rank of Charged Bolt, Nova and
+// Chain Lightning.
+const CHAIN_LIGHTNING_SYNERGY_PER_RANK = 0.04;
+const LIGHTNING_SYNERGY_PER_RANK = 0.08;
 const CHAIN_LIGHTNING_JUMP_RADIUS = 240;
 const CHAIN_LIGHTNING_JUMP_SPEED = 720;
 const AMAZON_BOW_SKILLS = new Set([
@@ -1357,6 +1394,12 @@ const BOULDER_EXPLOSION_DURATION = 0.55;
 // D2 missile cels are drawn toward isometric north-east, roughly 22.5 degrees
 // above screen-right. Without this correction an arrow flies visibly sideways.
 const ISOMETRIC_MISSILE_ROTATION = Math.PI / 8;
+// The Fire Bolt and Fire Ball cels are authored flying toward the lower-left of
+// the frame (bright head low-left, flame trailing up-right), which is 135
+// degrees clockwise from screen-right. Without this correction the rotation
+// below turns the cel with the shot but leaves the flame permanently pointing
+// 135 degrees off its travel vector, so it looked like it never faced anywhere.
+const FIRE_MISSILE_ROTATION = -3 * Math.PI / 4;
 const MISSILE_SPRITE_ORIENTATIONS: Record<string, number> = {
   "d2-arrow": ISOMETRIC_MISSILE_ROTATION,
   "d2-xbowbolt": ISOMETRIC_MISSILE_ROTATION,
@@ -1368,6 +1411,8 @@ const MISSILE_SPRITE_ORIENTATIONS: Record<string, number> = {
   "d2-lightningjavelin": ISOMETRIC_MISSILE_ROTATION,
   "d2-lightningstrike": ISOMETRIC_MISSILE_ROTATION,
   "d2-spikefiendmissle": ISOMETRIC_MISSILE_ROTATION,
+  "d2-firebolt": FIRE_MISSILE_ROTATION,
+  "d2-fireball": FIRE_MISSILE_ROTATION,
   "d2-glaive": ISOMETRIC_MISSILE_ROTATION,
   "d2-missileglaive": ISOMETRIC_MISSILE_ROTATION,
   "d2-missilehandaxe": ISOMETRIC_MISSILE_ROTATION,
@@ -1653,7 +1698,10 @@ const CAMPAIGN_ACTS: CampaignAct[] = [
   ] },
   { act: 3, name: "The Flayer Jungle", region: "Kurast Docks", levelLabel: "Spider Forest", map: "assets/d2survivors/maps/act3-jungle.png", mapAlpha: true, backdrop: "assets/d2survivors/maps/act3-jungle.png", floorTiles: A3_TILES, baseFloorVariant: 5, enemies: ["fetish", "boneFetish", "fetishShaman", "council", "blunderbore", "spiderDemon"], boss: "mephisto", areas: [
     { name: "Spider Forest", level: 21, floorTiles: A3_SPIDER_FOREST_TILES, baseFloorVariant: 0, floorTileScale: 2 },
-    { name: "Great Marsh", level: 22, floorTiles: A3_TILES, baseFloorVariant: 2 },
+    // Cell 2 of the act III atlas is a rock cluster over empty matte: repeating
+    // it laid a diagonal grid of boulders across the whole marsh.  Cell 5 is the
+    // atlas's own plain ground material, so the marsh reads as one floor.
+    { name: "Great Marsh", level: 22, floorTiles: A3_TILES, baseFloorVariant: 5 },
     { name: "Flayer Jungle", level: 22, floorTiles: A3_FLAYER_TILES, baseFloorVariant: 8 },
     { name: "Lower Kurast", level: 23, floorTiles: A3_DURANCE_TILES, baseFloorVariant: 10 },
     { name: "Kurast Bazaar", level: 23, floorTiles: A3_DURANCE_TILES, baseFloorVariant: 14 },
@@ -2403,6 +2451,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private loadedArmorAtlases = new Map<string, THREE.Texture>();
   private readonly equippedItemArtTextures = new Map<string, THREE.Texture>();
   private readonly equippedItemArtRequests = new Map<string, Promise<THREE.Texture | null>>();
+  /** Roll and grip point measured from a cel's own art, cached per texture. */
+  private readonly heldItemCelFrames = new Map<string, { roll: number; gripX: number; gripY: number; pinchX: number; pinchY: number }>();
   private readonly meleeTrailEffects: MeleeTrailEffect[] = [];
   private readonly leapDustEffects: LeapDustEffect[] = [];
   private readonly summonAttackEffects: SummonAttackEffect[] = [];
@@ -2725,7 +2775,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     },
     {
       name: "Chain Lightning",
-      desc: "a bolt that jumps between 2 monsters, adding one more monster per rank; 45 damage each",
+      desc: "a bolt that arcs through 5 monsters, gaining another target every 5 ranks; 45 damage each",
     },
     {
       name: "Thunder Storm",
@@ -3206,6 +3256,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   playerXp = 0;
   pendingLevelUps = 0;
   basicAttackName = "Basic Attack";
+  /** Spell the HUD's basic-attack slot casts instead of the weapon attack. */
+  basicAttackSpell: string | null = null;
+  basicAttackPickerOpen = false;
   basicAttackCooldown = 0.55;
   basicAttackDamage = 12;
   attackProjectiles: AttackProjectile[] = [];
@@ -3235,6 +3288,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     { name: "Javelin", cost: 240, desc: "A balanced javelin for Amazon javelin skills.", item: { id: "gheeds-javelin", name: "Balanced Javelin", baseName: "Javelin", rarity: "magic", slot: "weapon", desc: "A balanced throwing spear for javelin skills.", stats: { damageMin: 7, damageMax: 15, plusDamage: 3 }, affixes: ["7–15 Damage", "+3 Maximum Damage"] } },
     { name: "Demonhide Sash", cost: 220, desc: "An exceptional belt with three potion rows.", item: { id: "gheeds-demonhide-sash", name: "Demonhide Sash", rarity: "normal", slot: "belt", beltQuality: "exceptional", desc: "An exceptional belt with room for three rows of potions.", stats: { armor: 8 } } },
     { name: "Soulstone Ring", cost: 320, desc: "An equippable ring with a powerful damage bonus.", item: { id: "gheeds-soulstone-ring", name: "Soulstone Ring", rarity: "rare", slot: "charm", equipmentType: "ring", desc: "A dangerous fragment set in iron, humming with trapped power.", stats: { plusDamage: 8 }, affixes: ["+8 Maximum Damage"] } },
+    // Plain white socketed bases Gheed keeps for anyone who brings gems or runes.
+    { name: "Socketed Chain Mail", cost: 300, desc: "A plain socketed body armor, ready for gems or a runeword.", item: { id: "gheeds-socketed-chain-mail", name: "Chain Mail", baseName: "Chain Mail", rarity: "normal", slot: "armor", equipmentType: "body", sockets: 3, desc: "Interlocking rings offer dependable protection.", stats: { armor: 18, requiresStrength: 20 } } },
+    { name: "Socketed Broad Sword", cost: 280, desc: "A plain socketed sword, ready for gems or a runeword.", item: { id: "gheeds-socketed-broad-sword", name: "Broad Sword", baseName: "Broad Sword", rarity: "normal", slot: "weapon", sockets: 4, desc: "A wide blade that cleaves through armor.", stats: { damageMin: 5, damageMax: 10 } } },
   ];
   ownedSkills: string[] = [];
   /** Most recently cast skills, oldest first. Drives the HUD skill bar. */
@@ -3766,6 +3822,29 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
    */
   private campaignGroundTile(
     tiles: HTMLCanvasElement[],
+    _terrain: CampaignTerrainPool | undefined,
+    fallback: HTMLCanvasElement | undefined,
+    _worldTileX: number,
+    _worldTileY: number,
+    area: CampaignArea,
+  ): HTMLCanvasElement | undefined {
+    if (!tiles.length) return fallback;
+    // One authored diamond for the whole area.  The old per-cell mix pulled
+    // cart-track, grass and boulder cells into the same floor and mirrored half
+    // of them, so every groove and grass edge was chopped at the cell border and
+    // the baked edge lighting flipped tile by tile — the ground read as dozens
+    // of unrelated tiles glued together.  A D2 floor is one seamless material
+    // repeated; the area backdrop and its props carry the scenery.
+    return tiles[Math.max(0, Math.min(15, area.baseFloorVariant))] ?? fallback;
+  }
+
+  /**
+   * Unused by the floor now that an area repeats a single authored diamond.
+   * Kept because the trail noise is still the reference for where a zone's
+   * walked line falls if per-cell materials come back.
+   */
+  private campaignTrailTile(
+    tiles: HTMLCanvasElement[],
     terrain: CampaignTerrainPool | undefined,
     fallback: HTMLCanvasElement | undefined,
     worldTileX: number,
@@ -4252,7 +4331,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     actId: number,
     floorTiles: HTMLImageElement,
     baseVariant: number,
-    trimEdges = false,
   ): HTMLCanvasElement[] {
     const atlasColumns = 4;
     const tileWidth = Math.floor(floorTiles.naturalWidth / atlasColumns);
@@ -4394,39 +4472,43 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         }
       }
       tileContext.putImageData(pixels, 0, 0);
-      if (trimEdges) {
-        // The first-zone atlas cells include a dark elevation lip along their
-        // diamond borders.  Repeating that lip reads as a scalloped grid, so
-        // stretch the clean centre of the cell across the whole diamond.
-        const trimX = Math.round(width * 0.2);
-        const trimY = Math.round(height * 0.2);
-        const trimmed = document.createElement("canvas");
-        trimmed.width = width;
-        trimmed.height = height;
-        const trimmedContext = trimmed.getContext("2d", { willReadFrequently: true });
-        if (trimmedContext) {
-          trimmedContext.imageSmoothingEnabled = false;
-          trimmedContext.drawImage(
-            tile, trimX, trimY, width - trimX * 2, height - trimY * 2,
-            0, 0, width, height,
-          );
-          const trimmedImage = trimmedContext.getImageData(0, 0, width, height);
-          const trimmedPixels = trimmedImage.data;
-          for (let y = 0; y < height; y += 1) {
-            for (let x = 0; x < width; x += 1) {
-              const diamond = Math.abs(x + 0.5 - width / 2) / (width / 2)
-                + Math.abs(y + 0.5 - height / 2) / (height / 2);
-              if (diamond > 0.995) trimmedPixels[(y * width + x) * 4 + 3] = 0;
-            }
-          }
-          trimmedContext.putImageData(trimmedImage, 0, 0);
-          result.push(trimmed);
-          continue;
-        }
-      }
-      result.push(tile);
+      result.push(this.cleanCampaignFloorTile(tile));
     }
     return result;
+  }
+
+  /**
+   * Rebuilds one atlas cell as a floor diamond.  Every cell bakes a dark
+   * elevation lip into its border, and repeating that lip at the floor spacing
+   * reads as a scalloped grid of chevrons rather than ground.  Keep the clean
+   * centre of the cell, stretch it across the authored diamond and clip to that
+   * diamond, so neighbouring cells meet edge to edge on one continuous material.
+   */
+  private cleanCampaignFloorTile(source: HTMLCanvasElement): HTMLCanvasElement {
+    const width = source.width;
+    const height = source.height;
+    const cleaned = document.createElement("canvas");
+    cleaned.width = width;
+    cleaned.height = height;
+    const context = cleaned.getContext("2d", { willReadFrequently: true });
+    if (!context) return source;
+    const insetX = Math.max(1, Math.round(width * 0.1));
+    const insetY = Math.max(1, Math.round(height * 0.2));
+    context.save();
+    context.beginPath();
+    context.moveTo(width / 2, 0);
+    context.lineTo(width, height / 2);
+    context.lineTo(width / 2, height);
+    context.lineTo(0, height / 2);
+    context.closePath();
+    context.clip();
+    context.drawImage(
+      source,
+      insetX, insetY, width - insetX * 2, height - insetY * 2,
+      0, 0, width, height,
+    );
+    context.restore();
+    return cleaned;
   }
 
   get selectedClassStats(): { title: string; specialty: string; life: number; mana: number; stamina: number; attributes: Array<{ name: string; value: number }> } {
@@ -4927,6 +5009,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     if (!this.ownedSkills.includes(this.basicAttackName)) this.ownedSkills.unshift(this.basicAttackName);
     this.skillLevels[this.basicAttackName] = Math.max(1, this.baseSkillLevels[this.basicAttackName] ?? 1);
+    // The basic-attack slot keeps its spell across a reload, but only while the
+    // hero still owns that spell and it is still something that can cast.
+    const savedBasicAttackSpell = typeof saved.basicAttackSpell === "string" ? saved.basicAttackSpell : null;
+    this.basicAttackSpell = savedBasicAttackSpell && this.ownedSkills.includes(savedBasicAttackSpell)
+      && classSkills.has(savedBasicAttackSpell) && !isPassiveSkill(savedBasicAttackSpell)
+      ? savedBasicAttackSpell : null;
+    this.basicAttackPickerOpen = false;
     this.upgradeChoices = [];
     if (this.pendingLevelUps > 0) this.prepareUpgradeChoices();
     const restoredInventory = Array.isArray(saved.inventory)
@@ -5030,6 +5119,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         basicAttackName: this.basicAttackName,
         basicAttackCooldown: this.basicAttackCooldown,
         basicAttackDamage: this.basicAttackDamage,
+        basicAttackSpell: this.basicAttackSpell,
         ownedSkills: this.ownedSkills,
         skillLevels: { ...this.baseSkillLevels },
         enemies: this.enemies,
@@ -6756,6 +6846,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private arenaResizeObserver?: ResizeObserver;
   spawnAcc = 0;
   nextChestInterval = 8;
+  /** Gear drops since the last guaranteed socketed white base. */
+  private socketedBaseDropCounter = 0;
   chestTimer = 0;
   inventory: Array<D2InventoryItem | null> = [];
   inventoryGrid: InventoryGridCell[] = [];
@@ -6885,7 +6977,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   private equipmentImagePath(type: EquipmentType): string {
     const images: Record<EquipmentType, string> = {
-      weapon: "weapon", wand: "wand", claw: "claw", orb: "orb", jewel: "jewel", helmet: "helmet",
+      weapon: "weapon", wand: "wand", claw: "claw", orb: "orb", gem: "jewel", jewel: "jewel", rune: "jewel", helmet: "helmet",
       barbarianHelm: "barbarian-helm", druidPelt: "druid-pelt", body: "body", shield: "shield",
       paladinShield: "paladin-shield", necromancerHead: "necromancer-head", gloves: "gloves", boots: "boots", belt: "belt",
       ring: "ring", amulet: "amulet", charm: "charm",
@@ -7139,6 +7231,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   private randomItem(itemLevel = this.currentArea?.level ?? this.playerLevel): D2InventoryItem {
+    // Socketables are their own drop band: gear rolls rarity, a gem or jewel
+    // rolls from the original gem table and jewel affix pool instead.
+    const socketable = this.rollSocketableDrop(itemLevel);
+    if (socketable) return socketable;
     const bases: Array<Pick<D2InventoryItem, "name" | "slot" | "stats" | "desc"> & { equipmentType?: EquipmentType; beltQuality?: BeltQuality; restrictedClass?: D2ClassId; requiredLevel?: number }> = [
       { name: "Sash", slot: "belt", beltQuality: "normal", stats: { armor: 2 }, desc: "A simple sash that holds two rows of potions." },
       { name: "Demonhide Sash", slot: "belt", beltQuality: "exceptional", stats: { armor: 5 }, desc: "An exceptional belt with room for three rows of potions." },
@@ -7252,7 +7348,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       { name: "Trident", slot: "weapon", stats: { damageMin: 5, damageMax: 13 }, desc: "A three-pronged war spear." },
       { name: "Ring", slot: "charm", equipmentType: "ring", stats: {}, desc: "A plain metal ring waiting for an enchantment." },
       { name: "Amulet", slot: "charm", equipmentType: "amulet", stats: {}, desc: "A plain amulet waiting for an enchantment." },
-      { name: "Jewel", slot: "charm", equipmentType: "jewel", stats: {}, desc: "A socketable jewel; its magic awakens inside an item." },
+
       { name: "Small Charm", slot: "charm", equipmentType: "charm", stats: { plusVitality: 2 }, desc: "A palm-sized talisman; its magic works while carried." },
       { name: "Crimson Small Charm", slot: "charm", equipmentType: "charm", stats: { plusVitality: 4 }, desc: "A palm-sized charm warm to the touch." },
       { name: "Azure Small Charm", slot: "charm", equipmentType: "charm", stats: { plusStrength: 2 }, desc: "A blue charm etched with a protective rune." },
@@ -7263,6 +7359,16 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       { name: "Grand Charm", slot: "charm", equipmentType: "charm", stats: { plusStrength: 2, plusVitality: 4 }, desc: "A grand talisman; its magic works while carried in the pack." },
     ];
     const base = bases[Math.floor(Math.random() * bases.length)];
+    // Bases that can carry a runeword also carry the guaranteed socketed roll.
+    const baseKind = runewordBaseKind({ name: base.name, equipmentType: base.equipmentType, slot: base.slot });
+    let guaranteedSocketedBase = false;
+    if (baseKind) {
+      this.socketedBaseDropCounter += 1;
+      if (this.socketedBaseDropCounter >= SOCKETED_BASE_DROP_INTERVAL) {
+        this.socketedBaseDropCounter = 0;
+        guaranteedSocketedBase = true;
+      }
+    }
 
     const roll = Math.random();
     const magicFind = this.equippedMagicFindPercent;
@@ -7274,6 +7380,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       : roll < setChance ? "set"
         : roll < rareChance ? "rare"
           : roll < magicChance ? "magic" : "normal";
+    // The guaranteed drop is a plain white base: a runeword can never be spelled
+    // into a magic or rare one, so the guarantee has to override the rarity roll.
+    if (guaranteedSocketedBase) rarity = "normal";
     const namedEntry = rarity === "unique" ? this.randomNamedItem(D2_UNIQUE_ITEMS)
       : rarity === "set" ? this.randomNamedItem(D2_SET_ITEMS)
         : undefined;
@@ -7345,6 +7454,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       }
     }
 
+    // White bases are the only items a runeword can be spelled into, so they
+    // arrive socketed now and then instead of needing a crafter to add holes.
+    if (rarity === "normal" && baseKind && (guaranteedSocketedBase || Math.random() < SOCKETED_BASE_CHANCE)) {
+      const capacity = runewordSocketCapacity(baseKind);
+      const levelCap = itemLevel >= 60 ? capacity : itemLevel >= 30 ? Math.min(capacity, 4) : Math.min(capacity, 2);
+      sockets = Math.max(sockets, 1 + Math.floor(Math.random() * levelCap));
+    }
     const displayName = rarity === "normal"
       ? base.name
       : `${prefixName ? prefixName + " " : ""}${base.name}${suffixName ? " " + suffixName : ""}`;
@@ -7361,6 +7477,228 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       ...(sockets ? { sockets } : {}),
       ...(procs.length ? { procs } : {}),
       desc: base.desc,
+      stats,
+      affixes,
+    };
+  }
+
+  /**
+   * Gems and jewels are socketables: they have no paperdoll slot, they never
+   * count while carried, and their magic only applies once set in a socket.
+   */
+  isSocketable(item: D2InventoryItem | null | undefined): boolean {
+    if (!item) return false;
+    const type = getEquipmentType(item);
+    return type === "gem" || type === "jewel" || type === "rune";
+  }
+
+  socketedCount(item: D2InventoryItem | null | undefined): number {
+    return item?.socketed?.length ?? 0;
+  }
+
+  /** "Ral + Tir + Tal + Sol": the runes a completed runeword was spelled with. */
+  socketedRuneNames(item: D2InventoryItem | null | undefined): string {
+    return (item?.socketed ?? []).map((content) => content.name).join(" + ");
+  }
+
+  /** Tooltip kicker. D2 names the socketables by type, gear by rarity and slot. */
+  itemTypeLabel(item: D2InventoryItem | null): string {
+    if (!item) return "";
+    const type = getEquipmentType(item);
+    if (type === "gem") return "Gem";
+    if (type === "jewel") return "Jewel";
+    if (type === "rune") return "Rune";
+    if (item.runeword) return "Runeword";
+    const slot = item.slot === "weapon" ? "Weapon" : item.slot === "belt" ? "Belt" : item.slot === "charm" ? "Charm" : "Armor";
+    return `${item.rarity} ${slot}`;
+  }
+
+  /** D2 host rule: weapons read a gem's weapon rows, shields its shield rows,
+   *  and helms, body armor, gloves, boots and belts its helm rows. */
+  private socketHostKind(item: D2InventoryItem): "weapon" | "helm" | "shield" {
+    const type = getEquipmentType(item);
+    if (item.slot === "weapon" || type === "wand" || type === "claw" || type === "orb") return "weapon";
+    if (type === "shield" || type === "paladinShield" || type === "necromancerHead") return "shield";
+    return "helm";
+  }
+
+  private socketEffectFor(socketable: D2InventoryItem, host: D2InventoryItem): { stats: D2ItemStats; lines: string[] } {
+    // A rune has no per-host rows: its whole value is the word it spells.
+    if (getEquipmentType(socketable) === "rune") {
+      return { stats: {}, lines: ["No bonus alone — runes only pay off as a completed runeword."] };
+    }
+    const gem = D2_GEM_BY_NAME[socketable.baseName ?? socketable.name] ?? D2_GEM_BY_NAME[socketable.name];
+    if (gem) {
+      const kind = this.socketHostKind(host);
+      return kind === "weapon" ? gem.inWeapon : kind === "shield" ? gem.inShield : gem.inHelm;
+    }
+    // A jewel carries its own rolled magic, so it keeps it in any host.
+    return { stats: { ...(socketable.stats ?? {}) }, lines: [...(socketable.affixes ?? [])] };
+  }
+
+  private socketIntoItem(socketable: D2InventoryItem, host: D2InventoryItem): boolean {
+    if (!host.sockets || this.socketedCount(host) >= host.sockets) return false;
+    const effect = this.socketEffectFor(socketable, host);
+    host.socketed = [...(host.socketed ?? []), {
+      name: socketable.name,
+      art: this.inventoryItemImage(socketable),
+      lines: [...effect.lines],
+    }];
+    host.stats = { ...(host.stats ?? {}) };
+    const stats = host.stats as Record<string, number>;
+    for (const [key, value] of Object.entries(effect.stats)) {
+      if (typeof value !== "number" || !Number.isFinite(value)) continue;
+      stats[key] = (stats[key] ?? 0) + value;
+    }
+    // Filling the final socket is what turns a base into a runeword.
+    this.tryFormRuneword(host);
+    return true;
+  }
+
+  /**
+   * A runeword forms the moment its last socket is filled, and only then. The
+   * base has to be a plain white socketed item (D2 never lets a magic or rare
+   * base carry a word), every socket has to hold a rune - one gem or jewel
+   * anywhere in the item breaks the word - the runes have to match the word's
+   * order exactly, and the base has to be one of the families it allows.
+   */
+  private tryFormRuneword(host: D2InventoryItem): string | null {
+    if (host.runeword || !host.sockets || host.rarity !== "normal") return null;
+    const contents = host.socketed ?? [];
+    if (contents.length !== host.sockets) return null;
+    const runeNames: string[] = [];
+    for (const content of contents) {
+      const rune = d2Rune(content.name);
+      if (!rune) return null;
+      runeNames.push(rune.name);
+    }
+    const word = findRuneword(runewordBaseKind(host), runeNames);
+    if (!word) return null;
+    this.applyRuneword(host, word);
+    return word.name;
+  }
+
+  private applyRuneword(host: D2InventoryItem, word: D2RunewordTableEntry): void {
+    host.runeword = word.name;
+    host.name = word.name;
+    host.requiredLevel = Math.max(host.requiredLevel ?? 1, word.requiredLevel);
+    host.desc = `${word.name}, a runeword spelled ${word.runes.join(" + ")} in a ${host.baseName ?? "base"}.`;
+    host.affixes = [...(host.affixes ?? []), ...word.lines];
+    const stats = { ...(host.stats ?? {}) } as Record<string, number>;
+    for (const [key, value] of Object.entries(word.stats as Record<string, number>)) {
+      if (typeof value !== "number" || !Number.isFinite(value)) continue;
+      stats[key] = (stats[key] ?? 0) + value;
+    }
+    host.stats = stats;
+  }
+
+  /** Sets the pack's gem or jewel into `host`; the socket is spent for good. */
+  socketInventoryItem(socketableIndex: number, host: D2InventoryItem | null | undefined): boolean {
+    const socketable = this.inventory[socketableIndex] ?? null;
+    if (!socketable || !this.isSocketable(socketable)) return false;
+    if (!host) {
+      this.inventoryStatus = "There is no item there to socket.";
+      return false;
+    }
+    if (!host.sockets) {
+      this.inventoryStatus = `${host.name} has no sockets.`;
+      return false;
+    }
+    if (this.socketedCount(host) >= host.sockets) {
+      this.inventoryStatus = `${host.name} has no open sockets.`;
+      return false;
+    }
+    if (!this.socketIntoItem(socketable, host)) return false;
+    this.inventory[socketableIndex] = null;
+    this.rebuildInventoryGrid();
+    this.clampPlayerVitals();
+    this.selectedItem = host;
+    const hostIndex = this.inventory.findIndex((entry) => entry?.id === host.id);
+    this.selectedSlotIndex = hostIndex >= 0 ? hostIndex : null;
+    const formed = host.runeword;
+    this.inventoryStatus = formed
+      ? `${socketable.name} completed ${formed} in the ${host.baseName ?? "base"}!`
+      : `${socketable.name} set into ${host.name} (${this.socketedCount(host)}/${host.sockets} sockets).`;
+    this.persistRunProgress(true);
+    return true;
+  }
+
+  /** Drops hand out a socketable now and then instead of another piece of gear. */
+  private rollSocketableDrop(itemLevel: number): D2InventoryItem | null {
+    const roll = Math.random();
+    if (roll < 0.03) return this.createJewelItem(itemLevel);
+    if (roll < 0.09) return this.createGemItem(itemLevel);
+    if (roll < 0.19) return this.createRuneItem(itemLevel);
+    return null;
+  }
+
+  private createRuneItem(itemLevel: number): D2InventoryItem {
+    const rune = rollRuneForLevel(itemLevel);
+    return {
+      id: createRunId(),
+      name: rune.name,
+      baseName: rune.name,
+      rarity: "normal",
+      slot: "charm",
+      equipmentType: "rune",
+      requiredLevel: rune.requiredLevel,
+      desc: `Rune ${rune.order} of 33. Socket it in a white base in the exact order a runeword asks for.`,
+      stats: {},
+      affixes: [],
+    };
+  }
+
+  private createGemItem(itemLevel: number): D2InventoryItem {
+    const grade = itemLevel >= 29 ? "Perfect" : itemLevel >= 22 ? "Flawless"
+      : itemLevel >= 15 ? "Normal" : itemLevel >= 8 ? "Flawed" : "Chipped";
+    const pool = D2_GEMS.filter((gem) => gem.grade === grade);
+    const gem = pool[Math.floor(Math.random() * pool.length)] ?? D2_GEMS[0];
+    return {
+      id: createRunId(),
+      name: gem.name,
+      baseName: gem.name,
+      rarity: "normal",
+      slot: "charm",
+      equipmentType: "gem",
+      requiredLevel: gem.requiredLevel,
+      desc: `${gem.inWeapon.lines.join(", ")} in a weapon; ${gem.inHelm.lines.join(", ")} in a helm or body armor; ${gem.inShield.lines.join(", ")} in a shield.`,
+      stats: {},
+      affixes: [
+        `Weapon: ${gem.inWeapon.lines.join("; ")}`,
+        `Helm / body armor: ${gem.inHelm.lines.join("; ")}`,
+        `Shield: ${gem.inShield.lines.join("; ")}`,
+      ],
+    };
+  }
+
+  private createJewelItem(itemLevel: number): D2InventoryItem {
+    const baseName = Math.random() < 0.15 ? "Colossal Jewel" : "Jewel";
+    const socketable = { name: baseName, slot: "charm" as const, equipmentType: "jewel" as const };
+    const stats: D2ItemStats = {};
+    const affixes: string[] = [];
+    let prefixName = "";
+    let suffixName = "";
+    const rolls = 1 + (Math.random() < 0.4 ? 1 : 0);
+    for (let index = 0; index < rolls; index += 1) {
+      const kind = index === 0 ? "prefix" : "suffix";
+      const pool = eligibleAffixes(socketable, itemLevel, kind);
+      const affix = pool[Math.floor(Math.random() * pool.length)];
+      if (!affix) continue;
+      const rolled = rollAffix(affix, itemLevel);
+      Object.assign(stats, rolled.stats);
+      affixes.push(rolled.text);
+      if (kind === "prefix") prefixName = affix.name;
+      else suffixName = affix.name;
+    }
+    return {
+      id: createRunId(),
+      name: `${prefixName ? prefixName + " " : ""}${baseName}${suffixName ? " " + suffixName : ""}`,
+      baseName,
+      rarity: "magic",
+      slot: "charm",
+      equipmentType: "jewel",
+      requiredLevel: Math.max(1, Math.min(99, Math.floor(itemLevel))),
+      desc: affixes.length ? affixes.join(", ") : "A jewel with no magic left in it.",
       stats,
       affixes,
     };
@@ -7462,6 +7800,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   onArenaPointerDown(event: PointerEvent): void {
+    // A press on the battlefield dismisses the basic-attack spell picker.
+    this.basicAttackPickerOpen = false;
     // While a belt potion is held, the next arena press throws it there instead
     // of starting movement, a click-to-move, or the touch joystick.
     if (this.heldBeltPotionSlot !== null && event.button === 0 && event.target === this.arenaRef?.nativeElement) {
@@ -8906,6 +9246,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (name === "Chain Lightning" && this.selectedClass === "sorceress") {
       stats.push(`Hits ${this.chainLightningTargetCount(rank)} monsters per cast`);
       stats.push(`Jumps ${CHAIN_LIGHTNING_JUMP_RADIUS} units to the next nearest monster`);
+      const chainSynergy = Math.round((this.lightningSynergyMultiplier("Chain Lightning") - 1) * 100);
+      if (chainSynergy > 0) {
+        stats.push(`Charged Bolt, Lightning and Nova: +${chainSynergy}% lightning damage`);
+      }
     }
 
     if (name === "Thunder Storm" && this.selectedClass === "sorceress") {
@@ -9728,6 +10072,72 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     return BASIC_ATTACK_MISSILE_OVERLAYS[this.basicAttackName] ?? ATTACK_KIND_MISSILE_OVERLAYS[this.basicAttackForClass(this.selectedClass).kind];
   }
 
+  /** The basic slot shows the assigned spell, or the class's weapon attack. */
+  get basicAttackSlotSkill(): string {
+    return this.basicAttackSpell ?? this.basicAttackName;
+  }
+
+  /** How a skill cell draws itself: icon image, missile cel, or text glyph. */
+  skillArtFor(skill: string): { kind: "icon" | "overlay" | "glyph"; value: string } {
+    if (this.hasSkillIconImage(skill)) return { kind: "icon", value: this.skillIconPath(skill) };
+    const glyph = this.skillIcon(skill);
+    if (!glyph) return { kind: "overlay", value: this.missileOverlayPath(this.getSkillMissileOverlay(skill)) };
+    return { kind: "glyph", value: glyph };
+  }
+
+  get weaponAttackArt(): { kind: "icon" | "overlay" | "glyph"; value: string } {
+    if (this.hasSkillIconImage(this.basicAttackName)) return { kind: "icon", value: this.skillIconPath(this.basicAttackName) };
+    return this.basicAttackIcon
+      ? { kind: "glyph", value: this.basicAttackIcon }
+      : { kind: "overlay", value: this.missileOverlayPath(this.basicAttackMissileOverlay) };
+  }
+
+  get basicAttackSlotArt(): { kind: "icon" | "overlay" | "glyph"; value: string } {
+    return this.basicAttackSpell ? this.skillArtFor(this.basicAttackSpell) : this.weaponAttackArt;
+  }
+
+  get basicAttackSlotCastProgress(): number {
+    return this.basicAttackSpell ? this.skillCastProgress(this.basicAttackSpell) : 0;
+  }
+
+  get basicAttackSlotTitle(): string {
+    return this.basicAttackSpell
+      ? `Basic attack casts ${this.basicAttackSpell} · click to change`
+      : `${this.basicAttackName} · click to assign a spell`;
+  }
+
+  /** Owned, castable class spells that can stand in for the weapon attack. */
+  get basicAttackPickerSpells(): string[] {
+    const classSkills = getClassSkills(this.selectedClass);
+    return this.ownedSkills.filter((skill) => skill !== this.basicAttackName
+      && classSkills.some((definition) => definition.name === skill)
+      && !isPassiveSkill(skill));
+  }
+
+  /** Why a picker row can or cannot cast right now. */
+  basicAttackSpellState(skill: string): string {
+    const requirement = this.getSkillRequirementLabel(skill);
+    if (requirement) return requirement;
+    const cooldown = this.skillCastCooldowns[skill] ?? 0;
+    if (cooldown > 0) return Number.isFinite(cooldown) ? `Recharging · ${cooldown.toFixed(1)}s` : "Active";
+    return "Ready";
+  }
+
+  toggleBasicAttackPicker(): void {
+    if (!this.runActive) return;
+    this.basicAttackPickerOpen = !this.basicAttackPickerOpen;
+  }
+
+  closeBasicAttackPicker(): void {
+    this.basicAttackPickerOpen = false;
+  }
+
+  selectBasicAttackSpell(skill: string | null): void {
+    this.basicAttackPickerOpen = false;
+    this.basicAttackSpell = skill && this.basicAttackPickerSpells.includes(skill) ? skill : null;
+    this.persistRunProgress(true);
+  }
+
   missileOverlayPath(id: string): string {
     return `${MISSILE_OVERLAY_BASE}/${id}${this.missileFrameCount(id) > 1 ? "/0000.webp" : ".webp"}`;
   }
@@ -9910,7 +10320,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const isAssassinKickSkill = this.selectedClass === "assassin" && (skill === "Dragon Talon" || skill === "Dragon Flight" || skill === "Dragon Tail");
     if (skill === "Lightning" && this.selectedClass === "sorceress") {
       const rank = Math.max(1, this.skillLevels[skill] ?? 1);
-      const railDamage = this.applyPaladinAuraDamage(this.applyEnergyToSpellDamage(this.basicAttackDamage * 1.5 + (rank - 1) * 3));
+      const railDamage = this.applyPaladinAuraDamage(this.applyEnergyToSpellDamage(
+        (this.basicAttackDamage * 1.5 + (rank - 1) * 3) * this.lightningSynergyMultiplier("Lightning"),
+      ));
       const railTarget = this.enemies
         .filter((enemy) => enemy.hp > 0 && !enemy.summonType)
         .sort((a, b) => Math.hypot(a.x - this.playerX, a.y - this.playerY) - Math.hypot(b.x - this.playerX, b.y - this.playerY))[0];
@@ -10173,7 +10585,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
               : skill === "Bone Spear" ? BONE_SPEAR_PROJECTILE_SPEED
                 : skill === "Double Throw" ? DOUBLE_THROW_PROJECTILE_SPEED
                   : 420,
-          damage: damage * (skill === "Teeth" ? 0.55 : 1),
+          damage: damage * (skill === "Teeth" ? 0.55 : 1)
+            * (skill === "Chain Lightning" ? this.lightningSynergyMultiplier("Chain Lightning") : 1),
           life: isChargedBolt ? boltRange * this.worldZoom / CHARGED_BOLT_PROJECTILE_SPEED + 1
             : isWindSkill ? windRange * this.worldZoom / 420 + 1
               : skill === "Shock Web" ? Math.max(4, distance / 420 + 4)
@@ -12005,8 +12418,36 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     return !this.campaignLineBlocked(context, from.x, from.y, to.x, to.y);
   }
 
+  /**
+   * The basic-attack slot can be pointed at any owned spell. While that spell is
+   * recharged and castable the attack casts it instead of swinging the weapon.
+   */
+  private tryBasicAttackSpell(): boolean {
+    const skill = this.basicAttackSpell;
+    if (!skill || !this.canBasicAttackCastSpell(skill)) return false;
+    this.activateOwnedSkill(skill);
+    // The attack consumed the cast, so the automatic caster must not fire the
+    // same spell again the moment its slot comes off cooldown.
+    const interval = this.getSkillCastInterval(skill);
+    if (Number.isFinite(interval)) this.skillCastCooldowns[skill] = interval;
+    this.attackCooldown = Math.max(this.playerAttackLockRemaining, this.paladinAuraAttackCooldown());
+    return true;
+  }
+
+  private canBasicAttackCastSpell(skill: string): boolean {
+    if (!this.ownedSkills.includes(skill) || skill === this.basicAttackName) return false;
+    if (isPassiveSkill(skill)) return false;
+    if (this.playerFrozenRemaining > 0) return false;
+    if (!this.hasRequiredWeaponForSkill(skill)) return false;
+    if (this.isArcticBlastChanneling()) return false;
+    // A click-to-move target still owns the hero's stance until they arrive.
+    if (this.playerChasingClickedTarget) return false;
+    return !((this.skillCastCooldowns[skill] ?? 0) > 0);
+  }
+
   private updateBasicAttack(): void {
     if (!this.runActive || this.pendingLevelUps > 0 || this.attackCooldown > 0 || this.playerRunning || this.playerLeapRemaining > 0 || this.playerChargeRemaining > 0) return;
+    if (this.tryBasicAttackSpell()) return;
     const nearest = this.enemies
       .filter((enemy) => enemy.hp > 0 && !enemy.summonType)
       .sort((a, b) => Math.hypot(a.x - this.playerX, a.y - this.playerY) - Math.hypot(b.x - this.playerX, b.y - this.playerY))[0];
@@ -12127,6 +12568,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (!this.runActive || this.pendingLevelUps > 0 || this.attackCooldown > 0 || this.enemies.length === 0) return;
     if (this.playerFrozenRemaining > 0) return;
     if (this.playerRunning) return;
+    if (this.tryBasicAttackSpell()) return;
     const targets = this.enemies
       .filter((enemy) => enemy.hp > 0 && !enemy.summonType)
       .sort((a, b) => Math.hypot(a.x - this.playerX, a.y - this.playerY) - Math.hypot(b.x - this.playerX, b.y - this.playerY))
@@ -12360,7 +12802,18 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   private chainLightningTargetCount(rank: number): number {
-    return CHAIN_LIGHTNING_BASE_TARGETS + Math.max(0, Math.floor(rank) - 1);
+    return Math.max(CHAIN_LIGHTNING_BASE_TARGETS, Math.floor((25 + Math.max(1, rank)) / 5));
+  }
+
+  /** D2's lightning-tree synergies, for the two skills that receive them. */
+  private lightningSynergyMultiplier(skill: "Lightning" | "Chain Lightning"): number {
+    const ranks = (name: string) => Math.max(0, this.skillLevels[name] ?? 0);
+    if (skill === "Chain Lightning") {
+      return 1 + CHAIN_LIGHTNING_SYNERGY_PER_RANK
+        * (ranks("Charged Bolt") + ranks("Lightning") + ranks("Nova"));
+    }
+    return 1 + LIGHTNING_SYNERGY_PER_RANK
+      * (ranks("Charged Bolt") + ranks("Nova") + ranks("Chain Lightning"));
   }
 
   /** Finds the closest monster the bolt has not already struck. */
@@ -13510,6 +13963,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.skillOfferSeed = Math.floor(Math.random() * 0x7fffffff);
     this.xpToNextLevel = this.xpForLevel(1);
     this.basicAttackName = basicAttack.name;
+    this.basicAttackSpell = null;
+    this.basicAttackPickerOpen = false;
     this.basicAttackCooldown = basicAttack.cooldown;
     this.basicAttackDamage = basicAttack.damage + this.sanctuaryBonuses.attackDamage * 2;
     this.attackCooldown = 0;
@@ -18879,7 +19334,37 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     // Start the cel slightly behind the caster so its tapered tip is hidden
     // under the character and the white core reads as leaving the hand.
     const startBack = 20 * dpr;
-    drawBolt(
+    // Diablo II builds Lightning from repeated LightningBolt cels running the
+    // whole aim line. Stamp the original 43x98 cel end to end at its authored
+    // proportions; stretching one cel to the screen edge smeared its jagged
+    // white core into a smooth streak that no longer read as the game's art.
+    const drawArc = (
+      x: number,
+      y: number,
+      drawAngle: number,
+      arcLength: number,
+      width: number,
+      alpha: number,
+    ) => {
+      // Every segment keeps the cel's authored 43x98 aspect, so a narrower fork
+      // uses a proportionally shorter cel instead of being stretched sideways.
+      const tile = width * (98 / 43);
+      const step = tile * 0.8;
+      const stepX = Math.cos(drawAngle) * step;
+      const stepY = Math.sin(drawAngle) * step;
+      const count = Math.ceil(arcLength / step);
+      for (let index = 0; index < count; index += 1) {
+        drawBolt(
+          x + stepX * index,
+          y + stepY * index,
+          drawAngle,
+          tile,
+          width,
+          alpha * Math.min(1, (arcLength - index * step) / step),
+        );
+      }
+    };
+    drawArc(
       origin.x - Math.cos(angle) * startBack,
       origin.y - Math.sin(angle) * startBack,
       angle,
@@ -18894,7 +19379,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         40 * dpr,
         Math.min(boltLength - 40 * dpr, boltLength * (0.24 + noise(index + 5) * 0.18)),
       );
-      drawBolt(
+      drawArc(
         origin.x + Math.cos(angle) * boltLength * at,
         origin.y + Math.sin(angle) * boltLength * at,
         angle + spread,
@@ -20922,6 +21407,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     };
   }
 
+  /** Shop rows have no item window above them, so the open sockets a base
+   *  still has must be part of the one-line stats or the offer reads as plain gear. */
+  shopOfferStatText(item: D2InventoryItem): string {
+    const lines = this.getItemStatText(item);
+    if ((item.sockets ?? 0) > 0) lines.unshift(`Sockets: ${this.socketedCount(item)} / ${item.sockets}`);
+    return lines.join(" · ");
+  }
+
   getItemStatText(item: D2InventoryItem | null): string[] {
     if (!item) {
       return [];
@@ -20958,6 +21451,18 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     if (item.affixes?.length) {
       lines.push(...item.affixes);
+    }
+    if (item.socketed?.length) {
+      if (item.runeword) {
+        // A completed word already lists its own properties; the runes are the
+        // recipe, so name them once instead of repeating "no bonus alone".
+        lines.push(`Runes: ${item.socketed.map((content) => content.name).join(" + ")}`);
+      } else {
+        lines.push(`Socketed (${item.socketed.length}/${item.sockets ?? item.socketed.length})`);
+        for (const content of item.socketed) {
+          for (const line of content.lines) lines.push(`${content.name}: ${line}`);
+        }
+      }
     }
     return lines.length ? lines : ["No additional bonuses"] ;
   }
@@ -21247,6 +21752,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.clearDragState();
       return;
     }
+    if (this.isSocketable(drag.item)) {
+      this.socketInventoryItem(drag.slotIndex, this.equipment[slot]);
+      this.clearDragState();
+      return;
+    }
     const conflict = this.equipmentSlotConflict(slot, drag.item);
     if (conflict) {
       this.inventoryStatus = conflict;
@@ -21373,6 +21883,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const anchor = this.getItemAnchorAt(slotIndex);
     const item = anchor >= 0 ? this.inventory[anchor] : null;
     if (!item) return;
+    if (this.isSocketable(item)) {
+      this.inventoryStatus = `${item.name} is a socketable: drag it onto gear with an open socket.`;
+      return;
+    }
     const blocked = this.equipBlockReason(item, slot);
     if (blocked) {
       this.inventoryStatus = blocked;
@@ -21395,6 +21909,21 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       return;
     }
     this.selectInventoryItem(slotIndex, item, event);
+  }
+
+  /**
+   * Stable identity for the shop lists. Both getters rebuild their wrapper rows
+   * on every change detection, so without a track key Angular threw away and
+   * re-inserted the article under the pointer on every mousemove: the browser
+   * lost the hover target (and the pointer stream with it), which froze the
+   * gauntlet cursor while only the tooltip kept moving.
+   */
+  trackSellEntry(_index: number, entry: { item: D2InventoryItem }): string {
+    return entry.item.id;
+  }
+
+  trackShopOffer(_index: number, offer: { item: D2InventoryItem }): string {
+    return offer.item.id;
   }
 
   onShopItemHover(item: D2InventoryItem, event: MouseEvent): void {
@@ -21499,7 +22028,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const viewportWidth = Math.max(1, window.innerWidth);
     const viewportHeight = Math.max(1, window.innerHeight);
     const margin = 12;
-    const horizontalGap = 24;
+    // The gap has to clear the gauntlet cursor sprite as well as the pointer, so
+    // the panel never sits on the spot the mouse is standing on.
+    const horizontalGap = 30;
     const verticalGap = 14;
     const element = this.inventoryItemWindow?.nativeElement ?? this.shopItemWindow?.nativeElement;
     const rect = element?.getBoundingClientRect();
@@ -21520,8 +22051,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       left = x - horizontalGap - width;
       this.itemPreviewLeft = true;
     } else {
-      left = Math.max(margin, Math.min(x - width / 2, viewportWidth - margin - width));
-      this.itemPreviewLeft = x > viewportWidth / 2;
+      // Too wide to sit fully beside the pointer: keep it on the roomier side
+      // and let the clamp pull it inside the viewport. Centring it on the
+      // pointer would cover the mouse, which is what made the tooltip feel like
+      // it had taken the cursor over.
+      const preferRight = viewportWidth - x >= x;
+      left = preferRight ? x + horizontalGap : x - horizontalGap - width;
+      this.itemPreviewLeft = !preferRight;
     }
 
     const roomBelow = y + verticalGap + height <= viewportHeight - margin;
@@ -21683,16 +22219,42 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   onInventoryDragOver(slotIndex: number, event: DragEvent): void {
     if (!this.dragState) return;
-    if (this.internalCanDrop(this.dragState.slotIndex, slotIndex, this.dragState.item)) {
+    // A gem dragged over a socketed item is a socket target, not a move: the two
+    // items never fit in each other's space, so the swap check would reject the
+    // drop and the browser would cancel it.
+    const socketHost = this.socketHostAt(this.dragState, slotIndex);
+    if (socketHost || this.internalCanDrop(this.dragState.slotIndex, slotIndex, this.dragState.item)) {
       event.preventDefault();
-      if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+      if (event.dataTransfer) event.dataTransfer.dropEffect = socketHost ? "copy" : "move";
     }
     this.dragGhostSlotIndex = slotIndex;
+  }
+
+  /** The item under the drop point that has an open socket for this drag. */
+  private socketHostAt(drag: DragState | null, slotIndex: number): D2InventoryItem | null {
+    if (!drag || drag.source !== "inventory" || !this.isSocketable(drag.item)) return null;
+    const hostIndex = this.getItemAnchorAt(slotIndex);
+    if (hostIndex < 0 || hostIndex === drag.slotIndex) return null;
+    const host = this.inventory[hostIndex];
+    if (!host || host.id === drag.item.id || !host.sockets) return null;
+    return this.socketedCount(host) < host.sockets ? host : null;
   }
 
   onInventoryDrop(slotIndex: number, event: DragEvent): void {
     event.preventDefault();
     const drag = this.dragState;
+    // A gem or jewel dropped on a socketed item goes into its first free socket
+    // instead of being placed on the grid; everything else keeps the move/swap
+    // rules below.
+    if (drag && drag.source === "inventory" && this.isSocketable(drag.item)) {
+      const hostIndex = this.getItemAnchorAt(slotIndex);
+      const host = hostIndex >= 0 ? this.inventory[hostIndex] : null;
+      if (host && host.id !== drag.item.id && host.sockets && this.socketedCount(host) < host.sockets
+        && this.socketInventoryItem(drag.slotIndex, host)) {
+        this.clearDragState();
+        return;
+      }
+    }
     if (!drag || !this.internalCanDrop(drag.slotIndex, slotIndex, drag.item)) {
       this.inventoryStatus = "That item cannot be placed there.";
       this.clearDragState();
@@ -21767,6 +22329,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   canDropOnSlot(sourceIndex: number, targetIndex: number, sourceItem?: D2InventoryItem): boolean {
     if (this.dragState?.source === "equipment") return this.canPlaceItemAt(this.dragState.item, targetIndex);
+    if (this.socketHostAt(this.dragState, targetIndex)) return true;
     return this.internalCanDrop(sourceIndex, targetIndex, sourceItem);
   }
 
@@ -21950,6 +22513,15 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     // while its carrier is still alive.
   }
 
+  /** Area-level strength scaling shared by every spawn in the current area. */
+  private areaHealthScale(): number {
+    return enemyAreaHealthMultiplier(this.currentArea.level);
+  }
+
+  private areaDamageScale(): number {
+    return enemyAreaDamageMultiplier(this.currentArea.level);
+  }
+
   makeEnemy(
     kind: "normal" | "champion" | "boss",
     campaignBoss = false,
@@ -21981,7 +22553,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (kind === "champion" && species === "painWorm") species = actSpecies[0] ?? "balrog";
     // Area level (Normal) from Diablo II's area tables drives monster strength, so
     // the same act gets harder as the hero's levels carry them deeper into it.
-    const actDifficulty = 1 + Math.max(0, this.currentArea.level - 1) * 0.04;
+    const areaHealth = this.areaHealthScale();
+    const areaDamage = this.areaDamageScale();
+    // Bosses already carry their own 10x/4x blocks, so their area ramp is the
+    // square root of the monster ramp instead of compounding it twice over.
+    const bossAreaHealth = Math.sqrt(areaHealth);
+    const bossAreaDamage = Math.sqrt(areaDamage);
     const randomFloorPosition = (): { x: number; y: number } => {
       const angle = Math.random() * Math.PI * 2;
       // Keep the initial wave outside immediate contact range; clamping to the arena
@@ -22004,7 +22581,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (uberTristram) this.uberTristramStatsScaled = true;
     const tristramHealth = uberTristram ? UBER_TRISTRAM_HEALTH_MULTIPLIER : 1;
     const tristramDamage = uberTristram ? UBER_TRISTRAM_DAMAGE_MULTIPLIER : 1;
-    const normalHealth = Math.round(18 * actDifficulty * tristramHealth);
+    const normalHealth = Math.round(18 * areaHealth * tristramHealth);
     const immunities = uber ? UBER_ENEMY_IMMUNITIES[species] : undefined;
     const championType = kind === "champion" ? forcedChampionType ?? this.randomChampionType() : undefined;
     const championTint = championType ? this.championTintFor(championType) : undefined;
@@ -22032,7 +22609,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       maxHp: normalHealth,
       speed: 80 + Math.random() * 40,
       r: 14,
-      dmg: 2 * tristramDamage,
+      dmg: Math.ceil(2 * areaDamage * tristramDamage),
       cd: 0.8,
       hatchCooldown: species === "vileMother" ? 6 + Math.random() * 6 : undefined,
       // Sand Maggots enter the arena able to burrow and lay eggs, but not on
@@ -22045,16 +22622,16 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       // Pandemonium bosses are the same monsters at level-83 strength. Andariel
       // is the exception: Matron's Den is her arena, so she anchors it alone.
       const matronsDenAndariel = uber && this.currentAct === 7 && species === "andariel";
-      const bossHealth = Math.round(140 * actDifficulty * (uber ? 4 : 1) * tristramHealth
-        * (matronsDenAndariel ? MATRONS_DEN_ANDARIEL_HEALTH_MULTIPLIER : 1));
+      const bossHealth = Math.round(140 * bossAreaHealth * ACT_BOSS_HEALTH_MULTIPLIER * (uber ? 4 : 1)
+        * tristramHealth * (matronsDenAndariel ? MATRONS_DEN_ANDARIEL_HEALTH_MULTIPLIER : 1));
       return {
         ...base,
         hp: bossHealth,
         maxHp: bossHealth,
         speed: 70,
         r: 26 + (uber ? 6 : 0),
-        dmg: Math.ceil(6 * actDifficulty * (uber ? 2.2 : 1) * tristramDamage
-          * (matronsDenAndariel ? MATRONS_DEN_ANDARIEL_DAMAGE_MULTIPLIER : 1)),
+        dmg: Math.ceil(6 * bossAreaDamage * ACT_BOSS_DAMAGE_MULTIPLIER * (uber ? 2.2 : 1)
+          * tristramDamage * (matronsDenAndariel ? MATRONS_DEN_ANDARIEL_DAMAGE_MULTIPLIER : 1)),
         cd: 1.1,
         kind: "boss",
       };
@@ -22079,7 +22656,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         maxHp: championHealth,
         speed: base.speed * championSpeedMultiplier,
         r: 18,
-        dmg: Math.ceil(2 * tristramDamage * championDamageMultiplier),
+        dmg: Math.ceil(2 * areaDamage * tristramDamage * championDamageMultiplier),
         cd: 0.9,
         kind: "champion",
       };
@@ -22108,10 +22685,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   /** An act's super unique: a boss-grade named monster rather than the act boss. */
   makeMiniBoss(schedule: MiniBossSchedule): Enemy {
-    const actDifficulty = 1 + Math.max(0, this.currentArea.level - 1) * 0.04;
     const enemy = this.makeEnemy("boss", false, schedule.species);
     const uberTristram = this.currentActDetails.uber === true && this.currentAct === 8;
-    const health = Math.round(schedule.health * actDifficulty
+    const health = Math.round(schedule.health * this.areaHealthScale()
       * (uberTristram ? UBER_TRISTRAM_HEALTH_MULTIPLIER : 1));
     return {
       ...enemy,
@@ -22120,7 +22696,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       maxHp: health,
       speed: schedule.speed,
       r: schedule.radius,
-      dmg: Math.ceil(schedule.damage * actDifficulty
+      dmg: Math.ceil(schedule.damage * this.areaDamageScale()
         * (uberTristram ? UBER_TRISTRAM_DAMAGE_MULTIPLIER : 1)),
       cd: 1.1,
     };
@@ -22465,16 +23041,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         if (image) {
           const halfW = tileDrawWidth / 2;
           const halfH = tileDrawHeight / 2;
-          // The atlas cells carry a dark diamond outline, which turns into a
-          // visible grid when the oversized tiles overlap.  160-wide cells
-          // need a 2px trim; the tomb's 320-wide cells bake in the same
-          // outline plus its shadow at 2x, so trim 8px and stretch the tile
-          // back to size.  Extend the destination by one backing pixel to
-          // cover rasterization seams.
-          const inset = image.width > 200 ? 8 : image.width > 8 ? 2 : 0;
+          // Draw the authored diamond whole.  Trimming the cell and stretching
+          // it back to size moved the art a couple of pixels inside its cell, so
+          // neighbours met on different phases and the floor broke into visible
+          // chevrons.  The one-pixel bleed only hides rasterization seams.
           ctx.drawImage(
             image,
-            inset, inset, image.width - inset * 2, image.height - inset * 2,
+            0, 0, image.width, image.height,
             pointX - halfW - 1, pointY - halfH - 1, tileDrawWidth + 2, tileDrawHeight + 2,
           );
         } else {
@@ -22609,6 +23182,20 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         if (this.isArenaPointOnScreen(point, DRAW_CULL_MARGIN)) {
           drawOrder.push({ depth: point.y - 1, draw: () => this.drawLightningWeb(ctx, projectile) });
         }
+      } else {
+        // Missiles are actors like the hero and the monsters, so they take part
+        // in the same ground depth sort: one that is behind the hero passes
+        // under its sprite instead of painting over it from every angle. Trail
+        // puffs stay behind the bolt that spawned them, and a bolt wins a tie
+        // against the caster it has just left.
+        const point = this.projectArenaPoint(projectile.x, projectile.y);
+        if (this.isArenaPointOnScreen(point, DRAW_CULL_MARGIN)) {
+          drawOrder.push({
+            depth: point.y,
+            order: projectile.cosmeticTrail ? -0.5 : 1,
+            draw: () => this.drawAttackProjectile(ctx, projectile),
+          });
+        }
       }
     }
     // The 3D hero lives on its own transparent canvas.  Blit it here, at the
@@ -22662,19 +23249,18 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       if (!this.isArenaPointOnScreen(point, DRAW_CULL_MARGIN)) continue;
       drawOrder.push({ depth: point.y, draw: () => this.drawItemDrop(ctx, entity) });
     }
+    if (this.actPortalOpen) {
+      // The portal is an actor like any other: it takes part in the same ground
+      // depth sort, so the hero draws over it when standing in front of it and
+      // disappears behind it only when standing behind. Drawing it after the
+      // sorted pass put it on top of the hero from every angle.
+      const point = this.projectArenaPoint(this.actPortalX, this.actPortalY);
+      drawOrder.push({ depth: point.y, order: 0.4, draw: () => this.drawActPortal(ctx) });
+    }
     drawOrder.sort((a, b) => a.depth - b.depth || (a.order ?? 0) - (b.order ?? 0));
     for (const entity of drawOrder) entity.draw();
-    if (this.actPortalOpen) this.drawActPortal(ctx);
     if (this.druidForm) this.drawDruidForm(ctx);
 
-    // Sub-missile puffs belong behind the missile that spawned them, so they go
-    // down before the damaging projectiles instead of on top of them.
-    for (const projectile of this.attackProjectiles) {
-      if (projectile.cosmeticTrail) this.drawAttackProjectile(ctx, projectile);
-    }
-    for (const projectile of this.attackProjectiles) {
-      if (!projectile.cosmeticTrail) this.drawAttackProjectile(ctx, projectile);
-    }
     for (const effect of this.meleeTrailEffects) this.drawMeleeTrail(ctx, effect);
     for (const effect of this.summonAttackEffects) this.drawSummonAttackEffect(ctx, effect);
     this.drawAreaDarkness(ctx, canvas);
@@ -23465,6 +24051,101 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     });
   }
 
+  /**
+   * Inventory cels are drawn on the diagonal - the short bow leans a good twenty
+   * degrees inside its frame - so a cel turned upright by its frame still hangs
+   * across the hero. Measure the art's own long axis (alpha-weighted second
+   * moment) and return the roll that stands it on end.
+   */
+  private heldItemCelFrame(texture: THREE.Texture): { roll: number; gripX: number; gripY: number; pinchX: number; pinchY: number } {
+    const cached = this.heldItemCelFrames.get(texture.uuid);
+    if (cached) return cached;
+    const frame = { roll: 0, gripX: 0.5, gripY: 0.5, pinchX: 0.5, pinchY: 0.5 };
+    const image = texture.image as (CanvasImageSource & { width?: number; height?: number }) | undefined;
+    const width = image?.width ?? 0;
+    const height = image?.height ?? 0;
+    if (image && width > 2 && height > 2) {
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext("2d");
+      if (context) {
+        // Specs mount stand-in textures with only a width and height; those
+        // cannot be sampled, so they keep the cel's authored orientation.
+        let pixels: Uint8ClampedArray | null = null;
+        try {
+          context.drawImage(image, 0, 0);
+          pixels = context.getImageData(0, 0, width, height).data;
+        } catch {
+          pixels = null;
+        }
+        if (pixels) {
+          let count = 0;
+          let sumX = 0;
+          let sumY = 0;
+          for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+              if (pixels[(y * width + x) * 4 + 3] < 32) continue;
+              count += 1;
+              sumX += x;
+              sumY += y;
+            }
+          }
+          if (count > 16) {
+            const centerX = sumX / count;
+            const centerY = sumY / count;
+            let xx = 0;
+            let yy = 0;
+            let xy = 0;
+            for (let y = 0; y < height; y++) {
+              for (let x = 0; x < width; x++) {
+                if (pixels[(y * width + x) * 4 + 3] < 32) continue;
+                const dx = x - centerX;
+                const dy = y - centerY;
+                xx += dx * dx;
+                yy += dy * dy;
+                xy += dx * dy;
+              }
+            }
+            // Principal angle in image space (y points down), carried into the
+            // cel plane (y points up) and turned into a roll about its normal.
+            const theta = 0.5 * Math.atan2(2 * xy, xx - yy);
+            let axisX = Math.cos(theta);
+            let axisY = -Math.sin(theta);
+            if (axisY < 0) {
+              axisX = -axisX;
+              axisY = -axisY;
+            }
+            frame.roll = Math.atan2(axisX, axisY);
+            // The mass centre stands in for the grip: a bow's riser is the point
+            // it is held by, and on a diagonal cel that sits near the frame edge.
+            frame.gripX = centerX / width;
+            frame.gripY = 1 - centerY / height;
+            // A bundle's mass centre is not its binding. Where the shafts pinch
+            // to their narrowest is where a hand actually closes on them, and a
+            // javelin hung by its mass centre instead floats beside the fist.
+            let pinchSpan = Infinity;
+            for (let y = Math.floor(height * 0.25); y < Math.ceil(height * 0.8); y++) {
+              let minX = -1;
+              let maxX = -1;
+              for (let x = 0; x < width; x++) {
+                if (pixels[(y * width + x) * 4 + 3] < 32) continue;
+                if (minX < 0) minX = x;
+                maxX = x;
+              }
+              if (minX < 0 || maxX - minX >= pinchSpan) continue;
+              pinchSpan = maxX - minX;
+              frame.pinchX = (minX + maxX) / 2 / width;
+              frame.pinchY = 1 - (y + 0.5) / height;
+            }
+          }
+        }
+      }
+    }
+    this.heldItemCelFrames.set(texture.uuid, frame);
+    return frame;
+  }
+
   private buildHeldItemArt(visual: THREE.Group, item: D2InventoryItem, texture: THREE.Texture, kind: "weapon" | "shield"): void {
     const image = texture.image as { width?: number; height?: number } | undefined;
     const artWidth = image?.width ?? 0;
@@ -23476,19 +24157,33 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const height = Math.min(0.02, Math.max(0.002, kind === "shield" ? artHeight / 8000 : artHeight / 11000));
     const width = height * (artWidth / artHeight);
     // The rig sizes this cel from the character height using its own height.
+    const cel = this.heldItemCelFrame(texture);
     const held = visual.userData["d2sHeldItem"] as { kind?: string; name?: string } | undefined;
     visual.userData["d2sHeldItem"] = {
       kind: held?.kind ?? (kind === "shield" ? "shield" : "weapon"),
       name: held?.name ?? `${item.baseName ?? ""} ${item.name}`.trim(),
       celHeight: height,
+      celAxis: cel.roll,
     };
     const type = getEquipmentType(item);
     const heldName = `${item.baseName ?? ""} ${item.name}`.toLowerCase();
+    // Bows and javelins are hung from their art's own centre; their cels draw
+    // the weapon on the diagonal with the frame's middle beside the grip.
+    const carriedCel = /bow|javelin/.test(heldName);
+    const bundleCel = /javelin/.test(heldName);
     const grip = kind === "shield" || type === "orb" ? 0.5
-      : /bow|crossbow/.test(heldName) ? 0.5
+      : carriedCel ? 0.5
         : /staff|polearm|spear|pike|javelin/.test(heldName) ? 0.36
           : 0.12;
-    const centerY = height * (0.5 - grip);
+    // A bow is drawn on the diagonal with its riser near the cel's edge, so
+    // hanging the frame's centre off the fist left the whole bow beside the
+    // hand. Hang its mass centre there instead and the fist closes on the grip.
+    // A javelin bundle is bound where its shafts pinch together, not at the
+    // frame's mass centre, so that pinch has to land in the fist.
+    const centerX = bundleCel ? width * (0.5 - cel.pinchX)
+      : carriedCel ? width * (0.5 - cel.gripX) : 0;
+    const centerY = bundleCel ? height * (0.5 - cel.pinchY)
+      : carriedCel ? height * (0.5 - cel.gripY) : height * (0.5 - grip);
 
     const addPlate = (rotationY: number, depth: number, scale: number, color: number): void => {
       const material = new THREE.MeshBasicMaterial({
@@ -23500,7 +24195,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         toneMapped: false,
       });
       const plate = new THREE.Mesh(new THREE.PlaneGeometry(width, height), material);
-      plate.position.set(0, centerY, depth);
+      plate.position.set(centerX, centerY, depth);
       plate.rotation.y = rotationY;
       plate.scale.setScalar(scale);
       visual.add(plate);
@@ -24765,7 +25460,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       source.x + (target.x - source.x) * progress,
       source.y + (target.y - source.y) * progress - 12,
       (isRanged ? 28 : 38) * scale,
-      angle,
+      // Summoned mages fire the same cels as the hero, so they need the same
+      // authored-direction correction or their bolts fly sideways too.
+      angle + (MISSILE_SPRITE_ORIENTATIONS[art] ?? 0),
       1 - progress,
     );
   }
@@ -25180,6 +25877,8 @@ interface D2SavedRun {
   basicAttackName?: string;
   basicAttackCooldown?: number;
   basicAttackDamage?: number;
+  /** Spell the basic-attack slot casts instead of the weapon attack, if any. */
+  basicAttackSpell?: string | null;
   skillOfferSeed?: number;
   ownedSkills: string[];
   druidForm?: DruidForm | null;
@@ -25392,7 +26091,7 @@ function sanitizeInventoryItem(value: unknown): D2InventoryItem | null {
   const affixes = Array.isArray(value["affixes"])
     ? value["affixes"].filter((affix): affix is string => typeof affix === "string").slice(0, 40)
     : undefined;
-  const equipmentTypes: EquipmentType[] = ["weapon", "wand", "claw", "orb", "jewel", "helmet", "barbarianHelm", "druidPelt", "body", "shield", "paladinShield", "necromancerHead", "gloves", "boots", "belt", "ring", "amulet", "charm"];
+  const equipmentTypes: EquipmentType[] = ["weapon", "wand", "claw", "orb", "gem", "jewel", "rune", "helmet", "barbarianHelm", "druidPelt", "body", "shield", "paladinShield", "necromancerHead", "gloves", "boots", "belt", "ring", "amulet", "charm"];
   let name = value["name"].slice(0, 160);
   // Quill of the Fates was an invented charm base. Stop new drops at the
   // source and also purge copies from saves made before it was removed.
@@ -25454,6 +26153,20 @@ function sanitizeInventoryItem(value: unknown): D2InventoryItem | null {
       };
     }).filter((proc): proc is D2ItemProc => !!proc)
     : undefined;
+  const socketed: D2SocketedContent[] = Array.isArray(value["socketed"])
+    ? value["socketed"].filter(isRecord).map((content): D2SocketedContent | null => {
+      const socketName = typeof content["name"] === "string" ? content["name"].slice(0, 80) : "";
+      if (!socketName) return null;
+      const socketLines = Array.isArray(content["lines"])
+        ? content["lines"].filter((line): line is string => typeof line === "string").map((line) => line.slice(0, 120))
+        : [];
+      return {
+        name: socketName,
+        art: typeof content["art"] === "string" ? content["art"].slice(0, 300) : "",
+        lines: socketLines,
+      };
+    }).filter((content): content is D2SocketedContent => !!content).slice(0, 6)
+    : [];
   return {
     id: value["id"].slice(0, 100),
     name,
@@ -25470,6 +26183,8 @@ function sanitizeInventoryItem(value: unknown): D2InventoryItem | null {
     ...(requiredLevel ? { requiredLevel } : {}),
     ...(setName ? { setName } : {}),
     ...(sockets ? { sockets } : {}),
+    ...(typeof value["runeword"] === "string" && value["runeword"].trim() ? { runeword: value["runeword"].slice(0, 80) } : {}),
+    ...(socketed.length ? { socketed } : {}),
     ...(procs?.length ? { procs } : {}),
     desc: legacyBarbarianThrowingAxe
       ? "A throwing axe balanced for dual combat."
@@ -25484,7 +26199,7 @@ function sanitizeInventoryItem(value: unknown): D2InventoryItem | null {
 }
 
 type BeltQuality = "normal" | "exceptional" | "elite";
-type EquipmentType = "weapon" | "wand" | "claw" | "orb" | "jewel" | "helmet" | "barbarianHelm" | "druidPelt" | "body" | "shield" | "paladinShield" | "necromancerHead" | "gloves" | "boots" | "belt" | "ring" | "amulet" | "charm";
+type EquipmentType = "weapon" | "wand" | "claw" | "orb" | "gem" | "jewel" | "rune" | "helmet" | "barbarianHelm" | "druidPelt" | "body" | "shield" | "paladinShield" | "necromancerHead" | "gloves" | "boots" | "belt" | "ring" | "amulet" | "charm";
 type PaperdollSlot = "weapon" | "helmet" | "shield" | "ringLeft" | "amulet" | "ringRight" | "gloves" | "body" | "boots" | "belt";
 type D2PreviewStat = "strength" | "dexterity" | "vitality" | "energy" | "damage" | "defense" | "life" | "mana";
 
@@ -25850,12 +26565,20 @@ const ENEMY_SOURCE_PIXEL_SCALE = 0.8;
  * receive a 1.45 species factor, so 122 source pixels preserves that exact
  * on-screen height (14 * 4.8 * 1.45 / 0.8 = 121.8) after the flat-scale
  * refactor. Without it the minotaur shrinks to the size of the Blood Lord.
+ *
+ * The leaper is the second exception, in the other direction. monstats2 lists
+ * 96 pixels for sandleaper1, but that is the height of the whole hop
+ * silhouette: the creature is as wide as it is tall and only the raised tail
+ * and hind legs reach the top of the frame. Every cel here is scaled by its
+ * content height, so 96 made it stand both taller and wider than the hero.
+ * 64 puts a leaper just under the hero's height, which is the size it has
+ * beside the player in Diablo II.
  */
 const ENEMY_D2_PIX_HEIGHTS: Partial<Record<EnemySpecies, number>> = {
   fallen: 64, goatman: 96, skeleton: 80, skeletonWarrior: 80,
   skeletalMageCold: 80, skeletalMageFire: 80, skeletalMageLightning: 80, skeletalMagePoison: 80,
   golem: 96, sandRaider: 96, sandMaggot: 48, sandMaggotYoung: 32, sandMaggotQueen: 48, maggotEgg: 32,
-  scarab: 80, spiderDemon: 96, spikeFiend: 48, leaper: 96, blunderbore: 112,
+  scarab: 80, spiderDemon: 96, spikeFiend: 48, leaper: 64, blunderbore: 112,
   fetish: 48, boneFetish: 48, fetishShaman: 64, council: 96, balrog: 96,
   vileChild: 48, vileMother: 96, bloodLord: 64, minotaur: 122, nihlathak: 80,
   painWorm: 48, regurgitator: 112, salamander: 80, siegeBeast: 128, deathMauler: 64, wendigo: 104,
@@ -26901,6 +27624,15 @@ interface FloatingText {
   life: number;
 }
 
+/** A gem or jewel set into one of an item's sockets. */
+interface D2SocketedContent {
+  name: string;
+  /** Inventory cel of the socketable, kept for the socket rows in the tooltip. */
+  art: string;
+  /** What it grants in this host, worded from the gem table / jewel affixes. */
+  lines: string[];
+}
+
 interface D2InventoryItem {
   id: string;
   name: string;
@@ -26916,6 +27648,10 @@ interface D2InventoryItem {
   requiredLevel?: number;
   setName?: string;
   sockets?: number;
+  /** Set once this base's sockets spell a completed runeword. */
+  runeword?: string;
+  /** Contents of the filled sockets, in the order they were set. */
+  socketed?: D2SocketedContent[];
   procs?: D2ItemProc[];
   desc: string;
   stats?: D2ItemStats;

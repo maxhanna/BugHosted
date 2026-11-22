@@ -963,22 +963,77 @@ interface HeldItem {
   celHeight: number;
   /** Base and magic name, used to pick the weapon family's length. */
   name: string;
+  /** Roll about the cel's normal that stands its own art upright, radians. */
+  celAxis?: number;
   /** Helper nodes between the anchor bone and the visual (shield_attach, attach
    *  bones). Several of them move every frame, so the transform is read fresh. */
   chainNodes?: THREE.Object3D[];
 }
 
+/**
+ * Weapons carried in the body frame at rest instead of following the fist:
+ * bows, crossbows and staves. A fist-following frame tipped them by whatever
+ * angle the relaxed wrist happened to sit at.
+ */
+function isCarriedUpright(name: string): boolean {
+  return /staff|bow|crossbow/i.test(name);
+}
+
+/** Cel-roll straightening for thrown weapons, which stay in the fist's tunnel. */
+function isThrownWeapon(name: string): boolean {
+  return /javelin/i.test(name);
+}
+
+/** Where a javelin bundle sits in the fist, in hand lengths. */
+const JAVELIN_FIST_PUSH = 0.34;
+const JAVELIN_PALM_OFFSET = 0.18;
+
+/** Roll that stands a carried cel's own art upright, in the cel's plane. */
+function carriedCelRoll(item: HeldItem): number {
+  if (!item.celAxis) return 0;
+  // A crossbow's long axis is its stock, which is carried flat, not on end.
+  return /crossbow/i.test(item.name) ? item.celAxis + Math.PI / 2 : item.celAxis;
+}
+
 /** Share of the hero's height one held cel should cover. Cels include padding. */
 function heldItemShare(item: HeldItem): number {
-  if (item.kind === "shield") return 0.22;
-  if (item.kind === "offhand") return 0.5;
   // Item names arrive capitalised ("Short Staff"), so every family test here
   // has to ignore case or the whole table collapses to the sword default.
-  if (/bow|crossbow/i.test(item.name)) return 0.8;
-  if (/staff|polearm|spear|pike/i.test(item.name)) return 0.9;
-  if (/javelin/i.test(item.name)) return 0.55;
-  if (/dagger|kris/i.test(item.name)) return 0.34;
-  return 0.55;
+  const name = item.name.toLowerCase();
+  // A cel is an inventory icon: its frame is the item's whole silhouette, so
+  // these shares are the item's real length against the body. Flat shares made
+  // every shield chest-to-hip while one-handed blades ran from knee to past
+  // the head, which read as the gear being scaled at random.
+  if (item.kind === "shield") {
+    if (/buckler|small|round/.test(name)) return 0.26;
+    if (/tower|large|pavise/.test(name)) return 0.46;
+    // Kite, gothic, heraldic and the paladin shields cover shoulder to hip.
+    return 0.4;
+  }
+  // An off-hand blade is the second half of a dual wield: it reads from the same
+  // family table as a main-hand weapon, a little smaller so the pair does not
+  // look like two full-sized weapons.
+  const offhandScale = item.kind === "offhand" ? 0.85 : 1;
+  // A short bow is a good third shorter than a long bow. One share for the whole
+  // family made the two identical on the hero, and both of them oversized.
+  if (/short bow/i.test(item.name)) return 0.52 * offhandScale;
+  // The crossbow cel is a wide, low stock: at a long bow's share it covered the
+  // whole portrait.
+  if (/crossbow/i.test(item.name)) return 0.5 * offhandScale;
+  if (/bow/i.test(item.name)) return 0.72 * offhandScale;
+  // A staff is carried upright beside the hero, so it stops short of the bows;
+  // polearms still hang on their full length.
+  if (/staff/i.test(item.name)) return 0.78 * offhandScale;
+  if (/polearm|spear|pike/i.test(item.name)) return 0.85 * offhandScale;
+  if (/javelin/i.test(item.name)) return 0.36 * offhandScale;
+  if (/dagger|kris/i.test(item.name)) return 0.17 * offhandScale;
+  // A hand axe is a one-handed hatchet, not a battle axe; it matches the axe
+  // test below, so it has to be named first.
+  if (/hand ?axe|hatchet/i.test(item.name)) return 0.3 * offhandScale;
+  if (/wand/i.test(item.name)) return 0.3 * offhandScale;
+  if (/orb/i.test(item.name)) return 0.24 * offhandScale;
+  if (/axe|mace|hammer|club|scepter/i.test(item.name)) return 0.4 * offhandScale;
+  return 0.42 * offhandScale;
 }
 
 function collectHeldItems(rig: CharacterRig): HeldItem[] {
@@ -997,7 +1052,7 @@ function collectHeldItems(rig: CharacterRig): HeldItem[] {
     if (child.userData?.["d2sHeldItem"]) mounted.push(child);
   });
   for (const child of mounted) {
-    const held = child.userData["d2sHeldItem"] as { kind?: string; celHeight?: number; name?: string };
+    const held = child.userData["d2sHeldItem"] as { kind?: string; celHeight?: number; name?: string; celAxis?: number };
     if (!held) continue;
     // Gear may hang off a helper node under the bone chain, so climb to the
     // nearest joint and remember the static transform in between.
@@ -1015,8 +1070,8 @@ function collectHeldItems(rig: CharacterRig): HeldItem[] {
       // build-time mount and floats beside the fist while the arm animates.
       anchor = bySatellite.get(node);
       if (anchor) {
-        // The mount hangs off the lower arm; a blade belongs in the fist, while
-        // a shield stays on the forearm so it can slide down the segment.
+        // The mount hangs off the lower arm; a blade belongs in the fist, and a
+        // shield keeps that anchor but is re-centred on the fist when placed.
         if (held.kind !== "shield") anchor = rig.hands.find((hand) => hand.side === anchor!.side) ?? anchor;
         anchor.bone.add(child);
         chainParts.length = 0;
@@ -1042,6 +1097,7 @@ function collectHeldItems(rig: CharacterRig): HeldItem[] {
       kind: held.kind === "shield" ? "shield" : held.kind === "offhand" ? "offhand" : "weapon",
       celHeight: typeof held.celHeight === "number" ? held.celHeight : 0,
       name: held.name ?? "",
+      celAxis: typeof held.celAxis === "number" ? held.celAxis : undefined,
       chainNodes: chainParts.length ? chainParts : undefined,
     });
   }
@@ -1416,14 +1472,11 @@ export function poseCharacterRig(rig: CharacterRig, state: CharacterPoseState): 
   const gait = state.gait;
   const walk = Math.max(0, Math.min(1, state.walk)) * motion;
   const phase = state.walkPhase;
-  // TEMP idle probe: 0 strips every idle term so the same frozen moment can be
-  // compared with and without the idle layer.
-  const idleGain = (globalThis as { __d2sIdleGain?: number }).__d2sIdleGain ?? 1;
-  const breathe = Math.sin(state.time * 1.7) * (1 - walk) * idleGain;
+  const breathe = Math.sin(state.time * 1.7) * (1 - walk);
   // Standing still is not a frozen pose: the idle weight shift runs on the
   // class's own slow cadence, so a resting hero breathes, drifts and settles
   // instead of holding the walk pose with every sway term multiplied by zero.
-  const idle = (1 - walk) * motion * idleGain;
+  const idle = (1 - walk) * motion;
   const idlePhase = state.time * gait.idleCadence;
   const idleSway = Math.sin(idlePhase) * idle;
   // A second, slower cycle rides under the weight shift so the hips, the chest
@@ -1782,7 +1835,12 @@ export function poseCharacterRig(rig: CharacterRig, state: CharacterPoseState): 
         ?? rig.hands.find((candidate) => candidate.side === item.anchor.side);
       const gripDelta = hand ? deltas.get(hand) : undefined;
       const gripAxis = hand?.gripAxis ?? item.anchor.gripAxis;
-      if (gripAxis && gripDelta) {
+      // Bows and staves are carried, not swung: they stand in the body's own
+      // frame. Following the relaxed fist laid them across the hero at whatever
+      // angle that wrist happened to sit, which read as a plank leaning on them.
+      if (isCarriedUpright(item.name)) {
+        up.set(0, 1, 0);
+      } else if (gripAxis && gripDelta) {
         up.copy(gripAxis).applyQuaternion(gripDelta).normalize();
         if (up.lengthSq() < 1e-6) up.set(0, 1, 0);
       } else {
@@ -1809,6 +1867,16 @@ export function poseCharacterRig(rig: CharacterRig, state: CharacterPoseState): 
     // against, so it turns with the body instead of the world.
     const targetWorldQuat = rootWorldQuat.multiply(worldFrame);
     item.visual.quaternion.copy(parentWorldQuat.invert().multiply(targetWorldQuat));
+    const carriedRoll = carriedCelRoll(item);
+    if (carriedRoll && (isCarriedUpright(item.name) || isThrownWeapon(item.name))) {
+      // The inventory art is drawn on the diagonal, so a bow or staff stood
+      // upright by its frame still leans across the hero like a plank. Roll the
+      // cel until its own long axis lines up with the frame - or, for a javelin,
+      // with the fist's grip tunnel, which is where its shaft has to run.
+      item.visual.quaternion.multiply(
+        new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), carriedRoll),
+      );
+    }
 
     const boneScale = item.anchor.worldScale
       ?? new THREE.Vector3(item.anchor.bone.scale.x || 1, item.anchor.bone.scale.y || 1, item.anchor.bone.scale.z || 1);
@@ -1853,9 +1921,28 @@ export function poseCharacterRig(rig: CharacterRig, state: CharacterPoseState): 
       const bodyUp = up.clone().applyQuaternion(rootWorldQuat);
       const outboard = new THREE.Vector3(item.anchor.side > 0 ? 1 : -1, 0, 0)
         .applyQuaternion(rootWorldQuat);
-      // Enough for the knuckles to sit behind the face, which is what stops the
-      // fist showing through the middle of the cel.
-      const clearance = Math.max(body * 0.034, handUnits * 1.6);
+      // The fist has to sit behind the face, otherwise the fingers show through
+      // the cel. Measure how far the fingertips actually reach: hand length
+      // varies wildly between rips, so a fixed multiple of it left some classes
+      // poking through by a unit or more.
+      //
+      // Measure that reach out of the palm rather than along the body's front:
+      // the fingertips sit at a fixed offset in the hand's own frame, so the
+      // extent is the same pose after pose, while a front projection pumps as
+      // the idle sway turns the wrist and slid the face a third of a unit
+      // toward and away from the camera.
+      const handJoint = hand ?? forearm ?? item.anchor;
+      const palmWorld = hand?.palmNormal
+        ? hand.palmNormal.clone().applyQuaternion(hand.bone.getWorldQuaternion(new THREE.Quaternion())).normalize()
+        : null;
+      let tipReach = handUnits * 1.6;
+      for (const satellite of rig.satellites) {
+        if (satellite.follow !== handJoint) continue;
+        const offset = satellite.bone.getWorldPosition(new THREE.Vector3()).sub(fist);
+        const reach = palmWorld ? -offset.dot(palmWorld) : offset.dot(front);
+        if (Number.isFinite(reach)) tipReach = Math.max(tipReach, reach);
+      }
+      const clearance = Math.max(body * 0.034, tipReach + body * 0.006);
       const center = fist.clone()
         .addScaledVector(outboard, body * 0.012)
         .addScaledVector(bodyUp, body * 0.02)
@@ -1868,10 +1955,32 @@ export function poseCharacterRig(rig: CharacterRig, state: CharacterPoseState): 
     // riding the mount leaves the cel in front of the fingers on one class and
     // behind them on another; the posed palm replaces that offset.
     const handUnits = (item.anchor.handLength ?? 0) * (rig.unitScale || 1);
-    const push = Math.max(body * 0.014, handUnits * 0.45);
+    // A javelin bundle is gripped at its binding, so its cel has to sit in the
+    // palm. Standing it the usual fraction of a fist forward of the wrist left
+    // the fist hidden behind the shafts, which read as the pack hovering beside
+    // the hand rather than being carried in it.
+    const thrown = isThrownWeapon(item.name);
+    const tune = thrown
+      ? (globalThis as { __d2JavelinTune?: { push?: number; palm?: number; front?: number; scale?: number } }).__d2JavelinTune
+      : undefined;
+    const push = thrown
+      ? handUnits * (tune?.push ?? JAVELIN_FIST_PUSH)
+      : Math.max(body * 0.014, handUnits * 0.45);
     const gripDir = (item.anchor.fingerDir ?? new THREE.Vector3(0, -1, 0))
       .clone().applyQuaternion(delta).applyQuaternion(rootWorldQuat).normalize();
     const target = item.anchor.bone.getWorldPosition(new THREE.Vector3()).addScaledVector(gripDir, push);
+    if (thrown) {
+      // A curled fist closes on the palm side of the hand, so a bundle hung on
+      // the knuckle side sat beside the fingers with nothing crossing them. Ride
+      // the palm side instead: the shafts pass through the finger tunnel and the
+      // curled fingers close over them, which is what reads as carried.
+      const palmDir = item.anchor.palmNormal
+        ?.clone().applyQuaternion(delta).applyQuaternion(rootWorldQuat).normalize();
+      if (palmDir) target.addScaledVector(palmDir, handUnits * (tune?.palm ?? JAVELIN_PALM_OFFSET));
+      const frontDir = FORWARD.clone().applyQuaternion(rootWorldQuat).normalize();
+      target.addScaledVector(frontDir, handUnits * (tune?.front ?? 0));
+      if (tune?.scale) item.visual.scale.multiplyScalar(tune.scale);
+    }
     item.visual.position.copy(target.applyMatrix4(parentInverse));
   };
   for (const item of heldItems) placeHeld(item);
@@ -1901,7 +2010,10 @@ export function poseCharacterRig(rig: CharacterRig, state: CharacterPoseState): 
   // Weapon/shield anchors can be satellite bones, whose transform the loop above
   // rewrites, so anything hung on one is placed again once they have settled.
   for (const item of heldItems) {
-    const onSatellite = rig.satellites.some((satellite) => satellite.bone === item.anchor.bone)
+    // Shields also need this pass: their clearance is measured from the posed
+    // fingertips, which are only written by the loop above.
+    const onSatellite = item.kind === "shield"
+      || rig.satellites.some((satellite) => satellite.bone === item.anchor.bone)
       || item.chainNodes?.some((node) => rig.satellites.some((satellite) => satellite.bone === node));
     if (onSatellite) placeHeld(item);
   }
