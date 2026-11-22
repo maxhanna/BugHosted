@@ -23144,6 +23144,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const shield = new THREE.Group();
     shield.name = `equipped_shield_${getEquipmentType(shieldItem)}`;
     shield.scale.setScalar(1.15);
+    shield.userData["d2sHeldItem"] = {
+      kind: "shield",
+      name: `${shieldItem.baseName ?? ""} ${shieldItem.name}`.trim(),
+    };
     shieldAnchor.add(shield);
     // Assign before the art request so a cached shield cel can build the Holy
     // Shield overlay in the same call.
@@ -23406,6 +23410,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const weapon = new THREE.Group();
     weapon.name = handName === "weapon" ? `equipped_weapon_${type}` : `equipped_weapon_offhand_${type}`;
     weapon.scale.setScalar(1.55);
+    // Tagged so the rig can solve the cel into the posed fist every frame.
+    weapon.userData["d2sHeldItem"] = {
+      kind: handName === "offhand" ? "offhand" : "weapon",
+      name: `${item.baseName ?? ""} ${item.name}`.trim(),
+    };
     hand.add(weapon);
     this.orientWeaponInHand(weapon, hand, handName);
     this.attachHeldItemArt(weapon, item, "weapon");
@@ -23462,6 +23471,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     // 111px Short Sword becomes a 54 unit blade on the 72 unit character.
     const height = Math.min(0.02, Math.max(0.002, kind === "shield" ? artHeight / 8000 : artHeight / 11000));
     const width = height * (artWidth / artHeight);
+    // The rig sizes this cel from the character height using its own height.
+    const held = visual.userData["d2sHeldItem"] as { kind?: string; name?: string } | undefined;
+    visual.userData["d2sHeldItem"] = {
+      kind: held?.kind ?? (kind === "shield" ? "shield" : "weapon"),
+      name: held?.name ?? `${item.baseName ?? ""} ${item.name}`.trim(),
+      celHeight: height,
+    };
     const type = getEquipmentType(item);
     const heldName = `${item.baseName ?? ""} ${item.name}`.toLowerCase();
     const grip = kind === "shield" || type === "orb" ? 0.5

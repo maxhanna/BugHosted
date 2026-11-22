@@ -209,8 +209,10 @@ const CLASS_IDLE: Record<string, IdlePose> = {
     chestYaw: 4, chestPitch: -1, pelvisYaw: -3, headYaw: -4, legSpread: 6.5, crouch: -0.005,
   },
   assassin: {
-    lead: { out: 54, forward: 6, elevation: -68, elbow: 34, wristFlex: 12, wristRoll: 70 },
-    off: { out: 52, forward: 10, elevation: -65, elbow: 42, wristFlex: 14, wristRoll: 74 },
+    // Both hands rest by the hips: a raised, open palm reads as a gesture, not
+    // an idle, and leaves the wrists looking stiff.
+    lead: { out: 48, forward: 6, elevation: -70, elbow: 22, wristFlex: 12, wristRoll: 70 },
+    off: { out: 44, forward: 8, elevation: -70, elbow: 19, wristFlex: 14, wristRoll: 74 },
     chestYaw: -5, chestPitch: 2, pelvisYaw: 3, headYaw: 3, legSpread: 2.5, crouch: -0.012,
   },
   barbarian: {
@@ -219,18 +221,21 @@ const CLASS_IDLE: Record<string, IdlePose> = {
     chestYaw: 0, chestPitch: -3, pelvisYaw: 0, headYaw: 0, legSpread: 6, crouch: 0,
   },
   druid: {
-    lead: { out: 57, forward: 2, elevation: -71, elbow: 24, wristFlex: 6, wristRoll: 64 },
-    off: { out: 55, forward: 9, elevation: -64, elbow: 44, wristFlex: 8, wristRoll: 70 },
+    lead: { out: 52, forward: 2, elevation: -71, elbow: 20, wristFlex: 6, wristRoll: 64 },
+    off: { out: 46, forward: 7, elevation: -70, elbow: 19, wristFlex: 8, wristRoll: 70 },
     chestYaw: 4, chestPitch: 0, pelvisYaw: -2, headYaw: 4, legSpread: 3.5, crouch: -0.004,
   },
   necromancer: {
-    lead: { out: 44, forward: 13, elevation: -60, elbow: 48, wristFlex: 18, wristRoll: 68 },
-    off: { out: 46, forward: 16, elevation: -58, elbow: 56, wristFlex: 20, wristRoll: 74 },
+    // The hunched, hands-up-at-the-belly cast stance read as frozen. Both arms
+    // drop so the hands sit just below the belt, with the lead hand a little
+    // forward and the off hand at the hip.
+    lead: { out: 42, forward: 12, elevation: -66, elbow: 24, wristFlex: 18, wristRoll: 68 },
+    off: { out: 44, forward: 14, elevation: -68, elbow: 22, wristFlex: 20, wristRoll: 74 },
     chestYaw: -7, chestPitch: 4, pelvisYaw: 3, headYaw: -5, legSpread: 2, crouch: -0.008,
   },
   paladin: {
-    lead: { out: 62, forward: 0, elevation: -73, elbow: 12, wristFlex: 4, wristRoll: 62 },
-    off: { out: 56, forward: 8, elevation: -64, elbow: 36, wristFlex: 6, wristRoll: 68 },
+    lead: { out: 56, forward: 0, elevation: -73, elbow: 15, wristFlex: 4, wristRoll: 62 },
+    off: { out: 48, forward: 6, elevation: -70, elbow: 18, wristFlex: 6, wristRoll: 68 },
     chestYaw: 3, chestPitch: -2, pelvisYaw: -2, headYaw: 1, legSpread: 3.5, crouch: 0,
   },
   sorceress: {
@@ -265,6 +270,17 @@ export interface RigJoint {
   /** Hands only: twist between the hand's and the forearm's bind frames, radians.
    *  Several rigs are bound with the palm turned a quarter turn off the arm. */
   palmTwist?: number;
+  /** Hands only: bind-space palm normal, pointing out of the palm. */
+  palmNormal?: THREE.Vector3;
+  /** Hands only: bind-space fist tunnel, from the little finger toward the
+   *  thumb. A held weapon's shaft runs along this axis. */
+  gripAxis?: THREE.Vector3;
+  /** Hands only: wrist-to-knuckle distance in bind units. */
+  handLength?: number;
+  /** World units per unit of this bone's local space. Gear mounted on the bone
+   *  is sized and placed through this, because the rips bake wild scales into
+   *  the joints (one hand can carry 6000x, another 2600x). */
+  worldScale?: THREE.Vector3;
   /** Hands only: the bind pose has the fingers fanned open and needs relaxing. */
   splayedFingers?: boolean;
 }
@@ -318,6 +334,8 @@ export interface CharacterRig {
   weaponMount?: StockWeaponMount;
   /** Model-space scale that maps bind units to world units. */
   unitScale: number;
+  /** Character height in scene units, used to size held gear to the body. */
+  worldHeight?: number;
   /** Character height in bind units, used to size body offsets. */
   bindHeight: number;
 }
@@ -831,6 +849,21 @@ function directionBetween(from: THREE.Vector3, to: THREE.Vector3): THREE.Vector3
 }
 
 /**
+ * Rotation whose local +Y and +Z axes land on the two given directions. Used
+ * to move a bind-pose hand frame (fingers, palm) onto a posed frame without
+ * guessing Euler angles per class.
+ */
+function frameQuaternion(yAxis: THREE.Vector3, zAxis: THREE.Vector3): THREE.Quaternion {
+  const y = yAxis.clone().normalize();
+  const z = zAxis.clone().addScaledVector(y, -zAxis.dot(y));
+  if (z.lengthSq() < 1e-10) z.set(0, 0, 1).addScaledVector(y, -y.z);
+  if (z.lengthSq() < 1e-10) z.set(1, 0, 0).addScaledVector(y, -y.x);
+  z.normalize();
+  const x = new THREE.Vector3().crossVectors(y, z).normalize();
+  return new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(x, y, z));
+}
+
+/**
  * Twist between the hand's bind frame and the forearm's, around the knuckle
  * axis. A T-pose wrist usually lines up with its forearm, but several rips are
  * bound with the hand turned a quarter turn, which leaves the palm facing the
@@ -859,7 +892,9 @@ function fingerCurl(joint: RigJoint, name: string): number {
   if (!joint.splayedFingers) return 0;
   const fanned = /(?:^|_)(finger|thumb)_[a-d]_([abc])$/.exec(name);
   const chained = /(?:^|_)(?:finger|thumb)_0?([1-4])_/.exec(name);
-  const segment = fanned ? fanned[2] : chained?.[1];
+  // Assassin digit chains read `hand_<digit>_01_R_JNT`.
+  const assassin = /(?:^|_)hand_(?:index|middle|ring|pinky|thumb)_0?([1-3])_/i.exec(name);
+  const segment = fanned ? fanned[2] : chained?.[1] ?? assassin?.[1];
   if (!segment) return 0;
   const amount = FINGER_CURL[segment] ?? 0;
   const bend = /thumb|tmb/.test(name) ? amount * 0.4 : amount;
@@ -917,6 +952,100 @@ function findStockWeaponMount(model: THREE.Group): StockWeaponMount | undefined 
     mount = { bone, mesh, axis: axis.clone(), target: new THREE.Vector3(0, 1, 0.22).normalize() };
   });
   return mount;
+}
+
+/** Gear the component mounted on a bone: equipped weapon, off-hand blade or shield. */
+interface HeldItem {
+  visual: THREE.Object3D;
+  anchor: RigJoint;
+  kind: "weapon" | "offhand" | "shield";
+  /** Height of the item's cel in its own units, used to size it to the body. */
+  celHeight: number;
+  /** Base and magic name, used to pick the weapon family's length. */
+  name: string;
+  /** Helper nodes between the anchor bone and the visual (shield_attach, attach
+   *  bones). Several of them move every frame, so the transform is read fresh. */
+  chainNodes?: THREE.Object3D[];
+}
+
+/** Share of the hero's height one held cel should cover. Cels include padding. */
+function heldItemShare(item: HeldItem): number {
+  if (item.kind === "shield") return 0.22;
+  if (item.kind === "offhand") return 0.5;
+  // Item names arrive capitalised ("Short Staff"), so every family test here
+  // has to ignore case or the whole table collapses to the sword default.
+  if (/bow|crossbow/i.test(item.name)) return 0.8;
+  if (/staff|polearm|spear|pike/i.test(item.name)) return 0.9;
+  if (/javelin/i.test(item.name)) return 0.55;
+  if (/dagger|kris/i.test(item.name)) return 0.34;
+  return 0.55;
+}
+
+function collectHeldItems(rig: CharacterRig): HeldItem[] {
+  const items: HeldItem[] = [];
+  const byBone = new Map<THREE.Object3D, RigJoint>();
+  for (const joint of rig.joints) byBone.set(joint.bone, joint);
+  const bySatellite = new Map<THREE.Object3D, RigJoint>();
+  for (const satellite of rig.satellites) bySatellite.set(satellite.bone, satellite.follow);
+  let root: THREE.Object3D | null = rig.joints[0]?.bone ?? rig.pelvis?.bone ?? null;
+  while (root?.parent) root = root.parent;
+  if (!root) return items;
+  // Collect before touching the hierarchy: moving a cel onto its bone inside
+  // the traversal would let three.js visit the moved subtree a second time.
+  const mounted: THREE.Object3D[] = [];
+  root.traverse((child) => {
+    if (child.userData?.["d2sHeldItem"]) mounted.push(child);
+  });
+  for (const child of mounted) {
+    const held = child.userData["d2sHeldItem"] as { kind?: string; celHeight?: number; name?: string };
+    if (!held) continue;
+    // Gear may hang off a helper node under the bone chain, so climb to the
+    // nearest joint and remember the static transform in between.
+    const chainParts: THREE.Object3D[] = [];
+    let node = child.parent;
+    while (node && !byBone.has(node) && !bySatellite.has(node)) {
+      chainParts.unshift(node);
+      node = node.parent;
+    }
+    let anchor = node ? byBone.get(node) : undefined;
+    if (!anchor && node) {
+      // `R_weapon_attach` and `shield_attach` are pulled out of the skeleton
+      // onto the pose root and driven from their bone, so the cel no longer has
+      // a joint above it. Hang it on that bone instead; otherwise it keeps its
+      // build-time mount and floats beside the fist while the arm animates.
+      anchor = bySatellite.get(node);
+      if (anchor) {
+        // The mount hangs off the lower arm; a blade belongs in the fist, while
+        // a shield stays on the forearm so it can slide down the segment.
+        if (held.kind !== "shield") anchor = rig.hands.find((hand) => hand.side === anchor!.side) ?? anchor;
+        anchor.bone.add(child);
+        chainParts.length = 0;
+      }
+    }
+    if (!anchor) {
+      // Some rips hang the shield off a plain group instead of a bone, so the
+      // climb finds no joint and the cel is left on its build-time mount beside
+      // the body. Strap those onto the off forearm, where a shield belongs.
+      const fallback = held.kind === "shield"
+        ? rig.forearms.find((entry) => entry.side === 1) ?? rig.hands.find((entry) => entry.side === 1)
+        : rig.hands.find((entry) => entry.side === -1);
+      if (fallback) {
+        anchor = fallback;
+        fallback.bone.add(child);
+        chainParts.length = 0;
+      }
+    }
+    if (!anchor) continue;
+    items.push({
+      visual: child,
+      anchor,
+      kind: held.kind === "shield" ? "shield" : held.kind === "offhand" ? "offhand" : "weapon",
+      celHeight: typeof held.celHeight === "number" ? held.celHeight : 0,
+      name: held.name ?? "",
+      chainNodes: chainParts.length ? chainParts : undefined,
+    });
+  }
+  return items;
 }
 
 function pickOnePerSide(
@@ -1078,17 +1207,22 @@ export function buildCharacterRig(model: THREE.Group, classId: string): Characte
   // fingers, so aiming the bone at the forearm leaves the fingers splayed
   // sideways. Record the actual wrist-to-knuckle direction for empty hands.
   for (const hand of hands) {
-    // Finger roots are authored as `*_finger_01_*` on Paladin/Amazon/Druid rigs
-    // but as `*_finger_A_A` on Barbarian/Sorceress/Necromancer rigs. Match the
-    // first bone of either chain, otherwise the free hand has no knuckle
-    // direction and gets aimed by an arbitrary wrist axis.
+    // Finger roots are authored as `*_finger_01_*` on Paladin/Amazon/Druid rigs,
+    // as `*_finger_A_A` on Barbarian/Sorceress/Necromancer rigs and as
+    // `hand_<digit>_01_R_JNT` on the Assassin. Match the first bone of any of
+    // those chains, otherwise the free hand has no knuckle direction and gets
+    // aimed by an arbitrary wrist axis.
     const fingerRoots = [...records.values()].filter((record) => record.side === hand.side
-      && (/(?:^|_)finger_0?1(?:_|$)/.test(record.name) || /(?:^|_)(?:finger_[a-d]|thumb)_a$/.test(record.name)));
+      && (/(?:^|_)finger_0?1(?:_|$)/.test(record.name)
+        || /(?:^|_)(?:finger_[a-d]|thumb)_a$/.test(record.name)
+        || /(?:^|_)hand_(?:index|middle|ring|pinky|thumb)_0?1(?:_|$)/i.test(record.name)));
     if (fingerRoots.length) {
       // The A/B/C rigs ship the fingers fanned wide in their bind pose, so they
       // need a light curl at rest; the older bind poses already have closed hands.
       hand.splayedFingers = fingerRoots.some((record) => /(?:^|_)finger_[a-d]_a$/.test(record.name))
-        || (classId === "amazon" && fingerRoots.some((record) => /_finger_0?1(?:_|$)/.test(record.name)));
+        || (["amazon", "druid"].includes(classId) && fingerRoots.some((record) => /_finger_0?1(?:_|$)/.test(record.name)))
+        // The Assassin binds every digit fanned straight out, like the A/B/C rigs.
+        || fingerRoots.some((record) => /(?:^|_)hand_(?:index|middle|ring|pinky|thumb)_0?1(?:_|$)/i.test(record.name));
       const rootCenter = new THREE.Vector3();
       for (const root of fingerRoots) rootCenter.add(root.bindPos);
       rootCenter.divideScalar(fingerRoots.length);
@@ -1096,6 +1230,38 @@ export function buildCharacterRig(model: THREE.Group, classId: string): Characte
       // usable direction; those hands keep the fallback wrist alignment.
       if (hand.bindPos.distanceTo(rootCenter) >= bindHeight * 0.004) {
         hand.fingerDir = directionBetween(hand.bindPos, rootCenter);
+      }
+      // The knuckle line and the palm normal turn the hand into a real grip
+      // frame: a held weapon's shaft runs along the first, the free palm faces
+      // along the second. Both come from the finger roots, so every rig gets
+      // its own axes instead of a hand-tuned wrist roll.
+      const fingers = fingerRoots.filter((record) => !/thumb/.test(record.name));
+      if (fingers.length >= 2 && hand.fingerDir) {
+        const digit = (record: BoneRecord): number => {
+          const numbered = /finger_0?([1-4])(?:_|$)/.exec(record.name);
+          if (numbered) return Number(numbered[1]);
+          const letter = /finger_([a-d])(?:_|$)/.exec(record.name);
+          if (letter) return "abcd".indexOf(letter[1]) + 1;
+          // Assassin digits are spelled out, thumb last so it sorts off the end.
+          const named = /(?:^|_)hand_(index|middle|ring|pinky|thumb)_0?\d/i.exec(record.name);
+          if (named) return ({"index": 1, "middle": 2, "ring": 3, "pinky": 4, "thumb": 5} as Record<string, number>)[named[1].toLowerCase()] ?? 99;
+          return 99;
+        };
+        const ordered = [...fingers].sort((a, b) => digit(a) - digit(b));
+        const across = ordered[ordered.length - 1].bindPos.clone().sub(ordered[0].bindPos);
+        if (across.lengthSq() > 1e-10) {
+          across.normalize();
+          const normal = new THREE.Vector3().crossVectors(hand.fingerDir, across).normalize();
+          // These rips bind in a T-pose with the palms facing the floor, which
+          // fixes the handedness of the derived frame on both arms.
+          if (normal.y > 0) {
+            across.negate();
+            normal.negate();
+          }
+          hand.palmNormal = normal;
+          hand.gripAxis = across.clone().negate();
+          hand.handLength = hand.bindPos.distanceTo(rootCenter);
+        }
       }
     }
     const forearm = forearms.find((entry) => entry.side === hand.side);
@@ -1228,6 +1394,12 @@ export function buildCharacterRig(model: THREE.Group, classId: string): Characte
     mesh.bind(mesh.skeleton, mesh.matrixWorld);
   });
 
+  const worldHeight = new THREE.Box3().setFromObject(model).getSize(new THREE.Vector3()).y;
+  rig.worldHeight = Number.isFinite(worldHeight) && worldHeight > 0 ? worldHeight : undefined;
+  for (const joint of joints) {
+    joint.worldScale = joint.bone.getWorldScale(new THREE.Vector3());
+  }
+
   return rig;
 }
 
@@ -1255,6 +1427,12 @@ export function poseCharacterRig(rig: CharacterRig, state: CharacterPoseState): 
   const idlePose = idleForClass(rig.classId);
   const weaponless = state.weaponless === true;
   const offhandHeld = state.offhandHeld === true;
+  // Gear mounted on a bone by the component, solved into the posed hand below.
+  const heldItems = collectHeldItems(rig);
+  const heldWeapon = heldItems.find((item) => item.kind !== "shield");
+  const weaponHand = heldWeapon
+    ? rig.hands.find((hand) => hand.side === heldWeapon.anchor.side) ?? heldWeapon.anchor
+    : undefined;
 
   const attackActive = !!state.attackStyle && state.attackTime < ATTACK_CLIP_INFO[state.attackStyle].duration;
   const clip = state.attackStyle ? ATTACK_CLIPS[state.attackStyle] : undefined;
@@ -1298,6 +1476,17 @@ export function poseCharacterRig(rig: CharacterRig, state: CharacterPoseState): 
     const align = new THREE.Quaternion().setFromUnitVectors(bindDirection, direction);
     if (twist) align.premultiply(new THREE.Quaternion().setFromAxisAngle(direction, twist));
     const rotation = align.multiply(joint.bindQuat.clone());
+    orientations.set(joint, rotation);
+    deltas.set(joint, rotation.clone().multiply(joint.bindQuat.clone().invert()));
+  };
+
+  // Place a hand from its own bind grip frame: `axis` is the bind direction a
+  // held weapon runs along (or the fingers, for an empty hand), `up` is where
+  // that direction should point now and `palm` is where the palm should face.
+  const setHandFrame = (joint: RigJoint, axis: THREE.Vector3, up: THREE.Vector3, palm: THREE.Vector3): void => {
+    const bindFrame = frameQuaternion(axis, joint.palmNormal ?? palm);
+    const worldFrame = frameQuaternion(up, palm);
+    const rotation = worldFrame.multiply(bindFrame.invert()).multiply(joint.bindQuat.clone());
     orientations.set(joint, rotation);
     deltas.set(joint, rotation.clone().multiply(joint.bindQuat.clone().invert()));
   };
@@ -1424,15 +1613,25 @@ export function poseCharacterRig(rig: CharacterRig, state: CharacterPoseState): 
     const wristFlex = naturalHand ? idleArm.wristFlex : 15;
     const wristRoll = naturalHand ? idleArm.wristRoll : 14;
     const handDir = flex(forearmDir, wristFlex + idleWrist);
-    if (naturalHand && hand.fingerDir) {
-      // Align the knuckles, not the wrist bone, so the fingers continue the
-      // forearm and the empty hand hangs naturally instead of sticking out.
-      // Cancel the rig's own bind twist too, so classes bound with the palm a
-      // quarter turn off the arm still keep the palm against the thigh.
+    const palmTarget = new THREE.Vector3(-hand.side, 0, 0);
+    if (weaponHand === hand && hand.gripAxis && hand.palmNormal) {
+      // A held weapon runs down the fist tunnel, so the knuckles face the blade.
+      // Aim that tunnel up the arm (the way a sword is carried at rest) and turn
+      // the palm at the body; the mounted cel is placed in this same frame, so
+      // it stays inside the grip through every swing.
+      const blade = forearmDir.clone().negate();
+      blade.z += 0.3;
+      blade.y += 0.05;
+      blade.normalize();
+      setHandFrame(hand, hand.gripAxis, blade, palmTarget);
+    } else if (naturalHand && hand.fingerDir && hand.palmNormal) {
+      // Fingers continue the forearm and the palm faces the thigh. Using the
+      // rig's own palm normal removes the per-class wrist-roll guesses.
+      setHandFrame(hand, hand.fingerDir, handDir, palmTarget);
+    } else if (naturalHand && hand.fingerDir) {
       const roll = hand.side * wristRoll * DEG - (hand.palmTwist ?? 0);
       setWorldDirectionFromBind(hand, hand.fingerDir, handDir, roll);
     } else {
-      // The weapon hand keeps its authored grip so mounted weapons stay aligned.
       setWorldDirection(hand, handDir, hand.side * wristRoll);
     }
   }
@@ -1525,6 +1724,131 @@ export function poseCharacterRig(rig: CharacterRig, state: CharacterPoseState): 
     }
   }
 
+  // ---- mounted gear ------------------------------------------------------
+  // Equipped weapons and shields are flat cels parented to a bone. Place them
+  // in the posed fist every frame: grip in the palm, shaft along the fist
+  // tunnel, flat turned toward the camera, and sized from the character height
+  // instead of whatever scale the bone chain happens to carry.
+  const placeHeld = (item: HeldItem): void => {
+    const parent = item.visual.parent;
+    if (!parent) return;
+    const celHeight = item.celHeight > 0 ? item.celHeight : 0.006;
+    const body = rig.worldHeight ?? rig.bindHeight;
+    const delta = deltas.get(item.anchor) ?? new THREE.Quaternion();
+    const up = new THREE.Vector3(0, 1, 0);
+    // The body's own lateral and front axes, so a shield turns with the
+    // character instead of always facing down the world's forward axis. The two
+    // elbows span the shoulder line; rotating that into the ground plane gives
+    // the front, the same +Z every rip binds its held cels against.
+    const leftElbowObject = rig.forearms.find((entry) => entry.side === 1)?.bone;
+    const rightElbowObject = rig.forearms.find((entry) => entry.side === -1)?.bone;
+    const bodyLateral = leftElbowObject && rightElbowObject
+      ? leftElbowObject.getWorldPosition(new THREE.Vector3()).sub(rightElbowObject.getWorldPosition(new THREE.Vector3()))
+      : new THREE.Vector3(1, 0, 0);
+    if (bodyLateral.lengthSq() < 1e-8) bodyLateral.set(1, 0, 0);
+    bodyLateral.normalize();
+    const bodyForward = new THREE.Vector3().crossVectors(bodyLateral, up);
+    if (bodyForward.lengthSq() < 1e-8) bodyForward.copy(FORWARD);
+    bodyForward.normalize();
+    if (item.kind !== "shield") {
+      // Follow the fist: the hand is posed holding the blade along its grip
+      // axis, so the cel has to leave the fist in that same direction.
+      const hand = (item.anchor.gripAxis ? item.anchor : undefined)
+        ?? rig.hands.find((candidate) => candidate.side === item.anchor.side);
+      const gripDelta = hand ? deltas.get(hand) : undefined;
+      const gripAxis = hand?.gripAxis ?? item.anchor.gripAxis;
+      if (gripAxis && gripDelta) {
+        up.copy(gripAxis).applyQuaternion(gripDelta).normalize();
+        if (up.lengthSq() < 1e-6) up.set(0, 1, 0);
+      } else {
+        const forearmDir = forearmDirs.get(item.anchor.side);
+        if (forearmDir) {
+          up.copy(forearmDir).negate();
+          up.z += 0.3;
+          up.y += 0.05;
+          up.normalize();
+        }
+      }
+    }
+    const worldFrame = item.kind === "shield" ? frameQuaternion(up, bodyForward) : frameQuaternion(up, FORWARD);
+
+    // Where the cel actually hangs from is only known once the helper nodes and
+    // satellites have been written, so the flat is derived from the real parent
+    // rotation (one frame old at worst) instead of guessing the chain.
+    let rootObject: THREE.Object3D = parent;
+    while (rootObject.parent) rootObject = rootObject.parent;
+    const parentWorldQuat = parent.getWorldQuaternion(new THREE.Quaternion());
+    const rootWorldQuat = rootObject.getWorldQuaternion(new THREE.Quaternion());
+    // A shield's frame is already expressed in world axes (upright, facing where
+    // the body faces); a weapon's is built in the rig's own space.
+    const targetWorldQuat = item.kind === "shield" ? worldFrame : rootWorldQuat.multiply(worldFrame);
+    item.visual.quaternion.copy(parentWorldQuat.invert().multiply(targetWorldQuat));
+
+    const boneScale = item.anchor.worldScale
+      ?? new THREE.Vector3(item.anchor.bone.scale.x || 1, item.anchor.bone.scale.y || 1, item.anchor.bone.scale.z || 1);
+    const chainScale = new THREE.Vector3(1, 1, 1);
+    let chainMatrix: THREE.Matrix4 | undefined;
+    if (item.chainNodes?.length) {
+      chainMatrix = new THREE.Matrix4();
+      for (const node of item.chainNodes) {
+        node.updateMatrix();
+        chainMatrix.multiply(node.matrix);
+      }
+      const chainPosition = new THREE.Vector3();
+      const chainQuat = new THREE.Quaternion();
+      chainMatrix.decompose(chainPosition, chainQuat, chainScale);
+    }
+    // The bone chain carries wildly non-uniform scales. Compensating per axis
+    // shears the cel into a sliver once those axes are also rotated, so divide
+    // by one representative scalar and keep the cel's own aspect intact.
+    const axes = [boneScale.x * chainScale.x, boneScale.y * chainScale.y, boneScale.z * chainScale.z]
+      .map((value) => Math.abs(value) || 1)
+      .sort((a, b) => a - b);
+    const localPerWorld = axes[1];
+    item.visual.scale.setScalar((body * heldItemShare(item)) / (celHeight * localPerWorld));
+
+    parent.updateWorldMatrix(true, false);
+    const parentInverse = parent.matrixWorld.clone().invert();
+    if (item.kind === "shield") {
+      // A shield is strapped over the off forearm rather than gripped: centre
+      // the cel on the outer half of the segment and lift it just clear of the
+      // sleeve, so the arm reads behind the face instead of beside it.
+      const forearm = rig.forearms.find((entry) => entry.side === item.anchor.side)
+        ?? rig.forearms.find((entry) => entry.side === 1)
+        ?? rig.forearms[0];
+      const hand = rig.hands.find((entry) => entry.side === forearm?.side);
+      const elbow = (forearm ?? item.anchor).bone.getWorldPosition(new THREE.Vector3());
+      const wrist = (hand ?? forearm ?? item.anchor).bone.getWorldPosition(new THREE.Vector3());
+      const armVector = wrist.clone().sub(elbow);
+      const armLength = armVector.length() || 1;
+      const armDir = armVector.divideScalar(armLength);
+      const center = elbow.clone().addScaledVector(armDir, armLength * 0.58);
+      // The elbow already sits outboard of the chest, so its offset from the
+      // torso, with the arm's own direction removed, points away from the body.
+      const torso = (rig.chest ?? rig.pelvis)?.bone.getWorldPosition(new THREE.Vector3()) ?? elbow;
+      const outward = elbow.clone().sub(torso);
+      outward.addScaledVector(armDir, -outward.dot(armDir));
+      if (outward.lengthSq() < 1e-8) outward.copy(bodyLateral).multiplyScalar(item.anchor.side);
+      // Just clear of the sleeve, and a hair in front of the arm so the forearm
+      // reads behind the face instead of beside it.
+      center.addScaledVector(outward.normalize(), body * 0.008);
+      center.addScaledVector(bodyForward, body * 0.011);
+      item.visual.position.copy(center.applyMatrix4(parentInverse));
+      return;
+    }
+    // Grip point: half a fist along the knuckles from the joint the cel hangs
+    // on. Every rip authors its weapon mount for the model's own stock mesh, so
+    // riding the mount leaves the cel in front of the fingers on one class and
+    // behind them on another; the posed palm replaces that offset.
+    const handUnits = (item.anchor.handLength ?? 0) * (rig.unitScale || 1);
+    const push = Math.max(body * 0.014, handUnits * 0.45);
+    const gripDir = (item.anchor.fingerDir ?? new THREE.Vector3(0, -1, 0))
+      .clone().applyQuaternion(delta).applyQuaternion(rootWorldQuat).normalize();
+    const target = item.anchor.bone.getWorldPosition(new THREE.Vector3()).addScaledVector(gripDir, push);
+    item.visual.position.copy(target.applyMatrix4(parentInverse));
+  };
+  for (const item of heldItems) placeHeld(item);
+
   for (const satellite of rig.satellites) {
     const delta = deltas.get(satellite.follow) ?? new THREE.Quaternion();
     const anchor = positions.get(satellite.follow) ?? satellite.follow.bindPos;
@@ -1545,6 +1869,14 @@ export function poseCharacterRig(rig: CharacterRig, state: CharacterPoseState): 
       satellite.bone.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(FINGER_HINGE, satellite.curl));
     }
     satellite.bone.updateMatrix();
+  }
+
+  // Weapon/shield anchors can be satellite bones, whose transform the loop above
+  // rewrites, so anything hung on one is placed again once they have settled.
+  for (const item of heldItems) {
+    const onSatellite = rig.satellites.some((satellite) => satellite.bone === item.anchor.bone)
+      || item.chainNodes?.some((node) => rig.satellites.some((satellite) => satellite.bone === node));
+    if (onSatellite) placeHeld(item);
   }
 
   if (state.attackStyle === "spin") {

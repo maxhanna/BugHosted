@@ -5347,7 +5347,13 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     (component as any).animatePlayerModel(150);
 
     expect(bones["R_upr_arm_bind_jnt"].quaternion.angleTo(upperArmBase)).toBeGreaterThan(0.1);
-    expect(weapon?.parent).toBe(hand);
+    // The rig moves a cel off the mount onto the joint that drives it, so the
+    // grip solve can place it in the posed fist instead of leaving it wherever
+    // the mount's bind transform happened to point.
+    const gripBone = (component as any).characterRig.hands.find((entry: any) => entry.side === -1)?.bone;
+    expect(gripBone).toBeDefined();
+    expect(weapon?.parent).toBe(gripBone);
+    expect(weapon?.parent).not.toBe(hand);
     expect((component as any).attackAnimationSide).toBe(-1);
 
     (component as any).triggerAttackAnimation();
