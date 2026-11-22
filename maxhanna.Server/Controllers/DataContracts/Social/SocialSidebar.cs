@@ -15,7 +15,10 @@ namespace maxhanna.Server.Controllers.DataContracts.Social
     public int PostCount { get; set; }
     public int CommentCount { get; set; }
     public int ReactionsReceived { get; set; }
+    /// <summary>Activity score minus open/upheld report penalties; can be negative.</summary>
     public int Karma { get; set; }
+    /// <summary>Points currently deducted for reports against this user's posts.</summary>
+    public int KarmaPenalty { get; set; }
     public int Level { get; set; }
     public string LevelTitle { get; set; } = string.Empty;
     public string? NextLevelTitle { get; set; }

@@ -1,6 +1,7 @@
 using System.Data;
 using FirebaseAdmin.Messaging;
 using maxhanna.Server.Controllers.DataContracts.Files;
+using maxhanna.Server.Controllers.DataContracts.Social;
 using maxhanna.Server.Controllers.DataContracts.Users;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
@@ -642,6 +643,181 @@ namespace maxhanna.Server.Controllers
       }
       catch { return false; }
     }
+    // ─── Post reports ─────────────────────────────────────────────────────
+    // A reader's report lands in maxhanna.post_reports against the post's first
+    // topic, which is the scope it is routed to. A moderator sees the reports
+    // for their own scope: everything when they moderate globally, their topics
+    // when they are a topic moderator, and their chat boards' posts when they
+    // are a chat moderator.
+
+    /// <summary>
+    /// One lookup for the report queue: may this caller review reports at all,
+    /// and do they cover every topic? A legacy `user_roles` moderator counts as
+    /// both, matching IsGlobalModeratorAsync; anyone with moderator_roles rows
+    /// passes the gate with topic/chat scope only.
+    /// </summary>
+    private async Task<(bool CanReview, bool Global)> GetPostReportScopeAsync(int userId)
+    {
+      if (userId == 1) return (true, true);
+      try
+      {
+        string connStr = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+        using var conn = new MySqlConnection(connStr);
+        await conn.OpenAsync();
+        string sql = @"SELECT
+            (SELECT COUNT(*) FROM maxhanna.user_roles WHERE user_id = @UserId AND role = 'moderator') AS legacy,
+            (SELECT COUNT(*) FROM maxhanna.moderator_roles WHERE user_id = @UserId) AS any_role,
+            (SELECT COUNT(*) FROM maxhanna.moderator_roles WHERE user_id = @UserId AND target_type = 'global') AS global_role;";
+        using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@UserId", userId);
+        using var reader = await cmd.ExecuteReaderAsync();
+        if (!await reader.ReadAsync()) return (false, false);
+        bool legacy = reader.GetInt32("legacy") > 0;
+        bool anyRole = reader.GetInt32("any_role") > 0;
+        bool globalRole = reader.GetInt32("global_role") > 0;
+        return (legacy || anyRole, legacy || globalRole);
+      }
+      catch { return (false, false); }
+    }
+
+    /// <summary>
+    /// SQL predicate that keeps only the post_reports rows (aliased `pr`) that
+    /// belong to this caller's moderation scope. @global short-circuits it.
+    /// </summary>
+    private const string ReportScopeSql = @"
+        (@global = 1
+          OR EXISTS (SELECT 1 FROM maxhanna.moderator_roles mr
+                     WHERE mr.user_id = @me AND mr.target_type = 'topic' AND mr.target_id = pr.topic_id)
+          OR EXISTS (SELECT 1 FROM maxhanna.moderator_roles mr
+                     JOIN maxhanna.stories scope_story ON scope_story.id = pr.story_id
+                     WHERE mr.user_id = @me AND mr.target_type = 'chat' AND mr.target_id = scope_story.chat_id))";
+
+    [HttpPost("/Moderator/GetPostReports", Name = "GetPostReports")]
+    public async Task<IActionResult> GetPostReports(
+      [FromBody] GetPostReportsRequest request,
+      [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
+    {
+      if (request == null || request.CallerUserId <= 0) return BadRequest("Invalid request.");
+      if (!await _log.ValidateUserLoggedIn(request.CallerUserId, encryptedUserIdHeader)) return StatusCode(500, "Access Denied.");
+      var (canReview, global) = await GetPostReportScopeAsync(request.CallerUserId);
+      if (!canReview) return Unauthorized("Only moderators can view post reports.");
+      string statusFilter = request.Status switch
+      {
+        "open" => "pr.status = 'open'",
+        "resolved" => "pr.status IN ('upheld', 'dismissed')",
+        _ => "1 = 1"
+      };
+      string connStr = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+      try
+      {
+        using var conn = new MySqlConnection(connStr);
+        await conn.OpenAsync();
+        int openTotal;
+        using (var openCmd = new MySqlCommand($@"SELECT COUNT(*) FROM maxhanna.post_reports pr
+            WHERE pr.status = 'open' AND {ReportScopeSql};", conn))
+        {
+          openCmd.Parameters.AddWithValue("@global", global ? 1 : 0);
+          openCmd.Parameters.AddWithValue("@me", request.CallerUserId);
+          openTotal = Convert.ToInt32(await openCmd.ExecuteScalarAsync() ?? 0);
+        }
+        string sql = $@"
+          SELECT pr.id, pr.story_id, pr.reporter_id, pr.reason, pr.details, pr.status,
+                 pr.created_at,
+                 s.user_id AS author_id,
+                 LEFT(COALESCE(s.story_text, ''), 280) AS excerpt,
+                 au.username AS author_name, ru.username AS reporter_name, t.topic AS topic_name
+          FROM maxhanna.post_reports pr
+          JOIN maxhanna.stories s ON s.id = pr.story_id
+          LEFT JOIN maxhanna.users au ON au.id = s.user_id
+          LEFT JOIN maxhanna.users ru ON ru.id = pr.reporter_id
+          LEFT JOIN maxhanna.topics t ON t.id = pr.topic_id
+          WHERE ({statusFilter}) AND {ReportScopeSql}
+          ORDER BY (pr.status = 'open') DESC, pr.created_at DESC, pr.id DESC
+          LIMIT 200;";
+        var items = new List<PostReportItem>();
+        using (var cmd = new MySqlCommand(sql, conn))
+        {
+          cmd.Parameters.AddWithValue("@global", global ? 1 : 0);
+          cmd.Parameters.AddWithValue("@me", request.CallerUserId);
+          using var reader = await cmd.ExecuteReaderAsync();
+          while (await reader.ReadAsync())
+          {
+            items.Add(new PostReportItem
+            {
+              Id = reader.GetInt32("id"),
+              StoryId = reader.GetInt32("story_id"),
+              AuthorId = reader.GetInt32("author_id"),
+              AuthorName = reader.IsDBNull(reader.GetOrdinal("author_name")) ? null : reader.GetString("author_name"),
+              ReporterId = reader.GetInt32("reporter_id"),
+              ReporterName = reader.IsDBNull(reader.GetOrdinal("reporter_name")) ? null : reader.GetString("reporter_name"),
+              TopicName = reader.IsDBNull(reader.GetOrdinal("topic_name")) ? null : reader.GetString("topic_name"),
+              Excerpt = reader.IsDBNull(reader.GetOrdinal("excerpt")) ? null : reader.GetString("excerpt"),
+              Reason = reader.GetString("reason"),
+              Details = reader.IsDBNull(reader.GetOrdinal("details")) ? null : reader.GetString("details"),
+              Status = reader.GetString("status"),
+              CreatedAt = reader.GetDateTime("created_at").ToString("yyyy-MM-dd HH:mm:ss")
+            });
+          }
+        }
+        return Ok(new { items, openTotal });
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Error in GetPostReports: " + ex.Message, request.CallerUserId, "MODERATOR", true);
+        return StatusCode(500, "Failed to load post reports.");
+      }
+    }
+
+    [HttpPost("/Moderator/ResolvePostReport", Name = "ResolvePostReport")]
+    public async Task<IActionResult> ResolvePostReport(
+      [FromBody] ResolvePostReportRequest request,
+      [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
+    {
+      if (request == null || request.ReportId <= 0 || request.CallerUserId <= 0) return BadRequest("Invalid request.");
+      if (!await _log.ValidateUserLoggedIn(request.CallerUserId, encryptedUserIdHeader)) return StatusCode(500, "Access Denied.");
+      var (canReview, global) = await GetPostReportScopeAsync(request.CallerUserId);
+      if (!canReview) return Unauthorized("Only moderators can review post reports.");
+      // Upholding keeps the karma penalty, dismissing lifts it again.
+      string status = string.Equals(request.Status, "dismissed", StringComparison.OrdinalIgnoreCase) ? "dismissed" : "upheld";
+      string connStr = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+      try
+      {
+        using var conn = new MySqlConnection(connStr);
+        await conn.OpenAsync();
+        int authorId;
+        using (var lookup = new MySqlCommand($@"
+          SELECT s.user_id FROM maxhanna.post_reports pr
+          JOIN maxhanna.stories s ON s.id = pr.story_id
+          WHERE pr.id = @id AND {ReportScopeSql}
+          LIMIT 1;", conn))
+        {
+          lookup.Parameters.AddWithValue("@id", request.ReportId);
+          lookup.Parameters.AddWithValue("@global", global ? 1 : 0);
+          lookup.Parameters.AddWithValue("@me", request.CallerUserId);
+          var authorObj = await lookup.ExecuteScalarAsync();
+          if (authorObj == null || authorObj == DBNull.Value) return NotFound("That report is not in your moderation scope.");
+          authorId = Convert.ToInt32(authorObj);
+        }
+        using (var upd = new MySqlCommand(@"UPDATE maxhanna.post_reports
+            SET status = @status, resolved_at = UTC_TIMESTAMP(), resolved_by = @me
+            WHERE id = @id;", conn))
+        {
+          upd.Parameters.AddWithValue("@status", status);
+          upd.Parameters.AddWithValue("@me", request.CallerUserId);
+          upd.Parameters.AddWithValue("@id", request.ReportId);
+          await upd.ExecuteNonQueryAsync();
+        }
+        await maxhanna.Server.Services.UserScoreService.RecomputeUserAsync(conn, authorId, _log);
+        _ = _log.Db($"Moderator {request.CallerUserId} marked post report #{request.ReportId} {status}", request.CallerUserId, "MODERATOR", false);
+        return Ok(new { status, id = request.ReportId });
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Error in ResolvePostReport: " + ex.Message, request.CallerUserId, "MODERATOR", true);
+        return StatusCode(500, "Failed to review the report.");
+      }
+    }
+
     private async Task<bool> IsChatUserBannedAsync(MySqlConnection conn, int chatId, int userId)
 
     {

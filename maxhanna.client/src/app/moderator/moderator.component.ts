@@ -1,7 +1,7 @@
 import { Component } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { UserService } from '../../services/user.service';
-import { ModeratorService } from '../../services/moderator.service';
+import { ModeratorService, PostReport } from '../../services/moderator.service';
 import { User } from '../../services/datacontracts/user/user';
 import { ChatBan, ChatBanAppeal, ModeratorInfo, ModeratorLog, ModeratorRequest, ModeratorRole, RoleDefinition } from '../../services/datacontracts/moderator/moderator';
 import { Topic } from '../../services/datacontracts/topics/topic';
@@ -15,8 +15,8 @@ import { Topic } from '../../services/datacontracts/topics/topic';
 export class ModeratorComponent extends ChildComponent {
   // Optional deep-link tab set via createComponent(..., { initialTab }) — e.g. a
   // 'myappeals' notification route. Takes precedence over the moderator default.
-  initialTab?: 'myappeals' | 'moderators' | 'chatmod' | 'logs' | 'appeals' | 'weaver';
-  activeTab: 'myappeals' | 'moderators' | 'chatmod' | 'logs' | 'appeals' | 'weaver' = 'myappeals';
+  initialTab?: 'myappeals' | 'moderators' | 'chatmod' | 'logs' | 'appeals' | 'weaver' | 'reports';
+  activeTab: 'myappeals' | 'moderators' | 'chatmod' | 'logs' | 'appeals' | 'weaver' | 'reports' = 'myappeals';
 
   appeals: any[] = [];
   modRequests: ModeratorRequest[] = [];
@@ -37,6 +37,16 @@ export class ModeratorComponent extends ChildComponent {
   weaverFeedbackPageSize = 25;
   weaverFeedbackHasMore = false;
   weaverFeedbackLoading = false;
+  // Post reports (the queue fed by a reader reporting a post). A moderator sees
+  // the reports for their own scope: everything globally, else their topics or
+  // their chat boards.
+  postReports: PostReport[] = [];
+  postReportsOpenTotal = 0;
+  postReportsLoading = false;
+  postReportsStatus: 'open' | 'resolved' | 'all' = 'open';
+  /** True when the caller moderates at least one topic (report access without
+   *  the full moderator list). */
+  isTopicModerator = false;
   weaverReplyId = 0;
   weaverReplyText = '';
   weaverReplySaving = false;
@@ -117,6 +127,7 @@ export class ModeratorComponent extends ChildComponent {
       // Low-level chat moderation: chat_moderator for a specific room grants
       // access to this panel, scoped to the chats they moderate.
       this.isChatModerator = myRoles.some(r => r.role === 'chat_moderator' && r.targetType === 'chat' && !!r.targetId);
+      this.isTopicModerator = myRoles.some(r => r.targetType === 'topic' && !!r.targetId);
       this.myChatRoles = myRoles.filter(r => r.role === 'chat_moderator' && r.targetType === 'chat' && !!r.targetId);
       this.isWeaverAdmin = myRoles.some(r => r.role === 'weaver_admin' && (!r.targetType || r.targetType === 'global'));
     }
@@ -139,7 +150,8 @@ export class ModeratorComponent extends ChildComponent {
         this.loadRoleCatalog(),
         this.loadModeratorLogs(),
         this.isAdmin ? this.loadAppeals() : Promise.resolve(),
-        this.isWeaverAdmin ? this.loadWeaverFeedback() : Promise.resolve()
+        this.isWeaverAdmin ? this.loadWeaverFeedback() : Promise.resolve(),
+        this.loadPostReports()
       ]);
       if (this.selectedManagedChat) {
         await this.loadChatModeration();
@@ -147,8 +159,11 @@ export class ModeratorComponent extends ChildComponent {
     }
   }
 
-  setTab(tab: 'myappeals' | 'moderators' | 'chatmod' | 'logs' | 'appeals' | 'weaver') {
+  setTab(tab: 'myappeals' | 'moderators' | 'chatmod' | 'logs' | 'appeals' | 'weaver' | 'reports') {
     this.activeTab = tab;
+    if (tab === 'reports') {
+      this.loadPostReports();
+    }
     if (tab !== 'moderators') {
       this.addRoleForUserId = 0;
     }
@@ -260,7 +275,8 @@ export class ModeratorComponent extends ChildComponent {
     if (!moderatorNavItem) return;
     const pendingAppeals = (this.appeals ?? []).filter((a: any) => !a.resolution).length;
     const openWeaverFeedback = this.isWeaverAdmin ? (this.weaverFeedbackOpenTotal ?? 0) : 0;
-    const pendingCount = pendingAppeals + openWeaverFeedback;
+    const openReports = (this.isModerator || this.isTopicModerator) ? (this.postReportsOpenTotal ?? 0) : 0;
+    const pendingCount = pendingAppeals + openWeaverFeedback + openReports;
     moderatorNavItem.content = pendingCount > 0 ? pendingCount.toString() : '';
   }
 
@@ -299,6 +315,48 @@ export class ModeratorComponent extends ChildComponent {
       this.weaverFeedbackLoading = false;
     }
     this.updateNavBadge();
+  }
+
+  /** Loads the post-report queue for this moderator's scope. */
+  async loadPostReports() {
+    const userId = this.parentRef?.user?.id;
+    if (!userId || !(this.isModerator || this.isTopicModerator)) return;
+    const sessionToken = await this.parentRef?.getSessionToken() ?? '';
+    this.postReportsLoading = true;
+    try {
+      const data = await this.moderatorService.getPostReports(userId, sessionToken, this.postReportsStatus);
+      this.postReports = data.items;
+      this.postReportsOpenTotal = data.openTotal;
+    } catch (e) {
+      this.postReports = [];
+      this.postReportsOpenTotal = 0;
+    } finally {
+      this.postReportsLoading = false;
+    }
+    this.updateNavBadge();
+  }
+
+  async setPostReportsStatus(status: 'open' | 'resolved' | 'all') {
+    this.postReportsStatus = status;
+    await this.loadPostReports();
+  }
+
+  /** Upholds a report (the author keeps the karma penalty) or dismisses it
+   *  (the penalty is lifted). Neither changes anybody's level. */
+  async resolvePostReport(report: PostReport, status: 'upheld' | 'dismissed') {
+    const userId = this.parentRef?.user?.id;
+    if (!userId) return;
+    const sessionToken = await this.parentRef?.getSessionToken() ?? '';
+    await this.runAction('report-' + status + '-' + report.id, async () => {
+      if (await this.moderatorService.resolvePostReport(report.id, status, userId, sessionToken)) {
+        report.status = status;
+        this.postReportsOpenTotal = Math.max(0, this.postReportsOpenTotal - 1);
+        if (this.postReportsStatus === 'open') {
+          this.postReports = this.postReports.filter(r => r.id !== report.id);
+        }
+        this.updateNavBadge();
+      }
+    });
   }
 
   /** True while the named moderator mutation is in flight — shows the inline spinner. */

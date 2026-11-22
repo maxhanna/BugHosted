@@ -31,7 +31,10 @@ export interface SocialSidebarUserStats {
   postCount: number;
   commentCount: number;
   reactionsReceived: number;
+  /** Activity score minus open/upheld report penalties; can go negative. */
   karma: number;
+  /** Points currently deducted for reports against this user's posts. */
+  karmaPenalty?: number;
   level: number;
   levelTitle: string;
   nextLevelTitle?: string | null;
@@ -91,6 +94,31 @@ export class SocialService {
     if (!profileUserId) return null;
     const res = await this.getSidebar(0, undefined, undefined, '', profileUserId);
     return res?.userStats ?? null;
+  }
+
+  /** Flags a post to the moderators of its topic. The author loses karma (never
+   *  a level) while the report is open or upheld. */
+  async reportStory(userId: number, storyId: number, reason: string, details: string, sessionToken: string): Promise<{ ok: boolean; message: string }> {
+    try {
+      const res = await fetch('/social/report-story', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Encrypted-UserId': sessionToken,
+        },
+        body: JSON.stringify({ StoryId: storyId, ReporterId: userId, Reason: reason, Details: details }),
+      });
+      // The server answers with plain strings on a refusal, so read the text
+      // before trying to parse a JSON body.
+      const body = await res.text();
+      let data: any = null;
+      try { data = body ? JSON.parse(body) : null; } catch { data = null; }
+      if (res.ok) return { ok: true, message: data?.message ?? 'Report sent to the moderators.' };
+      return { ok: false, message: data?.message ?? body ?? 'Could not send the report.' };
+    } catch (error) {
+      console.error('Error reporting post:', error);
+      return { ok: false, message: 'Could not send the report.' };
+    }
   }
 
   async getStories(userId?: number, search?: string, topics?: string, profileUserId?: number, storyId?: number, page: number = 1, pageSize: number = 10, showHiddenStories = false, showPostsFromFilter: string = 'all', details: boolean = true, chatId?: number) {

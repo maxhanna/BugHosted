@@ -153,7 +153,6 @@ app.MapHub<maxhanna.Server.Hubs.ChatHub>("/hubs/chat");
 app.MapHub<maxhanna.Server.Hubs.D2SurvivorsLobbyHub>("/hubs/d2-survivors-lobby");
 app.MapHub<maxhanna.Server.Hubs.MarblesHub>("/hubs/marbles");
 
-
 app.MapFallbackToFile("/index.html");
 try
 {

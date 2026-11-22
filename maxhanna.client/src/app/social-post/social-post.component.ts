@@ -827,6 +827,32 @@ export class SocialPostComponent extends ChildComponent implements OnInit {
     }
   }
 
+  /** Flags this post to the moderators of its topic. The report costs the
+   *  author karma while it is open or upheld, never a level. */
+  async report(story: Story) {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const user = parent?.user;
+    if (!user?.id || !story?.id) {
+      parent?.showNotification('Sign in to report a post.');
+      return;
+    }
+    const reason = window.prompt(
+      'Report this post to the moderators of its topic.\n\nReason (e.g. spam, harassment, off-topic):',
+      '',
+    );
+    if (reason === null) return;
+    const details = window.prompt('Anything else the moderators should know? (optional)', '') ?? '';
+    this.isLoading = true;
+    try {
+      const sessionToken = await parent?.getSessionToken() ?? '';
+      const result = await this.socialService.reportStory(user.id, story.id, reason.trim(), details.trim(), sessionToken);
+      parent?.showNotification(result.message);
+      if (result.ok) this.closeStoryOptionsPanel();
+    } finally {
+      this.isLoading = false;
+    }
+  }
+
   copyDivText = async (element: HTMLElement) => {
     try {
       const text = element.innerText;

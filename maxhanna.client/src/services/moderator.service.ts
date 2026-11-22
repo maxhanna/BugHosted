@@ -1,6 +1,22 @@
 import { Injectable } from '@angular/core';
 import { ChatBan, ChatBanAppeal, ModeratorInfo, ModeratorLog, ModeratorRequest, ModeratorRole, PublicChatInfo, RoleDefinition } from './datacontracts/moderator/moderator';
 
+/** A reader's report on a post, as shown in the moderator queue. */
+export interface PostReport {
+  id: number;
+  storyId: number;
+  authorId: number;
+  authorName?: string | null;
+  reporterId: number;
+  reporterName?: string | null;
+  topicName?: string | null;
+  excerpt?: string | null;
+  reason: string;
+  details?: string | null;
+  status: string;
+  createdAt: string;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -85,6 +101,44 @@ export class ModeratorService {
     } catch (error) {
       console.error('Error fetching moderator logs:', error);
       return [];
+    }
+  }
+
+  // ─── Post reports ───
+
+  /** Reports inside the caller's moderation scope (everything for a global
+   *  moderator, their topics or chat boards otherwise). */
+  async getPostReports(callerUserId: number, sessionToken: string, status: string = 'open'): Promise<{ items: PostReport[]; openTotal: number }> {
+    try {
+      const response = await fetch('/moderator/getpostreports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Encrypted-UserId': sessionToken },
+        body: JSON.stringify({ CallerUserId: callerUserId, Status: status }),
+      });
+      if (!response.ok) return { items: [], openTotal: 0 };
+      const data = await response.json();
+      return {
+        items: Array.isArray(data?.items) ? data.items as PostReport[] : [],
+        openTotal: typeof data?.openTotal === 'number' ? data.openTotal : 0,
+      };
+    } catch (error) {
+      console.error('Error fetching post reports:', error);
+      return { items: [], openTotal: 0 };
+    }
+  }
+
+  /** Upholds (keeps the karma penalty) or dismisses (lifts it) a report. */
+  async resolvePostReport(reportId: number, status: 'upheld' | 'dismissed', callerUserId: number, sessionToken: string): Promise<boolean> {
+    try {
+      const response = await fetch('/moderator/resolvepostreport', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Encrypted-UserId': sessionToken },
+        body: JSON.stringify({ ReportId: reportId, Status: status, CallerUserId: callerUserId }),
+      });
+      return response.ok;
+    } catch (error) {
+      console.error('Error reviewing post report:', error);
+      return false;
     }
   }
 

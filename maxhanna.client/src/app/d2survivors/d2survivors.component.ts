@@ -5976,7 +5976,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const dt = Math.min(50, now - this.menuHeroLastFrameAt) / 1000;
     this.menuHeroLastFrameAt = now;
     if (this.menuHeroModel) {
-      if (!this.reducedMotion) this.menuHeroElapsed += dt;
+      // The idle clock keeps running under reduced motion; the pose is damped
+      // instead (motionScale below), otherwise the hero is dead still.
+      this.menuHeroElapsed += dt;
       const time = this.menuHeroElapsed;
       this.menuHeroModel.rotation.y = this.menuHeroRotation + (this.reducedMotion ? 0 : Math.sin(time * 0.45) * 0.035);
       this.menuHeroModel.position.y = this.reducedMotion ? 0 : Math.sin(time * 1.6) * 0.8;
@@ -5990,7 +5992,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           gait: gaitForClass(this.selectedClass),
           weaponless: !this.modelHasVisibleWeapon(this.menuHeroModel),
           offhandHeld: !!this.equipment.shield,
-          motionScale: this.reducedMotion ? 0 : 1,
+          // Reduced motion softens the idle rather than deleting it: the bob and
+          // spin above stay off, the breathing and weight shift stay alive.
+          motionScale: this.reducedMotion ? 0.35 : 1,
         });
       }
     }
@@ -6224,7 +6228,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     const dt = Math.min(50, now - this.leaderboardHeroLastFrameAt) / 1000;
     this.leaderboardHeroLastFrameAt = now;
-    if (!this.reducedMotion) this.leaderboardHeroElapsed += dt;
+    this.leaderboardHeroElapsed += dt;
     const heroes = this.lobbyHeroes;
     for (const [key, record] of this.leaderboardHeroModels) {
       const index = heroes.findIndex((hero) => this.leaderboardHeroKey(hero) === key);
@@ -6240,7 +6244,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         attackSide: -1,
         gait: gaitForClass(record.classId),
         weaponless: record.weaponless,
-        motionScale: this.reducedMotion ? 0 : 1,
+        motionScale: this.reducedMotion ? 0.35 : 1,
       });
     }
     this.resizeLeaderboardHeroLineup();

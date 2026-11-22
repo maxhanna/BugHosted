@@ -157,6 +157,11 @@ namespace maxhanna.Server.Controllers
 						string context = request.StoryId != null ? "a post" : request.FileId != null ? "a file" : request.RecipeId != null ? "a recipe" : "a comment";
 						string eventText = $"commented on {context}";
 						await UserEventController.InsertUserEventStatic(request.UserId, "comment", eventText, insertedId, "comment", _config, _log);
+						// A comment on a post is worth 2 karma: re-bake the author's row.
+						if (request.StoryId != null)
+						{
+							await maxhanna.Server.Services.UserScoreService.RecomputeUserAsync(conn, request.UserId, _log);
+						}
 					}
 					return Ok($"{insertedId} Comment Successfully Added");
 				}
@@ -183,6 +188,8 @@ namespace maxhanna.Server.Controllers
 					cmd.Parameters.AddWithValue("@user_id", request.UserId);
 
 					await cmd.ExecuteNonQueryAsync();
+					// The author's comment total dropped: re-bake their score row.
+					await maxhanna.Server.Services.UserScoreService.RecomputeUserAsync(conn, request.UserId, _log);
 				}
 			}
 			catch (Exception ex)

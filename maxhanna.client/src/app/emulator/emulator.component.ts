@@ -13,7 +13,7 @@ import { AppComponent } from '../app.component';
 import {
   VPadItem, System, BuildOpts, SystemCandidate, CoreDescriptor,
   MIN_STATE_SIZE, FAQ_ITEMS, GENESIS_6BUTTON, GENESIS_FORCE_THREE,
-  PSP_DEFAULT_OPTIONS, Core, UiGamepadRouter, UiAction,
+  PSP_DEFAULT_OPTIONS, PSP_ROM_COMPAT, Core, UiGamepadRouter, UiAction,
   GamepadInfoStore
 } from './emulator-types';
 import { User } from '../../services/datacontracts/user/user';
@@ -1017,6 +1017,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       // cross-origin isolation. If this logs false, the core cannot run threaded
       // and will either refuse to boot or fall back to a crawl.
       console.log(`%c[EMU] PSP boot: crossOriginIsolated=${(window as any).crossOriginIsolated} SharedArrayBuffer=${typeof (window as any).SharedArrayBuffer} dataBase=${this.getEjsDataBase()}`, 'color:#4af');
+      this.applyPspRomCompatibilityOptions(w);
     }               // allow cores to use threads if they want (e.g. for async save state capture); you can disable if you have issues with certain browsers/devices
     w.EJS_color = componentBackgroundColor;        // Sets the main color theme for the emulator
     w.EJS_backgroundColor = componentBackgroundColor; // Sets the background color for the emulator    
@@ -3794,6 +3795,26 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     w.EJS_disableLocalStorage = true;
     w.EJS_defaultOptions = Object.assign({}, PSP_DEFAULT_OPTIONS);
     w.EJS_defaultOptionsForce = true;
+  }
+
+  /**
+   * Apply PSP_ROM_COMPAT to the game that is booting, and to nothing else. Core
+   * options are read once when the core starts, so they have to be in place
+   * before EmulatorJS launches it; a crash during the first loading screen is
+   * far too early to fix from the settings menu afterwards.
+   */
+  private applyPspRomCompatibilityOptions(w: any) {
+    const name = this.getRomName() ?? '';
+    const compat = PSP_ROM_COMPAT.find((entry) => entry.match.test(name));
+    if (!compat) return;
+    w.EJS_defaultOptions = Object.assign({}, w.EJS_defaultOptions || {}, compat.options);
+    // A saved core setting wins over a default, and a player who already opened
+    // the PSP settings menu has all of ours saved. Dropping EmulatorJS's stored
+    // settings for this boot is what makes the patch actually take effect; it
+    // covers the settings menu only, never save states or in-game saves.
+    w.EJS_disableLocalStorage = true;
+    const applied = Object.entries(compat.options).map(([key, value]) => `${key}=${value}`).join(', ');
+    console.log(`%c[EMU] PSP compat for "${name}" (${compat.reason}): ${applied}`, 'color:#4af');
   }
 
   applyNDSCoreSettingsForMobile(w: any) {

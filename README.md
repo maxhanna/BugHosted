@@ -20,7 +20,7 @@ BugHosted is designed for full end‑to‑end encryption (E2EE) of sensitive use
 Concise purpose for each application component.
 
 ### Social
-Social platform feed and interactions between users.
+Social platform feed and interactions between users. Karma and level are pre-computed per user in `maxhanna.user_scores` (baked at start-up, then re-baked for one user whenever they post, comment, react or are reported), so the sidebar reads a stored row instead of counting activity per request. Any post can be reported to the moderators of its topic; reports deduct karma (never a level) until they are dismissed.
 
 ### SigInt
 Signals Intelligence across the globe. View intercepted signals from around the world.
@@ -130,7 +130,7 @@ Unified notification feed across all components of the website. Get up-to-date i
 Manage and view recipes with ingredients and instructions. Create and share your food recipes with others.
 
 ### Moderator
-Manage and moderate the site's content and user interactions.
+Manage and moderate the site's content and user interactions, including the Post Reports queue: reports filed from the feed, scoped to the caller's topics or chat boards, each upheld (karma penalty kept) or dismissed (penalty lifted).
 
 ### User-Events
 Display of all recent user events.

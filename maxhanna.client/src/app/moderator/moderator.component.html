@@ -24,6 +24,9 @@
       <button *ngIf="isWeaverAdmin" class="modTab" [class.active]="activeTab === 'weaver'" (click)="setTab('weaver')">
         🤖 Weaver Feedback <span *ngIf="weaverFeedbackTotal > 0" class="tabCount">{{ weaverFeedbackTotal }}</span>
       </button>
+      <button *ngIf="isModerator || isTopicModerator" class="modTab" [class.active]="activeTab === 'reports'" (click)="setTab('reports')">
+        🚩 Post Reports <span *ngIf="postReportsOpenTotal > 0" class="tabCount">{{ postReportsOpenTotal }}</span>
+      </button>
     </div>
 
     <!-- ── MY APPEALS TAB (any user — their own moderator requests) ── -->
@@ -120,6 +123,49 @@
           <button class="noBtn" (click)="loadWeaverFeedback(false)">Load more ({{ weaverFeedbackTotal - weaverFeedback.length }} remaining)</button>
         </div>
         <div *ngIf="weaverFeedbackLoading && weaverFeedback.length > 0" class="searchHint" style="text-align:center;">Loading more…</div>
+      </div>
+    </div>
+
+    <!-- ── POST REPORTS TAB (moderators of the reported post's topic) ── -->
+    <div *ngIf="activeTab === 'reports'" class="modSection">
+      <div class="card">
+        <div class="cardTitle">🚩 Post Reports</div>
+        <div class="xSmallFont secondaryFontColor">
+          Posts readers flagged to the moderators of their topic. A report costs the author 5 karma while it is open or upheld —
+          levels follow post count, so a reported post never costs a level.
+        </div>
+        <div style="margin:6px 0;">
+          <button class="noBtn" [class.active]="postReportsStatus === 'open'" (click)="setPostReportsStatus('open')">⏳ Open <span *ngIf="postReportsOpenTotal > 0">({{ postReportsOpenTotal }})</span></button>
+          <button class="noBtn" [class.active]="postReportsStatus === 'resolved'" (click)="setPostReportsStatus('resolved')">✅ Reviewed</button>
+          <button class="noBtn" [class.active]="postReportsStatus === 'all'" (click)="setPostReportsStatus('all')">All</button>
+        </div>
+        <div *ngIf="postReportsLoading" class="searchHint">Loading…</div>
+        <div *ngIf="!postReportsLoading && postReports.length === 0" class="searchHint">No reports in your moderation scope.</div>
+        <div *ngFor="let r of postReports" class="modRow">
+          <div class="modRowBody" style="padding:6px 0;">
+            <div class="modRowHead" style="cursor:default;">
+              <span class="smallFont secondaryFontColor">Post #{{ r.storyId }} by {{ r.authorName || ('user ' + r.authorId) }}</span>
+              <span class="smallFont secondaryFontColor" *ngIf="r.topicName"> · {{ r.topicName }}</span>
+              <span class="smallFont secondaryFontColor"> · reported by {{ r.reporterName || ('user ' + r.reporterId) }}</span>
+              <span class="smallFont secondaryFontColor"> — {{ r.createdAt }}</span>
+              <span *ngIf="r.status === 'open'" class="smallFont statusPending" style="margin-left:8px;">⏳ Open</span>
+              <span *ngIf="r.status === 'upheld'" class="smallFont" style="margin-left:8px;color:#e06c75;">🚩 Upheld</span>
+              <span *ngIf="r.status === 'dismissed'" class="smallFont statusApproved" style="margin-left:8px;">✅ Dismissed</span>
+            </div>
+            <div class="smallFont" style="margin:4px 0;"><strong>Reason:</strong> {{ r.reason }}<ng-container *ngIf="r.details"> — {{ r.details }}</ng-container></div>
+            <div class="xSmallFont secondaryFontColor" *ngIf="r.excerpt">{{ r.excerpt.length > 200 ? (r.excerpt | slice:0:200) + '…' : r.excerpt }}</div>
+            <div style="margin-top:6px;" *ngIf="r.status === 'open'">
+              <button class="noBtn" (click)="resolvePostReport(r, 'upheld')" [disabled]="postReportsLoading || isActionBusy('report-upheld-' + r.id)">
+                <app-loading-spinner *ngIf="isActionBusy('report-upheld-' + r.id)" icon="🚩" fontSize="1em"></app-loading-spinner>
+                <ng-container *ngIf="!isActionBusy('report-upheld-' + r.id)">🚩 Uphold</ng-container>
+              </button>
+              <button class="noBtn" (click)="resolvePostReport(r, 'dismissed')" [disabled]="postReportsLoading || isActionBusy('report-dismissed-' + r.id)">
+                <app-loading-spinner *ngIf="isActionBusy('report-dismissed-' + r.id)" icon="✅" fontSize="1em"></app-loading-spinner>
+                <ng-container *ngIf="!isActionBusy('report-dismissed-' + r.id)">✅ Dismiss</ng-container>
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 

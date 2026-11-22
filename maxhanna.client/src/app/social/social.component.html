@@ -362,7 +362,9 @@
 
               <div class="socialSidebarStatGrid">
                 <div class="socialSidebarStat"
-                  title="Karma: 5 per post + 2 per comment + 1 per reaction received">
+                  [title]="'Karma: 5 per post + 2 per comment + 1 per reaction received + 1 per reaction given'
+                    + (stats.karmaPenalty ? ' — minus ' + stats.karmaPenalty + ' for reports against your posts' : '')
+                    + '. Karma is stored per user; reports never change your level.'">
                   <strong>{{ stats.karma }}</strong>
                   <span>Karma</span>
                 </div>

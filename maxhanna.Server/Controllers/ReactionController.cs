@@ -1,4 +1,5 @@
 using maxhanna.Server.Controllers.DataContracts;
+using maxhanna.Server.Services;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 
@@ -59,6 +60,19 @@ namespace maxhanna.Server.Controllers
 					await command.ExecuteNonQueryAsync();
 					int? lastInsertId = (int?)(command.LastInsertedId);
 
+					// Karma is a stored score, so re-bake the rows this reaction moved:
+					// the author of the reacted post/comment gains a point and the
+					// person reacting gains one for engaging.
+					if (reactionRequest.StoryId != null)
+					{
+						await UserScoreService.RecomputeStoryAuthorAsync(connection, reactionRequest.StoryId.Value, _log);
+					}
+					if (reactionRequest.CommentId != null)
+					{
+						await UserScoreService.RecomputeCommentAuthorAsync(connection, reactionRequest.CommentId.Value, _log);
+					}
+					await UserScoreService.RecomputeUserAsync(connection, reactionRequest.User?.Id ?? 0, _log);
+
 					return Ok(lastInsertId ?? 0);
 				}
 
@@ -80,11 +94,18 @@ namespace maxhanna.Server.Controllers
 				{
 					await connection.OpenAsync();
 					// Verify ownership: only the user who created the reaction may delete it
-					var getOwnerCmd = new MySqlCommand("SELECT user_id FROM reactions WHERE id = @id LIMIT 1;", connection);
+					var getOwnerCmd = new MySqlCommand("SELECT user_id, COALESCE(story_id, 0), COALESCE(comment_id, 0) FROM reactions WHERE id = @id LIMIT 1;", connection);
 					getOwnerCmd.Parameters.AddWithValue("@id", request.ReactionId);
-					var ownerObj = await getOwnerCmd.ExecuteScalarAsync();
-					if (ownerObj == null) return NotFound("Reaction not found.");
-					int ownerId = Convert.ToInt32(ownerObj);
+					int ownerId = 0;
+					int reactedStoryId = 0;
+					int reactedCommentId = 0;
+					using (var ownerReader = await getOwnerCmd.ExecuteReaderAsync())
+					{
+						if (!await ownerReader.ReadAsync()) return NotFound("Reaction not found.");
+						ownerId = ownerReader.GetInt32(0);
+						reactedStoryId = ownerReader.GetInt32(1);
+						reactedCommentId = ownerReader.GetInt32(2);
+					}
 					// Try to get authenticated user id from HttpContext; if not set, fall back to request.UserId
 					int requestingUserId = 0;
 					try { requestingUserId = Convert.ToInt32(HttpContext.Items["UserId"] ?? 0); } catch { requestingUserId = 0; }
@@ -96,6 +117,10 @@ namespace maxhanna.Server.Controllers
 					var delCmd = new MySqlCommand("DELETE FROM reactions WHERE id = @id LIMIT 1;", connection);
 					delCmd.Parameters.AddWithValue("@id", request.ReactionId);
 					await delCmd.ExecuteNonQueryAsync();
+					// Removing a reaction takes its karma back off both sides.
+					if (reactedStoryId > 0) await UserScoreService.RecomputeStoryAuthorAsync(connection, reactedStoryId, _log);
+					if (reactedCommentId > 0) await UserScoreService.RecomputeCommentAuthorAsync(connection, reactedCommentId, _log);
+					await UserScoreService.RecomputeUserAsync(connection, ownerId, _log);
 					return Ok(true);
 				}
 			}

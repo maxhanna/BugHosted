@@ -291,6 +291,44 @@ export const PSP_DEFAULT_OPTIONS: Record<string, string> = {
   'ppsspp_texture_filtering': 'auto',
 };
 
+/**
+ * Per-ROM PPSSPP compatibility patches. The core boots with its own defaults
+ * (EmulatorJS only fills in keys the player has not saved), and a few titles
+ * need different values to get past their first loading screen. Entries are
+ * matched on the ROM name, so only the listed game changes; every other PSP
+ * title keeps the core defaults and the player's own settings.
+ *
+ * Keys and accepted values come from the PPSSPP libretro core option table
+ * (libretro_core_options.h), not guessed.
+ */
+export interface PspRomCompat {
+  /** ROM display name, without extension. */
+  match: RegExp;
+  options: Record<string, string>;
+  /** Why the game needs these instead of the core defaults. */
+  reason: string;
+}
+
+export const PSP_ROM_COMPAT: PspRomCompat[] = [
+  {
+    // GTA: Vice City Stories crashes on its first loading screen with the
+    // core's speed defaults. Fast Memory skips the memory-access validation
+    // the streaming loader relies on (PPSSPP's own crash guide lists it first
+    // among settings that break games), and its menus/loading screens are
+    // drawn through framebuffer effects that the readback/buffer hacks drop.
+    match: /\bvice[\s._-]*city[\s._-]*stories\b|\bvcs\b/i,
+    reason: 'crashes on the first loading screen',
+    options: {
+      'ppsspp_fast_memory': 'disabled',
+      'ppsspp_ignore_bad_memory_access': 'enabled',
+      'ppsspp_skip_gpu_readbacks': 'disabled',
+      'ppsspp_skip_buffer_effects': 'disabled',
+      // The game checks the Memory Stick before it loads the city.
+      'ppsspp_memstick_inserted': 'enabled',
+    },
+  },
+];
+
 declare global {
   interface Window {
     EJS_player?: string | HTMLElement;

@@ -1416,13 +1416,20 @@ export function poseCharacterRig(rig: CharacterRig, state: CharacterPoseState): 
   const gait = state.gait;
   const walk = Math.max(0, Math.min(1, state.walk)) * motion;
   const phase = state.walkPhase;
-  const breathe = Math.sin(state.time * 1.7) * (1 - walk);
+  // TEMP idle probe: 0 strips every idle term so the same frozen moment can be
+  // compared with and without the idle layer.
+  const idleGain = (globalThis as { __d2sIdleGain?: number }).__d2sIdleGain ?? 1;
+  const breathe = Math.sin(state.time * 1.7) * (1 - walk) * idleGain;
   // Standing still is not a frozen pose: the idle weight shift runs on the
   // class's own slow cadence, so a resting hero breathes, drifts and settles
   // instead of holding the walk pose with every sway term multiplied by zero.
-  const idle = (1 - walk) * motion;
+  const idle = (1 - walk) * motion * idleGain;
   const idlePhase = state.time * gait.idleCadence;
   const idleSway = Math.sin(idlePhase) * idle;
+  // A second, slower cycle rides under the weight shift so the hips, the chest
+  // and the head never land on the same beat. That off-beat drift is what makes
+  // a planted hero read as alive instead of as a looping sway.
+  const idleDrift = Math.sin(idlePhase * 0.61 + 0.9) * idle;
   const stance = stanceForClass(rig.classId);
   const idlePose = idleForClass(rig.classId);
   const weaponless = state.weaponless === true;
@@ -1495,24 +1502,28 @@ export function poseCharacterRig(rig: CharacterRig, state: CharacterPoseState): 
     new THREE.Euler(pitchDeg * DEG, yawDeg * DEG, rollDeg * DEG, "YXZ");
 
   // ---- torso -------------------------------------------------------------
-  const pelvisRoll = gait.pelvisRoll * Math.sin(phase) * walk + idleSway * 2.1;
+  // Heavier builds shift more weight than light ones: the same idle on a
+  // barbarian and a sorceress should not travel the same number of degrees.
+  const idleRoll = 2.1 + gait.pelvisRoll * 0.18;
+  const pelvisRoll = gait.pelvisRoll * Math.sin(phase) * walk + idleSway * idleRoll + idleDrift * 0.9;
   const pelvisYaw = gait.pelvisYaw * Math.sin(phase) * walk + idlePose.pelvisYaw * idle + (sampled ? sampled.body.pelvisYaw : 0);
   const pelvisPitch = gait.hunch + (sampled ? sampled.body.pelvisPitch : 0);
   setWorldRotation(rig.pelvis, eulerOf(pelvisPitch, pelvisYaw, pelvisRoll));
   setWorldRotation(rig.spine, eulerOf(
-    -(gait.lean * walk) - gait.hunch * 0.45 + Math.sin(phase * 2) * 0.35 * walk + (sampled ? sampled.body.spinePitch : 0),
+    -(gait.lean * walk) - gait.hunch * 0.45 + Math.sin(phase * 2) * 0.35 * walk
+      + breathe * 0.55 + (sampled ? sampled.body.spinePitch : 0),
     -gait.pelvisYaw * 0.35 * Math.sin(phase) * walk + (sampled ? sampled.body.spineYaw : 0),
     gait.sway * Math.sin(phase) * walk + idleSway * 3 + (sampled ? sampled.body.spineRoll : 0),
   ));
   setWorldRotation(rig.chest, eulerOf(
-    breathe * 0.8 - idleSway * 1.1 + idlePose.chestPitch * idle + (sampled ? sampled.body.chestPitch : 0),
+    breathe * 1.9 - idleSway * 1.1 + idlePose.chestPitch * idle + (sampled ? sampled.body.chestPitch : 0),
     gait.chestTwist * 0.55 * Math.sin(phase) * walk + idlePose.chestYaw * idle + (sampled ? sampled.body.chestYaw : 0),
     gait.sway * 0.45 * Math.sin(phase) * walk + idleSway * 2.4 + (sampled ? sampled.body.chestRoll : 0),
   ));
   const headYaw = -gait.headYaw * Math.sin(phase) * walk - gait.chestTwist * 0.4 * Math.sin(phase) * walk + breathe * 0.4
     + Math.sin(idlePhase * 0.45) * 3.2 * idle + idlePose.headYaw * idle - idlePose.chestYaw * 0.35 * idle;
   const headPitch = -gait.headBob * Math.sin(phase * 2) * walk + (sampled ? sampled.body.headPitch : 0)
-    + Math.sin(idlePhase * 0.7 + 0.5) * 1.5 * idle;
+    + Math.sin(idlePhase * 0.7 + 0.5) * 1.5 * idle + breathe * 0.5;
   setWorldRotation(rig.neck, eulerOf(headPitch * 0.45, headYaw * 0.45, 0));
   setWorldRotation(rig.head, eulerOf(headPitch, headYaw, 0));
 
@@ -1547,6 +1558,9 @@ export function poseCharacterRig(rig: CharacterRig, state: CharacterPoseState): 
     const swing = new THREE.Quaternion().setFromAxisAngle(lateralAxis, -walkSwing * DEG);
     let dir = stanceDir.applyQuaternion(swing);
     dir.applyAxisAngle(new THREE.Vector3(0, 0, armBone.side), idleAbduction * DEG);
+    // The shoulders lift on the inhale, so the hanging arms open a hair with
+    // the chest instead of orbiting their own sine only.
+    dir.applyAxisAngle(new THREE.Vector3(0, 0, armBone.side), breathe * 1.2 * idle * DEG);
     let elbow = weaponless
       ? idleArm.elbow + gait.elbow * walk * 0.35 + idleArmWave * 4.5
       : stance.elbow + gait.elbow * walk + idleArmWave * 3.8;
@@ -1600,6 +1614,16 @@ export function poseCharacterRig(rig: CharacterRig, state: CharacterPoseState): 
     ? rig.hands.find((hand) => hand === stockWeaponJoint)
       ?? rig.hands.find((hand) => hand.side === stockWeaponJoint.side)
     : undefined;
+  // A shield fist is turned by the cel it carries, so it needs the body's own
+  // front rather than a wrist-roll guess.
+  const shieldHandSide = heldItems.find((item) => item.kind === "shield")?.anchor.side;
+  const shieldFront = (() => {
+    let node: THREE.Object3D | null = rig.hands[0]?.bone ?? null;
+    while (node?.parent) node = node.parent;
+    return node
+      ? FORWARD.clone().applyQuaternion(node.getWorldQuaternion(new THREE.Quaternion()))
+      : FORWARD.clone();
+  })();
   for (const hand of rig.hands) {
     const forearmDir = forearmDirs.get(hand.side);
     if (!forearmDir) continue;
@@ -1624,6 +1648,11 @@ export function poseCharacterRig(rig: CharacterRig, state: CharacterPoseState): 
       blade.y += 0.05;
       blade.normalize();
       setHandFrame(hand, hand.gripAxis, blade, palmTarget);
+    } else if (hand.side === shieldHandSide && hand.fingerDir && hand.palmNormal) {
+      // A shield is gripped from behind: fingers run down the arm with the palm
+      // turned in to the body, so the knuckles face the cel and the fingertips
+      // curl away from it instead of out through the face.
+      setHandFrame(hand, hand.fingerDir, handDir, shieldFront.clone().negate());
     } else if (naturalHand && hand.fingerDir && hand.palmNormal) {
       // Fingers continue the forearm and the palm faces the thigh. Using the
       // rig's own palm normal removes the per-class wrist-roll guesses.
@@ -1655,8 +1684,10 @@ export function poseCharacterRig(rig: CharacterRig, state: CharacterPoseState): 
     const stanceBend = sampled
       ? (knee.side === state.attackSide ? sampled.body.frontKnee : sampled.body.backKnee) * strike
       : 0;
+    // The leg the weight has left softens, which is what sells a hip shift.
+    const idleWeight = Math.max(0, idleSway * knee.side) * 2.6 * idle;
     const thighDir = thighDirs.get(knee.side) ?? legTarget(0);
-    setWorldDirection(knee, flex(thighDir, -(locomotion + stanceBend)));
+    setWorldDirection(knee, flex(thighDir, -(locomotion + stanceBend + idleWeight)));
   }
   for (const foot of rig.feet) {
     const sidePhase = phase + (foot.side < 0 ? Math.PI : 0);
@@ -1672,15 +1703,23 @@ export function poseCharacterRig(rig: CharacterRig, state: CharacterPoseState): 
   const height = rig.bindHeight;
   const bodyY = height * (
     Math.abs(Math.sin(phase)) * (gait.bob / 100) * walk * 0.5
-    + breathe * 0.0025
+    + breathe * 0.005
     + idlePose.crouch * idle
     + (sampled ? sampled.body.crouch * strike : 0)
   );
   const bodyZ = height * (
     (sampled ? sampled.body.lunge * strike : 0)
     + Math.sin(phase * 2) * (gait.drive / 100) * walk * 0.25
+    // Standing settles back and forth over the feet on its own slow cycle. The
+    // rig has no foot IK, so translation drags the planted feet with it: keep the
+    // travel under a few centimetres and let the hips do the reading.
+    + Math.sin(idlePhase * 0.5 + 2.1) * 0.004 * idle
   );
-  const bodyX = height * (Math.sin(phase) * walk * 0.012 * motion + idleSway * 0.009);
+  const bodyX = height * (
+    Math.sin(phase) * walk * 0.012 * motion
+    + idleSway * 0.014
+    + idleDrift * 0.005
+  );
 
   const solveJoint = (joint: RigJoint | undefined): void => {
     if (!joint) return;
@@ -1736,20 +1775,6 @@ export function poseCharacterRig(rig: CharacterRig, state: CharacterPoseState): 
     const body = rig.worldHeight ?? rig.bindHeight;
     const delta = deltas.get(item.anchor) ?? new THREE.Quaternion();
     const up = new THREE.Vector3(0, 1, 0);
-    // The body's own lateral and front axes, so a shield turns with the
-    // character instead of always facing down the world's forward axis. The two
-    // elbows span the shoulder line; rotating that into the ground plane gives
-    // the front, the same +Z every rip binds its held cels against.
-    const leftElbowObject = rig.forearms.find((entry) => entry.side === 1)?.bone;
-    const rightElbowObject = rig.forearms.find((entry) => entry.side === -1)?.bone;
-    const bodyLateral = leftElbowObject && rightElbowObject
-      ? leftElbowObject.getWorldPosition(new THREE.Vector3()).sub(rightElbowObject.getWorldPosition(new THREE.Vector3()))
-      : new THREE.Vector3(1, 0, 0);
-    if (bodyLateral.lengthSq() < 1e-8) bodyLateral.set(1, 0, 0);
-    bodyLateral.normalize();
-    const bodyForward = new THREE.Vector3().crossVectors(bodyLateral, up);
-    if (bodyForward.lengthSq() < 1e-8) bodyForward.copy(FORWARD);
-    bodyForward.normalize();
     if (item.kind !== "shield") {
       // Follow the fist: the hand is posed holding the blade along its grip
       // axis, so the cel has to leave the fist in that same direction.
@@ -1770,7 +1795,7 @@ export function poseCharacterRig(rig: CharacterRig, state: CharacterPoseState): 
         }
       }
     }
-    const worldFrame = item.kind === "shield" ? frameQuaternion(up, bodyForward) : frameQuaternion(up, FORWARD);
+    const worldFrame = frameQuaternion(up, FORWARD);
 
     // Where the cel actually hangs from is only known once the helper nodes and
     // satellites have been written, so the flat is derived from the real parent
@@ -1779,9 +1804,10 @@ export function poseCharacterRig(rig: CharacterRig, state: CharacterPoseState): 
     while (rootObject.parent) rootObject = rootObject.parent;
     const parentWorldQuat = parent.getWorldQuaternion(new THREE.Quaternion());
     const rootWorldQuat = rootObject.getWorldQuaternion(new THREE.Quaternion());
-    // A shield's frame is already expressed in world axes (upright, facing where
-    // the body faces); a weapon's is built in the rig's own space.
-    const targetWorldQuat = item.kind === "shield" ? worldFrame : rootWorldQuat.multiply(worldFrame);
+    // Both are built in the rig's own space: a shield stands upright in the
+    // character's frame and faces the same front its weapon cels are bound
+    // against, so it turns with the body instead of the world.
+    const targetWorldQuat = rootWorldQuat.multiply(worldFrame);
     item.visual.quaternion.copy(parentWorldQuat.invert().multiply(targetWorldQuat));
 
     const boneScale = item.anchor.worldScale
@@ -1810,29 +1836,30 @@ export function poseCharacterRig(rig: CharacterRig, state: CharacterPoseState): 
     parent.updateWorldMatrix(true, false);
     const parentInverse = parent.matrixWorld.clone().invert();
     if (item.kind === "shield") {
-      // A shield is strapped over the off forearm rather than gripped: centre
-      // the cel on the outer half of the segment and lift it just clear of the
-      // sleeve, so the arm reads behind the face instead of beside it.
+      // A shield is held by the off fist, not strapped mid-forearm: the face
+      // hangs in front of the hand and is centred on the grip. Centring the cel
+      // on the forearm instead left the fist level with the face, so the hand
+      // read as poking out through the shield.
       const forearm = rig.forearms.find((entry) => entry.side === item.anchor.side)
         ?? rig.forearms.find((entry) => entry.side === 1)
         ?? rig.forearms[0];
       const hand = rig.hands.find((entry) => entry.side === forearm?.side);
-      const elbow = (forearm ?? item.anchor).bone.getWorldPosition(new THREE.Vector3());
-      const wrist = (hand ?? forearm ?? item.anchor).bone.getWorldPosition(new THREE.Vector3());
-      const armVector = wrist.clone().sub(elbow);
-      const armLength = armVector.length() || 1;
-      const armDir = armVector.divideScalar(armLength);
-      const center = elbow.clone().addScaledVector(armDir, armLength * 0.58);
-      // The elbow already sits outboard of the chest, so its offset from the
-      // torso, with the arm's own direction removed, points away from the body.
-      const torso = (rig.chest ?? rig.pelvis)?.bone.getWorldPosition(new THREE.Vector3()) ?? elbow;
-      const outward = elbow.clone().sub(torso);
-      outward.addScaledVector(armDir, -outward.dot(armDir));
-      if (outward.lengthSq() < 1e-8) outward.copy(bodyLateral).multiplyScalar(item.anchor.side);
-      // Just clear of the sleeve, and a hair in front of the arm so the forearm
-      // reads behind the face instead of beside it.
-      center.addScaledVector(outward.normalize(), body * 0.008);
-      center.addScaledVector(bodyForward, body * 0.011);
+      const fist = (hand ?? forearm ?? item.anchor).bone.getWorldPosition(new THREE.Vector3());
+      const handUnits = (hand?.handLength ?? item.anchor.handLength ?? 0) * (rig.unitScale || 1);
+      // The body's own axes, so the face sits in front of the fist and turns with
+      // the character. The elbow cross product used before pointed through the
+      // back on these rips, which laid the face behind the knuckles.
+      const front = FORWARD.clone().applyQuaternion(rootWorldQuat);
+      const bodyUp = up.clone().applyQuaternion(rootWorldQuat);
+      const outboard = new THREE.Vector3(item.anchor.side > 0 ? 1 : -1, 0, 0)
+        .applyQuaternion(rootWorldQuat);
+      // Enough for the knuckles to sit behind the face, which is what stops the
+      // fist showing through the middle of the cel.
+      const clearance = Math.max(body * 0.034, handUnits * 1.6);
+      const center = fist.clone()
+        .addScaledVector(outboard, body * 0.012)
+        .addScaledVector(bodyUp, body * 0.02)
+        .addScaledVector(front, clearance);
       item.visual.position.copy(center.applyMatrix4(parentInverse));
       return;
     }

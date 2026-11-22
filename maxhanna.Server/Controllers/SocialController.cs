@@ -50,25 +50,7 @@ namespace maxhanna.Server.Controllers
         _ = _log.Db("Social TotalPosts error: " + ex.Message, null, "SOCIAL", true);
         return StatusCode(500, "Internal server error");
       }
-    }
-
-    // Sidebar data for the Social board: the viewer's activity stats plus the
-    // most-engaged public threads in the active topic (or across the general
-    // board when no topic is selected). Karma is derived from existing activity
-    // so it needs no extra table or write-path bookkeeping.
-    private static readonly (int Posts, string Title)[] SocialLevels = new[]
-    {
-      (0, "Lurker"),
-      (1, "Newcomer"),
-      (5, "Regular"),
-      (15, "Contributor"),
-      (30, "Storyteller"),
-      (60, "Local Legend"),
-      (120, "Luminary"),
-      (250, "Icon"),
-      (500, "Mythic"),
-      (1000, "Legend")
-    };
+    } 
 
     [HttpGet("/Social/Sidebar", Name = "Social_Sidebar")]
     public async Task<IActionResult> GetSidebar(
@@ -101,44 +83,17 @@ namespace maxhanna.Server.Controllers
 
         if (statsUserId > 0)
         {
-          const string statsSql = @"
-            SELECT u.id, u.username, u.created,
-              (SELECT COUNT(*) FROM maxhanna.stories s WHERE s.user_id = u.id) AS post_count,
-              (SELECT COUNT(*) FROM maxhanna.comments c WHERE c.user_id = u.id AND c.story_id IS NOT NULL) AS comment_count,
-              (SELECT COUNT(*) FROM maxhanna.reactions r
-                JOIN maxhanna.stories s ON s.id = r.story_id
-                WHERE s.user_id = u.id AND r.user_id <> u.id) AS story_reactions,
-              (SELECT COUNT(*) FROM maxhanna.reactions r
-                JOIN maxhanna.comments c ON c.id = r.comment_id
-                WHERE c.user_id = u.id AND r.user_id <> u.id) AS comment_reactions
-            FROM maxhanna.users u
-            WHERE u.id = @userId
-            LIMIT 1;";
-
-          using var statsCmd = new MySqlCommand(statsSql, conn);
-          statsCmd.Parameters.AddWithValue("@userId", statsUserId);
-          using var statsReader = await statsCmd.ExecuteReaderAsync();
-          if (await statsReader.ReadAsync())
+          // HasScore tells us the user has no baked row yet (a brand-new
+          // account, or someone who has not acted or been read since the
+          // backfill); that one user is baked inline and read again.
+          var (stats, hasScore) = await ReadUserStatsAsync(conn, statsUserId);
+          if (stats != null && !hasScore)
           {
-            var created = statsReader.IsDBNull(statsReader.GetOrdinal("created"))
-              ? (DateTime?)null
-              : statsReader.GetDateTime("created");
-            var stats = new SocialSidebarUserStats
-            {
-              UserId = statsReader.GetInt32("id"),
-              Username = statsReader.IsDBNull(statsReader.GetOrdinal("username"))
-                ? null
-                : statsReader.GetString("username"),
-              Created = created,
-              AccountAgeDays = created.HasValue
-                ? Math.Max(0, (DateTime.UtcNow.Date - created.Value.Date).Days)
-                : 0,
-              PostCount = statsReader.GetInt32("post_count"),
-              CommentCount = statsReader.GetInt32("comment_count"),
-              ReactionsReceived = statsReader.GetInt32("story_reactions") + statsReader.GetInt32("comment_reactions")
-            };
-            stats.Karma = stats.PostCount * 5 + stats.CommentCount * 2 + stats.ReactionsReceived;
-            ApplySocialLevel(stats);
+            await UserScoreService.RecomputeUserAsync(conn, statsUserId, _log);
+            (stats, _) = await ReadUserStatsAsync(conn, statsUserId);
+          }
+          if (stats != null)
+          {
             response.UserStats = stats;
           }
         }
@@ -239,33 +194,142 @@ namespace maxhanna.Server.Controllers
       }
     }
 
-    private static void ApplySocialLevel(SocialSidebarUserStats stats)
+    /// <summary>
+    /// One user's activity totals straight out of the pre-computed score table.
+    /// Karma is the stored activity score minus the stored report penalty, so a
+    /// reported post costs points and never a level (levels follow post count).
+    /// </summary>
+    private static async Task<(SocialSidebarUserStats? Stats, bool HasScore)> ReadUserStatsAsync(MySqlConnection conn, int userId)
     {
-      int levelIndex = 0;
-      for (int i = 0; i < SocialLevels.Length; i++)
+      const string sql = @"
+        SELECT u.id, u.username, u.created,
+          COALESCE(sc.posts, 0) AS post_count,
+          COALESCE(sc.comments, 0) AS comment_count,
+          COALESCE(sc.reactions_received, 0) AS reactions_received,
+          COALESCE(sc.karma, 0) AS karma,
+          COALESCE(sc.karma_penalty, 0) AS karma_penalty,
+          CASE WHEN sc.user_id IS NULL THEN 0 ELSE 1 END AS has_score
+        FROM maxhanna.users u
+        LEFT JOIN maxhanna.user_scores sc ON sc.user_id = u.id
+        WHERE u.id = @userId
+        LIMIT 1;";
+
+      using var cmd = new MySqlCommand(sql, conn);
+      cmd.Parameters.AddWithValue("@userId", userId);
+      using var reader = await cmd.ExecuteReaderAsync();
+      if (!await reader.ReadAsync()) return (null, true);
+      var created = reader.IsDBNull(reader.GetOrdinal("created"))
+        ? (DateTime?)null
+        : reader.GetDateTime("created");
+      int penalty = reader.GetInt32("karma_penalty");
+      var stats = new SocialSidebarUserStats
       {
-        if (stats.PostCount >= SocialLevels[i].Posts) levelIndex = i;
+        UserId = reader.GetInt32("id"),
+        Username = reader.IsDBNull(reader.GetOrdinal("username"))
+          ? null
+          : reader.GetString("username"),
+        Created = created,
+        AccountAgeDays = created.HasValue
+          ? Math.Max(0, (DateTime.UtcNow.Date - created.Value.Date).Days)
+          : 0,
+        PostCount = reader.GetInt32("post_count"),
+        CommentCount = reader.GetInt32("comment_count"),
+        ReactionsReceived = reader.GetInt32("reactions_received"),
+        KarmaPenalty = penalty,
+        Karma = reader.GetInt32("karma") - penalty
+      };
+      UserScoreService.ApplyLevel(stats);
+      return (stats, reader.GetInt32("has_score") == 1);
+    }
+
+    /// <summary>
+    /// A reader flags a post. The report is filed against the post's first
+    /// topic, which is the moderator scope it is routed to in the Moderator
+    /// panel, and lands on the author's score as a report penalty: karma goes
+    /// down, the level (driven by post count) never moves.
+    /// </summary>
+    [HttpPost("/Social/Report-Story", Name = "ReportStory")]
+    public async Task<IActionResult> ReportStory(
+      [FromBody] ReportPostRequest request,
+      [FromHeader(Name = "Encrypted-UserId")] string? encryptedUserIdHeader = null)
+    {
+      if (request == null || request.StoryId <= 0 || request.ReporterId <= 0)
+      {
+        return BadRequest("A report needs a post and a signed-in reporter.");
+      }
+      if (!await _log.ValidateUserLoggedIn(request.ReporterId, encryptedUserIdHeader ?? string.Empty))
+      {
+        return StatusCode(500, "Access Denied.");
       }
 
-      stats.Level = levelIndex + 1;
-      stats.LevelTitle = SocialLevels[levelIndex].Title;
-      if (levelIndex + 1 < SocialLevels.Length)
+      try
       {
-        int floor = SocialLevels[levelIndex].Posts;
-        int ceiling = SocialLevels[levelIndex + 1].Posts;
-        stats.NextLevelTitle = SocialLevels[levelIndex + 1].Title;
-        stats.NextLevelPosts = ceiling;
-        stats.PostsToNextLevel = Math.Max(0, ceiling - stats.PostCount);
-        stats.LevelProgress = ceiling > floor
-          ? Math.Clamp((int)Math.Round((stats.PostCount - floor) * 100.0 / (ceiling - floor)), 0, 100)
-          : 100;
+        var connStr = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? string.Empty;
+        using var conn = new MySqlConnection(connStr);
+        await conn.OpenAsync();
+
+        int authorId = 0;
+        int? topicId = null;
+        using (var lookup = new MySqlCommand(@"
+          SELECT s.user_id,
+            (SELECT st.topic_id FROM maxhanna.story_topics st
+             WHERE st.story_id = s.id ORDER BY st.topic_id LIMIT 1) AS topic_id
+          FROM maxhanna.stories s
+          WHERE s.id = @storyId
+          LIMIT 1;", conn))
+        {
+          lookup.Parameters.AddWithValue("@storyId", request.StoryId);
+          using var reader = await lookup.ExecuteReaderAsync();
+          if (await reader.ReadAsync())
+          {
+            authorId = reader.GetInt32("user_id");
+            topicId = reader.IsDBNull(reader.GetOrdinal("topic_id")) ? null : reader.GetInt32("topic_id");
+          }
+        }
+        if (authorId == 0) return NotFound("Post not found.");
+        if (authorId == request.ReporterId) return BadRequest("You cannot report your own post.");
+        if (!await CanViewStoryAsync(conn, request.StoryId, request.ReporterId))
+        {
+          return StatusCode(403, "This post is not visible to you.");
+        }
+
+        string reason = string.IsNullOrWhiteSpace(request.Reason) ? "other" : request.Reason.Trim();
+        if (reason.Length > 64) reason = reason[..64];
+        string? details = string.IsNullOrWhiteSpace(request.Details) ? null : request.Details.Trim();
+        if (details != null && details.Length > 1000) details = details[..1000];
+
+        // One open report per person per post: reporting again rewrites the
+        // reason instead of stacking a second penalty on the author.
+        using (var insert = new MySqlCommand(@"
+          INSERT INTO maxhanna.post_reports
+            (story_id, reporter_id, author_id, topic_id, reason, details, status, created_at)
+          VALUES (@storyId, @reporterId, @authorId, @topicId, @reason, @details, 'open', UTC_TIMESTAMP())
+          ON DUPLICATE KEY UPDATE
+            reason = VALUES(reason),
+            details = VALUES(details),
+            topic_id = VALUES(topic_id),
+            author_id = VALUES(author_id),
+            status = 'open',
+            resolved_at = NULL,
+            resolved_by = NULL;", conn))
+        {
+          insert.Parameters.AddWithValue("@storyId", request.StoryId);
+          insert.Parameters.AddWithValue("@reporterId", request.ReporterId);
+          insert.Parameters.AddWithValue("@authorId", authorId);
+          insert.Parameters.AddWithValue("@topicId", topicId ?? (object)DBNull.Value);
+          insert.Parameters.AddWithValue("@reason", reason);
+          insert.Parameters.AddWithValue("@details", (object?)details ?? DBNull.Value);
+          await insert.ExecuteNonQueryAsync();
+        }
+
+        await UserScoreService.RecomputeUserAsync(conn, authorId, _log);
+        _ = _log.Db($"Post #{request.StoryId} reported by user #{request.ReporterId} ({reason}) — topic {topicId?.ToString() ?? "general"}", request.ReporterId, "MODERATOR", true);
+        return Ok(new { message = "Report sent to this topic's moderators." });
       }
-      else
+      catch (Exception ex)
       {
-        stats.NextLevelTitle = null;
-        stats.NextLevelPosts = null;
-        stats.PostsToNextLevel = 0;
-        stats.LevelProgress = 100;
+        _ = _log.Db("An error occurred while reporting a post: " + ex.Message, request.ReporterId, "SOCIAL", true);
+        return StatusCode(500, "An error occurred while reporting this post.");
       }
     }
 
@@ -1576,6 +1640,8 @@ namespace maxhanna.Server.Controllers
           {
             await conn.OpenAsync();
             await NotifyFollowers(request.userId, request.story.ProfileUserId, storyId.Value, conn);
+            // A new post is worth 5 karma: re-bake just this author's row.
+            await UserScoreService.RecomputeUserAsync(conn, request.userId.Value, _log);
           }
         }
 
@@ -1623,6 +1689,17 @@ namespace maxhanna.Server.Controllers
         {
           await conn.OpenAsync();
 
+          // The author is read before the delete: a moderator may remove
+          // somebody else's post, and their score has to drop, not the
+          // moderator's.
+          int storyAuthorId = 0;
+          using (var authorCmd = new MySqlCommand("SELECT user_id FROM maxhanna.stories WHERE id = @storyId LIMIT 1;", conn))
+          {
+            authorCmd.Parameters.AddWithValue("@storyId", request.story.Id);
+            var authorObj = await authorCmd.ExecuteScalarAsync();
+            if (authorObj != null && authorObj != DBNull.Value) storyAuthorId = Convert.ToInt32(authorObj);
+          }
+
           using (var cmd = new MySqlCommand(sql, conn))
           {
             cmd.Parameters.AddWithValue("@userId", request.userId);
@@ -1634,6 +1711,7 @@ namespace maxhanna.Server.Controllers
             {
               await DeletePollsByStoryId(request.story.Id);
               await _storyService.RemoveFromSitemapAsync(request.story.Id);
+              if (storyAuthorId > 0) await UserScoreService.RecomputeUserAsync(conn, storyAuthorId, _log);
               return Ok("Story deleted successfully.");
             }
             else

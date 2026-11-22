@@ -138,6 +138,10 @@
     <button [disabled]="isLoading" (click)="hide(optionStory)" *ngIf="parentRef?.user?.id">
       {{optionStory.hidden ? '🙉 Unhide' : '🙈 Hide'}} Post
     </button>
+    <button [disabled]="isLoading" (click)="report(optionStory)" *ngIf="parentRef?.user?.id"
+      title="Report this post to the moderators of its topic">
+      🚩 Report Post
+    </button>
     <button [disabled]="isLoading" (click)="delete(optionStory)"
       *ngIf="canModerateStory(optionStory) || (userProfileId && userProfileId == parentRef?.user?.id) || (parentRef?.user?.id == 1)"
       title="Delete Post">
