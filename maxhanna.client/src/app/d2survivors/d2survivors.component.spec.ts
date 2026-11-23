@@ -20,8 +20,9 @@ import { INFERNO_ART } from "./d2-inferno.generated";
 import { ASSASSIN_AURA_ART } from "./d2-assassin-auras.generated";
 import { DRUID_SPIRIT_AURA_ART } from "./d2-druid-auras.generated";
 import { D2_CLASS_SKILL_TREES } from "./d2survivors-skill-tree.data";
-import { ATTACK_CLIP_INFO, buildCharacterRig, gaitForClass, poseCharacterRig } from "./character-animation";
+import { ATTACK_CLIP_INFO, buildCharacterRig, gaitForClass, heldItemShare, poseCharacterRig } from "./character-animation";
 import { D2_AFFIXES, eligibleAffixes, itemAffixTypes, rollAffix } from "./d2-item-affixes";
+import { D2_RUNE_BY_NAME } from "./d2-runes";
 
 describe("D2SurvivorsComponent combat and equipment", () => {
   let fixture: ComponentFixture<D2SurvivorsComponent>;
@@ -273,6 +274,324 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect((component as any).playerChasingClickedTarget).toBeFalse();
     (component as any).updateAutomaticSkillCasts(16);
     expect(component.attackProjectiles.length).toBeGreaterThan(0);
+  });
+
+  it("lets the basic-attack picker take a press without closing itself", () => {
+    component.selectedClass = "sorceress";
+    component.runActive = true;
+    component.ownedSkills = ["Attack", "Charged Bolt"];
+    component.skillLevels = { Attack: 1, "Charged Bolt": 1 };
+    component.selectBasicAttackSpell(null);
+    component.basicAttackPickerOpen = true;
+
+    // The picker lives inside the battlefield wrapper, so its own pointerdown used
+    // to dismiss it before the option's click could land.
+    const picker = document.createElement("div");
+    picker.className = "d2s-basic-attack-picker";
+    const option = document.createElement("button");
+    picker.appendChild(option);
+    component.onArenaPointerDown({ target: option, pointerType: "mouse", button: 0 } as any);
+    expect(component.basicAttackPickerOpen).toBeTrue();
+
+    // The option's click then assigns the spell, and the bar shows it.
+    component.selectBasicAttackSpell("Charged Bolt");
+    expect(component.basicAttackSpell).toBe("Charged Bolt");
+    expect(component.basicAttackSlotArt.kind).toBe("icon");
+    expect(component.basicAttackSlotTitle).toContain("Charged Bolt");
+
+    // A press on the battlefield itself still dismisses the picker.
+    component.basicAttackPickerOpen = true;
+    const arena = document.createElement("canvas");
+    arena.className = "d2s-arena";
+    component.onArenaPointerDown({ target: arena, pointerType: "touch", button: 0 } as any);
+    expect(component.basicAttackPickerOpen).toBeFalse();
+  });
+
+  it("casts the basic attack on a right-click at the cursor", () => {
+    component.selectedClass = "sorceress";
+    component.runActive = true;
+    component.activeTab = "run";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.ownedSkills = ["Attack", "Charged Bolt"];
+    component.skillLevels = { Attack: 1, "Charged Bolt": 1 };
+    component.selectBasicAttackSpell("Charged Bolt");
+    component.skillCastCooldowns["Charged Bolt"] = 0;
+    (component as any).attackCooldown = 0;
+    component.attackProjectiles = [];
+    const arena = document.createElement("canvas");
+    arena.className = "d2s-arena";
+    const rightClick = () => {
+      const event = new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 300, clientY: 300 });
+      Object.defineProperty(event, "target", { value: arena });
+      return event;
+    };
+
+    const spellClick = rightClick();
+    component.onArenaContextMenu(spellClick);
+    expect(spellClick.defaultPrevented).toBeTrue();
+    expect(component.attackProjectiles.length).toBeGreaterThan(0);
+    expect(component.attackProjectiles[0].missileId).toBe("d2-chargedbolt");
+
+    // With no spell assigned the weapon attack lands on the monster under the
+    // cursor instead of walking to it.
+    component.selectBasicAttackSpell(null);
+    component.attackProjectiles = [];
+    component.floatingTexts = [];
+    (component as any).attackCooldown = 0;
+    (component as any).clickMoveTarget = null;
+    const monster = {
+      kind: "normal", species: "fallen", spriteFrame: 0, x: 268, y: 250,
+      hp: 100, maxHp: 100, speed: 0, r: 14, dmg: 0,
+    } as any;
+    component.enemies = [monster];
+    component.onArenaContextMenu(rightClick());
+    expect(component.floatingTexts.length).toBeGreaterThan(0);
+    expect((component as any).clickMoveTarget).toBeNull();
+  });
+
+  it("aims a right-click spell at the monster under the cursor and falls back to the nearest", () => {
+    component.selectedClass = "sorceress";
+    component.runActive = true;
+    component.activeTab = "run";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.ownedSkills = ["Attack", "Fire Bolt"];
+    component.skillLevels = { Attack: 1, "Fire Bolt": 1 };
+    component.selectBasicAttackSpell("Fire Bolt");
+    const arena = document.createElement("canvas");
+    arena.className = "d2s-arena";
+    const rightClick = () => {
+      const event = new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 300, clientY: 300 });
+      Object.defineProperty(event, "target", { value: arena });
+      return event;
+    };
+    const monster = (x: number) => ({
+      kind: "normal", species: "fallen", spriteFrame: 0, x, y: 250,
+      hp: 100, maxHp: 100, speed: 0, r: 12, dmg: 0,
+    }) as any;
+    const near = monster(262);
+    const clicked = monster(340);
+    component.enemies = [near, clicked];
+    component.attackProjectiles = [];
+    component.skillCastCooldowns["Fire Bolt"] = 0;
+    (component as any).attackCooldown = 0;
+
+    // A monster under the cursor wins over the nearer one behind the hero.
+    (component as any).updateHoveredEnemy = () => { (component as any).hoveredEnemy = clicked; };
+    component.onArenaContextMenu(rightClick());
+    expect(component.attackProjectiles.length).toBeGreaterThan(0);
+    expect(component.attackProjectiles[0].target).toBe(clicked);
+    expect((component as any).playerFacingX).toBeCloseTo(1, 5);
+
+    // Empty ground still casts, and the spell takes the nearest monster.
+    component.attackProjectiles = [];
+    component.skillCastCooldowns["Fire Bolt"] = 0;
+    (component as any).attackCooldown = 0;
+    (component as any).updateHoveredEnemy = () => { (component as any).hoveredEnemy = null; };
+    component.onArenaContextMenu(rightClick());
+    expect(component.attackProjectiles.length).toBeGreaterThan(0);
+    expect(component.attackProjectiles[0].target).toBe(near);
+  });
+
+  it("aims a left-click attack spell at the monster the hero walked to", () => {
+    component.selectedClass = "sorceress";
+    component.runActive = true;
+    component.activeTab = "run";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.ownedSkills = ["Attack", "Fire Bolt"];
+    component.skillLevels = { Attack: 1, "Fire Bolt": 1 };
+    component.selectBasicAttackSpell("Fire Bolt");
+    const monster = (x: number) => ({
+      kind: "normal", species: "fallen", spriteFrame: 0, x, y: 250,
+      hp: 100, maxHp: 100, speed: 0, r: 12, dmg: 0,
+    }) as any;
+    const near = monster(262);
+    const clicked = monster(285);
+    component.enemies = [near, clicked];
+    component.attackProjectiles = [];
+    component.skillCastCooldowns["Fire Bolt"] = 0;
+    (component as any).attackCooldown = 0;
+    (component as any).clickMoveTarget = null;
+    const arena = document.createElement("canvas");
+    arena.className = "d2s-arena";
+    (component as any).arenaRef = { nativeElement: arena };
+    (component as any).updateHoveredEnemy = () => { (component as any).hoveredEnemy = clicked; };
+    (component as any).updateHoveredGroundPickup = () => { (component as any).hoveredGroundPickup = null; };
+
+    // The left click is a walk-to command aimed at the clicked monster...
+    component.onArenaPointerDown({
+      target: arena, pointerType: "mouse", button: 0, clientX: 300, clientY: 300,
+      preventDefault: () => undefined,
+    } as any);
+    expect((component as any).clickMoveTarget).toBe(clicked);
+
+    // ...and the basic attack it hands off to casts at that same monster instead
+    // of the one that merely happens to be nearer.
+    (component as any).updateBasicAttack();
+    expect(component.attackProjectiles.length).toBeGreaterThan(0);
+    expect(component.attackProjectiles[0].target).toBe(clicked);
+  });
+
+  it("aims every targeted spell at the monster clicked for the basic attack", () => {
+    component.selectedClass = "sorceress";
+    component.runActive = true;
+    component.activeTab = "run";
+    component.playerX = 250;
+    component.playerY = 250;
+    (component as any).playerFacingX = 1;
+    (component as any).playerFacingY = 0;
+    (component as any).clickMoveTarget = null;
+    component.ownedSkills = ["Attack", "Blizzard", "Meteor", "Lightning"];
+    component.skillLevels = { Attack: 1, Blizzard: 1, Meteor: 1, Lightning: 1 };
+    const monster = (x: number, y: number) => ({
+      kind: "normal", species: "fallen", spriteFrame: 0, x, y,
+      hp: 100, maxHp: 100, speed: 0, r: 12, dmg: 0,
+    }) as any;
+    const near = monster(300, 250);
+    const clicked = monster(250, 360);
+    component.enemies = [near, clicked];
+    component.attackProjectiles = [];
+    (component as any).playerBlizzards.length = 0;
+
+    // Blizzard rains on the clicked monster, not the nearer one.
+    component.activateOwnedSkill("Blizzard", clicked);
+    expect((component as any).playerBlizzards[0].x).toBe(clicked.x);
+    expect((component as any).playerBlizzards[0].y).toBe(clicked.y);
+
+    // Meteor flies at it.
+    component.activateOwnedSkill("Meteor", clicked);
+    expect(component.attackProjectiles[0].target).toBe(clicked);
+
+    // Lightning turns the hero and lays the rail through it.
+    component.activateOwnedSkill("Lightning", clicked);
+    expect((component as any).playerFacingX).toBeCloseTo(0, 5);
+    expect((component as any).playerFacingY).toBeCloseTo(1, 5);
+
+    // Fist of the Heavens strikes it directly: the four bolts radiate from it.
+    component.selectedClass = "paladin";
+    component.ownedSkills = ["Attack", "Fist of the Heavens"];
+    component.skillLevels = { Attack: 1, "Fist of the Heavens": 1 };
+    component.attackProjectiles = [];
+    component.activateOwnedSkill("Fist of the Heavens", clicked);
+    expect(component.attackProjectiles).toHaveSize(4);
+    for (const bolt of component.attackProjectiles) {
+      expect(bolt.fistOfTheHeavensBolt).toBeTrue();
+      expect(Math.hypot(bolt.startX - clicked.x, bolt.startY - clicked.y)).toBeCloseTo(16, 5);
+    }
+
+    // Poison Explosion opens its well under it.
+    component.selectedClass = "necromancer";
+    component.ownedSkills = ["Attack", "Poison Explosion"];
+    component.skillLevels = { Attack: 1, "Poison Explosion": 1 };
+    (component as any).poisonClouds.length = 0;
+    component.activateOwnedSkill("Poison Explosion", clicked);
+    expect((component as any).poisonClouds[0].x).toBe(clicked.x);
+    expect((component as any).poisonClouds[0].y).toBe(clicked.y);
+  });
+
+  it("places ground-targeted spells on the empty floor a right-click lands on", () => {
+    component.selectedClass = "sorceress";
+    component.runActive = true;
+    component.activeTab = "run";
+    component.playerX = 250;
+    component.playerY = 250;
+    (component as any).playerFacingX = 1;
+    (component as any).playerFacingY = 0;
+    (component as any).clickMoveTarget = null;
+    component.ownedSkills = ["Attack", "Blizzard", "Meteor", "Lightning"];
+    component.skillLevels = { Attack: 1, Blizzard: 1, Meteor: 1, Lightning: 1 };
+    // No monsters at all: an empty-floor right-click still places the spell.
+    component.enemies = [];
+    const ground = { x: 620, y: 380 };
+    component.attackProjectiles = [];
+    (component as any).playerBlizzards.length = 0;
+
+    component.activateOwnedSkill("Blizzard", undefined, ground);
+    expect((component as any).playerBlizzards[0].x).toBe(ground.x);
+    expect((component as any).playerBlizzards[0].y).toBe(ground.y);
+
+    component.activateOwnedSkill("Meteor", undefined, ground);
+    const meteor = component.attackProjectiles[0];
+    expect(meteor.missileId).toBe("d2-meteortail");
+    expect(meteor.targetX).toBe(ground.x);
+    expect(meteor.targetY).toBe(ground.y);
+
+    component.activateOwnedSkill("Lightning", undefined, ground);
+    expect((component as any).playerFacingX).toBeGreaterThan(0);
+    expect((component as any).playerFacingY).toBeGreaterThan(0);
+
+    component.selectedClass = "necromancer";
+    component.ownedSkills = ["Attack", "Poison Explosion"];
+    component.skillLevels = { Attack: 1, "Poison Explosion": 1 };
+    (component as any).poisonClouds.length = 0;
+    component.activateOwnedSkill("Poison Explosion", undefined, ground);
+    expect((component as any).poisonClouds[0].x).toBe(ground.x);
+
+    // Fist of the Heavens auto-targets: a bare-floor cast strikes the monster in
+    // the direction it was aimed, not the one merely closest to the hero.
+    component.selectedClass = "paladin";
+    component.ownedSkills = ["Attack", "Fist of the Heavens"];
+    component.skillLevels = { Attack: 1, "Fist of the Heavens": 1 };
+    const behind = { kind: "normal", species: "fallen", spriteFrame: 0, x: 200, y: 230, hp: 100, maxHp: 100, speed: 0, r: 14, dmg: 0 } as any;
+    const aimed = { kind: "normal", species: "fallen", spriteFrame: 0, x: 520, y: 360, hp: 100, maxHp: 100, speed: 0, r: 14, dmg: 0 } as any;
+    component.enemies = [behind, aimed];
+    component.attackProjectiles = [];
+    component.activateOwnedSkill("Fist of the Heavens", undefined, ground);
+    expect(component.attackProjectiles).toHaveSize(4);
+    for (const bolt of component.attackProjectiles.filter((projectile) => projectile.fistOfTheHeavensBolt)) {
+      expect(bolt.fistOfTheHeavensIgnore).toBe(aimed);
+      expect(Math.hypot(bolt.startX - aimed.x, bolt.startY - aimed.y)).toBeCloseTo(16, 5);
+    }
+
+    // With nothing anywhere to smite, bare ground still only plays the cast.
+    component.enemies = [];
+    component.attackProjectiles = [];
+    (component as any).skillCastCooldowns = {};
+    component.activateOwnedSkill("Fist of the Heavens", undefined, ground);
+    expect(component.attackProjectiles).toHaveSize(0);
+  });
+
+  it("fires Glacial Spike as a flying cold missile, even at empty ground", () => {
+    component.selectedClass = "sorceress";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    (component as any).playerFacingX = 1;
+    (component as any).playerFacingY = 0;
+    component.ownedSkills = ["Glacial Spike"];
+    component.skillLevels = { "Glacial Spike": 18 };
+    component.enemies = [
+      { kind: "normal", species: "fallen", spriteFrame: 0, x: 400, y: 250, hp: 100, maxHp: 100, speed: 0, r: 14, dmg: 0 } as any,
+    ];
+    component.attackProjectiles = [];
+    (component as any).skillVisualEffects.length = 0;
+    component.activateOwnedSkill("Glacial Spike");
+
+    const shot = component.attackProjectiles[0];
+    expect(shot.missileId).toBe("d2-glacialspike");
+    // The renderer skips melee-kind projectiles, so a spike cast by an ordinary
+    // (melee) basic attack used to be invisible: it has to carry a real element.
+    expect(shot.kind).toBe("cold");
+    expect(shot.damageType).toBe("cold");
+    // The spell used to fall back on a cast ring around the hero instead.
+    expect((component as any).skillVisualEffects.length).toBe(0);
+
+    // D2 throws the spike down the facing when nothing is in the arena.
+    component.enemies = [];
+    component.attackProjectiles = [];
+    (component as any).skillVisualEffects.length = 0;
+    (component as any).skillCastCooldowns = {};
+    component.activateOwnedSkill("Glacial Spike");
+
+    const loose = component.attackProjectiles[0];
+    expect(loose).toBeDefined();
+    expect(loose.missileId).toBe("d2-glacialspike");
+    expect(loose.kind).toBe("cold");
+    expect(loose.target).toBeUndefined();
+    expect(loose.targetX).toBeGreaterThan(component.playerX);
+    expect((component as any).skillVisualEffects.length).toBe(0);
   });
 
   it("sends Tornado and Twister in a straight path through enemies to the screen edge", () => {
@@ -626,11 +945,16 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(shieldAttach.children.some((child) => child.name.startsWith("equipped_shield_"))).toBeFalse();
   });
 
-  it("mounts the original item art on held weapons and shields", () => {
+  it("mounts the original item art on held weapons and shields", async () => {
     const weaponItem = { name: "Short Sword", baseName: "Short Sword", slot: "weapon" } as any;
     const shieldItem = { name: "Buckler", baseName: "Buckler", slot: "armor" } as any;
     component.equipment.weapon = weaponItem;
     component.equipment.shield = shieldItem;
+    // These families ship a D2R mesh; pretend the extraction had none so the
+    // inventory-cel fallback is what gets built.
+    const noMesh = () => Promise.resolve(null);
+    (component as any).heldItemMeshes.set("short_sword", noMesh());
+    (component as any).heldItemMeshes.set("buckler", noMesh());
 
     const weaponArt = new THREE.Texture();
     weaponArt.image = { width: 23, height: 111 };
@@ -647,6 +971,9 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     model.add(hand, shieldAttach);
 
     (component as any).configureClassMeleeWeapon(model, "paladin");
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
 
     const weapon = hand.children.find((child) => child.name === "equipped_weapon_weapon");
     expect(weapon?.children.length).toBe(1);
@@ -655,6 +982,32 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     const shield = shieldAttach.children.find((child) => child.name === "equipped_shield_shield");
     expect(shield?.children.length).toBe(3);
     expect(shield?.children.every((child) => (child as THREE.Mesh).geometry instanceof THREE.PlaneGeometry)).toBeTrue();
+  });
+
+  it("mounts the D2R held-item mesh for a weapon family the extraction ships", async () => {
+    component.selectedClass = "paladin";
+    component.equipment.weapon = { name: "Broad Sword", baseName: "Broad Sword", slot: "weapon" } as any;
+    const template = new THREE.Group();
+    template.add(new THREE.Mesh(new THREE.BoxGeometry(0.1, 1, 0.1)));
+    (component as any).heldItemMeshes.set("broad_sword", Promise.resolve({ mesh: template, height: 1.2 }));
+
+    const model = new THREE.Group();
+    const hand = new THREE.Bone();
+    hand.name = "R_weapon_attach";
+    model.add(hand);
+    (component as any).configureClassMeleeWeapon(model, "paladin");
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const weapon = hand.children.find((child) => child.name === "equipped_weapon_weapon") as THREE.Group;
+    expect(weapon.children).toHaveSize(1);
+    const mesh = weapon.children[0] as THREE.Group;
+    expect(mesh.children.some((child) => (child as THREE.Mesh).isMesh)).toBeTrue();
+    // The rig sizes the mounted mesh from its own height, like a cel.
+    expect((weapon.userData["d2sHeldItem"] as { celHeight?: number }).celHeight).toBe(1.2);
+    // Swapping gear may only unparent it: its geometry is shared with the cache.
+    expect(weapon.userData["d2sSharedGear"]).toBeTrue();
   });
 
   it("seats the posed shield cel on the off fist instead of mid-forearm", () => {
@@ -827,6 +1180,23 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(chipped.affixes.length).toBe(3);
   });
 
+  it("punches one hole into the art of a socketed item per socket", () => {
+    expect((component as any).socketHoles(null)).toEqual([]);
+    expect((component as any).socketHoles({ sockets: 0 } as any)).toEqual([]);
+    // A rune or gem has no sockets of its own to show.
+    for (const sockets of [1, 2, 3, 4, 5, 6]) {
+      const holes = (component as any).socketHoles({ sockets } as any) as Array<{ left: number; top: number; size: number }>;
+      expect(holes.length).toBe(sockets);
+      for (const hole of holes) {
+        expect(hole.left).toBeGreaterThan(10);
+        expect(hole.left).toBeLessThan(90);
+        expect(hole.top).toBeGreaterThan(10);
+        expect(hole.top).toBeLessThan(90);
+        expect(hole.size).toBeLessThan(40);
+      }
+    }
+  });
+
   it("drops runes as their own socketable and labels them as runes", () => {
     const rune = (component as any).createRuneItem(40) as any;
     expect(rune.equipmentType).toBe("rune");
@@ -954,9 +1324,11 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     } as any;
     expect(component.socketInventoryItem(0, staff)).toBeTrue();
     expect(staff.runeword).toBeUndefined();
-    // A lone rune grants nothing; the word is the whole payoff.
-    expect(Object.keys(staff.stats as Record<string, number>).length).toBe(0);
-    expect(component.itemStatText(staff).some((line) => line.includes("No bonus alone"))).toBeTrue();
+    // A lone rune pays its own weapon column while it waits for the rest of the
+    // word; Ral adds 5-30 fire damage in a weapon.
+    expect((staff.stats as Record<string, number>)["elementalDamageMin"]).toBe(5);
+    expect((staff.stats as Record<string, number>)["elementalDamageMax"]).toBe(30);
+    expect(component.itemStatText(staff).some((line) => line.includes("Ral: Adds 5-30 Fire Damage"))).toBeTrue();
   });
 
   it("lets Barbarians equip an off-hand weapon or shield, and renders a second weapon on the left hand", () => {
@@ -5790,9 +6162,10 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(heavy.visible).toBeTrue();
   });
 
-  it("renders an equipped weapon at the hand attachment and moves it with the arm during a strike", () => {
+  it("renders an equipped weapon at the hand attachment and moves it with the arm during a strike", async () => {
     component.selectedClass = "paladin";
     component.equipment.weapon = { name: "Short Sword", baseName: "Short Sword", slot: "weapon" } as any;
+    (component as any).heldItemMeshes.set("short_sword", Promise.resolve(null));
 
     const swordArt = new THREE.Texture();
     swordArt.image = { width: 23, height: 111 };
@@ -5810,6 +6183,9 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     model.add(wrist, hand);
 
     (component as any).configureClassMeleeWeapon(model, "paladin");
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
     const weapon = hand.children.find((child) => child.name === "equipped_weapon_weapon");
     expect(weapon).toBeDefined();
     expect(weapon?.children.some((child) => (child as THREE.Mesh).isMesh)).toBeTrue();
@@ -8682,8 +9058,9 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect((component as any).holyShieldRemaining).toBe(12);
   });
 
-  it("mounts the original D2R Holy Shield design over the paladin's shield while active", () => {
+  it("mounts the original D2R Holy Shield design over the paladin's shield while active", async () => {
     component.selectedClass = "paladin";
+    (component as any).heldItemMeshes.set("buckler", Promise.resolve(null));
     component.ownedSkills = ["Holy Shield"];
     component.skillLevels = { "Holy Shield": 1 };
     const shieldItem = {
@@ -8704,6 +9081,9 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     shieldAttach.name = "shield_attach";
     model.add(shieldAttach);
     (component as any).configureClassMeleeWeapon(model, "paladin");
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
 
     const shield = shieldAttach.children.find((child) => child.name === "equipped_shield_shield") as THREE.Group;
     const overlay = shield?.getObjectByName("holy_shield_overlay") as THREE.Group;
@@ -11744,4 +12124,135 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect((component as any).enemyTypeDamageMultiplier(fallen)).toBe(2);
   });
 
+  describe("held javelin grip anchors", () => {
+    /**
+     * A bundle cel shaped like the javelin art: the shafts pinch to their
+     * narrowest high in the frame, while a heavy scroll low in the frame pulls
+     * the mass centre down and away from that pinch.
+     */
+    const bundleCel = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = 80;
+      canvas.height = 80;
+      const context = canvas.getContext("2d")!;
+      context.fillStyle = "#c8b183";
+      // Shafts taper to four pixels wide at y = 28, then stay slender to y = 39.
+      for (let y = 20; y <= 28; y += 1) {
+        const span = Math.max(4, 26 - (y - 20) * 3);
+        context.fillRect(56 - span / 2, y, span, 1);
+      }
+      context.fillRect(54, 29, 4, 11);
+      context.fillRect(2, 40, 76, 40);
+      return new THREE.CanvasTexture(canvas);
+    };
+
+    it("detects the shaft pinch instead of the cel's mass centre", () => {
+      const frame = (component as any).heldItemCelFrame(bundleCel());
+      // The narrowest drawn row is at y = 28 of 80, off the frame's middle: a
+      // swapped art file that fell back to the 0.5 defaults would leave both
+      // anchors centred and hang the bundle beside the fist again.
+      expect(frame.pinchY).toBeCloseTo(1 - 28.5 / 80, 4);
+      expect(frame.pinchX).toBeCloseTo(55.5 / 80, 4);
+      // The mass centre of the same cel sits in the low scroll, not on the
+      // shafts, so the two anchors have to disagree.
+      expect(Math.abs(frame.pinchY - frame.gripY)).toBeGreaterThan(0.25);
+      expect(Math.abs(frame.pinchX - frame.gripX)).toBeGreaterThan(0.1);
+      expect(frame.gripY).toBeLessThan(0.35);
+    });
+
+    it("keeps the javelin bundle's length share below the longer weapon families", () => {
+      const share = (name: string, kind: "weapon" | "offhand" = "weapon") =>
+        heldItemShare({ name, kind } as never);
+      expect(share("War Javelin")).toBeCloseTo(0.32, 5);
+      expect(share("War Javelin", "offhand")).toBeCloseTo(0.272, 5);
+      // Smaller than the polearm family it shares a haft with, and smaller than
+      // the sword default a javelin fell through to before that family existed.
+      expect(share("War Javelin")).toBeLessThan(share("War Spear"));
+      expect(share("War Spear")).toBeCloseTo(0.85, 5);
+      expect(share("War Javelin")).toBeLessThan(share("Broad Sword"));
+      expect(share("Broad Sword")).toBeCloseTo(0.42, 5);
+    });
+  });
+  it("gives every rune its own extracted inventory cel", () => {
+    const rune = (name: string) => ({
+      id: `rune-${name}`, name, baseName: name, rarity: "normal" as const,
+      slot: "charm" as const, equipmentType: "rune" as const, desc: "", stats: {}, affixes: [],
+    });
+    expect(component.inventoryItemImage(rune("El"))).toBe("assets/d2survivors/items/d2/invrel.png");
+    expect(component.inventoryItemImage(rune("Shael"))).toBe("assets/d2survivors/items/d2/invrshae.png");
+    expect(component.inventoryItemImage(rune("Jah"))).toBe("assets/d2survivors/items/d2/invrjo.png");
+    expect(component.groundItemImage(rune("Ber"))).toBe("assets/d2survivors/items/ground/flprun.png");
+  });
+  describe("rune affixes", () => {
+    const runeItem = (name: string) => ({
+      id: `rune-${name}`, name, baseName: name, rarity: "normal" as const, slot: "charm" as const,
+      equipmentType: "rune" as const, desc: "", stats: {}, affixes: [],
+    });
+
+    it("reads the rune table's weapon, armor and shield rows", () => {
+      const tal = D2_RUNE_BY_NAME["tal"];
+      expect(tal.inWeapon.lines).toEqual(["+75 Poison Damage over 5 Seconds"]);
+      expect(tal.inArmor.stats.poisonResistPercent).toBe(30);
+      // D2 gives shields their own parenthesised figure for the resist runes.
+      expect(tal.inShield.stats.poisonResistPercent).toBe(35);
+      expect(D2_RUNE_BY_NAME["el"].inWeapon.stats.attackRating).toBe(50);
+      expect(D2_RUNE_BY_NAME["el"].inShield.stats.armor).toBe(15);
+      expect(D2_RUNE_BY_NAME["eld"].inArmor.stats.maxStaminaPercent).toBe(15);
+      expect(D2_RUNE_BY_NAME["eld"].inShield.stats.increasedBlockPercent).toBe(7);
+      expect(D2_RUNE_BY_NAME["zod"].inWeapon.stats.indestructible).toBe(1);
+    });
+
+    it("applies the host's row when a rune is socketed", () => {
+      const el = runeItem("El");
+      component.inventory[0] = el as any;
+      const sword = {
+        id: "el-sword", name: "Broad Sword", baseName: "Broad Sword", rarity: "normal",
+        slot: "weapon", equipmentType: "weapon", sockets: 1, desc: "", stats: {},
+      } as any;
+      expect(component.socketInventoryItem(0, sword)).toBeTrue();
+      expect((sword.stats as Record<string, number>)["attackRating"]).toBe(50);
+      expect((sword.stats as Record<string, number>)["lightRadius"]).toBe(1);
+      expect((sword.stats as Record<string, number>)["armor"]).toBeUndefined();
+      expect(sword.socketed[0].lines).toEqual(["+50 to Attack Rating", "+1 to Light Radius"]);
+
+      const shield = {
+        id: "el-shield", name: "Kite Shield", baseName: "Kite Shield", rarity: "normal",
+        slot: "armor", equipmentType: "shield", sockets: 1, desc: "", stats: {},
+      } as any;
+      component.inventory[1] = el as any;
+      expect(component.socketInventoryItem(1, shield)).toBeTrue();
+      expect((shield.stats as Record<string, number>)["armor"]).toBe(15);
+      expect((shield.stats as Record<string, number>)["attackRating"]).toBeUndefined();
+
+      // Tal is the clearest three-column rune: damage in a weapon, 30 in armor
+      // and the shield's own 35.
+      const tal = runeItem("Tal");
+      const armor = {
+        id: "tal-armor", name: "Chain Mail", baseName: "Chain Mail", rarity: "normal",
+        slot: "armor", equipmentType: "body", sockets: 1, desc: "", stats: {},
+      } as any;
+      component.inventory[2] = tal as any;
+      expect(component.socketInventoryItem(2, armor)).toBeTrue();
+      expect((armor.stats as Record<string, number>)["poisonResistPercent"]).toBe(30);
+      component.inventory[3] = tal as any;
+      const talShield = {
+        id: "tal-shield", name: "Kite Shield", baseName: "Kite Shield", rarity: "normal",
+        slot: "armor", equipmentType: "shield", sockets: 1, desc: "", stats: {},
+      } as any;
+      expect(component.socketInventoryItem(3, talShield)).toBeTrue();
+      expect((talShield.stats as Record<string, number>)["poisonResistPercent"]).toBe(35);
+    });
+
+    it("spells out all three host rows in a rune's own description", () => {
+      const runes = Array.from({ length: 40 }, () => (component as any).createRuneItem(20) as any);
+      for (const rune of runes) {
+        expect(rune.affixes.length).toBe(3);
+        expect(rune.affixes[0].startsWith("Weapon: ")).toBeTrue();
+        expect(rune.affixes[1].startsWith("Armor: ")).toBeTrue();
+        expect(rune.affixes[2].startsWith("Shield: ")).toBeTrue();
+        expect(rune.desc).toContain("in a weapon");
+        expect(rune.desc).not.toContain("No bonus alone");
+      }
+    });
+  });
 });

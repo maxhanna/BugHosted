@@ -276,7 +276,7 @@
   </section>
 
   <section class="d2s-run" [hidden]="activeTab !== 'run'">
-    <div class="d2s-arena-wrap" (pointerdown)="onArenaPointerDown($event)" (pointermove)="onArenaPointerMove($event)" (pointerleave)="onArenaPointerLeave()" (pointerup)="onArenaPointerEnd($event)" (pointercancel)="onArenaPointerEnd($event)" (lostpointercapture)="onArenaPointerEnd($event)">
+    <div class="d2s-arena-wrap" (contextmenu)="onArenaContextMenu($event)" (pointerdown)="onArenaPointerDown($event)" (pointermove)="onArenaPointerMove($event)" (pointerleave)="onArenaPointerLeave()" (pointerup)="onArenaPointerEnd($event)" (pointercancel)="onArenaPointerEnd($event)" (lostpointercapture)="onArenaPointerEnd($event)">
       <div class="d2s-upgrade-modal" *ngIf="pendingLevelUps > 0 && !escapeMenuOpen && !inventoryOpen && !skillTreeOpen" role="dialog" aria-modal="true" aria-labelledby="d2s-upgrade-title">
         <section class="d2s-upgrade-panel">
           <p class="d2s-upgrade-kicker">LEVEL {{ playerLevel }}</p>
@@ -602,6 +602,10 @@
           (mouseleave)="onItemPreviewLeave()"
           (contextmenu)="onInventoryContextMenu(slot.slotIndex, $event)">
           <img *ngIf="slot.item as inventoryItem" class="d2s-inv-art" [src]="inventoryItemImage(inventoryItem)" alt="" draggable="false" />
+          <ng-container *ngIf="slot.slotIndex === hoveredSlotIndex">
+            <i *ngFor="let hole of socketHoles(slot.item)" class="d2s-socket-hole"
+              [style.left.%]="hole.left" [style.top.%]="hole.top" [style.width.%]="hole.size" aria-hidden="true"></i>
+          </ng-container>
           <span class="d2s-inv-name">{{ slot.item?.name || '' }}</span>
         </div>
         <div class="d2s-inv-drop-preview" *ngIf="inventoryDropPreview as preview"

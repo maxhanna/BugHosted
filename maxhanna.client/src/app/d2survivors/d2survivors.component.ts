@@ -32,6 +32,8 @@ import { INFERNO_ART } from "./d2-inferno.generated";
 import { POISON_CLOUD_ART } from "./d2-poison-cloud.generated";
 import { getHelmetVisualForItem } from "./d2-helmet-visuals.generated";
 import { helmetMountQuaternion, helmetSeatOffset } from "./d2-helmet-mount";
+import { getWeaponVisualForItem } from "./d2-weapon-visuals.generated";
+import type { D2WeaponVisual } from "./d2-weapon-visuals.generated";
 import { ASSASSIN_AURA_ART } from "./d2-assassin-auras.generated";
 import { DRUID_SPIRIT_AURA_ART } from "./d2-druid-auras.generated";
 import { D2_COMBAT_EFFECT_ART } from "./d2-combat-effects.generated";
@@ -57,7 +59,7 @@ import {
 } from "./d2-item-assets.generated";
 import type { D2ItemStats } from "./d2-item-stats";
 import { D2_GEMS, D2_GEM_BY_NAME } from "./d2-gems.generated";
-import { d2Rune, rollRuneForLevel } from "./d2-runes";
+import { d2Rune, rollRuneForLevel, runeRollFor } from "./d2-runes";
 import { findRuneword, runewordBaseKind, runewordSocketCapacity } from "./d2-runewords";
 import type { D2RunewordTableEntry } from "./d2-runeword-table";
 import { getD2BaseItemFootprint, getD2EquipmentTypeFootprint } from "./d2-item-footprints";
@@ -687,6 +689,10 @@ const FIST_OF_THE_HEAVENS_BOLT_SPEED = 360;
 const FIST_OF_THE_HEAVENS_BOLT_RANGE = 260;
 const FIST_OF_THE_HEAVENS_LIGHTNING_MULTIPLIER = 1.35;
 const FIST_OF_THE_HEAVENS_BOLT_MULTIPLIER = 0.6;
+// Fist of the Heavens is auto-targeting: a cast at bare ground still locks onto
+// a monster standing inside the cone the paladin aimed, cos(45 degrees), rather
+// than requiring the cursor to land on a body.
+const FIST_OF_THE_HEAVENS_AUTO_AIM_COS = Math.SQRT1_2;
 // missiles.txt gives fistoftheheavensbolt `EDmgSymPerCalc = skill('Holy Bolt'.blvl)
 // * 15`, so every Holy Bolt rank adds 15% to the bolts Fist of the Heavens
 // releases; the bolts stay independent casts that never heal.
@@ -913,6 +919,10 @@ const MISSILE_ELEMENTS: Record<string, AttackProjectile["kind"]> = {
   "d2-poisonleft": "bone", "d2-poisonnova": "bone", "d2-poisongas": "bone",
   "d2-corpseexplodeguts": "bone", "d2-corpseexplodegutspoison": "bone", "d2-poisonsparks": "bone",
   "d2-holyboltmissile": "holy", "d2-blessedhammer": "holy",
+  // Cold missiles get their own kind: the sorceress and assassin basic attacks
+  // are melee, and the missile renderer skips melee-kind projectiles, which left
+  // Ice Bolt, Ice Blast and Glacial Spike with no sprite at all.
+  "d2-icebolt": "cold", "d2-iceblast": "cold", "d2-glacialspike": "cold",
 };
 // One loop is roughly 0.8s; effects with more cels play faster.
 const MISSILE_FRAME_DURATIONS_MS: Record<string, number> = {
@@ -1449,6 +1459,7 @@ const ATTACK_KIND_MISSILE_OVERLAYS: Record<AttackProjectile["kind"], string> = {
   "bone": "135",
   "holy": "116",
   "claw": "110",
+  "cold": "d2-icebolt",
   "melee": "96",
 };
 interface CampaignArea {
@@ -1703,11 +1714,15 @@ const CAMPAIGN_ACTS: CampaignAct[] = [
     // atlas's own plain ground material, so the marsh reads as one floor.
     { name: "Great Marsh", level: 22, floorTiles: A3_TILES, baseFloorVariant: 5 },
     { name: "Flayer Jungle", level: 22, floorTiles: A3_FLAYER_TILES, baseFloorVariant: 8 },
-    { name: "Lower Kurast", level: 23, floorTiles: A3_DURANCE_TILES, baseFloorVariant: 10 },
+    // Cell 10 of the Durance sheet is a timber boardwalk: repeating it paved
+    // the whole zone in planks.  Cell 12 is the sheet's plain moss floor.
+    { name: "Lower Kurast", level: 23, floorTiles: A3_DURANCE_TILES, baseFloorVariant: 12 },
     { name: "Kurast Bazaar", level: 23, floorTiles: A3_DURANCE_TILES, baseFloorVariant: 14 },
     { name: "Upper Kurast", level: 24, floorTiles: A3_DURANCE_TILES, baseFloorVariant: 5 },
     { name: "Kurast Causeway", level: 24, floorTiles: A3_DURANCE_TILES, baseFloorVariant: 9 },
-    { name: "Travincal", level: 25, floorTiles: A3_DURANCE_TILES, baseFloorVariant: 15 },
+    // Cell 15 carries cut plank ends along its top edge, which tiled into a
+    // grid of timber stubs.  Cell 14 is the sheet's plain dark moss.
+    { name: "Travincal", level: 25, floorTiles: A3_DURANCE_TILES, baseFloorVariant: 14 },
     { name: "Durance of Hate", level: 25, floorTiles: A3_DURANCE_TILES, baseFloorVariant: 0, dark: true },
   ] },
   { act: 4, name: "The Chaos Sanctuary", region: "Pandemonium Fortress", levelLabel: "Outer Steppes", map: "assets/d2survivors/maps/act4-catacombs.png", mapAlpha: true, backdrop: "assets/d2survivors/maps/act4-catacombs.png", floorTiles: A4_TILES, baseFloorVariant: 8, enemies: ["balrog", "vileChild", "vileMother", "painWorm", "regurgitator"], boss: "diablo", areas: [
@@ -2451,6 +2466,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private loadedArmorAtlases = new Map<string, THREE.Texture>();
   private readonly equippedItemArtTextures = new Map<string, THREE.Texture>();
   private readonly equippedItemArtRequests = new Map<string, Promise<THREE.Texture | null>>();
+  /** D2R held-item meshes and their albedo maps, cached per HD family. */
+  private readonly heldItemMeshes = new Map<string, Promise<{ mesh: THREE.Group; height: number } | null>>();
+  private readonly heldItemMeshTextures = new Map<string, THREE.Texture>();
   /** Roll and grip point measured from a cel's own art, cached per texture. */
   private readonly heldItemCelFrames = new Map<string, { roll: number; gripX: number; gripY: number; pinchX: number; pinchY: number }>();
   private readonly meleeTrailEffects: MeleeTrailEffect[] = [];
@@ -6894,6 +6912,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const name = (item.baseName ?? item.name ?? "").trim().toLowerCase();
     if (name === "kris") return "kriss";
     if (name === "staff") return "short staff";
+    // A rune is carried as a plain "El" or "Ber", but the extract files its
+    // cel under the item's full name ("El Rune"), which is also how the
+    // imported art maps are keyed. The bare name fell through to a
+    // socketable placeholder, so every rune in the inventory drew the same
+    // generic icon instead of its own rune stone.
+    const rune = d2Rune(name);
+    if (rune) return `${rune.name.toLowerCase()} rune`;
     return name;
   }
 
@@ -7496,6 +7521,18 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     return item?.socketed?.length ?? 0;
   }
 
+  /**
+   * A socketed item's art shows its holes while the item is hovered. The cel
+   * files are unpunched, so the holes are drawn over the icon: D2 stacks them
+   * across the face of the item, and a shield or body armor reads best with the
+   * same loose grid at every count. Left/top/size are percentages of the slot
+   * box, and the hole is drawn wider than tall to sit on the isometric ground.
+   */
+  socketHoles(item: D2InventoryItem | null | undefined): D2SocketHole[] {
+    const sockets = Math.max(0, Math.min(6, Math.floor(item?.sockets ?? 0)));
+    return SOCKET_HOLE_LAYOUTS[sockets] ?? [];
+  }
+
   /** "Ral + Tir + Tal + Sol": the runes a completed runeword was spelled with. */
   socketedRuneNames(item: D2InventoryItem | null | undefined): string {
     return (item?.socketed ?? []).map((content) => content.name).join(" + ");
@@ -7523,8 +7560,16 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   private socketEffectFor(socketable: D2InventoryItem, host: D2InventoryItem): { stats: D2ItemStats; lines: string[] } {
-    // A rune has no per-host rows: its whole value is the word it spells.
+    // D2's rune table is per host: a weapon reads the weapon column, a shield
+    // its parenthesised shield figure and helms and other armor the armor
+    // column, so the same El is +50 Attack Rating in a sword and +15 Defense in
+    // a shield.
     if (getEquipmentType(socketable) === "rune") {
+      const rune = d2Rune(socketable.baseName ?? socketable.name);
+      if (rune) {
+        const kind = this.socketHostKind(host);
+        return runeRollFor(rune, kind === "helm" ? "armor" : kind);
+      }
       return { stats: {}, lines: ["No bonus alone — runes only pay off as a completed runeword."] };
     }
     const gem = D2_GEM_BY_NAME[socketable.baseName ?? socketable.name] ?? D2_GEM_BY_NAME[socketable.name];
@@ -7642,9 +7687,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       slot: "charm",
       equipmentType: "rune",
       requiredLevel: rune.requiredLevel,
-      desc: `Rune ${rune.order} of 33. Socket it in a white base in the exact order a runeword asks for.`,
+      desc: `${rune.inWeapon.lines.join(", ")} in a weapon; ${rune.inArmor.lines.join(", ")} in armor; ${rune.inShield.lines.join(", ")} in a shield.`,
       stats: {},
-      affixes: [],
+      affixes: [
+        `Weapon: ${rune.inWeapon.lines.join("; ")}`,
+        `Armor: ${rune.inArmor.lines.join("; ")}`,
+        `Shield: ${rune.inShield.lines.join("; ")}`,
+      ],
     };
   }
 
@@ -7800,8 +7849,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   onArenaPointerDown(event: PointerEvent): void {
-    // A press on the battlefield dismisses the basic-attack spell picker.
-    this.basicAttackPickerOpen = false;
+    // A press on the battlefield dismisses the basic-attack spell picker, but a
+    // press inside the picker must not: closing it on pointerdown deleted the
+    // option button before its click could land, so no spell could be chosen.
+    const pressed = event.target instanceof Element ? event.target : null;
+    if (!pressed?.closest(".d2s-basic-attack-picker, .d2s-skill-slot.basic-skill")) {
+      this.basicAttackPickerOpen = false;
+    }
     // While a belt potion is held, the next arena press throws it there instead
     // of starting movement, a click-to-move, or the touch joystick.
     if (this.heldBeltPotionSlot !== null && event.button === 0 && event.target === this.arenaRef?.nativeElement) {
@@ -7857,6 +7911,33 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.virtualJoystickVisible = true;
     this.updateJoystickDirection(event);
     event.preventDefault();
+  }
+
+  /**
+   * Right-click on the battlefield: D2 casts the skill in the left slot — here the
+   * assigned basic-attack spell, or the weapon attack — at the cursor. The press
+   * never moves the hero, and a monster under the cursor takes the blow.
+   */
+  onArenaContextMenu(event: MouseEvent): void {
+    const pressed = event.target instanceof Element ? event.target : null;
+    if (!pressed?.classList.contains("d2s-arena")) return;
+    event.preventDefault();
+    if (this.activeTab !== "run" || !this.runActive || this.playerFrozenRemaining > 0
+      || this.escapeMenuOpen || this.inventoryOpen || this.skillTreeOpen
+      || this.pendingLevelUps > 0 || this.campaignVictory
+      || (this.actTransitionReady && !this.actPortalOpen)) return;
+    this.updateHoveredEnemy(event as unknown as PointerEvent);
+    const enemy = this.hoveredEnemy;
+    const world = this.arenaWorldPointAt(event.clientX, event.clientY);
+    if (world) {
+      const distance = Math.hypot(world.x - this.playerX, world.y - this.playerY) || 1;
+      this.playerFacingX = (world.x - this.playerX) / distance;
+      this.playerFacingY = (world.y - this.playerY) / distance;
+    }
+    this.clearClickMoveCommands();
+    if (this.tryBasicAttackSpell(enemy ?? undefined, enemy ? undefined : world ?? undefined)) return;
+    if (this.attackCooldown > 0 || this.playerRunning || this.playerLeapRemaining > 0 || this.playerChargeRemaining > 0) return;
+    this.attackNearestEnemy(enemy ?? undefined);
   }
 
   onArenaPointerMove(event: PointerEvent): void {
@@ -9950,7 +10031,16 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private equippedElementalResistance(
     key: "fireResistPercent" | "coldResistPercent" | "lightningResistPercent" | "poisonResistPercent",
   ): number {
-    return Math.min(75, this.equipmentStatTotal("allResistPercent") + this.equipmentStatTotal(key));
+    // D2 caps each resistance at 75 and lets gear raise that cap, which is what
+    // Gul, Vex, Ohm and Lo do in an armor socket.
+    const caps = {
+      fireResistPercent: "maxFireResistPercent",
+      coldResistPercent: "maxColdResistPercent",
+      lightningResistPercent: "maxLightningResistPercent",
+      poisonResistPercent: "maxPoisonResistPercent",
+    } as const;
+    const cap = Math.min(95, 75 + this.equipmentStatTotal(caps[key]));
+    return Math.min(cap, this.equipmentStatTotal("allResistPercent") + this.equipmentStatTotal(key));
   }
 
   get equippedResistancePercent(): number {
@@ -10051,7 +10141,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   get effectiveStamina(): number {
-    return Math.max(0, this.selectedClassStats.stamina + this.equipmentStatTotal("maxStamina"));
+    // Eld's armor column raises maximum stamina as a share of the class value,
+    // unlike the flat max-stamina rows on gear.
+    const percent = this.equipmentStatTotal("maxStaminaPercent");
+    const base = this.selectedClassStats.stamina;
+    return Math.max(0, base + this.equipmentStatTotal("maxStamina") + Math.round(base * percent / 100));
   }
 
   get inventoryAttackRating(): number {
@@ -10139,7 +10233,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   missileOverlayPath(id: string): string {
-    return `${MISSILE_OVERLAY_BASE}/${id}${this.missileFrameCount(id) > 1 ? "/0000.webp" : ".webp"}`;
+    // Cels always live in a per-id directory, single-cel missiles included; the
+    // "<id>.webp" strip path pointed skill icons at files that never existed.
+    return `${MISSILE_OVERLAY_BASE}/${id}/0000.webp`;
   }
 
   getSkillMissileOverlay(skill: string): string {
@@ -10166,7 +10262,15 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     return icons[skill] ?? visualIcons[getD2SkillVisual(skill)];
   }
 
-  activateOwnedSkill(skill: string): void {
+  /**
+   * Cast an owned skill. `preferred` is the monster the player clicked (the
+   * right-click / left-slot cast); every targeted spell uses it instead of the
+   * nearest monster, and a dead or friendly one quietly falls back to nearest.
+   * `groundPoint` is the floor spot of that same click, so spells that can be
+   * placed (Blizzard, Meteor, Poison Explosion, Lightning) still cast there when
+   * the click landed on empty ground.
+   */
+  activateOwnedSkill(skill: string, preferred?: Enemy, groundPoint?: { x: number; y: number }): void {
     if (!this.ownedSkills.includes(skill)) return;
     // A frozen hero is fully encased in ice, not merely slowed.
     if (this.playerFrozenRemaining > 0) return;
@@ -10323,10 +10427,15 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const railDamage = this.applyPaladinAuraDamage(this.applyEnergyToSpellDamage(
         (this.basicAttackDamage * 1.5 + (rank - 1) * 3) * this.lightningSynergyMultiplier("Lightning"),
       ));
-      const railTarget = this.enemies
+      // Lightning leaves before the shared target pick, so a clicked monster
+      // has to be chosen here as well.
+      const railPreferred = preferred && preferred.hp > 0 && !preferred.summonType ? preferred : undefined;
+      const railTarget = railPreferred ?? this.enemies
         .filter((enemy) => enemy.hp > 0 && !enemy.summonType)
         .sort((a, b) => Math.hypot(a.x - this.playerX, a.y - this.playerY) - Math.hypot(b.x - this.playerX, b.y - this.playerY))[0];
-      this.castLightningRail(railDamage, railTarget);
+      // Empty-floor right-clicks still aim the rail at that spot instead of
+      // merely along the last facing.
+      this.castLightningRail(railDamage, railTarget ?? groundPoint);
       this.triggerAttackAnimation(castAnimation);
       return;
     }
@@ -10366,10 +10475,24 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       return;
     }
     // Player attacks and offensive skills never pick a friendly servant as their target.
-    let nearest = this.enemies
+    const clickedTarget = preferred && preferred.hp > 0 && !preferred.summonType ? preferred : undefined;
+    // Fist of the Heavens finds its own target: a bare-ground cast strikes the
+    // monster the paladin aimed at, so clicking a monster's direction is enough.
+    const autoTarget = !clickedTarget && groundPoint
+      && skill === "Fist of the Heavens" && this.selectedClass === "paladin"
+      ? this.fistOfTheHeavensAutoTarget(groundPoint.x, groundPoint.y)
+      : undefined;
+    let nearest = clickedTarget ?? autoTarget ?? this.enemies
       .filter((enemy) => enemy.hp > 0 && !enemy.summonType)
       .sort((a, b) => Math.hypot(a.x - this.playerX, a.y - this.playerY) - Math.hypot(b.x - this.playerX, b.y - this.playerY))[0];
     if (!nearest) {
+      // Placed spells need no body: a right-click on empty floor drops Blizzard,
+      // Meteor or Poison Explosion on that spot, the way Diablo II lets them be
+      // cast at the ground.
+      if (groundPoint && this.castGroundPlacedSkill(skill, groundPoint.x, groundPoint.y)) {
+        this.triggerAttackAnimation(castAnimation);
+        return;
+      }
       if (skill === "Arctic Blast" && this.selectedClass === "druid") {
         // The stream channels in the direction the druid is facing even when
         // nothing is nearby, just like the original skill.
@@ -10380,8 +10503,16 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         return;
       }
       if (skill === "Fist of the Heavens" && this.selectedClass === "paladin") {
-        // The original skill requires a target, so an empty arena only plays the
-        // cast animation instead of inventing a bolt.
+        // The auto-target found no monster anywhere, so there is nothing to
+        // smite: only the cast animation plays instead of inventing a strike.
+        this.triggerAttackAnimation(castAnimation);
+        return;
+      }
+      // A missile spell with nothing to hit still fires down the facing: leaving
+      // only the caster's ring on screen made Glacial Spike read as an aura
+      // instead of a thrown spike.
+      if (this.missileOverlayId(skill)) {
+        this.castUntargetedMissile(skill);
         this.triggerAttackAnimation(castAnimation);
         return;
       }
@@ -10405,14 +10536,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.playerFacingY = (nearest.y - this.playerY) / distanceToTarget;
     const attack = this.basicAttackForClass(this.selectedClass);
     const multiplier = Math.max(1, this.skillLevels[skill] ?? 1);
-    const baseDamage = this.basicAttackDamage * (skill === this.basicAttackName ? 1 : 1.5) + (multiplier - 1) * 3;
-    const adjustedBaseDamage = this.isMeleeDamageSkill(skill)
-      ? this.applyStrengthToMeleeDamage(baseDamage)
-      : this.isSpellDamageSkill(skill) ? this.applyEnergyToSpellDamage(baseDamage) : baseDamage;
-    // Decrepify weakens physical weapon attacks; elemental spells keep their
-    // full damage. `isSpellDamageSkill` is the existing split used for Energy.
-    const damage = this.applyPaladinAuraDamage(adjustedBaseDamage, this.isMeleeDamageSkill(skill))
-      * (this.isSpellDamageSkill(skill) ? 1 : this.decrepifyDamageDealtMultiplier);
+    const damage = this.skillCastDamage(skill);
     const distance = Math.hypot(nearest.x - this.playerX, nearest.y - this.playerY);
     this.playerFacingX = (nearest.x - this.playerX) / Math.max(1, distance);
     this.playerFacingY = (nearest.y - this.playerY) / Math.max(1, distance);
@@ -10529,8 +10653,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       "Immolation Arrow", "Phoenix Strike", "Claws of Thunder", "Blades of Ice", "Zakarum's Hand", "Corpse Explosion",
     ]);
     if (rangedSpell || (missileId && rangedSkills.has(skill)) || skillVisual === "projectile") {
+      // Every class's basic attack is kind "melee", and the missile renderer
+      // skips melee-kind projectiles, so an imported spell missile with no element
+      // row drew nothing at all (Glacial Spike, Frozen Orb, Ice Arrow). A spell's
+      // missile is never a swing: fall back on the spell's own element.
       const kind: AttackProjectile["kind"] = MISSILE_ELEMENTS[visualMissile]
-        ?? (isChargedBolt ? "lightning" : this.basicAttackForClass(this.selectedClass).kind);
+        ?? (isChargedBolt ? "lightning" : this.spellMissileKind(skill));
       const multishotArrows = skill === "Multiple Shot" || skill === "Multishot"
         ? Math.min(21, 2 + Math.max(0, (this.skillLevels[skill] ?? 1) - 1))
         : undefined;
@@ -10538,7 +10666,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       // 2/3/4... progression. Charged Bolt keeps its five-bolt opening volley.
       const boltCount = multishotArrows ?? (skill === "Teeth" ? 1 + multiplier : isChargedBolt ? 4 + multiplier : skill === "Lightning Fury" ? 6 : skill === "Blizzard" ? 3 : 1);
       const color = isPsychicHammer ? "#c4b5ff"
-        : kind === "lightning" ? "#a9dcff" : kind === "holy" ? "#fff0a8" : kind === "bone" ? "#ddd5c5"
+        : kind === "lightning" ? "#a9dcff" : kind === "cold" ? "#8bdcff" : kind === "holy" ? "#fff0a8" : kind === "bone" ? "#ddd5c5"
           : COLD_DAMAGE_SKILLS.has(skill) ? "#8bdcff" : "#ff9c50";
       const perpendicularX = -this.playerFacingY;
       const perpendicularY = this.playerFacingX;
@@ -10883,9 +11011,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       for (let frameIndex = 0; frameIndex < frameCount; frameIndex += 1) {
         const image = new Image();
         image.decoding = "async";
-        const source = frameCount === 1
-          ? `${MISSILE_OVERLAY_BASE}/${id}.webp`
-          : `${MISSILE_OVERLAY_BASE}/${id}/${String(frameIndex).padStart(4, "0")}.webp`;
+        // Every imported missile is a per-id directory of cels; the old
+        // "<id>.webp" strip layout no longer exists, so a single-cel missile asked
+        // for a strip that was never written (d2-arrow, d2-javelin,
+        // d2-grimwardsmall …) and silently drew nothing.
+        const source = `${MISSILE_OVERLAY_BASE}/${id}/${String(frameIndex).padStart(4, "0")}.webp`;
         const load = (): Promise<void> => new Promise<void>((resolve) => {
           image.onload = () => {
             const preparedFrame = this.prepareMissileOverlayFrame(image, id);
@@ -11463,6 +11593,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     for (const texture of this.equippedItemArtTextures.values()) texture.dispose();
     this.equippedItemArtTextures.clear();
     this.equippedItemArtRequests.clear();
+    for (const texture of this.heldItemMeshTextures.values()) texture.dispose();
+    this.heldItemMeshTextures.clear();
+    this.heldItemMeshes.clear();
     this.weaponHandRestQuaternions.clear();
     this.weaponHandRestModel = undefined;
     if (this.rafId) {
@@ -12422,10 +12555,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
    * The basic-attack slot can be pointed at any owned spell. While that spell is
    * recharged and castable the attack casts it instead of swinging the weapon.
    */
-  private tryBasicAttackSpell(): boolean {
+  private tryBasicAttackSpell(preferred?: Enemy, groundPoint?: { x: number; y: number }): boolean {
     const skill = this.basicAttackSpell;
     if (!skill || !this.canBasicAttackCastSpell(skill)) return false;
-    this.activateOwnedSkill(skill);
+    this.activateOwnedSkill(skill, preferred, groundPoint);
     // The attack consumed the cast, so the automatic caster must not fire the
     // same spell again the moment its slot comes off cooldown.
     const interval = this.getSkillCastInterval(skill);
@@ -12447,7 +12580,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   private updateBasicAttack(): void {
     if (!this.runActive || this.pendingLevelUps > 0 || this.attackCooldown > 0 || this.playerRunning || this.playerLeapRemaining > 0 || this.playerChargeRemaining > 0) return;
-    if (this.tryBasicAttackSpell()) return;
+    // A monster the player left-clicked keeps the basic-attack spell aimed at it
+    // once the hero arrives, exactly like right-click casting. Without a click
+    // target the spell still takes whatever monster is nearest.
+    if (this.tryBasicAttackSpell(this.clickMoveTarget ?? undefined)) return;
     const nearest = this.enemies
       .filter((enemy) => enemy.hp > 0 && !enemy.summonType)
       .sort((a, b) => Math.hypot(a.x - this.playerX, a.y - this.playerY) - Math.hypot(b.x - this.playerX, b.y - this.playerY))[0];
@@ -12564,15 +12700,17 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.persistRunProgress(true);
   }
 
-  attackNearestEnemy(): void {
+  attackNearestEnemy(preferred?: Enemy): void {
     if (!this.runActive || this.pendingLevelUps > 0 || this.attackCooldown > 0 || this.enemies.length === 0) return;
     if (this.playerFrozenRemaining > 0) return;
     if (this.playerRunning) return;
-    if (this.tryBasicAttackSpell()) return;
-    const targets = this.enemies
-      .filter((enemy) => enemy.hp > 0 && !enemy.summonType)
-      .sort((a, b) => Math.hypot(a.x - this.playerX, a.y - this.playerY) - Math.hypot(b.x - this.playerX, b.y - this.playerY))
-      .slice(0, 1);
+    if (this.tryBasicAttackSpell(preferred)) return;
+    const targets = preferred && preferred.hp > 0 && !preferred.summonType
+      ? [preferred]
+      : this.enemies
+        .filter((enemy) => enemy.hp > 0 && !enemy.summonType)
+        .sort((a, b) => Math.hypot(a.x - this.playerX, a.y - this.playerY) - Math.hypot(b.x - this.playerX, b.y - this.playerY))
+        .slice(0, 1);
     if (!targets.length) return;
     const attack = this.basicAttackForClass(this.selectedClass);
     const attackLevel = this.skillLevels[this.basicAttackName] ?? 1;
@@ -13216,10 +13354,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     });
   }
 
-  private drawMeleeTrail(ctx: CanvasRenderingContext2D, effect: MeleeTrailEffect): void {
-    const progress = Math.max(0, Math.min(1, effect.time / effect.duration));
-    const fade = Math.sin(Math.PI * progress);
-    if (fade <= 0.01) return;
+  /** Ground point where a melee swing lands, which is also its depth key. */
+  private meleeTrailImpact(effect: MeleeTrailEffect): { x: number; y: number; angle: number } {
     const center = this.projectArenaPoint(this.playerX, this.playerY);
     const facing = this.projectArenaPoint(this.playerX + effect.facingX, this.playerY + effect.facingY);
     const angle = Math.atan2(facing.y - center.y, facing.x - center.x);
@@ -13227,15 +13363,28 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     // Impacting01 is the original D2 melee-hit overlay. Place it at the weapon's
     // reach instead of drawing a synthetic sweep arc around the hero.
     const reach = (effect.style === "assassinKick" ? 30 : effect.style === "barbarianCleave" ? 34 : 24) * dpr;
+    return {
+      x: center.x + Math.cos(angle) * reach,
+      y: center.y + Math.sin(angle) * reach * 0.45,
+      angle,
+    };
+  }
+
+  private drawMeleeTrail(ctx: CanvasRenderingContext2D, effect: MeleeTrailEffect): void {
+    const progress = Math.max(0, Math.min(1, effect.time / effect.duration));
+    const fade = Math.sin(Math.PI * progress);
+    if (fade <= 0.01) return;
+    const impact = this.meleeTrailImpact(effect);
+    const dpr = this.projectionDpr || 1;
     const size = (effect.style === "barbarianCleave" ? 66 : effect.style === "spin" ? 58 : 46) * dpr;
     this.drawImportedMissileFrame(
       ctx,
       "d2-impacting01",
       effect.time,
-      center.x + Math.cos(angle) * reach,
-      center.y - 12 * dpr + Math.sin(angle) * reach * 0.45,
+      impact.x,
+      impact.y - 12 * dpr,
       size,
-      angle,
+      impact.angle,
       fade * 0.9,
     );
   }
@@ -13765,6 +13914,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       return;
     }
     const start = this.projectArenaPoint(projectile.startX, projectile.startY);
+    // A hop is the bolt leaving one monster for the next. Stamp the Lightning
+    // rail along that hop so a chain reads as electricity instead of a fork
+    // sprite sliding between bodies.
+    if ((projectile.chainHitEnemies?.length ?? 0) > 0) {
+      this.drawChainLightningHopArc(ctx, start, point, renderAge);
+    }
     const missileId = projectile.missileId ?? ATTACK_KIND_MISSILE_OVERLAYS[projectile.kind];
     const sourceOnlyArt = projectile.sourceOnlyArt === true;
     if (projectile.teethFan !== undefined) {
@@ -14146,6 +14301,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const attackRate = this.playerDecrepifyRemaining > 0 ? BAAL_DECREPIFY_ATTACK_SPEED_MULTIPLIER : 1;
     this.attackCooldown = Math.max(0, this.attackCooldown - dt / 1000 * attackRate);
     this.playerAttackLockRemaining = Math.max(0, this.playerAttackLockRemaining - dt / 1000);
+    // "Cannot Be Frozen" is a hard immunity in D2, so it clears the chill the
+    // frame it lands instead of just shortening it.
+    if (this.equipmentStatTotal("freezeLengthReductionPercent") >= 100) this.playerChilledRemaining = 0;
     this.playerChilledRemaining = Math.max(0, this.playerChilledRemaining - dt / 1000);
     this.playerFrozenRemaining = Math.max(0, this.playerFrozenRemaining - dt / 1000);
     this.playerHorrorRemaining = Math.max(0, this.playerHorrorRemaining - dt / 1000);
@@ -14754,7 +14912,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
    * `PoisonSparks`. It plays once at the target's location; the lingering
    * poison well is drawn separately underneath.
    */
-  private addPoisonExplosionBurst(target: Enemy): void {
+  private addPoisonExplosionBurst(target: { x: number; y: number }): void {
     this.skillVisualEffects.push({
       name: "Poison Explosion",
       kind: "burst",
@@ -18166,16 +18324,75 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
   }
 
+  /**
+   * The damage a cast of `skill` deals, shared by the targeted path and the
+   * ground-placed path so a Blizzard dropped on empty floor hits as hard as one
+   * dropped on a monster.
+   */
+  private skillCastDamage(skill: string): number {
+    const multiplier = Math.max(1, this.skillLevels[skill] ?? 1);
+    const baseDamage = this.basicAttackDamage * (skill === this.basicAttackName ? 1 : 1.5) + (multiplier - 1) * 3;
+    const adjustedBaseDamage = this.isMeleeDamageSkill(skill)
+      ? this.applyStrengthToMeleeDamage(baseDamage)
+      : this.isSpellDamageSkill(skill) ? this.applyEnergyToSpellDamage(baseDamage) : baseDamage;
+    // Decrepify weakens physical weapon attacks; elemental spells keep their
+    // full damage. `isSpellDamageSkill` is the existing split used for Energy.
+    return this.applyPaladinAuraDamage(adjustedBaseDamage, this.isMeleeDamageSkill(skill))
+      * (this.isSpellDamageSkill(skill) ? 1 : this.decrepifyDamageDealtMultiplier);
+  }
+
+  /**
+   * Casts a placed spell at a floor position. Returns false for spells that need
+   * a monster, leaving their own empty-ground fallback in charge.
+   */
+  private castGroundPlacedSkill(skill: string, x: number, y: number): boolean {
+    const distance = Math.hypot(x - this.playerX, y - this.playerY) || 1;
+    this.playerFacingX = (x - this.playerX) / distance;
+    this.playerFacingY = (y - this.playerY) / distance;
+    const damage = this.skillCastDamage(skill);
+    if (skill === "Blizzard" && this.selectedClass === "sorceress") {
+      this.castPlayerBlizzard({ x, y }, damage);
+      return true;
+    }
+    if (skill === "Poison Explosion" && this.selectedClass === "necromancer") {
+      this.addPoisonExplosionBurst({ x, y });
+      this.spawnPoisonCloud(x, y, Math.max(1, this.skillLevels[skill] ?? 1), damage);
+      return true;
+    }
+    if (skill === "Meteor" && this.selectedClass === "sorceress") {
+      // The meteor falls onto the clicked spot instead of flying past it.
+      const startX = this.playerX;
+      const startY = this.playerY - 8;
+      const fallDistance = Math.hypot(x - startX, y - startY) || 1;
+      this.attackProjectiles.push({
+        x: startX, y: startY, startX, startY,
+        targetX: x, targetY: y,
+        targetId: this.attackSequence++,
+        speed: 420,
+        damage,
+        life: fallDistance / 420 + 0.4,
+        radius: 5,
+        age: 0,
+        color: "#ff9c50",
+        kind: "fire",
+        missileId: "d2-meteortail",
+        damageType: this.damageTypeForSkill(skill, "fire"),
+      });
+      return true;
+    }
+    return false;
+  }
+
   /** Player Blizzard: 24 original ice-storm shards fall across the target pack. */
-  private castPlayerBlizzard(nearest: Enemy, damage: number): void {
+  private castPlayerBlizzard(target: { x: number; y: number }, damage: number): void {
     const seed = Math.random() * Math.PI * 2;
     const shards: PlayerBlizzardShard[] = [];
     for (let index = 0; index < PLAYER_BLIZZARD_SHARDS; index += 1) {
       const angle = seed + index * 2.399963229728653;
       const distance = PLAYER_BLIZZARD_RADIUS * Math.sqrt((index + 0.5) / PLAYER_BLIZZARD_SHARDS);
       shards.push({
-        x: nearest.x + Math.cos(angle) * distance,
-        y: nearest.y + Math.sin(angle) * distance,
+        x: target.x + Math.cos(angle) * distance,
+        y: target.y + Math.sin(angle) * distance,
         delay: 0.18 + index * ((PLAYER_BLIZZARD_DURATION - PLAYER_BLIZZARD_IMPACT_SECONDS - 0.2) / (PLAYER_BLIZZARD_SHARDS - 1)),
         fallArt: PLAYER_BLIZZARD_FALL_ART[index % PLAYER_BLIZZARD_FALL_ART.length],
         impactArt: PLAYER_BLIZZARD_IMPACT_ART[index % PLAYER_BLIZZARD_IMPACT_ART.length],
@@ -18183,8 +18400,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       });
     }
     this.playerBlizzards.push({
-      x: nearest.x,
-      y: nearest.y,
+      x: target.x,
+      y: target.y,
       time: 0,
       duration: PLAYER_BLIZZARD_DURATION,
       radius: PLAYER_BLIZZARD_RADIUS,
@@ -18192,7 +18409,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       seed,
       shards,
     });
-    this.floatingTexts.push({ x: nearest.x, y: nearest.y - 26, text: "BLIZZARD", color: "#bfeaff", life: 0.9 });
+    this.floatingTexts.push({ x: target.x, y: target.y - 26, text: "BLIZZARD", color: "#bfeaff", life: 0.9 });
   }
 
   private updatePlayerBlizzards(seconds: number): void {
@@ -18814,6 +19031,39 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   /**
+   * Fist of the Heavens auto-target. A cast that lands on bare ground still hits
+   * the nearest monster inside the cone the paladin aimed, so clicking in a
+   * monster's direction is enough. With nothing in that direction the closest
+   * monster anywhere is struck instead, so a stray click never wastes the cast.
+   */
+  private fistOfTheHeavensAutoTarget(x: number, y: number): Enemy | undefined {
+    const aimX = x - this.playerX;
+    const aimY = y - this.playerY;
+    const aimDistance = Math.hypot(aimX, aimY);
+    if (aimDistance > 0.001) {
+      const facingX = aimX / aimDistance;
+      const facingY = aimY / aimDistance;
+      let aimed: Enemy | undefined;
+      let aimedDistance = Number.POSITIVE_INFINITY;
+      for (const enemy of this.enemies) {
+        if (enemy.hp <= 0 || enemy.summonType) continue;
+        const offsetX = enemy.x - this.playerX;
+        const offsetY = enemy.y - this.playerY;
+        const distance = Math.hypot(offsetX, offsetY) || 1;
+        // Monsters behind the paladin are not in the direction of the cast.
+        if ((offsetX * facingX + offsetY * facingY) / distance < FIST_OF_THE_HEAVENS_AUTO_AIM_COS) continue;
+        if (distance >= aimedDistance) continue;
+        aimed = enemy;
+        aimedDistance = distance;
+      }
+      if (aimed) return aimed;
+    }
+    return this.enemies
+      .filter((enemy) => enemy.hp > 0 && !enemy.summonType)
+      .sort((a, b) => Math.hypot(a.x - this.playerX, a.y - this.playerY) - Math.hypot(b.x - this.playerX, b.y - this.playerY))[0];
+  }
+
+  /**
    * Fist of the Heavens: the lightning is applied immediately to the selected
    * monster, then four Holy Bolts leave the impact in independent directions.
    * The bolts carry their own magic damage and deliberately do not reuse the
@@ -19203,7 +19453,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
    * line is resolved immediately against every enemy in its forward path; the
    * short-lived visual then flickers from the caster to the edge of the screen.
    */
-  private castLightningRail(damage: number, target?: Enemy): void {
+  private castLightningRail(damage: number, target?: { x: number; y: number }): void {
     let facingX = target ? target.x - this.playerX : this.playerFacingX;
     let facingY = target ? target.y - this.playerY : this.playerFacingY;
     const facingLength = Math.hypot(facingX, facingY);
@@ -19267,6 +19517,78 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     );
   }
 
+  /**
+   * Stamps one LightningBolt cel after another along a line, keeping the cel's
+   * authored 43x98 aspect: Diablo II builds its lightning from repeated cels
+   * rather than a stretched streak, so every arc keeps the jagged white core.
+   */
+  private stampLightningBoltRail(
+    ctx: CanvasRenderingContext2D,
+    from: { x: number; y: number },
+    angle: number,
+    length: number,
+    frame: MissileOverlayFrame,
+    width: number,
+    alpha: number,
+  ): void {
+    // A narrower arc uses a proportionally shorter cel instead of being
+    // stretched sideways.
+    const tile = width * (98 / 43);
+    const step = tile * 0.8;
+    const stepX = Math.cos(angle) * step;
+    const stepY = Math.sin(angle) * step;
+    const count = Math.ceil(length / step);
+    for (let index = 0; index < count; index += 1) {
+      // The last cel fades out over its own length so the arc tapers instead of
+      // ending on a hard cut.
+      const segmentAlpha = alpha * Math.min(1, (length - index * step) / step);
+      if (segmentAlpha <= 0.01) continue;
+      ctx.save();
+      ctx.translate(
+        from.x + stepX * index + Math.cos(angle) * tile / 2,
+        from.y + stepY * index + Math.sin(angle) * tile / 2,
+      );
+      ctx.rotate(angle + Math.PI / 2);
+      ctx.globalAlpha = segmentAlpha;
+      ctx.drawImage(frame, -width / 2, -tile / 2, width, tile);
+      ctx.restore();
+    }
+  }
+
+  /**
+   * The short arc between two Chain Lightning bounces, drawn with the same
+   * tiled LightningBolt rail as the Lightning skill. The hop itself stays a
+   * fork sprite; this rail is what links the monsters together.
+   */
+  private drawChainLightningHopArc(
+    ctx: CanvasRenderingContext2D,
+    from: { x: number; y: number },
+    to: { x: number; y: number },
+    time: number,
+  ): void {
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const length = Math.hypot(dx, dy);
+    if (length < 6) return;
+    const frames = this.missileOverlayImages.get("d2-lightningbolt") ?? [];
+    if (!frames.length) return;
+    const frameDuration = Math.max(1, this.missileFrameDuration("d2-lightningbolt"));
+    const animationFrame = Math.floor(Math.max(0, time) * 1000 / frameDuration);
+    let frame: MissileOverlayFrame | undefined = frames[animationFrame % frames.length];
+    if (!this.isMissileFrameReady(frame)) frame = frames.find((candidate) => this.isMissileFrameReady(candidate));
+    if (!this.isMissileFrameReady(frame)) return;
+    const dpr = this.arenaRef?.nativeElement.clientWidth
+      ? this.arenaRef.nativeElement.width / this.arenaRef.nativeElement.clientWidth
+      : 1;
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.imageSmoothingEnabled = true;
+    // A hop is one monster away, so it uses a little over half the Lightning
+    // skill's 48 px rail width.
+    this.stampLightningBoltRail(ctx, from, Math.atan2(dy, dx), length, frame, 26 * dpr, 0.85);
+    ctx.restore();
+  }
+
   private drawLightningRail(ctx: CanvasRenderingContext2D, effect: SkillVisualEffect): void {
     const canvas = this.skillEffectsCanvasRef?.nativeElement;
     if (!canvas) return;
@@ -19305,25 +19627,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
     ctx.imageSmoothingEnabled = true;
-    const drawBolt = (
-      x: number,
-      y: number,
-      drawAngle: number,
-      drawLength: number,
-      width: number,
-      alpha: number,
-    ) => {
-      if (drawLength <= 1 || alpha <= 0.01) return;
-      ctx.save();
-      ctx.translate(
-        x + Math.cos(drawAngle) * drawLength / 2,
-        y + Math.sin(drawAngle) * drawLength / 2,
-      );
-      ctx.rotate(drawAngle + Math.PI / 2);
-      ctx.globalAlpha = fade * alpha;
-      ctx.drawImage(frame, -width / 2, -drawLength / 2, width, drawLength);
-      ctx.restore();
-    };
 
     // Re-roll the forks with the animation frame so the bolt flickers.
     const noise = (index: number) => {
@@ -19346,23 +19649,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       width: number,
       alpha: number,
     ) => {
-      // Every segment keeps the cel's authored 43x98 aspect, so a narrower fork
-      // uses a proportionally shorter cel instead of being stretched sideways.
-      const tile = width * (98 / 43);
-      const step = tile * 0.8;
-      const stepX = Math.cos(drawAngle) * step;
-      const stepY = Math.sin(drawAngle) * step;
-      const count = Math.ceil(arcLength / step);
-      for (let index = 0; index < count; index += 1) {
-        drawBolt(
-          x + stepX * index,
-          y + stepY * index,
-          drawAngle,
-          tile,
-          width,
-          alpha * Math.min(1, (arcLength - index * step) / step),
-        );
-      }
+      this.stampLightningBoltRail(ctx, { x, y }, drawAngle, arcLength, frame, width, fade * alpha);
     };
     drawArc(
       origin.x - Math.cos(angle) * startBack,
@@ -19892,7 +20179,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const ctx = canvas?.getContext("2d", { alpha: true });
     if (!canvas || !ctx) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    this.drawBlazeFirePatches(ctx);
     this.drawThunderStormAura(ctx);
     for (const effect of this.skillVisualEffects) this.drawSkillVisualEffect(ctx, effect);
     this.drawLeapDustEffects(ctx);
@@ -20668,6 +20954,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.equipmentRegenTimer -= seconds;
     const healing = this.equippedReplenishLife * seconds;
     if (healing > 0) this.playerHp = Math.min(this.effectivePlayerMaxHp, this.playerHp + healing);
+    // D2's "Regenerate Mana x%" refills that share of the pool over 25 seconds.
+    const manaPercent = this.equipmentStatTotal("manaRegenPercent");
+    if (manaPercent > 0) {
+      const mana = this.effectivePlayerMaxMana * manaPercent / 100 / 25 * seconds;
+      this.playerMana = Math.min(this.effectivePlayerMaxMana, this.playerMana + mana);
+    }
   }
 
   private corpseExplosionRadiusForRank(rank: number): number {
@@ -23125,8 +23417,29 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     if (this.runActive && this.isBoneArmorActive()) this.drawBoneArmorAura(ctx, "back");
     this.drawPoisonClouds(ctx);
+    // Blaze and Firestorm's ground fire hugs the floor, so it belongs on the
+    // arena canvas before the actor pass. It used to live on the skill-effects
+    // overlay, which is composited above everything, so a patch the hero walked
+    // onto painted flames over the hero and every monster standing in it.
+    this.drawBlazeFirePatches(ctx);
     this.drawNihlathakCorpses(ctx);
     if (this.runActive && this.activeOakSageSummon()) this.drawOakSageBeneficiaryAuras(ctx);
+
+    // Floor loot belongs under every body. Inside the depth sort a drop the
+    // hero walked in front of was painted over the hero's own sprite, so items,
+    // gold and potions get their own pass before the actors: a ground sprite is
+    // never allowed to cover a creature or the character. They still sort
+    // back-to-front against each other so overlapping drops read correctly.
+    const floorLoot: Array<{ y: number; draw: () => void }> = [];
+    const addFloorLoot = (x: number, y: number, draw: () => void): void => {
+      if (!this.isArenaPointOnScreen(this.projectArenaPoint(x, y), DRAW_CULL_MARGIN)) return;
+      floorLoot.push({ y, draw });
+    };
+    for (const drop of this.itemDrops) addFloorLoot(drop.x, drop.y, () => this.drawItemDrop(ctx, drop));
+    for (const drop of this.potionDrops) addFloorLoot(drop.x, drop.y, () => this.drawPotionDrop(ctx, drop));
+    for (const drop of this.goldDrops) addFloorLoot(drop.x, drop.y, () => this.drawGoldDrop(ctx, drop));
+    floorLoot.sort((a, b) => a.y - b.y);
+    for (const loot of floorLoot) loot.draw();
 
     // One projected pass per collection instead of a filter+map burst per group,
     // and anything whose ground point is far outside the canvas is skipped: a
@@ -23218,6 +23531,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         },
       });
     }
+    if (this.druidForm) {
+      // The wereform replaces the 3D hero on the arena canvas, so it takes the
+      // hero's own depth key. Drawn after the sorted pass it stood on top of
+      // every monster, including ones between it and the camera.
+      const playerPoint = this.projectArenaPoint(this.playerX, this.playerY);
+      drawOrder.push({ depth: playerPoint.y, order: 0.55, draw: () => this.drawDruidForm(ctx) });
+    }
     for (const entity of this.enemies) {
       if (entity.eggProxy) continue;
       const point = this.projectArenaPoint(entity.x, entity.y);
@@ -23234,21 +23554,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       if (!this.isArenaPointOnScreen(point, DRAW_CULL_MARGIN)) continue;
       drawOrder.push({ depth: point.y, draw: () => this.drawChest(ctx, entity) });
     }
-    for (const entity of this.potionDrops) {
-      const point = this.projectArenaPoint(entity.x, entity.y);
-      if (!this.isArenaPointOnScreen(point, DRAW_CULL_MARGIN)) continue;
-      drawOrder.push({ depth: point.y, draw: () => this.drawPotionDrop(ctx, entity) });
-    }
-    for (const entity of this.goldDrops) {
-      const point = this.projectArenaPoint(entity.x, entity.y);
-      if (!this.isArenaPointOnScreen(point, DRAW_CULL_MARGIN)) continue;
-      drawOrder.push({ depth: point.y, draw: () => this.drawGoldDrop(ctx, entity) });
-    }
-    for (const entity of this.itemDrops) {
-      const point = this.projectArenaPoint(entity.x, entity.y);
-      if (!this.isArenaPointOnScreen(point, DRAW_CULL_MARGIN)) continue;
-      drawOrder.push({ depth: point.y, draw: () => this.drawItemDrop(ctx, entity) });
-    }
     if (this.actPortalOpen) {
       // The portal is an actor like any other: it takes part in the same ground
       // depth sort, so the hero draws over it when standing in front of it and
@@ -23257,12 +23562,34 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const point = this.projectArenaPoint(this.actPortalX, this.actPortalY);
       drawOrder.push({ depth: point.y, order: 0.4, draw: () => this.drawActPortal(ctx) });
     }
+    // Melee impacts and summon strikes are actors like the hero and the
+    // monsters: their depth comes from the ground point of the blow. Drawing
+    // them after the sorted pass painted them over every body on screen, so a
+    // swing at a monster below the hero bled through the hero and a bolt from a
+    // summon behind the fight covered the creatures in front of it.
+    for (const effect of this.meleeTrailEffects) {
+      if (effect.time > effect.duration) continue;
+      const impact = this.meleeTrailImpact(effect);
+      if (!this.isArenaPointOnScreen(impact, DRAW_CULL_MARGIN)) continue;
+      drawOrder.push({
+        depth: impact.y,
+        order: 0.6,
+        draw: () => this.drawMeleeTrail(ctx, effect),
+      });
+    }
+    for (const effect of this.summonAttackEffects) {
+      if (effect.time > effect.duration || effect.target.hp <= 0) continue;
+      const progress = Math.min(1, effect.time / effect.duration);
+      const source = this.projectArenaPoint(effect.summon.x, effect.summon.y);
+      const target = this.projectArenaPoint(effect.target.x, effect.target.y);
+      drawOrder.push({
+        depth: source.y + (target.y - source.y) * progress,
+        order: 0.6,
+        draw: () => this.drawSummonAttackEffect(ctx, effect),
+      });
+    }
     drawOrder.sort((a, b) => a.depth - b.depth || (a.order ?? 0) - (b.order ?? 0));
     for (const entity of drawOrder) entity.draw();
-    if (this.druidForm) this.drawDruidForm(ctx);
-
-    for (const effect of this.meleeTrailEffects) this.drawMeleeTrail(ctx, effect);
-    for (const effect of this.summonAttackEffects) this.drawSummonAttackEffect(ctx, effect);
     this.drawAreaDarkness(ctx, canvas);
     for (const floatingText of this.floatingTexts) {
       const point = this.projectArenaPoint(floatingText.x, floatingText.y);
@@ -23620,6 +23947,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       : [this.equippedWeaponVisual, this.equippedOffhandWeaponVisual, this.equippedShieldVisual];
     for (const visual of previousVisuals) {
       visual?.parent?.remove(visual);
+      // Mounted D2R meshes share geometry and materials with their cached
+      // template, so a swap may only unparent them.
+      if (visual?.userData["d2sSharedGear"]) continue;
       visual?.traverse((object) => {
         const mesh = object as THREE.Mesh;
         if (!mesh.isMesh) return;
@@ -23817,7 +24147,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       });
       defaultMaterials.forEach((entry) => entry.dispose());
 
-      const helmetScene = this.staticizeHelmet(gltf.scene, material);
+      const helmetScene = this.staticizeMeshParts(gltf.scene, material);
       const bounds = new THREE.Box3().setFromObject(helmetScene);
       const center = bounds.getCenter(new THREE.Vector3());
       helmetScene.position.sub(center);
@@ -23864,17 +24194,21 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   /**
-   * Flatten a helmet GLB to its mesh parts. Some rips carry their own display
-   * skeleton, whose root transform is not the head-attachment transform; using
-   * each mesh's bind-pose geometry avoids inheriting that offset.
+   * Flatten an imported D2R GLB to its mesh parts. Some rips carry their own
+   * display skeleton, whose root transform is not the attachment transform;
+   * using each mesh's bind-pose geometry avoids inheriting that offset.
    */
-  private staticizeHelmet(source: THREE.Group, material: THREE.Material): THREE.Group {
+  private staticizeMeshParts(
+    source: THREE.Group,
+    material: THREE.Material,
+    include: (mesh: THREE.Mesh) => boolean = () => true,
+  ): THREE.Group {
     const output = new THREE.Group();
     source.updateMatrixWorld(true);
     const inverse = new THREE.Matrix4().copy(source.matrixWorld).invert();
     source.traverse((object) => {
       const mesh = object as THREE.Mesh;
-      if (!mesh.isMesh) return;
+      if (!mesh.isMesh || !include(mesh)) return;
       const local = new THREE.Matrix4().multiplyMatrices(inverse, mesh.matrixWorld);
       const staticMesh = new THREE.Mesh(mesh.geometry, material);
       staticMesh.name = mesh.name;
@@ -24018,6 +24352,16 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
    * geometry. The art follows the hand bone through the whole attack animation.
    */
   private attachHeldItemArt(visual: THREE.Group, item: D2InventoryItem, kind: "weapon" | "shield"): void {
+    const meshVisual = getWeaponVisualForItem(item);
+    if (meshVisual) {
+      this.attachHeldItemMesh(visual, item, meshVisual, kind);
+      return;
+    }
+    this.attachHeldItemCel(visual, item, kind);
+  }
+
+  /** The inventory cel: the fallback for families the extraction has no mesh for. */
+  private attachHeldItemCel(visual: THREE.Group, item: D2InventoryItem, kind: "weapon" | "shield"): void {
     const artPath = this.inventoryItemImage(item);
     this.requestEquippedItemArt(artPath, (texture) => {
       if (!visual.parent) return;
@@ -24048,6 +24392,110 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     void request.then((texture) => {
       if (texture) apply(texture);
+    });
+  }
+
+  /**
+   * Mount the game's own D2R mesh for the equipped weapon or shield in place of
+   * an inventory cel. D2R authors one HD mesh per weapon family, Y-up with the
+   * grip at the origin, which is the same frame the rig already drives for held
+   * items; only the silhouette has to be centred across the grip and sized from
+   * its own height so `d2sHeldItem` can scale it to the hero.
+   */
+  private attachHeldItemMesh(
+    visual: THREE.Group,
+    item: D2InventoryItem,
+    meshVisual: D2WeaponVisual,
+    kind: "weapon" | "shield",
+  ): void {
+    const token = ((visual.userData["d2sHeldItemToken"] as number | undefined) ?? 0) + 1;
+    visual.userData["d2sHeldItemToken"] = token;
+    void this.requestHeldItemMesh(meshVisual).then((loaded) => {
+      if (visual.userData["d2sHeldItemToken"] !== token || !visual.parent) return;
+      if (!loaded) {
+        // A mesh that cannot be read still leaves the hero armed with the cel.
+        this.attachHeldItemCel(visual, item, kind);
+        return;
+      }
+      const scene = loaded.mesh.clone(true);
+      // Bows, crossbows and staves are carried with their middle in the fist,
+      // the same way the rig hangs their cels from the art's own centre.
+      const carried = /bow|crossbow|staff/i.test(`${item.baseName ?? ""} ${item.name}`);
+      // D2R authors blades with the flat across X, so a sword hung in the rig's
+      // grip frame shows the camera its edge. A melee weapon that is wider in Z
+      // than X is turned a quarter so its flat faces the character's front;
+      // shields already face that way and carried items keep their own plane.
+      const authored = new THREE.Box3().setFromObject(scene).getSize(new THREE.Vector3());
+      if (kind !== "shield" && !carried && authored.z > authored.x * 1.4) scene.rotation.y = Math.PI / 2;
+      const bounds = new THREE.Box3().setFromObject(scene);
+      const center = bounds.getCenter(new THREE.Vector3());
+      const size = bounds.getSize(new THREE.Vector3());
+      // Centre the silhouette across the grip. A shield also centres on the
+      // fist, which is where the rig poses it; a blade keeps its authored grip
+      // origin so the shaft leaves the hand instead of hanging behind it.
+      scene.position.x -= center.x;
+      scene.position.z -= center.z;
+      if (kind === "shield" || carried) scene.position.y -= center.y;
+      visual.add(scene);
+      visual.userData["d2sSharedGear"] = true;
+      const held = visual.userData["d2sHeldItem"] as { kind?: string; name?: string } | undefined;
+      visual.userData["d2sHeldItem"] = {
+        kind: held?.kind ?? (kind === "shield" ? "shield" : "weapon"),
+        name: held?.name ?? `${item.baseName ?? ""} ${item.name}`.trim(),
+        celHeight: loaded.height,
+      };
+      if (kind === "shield" && visual === this.equippedShieldVisual && this.selectedClass === "paladin") {
+        this.addHolyShieldOverlay(visual, Math.max(size.x, size.z), size.y, 0);
+      }
+    });
+  }
+
+  private requestHeldItemMesh(visual: D2WeaponVisual): Promise<{ mesh: THREE.Group; height: number } | null> {
+    const cached = this.heldItemMeshes.get(visual.id);
+    if (cached) return cached;
+    const request = Promise.all([
+      new GLTFLoader().loadAsync(visual.model),
+      this.requestHeldItemMeshTexture(visual.texture),
+    ]).then(([gltf, texture]) => {
+      const material = new THREE.MeshStandardMaterial({
+        map: texture ?? undefined,
+        color: texture ? 0xffffff : 0xb9a88a,
+        metalness: 0.55,
+        roughness: 0.42,
+        side: THREE.DoubleSide,
+      });
+      const defaultMaterials = new Set<THREE.Material>();
+      gltf.scene.traverse((object) => {
+        const mesh = object as THREE.Mesh;
+        if (!mesh.isMesh) return;
+        (Array.isArray(mesh.material) ? mesh.material : [mesh.material]).forEach((entry) => defaultMaterials.add(entry));
+      });
+      defaultMaterials.forEach((entry) => entry.dispose());
+      // A bow mesh ships its own nocked arrow, which the game draws as a
+      // missile; keeping it would weld a bolt to the riser.
+      const mesh = this.staticizeMeshParts(gltf.scene, material, (part) => !/arrow|missile/i.test(part.name));
+      const height = new THREE.Box3().setFromObject(mesh).getSize(new THREE.Vector3()).y;
+      return height > 0 ? { mesh, height } : null;
+    }).catch((error: unknown) => {
+      console.warn(`Could not load the D2R ${visual.id} held-item mesh`, error);
+      return null;
+    });
+    this.heldItemMeshes.set(visual.id, request);
+    return request;
+  }
+
+  private requestHeldItemMeshTexture(path: string): Promise<THREE.Texture | null> {
+    const cached = this.heldItemMeshTextures.get(path);
+    if (cached) return Promise.resolve(cached);
+    return new THREE.TextureLoader().loadAsync(path).then((texture) => {
+      // D2R's texture space matches the flipped DAE import, like the helmets.
+      texture.flipY = false;
+      texture.colorSpace = THREE.SRGBColorSpace;
+      this.heldItemMeshTextures.set(path, texture);
+      return texture;
+    }).catch((error: unknown) => {
+      console.warn(`Could not load held-item texture ${path}`, error);
+      return null;
     });
   }
 
@@ -25016,8 +25464,47 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (MAGIC_DAMAGE_SKILLS.has(skill)) return "magic";
     if (kind === "fire") return "fire";
     if (kind === "lightning") return "lightning";
+    if (kind === "cold") return "cold";
     if (kind === "holy" || kind === "bone") return "magic";
     return "physical";
+  }
+
+  /**
+   * Fire a spell's own missile down the facing when the arena has no monster.
+   * D2 casts into empty ground; the spell never becomes a ring around the hero.
+   */
+  private castUntargetedMissile(skill: string): void {
+    const missileId = this.missileOverlayId(skill);
+    if (!missileId) return;
+    const rank = Math.max(1, this.skillLevels[skill] ?? 1);
+    const kind = this.spellMissileKind(skill);
+    const damage = this.applyPaladinAuraDamage(this.applyEnergyToSpellDamage(
+      this.basicAttackDamage * (skill === this.basicAttackName ? 1 : 1.5) + (rank - 1) * 3,
+    )) * (this.isSpellDamageSkill(skill) ? 1 : this.decrepifyDamageDealtMultiplier);
+    const facingX = this.playerFacingX || 1;
+    const facingY = this.playerFacingY || 0;
+    const range = 520;
+    const color = kind === "cold" ? "#8bdcff" : kind === "lightning" ? "#a9dcff"
+      : kind === "holy" ? "#fff0a8" : kind === "bone" ? "#ddd5c5" : "#ff9c50";
+    this.attackProjectiles.push({
+      x: this.playerX, y: this.playerY - 8, startX: this.playerX, startY: this.playerY - 8,
+      targetX: this.playerX + facingX * range, targetY: this.playerY + facingY * range,
+      targetId: this.attackSequence++,
+      speed: 420, damage, life: range / 420 + 1, radius: 5, age: 0,
+      color, kind, missileId,
+      cold: COLD_DAMAGE_SKILLS.has(skill) || undefined,
+      damageType: this.damageTypeForSkill(skill, kind),
+    });
+  }
+
+  /** The element a spell's missile should be drawn as when its art has no row. */
+  private spellMissileKind(skill: string): AttackProjectile["kind"] {
+    const type = this.damageTypeForSkill(skill);
+    if (type === "fire") return "fire";
+    if (type === "cold") return "cold";
+    if (type === "lightning") return "lightning";
+    if (type === "poison" || type === "magic") return "bone";
+    return "arrow";
   }
 
   private damageTypeForProjectile(projectile: AttackProjectile): EnemyDamageType {
@@ -25965,6 +26452,8 @@ function sanitizeInventoryItem(value: unknown): D2InventoryItem | null {
       "attackRatingVsDemons", "attackRatingVsUndead", "damageToDemonsPercent", "damageToUndeadPercent",
       "fasterHitRecoveryPercent", "fasterBlockRatePercent", "increasedBlockPercent",
       "magicDamageReductionFlat", "maxStamina", "healStaminaPercent", "damageTakenToManaPercent",
+      "manaRegenPercent", "maxStaminaPercent", "maxFireResistPercent", "maxColdResistPercent",
+      "maxLightningResistPercent", "maxPoisonResistPercent",
       "hitCausesMonsterFleePercent", "lifeAfterEachKill", "manaAfterEachKill", "quantity",
       "requirementsPercent", "freezeLengthReductionPercent", "poisonLengthReductionPercent",
       "ignoreTargetDefense", "knockback", "preventMonsterHeal", "indestructible",
@@ -27328,7 +27817,7 @@ interface AttackProjectile {
   shotCooldown?: number;
   radius: number;
   color: string;
-  kind: "arrow" | "fire" | "lightning" | "blade" | "bone" | "holy" | "claw" | "melee";
+  kind: "arrow" | "fire" | "lightning" | "cold" | "blade" | "bone" | "holy" | "claw" | "melee";
   /** Draw only the imported DCC cel; no procedural trail, glow or fallback shape. */
   sourceOnlyArt?: boolean;
   /** Per-projectile multiplier for the imported missile art. */
@@ -27632,6 +28121,32 @@ interface D2SocketedContent {
   /** What it grants in this host, worded from the gem table / jewel affixes. */
   lines: string[];
 }
+
+interface D2SocketHole {
+  left: number;
+  top: number;
+  size: number;
+}
+
+/** Where the sockets sit on a socketable's inventory art, by socket count. */
+const SOCKET_HOLE_LAYOUTS: D2SocketHole[][] = [
+  [],
+  [{ left: 50, top: 46, size: 30 }],
+  [{ left: 37, top: 43, size: 28 }, { left: 63, top: 43, size: 28 }],
+  [{ left: 35, top: 37, size: 27 }, { left: 65, top: 37, size: 27 }, { left: 50, top: 60, size: 27 }],
+  [
+    { left: 35, top: 34, size: 25 }, { left: 65, top: 34, size: 25 },
+    { left: 35, top: 58, size: 25 }, { left: 65, top: 58, size: 25 },
+  ],
+  [
+    { left: 34, top: 32, size: 23 }, { left: 66, top: 32, size: 23 }, { left: 50, top: 45, size: 23 },
+    { left: 34, top: 60, size: 23 }, { left: 66, top: 60, size: 23 },
+  ],
+  [
+    { left: 32, top: 31, size: 21 }, { left: 50, top: 31, size: 21 }, { left: 68, top: 31, size: 21 },
+    { left: 32, top: 57, size: 21 }, { left: 50, top: 57, size: 21 }, { left: 68, top: 57, size: 21 },
+  ],
+];
 
 interface D2InventoryItem {
   id: string;

@@ -62,6 +62,15 @@ export interface D2ItemStats {
 
   fasterHitRecoveryPercent?: number;
   fasterBlockRatePercent?: number;
+  /** Percent of maximum mana regained each second by equipment. */
+  manaRegenPercent?: number;
+  /** Additive percentage points on the 75 cap of each resistance. */
+  maxFireResistPercent?: number;
+  maxColdResistPercent?: number;
+  maxLightningResistPercent?: number;
+  maxPoisonResistPercent?: number;
+  /** Additive percentage points on the class's maximum stamina. */
+  maxStaminaPercent?: number;
   increasedBlockPercent?: number;
   magicDamageReductionFlat?: number;
   maxStamina?: number;

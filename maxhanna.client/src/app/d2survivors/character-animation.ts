@@ -979,14 +979,25 @@ function isCarriedUpright(name: string): boolean {
   return /staff|bow|crossbow/i.test(name);
 }
 
+/** A bow is held by a riser that crosses the fist rather than running along it. */
+function isBowCel(name: string): boolean {
+  return /bow|bow/i.test(name) && !/crossbow/i.test(name);
+}
+
 /** Cel-roll straightening for thrown weapons, which stay in the fist's tunnel. */
 function isThrownWeapon(name: string): boolean {
   return /javelin/i.test(name);
 }
 
-/** Where a javelin bundle sits in the fist, in hand lengths. */
-const JAVELIN_FIST_PUSH = 0.34;
-const JAVELIN_PALM_OFFSET = 0.18;
+/**
+ * Where a javelin bundle sits in the fist, in hand lengths. A bundle is a flat
+ * cel and the fist is real geometry, so the cel has to ride the palm side and
+ * just in front of the fingers: hung on the knuckle side it slid behind the
+ * gauntlet and read as a pack leaning beside the hand instead of being carried.
+ */
+const JAVELIN_FIST_PUSH = 0.15;
+const JAVELIN_PALM_OFFSET = 0.6;
+const JAVELIN_FRONT_OFFSET = 2.1;
 
 /** Roll that stands a carried cel's own art upright, in the cel's plane. */
 function carriedCelRoll(item: HeldItem): number {
@@ -996,7 +1007,7 @@ function carriedCelRoll(item: HeldItem): number {
 }
 
 /** Share of the hero's height one held cel should cover. Cels include padding. */
-function heldItemShare(item: HeldItem): number {
+export function heldItemShare(item: HeldItem): number {
   // Item names arrive capitalised ("Short Staff"), so every family test here
   // has to ignore case or the whole table collapses to the sword default.
   const name = item.name.toLowerCase();
@@ -1025,10 +1036,14 @@ function heldItemShare(item: HeldItem): number {
   // polearms still hang on their full length.
   if (/staff/i.test(item.name)) return 0.78 * offhandScale;
   if (/polearm|spear|pike/i.test(item.name)) return 0.85 * offhandScale;
-  if (/javelin/i.test(item.name)) return 0.36 * offhandScale;
+  // A bundle of shafts reads oversized beside the fist, so it sits a little
+  // smaller than a polearm's share.
+  if (/javelin/i.test(item.name)) return 0.32 * offhandScale;
   if (/dagger|kris/i.test(item.name)) return 0.17 * offhandScale;
   // A hand axe is a one-handed hatchet, not a battle axe; it matches the axe
-  // test below, so it has to be named first.
+  // test below, so it has to be named first. 0.3 keeps the haft a hand's length
+  // shorter than the battle axe's 0.4: at 0.4 its head clears the shoulder and
+  // the hatchet reads as a second two-hander beside the real one.
   if (/hand ?axe|hatchet/i.test(item.name)) return 0.3 * offhandScale;
   if (/wand/i.test(item.name)) return 0.3 * offhandScale;
   if (/orb/i.test(item.name)) return 0.24 * offhandScale;
@@ -1839,7 +1854,28 @@ export function poseCharacterRig(rig: CharacterRig, state: CharacterPoseState): 
       // frame. Following the relaxed fist laid them across the hero at whatever
       // angle that wrist happened to sit, which read as a plank leaning on them.
       if (isCarriedUpright(item.name)) {
+        // A carried cel stands in the body's own frame at rest, which keeps a bow
+        // or staff from lying across the hero. During a strike the hand is what
+        // carries it, so blend into the fist's grip axis as the swing builds;
+        // pinning the body frame through the whole clip left the staff standing
+        // beside the hand and the bow hovering off its riser.
         up.set(0, 1, 0);
+        if (gripAxis && gripDelta) {
+          let handUp = gripAxis.clone().applyQuaternion(gripDelta).normalize();
+          // Only the part of the fist axis inside the cel's own plane may tilt
+          // it. Aligning the whole axis turned the flat edge-on to the camera,
+          // which made the bow vanish mid-draw.
+          handUp.addScaledVector(FORWARD, -handUp.dot(FORWARD));
+          if (handUp.lengthSq() > 1e-6) {
+            if (isBowCel(item.name)) {
+              // A bow's riser crosses the fist's tunnel rather than running along
+              // it, so its long axis is the in-plane perpendicular of the grip.
+              handUp = new THREE.Vector3().crossVectors(FORWARD, handUp).normalize();
+              if (handUp.y < 0) handUp.negate();
+            }
+            up.lerp(handUp.normalize(), Math.min(1, strike * 1.15)).normalize();
+          }
+        }
       } else if (gripAxis && gripDelta) {
         up.copy(gripAxis).applyQuaternion(gripDelta).normalize();
         if (up.lengthSq() < 1e-6) up.set(0, 1, 0);
@@ -1960,11 +1996,8 @@ export function poseCharacterRig(rig: CharacterRig, state: CharacterPoseState): 
     // the fist hidden behind the shafts, which read as the pack hovering beside
     // the hand rather than being carried in it.
     const thrown = isThrownWeapon(item.name);
-    const tune = thrown
-      ? (globalThis as { __d2JavelinTune?: { push?: number; palm?: number; front?: number; scale?: number } }).__d2JavelinTune
-      : undefined;
     const push = thrown
-      ? handUnits * (tune?.push ?? JAVELIN_FIST_PUSH)
+      ? handUnits * JAVELIN_FIST_PUSH
       : Math.max(body * 0.014, handUnits * 0.45);
     const gripDir = (item.anchor.fingerDir ?? new THREE.Vector3(0, -1, 0))
       .clone().applyQuaternion(delta).applyQuaternion(rootWorldQuat).normalize();
@@ -1976,10 +2009,9 @@ export function poseCharacterRig(rig: CharacterRig, state: CharacterPoseState): 
       // curled fingers close over them, which is what reads as carried.
       const palmDir = item.anchor.palmNormal
         ?.clone().applyQuaternion(delta).applyQuaternion(rootWorldQuat).normalize();
-      if (palmDir) target.addScaledVector(palmDir, handUnits * (tune?.palm ?? JAVELIN_PALM_OFFSET));
+      if (palmDir) target.addScaledVector(palmDir, handUnits * JAVELIN_PALM_OFFSET);
       const frontDir = FORWARD.clone().applyQuaternion(rootWorldQuat).normalize();
-      target.addScaledVector(frontDir, handUnits * (tune?.front ?? 0));
-      if (tune?.scale) item.visual.scale.multiplyScalar(tune.scale);
+      target.addScaledVector(frontDir, handUnits * JAVELIN_FRONT_OFFSET);
     }
     item.visual.position.copy(target.applyMatrix4(parentInverse));
   };

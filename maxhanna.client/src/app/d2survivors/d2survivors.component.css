@@ -3118,6 +3118,19 @@
   pointer-events: none;
 }
 
+/* Punched sockets, drawn over the art of a hovered socketable. */
+.d2s-socket-hole {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  aspect-ratio: 1 / 0.82;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 50% 38%,
+    #000 0%, #030407 50%, #0a0b10 72%, #33353d 86%, #12131a 94%, transparent 97%);
+  box-shadow: inset 0 1px 1px #ffffff26, inset 0 -1px 2px #000000e6, 0 1px 2px #000000d9;
+  pointer-events: none;
+  z-index: 2;
+}
+
 .d2s-inv-name { display: none; }
 
 .d2s-inv-slot.selected {

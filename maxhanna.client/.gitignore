@@ -41,3 +41,8 @@ testem.log
 # System files
 .DS_Store
 Thumbs.db
+# Unpacked lslib/Divine and intermediate DAE/GLB model conversions.
+.tmp-d2rconvert/
+
+# Local screenshot/pose render harness output (Chrome profiles + PNGs).
+verify-shots/
