@@ -312,6 +312,9 @@
   box-sizing: border-box;
   color: #d6c8a2;
   background:
+    linear-gradient(180deg, #05060aa6 0%, #05060a1f 32%, #05060a1f 60%, #05060ac7 100%),
+    radial-gradient(ellipse at 50% 46%, #06070a00 0%, #06070a40 62%, #06070ad9 100%),
+    url('../../assets/d2survivors/ui/menu-background.png') center / cover no-repeat,
     radial-gradient(ellipse at 50% 42%, #2a1715 0%, #171116 28%, #0c0c10 59%, #06070a 100%);
 }
 
@@ -432,7 +435,8 @@
   overflow-x: hidden;
   overflow-y: auto;
   border: 2px ridge #796342;
-  background: linear-gradient(135deg, #171415ed, #0a0a0ceF 48%, #18110fed);
+  background: linear-gradient(135deg, #171415a6, #0a0a0c8f 48%, #18110fa6);
+  backdrop-filter: blur(1.5px);
   box-shadow: 0 0 0 6px #0a0a0b, 0 0 0 8px #3b3022, 0 20px 70px #000;
 }
 
