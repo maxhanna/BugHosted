@@ -314,7 +314,7 @@
   background:
     linear-gradient(180deg, #05060aa6 0%, #05060a1f 32%, #05060a1f 60%, #05060ac7 100%),
     radial-gradient(ellipse at 50% 46%, #06070a00 0%, #06070a40 62%, #06070ad9 100%),
-    url('../../assets/d2survivors/ui/menu-background.png') center / cover no-repeat,
+    url('../../assets/d2survivors/ui/menu-background.webp') center / cover no-repeat,
     radial-gradient(ellipse at 50% 42%, #2a1715 0%, #171116 28%, #0c0c10 59%, #06070a 100%);
 }
 
