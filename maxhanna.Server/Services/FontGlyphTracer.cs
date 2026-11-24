@@ -1,5 +1,4 @@
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
+using System.Drawing;
 
 namespace maxhanna.Server.Services
 {
@@ -28,9 +27,9 @@ namespace maxhanna.Server.Services
     /// Foreground detection is adaptive (dark-on-light or light-on-dark both work).
     /// Components separated by large horizontal gaps are treated as separate glyphs.
     /// </summary>
-    public static List<GlyphResult> TraceGlyphs(Image<Rgba32> image, string? knownText = null)
+    public static List<GlyphResult> TraceGlyphs(int width, int height, ReadOnlySpan<byte> rgba, string? knownText = null)
     {
-      bool[,] mask = Binarize(image);
+      bool[,] mask = Binarize(width, height, rgba);
       var components = FindComponents(mask);
       var glyphPieces = GroupIntoGlyphs(components);
       var results = new List<GlyphResult>();
@@ -57,9 +56,8 @@ namespace maxhanna.Server.Services
       return results;
     }
 
-    private static bool[,] Binarize(Image<Rgba32> image)
+    private static bool[,] Binarize(int w, int h, ReadOnlySpan<byte> rgba)
     {
-      int w = image.Width, h = image.Height;
       var alpha = new float[w * h];
       var luminance = new float[w * h];
       float sum = 0, count = 0;
@@ -68,10 +66,10 @@ namespace maxhanna.Server.Services
       {
         for (int x = 0; x < w; x++)
         {
-          var p = image[x, y];
+          int o = (y * w + x) * 4;
           int i = y * w + x;
-          alpha[i] = p.A / 255f;
-          luminance[i] = 0.2126f * p.R + 0.7152f * p.G + 0.0722f * p.B;
+          alpha[i] = rgba[o + 3] / 255f;
+          luminance[i] = 0.2126f * rgba[o] + 0.7152f * rgba[o + 1] + 0.0722f * rgba[o + 2];
           if (alpha[i] > 0.25f) { sum += luminance[i]; count++; }
         }
       }

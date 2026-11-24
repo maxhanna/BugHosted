@@ -5,8 +5,7 @@ using System.Xml.Linq;
 using maxhanna.Server.Controllers.DataContracts.Files;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Processing;
+using ImageMagick;
 
 namespace maxhanna.Server.Controllers
 {
@@ -806,8 +805,8 @@ namespace maxhanna.Server.Controllers
           try
           {
             using var ms = new MemoryStream(bytes);
-            var info = SixLabors.ImageSharp.Image.Identify(ms);
-            if (info != null) validated.Add(bytes);
+            var info = new MagickImageInfo(ms);
+            if (info.Width > 0 && info.Height > 0) validated.Add(bytes);
           }
           catch (Exception ex)
           {
@@ -1548,10 +1547,10 @@ Constraints:
       return b64.Trim();
     }
 
-    static byte[] ToPngBytesResized(Image img, int maxShortSide = 512)
+    static byte[] ToPngBytesResized(MagickImage img, int maxShortSide = 512)
     {
       // Compute target size preserving aspect ratio where SHORT side = maxShortSide
-      int w = img.Width, h = img.Height;
+      int w = (int)img.Width, h = (int)img.Height;
       bool widthIsShort = w <= h;
       float scale;
       if (widthIsShort)
@@ -1563,21 +1562,21 @@ Constraints:
       int targetH = Math.Max(1, (int)Math.Round(h * scale));
 
       // Resize + encode PNG
-      using var resized = img.Clone(x => x.Resize(targetW, targetH));
-      using var ms = new MemoryStream();
-      resized.Save(ms, new SixLabors.ImageSharp.Formats.Png.PngEncoder());
-      return ms.ToArray();
+      using var resized = img.Clone();
+      resized.Resize((uint)targetW, (uint)targetH);
+      return resized.ToByteArray(MagickFormat.Png);
     }
 
     static async Task<byte[]> ConvertImageFileToPngAsync(string path, int maxShortSide = 512)
     {
-      using var img = await SixLabors.ImageSharp.Image.LoadAsync(path);
+      byte[] fileBytes = await System.IO.File.ReadAllBytesAsync(path);
+      using var img = new MagickImage(fileBytes);
       return ToPngBytesResized(img, maxShortSide);
     }
 
     static async Task<byte[]> ConvertImageBytesToPngAsync(byte[] bytes, int maxShortSide = 512)
     {
-      using var img = await SixLabors.ImageSharp.Image.LoadAsync(new MemoryStream(bytes));
+      using var img = new MagickImage(bytes);
       return ToPngBytesResized(img, maxShortSide);
     }
 

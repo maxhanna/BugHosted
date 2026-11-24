@@ -3,10 +3,7 @@ using System.Data;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Formats.Png;
-using SixLabors.ImageSharp.PixelFormats;
-using SixLabors.ImageSharp.Processing;
+using ImageMagick;
 using Xabe.FFmpeg;
 using YoutubeExplode;
 using YoutubeExplode.Videos.Streams;
@@ -219,7 +216,7 @@ namespace maxhanna.Server.Controllers
       return userDir;
     }
 
-    /// <summary>Generic file conversion (video/audio via FFmpeg, images via ImageSharp).</summary>
+    /// <summary>Generic file conversion (video/audio via FFmpeg, images via ImageMagick).</summary>
     [HttpPost("/Conversion/Convert", Name = "Conversion_Convert")]
     public async Task<IActionResult> ConvertFile([FromBody] ConversionRequest request)
     {
@@ -243,12 +240,16 @@ namespace maxhanna.Server.Controllers
 
         if (ImageTargetFormats.Contains(format))
         {
-          using var img = await SixLabors.ImageSharp.Image.LoadAsync<Rgba32>(source.Value.fullPath);
-          width = img.Width;
-          height = img.Height;
-          using var ms = new MemoryStream();
-          await img.SaveAsync(ms, GetImageEncoder(format));
-          await System.IO.File.WriteAllBytesAsync(outputPath, ms.ToArray());
+          byte[] sourceBytes = await System.IO.File.ReadAllBytesAsync(source.Value.fullPath);
+          using var img = new MagickImage(sourceBytes);
+          width = (int)img.Width;
+          height = (int)img.Height;
+          img.Format = GetImageFormat(format);
+          var colorType = ColorTypeForFormat(format);
+          if (colorType != ColorType.Undefined) img.ColorType = colorType;
+          // Keep the previous encoder default so output sizes stay comparable.
+          if (format is "jpg" or "jpeg" or "webp") img.Quality = 75;
+          img.Write(outputPath);
           fileSize = new FileInfo(outputPath).Length;
         }
         else
@@ -306,7 +307,7 @@ namespace maxhanna.Server.Controllers
         if (source == null) return NotFound("Source file not found.");
 
         byte[] imageBytes = await System.IO.File.ReadAllBytesAsync(source.Value.fullPath);
-        using var image = await SixLabors.ImageSharp.Image.LoadAsync<Rgba32>(new MemoryStream(imageBytes));
+        using var image = new MagickImage(imageBytes);
 
         // Identify characters: prefer explicit text, otherwise ask the vision model.
         string? knownText = null;
@@ -327,7 +328,9 @@ namespace maxhanna.Server.Controllers
           knownText = new string(request.Text.Where(c => char.IsLetterOrDigit(c) || char.IsPunctuation(c)).ToArray());
         }
 
-        var glyphs = maxhanna.Server.Services.FontGlyphTracer.TraceGlyphs(image, knownText);
+        if (!image.HasAlpha) image.Alpha(AlphaOption.Opaque);
+        byte[] glyphPixels = image.ToByteArray(MagickFormat.Rgba);
+        var glyphs = maxhanna.Server.Services.FontGlyphTracer.TraceGlyphs((int)image.Width, (int)image.Height, glyphPixels, knownText);
         if (glyphs.Count == 0) return BadRequest("No glyphs detected in the image.");
 
         string familyName = Path.GetFileNameWithoutExtension(source.Value.fileName) ?? "Converted";
@@ -394,7 +397,7 @@ namespace maxhanna.Server.Controllers
 
           byte[] imageBytes = await System.IO.File.ReadAllBytesAsync(source.Value.fullPath, tokenSource.Token);
           string b64;
-          using (var image = await SixLabors.ImageSharp.Image.LoadAsync<Rgba32>(new MemoryStream(imageBytes)))
+          using (var image = new MagickImage(imageBytes))
           {
             b64 = Convert.ToBase64String(EncodePng(image, 768));
           }
@@ -743,42 +746,51 @@ namespace maxhanna.Server.Controllers
       }
     }
 
-    private static byte[] EncodePng(Image<Rgba32> image, int maxShortSide = 0)
+    private static byte[] EncodePng(MagickImage image, int maxShortSide = 0)
     {
       if (maxShortSide > 0)
       {
-        int w = image.Width, h = image.Height;
+        int w = (int)image.Width, h = (int)image.Height;
         if (Math.Max(w, h) > maxShortSide)
         {
           float scale = (float)maxShortSide / Math.Max(w, h);
           int tw = Math.Max(1, (int)Math.Round(w * scale));
           int th = Math.Max(1, (int)Math.Round(h * scale));
-          using var resized = image.Clone(x => x.Resize(tw, th));
-          using var ms = new MemoryStream();
-          resized.Save(ms, new PngEncoder());
-          return ms.ToArray();
+          using var resized = image.Clone();
+          resized.Resize((uint)tw, (uint)th);
+          return resized.ToByteArray(MagickFormat.Png);
         }
       }
-      using var stream = new MemoryStream();
-      image.Save(stream, new PngEncoder());
-      return stream.ToArray();
+      return image.ToByteArray(MagickFormat.Png);
     }
 
-    private static SixLabors.ImageSharp.Formats.IImageEncoder GetImageEncoder(string format)
+    private static MagickFormat GetImageFormat(string format)
     {
       return format switch
       {
-        "jpg" or "jpeg" => new SixLabors.ImageSharp.Formats.Jpeg.JpegEncoder(),
-        "webp" => new SixLabors.ImageSharp.Formats.Webp.WebpEncoder(),
-        "bmp" => new SixLabors.ImageSharp.Formats.Bmp.BmpEncoder(),
-        "gif" => new SixLabors.ImageSharp.Formats.Gif.GifEncoder(),
-        "tiff" => new SixLabors.ImageSharp.Formats.Tiff.TiffEncoder(),
-        "tga" => new SixLabors.ImageSharp.Formats.Tga.TgaEncoder(),
-        "qoi" => new SixLabors.ImageSharp.Formats.Qoi.QoiEncoder(),
-        "pbm" or "pnm" or "pgm" or "ppm" => new SixLabors.ImageSharp.Formats.Pbm.PbmEncoder(),
-        _ => new PngEncoder()
+        "jpg" or "jpeg" => MagickFormat.Jpeg,
+        "webp" => MagickFormat.WebP,
+        "bmp" => MagickFormat.Bmp,
+        "gif" => MagickFormat.Gif,
+        "tiff" => MagickFormat.Tiff,
+        "tga" => MagickFormat.Tga,
+        "qoi" => MagickFormat.Qoi,
+        "pbm" => MagickFormat.Pbm,
+        "pgm" => MagickFormat.Pgm,
+        "ppm" => MagickFormat.Ppm,
+        "pnm" => MagickFormat.Pnm,
+        _ => MagickFormat.Png
       };
     }
+
+    /// <summary>Bitonal (PBM) and grayscale (PGM) targets need a matching colour
+    /// type; ImageMagick refuses to encode them from a truecolour image.</summary>
+    private static ColorType ColorTypeForFormat(string format) => format switch
+    {
+      "pbm" => ColorType.Bilevel,
+      "pgm" => ColorType.Grayscale,
+      _ => ColorType.Undefined
+    };
   }
 
   public class ConversionRequest

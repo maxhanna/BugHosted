@@ -3,7 +3,6 @@ using maxhanna.Server.Controllers.DataContracts.Top;
 using maxhanna.Server.Controllers.DataContracts.Topics;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
-using SixLabors.ImageSharp;
 
 namespace maxhanna.Server.Controllers
 {

@@ -71,22 +71,14 @@
   padding-bottom: 4px;
 }
 
-/* Hero chooser is its own screen - the game title and tagline are dropped there. */
-.d2s-in-character-select .d2s-menu-title h1,
+/* Hero chooser is its own screen - the tagline is dropped there. */
 .d2s-in-character-select .d2s-menu-title > p { display: none; }
 
 .d2s-in-character-select .d2s-logo-mark {
-  width: 42px;
-  height: 42px;
-  margin-top: 8px;
-  margin-bottom: 7px;
+  width: clamp(130px, 22vw, 168px);
+  margin-top: 6px;
+  margin-bottom: 2px;
 }
-
-.d2s-in-character-select .d2s-logo-mark::before { top: 4px; left: 20px; height: 32px; }
-.d2s-in-character-select .d2s-logo-mark::after { top: 20px; left: 4px; width: 32px; }
-.d2s-in-character-select .d2s-logo-mark i { top: 7px; left: 12px; width: 19px; }
-.d2s-in-character-select .d2s-logo-mark b { top: 27px; left: 12px; width: 19px; }
-.d2s-in-character-select .d2s-logo-mark > img { width: 100%; height: 100%; }
 .d2s-in-character-select .d2s-menu-content { padding-top: 8px; padding-bottom: 12px; }
 .d2s-in-character-select .d2s-menu-footer { padding-top: 8px; padding-bottom: 8px; }
 .d2s-in-character-select .d2s-menu-frame { max-height: calc(100svh - var(--d2s-menu-pad-y) * 2); overflow-y: auto; }
@@ -552,44 +544,13 @@
 .d2s-menu-kicker span:last-child { transform: rotate(180deg); }
 
 .d2s-logo-mark {
-  position: relative;
-  width: 64px;
-  height: 64px;
-  margin: 16px auto 8px;
-  transform: rotate(45deg);
-  border: 1px solid #bd8852;
-  background: radial-gradient(circle, #b73c21 0, #44130f 42%, #101012 72%);
-  box-shadow: 0 0 20px #9a391f8c, inset 0 0 0 5px #140d0d, inset 0 0 0 6px #927347;
-}
-
-.d2s-logo-mark::before,
-.d2s-logo-mark::after,
-.d2s-logo-mark i,
-.d2s-logo-mark b {
-  position: absolute;
   display: block;
-  content: "";
-  background: #dec38c;
-  box-shadow: 0 0 7px #d58848;
-}
-
-.d2s-logo-mark::before { top: 8px; left: 31px; width: 2px; height: 48px; }
-.d2s-logo-mark::after { top: 31px; left: 8px; width: 48px; height: 2px; }
-.d2s-logo-mark i { top: 13px; left: 20px; width: 24px; height: 2px; transform: rotate(-45deg); }
-.d2s-logo-mark b { top: 39px; left: 20px; width: 24px; height: 2px; transform: rotate(45deg); }
-
-.d2s-menu-title h1 {
-  margin: 0;
-  color: #dbc598;
-  font: 500 clamp(34px, 6vw, 62px)/0.98 Georgia, "Times New Roman", serif;
-  letter-spacing: 0.11em;
-  text-shadow: 0 2px 0 #090707, 0 0 18px #cf713b75, 0 3px 6px #000;
-}
-
-.d2s-menu-title h1 span {
-  color: #e5d8b7;
-  font-size: 0.72em;
-  letter-spacing: 0.06em;
+  width: clamp(210px, 34vw, 296px);
+  height: auto;
+  margin: 14px auto 6px;
+  pointer-events: none;
+  user-select: none;
+  filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.65));
 }
 
 .d2s-menu-title > p {
@@ -1193,11 +1154,7 @@
   .d2s-audio-status { top: 45px; right: 12px; }
   .d2s-audio-toggle-text { font-size: 10px; }
   .d2s-menu-kicker { gap: 8px; font-size: 8px; letter-spacing: 0.2em; }
-  .d2s-logo-mark { width: 48px; height: 48px; margin: 13px auto 7px; }
-  .d2s-logo-mark::before { top: 5px; left: 23px; height: 36px; }
-  .d2s-logo-mark::after { top: 23px; left: 5px; width: 36px; }
-  .d2s-logo-mark i { top: 9px; left: 14px; width: 20px; }
-  .d2s-logo-mark b { top: 30px; left: 14px; width: 20px; }
+  .d2s-logo-mark { width: min(238px, 64vw); height: auto; margin: 12px auto 6px; }
   .d2s-menu-title > p { font-size: 9px; letter-spacing: 0.2em; }
   .d2s-menu-content { grid-template-columns: 1fr; gap: 14px; padding: 12px 16px 16px; }
   .d2s-menu-hero-card { min-height: 195px; grid-row: 1; }
@@ -1223,7 +1180,7 @@
 @media (max-height: 740px) and (min-width: 651px) {
   .d2s-menu-scene { --d2s-menu-pad-y: 16px; padding-top: 16px; padding-bottom: 16px; }
   .d2s-menu-title { padding-top: 18px; }
-  .d2s-menu-title .d2s-logo-mark { width: 44px; height: 44px; margin-top: 9px; }
+  .d2s-menu-title .d2s-logo-mark { width: 168px; height: auto; margin-top: 8px; }
   .d2s-menu-content { padding-top: 10px; padding-bottom: 14px; }
   .d2s-menu-hero-card { min-height: 220px; }
 }

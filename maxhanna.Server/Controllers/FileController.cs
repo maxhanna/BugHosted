@@ -13,7 +13,7 @@ using maxhanna.Server.Controllers.DataContracts.Users;
 using maxhanna.Server.Services;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
-using SixLabors.ImageSharp;
+using ImageMagick;
 using Xabe.FFmpeg;
 
 namespace maxhanna.Server.Controllers
@@ -2700,10 +2700,10 @@ namespace maxhanna.Server.Controllers
         {
             try
             {
-                var info = SixLabors.ImageSharp.Image.Identify(path);
-                if (info != null)
+                var info = new MagickImageInfo(path);
+                if (info.Width > 0 && info.Height > 0)
                 {
-                    return (info.Width, info.Height);
+                    return ((int)info.Width, (int)info.Height);
                 }
             }
             catch { }
@@ -2850,15 +2850,18 @@ namespace maxhanna.Server.Controllers
             var height = 0;
             try
             {
-                using (var image = await SixLabors.ImageSharp.Image.LoadAsync(file.OpenReadStream()))
+                using (var image = new MagickImage(file.OpenReadStream()))
                 {
                     var beforeFileSize = file.Length;
 
-                    await image.SaveAsWebpAsync(convertedFilePath);
+                    // 75 matches the default quality the previous WebP encoder used.
+                    image.Format = MagickFormat.WebP;
+                    image.Quality = 75;
+                    await image.WriteAsync(convertedFilePath);
 
                     var afterFileSize = new FileInfo(convertedFilePath).Length;
-                    width = image.Width;
-                    height = image.Height;
+                    width = (int)image.Width;
+                    height = (int)image.Height;
                     long fileSizeDifference = beforeFileSize - afterFileSize;
                     _ = _log.Db($"Image to WebP conversion: [fileName={file.FileName}, fileType={Path.GetExtension(file.FileName)}, fileSize={beforeFileSize} bytes, compression={fileSizeDifference} bytes]", null, "FILE", true);
                 }
