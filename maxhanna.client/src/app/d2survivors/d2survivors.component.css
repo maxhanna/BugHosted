@@ -71,6 +71,10 @@
   padding-bottom: 4px;
 }
 
+/* Hero chooser is its own screen - the game title and tagline are dropped there. */
+.d2s-in-character-select .d2s-menu-title h1,
+.d2s-in-character-select .d2s-menu-title > p { display: none; }
+
 .d2s-in-character-select .d2s-logo-mark {
   width: 42px;
   height: 42px;
@@ -85,7 +89,7 @@
 .d2s-in-character-select .d2s-logo-mark > img { width: 100%; height: 100%; }
 .d2s-in-character-select .d2s-menu-content { padding-top: 8px; padding-bottom: 12px; }
 .d2s-in-character-select .d2s-menu-footer { padding-top: 8px; padding-bottom: 8px; }
-.d2s-in-character-select .d2s-menu-frame { max-height: calc(100svh - 28px); overflow-y: auto; }
+.d2s-in-character-select .d2s-menu-frame { max-height: calc(100svh - var(--d2s-menu-pad-y) * 2); overflow-y: auto; }
 
 .d2s-character-select {
   grid-column: 1 / -1;
@@ -308,7 +312,8 @@
   min-height: 100svh;
   place-items: center;
   overflow: hidden;
-  padding: clamp(20px, 4vh, 48px) clamp(14px, 4vw, 56px);
+  --d2s-menu-pad-y: clamp(18px, 3.6vh, 42px);
+  padding: var(--d2s-menu-pad-y) clamp(14px, 4vw, 56px);
   box-sizing: border-box;
   color: #d6c8a2;
   background:
@@ -339,36 +344,6 @@
   border: 1px solid #7764478c;
   box-shadow: inset 0 0 0 5px #08090a, inset 0 0 0 6px #382d1f, 0 0 28px #000;
 }
-
-.d2s-menu-arch {
-  position: absolute;
-  z-index: -1;
-  top: -12vh;
-  left: 50%;
-  width: min(78vw, 860px);
-  height: min(112vh, 1060px);
-  transform: translateX(-50%);
-  border: clamp(12px, 2.5vw, 26px) ridge #453822;
-  border-bottom: 0;
-  border-radius: 50% 50% 0 0 / 42% 42% 0 0;
-  box-shadow: inset 0 0 0 4px #0b0a0b, inset 0 0 0 7px #88704a, inset 0 0 45px #000, 0 0 36px #000;
-  opacity: 0.62;
-}
-
-.d2s-menu-arch::before,
-.d2s-menu-arch::after {
-  position: absolute;
-  bottom: 0;
-  width: 18%;
-  height: 52%;
-  content: "";
-  border: 2px solid #5b4830;
-  background: repeating-linear-gradient(0deg, #171416 0 35px, #392a20 36px 39px, #120f12 40px 74px);
-  box-shadow: inset 0 0 26px #000;
-}
-
-.d2s-menu-arch::before { left: -18%; }
-.d2s-menu-arch::after { right: -18%; }
 
 .d2s-menu-sparks {
   position: absolute;
@@ -431,9 +406,13 @@
   position: relative;
   z-index: 1;
   width: min(100%, 1040px);
-  max-height: calc(100svh - 48px);
+  box-sizing: border-box;
+  max-height: calc(100svh - var(--d2s-menu-pad-y) * 2 - 8px);
   overflow-x: hidden;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #655034 #0d0c0d;
   border: 2px ridge #796342;
   background: linear-gradient(135deg, #171415a6, #0a0a0c8f 48%, #18110fa6);
   backdrop-filter: blur(1.5px);
@@ -442,7 +421,7 @@
 
 .d2s-menu-title {
   position: relative;
-  padding: clamp(22px, 4vh, 42px) 20px 10px;
+  padding: clamp(14px, 2.8vh, 28px) 20px 8px;
   text-align: center;
 }
 
@@ -624,8 +603,8 @@
   display: grid;
   grid-template-columns: minmax(240px, 0.9fr) minmax(250px, 1.1fr);
   gap: clamp(14px, 4vw, 42px);
-  align-items: center;
-  padding: 18px clamp(18px, 5vw, 56px) 22px;
+  align-items: stretch;
+  padding: 14px clamp(18px, 5vw, 56px) 16px;
 }
 
 .d2s-menu-content.subpanel-open {
@@ -792,7 +771,7 @@
 
 .d2s-menu-options {
   display: grid;
-  gap: 9px;
+  gap: 8px;
 }
 
 .d2s-save-status {
@@ -819,9 +798,9 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  min-height: 55px;
+  min-height: 50px;
   text-decoration: none;
-  padding: 8px 18px;
+  padding: 7px 18px;
   color: #c9b889;
   text-align: center;
   cursor: pointer;
@@ -973,7 +952,7 @@
   position: absolute;
   z-index: 1;
   right: 0;
-  bottom: 70px;
+  bottom: 132px;
   left: 0;
   color: #c8b17b;
   text-align: center;
@@ -1008,19 +987,6 @@
   animation: d2s-preview-spin 1.2s linear infinite;
 }
 
-.d2s-menu-hero-card::before,
-.d2s-menu-hero-card::after {
-  position: absolute;
-  top: 12%;
-  bottom: 12%;
-  width: 20px;
-  content: "";
-  border: 1px solid #705a38;
-  background: repeating-linear-gradient(0deg, #221a16 0 15px, #594630 16px 18px, #161316 19px 32px);
-  opacity: 0.6;
-}
-.d2s-menu-hero-card::before { left: 12px; }
-.d2s-menu-hero-card::after { right: 12px; }
 .d2s-menu-hero-card .d2s-menu-version { bottom: 7px; }
 .d2s-menu-hero-card .d2s-hero-plaque {
   position: absolute;
@@ -1216,9 +1182,8 @@
 .d2s-menu-footer span:nth-child(3) { text-align: center; }
 
 @media (max-width: 650px) {
-  .d2s-menu-scene { padding: 18px 20px; }
+  .d2s-menu-scene { --d2s-menu-pad-y: 18px; padding: var(--d2s-menu-pad-y) 20px; }
   .d2s-menu-scene::after { inset: 7px; }
-  .d2s-menu-arch { top: 5vh; width: 92vw; height: 90vh; }
   .d2s-menu-frame { width: 100%; }
   .d2s-menu-title { padding: 54px 12px 8px; }
   .d2s-audio-control { top: 10px; right: 10px; }
@@ -1256,7 +1221,7 @@
 }
 
 @media (max-height: 740px) and (min-width: 651px) {
-  .d2s-menu-scene { padding-top: 16px; padding-bottom: 16px; }
+  .d2s-menu-scene { --d2s-menu-pad-y: 16px; padding-top: 16px; padding-bottom: 16px; }
   .d2s-menu-title { padding-top: 18px; }
   .d2s-menu-title .d2s-logo-mark { width: 44px; height: 44px; margin-top: 9px; }
   .d2s-menu-content { padding-top: 10px; padding-bottom: 14px; }

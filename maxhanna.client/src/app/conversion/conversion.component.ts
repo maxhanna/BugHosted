@@ -21,7 +21,16 @@ export class ConversionComponent extends ChildComponent {
   private uploadedFileKey = '';
 
   imageFormats = ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif', 'tiff', 'tga', 'qoi', 'pbm', 'pnm', 'pgm', 'ppm'];
-  audioFormats = ['mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a', 'opus', 'wma', 'ac3', 'mp2', 'alac', 'mka'];
+  audioFormats = ['mp3', 'm4a', 'mp4', 'wav', 'ogg', 'flac', 'aac', 'opus', 'wma', 'ac3', 'mp2', 'alac', 'mka'];
+  // Lossy audio targets that accept a bitrate target — these get the compression picker.
+  compressibleAudioFormats = ['mp3', 'm4a', 'mp4', 'aac'];
+  audioCompressionLevels = [
+    { id: 'high', label: 'High quality · 256 kbps' },
+    { id: 'balanced', label: 'Balanced · 192 kbps' },
+    { id: 'small', label: 'Small · 128 kbps' },
+    { id: 'tiny', label: 'Tiny · 96 kbps' }
+  ];
+  compressionLevel = 'balanced';
   videoFormats = ['mp4', 'webm', 'mkv', 'avi', 'mov', 'm4v', 'flv', 'wmv', 'ts', 'm2ts', 'mpeg', 'mpg', 'ogv', '3gp', 'asf'];
   targetFormat = 'jpg';
   isConverting = false;
@@ -110,6 +119,11 @@ export class ConversionComponent extends ChildComponent {
     return this.detectedKind === 'image';
   }
 
+  /** Audio is only "compressed" when the target is a lossy container that can hold a bitrate. */
+  get canCompressAudio(): boolean {
+    return this.detectedKind === 'audio' && this.compressibleAudioFormats.includes(this.targetFormat);
+  }
+
   onDragOver(event: DragEvent) {
     event.preventDefault();
     this.isDragging = true;
@@ -175,7 +189,8 @@ export class ConversionComponent extends ChildComponent {
 
     this.isConverting = true;
     try {
-      this.conversionResult = await this.conversionService.convertFile(this.selectedFileEntry.id, this.targetFormat, this.parentRef?.user?.id) ?? undefined;
+      const level = this.canCompressAudio ? this.compressionLevel : undefined;
+      this.conversionResult = await this.conversionService.convertFile(this.selectedFileEntry.id, this.targetFormat, this.parentRef?.user?.id, level) ?? undefined;
       if (!this.conversionResult) this.parentRef?.showNotification('Conversion failed.');
       else this.parentRef?.showNotification('Conversion complete.');
     } finally {

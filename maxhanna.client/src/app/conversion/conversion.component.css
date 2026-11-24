@@ -98,6 +98,26 @@
   flex-wrap: wrap;
 }
 
+.compression-row > label {
+  font-size: 0.85rem;
+  color: var(--secondary-font-color, #64748b);
+}
+
+.compression-row select {
+  flex: 0 1 240px;
+  min-width: 180px;
+}
+
+.compression-row .help-text {
+  flex: 1 1 240px;
+}
+
+.result-size {
+  font-size: 0.8rem;
+  color: var(--secondary-font-color, #64748b);
+  white-space: nowrap;
+}
+
 .dropzone {
   display: flex;
   align-items: center;

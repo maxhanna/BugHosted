@@ -58,9 +58,17 @@
       </button>
       <span *ngIf="isUploading" class="busy-hint">Uploading…</span>
     </div>
+    <div class="row compression-row" *ngIf="canCompressAudio">
+      <label for="audioCompressionLevel">Audio compression</label>
+      <select id="audioCompressionLevel" [(ngModel)]="compressionLevel" [disabled]="isConverting">
+        <option *ngFor="let level of audioCompressionLevels" [value]="level.id">{{ level.label }}</option>
+      </select>
+      <span class="help-text">Re-encodes to {{ targetFormat === 'mp3' ? 'MP3 (LAME)' : 'AAC' }} at the chosen bitrate — higher keeps more detail, lower shrinks the file further.</span>
+    </div>
     <div *ngIf="conversionResult" class="result-box result-success">
       <span class="result-icon">✅</span>
       <span class="result-file">{{ conversionResult.fileName }}</span>
+      <span *ngIf="conversionResult.fileSize" class="result-size">{{ (selectedFile?.size || 0) | fileSize }} → {{ conversionResult.fileSize | fileSize }}</span>
       <button class="link" (click)="downloadConverted(conversionResult.fileId, conversionResult.fileName)">Download</button>
     </div>
   </section>

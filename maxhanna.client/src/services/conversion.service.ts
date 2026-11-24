@@ -8,6 +8,7 @@ export interface ConversionResult {
   fileId: number;
   fileName: string;
   folderPath: string;
+  fileSize?: number;
 }
 
 export interface FontConversionResult {
@@ -84,11 +85,11 @@ export class ConversionService {
     return this.http.post(`/file/upload${dir}`, formData, { responseType: 'text' });
   }
 
-  convertFile(fileId: number, targetFormat: string, userId: number | undefined): Promise<ConversionResult | null> {
+  convertFile(fileId: number, targetFormat: string, userId: number | undefined, compressionLevel?: string): Promise<ConversionResult | null> {
     return fetch('/conversion/convert', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ FileId: fileId, TargetFormat: targetFormat, UserId: userId })
+      body: JSON.stringify({ FileId: fileId, TargetFormat: targetFormat, UserId: userId, CompressionLevel: compressionLevel })
     }).then(async (res) => {
       if (!res.ok) return null;
       return await res.json();

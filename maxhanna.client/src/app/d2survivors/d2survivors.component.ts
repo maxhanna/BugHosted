@@ -11083,13 +11083,18 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         && Math.max(red, green, blue) <= 48
         && Math.max(red, green, blue) - Math.min(red, green, blue) <= 28;
     };
+    // rock_large's cels already carry authored alpha: their dark, low-chroma
+    // stone is the boulder itself, not a baked-in black matte. Walking the
+    // perimeter keyer through them erased roughly half of every cel, which is
+    // why the rolling boulder looked see-through.
+    const keepAuthoredAlpha = id === BOULDER_MISSILE_ID;
     const queue = new Int32Array(width * height);
     const visited = new Uint8Array(width * height);
     let read = 0;
     let write = 0;
     const enqueue = (x: number, y: number): void => {
       const index = y * width + x;
-      if (visited[index]) return;
+      if (keepAuthoredAlpha || visited[index]) return;
       const pixel = index * 4;
       if (rgba[pixel + 3] !== 0 && !isMattePixel(pixel)) return;
       visited[index] = 1;

@@ -29,6 +29,20 @@ namespace maxhanna.Server.Controllers
 
     private static readonly string[] ImageTargetFormats = { "png", "jpg", "jpeg", "webp", "bmp", "gif", "tiff", "tga", "qoi", "pbm", "pnm", "pgm", "ppm" };
 
+    // Lossy containers that accept a bitrate target. Re-encoding one of these at a
+    // chosen bitrate is how audio gets smaller without an obvious quality drop.
+    private static readonly string[] CompressibleAudioFormats = { "mp3", "m4a", "mp4", "aac" };
+
+    /// <summary>Compression presets in kbps. "balanced" is transparent for most music;
+    /// "small" and "tiny" trade detail for size.</summary>
+    private static readonly Dictionary<string, int> AudioCompressionLevels = new(StringComparer.OrdinalIgnoreCase)
+    {
+      ["high"] = 256,
+      ["balanced"] = 192,
+      ["small"] = 128,
+      ["tiny"] = 96
+    };
+
     public ConversionController(Log log, IConfiguration config, AiController aiController)
     {
       _log = log;
@@ -117,6 +131,17 @@ namespace maxhanna.Server.Controllers
       var f = (targetFormat ?? "").Trim().ToLowerInvariant();
       return Regex.IsMatch(f, "^[a-z0-9]{1,10}$") ? f : "";
     }
+
+    /// <summary>Resolves a compression level name to an audio bitrate, or null when the
+    /// request did not ask for compression or the target cannot hold a lossy bitrate.</summary>
+    private static int? ResolveAudioBitrate(string format, string? compressionLevel)
+    {
+      if (string.IsNullOrWhiteSpace(compressionLevel)) return null;
+      if (!CompressibleAudioFormats.Contains(format)) return null;
+      return AudioCompressionLevels.TryGetValue(compressionLevel.Trim(), out var kbps) ? kbps : null;
+    }
+
+    private static string AudioCodecFor(string format) => format == "mp3" ? "libmp3lame" : "aac";
 
     /// <summary>Returns the personal Files folder for a user (Users/&lt;username&gt;), creating it and
     /// its virtual folder row on demand. Falls back to the shared Converted folder when the user
@@ -230,8 +255,20 @@ namespace maxhanna.Server.Controllers
         {
           if (System.IO.File.Exists(outputPath)) System.IO.File.Delete(outputPath);
           var conversion = FFmpeg.Conversions.New()
-            .AddParameter($"-i \"{source.Value.fullPath}\"")
-            .SetOutput(outputPath);
+            .AddParameter($"-i \"{source.Value.fullPath}\"");
+
+          int? audioKbps = ResolveAudioBitrate(format, request.CompressionLevel);
+          if (audioKbps.HasValue)
+          {
+            // Audio-only output: re-encode the best audio stream at the chosen bitrate
+            // and drop video tracks / embedded cover art.
+            conversion = conversion
+              .AddParameter("-vn")
+              .AddParameter($"-c:a {AudioCodecFor(format)}")
+              .AddParameter($"-b:a {audioKbps.Value}k");
+          }
+
+          conversion = conversion.SetOutput(outputPath);
           await conversion.Start();
           if (!System.IO.File.Exists(outputPath))
           {
@@ -247,7 +284,8 @@ namespace maxhanna.Server.Controllers
         {
           FileId = newFileId,
           FileName = outputName,
-          FolderPath = outputFolder
+          FolderPath = outputFolder,
+          FileSize = fileSize
         });
       }
       catch (Exception ex)
@@ -747,6 +785,8 @@ namespace maxhanna.Server.Controllers
   {
     public int FileId { get; set; }
     public string? TargetFormat { get; set; }
+    /// <summary>Optional audio compression level: high | balanced | small | tiny.</summary>
+    public string? CompressionLevel { get; set; }
     public int? UserId { get; set; }
   }
 
@@ -755,6 +795,7 @@ namespace maxhanna.Server.Controllers
     public int FileId { get; set; }
     public string? FileName { get; set; }
     public string? FolderPath { get; set; }
+    public long FileSize { get; set; }
   }
 
   public class ImageToFontRequest
