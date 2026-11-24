@@ -48,6 +48,12 @@ export interface D2LeaderboardEntry {
   level: number;
   victory: boolean;
   died: boolean;
+  /**
+   * The class loadout saved with the run, as the client's equipment JSON
+   * (`{ weapon, helmet, shield, body, ... }`). "{}" when the player has no
+   * saved character profile for that class yet.
+   */
+  equipped?: string;
   createdAt: string;
 }
 

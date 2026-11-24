@@ -1729,12 +1729,22 @@ interface TristramWallInstance {
   depth?: number;
 }
 
+interface CampaignWorldDiamond {
+  /** Centre of the walkable diamond, in backdrop pixels. */
+  x: number;
+  y: number;
+  halfWidth: number;
+  halfHeight: number;
+}
+
 interface TristramWallLayout {
   atlasWidth: number;
   atlasHeight: number;
   backdropWidth: number;
   backdropHeight: number;
   instances: TristramWallInstance[];
+  /** The exported DS1 grid's walkable diamond, in backdrop pixels. */
+  walkable?: CampaignWorldDiamond;
 }
 
 interface TristramWallDraw extends TristramWallInstance {
@@ -2364,10 +2374,10 @@ interface LeaderboardHeroModel {
 }
 
 /**
- * The hero archive stores runs, not paperdolls, so each hero is shown wearing
- * the gear their class starts Diablo II with. Only the Amazon GLB carries a
- * weapon mesh of its own, so these items are mounted as D2R held-item art on
- * the hand bones exactly like equipped gear in a live run.
+ * Fallback kit for archived heroes whose record carries no saved loadout: the
+ * gear their class starts Diablo II with. Only the Amazon GLB carries a weapon
+ * mesh of its own, so these items are mounted as D2R held-item art on the hand
+ * bones exactly like equipped gear in a live run.
  */
 const ARCHIVE_STOCK_GEAR: Record<string, { weapon?: D2InventoryItem; offhand?: D2InventoryItem; shield?: D2InventoryItem }> = {
   amazon: {
@@ -2693,6 +2703,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   leaderboardScrollThumbPercent = 100;
   leaderboardScrollThumbOffsetPercent = 0;
   private leaderboardScrollbarSyncTimer?: number;
+  /** Watches the lineup's size so the bar tracks late layout and new records. */
+  private leaderboardScrollResizeObserver?: ResizeObserver;
   private leaderboardScrollDrag?: {
     pointerId: number;
     startX: number;
@@ -3538,6 +3550,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.currentAreaIndex = target;
     const area = areas[target];
     if (!area) return;
+    // Each area is its own DS1 map, so the hero starts in the middle of it
+    // rather than wherever the previous area's tiles happened to leave them.
+    this.centerPlayerOnCampaignWorld();
     this.floatingTexts.push({
       x: this.playerX,
       y: this.playerY - 48,
@@ -3912,6 +3927,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       .then((layout) => {
         if (!Array.isArray(layout?.instances)) throw new Error("missing wall instances");
         assets.layout = layout;
+        // A resumed run or a late load can leave the hero outside the tiles now
+        // that the map edges are solid.
+        this.ensurePlayerInsideCampaignWorld();
         redraw();
       })
       .catch((error) => console.warn(`Could not load ${entry.area} DS1 wall placements: ${error}`));
@@ -3975,6 +3993,63 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(image, geometry.left, geometry.top, geometry.width, geometry.height);
     ctx.restore();
+    const entry = this.currentWorldEntry();
+    const walkable = entry ? this.campaignWorlds.get(entry.slug)?.layout?.walkable : undefined;
+    if (walkable) this.drawCampaignWorldRim(ctx, geometry, walkable);
+  }
+
+  /**
+   * The DS1 export is a floating diamond of floor tiles.  Draw the walkable
+   * diamond's rim as a shaded rock lip so the boundary the collision mask
+   * enforces reads as the edge of the map instead of empty void.
+   */
+  private drawCampaignWorldRim(
+    ctx: CanvasRenderingContext2D,
+    geometry: { scale: number; left: number; top: number },
+    walkable: CampaignWorldDiamond,
+  ): void {
+    const centreX = geometry.left + walkable.x * geometry.scale;
+    const centreY = geometry.top + walkable.y * geometry.scale;
+    const halfWidth = walkable.halfWidth * geometry.scale;
+    const halfHeight = walkable.halfHeight * geometry.scale;
+    const ring = (inner: number, outer: number): void => {
+      ctx.beginPath();
+      this.traceCampaignWorldDiamond(ctx, centreX, centreY, halfWidth * outer, halfHeight * outer);
+      this.traceCampaignWorldDiamond(ctx, centreX, centreY, halfWidth * inner, halfHeight * inner);
+    };
+    ctx.save();
+    // Rock skirt beyond the map, fading outward, then the lit lip and the
+    // shadow the ledge casts on its own tiles.
+    for (const [inner, outer, color] of [
+      [1, 1.045, "rgba(58, 50, 37, 0.92)"],
+      [1.045, 1.085, "rgba(31, 27, 20, 0.8)"],
+      [1.085, 1.12, "rgba(13, 12, 10, 0.6)"],
+    ] as const) {
+      ring(inner, outer);
+      ctx.fillStyle = color;
+      ctx.fill("evenodd");
+    }
+    ring(1, 1.015);
+    ctx.fillStyle = "rgba(139, 120, 86, 0.6)";
+    ctx.fill("evenodd");
+    ring(0.982, 1);
+    ctx.fillStyle = "rgba(0, 0, 0, 0.42)";
+    ctx.fill("evenodd");
+    ctx.restore();
+  }
+
+  private traceCampaignWorldDiamond(
+    ctx: CanvasRenderingContext2D,
+    centreX: number,
+    centreY: number,
+    halfWidth: number,
+    halfHeight: number,
+  ): void {
+    ctx.moveTo(centreX, centreY - halfHeight);
+    ctx.lineTo(centreX + halfWidth, centreY);
+    ctx.lineTo(centreX, centreY + halfHeight);
+    ctx.lineTo(centreX - halfWidth, centreY);
+    ctx.closePath();
   }
 
   /** Upper walls of the area's DS1 chunks, depth-sorted against the actors. */
@@ -4025,7 +4100,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private campaignWorldCollisionContext(): CampaignCollisionContext | null {
     const entry = this.currentWorldEntry();
     if (!entry) return null;
-    const mask = this.campaignWorlds.get(entry.slug)?.collision;
+    const assets = this.campaignWorlds.get(entry.slug);
+    const mask = assets?.collision;
     if (!mask) return null;
     const tileWidth = CAMPAIGN_TILE_WORLD_SIZE * this.worldZoom
       * CAMPAIGN_TILE_RENDER_SCALE * Math.SQRT2;
@@ -4038,6 +4114,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       clearance: 12 * geometry.scale,
       blocksSight: true,
       edgeBlocks: true,
+      // The exported ground is one diamond of tiles; everything off it is void,
+      // so the map edge is solid instead of walkable floor.
+      bounds: assets?.layout?.walkable,
     };
   }
 
@@ -5892,6 +5971,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       return;
     }
     this.restoreRunState(savedRun);
+    this.ensurePlayerInsideCampaignWorld();
     if (CLASS_MODEL[savedRun.selectedClass]) {
       this.selectedClass = savedRun.selectedClass;
     }
@@ -5929,6 +6009,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.menuPanel = "lobby";
     await this.loadLobby();
     this.scheduleLeaderboardHeroLineup();
+    this.scheduleLeaderboardScrollbarSync();
     if (this.lobbyRunId && !this.runActive && this.playerHp <= 0) void this.recordCompletedCharacter(false);
     else void this.recordPlayedCharacter();
   }
@@ -6032,6 +6113,33 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       0,
       Math.min(100 - thumbPercent, scroller.scrollLeft / scroller.scrollWidth * 100),
     );
+  }
+
+  /**
+   * The archive row is statically sized, so the bar starts at its real width
+   * instead of waiting for the first scroll: observe the row and the stage so a
+   * late layout, font swap or new leaderboard record re-syncs it.
+   */
+  private observeLeaderboardScrollbar(): void {
+    if (typeof ResizeObserver === "undefined") {
+      this.syncLeaderboardScrollbar();
+      return;
+    }
+    const scroller = this.leaderboardScrollRef?.nativeElement;
+    if (!scroller) return;
+    if (!this.leaderboardScrollResizeObserver) {
+      // ResizeObserver runs outside the zone, so schedule the sync through a
+      // timed callback to repaint the bar with the new measurements.
+      this.leaderboardScrollResizeObserver = new ResizeObserver(() => this.scheduleLeaderboardScrollbarSync());
+    }
+    this.leaderboardScrollResizeObserver.unobserve(scroller);
+    this.leaderboardScrollResizeObserver.observe(scroller);
+    const stage = scroller.querySelector(".d2s-hero-lineup-stage");
+    if (stage) {
+      this.leaderboardScrollResizeObserver.unobserve(stage);
+      this.leaderboardScrollResizeObserver.observe(stage);
+    }
+    this.syncLeaderboardScrollbar();
   }
 
   startLeaderboardScrollbarDrag(event: PointerEvent): void {
@@ -6617,6 +6725,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       else {
         this.resizeLeaderboardHeroLineup();
         this.syncLeaderboardHeroModels();
+        this.observeLeaderboardScrollbar();
         return;
       }
     }
@@ -6645,6 +6754,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.leaderboardHeroLastHeight = 0;
       this.resizeLeaderboardHeroLineup();
       this.syncLeaderboardHeroModels();
+      this.observeLeaderboardScrollbar();
       this.leaderboardHeroLastFrameAt = performance.now();
       this.animateLeaderboardHeroLineup(this.leaderboardHeroLastFrameAt);
     } catch (error) {
@@ -6666,6 +6776,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       window.clearTimeout(this.leaderboardVisibleModelsTimer);
       this.leaderboardVisibleModelsTimer = undefined;
     }
+    this.leaderboardScrollResizeObserver?.disconnect();
+    this.leaderboardScrollResizeObserver = undefined;
     this.leaderboardHeroGeneration += 1;
     this.leaderboardHeroLoading.clear();
     for (const record of this.leaderboardHeroModels.values()) {
@@ -6685,6 +6797,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   private syncLeaderboardHeroModels(): void {
     if (!this.leaderboardHeroScene) return;
+    this.observeLeaderboardScrollbar();
     const heroes = this.lobbyHeroes;
     if (this.hoveredLeaderboardHero && !heroes.some((hero) => this.leaderboardHeroKey(hero) === this.leaderboardHeroKey(this.hoveredLeaderboardHero!))) {
       this.clearLeaderboardHeroHover();
@@ -6730,11 +6843,16 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           this.disposeLeaderboardHeroGroup(model);
           return;
         }
-        this.applyLeaderboardHeroStockLoadout(model, modelClass);
+        // The archive wears what the hero actually had equipped, read from the
+        // loadout saved with their character profile.
+        const loadout = this.archiveHeroLoadout(hero);
+        this.applyLeaderboardHeroLoadout(model, modelClass, loadout.body);
+        this.configureClassArmor(model, modelClass, true, loadout.body);
         this.normalizeCharacterModel(model, 88, modelClass === "amazon");
         const rig = buildCharacterRig(model, modelClass);
         this.attachBarbarianShoulderPads(model, modelClass, rig);
-        const offhandHeld = this.attachLeaderboardHeroStockGear(model, modelClass);
+        this.configureEquippedHelmet(model, modelClass, rig, loadout);
+        const offhandHeld = this.attachLeaderboardHeroGear(model, modelClass, loadout);
         if (!isCurrent()) {
           this.disposeLeaderboardHeroGroup(model);
           return;
@@ -6761,9 +6879,30 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     });
   }
 
-  /** The archive has no saved gear, so wear the class's recognisable stock set. */
-  private applyLeaderboardHeroStockLoadout(model: THREE.Group, classId: string): void {
-    const tier = classId === "amazon" ? "light" : "medium";
+  /**
+   * The loadout saved for one archive hero. Records written before loadouts were
+   * shared return an empty set, so those heroes keep the class's stock gear.
+   */
+  private archiveHeroLoadout(hero: D2LeaderboardEntry): Record<PaperdollSlot, D2InventoryItem | null> {
+    const loadout = createEmptyEquipment();
+    if (!hero.equipped) return loadout;
+    try {
+      const parsed = JSON.parse(hero.equipped) as Record<string, unknown> | null;
+      if (!parsed || typeof parsed !== "object") return loadout;
+      for (const slot of PAPERDOLL_SLOTS) {
+        const item = sanitizeInventoryItem(parsed[slot]);
+        if (item && isCompatibleWithEquipment(item, slot, hero.classId)) loadout[slot] = item;
+      }
+    } catch {
+      // A corrupt loadout falls back to the class's stock set.
+    }
+    return loadout;
+  }
+
+  /** Hide the armour tiers the hero's body armour does not use. */
+  private applyLeaderboardHeroLoadout(model: THREE.Group, classId: string,
+                                      bodyItem: D2InventoryItem | null): void {
+    const tier = bodyItem ? this.equippedArmorTier(bodyItem) : classId === "amazon" ? "light" : "medium";
     model.traverse((object) => {
       const mesh = object as THREE.Mesh;
       if (!mesh.isMesh) return;
@@ -6799,30 +6938,49 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
    * class mounts the D2R held-item art that a live run uses for equipped gear.
    * Returns whether the off hand now holds something.
    */
+  /** Mount the hero's own weapon and shield, or the class kit when none was saved. */
+  private attachLeaderboardHeroGear(model: THREE.Group, classId: string,
+                                    loadout: Record<PaperdollSlot, D2InventoryItem | null>): boolean {
+    // A second weapon lives in the shield slot for dual wielders, exactly as the
+    // live paperdoll stores it.
+    const offhandItem = loadout.shield?.slot === "weapon" ? loadout.shield : undefined;
+    const shieldItem = loadout.shield && loadout.shield.slot !== "weapon" ? loadout.shield : undefined;
+    if (!loadout.weapon && !offhandItem && !shieldItem) {
+      return this.attachLeaderboardHeroStockGear(model, classId);
+    }
+    return this.mountLeaderboardHeroGear(model, loadout.weapon, offhandItem, shieldItem);
+  }
+
   private attachLeaderboardHeroStockGear(model: THREE.Group, classId: string): boolean {
     const stock = ARCHIVE_STOCK_GEAR[classId];
     if (!stock) return false;
+    return this.mountLeaderboardHeroGear(model, stock.weapon, stock.offhand, stock.shield);
+  }
+
+  private mountLeaderboardHeroGear(model: THREE.Group, weapon: D2InventoryItem | null | undefined,
+                                   offhandItem: D2InventoryItem | null | undefined,
+                                   shieldItem: D2InventoryItem | null | undefined): boolean {
     this.captureWeaponHandRestPose(model);
     const mainHand = this.firstModelBone(model, ["R_weapon_attach", "R_Wrist", "R_hand_bind_jnt", "R_Wrist_JNT", "R_ForeArm", "R_lwr_arm_bind_jnt"]);
     const offHand = this.firstModelBone(model, ["L_weapon_attach", "L_Wrist", "L_hand_bind_jnt", "L_lwr_arm_bind_jnt"]);
     const shieldHand = this.firstModelBone(model, ["shield_attach", "L_weapon_attach", "L_hand_bind_jnt", "L_Wrist", "wrist_L_JNT", "L_lwr_arm_bind_jnt"]);
-    if (stock.weapon && mainHand && !this.modelHasVisibleWeapon(model)) {
-      this.createEquippedWeaponVisual(stock.weapon, mainHand, "weapon");
+    if (weapon && mainHand && !this.modelHasVisibleWeapon(model)) {
+      this.createEquippedWeaponVisual(weapon, mainHand, "weapon");
     }
-    if (stock.offhand && offHand) {
-      this.createEquippedWeaponVisual(stock.offhand, offHand, "offhand");
+    if (offhandItem && offHand) {
+      this.createEquippedWeaponVisual(offhandItem, offHand, "offhand");
       return true;
     }
-    if (!stock.shield || !shieldHand) return false;
+    if (!shieldItem || !shieldHand) return false;
     const shield = new THREE.Group();
-    shield.name = `equipped_shield_${getEquipmentType(stock.shield)}`;
+    shield.name = `equipped_shield_${getEquipmentType(shieldItem)}`;
     shield.scale.setScalar(1.15);
     shield.userData["d2sHeldItem"] = {
       kind: "shield",
-      name: `${stock.shield.baseName ?? ""} ${stock.shield.name}`.trim(),
+      name: `${shieldItem.baseName ?? ""} ${shieldItem.name}`.trim(),
     };
     shieldHand.add(shield);
-    this.attachHeldItemArt(shield, stock.shield, "shield");
+    this.attachHeldItemArt(shield, shieldItem, "shield");
     return true;
   }
 
@@ -14850,7 +15008,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.currentChunkLocalX = this.chunkTileColumns * CAMPAIGN_TILE_WORLD_SIZE / 2;
     this.currentChunkLocalY = this.chunkTileRows * CAMPAIGN_TILE_WORLD_SIZE / 2;
     this.clearClickMoveCommands();
-    if (this.currentAct === 1) {
+    if (this.currentAct === 1 && !this.currentWorldEntry()) {
       // Act I opens on the keyed gate walkway, a short walk outside the
       // monastery gate, instead of inside the painted courtyard wall.
       this.currentChunkLocalX = this.act1Gate.x - 20;
@@ -14858,6 +15016,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     this.playerX = this.arenaW / 2;
     this.playerY = this.arenaH / 2;
+    // A DS1 area opens with the hero in the middle of its map.
+    this.centerPlayerOnCampaignWorld();
     const startingStats = this.classStartingStats[this.selectedClass] ?? this.classStartingStats["amazon"];
     this.playerMaxHp = Math.max(400, startingStats.life) + this.sanctuaryBonuses.maxLife * 50;
     this.playerMaxMana = startingStats.mana;
@@ -15160,6 +15320,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const { mask, geometry, wraps, passages, edgeBlocks, waterPolygons } = context;
     let imageX = Math.round((screenX - geometry.left) / geometry.scale);
     let imageY = Math.round((screenY - geometry.top) / geometry.scale);
+    const bounds = context.bounds;
+    if (bounds && Math.abs(imageX - bounds.x) / Math.max(1, bounds.halfWidth)
+      + Math.abs(imageY - bounds.y) / Math.max(1, bounds.halfHeight) > 1) {
+      return true;
+    }
     if (wraps) {
       imageX = ((imageX % mask.width) + mask.width) % mask.width;
       imageY = ((imageY % mask.height) + mask.height) % mask.height;
@@ -15604,10 +15769,89 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   /** Move the camera/world by a world-space delta, wrapping the campaign chunk. */
+  /**
+   * The current area's walkable world, in absolute world coordinates.  Every
+   * DS1 map is drawn around the centre of chunk (0, 0), so the diamond's offset
+   * inside its exported image is all that separates image space from world space
+   * (one 160-pixel DS1 tile is one 60-unit gameplay tile).
+   */
+  private campaignWorldDiamond(): CampaignWorldDiamond | null {
+    const entry = this.currentWorldEntry();
+    if (!entry) return null;
+    const walkable = this.campaignWorlds.get(entry.slug)?.layout?.walkable;
+    if (!walkable) return null;
+    const imageToWorld = CAMPAIGN_TILE_WORLD_SIZE / CAMPAIGN_WORLD_TILE_WIDTH;
+    return {
+      x: this.chunkTileColumns * CAMPAIGN_TILE_WORLD_SIZE / 2
+        + (walkable.x - entry.imageWidth / 2) * imageToWorld,
+      y: this.chunkTileRows * CAMPAIGN_TILE_WORLD_SIZE / 2
+        + (walkable.y - entry.imageHeight / 2) * imageToWorld,
+      halfWidth: walkable.halfWidth * imageToWorld,
+      halfHeight: walkable.halfHeight * imageToWorld,
+    };
+  }
+
+  private outsideCampaignWorld(diamond: CampaignWorldDiamond, worldX: number, worldY: number): boolean {
+    return Math.abs(worldX - diamond.x) / Math.max(1, diamond.halfWidth)
+      + Math.abs(worldY - diamond.y) / Math.max(1, diamond.halfHeight) > 1;
+  }
+
+  /** Absolute world position of the hero, as the chunk coordinate plus its local offset. */
+  private playerWorldPosition(): { x: number; y: number } {
+    return {
+      x: this.currentChunkCoordX * this.chunkTileColumns * CAMPAIGN_TILE_WORLD_SIZE + this.currentChunkLocalX,
+      y: this.currentChunkCoordY * this.chunkTileRows * CAMPAIGN_TILE_WORLD_SIZE + this.currentChunkLocalY,
+    };
+  }
+
+  /** Teleport the hero to an absolute world point, leaving the map in place. */
+  private movePlayerToWorld(worldX: number, worldY: number): void {
+    if (!Number.isFinite(worldX) || !Number.isFinite(worldY)) return;
+    const chunkWidth = this.chunkTileColumns * CAMPAIGN_TILE_WORLD_SIZE;
+    const chunkHeight = this.chunkTileRows * CAMPAIGN_TILE_WORLD_SIZE;
+    const current = this.playerWorldPosition();
+    const dx = worldX - current.x;
+    const dy = worldY - current.y;
+    if (!dx && !dy) return;
+    this.currentChunkCoordX = Math.floor(worldX / chunkWidth);
+    this.currentChunkLocalX = worldX - this.currentChunkCoordX * chunkWidth;
+    this.currentChunkCoordY = Math.floor(worldY / chunkHeight);
+    this.currentChunkLocalY = worldY - this.currentChunkCoordY * chunkHeight;
+    this.translateWorldEntities(-dx, -dy);
+    this.clearClickMoveCommands();
+  }
+
+  /** Area changes put the hero in the middle of the area's own DS1 map. */
+  private centerPlayerOnCampaignWorld(): void {
+    const diamond = this.campaignWorldDiamond();
+    if (!diamond) return;
+    this.movePlayerToWorld(diamond.x, diamond.y);
+  }
+
+  /** Saved runs from before the maps were fenced could sit outside the tiles. */
+  private ensurePlayerInsideCampaignWorld(): void {
+    const diamond = this.campaignWorldDiamond();
+    if (!diamond) return;
+    const current = this.playerWorldPosition();
+    if (this.outsideCampaignWorld(diamond, current.x, current.y)) {
+      this.movePlayerToWorld(diamond.x, diamond.y);
+    }
+  }
+
   private shiftWorldBy(dx: number, dy: number): void {
     if (!dx && !dy) return;
     const chunkWidth = this.chunkTileColumns * CAMPAIGN_TILE_WORLD_SIZE;
     const chunkHeight = this.chunkTileRows * CAMPAIGN_TILE_WORLD_SIZE;
+    const diamond = this.campaignWorldDiamond();
+    if (diamond) {
+      // Charge, Leap and knockback bypass the wall tests, so they also have to
+      // be kept from carrying the hero off the area's tiles.
+      const current = this.playerWorldPosition();
+      if (!this.outsideCampaignWorld(diamond, current.x, current.y)
+        && this.outsideCampaignWorld(diamond, current.x + dx, current.y + dy)) {
+        return;
+      }
+    }
     if (this.currentAct === 8) {
       const worldX = this.currentChunkCoordX * chunkWidth + this.currentChunkLocalX;
       const worldY = this.currentChunkCoordY * chunkHeight + this.currentChunkLocalY;
@@ -25064,8 +25308,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
    * head-local uniform scale and a skull-envelope fit. Hair layers are switched
    * to the variant the piece was authored against.
    */
-  private configureEquippedHelmet(model: THREE.Group, classId: string, rig?: CharacterRig): void {
-    const visual = this.equipment.helmet ? getHelmetVisualForItem(this.equipment.helmet) : null;
+  private configureEquippedHelmet(model: THREE.Group, classId: string, rig?: CharacterRig,
+                                  equipment: Record<PaperdollSlot, D2InventoryItem | null> = this.equipment): void {
+    const visual = equipment.helmet ? getHelmetVisualForItem(equipment.helmet) : null;
     this.setHelmetHairState(model, visual?.hair ?? "none");
 
     const token = ((model.userData["d2sHelmetToken"] as number | undefined) ?? 0) + 1;
@@ -25707,7 +25952,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     return textures[modelClass]?.[tier];
   }
 
-  private configureClassArmor(model: THREE.Group, classId: string, preview = false): void {
+  private configureClassArmor(model: THREE.Group, classId: string, preview = false,
+                              bodyItem: D2InventoryItem | null = this.equipment.body): void {
     if (!preview) {
       for (const [mesh, originalMaterial] of this.equippedArmorMaterials) {
         const currentMaterials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
@@ -25727,7 +25973,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     // live run. With no body armor, the Amazon's iconic look is the red/gold
     // light set; her medium atlas is a dull grey-brown that read as "armor with
     // no color". Every other class shows its medium set.
-    const item = this.equipment.body;
+    const item = bodyItem;
     const tier = item ? this.equippedArmorTier(item) : classId === "amazon" ? "light" : "medium";
     const armorTint = item
       ? /leather|hide|padded/i.test(`${item.baseName ?? ""} ${item.name}`) ? 0x98704f
@@ -28981,6 +29227,8 @@ interface CampaignCollisionContext {
   passages?: { x0: number; y0: number; x1: number; y1: number }[];
   /** Low ledges block movement but should not block arrows or monster sight. */
   blocksSight?: boolean;
+  /** The walkable map diamond, in collision-image pixels; outside it is solid. */
+  bounds?: CampaignWorldDiamond;
 }
 
 type CampaignImagePolygon = readonly (readonly [number, number])[];

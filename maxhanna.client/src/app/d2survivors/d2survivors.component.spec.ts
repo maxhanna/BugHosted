@@ -3966,6 +3966,105 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect((component as any).campaignBlockedAt(context, oldSpawnX, oldSpawnY)).toBeTrue();
   });
 
+  it("seals each DS1 area at the edge of its exported map", () => {
+    (component as any).currentAct = 1;
+    component.currentAreaIndex = 0;
+    expect(component.currentArea.name).toBe("Blood Moor");
+    // The exported ground is one diamond of 34x34 tiles, so everything outside
+    // that diamond is void even when its collision pixel is clear.
+    const walkable = { x: 2680, y: 1616, halfWidth: 2680, halfHeight: 1360 };
+    (component as any).campaignWorlds.set("a1-blood-moor", {
+      ground: { complete: false } as any,
+      collision: { width: 5440, height: 2976, blocked: new Uint8Array(5440 * 2976) },
+      layout: {
+        atlasWidth: 1, atlasHeight: 1, backdropWidth: 5440, backdropHeight: 2976,
+        instances: [], walkable,
+      },
+    });
+    spyOn(component as any, "campaignWorldGeometry").and.returnValue({
+      scale: 1, width: 5440, height: 2976, left: 0, top: 0,
+    });
+
+    const context = (component as any).campaignWorldCollisionContext();
+    expect(context.bounds).toEqual(walkable);
+    // The middle of the map and its inner tiles stay walkable.
+    expect((component as any).campaignBlockedAt(context, 2680, 1616)).toBeFalse();
+    expect((component as any).campaignBlockedAt(context, 2000, 1616)).toBeFalse();
+    // The transparent corners of the exported rectangle are the void beyond it.
+    expect((component as any).campaignBlockedAt(context, 0, 300)).toBeTrue();
+    expect((component as any).campaignBlockedAt(context, 5300, 2600)).toBeTrue();
+  });
+
+  it("starts each area with the hero in the middle of its DS1 map", () => {
+    (component as any).currentAct = 1;
+    component.currentAreaIndex = 1;
+    const walkable = { x: 2680, y: 1616, halfWidth: 2680, halfHeight: 1360 };
+    (component as any).campaignWorlds.set("a1-cold-plains", {
+      ground: { complete: false } as any,
+      layout: {
+        atlasWidth: 1, atlasHeight: 1, backdropWidth: 5440, backdropHeight: 2976,
+        instances: [], walkable,
+      },
+    });
+    expect(component.currentArea.name).toBe("Cold Plains");
+    // The hero arrives several chunks away from the map the new area draws.
+    (component as any).currentChunkCoordX = 3;
+    (component as any).currentChunkCoordY = 2;
+    (component as any).currentChunkLocalX = 20;
+    (component as any).currentChunkLocalY = 20;
+    expect((component as any).outsideCampaignWorld(
+      (component as any).campaignWorldDiamond(),
+      (component as any).playerWorldPosition().x,
+      (component as any).playerWorldPosition().y,
+    )).toBeTrue();
+
+    (component as any).centerPlayerOnCampaignWorld();
+
+    const diamond = (component as any).campaignWorldDiamond();
+    const position = (component as any).playerWorldPosition();
+    expect(position.x).toBeCloseTo(diamond.x, 5);
+    expect(position.y).toBeCloseTo(diamond.y, 5);
+    expect((component as any).outsideCampaignWorld(diamond, position.x, position.y)).toBeFalse();
+  });
+
+  it("centres the hero when the act clock walks into the next area", () => {
+    component.currentAct = 1;
+    component.currentAreaIndex = 0;
+    component.actBossSpawned = false;
+    component.actTransitionReady = false;
+    component.campaignVictory = false;
+    const centre = spyOn(component as any, "centerPlayerOnCampaignWorld");
+
+    component.actTime = 600;
+    (component as any).updateCampaignArea();
+
+    expect(component.currentAreaIndex).toBeGreaterThan(0);
+    expect(centre).toHaveBeenCalled();
+  });
+
+  it("keeps charge and leap inside the area's DS1 map", () => {
+    (component as any).currentAct = 1;
+    component.currentAreaIndex = 0;
+    (component as any).campaignWorlds.set("a1-blood-moor", {
+      ground: { complete: false } as any,
+      layout: {
+        atlasWidth: 1, atlasHeight: 1, backdropWidth: 5440, backdropHeight: 2976,
+        instances: [], walkable: { x: 2680, y: 1616, halfWidth: 2680, halfHeight: 1360 },
+      },
+    });
+    (component as any).currentChunkCoordX = 0;
+    (component as any).currentChunkCoordY = 0;
+    (component as any).currentChunkLocalX = 300;
+    (component as any).currentChunkLocalY = (component as any).chunkTileRows * 60 / 2;
+
+    // Charge and Leap skip the wall tests, but must still stop at the map rim.
+    (component as any).shiftWorldBy(-4000, 0);
+    expect((component as any).currentChunkLocalX).toBe(300);
+
+    (component as any).shiftWorldBy(20, 0);
+    expect((component as any).currentChunkLocalX).toBe(320);
+  });
+
   it("opens the caves' exterior while keeping enclosed ledges solid", () => {
     const width = 7;
     const height = 7;
@@ -11493,6 +11592,86 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(sorceress.getObjectByName("equipped_weapon_weapon")).toBeTruthy();
 
     expect(attachHeldItemArt).toHaveBeenCalled();
+  });
+
+  it("dresses each archived hero in the gear their saved loadout carries", () => {
+    spyOn(component as any, "attachHeldItemArt");
+    const hero = {
+      id: 7,
+      userId: 3,
+      characterName: "Aria",
+      classId: "paladin",
+      username: "Aria",
+      score: 900,
+      timeSeconds: 60,
+      kills: 4,
+      level: 6,
+      victory: false,
+      died: true,
+      createdAt: "2026-01-01T00:00:00Z",
+      equipped: JSON.stringify({
+        weapon: { id: "run-hammer", name: "Battle Hammer", baseName: "Battle Hammer", rarity: "unique", slot: "weapon", desc: "A hammer of the Horadrim." },
+        shield: { id: "run-kite", name: "Kite Shield", baseName: "Kite Shield", rarity: "magic", slot: "armor", equipmentType: "shield", desc: "A broad shield." },
+        body: { id: "run-plate", name: "Ancient Armor", baseName: "Ancient Armor", rarity: "unique", slot: "armor", desc: "Plate from the old kingdom." },
+      }),
+    } as unknown as D2LeaderboardEntry;
+
+    const loadout = (component as any).archiveHeroLoadout(hero);
+    expect(loadout.weapon?.name).toBe("Battle Hammer");
+    expect(loadout.shield?.id).toBe("run-kite");
+    expect(loadout.body?.id).toBe("run-plate");
+
+    const model = new THREE.Group();
+    for (const name of ["R_weapon_attach", "L_weapon_attach", "shield_attach"]) {
+      const bone = new THREE.Object3D();
+      bone.name = name;
+      model.add(bone);
+    }
+    expect((component as any).attachLeaderboardHeroGear(model, "paladin", loadout)).toBeTrue();
+    const held = model.getObjectByName("equipped_weapon_weapon")?.userData["d2sHeldItem"];
+    expect(held?.name).toContain("Battle Hammer");
+    expect(model.getObjectByName("equipped_shield_shield")?.userData["d2sHeldItem"]?.name)
+      .toContain("Kite Shield");
+  });
+
+  it("falls back to the class stock kit when an archived hero has no saved loadout", () => {
+    spyOn(component as any, "attachHeldItemArt");
+    const hero = {
+      id: 8, userId: 4, characterName: "Bran", classId: "barbarian", username: "Bran",
+      score: 800, timeSeconds: 90, kills: 9, level: 8, victory: false, died: true,
+      createdAt: "2026-01-01T00:00:00Z", equipped: "not json",
+    } as unknown as D2LeaderboardEntry;
+
+    const loadout = (component as any).archiveHeroLoadout(hero);
+    expect(loadout.weapon).toBeNull();
+    expect(loadout.shield).toBeNull();
+
+    const model = new THREE.Group();
+    for (const name of ["R_weapon_attach", "L_weapon_attach", "shield_attach"]) {
+      const bone = new THREE.Object3D();
+      bone.name = name;
+      model.add(bone);
+    }
+    expect((component as any).attachLeaderboardHeroGear(model, "barbarian", loadout)).toBeTrue();
+    expect(model.getObjectByName("equipped_weapon_weapon")).toBeTruthy();
+    expect(model.getObjectByName("equipped_weapon_offhand_weapon")).toBeTruthy();
+  });
+
+  it("sizes the archive scrollbar before the first click or scroll", () => {
+    const scroller = document.createElement("div");
+    Object.defineProperties(scroller, {
+      scrollWidth: { configurable: true, value: 2048 },
+      clientWidth: { configurable: true, value: 1024 },
+      scrollLeft: { configurable: true, writable: true, value: 512 },
+    });
+    (component as any).leaderboardScrollRef = { nativeElement: scroller };
+
+    expect(component.leaderboardScrollRange).toBe(0);
+    (component as any).observeLeaderboardScrollbar();
+
+    expect(component.leaderboardScrollRange).toBe(1024);
+    expect(component.leaderboardScrollThumbPercent).toBe(50);
+    expect(component.leaderboardScrollThumbOffsetPercent).toBe(25);
   });
 
   it("shows each player's characters once in the hero archive, keeping their best run", () => {

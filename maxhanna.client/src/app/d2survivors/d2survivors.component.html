@@ -72,7 +72,7 @@
                     </button>
                     </div>
                   </div>
-                  <div class="d2s-hero-lineup-scrollbar" *ngIf="leaderboardScrollRange > 0"
+                  <div class="d2s-hero-lineup-scrollbar" [class.is-static]="leaderboardScrollRange === 0"
                     (pointerdown)="startLeaderboardScrollbarDrag($event)"
                     (pointermove)="moveLeaderboardScrollbarDrag($event)"
                     (pointerup)="endLeaderboardScrollbarDrag($event)"

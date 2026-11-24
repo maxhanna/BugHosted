@@ -622,6 +622,9 @@
   touch-action: none;
   user-select: none;
 }
+/* The bar is always on screen, so keep the pointer visible when it has nothing
+   to scroll; only a draggable thumb hides the cursor. */
+.d2s-hero-lineup-scrollbar.is-static { cursor: default; }
 .d2s-hero-lineup-scrollbar-thumb {
   position: absolute;
   top: 1px;

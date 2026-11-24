@@ -68,6 +68,12 @@ namespace maxhanna.Server.Controllers
       public int Level { get; set; }
       public bool Victory { get; set; }
       public bool Died { get; set; }
+      /// <summary>
+      /// The class loadout the player has saved, so the Immortal Archive can
+      /// dress the hero in the gear that character actually wears. "{}" when the
+      /// player has no saved character profile for that class yet.
+      /// </summary>
+      public string Equipped { get; set; } = "{}";
       public DateTime CreatedAt { get; set; }
     }
 

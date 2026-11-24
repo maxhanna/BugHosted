@@ -1,3 +1,4 @@
+using System.Text.Json;
 using maxhanna.Server.Controllers;
 using Microsoft.AspNetCore.SignalR;
 using MySqlConnector;
@@ -60,21 +61,95 @@ namespace maxhanna.Server.Services
           LIMIT @Limit;";
       await using var cmd = new MySqlCommand(sql, conn);
       cmd.Parameters.AddWithValue("@Limit", limit);
-      await using var rdr = await cmd.ExecuteReaderAsync();
       var entries = new List<D2SurvivorsController.D2SLeaderboardEntry>();
-      while (await rdr.ReadAsync())
+      await using (var rdr = await cmd.ExecuteReaderAsync())
       {
-        entries.Add(new D2SurvivorsController.D2SLeaderboardEntry
+        while (await rdr.ReadAsync())
         {
-          Id = rdr.GetInt64("id"), UserId = rdr.GetInt32("user_id"),
-          CharacterName = rdr.GetString("character_name"), ClassId = rdr.GetString("class_id"),
-          Username = rdr.GetString("username"), Score = rdr.GetInt32("score"),
-          TimeSeconds = rdr.GetInt32("time_seconds"), Kills = rdr.GetInt32("kills"),
-          Level = rdr.GetInt32("level"), Victory = rdr.GetBoolean("victory"),
-          Died = rdr.GetBoolean("died"), CreatedAt = rdr.GetDateTime("created_at")
-        });
+          entries.Add(new D2SurvivorsController.D2SLeaderboardEntry
+          {
+            Id = rdr.GetInt64("id"), UserId = rdr.GetInt32("user_id"),
+            CharacterName = rdr.GetString("character_name"), ClassId = rdr.GetString("class_id"),
+            Username = rdr.GetString("username"), Score = rdr.GetInt32("score"),
+            TimeSeconds = rdr.GetInt32("time_seconds"), Kills = rdr.GetInt32("kills"),
+            Level = rdr.GetInt32("level"), Victory = rdr.GetBoolean("victory"),
+            Died = rdr.GetBoolean("died"), CreatedAt = rdr.GetDateTime("created_at")
+          });
+        }
       }
+      await AttachEquippedGearAsync(conn, entries);
       return entries;
+    }
+
+    /// <summary>
+    /// The archive stores runs, not paperdolls, so each hero's loadout comes from
+    /// the player's saved character profile: characterProfiles[class].equipment is
+    /// exactly what that character has equipped, and one payload row per player
+    /// keeps this to a single extra query per leaderboard page.
+    /// </summary>
+    private static async Task AttachEquippedGearAsync(MySqlConnection conn,
+        List<D2SurvivorsController.D2SLeaderboardEntry> entries)
+    {
+      if (entries.Count == 0) return;
+      var userIds = entries.Select(entry => entry.UserId).Distinct().ToList();
+      var placeholders = string.Join(", ", userIds.Select((_, index) => "@User" + index));
+      var sql = $"SELECT user_id, payload FROM maxhanna.d2survivors_progress WHERE user_id IN ({placeholders});";
+      await using var cmd = new MySqlCommand(sql, conn);
+      for (var index = 0; index < userIds.Count; index += 1)
+      {
+        cmd.Parameters.AddWithValue("@User" + index, userIds[index]);
+      }
+      var payloads = new Dictionary<int, string>();
+      await using (var rdr = await cmd.ExecuteReaderAsync())
+      {
+        while (await rdr.ReadAsync())
+        {
+          payloads[rdr.GetInt32("user_id")] = rdr.GetString("payload");
+        }
+      }
+      foreach (var entry in entries)
+      {
+        entry.Equipped = payloads.TryGetValue(entry.UserId, out var payload)
+          ? ExtractEquippedGear(payload, entry.ClassId)
+          : "{}";
+      }
+    }
+
+    /// <summary>The equipment object saved for one class, or "{}" when unknown.</summary>
+    private static string ExtractEquippedGear(string payload, string classId)
+    {
+      try
+      {
+        using var document = JsonDocument.Parse(payload);
+        if (document.RootElement.ValueKind != JsonValueKind.Object
+          || !document.RootElement.TryGetProperty("characterProfiles", out var profiles)
+          || profiles.ValueKind != JsonValueKind.Object)
+        {
+          return "{}";
+        }
+        string? profileName = null;
+        foreach (var property in profiles.EnumerateObject())
+        {
+          if (string.Equals(property.Name, classId, StringComparison.OrdinalIgnoreCase))
+          {
+            profileName = property.Name;
+            break;
+          }
+        }
+        if (profileName is null
+          || !profiles.TryGetProperty(profileName, out var profile)
+          || profile.ValueKind != JsonValueKind.Object
+          || !profile.TryGetProperty("equipment", out var equipment)
+          || equipment.ValueKind != JsonValueKind.Object)
+        {
+          return "{}";
+        }
+        return equipment.GetRawText();
+      }
+      catch (JsonException)
+      {
+        return "{}";
+      }
     }
 
     public async Task<List<D2SurvivorsController.D2SLobbyMessage>> GetChatHistoryAsync(int limit)
