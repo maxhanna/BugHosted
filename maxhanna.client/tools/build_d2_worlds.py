@@ -33,7 +33,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 import render_d2r_tristram as tristram
 
@@ -52,21 +52,114 @@ ARENA_BACKGROUND = tristram.ARENA_BACKGROUND
 # top row are not clipped by the exported image.
 TOP_MARGIN = 256
 
-# Diablo II fills the space outside a preset's rooms with its "blank" tile: a
-# solid black diamond at main index 30.  The catacomb and tomb presets reference
-# that table even though the tilesets they list do not define it, so every world
-# loads the shared fill; without it those cells exported as transparent holes.
-BLANK_TILESET = "global/tiles/act1/outdoors/blank.dt1"
+# Diablo II marks the space outside a preset's rooms with its "blank" tile: main
+# index 30 of the shared outdoor blank.dt1, a flat black diamond.  Every catacomb
+# and tomb preset sets lvlprest's FillBlanks for it, and their own tilesets never
+# define the table, so those cells drew as black holes between the rooms.  They
+# are filled with the area's own floor instead.
+VOID_MAIN_INDEX = 30
 
 
-def blank_tiles(source: Path) -> list[tristram.Tile]:
-    """The shared blank-space fill tiles, or none when the extraction lacks them."""
-    path = source / BLANK_TILESET
-    return tristram.read_dt1(path) if path.is_file() else []
+def is_void_cell(cell: int) -> bool:
+    return bool(cell) and not cell & 0x80000000 and (cell >> 20) & 0x3F == VOID_MAIN_INDEX
 
 
-def blank_keys(source: Path) -> frozenset[tuple[int, int, int]]:
-    return frozenset((tile.orientation, tile.main, tile.sub) for tile in blank_tiles(source))
+def floor_cells(layers: list[tristram.Layer], count: int) -> bytearray:
+    """Cells painted with real floor art: not the blank void tile, not hidden."""
+    covered = bytearray(count)
+    for layer in layers:
+        if layer.kind != "floor":
+            continue
+        for index, cell in enumerate(layer.cells):
+            if cell and not cell & 0x80000000 and not is_void_cell(cell):
+                covered[index] = 1
+    return covered
+
+
+def wall_cells(layers: list[tristram.Layer], count: int) -> set[int]:
+    """Cells with something built on them; the flood below cannot pass them."""
+    walls = set()
+    for layer in layers:
+        if layer.kind != "wall":
+            continue
+        for index, cell in enumerate(layer.cells):
+            if cell and not cell & 0x80000000:
+                walls.add(index)
+    return walls
+
+
+def outside_cells(covered: bytearray, walls: set[int], width: int, height: int) -> bytearray:
+    """Cells with no floor that a flood from the map border can reach.
+
+    Those are the black rock a preset leaves outside its rooms.  A gap the flood
+    cannot reach is a hole *inside* the level (the notch where four rooms meet),
+    and that one does have to be paved over.
+    """
+    outside = bytearray(len(covered))
+    stack: list[int] = []
+    for index in range(len(covered)):
+        row, column = divmod(index, width)
+        border = row == 0 or row == height - 1 or column == 0 or column == width - 1
+        if border and not covered[index] and index not in walls:
+            outside[index] = 1
+            stack.append(index)
+    while stack:
+        index = stack.pop()
+        row, column = divmod(index, width)
+        for next_row, next_column in ((row - 1, column), (row + 1, column),
+                                      (row, column - 1), (row, column + 1)):
+            if not (0 <= next_row < height and 0 <= next_column < width):
+                continue
+            neighbour = next_row * width + next_column
+            if covered[neighbour] or outside[neighbour] or neighbour in walls:
+                continue
+            outside[neighbour] = 1
+            stack.append(neighbour)
+    return outside
+
+
+def fill_ground_holes(layers: list[tristram.Layer], width: int, height: int) -> int:
+    """Pave the void cells a preset leaves *inside* its rooms.
+
+    Returns the number of cells filled.  A layer keeps one floor tile per world
+    (its most common one), so the filler matches the room floor the preset
+    painted around it.  The black rock beyond the rooms is left alone: that is
+    the area's edge, and collision keeps the hero off it, so paving it turned
+    every catacomb level into one flat sheet of repeated tiles.
+    """
+    count = max(len(layer.cells) for layer in layers)
+    covered = floor_cells(layers, count)
+    walls = wall_cells(layers, count)
+    outside = outside_cells(covered, walls, width, height)
+    filled = 0
+    pave_blank = True
+    for layer in layers:
+        if layer.kind != "floor":
+            continue
+        counts: dict[int, int] = {}
+        for cell in layer.cells:
+            if not cell or cell & 0x80000000 or is_void_cell(cell):
+                continue
+            counts[cell] = counts.get(cell, 0) + 1
+        if not counts:
+            continue
+        fill = max(counts.items(), key=lambda item: item[1])[0]
+        cells = list(layer.cells)
+        for index, cell in enumerate(cells):
+            if covered[index] or outside[index]:
+                continue
+            if is_void_cell(cell) or (cell & 0x80000000 and index not in walls):
+                cells[index] = fill
+                filled += 1
+            elif not cell and pave_blank:
+                # A cell the preset leaves completely blank inside its walls is
+                # still part of the room; the one at the junction of four rooms
+                # is where an area change drops the hero.
+                cells[index] = fill
+                filled += 1
+        layer.cells = tuple(cells)
+        pave_blank = False
+    return filled
 
 
 @dataclass(frozen=True)
@@ -106,8 +199,15 @@ ACT1_WORLDS: tuple[WorldSpec, ...] = (
               ds1("act1/outdoors", "wild4", "wild2", "wild3", "wild1"), 2, 2),
     WorldSpec("Tamoe Highland", "a1-tamoe-highland", 1,
               ds1("act1/outdoors", "wild1", "wild4", "wild2", "wild3"), 2, 2),
+    # Catacomb rooms are single room presets pinned to a 13x13 grid, and their
+    # walls run inside that grid, so a 2x2 only joins up when every piece has a
+    # doorway on all four sides: catnsew is that junction room. The corner
+    # presets (catnw, catse, ...) close two sides each, and laid out against one
+    # another they walled the map's centre - where the hero spawns - into a
+    # black, sealed gap.
     WorldSpec("Catacombs", "a1-catacombs", 1,
-              ds1("act1/catacomb", "cate", "cate2", "catew", "catew2"), 2, 2),
+              ds1("act1/catacomb", "catnsew", "catnsew",
+                  "catnsew", "catnsew"), 2, 2),
 )
 
 # Act II: the desert chunks are 9-cell squares, the sewers, tombs and sanctuary
@@ -138,7 +238,8 @@ ACT2_WORLDS: tuple[WorldSpec, ...] = (
 
 # Act III: the jungle chunks are 33-cell presets, so each jungle area uses one
 # full preset; Kurast's city chunks are 17-cell rooms and Travincal's temple
-# chunks are 13-cell rooms.
+# chunks are 13-cell rooms.  The Causeway uses the city quarter set: the single
+# bridge cross leaves most of its map as empty, unwalkable void.
 ACT3_WORLDS: tuple[WorldSpec, ...] = (
     WorldSpec("Spider Forest", "a3-spider-forest", 3,
               ds1("act3/jungle", "spidnw"), 1, 1),
@@ -156,7 +257,8 @@ ACT3_WORLDS: tuple[WorldSpec, ...] = (
               ds1("act3/kurast", "burbs16x16_0", "burbs16x16_1",
                   "burbs16x16_2", "burbs16x16_3"), 2, 2),
     WorldSpec("Kurast Causeway", "a3-kurast-causeway", 3,
-              ds1("act3/kurast", "bridge"), 1, 1),
+              ds1("act3/kurast", "metro16x16_4", "metro16x16_5",
+                  "metro16x16_6", "metrogaten"), 2, 2),
     WorldSpec("Travincal", "a3-travincal", 3,
               ds1("act3/travincal", "travs"), 1, 1),
     WorldSpec("Durance of Hate", "a3-durance-of-hate", 3,
@@ -182,8 +284,11 @@ ACT4_WORLDS: tuple[WorldSpec, ...] = (
 )
 
 # Act V: the snowfield fringe chunks are 17-cell 2x2 worlds, the ice caves use
-# their 17-cell passages, and the set pieces (Nihlathak's temple, the Summit, the
-# Throne) are single presets at their authored size.
+# their 17-cell passages, and the Summit is a single authored preset.  Nihlathak's
+# temple and the Halls of Vaught use the siege prison yards instead of Baal's
+# lair: those quarters are 89% floor in one connected piece, where the lair's
+# leave half the map as empty void and split it into a dozen islands.  The Throne
+# (and the Keep) still use Baal's lair quarters.
 ACT5_WORLDS: tuple[WorldSpec, ...] = (
     WorldSpec("Bloody Foothills", "a5-bloody-foothills", 5,
               ds1("expansion/siege", "brdr01r", "brdr02c", "brdr04r", "brdr05c"), 2, 2),
@@ -197,9 +302,11 @@ ACT5_WORLDS: tuple[WorldSpec, ...] = (
     WorldSpec("Frozen River", "a5-frozen-river", 5,
               ds1("expansion/icecave", "poolroom01"), 1, 1),
     WorldSpec("Nihlathak's Temple", "a5-nihlathaks-temple", 5,
-              ds1("expansion/wildtemple", "temple01"), 1, 1),
+              ds1("expansion/siege", "prisonaa", "prisonab",
+                  "prisonba", "prisonbb"), 2, 2),
     WorldSpec("Halls of Vaught", "a5-halls-of-vaught", 5,
-              ds1("expansion/wildtemple", "tempne01"), 1, 1),
+              ds1("expansion/siege", "prisoncc", "prisoncd",
+                  "prisondc", "prisondd"), 2, 2),
     WorldSpec("Glacial Trail", "a5-glacial-trail", 5,
               ds1("expansion/icecave", "icenw02", "icene02", "icesw02", "icese02"), 2, 2),
     WorldSpec("Frozen Tundra", "a5-frozen-tundra", 5,
@@ -212,7 +319,8 @@ ACT5_WORLDS: tuple[WorldSpec, ...] = (
     WorldSpec("Worldstone Keep", "a5-worldstone-keep", 5,
               ds1("expansion/baallair", "baalnw01", "baalne01", "baalsw01", "baalse01"), 2, 2),
     WorldSpec("Throne of Destruction", "a5-throne-of-destruction", 5,
-              ds1("expansion/baallair", "wthrone"), 1, 1),
+              ds1("expansion/baallair", "baalnw02", "baalne02",
+                  "baalsw02", "baalse02"), 2, 2),
 )
 
 WORLDS: dict[int, tuple[WorldSpec, ...]] = {
@@ -266,11 +374,6 @@ def assemble(spec: WorldSpec, source: Path) -> tuple[tristram.Scene, dict[tuple[
         grid.append((scene, (index % spec.columns) * chunk_width,
                      (index // spec.columns) * chunk_height))
 
-    # The world's own tilesets resolve first; the blank fill only fills the
-    # table entries no preset tileset defines.
-    for tile in blank_tiles(source):
-        catalogue.setdefault((tile.orientation, tile.main, tile.sub), tile)
-
     width = chunk_width * spec.columns
     height = chunk_height * spec.rows
     cells = width * height
@@ -306,15 +409,16 @@ def assemble(spec: WorldSpec, source: Path) -> tuple[tristram.Scene, dict[tuple[
     shadow_cells, _ = copy_layer("shadow", 0, False)
     layers.append(tristram.Layer("shadow", tuple(shadow_cells), None))
 
+    void_cells = fill_ground_holes(layers, width, height)
     scene = tristram.Scene(width, height, layers, [], max(0, spec.act - 1))
-    return scene, catalogue
+    return scene, catalogue, void_cells
 
 
 def render_world(spec: WorldSpec, source: Path,
                  palette: list[tuple[int, int, int, int]]
                  ) -> tuple[Image.Image, tristram.Scene, dict[tuple[int, int, int], tristram.Tile]]:
     """Render the assembled chunks with the editor's layer order."""
-    scene, catalogue = assemble(spec, source)
+    scene, catalogue, _ = assemble(spec, source)
     image = tristram.render_scene(scene, catalogue, palette, None, True)
     return image, scene, catalogue
 
@@ -332,59 +436,18 @@ def crop_origin(scene: tristram.Scene) -> tuple[int, int, int, int]:
     return left, top, width, height
 
 
-def ground_cells(scene: tristram.Scene, kind: str):
-    """Yield ``(index, cell, orientation)`` for the cells the ground draws.
-
-    Lower walls are part of the terrain: the stairs and stone ledges a preset
-    builds into a level are stored in the wall layers with an orientation of 16
-    or more, and the editor paints them before the floor diamonds.  Everything
-    with an orientation below 16 is an upper wall or prop, which this tool
-    exports as a depth-sorted sprite instead.
-    """
-    for layer in scene.layers:
-        if layer.kind != kind:
-            continue
-        if kind == "wall" and not layer.orientations:
-            continue
-        for index, cell in enumerate(layer.cells):
-            if cell & 0x80000000 or cell & 0xFF == 0:
-                continue
-            if kind == "wall":
-                orientation = layer.orientations[index] & 0xFF
-                if orientation < 16:
-                    continue
-            elif kind == "floor":
-                orientation = 0
-            else:
-                orientation = 13
-            yield index, cell, orientation
-
-
-def render_ground(scene: tristram.Scene, catalogue: dict[tuple[int, int, int], tristram.Tile],
-                  palette: list[tuple[int, int, int, int]]) -> Image.Image:
-    """Paint the terrain in the editor's layer order: lower walls, floors, shadows."""
-    left, top, width, height = crop_origin(scene)
-    origin_x = scene.height * TILE_WIDTH // 2
-    origin_y = 512
-    image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
-    for kind in ("wall", "floor", "shadow"):
-        for index, cell, orientation in ground_cells(scene, kind):
-            tile = catalogue.get(tristram.cell_key(cell, orientation))
-            if not tile or not tile.blocks:
-                continue
-            column, row = index % scene.width, index // scene.width
-            tristram.draw_tile(
-                image, tile,
-                origin_x + (column - row) * TILE_WIDTH // 2 - left,
-                origin_y + (column + row) * TILE_HEIGHT // 2 - top,
-                palette,
-            )
-    return image
-
-
 def export_ground(scene: tristram.Scene, catalogue: dict[tuple[int, int, int], tristram.Tile],
                   palette: list[tuple[int, int, int, int]]) -> Image.Image:
-    cropped = render_ground(scene, catalogue, palette)
+    """Crop the shared base terrain pass and flatten it for the client.
+
+    ``render_scene`` already paints the base terrain in the editor's order
+    (lower walls first, then floors, then shadows) and leaves every upper wall
+    to the depth-sorted sprites.  This tool only adds the crop and the client's
+    flattening, so there is no second renderer to keep in sync with it.
+    """
+    left, top, width, height = crop_origin(scene)
+    cropped = tristram.render_scene(scene, catalogue, palette, None, False).crop(
+        (left, top, left + width, top + height))
     background = Image.new("RGBA", cropped.size, ARENA_BACKGROUND)
     background.alpha_composite(cropped)
     rgb = background.convert("RGB")
@@ -393,9 +456,63 @@ def export_ground(scene: tristram.Scene, catalogue: dict[tuple[int, int, int], t
                                dither=Image.Dither.NONE)
 
 
+def spawn_anchor(scene: tristram.Scene) -> tuple[int, int]:
+    """Grid cell the hero should start on: the walkable cell nearest the middle.
+
+    An area change drops the hero on the middle of the map, but a level built
+    from room presets can have a walled-off pocket exactly there - the catacomb
+    rooms close up the corner where four of them meet.  Only the largest
+    connected run of floor counts, so the hero always lands somewhere they can
+    walk out of.
+    """
+    width, height = scene.width, scene.height
+    count = width * height
+    covered = floor_cells(scene.layers, count)
+    walls = wall_cells(scene.layers, count)
+    walkable = [bool(covered[index]) and index not in walls for index in range(count)]
+    region = [-1] * count
+    best_region = -1
+    best_cells: list[int] = []
+    for index in range(count):
+        if not walkable[index] or region[index] >= 0:
+            continue
+        region[index] = index
+        stack = [index]
+        cells = [index]
+        while stack:
+            current = stack.pop()
+            row, column = divmod(current, width)
+            for next_row, next_column in ((row - 1, column), (row + 1, column),
+                                          (row, column - 1), (row, column + 1)):
+                if not (0 <= next_row < height and 0 <= next_column < width):
+                    continue
+                neighbour = next_row * width + next_column
+                if not walkable[neighbour] or region[neighbour] >= 0:
+                    continue
+                region[neighbour] = index
+                stack.append(neighbour)
+                cells.append(neighbour)
+        if len(cells) > len(best_cells):
+            best_region = index
+            best_cells = cells
+    if best_region < 0:
+        return width // 2, height // 2
+    middle_x, middle_y = (width - 1) / 2, (height - 1) / 2
+    row, column = min(
+        (divmod(index, width) for index in best_cells),
+        key=lambda cell: abs(cell[1] - middle_x) + abs(cell[0] - middle_y),
+    )
+    return column, row
+
+
 def export_walls(scene: tristram.Scene, catalogue: dict[tuple[int, int, int], tristram.Tile],
                  palette: list[tuple[int, int, int, int]]) -> tuple[Image.Image, dict]:
-    """Pack every upper-wall tile once and list the cells that use it."""
+    """Pack every upper-wall tile once and list the cells that use it.
+
+    Orientation 15 is a wall tile that faces no direction (the stone faces and
+    railings Kurast builds along its streets).  It is a full-height sprite like
+    any other upper wall, so it is packed here instead of being dropped.
+    """
     left, top, width, height = crop_origin(scene)
     origin_x = scene.height * TILE_WIDTH // 2
     origin_y = 512
@@ -408,7 +525,7 @@ def export_walls(scene: tristram.Scene, catalogue: dict[tuple[int, int, int], tr
             if cell & 0x80000000 or cell & 0xFF == 0:
                 continue
             orientation = layer.orientations[index] & 0xFF
-            if orientation >= 16 or orientation == 15:
+            if orientation >= 16:
                 continue
             key = tristram.cell_key(cell, orientation)
             if key not in catalogue:
@@ -477,6 +594,14 @@ def export_walls(scene: tristram.Scene, catalogue: dict[tuple[int, int, int], tr
         "halfHeight": (scene.width + scene.height) * half_step_y / 2,
     }
 
+    # Where the hero starts, in the same pixel space: the middle of a cell that
+    # belongs to the level's largest walkable region.
+    spawn_column, spawn_row = spawn_anchor(scene)
+    spawn = {
+        "x": origin_x + (spawn_column - spawn_row) * half_step_x - left + half_step_x,
+        "y": origin_y + (spawn_column + spawn_row) * half_step_y - top + half_step_y,
+    }
+
     layout = {
         "atlasWidth": atlas.width,
         "atlasHeight": atlas.height,
@@ -487,6 +612,7 @@ def export_walls(scene: tristram.Scene, catalogue: dict[tuple[int, int, int], tr
         "tileWidth": TILE_WIDTH,
         "tileHeight": TILE_HEIGHT,
         "walkable": walkable,
+        "spawn": spawn,
         "instances": instances,
     }
     return atlas, layout
@@ -502,11 +628,66 @@ def draw_diamond(draw: ImageDraw.ImageDraw, tile_x: int, tile_y: int) -> None:
     ], fill=255)
 
 
-def export_collision(scene: tristram.Scene, catalogue: dict[tuple[int, int, int], tristram.Tile],
-                     blank: frozenset[tuple[int, int, int]] = frozenset()) -> Image.Image:
+# Chunk folders whose areas are natural terrain: trees, rocks and clifftops.  There a
+# DS1 wall cell only means "something stands here", and its art covers part of the
+# diamond, so filling the whole diamond stops the hero on open grass a cell away from
+# the tree.  Dungeons, tombs and towns keep cell-sized walls whose sprite seams would
+# let a hero squeeze through if the mask followed the art, so only open ground is
+# art-shaped.
+OPEN_GROUND_FOLDERS = frozenset({"outdoors", "jungle", "mesa", "lava", "siege", "mountaintop"})
+# In open ground a cell whose art nearly fills the diamond is solid wall to wall.
+CELL_SOLID_SHARE = 0.85
+# Alpha a wall sprite needs before its pixels count as something in the way.
+WALL_ART_ALPHA = 96
+# The hero's body stops this far short of the art, so it never clips into it.
+WALL_BODY_MARGIN = 6
+
+_CELL_DIAMOND: Image.Image | None = None
+
+
+def cell_diamond() -> Image.Image:
+    """Mask of one isometric cell, matching ``draw_diamond``."""
+    global _CELL_DIAMOND
+    if _CELL_DIAMOND is None:
+        diamond = Image.new("L", (TILE_WIDTH, TILE_HEIGHT), 0)
+        ImageDraw.Draw(diamond).polygon([
+            (TILE_WIDTH // 2, 0),
+            (TILE_WIDTH, TILE_HEIGHT // 2),
+            (TILE_WIDTH // 2, TILE_HEIGHT),
+            (0, TILE_HEIGHT // 2),
+        ], fill=255)
+        _CELL_DIAMOND = diamond
+    return _CELL_DIAMOND
+
+
+def wall_cell_stamp(tile: tristram.Tile,
+                    palette: list[tuple[int, int, int, int]]) -> tuple[Image.Image, float]:
+    """Wall pixels a tile paints inside its own cell, and the share of the cell it hides."""
+    pad = 256
+    canvas = Image.new("RGBA", (TILE_WIDTH + pad * 2, TILE_HEIGHT + pad * 2), (0, 0, 0, 0))
+    tristram.draw_tile(canvas, tile, pad, pad, palette)
+    cell = canvas.crop((pad, pad, pad + TILE_WIDTH, pad + TILE_HEIGHT))
+    art = cell.getchannel("A").point(lambda alpha: 255 if alpha > WALL_ART_ALPHA else 0)
+    stamp = ImageChops.multiply(art, cell_diamond())
+    hidden = stamp.histogram()[255] / (TILE_WIDTH * TILE_HEIGHT / 2)
+    grown = stamp.filter(ImageFilter.MaxFilter(2 * WALL_BODY_MARGIN + 1))
+    return ImageChops.darker(grown, cell_diamond()), hidden
+
+
+def is_open_ground(spec: WorldSpec) -> bool:
+    """Whether an area is outdoor terrain rather than a built interior."""
+    return all(chunk.split("/")[3] in OPEN_GROUND_FOLDERS for chunk in spec.chunks)
+
+
+def export_collision(scene: tristram.Scene,
+                     catalogue: dict[tuple[int, int, int], tristram.Tile],
+                     palette: list[tuple[int, int, int, int]],
+                     open_ground: bool) -> Image.Image:
     left, top, width, height = crop_origin(scene)
     mask = Image.new("L", (width, height), 0)
     draw = ImageDraw.Draw(mask)
+    solid = Image.new("L", (TILE_WIDTH, TILE_HEIGHT), 255)
+    stamps: dict[tuple[int, int, int], tuple[Image.Image, float]] = {}
     origin_x = scene.height * TILE_WIDTH // 2
     origin_y = 512
     for layer in scene.layers:
@@ -518,32 +699,36 @@ def export_collision(scene: tristram.Scene, catalogue: dict[tuple[int, int, int]
             orientation = layer.orientations[index] & 0xFF
             if orientation >= 16:
                 continue
-            if tristram.cell_key(cell, orientation) not in catalogue:
+            key = tristram.cell_key(cell, orientation)
+            tile = catalogue.get(key)
+            if tile is None:
                 continue
+            stamp = stamps.get(key)
+            if stamp is None:
+                stamp = stamps[key] = wall_cell_stamp(tile, palette)
             column, row = index % scene.width, index // scene.width
             tile_x = origin_x + (column - row) * TILE_WIDTH // 2 - left
             tile_y = origin_y + (column + row) * TILE_HEIGHT // 2 - top
-            draw_diamond(draw, tile_x, tile_y)
-    # The blank fill behind the walls is void, not floor: mark it solid so the
-    # hero cannot walk into the black space a room's walls leave behind.
-    for layer in scene.layers:
-        if layer.kind != "floor":
+            if not open_ground or stamp[1] >= CELL_SOLID_SHARE:
+                draw_diamond(draw, tile_x, tile_y)
+            else:
+                mask.paste(solid, (tile_x, tile_y), stamp[0])
+    # A cell with no floor is not floor: the black rock a preset keeps outside its
+    # rooms must be solid, or the hero (and every monster) can walk out of the
+    # level and stand in the void.
+    covered = floor_cells(scene.layers, scene.width * scene.height)
+    for index, painted in enumerate(covered):
+        if painted:
             continue
-        for index, cell in enumerate(layer.cells):
-            if cell & 0x80000000 or cell & 0xFF == 0:
-                continue
-            if tristram.cell_key(cell, 0) not in blank:
-                continue
-            column, row = index % scene.width, index // scene.width
-            tile_x = origin_x + (column - row) * TILE_WIDTH // 2 - left
-            tile_y = origin_y + (column + row) * TILE_HEIGHT // 2 - top
-            draw_diamond(draw, tile_x, tile_y)
+        column, row = index % scene.width, index // scene.width
+        draw_diamond(draw, origin_x + (column - row) * TILE_WIDTH // 2 - left,
+                     origin_y + (column + row) * TILE_HEIGHT // 2 - top)
     return mask
 
 
 def write_world(spec: WorldSpec, source: Path, preview: Path | None) -> dict:
     palette = load_palette(source, spec.act)
-    scene, catalogue = assemble(spec, source)
+    scene, catalogue, void_cells = assemble(spec, source)
     if preview:
         image, _, _ = render_world(spec, source, palette)
         preview.parent.mkdir(parents=True, exist_ok=True)
@@ -557,20 +742,16 @@ def write_world(spec: WorldSpec, source: Path, preview: Path | None) -> dict:
     walls.save(ASSET_ROOT / f"{spec.slug}-walls.png", optimize=True)
     with (ASSET_ROOT / f"{spec.slug}-walls.json").open("w", encoding="utf-8") as handle:
         json.dump(layout, handle, separators=(",", ":"))
-    blank = blank_keys(source)
-    collision = export_collision(scene, catalogue, blank)
+    collision = export_collision(scene, catalogue, palette, is_open_ground(spec))
     collision.save(ASSET_ROOT / f"{spec.slug}-walls-collision.png", optimize=True)
-
-    blank_cells = sum(
-        1 for layer in scene.layers if layer.kind == "floor"
-        for cell in layer.cells
-        if not (cell & 0x80000000) and cell & 0xFF
-        and tristram.cell_key(cell, 0) in blank
+    lower_walls = sum(
+        1 for layer in scene.layers if layer.kind == "wall" and layer.orientations
+        for cell, orientation in zip(layer.cells, layer.orientations)
+        if cell and not cell & 0x80000000 and cell & 0xFF and (orientation & 0xFF) >= 16
     )
-    lower_walls = sum(1 for _ in ground_cells(scene, "wall"))
     print(f"{spec.area}: {scene.width}x{scene.height} tiles, "
           f"ground {ground.width}x{ground.height}, {len(layout['instances'])} wall strips, "
-          f"{lower_walls} lower-wall tiles, {blank_cells} blank fill tiles")
+          f"{lower_walls} lower-wall tiles, {void_cells} ground cells filled")
     return {
         "area": spec.area,
         "slug": spec.slug,

@@ -2,7 +2,7 @@
 import { Subject } from "rxjs";
 import * as THREE from "three";
 import { type D2LeaderboardEntry, D2SurvivorsService } from "../../services/d2survivors.service";
-import { D2SurvivorsComponent, enemyD2PixelHeight, enemySpriteDirectionRow, enemySpriteRow } from "./d2survivors.component";
+import { D2SurvivorsComponent, enemyD2PixelHeight, enemySpriteDirectionRow, enemySpriteRow, wereformRow } from "./d2survivors.component";
 import { D2_ITEM_ART, D2_SET_ITEMS, D2_UNIQUE_ITEMS } from "./d2-item-assets.generated";
 import { getD2BaseItemFootprint } from "./d2-item-footprints";
 import { D2_HELMET_VISUALS, getHelmetVisualForItem } from "./d2-helmet-visuals.generated";
@@ -1146,6 +1146,67 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(component.inventory[1]?.id).toBe("g2");
     expect(component.inventoryStatus).toContain("has no sockets");
     expect(component.socketedCount(plain)).toBe(0);
+  });
+
+  it("gives a unique or set item the sockets its Socketed line advertises", () => {
+    const named = (affixes: string[]) => (component as any).createNamedItem({
+      name: "Bonesnap", baseName: "Ogre Axe", rarity: "unique", slot: "weapon",
+      equipmentType: "weapon", width: 2, height: 4, desc: "A unique Ogre Axe.",
+      requiredLevel: 30, stats: { damageMin: 20, damageMax: 45 }, affixes,
+      art: "assets/d2survivors/items/d2/invba3.png",
+    }, "unique") as any;
+    const axe = named(["+320% Enhanced Damage", "Socketed (2)"]);
+    expect(axe.sockets).toBe(2);
+
+    component.inventory[0] = {
+      id: "named-gem", name: "Chipped Ruby", baseName: "Chipped Ruby", rarity: "normal",
+      slot: "charm", equipmentType: "gem", desc: "", stats: {},
+    } as any;
+    expect(component.socketInventoryItem(0, axe)).toBeTrue();
+    expect(component.socketedCount(axe)).toBe(1);
+    expect(component.inventory[0]).toBeNull();
+    // A named item whose properties never mention sockets stays solid.
+    expect(named(["+10 to Strength"]).sockets).toBeUndefined();
+  });
+
+  it("sockets a gem dragged onto a socketed weapon with a touch long-press", () => {
+    jasmine.clock().install();
+    try {
+      component.inventoryOpen = true;
+      component.inventory = Array.from({ length: 40 }, () => null);
+      component.inventory[0] = {
+        id: "touch-gem", name: "Chipped Ruby", baseName: "Chipped Ruby", rarity: "normal",
+        slot: "charm", equipmentType: "gem", desc: "", stats: {},
+      } as any;
+      const sword = {
+        id: "touch-sword", name: "Broad Sword", baseName: "Broad Sword", rarity: "normal",
+        slot: "weapon", sockets: 2, desc: "", stats: { damageMin: 5, damageMax: 10 },
+      } as any;
+      component.inventory[20] = sword;
+      (component as any).rebuildInventoryGrid();
+      spyOn(component as any, "persistRunProgress");
+
+      const source = document.createElement("div");
+      const target = document.createElement("div");
+      target.dataset["inventorySlot"] = "20";
+      spyOn(document, "elementFromPoint").and.returnValue(target);
+      const touchEvent = (x: number, y: number) => ({
+        pointerType: "touch", pointerId: 11, clientX: x, clientY: y, currentTarget: source,
+        preventDefault: jasmine.createSpy("preventDefault"),
+      }) as unknown as PointerEvent;
+
+      component.onInventoryPointerDown(0, touchEvent(10, 10));
+      jasmine.clock().tick(430);
+      component.onInventoryPointerMove(touchEvent(40, 30));
+      component.onInventoryPointerUp(touchEvent(40, 30));
+
+      expect(component.socketedCount(sword)).toBe(1);
+      expect(component.inventory[0]).toBeNull();
+      expect(component.inventoryStatus).toContain("sockets");
+      expect(component.mobileInventoryDrag).toBeNull();
+    } finally {
+      jasmine.clock().uninstall();
+    }
   });
 
   it("drops real jewels with the imported cel and rolled jewel affixes", () => {
@@ -3542,23 +3603,99 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(campaignZones).toEqual(component.mapAreas);
   });
 
-  it("advances zones on the act clock and freezes them once the boss arrives", () => {
+  it("holds the area change until the next area's ground and collision are ready", () => {
     spyOn(component as any, "persistRunProgress");
     component.currentAct = 1;
     component.actTime = 0;
     component.playerLevel = 99;
+    (component as any).campaignWorlds.clear();
+    (component as any).campaignWorldFailures.clear();
 
     (component as any).updateCampaignArea();
     expect(component.currentAreaIndex).toBe(0);
 
     component.actTime = 70;
     (component as any).updateCampaignArea();
-    expect(component.currentAreaIndex).toBe(3);
+    // The clock moved on, but the hero is still standing in the area whose map
+    // and walls they can see: switching here would drop them into a map that has
+    // not decoded yet, with no collision to keep them out of its walls.
+    expect(component.currentAreaIndex).toBe(0);
+    expect(component.currentArea.name).toBe("Blood Moor");
+    expect((component as any).pendingCampaignAreaIndex).toBe(3);
 
-    component.actBossSpawned = true;
-    component.actTime = 130;
+    const pending = (component as any).pendingWorldEntry();
+    expect(pending.area).toBe("Dark Wood");
+    const ground = document.createElement("img");
+    Object.defineProperties(ground, {
+      naturalWidth: { configurable: true, value: 5440 },
+      naturalHeight: { configurable: true, value: 2976 },
+    });
+    (component as any).campaignWorlds.set(pending.slug, {
+      ground,
+      layout: {
+        atlasWidth: 1, atlasHeight: 1, backdropWidth: 5440, backdropHeight: 2976, instances: [],
+        walkable: { x: 2720, y: 1488, halfWidth: 2600, halfHeight: 1400 },
+      },
+    });
     (component as any).updateCampaignArea();
+    // Ground and layout without the collision mask still leave the walls hollow.
+    expect(component.currentAreaIndex).toBe(0);
+
+    const assets = (component as any).campaignWorlds.get(pending.slug);
+    assets.collision = { width: 1, height: 1, blocked: new Uint8Array(1) };
+    (component as any).updateCampaignArea();
+
     expect(component.currentAreaIndex).toBe(3);
+    expect(component.currentArea.name).toBe("Dark Wood");
+    expect((component as any).pendingCampaignAreaIndex).toBeNull();
+    expect([...(component as any).campaignWorlds.keys()]).toEqual([pending.slug]);
+  });
+
+  it("freezes the zone order once the act boss arrives", () => {
+    spyOn(component as any, "persistRunProgress");
+    component.currentAct = 1;
+    component.currentAreaIndex = 0;
+    component.actTime = 130;
+    component.actBossSpawned = true;
+
+    (component as any).updateCampaignArea();
+
+    expect(component.currentAreaIndex).toBe(0);
+    expect((component as any).pendingCampaignAreaIndex).toBeNull();
+  });
+
+  it("keeps the pending area's ground while the hero still plays the previous one", () => {
+    component.currentAct = 1;
+    component.currentAreaIndex = 0;
+    expect(component.currentArea.name).toBe("Blood Moor");
+    (component as any).campaignWorlds.clear();
+    // The clock has already moved to Cold Plains; its ground is loading behind
+    // the area the hero can see, so it must not be thrown away on arrival.
+    (component as any).pendingCampaignAreaIndex = 1;
+    const created: Array<{ image: any; src: string }> = [];
+    const originalImage = (window as any).Image;
+    class FakeImage {
+      onload: ((event: Event) => void) | null = null;
+      onerror: ((event: Event) => void) | null = null;
+      naturalWidth = 5440;
+      naturalHeight = 2976;
+      set src(value: string) { created.push({ image: this, src: value }); }
+      get src(): string { return ""; }
+      removeAttribute(): void { /* the element is released */ }
+    }
+    (window as any).Image = FakeImage;
+    spyOn(window, "fetch").and.resolveTo({ ok: false, status: 404 } as Response);
+    try {
+      const entry = (component as any).pendingWorldEntry();
+      (component as any).ensureCampaignWorld(entry);
+      const ground = created.find((item) => item.src === entry.ground);
+      expect(ground).toBeTruthy();
+      ground!.image.onload!(new Event("load"));
+    } finally {
+      (window as any).Image = originalImage;
+    }
+
+    expect([...(component as any).campaignWorlds.keys()]).toEqual(["a1-cold-plains"]);
   });
 
   it("lays the authored area art over the floor for every campaign act", () => {
@@ -3966,6 +4103,152 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect((component as any).campaignBlockedAt(context, oldSpawnX, oldSpawnY)).toBeTrue();
   });
 
+  it("frees every area's DS1 map except the one being played", () => {
+    const oldGround = document.createElement("img");
+    oldGround.onload = () => undefined;
+    const keptGround = document.createElement("img");
+    (component as any).campaignWorlds.set("a1-blood-moor", { ground: oldGround });
+    (component as any).campaignWorlds.set("a3-lower-kurast", { ground: document.createElement("img") });
+    (component as any).campaignWorlds.set("a1-cold-plains", { ground: keptGround });
+
+    (component as any).releaseCampaignWorldsExcept("a1-cold-plains");
+
+    // The huge decoded grounds of the areas the run has left must not linger.
+    expect([...(component as any).campaignWorlds.keys()]).toEqual(["a1-cold-plains"]);
+    expect(oldGround.onload).toBeNull();
+    expect(oldGround.getAttribute("src")).toBeNull();
+  });
+
+  it("drops the previous area's map once the next area's ground is ready", () => {
+    component.currentAct = 1;
+    component.currentAreaIndex = 1;
+    expect(component.currentArea.name).toBe("Cold Plains");
+    const previousGround = document.createElement("img");
+    previousGround.onload = () => undefined;
+    (component as any).campaignWorlds.set("a1-blood-moor", { ground: previousGround });
+
+    // Capture the image elements the loader creates instead of hitting the network.
+    const created: Array<{ image: any; src: string }> = [];
+    const originalImage = (window as any).Image;
+    class FakeImage {
+      onload: ((event: Event) => void) | null = null;
+      onerror: ((event: Event) => void) | null = null;
+      naturalWidth = 64;
+      naturalHeight = 64;
+      set src(value: string) { created.push({ image: this, src: value }); }
+      get src(): string { return ""; }
+      removeAttribute(): void { /* the element is released */ }
+    }
+    (window as any).Image = FakeImage;
+    spyOn(window, "fetch").and.resolveTo({ ok: false, status: 404 } as Response);
+    try {
+      const entry = (component as any).currentWorldEntry();
+      (component as any).ensureCampaignWorld(entry);
+      const ground = created.find((item) => item.src === entry.ground);
+      expect(ground).toBeTruthy();
+      ground!.image.onload!(new Event("load"));
+    } finally {
+      (window as any).Image = originalImage;
+    }
+
+    expect([...(component as any).campaignWorlds.keys()]).toEqual(["a1-cold-plains"]);
+    expect(previousGround.onload).toBeNull();
+  });
+
+  it("keeps the previous area's ground on screen while the next map decodes", () => {
+    component.currentAct = 1;
+    component.currentAreaIndex = 1;
+    expect(component.currentArea.name).toBe("Cold Plains");
+    const previousGround = document.createElement("img");
+    Object.defineProperties(previousGround, {
+      naturalWidth: { configurable: true, value: 4160 },
+      naturalHeight: { configurable: true, value: 2336 },
+    });
+    (component as any).campaignWorlds.set("a1-blood-moor", { ground: previousGround });
+
+    // The painted atlas would otherwise paint over the old floor and then be
+    // replaced by the real map, which is the double tileset change.
+    const held = (component as any).heldCampaignWorld((component as any).currentWorldEntry());
+    expect(held?.slug).toBe("a1-blood-moor");
+    expect(held?.ground).toBe(previousGround);
+
+    // Once Cold Plains has its own map, nothing of the old area is drawn.
+    const coldPlains = document.createElement("img");
+    Object.defineProperties(coldPlains, {
+      naturalWidth: { configurable: true, value: 4160 },
+      naturalHeight: { configurable: true, value: 2336 },
+    });
+    (component as any).campaignWorlds.set("a1-cold-plains", { ground: coldPlains });
+    expect((component as any).heldCampaignWorld((component as any).currentWorldEntry())).toBeUndefined();
+  });
+
+  it("centres the hero again when a new area's map finishes loading", () => {
+    const entry = (component as any).currentWorldEntry();
+    (component as any).campaignWorlds.set(entry.slug, {
+      ground: document.createElement("img"),
+      layout: { atlasWidth: 1, atlasHeight: 1, backdropWidth: 1, backdropHeight: 1, instances: [], walkable: { x: 1, y: 1, halfWidth: 1, halfHeight: 1 } },
+    });
+    const centre = spyOn(component as any, "centerPlayerOnCampaignWorld");
+    (component as any).campaignWorldPendingCentre = true;
+
+    (component as any).settlePlayerOnCampaignWorld();
+
+    expect(centre).toHaveBeenCalled();
+    expect((component as any).campaignWorldPendingCentre).toBeFalse();
+  });
+
+  it("keeps the pending centre spawn until the new map's layout arrives", () => {
+    (component as any).campaignWorlds.clear();
+    const centre = spyOn(component as any, "centerPlayerOnCampaignWorld");
+    (component as any).campaignWorldPendingCentre = true;
+
+    (component as any).settlePlayerOnCampaignWorld();
+
+    expect(centre).not.toHaveBeenCalled();
+    expect((component as any).campaignWorldPendingCentre).toBeTrue();
+  });
+
+  it("resuming a run does not drag the saved position to the area centre", () => {
+    spyOn(component as any, "ensureCampaignWorld");
+    (component as any).switchCampaignWorld(false);
+
+    expect((component as any).campaignWorldPendingCentre).toBeFalse();
+  });
+
+  it("still draws Act V's largest world from its single cached ground", () => {
+    component.currentAct = 5;
+    component.currentAreaIndex = 12;
+    expect(component.currentArea.name).toBe("Throne of Destruction");
+    const ground = document.createElement("img");
+    Object.defineProperties(ground, {
+      naturalWidth: { configurable: true, value: 7520 },
+      naturalHeight: { configurable: true, value: 4016 },
+    });
+    (component as any).campaignWorlds.set("a5-throne-of-destruction", {
+      ground,
+      layout: {
+        atlasWidth: 1, atlasHeight: 1, backdropWidth: 7520, backdropHeight: 4016,
+        instances: [], walkable: { x: 3760, y: 2008, halfWidth: 3660, halfHeight: 1860 },
+      },
+    });
+    spyOn(component as any, "campaignWorldGeometry").and.returnValue({
+      scale: 0.5, width: 3760, height: 2008, left: -120, top: -80,
+    });
+    const drawImage = jasmine.createSpy("drawImage");
+    const ctx = {
+      save: () => undefined, restore: () => undefined, drawImage,
+      beginPath: () => undefined, moveTo: () => undefined, lineTo: () => undefined,
+      closePath: () => undefined, fill: () => undefined, fillStyle: "",
+    } as unknown as CanvasRenderingContext2D;
+
+    (component as any).drawCampaignWorldGround(ctx, ground, 356);
+
+    expect(drawImage).toHaveBeenCalledTimes(1);
+    expect(drawImage.calls.argsFor(0)[0]).toBe(ground);
+    expect(drawImage.calls.argsFor(0)[3]).toBeGreaterThan(1000);
+    expect((component as any).campaignWorlds.size).toBe(1);
+  });
+
   it("seals each DS1 area at the edge of its exported map", () => {
     (component as any).currentAct = 1;
     component.currentAreaIndex = 0;
@@ -4027,15 +4310,64 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect((component as any).outsideCampaignWorld(diamond, position.x, position.y)).toBeFalse();
   });
 
+  it("starts the hero on the floor cell the exporter names for a room-built map", () => {
+    (component as any).currentAct = 1;
+    component.currentAreaIndex = 5;
+    expect(component.currentArea.name).toBe("Catacombs");
+    // The catacomb rooms wall off the exact middle of the grid, so the exporter
+    // names a floor cell in the level's largest walkable region instead.
+    (component as any).campaignWorlds.set("a1-catacombs", {
+      ground: { complete: false } as any,
+      layout: {
+        atlasWidth: 1, atlasHeight: 1, backdropWidth: 4160, backdropHeight: 2336,
+        instances: [],
+        walkable: { x: 2040, y: 1296, halfWidth: 2040, halfHeight: 1040 },
+        spawn: { x: 2400, y: 1176 },
+      },
+    });
+
+    (component as any).centerPlayerOnCampaignWorld();
+
+    const position = (component as any).playerWorldPosition();
+    // One exported pixel is 60/160 of a world unit; the map is centred on the chunk.
+    const chunkWidth = (component as any).chunkTileColumns * 60;
+    const chunkHeight = (component as any).chunkTileRows * 60;
+    expect(position.x).toBeCloseTo(chunkWidth / 2 + (2400 - 4160 / 2) * 0.375, 5);
+    expect(position.y).toBeCloseTo(chunkHeight / 2 + (1176 - 2336 / 2) * 0.375, 5);
+  });
+
   it("centres the hero when the act clock walks into the next area", () => {
     component.currentAct = 1;
     component.currentAreaIndex = 0;
     component.actBossSpawned = false;
     component.actTransitionReady = false;
     component.campaignVictory = false;
+    (component as any).campaignWorlds.clear();
+    (component as any).campaignWorldFailures.clear();
     const centre = spyOn(component as any, "centerPlayerOnCampaignWorld");
 
     component.actTime = 600;
+    (component as any).updateCampaignArea();
+
+    // The clock picks the last zone straight away, but the hero only moves into
+    // it once its map and collision mask are in (see the ready-gate test above).
+    const pending = (component as any).pendingWorldEntry();
+    expect(component.currentAreaIndex).toBe(0);
+    expect(centre).not.toHaveBeenCalled();
+
+    const ground = document.createElement("img");
+    Object.defineProperties(ground, {
+      naturalWidth: { configurable: true, value: 5440 },
+      naturalHeight: { configurable: true, value: 2976 },
+    });
+    (component as any).campaignWorlds.set(pending.slug, {
+      ground,
+      collision: { width: 1, height: 1, blocked: new Uint8Array(1) },
+      layout: {
+        atlasWidth: 1, atlasHeight: 1, backdropWidth: 5440, backdropHeight: 2976, instances: [],
+        walkable: { x: 2720, y: 1488, halfWidth: 2600, halfHeight: 1400 },
+      },
+    });
     (component as any).updateCampaignArea();
 
     expect(component.currentAreaIndex).toBeGreaterThan(0);
@@ -7038,6 +7370,48 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(component.skillLevels["Teeth"]).toBe(5);
   });
 
+  it("casts a gear-granted skill the hero never learned", () => {
+    component.selectedClass = "necromancer";
+    component.ownedSkills = ["Attack"];
+    component.skillLevels = { Attack: 1 };
+
+    // A named "+1 to Bone Armor" wand is a real rank even with no point spent.
+    component.equipment.weapon = {
+      id: "bone-armor-wand", name: "Bone Wand", baseName: "Wand", rarity: "magic",
+      slot: "weapon", equipmentType: "wand", desc: "A wand.",
+      stats: { necromancerSkillLevels: { "Bone Armor": 1 } },
+    } as any;
+    expect(component.skillLevels["Bone Armor"]).toBe(1);
+    expect((component as any).canUseSkill("Bone Armor")).toBeTrue();
+    expect(component.ownedSkills).not.toContain("Bone Armor");
+
+    (component as any).activateOwnedSkill("Bone Armor");
+    expect((component as any).boneArmorRemaining).toBeGreaterThan(0);
+    expect((component as any).isBoneArmorActive()).toBeTrue();
+    expect(component.equippedSkills).toContain("Bone Armor");
+
+    // Taking the wand off takes the skill with it.
+    component.equipment.weapon = null;
+    expect(component.skillLevels["Bone Armor"]).toBeUndefined();
+    expect((component as any).canUseSkill("Bone Armor")).toBeFalse();
+  });
+
+  it("only lets a named staffmod grant an unlearned skill", () => {
+    component.selectedClass = "necromancer";
+    component.ownedSkills = ["Attack"];
+    component.skillLevels = { Attack: 1 };
+    component.equipment.weapon = {
+      id: "magus-wand", name: "Bone Wand of the Magus", baseName: "Wand", rarity: "rare",
+      slot: "weapon", equipmentType: "wand", desc: "A wand.",
+      stats: { necromancerTreeSkillLevels: { "Poison and Bone": 2 }, necromancerClassSkillLevel: 2 },
+    } as any;
+
+    // Tree and class-wide lines deepen learned skills; they never hand one over.
+    expect(component.skillLevels["Bone Wall"]).toBeUndefined();
+    expect((component as any).canUseSkill("Bone Wall")).toBeFalse();
+    expect((component as any).isBoneArmorActive()).toBeFalse();
+  });
+
   it("keeps wand staffmods when a save is sanitized", () => {
     (component as any).restoreRunState({
       selectedClass: "necromancer",
@@ -8548,6 +8922,32 @@ describe("D2SurvivorsComponent combat and equipment", () => {
       cast();
       expect(alive()).toBe(2);
     }
+  });
+
+  it("shifts into the werebear once it is the form the druid has levelled", () => {
+    component.selectedClass = "druid";
+    component.runActive = true;
+    component.ownedSkills = ["Attack", "Werewolf", "Werebear"];
+    component.skillLevels = { Attack: 1, Werewolf: 1, Werebear: 5 };
+    (component as any).druidForm = null;
+    (component as any).druidFormCooldown = 0;
+
+    (component as any).updateAutomaticSkillCasts(16);
+
+    expect((component as any).druidForm).toBe("werebear");
+  });
+
+  it("shifts into a werebear when that is the only form owned", () => {
+    component.selectedClass = "druid";
+    component.runActive = true;
+    component.ownedSkills = ["Attack", "Werebear"];
+    component.skillLevels = { Attack: 1, Werebear: 1 };
+    (component as any).druidForm = null;
+    (component as any).druidFormCooldown = 0;
+
+    (component as any).updateAutomaticSkillCasts(16);
+
+    expect((component as any).druidForm).toBe("werebear");
   });
 
   it("makes Oak Sage a non-attacking life aura for the druid and active summons", () => {
@@ -10384,6 +10784,23 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(enemySpriteDirectionRow("heartOfWolverine", "move", 8, 3)).toBe(3);
   });
 
+  it("faces a wereform the way the hero is walking on screen", () => {
+    // The hero's facing vector is a world-plane vector, which the arena rotates
+    // 45 degrees and squashes 2:1 on the way to the screen. Picking the wereform
+    // row from it directly played the opposite horizontal row, so left and right
+    // ran backwards. These are the world vectors the movement keys produce.
+    // Rows: 0 left, 1 up-left, 2 up, 3 up-right, 4 right, 5 down-right, 6 down,
+    // 7 down-left.
+    expect(wereformRow(-1, 1)).toBe(0);
+    expect(wereformRow(1, -1)).toBe(4);
+    expect(wereformRow(-1, -1)).toBe(2);
+    expect(wereformRow(1, 1)).toBe(6);
+    expect(wereformRow(-1, 0)).toBe(1);
+    expect(wereformRow(0, -1)).toBe(3);
+    expect(wereformRow(1, 0)).toBe(5);
+    expect(wereformRow(0, 1)).toBe(7);
+  });
+
   it("sizes the reviewed monsters from their tallest walk cel", () => {
     // 90 table pixels is one hero height. These four were still on their old
     // guesses and drew shorter than the hero; each now reads its own tallest
@@ -11657,6 +12074,53 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(model.getObjectByName("equipped_weapon_offhand_weapon")).toBeTruthy();
   });
 
+  it("keeps the off hand empty for an archived hero holding a two-handed weapon", () => {
+    spyOn(component as any, "attachHeldItemArt");
+    const hero = {
+      id: 9, userId: 5, characterName: "Kael", classId: "barbarian", username: "Kael",
+      score: 700, timeSeconds: 120, kills: 12, level: 9, victory: false, died: true,
+      createdAt: "2026-01-01T00:00:00Z",
+      equipped: JSON.stringify({
+        weapon: { id: "run-pike", name: "Pike", baseName: "Pike", rarity: "normal", slot: "weapon", desc: "A long polearm." },
+        shield: { id: "run-hand-axe-off", name: "Hand Axe", baseName: "Hand Axe", rarity: "normal", slot: "weapon", desc: "A compact axe." },
+      }),
+    } as unknown as D2LeaderboardEntry;
+    const loadout = (component as any).archiveHeroLoadout(hero);
+    expect(loadout.weapon?.name).toBe("Pike");
+    // The save still carries the second axe the hero held before the pike.
+    expect(loadout.shield?.name).toBe("Hand Axe");
+    const buildModel = (): THREE.Group => {
+      const model = new THREE.Group();
+      for (const name of ["R_weapon_attach", "L_weapon_attach", "shield_attach"]) {
+        const bone = new THREE.Object3D();
+        bone.name = name;
+        model.add(bone);
+      }
+      return model;
+    };
+    const heldWeaponNames = (model: THREE.Group): string[] => {
+      const names: string[] = [];
+      model.traverse((object) => {
+        if (/^equipped_weapon/.test(object.name)) names.push(object.name);
+      });
+      return names.sort();
+    };
+
+    const twoHanded = buildModel();
+    expect((component as any).attachLeaderboardHeroGear(twoHanded, "barbarian", loadout)).toBeFalse();
+    expect(heldWeaponNames(twoHanded).some((name) => name.startsWith("equipped_weapon_offhand"))).toBeFalse();
+    expect(heldWeaponNames(twoHanded).length).toBe(1);
+
+    // A one-handed weapon still leaves the saved off-hand blade in its hand.
+    const paired = buildModel();
+    const oneHanded = {
+      ...loadout,
+      weapon: { id: "run-hand-axe", name: "Hand Axe", baseName: "Hand Axe", rarity: "normal", slot: "weapon", desc: "A compact axe." },
+    };
+    expect((component as any).attachLeaderboardHeroGear(paired, "barbarian", oneHanded)).toBeTrue();
+    expect(heldWeaponNames(paired).some((name) => name.startsWith("equipped_weapon_offhand"))).toBeTrue();
+  });
+
   it("sizes the archive scrollbar before the first click or scroll", () => {
     const scroller = document.createElement("div");
     Object.defineProperties(scroller, {
@@ -11818,6 +12282,25 @@ describe("D2SurvivorsComponent combat and equipment", () => {
 
     expect(component.inventoryOpen).toBeFalse();
     expect(component.escapeMenuOpen).toBeFalse();
+  });
+
+  it("summons the title-screen hero again after Save and Exit", () => {
+    spyOn(component as any, "persistRunProgress");
+    spyOn(component as any, "flushServerSave").and.resolveTo(undefined as any);
+    spyOn(component as any, "stopActivityPing");
+    const start = spyOn(component as any, "startMenuHeroPreview");
+    component.activeTab = "run";
+    component.escapeMenuOpen = true;
+    component.campaignVictory = false;
+
+    component.saveRunNow();
+
+    // The run tore the hero canvas down, so the title screen has to start it
+    // itself; otherwise the card shows its spinner and never loads a model.
+    expect(component.activeTab).toBe("menu");
+    expect(component.menuPanel).toBe("main");
+    expect(component.escapeMenuOpen).toBeFalse();
+    expect(start).toHaveBeenCalled();
   });
 
   it("returns from Gheed's shop to the main menu with Escape", () => {

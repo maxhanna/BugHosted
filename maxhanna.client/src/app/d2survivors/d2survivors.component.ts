@@ -1745,6 +1745,8 @@ interface TristramWallLayout {
   instances: TristramWallInstance[];
   /** The exported DS1 grid's walkable diamond, in backdrop pixels. */
   walkable?: CampaignWorldDiamond;
+  /** Middle of a floor cell in the level's largest walkable region, in pixels. */
+  spawn?: { x: number; y: number };
 }
 
 interface TristramWallDraw extends TristramWallInstance {
@@ -2647,6 +2649,17 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   /** Diablo II DS1 worlds, keyed by area slug (tools/build_d2_worlds.py). */
   private readonly campaignWorlds = new Map<string, CampaignWorldAssets>();
   private readonly campaignWorldLoads = new Set<string>();
+  /** Area slugs whose ground, walls or collision failed to load this run. */
+  private readonly campaignWorldFailures = new Set<string>();
+  /** The new area's map owes the hero a centre spawn once its layout arrives. */
+  private campaignWorldPendingCentre = false;
+  /**
+   * The zone the act clock has moved on to while its DS1 ground, wall layout and
+   * collision mask are still decoding.  The hero keeps playing the area they can
+   * see until all three are in, so an area change can never leave them standing
+   * in a map that is still a hole in the floor and has no walls yet.
+   */
+  private pendingCampaignAreaIndex: number | null = null;
   private tristramWallAtlas?: HTMLImageElement;
   private tristramWallLayout?: TristramWallLayout;
   private act1WallAtlas?: HTMLImageElement;
@@ -3462,9 +3475,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private readonly skillLevelsProxy = new Proxy(this.baseSkillLevels, {
     get: (target, property, receiver) => {
       if (typeof property !== "string") return Reflect.get(target, property, receiver);
-      if (!(property in target)) return undefined;
       const base = target[property] ?? 0;
-      return base > 0 ? base + this.equipmentSkillBonus(property) : base;
+      // A "+N to <skill>" staffmod also arms that skill outright, so a +1 Bone
+      // Armor wand casts rank-1 Bone Armor with no point invested. Skill-tree and
+      // class-wide bonuses only deepen skills the hero has already learned,
+      // otherwise one "+1 to all skills" item would hand over the whole tree.
+      const bonus = base > 0 ? this.equipmentSkillBonus(property) : this.equipmentNamedSkillBonus(property);
+      if (!(property in target) && bonus === 0) return undefined;
+      return base + bonus;
     },
   });
 
@@ -3536,7 +3554,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
    */
   private updateCampaignArea(): void {
     const areas = this.currentActDetails.areas;
-    if (!areas?.length || this.actBossSpawned || this.actTransitionReady || this.campaignVictory) return;
+    if (!areas?.length || this.actTransitionReady || this.campaignVictory) return;
+    // A boss freezes the zone order, but a change already held for its map still
+    // finishes: otherwise the boss clock could strand the hero in the area the
+    // act had already left.
+    if (this.actBossSpawned && this.pendingCampaignAreaIndex === null) return;
     if (!Number.isFinite(this.actTime)) this.actTime = 0;
     const bossArrivalTime = this.currentAct === 5 ? ACT5_BAAL_WAVE_END_SECONDS : ACT_BOSS_TIME_SECONDS;
     // A first requestAnimationFrame timestamp can precede performance.now(),
@@ -3546,13 +3568,31 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       areas.length - 1,
       Math.floor(this.actTime / (bossArrivalTime / areas.length)),
     ));
-    if (target === this.currentAreaIndex) return;
-    this.currentAreaIndex = target;
+    if (target === this.currentAreaIndex) {
+      this.pendingCampaignAreaIndex = null;
+      return;
+    }
     const area = areas[target];
     if (!area) return;
+    const entry = D2_WORLDS_BY_AREA[area.name];
+    if (entry && !this.campaignWorldReady(entry) && !this.campaignWorldFailures.has(entry.slug)) {
+      // The clock has moved on, but the map the hero is standing on, and the
+      // collision that keeps them out of its walls, still belong to this area.
+      // Start the next area's load and keep playing this one: the change commits
+      // on the first frame its ground, layout and collision mask are all in.
+      this.pendingCampaignAreaIndex = target;
+      this.ensureCampaignWorld(entry);
+      return;
+    }
+    this.pendingCampaignAreaIndex = null;
+    this.currentAreaIndex = target;
     // Each area is its own DS1 map, so the hero starts in the middle of it
-    // rather than wherever the previous area's tiles happened to leave them.
+    // rather than wherever the previous area's tiles happened to leave them,
+    // and the previous area's decoded ground is released.
+    this.switchCampaignWorld();
     this.centerPlayerOnCampaignWorld();
+    this.campaignWorldPendingCentre = false;
+    this.releaseCampaignWorldsExcept(entry?.slug);
     this.floatingTexts.push({
       x: this.playerX,
       y: this.playerY - 48,
@@ -3619,8 +3659,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         if (area.floorTiles === act.floorTiles || loadedAreaTilePaths.has(area.floorTiles)) continue;
         loadedAreaTilePaths.add(area.floorTiles);
         this.loadAreaTileAtlas(act.act, area);
-        const worldEntry = D2_WORLDS_BY_AREA[area.name];
-        if (worldEntry) this.ensureCampaignWorld(worldEntry);
+        // The DS1 worlds themselves are far too large to keep for every area; the
+        // area the hero is standing in loads on demand (see ensureCampaignWorld).
       }
       const backdropPath = act.backdrop;
       if (backdropPath) {
@@ -3889,12 +3929,23 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     return D2_WORLDS_BY_AREA[this.currentArea.name];
   }
 
+  /**
+   * The one exported DS1 world the hero is standing in.  A decoded ground is tens
+   * of megabytes, so areas are not cached: the previous area's world is released
+   * as soon as the new ground is ready, and a load that finishes after the hero
+   * has moved on is thrown away instead of being kept for an area that is no
+   * longer drawn.
+   */
   private ensureCampaignWorld(entry: D2WorldEntry): CampaignWorldAssets | undefined {
     const cached = this.campaignWorlds.get(entry.slug);
     if (cached) return cached;
     if (this.campaignWorldLoads.has(entry.slug)) return undefined;
     this.campaignWorldLoads.add(entry.slug);
     const assets: CampaignWorldAssets = { ground: new Image() };
+    const isCurrent = (): boolean => this.currentWorldEntry()?.slug === entry.slug;
+    // The area the clocks moved to loads while the hero still stands in the
+    // previous one, so its parts have to survive until the change commits.
+    const isWanted = (): boolean => isCurrent() || this.pendingWorldEntry()?.slug === entry.slug;
     const redraw = (): void => {
       if (this.activeTab === "run" && this.currentArea.name === entry.area) {
         this.draw();
@@ -3903,18 +3954,39 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       }
     };
     assets.ground.onload = () => {
+      this.campaignWorldLoads.delete(entry.slug);
+      if (!isWanted()) {
+        this.disposeCampaignWorldAssets(assets);
+        return;
+      }
       this.campaignWorlds.set(entry.slug, assets);
+      if (isCurrent()) {
+        // The new area is ready: drop the map before it.  Holding both until this
+        // moment keeps the ground on screen while the next area downloads.
+        this.releaseCampaignWorldsExcept(this.wantedWorldSlugs());
+        this.settlePlayerOnCampaignWorld();
+      }
       redraw();
     };
     assets.ground.onerror = () => {
       this.campaignWorldLoads.delete(entry.slug);
+      // A ground that will not decode leaves the area unplayable, so the change
+      // to it must not wait forever: the commit falls through to the painted map.
+      this.campaignWorldFailures.add(entry.slug);
+      // Nothing of this area can be drawn, so do not keep another area's map
+      // alive for an area we are no longer in.
+      this.releaseCampaignWorldsExcept(this.wantedWorldSlugs());
       console.warn(`Could not load ${entry.area} DS1 ground: ${entry.ground}`);
     };
 
     const walls = new Image();
     walls.onload = () => {
+      if (!isWanted()) {
+        this.releaseWorldImage(walls);
+        return;
+      }
       assets.walls = walls;
-      redraw();
+      if (isCurrent()) redraw();
     };
     walls.onerror = () => console.warn(`Could not load ${entry.area} DS1 walls: ${entry.walls}`);
     walls.src = entry.walls;
@@ -3926,16 +3998,25 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       })
       .then((layout) => {
         if (!Array.isArray(layout?.instances)) throw new Error("missing wall instances");
+        if (!isWanted()) return;
         assets.layout = layout;
-        // A resumed run or a late load can leave the hero outside the tiles now
-        // that the map edges are solid.
-        this.ensurePlayerInsideCampaignWorld();
+        if (!isCurrent()) return;
+        this.settlePlayerOnCampaignWorld();
         redraw();
       })
-      .catch((error) => console.warn(`Could not load ${entry.area} DS1 wall placements: ${error}`));
+      .catch((error) => {
+        // Without the diamond the hero cannot be centred, so the area change
+        // must be allowed through instead of waiting on a layout that never lands.
+        this.campaignWorldFailures.add(entry.slug);
+        console.warn(`Could not load ${entry.area} DS1 wall placements: ${error}`);
+      });
 
     const collision = new Image();
     collision.onload = () => {
+      if (!isWanted()) {
+        this.releaseWorldImage(collision);
+        return;
+      }
       const canvas = document.createElement("canvas");
       canvas.width = collision.naturalWidth;
       canvas.height = collision.naturalHeight;
@@ -3948,13 +4029,118 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         blocked[index] = pixels[index * 4] > 127 ? 1 : 0;
       }
       assets.collision = { width: canvas.width, height: canvas.height, blocked };
-      redraw();
+      if (isCurrent()) redraw();
     };
-    collision.onerror = () => console.warn(`Could not load ${entry.area} DS1 collision: ${entry.collision}`);
+    collision.onerror = () => {
+      // A mask that will not decode must not hold the area change forever; the
+      // area falls back to its painted map and its painted-atlas collision.
+      this.campaignWorldFailures.add(entry.slug);
+      console.warn(`Could not load ${entry.area} DS1 collision: ${entry.collision}`);
+    };
     collision.src = entry.collision;
 
     assets.ground.src = entry.ground;
     return undefined;
+  }
+
+  /**
+   * Point the world cache at the hero's current area: the previous map's decoded
+   * ground must not survive an area change.
+   */
+  private switchCampaignWorld(centreOnLoad = true): void {
+    // Anything still loading for an area the clocks had moved to is abandoned:
+    // the world cache follows the area the hero is in now.
+    this.pendingCampaignAreaIndex = null;
+    const entry = this.currentWorldEntry();
+    if (!entry) {
+      this.campaignWorldPendingCentre = false;
+      this.releaseCampaignWorldsExcept();
+      return;
+    }
+    // A resumed run keeps the saved position; only an area change moves the hero.
+    this.campaignWorldPendingCentre = centreOnLoad;
+    this.ensureCampaignWorld(entry);
+  }
+
+  /**
+   * The new area's map is known: centre the hero in it, or (for a resumed run or
+   * a late load) pull them back inside the tiles now that the edges are solid.
+   */
+  private settlePlayerOnCampaignWorld(): void {
+    if (!this.campaignWorldPendingCentre) {
+      this.ensurePlayerInsideCampaignWorld();
+      return;
+    }
+    // The diamond only exists once the new area's layout has arrived; until then
+    // keep the request so the hero still lands in the new map's middle.
+    if (!this.campaignWorldDiamond()) return;
+    this.campaignWorldPendingCentre = false;
+    this.centerPlayerOnCampaignWorld();
+  }
+
+  /**
+   * The area the hero just left, still held while the next area's ground decodes.
+   * The cache keeps one map, so there is at most one of these, and it is released
+   * the moment the incoming ground is ready.
+   */
+  private heldCampaignWorld(currentEntry: D2WorldEntry | undefined): { slug: string; ground: HTMLImageElement } | undefined {
+    if (!currentEntry) return undefined;
+    const current = this.campaignWorlds.get(currentEntry.slug)?.ground;
+    if (current?.complete && current.naturalWidth > 0) return undefined;
+    for (const [slug, assets] of this.campaignWorlds) {
+      if (slug === currentEntry?.slug) continue;
+      if (assets.ground.complete && assets.ground.naturalWidth > 0) return { slug, ground: assets.ground };
+    }
+    return undefined;
+  }
+
+  /** Whether an area's ground, wall layout and collision mask are all decoded. */
+  private campaignWorldReady(entry: D2WorldEntry): boolean {
+    const assets = this.campaignWorlds.get(entry.slug);
+    if (!assets?.collision || !assets.layout) return false;
+    return assets.ground.complete && assets.ground.naturalWidth > 0;
+  }
+
+  /** The area the clocks moved to while its map is still loading, if any. */
+  private pendingWorldEntry(): D2WorldEntry | undefined {
+    const index = this.pendingCampaignAreaIndex;
+    if (index === null) return undefined;
+    const area = this.currentActDetails.areas?.[index];
+    return area ? D2_WORLDS_BY_AREA[area.name] : undefined;
+  }
+
+  /** The areas whose worlds must stay decoded: the one on screen and the one loading. */
+  private wantedWorldSlugs(): string[] {
+    const slugs: string[] = [];
+    const current = this.currentWorldEntry();
+    if (current) slugs.push(current.slug);
+    const pending = this.pendingWorldEntry();
+    if (pending && !slugs.includes(pending.slug)) slugs.push(pending.slug);
+    return slugs;
+  }
+
+  /** Drop every loaded area's world except `slug` (or `slugs`); all of them without one. */
+  private releaseCampaignWorldsExcept(slug?: string | readonly string[]): void {
+    const keep = new Set(typeof slug === "string" ? [slug] : slug ?? []);
+    for (const [key, assets] of [...this.campaignWorlds]) {
+      if (keep.has(key)) continue;
+      this.campaignWorlds.delete(key);
+      this.disposeCampaignWorldAssets(assets);
+    }
+  }
+
+  /** Drop a world's references so the browser can reclaim its decoded bitmaps. */
+  private disposeCampaignWorldAssets(assets: CampaignWorldAssets): void {
+    this.releaseWorldImage(assets.ground);
+    if (assets.walls) this.releaseWorldImage(assets.walls);
+    assets.layout = undefined;
+    assets.collision = undefined;
+  }
+
+  private releaseWorldImage(image: HTMLImageElement): void {
+    image.onload = null;
+    image.onerror = null;
+    image.removeAttribute("src");
   }
 
   /**
@@ -3987,14 +4173,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     ctx: CanvasRenderingContext2D,
     image: HTMLImageElement,
     tileWidth: number,
+    slug = this.currentWorldEntry()?.slug,
   ): void {
     const geometry = this.campaignWorldGeometry(tileWidth, image.naturalWidth, image.naturalHeight);
     ctx.save();
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(image, geometry.left, geometry.top, geometry.width, geometry.height);
     ctx.restore();
-    const entry = this.currentWorldEntry();
-    const walkable = entry ? this.campaignWorlds.get(entry.slug)?.layout?.walkable : undefined;
+    const walkable = slug ? this.campaignWorlds.get(slug)?.layout?.walkable : undefined;
     if (walkable) this.drawCampaignWorldRim(ctx, geometry, walkable);
   }
 
@@ -5707,6 +5893,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.saveStatus = "Journey saved. You can resume from the title screen.";
     this.activeTab = "menu";
     this.menuPanel = "main";
+    // Starting a run tears the title screen's hero canvas down (startRun calls
+    // stopMenuHeroPreview), so Save and Exit has to rebuild it. Without this the
+    // card sat on "Summoning hero…" forever, while the top-bar Main Menu button,
+    // which also restarts the preview, came back fine.
+    this.startMenuHeroPreview();
   }
 
   returnToMenu(): void {
@@ -5971,6 +6162,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       return;
     }
     this.restoreRunState(savedRun);
+    this.switchCampaignWorld(false);
     this.ensurePlayerInsideCampaignWorld();
     if (CLASS_MODEL[savedRun.selectedClass]) {
       this.selectedClass = savedRun.selectedClass;
@@ -6941,10 +7133,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   /** Mount the hero's own weapon and shield, or the class kit when none was saved. */
   private attachLeaderboardHeroGear(model: THREE.Group, classId: string,
                                     loadout: Record<PaperdollSlot, D2InventoryItem | null>): boolean {
+    // A two-handed weapon fills both hands, so the off hand stays empty even when
+    // an older saved loadout still carries the second weapon or shield the hero
+    // held before it: mounting that would leave a spare blade in the free hand.
+    const offHandSource = loadout.weapon && isTwoHandedWeapon(loadout.weapon) ? null : loadout.shield;
     // A second weapon lives in the shield slot for dual wielders, exactly as the
     // live paperdoll stores it.
-    const offhandItem = loadout.shield?.slot === "weapon" ? loadout.shield : undefined;
-    const shieldItem = loadout.shield && loadout.shield.slot !== "weapon" ? loadout.shield : undefined;
+    const offhandItem = offHandSource?.slot === "weapon" ? offHandSource : undefined;
+    const shieldItem = offHandSource && offHandSource.slot !== "weapon" ? offHandSource : undefined;
     if (!loadout.weapon && !offhandItem && !shieldItem) {
       return this.attachLeaderboardHeroStockGear(model, classId);
     }
@@ -8584,6 +8780,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   private createNamedItem(named: D2GeneratedItem, rarity: "unique" | "set"): D2InventoryItem {
+    // D2 prints a pre-socketed unique or set item's holes as "Socketed (N)" in
+    // its properties. The generated catalogue carries that line but no socket
+    // count, so the item advertised sockets and still refused every gem and
+    // rune; read the count back off the line it was written in.
+    const sockets = socketCountFromAffixes(named.affixes);
     return {
       id: createRunId(),
       name: named.name,
@@ -8598,6 +8799,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       ...(named.setName ? { setName: named.setName } : {}),
       requiredLevel: named.requiredLevel,
       desc: named.desc,
+      ...(sockets ? { sockets } : {}),
       stats: { ...named.stats } as D2ItemStats,
       affixes: [...named.affixes],
     };
@@ -10251,12 +10453,27 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     requestAnimationFrame(() => this.arenaRef?.nativeElement.focus());
   }
 
+  /**
+   * Whether the hero can cast a class skill: the ranks they bought with points,
+   * plus any skill an equipped item grants by name. Gear-granted skills stay out
+   * of ownedSkills, so they are never written into a save or bought in the tree.
+   */
+  private canUseSkill(skill: string): boolean {
+    if (this.ownedSkills.includes(skill)) return true;
+    if (this.equipmentNamedSkillBonus(skill) <= 0) return false;
+    return getClassSkills(this.selectedClass).some((definition) => definition.name === skill);
+  }
+
+  /** Every class skill the hero can cast now, gear-granted ones included. */
+  private get usableClassSkills(): string[] {
+    return getClassSkills(this.selectedClass)
+      .map((definition) => definition.name)
+      .filter((name) => this.canUseSkill(name));
+  }
+
   get equippedSkills(): string[] {
-    const classSkills = getClassSkills(this.selectedClass);
     return this.recentSkillNames
-      .filter((name) => name !== this.basicAttackName
-        && this.ownedSkills.includes(name)
-        && classSkills.some((skill) => skill.name === name))
+      .filter((name) => name !== this.basicAttackName && this.canUseSkill(name))
       .slice(-4);
   }
 
@@ -10482,14 +10699,15 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   private isHolyShieldActive(): boolean {
     return this.selectedClass === "paladin"
-      && this.ownedSkills.includes("Holy Shield")
+      && this.canUseSkill("Holy Shield")
       && (this.skillLevels["Holy Shield"] ?? 0) > 0
       && this.holyShieldRemaining > 0
       && this.hasEquippedShield();
   }
 
   private isBoneArmorActive(): boolean {
-    return this.selectedClass === "necromancer" && this.ownedSkills.includes("Bone Armor") && this.boneArmorRemaining > 0 && this.boneArmorAbsorptionRemaining > 0;
+    return this.selectedClass === "necromancer" && this.canUseSkill("Bone Armor") && (this.skillLevels["Bone Armor"] ?? 0) > 0
+      && this.boneArmorRemaining > 0 && this.boneArmorAbsorptionRemaining > 0;
   }
 
   private absorbBoneArmorDamage(damage: number): number {
@@ -10613,8 +10831,19 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     return rows;
   }
 
-  /** Staffmod bonus from equipped gear for a class skill. Unlearned skills
-   *  stay at rank 0: a +3 Bone Spear wand never grants the skill itself. */
+  /** The equipment's own "+N to <skill>" lines for one named class skill. */
+  private equipmentNamedSkillBonus(skill: string): number {
+    const config = STAFFMOD_CONFIGS[this.selectedClass as StaffmodClassId];
+    if (!config || !this.equipment || !config.treeByName.has(skill)) return 0;
+    let total = 0;
+    for (const item of Object.values(this.equipment)) {
+      total += item?.stats?.[config.skillLevelsKey]?.[skill] ?? 0;
+    }
+    return total;
+  }
+
+  /** Staffmod bonus from equipped gear for a class skill the hero has learned,
+   *  counting its skill-tree and class-wide lines as well as its named ones. */
   private equipmentSkillBonus(skill: string): number {
     const config = STAFFMOD_CONFIGS[this.selectedClass as StaffmodClassId];
     if (!config || !this.equipment) return 0;
@@ -10975,11 +11204,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       : `${this.basicAttackName} · click to assign a spell`;
   }
 
-  /** Owned, castable class spells that can stand in for the weapon attack. */
+  /** Castable class spells that can stand in for the weapon attack. */
   get basicAttackPickerSpells(): string[] {
-    const classSkills = getClassSkills(this.selectedClass);
-    return this.ownedSkills.filter((skill) => skill !== this.basicAttackName
-      && classSkills.some((definition) => definition.name === skill)
+    return this.usableClassSkills.filter((skill) => skill !== this.basicAttackName
       && !isPassiveSkill(skill));
   }
 
@@ -11046,7 +11273,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
    * the click landed on empty ground.
    */
   activateOwnedSkill(skill: string, preferred?: Enemy, groundPoint?: { x: number; y: number }): void {
-    if (!this.ownedSkills.includes(skill)) return;
+    if (!this.canUseSkill(skill)) return;
     // A frozen hero is fully encased in ice, not merely slowed.
     if (this.playerFrozenRemaining > 0) return;
     // Passives are constant: clicking one does nothing and plays no animation.
@@ -12801,13 +13028,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     if (!this.druidForm) this.druidFormCooldown = Math.max(0, this.druidFormCooldown - seconds);
     const classSkills = getClassSkills(this.selectedClass);
-    const activeSkills = this.ownedSkills.filter((skill) =>
-      skill !== this.basicAttackName && classSkills.some((definition) => definition.name === skill),
-    );
+    const activeSkills = this.usableClassSkills.filter((skill) => skill !== this.basicAttackName);
     const livingEnemies = this.enemies.filter((enemy) => enemy.hp > 0 && !enemy.summonType);
     if (this.selectedClass === "necromancer" && this.activeBoneWalls().length < this.boneWallLimit()) delete this.skillCastCooldowns["Bone Wall"];
-    const unlockedFormSkill = activeSkills.includes("Werewolf") ? "Werewolf"
-      : activeSkills.includes("Werebear") ? "Werebear" : undefined;
+    const unlockedFormSkill = this.automaticDruidFormSkill(activeSkills);
     if (unlockedFormSkill) {
       const activeForm = unlockedFormSkill === "Werewolf" ? "werewolf" : "werebear";
       if (this.druidForm === activeForm) {
@@ -13387,7 +13611,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   private canBasicAttackCastSpell(skill: string): boolean {
-    if (!this.ownedSkills.includes(skill) || skill === this.basicAttackName) return false;
+    if (skill === this.basicAttackName || !this.canUseSkill(skill)) return false;
     if (isPassiveSkill(skill)) return false;
     if (this.playerFrozenRemaining > 0) return false;
     if (!this.hasRequiredWeaponForSkill(skill)) return false;
@@ -15003,6 +15227,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.miniBossSpawned = false;
     this.currentAreaIndex = 0;
     this.campaignBossKills = 0;
+    this.switchCampaignWorld();
     this.currentChunkCoordX = 0;
     this.currentChunkCoordY = 0;
     this.currentChunkLocalX = this.chunkTileColumns * CAMPAIGN_TILE_WORLD_SIZE / 2;
@@ -15780,14 +16005,27 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (!entry) return null;
     const walkable = this.campaignWorlds.get(entry.slug)?.layout?.walkable;
     if (!walkable) return null;
+    const centre = this.campaignImagePointToWorld(walkable.x, walkable.y);
+    if (!centre) return null;
+    const imageToWorld = CAMPAIGN_TILE_WORLD_SIZE / CAMPAIGN_WORLD_TILE_WIDTH;
+    return {
+      x: centre.x,
+      y: centre.y,
+      halfWidth: walkable.halfWidth * imageToWorld,
+      halfHeight: walkable.halfHeight * imageToWorld,
+    };
+  }
+
+  /** A pixel of the area's exported map, as an absolute world point. */
+  private campaignImagePointToWorld(imageX: number, imageY: number): { x: number; y: number } | null {
+    const entry = this.currentWorldEntry();
+    if (!entry) return null;
     const imageToWorld = CAMPAIGN_TILE_WORLD_SIZE / CAMPAIGN_WORLD_TILE_WIDTH;
     return {
       x: this.chunkTileColumns * CAMPAIGN_TILE_WORLD_SIZE / 2
-        + (walkable.x - entry.imageWidth / 2) * imageToWorld,
+        + (imageX - entry.imageWidth / 2) * imageToWorld,
       y: this.chunkTileRows * CAMPAIGN_TILE_WORLD_SIZE / 2
-        + (walkable.y - entry.imageHeight / 2) * imageToWorld,
-      halfWidth: walkable.halfWidth * imageToWorld,
-      halfHeight: walkable.halfHeight * imageToWorld,
+        + (imageY - entry.imageHeight / 2) * imageToWorld,
     };
   }
 
@@ -15821,11 +16059,20 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.clearClickMoveCommands();
   }
 
-  /** Area changes put the hero in the middle of the area's own DS1 map. */
+  /**
+   * Area changes put the hero in the middle of the area's own DS1 map.  Maps
+   * built from room presets can have a walled-off pocket right there, so the
+   * exporter names a floor cell in the level's largest walkable region and that
+   * is used when it is there.
+   */
   private centerPlayerOnCampaignWorld(): void {
-    const diamond = this.campaignWorldDiamond();
-    if (!diamond) return;
-    this.movePlayerToWorld(diamond.x, diamond.y);
+    const entry = this.currentWorldEntry();
+    const spawn = entry ? this.campaignWorlds.get(entry.slug)?.layout?.spawn : undefined;
+    const target = spawn
+      ? this.campaignImagePointToWorld(spawn.x, spawn.y)
+      : this.campaignWorldDiamond();
+    if (!target) return;
+    this.movePlayerToWorld(target.x, target.y);
   }
 
   /** Saved runs from before the maps were fenced could sit outside the tiles. */
@@ -16153,6 +16400,25 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   private isDruidFormSkill(skill: string): skill is "Werewolf" | "Werebear" {
     return this.selectedClass === "druid" && (skill === "Werewolf" || skill === "Werebear");
+  }
+
+  /**
+   * The wereform the druid shifts into on its own.  Werewolf sits at level 1 and
+   * opens Lycanthropy and Feral Rage, so a shifter usually owns both forms;
+   * always taking Werewolf first meant the druid never once turned into a bear.
+   * The form with the most points wins, and the bear takes a tie because it is
+   * the later, heavier form.
+   */
+  private automaticDruidFormSkill(skills: readonly string[]): "Werewolf" | "Werebear" | undefined {
+    const werewolf = skills.includes("Werewolf");
+    const werebear = skills.includes("Werebear");
+    if (!werewolf && !werebear) return undefined;
+    if (werewolf && werebear) {
+      return (this.skillLevels["Werebear"] ?? 0) >= (this.skillLevels["Werewolf"] ?? 0)
+        ? "Werebear"
+        : "Werewolf";
+    }
+    return werebear ? "Werebear" : "Werewolf";
   }
 
   private hydraBoltDamage(): number {
@@ -22342,7 +22608,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   private isCycloneArmorActive(): boolean {
     return this.selectedClass === "druid"
-      && this.ownedSkills.includes("Cyclone Armor")
+      && this.canUseSkill("Cyclone Armor")
       && (this.skillLevels["Cyclone Armor"] ?? 0) > 0
       && this.cycloneArmorRemaining > 0;
   }
@@ -22377,7 +22643,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   private isFrozenArmorActive(): boolean {
-    return this.ownedSkills.includes("Frozen Armor") && (this.skillLevels["Frozen Armor"] ?? 0) > 0;
+    return this.canUseSkill("Frozen Armor") && (this.skillLevels["Frozen Armor"] ?? 0) > 0;
   }
 
   /**
@@ -22388,7 +22654,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private activeArmorAuraSkill(): "Frozen Armor" | "Shiver Armor" | "Chilling Armor" | null {
     if (this.selectedClass !== "sorceress") return null;
     for (const skill of ["Chilling Armor", "Shiver Armor", "Frozen Armor"] as const) {
-      if (this.ownedSkills.includes(skill) && (this.skillLevels[skill] ?? 0) > 0) return skill;
+      if (this.canUseSkill(skill) && (this.skillLevels[skill] ?? 0) > 0) return skill;
     }
     return null;
   }
@@ -23147,6 +23413,17 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.inventoryStatus = "";
       this.moveItemPreviewTo(event.clientX, event.clientY, true);
       return;
+    }
+    if (this.isSocketable(item)) {
+      // A gem, jewel or rune dropped on a host fills its open socket on a touch
+      // screen, the same way the mouse drop does; the grid itself can never hold
+      // the two items in each other's space.
+      const host = targetAnchor >= 0 ? this.inventory[targetAnchor] : null;
+      if (host && this.socketInventoryItem(sourceIndex, host)) {
+        this.clearDragState();
+        this.moveItemPreviewTo(event.clientX, event.clientY, true);
+        return;
+      }
     }
     if (!this.internalCanDrop(sourceIndex, target, item)) {
       this.clearDragState();
@@ -23973,6 +24250,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.miniBossSpawned = false;
     this.currentAreaIndex = 0;
     this.campaignBossKills = 0;
+    // The new act opens on its first area's map; the last act's ground goes.
+    this.switchCampaignWorld();
     this.actTransitionReady = false;
     this.actPortalOpen = false;
     this.enemies = [];
@@ -24509,8 +24788,17 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const maxRow = Math.ceil((this.currentChunkLocalY + reach) / tileWorldSize);
     const worldEntry = this.currentWorldEntry();
     const world = worldEntry ? this.ensureCampaignWorld(worldEntry) : undefined;
-    const hasWorldGround = !!world?.ground.complete && world.ground.naturalWidth > 0;
-    if (hasWorldGround) this.drawCampaignWorldGround(ctx, world!.ground, tileWidth);
+    const worldGround = world?.ground.complete && world.ground.naturalWidth > 0 ? world.ground : undefined;
+    // A map-backed area only ever shows DS1 art.  While the next area's ground
+    // decodes, the floor the hero is standing on stays on screen, so the tiles
+    // change once when the new map arrives instead of flashing the painted atlas
+    // first and changing again.
+    const heldWorld = !worldGround && worldEntry ? this.heldCampaignWorld(worldEntry) : undefined;
+    const groundImage = worldGround ?? heldWorld?.ground;
+    const hasWorldGround = !!groundImage;
+    if (groundImage) {
+      this.drawCampaignWorldGround(ctx, groundImage, tileWidth, worldGround ? worldEntry?.slug : heldWorld?.slug);
+    }
     const tristramBackdrop = act.act === 8 ? this.campaignBackdropImages[act.act] : undefined;
     const hasTristramBackdrop = !!tristramBackdrop?.complete && tristramBackdrop.naturalWidth > 0;
     if (hasTristramBackdrop) this.drawTristramBackdrop(ctx, tristramBackdrop!, tileWidth);
@@ -27068,9 +27356,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const animation = animationName ? this.druidAnimations[animationName] : undefined;
     if (!this.druidForm || !animation) return;
     const ground = this.projectArenaPoint(this.playerX, this.playerY);
-    // The imported wereform atlas orders its horizontal facings opposite to the
-    // gameplay movement vector, so flip the x component when selecting its row.
-    const direction = druidDirection(-this.playerFacingX, this.playerFacingY);
+    const direction = wereformRow(this.playerFacingX, this.playerFacingY);
     const formAttackDuration = this.druidForm === "werebear" ? 0.56 : 0.38;
     const attacking = this.druidFormAttackTime > 0;
     const frameIndex = attacking
@@ -27950,6 +28236,15 @@ const NECROMANCER_HEAD_DROP_BASES = [
   { name: "Demon Head", armor: 18, requiresStrength: 25, requiredLevel: 18 },
 ];
 
+/** "Socketed (N)" in a unique or set item's properties: how many holes it has. */
+function socketCountFromAffixes(lines: readonly string[] | undefined): number {
+  for (const line of lines ?? []) {
+    const match = /^socketed\s*\((\d+)\)$/i.exec(line.trim());
+    if (match) return Math.max(0, Math.min(6, Number(match[1])));
+  }
+  return 0;
+}
+
 function getEquipmentType(item: D2InventoryItem): EquipmentType {
   const name = `${item.baseName ?? ""} ${item.name}`.toLowerCase();
   const hasBase = (bases: string[]): boolean => bases.some((base) => name.includes(base.toLowerCase()));
@@ -28189,6 +28484,19 @@ function druidDirection(dx: number, dy: number): number {
   if (!Number.isFinite(dx) || !Number.isFinite(dy) || dx === 0 && dy === 0) return 0;
   const angle = Math.atan2(dy, dx);
   return (Math.round((angle + Math.PI) / (Math.PI / 4)) + 8) % 8;
+}
+
+/**
+ * Atlas row for a wereform facing vector taken from the gameplay world plane.
+ *
+ * The wereform sheets are drawn in screen directions (row 0 faces left, row 4
+ * faces right), but the hero's facing vector lives on the square world plane,
+ * which the arena projects down 45 degrees with a 2:1 squash.  Selecting the row
+ * straight from the world vector made walking left play the right-hand row, and
+ * the wolf ran away from the player's input.
+ */
+export function wereformRow(facingX: number, facingY: number): number {
+  return druidDirection(facingX - facingY, (facingX + facingY) * 0.5);
 }
 
 function druidAttackFrame(columns: number, remainingSeconds: number, durationSeconds: number): number {
