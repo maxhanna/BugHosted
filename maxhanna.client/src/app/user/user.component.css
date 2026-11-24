@@ -409,8 +409,7 @@
 .profileSocialStat span {
   font-size: 9px;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--third-font-color, #8a8f98);
+  letter-spacing: 0.04em; 
 }
 
 .profileSocialLevelProgress {

@@ -2,7 +2,7 @@
 import { Subject } from "rxjs";
 import * as THREE from "three";
 import { type D2LeaderboardEntry, D2SurvivorsService } from "../../services/d2survivors.service";
-import { D2SurvivorsComponent } from "./d2survivors.component";
+import { D2SurvivorsComponent, enemyD2PixelHeight, enemySpriteDirectionRow, enemySpriteRow } from "./d2survivors.component";
 import { D2_ITEM_ART, D2_SET_ITEMS, D2_UNIQUE_ITEMS } from "./d2-item-assets.generated";
 import { getD2BaseItemFootprint } from "./d2-item-footprints";
 import { D2_HELMET_VISUALS, getHelmetVisualForItem } from "./d2-helmet-visuals.generated";
@@ -1152,12 +1152,15 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     const jewel = (component as any).createJewelItem(30) as any;
     expect(jewel.equipmentType).toBe("jewel");
     expect(jewel.slot).toBe("charm");
-    expect(jewel.rarity).toBe("magic");
+    // Magic jewels cap at two properties; only rare jewels reach four.
+    expect(["magic", "rare"]).toContain(jewel.rarity);
     expect(jewel.name).toContain("Jewel");
     expect(jewel.affixes.length).toBeGreaterThan(0);
+    expect(jewel.affixes.length).toBeLessThan(5);
     expect(jewel.desc).toBe(jewel.affixes.join(", "));
-    // Art comes from the extracted D2 item files (misc.txt's jewel row).
-    expect(component.inventoryItemImage(jewel)).toContain("assets/d2survivors/items/d2/inv");
+    // Art comes from the six dedicated jewel cels, not the Perfect Diamond cel
+    // misc.txt points the jewel rows at.
+    expect(component.inventoryItemImage(jewel)).toMatch(/items\/d2\/invjw[1-6]\.png$/);
 
     const host = { id: "h", name: "Mechanic's Helmet", baseName: "Helm", rarity: "magic", slot: "armor", equipmentType: "helmet", sockets: 1, desc: "", stats: {} } as any;
     component.inventory[0] = jewel;
@@ -4105,6 +4108,50 @@ describe("D2SurvivorsComponent combat and equipment", () => {
 
     component.updateEnemies(200);
     expect(enemy.x).toBeLessThan(400);
+  });
+
+  it("erupts a real volcano and rains D2's armageddon rocks", () => {
+    component.selectedClass = "druid";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.ownedSkills = ["Volcano", "Armageddon"];
+    component.skillLevels = { Volcano: 1, Armageddon: 1 };
+    component.enemies = [{
+      kind: "normal", species: "fallen", spriteFrame: 0,
+      x: 320, y: 250, hp: 10000, maxHp: 10000, speed: 0, r: 14, dmg: 2, cd: 0,
+    } as any];
+
+    component.activateOwnedSkill("Volcano");
+    component.activateOwnedSkill("Armageddon");
+
+    const showers = (component as any).rockShowers as any[];
+    expect(showers.length).toBe(2);
+    // The vent opens on the pack, with the extracted volcano art.
+    expect(showers[0].kind).toBe("volcano");
+    expect(Math.round(showers[0].x)).toBe(320);
+    expect(showers[0].rocks[0].fallArt).toBe("d2-volcano_rock");
+    expect(showers[0].rocks[0].impactArt).toBe("d2-rock_lava_explosion");
+    // Armageddon falls around the druid and travels with him.
+    expect(showers[1].kind).toBe("armageddon");
+    expect(showers[1].followsPlayer).toBeTrue();
+    expect(showers[1].rocks[0].fallArt).toBe("d2-armageddon_rock");
+    expect(showers[1].rocks[0].impactArt).toBe("d2-armageddon_fire");
+  });
+
+  it("always casts Firestorm as three lines with a straight middle", () => {
+    component.selectedClass = "druid";
+    component.playerX = 250;
+    component.playerY = 250;
+    (component as any).playerFacingX = 1;
+    (component as any).playerFacingY = 0;
+    (component as any).castFirestorm(1);
+
+    const trails = (component as any).firestormTrails as any[];
+    expect(trails.length).toBe(3);
+    expect(trails[1].weave).toBe(0);
+    expect(trails[0].weave).toBe(1);
+    expect(trails[2].weave).toBe(1);
+    expect(trails[1].angle).toBeCloseTo(0, 6);
   });
 
   it("does not let Molten Boulder bulldoze act bosses", () => {
@@ -8361,9 +8408,12 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(lookFor("Raven").floating).toBeTrue();
     expect(lookFor("Oak Sage").floating).toBeTrue();
     expect(lookFor("Summon Spirit Wolf").sizeScale).toBeLessThan(1);
-    // The two combat spirits are drawn at twice their old body size.
-    expect(lookFor("Oak Sage").sizeScale).toBeCloseTo(1.64, 2);
-    expect(lookFor("Heart of Wolverine").sizeScale).toBeCloseTo(1.64, 2);
+    // The three spirits share one sprite and one species height, so none of them
+    // carries a per-skill multiplier any more (1.64 used to make Oak Sage 1.6
+    // hero heights tall).
+    for (const spirit of ["Oak Sage", "Heart of Wolverine", "Spirit of Barbs"]) {
+      expect(lookFor(spirit).sizeScale).toBe(1);
+    }
     // The Oak Sage spirit and its aura are warm orange, not the old green.
     const oakLook = lookFor("Oak Sage");
     expect(oakLook.glow[0]).toBeGreaterThan(oakLook.glow[1]);
@@ -10105,7 +10155,225 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(patches).not.toContain(firstPatch);
   });
 
-  it("casts Firestorm as one wandering ground-fire trail per rank", () => {
+  it("does not fire the basic attack when nothing is in its reach", () => {
+    component.selectedClass = "sorceress";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    (component as any).basicAttackSpell = "Fire Bolt";
+    component.ownedSkills = ["Fire Bolt"];
+    component.skillLevels = { "Fire Bolt": 1 };
+    component.enemies = [];
+    component.attackProjectiles = [];
+    (component as any).attackCooldown = 0;
+
+    (component as any).updateBasicAttack();
+    // Empty arena: the basic-attack spell must not cast down the hero's facing.
+    expect(component.attackProjectiles.length).toBe(0);
+
+    // A monster inside the spell's range turns the attack back on.
+    component.enemies = [{
+      kind: "normal", species: "fallen", spriteFrame: 0, x: 250 + 300, y: 250,
+      hp: 500, maxHp: 500, speed: 0, r: 14, dmg: 2, cd: 0,
+    } as any];
+    (component as any).rebuildEnemyGrid();
+    (component as any).updateBasicAttack();
+    expect(component.attackProjectiles.length).toBeGreaterThan(0);
+  });
+
+  it("gates the basic-attack spell on its own reach instead of one flat range", () => {
+    component.playerX = 250;
+    component.playerY = 250;
+    (component as any).skillCastCooldowns = {};
+    const enemyAt = (distance: number) => [{
+      kind: "normal", species: "fallen", spriteFrame: 0,
+      x: 250 + distance, y: 250, hp: 100, maxHp: 100, speed: 0, r: 14, dmg: 2, cd: 0,
+    } as any];
+
+    // Arctic Blast is a 210-unit cone, so a monster 300 units out is not in it.
+    component.selectedClass = "druid";
+    component.ownedSkills = ["Arctic Blast"];
+    component.skillLevels = { "Arctic Blast": 1 };
+    (component as any).basicAttackSpell = "Arctic Blast";
+    component.enemies = enemyAt(300);
+    expect((component as any).hasEnemyInBasicAttackRange()).toBeFalse();
+    component.enemies = enemyAt(180);
+    expect((component as any).hasEnemyInBasicAttackRange()).toBeTrue();
+
+    // Inferno only breathes 128 units.
+    component.selectedClass = "sorceress";
+    component.ownedSkills = ["Inferno"];
+    component.skillLevels = { Inferno: 1 };
+    (component as any).basicAttackSpell = "Inferno";
+    component.enemies = enemyAt(300);
+    expect((component as any).hasEnemyInBasicAttackRange()).toBeFalse();
+    component.enemies = enemyAt(100);
+    expect((component as any).hasEnemyInBasicAttackRange()).toBeTrue();
+
+    // Blaze burns under the sorceress's own feet, so it needs no monster at all.
+    component.ownedSkills = ["Blaze"];
+    component.skillLevels = { Blaze: 1 };
+    (component as any).basicAttackSpell = "Blaze";
+    component.enemies = [];
+    expect((component as any).hasEnemyInBasicAttackRange()).toBeTrue();
+
+    // A plain missile spell keeps its full travel: 300 units still counts.
+    component.ownedSkills = ["Fire Bolt"];
+    component.skillLevels = { "Fire Bolt": 1 };
+    (component as any).basicAttackSpell = "Fire Bolt";
+    component.enemies = enemyAt(300);
+    expect((component as any).hasEnemyInBasicAttackRange()).toBeTrue();
+  });
+
+  it("shift-click attacks toward the pointer instead of walking there", () => {
+    component.selectedClass = "barbarian";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.attackProjectiles = [];
+    (component as any).attackCooldown = 0;
+    // Empty ground: the swing still plays, but nothing is thrown and no move
+    // command is left behind.
+    component.enemies = [];
+    (component as any).attackTowardPoint(400, 250);
+    expect(component.attackProjectiles.length).toBe(0);
+    expect((component as any).playerFacingX).toBeCloseTo(1, 6);
+
+    // A monster already at weapon length takes the hit without the hero moving.
+    const adjacent = {
+      kind: "normal", species: "fallen", spriteFrame: 0, x: 268, y: 250,
+      hp: 400, maxHp: 400, speed: 0, r: 14, dmg: 2, cd: 0,
+    } as any;
+    component.enemies = [adjacent];
+    (component as any).rebuildEnemyGrid();
+    (component as any).attackCooldown = 0;
+    (component as any).attackTowardPoint(268, 250);
+    expect(adjacent.hp).toBeLessThan(400);
+    expect(component.playerX).toBe(250);
+    expect(component.playerY).toBe(250);
+
+    // With a spell in the basic slot the shift-click casts it at the point, even
+    // with no monster nearby.
+    component.selectedClass = "sorceress";
+    (component as any).basicAttackSpell = "Fire Bolt";
+    component.ownedSkills = ["Fire Bolt"];
+    component.skillLevels = { "Fire Bolt": 1 };
+    component.enemies = [];
+    component.attackProjectiles = [];
+    (component as any).attackCooldown = 0;
+    (component as any).attackTowardPoint(450, 250);
+    expect(component.attackProjectiles.length).toBeGreaterThan(0);
+    expect(component.attackProjectiles[0].targetX).toBeGreaterThan(250);
+  });
+
+  it("turns a spirit to face the row of the direction it drifts", () => {
+    // The spirit sheets now carry eight rows, so a drift up-left or down-right
+    // shows its own diagonal instead of snapping to the back or front view.
+    // Rows: 0 left, 1 up-left, 2 up, 3 up-right, 4 right, 5 down-right, 6 down,
+    // 7 down-left.
+    expect(enemySpriteRow("heartOfWolverine", -1, 0.2)).toBe(0);
+    expect(enemySpriteRow("heartOfWolverine", 1, -0.2)).toBe(4);
+    expect(enemySpriteRow("heartOfWolverine", 0.2, 1)).toBe(6);
+    expect(enemySpriteRow("heartOfWolverine", -0.2, -1)).toBe(2);
+    // Drifting up-left and down-right use their own diagonal rows instead of
+    // snapping back to the front or back view.
+    expect(enemySpriteRow("heartOfWolverine", -1, -1)).toBe(1);
+    expect(enemySpriteRow("heartOfWolverine", -1, 1)).toBe(7);
+    expect(enemySpriteRow("heartOfWolverine", 1, -1)).toBe(3);
+    expect(enemySpriteRow("heartOfWolverine", 1, 1)).toBe(5);
+    expect(enemySpriteDirectionRow("heartOfWolverine", "move", 8, 1)).toBe(1);
+    expect(enemySpriteDirectionRow("heartOfWolverine", "move", 8, 3)).toBe(3);
+  });
+
+  it("sizes the reviewed monsters from their tallest walk cel", () => {
+    // 90 table pixels is one hero height. These four were still on their old
+    // guesses and drew shorter than the hero; each now reads its own tallest
+    // walk cel (87, 103, 105 and 99 source pixels) converted by 90/77.
+    expect(enemyD2PixelHeight("deathMauler")).toBe(102);
+    expect(enemyD2PixelHeight("spiderDemon")).toBe(120);
+    expect(enemyD2PixelHeight("council")).toBe(123);
+    expect(enemyD2PixelHeight("grizzly")).toBe(116);
+    for (const species of ["deathMauler", "spiderDemon", "council", "grizzly"] as const) {
+      expect(enemyD2PixelHeight(species)).toBeGreaterThanOrEqual(90);
+    }
+    // The tallest creature in the table still towers over all of them.
+    expect(enemyD2PixelHeight("balrog")).toBeGreaterThan(enemyD2PixelHeight("council"));
+  });
+
+  it("sizes the remaining single-layer monsters from their tallest walk cel", () => {
+    // Same conversion as the reviewed monsters: tallest walk cel * (90 / 77),
+    // measured with tools/measure_walk_cels.py. The source heights are 73, 138,
+    // 123, 89, 109, 100, 89, 63, 64, 73 and 95 pixels.
+    const measured = [
+      ["goatman", 85], ["blunderbore", 161], ["sandRaider", 144], ["scarab", 104],
+      ["wendigo", 127], ["salamander", 117], ["painWorm", 104], ["wolf", 74],
+      ["golem", 75], ["bloodGolem", 85], ["ironGolem", 111],
+    ] as const;
+    for (const [species, height] of measured) {
+      expect(enemyD2PixelHeight(species)).toBe(height);
+    }
+    // A goatman is a little shorter than the hero, an Act V wendigo is not.
+    expect(enemyD2PixelHeight("goatman")).toBeLessThan(90);
+    expect(enemyD2PixelHeight("wendigo")).toBeGreaterThan(90);
+    expect(enemyD2PixelHeight("blunderbore")).toBeGreaterThan(enemyD2PixelHeight("ironGolem"));
+  });
+
+  it("never drops a plain white ring", () => {
+    // D2 rings have no unenchanted version, so the ring base always arrives with
+    // magic on it instead of as the bare "Ring" in the base pool.
+    const rings: any[] = [];
+    for (let index = 0; index < 900; index += 1) {
+      const item = (component as any).randomItem(40) as any;
+      if (item.equipmentType === "ring" || /ring/i.test(item.baseName ?? "")) rings.push(item);
+    }
+    expect(rings.length).toBeGreaterThan(0);
+    expect(rings.every((ring) => ring.rarity !== "normal")).toBeTrue();
+  });
+
+  it("never drops a plain white amulet", () => {
+    // Amulets have no unenchanted version either, so the "Amulet" base arrives
+    // with magic on it instead of as a bare white item.
+    const amulets: any[] = [];
+    for (let index = 0; index < 900; index += 1) {
+      const item = (component as any).randomItem(40) as any;
+      if (item.equipmentType === "amulet" || /amulet/i.test(item.baseName ?? "")) amulets.push(item);
+    }
+    expect(amulets.length).toBeGreaterThan(0);
+    expect(amulets.every((amulet) => amulet.rarity !== "normal")).toBeTrue();
+    expect(amulets.every((amulet) => ["magic", "rare", "set", "unique"].includes(amulet.rarity)))
+      .toBeTrue();
+  });
+
+  it("keeps one druid spirit and auto-casts only the best owned one", () => {
+    const spiritSkills = (): string[] => (component.enemies as any[])
+      .filter((enemy) => enemy.summonType === "druid" && enemy.hp > 0 && enemy.summonSkill)
+      .map((enemy) => enemy.summonSkill as string);
+    const autoCast = (levels: Record<string, number>): string[] => {
+      component.selectedClass = "druid";
+      component.ownedSkills = Object.keys(levels);
+      component.skillLevels = { ...levels };
+      component.enemies = [];
+      for (const skill of Object.keys(component.skillCastCooldowns)) delete component.skillCastCooldowns[skill];
+      (component as any).updateAutomaticSkillCasts(16);
+      return spiritSkills();
+    };
+
+    expect(autoCast({ "Oak Sage": 1 })).toEqual(["Oak Sage"]);
+    // A point in Heart of Wolverine takes the automatic cast over.
+    expect(autoCast({ "Oak Sage": 1, "Heart of Wolverine": 1 })).toEqual(["Heart of Wolverine"]);
+    // Spirit of Barbs outranks both, so it is the only one kept up.
+    expect(autoCast({ "Oak Sage": 1, "Heart of Wolverine": 1, "Spirit of Barbs": 1 }))
+      .toEqual(["Spirit of Barbs"]);
+
+    // Casting an older spirit by hand still works, and it replaces the current
+    // spirit without the caster immediately swapping it back.
+    component.activateOwnedSkill("Oak Sage");
+    expect(spiritSkills()).toEqual(["Oak Sage"]);
+    (component as any).updateAutomaticSkillCasts(16);
+    expect(spiritSkills()).toEqual(["Oak Sage"]);
+  });
+
+  it("casts Firestorm as three lines of ground fire, one of them straight", () => {
     component.selectedClass = "druid";
     component.runActive = true;
     component.playerX = 250;
@@ -10129,14 +10397,19 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect((component as any).firestormTrails.length).toBe(3);
     expect((component as any).blazeFirePatches.length).toBe(1);
 
-    (component as any).updateSkillVisualEffects(1000);
+    // Rank lengthens the run, so two seconds is enough for all three lines to
+    // burn out and drop their last patch.
+    (component as any).updateSkillVisualEffects(2000);
     const patches = (component as any).blazeFirePatches;
     expect((component as any).firestormTrails.length).toBe(0);
     expect(patches.length).toBeGreaterThan(4);
     const farthest = Math.max(...patches.map((patch: any) => Math.hypot(patch.x - 250, patch.y - 250)));
     expect(farthest).toBeGreaterThan(120);
-    expect(farthest).toBeLessThan(240);
+    expect(farthest).toBeLessThan(260);
+    // The two outer lines weave off the straight middle one, which D2 keeps
+    // running dead ahead of the druid.
     expect(patches.some((patch: any) => Math.abs(patch.y - 250) > 5)).toBeTrue();
+    expect(patches.some((patch: any) => Math.abs(patch.y - 250) <= 5)).toBeTrue();
   });
 
   it("casts Poison Explosion at range and opens a poison well under the target", () => {
@@ -11142,6 +11415,86 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(stopAmbientAudio).not.toHaveBeenCalled();
   });
 
+  it("brings the title theme back by itself when a run returns to a menu screen", () => {
+    const startAmbientAudio = spyOn(component as any, "startAmbientAudio").and.resolveTo();
+    spyOn(component as any, "stopAmbientAudio").and.callFake(() => {
+      (component as any).ambientAudioEnabled = false;
+    });
+    (component as any).menuSoundPreferred = true;
+    component.ambientAudioEnabled = true;
+
+    component.activeTab = "run";
+    (component as any).stopAmbientAudio();
+    expect(component.ambientAudioEnabled).toBeFalse();
+
+    component.activeTab = "menu";
+
+    expect(component.ambientAudioEnabled).toBeTrue();
+    expect(component.ambientAudioStatus).toBe("Starting ambient sound");
+    expect(startAmbientAudio).toHaveBeenCalled();
+  });
+
+  it("keeps the title theme silent on the menu once the player mutes it", () => {
+    const startAmbientAudio = spyOn(component as any, "startAmbientAudio").and.resolveTo();
+    (component as any).menuSoundPreferred = false;
+    component.ambientAudioEnabled = false;
+
+    component.activeTab = "run";
+    component.activeTab = "menu";
+
+    expect(component.ambientAudioEnabled).toBeFalse();
+    expect(startAmbientAudio).not.toHaveBeenCalled();
+  });
+
+  it("starts with sound on so the title theme plays as soon as it downloads", () => {
+    const play = jasmine.createSpy("play").and.resolveTo();
+    const audio = {
+      loop: true,
+      preload: "auto",
+      volume: 0,
+      play,
+      pause: jasmine.createSpy("pause"),
+      addEventListener: jasmine.createSpy("addEventListener"),
+    } as unknown as HTMLAudioElement;
+    (component as any).menuThemeAudio = audio;
+
+    (component as any).beginMenuAudio();
+
+    expect((component as any).menuSoundPreferred).toBeTrue();
+    expect(component.ambientAudioEnabled).toBeTrue();
+    expect(audio.preload).toBe("auto");
+    expect(play).toHaveBeenCalled();
+  });
+
+  it("puts a starting weapon and off-hand in every archived hero's hands", () => {
+    const attachHeldItemArt = spyOn(component as any, "attachHeldItemArt");
+    const buildModel = (): THREE.Group => {
+      const model = new THREE.Group();
+      for (const name of ["R_weapon_attach", "L_weapon_attach", "shield_attach"]) {
+        const bone = new THREE.Object3D();
+        bone.name = name;
+        model.add(bone);
+      }
+      return model;
+    };
+
+    const paladin = buildModel();
+    expect((component as any).attachLeaderboardHeroStockGear(paladin, "paladin")).toBeTrue();
+    expect(paladin.getObjectByName("equipped_weapon_weapon")).toBeTruthy();
+    expect(paladin.getObjectByName("equipped_shield_shield")).toBeTruthy();
+
+    const barbarian = buildModel();
+    expect((component as any).attachLeaderboardHeroStockGear(barbarian, "barbarian")).toBeTrue();
+    expect(barbarian.getObjectByName("equipped_weapon_weapon")).toBeTruthy();
+    expect(barbarian.getObjectByName("equipped_weapon_offhand_weapon")).toBeTruthy();
+
+    const sorceress = buildModel();
+    (component as any).attachLeaderboardHeroStockGear(sorceress, "sorceress");
+    expect(sorceress.getObjectByName("equipped_weapon_weapon")).toBeTruthy();
+
+    expect(attachHeldItemArt).toHaveBeenCalled();
+  });
+
   it("shows each player's characters once in the hero archive, keeping their best run", () => {
     const hero = (overrides: Partial<D2LeaderboardEntry>): D2LeaderboardEntry => ({
       id: 1,
@@ -11171,6 +11524,63 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(heroes.map((entry) => entry.score)).toEqual([1200, 1100, 1000]);
     expect(heroes.filter((entry) => entry.username === "Max").length).toBe(2);
     expect(heroes.find((entry) => entry.username === "Max" && entry.classId === "assassin")?.id).toBe(1);
+  });
+
+  it("keeps every archive character listed but only builds models near the scroll window", () => {
+    component.lobbyLeaderboard = Array.from({ length: 40 }, (_, index) => ({
+      id: index + 1,
+      userId: index + 1,
+      characterName: `Hero ${index + 1}`,
+      classId: "amazon",
+      username: `Player ${index + 1}`,
+      score: 1000 - index,
+      timeSeconds: 100 + index,
+      kills: 10,
+      level: 10,
+      victory: false,
+      died: true,
+      createdAt: "2026-01-01T00:00:00Z",
+    }));
+    const scroller = document.createElement("div");
+    Object.defineProperties(scroller, {
+      scrollWidth: { configurable: true, value: 5120 },
+      clientWidth: { configurable: true, value: 512 },
+      scrollLeft: { configurable: true, writable: true, value: 1280 },
+    });
+    (component as any).leaderboardScrollRef = { nativeElement: scroller };
+    (component as any).leaderboardHeroScene = { add: () => undefined, remove: () => undefined };
+    const requested: string[] = [];
+    spyOn(component as any, "loadLeaderboardHeroModel")
+      .and.callFake((_hero: any, key: string) => requested.push(key));
+
+    (component as any).syncLeaderboardHeroModels();
+
+    // All forty characters stay in the row...
+    expect(component.lobbyHeroes.length).toBe(40);
+    // ...but only the slots in view, plus the two-slot margin on each side,
+    // ask for a 3D model. 128px slots at scrollLeft 1280 put slot 10 at the
+    // left edge of the 512px window, so slots 8..15 are warmed.
+    expect((component as any).leaderboardVisibleSlotStart).toBe(8);
+    expect((component as any).leaderboardVisibleSlotEnd).toBe(15);
+    expect(requested.length).toBe(8);
+    expect(requested).toEqual(
+      Array.from({ length: 8 }, (_, index) => `${index + 9}:amazon`),
+    );
+
+    // Scrolling far away releases the old rigs and warms the new window only.
+    const removed: any[] = [];
+    const stale = { isObject3D: true, name: "stale" };
+    (component as any).leaderboardHeroModels.set("9:amazon", { model: stale, rig: {} });
+    const scene = (component as any).leaderboardHeroScene;
+    spyOn(scene, "remove").and.callFake((model: any) => removed.push(model));
+    spyOn(component as any, "disposeLeaderboardHeroGroup");
+    scroller.scrollLeft = 4608;
+    (component as any).syncLeaderboardHeroModels();
+
+    expect(removed).toContain(stale);
+    expect((component as any).leaderboardHeroModels.has("9:amazon")).toBeFalse();
+    expect((component as any).leaderboardVisibleSlotStart).toBe(34);
+    expect((component as any).leaderboardVisibleSlotEnd).toBe(39);
   });
 
   it("syncs and drags the custom horizontal scrollbar in the sanctuary hero archive", () => {
@@ -11415,6 +11825,32 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(component.beltSlots[0].kind).toBeNull();
     expect(component.potionDrops).toHaveSize(1);
     expect(component.potionDrops[0].kind).toBe("rejuvenation");
+  });
+
+  it("stacks health potions so two bottles heal twice the life over twice the time", () => {
+    component.beltSlots = Array.from({ length: 16 }, () => ({ kind: null as "health" | "rejuvenation" | null }));
+    component.beltSlots[0] = { kind: "health" };
+    component.beltSlots[1] = { kind: "health" };
+    component.playerMaxHp = 2000;
+    component.playerHp = 0;
+    spyOn(component as any, "persistRunProgress");
+
+    component.drinkBeltPotion(0);
+    component.drinkBeltPotion(1);
+
+    expect((component as any).potionHealRemaining).toBe(800);
+
+    // The first bottle's five seconds are worth 400 life, not the whole 800.
+    for (let tick = 0; tick < 100; tick++) (component as any).tickHealthPotionHeal(50);
+
+    expect(component.playerHp).toBeCloseTo(400, 5);
+    expect((component as any).potionHealRemaining).toBeCloseTo(400, 5);
+
+    // The second bottle pays out over another five seconds, doubling the total.
+    for (let tick = 0; tick < 100; tick++) (component as any).tickHealthPotionHeal(50);
+
+    expect(component.playerHp).toBeCloseTo(800, 5);
+    expect((component as any).potionHealRemaining).toBeCloseTo(0, 5);
   });
 
   it("drags a belt potion with the mouse and drops it on the arena floor", () => {
@@ -11956,7 +12392,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(component.hoveredEnemy).toBeNull();
   });
 
-  it("casts Molten Boulder as two straight rolling boulders", () => {
+  it("casts Molten Boulder as one straight rolling boulder", () => {
     component.selectedClass = "druid";
     component.runActive = true;
     component.playerX = 100;
@@ -11973,7 +12409,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.activateOwnedSkill("Molten Boulder");
 
     const boulders = component.attackProjectiles.filter((projectile) => projectile.boulder);
-    expect(boulders).toHaveSize(2);
+    expect(boulders).toHaveSize(1);
     expect(boulders.every((projectile) => projectile.missileId === "d2-rock_large")).toBeTrue();
     expect(boulders.every((projectile) => projectile.radius === 24)).toBeTrue();
     expect(boulders.every((projectile) => projectile.target === undefined)).toBeTrue();

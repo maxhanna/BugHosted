@@ -2878,6 +2878,11 @@ namespace maxhanna.Server.Controllers
             return (convertedFilePath, width, height);
         }
 
+        /// <summary>Hard cap on the in-request video encode. The upload response cannot
+        /// return until the encode finishes, and anything sitting in front of the server
+        /// (CDN / reverse proxy) kills a request that takes too long long before this.</summary>
+        private const int VideoConversionTimeoutSeconds = 45;
+
         private async Task<(string FilePath, int Width, int Height, int Duration)> ConvertVideoToWebm(IFormFile file, string uploadDirectory)
         {
             var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(file.FileName);
@@ -2900,8 +2905,30 @@ namespace maxhanna.Server.Controllers
                 var ffmpegCommand = await FFmpeg.GetMediaInfo(inputFilePath);
                 duration = (int)ffmpegCommand.Duration.TotalSeconds;
 
-                var res = await FFmpeg.Conversions.FromSnippet.ToWebM(inputFilePath, convertedFilePath);
-                await res.Start();
+                // The upload response stays open until this encode finishes, so a slow
+                // encode outlives the browser/proxy timeout: the client reports a failed
+                // upload while the server still completes and saves the file. VP9 on the
+                // snippet default (single "good" pass) can take minutes for a short clip,
+                // so encode multi-threaded in realtime mode and hard-cap the runtime. If
+                // the cap is hit, or the WebM is not smaller than the source, the original
+                // file is kept and the upload still returns.
+                var conversion = FFmpeg.Conversions.New()
+                    .AddParameter($"-i \"{inputFilePath}\"")
+                    .AddParameter("-c:v libvpx-vp9")
+                    .AddParameter("-crf 32")
+                    .AddParameter("-b:v 0")
+                    .AddParameter("-deadline realtime")
+                    .AddParameter("-cpu-used 8")
+                    .AddParameter("-row-mt 1")
+                    .AddParameter("-threads 8")
+                    .AddParameter("-c:a libopus")
+                    .AddParameter("-b:a 96k")
+                    .SetOutput(convertedFilePath);
+
+                using (var conversionTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(VideoConversionTimeoutSeconds)))
+                {
+                    await conversion.Start(conversionTimeout.Token);
+                }
 
                 var afterFileSize = new FileInfo(convertedFilePath).Length;
                 var ffProbe = await FFmpeg.GetMediaInfo(inputFilePath);
@@ -2931,10 +2958,25 @@ namespace maxhanna.Server.Controllers
                 {
                     _ = _log.Db("Converted file already exists, Returning converted file", null, "FILE", true);
                 }
-                else if (System.IO.File.Exists(inputFilePath))
+                else
                 {
-                    convertedFilePath = inputFilePath;
-                    _ = _log.Db("Error occurred during video conversion. Returning Unconverted file. " + ex.Message, null, "FILE", true);
+                    // A capped or failed encode leaves a truncated WebM behind: drop it, so a
+                    // later upload of the same name is never served an unplayable file, and keep
+                    // the source instead.
+                    try
+                    {
+                        if (System.IO.File.Exists(convertedFilePath))
+                        {
+                            System.IO.File.Delete(convertedFilePath);
+                        }
+                    }
+                    catch { }
+
+                    if (System.IO.File.Exists(inputFilePath))
+                    {
+                        convertedFilePath = inputFilePath;
+                        _ = _log.Db("Error occurred during video conversion. Returning Unconverted file. " + ex.Message, null, "FILE", true);
+                    }
                 }
                 _ = _log.Db("Error occurred during video conversion. " + ex.Message, null, "FILE", true);
             }

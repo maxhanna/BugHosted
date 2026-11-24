@@ -20,10 +20,8 @@
           </label>
         </div>
         <span class="d2s-audio-status" aria-live="polite">{{ ambientAudioStatus }}</span>
-        <div class="d2s-menu-kicker"><span></span> THE GATES OF SANCTUARY <span></span></div>
         <img class="d2s-logo-mark" src="assets/d2survivors/ui/diablo2-logo.webp"
           alt="Diablo II" width="400" height="170" />
-        <p>THE ETERNAL NIGHT HAS FALLEN</p>
       </header>
 
       <div class="d2s-menu-content" [class.subpanel-open]="menuPanel !== 'main'">
@@ -98,7 +96,7 @@
                       <span><small>LEVEL</small><b>{{ hero.level }}</b></span>
                       <span><small>SURVIVED</small><b>{{ formatLeaderboardTime(hero.timeSeconds) }}</b></span>
                       <span><small>KILLS</small><b>{{ hero.kills | number }}</b></span>
-                      <span><small>FATE</small><b [class.hero-fallen]="hero.died">{{ hero.died ? 'FALLEN' : 'VICTOR' }}</b></span>
+                      <span><small>FATE</small><b [class.hero-fallen]="hero.died" [class.hero-in-progress]="!hero.died && !hero.victory">{{ hero.died ? 'FALLEN' : hero.victory ? 'VICTOR' : 'ON THE ROAD' }}</b></span>
                     </div>
                     <time class="d2s-hero-run-date">{{ hero.createdAt | date: 'MMM d, y' }}</time>
                   </ng-container>
@@ -202,31 +200,6 @@
               <ng-template #shopEmpty><div class="d2s-shop-empty">{{ selectedClassName }}'s pack is empty. Gear found on a journey will appear here.</div></ng-template>
             </section>
           </div>
-          <div #shopItemWindow class="d2s-item-window is-hover-preview d2s-shop-item-window" *ngIf="hoveredItem as shopPreviewItem"
-            [class.preview-left]="itemPreviewLeft"
-            [class.preview-below]="itemPreviewBelow"
-            [class.preview-above]="itemPreviewAbove"
-            [style.left.px]="itemPreviewX"
-            [style.top.px]="itemPreviewY"
-            (mouseenter)="onItemPreviewEnter()"
-            (mouseleave)="onItemPreviewLeave()">
-            <div class="d2s-item-window-inner">
-              <button type="button" class="d2s-item-window-close" (click)="closeItemPreview()" aria-label="Close item tooltip" title="Close">×</button>
-              <p class="d2s-item-window-kicker">{{ shopPreviewItem.rarity }} {{ shopPreviewItem.slot }}</p>
-              <h3 class="d2s-item-window-title"
-                [class.magic]="shopPreviewItem.rarity === 'magic'"
-                [class.rare]="shopPreviewItem.rarity === 'rare'"
-                [class.unique]="shopPreviewItem.rarity === 'unique'"
-                [class.set]="shopPreviewItem.rarity === 'set'"
-                [class.normal]="shopPreviewItem.rarity === 'normal'">{{ shopPreviewItem.name }}</h3>
-              <p class="d2s-item-window-base" *ngIf="shopPreviewItem.baseName && shopPreviewItem.baseName !== shopPreviewItem.name">Base item: {{ shopPreviewItem.baseName }}</p>
-              <p class="d2s-item-window-description">{{ shopPreviewItem.desc }}</p>
-              <p class="d2s-item-window-description" *ngIf="getEquipmentType(shopPreviewItem) === 'belt'">{{ shopPreviewItem.beltQuality }} belt · {{ getBeltRows(shopPreviewItem) }} potion rows</p>
-              <div class="d2s-item-window-stats">
-                <p *ngFor="let line of itemStatText(shopPreviewItem)">{{ line }}</p>
-              </div>
-            </div>
-          </div>
           <p class="d2s-shop-message" role="status" aria-live="polite">{{ shopMessage }}</p>
         </section>
 
@@ -238,17 +211,19 @@
         </section>
 
         <aside class="d2s-menu-hero-card">
-          <canvas #menuHeroCanvas class="d2s-menu-hero-canvas" [class.dragging]="menuHeroDragging" [attr.aria-label]="selectedClassName + ' 3D character. Drag to rotate; use the zoom buttons or mouse wheel to change zoom.'" (pointerdown)="onMenuHeroPointerDown($event)" (pointermove)="onMenuHeroPointerMove($event)" (pointerup)="onMenuHeroPointerUp($event)" (pointercancel)="onMenuHeroPointerUp($event)" (wheel)="onMenuHeroWheel($event)" role="img"></canvas>
-          <div class="d2s-menu-hero-controls" role="group" aria-label="Character view controls">
-            <button type="button" class="d2s-menu-hero-swap" (click)="cycleMenuHeroClass(-1)" [attr.aria-label]="'Swap to previous hero: ' + menuHeroSwapClassName(-1)" [title]="'Swap hero · previous: ' + menuHeroSwapClassName(-1)">‹</button>
-            <button type="button" class="d2s-menu-hero-swap" (click)="cycleMenuHeroClass(1)" [attr.aria-label]="'Swap to next hero: ' + menuHeroSwapClassName(1)" [title]="'Swap hero · next: ' + menuHeroSwapClassName(1)">›</button>
-            <span class="d2s-menu-hero-controls-divider" aria-hidden="true"></span>
-            <button type="button" (click)="zoomMenuHero(1)" aria-label="Zoom in on character" title="Zoom in">+</button>
-            <button type="button" (click)="zoomMenuHero(-1)" aria-label="Zoom out from character" title="Zoom out">−</button>
+          <div class="d2s-menu-hero-stage">
+            <canvas #menuHeroCanvas class="d2s-menu-hero-canvas" [class.dragging]="menuHeroDragging" [attr.aria-label]="selectedClassName + ' 3D character. Drag to rotate; use the zoom buttons or mouse wheel to change zoom.'" (pointerdown)="onMenuHeroPointerDown($event)" (pointermove)="onMenuHeroPointerMove($event)" (pointerup)="onMenuHeroPointerUp($event)" (pointercancel)="onMenuHeroPointerUp($event)" (wheel)="onMenuHeroWheel($event)" role="img"></canvas>
+            <div class="d2s-menu-hero-controls" role="group" aria-label="Character view controls">
+              <button type="button" class="d2s-menu-hero-swap" (click)="cycleMenuHeroClass(-1)" [attr.aria-label]="'Swap to previous hero: ' + menuHeroSwapClassName(-1)" [title]="'Swap hero · previous: ' + menuHeroSwapClassName(-1)">‹</button>
+              <button type="button" class="d2s-menu-hero-swap" (click)="cycleMenuHeroClass(1)" [attr.aria-label]="'Swap to next hero: ' + menuHeroSwapClassName(1)" [title]="'Swap hero · next: ' + menuHeroSwapClassName(1)">›</button>
+              <span class="d2s-menu-hero-controls-divider" aria-hidden="true"></span>
+              <button type="button" (click)="zoomMenuHero(1)" aria-label="Zoom in on character" title="Zoom in">+</button>
+              <button type="button" (click)="zoomMenuHero(-1)" aria-label="Zoom out from character" title="Zoom out">−</button>
+            </div>
+            <div class="d2s-menu-hero-hint" aria-hidden="true">DRAG TO ROTATE · SCROLL TO ZOOM · ‹ › SWAP HERO</div>
+            <div class="d2s-menu-hero-loading" *ngIf="!menuHeroModel && !menuHeroLoadError"><span></span>Summoning hero…</div>
+            <div class="d2s-menu-hero-error" *ngIf="menuHeroLoadError">Hero model unavailable</div>
           </div>
-          <div class="d2s-menu-hero-hint" aria-hidden="true">DRAG TO ROTATE · SCROLL TO ZOOM · ‹ › SWAP HERO</div>
-          <div class="d2s-menu-hero-loading" *ngIf="!menuHeroModel && !menuHeroLoadError"><span></span>Summoning hero…</div>
-          <div class="d2s-menu-hero-error" *ngIf="menuHeroLoadError">Hero model unavailable</div>
           <div class="d2s-hero-plaque">
             <span class="d2s-class-gem large" [attr.data-initial]="selectedClassName.charAt(0)"></span>
             <div>
@@ -681,6 +656,33 @@
     <span class="d2s-potion-bottle" [class.rejuvenation-bottle]="beltDrag?.kind === 'rejuvenation'"></span>
   </div>
 
+  <ng-container *ngIf="activeTab === 'menu' && menuPanel === 'shop'">
+      <div #shopItemWindow class="d2s-item-window is-hover-preview d2s-shop-item-window" *ngIf="hoveredItem as shopPreviewItem"
+        [class.preview-left]="itemPreviewLeft"
+        [class.preview-below]="itemPreviewBelow"
+        [class.preview-above]="itemPreviewAbove"
+        [style.left.px]="itemPreviewX"
+        [style.top.px]="itemPreviewY"
+        (mouseenter)="onItemPreviewEnter()"
+        (mouseleave)="onItemPreviewLeave()">
+        <div class="d2s-item-window-inner">
+          <button type="button" class="d2s-item-window-close" (click)="closeItemPreview()" aria-label="Close item tooltip" title="Close">×</button>
+          <p class="d2s-item-window-kicker">{{ shopPreviewItem.rarity }} {{ shopPreviewItem.slot }}</p>
+          <h3 class="d2s-item-window-title"
+            [class.magic]="shopPreviewItem.rarity === 'magic'"
+            [class.rare]="shopPreviewItem.rarity === 'rare'"
+            [class.unique]="shopPreviewItem.rarity === 'unique'"
+            [class.set]="shopPreviewItem.rarity === 'set'"
+            [class.normal]="shopPreviewItem.rarity === 'normal'">{{ shopPreviewItem.name }}</h3>
+          <p class="d2s-item-window-base" *ngIf="shopPreviewItem.baseName && shopPreviewItem.baseName !== shopPreviewItem.name">Base item: {{ shopPreviewItem.baseName }}</p>
+          <p class="d2s-item-window-description">{{ shopPreviewItem.desc }}</p>
+          <p class="d2s-item-window-description" *ngIf="getEquipmentType(shopPreviewItem) === 'belt'">{{ shopPreviewItem.beltQuality }} belt · {{ getBeltRows(shopPreviewItem) }} potion rows</p>
+          <div class="d2s-item-window-stats">
+            <p *ngFor="let line of itemStatText(shopPreviewItem)">{{ line }}</p>
+          </div>
+        </div>
+      </div>
+  </ng-container>
   <div #d2Cursor class="d2s-d2-cursor" aria-hidden="true"><span></span></div>
 
   <div class="d2s-asset-indicator" *ngIf="!assetsReady && activeTab !== 'run'" role="status" aria-live="polite">

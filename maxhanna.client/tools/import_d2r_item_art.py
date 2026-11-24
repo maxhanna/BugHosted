@@ -87,6 +87,20 @@ GROUND_ALIASES: dict[str, str] = {
     "barbarian throwing axe": "flptax",
 }
 
+# misc.txt files both jewel rows under the Perfect Diamond gem cel (invgswe), so
+# jewels shared the gem icon. D2 ships six dedicated jewel cels that no excel
+# table references, and the game picks one at random for every jewel; the base
+# map takes the first and D2_JEWEL_ART carries all six.
+JEWEL_CELS = ("invjw1", "invjw2", "invjw3", "invjw4", "invjw5", "invjw6")
+JEWEL_TYPE_CODES = ("jewl", "cjwl")
+JEWEL_CEL_BY_ELEMENT = {
+    "fire": "invjw5",
+    "poison": "invjw4",
+    "lightning": "invjw2",
+    "cold": "invjw6",
+}
+INVENTORY_CEL_OVERRIDES = {"jewel": "invjw1", "colossal jewel": "invjw3"}
+
 # D2 transform colour code -> the hue its shaded inventory art is rebuilt from.
 TINT_RGB: dict[str, tuple[int, int, int]] = {
     "whit": (232, 232, 224),
@@ -821,6 +835,10 @@ def import_named_items(source: Path, palette: list[tuple[int, int, int]],
                 skipped += 1
                 continue
             slot, equipment_type, restricted = classification
+            # Jewels are socketables, not charms: a Rainbow Facet goes into a
+            # socket instead of the charm slots.
+            if base["type"] in JEWEL_TYPE_CODES:
+                equipment_type = "jewel"
             stats = base_stats(base, slot, base["type"])
             lines: list[str] = []
             convert_properties(row, property_count, stats, lines)
@@ -837,6 +855,11 @@ def import_named_items(source: Path, palette: list[tuple[int, int, int]],
             required_level = max(1, min(99, integer(cell(row, "lvl req"), integer(base["levelreq"], 1))))
             art, was_tinted = named_art(source, palette, rarity, display_name, base, cell(row, "invtransform").lower(),
                                         cell(row, "invfile").lower(), cels, used_slugs[rarity], root)
+            if base["type"] in JEWEL_TYPE_CODES:
+                # Jewel art is never tied to the stats, but the eight Rainbow
+                # Facets read best in their element's jewel cel.
+                element = next((name for name in JEWEL_CEL_BY_ELEMENT if name in display_name.lower()), "")
+                art, was_tinted = f"assets/d2survivors/items/d2/{JEWEL_CEL_BY_ELEMENT.get(element, JEWEL_CELS[0])}.png", 0
             tinted += was_tinted
             item = {
                 "name": display_name,
@@ -922,6 +945,7 @@ def collect_item_names(source: Path, cels: dict[str, dict]) -> dict[str, str]:
         for row in read_excel(source, filename):
             name = cell(row, "name")
             invfile = cell(row, "invfile").lower()
+            invfile = INVENTORY_CEL_OVERRIDES.get(name.lower(), invfile)
             if name and invfile and invfile in cels:
                 names.setdefault(name.lower(), invfile)
     print(f"mapped {len(names)} base item names to inventory cels")
@@ -1028,7 +1052,19 @@ def write_generated_map(names: dict[str, str], ground_names: dict[str, str], gro
     ])
     for name, invfile in sorted(names.items()):
         lines.append(f"  {json.dumps(name)}: \"assets/d2survivors/items/d2/{invfile}.png\",")
-    lines.append("};")
+    lines.extend([
+        "};",
+        "",
+        "/**",
+        " * The jewel cels misc.txt never references. Its jewel rows point at the",
+        " * Perfect Diamond gem cel (invgswe), so every jewel used to draw the gem icon;",
+        " * D2 ships six dedicated jewel cels and picks one at random, unrelated to the",
+        " * mods the jewel rolled.",
+        " */",
+        "export const D2_JEWEL_ART: ReadonlyArray<string> = [",
+        *[f'  "assets/d2survivors/items/d2/{cel}.png",' for cel in JEWEL_CELS],
+        "];",
+    ])
     lines.extend([
         "",
         "// Base item name (D2, lower case) -> flippy cel for loot on the arena floor.",

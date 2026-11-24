@@ -32,6 +32,8 @@ export interface D2RecordCharacterRequest extends D2RecordRunRequest {
   runId: string;
   characterName: string;
   classId: string;
+  /** False for the snapshot sent when a run starts, true once it ends. */
+  completed?: boolean;
 }
 
 export interface D2LeaderboardEntry {

@@ -1058,7 +1058,10 @@ function collectHeldItems(rig: CharacterRig): HeldItem[] {
   const bySatellite = new Map<THREE.Object3D, RigJoint>();
   for (const satellite of rig.satellites) bySatellite.set(satellite.bone, satellite.follow);
   let root: THREE.Object3D | null = rig.joints[0]?.bone ?? rig.pelvis?.bone ?? null;
-  while (root?.parent) root = root.parent;
+  // Stop at this rig's own model. Climbing to the scene would sweep up the gear
+  // of every other hero posed in the same scene (the hero archive line-up) and
+  // re-parent it onto this one's hands.
+  while (root?.parent && !(root.parent as THREE.Scene).isScene) root = root.parent;
   if (!root) return items;
   // Collect before touching the hierarchy: moving a cel onto its bone inside
   // the traversal would let three.js visit the moved subtree a second time.

@@ -17,6 +17,7 @@ import { Subscription } from "rxjs";
 import { D2LeaderboardEntry, D2LobbyMessage, D2RecordCharacterRequest, D2SurvivorsService } from "../../services/d2survivors.service";
 import { User } from "../../services/datacontracts/user/user";
 import { UserEventService } from "../../services/user-event.service";
+import { D2_WORLDS_BY_AREA, type D2WorldEntry } from "./d2-worlds.generated";
 import { AppComponent } from "../app.component";
 import { ChildComponent } from "../child.component";
 import { D2_CLASS_SKILL_TREES, D2SkillDefinition, D2SkillVisual, getAvailableClassSkills, getClassSkills, getD2SkillVisual, isPassiveSkill } from "./d2survivors-skill-tree.data";
@@ -48,6 +49,7 @@ import {
   D2_GROUND_ITEM_ANIMATIONS,
   D2_GROUND_ITEM_ART,
   D2_ITEM_ART,
+  D2_JEWEL_ART,
   D2_SET_DEFINITIONS,
   D2_SET_ITEM_BY_NAME,
   D2_SET_ITEMS,
@@ -178,9 +180,11 @@ const RUN_SAVE_INTERVAL_MS = 2500;
 // are rate-limited so a live run does not hammer the server.
 const SAVE_UPLOAD_INTERVAL_MS = 10_000;
 const SAVE_HYDRATE_RETRY_MS = 20_000;
-// A belt health potion restores 100 life in total, paid out over five seconds
+// A belt health potion restores 400 life in total, paid out over five seconds
 // instead of in one lump so it keeps protecting the hero through a fight.
-const HEALTH_POTION_HEAL = 100;
+// Potions drunk while one is still healing add their whole heal to the same
+// pool, so each bottle also adds its own five seconds of healing.
+const HEALTH_POTION_HEAL = 400;
 const HEALTH_POTION_HEAL_SECONDS = 5;
 const HEALTH_POTION_HEAL_RATE = HEALTH_POTION_HEAL / HEALTH_POTION_HEAL_SECONDS;
 // Ground potions drop in from a few pixels up instead of popping into place.
@@ -290,6 +294,28 @@ const MEPHISTO_LIGHTNING_SPEED = 560;
 const MEPHISTO_LIGHTNING_COOLDOWN = 2.3;
 const MEPHISTO_SKULL_MISSILE_SPEED = 220;
 const MEPHISTO_MELEE_REACH = 26;
+// The basic attack never starts on empty ground: a melee weapon only swings at
+// body length, a bow or thrown weapon at its own range, and a spell in the basic
+// slot at its own reach (see `basicAttackSpellReach`).
+const BASIC_ATTACK_MELEE_REACH = 28;
+/** How far an untargeted missile travels: the reach of a plain bolt spell. */
+const BASIC_ATTACK_SPELL_RANGE = 520;
+// Spells that act on the hero, a servant or the floor instead of a monster. A
+// basic-attack slot holding one of them has no reach to test, so it casts as
+// soon as it is ready instead of waiting for a body inside a made-up radius.
+const BASIC_ATTACK_SELF_SPELLS = new Set<string>([
+  // Buffs and armours
+  "Blaze", "Bone Armor", "Cyclone Armor", "Frozen Armor", "Shiver Armor", "Chilling Armor",
+  "Energy Shield", "Holy Shield", "Burst of Speed", "Fade", "Venom", "Blade Shield",
+  "Enchant", "Battle Orders", "Battle Command", "Shout", "Werewolf", "Werebear",
+  // Servants, planted traps and walls
+  "Raise Skeleton", "Skeletal Mage", "Revive", "Clay Golem", "Blood Golem", "Iron Golem",
+  "Fire Golem", "Raven", "Summon Spirit Wolf", "Summon Dire Wolf", "Summon Grizzly",
+  "Oak Sage", "Heart of Wolverine", "Spirit of Barbs", "Poison Creeper", "Carrion Vine",
+  "Solar Creeper", "Valkyrie", "Decoy", "Shadow Warrior", "Shadow Master", "Hydra",
+  "Blade Sentinel", "Wake of Fire", "Wake of Inferno", "Charged Bolt Sentry",
+  "Lightning Sentry", "Death Sentry", "Shock Web", "Bone Wall", "Fire Wall", "Grim Ward",
+]);
 const MEPHISTO_MELEE_DAMAGE_MULTIPLIER = 1.15;
 const MEPHISTO_FREEZE_SECONDS = 0.85;
 const MEPHISTO_CHILL_SECONDS = 2.4;
@@ -309,6 +335,26 @@ const PLAYER_BLIZZARD_FALL_ART = [
   "d2-icestormfallvar01", "d2-icestormfallvar02", "d2-icestormfallvar03", "d2-icestormfallvar04",
 ];
 const PLAYER_BLIZZARD_IMPACT_ART = ["d2-icestormimpactvar01", "d2-icestormimpactvar02"];
+// Volcano and Armageddon both rain Diablo II's own burning rocks, they only
+// differ in where the shower sits: Volcano pins a vent under the pack for five
+// seconds, Armageddon drops rocks around the druid for its whole duration.
+const VOLCANO_DURATION = 5;
+const VOLCANO_RADIUS = 96;
+const VOLCANO_ROCKS = 14;
+const VOLCANO_VENT_ART = "d2-volcano_base";
+const VOLCANO_FIRE_ART = "d2-volcano_fire";
+const VOLCANO_LAVA_ART = "d2-rock_lava_pool";
+const VOLCANO_ROCK_ART = "d2-volcano_rock";
+const VOLCANO_IMPACT_ART = "d2-rock_lava_explosion";
+const ARMAGEDDON_DURATION = 5;
+const ARMAGEDDON_RADIUS = 190;
+const ARMAGEDDON_ROCKS = 18;
+const ARMAGEDDON_ROCK_ART = "d2-armageddon_rock";
+const ARMAGEDDON_IMPACT_ART = "d2-armageddon_fire";
+// A rock falls for this long before it lands, then its burst plays for the
+// shorter of the two. The burst is pure art; the damage lands on contact.
+const ROCK_FALL_SECONDS = 0.36;
+const ROCK_IMPACT_SECONDS = 0.42;
 const MEPHISTO_POISON_NOVA_RADIUS = 230;
 const MEPHISTO_POISON_NOVA_GROWTH = 38;
 const MEPHISTO_POISON_NOVA_DURATION = 5.6;
@@ -586,6 +632,11 @@ const FIRESTORM_TRAIL_DROP_INTERVAL = 0.1;
 const FIRESTORM_FIRE_LIFETIME = 2.4;
 const FIRESTORM_FIRE_RADIUS = 26;
 const FIRESTORM_FIRE_TICK_INTERVAL = 0.5;
+// The flame that leads each line of fire, straight from the D2 extract.
+const FIRESTORM_EMITTER_ART = "d2-firestormemitter";
+// D2's Firestorm always sends three lines: a straight middle one and two that
+// weave in and out of it.
+const FIRESTORM_LINES = 3;
 // Poison Explosion is a ranged cast: a well of poison appears where the target
 // stands. Everything caught in the well keeps taking poison damage, and each
 // rank widens it and strengthens its ticks.
@@ -748,6 +799,14 @@ const CHARGED_BOLT_DRIFT_STRENGTH = 0.16;
 const CHARGED_BOLT_DRIFT_FREQUENCY = 5.2;
 const CHARGED_BOLT_OPACITY = 0.56;
 const CAMPAIGN_TILE_WORLD_SIZE = 60;
+/** Slots kept warm on each side of the archive's scroll window. */
+const LEADERBOARD_HERO_PRELOAD_MARGIN = 2;
+/** A screen's worth of archive slots before the scroller has been measured. */
+const LEADERBOARD_HERO_FALLBACK_SLOTS = 8;
+/** Scroll handling is debounced so a flick does not churn model loads. */
+const LEADERBOARD_HERO_SCROLL_SYNC_MS = 90;
+/** DS1 tiles are 160x80 pixels; the exported worlds keep that native scale. */
+const CAMPAIGN_WORLD_TILE_WIDTH = 160;
 // Most source atlas cells are 160x80 pixels; the tomb's dedicated atlas is
 // 320x160 so its 2x floor grid keeps native detail.  An isometric diamond
 // covers two tile spacings; drawing it larger buries each cell under its
@@ -1392,7 +1451,8 @@ const CLAY_BOULDER_PALETTE: readonly (readonly [number, number, number, number])
 // Molten Boulder rolls a fixed line and shoves monsters rather than tracking a
 // single target. The front corridor is bulldozed for the whole roll, flank
 // touches are knocked aside once, and the rock bursts where the roll ends.
-const BOULDER_COUNT = 2;
+// D2 sends one rock down the line, so the cast never doubles up on the art.
+const BOULDER_COUNT = 1;
 const BOULDER_RADIUS = 24;
 const BOULDER_SPEED = 300;
 const BOULDER_MIN_RANGE = 380;
@@ -1894,13 +1954,13 @@ const ENEMY_SPRITE_LAYOUTS: Record<EnemySpecies, { columns: number; rows: number
   // 8 idle rows, 8 walk rows, 8 attack rows; 12 frames per direction.
   baalsMinion: { columns: 16, rows: 24, animated: true },
   baal: { columns: 14, rows: 24, animated: true },
-  // Eight walk rows above eight attack rows for the pets, four walk rows for the
-  // stationary druid spirits.
+  // Eight walk rows above eight attack rows for the pets, one eight-way row per
+  // direction for the stationary druid spirits.
   wolf: { columns: 13, rows: 16, animated: true }, grizzly: { columns: 13, rows: 16, animated: true },
   bloodGolem: { columns: 16, rows: 16, animated: true }, fireGolem: { columns: 17, rows: 16, animated: true },
   ironGolem: { columns: 16, rows: 16, animated: true },
-  oakSage: { columns: 7, rows: 4, animated: true }, heartOfWolverine: { columns: 7, rows: 4, animated: true },
-  spiritOfBarbs: { columns: 7, rows: 4, animated: true },
+  oakSage: { columns: 7, rows: 8, animated: true }, heartOfWolverine: { columns: 7, rows: 8, animated: true },
+  spiritOfBarbs: { columns: 7, rows: 8, animated: true },
   // Sixteen rows: neutral directions above the attack band, twelve cels each.
   hydra1: { columns: HYDRA_ART.hydra1.columns, rows: HYDRA_ART.hydra1.rows, animated: true },
   hydra2: { columns: HYDRA_ART.hydra2.columns, rows: HYDRA_ART.hydra2.rows, animated: true },
@@ -2087,17 +2147,20 @@ const DRUID_SUMMON_LOOKS: Record<string, DruidSummonLook> = {
     tint: "brightness(1.06) contrast(1.08) saturate(1.08)",
     glow: [197, 145, 83], glowAlpha: 0.16, sizeScale: 0.58, floating: false, shadowScale: 0.95,
   },
+  // The three spirits share one druidspirit sprite. Their size comes from the
+  // species height below (0.5 hero heights); a per-skill multiplier on top of
+  // that made Oak Sage and Heart of Wolverine 1.6 heroes tall.
   "Oak Sage": {
     tint: "sepia(1) saturate(3.4) hue-rotate(-20deg) brightness(1.65)",
-    glow: [255, 148, 70], glowAlpha: 0.48, sizeScale: 1.64, floating: true, shadowScale: 0.5,
+    glow: [255, 148, 70], glowAlpha: 0.48, sizeScale: 1, floating: true, shadowScale: 0.5,
   },
   "Heart of Wolverine": {
     tint: "sepia(1) saturate(4.5) hue-rotate(-42deg) brightness(1.1)",
-    glow: [255, 84, 76], glowAlpha: 0.46, sizeScale: 1.64, floating: true, shadowScale: 0.5,
+    glow: [255, 84, 76], glowAlpha: 0.46, sizeScale: 1, floating: true, shadowScale: 0.5,
   },
   "Spirit of Barbs": {
     tint: "sepia(1) saturate(3.8) hue-rotate(-16deg) brightness(1.16)",
-    glow: [255, 174, 66], glowAlpha: 0.46, sizeScale: 0.82, floating: true, shadowScale: 0.5,
+    glow: [255, 174, 66], glowAlpha: 0.46, sizeScale: 1, floating: true, shadowScale: 0.5,
   },
   "Poison Creeper": {
     tint: "sepia(0.95) saturate(3.4) hue-rotate(52deg) brightness(1.08)",
@@ -2177,6 +2240,10 @@ const SUMMON_DAMAGE_TYPES: Partial<Record<string, SummonDamageType>> = {
 const CREEPER_SUMMON_SKILLS = new Set(["Poison Creeper", "Carrion Vine", "Solar Creeper"]);
 /** Druid spirits that support the party and never join combat. */
 const SUPPORT_SPIRIT_SKILLS = new Set(["Oak Sage", "Heart of Wolverine", "Spirit of Barbs"]);
+// Diablo II allows exactly one spirit at a time, and the automatic caster keeps
+// the strongest one the druid has points in: Spirit of Barbs outranks Heart of
+// Wolverine, which outranks Oak Sage.
+const AUTO_SPIRIT_PRIORITY = ["Spirit of Barbs", "Heart of Wolverine", "Oak Sage"] as const;
 // Trails are cheap procedural smears, but the buffer is still strictly bounded
 // and every mark expires so a long run cannot accumulate floor decals.
 const CREEPER_TRAIL_LIMIT = 120;
@@ -2293,7 +2360,41 @@ interface LeaderboardHeroModel {
   classId: string;
   baseY: number;
   weaponless: boolean;
+  offhandHeld: boolean;
 }
+
+/**
+ * The hero archive stores runs, not paperdolls, so each hero is shown wearing
+ * the gear their class starts Diablo II with. Only the Amazon GLB carries a
+ * weapon mesh of its own, so these items are mounted as D2R held-item art on
+ * the hand bones exactly like equipped gear in a live run.
+ */
+const ARCHIVE_STOCK_GEAR: Record<string, { weapon?: D2InventoryItem; offhand?: D2InventoryItem; shield?: D2InventoryItem }> = {
+  amazon: {
+    weapon: { id: "archive-amazon-spear", name: "Spear", baseName: "Spear", rarity: "normal", slot: "weapon", desc: "A simple spear with a broad leaf blade." },
+  },
+  sorceress: {
+    weapon: { id: "archive-sorceress-staff", name: "Short Staff", baseName: "Short Staff", rarity: "normal", slot: "weapon", desc: "A staff of the kind a young Sorceress leaves home with." },
+  },
+  necromancer: {
+    weapon: { id: "archive-necromancer-wand", name: "Yew Wand", baseName: "Yew Wand", rarity: "normal", slot: "weapon", desc: "A wand cut from yew, warm to the touch." },
+    shield: { id: "archive-necromancer-head", name: "Zombie Head", baseName: "Zombie Head", rarity: "normal", slot: "armor", equipmentType: "necromancerHead", desc: "A shrunken head that wards off the restless dead." },
+  },
+  paladin: {
+    weapon: { id: "archive-paladin-sword", name: "Short Sword", baseName: "Short Sword", rarity: "normal", slot: "weapon", desc: "A blade blessed at the rogue monastery." },
+    shield: { id: "archive-paladin-buckler", name: "Buckler", baseName: "Buckler", rarity: "normal", slot: "armor", equipmentType: "shield", desc: "A small shield that turns aside incoming blows." },
+  },
+  barbarian: {
+    weapon: { id: "archive-barbarian-axe", name: "Hand Axe", baseName: "Hand Axe", rarity: "normal", slot: "weapon", desc: "A compact axe made for close combat." },
+    offhand: { id: "archive-barbarian-axe-off", name: "Hand Axe", baseName: "Hand Axe", rarity: "normal", slot: "weapon", desc: "A compact axe made for close combat." },
+  },
+  druid: {
+    weapon: { id: "archive-druid-club", name: "Club", baseName: "Club", rarity: "normal", slot: "weapon", desc: "A heavy length of hardwood." },
+  },
+  assassin: {
+    weapon: { id: "archive-assassin-katar", name: "Katar", baseName: "Katar", rarity: "normal", slot: "weapon", equipmentType: "claw", desc: "A punching blade of the Viz-Jaq'taar." },
+  },
+};
 
 type D2StatTooltipKey =
   | "strength" | "dexterity" | "vitality" | "energy"
@@ -2414,6 +2515,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private baalCastEffects: BaalCastEffect[] = [];
   private mephistoBlizzards: MephistoBlizzardEffect[] = [];
   private playerBlizzards: PlayerBlizzardEffect[] = [];
+  private readonly rockShowers: RockShowerEffect[] = [];
   /** Monster corpses left on the floor for Nihlathak's Corpse Explosion. */
   private nihlathakCorpses: NihlathakCorpse[] = [];
   private playerFacingX = 1;
@@ -2532,6 +2634,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private readonly campaignCollisionMasks: Partial<Record<number, {
     width: number; height: number; blocked: Uint8Array; blocksSight?: boolean;
   }>> = {};
+  /** Diablo II DS1 worlds, keyed by area slug (tools/build_d2_worlds.py). */
+  private readonly campaignWorlds = new Map<string, CampaignWorldAssets>();
+  private readonly campaignWorldLoads = new Set<string>();
   private tristramWallAtlas?: HTMLImageElement;
   private tristramWallLayout?: TristramWallLayout;
   private act1WallAtlas?: HTMLImageElement;
@@ -2631,6 +2736,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private leaderboardHeroLastHeight = 0;
   private readonly leaderboardHeroModels = new Map<string, LeaderboardHeroModel>();
   private readonly leaderboardHeroLoading = new Set<string>();
+  /** First and last archive slot whose model should exist right now. */
+  private leaderboardVisibleSlotStart = 0;
+  private leaderboardVisibleSlotEnd = LEADERBOARD_HERO_FALLBACK_SLOTS - 1;
+  private leaderboardVisibleModelsTimer?: number;
   /** Equipped weapon, offhand and shield mounted on the menu portrait. */
   private menuHeroGearVisuals: THREE.Object3D[] = [];
   menuHeroZoom = 1.55;
@@ -2667,12 +2776,22 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   previewDragging = false;
   private readonly reducedMotion = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   ambientAudioEnabled = false;
+  // The Sound toggle is a menu preference, not just the current playback state:
+  // sound starts on, a run mutes the ambience, and returning to any menu screen
+  // brings it back.
+  private menuSoundPreferred = true;
   ambientVolumePercent = 100;
   ambientAudioStatus = "Ambience muted";
   private readonly ambientMasterGainLevel = 0.12;
   private audioContext?: AudioContext;
   private ambientMasterGain?: GainNode;
   private ambientAudioNodes: OscillatorNode[] = [];
+  // The title theme is a real recording, so it streams through an <audio>
+  // element instead of the synthesized ambience bus. The same Sound toggle and
+  // volume slider drive both, and it only plays while a menu screen is shown.
+  private readonly menuThemeUrl = "assets/d2survivors/audio/d2-title-theme.webm";
+  private readonly menuThemeGainLevel = 0.55;
+  private menuThemeAudio?: HTMLAudioElement;
   private ambientAudioTimeout?: number;
   private ambienceRequestId = 0;
 
@@ -3233,7 +3352,19 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   ];
 
   // Menu and mini-run state
-  activeTab: "menu" | "run" = "menu";
+  // Every menu screen (title, lobby, characters, shop, credits) keeps
+  // activeTab "menu", so the soundtrack follows this property rather than each
+  // panel: whichever screen moves the tab also starts or pauses the theme.
+  private activeTabState: "menu" | "run" = "menu";
+  get activeTab(): "menu" | "run" {
+    return this.activeTabState;
+  }
+  set activeTab(value: "menu" | "run") {
+    if (this.activeTabState === value) return;
+    this.activeTabState = value;
+    this.syncMenuTheme();
+    if (value === "menu") this.resumeMenuAudio();
+  }
   menuPanel: "main" | "lobby" | "characters" | "credits" | "shop" = "main";
   lobbyLeaderboard: D2LeaderboardEntry[] = [];
   readonly leaderboardSlotWidth = 128;
@@ -3473,6 +3604,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         if (area.floorTiles === act.floorTiles || loadedAreaTilePaths.has(area.floorTiles)) continue;
         loadedAreaTilePaths.add(area.floorTiles);
         this.loadAreaTileAtlas(act.act, area);
+        const worldEntry = D2_WORLDS_BY_AREA[area.name];
+        if (worldEntry) this.ensureCampaignWorld(worldEntry);
       }
       const backdropPath = act.backdrop;
       if (backdropPath) {
@@ -3730,6 +3863,182 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       })
       .catch((error) => console.warn(`Could not load Act V wall placements: ${error}`));
     this.loadCampaignCollisionMask(5, A5_WALL_COLLISION);
+  }
+
+  /**
+   * Diablo II's own level data for the current area: the DS1 chunks lay out the
+   * ground, and its wall cells become solid.  Areas without a built world keep
+   * the older painted atlas path.
+   */
+  private currentWorldEntry(): D2WorldEntry | undefined {
+    return D2_WORLDS_BY_AREA[this.currentArea.name];
+  }
+
+  private ensureCampaignWorld(entry: D2WorldEntry): CampaignWorldAssets | undefined {
+    const cached = this.campaignWorlds.get(entry.slug);
+    if (cached) return cached;
+    if (this.campaignWorldLoads.has(entry.slug)) return undefined;
+    this.campaignWorldLoads.add(entry.slug);
+    const assets: CampaignWorldAssets = { ground: new Image() };
+    const redraw = (): void => {
+      if (this.activeTab === "run" && this.currentArea.name === entry.area) {
+        this.draw();
+        this.renderCharacter();
+        this.drawSkillVisualEffects();
+      }
+    };
+    assets.ground.onload = () => {
+      this.campaignWorlds.set(entry.slug, assets);
+      redraw();
+    };
+    assets.ground.onerror = () => {
+      this.campaignWorldLoads.delete(entry.slug);
+      console.warn(`Could not load ${entry.area} DS1 ground: ${entry.ground}`);
+    };
+
+    const walls = new Image();
+    walls.onload = () => {
+      assets.walls = walls;
+      redraw();
+    };
+    walls.onerror = () => console.warn(`Could not load ${entry.area} DS1 walls: ${entry.walls}`);
+    walls.src = entry.walls;
+
+    fetch(entry.layout)
+      .then((response) => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json() as Promise<TristramWallLayout>;
+      })
+      .then((layout) => {
+        if (!Array.isArray(layout?.instances)) throw new Error("missing wall instances");
+        assets.layout = layout;
+        redraw();
+      })
+      .catch((error) => console.warn(`Could not load ${entry.area} DS1 wall placements: ${error}`));
+
+    const collision = new Image();
+    collision.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = collision.naturalWidth;
+      canvas.height = collision.naturalHeight;
+      const context = canvas.getContext("2d", { willReadFrequently: true });
+      if (!context) return;
+      context.drawImage(collision, 0, 0);
+      const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+      const blocked = new Uint8Array(canvas.width * canvas.height);
+      for (let index = 0; index < blocked.length; index += 1) {
+        blocked[index] = pixels[index * 4] > 127 ? 1 : 0;
+      }
+      assets.collision = { width: canvas.width, height: canvas.height, blocked };
+      redraw();
+    };
+    collision.onerror = () => console.warn(`Could not load ${entry.area} DS1 collision: ${entry.collision}`);
+    collision.src = entry.collision;
+
+    assets.ground.src = entry.ground;
+    return undefined;
+  }
+
+  /**
+   * The exported world is drawn at the preset's own scale: one 160x80 DS1 tile
+   * covers one gameplay tile, anchored to the centre of the current chunk so the
+   * hero spawns inside the preset instead of beside it.
+   */
+  private campaignWorldGeometry(tileWidth: number, imageWidth: number, imageHeight: number): {
+    scale: number; width: number; height: number; left: number; top: number;
+  } {
+    const scale = tileWidth * this.projectionDpr / CAMPAIGN_WORLD_TILE_WIDTH;
+    const chunkWidth = this.chunkTileColumns * CAMPAIGN_TILE_WORLD_SIZE;
+    const chunkHeight = this.chunkTileRows * CAMPAIGN_TILE_WORLD_SIZE;
+    const worldX = this.currentChunkCoordX * chunkWidth + this.currentChunkLocalX;
+    const worldY = this.currentChunkCoordY * chunkHeight + this.currentChunkLocalY;
+    const anchor = this.projectArenaPoint(
+      this.arenaW / 2 + chunkWidth / 2 - worldX,
+      this.arenaH / 2 + chunkHeight / 2 - worldY,
+    );
+    return {
+      scale,
+      width: imageWidth * scale,
+      height: imageHeight * scale,
+      left: anchor.x - imageWidth / 2 * scale,
+      top: anchor.y - imageHeight / 2 * scale,
+    };
+  }
+
+  private drawCampaignWorldGround(
+    ctx: CanvasRenderingContext2D,
+    image: HTMLImageElement,
+    tileWidth: number,
+  ): void {
+    const geometry = this.campaignWorldGeometry(tileWidth, image.naturalWidth, image.naturalHeight);
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(image, geometry.left, geometry.top, geometry.width, geometry.height);
+    ctx.restore();
+  }
+
+  /** Upper walls of the area's DS1 chunks, depth-sorted against the actors. */
+  private campaignWorldWallDraws(tileWidth: number): TristramWallDraw[] {
+    const entry = this.currentWorldEntry();
+    if (!entry) return [];
+    const world = this.campaignWorlds.get(entry.slug);
+    const atlas = world?.walls;
+    const layout = world?.layout;
+    const canvas = this.arenaRef?.nativeElement;
+    if (!atlas?.complete || !atlas.naturalWidth || !layout
+      || !canvas?.width || !canvas.height) {
+      return [];
+    }
+    const geometry = this.campaignWorldGeometry(tileWidth, layout.backdropWidth, layout.backdropHeight);
+    const { left, top, scale } = geometry;
+    const margin = 96 * this.projectionDpr;
+    const draws: TristramWallDraw[] = [];
+    for (const instance of layout.instances) {
+      const dx = left + instance.x * scale;
+      const dy = top + instance.y * scale;
+      const dw = instance.w * scale;
+      const dh = instance.h * scale;
+      if (dx + dw < -margin || dy + dh < -margin
+        || dx > canvas.width + margin || dy > canvas.height + margin) {
+        continue;
+      }
+      draws.push({
+        ...instance,
+        dx,
+        dy,
+        dw,
+        dh,
+        depth: top + (instance.depth ?? instance.y + instance.h) * scale,
+      });
+    }
+    return draws;
+  }
+
+  private drawCampaignWorldWallSlice(ctx: CanvasRenderingContext2D, wall: TristramWallDraw): void {
+    const entry = this.currentWorldEntry();
+    const atlas = entry ? this.campaignWorlds.get(entry.slug)?.walls : undefined;
+    if (!atlas?.complete || !atlas.naturalWidth) return;
+    ctx.drawImage(atlas, wall.sx, wall.sy, wall.w, wall.h, wall.dx, wall.dy, wall.dw, wall.dh);
+  }
+
+  /** The DS1 wall footprints, in the same pixel space as the drawn world. */
+  private campaignWorldCollisionContext(): CampaignCollisionContext | null {
+    const entry = this.currentWorldEntry();
+    if (!entry) return null;
+    const mask = this.campaignWorlds.get(entry.slug)?.collision;
+    if (!mask) return null;
+    const tileWidth = CAMPAIGN_TILE_WORLD_SIZE * this.worldZoom
+      * CAMPAIGN_TILE_RENDER_SCALE * Math.SQRT2;
+    const geometry = this.campaignWorldGeometry(tileWidth, entry.imageWidth, entry.imageHeight);
+    if (!Number.isFinite(geometry.scale) || geometry.scale <= 0) return null;
+    return {
+      mask,
+      geometry,
+      wraps: false,
+      clearance: 12 * geometry.scale,
+      blocksSight: true,
+      edgeBlocks: true,
+    };
   }
 
   private refreshTristramDepthPass(): void {
@@ -4811,6 +5120,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.baalCastEffects.length = 0;
     this.mephistoBlizzards.length = 0;
     this.playerBlizzards.length = 0;
+    this.rockShowers.length = 0;
     this.leapDustEffects.length = 0;
     this.attackProjectiles = [];
     this.pendingDamage.clear();
@@ -5331,6 +5641,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   toggleAmbientAudio(): void {
     if (this.ambientAudioEnabled) {
+      this.menuSoundPreferred = false;
       this.stopAmbientAudio();
       this.ambientAudioStatus = "Ambience muted";
       return;
@@ -5342,10 +5653,51 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       return;
     }
 
+    this.menuSoundPreferred = true;
     this.ambientAudioEnabled = true;
     this.ambientAudioStatus = "Starting ambient sound";
     const requestId = ++this.ambienceRequestId;
     void this.startAmbientAudio(requestId);
+    this.syncMenuTheme();
+  }
+
+  /**
+   * Sound is on by default, so the title theme loads and starts with the menu.
+   * Browsers only allow the ambience graph after a gesture, so the drone waits
+   * for unlockMenuAudio while the theme retries on its own.
+   */
+  private beginMenuAudio(): void {
+    if (!this.menuSoundPreferred) return;
+    this.ambientAudioEnabled = true;
+    this.ambientAudioStatus = "Starting ambient sound";
+    this.syncMenuTheme();
+  }
+
+  /** Builds the ambience graph a run (or the autoplay policy) left silent. */
+  private startAmbienceGraph(): void {
+    if (!this.menuSoundPreferred || this.activeTab !== "menu") return;
+    if (!window.AudioContext || this.ambientMasterGain) return;
+    this.ambientAudioEnabled = true;
+    this.ambientAudioStatus = "Starting ambient sound";
+    const requestId = ++this.ambienceRequestId;
+    void this.startAmbientAudio(requestId);
+  }
+
+  /** First gesture on the page: the menu may finally make sound. */
+  private readonly unlockMenuAudio = (): void => {
+    if (!this.menuSoundPreferred || this.activeTab !== "menu") return;
+    this.startAmbienceGraph();
+    this.syncMenuTheme();
+  };
+
+  /**
+   * A run mutes the ambience outright, so coming back to a menu has to restart
+   * it instead of waiting for another click on Sound.
+   */
+  private resumeMenuAudio(): void {
+    if (!this.menuSoundPreferred) return;
+    this.startAmbienceGraph();
+    this.syncMenuTheme();
   }
 
   setAmbientVolume(event: Event): void {
@@ -5365,6 +5717,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       now,
       0.05,
     );
+    if (this.menuThemeAudio) {
+      this.menuThemeAudio.volume = this.menuThemeVolume();
+    }
   }
 
   private async startAmbientAudio(requestId: number): Promise<void> {
@@ -5474,6 +5829,57 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     this.ambientAudioNodes = [];
     this.ambientMasterGain = undefined;
+    this.menuThemeAudio?.pause();
+  }
+
+  /** The stored theme element, created on first use. */
+  private ensureMenuThemeAudio(): HTMLAudioElement {
+    if (!this.menuThemeAudio) {
+      const audio = new Audio(this.menuThemeUrl);
+      audio.loop = true;
+      // Sound is on by default, so the theme downloads alongside the menu.
+      audio.preload = "auto";
+      audio.volume = this.menuThemeVolume();
+      // Ready to play: the first attempt may have been refused before a gesture,
+      // so retry as soon as the file has downloaded.
+      audio.addEventListener("canplay", () => this.syncMenuTheme());
+      audio.addEventListener("playing", () => {
+        if (this.ambientAudioEnabled) this.ambientAudioStatus = "Ambient sound on";
+      });
+      this.menuThemeAudio = audio;
+    }
+    return this.menuThemeAudio;
+  }
+
+  private menuThemeVolume(): number {
+    return this.menuThemeGainLevel * this.ambientVolumePercent / 100;
+  }
+
+  /** Plays the title theme on the menu screens and pauses it everywhere else. */
+  private syncMenuTheme(): void {
+    if (typeof window === "undefined") return;
+    const shouldPlay = this.ambientAudioEnabled && this.activeTab === "menu";
+    if (!shouldPlay) {
+      this.menuThemeAudio?.pause();
+      return;
+    }
+    const audio = this.ensureMenuThemeAudio();
+    audio.volume = this.menuThemeVolume();
+    // Autoplay can be refused until the first gesture; the Sound toggle retries.
+    void audio.play().catch(() => undefined);
+  }
+
+  /**
+   * Fetches the soundtrack into the HTTP cache, reserved for last place so a
+   * multi-megabyte recording never competes with gameplay art for bandwidth.
+   */
+  private async warmMenuTheme(): Promise<void> {
+    try {
+      const response = await fetch(this.menuThemeUrl, { cache: "force-cache" });
+      await response.arrayBuffer();
+    } catch {
+      // A missing theme must not break the menu; the element streams on demand.
+    }
   }
 
   resumeRun(): void {
@@ -5502,6 +5908,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.persistRunProgress(true);
     this.lastTime = performance.now();
     this.runActive = true;
+    void this.recordPlayedCharacter();
     this.loop(this.lastTime);
   }
 
@@ -5523,6 +5930,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     await this.loadLobby();
     this.scheduleLeaderboardHeroLineup();
     if (this.lobbyRunId && !this.runActive && this.playerHp <= 0) void this.recordCompletedCharacter(false);
+    else void this.recordPlayedCharacter();
   }
 
   returnToMainMenu(): void {
@@ -5536,9 +5944,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   /**
-   * One plate per player character. A player can have many characters in the
-   * archive, but repeated runs with the same character keep only their best
-   * score so the row never shows "Max Assassin" twice.
+   * One plate per player character, best run first. A player can have many
+   * characters in the archive, but repeated runs with the same character keep
+   * only their best score so the row never shows "Max Assassin" twice. The
+   * lineup scrolls, so every character that has been played keeps its place
+   * instead of only the best twelve.
    */
   get lobbyHeroes(): D2LeaderboardEntry[] {
     if (this.lobbyHeroCacheSource === this.lobbyLeaderboard) return this.lobbyHeroCache;
@@ -5549,8 +5959,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       if (!previous || hero.score > previous.score) bestByHero.set(key, hero);
     }
     this.lobbyHeroCache = [...bestByHero.values()]
-      .sort((a, b) => b.score - a.score || a.timeSeconds - b.timeSeconds)
-      .slice(0, 12);
+      .sort((a, b) => b.score - a.score || a.timeSeconds - b.timeSeconds);
     this.lobbyHeroCacheSource = this.lobbyLeaderboard;
     return this.lobbyHeroCache;
   }
@@ -5561,6 +5970,40 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   onLeaderboardScroll(): void {
     this.syncLeaderboardScrollbar();
+    this.scheduleLeaderboardVisibleModels();
+  }
+
+  /**
+   * Every played character stays in the archive row, but a 3D model is built
+   * only for the slots around the visible scroll window.  Building one per
+   * character stalled the lobby once a page of players had been recorded.
+   */
+  private visibleLeaderboardSlotRange(): { start: number; end: number } {
+    const count = this.lobbyHeroes.length;
+    if (!count) return { start: 0, end: -1 };
+    const scroller = this.leaderboardScrollRef?.nativeElement;
+    if (!scroller?.clientWidth) {
+      return { start: 0, end: Math.min(count - 1, LEADERBOARD_HERO_FALLBACK_SLOTS - 1) };
+    }
+    const slot = this.leaderboardSlotWidth;
+    const start = Math.max(0, Math.floor(scroller.scrollLeft / slot) - LEADERBOARD_HERO_PRELOAD_MARGIN);
+    const end = Math.min(count - 1, Math.ceil(
+      (scroller.scrollLeft + scroller.clientWidth) / slot,
+    ) - 1 + LEADERBOARD_HERO_PRELOAD_MARGIN);
+    return { start, end: Math.max(start, end) };
+  }
+
+  private isLeaderboardHeroInRange(key: string): boolean {
+    const index = this.lobbyHeroes.findIndex((hero) => this.leaderboardHeroKey(hero) === key);
+    return index >= this.leaderboardVisibleSlotStart && index <= this.leaderboardVisibleSlotEnd;
+  }
+
+  private scheduleLeaderboardVisibleModels(): void {
+    if (this.leaderboardVisibleModelsTimer !== undefined) return;
+    this.leaderboardVisibleModelsTimer = window.setTimeout(() => {
+      this.leaderboardVisibleModelsTimer = undefined;
+      if (this.leaderboardHeroRenderer) this.syncLeaderboardHeroModels();
+    }, LEADERBOARD_HERO_SCROLL_SYNC_MS);
   }
 
   private scheduleLeaderboardScrollbarSync(): void {
@@ -5653,6 +6096,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   @HostListener("window:resize")
   private resizeLeaderboardScrollbar(): void {
     this.scheduleLeaderboardScrollbarSync();
+    this.scheduleLeaderboardVisibleModels();
   }
 
   formatLeaderboardTime(totalSeconds: number): string {
@@ -5697,7 +6141,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.lobbyLoading = true;
     this.lobbyError = "";
     const [leaderboard, history, connected] = await Promise.all([
-      this.d2SurvivorsService.getLeaderboard(24),
+      this.d2SurvivorsService.getLeaderboard(100),
       this.d2SurvivorsService.getLobbyHistory(60),
       this.d2SurvivorsService.connectLobby(),
     ]);
@@ -5719,7 +6163,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const now = Date.now();
     if (now - this.lastLeaderboardRefreshAt < 1000) return;
     this.lastLeaderboardRefreshAt = now;
-    const result = await this.d2SurvivorsService.getLeaderboard(24);
+    // The archive lists every played character, so the request covers the
+    // server's full page instead of one screen of the best twelve.
+    const result = await this.d2SurvivorsService.getLeaderboard(100);
     if (result.ok && result.data) {
       this.lobbyLeaderboard = result.data;
       this.lobbyError = "";
@@ -5775,6 +6221,37 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     return `${accountName} ${this.selectedClassName}`.slice(0, 48);
   }
 
+  /** The archive's level for a run: base level plus every rank it has bought. */
+  private archiveRunLevel(): number {
+    return 1 + Object.values(this.baseSkillLevels).reduce((sum, level) => sum + Math.max(0, level - 1), 0);
+  }
+
+  /**
+   * The Immortal Archive lists a character as soon as it is played, not only
+   * once it dies. The first snapshot (score 0, level 1) puts the hero in the
+   * lobby straight away, and the server keeps the best numbers of the run, so
+   * the death record later replaces it with the real score.
+   */
+  private async recordPlayedCharacter(): Promise<void> {
+    const runId = this.lobbyRunId;
+    if (!runId) return;
+    const session = await this.getLobbySession();
+    if (!session) return;
+    // A death or a fresh run can retire this id while the session was loading.
+    if (this.lobbyRunId !== runId) return;
+    await this.d2SurvivorsService.recordCharacter({
+      runId,
+      userId: session.userId,
+      characterName: this.getCharacterName(),
+      classId: this.selectedClass,
+      timeSeconds: Math.floor(this.runTime),
+      kills: this.runKillCount,
+      level: this.archiveRunLevel(),
+      victory: false,
+      completed: false,
+    }, session.token);
+  }
+
   private async recordCompletedCharacter(victory: boolean, retry = false): Promise<void> {
     const runId = this.lobbyRunId;
     if (!runId || (!retry && this.lastRecordedRunId === runId)) return;
@@ -5796,8 +6273,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       classId: this.selectedClass,
       timeSeconds: Math.floor(this.runTime),
       kills: this.runKillCount,
-      level: 1 + Object.values(this.baseSkillLevels).reduce((sum, level) => sum + Math.max(0, level - 1), 0),
+      level: this.archiveRunLevel(),
       victory,
+      completed: true,
     };
     if (!victory) {
       const minutes = Math.floor(request.timeSeconds / 60);
@@ -6184,6 +6662,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       cancelAnimationFrame(this.leaderboardHeroFrameId);
       this.leaderboardHeroFrameId = 0;
     }
+    if (this.leaderboardVisibleModelsTimer !== undefined) {
+      window.clearTimeout(this.leaderboardVisibleModelsTimer);
+      this.leaderboardVisibleModelsTimer = undefined;
+    }
     this.leaderboardHeroGeneration += 1;
     this.leaderboardHeroLoading.clear();
     for (const record of this.leaderboardHeroModels.values()) {
@@ -6207,14 +6689,23 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (this.hoveredLeaderboardHero && !heroes.some((hero) => this.leaderboardHeroKey(hero) === this.leaderboardHeroKey(this.hoveredLeaderboardHero!))) {
       this.clearLeaderboardHeroHover();
     }
-    const liveKeys = new Set(heroes.map((hero) => this.leaderboardHeroKey(hero)));
+    const range = this.visibleLeaderboardSlotRange();
+    this.leaderboardVisibleSlotStart = range.start;
+    this.leaderboardVisibleSlotEnd = range.end;
+    const indexByKey = new Map<string, number>();
+    heroes.forEach((hero, index) => indexByKey.set(this.leaderboardHeroKey(hero), index));
     for (const [key, record] of [...this.leaderboardHeroModels]) {
-      if (liveKeys.has(key)) continue;
+      const index = indexByKey.get(key);
+      // A model that scrolled out of the window is released, so a long archive
+      // never keeps a whole page of rigs, textures and weapons in memory.
+      if (index !== undefined && index >= range.start && index <= range.end) continue;
       this.leaderboardHeroScene.remove(record.model);
       this.disposeLeaderboardHeroGroup(record.model);
       this.leaderboardHeroModels.delete(key);
     }
-    for (const hero of heroes) {
+    for (let index = range.start; index <= range.end; index += 1) {
+      const hero = heroes[index];
+      if (!hero) continue;
       const key = this.leaderboardHeroKey(hero);
       if (this.leaderboardHeroModels.has(key) || this.leaderboardHeroLoading.has(key)) continue;
       this.loadLeaderboardHeroModel(hero, key);
@@ -6231,7 +6722,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const model = gltf.scene;
       const isCurrent = (): boolean => generation === this.leaderboardHeroGeneration
         && !!this.leaderboardHeroScene && this.activeTab === "menu" && this.menuPanel === "lobby"
-        && this.lobbyHeroes.some((entry) => this.leaderboardHeroKey(entry) === key);
+        && this.lobbyHeroes.some((entry) => this.leaderboardHeroKey(entry) === key)
+        && this.isLeaderboardHeroInRange(key);
       try {
         await this.applyClassTextures(model, modelClass);
         if (!isCurrent()) {
@@ -6242,6 +6734,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         this.normalizeCharacterModel(model, 88, modelClass === "amazon");
         const rig = buildCharacterRig(model, modelClass);
         this.attachBarbarianShoulderPads(model, modelClass, rig);
+        const offhandHeld = this.attachLeaderboardHeroStockGear(model, modelClass);
         if (!isCurrent()) {
           this.disposeLeaderboardHeroGroup(model);
           return;
@@ -6254,6 +6747,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           classId: modelClass,
           baseY: model.position.y,
           weaponless: !this.modelHasVisibleWeapon(model),
+          offhandHeld,
         });
       } catch (error) {
         this.disposeLeaderboardHeroGroup(model);
@@ -6299,7 +6793,55 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     });
   }
 
+  /**
+   * Put the class's starting weapon and off-hand in the archive hero's hands.
+   * The Amazon pike is modelled in her GLB, so it is left alone; every other
+   * class mounts the D2R held-item art that a live run uses for equipped gear.
+   * Returns whether the off hand now holds something.
+   */
+  private attachLeaderboardHeroStockGear(model: THREE.Group, classId: string): boolean {
+    const stock = ARCHIVE_STOCK_GEAR[classId];
+    if (!stock) return false;
+    this.captureWeaponHandRestPose(model);
+    const mainHand = this.firstModelBone(model, ["R_weapon_attach", "R_Wrist", "R_hand_bind_jnt", "R_Wrist_JNT", "R_ForeArm", "R_lwr_arm_bind_jnt"]);
+    const offHand = this.firstModelBone(model, ["L_weapon_attach", "L_Wrist", "L_hand_bind_jnt", "L_lwr_arm_bind_jnt"]);
+    const shieldHand = this.firstModelBone(model, ["shield_attach", "L_weapon_attach", "L_hand_bind_jnt", "L_Wrist", "wrist_L_JNT", "L_lwr_arm_bind_jnt"]);
+    if (stock.weapon && mainHand && !this.modelHasVisibleWeapon(model)) {
+      this.createEquippedWeaponVisual(stock.weapon, mainHand, "weapon");
+    }
+    if (stock.offhand && offHand) {
+      this.createEquippedWeaponVisual(stock.offhand, offHand, "offhand");
+      return true;
+    }
+    if (!stock.shield || !shieldHand) return false;
+    const shield = new THREE.Group();
+    shield.name = `equipped_shield_${getEquipmentType(stock.shield)}`;
+    shield.scale.setScalar(1.15);
+    shield.userData["d2sHeldItem"] = {
+      kind: "shield",
+      name: `${stock.shield.baseName ?? ""} ${stock.shield.name}`.trim(),
+    };
+    shieldHand.add(shield);
+    this.attachHeldItemArt(shield, stock.shield, "shield");
+    return true;
+  }
+
+  private firstModelBone(model: THREE.Object3D, names: string[]): THREE.Object3D | undefined {
+    for (const name of names) {
+      const bone = model.getObjectByName(name);
+      if (bone) return bone;
+    }
+    return undefined;
+  }
+
   private disposeLeaderboardHeroGroup(model: THREE.Group): void {
+    // Mounted gear shares its cached D2R meshes, textures and cel art with every
+    // other hero in the archive, so detach it instead of disposing the caches.
+    const shared: THREE.Object3D[] = [];
+    model.traverse((object) => {
+      if (object.userData["d2sSharedGear"] || object.userData["d2sHeldItem"]) shared.push(object);
+    });
+    for (const object of shared) object.removeFromParent();
     model.traverse((object) => {
       const mesh = object as THREE.Mesh;
       if (!mesh.isMesh) return;
@@ -6338,9 +6880,17 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.leaderboardHeroLastFrameAt = now;
     this.leaderboardHeroElapsed += dt;
     const heroes = this.lobbyHeroes;
+    const range = this.visibleLeaderboardSlotRange();
+    this.leaderboardVisibleSlotStart = range.start;
+    this.leaderboardVisibleSlotEnd = range.end;
+    const indexByKey = new Map<string, number>();
+    heroes.forEach((hero, index) => indexByKey.set(this.leaderboardHeroKey(hero), index));
     for (const [key, record] of this.leaderboardHeroModels) {
-      const index = heroes.findIndex((hero) => this.leaderboardHeroKey(hero) === key);
-      if (index < 0) continue;
+      const index = indexByKey.get(key);
+      if (index === undefined || index < range.start || index > range.end) {
+        record.model.visible = false;
+        continue;
+      }
       const time = this.leaderboardHeroElapsed + index * 0.7;
       record.model.rotation.y = this.reducedMotion ? 0 : Math.sin(time * 0.37) * 0.035;
       record.model.position.y = record.baseY + (this.reducedMotion ? 0 : Math.sin(time * 1.5) * 0.55);
@@ -6352,6 +6902,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         attackSide: -1,
         gait: gaitForClass(record.classId),
         weaponless: record.weaponless,
+        offhandHeld: record.offhandHeld,
         motionScale: this.reducedMotion ? 0.35 : 1,
       });
     }
@@ -6361,9 +6912,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const width = this.leaderboardHeroLastWidth || 1;
     const height = this.leaderboardHeroLastHeight || 1;
     const slotWidth = width / Math.max(1, heroes.length);
-    heroes.forEach((hero, index) => {
-      const record = this.leaderboardHeroModels.get(this.leaderboardHeroKey(hero));
-      if (!record) return;
+    const lastIndex = Math.min(heroes.length - 1, range.end);
+    for (let index = Math.max(0, range.start); index <= lastIndex; index += 1) {
+      const record = this.leaderboardHeroModels.get(this.leaderboardHeroKey(heroes[index]));
+      if (!record) continue;
       record.model.visible = true;
       this.leaderboardHeroRenderer?.setViewport(index * slotWidth, 0, slotWidth, height);
       this.leaderboardHeroRenderer?.setScissor(index * slotWidth, 0, slotWidth, height);
@@ -6371,7 +6923,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         this.leaderboardHeroRenderer.render(this.leaderboardHeroScene, this.leaderboardHeroCamera);
       }
       record.model.visible = false;
-    });
+    }
     this.leaderboardHeroRenderer.setScissorTest(false);
     this.leaderboardHeroFrameId = requestAnimationFrame((time) => this.animateLeaderboardHeroLineup(time));
   }
@@ -6935,6 +7487,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     // grand-charm base mapping; draw it as the grand charm it actually is.
     if (type === "charm" && item.name === "Gheed's Fortune") return this.charmInventoryImage(item);
     if (named?.art) return named.art;
+    // A rolled jewel keeps the one jewel cel it was given. D2 owns six jewel
+    // graphics that are unrelated to the mods, so the art follows the item
+    // rather than its base name (which would force a single shared icon).
+    if (item.art) return item.art;
     if (type === "charm") return this.charmInventoryImage(item);
     return D2_ITEM_ART[this.itemArtKey(item)] ?? this.equipmentImagePath(type);
   }
@@ -7408,6 +7964,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     // The guaranteed drop is a plain white base: a runeword can never be spelled
     // into a magic or rare one, so the guarantee has to override the rarity roll.
     if (guaranteedSocketedBase) rarity = "normal";
+    // Diablo II has no unenchanted rings or amulets: both bases always drop
+    // magic, rare, set or unique, so neither is ever handed out bare.
+    if (rarity === "normal" && (base.equipmentType === "ring" || base.equipmentType === "amulet")) {
+      rarity = "magic";
+    }
     const namedEntry = rarity === "unique" ? this.randomNamedItem(D2_UNIQUE_ITEMS)
       : rarity === "set" ? this.randomNamedItem(D2_SET_ITEMS)
         : undefined;
@@ -7720,30 +8281,66 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     };
   }
 
+  /**
+   * Diablo II jewels roll from their own prefix and suffix tables, never from
+   * the host item, and they keep those mods in whatever socket they land in.
+   * A magic jewel carries one prefix and one suffix at most (so one or two
+   * properties); a rare jewel is the only jewel that reaches four. The six jewel
+   * cels are handed out at random and say nothing about the mods.
+   */
   private createJewelItem(itemLevel: number): D2InventoryItem {
     const baseName = Math.random() < 0.15 ? "Colossal Jewel" : "Jewel";
+    const rare = Math.random() < 0.12;
     const socketable = { name: baseName, slot: "charm" as const, equipmentType: "jewel" as const };
+    const prefixes = eligibleAffixes(socketable, itemLevel, "prefix");
+    const suffixes = eligibleAffixes(socketable, itemLevel, "suffix");
+    const wanted = rare ? 3 + (Math.random() < 0.5 ? 1 : 0) : 1 + (Math.random() < 0.5 ? 1 : 0);
+    const maxPrefixes = rare ? 2 : 1;
+    const maxSuffixes = rare ? 2 : 1;
     const stats: D2ItemStats = {};
     const affixes: string[] = [];
+    const chosen: D2Affix[] = [];
     let prefixName = "";
     let suffixName = "";
-    const rolls = 1 + (Math.random() < 0.4 ? 1 : 0);
-    for (let index = 0; index < rolls; index += 1) {
-      const kind = index === 0 ? "prefix" : "suffix";
-      const pool = eligibleAffixes(socketable, itemLevel, kind);
+    let prefixCount = 0;
+    let suffixCount = 0;
+    type JewelSide = "prefix" | "suffix";
+    const rollSide = (side: JewelSide): boolean => {
+      const pool = (side === "prefix" ? prefixes : suffixes).filter((affix) => !chosen.includes(affix));
       const affix = pool[Math.floor(Math.random() * pool.length)];
-      if (!affix) continue;
+      if (!affix) return false;
+      chosen.push(affix);
       const rolled = rollAffix(affix, itemLevel);
       Object.assign(stats, rolled.stats);
       affixes.push(rolled.text);
-      if (kind === "prefix") prefixName = affix.name;
-      else suffixName = affix.name;
+      if (side === "prefix" && !prefixName) prefixName = affix.name;
+      if (side === "suffix" && !suffixName) suffixName = affix.name;
+      return true;
+    };
+    // D2 fills one prefix, then one suffix, and only keeps going on the side
+    // that is allowed another property, so a magic jewel can never roll two
+    // prefixes and a rare never rolls three of either.
+    for (let index = 0; index < wanted; index += 1) {
+      const canPrefix = prefixCount < maxPrefixes;
+      const canSuffix = suffixCount < maxSuffixes;
+      if (!canPrefix && !canSuffix) break;
+      const order: JewelSide[] = canPrefix && (!canSuffix || prefixCount <= suffixCount)
+        ? ["prefix", "suffix"] : ["suffix", "prefix"];
+      let rolled: JewelSide | undefined;
+      for (const side of order) {
+        if (side === "prefix" ? !canPrefix : !canSuffix) continue;
+        if (rollSide(side)) { rolled = side; break; }
+      }
+      if (!rolled) break;
+      if (rolled === "prefix") prefixCount += 1;
+      else suffixCount += 1;
     }
     return {
       id: createRunId(),
       name: `${prefixName ? prefixName + " " : ""}${baseName}${suffixName ? " " + suffixName : ""}`,
       baseName,
-      rarity: "magic",
+      rarity: rare ? "rare" : "magic",
+      art: D2_JEWEL_ART[Math.floor(Math.random() * D2_JEWEL_ART.length)],
       slot: "charm",
       equipmentType: "jewel",
       requiredLevel: Math.max(1, Math.min(99, Math.floor(itemLevel))),
@@ -7869,6 +8466,18 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       && !this.campaignVictory) {
       this.updateHoveredEnemy(event);
       this.updateHoveredGroundPickup(event);
+      if (event.shiftKey) {
+        // Diablo II's shift-click: attack in place toward the pointer instead of
+        // walking there. The basic-attack spell fires at the clicked spot; a
+        // weapon swings at whatever is already inside its reach.
+        const shiftWorld = this.arenaWorldPointAt(event.clientX, event.clientY);
+        if (shiftWorld) {
+          this.clearClickMoveCommands();
+          this.attackTowardPoint(shiftWorld.x, shiftWorld.y);
+          event.preventDefault();
+          return;
+        }
+      }
       const enemy = this.hoveredEnemy;
       const pickup = this.hoveredGroundPickup;
       if (pickup) {
@@ -8386,8 +8995,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.throwBeltPotion(slotIndex, world.x, world.y);
   }
 
-  /** Queues a health potion's 100 life. Repeated potions stack their remaining
-   *  life, which then trickles in at HEALTH_POTION_HEAL_RATE. */
+  /** Queues a health potion's 400 life. Repeated potions stack their remaining
+   *  life, which then trickles in at HEALTH_POTION_HEAL_RATE, so two bottles
+   *  heal twice as much over twice as long. */
   private beginHealthPotionHeal(): void {
     this.potionHealRemaining += HEALTH_POTION_HEAL;
     this.persistRunProgress(true);
@@ -8588,6 +9198,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   async ngOnInit(): Promise<void> {
     this.runActive = false;
     this.activeTab = "menu";
+    // Sound starts on: the title theme downloads with the menu and plays as soon
+    // as the browser allows it, the first gesture at the latest.
+    this.beginMenuAudio();
+    window.addEventListener("pointerdown", this.unlockMenuAudio, { passive: true });
+    window.addEventListener("keydown", this.unlockMenuAudio);
+    window.addEventListener("focus", this.unlockMenuAudio);
     this.rebuildInventoryGrid();
     this.readSavedProgress();
     // The account copy is authoritative; uploads stay blocked until it lands.
@@ -9402,7 +10018,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (this.selectedClass === "druid" && SUPPORT_SPIRIT_SKILLS.has(name)) {
       return [
         "Cannot attack; avoids enemies and follows the druid",
-        `Cast to summon one ${name}; only one can be active`,
+        `Cast to summon one ${name}; the druid keeps one spirit at a time`,
+        "Automatic casting keeps your strongest spirit: Spirit of Barbs, then Heart of Wolverine, then Oak Sage",
       ];
     }
     const druidSummon = this.selectedClass === "druid" && (name === "Raven" || name === "Poison Creeper" || name === "Summon Spirit Wolf" || name === "Summon Dire Wolf");
@@ -10502,6 +11119,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         this.triggerAttackAnimation(castAnimation);
         return;
       }
+      if (skill === "Armageddon" && this.selectedClass === "druid") {
+        // Armageddon rains around the druid, so it needs no monster to aim at.
+        this.castArmageddon(this.skillCastDamage(skill), Math.max(1, this.skillLevels[skill] ?? 1));
+        this.triggerAttackAnimation(castAnimation);
+        return;
+      }
       if (skill === "Fist of the Heavens" && this.selectedClass === "paladin") {
         // The auto-target found no monster anywhere, so there is nothing to
         // smite: only the cast animation plays instead of inventing a strike.
@@ -10625,6 +11248,16 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     if (skill === "Molten Boulder" && this.selectedClass === "druid") {
       this.castMoltenBoulder(damage, nearest);
+      this.triggerAttackAnimation(castAnimation);
+      return;
+    }
+    if (skill === "Volcano" && this.selectedClass === "druid") {
+      this.castVolcano(damage, nearest, multiplier);
+      this.triggerAttackAnimation(castAnimation);
+      return;
+    }
+    if (skill === "Armageddon" && this.selectedClass === "druid") {
+      this.castArmageddon(damage, multiplier);
       this.triggerAttackAnimation(castAnimation);
       return;
     }
@@ -10931,6 +11564,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       thunderStormLoad,
     ]).then(() => {
       this.assetsReady = true;
+      // Last in the queue on purpose: the menu theme is not gameplay art.
+      void this.warmMenuTheme();
     });
   }
 
@@ -11568,6 +12203,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   ngOnDestroy(): void {
+    window.removeEventListener("pointerdown", this.unlockMenuAudio);
+    window.removeEventListener("keydown", this.unlockMenuAudio);
+    window.removeEventListener("focus", this.unlockMenuAudio);
     this.cancelMobileInventoryInteraction();
     if (this.suppressInventoryTapTimer !== undefined) window.clearTimeout(this.suppressInventoryTapTimer);
     this.persistRunProgress(true);
@@ -11650,6 +12288,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.baalCastEffects.length = 0;
     this.mephistoBlizzards.length = 0;
     this.playerBlizzards.length = 0;
+    this.rockShowers.length = 0;
     this.thunderStormRemaining = 0;
     this.thunderStormStrikeTimer = 0;
     this.thunderStormStrikes.length = 0;
@@ -11658,6 +12297,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.stopClassPreview();
     this.stopMenuHeroPreview();
     this.stopAmbientAudio();
+    if (this.menuThemeAudio) {
+      this.menuThemeAudio.pause();
+      this.menuThemeAudio = undefined;
+    }
     void this.audioContext?.close();
     this.audioContext = undefined;
   }
@@ -12043,6 +12686,19 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         if (this.isArcticBlastChanneling()) continue;
         if (this.isGolemSkill(skill)) {
           if (skill === this.highestOwnedGolemSkill(activeSkills) && this.activeSummonCount(skill) === 0) this.summonCompanion(skill);
+          this.skillCastCooldowns[skill] = Number.POSITIVE_INFINITY;
+          continue;
+        }
+        if (SUPPORT_SPIRIT_SKILLS.has(skill)) {
+          // Only the best owned spirit is summoned automatically, and only while
+          // no spirit is out: a spirit the druid placed by hand (the basic attack
+          // slot, or clicking the skill) keeps its place instead of being
+          // swapped for the stronger one.
+          if (this.autoSpiritSkill() !== skill || this.activeSupportSpirit()) {
+            this.skillCastCooldowns[skill] = Number.POSITIVE_INFINITY;
+            continue;
+          }
+          this.summonCompanion(skill);
           this.skillCastCooldowns[skill] = Number.POSITIVE_INFINITY;
           continue;
         }
@@ -12585,6 +13241,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   private updateBasicAttack(): void {
     if (!this.runActive || this.pendingLevelUps > 0 || this.attackCooldown > 0 || this.playerRunning || this.playerLeapRemaining > 0 || this.playerChargeRemaining > 0) return;
+    // Nothing inside the attack's reach means no attack at all. Without this the
+    // spell in the basic slot kept firing down the hero's facing at empty ground.
+    if (!this.hasEnemyInBasicAttackRange()) return;
     // A monster the player left-clicked keeps the basic-attack spell aimed at it
     // once the hero arrives, exactly like right-click casting. Without a click
     // target the spell still takes whatever monster is nearest.
@@ -12774,6 +13433,95 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     if (landedMeleeAttack) this.attackCooldown = Math.max(this.playerAttackLockRemaining, this.paladinAuraAttackCooldown());
     else this.attackCooldown = Math.min(0.12, this.basicAttackCooldown);
+  }
+
+  /**
+   * Whether a monster is already inside the basic attack's own reach. The hero
+   * never swings or casts at nothing: melee needs a body at weapon length, while
+   * a bow, a thrown weapon or a spell in the basic slot keep their own range.
+   */
+  private hasEnemyInBasicAttackRange(): boolean {
+    const spell = this.basicAttackSpell;
+    const reach = spell && this.canBasicAttackCastSpell(spell) ? this.basicAttackSpellReach(spell)
+      : this.bowWeaponEquipped ? this.bowWeaponRange
+        : this.thrownWeaponKind ? this.thrownWeaponRange
+          : BASIC_ATTACK_MELEE_REACH;
+    // A buff, a servant or a placed trap has no reach of its own, so an empty
+    // floor must not hold it back.
+    if (reach <= 0) return true;
+    return this.enemies.some((enemy) => enemy.hp > 0 && !enemy.summonType
+      && Math.hypot(enemy.x - this.playerX, enemy.y - this.playerY) <= reach + enemy.r);
+  }
+
+  /**
+   * The distance a spell in the basic-attack slot can actually hit. Cones stop at
+   * their own length, rings and storms only touch what already stands inside
+   * them, and anything that acts on the hero reports 0 (no monster needed).
+   * Plain missiles keep their full untargeted travel.
+   */
+  private basicAttackSpellReach(skill: string): number {
+    if (BASIC_ATTACK_SELF_SPELLS.has(skill) || PALADIN_AURA_SKILLS.has(skill)
+      || this.isCastSummonSkill(skill)) return 0;
+    const rank = Math.max(1, this.skillLevels[skill] ?? 1);
+    const rankSteps = rank - 1;
+    switch (skill) {
+      // Short channels and cones: starting the cast further away only breathed
+      // at the floor outside the length the flame or the frost really covers.
+      case "Arctic Blast": return ARCTIC_BLAST_RANGE;
+      case "Inferno": return INFERNO_RANGE;
+      case "Firestorm": return FIRESTORM_TRAIL_LENGTH;
+      // Rings and storms end at their own radius.
+      case "Frost Nova": return FROST_NOVA_RADIUS + rankSteps * FROST_NOVA_RADIUS_PER_RANK;
+      case "Nova": return NOVA_RADIUS + rankSteps * NOVA_RADIUS_PER_RANK;
+      case "Poison Nova": return POISON_NOVA_RADIUS;
+      case "Static Field": return this.staticFieldRadiusForRank(rank);
+      case "Thunder Storm": return THUNDER_STORM_RADIUS;
+      case "Armageddon": return ARMAGEDDON_RADIUS * (1 + Math.min(0.4, rankSteps * 0.05));
+      default: return BASIC_ATTACK_SPELL_RANGE;
+    }
+  }
+
+  /**
+   * Shift-click's attack-in-place. The hero turns to the clicked point and
+   * attacks from where he stands: a spell in the basic slot is cast at that
+   * spot, a weapon swings at the bodies already within its reach.
+   */
+  private attackTowardPoint(x: number, y: number): void {
+    if (!this.runActive || this.pendingLevelUps > 0 || this.attackCooldown > 0) return;
+    if (this.playerFrozenRemaining > 0 || this.playerRunning
+      || this.playerLeapRemaining > 0 || this.playerChargeRemaining > 0) return;
+    const distance = Math.hypot(x - this.playerX, y - this.playerY) || 1;
+    this.playerFacingX = (x - this.playerX) / distance;
+    this.playerFacingY = (y - this.playerY) / distance;
+    if (this.tryBasicAttackSpell(undefined, { x, y })) return;
+    // A bow or a thrown weapon needs a body to land on, so it takes the ordinary
+    // attack. Melee sweeps everything already standing at weapon length.
+    if (this.bowWeaponEquipped || this.thrownWeaponKind) {
+      if (this.enemies.some((enemy) => enemy.hp > 0 && !enemy.summonType)) this.attackNearestEnemy();
+      else {
+        this.triggerAttackAnimation();
+        this.attackCooldown = Math.min(0.12, this.basicAttackCooldown);
+      }
+      return;
+    }
+    const attack = this.basicAttackForClass(this.selectedClass);
+    const attackLevel = this.skillLevels[this.basicAttackName] ?? 1;
+    const baseDamage = this.basicAttackDamage + (attackLevel - 1) * 2 + this.weaponMasteryDamageBonus + this.equippedWeaponDamage;
+    const meleeDamage = this.applyPaladinAuraDamage(this.applyStrengthToMeleeDamage(baseDamage), true) * this.decrepifyDamageDealtMultiplier;
+    let landed = false;
+    for (const enemy of this.collectEnemiesNear(this.playerX, this.playerY, BASIC_ATTACK_MELEE_REACH + 96)) {
+      if (enemy.hp <= 0 || enemy.summonType) continue;
+      if (Math.hypot(enemy.x - this.playerX, enemy.y - this.playerY) > enemy.r + BASIC_ATTACK_MELEE_REACH) continue;
+      const damage = meleeDamage * this.enemyTypeDamageMultiplier(enemy);
+      this.dealMeleeDamage(enemy, damage);
+      this.floatingTexts.push({ x: enemy.x, y: enemy.y - enemy.r - 8, text: this.floatingDamageText(damage), color: attack.color, life: 0.65 });
+      landed = true;
+    }
+    if (this.druidForm) this.druidFormAttackTime = this.druidForm === "werebear" ? 0.56 : 0.38;
+    this.triggerAttackAnimation();
+    this.attackCooldown = landed
+      ? Math.max(this.playerAttackLockRemaining, this.paladinAuraAttackCooldown())
+      : Math.min(0.12, this.basicAttackCooldown);
   }
 
   private rebuildEnemyGrid(): void {
@@ -14157,6 +14905,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.baalCastEffects.length = 0;
     this.mephistoBlizzards.length = 0;
     this.playerBlizzards.length = 0;
+    this.rockShowers.length = 0;
     this.leapDustEffects.length = 0;
     this.attackSequence = 0;
     this.attackProjectiles = [];
@@ -14232,6 +14981,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     this.runActive = true;
     this.trackUserEvent("d2survivors_start", `Started a run as the ${this.selectedClassName}`);
+    void this.recordPlayedCharacter();
     this.startActivityPing();
     this.restoreSummonsFromOwnedSkills();
     this.persistRunProgress(true);
@@ -14355,6 +15105,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
    * same wall-footprint mask as Act I.
    */
   private campaignCollisionContext(): CampaignCollisionContext | null {
+    const worldContext = this.campaignWorldCollisionContext();
+    if (worldContext) return worldContext;
     const maskAct = this.currentAct === 7 ? 1 : this.currentAct;
     if (maskAct !== 1 && maskAct !== 2 && maskAct !== 3 && maskAct !== 4
       && maskAct !== 5 && maskAct !== 8) return null;
@@ -15326,6 +16078,26 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     return this.enemies.filter((enemy) => enemy.summonSkill === skill && enemy.hp > 0).length;
   }
 
+  /** The one spirit the automatic caster keeps up: the best one the druid owns. */
+  private autoSpiritSkill(): string {
+    return AUTO_SPIRIT_PRIORITY.find((spirit) => (this.skillLevels[spirit] ?? 0) > 0) ?? "";
+  }
+
+  private activeSupportSpirit(): Enemy | undefined {
+    return this.enemies.find((enemy) =>
+      enemy.hp > 0 && SUPPORT_SPIRIT_SKILLS.has(enemy.summonSkill ?? ""));
+  }
+
+  /** A spirit replaces whichever spirit was out before it; the druid has one. */
+  private replaceActiveSpirit(skill: string): void {
+    for (let index = this.enemies.length - 1; index >= 0; index -= 1) {
+      const enemy = this.enemies[index];
+      if (enemy.summonSkill === skill) continue;
+      if (!SUPPORT_SPIRIT_SKILLS.has(enemy.summonSkill ?? "")) continue;
+      this.enemies.splice(index, 1);
+    }
+  }
+
   private activeOakSageSummon(): Enemy | undefined {
     return this.enemies.find((enemy) =>
       enemy.summonType === "druid" && enemy.summonSkill === "Oak Sage" && enemy.hp > 0);
@@ -15406,6 +16178,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private summonCompanion(skill: string): void {
     if (!this.isPersistentSummonSkill(skill)) return;
     if (this.isGolemSkill(skill)) this.replaceActiveGolem(skill);
+    if (SUPPORT_SPIRIT_SKILLS.has(skill)) this.replaceActiveSpirit(skill);
     if (this.activeSummonCount(skill) >= this.summonLimitForSkill(skill)) return;
     const rank = this.skillLevels[skill] ?? 1;
     const isDruid = this.selectedClass === "druid";
@@ -17635,11 +18408,15 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         if (distance > 25 && !attackStillLocked) {
           const followSpeed = summon.summonSkill === "Raise Skeleton" ? Math.max(summon.speed, 220) : summon.speed;
           const step = followSpeed * dt / 1000 / this.worldZoom;
-          summon.x += (targetX - summon.x) / distance * Math.min(step, distance);
-          summon.y += (targetY - summon.y) / distance * Math.min(step, distance);
+          // Face the heading measured before the step: reading it back after the
+          // move left the spirits showing the row they had just left behind.
+          const headingX = (targetX - summon.x) / distance;
+          const headingY = (targetY - summon.y) / distance;
+          summon.facingX = headingX;
+          summon.facingY = headingY;
+          summon.x += headingX * Math.min(step, distance);
+          summon.y += headingY * Math.min(step, distance);
           summon.animationState = "move";
-          summon.facingX = (targetX - summon.x) / distance;
-          summon.facingY = (targetY - summon.y) / distance;
         }
       }
       if (CREEPER_SUMMON_SKILLS.has(summon.summonSkill ?? "")) {
@@ -18468,9 +19245,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   /**
-   * Molten Boulder rolls two boulders down a fixed line instead of homing on a
-   * single monster. Each one shoves whatever it catches out of the way and
-   * bursts when its roll ends.
+   * Molten Boulder rolls one boulder down a fixed line instead of homing on a
+   * single monster. It shoves whatever it catches out of the way and bursts when
+   * its roll ends.
    */
   private castMoltenBoulder(damage: number, target: Enemy): void {
     const deltaX = target.x - this.playerX;
@@ -18656,14 +19433,20 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const rankSteps = Math.max(0, rank - 1);
     const damagePerTick = Math.max(1, this.applyPaladinAuraDamage(this.applyEnergyToSpellDamage(this.basicAttackDamage * 0.18 + rankSteps * 0.15)));
     const facingAngle = Math.atan2(this.playerFacingY, this.playerFacingX);
-    const spread = Math.min(0.55, (Math.PI * 0.9) / Math.max(1, rank - 1));
-    for (let index = 0; index < rank; index += 1) {
-      const angle = facingAngle + (index - (rank - 1) / 2) * spread + (Math.random() - 0.5) * 0.24;
+    // Rank widens the fan, lengthens the run and strengthens the burn; it never
+    // adds a fourth line, because D2's Firestorm is always three.
+    const spread = 0.2 + Math.min(0.12, rankSteps * 0.015);
+    const length = FIRESTORM_TRAIL_LENGTH * (1 + Math.min(0.9, rankSteps * 0.12));
+    for (let index = 0; index < FIRESTORM_LINES; index += 1) {
+      const offset = index - (FIRESTORM_LINES - 1) / 2;
       this.firestormTrails.push({
         x: this.playerX,
         y: this.playerY,
-        angle,
+        angle: facingAngle + offset * spread,
         seed: Math.random() * Math.PI * 2,
+        // The centre line runs dead straight; the outer two carry the weave.
+        weave: offset === 0 ? 0 : 1,
+        length,
         traveled: 0,
         dropRemaining: FIRESTORM_TRAIL_DROP_INTERVAL,
         damagePerTick,
@@ -18683,12 +19466,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const trail = this.firestormTrails[index];
       trail.x -= this.playerMoveX;
       trail.y -= this.playerMoveY;
+      const trailLength = trail.length ?? FIRESTORM_TRAIL_LENGTH;
       let remaining = FIRESTORM_TRAIL_SPEED * seconds;
-      while (remaining > 0 && trail.traveled < FIRESTORM_TRAIL_LENGTH) {
-        const step = Math.min(FIRESTORM_TRAIL_STEP, remaining, FIRESTORM_TRAIL_LENGTH - trail.traveled);
+      while (remaining > 0 && trail.traveled < trailLength) {
+        const step = Math.min(FIRESTORM_TRAIL_STEP, remaining, trailLength - trail.traveled);
         trail.traveled += step;
-        const wobble = Math.sin(trail.traveled * 0.05 + trail.seed) * 0.42
-          + Math.sin(trail.traveled * 0.13 + trail.seed * 1.9) * 0.16;
+        const wobble = (trail.weave ?? 1) * (Math.sin(trail.traveled * 0.05 + trail.seed) * 0.42
+          + Math.sin(trail.traveled * 0.13 + trail.seed * 1.9) * 0.16);
         trail.x += Math.cos(trail.angle + wobble) * step;
         trail.y += Math.sin(trail.angle + wobble) * step;
         trail.dropRemaining -= step / FIRESTORM_TRAIL_SPEED;
@@ -18701,7 +19485,183 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         }
         remaining -= step;
       }
-      if (trail.traveled >= FIRESTORM_TRAIL_LENGTH) this.firestormTrails.splice(index, 1);
+      if (trail.traveled >= (trail.length ?? FIRESTORM_TRAIL_LENGTH)) this.firestormTrails.splice(index, 1);
+    }
+  }
+
+  /**
+   * Volcano opens a vent on the pack and keeps erupting for five seconds. The
+   * vent itself is D2's three part eruption art (`volcano_base`, `volcano_fire`
+   * and the lava pool), and each rock is the real `volcano_rock` cel bursting
+   * into `rock_lava_explosion`.
+   */
+  private castVolcano(damage: number, target: { x: number; y: number }, rank: number): void {
+    const rankSteps = Math.max(0, Math.max(1, rank) - 1);
+    this.rockShowers.push(this.makeRockShower(
+      "volcano",
+      { x: target.x, y: target.y },
+      damage,
+      VOLCANO_RADIUS * (1 + Math.min(0.4, rankSteps * 0.05)),
+      Math.round(VOLCANO_ROCKS * (1 + Math.min(0.6, rankSteps * 0.08))),
+      VOLCANO_DURATION,
+    ));
+    this.floatingTexts.push({ x: target.x, y: target.y - 28, text: "VOLCANO", color: "#ff9c50", life: 0.9 });
+  }
+
+  /** Armageddon keeps raining rocks around the druid wherever he runs. */
+  private castArmageddon(damage: number, rank: number): void {
+    const rankSteps = Math.max(0, Math.max(1, rank) - 1);
+    this.rockShowers.push(this.makeRockShower(
+      "armageddon",
+      { x: this.playerX, y: this.playerY },
+      damage,
+      ARMAGEDDON_RADIUS * (1 + Math.min(0.4, rankSteps * 0.05)),
+      Math.round(ARMAGEDDON_ROCKS * (1 + Math.min(0.6, rankSteps * 0.08))),
+      ARMAGEDDON_DURATION,
+    ));
+    this.floatingTexts.push({ x: this.playerX, y: this.playerY - 34, text: "ARMAGEDDON", color: "#ff9c50", life: 0.9 });
+  }
+
+  private makeRockShower(
+    kind: "volcano" | "armageddon",
+    centre: { x: number; y: number },
+    damage: number,
+    radius: number,
+    count: number,
+    duration: number,
+  ): RockShowerEffect {
+    const volcano = kind === "volcano";
+    const seed = Math.random() * Math.PI * 2;
+    const rocks: FallingRock[] = [];
+    for (let index = 0; index < count; index += 1) {
+      // The golden angle spreads the impacts evenly instead of clustering them.
+      const angle = seed + index * 2.399963229728653;
+      const distance = radius * Math.sqrt((index + 0.5) / count);
+      rocks.push({
+        offsetX: Math.cos(angle) * distance,
+        offsetY: Math.sin(angle) * distance,
+        delay: 0.12 + (index / count) * (duration - ROCK_FALL_SECONDS - ROCK_IMPACT_SECONDS),
+        fallArt: volcano ? VOLCANO_ROCK_ART : ARMAGEDDON_ROCK_ART,
+        impactArt: volcano ? VOLCANO_IMPACT_ART : ARMAGEDDON_IMPACT_ART,
+        hit: false,
+      });
+    }
+    return {
+      kind,
+      x: centre.x,
+      y: centre.y,
+      time: 0,
+      duration,
+      radius,
+      damagePerRock: Math.max(1, damage),
+      seed,
+      rocks,
+      followsPlayer: !volcano,
+      tickRemaining: volcano ? 0 : undefined,
+    };
+  }
+
+  /** Land each rock once, and keep the volcano's vent burning the pack above it. */
+  private updateRockShowers(seconds: number): void {
+    for (let index = this.rockShowers.length - 1; index >= 0; index -= 1) {
+      const effect = this.rockShowers[index];
+      effect.time += seconds;
+      if (effect.followsPlayer) {
+        effect.x = this.playerX;
+        effect.y = this.playerY;
+      }
+      if (effect.kind === "volcano") {
+        effect.tickRemaining = (effect.tickRemaining ?? 0) - seconds;
+        while (effect.tickRemaining <= 0) {
+          // The vent keeps a churning pool of lava under the eruption.
+          this.addGroundFirePatch(
+            effect.x, effect.y, 1.6, effect.radius * 0.72,
+            effect.damagePerRock * 0.16, 0.5,
+          );
+          effect.tickRemaining += 0.55;
+        }
+      }
+      for (const rock of effect.rocks) {
+        if (rock.hit || effect.time < rock.delay) continue;
+        rock.hit = true;
+        const impactX = effect.x + rock.offsetX;
+        const impactY = effect.y + rock.offsetY;
+        for (const enemy of this.collectEnemiesNear(impactX, impactY, 34 + 96)) {
+          if (enemy.hp <= 0 || enemy.summonType) continue;
+          if (Math.hypot(enemy.x - impactX, enemy.y - impactY) > 34 + enemy.r) continue;
+          this.queueEnemyDamage(enemy, effect.damagePerRock, "#ff9c50", "fire");
+        }
+      }
+      if (effect.time >= effect.duration) this.rockShowers.splice(index, 1);
+    }
+  }
+
+  /**
+   * Volcano's vent and every falling rock, on the arena canvas beside the other
+   * ground fire so a rock never paints over a monster standing behind it.
+   */
+  private drawRockShowers(ctx: CanvasRenderingContext2D): void {
+    if (!this.runActive || !this.rockShowers.length) return;
+    const scale = this.projectionDpr || 1;
+    for (const effect of this.rockShowers) {
+      const centre = this.projectArenaPoint(effect.x, effect.y);
+      if (!this.isArenaPointOnScreen(centre, DRAW_CULL_MARGIN * 2)) continue;
+      const fade = Math.max(0, Math.min(1, effect.time * 7, (effect.duration - effect.time) * 5));
+      if (fade <= 0.01) continue;
+      const radius = effect.radius * this.worldZoom * scale;
+      if (effect.kind === "volcano") {
+        const ventSize = Math.max(96 * scale, radius * 1.3);
+        this.drawImportedMissileFrame(
+          ctx, VOLCANO_VENT_ART, effect.time, centre.x, centre.y + 4 * scale,
+          ventSize, 0, fade * 0.95, "bottom",
+        );
+        this.drawImportedMissileFrame(
+          ctx, VOLCANO_LAVA_ART, effect.time + 0.4, centre.x, centre.y + 2 * scale,
+          ventSize * 0.78, 0, fade * 0.5, "bottom",
+        );
+        this.drawImportedMissileFrame(
+          ctx, VOLCANO_FIRE_ART, effect.time, centre.x, centre.y + 2 * scale,
+          ventSize * 0.9, 0, fade * 0.85, "bottom",
+        );
+      }
+      for (const rock of effect.rocks) {
+        const point = this.projectArenaPoint(effect.x + rock.offsetX, effect.y + rock.offsetY);
+        const fallStart = rock.delay - ROCK_FALL_SECONDS;
+        if (effect.time >= fallStart && effect.time < rock.delay) {
+          const progress = Math.max(0, Math.min(1, (effect.time - fallStart) / ROCK_FALL_SECONDS));
+          this.drawImportedMissileFrame(
+            ctx, rock.fallArt, effect.time - fallStart, point.x,
+            point.y - (1 - progress) * radius * 0.9,
+            Math.max(46 * scale, radius * 0.34), 0, fade * 0.85, "bottom",
+          );
+        }
+        const impactAge = effect.time - rock.delay;
+        if (impactAge >= 0 && impactAge < ROCK_IMPACT_SECONDS) {
+          this.drawImportedMissileFrame(
+            ctx, rock.impactArt, impactAge, point.x, point.y,
+            Math.max(44 * scale, radius * 0.32), 0,
+            fade * 0.7 * (1 - impactAge / ROCK_IMPACT_SECONDS), "bottom",
+          );
+        }
+      }
+    }
+  }
+
+  /**
+   * The head of each Firestorm line is FirestormEmitter, the flame D2 sends out
+   * ahead of the ground fire. The fires it has already dropped stay on the floor
+   * in `blazeFirePatches`, so only the leading flame is drawn here.
+   */
+  private drawFirestormTrailHeads(ctx: CanvasRenderingContext2D): void {
+    if (!this.runActive || !this.firestormTrails.length) return;
+    const scale = this.projectionDpr || 1;
+    for (const trail of this.firestormTrails) {
+      const point = this.projectArenaPoint(trail.x, trail.y);
+      if (!this.isArenaPointOnScreen(point, DRAW_CULL_MARGIN)) continue;
+      this.drawImportedMissileFrame(
+        ctx, FIRESTORM_EMITTER_ART, this.runTime + trail.seed, point.x, point.y + 2 * scale,
+        34 * scale, 0, 0.9, "bottom",
+      );
     }
   }
 
@@ -20083,6 +21043,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.updatePoisonClouds(seconds);
     this.updateMephistoBlizzards(seconds);
     this.updatePlayerBlizzards(seconds);
+    this.updateRockShowers(seconds);
     this.updateThunderStorm(seconds);
     if (this.isBoneArmorActive()) {
       this.boneArmorRemaining = Math.max(0, this.boneArmorRemaining - seconds);
@@ -23181,12 +24142,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.rafId = 0;
     }
     if (!victory) {
+      this.stopAmbientAudio();
+      this.ambientAudioStatus = "Ambience muted";
       this.activeTab = "menu";
       this.menuPanel = "lobby";
       this.escapeMenuOpen = false;
       this.inventoryOpen = false;
       this.closeSkillTree();
-      this.stopAmbientAudio();
       void this.openLobby();
     }
   }
@@ -23301,13 +24263,17 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const maxColumn = Math.ceil((this.currentChunkLocalX + reach) / tileWorldSize);
     const minRow = Math.floor((this.currentChunkLocalY - reach) / tileWorldSize);
     const maxRow = Math.ceil((this.currentChunkLocalY + reach) / tileWorldSize);
+    const worldEntry = this.currentWorldEntry();
+    const world = worldEntry ? this.ensureCampaignWorld(worldEntry) : undefined;
+    const hasWorldGround = !!world?.ground.complete && world.ground.naturalWidth > 0;
+    if (hasWorldGround) this.drawCampaignWorldGround(ctx, world!.ground, tileWidth);
     const tristramBackdrop = act.act === 8 ? this.campaignBackdropImages[act.act] : undefined;
     const hasTristramBackdrop = !!tristramBackdrop?.complete && tristramBackdrop.naturalWidth > 0;
     if (hasTristramBackdrop) this.drawTristramBackdrop(ctx, tristramBackdrop!, tileWidth);
     // Acts II-VII use their area art as a large authored landmark over the
     // ground texture.  Tristram replaces the floor instead, so it keeps its own
     // wall-sorted backdrop pass above.
-    const areaBackdrop = act.act !== 8 ? this.currentAreaBackdrop() : undefined;
+    const areaBackdrop = act.act !== 8 && !hasWorldGround ? this.currentAreaBackdrop() : undefined;
     const hasAreaBackdrop = !!areaBackdrop?.complete && areaBackdrop.naturalWidth > 0;
     ctx.save();
     // Nearest-neighbour sampling keeps the enlarged atlas tiles crisp, not blurry.
@@ -23315,7 +24281,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     ctx.beginPath();
     ctx.rect(0, 0, canvas.width, canvas.height);
     ctx.clip();
-    for (let row = minRow; row <= maxRow && !hasTristramBackdrop; row += 1) {
+    for (let row = minRow; row <= maxRow && !hasTristramBackdrop && !hasWorldGround; row += 1) {
       for (let column = minColumn; column <= maxColumn; column += 1) {
         const worldTileX = this.currentChunkCoordX * this.chunkTileColumns + column;
         const worldTileY = this.currentChunkCoordY * this.chunkTileRows + row;
@@ -23427,6 +24393,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     // overlay, which is composited above everything, so a patch the hero walked
     // onto painted flames over the hero and every monster standing in it.
     this.drawBlazeFirePatches(ctx);
+    this.drawFirestormTrailHeads(ctx);
+    this.drawRockShowers(ctx);
     this.drawNihlathakCorpses(ctx);
     if (this.runActive && this.activeOakSageSummon()) this.drawOakSageBeneficiaryAuras(ctx);
 
@@ -23477,6 +24445,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         depth: wall.depth,
         order: wall.order,
         draw: () => this.drawAct5WallSlice(ctx, wall),
+      });
+    }
+    for (const wall of this.campaignWorldWallDraws(tileWidth)) {
+      drawOrder.push({
+        depth: wall.depth,
+        order: wall.order,
+        draw: () => this.drawCampaignWorldWallSlice(ctx, wall),
       });
     }
     for (const projectile of this.attackProjectiles) {
@@ -25567,7 +26542,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     // columns. The raised skeleton has the same eight-frame walk band; other
     // summon families keep their previous frame behavior.
     const frameIndex = sprite
-      ? look || summon.summonType === "hydra" || summon.species === "skeletonWarrior" || summon.species === "goatman" || summon.summonSkill === "Skeletal Mage"
+      ? look || summon.summonType === "hydra" || summon.species === "skeletonWarrior" || summon.species === "goatman"
+        || summon.summonSkill === "Skeletal Mage" || ENEMY_WALK_ONLY_FRAMES[summon.species] !== undefined
         ? enemySpriteFrame(summon, sprite.columns, this.runTime)
         : summon.animationState === "attack"
           ? Math.min(sprite.columns - 1, Math.floor(attackProgress * sprite.columns))
@@ -27054,35 +28030,67 @@ function enemyResistancesFromImmunities(immunities?: EnemyDamageType[]): EnemyRe
  */
 const ENEMY_SOURCE_PIXEL_SCALE = 0.8;
 /**
- * Source pixel heights at the shared scale. Most values come from monstats2's
- * pixHeight; the minotaur is the exception. Its supplied sprite page used to
- * receive a 1.45 species factor, so 122 source pixels preserves that exact
- * on-screen height (14 * 4.8 * 1.45 / 0.8 = 121.8) after the flat-scale
- * refactor. Without it the minotaur shrinks to the size of the Blood Lord.
+ * Drawn height of each species in source pixels; 90 here is one hero height
+ * (90 * 0.8 = the hero's 72 world units), so 45 is a knee-high monster and 180
+ * is twice the player. These are hand-tuned against how the original game
+ * frames each monster beside the player: monstats2's pixHeight cannot be used
+ * for this, it only sizes the hover/damage bar, which is why several entries
+ * were off (the Balrog and Minions of Destruction stood barely taller than the
+ * hero, the druid spirits twice his height).
  *
- * The leaper is the second exception, in the other direction. monstats2 lists
- * 96 pixels for sandleaper1, but that is the height of the whole hop
- * silhouette: the creature is as wide as it is tall and only the raised tail
- * and hind legs reach the top of the frame. Every cel here is scaled by its
- * content height, so 96 made it stand both taller and wider than the hero.
- * 64 puts a leaper just under the hero's height, which is the size it has
- * beside the player in Diablo II.
+ * The spritesheets do not drive this. Every sheet was fitted into its own cell
+ * at import time, so the runtime divides the cel by `sprite.contentHeight` and
+ * rescales it to the value here - sheet pixels cancel out completely.
+ *
+ * The scale is measurable from the game files rather than guessed: the player
+ * model's Diablo II cels are composed from the `chars/<class>` layers (head, torso,
+ * legs, arms), and the tallest neutral cel of the Amazon measures 77 source
+ * pixels from crown to feet. The table's unit is the hero's 90, so a monster
+ * entry should read `tallest walk cel * (90 / 77)`. The entries below that were
+ * left as old guesses - Death Maulers, spider demons, council members and the
+ * Grizzly - sat well under the hero because their cel heights were never
+ * converted; they now use that conversion (87/103/105/99 px -> 102/120/123/116).
+ *
+ * The next batch of guesses was converted the same way, from
+ * tools/measure_walk_cels.py: goatman 73, blunderbore 138, sandRaider 123,
+ * scarab 89, wendigo 109, salamander 100, painWorm 89, wolf 63, clay golem 64,
+ * blood golem 73 and iron golem 95 source pixels -> 85/161/144/104/127/117/104/
+ * 74/75/85/111.
+ *
+ * Four families still cannot use that rule: skeletons, skeletal mages, the
+ * minotaur/Blood Lord (L3) and Baal's minions (43) are layered COF composites,
+ * and a single walk DCC there is one body part (SK's 1hs arm layer measures 25,
+ * L3's body 36, 43's body 49). Their height has to be measured across every COF
+ * layer of a frame instead, so they stay on their current values until then.
+ *
+ * Two entries deviate from the art's own proportions on purpose. The minotaur
+ * (L3, the Blood Lord composite) keeps 122 because its 128px atlas preserves
+ * the source frame boxes. The leaper is the opposite: its 96 was the height of
+ * the whole hop silhouette, and every cel is scaled by content height, so 96
+ * made it stand both taller and wider than the hero; 64 sits just under him.
  */
 const ENEMY_D2_PIX_HEIGHTS: Partial<Record<EnemySpecies, number>> = {
-  fallen: 64, goatman: 96, skeleton: 80, skeletonWarrior: 80,
+  fallen: 64, goatman: 85, skeleton: 80, skeletonWarrior: 80,
   skeletalMageCold: 80, skeletalMageFire: 80, skeletalMageLightning: 80, skeletalMagePoison: 80,
-  golem: 96, sandRaider: 96, sandMaggot: 48, sandMaggotYoung: 32, sandMaggotQueen: 48, maggotEgg: 32,
-  scarab: 80, spiderDemon: 96, spikeFiend: 48, leaper: 64, blunderbore: 112,
-  fetish: 48, boneFetish: 48, fetishShaman: 64, council: 96, balrog: 96,
-  vileChild: 48, vileMother: 96, bloodLord: 64, minotaur: 122, nihlathak: 80,
-  painWorm: 48, regurgitator: 112, salamander: 80, siegeBeast: 128, deathMauler: 64, wendigo: 104,
-  andariel: 96, duriel: 112, mephisto: 112, diablo: 112, baalsMinion: 112, baal: 112,
-  wolf: 88, grizzly: 104, bloodGolem: 96, fireGolem: 96, ironGolem: 96,
-  oakSage: 88, heartOfWolverine: 88, spiritOfBarbs: 88,
+  golem: 75, sandRaider: 144, sandMaggot: 48, sandMaggotYoung: 32, sandMaggotQueen: 48, maggotEgg: 32,
+  scarab: 104, spiderDemon: 120, spikeFiend: 48, leaper: 64, blunderbore: 161,
+  fetish: 48, boneFetish: 48, fetishShaman: 64, council: 123,
+  // Act IV/V heavy hitters: the Balrog is the tallest non-boss demon in the
+  // game (its 224x152 atlas cell is the source frame box), Minions of
+  // Destruction tower over the hero, and the Blood Lord is the same L3 art
+  // the minotaur below is built from - it was reading at 64px, under the
+  // hero, while the identical creature next to it read at 122.
+  balrog: 152, baalsMinion: 136, bloodLord: 118,
+  vileChild: 48, vileMother: 96, minotaur: 122, nihlathak: 80,
+  painWorm: 104, regurgitator: 112, salamander: 117, siegeBeast: 128, deathMauler: 102, wendigo: 127,
+  andariel: 96, duriel: 112, mephisto: 112, diablo: 112, baal: 112,
+  wolf: 74, grizzly: 116, bloodGolem: 85, fireGolem: 96, ironGolem: 111,
+  // Waist-high floating spirits, not the 88px wolf/bear stand-ins they were.
+  oakSage: 48, heartOfWolverine: 48, spiritOfBarbs: 48,
   hydra1: 90, hydra2: 90, hydra3: 90,
 };
 
-function enemyD2PixelHeight(species: EnemySpecies): number {
+export function enemyD2PixelHeight(species: EnemySpecies): number {
   return ENEMY_D2_PIX_HEIGHTS[species] ?? 96;
 }
 
@@ -27124,9 +28132,15 @@ const ENEMY_ROW_BLOCK_FRAMES: Partial<Record<EnemySpecies, [number, number] | [n
 };
 
 /** Four-row spirit atlases: one slow drift cycle, one row per direction. */
+/**
+ * The druid spirits were imported as four rows of a seven-frame walk and nothing
+ * else. `enemySpriteFrame` loops that whole cycle at the rate below instead of
+ * the old six-of-seven modulo that stuttered through the roll.
+ */
 const ENEMY_WALK_ONLY_FRAMES: Partial<Record<EnemySpecies, number>> = {
   oakSage: 7, heartOfWolverine: 7, spiritOfBarbs: 7,
 };
+const ENEMY_WALK_ONLY_RATE = 11;
 
 function enemySpriteFrame(enemy: Enemy, columns: number, runTime: number): number {
   if (columns <= 1) return 0;
@@ -27165,7 +28179,7 @@ function enemySpriteFrame(enemy: Enemy, columns: number, runTime: number): numbe
     return 0;
   }
   const walkOnlyFrames = ENEMY_WALK_ONLY_FRAMES[enemy.species];
-  if (walkOnlyFrames) return Math.floor(runTime * 5 + phaseOffset) % walkOnlyFrames;
+  if (walkOnlyFrames) return Math.floor(runTime * ENEMY_WALK_ONLY_RATE + phaseOffset) % walkOnlyFrames;
   if (enemy.species === "scarab") {
     // Rows 0-7 are the walk cycle, rows 8-15 the spit attack. The walk band has
     // 14 frames; the remaining columns repeat its last pose.
@@ -27367,7 +28381,7 @@ function enemySpriteFrame(enemy: Enemy, columns: number, runTime: number): numbe
  * their order, so every draw path that renders a monster cel asks this helper for
  * the row instead of open coding the table again.
  */
-function enemySpriteDirectionRow(
+export function enemySpriteDirectionRow(
   species: EnemySpecies,
   state: Enemy["animationState"] | undefined,
   rows: number,
@@ -27433,13 +28447,12 @@ const DCC_EIGHT_DIRECTION_SPECIES = new Set<EnemySpecies>([
   "wolf", "grizzly", "bloodGolem", "fireGolem", "ironGolem",
 ]);
 
-function enemySpriteRow(species: EnemySpecies, dx: number, dy: number): number {
+export function enemySpriteRow(species: EnemySpecies, dx: number, dy: number): number {
   const layoutRows = ENEMY_SPRITE_LAYOUTS[species].rows;
   const directions = ENEMY_MAGE_SPECIES.has(species) ? layoutRows / 3
     : species === "goatman" || species === "skeleton" || species === "skeletonWarrior" || species === "scarab" || species === "sandMaggot" || species === "sandMaggotQueen" || species === "spiderDemon" || species === "sandMaggotYoung" || species === "sandRaider" || species === "leaper" || species === "spikeFiend" || species === "blunderbore" || species === "minotaur" || species === "nihlathak" || species === "painWorm" || species === "regurgitator" || species === "salamander" || species === "siegeBeast" || species === "balrog" || species === "bloodLord" || species === "fetishShaman" || species === "wolf" || species === "grizzly" || species === "bloodGolem" || species === "fireGolem" || species === "ironGolem" || species === "vileChild" || species === "vileMother" || species === "duriel"
     ? layoutRows / 2
     : species === "fetish" || species === "boneFetish" || species === "council" || species === "mephisto" || (species === "diablo" && layoutRows === 24) || species === "baalsMinion" || species === "baal" ? layoutRows / 3 : layoutRows;
-  if (directions === 4) return dy > 0 ? 0 : dy < 0 ? 2 : dx < 0 ? 1 : 3;
   if (directions === 8) {
     const angle = Math.atan2(dy, dx);
     const row = (Math.round((angle + Math.PI) / (Math.PI / 4)) + 8) % 8;
@@ -27861,6 +28874,10 @@ interface FirestormTrail {
   y: number;
   angle: number;
   seed: number;
+  /** 0 for the straight middle line, 1 for the two that weave around it. */
+  weave?: number;
+  /** How far this line runs before it dies out; rank lengthens it. */
+  length?: number;
   traveled: number;
   dropRemaining: number;
   damagePerTick: number;
@@ -27903,6 +28920,33 @@ interface PlayerBlizzardEffect {
   shards: PlayerBlizzardShard[];
 }
 
+interface FallingRock {
+  /** Position relative to the shower, so Armageddon can follow the druid. */
+  offsetX: number;
+  offsetY: number;
+  /** Seconds into the shower before this rock hits the ground. */
+  delay: number;
+  fallArt: string;
+  impactArt: string;
+  hit: boolean;
+}
+
+interface RockShowerEffect {
+  kind: "volcano" | "armageddon";
+  x: number;
+  y: number;
+  time: number;
+  duration: number;
+  radius: number;
+  damagePerRock: number;
+  seed: number;
+  rocks: FallingRock[];
+  /** Armageddon travels with the caster; a volcano's vent stays put. */
+  followsPlayer: boolean;
+  /** Volcano re-lights the lava under the vent on this countdown. */
+  tickRemaining?: number;
+}
+
 interface MephistoBlizzardEffect {
   source: Enemy;
   x: number;
@@ -27914,6 +28958,14 @@ interface MephistoBlizzardEffect {
   tickInterval: number;
   damagePerTick: number;
   seed: number;
+}
+
+/** One area's exported DS1 world: ground, depth-sorted walls and wall mask. */
+interface CampaignWorldAssets {
+  ground: HTMLImageElement;
+  walls?: HTMLImageElement;
+  layout?: TristramWallLayout;
+  collision?: { width: number; height: number; blocked: Uint8Array; blocksSight?: boolean };
 }
 
 interface CampaignCollisionContext {
@@ -28170,6 +29222,8 @@ interface D2InventoryItem {
   sockets?: number;
   /** Set once this base's sockets spell a completed runeword. */
   runeword?: string;
+  /** Inventory cel for socketables that roll art of their own (jewels). */
+  art?: string;
   /** Contents of the filled sockets, in the order they were set. */
   socketed?: D2SocketedContent[];
   procs?: D2ItemProc[];

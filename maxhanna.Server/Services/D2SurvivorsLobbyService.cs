@@ -23,7 +23,13 @@ namespace maxhanna.Server.Services
       const string sql = @"INSERT INTO maxhanna.d2survivors_character_history
           (run_id, user_id, character_name, class_id, score, time_seconds, kills, level, victory, died, created_at)
           VALUES (@RunId, @UserId, @CharacterName, @ClassId, @Score, @Time, @Kills, @Level, @Victory, @Died, UTC_TIMESTAMP())
-          ON DUPLICATE KEY UPDATE run_id = run_id;";
+          ON DUPLICATE KEY UPDATE
+            score = GREATEST(score, VALUES(score)),
+            time_seconds = GREATEST(time_seconds, VALUES(time_seconds)),
+            kills = GREATEST(kills, VALUES(kills)),
+            level = GREATEST(level, VALUES(level)),
+            victory = GREATEST(victory, VALUES(victory)),
+            died = GREATEST(died, VALUES(died));";
       await using var cmd = new MySqlCommand(sql, conn);
       cmd.Parameters.AddWithValue("@RunId", request.RunId);
       cmd.Parameters.AddWithValue("@UserId", request.UserId);
@@ -34,7 +40,9 @@ namespace maxhanna.Server.Services
       cmd.Parameters.AddWithValue("@Kills", request.Kills);
       cmd.Parameters.AddWithValue("@Level", request.Level);
       cmd.Parameters.AddWithValue("@Victory", request.Victory ? 1 : 0);
-      cmd.Parameters.AddWithValue("@Died", request.Victory ? 0 : 1);
+      // A first snapshot (run started) is not a death; only a finished
+      // non-victory run marks the hero fallen.
+      cmd.Parameters.AddWithValue("@Died", request.Completed && !request.Victory ? 1 : 0);
       await cmd.ExecuteNonQueryAsync();
       await _hub.Clients.Group(D2SurvivorsLobbyHub.GroupName).SendAsync("OnLeaderboardUpdated");
     }

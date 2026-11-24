@@ -90,6 +90,12 @@ namespace maxhanna.Server.Controllers
       public int Kills { get; set; }
       public int Level { get; set; }
       public bool Victory { get; set; }
+      /// <summary>
+      /// False for the snapshot sent the moment a run begins, so the Immortal
+      /// Archive can list the hero without claiming it has already fallen.
+      /// Older clients omit it and are treated as completed runs.
+      /// </summary>
+      public bool Completed { get; set; } = true;
       public int Score { get; set; }
     }
 

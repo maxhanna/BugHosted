@@ -421,13 +421,13 @@
           <div
             [class]="'selectableMenuIconTitles' + (icon.title === expandedIconTitle ? ' selectableMenuIconTitlesExpanded' : '') "
             (click)="toggleIconDescription(icon.title)">
-            <span class="cursorPointer">
-              {{ icon.title == 'Weather' ? '☀️' : icon.icon }}<span class="appTitle">{{ icon.title }}</span>
-            </span>
             <label class="switch" (click)="selectMenuIcon(icon.title); $event.stopPropagation();">
               <input type="checkbox" [checked]="menuIconsIncludes(icon.title)" />
               <span class="slider round"></span>
             </label>
+            <span class="cursorPointer">
+              {{ icon.title == 'Weather' ? '☀️' : icon.icon }}<span class="appTitle">{{ icon.title }}</span>
+            </span>
           </div>
           <div class="selectableMenuIconDescriptions" *ngIf="icon.title === expandedIconTitle">
             <div [id]="icon.title + 'tddiv'">

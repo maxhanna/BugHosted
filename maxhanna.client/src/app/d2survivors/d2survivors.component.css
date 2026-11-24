@@ -525,23 +525,6 @@
   text-shadow: 0 1px 4px #000;
 }
 
-.d2s-menu-kicker {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  color: #b49b6c;
-  font: 11px Georgia, serif;
-  letter-spacing: 0.32em;
-}
-
-.d2s-menu-kicker span {
-  width: clamp(24px, 8vw, 100px);
-  height: 1px;
-  background: linear-gradient(90deg, transparent, #907349);
-}
-
-.d2s-menu-kicker span:last-child { transform: rotate(180deg); }
 
 .d2s-logo-mark {
   display: block;
@@ -553,12 +536,6 @@
   filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.65));
 }
 
-.d2s-menu-title > p {
-  margin: 12px 0 0;
-  color: #9b7655;
-  font: 11px Georgia, serif;
-  letter-spacing: 0.3em;
-}
 
 .d2s-menu-content {
   display: grid;
@@ -684,6 +661,7 @@
 .d2s-hero-run-stats small { color: #806d53; font: 8px ui-monospace, monospace; letter-spacing: .06em; }
 .d2s-hero-run-stats b { color: #d9c18b; white-space: nowrap; font: 12px ui-monospace, monospace; }
 .d2s-hero-run-stats b.hero-fallen { color: #c27869; }
+.d2s-hero-run-stats b.hero-in-progress { color: #a9c07a; }
 .d2s-hero-run-date { align-self: start; color: #7f6e54; white-space: nowrap; font: 9px Georgia, serif; }
 .d2s-lobby-empty { display: grid; flex: 1; place-content: center; gap: 7px; min-height: 185px; text-align: center; }
 .d2s-lobby-empty > span { color: #be9258; font-size: 23px; }
@@ -801,13 +779,21 @@
 
 .d2s-menu-button.primary span { color: #f0d29a; }
 
+/* Two separate boxes: the stage frames the 3D hero on its own, and the
+   destiny plaque sits below it so it never covers the model. */
 .d2s-menu-hero-card {
   position: relative;
   display: grid;
-  min-height: 300px;
-  place-items: center;
-  align-content: center;
-  gap: 12px;
+  grid-template-rows: minmax(0, 1fr) auto auto;
+  min-height: 400px;
+  align-items: stretch;
+  align-content: stretch;
+  gap: 10px;
+}
+
+.d2s-menu-hero-stage {
+  position: relative;
+  min-height: 0;
   overflow: hidden;
   border: 1px solid #463723;
   background: radial-gradient(ellipse at 50% 46%, #54241e 0, #211617 35%, #100e11 74%);
@@ -913,7 +899,7 @@
   position: absolute;
   z-index: 1;
   right: 0;
-  bottom: 132px;
+  bottom: 8px;
   left: 0;
   color: #c8b17b;
   text-align: center;
@@ -948,15 +934,15 @@
   animation: d2s-preview-spin 1.2s linear infinite;
 }
 
-.d2s-menu-hero-card .d2s-menu-version { bottom: 7px; }
-.d2s-menu-hero-card .d2s-hero-plaque {
-  position: absolute;
-  z-index: 2;
-  bottom: 28px;
-  left: 50%;
-  width: min(86%, 340px);
+.d2s-menu-hero-card .d2s-menu-version {
+  position: static;
   margin: 0;
-  transform: translateX(-50%);
+}
+
+.d2s-menu-hero-card .d2s-hero-plaque {
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0;
 }
 
 .d2s-portal {
@@ -1153,11 +1139,9 @@
   .d2s-audio-volume-label { display: none; }
   .d2s-audio-status { top: 45px; right: 12px; }
   .d2s-audio-toggle-text { font-size: 10px; }
-  .d2s-menu-kicker { gap: 8px; font-size: 8px; letter-spacing: 0.2em; }
   .d2s-logo-mark { width: min(238px, 64vw); height: auto; margin: 12px auto 6px; }
-  .d2s-menu-title > p { font-size: 9px; letter-spacing: 0.2em; }
   .d2s-menu-content { grid-template-columns: 1fr; gap: 14px; padding: 12px 16px 16px; }
-  .d2s-menu-hero-card { min-height: 195px; grid-row: 1; }
+  .d2s-menu-hero-card { min-height: 340px; grid-row: 1; }
   .d2s-menu-content.subpanel-open { grid-template-columns: 1fr; }
   .d2s-menu-content.subpanel-open .d2s-menu-subpanel { grid-row: 1; }
   .d2s-character-select { grid-template-columns: 1fr; grid-template-rows: auto auto minmax(280px, 42vh); gap: 10px; }
@@ -1182,7 +1166,7 @@
   .d2s-menu-title { padding-top: 18px; }
   .d2s-menu-title .d2s-logo-mark { width: 168px; height: auto; margin-top: 8px; }
   .d2s-menu-content { padding-top: 10px; padding-bottom: 14px; }
-  .d2s-menu-hero-card { min-height: 220px; }
+  .d2s-menu-hero-card { min-height: 330px; }
 }
 
 :host:has(.d2s-in-run) {

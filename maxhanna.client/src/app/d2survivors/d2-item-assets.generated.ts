@@ -207,7 +207,7 @@ export const D2_ITEM_ART: Readonly<Record<string, string>> = {
   "cloudy sphere": "assets/d2survivors/items/d2/invob3.png",
   "club": "assets/d2survivors/items/d2/invclb.png",
   "codex": "assets/d2survivors/items/d2/invbbb.png",
-  "colossal jewel": "assets/d2survivors/items/d2/invgswe.png",
+  "colossal jewel": "assets/d2survivors/items/d2/invjw3.png",
   "colossal sword": "assets/d2survivors/items/d2/invflb.png",
   "colossus blade": "assets/d2survivors/items/d2/invgsd.png",
   "colossus crossbow": "assets/d2survivors/items/d2/invhxb.png",
@@ -433,7 +433,7 @@ export const D2_ITEM_ART: Readonly<Record<string, string>> = {
   "jawbone": "assets/d2survivors/items/d2/invjaw.png",
   "jawbone cap": "assets/d2survivors/items/d2/invba1.png",
   "jawbone visor": "assets/d2survivors/items/d2/invba1.png",
-  "jewel": "assets/d2survivors/items/d2/invgswe.png",
+  "jewel": "assets/d2survivors/items/d2/invjw1.png",
   "jo staff": "assets/d2survivors/items/d2/invsst.png",
   "katar": "assets/d2survivors/items/d2/invktr.png",
   "key": "assets/d2survivors/items/d2/invkey.png",
@@ -782,6 +782,21 @@ export const D2_ITEM_ART: Readonly<Record<string, string>> = {
   "zombie head": "assets/d2survivors/items/d2/invne2.png",
   "zweihander": "assets/d2survivors/items/d2/invflb.png",
 };
+
+/**
+ * The jewel cels misc.txt never references. Its jewel rows point at the
+ * Perfect Diamond gem cel (invgswe), so every jewel used to draw the gem icon;
+ * D2 ships six dedicated jewel cels and picks one at random, unrelated to the
+ * mods the jewel rolled.
+ */
+export const D2_JEWEL_ART: ReadonlyArray<string> = [
+  "assets/d2survivors/items/d2/invjw1.png",
+  "assets/d2survivors/items/d2/invjw2.png",
+  "assets/d2survivors/items/d2/invjw3.png",
+  "assets/d2survivors/items/d2/invjw4.png",
+  "assets/d2survivors/items/d2/invjw5.png",
+  "assets/d2survivors/items/d2/invjw6.png",
+];
 
 // Base item name (D2, lower case) -> flippy cel for loot on the arena floor.
 export const D2_GROUND_ITEM_ART: Readonly<Record<string, string>> = {
@@ -9182,7 +9197,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
   "baseName": "Jewel",
   "rarity": "unique",
   "slot": "charm",
-  "equipmentType": "charm",
+  "equipmentType": "jewel",
   "width": 1,
   "height": 1,
   "desc": "A unique Jewel from Diablo II.",
@@ -9197,14 +9212,14 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "+5% to Cold Skill Damage",
     "37% Chance to Cast Level 100 Blizzard when You Die"
   ],
-  "art": "assets/d2survivors/items/d2/invgswe.png"
+  "art": "assets/d2survivors/items/d2/invjw6.png",
 },
 {
   "name": "Rainbow Facet: Cold Level-up",
   "baseName": "Jewel",
   "rarity": "unique",
   "slot": "charm",
-  "equipmentType": "charm",
+  "equipmentType": "jewel",
   "width": 1,
   "height": 1,
   "desc": "A unique Jewel from Diablo II.",
@@ -9219,14 +9234,14 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "+5% to Cold Skill Damage",
     "43% Chance to Cast Level 100 Frost Nova when You Level Up"
   ],
-  "art": "assets/d2survivors/items/d2/invgswe.png"
+  "art": "assets/d2survivors/items/d2/invjw6.png",
 },
 {
   "name": "Rainbow Facet: Fire Death",
   "baseName": "Jewel",
   "rarity": "unique",
   "slot": "charm",
-  "equipmentType": "charm",
+  "equipmentType": "jewel",
   "width": 1,
   "height": 1,
   "desc": "A unique Jewel from Diablo II.",
@@ -9241,14 +9256,14 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "+5% to Fire Skill Damage",
     "31% Chance to Cast Level 100 Meteor when You Die"
   ],
-  "art": "assets/d2survivors/items/d2/invgswe.png"
+  "art": "assets/d2survivors/items/d2/invjw5.png",
 },
 {
   "name": "Rainbow Facet: Fire Level-up",
   "baseName": "Jewel",
   "rarity": "unique",
   "slot": "charm",
-  "equipmentType": "charm",
+  "equipmentType": "jewel",
   "width": 1,
   "height": 1,
   "desc": "A unique Jewel from Diablo II.",
@@ -9263,14 +9278,14 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "+5% to Fire Skill Damage",
     "29% Chance to Cast Level 100 Blaze when You Level Up"
   ],
-  "art": "assets/d2survivors/items/d2/invgswe.png"
+  "art": "assets/d2survivors/items/d2/invjw5.png",
 },
 {
   "name": "Rainbow Facet: Lightning Death",
   "baseName": "Jewel",
   "rarity": "unique",
   "slot": "charm",
-  "equipmentType": "charm",
+  "equipmentType": "jewel",
   "width": 1,
   "height": 1,
   "desc": "A unique Jewel from Diablo II.",
@@ -9285,14 +9300,14 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "+5% to Lightning Skill Damage",
     "47% Chance to Cast Level 100 Chain Lightning when You Die"
   ],
-  "art": "assets/d2survivors/items/d2/invgswe.png"
+  "art": "assets/d2survivors/items/d2/invjw2.png",
 },
 {
   "name": "Rainbow Facet: Lightning Level-up",
   "baseName": "Jewel",
   "rarity": "unique",
   "slot": "charm",
-  "equipmentType": "charm",
+  "equipmentType": "jewel",
   "width": 1,
   "height": 1,
   "desc": "A unique Jewel from Diablo II.",
@@ -9307,14 +9322,14 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "+5% to Lightning Skill Damage",
     "41% Chance to Cast Level 100 Nova when You Level Up"
   ],
-  "art": "assets/d2survivors/items/d2/invgswe.png"
+  "art": "assets/d2survivors/items/d2/invjw2.png",
 },
 {
   "name": "Rainbow Facet: Poison Death",
   "baseName": "Jewel",
   "rarity": "unique",
   "slot": "charm",
-  "equipmentType": "charm",
+  "equipmentType": "jewel",
   "width": 1,
   "height": 1,
   "desc": "A unique Jewel from Diablo II.",
@@ -9329,14 +9344,14 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "+5% to Poison Skill Damage",
     "51% Chance to Cast Level 100 Poison Nova when You Die"
   ],
-  "art": "assets/d2survivors/items/d2/invgswe.png"
+  "art": "assets/d2survivors/items/d2/invjw4.png",
 },
 {
   "name": "Rainbow Facet: Poison Level-up",
   "baseName": "Jewel",
   "rarity": "unique",
   "slot": "charm",
-  "equipmentType": "charm",
+  "equipmentType": "jewel",
   "width": 1,
   "height": 1,
   "desc": "A unique Jewel from Diablo II.",
@@ -9351,7 +9366,7 @@ export const D2_UNIQUE_ITEMS: ReadonlyArray<D2GeneratedItem> = [
     "+5% to Poison Skill Damage",
     "23% Chance to Cast Level 100 Venom when You Level Up"
   ],
-  "art": "assets/d2survivors/items/d2/invgswe.png"
+  "art": "assets/d2survivors/items/d2/invjw4.png",
 },
 {
   "name": "Rakescar",

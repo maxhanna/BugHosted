@@ -121,7 +121,10 @@ td {
 
 .selectableMenuIconTitles {
   display: flex;
-  justify-content: space-between;
+  /* The toggle leads the row so it always sits beside the app name, instead of
+     being pushed to the far right edge of a wide settings panel. */
+  justify-content: flex-start;
+  gap: 8px;
   border-bottom: 1px solid black;
   align-items: center;
   padding-left: 10px;

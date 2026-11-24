@@ -11,7 +11,9 @@ summon can stop borrowing an unrelated monster sheet:
 Two layouts are produced, matching `enemySpriteDirectionRow`:
 
 * `walk_attack` - sixteen rows: eight walk directions above eight attack rows,
-* `walk_only`   - four rows, one per direction, for the stationary spirits.
+* `walk_only`   - eight rows, one per direction, for the stationary spirits.
+  Their DCCs only ship front, left, back and right, so the four diagonals are
+  turned from the neighbouring cardinals (see `WALK_ONLY_ROWS`).
 
 Usage:
     python tools/import_d2r_summon_atlases.py
@@ -44,6 +46,29 @@ SPECIES: dict[str, tuple[str, str, int, int, int, str]] = {
     "heartOfWolverine": ("X3", "heart-of-wolverine.png", 7, 120, 120, "walk_only"),
     "spiritOfBarbs": ("X4", "spirit-of-barbs.png", 7, 120, 120, "walk_only"),
 }
+
+# Eight-row spirit layout, in the game's own direction order:
+#   0 left, 1 up-left, 2 up, 3 up-right, 4 right, 5 down-right, 6 down, 7 down-left
+# Each entry is (vertical view, side view).  The D2 spirits only ship four
+# directions (0 front, 1 left, 2 back, 3 right), so a diagonal is composed from
+# the vertical view of that direction plus the side view it leans towards: the
+# pair is squeezed horizontally, which reads as a three-quarter turn instead of
+# snapping back to the front or back row.
+WALK_ONLY_ROWS: tuple[tuple[int, int | None], ...] = (
+    (1, None),  # left
+    (2, 1),     # up-left
+    (2, None),  # up
+    (2, 3),     # up-right
+    (3, None),  # right
+    (0, 3),     # down-right
+    (0, None),  # down
+    (0, 1),     # down-left
+)
+# How far a diagonal's side view is squeezed before it joins the turn, and how
+# much of it is laid over the vertical view.  A lighter overlay keeps the orb
+# crisp; at full opacity the two views read as a double exposure.
+WALK_ONLY_TURN_SQUEEZE = 0.8
+WALK_ONLY_TURN_WEIGHT = 0.6
 
 # The Assassin sentry turret: one row of idle (`nu`) cels above one row of the
 # firing (`s1`) loop, both single-direction like the other trap art.
@@ -123,6 +148,22 @@ def fit_into(canvas: Image.Image, width: int, height: int) -> Image.Image:
     return canvas.resize(target, Image.LANCZOS if scale < 1 else Image.NEAREST)
 
 
+def turn_view(vertical: Image.Image, side: Image.Image) -> Image.Image:
+    """Compose a three-quarter view from a vertical and a side cardinal.
+
+    The side view is squeezed, faded and laid over the vertical one, so the
+    diagonal frame carries both the facing of the vertical view and the profile
+    edge of the side view.  The spirit art is soft glowing wisps, so the two
+    layers read as one turned shape rather than a double image.
+    """
+    turned = vertical.copy()
+    squeezed = side.resize((max(1, round(side.width * WALK_ONLY_TURN_SQUEEZE)), side.height),
+                           Image.LANCZOS)
+    squeezed.putalpha(squeezed.getchannel("A").point(lambda value: round(value * WALK_ONLY_TURN_WEIGHT)))
+    turned.alpha_composite(squeezed, ((turned.width - squeezed.width) // 2, 0))
+    return turned
+
+
 def build(source: Path, species: str) -> str:
     code, out_name, columns, cell_width, cell_height, mode = SPECIES[species]
     monster_dir = source / "global" / "monsters" / code
@@ -134,7 +175,7 @@ def build(source: Path, species: str) -> str:
     attack = dcc.parse(attack_path.read_bytes()) if attack_path else None
 
     directions = min(8, walk["directions"])
-    rows = 16 if mode == "walk_attack" else min(4, directions)
+    rows = 16 if mode == "walk_attack" else len(WALK_ONLY_ROWS)
     # Only the stationary druid spirits are painted on an opaque dark disk. The
     # golem/wolf/bear DCCs already carry real transparency, and keying their dark
     # body pixels punches holes through the creature.
@@ -147,9 +188,17 @@ def build(source: Path, species: str) -> str:
                                        row * cell_height + (cell_height - scaled.height) // 2))
 
     walk_frames = min(walk["frames_per_dir"], columns)
-    for direction in range(directions if rows == 16 else rows):
-        for frame in range(walk_frames):
-            paste(frame_crop(walk, direction, frame, clear_matte=clear_matte), frame, direction)
+    if mode == "walk_attack":
+        for direction in range(directions):
+            for frame in range(walk_frames):
+                paste(frame_crop(walk, direction, frame, clear_matte=clear_matte), frame, direction)
+    else:
+        for row, (vertical, side) in enumerate(WALK_ONLY_ROWS):
+            for frame in range(walk_frames):
+                image = frame_crop(walk, vertical, frame, clear_matte=True)
+                if side is not None:
+                    image = turn_view(image, frame_crop(walk, side, frame, clear_matte=True))
+                paste(image, frame, row)
 
     attack_frames = 0
     if mode == "walk_attack" and attack is not None:
