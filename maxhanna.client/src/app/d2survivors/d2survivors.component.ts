@@ -1919,47 +1919,47 @@ const ENEMY_SPRITE_PATHS: Record<EnemySpecies, string> = {
 };
 
 const ENEMY_SPRITE_LAYOUTS: Record<EnemySpecies, { columns: number; rows: number; animated: boolean }> = {
-  fallen: { columns: 13, rows: 1, animated: true }, goatman: { columns: 14, rows: 16, animated: true },
-  // 8 walk rows above 8 attack rows for the skeleton and golem atlases.
+  fallen: { columns: 13, rows: 1, animated: true }, goatman: { columns: 14, rows: 24, animated: true },
+  // The old flat skeleton rip keeps its original entry; skeletonWarrior below is
+  // the atlas the arena draws.
   skeleton: { columns: 16, rows: 16, animated: true },
-  skeletonWarrior: { columns: 16, rows: 16, animated: true },
+  skeletonWarrior: { columns: 16, rows: 24, animated: true },
   // The mage sheets stack three blocks of eight rows: the neutral idle (its
   // glowing hands breathe), the walk and the attack.
   skeletalMageCold: { columns: 16, rows: 24, animated: true }, skeletalMageFire: { columns: 16, rows: 24, animated: true },
   skeletalMageLightning: { columns: 16, rows: 24, animated: true }, skeletalMagePoison: { columns: 16, rows: 24, animated: true },
-  golem: { columns: 16, rows: 16, animated: true },
-  // 8 walk rows above 8 attack rows.
-  sandRaider: { columns: 21, rows: 16, animated: true },
+  golem: { columns: 16, rows: 24, animated: true },
+  // Every atlas below that is not the mage/fetish family stacks walk, attack and
+  // the neutral idle clip that tools/add_enemy_idle_blocks.py appends from the
+  // monster's R2 "nu" animation. Without that block a waiting monster held one
+  // walk cel, which is why standing still looked frozen.
+  sandRaider: { columns: 21, rows: 24, animated: true },
   // Four animation blocks: walk, bite, poison spit/egg-lay, burrow.
   sandMaggot: { columns: 18, rows: 32, animated: true },
-  sandMaggotYoung: { columns: 18, rows: 16, animated: true },
+  sandMaggotYoung: { columns: 18, rows: 24, animated: true },
   sandMaggotQueen: { columns: 18, rows: 32, animated: true },
   maggotEgg: { columns: 12, rows: 8, animated: true },
-  spiderDemon: { columns: 12, rows: 16, animated: true },
-  spikeFiend: { columns: 16, rows: 16, animated: true },
-  // 8 walk rows above 8 attack rows: 14 and 16 frames per direction.
-  scarab: { columns: 16, rows: 16, animated: true },
-  // 8 hop rows above 8 lunge rows: 9 and 20 frames per direction.
-  leaper: { columns: 20, rows: 16, animated: true },
-  // 8 walk rows above 8 attack rows: 8 and 16 frames per direction.
-  blunderbore: { columns: 16, rows: 16, animated: true },
-  fetish: { columns: 13, rows: 24, animated: true }, boneFetish: { columns: 13, rows: 24, animated: true },  fetishShaman: { columns: 17, rows: 16, animated: true }, council: { columns: 20, rows: 24, animated: true },
-  balrog: { columns: 16, rows: 16, animated: true },
+  spiderDemon: { columns: 12, rows: 24, animated: true },
+  spikeFiend: { columns: 16, rows: 24, animated: true },
+  // 8 walk, 8 attack and 8 idle rows: 14 and 16 frames per attackable direction.
+  scarab: { columns: 16, rows: 24, animated: true },
+  // 8 hop rows above 8 lunge rows above 8 idle rows.
+  leaper: { columns: 20, rows: 24, animated: true },
+  blunderbore: { columns: 16, rows: 24, animated: true },
+  fetish: { columns: 13, rows: 24, animated: true }, boneFetish: { columns: 13, rows: 24, animated: true },  fetishShaman: { columns: 17, rows: 24, animated: true }, council: { columns: 20, rows: 24, animated: true },
+  balrog: { columns: 16, rows: 24, animated: true },
   // Ten and seventeen-frame walk bands above matching attack bands.
-  vileChild: { columns: 10, rows: 16, animated: true }, vileMother: { columns: 17, rows: 16, animated: true },
-  bloodLord: { columns: 16, rows: 16, animated: true },
-  // 8 walk rows above 8 axe-swing rows: 8 and 16 frames per direction.
-  minotaur: { columns: 16, rows: 16, animated: true },
-  // 8 walk rows above 8 attack rows: 8 and 14 frames per direction.
-  nihlathak: { columns: 14, rows: 16, animated: true },
-  // 8 walk rows above 8 spit rows: 9 and 8 frames per direction.
-  painWorm: { columns: 9, rows: 16, animated: true },
-  // 8 walk rows above 8 attack rows: 12 and 16 frames per direction.
-  regurgitator: { columns: 16, rows: 16, animated: true },
-  // 8 walk rows above 8 attack rows: 16 and 14 frames per direction.
-  salamander: { columns: 16, rows: 16, animated: true }, siegeBeast: { columns: 18, rows: 16, animated: true },
+  vileChild: { columns: 10, rows: 24, animated: true }, vileMother: { columns: 17, rows: 24, animated: true },
+  bloodLord: { columns: 16, rows: 24, animated: true },
+  // 8 walk rows above 8 axe-swing rows above the neutral idle block.
+  minotaur: { columns: 16, rows: 24, animated: true },
+  nihlathak: { columns: 14, rows: 24, animated: true },
+  // 8 walk rows above 8 spit rows above 8 idle rows.
+  painWorm: { columns: 9, rows: 24, animated: true },
+  regurgitator: { columns: 16, rows: 24, animated: true },
+  salamander: { columns: 16, rows: 24, animated: true }, siegeBeast: { columns: 18, rows: 24, animated: true },
   deathMauler: { columns: 12, rows: 8, animated: true }, wendigo: { columns: 12, rows: 8, animated: true },
-  andariel: { columns: 12, rows: 8, animated: true }, duriel: { columns: 16, rows: 16, animated: true },
+  andariel: { columns: 12, rows: 8, animated: true }, duriel: { columns: 16, rows: 24, animated: true },
   // 8 idle rows, 8 walk rows and 8 attack rows: 13, 13 and 18 frames each.
   mephisto: { columns: 18, rows: 24, animated: true },
   diablo: { columns: 14, rows: 8, animated: true },
@@ -1968,9 +1968,9 @@ const ENEMY_SPRITE_LAYOUTS: Record<EnemySpecies, { columns: number; rows: number
   baal: { columns: 14, rows: 24, animated: true },
   // Eight walk rows above eight attack rows for the pets, one eight-way row per
   // direction for the stationary druid spirits.
-  wolf: { columns: 13, rows: 16, animated: true }, grizzly: { columns: 13, rows: 16, animated: true },
-  bloodGolem: { columns: 16, rows: 16, animated: true }, fireGolem: { columns: 17, rows: 16, animated: true },
-  ironGolem: { columns: 16, rows: 16, animated: true },
+  wolf: { columns: 13, rows: 24, animated: true }, grizzly: { columns: 13, rows: 24, animated: true },
+  bloodGolem: { columns: 16, rows: 24, animated: true }, fireGolem: { columns: 17, rows: 24, animated: true },
+  ironGolem: { columns: 16, rows: 24, animated: true },
   oakSage: { columns: 7, rows: 8, animated: true }, heartOfWolverine: { columns: 7, rows: 8, animated: true },
   spiritOfBarbs: { columns: 7, rows: 8, animated: true },
   // Sixteen rows: neutral directions above the attack band, twelve cels each.
@@ -2478,6 +2478,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private skillTooltipAnchorX = 0;
   private skillTooltipAnchorY = 0;
   private skillTooltipLayoutTimer?: number;
+  /** Measured tooltip box, invalidated whenever the panel is rebuilt. */
+  private skillTooltipSize?: { width: number; height: number };
   hoveredStatTooltip: { title: string; description: string; lines: D2StatTooltipLine[]; x: number; y: number } | null = null;
   private skillTooltipHideTimeout?: number;
   private readonly d2SurvivorsService = inject(D2SurvivorsService);
@@ -2699,6 +2701,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   actTime = 0;
   actTransitionReady = false;
   actPortalOpen = false;
+  /** The red portal's hover card: where it leads, and where to draw the card. */
+  hoveredActPortal: { title: string; lines: string[]; x: number; y: number } | null = null;
   private actPortalX = 0;
   private actPortalY = 0;
   campaignVictory = false;
@@ -4078,7 +4082,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     // The diamond only exists once the new area's layout has arrived; until then
     // keep the request so the hero still lands in the new map's middle.
-    if (!this.campaignWorldDiamond()) return;
+    if (!this.campaignWorldWalkable()) return;
     this.campaignWorldPendingCentre = false;
     this.centerPlayerOnCampaignWorld();
   }
@@ -4288,6 +4292,15 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   /** The DS1 wall footprints, in the same pixel space as the drawn world. */
+  /** Whether a decoded DS1 ground is what the player is looking at right now. */
+  private campaignWorldGroundDrawn(): boolean {
+    const entry = this.currentWorldEntry();
+    if (!entry) return false;
+    const ground = this.campaignWorlds.get(entry.slug)?.ground;
+    if (ground?.complete && ground.naturalWidth > 0) return true;
+    return !!this.heldCampaignWorld(entry)?.ground;
+  }
+
   private campaignWorldCollisionContext(): CampaignCollisionContext | null {
     const entry = this.currentWorldEntry();
     if (!entry) return null;
@@ -7729,6 +7742,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   hoveredEnemy: Enemy | null = null;
   /** Name of the gold pile, potion or item under the cursor, drawn next to the pointer. */
   hoveredGroundPickup: { text: string; x: number; y: number; radius: number; source: GoldDrop | PotionDrop | ItemDrop } | null = null;
+  /** D2's ALT: every potion, pile of gold and item on the floor shows its name. */
+  altLootLabelsHeld = false;
   openChestCount = 0;
   floatingTexts: FloatingText[] = [];
   // Hit resolution is expensive when the arena is packed. A coarse spatial grid
@@ -8923,12 +8938,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (event.pointerType === "mouse" && this.activeTab === "run" && this.runActive) {
       this.updateHoveredEnemy(event);
       this.updateHoveredGroundPickup(event);
+      this.updateHoveredActPortal(event);
     }
   }
 
   onArenaPointerLeave(): void {
     this.hoveredEnemy = null;
     this.hoveredGroundPickup = null;
+    this.hoveredActPortal = null;
   }
 
   private updateHoveredEnemy(event: PointerEvent): void {
@@ -9012,6 +9029,107 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const x = Math.min(Math.max(halfLabel, event.clientX - wrapRect.left + 16), Math.max(halfLabel, wrapRect.width - halfLabel));
     const y = Math.min(Math.max(24, event.clientY - wrapRect.top + 20), Math.max(24, wrapRect.height - 30));
     this.hoveredGroundPickup = { text: closest.text, x, y, radius: closest.radius, source: closest.source };
+  }
+
+  /**
+   * The red portal is a battlefield actor, so its tooltip is driven by the
+   * pointer like a monster's: the sprite's own drawn frame is the hit area (it
+   * is laid down from the exported cel's ground anchor, which is the same box
+   * drawActPortal() uses), and hovering it names the act it opens.
+   */
+  private updateHoveredActPortal(event: PointerEvent): void {
+    const canvas = this.arenaRef?.nativeElement;
+    const rect = canvas?.getBoundingClientRect();
+    if (!this.actPortalOpen || !canvas || !rect || rect.width <= 0 || rect.height <= 0) {
+      this.hoveredActPortal = null;
+      return;
+    }
+    const pointerX = (event.clientX - rect.left) * canvas.width / rect.width;
+    const pointerY = (event.clientY - rect.top) * canvas.height / rect.height;
+    const ground = this.projectArenaPoint(this.actPortalX, this.actPortalY);
+    const scale = this.worldZoom * this.projectionDpr * PORTAL_ART_WORLD_SCALE;
+    const left = ground.x - D2_PORTAL_ART.anchorX * scale;
+    const top = ground.y - D2_PORTAL_ART.anchorY * scale;
+    const width = D2_PORTAL_ART.frameWidth * scale;
+    const height = D2_PORTAL_ART.frameHeight * scale;
+    if (pointerX < left || pointerX > left + width || pointerY < top || pointerY > top + height) {
+      this.hoveredActPortal = null;
+      return;
+    }
+    // Placed just under the pointer and clamped so the card cannot hang off the
+    // arena, the way the ground-pickup label is.
+    const wrapRect = (canvas.parentElement ?? canvas).getBoundingClientRect();
+    const halfWidth = 110;
+    const x = Math.min(Math.max(halfWidth, event.clientX - rect.left + 18), Math.max(halfWidth, wrapRect.width - halfWidth));
+    const y = Math.min(Math.max(30, event.clientY - rect.top + 22), Math.max(30, wrapRect.height - 46));
+    this.hoveredActPortal = {
+      title: "Red Portal",
+      lines: [
+        `Enter to ${this.actPortalLead}.`,
+        "Walk into the portal to continue.",
+      ],
+      x,
+      y,
+    };
+  }
+
+  /**
+   * Every potion, pile of gold and item lying on the floor, named where it lies.
+   * Holding ALT shows this list instead of only the drop under the cursor, which
+   * is how Diablo II lets a player read the floor without sweeping the mouse
+   * over each piece.
+   */
+  get altLootLabels(): Array<{ text: string; x: number; y: number }> {
+    // Floor names belong to normal play: a menu or the level-up choice owns the
+    // screen, the same way the single hover label is dropped when one opens.
+    if (this.menuOwnsScreen) return [];
+    if (!this.altLootLabelsHeld || !this.runActive || this.activeTab !== "run") return [];
+    const canvas = this.arenaRef?.nativeElement;
+    const rect = canvas?.getBoundingClientRect();
+    if (!canvas || !rect || rect.width <= 0 || rect.height <= 0) return [];
+    // Canvas pixels to the CSS pixels the labels are positioned in.
+    const scaleX = rect.width / canvas.width;
+    const scaleY = rect.height / canvas.height;
+    const labels: Array<{ text: string; x: number; y: number }> = [];
+    const add = (x: number, y: number, artHeight: number, text: string): void => {
+      const point = this.projectArenaPoint(x, y);
+      // Name only the floor that is actually in view; the arena clips the rest.
+      if (point.x < 0 || point.y < 0 || point.x > canvas.width || point.y > canvas.height) return;
+      // The label is centred by the stylesheet, so its anchor is the drop's
+      // ground point lifted clear of its art.
+      labels.push({
+        text,
+        x: point.x * scaleX,
+        y: Math.max(12, point.y * scaleY - artHeight * this.worldZoom * scaleY - 4),
+      });
+    };
+    for (const drop of this.potionDrops) {
+      if (drop.collected) continue;
+      const size = drop.kind === "health" ? D2_LOOT_ART_SIZE.healthPotion : D2_LOOT_ART_SIZE.rejuvenationPotion;
+      add(drop.x, drop.y, size.height, drop.kind === "health" ? "Health Potion" : "Rejuvenation Potion");
+    }
+    for (const drop of this.goldDrops) {
+      add(drop.x, drop.y, D2_LOOT_ART_SIZE.gold.height, `${drop.amount.toLocaleString()} Gold`);
+    }
+    for (const drop of this.itemDrops) {
+      const image = this.itemDropImage(drop.item);
+      add(drop.x, drop.y, image.naturalHeight || 14, drop.item.name);
+    }
+    return labels;
+  }
+
+  /**
+   * Where the open red portal leads, worded once so the HUD hint and the portal's
+   * own tooltip always name the same act. The campaign's last act ends the run.
+   */
+  get actPortalLead(): string {
+    const nextAct = CAMPAIGN_ACTS[this.currentAct];
+    return nextAct ? `journey to Act ${this.currentAct + 1} — ${nextAct.name}` : "finish the campaign";
+  }
+
+  /** Esc, the inventory, the skill tree or the level-up choice, over the arena. */
+  private get menuOwnsScreen(): boolean {
+    return this.escapeMenuOpen || this.inventoryOpen || this.skillTreeOpen || this.pendingLevelUps > 0;
   }
 
   /** Whether a ground drop is still present in one of the arena loot lists. */
@@ -9465,11 +9583,15 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private releaseMovementKey(event: KeyboardEvent): void {
     const key = event.key?.toLowerCase();
     if (key) this.keysDown.delete(key);
+    if (key === "alt") this.altLootLabelsHeld = false;
   }
 
   @HostListener("window:blur")
   onWindowBlur(): void {
     this.keysDown.clear();
+    // A window switch swallows the ALT keyup, which would strand every floor
+    // label on screen.
+    this.altLootLabelsHeld = false;
     this.joystickPointerId = null;
     this.virtualJoystickVisible = false;
     this.joystickKnobX = 0;
@@ -9519,6 +9641,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       return;
     }
     if (isEditable) return;
+    if (key === "alt") {
+      // ALT is Diablo II's "show everything on the ground" key. Claim it so the
+      // browser's own menu bar does not take it while the arena has focus.
+      event.preventDefault();
+      this.altLootLabelsHeld = true;
+      return;
+    }
     if (["1", "2", "3", "4"].includes(key)) {
       if (!this.escapeMenuOpen && !this.inventoryOpen && !this.skillTreeOpen) {
         event.preventDefault();
@@ -9585,7 +9714,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.lobbyRefreshTimer = window.setInterval(() => void this.refreshLobbyHistory(), 5000);
   }
 
-  @HostListener("document:pointermove", ["$event"])
+  /**
+   * The custom cursor tracks the pointer from the capture phase: panels such as
+   * the skill sockets own their own hover handlers, and the pointer must keep
+   * drawing over them instead of freezing at the last spot outside the panel.
+   */
+  private d2CursorPointerMoveHandler?: (event: PointerEvent) => void;
+
   trackD2Cursor(event: PointerEvent): void {
     if (!this.d2CursorEnabled || event.pointerType === "touch") return;
     const cursor = this.d2CursorRef?.nativeElement;
@@ -9948,6 +10083,23 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   showSkillTooltip(event: MouseEvent, skill: D2SkillDefinition & { state: "learned" | "available" | "locked"; reason: string }, sectionName?: string): void {
     this.cancelSkillTooltipHide();
+    const art = this.skillTreeSectionArt(sectionName);
+    const shown = this.hoveredSkillTooltip;
+    const rebuilt = !shown || shown.name !== skill.name || shown.art !== art;
+    if (rebuilt) this.buildSkillTooltip(skill, art);
+    this.skillTooltipAnchorX = Math.max(12, Math.min(event.clientX, window.innerWidth - 12));
+    this.skillTooltipAnchorY = Math.max(12, Math.min(event.clientY, window.innerHeight - 12));
+    // Only a different skill rebuilds the model; the same socket just moves the
+    // panel, which reuses the size measured once, so pointer moves stay cheap.
+    this.positionSkillTooltipAt(this.skillTooltipAnchorX, this.skillTooltipAnchorY);
+    if (rebuilt) this.scheduleSkillTooltipLayout();
+  }
+
+  private buildSkillTooltip(
+    skill: D2SkillDefinition & { state: "learned" | "available" | "locked"; reason: string },
+    art: string,
+  ): void {
+    this.skillTooltipSize = undefined;
     const rank = this.getSkillLevel(skill.name);
     const canRankUp = skill.state !== "locked" && rank < 20 && skill.level <= this.playerLevel;
     const nextRank = canRankUp ? Math.max(1, rank + 1) : rank;
@@ -9974,15 +10126,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         : rank >= 20 ? "Maximum rank reached"
         : `Rank ${nextRank}/20`,
       prerequisites: [...skill.prerequisites],
-      art: this.skillTreeSectionArt(sectionName),
+      art,
       icon: this.skillIconPath(skill.name),
       x: 0,
       y: 0,
     };
-    this.skillTooltipAnchorX = Math.max(12, Math.min(event.clientX, window.innerWidth - 12));
-    this.skillTooltipAnchorY = Math.max(12, Math.min(event.clientY, window.innerHeight - 12));
-    this.positionSkillTooltipAt(this.skillTooltipAnchorX, this.skillTooltipAnchorY);
-    this.scheduleSkillTooltipLayout();
   }
 
   /**
@@ -9999,11 +10147,16 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const margin = 12;
     const horizontalGap = 24;
     const verticalGap = 14;
-    const rect = this.skillTooltipRef?.nativeElement.getBoundingClientRect();
+    // Measuring forces a layout, so it happens once per tooltip instead of on
+    // every pointer move the custom cursor makes over a socket.
+    if (!this.skillTooltipSize) {
+      const rect = this.skillTooltipRef?.nativeElement.getBoundingClientRect();
+      this.skillTooltipSize = { width: rect?.width || 280, height: rect?.height || 330 };
+    }
     const maxWidth = Math.max(1, viewportWidth - margin * 2);
     const maxHeight = Math.max(1, viewportHeight - margin * 2);
-    const width = Math.min(rect?.width || 280, maxWidth);
-    const height = Math.min(rect?.height || 330, maxHeight);
+    const width = Math.min(this.skillTooltipSize.width, maxWidth);
+    const height = Math.min(this.skillTooltipSize.height, maxHeight);
     const x = Math.max(margin, Math.min(anchorX, viewportWidth - margin));
     const y = Math.max(margin, Math.min(anchorY, viewportHeight - margin));
 
@@ -10039,6 +10192,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     // this skill's actual height instead of the fallback estimate.
     this.skillTooltipLayoutTimer = window.setTimeout(() => {
       this.skillTooltipLayoutTimer = undefined;
+      this.skillTooltipSize = undefined;
       this.positionSkillTooltipAt(this.skillTooltipAnchorX, this.skillTooltipAnchorY);
     }, 0);
   }
@@ -10059,6 +10213,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   hideSkillTooltip(): void {
     this.cancelSkillTooltipHide();
     this.cancelSkillTooltipLayout();
+    this.skillTooltipSize = undefined;
     this.hoveredSkillTooltip = null;
   }
 
@@ -11326,7 +11481,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       if (!canSummon) return;
       this.summonCompanion(skill);
       this.addSkillVisualEffect(skill);
-      this.triggerAttackAnimation(this.selectedClass === "necromancer" ? "necromancerCast" : "cast");
+      // The raise glow is drawn on the new servant (summonCompanion), not as a
+      // cast impact flashing in front of the caster.
+      this.triggerAttackAnimation(this.selectedClass === "necromancer" ? "necromancerCast" : "cast", true);
       return;
     }
     if (skill === "Find Potion") return;
@@ -11835,6 +11992,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.arenaResizeObserver.observe(arenaWrap);
     }
     if (this.activeTab === "menu" && this.menuPanel !== "characters") this.startMenuHeroPreview();
+    this.d2CursorPointerMoveHandler = (event: PointerEvent) => this.trackD2Cursor(event);
+    document.addEventListener("pointermove", this.d2CursorPointerMoveHandler, { capture: true, passive: true });
   }
 
   /** Progress of the background asset warm-up shown by the bottom indicator. */
@@ -12598,6 +12757,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   ngOnDestroy(): void {
+    if (this.d2CursorPointerMoveHandler) {
+      document.removeEventListener("pointermove", this.d2CursorPointerMoveHandler, true);
+      this.d2CursorPointerMoveHandler = undefined;
+    }
     window.removeEventListener("pointerdown", this.unlockMenuAudio);
     window.removeEventListener("keydown", this.unlockMenuAudio);
     window.removeEventListener("focus", this.unlockMenuAudio);
@@ -12700,7 +12863,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.audioContext = undefined;
   }
 
-  private triggerAttackAnimation(style?: AttackAnimationStyle): void {
+  private triggerAttackAnimation(style?: AttackAnimationStyle, suppressTrail = false): void {
     const classDefault = style ?? CLASS_ATTACK_ANIMATION[this.selectedClass] ?? "amazonJab";
     const isExplicitSkillAnimation = style !== undefined
       && (style === "chestKick" || style === "spin" || style === "assassinKick" || style === "leap" || style === "cast" || style === "necromancerCast" || style === "sorceressCast" || style === "weaponThrow" || style === "amazonJab");
@@ -12714,7 +12877,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.attackAnimationFacing.set(this.playerFacingX, this.playerFacingY).normalize();
     this.attackAnimationTurn = 0;
     const clip = ATTACK_CLIP_INFO[attackStyle];
-    if (clip.trail) {
+    // A summon hands its cast flourish to the servant it raises, so the hero
+    // himself shows only the gesture.
+    if (clip.trail && !suppressTrail) {
       this.meleeTrailEffects.push({
         style: attackStyle,
         facingX: this.attackAnimationFacing.x,
@@ -13697,6 +13862,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       return;
     }
     if (distance <= target.r + 28) {
+      if (this.boneWallStopsMeleeSwing(target.x, target.y, meleeDamage)) return;
       if (this.druidForm) this.druidFormAttackTime = this.druidForm === "werebear" ? 0.56 : 0.38;
       this.dealMeleeDamage(target, meleeDamage);
       this.triggerAttackAnimation();
@@ -13814,6 +13980,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.playerFacingX = (target.x - this.playerX) / Math.max(1, distance);
       this.playerFacingY = (target.y - this.playerY) / Math.max(1, distance);
       if (distance <= target.r + 28) {
+        if (this.boneWallStopsMeleeSwing(target.x, target.y, meleeDamage)) return;
         this.dealMeleeDamage(target, meleeDamage);
         landedMeleeAttack = true;
         this.floatingTexts.push({ x: target.x, y: target.y - target.r - 8, text: this.floatingDamageText(meleeDamage), color: attack.color, life: 0.65 });
@@ -13905,6 +14072,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       if (enemy.hp <= 0 || enemy.summonType) continue;
       if (Math.hypot(enemy.x - this.playerX, enemy.y - this.playerY) > enemy.r + BASIC_ATTACK_MELEE_REACH) continue;
       const damage = meleeDamage * this.enemyTypeDamageMultiplier(enemy);
+      if (this.boneWallStopsMeleeSwing(enemy.x, enemy.y, damage)) return;
       this.dealMeleeDamage(enemy, damage);
       this.floatingTexts.push({ x: enemy.x, y: enemy.y - enemy.r - 8, text: this.floatingDamageText(damage), color: attack.color, life: 0.65 });
       landed = true;
@@ -14787,6 +14955,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       wallHalfLength: 68 + rank * 5,
       wallHealth: 120 + rank * 35,
       wallMaxHealth: 120 + rank * 35,
+      wallOwner: "player",
       shotCooldown: 0,
     });
     this.boneWallQueryStep = -1;
@@ -14819,6 +14988,31 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     return !!this.boneWallBlockingMove(
       this.playerX, this.playerY, this.playerX + dx, this.playerY + dy, 12,
     );
+  }
+
+  /**
+   * Resolves the bone wall standing between the hero and a melee target. His own
+   * barricade is never a target, so the swing is simply not thrown; a hostile
+   * wall in the way takes the blow instead of the body behind it. Returns true
+   * when the caller must not damage the monster it was aiming at.
+   */
+  private boneWallStopsMeleeSwing(targetX: number, targetY: number, damage: number): boolean {
+    const wall = this.boneWallBlockingMove(this.playerX, this.playerY, targetX, targetY, 12);
+    if (!wall) return false;
+    if (wall.wallOwner === "player") {
+      // Swinging into his own wall would only tear down his own barricade.
+      this.attackCooldown = Math.min(0.12, this.basicAttackCooldown);
+      return true;
+    }
+    this.damageBoneWall(
+      wall,
+      damage,
+      this.playerX + (targetX - this.playerX) * 0.5,
+      this.playerY + (targetY - this.playerY) * 0.5,
+    );
+    this.triggerAttackAnimation();
+    this.attackCooldown = Math.max(this.playerAttackLockRemaining, this.paladinAuraAttackCooldown());
+    return true;
   }
 
   private boneWallBlockingMove(startX: number, startY: number, endX: number, endY: number, radius: number): AttackProjectile | undefined {
@@ -15502,6 +15696,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private campaignCollisionContext(): CampaignCollisionContext | null {
     const worldContext = this.campaignWorldCollisionContext();
     if (worldContext) return worldContext;
+    // A DS1 field is only ever walled by its own exported mask.  The painted
+    // act mask belongs to the hand-drawn backdrop, and applying it to a field
+    // fences the hero inside a courtyard drawn nowhere on screen - an invisible
+    // wall in the middle of the map.  Until the field's own mask decodes the
+    // map simply has no walls, which beats walls on open ground.
+    if (this.campaignWorldGroundDrawn()) return null;
     const maskAct = this.currentAct === 7 ? 1 : this.currentAct;
     if (maskAct !== 1 && maskAct !== 2 && maskAct !== 3 && maskAct !== 4
       && maskAct !== 5 && maskAct !== 8) return null;
@@ -16004,44 +16204,62 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   /** Move the camera/world by a world-space delta, wrapping the campaign chunk. */
-  /**
-   * The current area's walkable world, in absolute world coordinates.  Every
-   * DS1 map is drawn around the centre of chunk (0, 0), so the diamond's offset
-   * inside its exported image is all that separates image space from world space
-   * (one 160-pixel DS1 tile is one 60-unit gameplay tile).
-   */
-  private campaignWorldDiamond(): CampaignWorldDiamond | null {
+  /** The walkable diamond of the current area's exported map, in image pixels. */
+  private campaignWorldWalkable(): CampaignWorldDiamond | null {
     const entry = this.currentWorldEntry();
     if (!entry) return null;
-    const walkable = this.campaignWorlds.get(entry.slug)?.layout?.walkable;
-    if (!walkable) return null;
-    const centre = this.campaignImagePointToWorld(walkable.x, walkable.y);
-    if (!centre) return null;
-    const imageToWorld = CAMPAIGN_TILE_WORLD_SIZE / CAMPAIGN_WORLD_TILE_WIDTH;
-    return {
-      x: centre.x,
-      y: centre.y,
-      halfWidth: walkable.halfWidth * imageToWorld,
-      halfHeight: walkable.halfHeight * imageToWorld,
-    };
+    return this.campaignWorlds.get(entry.slug)?.layout?.walkable ?? null;
   }
 
-  /** A pixel of the area's exported map, as an absolute world point. */
+  /** The absolute world point the drawn map is centred on. */
+  private campaignWorldCentre(): { x: number; y: number } | null {
+    const walkable = this.campaignWorldWalkable();
+    return walkable ? this.campaignImagePointToWorld(walkable.x, walkable.y) : null;
+  }
+
+  /**
+   * A pixel of the area's exported map, as an absolute world point.
+   *
+   * The exported art is the isometric view of the level, so its axes are the
+   * world's diagonals: one step right in the image is one step right-and-up on
+   * the floor.  Reading imageX as worldX put every area's spawn on a rotated
+   * point several tiles from the floor the exporter chose, which could drop the
+   * hero inside a wall or in a room with no way out.
+   */
   private campaignImagePointToWorld(imageX: number, imageY: number): { x: number; y: number } | null {
     const entry = this.currentWorldEntry();
     if (!entry) return null;
     const imageToWorld = CAMPAIGN_TILE_WORLD_SIZE / CAMPAIGN_WORLD_TILE_WIDTH;
+    const offsetX = imageX - entry.imageWidth / 2;
+    const offsetY = imageY - entry.imageHeight / 2;
     return {
       x: this.chunkTileColumns * CAMPAIGN_TILE_WORLD_SIZE / 2
-        + (imageX - entry.imageWidth / 2) * imageToWorld,
+        + (offsetX + 2 * offsetY) * imageToWorld,
       y: this.chunkTileRows * CAMPAIGN_TILE_WORLD_SIZE / 2
-        + (imageY - entry.imageHeight / 2) * imageToWorld,
+        + (2 * offsetY - offsetX) * imageToWorld,
     };
   }
 
-  private outsideCampaignWorld(diamond: CampaignWorldDiamond, worldX: number, worldY: number): boolean {
-    return Math.abs(worldX - diamond.x) / Math.max(1, diamond.halfWidth)
-      + Math.abs(worldY - diamond.y) / Math.max(1, diamond.halfHeight) > 1;
+  /** The exported map pixel a world point falls on; the inverse of the above. */
+  private campaignWorldPointToImage(worldX: number, worldY: number): { x: number; y: number } | null {
+    const entry = this.currentWorldEntry();
+    if (!entry) return null;
+    const imageToWorld = CAMPAIGN_TILE_WORLD_SIZE / CAMPAIGN_WORLD_TILE_WIDTH;
+    const offsetX = worldX - this.chunkTileColumns * CAMPAIGN_TILE_WORLD_SIZE / 2;
+    const offsetY = worldY - this.chunkTileRows * CAMPAIGN_TILE_WORLD_SIZE / 2;
+    return {
+      x: entry.imageWidth / 2 + (offsetX - offsetY) / (2 * imageToWorld),
+      y: entry.imageHeight / 2 + (offsetX + offsetY) / (4 * imageToWorld),
+    };
+  }
+
+  /** True when a world point is off the area's exported tiles. */
+  private outsideCampaignWorld(worldX: number, worldY: number): boolean {
+    const image = this.campaignWorldPointToImage(worldX, worldY);
+    const walkable = this.campaignWorldWalkable();
+    if (!image || !walkable) return false;
+    return Math.abs(image.x - walkable.x) / Math.max(1, walkable.halfWidth)
+      + Math.abs(image.y - walkable.y) / Math.max(1, walkable.halfHeight) > 1;
   }
 
   /** Absolute world position of the hero, as the chunk coordinate plus its local offset. */
@@ -16080,18 +16298,20 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const spawn = entry ? this.campaignWorlds.get(entry.slug)?.layout?.spawn : undefined;
     const target = spawn
       ? this.campaignImagePointToWorld(spawn.x, spawn.y)
-      : this.campaignWorldDiamond();
+      : this.campaignWorldCentre();
     if (!target) return;
     this.movePlayerToWorld(target.x, target.y);
   }
 
   /** Saved runs from before the maps were fenced could sit outside the tiles. */
   private ensurePlayerInsideCampaignWorld(): void {
-    const diamond = this.campaignWorldDiamond();
-    if (!diamond) return;
+    if (!this.campaignWorldWalkable()) return;
     const current = this.playerWorldPosition();
-    if (this.outsideCampaignWorld(diamond, current.x, current.y)) {
-      this.movePlayerToWorld(diamond.x, diamond.y);
+    if (this.outsideCampaignWorld(current.x, current.y)) {
+      // The middle of the exported image is not necessarily floor - the
+      // catacombs wall it off - so use the exporter's own spawn cell.
+      this.centerPlayerOnCampaignWorld();
+      this.settlePlayerOutOfScenery();
       return;
     }
     this.settlePlayerOutOfScenery();
@@ -16123,13 +16343,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (!dx && !dy) return;
     const chunkWidth = this.chunkTileColumns * CAMPAIGN_TILE_WORLD_SIZE;
     const chunkHeight = this.chunkTileRows * CAMPAIGN_TILE_WORLD_SIZE;
-    const diamond = this.campaignWorldDiamond();
-    if (diamond) {
+    if (this.campaignWorldWalkable()) {
       // Charge, Leap and knockback bypass the wall tests, so they also have to
       // be kept from carrying the hero off the area's tiles.
       const current = this.playerWorldPosition();
-      if (!this.outsideCampaignWorld(diamond, current.x, current.y)
-        && this.outsideCampaignWorld(diamond, current.x + dx, current.y + dy)) {
+      if (!this.outsideCampaignWorld(current.x, current.y)
+        && this.outsideCampaignWorld(current.x + dx, current.y + dy)) {
         return;
       }
     }
@@ -16763,6 +16982,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     // New servants are born at their full effective pool, including the
     // Oak Sage's bonus when it was already active at summon time.
     companion.hp = this.effectiveSummonMaxHp(companion);
+    // The raise overlay plays over the body coming up out of the ground, which
+    // is where Diablo II puts it, instead of washing the necromancer in it.
+    if (companion.summonType === "skeleton") this.addSummonRiseEffect(skill, position.x, position.y);
     this.floatingTexts.push({ x: position.x, y: position.y - 18, text: skill.toUpperCase(), color: "#d7c5aa", life: 1.2 });
   }
 
@@ -20501,6 +20723,35 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
   }
 
+  /**
+   * The summon cast overlay (`missiles/85`, the swirling blue ring) belongs on
+   * the servant being raised, not on the necromancer who cast the spell.
+   */
+  private addSummonRiseEffect(skill: string, x: number, y: number): void {
+    if (!this.missileOverlayId(skill)) return;
+    this.skillVisualEffects.push({
+      name: skill,
+      kind: "summon",
+      summonRise: true,
+      // Pinned to the servant's ground point, so it does not follow the hero.
+      stationary: true,
+      x,
+      y,
+      targetX: x,
+      targetY: y,
+      facingX: this.playerFacingX,
+      facingY: this.playerFacingY,
+      time: 0,
+      duration: 0.75,
+      color: this.skillVisualColorForName(skill, "summon"),
+      seed: hashString(skill) % 628,
+    });
+    if (this.skillVisualEffects.length > 24) this.skillVisualEffects.splice(0, this.skillVisualEffects.length - 24);
+    if (this.activeTab === "run" && !this.rafId) {
+      this.rafId = requestAnimationFrame((time) => this.loop(time));
+    }
+  }
+
   private addSkillVisualEffect(skillName: string, target?: Enemy): void {
     // Passives have no cast animation at all.
     if (isPassiveSkill(skillName)) return;
@@ -23076,6 +23327,23 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     // authored overlay for them in the D2R extraction, so show nothing rather
     // than an invented circle around the hero.
     if (effect.teleport || effect.impact) return;
+    if (effect.summonRise) {
+      // The imported D2 summon overlay, drawn over the raised servant's feet.
+      const dpr = this.projectionDpr || 1;
+      this.drawImportedMissileFrame(
+        ctx,
+        this.missileOverlayId(effect.name) ?? "",
+        effect.time,
+        origin.x,
+        origin.y - 4 * dpr,
+        74 * dpr * (0.7 + progress * 0.5),
+        0,
+        fade,
+        "center",
+        "lighter",
+      );
+      return;
+    }
     if (effect.curseField) {
       this.drawNecromancerCurseField(ctx, effect, this.projectArenaPoint(effect.x, effect.y));
       return;
@@ -24801,13 +25069,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     // zoomed out under the player.
     const tileDrawWidth = tileWidth * (this.projectionDpr || 1);
     const tileDrawHeight = tileHeight * (this.projectionDpr || 1);
-    // The Act I moor is the open-air baseline; its underlay is the colour of
-    // the dirt tiles, so any sub-pixel seam reads as ground instead of a black
-    // line.  Elsewhere the dark map background is intentional.
-    if (area.floorTiles === A1_TILES) {
-      ctx.fillStyle = "#2b2419";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-    }
     const tiles = this.areaTileBitmaps(area);
     const terrain = this.campaignTerrainForArea(area, tiles);
     const baseTile = tiles[Math.max(0, Math.min(15, area.baseFloorVariant))];
@@ -24830,6 +25091,15 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const heldWorld = !worldGround && worldEntry ? this.heldCampaignWorld(worldEntry) : undefined;
     const groundImage = worldGround ?? heldWorld?.ground;
     const hasWorldGround = !!groundImage;
+    // The Act I moor is the open-air baseline; its underlay is the colour of
+    // the dirt tiles, so any sub-pixel seam reads as ground instead of a black
+    // line.  Only the painted-tile path needs it: a DS1 map draws its own
+    // ground, and dirt painted behind its rim made the edge of the map look
+    // like walkable floor the hero could never cross.
+    if (area.floorTiles === A1_TILES && !hasWorldGround) {
+      ctx.fillStyle = "#2b2419";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
     if (groundImage) {
       this.drawCampaignWorldGround(ctx, groundImage, tileWidth, worldGround ? worldEntry?.slug : heldWorld?.slug);
     }
@@ -25718,7 +25988,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const headHeight = headScale * (8.39 / 3182);
       const helmetWidth = helmetSize.x * baseScale * headScale;
       const helmetHeight = helmetSize.y * baseScale * headScale;
-      const fit = visual.hair !== "none" && helmetWidth > headWidth && helmetHeight > headHeight
+      // Crested pieces report the horns in their bounds, so the envelope clamp
+      // only applies to the pieces it was measured against.
+      const fit = visual.hair !== "none" && !visual.noFit && helmetWidth > headWidth && helmetHeight > headHeight
         ? Math.min((headWidth * 1.06) / helmetWidth, (headHeight * 1.2) / helmetHeight)
         : 1;
       group.scale.setScalar(baseScale * fit);
@@ -27112,6 +27384,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const frameIndex = sprite
       ? look || summon.summonType === "hydra" || summon.species === "skeletonWarrior" || summon.species === "goatman"
         || summon.summonSkill === "Skeletal Mage" || ENEMY_WALK_ONLY_FRAMES[summon.species] !== undefined
+        // The golem sheets carry an appended idle block too, so their stand-still
+        // cels have to come from the same frame maths the enemies use.
+        || ENEMY_IDLE_TAIL_SPECIES.has(summon.species)
         ? enemySpriteFrame(summon, sprite.columns, this.runTime)
         : summon.animationState === "attack"
           ? Math.min(sprite.columns - 1, Math.floor(attackProgress * sprite.columns))
@@ -28730,11 +29005,39 @@ const ENEMY_WALK_ONLY_FRAMES: Partial<Record<EnemySpecies, number>> = {
 };
 const ENEMY_WALK_ONLY_RATE = 11;
 
+/**
+ * Species whose atlas carries a real neutral clip in its third block: walk in
+ * rows 0-7, attack in rows 8-15 and the `nu` idle animation in rows 16-23.
+ * tools/add_enemy_idle_blocks.py appends that block, and the value here is how
+ * many frames of it hold art. Standing still plays it, so a monster waiting for
+ * its next order breathes instead of freezing on a single walk cel.
+ */
+const ENEMY_IDLE_TAIL_FRAMES: Partial<Record<EnemySpecies, number>> = {
+  goatman: 10, skeletonWarrior: 8, golem: 4, sandRaider: 15, sandMaggotYoung: 8,
+  spiderDemon: 12, spikeFiend: 8, scarab: 8, leaper: 11, blunderbore: 8,
+  fetishShaman: 12, balrog: 8, bloodLord: 8, minotaur: 8, nihlathak: 8,
+  painWorm: 5, regurgitator: 9, salamander: 8, siegeBeast: 10, vileChild: 4,
+  vileMother: 13,
+  // Druid pets, the three golems and Duriel: their `nu` clips, appended by
+  // tools/add_enemy_idle_blocks.py below the walk and attack bands.
+  wolf: 13, grizzly: 12, bloodGolem: 4, fireGolem: 8, ironGolem: 4, duriel: 12,
+};
+/** The same species as a set, for the row maths that must agree with the block. */
+const ENEMY_IDLE_TAIL_SPECIES = new Set<EnemySpecies>(Object.keys(ENEMY_IDLE_TAIL_FRAMES) as EnemySpecies[]);
+/** Frames per second of a neutral idle loop; D2's `nu` clips are slow breaths. */
+const ENEMY_IDLE_RATE = 6;
+
 function enemySpriteFrame(enemy: Enemy, columns: number, runTime: number): number {
   if (columns <= 1) return 0;
   if ((enemy.freezeRemaining ?? 0) > 0) return 0;
   const state = enemy.animationState ?? "idle";
   const phaseOffset = Math.abs(Math.floor(enemy.x * 0.09 + enemy.y * 0.05)) % columns;
+  const idleTailFrames = ENEMY_IDLE_TAIL_FRAMES[enemy.species] ?? 0;
+  if (state === "idle" && idleTailFrames > 0) {
+    // The appended neutral block is the only idle art these sheets have, so it
+    // has to win over every species branch below that would hold frame 0.
+    return Math.floor(runTime * ENEMY_IDLE_RATE + phaseOffset) % idleTailFrames;
+  }
   if (enemy.species === "sandMaggot" || enemy.species === "sandMaggotQueen") {
     // Four stacked clips in maggot.png: walk (8), bite (18), poison spit/egg
     // lay (10), burrow (12). A missing block means idle or the bite band.
@@ -28778,8 +29081,6 @@ function enemySpriteFrame(enemy: Enemy, columns: number, runTime: number): numbe
       return Math.min(columns - 1, Math.floor(progress * columns));
     }
     if (state === "move") return Math.floor(runTime * 11 + phaseOffset) % walkFrames;
-    // Standing still: hold the neutral pose the walk band starts from.
-    return 0;
   }
   if (enemy.species === "sandRaider") {
     // Rows 0-7 walk/scuttle, rows 8-15 the strike. Both bands were imported at
@@ -28792,7 +29093,6 @@ function enemySpriteFrame(enemy: Enemy, columns: number, runTime: number): numbe
       return Math.min(attackFrames - 1, Math.floor(progress * attackFrames));
     }
     if (state === "move") return Math.floor(runTime * 24 + phaseOffset) % walkFrames;
-    return 0;
   }
   if (enemy.species === "sandMaggotYoung") {
     // Rows 0-7 hold SB's eight-frame crawl, rows 8-15 the eighteen-frame bite.
@@ -28802,7 +29102,6 @@ function enemySpriteFrame(enemy: Enemy, columns: number, runTime: number): numbe
       return Math.min(17, Math.floor(progress * 18));
     }
     if (state === "move") return Math.floor(runTime * 14 + phaseOffset) % 8;
-    return 0;
   }
   if (enemy.species === "salamander") {
     // Rows 0-7 are the sixteen-frame crawl, rows 8-15 the fourteen-frame rear-up.
@@ -28812,7 +29111,6 @@ function enemySpriteFrame(enemy: Enemy, columns: number, runTime: number): numbe
       return Math.min(13, Math.floor(progress * 14));
     }
     if (state === "move") return Math.floor(runTime * 8 + phaseOffset) % 16;
-    return 0;
   }
   if (enemy.species === "regurgitator") {
     // Rows 0-7 are the ten-frame sway, rows 8-15 the ten-frame lunge.
@@ -28822,7 +29120,6 @@ function enemySpriteFrame(enemy: Enemy, columns: number, runTime: number): numbe
       return Math.min(9, Math.floor(progress * 10));
     }
     if (state === "move") return Math.floor(runTime * 8 + phaseOffset) % 10;
-    return 0;
   }
   if (enemy.species === "painWorm") {
     // Rows 0-7 are the nine-frame crawl, rows 8-15 the eight-frame spit.
@@ -28832,7 +29129,6 @@ function enemySpriteFrame(enemy: Enemy, columns: number, runTime: number): numbe
       return Math.min(7, Math.floor(progress * 8));
     }
     if (state === "move") return Math.floor(runTime * 11 + phaseOffset) % 9;
-    return 0;
   }
   if (enemy.species === "nihlathak") {
     // Rows 0-7 are the eight-step walk, rows 8-15 the fourteen-frame strike.
@@ -28842,7 +29138,6 @@ function enemySpriteFrame(enemy: Enemy, columns: number, runTime: number): numbe
       return Math.min(13, Math.floor(progress * 14));
     }
     if (state === "move") return Math.floor(runTime * 9 + phaseOffset) % 8;
-    return 0;
   }
   if (enemy.species === "minotaur") {
     // Rows 0-7 are the eight-step walk, rows 8-15 the two-handed axe swing.
@@ -28852,7 +29147,6 @@ function enemySpriteFrame(enemy: Enemy, columns: number, runTime: number): numbe
       return Math.min(15, Math.floor(progress * 16));
     }
     if (state === "move") return Math.floor(runTime * 9 + phaseOffset) % 8;
-    return 0;
   }
   if (enemy.species === "leaper") {
     // Rows 0-7 are the nine-frame hop, rows 8-15 the twenty-frame lunge.
@@ -28862,7 +29156,6 @@ function enemySpriteFrame(enemy: Enemy, columns: number, runTime: number): numbe
       return Math.min(19, Math.floor(progress * 20));
     }
     if (state === "move") return Math.floor(runTime * 14 + phaseOffset) % 9;
-    return 0;
   }
   if (enemy.species === "blunderbore") {
     // Rows 0-7 are the eight-step walk, rows 8-15 the club swing. The imported
@@ -28877,7 +29170,6 @@ function enemySpriteFrame(enemy: Enemy, columns: number, runTime: number): numbe
       return Math.min(attackFrames - 1, Math.floor(progress * attackFrames));
     }
     if (state === "move") return Math.floor(runTime * 10 + phaseOffset) % 8;
-    return 0;
   }
   if (enemy.species === "mephisto") {
     // MP's DC6 COFs hold thirteen idle frames, thirteen walk frames and
@@ -28942,7 +29234,6 @@ function enemySpriteFrame(enemy: Enemy, columns: number, runTime: number): numbe
     // for the attack. Looping the full width made the goatman blink out for the
     // six empty walk columns.
     if (state === "move") return Math.floor(runTime * 10 + phaseOffset) % 8;
-    return Math.min(columns - 1, Math.floor(columns * 0.12));
   }
   if (state === "attack") {
     const attackProgress = 1 - (enemy.attackAnimationTime ?? 0) / (enemy.kind === "boss" ? 0.55 : 0.38);
@@ -28963,6 +29254,9 @@ function enemySpriteFrame(enemy: Enemy, columns: number, runTime: number): numbe
   return Math.min(columns - 1, Math.floor(columns * 0.12));
 }
 
+/** Every imported atlas stacks its animation blocks eight direction rows deep. */
+const ENEMY_BLOCK_ROWS = 8;
+
 /**
  * The imported atlases stack a few blocks of eight directions on top of each
  * other (idle, walk, attack). Species differ in how many blocks they hold and in
@@ -28976,22 +29270,26 @@ export function enemySpriteDirectionRow(
   directionRow: number,
   spriteBlock?: number,
 ): number {
-  if (spriteBlock !== undefined && rows >= 32) return (spriteBlock * 8 + directionRow) % rows;
-  const block = (blockSize: number): number =>
-    (state === "attack" ? blockSize * 2 : state === "move" ? blockSize : 0) + directionRow;
-  if (species === "goatman") return directionRow + (state === "attack" ? 8 : 0);
-  // The mage sheets hold idle, walk and attack blocks in that order.
-  if (ENEMY_MAGE_SPECIES.has(species)) {
-    return (state === "attack" ? 16 : state === "move" ? 8 : 0) + directionRow;
+  if (spriteBlock !== undefined && rows >= 32) return (spriteBlock * ENEMY_BLOCK_ROWS + directionRow) % rows;
+  // Walk, attack and idle stacked in that order: the idle clip is the appended
+  // third block, so standing still reads the block after the attack one.
+  if (ENEMY_IDLE_TAIL_SPECIES.has(species)) {
+    const offset = state === "attack" ? ENEMY_BLOCK_ROWS : state === "idle" ? ENEMY_BLOCK_ROWS * 2 : 0;
+    return (offset + directionRow) % rows;
   }
-  if (species === "fetish" || species === "boneFetish") return block(8);
-  if (species === "council" || species === "mephisto") return block(8);
-  if (species === "diablo" && rows === 24) return block(8);
-  if (species === "baalsMinion" || species === "baal") return block(8);
-  // Species imported as fresh sixteen-row atlases (eight walk rows above eight
-  // attack rows) read their blocks straight from the sheet, so walking shows the
-  // walk band and attacking shows the attack band in the same direction.
-  if (ENEMY_EIGHT_ROW_BLOCK_SPECIES.has(species)) return directionRow + (state === "attack" ? 8 : 0);
+  const block = (): number =>
+    (state === "attack" ? ENEMY_BLOCK_ROWS * 2 : state === "move" ? ENEMY_BLOCK_ROWS : 0) + directionRow;
+  // The mage sheets hold idle, walk and attack blocks in that order.
+  if (ENEMY_MAGE_SPECIES.has(species)) return block();
+  if (species === "fetish" || species === "boneFetish") return block();
+  if (species === "council" || species === "mephisto") return block();
+  if (species === "diablo" && rows === 24) return block();
+  if (species === "baalsMinion" || species === "baal") return block();
+  // Walk rows above attack rows, with no idle block: walking shows the walk band
+  // and attacking the band below it, both in the same direction.
+  if (ENEMY_WALK_ATTACK_BLOCK_SPECIES.has(species)) {
+    return directionRow + (state === "attack" ? ENEMY_BLOCK_ROWS : 0);
+  }
   return directionRow % rows;
 }
 
@@ -29002,19 +29300,18 @@ const ENEMY_MAGE_SPECIES = new Set<EnemySpecies>([
   "skeletalMageCold", "skeletalMageFire", "skeletalMageLightning", "skeletalMagePoison",
 ]);
 
-const ENEMY_EIGHT_ROW_BLOCK_SPECIES = new Set<EnemySpecies>([
-  "skeleton", "skeletonWarrior",
-  "balrog", "bloodLord", "spiderDemon", "spikeFiend", "fetishShaman",
-  "vileChild", "vileMother", "wolf", "grizzly", "bloodGolem", "fireGolem", "ironGolem",
-  // The leaper atlas is eight hop rows above eight lunge rows; the old shared
-  // walk-band offset added four rows and turned every hop 180 degrees around.
-  "leaper",
-  // These atlases are also eight walk rows above eight attack rows, not the
-  // four-direction bands the old walk-row list assumed.
-  "scarab", "sandMaggot", "sandMaggotQueen", "sandMaggotYoung", "sandRaider",
-  "blunderbore", "minotaur", "nihlathak", "painWorm", "regurgitator",
-  "salamander", "siegeBeast",
-  "duriel",
+/**
+ * Sheets that stack their walk rows directly above their attack rows and carry no
+ * idle block. Every other walk-over-attack sheet also has an appended idle tail,
+ * which `ENEMY_IDLE_TAIL_SPECIES` (built from `ENEMY_IDLE_TAIL_FRAMES`) handles
+ * first, so listing those here again would be dead. `enemySpriteRow` reads the
+ * same set for the direction count, so the two stay in step.
+ */
+const ENEMY_WALK_ATTACK_BLOCK_SPECIES = new Set<EnemySpecies>([
+  "skeleton",
+  // The maggot sheets stack four clips of eight direction rows and address them
+  // with `spriteBlock`; only their single-row direction read lands here.
+  "sandMaggot", "sandMaggotQueen",
 ]);
 
 // Imported DCC direction rows run SW, NW, NE, SE, S, W, N, E, while the
@@ -29037,9 +29334,10 @@ const DCC_EIGHT_DIRECTION_SPECIES = new Set<EnemySpecies>([
 
 export function enemySpriteRow(species: EnemySpecies, dx: number, dy: number): number {
   const layoutRows = ENEMY_SPRITE_LAYOUTS[species].rows;
-  const directions = ENEMY_MAGE_SPECIES.has(species) ? layoutRows / 3
-    : species === "goatman" || species === "skeleton" || species === "skeletonWarrior" || species === "scarab" || species === "sandMaggot" || species === "sandMaggotQueen" || species === "spiderDemon" || species === "sandMaggotYoung" || species === "sandRaider" || species === "leaper" || species === "spikeFiend" || species === "blunderbore" || species === "minotaur" || species === "nihlathak" || species === "painWorm" || species === "regurgitator" || species === "salamander" || species === "siegeBeast" || species === "balrog" || species === "bloodLord" || species === "fetishShaman" || species === "wolf" || species === "grizzly" || species === "bloodGolem" || species === "fireGolem" || species === "ironGolem" || species === "vileChild" || species === "vileMother" || species === "duriel"
-    ? layoutRows / 2
+  // Three stacked blocks (idle/walk/attack in either order) or the two-block walk
+  // and attack sheets; the block sets above are the only place those are listed.
+  const directions = ENEMY_IDLE_TAIL_SPECIES.has(species) || ENEMY_MAGE_SPECIES.has(species) ? layoutRows / 3
+    : ENEMY_WALK_ATTACK_BLOCK_SPECIES.has(species) ? layoutRows / 2
     : species === "fetish" || species === "boneFetish" || species === "council" || species === "mephisto" || (species === "diablo" && layoutRows === 24) || species === "baalsMinion" || species === "baal" ? layoutRows / 3 : layoutRows;
   if (directions === 8) {
     const angle = Math.atan2(dy, dx);
@@ -29122,6 +29420,8 @@ interface SkillVisualEffect {
   fistOfTheHeavensBoltImpact?: boolean;
   targetEnemy?: boolean;
   curseField?: boolean;
+  /** A summon's raise overlay, anchored on the servant that was just raised. */
+  summonRise?: boolean;
   fieldRadius?: number;
   arcticBlast?: boolean;
   /** An enemy-owned cone (Nihlathak's Arctic Blast); it never uses player damage. */
@@ -29418,6 +29718,8 @@ interface AttackProjectile {
   wallHalfLength?: number;
   wallHealth?: number;
   wallMaxHealth?: number;
+  /** Which side raised this bone wall: the hero's own barricades are never a target. */
+  wallOwner?: "player" | "enemy";
   ammoRemaining?: number;
   trapDamage?: number;
   shotCooldown?: number;

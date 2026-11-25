@@ -82,6 +82,10 @@ SPECIES: dict[str, tuple[str, str, int, int]] = {
 # ENEMY_SPRITE_LAYOUTS / ENEMY_SPRITE_CELLS in d2survivors.component.ts.
 #
 # species -> (monster code, output file, columns, cell width, cell height)
+# Atlases rebuilt by the builders below carry walk and attack only. The runtime
+# also plays a neutral idle clip from a third block of eight rows appended by
+# tools/add_enemy_idle_blocks.py, so re-run that tool after rebuilding any sheet
+# it lists; the builders cannot produce that block themselves.
 NEW_SPECIES: dict[str, tuple[str, str, int, int, int]] = {
     "balrog": ("DM", "balrog.png", 16, 224, 152),
     "bloodLord": ("L3", "blood-lord.png", 16, 64, 64),

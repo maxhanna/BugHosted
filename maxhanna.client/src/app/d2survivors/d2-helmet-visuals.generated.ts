@@ -37,6 +37,11 @@ export interface D2HelmetVisual {
   hair: "none" | "half" | "full";
   /** Extra head-local rotation for source meshes authored on another axis. */
   rotation?: [number, number, number];
+  /**
+   * Skip the skull-envelope clamp. Pieces whose horns or crest inflate the mesh
+   * bounds would otherwise be shrunk by a bound the shell itself never reaches.
+   */
+  noFit?: boolean;
   metalness: number;
   roughness: number;
 }
@@ -81,7 +86,7 @@ export const D2_HELMET_VISUALS: Record<D2HelmetVisualId, D2HelmetVisual> = {
   tiara: helmet("tiara", "none", 0.0008, 0.6, 0.42),
   mask: helmet("mask", "full", 0.0009, 0.1, 0.76),
   assault: helmet("assault", "full", 0.0009, 0.6, 0.5),
-  avenger: helmet("avenger", "full", 0.0009, 0.6, 0.5),
+  avenger: helmet("avenger", "full", 0.0018, 0.6, 0.5),
   fanged: helmet("fanged", "full", 0.0009, 0.55, 0.52),
   horned: helmet("horned", "full", 0.0009, 0.58, 0.5),
   wolf: helmet("wolf", "full", 0.0009, 0.02, 0.9),
@@ -89,6 +94,31 @@ export const D2_HELMET_VISUALS: Record<D2HelmetVisualId, D2HelmetVisual> = {
   antlers: helmet("antlers", "full", 0.0009, 0.02, 0.9),
   falcon: helmet("falcon", "full", 0.0009, 0.02, 0.9),
   spirit: helmet("spirit", "full", 0.0009, 0.02, 0.9),
+};
+
+/**
+ * The great helm is authored at roughly half the scale of every other piece: its
+ * shell measures 0.41 units wide and 0.43 deep against 0.75-0.95 for the helmets
+ * that seat on the skull, so at the shared scale the shell sank inside the head
+ * and only the horn tips poked out. Doubling it puts the shell back around the
+ * skull. Its horns also inflate the mesh bounds, so the piece opts out of the
+ * skull-envelope clamp, which would otherwise shrink it straight back down.
+ */
+D2_HELMET_VISUALS.great = { ...D2_HELMET_VISUALS.great, scale: 0.0061, noFit: true };
+
+/**
+ * The Avenger Guard's rip carries tall wings that drag both the mesh bounds and
+ * the bounds centre upwards, so the bowl was seated below the barbarian's crown
+ * and the top of the skull showed over its rim. Its bowl is also only 0.71 units
+ * wide against a 0.00243 model-unit skull, so the temples stuck out of the sides.
+ * Seat it higher, widen it past the skull, and skip the envelope clamp: that
+ * clamp measures the wings, not the bowl, and would shrink the fix away.
+ */
+D2_HELMET_VISUALS.avenger = {
+  ...D2_HELMET_VISUALS.avenger,
+  scale: 0.00335,
+  lift: 0.0018,
+  noFit: true,
 };
 
 /** Base item names in D2's armor.txt, including exceptional and elite tiers. */

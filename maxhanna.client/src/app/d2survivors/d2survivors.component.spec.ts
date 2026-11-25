@@ -2757,6 +2757,45 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(wall.wallHealth).toBe(1000);
   });
 
+  it("never swings into his own Bone Wall but strikes a hostile one in the way", () => {
+    component.selectedClass = "necromancer";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    (component as any).attackCooldown = 0;
+    const monster = {
+      kind: "normal", species: "fallen", spriteFrame: 0, x: 288, y: 250,
+      hp: 100, maxHp: 100, speed: 0, r: 14, dmg: 2,
+    } as any;
+    const wall = {
+      x: 262, y: 250, startX: 262, startY: 250, targetX: 262, targetY: 250,
+      speed: 0, damage: 0, life: Number.POSITIVE_INFINITY, age: 0, radius: 10,
+      color: "#d9d0b5", kind: "bone", boneWall: true,
+      wallNormalX: 1, wallNormalY: 0, wallHalfLength: 100, wallHealth: 1000, wallMaxHealth: 1000,
+      wallOwner: "player",
+    } as any;
+    component.enemies = [monster];
+    component.attackProjectiles = [wall];
+    component.floatingTexts = [];
+    (component as any).meleeTrailEffects.length = 0;
+    (component as any).rebuildEnemyGrid();
+
+    (component as any).updateBasicAttack();
+
+    // His own barricade is not a target: no swing, no damage to either side.
+    expect(wall.wallHealth).toBe(1000);
+    expect(monster.hp).toBe(100);
+    expect((component as any).meleeTrailEffects).toHaveSize(0);
+
+    // A hostile wall standing in his way is the thing his swing lands on.
+    wall.wallOwner = "enemy";
+    (component as any).attackCooldown = 0;
+    (component as any).updateBasicAttack();
+
+    expect(wall.wallHealth).toBeLessThan(1000);
+    expect(monster.hp).toBe(100);
+  });
+
   it("keeps an active Blessed Hammer orbiting its cast point after the paladin moves", () => {
     component.selectedClass = "paladin";
     component.playerX = 250;
@@ -4103,6 +4142,30 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect((component as any).campaignBlockedAt(context, oldSpawnX, oldSpawnY)).toBeTrue();
   });
 
+  it("never walls a drawn DS1 field with the painted courtyard mask", () => {
+    component.currentAct = 1;
+    component.currentAreaIndex = 0;
+    expect(component.currentArea.name).toBe("Blood Moor");
+    // The hand-drawn monastery mask blocks its whole wall band.  Blood Moor's
+    // field is on screen now, so that mask would fence the hero inside a
+    // courtyard drawn nowhere on the map: the invisible wall halfway in.
+    (component as any).campaignCollisionMasks[1] = {
+      width: 520, height: 300, blocked: new Uint8Array(520 * 300).fill(1),
+    };
+    const ground = document.createElement("img");
+    Object.defineProperties(ground, {
+      naturalWidth: { configurable: true, value: 8160 },
+      naturalHeight: { configurable: true, value: 4336 },
+    });
+    (component as any).campaignWorlds.set("a1-blood-moor", { ground });
+    component.playerX = 250;
+    component.playerY = 250;
+    spyOn(component as any, "projectArenaPoint").and.callFake((x: number, y: number) => ({ x, y }));
+
+    expect((component as any).campaignCollisionContext()).toBeNull();
+    expect((component as any).campaignTerrainBlocks(0, 40)).toBeFalse();
+  });
+
   it("frees every area's DS1 map except the one being played", () => {
     const oldGround = document.createElement("img");
     oldGround.onload = () => undefined;
@@ -4296,18 +4359,17 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     (component as any).currentChunkLocalX = 20;
     (component as any).currentChunkLocalY = 20;
     expect((component as any).outsideCampaignWorld(
-      (component as any).campaignWorldDiamond(),
       (component as any).playerWorldPosition().x,
       (component as any).playerWorldPosition().y,
     )).toBeTrue();
 
     (component as any).centerPlayerOnCampaignWorld();
 
-    const diamond = (component as any).campaignWorldDiamond();
+    const centre = (component as any).campaignImagePointToWorld(walkable.x, walkable.y);
     const position = (component as any).playerWorldPosition();
-    expect(position.x).toBeCloseTo(diamond.x, 5);
-    expect(position.y).toBeCloseTo(diamond.y, 5);
-    expect((component as any).outsideCampaignWorld(diamond, position.x, position.y)).toBeFalse();
+    expect(position.x).toBeCloseTo(centre.x, 5);
+    expect(position.y).toBeCloseTo(centre.y, 5);
+    expect((component as any).outsideCampaignWorld(position.x, position.y)).toBeFalse();
   });
 
   it("starts the hero on the floor cell the exporter names for a room-built map", () => {
@@ -4335,11 +4397,47 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     (component as any).centerPlayerOnCampaignWorld();
 
     const position = (component as any).playerWorldPosition();
-    // One exported pixel is 60/160 of a world unit; the map is centred on the chunk.
+    // One exported pixel is 60/160 of a world unit, and the isometric image
+    // axes are the world's diagonals, so the pixel maps through that rotation.
     const chunkWidth = (component as any).chunkTileColumns * 60;
     const chunkHeight = (component as any).chunkTileRows * 60;
-    expect(position.x).toBeCloseTo(chunkWidth / 2 + (spawn.x - entry.imageWidth / 2) * 0.375, 5);
-    expect(position.y).toBeCloseTo(chunkHeight / 2 + (spawn.y - entry.imageHeight / 2) * 0.375, 5);
+    const offsetX = spawn.x - entry.imageWidth / 2;
+    const offsetY = spawn.y - entry.imageHeight / 2;
+    expect(position.x).toBeCloseTo(chunkWidth / 2 + (offsetX + 2 * offsetY) * 0.375, 5);
+    expect(position.y).toBeCloseTo(chunkHeight / 2 + (2 * offsetY - offsetX) * 0.375, 5);
+  });
+
+  it("puts the hero on the exported spawn pixel of the drawn map", () => {
+    (component as any).currentAct = 1;
+    component.currentAreaIndex = 5;
+    expect(component.currentArea.name).toBe("Catacombs");
+    const entry = (component as any).currentWorldEntry();
+    const spawn = { x: 1200, y: 900 };
+    (component as any).campaignWorlds.set("a1-catacombs", {
+      ground: { complete: false } as any,
+      layout: {
+        atlasWidth: 1, atlasHeight: 1,
+        backdropWidth: entry.imageWidth, backdropHeight: entry.imageHeight,
+        instances: [],
+        walkable: {
+          x: entry.imageWidth / 2, y: entry.imageHeight / 2,
+          halfWidth: entry.imageWidth / 2, halfHeight: entry.imageHeight / 2,
+        },
+        spawn,
+      },
+    });
+
+    (component as any).centerPlayerOnCampaignWorld();
+
+    // The drawn map has to put that spawn pixel under the hero's fixed camera
+    // spot.  If the image-to-world projection disagrees with the geometry the
+    // map is drawn with, the hero is moved to a different pixel than the one
+    // the exporter picked - a wall, or a room with no exit.
+    const tileWidth = 60 * (component as any).worldZoom * Math.SQRT2;
+    const geometry = (component as any).campaignWorldGeometry(tileWidth, entry.imageWidth, entry.imageHeight);
+    const hero = (component as any).projectArenaPoint(component.arenaW / 2, component.arenaH / 2);
+    expect(geometry.left + spawn.x * geometry.scale).toBeCloseTo(hero.x, 1);
+    expect(geometry.top + spawn.y * geometry.scale).toBeCloseTo(hero.y, 1);
   });
 
   it("pulls the hero off ground a rebuilt map walls over", () => {
@@ -4369,9 +4467,9 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     spyOn(component as any, "campaignWorldGeometry").and.returnValue({
       scale: 1, width, height, left: 0, top: 0,
     });
-    spyOn(component as any, "campaignWorldDiamond").and.returnValue({
-      x: width / 2, y: height / 2, halfWidth: width / 2, halfHeight: height / 2,
-    });
+    // The fixture's little mask is not the area's real map, so only its walls
+    // matter here: the hero is inside the area and sitting on one.
+    spyOn(component as any, "outsideCampaignWorld").and.returnValue(false);
     spyOn(component as any, "projectArenaPoint").and.callFake((x: number, y: number) => ({ x, y }));
     (component as any).currentChunkCoordX = 0;
     (component as any).currentChunkCoordY = 0;
@@ -5517,6 +5615,25 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     }
   });
 
+  it("scales the great helm's shell to the skull instead of letting its horns hide it", () => {
+    // The rip's shell is 0.41 units wide against 0.75-0.95 for the pieces that
+    // seat on the skull, so the shared scale buried the shell and only the horn
+    // tips showed. It also opts out of the skull-envelope clamp, whose bound is
+    // measured on the horns rather than on the shell.
+    expect(D2_HELMET_VISUALS.great.scale).toBeCloseTo(D2_HELMET_VISUALS.full.scale * 2, 5);
+    expect(D2_HELMET_VISUALS.great.noFit).toBeTrue();
+    expect(D2_HELMET_VISUALS.great.hair).toBe("full");
+  });
+
+  it("lifts the avenger guard's bowl onto the barbarian's crown", () => {
+    // Its wings inflate the mesh bounds, so the bounds-centred seat sat low with
+    // the skull showing over the rim; the piece is lifted, widened past the skull
+    // and exempt from the envelope clamp that its own wings would trigger.
+    expect(D2_HELMET_VISUALS.avenger.lift).toBeGreaterThan(D2_HELMET_VISUALS.full.lift);
+    expect(D2_HELMET_VISUALS.avenger.scale).toBeGreaterThan(D2_HELMET_VISUALS.full.scale);
+    expect(D2_HELMET_VISUALS.avenger.noFit).toBeTrue();
+  });
+
   it("keeps a cap upright and its lift vertical on a quarter-turned head bind", () => {
     // Necromancer/Barbarian/Sorceress/Assassin bind the head with local Y
     // pointing forward instead of up, so the mount must cancel that basis.
@@ -6403,6 +6520,157 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(unobstructed.y).toBeCloseTo(250, 5);
   });
 
+  it("names every potion, pile of gold and item on the floor while ALT is held", () => {
+    component.activeTab = "run";
+    component.runActive = true;
+    (component as any).worldZoom = 1;
+    spyOn(component as any, "projectArenaPoint").and.callFake((x: number, y: number) => ({ x, y }));
+    spyOn(component as any, "itemDropImage").and.returnValue({ naturalHeight: 28 } as HTMLImageElement);
+    const canvas = {
+      width: 500,
+      height: 500,
+      getBoundingClientRect: () => ({ left: 0, top: 0, width: 500, height: 500 }),
+    } as any;
+    (component as any).arenaRef = { nativeElement: canvas };
+    component.potionDrops = [{ x: 100, y: 200, kind: "health", bob: 0, life: 20, pickupDelay: 0, notifiedFull: false, collected: false }];
+    component.goldDrops = [{ x: 300, y: 220, amount: 1250, bob: 0, life: 20, pickupDelay: 0 }];
+    component.itemDrops = [{ x: 400, y: 260, item: { name: "Short Sword" } as any, bob: 0, life: 20, pickupDelay: 0, notifiedFull: false }];
+
+    // Nothing is shown until ALT is held.
+    expect(component.altLootLabels).toEqual([]);
+
+    component.onGlobalAttackKey({ key: "Alt", repeat: false, target: canvas, preventDefault: () => undefined } as any);
+    expect(component.altLootLabelsHeld).toBe(true);
+    const labels = component.altLootLabels;
+    expect(labels.map((label) => label.text)).toEqual(["Health Potion", "1,250 Gold", "Short Sword"]);
+    // Each label sits above the art it names, on the drop's own ground point.
+    expect(labels[0].x).toBe(100);
+    expect(labels[0].y).toBeLessThan(200);
+    expect(labels[2].y).toBeLessThan(260);
+
+    component.onGlobalMovementKeyUp({ key: "Alt" } as any);
+    expect(component.altLootLabelsHeld).toBe(false);
+    expect(component.altLootLabels).toEqual([]);
+
+    // A window switch would otherwise swallow the keyup and strand the labels.
+    component.altLootLabelsHeld = true;
+    component.onWindowBlur();
+    expect(component.altLootLabelsHeld).toBe(false);
+  });
+
+  it("keeps the ALT floor labels off the arena while a menu owns the screen", () => {
+    component.activeTab = "run";
+    component.runActive = true;
+    (component as any).worldZoom = 1;
+    spyOn(component as any, "projectArenaPoint").and.callFake((x: number, y: number) => ({ x, y }));
+    const canvas = {
+      width: 500,
+      height: 500,
+      focus: () => undefined,
+      getBoundingClientRect: () => ({ left: 0, top: 0, width: 500, height: 500 }),
+    } as any;
+    (component as any).arenaRef = { nativeElement: canvas };
+    component.potionDrops = [{ x: 100, y: 200, kind: "health", bob: 0, life: 20, pickupDelay: 0, notifiedFull: false, collected: false }];
+    component.onGlobalAttackKey({ key: "Alt", repeat: false, target: canvas, preventDefault: () => undefined } as any);
+    expect(component.altLootLabels.length).toBe(1);
+
+    component.showEscapeMenu();
+    expect(component.altLootLabels).toEqual([]);
+    component.closeEscapeMenu();
+    // ALT is still down, so the names come back once the arena is playable again.
+    expect(component.altLootLabels.length).toBe(1);
+
+    component.inventoryOpen = true;
+    expect(component.altLootLabels).toEqual([]);
+    component.inventoryOpen = false;
+    component.skillTreeOpen = true;
+    expect(component.altLootLabels).toEqual([]);
+    component.skillTreeOpen = false;
+    component.pendingLevelUps = 1;
+    expect(component.altLootLabels).toEqual([]);
+    component.pendingLevelUps = 0;
+    expect(component.altLootLabels.length).toBe(1);
+  });
+
+  it("names the red portal and its destination when the doorway is hovered", () => {
+    component.activeTab = "run";
+    component.runActive = true;
+    component.actPortalOpen = true;
+    component.currentAct = 2;
+    (component as any).actPortalX = 250;
+    (component as any).actPortalY = 250;
+    (component as any).worldZoom = 2.1;
+    (component as any).projectionDpr = 1;
+    spyOn(component as any, "projectArenaPoint").and.returnValue({ x: 250, y: 320 });
+    const canvas = {
+      width: 500,
+      height: 500,
+      getBoundingClientRect: () => ({ left: 0, top: 0, width: 500, height: 500 }),
+    } as any;
+    (component as any).arenaRef = { nativeElement: canvas };
+    // Middle of the 109x159 cel drawn from the portal's ground anchor.
+    const scale = 2.1 * 1 * 0.64;
+    const hoverX = 250 - 54 * scale + 109 * scale / 2;
+    const hoverY = 320 - 120 * scale + 159 * scale / 2;
+    const move = (clientX: number, clientY: number): void => component.onArenaPointerMove({
+      pointerType: "mouse", pointerId: 1, clientX, clientY, target: canvas,
+      preventDefault: () => undefined,
+    } as any);
+
+    move(hoverX, hoverY);
+    const portal = component.hoveredActPortal!;
+    expect(portal.title).toBe("Red Portal");
+    expect(portal.lines[0]).toContain("Act 3");
+    expect(portal.lines[1]).toContain("Walk into the portal");
+
+    // The empty floor beside the doorway has no tooltip.
+    move(hoverX - 300, hoverY);
+    expect(component.hoveredActPortal).toBeNull();
+
+    // The last act's portal finishes the campaign instead of naming another act.
+    component.currentAct = 8;
+    move(hoverX, hoverY);
+    expect(component.hoveredActPortal!.lines[0]).toContain("finish the campaign");
+
+    component.onArenaPointerLeave();
+    expect(component.hoveredActPortal).toBeNull();
+  });
+
+  it("names the same next act in the portal hint as in the portal tooltip", () => {
+    component.activeTab = "run";
+    component.runActive = true;
+    component.actPortalOpen = true;
+    (component as any).actPortalX = 250;
+    (component as any).actPortalY = 250;
+    (component as any).worldZoom = 2.1;
+    (component as any).projectionDpr = 1;
+    spyOn(component as any, "projectArenaPoint").and.returnValue({ x: 250, y: 320 });
+    const canvas = {
+      width: 500,
+      height: 500,
+      getBoundingClientRect: () => ({ left: 0, top: 0, width: 500, height: 500 }),
+    } as any;
+    (component as any).arenaRef = { nativeElement: canvas };
+    const scale = 2.1 * 1 * 0.64;
+    const hoverX = 250 - 54 * scale + 109 * scale / 2;
+    const hoverY = 320 - 120 * scale + 159 * scale / 2;
+
+    for (let act = 1; act <= 8; act += 1) {
+      component.currentAct = act;
+      component.onArenaPointerMove({
+        pointerType: "mouse", pointerId: 1, clientX: hoverX, clientY: hoverY, target: canvas,
+        preventDefault: () => undefined,
+      } as any);
+      const tooltip = component.hoveredActPortal!;
+      // The HUD hint interpolates this same phrase, so the two cannot drift.
+      expect(component.actPortalLead).toBe(tooltip.lines[0].replace(/^Enter to /, "").replace(/\.$/, ""));
+      if (act < 8) expect(component.actPortalLead).toContain(`Act ${act + 1}`);
+    }
+
+    // Act VIII is the end of the campaign, past the Worldstone of Act V.
+    expect(component.actPortalLead).toBe("finish the campaign");
+  });
+
   it("draws a soft shadow beneath loose item drops", () => {
     const ctx = {
       save: () => undefined,
@@ -6959,6 +7227,61 @@ describe("D2SurvivorsComponent combat and equipment", () => {
       dmg: 2,
     } as any;
 
+    (component as any).drawEnemy(ctx, enemy);
+    expect(tinted.calls.mostRecent().args[1]).toBe(4);
+
+    enemy.animationState = "attack";
+    enemy.attackAnimationTime = 0.2;
+    (component as any).drawEnemy(ctx, enemy);
+    expect(tinted.calls.mostRecent().args[1]).toBe(12);
+  });
+
+  it("plays each monster's own neutral clip while it stands still", () => {
+    const frame = { width: 170, height: 158 } as HTMLCanvasElement;
+    (component as any).enemySprites.goatman = {
+      frames: Array.from({ length: 24 }, () => Array.from({ length: 14 }, () => frame)),
+      columns: 14,
+      rows: 24,
+      animated: true,
+    };
+    spyOn(component as any, "projectArenaPoint").and.returnValue({ x: 100, y: 120 });
+    spyOn(component as any, "drawGroundShadow");
+    spyOn(component as any, "drawHpBar");
+    const tinted = spyOn(component as any, "tintedEnemyFrame").and.returnValue(frame);
+    const ctx = {
+      save: () => undefined,
+      restore: () => undefined,
+      drawImage: () => undefined,
+    } as unknown as CanvasRenderingContext2D;
+    const enemy = {
+      kind: "normal",
+      species: "goatman",
+      campaignBoss: false,
+      spriteFrame: 0,
+      animationState: "idle",
+      attackAnimationTime: 0,
+      facingX: 0,
+      facingY: 1,
+      x: 100,
+      y: 250,
+      hp: 100,
+      maxHp: 100,
+      r: 14,
+      dmg: 2,
+    } as any;
+
+    // Standing still reads the appended neutral block (rows 16-23), not the walk
+    // band, so a waiting monster is not a frozen picture.
+    (component as any).runTime = 0;
+    (component as any).drawEnemy(ctx, enemy);
+    expect(tinted.calls.mostRecent().args[1]).toBe(20);
+    const firstIdleFrame = tinted.calls.mostRecent().args[2] as number;
+    (component as any).runTime = 0.5;
+    (component as any).drawEnemy(ctx, enemy);
+    expect(tinted.calls.mostRecent().args[1]).toBe(20);
+    expect(tinted.calls.mostRecent().args[2]).not.toBe(firstIdleFrame);
+
+    enemy.animationState = "move";
     (component as any).drawEnemy(ctx, enemy);
     expect(tinted.calls.mostRecent().args[1]).toBe(4);
 
@@ -8782,6 +9105,22 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(component.hoveredSkillTooltip?.icon).toBe(D2_SKILL_ICON_PATHS["Magic Arrow"]);
   });
 
+  it("keeps one tooltip model while the pointer crosses the same skill socket", () => {
+    component.selectedClass = "amazon";
+    component.playerLevel = 30;
+    const magicArrow = D2_CLASS_SKILL_TREES["amazon"].sections[0].skills[0];
+    const socket = { ...magicArrow, state: "available" as const, reason: "" };
+
+    component.showSkillTooltip({ clientX: 100, clientY: 100 } as MouseEvent, socket, "Bow and Crossbow");
+    const firstPanel = component.hoveredSkillTooltip;
+    component.showSkillTooltip({ clientX: 140, clientY: 120 } as MouseEvent, socket, "Bow and Crossbow");
+
+    // Pointer moves inside one socket must not rebuild the panel: the custom
+    // cursor keeps its frame and only the window follows the pointer.
+    expect(component.hoveredSkillTooltip).toBe(firstPanel);
+    expect(component.hoveredSkillTooltip?.x).toBeGreaterThan(124);
+  });
+
   it("places the skill tooltip beside the pointer and flips it left at the viewport edge", () => {
     component.selectedClass = "amazon";
     component.playerLevel = 30;
@@ -9153,6 +9492,32 @@ describe("D2SurvivorsComponent combat and equipment", () => {
       "skeletalMageCold", "skeletalMageFire", "skeletalMageLightning", "skeletalMagePoison",
     ]);
     expect(mages.every((enemy) => enemy.summonType === "skeleton")).toBeTrue();
+  });
+
+  it("plays the summon glow on the raised skeleton instead of the necromancer", () => {
+    component.selectedClass = "necromancer";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.ownedSkills = ["Raise Skeleton"];
+    component.skillLevels = { "Raise Skeleton": 1 };
+    component.enemies = [];
+    (component as any).skillVisualEffects.length = 0;
+    (component as any).meleeTrailEffects.length = 0;
+
+    component.activateOwnedSkill("Raise Skeleton");
+
+    const skeleton = component.enemies.find((enemy) => enemy.summonSkill === "Raise Skeleton");
+    expect(skeleton).toBeTruthy();
+    // The caster only performs the gesture: no cast impact flashes on him.
+    expect((component as any).meleeTrailEffects).toHaveSize(0);
+    const rise = (component as any).skillVisualEffects.find((effect: { summonRise?: boolean }) => effect.summonRise);
+    expect(rise).toBeTruthy();
+    // The imported summon overlay is anchored on the servant's own ground point,
+    // so it stays there while the hero moves instead of following him.
+    expect(rise.x).toBeCloseTo(skeleton!.x, 5);
+    expect(rise.y).toBeCloseTo(skeleton!.y, 5);
+    expect(rise.stationary).toBeTrue();
+    expect(Math.hypot(rise.x - component.playerX, rise.y - component.playerY)).toBeGreaterThan(30);
   });
 
   it("makes raised skeletons melee while skeletal mages keep their distance", () => {
@@ -10831,6 +11196,42 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(enemySpriteRow("heartOfWolverine", 1, 1)).toBe(5);
     expect(enemySpriteDirectionRow("heartOfWolverine", "move", 8, 1)).toBe(1);
     expect(enemySpriteDirectionRow("heartOfWolverine", "move", 8, 3)).toBe(3);
+  });
+
+  it("reads one eight-row block per clip for every stacked sheet", () => {
+    // Walk, attack and the appended idle block each own one eight-row band.
+    expect(enemySpriteDirectionRow("goatman", "move", 24, 3)).toBe(3);
+    expect(enemySpriteDirectionRow("goatman", "attack", 24, 3)).toBe(11);
+    expect(enemySpriteDirectionRow("goatman", "idle", 24, 3)).toBe(19);
+
+    // Sheets without an idle block walk on their walk row and attack one band down.
+    expect(enemySpriteDirectionRow("skeleton", "move", 16, 5)).toBe(5);
+    expect(enemySpriteDirectionRow("skeleton", "attack", 16, 5)).toBe(13);
+
+    // The pets, golems and Duriel carry an appended idle block too, so waiting
+    // reads the block below the attack band instead of a frozen walk cel.
+    for (const species of ["wolf", "grizzly", "bloodGolem", "fireGolem", "ironGolem", "duriel"]) {
+      expect(enemySpriteDirectionRow(species as any, "move", 24, 2)).withContext(species).toBe(2);
+      expect(enemySpriteDirectionRow(species as any, "attack", 24, 2)).withContext(species).toBe(10);
+      expect(enemySpriteDirectionRow(species as any, "idle", 24, 2)).withContext(species).toBe(18);
+    }
+
+    // Every stacked sheet still resolves a real direction instead of falling back
+    // to row 0, which is what a missing layout entry would do.
+    const stacked = [
+      "goatman", "skeletonWarrior", "balrog", "bloodLord", "spiderDemon", "spikeFiend",
+      "fetishShaman", "scarab", "sandRaider", "sandMaggotYoung", "salamander", "regurgitator",
+      "nihlathak", "minotaur", "leaper", "blunderbore", "siegeBeast", "vileChild", "vileMother",
+      "skeleton", "wolf", "grizzly", "bloodGolem", "fireGolem", "ironGolem", "duriel",
+    ];
+    // A sheet whose layout still says sixteen rows would divide into five and a
+    // third and fall back to row 0, so this loop catches a missing one.
+
+    for (const species of stacked) {
+      const row = enemySpriteRow(species as any, 1, 0);
+      expect(row).withContext(species).toBeGreaterThanOrEqual(0);
+      expect(row).withContext(species).toBeLessThan(8);
+    }
   });
 
   it("faces a wereform the way the hero is walking on screen", () => {

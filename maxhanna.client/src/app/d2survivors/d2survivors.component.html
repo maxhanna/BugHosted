@@ -279,7 +279,12 @@
         <span class="d2s-enemy-hover-stats" *ngIf="getEnemyChampionStatLabel(enemy)">{{ getEnemyChampionStatLabel(enemy) }}</span>
         <span class="d2s-enemy-hover-immunities" *ngIf="getEnemyResistanceLabel(enemy)">{{ getEnemyResistanceLabel(enemy) }}</span>
       </div>
-      <div class="d2s-ground-pickup-label" *ngIf="hoveredGroundPickup as pickup" [style.left.px]="pickup.x" [style.top.px]="pickup.y" aria-hidden="true">{{ pickup.text }}</div>
+      <div class="d2s-ground-pickup-label" *ngIf="!altLootLabelsHeld && hoveredGroundPickup as pickup" [style.left.px]="pickup.x" [style.top.px]="pickup.y" aria-hidden="true">{{ pickup.text }}</div>
+      <div class="d2s-ground-pickup-label" *ngFor="let label of altLootLabels" [style.left.px]="label.x" [style.top.px]="label.y" aria-hidden="true">{{ label.text }}</div>
+      <div class="d2s-act-portal-tooltip" *ngIf="actPortalOpen && hoveredActPortal as portal" [style.left.px]="portal.x" [style.top.px]="portal.y" role="tooltip">
+        <strong>{{ portal.title }}</strong>
+        <span *ngFor="let line of portal.lines">{{ line }}</span>
+      </div>
       <div class="d2s-model-hint" *ngIf="modelLoadError">3D character model could not load.</div>
       <div class="d2s-classic-hud" aria-label="Life and mana orbs, potion belt, skill icons and experience">
         <div class="d2s-orb d2s-health-orb" [class.poisoned]="playerPoisonRemaining > 0" [style.--orb-fill]="healthOrbFill">
@@ -372,25 +377,25 @@
           <div class="d2s-orb-text"><strong>Mana</strong><span>{{ playerMana | number:'1.0-0' }} / {{ effectivePlayerMaxMana }}</span></div>
         </div>
       </div>
-      <div class="d2s-act-banner" aria-label="Campaign act">
+      <div class="d2s-act-banner" [class.portal-open]="actPortalOpen" aria-label="Campaign act">
         <span>ACT {{ currentAct }} / 5</span>
         <strong>{{ currentActDetails.region }}</strong>
         <small>{{ currentArea.name }} · Area level {{ currentArea.level }}</small>
         <small class="d2s-campaign-area-name">{{ currentActDetails.name }}</small>
         <span class="d2s-act-progress" role="progressbar" [attr.aria-valuenow]="actProgress" aria-valuemin="0" aria-valuemax="100" aria-label="Time until the act boss arrives"><i [style.width.%]="actProgress"></i></span>
-        <small>{{ actBossSpawned ? 'Boss battle' : (actMinionClearPrompt || ('Area boss in ' + (actSecondsRemaining | number:'1.0-0') + 's')) }}</small>
+        <small class="d2s-act-portal-message" *ngIf="actPortalOpen; else actBossLine" role="status">Walk into the red portal to {{ actPortalLead }} · WASD / arrows</small>
+        <ng-template #actBossLine><small>{{ actBossSpawned ? 'Boss battle' : (actMinionClearPrompt || ('Area boss in ' + (actSecondsRemaining | number:'1.0-0') + 's')) }}</small></ng-template>
       </div>
       <div class="d2s-act-transition" *ngIf="actTransitionReady && !actPortalOpen" role="dialog" aria-modal="true" aria-labelledby="d2s-act-transition-title">
         <section><p>ACT {{ currentAct }} CLEARED</p><h2 id="d2s-act-transition-title">{{ currentActDetails.name }}</h2><p>The way forward is open. Your wounds partially mend.</p><button type="button" class="d2s-menu-button primary" (click)="openActPortal()"><span>Open the red portal</span></button></section>
       </div>
-      <div class="d2s-act-portal-hint" *ngIf="actPortalOpen" role="status">Walk into the red portal to {{ currentAct < 5 ? 'journey to Act ' + (currentAct + 1) : 'face the Worldstone' }} · WASD / arrows</div>
       <div class="d2s-campaign-victory" *ngIf="campaignVictory" role="dialog" aria-modal="true" aria-labelledby="d2s-campaign-victory-title">
         <section><p>THE WORLDSTONE IS SAFE</p><h2 id="d2s-campaign-victory-title">Sanctuary Endures</h2><p>You have crossed all five acts and defeated the Lord of Destruction.</p><button type="button" class="d2s-menu-button primary" (click)="finishCampaign()"><span>Return to the Sanctuary lobby</span></button></section>
       </div>
       <div class="d2s-experience-progress" role="progressbar" [attr.aria-valuenow]="playerXp" [attr.aria-valuemin]="0" [attr.aria-valuemax]="xpToNextLevel" [attr.aria-label]="'Level ' + playerLevel + ' experience'">
         <strong>Level {{ playerLevel }}</strong><span class="d2s-experience-track"><i [style.width.%]="levelXpFill * 100"></i></span>
       </div>
-      <section class="d2s-skill-tree" *ngIf="skillTreeOpen" role="dialog" aria-modal="true" [attr.aria-label]="selectedClassName + ' skill tree'" (click)="$event.stopPropagation()">
+      <section class="d2s-skill-tree" *ngIf="skillTreeOpen" role="dialog" [attr.aria-label]="selectedClassName + ' skill tree'" (click)="$event.stopPropagation()">
         <header class="d2s-skill-tree-header">
           <div><span>THE PATH OF YOUR HERO</span><h2>{{ selectedClassName }} Skill Tree</h2><small>Character level {{ playerLevel }} · Select skills from level-up offers</small></div>
           <button type="button" class="d2s-skill-tree-close" (click)="toggleSkillTree()" aria-label="Close skill tree">Close <kbd>T</kbd></button>
