@@ -97,14 +97,19 @@ export const D2_HELMET_VISUALS: Record<D2HelmetVisualId, D2HelmetVisual> = {
 };
 
 /**
- * The great helm is authored at roughly half the scale of every other piece: its
- * shell measures 0.41 units wide and 0.43 deep against 0.75-0.95 for the helmets
- * that seat on the skull, so at the shared scale the shell sank inside the head
- * and only the horn tips poked out. Doubling it puts the shell back around the
- * skull. Its horns also inflate the mesh bounds, so the piece opts out of the
- * skull-envelope clamp, which would otherwise shrink it straight back down.
+ * The great helm's bowl (y -0.21..0.29 in the rip) measures 0.36 units wide
+ * against 0.75-0.95 for the helmets that seat on the skull, so at the shared
+ * scale the bowl sank inside the head and only its crest poked out. Doubling it
+ * puts the bowl back around the skull. The crest above the bowl runs on to
+ * y 1.0, which drags the mesh bounds centre up to y 0.39: the mount seats the
+ * *bounds* centre, so at the shared lift the bowl landed half a head below the
+ * skull, centred on the chin. The lift below adds back that offset
+ * (0.39 - 0.04 bowl centre = 0.35 units * 0.0061 * 1.03 necromancer scale) to
+ * put the bowl back on the skull. Its crest also inflates the mesh bounds, so
+ * the piece opts out of the skull-envelope clamp, which would otherwise shrink
+ * it straight back down.
  */
-D2_HELMET_VISUALS.great = { ...D2_HELMET_VISUALS.great, scale: 0.0061, noFit: true };
+D2_HELMET_VISUALS.great = { ...D2_HELMET_VISUALS.great, scale: 0.0061, lift: 0.0031, noFit: true };
 
 /**
  * The Avenger Guard's rip carries tall wings that drag both the mesh bounds and

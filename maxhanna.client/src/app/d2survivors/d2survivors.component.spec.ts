@@ -5615,12 +5615,15 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     }
   });
 
-  it("scales the great helm's shell to the skull instead of letting its horns hide it", () => {
-    // The rip's shell is 0.41 units wide against 0.75-0.95 for the pieces that
-    // seat on the skull, so the shared scale buried the shell and only the horn
-    // tips showed. It also opts out of the skull-envelope clamp, whose bound is
-    // measured on the horns rather than on the shell.
+  it("scales the great helm's bowl to the skull and lifts it clear of the chin", () => {
+    // The rip's bowl is 0.36 units wide against 0.75-0.95 for the pieces that
+    // seat on the skull, so the shared scale buried the bowl and only its crest
+    // showed. The crest also drags the mesh bounds centre up, so a bowl-scaled
+    // helm on the shared lift sat centred on the jaw; the extra lift puts the
+    // bowl back on the skull. It opts out of the skull-envelope clamp, whose
+    // bound is measured on the crest rather than on the bowl.
     expect(D2_HELMET_VISUALS.great.scale).toBeCloseTo(D2_HELMET_VISUALS.full.scale * 2, 5);
+    expect(D2_HELMET_VISUALS.great.lift).toBeGreaterThan(D2_HELMET_VISUALS.full.lift * 3);
     expect(D2_HELMET_VISUALS.great.noFit).toBeTrue();
     expect(D2_HELMET_VISUALS.great.hair).toBe("full");
   });
