@@ -337,6 +337,22 @@ const PLAYER_BLIZZARD_FALL_ART = [
   "d2-icestormfallvar01", "d2-icestormfallvar02", "d2-icestormfallvar03", "d2-icestormfallvar04",
 ];
 const PLAYER_BLIZZARD_IMPACT_ART = ["d2-icestormimpactvar01", "d2-icestormimpactvar02"];
+// Frozen Orb is one piercing orb that sheds rings of small ice bolts the whole
+// way and bursts into a rosette of them at the end of its flight, the way the
+// original spell does.  The orb itself barely grazes what it crosses.
+const FROZEN_ORB_SPEED = 360;
+const FROZEN_ORB_RANGE = 380;
+const FROZEN_ORB_ART = "d2-iceorb";
+const FROZEN_ORB_BURST_ART = "d2-iceorbexplode";
+const FROZEN_ORB_BOLT_ART = "d2-icebolt";
+const FROZEN_ORB_SPRAY_SECONDS = 0.1;
+const FROZEN_ORB_SPRAY_BOLTS = 3;
+const FROZEN_ORB_SPRAY_TURN = 0.62;
+const FROZEN_ORB_SPRAY_RANGE = 130;
+const FROZEN_ORB_BURST_BOLTS = 18;
+const FROZEN_ORB_BURST_RANGE = 170;
+const FROZEN_ORB_BOLT_SPEED = 260;
+const FROZEN_ORB_BURST_SECONDS = 0.6;
 // Volcano and Armageddon both rain Diablo II's own burning rocks, they only
 // differ in where the shower sits: Volcano pins a vent under the pack for five
 // seconds, Armageddon drops rocks around the druid for its whole duration.
@@ -1436,6 +1452,11 @@ const MISSILE_SPRITE_SIZES: Record<string, { width: number; height: number }> = 
   "d2-chargedbolt": { width: 56, height: 56 },
   // The 27x38 hammer cels were capped at 28px and nearly vanished in a crowd.
   "d2-blessedhammer": { width: 32, height: 45 },
+  // Frozen Orb's orb and its burst are the spell's signature: draw them well
+  // above the generic 28px missile cap so the orb reads as a body of ice and the
+  // rosette reads as an explosion. The small ice bolts keep the bolt cel's size.
+  "d2-iceorb": { width: 46, height: 46 },
+  "d2-iceorbexplode": { width: 74, height: 74 },
   // The original MoltenBoulderRoll cels are 52x50 and were capped at 28px by the
   // generic missile path, so the druid's boulders read as pebbles.
   "d2-moltenboulderroll": { width: 64, height: 62 },
@@ -3492,6 +3513,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private lobbyHeroCacheSource?: D2LeaderboardEntry[];
   private attackCooldown = 0;
   private playerAttackLockRemaining = 0;
+  /** The part of the stance lock that belongs to the hero's own swing or cast. */
+  private attackAnimationLockRemaining = 0;
   private attackSequence = 0;
   private zealStrikeTarget?: Enemy;
   private zealStrikeRemaining = 0;
@@ -9220,7 +9243,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           this.playerFacingY = (enemy.y - this.playerY) / distance;
           this.clickMoveTarget = enemy;
         } else {
-          const world = this.arenaWorldPointAt(event.clientX, event.clientY);
+          // A portal under the pointer takes the walk order to its ground point,
+          // so reaching the click walks the hero through the doorway.
+          const portal = this.clickedPortalPoint(event);
+          const world = portal ?? this.arenaWorldPointAt(event.clientX, event.clientY);
           if (world) this.startClickGroundMove(world.x, world.y);
         }
       }
@@ -9390,13 +9416,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     const pointerX = (event.clientX - rect.left) * canvas.width / rect.width;
     const pointerY = (event.clientY - rect.top) * canvas.height / rect.height;
-    const ground = this.projectArenaPoint(this.actPortalX, this.actPortalY);
-    const scale = this.worldZoom * this.projectionDpr * PORTAL_ART_WORLD_SCALE;
-    const left = ground.x - D2_PORTAL_ART.anchorX * scale;
-    const top = ground.y - D2_PORTAL_ART.anchorY * scale;
-    const width = D2_PORTAL_ART.frameWidth * scale;
-    const height = D2_PORTAL_ART.frameHeight * scale;
-    if (pointerX < left || pointerX > left + width || pointerY < top || pointerY > top + height) {
+    const box = this.portalArtBox(this.actPortalX, this.actPortalY, D2_PORTAL_ART);
+    if (pointerX < box.left || pointerX > box.left + box.width
+      || pointerY < box.top || pointerY > box.top + box.height) {
       this.hoveredActPortal = null;
       return;
     }
@@ -9415,6 +9437,50 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       x,
       y,
     };
+  }
+
+  /**
+   * The drawn box of a portal's current frame, in canvas pixels: the sprite is
+   * laid down from its ground anchor, which is the same box drawPortal() uses.
+   */
+  private portalArtBox(
+    x: number,
+    y: number,
+    art: PortalArt,
+  ): { left: number; top: number; width: number; height: number } {
+    const ground = this.projectArenaPoint(x, y);
+    const scale = this.worldZoom * this.projectionDpr * PORTAL_ART_WORLD_SCALE;
+    return {
+      left: ground.x - art.anchorX * scale,
+      top: ground.y - art.anchorY * scale,
+      width: art.frameWidth * scale,
+      height: art.frameHeight * scale,
+    };
+  }
+
+  /**
+   * A click on a portal is a walk order to the portal itself. Aiming at the
+   * painted frame instead of its ground point would stop the hero a step short,
+   * so the click is retargeted to the middle of the doorway; the entry check in
+   * the game loop then carries them through the moment they arrive.
+   */
+  private clickedPortalPoint(event: PointerEvent): { x: number; y: number } | null {
+    const canvas = this.arenaRef?.nativeElement;
+    const rect = canvas?.getBoundingClientRect?.();
+    if (!canvas || !rect || rect.width <= 0 || rect.height <= 0) return null;
+    const pointerX = (event.clientX - rect.left) * canvas.width / rect.width;
+    const pointerY = (event.clientY - rect.top) * canvas.height / rect.height;
+    const portals: Array<{ x: number; y: number; art: PortalArt }> = [];
+    if (this.actPortalOpen) portals.push({ x: this.actPortalX, y: this.actPortalY, art: D2_PORTAL_ART });
+    if (this.zonePortalOpen) portals.push({ x: this.zonePortalX, y: this.zonePortalY, art: D2_BLUE_PORTAL_ART });
+    for (const portal of portals) {
+      const box = this.portalArtBox(portal.x, portal.y, portal.art);
+      if (pointerX >= box.left && pointerX <= box.left + box.width
+        && pointerY >= box.top && pointerY <= box.top + box.height) {
+        return { x: portal.x, y: portal.y };
+      }
+    }
+    return null;
   }
 
   /**
@@ -12199,6 +12265,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.triggerAttackAnimation(castAnimation);
       return;
     }
+    if (skill === "Frozen Orb" && this.selectedClass === "sorceress") {
+      const aim = preferred && preferred.hp > 0 && !preferred.summonType ? preferred : groundPoint;
+      this.castPlayerFrozenOrb(aim, damage);
+      this.triggerAttackAnimation(castAnimation);
+      return;
+    }
 
     const rangedSpell = (skill === "Fire Bolt" && this.selectedClass === "sorceress")
       || (skill === "Teeth" && this.selectedClass === "necromancer")
@@ -12382,7 +12454,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     if (this.activeTab === "menu" && this.menuPanel !== "characters") this.startMenuHeroPreview();
     this.d2CursorPointerMoveHandler = (event: PointerEvent) => this.trackD2Cursor(event);
-    document.addEventListener("pointermove", this.d2CursorPointerMoveHandler, { capture: true, passive: true });
+    // Window capture runs before anything inside the page can stop the event, so
+    // the gauntlet keeps following the pointer across the skill sockets and
+    // their cards instead of freezing on the last spot outside them.
+    window.addEventListener("pointermove", this.d2CursorPointerMoveHandler, { capture: true, passive: true });
   }
 
   /** Progress of the background asset warm-up shown by the bottom indicator. */
@@ -13177,7 +13252,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   ngOnDestroy(): void {
     if (this.d2CursorPointerMoveHandler) {
-      document.removeEventListener("pointermove", this.d2CursorPointerMoveHandler, true);
+      window.removeEventListener("pointermove", this.d2CursorPointerMoveHandler, true);
       this.d2CursorPointerMoveHandler = undefined;
     }
     window.removeEventListener("pointerdown", this.unlockMenuAudio);
@@ -13290,6 +13365,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.attackAnimationStyle = attackStyle;
     this.attackAnimationTime = 0;
     this.playerAttackLockRemaining = ATTACK_CLIP_INFO[attackStyle].duration / this.playerAttackSpeedMultiplier;
+    // Remember how much of the lock is this animation's, so a move order can
+    // drop it without also cancelling a stun the enemy put on the hero.
+    this.attackAnimationLockRemaining = this.playerAttackLockRemaining;
     this.attackAnimationSide = this.equippedWeaponVisual || this.playerWeaponMeshes.length > 0
       ? -1
       : this.attackAnimationSide === -1 ? 1 : -1;
@@ -13849,9 +13927,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
    * movePlayer() tick cannot squeeze an action in while the player is fleeing.
    */
   private get playerRunning(): boolean {
-    // A floor destination remains a planted-stance command even on a frame
-    // where the route is blocked and no displacement was applied yet.
-    if (this.clickGroundTarget || this.isPlayerMoving || this.playerChargeRemaining > 0) return true;
+    // A click destination — a floor spot or a piece of loot — remains a
+    // planted-stance command even on a frame where the route is blocked and no
+    // displacement was applied yet, so no spell or swing starts on the way.
+    if (this.clickGroundTarget || this.clickLootTarget || this.isPlayerMoving || this.playerChargeRemaining > 0) return true;
     const moveKeys = ["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"];
     return moveKeys.some((key) => this.keysDown.has(key));
   }
@@ -13881,6 +13960,20 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.clearClickGroundMove();
   }
 
+  /**
+   * A move order cancels the hero's own swing or cast: the animation's stance
+   * lock must not hold the walk back until the flourish plays out. A lock raised
+   * from outside (Baal's tentacles stun with the same timer) is left to run.
+   */
+  private cancelAttackAnimation(): void {
+    if (this.attackAnimationLockRemaining > 0
+      && this.playerAttackLockRemaining <= this.attackAnimationLockRemaining + 1e-3) {
+      this.playerAttackLockRemaining = 0;
+      this.attackAnimationTime = Number.POSITIVE_INFINITY;
+    }
+    this.attackAnimationLockRemaining = 0;
+  }
+
   private clearClickGroundMove(): void {
     this.clickGroundTarget = null;
     this.clickGroundPath.length = 0;
@@ -13899,10 +13992,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.clickGroundPath = path;
     this.clickGroundStuckTime = 0;
     this.clickGroundRepathAt = this.runTime + CLICK_GROUND_REPATH_SECONDS;
-    // A click is a move command first; it interrupts a channel or a flurry
-    // instead of letting either keep firing while the hero walks away.
+    // A click is a move command first; it interrupts a channel, a flurry or a
+    // cast still playing instead of letting any of them keep the hero planted
+    // while the walk waits for them to finish.
     this.cancelChannelingSpells();
     this.clearZealSequence();
+    this.cancelAttackAnimation();
   }
 
   /** Camera scrolling moves the world under the fixed-camera hero. */
@@ -14804,6 +14899,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       }
       if (projectile.blessedHammer) {
         this.updateBlessedHammer(projectile, seconds);
+        continue;
+      }
+      if (projectile.frozenOrb) {
+        this.updateFrozenOrb(projectile, seconds, wallContext);
         continue;
       }
       if (projectile.fistOfTheHeavensBolt) {
@@ -16551,6 +16650,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     // Channels are a planted stance. A movement command breaks the channel
     // immediately so the player can walk out of the cast.
     if (this.playerRunning || this.clickMoveTarget || this.clickLootTarget) this.cancelChannelingSpells();
+    // Every click destination - floor, monster or loot - drops the cast that is
+    // still playing, so the hero starts walking on the click instead of standing
+    // in the spell's animation until it ends.
+    if (this.clickGroundTarget || this.clickMoveTarget || this.clickLootTarget) this.cancelAttackAnimation();
     if (this.clickLootTarget && !this.groundPickupAlive(this.clickLootTarget.source)) {
       this.clickLootTarget = null;
     }
@@ -20506,6 +20609,165 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         }
       }
       if (effect.time >= effect.duration) this.playerBlizzards.splice(index, 1);
+    }
+  }
+
+  /**
+   * Casts Diablo II's Frozen Orb: a single orb that flies straight through the
+   * pack, shedding rings of small ice bolts as it travels.  Aiming so the orb
+   * ends its flight on top of a monster is what concentrates the spell, exactly
+   * as in the original game: it only bursts at the end of its range or against
+   * a wall, never on the first body it crosses.
+   */
+  private castPlayerFrozenOrb(aim: { x: number; y: number } | undefined, damage: number): void {
+    const aimX = (aim?.x ?? this.playerX + this.playerFacingX * 100) - this.playerX;
+    const aimY = (aim?.y ?? this.playerY + this.playerFacingY * 100) - this.playerY;
+    const aimLength = Math.hypot(aimX, aimY);
+    const directionX = aimLength > 1 ? aimX / aimLength : this.playerFacingX || 1;
+    const directionY = aimLength > 1 ? aimY / aimLength : this.playerFacingY || 0;
+    this.attackProjectiles.push({
+      x: this.playerX, y: this.playerY - 8,
+      startX: this.playerX, startY: this.playerY - 8,
+      targetX: this.playerX + directionX * FROZEN_ORB_RANGE,
+      targetY: this.playerY + directionY * FROZEN_ORB_RANGE,
+      speed: FROZEN_ORB_SPEED,
+      // The orb itself deals little damage; the ice bolts are the spell.
+      damage: damage * 0.15,
+      life: FROZEN_ORB_RANGE * this.worldZoom / FROZEN_ORB_SPEED + 0.1,
+      age: 0,
+      radius: 12,
+      color: "#bfefff",
+      kind: "cold",
+      damageType: "cold",
+      missileId: FROZEN_ORB_ART,
+      headingX: directionX,
+      headingY: directionY,
+      cold: true,
+      frozenOrb: true,
+      orbSprayTimer: 0,
+      orbSprayPhase: Math.random() * Math.PI * 2,
+      orbBoltDamage: damage * 0.4,
+      pathHitEnemies: [],
+    });
+    this.floatingTexts.push({ x: this.playerX, y: this.playerY - 34, text: "FROZEN ORB", color: "#bfeaff", life: 0.8 });
+  }
+
+  /** Flies the orb and drops a turning ring of ice bolts every spray interval. */
+  private updateFrozenOrb(
+    projectile: AttackProjectile,
+    seconds: number,
+    wallContext: CampaignCollisionContext | null,
+  ): void {
+    projectile.life -= seconds;
+    projectile.age += seconds;
+    const deltaX = projectile.targetX - projectile.x;
+    const deltaY = projectile.targetY - projectile.y;
+    const distance = Math.hypot(deltaX, deltaY);
+    const step = projectile.speed * seconds / this.worldZoom;
+    const travel = Math.min(step, distance);
+    const directionX = distance > 0 ? deltaX / distance : projectile.headingX ?? 1;
+    const directionY = distance > 0 ? deltaY / distance : projectile.headingY ?? 0;
+    projectile.headingX = directionX;
+    projectile.headingY = directionY;
+    const nextX = projectile.x + directionX * travel;
+    const nextY = projectile.y + directionY * travel;
+    // A wall ends the flight: the orb breaks on it the way it does in D2.
+    if (wallContext && this.campaignLineBlocked(wallContext, projectile.x, projectile.y, nextX, nextY)) {
+      projectile.x = nextX;
+      projectile.y = nextY;
+      this.burstFrozenOrb(projectile);
+      return;
+    }
+    // The orb passes freely through enemies, grazing each one once on the way.
+    const alreadyHit = projectile.pathHitEnemies ?? (projectile.pathHitEnemies = []);
+    const crossed: Enemy[] = [];
+    for (const enemy of this.collectEnemiesNear(projectile.x, projectile.y, travel + 96)) {
+      if (enemy.hp <= 0 || enemy.summonType || alreadyHit.includes(enemy)) continue;
+      const relativeX = enemy.x - projectile.x;
+      const relativeY = enemy.y - projectile.y;
+      const along = travel > 0
+        ? Math.max(0, Math.min(1, (relativeX * directionX + relativeY * directionY) / travel))
+        : 0;
+      const miss = Math.hypot(relativeX - along * travel * directionX, relativeY - along * travel * directionY);
+      if (miss > enemy.r + projectile.radius + 6) continue;
+      crossed.push(enemy);
+    }
+    for (const enemy of crossed) {
+      alreadyHit.push(enemy);
+      this.queueEnemyDamage(enemy, projectile.damage, projectile.color, "cold");
+      this.applyEnemyChill(enemy);
+    }
+    projectile.x = nextX;
+    projectile.y = nextY;
+    projectile.orbSprayTimer = (projectile.orbSprayTimer ?? 0) - seconds;
+    if (projectile.orbSprayTimer <= 0) {
+      projectile.orbSprayTimer += FROZEN_ORB_SPRAY_SECONDS;
+      projectile.orbSprayPhase = (projectile.orbSprayPhase ?? 0) + FROZEN_ORB_SPRAY_TURN;
+      this.spawnFrozenOrbBolts(
+        projectile.x, projectile.y,
+        FROZEN_ORB_SPRAY_BOLTS, projectile.orbSprayPhase, FROZEN_ORB_SPRAY_RANGE,
+        projectile.orbBoltDamage ?? projectile.damage,
+      );
+    }
+    if (projectile.life <= 0 || distance <= step) this.burstFrozenOrb(projectile);
+  }
+
+  /** The rosette: ice bolts thrown out evenly in every direction, plus the burst art. */
+  private burstFrozenOrb(projectile: AttackProjectile): void {
+    projectile.life = 0;
+    this.spawnFrozenOrbBolts(
+      projectile.x, projectile.y,
+      FROZEN_ORB_BURST_BOLTS, Math.random() * Math.PI * 2, FROZEN_ORB_BURST_RANGE,
+      projectile.orbBoltDamage ?? projectile.damage,
+    );
+    this.attackProjectiles.push({
+      x: projectile.x, y: projectile.y,
+      startX: projectile.x, startY: projectile.y,
+      targetX: projectile.x, targetY: projectile.y,
+      speed: 0, damage: 0, age: 0,
+      life: FROZEN_ORB_BURST_SECONDS,
+      radius: 0,
+      color: "#bfefff",
+      kind: "cold",
+      missileId: FROZEN_ORB_BURST_ART,
+      sourceOnlyArt: true,
+      cosmeticTrail: true,
+    });
+  }
+
+  /** Small ice bolts thrown out from `count` evenly spaced headings around a point. */
+  private spawnFrozenOrbBolts(
+    x: number,
+    y: number,
+    count: number,
+    phase: number,
+    range: number,
+    damage: number,
+  ): void {
+    for (let index = 0; index < count; index += 1) {
+      const angle = phase + index * Math.PI * 2 / count;
+      const directionX = Math.cos(angle);
+      const directionY = Math.sin(angle);
+      this.attackProjectiles.push({
+        x, y, startX: x, startY: y,
+        targetX: x + directionX * range,
+        targetY: y + directionY * range,
+        speed: FROZEN_ORB_BOLT_SPEED,
+        damage,
+        life: range * this.worldZoom / FROZEN_ORB_BOLT_SPEED + 0.08,
+        age: 0,
+        radius: 5,
+        color: "#bfefff",
+        kind: "cold",
+        damageType: "cold",
+        missileId: FROZEN_ORB_BOLT_ART,
+        pathHit: true,
+        stopOnFirstHit: true,
+        pathHitEnemies: [],
+        headingX: directionX,
+        headingY: directionY,
+        cold: true,
+      });
     }
   }
 
@@ -30383,6 +30645,13 @@ interface AttackProjectile {
   driftFrequency?: number;
   /** A tornado spends itself against campaign scenery instead of crossing it. */
   stopsAtWalls?: boolean;
+  /** Frozen Orb: a piercing orb that sprays ice bolts and bursts at its end. */
+  frozenOrb?: boolean;
+  /** Seconds until the orb's next ring of ice bolts, and the ring's turn. */
+  orbSprayTimer?: number;
+  orbSprayPhase?: number;
+  /** Damage each of the orb's ice bolts carries. */
+  orbBoltDamage?: number;
   /** Seconds between a tornado's radial damage pulses, and the pulse radius. */
   pulseSeconds?: number;
   pulseRadius?: number;

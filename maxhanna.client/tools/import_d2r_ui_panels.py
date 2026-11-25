@@ -29,6 +29,10 @@ SOURCE = Path.home() / "Desktop" / "d2" / "d2r extract" / "data"
 PANELS = {
     "character-panel": "hd/global/ui/panel/character_sheet/character_background.sprite",
     "inventory-panel": "hd/global/ui/panel/inventory/classic_background.sprite",
+    # The window frame itself. Every D2R window (the skill tree included) is
+    # drawn inside this bevelled metal border, so the skill tree can slice it
+    # with border-image instead of faking the edge with a CSS shadow.
+    "panel-frame": "hd/global/ui/panel/panel_bg.sprite",
 }
 FONT = "hd/ui/fonts/exocetblizzardot-medium.otf"
 

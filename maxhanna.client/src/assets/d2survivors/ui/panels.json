@@ -11,5 +11,10 @@
     "height": 1507,
     "source": "hd/global/ui/panel/inventory/classic_background.sprite",
     "width": 1162
+  },
+  "panel-frame": {
+    "height": 1507,
+    "source": "hd/global/ui/panel/panel_bg.sprite",
+    "width": 1162
   }
 }

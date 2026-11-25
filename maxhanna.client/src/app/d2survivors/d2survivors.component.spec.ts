@@ -7,6 +7,7 @@ import { D2SurvivorsComponent, characterBodyHeight, enemyD2PixelHeight, enemySpr
 import { D2_ITEM_ART, D2_SET_ITEMS, D2_UNIQUE_ITEMS } from "./d2-item-assets.generated";
 import { getD2BaseItemFootprint } from "./d2-item-footprints";
 import { D2_HELMET_VISUALS, getHelmetVisualForItem } from "./d2-helmet-visuals.generated";
+import { getWeaponVisualForItem } from "./d2-weapon-visuals.generated";
 import { helmetMountQuaternion, helmetSeatOffset } from "./d2-helmet-mount";
 import { D2_SKILL_ICON_PATHS } from "./d2-skill-icons.generated";
 import { PALADIN_AURA_ART } from "./d2-paladin-auras.generated";
@@ -1207,6 +1208,19 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     (component as any).configureClassMeleeWeapon(model, "amazon");
     expect(baseWeapon.visible).toBeTrue();
     expect(hand.children.some((child) => child.name.startsWith("equipped_weapon_"))).toBeFalse();
+  });
+
+  it("resolves an HD held mesh for every base whose family the extraction ships", () => {
+    // D2R's hd/items/items.json names the mesh each base is held as; the
+    // normcode column only says which base an exceptional item scales from, so
+    // orbs, claws and shields used to land on a family that had no mesh and
+    // fell back to the flat inventory cel in the menu and in game.
+    for (const base of ["Jared's Stone", "Swirling Crystal", "Dimensional Shard", "Cestus", "Wrist Blade",
+      "Blade Talons", "Great Sword", "Small Shield"]) {
+      expect(getWeaponVisualForItem({ baseName: base, name: base })?.id).withContext(base).toBeTruthy();
+    }
+    expect(getWeaponVisualForItem({ baseName: "Jared's Stone", name: "Jared's Stone" })?.id).toBe("dragon_stone");
+    expect(getWeaponVisualForItem({ baseName: "Wrist Blade", name: "Wrist Blade" })?.id).toBe("katar");
   });
 
   it("shows and removes an equipped shield at the off-hand attachment", () => {
@@ -3519,6 +3533,149 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect((component as any).clickLootTarget).toBeNull();
     expect((component as any).clickGroundTarget).toEqual({ x: 340, y: 250 });
     expect((component as any).clickGroundPath).toEqual([{ x: 340, y: 250 }]);
+  });
+
+  it("flies Frozen Orb through the pack, spraying ice bolts and bursting into a rosette", () => {
+    const componentAny = component as any;
+    component.selectedClass = "sorceress";
+    component.runActive = true;
+    component.activeTab = "run";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.arenaW = 500;
+    component.arenaH = 500;
+    component.enemies = [];
+    component.attackProjectiles = [];
+    componentAny.playerFacingX = 1;
+    componentAny.playerFacingY = 0;
+
+    componentAny.castPlayerFrozenOrb({ x: 450, y: 250 }, 100);
+    const orb = component.attackProjectiles[0] as any;
+    expect(orb.missileId).toBe("d2-iceorb");
+    expect(orb.frozenOrb).toBeTrue();
+
+    // The orb sheds ice bolts while it flies.
+    componentAny.updateAttackProjectiles(100);
+    expect(component.attackProjectiles.filter((projectile: any) => projectile.missileId === "d2-icebolt").length)
+      .toBeGreaterThan(0);
+
+    // It only breaks at the end of its range, into a full rosette of bolts.
+    let guard = 0;
+    while (component.attackProjectiles.some((projectile: any) => projectile.frozenOrb) && guard < 400) {
+      componentAny.updateAttackProjectiles(50);
+      guard += 1;
+    }
+    expect(component.attackProjectiles.some((projectile: any) => projectile.frozenOrb)).toBeFalse();
+    expect(component.attackProjectiles.filter((projectile: any) => projectile.missileId === "d2-icebolt").length)
+      .toBeGreaterThanOrEqual(18);
+    expect(component.attackProjectiles.some((projectile: any) => projectile.missileId === "d2-iceorbexplode")).toBeTrue();
+  });
+
+  it("drops the cast still playing when the floor is clicked", () => {
+    component.activeTab = "run";
+    component.runActive = true;
+    component.pendingLevelUps = 0;
+    component.playerX = 250;
+    component.playerY = 250;
+    const arena = { width: 500, height: 500 } as any;
+    (component as any).arenaRef = { nativeElement: arena };
+    spyOn(component as any, "updateHoveredEnemy").and.callFake(() => { component.hoveredEnemy = null; });
+    spyOn(component as any, "updateHoveredGroundPickup").and.callFake(() => { component.hoveredGroundPickup = null; });
+    spyOn(component as any, "arenaWorldPointAt").and.returnValue({ x: 340, y: 250 });
+    spyOn(component as any, "planClickGroundPath").and.returnValue([{ x: 340, y: 250 }]);
+    // Mid-cast: the spell's stance lock would otherwise keep the hero planted
+    // until the flourish ends, so the click would not start the walk.
+    (component as any).attackAnimationLockRemaining = 0.4;
+    (component as any).playerAttackLockRemaining = 0.4;
+
+    component.onArenaPointerDown({
+      pointerType: "mouse", button: 0, target: arena, clientX: 350, clientY: 250,
+      preventDefault: () => undefined,
+    } as any);
+
+    expect((component as any).clickGroundTarget).toEqual({ x: 340, y: 250 });
+    expect((component as any).playerAttackLockRemaining).toBe(0);
+    expect((component as any).attackAnimationLockRemaining).toBe(0);
+  });
+
+  it("keeps an enemy stun on the hero when a move order cancels the cast", () => {
+    const componentAny = component as any;
+    // Baal's tentacles raise the same stance lock as a cast, but above it: a
+    // walk order may not shake that stun off.
+    componentAny.attackAnimationLockRemaining = 0.2;
+    componentAny.playerAttackLockRemaining = 0.32;
+
+    componentAny.cancelAttackAnimation();
+
+    expect(componentAny.playerAttackLockRemaining).toBeCloseTo(0.32);
+    expect(componentAny.attackAnimationLockRemaining).toBe(0);
+  });
+
+  it("aims a portal click at the doorway instead of the painted frame", () => {
+    const componentAny = component as any;
+    component.activeTab = "run";
+    component.runActive = true;
+    component.pendingLevelUps = 0;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.actPortalOpen = true;
+    componentAny.actPortalX = 340;
+    componentAny.actPortalY = 250;
+    const arena = {
+      width: 500, height: 500,
+      getBoundingClientRect: () => ({ left: 0, top: 0, width: 500, height: 500 }),
+    } as any;
+    componentAny.arenaRef = { nativeElement: arena };
+    spyOn(componentAny, "updateHoveredEnemy").and.callFake(() => { component.hoveredEnemy = null; });
+    spyOn(componentAny, "updateHoveredGroundPickup").and.callFake(() => { component.hoveredGroundPickup = null; });
+    spyOn(componentAny, "projectArenaPoint").and.callFake((x: number, y: number) => ({ x, y }));
+    // A fresh array per call: the move command empties the one it is handed.
+    spyOn(componentAny, "planClickGroundPath").and.callFake(() => [{ x: 340, y: 250 }]);
+
+    // The press lands on the portal's upper frame, not on its ground point.
+    component.onArenaPointerDown({
+      pointerType: "mouse", button: 0, target: arena, clientX: 340, clientY: 150,
+      preventDefault: () => undefined,
+    } as any);
+
+    expect(componentAny.clickGroundTarget).toEqual({ x: 340, y: 250 });
+
+    // A press on bare floor beside the portal keeps its own spot.
+    componentAny.clearClickMoveCommands();
+    spyOn(componentAny, "arenaWorldPointAt").and.returnValue({ x: 200, y: 300 });
+    component.onArenaPointerDown({
+      pointerType: "mouse", button: 0, target: arena, clientX: 200, clientY: 300,
+      preventDefault: () => undefined,
+    } as any);
+    expect(componentAny.clickGroundTarget).toEqual({ x: 200, y: 300 });
+  });
+
+  it("walks to the blue area portal when its frame is clicked", () => {
+    const componentAny = component as any;
+    component.activeTab = "run";
+    component.runActive = true;
+    component.pendingLevelUps = 0;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.zonePortalOpen = true;
+    componentAny.zonePortalX = 300;
+    componentAny.zonePortalY = 300;
+    const arena = {
+      width: 500, height: 500,
+      getBoundingClientRect: () => ({ left: 0, top: 0, width: 500, height: 500 }),
+    } as any;
+    componentAny.arenaRef = { nativeElement: arena };
+    spyOn(componentAny, "updateHoveredEnemy").and.callFake(() => { component.hoveredEnemy = null; });
+    spyOn(componentAny, "updateHoveredGroundPickup").and.callFake(() => { component.hoveredGroundPickup = null; });
+    spyOn(componentAny, "projectArenaPoint").and.callFake((x: number, y: number) => ({ x, y }));
+    spyOn(componentAny, "planClickGroundPath").and.callFake(() => [{ x: 300, y: 300 }]);
+
+    component.onArenaPointerDown({
+      pointerType: "mouse", button: 0, target: arena, clientX: 300, clientY: 200,
+      preventDefault: () => undefined,
+    } as any);
+
+    expect(componentAny.clickGroundTarget).toEqual({ x: 300, y: 300 });
   });
 
   it("does not attack or cast while walking to a floor destination", () => {
@@ -12987,6 +13144,24 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     const [, cursorX, cursorY] = /translate3d\(([-\d.]+)px, ([-\d.]+)px/.exec(cursor.style.transform)!;
     expect(Number(cursorX)).toBeCloseTo(96.7);
     expect(Number(cursorY)).toBeCloseTo(94.5);
+
+    // A skill socket and its open card live inside the game UI as well, so the
+    // gauntlet has to keep tracking over them instead of freezing on the last
+    // spot outside the panel.
+    componentAny.hoveredSkillTooltip = {
+      name: "Fire Bolt", art: "", x: 0, y: 0,
+      currentStats: [], nextStats: [], prerequisites: [], reason: "",
+    };
+    componentAny.trackD2Cursor({
+      pointerType: "mouse", clientX: 300, clientY: 200,
+      target: { closest: (selector: string) => selector === ".d2s" || selector === ".d2s-tree-skill" ? {} : null },
+    });
+    expect(cursor.dataset.mode).toBe("default");
+    expect(cursor.style.opacity).toBe("1");
+    const [, socketX, socketY] = /translate3d\(([-\d.]+)px, ([-\d.]+)px/.exec(cursor.style.transform)!;
+    expect(Number(socketX)).toBeCloseTo(296.7);
+    expect(Number(socketY)).toBeCloseTo(194.5);
+    componentAny.hoveredSkillTooltip = null;
   });
 
   it("leaves Act I's courtyard walls to the painted backdrop", () => {

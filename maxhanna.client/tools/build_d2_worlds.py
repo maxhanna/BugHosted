@@ -179,6 +179,11 @@ class WorldSpec:
     #: Flat art colour of open water: impassable except where a bridge is painted
     #: over it.
     water: tuple[int, int, int] | None = None
+    #: Block only the body a wall tile actually paints instead of its whole cell.
+    #: A room's walls fill their cell and stay solid either way; the sewer chunks
+    #: are thin railings, arch tops and rubble standing on open floor, and fencing
+    #: their cells put invisible walls across ground the hero can plainly see.
+    wall_footprint: bool = False
 
 
 def ds1(folder: str, *names: str) -> tuple[str, ...]:
@@ -243,7 +248,8 @@ ACT2_WORLDS: tuple[WorldSpec, ...] = (
     WorldSpec("Sewers", "a2-sewers", 2,
               ds1("act2/sewer", "sewnsew", "sewnsew2", "sewnsew",
                   "sewnsewtheme", "sewnsew", "sewnsew2",
-                  "sewnsew", "sewnsewtheme", "sewnsew"), 3, 3),
+                  "sewnsew", "sewnsewtheme", "sewnsew"), 3, 3,
+              wall_footprint=True),
     WorldSpec("Rocky Waste", "a2-rocky-waste", 2,
               ds1("act2/outdoors", "desert1", "desert2", "desert3", "desert4", "desert5",
                   "desert6", "desert7", "desert8", "desert9", "desert10",
@@ -893,7 +899,7 @@ def water_collision(ground: Image.Image, colour: tuple[int, int, int]) -> Image.
 def export_collision(scene: tristram.Scene,
                      catalogue: dict[tuple[int, int, int], tristram.Tile],
                      palette: list[tuple[int, int, int, int]],
-                     open_ground: bool) -> Image.Image:
+                     block_full_cells: bool) -> Image.Image:
     left, top, width, height = crop_origin(scene)
     mask = Image.new("L", (width, height), 0)
     draw = ImageDraw.Draw(mask)
@@ -920,7 +926,10 @@ def export_collision(scene: tristram.Scene,
             column, row = index % scene.width, index // scene.width
             tile_x = origin_x + (column - row) * TILE_WIDTH // 2 - left
             tile_y = origin_y + (column + row) * TILE_HEIGHT // 2 - top
-            if not open_ground or stamp[1] >= CELL_SOLID_SHARE:
+            # A wall that fills its cell blocks the cell.  Anything thinner -
+            # a railing, an arch top, a rubble pile - blocks only the body it
+            # paints, so open floor beside it stays walkable.
+            if block_full_cells or stamp[1] >= CELL_SOLID_SHARE:
                 draw_diamond(draw, tile_x, tile_y)
             else:
                 mask.paste(solid, (tile_x, tile_y), stamp[0])
@@ -951,7 +960,10 @@ def write_world(spec: WorldSpec, source: Path, preview: Path | None) -> dict:
     ground.save(ASSET_ROOT / f"{spec.slug}-ground.png", optimize=True)
     # The collision mask is what the hero actually feels, so it decides where
     # they start: the open floor the mask leaves rather than a doorway gap.
-    collision = export_collision(scene, catalogue, palette, is_open_ground(spec))
+    collision = export_collision(
+        scene, catalogue, palette,
+        block_full_cells=not is_open_ground(spec) and not spec.wall_footprint,
+    )
     if spec.water is not None:
         collision = ImageChops.lighter(collision, water_collision(ground, spec.water))
     collision.save(ASSET_ROOT / f"{spec.slug}-walls-collision.png", optimize=True)

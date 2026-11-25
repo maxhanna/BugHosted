@@ -1691,7 +1691,12 @@
   padding: clamp(12px, 1.2vw, 18px);
   color: #d8c49b;
   background: radial-gradient(ellipse at 50% 0, #211710fa, #080809fb 72%);
-  box-shadow: inset 0 0 0 5px #090909, inset 0 0 0 7px #4f3d25, inset 0 0 0 9px #100d0b, 0 10px 32px #000d;
+  /* D2R's own window frame: the skill tree is one of the game's panels, so it
+     carries the same bevelled metal border on all four sides - the right one
+     included - instead of the CSS shadow that left that edge bare. */
+  border: clamp(14px, 1.5vw, 22px) solid transparent;
+  border-image: url('../../assets/d2survivors/ui/panel-frame.webp') 64 stretch;
+  box-shadow: 0 10px 32px #000d;
   box-sizing: border-box;
 }
 .d2s-skill-tree-header { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding-bottom: 10px; border-bottom: 1px solid #58452b; }
@@ -1769,10 +1774,14 @@
   background-position: center, center;
   background-repeat: no-repeat;
   box-shadow: inset 0 0 0 2px #080809, 0 5px 18px #000c;
-  pointer-events: auto;
+  /* The card is anchored to the pointer, so it must never take the pointer:
+     doing so swallowed the socket's hover and froze the card in place. Only
+     its close button stays clickable. */
+  pointer-events: none;
   box-sizing: border-box;
 }
 .d2s-skill-tooltip-close {
+  pointer-events: auto;
   position: absolute;
   top: 4px;
   right: 6px;
@@ -3303,7 +3312,11 @@
 }
 
 .d2s-inventory-status {
+  /* The sale/equip message keeps its row whether or not there is one, so the
+     full-height layout beside it never shrinks: otherwise every sale made the
+     two centred windows jump upwards for a moment. */
   width: min(1180px, 100%);
+  min-height: 17px;
   margin: 0;
   color: #e5a58f;
   text-align: center;

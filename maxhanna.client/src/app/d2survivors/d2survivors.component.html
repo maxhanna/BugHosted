@@ -676,7 +676,7 @@
         </section>
         </div>
       </div>
-      <p class="d2s-inventory-status" role="status" *ngIf="inventoryStatus">{{ inventoryStatus }}</p>
+      <p class="d2s-inventory-status" role="status">{{ inventoryStatus }}</p>
       <p class="d2s-hint">Drag gear to equip · touch: long-press an item, then drag to move it · right-click a weapon or armor to equip or swap · drag a gem or jewel onto an item with an open socket to set it · Ctrl-click or use the item preview to sell · right-click equipped gear to unequip</p>
     </section>
     <aside class="d2s-stat-tooltip" *ngIf="visibleStatTooltip as statTooltip" [style.left.px]="statTooltip.x" [style.top.px]="statTooltip.y" role="tooltip">

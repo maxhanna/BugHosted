@@ -5,9 +5,15 @@ the level-of-detail 0 Granny ``.model`` to GLB through lslib (Divine), and
 decodes the matching albedo ``.texture`` to a compact PNG.  Unlike helmets,
 weapon and shield art is not one folder per base name: D2R authors one HD mesh
 per *family* (``Short Sword``, ``Gladius`` and ``Falcata`` all use the
-``short_sword`` mesh).  The family is found through ``normcode`` in
-``weapons.txt`` / ``armor.txt``, and the mesh folder is the snake-case family
-name.
+``short_sword`` mesh).  The family comes from ``hd/items/items.json``, which
+names the HD asset each base code is actually held as (``ob5`` ->
+``orb/dragon_stone``); ``normcode`` is only a scaling reference and, for
+example, points every exceptional orb at a family D2R never ships.
+
+Meshes lslib's SharpGLTF writer rejects (it gives up rebuilding tangents on a
+fair number of shields, spears and claws) are written straight from the
+COLLADA file lslib produced, so a family either gets its real mesh or is left
+out of the generated table and falls back to the inventory cel.
 
 Usage:
     python tools/import_d2r_weapon_art.py --lslib-dir .tmp-d2rconvert/lslib/Packed
@@ -19,11 +25,13 @@ from __future__ import annotations
 
 import argparse
 import io
+import json
 import math
 import re
 import struct
 import subprocess
 import sys
+import xml.etree.ElementTree as ElementTree
 from pathlib import Path
 
 from PIL import Image
@@ -127,6 +135,251 @@ def run_divine(divine: Path, command: list[str], cwd: Path) -> None:
     raise RuntimeError(f"exit {result.returncode}: {detail[-1] if detail else 'no output'}")
 
 
+def sanitize_dae_vectors(dae: Path) -> int:
+    """Replace zero-length normals/tangents so lslib can write the GLB.
+
+    A handful of weapon meshes carry tangents whose xyz part is (0, 0, 0).
+    SharpGLTF normalises them while exporting and refuses the model with
+    "Values are not finite. (Parameter 'Tangent')", which used to drop the whole
+    family to its flat inventory art.  Swapping those entries for a unit vector
+    keeps the mesh intact - the game re-derives tangents for these rigid pieces
+    anyway.
+    """
+    text = dae.read_text(encoding="utf-8")
+    fixed = 0
+    for suffix, stride, fallback in (("normals", 3, (0.0, 1.0, 0.0)), ("tangents", 4, (1.0, 0.0, 0.0, 1.0))):
+        pattern = re.compile(
+            r'(<source id="[^"]*-' + suffix + r'"[^>]*>\s*<float_array[^>]*>)([^<]*)(</float_array>)', re.S)
+        match = pattern.search(text)
+        if not match:
+            continue
+        values = [float(value) for value in match.group(2).split()]
+        changed = False
+        for start in range(0, len(values) - stride + 1, stride):
+            xyz = values[start:start + 3]
+            if all(math.isfinite(value) for value in xyz) and sum(value * value for value in xyz) > 1e-8:
+                continue
+            values[start:start + stride] = list(fallback)
+            changed = True
+            fixed += 1
+        if changed:
+            body = "\n" + " ".join(f"{value:.6f}" for value in values) + "\n"
+            text = text[:match.start(2)] + body + text[match.end(2):]
+    if fixed:
+        dae.write_text(text, encoding="utf-8")
+    return fixed
+
+
+def _local(element: ElementTree.Element) -> str:
+    return element.tag.rsplit("}", 1)[-1]
+
+
+def _child(element: ElementTree.Element, name: str) -> ElementTree.Element | None:
+    for candidate in element:
+        if _local(candidate) == name:
+            return candidate
+    return None
+
+
+def _descendants(element: ElementTree.Element, name: str) -> list[ElementTree.Element]:
+    return [candidate for candidate in element.iter() if _local(candidate) == name]
+
+
+def read_dae_mesh(dae: Path) -> tuple[list[list[float]], list[list[float]], list[list[float]], list[int]]:
+    """Pull one rigid COLLADA mesh out of a lslib DAE export.
+
+    Returns (positions, normals, uvs, indices) with de-indexed corners, which is
+    the same shape lslib's own GLB writer produces.
+    """
+    root = ElementTree.parse(dae).getroot()
+    mesh = next(candidate for candidate in root.iter() if _local(candidate) == "mesh")
+
+    arrays: dict[str, tuple[list[float], int]] = {}
+    for source in _descendants(mesh, "source"):
+        floats = _child(source, "float_array")
+        technique = _child(source, "technique_common")
+        accessor = _child(technique, "accessor") if technique is not None else None
+        if floats is None or accessor is None or not floats.text:
+            continue
+        stride = int(accessor.get("stride", "3"))
+        arrays[source.get("id", "")] = ([float(value) for value in floats.text.split()], stride)
+
+    def source_id(suffix: str) -> str | None:
+        for source_id_value in arrays:
+            if source_id_value.endswith(suffix):
+                return source_id_value
+        return None
+
+    position_id = source_id("-positions")
+    normal_id = source_id("-normals")
+    uv_id = source_id("-uvs0")
+    if not position_id or not uv_id:
+        raise ValueError(f"{dae.name}: no positions/uvs in the COLLADA mesh")
+
+    triangles = _child(mesh, "triangles")
+    if triangles is None:
+        raise ValueError(f"{dae.name}: only triangle meshes are supported")
+    inputs = {}
+    for element in triangles:
+        if _local(element) == "input":
+            inputs[element.get("semantic", "")] = (int(element.get("offset", "0")), element.get("source", ""))
+    indices_element = _child(triangles, "p")
+    if indices_element is None or not indices_element.text:
+        raise ValueError(f"{dae.name}: no triangle indices")
+    stride = max(offset for offset, _ in inputs.values()) + 1
+    corners = [int(value) for value in indices_element.text.split()]
+    if len(corners) % (stride * 3) != 0:
+        raise ValueError(f"{dae.name}: index count {len(corners)} is not triangles")
+
+    position_offset, position_source = inputs.get("VERTEX") or inputs.get("POSITION") or (0, "#" + position_id)
+    normal_offset, normal_source = inputs.get("NORMAL", (-1, ""))
+    uv_offset, uv_source = inputs.get("TEXCOORD", (-1, ""))
+    position_source = position_source.lstrip("#")
+    normal_source = normal_source.lstrip("#") if normal_source else ""
+    uv_source = uv_source.lstrip("#") if uv_source else ""
+
+    positions: list[list[float]] = []
+    normals: list[list[float]] = []
+    uvs: list[list[float]] = []
+    lookup: dict[tuple[int, ...], int] = {}
+    out_indices: list[int] = []
+    position_data, position_stride = arrays[position_source]
+    normal_data, normal_stride = arrays[normal_source] if normal_source in arrays else ([], 3)
+    uv_data, uv_stride = arrays[uv_source] if uv_source in arrays else ([], 2)
+
+    for start in range(0, len(corners), stride):
+        corner = corners[start:start + stride]
+        vertex = corner[position_offset]
+        key = (vertex, corner[normal_offset] if normal_offset >= 0 else -1,
+               corner[uv_offset] if uv_offset >= 0 else -1)
+        index = lookup.get(key)
+        if index is None:
+            index = len(positions)
+            lookup[key] = index
+            positions.append(position_data[vertex * position_stride:vertex * position_stride + 3])
+            if normal_data:
+                normal = normal_data[key[1] * normal_stride:key[1] * normal_stride + 3]
+                length = math.sqrt(sum(value * value for value in normal))
+                normals.append([value / length for value in normal] if length > 1e-8 else [0.0, 1.0, 0.0])
+            else:
+                normals.append([0.0, 1.0, 0.0])
+            if uv_data:
+                uvs.append(uv_data[key[2] * uv_stride:key[2] * uv_stride + 2])
+            else:
+                uvs.append([0.0, 0.0])
+        out_indices.append(index)
+    return positions, normals, uvs, out_indices
+
+
+def _tangents(positions: list[list[float]], normals: list[list[float]],
+              uvs: list[list[float]], indices: list[int]) -> list[list[float]]:
+    accumulators = [[0.0, 0.0, 0.0] for _ in positions]
+    for start in range(0, len(indices), 3):
+        a, b, c = indices[start:start + 3]
+        edge1 = [positions[b][axis] - positions[a][axis] for axis in range(3)]
+        edge2 = [positions[c][axis] - positions[a][axis] for axis in range(3)]
+        duv1 = [uvs[b][axis] - uvs[a][axis] for axis in range(2)]
+        duv2 = [uvs[c][axis] - uvs[a][axis] for axis in range(2)]
+        determinant = duv1[0] * duv2[1] - duv1[1] * duv2[0]
+        if abs(determinant) < 1e-12:
+            continue
+        scale = 1.0 / determinant
+        tangent = [(edge1[axis] * duv2[1] - edge2[axis] * duv1[1]) * scale for axis in range(3)]
+        for index in (a, b, c):
+            for axis in range(3):
+                accumulators[index][axis] += tangent[axis]
+
+    tangents = []
+    for index, normal in enumerate(normals):
+        tangent = accumulators[index]
+        dot = sum(tangent[axis] * normal[axis] for axis in range(3))
+        tangent = [tangent[axis] - normal[axis] * dot for axis in range(3)]
+        length = math.sqrt(sum(value * value for value in tangent))
+        tangents.append([value / length for value in tangent] + [1.0] if length > 1e-8 else [1.0, 0.0, 0.0, 1.0])
+    return tangents
+
+
+def write_glb_from_dae(dae: Path, glb: Path) -> None:
+    """Fallback COLLADA -> GLB writer for meshes lslib's SharpGLTF export rejects.
+
+    lslib refuses a good number of D2R shield, bow and claw meshes with
+    "Values are not finite. (Parameter 'Tangent')" while rebuilding tangents.
+    The geometry itself is fine, so write the same single-mesh GLB lslib would
+    have produced: positions, normals, tangents, one UV set and triangle indices.
+    """
+    positions, normals, uvs, indices = read_dae_mesh(dae)
+    tangents = _tangents(positions, normals, uvs, indices)
+
+    payload = bytearray()
+    views = []
+
+    def append_floats(values: list[list[float]]) -> int:
+        start = len(payload)
+        for value in values:
+            payload.extend(struct.pack(f"<{len(value)}f", *value))
+        views.append({"buffer": 0, "byteOffset": start, "byteLength": len(payload) - start})
+        return len(views) - 1
+
+    position_view = append_floats(positions)
+    normal_view = append_floats(normals)
+    tangent_view = append_floats(tangents)
+    uv_view = append_floats(uvs)
+    index_start = len(payload)
+    for index in indices:
+        payload.extend(struct.pack("<I", index))
+    views.append({"buffer": 0, "byteOffset": index_start, "byteLength": len(payload) - index_start})
+    index_view = len(views) - 1
+    while len(payload) % 4:
+        payload.append(0)
+
+    def bounds(values: list[list[float]], size: int) -> tuple[list[float], list[float]]:
+        return ([min(value[axis] for value in values) for axis in range(size)],
+                [max(value[axis] for value in values) for axis in range(size)])
+
+    position_min, position_max = bounds(positions, 3)
+    normal_min, normal_max = bounds(normals, 3)
+    tangent_min, tangent_max = bounds(tangents, 4)
+    uv_min, uv_max = bounds(uvs, 2)
+    document = {
+        "asset": {"generator": "tools/import_d2r_weapon_art.py", "version": "2.0"},
+        "scene": 0,
+        "scenes": [{"nodes": [0]}],
+        "nodes": [{"mesh": 0}],
+        "meshes": [{
+            "name": dae.stem,
+            "primitives": [{
+                "attributes": {"POSITION": 0, "NORMAL": 1, "TANGENT": 2, "TEXCOORD_0": 3},
+                "indices": 4,
+                "material": 0,
+            }],
+        }],
+        "materials": [{"name": "Dummy", "pbrMetallicRoughness": {}}],
+        "accessors": [
+            {"bufferView": position_view, "componentType": 5126, "count": len(positions),
+             "type": "VEC3", "min": position_min, "max": position_max},
+            {"bufferView": normal_view, "componentType": 5126, "count": len(normals),
+             "type": "VEC3", "min": normal_min, "max": normal_max},
+            {"bufferView": tangent_view, "componentType": 5126, "count": len(tangents),
+             "type": "VEC4", "min": tangent_min, "max": tangent_max},
+            {"bufferView": uv_view, "componentType": 5126, "count": len(uvs),
+             "type": "VEC2", "min": uv_min, "max": uv_max},
+            {"bufferView": index_view, "componentType": 5125, "count": len(indices), "type": "SCALAR"},
+        ],
+        "bufferViews": views,
+        "buffers": [{"byteLength": len(payload)}],
+    }
+
+    json_chunk = json.dumps(document, separators=(",", ":")).encode("utf-8")
+    while len(json_chunk) % 4:
+        json_chunk += b" "
+    total = 12 + 8 + len(json_chunk) + 8 + len(payload)
+    glb.write_bytes(
+        struct.pack("<III", 0x46546C67, 2, total)
+        + struct.pack("<II", len(json_chunk), 0x4E4F534A) + json_chunk
+        + struct.pack("<II", len(payload), 0x004E4942) + bytes(payload)
+    )
+
+
 def convert_model(lslib_dir: Path, models: list[Path], work_stem: Path) -> Path:
     """Convert the first LOD that lslib can export; lod0 tangents can be bad."""
     divine = lslib_dir / "Tools" / "Divine.exe"
@@ -143,9 +396,16 @@ def convert_model(lslib_dir: Path, models: list[Path], work_stem: Path) -> Path:
              "-i", "dae", "-o", "glb"],
         )
         try:
-            for command in commands:
-                run_divine(divine, command, lslib_dir)
-        except RuntimeError as error:
+            run_divine(divine, commands[0], lslib_dir)
+            sanitize_dae_vectors(dae)
+            try:
+                run_divine(divine, commands[1], lslib_dir)
+            except RuntimeError:
+                # lslib's GLB writer gives up on some meshes while rebuilding
+                # tangents; the COLLADA file it just wrote is still good.
+                write_glb_from_dae(dae, glb)
+                print(f"  wrote lod{index} GLB directly (lslib GLB export failed)")
+        except (RuntimeError, ValueError, StopIteration) as error:
             errors.append(f"lod{index}: {error}")
             print(f"  lod{index} failed ({error}); trying next")
             continue
@@ -154,6 +414,31 @@ def convert_model(lslib_dir: Path, models: list[Path], work_stem: Path) -> Path:
             return glb
         errors.append(f"lod{index}: no GLB")
     raise RuntimeError("; ".join(errors) or "no model LODs found")
+
+
+def hd_item_assets(source: Path) -> dict[str, str]:
+    """Base code -> D2R HD item asset path, straight from the game's items.json.
+
+    Diablo II's ``normcode`` column only says which base an exceptional or elite
+    item normalises to for affix levels; it is not the held mesh.  Every
+    exceptional orb, for example, normalises to ``ob5``, so the normalised family
+    named a mesh D2R never ships (``jareds_stone``) and those items fell back to
+    their flat inventory art.  D2R's own ``hd/items/items.json`` names the asset
+    each base code actually uses (``ob5`` -> ``orb/dragon_stone``), which is what
+    the character holds.
+    """
+    path = source / "hd" / "items" / "items.json"
+    if not path.exists():
+        return {}
+    assets: dict[str, str] = {}
+    for entry in json.loads(path.read_text(encoding="utf-8")):
+        if not isinstance(entry, dict):
+            continue
+        for code, info in entry.items():
+            asset = info.get("asset") if isinstance(info, dict) else None
+            if isinstance(asset, str) and asset:
+                assets[code] = asset
+    return assets
 
 
 def resolve_families(source: Path) -> tuple[dict[str, str], dict[str, Path]]:
@@ -165,6 +450,7 @@ def resolve_families(source: Path) -> tuple[dict[str, str], dict[str, Path]]:
     for row in rows:
         normal_name.setdefault(row.get("code", ""), row.get("name", ""))
     by_name = {row["name"].lower(): row for row in rows if row.get("name")}
+    assets = hd_item_assets(source)
 
     meshes: dict[str, Path] = {}
     for root in (source / "hd" / "items" / "weapon", source / "hd" / "items" / "armor" / "shield",
@@ -177,8 +463,15 @@ def resolve_families(source: Path) -> tuple[dict[str, str], dict[str, Path]]:
         row = by_name.get(name.lower())
         if not row:
             continue
-        family = normal_name.get(row.get("normcode") or row.get("code", ""), row.get("name", ""))
-        folder = snake(family)
+        code = row.get("code", "")
+        # The base's own HD asset first; several bases share one mesh family.
+        # A few elite bases (War Fist, Runic Talons) have no items.json entry of
+        # their own, so fall back to the asset of the base they normalise to.
+        asset = assets.get(code) or assets.get(row.get("normcode") or code)
+        folder = (asset.split("/")[-1]) if asset else None
+        if folder is None or folder not in meshes:
+            family = normal_name.get(row.get("normcode") or code, row.get("name", ""))
+            folder = snake(family)
         if folder in meshes and folder not in NO_MESH:
             base_to_family[name.lower()] = folder
     return base_to_family, meshes
