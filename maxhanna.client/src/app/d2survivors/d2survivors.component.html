@@ -280,7 +280,13 @@
         <span class="d2s-enemy-hover-immunities" *ngIf="getEnemyResistanceLabel(enemy)">{{ getEnemyResistanceLabel(enemy) }}</span>
       </div>
       <div class="d2s-ground-pickup-label" *ngIf="!altLootLabelsHeld && hoveredGroundPickup as pickup" [style.left.px]="pickup.x" [style.top.px]="pickup.y" aria-hidden="true">{{ pickup.text }}</div>
-      <div class="d2s-ground-pickup-label" *ngFor="let label of altLootLabels" [style.left.px]="label.x" [style.top.px]="label.y" aria-hidden="true">{{ label.text }}</div>
+      <div class="d2s-ground-pickup-label"
+        *ngFor="let label of altLootLabels"
+        [class.magic]="label.rarity === 'magic'"
+        [class.rare]="label.rarity === 'rare'"
+        [class.unique]="label.rarity === 'unique'"
+        [class.set]="label.rarity === 'set'"
+        [style.left.px]="label.x" [style.top.px]="label.y" aria-hidden="true">{{ label.text }}</div>
       <div class="d2s-act-portal-tooltip" *ngIf="actPortalOpen && hoveredActPortal as portal" [style.left.px]="portal.x" [style.top.px]="portal.y" role="tooltip">
         <strong>{{ portal.title }}</strong>
         <span *ngFor="let line of portal.lines">{{ line }}</span>

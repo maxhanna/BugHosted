@@ -1006,6 +1006,20 @@ function carriedCelRoll(item: HeldItem): number {
   return /crossbow/i.test(item.name) ? item.celAxis + Math.PI / 2 : item.celAxis;
 }
 
+/**
+ * Length of a mounted held-item mesh in its own units, which is what
+ * `heldItemShare` measures the piece against. Every family stands on end, so its
+ * Y extent is its length - except the crossbows, which D2R authors as a flat
+ * stock: their Y extent is the limb thickness (0.20 against a 1.21 stock), so
+ * measuring them by height scaled one up to the hero's full height and it
+ * swallowed the character. A crossbow's length runs through the XZ plane.
+ */
+export function heldMeshLength(visualId: string, size: { x: number; y: number; z: number }): number {
+  return /crossbow/i.test(visualId)
+    ? Math.max(Math.abs(size.x), Math.abs(size.z))
+    : Math.abs(size.y);
+}
+
 /** Share of the hero's height one held cel should cover. Cels include padding. */
 export function heldItemShare(item: HeldItem): number {
   // Item names arrive capitalised ("Short Staff"), so every family test here
@@ -1029,7 +1043,8 @@ export function heldItemShare(item: HeldItem): number {
   // family made the two identical on the hero, and both of them oversized.
   if (/short bow/i.test(item.name)) return 0.52 * offhandScale;
   // The crossbow cel is a wide, low stock: at a long bow's share it covered the
-  // whole portrait.
+  // whole portrait. Its share is measured along the stock, which is how
+  // `heldMeshLength` sizes a mounted crossbow mesh too.
   if (/crossbow/i.test(item.name)) return 0.5 * offhandScale;
   if (/bow/i.test(item.name)) return 0.72 * offhandScale;
   // A staff is carried upright beside the hero, so it stops short of the bows;

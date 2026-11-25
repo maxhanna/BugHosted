@@ -44,7 +44,7 @@ import { D2_PALADIN_AURA_HIT_ART } from "./d2-paladin-aura-hits.generated";
 import { D2_MISSILE_FRAME_COUNTS } from "./d2-missile-assets.generated";
 import { D2_SKILL_ICON_PATHS } from "./d2-skill-icons.generated";
 import { D2_LOOT_ART, D2_LOOT_ART_SIZE } from "./d2-loot-assets.generated";
-import { D2_PORTAL_ART } from "./d2-portal-assets.generated";
+import { D2_BLUE_PORTAL_ART, D2_PORTAL_ART } from "./d2-portal-assets.generated";
 import {
   D2_GROUND_ITEM_ANIMATIONS,
   D2_GROUND_ITEM_ART,
@@ -76,6 +76,7 @@ import {
   type CharacterRig,
   buildCharacterRig,
   gaitForClass,
+  heldMeshLength,
   poseCharacterRig,
 } from "./character-animation";
 
@@ -445,6 +446,8 @@ const DRUID_FORM_COOLDOWN_SECONDS = 30;
 // The wereform importer repeats its eight-frame walk cycle to fill the thirteen
 // atlas columns; playing those repeated cels makes the loop visibly hitch.
 const DRUID_WEREFORM_WALK_FRAMES = 8;
+/** An attack row may be upscaled back to the walk body size, never beyond this. */
+const WEREFORM_ATTACK_MAX_SCALE = 1.6;
 const BONE_ARMOR_RECAST_SECONDS = 12;
 const CYCLONE_ARMOR_RECAST_SECONDS = 10;
 // Holy Shield is a timed defensive buff: it raises the paladin's base Defense
@@ -798,6 +801,16 @@ const CHARGED_BOLT_PROJECTILE_SPEED = 360;
 const CHARGED_BOLT_DRIFT_STRENGTH = 0.16;
 const CHARGED_BOLT_DRIFT_FREQUENCY = 5.2;
 const CHARGED_BOLT_OPACITY = 0.56;
+// D2's Tornado lives 75 frames (3 seconds) and pulses its 2-yard radial damage on
+// the frame it appears and every 15 frames after, five pulses in all. It zig-zags
+// toward the point it was cast at - the same path again while that point holds -
+// and a wall stops it dead.
+const TORNADO_LIFE_SECONDS = 3;
+const TORNADO_PULSE_SECONDS = 0.6;
+const TORNADO_PULSE_RADIUS = 46;
+const TORNADO_SPEED = 340;
+const TORNADO_ZIGZAG_STRENGTH = 0.55;
+const TORNADO_ZIGZAG_FREQUENCY = 3.2;
 const CAMPAIGN_TILE_WORLD_SIZE = 60;
 /** Slots kept warm on each side of the archive's scroll window. */
 const LEADERBOARD_HERO_PRELOAD_MARGIN = 2;
@@ -850,6 +863,8 @@ const PORTAL_FRAME_SECONDS = 0.09;
 // D2R HD art is 109x159; this keeps the doorway about 214 CSS pixels tall at
 // the arena's fixed 2.1 world zoom.
 const PORTAL_ART_WORLD_SCALE = 0.64;
+// How close the hero must stand for a portal to carry them through it.
+const PORTAL_ENTRY_RADIUS = 30;
 // Keep the doorway close enough to find immediately, but not on top of the
 // boss chest. The clearance is wider than the chest kick radius (42) plus the
 // portal's entry radius (30), so collecting the chest cannot trigger the portal.
@@ -2276,6 +2291,9 @@ interface EnemySprite {
   footFraction: number;
 }
 
+/** Either portal sheet: the red act door or the blue area door. */
+type PortalArt = typeof D2_PORTAL_ART | typeof D2_BLUE_PORTAL_ART;
+
 interface DruidAnimation {
   frames: HTMLCanvasElement[][];
   columns: number;
@@ -2284,6 +2302,10 @@ interface DruidAnimation {
   walkColumns?: number;
   rows: number;
   frameDurationMs: number;
+  /** Per-row scale that keeps every row's body the size of the walk rows. */
+  rowScales?: number[];
+  /** Per-row foot line inside the cel, as a share of the cell height. */
+  rowFootRatios?: number[];
 }
 
 type MissileOverlayFrame = HTMLImageElement | HTMLCanvasElement;
@@ -2680,7 +2702,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private readonly campaignFloorTileOverlayCanvases: Partial<Record<number, HTMLCanvasElement>> = {};
   private readonly campaignBackgroundCanvases: Partial<Record<number, HTMLCanvasElement>> = {};
   private readonly lootArtImages = new Map<string, HTMLImageElement>();
-  private portalArtImageElement?: HTMLImageElement;
+  private readonly portalArtImages = new Map<string, HTMLImageElement>();
   private campaignTileBitmaps: Partial<Record<number, HTMLCanvasElement[]>> = {};
   private readonly campaignAreaTileBitmaps = new Map<string, HTMLCanvasElement[]>();
   private readonly campaignTerrainPools = new Map<string, CampaignTerrainPool>();
@@ -2705,6 +2727,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   hoveredActPortal: { title: string; lines: string[]; x: number; y: number } | null = null;
   private actPortalX = 0;
   private actPortalY = 0;
+  /** The blue area portal the hero crosses to leave one zone for the next. */
+  zonePortalOpen = false;
+  private zonePortalX = 0;
+  private zonePortalY = 0;
+  private zonePortalAreaIndex = 0;
   campaignVictory = false;
   actBossSpawned = false;
   miniBossSpawned = false;
@@ -3226,7 +3253,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     },
     {
       name: "Tornado",
-      desc: "3 tornadoes wander the horde, 80 damage and a stun to each monster they pass",
+      desc: "a tornado zig-zags forward for 3s, pulsing its damage around it five times",
     },
     {
       name: "Hurricane",
@@ -3469,6 +3496,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     // Plain white socketed bases Gheed keeps for anyone who brings gems or runes.
     { name: "Socketed Chain Mail", cost: 300, desc: "A plain socketed body armor, ready for gems or a runeword.", item: { id: "gheeds-socketed-chain-mail", name: "Chain Mail", baseName: "Chain Mail", rarity: "normal", slot: "armor", equipmentType: "body", sockets: 3, desc: "Interlocking rings offer dependable protection.", stats: { armor: 18, requiresStrength: 20 } } },
     { name: "Socketed Broad Sword", cost: 280, desc: "A plain socketed sword, ready for gems or a runeword.", item: { id: "gheeds-socketed-broad-sword", name: "Broad Sword", baseName: "Broad Sword", rarity: "normal", slot: "weapon", sockets: 4, desc: "A wide blade that cleaves through armor.", stats: { damageMin: 5, damageMax: 10 } } },
+    { name: "Socketed Great Helm", cost: 300, desc: "A plain socketed helm, ready for gems or a runeword.", item: { id: "gheeds-socketed-great-helm", name: "Great Helm", baseName: "Great Helm", rarity: "normal", slot: "armor", equipmentType: "helmet", sockets: 3, desc: "A great helm built for the front rank.", stats: { armor: 20, requiresStrength: 25 } } },
   ];
   ownedSkills: string[] = [];
   /** Most recently cast skills, oldest first. Drives the HUD skill bar. */
@@ -3559,6 +3587,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private updateCampaignArea(): void {
     const areas = this.currentActDetails.areas;
     if (!areas?.length || this.actTransitionReady || this.campaignVictory) return;
+    // A blue portal already stands on the map: the zone changes when the hero
+    // steps through it, so nothing else may advance the area meanwhile.
+    if (this.zonePortalOpen) return;
     // A boss freezes the zone order, but a change already held for its map still
     // finishes: otherwise the boss clock could strand the hero in the area the
     // act had already left.
@@ -3589,21 +3620,58 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       return;
     }
     this.pendingCampaignAreaIndex = null;
+    // The map is never swapped under the hero's feet: a blue area portal opens
+    // where they stand, and walking into it is what moves them to the next zone.
+    this.openZonePortal(target);
+  }
+
+  /**
+   * Opens the blue portal that leaves the current area. The act clock waits
+   * while it stands open, so the zone the hero crosses into is the one the door
+   * was opened for, never two areas further on.
+   */
+  private openZonePortal(areaIndex: number): void {
+    const spawn = this.actPortalSpawnPoint();
+    this.zonePortalX = spawn.x;
+    this.zonePortalY = spawn.y;
+    this.zonePortalAreaIndex = areaIndex;
+    this.zonePortalOpen = true;
+    this.floatingTexts.push({
+      x: this.playerX,
+      y: this.playerY - 48,
+      text: "A BLUE PORTAL OPENS · STEP THROUGH IT",
+      color: "#8fd0ff",
+      life: 2.8,
+    });
+    this.draw();
+  }
+
+  /** Carries the hero through the blue portal into the area it leads to. */
+  private crossZonePortal(): void {
+    const areas = this.currentActDetails.areas;
+    const target = Math.max(0, Math.min((areas?.length ?? 1) - 1, this.zonePortalAreaIndex));
+    const area = areas?.[target];
+    const entry = area ? D2_WORLDS_BY_AREA[area.name] : undefined;
+    this.zonePortalOpen = false;
     this.currentAreaIndex = target;
-    // Each area is its own DS1 map, so the hero starts in the middle of it
+    // Each area is its own DS1 map, so the hero arrives in the middle of it
     // rather than wherever the previous area's tiles happened to leave them,
     // and the previous area's decoded ground is released.
     this.switchCampaignWorld();
     this.centerPlayerOnCampaignWorld();
     this.campaignWorldPendingCentre = false;
     this.releaseCampaignWorldsExcept(entry?.slug);
-    this.floatingTexts.push({
-      x: this.playerX,
-      y: this.playerY - 48,
-      text: `${area.name.toUpperCase()} · AREA LEVEL ${area.level}`,
-      color: "#ffd27a",
-      life: 2.6,
-    });
+    // A walk order made on the old map points into ground that no longer exists.
+    this.clearClickMoveCommands();
+    if (area) {
+      this.floatingTexts.push({
+        x: this.playerX,
+        y: this.playerY - 48,
+        text: `${area.name.toUpperCase()} · AREA LEVEL ${area.level}`,
+        color: "#ffd27a",
+        life: 2.6,
+      });
+    }
     this.persistRunProgress(true);
   }
 
@@ -4157,6 +4225,19 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
    * covers one gameplay tile, anchored to the centre of the current chunk so the
    * hero spawns inside the preset instead of beside it.
    */
+  /**
+   * Draw width for the area's exported DS1 art, in screen pixels.
+   *
+   * `floorTileScale` widens the painted-tile grid of a zone so its atlas cells
+   * keep their detail.  A DS1 map is not painted from that atlas - its image,
+   * collision mask and spawn cell are all authored on the world's own 160x80
+   * cells - so the art must be drawn at the unscaled width or it slides off the
+   * floor the hero is actually standing on.
+   */
+  private campaignWorldTileWidth(area: CampaignArea, tileWidth: number): number {
+    return tileWidth / Math.max(1, area.floorTileScale ?? 1);
+  }
+
   private campaignWorldGeometry(tileWidth: number, imageWidth: number, imageHeight: number): {
     scale: number; width: number; height: number; left: number; top: number;
   } {
@@ -5428,9 +5509,17 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       ? Math.max(1, Math.ceil(savedHp / savedMaxHp * this.playerMaxHp))
       : Math.min(this.playerMaxHp, savedHp);
     this.deathRecovery = saved.deathRecovery === true || this.playerHp <= 0;
-    this.druidForm = savedClass === "druid" && (saved.druidForm === "werewolf" || saved.druidForm === "werebear") ? saved.druidForm : null;
-    this.druidFormRemaining = this.druidForm ? numberValue(saved.druidFormRemaining, DRUID_FORM_DURATION_SECONDS, 0, DRUID_FORM_DURATION_SECONDS) : 0;
-    this.druidFormCooldown = this.druidForm ? 0 : numberValue(saved.druidFormCooldown, 0, 0, DRUID_FORM_COOLDOWN_SECONDS);
+    // A wereform is a timed buff of the live run, not part of the save: the
+    // druid always comes back in its own shape rather than resuming as the bear
+    // it happened to be when the run was left. If it *was* shifted, the form
+    // starts on its cooldown so the automatic shift cannot snap straight back
+    // into the bear on the first frame of the load.
+    const savedForm = saved.druidForm === "werewolf" || saved.druidForm === "werebear";
+    this.druidForm = null;
+    this.druidFormRemaining = 0;
+    this.druidFormCooldown = savedClass === "druid" && savedForm
+      ? DRUID_FORM_COOLDOWN_SECONDS
+      : numberValue(saved.druidFormCooldown, 0, 0, DRUID_FORM_COOLDOWN_SECONDS);
     this.druidFormAnimationTime = 0;
     this.druidFormAttackTime = 0;
     this.deathCount = Math.floor(numberValue(saved.deathCount, 0, 0, 1_000_000));
@@ -5443,6 +5532,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.campaignBossKills = Math.floor(numberValue(saved.campaignBossKills, 0, 0, 7));
     this.actTransitionReady = saved.actTransitionReady === true;
     this.actPortalOpen = false;
+    this.zonePortalOpen = false;
     this.campaignVictory = false;
     const hasSavedCampaignBoss = Boolean(saved.enemies?.some((enemy) => isRecord(enemy) && enemy["campaignBoss"] === true));
     this.actBossSpawned = saved.actBossSpawned === true && (this.currentAct !== 5 || hasSavedCampaignBoss || saved.actTransitionReady === true)
@@ -8465,7 +8555,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
    */
   socketHoles(item: D2InventoryItem | null | undefined): D2SocketHole[] {
     const sockets = Math.max(0, Math.min(6, Math.floor(item?.sockets ?? 0)));
-    return SOCKET_HOLE_LAYOUTS[sockets] ?? [];
+    // A one-cell-wide base has no room for a row of holes: the wide layout
+    // squeezed them into that single column and the slot box clipped the rest.
+    const layouts = item && this.itemSize(item).width < 2 ? SOCKET_HOLE_COLUMN_LAYOUTS : SOCKET_HOLE_LAYOUTS;
+    return layouts[sockets] ?? [];
   }
 
   /** "Ral + Tir + Tal + Sol": the runes a completed runeword was spelled with. */
@@ -9066,7 +9159,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       title: "Red Portal",
       lines: [
         `Enter to ${this.actPortalLead}.`,
-        "Walk into the portal to continue.",
+        "Walk into the portal to cross over.",
       ],
       x,
       y,
@@ -9079,7 +9172,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
    * is how Diablo II lets a player read the floor without sweeping the mouse
    * over each piece.
    */
-  get altLootLabels(): Array<{ text: string; x: number; y: number }> {
+  get altLootLabels(): Array<{ text: string; x: number; y: number; rarity?: string }> {
     // Floor names belong to normal play: a menu or the level-up choice owns the
     // screen, the same way the single hover label is dropped when one opens.
     if (this.menuOwnsScreen) return [];
@@ -9090,8 +9183,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     // Canvas pixels to the CSS pixels the labels are positioned in.
     const scaleX = rect.width / canvas.width;
     const scaleY = rect.height / canvas.height;
-    const labels: Array<{ text: string; x: number; y: number }> = [];
-    const add = (x: number, y: number, artHeight: number, text: string): void => {
+    const labels: Array<{ text: string; x: number; y: number; rarity?: string }> = [];
+    // The item's rarity rides along so the floor name wears the same colour as
+    // the inventory: blue for magic, yellow for rare, gold for unique, green for
+    // set pieces, and the plain label colour for normal bases.
+    const add = (x: number, y: number, artHeight: number, text: string, rarity?: string): void => {
       const point = this.projectArenaPoint(x, y);
       // Name only the floor that is actually in view; the arena clips the rest.
       if (point.x < 0 || point.y < 0 || point.x > canvas.width || point.y > canvas.height) return;
@@ -9099,6 +9195,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       // ground point lifted clear of its art.
       labels.push({
         text,
+        rarity,
         x: point.x * scaleX,
         y: Math.max(12, point.y * scaleY - artHeight * this.worldZoom * scaleY - 4),
       });
@@ -9113,7 +9210,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     for (const drop of this.itemDrops) {
       const image = this.itemDropImage(drop.item);
-      add(drop.x, drop.y, image.naturalHeight || 14, drop.item.name);
+      add(drop.x, drop.y, image.naturalHeight || 14, drop.item.name, drop.item.rarity);
     }
     return labels;
   }
@@ -11824,7 +11921,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       || (skill === "Corpse Explosion" && this.selectedClass === "necromancer");
     const missileId = this.missileOverlayId(skill);
     const isChargedBolt = skill === "Charged Bolt";
-    const isWindSkill = skill === "Tornado" || skill === "Twister";
+    const isTornado = skill === "Tornado";
+    const isWindSkill = isTornado || skill === "Twister";
     const windRange = isWindSkill ? this.windProjectileRange() : 0;
     const isPsychicHammer = skill === "Psychic Hammer" && this.selectedClass === "assassin";
     const rangedSkills = new Set([
@@ -11881,8 +11979,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           stopOnFirstHit: isChargedBolt || undefined,
           headingX: isChargedBolt ? boltX : undefined,
           headingY: isChargedBolt ? boltY : undefined,
-          driftStrength: isChargedBolt ? CHARGED_BOLT_DRIFT_STRENGTH : undefined,
-          driftSeed: isChargedBolt ? this.attackSequence * 0.73 + index * 1.91 : undefined,
+          driftStrength: isChargedBolt ? CHARGED_BOLT_DRIFT_STRENGTH : isTornado ? TORNADO_ZIGZAG_STRENGTH : undefined,
+          driftSeed: isChargedBolt ? this.attackSequence * 0.73 + index * 1.91 : isTornado ? this.tornadoPathSeed() : undefined,
+          driftFrequency: isTornado ? TORNADO_ZIGZAG_FREQUENCY : undefined,
+          stopsAtWalls: isTornado || undefined,
+          pulseSeconds: isTornado ? TORNADO_PULSE_SECONDS : undefined,
+          pulseRadius: isTornado ? TORNADO_PULSE_RADIUS : undefined,
+          nextPulseIn: isTornado ? 0 : undefined,
           target: isWindSkill || isChargedBolt || skill === "Teeth" || skill === "Shock Web" || multishotArrows !== undefined || (skill === "Fire Blast" && this.selectedClass === "assassin") || skill === "Ice Blast" ? undefined : nearest, targetId: this.attackSequence++,
           corpseExplosion: skill === "Corpse Explosion" && this.selectedClass === "necromancer",
           corpseExplosionDamage: skill === "Corpse Explosion" && this.selectedClass === "necromancer" ? nearest.maxHp * 0.35 : undefined,
@@ -11893,14 +11996,16 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           teethFan: skill === "Teeth" ? spread : undefined,
           teethDirectionX: skill === "Teeth" ? this.playerFacingX : undefined,
           teethDirectionY: skill === "Teeth" ? this.playerFacingY : undefined,
-          speed: isChargedBolt ? CHARGED_BOLT_PROJECTILE_SPEED
+          speed: isTornado ? TORNADO_SPEED
+            : isChargedBolt ? CHARGED_BOLT_PROJECTILE_SPEED
             : skill === "Teeth" ? 700
               : skill === "Bone Spear" ? BONE_SPEAR_PROJECTILE_SPEED
                 : skill === "Double Throw" ? DOUBLE_THROW_PROJECTILE_SPEED
                   : 420,
           damage: damage * (skill === "Teeth" ? 0.55 : 1)
             * (skill === "Chain Lightning" ? this.lightningSynergyMultiplier("Chain Lightning") : 1),
-          life: isChargedBolt ? boltRange * this.worldZoom / CHARGED_BOLT_PROJECTILE_SPEED + 1
+          life: isTornado ? TORNADO_LIFE_SECONDS
+            : isChargedBolt ? boltRange * this.worldZoom / CHARGED_BOLT_PROJECTILE_SPEED + 1
             : isWindSkill ? windRange * this.worldZoom / 420 + 1
               : skill === "Shock Web" ? Math.max(4, distance / 420 + 4)
                 : Math.max(3, distance / 420 + 1),
@@ -12052,7 +12157,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     for (const sprite of Object.values(ENEMY_SPRITE_PATHS)) urls.add(sprite);
     for (const key of Object.keys(D2_LOOT_ART) as Array<keyof typeof D2_LOOT_ART>) urls.add(this.lootArtUrl(key));
-    urls.add(this.portalArtUrl());
+    urls.add(this.portalArtUrl(D2_PORTAL_ART));
+    urls.add(this.portalArtUrl(D2_BLUE_PORTAL_ART));
     urls.add(POISON_CLOUD_ART.path);
     urls.add(BONE_ARMOR_ART.path);
     urls.add(BONE_WALL_ART.path);
@@ -12439,8 +12545,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         const cellWidth = canvas.width / source.columns;
         const cellHeight = canvas.height / rows;
         const frames: HTMLCanvasElement[][] = [];
+        const celBodies: Array<Array<{ bodyHeight: number; bodyBottom: number } | undefined>> = [];
         for (let direction = 0; direction < rows; direction += 1) {
           frames.push([]);
+          celBodies.push([]);
           for (let frame = 0; frame < source.columns; frame += 1) {
             const cel = document.createElement("canvas");
             cel.width = cellWidth;
@@ -12452,14 +12560,37 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
             const top = direction * cellHeight;
             celContext.drawImage(image, left, top, cellWidth, cellHeight, 0, 0, cellWidth, cellHeight);
             frames[direction].push(cel);
+            celBodies[direction].push(sliceCelBody(celContext, cellWidth, cellHeight));
           }
         }
+        const rowBodyHeights = celBodies.map((cels) => medianValue(
+          cels.flatMap((body) => (body ? [body.bodyHeight] : [])),
+        ));
+        const rowFootRatios = celBodies.map((cels) => {
+          const bottom = medianValue(cels.flatMap((body) => (body ? [body.bodyBottom] : [])));
+          return bottom > 0 ? bottom / cellHeight : 1;
+        });
+        const walkRows = Math.min(DRUID_WEREFORM_WALK_FRAMES, rows);
+        // The wereform sheets carry eight walk rows and eight attack rows, and the
+        // attack rows were sliced from a smaller, higher-seated export. Drawn at one
+        // size the wolf visibly shrank and lifted off the floor for the whole swing.
+        // Scale each attack row back to the walk body size and stand it on the walk
+        // foot line, so the creature keeps one size and one stance through the attack.
+        const walkBodyHeight = medianValue(rowBodyHeights.slice(0, walkRows));
+        const walkFootRatio = medianValue(rowFootRatios.slice(0, walkRows));
+        const hasAttackRows = rows > walkRows;
         this.druidAnimations[name] = {
           frames,
           columns: source.columns,
           walkColumns: name === "raven" ? 8 : undefined,
           rows,
           frameDurationMs: 85,
+          rowScales: rowBodyHeights.map((bodyHeight, rowIndex) => (
+            rowIndex < walkRows ? 1 : wereformAttackRowScale(walkBodyHeight, bodyHeight)
+          )),
+          rowFootRatios: rowFootRatios.map((ratio, rowIndex) => (
+            hasAttackRows && rowIndex >= walkRows ? walkFootRatio : ratio
+          )),
         };
         if (this.activeTab === "run") {
           this.draw();
@@ -14077,7 +14208,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.floatingTexts.push({ x: enemy.x, y: enemy.y - enemy.r - 8, text: this.floatingDamageText(damage), color: attack.color, life: 0.65 });
       landed = true;
     }
-    if (this.druidForm) this.druidFormAttackTime = this.druidForm === "werebear" ? 0.56 : 0.38;
+    // A whiffed sweep is not a swing: only a landed blow starts the wereform's
+    // attack animation, or a bear that never connects stays stuck in it.
+    if (landed && this.druidForm) this.druidFormAttackTime = this.druidForm === "werebear" ? 0.56 : 0.38;
     this.triggerAttackAnimation();
     this.attackCooldown = landed
       ? Math.max(this.playerAttackLockRemaining, this.paladinAuraAttackCooldown())
@@ -14234,6 +14367,43 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (this.pendingDamageTimer > 0) return;
     this.pendingDamageTimer = this.damageBatchInterval;
     this.flushPendingDamage();
+  }
+
+  /**
+   * The zig-zag phase of a Tornado cast. D2's tornadoes wander toward the point
+   * they were cast at, and casting again at the same point replays the same path,
+   * so the phase comes from the aim direction rather than from the cast index.
+   */
+  private tornadoPathSeed(): number {
+    const aimX = Math.round((this.playerFacingX || 1) * 16) / 16;
+    const aimY = Math.round((this.playerFacingY || 0) * 16) / 16;
+    return Math.round(Math.atan2(aimY, aimX) * 16) * 0.37;
+  }
+
+  /**
+   * D2's Tornado does not hit like a missile: it pulses radial damage on its first
+   * frame and every 15 frames after, and every pulse lands on each monster in
+   * reach again. Several tornadoes therefore stack their pulses, and faster
+   * casting raises the damage rate by putting more of them on the field.
+   */
+  private pulseTornado(projectile: AttackProjectile, seconds: number): void {
+    const period = projectile.pulseSeconds ?? TORNADO_PULSE_SECONDS;
+    projectile.nextPulseIn = (projectile.nextPulseIn ?? 0) - seconds;
+    while (projectile.nextPulseIn <= 0) {
+      projectile.nextPulseIn += period;
+      this.applyTornadoPulse(projectile);
+    }
+  }
+
+  /** One radial pulse: every monster in reach takes the tornado's damage again. */
+  private applyTornadoPulse(projectile: AttackProjectile): void {
+    const radius = projectile.pulseRadius ?? TORNADO_PULSE_RADIUS;
+    const damageType = this.damageTypeForProjectile(projectile);
+    for (const enemy of this.collectEnemiesNear(projectile.x, projectile.y, radius + 96)) {
+      if (enemy.hp <= 0 || enemy.summonType) continue;
+      if (Math.hypot(enemy.x - projectile.x, enemy.y - projectile.y) > radius + enemy.r) continue;
+      this.queueEnemyDamage(enemy, projectile.damage, projectile.color, damageType);
+    }
   }
 
   /** A straight wind projectile needs enough range to leave the isometric view. */
@@ -14442,7 +14612,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         if ((projectile.driftStrength ?? 0) > 0) {
           // Bend the step perpendicular to the launch line. Re-aiming at the
           // distant target each frame keeps this a weave rather than a spiral.
-          const phase = projectile.age * CHARGED_BOLT_DRIFT_FREQUENCY + (projectile.driftSeed ?? 0);
+          const phase = projectile.age * (projectile.driftFrequency ?? CHARGED_BOLT_DRIFT_FREQUENCY)
+            + (projectile.driftSeed ?? 0);
           const drift = (Math.sin(phase) * 0.72 + Math.sin(phase * 2.63 + 1.7) * 0.28)
             * (projectile.driftStrength ?? 0);
           const perpendicularX = -directionY * drift;
@@ -14457,6 +14628,15 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         }
         const nextX = projectile.x + directionX * travel;
         const nextY = projectile.y + directionY * travel;
+        if (projectile.stopsAtWalls && wallContext
+          && this.campaignLineBlocked(wallContext, projectile.x, projectile.y, nextX, nextY)) {
+          // A tornado cannot cross a wall; it spends itself against it.
+          projectile.life = 0;
+          continue;
+        }
+        // The pulse happens where the tornado is standing this frame, before the
+        // step, which is how D2 applies its first pulse on the cast frame.
+        if (projectile.pulseSeconds !== undefined) this.pulseTornado(projectile, seconds);
         const segmentX = nextX - projectile.x;
         const segmentY = nextY - projectile.y;
         const segmentLengthSquared = segmentX * segmentX + segmentY * segmentY;
@@ -15426,6 +15606,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.actTime = 0;
     this.actTransitionReady = false;
     this.actPortalOpen = false;
+    this.zonePortalOpen = false;
     this.campaignVictory = false;
     this.actBossSpawned = false;
     this.miniBossSpawned = false;
@@ -15615,11 +15796,18 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     if (this.actTransitionReady && this.actPortalOpen && !this.escapeMenuOpen && !this.inventoryOpen && !this.skillTreeOpen && this.pendingLevelUps === 0) {
       this.update(dt);
-      if (Math.hypot(this.playerX - this.actPortalX, this.playerY - this.actPortalY) <= 30) {
+      if (Math.hypot(this.playerX - this.actPortalX, this.playerY - this.actPortalY) <= PORTAL_ENTRY_RADIUS) {
         this.advanceAct();
         return;
       }
-    } else if (!this.escapeMenuOpen && !this.inventoryOpen && !this.skillTreeOpen && !this.actTransitionReady && !this.campaignVictory && this.pendingLevelUps === 0) this.update(dt);
+    } else if (!this.escapeMenuOpen && !this.inventoryOpen && !this.skillTreeOpen && !this.actTransitionReady && !this.campaignVictory && this.pendingLevelUps === 0) {
+      this.update(dt);
+      // Crossing the blue area portal is the only way into the next zone.
+      if (this.zonePortalOpen
+        && Math.hypot(this.playerX - this.zonePortalX, this.playerY - this.zonePortalY) <= PORTAL_ENTRY_RADIUS) {
+        this.crossZonePortal();
+      }
+    }
     else {
       this.isPlayerMoving = false;
       this.playerMoveX = 0;
@@ -15639,7 +15827,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.tickPlayerPoison(dt);
     this.updateEquipmentRegeneration(dt);
     if (!Number.isFinite(this.actTime)) this.actTime = 0;
-    this.actTime = Math.max(0, this.actTime + dt / 1000);
+    // The act clock waits at an open area portal: crossing it is what advances
+    // the zone, so time must not run on to the area after next while it stands.
+    if (!this.zonePortalOpen) this.actTime = Math.max(0, this.actTime + dt / 1000);
     this.updateCampaignArea();
     this.combatOrbsTime = Math.max(0, this.combatOrbsTime - dt / 1000);
     const attackRate = this.playerDecrepifyRemaining > 0 ? BAAL_DECREPIFY_ATTACK_SPEED_MULTIPLIER : 1;
@@ -15940,6 +16130,16 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
    * progress toward the target, keep the least-bad free heading for a moment so
    * a monster can round a corner instead of pacing against a wall.
    */
+  /**
+   * Whether a requested step actually went anywhere. A monster boxed in by
+   * scenery it cannot path around asks for the same step every frame and never
+   * moves; it must stand still with its idle clip instead of walking on the spot
+   * into the wall.
+   */
+  private enemyStepMoved(previousX: number, previousY: number, enemy: Enemy, travel: number): boolean {
+    return Math.hypot(enemy.x - previousX, enemy.y - previousY) > Math.max(0.5, travel * 0.25);
+  }
+
   private enemyWallAwareStep(
     context: CampaignCollisionContext,
     enemy: Enemy,
@@ -16301,6 +16501,17 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       : this.campaignWorldCentre();
     if (!target) return;
     this.movePlayerToWorld(target.x, target.y);
+    // A rebuilt map can leave the exported spawn cell under a wall or out past
+    // the floor.  The hero must never be dropped into that void: take the nearest
+    // clear ground instead, and only fall back to the spawn as a last resort.
+    const context = this.campaignWorldCollisionContext();
+    if (!context) return;
+    const point = this.projectArenaPoint(target.x, target.y);
+    if (!this.campaignBlockedAt(context, point.x, point.y)) return;
+    const clear = this.campaignClearSpawnPoint(target.x, target.y, false);
+    const clearPoint = this.projectArenaPoint(clear.x, clear.y);
+    if (this.campaignBlockedAt(context, clearPoint.x, clearPoint.y)) return;
+    this.movePlayerToWorld(clear.x, clear.y);
   }
 
   /** Saved runs from before the maps were fenced could sit outside the tiles. */
@@ -17334,12 +17545,15 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const directionX = dx / distance;
     const directionY = dy / distance;
     enemy.animationState = "move";
+    const stepStartX = enemy.x;
+    const stepStartY = enemy.y;
     if (wallContext) {
       const step = this.enemyWallAwareStep(
         wallContext, enemy, directionX, directionY, travel, this.playerX, this.playerY,
       );
       enemy.x = step.x;
       enemy.y = step.y;
+      if (!this.enemyStepMoved(stepStartX, stepStartY, enemy, travel)) enemy.animationState = "idle";
       return;
     }
     enemy.x = Math.max(enemy.r, Math.min(this.arenaW - enemy.r, enemy.x + directionX * travel));
@@ -19449,11 +19663,16 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           enemy.attackAnimationTime = 0.35;
         }
       } else if (travel > 0 && wallContext) {
+        const stepStartX = enemy.x;
+        const stepStartY = enemy.y;
         const step = this.enemyWallAwareStep(
           wallContext, enemy, dx / distance, dy / distance, travel, targetX, targetY,
         );
         enemy.x = step.x;
         enemy.y = step.y;
+        // Boxed in by scenery: no amount of sliding gets it closer, so it stands
+        // still with its idle clip rather than walking into the wall.
+        if (!this.enemyStepMoved(stepStartX, stepStartY, enemy, travel)) enemy.animationState = "idle";
       } else {
         enemy.x = nextEnemyX;
         enemy.y = nextEnemyY;
@@ -24475,6 +24694,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   openActPortal(): void {
     if (!this.actTransitionReady || this.actPortalOpen || this.campaignVictory) return;
+    // The act door supersedes any area door still standing on the map.
+    this.zonePortalOpen = false;
     const spawn = this.actPortalSpawnPoint();
     this.actPortalX = spawn.x;
     this.actPortalY = spawn.y;
@@ -24556,6 +24777,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.switchCampaignWorld();
     this.actTransitionReady = false;
     this.actPortalOpen = false;
+    this.zonePortalOpen = false;
     this.enemies = [];
     this.maggotEggs.length = 0;
     this.heldBeltPotionSlot = null;
@@ -25063,6 +25285,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     // without changing entity positions, movement speed, or collision sizes.
     const tileWidth = tileScreenSize * Math.SQRT2;
     const tileHeight = tileScreenSize / Math.SQRT2;
+    // A zone's coarser tiled floor only applies to the painted-tile path.  The
+    // exported DS1 art is already measured in its own native cells, so stretching
+    // it put the art on a different pixel grid than the collision mask and the
+    // exporter's spawn cell: the hero stood on black rock half a map from the
+    // floor the mask let them walk on.
+    const worldTileWidth = this.campaignWorldTileWidth(area, tileWidth);
     // Tile centres are projected with the device pixel ratio, so the bitmaps
     // must use it as well.  Without it a high-DPI canvas halves the floor art
     // while the 3D hero keeps its CSS size, which reads as the ground being
@@ -25101,7 +25329,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
     if (groundImage) {
-      this.drawCampaignWorldGround(ctx, groundImage, tileWidth, worldGround ? worldEntry?.slug : heldWorld?.slug);
+      this.drawCampaignWorldGround(ctx, groundImage, worldTileWidth, worldGround ? worldEntry?.slug : heldWorld?.slug);
     }
     const tristramBackdrop = act.act === 8 ? this.campaignBackdropImages[act.act] : undefined;
     const hasTristramBackdrop = !!tristramBackdrop?.complete && tristramBackdrop.naturalWidth > 0;
@@ -25283,7 +25511,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         draw: () => this.drawAct5WallSlice(ctx, wall),
       });
     }
-    for (const wall of this.campaignWorldWallDraws(tileWidth)) {
+    for (const wall of this.campaignWorldWallDraws(worldTileWidth)) {
       drawOrder.push({
         depth: wall.depth,
         order: wall.order,
@@ -25378,6 +25606,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const point = this.projectArenaPoint(this.actPortalX, this.actPortalY);
       drawOrder.push({ depth: point.y, order: 0.4, draw: () => this.drawActPortal(ctx) });
     }
+    if (this.zonePortalOpen) {
+      // The blue door joins the same ground sort, so the hero stands in front of
+      // it or disappears behind it by position instead of by draw order.
+      const point = this.projectArenaPoint(this.zonePortalX, this.zonePortalY);
+      drawOrder.push({ depth: point.y, order: 0.4, draw: () => this.drawZonePortal(ctx) });
+    }
     // Melee impacts and summon strikes are actors like the hero and the
     // monsters: their depth comes from the ground point of the blow. Drawing
     // them after the sorted pass painted them over every body on screen, so a
@@ -25444,33 +25678,42 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     ctx.restore();
   }
 
-  private portalArtUrl(): string {
-    return `${D2_PORTAL_ART.path}?v=${PORTAL_ART_CACHE_VERSION}`;
+  private portalArtUrl(art: PortalArt): string {
+    return `${art.path}?v=${PORTAL_ART_CACHE_VERSION}`;
   }
 
-  private portalArtImage(): HTMLImageElement {
-    if (this.portalArtImageElement) return this.portalArtImageElement;
+  private portalArtImage(art: PortalArt): HTMLImageElement {
+    const cached = this.portalArtImages.get(art.path);
+    if (cached) return cached;
     const image = new Image();
-    image.src = this.portalArtUrl();
-    this.portalArtImageElement = image;
+    image.src = this.portalArtUrl(art);
+    this.portalArtImages.set(art.path, image);
     return image;
   }
 
   private drawActPortal(ctx: CanvasRenderingContext2D): void {
-    const ground = this.projectArenaPoint(this.actPortalX, this.actPortalY);
+    this.drawPortal(ctx, this.actPortalX, this.actPortalY, D2_PORTAL_ART);
+  }
+
+  private drawZonePortal(ctx: CanvasRenderingContext2D): void {
+    this.drawPortal(ctx, this.zonePortalX, this.zonePortalY, D2_BLUE_PORTAL_ART);
+  }
+
+  private drawPortal(ctx: CanvasRenderingContext2D, x: number, y: number, art: PortalArt): void {
+    const ground = this.projectArenaPoint(x, y);
     const scale = this.worldZoom * this.projectionDpr * PORTAL_ART_WORLD_SCALE;
-    const width = D2_PORTAL_ART.frameWidth * scale;
-    const height = D2_PORTAL_ART.frameHeight * scale;
-    const frame = Math.floor(performance.now() / 1000 / PORTAL_FRAME_SECONDS) % D2_PORTAL_ART.frames;
+    const width = art.frameWidth * scale;
+    const height = art.frameHeight * scale;
+    const frame = Math.floor(performance.now() / 1000 / PORTAL_FRAME_SECONDS) % art.frames;
     this.drawGroundShadow(ctx, ground.x, ground.y + 1.5 * this.worldZoom, width * 0.46, width * 0.16, 0.36);
     ctx.save();
     ctx.imageSmoothingEnabled = true;
     ctx.drawImage(
-      this.portalArtImage(),
-      frame * D2_PORTAL_ART.frameWidth, 0,
-      D2_PORTAL_ART.frameWidth, D2_PORTAL_ART.frameHeight,
-      ground.x - D2_PORTAL_ART.anchorX * scale,
-      ground.y - D2_PORTAL_ART.anchorY * scale,
+      this.portalArtImage(art),
+      frame * art.frameWidth, 0,
+      art.frameWidth, art.frameHeight,
+      ground.x - art.anchorX * scale,
+      ground.y - art.anchorY * scale,
       width, height,
     );
     ctx.restore();
@@ -26290,10 +26533,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         (Array.isArray(mesh.material) ? mesh.material : [mesh.material]).forEach((entry) => defaultMaterials.add(entry));
       });
       defaultMaterials.forEach((entry) => entry.dispose());
-      // A bow mesh ships its own nocked arrow, which the game draws as a
-      // missile; keeping it would weld a bolt to the riser.
-      const mesh = this.staticizeMeshParts(gltf.scene, material, (part) => !/arrow|missile/i.test(part.name));
-      const height = new THREE.Box3().setFromObject(mesh).getSize(new THREE.Vector3()).y;
+      // A bow or crossbow mesh ships its own nocked arrow or bolt, which the
+      // game draws as a missile; keeping it would weld a shaft to the stock.
+      const mesh = this.staticizeMeshParts(gltf.scene, material, (part) => !/arrow|missile|bolt/i.test(part.name));
+      const size = new THREE.Box3().setFromObject(mesh).getSize(new THREE.Vector3());
+      const height = heldMeshLength(visual.id, size);
       return height > 0 ? { mesh, height } : null;
     }).catch((error: unknown) => {
       console.warn(`Could not load the D2R ${visual.id} held-item mesh`, error);
@@ -27666,8 +27910,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (!this.druidForm || !animation) return;
     const ground = this.projectArenaPoint(this.playerX, this.playerY);
     const direction = wereformRow(this.playerFacingX, this.playerFacingY);
-    const formAttackDuration = this.druidForm === "werebear" ? 0.56 : 0.38;
-    const attacking = this.druidFormAttackTime > 0;
+    const formAttackDuration = this.druidForm === "werebear" ? 0.56 : 0.38;    // A walking hero is not mid-swing: the walk rows win over the attack pose, so
+    // the wereform never freezes in its attack cel while the player travels.
+    const attacking = this.druidFormAttackTime > 0 && !this.isPlayerMoving;
     const frameIndex = attacking
       ? druidFormAttackFrame(animation.columns, this.druidFormAttackTime, formAttackDuration)
       : this.isPlayerMoving
@@ -27677,7 +27922,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const frame = animation.frames[row]?.[frameIndex];
     if (!frame) return;
     const height = (this.druidForm === "werebear" ? 92 : 82) * this.worldZoom;
-    const width = height * frame.width / frame.height;
+    // An attack row measured smaller than the walk rows is drawn scaled back up, and
+    // its feet are moved onto the walk foot line, so the swing never shrinks or
+    // floats the wereform.
+    const rowScale = animation.rowScales?.[row] ?? 1;
+    const bodyHeight = height * rowScale;
+    const width = bodyHeight * frame.width / frame.height;
+    const footRatio = animation.rowFootRatios?.[row] ?? 1;
+    const footAdjust = footRatio * height * (1 - rowScale);
     ctx.save();
     ctx.fillStyle = "#050505";
     ctx.globalAlpha = 0.56;
@@ -27690,7 +27942,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       ctx.shadowColor = "#edcf91";
       ctx.shadowBlur = 8 * this.worldZoom;
     }
-    ctx.drawImage(frame, ground.x - width / 2, ground.y - height * 0.86, width, height);
+    ctx.drawImage(frame, ground.x - width / 2, ground.y - height * 0.86 + footAdjust, width, bodyHeight);
     ctx.restore();
   }
 
@@ -28808,6 +29060,49 @@ export function wereformRow(facingX: number, facingY: number): number {
   return druidDirection(facingX - facingY, (facingX + facingY) * 0.5);
 }
 
+/**
+ * How far to scale one sliced cel up so its body matches the walk rows. Attack
+ * rows cut from a smaller export would otherwise make the wereform shrink for
+ * the length of the swing. Rows already at (or above) the walk size are left
+ * alone, and an empty cel never scales.
+ */
+export function wereformAttackRowScale(walkBodyHeight: number, rowBodyHeight: number): number {
+  if (!(walkBodyHeight > 0) || !(rowBodyHeight > 0)) return 1;
+  return Math.max(1, Math.min(WEREFORM_ATTACK_MAX_SCALE, walkBodyHeight / rowBodyHeight));
+}
+
+/** Opaque height and lowest pixel of one sliced cel, measured in cell pixels. */
+function sliceCelBody(
+  context: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+): { bodyHeight: number; bodyBottom: number } | undefined {
+  const data = context.getImageData(0, 0, width, height).data;
+  let top = -1;
+  let bottom = -1;
+  for (let y = 0; y < height; y += 1) {
+    const rowStart = y * width * 4;
+    let opaque = false;
+    for (let x = 0; x < width; x += 1) {
+      if (data[rowStart + x * 4 + 3] > 8) {
+        opaque = true;
+        break;
+      }
+    }
+    if (!opaque) continue;
+    if (top < 0) top = y;
+    bottom = y;
+  }
+  if (top < 0) return undefined;
+  return { bodyHeight: bottom - top + 1, bodyBottom: bottom + 1 };
+}
+
+function medianValue(values: number[]): number {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted[Math.floor(sorted.length / 2)];
+}
+
 function druidAttackFrame(columns: number, remainingSeconds: number, durationSeconds: number): number {
   const frameCount = Math.min(4, Math.max(2, Math.ceil(columns * 0.3)));
   const progress = 1 - Math.max(0, Math.min(1, remainingSeconds / durationSeconds));
@@ -29668,6 +29963,14 @@ interface AttackProjectile {
   /** Charged Bolt's lateral weave amplitude and per-bolt phase offset. */
   driftStrength?: number;
   driftSeed?: number;
+  /** How fast a weaving projectile swings; Charged Bolt's rate when absent. */
+  driftFrequency?: number;
+  /** A tornado spends itself against campaign scenery instead of crossing it. */
+  stopsAtWalls?: boolean;
+  /** Seconds between a tornado's radial damage pulses, and the pulse radius. */
+  pulseSeconds?: number;
+  pulseRadius?: number;
+  nextPulseIn?: number;
   cold?: boolean;
   /** Leaves Sand Maggot poison on the hero when this projectile lands. */
   poison?: boolean;
@@ -30077,7 +30380,10 @@ interface D2SocketHole {
   size: number;
 }
 
-/** Where the sockets sit on a socketable's inventory art, by socket count. */
+/**
+ * Where the sockets sit on a socketable's inventory art, by socket count. These
+ * are the wide two-column layouts D2 punches across a shield or body armour.
+ */
 const SOCKET_HOLE_LAYOUTS: D2SocketHole[][] = [
   [],
   [{ left: 50, top: 46, size: 30 }],
@@ -30094,6 +30400,31 @@ const SOCKET_HOLE_LAYOUTS: D2SocketHole[][] = [
   [
     { left: 32, top: 31, size: 21 }, { left: 50, top: 31, size: 21 }, { left: 68, top: 31, size: 21 },
     { left: 32, top: 57, size: 21 }, { left: 50, top: 57, size: 21 }, { left: 68, top: 57, size: 21 },
+  ],
+];
+
+/**
+ * The same holes down a one-cell-wide base - staves, wands, one-handed axes.
+ * They sit centred on the art's width (50%) and run down its long axis, big
+ * enough to fill that single column, so the whole socket shows instead of a
+ * squeezed sliver at the item's edges.
+ */
+const SOCKET_HOLE_COLUMN_LAYOUTS: D2SocketHole[][] = [
+  [],
+  [{ left: 50, top: 46, size: 62 }],
+  [{ left: 50, top: 22, size: 62 }, { left: 50, top: 74, size: 62 }],
+  [{ left: 50, top: 20, size: 54 }, { left: 50, top: 50, size: 54 }, { left: 50, top: 80, size: 54 }],
+  [
+    { left: 50, top: 17, size: 48 }, { left: 50, top: 39, size: 48 },
+    { left: 50, top: 61, size: 48 }, { left: 50, top: 83, size: 48 },
+  ],
+  [
+    { left: 50, top: 16, size: 42 }, { left: 50, top: 33, size: 42 }, { left: 50, top: 50, size: 42 },
+    { left: 50, top: 67, size: 42 }, { left: 50, top: 84, size: 42 },
+  ],
+  [
+    { left: 50, top: 15, size: 38 }, { left: 50, top: 29, size: 38 }, { left: 50, top: 43, size: 38 },
+    { left: 50, top: 57, size: 38 }, { left: 50, top: 71, size: 38 }, { left: 50, top: 85, size: 38 },
   ],
 ];
 

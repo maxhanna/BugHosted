@@ -1381,6 +1381,11 @@
   text-shadow: 0 1px 2px #000;
   pointer-events: none;
 }
+/* A floor name wears its item's rarity, in the same colours as the inventory. */
+.d2s-ground-pickup-label.magic { color: #8fb4ed; }
+.d2s-ground-pickup-label.rare { color: #f0bf62; }
+.d2s-ground-pickup-label.unique { color: #f0c96a; }
+.d2s-ground-pickup-label.set { color: #7edb96; }
 
 .d2s-enemy-hover-health {
   display: block;

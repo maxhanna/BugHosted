@@ -2,7 +2,8 @@
 import { Subject } from "rxjs";
 import * as THREE from "three";
 import { type D2LeaderboardEntry, D2SurvivorsService } from "../../services/d2survivors.service";
-import { D2SurvivorsComponent, enemyD2PixelHeight, enemySpriteDirectionRow, enemySpriteRow, wereformRow } from "./d2survivors.component";
+import { D2SurvivorsComponent, enemyD2PixelHeight, enemySpriteDirectionRow, enemySpriteRow, wereformAttackRowScale, wereformRow } from "./d2survivors.component";
+
 import { D2_ITEM_ART, D2_SET_ITEMS, D2_UNIQUE_ITEMS } from "./d2-item-assets.generated";
 import { getD2BaseItemFootprint } from "./d2-item-footprints";
 import { D2_HELMET_VISUALS, getHelmetVisualForItem } from "./d2-helmet-visuals.generated";
@@ -20,7 +21,7 @@ import { INFERNO_ART } from "./d2-inferno.generated";
 import { ASSASSIN_AURA_ART } from "./d2-assassin-auras.generated";
 import { DRUID_SPIRIT_AURA_ART } from "./d2-druid-auras.generated";
 import { D2_CLASS_SKILL_TREES } from "./d2survivors-skill-tree.data";
-import { ATTACK_CLIP_INFO, buildCharacterRig, gaitForClass, heldItemShare, poseCharacterRig } from "./character-animation";
+import { ATTACK_CLIP_INFO, buildCharacterRig, gaitForClass, heldItemShare, heldMeshLength, poseCharacterRig } from "./character-animation";
 import { D2_AFFIXES, eligibleAffixes, itemAffixTypes, rollAffix } from "./d2-item-affixes";
 import { D2_RUNE_BY_NAME } from "./d2-runes";
 
@@ -189,6 +190,57 @@ describe("D2SurvivorsComponent combat and equipment", () => {
 
     expect(socketedBases.length).toBeGreaterThanOrEqual(2);
     expect(socketedBases.every((item) => item.slot !== "charm")).toBeTrue();
+  });
+
+  it("drops socketed white helmets like any other base", () => {
+    const socketedHelms: any[] = [];
+    for (let index = 0; index < 400; index += 1) {
+      const item = (component as any).randomItem(40);
+      if (item && item.rarity === "normal" && (item.sockets ?? 0) > 0
+        && ["helmet", "druidPelt", "barbarianHelm"].includes(item.equipmentType)) {
+        socketedHelms.push(item);
+      }
+    }
+
+    expect(socketedHelms.length).toBeGreaterThan(0);
+  });
+
+  it("sets a rune into a socketed druid pelt dropped on it", () => {
+    const pelt = {
+      id: "pelt-1", name: "Wolf Head", baseName: "Wolf Head", rarity: "normal",
+      slot: "armor", equipmentType: "druidPelt", sockets: 2, desc: "", stats: { armor: 8 },
+    } as any;
+    const rune = {
+      id: "rune-el", name: "El", baseName: "El", rarity: "normal",
+      slot: "charm", equipmentType: "rune", desc: "", stats: {},
+    } as any;
+    component.inventory[0] = pelt;
+    component.inventory[5] = rune;
+    component.dragState = { source: "inventory", slotIndex: 5, item: rune } as any;
+
+    component.onInventoryDrop(0, { preventDefault: () => undefined } as DragEvent);
+
+    expect(component.socketedCount(pelt)).toBe(1);
+    expect(component.inventory[5]).toBeNull();
+  });
+
+  it("sets a rune into a socketed helmet worn on the character", () => {
+    const worn = {
+      id: "worn-pelt", name: "Wolf Head", baseName: "Wolf Head", rarity: "normal",
+      slot: "armor", equipmentType: "druidPelt", sockets: 2, desc: "", stats: { armor: 8 },
+    } as any;
+    const rune = {
+      id: "rune-eld", name: "Eld", baseName: "Eld", rarity: "normal",
+      slot: "charm", equipmentType: "rune", desc: "", stats: {},
+    } as any;
+    component.equipment.helmet = worn;
+    component.inventory[5] = rune;
+    component.dragState = { source: "inventory", slotIndex: 5, item: rune } as any;
+
+    component.onEquipmentDrop("helmet", { preventDefault: () => undefined } as DragEvent);
+
+    expect(component.socketedCount(worn)).toBe(1);
+    expect(component.inventory[5]).toBeNull();
   });
 
   it("stocks socketed white bases at Gheed's shop", () => {
@@ -594,38 +646,91 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect((component as any).skillVisualEffects.length).toBe(0);
   });
 
-  it("sends Tornado and Twister in a straight path through enemies to the screen edge", () => {
+  it("sends Twister in a straight path through enemies to the screen edge", () => {
     component.selectedClass = "druid";
     component.playerX = 250;
     component.playerY = 250;
-    component.ownedSkills = ["Tornado", "Twister"];
-    component.skillLevels = { Tornado: 1, Twister: 1 };
+    component.ownedSkills = ["Twister"];
+    component.skillLevels = { Twister: 1 };
     const near = { kind: "normal", species: "fallen", spriteFrame: 0, x: 300, y: 250, hp: 100, maxHp: 100, speed: 0, r: 14, dmg: 0 } as any;
     const far = { kind: "normal", species: "fallen", spriteFrame: 0, x: 410, y: 250, hp: 100, maxHp: 100, speed: 0, r: 14, dmg: 0 } as any;
     component.enemies = [near, far];
+    (component as any).rebuildEnemyGrid();
+    component.activateOwnedSkill("Twister");
+    const projectile = component.attackProjectiles[0];
 
-    for (const skill of ["Tornado", "Twister"]) {
-      near.hp = 100;
-      far.hp = 100;
-      component.attackProjectiles = [];
-      (component as any).rebuildEnemyGrid();
-      component.activateOwnedSkill(skill);
-      const projectile = component.attackProjectiles[0];
+    expect(projectile).toBeDefined();
+    expect(projectile.pathHit).toBe(true);
+    expect(projectile.target).toBeUndefined();
+    expect(projectile.homing).toBe(false);
+    expect(Math.hypot(projectile.targetX - projectile.startX, projectile.targetY - projectile.startY)).toBeGreaterThan(
+      Math.hypot(far.x - projectile.startX, far.y - projectile.startY),
+    );
 
-      expect(projectile).toBeDefined();
-      expect(projectile.pathHit).toBe(true);
-      expect(projectile.target).toBeUndefined();
-      expect(projectile.homing).toBe(false);
-      expect(Math.hypot(projectile.targetX - projectile.startX, projectile.targetY - projectile.startY)).toBeGreaterThan(
-        Math.hypot(far.x - projectile.startX, far.y - projectile.startY),
-      );
+    for (let frame = 0; frame < 300; frame += 1) (component as any).updateAttackProjectiles(16);
+    (component as any).flushPendingDamage();
 
-      for (let frame = 0; frame < 300; frame += 1) (component as any).updateAttackProjectiles(16);
-      (component as any).flushPendingDamage();
+    expect(near.hp).toBeLessThan(100);
+    expect(far.hp).toBeLessThan(100);
+  });
 
-      expect(near.hp).toBeLessThan(100);
-      expect(far.hp).toBeLessThan(100);
-    }
+  it("pulses a Tornado's radial damage five times over a three-second life", () => {
+    component.selectedClass = "druid";
+    component.playerX = 250;
+    component.playerY = 250;
+    (component as any).playerFacingX = 1;
+    (component as any).playerFacingY = 0;
+    component.ownedSkills = ["Tornado"];
+    component.skillLevels = { Tornado: 1 };
+    component.enemies = [{ kind: "normal", species: "fallen", spriteFrame: 0, x: 300, y: 250, hp: 100000, maxHp: 100000, speed: 0, r: 14, dmg: 0 } as any];
+    (component as any).rebuildEnemyGrid();
+    component.attackProjectiles = [];
+
+    component.activateOwnedSkill("Tornado");
+    const tornado = component.attackProjectiles[0];
+    expect(tornado.life).toBeCloseTo(3, 5);
+    expect(tornado.pulseSeconds).toBeCloseTo(0.6, 5);
+    expect(tornado.pulseRadius).toBeGreaterThan(0);
+    expect(tornado.stopsAtWalls).toBeTrue();
+    // It weaves toward the aim point rather than tracing a straight ray.
+    expect(tornado.driftStrength).toBeGreaterThan(0);
+    expect(tornado.driftFrequency).toBeCloseTo(3.2, 5);
+    const pathSeed = tornado.driftSeed;
+
+    const pulses = spyOn(component as any, "applyTornadoPulse").and.callThrough();
+    for (let frame = 0; frame < 200; frame += 1) (component as any).updateAttackProjectiles(16);
+
+    // Five pulses: the cast frame and every 15 frames after it.
+    expect(pulses).toHaveBeenCalledTimes(5);
+    expect(component.attackProjectiles.length).toBe(0);
+
+    // Aiming at the same point again replays the same path.
+    component.activateOwnedSkill("Tornado");
+    expect(component.attackProjectiles[0].driftSeed).toBe(pathSeed);
+  });
+
+  it("stops a Tornado at a wall instead of crossing it", () => {
+    component.selectedClass = "druid";
+    component.playerX = 250;
+    component.playerY = 250;
+    (component as any).playerFacingX = 1;
+    (component as any).playerFacingY = 0;
+    component.ownedSkills = ["Tornado"];
+    component.skillLevels = { Tornado: 1 };
+    // A monster has to be in view or the cast falls back to a plain bolt.
+    component.enemies = [{ kind: "normal", species: "fallen", spriteFrame: 0, x: 800, y: 250, hp: 100, maxHp: 100, speed: 0, r: 14, dmg: 0 } as any];
+    (component as any).rebuildEnemyGrid();
+    spyOn(component as any, "campaignCollisionContext").and.returnValue({ clearance: 8, blocksSight: true } as any);
+    spyOn(component as any, "campaignLineBlocked").and.callFake(
+      (_context: any, _x: number, _y: number, toX: number) => toX > 300,
+    );
+    component.attackProjectiles = [];
+    component.activateOwnedSkill("Tornado");
+
+    for (let frame = 0; frame < 40; frame += 1) (component as any).updateAttackProjectiles(16);
+
+    // Spent on the wall well before the three seconds are up.
+    expect(component.attackProjectiles.length).toBe(0);
   });
 
   it("keeps player attacks aimed at monsters instead of friendly summons", () => {
@@ -1010,6 +1115,17 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(weapon.userData["d2sSharedGear"]).toBeTrue();
   });
 
+  it("sizes a mounted crossbow by its stock instead of its limb thickness", () => {
+    // D2R lays a crossbow out flat: 0.98 across the limbs, 0.20 thick and 1.21
+    // along the stock. Measuring the mesh's height sized the stock to half the
+    // hero's height and the limbs to more than the hero's width.
+    expect(heldMeshLength("crossbow", { x: 0.978, y: 0.203, z: 1.212 })).toBeCloseTo(1.212, 5);
+    expect(heldMeshLength("light_crossbow", { x: 1.112, y: 0.172, z: 0.997 })).toBeCloseTo(1.112, 5);
+    // Every other family stands on end, so its own height is its length.
+    expect(heldMeshLength("hunters_bow", { x: 0.09, y: 1.998, z: 1.203 })).toBeCloseTo(1.998, 5);
+    expect(heldMeshLength("long_sword", { x: 0.047, y: 1.182, z: 0.221 })).toBeCloseTo(1.182, 5);
+  });
+
   it("seats the posed shield cel on the off fist instead of mid-forearm", () => {
     const model = new THREE.Group();
     const add = (name: string, x: number, y: number, z: number): THREE.Bone => {
@@ -1247,9 +1363,9 @@ describe("D2SurvivorsComponent combat and equipment", () => {
   it("punches one hole into the art of a socketed item per socket", () => {
     expect((component as any).socketHoles(null)).toEqual([]);
     expect((component as any).socketHoles({ sockets: 0 } as any)).toEqual([]);
-    // A rune or gem has no sockets of its own to show.
+    // A wide base (a shield, a body armour) takes the two-column layout.
     for (const sockets of [1, 2, 3, 4, 5, 6]) {
-      const holes = (component as any).socketHoles({ sockets } as any) as Array<{ left: number; top: number; size: number }>;
+      const holes = (component as any).socketHoles({ sockets, baseName: "Kite Shield" } as any) as Array<{ left: number; top: number; size: number }>;
       expect(holes.length).toBe(sockets);
       for (const hole of holes) {
         expect(hole.left).toBeGreaterThan(10);
@@ -1259,6 +1375,23 @@ describe("D2SurvivorsComponent combat and equipment", () => {
         expect(hole.size).toBeLessThan(40);
       }
     }
+  });
+
+  it("runs the sockets down the art of a one-cell-wide weapon", () => {
+    // A staff is one cell wide, so a row of holes was squeezed into that single
+    // column and the slot box clipped it. The holes run down its length instead,
+    // centred on its width and big enough to fill it.
+    const staff = (component as any).socketHoles({ sockets: 3, baseName: "Battle Staff" } as any) as Array<{ left: number; top: number; size: number }>;
+    expect(staff.length).toBe(3);
+    expect(staff.every((hole) => hole.left === 50)).toBeTrue();
+    expect(staff[0].top).toBeLessThan(staff[1].top);
+    expect(staff[1].top).toBeLessThan(staff[2].top);
+    expect(staff[0].size).toBeGreaterThan(40);
+
+    const axe = (component as any).socketHoles({ sockets: 2, baseName: "Hand Axe" } as any) as Array<{ left: number; top: number }>;
+    expect(axe).toHaveSize(2);
+    expect(axe.every((hole) => hole.left === 50)).toBeTrue();
+    expect(axe[0].top).toBeLessThan(axe[1].top);
   });
 
   it("drops runes as their own socketable and labels them as runes", () => {
@@ -2960,6 +3093,37 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(component.playerHp).toBe(hpBefore);
   });
 
+  it("stands still with its idle clip when scenery blocks every step toward the hero", () => {
+    component.playerX = 250;
+    component.playerY = 250;
+    const enemy = {
+      kind: "normal", species: "fallen", spriteFrame: 0, x: 340, y: 250,
+      hp: 100, maxHp: 100, speed: 100, r: 14, dmg: 2, cd: 0,
+    } as any;
+    component.enemies = [enemy];
+    spyOn(component as any, "campaignCollisionContext").and.returnValue({
+      clearance: 8,
+      blocksSight: false,
+      geometry: { left: 0, top: 0, scale: 1 },
+      mask: { width: 500, height: 500, data: new Uint8Array(500 * 500) },
+    } as any);
+    // Every heading is blocked, so the wall slide walks the monster nowhere.
+    const blocked = spyOn(component as any, "campaignStepBlocked").and.returnValue(true);
+
+    component.updateEnemies(100);
+
+    expect(enemy.x).toBe(340);
+    expect(enemy.y).toBe(250);
+    expect(enemy.animationState).toBe("idle");
+
+    // The same monster walks again once a heading opens up.
+    blocked.and.returnValue(false);
+    component.updateEnemies(100);
+
+    expect(enemy.x).toBeLessThan(340);
+    expect(enemy.animationState).toBe("move");
+  });
+
   it("stuns the nearest enemy when Telekinesis is cast", () => {
     component.selectedClass = "sorceress";
     component.playerX = 250;
@@ -3684,10 +3848,51 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     assets.collision = { width: 1, height: 1, blocked: new Uint8Array(1) };
     (component as any).updateCampaignArea();
 
+    // A ready map is still not a teleport: the blue area portal opens and the
+    // hero changes zone by walking through it.
+    expect(component.zonePortalOpen).toBeTrue();
+    expect(component.currentAreaIndex).toBe(0);
+    expect(component.currentArea.name).toBe("Blood Moor");
+    expect((component as any).zonePortalAreaIndex).toBe(3);
+    expect((component as any).pendingCampaignAreaIndex).toBeNull();
+
+    component.playerX = (component as any).zonePortalX;
+    component.playerY = (component as any).zonePortalY;
+    (component as any).crossZonePortal();
+
+    expect(component.zonePortalOpen).toBeFalse();
     expect(component.currentAreaIndex).toBe(3);
     expect(component.currentArea.name).toBe("Dark Wood");
-    expect((component as any).pendingCampaignAreaIndex).toBeNull();
     expect([...(component as any).campaignWorlds.keys()]).toEqual([pending.slug]);
+  });
+
+  it("opens a blue area portal instead of porting the hero into the next zone", () => {
+    spyOn(component as any, "persistRunProgress");
+    spyOn(component as any, "campaignWorldReady").and.returnValue(true);
+    component.currentAct = 1;
+    component.currentAreaIndex = 0;
+    component.actTime = 45;
+    const playerX = component.playerX;
+    const playerY = component.playerY;
+
+    (component as any).updateCampaignArea();
+
+    expect(component.zonePortalOpen).toBeTrue();
+    const leading = (component as any).zonePortalAreaIndex;
+    expect(leading).toBeGreaterThan(0);
+    expect(component.currentAreaIndex).toBe(0);
+    expect(component.playerX).toBe(playerX);
+    expect(component.playerY).toBe(playerY);
+    // The door stands near the hero, not across the arena.
+    expect(Math.hypot((component as any).zonePortalX - playerX, (component as any).zonePortalY - playerY))
+      .toBeLessThan(160);
+
+    // While it stands, even a clock far into the next zones cannot move the door's
+    // destination: one crossing is one area.
+    component.actTime = 200;
+    (component as any).updateCampaignArea();
+    expect((component as any).zonePortalAreaIndex).toBe(leading);
+    expect(component.currentAreaIndex).toBe(0);
   });
 
   it("freezes the zone order once the act boss arrives", () => {
@@ -4440,6 +4645,46 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(geometry.top + spawn.y * geometry.scale).toBeCloseTo(hero.y, 1);
   });
 
+  it("keeps a coarser tiled zone's DS1 map on the pixel grid its spawn uses", () => {
+    component.currentAct = 2;
+    const tombIndex = component.currentActDetails.areas
+      .findIndex((area) => area.name === "Tal Rasha's Tomb");
+    expect(tombIndex).toBeGreaterThanOrEqual(0);
+    component.currentAreaIndex = tombIndex;
+    const area = component.currentArea;
+    expect(area.floorTileScale).toBe(2);
+    const entry = (component as any).currentWorldEntry();
+    const spawn = { x: 1840, y: 1616 };
+    (component as any).campaignWorlds.set(entry.slug, {
+      ground: { complete: false } as any,
+      layout: {
+        atlasWidth: 1, atlasHeight: 1,
+        backdropWidth: entry.imageWidth, backdropHeight: entry.imageHeight,
+        instances: [],
+        walkable: {
+          x: entry.imageWidth / 2, y: entry.imageHeight / 2,
+          halfWidth: entry.imageWidth / 2, halfHeight: entry.imageHeight / 2,
+        },
+        spawn,
+      },
+    });
+
+    // The zone's painted-tile grid is twice as coarse, which must not stretch its
+    // DS1 art.  Drawn at the tiled width the map slid half a map away from the
+    // floor the collision mask and the spawn cell use, leaving the hero on the
+    // black rock outside the rooms.
+    const tiledWidth = 60 * (area.floorTileScale ?? 1) * (component as any).worldZoom * Math.SQRT2;
+    const worldWidth = (component as any).campaignWorldTileWidth(area, tiledWidth);
+    expect(worldWidth).toBeCloseTo(tiledWidth / 2, 5);
+
+    (component as any).centerPlayerOnCampaignWorld();
+
+    const geometry = (component as any).campaignWorldGeometry(worldWidth, entry.imageWidth, entry.imageHeight);
+    const hero = (component as any).projectArenaPoint(component.arenaW / 2, component.arenaH / 2);
+    expect(geometry.left + spawn.x * geometry.scale).toBeCloseTo(hero.x, 1);
+    expect(geometry.top + spawn.y * geometry.scale).toBeCloseTo(hero.y, 1);
+  });
+
   it("pulls the hero off ground a rebuilt map walls over", () => {
     (component as any).currentAct = 1;
     component.currentAreaIndex = 5;
@@ -4516,6 +4761,15 @@ describe("D2SurvivorsComponent combat and equipment", () => {
       },
     });
     (component as any).updateCampaignArea();
+
+    // Even with the map ready the hero stays put: the blue portal is the door.
+    expect(component.zonePortalOpen).toBeTrue();
+    expect(component.currentAreaIndex).toBe(0);
+    expect(centre).not.toHaveBeenCalled();
+
+    component.playerX = (component as any).zonePortalX;
+    component.playerY = (component as any).zonePortalY;
+    (component as any).crossZonePortal();
 
     expect(component.currentAreaIndex).toBeGreaterThan(0);
     expect(centre).toHaveBeenCalled();
@@ -6491,9 +6745,11 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     } as unknown as CanvasRenderingContext2D;
     spyOn(component as any, "projectArenaPoint").and.returnValue({ x: 240, y: 180 });
     const shadow = spyOn(component as any, "drawGroundShadow");
-    const portal = new Image();
-    portal.src = (component as any).portalArtUrl();
-    spyOn(component as any, "portalArtImage").and.returnValue(portal);
+    spyOn(component as any, "portalArtImage").and.callFake((art: { path: string }) => {
+      const image = new Image();
+      image.src = (component as any).portalArtUrl(art);
+      return image;
+    });
 
     (component as any).drawActPortal(ctx);
 
@@ -6503,6 +6759,15 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(draw.dw).toBeGreaterThan(0);
     expect(draw.dh).toBeGreaterThan(draw.dw);
     expect(shadow).toHaveBeenCalled();
+
+    // The blue area door is the same loop from its own sheet.
+    draws.length = 0;
+    (component as any).drawZonePortal(ctx);
+
+    const zoneDraw = draws[0]!;
+    expect(zoneDraw.source ?? "").toContain("assets/d2survivors/objects/blue-portal.png?v=2");
+    expect(zoneDraw.sw).toBe(109);
+    expect(zoneDraw.dh).toBeGreaterThan(zoneDraw.dw);
   });
 
   it("opens the act portal clear of an unopened boss chest", () => {
@@ -6559,6 +6824,43 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.altLootLabelsHeld = true;
     component.onWindowBlur();
     expect(component.altLootLabelsHeld).toBe(false);
+  });
+
+  it("names each floor item with its own rarity so the label can wear its colour", () => {
+    component.activeTab = "run";
+    component.runActive = true;
+    (component as any).worldZoom = 1;
+    spyOn(component as any, "projectArenaPoint").and.callFake((x: number, y: number) => ({ x, y }));
+    const canvas = {
+      width: 500,
+      height: 500,
+      focus: () => undefined,
+      getBoundingClientRect: () => ({ left: 0, top: 0, width: 500, height: 500 }),
+    } as any;
+    (component as any).arenaRef = { nativeElement: canvas };
+    const drop = (name: string, rarity: string, x: number) => ({
+      x, y: 200, item: { name, rarity } as any, bob: 0, life: 20, pickupDelay: 0, notifiedFull: false,
+    });
+    component.potionDrops = [{ x: 40, y: 200, kind: "health", bob: 0, life: 20, pickupDelay: 0, notifiedFull: false, collected: false }];
+    component.itemDrops = [
+      drop("Leather Boots", "normal", 100),
+      drop("Boots of Tangerine", "magic", 160),
+      drop("Bloodletter", "rare", 220),
+      drop("Tal Rasha's Adjudication", "set", 280),
+      drop("Doombreaker", "unique", 340),
+    ];
+    component.altLootLabelsHeld = true;
+
+    // The template colours each name from this field, so a normal base keeps the
+    // plain label colour while magic, rare, set and unique names take their own.
+    expect(component.altLootLabels.map((label) => [label.text, label.rarity])).toEqual([
+      ["Health Potion", undefined],
+      ["Leather Boots", "normal"],
+      ["Boots of Tangerine", "magic"],
+      ["Bloodletter", "rare"],
+      ["Tal Rasha's Adjudication", "set"],
+      ["Doombreaker", "unique"],
+    ]);
   });
 
   it("keeps the ALT floor labels off the arena while a menu owns the screen", () => {
@@ -9341,6 +9643,51 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect((component as any).druidForm).toBe("werebear");
   });
 
+  it("brings a loaded druid back in human form instead of the werebear it was saved in", () => {
+    // A wereform is a timed buff of the live run, not part of the save.
+    (component as any).restoreRunState({ selectedClass: "druid", druidForm: "werebear", druidFormRemaining: 9 });
+    expect((component as any).druidForm).toBeNull();
+    expect((component as any).druidFormRemaining).toBe(0);
+    // The form starts on its cooldown, so the automatic shift cannot snap the
+    // druid straight back into the bear on the first frame of the load.
+    expect((component as any).druidFormCooldown).toBeGreaterThan(0);
+
+    (component as any).restoreRunState({ selectedClass: "druid" });
+    expect((component as any).druidForm).toBeNull();
+    expect((component as any).druidFormCooldown).toBe(0);
+  });
+
+  it("walks the wereform instead of holding its attack cel while the hero moves", () => {
+    const frames: HTMLCanvasElement[][] = [];
+    for (let row = 0; row < 16; row += 1) {
+      frames.push([]);
+      for (let column = 0; column < 13; column += 1) {
+        const cel = document.createElement("canvas");
+        cel.width = 4;
+        cel.height = 4;
+        frames[row].push(cel);
+      }
+    }
+    (component as any).druidAnimations.werebear = { frames, columns: 13, rows: 16, frameDurationMs: 85 };
+    (component as any).druidForm = "werebear";
+    (component as any).druidFormAttackTime = 0.4;
+    (component as any).runTime = 0;
+    (component as any).playerFacingX = 1;
+    (component as any).playerFacingY = 0;
+    const ctx = jasmine.createSpyObj<CanvasRenderingContext2D>("ctx", ["save", "restore", "beginPath", "ellipse", "fill", "drawImage"]);
+    const row = wereformRow(1, 0);
+    const drawnCel = (): unknown => ctx.drawImage.calls.mostRecent().args[0];
+
+    (component as any).isPlayerMoving = true;
+    (component as any).drawDruidForm(ctx);
+    expect(drawnCel()).toBe(frames[row][0]);
+
+    (component as any).isPlayerMoving = false;
+    ctx.drawImage.calls.reset();
+    (component as any).drawDruidForm(ctx);
+    expect(frames[row + 8] as unknown[]).toContain(drawnCel());
+  });
+
   it("makes Oak Sage a non-attacking life aura for the druid and active summons", () => {
     component.selectedClass = "druid";
     component.playerX = 250;
@@ -11252,6 +11599,68 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(wereformRow(0, -1)).toBe(3);
     expect(wereformRow(1, 0)).toBe(5);
     expect(wereformRow(0, 1)).toBe(7);
+  });
+
+  it("scales a smaller wereform attack row back to the walk body size", () => {
+    // Measured from werewolf.png: the walk rows carry a ~106px body, while the
+    // left-facing attack row only carries ~65px, so the wolf used to shrink for
+    // the whole swing. Big differences are corrected, small ones barely at all.
+    expect(wereformAttackRowScale(106, 65)).toBe(1.6);
+    expect(wereformAttackRowScale(106, 70)).toBeCloseTo(1.514, 3);
+    expect(wereformAttackRowScale(106, 104)).toBeCloseTo(1.019, 3);
+    // A row already at walk size is left alone, and an empty cel never scales.
+    expect(wereformAttackRowScale(106, 106)).toBe(1);
+    expect(wereformAttackRowScale(106, 120)).toBe(1);
+    expect(wereformAttackRowScale(106, 0)).toBe(1);
+  });
+
+  it("draws the wereform attack at the walk body size and foot line", () => {
+    const frames: HTMLCanvasElement[][] = [];
+    for (let row = 0; row < 16; row += 1) {
+      frames.push([]);
+      for (let column = 0; column < 13; column += 1) {
+        const cel = document.createElement("canvas");
+        cel.width = 4;
+        cel.height = 4;
+        frames[row].push(cel);
+      }
+    }
+    const rowScales = new Array(16).fill(1);
+    const rowFootRatios = new Array(16).fill(0.94);
+    // The attack row is sliced at about two thirds of the walk body size.
+    rowScales[13] = wereformAttackRowScale(106, 70);
+    rowFootRatios[13] = 1;
+    (component as any).druidAnimations.werebear = {
+      frames, columns: 13, rows: 16, frameDurationMs: 85, rowScales, rowFootRatios,
+    };
+    (component as any).druidForm = "werebear";
+    (component as any).playerFacingX = 1;
+    (component as any).playerFacingY = 0;
+    component.playerX = 250;
+    component.playerY = 250;
+    spyOn(component as any, "projectArenaPoint").and.callFake((x: number, y: number) => ({ x, y }));
+    const ctx = jasmine.createSpyObj<CanvasRenderingContext2D>("ctx", ["save", "restore", "beginPath", "ellipse", "fill", "drawImage"]);
+    const height = 92 * (component as any).worldZoom;
+    const scale = wereformAttackRowScale(106, 70);
+
+    (component as any).druidFormAttackTime = 0.5;
+    (component as any).isPlayerMoving = false;
+    (component as any).drawDruidForm(ctx);
+
+    const attack = ctx.drawImage.calls.mostRecent().args as unknown as number[];
+    expect(attack[3]).toBeCloseTo(height * scale, 5);
+    expect(attack[4]).toBeCloseTo(height * scale, 5);
+    // The cel's foot line still lands on the walk ground line, not above it.
+    expect((attack[2] as number) + height * scale).toBeCloseTo(250 + height * 0.14, 5);
+
+    ctx.drawImage.calls.reset();
+    (component as any).druidFormAttackTime = 0;
+    (component as any).isPlayerMoving = true;
+    (component as any).drawDruidForm(ctx);
+
+    const walk = ctx.drawImage.calls.mostRecent().args as unknown as number[];
+    expect(walk[3]).toBeCloseTo(height, 5);
+    expect(walk[2]).toBeCloseTo(250 - height * 0.86, 5);
   });
 
   it("sizes the reviewed monsters from their tallest walk cel", () => {
