@@ -4253,7 +4253,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     (component as any).currentAct = 1;
     component.currentAreaIndex = 0;
     expect(component.currentArea.name).toBe("Blood Moor");
-    // The exported ground is one diamond of 34x34 tiles, so everything outside
+    // The exported ground is one diamond of floor tiles, so everything outside
     // that diamond is void even when its collision pixel is clear.
     const walkable = { x: 2680, y: 1616, halfWidth: 2680, halfHeight: 1360 };
     (component as any).campaignWorlds.set("a1-blood-moor", {
@@ -4316,13 +4316,19 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(component.currentArea.name).toBe("Catacombs");
     // The catacomb rooms wall off the exact middle of the grid, so the exporter
     // names a floor cell in the level's largest walkable region instead.
+    const entry = (component as any).currentWorldEntry();
+    const spawn = { x: entry.imageWidth / 2, y: entry.imageHeight / 2 + 128 };
     (component as any).campaignWorlds.set("a1-catacombs", {
       ground: { complete: false } as any,
       layout: {
-        atlasWidth: 1, atlasHeight: 1, backdropWidth: 4160, backdropHeight: 2336,
+        atlasWidth: 1, atlasHeight: 1,
+        backdropWidth: entry.imageWidth, backdropHeight: entry.imageHeight,
         instances: [],
-        walkable: { x: 2040, y: 1296, halfWidth: 2040, halfHeight: 1040 },
-        spawn: { x: 2400, y: 1176 },
+        walkable: {
+          x: entry.imageWidth / 2, y: entry.imageHeight / 2,
+          halfWidth: entry.imageWidth / 2, halfHeight: entry.imageHeight / 2,
+        },
+        spawn,
       },
     });
 
@@ -4332,8 +4338,51 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     // One exported pixel is 60/160 of a world unit; the map is centred on the chunk.
     const chunkWidth = (component as any).chunkTileColumns * 60;
     const chunkHeight = (component as any).chunkTileRows * 60;
-    expect(position.x).toBeCloseTo(chunkWidth / 2 + (2400 - 4160 / 2) * 0.375, 5);
-    expect(position.y).toBeCloseTo(chunkHeight / 2 + (1176 - 2336 / 2) * 0.375, 5);
+    expect(position.x).toBeCloseTo(chunkWidth / 2 + (spawn.x - entry.imageWidth / 2) * 0.375, 5);
+    expect(position.y).toBeCloseTo(chunkHeight / 2 + (spawn.y - entry.imageHeight / 2) * 0.375, 5);
+  });
+
+  it("pulls the hero off ground a rebuilt map walls over", () => {
+    (component as any).currentAct = 1;
+    component.currentAreaIndex = 5;
+    expect(component.currentArea.name).toBe("Catacombs");
+    // A run saved before the rebuild resumes on the coordinates it was left at,
+    // and the new map can have built a wall there.  The movement rule never lets
+    // the hero's centre step out of scenery, so the collision mask has to move
+    // them to clear floor instead of leaving them boxed in.
+    const width = 400;
+    const height = 400;
+    const blockedPixels = new Uint8Array(width * height);
+    for (let y = 180; y < 220; y += 1) {
+      for (let x = 180; x < 220; x += 1) blockedPixels[y * width + x] = 1;
+    }
+    (component as any).campaignWorlds.set("a1-catacombs", {
+      ground: { complete: true, naturalWidth: width, naturalHeight: height } as any,
+      collision: { width, height, blocked: blockedPixels },
+      layout: {
+        atlasWidth: 1, atlasHeight: 1, backdropWidth: width, backdropHeight: height,
+        instances: [],
+        walkable: { x: width / 2, y: height / 2, halfWidth: width / 2, halfHeight: height / 2 },
+        spawn: { x: 40, y: 40 },
+      },
+    });
+    spyOn(component as any, "campaignWorldGeometry").and.returnValue({
+      scale: 1, width, height, left: 0, top: 0,
+    });
+    spyOn(component as any, "campaignWorldDiamond").and.returnValue({
+      x: width / 2, y: height / 2, halfWidth: width / 2, halfHeight: height / 2,
+    });
+    spyOn(component as any, "projectArenaPoint").and.callFake((x: number, y: number) => ({ x, y }));
+    (component as any).currentChunkCoordX = 0;
+    (component as any).currentChunkCoordY = 0;
+    (component as any).currentChunkLocalX = 200;
+    (component as any).currentChunkLocalY = 200;
+
+    (component as any).ensurePlayerInsideCampaignWorld();
+
+    const position = (component as any).playerWorldPosition();
+    const context = (component as any).campaignWorldCollisionContext();
+    expect((component as any).campaignBlockedAt(context, position.x, position.y)).toBeFalse();
   });
 
   it("centres the hero when the act clock walks into the next area", () => {
@@ -12312,6 +12361,20 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.onGlobalAttackKey(event);
 
     expect(component.menuPanel).toBe("main");
+    expect(event.defaultPrevented).toBeTrue();
+  });
+
+  it("returns from the Sanctuary lobby to the main menu with Escape", () => {
+    component.activeTab = "menu";
+    component.menuPanel = "lobby";
+    spyOn(component as any, "stopLeaderboardHeroLineup");
+    spyOn(component as any, "startMenuHeroPreview");
+    const event = new KeyboardEvent("keydown", { key: "Escape", cancelable: true });
+
+    component.onGlobalAttackKey(event);
+
+    expect(component.menuPanel).toBe("main");
+    expect((component as any).stopLeaderboardHeroLineup).toHaveBeenCalled();
     expect(event.defaultPrevented).toBeTrue();
   });
 

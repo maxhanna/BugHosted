@@ -80,9 +80,7 @@
   margin-bottom: 2px;
 }
 .d2s-in-character-select .d2s-menu-content { padding-top: 8px; padding-bottom: 12px; }
-.d2s-in-character-select .d2s-menu-footer { padding-top: 8px; padding-bottom: 8px; }
-.d2s-in-character-select .d2s-menu-frame { max-height: calc(100svh - var(--d2s-menu-pad-y) * 2); overflow-y: auto; }
-
+ 
 .d2s-character-select {
   grid-column: 1 / -1;
   width: 100%;
@@ -393,24 +391,7 @@
   from { opacity: 0.55; transform: scaleX(0.9); }
   to { opacity: 1; transform: scaleX(1.04); }
 }
-
-.d2s-menu-frame {
-  position: relative;
-  z-index: 1;
-  width: min(100%, 1040px);
-  box-sizing: border-box;
-  max-height: calc(100svh - var(--d2s-menu-pad-y) * 2 - 8px);
-  overflow-x: hidden;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-width: thin;
-  scrollbar-color: #655034 #0d0c0d;
-  border: 2px ridge #796342;
-  background: linear-gradient(135deg, #171415a6, #0a0a0c8f 48%, #18110fa6);
-  backdrop-filter: blur(1.5px);
-  box-shadow: 0 0 0 6px #0a0a0b, 0 0 0 8px #3b3022, 0 20px 70px #000;
-}
-
+ 
 .d2s-menu-title {
   position: relative;
   padding: clamp(14px, 2.8vh, 28px) 20px 8px;
@@ -1116,25 +1097,11 @@
 .d2s-begin-button { width: 100%; }
 .d2s-credits-panel p { color: #b7a683; font: 13px/1.6 Georgia, serif; }
 
-.d2s-menu-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-  padding: 13px 20px;
-  color: #85704e;
-  border-top: 1px solid #463724;
-  background: #0a090af0;
-  font: 9px Georgia, serif;
-  letter-spacing: 0.16em;
-}
-
-.d2s-menu-footer span:nth-child(3) { text-align: center; }
+ 
 
 @media (max-width: 650px) {
   .d2s-menu-scene { --d2s-menu-pad-y: 18px; padding: var(--d2s-menu-pad-y) 20px; }
   .d2s-menu-scene::after { inset: 7px; }
-  .d2s-menu-frame { width: 100%; }
   .d2s-menu-title { padding: 54px 12px 8px; }
   .d2s-audio-control { top: 10px; right: 10px; }
   .d2s-audio-toggle { min-height: 32px; }
@@ -1159,9 +1126,7 @@
   .d2s-menu-subpanel { grid-row: 2; min-height: 0; }
   .d2s-menu-button { min-height: 47px; }
   .d2s-class-grid { grid-template-columns: repeat(4, 1fr); gap: 5px; }
-  .d2s-class-choice { min-height: 52px; font-size: 10px; }
-  .d2s-menu-footer { flex-wrap: wrap; justify-content: center; font-size: 8px; }
-  .d2s-menu-footer span:first-child { display: none; }
+  .d2s-class-choice { min-height: 52px; font-size: 10px; } 
 }
 
 @media (max-height: 740px) and (min-width: 651px) {

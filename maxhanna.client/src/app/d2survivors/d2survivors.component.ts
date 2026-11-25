@@ -4029,7 +4029,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         blocked[index] = pixels[index * 4] > 127 ? 1 : 0;
       }
       assets.collision = { width: canvas.width, height: canvas.height, blocked };
-      if (isCurrent()) redraw();
+      if (isCurrent()) {
+        // The mask decides whether the hero can move, so a saved run is only
+        // pulled off ground the current map walls over once it has decoded.
+        this.ensurePlayerInsideCampaignWorld();
+        redraw();
+      }
     };
     collision.onerror = () => {
       // A mask that will not decode must not hold the area change forever; the
@@ -9478,6 +9483,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (key === "escape" && this.activeTab === "menu" && this.menuPanel === "shop") {
       event.preventDefault();
       this.closeGheedsShop();
+      return;
+    }
+    if (key === "escape" && this.activeTab === "menu" && this.menuPanel === "lobby") {
+      event.preventDefault();
+      this.returnToMainMenu();
       return;
     }
     if (this.activeTab !== "run" || !this.runActive || event.repeat) return;
@@ -16082,7 +16092,31 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const current = this.playerWorldPosition();
     if (this.outsideCampaignWorld(diamond, current.x, current.y)) {
       this.movePlayerToWorld(diamond.x, diamond.y);
+      return;
     }
+    this.settlePlayerOutOfScenery();
+  }
+
+  /**
+   * A run saved against an older build resumes on the coordinates it was left
+   * at, and a rebuilt map can have put a wall there - the movement rule refuses
+   * to step out of a wall the hero starts inside, so they would be boxed in for
+   * good.  Move them to the nearest clear floor, or to the area's spawn cell if
+   * the mask has no free ground within reach.
+   */
+  private settlePlayerOutOfScenery(): void {
+    const context = this.campaignWorldCollisionContext();
+    if (!context) return;
+    const current = this.playerWorldPosition();
+    const point = this.projectArenaPoint(current.x, current.y);
+    if (!this.campaignBlockedAt(context, point.x, point.y)) return;
+    const clear = this.campaignClearSpawnPoint(current.x, current.y, false);
+    const clearPoint = this.projectArenaPoint(clear.x, clear.y);
+    if (!this.campaignBlockedAt(context, clearPoint.x, clearPoint.y)) {
+      this.movePlayerToWorld(clear.x, clear.y);
+      return;
+    }
+    this.centerPlayerOnCampaignWorld();
   }
 
   private shiftWorldBy(dx: number, dy: number): void {

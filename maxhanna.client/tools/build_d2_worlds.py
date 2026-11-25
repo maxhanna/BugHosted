@@ -33,6 +33,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+import numpy as np
 from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 import render_d2r_tristram as tristram
@@ -184,143 +185,219 @@ def ds1(folder: str, *names: str) -> tuple[str, ...]:
 
 # Every campaign area is built from the real chunk presets for its act.  The
 # presets are laid out in a fixed order (no random rolls), so an area renders the
-# same world every run.  Each set offers one chunk size per world: the small
-# outdoor chunks tile into a 3x3 grid, the 13/17-cell room chunks into 2x2, and
-# the large single-room presets (25 cells and up) are used one at a time so the
-# exported backdrop stays the same scale as Act I's.
+# same world every run.  Each set offers one chunk size per world: the 9-cell
+# desert and snowfield pieces tile into 5x5, the 17-cell outdoor and ice chunks
+# into 3x3 (51x51 tiles), and the 13-cell rooms into 3x3 where they offer a
+# four-way junction room.  The large single preset set pieces (25 cells and up)
+# are still used one at a time, so the exported backdrops stay in proportion to
+# Act I's.
 ACT1_WORLDS: tuple[WorldSpec, ...] = (
     WorldSpec("Blood Moor", "a1-blood-moor", 1,
-              ds1("act1/outdoors", "wild1", "wild2", "wild3", "wild4"), 2, 2),
+              ds1("act1/outdoors", "wild1", "trees2", "wild2",
+                  "wild4", "ruin2", "wild3",
+                  "bivouac", "wild1", "trees3"), 3, 3),
     WorldSpec("Cold Plains", "a1-cold-plains", 1,
-              ds1("act1/outdoors", "wild2", "wild3", "wild1", "wild4"), 2, 2),
+              ds1("act1/outdoors", "wild2", "wild3", "wild4",
+                  "bivouac", "wild1", "trees2",
+                  "wild3", "ruin2", "wild4"), 3, 3),
     WorldSpec("Stony Field", "a1-stony-field", 1,
-              ds1("act1/outdoors", "wild3", "wild1", "wild4", "wild2"), 2, 2),
+              ds1("act1/outdoors", "wild3", "ruin2", "wild1",
+                  "wild2", "trees3", "wild4",
+                  "wild1", "bivouac", "wild2"), 3, 3),
     WorldSpec("Dark Wood", "a1-dark-wood", 1,
-              ds1("act1/outdoors", "wild4", "wild2", "wild3", "wild1"), 2, 2),
+              ds1("act1/outdoors", "wild4", "trees3", "trees2",
+                  "wild1", "wild4", "wild3",
+                  "ruin2", "wild2", "wild1"), 3, 3),
     WorldSpec("Tamoe Highland", "a1-tamoe-highland", 1,
-              ds1("act1/outdoors", "wild1", "wild4", "wild2", "wild3"), 2, 2),
+              ds1("act1/outdoors", "wild1", "wild4", "wild2",
+                  "trees2", "wild3", "bivouac",
+                  "wild4", "wild1", "trees3"), 3, 3),
     # Catacomb rooms are single room presets pinned to a 13x13 grid, and their
-    # walls run inside that grid, so a 2x2 only joins up when every piece has a
+    # walls run inside that grid, so a grid only joins up when every piece has a
     # doorway on all four sides: catnsew is that junction room. The corner
     # presets (catnw, catse, ...) close two sides each, and laid out against one
     # another they walled the map's centre - where the hero spawns - into a
     # black, sealed gap.
+    #
+    # The junction room is a warren of arches and pens, so the middle of the 3x3
+    # is the open chamber preset instead: it still joins every neighbour (one
+    # connected region) and gives the hero a hall to start in rather than a gap
+    # between two wall runs.
     WorldSpec("Catacombs", "a1-catacombs", 1,
-              ds1("act1/catacomb", "catnsew", "catnsew",
-                  "catnsew", "catnsew"), 2, 2),
+              ds1("act1/catacomb", "catnsew", "catnsew", "catnsew",
+                  "catnsew", "cate", "catnsew",
+                  "catnsew", "catnsew", "catnsew"), 3, 3),
 )
 
-# Act II: the desert chunks are 9-cell squares, the sewers, tombs and sanctuary
-# are 13 to 17-cell rooms, and the oasis presets are the larger 17-cell squares.
+# Act II: the desert and city chunks are 9-cell squares, so their areas are 5x5;
+# the oasis and the tomb presets are 17-cell squares; and the sewers, Sanctuary
+# and Durance rooms are 13-cell presets whose only piece with a doorway on all
+# four sides is their junction room (sewnsew, sanctnsew, mephnsew), so those
+# areas repeat it.  The tombs are sealed rooms - Diablo II joins them with
+# corridors it lays out at run time - so Tal Rasha's Tomb and the Claw Viper
+# Temple stay 2x2 quads.
 ACT2_WORLDS: tuple[WorldSpec, ...] = (
     WorldSpec("Sewers", "a2-sewers", 2,
-              ds1("act2/sewer", "sewnw", "sewne", "sewsw", "sewse"), 2, 2),
+              ds1("act2/sewer", "sewnsew", "sewnsew2", "sewnsew",
+                  "sewnsewtheme", "sewnsew", "sewnsew2",
+                  "sewnsew", "sewnsewtheme", "sewnsew"), 3, 3),
     WorldSpec("Rocky Waste", "a2-rocky-waste", 2,
-              ds1("act2/outdoors", "desert1", "desert2", "desert3",
-                  "desert4", "desert5", "desert6", "desert7", "desert8", "desert9"), 3, 3),
+              ds1("act2/outdoors", "desert1", "desert2", "desert3", "desert4", "desert5",
+                  "desert6", "desert7", "desert8", "desert9", "desert10",
+                  "desert2", "desert4", "desert6", "desert8", "desert1",
+                  "desert3", "desert5", "desert7", "desert9", "desert10",
+                  "ruin4", "ruin5", "ruin6", "ruin7", "desert1"), 5, 5),
     WorldSpec("Dry Hills", "a2-dry-hills", 2,
-              ds1("act2/outdoors", "desert10", "desert2", "desert4",
-                  "desert6", "desert8", "ruin4", "ruin5", "ruin6", "ruin7"), 3, 3),
+              ds1("act2/outdoors", "desert10", "desert2", "desert4", "desert6", "desert8",
+                  "ruin4", "ruin5", "ruin6", "ruin7", "desert1",
+                  "desert3", "desert5", "desert7", "desert9", "desert2",
+                  "ruin5", "ruin4", "ruin7", "ruin6", "desert10",
+                  "desert1", "desert3", "desert5", "desert7", "desert9"), 5, 5),
     WorldSpec("Far Oasis", "a2-far-oasis", 2,
-              ds1("act2/outdoors", "oasis5", "oasis6", "oasis7", "oasis8"), 2, 2),
+              ds1("act2/outdoors", "oasis5", "oasis6", "oasis7",
+                  "oasis8", "oasis9", "oasis10",
+                  "oasis11", "oasis12", "oasis6"), 3, 3),
     WorldSpec("Lost City", "a2-lost-city", 2,
               ds1("act2/ruin", "ruin1", "ruin2", "ruin3", "ruin4", "ruin5",
-                  "ruin6", "ruin7", "ruin8", "ruin9"), 3, 3),
+                  "ruin6", "ruin7", "ruin8", "ruin9", "ruin10",
+                  "ruin1", "ruin2", "ruin3", "ruin4", "ruin5",
+                  "ruin6", "ruin7", "ruin8", "ruin9", "ruin10",
+                  "ruin3", "ruin5", "ruin7", "ruin9", "ruin2"), 5, 5),
     WorldSpec("Valley of Snakes", "a2-valley-of-snakes", 2,
-              ds1("act2/outdoors", "viper1", "oasis9", "oasis10", "oasis11"), 2, 2),
+              ds1("act2/outdoors", "oasis9", "oasis10", "oasis11",
+                  "oasis12", "viper1", "oasis5",
+                  "oasis6", "oasis7", "oasis8"), 3, 3),
     WorldSpec("Claw Viper Temple", "a2-claw-viper-temple", 2,
               ds1("act2/tomb", "serpent1", "tombnw", "tombne", "tombnse"), 2, 2),
     WorldSpec("Arcane Sanctuary", "a2-arcane-sanctuary", 2,
-              ds1("act2/arcane", "sanctnw", "sanctne", "sanctsw", "sanctse"), 2, 2),
+              ds1("act2/arcane", "sanctnsew", "sanctnsew", "sanctnsew",
+                  "sanctnsew", "sanctnsew", "sanctnsew",
+                  "sanctnsew", "sanctnsew", "sanctnsew"), 3, 3),
     WorldSpec("Tal Rasha's Tomb", "a2-tal-rashas-tomb", 2,
               ds1("act2/tomb", "talrasha", "tombetalrasha", "tombntalrasha", "tombstalrasha"), 2, 2),
 )
 
-# Act III: the jungle chunks are 33-cell presets, so each jungle area uses one
-# full preset; Kurast's city chunks are 17-cell rooms and Travincal's temple
-# chunks are 13-cell rooms.  The Causeway uses the city quarter set: the single
-# bridge cross leaves most of its map as empty, unwalkable void.
+# Act III: the jungle quarters are 33-cell presets, so each jungle area is the
+# four quarters of its own set (66x66 tiles); Kurast's city chunks are 17-cell
+# rooms laid out 3x3, Travincal is one authored square, and the Durance repeats
+# its four-way junction room like the other 13-cell dungeons.
 ACT3_WORLDS: tuple[WorldSpec, ...] = (
     WorldSpec("Spider Forest", "a3-spider-forest", 3,
-              ds1("act3/jungle", "spidnw"), 1, 1),
+              ds1("act3/jungle", "spidnw", "spidne", "spidsw", "spidse"), 2, 2),
     WorldSpec("Great Marsh", "a3-great-marsh", 3,
-              ds1("act3/jungle", "bognw"), 1, 1),
+              ds1("act3/jungle", "bognw", "bogne", "bogsw", "bogse"), 2, 2),
     WorldSpec("Flayer Jungle", "a3-flayer-jungle", 3,
-              ds1("act3/jungle", "pygnw"), 1, 1),
+              ds1("act3/jungle", "pygnw", "pygne", "pygsw", "pygse"), 2, 2),
     WorldSpec("Lower Kurast", "a3-lower-kurast", 3,
-              ds1("act3/kurast", "slums16x16_0", "slums16x16_1",
-                  "slums16x16_2", "metro16x16_6"), 2, 2),
+              ds1("act3/kurast", "slums16x16_0", "slums16x16_1", "slums16x16_2",
+                  "metro16x16_6", "slums16x16_0", "metro16x16_0",
+                  "metrogaten", "slums16x16_1", "slums16x16_2"), 3, 3),
     WorldSpec("Kurast Bazaar", "a3-kurast-bazaar", 3,
-              ds1("act3/kurast", "metro16x16_0", "metro16x16_1",
-                  "metro16x16_2", "metro16x16_3"), 2, 2),
+              ds1("act3/kurast", "metro16x16_0", "metro16x16_1", "metro16x16_2",
+                  "metro16x16_3", "metro16x16_4", "metro16x16_5",
+                  "metro16x16_6", "metrogaten", "metro16x16_0"), 3, 3),
     WorldSpec("Upper Kurast", "a3-upper-kurast", 3,
-              ds1("act3/kurast", "burbs16x16_0", "burbs16x16_1",
-                  "burbs16x16_2", "burbs16x16_3"), 2, 2),
+              ds1("act3/kurast", "burbs16x16_0", "burbs16x16_1", "burbs16x16_2",
+                  "burbs16x16_3", "burbstemple2", "burbs16x16_0",
+                  "burbs16x16_1", "burbstemple3", "burbs16x16_3"), 3, 3),
     WorldSpec("Kurast Causeway", "a3-kurast-causeway", 3,
-              ds1("act3/kurast", "metro16x16_4", "metro16x16_5",
-                  "metro16x16_6", "metrogaten"), 2, 2),
+              ds1("act3/kurast", "metro16x16_4", "metro16x16_5", "metro16x16_6",
+                  "metrogaten", "metro16x16_4", "metro16x16_5",
+                  "metro16x16_6", "metro16x16_4", "metrogaten"), 3, 3),
     WorldSpec("Travincal", "a3-travincal", 3,
               ds1("act3/travincal", "travs"), 1, 1),
     WorldSpec("Durance of Hate", "a3-durance-of-hate", 3,
-              ds1("act3/travincal", "mephnw", "mephne", "mephsw", "mephse"), 2, 2),
+              ds1("act3/travincal", "mephnsew", "mephnsew", "mephnsew",
+                  "mephnsew", "mephnsew", "mephnsew",
+                  "mephnsew", "mephnsew", "mephnsew"), 3, 3),
 )
 
-# Act IV: the steppes and city are mesa chunks; the River of Flame and the Chaos
-# Sanctuary are single 25-cell set pieces (the lava river and the pentagram).
+# Act IV: the steppes and city are 17-cell mesa chunks laid out 3x3; the River of
+# Flame and the Chaos Sanctuary are single 25-cell set pieces (the lava river and
+# the pentagram), whose quarters are complete scenes and so cannot be joined.
 ACT4_WORLDS: tuple[WorldSpec, ...] = (
     WorldSpec("Outer Steppes", "a4-outer-steppes", 4,
-              ds1("act4/mesa", "outer16x16_0", "outer16x16_1",
-                  "outer16x16_2", "outer16x16_3"), 2, 2),
+              ds1("act4/mesa", "outer16x16_0", "outer16x16_1", "outer16x16_2",
+                  "outer16x16_3", "outer16x16_4", "outer16x16_0",
+                  "outer16x16_1", "outer16x16_2", "outer16x16_3"), 3, 3),
     WorldSpec("Plains of Despair", "a4-plains-of-despair", 4,
-              ds1("act4/mesa", "mid16x16_0", "mid16x16_1",
-                  "mid16x16_2", "mid16x16_3"), 2, 2),
+              ds1("act4/mesa", "mid16x16_0", "mid16x16_1", "mid16x16_2",
+                  "mid16x16_3", "mid16x16_4", "mid16x16_0",
+                  "mid16x16_1", "mid16x16_2", "mid16x16_3"), 3, 3),
     WorldSpec("City of the Damned", "a4-city-of-the-damned", 4,
-              ds1("act4/mesa", "midpit16x16_0", "midpit16x16_1",
-                  "midpit16x16_2", "chaos16x16_0"), 2, 2),
+              ds1("act4/mesa", "midpit16x16_0", "midpit16x16_1", "midpit16x16_2",
+                  "outpit16x16_0", "chaos16x16_0", "outpit16x16_1",
+                  "midpit16x16_0", "outpit16x16_2", "midpit16x16_1"), 3, 3),
     WorldSpec("River of Flame", "a4-river-of-flame", 4,
               ds1("act4/lava", "lavanew2"), 1, 1),
     WorldSpec("Chaos Sanctuary", "a4-chaos-sanctuary", 4,
               ds1("act4/diab", "heart"), 1, 1),
 )
 
-# Act V: the snowfield fringe chunks are 17-cell 2x2 worlds, the ice caves use
-# their 17-cell passages, and the Summit is a single authored preset.  Nihlathak's
+# Act V: the snowfield areas are the siege set's 9-cell ground pieces laid out
+# 5x5 (its 17-cell border chunks are cliff faces that leave a level 15% floor and
+# split it into islands when more than a quad is used); the ice caves are their
+# 17-cell passages 3x3; and the Summit is a single authored preset.  Nihlathak's
 # temple and the Halls of Vaught use the siege prison yards instead of Baal's
-# lair: those quarters are 89% floor in one connected piece, where the lair's
-# leave half the map as empty void and split it into a dozen islands.  The Throne
-# (and the Keep) still use Baal's lair quarters.
+# lair: those quarters are 89% floor in one connected piece.  The Keep and the
+# Throne use Baal's lair's four-way junction rooms.
 ACT5_WORLDS: tuple[WorldSpec, ...] = (
     WorldSpec("Bloody Foothills", "a5-bloody-foothills", 5,
-              ds1("expansion/siege", "brdr01r", "brdr02c", "brdr04r", "brdr05c"), 2, 2),
+              ds1("expansion/siege", "farm1", "cliff2", "lake1", "landmark1", "farm2",
+                  "cliff3", "farm3", "lake2", "landmark2", "cliff6",
+                  "farm4", "lake3", "landmark3", "farm5", "cliff10",
+                  "farm6", "lake4", "landmark4", "farm1a", "cliff3a",
+                  "farm2a", "lake5", "landmark5", "farm3a", "lake6"), 5, 5),
     WorldSpec("Frigid Highlands", "a5-frigid-highlands", 5,
-              ds1("expansion/siege", "brdr_snow01c", "brdr_snow01r",
-                  "brdr_snow02c", "brdr_snow03c"), 2, 2),
+              ds1("expansion/siege", "cliff2", "lake7", "landmark1a", "farm4a", "cliff6",
+                  "lake8", "landmark2a", "cliff3", "farm5a", "lake1",
+                  "landmark3", "cliff10", "farm6a", "lake2", "landmark4",
+                  "cliff3a", "farm1", "lake3", "landmark5", "cliff2",
+                  "farm2", "lake4", "landmark2", "cliff6", "farm3"), 5, 5),
     WorldSpec("Arreat Plateau", "a5-arreat-plateau", 5,
-              ds1("expansion/siege", "brdr05t", "brdr06c", "brdr07t", "brdr08r"), 2, 2),
+              ds1("expansion/siege", "farm6", "cliff10", "landmark5", "lake5", "cliff3a",
+                  "landmark4", "farm3a", "cliff6", "lake6", "farm1a",
+                  "cliff2", "landmark3", "farm4", "lake7", "cliff3",
+                  "landmark2a", "farm2a", "cliff10", "lake8", "farm5a",
+                  "cliff6", "landmark1", "farm6a", "lake1", "farm1"), 5, 5),
     WorldSpec("Crystalline Passage", "a5-crystalline-passage", 5,
-              ds1("expansion/icecave", "icenw01", "icene01", "icesw01", "icese01"), 2, 2),
+              ds1("expansion/icecave", "icensew01", "icensew01", "icensew01",
+                  "icensew01", "icensew01", "icensew01",
+                  "icensew01", "icensew01", "icensew01"), 3, 3),
     WorldSpec("Frozen River", "a5-frozen-river", 5,
               ds1("expansion/icecave", "poolroom01"), 1, 1),
     WorldSpec("Nihlathak's Temple", "a5-nihlathaks-temple", 5,
-              ds1("expansion/siege", "prisonaa", "prisonab",
-                  "prisonba", "prisonbb"), 2, 2),
+              ds1("expansion/siege", "prisonaa", "prisonab", "prisonaa",
+                  "prisonba", "prisonbb", "prisonba",
+                  "prisoncc", "prisoncd", "prisoncc"), 3, 3),
     WorldSpec("Halls of Vaught", "a5-halls-of-vaught", 5,
-              ds1("expansion/siege", "prisoncc", "prisoncd",
-                  "prisondc", "prisondd"), 2, 2),
+              ds1("expansion/siege", "prisonaa", "prisonab", "prisonab",
+                  "prisonba", "prisonbb", "prisonbb",
+                  "prisoncc", "prisoncd", "prisoncd"), 3, 3),
     WorldSpec("Glacial Trail", "a5-glacial-trail", 5,
-              ds1("expansion/icecave", "icenw02", "icene02", "icesw02", "icese02"), 2, 2),
+              ds1("expansion/icecave", "icensew01", "icensew03", "icensew01",
+                  "icensew03", "icensew01", "icensew03",
+                  "icensew01", "icensew03", "icensew01"), 3, 3),
     WorldSpec("Frozen Tundra", "a5-frozen-tundra", 5,
-              ds1("expansion/siege", "brdr_snow05t", "brdr_snow06c",
-                  "brdr_snow07t", "brdr_snow08r"), 2, 2),
+              ds1("expansion/siege", "lake1", "farm2", "cliff3", "landmark2", "lake8",
+                  "farm6", "cliff6", "landmark1a", "lake7", "cliff2",
+                  "landmark5", "farm3", "lake4", "cliff3a", "farm1a",
+                  "cliff10", "landmark4", "farm5", "lake2", "farm2a",
+                  "cliff6", "lake3", "landmark3", "farm4a", "lake5"), 5, 5),
     WorldSpec("Ancients' Way", "a5-ancients-way", 5,
-              ds1("expansion/icecave", "icenw03", "icene03", "icesw03", "icese03"), 2, 2),
+              ds1("expansion/icecave", "icensew03", "icensew01", "icensew03",
+                  "icensew01", "icensew03", "icensew01",
+                  "icensew03", "icensew01", "icensew03"), 3, 3),
     WorldSpec("Arreat Summit", "a5-arreat-summit", 5,
               ds1("expansion/mountaintop", "mtntop"), 1, 1),
     WorldSpec("Worldstone Keep", "a5-worldstone-keep", 5,
-              ds1("expansion/baallair", "baalnw01", "baalne01", "baalsw01", "baalse01"), 2, 2),
+              ds1("expansion/baallair", "baalnsew02", "baalnsew02", "baalnsew02",
+                  "baalnsew02", "baalnsew02", "baalnsew02",
+                  "baalnsew02", "baalnsew02", "baalnsew02"), 3, 3),
     WorldSpec("Throne of Destruction", "a5-throne-of-destruction", 5,
-              ds1("expansion/baallair", "baalnw02", "baalne02",
-                  "baalsw02", "baalse02"), 2, 2),
+              ds1("expansion/baallair", "baalnsew01", "baalnsew01", "baalnsew01",
+                  "baalnsew01", "baalnsew01", "baalnsew01",
+                  "baalnsew01", "baalnsew01", "baalnsew01"), 3, 3),
 )
 
 WORLDS: dict[int, tuple[WorldSpec, ...]] = {
@@ -436,6 +513,28 @@ def crop_origin(scene: tristram.Scene) -> tuple[int, int, int, int]:
     return left, top, width, height
 
 
+def walkable_diamond(scene: tristram.Scene) -> dict[str, float]:
+    """The diamond the assembled grid covers, in exported image pixels.
+
+    The client fences the hero inside it (and draws its rim) so an area can
+    never be walked off the tiles, however open the chunk presets are.  The
+    spawn search has to use the same edge: outside the diamond is void, not floor.
+    """
+    left, top, _, _ = crop_origin(scene)
+    origin_x = scene.height * TILE_WIDTH // 2
+    origin_y = 512
+    half_step_x = TILE_WIDTH // 2
+    half_step_y = TILE_HEIGHT // 2
+    left_apex_x = origin_x - (scene.height - 1) * half_step_x - left
+    right_apex_x = origin_x + (scene.width - 1) * half_step_x + half_step_x - left
+    return {
+        "x": (left_apex_x + right_apex_x) / 2,
+        "y": origin_y + (scene.height - 1) * half_step_y + half_step_y - top,
+        "halfWidth": (right_apex_x - left_apex_x) / 2,
+        "halfHeight": (scene.width + scene.height) * half_step_y / 2,
+    }
+
+
 def export_ground(scene: tristram.Scene, catalogue: dict[tuple[int, int, int], tristram.Tile],
                   palette: list[tuple[int, int, int, int]]) -> Image.Image:
     """Crop the shared base terrain pass and flatten it for the client.
@@ -456,14 +555,51 @@ def export_ground(scene: tristram.Scene, catalogue: dict[tuple[int, int, int], t
                                dither=Image.Dither.NONE)
 
 
-def spawn_anchor(scene: tristram.Scene) -> tuple[int, int]:
-    """Grid cell the hero should start on: the walkable cell nearest the middle.
+CLEARANCE_STRIDE = 8
+
+
+def clearance_depth(mask: Image.Image) -> np.ndarray:
+    """Free space tagged with how many erosion steps fit inside it, by pixel.
+
+    A doorway between two wall runs is free ground as much as a courtyard is, so
+    connectivity alone cannot tell them apart.  The number of erosion steps a
+    patch of floor survives is its distance to the nearest solid pixel, in
+    ``CLEARANCE_STRIDE``-pixel units, which is what a hero standing in it feels.
+    """
+    small = np.asarray(mask.resize(
+        (max(1, mask.width // CLEARANCE_STRIDE), max(1, mask.height // CLEARANCE_STRIDE)),
+        Image.BOX,
+    )) <= 127
+    depth = np.zeros(small.shape, dtype=np.int16)
+    current = small.copy()
+    current[0, :] = current[-1, :] = False
+    current[:, 0] = current[:, -1] = False
+    steps = 0
+    while current.any() and steps < 512:
+        depth[current] = steps
+        eroded = current.copy()
+        eroded[1:, :] &= current[:-1, :]
+        eroded[:-1, :] &= current[1:, :]
+        eroded[:, 1:] &= current[:, :-1]
+        eroded[:, :-1] &= current[:, 1:]
+        current = eroded
+        steps += 1
+    return depth
+
+
+def spawn_anchor(scene: tristram.Scene, mask: Image.Image | None = None) -> tuple[int, int]:
+    """Grid cell the hero should start on: the open floor nearest the middle.
 
     An area change drops the hero on the middle of the map, but a level built
     from room presets can have a walled-off pocket exactly there - the catacomb
     rooms close up the corner where four of them meet.  Only the largest
     connected run of floor counts, so the hero always lands somewhere they can
     walk out of.
+
+    Being in that region is not enough on its own: a junction cell is a gap in a
+    wall band, and starting there reads as being boxed in even though every
+    direction is technically walkable.  With the exported collision mask in hand
+    the widest cell wins, measured by the clearance around it.
     """
     width, height = scene.width, scene.height
     count = width * height
@@ -498,15 +634,52 @@ def spawn_anchor(scene: tristram.Scene) -> tuple[int, int]:
     if best_region < 0:
         return width // 2, height // 2
     middle_x, middle_y = (width - 1) / 2, (height - 1) / 2
-    row, column = min(
-        (divmod(index, width) for index in best_cells),
-        key=lambda cell: abs(cell[1] - middle_x) + abs(cell[0] - middle_y),
-    )
+    candidates = [divmod(index, width) for index in best_cells]
+
+    def to_middle(cell: tuple[int, int]) -> int:
+        return -abs(cell[1] - middle_x) - abs(cell[0] - middle_y)
+
+    if mask is None:
+        row, column = max(candidates, key=to_middle)
+        return column, row
+
+    # Outside the tile diamond is void, not open floor, so the search has to see
+    # the same wall the client fences the hero with; otherwise a corner of the
+    # map scores as the widest space there is.
+    diamond = walkable_diamond(scene)
+    inside = Image.new("L", mask.size, 0)
+    ImageDraw.Draw(inside).polygon([
+        (diamond["x"], diamond["y"] - diamond["halfHeight"]),
+        (diamond["x"] + diamond["halfWidth"], diamond["y"]),
+        (diamond["x"], diamond["y"] + diamond["halfHeight"]),
+        (diamond["x"] - diamond["halfWidth"], diamond["y"]),
+    ], fill=255)
+    depth = clearance_depth(ImageChops.lighter(mask, ImageChops.invert(inside)))
+    left, top, _, _ = crop_origin(scene)
+    origin_x = scene.height * TILE_WIDTH // 2
+    origin_y = 512
+
+    def clearance(cell: tuple[int, int]) -> int:
+        row, column = cell
+        x = origin_x + (column - row) * TILE_WIDTH // 2 - left + TILE_WIDTH // 2
+        y = origin_y + (column + row) * TILE_HEIGHT // 2 - top + TILE_HEIGHT // 2
+        row_index = min(depth.shape[0] - 1, max(0, y // CLEARANCE_STRIDE))
+        column_index = min(depth.shape[1] - 1, max(0, x // CLEARANCE_STRIDE))
+        return int(depth[row_index, column_index])
+
+    # Stay near the middle of the area - an open corner would otherwise win - and
+    # take the widest cell of that middle band.
+    near_middle = [cell for cell in candidates
+                   if abs(cell[1] - middle_x) <= width / 4
+                   and abs(cell[0] - middle_y) <= height / 4]
+    row, column = max(near_middle or candidates,
+                      key=lambda cell: (clearance(cell), to_middle(cell)))
     return column, row
 
 
 def export_walls(scene: tristram.Scene, catalogue: dict[tuple[int, int, int], tristram.Tile],
-                 palette: list[tuple[int, int, int, int]]) -> tuple[Image.Image, dict]:
+                 palette: list[tuple[int, int, int, int]],
+                 spawn_cell: tuple[int, int]) -> tuple[Image.Image, dict]:
     """Pack every upper-wall tile once and list the cells that use it.
 
     Orientation 15 is a wall tile that faces no direction (the stone faces and
@@ -580,23 +753,13 @@ def export_walls(scene: tristram.Scene, catalogue: dict[tuple[int, int, int], tr
             "order": order,
         })
 
-    # The union of the assembled grid's cells is one big diamond.  The client
-    # fences the hero inside it (and draws its rim) so an area can never be
-    # walked off the tiles, however open the chunk presets are.
     half_step_x = TILE_WIDTH // 2
     half_step_y = TILE_HEIGHT // 2
-    left_apex_x = origin_x - (scene.height - 1) * half_step_x - left
-    right_apex_x = origin_x + (scene.width - 1) * half_step_x + half_step_x - left
-    walkable = {
-        "x": (left_apex_x + right_apex_x) / 2,
-        "y": origin_y + (scene.height - 1) * half_step_y + half_step_y - top,
-        "halfWidth": (right_apex_x - left_apex_x) / 2,
-        "halfHeight": (scene.width + scene.height) * half_step_y / 2,
-    }
+    walkable = walkable_diamond(scene)
 
     # Where the hero starts, in the same pixel space: the middle of a cell that
     # belongs to the level's largest walkable region.
-    spawn_column, spawn_row = spawn_anchor(scene)
+    spawn_column, spawn_row = spawn_cell
     spawn = {
         "x": origin_x + (spawn_column - spawn_row) * half_step_x - left + half_step_x,
         "y": origin_y + (spawn_column + spawn_row) * half_step_y - top + half_step_y,
@@ -738,12 +901,14 @@ def write_world(spec: WorldSpec, source: Path, preview: Path | None) -> dict:
     ASSET_ROOT.mkdir(parents=True, exist_ok=True)
     ground = export_ground(scene, catalogue, palette)
     ground.save(ASSET_ROOT / f"{spec.slug}-ground.png", optimize=True)
-    walls, layout = export_walls(scene, catalogue, palette)
+    # The collision mask is what the hero actually feels, so it decides where
+    # they start: the open floor the mask leaves rather than a doorway gap.
+    collision = export_collision(scene, catalogue, palette, is_open_ground(spec))
+    collision.save(ASSET_ROOT / f"{spec.slug}-walls-collision.png", optimize=True)
+    walls, layout = export_walls(scene, catalogue, palette, spawn_anchor(scene, collision))
     walls.save(ASSET_ROOT / f"{spec.slug}-walls.png", optimize=True)
     with (ASSET_ROOT / f"{spec.slug}-walls.json").open("w", encoding="utf-8") as handle:
         json.dump(layout, handle, separators=(",", ":"))
-    collision = export_collision(scene, catalogue, palette, is_open_ground(spec))
-    collision.save(ASSET_ROOT / f"{spec.slug}-walls-collision.png", optimize=True)
     lower_walls = sum(
         1 for layer in scene.layers if layer.kind == "wall" and layer.orientations
         for cell, orientation in zip(layer.cells, layer.orientations)
