@@ -549,7 +549,23 @@
 .d2s-shop-wallet { margin-left: auto; color: #f1cf80; font: 12px ui-monospace, monospace; white-space: nowrap; }
 .d2s-gheeds-shop > .d2s-panel-heading > small { color: #a99572; font: 10px ui-monospace, monospace; white-space: nowrap; }
 .d2s-shop-intro { margin: 0; color: #a99572; text-align: center; font: italic 12px Georgia, serif; }
-.d2s-shop-columns { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(236px, .8fr) minmax(214px, .72fr); gap: 12px; min-height: 325px; }
+/* Gheed's stand has two halves: what he sells on the left, the hero's own pack
+   on the right. */
+.d2s-shop-columns { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.5fr); gap: 12px; min-height: 325px; align-items: start; }
+.d2s-shop-quest, .d2s-shop-stash { display: grid; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid #4b3925; }
+.d2s-shop-stash-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(94px, 1fr)); gap: 6px; }
+.d2s-shop-stash-item { display: grid; justify-items: center; gap: 3px; padding: 6px 4px; color: #d9c497; border: 1px solid #57452e; background: linear-gradient(#1b1712, #0b0a09); font: 10px/1.2 Georgia, serif; text-align: center; cursor: pointer; }
+.d2s-shop-stash-item img { width: 26px; height: 26px; object-fit: contain; image-rendering: pixelated; }
+.d2s-shop-stash-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.d2s-shop-stash-item small { color: #f0d79c; font: 9px ui-monospace, monospace; }
+.d2s-shop-stash-item:hover, .d2s-shop-stash-item:focus-visible { border-color: #c9a45f; color: #fff1c9; outline: none; }
+/* The right half is the in-game inventory panel itself, so its two columns are
+   re-flowed to fit the shop instead of the arena's edge-to-edge layout. */
+.d2s-shop-inventory { min-width: 0; }
+.d2s-shop-inventory .d2s-inventory-layout { flex-wrap: wrap; align-items: flex-start; justify-content: center; height: auto; gap: 8px; padding-top: 6px; }
+.d2s-shop-inventory .d2s-character-stats,
+.d2s-shop-inventory .d2s-inventory-right { width: min(100%, 380px); }
+.d2s-shop-inventory .d2s-inventory-status { margin: 6px 0 0; text-align: center; }
 .d2s-shop-section { display: flex; flex-direction: column; min-width: 0; padding: 11px; border: 1px solid #57452e; background: linear-gradient(150deg, #151214ed, #09090cf5); box-shadow: inset 0 0 0 2px #090809, 0 5px 14px #0009; }
 .d2s-shop-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-bottom: 8px; border-bottom: 1px solid #4b3925; }
 .d2s-shop-section-heading h2 { margin: 0; color: #e0c99b; font: 17px Georgia, serif; }
@@ -1936,6 +1952,25 @@
 .d2s-skill-slot.basic-skill:hover,
 .d2s-skill-slot.basic-skill:focus-visible { border-color: #e1bf78; }
 .d2s-skill-slot.basic-skill.assigned { border-color: #b58a45; }
+/* The right-button attack sits beside the left one with its own rim so the two
+   are readable apart at a glance. */
+.d2s-skill-slot.secondary-skill { border-color: #4f6a86; }
+.d2s-skill-slot.secondary-skill.assigned { border-color: #7f9dc0; }
+.d2s-skill-slot.secondary-skill:hover,
+.d2s-skill-slot.secondary-skill:focus-visible { border-color: #a8c6e6; outline-color: #a8c6e6; }
+.d2s-skill-bind {
+  position: absolute;
+  z-index: 2;
+  top: -2px;
+  left: -3px;
+  padding: 0 3px;
+  color: #ffe9b0;
+  border: 1px solid #6d5730;
+  background: #14100bde;
+  font: bold 9px/1.3 ui-monospace, monospace;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+}
 .d2s-skill-bar > .d2s-skill-slot:not(.basic-skill) { cursor: default; }
 .d2s-skill-icon { font: 27px/1 Georgia, serif; text-shadow: 0 1px 4px #000, 0 0 8px #d09245a8; }
 .d2s-skill-cooldown { position: absolute; z-index: 1; inset: 0; transform-origin: bottom; background: #05070ab3; pointer-events: none; }

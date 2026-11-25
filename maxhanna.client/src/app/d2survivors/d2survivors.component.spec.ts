@@ -539,7 +539,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(component.basicAttackPickerOpen).toBeFalse();
   });
 
-  it("casts the basic attack on a right-click at the cursor", () => {
+  it("casts the right-button attack on a right-click at the cursor", () => {
     component.selectedClass = "sorceress";
     component.runActive = true;
     component.activeTab = "run";
@@ -547,7 +547,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.playerY = 250;
     component.ownedSkills = ["Attack", "Charged Bolt"];
     component.skillLevels = { Attack: 1, "Charged Bolt": 1 };
-    component.selectBasicAttackSpell("Charged Bolt");
+    component.selectAttackSpellForSlot("secondary", "Charged Bolt");
     component.skillCastCooldowns["Charged Bolt"] = 0;
     (component as any).attackCooldown = 0;
     component.attackProjectiles = [];
@@ -567,7 +567,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
 
     // With no spell assigned the weapon attack lands on the monster under the
     // cursor instead of walking to it.
-    component.selectBasicAttackSpell(null);
+    component.selectAttackSpellForSlot("secondary", null);
     component.attackProjectiles = [];
     component.floatingTexts = [];
     (component as any).attackCooldown = 0;
@@ -590,7 +590,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.playerY = 250;
     component.ownedSkills = ["Attack", "Fire Bolt"];
     component.skillLevels = { Attack: 1, "Fire Bolt": 1 };
-    component.selectBasicAttackSpell("Fire Bolt");
+    component.selectAttackSpellForSlot("secondary", "Fire Bolt");
     const arena = document.createElement("canvas");
     arena.className = "d2s-arena";
     const rightClick = () => {
@@ -624,6 +624,94 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.onArenaContextMenu(rightClick());
     expect(component.attackProjectiles.length).toBeGreaterThan(0);
     expect(component.attackProjectiles[0].target).toBe(near);
+  });
+
+  it("keeps a spell on each mouse button from the picker that is open", () => {
+    component.selectedClass = "sorceress";
+    component.runActive = true;
+    component.basicAttackName = "Attack";
+    component.ownedSkills = ["Attack", "Fire Bolt", "Ice Bolt"];
+
+    // The left button keeps its spell while the right button takes its own.
+    component.toggleBasicAttackPicker("basic");
+    expect(component.basicAttackPickerTitle).toBe("Basic attack");
+    component.selectAttackSpell("Fire Bolt");
+    component.toggleBasicAttackPicker("secondary");
+    expect(component.basicAttackPickerOpen).toBeTrue();
+    expect(component.basicAttackPickerTitle).toBe("Right attack");
+    expect(component.basicAttackPickerSelected).toBeNull();
+    component.selectAttackSpell("Ice Bolt");
+
+    expect(component.basicAttackSpell).toBe("Fire Bolt");
+    expect(component.secondaryAttackSpell).toBe("Ice Bolt");
+    expect(component.basicAttackSlotSkill).toBe("Fire Bolt");
+    expect(component.secondaryAttackSlotSkill).toBe("Ice Bolt");
+    expect(component.secondaryAttackSlotTitle).toContain("Ice Bolt");
+
+    // Opening the left slot again shows the left spell, not the right one.
+    component.toggleBasicAttackPicker("basic");
+    expect(component.basicAttackPickerSelected).toBe("Fire Bolt");
+    component.selectAttackSpell(null);
+    expect(component.basicAttackSpell).toBeNull();
+    expect(component.secondaryAttackSpell).toBe("Ice Bolt");
+  });
+
+  it("binds F1-F8 to the pointed spell and equips it on the right button", () => {
+    component.selectedClass = "sorceress";
+    component.runActive = true;
+    component.activeTab = "run";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.basicAttackName = "Attack";
+    component.ownedSkills = ["Attack", "Fire Bolt", "Ice Bolt"];
+    const press = (key: string) => {
+      const event = new KeyboardEvent("keydown", { key, cancelable: true });
+      component.onGlobalAttackKey(event);
+      return event;
+    };
+
+    // F1 on a spell row while the picker is open binds that key to the spell.
+    component.toggleBasicAttackPicker("secondary");
+    component.basicAttackPickerHoveredSkill = "Ice Bolt";
+    const bindEvent = press("F1");
+    expect(bindEvent.defaultPrevented).toBeTrue();
+    expect(component.attackSlotKeyBinds[1]).toBe("Ice Bolt");
+    expect(component.attackBindLabel("Ice Bolt")).toBe("F1");
+    expect(component.basicAttackPickerOpen).toBeTrue();
+
+    // A spell only carries one key: binding it to F2 moves it off F1.
+    press("F2");
+    expect(component.attackSlotKeyBinds[1]).toBeUndefined();
+    expect(component.attackSlotKeyBinds[2]).toBe("Ice Bolt");
+    expect(component.attackBindLabel("Ice Bolt")).toBe("F2");
+
+    // A press on the weapon row clears that key instead of binding "Attack".
+    component.basicAttackPickerHoveredSkill = "Attack";
+    press("F3");
+    expect(component.attackSlotKeyBinds[3]).toBeUndefined();
+
+    // With the list closed the key drops its spell onto the right button.
+    component.closeBasicAttackPicker();
+    expect(component.secondaryAttackSpell).toBeNull();
+    press("F2");
+    expect(component.secondaryAttackSpell).toBe("Ice Bolt");
+    expect(component.basicAttackSpell).toBeNull();
+
+    // An unbound key changes nothing.
+    press("F8");
+    expect(component.secondaryAttackSpell).toBe("Ice Bolt");
+  });
+
+  it("drops F-key binds the hero can no longer cast when a save loads", () => {
+    component.selectedClass = "sorceress";
+    component.basicAttackName = "Attack";
+    component.ownedSkills = ["Attack", "Fire Bolt", "Frost Nova"];
+    const classSkills = new Set(["Attack", "Fire Bolt", "Frost Nova"]);
+    const cleaned = (component as any).sanitizeAttackSlotKeyBinds(
+      { 1: "Fire Bolt", 2: "Frost Nova", 3: "Meteor", 9: "Fire Bolt", 4: 42 },
+      classSkills,
+    );
+    expect(cleaned).toEqual({ 1: "Fire Bolt", 2: "Frost Nova" });
   });
 
   it("aims a left-click attack spell at the monster the hero walked to", () => {

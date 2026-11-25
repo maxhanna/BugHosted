@@ -182,24 +182,7 @@
                 <article><div><strong>Vitality Training</strong><small>Start every new run with +50 maximum life · rank {{ sanctuaryBonuses.maxLife }}/20</small></div><button type="button" [disabled]="sanctuaryBonuses.maxLife >= 20 || sanctuaryGold < getSanctuaryUpgradeCost('maxLife')" (click)="buySanctuaryUpgrade('maxLife')">{{ sanctuaryBonuses.maxLife >= 20 ? 'MAX' : '✦ ' + getSanctuaryUpgradeCost('maxLife') }}</button></article>
                 <article><div><strong>Weapon Drills</strong><small>Start every new run with +2 attack damage · rank {{ sanctuaryBonuses.attackDamage }}/20</small></div><button type="button" [disabled]="sanctuaryBonuses.attackDamage >= 20 || sanctuaryGold < getSanctuaryUpgradeCost('attackDamage')" (click)="buySanctuaryUpgrade('attackDamage')">{{ sanctuaryBonuses.attackDamage >= 20 ? 'MAX' : '✦ ' + getSanctuaryUpgradeCost('attackDamage') }}</button></article>
               </div>
-            </section>
-            <section class="d2s-shop-section d2s-shop-sell" aria-labelledby="d2s-shop-sell-title">
-              <div class="d2s-shop-section-heading"><h2 id="d2s-shop-sell-title">Sell to Gheed</h2><small>{{ shopItemsForSale.length }} ITEMS</small></div>
-              <p class="d2s-shop-lock-hint">Purchases, sales, gold, and equipped gear belong to {{ selectedClassName }}. Each class keeps its own pack.</p>
-              <div class="d2s-shop-sell-list" *ngIf="shopItemsForSale.length; else shopEmpty">
-                <article class="d2s-shop-offer" *ngFor="let entry of shopItemsForSale; trackBy: trackSellEntry"
-                  (mouseenter)="onShopItemHover(entry.item, $event)"
-                  (mousemove)="onItemPreviewMove($event)"
-                  (mouseleave)="onItemPreviewLeave()">
-                  <span class="d2s-shop-offer-icon" aria-hidden="true"><img class="d2s-shop-offer-art" [src]="inventoryItemImage(entry.item)" alt="" /></span>
-                  <div><strong>{{ entry.item.name }}</strong><small>{{ entry.source }} · {{ entry.item.rarity }}</small><span>{{ getItemStatText(entry.item).join(' · ') }}</span></div>
-                  <button type="button" *ngIf="entry.source === 'Stash'" (click)="takeItemFromSanctuaryStash(entry.item)">Collect</button>
-                  <button type="button" (click)="sellShopItem(entry)">Sell · ✦ {{ getItemSellValue(entry.item) }}</button>
-                </article>
-              </div>
-              <ng-template #shopEmpty><div class="d2s-shop-empty">{{ selectedClassName }}'s pack is empty. Gear found on a journey will appear here.</div></ng-template>
-            </section>
-            <section class="d2s-shop-section d2s-shop-socket" aria-labelledby="d2s-shop-socket-title">
+            <section class="d2s-shop-quest" aria-labelledby="d2s-shop-socket-title">
               <div class="d2s-shop-section-heading"><h2 id="d2s-shop-socket-title">Quest rewards</h2><small>{{ socketQuestItem ? 'ONE ITEM CHOSEN' : 'SOCKETS · IMBUE' }}</small></div>
               <p class="d2s-shop-lock-hint">Two quest rewards, without the quests. Larzuk: a white base gets its full allowance, a magic base one or two at random, anything rarer exactly one. Charsi: a white weapon or armour without sockets becomes rare at item level {{ imbueItemLevel }}.</p>
               <div class="d2s-shop-wardrobe">
@@ -275,6 +258,25 @@
               <div class="d2s-shop-socket-checkout" *ngIf="!socketQuestItem">
                 <div><strong>One item at a time</strong><small>Pick a piece above; Gheed checks the item, then charges for the holes.</small></div>
               </div>
+            </section>
+              <div class="d2s-shop-stash" *ngIf="sanctuaryStash.length">
+                <div class="d2s-shop-section-heading"><h2 id="d2s-shop-stash-title">Stash</h2><small>{{ sanctuaryStash.length }} ITEMS · COLLECT INTO THE PACK</small></div>
+                <div class="d2s-shop-stash-list">
+                  <button type="button" class="d2s-shop-stash-item" *ngFor="let item of sanctuaryStash; trackBy: trackPackSlotItem"
+                    (click)="takeItemFromSanctuaryStash(item)"
+                    (mouseenter)="onShopItemHover(item, $event)"
+                    (mousemove)="onItemPreviewMove($event)"
+                    (mouseleave)="onItemPreviewLeave()">
+                    <img [src]="inventoryItemImage(item)" alt="" />
+                    <span>{{ item.name }}</span>
+                    <small>Collect</small>
+                  </button>
+                </div>
+              </div>
+            </section>
+            <section class="d2s-shop-section d2s-shop-inventory" aria-labelledby="d2s-shop-inventory-title">
+              <div class="d2s-shop-section-heading"><h2 id="d2s-shop-inventory-title">Inventory</h2><small>DRAG TO REARRANGE · CTRL-CLICK AN ITEM TO SELL</small></div>
+              <ng-container *ngTemplateOutlet="inventoryPanel"></ng-container>
             </section>
           </div>
           <p class="d2s-shop-message" role="status" aria-live="polite">{{ shopMessage }}</p>
@@ -410,7 +412,7 @@
               class="d2s-skill-slot basic-skill"
               [class.assigned]="!!basicAttackSpell"
               aria-haspopup="dialog"
-              [attr.aria-expanded]="basicAttackPickerOpen"
+              [attr.aria-expanded]="basicAttackPickerOpen && basicAttackPickerSlot === 'basic'"
               [attr.title]="basicAttackSlotTitle"
               [attr.aria-label]="basicAttackSlotTitle"
               (click)="toggleBasicAttackPicker()">
@@ -420,6 +422,24 @@
                 <span *ngIf="art.kind === 'glyph'" class="d2s-skill-icon">{{ art.value }}</span>
               </ng-container>
               <span *ngIf="basicAttackSpell" class="d2s-skill-cooldown" [style.transform]="'scaleY(' + (1 - basicAttackSlotCastProgress) + ') '" aria-hidden="true"></span>
+              <span *ngIf="attackBindLabel(basicAttackSlotSkill) as bind" class="d2s-skill-bind" aria-hidden="true">{{ bind }}</span>
+            </button>
+            <button
+              type="button"
+              class="d2s-skill-slot basic-skill secondary-skill"
+              [class.assigned]="!!secondaryAttackSpell"
+              aria-haspopup="dialog"
+              [attr.aria-expanded]="basicAttackPickerOpen && basicAttackPickerSlot === 'secondary'"
+              [attr.title]="secondaryAttackSlotTitle"
+              [attr.aria-label]="secondaryAttackSlotTitle"
+              (click)="toggleBasicAttackPicker('secondary')">
+              <ng-container *ngIf="secondaryAttackSlotArt as art">
+                <img *ngIf="art.kind === 'icon'" class="d2s-skill-art" [src]="art.value" alt="" />
+                <img *ngIf="art.kind === 'overlay'" class="d2s-skill-overlay" [src]="art.value" alt="" />
+                <span *ngIf="art.kind === 'glyph'" class="d2s-skill-icon">{{ art.value }}</span>
+              </ng-container>
+              <span *ngIf="secondaryAttackSpell" class="d2s-skill-cooldown" [style.transform]="'scaleY(' + (1 - secondaryAttackSlotCastProgress) + ') '" aria-hidden="true"></span>
+              <span *ngIf="attackBindLabel(secondaryAttackSlotSkill) as bind" class="d2s-skill-bind" aria-hidden="true">{{ bind }}</span>
             </button>
             <div class="d2s-skill-slot" *ngFor="let skill of equippedSkills" [attr.title]="skill + ' · ' + getSkillCastDescriptor(skill) + (getSkillRequirementLabel(skill) ? ' · ' + getSkillRequirementLabel(skill) : '')" [attr.aria-label]="skill + ', ' + getSkillCastDescriptor(skill) + (getSkillRequirementLabel(skill) ? '. ' + getSkillRequirementLabel(skill) : '')">
               <img *ngIf="hasSkillIconImage(skill); else skillMissile" class="d2s-skill-art" [src]="skillIconPath(skill)" alt="" />
@@ -427,28 +447,28 @@
               <span class="d2s-skill-cooldown" [style.transform]="'scaleY(' + (1 - skillCastProgress(skill)) + ') '" aria-hidden="true"></span>
             </div>
           </div>
-          <div class="d2s-basic-attack-picker" *ngIf="basicAttackPickerOpen" role="dialog" aria-label="Choose the spell the basic attack casts">
+          <div class="d2s-basic-attack-picker" *ngIf="basicAttackPickerOpen" role="dialog" [attr.aria-label]="'Choose the spell the ' + basicAttackPickerTitle.toLowerCase() + ' casts'">
             <div class="d2s-basic-attack-picker-head">
-              <span>Basic attack</span>
+              <span>{{ basicAttackPickerTitle }}</span>
               <button type="button" class="d2s-basic-attack-picker-close" (click)="closeBasicAttackPicker()" aria-label="Close">×</button>
             </div>
-            <p class="d2s-basic-attack-picker-hint">Casts the chosen spell instead of the weapon attack whenever it is recharged and castable.</p>
-            <button type="button" class="d2s-basic-attack-option" [class.selected]="!basicAttackSpell" (click)="selectBasicAttackSpell(null)">
+            <p class="d2s-basic-attack-picker-hint">{{ basicAttackPickerHint }}</p>
+            <button type="button" class="d2s-basic-attack-option" [class.selected]="!basicAttackPickerSelected" (click)="selectAttackSpell(null)" (mouseenter)="basicAttackPickerHoveredSkill = basicAttackName" (focus)="basicAttackPickerHoveredSkill = basicAttackName">
               <ng-container *ngIf="weaponAttackArt as art">
                 <img *ngIf="art.kind === 'icon'" class="d2s-basic-attack-option-art" [src]="art.value" alt="" />
                 <img *ngIf="art.kind === 'overlay'" class="d2s-basic-attack-option-art overlay" [src]="art.value" alt="" />
                 <span *ngIf="art.kind === 'glyph'" class="d2s-basic-attack-option-icon">{{ art.value }}</span>
               </ng-container>
-              <span class="d2s-basic-attack-option-text"><strong>{{ basicAttackName }}</strong><small>Weapon attack</small></span>
+              <span class="d2s-basic-attack-option-text"><strong>{{ basicAttackName }}</strong><small>Weapon attack<ng-container *ngIf="attackBindLabel(basicAttackName) as bind"> · {{ bind }}</ng-container></small></span>
             </button>
             <div class="d2s-basic-attack-options">
-              <button type="button" class="d2s-basic-attack-option" *ngFor="let skill of basicAttackPickerSpells" [class.selected]="basicAttackSpell === skill" (click)="selectBasicAttackSpell(skill)">
+              <button type="button" class="d2s-basic-attack-option" *ngFor="let skill of basicAttackPickerSpells" [class.selected]="basicAttackPickerSelected === skill" (click)="selectAttackSpell(skill)" (mouseenter)="basicAttackPickerHoveredSkill = skill" (focus)="basicAttackPickerHoveredSkill = skill">
                 <ng-container *ngIf="skillArtFor(skill) as art">
                   <img *ngIf="art.kind === 'icon'" class="d2s-basic-attack-option-art" [src]="art.value" alt="" />
                   <img *ngIf="art.kind === 'overlay'" class="d2s-basic-attack-option-art overlay" [src]="art.value" alt="" />
                   <span *ngIf="art.kind === 'glyph'" class="d2s-basic-attack-option-icon">{{ art.value }}</span>
                 </ng-container>
-                <span class="d2s-basic-attack-option-text"><strong>{{ skill }}</strong><small>{{ basicAttackSpellState(skill) }}</small></span>
+                <span class="d2s-basic-attack-option-text"><strong>{{ skill }}<ng-container *ngIf="attackBindLabel(skill) as bind"> ({{ bind }})</ng-container></strong><small>{{ basicAttackSpellState(skill) }}</small></span>
               </button>
             </div>
             <p class="d2s-basic-attack-picker-empty" *ngIf="!basicAttackPickerSpells.length">No learned spells yet — level up and pick a skill to give the basic attack a spell.</p>
@@ -547,12 +567,7 @@
     </div>
 
 
-    <section id="d2s-inventory-overlay" class="d2s-inv-panel" [class.open]="inventoryOpen" [attr.aria-hidden]="!inventoryOpen" aria-label="Character equipment and inventory" (click)="$event.stopPropagation()">
-      <header class="d2s-inventory-overlay-header">
-        <span aria-hidden="true"></span>
-        <h2>Inventory</h2>
-        <button type="button" class="d2s-inventory-close" (click)="toggleInventory()" aria-label="Close inventory">Close</button>
-      </header>
+    <ng-template #inventoryPanel>
       <div class="d2s-inventory-layout">
         <section class="d2s-character-stats" aria-label="Character stats">
           <h3 class="d2s-inventory-heading">{{ selectedClassName }}</h3>
@@ -677,6 +692,15 @@
         </div>
       </div>
       <p class="d2s-inventory-status" role="status">{{ inventoryStatus }}</p>
+    </ng-template>
+
+    <section id="d2s-inventory-overlay" class="d2s-inv-panel" [class.open]="inventoryOpen" [attr.aria-hidden]="!inventoryOpen" aria-label="Character equipment and inventory" (click)="$event.stopPropagation()">
+      <header class="d2s-inventory-overlay-header">
+        <span aria-hidden="true"></span>
+        <h2>Inventory</h2>
+        <button type="button" class="d2s-inventory-close" (click)="toggleInventory()" aria-label="Close inventory">Close</button>
+      </header>
+      <ng-container *ngTemplateOutlet="inventoryPanel"></ng-container>
       <p class="d2s-hint">Drag gear to equip · touch: long-press an item, then drag to move it · right-click a weapon or armor to equip or swap · drag a gem or jewel onto an item with an open socket to set it · Ctrl-click or use the item preview to sell · right-click equipped gear to unequip</p>
     </section>
     <aside class="d2s-stat-tooltip" *ngIf="visibleStatTooltip as statTooltip" [style.left.px]="statTooltip.x" [style.top.px]="statTooltip.y" role="tooltip">
@@ -763,6 +787,7 @@
           <p class="d2s-item-window-base" *ngIf="shopPreviewItem.baseName && shopPreviewItem.baseName !== shopPreviewItem.name">Base item: {{ shopPreviewItem.baseName }}</p>
           <p class="d2s-item-window-description">{{ shopPreviewItem.desc }}</p>
           <p class="d2s-item-window-description" *ngIf="getEquipmentType(shopPreviewItem) === 'belt'">{{ shopPreviewItem.beltQuality }} belt · {{ getBeltRows(shopPreviewItem) }} potion rows</p>
+          <button type="button" class="d2s-equip-belt" *ngIf="shopHoverSellValue(shopPreviewItem) as sellValue" (click)="sellHoveredShopItem()">Sell for {{ sellValue }} gold</button>
           <div class="d2s-item-window-stats">
             <p *ngFor="let line of itemStatText(shopPreviewItem)">{{ line }}</p>
           </div>

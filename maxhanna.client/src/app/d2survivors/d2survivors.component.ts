@@ -3521,9 +3521,17 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   playerXp = 0;
   pendingLevelUps = 0;
   basicAttackName = "Basic Attack";
-  /** Spell the HUD's basic-attack slot casts instead of the weapon attack. */
+  /** Spell the HUD's basic-attack (left button) slot casts instead of the weapon attack. */
   basicAttackSpell: string | null = null;
+  /** Spell the right mouse button casts instead of the weapon attack. */
+  secondaryAttackSpell: string | null = null;
   basicAttackPickerOpen = false;
+  /** Which button's attack the open spell picker is assigning. */
+  basicAttackPickerSlot: "basic" | "secondary" = "basic";
+  /** Spell row the pointer is on, so F1-F8 knows which spell to bind. */
+  basicAttackPickerHoveredSkill: string | null = null;
+  /** F1-F8 keys, by key number, to the spell each one equips on the right button. */
+  attackSlotKeyBinds: Record<number, string> = {};
   basicAttackCooldown = 0.55;
   basicAttackDamage = 12;
   attackProjectiles: AttackProjectile[] = [];
@@ -5783,7 +5791,15 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.basicAttackSpell = savedBasicAttackSpell && this.ownedSkills.includes(savedBasicAttackSpell)
       && classSkills.has(savedBasicAttackSpell) && !isPassiveSkill(savedBasicAttackSpell)
       ? savedBasicAttackSpell : null;
+    // The right button's slot follows the same rules as the basic slot.
+    const savedSecondaryAttackSpell = typeof saved.secondaryAttackSpell === "string" ? saved.secondaryAttackSpell : null;
+    this.secondaryAttackSpell = savedSecondaryAttackSpell && this.ownedSkills.includes(savedSecondaryAttackSpell)
+      && classSkills.has(savedSecondaryAttackSpell) && !isPassiveSkill(savedSecondaryAttackSpell)
+      ? savedSecondaryAttackSpell : null;
+    this.attackSlotKeyBinds = this.sanitizeAttackSlotKeyBinds(saved.attackSlotKeyBinds, classSkills);
     this.basicAttackPickerOpen = false;
+    this.basicAttackPickerSlot = "basic";
+    this.basicAttackPickerHoveredSkill = null;
     this.upgradeChoices = [];
     if (this.pendingLevelUps > 0) this.prepareUpgradeChoices();
     const restoredInventory = Array.isArray(saved.inventory)
@@ -5888,6 +5904,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         basicAttackCooldown: this.basicAttackCooldown,
         basicAttackDamage: this.basicAttackDamage,
         basicAttackSpell: this.basicAttackSpell,
+        secondaryAttackSpell: this.secondaryAttackSpell,
+        attackSlotKeyBinds: { ...this.attackSlotKeyBinds },
         ownedSkills: this.ownedSkills,
         skillLevels: { ...this.baseSkillLevels },
         enemies: this.enemies,
@@ -8283,6 +8301,29 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
    */
   socketQuestItemId: string | null = null;
 
+  /**
+   * What Gheed pays for an item shown beside his stock, or 0 when it is not the
+   * player's to sell. The shop's inventory panel sells straight from the pack,
+   * so the preview needs the same number the in-game window quotes.
+   */
+  shopHoverSellValue(item: D2InventoryItem): number {
+    const forSale = this.shopItemsForSale.some((entry) => entry.item.id === item.id);
+    return forSale ? this.getItemSellValue(item) : 0;
+  }
+
+  /** Sell the item under the cursor without leaving Gheed's pack view. */
+  sellHoveredShopItem(): void {
+    const item = this.hoveredItem;
+    if (!item) return;
+    const entry = this.shopItemsForSale.find((candidate) => candidate.item.id === item.id);
+    if (!entry) {
+      this.shopMessage = `${item.name} is not for sale.`;
+      return;
+    }
+    this.sellShopItem(entry);
+    this.closeItemPreview();
+  }
+
   get shopEquippedGear(): Array<{ slot: PaperdollSlot; label: string; item: D2InventoryItem }> {
     const gear: Array<{ slot: PaperdollSlot; label: string; item: D2InventoryItem }> = [];
     for (const entry of this.paperdollLayout) {
@@ -9191,6 +9232,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const pressed = event.target instanceof Element ? event.target : null;
     if (!pressed?.closest(".d2s-basic-attack-picker, .d2s-skill-slot.basic-skill")) {
       this.basicAttackPickerOpen = false;
+      this.basicAttackPickerHoveredSkill = null;
     }
     // While a belt potion is held, the next arena press throws it there instead
     // of starting movement, a click-to-move, or the touch joystick.
@@ -9286,7 +9328,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.playerFacingY = (world.y - this.playerY) / distance;
     }
     this.clearClickMoveCommands();
-    if (this.tryBasicAttackSpell(enemy ?? undefined, enemy ? undefined : world ?? undefined)) return;
+    if (this.tryAttackSlotSpell("secondary", enemy ?? undefined, enemy ? undefined : world ?? undefined)) return;
     if (this.attackCooldown > 0 || this.playerRunning || this.playerLeapRemaining > 0 || this.playerChargeRemaining > 0) return;
     this.attackNearestEnemy(enemy ?? undefined);
   }
@@ -10047,6 +10089,15 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       return;
     }
     if (isEditable) return;
+    const functionKey = /^f([1-8])$/.exec(key);
+    if (functionKey) {
+      // F1-F8 bind a spell in the open picker, or equip its binding on the right
+      // mouse button once the picker is closed.
+      if (this.escapeMenuOpen || this.inventoryOpen || this.skillTreeOpen || this.pendingLevelUps > 0) return;
+      event.preventDefault();
+      this.handleAttackSlotKey(Number(functionKey[1]));
+      return;
+    }
     if (key === "alt") {
       // ALT is Diablo II's "show everything on the ground" key. Claim it so the
       // browser's own menu bar does not take it while the arena has focus.
@@ -11823,19 +11874,137 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     return "Ready";
   }
 
-  toggleBasicAttackPicker(): void {
+  toggleBasicAttackPicker(slot: "basic" | "secondary" = "basic"): void {
     if (!this.runActive) return;
-    this.basicAttackPickerOpen = !this.basicAttackPickerOpen;
+    const alreadyOpen = this.basicAttackPickerOpen && this.basicAttackPickerSlot === slot;
+    this.basicAttackPickerOpen = !alreadyOpen;
+    this.basicAttackPickerSlot = slot;
+    this.basicAttackPickerHoveredSkill = null;
   }
 
   closeBasicAttackPicker(): void {
     this.basicAttackPickerOpen = false;
+    this.basicAttackPickerHoveredSkill = null;
   }
 
-  selectBasicAttackSpell(skill: string | null): void {
+  /** Assign the picker's choice to the button that opened it. */
+  selectAttackSpell(skill: string | null): void {
+    this.selectAttackSpellForSlot(this.basicAttackPickerSlot, skill);
     this.basicAttackPickerOpen = false;
-    this.basicAttackSpell = skill && this.basicAttackPickerSpells.includes(skill) ? skill : null;
+    this.basicAttackPickerHoveredSkill = null;
+  }
+
+  selectAttackSpellForSlot(slot: "basic" | "secondary", skill: string | null): void {
+    const chosen = skill && this.basicAttackPickerSpells.includes(skill) ? skill : null;
+    if (slot === "secondary") this.secondaryAttackSpell = chosen;
+    else this.basicAttackSpell = chosen;
     this.persistRunProgress(true);
+  }
+
+  /** The basic slot's assignment, kept for callers that only ever mean the left button. */
+  selectBasicAttackSpell(skill: string | null): void {
+    this.basicAttackPickerSlot = "basic";
+    this.selectAttackSpell(skill);
+  }
+
+  get basicAttackPickerTitle(): string {
+    return this.basicAttackPickerSlot === "secondary" ? "Right attack" : "Basic attack";
+  }
+
+  get basicAttackPickerHint(): string {
+    return this.basicAttackPickerSlot === "secondary"
+      ? "Casts the chosen spell when the right mouse button attacks. Press F1-F8 on a spell to bind it to that key."
+      : "Casts the chosen spell instead of the weapon attack whenever it is recharged and castable. Press F1-F8 on a spell to bind it to that key.";
+  }
+
+  /** The spell the open picker would mark as selected. */
+  get basicAttackPickerSelected(): string | null {
+    return this.basicAttackPickerSlot === "secondary" ? this.secondaryAttackSpell : this.basicAttackSpell;
+  }
+
+  /** How the right-attack cell draws itself: icon image, missile cel, or glyph. */
+  get secondaryAttackSlotArt(): { kind: "icon" | "overlay" | "glyph"; value: string } {
+    return this.secondaryAttackSpell ? this.skillArtFor(this.secondaryAttackSpell) : this.weaponAttackArt;
+  }
+
+  get secondaryAttackSlotSkill(): string {
+    return this.secondaryAttackSpell ?? this.basicAttackName;
+  }
+
+  get secondaryAttackSlotCastProgress(): number {
+    return this.secondaryAttackSpell ? this.skillCastProgress(this.secondaryAttackSpell) : 0;
+  }
+
+  get secondaryAttackSlotTitle(): string {
+    return this.secondaryAttackSpell
+      ? `Right attack casts ${this.secondaryAttackSpell} · click to change`
+      : `${this.basicAttackName} · click to assign a right-attack spell`;
+  }
+
+  /** The F-key a spell is bound to, if any. */
+  attackSlotKeyFor(skill: string): number | null {
+    for (const [rawKey, bound] of Object.entries(this.attackSlotKeyBinds)) {
+      if (bound === skill) return Number(rawKey);
+    }
+    return null;
+  }
+
+  /** "F3" for a spell bound to F3, otherwise empty, as the picker prints it. */
+  attackBindLabel(skill: string): string {
+    const keyNumber = this.attackSlotKeyFor(skill);
+    return keyNumber ? `F${keyNumber}` : "";
+  }
+
+  /** Bind (or clear) one F-key; a spell only ever carries one of them. */
+  bindAttackSlotKey(keyNumber: number, skill: string | null): void {
+    if (!Number.isInteger(keyNumber) || keyNumber < 1 || keyNumber > 8) return;
+    for (const [rawKey, bound] of Object.entries(this.attackSlotKeyBinds)) {
+      if (skill && bound === skill) delete this.attackSlotKeyBinds[Number(rawKey)];
+    }
+    if (skill) this.attackSlotKeyBinds[keyNumber] = skill;
+    else delete this.attackSlotKeyBinds[keyNumber];
+    this.attackSlotKeyBinds = { ...this.attackSlotKeyBinds };
+    this.persistRunProgress(true);
+  }
+
+  /**
+   * F1-F8. While the picker is open they bind the row the pointer is on; with it
+   * closed they drop that spell straight onto the right mouse button, which is
+   * how a player swaps between two attacks without opening the list.
+   */
+  private handleAttackSlotKey(keyNumber: number): void {
+    if (this.basicAttackPickerOpen) {
+      const pointed = this.basicAttackPickerHoveredSkill;
+      if (!pointed) return;
+      const skill = pointed === this.basicAttackName ? null : pointed;
+      this.bindAttackSlotKey(keyNumber, skill);
+      this.announceAttackSlot(skill ? `${skill} · F${keyNumber}` : `F${keyNumber} cleared`);
+      return;
+    }
+    const bound = this.attackSlotKeyBinds[keyNumber];
+    if (!bound) return;
+    const skill = bound === this.basicAttackName ? null : bound;
+    this.selectAttackSpellForSlot("secondary", skill);
+    this.announceAttackSlot(`${skill ?? this.basicAttackName} on right click`);
+  }
+
+  private announceAttackSlot(text: string): void {
+    this.floatingTexts.push({ x: this.playerX, y: this.playerY - 30, text, color: "#ffd27a", life: 1.6 });
+  }
+
+  /** Keep only the F1-F8 binds that still point at a spell this hero can cast. */
+  private sanitizeAttackSlotKeyBinds(binds: unknown, classSkills: Set<string>): Record<number, string> {
+    const clean: Record<number, string> = {};
+    if (!binds || typeof binds !== "object") return clean;
+    for (const [rawKey, rawSkill] of Object.entries(binds as Record<string, unknown>)) {
+      const keyNumber = Number(rawKey);
+      if (!Number.isInteger(keyNumber) || keyNumber < 1 || keyNumber > 8) continue;
+      if (typeof rawSkill !== "string") continue;
+      const usable = rawSkill === this.basicAttackName
+        || (this.ownedSkills.includes(rawSkill) && classSkills.has(rawSkill) && !isPassiveSkill(rawSkill));
+      if (usable) clean[keyNumber] = rawSkill;
+    }
+    return clean;
   }
 
   missileOverlayPath(id: string): string {
@@ -14276,11 +14445,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   /**
-   * The basic-attack slot can be pointed at any owned spell. While that spell is
+   * Either attack slot can be pointed at any owned spell. While that spell is
    * recharged and castable the attack casts it instead of swinging the weapon.
    */
-  private tryBasicAttackSpell(preferred?: Enemy, groundPoint?: { x: number; y: number }): boolean {
-    const skill = this.basicAttackSpell;
+  private tryAttackSlotSpell(slot: "basic" | "secondary", preferred?: Enemy, groundPoint?: { x: number; y: number }): boolean {
+    const skill = slot === "secondary" ? this.secondaryAttackSpell : this.basicAttackSpell;
     if (!skill || !this.canBasicAttackCastSpell(skill)) return false;
     this.activateOwnedSkill(skill, preferred, groundPoint);
     // The attack consumed the cast, so the automatic caster must not fire the
@@ -14289,6 +14458,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (Number.isFinite(interval)) this.skillCastCooldowns[skill] = interval;
     this.attackCooldown = Math.max(this.playerAttackLockRemaining, this.paladinAuraAttackCooldown());
     return true;
+  }
+
+  private tryBasicAttackSpell(preferred?: Enemy, groundPoint?: { x: number; y: number }): boolean {
+    return this.tryAttackSlotSpell("basic", preferred, groundPoint);
   }
 
   private canBasicAttackCastSpell(skill: string): boolean {
@@ -16030,7 +16203,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.xpToNextLevel = this.xpForLevel(1);
     this.basicAttackName = basicAttack.name;
     this.basicAttackSpell = null;
+    this.secondaryAttackSpell = null;
     this.basicAttackPickerOpen = false;
+    this.basicAttackPickerHoveredSkill = null;
     this.basicAttackCooldown = basicAttack.cooldown;
     this.basicAttackDamage = basicAttack.damage + this.sanctuaryBonuses.attackDamage * 2;
     this.attackCooldown = 0;
@@ -24825,10 +25000,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
    * lost the hover target (and the pointer stream with it), which froze the
    * gauntlet cursor while only the tooltip kept moving.
    */
-  trackSellEntry(_index: number, entry: { item: D2InventoryItem }): string {
-    return entry.item.id;
-  }
-
   trackShopOffer(_index: number, offer: { item: D2InventoryItem }): string {
     return offer.item.id;
   }
@@ -29065,6 +29236,10 @@ interface D2SavedRun {
   basicAttackDamage?: number;
   /** Spell the basic-attack slot casts instead of the weapon attack, if any. */
   basicAttackSpell?: string | null;
+  /** Spell the right mouse button casts instead of the weapon attack, if any. */
+  secondaryAttackSpell?: string | null;
+  /** F1-F8 binds, by key number, to the spell each one equips on the right button. */
+  attackSlotKeyBinds?: Record<number, string>;
   skillOfferSeed?: number;
   ownedSkills: string[];
   druidForm?: DruidForm | null;
