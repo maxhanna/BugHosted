@@ -3519,7 +3519,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   runActive = false;
   playerLevel = 1;
   playerXp = 0;
-  pendingLevelUps = 0;
+  /** Unspent skill points: one per level gained, spent in the skill tree. */
+  skillPoints = 0;
   basicAttackName = "Basic Attack";
   /** Spell the HUD's basic-attack (left button) slot casts instead of the weapon attack. */
   basicAttackSpell: string | null = null;
@@ -3535,7 +3536,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   basicAttackCooldown = 0.55;
   basicAttackDamage = 12;
   attackProjectiles: AttackProjectile[] = [];
-  upgradeChoices: SkillUpgrade[] = [];
   levelUpNotice = "";
   playerX = 250;
   playerY = 250;
@@ -5526,7 +5526,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.selectedClass = savedClass;
     this.playerLevel = Math.floor(numberValue(saved.playerLevel, 1, 1, 10000));
     this.playerXp = Math.floor(numberValue(saved.playerXp, 0, 0, 1_000_000_000));
-    this.pendingLevelUps = Math.floor(numberValue(saved.pendingLevelUps, 0, 0, 10000));
+    this.skillPoints = Math.floor(numberValue(saved.skillPoints ?? saved.pendingLevelUps, 0, 0, 10000));
     this.skillOfferSeed = Math.floor(numberValue(saved.skillOfferSeed, 1, 0, 2_147_483_647));
     this.xpToNextLevel = Math.floor(numberValue(saved.xpToNextLevel, this.xpForLevel(this.playerLevel), 1, 1_000_000));
     this.basicAttackName = typeof saved.basicAttackName === "string" && BASIC_ATTACK_NAMES.includes(saved.basicAttackName) ? saved.basicAttackName : basicAttack.name;
@@ -5800,8 +5800,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.basicAttackPickerOpen = false;
     this.basicAttackPickerSlot = "basic";
     this.basicAttackPickerHoveredSkill = null;
-    this.upgradeChoices = [];
-    if (this.pendingLevelUps > 0) this.prepareUpgradeChoices();
     const restoredInventory = Array.isArray(saved.inventory)
       ? saved.inventory.slice(0, this.inventoryColumns * this.inventoryRows).map((item) => sanitizeInventoryItem(item))
       : [];
@@ -5897,7 +5895,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         runKillCount: this.runKillCount,
         playerLevel: this.playerLevel,
         playerXp: this.playerXp,
-        pendingLevelUps: this.pendingLevelUps,
+        skillPoints: this.skillPoints,
         xpToNextLevel: this.xpToNextLevel,
         skillOfferSeed: this.skillOfferSeed,
         basicAttackName: this.basicAttackName,
@@ -9243,7 +9241,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     if (this.activeTab === "run" && this.runActive && event.pointerType === "mouse" && event.button === 0
       && event.target === this.arenaRef?.nativeElement && !this.escapeMenuOpen && !this.inventoryOpen
-      && !this.skillTreeOpen && this.pendingLevelUps === 0 && !(this.actTransitionReady && !this.actPortalOpen)
+      && !this.skillTreeOpen && !(this.actTransitionReady && !this.actPortalOpen)
       && !this.campaignVictory) {
       this.updateHoveredEnemy(event);
       this.updateHoveredGroundPickup(event);
@@ -9285,7 +9283,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         }
       }
     }
-    if (event.pointerType !== "touch" || this.activeTab !== "run" || !this.runActive || this.escapeMenuOpen || this.inventoryOpen || this.skillTreeOpen || this.pendingLevelUps > 0 || (this.actTransitionReady && !this.actPortalOpen) || this.campaignVictory) return;
+    if (event.pointerType !== "touch" || this.activeTab !== "run" || !this.runActive || this.escapeMenuOpen || this.inventoryOpen || this.skillTreeOpen || (this.actTransitionReady && !this.actPortalOpen) || this.campaignVictory) return;
     const target = event.target;
     if (!(target instanceof Element) || target.closest("button, a, input, textarea, select, [role='button'], [role='dialog'], .d2s-classic-hud, .d2s-act-banner, .d2s-experience-progress")) return;
     if (this.joystickPointerId !== null) return;
@@ -9317,7 +9315,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     event.preventDefault();
     if (this.activeTab !== "run" || !this.runActive || this.playerFrozenRemaining > 0
       || this.escapeMenuOpen || this.inventoryOpen || this.skillTreeOpen
-      || this.pendingLevelUps > 0 || this.campaignVictory
+      || this.campaignVictory
       || (this.actTransitionReady && !this.actPortalOpen)) return;
     this.updateHoveredEnemy(event as unknown as PointerEvent);
     const enemy = this.hoveredEnemy;
@@ -9329,6 +9327,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     this.clearClickMoveCommands();
     if (this.tryAttackSlotSpell("secondary", enemy ?? undefined, enemy ? undefined : world ?? undefined)) return;
+    // A right click is an order for the right hand only. With a spell in that
+    // slot, a recharging spell just does nothing; the left hand never answers a
+    // right click. An empty right slot keeps the plain weapon swing.
+    if (this.secondaryAttackSpell) return;
     if (this.attackCooldown > 0 || this.playerRunning || this.playerLeapRemaining > 0 || this.playerChargeRemaining > 0) return;
     this.attackNearestEnemy(enemy ?? undefined);
   }
@@ -9612,9 +9614,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     return area ? `journey on to ${area.name} — level ${area.level}` : "the next area";
   }
 
-  /** Esc, the inventory, the skill tree or the level-up choice, over the arena. */
+  /** Esc, the inventory or the skill tree, over the arena. */
   private get menuOwnsScreen(): boolean {
-    return this.escapeMenuOpen || this.inventoryOpen || this.skillTreeOpen || this.pendingLevelUps > 0;
+    return this.escapeMenuOpen || this.inventoryOpen || this.skillTreeOpen;
   }
 
   /** Whether a ground drop is still present in one of the arena loot lists. */
@@ -9672,15 +9674,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (!key) return;
     // The window listener owns global shortcuts; avoid processing keys twice.
     if (["1", "2", "3", "4"].includes(key)) return;
-    const upgradeModalVisible = this.pendingLevelUps > 0 && !this.escapeMenuOpen && !this.inventoryOpen && !this.skillTreeOpen;
-    if (upgradeModalVisible && ["1", "2", "3"].includes(key)) {
-      event.preventDefault();
-      event.stopPropagation();
-      const choice = this.upgradeChoices[Number(key) - 1];
-      if (choice) this.chooseLevelUpgrade(choice);
-      return;
-    }
-    if (this.escapeMenuOpen || this.inventoryOpen || this.skillTreeOpen || this.pendingLevelUps > 0) return;
+    if (this.escapeMenuOpen || this.inventoryOpen || this.skillTreeOpen) return;
     if (["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(key)) {
       event.preventDefault();
       this.keysDown.add(key);
@@ -9708,7 +9702,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   drinkBeltPotion(slotIndex: number): void {
-    if (this.pendingLevelUps > 0 || slotIndex < 0 || slotIndex >= this.beltRows * 4) {
+    if (slotIndex < 0 || slotIndex >= this.beltRows * 4) {
       return;
     }
     const slot = this.beltSlots[slotIndex];
@@ -9744,7 +9738,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.suppressNextBeltClick = false;
       return;
     }
-    if (this.pendingLevelUps > 0) return;
     this.selectBottle(slotIndex);
     if (this.heldBeltPotionSlot === null) {
       if (this.beltSlots[slotIndex]?.kind) this.heldBeltPotionSlot = slotIndex;
@@ -9775,7 +9768,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const kind = this.beltSlots[slotIndex]?.kind;
     if (!kind) return;
     if (event.pointerType !== "touch") {
-      if (event.button !== 0 || this.pendingLevelUps > 0) return;
+      if (event.button !== 0) return;
       this.clearBeltDrag();
       const target = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
       try {
@@ -10101,15 +10094,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const target = event.target as HTMLElement | null;
     const isEditable = !!target && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
 
-    if (this.pendingLevelUps > 0 && !this.escapeMenuOpen && !this.inventoryOpen && !this.skillTreeOpen) {
-      if (["1", "2", "3"].includes(key)) {
-        event.preventDefault();
-        event.stopPropagation();
-        const choice = this.upgradeChoices[Number(key) - 1];
-        if (choice) this.chooseLevelUpgrade(choice);
-      }
-      return;
-    }
     if (key === "escape") {
       event.preventDefault();
       if (this.skillTreeOpen) {
@@ -10130,7 +10114,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (functionKey) {
       // F1-F8 bind a spell in the open picker, or equip its binding on the right
       // mouse button once the picker is closed.
-      if (this.escapeMenuOpen || this.inventoryOpen || this.skillTreeOpen || this.pendingLevelUps > 0) return;
+      if (this.escapeMenuOpen || this.inventoryOpen || this.skillTreeOpen) return;
       event.preventDefault();
       this.handleAttackSlotKey(Number(functionKey[1]));
       return;
@@ -10164,15 +10148,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.toggleSkillTree();
       return;
     }
-    const upgradeModalVisible = this.pendingLevelUps > 0 && !this.escapeMenuOpen && !this.inventoryOpen && !this.skillTreeOpen;
-    if (upgradeModalVisible && ["1", "2", "3"].includes(key)) {
-      event.preventDefault();
-      event.stopPropagation();
-      const choice = this.upgradeChoices[Number(key) - 1];
-      if (choice) this.chooseLevelUpgrade(choice);
-      return;
-    }
-    if (this.escapeMenuOpen || this.inventoryOpen || this.skillTreeOpen || this.pendingLevelUps > 0) return;
+    if (this.escapeMenuOpen || this.inventoryOpen || this.skillTreeOpen) return;
     if (key === "`" || key === "~" || event.code === "Backquote") {
       event.preventDefault();
       this.beltExpanded = !this.beltExpanded;
@@ -10301,7 +10277,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     return section.name;
   }
 
-  get skillTreeSections(): Array<{ name: string; skills: Array<D2SkillDefinition & { state: "learned" | "available" | "locked"; reason: string; socket: { x: number; y: number } }> }> {
+  get skillTreeSections(): Array<{ name: string; skills: Array<D2SkillDefinition & { state: "learned" | "available" | "locked"; reason: string; canSpend: boolean; socket: { x: number; y: number } }> }> {
     const tree = D2_CLASS_SKILL_TREES[this.selectedClass];
     const available = new Set(this.availableClassSkills.map((entry) => entry.name));
     return (tree?.sections ?? []).map((section) => {
@@ -10313,10 +10289,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           const rank = this.skillLevels[entry.name] ?? 0;
           const state = rank > 0 ? "learned" : available.has(entry.name) ? "available" : "locked";
           const missing = entry.prerequisites.filter((name) => !this.ownedSkills.includes(name));
-          const reason = rank > 0 ? `Rank ${rank}/20 · character level ${entry.level}+` : entry.level > this.playerLevel
-            ? `Unlocks at character level ${entry.level}`
-            : missing.length ? `Requires ${missing.join(", ")}` : "Available on a level-up";
-          return { ...entry, state, reason, socket: { x: sockets[index]?.[0] ?? 50, y: sockets[index]?.[1] ?? 50 } };
+          const canSpend = this.skillPoints > 0 && available.has(entry.name);
+          const reason = rank > 0
+            ? `Rank ${rank}/20 · character level ${entry.level}+${canSpend ? " · click to spend a point" : ""}`
+            : entry.level > this.playerLevel
+              ? `Unlocks at character level ${entry.level}`
+              : missing.length ? `Requires ${missing.join(", ")}`
+                : canSpend ? "Click to spend a skill point" : "A skill point is needed to learn this";
+          return { ...entry, state, reason, canSpend, socket: { x: sockets[index]?.[0] ?? 50, y: sockets[index]?.[1] ?? 50 } };
         }),
       };
     });
@@ -10792,7 +10772,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         `Leap range: ${this.leapRangeForRank(rank)} units`,
         `Landing stun: ${this.leapStunSecondsForRank(rank).toFixed(1)}s in a ${this.leapStunRadiusForRank(rank)}-unit radius`,
         "Invulnerable while airborne",
-        "Targets an enemy ahead when one is in range; otherwise the cast is cancelled.",
+        "Leaps to a clicked floor spot, or at the monster ahead",
+        "Clears rivers, low ledges and bodies; never a wall or the map's dead space",
       ];
     }
 
@@ -11123,13 +11104,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.inventoryOpen = false;
     this.closeSkillTree();
     this.keysDown.clear();
-    if (this.pendingLevelUps > 0 && this.upgradeChoices.length === 0) this.prepareUpgradeChoices();
   }
 
   closeEscapeMenu(): void {
     this.escapeMenuOpen = false;
     this.keysDown.clear();
-    if (this.pendingLevelUps > 0 && this.upgradeChoices.length === 0) this.prepareUpgradeChoices();
     requestAnimationFrame(() => this.arenaRef?.nativeElement.focus());
   }
 
@@ -12161,7 +12140,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       return;
     }
     if (skill === "Leap" && this.selectedClass === "barbarian") {
-      this.startLeap();
+      this.startLeap(groundPoint, preferred);
       return;
     }
     if (skill === "Charge" && this.selectedClass === "paladin") {
@@ -13838,69 +13817,15 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     while (this.playerXp >= this.xpToNextLevel) {
       this.playerXp -= this.xpToNextLevel;
       this.playerLevel += 1;
-      this.pendingLevelUps += 1;
+      this.skillPoints += 1;
       this.xpToNextLevel = this.xpForLevel(this.playerLevel);
     }
-    if (this.pendingLevelUps > 0) {
-      this.keysDown.clear();
-      this.prepareUpgradeChoices();
+    if (this.skillPoints > 0) {
+      this.levelUpNotice = `${this.skillPoints} skill point${this.skillPoints === 1 ? "" : "s"} to spend — press T.`;
     }
     this.persistRunProgress(true);
   }
 
-  private prepareUpgradeChoices(): void {
-    if (this.pendingLevelUps <= 0) { this.upgradeChoices = []; return; }
-    const choices: SkillUpgrade[] = [
-      { id: "attack-damage", name: `${this.basicAttackName} + damage`, description: `Increase melee attack damage by 6 (currently ${this.basicAttackDamage}).`, kind: "attack" },
-      { id: "attack-speed", name: "Faster Attacks", description: `Reduce melee attack cooldown by 10% (currently ${this.basicAttackCooldown.toFixed(2)}s).`, kind: "attack" },
-      { id: "multishot", name: "Multishot", description: `Fire ${2 + (this.skillLevels["Multishot"] ?? 0)} arrows in each volley; each additional rank adds one arrow.`, kind: "attack" },
-      { id: "vitality", name: "Vitality", description: `Gain 5 maximum life and heal 5 life (currently ${this.playerMaxHp}).`, kind: "stat" },
-      { id: "weapon-mastery", name: "Weapon Mastery", description: `Increase all melee damage by 4 (rank ${this.skillLevels["Weapon Mastery"] ?? 0}).`, kind: "attack" },
-    ];
-    const eligibleSkills = this.availableClassSkills;
-    const shuffled = eligibleSkills.slice();
-    for (let index = shuffled.length - 1; index > 0; index -= 1) {
-      this.skillOfferSeed = (Math.imul(this.skillOfferSeed, 1664525) + 1013904223) >>> 0;
-      const swapIndex = this.skillOfferSeed % (index + 1);
-      [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
-    }
-    const skillChoices = shuffled.slice(0, 3).map((entry): SkillUpgrade => {
-      const rank = this.ownedSkills.includes(entry.name) ? this.skillLevels[entry.name] ?? 0 : 0;
-      return {
-        id: `class-skill:${entry.name}`,
-        name: entry.name,
-        description: `Diablo II ${this.selectedClassName} · level ${entry.level} · ${entry.prerequisites.length ? `Requires ${entry.prerequisites.join(", ")}` : "No prerequisites"}. ${this.getSkillDescription(entry.name) ?? "Unlock this class skill."}`,
-        kind: "class-skill",
-        ...(rank > 0 ? {
-          currentRank: rank,
-          nextRank: rank + 1,
-          currentStats: this.getSkillRankStats(entry.name, entry.visual, rank),
-          nextStats: this.getSkillRankStats(entry.name, entry.visual, rank + 1),
-        } : {}),
-      };
-    });
-    const castRateRank = this.skillLevels["Faster Cast Rate"] ?? 0;
-    const castRateChoice: SkillUpgrade = {
-      id: "cast-rate",
-      name: "Faster Cast Rate",
-      description: `Reduce every spell's cooldown by 10% (rank ${castRateRank}/6; each spell keeps its own timer).`,
-      kind: "attack",
-    };
-    const randomChoices = [...skillChoices, ...(castRateRank < 6 ? [castRateChoice] : [])];
-    for (let index = randomChoices.length - 1; index > 0; index -= 1) {
-      this.skillOfferSeed = (Math.imul(this.skillOfferSeed, 1664525) + 1013904223) >>> 0;
-      const swapIndex = this.skillOfferSeed % (index + 1);
-      [randomChoices[index], randomChoices[swapIndex]] = [randomChoices[swapIndex], randomChoices[index]];
-    }
-    const fallback = choices.slice().sort((a, b) => hashString(`${this.playerLevel}:${a.id}`) - hashString(`${this.playerLevel}:${b.id}`));
-    const offer = randomChoices.slice(0, 3);
-    for (const choice of fallback) {
-      if (offer.length >= 3) break;
-      offer.push(choice);
-    }
-    this.upgradeChoices = offer;
-    this.levelUpNotice = `Level ${this.playerLevel} reached — choose an upgrade.`;
-  }
 
   /** Advance cast timers while movement or a leap prevents a new spell. */
   private tickSkillCastCooldowns(seconds: number): void {
@@ -14124,6 +14049,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const cooldown = Math.max(0, (this.skillCastCooldowns[skill] ?? 0) - seconds * cooldownRate);
       this.skillCastCooldowns[skill] = cooldown;
       if (cooldown > 0) continue;
+      // The two mouse slots belong to the attack scheduler (updateBasicAttack),
+      // which alternates the hands. Casting them here as well would fire the
+      // right hand on its own timer and starve the left.
+      if (skill === this.basicAttackSpell || skill === this.secondaryAttackSpell) continue;
       // Non-Paladin buffs still activate once; Paladin auras use timed cycles above.
       if (visual !== "aura" && !livingEnemies.some((enemy) => enemy.hp > 0)) continue;
       // Howl is only useful when something is already close enough to hear it.
@@ -14134,7 +14063,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         delete this.skillCastCooldowns[skill];
         continue;
       }
-      // Leap cannot be cast without a target inside its short range. Drop the
+      // The automatic caster only leaps at a monster inside its range; a leap
+      // to bare ground is a deliberate click, never a periodic hop. Drop the
       // cooldown instead of starting one so the spell is simply cancelled.
       if (skill === "Leap" && !this.findLeapTarget()) {
         delete this.skillCastCooldowns[skill];
@@ -14545,20 +14475,69 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     return !((this.skillCastCooldowns[skill] ?? 0) > 0);
   }
 
+  /** Which mouse-button hand swings next while nothing is clicked. */
+  private autoAttackHand: "basic" | "secondary" = "basic";
+
+  /**
+   * The idle auto-attack. With nothing clicked the two hands take turns — left,
+   * right, left — and whichever is recharged first strikes when the other hand
+   * is still recovering. A left-clicked monster is the left hand's fight, so the
+   * right hand stays sheathed until that click is cleared; a right-click casts
+   * the right hand on its own and never swings the left.
+   */
   private updateBasicAttack(): void {
-    if (!this.runActive || this.pendingLevelUps > 0 || this.attackCooldown > 0 || this.playerRunning || this.playerLeapRemaining > 0 || this.playerChargeRemaining > 0) return;
-    // Nothing inside the attack's reach means no attack at all. Without this the
-    // spell in the basic slot kept firing down the hero's facing at empty ground.
-    if (!this.hasEnemyInBasicAttackRange()) return;
-    // A monster the player left-clicked keeps the basic-attack spell aimed at it
-    // once the hero arrives, exactly like right-click casting. Without a click
-    // target the spell still takes whatever monster is nearest.
-    if (this.tryBasicAttackSpell(this.clickMoveTarget ?? undefined)) return;
+    if (!this.runActive || this.attackCooldown > 0 || this.playerRunning || this.playerLeapRemaining > 0 || this.playerChargeRemaining > 0) return;
+    // Nothing inside either hand's reach means no attack at all. Without this a
+    // spell in a slot kept firing down the hero's facing at empty ground.
+    if (!this.hasEnemyInAttackRange()) return;
+    const clicked = this.clickMoveTarget && this.clickMoveTarget.hp > 0 && !this.clickMoveTarget.summonType
+      ? this.clickMoveTarget
+      : undefined;
+    if (clicked) {
+      // A left click names the left hand: the right hand waits its turn.
+      this.performBasicAttack(clicked);
+      this.autoAttackHand = "secondary";
+      return;
+    }
+    const firstHand = this.autoAttackHand;
+    const order: Array<"basic" | "secondary"> = firstHand === "basic"
+      ? ["basic", "secondary"]
+      : ["secondary", "basic"];
+    for (const hand of order) {
+      const acted = hand === "basic" ? this.performBasicAttack() : this.performSecondaryAttack();
+      if (!acted) continue;
+      // The hand that just swung gives the next turn to the other one. A hand
+      // that had to sit out keeps its turn and takes it once it is recharged.
+      this.autoAttackHand = hand === firstHand
+        ? (firstHand === "basic" ? "secondary" : "basic")
+        : firstHand;
+      return;
+    }
+  }
+
+  /** One swing of the left hand: the spell in the basic slot, else the weapon. */
+  private performBasicAttack(preferred?: Enemy): boolean {
+    const spell = this.basicAttackSpell;
+    if (spell && this.tryAttackSlotSpell("basic", preferred)) return true;
+    return this.performWeaponAttack(preferred);
+  }
+
+  /** One cast of the right hand; false while its slot is empty or recharging. */
+  private performSecondaryAttack(preferred?: Enemy): boolean {
+    const spell = this.secondaryAttackSpell;
+    if (!spell || !this.hasEnemyInSlotReach(spell)) return false;
+    return this.tryAttackSlotSpell("secondary", preferred);
+  }
+
+  /** The weapon swing a hand falls back on when its slot holds no spell. */
+  private performWeaponAttack(preferred?: Enemy): boolean {
+    // The closest monster still decides whether a javelin can be jabbed, even
+    // when the player clicked something further away.
     const nearest = this.enemies
       .filter((enemy) => enemy.hp > 0 && !enemy.summonType && this.isAutoAttackTarget(enemy))
       .sort((a, b) => Math.hypot(a.x - this.playerX, a.y - this.playerY) - Math.hypot(b.x - this.playerX, b.y - this.playerY))[0];
-    if (!nearest) return;
-    const clicked = this.clickMoveTarget;
+    if (!nearest) return false;
+    const clicked = preferred;
     const clickedDistance = clicked ? Math.hypot(clicked.x - this.playerX, clicked.y - this.playerY) : Number.POSITIVE_INFINITY;
     const rangedRange = this.rangedBasicAttackRange;
     const clickedInRange = !!clicked && clicked.hp > 0 && !clicked.summonType
@@ -14584,7 +14563,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (thrownWeapon) {
       if (distance > this.thrownWeaponRange) {
         this.attackCooldown = Math.min(0.12, this.basicAttackCooldown);
-        return;
+        return false;
       }
       if (thrownWeapon === "javelin" && distance <= target.r + 28) {
         // A javelin is still a spear up close: jab with it instead of throwing
@@ -14593,86 +14572,65 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         this.triggerAttackAnimation("amazonJab");
         this.floatingTexts.push({ x: target.x, y: target.y - target.r - 8, text: this.floatingDamageText(meleeDamage), color: attack.color, life: 0.65 });
         this.attackCooldown = Math.max(this.playerAttackLockRemaining, this.paladinAuraAttackCooldown());
-        return;
+        return true;
       }
       this.throwWeaponAt(target, damage, thrownWeapon, attack.color);
       this.triggerAttackAnimation();
       this.attackCooldown = Math.max(this.playerAttackLockRemaining, this.paladinAuraAttackCooldown());
-      return;
+      return true;
     }
     if (this.bowWeaponEquipped) {
       if (distance > this.bowWeaponRange) {
         this.attackCooldown = Math.min(0.12, this.basicAttackCooldown);
-        return;
+        return false;
       }
       this.fireBowAt(target, damage);
       this.triggerAttackAnimation();
       this.attackCooldown = Math.max(this.playerAttackLockRemaining, this.paladinAuraAttackCooldown());
-      return;
+      return true;
     }
     if (distance <= target.r + 28) {
-      if (this.boneWallStopsMeleeSwing(target.x, target.y, meleeDamage)) return;
+      if (this.boneWallStopsMeleeSwing(target.x, target.y, meleeDamage)) return false;
       if (this.druidForm) this.druidFormAttackTime = this.druidForm === "werebear" ? 0.56 : 0.38;
       this.dealMeleeDamage(target, meleeDamage);
       this.triggerAttackAnimation();
       this.floatingTexts.push({ x: target.x, y: target.y - target.r - 8, text: this.floatingDamageText(meleeDamage), color: attack.color, life: 0.65 });
       this.attackCooldown = Math.max(this.playerAttackLockRemaining, this.paladinAuraAttackCooldown());
-    } else {
-      // Move into weapon range before applying damage: a melee basic attack never becomes a missile.
-      this.attackCooldown = Math.min(0.12, this.basicAttackCooldown);
+      return true;
     }
+    // Move into weapon range before applying damage: a melee basic attack never becomes a missile.
+    this.attackCooldown = Math.min(0.12, this.basicAttackCooldown);
+    return false;
   }
 
-  chooseLevelUpgrade(choice: SkillUpgrade): void {
-    if (!this.upgradeChoices.some((candidate) => candidate.id === choice.id) || this.pendingLevelUps <= 0) return;
-    if (choice.id.startsWith("class-skill:")) {
-      const skillName = choice.id.slice("class-skill:".length);
-      if (!this.availableClassSkills.some((entry) => entry.name === skillName)) return;
-      const previousRank = this.skillLevels[skillName] ?? 0;
-      this.skillLevels[skillName] = Math.min(20, (this.baseSkillLevels[skillName] ?? 0) + 1);
-      const nextRank = this.skillLevels[skillName] ?? previousRank;
-      if (skillName === "Vigor") this.extendActiveVigorAuraOnRankUp(previousRank, nextRank);
-      if (!this.ownedSkills.includes(skillName)) {
-        this.ownedSkills.push(skillName);
-        // A passive never casts, so it must not start out with a cast timer.
-        if (isPassiveSkill(skillName)) delete this.skillCastCooldowns[skillName];
-        else this.skillCastCooldowns[skillName] = this.getSkillCastInterval(skillName);
-      }
-      if (this.isCastSummonSkill(skillName)) this.syncCastSummonCaps();
-      this.pendingLevelUps -= 1;
-      this.upgradeChoices = [];
-      this.levelUpNotice = this.pendingLevelUps > 0 ? `${this.pendingLevelUps} more level upgrade${this.pendingLevelUps === 1 ? "" : "s"} to choose.` : "Skill point spent.";
-      if (this.pendingLevelUps > 0) this.prepareUpgradeChoices();
-      this.persistRunProgress(true);
-      return;
+  /**
+   * Spend one unspent skill point on a class skill the tree has unlocked. The
+   * point never lands on a locked socket: character level, prerequisites and the
+   * rank cap are all checked before anything is bought.
+   */
+  spendSkillPoint(skillName: string): void {
+    if (!this.canSpendSkillPoint(skillName)) return;
+    const previousRank = this.skillLevels[skillName] ?? 0;
+    this.skillLevels[skillName] = Math.min(20, (this.baseSkillLevels[skillName] ?? 0) + 1);
+    const nextRank = this.skillLevels[skillName] ?? previousRank;
+    if (skillName === "Vigor") this.extendActiveVigorAuraOnRankUp(previousRank, nextRank);
+    if (!this.ownedSkills.includes(skillName)) {
+      this.ownedSkills.push(skillName);
+      // A passive never casts, so it must not start out with a cast timer.
+      if (isPassiveSkill(skillName)) delete this.skillCastCooldowns[skillName];
+      else this.skillCastCooldowns[skillName] = this.getSkillCastInterval(skillName);
     }
-    switch (choice.id) {
-      case "attack-damage": this.basicAttackDamage += 6; this.skillLevels[this.basicAttackName] = (this.baseSkillLevels[this.basicAttackName] ?? 1) + 1; break;
-      case "attack-speed": this.basicAttackCooldown = Math.max(0.18, this.basicAttackCooldown * 0.9); this.skillLevels["Faster Attacks"] = (this.skillLevels["Faster Attacks"] ?? 0) + 1; break;
-      case "cast-rate": {
-        const nextRank = Math.min(6, (this.skillLevels["Faster Cast Rate"] ?? 0) + 1);
-        this.skillLevels["Faster Cast Rate"] = nextRank;
-        for (const skill of this.ownedSkills) {
-          if (skill !== this.basicAttackName) {
-            this.skillCastCooldowns[skill] = Math.min(this.skillCastCooldowns[skill] ?? 0, this.getSkillCastInterval(skill));
-          }
-        }
-        break;
-      }
-      case "multishot": this.skillLevels["Multishot"] = (this.skillLevels["Multishot"] ?? 0) + 1; break;
-      case "vitality": this.playerMaxHp += 5; this.playerHp = Math.min(this.effectivePlayerMaxHp, this.playerHp + 5); this.skillLevels["Vitality"] = (this.skillLevels["Vitality"] ?? 0) + 1; break;
-      case "weapon-mastery": this.skillLevels["Weapon Mastery"] = (this.skillLevels["Weapon Mastery"] ?? 0) + 1; this.basicAttackDamage += 4; break;
-    }
-    if (!this.ownedSkills.includes(choice.name)) this.ownedSkills.push(choice.name);
-    this.pendingLevelUps -= 1;
-    this.upgradeChoices = [];
-    this.levelUpNotice = this.pendingLevelUps > 0 ? `${this.pendingLevelUps} more level upgrade${this.pendingLevelUps === 1 ? "" : "s"} to choose.` : "Upgrade applied.";
-    if (this.pendingLevelUps > 0) this.prepareUpgradeChoices();
+    if (this.isCastSummonSkill(skillName)) this.syncCastSummonCaps();
+    this.skillPoints -= 1;
+    this.levelUpNotice = this.skillPoints > 0
+      ? `${this.skillPoints} skill point${this.skillPoints === 1 ? "" : "s"} left to spend.`
+      : `${skillName} raised to rank ${nextRank}.`;
+    this.hideSkillTooltip();
     this.persistRunProgress(true);
   }
 
   attackNearestEnemy(preferred?: Enemy): void {
-    if (!this.runActive || this.pendingLevelUps > 0 || this.attackCooldown > 0 || this.enemies.length === 0) return;
+    if (!this.runActive || this.attackCooldown > 0 || this.enemies.length === 0) return;
     if (this.playerFrozenRemaining > 0) return;
     if (this.playerRunning) return;
     if (this.tryBasicAttackSpell(preferred)) return;
@@ -14757,17 +14715,26 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     return !enemy.eggProxy || enemy === this.clickMoveTarget;
   }
 
-  private hasEnemyInBasicAttackRange(): boolean {
-    const spell = this.basicAttackSpell;
-    const reach = spell && this.canBasicAttackCastSpell(spell) ? this.basicAttackSpellReach(spell)
+  /**
+   * Whether a monster sits inside the reach of one hand's spell, or of the
+   * weapon when that hand holds no spell. A buff, a servant or a placed trap has
+   * no reach of its own, so an empty floor never holds it back.
+   */
+  private hasEnemyInSlotReach(skill: string | null): boolean {
+    const castable = !!skill && this.canBasicAttackCastSpell(skill);
+    const spellReach = castable ? this.basicAttackSpellReach(skill as string) : 0;
+    if (castable && spellReach <= 0) return true;
+    const reach = castable ? spellReach
       : this.bowWeaponEquipped ? this.bowWeaponRange
         : this.thrownWeaponKind ? this.thrownWeaponRange
           : BASIC_ATTACK_MELEE_REACH;
-    // A buff, a servant or a placed trap has no reach of its own, so an empty
-    // floor must not hold it back.
-    if (reach <= 0) return true;
     return this.enemies.some((enemy) => enemy.hp > 0 && !enemy.summonType && this.isAutoAttackTarget(enemy)
       && Math.hypot(enemy.x - this.playerX, enemy.y - this.playerY) <= reach + enemy.r);
+  }
+
+  /** Either hand having something in reach is enough to begin a turn. */
+  private hasEnemyInAttackRange(): boolean {
+    return this.hasEnemyInSlotReach(this.basicAttackSpell) || this.hasEnemyInSlotReach(this.secondaryAttackSpell);
   }
 
   /**
@@ -14804,7 +14771,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
    * spot, a weapon swings at the bodies already within its reach.
    */
   private attackTowardPoint(x: number, y: number): void {
-    if (!this.runActive || this.pendingLevelUps > 0 || this.attackCooldown > 0) return;
+    if (!this.runActive || this.attackCooldown > 0) return;
     if (this.playerFrozenRemaining > 0 || this.playerRunning
       || this.playerLeapRemaining > 0 || this.playerChargeRemaining > 0) return;
     const distance = Math.hypot(x - this.playerX, y - this.playerY) || 1;
@@ -16268,7 +16235,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const basicAttack = this.basicAttackForClass(this.selectedClass);
     this.playerLevel = 1;
     this.playerXp = 0;
-    this.pendingLevelUps = 0;
+    this.skillPoints = 0;
     this.skillOfferSeed = Math.floor(Math.random() * 0x7fffffff);
     this.xpToNextLevel = this.xpForLevel(1);
     this.basicAttackName = basicAttack.name;
@@ -16319,7 +16286,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.attackAnimationTime = Number.POSITIVE_INFINITY;
     this.attackAnimationStyle = CLASS_ATTACK_ANIMATION[this.selectedClass] ?? "amazonJab";
     this.attackAnimationSide = -1;
-    this.upgradeChoices = [];
     this.levelUpNotice = "";
     this.ownedSkills = [this.basicAttackName];
     this.recentSkillNames = [];
@@ -16426,13 +16392,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       }
       return;
     }
-    if (this.actTransitionReady && this.actPortalOpen && !this.escapeMenuOpen && !this.inventoryOpen && !this.skillTreeOpen && this.pendingLevelUps === 0) {
+    if (this.actTransitionReady && this.actPortalOpen && !this.escapeMenuOpen && !this.inventoryOpen && !this.skillTreeOpen) {
       this.update(dt);
       if (Math.hypot(this.playerX - this.actPortalX, this.playerY - this.actPortalY) <= PORTAL_ENTRY_RADIUS) {
         this.advanceAct();
         return;
       }
-    } else if (!this.escapeMenuOpen && !this.inventoryOpen && !this.skillTreeOpen && !this.actTransitionReady && !this.campaignVictory && this.pendingLevelUps === 0) {
+    } else if (!this.escapeMenuOpen && !this.inventoryOpen && !this.skillTreeOpen && !this.actTransitionReady && !this.campaignVictory) {
       this.update(dt);
       // Crossing the blue area portal is the only way into the next zone.
       if (this.zonePortalOpen
@@ -16484,13 +16450,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
     this.rebuildEnemyGrid();
     this.updateAttackProjectiles(dt);
-    if (this.pendingLevelUps > 0 && this.upgradeChoices.length === 0) this.prepareUpgradeChoices();
-    if (this.pendingLevelUps > 0) this.attackProjectiles = this.attackProjectiles.filter((projectile) => projectile.wakeOfFireTrap || projectile.boneWall || projectile.fireWall);
-    else {
-      this.updateBasicAttack();
-      this.updateAutomaticSkillCasts(dt);
-      this.updateZealStrikes(dt);
-    }
+    this.updateBasicAttack();
+    this.updateAutomaticSkillCasts(dt);
+    this.updateZealStrikes(dt);
 
     this.updateSummonAttacks(dt);
     this.updateEnemies(dt);
@@ -16573,7 +16535,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     };
   }
 
-  private campaignBlockedAt(context: CampaignCollisionContext, screenX: number, screenY: number): boolean {
+  private campaignBlockedAt(
+    context: CampaignCollisionContext,
+    screenX: number,
+    screenY: number,
+    /** A leap clears low hazards such as water; a wall still stops it. */
+    airborne = false,
+  ): boolean {
     const { mask, geometry, wraps, passages, edgeBlocks, waterPolygons } = context;
     let imageX = Math.round((screenX - geometry.left) / geometry.scale);
     let imageY = Math.round((screenY - geometry.top) / geometry.scale);
@@ -16595,8 +16563,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (waterPolygons?.some((polygon) => this.campaignPointInImagePolygon(
       imageX, imageY, mask.width, mask.height, polygon,
     ))) {
-      return true;
+      // A river is a low hazard: it stops walking but not a leap. The landing
+      // itself is still checked on foot, so the hero never lands in the water.
+      return !airborne;
     }
+    // Masks flagged as not blocking sight are low shelves of rock (Act II's
+    // ledge): they fence the hero in on foot but are low enough to leap over.
+    if (airborne && context.blocksSight === false) return false;
     return mask.blocked[imageY * mask.width + imageX] === 1;
   }
 
@@ -16635,6 +16608,35 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       )) count += 1;
     }
     return count;
+  }
+
+  /**
+   * Whether the straight arc of a leap crosses something it cannot clear: a
+   * sight-blocking wall, or the map's dead space. Water and low ledges are
+   * ignored here, because a river or a rock shelf is exactly what Leap is for.
+   * A hero already stuck inside scenery may still leap out of it.
+   */
+  private campaignLeapPathBlocked(
+    context: CampaignCollisionContext,
+    from: { x: number; y: number },
+    to: { x: number; y: number },
+  ): boolean {
+    const length = Math.hypot(to.x - from.x, to.y - from.y);
+    if (length < 1) return false;
+    const stuck = this.campaignBlockedAt(context, from.x, from.y);
+    const step = Math.max(0.5, context.geometry.scale * 0.5);
+    const samples = Math.min(600, Math.ceil(length / step));
+    for (let index = 1; index < samples; index += 1) {
+      const t = index / samples;
+      if (!this.campaignBlockedAt(
+        context,
+        from.x + (to.x - from.x) * t,
+        from.y + (to.y - from.y) * t,
+        true,
+      )) continue;
+      if (!stuck) return true;
+    }
+    return false;
   }
 
   /**
@@ -17194,7 +17196,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.centerPlayerOnCampaignWorld();
   }
 
-  private shiftWorldBy(dx: number, dy: number): void {
+  private shiftWorldBy(dx: number, dy: number, airborne = false): void {
     if (!dx && !dy) return;
     const chunkWidth = this.chunkTileColumns * CAMPAIGN_TILE_WORLD_SIZE;
     const chunkHeight = this.chunkTileRows * CAMPAIGN_TILE_WORLD_SIZE;
@@ -17212,8 +17214,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const worldY = this.currentChunkCoordY * chunkHeight + this.currentChunkLocalY;
       // Charge, Leap and knockback deliberately bypass terrain checks. They
       // still must not carry the hero off the single town map or into the river.
-      if (!this.tristramPositionBlocked(worldX, worldY)
-        && this.tristramPositionBlocked(worldX + dx, worldY + dy)) {
+      if (!this.tristramPositionBlocked(worldX, worldY, airborne)
+        && this.tristramPositionBlocked(worldX + dx, worldY + dy, airborne)) {
         return;
       }
     }
@@ -17227,7 +17229,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   /** Whether an absolute world point is outside Uber Tristram's town or water. */
-  private tristramPositionBlocked(worldX: number, worldY: number): boolean {
+  private tristramPositionBlocked(worldX: number, worldY: number, airborne = false): boolean {
     const mask = this.campaignCollisionMasks[8];
     if (!mask) return false;
     const imageScale = TRISTRAM_BACKDROP_TILE_WIDTH / CAMPAIGN_TILE_WORLD_SIZE;
@@ -17236,6 +17238,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const imageY = (mask.height / 2 + TRISTRAM_BACKDROP_ANCHOR_OFFSET_Y)
       + (worldY - this.chunkTileRows * CAMPAIGN_TILE_WORLD_SIZE / 2) * imageScale;
     if (imageX < 0 || imageY < 0 || imageX >= mask.width || imageY >= mask.height) return true;
+    // A leap crosses the river mid-air; its landing is validated separately, so
+    // the airborne steps may pass over water but the hero never stands in it.
+    if (airborne) return false;
     return this.campaignPointInImagePolygon(
       Math.round(imageX), Math.round(imageY), mask.width, mask.height, A8_WATER_POLYGON,
     );
@@ -18060,19 +18065,36 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.playerChargeImpactRadius = 0;
   }
 
-  private startLeap(): void {
+  /**
+   * Leap to the floor spot the player clicked, or at the monster they clicked
+   * (or the one ahead). A spot may sit beyond a body or across a river, since
+   * crossing ground like that is the skill's job; only the landing has to be
+   * somewhere the barbarian can stand.
+   */
+  private startLeap(groundPoint?: { x: number; y: number }, preferred?: Enemy): void {
     if (this.playerLeapRemaining > 0) return;
-    const target = this.findLeapTarget();
-    if (!target) return;
-    this.cancelChannelingSpells();
-    const dx = target.x - this.playerX;
-    const dy = target.y - this.playerY;
+    const range = this.leapRangeForRank(this.skillLevels["Leap"] ?? 1);
+    const target = preferred && preferred.hp > 0 && !preferred.summonType
+      ? preferred
+      : this.findLeapTarget();
+    const aimX = groundPoint?.x ?? target?.x;
+    const aimY = groundPoint?.y ?? target?.y;
+    // No spot and no monster means nowhere to land: the automatic caster must
+    // not hop the barbarian forward on a timer.
+    if (aimX === undefined || aimY === undefined) return;
+    const dx = aimX - this.playerX;
+    const dy = aimY - this.playerY;
     const distance = Math.hypot(dx, dy);
-    const directionX = distance > 0.001 ? dx / distance : this.playerFacingX;
-    const directionY = distance > 0.001 ? dy / distance : this.playerFacingY;
+    if (distance < 1) return;
+    this.cancelChannelingSpells();
+    const directionX = dx / distance;
+    const directionY = dy / distance;
     this.playerFacingX = directionX;
     this.playerFacingY = directionY;
-    this.playerLeapDistance = Math.max(0, distance - target.r - 16);
+    // A leap aimed at a monster stops at its feet; a leap aimed at a floor spot
+    // flies the whole way, so that spot may sit beyond a body or across water.
+    const stopPadding = groundPoint ? 0 : target ? target.r + 16 : 0;
+    this.playerLeapDistance = Math.max(0, Math.min(range, distance - stopPadding));
     this.playerLeapDistanceApplied = 0;
     this.playerLeapDirectionX = directionX;
     this.playerLeapDirectionY = directionY;
@@ -18107,12 +18129,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const step = applied - this.playerLeapDistanceApplied;
     this.playerLeapDistanceApplied = applied;
     const clearStep = this.leapClearTravel(step);
-    this.shiftWorldBy(this.playerLeapDirectionX * clearStep, this.playerLeapDirectionY * clearStep);
+    this.shiftWorldBy(this.playerLeapDirectionX * clearStep, this.playerLeapDirectionY * clearStep, true);
     if (this.playerLeapRemaining > 0) return;
     const remaining = this.playerLeapDistance - this.playerLeapDistanceApplied;
     if (remaining > 0.001) {
       const clearRemaining = this.leapClearTravel(remaining);
-      this.shiftWorldBy(this.playerLeapDirectionX * clearRemaining, this.playerLeapDirectionY * clearRemaining);
+      this.shiftWorldBy(this.playerLeapDirectionX * clearRemaining, this.playerLeapDirectionY * clearRemaining, true);
       this.playerLeapDistanceApplied = this.playerLeapDistance;
     }
     this.playerLeapLift = 0;
@@ -18142,7 +18164,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       );
       if (this.campaignBlockedAt(context, point.x, point.y)) continue;
       const blocked = this.campaignBlockedSamples(context, point.x, point.y);
-      if (baseline > 0 ? blocked <= baseline : blocked === 0) return travelled;
+      if (!(baseline > 0 ? blocked <= baseline : blocked === 0)) continue;
+      // The arc may clear rivers and low ledges, but never a wall or the map's
+      // dead space: that is the difference between Leap and Teleport.
+      if (this.campaignLeapPathBlocked(context, start, point)) continue;
+      return travelled;
     }
     return 0;
   }
@@ -26065,6 +26091,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
   }
 
+  /** A point may only go into a skill the class tree has unlocked right now. */
+  canSpendSkillPoint(skillName: string): boolean {
+    if (this.skillPoints <= 0) return false;
+    return this.availableClassSkills.some((entry) => entry.name === skillName);
+  }
+
   getSkillLevel(name: string): number {
     return this.skillLevels[name] ?? 0;
   }
@@ -29318,6 +29350,9 @@ interface D2SavedRun {
   runKillCount: number;
   playerLevel?: number;
   playerXp?: number;
+  /** Unspent skill points, spent by clicking a skill in the tree. */
+  skillPoints?: number;
+  /** Legacy name for the same count, kept so older saves keep their points. */
   pendingLevelUps?: number;
   xpToNextLevel?: number;
   basicAttackName?: string;
@@ -30614,17 +30649,6 @@ function hashString(value: string): number {
   let hash = 0;
   for (let index = 0; index < value.length; index += 1) hash = (Math.imul(hash, 31) + value.charCodeAt(index)) | 0;
   return hash >>> 0;
-}
-
-interface SkillUpgrade {
-  id: string;
-  name: string;
-  description: string;
-  kind: "attack" | "stat" | "class-skill";
-  currentRank?: number;
-  nextRank?: number;
-  currentStats?: string[];
-  nextStats?: string[];
 }
 
 type NecromancerCurseName = "Amplify Damage" | "Dim Vision" | "Weaken" | "Iron Maiden" | "Terror" | "Confuse" | "Life Tap" | "Attract" | "Decrepify" | "Lower Resist";

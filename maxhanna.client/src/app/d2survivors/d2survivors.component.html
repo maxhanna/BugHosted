@@ -328,26 +328,10 @@
 
   <section class="d2s-run" [hidden]="activeTab !== 'run'">
     <div class="d2s-arena-wrap" (contextmenu)="onArenaContextMenu($event)" (pointerdown)="onArenaPointerDown($event)" (pointermove)="onArenaPointerMove($event)" (pointerleave)="onArenaPointerLeave()" (pointerup)="onArenaPointerEnd($event)" (pointercancel)="onArenaPointerEnd($event)" (lostpointercapture)="onArenaPointerEnd($event)">
-      <div class="d2s-upgrade-modal" *ngIf="pendingLevelUps > 0 && !escapeMenuOpen && !inventoryOpen && !skillTreeOpen" role="dialog" aria-modal="true" aria-labelledby="d2s-upgrade-title">
-        <section class="d2s-upgrade-panel">
-          <p class="d2s-upgrade-kicker">LEVEL {{ playerLevel }}</p>
-          <h2 id="d2s-upgrade-title">Choose an upgrade</h2>
-          <p>Your next level waits until you select one.</p>
-          <button type="button" *ngFor="let choice of upgradeChoices; let index = index" class="d2s-upgrade-choice" (click)="chooseLevelUpgrade(choice)">
-            <kbd>{{ index + 1 }}</kbd><strong>{{ choice.name }}</strong>
-            <span *ngIf="choice.nextStats?.length" class="d2s-upgrade-effects">
-              <b>Rank {{ choice.currentRank }} → {{ choice.nextRank }}</b>
-              <small>Current: {{ choice.currentStats?.join(' · ') }}</small>
-              <small>Upgrade: {{ choice.nextStats?.join(' · ') }}</small>
-            </span>
-            <span *ngIf="!choice.nextStats?.length">{{ choice.description }}</span>
-          </button>
-        </section>
-      </div>
       <canvas #arena class="d2s-arena" width="500" height="500" (keydown)="onKeyDown($event)" (keyup)="onKeyUp($event)" tabindex="0"></canvas>
       <div class="d2s-virtual-joystick" *ngIf="virtualJoystickVisible" [style.left.px]="joystickX" [style.top.px]="joystickY" aria-hidden="true"><span [style.transform]="'translate(-50%, -50%) translate(' + joystickKnobX + 'px, ' + joystickKnobY + 'px)' "></span></div>
       <button type="button" class="d2s-touch-menu" (click)="showEscapeMenu()" aria-label="Open game menu" title="Game menu (Esc)">☰</button>
-      <button type="button" class="d2s-skill-tree-button" (click)="toggleSkillTree()" aria-label="Open skill tree" title="Skill tree (T)">T</button>
+      <button type="button" class="d2s-skill-tree-button" [class.has-points]="skillPoints > 0" (click)="toggleSkillTree()" [attr.aria-label]="skillPoints > 0 ? 'Open skill tree, ' + skillPoints + ' unspent skill points' : 'Open skill tree'" [attr.title]="skillPoints > 0 ? skillPoints + ' skill point' + (skillPoints === 1 ? '' : 's') + ' to spend (T)' : 'Skill tree (T)'">T<span *ngIf="skillPoints > 0" class="d2s-skill-point-badge" aria-hidden="true">{{ skillPoints }}</span></button>
       <canvas #characterCanvas class="d2s-character-canvas" width="500" height="500" aria-hidden="true"></canvas>
       <canvas #characterOccluderCanvas class="d2s-character-occluder-canvas" width="500" height="500" aria-hidden="true"></canvas>
       <canvas #skillEffectsCanvas class="d2s-skill-effects-canvas" width="500" height="500" aria-hidden="true"></canvas>
@@ -503,6 +487,11 @@
       </div>
       <section class="d2s-skill-tree" *ngIf="skillTreeOpen" role="dialog" [attr.aria-label]="selectedClassName + ' skill tree'" (click)="$event.stopPropagation()">
         <header class="d2s-skill-tree-header">
+          <div>
+            <span>{{ selectedClassName }} · LEVEL {{ playerLevel }}</span>
+            <h2>Skill Tree</h2>
+            <small class="d2s-skill-points" [class.unspent]="skillPoints > 0">{{ skillPoints > 0 ? skillPoints + ' skill point' + (skillPoints === 1 ? '' : 's') + ' to spend — click a skill' : 'No skill points to spend' }}</small>
+          </div>
           <button type="button" class="d2s-skill-tree-close" (click)="toggleSkillTree()" aria-label="Close skill tree">Close <kbd>T</kbd></button>
         </header>
         <div class="d2s-skill-tree-sections" *ngIf="activeSkillTreeSection as activeSection">
@@ -513,7 +502,7 @@
             <div class="d2s-skill-tree-panel">
               <div class="d2s-skill-tree-tab-art" *ngIf="skillTreeSectionArt(activeSection.name) as sectionArt" [style.background-image]="'url(' + sectionArt + ')'" aria-hidden="true"></div>
               <div class="d2s-skill-tree-sockets">
-                <article class="d2s-tree-skill" *ngFor="let skill of activeSection.skills" [class]="'d2s-tree-skill ' + skill.state" [style.left.%]="skill.socket.x" [style.top.%]="skill.socket.y" [attr.aria-label]="skill.name + ', ' + skill.state + ', unlock level ' + skill.level + '. ' + skill.reason" (mouseenter)="showSkillTooltip($event, skill, activeSection.name)" (mousemove)="showSkillTooltip($event, skill, activeSection.name)" (mouseleave)="onSkillTooltipLeave()">
+                <article class="d2s-tree-skill" *ngFor="let skill of activeSection.skills" [class]="'d2s-tree-skill ' + skill.state + (skill.canSpend ? ' spendable' : '')" [style.left.%]="skill.socket.x" [style.top.%]="skill.socket.y" [attr.aria-label]="skill.name + ', ' + skill.state + ', unlock level ' + skill.level + '. ' + skill.reason + (skill.canSpend ? ', click to spend a skill point' : '')" (click)="spendSkillPoint(skill.name)" (mouseenter)="showSkillTooltip($event, skill, activeSection.name)" (mousemove)="showSkillTooltip($event, skill, activeSection.name)" (mouseleave)="onSkillTooltipLeave()">
                   <img *ngIf="hasSkillIconImage(skill.name)" class="d2s-tree-skill-art" [src]="skillIconPath(skill.name)" alt="" />
                   <span class="d2s-tree-level">{{ skill.level }}</span><strong>{{ skill.name }}</strong><small *ngIf="getSkillLevel(skill.name)">Rank {{ getSkillLevel(skill.name) }}/20</small><small>{{ getSkillTreeReason(skill) }}</small>
                 </article>

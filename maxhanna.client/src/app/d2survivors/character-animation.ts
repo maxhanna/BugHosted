@@ -1924,14 +1924,15 @@ export function poseCharacterRig(rig: CharacterRig, state: CharacterPoseState): 
     // Where the cel actually hangs from is only known once the helper nodes and
     // satellites have been written, so the flat is derived from the real parent
     // rotation (one frame old at worst) instead of guessing the chain.
-    let rootObject: THREE.Object3D = parent;
-    while (rootObject.parent) rootObject = rootObject.parent;
     const parentWorldQuat = parent.getWorldQuaternion(new THREE.Quaternion());
-    const rootWorldQuat = rootObject.getWorldQuaternion(new THREE.Quaternion());
-    // Both are built in the rig's own space: a shield stands upright in the
-    // character's frame and faces the same front its weapon cels are bound
-    // against, so it turns with the body instead of the world.
-    const targetWorldQuat = rootWorldQuat.multiply(worldFrame);
+    // Every axis above is authored in the body's own space, so lift the frame
+    // into the scene with the pose root's rotation. Climbing to the scene root
+    // instead handed back the world's identity frame, which pinned each cel to
+    // one compass direction: the hero turned under a weapon that kept facing
+    // the same way. The pose root carries the facing yaw and the clip's root
+    // spin, so gear now turns with the body.
+    const rootWorldQuat = rig.poseRoot.getWorldQuaternion(new THREE.Quaternion());
+    const targetWorldQuat = rootWorldQuat.clone().multiply(worldFrame);
     item.visual.quaternion.copy(parentWorldQuat.invert().multiply(targetWorldQuat));
     const carriedRoll = carriedCelRoll(item);
     if (carriedRoll && (isCarriedUpright(item.name) || isThrownWeapon(item.name))) {

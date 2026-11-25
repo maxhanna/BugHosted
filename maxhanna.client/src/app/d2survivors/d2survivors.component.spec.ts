@@ -471,13 +471,13 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.attackProjectiles = [];
     component.keysDown.add("d");
 
-    (component as any).updateAutomaticSkillCasts(16);
+    (component as any).updateBasicAttack();
     component.activateOwnedSkill("Charged Bolt");
 
     expect(component.attackProjectiles.length).toBe(0);
 
     component.keysDown.delete("d");
-    (component as any).updateAutomaticSkillCasts(16);
+    (component as any).updateBasicAttack();
 
     expect(component.attackProjectiles.length).toBeGreaterThan(0);
   });
@@ -501,14 +501,14 @@ describe("D2SurvivorsComponent combat and equipment", () => {
 
     // A click pursuit is a movement command even before displacement starts.
     expect((component as any).playerChasingClickedTarget).toBeTrue();
-    (component as any).updateAutomaticSkillCasts(16);
+    (component as any).updateBasicAttack();
     component.activateOwnedSkill("Charged Bolt");
     expect(component.attackProjectiles).toHaveSize(0);
 
     // Once the hero is at the click stop distance, combat may cast again.
     target.x = 130;
     expect((component as any).playerChasingClickedTarget).toBeFalse();
-    (component as any).updateAutomaticSkillCasts(16);
+    (component as any).updateBasicAttack();
     expect(component.attackProjectiles.length).toBeGreaterThan(0);
   });
 
@@ -526,14 +526,109 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.basicAttackSpell = null;
     component.secondaryAttackSpell = null;
 
-    for (let frame = 0; frame < 240; frame += 1) (component as any).updateAutomaticSkillCasts(16);
+    for (let frame = 0; frame < 240; frame += 1) (component as any).updateBasicAttack();
     expect(component.attackProjectiles).toHaveSize(0);
 
     component.basicAttackSpell = "Charged Bolt";
-    for (let frame = 0; frame < 240; frame += 1) (component as any).updateAutomaticSkillCasts(16);
+    for (let frame = 0; frame < 240; frame += 1) (component as any).updateBasicAttack();
     expect(component.attackProjectiles.length).toBeGreaterThan(0);
     // The spell that never made it into a slot stays in the book, ready.
     expect(component.skillCastCooldowns["Ice Bolt"]).toBeUndefined();
+  });
+
+
+  it("alternates the two mouse hands when nothing is clicked", () => {
+    component.selectedClass = "sorceress";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.ownedSkills = ["Charged Bolt", "Ice Bolt"];
+    component.skillLevels = { "Charged Bolt": 1, "Ice Bolt": 1 };
+    component.basicAttackSpell = "Charged Bolt";
+    component.secondaryAttackSpell = "Ice Bolt";
+    component.enemies = [
+      { kind: "normal", species: "fallen", spriteFrame: 0, x: 330, y: 250, hp: 500, maxHp: 500, speed: 0, r: 14, dmg: 2 } as any,
+    ];
+    component.attackProjectiles = [];
+    for (const key of Object.keys(component.skillCastCooldowns)) delete component.skillCastCooldowns[key];
+    (component as any).clickMoveTarget = null;
+    const casts: string[] = [];
+    const cast = component.activateOwnedSkill.bind(component);
+    spyOn(component, "activateOwnedSkill").and.callFake((skill: string, preferred?: any, groundPoint?: any) => {
+      casts.push(skill);
+      cast(skill, preferred, groundPoint);
+    });
+
+    for (let turn = 0; turn < 3; turn += 1) {
+      (component as any).attackCooldown = 0;
+      for (const key of Object.keys(component.skillCastCooldowns)) delete component.skillCastCooldowns[key];
+      (component as any).updateBasicAttack();
+    }
+
+    // Left, right, left: neither hand monopolises the fight.
+    expect(casts).toEqual(["Charged Bolt", "Ice Bolt", "Charged Bolt"]);
+  });
+
+  it("uses only the left hand while a monster is left-clicked", () => {
+    component.selectedClass = "sorceress";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.ownedSkills = ["Charged Bolt", "Ice Bolt"];
+    component.skillLevels = { "Charged Bolt": 1, "Ice Bolt": 1 };
+    component.basicAttackSpell = "Charged Bolt";
+    component.secondaryAttackSpell = "Ice Bolt";
+    // Already at the click stop distance, so the fight is live rather than a walk.
+    const target = { kind: "normal", species: "fallen", spriteFrame: 0, x: 270, y: 250, hp: 500, maxHp: 500, speed: 0, r: 14, dmg: 2 } as any;
+    component.enemies = [target];
+    component.attackProjectiles = [];
+    (component as any).clickMoveTarget = target;
+    const casts: string[] = [];
+    const cast = component.activateOwnedSkill.bind(component);
+    spyOn(component, "activateOwnedSkill").and.callFake((skill: string, preferred?: any, groundPoint?: any) => {
+      casts.push(skill);
+      cast(skill, preferred, groundPoint);
+    });
+
+    for (let turn = 0; turn < 3; turn += 1) {
+      (component as any).attackCooldown = 0;
+      for (const key of Object.keys(component.skillCastCooldowns)) delete component.skillCastCooldowns[key];
+      (component as any).updateBasicAttack();
+    }
+
+    // The right hand never answers a left click.
+    expect(casts).toEqual(["Charged Bolt", "Charged Bolt", "Charged Bolt"]);
+    expect(component.attackProjectiles.every((projectile) => projectile.missileId === "d2-chargedbolt")).toBeTrue();
+  });
+
+  it("never answers a right click with the left hand", () => {
+    component.selectedClass = "sorceress";
+    component.runActive = true;
+    component.activeTab = "run";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.ownedSkills = ["Attack", "Fire Bolt"];
+    component.skillLevels = { Attack: 1, "Fire Bolt": 1 };
+    component.selectAttackSpellForSlot("secondary", "Fire Bolt");
+    component.skillCastCooldowns["Fire Bolt"] = 5;
+    const arena = document.createElement("canvas");
+    arena.className = "d2s-arena";
+    const event = new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 300, clientY: 300 });
+    Object.defineProperty(event, "target", { value: arena });
+    component.enemies = [
+      { kind: "normal", species: "fallen", spriteFrame: 0, x: 268, y: 250, hp: 100, maxHp: 100, speed: 0, r: 14, dmg: 0 } as any,
+    ];
+    component.attackProjectiles = [];
+    component.floatingTexts = [];
+    (component as any).attackCooldown = 0;
+    const leftAttack = spyOn(component, "attackNearestEnemy");
+
+    // The right spell is still recharging, so the right click simply passes.
+    component.onArenaContextMenu(event);
+
+    expect(leftAttack).not.toHaveBeenCalled();
+    expect(component.attackProjectiles).toHaveSize(0);
+    expect(component.floatingTexts).toHaveSize(0);
   });
 
   it("lets the basic-attack picker take a press without closing itself", () => {
@@ -1033,7 +1128,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.runActive = true;
     component.playerX = 250;
     component.playerY = 250;
-    component.pendingLevelUps = 0;
+    component.skillPoints = 0;
     (component as any).attackCooldown = 0;
     const summon = {
       kind: "normal",
@@ -1947,6 +2042,43 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(component.inventoryStatus).toContain("cannot be equipped");
   });
 
+  it("turns a held weapon with the hero instead of pinning it to one world direction", () => {
+    component.selectedClass = "barbarian";
+    component.equipment.weapon = { id: "main", name: "Short Sword", baseName: "Short Sword", slot: "weapon" } as any;
+    component.equipment.shield = null;
+    const { model } = buildBiped();
+    const anchor = new THREE.Group();
+    anchor.add(model);
+    const attach = new THREE.Bone();
+    attach.name = "R_weapon_attach";
+    model.add(attach);
+    (component as any).configureClassMeleeWeapon(model, "barbarian");
+    const rig = buildCharacterRig(model, "barbarian");
+    const weapon = model.getObjectByName("equipped_weapon_weapon");
+    expect(weapon).toBeDefined();
+    const pose = (): void => {
+      poseCharacterRig(rig, {
+        time: 0.4,
+        walkPhase: 0,
+        walk: 0,
+        attackTime: Number.POSITIVE_INFINITY,
+        attackSide: -1,
+        gait: gaitForClass("barbarian"),
+      });
+    };
+    const worldQuaternion = (): THREE.Quaternion => weapon!.getWorldQuaternion(new THREE.Quaternion());
+
+    anchor.updateMatrixWorld(true);
+    pose();
+    const facingForward = worldQuaternion();
+
+    // The hero turned a quarter turn, so the blade has to turn with him.
+    anchor.rotation.y = Math.PI / 2;
+    anchor.updateMatrixWorld(true);
+    pose();
+    expect(facingForward.angleTo(worldQuaternion())).toBeCloseTo(Math.PI / 2, 2);
+  });
+
   it("rolls the Barbarian's off-hand blade to the same flat angle as the main blade", () => {
     component.selectedClass = "barbarian";
     component.equipment.weapon = { id: "main", name: "Short Sword", baseName: "Short Sword", slot: "weapon" } as any;
@@ -2668,6 +2800,76 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(outside.stunRemaining).toBeUndefined();
     expect((component as any).playerLeapLift).toBe(0);
     expect((component as any).leapDustEffects.length).toBeGreaterThan(0);
+  });
+
+  it("leaps to a clicked floor spot beyond a monster", () => {
+    component.selectedClass = "barbarian";
+    component.playerX = 250;
+    component.playerY = 250;
+    (component as any).playerFacingX = 1;
+    (component as any).playerFacingY = 0;
+    component.ownedSkills = ["Leap"];
+    component.skillLevels = { Leap: 1 };
+    const blocker = { kind: "normal", species: "fallen", spriteFrame: 0, x: 300, y: 250, hp: 100, maxHp: 100, speed: 100, r: 14, dmg: 2 } as any;
+    component.enemies = [blocker];
+    (component as any).clickMoveTarget = blocker;
+
+    component.activateOwnedSkill("Leap", undefined, { x: 350, y: 250 });
+
+    // The monster in the way is flown over; the clicked spot is the landing.
+    expect((component as any).playerLeapDistance).toBeCloseTo(100, 5);
+    for (let frame = 0; frame < 80; frame += 1) (component as any).updatePlayerLeap(16);
+    // The camera holds the hero still and scrolls the world, so the 100-unit
+    // leap shows as the monster sliding back 100 units under him.
+    expect(blocker.x).toBeCloseTo(200, 5);
+  });
+
+  it("stops a leap at a wall instead of crossing it", () => {
+    component.playerX = 250;
+    component.playerY = 250;
+    (component as any).playerLeapDirectionX = 1;
+    (component as any).playerLeapDirectionY = 0;
+    const blocked = new Uint8Array(500 * 500);
+    for (let y = 0; y < 500; y += 1) {
+      for (let x = 290; x <= 310; x += 1) blocked[y * 500 + x] = 1;
+    }
+    spyOn(component as any, "projectArenaPoint").and.callFake((x: number, y: number) => ({ x, y }));
+    spyOn(component as any, "campaignCollisionContext").and.returnValue({
+      mask: { width: 500, height: 500, blocked },
+      geometry: { scale: 1, width: 500, height: 500, left: 0, top: 0 },
+      wraps: false,
+      clearance: 8,
+      blocksSight: true,
+      edgeBlocks: true,
+    } as any);
+
+    const travelled = (component as any).leapClearTravel(112) as number;
+
+    // The ground past the wall is open, but the arc is not: Leap is not Teleport.
+    expect(travelled).toBeGreaterThan(0);
+    expect(travelled).toBeLessThan(40);
+  });
+
+  it("leaps over a river to the far bank but never lands in the water", () => {
+    component.playerX = 150;
+    component.playerY = 250;
+    (component as any).playerLeapDirectionX = 1;
+    (component as any).playerLeapDirectionY = 0;
+    spyOn(component as any, "projectArenaPoint").and.callFake((x: number, y: number) => ({ x, y }));
+    spyOn(component as any, "campaignCollisionContext").and.returnValue({
+      mask: { width: 500, height: 500, blocked: new Uint8Array(500 * 500) },
+      geometry: { scale: 1, width: 500, height: 500, left: 0, top: 0 },
+      wraps: false,
+      clearance: 8,
+      blocksSight: true,
+      edgeBlocks: true,
+      waterPolygons: [[[0.4, 0], [0.48, 0], [0.48, 1], [0.4, 1]]],
+    } as any);
+
+    // The far bank is a landing even though the arc crosses the river.
+    expect((component as any).leapClearTravel(112)).toBeGreaterThan(90);
+    // A spot in the river is not a landing: the leap stops on the near bank.
+    expect((component as any).leapClearTravel(70)).toBeLessThan(50);
   });
 
   it("charges into the target and shield-bashes only the area in front", () => {
@@ -3559,7 +3761,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.selectedClass = "amazon";
     component.activeTab = "run";
     component.runActive = true;
-    component.pendingLevelUps = 0;
+    component.skillPoints = 0;
     component.playerX = 250;
     component.playerY = 250;
     component.arenaW = 500;
@@ -3630,7 +3832,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
   it("turns an empty floor click into a walk-only destination", () => {
     component.activeTab = "run";
     component.runActive = true;
-    component.pendingLevelUps = 0;
+    component.skillPoints = 0;
     component.playerX = 250;
     component.playerY = 250;
     const arena = { width: 500, height: 500 } as any;
@@ -3690,7 +3892,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
   it("drops the cast still playing when the floor is clicked", () => {
     component.activeTab = "run";
     component.runActive = true;
-    component.pendingLevelUps = 0;
+    component.skillPoints = 0;
     component.playerX = 250;
     component.playerY = 250;
     const arena = { width: 500, height: 500 } as any;
@@ -3731,7 +3933,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     const componentAny = component as any;
     component.activeTab = "run";
     component.runActive = true;
-    component.pendingLevelUps = 0;
+    component.skillPoints = 0;
     component.playerX = 250;
     component.playerY = 250;
     component.actPortalOpen = true;
@@ -3770,7 +3972,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     const componentAny = component as any;
     component.activeTab = "run";
     component.runActive = true;
-    component.pendingLevelUps = 0;
+    component.skillPoints = 0;
     component.playerX = 250;
     component.playerY = 250;
     component.zonePortalOpen = true;
@@ -3797,7 +3999,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
   it("does not attack or cast while walking to a floor destination", () => {
     component.selectedClass = "sorceress";
     component.runActive = true;
-    component.pendingLevelUps = 0;
+    component.skillPoints = 0;
     component.playerX = 250;
     component.playerY = 250;
     (component as any).attackCooldown = 0;
@@ -3825,7 +4027,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
 
   it("walks all the way to the selected floor point and then releases the move command", () => {
     component.runActive = true;
-    component.pendingLevelUps = 0;
+    component.skillPoints = 0;
     component.playerX = 250;
     component.playerY = 250;
     component.arenaW = 500;
@@ -7600,9 +7802,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.skillTreeOpen = true;
     expect(component.altLootLabels).toEqual([]);
     component.skillTreeOpen = false;
-    component.pendingLevelUps = 1;
-    expect(component.altLootLabels).toEqual([]);
-    component.pendingLevelUps = 0;
+    // An unspent skill point no longer pauses the arena, so the labels stay up.
     expect(component.altLootLabels.length).toBe(1);
   });
 
@@ -9248,7 +9448,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.selectedClass = "sorceress";
     component.runActive = true;
     (component as any).attackCooldown = 0;
-    component.pendingLevelUps = 0;
+    component.skillPoints = 0;
     component.playerX = 100;
     component.playerY = 100;
     component.enemies = [{ x: 300, y: 100, r: 10, hp: 100 } as any];
@@ -9404,7 +9604,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.selectedClass = "amazon";
     component.runActive = true;
     (component as any).attackCooldown = 0;
-    component.pendingLevelUps = 0;
+    component.skillPoints = 0;
     component.playerX = 100;
     component.playerY = 100;
     const target = { x: 300, y: 100, r: 10, hp: 100 } as any;
@@ -9430,7 +9630,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.selectedClass = "amazon";
     component.runActive = true;
     (component as any).attackCooldown = 0;
-    component.pendingLevelUps = 0;
+    component.skillPoints = 0;
     component.playerX = 100;
     component.playerY = 100;
     const target = { x: 300, y: 100, r: 10, hp: 100 } as any;
@@ -9452,7 +9652,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.selectedClass = "amazon";
     component.runActive = true;
     (component as any).attackCooldown = 0;
-    component.pendingLevelUps = 0;
+    component.skillPoints = 0;
     component.playerX = 100;
     component.playerY = 100;
     const target = { x: 300, y: 100, r: 10, hp: 100 } as any;
@@ -9473,7 +9673,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.selectedClass = "amazon";
     component.runActive = true;
     (component as any).attackCooldown = 0;
-    component.pendingLevelUps = 0;
+    component.skillPoints = 0;
     component.playerX = 100;
     component.playerY = 100;
     const target = { x: 116, y: 100, r: 10, hp: 100 } as any;
@@ -9492,7 +9692,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.selectedClass = "amazon";
     component.runActive = true;
     (component as any).attackCooldown = 0;
-    component.pendingLevelUps = 0;
+    component.skillPoints = 0;
     component.playerX = 100;
     component.playerY = 100;
     const melee = { x: 116, y: 100, r: 10, hp: 100 } as any;
@@ -9550,7 +9750,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
   it("auto-throws a throwing weapon from range without applying melee damage", () => {
     component.runActive = true;
     (component as any).attackCooldown = 0;
-    component.pendingLevelUps = 0;
+    component.skillPoints = 0;
     component.playerX = 100;
     component.playerY = 100;
     const target = { x: 250, y: 100, r: 10, hp: 100 } as any;
@@ -11385,13 +11585,12 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.playerLevel = 30;
     component.ownedSkills = ["Prayer", "Cleansing", "Defiance", "Vigor"];
     component.skillLevels = { Vigor: 1 };
-    component.pendingLevelUps = 1;
-    component.upgradeChoices = [{ id: "class-skill:Vigor", name: "Vigor", kind: "class-skill" } as any];
+    component.skillPoints = 1;
     (component as any).activePaladinAuras["Vigor"] = { remaining: 5, tick: 0 };
     spyOnProperty(component, "availableClassSkills", "get").and.returnValue([{ name: "Vigor" } as any]);
     spyOn(component as any, "persistRunProgress");
 
-    component.chooseLevelUpgrade(component.upgradeChoices[0]);
+    component.spendSkillPoint("Vigor");
 
     expect(component.skillLevels["Vigor"]).toBe(2);
     expect((component as any).activePaladinAuras["Vigor"].remaining).toBeCloseTo(7, 5);
@@ -12225,9 +12424,9 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.skillLevels = { "Arctic Blast": 1 };
     (component as any).basicAttackSpell = "Arctic Blast";
     component.enemies = enemyAt(300);
-    expect((component as any).hasEnemyInBasicAttackRange()).toBeFalse();
+    expect((component as any).hasEnemyInSlotReach(component.basicAttackSpell)).toBeFalse();
     component.enemies = enemyAt(180);
-    expect((component as any).hasEnemyInBasicAttackRange()).toBeTrue();
+    expect((component as any).hasEnemyInSlotReach(component.basicAttackSpell)).toBeTrue();
 
     // Inferno only breathes 128 units.
     component.selectedClass = "sorceress";
@@ -12235,23 +12434,23 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.skillLevels = { Inferno: 1 };
     (component as any).basicAttackSpell = "Inferno";
     component.enemies = enemyAt(300);
-    expect((component as any).hasEnemyInBasicAttackRange()).toBeFalse();
+    expect((component as any).hasEnemyInSlotReach(component.basicAttackSpell)).toBeFalse();
     component.enemies = enemyAt(100);
-    expect((component as any).hasEnemyInBasicAttackRange()).toBeTrue();
+    expect((component as any).hasEnemyInSlotReach(component.basicAttackSpell)).toBeTrue();
 
     // Blaze burns under the sorceress's own feet, so it needs no monster at all.
     component.ownedSkills = ["Blaze"];
     component.skillLevels = { Blaze: 1 };
     (component as any).basicAttackSpell = "Blaze";
     component.enemies = [];
-    expect((component as any).hasEnemyInBasicAttackRange()).toBeTrue();
+    expect((component as any).hasEnemyInSlotReach(component.basicAttackSpell)).toBeTrue();
 
     // A plain missile spell keeps its full travel: 300 units still counts.
     component.ownedSkills = ["Fire Bolt"];
     component.skillLevels = { "Fire Bolt": 1 };
     (component as any).basicAttackSpell = "Fire Bolt";
     component.enemies = enemyAt(300);
-    expect((component as any).hasEnemyInBasicAttackRange()).toBeTrue();
+    expect((component as any).hasEnemyInSlotReach(component.basicAttackSpell)).toBeTrue();
   });
 
   it("shift-click attacks toward the pointer instead of walking there", () => {
@@ -14055,31 +14254,42 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(event.defaultPrevented).toBeTrue();
   });
 
-  it("shows current and next rank effects for learned class skill upgrades", () => {
+  it("spends a skill point only on a skill the tree has unlocked", () => {
     component.selectedClass = "sorceress";
     component.playerLevel = 1;
     component.ownedSkills = ["Ice Bolt"];
-    component.skillLevels = { "Ice Bolt": 3, "Frozen Armor": 20, "Warmth": 20, "Charged Bolt": 20 };
-    component.pendingLevelUps = 1;
-    (component as any).prepareUpgradeChoices();
+    component.skillLevels = { "Ice Bolt": 3 };
+    component.skillPoints = 1;
 
-    const learned = component.upgradeChoices.find((choice) => choice.id === "class-skill:Ice Bolt");
-    expect(learned).toBeDefined();
-    expect(learned!.currentRank).toBe(3);
-    expect(learned!.nextRank).toBe(4);
-    expect(learned!.currentStats!.length).toBeGreaterThan(0);
-    expect(learned!.nextStats!.length).toBeGreaterThan(0);
-    expect(learned!.nextStats).not.toEqual(learned!.currentStats);
+    expect(component.canSpendSkillPoint("Ice Bolt")).toBeTrue();
+    // Frozen Orb is a level-30 skill, so the point cannot go there yet.
+    expect(component.canSpendSkillPoint("Frozen Orb")).toBeFalse();
 
-    component.ownedSkills = [];
-    component.skillLevels = { "Frozen Armor": 20, "Warmth": 20, "Charged Bolt": 20 };
-    component.pendingLevelUps = 1;
-    (component as any).prepareUpgradeChoices();
+    component.spendSkillPoint("Frozen Orb");
+    expect(component.skillPoints).toBe(1);
+    expect(component.skillLevels["Frozen Orb"]).toBeUndefined();
 
-    const unlearned = component.upgradeChoices.find((choice) => choice.id === "class-skill:Ice Bolt");
-    expect(unlearned).toBeDefined();
-    expect(unlearned!.nextStats).toBeUndefined();
-    expect(unlearned!.description).toContain("level 1");
+    component.spendSkillPoint("Ice Bolt");
+    expect(component.skillLevels["Ice Bolt"]).toBe(4);
+    expect(component.skillPoints).toBe(0);
+
+    component.spendSkillPoint("Ice Bolt");
+    expect(component.skillLevels["Ice Bolt"]).toBe(4);
+  });
+
+  it("grants one skill point per level instead of offering upgrade choices", () => {
+    component.runActive = true;
+    component.playerLevel = 1;
+    component.playerXp = 0;
+    component.xpToNextLevel = 5;
+    component.skillPoints = 0;
+    spyOn(component as any, "persistRunProgress");
+
+    (component as any).grantExperience(5);
+
+    expect(component.playerLevel).toBe(2);
+    expect(component.skillPoints).toBe(1);
+    expect(component.levelUpNotice).toContain("skill point");
   });
 
   it("shows Enchant's actual spell description in its upgrade rank details", () => {

@@ -1656,11 +1656,13 @@
 }
 .d2s-skill-tree-button:hover,
 .d2s-skill-tree-button:focus-visible { color: #fff0c7; border-color: #d0ab69; outline: 1px solid #d0ab69; }
+/* An unspent point rides on the tree button so it is visible without opening it. */
+.d2s-skill-tree-button.has-points { color: #ffe9b4; border-color: #d0ab69; box-shadow: inset 0 0 6px #000, 0 0 12px #d6a44d66; }
+.d2s-skill-point-badge { position: absolute; top: -7px; right: -7px; display: grid; min-width: 16px; height: 16px; place-items: center; padding: 0 3px; border: 1px solid #8b7045; border-radius: 9px; background: #7a2314; color: #ffe9b4; font: 10px/1 ui-monospace, monospace; box-shadow: 0 1px 4px #000c; }
 
 .d2s-skill-tree,
 .d2s-escape-menu,
 .d2s-inv-panel,
-.d2s-upgrade-modal,
 .d2s-act-transition,
 .d2s-campaign-victory { touch-action: pan-y; }
 
@@ -1729,6 +1731,7 @@
 .d2s-skill-tree-header span { color: #ae8650; font: 9px Georgia, serif; letter-spacing: .22em; }
 .d2s-skill-tree-header h2 { margin: 0; color: #f0d6a0; font: clamp(18px, 2vw, 24px) Georgia, serif; }
 .d2s-skill-tree-header small { color: #aa9874; font: 11px Georgia, serif; }
+.d2s-skill-tree-header small.d2s-skill-points.unspent { color: #ffe0a0; }
 .d2s-skill-tree-close { display: flex; align-items: center; gap: 8px; padding: 8px 12px; color: #e4d0a3; border: 1px solid #806843; background: #171311; cursor: pointer; }
 .d2s-skill-tree-close kbd { padding: 2px 5px; border: 1px solid #655032; background: #09090a; font: 10px ui-monospace, monospace; }
 .d2s-skill-tree-legend { display: flex; flex-wrap: wrap; gap: 8px 16px; color: #a99773; font: 10px Georgia, serif; }
@@ -1787,6 +1790,11 @@
 .d2s-tree-skill:hover .d2s-tree-level,
 .d2s-tree-skill:focus-within .d2s-tree-level { top: 4px; left: 40px; }
 .d2s-tree-skill { cursor: help; }
+/* Only a socket the tree has unlocked takes the pointer, so a click can never
+   throw a point at a skill the hero cannot learn yet. */
+.d2s-tree-skill.spendable { cursor: pointer; }
+.d2s-tree-skill.spendable .d2s-tree-skill-art { border-color: #d0ab69; box-shadow: 0 0 9px #d6a44d55, 0 1px 4px #000b; }
+.d2s-tree-skill.spendable:hover, .d2s-tree-skill.spendable:focus-within { border-color: #f0ce83; }
 .d2s-skill-tooltip {
   position: fixed;
   /* Above the run's own panels, below the gauntlet cursor (which owns the
@@ -1845,54 +1853,6 @@
 .d2s-skill-tooltip small { color: #a99773; font: 10px/1.35 Georgia, serif; }
 @media (max-width: 720px) { .d2s-skill-tree-sections { max-width: 100%; } .d2s-skill-tree-tabs { gap: 3px; padding: 0 5px; } .d2s-skill-tree-tab-button { padding: 8px 4px; font-size: 10px; } .d2s-skill-tree-tab { padding: 5px; } }
 
-.d2s-upgrade-modal {
-  position: absolute;
-  z-index: 8;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding: 16px;
-  background: #050506d9;
-}
-
-.d2s-upgrade-panel {
-  display: grid;
-  width: min(480px, 100%);
-  gap: 10px;
-  padding: 20px;
-  border: 3px ridge #9b7d48;
-  background: linear-gradient(145deg, #211a15, #09090b 76%);
-  box-shadow: inset 0 0 0 2px #070707, 0 0 28px #000;
-  color: #cbb98f;
-  text-align: center;
-}
-
-.d2s-upgrade-panel h2 { margin: 0; color: #f2d696; font: 27px Georgia, serif; }
-.d2s-upgrade-panel p { margin: 0; font: 13px Georgia, serif; }
-.d2s-upgrade-kicker { color: #c58d4e; letter-spacing: 0.22em; }
-
-.d2s-upgrade-choice {
-  display: grid;
-  grid-template-columns: 24px minmax(0, 1fr);
-  gap: 4px 10px;
-  align-items: center;
-  padding: 12px;
-  color: #d5c49d;
-  text-align: left;
-  border: 1px solid #77603a;
-  background: linear-gradient(90deg, #211a13, #151315);
-  cursor: pointer;
-}
-
-.d2s-upgrade-choice:hover,
-.d2s-upgrade-choice:focus-visible { border-color: #f0ce83; background: #302315; outline: 1px solid #f0ce83; }
-.d2s-upgrade-choice kbd { grid-row: span 2; display: grid; width: 23px; height: 23px; place-items: center; color: #f2d696; border: 1px solid #8b7045; background: #0c0a09; font: 13px Georgia, serif; }
-.d2s-upgrade-choice strong { color: #f2d696; font: 16px Georgia, serif; }
-.d2s-upgrade-choice span { color: #ad9f85; font: 12px/1.4 Georgia, serif; }
-.d2s-upgrade-effects { display: grid; gap: 3px; }
-.d2s-upgrade-effects b { color: #d9b978; font: 11px ui-monospace, monospace; letter-spacing: 0.05em; }
-.d2s-upgrade-effects small { color: #b8a98c; font: 11px/1.4 Georgia, serif; }
-.d2s-upgrade-effects small:last-child { color: #dfcda4; }
 
 .d2s-model-hint {
   position: absolute;
